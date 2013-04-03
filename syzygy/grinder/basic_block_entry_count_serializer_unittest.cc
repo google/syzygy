@@ -15,8 +15,8 @@
 #include "syzygy/grinder/basic_block_entry_count_serializer.h"
 
 #include "base/file_util.h"
-#include "base/scoped_temp_dir.h"
 #include "base/values.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/json/json_reader.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -70,7 +70,7 @@ class BasicBlockEntryCountSerializerTest : public testing::PELibUnitTest {
     module_info->time_date_stamp = kTimeDateStamp;
   }
  protected:
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
 };
 
 }  // namespace
@@ -87,10 +87,11 @@ TEST_F(BasicBlockEntryCountSerializerTest, LoadFromJsonFails) {
   TestBasicBlockEntryCountSerializer serializer;
   ModuleEntryCountMap entry_count_map;
 
-  FilePath does_not_exist(temp_dir_.path().AppendASCII("does_not_exist.json"));
+  base::FilePath does_not_exist(
+      temp_dir_.path().AppendASCII("does_not_exist.json"));
   EXPECT_FALSE(serializer.LoadFromJson(does_not_exist, &entry_count_map));
 
-  FilePath some_path(testing::GetExeTestDataRelativePath(
+  base::FilePath some_path(testing::GetExeTestDataRelativePath(
       testing::kCoverageTraceFiles[0]));
   EXPECT_FALSE(serializer.LoadFromJson(some_path, &entry_count_map));
 }
@@ -194,7 +195,7 @@ TEST_F(BasicBlockEntryCountSerializerTest, RoundTrip) {
   for (size_t i = 0; i < num_basic_blocks; ++i)
     counters[i * i] = i + 1;
 
-  FilePath json_path(temp_dir_.path().AppendASCII("test.json"));
+  base::FilePath json_path(temp_dir_.path().AppendASCII("test.json"));
 
   TestBasicBlockEntryCountSerializer serializer;
   serializer.set_pretty_print(true);

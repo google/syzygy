@@ -21,7 +21,7 @@
 #define SYZYGY_PDBFIND_PDBFIND_APP_H_
 
 #include "base/command_line.h"
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "syzygy/common/application.h"
 
 namespace pdbfind {
@@ -51,7 +51,7 @@ class PdbFindApp : public common::AppImplBase {
 
   // @name Command-line parameters.
   // @{
-  FilePath input_image_path_;
+  base::FilePath input_image_path_;
   // @}
 };
 

@@ -100,7 +100,7 @@ DecomposeImageToTextApp::DecomposeImageToTextApp()
       num_refs_(0) {
 }
 
-void DecomposeImageToTextApp::PrintUsage(const FilePath& program,
+void DecomposeImageToTextApp::PrintUsage(const base::FilePath& program,
                                          const base::StringPiece& message) {
   if (!message.empty()) {
     ::fwrite(message.data(), 1, message.length(), out());
@@ -360,7 +360,8 @@ void DecomposeImageToTextApp::DumpBlockToText(
   }
 }
 
-bool DecomposeImageToTextApp::DumpImageToText(const FilePath& image_path) {
+bool DecomposeImageToTextApp::DumpImageToText(
+    const base::FilePath& image_path) {
   // Load the image file.
   PEFile image_file;
   if (!image_file.Init(image_path)) {

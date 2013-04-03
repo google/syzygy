@@ -95,7 +95,7 @@ bool FindPEFile(const Metadata& metadata, PEFile* pe_file) {
   }
 
   // Approach 2: Try to use the path provided in the metadata itself.
-  FilePath metadata_path(metadata.module_signature().path);
+  base::FilePath metadata_path(metadata.module_signature().path);
   LOG(INFO) << "Attempting to use metadata path in deserialization: "
             << metadata_path.value();
   if (!file_util::PathExists(metadata_path) || !pe_file->Init(metadata_path)) {
@@ -105,7 +105,7 @@ bool FindPEFile(const Metadata& metadata, PEFile* pe_file) {
       return true;
 
     // Append the directory to the search path if it exists.
-    FilePath dir = metadata_path.DirName();
+    base::FilePath dir = metadata_path.DirName();
     if (file_util::DirectoryExists(dir))
       search_path.append(metadata_path.DirName().value());
 
@@ -113,7 +113,7 @@ bool FindPEFile(const Metadata& metadata, PEFile* pe_file) {
                  << metadata_path.value();
   }
 
-  FilePath module_path;
+  base::FilePath module_path;
 
   // Approach 3: Use an explicit search in the provided paths.
   if (!search_path.empty()) {

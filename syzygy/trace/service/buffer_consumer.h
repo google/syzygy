@@ -17,10 +17,8 @@
 #ifndef SYZYGY_TRACE_SERVICE_BUFFER_CONSUMER_H_
 #define SYZYGY_TRACE_SERVICE_BUFFER_CONSUMER_H_
 
+#include "base/files/file_path.h"
 #include "base/memory/ref_counted.h"
-
-// Forward declarations.
-class FilePath;
 
 namespace trace {
 namespace service {

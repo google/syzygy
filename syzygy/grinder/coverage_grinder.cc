@@ -14,8 +14,8 @@
 
 #include "syzygy/grinder/coverage_grinder.h"
 
-#include "base/file_path.h"
 #include "base/string_util.h"
+#include "base/files/file_path.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/grinder/cache_grind_writer.h"
 #include "syzygy/grinder/lcov_writer.h"

@@ -21,7 +21,7 @@
 #include <map>
 #include <vector>
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "sawbuck/sym_util/types.h"
 #include "syzygy/grinder/line_info.h"
 #include "syzygy/pe/pe_file.h"
@@ -58,7 +58,7 @@ typedef std::map<ModuleInformation,
 // given module.
 struct PdbInfo {
   // The path to this PDB file.
-  FilePath pdb_path;
+  base::FilePath pdb_path;
 
   // Line and coverage information for all the source files associated with
   // a particular PDB.
@@ -88,7 +88,7 @@ bool FindEntryCountMap(const pe::PEFile::Signature& signature,
 // A helper function to populate @p bb_ranges from the PDB file given by
 // @p pdb_path.
 // @returns true on success, false otherwise.
-bool LoadBasicBlockRanges(const FilePath& pdb_path,
+bool LoadBasicBlockRanges(const base::FilePath& pdb_path,
                           RelativeAddressRangeVector* bb_ranges);
 
 // Loads a new or retrieves the cached PDB info for the given module. This

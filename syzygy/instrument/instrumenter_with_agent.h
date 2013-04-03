@@ -70,10 +70,10 @@ class InstrumenterWithAgent : public InstrumenterInterface {
 
   // @name Command-line parameters.
   // @{
-  FilePath input_dll_path_;
-  FilePath input_pdb_path_;
-  FilePath output_dll_path_;
-  FilePath output_pdb_path_;
+  base::FilePath input_dll_path_;
+  base::FilePath input_pdb_path_;
+  base::FilePath output_dll_path_;
+  base::FilePath output_pdb_path_;
   bool allow_overwrite_;
   bool new_decomposer_;
   bool no_augment_pdb_;

@@ -49,7 +49,7 @@ class DecomposeImageToTextAppTest : public testing::PELibUnitTest {
   typedef Application<TestDecomposeImageToTextApp> TestApplication;
 
   DecomposeImageToTextAppTest()
-      : cmd_line_(FilePath(L"decompose_image_to_text.exe")),
+      : cmd_line_(base::FilePath(L"decompose_image_to_text.exe")),
         impl_(app_.implementation()) {
   }
 
@@ -84,18 +84,18 @@ class DecomposeImageToTextAppTest : public testing::PELibUnitTest {
   TestDecomposeImageToTextApp& impl_;
 
   // A temporary folder where all IO will be stored.
-  FilePath temp_dir_;
+  base::FilePath temp_dir_;
 
   // @name File paths used for the standard IO streams.
   // @{
-  FilePath stdin_path_;
-  FilePath stdout_path_;
-  FilePath stderr_path_;
+  base::FilePath stdin_path_;
+  base::FilePath stdout_path_;
+  base::FilePath stderr_path_;
   // @}
 
   // @name Paths given as command-line parameters
   // @{
-  FilePath image_path_;
+  base::FilePath image_path_;
   // @{
 };
 

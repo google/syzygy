@@ -20,7 +20,7 @@
 namespace grinder {
 
 bool WriteCacheGrindCoverageFile(const CoverageData& coverage,
-                                 const FilePath& path) {
+                                 const base::FilePath& path) {
   file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Failed to open file for writing: " << path.value();

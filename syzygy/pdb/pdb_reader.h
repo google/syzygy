@@ -17,8 +17,8 @@
 
 #include <vector>
 
-#include "base/file_path.h"
 #include "base/file_util.h"
+#include "base/files/file_path.h"
 #include "syzygy/pdb/pdb_constants.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_file.h"
@@ -41,7 +41,7 @@ class PdbReader {
   // @param pdb_path the PDB file to read.
   // @param pdb_file the empty PdbFile object to be filled in.
   // @return true on success, false otherwise.
-  bool Read(const FilePath& pdb_path, PdbFile* pdb_file);
+  bool Read(const base::FilePath& pdb_path, PdbFile* pdb_file);
 
  private:
   DISALLOW_COPY_AND_ASSIGN(PdbReader);

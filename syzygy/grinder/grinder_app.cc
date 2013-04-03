@@ -59,7 +59,7 @@ const char kUsageFormatStr[] =
 GrinderApp::GrinderApp() : common::AppImplBase("Grinder"), mode_(kProfile) {
 }
 
-void GrinderApp::PrintUsage(const FilePath& program,
+void GrinderApp::PrintUsage(const base::FilePath& program,
                             const base::StringPiece& message) {
   if (!message.empty()) {
     ::fwrite(message.data(), 1, message.length(), out());
@@ -86,7 +86,7 @@ bool GrinderApp::ParseCommandLine(const CommandLine* command_line) {
   }
 
   for (size_t i = 0; i < args.size(); ++i) {
-    if (!AppendMatchingPaths(FilePath(args[i]), &trace_files_)) {
+    if (!AppendMatchingPaths(base::FilePath(args[i]), &trace_files_)) {
       PrintUsage(command_line->GetProgram(),
                  base::StringPrintf("No such file '%ws'.", args[i].c_str()));
       return false;

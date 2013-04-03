@@ -23,11 +23,11 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
+#include "base/files/file_path.h"
 #include "syzygy/experimental/pdb_dumper/cvinfo_ext.h"
 #include "syzygy/experimental/pdb_dumper/pdb_dump_util.h"
 #include "syzygy/experimental/pdb_dumper/pdb_module_info_stream_dumper.h"
@@ -56,9 +56,9 @@ bool ReadNameStream(PdbStream* stream, OffsetStringMap* index_strings) {
 }
 
 bool WriteStreamToPath(PdbStream* pdb_stream,
-                       const FilePath& output_file_name) {
+                       const base::FilePath& output_file_name) {
   // Open the file for output.
-  FilePath output_path(output_file_name);
+  base::FilePath output_path(output_file_name);
   file_util::ScopedFILE output_file(
       file_util::OpenFile(output_file_name, "wb"));
   if (output_file.get() == NULL) {
@@ -97,12 +97,12 @@ bool WriteStreamToPath(PdbStream* pdb_stream,
   return true;
 }
 
-bool ExplodeStreams(const FilePath& input_pdb_path,
+bool ExplodeStreams(const base::FilePath& input_pdb_path,
                     const DbiStream& dbi_stream,
                     const NameStreamMap& name_streams,
                     const TypeInfoHeader type_info_header,
                     const PdbFile& pdb_file) {
-  FilePath output_dir_path(input_pdb_path.value() + L"-streams");
+  base::FilePath output_dir_path(input_pdb_path.value() + L"-streams");
   DCHECK(!output_dir_path.empty());
 
   std::map<size_t, std::wstring> stream_suffixes;
@@ -164,7 +164,7 @@ bool ExplodeStreams(const FilePath& input_pdb_path,
 
     if (stream_suffixes.find(i) == stream_suffixes.end())
       stream_without_suffixes++;
-    FilePath stream_path = output_dir_path.Append(
+    base::FilePath stream_path = output_dir_path.Append(
         base::StringPrintf(L"%d%ls.bin", i, stream_suffixes[i].c_str()));
 
     if (!WriteStreamToPath(stream, stream_path)) {
@@ -226,7 +226,7 @@ bool PdbDumpApp::ParseCommandLine(const CommandLine* command_line) {
     return Usage("You must provide at least one input file.");
 
   for (size_t i = 0; i < args.size(); ++i) {
-    pdb_files_.push_back(FilePath(args[i]));
+    pdb_files_.push_back(base::FilePath(args[i]));
   }
 
   return true;
@@ -234,7 +234,7 @@ bool PdbDumpApp::ParseCommandLine(const CommandLine* command_line) {
 
 int PdbDumpApp::Run() {
   for (size_t i = 0; i < pdb_files_.size(); ++i) {
-    FilePath input_pdb_path(pdb_files_[i]);
+    base::FilePath input_pdb_path(pdb_files_[i]);
     VLOG(1) << "File \"" << input_pdb_path.value() << "\"";
 
     pdb::PdbReader reader;

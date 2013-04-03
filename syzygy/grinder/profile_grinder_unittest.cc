@@ -33,7 +33,7 @@ class ProfileGrinderTest : public testing::PELibUnitTest {
  public:
   typedef testing::PELibUnitTest Super;
 
-  ProfileGrinderTest() : cmd_line_(FilePath(L"profile_grinder.exe")) {
+  ProfileGrinderTest() : cmd_line_(base::FilePath(L"profile_grinder.exe")) {
   }
 
   virtual void SetUp() OVERRIDE {
@@ -46,7 +46,7 @@ class ProfileGrinderTest : public testing::PELibUnitTest {
 
     ASSERT_TRUE(parser_.Init(handler));
 
-    FilePath trace_file =
+    base::FilePath trace_file =
         testing::GetExeTestDataRelativePath(kProfileTraceFile);
 
     ASSERT_TRUE(parser_.OpenTraceFile(trace_file));

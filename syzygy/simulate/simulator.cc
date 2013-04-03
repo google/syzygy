@@ -16,8 +16,8 @@
 
 namespace simulate {
 
-Simulator::Simulator(const FilePath& module_path,
-                     const FilePath& instrumented_path,
+Simulator::Simulator(const base::FilePath& module_path,
+                     const base::FilePath& instrumented_path,
                      const TraceFileList& trace_files,
                      SimulationEventHandler* simulation)
     : module_path_(module_path),

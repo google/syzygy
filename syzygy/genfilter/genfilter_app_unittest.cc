@@ -42,7 +42,7 @@ class GenFilterAppTest : public testing::PELibUnitTest {
   typedef common::Application<TestGenFilterApp> TestApplication;
 
   GenFilterAppTest()
-      : cmd_line_(FilePath(L"genfilter.exe")),
+      : cmd_line_(base::FilePath(L"genfilter.exe")),
         impl_(app_.implementation()) {
   }
 
@@ -69,14 +69,14 @@ class GenFilterAppTest : public testing::PELibUnitTest {
   }
 
   // Creates an empty file at the given path.
-  void MakeFile(const FilePath& path) {
+  void MakeFile(const base::FilePath& path) {
     file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
     ASSERT_TRUE(file.get() != NULL);
   }
 
   // Generates a file with the given name in the temp directory, returning the
   // path to it.
-  void MakeFile(const wchar_t* filename, FilePath* path) {
+  void MakeFile(const wchar_t* filename, base::FilePath* path) {
     DCHECK(filename != NULL);
     DCHECK(path != NULL);
     *path = temp_dir_.Append(filename);
@@ -122,30 +122,30 @@ class GenFilterAppTest : public testing::PELibUnitTest {
   TestGenFilterApp& impl_;
 
   // A temporary folder where all IO will be stored.
-  FilePath temp_dir_;
+  base::FilePath temp_dir_;
 
   // @name File paths used for the standard IO streams.
   // @{
-  FilePath stdin_path_;
-  FilePath stdout_path_;
-  FilePath stderr_path_;
+  base::FilePath stdin_path_;
+  base::FilePath stdout_path_;
+  base::FilePath stderr_path_;
   // @}
 
   // A handful of paths.
-  FilePath test_dll_;
-  FilePath test_dll_pdb_;
-  FilePath output_file_;
+  base::FilePath test_dll_;
+  base::FilePath test_dll_pdb_;
+  base::FilePath output_file_;
 
   // Some generated filters.
   std::vector<pe::ImageFilter> filters_;
-  std::vector<FilePath> filter_paths_;
-  FilePath mismatched_filter_path_;
+  std::vector<base::FilePath> filter_paths_;
+  base::FilePath mismatched_filter_path_;
 };
 
 }  // namespace
 
 TEST_F(GenFilterAppTest, ParseCommandLineFailsWithNoAction) {
-  cmd_line_.AppendArgPath(FilePath(L"foo.json"));
+  cmd_line_.AppendArgPath(base::FilePath(L"foo.json"));
   ASSERT_FALSE(impl_.ParseCommandLine(&cmd_line_));
 }
 
@@ -155,10 +155,10 @@ TEST_F(GenFilterAppTest, ParseCommandLineFailsWithNoInputFiles) {
 }
 
 TEST_F(GenFilterAppTest, ParseCommandLineExplicitInputFiles) {
-  std::vector<FilePath> temp_files;
+  std::vector<base::FilePath> temp_files;
   cmd_line_.AppendSwitchASCII("action", "union");
   for (size_t i = 0; i < 10; ++i) {
-    FilePath temp_file;
+    base::FilePath temp_file;
     ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &temp_file));
     cmd_line_.AppendArgPath(temp_file);
     temp_files.push_back(temp_file);
@@ -169,10 +169,11 @@ TEST_F(GenFilterAppTest, ParseCommandLineExplicitInputFiles) {
 }
 
 TEST_F(GenFilterAppTest, ParseCommandLineInputFilesGlob) {
-  std::vector<FilePath> temp_files;
+  std::vector<base::FilePath> temp_files;
   cmd_line_.AppendSwitchASCII("action", "union");
   for (size_t i = 0; i < 10; ++i) {
-    FilePath path = temp_dir_.Append(base::StringPrintf(L"filter-%d.json", i));
+    base::FilePath path =
+        temp_dir_.Append(base::StringPrintf(L"filter-%d.json", i));
     file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
     temp_files.push_back(path);
   }
@@ -183,7 +184,7 @@ TEST_F(GenFilterAppTest, ParseCommandLineInputFilesGlob) {
 }
 
 TEST_F(GenFilterAppTest, ParseCommandLineMinimal) {
-  FilePath foo_json;
+  base::FilePath foo_json;
   ASSERT_NO_FATAL_FAILURE(MakeFile(L"foo.json", &foo_json));
 
   cmd_line_.AppendArgPath(foo_json);
@@ -199,7 +200,7 @@ TEST_F(GenFilterAppTest, ParseCommandLineMinimal) {
 }
 
 TEST_F(GenFilterAppTest, ParseCommandLineFull) {
-  FilePath foo1_txt, foo2_txt;
+  base::FilePath foo1_txt, foo2_txt;
   ASSERT_NO_FATAL_FAILURE(MakeFile(L"foo1.txt", &foo1_txt));
   ASSERT_NO_FATAL_FAILURE(MakeFile(L"foo2.txt", &foo2_txt));
 
@@ -222,7 +223,7 @@ TEST_F(GenFilterAppTest, ParseCommandLineFull) {
 }
 
 TEST_F(GenFilterAppTest, ParseCommandLineInvertFailsWithMultipleInputs) {
-  FilePath foo1_json, foo2_json;
+  base::FilePath foo1_json, foo2_json;
   ASSERT_NO_FATAL_FAILURE(MakeFile(L"foo1.json", &foo1_json));
   ASSERT_NO_FATAL_FAILURE(MakeFile(L"foo2.json", &foo2_json));
 
@@ -233,7 +234,7 @@ TEST_F(GenFilterAppTest, ParseCommandLineInvertFailsWithMultipleInputs) {
 }
 
 TEST_F(GenFilterAppTest, ParseCommandLineIntersectFailsWithSingleInput) {
-  FilePath foo_json;
+  base::FilePath foo_json;
   ASSERT_NO_FATAL_FAILURE(MakeFile(L"foo.json", &foo_json));
 
   cmd_line_.AppendSwitchASCII("action", "intersect");
@@ -242,7 +243,7 @@ TEST_F(GenFilterAppTest, ParseCommandLineIntersectFailsWithSingleInput) {
 }
 
 TEST_F(GenFilterAppTest, ParseCommandLineUnionFailsWithSingleInput) {
-  FilePath foo_json;
+  base::FilePath foo_json;
   ASSERT_NO_FATAL_FAILURE(MakeFile(L"foo.json", &foo_json));
 
   cmd_line_.AppendSwitchASCII("action", "union");
@@ -251,7 +252,7 @@ TEST_F(GenFilterAppTest, ParseCommandLineUnionFailsWithSingleInput) {
 }
 
 TEST_F(GenFilterAppTest, ParseCommandLineSubtractFailsWithSingleInput) {
-  FilePath foo_json;
+  base::FilePath foo_json;
   ASSERT_NO_FATAL_FAILURE(MakeFile(L"foo.json", &foo_json));
 
   cmd_line_.AppendSwitchASCII("action", "subtract");
@@ -400,7 +401,7 @@ TEST_F(GenFilterAppTest, UnionFailsMismatchedFilters) {
 }
 
 TEST_F(GenFilterAppTest, CompileFailsInvalidInput) {
-  FilePath filter_txt = temp_dir_.Append(L"badfilter.txt");
+  base::FilePath filter_txt = temp_dir_.Append(L"badfilter.txt");
   {
     file_util::ScopedFILE file(file_util::OpenFile(filter_txt, "wb"));
     ::fprintf(file.get(), "This is a badly formatted filter file.");
@@ -417,7 +418,7 @@ TEST_F(GenFilterAppTest, CompileFailsInvalidInput) {
 }
 
 TEST_F(GenFilterAppTest, CompileSucceeds) {
-  FilePath filter_txt = temp_dir_.Append(L"goodfilter.txt");
+  base::FilePath filter_txt = temp_dir_.Append(L"goodfilter.txt");
   {
     file_util::ScopedFILE file(file_util::OpenFile(filter_txt, "wb"));
     ::fprintf(file.get(), "# A commend.\n");

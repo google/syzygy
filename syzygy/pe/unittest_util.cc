@@ -154,32 +154,32 @@ void CheckLoadedTestDll(HMODULE module) {
 }  // namespace
 
 const wchar_t testing::kTestDllName[] = L"test_dll.dll";
-const wchar_t testing::kTestDllPdbName[] = L"test_dll.pdb";
+const wchar_t testing::kTestDllPdbName[] = L"test_dll.dll.pdb";
 
 const wchar_t kAsanInstrumentedTestDllName[] =
     L"asan_instrumented_test_dll.dll";
 const wchar_t kAsanInstrumentedTestDllPdbName[] =
-    L"asan_instrumented_test_dll.pdb";
+    L"asan_instrumented_test_dll.dll.pdb";
 const wchar_t kBBEntryInstrumentedTestDllName[] =
     L"basic_block_entry_instrumented_test_dll.dll";
 const wchar_t kBBEntryInstrumentedTestDllPdbName[] =
-    L"basic_block_entry_instrumented_test_dll.pdb";
+    L"basic_block_entry_instrumented_test_dll.dll.pdb";
 const wchar_t kCallTraceInstrumentedTestDllName[] =
     L"call_trace_instrumented_test_dll.dll";
 const wchar_t kCallTraceInstrumentedTestDllPdbName[] =
-    L"call_trace_instrumented_test_dll.pdb";
+    L"call_trace_instrumented_test_dll.dll.pdb";
 const wchar_t kCoverageInstrumentedTestDllName[] =
     L"coverage_instrumented_test_dll.dll";
 const wchar_t kCoverageInstrumentedTestDllPdbName[] =
-    L"coverage_instrumented_test_dll.pdb";
+    L"coverage_instrumented_test_dll.dll.pdb";
 const wchar_t kProfileInstrumentedTestDllName[] =
     L"profile_instrumented_test_dll.dll";
 const wchar_t kProfileInstrumentedTestDllPdbName[] =
-    L"profile_instrumented_test_dll.pdb";
+    L"profile_instrumented_test_dll.dll.pdb";
 const wchar_t kRandomizedTestDllName[] =
     L"randomized_test_dll.dll";
 const wchar_t kRandomizedTestDllPdbName[] =
-    L"randomized_test_dll.pdb";
+    L"randomized_test_dll.dll.pdb";
 
 const wchar_t *kBBEntryTraceFiles[4] = {
     L"basic_block_entry_traces\\trace-1.bin",
@@ -209,7 +209,7 @@ const wchar_t *kProfileTraceFiles[4] = {
     L"profile_traces\\trace-4.bin",
 };
 
-void PELibUnitTest::CheckTestDll(const FilePath& path) {
+void PELibUnitTest::CheckTestDll(const base::FilePath& path) {
   LOADED_IMAGE loaded_image = {};
   BOOL success = ::MapAndLoad(WideToUTF8(path.value()).c_str(),
                               NULL,

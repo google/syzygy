@@ -24,7 +24,7 @@
 
 #include <guiddef.h>
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
 
 namespace pe {
@@ -43,7 +43,7 @@ class AddPdbInfoTransform
   // @param pdb_path the path of the PDB file to link to.
   // @param pdb_age the age of the PDB file to link to.
   // @param pdb_guid the GUID of the PDB file to link to.
-  AddPdbInfoTransform(const FilePath& pdb_path,
+  AddPdbInfoTransform(const base::FilePath& pdb_path,
                       uint32 pdb_age,
                       const GUID& pdb_guid)
       : pdb_path_(pdb_path), pdb_age_(pdb_age), pdb_guid_(pdb_guid) {
@@ -61,7 +61,7 @@ class AddPdbInfoTransform
   static const char kTransformName[];
 
  private:
-  FilePath pdb_path_;
+  base::FilePath pdb_path_;
   uint32 pdb_age_;
   GUID pdb_guid_;
 

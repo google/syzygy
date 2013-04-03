@@ -48,7 +48,7 @@ class PlaybackTest : public testing::PELibUnitTest {
     instrumented_path_ =
         GetExeTestDataRelativePath(testing::kCallTraceInstrumentedTestDllName);
 
-    const FilePath kTraceFiles[] = {
+    const base::FilePath kTraceFiles[] = {
         GetExeTestDataRelativePath(testing::kCallTraceTraceFiles[0]),
         GetExeTestDataRelativePath(testing::kCallTraceTraceFiles[1]),
         GetExeTestDataRelativePath(testing::kCallTraceTraceFiles[2]),
@@ -70,8 +70,8 @@ class PlaybackTest : public testing::PELibUnitTest {
  protected:
   scoped_ptr<Playback> playback_;
 
-  FilePath module_path_;
-  FilePath instrumented_path_;
+  base::FilePath module_path_;
+  base::FilePath instrumented_path_;
   Playback::TraceFileList trace_files_;
 
   pe::PEFile input_dll_;
@@ -92,7 +92,7 @@ TEST_F(PlaybackTest, MismatchedDLLTest) {
 }
 
 TEST_F(PlaybackTest, BadTraceFile) {
-  const FilePath kTraceFile = GetSrcRelativePath(
+  const base::FilePath kTraceFile = GetSrcRelativePath(
       L"syzygy/playback/test_data/bad-trace.bin");
   trace_files_ = Playback::TraceFileList(&kTraceFile, &kTraceFile + 1);
 

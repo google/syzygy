@@ -72,12 +72,12 @@ void TrimComment(std::string* s) {
 
 }  // namespace
 
-bool FilterCompiler::Init(const FilePath& image_path) {
-  return Init(image_path, FilePath());
+bool FilterCompiler::Init(const base::FilePath& image_path) {
+  return Init(image_path, base::FilePath());
 }
 
-bool FilterCompiler::Init(const FilePath& image_path,
-                          const FilePath& pdb_path) {
+bool FilterCompiler::Init(const base::FilePath& image_path,
+                          const base::FilePath& pdb_path) {
   image_path_ = image_path;
   pdb_path_ = pdb_path;
 
@@ -130,7 +130,7 @@ bool FilterCompiler::AddRule(ModificationType modification_type,
   return true;
 }
 
-bool FilterCompiler::ParseFilterDescriptionFile(const FilePath& path) {
+bool FilterCompiler::ParseFilterDescriptionFile(const base::FilePath& path) {
   file_util::ScopedFILE file(file_util::OpenFile(path, "rb"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Unable to open \"" << path.value() << "\" for reading.";

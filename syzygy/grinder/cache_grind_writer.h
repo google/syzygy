@@ -22,7 +22,7 @@
 #ifndef SYZYGY_GRINDER_CACHE_GRIND_WRITER_H_
 #define SYZYGY_GRINDER_CACHE_GRIND_WRITER_H_
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "syzygy/grinder/coverage_data.h"
 
 namespace grinder {
@@ -33,7 +33,7 @@ namespace grinder {
 // @param file the file handle to be written to.
 // @returns true on success, false otherwise.
 bool WriteCacheGrindCoverageFile(const CoverageData& coverage,
-                                 const FilePath& path);
+                                 const base::FilePath& path);
 bool WriteCacheGrindCoverageFile(const CoverageData& coverage, FILE* file);
 
 }  // namespace grinder

@@ -88,7 +88,7 @@ void ApplyBinarySetAction(GenFilterApp::Action action,
 }
 
 bool OutputFilter(bool pretty_print,
-                  const FilePath& path,
+                  const base::FilePath& path,
                   const ImageFilter& filter,
                   FILE* default_file) {
   // Open the output file. If none was specified we default to default_file.
@@ -129,7 +129,7 @@ bool GenFilterApp::ParseCommandLine(const CommandLine* command_line) {
     return false;
   }
   for (size_t i = 0; i < args.size(); ++i) {
-    if (!AppendMatchingPaths(FilePath(args[i]), &inputs_)) {
+    if (!AppendMatchingPaths(base::FilePath(args[i]), &inputs_)) {
       PrintUsage(command_line,
                  base::StringPrintf("No files matching '%ws'.",
                                     args[i].c_str()));

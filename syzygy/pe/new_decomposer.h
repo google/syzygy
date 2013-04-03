@@ -66,7 +66,7 @@ class NewDecomposer {
   // search functionality.
   // @param pdb_path the path to the PDB file to be used in decomposing the
   //     image.
-  void set_pdb_path(const FilePath& pdb_path) { pdb_path_ = pdb_path; }
+  void set_pdb_path(const base::FilePath& pdb_path) { pdb_path_ = pdb_path; }
 
   // Sets whether or not debug information is parsed. If true then the
   // decomposed block-graph will be decorated with extensive debug information.
@@ -85,7 +85,7 @@ class NewDecomposer {
   // will reflect the path of the PDB file that was used to perform the
   // decomposition.
   // @returns the PDB path.
-  const FilePath& pdb_path() const { return pdb_path_; }
+  const base::FilePath& pdb_path() const { return pdb_path_; }
   // @returns true if the decomposed block-graph will contain debug information.
   bool parse_debug_info() const { return parse_debug_info_; }
   // @}
@@ -104,7 +104,7 @@ class NewDecomposer {
   static bool LoadBlockGraphFromPdbStream(const PEFile& image_file,
                                           pdb::PdbStream* block_graph_stream,
                                           ImageLayout* image_layout);
-  static bool LoadBlockGraphFromPdb(const FilePath& pdb_path,
+  static bool LoadBlockGraphFromPdb(const base::FilePath& pdb_path,
                                     const PEFile& image_file,
                                     ImageLayout* image_layout,
                                     bool* stream_exists);
@@ -215,7 +215,7 @@ class NewDecomposer {
   // The PEFile that is being decomposed.
   const PEFile& image_file_;
   // The path to corresponding PDB file.
-  FilePath pdb_path_;
+  base::FilePath pdb_path_;
   // Controls whether or not debug information is added to the decomposed
   // image. If this is false then a completely functional but non-decorated
   // decomposition will be created.

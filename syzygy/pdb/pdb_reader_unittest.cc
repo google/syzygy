@@ -23,7 +23,7 @@
 namespace pdb {
 
 TEST(PdbReaderTest, Read) {
-  FilePath test_dll_pdb =
+  base::FilePath test_dll_pdb =
       testing::GetSrcRelativePath(testing::kTestPdbFilePath);
 
   PdbReader reader;

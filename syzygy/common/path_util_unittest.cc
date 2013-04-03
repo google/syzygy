@@ -33,7 +33,7 @@ void GetCurrentDriveAndDevice(std::wstring* drive_out,
   ASSERT_GT(status, 0u);
 
   std::vector<std::wstring> cwd_components;
-  FilePath(cwd).GetComponents(&cwd_components);
+  base::FilePath(cwd).GetComponents(&cwd_components);
   ASSERT_GT(cwd_components.size(), 0u);
   const std::wstring& drive = cwd_components[0];
 
@@ -65,36 +65,36 @@ class PathUtilTest : public ::testing::Test {
 }  // namespace
 
 TEST_F(PathUtilTest, ConvertDevicePathToDrivePathWithDrivePath) {
-  FilePath device(L"C:\\foo.txt");
-  FilePath drive;
+  base::FilePath device(L"C:\\foo.txt");
+  base::FilePath drive;
   ASSERT_TRUE(ConvertDevicePathToDrivePath(device, &drive));
   ASSERT_EQ(device.value(), drive.value());
 }
 
 TEST_F(PathUtilTest, ConvertDevicePathToDrivePathWithNonExistentDevicePath) {
-  FilePath device(L"\\Device\\ThisDeviceDoesNotExist\\foo.txt");
-  FilePath drive;
+  base::FilePath device(L"\\Device\\ThisDeviceDoesNotExist\\foo.txt");
+  base::FilePath drive;
   ASSERT_TRUE(ConvertDevicePathToDrivePath(device, &drive));
   ASSERT_EQ(device.value(), drive.value());
 }
 
 TEST_F(PathUtilTest, ConvertDevicePathToDrivePathWithDevicePath) {
-  FilePath device(cur_device_);
+  base::FilePath device(cur_device_);
   device = device.Append(L"foo.txt");
 
-  FilePath drive;
+  base::FilePath drive;
   ASSERT_TRUE(ConvertDevicePathToDrivePath(device, &drive));
 
   // We can't use FilePath::Append directly, as both ":" and "\" are seen as
   // delimiters. Thus, appending "foo.txt" to "C:" yields "C:foo.txt", which
   // is not exactly what we want.
-  FilePath expected_drive(std::wstring(cur_drive_).append(L"\\foo.txt"));
+  base::FilePath expected_drive(std::wstring(cur_drive_).append(L"\\foo.txt"));
   ASSERT_THAT(expected_drive.value(), ::testing::StrCaseEq(drive.value()));
 }
 
 TEST_F(PathUtilTest, ConvertDevicePathToDrivePathWithDeviceOnly) {
-  FilePath device(cur_device_);
-  FilePath drive;
+  base::FilePath device(cur_device_);
+  base::FilePath drive;
   ASSERT_TRUE(ConvertDevicePathToDrivePath(device, &drive));
 
   ASSERT_THAT(cur_drive_, ::testing::StrCaseEq(drive.value()));
@@ -103,10 +103,10 @@ TEST_F(PathUtilTest, ConvertDevicePathToDrivePathWithDeviceOnly) {
 TEST_F(PathUtilTest, ConvertDevicePathToDrivePathWithDeviceWithPrefix) {
   // This tries to convert an invalid device name that contains a valid
   // device as a prefix. The conversion should do nothing.
-  FilePath device(std::wstring(cur_device_).append(L"1234567"));
+  base::FilePath device(std::wstring(cur_device_).append(L"1234567"));
   device = device.Append(L"foo.txt");
 
-  FilePath drive;
+  base::FilePath drive;
   ASSERT_TRUE(ConvertDevicePathToDrivePath(device, &drive));
 
   ASSERT_EQ(device.value(), drive.value());

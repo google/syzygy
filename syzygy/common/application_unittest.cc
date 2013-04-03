@@ -58,7 +58,7 @@ typedef Application<StrictMock<MockAppImpl>, INIT_LOGGING_NO> MockApp;
 // A basic test fixture that sets up dummy standard streams.
 class ApplicationTest : public testing::ApplicationTestBase {
  protected:
-  ApplicationTest() : cmd_line_(FilePath(L"test.exe")) {
+  ApplicationTest() : cmd_line_(base::FilePath(L"test.exe")) {
   }
 
   template<typename App>
@@ -98,7 +98,7 @@ class ApplicationTest : public testing::ApplicationTestBase {
   MockApp mock_app_;
 };
 
-bool CreateEmptyFile(const FilePath& path) {
+bool CreateEmptyFile(const base::FilePath& path) {
   file_util::ScopedFILE f(file_util::OpenFile(path, "wb"));
   if (f.get() == NULL)
     return false;
@@ -170,20 +170,20 @@ TEST_F(ApplicationTest, MockAppFailsRun) {
 
 TEST_F(ApplicationTest, AbsolutePath) {
   AppImplBase& app_impl = test_app_.implementation();
-  FilePath current_dir;
+  base::FilePath current_dir;
   ASSERT_TRUE(file_util::GetCurrentDirectory(&current_dir));
 
-  const FilePath kRelativePath(L"foo\\bar\\file.txt");
-  const FilePath kAbsolutePath(current_dir.Append(kRelativePath));
+  const base::FilePath kRelativePath(L"foo\\bar\\file.txt");
+  const base::FilePath kAbsolutePath(current_dir.Append(kRelativePath));
 
-  EXPECT_EQ(FilePath(), app_impl.AbsolutePath(FilePath()));
+  EXPECT_EQ(base::FilePath(), app_impl.AbsolutePath(base::FilePath()));
   EXPECT_EQ(kAbsolutePath, app_impl.AbsolutePath(kRelativePath));
   EXPECT_EQ(kAbsolutePath, app_impl.AbsolutePath(kAbsolutePath));
 }
 
 TEST_F(ApplicationTest, AppendMatchingPaths) {
   // Create some files to match against.
-  FilePath temp_dir;
+  base::FilePath temp_dir;
   ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
   ASSERT_TRUE(CreateEmptyFile(temp_dir.Append(L"a.txt")));
   ASSERT_TRUE(CreateEmptyFile(temp_dir.Append(L"b.txt")));
@@ -191,13 +191,13 @@ TEST_F(ApplicationTest, AppendMatchingPaths) {
   ASSERT_TRUE(CreateEmptyFile(temp_dir.Append(L"a.bin")));
 
   // Should get false on no match.
-  std::vector<FilePath> no_matching_paths;
+  std::vector<base::FilePath> no_matching_paths;
   ASSERT_FALSE(TestAppImpl::AppendMatchingPaths(temp_dir.Append(L"d.*"),
                                                 &no_matching_paths));
   EXPECT_TRUE(no_matching_paths.empty());
 
   // Match a pattern where the extension is a wildcard.
-  std::vector<FilePath> a_star_paths;
+  std::vector<base::FilePath> a_star_paths;
   ASSERT_TRUE(TestAppImpl::AppendMatchingPaths(temp_dir.Append(L"a.*"),
               &a_star_paths));
   EXPECT_THAT(a_star_paths,
@@ -205,7 +205,7 @@ TEST_F(ApplicationTest, AppendMatchingPaths) {
                                    temp_dir.Append(L"a.txt")));
 
   // Match a pattern where the extension is set but the root name is a wildcard.
-  std::vector<FilePath> star_txt_paths;
+  std::vector<base::FilePath> star_txt_paths;
   ASSERT_TRUE(TestAppImpl::AppendMatchingPaths(temp_dir.Append(L"*.txt"),
                                                &star_txt_paths));
   EXPECT_THAT(star_txt_paths,
@@ -218,12 +218,12 @@ TEST_F(ApplicationTest, GetDeprecatedSwitch) {
   const std::string kFoo("foo");
   const std::string kBar("bar");
   const std::string kMissing("missing");
-  const FilePath kFooPath(L"C:\\foo");
-  const FilePath kBarPath(L"C:\\bar");
+  const base::FilePath kFooPath(L"C:\\foo");
+  const base::FilePath kBarPath(L"C:\\bar");
   ASSERT_NE(kFoo, kBar);
   ASSERT_NE(kFooPath, kBarPath);
 
-  FilePath path;
+  base::FilePath path;
   EXPECT_TRUE(TestAppImpl::GetDeprecatedSwitch(
       &cmd_line_, kFoo, kBar, &CommandLine::GetSwitchValuePath, &path));
   EXPECT_TRUE(path.empty());

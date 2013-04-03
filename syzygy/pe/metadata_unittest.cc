@@ -50,7 +50,7 @@ void InitMetadata(Metadata* metadata) {
 }
 
 bool TestJSONSerialization(bool pretty_print) {
-  FilePath temp_file_path;
+  base::FilePath temp_file_path;
   FILE* temp_file = file_util::CreateAndOpenTemporaryFile(&temp_file_path);
   if (temp_file == NULL)
     return false;

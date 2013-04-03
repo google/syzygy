@@ -14,7 +14,7 @@
 
 #include "syzygy/grinder/grinder_app.h"
 
-#include "base/scoped_temp_dir.h"
+#include "base/files/scoped_temp_dir.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/application.h"
 #include "syzygy/core/unittest_util.h"
@@ -37,7 +37,7 @@ class GrinderAppTest : public testing::PELibUnitTest {
   typedef common::Application<TestGrinderApp> TestApplication;
 
   GrinderAppTest()
-      : cmd_line_(FilePath(L"grinder.exe")),
+      : cmd_line_(base::FilePath(L"grinder.exe")),
         impl_(app_.implementation()) {
   }
 
@@ -70,20 +70,20 @@ class GrinderAppTest : public testing::PELibUnitTest {
   TestGrinderApp& impl_;
 
   // A temporary folder where all IO will be stored.
-  FilePath temp_dir_;
+  base::FilePath temp_dir_;
 
   // @name File paths used for the standard IO streams.
   // @{
-  FilePath stdin_path_;
-  FilePath stdout_path_;
-  FilePath stderr_path_;
+  base::FilePath stdin_path_;
+  base::FilePath stdout_path_;
+  base::FilePath stderr_path_;
   // @}
 };
 
 }  // namespace
 
 TEST_F(GrinderAppTest, ParseCommandLineFailsWithNoMode) {
-  cmd_line_.AppendArgPath(FilePath(L"foo.dat"));
+  cmd_line_.AppendArgPath(base::FilePath(L"foo.dat"));
   ASSERT_FALSE(impl_.ParseCommandLine(&cmd_line_));
 }
 
@@ -93,10 +93,10 @@ TEST_F(GrinderAppTest, ParseCommandLineFailsWithNoFiles) {
 }
 
 TEST_F(GrinderAppTest, ParseCommandLineTraceFiles) {
-  std::vector<FilePath> temp_files;
+  std::vector<base::FilePath> temp_files;
   cmd_line_.AppendSwitchASCII("mode", "profile");
   for (size_t i = 0; i < 10; ++i) {
-    FilePath temp_file;
+    base::FilePath temp_file;
     ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &temp_file));
     cmd_line_.AppendArgPath(temp_file);
     temp_files.push_back(temp_file);
@@ -109,7 +109,7 @@ TEST_F(GrinderAppTest, ParseCommandLineTraceFiles) {
 TEST_F(GrinderAppTest, ParseCommandLineOutputFile) {
   ASSERT_TRUE(impl_.output_file_.empty());
   cmd_line_.AppendSwitchASCII("mode", "profile");
-  cmd_line_.AppendSwitchPath("output-file", FilePath(L"output.txt"));
+  cmd_line_.AppendSwitchPath("output-file", base::FilePath(L"output.txt"));
   cmd_line_.AppendArgPath(testing::GetExeTestDataRelativePath(
       testing::kProfileTraceFiles[0]));
 
@@ -122,7 +122,7 @@ TEST_F(GrinderAppTest, BasicBlockEntryEndToEnd) {
   cmd_line_.AppendArgPath(testing::GetExeTestDataRelativePath(
       testing::kBBEntryTraceFiles[0]));
 
-  FilePath output_file;
+  base::FilePath output_file;
   ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));
   ASSERT_TRUE(file_util::Delete(output_file, false));
   cmd_line_.AppendSwitchPath("output-file", output_file);
@@ -140,7 +140,7 @@ TEST_F(GrinderAppTest, ProfileEndToEnd) {
   cmd_line_.AppendArgPath(testing::GetExeTestDataRelativePath(
       testing::kProfileTraceFiles[0]));
 
-  FilePath output_file;
+  base::FilePath output_file;
   ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));
   ASSERT_TRUE(file_util::Delete(output_file, false));
   cmd_line_.AppendSwitchPath("output-file", output_file);
@@ -158,7 +158,7 @@ TEST_F(GrinderAppTest, CoverageEndToEnd) {
   cmd_line_.AppendArgPath(testing::GetExeTestDataRelativePath(
       testing::kCoverageTraceFiles[0]));
 
-  FilePath output_file;
+  base::FilePath output_file;
   ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));
   ASSERT_TRUE(file_util::Delete(output_file, false));
   cmd_line_.AppendSwitchPath("output-file", output_file);

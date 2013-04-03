@@ -18,7 +18,7 @@
 
 #include "base/command_line.h"
 #include "base/file_util.h"
-#include "base/scoped_temp_dir.h"
+#include "base/files/scoped_temp_dir.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 
@@ -27,8 +27,8 @@ namespace core {
 namespace {
 
 // For FilePath pretty-printing.
-std::ostream& operator<<(std::ostream& ostream, const FilePath& path) {
-  ostream << "FilePath(" << path.value().c_str() << ")";
+std::ostream& operator<<(std::ostream& ostream, const base::FilePath& path) {
+  ostream << "base::FilePath(" << path.value().c_str() << ")";
   return ostream;
 }
 
@@ -37,7 +37,7 @@ class CompareFilePathsTest : public testing::Test {
   virtual void SetUp() {
     // Initialize the temp directory for the first test.
     if (temp_dir_.get() == NULL) {
-      temp_dir_.reset(new ScopedTempDir());
+      temp_dir_.reset(new base::ScopedTempDir());
       ASSERT_TRUE(temp_dir_->CreateUniqueTempDir());
     }
 
@@ -64,20 +64,20 @@ class CompareFilePathsTest : public testing::Test {
     ASSERT_FALSE(file_util::PathExists(another_nonexisting_path_));
   }
 
-  FilePath existing_path_;
-  FilePath alternate_existing_path_;
-  FilePath another_existing_path_;
+  base::FilePath existing_path_;
+  base::FilePath alternate_existing_path_;
+  base::FilePath another_existing_path_;
 
-  FilePath nonexisting_path_;
-  FilePath alternate_nonexisting_path_;
-  FilePath another_nonexisting_path_;
+  base::FilePath nonexisting_path_;
+  base::FilePath alternate_nonexisting_path_;
+  base::FilePath another_nonexisting_path_;
 
   // This is static so that it is only initialized once for this whole group
   // of tests.
-  static scoped_ptr<ScopedTempDir> temp_dir_;
+  static scoped_ptr<base::ScopedTempDir> temp_dir_;
 };
 
-scoped_ptr<ScopedTempDir> CompareFilePathsTest::temp_dir_;
+scoped_ptr<base::ScopedTempDir> CompareFilePathsTest::temp_dir_;
 
 }  // namespace
 

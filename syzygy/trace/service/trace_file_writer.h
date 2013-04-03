@@ -19,7 +19,7 @@
 #ifndef SYZYGY_TRACE_SERVICE_TRACE_FILE_WRITER_H_
 #define SYZYGY_TRACE_SERVICE_TRACE_FILE_WRITER_H_
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "base/threading/thread.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/trace/service/buffer_consumer.h"
@@ -41,7 +41,8 @@ class TraceFileWriter : public BufferConsumer {
   //     message_loop. The message_loop must outlive the writer instance.
   // @param trace_directory The directoy into which this writer instance will
   //     write the trace file.
-  TraceFileWriter(MessageLoop* message_loop, const FilePath& trace_directory);
+  TraceFileWriter(MessageLoop* message_loop,
+                  const base::FilePath& trace_directory);
 
   // Initialize this trace file writer.
   // @name BufferConsumer implementation.
@@ -62,7 +63,7 @@ class TraceFileWriter : public BufferConsumer {
   // The name of the trace file. Note that we initialize this to the trace
   // directory on construction and calculate the final trace file path on
   // Open().
-  FilePath trace_file_path_;
+  base::FilePath trace_file_path_;
 
   // The handle to the trace file to which buffers are committed.
   base::win::ScopedHandle trace_file_handle_;

@@ -28,7 +28,7 @@
           'destination': '<(PRODUCT_DIR)/test_data',
           'files': [
             '<(PRODUCT_DIR)/test_dll.dll',
-            '<(PRODUCT_DIR)/test_dll.pdb',
+            '<(PRODUCT_DIR)/test_dll.dll.pdb',
           ],
         },
       ],
@@ -49,21 +49,21 @@
           'inputs': [
             '<(PRODUCT_DIR)/instrument.exe',
             '<(PRODUCT_DIR)/test_data/test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/test_dll.dll.pdb',
           ],
           'outputs': [
             '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.dll.pdb',
           ],
           'action': [
             '"<(PRODUCT_DIR)/instrument.exe"',
             '--mode=calltrace',
             '--input-image=<(PRODUCT_DIR)/test_data/test_dll.dll',
-            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.dll.pdb',
             '--output-image='
                 '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.dll',
-            '--output-pdb='
-                '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.pdb',
+            '--output-pdb=<(PRODUCT_DIR)/test_data/'
+                'call_trace_instrumented_test_dll.dll.pdb',
             '--overwrite',
           ],
         },
@@ -85,21 +85,21 @@
           'inputs': [
             '<(PRODUCT_DIR)/instrument.exe',
             '<(PRODUCT_DIR)/test_data/test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/test_dll.dll.pdb',
           ],
           'outputs': [
             '<(PRODUCT_DIR)/test_data/profile_instrumented_test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/profile_instrumented_test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/profile_instrumented_test_dll.dll.pdb',
           ],
           'action': [
             '"<(PRODUCT_DIR)/instrument.exe"',
             '--mode=profile',
             '--input-image=<(PRODUCT_DIR)/test_data/test_dll.dll',
-            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.dll.pdb',
             '--output-image=<(PRODUCT_DIR)/test_data/'
                 'profile_instrumented_test_dll.dll',
             '--output-pdb=<(PRODUCT_DIR)/test_data/'
-                'profile_instrumented_test_dll.pdb',
+                'profile_instrumented_test_dll.dll.pdb',
             '--overwrite',
           ],
         },
@@ -121,23 +121,23 @@
           'inputs': [
             '<(PRODUCT_DIR)/instrument.exe',
             '<(PRODUCT_DIR)/test_data/test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/test_dll.dll.pdb',
           ],
           'outputs': [
             '<(PRODUCT_DIR)/test_data/'
                 'basic_block_entry_instrumented_test_dll.dll',
             '<(PRODUCT_DIR)/test_data/'
-                'basic_block_entry_instrumented_test_dll.pdb',
+                'basic_block_entry_instrumented_test_dll.dll.pdb',
           ],
           'action': [
             '"<(PRODUCT_DIR)/instrument.exe"',
             '--mode=bbentry',
             '--input-image=<(PRODUCT_DIR)/test_data/test_dll.dll',
-            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.dll.pdb',
             '--output-image=<(PRODUCT_DIR)/test_data/'
                 'basic_block_entry_instrumented_test_dll.dll',
             '--output-pdb=<(PRODUCT_DIR)/test_data/'
-                'basic_block_entry_instrumented_test_dll.pdb',
+                'basic_block_entry_instrumented_test_dll.dll.pdb',
             '--overwrite',
           ],
         },
@@ -159,21 +159,21 @@
           'inputs': [
             '<(PRODUCT_DIR)/instrument.exe',
             '<(PRODUCT_DIR)/test_data/test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/test_dll.dll.pdb',
           ],
           'outputs': [
             '<(PRODUCT_DIR)/test_data/coverage_instrumented_test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/coverage_instrumented_test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/coverage_instrumented_test_dll.dll.pdb',
           ],
           'action': [
             '"<(PRODUCT_DIR)/instrument.exe"',
             '--mode=coverage',
             '--input-image=<(PRODUCT_DIR)/test_data/test_dll.dll',
-            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.dll.pdb',
             '--output-image=<(PRODUCT_DIR)/test_data/'
                 'coverage_instrumented_test_dll.dll',
             '--output-pdb=<(PRODUCT_DIR)/test_data/'
-                'coverage_instrumented_test_dll.pdb',
+                'coverage_instrumented_test_dll.dll.pdb',
             '--overwrite',
           ],
         },
@@ -195,21 +195,21 @@
           'inputs': [
             '<(PRODUCT_DIR)/instrument.exe',
             '<(PRODUCT_DIR)/test_data/test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/test_dll.dll.pdb',
           ],
           'outputs': [
             '<(PRODUCT_DIR)/test_data/asan_instrumented_test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/asan_instrumented_test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/asan_instrumented_test_dll.dll.pdb',
           ],
           'action': [
             '"<(PRODUCT_DIR)/instrument.exe"',
             '--mode=asan',
             '--input-image=<(PRODUCT_DIR)/test_data/test_dll.dll',
-            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.dll.pdb',
             '--output-image=<(PRODUCT_DIR)/test_data/'
                 'asan_instrumented_test_dll.dll',
             '--output-pdb=<(PRODUCT_DIR)/test_data/'
-                'asan_instrumented_test_dll.pdb',
+                'asan_instrumented_test_dll.dll.pdb',
             '--overwrite',
           ],
         },
@@ -231,19 +231,19 @@
           'inputs': [
             '<(PRODUCT_DIR)/relink.exe',
             '<(PRODUCT_DIR)/test_data/test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/test_dll.dll.pdb',
           ],
           'outputs': [
             '<(PRODUCT_DIR)/test_data/randomized_test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/randomized_test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/randomized_test_dll.dll.pdb',
           ],
           'action': [
             '"<(PRODUCT_DIR)/relink.exe"',
             '--seed=0',
             '--input-image=<(PRODUCT_DIR)/test_data/test_dll.dll',
-            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.pdb',
+            '--input-pdb=<(PRODUCT_DIR)/test_data/test_dll.dll.pdb',
             '--output-image=<(PRODUCT_DIR)/test_data/randomized_test_dll.dll',
-            '--output-pdb=<(PRODUCT_DIR)/test_data/randomized_test_dll.pdb',
+            '--output-pdb=<(PRODUCT_DIR)/test_data/randomized_test_dll.dll.pdb',
             '--overwrite',
           ],
         },
@@ -272,7 +272,7 @@
             '<(PRODUCT_DIR)/call_trace_client.dll',
             '<(PRODUCT_DIR)/call_trace_service.exe',
             '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.dll.pdb',
             '<(src)/syzygy/test_data/generate_traces.py',
           ],
           'outputs': [
@@ -315,7 +315,7 @@
             '<(PRODUCT_DIR)/profile_client.dll',
             '<(PRODUCT_DIR)/call_trace_service.exe',
             '<(PRODUCT_DIR)/test_data/profile_instrumented_test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/profile_instrumented_test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/profile_instrumented_test_dll.dll.pdb',
             '<(src)/syzygy/test_data/generate_traces.py',
           ],
           'outputs': [
@@ -354,7 +354,7 @@
           'inputs': [
             '<(PRODUCT_DIR)/reorder.exe',
             '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/call_trace_instrumented_test_dll.dll.pdb',
             '<(PRODUCT_DIR)/test_data/call_trace_traces/trace-1.bin',
             '<(PRODUCT_DIR)/test_data/call_trace_traces/trace-2.bin',
             '<(PRODUCT_DIR)/test_data/call_trace_traces/trace-3.bin',
@@ -395,7 +395,7 @@
             '<(PRODUCT_DIR)/coverage_client.dll',
             '<(PRODUCT_DIR)/call_trace_service.exe',
             '<(PRODUCT_DIR)/test_data/coverage_instrumented_test_dll.dll',
-            '<(PRODUCT_DIR)/test_data/coverage_instrumented_test_dll.pdb',
+            '<(PRODUCT_DIR)/test_data/coverage_instrumented_test_dll.dll.pdb',
             '<(src)/syzygy/test_data/generate_traces.py',
           ],
           'outputs': [
@@ -441,7 +441,7 @@
             '<(PRODUCT_DIR)/test_data/'
                 'basic_block_entry_instrumented_test_dll.dll',
             '<(PRODUCT_DIR)/test_data/'
-                'basic_block_entry_instrumented_test_dll.pdb',
+                'basic_block_entry_instrumented_test_dll.dll.pdb',
             '<(src)/syzygy/test_data/generate_traces.py',
           ],
           'outputs': [

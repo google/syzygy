@@ -29,8 +29,8 @@ class GrinderFindTest: public testing::PELibUnitTest {
         self_path(testing::GetOutputRelativePath(L"grinder_unittests.exe")) {
   }
 
-  FilePath self_path;
-  FilePath bad_pe_path;
+  base::FilePath self_path;
+  base::FilePath bad_pe_path;
 };
 
 }  // namespace
@@ -69,7 +69,7 @@ TEST_F(GrinderFindTest, PeFilesAreRelatedWorks) {
 }
 
 TEST_F(GrinderFindTest, FindOriginalPeFileFailsBadPath) {
-  FilePath path;
+  base::FilePath path;
   EXPECT_FALSE(FindOriginalPeFile(bad_pe_path, &path));
   EXPECT_TRUE(path.empty());
 }
@@ -77,20 +77,20 @@ TEST_F(GrinderFindTest, FindOriginalPeFileFailsBadPath) {
 TEST_F(GrinderFindTest, FindOriginalPeFileFailsNoMetadata) {
   // We provide a valid PE file as input, but a file that is not transformed.
   // This should fail because it contains no metadata.
-  FilePath path;
+  base::FilePath path;
   EXPECT_FALSE(FindOriginalPeFile(
       testing::GetOutputRelativePath(testing::kTestDllName), &path));
   EXPECT_TRUE(path.empty());
 }
 
 TEST_F(GrinderFindTest, FindOriginalPeFileWorksWithHint) {
-  FilePath expected_path = testing::GetOutputRelativePath(
+  base::FilePath expected_path = testing::GetOutputRelativePath(
       testing::kTestDllName);
 
   // By default FindOriginalPeFile will want to find the test_dll.dll in the
   // test_data directory, not its copy in the output directory. However, by
   // providing it with that as a hint it should look there first.
-  FilePath path = expected_path;
+  base::FilePath path = expected_path;
   EXPECT_TRUE(FindOriginalPeFile(
       testing::GetExeTestDataRelativePath(
           testing::kCoverageInstrumentedTestDllName),
@@ -105,12 +105,12 @@ TEST_F(GrinderFindTest, FindOriginalPeFileWorksWithoutHint) {
   // executable, we expect it to find the module relative to the original build
   // directory. There are not the same paths in the case of our coverage bot,
   // which copies things to another folder.
-  FilePath expected_path = testing::GetOutputRelativePath(L"test_data")
+  base::FilePath expected_path = testing::GetOutputRelativePath(L"test_data")
       .Append(testing::kTestDllName);
 
   // In this case we don't provide an explicit hint so it should find the
   // original test_dll.dll in the test_data directory.
-  FilePath path;
+  base::FilePath path;
   EXPECT_TRUE(FindOriginalPeFile(
       testing::GetExeTestDataRelativePath(
           testing::kCoverageInstrumentedTestDllName),

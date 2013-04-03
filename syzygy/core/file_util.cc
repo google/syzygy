@@ -31,7 +31,7 @@ enum FileInformationResult {
 // Gets a handle to a file, and the file information for it. Leaves the handle
 // open.
 FileInformationResult GetFileInformation(
-    const FilePath& path,
+    const base::FilePath& path,
     base::win::ScopedHandle* handle,
     BY_HANDLE_FILE_INFORMATION* file_info) {
   // Open the file in the least restrictive possible way.
@@ -66,8 +66,8 @@ FileInformationResult GetFileInformation(
 
 }  // namespace
 
-FilePathCompareResult CompareFilePaths(const FilePath& path1,
-                                       const FilePath& path2) {
+FilePathCompareResult CompareFilePaths(const base::FilePath& path1,
+                                       const base::FilePath& path2) {
   // Now we try opening both files for reading to see if they point to the same
   // underlying volume and file index. We open both files simultaneously to
   // avoid a race condition whereby the file could be moved/removed in between
@@ -88,8 +88,8 @@ FilePathCompareResult CompareFilePaths(const FilePath& path1,
   // If neither file exists we can't really compare them based on anything
   // other than the path itself.
   if (result1 == kFileNotFound && result2 == kFileNotFound) {
-    FilePath abs1(path1);
-    FilePath abs2(path2);
+    base::FilePath abs1(path1);
+    base::FilePath abs2(path2);
 
     bool result = file_util::AbsolutePath(&abs1) &&
         file_util::AbsolutePath(&abs2);

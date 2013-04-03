@@ -31,7 +31,7 @@ class CoverageGrinderTest : public testing::PELibUnitTest {
  public:
   typedef testing::PELibUnitTest Super;
 
-  CoverageGrinderTest() : cmd_line_(FilePath(L"coverage_grinder.exe")) {
+  CoverageGrinderTest() : cmd_line_(base::FilePath(L"coverage_grinder.exe")) {
   }
 
   virtual void SetUp() OVERRIDE {
@@ -43,7 +43,7 @@ class CoverageGrinderTest : public testing::PELibUnitTest {
 
     ASSERT_TRUE(parser_.Init(handler));
 
-    FilePath trace_file =
+    base::FilePath trace_file =
         testing::GetExeTestDataRelativePath(testing::kCoverageTraceFiles[0]);
 
     ASSERT_TRUE(parser_.OpenTraceFile(trace_file));

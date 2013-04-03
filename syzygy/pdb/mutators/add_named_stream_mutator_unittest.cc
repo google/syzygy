@@ -73,8 +73,8 @@ class AddNamedStreamMutatorTest : public testing::Test {
   }
 
   void ReadActualPdb() {
-    FilePath pdb_path = testing::GetSrcRelativePath(
-    testing::kTestPdbFilePath);
+    base::FilePath pdb_path =
+        testing::GetSrcRelativePath(testing::kTestPdbFilePath);
     PdbReader pdb_reader;
     EXPECT_TRUE(pdb_reader.Read(pdb_path, &pdb_file_));
   }

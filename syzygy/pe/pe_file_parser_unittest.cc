@@ -15,10 +15,10 @@
 #include "syzygy/pe/pe_file_parser.h"
 
 #include "base/bind.h"
-#include "base/file_path.h"
 #include "base/native_library.h"
 #include "base/path_service.h"
 #include "base/string_util.h"
+#include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/win/pe_image.h"
 #include "gmock/gmock.h"

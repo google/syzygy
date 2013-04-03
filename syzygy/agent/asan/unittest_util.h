@@ -16,8 +16,8 @@
 #define SYZYGY_AGENT_ASAN_UNITTEST_UTIL_H_
 
 #include "base/file_util.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string_piece.h"
+#include "base/files/scoped_temp_dir.h"
 #include "gtest/gtest.h"
 #include "syzygy/trace/logger/logger.h"
 #include "syzygy/trace/logger/logger_rpc_impl.h"
@@ -40,8 +40,8 @@ class TestWithAsanLogger : public testing::Test {
   // @name Accessors.
   // @{
   const std::wstring& instance_id() const { return instance_id_; }
-  const FilePath& log_file_path() const { return log_file_path_; }
-  const FilePath& temp_dir() const { return temp_dir_.path(); }
+  const base::FilePath& log_file_path() const { return log_file_path_; }
+  const base::FilePath& temp_dir() const { return temp_dir_.path(); }
   // @}
 
   bool LogContains(const base::StringPiece& message);
@@ -61,13 +61,13 @@ class TestWithAsanLogger : public testing::Test {
   std::wstring instance_id_;
 
   // The path to the log file where the the logger instance will write.
-  FilePath log_file_path_;
+  base::FilePath log_file_path_;
 
   // The open file handle, if any to which the logger instance will write.
   file_util::ScopedFILE log_file_;
 
   // A temporary directory into which the log file will be written.
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
 
   // The contents of the log. These are read by calling LogContains.
   bool log_contents_read_;

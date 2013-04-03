@@ -17,8 +17,8 @@
 
 #include "syzygy/common/application.h"
 
-#include "base/file_path.h"
 #include "base/file_util.h"
+#include "base/files/file_path.h"
 
 namespace common {
 
@@ -42,19 +42,19 @@ int AppImplBase::Run() {
 void AppImplBase::TearDown() {
 }
 
-FilePath AppImplBase::AbsolutePath(const FilePath& path) {
+base::FilePath AppImplBase::AbsolutePath(const base::FilePath& path) {
   if (path.empty())
-    return FilePath();
+    return base::FilePath();
 
-  FilePath temp(path);
+  base::FilePath temp(path);
   if (file_util::AbsolutePath(&temp))
     return temp;
   else
     return path;
 }
 
-bool AppImplBase::AppendMatchingPaths(const FilePath& pattern,
-                                      std::vector<FilePath>* matches) {
+bool AppImplBase::AppendMatchingPaths(const base::FilePath& pattern,
+                                      std::vector<base::FilePath>* matches) {
   DCHECK(matches != NULL);
   bool found_a_match = false;
 
@@ -65,7 +65,7 @@ bool AppImplBase::AppendMatchingPaths(const FilePath& pattern,
                                   file_util::FileEnumerator::FILES,
                                   pattern.BaseName().value());
   while (true) {
-    FilePath file = files.Next();
+    base::FilePath file = files.Next();
     if (file.empty())
       break;
 

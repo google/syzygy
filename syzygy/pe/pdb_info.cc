@@ -37,7 +37,7 @@ bool PdbInfo::Init(const CvInfoPdb70& cv_info_pdb) {
     LOG(ERROR) << "UTF8ToWide failed.";
     return false;
   }
-  pdb_file_name_ = FilePath(pdb_path);
+  pdb_file_name_ = base::FilePath(pdb_path);
 
   return true;
 }
@@ -85,7 +85,7 @@ bool PdbInfo::Init(const PEFile& pe_file) {
   return false;
 }
 
-bool PdbInfo::Init(const FilePath& pe_path) {
+bool PdbInfo::Init(const base::FilePath& pe_path) {
   DCHECK(!pe_path.empty());
 
   PEFile pe_file;

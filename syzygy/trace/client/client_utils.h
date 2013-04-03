@@ -18,7 +18,7 @@
 #ifndef SYZYGY_TRACE_CLIENT_CLIENT_UTILS_H_
 #define SYZYGY_TRACE_CLIENT_CLIENT_UTILS_H_
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/call_trace_rpc.h"
 
@@ -120,7 +120,7 @@ bool GetModuleBaseAddress(void* address_in_module, void** module_base);
 // @param module_base the base address of the module to be queried.
 // @param module_path will receive the path of the module, upon success.
 // @returns true on success, false otherwise.
-bool GetModulePath(void* module_base, FilePath* module_path);
+bool GetModulePath(void* module_base, base::FilePath* module_path);
 
 // Given the path to a module, determines the RPC instance ID to be used for
 // it. This works by looking at the SYZYGY_RPC_INSTANCE_ID environment variable.
@@ -145,7 +145,7 @@ bool GetModulePath(void* module_base, FilePath* module_path);
 //     instance ID. If it is not absolute it will be made so using the current
 //     working directory.
 // @returns the instance ID.
-std::string GetInstanceIdForModule(const FilePath& module_path);
+std::string GetInstanceIdForModule(const base::FilePath& module_path);
 
 // Encapsulates calls to GetModuleBaseAddress, GetModulePath and
 // GetInstanceIdForModule.
@@ -165,7 +165,7 @@ std::string GetInstanceIdForThisModule();
 // @param module_path the path to the module for which we wish to determine if
 //     and RPC session is mandatory.
 // @returns true if the session is mandatory, false otherwise.
-bool IsRpcSessionMandatory(const FilePath& module_path);
+bool IsRpcSessionMandatory(const base::FilePath& module_path);
 
 // Encapsulates calls to GetModuleBaseAddress, GetModulePath and
 // IsRpcSessionMandatory.

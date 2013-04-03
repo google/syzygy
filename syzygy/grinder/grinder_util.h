@@ -17,7 +17,7 @@
 #ifndef SYZYGY_GRINDER_GRINDER_UTIL_H_
 #define SYZYGY_GRINDER_GRINDER_UTIL_H_
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "syzygy/core/address.h"
 
 namespace grinder {
@@ -31,7 +31,7 @@ typedef std::vector<core::RelativeAddress> RelativeAddressVector;
 //     relative addresses in the original non-instrumented module) upon
 //     success.
 // @returns true on success, false otherwise.
-bool GetBasicBlockAddresses(const FilePath& pdb_path,
+bool GetBasicBlockAddresses(const base::FilePath& pdb_path,
                             RelativeAddressVector* bb_addresses);
 
 }  // namespace grinder

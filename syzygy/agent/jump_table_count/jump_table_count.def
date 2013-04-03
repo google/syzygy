@@ -13,7 +13,7 @@
 ; limitations under the License.
 ;
 ; Export declarations for the jump table count client DLL.
-LIBRARY jump_table_count.dll
+LIBRARY jump_table_count_client.dll
 
 EXPORTS
   ; Our profile hook function, invoked through machine instrumentation when

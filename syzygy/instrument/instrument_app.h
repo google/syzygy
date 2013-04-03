@@ -19,9 +19,9 @@
 #define SYZYGY_INSTRUMENT_INSTRUMENT_APP_H_
 
 #include "base/command_line.h"
-#include "base/file_path.h"
 #include "base/string_piece.h"
 #include "base/time.h"
+#include "base/files/file_path.h"
 #include "syzygy/common/application.h"
 #include "syzygy/pe/pe_relinker.h"
 
@@ -87,11 +87,11 @@ class InstrumentApp : public common::AppImplBase {
 
   // @name Command-line parameters.
   // @{
-  FilePath input_dll_path_;
-  FilePath input_pdb_path_;
-  FilePath output_dll_path_;
-  FilePath output_pdb_path_;
-  FilePath filter_path_;
+  base::FilePath input_dll_path_;
+  base::FilePath input_pdb_path_;
+  base::FilePath output_dll_path_;
+  base::FilePath output_pdb_path_;
+  base::FilePath filter_path_;
   std::string client_dll_;
   bool allow_overwrite_;
   bool new_decomposer_;

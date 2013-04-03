@@ -75,7 +75,7 @@ bool ReadOmapsFromPdbFile(const PdbFile& pdb_file,
 // @param omap_from the vector to populate with OMAPFROM entries. May be NULL.
 // @returns true if the PDB file contains OMAP data and if the OMAP entries have
 //     been successfully read, false otherwise.
-bool ReadOmapsFromPdbFile(const FilePath& pdb_path,
+bool ReadOmapsFromPdbFile(const base::FilePath& pdb_path,
                           std::vector<OMAP>* omap_to,
                           std::vector<OMAP>* omap_from);
 

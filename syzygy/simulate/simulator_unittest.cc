@@ -45,10 +45,10 @@ class MockSimulationEventHandler : public SimulationEventHandler {
 
 class SimulatorTest : public testing::PELibUnitTest {
  public:
-  typedef std::vector<FilePath> TraceFileList;
+  typedef std::vector<base::FilePath> TraceFileList;
 
   void InitTraceFileList() {
-    const FilePath trace_files_initializer[] = {
+    const base::FilePath trace_files_initializer[] = {
         GetExeTestDataRelativePath(testing::kCallTraceTraceFiles[0]),
         GetExeTestDataRelativePath(testing::kCallTraceTraceFiles[1]),
         GetExeTestDataRelativePath(testing::kCallTraceTraceFiles[2]),
@@ -72,8 +72,8 @@ class SimulatorTest : public testing::PELibUnitTest {
   }
 
  protected:
-  FilePath module_path_;
-  FilePath instrumented_path_;
+  base::FilePath module_path_;
+  base::FilePath instrumented_path_;
   TraceFileList trace_files_;
   testing::StrictMock<MockSimulationEventHandler> simulation_event_handler_;
 

@@ -21,10 +21,10 @@
 #include "base/environment.h"
 #include "base/file_util.h"
 #include "base/process_util.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -285,7 +285,7 @@ class CallTraceServiceTest : public testing::Test {
                                          false,
                                          file_util::FileEnumerator::FILES,
                                          L"trace-*.bin");
-    FilePath trace_file_name(enumerator.Next());
+    base::FilePath trace_file_name(enumerator.Next());
     ASSERT_FALSE(trace_file_name.empty());
     ASSERT_TRUE(enumerator.Next().empty());
     ASSERT_TRUE(file_util::ReadFileToString(trace_file_name, contents));
@@ -346,7 +346,7 @@ class CallTraceServiceTest : public testing::Test {
   RpcServiceInstanceManager rpc_service_instance_manager_;
 
   // The directory where trace file output will be written.
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
 
   // We give each service instance a "unique" id so that it doesn't interfere
   // with any other concurrrently running instances or tests.

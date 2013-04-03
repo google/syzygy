@@ -169,7 +169,7 @@ int main(int argc, char** argv) {
   }
   ::VssFreeSnapshotProperties(&prop.Obj.Snap);
 
-  FilePath cmd_path(args[0]);
+  base::FilePath cmd_path(args[0]);
   CommandLine cmd(cmd_path);
   for (size_t i = 1; i < args.size(); ++i)
     cmd.AppendArgNative(args[i]);

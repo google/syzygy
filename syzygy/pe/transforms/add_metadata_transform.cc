@@ -26,7 +26,7 @@ namespace transforms {
 const char AddMetadataTransform::kTransformName[] =
     "AddMetadataTransform";
 
-AddMetadataTransform::AddMetadataTransform(const FilePath& module_path)
+AddMetadataTransform::AddMetadataTransform(const base::FilePath& module_path)
     : module_path_(module_path) {
 }
 

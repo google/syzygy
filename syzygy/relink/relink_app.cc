@@ -83,7 +83,7 @@ bool ParseUInt32(const std::wstring& value_str, uint32* out_value) {
   return base::StringToInt(value_str, reinterpret_cast<int*>(out_value));
 }
 
-void GuessPdbPath(const FilePath& module_path, FilePath* pdb_path) {
+void GuessPdbPath(const base::FilePath& module_path, base::FilePath* pdb_path) {
   DCHECK(pdb_path != NULL);
   *pdb_path = module_path.ReplaceExtension(L"pdb");
 }

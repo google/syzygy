@@ -22,10 +22,10 @@
 
 #include "base/atomicops.h"
 #include "base/bind.h"
-#include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/stringprintf.h"
+#include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/common/align.h"
@@ -41,8 +41,8 @@ namespace service {
 
 namespace {
 
-FilePath GenerateTraceFileName(const Session* session,
-                               const FilePath& trace_directory ) {
+base::FilePath GenerateTraceFileName(const Session* session,
+                                     const base::FilePath& trace_directory) {
   DCHECK(session != NULL);
   DCHECK(!trace_directory.empty());
 
@@ -68,7 +68,7 @@ FilePath GenerateTraceFileName(const Session* session,
       client.process_id));
 }
 
-bool OpenTraceFile(const FilePath& file_path,
+bool OpenTraceFile(const base::FilePath& file_path,
                    base::win::ScopedHandle* file_handle) {
   DCHECK(!file_path.empty());
   DCHECK(file_handle != NULL);
@@ -94,7 +94,7 @@ bool OpenTraceFile(const FilePath& file_path,
   return true;
 }
 
-bool GetBlockSize(const FilePath& path, size_t* block_size) {
+bool GetBlockSize(const base::FilePath& path, size_t* block_size) {
   wchar_t volume[MAX_PATH];
 
   if (!::GetVolumePathName(path.value().c_str(), volume, arraysize(volume))) {
@@ -131,7 +131,7 @@ bool WriteTraceFileHeader(HANDLE file_handle,
 
   // Make sure we record the path to the executable as a path with a drive
   // letter, rather than using device names.
-  FilePath drive_path;
+  base::FilePath drive_path;
   if (!common::ConvertDevicePathToDrivePath(client.executable_path,
                                             &drive_path)) {
     return false;
@@ -189,7 +189,7 @@ bool WriteTraceFileHeader(HANDLE file_handle,
 }  // namespace
 
 TraceFileWriter::TraceFileWriter(MessageLoop* message_loop,
-                                 const FilePath& trace_directory)
+                                 const base::FilePath& trace_directory)
     : message_loop_(message_loop),
       trace_file_path_(trace_directory),  // Will mutate to filename on Open().
       block_size_(0) {

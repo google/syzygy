@@ -17,8 +17,8 @@
 
 #include <windows.h>
 
-#include "base/file_path.h"
 #include "base/file_util.h"
+#include "base/files/file_path.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/unittest_util.h"
 
@@ -55,7 +55,7 @@ extern const wchar_t *kProfileTraceFiles[4];
 class PELibUnitTest : public testing::ApplicationTestBase {
  public:
   // Performs a series of assertations on the test DLL's integrity.
-  static void CheckTestDll(const FilePath& path);
+  static void CheckTestDll(const base::FilePath& path);
 };
 
 }  // namespace testing

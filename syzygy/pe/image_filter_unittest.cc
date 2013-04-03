@@ -36,8 +36,8 @@ class ImageFilterTest : public testing::PELibUnitTest {
     pe_file.GetSignature(&pe_signature);
   }
 
-  const FilePath dummy_path;
-  FilePath test_dll_path;
+  const base::FilePath dummy_path;
+  base::FilePath test_dll_path;
 
   PEFile pe_file;
   PEFile::Signature pe_signature;
@@ -99,10 +99,10 @@ TEST_F(ImageFilterTest, SaveToAndLoadFromJSON) {
   f1.filter.Mark(ImageFilter::Range(
       ImageFilter::RelativeAddress(10240), 256));
 
-  FilePath temp_dir;
+  base::FilePath temp_dir;
   CreateTemporaryDir(&temp_dir);
-  FilePath pretty_json_path = temp_dir.Append(L"test_dll_pretty.json");
-  FilePath ugly_json_path = temp_dir.Append(L"test_dll_ugly.json");
+  base::FilePath pretty_json_path = temp_dir.Append(L"test_dll_pretty.json");
+  base::FilePath ugly_json_path = temp_dir.Append(L"test_dll_ugly.json");
 
   EXPECT_TRUE(f1.SaveToJSON(true, pretty_json_path));
   EXPECT_TRUE(f1.SaveToJSON(false, ugly_json_path));

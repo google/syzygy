@@ -17,9 +17,9 @@
 #ifndef SYZYGY_TRACE_COMMON_UNITTEST_UTIL_H_
 #define SYZYGY_TRACE_COMMON_UNITTEST_UTIL_H_
 
-#include "base/file_path.h"
 #include "base/process_util.h"
 #include "base/string_piece.h"
+#include "base/files/file_path.h"
 #include "gtest/gtest.h"
 
 namespace testing {
@@ -35,7 +35,7 @@ class CallTraceService {
   // instance ID unique to this process.
   // @param trace_dir the directory where trace files will be created.
   // @note adds failures to the current tests on errors.
-  void Start(const FilePath& trace_dir);
+  void Start(const base::FilePath& trace_dir);
 
   // Stops the service if it's running.
   void Stop();

@@ -280,7 +280,8 @@ class PEOrdererTest : public testing::PELibUnitTest {
   }
 
   void DecomposeTestDll() {
-    FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
+    base::FilePath image_path(
+        testing::GetExeRelativePath(testing::kTestDllName));
 
     ASSERT_TRUE(pe_file_.Init(image_path));
 
@@ -401,9 +402,9 @@ TEST_F(PEOrdererTest, SucceedsWithTestDll) {
   ASSERT_TRUE(builder.Finalize());
 
   // Create a temporary file we can write a new image to.
-  FilePath temp_dir;
+  base::FilePath temp_dir;
   ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
-  FilePath temp_file = temp_dir.Append(testing::kTestDllName);
+  base::FilePath temp_file = temp_dir.Append(testing::kTestDllName);
 
   PEFileWriter writer(layout);
   ASSERT_TRUE(writer.WriteImage(temp_file));

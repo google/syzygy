@@ -410,7 +410,8 @@ bool SetGuid(const GUID& guid, PdbFile* pdb_file) {
   return true;
 }
 
-bool ReadPdbHeader(const FilePath& pdb_path, PdbInfoHeader70* pdb_header) {
+bool ReadPdbHeader(const base::FilePath& pdb_path,
+                   PdbInfoHeader70* pdb_header) {
   DCHECK(!pdb_path.empty());
   DCHECK(pdb_header != NULL);
 
@@ -710,9 +711,9 @@ bool ReadStringTable(PdbStream* stream,
       string_table_version != kPdbNameTableVersion) {
     LOG(ERROR) << "Unexpected " << table_name << " header. Expected "
                << "signature/version "
-               << StringPrintf("0x%08X", kPdbNameTableSignature) << "/"
+               << base::StringPrintf("0x%08X", kPdbNameTableSignature) << "/"
                << kPdbNameTableVersion << ", read "
-               << StringPrintf("0x%08X", string_table_signature) << "/"
+               << base::StringPrintf("0x%08X", string_table_signature) << "/"
                << string_table_version << ".";
     return false;
   }

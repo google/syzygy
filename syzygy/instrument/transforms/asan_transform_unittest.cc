@@ -20,9 +20,9 @@
 #include <vector>
 
 #include "base/scoped_native_library.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/win/pe_image.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
@@ -161,7 +161,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
   // @}
 
  protected:
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
   AsanTransform asan_transform_;
   HookMap hooks_check_access_ref_;
   std::map<HookMapEntryKey, BlockGraph::Block*> hooks_check_access_;
@@ -605,7 +605,7 @@ bool GetAsanHooksIATEntries(const PEImage &image,
 }  // namespace
 
 TEST_F(AsanTransformTest, ImportsAreRedirected) {
-  FilePath asan_instrumented_dll = testing::GetExeTestDataRelativePath(
+  base::FilePath asan_instrumented_dll = testing::GetExeTestDataRelativePath(
       testing::kAsanInstrumentedTestDllName);
 
   // Load the transformed module without resolving its dependencies.
@@ -673,7 +673,7 @@ TEST_F(AsanTransformTest, ImportsAreRedirected) {
 }
 
 TEST_F(AsanTransformTest, AsanHooksAreStubbed) {
-  FilePath asan_instrumented_dll = testing::GetExeTestDataRelativePath(
+  base::FilePath asan_instrumented_dll = testing::GetExeTestDataRelativePath(
       testing::kAsanInstrumentedTestDllName);
 
   // Load the transformed module without resolving its dependencies.

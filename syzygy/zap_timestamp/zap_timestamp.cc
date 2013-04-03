@@ -37,8 +37,8 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/md5.h"
-#include "base/scoped_temp_dir.h"
 #include "base/stringprintf.h"
+#include "base/files/scoped_temp_dir.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_constants.h"
@@ -84,7 +84,7 @@ const char kUsageFormatStr[] =
     "  tracked down automatically.\n";
 
 void PrintUsage(FILE* out,
-                const FilePath& program,
+                const base::FilePath& program,
                 const base::StringPiece& message) {
   if (!message.empty()) {
     ::fwrite(message.data(), 1, message.length(), out);
@@ -303,7 +303,8 @@ bool Md5Consume(size_t bytes, FILE* file, base::MD5Context* context) {
   return true;
 }
 
-bool UpdateFileInPlace(const FilePath& path, const PatchAddressSpace& updates) {
+bool UpdateFileInPlace(const base::FilePath& path,
+                       const PatchAddressSpace& updates) {
   LOG(INFO) << "Patching file: " << path.value();
 
   file_util::ScopedFILE file(file_util::OpenFile(path, "rb+"));
@@ -367,7 +368,7 @@ scoped_refptr<PdbStream> GetWritablePdbStream(size_t index,
   return reader;
 }
 
-void OutputSummaryStats(FilePath& path) {
+void OutputSummaryStats(base::FilePath& path) {
   file_util::ScopedFILE file(file_util::OpenFile(path, "rb"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Unable to open file for reading: " << path.value();
@@ -515,14 +516,15 @@ ZapTimestamp::ZapTimestamp()
   pdb_age_data_ = 1;
 }
 
-bool ZapTimestamp::Init(const FilePath& pe_path) {
-  if (!Init(pe_path, FilePath()))
+bool ZapTimestamp::Init(const base::FilePath& pe_path) {
+  if (!Init(pe_path, base::FilePath()))
     return false;
 
   return true;
 }
 
-bool ZapTimestamp::Init(const FilePath& pe_path, const FilePath& pdb_path) {
+bool ZapTimestamp::Init(const base::FilePath& pe_path,
+                        const base::FilePath& pdb_path) {
   pe_path_ = pe_path;
   pdb_path_ = pdb_path;
 
@@ -890,8 +892,8 @@ bool ZapTimestamp::WritePdbFile() {
 
   // We create a temporary directory alongside the file to be modified so as
   // not to cross volume boundaries.
-  FilePath pdb_dir = pdb_path_.DirName();
-  ScopedTempDir temp_dir;
+  base::FilePath pdb_dir = pdb_path_.DirName();
+  base::ScopedTempDir temp_dir;
   if (!temp_dir.CreateUniqueTempDirUnderPath(pdb_dir)) {
     LOG(ERROR) << "Failed to create temporary directory in \""
                << pdb_dir.value() << "\".";
@@ -899,7 +901,7 @@ bool ZapTimestamp::WritePdbFile() {
   }
 
   // Generate the path to the rewritten PDB.
-  FilePath temp_path = temp_dir.path().Append(pdb_path_.BaseName());
+  base::FilePath temp_path = temp_dir.path().Append(pdb_path_.BaseName());
 
   PdbWriter pdb_writer;
   LOG(INFO) << "Creating temporary PDB file: " << temp_path.value();
@@ -934,7 +936,7 @@ bool ZapTimestampApp::ParseCommandLine(const CommandLine* command_line) {
   }
 
   for (size_t i = 0; i < args.size(); ++i) {
-    FilePath path(args[i]);
+    base::FilePath path(args[i]);
     input_modules_.push_back(path);
   }
 

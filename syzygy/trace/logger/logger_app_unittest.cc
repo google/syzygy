@@ -21,10 +21,10 @@
 #include "base/environment.h"
 #include "base/file_util.h"
 #include "base/process_util.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -73,7 +73,7 @@ class LoggerAppTest : public testing::ApplicationTestBase {
   typedef testing::ApplicationTestBase Super;
 
   LoggerAppTest()
-      : cmd_line_(FilePath(L"logger.exe")),
+      : cmd_line_(base::FilePath(L"logger.exe")),
         test_impl_(test_app_.implementation()) {
   }
 
@@ -111,17 +111,17 @@ class LoggerAppTest : public testing::ApplicationTestBase {
   // @{
   TestApp test_app_;
   TestApp::Implementation& test_impl_;
-  FilePath temp_dir_;
-  FilePath stdin_path_;
-  FilePath stdout_path_;
-  FilePath stderr_path_;
+  base::FilePath temp_dir_;
+  base::FilePath stdin_path_;
+  base::FilePath stdout_path_;
+  base::FilePath stderr_path_;
   // @}
 
   // @name Command-line and parameters.
   // @{
   CommandLine cmd_line_;
   std::wstring instance_id_;
-  FilePath output_file_path_;
+  base::FilePath output_file_path_;
   // @}
 };
 
@@ -151,7 +151,7 @@ TEST_F(LoggerAppTest, ParseBasicStart) {
 }
 
 TEST_F(LoggerAppTest, ParseStartWithCommand) {
-  const FilePath kFooExe(L"foo.exe");
+  const base::FilePath kFooExe(L"foo.exe");
   const std::wstring kSwitchName(L"switch");
   const std::wstring kSwitchValue(L"value");
   const std::wstring kDash(L"--");

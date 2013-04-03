@@ -17,8 +17,8 @@
 
 #include <vector>
 
-#include "base/file_path.h"
 #include "base/file_util.h"
+#include "base/files/file_path.h"
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_stream.h"
 
@@ -36,7 +36,7 @@ class PdbWriter {
   // @param pdb_path the path of the PDB file to write.
   // @param pdb_file the PDB file to be written.
   // @returns true on success, false otherwise.
-  bool Write(const FilePath& pdb_path, const PdbFile& pdb_file);
+  bool Write(const base::FilePath& pdb_path, const PdbFile& pdb_file);
 
  protected:
   // Append the contents of the stream onto the file handle at the offset. The

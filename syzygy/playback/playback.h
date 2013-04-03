@@ -43,7 +43,7 @@ class Playback {
   typedef block_graph::BlockGraph BlockGraph;
   typedef pe::ImageLayout ImageLayout;
   typedef pe::PEFile PEFile;
-  typedef std::vector<FilePath> TraceFileList;
+  typedef std::vector<base::FilePath> TraceFileList;
   typedef trace::parser::ModuleInformation ModuleInformation;
   typedef trace::parser::Parser Parser;
 
@@ -51,8 +51,8 @@ class Playback {
   // @param module_path The path of the module dll.
   // @param instrumented_path The path of the instrumented dll.
   // @param trace_files A list of the trace files to analyze.
-  Playback(const FilePath& module_path,
-           const FilePath& instrumented_path,
+  Playback(const base::FilePath& module_path,
+           const base::FilePath& instrumented_path,
            const TraceFileList& trace_files);
 
   ~Playback();
@@ -111,8 +111,8 @@ class Playback {
       PEFile::Signature* orig_signature);
 
   // The paths of the test module, instrumented module, and trace files.
-  FilePath module_path_;
-  FilePath instrumented_path_;
+  base::FilePath module_path_;
+  base::FilePath instrumented_path_;
   TraceFileList trace_files_;
 
   // This is a copy of the parser used to decompose the image, which needs

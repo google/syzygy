@@ -34,7 +34,8 @@ ParseEngineRpc::ParseEngineRpc() : ParseEngine("RPC", true) {
 ParseEngineRpc::~ParseEngineRpc() {
 }
 
-bool ParseEngineRpc::IsRecognizedTraceFile(const FilePath& trace_file_path) {
+bool ParseEngineRpc::IsRecognizedTraceFile(
+    const base::FilePath& trace_file_path) {
   file_util::ScopedFILE trace_file(file_util::OpenFile(trace_file_path, "rb"));
   if (!trace_file.get()) {
     DWORD error = ::GetLastError();
@@ -58,7 +59,7 @@ bool ParseEngineRpc::IsRecognizedTraceFile(const FilePath& trace_file_path) {
                        sizeof(signature));
 }
 
-bool ParseEngineRpc::OpenTraceFile(const FilePath& trace_file_path) {
+bool ParseEngineRpc::OpenTraceFile(const base::FilePath& trace_file_path) {
   trace_file_set_.push_back(trace_file_path);
   return true;
 }
@@ -80,7 +81,7 @@ bool ParseEngineRpc::ConsumeAllEvents() {
   return true;
 }
 
-bool ParseEngineRpc::ConsumeTraceFile(const FilePath& trace_file_path) {
+bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
   DCHECK(!trace_file_path.empty());
 
   LOG(INFO) << "Processing '" << trace_file_path.BaseName().value() << "'.";

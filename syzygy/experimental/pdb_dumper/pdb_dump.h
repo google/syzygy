@@ -18,7 +18,7 @@
 #include <utility>
 #include <vector>
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "syzygy/common/application.h"
 #include "syzygy/pdb/pdb_util.h"
 
@@ -59,7 +59,7 @@ class PdbDumpApp : public common::AppImplBase {
   void DumpDbiStream(const DbiStream& dbi_stream);
 
   // The PDB files to dump.
-  std::vector<FilePath> pdb_files_;
+  std::vector<base::FilePath> pdb_files_;
 
   // Iff true, will explode the streams from pdb_files_ to individual files.
   // Default fo false.

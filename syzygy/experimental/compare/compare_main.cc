@@ -19,10 +19,10 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/string_util.h"
 #include "base/time.h"
+#include "base/files/file_path.h"
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/serialization.h"
 #include "syzygy/experimental/compare/compare.h"
@@ -54,7 +54,7 @@ int Usage(char** argv, const char* message) {
 }
 
 // Loads a decomposed image from the given file_path.
-bool LoadDecomposition(const FilePath& file_path,
+bool LoadDecomposition(const base::FilePath& file_path,
                        pe::PEFile* pe_file,
                        BlockGraph* block_graph,
                        pe::ImageLayout* image_layout) {
@@ -179,8 +179,8 @@ int main(int argc, char** argv) {
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   DCHECK(cmd_line != NULL);
 
-  FilePath path_from = cmd_line->GetSwitchValuePath("from");
-  FilePath path_to = cmd_line->GetSwitchValuePath("to");
+  base::FilePath path_from = cmd_line->GetSwitchValuePath("from");
+  base::FilePath path_to = cmd_line->GetSwitchValuePath("to");
   if (path_from.empty() || path_to.empty())
     return Usage(argv, "Must specify '--from' and '--to' parameters!");
 

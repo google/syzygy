@@ -78,15 +78,15 @@ class FilterCompilerTest : public testing::PELibUnitTest {
   }
 
   // A temporary folder for holding filter files, etc.
-  FilePath temp_dir_;
+  base::FilePath temp_dir_;
 
   // A handful of paths.
-  FilePath test_dll_;
-  FilePath test_dll_pdb_;
-  FilePath dummy_dll_;
-  FilePath dummy_pdb_;
-  FilePath mismatched_test_dll_pdb_;
-  FilePath filter_txt_;
+  base::FilePath test_dll_;
+  base::FilePath test_dll_pdb_;
+  base::FilePath dummy_dll_;
+  base::FilePath dummy_pdb_;
+  base::FilePath mismatched_test_dll_pdb_;
+  base::FilePath filter_txt_;
 };
 
 }  // namespace
@@ -108,7 +108,7 @@ TEST_F(FilterCompilerTest, InitFailsInvalidPePath) {
   EXPECT_FALSE(fc1.Init(dummy_dll_));
 
   TestFilterCompiler fc2;
-  EXPECT_FALSE(fc2.Init(dummy_dll_, FilePath()));
+  EXPECT_FALSE(fc2.Init(dummy_dll_, base::FilePath()));
 }
 
 TEST_F(FilterCompilerTest, InitFailsInvalidPdbPath) {
@@ -139,7 +139,7 @@ TEST_F(FilterCompilerTest, InitSucceedsSearchForPdb) {
   EXPECT_SAME_FILE(test_dll_pdb_, fc1.pdb_path());
 
   TestFilterCompiler fc2;
-  EXPECT_TRUE(fc2.Init(test_dll_, FilePath()));
+  EXPECT_TRUE(fc2.Init(test_dll_, base::FilePath()));
   EXPECT_EQ(test_dll_, fc2.image_path());
   EXPECT_SAME_FILE(test_dll_pdb_, fc2.pdb_path());
 }

@@ -72,7 +72,7 @@ class ReorderAppTest : public testing::PELibUnitTest {
   typedef testing::PELibUnitTest Super;
 
   ReorderAppTest()
-      : cmd_line_(FilePath(L"reorder.exe")),
+      : cmd_line_(base::FilePath(L"reorder.exe")),
         test_impl_(test_app_.implementation()),
         seed_(1234567) {
   }
@@ -128,31 +128,31 @@ class ReorderAppTest : public testing::PELibUnitTest {
   // @{
   TestApp test_app_;
   TestApp::Implementation& test_impl_;
-  FilePath temp_dir_;
-  FilePath stdin_path_;
-  FilePath stdout_path_;
-  FilePath stderr_path_;
+  base::FilePath temp_dir_;
+  base::FilePath stdin_path_;
+  base::FilePath stdout_path_;
+  base::FilePath stderr_path_;
   // @}
 
   // @name Command-line and parameters.
   // @{
   CommandLine cmd_line_;
-  FilePath instrumented_image_path_;
-  FilePath input_image_path_;
-  FilePath output_file_path_;
-  FilePath bb_entry_count_file_path_;
-  FilePath trace_file_path_;
+  base::FilePath instrumented_image_path_;
+  base::FilePath input_image_path_;
+  base::FilePath output_file_path_;
+  base::FilePath bb_entry_count_file_path_;
+  base::FilePath trace_file_path_;
   uint32 seed_;
   bool pretty_print_;
   // @}
 
   // @name Expected final values of input parameters.
   // @{
-  FilePath abs_input_image_path_;
-  FilePath abs_instrumented_image_path_;
-  FilePath abs_output_file_path_;
-  FilePath abs_bb_entry_count_file_path_;
-  FilePath abs_trace_file_path_;
+  base::FilePath abs_input_image_path_;
+  base::FilePath abs_instrumented_image_path_;
+  base::FilePath abs_output_file_path_;
+  base::FilePath abs_bb_entry_count_file_path_;
+  base::FilePath abs_trace_file_path_;
   // @}
 };
 

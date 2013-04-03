@@ -90,7 +90,7 @@ TEST(OmapTest, ReadOmapsFromPdbFile) {
 
   // We expect this to be false, as the original test_dll has no OMAP
   // information in it.
-  FilePath pdb_path = testing::GetSrcRelativePath(
+  base::FilePath pdb_path = testing::GetSrcRelativePath(
       testing::kTestDllFilePath);
   EXPECT_FALSE(ReadOmapsFromPdbFile(pdb_path, NULL, NULL));
 

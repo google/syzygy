@@ -75,8 +75,8 @@ class FilterCompiler {
 
   // @name Accessors.
   // @{
-  const FilePath& image_path() const { return image_path_; }
-  const FilePath& pdb_path() const { return pdb_path_; }
+  const base::FilePath& image_path() const { return image_path_; }
+  const base::FilePath& pdb_path() const { return pdb_path_; }
   // @}
 
   // Initializes this filter generator. Logs verbosely on failure.
@@ -86,8 +86,8 @@ class FilterCompiler {
   //     will be searched for.
   // @returns true on success, false otherwise.
   // @note Init must be called before calling any other member functions.
-  bool Init(const FilePath& image_path);
-  bool Init(const FilePath& image_path, const FilePath& pdb_path);
+  bool Init(const base::FilePath& image_path);
+  bool Init(const base::FilePath& image_path, const base::FilePath& pdb_path);
 
   // Adds a rule to this filter compiler.
   // @param modification_type The way the filter is modifed upon successful
@@ -104,7 +104,7 @@ class FilterCompiler {
   // Logs verbosely on failure.
   // @param path The path of the filter description file to parse.
   // @returns true on success, false otherwise.
-  bool ParseFilterDescriptionFile(const FilePath& path);
+  bool ParseFilterDescriptionFile(const base::FilePath& path);
 
   // Compiles a filter using the current rules. This logs a warning for any
   // filter rules that were not successfully matched.
@@ -156,8 +156,8 @@ class FilterCompiler {
   // @param symbol The symbol to inspect.
   bool MatchRulesBySymbolName(const RulePointers& rules, IDiaSymbol* symbol);
 
-  FilePath image_path_;
-  FilePath pdb_path_;
+  base::FilePath image_path_;
+  base::FilePath pdb_path_;
   pe::PEFile::Signature image_signature_;
 
   // Stores the filter lines in a map, keyed by their index. We use a map so

@@ -18,8 +18,8 @@
 
 #include <vector>
 
-#include "base/scoped_temp_dir.h"
 #include "base/string_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"

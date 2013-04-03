@@ -27,7 +27,7 @@
       'working_directory': '$(ConfigurationDir)',
       'action': [
         '$(TargetPath)',
-        '$(OutputPath)test_dll.pdb',
+        '$(OutputPath)test_dll.dll.pdb',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',

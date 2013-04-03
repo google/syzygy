@@ -62,7 +62,7 @@ bool PdbFindApp::ParseCommandLine(const CommandLine* cmd_line) {
   if (args.size() > 1)
     return Usage(cmd_line, "Can specify only one input-image-path.");
 
-  input_image_path_ = FilePath(args[0]);
+  input_image_path_ = base::FilePath(args[0]);
 
   return true;
 }
@@ -85,7 +85,7 @@ int PdbFindApp::Run() {
     return kMissingOrMalformedCodeViewRecord;
 
   // Look for the matching PDB.
-  FilePath pdb_path;
+  base::FilePath pdb_path;
   if (!pe::FindPdbForModule(input_image_path_, &pdb_path)) {
     LOG(ERROR) << "Error searching for PDB file.";
     return kError;

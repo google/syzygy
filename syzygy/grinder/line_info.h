@@ -18,7 +18,7 @@
 #ifndef SYZYGY_GRINDER_LINE_INFO_H_
 #define SYZYGY_GRINDER_LINE_INFO_H_
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
 
@@ -46,7 +46,7 @@ class LineInfo {
   // Initializes this LineInfo object with data read from the provided PDB.
   // @param pdb_path the PDB whose line information is to be read.
   // @returns true on success, false otherwise.
-  bool Init(const FilePath& pdb_path);
+  bool Init(const base::FilePath& pdb_path);
 
   // Visits the given address range. A partial visit of the code associated
   // with a line is considered as a visit of that line.

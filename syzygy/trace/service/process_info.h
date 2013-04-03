@@ -23,7 +23,7 @@
 #include <string>
 
 #include "base/basictypes.h"
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "base/win/scoped_handle.h"
 
 namespace trace {
@@ -70,7 +70,7 @@ struct ProcessInfo {
   uint32 process_id;
 
   // The full path to the executable for the process.
-  FilePath executable_path;
+  base::FilePath executable_path;
 
   // The command line for the process.
   std::wstring command_line;

@@ -17,8 +17,8 @@
 #include "base/command_line.h"
 #include "base/file_util.h"
 #include "base/process_util.h"
-#include "base/scoped_temp_dir.h"
 #include "base/utf_string_conversions.h"
+#include "base/files/scoped_temp_dir.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -27,6 +27,7 @@
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pdb/unittest_util.h"
+#include "syzygy/pe/unittest_util.h"
 
 namespace pdb {
 
@@ -56,7 +57,7 @@ class TestPdbWriter : public PdbWriter {
   using PdbWriter::AppendStream;
   using PdbWriter::WriteHeader;
 
-  FilePath path_;
+  base::FilePath path_;
 };
 
 class TestPdbStream : public PdbStream {
@@ -230,7 +231,7 @@ TEST(PdbWriterTest, WritePdbFile) {
 }
 
 TEST(PdbWriterTest, PdbStrCompatible) {
-  FilePath test_dll_pdb =
+  base::FilePath test_dll_pdb =
       testing::GetSrcRelativePath(testing::kTestPdbFilePath);
 
   PdbFile file;
@@ -248,14 +249,14 @@ TEST(PdbWriterTest, PdbStrCompatible) {
   }
 
   // Write the Syzygy modified PDB to disk.
-  ScopedTempDir temp_dir;
+  base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
-  FilePath pdb_path = temp_dir.path().AppendASCII("test_dll.pdb");
+  base::FilePath pdb_path = temp_dir.path().Append(testing::kTestDllPdbName);
   PdbWriter writer;
   ASSERT_TRUE(writer.Write(pdb_path, file));
 
   // Write a new stream to disk.
-  FilePath stream_path = temp_dir.path().AppendASCII("new_stream.dat");
+  base::FilePath stream_path = temp_dir.path().AppendASCII("new_stream.dat");
   scoped_refptr<TestPdbStream> new_stream(
       new TestPdbStream(1024 * 1024, 0xff));
   {
@@ -270,7 +271,8 @@ TEST(PdbWriterTest, PdbStrCompatible) {
   }
 
   // Get the path to pdbstr.exe, which we redistribute in third_party.
-  FilePath pdbstr_path = testing::GetSrcRelativePath(testing::kPdbStrPath);
+  base::FilePath pdbstr_path =
+      testing::GetSrcRelativePath(testing::kPdbStrPath);
 
   // Create the arguments to pdbstr.
   std::string pdb_arg = ::WideToUTF8(pdb_path.value());

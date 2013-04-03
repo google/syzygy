@@ -17,8 +17,8 @@
 #include <string>
 #include <utility>
 
-#include "base/file_path.h"
 #include "base/stringprintf.h"
+#include "base/files/file_path.h"
 #include "base/json/json_reader.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/core/json_file_writer.h"
@@ -192,7 +192,7 @@ bool BasicBlockEntryCountSerializer::SaveAsJson(
 }
 
 bool BasicBlockEntryCountSerializer::SaveAsJson(
-    const ModuleEntryCountMap& entry_count_map, const FilePath& path) {
+    const ModuleEntryCountMap& entry_count_map, const base::FilePath& path) {
   DCHECK(!path.empty());
   file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
   if (file.get() == NULL) {
@@ -209,7 +209,7 @@ bool BasicBlockEntryCountSerializer::SaveAsJson(
 }
 
 bool BasicBlockEntryCountSerializer::LoadFromJson(
-    const FilePath& path, ModuleEntryCountMap* module_entry_count_map) {
+    const base::FilePath& path, ModuleEntryCountMap* module_entry_count_map) {
   DCHECK(module_entry_count_map != NULL);
   DCHECK(!path.empty());
 

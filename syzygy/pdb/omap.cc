@@ -93,7 +93,7 @@ bool ReadOmapsFromPdbFile(const PdbFile& pdb_file,
   return true;
 }
 
-bool ReadOmapsFromPdbFile(const FilePath& pdb_path,
+bool ReadOmapsFromPdbFile(const base::FilePath& pdb_path,
                           std::vector<OMAP>* omap_to,
                           std::vector<OMAP>* omap_from) {
   PdbReader pdb_reader;

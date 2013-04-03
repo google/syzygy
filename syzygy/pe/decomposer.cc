@@ -18,12 +18,12 @@
 #include <algorithm>
 
 #include "base/bind.h"
-#include "base/file_path.h"
 #include "base/logging.h"
 #include "base/path_service.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
+#include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
@@ -1448,7 +1448,7 @@ bool Decomposer::CreateGapBlock(BlockGraph::BlockType block_type,
                                 RelativeAddress address,
                                 BlockGraph::Size size) {
   BlockGraph::Block* block = FindOrCreateBlock(block_type, address, size,
-      StringPrintf("Gap Block 0x%08X", address.value()).c_str(),
+      base::StringPrintf("Gap Block 0x%08X", address.value()).c_str(),
       kExpectNoBlock);
   if (block == NULL) {
     LOG(ERROR) << "Unable to create gap block.";
@@ -1990,8 +1990,8 @@ bool Decomposer::ProcessStaticInitializers() {
     // Merge the initializers.
     DataSpace::Range range(begin_addr, end_addr - begin_addr);
     BlockGraph::Block* merged = image_->MergeIntersectingBlocks(range);
-    std::string name = StringPrintf("Bracketed Initializers: %s",
-                                    init_it->first.c_str());
+    std::string name = base::StringPrintf("Bracketed Initializers: %s",
+                                          init_it->first.c_str());
     merged->set_name(name);
     merged->set_attribute(BlockGraph::COFF_GROUP);
     DCHECK(merged != NULL);
@@ -2816,7 +2816,7 @@ bool Decomposer::OmapAndValidateFixups(const std::vector<OMAP>& omap_from,
   for (size_t i = 0; i < pdb_fixups.size(); ++i) {
     if (!pdb_fixups[i].ValidHeader()) {
       LOG(ERROR) << "Unknown fixup header: "
-                 << StringPrintf("0x%08X.", pdb_fixups[i].header);
+                 << base::StringPrintf("0x%08X.", pdb_fixups[i].header);
       return false;
     }
 
@@ -2953,7 +2953,7 @@ bool Decomposer::LoadBlockGraphFromPdbStream(const PEFile& image_file,
   return true;
 }
 
-bool Decomposer::LoadBlockGraphFromPdb(const FilePath& pdb_path,
+bool Decomposer::LoadBlockGraphFromPdb(const base::FilePath& pdb_path,
                                        const PEFile& image_file,
                                        ImageLayout* image_layout,
                                        bool* stream_exists) {

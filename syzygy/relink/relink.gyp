@@ -46,9 +46,9 @@
         'action': [
           '$(TargetPath)',
           '--input-image=$(OutDir)\\test_dll.dll',
-          '--input-pdb=$(OutDir)\\test_dll.pdb',
+          '--input-pdb=$(OutDir)\\test_dll.dll.pdb',
           '--output-image=$(OutDir)\\randomized_test_dll.dll',
-          '--output-pdb=$(OutDir)\\randomized_test_dll.pdb',
+          '--output-pdb=$(OutDir)\\randomized_test_dll.dll.pdb',
         ]
       },
     },

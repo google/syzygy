@@ -14,7 +14,7 @@
 
 #include "syzygy/pe/new_decomposer.h"
 
-#include "base/string_split.h"
+#include "base/strings/string_split.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/block_graph_serializer.h"
 #include "syzygy/block_graph/typed_block.h"
@@ -60,14 +60,15 @@ class NewDecomposerTest : public testing::PELibUnitTest {
     ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir_));
   }
 
-  FilePath temp_dir_;
+  base::FilePath temp_dir_;
 };
 
 }  // namespace
 
 TEST_F(NewDecomposerTest, MutatorsAndAccessors) {
-  FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
-  FilePath pdb_path(testing::GetExeRelativePath(testing::kTestDllPdbName));
+  base::FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
+  base::FilePath pdb_path(
+      testing::GetExeRelativePath(testing::kTestDllPdbName));
 
   PEFile image_file;
   ASSERT_TRUE(image_file.Init(image_path));
@@ -84,7 +85,7 @@ TEST_F(NewDecomposerTest, MutatorsAndAccessors) {
 }
 
 TEST_F(NewDecomposerTest, Decompose) {
-  FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
+  base::FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));
@@ -253,7 +254,7 @@ TEST_F(NewDecomposerTest, Decompose) {
 }
 
 TEST_F(NewDecomposerTest, DecomposeFailsWithNonexistentPdb) {
-  FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
+  base::FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));
@@ -267,7 +268,7 @@ TEST_F(NewDecomposerTest, DecomposeFailsWithNonexistentPdb) {
 }
 
 TEST_F(NewDecomposerTest, LabelsAndAttributes) {
-  FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
+  base::FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));
@@ -465,8 +466,8 @@ class NewDecomposerAfterRelinkTest : public NewDecomposerTest {
   }
 
   PERelinker relinker_;
-  FilePath relinked_dll_;
-  FilePath relinked_pdb_;
+  base::FilePath relinked_dll_;
+  base::FilePath relinked_pdb_;
 };
 
 }  // namespace

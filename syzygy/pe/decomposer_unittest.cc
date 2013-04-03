@@ -67,13 +67,13 @@ class DecomposerTest : public testing::PELibUnitTest {
     ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir_));
   }
 
-  FilePath temp_dir_;
+  base::FilePath temp_dir_;
 };
 
 }  // namespace
 
 TEST_F(DecomposerTest, Decompose) {
-  FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
+  base::FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));
@@ -204,7 +204,7 @@ TEST_F(DecomposerTest, Decompose) {
 }
 
 TEST_F(DecomposerTest, DecomposeFailsWithNonexistentPdb) {
-  FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
+  base::FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));
@@ -218,7 +218,7 @@ TEST_F(DecomposerTest, DecomposeFailsWithNonexistentPdb) {
 }
 
 TEST_F(DecomposerTest, LabelsAndAttributes) {
-  FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
+  base::FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));
@@ -392,8 +392,8 @@ class DecomposerAfterRelinkTest : public DecomposerTest {
   }
 
   PERelinker relinker_;
-  FilePath relinked_dll_;
-  FilePath relinked_pdb_;
+  base::FilePath relinked_dll_;
+  base::FilePath relinked_pdb_;
 };
 
 }  // namespace

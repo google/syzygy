@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "sawbuck/sym_util/types.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
@@ -68,10 +68,10 @@ class PEFile {
   PEFile();
   ~PEFile();
 
-  const FilePath& path() const { return path_; }
+  const base::FilePath& path() const { return path_; }
 
   // Read in the image file at path.
-  bool Init(const FilePath& path);
+  bool Init(const base::FilePath& path);
 
   // Populates a signature object with the signature of this PE file. This
   // is only valid if called after Init.
@@ -166,7 +166,7 @@ class PEFile {
   bool ReadHeaders(FILE* file);
   bool ReadSections(FILE* file);
 
-  FilePath path_;
+  base::FilePath path_;
   const IMAGE_DOS_HEADER* dos_header_;
   const IMAGE_NT_HEADERS* nt_headers_;
   const IMAGE_SECTION_HEADER* section_headers_;

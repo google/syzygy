@@ -64,11 +64,11 @@ class PERelinkerTest : public testing::PELibUnitTest {
     temp_pdb_ = temp_dir_.Append(testing::kTestDllPdbName);
   }
 
-  FilePath input_dll_;
-  FilePath input_pdb_;
-  FilePath temp_dir_;
-  FilePath temp_dll_;
-  FilePath temp_pdb_;
+  base::FilePath input_dll_;
+  base::FilePath input_pdb_;
+  base::FilePath temp_dir_;
+  base::FilePath temp_dll_;
+  base::FilePath temp_pdb_;
 };
 
 class MockTransform : public BlockGraphTransformInterface {
@@ -93,21 +93,21 @@ class MockPdbMutator : public PdbMutatorInterface {
 
 TEST_F(PERelinkerTest, Properties) {
   TestPERelinker relinker;
-  FilePath dummy_path(L"foo");
+  base::FilePath dummy_path(L"foo");
 
-  EXPECT_EQ(FilePath(), relinker.input_path());
+  EXPECT_EQ(base::FilePath(), relinker.input_path());
   relinker.set_input_path(dummy_path);
   EXPECT_EQ(dummy_path, relinker.input_path());
 
-  EXPECT_EQ(FilePath(), relinker.input_pdb_path());
+  EXPECT_EQ(base::FilePath(), relinker.input_pdb_path());
   relinker.set_input_pdb_path(dummy_path);
   EXPECT_EQ(dummy_path, relinker.input_pdb_path());
 
-  EXPECT_EQ(FilePath(), relinker.output_path());
+  EXPECT_EQ(base::FilePath(), relinker.output_path());
   relinker.set_output_path(dummy_path);
   EXPECT_EQ(dummy_path, relinker.output_path());
 
-  EXPECT_EQ(FilePath(), relinker.output_pdb_path());
+  EXPECT_EQ(base::FilePath(), relinker.output_pdb_path());
   relinker.set_output_pdb_path(dummy_path);
   EXPECT_EQ(dummy_path, relinker.output_pdb_path());
 
@@ -368,7 +368,7 @@ TEST_F(PERelinkerTest, IdentityRelink) {
   ASSERT_TRUE(pdb_info.Init(relinker.output_path()));
   EXPECT_EQ(pdb_info.pdb_file_name(), relinker.output_pdb_path());
 
-  FilePath pdb_path;
+  base::FilePath pdb_path;
   ASSERT_TRUE(FindPdbForModule(relinker.output_path(), &pdb_path));
   EXPECT_EQ(pdb_path, relinker.output_pdb_path());
 }
@@ -415,7 +415,7 @@ TEST_F(PERelinkerTest, IdentityRelinkNewDecomposer) {
   ASSERT_TRUE(pdb_info.Init(relinker.output_path()));
   EXPECT_EQ(pdb_info.pdb_file_name(), relinker.output_pdb_path());
 
-  FilePath pdb_path;
+  base::FilePath pdb_path;
   ASSERT_TRUE(FindPdbForModule(relinker.output_path(), &pdb_path));
   EXPECT_EQ(pdb_path, relinker.output_pdb_path());
 }

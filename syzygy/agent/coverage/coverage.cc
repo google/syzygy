@@ -18,7 +18,6 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/environment.h"
-#include "base/file_path.h"
 #include "base/lazy_instance.h"
 #include "base/utf_string_conversions.h"
 #include "base/memory/scoped_ptr.h"

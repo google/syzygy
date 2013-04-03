@@ -23,8 +23,8 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/string_number_conversions.h"
-#include "base/string_split.h"
 #include "base/utf_string_conversions.h"
+#include "base/strings/string_split.h"
 #include "base/win/pe_image.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/common/path_util.h"
@@ -51,7 +51,7 @@ namespace {
 // found @p value is left unmodified.
 template<typename ReturnType, typename ConversionFunctor>
 bool GetModuleValueFromEnvVar(const char* env_var_name,
-                              const FilePath& module_path,
+                              const base::FilePath& module_path,
                               const ReturnType& default_value,
                               const ConversionFunctor& convert,
                               ReturnType* value) {
@@ -67,9 +67,9 @@ bool GetModuleValueFromEnvVar(const char* env_var_name,
 
   // Get the absolute path and the basename of the module. We will use these
   // for matching.
-  FilePath abs_module_path(module_path);
+  base::FilePath abs_module_path(module_path);
   CHECK(file_util::AbsolutePath(&abs_module_path));
-  FilePath base_module_path = module_path.BaseName();
+  base::FilePath base_module_path = module_path.BaseName();
 
   std::vector<std::string> pairs;
   base::SplitString(env_var, ';', &pairs);
@@ -96,7 +96,7 @@ bool GetModuleValueFromEnvVar(const char* env_var_name,
       // This is a default value specified without a path.
       score = 1;
     } else if (path_value.size() == 2) {
-      FilePath path(UTF8ToWide(path_value[0]));
+      base::FilePath path(UTF8ToWide(path_value[0]));
 
       // Ignore improperly formatted paths.
       if (path.empty())
@@ -284,7 +284,7 @@ bool GetModuleBaseAddress(void* address_in_module, void** module_base) {
   return true;
 }
 
-bool GetModulePath(void* module_base, FilePath* module_path) {
+bool GetModulePath(void* module_base, base::FilePath* module_path) {
   DCHECK(module_base != NULL);
   DCHECK(module_path != NULL);
 
@@ -298,14 +298,14 @@ bool GetModulePath(void* module_base, FilePath* module_path) {
     return false;
   }
 
-  FilePath device_path(buffer);
+  base::FilePath device_path(buffer);
   if (!common::ConvertDevicePathToDrivePath(device_path, module_path))
     return false;
 
   return true;
 }
 
-std::string GetInstanceIdForModule(const FilePath& module_path) {
+std::string GetInstanceIdForModule(const base::FilePath& module_path) {
   std::string id;
   // We don't care if the search is successful or not.
   GetModuleValueFromEnvVar(::kSyzygyRpcInstanceIdEnvVar, module_path,
@@ -314,7 +314,7 @@ std::string GetInstanceIdForModule(const FilePath& module_path) {
 }
 
 std::string GetInstanceIdForThisModule() {
-  FilePath module_path;
+  base::FilePath module_path;
   CHECK(GetModulePath(&__ImageBase, &module_path));
 
   std::string instance_id = GetInstanceIdForModule(module_path);
@@ -322,7 +322,7 @@ std::string GetInstanceIdForThisModule() {
   return instance_id;
 }
 
-bool IsRpcSessionMandatory(const FilePath& module_path) {
+bool IsRpcSessionMandatory(const base::FilePath& module_path) {
   int value = 0;
   if (!GetModuleValueFromEnvVar(kSyzygyRpcSessionMandatoryEnvVar, module_path,
                                 value, ToInt(), &value)) {
@@ -337,7 +337,7 @@ bool IsRpcSessionMandatory(const FilePath& module_path) {
 }
 
 bool IsRpcSessionMandatoryForThisModule() {
-  FilePath module_path;
+  base::FilePath module_path;
   CHECK(GetModulePath(&__ImageBase, &module_path));
 
   if (IsRpcSessionMandatory(module_path))
@@ -367,7 +367,7 @@ bool InitializeRpcSession(RpcSession* rpc_session, TraceFileSegment* segment) {
   LOG(ERROR) << "RPC session is mandatory, but unable to be created.";
 
   // Dump some context regarding the decision to abort.
-  FilePath module_path;
+  base::FilePath module_path;
   if (GetModulePath(&__ImageBase, &module_path))
     LOG(ERROR) << "Module path: " << module_path.value();
 

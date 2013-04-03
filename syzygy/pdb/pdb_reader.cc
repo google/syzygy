@@ -48,7 +48,7 @@ uint32 GetNumPages(const PdbHeader& header, uint32 num_bytes) {
 
 }  // namespace
 
-bool PdbReader::Read(const FilePath& pdb_path, PdbFile* pdb_file) {
+bool PdbReader::Read(const base::FilePath& pdb_path, PdbFile* pdb_file) {
   DCHECK(pdb_file != NULL);
 
   pdb_file->Clear();

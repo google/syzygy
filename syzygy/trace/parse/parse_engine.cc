@@ -104,8 +104,8 @@ bool ParseEngine::AddModuleInformation(DWORD process_id,
       module_info.image_checksum == iter->second.image_checksum &&
       module_info.module_size == iter->second.module_size &&
       module_info.time_date_stamp == iter->second.time_date_stamp) {
-    FilePath path1(module_info.image_file_name);
-    FilePath path2(iter->second.image_file_name);
+    base::FilePath path1(module_info.image_file_name);
+    base::FilePath path2(iter->second.image_file_name);
     if (path1.BaseName() == path2.BaseName()) {
       return true;
     }

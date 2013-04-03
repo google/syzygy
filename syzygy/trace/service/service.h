@@ -21,9 +21,9 @@
 #include <map>
 
 #include "base/basictypes.h"
-#include "base/file_path.h"
 #include "base/process.h"
 #include "base/string_piece.h"
+#include "base/files/file_path.h"
 #include "base/memory/ref_counted.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/threading/platform_thread.h"

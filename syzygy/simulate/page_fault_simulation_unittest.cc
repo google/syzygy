@@ -14,8 +14,8 @@
 
 #include "syzygy/simulate/page_fault_simulation.h"
 
-#include "base/scoped_temp_dir.h"
 #include "base/values.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/json/json_reader.h"
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/random_number_generator.h"
@@ -243,7 +243,7 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
  protected:
   scoped_ptr<PageFaultSimulation> simulation_;
 
-  FilePath temp_dir_;
+  base::FilePath temp_dir_;
   MockBlockInfo blocks_[4];
   core::RandomNumberGenerator random_;
   const base::Time time_;
@@ -361,7 +361,7 @@ TEST_F(PageFaultSimulatorTest, JSONSucceeds) {
   }
 
   // Output JSON data to a file.
-  FilePath path;
+  base::FilePath path;
   file_util::ScopedFILE temp_file;
   temp_file.reset(file_util::CreateAndOpenTemporaryFileInDir(
       temp_dir_, &path));

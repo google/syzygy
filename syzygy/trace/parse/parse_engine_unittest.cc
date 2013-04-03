@@ -51,11 +51,11 @@ class ParseEngineUnitTest
   ~ParseEngineUnitTest() {
   }
 
-  bool IsRecognizedTraceFile(const FilePath& trace_file_path) OVERRIDE {
+  bool IsRecognizedTraceFile(const base::FilePath& trace_file_path) OVERRIDE {
     return true;
   }
 
-  bool OpenTraceFile(const FilePath& trace_file_path) OVERRIDE {
+  bool OpenTraceFile(const base::FilePath& trace_file_path) OVERRIDE {
     return true;
   }
 

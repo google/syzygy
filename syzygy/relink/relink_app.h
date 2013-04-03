@@ -18,9 +18,9 @@
 #define SYZYGY_RELINK_RELINK_APP_H_
 
 #include "base/command_line.h"
-#include "base/file_path.h"
 #include "base/string_piece.h"
 #include "base/time.h"
+#include "base/files/file_path.h"
 #include "syzygy/common/application.h"
 
 namespace relink {
@@ -57,11 +57,11 @@ class RelinkApp : public common::AppImplBase {
 
   // @name Command-line parameters.
   // @{
-  FilePath input_image_path_;
-  FilePath input_pdb_path_;
-  FilePath output_image_path_;
-  FilePath output_pdb_path_;
-  FilePath order_file_path_;
+  base::FilePath input_image_path_;
+  base::FilePath input_pdb_path_;
+  base::FilePath output_image_path_;
+  base::FilePath output_pdb_path_;
+  base::FilePath order_file_path_;
   uint32 seed_;
   size_t padding_;
   bool no_augment_pdb_;

@@ -111,7 +111,7 @@ PEFileWriter::PEFileWriter(const ImageLayout& image_layout)
     : image_layout_(image_layout), nt_headers_(NULL) {
 }
 
-bool PEFileWriter::WriteImage(const FilePath& path) {
+bool PEFileWriter::WriteImage(const base::FilePath& path) {
   // Start by attempting to open the destination file.
   file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
   if (file.get() == NULL) {
@@ -139,7 +139,7 @@ bool PEFileWriter::WriteImage(const FilePath& path) {
   return success;
 }
 
-bool PEFileWriter::UpdateFileChecksum(const FilePath& path) {
+bool PEFileWriter::UpdateFileChecksum(const base::FilePath& path) {
   // Open the image file for exclusive write.
   base::win::ScopedHandle image_handle(
       ::CreateFile(path.value().c_str(), GENERIC_READ | GENERIC_WRITE, 0,

@@ -16,9 +16,9 @@
 
 #include "pcrecpp.h"  // NOLINT
 #include "base/bind.h"
-#include "base/string_split.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
+#include "base/strings/string_split.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
 #include "syzygy/core/disassembler_util.h"
@@ -170,7 +170,7 @@ bool InRangeIncl(T1 value, T2 lower_bound_incl, T3 length_incl) {
 }
 
 bool InitializeDia(const PEFile& image_file,
-                   const FilePath& pdb_path,
+                   const base::FilePath& pdb_path,
                    IDiaDataSource** dia_source,
                    IDiaSession** dia_session,
                    IDiaSymbol** global) {
@@ -501,7 +501,7 @@ bool CreateReferencesFromFixupsImpl(
   for (size_t i = 0; i < pdb_fixups.size(); ++i) {
     if (!pdb_fixups[i].ValidHeader()) {
       LOG(ERROR) << "Unknown fixup header: "
-                 << StringPrintf("0x%08X.", pdb_fixups[i].header);
+                 << base::StringPrintf("0x%08X.", pdb_fixups[i].header);
       return false;
     }
 
@@ -1243,7 +1243,7 @@ bool NewDecomposer::LoadBlockGraphFromPdbStream(
   return true;
 }
 
-bool NewDecomposer::LoadBlockGraphFromPdb(const FilePath& pdb_path,
+bool NewDecomposer::LoadBlockGraphFromPdb(const base::FilePath& pdb_path,
                                           const PEFile& image_file,
                                           ImageLayout* image_layout,
                                           bool* stream_exists) {
@@ -2258,7 +2258,7 @@ bool NewDecomposer::CreateGapBlock(BlockType block_type,
                                    RelativeAddress address,
                                    BlockGraph::Size size) {
   Block* block = CreateBlock(block_type, address, size,
-      StringPrintf("Gap Block 0x%08X", address.value()).c_str());
+      base::StringPrintf("Gap Block 0x%08X", address.value()).c_str());
   if (block == NULL) {
     LOG(ERROR) << "Unable to create gap block.";
     return false;

@@ -19,9 +19,9 @@
 #include "base/environment.h"
 #include "base/logging.h"
 #include "base/string_number_conversions.h"
-#include "base/string_tokenizer.h"
 #include "base/sys_string_conversions.h"
 #include "base/utf_string_conversions.h"
+#include "base/strings/string_tokenizer.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/trace/client/client_utils.h"
@@ -77,10 +77,10 @@ bool ReadIgnoredStackIdsFromCommandLine(const CommandLine& cmd_line,
   if (!cmd_line.HasSwitch(param_name))
     return true;
   std::string value_str = cmd_line.GetSwitchValueASCII(param_name);
-  StringTokenizer string_tokenizer(value_str, ";");
+  base::StringTokenizer string_tokenizer(value_str, ";");
   while (string_tokenizer.GetNext()) {
-    int new_value = 0;
-    if (!base::HexStringToInt(string_tokenizer.token(), &new_value))
+    int64 new_value = 0;
+    if (!base::HexStringToInt64(string_tokenizer.token(), &new_value))
       return false;
     values->insert(static_cast<StackCapture::StackId>(new_value));
   }

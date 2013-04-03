@@ -19,12 +19,12 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/environment.h"
-#include "base/file_path.h"
 #include "base/file_util.h"
-#include "base/scoped_temp_dir.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
+#include "base/files/file_path.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -58,8 +58,8 @@ class AsanLoggerTest : public testing::Test {
   MOCK_METHOD1(LoggerStoppedCallback, bool(trace::logger::Logger*));
 
  protected:
-  ScopedTempDir temp_dir_;
-  FilePath temp_path_;
+  base::ScopedTempDir temp_dir_;
+  base::FilePath temp_path_;
   std::wstring instance_id_;
   TestAsanLogger client_;
 };

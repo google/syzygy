@@ -110,8 +110,8 @@ bool LogModule(HMODULE module,
     LOG(ERROR) << "Failed to get module name: " << com::LogWe(error) << ".";
     return false;
   }
-  FilePath device_path(module_name);
-  FilePath drive_path;
+  base::FilePath device_path(module_name);
+  base::FilePath drive_path;
   if (!::common::ConvertDevicePathToDrivePath(device_path, &drive_path)) {
     LOG(ERROR) << "ConvertDevicePathToDrivePath failed.";
     return false;

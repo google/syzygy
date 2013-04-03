@@ -20,10 +20,10 @@
 
 #include "base/basictypes.h"
 #include "base/command_line.h"
-#include "base/file_path.h"
 #include "base/string_piece.h"
 #include "base/string_util.h"
 #include "base/time.h"
+#include "base/files/file_path.h"
 #include "syzygy/common/application.h"
 
 namespace trace {
@@ -141,7 +141,7 @@ class LoggerApp : public common::AppImplBase {
   std::wstring instance_id_;
   std::wstring action_;
   ActionHandler action_handler_;
-  FilePath output_file_path_;
+  base::FilePath output_file_path_;
   bool append_;
   // @}
 

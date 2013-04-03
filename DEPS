@@ -16,11 +16,11 @@
 # this build configuration.
 
 vars = {
-  "chrome_revision": "164339",
-  "gmock_revision": "405",
-  "gtest_revision": "621",
-  "googleurl_revision": "180",
-  "gyp_revision": "1523",
+  "chrome_revision": "191158",
+  "gmock_revision": "410",
+  "gtest_revision": "629",
+  "googleurl_revision": "183",
+  "gyp_revision": "1603",
 
   "chrome_base": "http://src.chromium.org/svn/trunk",
 }
@@ -85,7 +85,7 @@ deps = {
     Var("chrome_base") + "/src/build@" + Var("chrome_revision"),
   "src/tools/win":
     Var("chrome_base") + "/src/tools/win@" + Var("chrome_revision"),
-    
+
   "src/testing":
     Var("chrome_base") + "/src/testing@" + Var("chrome_revision"),
   "src/testing/gmock":
@@ -98,7 +98,7 @@ deps = {
 
   "src/tools/code_coverage":
     Var("chrome_base") + "/src/tools/code_coverage@" + Var("chrome_revision"),
-  
+
   "src/tools/sharding_supervisor":
     Var("chrome_base") + "/src/tools/sharding_supervisor@" +
         Var("chrome_revision"),

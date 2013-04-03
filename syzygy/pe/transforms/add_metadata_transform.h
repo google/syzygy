@@ -18,7 +18,7 @@
 #ifndef SYZYGY_PE_TRANSFORMS_ADD_METADATA_TRANSFORM_H_
 #define SYZYGY_PE_TRANSFORMS_ADD_METADATA_TRANSFORM_H_
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
 
 namespace pe {
@@ -33,7 +33,7 @@ class AddMetadataTransform
   // @param module_path the path to the module that the metadata will refer to.
   //     This should be the original module from which the block-graph was
   //     generated.
-  explicit AddMetadataTransform(const FilePath& module_path);
+  explicit AddMetadataTransform(const base::FilePath& module_path);
 
   // Applies this transform to the provided PE image block graph.
   //
@@ -52,7 +52,7 @@ class AddMetadataTransform
 
  private:
   // The path to the module which the metadata refers to.
-  FilePath module_path_;
+  base::FilePath module_path_;
 
   // The block that has been created or reused to hold metadata.
   BlockGraph::Block* metadata_block_;

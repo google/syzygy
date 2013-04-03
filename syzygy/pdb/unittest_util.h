@@ -37,7 +37,7 @@ extern const wchar_t kValidPdbDbiStreamPath[];
 extern const wchar_t kInvalidPdbDbiStreamPath[];
 
 // Get a PDB stream from a file.
-scoped_refptr<pdb::PdbFileStream> GetStreamFromFile(FilePath file_path);
+scoped_refptr<pdb::PdbFileStream> GetStreamFromFile(base::FilePath file_path);
 
 // Initializes an empty PdbFile so that it looks like a valid PDB by creating
 // a valid PdbHeaderInfo stream. Contains gtest assertions, so is intended to be

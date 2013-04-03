@@ -18,9 +18,9 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/logging.h"
+#include "base/files/file_path.h"
 #include "base/threading/simple_thread.h"
 #include "base/win/event_trace_consumer.h"
 #include "base/win/event_trace_controller.h"
@@ -306,13 +306,14 @@ class TraceFileDumper : public ParseEventHandler {
   DISALLOW_COPY_AND_ASSIGN(TraceFileDumper);
 };
 
-bool DumpTraceFiles(FILE* out_file, const std::vector<FilePath>& file_paths) {
+bool DumpTraceFiles(FILE* out_file,
+                    const std::vector<base::FilePath>& file_paths) {
   Parser parser;
   TraceFileDumper dumper(out_file);
   if (!parser.Init(&dumper))
     return false;
 
-  std::vector<FilePath>::const_iterator iter = file_paths.begin();
+  std::vector<base::FilePath>::const_iterator iter = file_paths.begin();
   for (; iter != file_paths.end(); ++iter) {
     if (!parser.OpenTraceFile(*iter))
       return false;
@@ -339,9 +340,9 @@ int main(int argc, const char** argv) {
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   CHECK(cmd_line != NULL);
 
-  std::vector<FilePath> trace_file_paths;
+  std::vector<base::FilePath> trace_file_paths;
   for (size_t i = 0; i < cmd_line->GetArgs().size(); ++i)
-    trace_file_paths.push_back(FilePath(cmd_line->GetArgs()[i]));
+    trace_file_paths.push_back(base::FilePath(cmd_line->GetArgs()[i]));
 
   if (trace_file_paths.empty()) {
     LOG(ERROR) << "No trace file paths specified.";
@@ -352,7 +353,7 @@ int main(int argc, const char** argv) {
     return 1;
   }
 
-  FilePath out_file_path(cmd_line->GetSwitchValuePath("out"));
+  base::FilePath out_file_path(cmd_line->GetSwitchValuePath("out"));
   file_util::ScopedFILE out_file;
   if (!out_file_path.empty()) {
     out_file.reset(file_util::OpenFile(out_file_path, "w"));

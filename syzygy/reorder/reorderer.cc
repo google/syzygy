@@ -338,8 +338,8 @@ bool LoadSectionSpec(const pe::ImageLayout& image,
 
 const size_t Reorderer::Order::SectionSpec::kNewSectionId = ~1;
 
-Reorderer::Reorderer(const FilePath& module_path,
-                     const FilePath& instrumented_path,
+Reorderer::Reorderer(const base::FilePath& module_path,
+                     const base::FilePath& instrumented_path,
                      const TraceFileList& trace_files,
                      Flags flags)
     : playback_(module_path, instrumented_path, trace_files),
@@ -481,7 +481,7 @@ void Reorderer::OnBatchFunctionEntry(base::Time time,
 }
 
 bool Reorderer::Order::SerializeToJSON(const PEFile& pe,
-                                       const FilePath &path,
+                                       const base::FilePath &path,
                                        bool pretty_print) const {
   file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
   if (file.get() == NULL)
@@ -544,7 +544,7 @@ bool Reorderer::Order::SerializeToJSON(const PEFile& pe,
 
 bool Reorderer::Order::LoadFromJSON(const PEFile& pe,
                                     const ImageLayout& image,
-                                    const FilePath& path) {
+                                    const base::FilePath& path) {
   std::string file_string;
   if (!file_util::ReadFileToString(path, &file_string)) {
     LOG(ERROR) << "Unable to read order file to string";
@@ -609,8 +609,8 @@ bool Reorderer::Order::LoadFromJSON(const PEFile& pe,
   return true;
 }
 
-bool Reorderer::Order::GetOriginalModulePath(const FilePath& path,
-                                             FilePath* module) {
+bool Reorderer::Order::GetOriginalModulePath(const base::FilePath& path,
+                                             base::FilePath* module) {
   std::string file_string;
   if (!file_util::ReadFileToString(path, &file_string)) {
     LOG(ERROR) << "Unable to read order file to string.";
@@ -636,7 +636,7 @@ bool Reorderer::Order::GetOriginalModulePath(const FilePath& path,
   if (!metadata.LoadFromJSON(*metadata_dict))
     return false;
 
-  *module = FilePath(metadata.module_signature().path);
+  *module = base::FilePath(metadata.module_signature().path);
 
   return true;
 }

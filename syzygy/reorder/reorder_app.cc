@@ -21,8 +21,8 @@
 #include <iostream>
 
 #include "base/string_number_conversions.h"
-#include "base/string_split.h"
 #include "base/stringprintf.h"
+#include "base/strings/string_split.h"
 #include "syzygy/grinder/basic_block_entry_count_serializer.h"
 #include "syzygy/grinder/basic_block_util.h"
 #include "syzygy/pe/find.h"
@@ -169,7 +169,7 @@ bool ReorderApp::ParseCommandLine(const CommandLine* command_line) {
 
   // Capture the (possibly empty) set of trace files to read.
   for (size_t i = 0; i < command_line->GetArgs().size(); ++i) {
-    const FilePath pattern(command_line->GetArgs()[i]);
+    const base::FilePath pattern(command_line->GetArgs()[i]);
     if (!AppendMatchingPaths(pattern, &trace_file_paths_)) {
       LOG(ERROR) << "Found no files matching '" << pattern.value() << "'.";
       return Usage(command_line, "");
@@ -328,7 +328,7 @@ bool ReorderApp::OptimizeBasicBlocks(const pe::PEFile::Signature& signature,
   }
 
   // Find the PDB file for the module.
-  FilePath pdb_path;
+  base::FilePath pdb_path;
   if (!pe::FindPdbForModule(instrumented_image_path_, &pdb_path) ||
       pdb_path.empty()) {
     LOG(ERROR) << "Failed to find PDB for instrumented image: "

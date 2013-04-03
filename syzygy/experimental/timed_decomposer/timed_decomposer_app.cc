@@ -21,11 +21,11 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/string_number_conversions.h"
 #include "base/string_util.h"
 #include "base/time.h"
+#include "base/files/file_path.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
@@ -48,7 +48,8 @@ const char kUsageFormatStr[] =
     "Optional paramters:\n"
     "  --csv=PATH           The path to which CVS output shoudl be written.\n";
 
-bool WriteCsvFile(const FilePath& path, const std::vector<double>& samples) {
+bool WriteCsvFile(const base::FilePath& path,
+                  const std::vector<double>& samples) {
   LOG(INFO) << "Writing samples information to '" << path.value() << "'.";
   file_util::ScopedFILE out_file(file_util::OpenFile(path, "wb"));
   if (out_file.get() == NULL) {
@@ -74,8 +75,8 @@ TimedDecomposerApp::TimedDecomposerApp()
       num_iterations_(0) {
 }
 
-void TimedDecomposerApp::PrintUsage(const FilePath& program,
-                              const base::StringPiece& message) {
+void TimedDecomposerApp::PrintUsage(const base::FilePath& program,
+                                    const base::StringPiece& message) {
   if (!message.empty()) {
     ::fwrite(message.data(), 1, message.length(), out());
     ::fprintf(out(), "\n\n");

@@ -25,7 +25,7 @@
 
 #include <windows.h>
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
 
 namespace pe {

@@ -149,7 +149,7 @@ bool ReadEnvironmentString(HANDLE handle,
 bool GetProcessStrings(uint32 pid,
                        HANDLE handle,
                        size_t page_size,
-                       FilePath* exe_path,
+                       base::FilePath* exe_path,
                        std::wstring* cmd_line,
                        std::vector<wchar_t>* environment) {
   DCHECK(exe_path != NULL);
@@ -204,7 +204,7 @@ bool GetProcessStrings(uint32 pid,
                << ": " << com::LogWe(error) << ".";
     return false;
   }
-  *exe_path = FilePath(temp_exe_path);
+  *exe_path = base::FilePath(temp_exe_path);
 
   // Read the command line.
   size_t num_chars_in_cmd_line = string_value[1].Length / sizeof(wchar_t);

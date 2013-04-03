@@ -20,12 +20,12 @@
 #include <map>
 
 #include "base/environment.h"
-#include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
+#include "base/files/file_path.h"
 #include "base/memory/scoped_vector.h"
 #include "base/threading/simple_thread.h"
 #include "base/win/event_trace_consumer.h"
@@ -247,7 +247,7 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
   ParseEngineRpcTest() : module_(NULL) {
   }
 
-  bool FindTraceFile(FilePath* trace_file_path) {
+  bool FindTraceFile(base::FilePath* trace_file_path) {
     DCHECK(trace_file_path != NULL);
     file_util::FileEnumerator enumerator(temp_dir_, false,
                                          file_util::FileEnumerator::FILES,
@@ -290,7 +290,7 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
     TestParseEventHandler consumer;
     Parser parser;
     ASSERT_TRUE(parser.Init(&consumer));
-    FilePath trace_file_path;
+    base::FilePath trace_file_path;
     ASSERT_TRUE(FindTraceFile(&trace_file_path));
     ASSERT_TRUE(parser.OpenTraceFile(trace_file_path));
     ASSERT_TRUE(parser.Consume());
@@ -310,7 +310,7 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
     // process info.
     ASSERT_TRUE(module_info != NULL);
     ASSERT_EQ(process_info.executable_path,
-              FilePath(module_info->image_file_name));
+              base::FilePath(module_info->image_file_name));
     ASSERT_EQ(process_info.exe_base_address, module_info->base_address);
     ASSERT_EQ(process_info.exe_image_size, module_info->module_size);
     ASSERT_EQ(process_info.exe_checksum, module_info->image_checksum);
@@ -361,7 +361,7 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
   testing::CallTraceService service_;
 
   // The directory where trace file output will be written.
-  FilePath temp_dir_;
+  base::FilePath temp_dir_;
 
   // @name Book-keeping for the tests.
   // @{
@@ -480,7 +480,7 @@ TEST_F(ParseEngineRpcTest, LoadUnload) {
   ASSERT_NO_FATAL_FAILURE(LoadCallTraceDll());
   ASSERT_NO_FATAL_FAILURE(UnloadCallTraceDll());
 
-  FilePath trace_file_path;
+  base::FilePath trace_file_path;
   ASSERT_FALSE(FindTraceFile(&trace_file_path));
   ASSERT_TRUE(trace_file_path.empty());
 }
@@ -496,7 +496,7 @@ TEST_F(ParseEngineRpcTest, NoServiceInstance) {
 
   ASSERT_NO_FATAL_FAILURE(UnloadCallTraceDll());
 
-  FilePath trace_file_path;
+  base::FilePath trace_file_path;
   ASSERT_FALSE(FindTraceFile(&trace_file_path));
   ASSERT_TRUE(trace_file_path.empty());
 }
@@ -508,7 +508,7 @@ TEST_F(ParseEngineRpcTest, NoSessionCreated) {
 
   ASSERT_NO_FATAL_FAILURE(UnloadCallTraceDll());
 
-  FilePath trace_file_path;
+  base::FilePath trace_file_path;
   ASSERT_FALSE(FindTraceFile(&trace_file_path));
   ASSERT_TRUE(trace_file_path.empty());
 }

@@ -161,7 +161,7 @@ limitations under the License.
             DiskId='1'
             Source='$(var.INSTRUMENT_EXE)' />
         <File Id='InstrumentPdbFile'
-            Name='instrument.pdb'
+            Name='instrument.exe.pdb'
             DiskId='1'
             Source='$(var.INSTRUMENT_PDB)' />
       </Component>
@@ -174,7 +174,7 @@ limitations under the License.
             DiskId='1'
             Source='$(var.GRINDER_EXE)' />
         <File Id='GrinderPdbFile'
-            Name='grinder.pdb'
+            Name='grinder.exe.pdb'
             DiskId='1'
             Source='$(var.GRINDER_PDB)' />
       </Component>
@@ -187,7 +187,7 @@ limitations under the License.
             DiskId='1'
             Source='$(var.PROFILE_CLIENT_DLL)' />
         <File Id='ProfileClientPdbFile'
-            Name='profile_client.pdb'
+            Name='profile_client.exe.pdb'
             DiskId='1'
             Source='$(var.PROFILE_CLIENT_PDB)' />
       </Component>

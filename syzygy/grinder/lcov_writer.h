@@ -85,7 +85,7 @@
 #ifndef SYZYGY_GRINDER_LCOV_WRITER_H_
 #define SYZYGY_GRINDER_LCOV_WRITER_H_
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "syzygy/grinder/coverage_data.h"
 
 namespace grinder {
@@ -95,7 +95,8 @@ namespace grinder {
 // @param path the path to the file to be created or overwritten.
 // @param file the file handle to be written to.
 // @returns true on success, false otherwise.
-bool WriteLcovCoverageFile(const CoverageData& coverage, const FilePath& path);
+bool WriteLcovCoverageFile(const CoverageData& coverage,
+                           const base::FilePath& path);
 bool WriteLcovCoverageFile(const CoverageData& coverage, FILE* file);
 
 }  // namespace grinder

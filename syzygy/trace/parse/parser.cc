@@ -75,7 +75,7 @@ void Parser::set_error_occurred(bool value) {
   active_parse_engine_->set_error_occurred(value);
 }
 
-bool Parser::OpenTraceFile(const FilePath& trace_file_path) {
+bool Parser::OpenTraceFile(const base::FilePath& trace_file_path) {
   DCHECK(!trace_file_path.empty());
 
   if (active_parse_engine_ == NULL && !SetActiveParseEngine(trace_file_path)) {
@@ -109,7 +109,7 @@ bool Parser::Close() {
   return result;
 }
 
-bool Parser::SetActiveParseEngine(const FilePath& trace_file_path) {
+bool Parser::SetActiveParseEngine(const base::FilePath& trace_file_path) {
   DCHECK(!trace_file_path.empty());
   DCHECK(active_parse_engine_ == NULL);
 

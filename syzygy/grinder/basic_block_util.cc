@@ -84,7 +84,7 @@ bool FindEntryCountMap(const pe::PEFile::Signature& signature,
   return true;
 }
 
-bool LoadBasicBlockRanges(const FilePath& pdb_path,
+bool LoadBasicBlockRanges(const base::FilePath& pdb_path,
                           RelativeAddressRangeVector* bb_ranges) {
   DCHECK(!pdb_path.empty());
   DCHECK(bb_ranges != NULL);
@@ -155,8 +155,8 @@ bool LoadPdbInfo(PdbInfoMap* pdb_info_cache,
   PdbInfo& pdb_info_ref = (*pdb_info_cache)[module_info];
 
   // Find the PDB file for the module.
-  FilePath pdb_path;
-  FilePath module_path(module_info.image_file_name);
+  base::FilePath pdb_path;
+  base::FilePath module_path(module_info.image_file_name);
   if (!pe::FindPdbForModule(module_path, &pdb_path) || pdb_path.empty()) {
     LOG(ERROR) << "Failed to find PDB for module: " << module_path.value();
     return false;

@@ -77,17 +77,17 @@ int main(int argc, char** argv) {
 
   // Parse the command line.
   typedef CommandLine::StringType StringType;
-  FilePath instrumented_dll_path =
+  base::FilePath instrumented_dll_path =
       cmd_line->GetSwitchValuePath("instrumented-dll");
-  FilePath input_dll_path = cmd_line->GetSwitchValuePath("input-dll");
-  FilePath output_file_path = cmd_line->GetSwitchValuePath("output-file");
+  base::FilePath input_dll_path = cmd_line->GetSwitchValuePath("input-dll");
+  base::FilePath output_file_path = cmd_line->GetSwitchValuePath("output-file");
   bool pretty_print = cmd_line->HasSwitch("pretty-print");
   std::string simulate_method =
       cmd_line->GetSwitchValueASCII("simulate-method");
 
-  std::vector<FilePath> trace_paths;
+  std::vector<base::FilePath> trace_paths;
   for (size_t i = 0; i < cmd_line->GetArgs().size(); ++i)
-    trace_paths.push_back(FilePath(cmd_line->GetArgs()[i]));
+    trace_paths.push_back(base::FilePath(cmd_line->GetArgs()[i]));
 
   if (instrumented_dll_path.empty())
     return Usage("You must specify instrumented-dll.");

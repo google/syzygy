@@ -17,9 +17,9 @@
 #ifndef SYZYGY_COMMON_UNITTEST_UTIL_H_
 #define SYZYGY_COMMON_UNITTEST_UTIL_H_
 
-#include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/logging.h"
+#include "base/files/file_path.h"
 #include "gtest/gtest.h"
 
 namespace testing {
@@ -57,15 +57,15 @@ class ApplicationTestBase : public testing::Test {
 
   // Initialize the IO Streams to send output to specific files. Also intercepts
   // logging messages.
-  void InitStreams(const FilePath& in_path,
-                   const FilePath& out_path,
-                   const FilePath& err_path);
+  void InitStreams(const base::FilePath& in_path,
+                   const base::FilePath& out_path,
+                   const base::FilePath& err_path);
 
   // Manually tear down the various streams.
   void TearDownStreams();
 
   // Creates a temporary directory, which is cleaned up after the test runs.
-  void CreateTemporaryDir(FilePath* temp_dir) {
+  void CreateTemporaryDir(base::FilePath* temp_dir) {
     ASSERT_TRUE(file_util::CreateNewTempDirectory(L"", temp_dir));
     temp_dirs_.push_back(*temp_dir);
   }
@@ -96,7 +96,7 @@ class ApplicationTestBase : public testing::Test {
   static FILE* GetOrInitFile(file_util::ScopedFILE* f, const char* mode);
 
   // List of temporary directories created during this test invocation.
-  typedef std::vector<const FilePath> DirList;
+  typedef std::vector<const base::FilePath> DirList;
   DirList temp_dirs_;
 
   // @name Replacements for the standard IO streams.

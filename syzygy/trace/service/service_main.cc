@@ -16,7 +16,6 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_path.h"
 #include "base/logging.h"
 #include "base/path_service.h"
 #include "base/process_util.h"
@@ -24,6 +23,7 @@
 #include "base/string_piece.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
+#include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/threading/thread.h"
 #include "sawbuck/common/com_utils.h"
@@ -141,9 +141,9 @@ bool RunService(const CommandLine* cmd_line) {
                 arraysize(saved_instance_id));
 
   // Set up the trace directory.
-  FilePath trace_directory(cmd_line->GetSwitchValuePath("trace-dir"));
+  base::FilePath trace_directory(cmd_line->GetSwitchValuePath("trace-dir"));
   if (trace_directory.empty())
-    trace_directory = FilePath(L".");
+    trace_directory = base::FilePath(L".");
   if (!trace_file_writer_factory.SetTraceFileDirectory(trace_directory))
     return false;
 
@@ -196,7 +196,7 @@ bool RunService(const CommandLine* cmd_line) {
 
 bool SpawnService(const CommandLine* cmd_line) {
   // Get the path to ourselves.
-  FilePath self_path;
+  base::FilePath self_path;
   PathService::Get(base::FILE_EXE, &self_path);
 
   // Build a command line for starting a new instance of the service.

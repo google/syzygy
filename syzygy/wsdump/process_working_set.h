@@ -22,8 +22,8 @@
 #include <string>
 #include <vector>
 
-// Forward declarations.
-template <class C> class scoped_ptr;
+#include "base/memory/scoped_ptr.h"
+
 namespace core {
   template <typename AddressType, typename SizeType, typename ItemType>
   class AddressSpace;

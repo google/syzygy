@@ -45,7 +45,7 @@ bool WriteExecutableDict(const pe::PEFile::Signature& image_signature,
     return false;
   }
 
-  FilePath image_name = FilePath(image_signature.path).BaseName();
+  base::FilePath image_name = base::FilePath(image_signature.path).BaseName();
   if (!writer->OutputComment("The name of the image file.") ||
       !writer->OutputKey("name") ||
       !writer->OutputString(image_name.value())) {
@@ -74,7 +74,7 @@ bool WriteExecutableDict(const pe::PEFile::Signature& image_signature,
   return true;
 }
 
-bool GetImageSignature(const FilePath& image_name,
+bool GetImageSignature(const base::FilePath& image_name,
                        pe::PEFile::Signature* image_signature) {
   pe::PEFile image_file;
   if (!image_file.Init(image_name)) {
@@ -89,11 +89,12 @@ bool GetImageSignature(const FilePath& image_name,
 
 }  // namespace
 
-CodeTally::CodeTally(const FilePath& image_file) : image_file_(image_file) {
+CodeTally::CodeTally(const base::FilePath& image_file) :
+    image_file_(image_file) {
 }
 
-bool CodeTally::TallyLines(const FilePath& pdb_file) {
-  FilePath found_pdb = pdb_file;
+bool CodeTally::TallyLines(const base::FilePath& pdb_file) {
+  base::FilePath found_pdb = pdb_file;
 
   // Start by locating the PDB file, if one was not provided.
   if (found_pdb.empty() && !pe::FindPdbForModule(image_file_, &found_pdb)) {

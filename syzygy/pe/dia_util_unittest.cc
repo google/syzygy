@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "base/bind.h"
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
 #include "gmock/gmock.h"
@@ -42,7 +42,7 @@ static const wchar_t kTestDllObjPath[] = L"obj\\test_dll\\test_dll.obj";
 
 struct FilePathLess {
   bool operator()(const std::wstring& lhs, const std::wstring& rhs) {
-    return FilePath::CompareLessIgnoreCase(lhs, rhs);
+    return base::FilePath::CompareLessIgnoreCase(lhs, rhs);
   }
 };
 
@@ -50,8 +50,8 @@ class DiaUtilTest : public testing::PELibUnitTest {
 };
 
 MATCHER_P(IsSameFile, value, "") {
-  FilePath path1(arg);
-  FilePath path2(value);
+  base::FilePath path1(arg);
+  base::FilePath path2(value);
   core::FilePathCompareResult result = core::CompareFilePaths(path1, path2);
   return result == core::kEquivalentFilePaths;
 }
@@ -286,7 +286,7 @@ TEST_F(DiaUtilVisitorTest, CompilandVisitorTest) {
   ASSERT_LT(0U, compiland_names.size());
 
   // One of the compiland_names should be the test_dll.obj file.
-  FilePath test_dll_obj = testing::GetOutputRelativePath(kTestDllObjPath);
+  base::FilePath test_dll_obj = testing::GetOutputRelativePath(kTestDllObjPath);
   ASSERT_THAT(compiland_names,
               testing::Contains(IsSameFile(test_dll_obj.value())));
 }
@@ -296,7 +296,7 @@ TEST_F(DiaUtilVisitorTest, LineVisitorTest) {
 
   // Start by finding the test dll compiland.
   ScopedComPtr<IDiaSymbol> compiland;
-  FilePath test_dll_obj = testing::GetOutputRelativePath(kTestDllObjPath);
+  base::FilePath test_dll_obj = testing::GetOutputRelativePath(kTestDllObjPath);
   ASSERT_FALSE(compiland_visitor.VisitAllCompilands(
       base::Bind(&DiaUtilVisitorTest::OnCompilandFind,
                  base::Unretained(this),
@@ -317,7 +317,7 @@ TEST_F(DiaUtilVisitorTest, LineVisitorTest) {
   // We expect to have at least one file.
   ASSERT_LE(1U, line_map.size());
 
-  FilePath test_dll_cc =
+  base::FilePath test_dll_cc =
       testing::GetSrcRelativePath(L"syzygy\\pe\\test_dll.cc");
   ASSERT_TRUE(line_map.find(test_dll_cc.value()) != line_map.end());
 

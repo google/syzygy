@@ -20,8 +20,8 @@
 #include "base/path_service.h"
 #include "base/process_util.h"
 #include "base/scoped_native_library.h"
-#include "base/scoped_temp_dir.h"
 #include "base/utf_string_conversions.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/win/pe_image.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -31,6 +31,7 @@
 #include "syzygy/pdb/pdb_writer.h"
 #include "syzygy/pdb/unittest_util.h"
 #include "syzygy/pe/pe_data.h"
+#include "syzygy/pe/unittest_util.h"
 
 namespace pdb {
 
@@ -86,7 +87,7 @@ class PdbUtilTest : public testing::Test {
     ASSERT_TRUE(::SymCleanup(process_));
   }
 
-  void VerifyGuidData(const FilePath& pdb_path,
+  void VerifyGuidData(const base::FilePath& pdb_path,
                       const GUID& guid) {
     DWORD64 base_address =
         ::SymLoadModuleExW(process_,
@@ -107,7 +108,7 @@ class PdbUtilTest : public testing::Test {
     EXPECT_TRUE(::SymUnloadModule64(process_, base_address));
   }
 
-  void VerifyOmapData(const FilePath& pdb_path,
+  void VerifyOmapData(const base::FilePath& pdb_path,
                       const std::vector<OMAP>& omap_to_list,
                       const std::vector<OMAP>& omap_from_list) {
     DWORD64 base_address =
@@ -145,9 +146,9 @@ class PdbUtilTest : public testing::Test {
  protected:
   HANDLE process_;
   GUID new_guid_;
-  ScopedTempDir temp_dir_;
-  FilePath temp_pdb_file_path_;
-  FilePath temp_pdb_file_path2_;
+  base::ScopedTempDir temp_dir_;
+  base::FilePath temp_pdb_file_path_;
+  base::FilePath temp_pdb_file_path2_;
 };
 
 class TestPdbStream : public PdbStream {
@@ -280,7 +281,7 @@ TEST(PdbBitSetTest, WriteBitSet) {
 }
 
 TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetTestDll) {
-  // Test the test_dll.pdb doesn't have Omap information.
+  // Test the test_dll.dll.pdb doesn't have Omap information.
   PdbReader reader;
   PdbFile pdb_file;
   EXPECT_TRUE(reader.Read(
@@ -303,7 +304,7 @@ TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetTestDll) {
 }
 
 TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetOmappedTestDll) {
-  // Test that omapped_test_dll.pdb does have Omap information.
+  // Test that omapped_test_dll.dll.pdb does have Omap information.
   PdbReader reader;
   PdbFile pdb_file;
   EXPECT_TRUE(reader.Read(
@@ -326,8 +327,8 @@ TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetOmappedTestDll) {
 }
 
 TEST_F(PdbUtilTest, TestDllHasNoOmap) {
-  // Test that test_dll.pdb has no Omap information.
-  FilePath test_pdb_file_path = testing::GetSrcRelativePath(
+  // Test that test_dll.dll.pdb has no Omap information.
+  base::FilePath test_pdb_file_path = testing::GetSrcRelativePath(
       testing::kTestPdbFilePath);
   DWORD64 base_address =
       ::SymLoadModuleExW(process_,
@@ -362,7 +363,7 @@ TEST_F(PdbUtilTest, SetOmapToAndFromStream) {
   std::vector<OMAP> omap_from_list(kOmapFromData,
                                    kOmapFromData + arraysize(kOmapFromData));
 
-  FilePath test_pdb_file_path = testing::GetSrcRelativePath(
+  base::FilePath test_pdb_file_path = testing::GetSrcRelativePath(
       testing::kTestPdbFilePath);
   PdbReader pdb_reader;
   PdbFile pdb_file;
@@ -425,7 +426,7 @@ TEST_F(PdbUtilTest, PdbHeaderMatchesImageDebugDirectory) {
 }
 
 TEST_F(PdbUtilTest, ReadPdbHeader) {
-  const FilePath pdb_path = testing::GetSrcRelativePath(
+  const base::FilePath pdb_path = testing::GetSrcRelativePath(
       testing::kTestPdbFilePath);
   PdbInfoHeader70 pdb_header = {};
   EXPECT_TRUE(ReadPdbHeader(pdb_path, &pdb_header));
@@ -521,7 +522,7 @@ TEST(SetGuidTest, Succeeds) {
 }
 
 TEST(ReadHeaderInfoStreamTest, ReadFromPdbFile) {
-  const FilePath pdb_path = testing::GetSrcRelativePath(
+  const base::FilePath pdb_path = testing::GetSrcRelativePath(
       testing::kTestPdbFilePath);
 
   PdbFile pdb_file;
@@ -611,7 +612,7 @@ TEST(ReadHeaderInfoStreamTest, ReadStreamWithNameStreamMap) {
 }
 
 TEST(ReadHeaderInfoStreamTest, ReadFromPdb) {
-  const FilePath pdb_path = testing::GetSrcRelativePath(
+  const base::FilePath pdb_path = testing::GetSrcRelativePath(
       testing::kTestPdbFilePath);
   PdbFile pdb_file;
   PdbReader pdb_reader;
@@ -625,7 +626,7 @@ TEST(ReadHeaderInfoStreamTest, ReadFromPdb) {
 }
 
 TEST(WriteHeaderInfoStreamTest, WriteToPdbFile) {
-  const FilePath pdb_path = testing::GetSrcRelativePath(
+  const base::FilePath pdb_path = testing::GetSrcRelativePath(
       testing::kTestPdbFilePath);
 
   PdbFile pdb_file;
@@ -698,7 +699,7 @@ TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
   // We start by creating a PDB file (a copy of a checked in sample one) and
   // adding a new stream to it using our named-stream implementation.
   {
-    FilePath orig_pdb_path = testing::GetSrcRelativePath(
+    base::FilePath orig_pdb_path = testing::GetSrcRelativePath(
         testing::kTestPdbFilePath);
 
     // Read the sample PDB.
@@ -748,7 +749,8 @@ TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
   //     mechanisms.
 
   // Get the path to pdbstr.exe, which we redistribute in third_party.
-  FilePath pdbstr_path = testing::GetSrcRelativePath(testing::kPdbStrPath);
+  base::FilePath pdbstr_path =
+      testing::GetSrcRelativePath(testing::kPdbStrPath);
 
   // Create the argument specifying the PDB path.
   std::string pdb_arg = ::WideToUTF8(temp_pdb_file_path_.value());
@@ -781,7 +783,7 @@ TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
   // Third test: Add another new stream. This should return without error, and
   // we should then be able to read the stream using our mechanisms.
   {
-    FilePath bar_txt = temp_dir_.path().Append(L"bar.txt");
+    base::FilePath bar_txt = temp_dir_.path().Append(L"bar.txt");
     file_util::ScopedFILE bar_file(file_util::OpenFile(
         bar_txt, "wb"));
     fprintf(bar_file.get(), "bar");
@@ -835,7 +837,7 @@ TEST_F(PdbUtilTest, LoadNamedStreamFromPdbFile) {
   PdbReader reader;
   PdbFile pdb_file;
   EXPECT_TRUE(reader.Read(
-      testing::GetOutputRelativePath(L"test_dll.pdb"),
+      testing::GetOutputRelativePath(testing::kTestDllPdbName),
       &pdb_file));
 
   scoped_refptr<PdbStream> stream;

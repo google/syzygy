@@ -19,7 +19,7 @@
 #define SYZYGY_EXPERIMENTAL_TIMED_DECOMPSER_TIMED_DECOMPOSER_APP_H_
 
 #include "base/command_line.h"
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "syzygy/common/application.h"
 
 namespace experimental {
@@ -41,13 +41,13 @@ class TimedDecomposerApp : public common::AppImplBase {
 
  protected:
   // Print the app's usage information.
-  void PrintUsage(const FilePath& program,
+  void PrintUsage(const base::FilePath& program,
                   const base::StringPiece& message);
 
   // @name Command-line options.
   // @{
-  FilePath image_path_;
-  FilePath csv_path_;
+  base::FilePath image_path_;
+  base::FilePath csv_path_;
   int num_iterations_;
   // @}
 

@@ -64,7 +64,7 @@ TEST(ProcessInfoTest, CurrentProcess) {
   ASSERT_TRUE(env.Get() != NULL);
 
   pe::PEFile pe_file;
-  ASSERT_TRUE(pe_file.Init(FilePath(executable_path)));
+  ASSERT_TRUE(pe_file.Init(base::FilePath(executable_path)));
   pe::PEFile::Signature pe_sig;
   pe_file.GetSignature(&pe_sig);
 

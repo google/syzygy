@@ -45,8 +45,9 @@ CvInfoPdb70* CreateCvInfoPdb70(const char* path,
 }  // namespace
 
 TEST_F(PdbInfoTest, TestDllAndPdbAreConsistent) {
-  const FilePath test_dll(testing::GetExeRelativePath(testing::kTestDllName));
-  const FilePath test_dll_pdb(testing::GetExeRelativePath(
+  const base::FilePath test_dll(
+      testing::GetExeRelativePath(testing::kTestDllName));
+  const base::FilePath test_dll_pdb(testing::GetExeRelativePath(
       testing::kTestDllPdbName));
 
   PdbInfo pdb_info;

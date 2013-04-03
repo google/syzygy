@@ -28,8 +28,8 @@ namespace grinder {
 // @param original_pe_path The path of the original non-transformed PE file.
 // @returns true if the files both exist and are related,
 // false otherwise.
-bool PeFilesAreRelated(const FilePath& transformed_pe_path,
-                       const FilePath& original_pe_path);
+bool PeFilesAreRelated(const base::FilePath& transformed_pe_path,
+                       const base::FilePath& original_pe_path);
 
 // Given a Syzygy-transformed PE file looks for the corresponding original
 // PE file. This extracts the metadata from the transformed image and uses that
@@ -42,11 +42,11 @@ bool PeFilesAreRelated(const FilePath& transformed_pe_path,
 //     found, otherwise will be empty.
 // @returns false on error, true otherwise. @p original_pe_path will be
 //      non-empty if the module was found, otherwise it'll be empty.
-bool FindOriginalPeFile(const FilePath& transformed_pe_path,
-                        FilePath* original_pe_path);
-bool FindOriginalPeFile(const FilePath& transformed_pe_path,
+bool FindOriginalPeFile(const base::FilePath& transformed_pe_path,
+                        base::FilePath* original_pe_path);
+bool FindOriginalPeFile(const base::FilePath& transformed_pe_path,
                         const base::StringPiece16& search_paths,
-                        FilePath* original_pe_path);
+                        base::FilePath* original_pe_path);
 
 }  // namespace grinder
 

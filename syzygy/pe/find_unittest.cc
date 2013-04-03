@@ -33,14 +33,14 @@ class PeFindTest: public testing::PELibUnitTest {
 
 TEST_F(PeFindTest, PeAndPdbAreMatchedMissingFiles) {
   EXPECT_FALSE(PeAndPdbAreMatched(
-      FilePath(L"nonexistent_pe_file.dll"),
-      FilePath(L"nonexistent_pdb_file.pdb")));
+      base::FilePath(L"nonexistent_pe_file.dll"),
+      base::FilePath(L"nonexistent_pdb_file.pdb")));
 }
 
 TEST_F(PeFindTest, PeAndPdbAreMatchedMismatchedInputs) {
   EXPECT_FALSE(PeAndPdbAreMatched(
       testing::GetOutputRelativePath(testing::kTestDllName),
-      testing::GetOutputRelativePath(L"pe_unittests.pdb")));
+      testing::GetOutputRelativePath(L"pe_unittests.exe.pdb")));
 }
 
 TEST_F(PeFindTest, PeAndPdbAreMatched) {
@@ -50,7 +50,7 @@ TEST_F(PeFindTest, PeAndPdbAreMatched) {
 }
 
 TEST_F(PeFindTest, PeFindTestDllNoHint) {
-  const FilePath module_path(testing::GetOutputRelativePath(
+  const base::FilePath module_path(testing::GetOutputRelativePath(
       testing::kTestDllName));
 
   PEFile pe_file;
@@ -59,17 +59,17 @@ TEST_F(PeFindTest, PeFindTestDllNoHint) {
   PEFile::Signature module_signature;
   pe_file.GetSignature(&module_signature);
 
-  FilePath found_path;
+  base::FilePath found_path;
   EXPECT_TRUE(FindModuleBySignature(module_signature, &found_path));
 
   EXPECT_SAME_FILE(module_path, found_path);
 }
 
 TEST_F(PeFindTest, PeFindTestDllWithHint) {
-  const FilePath orig_module_path(testing::GetOutputRelativePath(
+  const base::FilePath orig_module_path(testing::GetOutputRelativePath(
       testing::kTestDllName));
-  const FilePath test_data_module_path(testing::GetExeTestDataRelativePath(
-      testing::kTestDllName));
+  const base::FilePath test_data_module_path(
+      testing::GetExeTestDataRelativePath(testing::kTestDllName));
 
   PEFile pe_file;
   ASSERT_TRUE(pe_file.Init(orig_module_path));
@@ -79,7 +79,7 @@ TEST_F(PeFindTest, PeFindTestDllWithHint) {
 
   // We expect the version of test_dll.dll in test_data to be found first
   // because we provide an explicit hint guiding the search in that direction.
-  FilePath found_path = test_data_module_path;
+  base::FilePath found_path = test_data_module_path;
   EXPECT_TRUE(FindModuleBySignature(module_signature, &found_path));
 
   EXPECT_SAME_FILE(test_data_module_path, found_path);
@@ -92,27 +92,27 @@ TEST_F(PeFindTest, PeFindTestDllPdbNoHint) {
   // that contains the instrumented binaries. The copied test_dll.dll still
   // refers to the original test_dll.pdb in the Debug or Release output
   // directory, so that's the one that will be found first.
-  const FilePath module_path(testing::GetOutputRelativePath(
+  const base::FilePath module_path(testing::GetOutputRelativePath(
       testing::kTestDllName));
-  const FilePath pdb_path(testing::GetOutputRelativePath(
+  const base::FilePath pdb_path(testing::GetOutputRelativePath(
       testing::kTestDllPdbName));
 
-  FilePath found_path;
+  base::FilePath found_path;
   EXPECT_TRUE(FindPdbForModule(module_path, &found_path));
 
   EXPECT_SAME_FILE(pdb_path, found_path);
 }
 
 TEST_F(PeFindTest, PeFindTestDllPdbWithHint) {
-  const FilePath module_path(testing::GetOutputRelativePath(
+  const base::FilePath module_path(testing::GetOutputRelativePath(
       testing::kTestDllName));
-  const FilePath pdb_path(testing::GetExeTestDataRelativePath(
+  const base::FilePath pdb_path(testing::GetExeTestDataRelativePath(
       testing::kTestDllPdbName));
 
   // We provide an explicit hint to look in the test_data directory first. Even
   // though this is not the path that will be found in the debug data directory
   // it should be found first.
-  FilePath found_path = pdb_path;
+  base::FilePath found_path = pdb_path;
   EXPECT_TRUE(FindPdbForModule(module_path, &found_path));
 
   EXPECT_SAME_FILE(pdb_path, found_path);

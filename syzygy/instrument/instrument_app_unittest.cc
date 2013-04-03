@@ -74,7 +74,7 @@ class InstrumentAppTest : public testing::PELibUnitTest {
   typedef testing::PELibUnitTest Super;
 
   InstrumentAppTest()
-      : cmd_line_(FilePath(L"instrument.exe")),
+      : cmd_line_(base::FilePath(L"instrument.exe")),
         test_impl_(test_app_.implementation()) {
   }
 
@@ -163,27 +163,27 @@ class InstrumentAppTest : public testing::PELibUnitTest {
   // @{
   TestApp test_app_;
   TestApp::Implementation& test_impl_;
-  FilePath temp_dir_;
-  FilePath stdin_path_;
-  FilePath stdout_path_;
-  FilePath stderr_path_;
+  base::FilePath temp_dir_;
+  base::FilePath stdin_path_;
+  base::FilePath stdout_path_;
+  base::FilePath stderr_path_;
   // @}
 
   // @name Command-line and parameters.
   // @{
   CommandLine cmd_line_;
-  FilePath input_dll_path_;
-  FilePath input_pdb_path_;
-  FilePath output_dll_path_;
-  FilePath output_pdb_path_;
-  FilePath test_dll_filter_path_;
-  FilePath dummy_filter_path_;
+  base::FilePath input_dll_path_;
+  base::FilePath input_pdb_path_;
+  base::FilePath output_dll_path_;
+  base::FilePath output_pdb_path_;
+  base::FilePath test_dll_filter_path_;
+  base::FilePath dummy_filter_path_;
   // @}
 
   // @name Expected final values of input parameters.
   // @{
-  FilePath abs_input_dll_path_;
-  FilePath abs_input_pdb_path_;
+  base::FilePath abs_input_dll_path_;
+  base::FilePath abs_input_pdb_path_;
   // @}
 };
 

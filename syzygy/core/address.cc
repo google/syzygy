@@ -29,17 +29,17 @@ void CompileAsserts() {
 }
 
 std::ostream& operator<<(std::ostream& str, RelativeAddress addr) {
-  str << StringPrintf("Relative(0x%08X)", addr.value());
+  str << base::StringPrintf("Relative(0x%08X)", addr.value());
   return str;
 }
 
 std::ostream& operator<<(std::ostream& str, AbsoluteAddress addr) {
-  str << StringPrintf("Absolute(0x%08X)", addr.value());
+  str << base::StringPrintf("Absolute(0x%08X)", addr.value());
   return str;
 }
 
 std::ostream& operator<<(std::ostream& str, FileOffsetAddress addr) {
-  str << StringPrintf("FileOffset(0x%08X)", addr.value());
+  str << base::StringPrintf("FileOffset(0x%08X)", addr.value());
   return str;
 }
 

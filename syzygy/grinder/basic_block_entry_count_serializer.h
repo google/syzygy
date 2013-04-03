@@ -77,14 +77,14 @@ class BasicBlockEntryCountSerializer {
 
   // Saves the given entry count map to a file at @p file_path.
   bool SaveAsJson(const ModuleEntryCountMap& entry_counts,
-                  const FilePath& file_path);
+                  const base::FilePath& file_path);
 
   // Saves the given entry count map to a file previously opened for writing.
   bool SaveAsJson(const ModuleEntryCountMap& entry_counts,
                   FILE* file);
 
   // Populates an entry count map from a JSON file, given by @p file_path.
-  bool LoadFromJson(const FilePath& file_path,
+  bool LoadFromJson(const base::FilePath& file_path,
                     ModuleEntryCountMap* entry_counts);
 
  protected:

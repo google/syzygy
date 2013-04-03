@@ -17,7 +17,7 @@
 #include "syzygy/agent/basic_block_entry/basic_block_entry.h"
 
 #include "base/file_util.h"
-#include "base/scoped_temp_dir.h"
+#include "base/files/scoped_temp_dir.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/indexed_frequency_data.h"
@@ -114,7 +114,7 @@ class BasicBlockEntryTest : public testing::Test {
                                          file_util::FileEnumerator::FILES);
     size_t num_files = 0;
     while (true) {
-      FilePath trace_file = enumerator.Next();
+      base::FilePath trace_file = enumerator.Next();
       if (trace_file.empty())
         break;
       ASSERT_TRUE(parser.OpenTraceFile(trace_file));
@@ -178,7 +178,7 @@ class BasicBlockEntryTest : public testing::Test {
    }
 
   // The directory where trace file output will be written.
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
 
   // The handler to which the trace file parser will delegate events.
   StrictMockParseEventHandler handler_;

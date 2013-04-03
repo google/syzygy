@@ -66,9 +66,9 @@ class ExplodeBasicBlocksTransformTest : public testing::PELibUnitTest {
   BlockGraph block_graph_;
   ImageLayout image_layout_;
   BlockGraph::Block* dos_header_block_;
-  FilePath input_path_;
-  FilePath temp_dir_;
-  FilePath output_path_;
+  base::FilePath input_path_;
+  base::FilePath temp_dir_;
+  base::FilePath output_path_;
 };
 
 class DllMainRandomizer : public ExplodeBasicBlocksTransform {

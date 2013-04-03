@@ -53,13 +53,13 @@ class LineInfoTest : public testing::Test {
         testing::kCoverageInstrumentedTestDllPdbName);
 
 
-    std::wstring static_pdb_path(L"syzygy/grinder/test_data/");
-    static_pdb_path.append(testing::kCoverageInstrumentedTestDllPdbName);
+    std::wstring static_pdb_path(
+        L"syzygy/grinder/test_data/coverage_instrumented_test_dll.pdb");
     static_pdb_path_ = testing::GetSrcRelativePath(static_pdb_path.c_str());
   }
 
-  FilePath pdb_path_;
-  FilePath static_pdb_path_;
+  base::FilePath pdb_path_;
+  base::FilePath static_pdb_path_;
 };
 
 void PushBackSourceLine(

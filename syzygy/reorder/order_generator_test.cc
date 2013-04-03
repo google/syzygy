@@ -31,8 +31,8 @@ OrderGeneratorTest::OrderGeneratorTest() : image_layout_(&block_graph_) {
 }
 
 void OrderGeneratorTest::SetUp() {
-  FilePath test_data_dir = testing::GetExeRelativePath(L"test_data");
-  FilePath input_dll_path = test_data_dir.Append(testing::kTestDllName);
+  base::FilePath test_data_dir = testing::GetExeRelativePath(L"test_data");
+  base::FilePath input_dll_path = test_data_dir.Append(testing::kTestDllName);
 
   ASSERT_TRUE(input_dll_.Init(input_dll_path));
   pe::Decomposer decomposer(input_dll_);

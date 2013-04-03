@@ -112,7 +112,7 @@ bool ProfileGrinder::GetSessionForModule(const ModuleInformation* module,
     signature.module_time_date_stamp = module->time_date_stamp;
     signature.module_checksum = module->image_checksum;
 
-    FilePath module_path;
+    base::FilePath module_path;
     if (!pe::FindModuleBySignature(signature, &module_path) ||
         module_path.empty()) {
       LOG(ERROR) << "Unable to find module matching signature.";
@@ -134,7 +134,7 @@ bool ProfileGrinder::GetSessionForModule(const ModuleInformation* module,
     } else {
       DCHECK(FAILED(hr));
 
-      FilePath pdb_path;
+      base::FilePath pdb_path;
       if (!pe::FindPdbForModule(module_path, &pdb_path) ||
           pdb_path.empty()) {
         LOG(ERROR) << "Unable to find PDB for module \""

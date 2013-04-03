@@ -18,8 +18,8 @@
 #ifndef SYZYGY_PE_FIND_H_
 #define SYZYGY_PE_FIND_H_
 
-#include "base/file_path.h"
 #include "base/string_piece.h"
+#include "base/files/file_path.h"
 #include "syzygy/pe/pe_file.h"
 
 namespace pe {
@@ -30,7 +30,8 @@ namespace pe {
 // @param pdb_path the path to the PDB file to inspect.
 // @returns true if the files both exist, are valid and are matched, false
 //     otherwise.
-bool PeAndPdbAreMatched(const FilePath& pe_path, const FilePath& pdb_path);
+bool PeAndPdbAreMatched(const base::FilePath& pe_path,
+                        const base::FilePath& pdb_path);
 
 // Looks for the module matching a given module signature. If @p module_path is
 // not empty uses it as a starting point for the search using the following
@@ -57,12 +58,12 @@ bool PeAndPdbAreMatched(const FilePath& pe_path, const FilePath& pdb_path);
 //     be empty.
 bool FindModuleBySignature(const PEFile::Signature& module_signature,
                            const base::StringPiece16& search_paths,
-                           FilePath* module_path);
+                           base::FilePath* module_path);
 
 // Same as 3-parameter FindModuleBySignature, but uses the PATH environment
 // variable as the list of search paths.
 bool FindModuleBySignature(const PEFile::Signature& module_signature,
-                           FilePath* module_path);
+                           base::FilePath* module_path);
 
 // Searches for the PDB file corresponding to the given module. If not empty,
 // uses @p pdb_path as a starting point with the following strategy. If that
@@ -88,14 +89,14 @@ bool FindModuleBySignature(const PEFile::Signature& module_signature,
 //     its path is returned in @p pdb_path. If the PDB file is not found
 //     but there were no errors, this will return true and @p pdb_path will
 //     be empty.
-bool FindPdbForModule(const FilePath& module_path,
+bool FindPdbForModule(const base::FilePath& module_path,
                       const base::StringPiece16& search_paths,
-                      FilePath* pdb_path);
+                      base::FilePath* pdb_path);
 
 // Same 3-parameter FindPdbForModule, but uses the _NT_SYMBOL_PATH environment
 // variable as the list of search paths.
-bool FindPdbForModule(const FilePath& module_path,
-                      FilePath* pdb_path);
+bool FindPdbForModule(const base::FilePath& module_path,
+                      base::FilePath* pdb_path);
 
 }  // namespace pe
 

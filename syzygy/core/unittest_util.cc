@@ -19,19 +19,19 @@
 
 namespace testing {
 
-FilePath GetSrcRelativePath(const wchar_t* rel_path) {
-  FilePath src_dir;
+base::FilePath GetSrcRelativePath(const wchar_t* rel_path) {
+  base::FilePath src_dir;
   PathService::Get(base::DIR_SOURCE_ROOT, &src_dir);
   return src_dir.Append(rel_path);
 }
 
-FilePath GetExeRelativePath(const wchar_t* rel_path) {
-  FilePath exe_dir;
+base::FilePath GetExeRelativePath(const wchar_t* rel_path) {
+  base::FilePath exe_dir;
   PathService::Get(base::DIR_EXE, &exe_dir);
   return exe_dir.Append(rel_path);
 }
 
-FilePath GetOutputRelativePath(const wchar_t* rel_path) {
+base::FilePath GetOutputRelativePath(const wchar_t* rel_path) {
 #if defined(_DEBUG)
   // TODO(chrisha): Expose $(ProjectDir) and $(OutputDir) via defines in the
   //     project gyp file.
@@ -48,27 +48,28 @@ FilePath GetOutputRelativePath(const wchar_t* rel_path) {
 #endif
 #endif
 
-  FilePath src_dir;
+  base::FilePath src_dir;
   PathService::Get(base::DIR_SOURCE_ROOT, &src_dir);
   src_dir = src_dir.Append(L"build");
   src_dir = src_dir.Append(kOutputDir);
   return src_dir.Append(rel_path);
 }
 
-FilePath GetExeTestDataRelativePath(const wchar_t* rel_path) {
-  FilePath exe_dir;
+base::FilePath GetExeTestDataRelativePath(const wchar_t* rel_path) {
+  base::FilePath exe_dir;
   PathService::Get(base::DIR_EXE, &exe_dir);
-  FilePath test_data = exe_dir.Append(L"test_data");
+  base::FilePath test_data = exe_dir.Append(L"test_data");
   return test_data.Append(rel_path);
 }
 
-FilePath GetRelativePath(const FilePath& abs_path, const FilePath& root_path) {
+base::FilePath GetRelativePath(const base::FilePath& abs_path,
+                               const base::FilePath& root_path) {
   DCHECK(abs_path.IsAbsolute());
   DCHECK(!abs_path.empty());
   DCHECK(root_path.IsAbsolute());
   DCHECK(!root_path.empty());
 
-  typedef std::vector<FilePath::StringType> PathComponents;
+  typedef std::vector<base::FilePath::StringType> PathComponents;
 
   // Get the components of the target path.
   PathComponents abs_parts;
@@ -79,42 +80,42 @@ FilePath GetRelativePath(const FilePath& abs_path, const FilePath& root_path) {
   root_path.GetComponents(&root_parts);
 
   // Make sure they have a common root.
-  if (!FilePath::CompareEqualIgnoreCase(root_parts[0], abs_parts[0]))
-    return FilePath();
+  if (!base::FilePath::CompareEqualIgnoreCase(root_parts[0], abs_parts[0]))
+    return base::FilePath();
 
   // Figure out how much is shared.
   size_t i = 1;
   while (i < std::min(root_parts.size(), abs_parts.size()) &&
-         FilePath::CompareEqualIgnoreCase(root_parts[i], abs_parts[i])) {
+         base::FilePath::CompareEqualIgnoreCase(root_parts[i], abs_parts[i])) {
     ++i;
   }
 
-  FilePath rel_path;
+  base::FilePath rel_path;
 
   // Add parent directory traversal.
   for (size_t j = i; j < root_parts.size(); ++j)
-    rel_path = rel_path.Append(FilePath::kParentDirectory);
+    rel_path = rel_path.Append(base::FilePath::kParentDirectory);
 
   // Append the rest of the path.
   for (size_t k = i; k < abs_parts.size(); ++k)
     rel_path = rel_path.Append(abs_parts[k]);
 
   if (rel_path.empty())
-    rel_path = FilePath(FilePath::kCurrentDirectory);
+    rel_path = base::FilePath(base::FilePath::kCurrentDirectory);
 
   return rel_path;
 }
 
-FilePath GetRelativePath(const FilePath& abs_path) {
-  FilePath cur_dir;
+base::FilePath GetRelativePath(const base::FilePath& abs_path) {
+  base::FilePath cur_dir;
   file_util::GetCurrentDirectory(&cur_dir);
   return GetRelativePath(abs_path, cur_dir);
 }
 
 AssertionResult AssertAreSameFile(const char* path1_expr,
                                   const char* path2_expr,
-                                  const FilePath& path1,
-                                  const FilePath& path2) {
+                                  const base::FilePath& path1,
+                                  const base::FilePath& path2) {
   core::FilePathCompareResult result = core::CompareFilePaths(path1, path2);
   if (result == core::kEquivalentFilePaths)
     return ::testing::AssertionSuccess();

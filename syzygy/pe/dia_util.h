@@ -21,7 +21,7 @@
 #include <vector>
 
 #include "base/callback.h"
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "base/win/scoped_comptr.h"
 
 namespace pe {
@@ -56,7 +56,7 @@ bool CreateDiaSource(IDiaDataSource** created_source);
 // @param dia_source the DIA source to use.
 // @param dia_session pointer that will receive the created DIA session.
 // @return true on success, false otherwise.
-bool CreateDiaSession(const FilePath& file,
+bool CreateDiaSession(const base::FilePath& file,
                       IDiaDataSource* dia_source,
                       IDiaSession** dia_session);
 

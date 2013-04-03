@@ -20,8 +20,8 @@
 #define SYZYGY_EXPERIMENTAL_CODE_TALLY_CODE_TALLY_APP_H_
 
 #include "base/command_line.h"
-#include "base/file_path.h"
 #include "base/string_piece.h"
+#include "base/files/file_path.h"
 #include "syzygy/common/application.h"
 #include "syzygy/experimental/code_tally/code_tally.h"
 
@@ -45,16 +45,16 @@ class CodeTallyApp : public common::AppImplBase {
  protected:
   // @name Utility functions
   // @{
-  void PrintUsage(const FilePath& program,
+  void PrintUsage(const base::FilePath& program,
                   const base::StringPiece& message);
 
   // @}
 
   // @name Command-line options.
   // @{
-  FilePath input_image_;
-  FilePath input_pdb_;
-  FilePath output_file_;
+  base::FilePath input_image_;
+  base::FilePath input_pdb_;
+  base::FilePath output_file_;
   bool pretty_print_;
   // @}
 

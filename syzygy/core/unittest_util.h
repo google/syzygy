@@ -17,8 +17,8 @@
 #ifndef SYZYGY_CORE_UNITTEST_UTIL_H_
 #define SYZYGY_CORE_UNITTEST_UTIL_H_
 
-#include "base/file_path.h"
 #include "base/file_util.h"
+#include "base/files/file_path.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/serialization.h"
 
@@ -35,10 +35,10 @@ class ScopedTempFile {
     file_util::Delete(path_, false);
   }
 
-  const FilePath& path() const { return path_; }
+  const base::FilePath& path() const { return path_; }
 
  private:
-  FilePath path_;
+  base::FilePath path_;
 };
 
 // This defines a simple test of serialization for a given object. Returns
@@ -94,25 +94,25 @@ template<class Data> bool TestSerialization(const Data& data, FILE* file) {
 //
 // @path rel_path the relative path to convert.
 // @returns an absolute path.
-FilePath GetSrcRelativePath(const wchar_t* rel_path);
+base::FilePath GetSrcRelativePath(const wchar_t* rel_path);
 
 // Converts a relative path to absolute using the executable directory as base.
 //
 // @path rel_path the relative path to convert.
 // @returns an absolute path.
-FilePath GetExeRelativePath(const wchar_t* rel_path);
+base::FilePath GetExeRelativePath(const wchar_t* rel_path);
 
 // Converts a relative path to absolute using the output directory as base.
 //
 // @path rel_path the relative path to convert.
 // @returns an absolute path.
-FilePath GetOutputRelativePath(const wchar_t* rel_path);
+base::FilePath GetOutputRelativePath(const wchar_t* rel_path);
 
 // Converts a relative path to absolute using the test_data directory as base.
 //
 // @path rel_path the relative path to convert.
 // @returns an absolute path.
-FilePath GetExeTestDataRelativePath(const wchar_t* rel_path);
+base::FilePath GetExeTestDataRelativePath(const wchar_t* rel_path);
 
 // Converts an absolute path to a relative path using the given root directory
 // as a base.
@@ -122,7 +122,8 @@ FilePath GetExeTestDataRelativePath(const wchar_t* rel_path);
 // @returns the relative path to abs_path, starting from root. If there is no
 //     relative path, it returns the empty path.
 // @pre Both abs_path and root_path must be absolute paths.
-FilePath GetRelativePath(const FilePath& abs_path, const FilePath& root_path);
+base::FilePath GetRelativePath(const base::FilePath& abs_path,
+                               const base::FilePath& root_path);
 
 // Converts an absolute path to a relative path using the current working
 // directory as a base.
@@ -130,7 +131,7 @@ FilePath GetRelativePath(const FilePath& abs_path, const FilePath& root_path);
 // @param abs_path the absolute path to convert.
 // @returns the relative path to abs_path, starting from the current working
 //     directory. If there is no relative path, it returns the empty path.
-FilePath GetRelativePath(const FilePath& abs_path);
+base::FilePath GetRelativePath(const base::FilePath& abs_path);
 
 // A utility for ensuring that two file paths point to the same file. Upon
 // failure, outputs the actual paths as well. This is not intended to be used
@@ -147,8 +148,8 @@ FilePath GetRelativePath(const FilePath& abs_path);
 //     with an informative error message.
 AssertionResult AssertAreSameFile(const char* path1_expr,
                                   const char* path2_expr,
-                                  const FilePath& path1,
-                                  const FilePath& path2);
+                                  const base::FilePath& path1,
+                                  const base::FilePath& path2);
 
 // GTest macros for ensuring two paths refer to the same file.
 #define ASSERT_SAME_FILE(path1, path2) \

@@ -47,7 +47,7 @@ class GetInstanceIdForModuleTest : public testing::Test {
     ASSERT_TRUE(env_->UnSetVar(::kSyzygyRpcInstanceIdEnvVar));
   }
 
-  FilePath path_;
+  base::FilePath path_;
   scoped_ptr<base::Environment> env_;
 };
 
@@ -69,7 +69,7 @@ class IsRpcSessionMandatoryTest : public testing::Test {
     ASSERT_TRUE(env_->UnSetVar(::kSyzygyRpcSessionMandatoryEnvVar));
   }
 
-  FilePath path_;
+  base::FilePath path_;
   scoped_ptr<base::Environment> env_;
 };
 
@@ -85,10 +85,10 @@ TEST(GetModulePath, WorksOnSelf) {
   void* module_base = NULL;
   ASSERT_TRUE(GetModuleBaseAddress(&GetModuleBaseAddress, &module_base));
 
-  FilePath module_path;
+  base::FilePath module_path;
   EXPECT_TRUE(GetModulePath(module_base, &module_path));
 
-  FilePath self_path =
+  base::FilePath self_path =
       ::testing::GetExeRelativePath(L"rpc_client_lib_unittests.exe");
   EXPECT_SAME_FILE(self_path, module_path);
 }
@@ -124,7 +124,7 @@ TEST_F(GetInstanceIdForModuleTest, ReturnsExactPathId) {
 }
 
 TEST(GetInstanceIdForThisModuleTest, WorksAsExpected) {
-  FilePath self_path =
+  base::FilePath self_path =
       ::testing::GetExeRelativePath(L"rpc_client_lib_unittests.exe");
 
   std::wstring env_var(self_path.value());
@@ -174,7 +174,7 @@ TEST_F(IsRpcSessionMandatoryTest, NonNumericIgnored) {
 }
 
 TEST(IsRpcSessionMandatoryThisModuleTest, WorksAsExpected) {
-  FilePath self_path =
+  base::FilePath self_path =
       ::testing::GetExeRelativePath(L"rpc_client_lib_unittests.exe");
 
   std::wstring env_var(self_path.value());
@@ -189,7 +189,7 @@ TEST(IsRpcSessionMandatoryThisModuleTest, WorksAsExpected) {
 }
 
 TEST(InitializeRpcSessionTest, FailureSessionNotMandatory) {
-  FilePath self_path =
+  base::FilePath self_path =
       ::testing::GetExeRelativePath(L"rpc_client_lib_unittests.exe");
 
   scoped_ptr<base::Environment> env;

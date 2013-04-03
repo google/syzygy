@@ -13,10 +13,10 @@
 // limitations under the License.
 
 #include "syzygy/pe/pe_file.h"
-#include "base/file_path.h"
 #include "base/native_library.h"
 #include "base/path_service.h"
 #include "base/string_util.h"
+#include "base/files/file_path.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -40,7 +40,8 @@ public:
   virtual void SetUp() OVERRIDE {
     Super::SetUp();
 
-    FilePath test_dll = testing::GetExeRelativePath(testing::kTestDllName);
+    base::FilePath test_dll =
+        testing::GetExeRelativePath(testing::kTestDllName);
     std::string error;
     test_dll_ = base::LoadNativeLibrary(test_dll, &error);
 

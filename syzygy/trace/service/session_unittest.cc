@@ -19,9 +19,9 @@
 #include "base/callback.h"
 #include "base/environment.h"
 #include "base/file_util.h"
-#include "base/scoped_temp_dir.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/threading/thread.h"
 #include "gtest/gtest.h"
@@ -39,7 +39,7 @@ namespace {
 class TestTraceFileWriter : public TraceFileWriter {
  public:
   explicit TestTraceFileWriter(MessageLoop* message_loop,
-                               const FilePath& trace_directory)
+                               const base::FilePath& trace_directory)
       : TraceFileWriter(message_loop, trace_directory),
         num_buffers_to_recycle_(0) {
     base::subtle::Barrier_AtomicIncrement(&num_instances_, 1);
@@ -365,7 +365,7 @@ class SessionTest : public ::testing::Test {
   RpcServiceInstanceManager rpc_service_instance_manager_;
 
   // The directory where trace file output will be written.
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
 
   // A couple of worker threads where we can dispatch closures.
   base::Thread worker1_;

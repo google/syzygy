@@ -19,7 +19,7 @@
 #define SYZYGY_GENFILTER_GENFILTER_APP_H_
 
 #include "base/command_line.h"
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "syzygy/common/application.h"
 
 namespace genfilter {
@@ -66,10 +66,10 @@ class GenFilterApp : public common::AppImplBase {
   // @}
 
   Action action_;
-  FilePath input_image_;
-  FilePath input_pdb_;
-  FilePath output_file_;
-  std::vector<FilePath> inputs_;
+  base::FilePath input_image_;
+  base::FilePath input_pdb_;
+  base::FilePath output_file_;
+  std::vector<base::FilePath> inputs_;
   bool overwrite_;
   bool pretty_print_;
 };

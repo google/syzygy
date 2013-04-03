@@ -40,7 +40,7 @@ class PdbFindAppTest : public testing::PELibUnitTest {
 
   PdbFindAppTest()
       : app_impl_(app_.implementation()),
-        cmd_line_(FilePath(L"pdbfind.exe")),
+        cmd_line_(base::FilePath(L"pdbfind.exe")),
         old_log_level_(0) {
   }
 
@@ -76,10 +76,10 @@ class PdbFindAppTest : public testing::PELibUnitTest {
   TestApp app_;
   TestApp::Implementation& app_impl_;
 
-  FilePath temp_dir_;
-  FilePath stdin_path_;
-  FilePath stdout_path_;
-  FilePath stderr_path_;
+  base::FilePath temp_dir_;
+  base::FilePath stdin_path_;
+  base::FilePath stdout_path_;
+  base::FilePath stderr_path_;
 
   CommandLine cmd_line_;
   int old_log_level_;
@@ -105,11 +105,11 @@ TEST_F(PdbFindAppTest, TooManyArgumentsFails) {
 TEST_F(PdbFindAppTest, ParseWithOneArgumentPasses) {
   cmd_line_.AppendArg("foo.dll");
   ASSERT_TRUE(app_impl_.ParseCommandLine(&cmd_line_));
-  EXPECT_EQ(app_impl_.input_image_path_, FilePath(L"foo.dll"));
+  EXPECT_EQ(app_impl_.input_image_path_, base::FilePath(L"foo.dll"));
 }
 
 TEST_F(PdbFindAppTest, ModuleNotFound) {
-  FilePath module = testing::GetExeRelativePath(L"made_up_module.dll");
+  base::FilePath module = testing::GetExeRelativePath(L"made_up_module.dll");
   cmd_line_.AppendArgPath(module);
   ASSERT_EQ(1, app_.Run());
 }
@@ -118,11 +118,11 @@ TEST_F(PdbFindAppTest, ModuleNotFound) {
 //     PDB or are missing CodeView records.
 
 TEST_F(PdbFindAppTest, Succeeds) {
-  FilePath test_dll = testing::GetExeRelativePath(testing::kTestDllName);
+  base::FilePath test_dll = testing::GetExeRelativePath(testing::kTestDllName);
   cmd_line_.AppendArgPath(test_dll);
   ASSERT_EQ(0, app_.Run());
 
-  FilePath expected_pdb_path = testing::GetExeRelativePath(
+  base::FilePath expected_pdb_path = testing::GetExeRelativePath(
       testing::kTestDllPdbName);
 
   // We have to tear down the streams to make sure their contents are flushed
@@ -131,7 +131,7 @@ TEST_F(PdbFindAppTest, Succeeds) {
   std::string actual_stdout;
   ASSERT_TRUE(file_util::ReadFileToString(stdout_path_, &actual_stdout));
   TrimWhitespaceASCII(actual_stdout, TRIM_TRAILING, &actual_stdout);
-  FilePath actual_pdb_path(ASCIIToWide(actual_stdout));
+  base::FilePath actual_pdb_path(ASCIIToWide(actual_stdout));
   EXPECT_TRUE(file_util::PathExists(actual_pdb_path));
 
 #ifdef _COVERAGE_BUILD

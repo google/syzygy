@@ -46,7 +46,7 @@ class DecomposeAppTest : public testing::PELibUnitTest {
   typedef Application<TestDecomposeApp> TestApplication;
 
   DecomposeAppTest()
-      : cmd_line_(FilePath(L"decompose.exe")),
+      : cmd_line_(base::FilePath(L"decompose.exe")),
         impl_(app_.implementation()) {
   }
 
@@ -82,19 +82,19 @@ class DecomposeAppTest : public testing::PELibUnitTest {
   TestDecomposeApp& impl_;
 
   // A temporary folder where all IO will be stored.
-  FilePath temp_dir_;
+  base::FilePath temp_dir_;
 
   // @name File paths used for the standard IO streams.
   // @{
-  FilePath stdin_path_;
-  FilePath stdout_path_;
-  FilePath stderr_path_;
+  base::FilePath stdin_path_;
+  base::FilePath stdout_path_;
+  base::FilePath stderr_path_;
   // @}
 
   // @name Paths given as command-line parameters
   // @{
-  FilePath image_path_;
-  FilePath output_path_;
+  base::FilePath image_path_;
+  base::FilePath output_path_;
   // @{
 };
 

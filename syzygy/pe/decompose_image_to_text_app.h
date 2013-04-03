@@ -18,7 +18,7 @@
 #ifndef SYZYGY_PE_DECOMPOSE_IMAGE_TO_TEXT_APP_H_
 #define SYZYGY_PE_DECOMPOSE_IMAGE_TO_TEXT_APP_H_
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/application.h"
@@ -47,7 +47,7 @@ class DecomposeImageToTextApp : public common::AppImplBase {
   typedef block_graph::BasicDataBlock BasicDataBlock;
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
 
-  void DecomposeImageToTextApp::PrintUsage(const FilePath& program,
+  void DecomposeImageToTextApp::PrintUsage(const base::FilePath& program,
                                            const base::StringPiece& message);
 
   // Given @p address_space, dump it in text format to out().
@@ -68,10 +68,10 @@ class DecomposeImageToTextApp : public common::AppImplBase {
                        const BlockGraph::Block* block);
 
   // Dump the image at @p image_path to out().
-  bool DumpImageToText(const FilePath& image_path);
+  bool DumpImageToText(const base::FilePath& image_path);
 
   // The image to decompose.
-  FilePath image_path_;
+  base::FilePath image_path_;
 
   // True if we're to dump basic block information.
   bool dump_basic_blocks_;

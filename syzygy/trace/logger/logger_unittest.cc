@@ -16,10 +16,10 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
-#include "base/file_path.h"
 #include "base/file_util.h"
-#include "base/scoped_temp_dir.h"
 #include "base/stringprintf.h"
+#include "base/files/file_path.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/threading/thread.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -154,8 +154,8 @@ class LoggerTest : public testing::Test {
   static const char kLine2[];
   static const char kLine3[];
 
-  ScopedTempDir temp_dir_;
-  FilePath log_file_path_;
+  base::ScopedTempDir temp_dir_;
+  base::FilePath log_file_path_;
   file_util::ScopedFILE log_file_;
   std::wstring instance_id_;
   base::Thread io_thread_;

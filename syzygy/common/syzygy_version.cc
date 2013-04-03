@@ -69,7 +69,7 @@ std::string SyzygyVersion::GetVersionString() const {
       base::StringPrintf("%d.%d.%d.%d", major_, minor_, build_, patch_);
   // Only append the last-change string if it is not empty.
   if (!last_change_.empty()) {
-    version += StringPrintf(" (%s)", last_change_.c_str());
+    version += base::StringPrintf(" (%s)", last_change_.c_str());
   }
   return version;
 }

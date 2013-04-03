@@ -19,9 +19,9 @@
 
 #include <list>
 
-#include "base/file_path.h"
 #include "base/string_piece.h"
 #include "base/time.h"
+#include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "sawbuck/sym_util/types.h"
 #include "syzygy/core/address.h"
@@ -92,7 +92,7 @@ class Parser {
   // with different trace file paths. The type of parser used is established
   // based on the type of the first trace file opened. It is an error to
   // open trace files of different type in a single parse session.
-  bool OpenTraceFile(const FilePath& trace_file_path);
+  bool OpenTraceFile(const base::FilePath& trace_file_path);
 
   // Consume all events across all currently open trace files.
   bool Consume();
@@ -111,7 +111,7 @@ class Parser {
 
   // Sets the currently active parse engine to the first engine that
   // recognizes the given trace file.
-  bool SetActiveParseEngine(const FilePath& trace_file_path);
+  bool SetActiveParseEngine(const base::FilePath& trace_file_path);
 
   // The set of parse engines available to consume and dispatch the events
   // contained in a set of trace files.

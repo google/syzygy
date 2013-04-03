@@ -18,8 +18,8 @@
 #ifndef SYZYGY_PE_IMAGE_FILTER_H_
 #define SYZYGY_PE_IMAGE_FILTER_H_
 
-#include "base/file_path.h"
 #include "base/values.h"
+#include "base/files/file_path.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_filter.h"
 #include "syzygy/core/json_file_writer.h"
@@ -46,7 +46,7 @@ struct ImageFilter {
   // @returns true on success, false otherwise.
   void Init(const PEFile::Signature& pe_signature);
   void Init(const PEFile& pe_file);
-  bool Init(const FilePath& path);
+  bool Init(const base::FilePath& path);
 
   // Determines if this filter is for the given module.
   // @param pe_signature The signature to compare against.
@@ -55,7 +55,7 @@ struct ImageFilter {
   // @returns true if this filter matches the provided module, false otherwise.
   bool IsForModule(const PEFile::Signature& pe_signature) const;
   bool IsForModule(const PEFile& pe_file) const;
-  bool IsForModule(const FilePath& path) const;
+  bool IsForModule(const base::FilePath& path) const;
 
   // Saves this image filter to file.
   // @param json The JSON writer to be written to.
@@ -66,7 +66,7 @@ struct ImageFilter {
   // @note Logs on error.
   bool SaveToJSON(core::JSONFileWriter* json) const;
   bool SaveToJSON(bool pretty_print, FILE* file) const;
-  bool SaveToJSON(bool pretty_print, const FilePath& path) const;
+  bool SaveToJSON(bool pretty_print, const base::FilePath& path) const;
 
   // Loads an image filter from a file in JSON format.
   // @param dict The JSON dictionary to be loaded from.
@@ -76,7 +76,7 @@ struct ImageFilter {
   // @note Logs on error.
   bool LoadFromJSON(const DictionaryValue& dict);
   bool LoadFromJSON(FILE* file);
-  bool LoadFromJSON(const FilePath& path);
+  bool LoadFromJSON(const base::FilePath& path);
 };
 
 }  // namespace pe

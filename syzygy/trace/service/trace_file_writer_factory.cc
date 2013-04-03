@@ -22,11 +22,11 @@
 
 #include "base/atomicops.h"
 #include "base/bind.h"
-#include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/message_loop.h"
 #include "base/stringprintf.h"
+#include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/common/align.h"
@@ -46,7 +46,7 @@ TraceFileWriterFactory::TraceFileWriterFactory(MessageLoop* message_loop)
   DCHECK_EQ(MessageLoop::TYPE_IO, message_loop->type());
 }
 
-bool TraceFileWriterFactory::SetTraceFileDirectory(const FilePath& path) {
+bool TraceFileWriterFactory::SetTraceFileDirectory(const base::FilePath& path) {
   DCHECK(!path.empty());
   if (!file_util::CreateDirectory(path)) {
     LOG(ERROR) << "Failed to create trace file directory '" << path.value()

@@ -20,7 +20,7 @@
 
 #include <set>
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "base/synchronization/lock.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/trace/service/buffer_consumer.h"
@@ -50,7 +50,7 @@ class TraceFileWriterFactory : public BufferConsumerFactory {
 
   // Sets the trace file directory to which all subsequently created trace
   // file writers will output trace files.
-  bool SetTraceFileDirectory(const FilePath& path);
+  bool SetTraceFileDirectory(const base::FilePath& path);
 
   // Get the message loop the trace file writers should use for IO.
   MessageLoop* message_loop() { return message_loop_; }
@@ -60,7 +60,7 @@ class TraceFileWriterFactory : public BufferConsumerFactory {
   MessageLoop* const message_loop_;
 
   // The directory into which trace file writers will write.
-  FilePath trace_file_directory_;
+  base::FilePath trace_file_directory_;
 
   // The set of currently active buffer consumer objects. Protected by lock_.
   std::set<scoped_refptr<BufferConsumer>> active_consumers_;

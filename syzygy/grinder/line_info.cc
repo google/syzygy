@@ -34,7 +34,7 @@ using base::win::ScopedComPtr;
 typedef core::AddressRange<core::RelativeAddress, size_t> RelativeAddressRange;
 typedef std::map<DWORD, const std::string*> SourceFileMap;
 
-bool GetDiaSessionForPdb(const FilePath& pdb_path,
+bool GetDiaSessionForPdb(const base::FilePath& pdb_path,
                          IDiaDataSource* source,
                          IDiaSession** session) {
   DCHECK(source != NULL);
@@ -130,7 +130,7 @@ struct SourceLineAddressComparator {
 
 }  // namespace
 
-bool LineInfo::Init(const FilePath& pdb_path) {
+bool LineInfo::Init(const base::FilePath& pdb_path) {
   ScopedComPtr<IDiaDataSource> source;
   HRESULT hr = source.CreateInstance(CLSID_DiaSource);
   if (FAILED(hr)) {

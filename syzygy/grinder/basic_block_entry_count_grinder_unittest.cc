@@ -15,8 +15,8 @@
 #include "syzygy/grinder/basic_block_entry_count_grinder.h"
 
 #include "base/file_util.h"
-#include "base/scoped_temp_dir.h"
 #include "base/values.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/json/json_reader.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -62,7 +62,7 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
   static const size_t kNumBasicBlocks = 5;
 
   BasicBlockEntryCountGrinderTest()
-      : cmd_line_(FilePath(L"basic_block_entry_count_grinder.exe")) {
+      : cmd_line_(base::FilePath(L"basic_block_entry_count_grinder.exe")) {
   }
 
   virtual void SetUp() OVERRIDE {
@@ -73,7 +73,7 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
                   const wchar_t* file_path) {
     ASSERT_TRUE(handler != NULL);
     ASSERT_TRUE(parser_.Init(handler));
-    FilePath trace_file(testing::GetExeTestDataRelativePath(file_path));
+    base::FilePath trace_file(testing::GetExeTestDataRelativePath(file_path));
     ASSERT_TRUE(parser_.OpenTraceFile(trace_file));
   }
 
@@ -81,13 +81,13 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
                       ModuleEntryCountMap* module_entry_counts) {
     ASSERT_TRUE(trace_file != NULL);
     ASSERT_TRUE(module_entry_counts != NULL);
-    FilePath json_path;
+    base::FilePath json_path;
     ASSERT_NO_FATAL_FAILURE(GrindTraceFileToJson(trace_file, &json_path));
     ASSERT_NO_FATAL_FAILURE(LoadJson(json_path, module_entry_counts));
   }
 
   void GrindTraceFileToJson(const wchar_t* trace_file,
-                            FilePath* json_path) {
+                            base::FilePath* json_path) {
     ASSERT_TRUE(trace_file != NULL);
     ASSERT_TRUE(json_path != NULL);
 
@@ -102,7 +102,7 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
     ASSERT_TRUE(parser_.Consume());
 
     // Grind and output the data to a JSON file.
-    FilePath temp_path;
+    base::FilePath temp_path;
     file_util::ScopedFILE json_file(
         CreateAndOpenTemporaryFileInDir(temp_dir_.path(), &temp_path));
     ASSERT_TRUE(json_file.get() != NULL);
@@ -111,7 +111,7 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
     *json_path = temp_path;
   }
 
-  void LoadJson(const FilePath& json_path,
+  void LoadJson(const base::FilePath& json_path,
                 ModuleEntryCountMap* module_entry_counts) {
     ASSERT_TRUE(!json_path.empty());
     ASSERT_TRUE(module_entry_counts != NULL);
@@ -187,7 +187,7 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
   }
 
  protected:
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
   CommandLine cmd_line_;
   trace::parser::Parser parser_;
 };

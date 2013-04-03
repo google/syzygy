@@ -129,7 +129,7 @@ class BasicBlockOptimizerTest : public testing::OrderGeneratorTest {
   virtual void SetUp() OVERRIDE {
     ASSERT_NO_FATAL_FAILURE(Super::SetUp());
     ASSERT_NO_FATAL_FAILURE(InitBlockCounts());
-    FilePath pdb_path(GetExeTestDataRelativePath(
+    base::FilePath pdb_path(GetExeTestDataRelativePath(
         testing::kBBEntryInstrumentedTestDllPdbName));
   }
 

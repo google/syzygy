@@ -61,7 +61,7 @@
 
 #include <vector>
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "syzygy/block_graph/orderer.h"
 #include "syzygy/block_graph/transform.h"
 #include "syzygy/pdb/pdb_mutator.h"
@@ -104,10 +104,10 @@ class PERelinker {
 
   // @name Accessors.
   // @{
-  const FilePath& input_path() const { return input_path_; }
-  const FilePath& input_pdb_path() const { return input_pdb_path_; }
-  const FilePath& output_path() const { return output_path_; }
-  const FilePath& output_pdb_path() const { return output_pdb_path_; }
+  const base::FilePath& input_path() const { return input_path_; }
+  const base::FilePath& input_pdb_path() const { return input_pdb_path_; }
+  const base::FilePath& output_path() const { return output_path_; }
+  const base::FilePath& output_pdb_path() const { return output_pdb_path_; }
   bool add_metadata() const { return add_metadata_; }
   bool allow_overwrite() const { return allow_overwrite_; }
   bool augment_pdb() const { return augment_pdb_; }
@@ -120,16 +120,16 @@ class PERelinker {
 
   // @name Mutators for controlling relinker behaviour.
   // @{
-  void set_input_path(const FilePath& input_path) {
+  void set_input_path(const base::FilePath& input_path) {
     input_path_ = input_path;
   }
-  void set_input_pdb_path(const FilePath& input_pdb_path) {
+  void set_input_pdb_path(const base::FilePath& input_pdb_path) {
     input_pdb_path_ = input_pdb_path;
   }
-  void set_output_path(const FilePath& output_path) {
+  void set_output_path(const base::FilePath& output_path) {
     output_path_ = output_path;
   }
-  void set_output_pdb_path(const FilePath& output_pdb_path) {
+  void set_output_pdb_path(const base::FilePath& output_pdb_path) {
     output_pdb_path_ = output_pdb_path;
   }
   void set_add_metadata(bool add_metadata) {
@@ -254,10 +254,10 @@ class PERelinker {
   // @}
 
  protected:
-  FilePath input_path_;
-  FilePath input_pdb_path_;
-  FilePath output_path_;
-  FilePath output_pdb_path_;
+  base::FilePath input_path_;
+  base::FilePath input_pdb_path_;
+  base::FilePath output_path_;
+  base::FilePath output_pdb_path_;
 
   // If true, metadata will be added to the output image. Defaults to true.
   bool add_metadata_;

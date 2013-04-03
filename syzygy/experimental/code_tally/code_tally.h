@@ -24,8 +24,8 @@
 #include <vector>
 
 #include "base/callback.h"
-#include "base/file_path.h"
 #include "base/file_version_info.h"
+#include "base/files/file_path.h"
 #include "base/win/scoped_comptr.h"
 #include "syzygy/core/address_space.h"
 #include "syzygy/pe/pe_file.h"
@@ -116,11 +116,11 @@ class JSONFileWriter;
 class CodeTally {
  public:
   // Creates a code tally instance for the given image file.
-  explicit CodeTally(const FilePath& image_file);
+  explicit CodeTally(const base::FilePath& image_file);
 
   // Crawls the PDB file and updates internal state with code contribution
   // down to function, source line per object file.
-  bool TallyLines(const FilePath& pdb_file);
+  bool TallyLines(const base::FilePath& pdb_file);
 
   // Generates a JSON file from the internal state.
   bool GenerateJsonOutput(core::JSONFileWriter* writer);
@@ -164,7 +164,7 @@ class CodeTally {
   bool OnLinePassTwo(ObjectFileInfo* object_file, IDiaLineNumber* line_number);
 
   // The image file we work on.
-  FilePath image_file_;
+  base::FilePath image_file_;
 
   // The signature of image_file_, valid after a successful call to
   // TallyLines.

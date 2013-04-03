@@ -37,8 +37,8 @@ class Simulator : public trace::parser::ParseEventHandlerImpl {
   // @param instrumented_path The path of the instrumented dll.
   // @param trace_files A list of trace files to analyze.
   // @param simulation The simulation where the events will be fed.
-  Simulator(const FilePath& module_path,
-            const FilePath& instrumented_path,
+  Simulator(const base::FilePath& module_path,
+            const base::FilePath& instrumented_path,
             const TraceFileList& trace_files,
             SimulationEventHandler* simulation);
 
@@ -67,8 +67,8 @@ class Simulator : public trace::parser::ParseEventHandlerImpl {
   // @}
 
   // The input files.
-  FilePath module_path_;
-  FilePath instrumented_path_;
+  base::FilePath module_path_;
+  base::FilePath instrumented_path_;
   TraceFileList trace_files_;
 
   // The PE file and Image layout to be passed to playback_.

@@ -52,7 +52,7 @@ class Reorderer : public trace::parser::ParseEventHandlerImpl {
   typedef trace::parser::Parser Parser;
   typedef pe::ImageLayout ImageLayout;
   typedef pe::PEFile PEFile;
-  typedef std::vector<FilePath> TraceFileList;
+  typedef std::vector<base::FilePath> TraceFileList;
 
   struct Order;
   class OrderGenerator;
@@ -72,8 +72,8 @@ class Reorderer : public trace::parser::ParseEventHandlerImpl {
   // @param instrumented_path The path of the instrumented dll.
   // @param trace_files A list of trace files to analyze.
   // @param flags Flags passed to Reorderer.
-  Reorderer(const FilePath& module_path,
-            const FilePath& instrumented_path,
+  Reorderer(const base::FilePath& module_path,
+            const base::FilePath& instrumented_path,
             const TraceFileList& trace_files,
             Flags flags);
 
@@ -273,7 +273,7 @@ struct Reorderer::Order {
   // BlockGraph via inline comments.
   // @{
   bool SerializeToJSON(const PEFile& pe,
-                       const FilePath& path,
+                       const base::FilePath& path,
                        bool pretty_print) const;
   bool SerializeToJSON(const PEFile& pe,
                        core::JSONFileWriter* json_file) const;
@@ -283,11 +283,12 @@ struct Reorderer::Order {
   // @note @p pe and @p image must already be populated prior to calling this.
   bool LoadFromJSON(const PEFile& pe,
                     const ImageLayout& image,
-                    const FilePath& path);
+                    const base::FilePath& path);
 
   // Extracts the name of the original module from an order file. This is
   // used to guess the value of --input-image.
-  static bool GetOriginalModulePath(const FilePath& path, FilePath* module);
+  static bool GetOriginalModulePath(const base::FilePath& path,
+                                    base::FilePath* module);
 
  private:
   DISALLOW_COPY_AND_ASSIGN(Order);

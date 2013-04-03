@@ -53,7 +53,7 @@ class ImageLayoutBuilderTest : public testing::PELibUnitTest {
     Super::SetUp();
 
     // Create a temporary file we can write a new image to.
-    FilePath temp_dir;
+    base::FilePath temp_dir;
     ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir));
     temp_file_ = temp_dir.Append(testing::kTestDllName);
 
@@ -76,13 +76,13 @@ class ImageLayoutBuilderTest : public testing::PELibUnitTest {
   }
 
  protected:
-  FilePath image_path_;
+  base::FilePath image_path_;
   PEFile image_file_;
   BlockGraph block_graph_;
   ImageLayout image_layout_;
   BlockGraph::Block* dos_header_block_;
 
-  FilePath temp_file_;
+  base::FilePath temp_file_;
 };
 
 }  // namespace

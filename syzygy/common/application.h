@@ -54,7 +54,7 @@
 //       ASSERT_TRUE(out.get() != NULL);
 //       ASSERT_TRUE(err.get() != NULL);
 //
-//       CommandLine cmd_line(FilePath(L"program"));
+//       CommandLine cmd_line(base::FilePath(L"program"));
 //       Application<MyTestApp, LOG_INIT_NO> test_app(&cmd_line,
 //                                                    in.get(),
 //                                                    out.get(),
@@ -135,13 +135,13 @@ class AppImplBase {
   // A helper function to return an absolute path (if possible) for the given
   // path. If the conversion to an absolute path fails, the original path is
   // returned.
-  static FilePath AbsolutePath(const FilePath& path);
+  static base::FilePath AbsolutePath(const base::FilePath& path);
 
   // A helper function which appends the set of absolute file paths matching
   // the @p pattern (for example ..\foo\*.bin) to the end of @p matches.
   // @returns true if at least one matching file was found.
-  static bool AppendMatchingPaths(const FilePath& pattern,
-                                  std::vector<FilePath>* matches);
+  static bool AppendMatchingPaths(const base::FilePath& pattern,
+                                  std::vector<base::FilePath>* matches);
 
   // A helper function to get a command line parameter that has both a current
   // and a deprecated name.

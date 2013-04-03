@@ -133,11 +133,11 @@ bool ApplyPdbMutator(PdbMutatorInterface* pdb_mutator,
 // step may fail causing this to return false. @p output_pdb_path may also be
 // left empty in which case it will be inferred from input_pdb_path, being
 // placed alongside output_path.
-bool InitializePaths(const FilePath& input_path,
-                     const FilePath& output_path,
+bool InitializePaths(const base::FilePath& input_path,
+                     const base::FilePath& output_path,
                      bool allow_overwrite,
-                     FilePath* input_pdb_path,
-                     FilePath* output_pdb_path) {
+                     base::FilePath* input_pdb_path,
+                     base::FilePath* output_pdb_path) {
   DCHECK(input_pdb_path != NULL);
   DCHECK(output_pdb_path != NULL);
 
@@ -206,7 +206,7 @@ bool InitializePaths(const FilePath& input_path,
 bool Decompose(bool use_new_decomposer,
                bool parse_debug_info,
                const PEFile& pe_file,
-               const FilePath& pdb_path,
+               const base::FilePath& pdb_path,
                ImageLayout* image_layout,
                BlockGraph::Block** dos_header_block) {
   DCHECK(image_layout != NULL);
@@ -258,8 +258,8 @@ bool Decompose(bool use_new_decomposer,
   return true;
 }
 
-bool ApplyTransforms(const FilePath& input_path,
-                     const FilePath& output_pdb_path,
+bool ApplyTransforms(const base::FilePath& input_path,
+                     const base::FilePath& output_pdb_path,
                      const GUID& guid,
                      bool add_metadata,
                      std::vector<Transform*>* transforms,
@@ -383,7 +383,8 @@ bool BuildImageLayout(size_t padding,
 }
 
 // Writes the image.
-bool WriteImage(const ImageLayout& image_layout, const FilePath& output_path) {
+bool WriteImage(const ImageLayout& image_layout,
+                const base::FilePath& output_path) {
   PEFileWriter writer(image_layout);
 
   LOG(INFO) << "Writing image: " << output_path.value();
@@ -452,10 +453,11 @@ bool SetOmapAndGuid(const RelativeAddressRange input_range,
   return true;
 }
 
-bool WritePdbFile(const FilePath& output_pdb_path, const PdbFile& pdb_file) {
+bool WritePdbFile(const base::FilePath& output_pdb_path,
+                  const PdbFile& pdb_file) {
   LOG(INFO) << "Writing PDB file: " << output_pdb_path.value();
 
-  FilePath temp_pdb;
+  base::FilePath temp_pdb;
   if (!file_util::CreateTemporaryFileInDir(output_pdb_path.DirName(),
                                            &temp_pdb)) {
     LOG(ERROR) << "Unable to create temporary PDB file.";
@@ -529,7 +531,7 @@ PdbStream* GetOrCreatePdbStreamByName(const char* stream_name,
 //
 // If the format is changed, be sure to update this documentation and
 // pdb::kSyzygyHistoryStreamVersion (in pdb_constants.h).
-bool WriteSyzygyHistoryStream(const FilePath& input_path,
+bool WriteSyzygyHistoryStream(const base::FilePath& input_path,
                               NameStreamMap* name_stream_map,
                               PdbFile* pdb_file) {
   // Get the history stream.

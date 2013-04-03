@@ -61,7 +61,7 @@ class SerializationTest : public testing::Test {
   }
 
   template<typename Data> bool TestRoundTrip(const Data& data) {
-    FilePath path;
+    base::FilePath path;
     file_util::ScopedFILE file;
     file.reset(file_util::CreateAndOpenTemporaryFileInDir(temp_dir_, &path));
     EXPECT_TRUE(file.get() != NULL);
@@ -73,10 +73,10 @@ class SerializationTest : public testing::Test {
     return true;
   }
 
-  const FilePath& temp_dir() const { return temp_dir_; }
+  const base::FilePath& temp_dir() const { return temp_dir_; }
 
 private:
-  FilePath temp_dir_;
+  base::FilePath temp_dir_;
 };
 
 TEST_F(SerializationTest, IteratorOutStream) {
@@ -111,7 +111,7 @@ TEST_F(SerializationTest, IteratorInStream) {
 }
 
 TEST_F(SerializationTest, FileOutStream) {
-  FilePath path;
+  base::FilePath path;
   file_util::ScopedFILE file;
   file.reset(file_util::CreateAndOpenTemporaryFileInDir(temp_dir(), &path));
   EXPECT_TRUE(file.get() != NULL);
@@ -133,7 +133,7 @@ TEST_F(SerializationTest, FileOutStream) {
 }
 
 TEST_F(SerializationTest, FileInStream) {
-  FilePath path;
+  base::FilePath path;
   file_util::ScopedFILE file;
   file.reset(file_util::CreateAndOpenTemporaryFileInDir(temp_dir(), &path));
   EXPECT_TRUE(file.get() != NULL);

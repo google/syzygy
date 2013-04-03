@@ -16,8 +16,8 @@
 
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "base/scoped_temp_dir.h"
 #include "base/utf_string_conversions.h"
+#include "base/files/scoped_temp_dir.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -48,11 +48,11 @@ class JSONFileWriterTest: public testing::Test {
   virtual void SetUp() {
     // Initialize the temp directory for the first test.
     if (temp_dir_.get() == NULL) {
-      temp_dir_.reset(new ScopedTempDir());
+      temp_dir_.reset(new base::ScopedTempDir());
       ASSERT_TRUE(temp_dir_->CreateUniqueTempDir());
     }
 
-    FilePath path;
+    base::FilePath path;
     file_.reset(file_util::CreateAndOpenTemporaryFileInDir(temp_dir_->path(),
                                                            &path));
   }
@@ -93,7 +93,7 @@ class JSONFileWriterTest: public testing::Test {
       const char* expected,
       bool pretty_print) {
     // Use a new file each time.
-    FilePath path;
+    base::FilePath path;
     file_.reset(file_util::CreateAndOpenTemporaryFileInDir(temp_dir_->path(),
                                                            &path));
 
@@ -109,11 +109,11 @@ class JSONFileWriterTest: public testing::Test {
  private:
   // This is static so that a single temp directory is made for all of the
   // unittests, rather than one per instance.
-  static scoped_ptr<ScopedTempDir> temp_dir_;
+  static scoped_ptr<base::ScopedTempDir> temp_dir_;
   file_util::ScopedFILE file_;
 };
 
-scoped_ptr<ScopedTempDir> JSONFileWriterTest::temp_dir_;
+scoped_ptr<base::ScopedTempDir> JSONFileWriterTest::temp_dir_;
 
 // A utility class that can convert a string literal to any of
 //   * const char*,

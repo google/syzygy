@@ -26,7 +26,7 @@
 
 namespace grinder {
 
-bool GetBasicBlockAddresses(const FilePath& pdb_path,
+bool GetBasicBlockAddresses(const base::FilePath& pdb_path,
                             RelativeAddressVector* bb_addresses) {
   DCHECK(bb_addresses != NULL);
 

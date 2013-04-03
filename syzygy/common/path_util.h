@@ -17,7 +17,7 @@
 #ifndef SYZYGY_COMMON_PATH_UTIL_H_
 #define SYZYGY_COMMON_PATH_UTIL_H_
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 
 namespace common {
 
@@ -29,8 +29,8 @@ namespace common {
 // @param device_path The path to be converted.
 // @param drive_path The path to be populated with the converted path.
 // @returns true on success, false otherwise.
-bool ConvertDevicePathToDrivePath(const FilePath& device_path,
-                                  FilePath* drive_path);
+bool ConvertDevicePathToDrivePath(const base::FilePath& device_path,
+                                  base::FilePath* drive_path);
 
 }  // namespace common
 

@@ -25,7 +25,7 @@
 #include <string>
 #include <vector>
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "pcrecpp.h"  // NOLINT
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/disassembler.h"
@@ -114,13 +114,13 @@ class Decomposer {
   // search functionality.
   // @param pdb_path the path to the PDB file to be used in decomposing the
   //     image.
-  void set_pdb_path(const FilePath& pdb_path) { pdb_path_ = pdb_path; }
+  void set_pdb_path(const base::FilePath& pdb_path) { pdb_path_ = pdb_path; }
 
   // Accessor to the PDB path. If Decompose has been called successfully this
   // will reflect the path of the PDB file that was used to perform the
   // decomposition.
   // @returns the PDB path.
-  const FilePath& pdb_path() const { return pdb_path_; }
+  const base::FilePath& pdb_path() const { return pdb_path_; }
 
  protected:
   typedef std::map<RelativeAddress, std::string> DataLabels;
@@ -290,7 +290,7 @@ class Decomposer {
   //     stream exists in the PDB.
   // @return true if the block-graph has been successfully loaded, false
   //     otherwise.
-  bool LoadBlockGraphFromPdb(const FilePath& pdb_path,
+  bool LoadBlockGraphFromPdb(const base::FilePath& pdb_path,
                              const PEFile& image_file,
                              ImageLayout* image,
                              bool* stream_exists);
@@ -329,7 +329,7 @@ class Decomposer {
   const PEFile& image_file_;
 
   // The path to the PDB file to be used in decomposing the image.
-  FilePath pdb_path_;
+  base::FilePath pdb_path_;
 
   // Stores intermediate references before the block graph is complete.
   IntermediateReferenceMap references_;

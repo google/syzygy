@@ -69,8 +69,8 @@ void DumpTypeInfoStream(FILE* out,
   for (; type_info_iter != type_info_record_map.end(); type_info_iter++) {
     if (!stream->Seek(type_info_iter->second.start_position)) {
       LOG(ERROR) << "Unable to seek to type info record at position "
-                 << StringPrintf("0x%08X.",
-                                 type_info_iter->second.start_position);
+                 << base::StringPrintf("0x%08X.",
+                                       type_info_iter->second.start_position);
       return;
     }
     // The location in the map is the start of the leaf, which points
@@ -89,8 +89,8 @@ void DumpTypeInfoStream(FILE* out,
       // In case of failure we just dump the hex data of this type info.
       if (!stream->Seek(type_info_iter->second.start_position)) {
         LOG(ERROR) << "Unable to seek to type info record at position "
-                   << StringPrintf("0x%08X.",
-                                   type_info_iter->second.start_position);
+                   << base::StringPrintf("0x%08X.",
+                                         type_info_iter->second.start_position);
         return;
       }
       DumpUnknownLeaf(type_info_record_map,

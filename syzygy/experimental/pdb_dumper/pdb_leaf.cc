@@ -75,7 +75,7 @@ bool DumpTypeIndexName(uint32 type_value,
       ::fprintf(out, "reference to another type info.\n");
     } else {
       LOG(ERROR) << "reference to an unknown type index: "
-                 << StringPrintf("0x%08X.", type_value);
+                 << base::StringPrintf("0x%08X.", type_value);
       return false;
     }
   }
@@ -1165,8 +1165,8 @@ const char* GetNumericLeafNameAndSize(uint16 leaf_type, size_t* leaf_size) {
   if (leaf_type >= cci::LF_NUMERIC) {
     leaf_name = NumericLeafName(leaf_type);
     if (leaf_name == NULL) {
-      LOG(ERROR) << "Unsupported leaf type " << StringPrintf("0x%04X.",
-                                                             leaf_type);
+      LOG(ERROR) << "Unsupported leaf type "
+                 << base::StringPrintf("0x%04X.", leaf_type);
       return false;
     }
     *leaf_size = NumericLeafSize(leaf_type);

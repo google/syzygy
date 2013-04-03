@@ -17,8 +17,8 @@
 #ifndef SYZYGY_TRACE_PARSE_PARSE_ENGINE_RPC_H_
 #define SYZYGY_TRACE_PARSE_PARSE_ENGINE_RPC_H_
 
-#include "base/file_path.h"
 #include "base/time.h"
+#include "base/files/file_path.h"
 #include "syzygy/trace/parse/parse_engine.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
@@ -32,15 +32,17 @@ class ParseEngineRpc : public ParseEngine {
 
   // @name ParseEngine implementation
   // @{
-  virtual bool IsRecognizedTraceFile(const FilePath& trace_file_path) OVERRIDE;
-  virtual bool OpenTraceFile(const FilePath& trace_file_path) OVERRIDE;
+  virtual bool IsRecognizedTraceFile(
+      const base::FilePath& trace_file_path) OVERRIDE;
+  virtual bool OpenTraceFile(
+      const base::FilePath& trace_file_path) OVERRIDE;
   virtual bool ConsumeAllEvents() OVERRIDE;
   virtual bool CloseAllTraceFiles() OVERRIDE;
   // @}
 
  private:
   // A set of trace file paths.
-  typedef std::vector<FilePath> TraceFileSet;
+  typedef std::vector<base::FilePath> TraceFileSet;
 
   // An iterator over a set of trace file paths.
   typedef TraceFileSet::iterator TraceFileIter;
@@ -50,7 +52,7 @@ class ParseEngineRpc : public ParseEngine {
   // For each segment in the trace file calls ConsumeSegmentEvents().
   //
   // @return true on success
-  bool ConsumeTraceFile(const FilePath& trace_file_path);
+  bool ConsumeTraceFile(const base::FilePath& trace_file_path);
 
   // Dispactches all of the events in the given segment buffer.
   //

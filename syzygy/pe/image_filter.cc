@@ -205,7 +205,7 @@ void ImageFilter::Init(const PEFile& pe_file) {
       Range(RelativeAddress(0), signature.module_size));
 }
 
-bool ImageFilter::Init(const FilePath& path) {
+bool ImageFilter::Init(const base::FilePath& path) {
   PEFile pe_file;
   if (!pe_file.Init(path))
     return false;
@@ -227,7 +227,7 @@ bool ImageFilter::IsForModule(const PEFile& pe_file) const {
   return true;
 }
 
-bool ImageFilter::IsForModule(const FilePath& path) const {
+bool ImageFilter::IsForModule(const base::FilePath& path) const {
   PEFile pe_file;
   if (!pe_file.Init(path))
     return false;
@@ -300,7 +300,8 @@ bool ImageFilter::SaveToJSON(bool pretty_print, FILE* file) const {
   return true;
 }
 
-bool ImageFilter::SaveToJSON(bool pretty_print, const FilePath& path) const {
+bool ImageFilter::SaveToJSON(bool pretty_print,
+                             const base::FilePath& path) const {
   file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Unable to open file for writing: " << path.value();
@@ -380,7 +381,7 @@ bool ImageFilter::LoadFromJSON(FILE* file) {
   return true;
 }
 
-bool ImageFilter::LoadFromJSON(const FilePath& path) {
+bool ImageFilter::LoadFromJSON(const base::FilePath& path) {
   file_util::ScopedFILE file(file_util::OpenFile(path, "rb"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Unable to open file for reading: " << path.value();

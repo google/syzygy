@@ -49,7 +49,7 @@ const char kUsageFormatStr[] =
 
 }  // namespace
 
-void CodeTallyApp::PrintUsage(const FilePath& program,
+void CodeTallyApp::PrintUsage(const base::FilePath& program,
                               const base::StringPiece& message) {
   if (!message.empty()) {
     ::fwrite(message.data(), 1, message.length(), out());

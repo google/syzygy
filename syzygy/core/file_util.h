@@ -17,7 +17,7 @@
 #ifndef SYZYGY_CORE_FILE_UTIL_H_
 #define SYZYGY_CORE_FILE_UTIL_H_
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 
 namespace core {
 
@@ -56,8 +56,8 @@ enum FilePathCompareResult {
 // @param path1 the first path to compare.
 // @param path2 the second path to compare.
 // @returns a FilePathCompareResult, described above.
-FilePathCompareResult CompareFilePaths(const FilePath& path1,
-                                       const FilePath& path2);
+FilePathCompareResult CompareFilePaths(const base::FilePath& path1,
+                                       const base::FilePath& path2);
 
 }  // namespace core
 

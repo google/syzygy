@@ -24,8 +24,8 @@
 #include "base/environment.h"
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "base/string_split.h"
 #include "base/utf_string_conversions.h"
+#include "base/strings/string_split.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/pdb_info.h"
@@ -67,7 +67,7 @@ BOOL CALLBACK FindPdbFileCallback(PCTSTR path, PVOID context) {
   DCHECK(path != NULL);
   DCHECK(context != NULL);
 
-  FilePath pdb_path(path);
+  base::FilePath pdb_path(path);
   const PdbInfo* pdb_info = static_cast<PdbInfo*>(context);
 
   pdb::PdbInfoHeader70 pdb_header;
@@ -84,7 +84,7 @@ BOOL CALLBACK FindPeFileCallback(PCTSTR path, PVOID context) {
   DCHECK(path != NULL);
   DCHECK(context != NULL);
 
-  FilePath pe_path(path);
+  base::FilePath pe_path(path);
   const PEFile::Signature* pe_info = static_cast<PEFile::Signature*>(context);
 
   PEFile pe_file;
@@ -103,14 +103,14 @@ BOOL CALLBACK FindPeFileCallback(PCTSTR path, PVOID context) {
   return FALSE;
 }
 
-bool FindFile(const FilePath& file_path,
+bool FindFile(const base::FilePath& file_path,
               const base::StringPiece16& search_paths,
               const void* id,
               uint32 data,
               uint32 flags,
               PFINDFILEINPATHCALLBACKW callback,
               void* callback_context,
-              FilePath* found_file) {
+              base::FilePath* found_file) {
   DCHECK(found_file != NULL);
 
   found_file->clear();
@@ -124,7 +124,7 @@ bool FindFile(const FilePath& file_path,
     return false;
   }
 
-  FilePath dir = file_path.DirName();
+  base::FilePath dir = file_path.DirName();
   std::wstring basename = file_path.BaseName().value();
 
   // Augment the search paths with the directory of file_path and the
@@ -166,14 +166,15 @@ bool FindFile(const FilePath& file_path,
     return false;
   }
 
-  *found_file = FilePath(buffer);
+  *found_file = base::FilePath(buffer);
 
   return true;
 }
 
 }  // namespace
 
-bool PeAndPdbAreMatched(const FilePath& pe_path, const FilePath& pdb_path) {
+bool PeAndPdbAreMatched(const base::FilePath& pe_path,
+                        const base::FilePath& pdb_path) {
   pe::PdbInfo pe_pdb_info;
   if (!pe_pdb_info.Init(pe_path))
     return false;
@@ -187,20 +188,20 @@ bool PeAndPdbAreMatched(const FilePath& pe_path, const FilePath& pdb_path) {
 
 bool FindModuleBySignature(const PEFile::Signature& module_signature,
                            const base::StringPiece16& search_paths,
-                           FilePath* module_path) {
+                           base::FilePath* module_path) {
   DCHECK(module_path != NULL);
 
-  std::vector<FilePath> candidate_paths;
+  std::vector<base::FilePath> candidate_paths;
   if (!module_path->empty())
     candidate_paths.push_back(*module_path);
-  candidate_paths.push_back(FilePath(module_signature.path));
+  candidate_paths.push_back(base::FilePath(module_signature.path));
 
   const void* id =
       reinterpret_cast<void*>(module_signature.module_time_date_stamp);
 
   // Try a search based on each of the candidate paths.
   for (size_t i = 0; i < candidate_paths.size(); ++i) {
-    const FilePath& path = candidate_paths[i];
+    const base::FilePath& path = candidate_paths[i];
 
     if (!FindFile(path,
                   search_paths,
@@ -223,7 +224,7 @@ bool FindModuleBySignature(const PEFile::Signature& module_signature,
 }
 
 bool FindModuleBySignature(const PEFile::Signature& module_signature,
-                           FilePath* module_path) {
+                           base::FilePath* module_path) {
   DCHECK(module_path != NULL);
 
   std::wstring search_paths;
@@ -235,12 +236,12 @@ bool FindModuleBySignature(const PEFile::Signature& module_signature,
                                module_path);
 }
 
-bool FindPdbForModule(const FilePath& module_path,
+bool FindPdbForModule(const base::FilePath& module_path,
                       const base::StringPiece16& search_paths,
-                      FilePath* pdb_path) {
+                      base::FilePath* pdb_path) {
   DCHECK(pdb_path != NULL);
 
-  std::vector<FilePath> candidate_paths;
+  std::vector<base::FilePath> candidate_paths;
   if (!pdb_path->empty())
     candidate_paths.push_back(*pdb_path);
 
@@ -255,7 +256,7 @@ bool FindPdbForModule(const FilePath& module_path,
   search_path.append(search_paths.begin(), search_paths.end());
 
   for (size_t i = 0; i < candidate_paths.size(); ++i) {
-    const FilePath& path = candidate_paths[i];
+    const base::FilePath& path = candidate_paths[i];
 
     if (!FindFile(path,
                   search_path.c_str(),
@@ -277,8 +278,8 @@ bool FindPdbForModule(const FilePath& module_path,
   return true;
 }
 
-bool FindPdbForModule(const FilePath& module_path,
-                      FilePath* pdb_path) {
+bool FindPdbForModule(const base::FilePath& module_path,
+                      base::FilePath* pdb_path) {
   DCHECK(pdb_path != NULL);
 
   std::wstring search_paths;

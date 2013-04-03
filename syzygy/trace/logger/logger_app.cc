@@ -511,7 +511,7 @@ bool LoggerApp::Spawn() {
   LOG(INFO) << "Launching background logging service '" << logger_name << "'.";
 
   // Get the path to ourselves.
-  FilePath self_path;
+  base::FilePath self_path;
   PathService::Get(base::FILE_EXE, &self_path);
 
   // Build a command line for starting a new instance of the logger.

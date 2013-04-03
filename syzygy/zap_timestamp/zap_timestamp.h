@@ -23,8 +23,8 @@
 
 #include <vector>
 
-#include "base/file_path.h"
 #include "base/string_piece.h"
+#include "base/files/file_path.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/application.h"
 #include "syzygy/core/address_space.h"
@@ -45,14 +45,14 @@ class ZapTimestamp {
   // matching PDB file and does the same thing with it.
   // @param pe_path path to the PE file to be zapped.
   // @returns true on success, false otherwise.
-  bool Init(const FilePath& pe_path);
+  bool Init(const base::FilePath& pe_path);
 
   // Prepares for modifying the given PE file. Tracks down all of the bytes
   // to be modified and prepares the new values to be stored.
   // @param pe_path path to the PE file to be zapped.
   // @param pdb_path path the PDB file to be zapped.
   // @returns true on success, false otherwise.
-  bool Init(const FilePath& pe_path, const FilePath& pdb_path);
+  bool Init(const base::FilePath& pe_path, const base::FilePath& pdb_path);
 
   // Modifies the given PE file in place, as well as its associated PDB file.
   // @param modify_pe if true then the PE file will be updated in place.
@@ -63,8 +63,8 @@ class ZapTimestamp {
 
   // @name Accessors.
   // @{
-  const FilePath& pe_path() const { return pe_path_; }
-  const FilePath& pdb_path() const { return pdb_path_; }
+  const base::FilePath& pe_path() const { return pe_path_; }
+  const base::FilePath& pdb_path() const { return pdb_path_; }
   // @}
 
   // Forward declarations. These are public so they can be used by anonymous
@@ -99,8 +99,8 @@ class ZapTimestamp {
   // @}
 
   // Initialized by ValidatePeAndPdbFiles.
-  FilePath pe_path_;
-  FilePath pdb_path_;
+  base::FilePath pe_path_;
+  base::FilePath pdb_path_;
 
   // Initialized by DecomposePeFile.
   block_graph::BlockGraph block_graph_;
@@ -146,7 +146,7 @@ class ZapTimestampApp : public common::AppImplBase {
 
  private:
   // The input modules to be zapped. Each one must be a PE file.
-  std::vector<FilePath> input_modules_;
+  std::vector<base::FilePath> input_modules_;
 
   DISALLOW_COPY_AND_ASSIGN(ZapTimestampApp);
 };

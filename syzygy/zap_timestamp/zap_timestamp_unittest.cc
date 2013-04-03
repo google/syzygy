@@ -15,7 +15,7 @@
 #include "syzygy/zap_timestamp/zap_timestamp.h"
 
 #include "base/file_util.h"
-#include "base/scoped_temp_dir.h"
+#include "base/files/scoped_temp_dir.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 
@@ -45,8 +45,8 @@ RawPePdbPathPair kRawTestPaths[] = {
       TEST_DATA_PREFIX L"copy2\\test_dll.pdb" } };
 
 struct PePdbPathPair {
-  FilePath pe_path;
-  FilePath pdb_path;
+  base::FilePath pe_path;
+  base::FilePath pdb_path;
 };
 
 class ZapTimestampTest : public testing::Test {
@@ -68,7 +68,8 @@ class ZapTimestampTest : public testing::Test {
     temp_pdb_path_ = temp_dir_.path().Append(L"test_dll.pdb");
   }
 
-  void CopyTestData(const FilePath& pe_path, const FilePath& pdb_path) {
+  void CopyTestData(const base::FilePath& pe_path,
+                    const base::FilePath& pdb_path) {
     ASSERT_TRUE(file_util::CopyFile(pe_path, temp_pe_path_));
     ASSERT_TRUE(file_util::CopyFile(pdb_path, temp_pdb_path_));
   }
@@ -79,18 +80,18 @@ class ZapTimestampTest : public testing::Test {
         test_paths_[index].pe_path, test_paths_[index].pdb_path));
   }
 
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
   std::vector<PePdbPathPair> test_paths_;
 
-  FilePath temp_pe_path_;
-  FilePath temp_pdb_path_;
+  base::FilePath temp_pe_path_;
+  base::FilePath temp_pdb_path_;
 };
 
 }  // namespace
 
 TEST_F(ZapTimestampTest, InitFailsForNonExistentPath) {
   ZapTimestamp zap;
-  EXPECT_FALSE(zap.Init(FilePath(L"nonexistent_pe_file.dll")));
+  EXPECT_FALSE(zap.Init(base::FilePath(L"nonexistent_pe_file.dll")));
 }
 
 TEST_F(ZapTimestampTest, InitFailsForMismatchedPeAndPdb) {
@@ -129,8 +130,8 @@ TEST_F(ZapTimestampTest, IsIdempotent) {
   EXPECT_TRUE(zap0.Zap(true, true));
 
   // Make a copy of the singly zapped files.
-  FilePath pe_path_0 = temp_dir_.path().Append(L"test_dll_0.dll");
-  FilePath pdb_path_0 = temp_dir_.path().Append(L"test_dll_0.pdb");
+  base::FilePath pe_path_0 = temp_dir_.path().Append(L"test_dll_0.dll");
+  base::FilePath pdb_path_0 = temp_dir_.path().Append(L"test_dll_0.pdb");
   ASSERT_TRUE(file_util::CopyFile(temp_pe_path_, pe_path_0));
   ASSERT_TRUE(file_util::CopyFile(temp_pdb_path_, pdb_path_0));
 
@@ -154,8 +155,8 @@ TEST_F(ZapTimestampTest, Succeeds) {
   EXPECT_TRUE(zap0.Zap(true, true));
 
   // Rename and move the PE and PDB file.
-  FilePath pe_path_0 = temp_dir_.path().Append(L"test_dll_0.dll");
-  FilePath pdb_path_0 = temp_dir_.path().Append(L"test_dll_0.pdb");
+  base::FilePath pe_path_0 = temp_dir_.path().Append(L"test_dll_0.dll");
+  base::FilePath pdb_path_0 = temp_dir_.path().Append(L"test_dll_0.pdb");
   ASSERT_TRUE(file_util::Move(temp_pe_path_, pe_path_0));
   ASSERT_TRUE(file_util::Move(temp_pdb_path_, pdb_path_0));
 
@@ -166,8 +167,8 @@ TEST_F(ZapTimestampTest, Succeeds) {
   EXPECT_TRUE(zap1.Zap(true, true));
 
   // Rename and move the PE and PDB file.
-  FilePath pe_path_1 = temp_dir_.path().Append(L"test_dll_1.dll");
-  FilePath pdb_path_1 = temp_dir_.path().Append(L"test_dll_1.pdb");
+  base::FilePath pe_path_1 = temp_dir_.path().Append(L"test_dll_1.dll");
+  base::FilePath pdb_path_1 = temp_dir_.path().Append(L"test_dll_1.pdb");
   ASSERT_TRUE(file_util::Move(temp_pe_path_, pe_path_1));
   ASSERT_TRUE(file_util::Move(temp_pdb_path_, pdb_path_1));
 

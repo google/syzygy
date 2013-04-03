@@ -24,8 +24,8 @@ namespace playback {
 
 using trace::parser::Parser;
 
-Playback::Playback(const FilePath& module_path,
-                   const FilePath& instrumented_path,
+Playback::Playback(const base::FilePath& module_path,
+                   const base::FilePath& instrumented_path,
                    const TraceFileList& trace_files)
     : module_path_(module_path),
       instrumented_path_(instrumented_path),
@@ -84,7 +84,7 @@ bool Playback::LoadModuleInformation() {
   if (module_path_.empty()) {
     LOG(INFO) << "Inferring input DLL path from instrumented module: "
               << orig_signature.path;
-    module_path_ = FilePath(orig_signature.path);
+    module_path_ = base::FilePath(orig_signature.path);
   }
 
   // Try to read the input DLL.
@@ -111,7 +111,7 @@ bool Playback::InitializeParser() {
   // fail we'll have wasted a lot of time!
 
   for (TraceFileIter i = trace_files_.begin(); i < trace_files_.end(); ++i) {
-    const FilePath& trace_path = *i;
+    const base::FilePath& trace_path = *i;
     LOG(INFO) << "Opening '" << trace_path.BaseName().value() << "'.";
     if (!parser_->OpenTraceFile(trace_path)) {
       LOG(ERROR) << "Unable to open trace log: " << trace_path.value();
@@ -124,7 +124,7 @@ bool Playback::InitializeParser() {
 
 bool Playback::LoadInstrumentedOmap() {
   // Find the PDB file for the instrumented module.
-  FilePath instrumented_pdb;
+  base::FilePath instrumented_pdb;
   if (!pe::FindPdbForModule(instrumented_path_, &instrumented_pdb) ||
       instrumented_pdb.empty()) {
     LOG(ERROR) << "Unable to find PDB for instrumented image \""
@@ -209,7 +209,7 @@ bool Playback::MatchesInstrumentedModuleSignature(
     if (instr_signature_.module_size != module_info.module_size)
       return false;
 
-    FilePath base_name = instrumented_path_.BaseName();
+    base::FilePath base_name = instrumented_path_.BaseName();
     return (module_info.image_file_name.rfind(base_name.value()) !=
         std::wstring::npos);
   } else {

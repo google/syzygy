@@ -21,7 +21,7 @@
 namespace grinder {
 
 TEST(GrinderUtilTest, GetBasicBlockAddresses) {
-  FilePath pdb_path = testing::GetExeTestDataRelativePath(
+  base::FilePath pdb_path = testing::GetExeTestDataRelativePath(
       testing::kCoverageInstrumentedTestDllPdbName);
 
   RelativeAddressVector bb_addresses;

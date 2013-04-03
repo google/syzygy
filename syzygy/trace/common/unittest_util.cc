@@ -34,7 +34,7 @@ CallTraceService::~CallTraceService() {
   Stop();
 }
 
-void CallTraceService::Start(const FilePath& trace_dir) {
+void CallTraceService::Start(const base::FilePath& trace_dir) {
   ASSERT_EQ(base::kNullProcessHandle, service_process_);
 
   CommandLine service_cmd(

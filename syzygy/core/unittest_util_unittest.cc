@@ -14,23 +14,23 @@
 
 #include "syzygy/core/unittest_util.h"
 
-#include "base/file_path.h"
 #include "base/file_util.h"
+#include "base/files/file_path.h"
 #include "gtest/gtest.h"
 
 namespace testing {
 
 TEST(CoreUnittestUtils, GetRelativePath) {
-  const FilePath kEmptyPath;
-  const FilePath kCurrentDir(L".");
-  const FilePath kPath1(L"C:\\foo\\bar");
-  const FilePath kPath2(L"c:\\foo\\bar\\sub");
-  const FilePath kPath3(L"c:\\foo\\other\\file");
-  const FilePath kPath4(L"D:\\foo\\bar");
-  const FilePath kRelPath1From2(L"..");
-  const FilePath kRelPath2From1(L"sub");
-  const FilePath kRelPath1From3(L"..\\..\\bar");
-  const FilePath kRelPath3From1(L"..\\other\\file");
+  const base::FilePath kEmptyPath;
+  const base::FilePath kCurrentDir(L".");
+  const base::FilePath kPath1(L"C:\\foo\\bar");
+  const base::FilePath kPath2(L"c:\\foo\\bar\\sub");
+  const base::FilePath kPath3(L"c:\\foo\\other\\file");
+  const base::FilePath kPath4(L"D:\\foo\\bar");
+  const base::FilePath kRelPath1From2(L"..");
+  const base::FilePath kRelPath2From1(L"sub");
+  const base::FilePath kRelPath1From3(L"..\\..\\bar");
+  const base::FilePath kRelPath3From1(L"..\\other\\file");
 
   EXPECT_EQ(kEmptyPath, GetRelativePath(kPath1, kPath4));
   EXPECT_EQ(kCurrentDir, GetRelativePath(kPath1, kPath1));
@@ -39,9 +39,9 @@ TEST(CoreUnittestUtils, GetRelativePath) {
   EXPECT_EQ(kRelPath1From3,GetRelativePath(kPath1, kPath3));
   EXPECT_EQ(kRelPath3From1,GetRelativePath(kPath3, kPath1));
 
-  FilePath sub_dir;
+  base::FilePath sub_dir;
   ASSERT_TRUE(file_util::GetCurrentDirectory(&sub_dir));
-  EXPECT_EQ(FilePath(L"blah"), GetRelativePath(sub_dir.Append(L"blah")));
+  EXPECT_EQ(base::FilePath(L"blah"), GetRelativePath(sub_dir.Append(L"blah")));
 }
 
 }  // namespace testing

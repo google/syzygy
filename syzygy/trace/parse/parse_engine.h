@@ -49,14 +49,14 @@ class ParseEngine {
 
   // Returns true if the file given by @p trace_file_path is parseable by this
   // parse engine.
-  virtual bool IsRecognizedTraceFile(const FilePath& trace_file_path) = 0;
+  virtual bool IsRecognizedTraceFile(const base::FilePath& trace_file_path) = 0;
 
   // Opens the trace log given by @p trace_file_path and prepares it for
   // consumption. It is an error to call this method given a file that
   // will not be recognized by the parse engine.
   //
   // @return true on success.
-  virtual bool OpenTraceFile(const FilePath& trace_file_path) = 0;
+  virtual bool OpenTraceFile(const base::FilePath& trace_file_path) = 0;
 
   // Consume all events across all currently open trace files and for each
   // event call the dispatcher to notify the event handler.

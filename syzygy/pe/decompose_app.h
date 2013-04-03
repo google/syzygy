@@ -19,11 +19,11 @@
 #define SYZYGY_PE_DECOMPOSE_APP_H_
 
 #include "base/command_line.h"
-#include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/string_piece.h"
 #include "base/string_util.h"
 #include "base/time.h"
+#include "base/files/file_path.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/application.h"
 #include "syzygy/pe/image_layout.h"
@@ -57,20 +57,20 @@ class DecomposeApp : public common::AppImplBase {
  protected:
   // @name Utility functions
   // @{
-  void PrintUsage(const FilePath& program,
+  void PrintUsage(const base::FilePath& program,
                   const base::StringPiece& message);
 
   bool SaveDecomposedImage(const pe::PEFile& pe_file,
                            const ImageLayout& image_layout,
-                           const FilePath& output_path) const;
+                           const base::FilePath& output_path) const;
 
-  bool LoadDecomposedImage(const FilePath& file_path) const;
+  bool LoadDecomposedImage(const base::FilePath& file_path) const;
   // @}
 
   // @name Command-line options.
   // @{
-  FilePath image_path_;
-  FilePath output_path_;
+  base::FilePath image_path_;
+  base::FilePath output_path_;
   bool benchmark_load_;
   bool graph_only_;
   bool strip_strings_;

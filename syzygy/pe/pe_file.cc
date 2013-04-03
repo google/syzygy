@@ -48,7 +48,7 @@ PEFile::PEFile()
 PEFile::~PEFile() {
 }
 
-bool PEFile::Init(const FilePath& path) {
+bool PEFile::Init(const base::FilePath& path) {
   path_ = path;
   FILE* file = file_util::OpenFile(path, "rb");
   if (file == NULL) {
@@ -71,7 +71,7 @@ void PEFile::GetSignature(Signature* signature) const {
 
   // TODO(chrisha): Make GetSignature return a bool, and update all calling
   //     sites.
-  FilePath abs_path(path_);
+  base::FilePath abs_path(path_);
   CHECK(file_util::AbsolutePath(&abs_path));
 
   signature->path = abs_path.value();

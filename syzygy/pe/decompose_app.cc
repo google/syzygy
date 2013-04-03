@@ -18,10 +18,10 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/string_util.h"
 #include "base/time.h"
+#include "base/files/file_path.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
@@ -63,7 +63,7 @@ const char kUsageFormatStr[] =
 
 }  // namespace
 
-void DecomposeApp::PrintUsage(const FilePath& program,
+void DecomposeApp::PrintUsage(const base::FilePath& program,
                               const base::StringPiece& message) {
   if (!message.empty()) {
     ::fwrite(message.data(), 1, message.length(), out());
@@ -90,7 +90,7 @@ bool DecomposeApp::ParseCommandLine(const CommandLine* cmd_line) {
   // If no output file specified, use default.
   output_path_ = cmd_line->GetSwitchValuePath("output");
   if (output_path_.empty()) {
-    output_path_ = FilePath(image_path_.value() + L".bg");
+    output_path_ = base::FilePath(image_path_.value() + L".bg");
     LOG(INFO) << "Inferring output path from image path.";
   }
 
@@ -139,9 +139,9 @@ int DecomposeApp::Run() {
   return 0;
 }
 
-bool DecomposeApp::SaveDecomposedImage(const pe::PEFile& pe_file,
-                                       const pe::ImageLayout& image_layout,
-                                       const FilePath& output_path) const {
+bool DecomposeApp::SaveDecomposedImage(
+    const pe::PEFile& pe_file, const pe::ImageLayout& image_layout,
+    const base::FilePath& output_path) const {
   file_util::ScopedFILE out_file(file_util::OpenFile(output_path, "wb"));
   core::FileOutStream out_stream(out_file.get());
   core::NativeBinaryOutArchive out_archive(&out_stream);
@@ -172,7 +172,7 @@ bool DecomposeApp::SaveDecomposedImage(const pe::PEFile& pe_file,
   return true;
 }
 
-bool DecomposeApp::LoadDecomposedImage(const FilePath& file_path) const {
+bool DecomposeApp::LoadDecomposedImage(const base::FilePath& file_path) const {
   pe::PEFile pe_file;
   BlockGraph block_graph;
 

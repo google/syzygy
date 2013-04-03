@@ -18,9 +18,9 @@ namespace testing {
 
 ApplicationTestBase* ApplicationTestBase::self_ = NULL;
 
-void ApplicationTestBase::InitStreams(const FilePath& in_path,
-                                      const FilePath& out_path,
-                                      const FilePath& err_path) {
+void ApplicationTestBase::InitStreams(const base::FilePath& in_path,
+                                      const base::FilePath& out_path,
+                                      const base::FilePath& err_path) {
   ASSERT_FALSE(in_path.empty());
   ASSERT_FALSE(out_path.empty());
   ASSERT_FALSE(err_path.empty());
@@ -97,7 +97,7 @@ FILE* ApplicationTestBase::GetOrInitFile(file_util::ScopedFILE* f,
   DCHECK(f != NULL);
   DCHECK(mode != NULL);
   if (f->get() == NULL)
-    f->reset(file_util::OpenFile(FilePath(L"NUL"), mode));
+    f->reset(file_util::OpenFile(base::FilePath(L"NUL"), mode));
   return f->get();
 }
 

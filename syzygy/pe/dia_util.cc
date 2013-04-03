@@ -59,7 +59,7 @@ bool CreateDiaSource(IDiaDataSource** created_source) {
   return false;
 }
 
-bool CreateDiaSession(const FilePath& file,
+bool CreateDiaSession(const base::FilePath& file,
                       IDiaDataSource* dia_source,
                       IDiaSession** dia_session) {
   DCHECK(dia_source != NULL);

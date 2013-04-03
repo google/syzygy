@@ -16,8 +16,8 @@
 #include <diacreate.h>
 
 #include "base/bind.h"
-#include "base/file_path.h"
 #include "base/path_service.h"
+#include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_comptr.h"
 #include "gmock/gmock.h"

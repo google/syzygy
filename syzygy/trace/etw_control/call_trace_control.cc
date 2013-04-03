@@ -16,10 +16,10 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_path.h"
 #include "base/logging.h"
 #include "base/string_number_conversions.h"
 #include "base/debug/trace_event_win.h"
+#include "base/files/file_path.h"
 #include "base/win/event_trace_controller.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -40,9 +40,9 @@ enum FileMode {
 };
 
 struct CallTraceOptions {
-  FilePath call_trace_file;
-  FilePath kernel_file;
-  FilePath chrome_file;
+  base::FilePath call_trace_file;
+  base::FilePath kernel_file;
+  base::FilePath chrome_file;
   FileMode file_mode;
   int flags;
   int min_buffers;
@@ -66,11 +66,11 @@ static bool ParseOptions(CallTraceOptions* options) {
 
   options->call_trace_file = cmd_line->GetSwitchValuePath("call-trace-file");
   if (options->call_trace_file.empty())
-    options->call_trace_file = FilePath(kDefaultCallTraceFile);
+    options->call_trace_file = base::FilePath(kDefaultCallTraceFile);
 
   options->kernel_file = cmd_line->GetSwitchValuePath("kernel-file");
   if (options->kernel_file.empty())
-    options->kernel_file = FilePath(kDefaultKernelFile);
+    options->kernel_file = base::FilePath(kDefaultKernelFile);
 
   // This is an optional argument. If specified, it must be different from
   // call-trace-file and kernel-file.

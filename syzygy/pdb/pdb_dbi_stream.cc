@@ -100,9 +100,10 @@ bool DbiStream::ReadDbiSectionContribs(pdb::PdbStream* stream) {
 
   if (signature != kPdbDbiSectionContribsSignature) {
     LOG(ERROR) << "Unexpected signature for the section contribs substream. "
-               << "Expected " << StringPrintf("0x%08X",
-                                              kPdbDbiSectionContribsSignature)
-               << ", read " << StringPrintf("0x%08X", signature) << ".";
+               << "Expected "
+               << base::StringPrintf("0x%08X", kPdbDbiSectionContribsSignature)
+               << ", read "
+               << base::StringPrintf("0x%08X", signature) << ".";
     return false;
   }
 

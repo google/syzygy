@@ -20,7 +20,7 @@
 #include <map>
 #include <vector>
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_stream.h"
 
@@ -115,7 +115,7 @@ bool SetGuid(const GUID& guid, PdbFile* pdb_file);
 // @param pdb_path the path to the PDB whose header is to be read.
 // @param pdb_header the header to be filled in.
 // @returns true on success, false otherwise.
-bool ReadPdbHeader(const FilePath& pdb_path, PdbInfoHeader70* pdb_header);
+bool ReadPdbHeader(const base::FilePath& pdb_path, PdbInfoHeader70* pdb_header);
 
 // Reads the header info from the given PDB file.
 // @param pdb_file the file to read from.

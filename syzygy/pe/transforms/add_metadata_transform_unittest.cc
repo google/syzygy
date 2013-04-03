@@ -57,7 +57,7 @@ class AddMetadataTransformTest : public testing::PELibUnitTest {
     metadata_block_ = block;
   }
 
-  FilePath module_path_;
+  base::FilePath module_path_;
   BlockGraph block_graph_;
   BlockGraph::Block* header_block_;
   BlockGraph::Block* metadata_block_;

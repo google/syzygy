@@ -16,7 +16,7 @@
 
 #include <limits>
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "base/json/json_reader.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/common/syzygy_version.h"
@@ -157,7 +157,7 @@ BasicBlockEntryCountGrinder::FindOrCreateInstrumentedModule(
     return &it->second;
 
   // Get the original file's metadata.
-  FilePath module_path(module_info->image_file_name);
+  base::FilePath module_path(module_info->image_file_name);
   pe::PEFile instrumented_module;
   if (!instrumented_module.Init(module_path)) {
     LOG(ERROR) << "Unable to locate instrumented module: "
@@ -173,7 +173,7 @@ BasicBlockEntryCountGrinder::FindOrCreateInstrumentedModule(
   }
 
   // Find the PDB file for the module.
-  FilePath pdb_path;
+  base::FilePath pdb_path;
   if (!pe::FindPdbForModule(module_path, &pdb_path) || pdb_path.empty()) {
     LOG(ERROR) << "Failed to find PDB for module: " << module_path.value();
     return NULL;

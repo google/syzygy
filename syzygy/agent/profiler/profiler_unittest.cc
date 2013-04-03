@@ -21,7 +21,7 @@
 #include "base/bind.h"
 #include "base/file_util.h"
 #include "base/message_loop.h"
-#include "base/scoped_temp_dir.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread.h"
 #include "gmock/gmock.h"
@@ -161,7 +161,7 @@ class ProfilerTest : public testing::Test {
                                          FileEnumerator::FILES);
     size_t num_files = 0;
     while (true) {
-      FilePath trace_file = enumerator.Next();
+      base::FilePath trace_file = enumerator.Next();
       if (trace_file.empty())
         break;
       ASSERT_TRUE(parser.OpenTraceFile(trace_file));
@@ -215,7 +215,7 @@ class ProfilerTest : public testing::Test {
 
  protected:
   // The directory where trace file output will be written.
-  ScopedTempDir temp_dir_;
+  base::ScopedTempDir temp_dir_;
 
   // The handler to which the trace file parser will delegate events.
   StrictMockParseEventHandler handler_;

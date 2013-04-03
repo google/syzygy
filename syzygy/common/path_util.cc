@@ -21,8 +21,8 @@
 
 namespace common {
 
-bool ConvertDevicePathToDrivePath(const FilePath& device_path,
-                                  FilePath* drive_path) {
+bool ConvertDevicePathToDrivePath(const base::FilePath& device_path,
+                                  base::FilePath* drive_path) {
   DCHECK(drive_path != NULL);
   static const wchar_t kPathSeparator = L'\\';
 
@@ -65,7 +65,7 @@ bool ConvertDevicePathToDrivePath(const FilePath& device_path,
             device_path.value()[device_length] == kPathSeparator) {
           // Replace the device name with the drive letter and return the
           // translated path.
-          *drive_path = FilePath(drive).Append(
+          *drive_path = base::FilePath(drive).Append(
               device_path.value().substr(device_length));
           return true;
         }

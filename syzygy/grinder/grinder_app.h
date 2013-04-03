@@ -14,7 +14,7 @@
 #ifndef SYZYGY_GRINDER_GRINDER_APP_H_
 #define SYZYGY_GRINDER_GRINDER_APP_H_
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "syzygy/common/application.h"
 #include "syzygy/grinder/grinder.h"
 
@@ -42,13 +42,13 @@ class GrinderApp : public common::AppImplBase {
 
   // @name Utility functions
   // @{
-  void PrintUsage(const FilePath& program,
+  void PrintUsage(const base::FilePath& program,
                   const base::StringPiece& message);
   // @}
 
  protected:
-  std::vector<FilePath> trace_files_;
-  FilePath output_file_;
+  std::vector<base::FilePath> trace_files_;
+  base::FilePath output_file_;
   Mode mode_;
   scoped_ptr<GrinderInterface> grinder_;
 };

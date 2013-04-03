@@ -530,7 +530,7 @@ void DumpSymbolRecords(FILE* out,
   for (; symbol_iter != sym_record_vector.end(); symbol_iter++) {
     if (!stream->Seek(symbol_iter->start_position)) {
       LOG(ERROR) << "Unable to seek to symbol record at position "
-                 << StringPrintf("0x%08X.", symbol_iter->start_position);
+                 << base::StringPrintf("0x%08X.", symbol_iter->start_position);
       return;
     }
     const char* symbol_type_text = SymbolTypeName(symbol_iter->type);
@@ -565,7 +565,8 @@ void DumpSymbolRecords(FILE* out,
       // In case of failure we just dump the hex data of this symbol.
       if (!stream->Seek(symbol_iter->start_position)) {
         LOG(ERROR) << "Unable to seek to symbol record at position "
-                   << StringPrintf("0x%08X.", symbol_iter->start_position);
+                   << base::StringPrintf("0x%08X.",
+                                         symbol_iter->start_position);
         return;
       }
       DumpUnknown(out, stream, symbol_iter->len, indent_level + 1);

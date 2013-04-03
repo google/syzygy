@@ -298,7 +298,7 @@ bool FindOrAddImageImportDescriptor(bool find_only,
   int_block->set_attribute(BlockGraph::PE_PARSED);
   int_block->SetLabel(
       0,
-      StringPrintf("%s INT: NULL entry", module_name),
+      base::StringPrintf("%s INT: NULL entry", module_name),
       BlockGraph::DATA_LABEL);
   if (int_block->AllocateData(kPtrSize) == NULL) {
     LOG(ERROR) << "Failed to allocate block data.";
@@ -329,7 +329,7 @@ bool FindOrAddImageImportDescriptor(bool find_only,
 
   // Add a label for debugging purposes.
   iat_block->SetLabel(iat_offset,
-                      StringPrintf("%s: NULL thunk", module_name),
+                      base::StringPrintf("%s: NULL thunk", module_name),
                       BlockGraph::DATA_LABEL);
 
   // Hook up these blocks.
@@ -492,11 +492,11 @@ bool FindOrAddImportedSymbol(bool find_only,
   }
   hna.block()->SetLabel(
       int_offset,
-      StringPrintf("%s INT: %s", module_name->string, symbol_name),
+      base::StringPrintf("%s INT: %s", module_name->string, symbol_name),
       BlockGraph::DATA_LABEL);
   iat.block()->SetLabel(
       iat_offset,
-      StringPrintf("%s IAT: %s", module_name->string, symbol_name),
+      base::StringPrintf("%s IAT: %s", module_name->string, symbol_name),
       BlockGraph::DATA_LABEL);
 
   // Hook up the newly created IMAGE_IMPORT_BY_NAME to both tables.

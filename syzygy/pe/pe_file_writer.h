@@ -15,7 +15,7 @@
 #ifndef SYZYGY_PE_PE_FILE_WRITER_H_
 #define SYZYGY_PE_PE_FILE_WRITER_H_
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/address_space.h"
 #include "syzygy/pe/decomposer.h"
@@ -37,10 +37,10 @@ class PEFileWriter {
   explicit PEFileWriter(const ImageLayout& image_layout);
 
   // Writes the image to path.
-  bool WriteImage(const FilePath& path);
+  bool WriteImage(const base::FilePath& path);
 
   // Updates the checksum for the image @p path.
-  static bool PEFileWriter::UpdateFileChecksum(const FilePath& path);
+  static bool PEFileWriter::UpdateFileChecksum(const base::FilePath& path);
 
  protected:
   // Validates the DOS header and the NT headers in the image.

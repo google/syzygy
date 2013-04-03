@@ -175,15 +175,15 @@ TEST(GrinderBasicBlockUtilTest, FindEntryCountVector) {
 TEST(GrinderBasicBlockUtilTest, LoadBasicBlockRanges) {
   RelativeAddressRangeVector bb_ranges;
 
-  FilePath wrong_file_type(GetExeTestDataRelativePath(
+  base::FilePath wrong_file_type(GetExeTestDataRelativePath(
       testing::kCoverageTraceFiles[0]));
   EXPECT_FALSE(LoadBasicBlockRanges(wrong_file_type, &bb_ranges));
 
-  FilePath wrong_pdb(
+  base::FilePath wrong_pdb(
       GetExeTestDataRelativePath(testing::kTestDllPdbName));
   EXPECT_FALSE(LoadBasicBlockRanges(wrong_pdb, &bb_ranges));
 
-  FilePath right_pdb(GetExeTestDataRelativePath(
+  base::FilePath right_pdb(GetExeTestDataRelativePath(
       testing::kBBEntryInstrumentedTestDllPdbName));
   EXPECT_TRUE(LoadBasicBlockRanges(right_pdb, &bb_ranges));
 }
