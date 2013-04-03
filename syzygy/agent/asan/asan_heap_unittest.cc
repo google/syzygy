@@ -197,7 +197,7 @@ TEST_F(HeapTest, DoubleFree) {
   ASSERT_TRUE(mem != NULL);
   ASSERT_TRUE(proxy_.Free(0, mem));
   ASSERT_FALSE(proxy_.Free(0, mem));
-  ASSERT_TRUE(LogContains("double-free"));
+  ASSERT_TRUE(LogContains(HeapProxy::kAttemptingDoubleFree));
 }
 
 TEST_F(HeapTest, AllocsAccessibility) {

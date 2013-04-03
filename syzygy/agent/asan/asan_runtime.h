@@ -34,6 +34,17 @@ namespace asan {
 class AsanLogger;
 class StackCaptureCache;
 
+// Store the information about a bad memory access.
+// TODO(sebmarchand): Add an array with the copy of the shadow memory around
+//     this bad access.
+struct AsanErrorInfo {
+  void* alloc_stack[agent::asan::StackCapture::kMaxNumFrames];
+  uint8 alloc_stack_size;
+  void* free_stack[agent::asan::StackCapture::kMaxNumFrames];
+  uint8 free_stack_size;
+  HeapProxy::BadAccessKind error_type;
+};
+
 // An Asan Runtime manager.
 // This class take care of initializing the different modules (stack cache,
 // logger...) and provide the functions to report an error.
@@ -56,7 +67,7 @@ class AsanRuntime {
   typedef std::set<StackCapture::StackId> StackIdSet;
 
   // The type of callback used by the OnError function.
-  typedef base::Callback<void(CONTEXT*)> AsanOnErrorCallBack;
+  typedef base::Callback<void(CONTEXT*, AsanErrorInfo*)> AsanOnErrorCallBack;
 
   AsanRuntime();
   ~AsanRuntime();
@@ -85,7 +96,8 @@ class AsanRuntime {
 
   // The error handler.
   // @param context The context when the error has been reported.
-  void OnError(CONTEXT* context);
+  // @param error_info The information about this error.
+  void OnError(CONTEXT* context, AsanErrorInfo* error_info);
 
   // Set the callback called on error.
   // TODO(sebmarchand): Move the signature of this callback to an header file
@@ -109,11 +121,13 @@ class AsanRuntime {
   // @param stack The stack capture at the point of error.
   // @param access_mode The kind of the access (read or write).
   // @param access_size The size of the access (in bytes).
+  // @param bad_access_info Will receive the information about this access.
   void ReportAsanErrorDetails(const void* addr,
                               const CONTEXT& context,
                               const StackCapture& stack,
                               HeapProxy::AccessMode access_mode,
-                              size_t access_size);
+                              size_t access_size,
+                              AsanErrorInfo* bad_access_info);
 
   // Returns true if we should ignore the given @p stack_id, false
   // otherwise.

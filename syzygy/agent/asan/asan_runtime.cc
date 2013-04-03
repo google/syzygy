@@ -63,7 +63,10 @@ WinProcExceptionFilter GetBreakpadReportingFunc() {
 // @param func_ptr A pointer to the breakpad error reporting function. This
 //     will be used to perform the error reporting.
 // @param context The context when the error has been reported.
-void BreakpadErrorHandler(WinProcExceptionFilter func_ptr, CONTEXT* context) {
+// @param error_info The information about this error.
+void BreakpadErrorHandler(WinProcExceptionFilter func_ptr,
+                          CONTEXT* context,
+                          AsanErrorInfo* error_info) {
   DCHECK(func_ptr != NULL);
   DCHECK(context != NULL);
 
@@ -83,7 +86,8 @@ void BreakpadErrorHandler(WinProcExceptionFilter func_ptr, CONTEXT* context) {
 // The default error handler. It is expected that this will be bound in a
 // callback in the ASAN runtime.
 // @param context The context when the error has been reported.
-void DefaultErrorHandler(CONTEXT* context) {
+// @param error_info The information about this error.
+void DefaultErrorHandler(CONTEXT* context, AsanErrorInfo* error_info) {
   DCHECK(context != NULL);
 
   // TODO(rogerm): Accept and capture the asan error information (error type,
@@ -230,7 +234,7 @@ void AsanRuntime::TearDown() {
   // not be empty here.
 }
 
-void AsanRuntime::OnError(CONTEXT* context) {
+void AsanRuntime::OnError(CONTEXT* context, AsanErrorInfo* error_info) {
   DCHECK(context != NULL);
 
   if (flags_.exit_on_failure_)
@@ -238,7 +242,7 @@ void AsanRuntime::OnError(CONTEXT* context) {
 
   // Call the callback to handle this error.
   DCHECK_EQ(false, asan_error_callback_.is_null());
-  asan_error_callback_.Run(context);
+  asan_error_callback_.Run(context, error_info);
 }
 
 void AsanRuntime::SetErrorCallBack(const AsanOnErrorCallBack& callback) {
@@ -388,7 +392,9 @@ void AsanRuntime::ReportAsanErrorDetails(const void* addr,
                                          const CONTEXT& context,
                                          const StackCapture& stack,
                                          HeapProxy::AccessMode access_mode,
-                                         size_t access_size) {
+                                         size_t access_size,
+                                         AsanErrorInfo* bad_access_info) {
+  DCHECK(bad_access_info != NULL);
   base::AutoLock lock(heap_proxy_dlist_lock_);
   // Iterates over the HeapProxy list to find the memory block containing this
   // address. We expect that there is at least one heap proxy extant.
@@ -402,7 +408,12 @@ void AsanRuntime::ReportAsanErrorDetails(const void* addr,
     }
 
     proxy = HeapProxy::FromListEntry(item);
-    if (proxy->OnBadAccess(addr, context, stack, access_mode, access_size)) {
+    if (proxy->OnBadAccess(addr,
+                           context,
+                           stack,
+                           access_mode,
+                           access_size,
+                           bad_access_info)) {
       break;
     }
 
@@ -413,6 +424,7 @@ void AsanRuntime::ReportAsanErrorDetails(const void* addr,
   // from which this address was allocated. We can just reuse the logger of
   // the last heap proxy we saw to report an "unknown" error.
   if (item == NULL) {
+    bad_access_info->error_type = HeapProxy::UNKNOWN_BAD_ACCESS;
     CHECK(proxy != NULL);
     proxy->ReportUnknownError(addr, context, stack, access_mode,
                               access_size);

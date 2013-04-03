@@ -18,6 +18,22 @@
 
 #include <windows.h>
 
+namespace agent {
+namespace asan {
+
+class AsanRuntime;
+struct AsanErrorInfo;
+
+// Initialize the Asan runtime library global variables.
+// @param runtime The Asan runtime manager.
+void SetUpRtl(AsanRuntime* runtime);
+
+// Tear down the runtime library.
+void TearDownRtl();
+
+}  // namespace asan
+}  // namespace agent
+
 // Exposes the Asan Rtl functions.
 extern "C" {
 
@@ -66,23 +82,9 @@ BOOL WINAPI asan_HeapQueryInformation(
     HANDLE heap, HEAP_INFORMATION_CLASS info_class,
     PVOID info, SIZE_T info_length, PSIZE_T return_length);
 
-void WINAPI asan_SetCallBack(void (*callback)(CONTEXT*));
+void WINAPI asan_SetCallBack(void (*callback)(CONTEXT*,
+    agent::asan::AsanErrorInfo*));
 
 }  // extern "C"
-
-namespace agent {
-namespace asan {
-
-class AsanRuntime;
-
-// Initialize the Asan runtime library global variables.
-// @param runtime The Asan runtime manager.
-void SetUpRtl(AsanRuntime* runtime);
-
-// Tear down the runtime library.
-void TearDownRtl();
-
-}  // namespace asan
-}  // namespace agent
 
 #endif  // SYZYGY_AGENT_ASAN_ASAN_RTL_IMPL_H_

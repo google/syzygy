@@ -29,6 +29,7 @@ namespace asan {
 
 namespace {
 
+using agent::asan::AsanErrorInfo;
 using agent::asan::HeapProxy;
 
 // A derived class to expose protected members for unit-testing.
@@ -74,7 +75,7 @@ bool callback_called = false;
 
 // A simple callback that change the value of a boolean to indicate that it has
 // been called.
-void TestCallback(CONTEXT* context) {
+void TestCallback(CONTEXT* context, AsanErrorInfo* error_info) {
   callback_called = true;
 }
 
@@ -95,7 +96,8 @@ TEST_F(AsanRuntimeTest, OnError) {
   RtlCaptureContext(&context);
   StackCapture stack;
   stack.InitFromStack();
-  asan_runtime_.OnError(&context);
+  AsanErrorInfo bad_access_info = {};
+  asan_runtime_.OnError(&context, &bad_access_info);
   ASSERT_EQ(true, callback_called);
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
@@ -178,12 +180,13 @@ TEST_F(AsanRuntimeTest, ExitOnFailure) {
   CONTEXT context = {};
   RtlCaptureContext(&context);
 
+  AsanErrorInfo bad_access_info = {};
   // We need to delete the files and directory created by this unittest because
   // the EXPECT_EXIT macro will clone the process and this new process will exit
   // after the call to OnError, without calling the destructor of this class
   // (who takes care of deleting the temporary files/directories).
   DeleteTempFileAndDirectory();
-  EXPECT_EXIT(asan_runtime_.OnError(&context),
+  EXPECT_EXIT(asan_runtime_.OnError(&context, &bad_access_info),
               ::testing::ExitedWithCode(EXIT_FAILURE), "");
 }
 

@@ -34,6 +34,7 @@ namespace asan {
 class AsanLogger;
 class StackCapture;
 class StackCaptureCache;
+struct AsanErrorInfo;
 
 // An helper function to send a command to Windbg. Windbg should first receive
 // the ".ocommand ASAN" command to treat those messages as commands.
@@ -54,6 +55,22 @@ class HeapProxy {
     ASAN_WRITE_ACCESS,
     ASAN_UNKNOWN_ACCESS
   };
+
+  // Enumeration of the different kinds of bad heap accesses that we can
+  // encounter.
+  enum BadAccessKind {
+    UNKNOWN_BAD_ACCESS,
+    USE_AFTER_FREE,
+    HEAP_BUFFER_OVERFLOW,
+    HEAP_BUFFER_UNDERFLOW,
+  };
+
+  // The different types of error we can encounter.
+  static const char* kHeapUseAfterFree;
+  static const char* kHeapBufferUnderFlow;
+  static const char* kHeapBufferOverFlow;
+  static const char* kAttemptingDoubleFree;
+  static const char* kHeapUnknownError;
 
   HeapProxy(StackCaptureCache* cache, AsanLogger* logger);
   ~HeapProxy();
@@ -94,12 +111,14 @@ class HeapProxy {
   // @param stack The stack capture at the point of error.
   // @param access_mode The kind of the access (read or write).
   // @param access_size The size of the access (in bytes).
+  // @param bad_access_info Will receive the information about this access.
   // @returns true if the address belongs to a memory block, false otherwise.
   bool OnBadAccess(const void* addr,
                    const CONTEXT& context,
                    const StackCapture& stack,
                    AccessMode access_mode,
-                   size_t access_size);
+                   size_t access_size,
+                   AsanErrorInfo* bad_access_info);
 
   // Report an unknown error while attempting to access a red-zoned heap
   // address.
@@ -148,14 +167,6 @@ class HeapProxy {
   static void Init();
 
  protected:
-  // Enumeration of the different kind of bad heap access that we can encounter.
-  enum BadAccessKind {
-    UNKNOWN_BAD_ACCESS,
-    USE_AFTER_FREE,
-    HEAP_BUFFER_OVERFLOW,
-    HEAP_BUFFER_UNDERFLOW,
-  };
-
   enum BlockState {
     ALLOCATED,
     FREED,

@@ -16,12 +16,14 @@
 
 #include "base/bind.h"
 #include "base/logging.h"
+#include "base/debug/alias.h"
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 
 namespace {
 
+using agent::asan::AsanErrorInfo;
 using agent::asan::AsanRuntime;
 using agent::asan::HeapProxy;
 
@@ -126,7 +128,9 @@ BOOL WINAPI asan_HeapFree(HANDLE heap,
   if (!proxy->Free(flags, mem)) {
     CONTEXT context;
     ::RtlCaptureContext(&context);
-    asan_runtime->OnError(&context);
+    AsanErrorInfo error_info = {};
+    error_info.error_type = HeapProxy::UNKNOWN_BAD_ACCESS;
+    asan_runtime->OnError(&context, &error_info);
     return false;
   }
 
@@ -248,7 +252,7 @@ BOOL WINAPI asan_HeapQueryInformation(
   return ret == true;
 }
 
-void WINAPI asan_SetCallBack(void (*callback)(CONTEXT*)) {
+void WINAPI asan_SetCallBack(void (*callback)(CONTEXT*, AsanErrorInfo*)) {
   DCHECK(asan_runtime != NULL);
   asan_runtime->SetErrorCallBack(base::Bind(callback));
 }
@@ -317,14 +321,21 @@ void ReportBadMemoryAccess(void* location,
   if (asan_runtime->ShouldIgnoreError(stack.stack_id()))
     return;
 
+  // We keep a structure with all the useful information about this bad access
+  // on the stack.
+  AsanErrorInfo bad_access_info = {};
+  // Make sure this structure is not optimized out.
+  base::debug::Alias(&bad_access_info);
+
   asan_runtime->ReportAsanErrorDetails(location,
                                        context,
                                        stack,
                                        access_mode,
-                                       access_size);
+                                       access_size,
+                                       &bad_access_info);
 
   // Call the callback to handle this error.
-  asan_runtime->OnError(&context);
+  asan_runtime->OnError(&context, &bad_access_info);
 }
 
 // Check if the memory location is accessible and report an error on bad memory
@@ -444,13 +455,13 @@ void CheckStringsMemoryAccesses(
       __asm push edx  \
       /* Check for zero shadow - fast case. */  \
       __asm shr edx, 3  \
-      __asm movzx edx, BYTE PTR [edx + agent::asan::Shadow::shadow_]  \
+      __asm movzx edx, BYTE PTR[edx + agent::asan::Shadow::shadow_]  \
       __asm test dl, dl  \
       __asm jnz check_access_slow  \
       /* Remove memory location on top of stack */  \
       __asm add esp, 4  \
       /* Restore original EDX. */  \
-      __asm mov edx, DWORD PTR [esp + 8]  \
+      __asm mov edx, DWORD PTR[esp + 8]  \
       /* Restore the EFLAGS. */  \
       ASAN_RESTORE_EFLAGS  \
       __asm ret 4  \
@@ -460,13 +471,13 @@ void CheckStringsMemoryAccesses(
       /* Restore the EFLAGS. */  \
       ASAN_RESTORE_EFLAGS  \
       /* Restore original value of EDX, and put memory location on stack. */  \
-      __asm xchg edx, DWORD PTR [esp + 4]  \
+      __asm xchg edx, DWORD PTR[esp + 4]  \
       /* Create an ASAN registers context on the stack. */  \
       __asm pushfd  \
       __asm pushad  \
       /* Fix the original value of ESP in the ASAN registers context. */  \
       /* Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX). */  \
-      __asm add DWORD PTR [esp + 12], 12  \
+      __asm add DWORD PTR[esp + 12], 12  \
       /* Push ARG4: the address of ASAN context on stack. */  \
       __asm push esp  \
       /* Push ARG3: the access size. */  \
@@ -474,7 +485,7 @@ void CheckStringsMemoryAccesses(
       /* Push ARG2: the access type. */  \
       __asm push access_mode_value  \
       /* Push ARG1: the memory location. */  \
-      __asm push DWORD PTR [esp + 52]  \
+      __asm push DWORD PTR[esp + 52]  \
       __asm call agent::asan::CheckMemoryAccess  \
       /* Remove 4 x ARG on stack. */  \
       __asm add esp, 16  \
@@ -531,7 +542,7 @@ ASAN_CHECK_FUNCTION(32, write_access, AsanWriteAccess)
       __asm pushad  \
       /* Fix the original value of ESP in the ASAN registers context. */  \
       /* Removing 8 bytes (e.g.EFLAGS / EIP was on stack). */  \
-      __asm add DWORD PTR [esp + 12], 8  \
+      __asm add DWORD PTR[esp + 12], 8  \
       /* Setup increment in EBX (depends on direction flag in EFLAGS). */  \
       __asm mov ebx, access_size  \
       __asm pushfd  \

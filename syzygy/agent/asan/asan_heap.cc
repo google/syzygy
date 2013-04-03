@@ -17,8 +17,10 @@
 #include "base/logging.h"
 #include "base/stringprintf.h"
 #include "base/sys_string_conversions.h"
+#include "base/debug/alias.h"
 #include "base/debug/stack_trace.h"
 #include "syzygy/agent/asan/asan_logger.h"
+#include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 
 namespace agent {
@@ -57,6 +59,11 @@ class HeapLocker {
 
 // The default quarantine size for a new Heap.
 size_t HeapProxy::default_quarantine_max_size_ = kDefaultQuarantineMaxSize_;
+const char* HeapProxy::kHeapUseAfterFree = "heap-use-after-free";
+const char* HeapProxy::kHeapBufferUnderFlow = "heap-buffer-underflow";
+const char* HeapProxy::kHeapBufferOverFlow = "heap-buffer-overflow";
+const char* HeapProxy::kAttemptingDoubleFree = "attempting double-free";
+const char* HeapProxy::kHeapUnknownError = "heap-unknown-error";
 
 void ASANDbgCmd(const wchar_t* fmt, ...) {
   // The string should start with "ASAN" to be interpreted by the debugger as a
@@ -236,7 +243,7 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
     CONTEXT context = {};
     ::RtlCaptureContext(&context);
 
-    ReportAsanError("attempting double-free", static_cast<const uint8*>(mem),
+    ReportAsanError(kAttemptingDoubleFree, static_cast<const uint8*>(mem),
                     context, stack, bad_access_kind, block,
                     ASAN_UNKNOWN_ACCESS, 0);
 
@@ -388,7 +395,16 @@ HeapProxy::BlockHeader* HeapProxy::ToBlock(const void* alloc) {
     StackCapture stack;
     stack.InitFromStack();
 
-    if (!OnBadAccess(mem, context, stack, ASAN_UNKNOWN_ACCESS, 0)) {
+    AsanErrorInfo bad_access_info = {};
+    base::debug::Alias(&bad_access_info);
+
+    if (!OnBadAccess(mem,
+                     context,
+                     stack,
+                     ASAN_UNKNOWN_ACCESS,
+                     0,
+                     &bad_access_info)) {
+      bad_access_info.error_type = UNKNOWN_BAD_ACCESS;
       ReportUnknownError(mem, context, stack, ASAN_UNKNOWN_ACCESS, 0);
     }
     return NULL;
@@ -516,7 +532,8 @@ bool HeapProxy::OnBadAccess(const void* addr,
                             const CONTEXT& context,
                             const StackCapture& stack,
                             AccessMode access_mode,
-                            size_t access_size) {
+                            size_t access_size,
+                            AsanErrorInfo* bad_access_info) {
   DCHECK(addr != NULL);
   base::AutoLock lock(lock_);
   BadAccessKind bad_access_kind = UNKNOWN_BAD_ACCESS;
@@ -528,7 +545,20 @@ bool HeapProxy::OnBadAccess(const void* addr,
   bad_access_kind = GetBadAccessKind(addr, header);
   // Get the bad access description if we've been able to determine its kind.
   if (bad_access_kind != UNKNOWN_BAD_ACCESS) {
+    bad_access_info->error_type = bad_access_kind;
     const char* bug_descr = AccessTypeToStr(bad_access_kind);
+    if (header->alloc_stack != NULL) {
+      memcpy(bad_access_info->alloc_stack,
+             header->alloc_stack->frames(),
+             header->alloc_stack->num_frames() * sizeof(void*));
+      bad_access_info->alloc_stack_size = header->alloc_stack->num_frames();
+    }
+    if (header->free_stack != NULL) {
+      memcpy(bad_access_info->free_stack,
+             header->free_stack->frames(),
+             header->free_stack->num_frames() * sizeof(void*));
+      bad_access_info->free_stack_size = header->free_stack->num_frames();
+    }
     ReportAsanError(bug_descr,
                     addr,
                     context,
@@ -638,11 +668,11 @@ void HeapProxy::ReportAsanErrorBase(const char* bug_descr,
 const char* HeapProxy::AccessTypeToStr(BadAccessKind bad_access_kind) {
   switch (bad_access_kind) {
     case USE_AFTER_FREE:
-      return "heap-use-after-free";
+      return kHeapUseAfterFree;
     case HEAP_BUFFER_UNDERFLOW:
-      return "heap-buffer-underflow";
+      return kHeapBufferUnderFlow;
     case HEAP_BUFFER_OVERFLOW:
-      return "heap-buffer-overflow";
+      return kHeapBufferOverFlow;
     default:
       NOTREACHED() << "Unexpected bad access kind.";
       return NULL;
