@@ -2281,10 +2281,14 @@ bool NewDecomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
       image_->address_space_impl().FindFirstIntersection(
           BlockGraph::AddressSpace::Range(section_begin,
                                           image_end - section_begin)));
-  BlockGraph::AddressSpace::RangeMap::const_iterator end(
-      image_->address_space_impl().FindFirstIntersection(
-          BlockGraph::AddressSpace::Range(section_end,
-                                          image_end - section_end)));
+
+  BlockGraph::AddressSpace::RangeMap::const_iterator end =
+      image_->address_space_impl().end();
+  if (section_end < image_end) {
+    end = image_->address_space_impl().FindFirstIntersection(
+        BlockGraph::AddressSpace::Range(section_end,
+                                        image_end - section_end));
+  }
 
   // The whole section is missing. Cover it with one gap block.
   if (it == end)
