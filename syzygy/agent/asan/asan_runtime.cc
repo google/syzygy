@@ -69,14 +69,16 @@ void BreakpadErrorHandler(WinProcExceptionFilter func_ptr,
                           AsanErrorInfo* error_info) {
   DCHECK(func_ptr != NULL);
   DCHECK(context != NULL);
+  DCHECK(error_info != NULL);
 
   // TODO(rogerm): Accept and capture the asan error information (error type,
   //     alloc/free stacks, etc) and add it to the exception parameters.
   EXCEPTION_RECORD exception = {};
   exception.ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
   exception.ExceptionAddress = reinterpret_cast<PVOID>(context->Eip);
-  exception.NumberParameters = 1;
+  exception.NumberParameters = 2;
   exception.ExceptionInformation[0] = reinterpret_cast<ULONG_PTR>(context);
+  exception.ExceptionInformation[1] = reinterpret_cast<ULONG_PTR>(error_info);
 
   EXCEPTION_POINTERS pointers = { &exception, context };
   func_ptr(&pointers);
@@ -89,11 +91,13 @@ void BreakpadErrorHandler(WinProcExceptionFilter func_ptr,
 // @param error_info The information about this error.
 void DefaultErrorHandler(CONTEXT* context, AsanErrorInfo* error_info) {
   DCHECK(context != NULL);
+  DCHECK(error_info != NULL);
 
   // TODO(rogerm): Accept and capture the asan error information (error type,
   //     alloc/free stacks, etc) and add it to the exception arguments.
   ULONG_PTR arguments[] = {
-    reinterpret_cast<ULONG_PTR>(context)
+    reinterpret_cast<ULONG_PTR>(context),
+    reinterpret_cast<ULONG_PTR>(error_info)
   };
 
   ::DebugBreak();
