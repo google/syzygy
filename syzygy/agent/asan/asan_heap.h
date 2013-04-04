@@ -225,9 +225,11 @@ class HeapProxy {
   // @param header The block containing the address.
   // @param bad_access_kind The kind of bad access corresponding to this
   //     address.
+  // @param bad_access_info Will receive the information about this access.
   void ReportAddressInformation(const void* addr,
                                 BlockHeader* header,
-                                BadAccessKind bad_access_kind);
+                                BadAccessKind bad_access_kind,
+                                AsanErrorInfo* bad_access_info);
 
   // Low-level ASAN reporting function. This function dumps the stack,
   // optionally including an extra (free-form) description of the address
@@ -257,6 +259,7 @@ class HeapProxy {
   // @param header The header of the block containing this address.
   // @param access_mode The kind of the access (read or write).
   // @param access_size The size of the access (in bytes).
+  // @param bad_access_info Will receive the information about this access.
   void ReportAsanError(const char* bug_descr,
                        const void* addr,
                        const CONTEXT& context,
@@ -264,7 +267,8 @@ class HeapProxy {
                        BadAccessKind bad_access_kind,
                        BlockHeader* header,
                        AccessMode access_mode,
-                       size_t access_size);
+                       size_t access_size,
+                       AsanErrorInfo* bad_access_info);
 
   // Arbitrarily keep 16 megabytes of quarantine per heap by default.
   static const size_t kDefaultQuarantineMaxSize_ = 16 * 1024 * 1024;

@@ -15,6 +15,7 @@
 #include "syzygy/agent/asan/asan_heap.h"
 
 #include "base/logging.h"
+#include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/sys_string_conversions.h"
 #include "base/debug/alias.h"
@@ -242,10 +243,12 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
 
     CONTEXT context = {};
     ::RtlCaptureContext(&context);
+    AsanErrorInfo error_info = {};
+    error_info.error_type = UNKNOWN_BAD_ACCESS;
 
     ReportAsanError(kAttemptingDoubleFree, static_cast<const uint8*>(mem),
                     context, stack, bad_access_kind, block,
-                    ASAN_UNKNOWN_ACCESS, 0);
+                    ASAN_UNKNOWN_ACCESS, 0, &error_info);
 
     return false;
   }
@@ -425,9 +428,12 @@ uint8* HeapProxy::ToAlloc(BlockHeader* block) {
 
 void HeapProxy::ReportAddressInformation(const void* addr,
                                          BlockHeader* header,
-                                         BadAccessKind bad_access_kind) {
+                                         BadAccessKind bad_access_kind,
+                                         AsanErrorInfo* bad_access_info) {
   DCHECK(addr != NULL);
   DCHECK(header != NULL);
+  DCHECK(bad_access_info != NULL);
+
   uint8* block_alloc = ToAlloc(header);
   int offset = 0;
   char* offset_relativity = "";
@@ -448,14 +454,21 @@ void HeapProxy::ReportAddressInformation(const void* addr,
       NOTREACHED() << "Error trying to dump address information.";
   }
 
-  logger_->Write(base::StringPrintf(
+  size_t shadow_info_bytes = base::snprintf(
+      bad_access_info->shadow_info,
+      arraysize(bad_access_info->shadow_info) - 1,
       "0x%08X is located %d bytes %s of %d-bytes region [0x%08X,0x%08X)\n",
       addr,
       offset,
       offset_relativity,
       header->size,
       block_alloc,
-      block_alloc + header->size));
+      block_alloc + header->size);
+
+  // Ensure that we had enough space to store the full shadow info message.
+  DCHECK_LE(shadow_info_bytes, arraysize(bad_access_info->shadow_info) - 1);
+
+  logger_->Write(bad_access_info->shadow_info);
   if (header->free_stack != NULL) {
     std::string message = base::StringPrintf(
         "freed here (stack_id=0x%08X):\n", header->free_stack->stack_id());
@@ -566,7 +579,8 @@ bool HeapProxy::OnBadAccess(const void* addr,
                     bad_access_kind,
                     header,
                     access_mode,
-                    access_size);
+                    access_size,
+                    bad_access_info);
     return true;
   }
 
@@ -597,7 +611,8 @@ void HeapProxy::ReportAsanError(const char* bug_descr,
                                 BadAccessKind bad_access_kind,
                                 BlockHeader* header,
                                 AccessMode access_mode,
-                                size_t access_size) {
+                                size_t access_size,
+                                AsanErrorInfo* bad_access_info) {
   DCHECK(bug_descr != NULL);
   DCHECK(addr != NULL);
   DCHECK(header != NULL);
@@ -626,7 +641,7 @@ void HeapProxy::ReportAsanError(const char* bug_descr,
                header->free_stack->num_frames());
   }
 
-  ReportAddressInformation(addr, header, bad_access_kind);
+  ReportAddressInformation(addr, header, bad_access_kind, bad_access_info);
 
   ASANDbgPrintContext(context);
 }
