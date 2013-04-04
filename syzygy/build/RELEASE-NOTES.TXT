@@ -1,6 +1,13 @@
 Syzygy Release Notes
 ====================
 
+Version 0.2.17.0
+
+[r1425] SyzyASAN - Save crash analyses to the stack.
+[r1424] SyzyASAN - Directly report crashes via breakpad, if available.
+[r1417] Fix parsing to support trace files larger than 4GB.
+[r1411] SyzyASAN - Add support for string and other special instructions.
+
 Version 0.2.16.0
 
 [r1390] New genfilter tool for creating image filters.
