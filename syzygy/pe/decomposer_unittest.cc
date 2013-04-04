@@ -244,7 +244,7 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
     test_blocks.insert(std::make_pair("FunctionWithInlineAssembly",
                                       &func_with_inl_asm_block));
     test_blocks.insert(std::make_pair("found_bx", &strchr_block));
-    test_blocks.insert(std::make_pair("__imp_load_CoInitialize",
+    test_blocks.insert(std::make_pair("__imp_load_CoCreateGuid",
                                       &imp_load_block));
     test_blocks.insert(std::make_pair("TestFunctionWithNoPrivateSymbols",
                                       &no_private_symbols_block));

@@ -72,6 +72,17 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       // Create the At-Exit manager.
       SetUpAtExitManager();
       SetUpAsanRuntime();
+
+      // Disable logging. In the case of Chrome this is running in a sandboxed
+      // process where logging to file doesn't help us any. In other cases the
+      // log output will still go to console.
+      logging::InitLogging(
+          NULL,
+          logging::LOG_NONE,
+          logging::DONT_LOCK_LOG_FILE,
+          logging::DELETE_OLD_LOG_FILE,
+          logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
+
       break;
 
     case DLL_THREAD_ATTACH:

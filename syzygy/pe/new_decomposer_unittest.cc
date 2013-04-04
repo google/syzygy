@@ -314,7 +314,7 @@ TEST_F(NewDecomposerTest, LabelsAndAttributes) {
         ASSERT_TRUE(strchr_block == NULL);
         strchr_block = &it->second;
       } else if (std::find(names.begin(), names.end(),
-                           "__imp_load_CoInitialize") != names.end()) {
+                           "__imp_load_CoCreateGuid") != names.end()) {
         ASSERT_TRUE(imp_load_block == NULL);
         imp_load_block = &it->second;
       }

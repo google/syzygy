@@ -69,7 +69,8 @@ DWORD WINAPI TestExport(size_t buf_len, char* buf) {
 
 DWORD WINAPI BringInOle32DelayLib() {
   // Reference this from Ole32 to pull in something.
-  ::CoInitialize(NULL);
+  GUID guid = {};
+  ::CoCreateGuid(&guid);
 
   return 0;
 }

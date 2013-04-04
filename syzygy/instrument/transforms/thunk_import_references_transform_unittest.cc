@@ -127,7 +127,7 @@ TEST_F(ThunkImportReferencesTransformTest, LookupDelayImportLocations) {
   // There should be precisely one ole32.dll import.
   ASSERT_EQ(1, all_import_locations.size());
 
-  ASSERT_STRCASEEQ("ole32.dll:CoInitialize",
+  ASSERT_STRCASEEQ("ole32.dll:CoCreateGuid",
                    all_import_locations.begin()->second.c_str());
 }
 
