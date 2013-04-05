@@ -246,10 +246,18 @@ bool SplitCommandLine(const CommandLine* orig_command_line,
     app_argv.push_back(*it);
   }
 
-  // Initialize the output command lines with the new arguments.
+  // Initialize logger command lines with the new arguments.
   logger_command_line->InitFromArgv(logger_argv);
-  if (!app_argv.empty())
-    app_command_line->reset(new CommandLine(app_argv));
+
+  // Initialize application command lines with the new arguments.
+  if (!app_argv.empty()) {
+    // Avoid switches processing in application commandLine parsing.
+    // Otherwise, we break command like : logger.exe START -- <app> -d 1 -c 2.
+    // We should not re-order <app> parameters.
+    app_command_line->reset(new CommandLine(base::FilePath(app_argv[0])));
+    for (size_t arg = 1; arg < app_argv.size(); ++arg)
+      app_command_line->get()->AppendArgNative(app_argv[arg]);
+  }
 
   return true;
 }

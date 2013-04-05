@@ -155,6 +155,7 @@ TEST_F(LoggerAppTest, ParseStartWithCommand) {
   const std::wstring kSwitchName(L"switch");
   const std::wstring kSwitchValue(L"value");
   const std::wstring kDash(L"--");
+  const std::wstring kArg1 = kDash + kSwitchName + L"=" + kSwitchValue;
 
   cmd_line_.AppendSwitchPath(
       TestLoggerApp::kOutputFile, output_file_path_);
@@ -163,7 +164,7 @@ TEST_F(LoggerAppTest, ParseStartWithCommand) {
   cmd_line_.AppendArgNative(TestLoggerApp::kStart);
   cmd_line_.AppendArgNative(kDash);
   cmd_line_.AppendArgNative(kFooExe.value());
-  cmd_line_.AppendArgNative(kDash + kSwitchName + L"=" + kSwitchValue);
+  cmd_line_.AppendArgNative(kArg1);
   ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
   EXPECT_EQ(output_file_path_, test_impl_.output_file_path_);
   EXPECT_EQ(instance_id_, test_impl_.instance_id_);
@@ -171,8 +172,10 @@ TEST_F(LoggerAppTest, ParseStartWithCommand) {
   const CommandLine* app_cmd_line = test_impl_.app_command_line_.get();
   ASSERT_TRUE(app_cmd_line != NULL);
   EXPECT_EQ(kFooExe, app_cmd_line->GetProgram());
-  EXPECT_EQ(kSwitchValue,
-            app_cmd_line->GetSwitchValueNative(WideToASCII(kSwitchName)));
+  EXPECT_TRUE(app_cmd_line->GetSwitches().empty());
+  ASSERT_TRUE(app_cmd_line->GetArgs().size() == 1);
+  EXPECT_TRUE(app_cmd_line->GetArgs().at(0) == kArg1);
+
   EXPECT_EQ(&TestLoggerApp::Start, test_impl_.action_handler_);
 }
 
