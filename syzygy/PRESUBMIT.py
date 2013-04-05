@@ -228,7 +228,6 @@ def CheckChange(input_api, output_api, committing):
     input_api.canned_checks.CheckChangeHasNoCrAndHasOnlyOneEol,
     input_api.canned_checks.CheckChangeHasNoTabs,
     input_api.canned_checks.CheckChangeHasNoStrayWhitespace,
-    input_api.canned_checks.CheckLongLines,
     input_api.canned_checks.CheckChangeSvnEolStyle,
     input_api.canned_checks.CheckDoNotSubmit,
   ]
@@ -236,6 +235,8 @@ def CheckChange(input_api, output_api, committing):
   results = []
   for check in checks:
     results += check(input_api, output_api)
+
+  results += input_api.canned_checks.CheckLongLines(input_api, output_api, 80)
 
   # We run lint only on C/C++ files so that we avoid getting notices about
   # files being ignored.
