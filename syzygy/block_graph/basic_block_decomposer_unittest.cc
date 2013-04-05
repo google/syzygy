@@ -105,8 +105,7 @@ bool HasGapOrIsOutOfOrder(const BasicBlock* lhs, const BasicBlock* rhs) {
 // A test fixture which generates a block-graph to use for basic-block
 // related testing.
 // See: basic_block_assembly_func.asm
-class BasicBlockDecomposerTest : public BasicBlockTest {
-};
+typedef BasicBlockTest BasicBlockDecomposerTest;
 
 }
 
