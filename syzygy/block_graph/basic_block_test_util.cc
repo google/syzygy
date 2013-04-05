@@ -181,4 +181,71 @@ void BasicBlockTest::InitBasicBlockSubGraph() {
   ASSERT_EQ(bds_[0]->basic_block_order.size(), bbs_.size());
 }
 
+void BasicBlockTest::InitBasicBlockSubGraphWithLabelPastEnd() {
+  // We create a simple block-graph containing two blocks. One of them is a
+  // simple function that contains a single int3 instruction. The second block
+  // contains a call to the first block. The second block has no epilog (given
+  // that it calls a non-returning function) and has a debug-end label past the
+  // end of the block.
+  ASSERT_TRUE(block_graph_.sections().empty());
+  ASSERT_TRUE(block_graph_.blocks().empty());
+
+  text_section_ = block_graph_.AddSection(
+      ".text", IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_EXECUTE);
+  ASSERT_TRUE(text_section_ != NULL);
+
+  func1_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 1, "noret");
+  ASSERT_TRUE(func1_ != NULL);
+  func1_->ResizeData(1);
+  func1_->GetMutableData()[0] = 0xCC;  // int3.
+  func1_->SetLabel(0, "noret", BlockGraph::CODE_LABEL);
+
+  func2_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 6, "no_epilog");
+  ASSERT_TRUE(func2_ != NULL);
+  func2_->ResizeData(6);
+  func2_->GetMutableData()[0] = 0xE8;  // call 0x00000000 (non returning).
+  func2_->GetMutableData()[5] = 0xCC;  // int3.
+
+  func2_->SetLabel(0, "no_epilog, debug-start",
+               BlockGraph::CODE_LABEL | BlockGraph::DEBUG_START_LABEL);
+  func2_->SetLabel(6, "debug-end", BlockGraph::DEBUG_END_LABEL);
+
+  func2_->SetReference(1, BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
+                                                4,
+                                                func1_,
+                                                0,
+                                                0));
+
+  // Decompose the second function.
+  BasicBlockDecomposer bb_decomposer(func2_, &subgraph_);
+
+  ASSERT_TRUE(bb_decomposer.Decompose());
+  ASSERT_TRUE(subgraph_.IsValid());
+
+  ASSERT_EQ(1u, subgraph_.block_descriptions().size());
+  ASSERT_EQ(1u, subgraph_.basic_blocks().size());
+
+  BasicBlockSubGraph::BlockDescriptionList::const_iterator bd_it =
+      subgraph_.block_descriptions().begin();
+  ASSERT_EQ(1u, bd_it->basic_block_order.size());
+
+  BasicBlockSubGraph::BBCollection::const_iterator bb_it =
+      subgraph_.basic_blocks().begin();
+
+  const block_graph::BasicBlock* bb = *bb_it;
+  const block_graph::BasicCodeBlock* bcb =
+      block_graph::BasicCodeBlock::Cast(bb);
+  ASSERT_TRUE(bcb != NULL);
+
+  ASSERT_EQ(2u, bcb->instructions().size());
+  ASSERT_EQ(1u, bcb->instructions().begin()->references().size());
+  ASSERT_TRUE(bcb->instructions().begin()->has_label());
+  ASSERT_EQ(BlockGraph::CODE_LABEL | BlockGraph::DEBUG_START_LABEL,
+            bcb->instructions().begin()->label().attributes());
+
+  // TODO(chrisha): When we properly support labels past the end of a block
+  //     (they currently disappear as they pass through BB decomposition and
+  //     rehydration), ensure that it is where it should be.
+}
+
 }  // namespace testing

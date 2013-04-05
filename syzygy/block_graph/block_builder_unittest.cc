@@ -419,4 +419,23 @@ TEST_F(BlockBuilderTest, MergeAssemblesSourceRangesCorrectly) {
   ASSERT_EQ(expected_source_ranges, new_block->source_ranges());
 }
 
+TEST_F(BlockBuilderTest, LabelsPastEndAreDropped) {
+  ASSERT_NO_FATAL_FAILURE(InitBasicBlockSubGraphWithLabelPastEnd());
+
+  BlockBuilder builder(&block_graph_);
+  ASSERT_TRUE(builder.Merge(&subgraph_));
+
+  ASSERT_EQ(1u, builder.new_blocks().size());
+
+  BlockGraph::Block* new_block = builder.new_blocks()[0];
+  ASSERT_EQ(1u, new_block->labels().size());
+  ASSERT_EQ(0, new_block->labels().begin()->first);
+  ASSERT_EQ(BlockGraph::CODE_LABEL | BlockGraph::DEBUG_START_LABEL,
+            new_block->labels().begin()->second.attributes());
+
+  // TODO(chrisha): When we properly handle labels of this type, ensure that
+  //     they make it through the block building process. For now we simply
+  //     ensure that it *doesn't* exist.
+}
+
 }  // namespace block_graph

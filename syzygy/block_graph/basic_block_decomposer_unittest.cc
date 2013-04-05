@@ -106,16 +106,12 @@ bool HasGapOrIsOutOfOrder(const BasicBlock* lhs, const BasicBlock* rhs) {
 // related testing.
 // See: basic_block_assembly_func.asm
 class BasicBlockDecomposerTest : public BasicBlockTest {
- public:
-  virtual void SetUp() OVERRIDE {
-    BasicBlockTest::SetUp();
-    ASSERT_NO_FATAL_FAILURE(InitBlockGraph());
-  }
 };
 
 }
 
 TEST_F(BasicBlockDecomposerTest, Decompose) {
+  ASSERT_NO_FATAL_FAILURE(InitBlockGraph());
   ASSERT_NO_FATAL_FAILURE(InitBasicBlockSubGraph());
 
   // Ensure we have the expected number and types of blocks.
@@ -305,6 +301,10 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
       next_addr += data_block->size();
     }
   }
+}
+
+TEST_F(BasicBlockDecomposerTest, DecomposeBlockWithLabelPastData) {
+  ASSERT_NO_FATAL_FAILURE(InitBasicBlockSubGraphWithLabelPastEnd());
 }
 
 }  // namespace block_graph

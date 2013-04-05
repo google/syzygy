@@ -87,6 +87,12 @@ class BasicBlockTest : public ::testing::Test {
   // @pre InitBlockGraph must have been called successfully.
   void InitBasicBlockSubGraph();
 
+  // Initializes block_graph_, text_section_, func1_, and func2_. Leaves
+  // data_section_, assembly_func_ and data_ NULL. func2_ contains a function
+  // with a debug-end label past the end of the block, and internally it calls
+  // func1_.
+  void InitBasicBlockSubGraphWithLabelPastEnd();
+
   // Initialized by InitBlockGraph.
   // @{
   // Start address of the assembly function.
@@ -101,7 +107,8 @@ class BasicBlockTest : public ::testing::Test {
   Block* data_;
   // @}
 
-  // Initialized by InitBasicBlockSubGraph.
+  // Initialized by InitBasicBlockSubGraph and
+  // InitBasicBlockSubGraphWithLabelPastEnd.
   // @{
   BasicBlockSubGraph subgraph_;
   std::vector<BasicBlock*> bbs_;

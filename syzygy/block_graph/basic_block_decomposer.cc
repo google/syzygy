@@ -691,7 +691,21 @@ void BasicBlockDecomposer::CheckAllLabelsArePreserved() const {
   if (original_block == NULL)
     return;
 
-  const Block::LabelMap original_labels = original_block->labels();
+  // Remove any labels that fall *after* the given block. This can happen for
+  // scope and debug-end labels when the function has no epilog. It is rare, but
+  // has been observed in the wild.
+  // TODO(chrisha): Find a way to preserve these. We may need the notion of an
+  //     empty basic-block which gets assigned the label, or we may need to
+  //     augment BBs/instructions with the ability to have two labels: one tied
+  //     to the beginning of the object, and one to the end.
+  Block::LabelMap::const_iterator it_past_block_end =
+      original_block->labels().find(original_block->size());
+
+  // Grab a copy of the original labels (except any that are beyond the end of
+  // the block data). We will be matching against these to ensure that they are
+  // preserved in the BB decomposition.
+  const Block::LabelMap original_labels(original_block->labels().begin(),
+                                        it_past_block_end);
   if (original_labels.empty())
     return;
 
