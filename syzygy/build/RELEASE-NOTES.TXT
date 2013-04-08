@@ -1,7 +1,7 @@
 Syzygy Release Notes
 ====================
 
-Version 0.2.17.0
+Version 0.2.17.1
 
 [r1425] SyzyASAN - Save crash analyses to the stack.
 [r1424] SyzyASAN - Directly report crashes via breakpad, if available.
