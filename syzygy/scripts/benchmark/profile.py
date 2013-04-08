@@ -47,6 +47,10 @@ class ChromeProfileRunner(runner.ChromeRunner):
     self.StopLoggingRpc()
     super(ChromeProfileRunner, self)._PostIteration(it, success)
 
+  def _DoIteration(self, it):
+    # Give Chrome some time to settle.
+    time.sleep(10)
+
   def _ProcessResults(self):
     # Capture all the binary trace log files that were generated.
     self._log_files = glob.glob(os.path.join(self._output_dir, '*.bin'))
@@ -68,6 +72,10 @@ class ChromeFrameProfileRunner(runner.ChromeFrameRunner):
   def _PostIteration(self, it, success):
     self.StopLoggingRpc()
     super(ChromeFrameProfileRunner, self)._PostIteration(it, success)
+
+  def _DoIteration(self, it):
+    # Give Chrome Frame slightly longer to settle.
+    time.sleep(15)
 
   def _ProcessResults(self):
     # Capture all the binary trace log files that were generated.

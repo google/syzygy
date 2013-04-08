@@ -56,15 +56,13 @@ _MODULES = [
   'benchmark',
   'chrome_control',
   'chrome_utils',
-  'dromaeo',
   'event_counter',
   'ibmperf',
   'instrument',
   'optimize',
   'profile',
   'runner',
-  'trace_event',
-  'zip_http_server',
+  'trace_event'
 ]
 
 
@@ -83,20 +81,6 @@ _EXECUTABLES = [
 ]
 
 
-_CONTENT = [
-  'dromaeo.zip',
-]
-
-
-_DATA_FILES = [
-  ('exe', _EXECUTABLES),
-  ('content', _CONTENT),
-]
-
-
-_EAGER_RESOURCES = ['exe/' + exe for exe in _EXECUTABLES]
-
-
 def main():
   # Build the benchmark script and the executables it depends on to a package.
   setuptools.setup(
@@ -107,8 +91,8 @@ def main():
       url='http://no.where/',
       package_dir=_PACKAGE_DIRS,
       py_modules=_MODULES,
-      data_files=_DATA_FILES,
-      eager_resources=_EAGER_RESOURCES,
+      data_files=[('exe', _EXECUTABLES)],
+      eager_resources = ['exe/' + exe for exe in _EXECUTABLES],
       install_requires=[
         'ETW',
         'ETW-Db',
