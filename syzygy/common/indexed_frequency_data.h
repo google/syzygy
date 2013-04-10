@@ -21,6 +21,7 @@
 #include <windows.h>
 
 #include "base/basictypes.h"
+#include "syzygy/common/assertions.h"
 
 namespace common {
 
@@ -74,6 +75,7 @@ struct IndexedFrequencyData {
   // is only read, so synchronization is not an issue.
   uint8 initialization_attempted;
 };
+COMPILE_ASSERT_IS_POD(IndexedFrequencyData);
 
 #pragma pack(pop)
 

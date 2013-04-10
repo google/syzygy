@@ -22,6 +22,7 @@
 
 #include "base/basictypes.h"
 #include "base/string_piece.h"
+#include "syzygy/common/assertions.h"
 
 // ID for the call trace provider.
 extern const GUID kCallTraceProvider;
@@ -135,8 +136,7 @@ struct RecordPrefix {
     uint8 lo;
   } version;
 };
-
-COMPILE_ASSERT(sizeof(RecordPrefix) == 12, record_prefix_size_is_12);
+COMPILE_ASSERT_IS_POD_OF_SIZE(RecordPrefix, 12);
 
 // This structure is written at the beginning of a call trace file. If the
 // format of this trace file changes the server version must be increased.
@@ -214,6 +214,7 @@ struct TraceFileHeader {
   // read directly from a header loaded into memory.
   uint8 blob_data[1];
 };
+COMPILE_ASSERT_IS_POD(TraceFileHeader);
 
 // Written at the beginning of a call trace file segment. Each call trace file
 // segment has a length, which on-disk is rounded up to the block_size, as
@@ -233,6 +234,7 @@ struct TraceFileSegmentHeader {
   // of the segment header.
   uint32 segment_length;
 };
+COMPILE_ASSERT_IS_POD(TraceFileSegmentHeader);
 
 // The structure traced on function entry or exit.
 template<int TypeId>
@@ -245,6 +247,9 @@ struct TraceEnterExitEventDataTempl {
 typedef TraceEnterExitEventDataTempl<TRACE_ENTER_EVENT> TraceEnterEventData;
 typedef TraceEnterExitEventDataTempl<TRACE_EXIT_EVENT> TraceExitEventData;
 typedef TraceEnterEventData TraceEnterExitEventData;
+COMPILE_ASSERT_IS_POD(TraceEnterEventData);
+COMPILE_ASSERT_IS_POD(TraceExitEventData);
+COMPILE_ASSERT_IS_POD(TraceEnterExitEventData);
 
 // The structure written for each loaded module when module event tracing is
 // enabled.
@@ -256,6 +261,7 @@ struct TraceModuleData {
   wchar_t module_name[256];
   wchar_t module_exe[MAX_PATH];
 };
+COMPILE_ASSERT_IS_POD(TraceModuleData);
 
 // This is for storing environment string information. Each environment string
 // consists of a pair of strings, the key and the value. Certain special
@@ -287,6 +293,7 @@ struct TraceBatchEnterData {
   // Back-to-back entry events.
   TraceEnterEventData calls[1];
 };
+COMPILE_ASSERT_IS_POD(TraceBatchEnterData);
 
 // This is the data recorded for each distinct caller/function
 // pair by the profiler.
@@ -298,6 +305,7 @@ struct InvocationInfo {
   uint64 cycles_max;
   uint64 cycles_sum;
 };
+COMPILE_ASSERT_IS_POD(InvocationInfo);
 
 struct TraceBatchInvocationInfo {
   enum { kTypeId = TRACE_BATCH_INVOCATION };
@@ -308,6 +316,7 @@ struct TraceBatchInvocationInfo {
   // Back to back entries, as many as our enclosing record's size allows for.
   InvocationInfo invocations[1];
 };
+COMPILE_ASSERT_IS_POD(TraceBatchInvocationInfo);
 
 struct TraceThreadNameInfo {
   enum { kTypeId = TRACE_THREAD_NAME };
@@ -315,6 +324,7 @@ struct TraceThreadNameInfo {
   // zero terminated.
   char thread_name[1];
 };
+COMPILE_ASSERT_IS_POD(TraceThreadNameInfo);
 
 struct TraceIndexedFrequencyData {
   enum { kTypeId = TRACE_INDEXED_FREQUENCY };
@@ -344,5 +354,6 @@ struct TraceIndexedFrequencyData {
   // In fact, there are frequency_size * num_basic_blocks bytes that follow.
   uint8 frequency_data[1];
 };
+COMPILE_ASSERT_IS_POD(TraceIndexedFrequencyData);
 
 #endif  // SYZYGY_TRACE_PROTOCOL_CALL_TRACE_DEFS_H_

@@ -77,6 +77,7 @@
         'application.cc',
         'application.h',
         'application_impl.h',
+        'assertions.h',
         'buffer_writer.cc',
         'buffer_writer.h',
         'defs.cc',

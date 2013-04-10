@@ -24,10 +24,6 @@ namespace common {
 
 namespace {
 
-// We rely on TimerInfo and ClockInfo being POD types.
-COMPILE_ASSERT(std::is_pod<TimerInfo>::value, TimeInfo_must_be_pod);
-COMPILE_ASSERT(std::is_pod<ClockInfo>::value, ClockInfo_must_be_pod);
-
 void GetTickTimerInfo(TimerInfo* timer_info) {
   DCHECK(timer_info != NULL);
 

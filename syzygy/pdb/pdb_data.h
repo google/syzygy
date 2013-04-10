@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "base/basictypes.h"
+#include "syzygy/common/assertions.h"
 #include "syzygy/pdb/pdb_constants.h"
 
 namespace pdb {
@@ -37,6 +38,7 @@ struct PdbInfoHeader70 {
   // This must match the GUID stored off the image's debug directory.
   GUID signature;
 };
+COMPILE_ASSERT_IS_POD_OF_SIZE(PdbInfoHeader70, 28);
 
 // A structure that we find in the type info hash header, this is not totally
 // deciphered yet.
@@ -44,6 +46,7 @@ struct OffsetCb {
   uint32 offset;
   uint32 cb;
 };
+COMPILE_ASSERT_IS_POD_OF_SIZE(OffsetCb, 8);
 
 // Type Info Stream Hash, this is contained in the type info header. This part
 // hasn't been deciphered yet (the field names are known but we still need to
@@ -57,6 +60,7 @@ struct TypeInfoHashHeader {
   OffsetCb offset_cb_type_info_offset;
   OffsetCb offset_cb_hash_adj;
 };
+COMPILE_ASSERT_IS_POD_OF_SIZE(TypeInfoHashHeader, 36);
 
 // Type Info Stream Header, this is at the beginning of stream #2.
 // See http://moyix.blogspot.ca/2007_10_01_archive.html
@@ -70,7 +74,7 @@ struct TypeInfoHeader {
 };
 // We coerce a stream of bytes to this structure, so we require it to be
 // exactly 56 bytes in size.
-COMPILE_ASSERT(sizeof(TypeInfoHeader) == 56, pdb_type_info_header_wrong_size);
+COMPILE_ASSERT_IS_POD_OF_SIZE(TypeInfoHeader, 56);
 
 // Dbi Info Stream Header, this is at the start of stream #3.
 // See http://code.google.com/p/pdbparser/wiki/DBI_Format
@@ -98,7 +102,7 @@ struct DbiHeader {
 };
 // We coerce a stream of bytes to this structure, so we require it to be
 // exactly 64 bytes in size.
-COMPILE_ASSERT(sizeof(DbiHeader) == 64, pdb_dbi_header_wrong_size);
+COMPILE_ASSERT_IS_POD_OF_SIZE(DbiHeader, 64);
 
 // Dbi Debug Header
 // See http://ccimetadata.codeplex.com/SourceControl/changeset/view/52123#96529
@@ -119,7 +123,7 @@ struct DbiDbgHeader {
 };
 // We coerce a stream of bytes to this structure, so we require it to be
 // exactly 22 bytes in size.
-COMPILE_ASSERT(sizeof(DbiDbgHeader) == 22, pdb_dbidbg_header_wrong_size);
+COMPILE_ASSERT_IS_POD_OF_SIZE(DbiDbgHeader, 22);
 
 // Dbi Section Contrib
 // Represent an element for the section contrib substream of the Dbi stream.
@@ -136,8 +140,7 @@ struct DbiSectionContrib {
 };
 // We coerce a stream of bytes to this structure, so we require it to be
 // exactly 28 bytes in size.
-COMPILE_ASSERT(sizeof(DbiSectionContrib) == 28,
-               pdb_dbi_sectioncontrib_wrong_size);
+COMPILE_ASSERT_IS_POD_OF_SIZE(DbiSectionContrib, 28);
 
 // Dbi Module Info
 // Represent an element for the module info substream of the Dbi stream. This
@@ -161,8 +164,7 @@ struct DbiModuleInfoBase {
 };
 // We coerce a stream of bytes to this structure, so we require it to be
 // exactly 64 bytes in size.
-COMPILE_ASSERT(sizeof(DbiModuleInfoBase) == 64,
-               pdb_dbi_moduleinfo_wrong_size);
+COMPILE_ASSERT_IS_POD_OF_SIZE(DbiModuleInfoBase, 64);
 
 // Dbi Section Map
 // Represent an element for the section map substream of the Dbi stream.
@@ -181,8 +183,7 @@ struct DbiSectionMapItem {
 };
 // We coerce a stream of bytes to this structure, so we require it to be
 // exactly 20 bytes in size.
-COMPILE_ASSERT(sizeof(DbiSectionMapItem) == 20,
-               pdb_dbi_sectionmapitem_wrong_size);
+COMPILE_ASSERT_IS_POD_OF_SIZE(DbiSectionMapItem, 20);
 
 // Multi-Stream Format (MSF) Header
 // See http://code.google.com/p/pdbparser/wiki/MSF_Format
@@ -195,6 +196,7 @@ struct PdbHeader {
   uint32 reserved;
   uint32 root_pages[kPdbMaxDirPages];
 };
+COMPILE_ASSERT_IS_POD_OF_SIZE(PdbHeader, 344);
 
 // This is for parsing the FIXUP stream in PDB files generated with the
 // '/PROFILE' flag. The form of this struct was inferred from looking at
@@ -252,7 +254,7 @@ struct PdbFixup {
 };
 // We coerce a stream of bytes to this structure, so we require it to be
 // exactly 12 bytes in size.
-COMPILE_ASSERT(sizeof(PdbFixup) == 12, pdb_fixup_wrong_size);
+COMPILE_ASSERT_IS_POD_OF_SIZE(PdbFixup, 12);
 
 }  // namespace pdb
 

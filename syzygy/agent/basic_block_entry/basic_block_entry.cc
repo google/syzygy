@@ -250,6 +250,7 @@ struct BasicBlockEntry::BasicBlockEntryFrame {
   IndexedFrequencyData* module_data;
   uint32 basic_block_id;
 };
+COMPILE_ASSERT_IS_POD_OF_SIZE(BasicBlockEntry::BasicBlockEntryFrame, 12);
 
 // The DllMainEntryHook parameters.
 struct BasicBlockEntry::DllMainEntryFrame {
@@ -260,6 +261,7 @@ struct BasicBlockEntry::DllMainEntryFrame {
   DWORD reason;
   DWORD reserved;
 };
+COMPILE_ASSERT_IS_POD_OF_SIZE(BasicBlockEntry::DllMainEntryFrame, 24);
 
 // The ExeMainEntryHook parameters.
 struct BasicBlockEntry::ExeMainEntryFrame {
@@ -267,18 +269,7 @@ struct BasicBlockEntry::ExeMainEntryFrame {
   IndexedFrequencyData* module_data;
   const void* ret_addr;
 };
-
-namespace {
-
-COMPILE_ASSERT(sizeof(BasicBlockEntry::BasicBlockEntryFrame) == 12,
-               BasicBlockEntry_BasicBlockEntryFrame_is_not_the_right_size);
-
-COMPILE_ASSERT(sizeof(BasicBlockEntry::DllMainEntryFrame) == 24,
-               BasicBlockEntry_DllMainEntryFrame_is_not_the_right_size);
-
-COMPILE_ASSERT(sizeof(BasicBlockEntry::ExeMainEntryFrame) == 12,
-               BasicBlockEntry_ExeMainEntryFrame_is_not_the_right_size);
-}
+COMPILE_ASSERT_IS_POD_OF_SIZE(BasicBlockEntry::ExeMainEntryFrame, 12);
 
 // The per-thread-per-instrumented-module state managed by this agent.
 class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {

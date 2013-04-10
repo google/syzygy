@@ -19,6 +19,7 @@
 #include <windows.h>
 
 #include "base/basictypes.h"
+#include "syzygy/common/assertions.h"
 
 namespace trace {
 namespace common {
@@ -35,6 +36,7 @@ struct TimerInfo {
   // The resolution of this timer, in counts.
   uint64 resolution;
 };
+COMPILE_ASSERT_IS_POD(TimerInfo);
 
 // @returns the current value of the ticks timer.
 inline uint64 GetTicks() { return ::GetTickCount64(); }
@@ -70,6 +72,7 @@ struct ClockInfo {
   TimerInfo ticks_info;
   TimerInfo tsc_info;
 };
+COMPILE_ASSERT_IS_POD(ClockInfo);
 
 // Populates a ClockInfo struct with information about the system clock and
 // timers.

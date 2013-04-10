@@ -16,6 +16,7 @@
 #define SYZYGY_AGENT_PROFILER_RETURN_THUNK_FACTORY_H_
 
 #include "base/basictypes.h"
+#include "syzygy/common/assertions.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
 namespace agent {
@@ -61,6 +62,7 @@ class ReturnThunkFactoryBase {
     // each of which consumes 5 bytes on x86.
     uint8 instr[10];
   };
+  COMPILE_ASSERT_IS_POD(Thunk);
 
   // The data associated with each thunk.
   struct ThunkData {
@@ -77,6 +79,7 @@ class ReturnThunkFactoryBase {
     // The time of entry.
     uint64 cycles_entry;
   };
+  COMPILE_ASSERT_IS_POD(ThunkData);
 
  protected:
   // Thunk function type.

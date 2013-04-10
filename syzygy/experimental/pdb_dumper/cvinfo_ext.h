@@ -20,6 +20,7 @@
 #include <windows.h>
 
 #include "base/basictypes.h"
+#include "syzygy/common/assertions.h"
 #include "third_party/cci/files/cvinfo.h"
 
 namespace Microsoft_Cci_Pdb {
@@ -405,8 +406,7 @@ union LeafMemberAttributeField {
 };
 // We coerce a stream of bytes to this structure, so we require it to be
 // exactly 2 bytes in size.
-COMPILE_ASSERT(sizeof(LeafMemberAttributeField) == 2,
-               pdb_size_of_LeafMemberAttributeField_invalid);
+COMPILE_ASSERT_IS_POD_OF_SIZE(LeafMemberAttributeField, 2);
 
 // This structure represent a bitfield for a leaf property field.
 union LeafPropertyField {
@@ -427,8 +427,7 @@ union LeafPropertyField {
 };
 // We coerce a stream of bytes to this structure, so we require it to be
 // exactly 2 bytes in size.
-COMPILE_ASSERT(sizeof(LeafPropertyField) == 2,
-               pdb_size_of_LeafPropertyField_invalid);
+COMPILE_ASSERT_IS_POD_OF_SIZE(LeafPropertyField, 2);
 
 // This structure represent a bitfield for a leaf modifier attribute.
 union LeafModifierAttribute {
@@ -442,7 +441,6 @@ union LeafModifierAttribute {
 };
 // We coerce a stream of bytes to this structure, so we require it to be
 // exactly 2 bytes in size.
-COMPILE_ASSERT(sizeof(LeafModifierAttribute) == 2,
-               pdb_size_of_LeafModifierAttribute_invalid);
+COMPILE_ASSERT_IS_POD_OF_SIZE(LeafModifierAttribute, 2);
 
 #endif  // SYZYGY_EXPERIMENTAL_PDB_DUMPER_CVINFO_EXT_H_
