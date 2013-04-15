@@ -364,14 +364,13 @@ void HeapProxy::QuarantineBlock(BlockHeader* block) {
   }
   tail_ = free_block;
 
-  // Poison the released alloc.
+  // Poison the released alloc (marked as freed) and quarantine the block.
+  // Note that the original data is left intact. This may make is easier
+  // to debug a crash report/dump on access to a quarantined block.
   size_t alloc_size = GetAllocSize(free_block->size);
-  // Trash the data in the block and poison it.
   uint8* mem = ToAlloc(free_block);
-  memset(mem, 0xCC, free_block->size);
   Shadow::MarkAsFreed(mem, free_block->size);
   quarantine_size_ += alloc_size;
-  // Mark the block as quarantined.
   free_block->state = QUARANTINED;
 
   // Flush quarantine overage.
