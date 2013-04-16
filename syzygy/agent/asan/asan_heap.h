@@ -166,6 +166,9 @@ class HeapProxy {
   // Static initialisation of HeapProxy context.
   static void Init();
 
+  // Returns a string describing a bad access kind.
+  static const char* AccessTypeToStr(BadAccessKind bad_access_kind);
+
  protected:
   enum BlockState {
     ALLOCATED,
@@ -189,9 +192,6 @@ class HeapProxy {
 
   // Magic number to identify the beginning of a block header.
   static const size_t kBlockHeaderSignature = 0x03CA80E7;
-
-  // Returns a string describing a bad access kind.
-  static const char* AccessTypeToStr(BadAccessKind bad_access_kind);
 
   // Returns the block header for an alloc.
   BlockHeader* ToBlock(const void* alloc);
