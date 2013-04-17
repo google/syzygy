@@ -259,7 +259,7 @@ class AssemblerImpl {
   void ret(uint16 n);
   // @}
 
-  // @name byte mov varieties.
+  // @name Byte mov varieties.
   // @{
   void mov_b(const OperandImpl& dst, const ImmediateImpl& src);
   // @}
@@ -273,10 +273,10 @@ class AssemblerImpl {
   void mov(const OperandImpl& dst, const ImmediateImpl& src);
   // @}
 
-  // @name load effective address.
+  // @name Load effective address.
   void lea(Register dst, const OperandImpl& src);
 
-  // @name stack manipulation.
+  // @name Stack manipulation.
   // @{
   void push(Register src);
   void push(const ImmediateImpl& src);
@@ -284,6 +284,41 @@ class AssemblerImpl {
 
   void pop(Register dst);
   void pop(const OperandImpl& dst);
+  // @}
+
+  // @name Manipulation of flags.
+  // @{
+  void pushfd();
+  void popfd();
+  void lahf();
+  void sahf();
+  // @}
+
+  // @name Arithmetic operations.
+  // @{
+  void cmp(Register dst, Register src);
+  void cmp(Register dst, const OperandImpl& src);
+  void cmp(const OperandImpl& dst, Register src);
+  void cmp(Register dst, const ImmediateImpl& src);
+  void cmp(const OperandImpl& dst, const ImmediateImpl& src);
+
+  void add(Register dst, Register src);
+  void add(Register dst, const OperandImpl& src);
+  void add(const OperandImpl& dst, Register src);
+  void add(Register dst, const ImmediateImpl& src);
+  void add(const OperandImpl& dst, const ImmediateImpl& src);
+
+  void sub(Register dst, Register src);
+  void sub(Register dst, const OperandImpl& src);
+  void sub(const OperandImpl& dst, Register src);
+  void sub(Register dst, const ImmediateImpl& src);
+  void sub(const OperandImpl& dst, const ImmediateImpl& src);
+  // @}
+
+  // @name Shifting operations.
+  // @{
+  void shl(Register dst, const ImmediateImpl& src);
+  void shr(Register dst, const ImmediateImpl& src);
   // @}
 
   // @name Aliases

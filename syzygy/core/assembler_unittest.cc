@@ -701,6 +701,190 @@ TEST_F(AssemblerTest, Pop) {
   EXPECT_BYTES(0x8F, 0x05, 0xBE, 0xBA, 0xFE, 0xCA);
 }
 
+TEST_F(AssemblerTest, Flags) {
+  asm_.pushfd();
+  asm_.popfd();
+  asm_.lahf();
+  asm_.sahf();
+  EXPECT_BYTES(0x9C, 0x9D, 0x9F, 0x9E);
+}
+
+TEST_F(AssemblerTest, Cmp) {
+  asm_.cmp(eax, ecx);
+  EXPECT_BYTES(0x3B, 0xC1);
+  asm_.cmp(ecx, OperandImpl(eax));
+  EXPECT_BYTES(0x3B, 0x08);
+  asm_.cmp(ecx, OperandImpl(eax, DisplacementImpl(10, kSize8Bit)));
+  EXPECT_BYTES(0x3B, 0x48, 0x0A);
+  asm_.cmp(ecx, OperandImpl(eax, DisplacementImpl(10, kSize32Bit)));
+  EXPECT_BYTES(0x3B, 0x88, 0x0A, 0x00, 0x00, 0x00);
+
+  asm_.cmp(ecx, eax);
+  EXPECT_BYTES(0x3B, 0xC8);
+  asm_.cmp(ecx, OperandImpl(eax));
+  EXPECT_BYTES(0x3B, 0x08);
+  asm_.cmp(ecx, OperandImpl(eax, DisplacementImpl(10, kSize8Bit)));
+  EXPECT_BYTES(0x3B, 0x48, 0x0A);
+  asm_.cmp(ecx, OperandImpl(eax, DisplacementImpl(10, kSize32Bit)));
+  EXPECT_BYTES(0x3B, 0x88, 0x0A, 0x00, 0x00, 0x00);
+
+  asm_.cmp(OperandImpl(eax), ecx);
+  EXPECT_BYTES(0x39, 0x08);
+  asm_.cmp(OperandImpl(eax, DisplacementImpl(10, kSize8Bit)), ecx);
+  EXPECT_BYTES(0x39, 0x48, 0x0A);
+  asm_.cmp(OperandImpl(eax, DisplacementImpl(10, kSize32Bit)), ecx);
+  EXPECT_BYTES(0x39, 0x88, 0x0A, 0x00, 0x00, 0x00);
+
+  asm_.cmp(eax, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x83, 0xF8, 0x0A);
+  asm_.cmp(ecx, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x83, 0xF9, 0x0A);
+  asm_.cmp(ecx, ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x81, 0xF9, 0xEF, 0xBE, 0xAD, 0xDE);
+
+  asm_.cmp(OperandImpl(eax), ImmediateImpl(1, kSize8Bit));
+  EXPECT_BYTES(0x83, 0x38, 0x01);
+  asm_.cmp(OperandImpl(eax), ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x81, 0x38, 0xEF, 0xBE, 0xAD, 0xDE);
+  asm_.cmp(OperandImpl(eax, DisplacementImpl(10, kSize8Bit)),
+           ImmediateImpl(0x1, kSize8Bit));
+  EXPECT_BYTES(0x83, 0x78, 0x0A, 0x1);
+  asm_.cmp(OperandImpl(eax, DisplacementImpl(10, kSize8Bit)),
+           ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x81, 0x78, 0x0A, 0xEF, 0xBE, 0xAD, 0xDE);
+  asm_.cmp(OperandImpl(eax, DisplacementImpl(10, kSize32Bit)),
+           ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x81, 0xB8, 0x0A, 0x00, 0x00, 0x00, 0xEF, 0xBE, 0xAD, 0xDE);
+
+  // Special EAX mode + immediate.
+  asm_.cmp(eax, ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x3D, 0xEF, 0xBE, 0xAD, 0xDE);
+}
+
+TEST_F(AssemblerTest, Add) {
+  asm_.add(eax, eax);
+  EXPECT_BYTES(0x03, 0xC0);
+  asm_.add(eax, OperandImpl(eax));
+  EXPECT_BYTES(0x03, 0x00);
+  asm_.add(eax, OperandImpl(eax, DisplacementImpl(10, kSize8Bit)));
+  EXPECT_BYTES(0x03, 0x40, 0x0A);
+  asm_.add(eax, OperandImpl(eax, DisplacementImpl(10, kSize32Bit)));
+  EXPECT_BYTES(0x03, 0x80, 0x0A, 0x00, 0x00, 0x00);
+
+  asm_.add(ecx, eax);
+  EXPECT_BYTES(0x03, 0xC8);
+  asm_.add(ecx, OperandImpl(eax));
+  EXPECT_BYTES(0x03, 0x08);
+  asm_.add(ecx, OperandImpl(eax, DisplacementImpl(10, kSize8Bit)));
+  EXPECT_BYTES(0x03, 0x48, 0x0A);
+  asm_.add(ecx, OperandImpl(eax, DisplacementImpl(10, kSize32Bit)));
+  EXPECT_BYTES(0x03, 0x88, 0x0A, 0x00, 0x00, 0x00);
+
+  asm_.add(eax, ecx);
+  EXPECT_BYTES(0x03, 0xC1);
+  asm_.add(OperandImpl(eax), ecx);
+  EXPECT_BYTES(0x01, 0x08);
+  asm_.add(OperandImpl(eax, DisplacementImpl(10, kSize8Bit)), ecx);
+  EXPECT_BYTES(0x01, 0x48, 0x0A);
+  asm_.add(OperandImpl(eax, DisplacementImpl(10, kSize32Bit)), ecx);
+  EXPECT_BYTES(0x01, 0x88, 0x0A, 0x00, 0x00, 0x00);
+
+  asm_.add(eax, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x83, 0xC0, 0x0A);
+  asm_.add(ecx, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x83, 0xC1, 0x0A);
+  asm_.add(ecx, ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x81, 0xC1, 0xEF, 0xBE, 0xAD, 0xDE);
+
+  asm_.add(OperandImpl(eax), ImmediateImpl(1, kSize8Bit));
+  EXPECT_BYTES(0x83, 0x00, 0x01);
+  asm_.add(OperandImpl(eax), ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x81, 0x00, 0xEF, 0xBE, 0xAD, 0xDE);
+  asm_.add(OperandImpl(eax, DisplacementImpl(10, kSize8Bit)),
+           ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x81, 0x40, 0x0A, 0xEF, 0xBE, 0xAD, 0xDE);
+  asm_.add(OperandImpl(eax, DisplacementImpl(10, kSize32Bit)),
+           ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x81, 0x80, 0x0A, 0x00, 0x00, 0x00, 0xEF, 0xBE, 0xAD, 0xDE);
+
+  // Special EAX mode + immediate.
+  asm_.add(eax, ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x05, 0xEF, 0xBE, 0xAD, 0xDE);
+}
+
+TEST_F(AssemblerTest, Sub) {
+  asm_.sub(eax, eax);
+  EXPECT_BYTES(0x2B, 0xC0);
+  asm_.sub(eax, OperandImpl(eax));
+  EXPECT_BYTES(0x2B, 0x00);
+  asm_.sub(eax, OperandImpl(eax, DisplacementImpl(10, kSize8Bit)));
+  EXPECT_BYTES(0x2B, 0x40, 0x0A);
+  asm_.sub(eax, OperandImpl(eax, DisplacementImpl(10, kSize32Bit)));
+  EXPECT_BYTES(0x2B, 0x80, 0x0A, 0x00, 0x00, 0x00);
+
+  asm_.sub(ecx, eax);
+  EXPECT_BYTES(0x2B, 0xC8);
+  asm_.sub(ecx, OperandImpl(eax));
+  EXPECT_BYTES(0x2B, 0x08);
+  asm_.sub(ecx, OperandImpl(eax, DisplacementImpl(10, kSize8Bit)));
+  EXPECT_BYTES(0x2B, 0x48, 0x0A);
+  asm_.sub(ecx, OperandImpl(eax, DisplacementImpl(10, kSize32Bit)));
+  EXPECT_BYTES(0x2B, 0x88, 0x0A, 0x00, 0x00, 0x00);
+
+  asm_.sub(eax, ecx);
+  EXPECT_BYTES(0x2B, 0xC1);
+  asm_.sub(OperandImpl(eax), ecx);
+  EXPECT_BYTES(0x29, 0x08);
+  asm_.sub(OperandImpl(eax, DisplacementImpl(10, kSize8Bit)), ecx);
+  EXPECT_BYTES(0x29, 0x48, 0x0A);
+  asm_.sub(OperandImpl(eax, DisplacementImpl(10, kSize32Bit)), ecx);
+  EXPECT_BYTES(0x29, 0x88, 0x0A, 0x00, 0x00, 0x00);
+
+  asm_.sub(eax, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x83, 0xE8, 0x0A);
+  asm_.sub(ecx, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x83, 0xE9, 0x0A);
+  asm_.sub(ecx, ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x81, 0xE9, 0xEF, 0xBE, 0xAD, 0xDE);
+
+  asm_.sub(OperandImpl(eax), ImmediateImpl(0x1, kSize8Bit));
+  EXPECT_BYTES(0x83, 0x28, 0x01);
+  asm_.sub(OperandImpl(eax), ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x81, 0x28, 0xEF, 0xBE, 0xAD, 0xDE);
+  asm_.sub(OperandImpl(eax, DisplacementImpl(10, kSize8Bit)),
+           ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x81, 0x68, 0x0A, 0xEF, 0xBE, 0xAD, 0xDE);
+  asm_.sub(OperandImpl(eax, DisplacementImpl(10, kSize32Bit)),
+           ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x81, 0xA8, 0x0A, 0x00, 0x00, 0x00, 0xEF, 0xBE, 0xAD, 0xDE);
+
+  // Special EAX mode + immediate.
+  asm_.sub(eax, ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x2D, 0xEF, 0xBE, 0xAD, 0xDE);
+}
+
+TEST_F(AssemblerTest, Shl) {
+  asm_.shl(eax, ImmediateImpl(0x1, kSize8Bit));
+  EXPECT_BYTES(0xD1, 0xE0);
+  asm_.shl(eax, ImmediateImpl(0x3, kSize8Bit));
+  EXPECT_BYTES(0xC1, 0xE0, 0x03);
+  asm_.shl(ecx, ImmediateImpl(0x1, kSize8Bit));
+  EXPECT_BYTES(0xD1, 0xE1);
+  asm_.shl(ecx, ImmediateImpl(0x3, kSize8Bit));
+  EXPECT_BYTES(0xC1, 0xE1, 0x03);
+}
+
+TEST_F(AssemblerTest, Shr) {
+  asm_.shr(eax, ImmediateImpl(0x1, kSize8Bit));
+  EXPECT_BYTES(0xD1, 0xE8);
+  asm_.shr(eax, ImmediateImpl(0x3, kSize8Bit));
+  EXPECT_BYTES(0xC1, 0xE8, 0x03);
+  asm_.shr(ecx, ImmediateImpl(0x1, kSize8Bit));
+  EXPECT_BYTES(0xD1, 0xE9);
+  asm_.shr(ecx, ImmediateImpl(0x3, kSize8Bit));
+  EXPECT_BYTES(0xC1, 0xE9, 0x03);
+}
+
 TEST_F(AssemblerTest, Ja) {
   ConditionCode cc = kAbove;
   asm_.set_location(0xCAFEBABE);

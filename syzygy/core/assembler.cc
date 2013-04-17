@@ -194,6 +194,17 @@ class AssemblerImpl::InstructionBuffer {
   // Emit a 16-bit immediate value.
   void Emit16BitValue(uint16 value);
 
+  // Emit an arithmetic instruction with various encoding.
+  void EmitArithmeticInstruction(uint8 op, Register dst, Register src);
+  void EmitArithmeticInstruction(
+      uint8 op, Register dst, const OperandImpl& src);
+  void EmitArithmeticInstruction(
+      uint8 op, const OperandImpl& dst, Register src);
+  void EmitArithmeticInstructionToRegister(uint8 op_eax, uint8 op_32,
+      uint8 op_8, uint8 sub_op, Register dst, const ImmediateImpl& src);
+  void EmitArithmeticInstructionToOperand(uint8 op_32, uint8 op_8, uint8 sub_op,
+      const OperandImpl& dst, const ImmediateImpl& src);
+
   // Add reference at current location.
   void AddReference(const void* reference);
 
@@ -398,6 +409,56 @@ void AssemblerImpl::InstructionBuffer::Emit16BitValue(uint16 value) {
   EmitByte(value >> 8);
 }
 
+void AssemblerImpl::InstructionBuffer::EmitArithmeticInstruction(
+    uint8 op, Register dst, Register src) {
+  EmitOpCodeByte(op);
+  EmitModRMByte(Reg1, dst.code(), src.code());
+}
+
+void AssemblerImpl::InstructionBuffer::EmitArithmeticInstruction(
+    uint8 op, Register dst, const OperandImpl& src) {
+  EmitOpCodeByte(op);
+  EmitOperand(dst.code(), src);
+}
+
+void AssemblerImpl::InstructionBuffer::EmitArithmeticInstruction(
+    uint8 op, const OperandImpl& dst, Register src) {
+  EmitOpCodeByte(op);
+  EmitOperand(src.code(), dst);
+}
+
+void AssemblerImpl::InstructionBuffer::EmitArithmeticInstructionToRegister(
+    uint8 op_eax, uint8 op_32, uint8 op_8, uint8 sub_op,
+    Register dst, const ImmediateImpl& src) {
+  if (dst.code() == kRegisterEax && src.size() == kSize32Bit) {
+    // Special encoding for EAX.
+    EmitOpCodeByte(op_eax);
+    Emit32BitDisplacement(src);
+  } else if (src.size() == kSize8Bit) {
+    EmitOpCodeByte(op_32);
+    EmitModRMByte(Reg1, sub_op, dst.code());
+    Emit8BitDisplacement(src);
+  } else {
+    EmitOpCodeByte(op_8);
+    EmitModRMByte(Reg1, sub_op, dst.code());
+    Emit32BitDisplacement(src);
+  }
+}
+
+void AssemblerImpl::InstructionBuffer::EmitArithmeticInstructionToOperand(
+    uint8 op_32, uint8 op_8, uint8 sub_op,
+    const OperandImpl& dst, const ImmediateImpl& src) {
+  if (src.size() == kSize8Bit) {
+    EmitOpCodeByte(op_32);
+    EmitOperand(sub_op, dst);
+    Emit8BitDisplacement(src);
+  } else {
+    EmitOpCodeByte(op_8);
+    EmitOperand(sub_op, dst);
+    Emit32BitDisplacement(src);
+  }
+}
+
 void AssemblerImpl::InstructionBuffer::AddReference(const void* reference) {
   if (reference == NULL)
     return;
@@ -596,6 +657,124 @@ void AssemblerImpl::pop(const OperandImpl& dst) {
   instr.EmitOperand(0, dst);
 }
 
+void AssemblerImpl::pushfd() {
+  InstructionBuffer instr(this);
+  instr.EmitOpCodeByte(0x9C);
+}
+
+void AssemblerImpl::popfd() {
+  InstructionBuffer instr(this);
+  instr.EmitOpCodeByte(0x9D);
+}
+
+void AssemblerImpl::lahf() {
+  InstructionBuffer instr(this);
+  instr.EmitOpCodeByte(0x9F);
+}
+
+void AssemblerImpl::sahf() {
+  InstructionBuffer instr(this);
+  instr.EmitOpCodeByte(0x9E);
+}
+
+void AssemblerImpl::cmp(Register dst, Register src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x3B, dst, src);
+}
+
+void AssemblerImpl::cmp(Register dst, const OperandImpl& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x3B, dst, src);
+}
+
+void AssemblerImpl::cmp(const OperandImpl& dst, Register src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x39, dst, src);
+}
+
+void AssemblerImpl::cmp(Register dst, const ImmediateImpl& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstructionToRegister(0x3D, 0x83, 0x81, 7, dst, src);
+}
+
+void AssemblerImpl::cmp(const OperandImpl& dst, const ImmediateImpl& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstructionToOperand(0x83, 0x81, 7, dst, src);
+}
+
+void AssemblerImpl::add(Register dst, Register src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x03, dst, src);
+}
+
+void AssemblerImpl::add(Register dst, const OperandImpl& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x03, dst, src);
+}
+
+void AssemblerImpl::add(const OperandImpl& dst, Register src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x01, dst, src);
+}
+
+void AssemblerImpl::add(Register dst, const ImmediateImpl& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstructionToRegister(0x05, 0x83, 0x81, 0, dst, src);
+}
+
+void AssemblerImpl::add(const OperandImpl& dst, const ImmediateImpl& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstructionToOperand(0x83, 0x81, 0, dst, src);
+}
+
+void AssemblerImpl::sub(Register dst, Register src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x2B, dst, src);
+}
+
+void AssemblerImpl::sub(Register dst, const OperandImpl& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x2B, dst, src);
+}
+
+void AssemblerImpl::sub(const OperandImpl&  dst, Register src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x29, dst, src);
+}
+
+void AssemblerImpl::sub(Register dst, const ImmediateImpl& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstructionToRegister(0x2D, 0x83, 0x81, 5, dst, src);
+}
+
+void AssemblerImpl::sub(const OperandImpl&  dst, const ImmediateImpl& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstructionToOperand(0x83, 0x81, 5, dst, src);
+}
+
+void AssemblerImpl::shl(Register dst, const ImmediateImpl& src) {
+  InstructionBuffer instr(this);
+  if (src.value() == 1) {
+    instr.EmitOpCodeByte(0xD1);
+    instr.EmitModRMByte(Reg1, 4, dst.code());
+  } else {
+    instr.EmitOpCodeByte(0xC1);
+    instr.EmitModRMByte(Reg1, 4, dst.code());
+    instr.Emit8BitDisplacement(src);
+  }
+}
+
+void AssemblerImpl::shr(Register dst, const ImmediateImpl& src) {
+  InstructionBuffer instr(this);
+  if (src.value() == 1) {
+    instr.EmitOpCodeByte(0xD1);
+    instr.EmitModRMByte(Reg1, 5, dst.code());
+  } else {
+    instr.EmitOpCodeByte(0xC1);
+    instr.EmitModRMByte(Reg1, 5, dst.code());
+    instr.Emit8BitDisplacement(src);
+  }
+}
 
 void AssemblerImpl::Output(const InstructionBuffer& instr) {
   serializer_->AppendInstruction(location_,
