@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.2.18.0
+
+[r1444] SyzyASAN - Use breakpad key/value pairs to label crashes.
+[r1443] SyzyASAN - Leave contents of freed blocks intact for better debugging.
+
 Version 0.2.17.1
 
 [r1425] SyzyASAN - Save crash analyses to the stack.
