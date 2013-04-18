@@ -304,6 +304,41 @@ class BasicBlockAssembler {
   void j(ConditionCode code, const Immediate& dst);
   // @}
 
+  // @name Manipulation of flags.
+  // @{
+  void pushfd();
+  void popfd();
+  void lahf();
+  void sahf();
+  // @}
+
+  // @name Arithmetic operations.
+  // @{
+  void cmp(Register dst, Register src);
+  void cmp(Register dst, const Operand& src);
+  void cmp(const Operand& dst, Register src);
+  void cmp(Register dst, const Immediate& src);
+  void cmp(const Operand& dst, const Immediate& src);
+
+  void add(Register dst, Register src);
+  void add(Register dst, const Operand& src);
+  void add(const Operand& dst, Register src);
+  void add(Register dst, const Immediate& src);
+  void add(const Operand& dst, const Immediate& src);
+
+  void sub(Register dst, Register src);
+  void sub(Register dst, const Operand& src);
+  void sub(const Operand& dst, Register src);
+  void sub(Register dst, const Immediate& src);
+  void sub(const Operand& dst, const Immediate& src);
+  // @}
+
+  // @name Shifting operations.
+  // @{
+  void shl(Register dst, const Immediate& src);
+  void shr(Register dst, const Immediate& src);
+  // @}
+
   // @name Byte mov varieties.
   // @{
   void mov_b(const Operand& dst, const Immediate& src);
@@ -318,10 +353,10 @@ class BasicBlockAssembler {
   void mov(const Operand& dst, const Immediate& src);
   // @}
 
-  // @name load effective address.
+  // @name Load effective address.
   void lea(Register dst, const Operand& src);
 
-  // @name stack manipulation.
+  // @name Stack manipulation.
   // @{
   void push(Register src);
   void push(const Immediate& src);

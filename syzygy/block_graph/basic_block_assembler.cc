@@ -250,7 +250,7 @@ BasicBlockAssembler::BasicBlockAssembler(uint32 location,
 
 void BasicBlockAssembler::call(const Immediate& dst) {
   // In the context of BasicBlockAssembler it only makes sense for calls with
-  // immediate paramaters to be backed by a 32-bit reference.
+  // immediate parameters to be backed by a 32-bit reference.
   PushMandatoryReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
   CheckReferenceSize(core::kSize32Bit, dst);
   asm_.call(dst.value_);
@@ -265,7 +265,7 @@ void BasicBlockAssembler::call(const Operand& dst) {
 
 void BasicBlockAssembler::jmp(const Immediate& dst) {
   // In the context of BasicBlockAssembler it only makes sense for jumps with
-  // immediate paramaters to be backed by a reference.
+  // immediate parameters to be backed by a reference.
   PushMandatoryReferenceInfo(BlockGraph::PC_RELATIVE_REF, dst);
   asm_.jmp(dst.value_);
 }
@@ -277,9 +277,110 @@ void BasicBlockAssembler::jmp(const Operand& dst) {
 
 void BasicBlockAssembler::j(ConditionCode code, const Immediate& dst) {
   // In the context of BasicBlockAssembler it only makes sense for jumps with
-  // immediate paramaters to be backed by a reference.
+  // immediate parameters to be backed by a reference.
   PushMandatoryReferenceInfo(BlockGraph::PC_RELATIVE_REF, dst);
   asm_.j(code, dst.value_);
+}
+
+void BasicBlockAssembler::pushfd() {
+  asm_.pushfd();
+}
+
+void BasicBlockAssembler::popfd() {
+  asm_.popfd();
+}
+
+void BasicBlockAssembler::lahf() {
+  asm_.lahf();
+}
+
+void BasicBlockAssembler::sahf() {
+  asm_.sahf();
+}
+
+void BasicBlockAssembler::cmp(Register dst, Register src) {
+  asm_.cmp(dst, src);
+}
+
+void BasicBlockAssembler::cmp(Register dst, const Operand& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  asm_.cmp(dst, src.operand_);
+}
+
+void BasicBlockAssembler::cmp(const Operand& dst, Register src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
+  asm_.cmp(dst.operand_, src);
+}
+
+void BasicBlockAssembler::cmp(Register dst, const Immediate& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  asm_.cmp(dst, src.value_);
+}
+
+void BasicBlockAssembler::cmp(const Operand&  dst, const Immediate& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  asm_.cmp(dst.operand_, src.value_);
+}
+
+void BasicBlockAssembler::add(Register dst, Register src) {
+  asm_.add(dst, src);
+}
+
+void BasicBlockAssembler::add(Register dst, const Operand& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  asm_.add(dst, src.operand_);
+}
+
+void BasicBlockAssembler::add(const Operand& dst, Register src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
+  asm_.add(dst.operand_, src);
+}
+
+void BasicBlockAssembler::add(Register dst, const Immediate& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  asm_.add(dst, src.value_);
+}
+
+void BasicBlockAssembler::add(const Operand& dst, const Immediate& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  asm_.add(dst.operand_, src.value_);
+}
+
+void BasicBlockAssembler::sub(Register dst, Register src) {
+  asm_.sub(dst, src);
+}
+
+void BasicBlockAssembler::sub(Register dst, const Operand& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  asm_.sub(dst, src.operand_);
+}
+
+void BasicBlockAssembler::sub(const Operand& dst, Register src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
+  asm_.sub(dst.operand_, src);
+}
+
+void BasicBlockAssembler::sub(Register dst, const Immediate& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  asm_.sub(dst, src.value_);
+}
+
+void BasicBlockAssembler::sub(const Operand& dst, const Immediate& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  asm_.sub(dst.operand_, src.value_);
+}
+
+void BasicBlockAssembler::shl(Register dst, const Immediate& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  asm_.shl(dst, src.value_);
+}
+
+void BasicBlockAssembler::shr(Register dst, const Immediate& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  asm_.shr(dst, src.value_);
 }
 
 void BasicBlockAssembler::mov_b(const Operand& dst, const Immediate& src) {

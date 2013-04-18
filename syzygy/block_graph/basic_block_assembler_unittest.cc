@@ -464,6 +464,104 @@ TEST_F(BasicBlockAssemblerTest, pop) {
   ASSERT_REFS(3, BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, &test_bb_);
 }
 
+TEST_F(BasicBlockAssemblerTest, pushfd) {
+  asm_.pushfd();
+  ASSERT_NO_REFS();
+}
+
+TEST_F(BasicBlockAssemblerTest, popfd) {
+  asm_.popfd();
+  ASSERT_NO_REFS();
+}
+
+TEST_F(BasicBlockAssemblerTest, lahf) {
+  asm_.lahf();
+  ASSERT_NO_REFS();
+}
+
+TEST_F(BasicBlockAssemblerTest, sahf) {
+  asm_.sahf();
+  ASSERT_NO_REFS();
+}
+
+TEST_F(BasicBlockAssemblerTest, cmp) {
+  // Simple register-register operation.
+  asm_.cmp(core::eax, core::ebx);
+  ASSERT_NO_REFS();
+
+  // Simple immediate-register operation.
+  asm_.cmp(core::eax, Immediate(10));
+  ASSERT_NO_REFS();
+
+  // Immediate-with reference to register.
+  asm_.cmp(core::eax, Immediate(&test_block_, 0));
+  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+
+  // Torture test: both src and dst contain references.
+  asm_.cmp(Operand(Displacement(&test_block_, 0)), Immediate(&test_bb_));
+  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_,
+              6, BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, &test_bb_);
+
+  asm_.cmp(Operand(Displacement(&test_block_, 0)), Immediate(10));
+  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+}
+
+TEST_F(BasicBlockAssemblerTest, add) {
+  // Simple register-register operation.
+  asm_.add(core::eax, core::ebx);
+  ASSERT_NO_REFS();
+
+  // Simple immediate-register operation.
+  asm_.add(core::eax, Immediate(10));
+  ASSERT_NO_REFS();
+
+  // Immediate-with reference to register.
+  asm_.add(core::eax, Immediate(&test_block_, 0));
+  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+
+  // Torture test: both src and dst contain references.
+  asm_.add(Operand(Displacement(&test_block_, 0)), Immediate(&test_bb_));
+  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_,
+              6, BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, &test_bb_);
+
+  asm_.add(Operand(Displacement(&test_block_, 0)), Immediate(10));
+  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+}
+
+TEST_F(BasicBlockAssemblerTest, sub) {
+  // Simple register-register operation.
+  asm_.sub(core::eax, core::ebx);
+  ASSERT_NO_REFS();
+
+  // Simple immediate-register operation.
+  asm_.sub(core::eax, Immediate(10));
+  ASSERT_NO_REFS();
+
+  // Immediate-with reference to register.
+  asm_.sub(core::eax, Immediate(&test_block_, 0));
+  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+
+  // Torture test: both src and dst contain references.
+  asm_.sub(Operand(Displacement(&test_block_, 0)), Immediate(&test_bb_));
+  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_,
+              6, BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, &test_bb_);
+
+  asm_.sub(Operand(Displacement(&test_block_, 0)), Immediate(10));
+  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+}
+
+TEST_F(BasicBlockAssemblerTest, shl) {
+  // Simple immediate-register operation.
+  asm_.shl(core::eax, Immediate(1));
+  ASSERT_NO_REFS();
+}
+
+TEST_F(BasicBlockAssemblerTest, shr) {
+  // Simple immediate-register operation.
+  asm_.shr(core::eax, Immediate(1));
+  ASSERT_NO_REFS();
+}
+
 TEST_F(BasicBlockAssemblerTest, ret) {
   asm_.ret();
   ASSERT_NO_REFS();
