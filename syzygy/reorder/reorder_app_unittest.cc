@@ -213,14 +213,12 @@ TEST_F(ReorderAppTest, ParseWithInvalidFlagsFails) {
   ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
 }
 
-TEST_F(ReorderAppTest, ParseLinearOrderWithNoTraceFilesFails) {
+TEST_F(ReorderAppTest, ParseLinearOrderWithNoTraceFiles) {
   cmd_line_.AppendSwitchPath(
       TestReorderApp::kInstrumentedImage, instrumented_image_path_);
   cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, output_file_path_);
-
-  ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
+  ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
 }
-
 
 TEST_F(ReorderAppTest, ParseMinimalLinearOrderCommandLine) {
   cmd_line_.AppendSwitchPath(
@@ -329,6 +327,17 @@ TEST_F(ReorderAppTest, ParseRandomOrderCommandLine) {
   EXPECT_FALSE(test_impl_.pretty_print_);
 
   EXPECT_TRUE(test_impl_.SetUp());
+}
+
+TEST_F(ReorderAppTest, ParseRandomOrderWithTraceFilesFails) {
+  cmd_line_.AppendSwitchPath(
+      TestReorderApp::kInstrumentedImage, instrumented_image_path_);
+  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, output_file_path_);
+  cmd_line_.AppendSwitchASCII(
+      TestReorderApp::kSeed, base::StringPrintf("%d", seed_));
+  cmd_line_.AppendArgPath(trace_file_path_);
+
+  ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
 }
 
 TEST_F(ReorderAppTest, ParseDeadCodeFinderCommandLine) {

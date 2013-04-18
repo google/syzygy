@@ -207,10 +207,9 @@ bool ReorderApp::ParseCommandLine(const CommandLine* command_line) {
     mode_ = kLinearOrderMode;
 
   // We do not accept trace file paths in random order mode.
-  if (mode_ != kRandomOrderMode && trace_file_paths_.empty()) {
+  if (mode_ == kRandomOrderMode && !trace_file_paths_.empty()) {
     return Usage(command_line,
-                 "At least one trace file is required when not in random "
-                 "order mode.");
+                 "Trace files are not accepted in random order mode.");
   }
 
   // We only accept a basic-block entry count file in linear order mode, and
