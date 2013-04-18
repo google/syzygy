@@ -28,6 +28,7 @@
         'agent/coverage/coverage.gyp:*',
         'agent/jump_table_count/jump_table_count.gyp:*',
         'agent/profiler/profiler.gyp:*',
+        'block_graph/analysis/block_graph_analysis.gyp:*',
         'block_graph/block_graph.gyp:*',
         'block_graph/transforms/block_graph_transforms.gyp:*',
         'block_graph/orderers/block_graph_orderers.gyp:*',

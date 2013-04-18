@@ -38,6 +38,8 @@
 
       # Block graph tests.
       '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_unittests',
+      '<(src)/syzygy/block_graph/analysis/block_graph_analysis.gyp:'
+          'block_graph_analysis_unittests',
       '<(src)/syzygy/block_graph/transforms/block_graph_transforms.gyp:'
           'block_graph_transforms_unittests',
       '<(src)/syzygy/block_graph/orderers/block_graph_orderers.gyp:'
