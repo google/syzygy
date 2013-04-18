@@ -374,4 +374,24 @@ TEST_F(ReorderAppTest, LinearOrderEndToEnd) {
   ASSERT_EQ(0, test_app_.Run());
 }
 
+TEST_F(ReorderAppTest, LinearOrderWithBasicBlockTrace) {
+  cmd_line_.AppendSwitchPath(
+      TestReorderApp::kInstrumentedImage, instrumented_image_path_);
+  cmd_line_.AppendSwitchPath(TestReorderApp::kOutputFile, output_file_path_);
+  cmd_line_.AppendSwitchPath(TestReorderApp::kInputImage, input_image_path_);
+  cmd_line_.AppendSwitchPath(
+      TestReorderApp::kBasicBlockEntryCounts, bb_entry_count_file_path_);
+  cmd_line_.AppendSwitch(TestReorderApp::kPrettyPrint);
+  cmd_line_.AppendArgPath(trace_file_path_);
+
+  // Adding a Basic Block traces should be valid, and ignored.
+  base::FilePath abs_bbtrace_file_path =
+      testing::GetExeTestDataRelativePath(testing::kBBEntryTraceFiles[0]);
+  base::FilePath bbtrace_file_path =
+    testing::GetRelativePath(abs_bbtrace_file_path);
+  cmd_line_.AppendArgPath(abs_bbtrace_file_path);
+
+  ASSERT_EQ(0, test_app_.Run());
+}
+
 }  // namespace reorder

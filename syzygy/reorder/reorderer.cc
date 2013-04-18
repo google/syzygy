@@ -417,15 +417,22 @@ bool Reorderer::CalculateReordering(Order* order) {
   return true;
 }
 
+void Reorderer::OnProcessStarted(
+    base::Time time, DWORD process_id, const TraceSystemInfo* data) {
+  UniqueTime entry_time(time);
+
+  if (!order_generator_->OnProcessStarted(process_id, entry_time)) {
+    parser_.set_error_occurred(true);
+    return;
+  }
+}
+
 void Reorderer::OnProcessEnded(base::Time time, DWORD process_id) {
   // Notify the order generator.
   if (!order_generator_->OnProcessEnded(process_id, UniqueTime(time))) {
     parser_.set_error_occurred(true);
     return;
   }
-
-  // Cleanup the local record for process_id.
-  ignore_result(matching_process_ids_.erase(process_id));
 }
 
 // CallTraceEvents implementation.
@@ -447,15 +454,6 @@ void Reorderer::OnFunctionEntry(base::Time time,
   // same time stamp, we rely on their relative ordering and UniqueTime's
   // incrementing ID to maintain relative order.
   UniqueTime entry_time(time);
-
-  // If this is the first call of interest by a given process, send an
-  // OnProcessStarted event.
-  if (matching_process_ids_.insert(process_id).second) {
-    if (!order_generator_->OnProcessStarted(process_id, entry_time)) {
-      parser_.set_error_occurred(true);
-      return;
-    }
-  }
 
   ++code_block_entry_events_;
   if (!order_generator_->OnCodeBlockEntry(block,

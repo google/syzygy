@@ -116,6 +116,9 @@ class Reorderer : public trace::parser::ParseEventHandlerImpl {
 
   // @name ParseEventHandler overrides.
   // @{
+  virtual void OnProcessStarted(base::Time time,
+                                DWORD process_id,
+                                const TraceSystemInfo* data) OVERRIDE;
   virtual void OnProcessEnded(base::Time time, DWORD process_id) OVERRIDE;
   virtual void OnFunctionEntry(base::Time time,
                                DWORD process_id,
@@ -143,11 +146,6 @@ class Reorderer : public trace::parser::ParseEventHandlerImpl {
   // The call-trace log file parser. It is used in conjunction with Playback
   // to trace the log file and capture events.
   Parser parser_;
-
-  // The set of processes of interest. That is, those that have had code
-  // run in the instrumented module. These are the only processes for which
-  // we are interested in OnProcessEnded events.
-  ProcessSet matching_process_ids_;
 
   // A cache for whether or not to reorder each section.
   typedef std::vector<bool> SectionReorderabilityCache;
