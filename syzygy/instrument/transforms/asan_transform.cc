@@ -47,6 +47,7 @@ using block_graph::Instruction;
 using block_graph::Operand;
 using block_graph::TypedBlock;
 using block_graph::Value;
+using block_graph::analysis::LivenessAnalysis;
 using core::Register;
 using core::RegisterCode;
 using pe::transforms::AddImportsTransform;
@@ -174,7 +175,7 @@ bool DecodeMemoryAccess(const Instruction& instr,
     info->mode = AsanBasicBlockTransform::kReadAccess;
   }
 
-  // Determine the opcode of this instruction (when needed)
+  // Determine the opcode of this instruction (when needed).
   if (info->mode == AsanBasicBlockTransform::kRepnzAccess ||
       info->mode == AsanBasicBlockTransform::kRepzAccess ||
       info->mode == AsanBasicBlockTransform::kInstrAccess) {
@@ -242,8 +243,11 @@ bool DecodeMemoryAccess(const Instruction& instr,
 void InjectAsanHook(BasicBlockAssembler* bb_asm,
                     const AsanBasicBlockTransform::MemoryAccessInfo& info,
                     const Operand& op,
-                    BlockGraph::Reference* hook) {
+                    BlockGraph::Reference* hook,
+                    const LivenessAnalysis::State& state) {
   DCHECK(hook != NULL);
+
+  // TODO(etienneb): Use liveness information to implement more efficient hook.
 
   // Determine which kind of probe to inject.
   if (info.mode == AsanBasicBlockTransform::kReadAccess ||
@@ -495,11 +499,28 @@ const char AsanBasicBlockTransform::kTransformName[] =
 bool AsanBasicBlockTransform::InstrumentBasicBlock(
     BasicCodeBlock* basic_block, StackAccessMode stack_mode) {
   DCHECK(basic_block != NULL);
-  BasicBlock::Instructions::iterator iter_inst =
-      basic_block->instructions().begin();
+
+  // Pre-compute liveness information for each instruction.
+  std::list<LivenessAnalysis::State> states;
+  LivenessAnalysis::State state;
+
+  liveness_.GetStateAtExitOf(basic_block, &state);
+
+  BasicBlock::Instructions::reverse_iterator rev_iter_inst =
+      basic_block->instructions().rbegin();
+  for (; rev_iter_inst != basic_block->instructions().rend(); ++rev_iter_inst) {
+    const Instruction& instr = *rev_iter_inst;
+    liveness_.PropagateBackward(instr, &state);
+    states.push_front(state);
+  }
+
+  DCHECK_EQ(states.size(), basic_block->instructions().size());
 
   // Process each instruction and inject a call to Asan when we find an
   // instrumentable memory access.
+  BasicBlock::Instructions::iterator iter_inst =
+      basic_block->instructions().begin();
+  std::list<LivenessAnalysis::State>::iterator iter_state = states.begin();
   for (; iter_inst != basic_block->instructions().end(); ++iter_inst) {
     Operand operand(core::eax);
     const Instruction& instr = *iter_inst;
@@ -509,6 +530,10 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
     info.mode = kNoAccess;
     info.size = 0;
     info.opcode = 0;
+
+    // Get current instruction liveness information.
+    state = *iter_state;
+    ++iter_state;
 
     // Insert hook for a standard instruction.
     if (!DecodeMemoryAccess(instr, &operand, &info))
@@ -574,8 +599,13 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
       LOG(ERROR) << "Invalid access : " << GetAsanCheckAccessFunctionName(info);
       return false;
     }
-    InjectAsanHook(&bb_asm, info, operand, &hook->second);
+
+    // Instrument this instruction.
+    InjectAsanHook(&bb_asm, info, operand, &hook->second, state);
   }
+
+  DCHECK(iter_state == states.end());
+
   return true;
 }
 
@@ -583,6 +613,9 @@ bool AsanBasicBlockTransform::TransformBasicBlockSubGraph(
     BlockGraph* block_graph, BasicBlockSubGraph* subgraph) {
   DCHECK(block_graph != NULL);
   DCHECK(subgraph != NULL);
+
+  // Perform a global liveness analysis.
+  liveness_.Analyze(subgraph);
 
   // Determines if this subgraph uses unconventional stack pointer
   // manipulations.

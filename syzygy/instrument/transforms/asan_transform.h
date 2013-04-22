@@ -25,6 +25,7 @@
 #include "base/string_piece.h"
 #include "syzygy/block_graph/filterable.h"
 #include "syzygy/block_graph/iterate.h"
+#include "syzygy/block_graph/analysis/liveness_analysis.h"
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
 
@@ -107,6 +108,9 @@ class AsanBasicBlockTransform
                             StackAccessMode stack_mode);
 
  private:
+  // Liveness analysis and liveness information for this subgraph.
+  block_graph::analysis::LivenessAnalysis liveness_;
+
   // The references to the Asan access check import entries.
   AsanHookMap* check_access_hooks_;
 
