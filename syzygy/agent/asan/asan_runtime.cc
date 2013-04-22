@@ -274,8 +274,11 @@ void AsanRuntime::TearDown() {
 void AsanRuntime::OnError(CONTEXT* context, AsanErrorInfo* error_info) {
   DCHECK(context != NULL);
 
-  if (flags_.exit_on_failure_)
+  if (flags_.exit_on_failure_) {
+    DCHECK(logger_.get() != NULL);
+    logger_->Stop();
     exit(EXIT_FAILURE);
+  }
 
   // Call the callback to handle this error.
   DCHECK_EQ(false, asan_error_callback_.is_null());
