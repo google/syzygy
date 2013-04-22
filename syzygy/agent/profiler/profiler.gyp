@@ -20,6 +20,8 @@
       'sources': [
         'return_thunk_factory.cc',
         'return_thunk_factory.h',
+        'symbol_map.cc',
+        'symbol_map.h',
       ],
     },
     {
@@ -48,6 +50,7 @@
         'profiler_unittest.cc',
         'profiler_unittests_main.cc',
         'return_thunk_factory_unittest.cc',
+        'symbol_map_unittest.cc',
       ],
       'dependencies': [
         'profile_client',
