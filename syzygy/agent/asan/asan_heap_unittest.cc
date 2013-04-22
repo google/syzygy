@@ -20,6 +20,7 @@
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 #include "syzygy/agent/asan/unittest_util.h"
+#include "syzygy/trace/common/clock.h"
 
 namespace agent {
 namespace asan {
@@ -34,6 +35,7 @@ class TestHeapProxy : public HeapProxy {
   using HeapProxy::FreeBlockHeader;
   using HeapProxy::GetAllocSize;
   using HeapProxy::GetBadAccessKind;
+  using HeapProxy::GetTimeSinceFree;
   using HeapProxy::ToBlock;
 
   explicit TestHeapProxy(StackCaptureCache* stack_cache, AsanLogger* logger)
@@ -327,6 +329,34 @@ TEST_F(HeapTest, GetBadAccessKind) {
   ASSERT_TRUE(proxy_.IsOverflowAccess(heap_overflow_address, header));
   ASSERT_TRUE(proxy_.Free(0, mem));
   ASSERT_TRUE(proxy_.IsUseAfterAccess(mem, header));
+}
+
+TEST_F(HeapTest, GetTimeSinceFree) {
+  const size_t kAllocSize = 100;
+  const size_t kSleepTime = 25;
+
+  // Ensure that the quarantine is large enough to keep this block.
+  proxy_.set_quarantine_max_size(TestHeapProxy::GetAllocSize(kAllocSize));
+  uint8* mem = static_cast<uint8*>(proxy_.Alloc(0, kAllocSize));
+  TestHeapProxy::BlockHeader* header =
+      const_cast<TestHeapProxy::BlockHeader*>(proxy_.ToBlock(mem));
+
+  base::TimeTicks time_before_free = base::TimeTicks::HighResNow();
+  ASSERT_EQ(0U, proxy_.GetTimeSinceFree(header));
+  ASSERT_TRUE(proxy_.Free(0, mem));
+  ::Sleep(kSleepTime);
+  uint64 time_since_free = proxy_.GetTimeSinceFree(header);
+  ASSERT_NE(0U, time_since_free);
+
+  base::TimeDelta time_delta = base::TimeTicks::HighResNow() - time_before_free;
+  ASSERT_GT(time_delta.ToInternalValue(), 0U);
+  uint64 time_delta_us = static_cast<uint64>(time_delta.ToInternalValue());
+  trace::common::ClockInfo clock_info = {};
+  trace::common::GetClockInfo(&clock_info);
+  if (clock_info.tsc_info.frequency == 0)
+    time_delta_us += HeapProxy::kSleepTimeForApproximatingCPUFrequency;
+
+  ASSERT_GE(time_delta_us, time_since_free);
 }
 
 }  // namespace asan

@@ -43,7 +43,10 @@ struct AsanErrorInfo {
   void* free_stack[agent::asan::StackCapture::kMaxNumFrames];
   uint8 free_stack_size;
   HeapProxy::BadAccessKind error_type;
+  HeapProxy::AccessMode access_mode;
+  size_t access_size;
   char shadow_info[128];
+  uint64 microseconds_since_free;
 };
 
 // An Asan Runtime manager.

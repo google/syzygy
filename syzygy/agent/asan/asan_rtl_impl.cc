@@ -324,6 +324,8 @@ void ReportBadMemoryAccess(void* location,
   // We keep a structure with all the useful information about this bad access
   // on the stack.
   AsanErrorInfo bad_access_info = {};
+  bad_access_info.access_mode = access_mode;
+  bad_access_info.access_size = access_size;
   // Make sure this structure is not optimized out.
   base::debug::Alias(&bad_access_info);
 

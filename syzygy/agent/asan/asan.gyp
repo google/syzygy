@@ -34,6 +34,7 @@
         'stack_capture_cache.h',
       ],
       'dependencies': [
+        '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
         '<(src)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
         '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
       ],

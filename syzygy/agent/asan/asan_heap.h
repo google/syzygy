@@ -72,6 +72,10 @@ class HeapProxy {
   static const char* kAttemptingDoubleFree;
   static const char* kHeapUnknownError;
 
+  // The sleep time (in milliseconds) used to approximate the CPU frequency.
+  // Exposed for testing.
+  static const size_t kSleepTimeForApproximatingCPUFrequency = 100;
+
   HeapProxy(StackCaptureCache* cache, AsanLogger* logger);
   ~HeapProxy();
 
@@ -183,6 +187,7 @@ class HeapProxy {
     BlockState state;
     const StackCapture* alloc_stack;
     const StackCapture* free_stack;
+    uint64 free_timestamp;
   };
 
   // Free blocks are linked together.
@@ -270,11 +275,17 @@ class HeapProxy {
                        size_t access_size,
                        AsanErrorInfo* bad_access_info);
 
+  // Returns the time since the block @p header was freed (in microseconds).
+  uint64 GetTimeSinceFree(const BlockHeader* header);
+
   // Arbitrarily keep 16 megabytes of quarantine per heap by default.
   static const size_t kDefaultQuarantineMaxSize_ = 16 * 1024 * 1024;
 
   // Default max size of blocks in quarantine (in bytes).
   static size_t default_quarantine_max_size_;
+
+  // The number of CPU cycles per microsecond on the current machine.
+  static double cpu_cycles_per_us_;
 
   // The underlying heap we delegate to.
   HANDLE heap_;

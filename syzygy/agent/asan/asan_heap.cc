@@ -18,11 +18,13 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/sys_string_conversions.h"
+#include "base/time.h"
 #include "base/debug/alias.h"
 #include "base/debug/stack_trace.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/trace/common/clock.h"
 
 namespace agent {
 namespace asan {
@@ -56,8 +58,25 @@ class HeapLocker {
   DISALLOW_COPY_AND_ASSIGN(HeapLocker);
 };
 
+// Returns the number of CPU cycles per microsecond.
+double GetCpuCyclesPerUs() {
+  trace::common::ClockInfo clock_info = {};
+  trace::common::GetClockInfo(&clock_info);
+
+  if (clock_info.tsc_info.frequency != 0) {
+    return (clock_info.tsc_info.frequency / base::Time::kMicrosecondsPerSecond);
+  } else {
+    uint64 cycle_start = trace::common::GetTsc();
+    ::Sleep(HeapProxy::kSleepTimeForApproximatingCPUFrequency);
+    return (trace::common::GetTsc() - cycle_start) /
+        (HeapProxy::kSleepTimeForApproximatingCPUFrequency *
+             base::Time::kMicrosecondsPerMillisecond);
+  }
+}
+
 }  // namespace
 
+double HeapProxy::cpu_cycles_per_us_ = 0.0;
 // The default quarantine size for a new Heap.
 size_t HeapProxy::default_quarantine_max_size_ = kDefaultQuarantineMaxSize_;
 const char* HeapProxy::kHeapUseAfterFree = "heap-use-after-free";
@@ -255,6 +274,7 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
 
   block->free_stack = stack_cache_->SaveStackTrace(stack);
   DCHECK(ToAlloc(block) == mem);
+  block->free_timestamp = trace::common::GetTsc();
 
   // If the size of the allocation is zero then we shouldn't check the shadow
   // memory as it'll only contain the red-zone for the head and tail of this
@@ -558,6 +578,8 @@ bool HeapProxy::OnBadAccess(const void* addr,
   // Get the bad access description if we've been able to determine its kind.
   if (bad_access_kind != UNKNOWN_BAD_ACCESS) {
     bad_access_info->error_type = bad_access_kind;
+    bad_access_info->microseconds_since_free = GetTimeSinceFree(header);
+
     const char* bug_descr = AccessTypeToStr(bad_access_kind);
     if (header->alloc_stack != NULL) {
       memcpy(bad_access_info->alloc_stack,
@@ -701,6 +723,24 @@ LIST_ENTRY* HeapProxy::ToListEntry(HeapProxy* proxy) {
 HeapProxy* HeapProxy::FromListEntry(LIST_ENTRY* list_entry) {
   DCHECK(list_entry != NULL);
   return CONTAINING_RECORD(list_entry, HeapProxy, list_entry_);
+}
+
+uint64 HeapProxy::GetTimeSinceFree(const BlockHeader* header) {
+  DCHECK(header != NULL);
+
+  if (header->state == ALLOCATED)
+    return 0;
+
+  uint64 cycles_since_free = (trace::common::GetTsc() - header->free_timestamp);
+
+  // On x86/64, as long as cpu_cycles_per_us_ is 64-bit aligned, the write is
+  // atomic, which means we don't care about multiple writers since it's not an
+  // update based on the previous value.
+  if (cpu_cycles_per_us_ == 0.0)
+    cpu_cycles_per_us_ = GetCpuCyclesPerUs();
+  DCHECK_NE(0.0, cpu_cycles_per_us_);
+
+  return cycles_since_free / cpu_cycles_per_us_;
 }
 
 }  // namespace asan
