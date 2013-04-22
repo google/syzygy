@@ -47,6 +47,7 @@ class InstrumentApp : public common::AppImplBase {
     kInstrumentBasicBlockEntryMode,
     kInstrumentCallTraceMode,
     kInstrumentCoverageMode,
+    kInstrumentFuzzingMode,
     kInstrumentProfileMode,
   };
 
