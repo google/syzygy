@@ -65,7 +65,12 @@ class Logger {
     logger_started_callback_ = callback;
   }
 
-  // Set a callback to be invoked when the logger has stopped.
+  // Set a callback to be invoked when the logger has been asked to stop.
+  void set_logger_interrupted_callback(LoggerCallback callback) {
+    logger_interrupted_callback_ = callback;
+  }
+
+  // Set a callback to be invoked when the logger has completely stopped.
   void set_logger_stopped_callback(LoggerCallback callback) {
     logger_stopped_callback_ = callback;
   }
@@ -156,6 +161,9 @@ class Logger {
 
   // A callback to be invoked when the logger has successfully started.
   LoggerCallback logger_started_callback_;
+
+  // A callback to be invoked when the logger has been asked to stop.
+  LoggerCallback logger_interrupted_callback_;
 
   // A callback to be invoked when the logger has successfully stopped.
   LoggerCallback logger_stopped_callback_;

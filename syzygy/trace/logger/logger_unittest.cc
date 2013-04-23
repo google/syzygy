@@ -78,12 +78,14 @@ class TestLogger : public Logger {
   using Logger::state_;
   using Logger::instance_id_;
   using Logger::logger_started_callback_;
+  using Logger::logger_interrupted_callback_;
   using Logger::logger_stopped_callback_;
 };
 
 class LoggerTest : public testing::Test {
  public:
   MOCK_METHOD1(LoggerStartedCallback, bool(Logger*));
+  MOCK_METHOD1(LoggerInterruptedCallback, bool(Logger*));
   MOCK_METHOD1(LoggerStoppedCallback, bool(Logger*));
 
   LoggerTest()
@@ -110,16 +112,19 @@ class LoggerTest : public testing::Test {
     // Setup a logger to use.
     logger_.set_instance_id(instance_id_);
     logger_.set_destination(log_file_.get());
-    logger_.set_logger_started_callback(
-        base::Bind(&LoggerTest::LoggerStartedCallback, base::Unretained(this)));
-    logger_.set_logger_stopped_callback(
-        base::Bind(&LoggerTest::LoggerStoppedCallback, base::Unretained(this)));
+    logger_.set_logger_started_callback(base::Bind(
+        &LoggerTest::LoggerStartedCallback, base::Unretained(this)));
+    logger_.set_logger_interrupted_callback(base::Bind(
+        &LoggerTest::LoggerInterruptedCallback, base::Unretained(this)));
+    logger_.set_logger_stopped_callback(base::Bind(
+        &LoggerTest::LoggerStoppedCallback, base::Unretained(this)));
 
     // Validate that the Logger's constructor and setters have done their jobs.
     ASSERT_EQ(base::PlatformThread::CurrentId(), logger_.owning_thread_id_);
     ASSERT_EQ(log_file_.get(), logger_.destination_);
     ASSERT_TRUE(!logger_.instance_id_.empty());
     ASSERT_TRUE(!logger_.logger_started_callback_.is_null());
+    ASSERT_TRUE(!logger_.logger_interrupted_callback_.is_null());
     ASSERT_TRUE(!logger_.logger_stopped_callback_.is_null());
     ASSERT_EQ(Logger::kStopped, logger_.state_);
 
@@ -128,6 +133,11 @@ class LoggerTest : public testing::Test {
         .WillOnce(Return(true));
     ASSERT_TRUE(logger_.Start());
     ASSERT_EQ(Logger::kRunning, logger_.state_);
+
+    // At some point we expect someone to stop the logger, and the logger
+    // interrupted callback will fire.
+    EXPECT_CALL(*this, LoggerInterruptedCallback(&logger_))
+        .WillOnce(Return(true));
   }
 
   virtual void TearDown() OVERRIDE {

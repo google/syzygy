@@ -188,7 +188,8 @@ bool InitEvent(const std::wstring& event_name,
                base::win::ScopedHandle* handle) {
   DCHECK(handle != NULL);
   DCHECK(!handle->IsValid());
-  handle->Set(::CreateEvent(NULL, TRUE, FALSE, event_name.c_str()));
+  const wchar_t* name_ptr = event_name.empty() ? NULL : event_name.c_str();
+  handle->Set(::CreateEvent(NULL, TRUE, FALSE, name_ptr));
   if (!handle->IsValid())
     return false;
   return true;
@@ -266,6 +267,7 @@ bool SplitCommandLine(const CommandLine* orig_command_line,
 // then runs a given command line to completion.
 bool RunApp(const CommandLine& command_line,
             const std::wstring& instance_id,
+            HANDLE interruption_event,
             int* exit_code) {
   DCHECK(exit_code != NULL);
   scoped_ptr<base::Environment> env(base::Environment::Create());
@@ -274,6 +276,8 @@ bool RunApp(const CommandLine& command_line,
 
   LOG(INFO) << "Launching '" << command_line.GetProgram().value() << "'.";
   VLOG(1) << "Command Line: " << command_line.GetCommandLineString();
+
+  *exit_code = 0;
 
   // Launch a new process in the background.
   base::ProcessHandle process_handle;
@@ -285,14 +289,29 @@ bool RunApp(const CommandLine& command_line,
     return false;
   }
 
-  // Wait for and return the processes exit code.
-  // Note that this closes the process handle.
-  if (!base::WaitForExitCode(process_handle, exit_code)) {
-    LOG(ERROR) << "Failed to get exit code.";
-    return false;
+  HANDLE objects[] = { process_handle, interruption_event };
+  DWORD num_objects = arraysize(objects);
+  switch (::WaitForMultipleObjects(num_objects, objects, FALSE, INFINITE)) {
+    case WAIT_OBJECT_0 + 0: {
+      // The program has finished.
+      DWORD temp_exit_code;
+      ::GetExitCodeProcess(process_handle, &temp_exit_code);
+      *exit_code = temp_exit_code;
+    }
+      // Fall through...
+
+    case WAIT_OBJECT_0 + 1: {
+      // Someone stopped the logger or the application process has exited.
+      // Either way, release the process handle, we don't need it anymore.
+      base::CloseProcessHandle(process_handle);
+      return true;
+    }
   }
 
-  return true;
+  // If we get here then an error has occurred (since the timeout is infinite).
+  DWORD error = ::GetLastError();
+  LOG(ERROR) << "Error waiting for shutdown event " << com::LogWe(error) << ".";
+  return false;
 }
 
 }  // namespace
@@ -430,6 +449,14 @@ bool LoggerApp::Start() {
     return false;
   }
 
+  // Setup an anonymous event to notify us if the logger has been
+  // asynchronously asked to shutdown.
+  base::win::ScopedHandle interrupt_event;
+  if (!InitEvent(L"", &interrupt_event)) {
+    LOG(ERROR) << "Unable to init interrupt event for '" << logger_name << "'.";
+    return false;
+  }
+
   // Get the log file output_file.
   FILE* output_file = NULL;
   bool must_close_output_file = false;
@@ -451,6 +478,8 @@ bool LoggerApp::Start() {
       base::Bind(&SignalEvent, start_event.Get()));
   logger.set_logger_stopped_callback(
       base::Bind(&SignalEvent, stop_event.Get()));
+  logger.set_logger_interrupted_callback(
+      base::Bind(&SignalEvent, interrupt_event.Get()));
 
   // Save the instance_id for the Ctrl-C handler.
   ::wcsncpy_s(saved_instance_id,
@@ -481,7 +510,8 @@ bool LoggerApp::Start() {
     // We have a command to run, so launch that command and when it finishes
     // stop the logger.
     int exit_code = 0;
-    if (!RunApp(*app_command_line_, instance_id_, &exit_code) ||
+    if (!RunApp(*app_command_line_, instance_id_, interrupt_event,
+                &exit_code) ||
         exit_code != 0) {
       error = true;
     }

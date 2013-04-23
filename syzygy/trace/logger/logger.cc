@@ -420,6 +420,11 @@ bool Logger::StopRpc() {
     return false;
   }
 
+  if (!logger_interrupted_callback_.is_null() &&
+      !logger_interrupted_callback_.Run(this)) {
+    return false;
+  }
+
   return true;
 }
 
