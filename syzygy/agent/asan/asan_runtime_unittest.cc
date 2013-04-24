@@ -219,7 +219,7 @@ TEST_F(AsanRuntimeTest, SetFlags) {
       StackCaptureCache::GetDefaultCompressionReportingPeriod() - 1;
   ASSERT_LT(0U, flags.reporting_period);
   flags.bottom_frames_to_skip =
-      StackCapture::bottom_frames_to_skip() - 1;
+      StackCapture::bottom_frames_to_skip() + 1;
   ASSERT_LT(0U, flags.bottom_frames_to_skip);
   flags.max_num_frames =
       asan_runtime_.stack_cache()->max_num_frames() - 1;
