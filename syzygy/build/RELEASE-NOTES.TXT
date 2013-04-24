@@ -1,6 +1,12 @@
 Syzygy Release Notes
 ====================
 
+Version 0.2.19.0
+
+[r1460] SyzyASAN - Include all stack frames by default.
+[r1459] SyzyASAN - Fix asan logger shutdown on error.
+[r1456] SyzyASAN - Capture time between free and use-after-free.
+
 Version 0.2.18.0
 
 [r1444] SyzyASAN - Use breakpad key/value pairs to label crashes.
