@@ -62,6 +62,28 @@ TEST_F(SymbolMapTest, AddSymbol) {
   EXPECT_EQ(0, symbol->move_count());
 }
 
+TEST_F(SymbolMapTest, EnsureHasId) {
+  const uint8* const kStart = ToPtr(0x1023);
+
+  // Insert a symbol.
+  symbol_map_.AddSymbol(kStart, 0x22, "foo");
+
+  scoped_refptr<SymbolMap::Symbol> symbol = symbol_map_.FindSymbol(kStart);
+
+  // The symbol should not have an ID yet.
+  EXPECT_EQ(0, symbol->id());
+
+  // Assign it one.
+  EXPECT_TRUE(symbol->EnsureHasId());
+  uint32 id = symbol->id();
+  EXPECT_NE(0U, id);
+
+  // We should only get a true return once from EnsureHasId.
+  EXPECT_FALSE(symbol->EnsureHasId());
+  // And the symbol's ID should not change after initial assignment.
+  EXPECT_EQ(id, symbol->id());
+}
+
 TEST_F(SymbolMapTest, AddMoveSymbol) {
   // Insert & move a symbol.
   symbol_map_.AddSymbol(ToPtr(0x1011), 0x22, "foo");
@@ -105,8 +127,7 @@ TEST_F(SymbolMapTest, SymbolLifeCycle) {
   // Insert a symbol.
   symbol_map_.AddSymbol(ToPtr(0x1011), 0x22, "foo");
 
-  // Find the symbol through the public symbol map interface,
-  // which has the side effect of observing it.
+  // Find the symbol through the public symbol map interface.
   scoped_refptr<SymbolMap::Symbol> symbol =
       symbol_map_.FindSymbol(ToPtr(0x1026));
 
@@ -114,10 +135,17 @@ TEST_F(SymbolMapTest, SymbolLifeCycle) {
   EXPECT_EQ("foo", symbol->name());
   EXPECT_FALSE(symbol->invalid());
 
-  // We expect it's acquired an ID now.
-  int32 id = symbol->id();
-  EXPECT_NE(0, id);
+  EXPECT_EQ(0, symbol->id());
   EXPECT_EQ(0, symbol->move_count());
+
+  // Assign an ID to the symbol.
+  EXPECT_TRUE(symbol->EnsureHasId());
+  uint32 id = symbol->id();
+  EXPECT_NE(0U, id);
+
+  // We should only return true on first assigning an id to the symbol.
+  EXPECT_FALSE(symbol->EnsureHasId());
+  EXPECT_EQ(id, symbol->id());
 
   // Move "foo".
   symbol_map_.MoveSymbol(ToPtr(0x1011), ToPtr(0x2000));

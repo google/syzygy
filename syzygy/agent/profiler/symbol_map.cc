@@ -81,9 +81,6 @@ scoped_refptr<SymbolMap::Symbol> SymbolMap::FindSymbol(const uint8* addr) {
   if (found == addr_space_.end())
     return NULL;
 
-  // Name the symbol as it's about to be observed.
-  found->second->EnsureHasId();
-
   return found->second;
 }
 
@@ -103,6 +100,21 @@ SymbolMap::Symbol::Symbol(const base::StringPiece& name)
     : name_(name.begin(), name.end()), move_count_(0), invalid_(false), id_(0) {
 }
 
+bool SymbolMap::Symbol::EnsureHasId() {
+  DCHECK(!invalid_);
+  if (base::subtle::Acquire_Load(&id_) != 0)
+    return false;
+
+  // Allocate a new symbol ID. Note that we may be racing against other
+  // threads to assign this ID to the symbol, hence the compare-and-swap
+  // below. In the case of a race, this ID may not get allocated to any
+  // symbol.
+  base::subtle::Atomic32 next_id =
+      base::subtle::NoBarrier_AtomicIncrement(&next_symbol_id_, 1);
+
+  return base::subtle::NoBarrier_CompareAndSwap(&id_, 0, next_id) == 0;
+}
+
 void SymbolMap::Symbol::Invalidate() {
   DCHECK(!invalid_);
   invalid_ = true;
@@ -113,14 +125,6 @@ void SymbolMap::Symbol::Move() {
   // TODO(siggi): The intent here is to make sure other cores see the new
   //     value without delay. The barrier may not be what's needed to do that?
   base::subtle::Barrier_AtomicIncrement(&move_count_, 1);
-}
-
-void SymbolMap::Symbol::EnsureHasId() {
-  DCHECK(!invalid_);
-  if (id_ != 0)
-    return;
-
-  id_ = base::subtle::NoBarrier_AtomicIncrement(&next_symbol_id_, 1);
 }
 
 }  // namespace profiler

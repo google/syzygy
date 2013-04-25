@@ -72,6 +72,10 @@ class SymbolMap::Symbol : public base::RefCountedThreadSafe<Symbol> {
 
   explicit Symbol(const base::StringPiece& name);
 
+  // Name this symbol by assigning it an id, if it doesn't already have one.
+  // @returns true iff the symbol did not already have an id.
+  bool EnsureHasId();
+
   // @name Accessors.
   // @{
   const std::string& name() const { return name_; }
@@ -87,8 +91,6 @@ class SymbolMap::Symbol : public base::RefCountedThreadSafe<Symbol> {
   void Invalidate();
   // Move this symbol.
   void Move();
-  // Name this symbol by assigning it an id, if it doesn't already have one.
-  void EnsureHasId();
 
   std::string name_;
 
@@ -98,9 +100,8 @@ class SymbolMap::Symbol : public base::RefCountedThreadSafe<Symbol> {
   // Another symbol has overlapped.
   bool invalid_;
 
-  // Non-zero if the symbol has been observed and used.
-  // TODO(siggi): Does this need 64 bits?
-  uint32 id_;
+  // Non-zero after first call to EnsureHasId.
+  base::subtle::Atomic32 id_;
 
  private:
   friend class base::RefCountedThreadSafe<Symbol>;
