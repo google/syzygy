@@ -109,8 +109,10 @@ bool SymbolMap::Symbol::EnsureHasId() {
   // threads to assign this ID to the symbol, hence the compare-and-swap
   // below. In the case of a race, this ID may not get allocated to any
   // symbol.
-  base::subtle::Atomic32 next_id =
-      base::subtle::NoBarrier_AtomicIncrement(&next_symbol_id_, 1);
+  base::subtle::Atomic32 next_id = 0;
+  do {
+    next_id = base::subtle::NoBarrier_AtomicIncrement(&next_symbol_id_, 1);
+  } while (next_id == 0);
 
   return base::subtle::NoBarrier_CompareAndSwap(&id_, 0, next_id) == 0;
 }
