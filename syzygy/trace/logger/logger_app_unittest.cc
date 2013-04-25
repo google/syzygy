@@ -54,6 +54,7 @@ class TestLoggerApp : public LoggerApp {
   using LoggerApp::kStatus;
   using LoggerApp::kStop;
   using LoggerApp::kInstanceId;
+  using LoggerApp::kUnique;
   using LoggerApp::kOutputFile;
   using LoggerApp::kStdOut;
   using LoggerApp::kStdErr;
@@ -136,21 +137,54 @@ TEST_F(LoggerAppTest, EmptyCommandLineFails) {
   ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
 }
 
+TEST_F(LoggerAppTest, ParseUnknownActionFails) {
+  cmd_line_.AppendArg("unknown");
+  ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(LoggerAppTest, ParseMispelledActionFails) {
+  cmd_line_.AppendArg("star");
+  ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(LoggerAppTest, ParseUniqueInstanceId) {
+  cmd_line_.AppendSwitchNative(
+      TestLoggerApp::kInstanceId, TestLoggerApp::kUnique);
+  cmd_line_.AppendArg("start");
+  ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
+  EXPECT_NE(test_impl_.instance_id_, std::wstring(TestLoggerApp::kUnique));
+  EXPECT_EQ(TestLoggerApp::kMaxInstanceIdLength,
+            test_impl_.instance_id_.size());
+}
+
 TEST_F(LoggerAppTest, ParseBasicStart) {
   cmd_line_.AppendSwitchPath(
       TestLoggerApp::kOutputFile, output_file_path_);
-  cmd_line_.AppendSwitchNative(
-      TestLoggerApp::kInstanceId, instance_id_);
   cmd_line_.AppendArgNative(TestLoggerApp::kStart);
   ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
   EXPECT_EQ(output_file_path_, test_impl_.output_file_path_);
-  EXPECT_EQ(instance_id_, test_impl_.instance_id_);
+  EXPECT_TRUE(test_impl_.instance_id_.empty());
   EXPECT_EQ(std::wstring(TestLoggerApp::kStart), test_impl_.action_);
   EXPECT_TRUE(test_impl_.app_command_line_.get() == NULL);
   EXPECT_EQ(&TestLoggerApp::Start, test_impl_.action_handler_);
 }
 
-TEST_F(LoggerAppTest, ParseStartWithCommand) {
+TEST_F(LoggerAppTest, ParseBasicStartWithCommand) {
+  const base::FilePath kFooExe(L"foo.exe");
+  cmd_line_.AppendSwitchPath(
+      TestLoggerApp::kOutputFile, output_file_path_);
+  cmd_line_.AppendArgNative(TestLoggerApp::kStart);
+  cmd_line_.AppendArgNative(kFooExe.value());
+  ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
+  EXPECT_EQ(output_file_path_, test_impl_.output_file_path_);
+  EXPECT_EQ(std::wstring(TestLoggerApp::kStart), test_impl_.action_);
+  EXPECT_TRUE(test_impl_.app_command_line_.get() != NULL);
+  EXPECT_EQ(&TestLoggerApp::Start, test_impl_.action_handler_);
+  EXPECT_EQ(TestLoggerApp::kMaxInstanceIdLength,
+            test_impl_.instance_id_.size());
+}
+
+TEST_F(LoggerAppTest, ParseFullStartWithCommand) {
   const base::FilePath kFooExe(L"foo.exe");
   const std::wstring kSwitchName(L"switch");
   const std::wstring kSwitchValue(L"value");

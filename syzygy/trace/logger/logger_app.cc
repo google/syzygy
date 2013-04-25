@@ -23,6 +23,7 @@
 #include "base/path_service.h"
 #include "base/process.h"
 #include "base/process_util.h"
+#include "base/rand_util.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
@@ -71,8 +72,7 @@ const wchar_t kLoggerStopEventRoot[] = L"syzygy-logger-stopped";
 // A static location to which the current instance id can be saved. We
 // persist it here so that OnConsoleCtrl can have access to the instance
 // id when it is invoked on the signal handler thread.
-wchar_t saved_instance_id[16] = { 0 };
-const size_t kMaxInstanceIdLength = arraysize(saved_instance_id) - 1;
+wchar_t saved_instance_id[LoggerApp::kMaxInstanceIdLength + 1] = { 0 };
 
 // Send a stop request via RPC to the logger instance given by @p instance_id.
 bool SendStopRequest(const base::StringPiece16& instance_id) {
@@ -322,6 +322,7 @@ const wchar_t LoggerApp::kStart[] = L"start";
 const wchar_t LoggerApp::kStatus[] = L"status";
 const wchar_t LoggerApp::kStop[] = L"stop";
 const char LoggerApp::kInstanceId[] = "instance-id";
+const wchar_t LoggerApp::kUnique[] = L"unique";
 const char LoggerApp::kOutputFile[] = "output-file";
 const char LoggerApp::kAppend[] = "append";
 const wchar_t LoggerApp::kStdOut[] = L"stdout";
@@ -360,7 +361,7 @@ bool LoggerApp::ParseCommandLine(const CommandLine* command_line) {
 
   // Parse the instance id.
   instance_id_ = command_line->GetSwitchValueNative(kInstanceId);
-  if (instance_id_.size() > kMaxInstanceIdLength) {
+  if (instance_id_.length() > kMaxInstanceIdLength) {
     return Usage(command_line,
                  base::StringPrintf("The instance id '%ls' is too long. "
                                     "The max length is %d characters.",
@@ -389,6 +390,16 @@ bool LoggerApp::ParseCommandLine(const CommandLine* command_line) {
         base::StringPrintf("Unrecognized action: %s.", action_.c_str()));
   }
 
+  if ((instance_id_.empty() && app_command_line_ != NULL &&
+           ::_wcsicmp(action_.c_str(), kStart) == 0) ||
+      ::_wcsicmp(instance_id_.c_str(), kUnique) == 0) {
+    DWORD process_id = ::GetCurrentProcessId();
+    DWORD random_value = 0;
+    base::RandBytes(&random_value, sizeof(random_value));
+    base::SStringPrintf(&instance_id_, L"%08x%08x", process_id, random_value);
+    DCHECK_EQ(kMaxInstanceIdLength, instance_id_.length());
+  }
+
   // Setup the action handler.
   DCHECK(entry->handler != NULL);
   action_handler_ = entry->handler;
@@ -406,19 +417,11 @@ int LoggerApp::Run() {
 // A helper function to find the handler method for a given action.
 const LoggerApp::ActionTableEntry* LoggerApp::FindActionHandler(
     const base::StringPiece16& action) {
-  const ActionTableEntry* const begin  = &kActionTable[0];
-  const ActionTableEntry* const end = begin + arraysize(kActionTable);
-  ActionTableEntryCompare compare_func;
-
-  // Make sure that the array is sorted.
-  DCHECK(std::is_sorted(begin, end, compare_func));
-
-  const ActionTableEntry* entry =
-      std::lower_bound(begin, end, action, compare_func);
-  if (entry == end)
-    return NULL;
-
-  return entry;
+  for (int i = 0; i < arraysize(kActionTable); ++i) {
+    if (::_wcsicmp(kActionTable[i].action, action.data()) == 0)
+      return &kActionTable[i];
+  }
+  return NULL;
 }
 
 bool LoggerApp::Start() {
@@ -501,6 +504,8 @@ bool LoggerApp::Start() {
     LOG(ERROR) << "Failed to start '" << logger_name << "'.";
     return false;
   }
+
+  LOG(INFO) << "Running logger with instance ID '" << instance_id_ << "'.";
 
   bool error = false;
 

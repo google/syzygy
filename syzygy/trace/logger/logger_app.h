@@ -45,6 +45,8 @@ class LoggerApp : public common::AppImplBase {
   LoggerApp();
   ~LoggerApp();
 
+  static const size_t kMaxInstanceIdLength = 16;
+
   // @name Implementation of the AppImplBase interface.
   // @{
   bool ParseCommandLine(const CommandLine* command_line);
@@ -124,10 +126,11 @@ class LoggerApp : public common::AppImplBase {
   static const char kAppend[];
   // @}
 
-  // Special-case output-file tokens.
+  // Special-case value tokens.
   // @{
-  static const wchar_t kStdOut[];
-  static const wchar_t kStdErr[];
+  static const wchar_t kStdOut[];  // Output file.
+  static const wchar_t kStdErr[];  // Output file.
+  static const wchar_t kUnique[];  // Instance ID.
   // @}
 
   // The command line parameters pertaining to the logger.
