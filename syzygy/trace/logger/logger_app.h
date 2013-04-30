@@ -122,15 +122,15 @@ class LoggerApp : public common::AppImplBase {
   // Command-line options.
   // @{
   static const char kInstanceId[];
+  static const char kUniqueInstanceId[];
   static const char kOutputFile[];
   static const char kAppend[];
   // @}
 
-  // Special-case value tokens.
+  // Special-case output file value tokens.
   // @{
-  static const wchar_t kStdOut[];  // Output file.
-  static const wchar_t kStdErr[];  // Output file.
-  static const wchar_t kUnique[];  // Instance ID.
+  static const wchar_t kStdOut[];
+  static const wchar_t kStdErr[];
   // @}
 
   // The command line parameters pertaining to the logger.

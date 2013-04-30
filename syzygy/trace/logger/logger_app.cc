@@ -322,7 +322,7 @@ const wchar_t LoggerApp::kStart[] = L"start";
 const wchar_t LoggerApp::kStatus[] = L"status";
 const wchar_t LoggerApp::kStop[] = L"stop";
 const char LoggerApp::kInstanceId[] = "instance-id";
-const wchar_t LoggerApp::kUnique[] = L"unique";
+const char LoggerApp::kUniqueInstanceId[] = "unique-instance-id";
 const char LoggerApp::kOutputFile[] = "output-file";
 const char LoggerApp::kAppend[] = "append";
 const wchar_t LoggerApp::kStdOut[] = L"stdout";
@@ -359,6 +359,14 @@ bool LoggerApp::ParseCommandLine(const CommandLine* command_line) {
   // Save the command-line in case we need to spawn.
   command_line = &logger_command_line_;
 
+  if (command_line->HasSwitch(kInstanceId) &&
+      command_line->HasSwitch(kUniqueInstanceId)) {
+    return Usage(command_line,
+                 base::StringPrintf("--%s and --%s are mutually exclusive.",
+                                    kInstanceId,
+                                    kUniqueInstanceId));
+  }
+
   // Parse the instance id.
   instance_id_ = command_line->GetSwitchValueNative(kInstanceId);
   if (instance_id_.length() > kMaxInstanceIdLength) {
@@ -390,15 +398,14 @@ bool LoggerApp::ParseCommandLine(const CommandLine* command_line) {
         base::StringPrintf("Unrecognized action: %s.", action_.c_str()));
   }
 
-  if ((instance_id_.empty() && app_command_line_ != NULL &&
-           ::_wcsicmp(action_.c_str(), kStart) == 0) ||
-      ::_wcsicmp(instance_id_.c_str(), kUnique) == 0) {
+  if (command_line->HasSwitch(kUniqueInstanceId)) {
     DWORD process_id = ::GetCurrentProcessId();
-    DWORD random_value = 0;
-    base::RandBytes(&random_value, sizeof(random_value));
-    base::SStringPrintf(&instance_id_, L"%08x%08x", process_id, random_value);
+    DWORD timestamp = ::GetTickCount();
+    base::SStringPrintf(&instance_id_, L"%08x%08x", process_id, timestamp);
     DCHECK_EQ(kMaxInstanceIdLength, instance_id_.length());
   }
+
+  LOG(INFO) << "Using logger instance ID: '" << instance_id_ << "'.";
 
   // Setup the action handler.
   DCHECK(entry->handler != NULL);
@@ -504,8 +511,6 @@ bool LoggerApp::Start() {
     LOG(ERROR) << "Failed to start '" << logger_name << "'.";
     return false;
   }
-
-  LOG(INFO) << "Running logger with instance ID '" << instance_id_ << "'.";
 
   bool error = false;
 

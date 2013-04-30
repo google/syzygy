@@ -54,7 +54,7 @@ class TestLoggerApp : public LoggerApp {
   using LoggerApp::kStatus;
   using LoggerApp::kStop;
   using LoggerApp::kInstanceId;
-  using LoggerApp::kUnique;
+  using LoggerApp::kUniqueInstanceId;
   using LoggerApp::kOutputFile;
   using LoggerApp::kStdOut;
   using LoggerApp::kStdErr;
@@ -148,11 +148,9 @@ TEST_F(LoggerAppTest, ParseMispelledActionFails) {
 }
 
 TEST_F(LoggerAppTest, ParseUniqueInstanceId) {
-  cmd_line_.AppendSwitchNative(
-      TestLoggerApp::kInstanceId, TestLoggerApp::kUnique);
+  cmd_line_.AppendSwitch(TestLoggerApp::kUniqueInstanceId);
   cmd_line_.AppendArg("start");
   ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-  EXPECT_NE(test_impl_.instance_id_, std::wstring(TestLoggerApp::kUnique));
   EXPECT_EQ(TestLoggerApp::kMaxInstanceIdLength,
             test_impl_.instance_id_.size());
 }
@@ -178,10 +176,9 @@ TEST_F(LoggerAppTest, ParseBasicStartWithCommand) {
   ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
   EXPECT_EQ(output_file_path_, test_impl_.output_file_path_);
   EXPECT_EQ(std::wstring(TestLoggerApp::kStart), test_impl_.action_);
+  EXPECT_TRUE(test_impl_.instance_id_.empty());
   EXPECT_TRUE(test_impl_.app_command_line_.get() != NULL);
   EXPECT_EQ(&TestLoggerApp::Start, test_impl_.action_handler_);
-  EXPECT_EQ(TestLoggerApp::kMaxInstanceIdLength,
-            test_impl_.instance_id_.size());
 }
 
 TEST_F(LoggerAppTest, ParseFullStartWithCommand) {
