@@ -468,6 +468,30 @@ void CheckStringsMemoryAccesses(
       ASAN_RESTORE_EFLAGS  \
       __asm ret 4  \
     __asm check_access_slow:  \
+      /* Uh-oh - non-zero shadow byte means we go to the slow case. */  \
+      /* We inline the Shadow::IsAccessible function for performance. */  \
+      /* Save the flags on the stack (keep in eax in the fastpath). */  \
+      __asm push eax  \
+      /* DL contains the shadow value for this byte, check if it's marked */  \
+      /* as non accessible. */  \
+      __asm test dl, kHeapNonAccessibleByteMask  \
+      __asm jnz report_failure  \
+      /* Put the 3 last bits of the memory location into EAX. */  \
+      __asm mov eax, DWORD PTR[esp + 4]  \
+      __asm and eax, 7  \
+      /* Check if this byte is accessible. */  \
+      __asm cmp al, dl  \
+      __asm jae report_failure  \
+      __asm pop eax  \
+      /* Remove memory location on top of stack */  \
+      __asm add esp, 4  \
+      /* Restore original EDX. */  \
+      __asm mov edx, DWORD PTR[esp + 8]  \
+      /* Restore the EFLAGS. */  \
+      ASAN_RESTORE_EFLAGS  \
+      __asm ret 4  \
+    __asm report_failure:  \
+      __asm pop eax  \
       /* Restore memory location in EDX. */  \
       __asm pop edx  \
       /* Restore the EFLAGS. */  \
@@ -499,11 +523,18 @@ void CheckStringsMemoryAccesses(
     }  \
   }
 
+// Redefine some enums to make them accessible in the inlined assembly.
+// @{
 enum AccessMode {
   AsanReadAccess = HeapProxy::ASAN_READ_ACCESS,
   AsanWriteAccess = HeapProxy::ASAN_WRITE_ACCESS,
   AsanUnknownAccess = HeapProxy::ASAN_UNKNOWN_ACCESS,
 };
+
+enum ShadowState {
+  kHeapNonAccessibleByteMask = agent::asan::Shadow::kHeapNonAccessibleByteMask,
+};
+// @}
 
 ASAN_CHECK_FUNCTION(1, read_access, AsanReadAccess)
 ASAN_CHECK_FUNCTION(2, read_access, AsanReadAccess)
