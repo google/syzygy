@@ -19,6 +19,7 @@
   'variables': {
     # All of our code is chromium code.
     'chromium_code': 1,
+    'official_build%': 0,
 
     # Make sure we use the bundled version of python rather than any others
     # installed on the system,
@@ -69,6 +70,17 @@
             'Profile': 'true',
           },
         },
+      },
+      'Release': {
+        'conditions': [
+          # We set this define to avoid the DCHECKs to generate any code in an
+          # official build.
+          ['OS=="win" and official_build==1', {
+            'defines': [
+              'OFFICIAL_BUILD',
+            ],
+          }],
+        ],
       },
       'Coverage': {
         'inherit_from': ['Common_Base', 'x86_Base', 'Coverage_Base'],
