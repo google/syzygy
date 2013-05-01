@@ -46,7 +46,7 @@ def _PruneDirs(dirs):
 
 
 _EXCLUDE_PATTERNS = [
-    # Exclude all PDBs except for chrome_exe.pdb and chrome.dll.pdb.
+    # Exclude all PDBs except for chrome.exe.pdb and chrome.dll.pdb.
     re.compile('^(?!(chrome[_\.](exe|dll))\.).+\.pdb$', re.I),
     # Exclude all test and chrome frame programs.
     re.compile('^.*(test|validate|example|sample).*$', re.I),
