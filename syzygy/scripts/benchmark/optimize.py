@@ -64,9 +64,8 @@ def _OptimizeChrome(chrome_dir, temp_dir, output_dir, log_files):
   cmd = [runner._GetExePath('relink.exe'),
          '--verbose',
          '--input-image=%s' % os.path.join(chrome_dir, 'chrome.dll'),
-         '--input-pdb=%s' % os.path.join(chrome_dir, 'chrome_dll.pdb'),
          '--output-image=%s' % os.path.join(output_dir, 'chrome.dll'),
-         '--output-pdb=%s' % os.path.join(output_dir, 'chrome_dll.pdb'),
+         '--output-pdb=%s' % os.path.join(output_dir, 'chrome.dll.pdb'),
          '--order-file=%s' % os.path.join(temp_dir, 'chrome.dll-order.json'),
          '--overwrite']
   ret = chrome_utils.Subprocess(cmd)
@@ -79,7 +78,7 @@ def _CopyBinaries(src_dir, tgt_dir):
     _LOGGER.info('_CopyBinaries target dir not found. Creating "%s"', tgt_dir)
     os.makedirs(tgt_dir)
 
-  files = ('chrome.dll', 'chrome_dll.pdb')
+  files = ('chrome.dll', 'chrome.dll.pdb')
   for path in files:
     src_file = os.path.join(src_dir, path)
     tgt_file = os.path.join(tgt_dir, path)

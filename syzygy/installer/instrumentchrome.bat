@@ -25,12 +25,12 @@ if "%CHROME_DIR%"=="" (
 :: Copy the instrumentation DLL into the directory.
 copy /y "%~dp0profile_client.dll" "%CHROME_DIR%"
 
-:: Make a copy of chrome.dll and chrome_dll.pdb in the directory "original".
+:: Make a copy of chrome.dll and chrome.dll.pdb in the directory "original".
 if not exist "%ORIGINALS_DIR%". (
-  echo Making a copy of chrome.dll and chrome_dll.pdb in "%ORIGINALS_DIR%".
+  echo Making a copy of chrome.dll and chrome.dll.pdb in "%ORIGINALS_DIR%".
   mkdir "%ORIGINALS_DIR%"
   copy "%CHROME_DIR%\chrome.dll" "%ORIGINALS_DIR%"
-  copy "%CHROME_DIR%\chrome_dll.pdb" "%ORIGINALS_DIR%"
+  copy "%CHROME_DIR%\chrome?dll.pdb" "%ORIGINALS_DIR%"
 ) else (
   echo "%ORIGINALS_DIR%" already exists.
 )
