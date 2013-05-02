@@ -259,6 +259,11 @@ class AssemblerImpl {
   void ret(uint16 n);
   // @}
 
+  // @name Set flags.
+  // @{
+  void set(ConditionCode cc, Register src);
+  // @}
+
   // @name Byte mov varieties.
   // @{
   void mov_b(const OperandImpl& dst, const ImmediateImpl& src);
@@ -271,6 +276,8 @@ class AssemblerImpl {
   void mov(const OperandImpl& dst, Register src);
   void mov(Register dst, const ImmediateImpl& src);
   void mov(const OperandImpl& dst, const ImmediateImpl& src);
+  void mov_fs(Register dst, const OperandImpl& src);
+  void mov_fs(const OperandImpl& dst, Register src);
   // @}
 
   // @name Load effective address.

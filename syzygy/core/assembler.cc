@@ -38,6 +38,9 @@ enum Mod {
   Reg1 = 3,  // Register + word displacement.
 };
 
+const uint8 kTwoByteOpCodePrefix = 0x0F;
+const uint8 kFsSegmentPrefix = 0x64;
+
 // Returns true if @p operand is a displacement only - e.g.
 // specifies neither a base, nor an index register.
 bool IsDisplacementOnly(const OperandImpl& operand) {
@@ -494,12 +497,12 @@ void AssemblerImpl::call(const OperandImpl& dst) {
 }
 
 void AssemblerImpl::j(ConditionCode cc, const ImmediateImpl& dst) {
-  DCHECK_LE(0, cc);
-  DCHECK_GE(15, cc);
+  DCHECK_LE(kMinConditionCode, cc);
+  DCHECK_GE(kMaxConditionCode, cc);
 
   InstructionBuffer instr(this);
   if (dst.size() == kSize32Bit) {
-    instr.EmitOpCodeByte(0x0F);
+    instr.EmitOpCodeByte(kTwoByteOpCodePrefix);
     instr.EmitOpCodeByte(0x80 | cc);
     instr.Emit32BitPCRelative(location_, dst);
   } else {
@@ -559,6 +562,20 @@ void AssemblerImpl::ret(uint16 n) {
   instr.Emit16BitValue(n);
 }
 
+void AssemblerImpl::set(ConditionCode cc, Register dst) {
+  DCHECK_LE(kMinConditionCode, cc);
+  DCHECK_GE(kMaxConditionCode, cc);
+
+  InstructionBuffer instr(this);
+  instr.EmitOpCodeByte(kTwoByteOpCodePrefix);
+  instr.EmitOpCodeByte(0x90 | cc);
+
+  // AMD64 Architecture Programmers Manual Volume 3: General-Purpose and System
+  // Instructions: The reg field in the ModR/M byte is unused.
+  Register unused = core::eax;
+  instr.EmitModRMByte(Reg1, unused.code(), dst.code());
+}
+
 void AssemblerImpl::mov_b(const OperandImpl& dst, const ImmediateImpl& src) {
   InstructionBuffer instr(this);
 
@@ -614,6 +631,34 @@ void AssemblerImpl::mov(const OperandImpl& dst, const ImmediateImpl& src) {
   instr.EmitOpCodeByte(0xC7);
   instr.EmitOperand(0, dst);
   instr.Emit32BitDisplacement(src);
+}
+
+void AssemblerImpl::mov_fs(Register dst, const OperandImpl& src) {
+  InstructionBuffer instr(this);
+  instr.EmitOpCodeByte(kFsSegmentPrefix);
+
+  if (dst.code() == kRegisterEax && IsDisplacementOnly(src)) {
+    // Special encoding for indirect displacement only to EAX.
+    instr.EmitOpCodeByte(0xA1);
+    instr.Emit32BitDisplacement(src.displacement());
+  } else {
+    instr.EmitOpCodeByte(0x8B);
+    instr.EmitOperand(dst.code(), src);
+  }
+}
+
+void AssemblerImpl::mov_fs(const OperandImpl& dst, Register src) {
+  InstructionBuffer instr(this);
+  instr.EmitOpCodeByte(kFsSegmentPrefix);
+
+  if (src.code() == kRegisterEax && IsDisplacementOnly(dst)) {
+    // Special encoding for indirect displacement only from EAX.
+    instr.EmitOpCodeByte(0xA3);
+    instr.Emit32BitDisplacement(dst.displacement());
+  } else {
+    instr.EmitOpCodeByte(0x89);
+    instr.EmitOperand(src.code(), dst);
+  }
 }
 
 void AssemblerImpl::lea(Register dst, const OperandImpl& src) {

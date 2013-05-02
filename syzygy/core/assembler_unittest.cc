@@ -541,6 +541,28 @@ TEST_F(AssemblerTest, MovImmToRegisterDisplacementScaleIndirect) {
                0xEF, 0xBE, 0xAD, 0xDE);
 }
 
+TEST_F(AssemblerTest, MovWithSegmentPrefix) {
+  // Indirect register destination modes.
+  asm_.mov_fs(OperandImpl(eax), ebx);
+  EXPECT_BYTES(0x64, 0x89, 0x18);
+  asm_.mov_fs(OperandImpl(ecx), eax);
+  EXPECT_BYTES(0x64, 0x89, 0x01);
+  asm_.mov_fs(OperandImpl(ebx), edx);
+  EXPECT_BYTES(0x64, 0x89, 0x13);
+  asm_.mov_fs(OperandImpl(edx), ecx);
+  EXPECT_BYTES(0x64, 0x89, 0x0A);
+
+  // Indirect register only source modes.
+  asm_.mov_fs(ebx, OperandImpl(eax));
+  EXPECT_BYTES(0x64, 0x8B, 0x18);
+  asm_.mov_fs(eax, OperandImpl(ecx));
+  EXPECT_BYTES(0x64, 0x8B, 0x01);
+  asm_.mov_fs(edx, OperandImpl(ebx));
+  EXPECT_BYTES(0x64, 0x8B, 0x13);
+  asm_.mov_fs(ecx, OperandImpl(edx));
+  EXPECT_BYTES(0x64, 0x8B, 0x0A);
+}
+
 TEST_F(AssemblerTest, LeaRegisterIndirect) {
   // Indirect register only source modes.
   asm_.lea(ebx, OperandImpl(eax));
@@ -1099,6 +1121,32 @@ TEST_F(AssemblerTest, Jnz) {
   EXPECT_BYTES(0x75, 0xFE);
   asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
   EXPECT_BYTES(0x0F, 0x85, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, Seto) {
+  asm_.set_location(0xCAFEBABE);
+  asm_.set(kOverflow, core::eax);
+  EXPECT_BYTES(0x0F, 0x90, 0xC0);
+}
+
+TEST_F(AssemblerTest, Setno) {
+  asm_.set(kNoOverflow, core::ebx);
+  EXPECT_BYTES(0x0F, 0x91, 0xC3);
+}
+
+TEST_F(AssemblerTest, Sete) {
+  asm_.set(kEqual, core::eax);
+  EXPECT_BYTES(0x0F, 0x94, 0xC0);
+}
+
+TEST_F(AssemblerTest, Setne) {
+  asm_.set(kNotEqual, core::eax);
+  EXPECT_BYTES(0x0F, 0x95, 0xC0);
+}
+
+TEST_F(AssemblerTest, Setb) {
+  asm_.set(kBelow, core::eax);
+  EXPECT_BYTES(0x0F, 0x92, 0xC0);
 }
 
 TEST_F(AssemblerTest, Loop) {
