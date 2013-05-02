@@ -168,7 +168,7 @@ def main():
     # the profiled executables in instrumented_dir.
     instrument.InstrumentChrome(opts.input_dir,
                                 instrumented_dir,
-                                'call_trace_client.dll')
+                                'calltrace')
 
     # Then profile the instrumented executables in instrumented_dir.
     trace_files = profile.ProfileChrome(instrumented_dir,

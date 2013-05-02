@@ -34,27 +34,44 @@ class InstrumentationError(Exception):
   pass
 
 
+_MODE_INFO = {
+  'asan': 'asan_rtl.dll',
+  'bbentry': 'basic_block_entry_client.dll',
+  'calltrace': 'call_trace_client.dll',
+  'coverage': 'coverage_client.dll',
+  'fuzzing': None,
+  'profile' : 'profile_client.dll'
+}
+_MODES = _MODE_INFO.keys()
+_DEFAULT_MODE = 'calltrace'
+
+
 # Give us silent access to internal member functions of the runner.
 # pylint: disable=W0212
-def InstrumentChrome(chrome_dir, output_dir, client_dll):
+def InstrumentChrome(chrome_dir, output_dir, mode):
   """Makes an instrumented copy of the Chrome files in chrome_dir in
   output_dir.
 
   Args:
     chrome_dir: the directory containing the input files.
     output_dir: the directory where the output will be generated.
-    client_dll: the DLL implementing the call trace profiler interface
+    mode: the instrumentation mode to use.
 
   Raises:
     InstrumentationError if instrumentation fails.
   """
+  if mode not in _MODE_INFO:
+    raise InstrumentationError("Unrecognized mode: %s" % mode)
+
   _LOGGER.info('Copying chrome files from "%s" to "%s".',
                chrome_dir,
                output_dir)
   chrome_utils.CopyChromeFiles(chrome_dir, output_dir)
 
-  # Drop the call-trace client DLL into the temp dir.
-  shutil.copy2(runner._GetExePath(client_dll), output_dir)
+  # Drop the agent DLL, if any, into the output dir.
+  agent_dll = _MODE_INFO[mode]
+  if agent_dll:
+    shutil.copy2(runner._GetExePath(agent_dll), output_dir)
 
   for path in _EXECUTABLES:
     _LOGGER.info('Instrumenting "%s".', path)
@@ -63,10 +80,12 @@ def InstrumentChrome(chrome_dir, output_dir, client_dll):
     cmd = [runner._GetExePath('instrument.exe'),
            '--input-image=%s' % src_file,
            '--output-image=%s' % dst_file,
-           '--call-trace-client=%s' % client_dll,
+           '--mode=%s' % mode,
            '--overwrite']
+    if agent_dll:
+      cmd.append('--agent=%s' % agent_dll)
 
-    if client_dll == 'profile_client.dll':
+    if mode == 'profile':
       cmd.append('--no-interior-refs')
 
     ret = chrome_utils.Subprocess(cmd)
@@ -95,11 +114,8 @@ def _ParseArguments():
                     help=('The directory where the optimized chrome '
                           'installation will be created. From this location, '
                           'one can subsequently run benchmarks.'))
-  parser.add_option('--client-dll', dest='client_dll',
-                    default='call_trace_client.dll',
-                    help=('The DLL to use as the call trace client DLL; '
-                          'defaults to the client used in the normal Syzygy '
-                          'workflow (call_trace_client.dll).'))
+  parser.add_option('--mode', choices=_MODES, default=_DEFAULT_MODE,
+                    help='The instrumentation mode (default: %default).')
   (opts, args) = parser.parse_args()
 
   if len(args):
@@ -126,7 +142,7 @@ def main():
   opts = _ParseArguments()
 
   try:
-    InstrumentChrome(opts.input_dir, opts.output_dir, opts.client_dll)
+    InstrumentChrome(opts.input_dir, opts.output_dir, opts.mode)
   except Exception:
     _LOGGER.exception('Instrumentation failed.')
     return 1
