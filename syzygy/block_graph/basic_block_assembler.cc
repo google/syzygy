@@ -251,7 +251,7 @@ BasicBlockAssembler::BasicBlockAssembler(uint32 location,
 void BasicBlockAssembler::call(const Immediate& dst) {
   // In the context of BasicBlockAssembler it only makes sense for calls with
   // immediate parameters to be backed by a 32-bit reference.
-  PushMandatoryReferenceInfo(BlockGraph::RELATIVE_REF, dst);
+  PushMandatoryReferenceInfo(BlockGraph::PC_RELATIVE_REF, dst);
   CheckReferenceSize(core::kSize32Bit, dst);
   asm_.call(dst.value_);
 }
