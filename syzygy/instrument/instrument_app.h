@@ -35,10 +35,11 @@ class InstrumentApp : public common::AppImplBase {
  public:
 
   // A list of known clients libraries.
-  static const char kCallTraceClientDllBasicBlockEntry[];
-  static const char kCallTraceClientDllCoverage[];
-  static const char kCallTraceClientDllProfile[];
-  static const char kCallTraceClientDllRpc[];
+  static const char kAgentDllAsan[];
+  static const char kAgentDllBasicBlockEntry[];
+  static const char kAgentDllCoverage[];
+  static const char kAgentDllProfile[];
+  static const char kAgentDllRpc[];
 
   // The mode of the instrumenter.
   enum Mode {
@@ -93,7 +94,7 @@ class InstrumentApp : public common::AppImplBase {
   base::FilePath output_dll_path_;
   base::FilePath output_pdb_path_;
   base::FilePath filter_path_;
-  std::string client_dll_;
+  std::string agent_dll_;
   bool allow_overwrite_;
   bool new_decomposer_;
   bool no_augment_pdb_;

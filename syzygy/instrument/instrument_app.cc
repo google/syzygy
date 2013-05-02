@@ -102,11 +102,12 @@ static const char kUsageFormatStr[] =
 
 }  // namespace
 
-const char InstrumentApp::kCallTraceClientDllBasicBlockEntry[] =
+const char InstrumentApp::kAgentDllAsan[] = "asan_rtl.dll";
+const char InstrumentApp::kAgentDllBasicBlockEntry[] =
     "basic_block_entry_client.dll";
-const char InstrumentApp::kCallTraceClientDllCoverage[] = "coverage_client.dll";
-const char InstrumentApp::kCallTraceClientDllProfile[] = "profile_client.dll";
-const char InstrumentApp::kCallTraceClientDllRpc[] = "call_trace_client.dll";
+const char InstrumentApp::kAgentDllCoverage[] = "coverage_client.dll";
+const char InstrumentApp::kAgentDllProfile[] = "profile_client.dll";
+const char InstrumentApp::kAgentDllRpc[] = "call_trace_client.dll";
 
 pe::PERelinker& InstrumentApp::GetRelinker() {
   if (relinker_.get() == NULL) {
@@ -124,22 +125,22 @@ void InstrumentApp::ParseDeprecatedMode(const CommandLine* cmd_line) {
   if (client.empty()) {
     LOG(INFO) << "DEPRECATED: No mode specified, using --mode=calltrace.";
     mode_ = kInstrumentCallTraceMode;
-    client_dll_ = kCallTraceClientDllRpc;
+    agent_dll_ = kAgentDllRpc;
     return;
   }
 
   if (LowerCaseEqualsASCII(client, "profiler")) {
     LOG(INFO) << "DEPRECATED: Using --mode=profile.";
     mode_ = kInstrumentProfileMode;
-    client_dll_ = kCallTraceClientDllProfile;
+    agent_dll_ = kAgentDllProfile;
   } else if (LowerCaseEqualsASCII(client, "rpc")) {
     LOG(INFO) << "DEPRECATED: Using --mode=calltrace.";
     mode_ = kInstrumentCallTraceMode;
-    client_dll_ = kCallTraceClientDllRpc;
+    agent_dll_ = kAgentDllRpc;
   } else {
     LOG(INFO) << "DEPRECATED: Using --mode=calltrace --agent=" << client << ".";
     mode_ = kInstrumentCallTraceMode;
-    client_dll_ = client;
+    agent_dll_ = client;
   }
 }
 
@@ -185,18 +186,19 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
     std::string mode = cmd_line->GetSwitchValueASCII("mode");
     if (LowerCaseEqualsASCII(mode, "asan")) {
       mode_ = kInstrumentAsanMode;
+      agent_dll_ = kAgentDllAsan;
     } else if (LowerCaseEqualsASCII(mode, "bbentry")) {
       mode_ = kInstrumentBasicBlockEntryMode;
-      client_dll_ = kCallTraceClientDllBasicBlockEntry;
+      agent_dll_ = kAgentDllBasicBlockEntry;
     } else if (LowerCaseEqualsASCII(mode, "calltrace")) {
       mode_ = kInstrumentCallTraceMode;
-      client_dll_ = kCallTraceClientDllRpc;
+      agent_dll_ = kAgentDllRpc;
     } else if (LowerCaseEqualsASCII(mode, "coverage")) {
       mode_ = kInstrumentCoverageMode;
-      client_dll_ = kCallTraceClientDllCoverage;
+      agent_dll_ = kAgentDllCoverage;
     } else if (LowerCaseEqualsASCII(mode, "profile")) {
       mode_ = kInstrumentProfileMode;
-      client_dll_ = kCallTraceClientDllProfile;
+      agent_dll_ = kAgentDllProfile;
     } else if (LowerCaseEqualsASCII(mode, "fuzzing")) {
       mode_ = kInstrumentFuzzingMode;
     } else {
@@ -205,19 +207,19 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
                                       mode.c_str()).c_str());
     }
 
-    LOG(INFO) << "Default agent for mode " << mode << " is \""
-              << client_dll_ << "\".";
+    if (!agent_dll_.empty()) {
+      LOG(INFO) << "Default agent DLL for " << mode << " mode is \""
+                << agent_dll_ << "\".";
+    }
   }
   DCHECK_NE(kInstrumentInvalidMode, mode_);
 
   // Parse the custom agent if one is specified.
   if (cmd_line->HasSwitch("agent")) {
-    if (mode_ == kInstrumentAsanMode) {
-      // TODO(siggi): Make this work properly!
-      LOG(WARNING) << "Ignoring --agent in asan mode.";
-    } else {
-      client_dll_ = cmd_line->GetSwitchValueASCII("agent");
-      LOG(INFO) << "Got custom agent \"" << client_dll_ << "\".";
+    std::string new_agent_dll = cmd_line->GetSwitchValueASCII("agent");
+    if (new_agent_dll != agent_dll_) {
+      agent_dll_ = new_agent_dll;
+      LOG(INFO) << "Using custom agent DLL \"" << agent_dll_ << "\".";
     }
   }
 
@@ -308,6 +310,7 @@ int InstrumentApp::Run() {
   // We are instrumenting in ASAN mode.
   if (mode_ == kInstrumentAsanMode) {
     asan_transform.reset(new instrument::transforms::AsanTransform);
+    asan_transform->set_instrument_dll_name(agent_dll_);
 
     // Set up the filter if one was provided.
     if (filter.get()) {
@@ -328,7 +331,7 @@ int InstrumentApp::Run() {
     // file with the basic block addresses.
     basic_block_entry_transform.reset(
         new instrument::transforms::BasicBlockEntryHookTransform);
-    basic_block_entry_transform->set_instrument_dll_name(client_dll_);
+    basic_block_entry_transform->set_instrument_dll_name(agent_dll_);
     basic_block_entry_transform->set_src_ranges_for_thunks(debug_friendly_);
     relinker.AppendTransform(basic_block_entry_transform.get());
 
@@ -343,7 +346,7 @@ int InstrumentApp::Run() {
     // addresses.
     coverage_tx.reset(
         new instrument::transforms::CoverageInstrumentationTransform);
-    coverage_tx->set_instrument_dll_name(client_dll_);
+    coverage_tx->set_instrument_dll_name(agent_dll_);
     coverage_tx->set_src_ranges_for_thunks(debug_friendly_);
     relinker.AppendTransform(coverage_tx.get());
 
@@ -364,7 +367,7 @@ int InstrumentApp::Run() {
     // Set up the entry thunk instrumenting transform and add it to the
     // relinker.
     entry_thunk_tx.reset(new instrument::transforms::EntryThunkTransform);
-    entry_thunk_tx->set_instrument_dll_name(client_dll_);
+    entry_thunk_tx->set_instrument_dll_name(agent_dll_);
     entry_thunk_tx->set_instrument_unsafe_references(
         instrument_unsafe_references_);
     entry_thunk_tx->set_src_ranges_for_thunks(debug_friendly_);
@@ -376,7 +379,7 @@ int InstrumentApp::Run() {
       import_thunk_tx.reset(
           new instrument::transforms::ThunkImportReferencesTransform);
       // Use the selected client DLL.
-      import_thunk_tx->set_instrument_dll_name(client_dll_);
+      import_thunk_tx->set_instrument_dll_name(agent_dll_);
       relinker.AppendTransform(import_thunk_tx.get());
     }
   }

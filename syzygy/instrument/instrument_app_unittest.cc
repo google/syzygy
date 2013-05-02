@@ -48,7 +48,7 @@ class TestInstrumentApp : public InstrumentApp {
   using InstrumentApp::output_dll_path_;
   using InstrumentApp::output_pdb_path_;
   using InstrumentApp::filter_path_;
-  using InstrumentApp::client_dll_;
+  using InstrumentApp::agent_dll_;
   using InstrumentApp::allow_overwrite_;
   using InstrumentApp::new_decomposer_;
   using InstrumentApp::no_augment_pdb_;
@@ -146,10 +146,10 @@ class InstrumentAppTest : public testing::PELibUnitTest {
     env->SetVar(
         ::kSyzygyRpcSessionMandatoryEnvVar,
         base::StringPrintf("%s,0;%s,0;%s,0;%s,0",
-                           InstrumentApp::kCallTraceClientDllBasicBlockEntry,
-                           InstrumentApp::kCallTraceClientDllCoverage,
-                           InstrumentApp::kCallTraceClientDllProfile,
-                           InstrumentApp::kCallTraceClientDllRpc));
+                           InstrumentApp::kAgentDllBasicBlockEntry,
+                           InstrumentApp::kAgentDllCoverage,
+                           InstrumentApp::kAgentDllProfile,
+                           InstrumentApp::kAgentDllRpc));
 
     // Validate that the test dll loads post instrumentation.
     ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path_));
@@ -220,7 +220,7 @@ TEST_F(InstrumentAppTest, ParseMinimalAsan) {
   EXPECT_EQ(InstrumentApp::kInstrumentAsanMode, test_impl_.mode_);
   EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-  EXPECT_TRUE(test_impl_.client_dll_.empty());
+  EXPECT_EQ(std::string(InstrumentApp::kAgentDllAsan), test_impl_.agent_dll_);
   EXPECT_FALSE(test_impl_.allow_overwrite_);
   EXPECT_FALSE(test_impl_.new_decomposer_);
   EXPECT_FALSE(test_impl_.no_augment_pdb_);
@@ -252,7 +252,7 @@ TEST_F(InstrumentAppTest, ParseFullAsan) {
   EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_EQ(test_dll_filter_path_, test_impl_.filter_path_);
-  EXPECT_TRUE(test_impl_.client_dll_.empty());
+  EXPECT_EQ(std::string("foo.dll"), test_impl_.agent_dll_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.new_decomposer_);
   EXPECT_TRUE(test_impl_.no_augment_pdb_);
@@ -271,8 +271,8 @@ TEST_F(InstrumentAppTest, ParseMinimalBasicBlockEntry) {
   EXPECT_EQ(InstrumentApp::kInstrumentBasicBlockEntryMode, test_impl_.mode_);
   EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllBasicBlockEntry),
-            test_impl_.client_dll_);
+  EXPECT_EQ(std::string(InstrumentApp::kAgentDllBasicBlockEntry),
+            test_impl_.agent_dll_);
   EXPECT_FALSE(test_impl_.allow_overwrite_);
   EXPECT_FALSE(test_impl_.new_decomposer_);
   EXPECT_FALSE(test_impl_.no_augment_pdb_);
@@ -304,7 +304,7 @@ TEST_F(InstrumentAppTest, ParseFullBasicBlockEntry) {
   EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_EQ(test_dll_filter_path_, test_impl_.filter_path_);
-  EXPECT_EQ(std::string("foo.dll"), test_impl_.client_dll_);
+  EXPECT_EQ(std::string("foo.dll"), test_impl_.agent_dll_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.new_decomposer_);
   EXPECT_TRUE(test_impl_.no_augment_pdb_);
@@ -323,8 +323,8 @@ TEST_F(InstrumentAppTest, ParseMinimalCallTrace) {
   EXPECT_EQ(InstrumentApp::kInstrumentCallTraceMode, test_impl_.mode_);
   EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllRpc),
-            test_impl_.client_dll_);
+  EXPECT_EQ(std::string(InstrumentApp::kAgentDllRpc),
+            test_impl_.agent_dll_);
   EXPECT_FALSE(test_impl_.allow_overwrite_);
   EXPECT_FALSE(test_impl_.new_decomposer_);
   EXPECT_FALSE(test_impl_.no_augment_pdb_);
@@ -362,7 +362,7 @@ TEST_F(InstrumentAppTest, ParseFullCallTrace) {
   EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_EQ(test_dll_filter_path_, test_impl_.filter_path_);
-  EXPECT_EQ(std::string("foo.dll"), test_impl_.client_dll_);
+  EXPECT_EQ(std::string("foo.dll"), test_impl_.agent_dll_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.new_decomposer_);
   EXPECT_TRUE(test_impl_.no_augment_pdb_);
@@ -384,8 +384,8 @@ TEST_F(InstrumentAppTest, ParseMinimalCoverage) {
   EXPECT_EQ(InstrumentApp::kInstrumentCoverageMode, test_impl_.mode_);
   EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllCoverage),
-            test_impl_.client_dll_);
+  EXPECT_EQ(std::string(InstrumentApp::kAgentDllCoverage),
+            test_impl_.agent_dll_);
   EXPECT_FALSE(test_impl_.allow_overwrite_);
   EXPECT_FALSE(test_impl_.new_decomposer_);
   EXPECT_FALSE(test_impl_.no_augment_pdb_);
@@ -417,7 +417,7 @@ TEST_F(InstrumentAppTest, ParseFullCoverage) {
   EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_EQ(test_dll_filter_path_, test_impl_.filter_path_);
-  EXPECT_EQ(std::string("foo.dll"), test_impl_.client_dll_);
+  EXPECT_EQ(std::string("foo.dll"), test_impl_.agent_dll_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.new_decomposer_);
   EXPECT_TRUE(test_impl_.no_augment_pdb_);
@@ -436,8 +436,8 @@ TEST_F(InstrumentAppTest, ParseMinimalProfile) {
   EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
 
-  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllProfile),
-            test_impl_.client_dll_);
+  EXPECT_EQ(std::string(InstrumentApp::kAgentDllProfile),
+            test_impl_.agent_dll_);
 
   EXPECT_FALSE(test_impl_.allow_overwrite_);
   EXPECT_FALSE(test_impl_.new_decomposer_);
@@ -474,7 +474,7 @@ TEST_F(InstrumentAppTest, ParseFullProfile) {
   EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_EQ(test_dll_filter_path_, test_impl_.filter_path_);
-  EXPECT_EQ(std::string("foo.dll"), test_impl_.client_dll_);
+  EXPECT_EQ(std::string("foo.dll"), test_impl_.agent_dll_);
   EXPECT_TRUE(test_impl_.allow_overwrite_);
   EXPECT_TRUE(test_impl_.new_decomposer_);
   EXPECT_TRUE(test_impl_.no_augment_pdb_);
@@ -493,8 +493,8 @@ TEST_F(InstrumentAppTest, DeprecatedParseNoModeSpecifyDlls) {
   EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
 
-  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllRpc),
-            test_impl_.client_dll_);
+  EXPECT_EQ(std::string(InstrumentApp::kAgentDllRpc),
+            test_impl_.agent_dll_);
 
   EXPECT_FALSE(test_impl_.allow_overwrite_);
   EXPECT_FALSE(test_impl_.new_decomposer_);
@@ -517,8 +517,8 @@ TEST_F(InstrumentAppTest, DeprecatedParseCallTraceClientRpc) {
   EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
 
-  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllRpc),
-            test_impl_.client_dll_);
+  EXPECT_EQ(std::string(InstrumentApp::kAgentDllRpc),
+            test_impl_.agent_dll_);
 
   EXPECT_FALSE(test_impl_.allow_overwrite_);
   EXPECT_FALSE(test_impl_.new_decomposer_);
@@ -541,8 +541,8 @@ TEST_F(InstrumentAppTest, DeprecatedParseCallTraceClientProfiler) {
   EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
 
-  EXPECT_EQ(std::string(InstrumentApp::kCallTraceClientDllProfile),
-            test_impl_.client_dll_);
+  EXPECT_EQ(std::string(InstrumentApp::kAgentDllProfile),
+            test_impl_.agent_dll_);
 
   EXPECT_FALSE(test_impl_.allow_overwrite_);
   EXPECT_FALSE(test_impl_.new_decomposer_);
@@ -566,7 +566,7 @@ TEST_F(InstrumentAppTest, DeprecatedParseCallTraceClientOtherDll) {
   EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
 
   EXPECT_EQ(std::string("foo.dll"),
-            test_impl_.client_dll_);
+            test_impl_.agent_dll_);
 
   EXPECT_FALSE(test_impl_.allow_overwrite_);
   EXPECT_FALSE(test_impl_.new_decomposer_);
