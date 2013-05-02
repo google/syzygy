@@ -398,9 +398,9 @@ TEST_F(BasicBlockAssemblerTest, jmp) {
 }
 
 TEST_F(BasicBlockAssemblerTest, mov_b) {
-  // mov [base + index * scale + displ], immediate
-  asm_.mov(Operand(core::eax, core::ebx, core::kTimes4,
-                   Displacement(&test_block_, 0)),
+  // mov BYTE PTR [base + index * scale + displ], immediate
+  asm_.mov_b(Operand(core::eax, core::ebx, core::kTimes4,
+                     Displacement(&test_block_, 0)),
            Immediate(10));
   ASSERT_REFS(3, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
 }
