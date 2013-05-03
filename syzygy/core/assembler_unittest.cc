@@ -731,6 +731,82 @@ TEST_F(AssemblerTest, Flags) {
   EXPECT_BYTES(0x9C, 0x9D, 0x9F, 0x9E);
 }
 
+TEST_F(AssemblerTest, TestByte) {
+  asm_.test_b(eax, ebx);
+  EXPECT_BYTES(0x84, 0xC3);
+  asm_.test_b(ebx, eax);
+  EXPECT_BYTES(0x84, 0xD8);
+
+  asm_.test_b(eax, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0xA8, 0x0A);
+  asm_.test_b(ebx, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0xF6, 0xC3, 0x0A);
+}
+
+TEST_F(AssemblerTest, Test) {
+  asm_.test(eax, ecx);
+  EXPECT_BYTES(0x85, 0xC1);
+  asm_.test(ecx, OperandImpl(eax));
+  EXPECT_BYTES(0x85, 0x08);
+  asm_.test(ecx, OperandImpl(eax, DisplacementImpl(10, kSize8Bit)));
+  EXPECT_BYTES(0x85, 0x48, 0x0A);
+  asm_.test(ecx, OperandImpl(eax, DisplacementImpl(10, kSize32Bit)));
+  EXPECT_BYTES(0x85, 0x88, 0x0A, 0x00, 0x00, 0x00);
+
+  asm_.test(ecx, eax);
+  EXPECT_BYTES(0x85, 0xC8);
+  asm_.test(ecx, OperandImpl(eax));
+  EXPECT_BYTES(0x85, 0x08);
+  asm_.test(ecx, OperandImpl(eax, DisplacementImpl(10, kSize8Bit)));
+  EXPECT_BYTES(0x85, 0x48, 0x0A);
+  asm_.test(ecx, OperandImpl(eax, DisplacementImpl(10, kSize32Bit)));
+  EXPECT_BYTES(0x85, 0x88, 0x0A, 0x00, 0x00, 0x00);
+
+  asm_.test(OperandImpl(eax), ecx);
+  EXPECT_BYTES(0x85, 0x08);
+  asm_.test(OperandImpl(eax, DisplacementImpl(10, kSize8Bit)), ecx);
+  EXPECT_BYTES(0x85, 0x48, 0x0A);
+  asm_.test(OperandImpl(eax, DisplacementImpl(10, kSize32Bit)), ecx);
+  EXPECT_BYTES(0x85, 0x88, 0x0A, 0x00, 0x00, 0x00);
+
+  asm_.test(eax, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0xA9, 0x0A, 0x00, 0x00, 0x00);
+  asm_.test(ecx, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0xF7, 0xC1, 0x0A, 0x00, 0x00, 0x00);
+  asm_.test(ecx, ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0xF7, 0xC1, 0xEF, 0xBE, 0xAD, 0xDE);
+
+  asm_.test(OperandImpl(eax), ImmediateImpl(1, kSize8Bit));
+  EXPECT_BYTES(0xF7, 0x00, 0x01, 0x00, 0x00, 0x00);
+  asm_.test(OperandImpl(eax), ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0xF7, 0x00, 0xEF, 0xBE, 0xAD, 0xDE);
+  asm_.test(OperandImpl(eax, DisplacementImpl(10, kSize8Bit)),
+            ImmediateImpl(0x1, kSize8Bit));
+  EXPECT_BYTES(0xF7, 0x40, 0x0A, 0x01, 0x00, 0x00, 0x00);
+  asm_.test(OperandImpl(eax, DisplacementImpl(10, kSize8Bit)),
+            ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0xF7, 0x40, 0x0A, 0xEF, 0xBE, 0xAD, 0xDE);
+  asm_.test(OperandImpl(eax, DisplacementImpl(10, kSize32Bit)),
+            ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0xF7, 0x80, 0x0A, 0x00, 0x00, 0x00, 0xEF, 0xBE, 0xAD, 0xDE);
+
+  // Special EAX mode + immediate.
+  asm_.test(eax, ImmediateImpl(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0xA9, 0xEF, 0xBE, 0xAD, 0xDE);
+}
+
+TEST_F(AssemblerTest, CmpByte) {
+  asm_.cmp_b(eax, ebx);
+  EXPECT_BYTES(0x3A, 0xC3);
+  asm_.cmp_b(ebx, eax);
+  EXPECT_BYTES(0x3A, 0xD8);
+
+  asm_.cmp_b(eax, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x3C, 0x0A);
+  asm_.cmp_b(ebx, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x80, 0xFB, 0x0A);
+}
+
 TEST_F(AssemblerTest, Cmp) {
   asm_.cmp(eax, ecx);
   EXPECT_BYTES(0x3B, 0xC1);
@@ -783,6 +859,19 @@ TEST_F(AssemblerTest, Cmp) {
   EXPECT_BYTES(0x3D, 0xEF, 0xBE, 0xAD, 0xDE);
 }
 
+TEST_F(AssemblerTest, AddByte) {
+  asm_.add_b(eax, ebx);
+  EXPECT_BYTES(0x02, 0xC3);
+  asm_.add_b(ebx, eax);
+  EXPECT_BYTES(0x02, 0xD8);
+
+  asm_.add_b(eax, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x04, 0x0A);
+  asm_.add_b(ebx, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x80, 0xC3, 0x0A);
+}
+
+
 TEST_F(AssemblerTest, Add) {
   asm_.add(eax, eax);
   EXPECT_BYTES(0x03, 0xC0);
@@ -832,6 +921,18 @@ TEST_F(AssemblerTest, Add) {
   // Special EAX mode + immediate.
   asm_.add(eax, ImmediateImpl(0xDEADBEEF, kSize32Bit));
   EXPECT_BYTES(0x05, 0xEF, 0xBE, 0xAD, 0xDE);
+}
+
+TEST_F(AssemblerTest, SubByte) {
+  asm_.sub_b(eax, ebx);
+  EXPECT_BYTES(0x2A, 0xC3);
+  asm_.sub_b(ebx, eax);
+  EXPECT_BYTES(0x2A, 0xD8);
+
+  asm_.sub_b(eax, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x2C, 0x0A);
+  asm_.sub_b(ebx, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x80, 0xEB, 0x0A);
 }
 
 TEST_F(AssemblerTest, Sub) {

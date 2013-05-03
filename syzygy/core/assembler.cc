@@ -203,9 +203,11 @@ class AssemblerImpl::InstructionBuffer {
       uint8 op, Register dst, const OperandImpl& src);
   void EmitArithmeticInstruction(
       uint8 op, const OperandImpl& dst, Register src);
-  void EmitArithmeticInstructionToRegister(uint8 op_eax, uint8 op_32,
-      uint8 op_8, uint8 sub_op, Register dst, const ImmediateImpl& src);
-  void EmitArithmeticInstructionToOperand(uint8 op_32, uint8 op_8, uint8 sub_op,
+  void EmitArithmeticInstructionToRegister(uint8 op_eax, uint8 op_8,
+      uint8 op_32, uint8 sub_op, Register dst, const ImmediateImpl& src);
+  void EmitArithmeticInstructionToRegister8bit(uint8 op_eax, uint8 op_8,
+      uint8 sub_op, Register dst, const ImmediateImpl& src);
+  void EmitArithmeticInstructionToOperand(uint8 op_8, uint8 op_32, uint8 sub_op,
       const OperandImpl& dst, const ImmediateImpl& src);
 
   // Add reference at current location.
@@ -431,32 +433,46 @@ void AssemblerImpl::InstructionBuffer::EmitArithmeticInstruction(
 }
 
 void AssemblerImpl::InstructionBuffer::EmitArithmeticInstructionToRegister(
-    uint8 op_eax, uint8 op_32, uint8 op_8, uint8 sub_op,
+    uint8 op_eax, uint8 op_8, uint8 op_32, uint8 sub_op,
     Register dst, const ImmediateImpl& src) {
   if (dst.code() == kRegisterEax && src.size() == kSize32Bit) {
     // Special encoding for EAX.
     EmitOpCodeByte(op_eax);
     Emit32BitDisplacement(src);
   } else if (src.size() == kSize8Bit) {
-    EmitOpCodeByte(op_32);
+    EmitOpCodeByte(op_8);
     EmitModRMByte(Reg1, sub_op, dst.code());
     Emit8BitDisplacement(src);
   } else {
-    EmitOpCodeByte(op_8);
+    EmitOpCodeByte(op_32);
     EmitModRMByte(Reg1, sub_op, dst.code());
     Emit32BitDisplacement(src);
   }
 }
 
+void AssemblerImpl::InstructionBuffer::EmitArithmeticInstructionToRegister8bit(
+    uint8 op_eax, uint8 op_8, uint8 sub_op,
+    Register dst, const ImmediateImpl& src) {
+  DCHECK(src.size() == kSize8Bit);
+  if (dst.code() == kRegisterEax) {
+    // Special encoding for EAX.
+    EmitOpCodeByte(op_eax);
+  } else {
+    EmitOpCodeByte(op_8);
+    EmitModRMByte(Reg1, sub_op, dst.code());
+  }
+  Emit8BitDisplacement(src);
+}
+
 void AssemblerImpl::InstructionBuffer::EmitArithmeticInstructionToOperand(
-    uint8 op_32, uint8 op_8, uint8 sub_op,
+    uint8 op_8, uint8 op_32, uint8 sub_op,
     const OperandImpl& dst, const ImmediateImpl& src) {
   if (src.size() == kSize8Bit) {
-    EmitOpCodeByte(op_32);
+    EmitOpCodeByte(op_8);
     EmitOperand(sub_op, dst);
     Emit8BitDisplacement(src);
   } else {
-    EmitOpCodeByte(op_8);
+    EmitOpCodeByte(op_32);
     EmitOperand(sub_op, dst);
     Emit32BitDisplacement(src);
   }
@@ -722,6 +738,61 @@ void AssemblerImpl::sahf() {
   instr.EmitOpCodeByte(0x9E);
 }
 
+void AssemblerImpl::test_b(Register dst, Register src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x84, dst, src);
+}
+
+void AssemblerImpl::test_b(Register dst, const ImmediateImpl& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstructionToRegister8bit(0xA8, 0xF6, 0, dst, src);
+}
+
+void AssemblerImpl::test(Register dst, Register src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x85, dst, src);
+}
+
+void AssemblerImpl::test(Register dst, const OperandImpl& src) {
+  // Use commutative property for a smaller encoding.
+  test(src, dst);
+}
+
+void AssemblerImpl::test(const OperandImpl& dst, Register src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x85, dst, src);
+}
+
+void AssemblerImpl::test(Register dst, const ImmediateImpl& src) {
+  if (src.size() == kSize8Bit) {
+    // note: There is no encoding for a 8-bit immediate with 32-bit register.
+    test(dst, ImmediateImpl(src.value(), kSize32Bit));
+  } else {
+    InstructionBuffer instr(this);
+    instr.EmitArithmeticInstructionToRegister(0xA9, 0xF7, 0xF7, 0, dst, src);
+  }
+}
+
+void AssemblerImpl::test(const OperandImpl& dst, const ImmediateImpl& src) {
+  if (src.size() == kSize8Bit) {
+    // note: There is no encoding for a 8-bit immediate with 32-bit register.
+    test(dst, ImmediateImpl(src.value(), kSize32Bit));
+  } else {
+    InstructionBuffer instr(this);
+    instr.EmitArithmeticInstructionToOperand(0xF7, 0xF7, 0, dst, src);
+  }
+}
+
+void AssemblerImpl::cmp_b(Register dst, Register src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x3A, dst, src);
+}
+
+void AssemblerImpl::cmp_b(Register dst, const ImmediateImpl& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstructionToRegister8bit(0x3C, 0x80, 7, dst, src);
+}
+
 void AssemblerImpl::cmp(Register dst, Register src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstruction(0x3B, dst, src);
@@ -747,6 +818,16 @@ void AssemblerImpl::cmp(const OperandImpl& dst, const ImmediateImpl& src) {
   instr.EmitArithmeticInstructionToOperand(0x83, 0x81, 7, dst, src);
 }
 
+void AssemblerImpl::add_b(Register dst, Register src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x02, dst, src);
+}
+
+void AssemblerImpl::add_b(Register dst, const ImmediateImpl& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstructionToRegister8bit(0x04, 0x80, 0, dst, src);
+}
+
 void AssemblerImpl::add(Register dst, Register src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstruction(0x03, dst, src);
@@ -770,6 +851,16 @@ void AssemblerImpl::add(Register dst, const ImmediateImpl& src) {
 void AssemblerImpl::add(const OperandImpl& dst, const ImmediateImpl& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstructionToOperand(0x83, 0x81, 0, dst, src);
+}
+
+void AssemblerImpl::sub_b(Register dst, Register src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x2A, dst, src);
+}
+
+void AssemblerImpl::sub_b(Register dst, const ImmediateImpl& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstructionToRegister8bit(0x2C, 0x80, 5, dst, src);
 }
 
 void AssemblerImpl::sub(Register dst, Register src) {

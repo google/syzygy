@@ -303,17 +303,35 @@ class AssemblerImpl {
 
   // @name Arithmetic operations.
   // @{
+  void test_b(Register dst, Register src);
+  void test_b(Register dst, const ImmediateImpl& src);
+
+  void test(Register dst, Register src);
+  void test(Register dst, const OperandImpl& src);
+  void test(const OperandImpl& dst, Register src);
+  void test(Register dst, const ImmediateImpl& src);
+  void test(const OperandImpl& dst, const ImmediateImpl& src);
+
+  void cmp_b(Register dst, Register src);
+  void cmp_b(Register dst, const ImmediateImpl& src);
+
   void cmp(Register dst, Register src);
   void cmp(Register dst, const OperandImpl& src);
   void cmp(const OperandImpl& dst, Register src);
   void cmp(Register dst, const ImmediateImpl& src);
   void cmp(const OperandImpl& dst, const ImmediateImpl& src);
 
+  void add_b(Register dst, Register src);
+  void add_b(Register dst, const ImmediateImpl& src);
+
   void add(Register dst, Register src);
   void add(Register dst, const OperandImpl& src);
   void add(const OperandImpl& dst, Register src);
   void add(Register dst, const ImmediateImpl& src);
   void add(const OperandImpl& dst, const ImmediateImpl& src);
+
+  void sub_b(Register dst, Register src);
+  void sub_b(Register dst, const ImmediateImpl& src);
 
   void sub(Register dst, Register src);
   void sub(Register dst, const OperandImpl& src);
