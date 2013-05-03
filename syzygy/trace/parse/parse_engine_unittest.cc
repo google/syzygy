@@ -28,7 +28,7 @@
 
 using trace::parser::Parser;
 using trace::parser::ParseEngine;
-using trace::parser::ParseEventHandlerImpl;
+using trace::parser::ParseEventHandler;
 using trace::parser::ModuleInformation;
 
 namespace {
@@ -39,16 +39,29 @@ typedef std::vector<TraceModuleData> ModuleSet;
 class ParseEngineUnitTest
     : public testing::Test,
       public ParseEngine,
-      public ParseEventHandlerImpl {
+      public ParseEventHandler {
  public:
   ParseEngineUnitTest()
       : ParseEngine("Test", true),
         basic_block_frequencies(0),
         expected_data(NULL) {
+    ::memset(&event_record_, 0, sizeof(event_record_));
     set_event_handler(this);
   }
 
   ~ParseEngineUnitTest() {
+  }
+
+  void DispatchEventData(TraceEventType type, const void* data, size_t size) {
+    ::memset(&event_record_, 0, sizeof(event_record_));
+    event_record_.Header.ProcessId = kProcessId;
+    event_record_.Header.ThreadId = kThreadId;
+    event_record_.Header.Guid = kCallTraceEventClass;
+    event_record_.Header.Class.Type = type;
+    event_record_.MofData = const_cast<void*>(data);
+    event_record_.MofLength = size;
+
+    ASSERT_TRUE(DispatchEvent(&event_record_));
   }
 
   bool IsRecognizedTraceFile(const base::FilePath& trace_file_path) OVERRIDE {
@@ -154,16 +167,26 @@ class ParseEngineUnitTest
     thread_detaches.push_back(*data);
   }
 
+  virtual void OnInvocationBatch(
+      base::Time time, DWORD process_id, DWORD thread_id,
+      size_t num_invocations, const TraceBatchInvocationInfo* data) OVERRIDE {
+    // TODO(anyone): Test this.
+  }
+
   virtual void OnIndexedFrequency(
       base::Time time,
       DWORD process_id,
       DWORD thread_id,
-      const TraceIndexedFrequencyData* data) {
+      const TraceIndexedFrequencyData* data) OVERRIDE {
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
     ++basic_block_frequencies;
   }
+
+  MOCK_METHOD4(OnThreadName,
+      void(base::Time time, DWORD process_id, DWORD thread_id,
+           const base::StringPiece& thread_name));
 
   static const DWORD kProcessId;
   static const DWORD kThreadId;
@@ -172,6 +195,8 @@ class ParseEngineUnitTest
   static const TraceModuleData kModuleData;
   static const TraceIndexedFrequencyData kIndexedFrequencyData;
   static const TraceIndexedFrequencyData kShortIndexedFrequencyData;
+
+  EVENT_TRACE event_record_;
 
   FunctionSet function_entries;
   FunctionSet function_exits;
@@ -334,14 +359,14 @@ TEST_F(ParseEngineUnitTest, ModuleInfo) {
 }
 
 TEST_F(ParseEngineUnitTest, UnhandledEvent) {
-  EVENT_TRACE event_record = {};
-  ASSERT_FALSE(DispatchEvent(&event_record));
+  EVENT_TRACE local_record = {};
+  ASSERT_FALSE(DispatchEvent(&local_record));
 
-  event_record.Header.ProcessId = kProcessId;
-  event_record.Header.ThreadId = kThreadId;
-  event_record.Header.Guid = kCallTraceEventClass;
-  event_record.Header.Class.Type = 0xFF;  // Invalid value.
-  ASSERT_TRUE(DispatchEvent(&event_record));
+  local_record.Header.ProcessId = kProcessId;
+  local_record.Header.ThreadId = kThreadId;
+  local_record.Header.Guid = kCallTraceEventClass;
+  local_record.Header.Class.Type = 0xFF;  // Invalid value.
+  ASSERT_TRUE(DispatchEvent(&local_record));
   ASSERT_TRUE(error_occurred());
 }
 
@@ -350,24 +375,20 @@ TEST_F(ParseEngineUnitTest, FunctionEntryEvents) {
   event_data.function = &TestFunc1;
   expected_data = &event_data;
 
-  EVENT_TRACE event_record = {};
-  event_record.Header.ProcessId = kProcessId;
-  event_record.Header.ThreadId = kThreadId;
-  event_record.Header.Guid = kCallTraceEventClass;
-  event_record.Header.Class.Type = TRACE_ENTER_EVENT;
-  event_record.MofData = &event_data;
-  event_record.MofLength = sizeof(event_data);
-
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_ENTER_EVENT, &event_data, sizeof(event_data)));
   ASSERT_FALSE(error_occurred());
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_ENTER_EVENT, &event_data, sizeof(event_data)));
   ASSERT_FALSE(error_occurred());
   ASSERT_EQ(function_entries.size(), 2);
   ASSERT_EQ(function_entries.count(&TestFunc1), 2);
 
   // Check for short event data.
-  event_record.MofLength = sizeof(TraceEnterEventData) - 1;
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_ENTER_EVENT,
+                        &event_data,
+                        sizeof(TraceEnterEventData) - 1));
   ASSERT_TRUE(error_occurred());
 }
 
@@ -376,24 +397,20 @@ TEST_F(ParseEngineUnitTest, FunctionExitEvents) {
   event_data.function = &TestFunc2;
   expected_data = &event_data;
 
-  EVENT_TRACE event_record = {};
-  event_record.Header.ProcessId = kProcessId;
-  event_record.Header.ThreadId = kThreadId;
-  event_record.Header.Guid = kCallTraceEventClass;
-  event_record.Header.Class.Type = TRACE_EXIT_EVENT;
-  event_record.MofData = &event_data;
-  event_record.MofLength = sizeof(event_data);
-
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_EXIT_EVENT, &event_data, sizeof(event_data)));
   ASSERT_FALSE(error_occurred());
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_EXIT_EVENT, &event_data, sizeof(event_data)));
   ASSERT_FALSE(error_occurred());
   ASSERT_EQ(function_exits.size(), 2);
   ASSERT_EQ(function_exits.count(&TestFunc2), 2);
 
   // Check for short event data.
-  event_record.MofLength = sizeof(TraceEnterEventData) - 1;
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+ ASSERT_NO_FATAL_FAILURE(
+     DispatchEventData(TRACE_EXIT_EVENT,
+                       &event_data,
+                       sizeof(TraceEnterEventData) - 1));
   ASSERT_TRUE(error_occurred());
 }
 
@@ -411,31 +428,29 @@ TEST_F(ParseEngineUnitTest, BatchFunctionEntry) {
   event_data.calls[4].function = NULL;
   expected_data = &raw_data;
 
-  EVENT_TRACE event_record = {};
-  event_record.Header.ProcessId = kProcessId;
-  event_record.Header.ThreadId = kThreadId;
-  event_record.Header.Guid = kCallTraceEventClass;
-  event_record.Header.Class.Type = TRACE_BATCH_ENTER;
-  event_record.MofData = &raw_data;
-  event_record.MofLength = sizeof(raw_data);
-
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_BATCH_ENTER, &raw_data, sizeof(raw_data)));
   ASSERT_FALSE(error_occurred());
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_BATCH_ENTER, &raw_data, sizeof(raw_data)));
   ASSERT_FALSE(error_occurred());
   ASSERT_EQ(function_entries.size(), 8);
   ASSERT_EQ(function_entries.count(&TestFunc1), 4);
   ASSERT_EQ(function_entries.count(&TestFunc2), 4);
 
   // Check for short event header.
-  event_record.MofLength = FIELD_OFFSET(TraceBatchEnterData, num_calls);
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_BATCH_ENTER,
+                        &raw_data,
+                        FIELD_OFFSET(TraceBatchEnterData, num_calls)));
   ASSERT_TRUE(error_occurred());
 
   // Check for short event tail (remove the empty record + one byte).
   set_error_occurred(false);
-  event_record.MofLength = sizeof(raw_data) - sizeof(TraceEnterEventData) - 1;
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_BATCH_ENTER,
+                        &raw_data,
+                         sizeof(raw_data) - sizeof(TraceEnterEventData) - 1));
   ASSERT_TRUE(error_occurred());
 }
 
@@ -443,144 +458,116 @@ TEST_F(ParseEngineUnitTest, ProcessAttachIncomplete) {
   TraceModuleData incomplete(kModuleData);
   incomplete.module_base_addr = NULL;
 
-  EVENT_TRACE event_record = {};
-  event_record.Header.ProcessId = kProcessId;
-  event_record.Header.ThreadId = kThreadId;
-  event_record.Header.Guid = kCallTraceEventClass;
-  event_record.Header.Class.Type = TRACE_PROCESS_ATTACH_EVENT;
-  event_record.MofData = const_cast<TraceModuleData*>(&incomplete);
-  event_record.MofLength = sizeof(incomplete);
-  expected_data = &kModuleData;
-
   // No error should be reported for NULL module addr, instead the record
   // should be ignored.
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  expected_data = &kModuleData;
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_PROCESS_ATTACH_EVENT,
+                        &incomplete,
+                        sizeof(incomplete)));
+
   ASSERT_FALSE(error_occurred());
   ASSERT_EQ(process_attaches.size(), 0);
 }
 
 TEST_F(ParseEngineUnitTest, ProcessAttach) {
-  EVENT_TRACE event_record = {};
-  event_record.Header.ProcessId = kProcessId;
-  event_record.Header.ThreadId = kThreadId;
-  event_record.Header.Guid = kCallTraceEventClass;
-  event_record.Header.Class.Type = TRACE_PROCESS_ATTACH_EVENT;
-  event_record.MofData = const_cast<TraceModuleData*>(&kModuleData);
-  event_record.MofLength = sizeof(kModuleData);
   expected_data = &kModuleData;
 
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_PROCESS_ATTACH_EVENT,
+                        &kModuleData,
+                        sizeof(kModuleData)));
   ASSERT_FALSE(error_occurred());
   ASSERT_EQ(process_attaches.size(), 1);
 
   // Check for short module event.
-  event_record.MofLength -= 1;
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_PROCESS_ATTACH_EVENT,
+                        &kModuleData,
+                        sizeof(kModuleData) - 1));
   ASSERT_TRUE(error_occurred());
 }
 
 TEST_F(ParseEngineUnitTest, ProcessDetach) {
-  EVENT_TRACE event_record = {};
-  event_record.Header.ProcessId = kProcessId;
-  event_record.Header.ThreadId = kThreadId;
-  event_record.Header.Guid = kCallTraceEventClass;
-  event_record.Header.Class.Type = TRACE_PROCESS_DETACH_EVENT;
-  event_record.MofData = const_cast<TraceModuleData*>(&kModuleData);
-  event_record.MofLength = sizeof(kModuleData);
   expected_data = &kModuleData;
 
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_PROCESS_DETACH_EVENT,
+                        &kModuleData,
+                        sizeof(kModuleData)));
   ASSERT_FALSE(error_occurred());
   ASSERT_EQ(process_detaches.size(), 1);
 
   // Check for short module event.
-  event_record.MofLength -= 1;
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_PROCESS_DETACH_EVENT,
+                        &kModuleData,
+                        sizeof(kModuleData) - 1));
   ASSERT_TRUE(error_occurred());
 }
 
 TEST_F(ParseEngineUnitTest, ThreadAttach) {
-  EVENT_TRACE event_record = {};
-  event_record.Header.ProcessId = kProcessId;
-  event_record.Header.ThreadId = kThreadId;
-  event_record.Header.Guid = kCallTraceEventClass;
-  event_record.Header.Class.Type = TRACE_THREAD_ATTACH_EVENT;
-  event_record.MofData = const_cast<TraceModuleData*>(&kModuleData);
-  event_record.MofLength = sizeof(kModuleData);
   expected_data = &kModuleData;
 
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_THREAD_ATTACH_EVENT,
+                        &kModuleData,
+                        sizeof(kModuleData)));
   ASSERT_FALSE(error_occurred());
   ASSERT_EQ(thread_attaches.size(), 1);
 
   // Check for short module event.
-  event_record.MofLength -= 1;
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_THREAD_ATTACH_EVENT,
+                        &kModuleData,
+                        sizeof(kModuleData) - 1));
   ASSERT_TRUE(error_occurred());
 }
 
 TEST_F(ParseEngineUnitTest, ThreadDetach) {
-  EVENT_TRACE event_record = {};
-  event_record.Header.ProcessId = kProcessId;
-  event_record.Header.ThreadId = kThreadId;
-  event_record.Header.Guid = kCallTraceEventClass;
-  event_record.Header.Class.Type = TRACE_THREAD_DETACH_EVENT;
-  event_record.MofData = const_cast<TraceModuleData*>(&kModuleData);
-  event_record.MofLength = sizeof(kModuleData);
   expected_data = &kModuleData;
 
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_THREAD_DETACH_EVENT,
+                        &kModuleData,
+                        sizeof(kModuleData)));
   ASSERT_FALSE(error_occurred());
   ASSERT_EQ(thread_detaches.size(), 1);
 
   // Check for short module event.
-  event_record.MofLength -= 1;
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_THREAD_DETACH_EVENT,
+                        &kModuleData,
+                        sizeof(kModuleData) - 1));
   ASSERT_TRUE(error_occurred());
 }
 
 TEST_F(ParseEngineUnitTest, IndexedFrequencyTooSmallForHeader) {
-  EVENT_TRACE event_record = {};
-  event_record.Header.ProcessId = kProcessId;
-  event_record.Header.ThreadId = kThreadId;
-  event_record.Header.Guid = kCallTraceEventClass;
-  event_record.Header.Class.Type = TRACE_INDEXED_FREQUENCY;
-  event_record.MofData = const_cast<TraceIndexedFrequencyData*>(
-      &kIndexedFrequencyData);
-  event_record.MofLength = sizeof(kIndexedFrequencyData) - 1;
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_INDEXED_FREQUENCY,
+                        &kIndexedFrequencyData,
+                        sizeof(kIndexedFrequencyData) - 1));
 
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
   ASSERT_TRUE(error_occurred());
   ASSERT_EQ(basic_block_frequencies, 0);
 }
 
 TEST_F(ParseEngineUnitTest, IndexedFrequencyTooSmallForContents) {
-  EVENT_TRACE event_record = {};
-  event_record.Header.ProcessId = kProcessId;
-  event_record.Header.ThreadId = kThreadId;
-  event_record.Header.Guid = kCallTraceEventClass;
-  event_record.Header.Class.Type = TRACE_INDEXED_FREQUENCY;
-  event_record.MofData = const_cast<TraceIndexedFrequencyData*>(
-      &kShortIndexedFrequencyData);
-  event_record.MofLength = sizeof(kShortIndexedFrequencyData);
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_INDEXED_FREQUENCY,
+                        &kShortIndexedFrequencyData,
+                        sizeof(kShortIndexedFrequencyData)));
 
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
   ASSERT_TRUE(error_occurred());
   ASSERT_EQ(basic_block_frequencies, 0);
 }
 
 TEST_F(ParseEngineUnitTest, IndexedFrequency) {
-  EVENT_TRACE event_record = {};
-  event_record.Header.ProcessId = kProcessId;
-  event_record.Header.ThreadId = kThreadId;
-  event_record.Header.Guid = kCallTraceEventClass;
-  event_record.Header.Class.Type = TRACE_INDEXED_FREQUENCY;
-  event_record.MofData = const_cast<TraceIndexedFrequencyData*>(
-      &kIndexedFrequencyData);
-  event_record.MofLength = sizeof(kIndexedFrequencyData);
   expected_data = &kIndexedFrequencyData;
-
-  ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(DispatchEvent(&event_record)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_INDEXED_FREQUENCY,
+                        &kIndexedFrequencyData,
+                        sizeof(kIndexedFrequencyData)));
   ASSERT_FALSE(error_occurred());
   ASSERT_EQ(basic_block_frequencies, 1);
 }
