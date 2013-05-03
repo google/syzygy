@@ -31,9 +31,14 @@
       'sources': [
         'clock.cc',
         'clock.h',
+        'service.cc',
+        'service.h',
+        'service_util.cc',
+        'service_util.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
+        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
       ],
     },
     {
@@ -42,9 +47,12 @@
       'sources': [
         'clock_unittest.cc',
         'common_unittests_main.cc',
+        'service_unittest.cc',
+        'service_util_unittest.cc',
       ],
       'dependencies': [
         'trace_common_lib',
+        '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
       ],
     },

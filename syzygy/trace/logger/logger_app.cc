@@ -28,6 +28,7 @@
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/scoped_handle.h"
+#include "syzygy/trace/common/service_util.h"
 #include "syzygy/trace/logger/logger.h"
 #include "syzygy/trace/logger/logger_rpc_impl.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -105,94 +106,6 @@ BOOL WINAPI OnConsoleCtrl(DWORD ctrl_type) {
     return TRUE;
   }
   return FALSE;
-}
-
-// A helper class to manage a console handler for Control-C.
-// TODO(rogerm): Move this to a shared location (perhaps in common, next to
-//     the application classes?).
-class ScopedConsoleCtrlHandler {
- public:
-  ScopedConsoleCtrlHandler() : handler_(NULL) {
-  }
-
-  ~ScopedConsoleCtrlHandler() {
-    if (handler_ != NULL) {
-      ignore_result(::SetConsoleCtrlHandler(handler_, FALSE));
-      handler_ = NULL;
-    }
-  }
-
-  bool Init(PHANDLER_ROUTINE handler) {
-    DCHECK(handler != NULL);
-    DCHECK(handler_ == NULL);
-
-    if (!::SetConsoleCtrlHandler(handler, TRUE)) {
-      DWORD err = ::GetLastError();
-      LOG(ERROR) << "Failed to register console control handler: "
-                 << com::LogWe(err) << ".";
-      return false;
-    }
-
-    handler_ = handler;
-    return true;
-  }
-
- protected:
-  PHANDLER_ROUTINE handler_;
-};
-
-// Helper function to acquire a named mutex.
-// TODO(rogerm): Move this to a shared location (perhaps in common, next to
-//     the application classes?).
-bool AcquireMutex(const std::wstring& mutex_name,
-                  base::win::ScopedHandle* mutex) {
-  DCHECK(mutex != NULL);
-  DCHECK(!mutex->IsValid());
-
-  base::win::ScopedHandle tmp_mutex(
-      ::CreateMutex(NULL, FALSE, mutex_name.c_str()));
-  if (!tmp_mutex.IsValid()) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to create mutex: " << com::LogWe(error) << ".";
-    return false;
-  }
-  const DWORD kOneSecondInMs = 1000;
-
-  switch (::WaitForSingleObject(tmp_mutex, kOneSecondInMs)) {
-    case WAIT_ABANDONED:
-      LOG(WARNING) << "Orphaned service mutex found!";
-      // Fall through...
-
-    case WAIT_OBJECT_0:
-      VLOG(1) << "Service mutex acquired.";
-      mutex->Set(tmp_mutex.Take());
-      return true;
-
-    case WAIT_TIMEOUT:
-      LOG(ERROR) << "A synonymous instance of the logger is already running.";
-      break;
-
-    default: {
-      DWORD error = ::GetLastError();
-      LOG(ERROR) << "Failed to acquire mutex: " << com::LogWe(error) << ".";
-      break;
-    }
-  }
-  return false;
-}
-
-// Helper function to initialize a named event.
-// TODO(rogerm): Move this to a shared location (perhaps in common, next to
-//     the application classes?).
-bool InitEvent(const std::wstring& event_name,
-               base::win::ScopedHandle* handle) {
-  DCHECK(handle != NULL);
-  DCHECK(!handle->IsValid());
-  const wchar_t* name_ptr = event_name.empty() ? NULL : event_name.c_str();
-  handle->Set(::CreateEvent(NULL, TRUE, FALSE, name_ptr));
-  if (!handle->IsValid())
-    return false;
-  return true;
 }
 
 // A helper function to signal an event. This is passable as a callback to
@@ -337,7 +250,7 @@ const LoggerApp::ActionTableEntry LoggerApp::kActionTable[] = {
 };
 
 LoggerApp::LoggerApp()
-    : common::AppImplBase("Logger"),
+    : ::common::AppImplBase("Logger"),
       logger_command_line_(CommandLine::NO_PROGRAM),
       action_handler_(NULL),
       append_(false) {
@@ -438,14 +351,14 @@ bool LoggerApp::Start() {
   // Acquire the logger mutex.
   base::win::ScopedHandle mutex;
   std::wstring mutex_name(GetInstanceString(kLoggerMutexRoot, instance_id_));
-  if (!AcquireMutex(mutex_name, &mutex))
+  if (!trace::common::AcquireMutex(mutex_name, &mutex))
     return false;
 
   // Setup the start event.
   base::win::ScopedHandle start_event;
   std::wstring start_event_name(
       GetInstanceString(kLoggerStartEventRoot, instance_id_));
-  if (!InitEvent(start_event_name, &start_event)) {
+  if (!trace::common::InitEvent(start_event_name, &start_event)) {
     LOG(ERROR) << "Unable to init start event for '" << logger_name << "'.";
     return false;
   }
@@ -454,7 +367,7 @@ bool LoggerApp::Start() {
   base::win::ScopedHandle stop_event;
   std::wstring stop_event_name(
       GetInstanceString(kLoggerStopEventRoot, instance_id_));
-  if (!InitEvent(stop_event_name, &stop_event)) {
+  if (!trace::common::InitEvent(stop_event_name, &stop_event)) {
     LOG(ERROR) << "Unable to init stop event for '" << logger_name << "'.";
     return false;
   }
@@ -462,7 +375,7 @@ bool LoggerApp::Start() {
   // Setup an anonymous event to notify us if the logger has been
   // asynchronously asked to shutdown.
   base::win::ScopedHandle interrupt_event;
-  if (!InitEvent(L"", &interrupt_event)) {
+  if (!trace::common::InitEvent(L"", &interrupt_event)) {
     LOG(ERROR) << "Unable to init interrupt event for '" << logger_name << "'.";
     return false;
   }
@@ -515,7 +428,7 @@ bool LoggerApp::Start() {
   bool error = false;
 
   // Run the logger, either standalone or as the parent of some application.
-  ScopedConsoleCtrlHandler ctrl_handler;
+  trace::common::ScopedConsoleCtrlHandler ctrl_handler;
   if (app_command_line_.get() != NULL) {
     // We have a command to run, so launch that command and when it finishes
     // stop the logger.
@@ -586,7 +499,7 @@ bool LoggerApp::Spawn() {
   base::win::ScopedHandle start_event;
   std::wstring start_event_name(
       GetInstanceString(kLoggerStartEventRoot, instance_id_));
-  if (!InitEvent(start_event_name, &start_event)) {
+  if (!trace::common::InitEvent(start_event_name, &start_event)) {
     LOG(ERROR) << "Unable to init start event for '" << logger_name << "'.";
     return false;
   }
@@ -615,7 +528,7 @@ bool LoggerApp::Stop() {
   base::win::ScopedHandle stop_event;
   std::wstring stop_event_name(
       GetInstanceString(kLoggerStopEventRoot, instance_id_));
-  if (!InitEvent(stop_event_name, &stop_event)) {
+  if (!trace::common::InitEvent(stop_event_name, &stop_event)) {
     LOG(ERROR) << "Unable to init stop event for '" << logger_name << "'.";
     return false;
   }
