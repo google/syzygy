@@ -315,17 +315,35 @@ class BasicBlockAssembler {
 
   // @name Arithmetic operations.
   // @{
+  void test_b(Register dst, Register src);
+  void test_b(Register dst, const Immediate& src);
+
+  void test(Register dst, Register src);
+  void test(Register dst, const Operand& src);
+  void test(const Operand& dst, Register src);
+  void test(Register dst, const Immediate& src);
+  void test(const Operand& dst, const Immediate& src);
+
+  void cmp_b(Register dst, Register src);
+  void cmp_b(Register dst, const Immediate& src);
+
   void cmp(Register dst, Register src);
   void cmp(Register dst, const Operand& src);
   void cmp(const Operand& dst, Register src);
   void cmp(Register dst, const Immediate& src);
   void cmp(const Operand& dst, const Immediate& src);
 
+  void add_b(Register dst, Register src);
+  void add_b(Register dst, const Immediate& src);
+
   void add(Register dst, Register src);
   void add(Register dst, const Operand& src);
   void add(const Operand& dst, Register src);
   void add(Register dst, const Immediate& src);
   void add(const Operand& dst, const Immediate& src);
+
+  void sub_b(Register dst, Register src);
+  void sub_b(Register dst, const Immediate& src);
 
   void sub(Register dst, Register src);
   void sub(Register dst, const Operand& src);
