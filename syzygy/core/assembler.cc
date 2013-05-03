@@ -600,6 +600,13 @@ void AssemblerImpl::mov_b(const OperandImpl& dst, const ImmediateImpl& src) {
   instr.Emit8BitDisplacement(src);
 }
 
+void AssemblerImpl::movzx_b(Register dst, const OperandImpl& src) {
+  InstructionBuffer instr(this);
+  instr.EmitOpCodeByte(kTwoByteOpCodePrefix);
+  instr.EmitOpCodeByte(0xB6);
+  instr.EmitOperand(dst.code(), src);
+}
+
 void AssemblerImpl::mov(Register dst, Register src) {
   InstructionBuffer instr(this);
 

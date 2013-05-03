@@ -267,6 +267,7 @@ class AssemblerImpl {
   // @name Byte mov varieties.
   // @{
   void mov_b(const OperandImpl& dst, const ImmediateImpl& src);
+  void movzx_b(Register dst, const OperandImpl& src);
   // @}
 
   // @name Double-word mov varieties.

@@ -405,6 +405,14 @@ TEST_F(BasicBlockAssemblerTest, mov_b) {
   ASSERT_REFS(3, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
 }
 
+TEST_F(BasicBlockAssemblerTest, movzx_b) {
+  // movzx eax, BYTE PTR [base + index * scale + displ]
+  asm_.movzx_b(core::eax,
+               Operand(core::eax, core::ebx, core::kTimes4,
+                       Displacement(&test_block_, 0)));
+  ASSERT_REFS(4, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+}
+
 TEST_F(BasicBlockAssemblerTest, mov) {
   // Simple register-register move.
   asm_.mov(core::eax, core::ebx);

@@ -361,6 +361,7 @@ class BasicBlockAssembler {
   // @name Byte mov varieties.
   // @{
   void mov_b(const Operand& dst, const Immediate& src);
+  void movzx_b(Register dst, const Operand& src);
   // @}
 
   // @name Double-word mov varieties.

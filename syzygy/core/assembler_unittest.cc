@@ -212,6 +212,14 @@ TEST_F(AssemblerTest, MovByte) {
   EXPECT_BYTES(0xC6, 0x84, 0x98, 0xBE, 0xBA, 0xFE, 0xCA, 0xCB);
 }
 
+TEST_F(AssemblerTest, MovzxByte) {
+  asm_.movzx_b(eax, OperandImpl(ebx));
+  EXPECT_BYTES(0x0F, 0xB6, 0x03);
+
+  asm_.movzx_b(ecx, OperandImpl(ecx, edx, kTimes2));
+  EXPECT_BYTES(0x0F, 0xB6, 0x0C, 0x51);
+}
+
 TEST_F(AssemblerTest, MovImmediate) {
   // Immediate moves.
   asm_.mov(eax, ImmediateImpl(0xCAFEBABE, kSize32Bit));

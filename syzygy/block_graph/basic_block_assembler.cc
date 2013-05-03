@@ -456,6 +456,12 @@ void BasicBlockAssembler::mov_b(const Operand& dst, const Immediate& src) {
   asm_.mov_b(dst.operand_, src.value_);
 }
 
+void BasicBlockAssembler::movzx_b(Register dst, const Operand& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  CheckReferenceSize(core::kSize32Bit, src);
+  asm_.movzx_b(dst, src.operand_);
+}
+
 void BasicBlockAssembler::mov(Register dst, Register src) {
   asm_.mov(dst, src);
 }
