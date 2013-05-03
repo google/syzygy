@@ -185,7 +185,6 @@ class ParseEngine {
   // Parses and dispatches thread name events. Called from DispatchEvent().
   //
   // @param event The event to dispatch.
-  // @param type Must be TRACE_THREAD_NAME_EVENT.
   //
   // @return true if the event was successfully dispatched, false otherwise.
   //     If an error occurred, the error_occurred_ flag will be set to
@@ -195,11 +194,18 @@ class ParseEngine {
   // Parses and dispatches indexed frequency events.
   //
   // @param event the event to dispatch.
-  // @param type Must be TRACE_INDEXED_FREQUENCY.
   //
   // @return true if the event was successfully dispatched, false otherwise.
   //     Does not explicitly set error occurred.
   bool DispatchIndexedFrequencyEvent(EVENT_TRACE* event);
+
+  // Parses and dispatches dynamic module events.
+  //
+  // @param event the event to dispatch.
+  //
+  // @return true if the event was successfully dispatched, false otherwise.
+  //     Does not explicitly set error occurred.
+  bool DispatchDynamicSymbolEvent(EVENT_TRACE* event);
 
   // The name by which this parse engine is known.
   std::string name_;

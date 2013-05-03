@@ -200,6 +200,11 @@ class ParseEventHandler {
       DWORD process_id,
       DWORD thread_id,
       const TraceIndexedFrequencyData* data) = 0;
+
+  // Issued for dynamic symbol records.
+  virtual void OnDynamicSymbol(DWORD process_id,
+                               uint32 symbol_id,
+                               const base::StringPiece& symbol_name) = 0;
 };
 
 // A default implementation of the ParseEventHandler interface. Provides
@@ -255,6 +260,10 @@ class ParseEventHandlerImpl : public ParseEventHandler {
       DWORD process_id,
       DWORD thread_id,
       const TraceIndexedFrequencyData* data) OVERRIDE;
+  virtual void OnDynamicSymbol(DWORD process_id,
+                               uint32 symbol_id,
+                               const base::StringPiece& symbol_name) OVERRIDE;
+
   // @}
 };
 

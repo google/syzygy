@@ -84,18 +84,18 @@ class ParseEngineUnitTest
 
   virtual void OnProcessStarted(base::Time time,
                                 DWORD process_id,
-                                const TraceSystemInfo* data) {
+                                const TraceSystemInfo* data) OVERRIDE {
     ASSERT_EQ(process_id, kProcessId);
   }
 
-  virtual void OnProcessEnded(base::Time time, DWORD process_id) {
+  virtual void OnProcessEnded(base::Time time, DWORD process_id) OVERRIDE {
     ASSERT_EQ(process_id, kProcessId);
   }
 
   virtual void OnFunctionEntry(base::Time time,
                                DWORD process_id,
                                DWORD thread_id,
-                               const TraceEnterExitEventData* data) {
+                               const TraceEnterExitEventData* data) OVERRIDE {
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
@@ -106,7 +106,7 @@ class ParseEngineUnitTest
   virtual void OnFunctionExit(base::Time time,
                               DWORD process_id,
                               DWORD thread_id,
-                              const TraceEnterExitEventData* data) {
+                              const TraceEnterExitEventData* data) OVERRIDE {
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
@@ -117,7 +117,7 @@ class ParseEngineUnitTest
   virtual void OnBatchFunctionEntry(base::Time time,
                                     DWORD process_id,
                                     DWORD thread_id,
-                                    const TraceBatchEnterData* data) {
+                                    const TraceBatchEnterData* data) OVERRIDE {
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
@@ -129,7 +129,7 @@ class ParseEngineUnitTest
   virtual void OnProcessAttach(base::Time time,
                                DWORD process_id,
                                DWORD thread_id,
-                               const TraceModuleData* data) {
+                               const TraceModuleData* data) OVERRIDE {
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
@@ -139,7 +139,7 @@ class ParseEngineUnitTest
   virtual void OnProcessDetach(base::Time time,
                                DWORD process_id,
                                DWORD thread_id,
-                               const TraceModuleData* data) {
+                               const TraceModuleData* data) OVERRIDE {
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
@@ -149,7 +149,7 @@ class ParseEngineUnitTest
   virtual void OnThreadAttach(base::Time time,
                               DWORD process_id,
                               DWORD thread_id,
-                              const TraceModuleData* data) {
+                              const TraceModuleData* data) OVERRIDE {
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
@@ -160,7 +160,7 @@ class ParseEngineUnitTest
   virtual void OnThreadDetach(base::Time time,
                               DWORD process_id,
                               DWORD thread_id,
-                              const TraceModuleData* data) {
+                              const TraceModuleData* data) OVERRIDE {
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
@@ -187,6 +187,9 @@ class ParseEngineUnitTest
   MOCK_METHOD4(OnThreadName,
       void(base::Time time, DWORD process_id, DWORD thread_id,
            const base::StringPiece& thread_name));
+  MOCK_METHOD3(OnDynamicSymbol,
+      void(DWORD process_id, uint32 symbol_id,
+           const base::StringPiece& symbol_name));
 
   static const DWORD kProcessId;
   static const DWORD kThreadId;
@@ -570,6 +573,30 @@ TEST_F(ParseEngineUnitTest, IndexedFrequency) {
                         sizeof(kIndexedFrequencyData)));
   ASSERT_FALSE(error_occurred());
   ASSERT_EQ(basic_block_frequencies, 1);
+}
+
+TEST_F(ParseEngineUnitTest, DynamicSymbol) {
+  static const char kSymbolName[] = "aDynamicSymbol";
+  const uint32 kSymbolId = 0x17459A;
+  char data[FIELD_OFFSET(TraceDynamicSymbol, symbol_name) +
+            sizeof(kSymbolName)];
+  TraceDynamicSymbol* symbol = reinterpret_cast<TraceDynamicSymbol*>(data);
+  symbol->symbol_id = kSymbolId;
+  ::memcpy(symbol->symbol_name, kSymbolName, sizeof(kSymbolName));
+
+  // Dispatch a valid dynamic symbol record.
+  EXPECT_CALL(*this,
+      OnDynamicSymbol(kProcessId, kSymbolId, base::StringPiece(kSymbolName)));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_DYNAMIC_SYMBOL, data, sizeof(data)));
+  ASSERT_FALSE(error_occurred());
+
+  // Dispatch a short symbol record, make sure we err out.
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_DYNAMIC_SYMBOL,
+                        data,
+                        FIELD_OFFSET(TraceDynamicSymbol, symbol_name) - 1));
+  ASSERT_TRUE(error_occurred());
 }
 
 }  // namespace

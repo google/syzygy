@@ -299,6 +299,15 @@ class TraceFileDumper : public ParseEventHandler {
               data->num_entries);
   }
 
+  virtual void OnDynamicSymbol(DWORD process_id,
+                               uint32 symbol_id,
+                               const base::StringPiece& symbol_name) OVERRIDE {
+    ::fprintf(file_, "OnDynamicSymbol: process-id=%d;\n"
+              "    symbol_id=%d\n",
+              "    symbol_name=%s\n",
+              process_id, symbol_id, symbol_name.as_string().c_str());
+  }
+
  private:
   FILE* file_;
   const char* indentation_;

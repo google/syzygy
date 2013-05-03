@@ -70,6 +70,10 @@ class MockParseEventHandler : public trace::parser::ParseEventHandler {
                     DWORD process_id,
                     DWORD thread_id,
                     const TraceIndexedFrequencyData* data));
+  MOCK_METHOD3(OnDynamicSymbol,
+               void(DWORD process_id,
+                    uint32 symbol_id,
+                    const base::StringPiece& symbol_name));
 };
 
 typedef testing::StrictMock<MockParseEventHandler> StrictMockParseEventHandler;

@@ -209,5 +209,9 @@ void ParseEventHandlerImpl::OnIndexedFrequency(
     const TraceIndexedFrequencyData* data) {
 }
 
+void ParseEventHandlerImpl::OnDynamicSymbol(
+    DWORD process_id, uint32 symbol_id, const base::StringPiece& symbol_name) {
+}
+
 }  // namespace trace::parser
 }  // namespace trace

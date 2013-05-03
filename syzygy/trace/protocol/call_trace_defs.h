@@ -85,6 +85,7 @@ enum TraceEventType {
   TRACE_BATCH_INVOCATION,
   TRACE_THREAD_NAME,
   TRACE_INDEXED_FREQUENCY,
+  TRACE_DYNAMIC_SYMBOL,
 };
 
 // All traces are emitted at this trace level.
@@ -355,5 +356,16 @@ struct TraceIndexedFrequencyData {
   uint8 frequency_data[1];
 };
 COMPILE_ASSERT_IS_POD(TraceIndexedFrequencyData);
+
+struct TraceDynamicSymbol {
+  enum { kTypeId = TRACE_DYNAMIC_SYMBOL };
+
+  // The symbol's ID, unique per process.
+  uint32 symbol_id;
+  // In fact as many as our enclosing record's size allows for,
+  // zero terminated.
+  char symbol_name[1];
+};
+COMPILE_ASSERT_IS_POD(TraceDynamicSymbol);
 
 #endif  // SYZYGY_TRACE_PROTOCOL_CALL_TRACE_DEFS_H_

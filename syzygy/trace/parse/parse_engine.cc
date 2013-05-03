@@ -239,6 +239,10 @@ bool ParseEngine::DispatchEvent(EVENT_TRACE* event) {
       success = DispatchIndexedFrequencyEvent(event);
       break;
 
+    case TRACE_DYNAMIC_SYMBOL:
+      success = DispatchDynamicSymbolEvent(event);
+      break;
+
     default:
       LOG(ERROR) << "Unknown event type encountered.";
       break;
@@ -433,6 +437,29 @@ bool ParseEngine::DispatchIndexedFrequencyEvent(EVENT_TRACE* event) {
   DWORD process_id = event->Header.ProcessId;
   DWORD thread_id = event->Header.ThreadId;
   event_handler_->OnIndexedFrequency(time, process_id, thread_id, data);
+
+  return true;
+}
+
+bool ParseEngine::DispatchDynamicSymbolEvent(EVENT_TRACE* event) {
+  DCHECK(event != NULL);
+  DCHECK(event_handler_ != NULL);
+  DCHECK(error_occurred_ == false);
+
+  BinaryBufferReader reader(event->MofData, event->MofLength);
+  const TraceDynamicSymbol* symbol = NULL;
+  const char* symbol_name = NULL;
+  size_t symbol_name_len = 0;
+  if (!reader.Read(FIELD_OFFSET(TraceDynamicSymbol, symbol_name), &symbol) ||
+      !reader.ReadString(&symbol_name, &symbol_name_len)) {
+    LOG(ERROR) << "Short or empty coverage data event.";
+    return false;
+  }
+
+  DWORD process_id = event->Header.ProcessId;
+  event_handler_->OnDynamicSymbol(
+      process_id, symbol->symbol_id,
+      base::StringPiece(symbol_name, symbol_name_len));
 
   return true;
 }
