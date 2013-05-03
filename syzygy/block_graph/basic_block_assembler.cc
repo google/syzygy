@@ -282,6 +282,10 @@ void BasicBlockAssembler::j(ConditionCode code, const Immediate& dst) {
   asm_.j(code, dst.value_);
 }
 
+void BasicBlockAssembler::set(ConditionCode code, Register dst) {
+  asm_.set(code, dst);
+}
+
 void BasicBlockAssembler::pushfd() {
   asm_.pushfd();
 }
@@ -419,6 +423,18 @@ void BasicBlockAssembler::mov(const Operand& dst, const Immediate& src) {
   CheckReferenceSize(core::kSize32Bit, dst);
   CheckReferenceSize(core::kSize32Bit, src);
   asm_.mov(dst.operand_, src.value_);
+}
+
+void BasicBlockAssembler::mov_fs(Register dst, const Operand& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  CheckReferenceSize(core::kSize32Bit, src);
+  asm_.mov_fs(dst, src.operand_);
+}
+
+void BasicBlockAssembler::mov_fs(const Operand& dst, Register src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
+  CheckReferenceSize(core::kSize32Bit, dst);
+  asm_.mov_fs(dst.operand_, src);
 }
 
 void BasicBlockAssembler::lea(Register dst, const Operand& src) {

@@ -310,6 +310,7 @@ class BasicBlockAssembler {
   void popfd();
   void lahf();
   void sahf();
+  void set(ConditionCode code, Register dst);
   // @}
 
   // @name Arithmetic operations.
@@ -351,6 +352,8 @@ class BasicBlockAssembler {
   void mov(const Operand& dst, Register src);
   void mov(Register dst, const Immediate& src);
   void mov(const Operand& dst, const Immediate& src);
+  void mov_fs(Register dst, const Operand& src);
+  void mov_fs(const Operand& dst, Register src);
   // @}
 
   // @name Load effective address.

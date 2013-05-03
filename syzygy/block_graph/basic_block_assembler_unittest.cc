@@ -433,6 +433,18 @@ TEST_F(BasicBlockAssemblerTest, mov) {
               7, BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, &test_bb_);
 }
 
+TEST_F(BasicBlockAssemblerTest, mov_fs) {
+  asm_.mov_fs(Operand(core::eax, core::ebx, core::kTimes4,
+                      Displacement(&test_block_, 0)),
+              core::eax);
+  ASSERT_REFS(4, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+
+  asm_.mov_fs(core::eax,
+              Operand(core::eax, core::ebx, core::kTimes4,
+                      Displacement(&test_block_, 0)));
+  ASSERT_REFS(4, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+}
+
 TEST_F(BasicBlockAssemblerTest, lea) {
   asm_.lea(core::eax, Operand(core::eax));
   ASSERT_NO_REFS();
@@ -481,6 +493,15 @@ TEST_F(BasicBlockAssemblerTest, lahf) {
 
 TEST_F(BasicBlockAssemblerTest, sahf) {
   asm_.sahf();
+  ASSERT_NO_REFS();
+}
+
+TEST_F(BasicBlockAssemblerTest, setxx) {
+  // Simple register-register operation.
+  asm_.set(core::kParityEven, core::eax);
+  ASSERT_NO_REFS();
+
+  asm_.set(core::kOverflow, core::ebx);
   ASSERT_NO_REFS();
 }
 
