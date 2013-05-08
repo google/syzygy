@@ -62,7 +62,7 @@ bool InvokeOnAnotherThread(BoolCallback task) {
                  base::Unretained(&result),
                  base::Unretained(&finished)));
 
-  lock.Acquire();
+  base::AutoLock hold(lock);
   while (!finished)
     cv.Wait();
 
