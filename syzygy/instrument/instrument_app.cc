@@ -28,7 +28,6 @@
 #include "syzygy/instrument/transforms/basic_block_entry_hook_transform.h"
 #include "syzygy/instrument/transforms/coverage_transform.h"
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
-#include "syzygy/instrument/transforms/fuzzing_transform.h"
 #include "syzygy/instrument/transforms/thunk_import_references_transform.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/image_filter.h"
@@ -46,7 +45,7 @@ static const char kUsageFormatStr[] =
     "Usage: %ls [options]\n"
     "  Required arguments:\n"
     "    --input-image=<path> The input image to instrument.\n"
-    "    --mode=asan|bbentry|calltrace|coverage|profile|fuzzing\n"
+    "    --mode=asan|bbentry|calltrace|coverage|profile\n"
     "                         Specifies which instrumentation mode is to be\n"
     "                         used. If this is not specified it is equivalent\n"
     "                         to specifying --mode=calltrace (this default\n"
@@ -199,8 +198,6 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
     } else if (LowerCaseEqualsASCII(mode, "profile")) {
       mode_ = kInstrumentProfileMode;
       agent_dll_ = kAgentDllProfile;
-    } else if (LowerCaseEqualsASCII(mode, "fuzzing")) {
-      mode_ = kInstrumentFuzzingMode;
     } else {
       return Usage(cmd_line,
                    base::StringPrintf("Unknown instrumentation mode: %s.",
@@ -299,7 +296,6 @@ int InstrumentApp::Run() {
   scoped_ptr<instrument::transforms::BasicBlockEntryHookTransform>
       basic_block_entry_transform;
   scoped_ptr<instrument::transforms::EntryThunkTransform> entry_thunk_tx;
-  scoped_ptr<instrument::transforms::FuzzingTransform> fuzzing_transform;
   scoped_ptr<instrument::transforms::ThunkImportReferencesTransform>
       import_thunk_tx;
   scoped_ptr<instrument::transforms::CoverageInstrumentationTransform>
@@ -355,9 +351,6 @@ int InstrumentApp::Run() {
             coverage_tx->bb_ranges(),
             common::kBasicBlockRangesStreamName));
     relinker.AppendPdbMutator(add_bb_addr_stream_mutator.get());
-  } else if (mode_ == kInstrumentFuzzingMode) {
-    fuzzing_transform.reset(new instrument::transforms::FuzzingTransform);
-    relinker.AppendTransform(fuzzing_transform.get());
   } else {
     // We're either in calltrace mode or profile mode. Each of these
     // use the entry_thunk_tx, so we handle them in the same manner.

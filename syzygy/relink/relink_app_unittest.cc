@@ -50,6 +50,7 @@ class TestRelinkApp : public RelinkApp {
   using RelinkApp::no_strip_strings_;
   using RelinkApp::output_metadata_;
   using RelinkApp::overwrite_;
+  using RelinkApp::fuzz_;
 };
 
 typedef common::Application<TestRelinkApp> TestApp;
@@ -225,6 +226,16 @@ TEST_F(RelinkAppTest, ParseMinimalCommandLineWithOrderFile) {
   cmd_line_.AppendSwitchPath("output-image", output_image_path_);
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
+
+  EXPECT_EQ(0, test_impl_.seed_);
+  EXPECT_EQ(0, test_impl_.padding_);
+  EXPECT_FALSE(test_impl_.no_augment_pdb_);
+  EXPECT_FALSE(test_impl_.compress_pdb_);
+  EXPECT_FALSE(test_impl_.no_strip_strings_);
+  EXPECT_TRUE(test_impl_.output_metadata_);
+  EXPECT_FALSE(test_impl_.overwrite_);
+  EXPECT_FALSE(test_impl_.fuzz_);
+
   EXPECT_FALSE(test_impl_.SetUp());
 }
 
@@ -240,6 +251,7 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithOrderFile) {
   cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitch("no-metadata");
   cmd_line_.AppendSwitch("overwrite");
+  cmd_line_.AppendSwitch("fuzz");
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
   EXPECT_TRUE(test_impl_.input_image_path_.empty());
@@ -254,6 +266,7 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithOrderFile) {
   EXPECT_TRUE(test_impl_.no_strip_strings_);
   EXPECT_FALSE(test_impl_.output_metadata_);
   EXPECT_TRUE(test_impl_.overwrite_);
+  EXPECT_TRUE(test_impl_.fuzz_);
 
   // The order file doesn't actually exist, so setup should fail to infer the
   // input dll.
@@ -273,6 +286,7 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithInputSeedAndMetadata) {
   cmd_line_.AppendSwitch("compress-pdb");
   cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitch("overwrite");
+  cmd_line_.AppendSwitch("fuzz");
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
   EXPECT_EQ(abs_input_image_path_, test_impl_.input_image_path_);
@@ -287,6 +301,7 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithInputSeedAndMetadata) {
   EXPECT_TRUE(test_impl_.no_strip_strings_);
   EXPECT_TRUE(test_impl_.output_metadata_);
   EXPECT_TRUE(test_impl_.overwrite_);
+  EXPECT_TRUE(test_impl_.fuzz_);
 
   // SetUp() has nothing else to infer so it should succeed.
   EXPECT_TRUE(test_impl_.SetUp());
@@ -338,6 +353,22 @@ TEST_F(RelinkAppTest, RandomRelinkBasicBlocks) {
   cmd_line_.AppendSwitch("overwrite");
   cmd_line_.AppendSwitch("basic-blocks");
   cmd_line_.AppendSwitch("exclude-bb-padding");
+
+  ASSERT_EQ(0, test_app_.Run());
+  ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_image_path_));
+}
+
+TEST_F(RelinkAppTest, RandomRelinkBasicBlocksWithFuzzing) {
+  cmd_line_.AppendSwitchPath("input-image", input_image_path_);
+  cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
+  cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
+  cmd_line_.AppendSwitchASCII("seed", base::StringPrintf("%d", seed_));
+  cmd_line_.AppendSwitchASCII("padding", base::StringPrintf("%d", padding_));
+  cmd_line_.AppendSwitch("overwrite");
+  cmd_line_.AppendSwitch("basic-blocks");
+  cmd_line_.AppendSwitch("exclude-bb-padding");
+  cmd_line_.AppendSwitch("fuzz");
 
   ASSERT_EQ(0, test_app_.Run());
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_image_path_));

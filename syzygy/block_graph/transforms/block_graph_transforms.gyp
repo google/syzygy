@@ -16,13 +16,17 @@
   'targets': [
     {
       'target_name': 'block_graph_transforms_lib',
-      'type': 'none',
+      'type': 'static_library',
       'sources': [
+        'fuzzing_transform.cc',
+        'fuzzing_transform.h',
         'iterative_transform.h',
         'named_transform.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/block_graph/analysis/block_graph_analysis.gyp:'
+            'block_graph_analysis_lib',
         '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/core/core.gyp:core_lib',
@@ -33,6 +37,7 @@
       'type': 'executable',
       'sources': [
         'block_graph_transforms_unittests_main.cc',
+        'fuzzing_transform_unittest.cc',
         'iterative_transform_unittest.cc',
         'named_transform_unittest.cc',
       ],

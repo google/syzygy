@@ -13,22 +13,24 @@
 // limitations under the License.
 //
 
-#ifndef SYZYGY_INSTRUMENT_TRANSFORMS_FUZZING_TRANSFORM_H_
-#define SYZYGY_INSTRUMENT_TRANSFORMS_FUZZING_TRANSFORM_H_
+#ifndef SYZYGY_BLOCK_GRAPH_TRANSFORMS_FUZZING_TRANSFORM_H_
+#define SYZYGY_BLOCK_GRAPH_TRANSFORMS_FUZZING_TRANSFORM_H_
 
 #include "syzygy/block_graph/iterate.h"
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
 
-namespace instrument {
+namespace block_graph {
 namespace transforms {
 
 typedef block_graph::BlockGraph BlockGraph;
 typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
 
-// This class implements applied the liveness fuzzing transformation to each
-// basic block. This transformation inserts an instruction at each program point
-// where a register is proven dead to modify its contents with a dummy value.
+// This class applies the liveness fuzzing transformation to each basic block.
+//
+// At each program point where a register has been proven dead (i.e., it has
+// no downstream read dependency), an instruction is inserted which modifies
+// the contents of the register to contain a dummy value.
 class LivenessFuzzingBasicBlockTransform
     : public block_graph::transforms::NamedBasicBlockSubGraphTransformImpl<
           LivenessFuzzingBasicBlockTransform> {
@@ -70,4 +72,4 @@ class FuzzingTransform
 }  // namespace transforms
 }  // namespace block_graph
 
-#endif  // SYZYGY_INSTRUMENT_TRANSFORMS_FUZZING_TRANSFORM_H_
+#endif  // SYZYGY_BLOCK_GRAPH_TRANSFORMS_FUZZING_TRANSFORM_H_

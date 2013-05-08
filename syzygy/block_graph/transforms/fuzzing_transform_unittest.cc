@@ -14,7 +14,7 @@
 //
 // Unittests for FuzzingTransform.
 
-#include "syzygy/instrument/transforms/fuzzing_transform.h"
+#include "syzygy/block_graph/transforms/fuzzing_transform.h"
 
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block.h"
@@ -22,11 +22,11 @@
 #include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
-#include "syzygy/instrument/transforms/unittest_util.h"
+#include "syzygy/block_graph/transform.h"
 
 #include "mnemonics.h"  // NOLINT
 
-namespace instrument {
+namespace block_graph {
 namespace transforms {
 namespace {
 
@@ -40,31 +40,10 @@ using block_graph::Immediate;
 class TestLivenessFuzzingBasicBlockTransform :
     public LivenessFuzzingBasicBlockTransform {
  public:
-  bool Transform(BlockGraph* block_graph,
-                 BasicBlockSubGraph* basic_block_subgraph);
-};
-
-class FuzzingInstrumentationTransformTest
-    : public testing::TestDllTransformTest {
- public:
-  virtual void SetUp() OVERRIDE {
-    ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
-  }
+  using LivenessFuzzingBasicBlockTransform::TransformBasicBlockSubGraph;
 };
 
 }  // namespace
-
-bool TestLivenessFuzzingBasicBlockTransform::Transform(
-    BlockGraph* block_graph,
-    BasicBlockSubGraph* basic_block_subgraph) {
-  return TransformBasicBlockSubGraph(block_graph, basic_block_subgraph);
-}
-
-TEST_F(FuzzingInstrumentationTransformTest, FuzzingEndToEnd) {
-  FuzzingTransform tx;
-  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &tx, &block_graph_, dos_header_block_));
-}
 
 TEST(LivenessFuzzingBasicBlockTransformTest, SingleBasicBlock) {
   BlockGraph block;
@@ -80,7 +59,7 @@ TEST(LivenessFuzzingBasicBlockTransformTest, SingleBasicBlock) {
   // Transforms the basic block.
   TestLivenessFuzzingBasicBlockTransform tx;
   size_t previous_size = bb->instructions().size();
-  ASSERT_TRUE(tx.Transform(&block, &subgraph));
+  ASSERT_TRUE(tx.TransformBasicBlockSubGraph(&block, &subgraph));
 
   // Expecting two new instructions.
   size_t expected_size = previous_size + 2;
@@ -89,4 +68,4 @@ TEST(LivenessFuzzingBasicBlockTransformTest, SingleBasicBlock) {
 }
 
 }  // namespace transforms
-}  // namespace instrument
+}  // namespace block_graph

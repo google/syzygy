@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/instrument/transforms/fuzzing_transform.h"
+#include "syzygy/block_graph/transforms/fuzzing_transform.h"
 
 #include "base/logging.h"
 #include "base/string_util.h"
@@ -22,10 +22,8 @@
 #include "syzygy/block_graph/block_util.h"
 #include "syzygy/block_graph/analysis/liveness_analysis.h"
 #include "syzygy/common/defs.h"
-#include "syzygy/pe/block_util.h"
-#include "syzygy/pe/pe_utils.h"
 
-namespace instrument {
+namespace block_graph {
 namespace transforms {
 namespace {
 
@@ -117,7 +115,7 @@ bool FuzzingTransform::OnBlock(
   if (block->type() != BlockGraph::CODE_BLOCK)
     return true;
 
-  if (!pe::CodeBlockIsBasicBlockDecomposable(block))
+  if (!CodeBlockAttributesAreBasicBlockSafe(block))
     return true;
 
   // Apply a basic block transform.

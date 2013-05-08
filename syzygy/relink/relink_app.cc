@@ -18,6 +18,7 @@
 #include "base/string_number_conversions.h"
 #include "syzygy/block_graph/orderers/original_orderer.h"
 #include "syzygy/block_graph/orderers/random_orderer.h"
+#include "syzygy/block_graph/transforms/fuzzing_transform.h"
 #include "syzygy/pe/pe_relinker.h"
 #include "syzygy/pe/transforms/explode_basic_blocks_transform.h"
 #include "syzygy/reorder/orderers/explicit_orderer.h"
@@ -32,7 +33,7 @@ const char kUsageFormatStr[] =
     "  Required Options:\n"
     "    --input-image=<path>  The input image file to relink.\n"
     "    --output-image=<path> Output path for the rewritten image file.\n"
-    "  Optional Options:\n"
+    "  Options:\n"
     "    --basic-blocks        Reorder at the basic-block level. At present,\n"
     "                          this is only supported for random reorderings.\n"
     "    --compress-pdb        If --no-augment-pdb is specified, causes the\n"
@@ -54,10 +55,15 @@ const char kUsageFormatStr[] =
     "                          Default is inferred from output-image.\n"
     "    --overwrite           Allow output files to be overwritten.\n"
     "    --padding=<integer>   Add bytes of padding between blocks.\n"
+    "\n"
+    "  Testing Options:\n"
     "    --seed=<integer>      Randomly reorder based on the given seed.\n"
+    "    --fuzz                Fuzz the binary.\n"
+    "\n"
     "  Deprecated Options:\n"
     "    --input-dll=<path>    Aliased to --input-image.\n"
     "    --output-dll=<path>   Aliased to --output-image.\n"
+    "\n"
     "  Notes:\n"
     "    * The --seed and --order-file options are mutually exclusive\n"
     "    * If --order-file is specified, --input-image is optional.\n"
@@ -125,6 +131,7 @@ bool RelinkApp::ParseCommandLine(const CommandLine* cmd_line) {
   overwrite_ = cmd_line->HasSwitch("overwrite");
   basic_blocks_ = cmd_line->HasSwitch("basic-blocks");
   exclude_bb_padding_ = cmd_line->HasSwitch("exclude-bb-padding");
+  fuzz_ = cmd_line->HasSwitch("fuzz");
 
   // The --output-image argument is required.
   if (output_image_path_.empty()) {
@@ -203,11 +210,18 @@ int RelinkApp::Run() {
   // Transforms that may be used.
   scoped_ptr<pe::transforms::ExplodeBasicBlocksTransform> bb_explode;
   scoped_ptr<reorder::transforms::BasicBlockLayoutTransform> bb_layout;
+  scoped_ptr<block_graph::transforms::FuzzingTransform> fuzzing_transform;
 
   // Orderers that may be used.
   reorder::Reorderer::Order order;
   scoped_ptr<block_graph::orderers::OriginalOrderer> orig_orderer;
   scoped_ptr<block_graph::BlockGraphOrdererInterface> orderer;
+
+  // If fuzzing is enabled, add it to the relinker.
+  if (fuzz_) {
+    fuzzing_transform.reset(new block_graph::transforms::FuzzingTransform);
+    relinker.AppendTransform(fuzzing_transform.get());
+  }
 
   // If an order file is provided we are performing an explicit ordering.
   if (!order_file_path_.empty()) {
