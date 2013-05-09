@@ -34,6 +34,7 @@
 #include "base/threading/thread_local.h"
 #include "syzygy/agent/common/entry_frame.h"
 #include "syzygy/agent/common/thread_state.h"
+#include "syzygy/agent/profiler/symbol_map.h"
 #include "syzygy/trace/client/rpc_session.h"
 
 // Assembly instrumentation stubs to handle function entry and exit.
@@ -41,6 +42,21 @@ extern "C" void _cdecl _indirect_penter();
 extern "C" void _cdecl _indirect_penter_dllmain();
 extern "C" void _cdecl _indirect_penter_inside_function();
 extern void pexit();
+
+// Add a symbol to the dynamic symbol store.
+// @param address the start address of the new symbol.
+// @param length the length of the new symbol.
+// @param name the name of the new symbol, this string is not necessarily
+//     zero terminated.
+// @paran name_len the length of @p name.
+extern "C" void WINAPI AddSymbol(const void* address, size_t length,
+                                 const char* name, size_t name_len);
+
+// Moves a symbol in the dynamic symbol store.
+// @param old_address the previous start address of the moved symbol.
+// @param new_address the new start address of the moved symbol.
+extern "C" void WINAPI MoveSymbol(const void* old_address,
+                                  const void* new_address);
 
 namespace agent {
 namespace profiler {
@@ -55,6 +71,20 @@ class Profiler {
   static void WINAPI FunctionEntryHook(EntryFrame* entry_frame,
                                        FuncAddr function,
                                        uint64 cycles);
+
+  // Adds a symbol to the dynamic symbol store.
+  // @param address the start address of the new symbol.
+  // @param length the length of the new symbol.
+  // @param name the name of the new symbol, this string is not necessarily
+  //     zero terminated.
+  // @paran name_len the length of @p name.
+  void AddSymbol(const void* address, size_t length,
+                 const char* name, size_t name_len);
+
+  // Moves a symbol in the dynamic symbol store.
+  // @param old_address the previous start address of the moved symbol.
+  // @param new_address the new start address of the moved symbol.
+  void MoveSymbol(const void* old_address, const void* new_address);
 
   // Resolves a return address location to a thunk's stashed original
   // location if a thunk is involved.
@@ -108,6 +138,9 @@ class Profiler {
 
   // Protects pages_ and logged_modules_.
   base::Lock lock_;
+
+  // The dynamic symbol map.
+  SymbolMap symbol_map_;
 
   // Contains the thunk pages in lexical order.
   typedef std::vector<const void*> PageVector;

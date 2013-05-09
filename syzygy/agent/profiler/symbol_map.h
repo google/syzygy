@@ -52,7 +52,7 @@ class SymbolMap {
   // Find the symbol covering @p addr, if any.
   // @param addr an address to query.
   // @returns the symbol covering @p addr, if any, or NULL otherwise.
-  scoped_refptr<Symbol> FindSymbol(const uint8* addr);
+  scoped_refptr<Symbol> FindSymbol(const void* addr);
 
  protected:
   typedef core::AddressSpace<const uint8*, size_t, scoped_refptr<Symbol>>
@@ -70,7 +70,7 @@ class SymbolMap::Symbol : public base::RefCountedThreadSafe<Symbol> {
  public:
   class AutoLock;
 
-  explicit Symbol(const base::StringPiece& name);
+  explicit Symbol(const base::StringPiece& name, const void* address);
 
   // Name this symbol by assigning it an id, if it doesn't already have one.
   // @returns true iff the symbol did not already have an id.
@@ -82,6 +82,7 @@ class SymbolMap::Symbol : public base::RefCountedThreadSafe<Symbol> {
   bool invalid() const { return invalid_; }
   int32 id() const { return id_; }
   int32 move_count() const { return base::subtle::Acquire_Load(&move_count_); }
+  const void* address() const { return address_; }
   // @}
 
  protected:
@@ -90,7 +91,7 @@ class SymbolMap::Symbol : public base::RefCountedThreadSafe<Symbol> {
   // Invalidate this symbol.
   void Invalidate();
   // Move this symbol.
-  void Move();
+  void Move(const void* address);
 
   std::string name_;
 
@@ -102,6 +103,9 @@ class SymbolMap::Symbol : public base::RefCountedThreadSafe<Symbol> {
 
   // Non-zero after first call to EnsureHasId.
   base::subtle::Atomic32 id_;
+
+  // The current address of this symbol.
+  const void* address_;
 
  private:
   friend class base::RefCountedThreadSafe<Symbol>;

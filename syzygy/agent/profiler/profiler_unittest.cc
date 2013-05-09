@@ -38,6 +38,11 @@
 
 extern "C" {
 
+typedef void (WINAPI *AddSymbolFunc)(const void* address, size_t length,
+                                     const char* name, size_t name_len);
+typedef void (WINAPI *MoveSymbolFunc)(const void* old_address,
+                                      const void* new_address);
+
 // We register a TLS callback to test TLS thread notifications.
 extern PIMAGE_TLS_CALLBACK profiler_test_tls_callback_entry;
 void WINAPI ProfilerTestTlsCallback(PVOID h, DWORD reason, PVOID reserved);
@@ -113,13 +118,37 @@ MATCHER_P(ModuleAtAddress, module, "") {
   return arg->module_base_addr == module;
 }
 
+MATCHER_P2(InvocationInfoHasCallerSymbol, symbol_id, symbol_len, "") {
+  for (size_t i = 0; i < 1; ++i) {
+    const InvocationInfo& invocation = arg->invocations[i];
+    // Test that we have the symbol as caller.
+    if (invocation.flags & kCallerIsSymbol &&
+        invocation.caller_symbol_id == symbol_id) {
+      // We found the desired symbol, now check that caller offset
+      // is in bounds of the symbol length, but larger than 0, as we know
+      // the return address will be to a location after a call instruction,
+      // which has to be some amount of distance into the caller.
+      if (invocation.caller_offset >= symbol_len ||
+          invocation.caller_offset == 0) {
+        return false;
+      }
+
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // TODO(rogerm): Create a base fixture (perhaps templatized) to factor out
 //     the common bits of testing various clients with the call trace service.
 class ProfilerTest : public testing::Test {
  public:
   ProfilerTest()
       : module_(NULL),
-        resolution_func_(NULL) {
+        resolution_func_(NULL),
+        add_symbol_func_(NULL),
+        move_symbol_func_(NULL) {
   }
 
   virtual void SetUp() OVERRIDE {
@@ -189,6 +218,14 @@ class ProfilerTest : public testing::Test {
     resolution_func_ = reinterpret_cast<ResolveReturnAddressLocationFunc>(
         ::GetProcAddress(module_, "ResolveReturnAddressLocation"));
     ASSERT_TRUE(resolution_func_ != NULL);
+
+    add_symbol_func_ = reinterpret_cast<AddSymbolFunc>(
+        ::GetProcAddress(module_, "AddSymbol"));
+    ASSERT_TRUE(add_symbol_func_ != NULL);
+
+    move_symbol_func_ = reinterpret_cast<MoveSymbolFunc>(
+        ::GetProcAddress(module_, "MoveSymbol"));
+    ASSERT_TRUE(add_symbol_func_ != NULL);
   }
 
   void UnloadDll() {
@@ -206,6 +243,20 @@ class ProfilerTest : public testing::Test {
   static BOOL WINAPI DllMainThunk(HMODULE module,
                                   DWORD reason,
                                   LPVOID reserved);
+  enum CallerAction {
+    CALL_THROUGH,
+    RETURN_LENGTH,
+    RETURN_ADDR
+  };
+  // This function has a curious construct to work around incremental linking.
+  // It can be called in three modes, to:
+  // 1. Call through to DllMainThunk.
+  // 2. Return it's own length.
+  // 3. Return it's own address.
+  // The last is necessary because &DllMainCaller will return the address of
+  // a trampoline in incremental builds, whereas we need the address of the
+  // function's implementation for the test.
+  static intptr_t WINAPI DllMainCaller(CallerAction action);
 
   static int IndirectFunctionA(int param1, const void* param2);
   static int FunctionAThunk(int param1, const void* param2);
@@ -220,14 +271,17 @@ class ProfilerTest : public testing::Test {
   // The handler to which the trace file parser will delegate events.
   StrictMockParseEventHandler handler_;
 
-  // The address resolution function exported from the profiler dll.
+  // Functions exported from the profiler dll.
   ResolveReturnAddressLocationFunc resolution_func_;
+  AddSymbolFunc add_symbol_func_;
+  MoveSymbolFunc move_symbol_func_;
 
   // Our call trace service process instance.
   testing::CallTraceService service_;
 
  private:
   HMODULE module_;
+
   static FARPROC _indirect_penter_;
   static FARPROC _indirect_penter_dllmain_;
 };
@@ -247,6 +301,40 @@ BOOL __declspec(naked) WINAPI ProfilerTest::DllMainThunk(HMODULE module,
   __asm {
     push IndirectDllMain
     jmp _indirect_penter_dllmain_
+  }
+}
+
+intptr_t __declspec(naked) WINAPI ProfilerTest::DllMainCaller(
+    CallerAction action) {
+  __asm {
+   start:
+    mov eax, dword ptr[esp + 4]  // get action
+    test eax, eax
+    je call_through
+
+    cmp eax, 1
+    jne return_addr
+
+    // You'd think this could be phrased as:
+    // mov eax, OFFSET end - OFFSET start
+    // but alas it appears that this assembler is single-pass, and so does not
+    // support arithmetic on labels.
+    mov eax, OFFSET end
+    sub eax, OFFSET start
+    ret 4
+
+   return_addr:
+    mov eax, OFFSET start
+    ret 4
+
+   call_through:
+    xor eax, eax
+    push eax
+    push eax
+    push eax
+    call DllMainThunk
+    ret 4
+   end:
   }
 }
 
@@ -457,6 +545,54 @@ TEST_F(ProfilerTest, RecordsThreadName) {
                                      ::GetCurrentThreadId(),
                                      base::StringPiece(kThreadName)));
   EXPECT_CALL(handler_, OnProcessEnded(_, ::GetCurrentProcessId()));
+
+  // Replay the log.
+  ASSERT_NO_FATAL_FAILURE(ReplayLogs());
+}
+
+TEST_F(ProfilerTest, RecordsUsedSymbols) {
+  // Spin up the RPC service.
+  ASSERT_NO_FATAL_FAILURE(StartService());
+
+  ASSERT_NO_FATAL_FAILURE(LoadDll());
+
+  // Add a dynamic symbol for the DllMain and IndirectionFunctionA functions.
+  base::StringPiece dll_main_caller_name("DllMainCaller");
+  const void* dll_main_addr =
+      reinterpret_cast<const void*>(DllMainCaller(RETURN_ADDR));
+  size_t dll_main_len = DllMainCaller(RETURN_LENGTH);
+  add_symbol_func_(dll_main_addr, dll_main_len,
+                   dll_main_caller_name.data(), dll_main_caller_name.length());
+
+  base::StringPiece func_a_name("IndirectFunctionA");
+  add_symbol_func_(&IndirectFunctionA, 0x5,
+                   func_a_name.data(), func_a_name.length());
+
+  ASSERT_NO_FATAL_FAILURE(DllMainCaller(CALL_THROUGH));
+  ASSERT_NO_FATAL_FAILURE(UnloadDll());
+
+  EXPECT_CALL(handler_, OnProcessStarted(_, ::GetCurrentProcessId(), _));
+  EXPECT_CALL(handler_, OnProcessAttach(_,
+                                        ::GetCurrentProcessId(),
+                                        ::GetCurrentThreadId(),
+                                        _))
+      .Times(testing::AnyNumber());
+
+  EXPECT_CALL(handler_,
+      OnInvocationBatch(_,
+                        ::GetCurrentProcessId(),
+                        ::GetCurrentThreadId(),
+                        1U,
+                        InvocationInfoHasCallerSymbol(1U, dll_main_len)));
+  EXPECT_CALL(handler_, OnProcessEnded(_, ::GetCurrentProcessId()));
+
+  // The dll main function is used and should make an appearance,
+  // whereas the other one should not.
+  EXPECT_CALL(handler_,
+      OnDynamicSymbol(::GetCurrentProcessId(), 1, dll_main_caller_name));
+  EXPECT_CALL(handler_,
+      OnDynamicSymbol(::GetCurrentProcessId(), _, func_a_name))
+          .Times(0);
 
   // Replay the log.
   ASSERT_NO_FATAL_FAILURE(ReplayLogs());

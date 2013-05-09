@@ -30,7 +30,7 @@ void SymbolMap::AddSymbol(const void* start_addr,
                           const base::StringPiece& name) {
   base::AutoLock hold(lock_);
 
-  scoped_refptr<Symbol> symbol = new Symbol(name);
+  scoped_refptr<Symbol> symbol = new Symbol(name, start_addr);
   // TODO(siggi): Perhaps this should be an error?
   if (!symbol)
     return;
@@ -59,7 +59,7 @@ void SymbolMap::MoveSymbol(const void* old_addr, const void* new_addr) {
   scoped_refptr<Symbol> symbol = found->second;
 
   // Note the fact that it's been moved.
-  symbol->Move();
+  symbol->Move(new_addr);
 
   size_t length = found->first.size();
   addr_space_.Remove(found);
@@ -72,11 +72,12 @@ void SymbolMap::MoveSymbol(const void* old_addr, const void* new_addr) {
   DCHECK(inserted);
 }
 
-scoped_refptr<SymbolMap::Symbol> SymbolMap::FindSymbol(const uint8* addr) {
+scoped_refptr<SymbolMap::Symbol> SymbolMap::FindSymbol(const void* addr) {
   base::AutoLock hold(lock_);
 
   SymbolAddressSpace::RangeMapIter found =
-      addr_space_.FindFirstIntersection(Range(addr, 1));
+      addr_space_.FindFirstIntersection(
+          Range(reinterpret_cast<const uint8*>(addr), 1));
 
   if (found == addr_space_.end())
     return NULL;
@@ -96,8 +97,12 @@ void SymbolMap::RetireRangeUnlocked(const Range& range) {
   addr_space_.Remove(found);
 }
 
-SymbolMap::Symbol::Symbol(const base::StringPiece& name)
-    : name_(name.begin(), name.end()), move_count_(0), invalid_(false), id_(0) {
+SymbolMap::Symbol::Symbol(const base::StringPiece& name, const void* address)
+    : name_(name.begin(), name.end()),
+      move_count_(0),
+      invalid_(false),
+      id_(0),
+      address_(address) {
 }
 
 bool SymbolMap::Symbol::EnsureHasId() {
@@ -120,12 +125,14 @@ bool SymbolMap::Symbol::EnsureHasId() {
 void SymbolMap::Symbol::Invalidate() {
   DCHECK(!invalid_);
   invalid_ = true;
+  address_ = NULL;
 }
 
-void SymbolMap::Symbol::Move() {
+void SymbolMap::Symbol::Move(const void* new_address) {
   DCHECK(!invalid_);
   // TODO(siggi): The intent here is to make sure other cores see the new
   //     value without delay. The barrier may not be what's needed to do that?
+  address_ = new_address;
   base::subtle::Barrier_AtomicIncrement(&move_count_, 1);
 }
 

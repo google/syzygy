@@ -60,29 +60,23 @@ class HashInvocationKey {
     return a < b;
   }
 };
+
+using agent::profiler::SymbolMap;
+
+struct InvocationValue {
+  // This invocation entries caller's dynamic symbol, if any.
+  scoped_refptr<SymbolMap::Symbol> symbol;
+
+  // The last observed move count for symbol.
+  int32 move_count;
+
+  // Points to the trace buffer entry for the respective function.
+  InvocationInfo* info;
+};
+
 typedef base::hash_map<
-    InvocationKey, InvocationInfo*, HashInvocationKey> InvocationMap;
+    InvocationKey, InvocationValue, HashInvocationKey> InvocationMap;
 
-// Accessing a module acquired from process iteration calls is inherently racy,
-// as we don't hold any kind of reference to the module, and so the module
-// could be unloaded while we're accessing it. In practice this shouldn't
-// happen to us, as we'll be running under the loader's lock in all cases.
-bool CaptureModuleInformation(const base::win::PEImage& image,
-                              TraceModuleData* module_event) {
-  __try {
-    // Populate the log record.
-    module_event->module_base_size =
-        image.GetNTHeaders()->OptionalHeader.SizeOfImage;
-    module_event->module_checksum =
-        image.GetNTHeaders()->OptionalHeader.CheckSum;
-    module_event->module_time_date_stamp =
-        image.GetNTHeaders()->FileHeader.TimeDateStamp;
-  } __except(EXCEPTION_EXECUTE_HANDLER) {
-    return false;
-  }
-
-  return true;
-}
 
 // The information on how to set the thread name comes from
 // a MSDN article: http://msdn2.microsoft.com/en-us/library/xcb2z8hs.aspx
@@ -247,6 +241,21 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
   return TRUE;
 }
 
+void WINAPI AddSymbol(const void* address, size_t length,
+                      const char* name, size_t name_len) {
+  using agent::profiler::Profiler;
+
+  Profiler* profiler = Profiler::Instance();
+  profiler->AddSymbol(address, length, name, name_len);
+}
+
+void WINAPI MoveSymbol(const void* old_address, const void* new_address){
+  using agent::profiler::Profiler;
+
+  Profiler* profiler = Profiler::Instance();
+  profiler->MoveSymbol(old_address, new_address);
+}
+
 namespace agent {
 namespace profiler {
 
@@ -266,6 +275,9 @@ class Profiler::ThreadState
 
   // Logs @p thread_name as the current thread's name.
   void LogThreadName(const base::StringPiece& thread_name);
+
+  // Logs @p symbol into the trace.
+  void LogSymbol(SymbolMap::Symbol* symbol);
 
   // Processes a single function entry.
   void OnFunctionEntry(EntryFrame* entry_frame,
@@ -292,6 +304,7 @@ class Profiler::ThreadState
 
   void UpdateOverhead(uint64 entry_cycles);
   InvocationInfo* AllocateInvocationInfo();
+  void ClearCache();
   bool FlushSegment();
 
   // The profiler we're attached to.
@@ -324,8 +337,7 @@ Profiler::ThreadState::ThreadState(Profiler* profiler)
 }
 
 Profiler::ThreadState::~ThreadState() {
-  batch_ = NULL;
-  invocations_.clear();
+  ClearCache();
 
   // If we have an outstanding buffer, let's deallocate it now.
   if (segment_.write_ptr != NULL)
@@ -357,7 +369,8 @@ void Profiler::ThreadState::LogAllModules(HMODULE module) {
 }
 
 void Profiler::ThreadState::LogModule(HMODULE module) {
-  batch_ = NULL;
+  // This may flush our buffer, so let's clear our cache.
+  ClearCache();
   agent::common::LogModule(module, &profiler_->session_, &segment_);
 }
 
@@ -383,6 +396,32 @@ void Profiler::ThreadState::LogThreadName(
   DCHECK(thread_name_event != NULL);
   base::strlcpy(thread_name_event->thread_name,
                 thread_name.data(), thread_name.size() + 1);
+}
+
+void Profiler::ThreadState::LogSymbol(SymbolMap::Symbol* symbol) {
+  DCHECK(symbol != NULL);
+  DCHECK_NE(0, symbol->id());
+
+  size_t symbol_size =
+      FIELD_OFFSET(TraceDynamicSymbol, symbol_name) + symbol->name().size() + 1;
+
+  if (!segment_.CanAllocate(symbol_size) || !FlushSegment()) {
+    // Failed to allocate the symbol record.
+    return;
+  }
+
+  DCHECK(segment_.CanAllocate(symbol_size));
+  batch_ = NULL;
+
+  // Allocate a record in the log.
+  TraceDynamicSymbol* dynamic_symbol_event =
+      reinterpret_cast<TraceDynamicSymbol*>(
+          segment_.AllocateTraceRecordImpl(
+              TRACE_DYNAMIC_SYMBOL, symbol_size));
+  DCHECK(dynamic_symbol_event != NULL);
+  dynamic_symbol_event->symbol_id = symbol->id();
+  base::strlcpy(dynamic_symbol_event->symbol_name,
+                symbol->name().data(), symbol->name().size() + 1);
 }
 
 void Profiler::ThreadState::OnFunctionEntry(EntryFrame* entry_frame,
@@ -441,28 +480,75 @@ void Profiler::ThreadState::RecordInvocation(RetAddr caller,
   InvocationKey key(caller, function);
   InvocationMap::iterator it = invocations_.find(key);
   if (it != invocations_.end()) {
-    // Yup, we already have an entry. Tally the new data.
-    InvocationInfo* info = it->second;
-    ++(info->num_calls);
-    info->cycles_sum += duration_cycles;
-    if (duration_cycles < info->cycles_min) {
-      info->cycles_min = duration_cycles;
-    } else if (duration_cycles > info->cycles_max) {
-      info->cycles_max = duration_cycles;
-    }
-  } else {
-    // The allocation below may touch last error.
-    ScopedLastErrorKeeper keep_last_error;
+    // Yup, we already have an entry, validate it.
+    InvocationValue& value = it->second;
 
-    // Nopes, allocate a new entry for this invocation.
-    InvocationInfo* info = AllocateInvocationInfo();
-    if (info != NULL) {
-      invocations_[key] = info;
-      info->caller = caller;
-      info->function = function;
-      info->num_calls = 1;
-      info->cycles_min = info->cycles_max = info->cycles_sum = duration_cycles;
+    if (value.symbol == NULL ||
+        value.symbol->move_count() == value.move_count) {
+      // The entry is still good, tally the new data.
+      ++(value.info->num_calls);
+      value.info->cycles_sum += duration_cycles;
+      if (duration_cycles < value.info->cycles_min) {
+        value.info->cycles_min = duration_cycles;
+      } else if (duration_cycles > value.info->cycles_max) {
+        value.info->cycles_max = duration_cycles;
+      }
+
+      // Early out on success.
+      return;
+    } else {
+      // The entry is not valid any more, discard it.
+      DCHECK(value.symbol != NULL);
+
+      invocations_.erase(it);
     }
+  }
+  DCHECK(invocations_.find(key) == invocations_.end());
+
+  // We don't have an entry, allocate a new one for this invocation.
+  // The code below may touch last error.
+  ScopedLastErrorKeeper keep_last_error;
+
+  scoped_refptr<SymbolMap::Symbol> symbol =
+      profiler_->symbol_map_.FindSymbol(caller);
+
+  // Trace the symbol if this is the first time it's observed.
+  if (symbol != NULL && symbol->EnsureHasId()) {
+    // TODO(siggi): it might lead to worst-case behavior to log symbols into
+    //    the same trace buffer as we store invocations, as we're likely to
+    //    alternate symbols and single-entry invocation batches. Fixme.
+    LogSymbol(symbol);
+  }
+
+  InvocationInfo* info = AllocateInvocationInfo();
+  if (info != NULL) {
+    InvocationValue& value = invocations_[key];
+    value.info = info;
+    value.symbol = symbol;
+    if (symbol != NULL)
+      value.move_count = symbol->move_count();
+    else
+      value.move_count = 0;
+
+    info->function = function;
+
+    if (symbol == NULL) {
+      // We're not in a dynamic symbol, record the (conventional) caller.
+      info->caller = caller;
+      info->flags = 0;
+      info->caller_offset = 0;
+    } else {
+      // We're in a dynamic symbol, record the details.
+      DCHECK(symbol->id() != 0);
+
+      info->caller_symbol_id = symbol->id();
+      info->flags = kCallerIsSymbol;
+      info->caller_offset = reinterpret_cast<const uint8*>(caller) -
+          reinterpret_cast<const uint8*>(symbol->address());
+    }
+
+    info->num_calls = 1;
+    info->cycles_min = info->cycles_max = info->cycles_sum = duration_cycles;
   }
 }
 
@@ -508,10 +594,13 @@ InvocationInfo* Profiler::ThreadState::AllocateInvocationInfo() {
 }
 
 bool Profiler::ThreadState::FlushSegment() {
+  ClearCache();
+  return profiler_->session_.ExchangeBuffer(&segment_);
+}
+
+void Profiler::ThreadState::ClearCache() {
   batch_ = NULL;
   invocations_.clear();
-
-  return profiler_->session_.ExchangeBuffer(&segment_);
 }
 
 void Profiler::OnThreadDetach() {
@@ -732,6 +821,15 @@ void WINAPI Profiler::FunctionEntryHook(EntryFrame* entry_frame,
   DCHECK(data != NULL);
   if (data != NULL)
     data->OnFunctionEntry(entry_frame, function, cycles);
+}
+
+void Profiler::AddSymbol(const void* address, size_t length,
+                         const char* name, size_t name_len) {
+  symbol_map_.AddSymbol(address, length, base::StringPiece(name, name_len));
+}
+
+void Profiler::MoveSymbol(const void* old_address, const void* new_address) {
+  symbol_map_.MoveSymbol(old_address, new_address);
 }
 
 }  // namespace profiler

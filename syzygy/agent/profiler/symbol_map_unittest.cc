@@ -42,7 +42,8 @@ class SymbolMapTest : public testing::Test {
 
 TEST_F(SymbolMapTest, AddSymbol) {
   // Insert a symbol.
-  symbol_map_.AddSymbol(ToPtr(0x1011), 0x22, "foo");
+  const void* kStart = ToPtr(0x1011);
+  symbol_map_.AddSymbol(kStart, 0x22, "foo");
 
   // Reach into the privates of the symbol map and test it's as we expect.
   ASSERT_EQ(1, symbol_map_.addr_space_.size());
@@ -50,7 +51,7 @@ TEST_F(SymbolMapTest, AddSymbol) {
       symbol_map_.addr_space_.begin();
   ASSERT_TRUE(it != symbol_map_.addr_space_.end());
 
-  EXPECT_EQ(it->first.start(), ToPtr(0x1011));
+  EXPECT_EQ(it->first.start(), kStart);
   EXPECT_EQ(it->first.size(), 0x22);
 
   // Test that the new symbol is correctly initialized.
@@ -60,6 +61,7 @@ TEST_F(SymbolMapTest, AddSymbol) {
   EXPECT_FALSE(symbol->invalid());
   EXPECT_EQ(0, symbol->id());
   EXPECT_EQ(0, symbol->move_count());
+  EXPECT_EQ(kStart, symbol->address());
 }
 
 TEST_F(SymbolMapTest, EnsureHasId) {
@@ -77,6 +79,7 @@ TEST_F(SymbolMapTest, EnsureHasId) {
   EXPECT_TRUE(symbol->EnsureHasId());
   uint32 id = symbol->id();
   EXPECT_NE(0U, id);
+  EXPECT_EQ(kStart, symbol->address());
 
   // We should only get a true return once from EnsureHasId.
   EXPECT_FALSE(symbol->EnsureHasId());
@@ -86,8 +89,10 @@ TEST_F(SymbolMapTest, EnsureHasId) {
 
 TEST_F(SymbolMapTest, AddMoveSymbol) {
   // Insert & move a symbol.
-  symbol_map_.AddSymbol(ToPtr(0x1011), 0x22, "foo");
-  symbol_map_.MoveSymbol(ToPtr(0x1011), ToPtr(0x2000));
+  const void* kSrcAddr = ToPtr(0x1011);
+  const void* kDstAddr = ToPtr(0x2000);
+  symbol_map_.AddSymbol(kSrcAddr, 0x22, "foo");
+  symbol_map_.MoveSymbol(kSrcAddr, kDstAddr);
 
   // Reach into the privates of the symbol map and test it's as we expect.
   ASSERT_EQ(1, symbol_map_.addr_space_.size());
@@ -95,7 +100,7 @@ TEST_F(SymbolMapTest, AddMoveSymbol) {
       symbol_map_.addr_space_.begin();
   ASSERT_TRUE(it != symbol_map_.addr_space_.end());
 
-  EXPECT_EQ(it->first.start(), ToPtr(0x2000));
+  EXPECT_EQ(it->first.start(), kDstAddr);
   EXPECT_EQ(it->first.size(), 0x22);
 
   // Test that the new symbol is correctly initialized.
@@ -104,6 +109,7 @@ TEST_F(SymbolMapTest, AddMoveSymbol) {
   EXPECT_EQ("foo", symbol->name());
   EXPECT_FALSE(symbol->invalid());
   EXPECT_EQ(0, symbol->id());
+  EXPECT_EQ(kDstAddr, symbol->address());
 
   // It should have accrued one move.
   EXPECT_EQ(1, symbol->move_count());
@@ -137,6 +143,7 @@ TEST_F(SymbolMapTest, SymbolLifeCycle) {
 
   EXPECT_EQ(0, symbol->id());
   EXPECT_EQ(0, symbol->move_count());
+  EXPECT_EQ(ToPtr(0x1011), symbol->address());
 
   // Assign an ID to the symbol.
   EXPECT_TRUE(symbol->EnsureHasId());
@@ -150,6 +157,7 @@ TEST_F(SymbolMapTest, SymbolLifeCycle) {
   // Move "foo".
   symbol_map_.MoveSymbol(ToPtr(0x1011), ToPtr(0x2000));
   EXPECT_EQ(1, symbol->move_count());
+  EXPECT_EQ(ToPtr(0x2000), symbol->address());
 
   // Nothing should be at the original location.
   EXPECT_TRUE(symbol_map_.FindSymbol(ToPtr(0x1026)) == NULL);
@@ -163,6 +171,7 @@ TEST_F(SymbolMapTest, SymbolLifeCycle) {
   EXPECT_TRUE(symbol->invalid());
   EXPECT_EQ(id, symbol->id());
   EXPECT_EQ(1, symbol->move_count());
+  EXPECT_EQ(ToPtr(NULL), symbol->address());
 }
 
 }  // namespace profiler

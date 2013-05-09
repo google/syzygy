@@ -296,12 +296,30 @@ struct TraceBatchEnterData {
 };
 COMPILE_ASSERT_IS_POD(TraceBatchEnterData);
 
+enum InvocationInfoFlags {
+  // If this bit is set in InvocationInfo flags, the caller is a dynamic
+  // symbol id, and caller_offset is the offset of the return site, relative to
+  // the start of the caller's symbol.
+  kCallerIsSymbol = 0x01,
+  // If this bit is set in InvocationInfo flags, the function is a dynamic
+  // symbol id, instead of an address.
+  kFunctionIsSymbol = 0x02,
+};
+
 // This is the data recorded for each distinct caller/function
 // pair by the profiler.
 struct InvocationInfo {
-  RetAddr caller;
-  FuncAddr function;
+  union {
+    RetAddr caller;
+    uint32 caller_symbol_id;
+  };
+  union {
+    FuncAddr function;
+    uint32 function_symbol_id;
+  };
   size_t num_calls;
+  uint32 flags:8;
+  uint32 caller_offset:24;
   uint64 cycles_min;
   uint64 cycles_max;
   uint64 cycles_sum;
