@@ -35,6 +35,7 @@ using testing::_;
 using testing::Return;
 using trace::client::CreateRpcBinding;
 using trace::client::InvokeRpc;
+using trace::common::Service;
 
 int __declspec(noinline) FunctionA(const base::Callback<void(void)>& callback) {
   callback.Run();
@@ -73,20 +74,14 @@ bool TextContainsKnownStack(const std::string& text, size_t start_offset) {
 
 class TestLogger : public Logger {
  public:
-  using Logger::owning_thread_id_;
   using Logger::destination_;
-  using Logger::state_;
-  using Logger::instance_id_;
-  using Logger::logger_started_callback_;
-  using Logger::logger_interrupted_callback_;
-  using Logger::logger_stopped_callback_;
 };
 
 class LoggerTest : public testing::Test {
  public:
-  MOCK_METHOD1(LoggerStartedCallback, bool(Logger*));
-  MOCK_METHOD1(LoggerInterruptedCallback, bool(Logger*));
-  MOCK_METHOD1(LoggerStoppedCallback, bool(Logger*));
+  MOCK_METHOD1(LoggerStartedCallback, bool(Service*));
+  MOCK_METHOD1(LoggerInterruptedCallback, bool(Service*));
+  MOCK_METHOD1(LoggerStoppedCallback, bool(Service*));
 
   LoggerTest()
       : io_thread_("LoggerTest IO Thread"), instance_manager_(&logger_) {
@@ -112,27 +107,26 @@ class LoggerTest : public testing::Test {
     // Setup a logger to use.
     logger_.set_instance_id(instance_id_);
     logger_.set_destination(log_file_.get());
-    logger_.set_logger_started_callback(base::Bind(
+    logger_.set_started_callback(base::Bind(
         &LoggerTest::LoggerStartedCallback, base::Unretained(this)));
-    logger_.set_logger_interrupted_callback(base::Bind(
+    logger_.set_interrupted_callback(base::Bind(
         &LoggerTest::LoggerInterruptedCallback, base::Unretained(this)));
-    logger_.set_logger_stopped_callback(base::Bind(
+    logger_.set_stopped_callback(base::Bind(
         &LoggerTest::LoggerStoppedCallback, base::Unretained(this)));
 
     // Validate that the Logger's constructor and setters have done their jobs.
-    ASSERT_EQ(base::PlatformThread::CurrentId(), logger_.owning_thread_id_);
     ASSERT_EQ(log_file_.get(), logger_.destination_);
-    ASSERT_TRUE(!logger_.instance_id_.empty());
-    ASSERT_TRUE(!logger_.logger_started_callback_.is_null());
-    ASSERT_TRUE(!logger_.logger_interrupted_callback_.is_null());
-    ASSERT_TRUE(!logger_.logger_stopped_callback_.is_null());
-    ASSERT_EQ(Logger::kStopped, logger_.state_);
+    ASSERT_TRUE(!logger_.instance_id().empty());
+    ASSERT_TRUE(!logger_.started_callback().is_null());
+    ASSERT_TRUE(!logger_.interrupted_callback().is_null());
+    ASSERT_TRUE(!logger_.stopped_callback().is_null());
+    ASSERT_EQ(Logger::kUnused, logger_.state());
 
     // Start the logger.
     EXPECT_CALL(*this, LoggerStartedCallback(&logger_))
         .WillOnce(Return(true));
     ASSERT_TRUE(logger_.Start());
-    ASSERT_EQ(Logger::kRunning, logger_.state_);
+    ASSERT_EQ(Logger::kRunning, logger_.state());
 
     // At some point we expect someone to stop the logger, and the logger
     // interrupted callback will fire.
@@ -141,7 +135,7 @@ class LoggerTest : public testing::Test {
   }
 
   virtual void TearDown() OVERRIDE {
-    if (logger_.state_ != Logger::kStopped) {
+    if (logger_.state() != Logger::kStopped) {
       ASSERT_TRUE(logger_.Stop());
       ASSERT_NO_FATAL_FAILURE(WaitForLoggerToFinish());
     }
@@ -150,8 +144,8 @@ class LoggerTest : public testing::Test {
   void WaitForLoggerToFinish() {
     EXPECT_CALL(*this, LoggerStoppedCallback(&logger_))
         .WillOnce(Return(true));
-    ASSERT_TRUE(logger_.RunToCompletion());
-    ASSERT_EQ(Logger::kStopped, logger_.state_);
+    ASSERT_TRUE(logger_.Join());
+    ASSERT_EQ(Logger::kStopped, logger_.state());
   }
 
   void DoCaptureRemoteTrace(HANDLE process, std::vector<DWORD>* trace_data) {

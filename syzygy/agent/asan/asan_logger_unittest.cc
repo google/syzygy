@@ -55,7 +55,7 @@ class AsanLoggerTest : public testing::Test {
     instance_id_ = base::StringPrintf(L"%d", ::GetCurrentProcessId());
   }
 
-  MOCK_METHOD1(LoggerStoppedCallback, bool(trace::logger::Logger*));
+  MOCK_METHOD1(LoggerStoppedCallback, bool(trace::common::Service*));
 
  protected:
   base::ScopedTempDir temp_dir_;
@@ -89,7 +89,7 @@ TEST_F(AsanLoggerTest, EndToEnd) {
 
     // Shutdown the logging service.
     ASSERT_TRUE(server.Stop());
-    ASSERT_TRUE(server.RunToCompletion());
+    ASSERT_TRUE(server.Join());
   }
 
   std::string content;
@@ -106,6 +106,9 @@ TEST_F(AsanLoggerTest, Stop) {
   trace::logger::RpcLoggerInstanceManager instance_manager(&server);
   server.set_instance_id(instance_id_);
   server.set_destination(destination.get());
+  server.set_stopped_callback(
+      base::Bind(&AsanLoggerTest::LoggerStoppedCallback,
+                 base::Unretained(this)));
   ASSERT_TRUE(server.Start());
 
   // Use the AsanLogger client.
@@ -114,13 +117,12 @@ TEST_F(AsanLoggerTest, Stop) {
   ASSERT_EQ(instance_id_, client_.instance_id_);
   ASSERT_TRUE(client_.rpc_binding_.Get() != NULL);
 
-  EXPECT_CALL(*this, LoggerStoppedCallback(&server)).Times(1).
+  trace::common::Service* server_base = static_cast<trace::common::Service*>(
+      &server);
+  EXPECT_CALL(*this, LoggerStoppedCallback(server_base)).Times(1).
       WillOnce(Return(true));
-  server.set_logger_stopped_callback(
-      base::Bind(&AsanLoggerTest::LoggerStoppedCallback,
-                  base::Unretained(this)));
   client_.Stop();
-  ASSERT_TRUE(server.RunToCompletion());
+  ASSERT_TRUE(server.Join());
 }
 
 }  // namespace asan

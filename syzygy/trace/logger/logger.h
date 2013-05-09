@@ -22,6 +22,7 @@
 #include "base/message_loop.h"
 #include "base/string_piece.h"
 #include "base/threading/platform_thread.h"
+#include "syzygy/trace/common/service.h"
 #include "syzygy/trace/rpc/logger_rpc.h"
 
 namespace trace {
@@ -34,73 +35,16 @@ namespace logger {
 // TODO(rogerm): Add a Write function more amenable to out-of-process ASAN
 //     error reporting (i.e., accepts module info and stack traces in some
 //     format).
-class Logger {
+class Logger : public trace::common::Service {
  public:
-  typedef base::Callback<bool(Logger*)> LoggerCallback;
-
-  enum State {
-    kStopped,
-    kInitialized,
-    kRunning,
-    kStopping,
-  };
-
   Logger();
-  ~Logger();
-
-  // Set the id for this instance.
-  void set_instance_id(const base::StringPiece16& id) {
-    DCHECK_EQ(kStopped, state_);
-    instance_id_.assign(id.begin(), id.end());
-  }
+  virtual ~Logger();
 
   // Set the destination file for this logger.
   void set_destination(FILE* destination) {
     DCHECK(destination != NULL);
     destination_ = destination;
   }
-
-  // Set a callback to be invoked when the logger has started.
-  void set_logger_started_callback(LoggerCallback callback) {
-    logger_started_callback_ = callback;
-  }
-
-  // Set a callback to be invoked when the logger has been asked to stop.
-  void set_logger_interrupted_callback(LoggerCallback callback) {
-    logger_interrupted_callback_ = callback;
-  }
-
-  // Set a callback to be invoked when the logger has completely stopped.
-  void set_logger_stopped_callback(LoggerCallback callback) {
-    logger_stopped_callback_ = callback;
-  }
-
-  // Begin accepting and handling RPC invocations. This method may only be
-  // called by the thread which created the logger.
-  //
-  // This call is non-blocking. The request handlers will be run on a thread
-  // pool owned by the RPC runtime.
-  bool Start();
-
-  // Request that the logger stop. This method be called by any thread once
-  // the logger has started.
-  //
-  // This call is non-blocking. The request handlers run on a thread pool
-  // owned by the RPC runtime.
-  bool Stop();
-
-  // Run the logger until is has completely shutdown. This method may only
-  // be called by the thread which created, and subsequently started, the
-  // logger.
-  //
-  // Following the receipt of an AsyncStop() request, it is the responsibility
-  // of the thread which owns the logger to ensure that RunToCompletion() is
-  // called as it will take care of flushing any in-flight log requests to disk
-  // before terminating.
-  //
-  // This is a blocking call, it will return after all outstanding requests
-  // have been handled and all log messages have been flushed.
-  bool RunToCompletion();
 
   // Append a trace dump for @p process, given @p trace_data containing
   // @p trace_length elements. The output will be appended to @p message.
@@ -128,24 +72,22 @@ class Logger {
   bool Write(const base::StringPiece& message);
 
  protected:
+  // @name Implementation of Service.
+  // @{
+  virtual bool StartImpl();
+  virtual bool StopImpl();
+  virtual bool JoinImpl();
+  // @}
+
   // @name RPC Server Management Functions.
   // These functions, unless otherwise noted, are single threaded and must
   // all be called from the thread that created this instance.
   // @{
   bool InitRpc();
-  bool StartRPC();
+  bool StartRpc();
   bool StopRpc();  // This non-blocking function may be called from any thread.
   bool FinishRpc();  // This function is blocking.
   // @}
-
-  // The ID of the thread that created this logger.
-  base::PlatformThreadId owning_thread_id_;
-
-  // A unique id to identify this logger instance.
-  std::wstring instance_id_;
-
-  // The current state of the logger.
-  State state_;
 
   // The file to which received log messages should be written. This must
   // remain valid for at least as long as the logger is valid. Writes to
@@ -158,15 +100,6 @@ class Logger {
   // The lock used to serialize access to the debug help library used to
   // symbolize traces.
   base::Lock symbol_lock_;
-
-  // A callback to be invoked when the logger has successfully started.
-  LoggerCallback logger_started_callback_;
-
-  // A callback to be invoked when the logger has been asked to stop.
-  LoggerCallback logger_interrupted_callback_;
-
-  // A callback to be invoked when the logger has successfully stopped.
-  LoggerCallback logger_stopped_callback_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(Logger);

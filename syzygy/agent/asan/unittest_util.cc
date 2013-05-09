@@ -55,7 +55,7 @@ void TestWithAsanLogger::SetUp() {
 
 void TestWithAsanLogger::TearDown() {
   log_service_.Stop();
-  log_service_.RunToCompletion();
+  log_service_.Join();
   log_file_.reset(NULL);
   LogContains("");
 }

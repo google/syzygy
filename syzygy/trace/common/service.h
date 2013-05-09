@@ -21,7 +21,6 @@
 
 #include "base/callback.h"
 #include "base/string_piece.h"
-#include "base/synchronization/lock.h"
 #include "base/threading/platform_thread.h"
 
 namespace trace {
@@ -63,6 +62,11 @@ class Service {
   // These are not thread-safe.
   const std::wstring& name() const { return name_; }
   const std::wstring& instance_id() const { return instance_id_; }
+  const ServiceCallback& started_callback() const { return started_callback_; }
+  const ServiceCallback& interrupted_callback() const {
+    return interrupted_callback_;
+  }
+  const ServiceCallback& stopped_callback() const { return stopped_callback_; }
   // This is thread-safe. As such it requires use of a lock and is not const.
   State state();
   // @}
@@ -129,11 +133,8 @@ class Service {
   // enforce that using this. This is only used for DCHECKs.
   base::PlatformThreadId owning_thread_id_;
 
-  // A mutex used for protecting state transitions, as the external API must be
-  // thread-safe.
-  base::Lock lock_;
   // The current state of the service instance.
-  State state_;  // Under lock_.
+  State state_;
 
   DISALLOW_COPY_AND_ASSIGN(Service);
 };

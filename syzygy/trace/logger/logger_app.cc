@@ -110,7 +110,7 @@ BOOL WINAPI OnConsoleCtrl(DWORD ctrl_type) {
 
 // A helper function to signal an event. This is passable as a callback to
 // a Logger instance to be called on logger start/stop.
-bool SignalEvent(HANDLE event_handle, Logger* /* logger */) {
+bool SignalEvent(HANDLE event_handle, trace::common::Service* /* logger */) {
   DCHECK_NE(INVALID_HANDLE_VALUE, event_handle);
   if (!::SetEvent(event_handle))
     return false;
@@ -397,11 +397,11 @@ bool LoggerApp::Start() {
   Logger logger;
   logger.set_destination(output_file);
   logger.set_instance_id(instance_id_);
-  logger.set_logger_started_callback(
+  logger.set_started_callback(
       base::Bind(&SignalEvent, start_event.Get()));
-  logger.set_logger_stopped_callback(
+  logger.set_stopped_callback(
       base::Bind(&SignalEvent, stop_event.Get()));
-  logger.set_logger_interrupted_callback(
+  logger.set_interrupted_callback(
       base::Bind(&SignalEvent, interrupt_event.Get()));
 
   // Save the instance_id for the Ctrl-C handler.
@@ -451,7 +451,7 @@ bool LoggerApp::Start() {
   }
 
   // Run the logger to completion.
-  if (!logger.RunToCompletion()) {
+  if (!logger.Join()) {
     LOG(ERROR) << "Failed running to completion '" << logger_name << "'.";
     error = true;
   }

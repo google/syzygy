@@ -30,33 +30,34 @@ Service::~Service() {
 }
 
 void Service::set_instance_id(const base::StringPiece16& instance_id) {
-  DCHECK_EQ(kUnused, state());
+  DCHECK_EQ(kUnused, state_);
   instance_id_.assign(instance_id.begin(), instance_id.end());
 }
 
 void Service::set_started_callback(ServiceCallback callback) {
-  DCHECK_EQ(kUnused, state());
+  DCHECK_EQ(kUnused, state_);
   started_callback_ = callback;
 }
 
 void Service::set_interrupted_callback(ServiceCallback callback) {
-  DCHECK_EQ(kUnused, state());
+  DCHECK_EQ(kUnused, state_);
   interrupted_callback_ = callback;
 }
 
 void Service::set_stopped_callback(ServiceCallback callback) {
-  DCHECK_EQ(kUnused, state());
+  DCHECK_EQ(kUnused, state_);
   stopped_callback_ = callback;
 }
 
 Service::State Service::state() {
-  base::AutoLock auto_lock(lock_);
+  // This is only safe as reading and writing to a 32-bit value is atomic on
+  // x86. Otherwise we'd need a lock here.
   return state_;
 }
 
 bool Service::Start() {
   DCHECK_EQ(owning_thread_id_, base::PlatformThread::CurrentId());
-  DCHECK(state() == kUnused || state() == kStopped);
+  DCHECK_EQ(kUnused, state_);
 
   LOG(INFO) << "Starting the " << name_ << " service with instance ID \""
             << instance_id_ << "\".";
@@ -72,21 +73,16 @@ bool Service::Start() {
 }
 
 bool Service::Stop() {
-  // We don't use state() and set_state() so as to avoid grabbing the lock
-  // twice.
-  {
-    base::AutoLock auto_lock(lock_);
+  DCHECK_NE(kErrored, state_);
 
-    // No need to try to stop things again.
-    if (state_ == kStopping || state_ == kStopped)
-      return true;
+  // No need to try to stop things again.
+  if (state_ == kStopping || state_ == kStopped)
+    return true;
 
-    LOG(INFO) << "Stopping the " << name_ << " service with instance ID \""
-              << instance_id_ << "\".";
+  LOG(INFO) << "Stopping the " << name_ << " service with instance ID \""
+            << instance_id_ << "\".";
 
-    OnStateChange(state_, kStopping);
-    state_ = kStopping;
-  }
+  set_state(kStopping);
 
   if (!StopImpl()) {
     LOG(ERROR) << "Failed to stop " << name_ << " service with instance ID \""
@@ -100,7 +96,7 @@ bool Service::Stop() {
 
 bool Service::Join() {
   DCHECK_EQ(owning_thread_id_, base::PlatformThread::CurrentId());
-  DCHECK_EQ(kRunning, state());
+  DCHECK_NE(kErrored, state_);
 
   LOG(INFO) << "Joining the " << name_ << " service with instance ID \""
             << instance_id_ << "\".";
@@ -114,19 +110,19 @@ bool Service::Join() {
 
   // We expect the service implementation to have transitioned us to the stopped
   // state as it finished work.
-  DCHECK_EQ(kStopped, state());
+  DCHECK_EQ(kStopped, state_);
 
   return true;
 }
 
 bool Service::OnInitialized() {
-  DCHECK_EQ(kUnused, state());
+  DCHECK_EQ(kUnused, state_);
   set_state(kInitialized);
   return true;
 }
 
 bool Service::OnStarted() {
-  DCHECK_EQ(kInitialized, state());
+  DCHECK_EQ(kInitialized, state_);
   if (!started_callback_.is_null() && !started_callback_.Run(this))
     return false;
   set_state(kRunning);
@@ -136,23 +132,24 @@ bool Service::OnStarted() {
 bool Service::OnInterrupted() {
   // A service can be interrupted from another thread, another instance of
   // Service, another process, etc. Thus, it's completely valid for a Service
-  // instance to be interrupted in most any state, except stopping or stopped.
-  DCHECK(state() == kUnused || state() == kInitialized || state() == kRunning);
+  // instance to be interrupted in most any state, except stopped or in error.
+  DCHECK(state_ != kStopped && state_ != kErrored);
   if (!interrupted_callback_.is_null() && !interrupted_callback_.Run(this))
     return false;
   return true;
 }
 
 bool Service::OnStopped() {
-  DCHECK_EQ(kStopping, state());
-  if (!started_callback_.is_null() && !stopped_callback_.Run(this))
+  DCHECK_EQ(kStopping, state_);
+  if (!stopped_callback_.is_null() && !stopped_callback_.Run(this))
     return false;
   set_state(kStopped);
   return true;
 }
 
 void Service::set_state(State state) {
-  base::AutoLock auto_lock(lock_);
+  // This is only safe because writing to state_ is atomic, otherwise we'd
+  // have to use a lock here.
   OnStateChange(state_, state);
   state_ = state;
 }

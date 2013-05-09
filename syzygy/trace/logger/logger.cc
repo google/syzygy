@@ -125,54 +125,42 @@ BOOL CALLBACK ReadProcessMemoryProc64(HANDLE process,
 }  // namespace
 
 Logger::Logger()
-    : owning_thread_id_(base::PlatformThread::CurrentId()),
-      destination_(NULL),
-      state_(kStopped) {
+    : trace::common::Service(L"Logger"),
+      destination_(NULL) {
 }
 
 Logger::~Logger() {
-  DCHECK_EQ(owning_thread_id_, base::PlatformThread::CurrentId());
-  if (state_ != kStopped) {
+  if (state() != kStopped) {
     ignore_result(Stop());
-    ignore_result(RunToCompletion());
+    ignore_result(Join());
   }
-  DCHECK_EQ(kStopped, state_);
 }
 
-bool Logger::Start() {
-  DCHECK_EQ(owning_thread_id_, base::PlatformThread::CurrentId());
-  DCHECK_EQ(kStopped, state_);
-
+bool Logger::StartImpl() {
   LOG(INFO) << "Starting the logging service.";
 
   if (!InitRpc())
     return false;
 
-  if (!StartRPC())
+  if (!StartRpc())
     return false;
 
   return true;
 }
 
-bool Logger::Stop() {
+bool Logger::StopImpl() {
   if (!StopRpc())
     return false;
-
   return true;
 }
 
-bool Logger::RunToCompletion() {
-  DCHECK_EQ(owning_thread_id_, base::PlatformThread::CurrentId());
-  DCHECK_EQ(kRunning, state_);
-
+bool Logger::JoinImpl() {
   // Finish processing all RPC events. If Stop() has previously been called
   // this will simply ensure that all outstanding requests are handled. If
   // Stop has not been called, this will continue (i.e., block) handling events
   // until someone else calls Stop() in another thread.
   if (!FinishRpc())
     return false;
-
-  DCHECK_EQ(kStopped, state_);
 
   return true;
 }
@@ -326,17 +314,12 @@ bool Logger::Write(const base::StringPiece& message) {
 }
 
 bool Logger::InitRpc() {
-  // This method must be called by the owning thread, so no need to otherwise
-  // synchronize the method invocation.
-  DCHECK_EQ(owning_thread_id_, base::PlatformThread::CurrentId());
-  DCHECK_EQ(kStopped, state_);
-
   RPC_STATUS status = RPC_S_OK;
 
   // Initialize the RPC protocol we want to use.
   std::wstring protocol(kLoggerRpcProtocol);
   std::wstring endpoint(
-      GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
+      GetInstanceString(kLoggerRpcEndpointRoot, instance_id()));
 
   VLOG(1) << "Initializing RPC endpoint '" << endpoint << "' "
           << "using the '" << protocol << "' protocol.";
@@ -370,18 +353,15 @@ bool Logger::InitRpc() {
     return false;
   }
 
-  state_ = kInitialized;
+  OnInitialized();
 
   return true;
 }
 
-bool Logger::StartRPC() {
+bool Logger::StartRpc() {
   // This method must be called by the owning thread, so no need to otherwise
   // synchronize the method invocation.
   VLOG(1) << "Starting the RPC server.";
-
-  DCHECK_EQ(owning_thread_id_, base::PlatformThread::CurrentId());
-  DCHECK_EQ(kInitialized, state_);
 
   RPC_STATUS status = ::RpcServerListen(
       1,  // Minimum number of handler threads.
@@ -394,12 +374,9 @@ bool Logger::StartRPC() {
     return false;
   }
 
-  state_ = kRunning;
-
   // Invoke the callback for the logger started event, giving it a chance to
   // abort the startup.
-  if (!logger_started_callback_.is_null() &&
-      !logger_started_callback_.Run(this)) {
+  if (!OnStarted()) {
     ignore_result(StopRpc());
     ignore_result(FinishRpc());
     return false;
@@ -420,33 +397,23 @@ bool Logger::StopRpc() {
     return false;
   }
 
-  if (!logger_interrupted_callback_.is_null() &&
-      !logger_interrupted_callback_.Run(this)) {
+  if (!OnInterrupted())
     return false;
-  }
 
   return true;
 }
 
 bool Logger::FinishRpc() {
-  // This method must be called by the owning thread, so no need to otherwise
-  // synchronize the method invocation.
-  DCHECK_EQ(owning_thread_id_, base::PlatformThread::CurrentId());
-  DCHECK(state_ == kRunning || state_ == kInitialized);
-
   bool error = false;
   RPC_STATUS status = RPC_S_OK;
 
   // Run the RPC server to completion. This is a blocking call which will only
   // terminate after someone calls StopRpc() on another thread.
-  if (state_ == kRunning) {
-    state_ = kStopping;
-    status = RpcMgmtWaitServerListen();
-    if (status != RPC_S_OK) {
-      LOG(ERROR) << "Failed to wait for RPC server shutdown: "
-                  << com::LogWe(status) << ".";
-      error = true;
-    }
+  status = RpcMgmtWaitServerListen();
+  if (status != RPC_S_OK) {
+    LOG(ERROR) << "Failed to wait for RPC server shutdown: "
+                << com::LogWe(status) << ".";
+    error = true;
   }
 
   status = ::RpcServerUnregisterIf(
@@ -465,14 +432,9 @@ bool Logger::FinishRpc() {
     error = true;
   }
 
-  state_ = kStopped;
-
   LOG(INFO) << "The logging service has stopped.";
-
-  if (!logger_stopped_callback_.is_null() &&
-      !logger_stopped_callback_.Run(this)) {
+  if (!OnStopped())
     error = true;
-  }
 
   return !error;
 }
