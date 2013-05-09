@@ -1,6 +1,12 @@
 Syzygy Release Notes
 ====================
 
+Version 0.2.20.0
+
+[r1490] SyzyASAN - Cut shadow size in half.
+[r1469] Disable DCHECKs in official builds.
+[r1466] SyzyASAN - Make the slow path faster.
+
 Version 0.2.19.0
 
 [r1460] SyzyASAN - Include all stack frames by default.
