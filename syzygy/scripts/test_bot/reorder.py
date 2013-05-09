@@ -210,6 +210,7 @@ class ReorderTest(object):
         '--output-image=%s' % new_bin,
         '--output-pdb=%s' % new_pdb,
         '--padding=%s' % self._padding,
+        '--fuzz',
         ]
     if self._reorder_basic_blocks:
       command.append('--basic-blocks')
