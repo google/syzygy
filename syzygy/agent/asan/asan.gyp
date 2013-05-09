@@ -82,6 +82,12 @@
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
        ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          # Disable support for large address spaces.
+          'LargeAddressAware': 1,
+        },
+      },
     },
   ],
 }

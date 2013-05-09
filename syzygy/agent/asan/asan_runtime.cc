@@ -22,6 +22,7 @@
 #include "base/sys_string_conversions.h"
 #include "base/utf_string_conversions.h"
 #include "base/strings/string_tokenizer.h"
+#include "base/win/pe_image.h"
 #include "base/win/wrapped_window_proc.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
@@ -202,6 +203,18 @@ bool HeapListContainsEntry(const LIST_ENTRY* list, const LIST_ENTRY* item) {
   return false;
 }
 
+// Check if the current process is large address aware.
+// @returns true if it is, false otherwise.
+bool CurrentProcessIsLargeAddressAware() {
+  const base::win::PEImage image(::GetModuleHandle(NULL));
+
+  bool process_is_large_address_aware =
+    (image.GetNTHeaders()->FileHeader.Characteristics &
+        IMAGE_FILE_LARGE_ADDRESS_AWARE) != 0;
+
+  return process_is_large_address_aware;
+}
+
 }  // namespace
 
 const char AsanRuntime::kSyzyAsanEnvVar[] = "SYZYGY_ASAN_OPTIONS";
@@ -225,6 +238,11 @@ AsanRuntime::~AsanRuntime() {
 }
 
 void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
+  // Ensure that the current process is not large address aware. It shouldn't be
+  // because the shadow memory assume that the process will only be able to use
+  // 2GB of address space.
+  CHECK(!CurrentProcessIsLargeAddressAware());
+
   // Initialize the command-line structures. This is needed so that
   // SetUpLogger() can include the command-line in the message announcing
   // this process. Note: this is mostly for debugging purposes.

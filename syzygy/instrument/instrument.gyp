@@ -110,6 +110,12 @@
         '<(src)/syzygy/test_data/test_data.gyp:asan_instrumented_test_dll',
         '<(src)/third_party/distorm/distorm.gyp:distorm',
       ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          # Disable support for large address spaces.
+          'LargeAddressAware': 1,
+        },
+      },
     },
   ],
 }

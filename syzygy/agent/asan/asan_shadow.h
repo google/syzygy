@@ -67,8 +67,9 @@ class Shadow {
                                    std::string* output,
                                    size_t bug_index);
 
-  // One shadow byte for every 8 bytes in a 4G address space.
-  static const size_t kShadowSize = 1 << (32 - 3);
+  // One shadow byte for every 8 bytes in a 2G address space. By default Chrome
+  // is not large address aware, so we shouldn't be using the high memory.
+  static const size_t kShadowSize = 1 << (31 - 3);
   static uint8 shadow_[kShadowSize];
 };
 
