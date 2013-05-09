@@ -76,6 +76,7 @@ using agent::common::GetProcessModules;
 using agent::common::ModuleVector;
 using file_util::FileEnumerator;
 using testing::_;
+using testing::AllOf;
 using testing::Return;
 using testing::StrictMockParseEventHandler;
 using trace::service::RpcServiceInstanceManager;
@@ -556,19 +557,34 @@ TEST_F(ProfilerTest, RecordsUsedSymbols) {
 
   ASSERT_NO_FATAL_FAILURE(LoadDll());
 
-  // Add a dynamic symbol for the DllMain and IndirectionFunctionA functions.
+  // Add a dynamic symbol for the DllMain and a hypothetical bogus function.
   base::StringPiece dll_main_caller_name("DllMainCaller");
-  const void* dll_main_addr =
-      reinterpret_cast<const void*>(DllMainCaller(RETURN_ADDR));
+  const uint8* dll_main_addr =
+      reinterpret_cast<const uint8*>(DllMainCaller(RETURN_ADDR));
   size_t dll_main_len = DllMainCaller(RETURN_LENGTH);
   add_symbol_func_(dll_main_addr, dll_main_len,
                    dll_main_caller_name.data(), dll_main_caller_name.length());
 
-  base::StringPiece func_a_name("IndirectFunctionA");
-  add_symbol_func_(&IndirectFunctionA, 0x5,
-                   func_a_name.data(), func_a_name.length());
+  // Place bogus function immediately after the real DllMainCaller.
+  base::StringPiece func_bogus_name("BogusFunction");
+  add_symbol_func_(dll_main_addr + dll_main_len, dll_main_len,
+                   func_bogus_name.data(), func_bogus_name.length());
 
+  // And place uncalled function immediately after the real DllMainCaller.
+  base::StringPiece func_uncalled_name("UncalledFunction");
+  add_symbol_func_(dll_main_addr + dll_main_len * 2, dll_main_len,
+                   func_uncalled_name.data(), func_uncalled_name.length());
+
+  // Call through a "dynamic symbol" to the instrumented function.
   ASSERT_NO_FATAL_FAILURE(DllMainCaller(CALL_THROUGH));
+
+  // Now make as if BogusFunction moves to replace DllMainCaller's location.
+  move_symbol_func_(dll_main_addr + dll_main_len, dll_main_addr);
+
+  // Call through a "dynamic symbol" to the instrumented function again.
+  // This should result in a second dynamic symbol and entry in the trace file.
+  ASSERT_NO_FATAL_FAILURE(DllMainCaller(CALL_THROUGH));
+
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
 
   EXPECT_CALL(handler_, OnProcessStarted(_, ::GetCurrentProcessId(), _));
@@ -578,21 +594,26 @@ TEST_F(ProfilerTest, RecordsUsedSymbols) {
                                         _))
       .Times(testing::AnyNumber());
 
+  // Expect two invocation records batches with dynamic symbols.
+  // TODO(siggi): Fixme: it's inefficient to alternate symbols and invocation
+  //     batches. Easiest fix is to pre-allocate invocation record in batches.
   EXPECT_CALL(handler_,
-      OnInvocationBatch(_,
-                        ::GetCurrentProcessId(),
-                        ::GetCurrentThreadId(),
-                        1U,
-                        InvocationInfoHasCallerSymbol(1U, dll_main_len)));
+      OnInvocationBatch(
+          _, ::GetCurrentProcessId(), ::GetCurrentThreadId(),
+          1U, InvocationInfoHasCallerSymbol(1U, dll_main_len)));
+  EXPECT_CALL(handler_,
+      OnInvocationBatch(
+          _, ::GetCurrentProcessId(), ::GetCurrentThreadId(),
+          1U, InvocationInfoHasCallerSymbol(2U, dll_main_len)));
+
   EXPECT_CALL(handler_, OnProcessEnded(_, ::GetCurrentProcessId()));
 
-  // The dll main function is used and should make an appearance,
-  // whereas the other one should not.
+  // The DllMain and the Bogus functions should both make an appearance,
+  // and nothing else.
   EXPECT_CALL(handler_,
       OnDynamicSymbol(::GetCurrentProcessId(), 1, dll_main_caller_name));
   EXPECT_CALL(handler_,
-      OnDynamicSymbol(::GetCurrentProcessId(), _, func_a_name))
-          .Times(0);
+      OnDynamicSymbol(::GetCurrentProcessId(), _, func_bogus_name));
 
   // Replay the log.
   ASSERT_NO_FATAL_FAILURE(ReplayLogs());

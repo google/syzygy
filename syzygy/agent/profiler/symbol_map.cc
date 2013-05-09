@@ -100,13 +100,12 @@ void SymbolMap::RetireRangeUnlocked(const Range& range) {
 SymbolMap::Symbol::Symbol(const base::StringPiece& name, const void* address)
     : name_(name.begin(), name.end()),
       move_count_(0),
-      invalid_(false),
       id_(0),
       address_(address) {
 }
 
 bool SymbolMap::Symbol::EnsureHasId() {
-  DCHECK(!invalid_);
+  DCHECK(!invalid());
   if (base::subtle::Acquire_Load(&id_) != 0)
     return false;
 
@@ -123,13 +122,12 @@ bool SymbolMap::Symbol::EnsureHasId() {
 }
 
 void SymbolMap::Symbol::Invalidate() {
-  DCHECK(!invalid_);
-  invalid_ = true;
-  address_ = NULL;
+  DCHECK(!invalid());
+  Move(NULL);
 }
 
 void SymbolMap::Symbol::Move(const void* new_address) {
-  DCHECK(!invalid_);
+  DCHECK(!invalid());
   // TODO(siggi): The intent here is to make sure other cores see the new
   //     value without delay. The barrier may not be what's needed to do that?
   address_ = new_address;

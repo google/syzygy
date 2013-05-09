@@ -170,7 +170,8 @@ TEST_F(SymbolMapTest, SymbolLifeCycle) {
   symbol_map_.AddSymbol(ToPtr(0x2010), 0x20, "overlapping");
   EXPECT_TRUE(symbol->invalid());
   EXPECT_EQ(id, symbol->id());
-  EXPECT_EQ(1, symbol->move_count());
+  // Note that invalidating a symbol updates the move count.
+  EXPECT_EQ(2, symbol->move_count());
   EXPECT_EQ(ToPtr(NULL), symbol->address());
 }
 
