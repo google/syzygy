@@ -1063,11 +1063,12 @@ void DumpLeafCmplx128(FILE* out, PdbStream* stream) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
-  ::fprintf(out, "real: %f, imaginary: %f",
+  // TODO(sebmarchand): Fix the output of this structure.
+  ::fprintf(out, "reals: %f-%f, imaginaries: %f-%f",
             numeric_value.val0_real,
             numeric_value.val1_real,
             numeric_value.val0_imag,
-            numeric_value.val0_imag);
+            numeric_value.val1_imag);
 }
 
 }  // namespace

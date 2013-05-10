@@ -60,7 +60,7 @@ bool DecodeOneInstruction(
   code.code = buffer;
 
   unsigned int decoded = 0;
-  ::memset(instruction, 0, sizeof(instruction));
+  ::memset(instruction, 0, sizeof(*instruction));
   _DecodeResult result = DistormDecompose(&code, instruction, 1, &decoded);
 
   if (result != DECRES_MEMORYERR && result != DECRES_SUCCESS)

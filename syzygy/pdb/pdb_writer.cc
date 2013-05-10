@@ -120,7 +120,7 @@ class ReadOnlyPdbStream : public PdbStream {
 // free page map). It is expected that @data be kPdbPageSize in length.
 // @pre the file is expected to be positioned at @p *page_count * kPdbPageSize
 //     when entering this routine
-// @post the file will be postioned at @p *page_count * kPdbPageSiz when
+// @post the file will be positioned at @p *page_count * kPdbPageSiz when
 //     exiting this routine.
 bool AppendPage(const void* data,
                 std::vector<uint32>* pages_written,

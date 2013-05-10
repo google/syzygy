@@ -318,7 +318,7 @@ void AddressFilter<AddressType, SizeType>::Intersect(
         // them if they are equal.
         if (it1->end() < it2->end()) {
           ++it1;
-        } else if (it2->end() < it2->end()) {
+        } else if (it2->end() < it1->end()) {
           ++it2;
         } else {
           ++it1;

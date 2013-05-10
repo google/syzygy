@@ -482,7 +482,7 @@ bool ProfileGrinder::OutputDataForPart(const PartData& part, FILE* file) {
       // Output the function information.
       ::fprintf(file, "fl=%ws\n", file_name.c_str());
       ::fprintf(file, "fn=%ws\n", function_name.c_str());
-      ::fprintf(file, "%d %I64d %I64d %I64d\n", line,
+      ::fprintf(file, "%d %I64d %I64d %I64d %I64d\n", line,
                 node.metrics.num_calls, node.metrics.cycles_sum,
                 node.metrics.cycles_min, node.metrics.cycles_max);
 
@@ -500,7 +500,7 @@ bool ProfileGrinder::OutputDataForPart(const PartData& part, FILE* file) {
           ::fprintf(file, "cfl=%ws\n", file_name.c_str());
           ::fprintf(file, "cfn=%ws\n", function_name.c_str());
           ::fprintf(file, "calls=%d %d\n", call->metrics.num_calls, line);
-          ::fprintf(file, "%d %I64d %I64d %I64d\n", call->line,
+          ::fprintf(file, "%d %I64d %I64d %I64d %I64d\n", call->line,
                     call->metrics.num_calls, call->metrics.cycles_sum,
                     call->metrics.cycles_min, call->metrics.cycles_max);
         }

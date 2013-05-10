@@ -1996,9 +1996,9 @@ bool Decomposer::ProcessStaticInitializers() {
     BlockGraph::Block* merged = image_->MergeIntersectingBlocks(range);
     std::string name = base::StringPrintf("Bracketed Initializers: %s",
                                           init_it->first.c_str());
+    DCHECK(merged != NULL);
     merged->set_name(name);
     merged->set_attribute(BlockGraph::COFF_GROUP);
-    DCHECK(merged != NULL);
   }
 
   return true;
