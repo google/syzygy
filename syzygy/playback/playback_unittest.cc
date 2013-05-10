@@ -109,13 +109,22 @@ TEST_F(PlaybackTest, ConsumeCallTraceEvents) {
   EXPECT_TRUE(Init());
   EXPECT_TRUE(playback_->Init(&input_dll_, &image_layout_, parser_.get()));
 
+#ifdef OFFICIAL_BUILD
+  static const size_t kProcessAttachCount = 4;
+  static const size_t kBatchFunctionEntryCount = 4;
+#else
+  static const size_t kProcessAttachCount = 12;
+  static const size_t kBatchFunctionEntryCount = 12;
+#endif
+
   EXPECT_CALL(*parse_event_handler_, OnProcessStarted(_, _, _)).Times(4);
   EXPECT_CALL(*parse_event_handler_, OnProcessEnded(_, _)).Times(4);
   EXPECT_CALL(*parse_event_handler_, OnFunctionEntry(_, _, _, _)).Times(0);
   EXPECT_CALL(*parse_event_handler_, OnFunctionExit(_, _, _, _)).Times(0);
-  EXPECT_CALL(*parse_event_handler_,
-              OnBatchFunctionEntry(_, _, _, _)).Times(12);
-  EXPECT_CALL(*parse_event_handler_, OnProcessAttach(_, _, _, _)).Times(12);
+  EXPECT_CALL(*parse_event_handler_, OnBatchFunctionEntry(_, _, _, _)).
+                  Times(kBatchFunctionEntryCount);
+  EXPECT_CALL(*parse_event_handler_, OnProcessAttach(_, _, _, _)).
+                  Times(kProcessAttachCount);
   EXPECT_CALL(*parse_event_handler_, OnThreadAttach(_, _, _, _)).Times(0);
   EXPECT_CALL(*parse_event_handler_, OnThreadDetach(_, _, _, _)).Times(0);
   EXPECT_CALL(*parse_event_handler_,

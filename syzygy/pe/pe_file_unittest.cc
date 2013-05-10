@@ -78,6 +78,22 @@ public:
   base::NativeLibrary test_dll_;
 };
 
+// Functor for comparing import infos.
+struct CompareImportInfo {
+  bool operator()(const PEFile::ImportInfo& ii1,
+                  const PEFile::ImportInfo& ii2) {
+    if (ii1.hint < ii2.hint)
+      return true;
+    if (ii1.hint > ii2.hint)
+      return false;
+    if (ii1.ordinal < ii2.ordinal)
+      return true;
+    if (ii1.ordinal > ii2.ordinal)
+      return false;
+    return ii1.function < ii2.function;
+  }
+};
+
 }  // namespace
 
 TEST_F(PEFileTest, Create) {
@@ -331,11 +347,20 @@ TEST_F(PEFileTest, DecodeImports) {
     PEFile::ImportDll& dll = imports[i];
     if (0 == base::strcasecmp("export_dll.dll", dll.name.c_str())) {
       ASSERT_EQ(4, dll.functions.size());
-      ASSERT_THAT(dll.functions, testing::ElementsAre(
-          PEFile::ImportInfo(0, 0, "function1"),
-          PEFile::ImportInfo(1, 0, "function3"),
-          PEFile::ImportInfo(0, 7, ""),
-          PEFile::ImportInfo(2, 0, "kExportedData")));
+      for (size_t i = 0; i < dll.functions.size(); ++i) {
+        LOG(ERROR) << dll.functions[i].hint << ":"
+                   << dll.functions[i].ordinal << ":"
+                   << dll.functions[i].function;
+      }
+      // Depending on the optimization settings the order of these elements can
+      // actually be different.
+      ASSERT_THAT(dll.functions, testing::WhenSortedBy(
+          CompareImportInfo(),
+          testing::ElementsAre(
+              PEFile::ImportInfo(0, 0, "function1"),
+              PEFile::ImportInfo(0, 7, ""),
+              PEFile::ImportInfo(1, 0, "function3"),
+              PEFile::ImportInfo(2, 0, "kExportedData"))));
     }
   }
 }

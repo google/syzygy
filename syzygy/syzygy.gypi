@@ -19,6 +19,8 @@
   'variables': {
     # All of our code is chromium code.
     'chromium_code': 1,
+
+    # By default we are not producing an official build.
     'official_build%': 0,
 
     # Make sure we use the bundled version of python rather than any others
@@ -73,12 +75,26 @@
       },
       'Release': {
         'conditions': [
-          # We set this define to avoid the DCHECKs to generate any code in an
-          # official build.
+          # We up the level of optimizations for official builds.
           ['OS=="win" and official_build==1', {
             'defines': [
+              # We set this define to avoid the DCHECKs to generate any code in
+              # an official build.
               'OFFICIAL_BUILD',
             ],
+            'msvs_settings': {
+              'VCCLCompilerTool': {
+                'EnableIntrinsicFunctions': 'true',
+                'BufferSecurityCheck': 'false',
+                # 0: favorNone, 1: favorSpeed, 2: favorSize.
+                'FavorSizeOrSpeed': '1',
+                'WholeProgramOptimization': 'true',
+              },
+              'VCLinkerTool': {
+                # 0: Inherit, 1: Enabled, 2-4: For PGO.
+                'LinkTimeCodeGeneration': '1',
+              },
+            },
           }],
         ],
       },
