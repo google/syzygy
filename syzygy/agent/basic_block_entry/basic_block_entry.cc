@@ -29,6 +29,24 @@
 #include "syzygy/common/logging.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
+// Save caller-save registers (eax, ecx, edx) and flags (eflags).
+#define BBENTRY_SAVE_REGISTERS  \
+  __asm push eax  \
+  __asm lahf  \
+  __asm seto al  \
+  __asm push eax  \
+  __asm push ecx  \
+  __asm push edx
+
+// Restore caller-save registers (eax, ecx, edx) and flags (eflags).
+#define BBENTRY_RESTORE_REGISTERS  \
+  __asm pop edx  \
+  __asm pop ecx  \
+  __asm pop eax  \
+  __asm add al, 0x7f  \
+  __asm sahf  \
+  __asm pop eax
+
 extern "C" void __declspec(naked) _basic_block_enter() {
   __asm {
     // This is expected to be called via instrumentation that looks like:
@@ -39,28 +57,22 @@ extern "C" void __declspec(naked) _basic_block_enter() {
     // Stack: ... bb_id, module_data, ret_addr.
 
     // Stash volatile registers.
-    push eax
-    push ecx
-    push edx
-    pushfd
+    BBENTRY_SAVE_REGISTERS
 
-    // Stack: ... bb_id, module_data, ret_addr, eax, ecx, edx, fd.
+    // Stack: ... bb_id, module_data, ret_addr, [4x register]
 
     // Push the original esp value onto the stack as the entry-hook data.
     // This gives the entry-hook a pointer to ret_addr, module_data and bb_id.
     lea eax, DWORD PTR[esp + 0x10]
     push eax
 
-    // Stack: ..., bb_id, module_data, ret_addr, eax, ecx, edx, fd, &ret_addr.
+    // Stack: ..., bb_id, module_data, ret_addr, [4x register], esp, &ret_addr.
     call agent::basic_block_entry::BasicBlockEntry::BasicBlockEntryHook
 
-    // Stack: ... bb_id, module_data, ret_addr, eax, ecx, edx, fd.
+    // Stack: ... bb_id, module_data, ret_addr, [4x register].
 
     // Restore volatile registers.
-    popfd
-    pop edx
-    pop ecx
-    pop eax
+    BBENTRY_RESTORE_REGISTERS
 
     // Stack: ... bb_id, module_data, ret_addr.
 
@@ -82,13 +94,10 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
     // Stack: ... reserved, reason, module, ret_addr, module_data, function.
 
     // Stash volatile registers.
-    push eax
-    push ecx
-    push edx
-    pushfd
+    BBENTRY_SAVE_REGISTERS
 
     // Stack: ... reserved, reason, module, ret_addr, module_data, function,
-    //        eax, ecx, edx, fd.
+    //        [4x register].
 
     // Push the original esp value onto the stack as the entry-hook data.
     // This gives the dll entry-hook a pointer to function, module_data,
@@ -97,18 +106,15 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
     push eax
 
     // Stack: ... reserved, reason, module, ret_addr, module_data, function,
-    //        eax, ecx, edx, fd, &function.
+    //        [4x register], &function.
 
     call agent::basic_block_entry::BasicBlockEntry::DllMainEntryHook
 
     // Stack: ... reserved, reason, module, ret_addr, module_data, function,
-    //        eax, ecx, edx, fd.
+    //        [4x register].
 
     // Restore volatile registers.
-    popfd
-    pop edx
-    pop ecx
-    pop eax
+    BBENTRY_RESTORE_REGISTERS
 
     // Stack: ... reserved, reason, module, ret_addr, module_data, function.
 
@@ -130,12 +136,9 @@ extern "C" void __declspec(naked) _indirect_penter_exemain() {
     // Stack: ... ret_addr, module_data, function.
 
     // Stash volatile registers.
-    push eax
-    push ecx
-    push edx
-    pushfd
+    BBENTRY_SAVE_REGISTERS
 
-    // Stack: ... ret_addr, module_data, function, eax, ecx, edx, fd.
+    // Stack: ... ret_addr, module_data, function, [4x register].
 
     // Push the original esp value onto the stack as the entry-hook data.
     // This gives the exe entry-hook a pointer to function, module_data,
@@ -143,17 +146,14 @@ extern "C" void __declspec(naked) _indirect_penter_exemain() {
     lea eax, DWORD PTR[esp + 0x10]
     push eax
 
-    // Stack: ... ret_addr, module_data, function, eax, ecx, edx, fd, frame.
+    // Stack: ... ret_addr, module_data, function, [4x register], frame.
 
     call agent::basic_block_entry::BasicBlockEntry::ExeMainEntryHook
 
-    // Stack: ... ret_addr, module_data, function, eax, ecx, edx, fd.
+    // Stack: ... ret_addr, module_data, function, [4x register].
 
     // Restore volatile registers.
-    popfd
-    pop edx
-    pop ecx
-    pop eax
+    BBENTRY_RESTORE_REGISTERS
 
     // Stack: ... ret_addr, module_data, function.
 
