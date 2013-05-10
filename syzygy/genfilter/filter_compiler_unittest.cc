@@ -65,7 +65,7 @@ class FilterCompilerTest : public testing::PELibUnitTest {
 
   void CreateFilterDescriptionFile(const base::StringPiece& line) {
     file_util::ScopedFILE file(file_util::OpenFile(filter_txt_, "wb"));
-    ::fprintf(file.get(), "%s\n", line);
+    ::fprintf(file.get(), "%.*s\n", line.length(), line.data());
   }
 
   void CreateFilterDescriptionFile() {
