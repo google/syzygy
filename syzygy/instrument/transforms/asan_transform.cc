@@ -440,7 +440,7 @@ bool AddAsanCheckAccessHooks(
 // @param reference Will receive the reference to the created hook.
 // @returns true on success, false otherwise.
 bool CreateHooksStub(BlockGraph* block_graph,
-                     const base::StringPiece stub_name,
+                     const base::StringPiece& stub_name,
                      AsanBasicBlockTransform::MemoryAccessMode mode,
                      BlockGraph::Reference* reference) {
   DCHECK(reference != NULL);
@@ -454,7 +454,8 @@ bool CreateHooksStub(BlockGraph* block_graph,
     return false;
   }
 
-  std::string stub_name_with_id = base::StringPrintf("%s%d", stub_name, mode);
+  std::string stub_name_with_id = base::StringPrintf(
+      "%.*s%d", stub_name.length(), stub_name.data(), mode);
 
   // Create the thunk for standard "load/store" (received address in EDX).
   BasicBlockSubGraph bbsg;
