@@ -46,6 +46,16 @@ const uint32 kModuleSize = 0x1000;
 const uint32 kImageChecksum = 0xCAFEBABE;
 const uint32 kTimeDateStamp = 0xBABECAFE;
 
+// We allocate the frequency data using new uint8[], so we need to make sure it
+// gets cleaned up with the appropriate deleter.
+struct TraceIndexedFrequencyDataDeleter {
+  inline void operator()(TraceIndexedFrequencyData* ptr) const {
+    delete [] reinterpret_cast<uint8*>(ptr);
+  }
+};
+typedef scoped_ptr<TraceIndexedFrequencyData,
+                   TraceIndexedFrequencyDataDeleter> ScopedFrequencyData;
+
 class TestBasicBlockEntryCountGrinder : public BasicBlockEntryCountGrinder {
  public:
   using BasicBlockEntryCountGrinder::UpdateBasicBlockEntryCount;
@@ -148,7 +158,7 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
 
   void GetFrequencyData(const ModuleInformation& module_info,
                         size_t frequency_size,
-                        scoped_ptr<TraceIndexedFrequencyData>* data) {
+                        ScopedFrequencyData* data) {
     ASSERT_TRUE(IsValidFrequencySize(frequency_size));
     ASSERT_TRUE(data != NULL);
 
@@ -232,7 +242,7 @@ TEST_F(BasicBlockEntryCountGrinderTest, UpdateBasicBlockEntryCount) {
   ASSERT_NO_FATAL_FAILURE(InitModuleInfo(&module_info));
 
   TestBasicBlockEntryCountGrinder grinder;
-  scoped_ptr<TraceIndexedFrequencyData> data;
+  ScopedFrequencyData data;
   // Validate 1-byte frequency data.
   ASSERT_NO_FATAL_FAILURE(
       GetFrequencyData(module_info.original_module, 1, &data));
