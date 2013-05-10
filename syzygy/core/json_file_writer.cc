@@ -113,8 +113,10 @@ bool JSONFileWriter::OutputComment(const base::StringPiece& comment) {
   if (finished_) {
     if (!OutputNewline() || !Printf("%s", kCommentPrefix))
       return false;
-    if (comment[0] != 0 && !Printf(" %s", comment))
+    if (comment.length() > 0 &&
+        !Printf(" %.*s", comment.length(), comment.data())) {
       return false;
+    }
     return true;
   }
 
@@ -147,7 +149,7 @@ bool JSONFileWriter::OutputTrailingComment(const base::StringPiece& comment) {
   }
 
   // No comment? Do nothing!
-  if (comment[0] == 0)
+  if (comment.length() == 0)
     return true;
 
   // If we already have a trailing comment, bail!
