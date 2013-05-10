@@ -198,7 +198,7 @@ class CallTraceServiceTest : public testing::Test {
     ZeroMemory(segment, sizeof(*segment));
     BindRPC();
 
-    unsigned long flags;
+    unsigned long flags = 0;
     RpcStatus status = InvokeRpc(CallTraceClient_CreateSession,
                                  client_rpc_binding_,
                                  session_handle,
