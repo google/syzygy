@@ -92,14 +92,14 @@ const std::string* GetSourceFileName(DWORD source_file_id,
   HRESULT hr = line_number->get_sourceFile(source_file.Receive());
   if (FAILED(hr)) {
     LOG(ERROR) << "Failure in get_sourceFile: " << com::LogHr(hr) << ".";
-    return false;
+    return NULL;
   }
 
   ScopedBstr source_file_path_bstr;
   hr = source_file->get_fileName(source_file_path_bstr.Receive());
   if (FAILED(hr)) {
     LOG(ERROR) << "Failure in get_fileName: " << com::LogHr(hr) << ".";
-    return false;
+    return NULL;
   }
 
   std::string source_file_path;
@@ -108,7 +108,7 @@ const std::string* GetSourceFileName(DWORD source_file_id,
                   &source_file_path)) {
     LOG(ERROR) << "WideToUTF8 failed for path \""
                << com::ToString(source_file_path_bstr) << "\".";
-    return false;
+    return NULL;
   }
 
   LineInfo::SourceFileSet::const_iterator source_file_it =

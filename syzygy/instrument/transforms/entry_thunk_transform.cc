@@ -336,7 +336,7 @@ BlockGraph::Block* EntryThunkTransform::CreateOneThunk(
   BlockBuilder block_builder(block_graph);
   if (!block_builder.Merge(&bbsg)) {
     LOG(ERROR) << "Failed to build thunk block.";
-    return false;
+    return NULL;
   }
 
   // Exactly one new block should have been created.

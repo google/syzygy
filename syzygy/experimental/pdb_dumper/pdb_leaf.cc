@@ -1168,7 +1168,7 @@ const char* GetNumericLeafNameAndSize(uint16 leaf_type, size_t* leaf_size) {
     if (leaf_name == NULL) {
       LOG(ERROR) << "Unsupported leaf type "
                  << base::StringPrintf("0x%04X.", leaf_type);
-      return false;
+      return NULL;
     }
     *leaf_size = NumericLeafSize(leaf_type);
   }

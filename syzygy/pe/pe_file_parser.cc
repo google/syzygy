@@ -822,7 +822,7 @@ BlockGraph::Block* PEFileParser::ChunkDelayBoundIATBlock(
   BlockGraph::AddressSpace::Range range(iat_addr, iat_size);
   if (!address_space_->MergeIntersectingBlocks(range)) {
     LOG(ERROR) << "Unable to merge intersecting bound IAT blocks.";
-    return false;
+    return NULL;
   }
   iat_block = address_space_->GetContainingBlock(iat_addr, iat_size);
   DCHECK(iat_block != NULL);
@@ -877,7 +877,7 @@ BlockGraph::Block* PEFileParser::ParseImportDir(
         RelativeAddress(import_descriptor->OriginalFirstThunk);
     size_t num_thunks = CountImportThunks(thunk_addr);
     if (num_thunks == 0)
-      return false;
+      return NULL;
 
     // Parse the Import Name Table.
     if (!ParseImportThunks(thunk_addr, num_thunks, false,
@@ -941,7 +941,7 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
     if (import_descriptor->grAttrs != dlattrRva) {
       LOG(ERROR) << "Unexpected attributes in delay import descriptor 0x"
                  << std::hex << import_descriptor->grAttrs;
-      return false;
+      return NULL;
     }
 
     // Read the name of the delay imported DLL.
@@ -985,7 +985,7 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
     RelativeAddress int_addr(import_descriptor->rvaINT);
     size_t num_thunks = CountImportThunks(int_addr);
     if (num_thunks == 0)
-      return false;
+      return NULL;
 
     // Parse the Delay Import Name Table.
     if (!ParseImportThunks(int_addr, num_thunks, false,
@@ -1028,12 +1028,12 @@ BlockGraph::Block *PEFileParser::ParseDelayImportDir(
 
     if (import_descriptor->rvaUnloadIAT != 0U) {
       LOG(ERROR) << "Unexpected UnloadIAT.";
-      return false;
+      return NULL;
     }
 
     if (import_descriptor->dwTimeStamp != 0U) {
       LOG(ERROR) << "Unexpected bound delay imports.";
-      return false;
+      return NULL;
     }
   } while (import_descriptor.Next());
 

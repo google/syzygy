@@ -553,7 +553,7 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
     uint8* data = new_block->CopyData(merged_data.size(), &merged_data.at(0));
     if (data == NULL) {
       LOG(ERROR) << "Unable to copy merged data";
-      return false;
+      return NULL;
     }
   }
 
