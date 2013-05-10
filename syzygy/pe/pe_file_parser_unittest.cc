@@ -315,7 +315,7 @@ TEST_F(PEFileParserTest, ParseImportDir) {
   const IMAGE_IMPORT_DESCRIPTOR* sentinel =
       reinterpret_cast<const IMAGE_IMPORT_DESCRIPTOR*>(block->data()) +
           num_descriptors - 1;
-  memcmp(sentinel, &zero, sizeof(zero));
+  EXPECT_EQ(0, memcmp(sentinel, &zero, sizeof(zero)));
 
   std::set<std::string> expected;
   expected.insert("KERNEL32.dll");
@@ -419,7 +419,7 @@ TEST_F(PEFileParserTest, ParseDelayImportDir) {
   const ImgDelayDescr* sentinel =
       reinterpret_cast<const ImgDelayDescr*>(block->data()) +
           num_descriptors - 1;
-  memcmp(sentinel, &zero, sizeof(zero));
+  EXPECT_EQ(0, memcmp(sentinel, &zero, sizeof(zero)));
 
   std::set<std::string> expected;
   expected.insert("ole32.dll");
