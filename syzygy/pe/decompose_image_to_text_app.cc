@@ -223,7 +223,6 @@ void DecomposeImageToTextApp::DumpCodeBBToText(
     // decomposition, we can get away with just disassembling the (sole)
     // successor that has a size.
     // The other successor, if any, will be fall-through.
-    const char* opcode = NULL;
     if (succ.instruction_size()) {
       _CodeInfo code = {};
       code.codeOffset = 0;

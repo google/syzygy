@@ -115,7 +115,7 @@ VectorBufferWriter::VectorBufferWriter(std::vector<uint8>* vector)
     : BufferWriter(NULL, 0), vector_(vector) {
   DCHECK(vector != NULL);
 
-  if (vector_->size() > 0)
+  if (!vector_->empty())
     SetBuffer(&(*vector_)[0], vector_->size());
 }
 

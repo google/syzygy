@@ -44,7 +44,7 @@ namespace {
 using base::ProcessId;
 
 // Helper for logging Buffer::ID values.
-std::ostream& operator << (std::ostream& stream, const Buffer::ID buffer_id) {
+std::ostream& operator << (std::ostream& stream, const Buffer::ID& buffer_id) {
   return stream << "shared_memory_handle=0x" << std::hex << buffer_id.first
                 << ", buffer_offset=0x" << std::hex << buffer_id.second;
 }

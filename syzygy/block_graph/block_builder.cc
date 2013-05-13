@@ -400,7 +400,7 @@ bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
     }
   }
 
-  if (instructions.size() != 0) {
+  if (!instructions.empty()) {
     Offset start_offset = info.start_offset + info.basic_block_size;
     return CopyInstructions(instructions, start_offset, info.block);
   }

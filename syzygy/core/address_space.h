@@ -833,7 +833,7 @@ bool AddressRangeMap<SourceRangeType, DestinationRangeType>::Insert(
     SourceRange merged_src_range;
     DestinationRange merged_dst_range;
     if (merge_left) {
-      it--;
+      --it;
       merged_src_range = SourceRange(it->first.start(),
                                      it->first.size() + src_range.size());
       merged_dst_range = DestinationRange(it->second.start(),

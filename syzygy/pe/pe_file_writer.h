@@ -40,7 +40,7 @@ class PEFileWriter {
   bool WriteImage(const base::FilePath& path);
 
   // Updates the checksum for the image @p path.
-  static bool PEFileWriter::UpdateFileChecksum(const base::FilePath& path);
+  static bool UpdateFileChecksum(const base::FilePath& path);
 
  protected:
   // Validates the DOS header and the NT headers in the image.

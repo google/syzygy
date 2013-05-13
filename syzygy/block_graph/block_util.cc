@@ -68,7 +68,7 @@ bool GetBasicBlockSourceRange(const BasicCodeBlock& bb,
       ranges.push_back(range);
   }
 
-  if (ranges.size() == 0)
+  if (ranges.empty())
     return false;
 
   // Sort the ranges.

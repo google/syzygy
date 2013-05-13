@@ -213,7 +213,7 @@ bool PdbBitSet::Write(WritablePdbStream* stream) {
     LOG(ERROR) << "Failed to write bitset size.";
     return false;
   }
-  if (bits_.size() == 0)
+  if (bits_.empty())
     return true;
   if (!stream->Write(bits_.size(), &bits_[0])) {
     LOG(ERROR) << "Failed to write bitset bits.";
@@ -257,7 +257,7 @@ bool PdbBitSet::IsSet(size_t bit) const {
 }
 
 bool PdbBitSet::IsEmpty() const {
-  return bits_.size() == 0;
+  return bits_.empty();
 }
 
 bool ReadString(PdbStream* stream, std::string* out) {

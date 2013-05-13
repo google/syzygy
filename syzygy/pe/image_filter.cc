@@ -356,7 +356,7 @@ bool ImageFilter::LoadFromJSON(FILE* file) {
     ::memcpy(json.data() + offset, buffer, bytes);
   }
 
-  if (json.size() == 0) {
+  if (json.empty()) {
     LOG(ERROR) << "File is empty.";
     return false;
   }

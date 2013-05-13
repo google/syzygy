@@ -67,7 +67,7 @@ struct AverageBlockCallSort {
 };
 
 // Extract the values of a map to a vector.
-template<typename K, typename V> void MapToVector(const std::map<K, V> map,
+template<typename K, typename V> void MapToVector(const std::map<K, V>& map,
                                                   std::vector<V>* vector) {
   DCHECK(vector != NULL);
 
@@ -281,7 +281,7 @@ bool LinearOrderGenerator::InsertDataBlocks(size_t max_recursion_depth,
 }
 
 bool LinearOrderGenerator::CloseProcessGroup() {
-  if (block_call_map_.size() == 0)
+  if (block_call_map_.empty())
     return true;
 
   BlockCalls& block_calls = process_group_calls_[next_process_group_id_];

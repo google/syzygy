@@ -66,7 +66,7 @@ void DumpTypeInfoStream(FILE* out,
       type_info_record_map.begin();
   uint8 indent_level = 1;
   // Dump each symbol contained in the vector.
-  for (; type_info_iter != type_info_record_map.end(); type_info_iter++) {
+  for (; type_info_iter != type_info_record_map.end(); ++type_info_iter) {
     if (!stream->Seek(type_info_iter->second.start_position)) {
       LOG(ERROR) << "Unable to seek to type info record at position "
                  << base::StringPrintf("0x%08X.",

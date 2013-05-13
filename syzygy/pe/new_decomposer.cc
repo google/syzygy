@@ -477,7 +477,7 @@ bool CreateReferencesFromFixupsImpl(
   DCHECK(reloc_set != NULL);
   DCHECK(image != NULL);
 
-  bool have_omap = omap_from.size() != 0;
+  bool have_omap = !omap_from.empty();
   size_t fixups_used = 0;
 
   // The resource section in Chrome is modified post-link by a tool that adds a
@@ -497,7 +497,6 @@ bool CreateReferencesFromFixupsImpl(
   }
 
   // Ensure the fixups are all valid.
-  size_t skipped = 0;
   for (size_t i = 0; i < pdb_fixups.size(); ++i) {
     if (!pdb_fixups[i].ValidHeader()) {
       LOG(ERROR) << "Unknown fixup header: "

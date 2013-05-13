@@ -527,7 +527,7 @@ void DumpSymbolRecords(FILE* out,
   SymbolRecordVector::const_iterator symbol_iter =
     sym_record_vector.begin();
   // Dump each symbol contained in the vector.
-  for (; symbol_iter != sym_record_vector.end(); symbol_iter++) {
+  for (; symbol_iter != sym_record_vector.end(); ++symbol_iter) {
     if (!stream->Seek(symbol_iter->start_position)) {
       LOG(ERROR) << "Unable to seek to symbol record at position "
                  << base::StringPrintf("0x%08X.", symbol_iter->start_position);

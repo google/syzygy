@@ -199,7 +199,6 @@ std::string BlockGraph::LabelAttributesToString(
   COMPILE_ASSERT((1 << arraysize(kLabelAttributes)) == LABEL_ATTRIBUTES_MAX,
                  label_attribute_names_not_in_sync_with_enum);
 
-  size_t i = 0;
   std::string s;
   for (size_t i = 0; i < arraysize(kLabelAttributes); ++i) {
     if (label_attributes & (1 << i)) {

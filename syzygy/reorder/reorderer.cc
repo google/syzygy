@@ -318,7 +318,6 @@ bool LoadSectionSpec(const pe::ImageLayout& image,
   if (!blocks->empty()) {
     // Populate the block spec vector.
     section_spec->blocks.resize(blocks->GetSize());
-    ListValue::const_iterator block_it = blocks->begin();
     for (size_t block_idx = 0; block_idx != blocks->GetSize(); ++block_idx) {
       const Value* block_value = NULL;
       if (!blocks->Get(block_idx, &block_value)) {

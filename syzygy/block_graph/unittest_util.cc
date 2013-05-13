@@ -25,8 +25,8 @@ using block_graph::BlockGraph;
 using block_graph::BlockGraphSerializer;
 
 // Compare two strings to each others if the OMIT_STRINGS flag isn't set.
-bool MaybeCompareStrings(const std::string string1,
-                         const std::string string2,
+bool MaybeCompareStrings(const std::string& string1,
+                         const std::string& string2,
                          const BlockGraphSerializer& bgs) {
   if (bgs.has_attributes(BlockGraphSerializer::OMIT_STRINGS)) {
     if (!string1.empty() && !string2.empty())
@@ -165,7 +165,7 @@ bool BlocksEqual(const BlockGraph::Block& b1,
         b1.labels().begin();
     BlockGraph::Block::LabelMap::const_iterator it2 =
         b2.labels().begin();
-    for (; it1 != b1.labels().end(); it1++, it2++) {
+    for (; it1 != b1.labels().end(); ++it1, ++it2) {
       if (it1->first != it2->first ||
           it1->second.attributes() != it2->second.attributes() ||
           !MaybeCompareStrings(it1->second.name(),

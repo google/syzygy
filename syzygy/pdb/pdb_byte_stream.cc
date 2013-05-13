@@ -62,7 +62,7 @@ bool PdbByteStream::Init(PdbStream* stream) {
   set_length(stream->length());
   data_.resize(length());
 
-  if (data_.size() == 0)
+  if (data_.empty())
     return true;
 
   // Read the file stream.

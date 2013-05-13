@@ -25,7 +25,10 @@ namespace trace {
 namespace client {
 
 RpcSession::RpcSession()
-    : rpc_binding_(NULL), session_handle_(NULL), is_disabled_(false) {
+    : rpc_binding_(NULL),
+      session_handle_(NULL),
+      flags_(0),
+      is_disabled_(false) {
 }
 
 RpcSession::~RpcSession() {

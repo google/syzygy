@@ -91,7 +91,7 @@ bool ExplicitOrderer::OrderBlockGraph(
 
       // Ensure the block-spec specifies a block without BB information. Any
       // BB ordering must already have been applied.
-      if (block_spec.basic_block_offsets.size() != 0) {
+      if (!block_spec.basic_block_offsets.empty()) {
         LOG(ERROR) << "ExplicitOrderer can't handle basic-block orders.";
         return false;
       }

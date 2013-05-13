@@ -32,7 +32,7 @@ bool HeatMapSimulation::TimeSlice::PrintJSONFunctions(
 
   FunctionMap::const_iterator functions_iter = functions.begin();
   uint32 i = 0;
-  for (; functions_iter != functions.end(); functions_iter++, i++) {
+  for (; functions_iter != functions.end(); ++functions_iter, ++i) {
     ordered_functions[i] = QtyNamePair(functions_iter->second,
                                        functions_iter->first);
   }
@@ -44,7 +44,7 @@ bool HeatMapSimulation::TimeSlice::PrintJSONFunctions(
       !json_file.OpenList())
     return false;
 
-  for (uint32 i = 0; i < ordered_functions.size(); i++) {
+  for (uint32 i = 0; i < ordered_functions.size(); ++i) {
     if (!json_file.OpenDict() ||
         !json_file.OutputKey("name") ||
         !json_file.OutputString(ordered_functions[i].second.data()) ||
@@ -82,7 +82,7 @@ bool HeatMapSimulation::SerializeToJSON(FILE* output, bool pretty_print) {
   }
 
   TimeMemoryMap::const_iterator time_memory_iter = time_memory_map_.begin();
-  for (; time_memory_iter != time_memory_map_.end(); time_memory_iter++) {
+  for (; time_memory_iter != time_memory_map_.end(); ++time_memory_iter) {
     time_t time = time_memory_iter->first;
     uint32 total = time_memory_iter->second.total();
     const TimeSlice& time_slice = time_memory_iter->second;
@@ -100,7 +100,7 @@ bool HeatMapSimulation::SerializeToJSON(FILE* output, bool pretty_print) {
     TimeSlice::MemorySliceMap::const_iterator slices_iter =
         time_slice.slices().begin();
 
-    for (; slices_iter != time_slice.slices().end(); slices_iter++) {
+    for (; slices_iter != time_slice.slices().end(); ++slices_iter) {
       if (!json_file.OpenDict() ||
           !json_file.OutputKey("memory_slice") ||
           !json_file.OutputInteger(slices_iter->first) ||

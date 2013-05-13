@@ -56,7 +56,8 @@ bool ModuleInformationKeyLess(const ModuleInformation& a,
 
 }  // namespace
 
-ProfileGrinder::PartData::PartData() {
+ProfileGrinder::PartData::PartData()
+    : process_id_(0), thread_id_(0) {
 }
 
 ProfileGrinder::ProfileGrinder()

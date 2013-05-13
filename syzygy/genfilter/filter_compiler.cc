@@ -247,7 +247,7 @@ bool FilterCompiler::AddRule(ModificationType modification_type,
 
 bool FilterCompiler::CrawlSymbols() {
   // We can bail early if there's no work to do.
-  if (rule_map_.size() == 0)
+  if (rule_map_.empty())
     return true;
 
   base::win::ScopedComPtr<IDiaDataSource> data_source;

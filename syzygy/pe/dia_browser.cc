@@ -76,7 +76,7 @@ struct DiaBrowser::PatternElement {
     if (!callback.is_null())
       directive = callback.Run(browser, tag_lineage, symbol_lineage);
 
-    if (directive == kBrowserContinue && links.size() == 0)
+    if (directive == kBrowserContinue && links.empty())
       directive = kBrowserTerminatePath;
 
     return directive;
@@ -536,7 +536,7 @@ size_t DiaBrowser::TestMatch(const SymTagVector& sym_tags) const {
     std::vector<const PatternElement*>* next = &front1;
 
     for (size_t sym_tag_idx = 0; sym_tag_idx < sym_tags.size(); ++sym_tag_idx) {
-      if (active->size() == 0)
+      if (active->empty())
         break;
 
       SymTag sym_tag = sym_tags[sym_tag_idx];

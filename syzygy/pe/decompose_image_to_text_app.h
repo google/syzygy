@@ -47,8 +47,8 @@ class DecomposeImageToTextApp : public common::AppImplBase {
   typedef block_graph::BasicDataBlock BasicDataBlock;
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
 
-  void DecomposeImageToTextApp::PrintUsage(const base::FilePath& program,
-                                           const base::StringPiece& message);
+  void PrintUsage(const base::FilePath& program,
+                  const base::StringPiece& message);
 
   // Given @p address_space, dump it in text format to out().
   void DumpAddressSpaceToText(const BlockGraph::AddressSpace& address_space);
