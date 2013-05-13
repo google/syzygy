@@ -231,8 +231,7 @@ bool DecodeMemoryAccess(const Instruction& instr,
     }
   } else {
     NOTREACHED();
-
-    return AsanBasicBlockTransform::kNoAccess;
+    return false;
   }
 
   return true;
