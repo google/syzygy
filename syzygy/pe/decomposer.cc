@@ -1743,6 +1743,13 @@ bool Decomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
       return false;
     }
 
+    ScopedBstr com_compiland_name;
+    HRESULT hresult = compiland->get_name(com_compiland_name.Receive());
+    DCHECK_EQ(S_OK, hresult);
+    std::wstring compiland_wstr(com_compiland_name);
+    base::FilePath compiland_path(compiland_wstr);
+    block->set_compiland_path(compiland_path);
+
     // Set the block attributes.
     block->set_attribute(BlockGraph::SECTION_CONTRIB);
     if (!is_built_by_supported_compiler)

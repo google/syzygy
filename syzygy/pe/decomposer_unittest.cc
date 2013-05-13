@@ -183,6 +183,21 @@ TEST_F(DecomposerTest, Decompose) {
   }
   EXPECT_EQ(2u, non_section_blocks);
 
+  // We expect to have valid compiland name.
+  size_t count_compiland_name = 0;
+  BlockGraph::BlockMap::const_iterator block_iter =
+      block_graph.blocks().begin();
+  for (; block_iter != block_graph.blocks().end(); ++block_iter) {
+    const BlockGraph::Block& block = block_iter->second;
+    EXPECT_FALSE(block.name().empty());
+
+    if (image_path.BaseName().RemoveExtension() ==
+        block.compiland_path().BaseName().RemoveExtension()) {
+      ++count_compiland_name;
+    }
+  }
+  EXPECT_NE(0u, count_compiland_name);
+
   // Make sure that all bracketed COFF groups have been parsed. There are 8
   // of them that we currently know of:
   // .CRT$XCA -> .CRT$XCZ: C initializers
