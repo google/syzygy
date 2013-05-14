@@ -56,6 +56,7 @@
         'snapshot/snapshot.gyp:*',
         'test_data/test_data.gyp:*',
         'trace/client/client.gyp:*',
+        'trace/common/common.gyp:*',
         'trace/etw_control/etw_control.gyp:*',
         'trace/logger/logger.gyp:*',
         'trace/parse/parse.gyp:*',
