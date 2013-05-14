@@ -537,11 +537,6 @@ class BlockGraph::Block {
   const std::string& name() const { return name_; }
   void set_name(const base::StringPiece& name) { name.CopyToString(&name_); }
 
-  const base::FilePath& compiland_path() const { return compiland_path_; }
-  void set_compiland_path(const base::FilePath& path) {
-    compiland_path_ = path;
-  }
-
   Size alignment() const { return alignment_; }
   void set_alignment(Size alignment) {
     // Ensure that alignment is a non-zero power of two.
@@ -741,7 +736,6 @@ class BlockGraph::Block {
   Size size_;
   Size alignment_;
   std::string name_;
-  base::FilePath compiland_path_;
   RelativeAddress addr_;
 
   SectionId section_;
