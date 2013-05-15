@@ -163,7 +163,7 @@ bool HeapProxy::Create(DWORD options,
   COMPILE_ASSERT(sizeof(HeapProxy::BlockHeader) <= kRedZoneSize,
                  asan_block_header_too_big);
 
-  set_quarantine_max_size(default_quarantine_max_size_);
+  SetQuarantineMaxSize(default_quarantine_max_size_);
 
   HANDLE heap_new = ::HeapCreate(options, initial_size, maximum_size);
   if (heap_new == NULL)
@@ -178,7 +178,7 @@ bool HeapProxy::Destroy() {
   DCHECK(heap_ != NULL);
 
   // Flush the quarantine.
-  set_quarantine_max_size(0);
+  SetQuarantineMaxSize(0);
 
   if (::HeapDestroy(heap_)) {
     heap_ = NULL;
@@ -338,51 +338,56 @@ bool HeapProxy::QueryInformation(HEAP_INFORMATION_CLASS info_class,
                                 return_length) == TRUE;
 }
 
-void HeapProxy::set_quarantine_max_size(size_t quarantine_max_size) {
-  base::AutoLock lock(lock_);
-  quarantine_max_size_ = quarantine_max_size;
+void HeapProxy::SetQuarantineMaxSize(size_t quarantine_max_size) {
+  {
+    base::AutoLock lock(lock_);
+    quarantine_max_size_ = quarantine_max_size;
+  }
 
-  while (quarantine_size_ > quarantine_max_size_)
-    PopQuarantineUnlocked();
+  TrimQuarantine();
 }
 
-void HeapProxy::PopQuarantineUnlocked() {
-  DCHECK(head_ != NULL && tail_ != NULL);
-  // The caller should have locked the quarantine.
-  lock_.AssertAcquired();
+void HeapProxy::TrimQuarantine() {
+  while (true) {
+    size_t alloc_size = 0;
+    FreeBlockHeader* free_block = NULL;
 
-  FreeBlockHeader* free_block = head_;
-  head_ = free_block->next;
-  if (head_ == NULL)
-    tail_ = NULL;
+    {
+      base::AutoLock lock(lock_);
+      if (quarantine_size_ <= quarantine_max_size_)
+        return;
 
-  size_t alloc_size = GetAllocSize(free_block->size);
-  Shadow::Unpoison(free_block, alloc_size);
-  free_block->state = FREED;
-  free_block->magic_number = ~kBlockHeaderSignature;
-  free_block->alloc_stack = NULL;
-  free_block->free_stack = NULL;
+      DCHECK(head_ != NULL);
+      DCHECK(tail_ != NULL);
 
-  DCHECK_NE(kBlockHeaderSignature, free_block->magic_number);
-  ::HeapFree(heap_, 0, free_block);
+      free_block = head_;
+      head_ = free_block->next;
+      if (head_ == NULL)
+        tail_ = NULL;
 
-  DCHECK_GE(quarantine_size_, alloc_size);
-  quarantine_size_ -= alloc_size;
+      alloc_size = GetAllocSize(free_block->size);
+
+      DCHECK_GE(quarantine_size_, alloc_size);
+      quarantine_size_ -= alloc_size;
+    }
+
+    free_block->state = FREED;
+    free_block->magic_number = ~kBlockHeaderSignature;
+    free_block->alloc_stack = NULL;
+    free_block->free_stack = NULL;
+    Shadow::Unpoison(free_block, alloc_size);
+
+    DCHECK_NE(kBlockHeaderSignature, free_block->magic_number);
+    ::HeapFree(heap_, 0, free_block);
+  }
 }
 
 void HeapProxy::QuarantineBlock(BlockHeader* block) {
   DCHECK(block != NULL);
-  base::AutoLock lock(lock_);
-  FreeBlockHeader* free_block = static_cast<FreeBlockHeader*>(block);
 
+  FreeBlockHeader* free_block = static_cast<FreeBlockHeader*>(block);
   free_block->next = NULL;
-  if (tail_ != NULL) {
-    tail_->next = free_block;
-  } else {
-    DCHECK(head_ == NULL);
-    head_ = free_block;
-  }
-  tail_ = free_block;
+  free_block->state = QUARANTINED;
 
   // Poison the released alloc (marked as freed) and quarantine the block.
   // Note that the original data is left intact. This may make it easier
@@ -390,12 +395,21 @@ void HeapProxy::QuarantineBlock(BlockHeader* block) {
   size_t alloc_size = GetAllocSize(free_block->size);
   uint8* mem = ToAlloc(free_block);
   Shadow::MarkAsFreed(mem, free_block->size);
-  quarantine_size_ += alloc_size;
-  free_block->state = QUARANTINED;
 
-  // Flush quarantine overage.
-  while (quarantine_size_ > quarantine_max_size_)
-    PopQuarantineUnlocked();
+  {
+    base::AutoLock lock(lock_);
+
+    quarantine_size_ += alloc_size;
+    if (tail_ != NULL) {
+      tail_->next = free_block;
+    } else {
+      DCHECK(head_ == NULL);
+      head_ = free_block;
+    }
+    tail_ = free_block;
+  }
+
+  TrimQuarantine();
 }
 
 size_t HeapProxy::GetAllocSize(size_t bytes) {

@@ -160,7 +160,7 @@ class HeapProxy {
   // removed from the quarantine.
   // @param quarantine_max_size The maximum size of the quarantine list, in
   //     bytes.
-  void set_quarantine_max_size(size_t quarantine_max_size);
+  void SetQuarantineMaxSize(size_t quarantine_max_size);
 
   // Get the max size of the quarantine of a heap proxy.
   size_t quarantine_max_size() {
@@ -220,8 +220,9 @@ class HeapProxy {
   // Quarantines @p block and flushes quarantine overage.
   void QuarantineBlock(BlockHeader* block);
 
-  // Free and remove the first block of the quarantine. lock_ must be held.
-  void PopQuarantineUnlocked();
+  // If the quarantine size is over quarantine_max_size_, trim it down until
+  // it's below the limit.
+  void TrimQuarantine();
 
   // Get the information about an address belonging to a memory block. This
   // function will output the relative position of this address inside a block
