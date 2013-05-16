@@ -24,6 +24,7 @@
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/common/align.h"
 #include "syzygy/trace/common/clock.h"
 
 namespace agent {
@@ -31,9 +32,6 @@ namespace asan {
 namespace {
 
 typedef StackCapture::StackId StackId;
-
-// Redzone size allocated at the start of every heap block.
-const size_t kRedZoneSize = 32U;
 
 // Utility class which implements an auto lock for a HeapProxy.
 class HeapLocker {
@@ -64,14 +62,24 @@ double GetCpuCyclesPerUs() {
   trace::common::GetClockInfo(&clock_info);
 
   if (clock_info.tsc_info.frequency != 0) {
-    return (clock_info.tsc_info.frequency / base::Time::kMicrosecondsPerSecond);
+    return (clock_info.tsc_info.frequency /
+        static_cast<double>(base::Time::kMicrosecondsPerSecond));
   } else {
     uint64 cycle_start = trace::common::GetTsc();
     ::Sleep(HeapProxy::kSleepTimeForApproximatingCPUFrequency);
     return (trace::common::GetTsc() - cycle_start) /
         (HeapProxy::kSleepTimeForApproximatingCPUFrequency *
-             base::Time::kMicrosecondsPerMillisecond);
+             static_cast<double>(base::Time::kMicrosecondsPerSecond));
   }
+}
+
+// Verify that the memory range [mem, mem + len[ is accessible.
+bool MemoryRangeIsAccessible(uint8* mem, size_t len) {
+  for (size_t i = 0; i < len; ++i) {
+    if (!Shadow::IsAccessible(mem + i))
+      return false;
+  }
+  return true;
 }
 
 }  // namespace
@@ -160,8 +168,6 @@ bool HeapProxy::Create(DWORD options,
                        size_t initial_size,
                        size_t maximum_size) {
   DCHECK(heap_ == NULL);
-  COMPILE_ASSERT(sizeof(HeapProxy::BlockHeader) <= kRedZoneSize,
-                 asan_block_header_too_big);
 
   SetQuarantineMaxSize(default_quarantine_max_size_);
 
@@ -192,17 +198,16 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
   DCHECK(heap_ != NULL);
 
   size_t alloc_size = GetAllocSize(bytes);
-  BlockHeader* block =
+  BlockHeader* block_header =
       reinterpret_cast<BlockHeader*>(::HeapAlloc(heap_, flags, alloc_size));
 
-  if (block == NULL)
+  if (block_header == NULL)
     return NULL;
 
   // Poison head and tail zones, and un-poison alloc.
-  size_t header_size = kRedZoneSize;
-  size_t trailer_size = alloc_size - kRedZoneSize - bytes;
-  memset(block, 0xCC, header_size);
-  Shadow::Poison(block, kRedZoneSize, Shadow::kHeapLeftRedzone);
+  size_t header_size = sizeof(BlockHeader);
+  size_t trailer_size = alloc_size - sizeof(BlockHeader) - bytes;
+  Shadow::Poison(block_header, sizeof(BlockHeader), Shadow::kHeapLeftRedzone);
 
   // Capture the current stack. InitFromStack is inlined to preserve the
   // greatest number of stack frames.
@@ -210,16 +215,20 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
   stack.InitFromStack();
 
   // Initialize the block fields.
-  block->magic_number = kBlockHeaderSignature;
-  block->size = bytes;
-  block->state = ALLOCATED;
-  block->alloc_stack = stack_cache_->SaveStackTrace(stack);
-  block->free_stack = NULL;
+  block_header->magic_number = kBlockHeaderSignature;
+  block_header->block_size = bytes;
+  block_header->state = ALLOCATED;
+  block_header->alloc_stack = stack_cache_->SaveStackTrace(stack);
+  block_header->alloc_tid = ::GetCurrentThreadId();
 
-  uint8* block_alloc = ToAlloc(block);
-  Shadow::Unpoison(block_alloc, bytes);
+  BlockTrailer* block_trailer = GetBlockTrailer(block_header);
+  block_trailer->free_stack = NULL;
+  block_trailer->free_tid = 0;
+  block_trailer->next_free_block = NULL;
 
-  memset(block_alloc + bytes, 0xCD, trailer_size);
+  uint8* block_alloc = ToAlloc(block_header);
+  DCHECK(MemoryRangeIsAccessible(block_alloc, bytes));
+
   Shadow::Poison(block_alloc + bytes, trailer_size, Shadow::kHeapRightRedzone);
 
   return block_alloc;
@@ -240,7 +249,7 @@ void* HeapProxy::ReAlloc(DWORD flags, void* mem, size_t bytes) {
 
 bool HeapProxy::Free(DWORD flags, void* mem) {
   DCHECK(heap_ != NULL);
-  BlockHeader* block = ToBlock(mem);
+  BlockHeader* block = ToBlockHeader(mem);
   // The standard allows to call free on a null pointer. ToBlock returns null if
   // the given pointer is null so we return true here.
   if (block == NULL)
@@ -272,31 +281,34 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
     return false;
   }
 
-  block->free_stack = stack_cache_->SaveStackTrace(stack);
   DCHECK(ToAlloc(block) == mem);
-  block->free_timestamp = trace::common::GetTsc();
+  BlockTrailer* trailer = GetBlockTrailer(block);
+  trailer->free_stack = stack_cache_->SaveStackTrace(stack);
+  trailer->free_timestamp = trace::common::GetTsc();
+  trailer->free_tid = ::GetCurrentThreadId();
 
   // If the size of the allocation is zero then we shouldn't check the shadow
   // memory as it'll only contain the red-zone for the head and tail of this
   // block.
-  if (block->size != 0 && !Shadow::IsAccessible(ToAlloc(block)))
+  if (block->block_size != 0 && !Shadow::IsAccessible(ToAlloc(block)))
     return false;
+
   QuarantineBlock(block);
   return true;
 }
 
 size_t HeapProxy::Size(DWORD flags, const void* mem) {
   DCHECK(heap_ != NULL);
-  BlockHeader* block = ToBlock(mem);
+  BlockHeader* block = ToBlockHeader(mem);
   if (block == NULL)
     return -1;
 
-  return block->size;
+  return block->block_size;
 }
 
 bool HeapProxy::Validate(DWORD flags, const void* mem) {
   DCHECK(heap_ != NULL);
-  return ::HeapValidate(heap_, flags, ToBlock(mem)) == TRUE;
+  return ::HeapValidate(heap_, flags, ToBlockHeader(mem)) == TRUE;
 }
 
 size_t HeapProxy::Compact(DWORD flags) {
@@ -350,7 +362,7 @@ void HeapProxy::SetQuarantineMaxSize(size_t quarantine_max_size) {
 void HeapProxy::TrimQuarantine() {
   while (true) {
     size_t alloc_size = 0;
-    FreeBlockHeader* free_block = NULL;
+    BlockHeader* free_block = NULL;
 
     {
       base::AutoLock lock(lock_);
@@ -361,23 +373,18 @@ void HeapProxy::TrimQuarantine() {
       DCHECK(tail_ != NULL);
 
       free_block = head_;
-      head_ = free_block->next;
+      head_ = GetBlockTrailer(free_block)->next_free_block;
       if (head_ == NULL)
         tail_ = NULL;
 
-      alloc_size = GetAllocSize(free_block->size);
+      alloc_size = GetAllocSize(free_block->block_size);
 
       DCHECK_GE(quarantine_size_, alloc_size);
       quarantine_size_ -= alloc_size;
     }
 
     free_block->state = FREED;
-    free_block->magic_number = ~kBlockHeaderSignature;
-    free_block->alloc_stack = NULL;
-    free_block->free_stack = NULL;
     Shadow::Unpoison(free_block, alloc_size);
-
-    DCHECK_NE(kBlockHeaderSignature, free_block->magic_number);
     ::HeapFree(heap_, 0, free_block);
   }
 }
@@ -385,45 +392,48 @@ void HeapProxy::TrimQuarantine() {
 void HeapProxy::QuarantineBlock(BlockHeader* block) {
   DCHECK(block != NULL);
 
-  FreeBlockHeader* free_block = static_cast<FreeBlockHeader*>(block);
-  free_block->next = NULL;
-  free_block->state = QUARANTINED;
+  BlockTrailer* free_block_trailer = GetBlockTrailer(block);
+  DCHECK(free_block_trailer->next_free_block == NULL);
+  block->state = QUARANTINED;
 
   // Poison the released alloc (marked as freed) and quarantine the block.
   // Note that the original data is left intact. This may make it easier
   // to debug a crash report/dump on access to a quarantined block.
-  size_t alloc_size = GetAllocSize(free_block->size);
-  uint8* mem = ToAlloc(free_block);
-  Shadow::MarkAsFreed(mem, free_block->size);
+  size_t alloc_size = GetAllocSize(block->block_size);
+  uint8* mem = ToAlloc(block);
+  Shadow::MarkAsFreed(mem, block->block_size);
 
   {
     base::AutoLock lock(lock_);
 
     quarantine_size_ += alloc_size;
     if (tail_ != NULL) {
-      tail_->next = free_block;
+      GetBlockTrailer(tail_)->next_free_block = block;
     } else {
       DCHECK(head_ == NULL);
-      head_ = free_block;
+      head_ = block;
     }
-    tail_ = free_block;
+    tail_ = block;
   }
 
   TrimQuarantine();
 }
 
 size_t HeapProxy::GetAllocSize(size_t bytes) {
-  bytes += kRedZoneSize;
-  return (bytes + kRedZoneSize + kRedZoneSize - 1) & ~(kRedZoneSize - 1);
+  // The Windows heap is 8-byte granular, so there's no gain in a lower
+  // allocation granularity.
+  const size_t kAllocGranularity = 8;
+  bytes += sizeof(BlockHeader);
+  bytes += sizeof(BlockTrailer);
+  return common::AlignUp(bytes, kAllocGranularity);
 }
 
-HeapProxy::BlockHeader* HeapProxy::ToBlock(const void* alloc) {
+HeapProxy::BlockHeader* HeapProxy::ToBlockHeader(const void* alloc) {
   if (alloc == NULL)
     return NULL;
 
   const uint8* mem = static_cast<const uint8*>(alloc);
-  const BlockHeader* header =
-      reinterpret_cast<const BlockHeader*>(mem -kRedZoneSize);
+  const BlockHeader* header = reinterpret_cast<const BlockHeader*>(mem) - 1;
   if (header->magic_number != kBlockHeaderSignature) {
     CONTEXT context = {};
     ::RtlCaptureContext(&context);
@@ -449,6 +459,20 @@ HeapProxy::BlockHeader* HeapProxy::ToBlock(const void* alloc) {
   return const_cast<BlockHeader*>(header);
 }
 
+HeapProxy::BlockTrailer* HeapProxy::GetBlockTrailer(const BlockHeader* header) {
+  DCHECK(header != NULL);
+  DCHECK_EQ(kBlockHeaderSignature, header->magic_number);
+  // We want the block trailers to be 4 byte aligned after the end of a block.
+  const size_t kBlockTrailerAlignment = 4;
+
+  uint8* mem = reinterpret_cast<uint8*>(const_cast<BlockHeader*>(header));
+  size_t aligned_size =
+      common::AlignUp(sizeof(BlockHeader) + header->block_size,
+                      kBlockTrailerAlignment);
+
+  return reinterpret_cast<BlockTrailer*>(mem + aligned_size);
+}
+
 uint8* HeapProxy::ToAlloc(BlockHeader* block) {
   DCHECK(block != NULL);
   DCHECK_EQ(kBlockHeaderSignature, block->magic_number);
@@ -456,7 +480,7 @@ uint8* HeapProxy::ToAlloc(BlockHeader* block) {
 
   uint8* mem = reinterpret_cast<uint8*>(block);
 
-  return mem + kRedZoneSize;
+  return mem + sizeof(BlockHeader);
 }
 
 void HeapProxy::ReportAddressInformation(const void* addr,
@@ -467,12 +491,16 @@ void HeapProxy::ReportAddressInformation(const void* addr,
   DCHECK(header != NULL);
   DCHECK(bad_access_info != NULL);
 
+  BlockTrailer* trailer = GetBlockTrailer(header);
+  DCHECK(trailer != NULL);
+
   uint8* block_alloc = ToAlloc(header);
   int offset = 0;
   char* offset_relativity = "";
   switch (bad_access_kind) {
     case HEAP_BUFFER_OVERFLOW:
-      offset = static_cast<const uint8*>(addr) - block_alloc - header->size;
+      offset = static_cast<const uint8*>(addr) - block_alloc
+          - header->block_size;
       offset_relativity = "to the right";
       break;
     case HEAP_BUFFER_UNDERFLOW:
@@ -494,20 +522,19 @@ void HeapProxy::ReportAddressInformation(const void* addr,
       addr,
       offset,
       offset_relativity,
-      header->size,
+      header->block_size,
       block_alloc,
-      block_alloc + header->size);
+      block_alloc + header->block_size);
 
   // Ensure that we had enough space to store the full shadow info message.
   DCHECK_LE(shadow_info_bytes, arraysize(bad_access_info->shadow_info) - 1);
-
   logger_->Write(bad_access_info->shadow_info);
-  if (header->free_stack != NULL) {
+  if (trailer->free_stack != NULL) {
     std::string message = base::StringPrintf(
-        "freed here (stack_id=0x%08X):\n", header->free_stack->stack_id());
+        "freed here (stack_id=0x%08X):\n", trailer->free_stack->stack_id());
     logger_->WriteWithStackTrace(message,
-                                 header->free_stack->frames(),
-                                 header->free_stack->num_frames());
+                                 trailer->free_stack->frames(),
+                                 trailer->free_stack->num_frames());
   }
   if (header->alloc_stack != NULL) {
     std::string message = base::StringPrintf(
@@ -541,7 +568,7 @@ HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const void* addr,
   } else {
     if (addr < (ToAlloc(header)))
       bad_access_kind = HEAP_BUFFER_UNDERFLOW;
-    else if (addr >= (ToAlloc(header) + header->size))
+    else if (addr >= (ToAlloc(header) + header->block_size))
       bad_access_kind = HEAP_BUFFER_OVERFLOW;
   }
   return bad_access_kind;
@@ -588,6 +615,9 @@ bool HeapProxy::OnBadAccess(const void* addr,
   if (header == NULL)
     return false;
 
+  BlockTrailer* trailer = GetBlockTrailer(header);
+  DCHECK(trailer != NULL);
+
   bad_access_kind = GetBadAccessKind(addr, header);
   // Get the bad access description if we've been able to determine its kind.
   if (bad_access_kind != UNKNOWN_BAD_ACCESS) {
@@ -601,11 +631,11 @@ bool HeapProxy::OnBadAccess(const void* addr,
              header->alloc_stack->num_frames() * sizeof(void*));
       bad_access_info->alloc_stack_size = header->alloc_stack->num_frames();
     }
-    if (header->free_stack != NULL) {
+    if (trailer->free_stack != NULL) {
       memcpy(bad_access_info->free_stack,
-             header->free_stack->frames(),
-             header->free_stack->num_frames() * sizeof(void*));
-      bad_access_info->free_stack_size = header->free_stack->num_frames();
+             trailer->free_stack->frames(),
+             trailer->free_stack->num_frames() * sizeof(void*));
+      bad_access_info->free_stack_size = trailer->free_stack->num_frames();
     }
     ReportAsanError(bug_descr,
                     addr,
@@ -652,6 +682,9 @@ void HeapProxy::ReportAsanError(const char* bug_descr,
   DCHECK(addr != NULL);
   DCHECK(header != NULL);
 
+  BlockTrailer* trailer = GetBlockTrailer(header);
+  DCHECK(trailer != NULL);
+
   ReportAsanErrorBase(bug_descr,
                       addr,
                       context,
@@ -669,11 +702,11 @@ void HeapProxy::ReportAsanError(const char* bug_descr,
   }
 
   // Print the Windbg information to display the free stack if present.
-  if (header->free_stack != NULL) {
+  if (trailer->free_stack != NULL) {
     ASANDbgMessage(L"Free stack trace:");
     ASANDbgCmd(L"dps %p l%d",
-               header->free_stack->frames(),
-               header->free_stack->num_frames());
+               trailer->free_stack->frames(),
+               trailer->free_stack->num_frames());
   }
 
   ReportAddressInformation(addr, header, bad_access_kind, bad_access_info);
@@ -745,7 +778,10 @@ uint64 HeapProxy::GetTimeSinceFree(const BlockHeader* header) {
   if (header->state == ALLOCATED)
     return 0;
 
-  uint64 cycles_since_free = (trace::common::GetTsc() - header->free_timestamp);
+  BlockTrailer* trailer = GetBlockTrailer(header);
+  DCHECK(trailer != NULL);
+
+  uint64 cycles_since_free = trace::common::GetTsc() - trailer->free_timestamp;
 
   // On x86/64, as long as cpu_cycles_per_us_ is 64-bit aligned, the write is
   // atomic, which means we don't care about multiple writers since it's not an

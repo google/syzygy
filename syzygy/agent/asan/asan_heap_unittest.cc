@@ -31,12 +31,13 @@ namespace {
 class TestHeapProxy : public HeapProxy {
  public:
   using HeapProxy::BlockHeader;
+  using HeapProxy::BlockTrailer;
   using HeapProxy::FindAddressBlock;
-  using HeapProxy::FreeBlockHeader;
   using HeapProxy::GetAllocSize;
   using HeapProxy::GetBadAccessKind;
   using HeapProxy::GetTimeSinceFree;
-  using HeapProxy::ToBlock;
+  using HeapProxy::ToBlockHeader;
+  using HeapProxy::GetBlockTrailer;
 
   explicit TestHeapProxy(StackCaptureCache* stack_cache, AsanLogger* logger)
       : HeapProxy(stack_cache, logger) {
@@ -58,16 +59,23 @@ class TestHeapProxy : public HeapProxy {
     return GetBadAccessKind(addr, header) == USE_AFTER_FREE;
   }
 
+  bool IsQuarantined(BlockHeader* header) {
+    EXPECT_TRUE(header != NULL);
+    return header->state == QUARANTINED;
+  }
+
   // Determines if the address @p mem corresponds to a block in quarantine.
   bool InQuarantine(const void* mem) {
     base::AutoLock lock(lock_);
-    FreeBlockHeader* current_block = head_;
+    BlockHeader* current_block = head_;
     while (current_block != NULL) {
       void* block_alloc = static_cast<void*>(ToAlloc(current_block));
       EXPECT_TRUE(block_alloc != NULL);
-      if (block_alloc == mem)
+      if (block_alloc == mem) {
+        EXPECT_TRUE(current_block->state == QUARANTINED);
         return true;
-      current_block = current_block->next;
+      }
+      current_block = GetBlockTrailer(current_block)->next_free_block;
     }
     return false;
   }
@@ -198,6 +206,7 @@ TEST_F(HeapTest, DoubleFree) {
   LPVOID mem = proxy_.Alloc(0, kAllocSize);
   ASSERT_TRUE(mem != NULL);
   ASSERT_TRUE(proxy_.Free(0, mem));
+  ASSERT_TRUE(proxy_.IsQuarantined(proxy_.ToBlockHeader(mem)));
   ASSERT_FALSE(proxy_.Free(0, mem));
   ASSERT_TRUE(LogContains(HeapProxy::kAttemptingDoubleFree));
 }
@@ -238,6 +247,16 @@ TEST_F(HeapTest, AllocsAccessibility) {
     ASSERT_TRUE(proxy_.Free(0, new_mem));
     ASSERT_NO_FATAL_FAILURE(VerifyFreedAccess(new_mem, size * 2));
   }
+}
+
+TEST_F(HeapTest, AllocZeroBytes) {
+  void* mem1 = proxy_.Alloc(0, 0);
+  ASSERT_TRUE(mem1 != NULL);
+  void* mem2 = proxy_.Alloc(0, 0);
+  ASSERT_TRUE(mem2 != NULL);
+  ASSERT_NE(mem1, mem2);
+  ASSERT_TRUE(proxy_.Free(0, mem1));
+  ASSERT_TRUE(proxy_.Free(0, mem2));
 }
 
 TEST_F(HeapTest, Size) {
@@ -322,12 +341,13 @@ TEST_F(HeapTest, GetBadAccessKind) {
   uint8* mem = static_cast<uint8*>(proxy_.Alloc(0, kAllocSize));
   ASSERT_FALSE(mem == NULL);
   TestHeapProxy::BlockHeader* header =
-      const_cast<TestHeapProxy::BlockHeader*>(proxy_.ToBlock(mem));
+      const_cast<TestHeapProxy::BlockHeader*>(proxy_.ToBlockHeader(mem));
   uint8* heap_underflow_address = mem - 1;
   uint8* heap_overflow_address = mem + kAllocSize * sizeof(uint8);
   ASSERT_TRUE(proxy_.IsUnderflowAccess(heap_underflow_address, header));
   ASSERT_TRUE(proxy_.IsOverflowAccess(heap_overflow_address, header));
   ASSERT_TRUE(proxy_.Free(0, mem));
+  ASSERT_TRUE(proxy_.IsQuarantined(header));
   ASSERT_TRUE(proxy_.IsUseAfterAccess(mem, header));
 }
 
@@ -339,11 +359,12 @@ TEST_F(HeapTest, GetTimeSinceFree) {
   proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
   uint8* mem = static_cast<uint8*>(proxy_.Alloc(0, kAllocSize));
   TestHeapProxy::BlockHeader* header =
-      const_cast<TestHeapProxy::BlockHeader*>(proxy_.ToBlock(mem));
+      const_cast<TestHeapProxy::BlockHeader*>(proxy_.ToBlockHeader(mem));
 
   base::TimeTicks time_before_free = base::TimeTicks::HighResNow();
   ASSERT_EQ(0U, proxy_.GetTimeSinceFree(header));
   ASSERT_TRUE(proxy_.Free(0, mem));
+  ASSERT_TRUE(proxy_.IsQuarantined(header));
   ::Sleep(kSleepTime);
   uint64 time_since_free = proxy_.GetTimeSinceFree(header);
   ASSERT_NE(0U, time_since_free);
@@ -357,6 +378,52 @@ TEST_F(HeapTest, GetTimeSinceFree) {
     time_delta_us += HeapProxy::kSleepTimeForApproximatingCPUFrequency;
 
   ASSERT_GE(time_delta_us, time_since_free);
+}
+
+TEST_F(HeapTest, CaptureTID) {
+  const size_t kAllocSize = 13;
+  // Ensure that the quarantine is large enough to keep this block.
+  proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
+  uint8* mem = static_cast<uint8*>(proxy_.Alloc(0, kAllocSize));
+  ASSERT_TRUE(proxy_.Free(0, mem));
+  ASSERT_TRUE(proxy_.IsQuarantined(proxy_.ToBlockHeader(mem)));
+
+  TestHeapProxy::BlockHeader* header =
+      const_cast<TestHeapProxy::BlockHeader*>(proxy_.ToBlockHeader(mem));
+  ASSERT_TRUE(header != NULL);
+  TestHeapProxy::BlockTrailer* trailer =
+      const_cast<TestHeapProxy::BlockTrailer*>(proxy_.GetBlockTrailer(header));
+  ASSERT_TRUE(trailer != NULL);
+
+  ASSERT_EQ(header->alloc_tid, ::GetCurrentThreadId());
+  ASSERT_EQ(trailer->free_tid, ::GetCurrentThreadId());
+}
+
+TEST_F(HeapTest, QuarantineDoesntAlterBlockContents) {
+  const size_t kAllocSize = 13;
+  // Ensure that the quarantine is large enough to keep this block..
+  proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
+  void* mem = proxy_.Alloc(0, kAllocSize);
+  ASSERT_TRUE(mem != NULL);
+  RandomSetMemory(mem, kAllocSize);
+
+  unsigned char sha1_before[base::kSHA1Length] = {};
+  base::SHA1HashBytes(reinterpret_cast<unsigned char*>(mem),
+                      kAllocSize,
+                      sha1_before);
+
+  TestHeapProxy::BlockHeader* header =
+      const_cast<TestHeapProxy::BlockHeader*>(proxy_.ToBlockHeader(mem));
+
+  ASSERT_TRUE(proxy_.Free(0, mem));
+  ASSERT_TRUE(proxy_.IsQuarantined(header));
+
+  unsigned char sha1_after[base::kSHA1Length] = {};
+  base::SHA1HashBytes(reinterpret_cast<unsigned char*>(mem),
+                      kAllocSize,
+                      sha1_after);
+
+  ASSERT_EQ(0, memcmp(sha1_before, sha1_after, base::kSHA1Length));
 }
 
 }  // namespace asan

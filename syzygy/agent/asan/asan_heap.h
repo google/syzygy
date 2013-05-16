@@ -167,7 +167,7 @@ class HeapProxy {
     return quarantine_max_size_;
   }
 
-  // Static initialisation of HeapProxy context.
+  // Static initialization of HeapProxy context.
   static void Init();
 
   // Returns a string describing a bad access kind.
@@ -180,26 +180,38 @@ class HeapProxy {
     QUARANTINED,
   };
 
-  // Every allocated block starts with a BlockHeader.
+  // Every allocated block starts with a BlockHeader...
   struct BlockHeader {
-    size_t magic_number;
-    size_t size;
-    BlockState state;
+    size_t magic_number : 24;
+    BlockState state : 8;
+    size_t block_size;
     const StackCapture* alloc_stack;
-    const StackCapture* free_stack;
-    uint64 free_timestamp;
+    DWORD alloc_tid;
   };
+  COMPILE_ASSERT((sizeof(BlockHeader) & 7) == 0,
+                 asan_block_header_not_multiple_of_8_bytes);
+  COMPILE_ASSERT(sizeof(BlockHeader) == 16, asan_block_header_too_big);
 
-  // Free blocks are linked together.
-  struct FreeBlockHeader : public BlockHeader {
-    FreeBlockHeader* next;
+  // ... and ends with a BlockTrailer.
+  #pragma pack(push, 4)
+  struct BlockTrailer {
+    uint64 free_timestamp;
+    const StackCapture* free_stack;
+    DWORD free_tid;
+    // Free blocks are linked together.
+    BlockHeader* next_free_block;
   };
+  #pragma pack(pop)
+  COMPILE_ASSERT(sizeof(BlockTrailer) == 20, asan_block_trailer_too_big);
 
   // Magic number to identify the beginning of a block header.
-  static const size_t kBlockHeaderSignature = 0x03CA80E7;
+  static const size_t kBlockHeaderSignature = 0xCA80E7;
 
   // Returns the block header for an alloc.
-  BlockHeader* ToBlock(const void* alloc);
+  BlockHeader* ToBlockHeader(const void* alloc);
+
+  // Returns the block trailer for a block header.
+  BlockTrailer* GetBlockTrailer(const BlockHeader* header);
 
   // Returns alloc for a block.
   uint8* ToAlloc(BlockHeader* block);
@@ -301,10 +313,10 @@ class HeapProxy {
   base::Lock lock_;
 
   // Points to the head of the quarantine queue.
-  FreeBlockHeader* head_;  // Under lock_.
+  BlockHeader* head_;  // Under lock_.
 
   // Points to the tail of the quarantine queue.
-  FreeBlockHeader* tail_;  // Under lock_.
+  BlockHeader* tail_;  // Under lock_.
 
   // Total size of blocks in quarantine.
   size_t quarantine_size_;  // Under lock_.
