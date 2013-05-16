@@ -61,7 +61,7 @@ void FlattenBasicBlocksInPostOrder(
       const BasicBlock* top = working.top();
 
       // Skip data basic block.
-      const BasicCodeBlock* bb = BasicCodeBlock::Cast(*iter);
+      const BasicCodeBlock* bb = BasicCodeBlock::Cast(top);
       if (bb == NULL) {
         working.pop();
         continue;
@@ -73,12 +73,12 @@ void FlattenBasicBlocksInPostOrder(
       Successors::const_iterator succ = successors.begin();
       for (; succ != successors.end(); ++succ) {
         BasicBlock* basic_block = succ->reference().basic_block();
-          // When not marked, mark it and add it to working stack.
-          if (marked.insert(*iter).second) {
-            working.push(*iter);
-            has_unvisited_child = true;
-            break;
-          }
+        // When not marked, mark it and add it to working stack.
+        if (marked.insert(basic_block).second) {
+          working.push(basic_block);
+          has_unvisited_child = true;
+          break;
+        }
       }
 
       if (!has_unvisited_child) {
