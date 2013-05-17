@@ -27,6 +27,8 @@
 #ifndef SYZYGY_BLOCK_GRAPH_ANALYSIS_LIVENESS_ANALYSIS_H_
 #define SYZYGY_BLOCK_GRAPH_ANALYSIS_LIVENESS_ANALYSIS_H_
 
+#include <map>
+
 #include "base/basictypes.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"

@@ -50,8 +50,9 @@ void FlattenBasicBlocksInPostOrder(
   std::stack<const BasicBlock*> working;
 
   // For each basic block, flatten its reachable sub-tree in post-order.
-  BBCollection::const_iterator iter = basic_blocks.begin();
-  for (; iter != basic_blocks.end(); ++iter) {
+  BBCollection::const_iterator iter_end = basic_blocks.end();
+  for (BBCollection::const_iterator iter = basic_blocks.begin();
+       iter != iter_end; ++iter) {
     // When not marked, mark it and add it to working stack.
     if (marked.insert(*iter).second)
       working.push(*iter);
@@ -70,8 +71,9 @@ void FlattenBasicBlocksInPostOrder(
       // Add unvisited child to the working stack.
       bool has_unvisited_child = false;
       const BasicBlock::Successors& successors = bb->successors();
-      Successors::const_iterator succ = successors.begin();
-      for (; succ != successors.end(); ++succ) {
+      Successors::const_iterator succ_end = successors.end();
+      for (Successors::const_iterator succ = successors.begin();
+           succ != succ_end;  ++succ) {
         BasicBlock* basic_block = succ->reference().basic_block();
         // When not marked, mark it and add it to working stack.
         if (marked.insert(basic_block).second) {
@@ -150,8 +152,9 @@ void LivenessAnalysis::GetStateAtExitOf(const BasicBlock* bb,
 
   // Merge current liveness information with every successor information.
   StateHelper::Clear(state);
-  Successors::const_iterator succ = successors.begin();
-  for (; succ != successors.end(); ++succ) {
+  Successors::const_iterator succ_end = successors.end();
+  for (Successors::const_iterator succ = successors.begin();
+       succ != succ_end; ++succ) {
     BasicBlock* successor_basic_block = succ->reference().basic_block();
     if (successor_basic_block == NULL) {
       // Successor is not a BasicBlock. Assume all registers are alive.
