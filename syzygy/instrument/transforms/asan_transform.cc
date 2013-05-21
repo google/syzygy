@@ -337,10 +337,11 @@ std::string GetAsanCheckAccessFunctionName(
     access_mode_str = reinterpret_cast<char*>(GET_MNEMONIC_NAME(info.opcode));
 
   std::string function_name =
-      base::StringPrintf("asan_check%s_%d_byte_%s_access",
+      base::StringPrintf("asan_check%s_%d_byte_%s_access%s",
                           rep_str,
                           info.size,
-                          access_mode_str);
+                          access_mode_str,
+                          info.save_flags ? "" : "_no_flags");
   StringToLowerASCII(&function_name);
   return function_name.c_str();
 }
@@ -530,6 +531,7 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
     info.mode = kNoAccess;
     info.size = 0;
     info.opcode = 0;
+    info.save_flags = true;
 
     // Get current instruction liveness information.
     state = *iter_state;
@@ -592,6 +594,12 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
     // breaks the 1:1 OMAP mapping and may confuse some debuggers.
     if (debug_friendly_)
       bb_asm.set_source_range(instr.source_range());
+
+    if (use_liveness_analysis_ &&
+        (info.mode == kReadAccess || info.mode == kWriteAccess)) {
+      // Use the liveness information to skip saving the flags if possible.
+      info.save_flags = state.AreArithmeticFlagsLive();
+    }
 
     // Insert hook for standard instructions.
     AsanHookMap::iterator hook = check_access_hooks_->find(info);
@@ -692,22 +700,38 @@ bool AsanTransform::PreBlockGraphIteration(BlockGraph* block_graph,
   // Import the hooks for the read/write accesses.
   for (int access_size = 1; access_size <= 32; access_size *= 2) {
     MemoryAccessInfo read_info =
-        { AsanBasicBlockTransform::kReadAccess, access_size, 0 };
+        { AsanBasicBlockTransform::kReadAccess, access_size, 0, true };
     access_hook_param_vec.push_back(read_info);
+    if (use_liveness_analysis()) {
+      read_info.save_flags = false;
+      access_hook_param_vec.push_back(read_info);
+    }
 
     MemoryAccessInfo write_info =
-        { AsanBasicBlockTransform::kWriteAccess, access_size, 0 };
+        { AsanBasicBlockTransform::kWriteAccess, access_size, 0, true };
     access_hook_param_vec.push_back(write_info);
+    if (use_liveness_analysis()) {
+      write_info.save_flags = false;
+      access_hook_param_vec.push_back(write_info);
+    }
   }
 
   // Import the hooks for the read/write 10-bytes accesses.
   MemoryAccessInfo read_info_10 =
-      { AsanBasicBlockTransform::kReadAccess, 10, 0 };
+      { AsanBasicBlockTransform::kReadAccess, 10, 0, true };
   access_hook_param_vec.push_back(read_info_10);
+  if (use_liveness_analysis()) {
+    read_info_10.save_flags = false;
+    access_hook_param_vec.push_back(read_info_10);
+  }
 
   MemoryAccessInfo write_info_10 =
-      { AsanBasicBlockTransform::kWriteAccess, 10, 0 };
+      { AsanBasicBlockTransform::kWriteAccess, 10, 0, true };
   access_hook_param_vec.push_back(write_info_10);
+  if (use_liveness_analysis()) {
+    write_info_10.save_flags = false;
+    access_hook_param_vec.push_back(write_info_10);
+  }
 
   // Import the hooks for strings/prefix memory accesses.
   const _InstructionType strings[] = { I_CMPS, I_MOVS, I_STOS };
@@ -715,12 +739,20 @@ bool AsanTransform::PreBlockGraphIteration(BlockGraph* block_graph,
 
   for (int access_size = 1; access_size <= 4; access_size *= 2) {
     for (int inst = 0; inst < strings_length; ++inst) {
-      MemoryAccessInfo repz_inst_info =
-          { AsanBasicBlockTransform::kRepzAccess, access_size, strings[inst] };
+      MemoryAccessInfo repz_inst_info = {
+         AsanBasicBlockTransform::kRepzAccess,
+         access_size,
+         strings[inst],
+         true
+      };
       access_hook_param_vec.push_back(repz_inst_info);
 
-      MemoryAccessInfo inst_info =
-          { AsanBasicBlockTransform::kInstrAccess, access_size, strings[inst] };
+      MemoryAccessInfo inst_info = {
+          AsanBasicBlockTransform::kInstrAccess,
+          access_size,
+          strings[inst],
+          true
+      };
       access_hook_param_vec.push_back(inst_info);
     }
   }
@@ -749,6 +781,7 @@ bool AsanTransform::OnBlock(BlockGraph* block_graph,
   // Use the filter that was passed to us for our child transform.
   AsanBasicBlockTransform transform(&check_access_hooks_ref_);
   transform.set_debug_friendly(debug_friendly());
+  transform.set_use_liveness_analysis(use_liveness_analysis());
   transform.set_filter(filter());
 
   if (!ApplyBasicBlockSubGraphTransform(&transform, block_graph, block, NULL))
@@ -878,6 +911,8 @@ bool operator<(const AsanBasicBlockTransform::MemoryAccessInfo& left,
     return left.mode < right.mode;
   if (left.size != right.size)
     return left.size < right.size;
+  if (left.save_flags != right.save_flags)
+    return left.save_flags < right.save_flags;
   return left.opcode < right.opcode;
 }
 

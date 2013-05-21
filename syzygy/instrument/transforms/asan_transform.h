@@ -58,6 +58,8 @@ class AsanBasicBlockTransform
     MemoryAccessMode mode;
     uint8_t size;
     uint16_t opcode;
+    // True iff we need to save the flags for this access.
+    bool save_flags;
   };
 
   typedef block_graph::BlockGraph BlockGraph;
@@ -78,12 +80,12 @@ class AsanBasicBlockTransform
 
   // @name Accessors.
   // @{
-  bool debug_friendly() const {
-    return debug_friendly_;
-  }
+  bool debug_friendly() const { return debug_friendly_; }
+  void set_debug_friendly(bool flag) { debug_friendly_ = flag; }
 
-  void set_debug_friendly(bool flag) {
-    debug_friendly_ = flag;
+  bool use_liveness_analysis() { return use_liveness_analysis_; }
+  void set_use_liveness_analysis(bool use_liveness_analysis) {
+    use_liveness_analysis_ = use_liveness_analysis;
   }
   // @}
 
@@ -117,6 +119,9 @@ class AsanBasicBlockTransform
   // Activate the overwriting of source range for created instructions.
   bool debug_friendly_;
 
+  // Set iff we should use the liveness analysis to do smarter instrumentation.
+  bool use_liveness_analysis_;
+
   DISALLOW_COPY_AND_ASSIGN(AsanBasicBlockTransform);
 };
 
@@ -149,12 +154,12 @@ class AsanTransform
     return asan_dll_name_.c_str();
   }
 
-  bool debug_friendly() const {
-    return debug_friendly_;
-  }
+  bool debug_friendly() const { return debug_friendly_; }
+  void set_debug_friendly(bool flag) { debug_friendly_ = flag; }
 
-  void set_debug_friendly(bool flag) {
-    debug_friendly_ = flag;
+  bool use_liveness_analysis() const { return use_liveness_analysis_; }
+  void set_use_liveness_analysis(bool use_liveness_analysis) {
+    use_liveness_analysis_ = use_liveness_analysis;
   }
   // @}
 
@@ -173,6 +178,9 @@ class AsanTransform
 
   // Activate the overwriting of source range for created instructions.
   bool debug_friendly_;
+
+  // Set iff we should use the liveness analysis to do smarter instrumentation.
+  bool use_liveness_analysis_;
 
   // References to the different asan check access import entries. Valid after
   // successful PreBlockGraphIteration.

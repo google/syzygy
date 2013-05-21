@@ -61,7 +61,8 @@ class InstrumentApp : public common::AppImplBase {
         no_strip_strings_(false),
         debug_friendly_(false),
         instrument_unsafe_references_(true),
-        module_entry_only_(false) {
+        module_entry_only_(false),
+        use_liveness_analysis_(false) {
   }
 
   // @name Implementation of the AppImplBase interface.
@@ -103,6 +104,7 @@ class InstrumentApp : public common::AppImplBase {
   bool thunk_imports_;
   bool instrument_unsafe_references_;
   bool module_entry_only_;
+  bool use_liveness_analysis_;
   // @}
 
   // @name Internal machinery, replaceable for testing purposes.

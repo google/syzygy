@@ -422,24 +422,85 @@ void CheckStringsMemoryAccesses(
 //   PUSHFD/POPFD: 23.314684 ticks
 //   LAHF/SAHF:     8.838665 ticks
 
+// This macro starts by saving EAX onto the stack and then loads the value of
+// the flags into it.
 #define ASAN_SAVE_EFLAGS  \
-  /* Save EAX as we'll use it to save the value of the flags. */  \
-  __asm push eax  \
-  /* Save the low byte of the flags into ah. We use this instruction */  \
-  /* instead of PUSHFD/POPFD because it's much faster. We also save */  \
-  /* the overflow flag into al. We can do this because our hooks are */  \
-  /* simple and don't touch the other flags. */  \
-  __asm lahf  \
-  __asm seto al
+    __asm push eax  \
+    __asm lahf  \
+    __asm seto al
 
+// This macro restores the flags, their previous value is assumed to be in EAX
+// and we expect to have the previous value of EAX on the top of the stack.
+// AL is set to 1 if the overflow flag was set before the call to our hook, 0
+// otherwise. We add 0x7f to it so it'll restore the flag. Then we restore the
+// low bytes of the flags and EAX.
 #define ASAN_RESTORE_EFLAGS  \
-  /* AL is set to 1 if the overflow flag was set before the call to our */  \
-  /* hook 0 otherwise. We add 0x7f to it so it'll restore the flag. */  \
-  __asm add al, 0x7f  \
-  /* Restore the low byte of the flags. */  \
-  __asm sahf  \
-  /* Restore original EAX. */  \
-  __asm pop eax
+    __asm add al, 0x7f  \
+    __asm sahf  \
+    __asm pop eax
+
+// This is the common part of the fast path shared between the different
+// implementations of the hooks, this does the following:
+//     - Saves the memory location in EDX for the slow path.
+//     - Checks for zero shadow for this memory location.
+//     - If the shadow byte is not equal to zero then it jumps to the slow path.
+//     - Otherwise it removes the memory location from the top of the stack.
+#define ASAN_FAST_PATH  \
+    __asm push edx  \
+    __asm shr edx, 3  \
+    __asm movzx edx, BYTE PTR[edx + agent::asan::Shadow::shadow_]  \
+    __asm test dl, dl  \
+    __asm jnz check_access_slow  \
+    __asm add esp, 4
+
+// This is the common part of the slow path shared between the different
+// implementations of the hooks. The memory location is expected to be on top of
+// the stack and the shadow value for it is assumed to be in DL at this point.
+// We inline the Shadow::IsAccessible function for performance reasons.
+// This function does the following:
+//     - Starts by saving EAX on the stack.
+//     - Checks if this byte is accessible and jump to the error path if it's
+//       not.
+//     - Restores EAX and removes the memory location from the top of the stack.
+#define ASAN_SLOW_PATH  \
+    __asm push eax  \
+    __asm test dl, kHeapNonAccessibleByteMask  \
+    __asm jnz report_failure  \
+    __asm mov eax, DWORD PTR[esp + 4]  \
+    __asm and eax, 7  \
+    __asm cmp al, dl  \
+    __asm jae report_failure  \
+    __asm pop eax  \
+    __asm add esp, 4
+
+// This is the error path. It expects to have the previous value of EDX at
+// [ESP + 4] and the address of the faulty instruction at [ESP].
+// This macro take cares of saving and restoring the flags.
+#define ASAN_ERROR_PATH(access_size, access_mode_value)  \
+    /* Restore original value of EDX, and put memory location on stack. */  \
+    __asm xchg edx, DWORD PTR[esp + 4]  \
+    /* Create an ASAN registers context on the stack. */  \
+    __asm pushfd  \
+    __asm pushad  \
+    /* Fix the original value of ESP in the ASAN registers context. */  \
+    /* Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX). */  \
+    __asm add DWORD PTR[esp + 12], 12  \
+    /* Push ARG4: the address of ASAN context on stack. */  \
+    __asm push esp  \
+    /* Push ARG3: the access size. */  \
+    __asm push access_size  \
+    /* Push ARG2: the access type. */  \
+    __asm push access_mode_value  \
+    /* Push ARG1: the memory location. */  \
+    __asm push DWORD PTR[esp + 52]  \
+    __asm call agent::asan::CheckMemoryAccess  \
+    /* Remove 4 x ARG on stack. */  \
+    __asm add esp, 16  \
+    /* Restore original registers. */  \
+    __asm popad  \
+    __asm popfd  \
+    /* Return and remove memory location on stack. */  \
+    __asm ret 4
 
 // Generates the asan check access functions. The name of the generated method
 // will be asan_check_(@p access_size)_byte_(@p access_mode_str)().
@@ -447,79 +508,69 @@ void CheckStringsMemoryAccesses(
 // @param access_mode_str The string representing the access mode (read_access
 //     or write_access).
 // @param access_mode_value The internal value representing this kind of access.
+// @note Calling this function doesn't alter any register.
 #define ASAN_CHECK_FUNCTION(access_size, access_mode_str, access_mode_value)  \
   extern "C" __declspec(naked)  \
       void asan_check_ ## access_size ## _byte_ ## access_mode_str ## () {  \
     __asm {  \
       /* Save the EFLAGS. */  \
       ASAN_SAVE_EFLAGS  \
-      /* Save memory location in EDX for the slow path. */  \
-      __asm push edx  \
-      /* Check for zero shadow - fast case. */  \
-      __asm shr edx, 3  \
-      __asm movzx edx, BYTE PTR[edx + agent::asan::Shadow::shadow_]  \
-      __asm test dl, dl  \
-      __asm jnz check_access_slow  \
-      /* Remove memory location on top of stack */  \
-      __asm add esp, 4  \
+      ASAN_FAST_PATH  \
       /* Restore original EDX. */  \
       __asm mov edx, DWORD PTR[esp + 8]  \
       /* Restore the EFLAGS. */  \
       ASAN_RESTORE_EFLAGS  \
       __asm ret 4  \
     __asm check_access_slow:  \
-      /* Uh-oh - non-zero shadow byte means we go to the slow case. */  \
-      /* We inline the Shadow::IsAccessible function for performance. */  \
-      /* Save the flags on the stack (keep in eax in the fastpath). */  \
-      __asm push eax  \
-      /* DL contains the shadow value for this byte, check if it's marked */  \
-      /* as non accessible. */  \
-      __asm test dl, kHeapNonAccessibleByteMask  \
-      __asm jnz report_failure  \
-      /* Put the 3 last bits of the memory location into EAX. */  \
-      __asm mov eax, DWORD PTR[esp + 4]  \
-      __asm and eax, 7  \
-      /* Check if this byte is accessible. */  \
-      __asm cmp al, dl  \
-      __asm jae report_failure  \
-      __asm pop eax  \
-      /* Remove memory location on top of stack */  \
-      __asm add esp, 4  \
+      ASAN_SLOW_PATH  \
       /* Restore original EDX. */  \
       __asm mov edx, DWORD PTR[esp + 8]  \
       /* Restore the EFLAGS. */  \
       ASAN_RESTORE_EFLAGS  \
       __asm ret 4  \
     __asm report_failure:  \
+      /* Restore the original value of EAX, we've pushed it on the stack in*/  \
+      /* the slow path. */  \
       __asm pop eax  \
       /* Restore memory location in EDX. */  \
       __asm pop edx  \
       /* Restore the EFLAGS. */  \
       ASAN_RESTORE_EFLAGS  \
-      /* Restore original value of EDX, and put memory location on stack. */  \
-      __asm xchg edx, DWORD PTR[esp + 4]  \
-      /* Create an ASAN registers context on the stack. */  \
-      __asm pushfd  \
-      __asm pushad  \
-      /* Fix the original value of ESP in the ASAN registers context. */  \
-      /* Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX). */  \
-      __asm add DWORD PTR[esp + 12], 12  \
-      /* Push ARG4: the address of ASAN context on stack. */  \
-      __asm push esp  \
-      /* Push ARG3: the access size. */  \
-      __asm push access_size  \
-      /* Push ARG2: the access type. */  \
-      __asm push access_mode_value  \
-      /* Push ARG1: the memory location. */  \
-      __asm push DWORD PTR[esp + 52]  \
-      __asm call agent::asan::CheckMemoryAccess  \
-      /* Remove 4 x ARG on stack. */  \
-      __asm add esp, 16  \
-      /* Restore original registers. */  \
-      __asm popad  \
-      __asm popfd  \
-      /* Return and remove memory location on stack. */  \
+      ASAN_ERROR_PATH(access_size, access_mode_value)  \
+    }  \
+  }
+
+// Generates a variant of the asan check access functions that don't save the
+// flags. The name of the generated method will be
+// asan_check_(@p access_size)_byte_(@p access_mode_str)_no_flags().
+// @param access_size The size of the access (in byte).
+// @param access_mode_str The string representing the access mode (read_access
+//     or write_access).
+// @param access_mode_value The internal value representing this kind of access.
+// @note Calling this function may alter the EFLAGS register only.
+#define ASAN_CHECK_FUNCTION_NO_FLAGS(access_size,  \
+                                     access_mode_str,  \
+                                     access_mode_value)  \
+  extern "C" __declspec(naked)  \
+      void asan_check_ ## access_size ## _byte_ ## access_mode_str ##  \
+          _no_flags() {  \
+    __asm {  \
+      ASAN_FAST_PATH  \
+      /* Restore original EDX. */  \
+      __asm mov edx, DWORD PTR[esp + 4]  \
       __asm ret 4  \
+    __asm check_access_slow:  \
+      ASAN_SLOW_PATH  \
+      /* Restore original EDX. */  \
+      __asm mov edx, DWORD PTR[esp + 4]  \
+      __asm ret 4  \
+    __asm report_failure:  \
+      /* Restore the original value of EAX, we've pushed it on the stack in*/  \
+      /* the slow path. */  \
+      __asm pop eax  \
+      /* Restore memory location in EDX. */  \
+      __asm pop edx  \
+      ASAN_ERROR_PATH(access_size, access_mode_value)  \
     }  \
   }
 
@@ -552,6 +603,28 @@ ASAN_CHECK_FUNCTION(16, write_access, AsanWriteAccess)
 ASAN_CHECK_FUNCTION(32, write_access, AsanWriteAccess)
 
 #undef ASAN_CHECK_FUNCTION
+
+ASAN_CHECK_FUNCTION_NO_FLAGS(1, read_access, AsanReadAccess)
+ASAN_CHECK_FUNCTION_NO_FLAGS(2, read_access, AsanReadAccess)
+ASAN_CHECK_FUNCTION_NO_FLAGS(4, read_access, AsanReadAccess)
+ASAN_CHECK_FUNCTION_NO_FLAGS(8, read_access, AsanReadAccess)
+ASAN_CHECK_FUNCTION_NO_FLAGS(10, read_access, AsanReadAccess)
+ASAN_CHECK_FUNCTION_NO_FLAGS(16, read_access, AsanReadAccess)
+ASAN_CHECK_FUNCTION_NO_FLAGS(32, read_access, AsanReadAccess)
+ASAN_CHECK_FUNCTION_NO_FLAGS(1, write_access, AsanWriteAccess)
+ASAN_CHECK_FUNCTION_NO_FLAGS(2, write_access, AsanWriteAccess)
+ASAN_CHECK_FUNCTION_NO_FLAGS(4, write_access, AsanWriteAccess)
+ASAN_CHECK_FUNCTION_NO_FLAGS(8, write_access, AsanWriteAccess)
+ASAN_CHECK_FUNCTION_NO_FLAGS(10, write_access, AsanWriteAccess)
+ASAN_CHECK_FUNCTION_NO_FLAGS(16, write_access, AsanWriteAccess)
+ASAN_CHECK_FUNCTION_NO_FLAGS(32, write_access, AsanWriteAccess)
+
+#undef ASAN_CHECK_FUNCTION_NO_FLAGS
+#undef ASAN_SAVE_EFLAGS
+#undef ASAN_RESTORE_EFLAGS
+#undef ASAN_FAST_PATH
+#undef ASAN_SLOW_PATH
+#undef ASAN_ERROR_PATH
 
 // Generates the asan check access functions for a string instruction.
 // The name of the generated method will be

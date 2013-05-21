@@ -73,8 +73,14 @@ class AsanTransformTest : public testing::TestDllTransformTest {
   void AddHookRef(const std::string& hook_name,
                   AsanBasicBlockTransform::MemoryAccessMode access_kind,
                   int access_size,
-                  uint16_t opcode) {
-      HookMapEntryKey map_key = { access_kind, access_size, opcode };
+                  uint16_t opcode,
+                  bool save_flags) {
+      HookMapEntryKey map_key = {
+          access_kind,
+          access_size,
+          opcode,
+          save_flags
+      };
       hooks_check_access_[map_key] =
           block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 4, hook_name);
       // Set up the references to the hooks needed by SyzyAsan.
@@ -88,13 +94,21 @@ class AsanTransformTest : public testing::TestDllTransformTest {
     for (int access_size = 1; access_size <= 8; access_size *= 2) {
       std::string name =
           base::StringPrintf("asan_check_%d_byte_read_access", access_size);
-      AddHookRef(name, AsanBasicBlockTransform::kReadAccess, access_size, 0 );
+      AddHookRef(name, AsanBasicBlockTransform::kReadAccess, access_size, 0,
+                 true);
+      name += "_no_flags";
+      AddHookRef(name, AsanBasicBlockTransform::kReadAccess, access_size, 0,
+                 false);
     }
     // Initialize the write access hooks.
     for (int access_size = 1; access_size <= 8; access_size *= 2) {
       std::string name =
           base::StringPrintf("asan_check_%d_byte_write_access", access_size);
-      AddHookRef(name, AsanBasicBlockTransform::kWriteAccess, access_size, 0 );
+      AddHookRef(name, AsanBasicBlockTransform::kWriteAccess, access_size, 0,
+                 true);
+      name += "_no_flags";
+      AddHookRef(name, AsanBasicBlockTransform::kWriteAccess, access_size, 0,
+                 false);
     }
 
     const _InstructionType strings[] = { I_CMPS, I_MOVS, I_STOS };
@@ -110,7 +124,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
                                access_size, opcode_str);
         StringToLowerASCII(&name);
         AddHookRef(name, AsanBasicBlockTransform::kRepzAccess, access_size,
-                   opcode );
+                   opcode, true);
       }
     }
 
@@ -127,7 +141,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
                                access_size, opcode_str);
         StringToLowerASCII(&name);
         AddHookRef(name, AsanBasicBlockTransform::kInstrAccess, access_size,
-                   opcode );
+                   opcode, true);
 
         // Initialize the strings with prefix access hooks.
          std::string repz_name =
@@ -135,7 +149,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
                                access_size, opcode_str);
         StringToLowerASCII(&repz_name);
         AddHookRef(repz_name, AsanBasicBlockTransform::kRepzAccess, access_size,
-                   opcode );
+                   opcode, true);
       }
     }
   }
@@ -233,7 +247,7 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   ASSERT_EQ(empty_source_range, iter_inst->source_range());
   ASSERT_EQ(iter_inst->references().size(), 1);
   HookMapEntryKey check_4_byte_read_key =
-      { AsanBasicBlockTransform::kReadAccess, 4, 0 };
+      { AsanBasicBlockTransform::kReadAccess, 4, 0, true };
   ASSERT_TRUE(iter_inst->references().begin()->second.block()
       == hooks_check_access_[check_4_byte_read_key]);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_CALL);
@@ -245,7 +259,7 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_LEA);
   ASSERT_EQ(iter_inst->references().size(), 1);
   HookMapEntryKey check_4_byte_write_key =
-      { AsanBasicBlockTransform::kWriteAccess, 4, 0 };
+      { AsanBasicBlockTransform::kWriteAccess, 4, 0, true };
   ASSERT_TRUE(iter_inst->references().begin()->second.block()
       == hooks_check_access_[check_4_byte_write_key]);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_CALL);
@@ -443,7 +457,7 @@ TEST_F(AsanTransformTest, FilteredInstructionsNotInstrumented) {
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_LEA);
   ASSERT_EQ(iter_inst->references().size(), 1);
   HookMapEntryKey check_4_byte_write_key =
-      { AsanBasicBlockTransform::kWriteAccess, 4, 0 };
+      { AsanBasicBlockTransform::kWriteAccess, 4, 0, true };
   ASSERT_TRUE(iter_inst->references().begin()->second.block()
       == hooks_check_access_[check_4_byte_write_key]);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_CALL);

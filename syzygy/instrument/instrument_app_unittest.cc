@@ -59,6 +59,7 @@ class TestInstrumentApp : public InstrumentApp {
   using InstrumentApp::module_entry_only_;
   using InstrumentApp::thunk_imports_;
   using InstrumentApp::mode_;
+  using InstrumentApp::use_liveness_analysis_;
 
   pe::PERelinker& GetRelinker() OVERRIDE {
     return mock_relinker_;
@@ -227,6 +228,7 @@ TEST_F(InstrumentAppTest, ParseMinimalAsan) {
   EXPECT_FALSE(test_impl_.no_parse_debug_info_);
   EXPECT_FALSE(test_impl_.no_strip_strings_);
   EXPECT_FALSE(test_impl_.debug_friendly_);
+  EXPECT_FALSE(test_impl_.use_liveness_analysis_);
 }
 
 TEST_F(InstrumentAppTest, ParseFullAsan) {
@@ -243,6 +245,7 @@ TEST_F(InstrumentAppTest, ParseFullAsan) {
   cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitch("overwrite");
+  cmd_line_.AppendSwitch("use-liveness-analysis");
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
 
@@ -259,6 +262,7 @@ TEST_F(InstrumentAppTest, ParseFullAsan) {
   EXPECT_TRUE(test_impl_.no_parse_debug_info_);
   EXPECT_TRUE(test_impl_.no_strip_strings_);
   EXPECT_TRUE(test_impl_.debug_friendly_);
+  EXPECT_TRUE(test_impl_.use_liveness_analysis_);
 }
 
 TEST_F(InstrumentAppTest, ParseMinimalBasicBlockEntry) {
