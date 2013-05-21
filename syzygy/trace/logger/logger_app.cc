@@ -54,10 +54,13 @@ const char kUsageFormatStr[] =
     "           of the stop action will stop the logger.\n"
     "    spawn  Run a new logger instance in the background (non-blocking).\n"
     "    stop   Stop a separately running logger instance.\n"
+    "\n"
     "  Options:\n"
     "    --instance-id=ID     A unique (up to 16 character) ID to identify\n"
     "                         the logger instance.\n"
-    "    --output-file=PATH>  The file path to which logs should be written.\n"
+    "    --minidump-dir=PATH The directory path in which minidumps, if any,\n"
+    "                         should be generated.\n"
+    "    --output-file=PATH   The file path to which logs should be written.\n"
     "                         This may be stdout (the default), stderr or a\n"
     "                         file path. This option is valid for the start\n"
     "                         and spawn actions.\n"
@@ -237,6 +240,7 @@ const wchar_t LoggerApp::kStop[] = L"stop";
 const char LoggerApp::kInstanceId[] = "instance-id";
 const char LoggerApp::kUniqueInstanceId[] = "unique-instance-id";
 const char LoggerApp::kOutputFile[] = "output-file";
+const char LoggerApp::kMiniDumpDir[] = "minidump-dir";
 const char LoggerApp::kAppend[] = "append";
 const wchar_t LoggerApp::kStdOut[] = L"stdout";
 const wchar_t LoggerApp::kStdErr[] = L"stderr";
@@ -293,6 +297,21 @@ bool LoggerApp::ParseCommandLine(const CommandLine* command_line) {
   // Save the output file parameter.
   output_file_path_ = command_line->GetSwitchValuePath(kOutputFile);
 
+  // Save the minidump-dir parameter.
+  mini_dump_dir_ = command_line->GetSwitchValuePath(kMiniDumpDir);
+  if (mini_dump_dir_.empty()) {
+    CHECK(PathService::Get(base::DIR_CURRENT, &mini_dump_dir_));
+  } else {
+    if (!file_util::AbsolutePath(&mini_dump_dir_))
+      return Usage(command_line, "The minidump-dir parameter is invalid.");
+
+    if (!file_util::DirectoryExists(mini_dump_dir_) &&
+        !file_util::CreateDirectory(mini_dump_dir_)) {
+      LOG(ERROR) << "Failed to create minidump-dir "
+                 << mini_dump_dir_.value();
+    }
+  }
+
   // Make sure there's exactly one action.
   if (command_line->GetArgs().size() != 1) {
     return Usage(command_line,
@@ -319,6 +338,7 @@ bool LoggerApp::ParseCommandLine(const CommandLine* command_line) {
   }
 
   LOG(INFO) << "Using logger instance ID: '" << instance_id_ << "'.";
+  LOG(INFO) << "Writing minidumps to: " << mini_dump_dir_.value();
 
   // Setup the action handler.
   DCHECK(entry->handler != NULL);
@@ -396,6 +416,7 @@ bool LoggerApp::Start() {
   // Initialize the logger instance.
   Logger logger;
   logger.set_destination(output_file);
+  logger.set_minidump_dir(mini_dump_dir_);
   logger.set_instance_id(instance_id_);
   logger.set_started_callback(
       base::Bind(&SignalEvent, start_event.Get()));

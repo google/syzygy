@@ -20,6 +20,7 @@
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/file_util.h"
+#include "base/path_service.h"
 #include "base/process_util.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
@@ -56,6 +57,7 @@ class TestLoggerApp : public LoggerApp {
   using LoggerApp::kInstanceId;
   using LoggerApp::kUniqueInstanceId;
   using LoggerApp::kOutputFile;
+  using LoggerApp::kMiniDumpDir;
   using LoggerApp::kStdOut;
   using LoggerApp::kStdErr;
   using LoggerApp::logger_command_line_;
@@ -65,6 +67,7 @@ class TestLoggerApp : public LoggerApp {
   using LoggerApp::action_handler_;
   using LoggerApp::output_file_path_;
   using LoggerApp::append_;
+  using LoggerApp::mini_dump_dir_;
 };
 
 typedef common::Application<TestLoggerApp> TestApp;
@@ -153,6 +156,28 @@ TEST_F(LoggerAppTest, ParseUniqueInstanceId) {
   ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
   EXPECT_EQ(TestLoggerApp::kMaxInstanceIdLength,
             test_impl_.instance_id_.size());
+}
+
+TEST_F(LoggerAppTest, ParseDefaultMiniDumpDir) {
+  cmd_line_.AppendArg("start");
+  ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
+
+  base::FilePath cwd;
+  ASSERT_TRUE(::PathService::Get(base::DIR_CURRENT, &cwd));
+
+  EXPECT_EQ(cwd, test_impl_.mini_dump_dir_);
+}
+
+TEST_F(LoggerAppTest, ParseMiniDumpDir) {
+  base::FilePath new_mini_dump_dir(temp_dir_.Append(L"mini_dumps"));
+  ASSERT_FALSE(file_util::DirectoryExists(new_mini_dump_dir));
+
+  cmd_line_.AppendSwitchPath(TestLoggerApp::kMiniDumpDir, new_mini_dump_dir);
+  cmd_line_.AppendArg("start");
+  ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
+
+  EXPECT_EQ(new_mini_dump_dir, test_impl_.mini_dump_dir_);
+  EXPECT_TRUE(file_util::DirectoryExists(new_mini_dump_dir));
 }
 
 TEST_F(LoggerAppTest, ParseBasicStart) {

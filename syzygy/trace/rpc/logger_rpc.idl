@@ -72,6 +72,19 @@ interface Logger {
       [in, string] const char* text,
       [in, size_is(trace_length)] const unsigned long trace_data[*],
       [in] long trace_length);
+
+  // Generate a minidump for the calling process.
+  // @param thread_id the ID of the calling thread.
+  // @param exception A pointer to an EXCEPTION_POINTERS record describing the
+  //     reason for the minidump, or NULL, cast to an unsigned long. The logger
+  //     peek into the calling process to read the exception pointers.
+  // @param flags Reserved.
+  //
+  boolean SaveMiniDump(
+      [in] handle_t binding,
+      [in] unsigned long thread_id,
+      [in] unsigned long exception,
+      [in] unsigned long flags);
 }
 
 // Defines the Logger's RPC Control interface.

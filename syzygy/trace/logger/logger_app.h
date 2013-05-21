@@ -125,6 +125,7 @@ class LoggerApp : public common::AppImplBase {
   static const char kUniqueInstanceId[];
   static const char kOutputFile[];
   static const char kAppend[];
+  static const char kMiniDumpDir[];
   // @}
 
   // Special-case output file value tokens.
@@ -145,6 +146,7 @@ class LoggerApp : public common::AppImplBase {
   std::wstring action_;
   ActionHandler action_handler_;
   base::FilePath output_file_path_;
+  base::FilePath mini_dump_dir_;
   bool append_;
   // @}
 

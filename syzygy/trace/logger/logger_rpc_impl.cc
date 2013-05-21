@@ -33,7 +33,8 @@ using base::win::ScopedHandle;
 using trace::logger::RpcLoggerInstanceManager;
 using trace::logger::Logger;
 
-bool GetClientProcessHandle(handle_t binding, ScopedHandle* handle) {
+bool GetClientInfo(handle_t binding, ProcessId* pid, ScopedHandle* handle) {
+  DCHECK(pid != NULL);
   DCHECK(handle != NULL);
 
   // Get the RPC call attributes.
@@ -47,20 +48,21 @@ bool GetClientProcessHandle(handle_t binding, ScopedHandle* handle) {
   }
 
   // Extract the process id.
-  ProcessId pid = reinterpret_cast<ProcessId>(attribs.ClientPID);
+  ProcessId the_pid = reinterpret_cast<ProcessId>(attribs.ClientPID);
 
   // Open and return the handle to the process.
   static const DWORD kFlags =
       PROCESS_DUP_HANDLE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
-  handle->Set(::OpenProcess(kFlags, FALSE, pid));
+  handle->Set(::OpenProcess(kFlags, FALSE, the_pid));
   if (!handle->IsValid()) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to open PID=" << pid << ": " << com::LogWe(error)
+    LOG(ERROR) << "Failed to open PID=" << the_pid << ": " << com::LogWe(error)
                << ".";
     return false;
   }
 
   // And we're done.
+  *pid = the_pid;
   return true;
 }
 
@@ -115,17 +117,18 @@ boolean LoggerService_Write(
 }
 
 boolean LoggerService_WriteWithContext(
-  /* [in] */ handle_t binding,
-  /* [in, string] */ const unsigned char* text,
-  /* [in */ const ExecutionContext* exc_context ) {
+    /* [in] */ handle_t binding,
+    /* [in, string] */ const unsigned char* text,
+    /* [in */ const ExecutionContext* exc_context ) {
   if (binding == NULL || text == NULL || exc_context == NULL) {
     LOG(ERROR) << "Invalid input parameter(s).";
     return false;
   }
 
-  // Get the PID of the caller.
+  // Get the caller's process info.
+  ProcessId pid = 0;
   ScopedHandle handle;
-  if (!GetClientProcessHandle(binding, &handle))
+  if (!GetClientInfo(binding, &pid, &handle))
     return false;
 
   // Get the logger instance.
@@ -155,18 +158,19 @@ boolean LoggerService_WriteWithContext(
 }
 
 boolean LoggerService_WriteWithTrace(
-  /* [in] */ handle_t binding,
-  /* [in, string] */ const unsigned char* text,
-  /* [in, size_is(trace_length)] */ const unsigned long* trace_data,
-  /* [in] */ LONG trace_length) {
+    /* [in] */ handle_t binding,
+    /* [in, string] */ const unsigned char* text,
+    /* [in, size_is(trace_length)] */ const unsigned long* trace_data,
+    /* [in] */ LONG trace_length) {
   if (binding == NULL || text == NULL || trace_data == NULL) {
     LOG(ERROR) << "Invalid input parameter(s).";
     return false;
   }
 
-  // Get the PID of the caller.
+  // Get the caller's process info.
+  ProcessId pid = 0;
   ScopedHandle handle;
-  if (!GetClientProcessHandle(binding, &handle))
+  if (!GetClientInfo(binding, &pid, &handle))
     return false;
 
   // Get the logger instance.
@@ -185,12 +189,42 @@ boolean LoggerService_WriteWithTrace(
   return true;
 }
 
+// RPC entrypoint for Logger::SaveMinidump().
+boolean LoggerService_SaveMiniDump(
+    /* [in] */ handle_t binding,
+    /* [in] */ unsigned long thread_id,
+    /* [in] */ unsigned long exception,
+    /* [in] */ unsigned long flags) {
+  if (binding == NULL) {
+    LOG(ERROR) << "Invalid input parameter(s).";
+    return false;
+  }
+
+  // Get the caller's process info.
+  ProcessId pid = 0;
+  ScopedHandle handle;
+  if (!GetClientInfo(binding, &pid, &handle))
+    return false;
+
+  Logger* instance = RpcLoggerInstanceManager::GetInstance();
+  if (!instance->SaveMiniDump(handle, pid, thread_id, exception, flags))
+    return false;
+
+  return true;
+}
+
 // RPC entrypoint for Logger::Stop().
 boolean LoggerService_Stop(/* [in] */ handle_t binding) {
   if (binding == NULL) {
     LOG(ERROR) << "Invalid input parameter(s).";
     return false;
   }
+
+  // Get the caller's process info.
+  ProcessId pid = 0;
+  ScopedHandle handle;
+  if (!GetClientInfo(binding, &pid, &handle))
+    return false;
 
   Logger* instance = RpcLoggerInstanceManager::GetInstance();
   if (!instance->Stop())

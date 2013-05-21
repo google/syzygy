@@ -313,6 +313,68 @@ bool Logger::Write(const base::StringPiece& message) {
   return true;
 }
 
+bool Logger::SaveMiniDump(HANDLE process,
+                          base::ProcessId pid,
+                          DWORD tid,
+                          DWORD exc_ptr,
+                          DWORD flags) {
+  DCHECK(!minidump_dir_.empty());
+
+  // Create a temporary file to which to write the minidump. We'll rename it
+  // to something recognizable when we're finished writing to it.
+  base::FilePath temp_file_path;
+  if (!file_util::CreateTemporaryFileInDir(minidump_dir_, &temp_file_path)) {
+    LOG(ERROR) << "Could not create mini dump file in "
+               << minidump_dir_.value();
+    return false;
+  }
+
+  {
+    // Open the temp file in write mode. It will only stay open in this scope.
+    // Outside of this scope, we'll access file by name.
+    base::win::ScopedHandle temp_file(
+        ::CreateFile(temp_file_path.value().c_str(), GENERIC_WRITE, 0, NULL,
+                     CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL));
+    if (!temp_file.IsValid()) {
+      LOG(ERROR) << "Could not open mini dump file in "
+                 << minidump_dir_.value() << " for writing.";
+      return false;
+    }
+
+    // Access to ::MiniDumpWriteDump (and all DbgHelp functions) must be
+    // serialized.
+    base::AutoLock auto_lock(symbol_lock_);
+
+    // Generate the minidump.
+    MINIDUMP_EXCEPTION_INFORMATION exc_info = {
+        tid, reinterpret_cast<EXCEPTION_POINTERS*>(exc_ptr), true };
+    if (!::MiniDumpWriteDump(process, pid, temp_file, ::MiniDumpNormal,
+                             &exc_info, NULL, NULL)) {
+      // Note that the error set by ::MiniDumpWriteDump is an HRESULT, not a
+      // Windows error. even though it is returned via ::GetLastError().
+      // http://msdn.microsoft.com/en-us/library/windows/desktop/ms680360.aspx
+      HRESULT error = ::GetLastError();
+      LOG(ERROR) << "::MiniDumpWriteDump failed: " << com::LogHr(error) << ".";
+      return false;
+    }
+
+    // The temporary file is closed here, and the symbol lock released.
+  }
+
+  // Rename the temporary file so that its recognizable as a dump.
+  base::FilePath final_name(
+      base::StringPrintf(L"minidump-%08u-%08u-%08u.dmp",
+                         pid, tid, ::GetTickCount()));
+  if (!file_util::Move(temp_file_path, minidump_dir_.Append(final_name))) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Failed to move dump file to final location "
+               << com::LogWe(error) << ".";
+    return false;
+  }
+
+  return true;
+}
+
 bool Logger::InitRpc() {
   RPC_STATUS status = RPC_S_OK;
 

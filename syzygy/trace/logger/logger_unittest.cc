@@ -106,6 +106,7 @@ class LoggerTest : public testing::Test {
 
     // Setup a logger to use.
     logger_.set_instance_id(instance_id_);
+    logger_.set_minidump_dir(temp_dir_.path());
     logger_.set_destination(log_file_.get());
     logger_.set_started_callback(base::Bind(
         &LoggerTest::LoggerStartedCallback, base::Unretained(this)));
@@ -116,6 +117,7 @@ class LoggerTest : public testing::Test {
 
     // Validate that the Logger's constructor and setters have done their jobs.
     ASSERT_EQ(log_file_.get(), logger_.destination_);
+    ASSERT_EQ(temp_dir_.path(), logger_.minidump_dir());
     ASSERT_TRUE(!logger_.instance_id().empty());
     ASSERT_TRUE(!logger_.started_callback().is_null());
     ASSERT_TRUE(!logger_.interrupted_callback().is_null());
@@ -195,6 +197,20 @@ const char LoggerTest::kLine3[] = "This is line 3\n";
 
 inline const unsigned char* MakeUnsigned(const char* s) {
   return reinterpret_cast<const unsigned char*>(s);
+}
+
+void DoRpcCreateMiniDump(handle_t rpc_binding) {
+  CONTEXT ctx = {};
+  ::RtlCaptureContext(&ctx);
+  EXCEPTION_RECORD exc_rec = {};
+  exc_rec.ExceptionAddress = reinterpret_cast<void*>(ctx.Eip);
+  exc_rec.ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
+  EXCEPTION_POINTERS exc_ptrs = { &exc_rec, &ctx };
+  ASSERT_TRUE(
+      LoggerClient_SaveMiniDump(rpc_binding,
+                                ::GetCurrentThreadId(),
+                                reinterpret_cast<unsigned long>(&exc_ptrs),
+                                0));
 }
 
 }  // namespace
@@ -349,6 +365,33 @@ TEST_F(LoggerTest, RpcWriteWithContext) {
   size_t line_2 = text.find(kLine2, 0);
   ASSERT_TRUE(line_2 != std::string::npos);
   ASSERT_TRUE(TextContainsKnownStack(text, line_2));
+}
+
+TEST_F(LoggerTest, RpcGenerateMiniDump) {
+  // Connect to the logger over RPC.
+  trace::client::ScopedRpcBinding rpc_binding;
+  std::wstring endpoint(
+      trace::client::GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
+  ASSERT_TRUE(rpc_binding.Open(kLoggerRpcProtocol, endpoint));
+
+  // Write to and stop the logger via RPC.
+  ASSERT_NO_FATAL_FAILURE(ExecuteCallbackWithKnownStack(base::Bind(
+      &DoRpcCreateMiniDump,
+      rpc_binding.Get())));
+  ASSERT_TRUE(LoggerClient_Stop(rpc_binding.Get()));
+  ASSERT_TRUE(rpc_binding.Close());
+
+  // Wait for the logger to finish shutting down.
+  EXPECT_NO_FATAL_FAILURE(WaitForLoggerToFinish());
+
+  // We should have exactly one mini-dump in the temp directory.
+  using file_util::FileEnumerator;
+  FileEnumerator fe(temp_dir_.path(), false, FileEnumerator::FILES, L"*.dmp");
+  base::FilePath mini_dump(fe.Next());
+  EXPECT_FALSE(mini_dump.empty());
+  EXPECT_TRUE(fe.Next().empty());
+
+  // TODO(rogerm): Validate the stack-trace in the mini-dump.
 }
 
 }  // namespace logger

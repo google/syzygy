@@ -19,7 +19,9 @@
 #define SYZYGY_TRACE_LOGGER_LOGGER_H_
 
 #include "base/callback.h"
+#include "base/file_util.h"
 #include "base/message_loop.h"
+#include "base/process.h"
 #include "base/string_piece.h"
 #include "base/threading/platform_thread.h"
 #include "syzygy/trace/common/service.h"
@@ -31,10 +33,6 @@ namespace logger {
 // Implements the Logger interface (see "logger_rpc.idl").
 //
 // Note: The Logger expects to be the only RPC service running in the process.
-//
-// TODO(rogerm): Add a Write function more amenable to out-of-process ASAN
-//     error reporting (i.e., accepts module info and stack traces in some
-//     format).
 class Logger : public trace::common::Service {
  public:
   Logger();
@@ -45,6 +43,12 @@ class Logger : public trace::common::Service {
     DCHECK(destination != NULL);
     destination_ = destination;
   }
+
+  // Get/Set the directory to which minidumps should be written.
+  // @{
+  const base::FilePath& minidump_dir() const { return minidump_dir_; }
+  void set_minidump_dir(const base::FilePath& dir) { minidump_dir_ = dir; }
+  // @}
 
   // Append a trace dump for @p process, given @p trace_data containing
   // @p trace_length elements. The output will be appended to @p message.
@@ -71,6 +75,22 @@ class Logger : public trace::common::Service {
   // are serialized using write_lock_.
   bool Write(const base::StringPiece& message);
 
+  // Generate a minidump for the calling process.
+  // @param process An open handle to the running process.
+  // @param pid The process id of the process to dump.
+  // @param tid The thread id (in the process to dump) of the thread which is
+  //     causing the minidump to be generated.
+  // @param exc_ptr The pointer value (in the memory address space of the
+  //     process to dump) of the exception record for which the dump is being
+  //     generated.
+  // @param flags Reserved.
+  // @returns true on success, false otherwise.
+  bool SaveMiniDump(HANDLE process,
+                    base::ProcessId pid,
+                    DWORD tid,
+                    DWORD exc_ptr,
+                    DWORD flags);
+
  protected:
   // @name Implementation of Service.
   // @{
@@ -93,6 +113,9 @@ class Logger : public trace::common::Service {
   // remain valid for at least as long as the logger is valid. Writes to
   // the destination are serialized with lock_;
   FILE* destination_;
+
+  // The directory to which minidumps should be written.
+  base::FilePath minidump_dir_;
 
   // The lock used to serializes writes to destination_;
   base::Lock write_lock_;
