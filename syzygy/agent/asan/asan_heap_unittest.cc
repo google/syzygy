@@ -28,6 +28,13 @@ namespace asan {
 namespace {
 
 // A derived class to expose protected members for unit-testing.
+class TestShadow : public Shadow {
+ public:
+  using Shadow::kShadowSize;
+  using Shadow::shadow_;
+};
+
+// A derived class to expose protected members for unit-testing.
 class TestHeapProxy : public HeapProxy {
  public:
   using HeapProxy::BlockHeader;
@@ -185,6 +192,36 @@ TEST_F(HeapTest, Quarantine) {
   }
 
   ASSERT_FALSE(proxy_.InQuarantine(mem));
+}
+
+TEST_F(HeapTest, UnpoisonsQuarantine) {
+  const size_t kAllocSize = 100;
+  const size_t real_alloc_size = TestHeapProxy::GetAllocSize(kAllocSize);
+  proxy_.SetQuarantineMaxSize(real_alloc_size);
+
+  // Allocate a memory block and directly free it, this puts it in the
+  // quarantine.
+  void* mem = proxy_.Alloc(0, kAllocSize);
+  ASSERT_TRUE(mem != NULL);
+  ASSERT_TRUE(proxy_.Free(0, mem));
+  ASSERT_TRUE(proxy_.InQuarantine(mem));
+
+  // Assert that the shadow memory has been correctly poisoned.
+  intptr_t mem_start = reinterpret_cast<intptr_t>(proxy_.ToBlockHeader(mem));
+  ASSERT_TRUE((mem_start & 7) == 0);
+  size_t shadow_start = mem_start >> 3;
+  size_t shadow_alloc_size = real_alloc_size >> 3;
+  for (size_t i = shadow_start; i < shadow_start + shadow_alloc_size; ++i) {
+    ASSERT_NE(TestShadow::kHeapAddressableByte, TestShadow::shadow_[i]);
+  }
+
+  // Flush the quarantine.
+  proxy_.SetQuarantineMaxSize(0);
+
+  // Assert that the quarantine has been correctly unpoisoned.
+  for (size_t i = shadow_start; i < shadow_start + shadow_alloc_size; ++i) {
+    ASSERT_EQ(TestShadow::kHeapAddressableByte, TestShadow::shadow_[i]);
+  }
 }
 
 TEST_F(HeapTest, AllocFree) {

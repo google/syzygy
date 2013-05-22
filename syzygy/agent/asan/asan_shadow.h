@@ -57,7 +57,6 @@ class Shadow {
   // Reset the shadow memory.
   static void Reset();
 
- private:
   // Appends a line of shadow byte text for the bytes ranging from
   // shadow_[index] to shadow_[index + 7], prefixed by @p prefix. If the index
   // @p bug_index is present in this range then its value will be surrounded by
