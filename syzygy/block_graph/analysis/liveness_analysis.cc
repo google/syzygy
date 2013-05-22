@@ -432,18 +432,55 @@ bool LivenessAnalysis::StateHelper::GetDefsOf(
   // Get information on flags (eflags register).
   SetFlags(repr.modifiedFlagsMask | repr.undefinedFlagsMask, state);
 
+  // Handle instructions with 'REP' prefix.
+  if ((FLAG_GET_PREFIX(repr.flags) & (FLAG_REPNZ | FLAG_REP)) != 0) {
+    switch (repr.opcode) {
+      case I_MOVS:
+        Set(RegisterToRegisterMask(R_ECX), state);
+        Set(RegisterToRegisterMask(R_ESI), state);
+        Set(RegisterToRegisterMask(R_EDI), state);
+        return true;
+      case I_STOS:
+        Set(RegisterToRegisterMask(R_ECX), state);
+        Set(RegisterToRegisterMask(R_EDI), state);
+        return true;
+      default: return false;
+    }
+  }
+
   // Get information on operand (general purpose registers).
   switch (repr.opcode) {
     case I_CMP:
-    case I_INT:
+    case I_FCOM:
+    case I_FCOMP:
+    case I_FCOMPP:
+    case I_FCOMI:
+    case I_FCOMIP:
+    case I_FIST:
+    case I_FISTP:
+    case I_FST:
+    case I_FSTP:
     case I_TEST:
       return true;
     case I_ADD:
+    case I_ADC:
     case I_AND:
     case I_DEC:
     case I_INC:
+    case I_FADD:
+    case I_FADDP:
+    case I_FILD:
+    case I_FLD:
+    case I_FLD1:
+    case I_FLDZ:
+    case I_FMUL:
+    case I_FMULP:
+    case I_FSUB:
+    case I_FSUBP:
     case I_LEA:
     case I_MOV:
+    case I_MOVZX:
+    case I_MOVSX:
     case I_NEG:
     case I_NOT:
     case I_OR:
@@ -484,12 +521,26 @@ bool LivenessAnalysis::StateHelper::GetDefsOf(
     case I_RET:
       Set(RegisterToRegisterMask(R_ESP), state);
       return true;
+    case I_LEAVE:
+      Set(RegisterToRegisterMask(R_EBP), state);
+      Set(RegisterToRegisterMask(R_ESP), state);
+      return true;
     case I_LAHF:
       Set(REGBITS_AH, state);
       return true;
     case I_SAHF:
       // Store register ah into flags (fix a DiStorm bug).
       SetFlags(D_AF | D_CF | D_PF | D_SF| D_ZF, state);
+      return true;
+    case I_MOVS:
+      Set(RegisterToRegisterMask(R_ESI), state);
+      Set(RegisterToRegisterMask(R_EDI), state);
+      return true;
+    case I_STOS:
+      Set(RegisterToRegisterMask(R_EDI), state);
+      return true;
+    case I_CDQ:
+      Set(RegisterToRegisterMask(R_EAX), state);
       return true;
     default:
       return false;
@@ -509,20 +560,59 @@ bool LivenessAnalysis::StateHelper::GetUsesOf(
   // Get information on flags (eflags register).
   SetFlags(repr.testedFlagsMask, state);
 
-  // Handle a special case: xor-initialisation (i.e. xor eax, eax).
+  // Handle a special case: xor-initialization (i.e. xor eax, eax).
   if (repr.opcode == I_XOR &&
       repr.ops[0].type == O_REG &&
       repr.ops[1].type == O_REG &&
       repr.ops[0].index == repr.ops[1].index) {
-        // We can assume no uses.
+    // We can assume no uses.
+    return true;
+  }
+
+  // Handle instructions with 'REP' prefix.
+  if ((FLAG_GET_PREFIX(repr.flags) & (FLAG_REPNZ | FLAG_REP)) != 0) {
+    switch (repr.opcode) {
+      case I_MOVS:
+        Set(RegisterToRegisterMask(R_ECX), state);
+        Set(RegisterToRegisterMask(R_ESI), state);
+        Set(RegisterToRegisterMask(R_EDI), state);
         return true;
+      case I_STOS:
+        Set(RegisterToRegisterMask(R_EAX), state);
+        Set(RegisterToRegisterMask(R_ECX), state);
+        Set(RegisterToRegisterMask(R_EDI), state);
+        return true;
+      default: return false;
+    }
   }
 
   // Get information on operand (general purpose registers).
   switch (repr.opcode) {
     case I_ADD:
+    case I_ADC:
     case I_AND:
     case I_CMP:
+    case I_FADD:
+    case I_FADDP:
+    case I_FCOM:
+    case I_FCOMP:
+    case I_FCOMPP:
+    case I_FCOMI:
+    case I_FCOMIP:
+    case I_FICOM:
+    case I_FICOMP:
+    case I_FILD:
+    case I_FIST:
+    case I_FISTP:
+    case I_FLD:
+    case I_FLD1:
+    case I_FLDZ:
+    case I_FMUL:
+    case I_FMULP:
+    case I_FST:
+    case I_FSTP:
+    case I_FSUB:
+    case I_FSUBP:
     case I_DEC:
     case I_INC:
     case I_NEG:
@@ -532,6 +622,22 @@ bool LivenessAnalysis::StateHelper::GetUsesOf(
     case I_OR:
     case I_SBB:
     case I_SAR:
+    case I_SETA:
+    case I_SETAE:
+    case I_SETB:
+    case I_SETBE:
+    case I_SETG:
+    case I_SETGE:
+    case I_SETL:
+    case I_SETLE:
+    case I_SETNO:
+    case I_SETNP:
+    case I_SETNS:
+    case I_SETNZ:
+    case I_SETO:
+    case I_SETP:
+    case I_SETS:
+    case I_SETZ:
     case I_SHL:
     case I_SHR:
     case I_SUB:
@@ -542,6 +648,8 @@ bool LivenessAnalysis::StateHelper::GetUsesOf(
       return true;
     case I_LEA:
     case I_MOV:
+    case I_MOVZX:
+    case I_MOVSX:
       StateUseOperandLHS(instr, repr.ops[0], state);
       StateUseOperand(instr, repr.ops[1], state);
       return true;
@@ -565,6 +673,20 @@ bool LivenessAnalysis::StateHelper::GetUsesOf(
     case I_RET:
       StateUseOperand(instr, repr.ops[0], state);
       Set(RegisterToRegisterMask(R_ESP), state);
+      return true;
+    case I_LEAVE:
+      Set(RegisterToRegisterMask(R_EBP), state);
+      return true;
+    case I_MOVS:
+      Set(RegisterToRegisterMask(R_ESI), state);
+      Set(RegisterToRegisterMask(R_EDI), state);
+      return true;
+    case I_STOS:
+      Set(RegisterToRegisterMask(R_EAX), state);
+      Set(RegisterToRegisterMask(R_EDI), state);
+      return true;
+    case I_CDQ:
+      Set(RegisterToRegisterMask(R_EAX), state);
       return true;
     default:
       return false;

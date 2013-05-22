@@ -65,10 +65,16 @@ class LivenessAnalysisTest : public testing::Test {
     return state_.AreArithmeticFlagsLive();
   }
 
-  void AddInstructionFromBuffer(const uint8* data, size_t length);
+  template<size_t N>
+  void AddInstructionFromBuffer(const uint8 (& data)[N]);
   void DefineAllRegisters();
+  void AnalyzeInstructionsWithoutReset();
   void AnalyzeInstructions();
-  void AnalyzeSingleInstructionFromBuffer(const uint8* data, size_t length);
+
+  template<size_t N>
+  void AnalyzeSingleInstructionFromBuffer(const uint8 (& data)[N]);
+
+  bool CheckCarryFlagInstruction(bool expect_on, bool expect_off);
 
   void AddSuccessorBetween(Successor::Condition condition,
                            BasicCodeBlock* from,
@@ -93,14 +99,14 @@ LivenessAnalysisTest::LivenessAnalysisTest()
       state_() {
 }
 
-void LivenessAnalysisTest::AddInstructionFromBuffer(const uint8* data,
-                                                    size_t length) {
+template<size_t N>
+void LivenessAnalysisTest::AddInstructionFromBuffer(const uint8 (& data)[N]) {
   // Decode an instruction and append it to basicblock_.
   DCHECK(data != NULL);
-  DCHECK_GT(core::AssemblerImpl::kMaxInstructionLength, length);
+  DCHECK_GT(core::AssemblerImpl::kMaxInstructionLength, N);
 
   block_graph::Instruction temp;
-  ASSERT_TRUE(block_graph::Instruction::FromBuffer(data, length, &temp));
+  ASSERT_TRUE(block_graph::Instruction::FromBuffer(&data[0], N, &temp));
 
   // Append this instruction to the basic block.
   instructions_.push_back(temp);
@@ -108,24 +114,23 @@ void LivenessAnalysisTest::AddInstructionFromBuffer(const uint8* data,
 
 void LivenessAnalysisTest::DefineAllRegisters() {
   // Inserts instructions into basicblock_ so all registers are defined.
-  AddInstructionFromBuffer(kMovEaxZero, sizeof(kMovEaxZero));
-  AddInstructionFromBuffer(kMovEbxZero, sizeof(kMovEbxZero));
-  AddInstructionFromBuffer(kMovEcxZero, sizeof(kMovEcxZero));
-  AddInstructionFromBuffer(kMovEdxZero, sizeof(kMovEdxZero));
-  AddInstructionFromBuffer(kMovEsiZero, sizeof(kMovEsiZero));
-  AddInstructionFromBuffer(kMovEdiZero, sizeof(kMovEdiZero));
-  AddInstructionFromBuffer(kMovEspZero, sizeof(kMovEspZero));
-  AddInstructionFromBuffer(kMovEbpZero, sizeof(kMovEbpZero));
+  AddInstructionFromBuffer(kMovEaxZero);
+  AddInstructionFromBuffer(kMovEbxZero);
+  AddInstructionFromBuffer(kMovEcxZero);
+  AddInstructionFromBuffer(kMovEdxZero);
+  AddInstructionFromBuffer(kMovEsiZero);
+  AddInstructionFromBuffer(kMovEdiZero);
+  AddInstructionFromBuffer(kMovEspZero);
+  AddInstructionFromBuffer(kMovEbpZero);
 
   // Define arithmetic flags.
-  AddInstructionFromBuffer(kCmpEaxEbx, sizeof(kCmpEaxEbx));
+  AddInstructionFromBuffer(kCmpEaxEbx);
 }
 
-void LivenessAnalysisTest::AnalyzeInstructions() {
+void LivenessAnalysisTest::AnalyzeInstructionsWithoutReset() {
   // Perform a backward liveness analysis on instructions in basicblock_.
   // Results are kept in 'state_' and may be accessed through IsLive and
   // AreArithmeticFlagsLive.
-  LivenessAnalysis::StateHelper::SetAll(&state_);
   Instructions::reverse_iterator instr_iter = instructions_.rbegin();
   for (; instr_iter != instructions_.rend(); ++instr_iter) {
     const Instruction& instr = *instr_iter;
@@ -133,17 +138,47 @@ void LivenessAnalysisTest::AnalyzeInstructions() {
   }
 }
 
+void LivenessAnalysisTest::AnalyzeInstructions() {
+  LivenessAnalysis::StateHelper::SetAll(&state_);
+  AnalyzeInstructionsWithoutReset();
+}
+
+template<size_t N>
 void LivenessAnalysisTest::AnalyzeSingleInstructionFromBuffer(
-    const uint8* data, size_t length) {
+    const uint8 (& data)[N]) {
   // This function creates a basic block with an instruction under test,
   // followed by instructions to define all registers and flags. This way, the
   // analysis may assume everything was dead before the instruction.
   instructions_.clear();
   StateHelper::SetAll(&state_);
 
-  AddInstructionFromBuffer(data, length);
+  AddInstructionFromBuffer(data);
   DefineAllRegisters();
   AnalyzeInstructions();
+}
+
+bool LivenessAnalysisTest::CheckCarryFlagInstruction(
+    bool expect_on, bool expect_off) {
+  LivenessAnalysis::State flags;
+  StateHelper::Clear(&flags);
+  StateHelper::SetFlags(~(D_CF), &state_);
+
+  // Try with the carry flag on.
+  StateHelper::Clear(&state_);
+  StateHelper::SetFlags(D_CF, &state_);
+  AnalyzeInstructionsWithoutReset();
+  StateHelper::Subtract(flags, &state_);
+  if (are_arithmetic_flags_live() != expect_on)
+    return false;
+
+  // Try with the carry flag off.
+  StateHelper::Clear(&state_);
+  AnalyzeInstructionsWithoutReset();
+  StateHelper::Subtract(flags, &state_);
+  if (are_arithmetic_flags_live() != expect_off)
+    return false;
+
+  return true;
 }
 
 void LivenessAnalysisTest::AddSuccessorBetween(Successor::Condition condition,
@@ -321,9 +356,9 @@ TEST_F(LivenessAnalysisTest, DefineAllRegisters) {
 
 TEST_F(LivenessAnalysisTest, Defs1Analysis) {
   // Validate the tester by defining all registers and using some of them.
-  AddInstructionFromBuffer(kMovEaxZero, sizeof(kMovEaxZero));
-  AddInstructionFromBuffer(kMovEcxZero, sizeof(kMovEcxZero));
-  AddInstructionFromBuffer(kMovEsiZero, sizeof(kMovEsiZero));
+  AddInstructionFromBuffer(kMovEaxZero);
+  AddInstructionFromBuffer(kMovEcxZero);
+  AddInstructionFromBuffer(kMovEsiZero);
   AnalyzeInstructions();
   EXPECT_FALSE(is_live(core::eax));
   EXPECT_TRUE(is_live(core::ebx));
@@ -335,9 +370,9 @@ TEST_F(LivenessAnalysisTest, Defs1Analysis) {
 
 TEST_F(LivenessAnalysisTest, Defs2Analysis) {
   // Validate the tester by defining all registers and using some of them.
-  AddInstructionFromBuffer(kMovEbxZero, sizeof(kMovEbxZero));
-  AddInstructionFromBuffer(kMovEdxZero, sizeof(kMovEdxZero));
-  AddInstructionFromBuffer(kMovEdiZero, sizeof(kMovEdiZero));
+  AddInstructionFromBuffer(kMovEbxZero);
+  AddInstructionFromBuffer(kMovEdxZero);
+  AddInstructionFromBuffer(kMovEdiZero);
   AnalyzeInstructions();
   EXPECT_TRUE(is_live(core::eax));
   EXPECT_FALSE(is_live(core::ebx));
@@ -350,40 +385,40 @@ TEST_F(LivenessAnalysisTest, Defs2Analysis) {
 TEST_F(LivenessAnalysisTest, OperandTypeLeft) {
   // Validate the support of all DiStorm operand types (as first operand).
   // _asm add eax, ecx
-  static const uint8 kOpReg1[2] = { 0x03, 0xC1 };
-  AnalyzeSingleInstructionFromBuffer(kOpReg1, sizeof(kOpReg1));
+  static const uint8 kOpReg1[] = { 0x03, 0xC1 };
+  AnalyzeSingleInstructionFromBuffer(kOpReg1);
   EXPECT_TRUE(is_live(core::eax));
   EXPECT_FALSE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::ecx));
   EXPECT_FALSE(is_live(core::edx));
 
   // _asm add [eax], ecx
-  static const uint8 kOpSmem[2] = { 0x01, 0x08 };
-  AnalyzeSingleInstructionFromBuffer(kOpSmem, sizeof(kOpSmem));
+  static const uint8 kOpSmem[] = { 0x01, 0x08 };
+  AnalyzeSingleInstructionFromBuffer(kOpSmem);
   EXPECT_TRUE(is_live(core::eax));
   EXPECT_FALSE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::ecx));
   EXPECT_FALSE(is_live(core::edx));
 
   // _asm add [eax + 42], ecx
-  static const uint8 kOpSmemOffet[3] = { 0x01, 0x48, 0x2A };
-  AnalyzeSingleInstructionFromBuffer(kOpSmemOffet, sizeof(kOpSmemOffet));
+  static const uint8 kOpSmemOffet[] = { 0x01, 0x48, 0x2A };
+  AnalyzeSingleInstructionFromBuffer(kOpSmemOffet);
   EXPECT_TRUE(is_live(core::eax));
   EXPECT_FALSE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::ecx));
   EXPECT_FALSE(is_live(core::edx));
 
   // _asm add [eax + ebx*2 + 42], ecx
-  static const uint8 kOpMemOffset[4] = { 0x01, 0x4C, 0x58, 0x2A };
-  AnalyzeSingleInstructionFromBuffer(kOpMemOffset, sizeof(kOpMemOffset));
+  static const uint8 kOpMemOffset[] = { 0x01, 0x4C, 0x58, 0x2A };
+  AnalyzeSingleInstructionFromBuffer(kOpMemOffset);
   EXPECT_TRUE(is_live(core::eax));
   EXPECT_TRUE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::ecx));
   EXPECT_FALSE(is_live(core::edx));
 
   // _asm add DWORD PTR [X], ecx
-  static const uint8 kOpDispl[6] = { 0x01, 0x0D, 0x80, 0x1E, 0xF2, 0x00 };
-  AnalyzeSingleInstructionFromBuffer(kOpDispl, sizeof(kOpDispl));
+  static const uint8 kOpDispl[] = { 0x01, 0x0D, 0x80, 0x1E, 0xF2, 0x00 };
+  AnalyzeSingleInstructionFromBuffer(kOpDispl);
   EXPECT_FALSE(is_live(core::eax));
   EXPECT_FALSE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::ecx));
@@ -393,32 +428,32 @@ TEST_F(LivenessAnalysisTest, OperandTypeLeft) {
 TEST_F(LivenessAnalysisTest, OperandTypeRight) {
   // Validate the support of all DiStorm operand types (as second operand).
   // _asm add ecx, 1
-  static const uint8 kOpReg1[3] = { 0x83, 0xC1, 0x01 };
-  AnalyzeSingleInstructionFromBuffer(kOpReg1, sizeof(kOpReg1));
+  static const uint8 kOpReg1[] = { 0x83, 0xC1, 0x01 };
+  AnalyzeSingleInstructionFromBuffer(kOpReg1);
   EXPECT_FALSE(is_live(core::eax));
   EXPECT_FALSE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::ecx));
   EXPECT_FALSE(is_live(core::edx));
 
   // _asm add ecx, eax
-  static const uint8 kOpReg2[2] = { 0x03, 0xC8 };
-  AnalyzeSingleInstructionFromBuffer(kOpReg2, sizeof(kOpReg2));
+  static const uint8 kOpReg2[] = { 0x03, 0xC8 };
+  AnalyzeSingleInstructionFromBuffer(kOpReg2);
   EXPECT_TRUE(is_live(core::eax));
   EXPECT_FALSE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::ecx));
   EXPECT_FALSE(is_live(core::edx));
 
   // _asm add ecx, [eax]
-  static const uint8 kOpSmem[2] = { 0x03, 0x08 };
-  AnalyzeSingleInstructionFromBuffer(kOpSmem, sizeof(kOpSmem));
+  static const uint8 kOpSmem[] = { 0x03, 0x08 };
+  AnalyzeSingleInstructionFromBuffer(kOpSmem);
   EXPECT_TRUE(is_live(core::eax));
   EXPECT_FALSE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::ecx));
   EXPECT_FALSE(is_live(core::edx));
 
   // _asm add ecx, [eax + 42]
-  static const uint8 kOpSmemOffet[3] = { 0x03, 0x48, 0x2A };
-  AnalyzeSingleInstructionFromBuffer(kOpSmemOffet, sizeof(kOpSmemOffet));
+  static const uint8 kOpSmemOffet[] = { 0x03, 0x48, 0x2A };
+  AnalyzeSingleInstructionFromBuffer(kOpSmemOffet);
   EXPECT_TRUE(is_live(core::eax));
   EXPECT_FALSE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::ecx));
@@ -426,15 +461,15 @@ TEST_F(LivenessAnalysisTest, OperandTypeRight) {
 
   // _asm add ecx, [eax + ebx*2 + 42]
   static const uint8 kOpMemOffset[] = { 0x03, 0x4C, 0x58, 0x2A };
-  AnalyzeSingleInstructionFromBuffer(kOpMemOffset, sizeof(kOpMemOffset));
+  AnalyzeSingleInstructionFromBuffer(kOpMemOffset);
   EXPECT_TRUE(is_live(core::eax));
   EXPECT_TRUE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::ecx));
   EXPECT_FALSE(is_live(core::edx));
 
   // _asm add ecx, DWORD PTR [X]
-  static const uint8 kOpDispl[6] = { 0x03, 0x0D, 0x80, 0x1E, 0x27, 0x00 };
-  AnalyzeSingleInstructionFromBuffer(kOpDispl, sizeof(kOpDispl));
+  static const uint8 kOpDispl[] = { 0x03, 0x0D, 0x80, 0x1E, 0x27, 0x00 };
+  AnalyzeSingleInstructionFromBuffer(kOpDispl);
   EXPECT_FALSE(is_live(core::eax));
   EXPECT_FALSE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::ecx));
@@ -444,14 +479,14 @@ TEST_F(LivenessAnalysisTest, OperandTypeRight) {
 TEST_F(LivenessAnalysisTest, InstructionWithoutDefine) {
   // Validate instructions that fully overwrite and use the destination.
   // _asm cmp eax, [ecx]
-  static const uint8 kCmp[2] = { 0x3B, 0x01 };
-  AnalyzeSingleInstructionFromBuffer(kCmp, sizeof(kCmp));
+  static const uint8 kCmp[] = { 0x3B, 0x01 };
+  AnalyzeSingleInstructionFromBuffer(kCmp);
   EXPECT_TRUE(is_live(core::eax));
   EXPECT_TRUE(is_live(core::ecx));
 
   // _asm test ebx, [edx+12]
-  static const uint8 kTest[3] = { 0x85, 0x5A, 0x0C };
-  AnalyzeSingleInstructionFromBuffer(kTest, sizeof(kTest));
+  static const uint8 kTest[] = { 0x85, 0x5A, 0x0C };
+  AnalyzeSingleInstructionFromBuffer(kTest);
   EXPECT_TRUE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::edx));
 }
@@ -459,14 +494,14 @@ TEST_F(LivenessAnalysisTest, InstructionWithoutDefine) {
 TEST_F(LivenessAnalysisTest, InstructionsWithDefine) {
   // Validate instructions that fully overwrite the destination.
   // _asm mov ebx, [edx+12]
-  static const uint8 kCmp[3] = { 0x8B, 0x5A, 0x0C };
-  AnalyzeSingleInstructionFromBuffer(kCmp, sizeof(kCmp));
+  static const uint8 kCmp[] = { 0x8B, 0x5A, 0x0C };
+  AnalyzeSingleInstructionFromBuffer(kCmp);
   EXPECT_FALSE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::edx));
 
   // _asm lea ebx, [edx+12]
-  static const uint8 kTest[3] = { 0x8D, 0x5A, 0x0C };
-  AnalyzeSingleInstructionFromBuffer(kTest, sizeof(kTest));
+  static const uint8 kTest[] = { 0x8D, 0x5A, 0x0C };
+  AnalyzeSingleInstructionFromBuffer(kTest);
   EXPECT_FALSE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::edx));
 }
@@ -474,11 +509,11 @@ TEST_F(LivenessAnalysisTest, InstructionsWithDefine) {
 TEST_F(LivenessAnalysisTest, InstructionsWithPartialDefine) {
   // Registers partially defined must be considered alive.
   // _asm mov bl, dl
-  static const uint8 kCmp[3] = { 0xB3, 0x0C };
+  static const uint8 kCmp[] = { 0xB3, 0x0C };
   // _asm mov DWORD PTR [X], ebx
-  static const uint8 kStore[6] = { 0x89, 0x1D, 0x80, 0x1E, 0x10, 0x01 };
-  AddInstructionFromBuffer(kCmp, sizeof(kCmp));
-  AddInstructionFromBuffer(kStore, sizeof(kStore));
+  static const uint8 kStore[] = { 0x89, 0x1D, 0x80, 0x1E, 0x10, 0x01 };
+  AddInstructionFromBuffer(kCmp);
+  AddInstructionFromBuffer(kStore);
   AnalyzeInstructions();
   EXPECT_TRUE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::edx));
@@ -486,177 +521,226 @@ TEST_F(LivenessAnalysisTest, InstructionsWithPartialDefine) {
 
 TEST_F(LivenessAnalysisTest, ArithmeticUnaryInstructions) {
   // _asm dec eax
-  static const uint8 kDec1[1] = { 0x48 };
-  AnalyzeSingleInstructionFromBuffer(kDec1, sizeof(kDec1));
+  static const uint8 kDec1[] = { 0x48 };
+  AnalyzeSingleInstructionFromBuffer(kDec1);
   EXPECT_TRUE(is_live(core::eax));
 
   // _asm dec [ebx + 1]
-  static const uint8 kDec2[3] = { 0xFE, 0x4B, 0x01 };
-  AnalyzeSingleInstructionFromBuffer(kDec2, sizeof(kDec2));
+  static const uint8 kDec2[] = { 0xFE, 0x4B, 0x01 };
+  AnalyzeSingleInstructionFromBuffer(kDec2);
   EXPECT_TRUE(is_live(core::ebx));
 
   // _asm dec [esi + ebx*2 + 1]
-  static const uint8 kDec3[4] = { 0xFE, 0x4C, 0x5E, 0x01 };
-  AnalyzeSingleInstructionFromBuffer(kDec3, sizeof(kDec3));
+  static const uint8 kDec3[] = { 0xFE, 0x4C, 0x5E, 0x01 };
+  AnalyzeSingleInstructionFromBuffer(kDec3);
   EXPECT_TRUE(is_live(core::esi));
   EXPECT_TRUE(is_live(core::ebx));
 
   // _asm dec WORD PTR [X]
-  static const uint8 kDec4[7] = { 0x66, 0xFF, 0x0D, 0x80, 0x1E, 0x92, 0x00 };
-  AnalyzeSingleInstructionFromBuffer(kDec4, sizeof(kDec4));
+  static const uint8 kDec4[] = { 0x66, 0xFF, 0x0D, 0x80, 0x1E, 0x92, 0x00 };
+  AnalyzeSingleInstructionFromBuffer(kDec4);
   EXPECT_FALSE(is_live(core::eax));
   EXPECT_FALSE(is_live(core::ebx));
   EXPECT_FALSE(is_live(core::ecx));
   EXPECT_FALSE(is_live(core::edx));
 
   // _asm not ebx
-  static const uint8 kNot1[2] = { 0xF7, 0xD3 };
-  AnalyzeSingleInstructionFromBuffer(kNot1, sizeof(kNot1));
+  static const uint8 kNot1[] = { 0xF7, 0xD3 };
+  AnalyzeSingleInstructionFromBuffer(kNot1);
   EXPECT_TRUE(is_live(core::ebx));
 
   // _asm not [ebx]
-  static const uint8 kNot2[2] = { 0xF6, 0x13 };
-  AnalyzeSingleInstructionFromBuffer(kNot2, sizeof(kNot2));
+  static const uint8 kNot2[] = { 0xF6, 0x13 };
+  AnalyzeSingleInstructionFromBuffer(kNot2);
   EXPECT_TRUE(is_live(core::ebx));
 
   // _asm neg ebx
-  static const uint8 kNeg1[2] = { 0xF7, 0xDB };
-  AnalyzeSingleInstructionFromBuffer(kNeg1, sizeof(kNeg1));
+  static const uint8 kNeg1[] = { 0xF7, 0xDB };
+  AnalyzeSingleInstructionFromBuffer(kNeg1);
   EXPECT_TRUE(is_live(core::ebx));
 
   // _asm neg [ebx]
-  static const uint8 kNeg2[2] = { 0xF6, 0x1B };
-  AnalyzeSingleInstructionFromBuffer(kNeg2, sizeof(kNeg2));
+  static const uint8 kNeg2[] = { 0xF6, 0x1B };
+  AnalyzeSingleInstructionFromBuffer(kNeg2);
   EXPECT_TRUE(is_live(core::ebx));
 
   // _asm inc edx
-  static const uint8 kInc[2] = { 0x42 };
-  AnalyzeSingleInstructionFromBuffer(kInc, sizeof(kInc));
+  static const uint8 kInc[] = { 0x42 };
+  AnalyzeSingleInstructionFromBuffer(kInc);
   EXPECT_TRUE(is_live(core::edx));
+}
+
+TEST_F(LivenessAnalysisTest, DecIncFlagsInstructions) {
+  // NOTE: inc/dec do not touch the carry flag.
+  // _asm inc edx
+  static const uint8 kInc[] = { 0x42 };
+  AddInstructionFromBuffer(kInc);
+  EXPECT_TRUE(CheckCarryFlagInstruction(true, false));
+  instructions_.clear();
+
+  // _asm dec eax
+  static const uint8 kDec1[] = { 0x48 };
+  AddInstructionFromBuffer(kDec1);
+  EXPECT_TRUE(CheckCarryFlagInstruction(true, false));
+  instructions_.clear();
 }
 
 TEST_F(LivenessAnalysisTest, ArithmeticBinaryInstructions) {
   // _asm add ebx, ecx
-  static const uint8 kAdd[2] = { 0x03, 0xD9 };
-  AnalyzeSingleInstructionFromBuffer(kAdd, sizeof(kAdd));
+  static const uint8 kAdd[] = { 0x03, 0xD9 };
+  AnalyzeSingleInstructionFromBuffer(kAdd);
   EXPECT_TRUE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::ecx));
 
+  // _asm adc ebx, edx
+  static const uint8 kAdc[] = { 0x13, 0xDA };
+  AnalyzeSingleInstructionFromBuffer(kAdc);
+  EXPECT_TRUE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::edx));
+
   // _asm sub esi, edi
-  static const uint8 kSub[2] = { 0x2B, 0xF7 };
-  AnalyzeSingleInstructionFromBuffer(kSub, sizeof(kSub));
+  static const uint8 kSub[] = { 0x2B, 0xF7 };
+  AnalyzeSingleInstructionFromBuffer(kSub);
   EXPECT_TRUE(is_live(core::esi));
   EXPECT_TRUE(is_live(core::edi));
 
   // _asm sbb ebx, [eax + edx + 12]
-  static const uint8 KSbb[4] = { 0x1B, 0x5C, 0x10, 0x0C };
-  AnalyzeSingleInstructionFromBuffer(KSbb, sizeof(KSbb));
+  static const uint8 KSbb[] = { 0x1B, 0x5C, 0x10, 0x0C };
+  AnalyzeSingleInstructionFromBuffer(KSbb);
   EXPECT_TRUE(is_live(core::eax));
   EXPECT_TRUE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::edx));
 
   // _asm and ebx, ecx
-  static const uint8 kAnd[2] = { 0x23, 0xD9 };
-  AnalyzeSingleInstructionFromBuffer(kAnd, sizeof(kAnd));
+  static const uint8 kAnd[] = { 0x23, 0xD9 };
+  AnalyzeSingleInstructionFromBuffer(kAnd);
   EXPECT_TRUE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::ecx));
 
   // _asm or esi, [edi]
-  static const uint8 kOr[2] = { 0x0B, 0x37 };
-  AnalyzeSingleInstructionFromBuffer(kOr, sizeof(kOr));
+  static const uint8 kOr[] = { 0x0B, 0x37 };
+  AnalyzeSingleInstructionFromBuffer(kOr);
   EXPECT_TRUE(is_live(core::esi));
   EXPECT_TRUE(is_live(core::edi));
 
   // _asm xor [esi], edi
-  static const uint8 kXor[2] = { 0x31, 0x3E };
-  AnalyzeSingleInstructionFromBuffer(kXor, sizeof(kXor));
+  static const uint8 kXor[] = { 0x31, 0x3E };
+  AnalyzeSingleInstructionFromBuffer(kXor);
   EXPECT_TRUE(is_live(core::esi));
   EXPECT_TRUE(is_live(core::edi));
 
   // _asm shl ebx, 1
-  static const uint8 kShl1[2] = { 0xD1, 0xE3 };
-  AnalyzeSingleInstructionFromBuffer(kShl1, sizeof(kShl1));
+  static const uint8 kShl1[] = { 0xD1, 0xE3 };
+  AnalyzeSingleInstructionFromBuffer(kShl1);
   EXPECT_TRUE(is_live(core::ebx));
 
   // _asm shr esi, 2
-  static const uint8 kShr1[3] = { 0xC1, 0xEE, 0x02 };
-  AnalyzeSingleInstructionFromBuffer(kShr1, sizeof(kShr1));
+  static const uint8 kShr1[] = { 0xC1, 0xEE, 0x02 };
+  AnalyzeSingleInstructionFromBuffer(kShr1);
   EXPECT_TRUE(is_live(core::esi));
 
   // _asm sar ecx, 3
-  static const uint8 kSar1[3] = { 0xC1, 0xF9, 0x03 };
-  AnalyzeSingleInstructionFromBuffer(kSar1, sizeof(kSar1));
+  static const uint8 kSar1[] = { 0xC1, 0xF9, 0x03 };
+  AnalyzeSingleInstructionFromBuffer(kSar1);
   EXPECT_TRUE(is_live(core::ecx));
 
   // _asm rol ebx, 1
-  static const uint8 kRol1[2] = { 0xD1, 0xC3 };
-  AnalyzeSingleInstructionFromBuffer(kRol1, sizeof(kRol1));
+  static const uint8 kRol1[] = { 0xD1, 0xC3 };
+  AnalyzeSingleInstructionFromBuffer(kRol1);
   EXPECT_TRUE(is_live(core::ebx));
 
   // _asm ror esi, 2
-  static const uint8 kRor1[3] = { 0xC1, 0xCE, 0x02 };
-  AnalyzeSingleInstructionFromBuffer(kRor1, sizeof(kRor1));
+  static const uint8 kRor1[] = { 0xC1, 0xCE, 0x02 };
+  AnalyzeSingleInstructionFromBuffer(kRor1);
   EXPECT_TRUE(is_live(core::esi));
 
   // _asm shl ebx, cl
-  static const uint8 kShl2[2] = { 0xD3, 0xE3 };
-  AnalyzeSingleInstructionFromBuffer(kShl2, sizeof(kShl2));
+  static const uint8 kShl2[] = { 0xD3, 0xE3 };
+  AnalyzeSingleInstructionFromBuffer(kShl2);
   EXPECT_TRUE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::ecx));
 
   // _asm shr esi, cl
-  static const uint8 kShr2[2] = { 0xD3, 0xEE };
-  AnalyzeSingleInstructionFromBuffer(kShr2, sizeof(kShr2));
+  static const uint8 kShr2[] = { 0xD3, 0xEE };
+  AnalyzeSingleInstructionFromBuffer(kShr2);
   EXPECT_TRUE(is_live(core::esi));
   EXPECT_TRUE(is_live(core::ecx));
 
   // _asm sar edx, cl
-  static const uint8 kSar2[2] = { 0xD3, 0xFA };
-  AnalyzeSingleInstructionFromBuffer(kSar2, sizeof(kSar2));
+  static const uint8 kSar2[] = { 0xD3, 0xFA };
+  AnalyzeSingleInstructionFromBuffer(kSar2);
   EXPECT_TRUE(is_live(core::edx));
   EXPECT_TRUE(is_live(core::ecx));
 
   // _asm rol ebx, cl
-  static const uint8 kRol2[2] = { 0xD3, 0xC3 };
-  AnalyzeSingleInstructionFromBuffer(kRol2, sizeof(kRol2));
+  static const uint8 kRol2[] = { 0xD3, 0xC3 };
+  AnalyzeSingleInstructionFromBuffer(kRol2);
   EXPECT_TRUE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::ecx));
 
   // _asm ror esi, cl
-  static const uint8 kRor2[2] = { 0xD3, 0xCE };
-  AnalyzeSingleInstructionFromBuffer(kRor2, sizeof(kRor2));
+  static const uint8 kRor2[] = { 0xD3, 0xCE };
+  AnalyzeSingleInstructionFromBuffer(kRor2);
   EXPECT_TRUE(is_live(core::esi));
   EXPECT_TRUE(is_live(core::ecx));
+}
+
+TEST_F(LivenessAnalysisTest, ArithmeticFlagsInstructions) {
+  // _asm adc ebx, edx
+  static const uint8 kAdc[] = { 0x13, 0xDA };
+  AnalyzeSingleInstructionFromBuffer(kAdc);
+  EXPECT_TRUE(CheckCarryFlagInstruction(true, true));
+
+  // _asm sbb ebx, [eax + edx + 12]
+  static const uint8 KSbb[] = { 0x1B, 0x5C, 0x10, 0x0C };
+  AnalyzeSingleInstructionFromBuffer(KSbb);
+  EXPECT_TRUE(CheckCarryFlagInstruction(true, true));
+}
+
+TEST_F(LivenessAnalysisTest, ConversionInstructions) {
+  static const uint8 kCdq[] = { 0x99 };
+  AnalyzeSingleInstructionFromBuffer(kCdq);
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+}
+
+TEST_F(LivenessAnalysisTest, EpilogueInstructions) {
+  static const uint8 kLeave[] = { 0xC9 };
+  AnalyzeSingleInstructionFromBuffer(kLeave);
+  EXPECT_TRUE(is_live(core::ebp));
+  EXPECT_FALSE(is_live(core::esp));
+  EXPECT_FALSE(are_arithmetic_flags_live());
 }
 
 TEST_F(LivenessAnalysisTest, StackInstructions) {
   // Validate instructions that push/pop on the stack.
   // _asm push eax
-  static const uint8 kPushd[1] = { 0x50 };
-  AnalyzeSingleInstructionFromBuffer(kPushd, sizeof(kPushd));
+  static const uint8 kPushd[] = { 0x50 };
+  AnalyzeSingleInstructionFromBuffer(kPushd);
   EXPECT_TRUE(is_live(core::esp));
   EXPECT_TRUE(is_live(core::eax));
 
   // _asm pop eax
-  static const uint8 kPopd[1] = { 0x58 };
-  AnalyzeSingleInstructionFromBuffer(kPopd, sizeof(kPopd));
+  static const uint8 kPopd[] = { 0x58 };
+  AnalyzeSingleInstructionFromBuffer(kPopd);
   EXPECT_TRUE(is_live(core::esp));
   EXPECT_FALSE(is_live(core::eax));
 
   // _asm push ax
-  static const uint8 kPush[2] = { 0x66, 0x50 };
-  AnalyzeSingleInstructionFromBuffer(kPush, sizeof(kPush));
+  static const uint8 kPush[] = { 0x66, 0x50 };
+  AnalyzeSingleInstructionFromBuffer(kPush);
   EXPECT_TRUE(is_live(core::esp));
   EXPECT_TRUE(is_live(core::eax));
 
   // _asm pop ax
-  static const uint8 kPop[2] = { 0x66, 0x58 };
-  AnalyzeSingleInstructionFromBuffer(kPop, sizeof(kPop));
+  static const uint8 kPop[] = { 0x66, 0x58 };
+  AnalyzeSingleInstructionFromBuffer(kPop);
   EXPECT_TRUE(is_live(core::esp));
   EXPECT_FALSE(is_live(core::eax));
 
-  static const uint8 kPopSMem[3] = { 0x66, 0x8F, 0x00 };
-  AnalyzeSingleInstructionFromBuffer(kPopSMem, sizeof(kPopSMem));
+  static const uint8 kPopSMem[] = { 0x66, 0x8F, 0x00 };
+  AnalyzeSingleInstructionFromBuffer(kPopSMem);
   EXPECT_TRUE(is_live(core::esp));
   EXPECT_TRUE(is_live(core::eax));
 }
@@ -665,83 +749,83 @@ TEST_F(LivenessAnalysisTest, SetFlagInstructions) {
   // Validate instructions that consume flags. Ensure flags are used.
 
   // _asm seta al
-  static const uint8 kSetA[3] = { 0x0F, 0x97, 0xC0 };
-  AnalyzeSingleInstructionFromBuffer(kSetA, sizeof(kSetA));
+  static const uint8 kSetA[] = { 0x0F, 0x97, 0xC0 };
+  AnalyzeSingleInstructionFromBuffer(kSetA);
   EXPECT_TRUE(are_arithmetic_flags_live());
 
   // _asm setae al
-  static const uint8 kSetAE[3] = { 0x0F, 0x93, 0xC0 };
-  AnalyzeSingleInstructionFromBuffer(kSetAE, sizeof(kSetAE));
+  static const uint8 kSetAE[] = { 0x0F, 0x93, 0xC0 };
+  AnalyzeSingleInstructionFromBuffer(kSetAE);
   EXPECT_TRUE(are_arithmetic_flags_live());
 
   // _asm setb al
-  static const uint8 kSetB[3] = { 0x0F, 0x92, 0xC0 };
-  AnalyzeSingleInstructionFromBuffer(kSetB, sizeof(kSetB));
+  static const uint8 kSetB[] = { 0x0F, 0x92, 0xC0 };
+  AnalyzeSingleInstructionFromBuffer(kSetB);
   EXPECT_TRUE(are_arithmetic_flags_live());
 
   // _asm setbe al
-  static const uint8 kSetBE[3] = { 0x0F, 0x96, 0xC0 };
-  AnalyzeSingleInstructionFromBuffer(kSetBE, sizeof(kSetBE));
+  static const uint8 kSetBE[] = { 0x0F, 0x96, 0xC0 };
+  AnalyzeSingleInstructionFromBuffer(kSetBE);
   EXPECT_TRUE(are_arithmetic_flags_live());
 
   // _asm setg al
-  static const uint8 kSetG[3] = { 0x0F, 0x9F, 0xC0 };
-  AnalyzeSingleInstructionFromBuffer(kSetG, sizeof(kSetG));
+  static const uint8 kSetG[] = { 0x0F, 0x9F, 0xC0 };
+  AnalyzeSingleInstructionFromBuffer(kSetG);
   EXPECT_TRUE(are_arithmetic_flags_live());
 
   // _asm setge al
-  static const uint8 kSetGE[3] = { 0x0F, 0x9D, 0xC0 };
-  AnalyzeSingleInstructionFromBuffer(kSetGE, sizeof(kSetGE));
+  static const uint8 kSetGE[] = { 0x0F, 0x9D, 0xC0 };
+  AnalyzeSingleInstructionFromBuffer(kSetGE);
   EXPECT_TRUE(are_arithmetic_flags_live());
 
   // _asm setl al
-  static const uint8 kSetL[3] = { 0x0F, 0x9C, 0xC0 };
-  AnalyzeSingleInstructionFromBuffer(kSetL, sizeof(kSetL));
+  static const uint8 kSetL[] = { 0x0F, 0x9C, 0xC0 };
+  AnalyzeSingleInstructionFromBuffer(kSetL);
   EXPECT_TRUE(are_arithmetic_flags_live());
 
   // _asm setle al
-  static const uint8 kSetLE[3] = { 0x0F, 0x9E, 0xC0 };
-  AnalyzeSingleInstructionFromBuffer(kSetLE, sizeof(kSetLE));
+  static const uint8 kSetLE[] = { 0x0F, 0x9E, 0xC0 };
+  AnalyzeSingleInstructionFromBuffer(kSetLE);
   EXPECT_TRUE(are_arithmetic_flags_live());
 
   // _asm setno al
-  static const uint8 kSetNO[3] = { 0x0F, 0x91, 0xC0 };
-  AnalyzeSingleInstructionFromBuffer(kSetNO, sizeof(kSetNO));
+  static const uint8 kSetNO[] = { 0x0F, 0x91, 0xC0 };
+  AnalyzeSingleInstructionFromBuffer(kSetNO);
   EXPECT_TRUE(are_arithmetic_flags_live());
 
   // _asm setnp al
-  static const uint8 kSetNP[3] = { 0x0F, 0x9B, 0xC0 };
-  AnalyzeSingleInstructionFromBuffer(kSetNP, sizeof(kSetNP));
+  static const uint8 kSetNP[] = { 0x0F, 0x9B, 0xC0 };
+  AnalyzeSingleInstructionFromBuffer(kSetNP);
   EXPECT_TRUE(are_arithmetic_flags_live());
 
   // _asm setns al
-  static const uint8 kSetNS[3] = { 0x0F, 0x99, 0xC0 };
-  AnalyzeSingleInstructionFromBuffer(kSetNS, sizeof(kSetNS));
+  static const uint8 kSetNS[] = { 0x0F, 0x99, 0xC0 };
+  AnalyzeSingleInstructionFromBuffer(kSetNS);
   EXPECT_TRUE(are_arithmetic_flags_live());
 
   // _asm setnz al
-  static const uint8 kSetNZ[3] = { 0x0F, 0x95, 0xC0 };
-  AnalyzeSingleInstructionFromBuffer(kSetNZ, sizeof(kSetNZ));
+  static const uint8 kSetNZ[] = { 0x0F, 0x95, 0xC0 };
+  AnalyzeSingleInstructionFromBuffer(kSetNZ);
   EXPECT_TRUE(are_arithmetic_flags_live());
 
   // _asm seto al
-  static const uint8 kSetO[3] = { 0x0F, 0x90, 0xC0 };
-  AnalyzeSingleInstructionFromBuffer(kSetO, sizeof(kSetO));
+  static const uint8 kSetO[] = { 0x0F, 0x90, 0xC0 };
+  AnalyzeSingleInstructionFromBuffer(kSetO);
   EXPECT_TRUE(are_arithmetic_flags_live());
 
   // _asm setp al
-  static const uint8 kSetP[3] = { 0x0F, 0x9A, 0xC0 };
-  AnalyzeSingleInstructionFromBuffer(kSetP, sizeof(kSetP));
+  static const uint8 kSetP[] = { 0x0F, 0x9A, 0xC0 };
+  AnalyzeSingleInstructionFromBuffer(kSetP);
   EXPECT_TRUE(are_arithmetic_flags_live());
 
   // _asm sets al
-  static const uint8 kSetS[3] = { 0x0F, 0x98, 0xC0 };
-  AnalyzeSingleInstructionFromBuffer(kSetS, sizeof(kSetS));
+  static const uint8 kSetS[] = { 0x0F, 0x98, 0xC0 };
+  AnalyzeSingleInstructionFromBuffer(kSetS);
   EXPECT_TRUE(are_arithmetic_flags_live());
 
   // _asm setz al
-  static const uint8 kSetZ[3] = { 0x0F, 0x94, 0xC0 };
-  AnalyzeSingleInstructionFromBuffer(kSetZ, sizeof(kSetZ));
+  static const uint8 kSetZ[] = { 0x0F, 0x94, 0xC0 };
+  AnalyzeSingleInstructionFromBuffer(kSetZ);
   EXPECT_TRUE(are_arithmetic_flags_live());
 }
 
@@ -750,26 +834,26 @@ TEST_F(LivenessAnalysisTest, PushPopFlagsInstructions) {
   // pointer is modified.
 
   // _asm pushfd
-  static const uint8 kPushfd[1] = { 0x9C };
-  AnalyzeSingleInstructionFromBuffer(kPushfd, sizeof(kPushfd));
+  static const uint8 kPushfd[] = { 0x9C };
+  AnalyzeSingleInstructionFromBuffer(kPushfd);
   EXPECT_TRUE(are_arithmetic_flags_live());
   EXPECT_TRUE(is_live(core::esp));
 
   // _asm popfd
-  static const uint8 kPopfd[1] = { 0x9D };
-  AnalyzeSingleInstructionFromBuffer(kPopfd, sizeof(kPopfd));
+  static const uint8 kPopfd[] = { 0x9D };
+  AnalyzeSingleInstructionFromBuffer(kPopfd);
   EXPECT_FALSE(are_arithmetic_flags_live());
   EXPECT_TRUE(is_live(core::esp));
 
   // _asm pushf
-  static const uint8 kPushf[2] = { 0x66, 0x9C };
-  AnalyzeSingleInstructionFromBuffer(kPushf, sizeof(kPushf));
+  static const uint8 kPushf[] = { 0x66, 0x9C };
+  AnalyzeSingleInstructionFromBuffer(kPushf);
   EXPECT_TRUE(are_arithmetic_flags_live());
   EXPECT_TRUE(is_live(core::esp));
 
   // _asm popf
-  static const uint8 kPopf[2] = { 0x66, 0x9D };
-  AnalyzeSingleInstructionFromBuffer(kPopf, sizeof(kPopf));
+  static const uint8 kPopf[] = { 0x66, 0x9D };
+  AnalyzeSingleInstructionFromBuffer(kPopf);
   EXPECT_FALSE(are_arithmetic_flags_live());
   EXPECT_TRUE(is_live(core::esp));
 }
@@ -779,18 +863,312 @@ TEST_F(LivenessAnalysisTest, LoadStoreFlagsInstructions) {
   // used, and stack pointer is not modified.
 
   // _asm sahf
-  static const uint8 kSahf[1] = { 0x9E };
-  AnalyzeSingleInstructionFromBuffer(kSahf, sizeof(kSahf));
+  static const uint8 kSahf[] = { 0x9E };
+  AnalyzeSingleInstructionFromBuffer(kSahf);
   EXPECT_FALSE(are_arithmetic_flags_live());
   EXPECT_FALSE(is_live(core::esp));
   EXPECT_TRUE(is_live(core::eax));
 
   // _asm lahf
-  static const uint8 kLahf[1] = { 0x9F };
-  AnalyzeSingleInstructionFromBuffer(kLahf, sizeof(kLahf));
+  static const uint8 kLahf[] = { 0x9F };
+  AnalyzeSingleInstructionFromBuffer(kLahf);
   EXPECT_TRUE(are_arithmetic_flags_live());
   EXPECT_FALSE(is_live(core::esp));
   EXPECT_FALSE(is_live(core::eax));
+}
+
+TEST_F(LivenessAnalysisTest, ExtendMovInstructions) {
+  // _asm movsx eax, cl
+  static const uint8 kMovsx1[] = { 0x0F, 0xBE, 0xC1 };
+  AnalyzeSingleInstructionFromBuffer(kMovsx1);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+  EXPECT_FALSE(is_live(core::eax));
+  EXPECT_TRUE(is_live(core::ecx));
+
+  // _asm movsx eax, BYTE PTR [ecx]
+  static const uint8 kMovsx2[] = { 0x0F, 0xBE, 0x01 };
+  AnalyzeSingleInstructionFromBuffer(kMovsx2);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+  EXPECT_FALSE(is_live(core::eax));
+  EXPECT_TRUE(is_live(core::ecx));
+
+  // _asm movzx eax, cl
+  static const uint8 kMovzx1[] = { 0x0F, 0xB6, 0xC1 };
+  AnalyzeSingleInstructionFromBuffer(kMovzx1);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+  EXPECT_FALSE(is_live(core::eax));
+  EXPECT_TRUE(is_live(core::ecx));
+
+  // _asm movzx eax, BYTE PTR [ecx]
+  static const uint8 kMovzx2[] = { 0x0F, 0xB6, 0x01 };
+  AnalyzeSingleInstructionFromBuffer(kMovzx2);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+  EXPECT_FALSE(is_live(core::eax));
+  EXPECT_TRUE(is_live(core::ecx));
+}
+
+TEST_F(LivenessAnalysisTest, StringInstructions) {
+  // movs dword ptr es:[edi], dword ptr [esi]
+  static const uint8 kMovsl[] = { 0xA5 };
+  AnalyzeSingleInstructionFromBuffer(kMovsl);
+  EXPECT_TRUE(is_live(core::esi));
+  EXPECT_TRUE(is_live(core::edi));
+  EXPECT_FALSE(is_live(core::ecx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // movs byte ptr es:[edi], byte ptr [esi]
+  static const uint8 kMovsb[] = { 0xA4 };
+  AnalyzeSingleInstructionFromBuffer(kMovsb);
+  EXPECT_TRUE(is_live(core::esi));
+  EXPECT_TRUE(is_live(core::edi));
+  EXPECT_FALSE(is_live(core::ecx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // stos dword ptr es:[edi]
+  static const uint8 kStosl[] = { 0xAB };
+  AnalyzeSingleInstructionFromBuffer(kStosl);
+  EXPECT_FALSE(is_live(core::esi));
+  EXPECT_TRUE(is_live(core::edi));
+  EXPECT_FALSE(is_live(core::ecx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // stos byte ptr es:[edi]
+  static const uint8 Stosb[] = { 0xAA };
+  AnalyzeSingleInstructionFromBuffer(Stosb);
+  EXPECT_FALSE(is_live(core::esi));
+  EXPECT_TRUE(is_live(core::edi));
+  EXPECT_FALSE(is_live(core::ecx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+}
+
+TEST_F(LivenessAnalysisTest, PrefixedStringInstructions) {
+  // repne movs dword ptr es:[edi], dword ptr [esi]
+  static const uint8 kMovsl[] = { 0xF2, 0xA5 };
+  AnalyzeSingleInstructionFromBuffer(kMovsl);
+  EXPECT_TRUE(is_live(core::esi));
+  EXPECT_TRUE(is_live(core::edi));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // repne movs byte ptr es:[edi], byte ptr [esi]
+  static const uint8 kMovsb[] = { 0xF2, 0xA4 };
+  AnalyzeSingleInstructionFromBuffer(kMovsb);
+  EXPECT_TRUE(is_live(core::esi));
+  EXPECT_TRUE(is_live(core::edi));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // repne stos dword ptr es:[edi]
+  static const uint8 kStosl[] = { 0xF2, 0xAB };
+  AnalyzeSingleInstructionFromBuffer(kStosl);
+  EXPECT_FALSE(is_live(core::esi));
+  EXPECT_TRUE(is_live(core::edi));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // repne stos byte ptr es:[edi]
+  static const uint8 Stosb[] = { 0xF2, 0xAA };
+  AnalyzeSingleInstructionFromBuffer(Stosb);
+  EXPECT_FALSE(is_live(core::esi));
+  EXPECT_TRUE(is_live(core::edi));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+}
+
+TEST_F(LivenessAnalysisTest, FloatingPointInstructions) {
+  // _asm fld1
+  static const uint8 kFld1[] = { 0xD9, 0xE8 };
+  // _asm fldz
+  static const uint8 kFldz[] = { 0xD9, 0xEE };
+  // _asm fadd
+  static const uint8 kFadd[] = { 0xDE, 0xC1 };
+  // _asm faddp st(3), st(0)
+  static const uint8 kFaddp[] = { 0xDE, 0xC3 };
+  // _asm fsub
+  static const uint8 kFsub[] = { 0xDE, 0xE9 };
+  // _asm fsubp st(3), st(0)
+  static const uint8 kFsubp[] = { 0xDE, 0xEB };
+  // _asm fmul
+  static const uint8 kFmul[] = { 0xDE, 0xC9 };
+  // _asm fmulp st(3), st(0)
+  static const uint8 kFmulp[] = { 0xDE, 0xCB };
+
+  // Floating point instructions don't touch any register nor general registers.
+  AddInstructionFromBuffer(kFld1);
+  AddInstructionFromBuffer(kFldz);
+  AddInstructionFromBuffer(kFadd);
+  AddInstructionFromBuffer(kFaddp);
+  AddInstructionFromBuffer(kFsub);
+  AddInstructionFromBuffer(kFsubp);
+  AddInstructionFromBuffer(kFmul);
+  AddInstructionFromBuffer(kFmulp);
+  DefineAllRegisters();
+  AnalyzeInstructions();
+
+  EXPECT_FALSE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_FALSE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_FALSE(is_live(core::esi));
+  EXPECT_FALSE(is_live(core::edi));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+}
+
+TEST_F(LivenessAnalysisTest, FloatingPointMemoryInstructions) {
+  // _asm fld DWORD PTR [eax + ecx]
+  static const uint8 kFld[] = { 0xD9, 0x04, 0x08 };
+  AnalyzeSingleInstructionFromBuffer(kFld);
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // _asm fst DWORD PTR [eax + ecx]
+  static const uint8 kFst[] = { 0xD9, 0x14, 0x08 };
+  AnalyzeSingleInstructionFromBuffer(kFst);
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // _asm fstp DWORD PTR [eax + ecx]
+  static const uint8 kFstp[] = { 0xD9, 0x1C, 0x08 };
+  AnalyzeSingleInstructionFromBuffer(kFstp);
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // _asm fadd DWORD PTR [eax]
+  static const uint8 kFadd[] = { 0xD8, 0x00 };
+  AnalyzeSingleInstructionFromBuffer(kFadd);
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // _asm fsub DWORD PTR [ecx]
+  static const uint8 kFsub[] = { 0xD8, 0x21 };
+  AnalyzeSingleInstructionFromBuffer(kFsub);
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // _asm fmul DWORD PTR [esi]
+  static const uint8 kFmul[] = { 0xD8, 0x0E };
+  AnalyzeSingleInstructionFromBuffer(kFmul);
+  EXPECT_TRUE(is_live(core::esi));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // _asm fild DWORD PTR [eax]
+  static const uint8 kFild[] = { 0xDB, 0x00 };
+  AnalyzeSingleInstructionFromBuffer(kFild);
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // _asm fist DWORD PTR [eax]
+  static const uint8 kFist[] = { 0xDB, 0x10 };
+  AnalyzeSingleInstructionFromBuffer(kFist);
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // _asm fistp DWORD PTR [eax]
+  static const uint8 kFistp[] = { 0xDB, 0x18 };
+  AnalyzeSingleInstructionFromBuffer(kFistp);
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+}
+
+TEST_F(LivenessAnalysisTest, FloatingPointCompareInstructions) {
+  // _asm fcom
+  static const uint8 kFcom[] = { 0xD8, 0xD1 };
+  AnalyzeSingleInstructionFromBuffer(kFcom);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // _asm fcomp
+  static const uint8 kFcomp[] = { 0xD8, 0xD9 };
+  AnalyzeSingleInstructionFromBuffer(kFcomp);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // _asm fcompp
+  static const uint8 kFcompp[] = { 0xDE, 0xD9 };
+  AnalyzeSingleInstructionFromBuffer(kFcompp);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // _asm fcomi
+  static const uint8 kFcomi[] = { 0xDB, 0xF1 };
+  AnalyzeSingleInstructionFromBuffer(kFcomi);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // _asm fcomip
+  static const uint8 fcomip[] = { 0xDF, 0xF1 };
+  AnalyzeSingleInstructionFromBuffer(fcomip);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+}
+
+TEST_F(LivenessAnalysisTest, FloatingPointCompareMemoryInstructions) {
+  // _asm fcom qword ptr [edx+ecx*8]
+  static const uint8 kFcom[] = { 0xDC, 0x14, 0xCA };
+  AnalyzeSingleInstructionFromBuffer(kFcom);
+  EXPECT_FALSE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(core::edx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // _asm fcomp word ptr [edx+ecx*8]
+  static const uint8 kFcomp[] = { 0xDC, 0x1C, 0xCA };
+  AnalyzeSingleInstructionFromBuffer(kFcomp);
+  EXPECT_FALSE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(core::edx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // _asm ficom qword ptr [edx+ecx*8]
+  static const uint8 kFicom[] = { 0xDE, 0x14, 0xCA };
+  AnalyzeSingleInstructionFromBuffer(kFicom);
+  EXPECT_FALSE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(core::edx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // _asm ficomp word ptr [edx+ecx*8]
+  static const uint8 kFicomp[] = { 0xDE, 0x1C, 0xCA };
+  AnalyzeSingleInstructionFromBuffer(kFicomp);
+  EXPECT_FALSE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(core::edx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // _asm ficom dword ptr [eax]
+  static const uint8 kFicom2[] = { 0xDA, 0x10 };
+  AnalyzeSingleInstructionFromBuffer(kFicom2);
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+
+  // _asm ficomp dword ptr [eax]
+  static const uint8 ficomp2[] = { 0xDA, 0x18 };
+  AnalyzeSingleInstructionFromBuffer(ficomp2);
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+}
+
+TEST_F(LivenessAnalysisTest, FloatingPointCompareWithFlagsInstructions) {
+  // Some floating point operations modify eflags.
+
+  // _asm fcomi
+  static const uint8 kFcomi[] = { 0xDB, 0xF1 };
+  AddInstructionFromBuffer(kFcomi);
+  EXPECT_TRUE(CheckCarryFlagInstruction(false, false));
+  instructions_.clear();
+
+  // _asm fcomip
+  static const uint8 fcomip[] = { 0xDF, 0xF1 };
+  AddInstructionFromBuffer(fcomip);
+  EXPECT_TRUE(CheckCarryFlagInstruction(false, false));
+  instructions_.clear();
 }
 
 TEST_F(LivenessAnalysisTest, XorInitializationSpecialCase) {
@@ -798,20 +1176,20 @@ TEST_F(LivenessAnalysisTest, XorInitializationSpecialCase) {
   // Ensure the flags are assumed modified, and the register is unused.
 
   // _asm xor eax, eax
-  static const uint8 kXor1[2] = { 0x33, 0xC0 };
-  AnalyzeSingleInstructionFromBuffer(kXor1, sizeof(kXor1));
+  static const uint8 kXor1[] = { 0x33, 0xC0 };
+  AnalyzeSingleInstructionFromBuffer(kXor1);
   EXPECT_FALSE(is_live(core::eax));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // _asm xor ebx, ebx
-  static const uint8 kXor2[2] = { 0x33, 0xDB };
-  AnalyzeSingleInstructionFromBuffer(kXor2, sizeof(kXor2));
+  static const uint8 kXor2[] = { 0x33, 0xDB };
+  AnalyzeSingleInstructionFromBuffer(kXor2);
   EXPECT_FALSE(is_live(core::eax));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // _asm xor ecx, ecx
-  static const uint8 kXor3[2] = { 0x33, 0xC9 };
-  AnalyzeSingleInstructionFromBuffer(kXor3, sizeof(kXor3));
+  static const uint8 kXor3[] = { 0x33, 0xC9 };
+  AnalyzeSingleInstructionFromBuffer(kXor3);
   EXPECT_FALSE(is_live(core::eax));
   EXPECT_FALSE(are_arithmetic_flags_live());
 }
