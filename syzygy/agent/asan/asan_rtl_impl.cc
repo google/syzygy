@@ -442,35 +442,37 @@ void CheckStringsMemoryAccesses(
 // This is the common part of the fast path shared between the different
 // implementations of the hooks, this does the following:
 //     - Saves the memory location in EDX for the slow path.
-//     - Checks for zero shadow for this memory location.
+//     - Checks for zero shadow for this memory location. We use the cmp
+//         instruction so it'll set the sign flag if the upper bit of the shadow
+//         value of this memory location is set to 1.
 //     - If the shadow byte is not equal to zero then it jumps to the slow path.
 //     - Otherwise it removes the memory location from the top of the stack.
 #define ASAN_FAST_PATH  \
     __asm push edx  \
     __asm shr edx, 3  \
     __asm movzx edx, BYTE PTR[edx + agent::asan::Shadow::shadow_]  \
-    __asm test dl, dl  \
+    __asm cmp dl, 0  \
     __asm jnz check_access_slow  \
     __asm add esp, 4
 
 // This is the common part of the slow path shared between the different
 // implementations of the hooks. The memory location is expected to be on top of
 // the stack and the shadow value for it is assumed to be in DL at this point.
+// This also relies on the fact that the shadow non accessible byte mask has its
+// upper bit set to 1 and that we jump to this macro after doing a
+// "cmp shadow_byte, 0", so the sign flag would be set to 1 if the value isn't
+// accessible.
 // We inline the Shadow::IsAccessible function for performance reasons.
 // This function does the following:
-//     - Starts by saving EAX on the stack.
 //     - Checks if this byte is accessible and jump to the error path if it's
 //       not.
-//     - Restores EAX and removes the memory location from the top of the stack.
+//     - Removes the memory location from the top of the stack.
 #define ASAN_SLOW_PATH  \
-    __asm push eax  \
-    __asm test dl, kHeapNonAccessibleByteMask  \
-    __asm jnz report_failure  \
-    __asm mov eax, DWORD PTR[esp + 4]  \
-    __asm and eax, 7  \
-    __asm cmp al, dl  \
+    __asm js report_failure  \
+    __asm mov dh, BYTE PTR[esp]  \
+    __asm and dh, 7  \
+    __asm cmp dh, dl  \
     __asm jae report_failure  \
-    __asm pop eax  \
     __asm add esp, 4
 
 // This is the error path. It expects to have the previous value of EDX at
@@ -529,9 +531,6 @@ void CheckStringsMemoryAccesses(
       ASAN_RESTORE_EFLAGS  \
       __asm ret 4  \
     __asm report_failure:  \
-      /* Restore the original value of EAX, we've pushed it on the stack in*/  \
-      /* the slow path. */  \
-      __asm pop eax  \
       /* Restore memory location in EDX. */  \
       __asm pop edx  \
       /* Restore the EFLAGS. */  \
@@ -581,11 +580,13 @@ enum AccessMode {
   AsanWriteAccess = HeapProxy::ASAN_WRITE_ACCESS,
   AsanUnknownAccess = HeapProxy::ASAN_UNKNOWN_ACCESS,
 };
-
-enum ShadowState {
-  kHeapNonAccessibleByteMask = agent::asan::Shadow::kHeapNonAccessibleByteMask,
-};
 // @}
+
+// The slow path rely on the fact that the shadow memory non accessible byte
+// mask have its upper bit set to 1..
+COMPILE_ASSERT(
+    (agent::asan::Shadow::kHeapNonAccessibleByteMask & (1 << 7)) != 0,
+        asan_shadow_mask_upper_bit_is_0);
 
 ASAN_CHECK_FUNCTION(1, read_access, AsanReadAccess)
 ASAN_CHECK_FUNCTION(2, read_access, AsanReadAccess)
