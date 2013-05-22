@@ -72,6 +72,10 @@ class Profiler {
                                        FuncAddr function,
                                        uint64 cycles);
 
+  static void WINAPI OnV8FunctionEntry(FuncAddr function,
+                                       RetAddr* return_addr_location,
+                                       uint64 cycles);
+
   // Adds a symbol to the dynamic symbol store.
   // @param address the start address of the new symbol.
   // @param length the length of the new symbol.

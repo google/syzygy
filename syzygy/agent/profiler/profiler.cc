@@ -64,11 +64,15 @@ class HashInvocationKey {
 using agent::profiler::SymbolMap;
 
 struct InvocationValue {
-  // This invocation entries caller's dynamic symbol, if any.
-  scoped_refptr<SymbolMap::Symbol> symbol;
+  // This invocation entry's caller's dynamic symbol, if any.
+  scoped_refptr<SymbolMap::Symbol> caller_symbol;
+  // The last observed move count for caller_symbol.
+  int32 caller_move_count;
 
-  // The last observed move count for symbol.
-  int32 move_count;
+  // This invocation entry's callee's dynamic symbol, if any.
+  scoped_refptr<SymbolMap::Symbol> function_symbol;
+  // The last observed move count for function_symbol.
+  int32 function_move_count;
 
   // Points to the trace buffer entry for the respective function.
   InvocationInfo* info;
@@ -209,6 +213,28 @@ extern "C" uintptr_t __cdecl ResolveReturnAddressLocation(
           reinterpret_cast<RetAddr*>(pc_location)));
 }
 
+// This function needs to match the declaration of FunctionEntryHook in the V8
+// API. See http://v8.googlecode.com/svn/trunk/include/v8.h.
+extern "C" __declspec(naked) void __cdecl OnV8FunctionEntry(
+    uintptr_t function, uintptr_t return_addr_location) {
+  __asm {
+    // Grab the current time ASAP.
+    rdtsc
+
+    // Push the cycle time arg.
+    push edx
+    push eax
+
+    // Duplicate the function and return_addr_location arguments.
+    push DWORD PTR[esp + 0x10]
+    push DWORD PTR[esp + 0x10]
+
+    call agent::profiler::Profiler::OnV8FunctionEntry
+
+    ret
+  }
+}
+
 BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
   using agent::profiler::Profiler;
 
@@ -283,6 +309,11 @@ class Profiler::ThreadState
   void OnFunctionEntry(EntryFrame* entry_frame,
                        FuncAddr function,
                        uint64 cycles);
+
+  // Processes a single V8 function entry.
+  void OnV8FunctionEntry(FuncAddr function,
+                         RetAddr* return_address_location,
+                         uint64 cycles);
 
   // @name Callback notification implementation.
   // @{
@@ -444,16 +475,43 @@ void Profiler::ThreadState::OnFunctionEntry(EntryFrame* entry_frame,
   UpdateOverhead(cycles);
 }
 
+void Profiler::ThreadState::OnV8FunctionEntry(FuncAddr function,
+                                              RetAddr* return_address_location,
+                                              uint64 cycles) {
+  if (profiler_->session_.IsDisabled())
+    return;
+
+  // Record the details of the entry.
+
+  // TODO(siggi): Note that we want to do different exit processing here,
+  //    as we know "function" is a dynamic symbol - it might be better to
+  //    record the fact here than to force a lookup on RecordInvocation.
+
+  // Note that on tail-recursion and tail-call elimination, the caller recorded
+  // here will be a thunk. We cater for this case on exit as best we can.
+  ThunkData* data = MakeThunk(*return_address_location);
+  DCHECK(data != NULL);
+  data->caller = *return_address_location;
+  data->function = function;
+  data->cycles_entry = cycles - cycles_overhead_;
+
+  *return_address_location = data->thunk;
+
+  UpdateOverhead(cycles);
+}
+
 void Profiler::ThreadState::OnFunctionExit(const ThunkData* data,
                                            uint64 cycles_exit) {
   // Calculate the number of cycles in the invocation, exclusive our overhead.
   uint64 cycles_executed = cycles_exit - cycles_overhead_ - data->cycles_entry;
 
-  // See if the return address resolves to a data, which indicates
+  // See if the return address resolves to a thunk, which indicates
   // tail recursion or tail call elimination. In that case we record the
   // calling function as caller, which isn't totally accurate as that'll
   // attribute the cost to the first line of the calling function. In the
   // absence of more information, it's the best we can do, however.
+  // TODO(siggi): Move this into RecordInvocation, as we can elide the lookup
+  //     on a cache hit.
   Thunk* ret_thunk = CastToThunk(data->caller);
   if (ret_thunk == NULL) {
     RecordInvocation(data->caller, data->function, cycles_executed);
@@ -483,8 +541,10 @@ void Profiler::ThreadState::RecordInvocation(RetAddr caller,
     // Yup, we already have an entry, validate it.
     InvocationValue& value = it->second;
 
-    if (value.symbol == NULL ||
-        value.symbol->move_count() == value.move_count) {
+    if ((value.caller_symbol == NULL ||
+         value.caller_symbol->move_count() == value.caller_move_count) &&
+        (value.function_symbol == NULL ||
+         value.function_symbol->move_count() == value.function_move_count)) {
       // The entry is still good, tally the new data.
       ++(value.info->num_calls);
       value.info->cycles_sum += duration_cycles;
@@ -498,7 +558,7 @@ void Profiler::ThreadState::RecordInvocation(RetAddr caller,
       return;
     } else {
       // The entry is not valid any more, discard it.
-      DCHECK(value.symbol != NULL);
+      DCHECK(value.caller_symbol != NULL || value.function_symbol != NULL);
 
       invocations_.erase(it);
     }
@@ -509,42 +569,68 @@ void Profiler::ThreadState::RecordInvocation(RetAddr caller,
   // The code below may touch last error.
   ScopedLastErrorKeeper keep_last_error;
 
-  scoped_refptr<SymbolMap::Symbol> symbol =
+  scoped_refptr<SymbolMap::Symbol> caller_symbol =
       profiler_->symbol_map_.FindSymbol(caller);
 
-  // Trace the symbol if this is the first time it's observed.
-  if (symbol != NULL && symbol->EnsureHasId()) {
-    // TODO(siggi): it might lead to worst-case behavior to log symbols into
+  // TODO(siggi): This can perhaps be optimized by keeping track of which
+  //     entry hook was invoked. This will however require setting an extra
+  //     bool on every entry, so will require measurement to see whether it's
+  //     a win.
+  scoped_refptr<SymbolMap::Symbol> function_symbol =
+      profiler_->symbol_map_.FindSymbol(function);
+
+  // Trace the symbols if this is the first time either one is observed.
+  if (caller_symbol != NULL && caller_symbol->EnsureHasId()) {
+    // TODO(siggi): It might lead to worst-case behavior to log symbols into
     //    the same trace buffer as we store invocations, as we're likely to
     //    alternate symbols and single-entry invocation batches. Fixme.
-    LogSymbol(symbol);
+    LogSymbol(caller_symbol);
+  }
+  if (function_symbol != NULL && function_symbol->EnsureHasId()) {
+    // TODO(siggi): See above.
+    LogSymbol(function_symbol);
   }
 
   InvocationInfo* info = AllocateInvocationInfo();
   if (info != NULL) {
     InvocationValue& value = invocations_[key];
     value.info = info;
-    value.symbol = symbol;
-    if (symbol != NULL)
-      value.move_count = symbol->move_count();
+    value.caller_symbol = caller_symbol;
+    if (caller_symbol != NULL)
+      value.caller_move_count = caller_symbol->move_count();
     else
-      value.move_count = 0;
+      value.caller_move_count = 0;
 
-    info->function = function;
+    value.function_symbol = function_symbol;
+    if (function_symbol != NULL)
+      value.function_move_count = function_symbol->move_count();
+    else
+      value.function_move_count = 0;
 
-    if (symbol == NULL) {
-      // We're not in a dynamic symbol, record the (conventional) caller.
-      info->caller = caller;
+    if (function_symbol == NULL) {
+      // We're not in a dynamic function, record the (conventional) function.
+      info->function = function;
       info->flags = 0;
+    } else {
+      // We're in a dynamic function symbol, record the details.
+      DCHECK(function_symbol->id() != 0);
+
+      info->function_symbol_id = function_symbol->id();
+      info->flags = kFunctionIsSymbol;
+    }
+
+    if (caller_symbol == NULL) {
+      // We're not in a dynamic caller_symbol, record the (conventional) caller.
+      info->caller = caller;
       info->caller_offset = 0;
     } else {
-      // We're in a dynamic symbol, record the details.
-      DCHECK(symbol->id() != 0);
+      // We're in a dynamic caller_symbol, record the details.
+      DCHECK(caller_symbol->id() != 0);
 
-      info->caller_symbol_id = symbol->id();
-      info->flags = kCallerIsSymbol;
+      info->caller_symbol_id = caller_symbol->id();
+      info->flags |= kCallerIsSymbol;
       info->caller_offset = reinterpret_cast<const uint8*>(caller) -
-          reinterpret_cast<const uint8*>(symbol->address());
+          reinterpret_cast<const uint8*>(caller_symbol->address());
     }
 
     info->num_calls = 1;
@@ -821,6 +907,17 @@ void WINAPI Profiler::FunctionEntryHook(EntryFrame* entry_frame,
   DCHECK(data != NULL);
   if (data != NULL)
     data->OnFunctionEntry(entry_frame, function, cycles);
+}
+
+void WINAPI Profiler::OnV8FunctionEntry(FuncAddr function,
+                                        RetAddr* return_addr_location,
+                                        uint64 cycles) {
+  ScopedLastErrorKeeper keep_last_error;
+
+  Profiler* profiler = Profiler::Instance();
+  ThreadState* data = profiler->GetOrAllocateThreadState();
+  if (data != NULL)
+    data->OnV8FunctionEntry(function, return_addr_location, cycles);
 }
 
 void Profiler::AddSymbol(const void* address, size_t length,

@@ -42,6 +42,8 @@ typedef void (WINAPI *AddSymbolFunc)(const void* address, size_t length,
                                      const char* name, size_t name_len);
 typedef void (WINAPI *MoveSymbolFunc)(const void* old_address,
                                       const void* new_address);
+typedef void (__cdecl *OnV8FunctionEntryFunc)(
+    uintptr_t function, uintptr_t return_addr_location);
 
 // We register a TLS callback to test TLS thread notifications.
 extern PIMAGE_TLS_CALLBACK profiler_test_tls_callback_entry;
@@ -141,6 +143,27 @@ MATCHER_P2(InvocationInfoHasCallerSymbol, symbol_id, symbol_len, "") {
   return false;
 }
 
+MATCHER_P(InvocationInfoHasFunctionSymbol, symbol_id, "") {
+  for (size_t i = 0; i < 1; ++i) {
+    const InvocationInfo& invocation = arg->invocations[i];
+    // Test that we have the symbol as caller.
+    if ((invocation.flags & kFunctionIsSymbol) == kFunctionIsSymbol &&
+        invocation.function_symbol_id == symbol_id) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// This needs to be declared at file scope for the benefit of __asm code.
+enum CallerAction {
+  CALL_THROUGH,
+  CALL_V8_ENTRY_HOOK,
+  RETURN_LENGTH,
+  RETURN_ADDR
+};
+
 // TODO(rogerm): Create a base fixture (perhaps templatized) to factor out
 //     the common bits of testing various clients with the call trace service.
 class ProfilerTest : public testing::Test {
@@ -149,7 +172,8 @@ class ProfilerTest : public testing::Test {
       : module_(NULL),
         resolution_func_(NULL),
         add_symbol_func_(NULL),
-        move_symbol_func_(NULL) {
+        move_symbol_func_(NULL),
+        on_v8_function_entry_(NULL) {
   }
 
   virtual void SetUp() OVERRIDE {
@@ -227,6 +251,10 @@ class ProfilerTest : public testing::Test {
     move_symbol_func_ = reinterpret_cast<MoveSymbolFunc>(
         ::GetProcAddress(module_, "MoveSymbol"));
     ASSERT_TRUE(add_symbol_func_ != NULL);
+
+    on_v8_function_entry_ = reinterpret_cast<OnV8FunctionEntryFunc>(
+        ::GetProcAddress(module_, "OnV8FunctionEntry"));
+    ASSERT_TRUE(on_v8_function_entry_ != NULL);
   }
 
   void UnloadDll() {
@@ -244,20 +272,17 @@ class ProfilerTest : public testing::Test {
   static BOOL WINAPI DllMainThunk(HMODULE module,
                                   DWORD reason,
                                   LPVOID reserved);
-  enum CallerAction {
-    CALL_THROUGH,
-    RETURN_LENGTH,
-    RETURN_ADDR
-  };
   // This function has a curious construct to work around incremental linking.
   // It can be called in three modes, to:
   // 1. Call through to DllMainThunk.
-  // 2. Return it's own length.
-  // 3. Return it's own address.
+  // 2. Call the supplied v8 entry hook.
+  // 3. Return it's own length.
+  // 4. Return it's own address.
   // The last is necessary because &DllMainCaller will return the address of
   // a trampoline in incremental builds, whereas we need the address of the
   // function's implementation for the test.
-  static intptr_t WINAPI DllMainCaller(CallerAction action);
+  static intptr_t WINAPI DllMainCaller(CallerAction action,
+                                       OnV8FunctionEntryFunc hook);
 
   static int IndirectFunctionA(int param1, const void* param2);
   static int FunctionAThunk(int param1, const void* param2);
@@ -276,6 +301,7 @@ class ProfilerTest : public testing::Test {
   ResolveReturnAddressLocationFunc resolution_func_;
   AddSymbolFunc add_symbol_func_;
   MoveSymbolFunc move_symbol_func_;
+  OnV8FunctionEntryFunc on_v8_function_entry_;
 
   // Our call trace service process instance.
   testing::CallTraceService service_;
@@ -306,27 +332,37 @@ BOOL __declspec(naked) WINAPI ProfilerTest::DllMainThunk(HMODULE module,
 }
 
 intptr_t __declspec(naked) WINAPI ProfilerTest::DllMainCaller(
-    CallerAction action) {
+    CallerAction action, OnV8FunctionEntryFunc hook) {
   __asm {
    start:
     mov eax, dword ptr[esp + 4]  // get action
-    test eax, eax
+    cmp eax, CALL_THROUGH
     je call_through
 
-    cmp eax, 1
-    jne return_addr
+    cmp eax, CALL_V8_ENTRY_HOOK
+    je call_v8_entry_hook
 
+    cmp eax, RETURN_LENGTH
+    je return_length
+
+    cmp eax, RETURN_ADDR
+    je return_addr
+
+    xor eax, eax
+    ret 8
+
+   return_length:
     // You'd think this could be phrased as:
     // mov eax, OFFSET end - OFFSET start
     // but alas it appears that this assembler is single-pass, and so does not
     // support arithmetic on labels.
     mov eax, OFFSET end
     sub eax, OFFSET start
-    ret 4
+    ret 8
 
    return_addr:
     mov eax, OFFSET start
-    ret 4
+    ret 8
 
    call_through:
     xor eax, eax
@@ -334,7 +370,17 @@ intptr_t __declspec(naked) WINAPI ProfilerTest::DllMainCaller(
     push eax
     push eax
     call DllMainThunk
-    ret 4
+    ret 8
+
+  call_v8_entry_hook:
+    push esp
+    // Push the start label rather than the address of the function,
+    // as the latter resolves to a thunk under incremental linking.
+    push OFFSET start
+    call [esp + 0x10]
+    add esp, 8
+    ret 8
+
    end:
   }
 }
@@ -560,8 +606,8 @@ TEST_F(ProfilerTest, RecordsUsedSymbols) {
   // Add a dynamic symbol for the DllMain and a hypothetical bogus function.
   base::StringPiece dll_main_caller_name("DllMainCaller");
   const uint8* dll_main_addr =
-      reinterpret_cast<const uint8*>(DllMainCaller(RETURN_ADDR));
-  size_t dll_main_len = DllMainCaller(RETURN_LENGTH);
+      reinterpret_cast<const uint8*>(DllMainCaller(RETURN_ADDR, NULL));
+  size_t dll_main_len = DllMainCaller(RETURN_LENGTH, NULL);
   add_symbol_func_(dll_main_addr, dll_main_len,
                    dll_main_caller_name.data(), dll_main_caller_name.length());
 
@@ -576,14 +622,14 @@ TEST_F(ProfilerTest, RecordsUsedSymbols) {
                    func_uncalled_name.data(), func_uncalled_name.length());
 
   // Call through a "dynamic symbol" to the instrumented function.
-  ASSERT_NO_FATAL_FAILURE(DllMainCaller(CALL_THROUGH));
+  ASSERT_NO_FATAL_FAILURE(DllMainCaller(CALL_THROUGH, NULL));
 
   // Now make as if BogusFunction moves to replace DllMainCaller's location.
   move_symbol_func_(dll_main_addr + dll_main_len, dll_main_addr);
 
   // Call through a "dynamic symbol" to the instrumented function again.
   // This should result in a second dynamic symbol and entry in the trace file.
-  ASSERT_NO_FATAL_FAILURE(DllMainCaller(CALL_THROUGH));
+  ASSERT_NO_FATAL_FAILURE(DllMainCaller(CALL_THROUGH, NULL));
 
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
 
@@ -614,6 +660,47 @@ TEST_F(ProfilerTest, RecordsUsedSymbols) {
       OnDynamicSymbol(::GetCurrentProcessId(), 1, dll_main_caller_name));
   EXPECT_CALL(handler_,
       OnDynamicSymbol(::GetCurrentProcessId(), _, func_bogus_name));
+
+  // Replay the log.
+  ASSERT_NO_FATAL_FAILURE(ReplayLogs());
+}
+
+TEST_F(ProfilerTest, OnV8FunctionEntry) {
+  ASSERT_NO_FATAL_FAILURE(StartService());
+  ASSERT_NO_FATAL_FAILURE(LoadDll());
+
+  // Add a dynamic symbol for the DllMain and a hypothetical bogus function.
+  base::StringPiece dll_main_caller_name("DllMainCaller");
+  const uint8* dll_main_addr =
+      reinterpret_cast<const uint8*>(DllMainCaller(RETURN_ADDR, NULL));
+  size_t dll_main_len = DllMainCaller(RETURN_LENGTH, NULL);
+  add_symbol_func_(dll_main_addr, dll_main_len,
+                   dll_main_caller_name.data(), dll_main_caller_name.length());
+
+  // Call the V8 entry hook.
+  DllMainCaller(CALL_V8_ENTRY_HOOK, on_v8_function_entry_);
+
+  ASSERT_NO_FATAL_FAILURE(UnloadDll());
+
+  EXPECT_CALL(handler_, OnProcessStarted(_, ::GetCurrentProcessId(), _));
+  EXPECT_CALL(handler_, OnProcessAttach(_,
+                                        ::GetCurrentProcessId(),
+                                        ::GetCurrentThreadId(),
+                                        _))
+      .Times(testing::AnyNumber());
+
+  // Expect two invocation records batches with dynamic symbols.
+  EXPECT_CALL(handler_,
+      OnInvocationBatch(
+          _, ::GetCurrentProcessId(), ::GetCurrentThreadId(),
+          1U, InvocationInfoHasFunctionSymbol(1U)));
+
+  EXPECT_CALL(handler_, OnProcessEnded(_, ::GetCurrentProcessId()));
+
+  // The DllMain and the Bogus functions should both make an appearance,
+  // and nothing else.
+  EXPECT_CALL(handler_,
+      OnDynamicSymbol(::GetCurrentProcessId(), 1, dll_main_caller_name));
 
   // Replay the log.
   ASSERT_NO_FATAL_FAILURE(ReplayLogs());

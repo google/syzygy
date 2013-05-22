@@ -20,8 +20,13 @@ EXPORTS
   _indirect_penter
   _indirect_penter_dllmain
   _indirect_penter_exemain = _indirect_penter_dllmain
+
   ; Hook for instrumented clients to resolve the original return addresses.
   ResolveReturnAddressLocation
+
   ; Hooks for dynamically providing and updating symbol information.
   AddSymbol
   MoveSymbol
+
+  ; Entry hook function for V8-generated JIT code.
+  OnV8FunctionEntry
