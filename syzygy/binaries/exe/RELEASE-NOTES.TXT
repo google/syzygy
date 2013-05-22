@@ -1,6 +1,13 @@
 Syzygy Release Notes
 ====================
 
+Version 0.2.21.0
+
+[r1524] Update asan rtl for minidump generation.
+[r1523] Add mini-dump generation to the logger.
+[r1520] Reduce the memory overhead per block and add the TIDs to the header.
+[r1503] Add more aggressive optimization settings to our official builds.
+
 Version 0.2.20.0
 
 [r1490] SyzyASAN - Cut shadow size in half.
