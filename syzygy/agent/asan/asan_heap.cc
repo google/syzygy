@@ -501,11 +501,11 @@ void HeapProxy::ReportAddressInformation(const void* addr,
     case HEAP_BUFFER_OVERFLOW:
       offset = static_cast<const uint8*>(addr) - block_alloc
           - header->block_size;
-      offset_relativity = "to the right";
+      offset_relativity = "beyond";
       break;
     case HEAP_BUFFER_UNDERFLOW:
       offset = block_alloc - static_cast<const uint8*>(addr);
-      offset_relativity = "to the left";
+      offset_relativity = "before";
       break;
     case USE_AFTER_FREE:
       offset = static_cast<const uint8*>(addr) - block_alloc;
@@ -518,7 +518,7 @@ void HeapProxy::ReportAddressInformation(const void* addr,
   size_t shadow_info_bytes = base::snprintf(
       bad_access_info->shadow_info,
       arraysize(bad_access_info->shadow_info) - 1,
-      "0x%08X is located %d bytes %s of %d-bytes region [0x%08X,0x%08X)\n",
+      "%08X is %d bytes %s %d-byte block [%08X,%08X)\n",
       addr,
       offset,
       offset_relativity,
@@ -528,6 +528,11 @@ void HeapProxy::ReportAddressInformation(const void* addr,
 
   // Ensure that we had enough space to store the full shadow info message.
   DCHECK_LE(shadow_info_bytes, arraysize(bad_access_info->shadow_info) - 1);
+
+  // If we're not writing textual logs we can return here.
+  if (!logger_->log_as_text())
+    return;
+
   logger_->Write(bad_access_info->shadow_info);
   if (trailer->free_stack != NULL) {
     std::string message = base::StringPrintf(
@@ -723,6 +728,10 @@ void HeapProxy::ReportAsanErrorBase(const char* bug_descr,
                                     size_t access_size) {
   DCHECK(bug_descr != NULL);
   DCHECK(addr != NULL);
+
+  // If we're not logging text
+  if (!logger_->log_as_text())
+    return;
 
   // Print the base of the Windbg help message.
   ASANDbgMessage(L"An Asan error has been found (%ls), here are the details:",

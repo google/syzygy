@@ -41,6 +41,26 @@ using base::win::WinProcExceptionFilter;
 
 typedef void  (__cdecl * SetCrashKeyValueFuncPtr)(const char*, const char*);
 
+// The default error handler. It is expected that this will be bound in a
+// callback in the ASAN runtime.
+// @param context The context when the error has been reported.
+// @param error_info The information about this error.
+void DefaultErrorHandler(CONTEXT* context, AsanErrorInfo* error_info) {
+  DCHECK(context != NULL);
+  DCHECK(error_info != NULL);
+
+  ULONG_PTR arguments[] = {
+    reinterpret_cast<ULONG_PTR>(context),
+    reinterpret_cast<ULONG_PTR>(error_info)
+  };
+
+  ::DebugBreak();
+  ::RaiseException(EXCEPTION_ARRAY_BOUNDS_EXCEEDED,
+                   0,
+                   ARRAYSIZE(arguments),
+                   &arguments[0]);
+}
+
 // Returns the breakpad crash reporting functions if breakpad is enabled for
 // the current executable.
 //
@@ -77,7 +97,7 @@ void GetBreakpadFunctions(WinProcExceptionFilter* crash_func,
       ::GetProcAddress(exe_hmodule, kSetCrashKeyValueSymbol));
 }
 
-// The default error handler. It is expected that this will be bound in a
+// The breakpad error handler. It is expected that this will be bound in a
 // callback in the ASAN runtime.
 // @param func_ptr A pointer to the breakpad error reporting function. This
 //     will be used to perform the error reporting.
@@ -116,26 +136,6 @@ void BreakpadErrorHandler(WinProcExceptionFilter crash_func_ptr,
   EXCEPTION_POINTERS pointers = { &exception, context };
   crash_func_ptr(&pointers);
   NOTREACHED();
-}
-
-// The default error handler. It is expected that this will be bound in a
-// callback in the ASAN runtime.
-// @param context The context when the error has been reported.
-// @param error_info The information about this error.
-void DefaultErrorHandler(CONTEXT* context, AsanErrorInfo* error_info) {
-  DCHECK(context != NULL);
-  DCHECK(error_info != NULL);
-
-  ULONG_PTR arguments[] = {
-    reinterpret_cast<ULONG_PTR>(context),
-    reinterpret_cast<ULONG_PTR>(error_info)
-  };
-
-  ::DebugBreak();
-  ::RaiseException(EXCEPTION_ARRAY_BOUNDS_EXCEEDED,
-                   0,
-                   ARRAYSIZE(arguments),
-                   &arguments[0]);
 }
 
 // Try to update the value of a size_t variable from a command-line.
@@ -226,6 +226,8 @@ const char AsanRuntime::kCompressionReportingPeriod[] =
 const char AsanRuntime::kExitOnFailure[] = "exit_on_failure";
 const char AsanRuntime::kIgnoredStackIds[] = "ignored_stack_ids";
 const char AsanRuntime::kMaxNumberOfFrames[] = "max_num_frames";
+const char AsanRuntime::kMiniDumpOnFailure[] = "minidump_on_failure";
+const char AsanRuntime::kNoLogAsText[] = "no_log_as_text";
 const char AsanRuntime::kQuarantineSize[] = "quarantine_size";
 const wchar_t AsanRuntime::kSyzyAsanDll[] = L"asan_rtl.dll";
 
@@ -292,7 +294,12 @@ void AsanRuntime::TearDown() {
 void AsanRuntime::OnError(CONTEXT* context, AsanErrorInfo* error_info) {
   DCHECK(context != NULL);
 
-  if (flags_.exit_on_failure_) {
+  if (flags_.minidump_on_failure) {
+    DCHECK(logger_.get() != NULL);
+    logger_->SaveMiniDump(context, error_info);
+  }
+
+  if (flags_.exit_on_failure) {
     DCHECK(logger_.get() != NULL);
     logger_->Stop();
     exit(EXIT_FAILURE);
@@ -396,8 +403,10 @@ bool AsanRuntime::ParseFlagsFromString(std::wstring str) {
     return false;
   }
 
-  // Parse the exit on failure flag.
-  flags_.exit_on_failure_ = cmd_line.HasSwitch(kExitOnFailure);
+  // Parse the other (boolean) flags.
+  flags_.exit_on_failure = cmd_line.HasSwitch(kExitOnFailure);
+  flags_.minidump_on_failure = cmd_line.HasSwitch(kMiniDumpOnFailure);
+  flags_.log_as_text = !cmd_line.HasSwitch(kNoLogAsText);
 
   return true;
 }
@@ -427,6 +436,8 @@ void AsanRuntime::PropagateFlagsValues() const {
   StackCapture::set_bottom_frames_to_skip(flags_.bottom_frames_to_skip);
   StackCaptureCache::set_compression_reporting_period(flags_.reporting_period);
   stack_cache_->set_max_num_frames(flags_.max_num_frames);
+  logger_->set_log_as_text(flags_.log_as_text);
+  logger_->set_minidump_on_failure(flags_.minidump_on_failure);
 }
 
 void AsanRuntime::set_flags(const AsanFlags* flags) {

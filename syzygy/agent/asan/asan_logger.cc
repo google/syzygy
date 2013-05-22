@@ -54,7 +54,7 @@ void InitExecutionContext(const CONTEXT& rtl_context,
 
 }  // namespace
 
-AsanLogger::AsanLogger() {
+AsanLogger::AsanLogger() : log_as_text_(true), minidump_on_failure_(false) {
 }
 
 void AsanLogger::Init() {
@@ -124,6 +124,28 @@ void AsanLogger::WriteWithStackTrace(const std::string& message,
         reinterpret_cast<const DWORD*>(trace_data),
         trace_length);
   }
+}
+
+void AsanLogger::SaveMiniDump(CONTEXT* context, AsanErrorInfo* error_info) {
+  DCHECK(context != NULL);
+  DCHECK(error_info != NULL);
+
+  if (rpc_binding_.Get() == NULL)
+    return;
+
+  EXCEPTION_RECORD exception = {};
+  exception.ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
+  exception.ExceptionAddress = reinterpret_cast<PVOID>(context->Eip);
+  exception.NumberParameters = 2;
+  exception.ExceptionInformation[0] = reinterpret_cast<ULONG_PTR>(context);
+  exception.ExceptionInformation[1] = reinterpret_cast<ULONG_PTR>(error_info);
+
+  const EXCEPTION_POINTERS pointers = { &exception, context };
+  trace::client::InvokeRpc(&LoggerClient_SaveMiniDump,
+                           rpc_binding_.Get(),
+                           ::GetCurrentThreadId(),
+                           reinterpret_cast<unsigned long>(&pointers),
+                           0);
 }
 
 }  // namespace asan

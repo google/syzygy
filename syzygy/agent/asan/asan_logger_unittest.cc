@@ -28,6 +28,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/trace/logger/logger.h"
 #include "syzygy/trace/logger/logger_rpc_impl.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -78,23 +79,42 @@ TEST_F(AsanLoggerTest, EndToEnd) {
     trace::logger::RpcLoggerInstanceManager instance_manager(&server);
     server.set_instance_id(instance_id_);
     server.set_destination(destination.get());
+    server.set_minidump_dir(temp_dir_.path());
     ASSERT_TRUE(server.Start());
 
     // Use the AsanLogger client.
     client_.set_instance_id(instance_id_);
+    client_.set_log_as_text(true);
+    client_.set_minidump_on_failure(true);
     client_.Init();
     ASSERT_EQ(instance_id_, client_.instance_id_);
     ASSERT_TRUE(client_.rpc_binding_.Get() != NULL);
     client_.Write(kMessage);
+
+    // Generate a minidump.
+    CONTEXT ctx = {};
+    ::RtlCaptureContext(&ctx);
+    AsanErrorInfo info = {};
+    client_.SaveMiniDump(&ctx, &info);
 
     // Shutdown the logging service.
     ASSERT_TRUE(server.Stop());
     ASSERT_TRUE(server.Join());
   }
 
+  // Inspect the log file contents.
   std::string content;
   ASSERT_TRUE(file_util::ReadFileToString(temp_path_, &content));
   ASSERT_THAT(content, testing::EndsWith(kMessage));
+
+  // We should have exactly one minidump in the temp directory.
+  using file_util::FileEnumerator;
+  FileEnumerator fe(temp_dir_.path(), false, FileEnumerator::FILES, L"*.dmp");
+  base::FilePath minidump(fe.Next());
+  EXPECT_FALSE(minidump.empty());
+  EXPECT_TRUE(fe.Next().empty());
+
+  // TODO(rogerm): Inspect the contents of the minidump.
 }
 
 TEST_F(AsanLoggerTest, Stop) {

@@ -150,7 +150,9 @@ class AsanRuntime {
           reporting_period(0U),
           bottom_frames_to_skip(0U),
           max_num_frames(0U),
-          exit_on_failure_(false) {
+          exit_on_failure(false),
+          minidump_on_failure(false),
+          log_as_text(true) {
     }
 
     // The default size of the quarantine of the HeapProxy, in bytes.
@@ -169,9 +171,17 @@ class AsanRuntime {
     // The stack ids we ignore.
     StackIdSet ignored_stack_ids;
 
-    // Indicates if we should just exit on error rather than calling the error
-    // handler. Default to false.
-    bool exit_on_failure_;
+    // If true, we should generate a minidump whenever an error is detected.
+    // Defaults to false.
+    bool minidump_on_failure;
+
+    // If we should stop the logger (and the running program) after reporting
+    // an error. Defaults to false.
+    bool exit_on_failure;
+
+    // If true, we should generate a textual log describing any errors.
+    // Defaults to true;
+    bool log_as_text;
   };
 
   // The name of the environment variable containing the command-line.
@@ -184,6 +194,8 @@ class AsanRuntime {
   static const char kExitOnFailure[];
   static const char kIgnoredStackIds[];
   static const char kMaxNumberOfFrames[];
+  static const char kMiniDumpOnFailure[];
+  static const char kNoLogAsText[];
   static const char kQuarantineSize[];
   static const wchar_t kSyzyAsanDll[];
   // @}

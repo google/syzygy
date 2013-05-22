@@ -314,9 +314,9 @@ void AsanErrorCallback(CONTEXT* context, AsanErrorInfo* error_info) {
     EXPECT_EQ(error_info->free_stack_size, 0U);
 
   if (error_info->error_type == HeapProxy::HEAP_BUFFER_OVERFLOW) {
-    EXPECT_TRUE(strstr(error_info->shadow_info, "to the right") != NULL);
+    EXPECT_TRUE(strstr(error_info->shadow_info, "beyond") != NULL);
   } else if (error_info->error_type == HeapProxy::HEAP_BUFFER_UNDERFLOW) {
-    EXPECT_TRUE(strstr(error_info->shadow_info, "to the left") != NULL);
+    EXPECT_TRUE(strstr(error_info->shadow_info, "before") != NULL);
   }
 
   memory_error_detected = true;

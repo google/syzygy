@@ -23,6 +23,8 @@
 namespace agent {
 namespace asan {
 
+struct AsanErrorInfo;
+
 // A wrapper class to manage the singleton ASAN RPC logger instance.
 class AsanLogger {
  public:
@@ -30,10 +32,19 @@ class AsanLogger {
 
   // Set the RPC instance ID to use. If an instance-id is to be used by the
   // logger, it must be set before calling Init().
+  const std::wstring& instance_id() const { return instance_id_; }
   void set_instance_id(const base::StringPiece16& instance_id) {
     DCHECK(rpc_binding_.Get() == NULL);
     instance_id_.assign(instance_id.begin(), instance_id.end());
   }
+
+  // Set whether to write text to the asan log.
+  bool log_as_text() const { return log_as_text_; }
+  void set_log_as_text(bool value) { log_as_text_ = value; }
+
+  // Set whether to save a minidump on error.
+  bool minidump_on_failure() const { return minidump_on_failure_; }
+  void set_minidump_on_failure(bool value) { minidump_on_failure_ = value; }
 
   // Initialize the logger.
   void Init();
@@ -55,12 +66,24 @@ class AsanLogger {
                            const void* const* trace_data,
                            size_t trace_length);
 
+  // Ask the logger to capture a minidump of the process for the given
+  // @p context and @p error_info.
+  void SaveMiniDump(CONTEXT* context, AsanErrorInfo* error_info);
+
  protected:
   // The RPC binding.
   trace::client::ScopedRpcBinding rpc_binding_;
 
   // The logger's instance id.
   std::wstring instance_id_;
+
+  // True if the runtime has been asked to write text to the logger.
+  // Default: true.
+  bool log_as_text_;
+
+  // True if the runtime has been asked to save a minidump on error.
+  // Default: false.
+  bool minidump_on_failure_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(AsanLogger);

@@ -48,6 +48,7 @@ void TestWithAsanLogger::SetUp() {
   instance_id_ = base::UintToString16(::GetCurrentProcessId());
   log_service_.set_instance_id(instance_id_);
   log_service_.set_destination(log_file_.get());
+  log_service_.set_minidump_dir(temp_dir_.path());
   ASSERT_TRUE(log_service_.Start());
 
   log_contents_read_ = false;

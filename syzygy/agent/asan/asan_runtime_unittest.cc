@@ -167,7 +167,7 @@ TEST_F(AsanRuntimeTest, SetExitOnFailure) {
 
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
-  EXPECT_EQ(true, asan_runtime_.flags()->exit_on_failure_);
+  EXPECT_EQ(true, asan_runtime_.flags()->exit_on_failure);
 }
 
 TEST_F(AsanRuntimeTest, ExitOnFailure) {
@@ -176,7 +176,7 @@ TEST_F(AsanRuntimeTest, ExitOnFailure) {
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
 
-  EXPECT_EQ(true, asan_runtime_.flags()->exit_on_failure_);
+  EXPECT_EQ(true, asan_runtime_.flags()->exit_on_failure);
   CONTEXT context = {};
   RtlCaptureContext(&context);
 
