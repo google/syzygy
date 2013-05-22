@@ -36,7 +36,7 @@ typedef struct ExecutionContext {
 
 // Defines the Logger's RPC interface.
 [
-    uuid(EDF08DFE-283A-450B-B81D-03737C9BC856),
+    uuid(2851769C-7E7D-477C-8A19-622001F9A84E),
     version(1.0)
 ]
 interface Logger {
@@ -79,7 +79,6 @@ interface Logger {
   //     reason for the minidump, or NULL, cast to an unsigned long. The logger
   //     peek into the calling process to read the exception pointers.
   // @param flags Reserved.
-  //
   boolean SaveMiniDump(
       [in] handle_t binding,
       [in] unsigned long thread_id,
