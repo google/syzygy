@@ -623,7 +623,8 @@ bool AsanBasicBlockTransform::TransformBasicBlockSubGraph(
   DCHECK(subgraph != NULL);
 
   // Perform a global liveness analysis.
-  liveness_.Analyze(subgraph);
+  if (use_liveness_analysis_)
+    liveness_.Analyze(subgraph);
 
   // Determines if this subgraph uses unconventional stack pointer
   // manipulations.
