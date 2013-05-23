@@ -436,7 +436,6 @@ bool AddAsanCheckAccessHooks(
 // @param block_graph The block-graph to populate with the stub.
 // @param stub_name The stub's name.
 // @param mode The kind of memory access.
-// @param A pointer to the stub's block on success, NULL otherwise.
 // @param reference Will receive the reference to the created hook.
 // @returns true on success, false otherwise.
 bool CreateHooksStub(BlockGraph* block_graph,
@@ -688,7 +687,7 @@ bool AsanTransform::PreBlockGraphIteration(BlockGraph* block_graph,
     return false;
   }
 
-  // Map each memory access kind to a appropriate stub.
+  // Map each memory access kind to an appropriate stub.
   default_stub_map[AsanBasicBlockTransform::kReadAccess] = read_write_hook;
   default_stub_map[AsanBasicBlockTransform::kWriteAccess] = read_write_hook;
   default_stub_map[AsanBasicBlockTransform::kInstrAccess] = instr_hook;
@@ -793,8 +792,8 @@ bool AsanTransform::OnBlock(BlockGraph* block_graph,
 
 bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
                                             BlockGraph::Block* header_block) {
-  // This function redirects a the heap-related kernel32 imports to point to
-  // a set of "override" imports in the ASAN runtime.
+  // This function redirects the heap-related kernel32 imports to point to a set
+  // of "override" imports in the ASAN runtime.
 
   static const size_t kInvalidIndex = -1;
 
