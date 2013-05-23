@@ -46,6 +46,11 @@
       'regexp': 'Syzygy/experimental',
       'include': 0,
     },
+    # Exclude internal dependencies and tools.
+    {
+      'regexp': 'Syzygy/internal',
+      'include': 0,
+    },
     # Exclude assembly files. The MSVS coverage tool does this implicitly,
     # but we are explicit for the benefit of the Syzygy coverage tool.
     {
