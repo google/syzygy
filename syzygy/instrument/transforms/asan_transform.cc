@@ -67,14 +67,9 @@ typedef TypedBlock<StringStruct> String;
 
 // Returns true iff opcode should be instrumented.
 bool ShouldInstrumentOpcode(uint16 opcode) {
-  switch (opcode) {
-    case I_LEA:
-    case I_CALL:
-    case I_JMP:
-      return false;
-    default:
-      return true;
-  }
+  if (opcode == I_LEA)
+    return false;
+  return true;
 }
 
 // Computes the correct displacement, if any, for operand

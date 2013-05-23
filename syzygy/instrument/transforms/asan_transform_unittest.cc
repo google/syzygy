@@ -309,9 +309,10 @@ TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
   instrumentable_instructions++;
   bb_asm_.mov(block_graph::Operand(core::ecx), core::edx);
   instrumentable_instructions++;
-
-  // Non-instrumentable.
   bb_asm_.call(block_graph::Operand(core::ecx));
+  instrumentable_instructions++;
+  bb_asm_.jmp(block_graph::Operand(core::ecx));
+  instrumentable_instructions++;
   bb_asm_.push(block_graph::Operand(core::eax));
   instrumentable_instructions++;
 
