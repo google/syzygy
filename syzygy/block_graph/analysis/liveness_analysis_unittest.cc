@@ -102,11 +102,13 @@ LivenessAnalysisTest::LivenessAnalysisTest()
 template<size_t N>
 void LivenessAnalysisTest::AddInstructionFromBuffer(const uint8 (& data)[N]) {
   // Decode an instruction and append it to basicblock_.
-  DCHECK(data != NULL);
   DCHECK_GT(core::AssemblerImpl::kMaxInstructionLength, N);
 
   block_graph::Instruction temp;
   ASSERT_TRUE(block_graph::Instruction::FromBuffer(&data[0], N, &temp));
+
+  // Expect to decode the entire buffer.
+  ASSERT_TRUE(temp.size() == N);
 
   // Append this instruction to the basic block.
   instructions_.push_back(temp);
