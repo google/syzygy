@@ -25,8 +25,8 @@ EXPORTS
   ResolveReturnAddressLocation
 
   ; Hooks for dynamically providing and updating symbol information.
-  AddSymbol
-  MoveSymbol
+  AddDynamicSymbol
+  MoveDynamicSymbol
 
   ; Entry hook function for V8-generated JIT code.
-  OnV8FunctionEntry
+  OnDynamicFunctionEntry

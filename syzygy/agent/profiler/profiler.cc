@@ -215,7 +215,7 @@ extern "C" uintptr_t __cdecl ResolveReturnAddressLocation(
 
 // This function needs to match the declaration of FunctionEntryHook in the V8
 // API. See http://v8.googlecode.com/svn/trunk/include/v8.h.
-extern "C" __declspec(naked) void __cdecl OnV8FunctionEntry(
+extern "C" __declspec(naked) void __cdecl OnDynamicFunctionEntry(
     uintptr_t function, uintptr_t return_addr_location) {
   __asm {
     // Grab the current time ASAP.
@@ -267,15 +267,16 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
   return TRUE;
 }
 
-void WINAPI AddSymbol(const void* address, size_t length,
-                      const char* name, size_t name_len) {
+void __cdecl AddDynamicSymbol(const void* address, size_t length,
+                              const char* name, size_t name_len) {
   using agent::profiler::Profiler;
 
   Profiler* profiler = Profiler::Instance();
   profiler->AddSymbol(address, length, name, name_len);
 }
 
-void WINAPI MoveSymbol(const void* old_address, const void* new_address){
+void __cdecl MoveDynamicSymbol(const void* old_address,
+                               const void* new_address) {
   using agent::profiler::Profiler;
 
   Profiler* profiler = Profiler::Instance();

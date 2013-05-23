@@ -38,11 +38,11 @@
 
 extern "C" {
 
-typedef void (WINAPI *AddSymbolFunc)(const void* address, size_t length,
-                                     const char* name, size_t name_len);
-typedef void (WINAPI *MoveSymbolFunc)(const void* old_address,
-                                      const void* new_address);
-typedef void (__cdecl *OnV8FunctionEntryFunc)(
+typedef void (__cdecl *AddDynamicSymbolFunc)(
+    const void* address, size_t length, const char* name, size_t name_len);
+typedef void (__cdecl *MoveDynamicSymbolFunc)(
+    const void* old_address, const void* new_address);
+typedef void (__cdecl *OnDynamicFunctionEntryFunc)(
     uintptr_t function, uintptr_t return_addr_location);
 
 // We register a TLS callback to test TLS thread notifications.
@@ -244,16 +244,16 @@ class ProfilerTest : public testing::Test {
         ::GetProcAddress(module_, "ResolveReturnAddressLocation"));
     ASSERT_TRUE(resolution_func_ != NULL);
 
-    add_symbol_func_ = reinterpret_cast<AddSymbolFunc>(
-        ::GetProcAddress(module_, "AddSymbol"));
+    add_symbol_func_ = reinterpret_cast<AddDynamicSymbolFunc>(
+        ::GetProcAddress(module_, "AddDynamicSymbol"));
     ASSERT_TRUE(add_symbol_func_ != NULL);
 
-    move_symbol_func_ = reinterpret_cast<MoveSymbolFunc>(
-        ::GetProcAddress(module_, "MoveSymbol"));
+    move_symbol_func_ = reinterpret_cast<MoveDynamicSymbolFunc>(
+        ::GetProcAddress(module_, "MoveDynamicSymbol"));
     ASSERT_TRUE(add_symbol_func_ != NULL);
 
-    on_v8_function_entry_ = reinterpret_cast<OnV8FunctionEntryFunc>(
-        ::GetProcAddress(module_, "OnV8FunctionEntry"));
+    on_v8_function_entry_ = reinterpret_cast<OnDynamicFunctionEntryFunc>(
+        ::GetProcAddress(module_, "OnDynamicFunctionEntry"));
     ASSERT_TRUE(on_v8_function_entry_ != NULL);
   }
 
@@ -282,7 +282,7 @@ class ProfilerTest : public testing::Test {
   // a trampoline in incremental builds, whereas we need the address of the
   // function's implementation for the test.
   static intptr_t WINAPI DllMainCaller(CallerAction action,
-                                       OnV8FunctionEntryFunc hook);
+                                       OnDynamicFunctionEntryFunc hook);
 
   static int IndirectFunctionA(int param1, const void* param2);
   static int FunctionAThunk(int param1, const void* param2);
@@ -299,9 +299,9 @@ class ProfilerTest : public testing::Test {
 
   // Functions exported from the profiler dll.
   ResolveReturnAddressLocationFunc resolution_func_;
-  AddSymbolFunc add_symbol_func_;
-  MoveSymbolFunc move_symbol_func_;
-  OnV8FunctionEntryFunc on_v8_function_entry_;
+  AddDynamicSymbolFunc add_symbol_func_;
+  MoveDynamicSymbolFunc move_symbol_func_;
+  OnDynamicFunctionEntryFunc on_v8_function_entry_;
 
   // Our call trace service process instance.
   testing::CallTraceService service_;
@@ -332,7 +332,7 @@ BOOL __declspec(naked) WINAPI ProfilerTest::DllMainThunk(HMODULE module,
 }
 
 intptr_t __declspec(naked) WINAPI ProfilerTest::DllMainCaller(
-    CallerAction action, OnV8FunctionEntryFunc hook) {
+    CallerAction action, OnDynamicFunctionEntryFunc hook) {
   __asm {
    start:
     mov eax, dword ptr[esp + 4]  // get action
@@ -665,7 +665,7 @@ TEST_F(ProfilerTest, RecordsUsedSymbols) {
   ASSERT_NO_FATAL_FAILURE(ReplayLogs());
 }
 
-TEST_F(ProfilerTest, OnV8FunctionEntry) {
+TEST_F(ProfilerTest, OnDynamicFunctionEntry) {
   ASSERT_NO_FATAL_FAILURE(StartService());
   ASSERT_NO_FATAL_FAILURE(LoadDll());
 
