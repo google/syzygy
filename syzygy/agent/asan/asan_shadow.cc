@@ -21,6 +21,16 @@ namespace asan {
 
 uint8 Shadow::shadow_[kShadowSize];
 
+void Shadow::SetUp() {
+  // Poison the shadow memory.
+  Poison(shadow_, kShadowSize, kHeapNonAccessibleByteMask);
+}
+
+void Shadow::TearDown() {
+  // Unpoison the shadow memory.
+  Unpoison(shadow_, kShadowSize);
+}
+
 void Shadow::Reset() {
   memset(shadow_, 0, kShadowSize);
 }

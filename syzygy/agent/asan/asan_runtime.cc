@@ -25,6 +25,7 @@
 #include "base/win/pe_image.h"
 #include "base/win/wrapped_window_proc.h"
 #include "syzygy/agent/asan/asan_logger.h"
+#include "syzygy/agent/asan/asan_shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -250,6 +251,8 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // this process. Note: this is mostly for debugging purposes.
   CommandLine::Init(0, NULL);
 
+  Shadow::SetUp();
+
   InitializeListHead(&heap_proxy_dlist_);
 
   // Setup the "global" state.
@@ -286,6 +289,7 @@ void AsanRuntime::TearDown() {
   TearDownLogger();
   DCHECK(asan_error_callback_.is_null() == FALSE);
   asan_error_callback_.Reset();
+  Shadow::TearDown();
   // In principle, we should also check that all the heaps have been destroyed
   // but this is not guaranteed to be the case in Chrome, so the heap list may
   // not be empty here.

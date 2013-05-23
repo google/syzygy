@@ -27,6 +27,8 @@ namespace {
 class TestShadow : public Shadow {
  public:
   using Shadow::Reset;
+  using Shadow::kShadowSize;
+  using Shadow::shadow_;
 };
 
 }  // namespace
@@ -58,6 +60,28 @@ TEST(ShadowTest, PoisonUnpoisonAccess) {
     for (size_t i = 0; i < size; ++i) {
       EXPECT_TRUE(Shadow::IsAccessible(start_addr + i));
     }
+  }
+}
+
+TEST(ShadowTest, SetUpAndTearDown) {
+  // Reset the shadow memory.
+  TestShadow::Reset();
+
+  // Don't check all the shadow bytes otherwise this test will take too much
+  // time.
+  const size_t kShadowLookupInterval = 25;
+
+  intptr_t shadow_array_start = reinterpret_cast<intptr_t>(TestShadow::shadow_);
+  size_t shadow_start = shadow_array_start >> 3;
+  size_t shadow_end = shadow_start + (TestShadow::kShadowSize >> 3);
+
+  Shadow::SetUp();
+  for (size_t i = shadow_start; i < shadow_end; i += kShadowLookupInterval) {
+    ASSERT_EQ(Shadow::kHeapNonAccessibleByteMask, TestShadow::shadow_[i]);
+  }
+  Shadow::TearDown();
+  for (size_t i = shadow_start; i < shadow_end; i += kShadowLookupInterval) {
+    ASSERT_EQ(Shadow::kHeapAddressableByte, TestShadow::shadow_[i]);
   }
 }
 

@@ -26,6 +26,12 @@ namespace asan {
 // An all-static class that manages the ASAN shadow memory.
 class Shadow {
  public:
+  // Set up the shadow memory.
+  static void SetUp();
+
+  // Tear down the shadow memory.
+  static void TearDown();
+
   // The different markers we use to mark the shadow memory.
   enum ShadowMarker {
     kHeapAddressableByte = 0x00,
