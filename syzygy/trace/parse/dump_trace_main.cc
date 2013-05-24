@@ -256,11 +256,28 @@ class TraceFileDumper : public ParseEventHandler {
               process_id,
               thread_id);
     for (size_t i = 0; i < num_invocations; ++i) {
+      const InvocationInfo& invocation = data->invocations[i];
+
+      if ((invocation.flags & kCallerIsSymbol) != 0) {
+        ::fprintf(file_,
+                  "    caller_sym=0x%X, offs=%d;",
+                  invocation.caller_symbol_id,
+                  invocation.caller_offset);
+      } else {
+        ::fprintf(file_,
+                  "    caller=0x%08X;",
+                  invocation.caller);
+      }
+
+      if ((invocation.flags & kFunctionIsSymbol) != 0) {
+        ::fprintf(file_, " function_sym=0x%X;", invocation.function_symbol_id);
+      } else {
+        ::fprintf(file_, " function=0x%08X;", invocation.function);
+      }
+
       ::fprintf(file_,
-                "    caller=0x%08X; function=0x%08X; num-calls=%d;\n"
+                " num-calls=%d;\n"
                 "    cycles-min=%lld; cycles-max=%lld; cycles-sum=%lld\n",
-                data->invocations[i].caller,
-                data->invocations[i].function,
                 data->invocations[i].num_calls,
                 data->invocations[i].cycles_min,
                 data->invocations[i].cycles_max,
