@@ -36,6 +36,7 @@ typedef block_graph::BasicBlockSubGraph::BasicBlock BasicBlock;
 typedef block_graph::BasicBlockSubGraph::BasicBlock::Instructions Instructions;
 typedef block_graph::BasicBlockSubGraph::BasicBlock::Successors Successors;
 typedef block_graph::BasicBlockSubGraph::BasicCodeBlock BasicCodeBlock;
+typedef block_graph::BasicBlockSubGraph::BlockDescription BlockDescription;
 
 // _asm mov eax, 0
 const uint8 kMovEaxZero[5] = { 0xB8, 0x00, 0x00, 0x00, 0x00 };
@@ -519,6 +520,58 @@ TEST_F(LivenessAnalysisTest, InstructionsWithPartialDefine) {
   AnalyzeInstructions();
   EXPECT_TRUE(is_live(core::ebx));
   EXPECT_TRUE(is_live(core::edx));
+}
+
+TEST_F(LivenessAnalysisTest, InstructionsWithPartialDefineAll) {
+  static const uint8 kMovAl[] = { 0xB0, 0x00 };
+  static const uint8 kMovBl[] = { 0xB1, 0x00 };
+  static const uint8 kMovCl[] = { 0xB2, 0x00 };
+  static const uint8 kMovDl[] = { 0xB3, 0x00 };
+  static const uint8 kMovAh[] = { 0xB4, 0x00 };
+  static const uint8 kMovBh[] = { 0xB7, 0x00 };
+  static const uint8 kMovCh[] = { 0xB5, 0x00 };
+  static const uint8 kMovDh[] = { 0xB6, 0x00 };
+  static const uint8 kMovAx[] = { 0x66, 0xB8, 0x00, 0x00 };
+  static const uint8 kMovBx[] = { 0x66, 0xBB, 0x00, 0x00 };
+  static const uint8 kMovCx[] = { 0x66, 0xB9, 0x00, 0x00 };
+  static const uint8 kMovDx[] = { 0x66, 0xBA, 0x00, 0x00 };
+  static const uint8 kMovSi[] = { 0x66, 0xBE, 0x00, 0x00 };
+  static const uint8 kMovDi[] = { 0x66, 0xBF, 0x00, 0x00 };
+  static const uint8 kMovSp[] = { 0x66, 0xBC, 0x00, 0x00 };
+  static const uint8 kMovBp[] = { 0x66, 0xBD, 0x00, 0x00 };
+
+  // 8-bit partial registers.
+  AddInstructionFromBuffer(kMovAl);
+  AddInstructionFromBuffer(kMovBl);
+  AddInstructionFromBuffer(kMovCl);
+  AddInstructionFromBuffer(kMovDl);
+
+  AddInstructionFromBuffer(kMovAh);
+  AddInstructionFromBuffer(kMovBh);
+  AddInstructionFromBuffer(kMovCh);
+  AddInstructionFromBuffer(kMovDh);
+
+  // 16-bit partial registers.
+  AddInstructionFromBuffer(kMovAx);
+  AddInstructionFromBuffer(kMovBx);
+  AddInstructionFromBuffer(kMovCx);
+  AddInstructionFromBuffer(kMovDx);
+
+  AddInstructionFromBuffer(kMovSi);
+  AddInstructionFromBuffer(kMovDi);
+  AddInstructionFromBuffer(kMovSp);
+  AddInstructionFromBuffer(kMovBp);
+
+  AnalyzeInstructions();
+
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(core::edx));
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_TRUE(is_live(core::esi));
+  EXPECT_TRUE(is_live(core::edi));
+  EXPECT_TRUE(is_live(core::esp));
+  EXPECT_TRUE(is_live(core::ebp));
 }
 
 TEST_F(LivenessAnalysisTest, ArithmeticUnaryInstructions) {
@@ -1173,6 +1226,17 @@ TEST_F(LivenessAnalysisTest, FloatingPointCompareWithFlagsInstructions) {
   instructions_.clear();
 }
 
+TEST_F(LivenessAnalysisTest, UnknownInstruction) {
+  // Ensure unknown instructions are processed correctly.
+  static const uint8 kRdtsc[] = { 0x0F, 0x31 };
+  AnalyzeSingleInstructionFromBuffer(kRdtsc);
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(core::esi));
+  EXPECT_TRUE(is_live(core::ebp));
+  EXPECT_TRUE(are_arithmetic_flags_live());
+}
+
 TEST_F(LivenessAnalysisTest, XorInitializationSpecialCase) {
   // Validate an initialization pattern used by x86 compiler.
   // Ensure the flags are assumed modified, and the register is unused.
@@ -1202,6 +1266,22 @@ TEST_F(LivenessAnalysisTest, NopInstructionSpecialCase) {
   asm_.mov(core::eax, Immediate(10));
   AnalyzeInstructions();
   EXPECT_FALSE(is_live(core::eax));
+}
+
+TEST_F(LivenessAnalysisTest, GetStateAtEntryOfWithNull) {
+  // It is valid to pass a NULL pointer to get a state.
+  liveness_.GetStateAtEntryOf(NULL, &state_);
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_TRUE(is_live(core::esi));
+  EXPECT_TRUE(are_arithmetic_flags_live());
+}
+
+TEST_F(LivenessAnalysisTest, GetStateAtExitOfWithNull) {
+  // It is valid to pass a NULL pointer to get a state.
+  liveness_.GetStateAtExitOf(NULL, &state_);
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_TRUE(is_live(core::esi));
+  EXPECT_TRUE(are_arithmetic_flags_live());
 }
 
 TEST_F(LivenessAnalysisTest, LivenessAnalysisOverControlFlow) {
@@ -1253,8 +1333,8 @@ TEST_F(LivenessAnalysisTest, LivenessAnalysisOverControlFlow) {
   AddSuccessorBetween(Successor::kConditionTrue, true1, if2);
   AddSuccessorBetween(Successor::kConditionTrue, false1, if2);
 
-  AddSuccessorBetween(Successor::kConditionEqual, if2, true2);
-  AddSuccessorBetween(Successor::kConditionNotEqual, if2, false2);
+  AddSuccessorBetween(Successor::kConditionOverflow, if2, true2);
+  AddSuccessorBetween(Successor::kConditionNotOverflow, if2, false2);
   AddSuccessorBetween(Successor::kConditionLess, true2, end2);
   AddSuccessorBetween(Successor::kConditionLess, false2, end2);
 
@@ -1344,6 +1424,38 @@ TEST_F(LivenessAnalysisTest, LivenessAnalysisOverControlFlow) {
   EXPECT_FALSE(is_live(core::esi));
   EXPECT_TRUE(is_live(core::edi));
   EXPECT_FALSE(is_live(core::ebp));
+}
+
+TEST_F(LivenessAnalysisTest, AnalyzeWithData) {
+  BasicBlockSubGraph subgraph;
+  const uint8 raw_data[] = { 0, 1, 2, 3, 4 };
+
+  BlockDescription* block = subgraph.AddBlockDescription(
+      "b1", BlockGraph::CODE_BLOCK, 7, 2, 42);
+
+  BasicCodeBlock* bb = subgraph.AddBasicCodeBlock("bb");
+  BasicDataBlock* data =
+      subgraph.AddBasicDataBlock("data", sizeof(raw_data), &raw_data[0]);
+
+  block->basic_block_order.push_back(bb);
+  block->basic_block_order.push_back(data);
+
+  BasicBlockAssembler asm_bb(bb->instructions().end(), &bb->instructions());
+  asm_bb.mov(core::eax, core::ebx);
+  asm_bb.ret();
+
+  // Analyze the flow graph.
+  liveness_.Analyze(&subgraph);
+
+  liveness_.GetStateAtEntryOf(bb, &state_);
+  EXPECT_FALSE(is_live(core::eax));
+  EXPECT_TRUE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::esi));
+
+  liveness_.GetStateAtEntryOf(data, &state_);
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_TRUE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::esi));
 }
 
 }  // namespace
