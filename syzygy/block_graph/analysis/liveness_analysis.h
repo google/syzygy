@@ -106,6 +106,8 @@ namespace analysis {
 //  // Perform the global analysis.
 //  liveness.Analyze(subgraph);
 //
+//  // Load the state at the end of the basic block.
+//  liveness.GetStateAtExitOf(bb, &state);
 //  BasicBlock::Instructions::reverse_iterator iter = instructions.rbegin();
 //  for (; iter != instructions.rend(); ++iter) {
 //    const Instruction& instr = *iter;
