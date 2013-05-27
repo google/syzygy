@@ -38,8 +38,14 @@ struct TimerInfo {
 };
 COMPILE_ASSERT_IS_POD(TimerInfo);
 
+// Gets timer information about the various timers. A timer whose information
+// can not be found will have the frequency set to 0.
+// @param timer_info Will be populated with the information about the timer.
+void GetTickTimerInfo(TimerInfo* timer_info);
+void GetTscTimerInfo(TimerInfo* timer_info);
+
 // @returns the current value of the ticks timer.
-inline uint64 GetTicks() { return ::GetTickCount64(); }
+uint64 GetTicks();
 
 // @returns the current value of the TSC register using RDTSC.
 inline uint64 GetTsc() { return ::__rdtsc(); }

@@ -19,6 +19,58 @@
 namespace trace {
 namespace common {
 
+namespace {
+
+void CheckValidTickTimerInfo(const TimerInfo& ti) {
+  EXPECT_EQ(1000u, ti.frequency);
+  EXPECT_LT(0u, ti.resolution);
+}
+
+void CheckValidTscTimerInfo(const TimerInfo& ti) {
+  // We have no precise expectations about TSC info, except that both entries
+  // are zero or they are both non-zero.
+  if (ti.resolution == 0) {
+    EXPECT_EQ(0u, ti.frequency);
+  } else {
+    EXPECT_EQ(1u, ti.resolution);
+    EXPECT_LT(0u, ti.frequency);
+  }
+}
+
+}  // namespace
+
+TEST(GetTickTimerInfoTest, WorksAsExpected) {
+  TimerInfo ti = {};
+  GetTickTimerInfo(&ti);
+  CheckValidTickTimerInfo(ti);
+}
+
+TEST(GetTscTimerInfoTest, WorksAsExpected) {
+  TimerInfo ti = {};
+  GetTscTimerInfo(&ti);
+  CheckValidTscTimerInfo(ti);
+}
+
+TEST(GetTicksTest, WorksAsExpected) {
+  // This will busy loop until the counter advances, or until we perform
+  // 2^32 iterations. The counter should definitely have advanced by then.
+  uint64 t1 = GetTicks();
+  uint64 t2 = t1;
+  uint32 count = 0;
+  while (t2 == t1 && ++count != 0)
+    t2 = GetTicks();
+}
+
+TEST(GetTscTest, WorksAsExpected) {
+  // This will busy loop until the counter advances, or until we perform
+  // 2^32 iterations. The counter should definitely have advanced by then.
+  uint64 t1 = GetTsc();
+  uint64 t2 = t1;
+  uint32 count = 0;
+  while (t2 == t1 && ++count != 0)
+    t2 = GetTsc();
+}
+
 TEST(TimerToFileTimeTest, FailsForInvalidTimerInfo) {
   FILETIME ft1 = {};
   TimerInfo ti = {};
@@ -90,17 +142,8 @@ TEST(ClockInfoTest, GetClockInfo) {
   ClockInfo ci = {};
   GetClockInfo(&ci);
 
-  EXPECT_EQ(1000u, ci.ticks_info.frequency);
-  EXPECT_LT(0u, ci.ticks_info.resolution);
-
-  // We have no precise expectations about TSC info, except that both entries
-  // are zero or they are both non-zero.
-  if (ci.tsc_info.resolution == 0) {
-    EXPECT_EQ(0u, ci.tsc_info.frequency);
-  } else {
-    EXPECT_EQ(1u, ci.tsc_info.resolution);
-    EXPECT_LT(0u, ci.tsc_info.frequency);
-  }
+  CheckValidTickTimerInfo(ci.ticks_info);
+  CheckValidTscTimerInfo(ci.tsc_info);
 }
 
 TEST(TicksToFileTimeTest, WorksAsExpected) {

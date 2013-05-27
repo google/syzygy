@@ -14,6 +14,7 @@
 
 #include "syzygy/trace/common/clock.h"
 
+#include <WinBase.h>
 #include <type_traits>
 
 #include "base/logging.h"
@@ -23,6 +24,17 @@ namespace trace {
 namespace common {
 
 namespace {
+
+union LargeInteger {
+  LARGE_INTEGER li;
+  uint64 ui64;
+  COMPILE_ASSERT(sizeof(LARGE_INTEGER) == sizeof(uint64),
+                 LARGE_INTEGER_and_uint64_must_have_same_size);
+};
+
+typedef ULONGLONG (*GetTickCount64Ptr)();
+
+}  // namespace
 
 void GetTickTimerInfo(TimerInfo* timer_info) {
   DCHECK(timer_info != NULL);
@@ -34,13 +46,6 @@ void GetTickTimerInfo(TimerInfo* timer_info) {
   // worst case of 16 ms.
   timer_info->resolution = 16;
 }
-
-union LargeInteger {
-  LARGE_INTEGER li;
-  uint64 ui64;
-  COMPILE_ASSERT(sizeof(LARGE_INTEGER) == sizeof(uint64),
-                 LARGE_INTEGER_and_uint64_must_have_same_size);
-};
 
 void GetTscTimerInfo(TimerInfo* timer_info) {
   DCHECK(timer_info != NULL);
@@ -73,8 +78,6 @@ void GetTscTimerInfo(TimerInfo* timer_info) {
   timer_info->resolution = 1;
 }
 
-}  // namespace
-
 bool TimerToFileTime(const FILETIME& file_time_ref,
                      const TimerInfo& timer_info,
                      const uint64& timer_ref,
@@ -102,6 +105,32 @@ bool TimerToFileTime(const FILETIME& file_time_ref,
   file_time->dwHighDateTime = t >> 32;
 
   return true;
+}
+
+uint64 GetTicks() {
+  // We can't explicitly invoke GetTickCount64 as it doesn't exist in Windows
+  // XP. This would make all of our trace code unable to be run on XP systems.
+  const GetTickCount64Ptr kUninitialized =
+      reinterpret_cast<GetTickCount64Ptr>(1);
+  static GetTickCount64Ptr get_tick_count64 = kUninitialized;
+
+  // This is racy but safe. Worst case scenario multiple threads do the lookup,
+  // each of them writing the same value to |get_tick_count64|. Since writes are
+  // atomic all will be well by the time it is dereferenced.
+  if (get_tick_count64 == kUninitialized) {
+    HMODULE kernel32 = ::GetModuleHandleA("kernel32.dll");
+    DCHECK(kernel32 != NULL);
+
+    get_tick_count64 = reinterpret_cast<GetTickCount64Ptr>(
+        ::GetProcAddress(kernel32, "GetTickCount64"));
+  }
+  DCHECK(get_tick_count64 != kUninitialized);
+
+  if (get_tick_count64 != NULL)
+    return (*get_tick_count64)();
+
+  // Fall back to using the 32-bit counter if the 64-bit one is not available.
+  return ::GetTickCount();
 }
 
 void GetClockInfo(ClockInfo* clock_info) {

@@ -58,11 +58,11 @@ class HeapLocker {
 
 // Returns the number of CPU cycles per microsecond.
 double GetCpuCyclesPerUs() {
-  trace::common::ClockInfo clock_info = {};
-  trace::common::GetClockInfo(&clock_info);
+  trace::common::TimerInfo tsc_info = {};
+  trace::common::GetTscTimerInfo(&tsc_info);
 
-  if (clock_info.tsc_info.frequency != 0) {
-    return (clock_info.tsc_info.frequency /
+  if (tsc_info.frequency != 0) {
+    return (tsc_info.frequency /
         static_cast<double>(base::Time::kMicrosecondsPerSecond));
   } else {
     uint64 cycle_start = trace::common::GetTsc();
