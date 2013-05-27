@@ -17,9 +17,6 @@
 
 {
   'variables': {
-    # All of our code is chromium code.
-    'chromium_code': 1,
-
     # By default we are not producing an official build.
     'official_build%': 0,
 

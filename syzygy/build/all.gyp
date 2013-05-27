@@ -14,6 +14,7 @@
 
 {
   'variables': {
+    'chromium_code': 1,
     # All files that should be archived after a
     # successful build are named here.
     'files_to_archive': [

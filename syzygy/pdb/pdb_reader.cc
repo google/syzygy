@@ -99,7 +99,7 @@ bool PdbReader::Read(const base::FilePath& pdb_path, PdbFile* pdb_file) {
   scoped_refptr<PdbFileStream> dir_page_stream(new PdbFileStream(
       file, num_dir_pages * sizeof(uint32),
       header.root_pages, header.page_size));
-  scoped_array<uint32> dir_pages(new uint32[num_dir_pages]);
+  scoped_ptr<uint32[]> dir_pages(new uint32[num_dir_pages]);
   if (dir_pages.get() == NULL) {
     LOG(ERROR) << "Failed to allocate directory pages.";
     return false;

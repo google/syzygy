@@ -14,6 +14,7 @@
 
 {
   'variables': {
+    'chromium_code': 1,
     'candle_exe': '<(src)\\third_party\\wix\\files\\candle.exe',
     'light_exe': '<(src)\\third_party\\wix\\files\\light.exe',
   },

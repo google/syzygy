@@ -21,7 +21,7 @@
 #include "base/message_loop.h"
 
 SymbolLookupService::SymbolLookupService() : background_thread_(NULL),
-    foreground_thread_(MessageLoop::current()), next_request_id_(0),
+    foreground_thread_(base::MessageLoop::current()), next_request_id_(0),
     unprocessed_id_(0) {
 }
 
@@ -34,7 +34,7 @@ SymbolLookupService::~SymbolLookupService() {
 SymbolLookupService::Handle SymbolLookupService::ResolveAddress(
     sym_util::ProcessId process_id, const base::Time& time,
     sym_util::Address address, const SymbolResolvedCallback& callback) {
-  DCHECK_EQ(foreground_thread_, MessageLoop::current());
+  DCHECK_EQ(foreground_thread_, base::MessageLoop::current());
   DCHECK(!callback.is_null());
 
   base::AutoLock lock(resolution_lock_);
@@ -59,7 +59,7 @@ SymbolLookupService::Handle SymbolLookupService::ResolveAddress(
 }
 
 void SymbolLookupService::CancelRequest(Handle request_handle) {
-  DCHECK_EQ(foreground_thread_, MessageLoop::current());
+  DCHECK_EQ(foreground_thread_, base::MessageLoop::current());
   base::AutoLock lock(resolution_lock_);
 
   RequestMap::iterator it = requests_.find(request_handle);
@@ -127,7 +127,7 @@ bool SymbolLookupService::ResolveAddressImpl(sym_util::ProcessId pid,
                                              const base::Time& time,
                                              sym_util::Address address,
                                              sym_util::Symbol* symbol) {
-  DCHECK_EQ(background_thread_, MessageLoop::current());
+  DCHECK_EQ(background_thread_, base::MessageLoop::current());
   using sym_util::ModuleCache;
   using sym_util::SymbolCache;
 
@@ -188,7 +188,7 @@ bool SymbolLookupService::ResolveAddressImpl(sym_util::ProcessId pid,
 }
 
 void SymbolLookupService::ResolveCallback() {
-  DCHECK_EQ(background_thread_, MessageLoop::current());
+  DCHECK_EQ(background_thread_, base::MessageLoop::current());
 
   while (true) {
     Handle request_id;
@@ -238,7 +238,7 @@ void SymbolLookupService::ResolveCallback() {
 }
 
 void SymbolLookupService::SetSymbolPathCallback(const std::wstring& path) {
-  DCHECK_EQ(background_thread_, MessageLoop::current());
+  DCHECK_EQ(background_thread_, base::MessageLoop::current());
 
   symbol_path_ = path;
   SymbolCacheMap::iterator it(symbol_caches_.begin());

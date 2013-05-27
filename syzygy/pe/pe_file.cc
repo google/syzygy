@@ -71,8 +71,8 @@ void PEFile::GetSignature(Signature* signature) const {
 
   // TODO(chrisha): Make GetSignature return a bool, and update all calling
   //     sites.
-  base::FilePath abs_path(path_);
-  CHECK(file_util::AbsolutePath(&abs_path));
+  base::FilePath abs_path(base::MakeAbsoluteFilePath(path_));
+  CHECK(!abs_path.empty());
 
   signature->path = abs_path.value();
   signature->base_address =

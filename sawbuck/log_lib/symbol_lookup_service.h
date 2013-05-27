@@ -62,7 +62,7 @@ class ISymbolLookupService {
 };
 
 // Fwd.
-class MessageLoop;
+namespace base { class MessageLoop; }
 
 // The symbol lookup service class knows how to sink the NT kernel log's
 // module events, and to subsequently service {pid,time,address}->symbol
@@ -81,8 +81,8 @@ class SymbolLookupService
 
   // Accessors for our background thread message loop.
   // Note: This object must outlive the background thread.
-  MessageLoop* background_thread() const { return background_thread_; }
-  void set_background_thread(MessageLoop* background_thread) {
+  base::MessageLoop* background_thread() const { return background_thread_; }
+  void set_background_thread(base::MessageLoop* background_thread) {
     background_thread_ = background_thread;
   }
 
@@ -157,10 +157,10 @@ class SymbolLookupService
   ProcessingCallback callback_task_;  // Under resolution_lock_.
 
   // The background thread where we do our processing.
-  MessageLoop* background_thread_;
+  base::MessageLoop* background_thread_;
 
   // The foreground thread where we deliver result callbacks.
-  MessageLoop* foreground_thread_;
+  base::MessageLoop* foreground_thread_;
 };
 
 #endif  // SAWBUCK_LOG_LIB_SYMBOL_LOOKUP_SERVICE_H_

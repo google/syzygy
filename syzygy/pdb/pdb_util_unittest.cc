@@ -70,7 +70,7 @@ const OMAP kOmapFromData[] = {
 
 class PdbUtilTest : public testing::Test {
  public:
-  PdbUtilTest() : ALLOW_THIS_IN_INITIALIZER_LIST(process_(this)) {
+  PdbUtilTest() : process_(this) {
   }
 
   void SetUp() {

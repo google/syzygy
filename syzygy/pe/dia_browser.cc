@@ -475,7 +475,7 @@ bool DiaBrowser::AddPattern(const builder::Proxy& pattern_builder_proxy,
   // room for a special root node at the beginning of the pattern.
   ++pattern_length;
   size_t pattern_id = patterns_.size();
-  scoped_array<PatternElement> pattern(new PatternElement[pattern_length]);
+  scoped_ptr<PatternElement[]> pattern(new PatternElement[pattern_length]);
   std::vector<PatternElement*> in_exits(1, pattern.get());
   std::vector<PatternElement*> out_exits;
   pattern_builder.Build(pattern.get(), 1, in_exits, &out_exits);
@@ -483,7 +483,7 @@ bool DiaBrowser::AddPattern(const builder::Proxy& pattern_builder_proxy,
   // If the root element is one of the out_exits, this pattern will match the
   // 'null' sequence. Reject it!
   for (size_t i = 0; i < out_exits.size(); ++i) {
-    if (out_exits[i] == pattern) {
+    if (out_exits[i] == pattern.get()) {
       return false;
     }
   }
@@ -491,7 +491,7 @@ bool DiaBrowser::AddPattern(const builder::Proxy& pattern_builder_proxy,
   // If the root element points to itself, the pattern can match a 'null'
   // sequence. Reject it!
   for (size_t i = 0; i < pattern[0].links.size(); ++i) {
-    if (pattern[0].links[i] == pattern) {
+    if (pattern[0].links[i] == pattern.get()) {
       return false;
     }
   }

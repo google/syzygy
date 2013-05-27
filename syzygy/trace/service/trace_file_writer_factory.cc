@@ -40,10 +40,10 @@
 namespace trace {
 namespace service {
 
-TraceFileWriterFactory::TraceFileWriterFactory(MessageLoop* message_loop)
+TraceFileWriterFactory::TraceFileWriterFactory(base::MessageLoop* message_loop)
     : message_loop_(message_loop), trace_file_directory_(L".") {
   DCHECK(message_loop != NULL);
-  DCHECK_EQ(MessageLoop::TYPE_IO, message_loop->type());
+  DCHECK_EQ(base::MessageLoop::TYPE_IO, message_loop->type());
 }
 
 bool TraceFileWriterFactory::SetTraceFileDirectory(const base::FilePath& path) {

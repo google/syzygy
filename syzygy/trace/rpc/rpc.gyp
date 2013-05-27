@@ -14,6 +14,7 @@
 
 {
   'variables': {
+    'chromium_code': 1,
     'midl_out_dir': '<(SHARED_INTERMEDIATE_DIR)/syzygy/trace/rpc',
   },
   'target_defaults': {

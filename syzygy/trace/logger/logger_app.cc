@@ -302,7 +302,8 @@ bool LoggerApp::ParseCommandLine(const CommandLine* command_line) {
   if (mini_dump_dir_.empty()) {
     CHECK(PathService::Get(base::DIR_CURRENT, &mini_dump_dir_));
   } else {
-    if (!file_util::AbsolutePath(&mini_dump_dir_))
+    mini_dump_dir_ = base::MakeAbsoluteFilePath(mini_dump_dir_);
+    if (mini_dump_dir_.empty())
       return Usage(command_line, "The minidump-dir parameter is invalid.");
 
     if (!file_util::DirectoryExists(mini_dump_dir_) &&

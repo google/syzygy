@@ -67,8 +67,12 @@ bool GetModuleValueFromEnvVar(const char* env_var_name,
 
   // Get the absolute path and the basename of the module. We will use these
   // for matching.
-  base::FilePath abs_module_path(module_path);
-  CHECK(file_util::AbsolutePath(&abs_module_path));
+  base::FilePath abs_module_path(base::MakeAbsoluteFilePath(module_path));
+  // TODO(chrisha): Is this wise? There's all kinds of environmental trouble
+  //     that can lead to path normalization failing, and there is infact no
+  //     guarantee that an arbitrary file path can be normalized given an
+  //     arbitrary process' permissions.
+  CHECK(!abs_module_path.empty());
   base::FilePath base_module_path = module_path.BaseName();
 
   std::vector<std::string> pairs;

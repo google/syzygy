@@ -46,11 +46,11 @@ base::FilePath AppImplBase::AbsolutePath(const base::FilePath& path) {
   if (path.empty())
     return base::FilePath();
 
-  base::FilePath temp(path);
-  if (file_util::AbsolutePath(&temp))
-    return temp;
-  else
+  base::FilePath temp(base::MakeAbsoluteFilePath(path));
+  if (temp.empty())
     return path;
+  else
+    return temp;
 }
 
 bool AppImplBase::AppendMatchingPaths(const base::FilePath& pattern,

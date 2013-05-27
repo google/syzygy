@@ -14,6 +14,7 @@
 
 {
   'variables': {
+    'chromium_code': 1,
     'dia_sdk_dir': '$(VSInstallDir)/DIA SDK',
     'dia_sdk_dll': 'msdia100.dll',
   },

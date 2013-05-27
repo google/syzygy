@@ -39,7 +39,8 @@ bool AddPdbInfoTransform::TransformBlockGraph(
   DCHECK(dos_header_block != NULL);
 
   // Make sure the PDB path is absolute.
-  if (!file_util::AbsolutePath(&pdb_path_)) {
+  pdb_path_ = base::MakeAbsoluteFilePath(pdb_path_);
+  if (pdb_path_.empty()) {
     LOG(ERROR) << "Unable to get absolute PDB path.";
     return false;
   }

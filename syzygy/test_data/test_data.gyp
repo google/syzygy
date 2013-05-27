@@ -13,6 +13,9 @@
 # limitations under the License.
 
 {
+  'variables': {
+    'chromium_code': 1,
+  },
   'targets': [
     {
       'target_name': 'copy_test_dll',

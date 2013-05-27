@@ -13,6 +13,9 @@
 # limitations under the License.
 
 {
+  'variables': {
+    'chromium_code': 1,
+  },
   'targets': [
     {
       # Add new unittests to this target as inputs.

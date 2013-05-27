@@ -25,7 +25,8 @@
 #include "base/win/scoped_handle.h"
 #include "syzygy/trace/service/buffer_consumer.h"
 
-class MessageLoop;
+// Forward declaration.
+namespace base { class MessageLoop; }
 
 namespace trace {
 namespace service {
@@ -41,7 +42,7 @@ class TraceFileWriterFactory : public BufferConsumerFactory {
   //     created by this factory will consume buffers. The factory instance
   //     does NOT take ownership of the message_loop. The message_loop must
   //     outlive the factory instance.
-  explicit TraceFileWriterFactory(MessageLoop* message_loop);
+  explicit TraceFileWriterFactory(base::MessageLoop* message_loop);
 
   // @name BufferConsumerFactory implementation.
   // @{
@@ -53,11 +54,11 @@ class TraceFileWriterFactory : public BufferConsumerFactory {
   bool SetTraceFileDirectory(const base::FilePath& path);
 
   // Get the message loop the trace file writers should use for IO.
-  MessageLoop* message_loop() { return message_loop_; }
+  base::MessageLoop* message_loop() { return message_loop_; }
 
  protected:
   // The message loop the trace file writers should use for IO.
-  MessageLoop* const message_loop_;
+  base::MessageLoop* const message_loop_;
 
   // The directory into which trace file writers will write.
   base::FilePath trace_file_directory_;

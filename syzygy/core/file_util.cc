@@ -88,12 +88,10 @@ FilePathCompareResult CompareFilePaths(const base::FilePath& path1,
   // If neither file exists we can't really compare them based on anything
   // other than the path itself.
   if (result1 == kFileNotFound && result2 == kFileNotFound) {
-    base::FilePath abs1(path1);
-    base::FilePath abs2(path2);
+    base::FilePath abs1(MakeAbsoluteFilePath(path1));
+    base::FilePath abs2(MakeAbsoluteFilePath(path2));
 
-    bool result = file_util::AbsolutePath(&abs1) &&
-        file_util::AbsolutePath(&abs2);
-    if (!result)
+    if (abs1.empty() || abs2.empty())
       return kUnableToCompareFilePaths;
 
     if (abs1 == abs2)

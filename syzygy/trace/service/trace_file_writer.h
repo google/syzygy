@@ -41,7 +41,7 @@ class TraceFileWriter : public BufferConsumer {
   //     message_loop. The message_loop must outlive the writer instance.
   // @param trace_directory The directoy into which this writer instance will
   //     write the trace file.
-  TraceFileWriter(MessageLoop* message_loop,
+  TraceFileWriter(base::MessageLoop* message_loop,
                   const base::FilePath& trace_directory);
 
   // Initialize this trace file writer.
@@ -58,7 +58,7 @@ class TraceFileWriter : public BufferConsumer {
   void WriteBuffer(Session* session, Buffer* buffer);
 
   // The message loop on which this trace file writer will do IO.
-  MessageLoop* const message_loop_;
+  base::MessageLoop* const message_loop_;
 
   // The name of the trace file. Note that we initialize this to the trace
   // directory on construction and calculate the final trace file path on

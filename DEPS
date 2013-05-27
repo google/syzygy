@@ -16,11 +16,11 @@
 # this build configuration.
 
 vars = {
-  "chrome_revision": "191158",
+  "chrome_revision": "202420",
   "gmock_revision": "410",
   "gtest_revision": "629",
   "googleurl_revision": "183",
-  "gyp_revision": "1603",
+  "gyp_revision": "1635",
 
   "chrome_base": "http://src.chromium.org/svn/trunk",
 }
