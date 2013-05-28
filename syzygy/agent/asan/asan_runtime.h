@@ -40,8 +40,10 @@ class StackCaptureCache;
 struct AsanErrorInfo {
   void* alloc_stack[agent::asan::StackCapture::kMaxNumFrames];
   uint8 alloc_stack_size;
+  DWORD alloc_tid;
   void* free_stack[agent::asan::StackCapture::kMaxNumFrames];
   uint8 free_stack_size;
+  DWORD free_tid;
   HeapProxy::BadAccessKind error_type;
   HeapProxy::AccessMode access_mode;
   size_t access_size;

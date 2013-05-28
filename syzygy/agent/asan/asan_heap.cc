@@ -635,12 +635,14 @@ bool HeapProxy::OnBadAccess(const void* addr,
              header->alloc_stack->frames(),
              header->alloc_stack->num_frames() * sizeof(void*));
       bad_access_info->alloc_stack_size = header->alloc_stack->num_frames();
+      bad_access_info->alloc_tid = header->alloc_tid;
     }
     if (trailer->free_stack != NULL) {
       memcpy(bad_access_info->free_stack,
              trailer->free_stack->frames(),
              trailer->free_stack->num_frames() * sizeof(void*));
       bad_access_info->free_stack_size = trailer->free_stack->num_frames();
+      bad_access_info->free_tid = trailer->free_tid;
     }
     ReportAsanError(bug_descr,
                     addr,

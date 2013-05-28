@@ -308,10 +308,14 @@ void AsanErrorCallback(CONTEXT* context, AsanErrorInfo* error_info) {
   EXPECT_EQ(expected_error_type, error_info->error_type);
   // We should at least have the stack trace of the allocation of this block.
   EXPECT_GT(error_info->alloc_stack_size, 0U);
-  if (error_info->error_type == HeapProxy::USE_AFTER_FREE)
+  EXPECT_NE(0U, error_info->alloc_tid);
+  if (error_info->error_type == HeapProxy::USE_AFTER_FREE) {
     EXPECT_GT(error_info->free_stack_size, 0U);
-  else
+    EXPECT_NE(0U, error_info->free_tid);
+  } else {
     EXPECT_EQ(error_info->free_stack_size, 0U);
+    EXPECT_EQ(0U, error_info->free_tid);
+  }
 
   if (error_info->error_type == HeapProxy::HEAP_BUFFER_OVERFLOW) {
     EXPECT_TRUE(strstr(error_info->shadow_info, "beyond") != NULL);

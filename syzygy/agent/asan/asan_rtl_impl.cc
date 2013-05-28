@@ -326,6 +326,13 @@ void ReportBadMemoryAccess(void* location,
   AsanErrorInfo bad_access_info = {};
   bad_access_info.access_mode = access_mode;
   bad_access_info.access_size = access_size;
+  bad_access_info.alloc_stack_size = 0U;
+  bad_access_info.alloc_tid = 0U;
+  bad_access_info.error_type = HeapProxy::UNKNOWN_BAD_ACCESS;
+  bad_access_info.free_stack_size = 0U;
+  bad_access_info.free_tid = 0U;
+  bad_access_info.microseconds_since_free = 0U;
+
   // Make sure this structure is not optimized out.
   base::debug::Alias(&bad_access_info);
 
