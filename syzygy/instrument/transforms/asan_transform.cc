@@ -498,18 +498,21 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
   // Pre-compute liveness information for each instruction.
   std::list<LivenessAnalysis::State> states;
   LivenessAnalysis::State state;
+  if (use_liveness_analysis_) {
+    liveness_.GetStateAtExitOf(basic_block, &state);
 
-  liveness_.GetStateAtExitOf(basic_block, &state);
+    BasicBlock::Instructions::reverse_iterator rev_iter_inst =
+        basic_block->instructions().rbegin();
+    BasicBlock::Instructions::const_reverse_iterator rev_iter_inst_end =
+        basic_block->instructions().rend();
+    for (; rev_iter_inst != rev_iter_inst_end; ++rev_iter_inst) {
+      const Instruction& instr = *rev_iter_inst;
+      liveness_.PropagateBackward(instr, &state);
+      states.push_front(state);
+    }
 
-  BasicBlock::Instructions::reverse_iterator rev_iter_inst =
-      basic_block->instructions().rbegin();
-  for (; rev_iter_inst != basic_block->instructions().rend(); ++rev_iter_inst) {
-    const Instruction& instr = *rev_iter_inst;
-    liveness_.PropagateBackward(instr, &state);
-    states.push_front(state);
+    DCHECK_EQ(states.size(), basic_block->instructions().size());
   }
-
-  DCHECK_EQ(states.size(), basic_block->instructions().size());
 
   // Process each instruction and inject a call to Asan when we find an
   // instrumentable memory access.
@@ -528,8 +531,10 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
     info.save_flags = true;
 
     // Get current instruction liveness information.
-    state = *iter_state;
-    ++iter_state;
+    if (use_liveness_analysis_) {
+      state = *iter_state;
+      ++iter_state;
+    }
 
     // Insert hook for a standard instruction.
     if (!DecodeMemoryAccess(instr, &operand, &info))
