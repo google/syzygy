@@ -74,7 +74,9 @@ class AsanBasicBlockTransform
   // @param hooks_write_access a reference to the write access check import
   //     entry.
   explicit AsanBasicBlockTransform(AsanHookMap* check_access_hooks) :
-      check_access_hooks_(check_access_hooks), debug_friendly_(false) {
+      check_access_hooks_(check_access_hooks),
+      debug_friendly_(false),
+      use_liveness_analysis_(false) {
     DCHECK(check_access_hooks != NULL);
   }
 

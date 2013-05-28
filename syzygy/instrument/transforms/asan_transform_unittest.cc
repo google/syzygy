@@ -193,6 +193,21 @@ TEST_F(AsanTransformTest, SetInstrumentDLLName) {
   ASSERT_EQ(strcmp(asan_transform_.instrument_dll_name(), "foo"), 0);
 }
 
+TEST_F(AsanTransformTest, SetUseLivenessFlag) {
+  EXPECT_FALSE(asan_transform_.use_liveness_analysis());
+  asan_transform_.set_use_liveness_analysis(true);
+  EXPECT_TRUE(asan_transform_.use_liveness_analysis());
+  asan_transform_.set_use_liveness_analysis(false);
+  EXPECT_FALSE(asan_transform_.use_liveness_analysis());
+
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  EXPECT_FALSE(bb_transform.use_liveness_analysis());
+  bb_transform.set_use_liveness_analysis(true);
+  EXPECT_TRUE(bb_transform.use_liveness_analysis());
+  bb_transform.set_use_liveness_analysis(false);
+  EXPECT_FALSE(bb_transform.use_liveness_analysis());
+}
+
 TEST_F(AsanTransformTest, ApplyAsanTransform) {
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
 

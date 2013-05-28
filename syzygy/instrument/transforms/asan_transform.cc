@@ -651,6 +651,7 @@ const char AsanTransform::kSyzyAsanDll[] = "asan_rtl.dll";
 AsanTransform::AsanTransform()
     : asan_dll_name_(kSyzyAsanDll),
       debug_friendly_(false),
+      use_liveness_analysis_(false),
       check_access_hooks_ref_() {
 }
 
