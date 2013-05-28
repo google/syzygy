@@ -48,6 +48,7 @@ using block_graph::Operand;
 using block_graph::TypedBlock;
 using block_graph::Value;
 using block_graph::analysis::LivenessAnalysis;
+using block_graph::analysis::MemoryAccessAnalysis;
 using core::Register;
 using core::RegisterCode;
 using pe::transforms::AddImportsTransform;
@@ -514,6 +515,11 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
     DCHECK_EQ(states.size(), basic_block->instructions().size());
   }
 
+  // Get the memory accesses information for this basic block.
+  MemoryAccessAnalysis::State memory_state;
+  if (remove_redundant_checks_)
+    memory_accesses_.GetStateAtEntryOf(basic_block, &memory_state);
+
   // Process each instruction and inject a call to Asan when we find an
   // instrumentable memory access.
   BasicBlock::Instructions::iterator iter_inst =
@@ -534,6 +540,19 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
     if (use_liveness_analysis_) {
       state = *iter_state;
       ++iter_state;
+    }
+
+    // When activated, skip redundant memory access check.
+    if (remove_redundant_checks_) {
+      bool need_memory_access_check = false;
+      if (memory_state.HasNonRedundantAccess(instr))
+        need_memory_access_check = true;
+
+      // Update the memory accesses information for the current instruction.
+      memory_accesses_.PropagateForward(instr, &memory_state);
+
+      if (!need_memory_access_check)
+        continue;
     }
 
     // Insert hook for a standard instruction.
@@ -625,6 +644,10 @@ bool AsanBasicBlockTransform::TransformBasicBlockSubGraph(
   if (use_liveness_analysis_)
     liveness_.Analyze(subgraph);
 
+  // Perform a redundant memory access analysis.
+  if (remove_redundant_checks_)
+    memory_accesses_.Analyze(subgraph);
+
   // Determines if this subgraph uses unconventional stack pointer
   // manipulations.
   StackAccessMode stack_mode = kUnsafeStackAccess;
@@ -652,6 +675,7 @@ AsanTransform::AsanTransform()
     : asan_dll_name_(kSyzyAsanDll),
       debug_friendly_(false),
       use_liveness_analysis_(false),
+      remove_redundant_checks_(false),
       check_access_hooks_ref_() {
 }
 
@@ -783,6 +807,7 @@ bool AsanTransform::OnBlock(BlockGraph* block_graph,
   AsanBasicBlockTransform transform(&check_access_hooks_ref_);
   transform.set_debug_friendly(debug_friendly());
   transform.set_use_liveness_analysis(use_liveness_analysis());
+  transform.set_remove_redundant_checks(remove_redundant_checks());
   transform.set_filter(filter());
 
   if (!ApplyBasicBlockSubGraphTransform(&transform, block_graph, block, NULL))

@@ -24,6 +24,8 @@
         'liveness_analysis.h',
         'liveness_analysis_internal.h',
         'liveness_analysis.cc',
+        'memory_access_analysis.h',
+        'memory_access_analysis.cc',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
@@ -38,6 +40,7 @@
       'sources': [
         'block_graph_analysis_unittests_main.cc',
         'liveness_analysis_unittest.cc',
+        'memory_access_analysis_unittest.cc',
       ],
       'dependencies': [
         'block_graph_analysis_lib',

@@ -26,6 +26,7 @@
 #include "syzygy/block_graph/filterable.h"
 #include "syzygy/block_graph/iterate.h"
 #include "syzygy/block_graph/analysis/liveness_analysis.h"
+#include "syzygy/block_graph/analysis/memory_access_analysis.h"
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
 
@@ -76,7 +77,8 @@ class AsanBasicBlockTransform
   explicit AsanBasicBlockTransform(AsanHookMap* check_access_hooks) :
       check_access_hooks_(check_access_hooks),
       debug_friendly_(false),
-      use_liveness_analysis_(false) {
+      use_liveness_analysis_(false),
+      remove_redundant_checks_(false) {
     DCHECK(check_access_hooks != NULL);
   }
 
@@ -89,6 +91,12 @@ class AsanBasicBlockTransform
   void set_use_liveness_analysis(bool use_liveness_analysis) {
     use_liveness_analysis_ = use_liveness_analysis;
   }
+
+  bool remove_redundant_checks() const { return remove_redundant_checks_; }
+  void set_remove_redundant_checks(bool remove_redundant_checks) {
+    remove_redundant_checks_ = remove_redundant_checks;
+  }
+
   // @}
 
   // The transform name.
@@ -115,6 +123,9 @@ class AsanBasicBlockTransform
   // Liveness analysis and liveness information for this subgraph.
   block_graph::analysis::LivenessAnalysis liveness_;
 
+  // Memory accesses value numbering.
+  block_graph::analysis::MemoryAccessAnalysis memory_accesses_;
+
   // The references to the Asan access check import entries.
   AsanHookMap* check_access_hooks_;
 
@@ -123,6 +134,10 @@ class AsanBasicBlockTransform
 
   // Set iff we should use the liveness analysis to do smarter instrumentation.
   bool use_liveness_analysis_;
+
+  // When activated, a redundancy elimination is performed to minimize the
+  // memory checks added by this transform.
+  bool remove_redundant_checks_;
 
   DISALLOW_COPY_AND_ASSIGN(AsanBasicBlockTransform);
 };
@@ -163,6 +178,12 @@ class AsanTransform
   void set_use_liveness_analysis(bool use_liveness_analysis) {
     use_liveness_analysis_ = use_liveness_analysis;
   }
+
+  bool remove_redundant_checks() const { return remove_redundant_checks_; }
+  void set_remove_redundant_checks(bool remove_redundant_checks) {
+    remove_redundant_checks_ = remove_redundant_checks;
+  }
+
   // @}
 
   // The name of the DLL that is imported by default.
@@ -183,6 +204,10 @@ class AsanTransform
 
   // Set iff we should use the liveness analysis to do smarter instrumentation.
   bool use_liveness_analysis_;
+
+  // When activated, a redundancy elimination is performed to minimize the
+  // memory checks added by this transform.
+  bool remove_redundant_checks_;
 
   // References to the different asan check access import entries. Valid after
   // successful PreBlockGraphIteration.

@@ -208,6 +208,21 @@ TEST_F(AsanTransformTest, SetUseLivenessFlag) {
   EXPECT_FALSE(bb_transform.use_liveness_analysis());
 }
 
+TEST_F(AsanTransformTest, SetRemoveRedundantChecksFlag) {
+  EXPECT_FALSE(asan_transform_.remove_redundant_checks());
+  asan_transform_.set_remove_redundant_checks(true);
+  EXPECT_TRUE(asan_transform_.remove_redundant_checks());
+  asan_transform_.set_remove_redundant_checks(false);
+  EXPECT_FALSE(asan_transform_.remove_redundant_checks());
+
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  EXPECT_FALSE(bb_transform.remove_redundant_checks());
+  bb_transform.set_remove_redundant_checks(true);
+  EXPECT_TRUE(bb_transform.remove_redundant_checks());
+  bb_transform.set_remove_redundant_checks(false);
+  EXPECT_FALSE(bb_transform.remove_redundant_checks());
+}
+
 TEST_F(AsanTransformTest, ApplyAsanTransform) {
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
 
@@ -339,6 +354,33 @@ TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
   // Instrument this basic block.
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
+      &basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+  ASSERT_EQ(basic_block_.instructions().size(), expected_instructions_count);
+}
+
+TEST_F(AsanTransformTest, InstrumentAndRemoveRedundantChecks) {
+  uint32 instrumentable_instructions = 0;
+
+  // Generate a bunch of instrumentable and non instrumentable instructions.
+  // We generate operand [ecx] multiple time as a redundant memory access.
+  bb_asm_.mov(core::eax, block_graph::Operand(core::ecx));
+  instrumentable_instructions++;
+  bb_asm_.mov(block_graph::Operand(core::ecx), core::edx);
+  // Validate that indirect call clear the memory state.
+  bb_asm_.call(block_graph::Operand(core::ecx));
+  bb_asm_.push(block_graph::Operand(core::eax));
+  instrumentable_instructions++;
+  bb_asm_.mov(core::eax, block_graph::Operand(core::ecx));
+  instrumentable_instructions++;
+  bb_asm_.jmp(block_graph::Operand(core::ecx));
+
+  uint32 expected_instructions_count = basic_block_.instructions().size()
+      + 3 * instrumentable_instructions;
+  // Instrument this basic block.
+  InitHooksRefs();
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  bb_transform.set_remove_redundant_checks(true);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
       &basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
   ASSERT_EQ(basic_block_.instructions().size(), expected_instructions_count);

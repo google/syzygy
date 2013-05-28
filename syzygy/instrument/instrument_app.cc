@@ -93,6 +93,9 @@ static const char kUsageFormatStr[] =
     "  asan mode options:\n"
     "    --use-liveness-analysis Use the information provided by the liveness\n"
     "                            analysis if possible.\n"
+    "    --remove-redundant-checks\n"
+    "                            Perform redundancy memory access analysis\n"
+    "                            and remove useless redundant checks.\n"
     "  calltrace mode options:\n"
     "    --instrument-imports    Also instrument calls to imports.\n"
     "    --module-entry-only     If specified then the per-function entry\n"
@@ -238,6 +241,7 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
   debug_friendly_ = cmd_line->HasSwitch("debug-friendly");
   thunk_imports_ = cmd_line->HasSwitch("instrument-imports");
   use_liveness_analysis_ = cmd_line->HasSwitch("use-liveness-analysis");
+  remove_redundant_checks_ = cmd_line->HasSwitch("remove-redundant-checks");
   instrument_unsafe_references_ = !cmd_line->HasSwitch("no-unsafe-refs");
   module_entry_only_ = cmd_line->HasSwitch("module-entry-only");
 
@@ -315,6 +319,7 @@ int InstrumentApp::Run() {
     asan_transform.reset(new instrument::transforms::AsanTransform);
     asan_transform->set_instrument_dll_name(agent_dll_);
     asan_transform->set_use_liveness_analysis(use_liveness_analysis_);
+    asan_transform->set_remove_redundant_checks(remove_redundant_checks_);
 
     // Set up the filter if one was provided.
     if (filter.get()) {

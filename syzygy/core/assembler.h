@@ -34,6 +34,8 @@ enum RegisterCode {
   kRegisterEbp = 5,
   kRegisterEsi = 6,
   kRegisterEdi = 7,
+  // RegisterCode must be below this value.
+  kRegisterMax = 8,
 };
 
 // The condition codes by which conditional branches are determined. This enum
