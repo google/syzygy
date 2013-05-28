@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.2.21.1
+
+[r1542] SyzyASAN - Remove use of a kernel32 import that was not available on XP.
+[r1529] SyzyASAN - More performance improvements to slow path.
+
 Version 0.2.21.0
 
 [r1524] Update asan rtl for minidump generation.
