@@ -58,6 +58,50 @@
         '<(src)/syzygy/common/common.gyp:syzygy_version',
         '<(src)/syzygy/core/core.gyp:core_lib',
       ],
+      'configurations': {
+        # Override the default imports list at source - apparently the
+        # configuration inheritance hierarchy is traversed and settings merged
+        # for each target. It's not sufficient here to e.g. override the
+        # desired settings in the final, assembled configuration such as
+        # 'Debug' or 'Release', as that will only alter their contribution to
+        # the project.
+        # Note that this is brittle to changes in build/common.gypi.
+        'Common_Base': {
+          'msvs_settings': {
+            'VCLinkerTool': {
+              'AdditionalDependencies=': [],
+            },
+          },
+        },
+      },
+      'msvs_settings': {
+        'VCLinkerTool': {
+          # Link against the XP-constrained user32 import libraries for
+          # kernel32 and user32 of the platform-SDK provided one to avoid
+          # inadvertently taking dependencies on post-XP user32 exports.
+          'IgnoreDefaultLibraryNames': [
+            'user32.lib',
+            'kernel32.lib',
+          ],
+          'AdditionalDependencies=': [
+            # Custom import libs.
+            'user32.winxp.lib',
+            'kernel32.winxp.lib',
+
+            # SDK import libs.
+            'dbghelp.lib',
+            'psapi.lib',
+            'rpcrt4.lib',
+          ],
+          'AdditionalLibraryDirectories': [
+            '<(src)/build/win/importlibs/x86',
+            '<(src)/syzygy/build/importlibs/x86',
+          ],
+          # This module should delay load nothing.
+          'DelayLoadDLLs=': [
+          ],
+        },
+      },
     },
     {
       'target_name': 'asan_rtl_unittests',
