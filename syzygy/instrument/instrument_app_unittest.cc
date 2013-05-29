@@ -130,33 +130,6 @@ class InstrumentAppTest : public testing::PELibUnitTest {
     test_app->set_err(err());
   }
 
-  // Runs an instrumentation pass in the given mode and validates that the
-  // resulting output DLL loads.
-  void EndToEndTest(const std::string& mode) {
-    cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-    cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-    cmd_line_.AppendSwitchASCII("mode", mode);
-
-    // Create the instrumented DLL.
-    common::Application<instrument::InstrumentApp> app;
-    ASSERT_NO_FATAL_FAILURE(ConfigureTestApp(&app));
-    ASSERT_EQ(0, app.Run());
-
-    // Make it non-mandatory that there be a trace service running.
-    scoped_ptr<base::Environment> env(base::Environment::Create());
-    std::string env_var;
-    env->SetVar(
-        ::kSyzygyRpcSessionMandatoryEnvVar,
-        base::StringPrintf("%s,0;%s,0;%s,0;%s,0",
-                           InstrumentApp::kAgentDllBasicBlockEntry,
-                           InstrumentApp::kAgentDllCoverage,
-                           InstrumentApp::kAgentDllProfile,
-                           InstrumentApp::kAgentDllRpc));
-
-    // Validate that the test dll loads post instrumentation.
-    ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path_));
-  }
-
   // Stashes the current log-level before each test instance and restores it
   // after each test completes.
   testing::ScopedLogLevelSaver log_level_saver;
@@ -621,26 +594,6 @@ TEST_F(InstrumentAppTest, Instrument) {
       .WillOnce(Return(true));
 
   ASSERT_EQ(0, test_app_.Run());
-}
-
-TEST_F(InstrumentAppTest, AsanEndToEnd) {
-  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
-}
-
-TEST_F(InstrumentAppTest, BbEntryEndToEnd) {
-  ASSERT_NO_FATAL_FAILURE(EndToEndTest("bbentry"));
-}
-
-TEST_F(InstrumentAppTest, CallTraceEndToEnd) {
-  ASSERT_NO_FATAL_FAILURE(EndToEndTest("calltrace"));
-}
-
-TEST_F(InstrumentAppTest, CoverageEndToEnd) {
-  ASSERT_NO_FATAL_FAILURE(EndToEndTest("coverage"));
-}
-
-TEST_F(InstrumentAppTest, ProfileEndToEnd) {
-  ASSERT_NO_FATAL_FAILURE(EndToEndTest("profile"));
 }
 
 TEST_F(InstrumentAppTest, FailsWithInvalidFilter) {

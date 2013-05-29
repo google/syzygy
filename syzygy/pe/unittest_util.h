@@ -54,7 +54,7 @@ extern const wchar_t *kProfileTraceFiles[4];
 
 class PELibUnitTest : public testing::ApplicationTestBase {
  public:
-  // Performs a series of assertations on the test DLL's integrity.
+  // Performs a series of assertions on the test DLL's integrity.
   static void CheckTestDll(const base::FilePath& path);
 };
 

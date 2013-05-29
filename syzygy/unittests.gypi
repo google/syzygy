@@ -57,6 +57,9 @@
       # Grinder tests.
       '<(src)/syzygy/grinder/grinder.gyp:grinder_unittests',
 
+      # Integration tests.
+      '<(src)/syzygy/integration_tests/integration_tests.gyp:integration_tests',
+
       # Instrumenter tests.
       '<(src)/syzygy/instrument/instrument.gyp:instrument_unittests',
 
