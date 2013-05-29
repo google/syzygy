@@ -98,7 +98,7 @@ TEST_F(AsanRuntimeTest, OnError) {
   stack.InitFromStack();
   AsanErrorInfo bad_access_info = {};
   asan_runtime_.OnError(&context, &bad_access_info);
-  ASSERT_EQ(true, callback_called);
+  ASSERT_TRUE(callback_called);
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 
@@ -167,7 +167,7 @@ TEST_F(AsanRuntimeTest, SetExitOnFailure) {
 
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
-  EXPECT_EQ(true, asan_runtime_.flags()->exit_on_failure);
+  EXPECT_TRUE(asan_runtime_.flags()->exit_on_failure);
 }
 
 TEST_F(AsanRuntimeTest, ExitOnFailure) {
@@ -176,7 +176,7 @@ TEST_F(AsanRuntimeTest, ExitOnFailure) {
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
 
-  EXPECT_EQ(true, asan_runtime_.flags()->exit_on_failure);
+  EXPECT_TRUE(asan_runtime_.flags()->exit_on_failure);
   CONTEXT context = {};
   RtlCaptureContext(&context);
 

@@ -140,37 +140,37 @@ TEST(GetInstanceIdForThisModuleTest, WorksAsExpected) {
 
 TEST_F(IsRpcSessionMandatoryTest, ReturnsFalseForNoEnvVar) {
   ASSERT_NO_FATAL_FAILURE(UnsetEnvVar());
-  EXPECT_EQ(false, IsRpcSessionMandatory(path_));
+  EXPECT_FALSE(IsRpcSessionMandatory(path_));
 }
 
 TEST_F(IsRpcSessionMandatoryTest, ReturnsFalseForEmptyEnvVar) {
   ASSERT_NO_FATAL_FAILURE(SetEnvVar(""));
-  EXPECT_EQ(false, IsRpcSessionMandatory(path_));
+  EXPECT_FALSE(IsRpcSessionMandatory(path_));
 }
 
 TEST_F(IsRpcSessionMandatoryTest, ReturnsFalseForNoMatch) {
   ASSERT_NO_FATAL_FAILURE(SetEnvVar("bar.exe,1;baz.exe,1"));
-  EXPECT_EQ(false, IsRpcSessionMandatory(path_));
+  EXPECT_FALSE(IsRpcSessionMandatory(path_));
 }
 
 TEST_F(IsRpcSessionMandatoryTest, ReturnsGlobalValueWhenNoPathMatches) {
   ASSERT_NO_FATAL_FAILURE(SetEnvVar("1 ; bar.exe,0"));
-  EXPECT_EQ(true, IsRpcSessionMandatory(path_));
+  EXPECT_TRUE(IsRpcSessionMandatory(path_));
 }
 
 TEST_F(IsRpcSessionMandatoryTest, ReturnsBaseNameValue) {
   ASSERT_NO_FATAL_FAILURE(SetEnvVar("0; foo.exe , 1"));
-  EXPECT_EQ(true, IsRpcSessionMandatory(path_));
+  EXPECT_TRUE(IsRpcSessionMandatory(path_));
 }
 
 TEST_F(IsRpcSessionMandatoryTest, ReturnsExactPathValue) {
   ASSERT_NO_FATAL_FAILURE(SetEnvVar("0;foo.exe,0;C:\\path\\foo.exe, 1 "));
-  EXPECT_EQ(true, IsRpcSessionMandatory(path_));
+  EXPECT_TRUE(IsRpcSessionMandatory(path_));
 }
 
 TEST_F(IsRpcSessionMandatoryTest, NonNumericIgnored) {
   ASSERT_NO_FATAL_FAILURE(SetEnvVar("foo.exe,baz;C:\\path\\foo.exe,bar"));
-  EXPECT_EQ(false, IsRpcSessionMandatory(path_));
+  EXPECT_FALSE(IsRpcSessionMandatory(path_));
 }
 
 TEST(IsRpcSessionMandatoryThisModuleTest, WorksAsExpected) {
@@ -185,7 +185,7 @@ TEST(IsRpcSessionMandatoryThisModuleTest, WorksAsExpected) {
   ASSERT_TRUE(env->SetVar(::kSyzygyRpcSessionMandatoryEnvVar,
                           ::WideToUTF8(env_var)));
 
-  EXPECT_EQ(true, IsRpcSessionMandatoryForThisModule());
+  EXPECT_TRUE(IsRpcSessionMandatoryForThisModule());
 }
 
 TEST(InitializeRpcSessionTest, FailureSessionNotMandatory) {

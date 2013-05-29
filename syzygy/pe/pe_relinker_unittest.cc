@@ -426,7 +426,7 @@ TEST_F(PERelinkerTest, BlockGraphStreamIsCreated) {
   relinker.set_input_path(input_dll_);
   relinker.set_output_path(temp_dll_);
   relinker.set_augment_pdb(true);
-  EXPECT_EQ(true, relinker.augment_pdb());
+  EXPECT_TRUE(relinker.augment_pdb());
 
   EXPECT_TRUE(relinker.Init());
   EXPECT_TRUE(relinker.Relink());
@@ -458,7 +458,7 @@ TEST_F(PERelinkerTest, BlockGraphStreamVersionIsTheCurrentOne) {
   relinker.set_input_path(input_dll_);
   relinker.set_output_path(temp_dll_);
   relinker.set_augment_pdb(true);
-  EXPECT_EQ(true, relinker.augment_pdb());
+  EXPECT_TRUE(relinker.augment_pdb());
 
   EXPECT_TRUE(relinker.Init());
   EXPECT_TRUE(relinker.Relink());

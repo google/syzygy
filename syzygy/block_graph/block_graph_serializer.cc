@@ -530,7 +530,7 @@ bool BlockGraphSerializer::LoadBlockData(BlockGraph::Block* block,
   DCHECK(in_archive != NULL);
   DCHECK_EQ(0u, block->data_size());
   DCHECK(block->data() == NULL);
-  DCHECK_EQ(false, block->owns_data());
+  DCHECK(!block->owns_data());
 
   uint32 data_size = 0;
   if (!LoadUint30(&data_size, in_archive)) {

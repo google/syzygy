@@ -56,30 +56,30 @@ Container Sorted(const Container& container) {
 
 TEST_F(RandomOrdererTest, DefaultShuffleTrue) {
   RandomOrderer random(true);
-  EXPECT_EQ(true, random.ShouldShuffleSection(section1_));
-  EXPECT_EQ(true, random.ShouldShuffleSection(section2_));
+  EXPECT_TRUE(random.ShouldShuffleSection(section1_));
+  EXPECT_TRUE(random.ShouldShuffleSection(section2_));
 
   random.SetShuffleSection(section1_, false);
-  EXPECT_EQ(false, random.ShouldShuffleSection(section1_));
-  EXPECT_EQ(true, random.ShouldShuffleSection(section2_));
+  EXPECT_FALSE(random.ShouldShuffleSection(section1_));
+  EXPECT_TRUE(random.ShouldShuffleSection(section2_));
 
   random.SetShuffleSection(section1_, true);
-  EXPECT_EQ(true, random.ShouldShuffleSection(section1_));
-  EXPECT_EQ(true, random.ShouldShuffleSection(section2_));
+  EXPECT_TRUE(random.ShouldShuffleSection(section1_));
+  EXPECT_TRUE(random.ShouldShuffleSection(section2_));
 }
 
 TEST_F(RandomOrdererTest, DefaultShuffleFalse) {
   RandomOrderer random(false);
-  EXPECT_EQ(false, random.ShouldShuffleSection(section1_));
-  EXPECT_EQ(false, random.ShouldShuffleSection(section2_));
+  EXPECT_FALSE(random.ShouldShuffleSection(section1_));
+  EXPECT_FALSE(random.ShouldShuffleSection(section2_));
 
   random.SetShuffleSection(section2_, true);
-  EXPECT_EQ(false, random.ShouldShuffleSection(section1_));
-  EXPECT_EQ(true, random.ShouldShuffleSection(section2_));
+  EXPECT_FALSE(random.ShouldShuffleSection(section1_));
+  EXPECT_TRUE(random.ShouldShuffleSection(section2_));
 
   random.SetShuffleSection(section2_, false);
-  EXPECT_EQ(false, random.ShouldShuffleSection(section1_));
-  EXPECT_EQ(false, random.ShouldShuffleSection(section2_));
+  EXPECT_FALSE(random.ShouldShuffleSection(section1_));
+  EXPECT_FALSE(random.ShouldShuffleSection(section2_));
 }
 
 TEST_F(RandomOrdererTest, Shuffle) {

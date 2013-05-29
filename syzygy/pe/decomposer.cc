@@ -1619,7 +1619,7 @@ bool Decomposer::CreateReferencesFromFixups() {
       case BlockGraph::ABSOLUTE_REF: {
         AbsoluteAddress dst_addr_abs(data);
         bool success = image_file_.Translate(dst_addr_abs, &dst_addr);
-        DCHECK_EQ(true, success);
+        DCHECK(success);
         break;
       }
 

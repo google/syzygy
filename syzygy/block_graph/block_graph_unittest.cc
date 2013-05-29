@@ -231,7 +231,7 @@ TEST_F(BlockTest, Accessors) {
   block_->SetData(kTestData, sizeof(kTestData));
   ASSERT_EQ(kTestData, block_->data());
   ASSERT_EQ(sizeof(kTestData), block_->data_size());
-  ASSERT_EQ(false, block_->owns_data());
+  ASSERT_FALSE(block_->owns_data());
 }
 
 TEST_F(BlockTest, AllocateData) {

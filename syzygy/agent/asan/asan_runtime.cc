@@ -310,7 +310,7 @@ void AsanRuntime::OnError(CONTEXT* context, AsanErrorInfo* error_info) {
   }
 
   // Call the callback to handle this error.
-  DCHECK_EQ(false, asan_error_callback_.is_null());
+  DCHECK(!asan_error_callback_.is_null());
   asan_error_callback_.Run(context, error_info);
 }
 

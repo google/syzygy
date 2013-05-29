@@ -591,7 +591,7 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
       }
       // Record the label of the original successor.
       if (succ_it->has_label()) {
-        DCHECK_EQ(false, info.successor_label.IsValid());
+        DCHECK(!info.successor_label.IsValid());
         info.successor_label = succ_it->label();
       }
 
