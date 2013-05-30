@@ -228,7 +228,7 @@ bool ProfileGrinder::GetFunctionByRVA(IDiaSession* session,
   return true;
 }
 
-bool ProfileGrinder::GetInfoForCallerRVA(const ModuleRVA& caller,
+bool ProfileGrinder::GetInfoForCallerRVA(const CallerAddress& caller,
                                          RVA* function_rva,
                                          size_t* line) {
   DCHECK(function_rva != NULL);
@@ -298,7 +298,7 @@ bool ProfileGrinder::GetInfoForCallerRVA(const ModuleRVA& caller,
   return true;
 }
 
-bool ProfileGrinder::GetInfoForFunctionRVA(const ModuleRVA& function,
+bool ProfileGrinder::GetInfoForFunctionRVA(const FunctionAddress& function,
                                            std::wstring* function_name,
                                            std::wstring* file_name,
                                            size_t* line) {
@@ -398,7 +398,7 @@ bool ProfileGrinder::ResolveCallersForPart(PartData* part) {
     InvocationEdge& edge = edge_it->second;
     RVA function_rva = 0;
     if (GetInfoForCallerRVA(edge.caller, &function_rva, &edge.line)) {
-      ModuleRVA node_key;
+      FunctionAddress node_key;
       node_key.module = edge.caller.module;
       node_key.rva = function_rva;
       InvocationNodeMap::iterator node_it(part->nodes_.find(node_key));
@@ -536,7 +536,7 @@ void ProfileGrinder::OnInvocationBatch(base::Time time,
     AbsoluteAddress64 function =
         reinterpret_cast<AbsoluteAddress64>(info.function);
 
-    ModuleRVA function_rva;
+    FunctionAddress function_rva;
     ConvertToModuleRVA(process_id, function, &function_rva);
 
     // We should always have module information for functions.
@@ -544,7 +544,7 @@ void ProfileGrinder::OnInvocationBatch(base::Time time,
 
     AbsoluteAddress64 caller =
         reinterpret_cast<AbsoluteAddress64>(info.caller);
-    ModuleRVA caller_rva;
+    CallerAddress caller_rva;
     ConvertToModuleRVA(process_id, caller, &caller_rva);
 
     AggregateEntryToPart(function_rva, caller_rva, info, part);
@@ -562,8 +562,8 @@ void ProfileGrinder::OnThreadName(base::Time time,
   part->thread_name_ = thread_name.as_string();
 }
 
-void ProfileGrinder::AggregateEntryToPart(const ModuleRVA& function_rva,
-                                          const ModuleRVA& caller_rva,
+void ProfileGrinder::AggregateEntryToPart(const FunctionAddress& function_rva,
+                                          const CallerAddress& caller_rva,
                                           const InvocationInfo& info,
                                           PartData* part) {
   // Have we recorded this node before?

@@ -101,6 +101,12 @@ class ProfileGrinder : public GrinderInterface {
   // Forward declarations.
   struct PartData;
   struct ModuleRVA;
+
+  // Represents the caller of a caller/callee pair.
+  struct CallerAddress;
+  // Represents the function of a caller/callee pair.
+  struct FunctionAddress;
+
   struct Metrics;
   struct InvocationNode;
   struct InvocationEdge;
@@ -108,8 +114,8 @@ class ProfileGrinder : public GrinderInterface {
   typedef std::set<ModuleInformation,
       bool (*)(const ModuleInformation& a, const ModuleInformation& b)>
           ModuleInformationSet;
-  typedef std::map<ModuleRVA, InvocationNode> InvocationNodeMap;
-  typedef std::pair<ModuleRVA, ModuleRVA> InvocationEdgeKey;
+  typedef std::map<FunctionAddress, InvocationNode> InvocationNodeMap;
+  typedef std::pair<FunctionAddress, CallerAddress> InvocationEdgeKey;
   typedef std::map<InvocationEdgeKey, InvocationEdge> InvocationEdgeMap;
 
   typedef base::win::ScopedComPtr<IDiaSession> SessionPtr;
@@ -128,11 +134,11 @@ class ProfileGrinder : public GrinderInterface {
   bool GetFunctionByRVA(IDiaSession* session,
                         RVA address,
                         IDiaSymbol** symbol);
-  bool GetInfoForCallerRVA(const ModuleRVA& caller,
+  bool GetInfoForCallerRVA(const CallerAddress& caller,
                            RVA* function_rva,
                            size_t* line);
 
-  bool GetInfoForFunctionRVA(const ModuleRVA& function,
+  bool GetInfoForFunctionRVA(const FunctionAddress& function,
                              std::wstring* function_name,
                              std::wstring* file_name,
                              size_t* line);
@@ -143,8 +149,8 @@ class ProfileGrinder : public GrinderInterface {
                           ModuleRVA* rva);
 
   // Aggregates a single invocation info and/or creates a new node and edge.
-  void AggregateEntryToPart(const ModuleRVA& function_rva,
-                            const ModuleRVA& caller_rva,
+  void AggregateEntryToPart(const FunctionAddress& function_rva,
+                            const CallerAddress& caller_rva,
                             const InvocationInfo& info,
                             PartData* part);
 
@@ -222,6 +228,14 @@ struct ProfileGrinder::ModuleRVA {
   RVA rva;
 };
 
+// Reprents the address of a function.
+struct ProfileGrinder::FunctionAddress : public ProfileGrinder::ModuleRVA {
+};
+
+// Reprents the address of a caller.
+struct ProfileGrinder::CallerAddress : public ProfileGrinder::ModuleRVA {
+};
+
 // The metrics we capture per function and per caller.
 struct ProfileGrinder::Metrics {
   Metrics() : num_calls(0), cycles_min(0), cycles_max(0), cycles_sum(0) {
@@ -239,7 +253,7 @@ struct ProfileGrinder::InvocationNode {
   }
 
   // RVA for the function this instance represents.
-  ModuleRVA function;
+  FunctionAddress function;
 
   // The metrics we've aggregated for this function.
   Metrics metrics;
@@ -254,8 +268,8 @@ struct ProfileGrinder::InvocationEdge {
   }
 
   // The function/caller pair we denote.
-  ModuleRVA function;
-  ModuleRVA caller;
+  FunctionAddress function;
+  CallerAddress caller;
 
   // Line number of the caller.
   size_t line;
