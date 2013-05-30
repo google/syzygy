@@ -37,16 +37,22 @@ class StackCapture {
   // to traverse must be less than 63, so set it to 62.
   static const size_t kMaxNumFrames = 62;
 
+  // The type used for reference counting. We use saturation arithmetic, so it
+  // will top out at kMaxRefCount.
+  typedef uint16 RefCount;
+  static const RefCount kMaxRefCount = -1;
+
   // This corresponds to the the type used by ::CaptureStackBackTrace's hash
   // for a stack-trace.
   typedef ULONG StackId;
 
   StackCapture()
-      : stack_id_(0), num_frames_(0), max_num_frames_(kMaxNumFrames) {
+      : ref_count_(0), stack_id_(0), num_frames_(0),
+        max_num_frames_(kMaxNumFrames) {
   }
 
   explicit StackCapture(size_t max_num_frames)
-      : stack_id_(0), num_frames_(0), max_num_frames_(0) {
+      : ref_count_(0), stack_id_(0), num_frames_(0), max_num_frames_(0) {
     DCHECK_LT(0u, max_num_frames);
     DCHECK_GE(kMaxNumFrames, max_num_frames);
     max_num_frames_ = max_num_frames;
@@ -67,6 +73,20 @@ class StackCapture {
 
   // @returns true if this stack trace capture contains valid frame pointers.
   bool IsValid() const { return num_frames_ != 0; }
+
+  // Increments the reference count of this stack capture.
+  void AddRef();
+
+  // Decrements the reference count of this stack capture.
+  void RemoveRef();
+
+  // @returns true if the reference count is saturated, false otherwise. A
+  //     saturated reference count means that further calls to AddRef and
+  //     RemoveRef will be nops, and HasNoRefs will always return false.
+  bool RefCountIsSaturated() const { return ref_count_ == kMaxRefCount; }
+
+  // @returns true if this stack capture is not referenced, false otherwise.
+  bool HasNoRefs() const { return ref_count_ == 0; }
 
   // @returns the ID associated with this stack trace.
   StackId stack_id() const { return stack_id_; }
@@ -154,6 +174,11 @@ class StackCapture {
   // compact as possible.
   uint8 num_frames_;
   uint8 max_num_frames_;
+
+  // The reference count for this stack capture. We use saturation arithmetic
+  // and something that is referenced 2^16 - 1 times will stay at that reference
+  // count and never be removed from the stack cache.
+  RefCount ref_count_;
 
   // The array or frame pointers comprising this stack trace capture.
   // This is a runtime dynamic array whose actual length is max_num_frames_, but

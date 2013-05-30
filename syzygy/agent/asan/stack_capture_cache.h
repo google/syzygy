@@ -100,23 +100,57 @@ class StackCaptureCache {
                                      size_t num_frames);
   const StackCapture* SaveStackTrace(const StackCapture& stack_capture);
 
-  // Logs the current stack capture cache compression ratio. This method is
-  // thread safe.
-  void LogCompressionRatio() const;
+  // Releases a previously referenced stack trace. This decrements the reference
+  // count and potentially cleans up the stack trace.
+  // @param stack_capture The stack capture to be released.
+  void ReleaseStackTrace(const StackCapture* stack_capture);
+
+  // Logs the current stack capture cache statistics. This method is thread
+  // safe.
+  void LogStatistics() const;
 
  protected:
   // The container type in which we store the cached stacks. This enforces
   // uniqueness based on their hash value, nothing more.
-  typedef base::hash_set<const StackCapture*,
+  typedef base::hash_set<StackCapture*,
                          StackCapture::HashCompare> StackSet;
 
-  // @returns The compression ratio achieved by the stack capture cache. This
-  //     is the percentage of total allocation stack traces actually stored in
-  //     the cache. This method must be called while holding lock_.
-  double GetCompressionRatioUnlocked() const;
+  // Used for shuttling around statistics about this cache.
+  struct Statistics {
+    // The total number of stacks currently in the cache. This isn't actually
+    // updated in realtime, as this is the same as known_stacks_.size(). It is
+    // populated when we take a snapshot of the statistics with GetStatistics.
+    size_t cached;
+    // The current total size of the stack cache, in bytes.
+    size_t size;
+    // The total number of reference-saturated stack captures. These will never
+    // be able to be removed from the cache.
+    size_t saturated;
+    // The number of currently unreferenced stack captures. These are pending
+    // cleanup.
+    size_t unreferenced;
 
-  // Implementation function for logging the compression ratio.
-  void LogCompressionRatioImpl(double ratio) const;
+    // We use 64-bit integers for the following because they can overflow a
+    // 32-bit value for long running processes.
+
+    // The total number of stacks requested over the lifetime of the stack
+    // cache.
+    uint64 requested;
+    // The total number of stacks that have had to be allocated. This is not
+    // necessarily the same as |cached| as the stack cache can reclaim
+    // unreferenced stacks.
+    uint64 allocated;
+    // The total number of active references to stack captures.
+    uint64 references;
+  };
+
+  // Gets the current cache statistics. This must be called under lock_.
+  // @param statistics Will be populated with current cache statistics.
+  void GetStatisticsUnlocked(Statistics* statistics) const;
+
+  // Implementation function for logging statistics.
+  // @param report The statistics to be reported.
+  void LogStatisticsImpl(const Statistics& statistics) const;
 
   // The default number of iterations between each compression ratio report.
   // Zero (0) means do not report.
@@ -144,11 +178,8 @@ class StackCaptureCache {
   // Accessed under lock_.
   CachePage* current_page_;
 
-  // The total number of stack allocations requested. Accessed under lock_.
-  uint64 total_allocations_;
-
-  // The total number of stack allocations requested. Accessed under lock_.
-  uint64 cached_allocations_;
+  // Aggregate statistics about the cache. Accessed under lock_.
+  Statistics statistics_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(StackCaptureCache);
@@ -188,11 +219,22 @@ class StackCaptureCache::CachePage {
   size_t bytes_used_;
 
   // A page's worth of data, which will be allocated as StackCapture objects.
-  uint8 data_[kCachePageSize];
+  // NOTE: Using offsetof would be ideal, but we can't do that on an incomplete
+  //       type. Thus, this needs to be maintained.
+  static const size_t kDataSize = kCachePageSize - sizeof(CachePage*)
+      - sizeof(size_t);
+  COMPILE_ASSERT(kDataSize < kCachePageSize,
+                 kCachePageSize_must_be_big_enough_for_CachePage_header);
+  uint8 data_[kDataSize];
 
  private:
   DISALLOW_COPY_AND_ASSIGN(CachePage);
 };
+COMPILE_ASSERT(sizeof(StackCaptureCache::CachePage) ==
+                   StackCaptureCache::kCachePageSize,
+               kDataSize_calculation_needs_to_be_updated);
+COMPILE_ASSERT(StackCaptureCache::kCachePageSize % 4096 == 0,
+               kCachePageSize_should_be_a_multiple_of_the_page_size);
 
 }  // namespace asan
 }  // namespace agent

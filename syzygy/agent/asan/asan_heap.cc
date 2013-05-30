@@ -361,9 +361,12 @@ void HeapProxy::SetQuarantineMaxSize(size_t quarantine_max_size) {
 
 void HeapProxy::TrimQuarantine() {
   while (true) {
-    size_t alloc_size = 0;
     BlockHeader* free_block = NULL;
+    BlockTrailer* trailer = NULL;
+    size_t alloc_size = 0;
 
+    // This code runs under a critical lock. Try to keep as much work out of
+    // this scope as possible!
     {
       base::AutoLock lock(lock_);
       if (quarantine_size_ <= quarantine_max_size_)
@@ -373,7 +376,10 @@ void HeapProxy::TrimQuarantine() {
       DCHECK(tail_ != NULL);
 
       free_block = head_;
-      head_ = GetBlockTrailer(free_block)->next_free_block;
+      trailer = GetBlockTrailer(free_block);
+      DCHECK(trailer != NULL);
+
+      head_ = trailer->next_free_block;
       if (head_ == NULL)
         tail_ = NULL;
 
@@ -381,6 +387,17 @@ void HeapProxy::TrimQuarantine() {
 
       DCHECK_GE(quarantine_size_, alloc_size);
       quarantine_size_ -= alloc_size;
+    }
+
+    // Return pointers to the stacks for reference counting purposes. We do this
+    // outside of the heap lock to reduce contention.
+    if (free_block->alloc_stack != NULL) {
+      stack_cache_->ReleaseStackTrace(free_block->alloc_stack);
+      free_block->alloc_stack = NULL;
+    }
+    if (trailer->free_stack != NULL) {
+      stack_cache_->ReleaseStackTrace(trailer->free_stack);
+      trailer->free_stack = NULL;
     }
 
     free_block->state = FREED;

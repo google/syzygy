@@ -346,7 +346,7 @@ void AsanRuntime::SetUpStackCache() {
 
 void AsanRuntime::TearDownStackCache() {
   DCHECK(stack_cache_.get() != NULL);
-  stack_cache_->LogCompressionRatio();
+  stack_cache_->LogStatistics();
   stack_cache_.reset();
 }
 

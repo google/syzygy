@@ -40,6 +40,20 @@ size_t StackCapture::GetSize(size_t max_num_frames) {
   return offsetof(StackCapture, frames_) + max_num_frames * sizeof(void*);
 }
 
+void StackCapture::AddRef() {
+  if (RefCountIsSaturated())
+    return;
+  DCHECK_GT(kMaxRefCount, ref_count_);
+  ++ref_count_;
+}
+
+void StackCapture::RemoveRef() {
+  DCHECK_LT(0u, ref_count_);
+  if (RefCountIsSaturated())
+    return;
+  --ref_count_;
+}
+
 void StackCapture::Init() {
   bottom_frames_to_skip_ = kDefaultBottomFramesToSkip_;
 }

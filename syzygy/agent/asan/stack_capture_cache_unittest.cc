@@ -32,9 +32,12 @@ class TestStackCaptureCache : public StackCaptureCache {
       : StackCaptureCache(logger, max_num_frames) {
   }
 
-  double GetCompressionRatio() {
+  using StackCaptureCache::Statistics;
+
+  void GetStatistics(Statistics* s) {
+    DCHECK(s != NULL);
     base::AutoLock auto_lock(lock_);
-    return GetCompressionRatioUnlocked();
+    GetStatisticsUnlocked(s);
   }
 };
 
@@ -153,39 +156,115 @@ TEST_F(StackCaptureCacheTest, RestrictedStackTraces) {
   EXPECT_GT(sizeof(StackCapture), s1->Size());
 }
 
-TEST_F(StackCaptureCacheTest, GetCompressionRatio) {
-  AsanLogger logger;
-  TestStackCaptureCache cache(&logger);
-
-  ULONG stack_id = 0;
-  void* frames[StackCapture::kMaxNumFrames] = { 0 };
-  size_t num_frames = 0;
-
-  ASSERT_NEAR(1.0, cache.GetCompressionRatio(), 0.001);
-
-  // Insert 4 identical stack frames.
-  for (int i = 0; i < 4; ++i) {
-    num_frames = ::CaptureStackBackTrace(
-        0, StackCapture::kMaxNumFrames, frames, &stack_id);
-    ASSERT_TRUE(cache.SaveStackTrace(stack_id, frames, num_frames) != NULL);
-  }
-
-  // There should now be a compression ration of 25%.
-  ASSERT_NEAR(0.25, cache.GetCompressionRatio(), 0.001);
-
-  // Insert a new unique stack frame. Taking the ratio to 40%.
-  num_frames = ::CaptureStackBackTrace(
-      0, StackCapture::kMaxNumFrames, frames, &stack_id);
-  ASSERT_TRUE(cache.SaveStackTrace(stack_id, frames, num_frames) != NULL);
-  ASSERT_NEAR(0.40, cache.GetCompressionRatio(), 0.001);
-}
-
 TEST_F(StackCaptureCacheTest, MaxNumFrames) {
   AsanLogger logger;
   TestStackCaptureCache cache(&logger);
   size_t max_num_frames = cache.max_num_frames() + 1;
   cache.set_max_num_frames(max_num_frames);
   ASSERT_EQ(max_num_frames, cache.max_num_frames());
+}
+
+TEST_F(StackCaptureCacheTest, Statistics) {
+  AsanLogger logger;
+  TestStackCaptureCache cache(&logger);
+  TestStackCaptureCache::Statistics s = {};
+
+  cache.GetStatistics(&s);
+  EXPECT_EQ(0u, s.cached);
+  EXPECT_EQ(0u, s.saturated);
+  EXPECT_EQ(0u, s.unreferenced);
+  EXPECT_EQ(0u, s.requested);
+  EXPECT_EQ(0u, s.allocated);
+  EXPECT_EQ(0u, s.references);
+
+  // Grab a stack capture and insert it.
+  StackCapture stack_capture;
+  stack_capture.InitFromStack();
+  const StackCapture* s1 = cache.SaveStackTrace(stack_capture);
+  ASSERT_TRUE(s1 != NULL);
+  cache.GetStatistics(&s);
+  EXPECT_EQ(1u, s.cached);
+  EXPECT_EQ(0u, s.saturated);
+  EXPECT_EQ(0u, s.unreferenced);
+  EXPECT_EQ(1u, s.requested);
+  EXPECT_EQ(1u, s.allocated);
+  EXPECT_EQ(1u, s.references);
+
+  // Reinsert the same stack. We expect to get the same pointer back.
+  const StackCapture* s2 = cache.SaveStackTrace(stack_capture);
+  ASSERT_TRUE(s2 != NULL);
+  cache.GetStatistics(&s);
+  EXPECT_EQ(s1, s2);
+  EXPECT_EQ(1u, s.cached);
+  EXPECT_EQ(0u, s.saturated);
+  EXPECT_EQ(0u, s.unreferenced);
+  EXPECT_EQ(2u, s.requested);
+  EXPECT_EQ(1u, s.allocated);
+  EXPECT_EQ(2u, s.references);
+
+  // Insert a new stack.
+  stack_capture.InitFromStack();
+  const StackCapture* s3 = cache.SaveStackTrace(stack_capture);
+  ASSERT_TRUE(s3 != NULL);
+  cache.GetStatistics(&s);
+  EXPECT_EQ(2u, s.cached);
+  EXPECT_EQ(0u, s.saturated);
+  EXPECT_EQ(0u, s.unreferenced);
+  EXPECT_EQ(3u, s.requested);
+  EXPECT_EQ(2u, s.allocated);
+  EXPECT_EQ(3u, s.references);
+
+  // Return the first stack. This should decrement the total reference count.
+  cache.ReleaseStackTrace(s1);
+  s1 = NULL;
+  cache.GetStatistics(&s);
+  EXPECT_EQ(2u, s.cached);
+  EXPECT_EQ(0u, s.saturated);
+  EXPECT_EQ(0u, s.unreferenced);
+  EXPECT_EQ(3u, s.requested);
+  EXPECT_EQ(2u, s.allocated);
+  EXPECT_EQ(2u, s.references);
+
+  // Return the 2nd stack. This should decrement the reference count, and leave
+  // a stack unreferenced.
+  cache.ReleaseStackTrace(s2);
+  s2 = NULL;
+  cache.GetStatistics(&s);
+  EXPECT_EQ(2u, s.cached);
+  EXPECT_EQ(0u, s.saturated);
+  EXPECT_EQ(1u, s.unreferenced);
+  EXPECT_EQ(3u, s.requested);
+  EXPECT_EQ(2u, s.allocated);
+  EXPECT_EQ(1u, s.references);
+
+  // Insert the 3rd stack over and over again. We'll eventually saturate the
+  // reference counter and it'll be a permanent part of the cache.
+  size_t kEnoughTimesToSaturate = StackCapture::kMaxRefCount;
+  for (size_t i = 0; i < kEnoughTimesToSaturate; ++i) {
+    const StackCapture* s4 = cache.SaveStackTrace(stack_capture);
+    ASSERT_TRUE(s4 != NULL);
+    EXPECT_EQ(s3, s4);
+  }
+  cache.GetStatistics(&s);
+  EXPECT_EQ(2u, s.cached);
+  EXPECT_EQ(1u, s.saturated);
+  EXPECT_EQ(1u, s.unreferenced);
+  EXPECT_EQ(3u + kEnoughTimesToSaturate, s.requested);
+  EXPECT_EQ(2u, s.allocated);
+  EXPECT_EQ(1u + kEnoughTimesToSaturate, s.references);
+
+  // Return the 3rd stack as many times as it was referenced. It should still
+  // be saturated.
+  for (size_t i = 0; i < kEnoughTimesToSaturate + 1; ++i)
+    cache.ReleaseStackTrace(s3);
+  s3 = NULL;
+  cache.GetStatistics(&s);
+  EXPECT_EQ(2u, s.cached);
+  EXPECT_EQ(1u, s.saturated);
+  EXPECT_EQ(1u, s.unreferenced);
+  EXPECT_EQ(3u + kEnoughTimesToSaturate, s.requested);
+  EXPECT_EQ(2u, s.allocated);
+  EXPECT_EQ(0u, s.references);
 }
 
 }  // namespace asan

@@ -56,24 +56,24 @@ void StackCaptureCache::CachePage::ReleaseStackCapture(
 StackCaptureCache::StackCaptureCache(AsanLogger* logger)
     : logger_(logger),
       max_num_frames_(StackCapture::kMaxNumFrames),
-      current_page_(new CachePage(NULL)),
-      total_allocations_(0),
-      cached_allocations_(0) {
+      current_page_(new CachePage(NULL)) {
   CHECK(current_page_ != NULL);
   DCHECK(logger_ != NULL);
+  ::memset(&statistics_, 0, sizeof(statistics_));
+  statistics_.size = sizeof(CachePage);
 }
 
 StackCaptureCache::StackCaptureCache(AsanLogger* logger, size_t max_num_frames)
     : logger_(logger),
       max_num_frames_(0),
-      current_page_(new CachePage(NULL)),
-      total_allocations_(0),
-      cached_allocations_(0) {
+      current_page_(new CachePage(NULL)) {
   CHECK(current_page_ != NULL);
   DCHECK(logger_ != NULL);
   DCHECK_LT(0u, max_num_frames);
   max_num_frames_ = static_cast<uint8>(
       std::min(max_num_frames, StackCapture::kMaxNumFrames));
+  ::memset(&statistics_, 0, sizeof(statistics_));
+  statistics_.size = sizeof(CachePage);
 }
 
 StackCaptureCache::~StackCaptureCache() {
@@ -91,9 +91,9 @@ const StackCapture* StackCaptureCache::SaveStackTrace(
   DCHECK(num_frames != 0);
   DCHECK(current_page_ != NULL);
 
-  bool must_log_ratio = false;
-  double compression_ratio = 1.0;
-  const StackCapture* stack_trace = NULL;
+  bool must_log = false;
+  Statistics statistics = {};
+  StackCapture* stack_trace = NULL;
 
   {
     // Get or insert the current stack trace while under the lock.
@@ -101,46 +101,64 @@ const StackCapture* StackCaptureCache::SaveStackTrace(
 
     // If the current page has been entirely consumed, allocate a new page
     // that links to the current page.
+    // TODO(chrisha): Use |num_frames| in GetNextStackCapture. No need to
+    //     allocate bigger captures then are needed!
     StackCapture* unused_trace = current_page_->GetNextStackCapture(
         max_num_frames_);
     if (unused_trace == NULL) {
       current_page_ = new CachePage(current_page_);
       CHECK(current_page_ != NULL);
+      statistics_.size += sizeof(CachePage);
       unused_trace = current_page_->GetNextStackCapture(max_num_frames_);
     }
     DCHECK(unused_trace != NULL);
 
     // Attempt to insert it into the known stacks map.
     unused_trace->set_stack_id(stack_id);
-    std::pair<StackSet::const_iterator, bool> result = known_stacks_.insert(
+    std::pair<StackSet::iterator, bool> result = known_stacks_.insert(
         unused_trace);
+    ++statistics_.requested;
+    stack_trace = *result.first;
 
     // If the insertion was successful, then this capture has not already been
     // cached and we have to initialize the data.
     if (result.second) {
-      DCHECK_EQ(unused_trace, *result.first);
+      DCHECK_EQ(unused_trace, stack_trace);
       unused_trace->InitFromBuffer(stack_id, frames, num_frames);
-      ++cached_allocations_;
+      ++statistics_.allocated;
+      DCHECK(stack_trace->HasNoRefs());
     } else {
       // If we didn't need the stack capture then return it.
       current_page_->ReleaseStackCapture(unused_trace);
       unused_trace = NULL;
+
+      // If this is previously unreferenced and becoming referenced again, then
+      // decrement the unreferenced counter.
+      if (stack_trace->HasNoRefs()) {
+        DCHECK_LT(0u, statistics_.unreferenced);
+        --statistics_.unreferenced;
+      }
     }
 
-    ++total_allocations_;
-    stack_trace = *result.first;
+    // Increment the reference count for this stack trace.
+    if (!stack_trace->RefCountIsSaturated()) {
+      stack_trace->AddRef();
+      if (stack_trace->RefCountIsSaturated())
+        ++statistics_.saturated;
+    }
+    ++statistics_.references;
 
     if (compression_reporting_period_ != 0 &&
-        total_allocations_ % compression_reporting_period_ == 0) {
-      must_log_ratio = true;
-      compression_ratio = GetCompressionRatioUnlocked();
+        statistics_.requested % compression_reporting_period_ == 0) {
+      must_log = true;
+      GetStatisticsUnlocked(&statistics);
     }
   }
 
   DCHECK(stack_trace != NULL);
 
-  if (must_log_ratio)
-    LogCompressionRatioImpl(compression_ratio);
+  if (must_log)
+    LogStatisticsImpl(statistics);
 
   // Return the stack trace pointer that is now in the cache.
   return stack_trace;
@@ -153,31 +171,60 @@ const StackCapture* StackCaptureCache::SaveStackTrace(
                         stack_capture.num_frames());
 }
 
-void StackCaptureCache::LogCompressionRatio() const {
-  double compression_ratio = 0.0;
+void StackCaptureCache::ReleaseStackTrace(const StackCapture* stack_capture) {
+  DCHECK(stack_capture != NULL);
+
+  base::AutoLock auto_lock(lock_);
+
+  // We own the stack so its fine to remove the const. We double check this is
+  // the case in debug builds with the DCHECK.
+  StackCapture* stack = const_cast<StackCapture*>(stack_capture);
+  DCHECK(known_stacks_.find(stack) != known_stacks_.end());
+
+  stack->RemoveRef();
+  DCHECK_LT(0u, statistics_.references);
+  --statistics_.references;
+
+  if (stack->HasNoRefs()) {
+    ++statistics_.unreferenced;
+    DCHECK_GE(known_stacks_.size(), statistics_.unreferenced);
+  }
+}
+
+void StackCaptureCache::LogStatistics() const {
+  Statistics statistics = {};
 
   {
     base::AutoLock auto_lock(lock_);
-    compression_ratio = GetCompressionRatioUnlocked();
+    GetStatisticsUnlocked(&statistics);
   }
 
-  LogCompressionRatioImpl(compression_ratio);
+  LogStatisticsImpl(statistics);
 }
 
-double StackCaptureCache::GetCompressionRatioUnlocked() const {
+void StackCaptureCache::GetStatisticsUnlocked(Statistics* statistics) const {
   lock_.AssertAcquired();
-  if (total_allocations_ == 0)
-    return 1.0;
-  return static_cast<double>(cached_allocations_) / total_allocations_;
+
+  DCHECK(statistics != NULL);
+  *statistics = statistics_;
+  statistics->cached = known_stacks_.size();
 }
 
-void StackCaptureCache::LogCompressionRatioImpl(double ratio) const {
-  DCHECK_LE(0.0, ratio);
-  DCHECK_GE(1.0, ratio);
+void StackCaptureCache::LogStatisticsImpl(const Statistics& statistics) const {
+  double cache_size = statistics.size / 1024.0 / 1024.0;  // In MB.
+  double compression = 100.0 * (1.0 - (static_cast<double>(statistics.cached) /
+      statistics.references));
+  double unreferenced = 100.0 * statistics.unreferenced / statistics.cached;
+
   logger_->Write(base::StringPrintf(
-      "PID=%d; Allocation stack cache compression: %.2f%%.\n",
+      "PID=%d; Stack cache size=%.2f MB; Compression=%.2f%%; "
+      "Unreferenced=%.2f%%; Saturated=%d; Entries=%d",
       ::GetCurrentProcessId(),
-      (1.0 - ratio) * 100.0));
+      cache_size,
+      compression,
+      unreferenced,
+      statistics.saturated,
+      statistics.cached));
 }
 
 }  // namespace asan
