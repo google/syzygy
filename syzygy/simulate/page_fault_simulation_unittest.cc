@@ -374,7 +374,7 @@ TEST_F(PageFaultSimulatorTest, JSONSucceeds) {
   std::string file_string;
   ASSERT_TRUE(file_util::ReadFileToString(path, &file_string));
 
-  scoped_ptr<Value> value(base::JSONReader::Read(file_string, false));
+  scoped_ptr<Value> value(base::JSONReader::Read(file_string));
   ASSERT_TRUE(value.get() != NULL);
   ASSERT_TRUE(value->IsType(Value::TYPE_DICTIONARY));
 

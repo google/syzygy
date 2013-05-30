@@ -249,6 +249,8 @@ void CheckAccessAndCompareContexts(void* ptr) {
   CheckAccessAndCaptureContexts(&before, &after, ptr);
 
   ExpectEqualContexts(before, after, CONTEXT_FULL);
+
+  context_before_hook = NULL;
 }
 
 void CheckSpecialAccess(CONTEXT* before, CONTEXT* after,
@@ -296,6 +298,8 @@ void CheckSpecialAccessAndCompareContexts(void* dst, void* src, int len) {
   CheckSpecialAccess(&before, &after, dst, src, len);
 
   ExpectEqualContexts(before, after, CONTEXT_FULL);
+
+  context_before_hook = NULL;
 }
 
 void AsanErrorCallback(CONTEXT* context, AsanErrorInfo* error_info) {

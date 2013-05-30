@@ -770,7 +770,7 @@ TEST_F(ProfilerTest, EntryHookPerformance) {
       min_cycles = end_cycles - start_cycles;
   }
 
-  printf("100K entry hook invocations in [%lld] cycles.\n", min_cycles);
+  printf("100K entry hook invocations in [%llu] cycles.\n", min_cycles);
 }
 
 }  // namespace profiler

@@ -74,7 +74,7 @@ bool TestJSONSerialization(bool pretty_print) {
   scoped_ptr<Value> value;
   DictionaryValue* metadata_dict = NULL;
   if (success) {
-    value.reset(base::JSONReader::Read(file_string, false));
+    value.reset(base::JSONReader::Read(file_string));
     EXPECT_TRUE(success =
         (value.get() != NULL && value->GetType() == Value::TYPE_DICTIONARY));
     if (success)

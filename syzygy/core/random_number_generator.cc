@@ -35,7 +35,7 @@ uint32 RandomNumberGenerator::operator()(uint32 n) {
   // The use of unsigned 32 bit values yields the mod 2^32 for free.
   seed_ = seed_ * kA + kC;
   uint32 ret = seed_ % n;
-  DCHECK(ret >= 0 && ret < n);
+  DCHECK_GT(n, ret);
   return ret;
 }
 
