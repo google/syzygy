@@ -35,6 +35,7 @@ _DLLS_TO_INSTRUMENT = [
 
 # The list of file patterns to copy to the staging/coverage area.
 _FILE_PATTERNS_TO_COPY = [
+    '*_tests.exe',
     '*_unittests.exe',
     '*.dll',
     '*.pdb',
@@ -185,7 +186,8 @@ class _CodeCoverageRunnerBase(object):
       self._InstrumentOneFile(os.path.join(work_dir, dll))
 
   def _RunUnittests(self):
-    unittests = glob.glob(os.path.join(self._work_dir, '*_unittests.exe'))
+    unittests = (glob.glob(os.path.join(self._work_dir, '*_unittests.exe')) +
+        glob.glob(os.path.join(self._work_dir, '*_tests.exe')))
     print unittests
     for unittest in unittests:
       _LOGGER.info('Running unittest "%s".', unittest)
