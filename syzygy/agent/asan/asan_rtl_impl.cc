@@ -571,9 +571,6 @@ void CheckStringsMemoryAccesses(
       __asm mov edx, DWORD PTR[esp + 4]  \
       __asm ret 4  \
     __asm report_failure:  \
-      /* Restore the original value of EAX, we've pushed it on the stack in*/  \
-      /* the slow path. */  \
-      __asm pop eax  \
       /* Restore memory location in EDX. */  \
       __asm pop edx  \
       ASAN_ERROR_PATH(access_size, access_mode_value)  \
