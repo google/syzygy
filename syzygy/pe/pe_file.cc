@@ -103,7 +103,8 @@ size_t PEFile::GetSectionIndex(RelativeAddress rel, size_t len) const {
 
 size_t PEFile::GetSectionIndex(AbsoluteAddress abs, size_t len) const {
   RelativeAddress rel;
-  Translate(abs, &rel);
+  if (!Translate(abs, &rel))
+    return kInvalidSection;
   return GetSectionIndex(rel, len);
 }
 
@@ -119,7 +120,8 @@ const IMAGE_SECTION_HEADER* PEFile::GetSectionHeader(
 const IMAGE_SECTION_HEADER* PEFile::GetSectionHeader(
     AbsoluteAddress abs, size_t len) const {
   RelativeAddress rel;
-  Translate(abs, &rel);
+  if (!Translate(abs, &rel))
+    return NULL;
   return GetSectionHeader(rel, len);
 }
 
@@ -238,7 +240,7 @@ bool PEFile::Translate(RelativeAddress rel, AbsoluteAddress* abs) const {
 
 bool PEFile::Translate(AbsoluteAddress abs, RelativeAddress* rel) const {
   DCHECK(rel != NULL);
-  size_t rel_addr = abs.value() - nt_headers_->OptionalHeader.ImageBase;
+  uint32 rel_addr = AbsToRelDisplacement(abs.value());
   if (rel_addr >= nt_headers_->OptionalHeader.SizeOfImage)
     return false;
   rel->set_value(rel_addr);

@@ -1325,6 +1325,9 @@ bool PEFileParser::AddAbsolute(const PEFileStructPtr<ItemType>& structure,
   AbsoluteAddress abs(*item);
   RelativeAddress rel;
 
+  // We expect item to be the direct (0 offset) absolute address of the
+  // in-image file structure. So, translation to an in-image relative
+  // address is expected to yield a valid RVA.
   return image_file_.Translate(abs, &rel) &&
       AddReference(structure.AddressOf(item),
                    BlockGraph::ABSOLUTE_REF,
@@ -1342,6 +1345,9 @@ bool PEFileParser::AddFileOffset(const PEFileStructPtr<ItemType>& structure,
   FileOffsetAddress offs(*item);
   RelativeAddress rel;
 
+  // We expect item to be the direct (0 offset) file offset address of the
+  // in-image file structure. So, translation to an in-image relative
+  // address is expected to yield a valid RVA.
   return image_file_.Translate(offs, &rel) &&
       AddReference(structure.AddressOf(item),
                    BlockGraph::FILE_OFFSET_REF,

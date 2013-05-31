@@ -162,6 +162,10 @@ class PEFile {
     return NULL;
   }
 
+  uint32 PEFile::AbsToRelDisplacement(uint32 abs_disp) const {
+    return abs_disp - nt_headers_->OptionalHeader.ImageBase;
+  }
+
  private:
   bool ReadHeaders(FILE* file);
   bool ReadSections(FILE* file);

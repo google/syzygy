@@ -174,7 +174,8 @@ TEST_F(PEFileTest, ReadImage) {
                 name1 == "TestExport" ||
                 name1 == "LabelTestFunc" ||
                 name1 == "BringInOle32DelayLib" ||
-                name1 == "TestFunctionWithNoPrivateSymbols");
+                name1 == "TestFunctionWithNoPrivateSymbols" ||
+                name1 == "FuncWithOffsetOutOfImage");
 
     std::string name2;
     AbsoluteAddress abs_addr;
@@ -291,7 +292,6 @@ TEST_F(PEFileTest, DecodeRelocs) {
     const AbsoluteAddress &pointer_value(i->second);
 
     ASSERT_TRUE(image_file_.Contains(pointer_location, sizeof(pointer_value)));
-    ASSERT_TRUE(image_file_.Contains(pointer_value, 1));
   }
 }
 
@@ -311,9 +311,10 @@ TEST_F(PEFileTest, DecodeExports) {
     { RelativeAddress(0), "function3", "", 9 },
     { RelativeAddress(0), "CreateFileW", "kernel32.CreateFileW", 13 },
     { RelativeAddress(0), "function1", "", 17 },
+    { RelativeAddress(0), "FuncWithOffsetOutOfImage", "", 18 },
   };
 
-  EXPECT_EQ(ARRAYSIZE(expected), exports.size());
+  ASSERT_EQ(ARRAYSIZE(expected), exports.size());
 
   const uint8* module_base = reinterpret_cast<const uint8*>(test_dll_);
 

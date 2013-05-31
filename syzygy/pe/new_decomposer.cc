@@ -415,7 +415,7 @@ bool GetFixupDestinationAndType(const PEFile& image_file,
 
   RelativeAddress src_addr(fixup.rva_location);
 
-  // Get the destination address from the actual image itself. We only see
+  // Get the destination displacement from the actual image itself. We only see
   // fixups for 32-bit references.
   uint32 data = 0;
   if (!image_file.ReadImage(src_addr, &data, sizeof(data))) {
@@ -424,15 +424,11 @@ bool GetFixupDestinationAndType(const PEFile& image_file,
     return false;
   }
 
-  // Translate this to a relative address.
+  // Translate this to a relative displacement value.
   switch (fixup.type) {
     case pdb::PdbFixup::TYPE_ABSOLUTE: {
       *ref_type = BlockGraph::ABSOLUTE_REF;
-      AbsoluteAddress dst_addr_abs(data);
-      if (!image_file.Translate(dst_addr_abs, dst_addr)) {
-        LOG(ERROR) << "Unable to translate " << dst_addr_abs << ".";
-        return false;
-      }
+      *dst_addr = RelativeAddress(image_file.AbsToRelDisplacement(data));
       break;
     }
 
@@ -533,7 +529,7 @@ bool CreateReferencesFromFixupsImpl(
     if (src_addr >= rsrc_start)
       continue;
 
-    // Get the destination address of the fixup. This logs verbosely for us.
+    // Get the relative address/displacement of the fixup. This logs on failure.
     RelativeAddress dst_addr;
     ReferenceType type = BlockGraph::RELATIVE_REF;
     if (!GetFixupDestinationAndType(image_file, pdb_fixups[i], &dst_addr,

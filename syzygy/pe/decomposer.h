@@ -357,7 +357,7 @@ class Decomposer {
   // Keeps track of reloc entry information, which is used by various
   // pieces of the decomposer.
   PEFile::RelocSet reloc_set_;
-  RelativeAddressSet reloc_refs_;
+
   // Keeps track of fixups, which are necessary if we want to move around
   // code and data. These are keyed by the location in the image of the
   // reference. We keep them around so that the disassembly phase can be

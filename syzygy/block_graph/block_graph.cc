@@ -663,12 +663,17 @@ bool BlockGraph::Label::AreValidAttributes(LabelAttributes attributes) {
     return false;
   }
 
-  // A jump table must be paired with a data label and nothing else.
+  // A jump table must be paired with a data label. It may also be paired
+  // with a debug-end label if tail-call optimization has been applied by
+  // the compiler/linker.
   const LabelAttributes kJumpDataLabelAttributes =
       JUMP_TABLE_LABEL | DATA_LABEL;
   if (attributes & JUMP_TABLE_LABEL) {
     if ((attributes & kJumpDataLabelAttributes) != kJumpDataLabelAttributes)
       return false;
+    // Filter out the debug-end label if present and check that nothing else
+    // is set.
+    attributes &= ~DEBUG_END_LABEL;
     if ((attributes & ~kJumpDataLabelAttributes) != 0)
       return false;
     return true;

@@ -68,8 +68,22 @@ typedef TypedBlock<StringStruct> String;
 
 // Returns true iff opcode should be instrumented.
 bool ShouldInstrumentOpcode(uint16 opcode) {
-  if (opcode == I_LEA)
-    return false;
+  switch (opcode) {
+    // LEA does not actually access memory.
+    case I_LEA:
+      return false;
+
+    // We can ignore the prefetch and clflush instructions. The instrumentation
+    // will detect memory errors if and when the memory is actually accessed.
+    case I_CLFLUSH:
+    case I_PREFETCH:
+    case I_PREFETCHNTA:
+    case I_PREFETCHT0:
+    case I_PREFETCHT1:
+    case I_PREFETCHT2:
+    case I_PREFETCHW:
+      return false;
+  }
   return true;
 }
 

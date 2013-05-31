@@ -1578,19 +1578,6 @@ bool Decomposer::ParseRelocs() {
     return false;
   }
 
-  // Get a set of relocation destinations. These are effectively 'references'
-  // to labels, and will be used to weed out unreferenced labels.
-  PEFile::RelocMap::const_iterator it = reloc_map.begin();
-  for (; it != reloc_map.end(); ++it) {
-    RelativeAddress rva;
-    if (!image_file_.Translate(it->second, &rva)) {
-      LOG(ERROR) << "Unable to translate absolute address to relative: "
-                 << it->second;
-      return false;
-    }
-    reloc_refs_.insert(rva);
-  }
-
   // Validate each relocation entry against the corresponding fixup entry.
   if (!ValidateRelocs(reloc_map))
     return false;
@@ -1609,33 +1596,30 @@ bool Decomposer::CreateReferencesFromFixups() {
       return false;
     }
 
-    RelativeAddress dst_addr;
+    RelativeAddress dst_base(it->second.base);
+    BlockGraph::Offset dst_offset = 0;
     switch (it->second.type) {
       case BlockGraph::PC_RELATIVE_REF: {
-        dst_addr = src_addr + kPointerSize + data;
+        dst_offset = src_addr + kPointerSize + data - dst_base;
         break;
       }
 
       case BlockGraph::ABSOLUTE_REF: {
-        AbsoluteAddress dst_addr_abs(data);
-        bool success = image_file_.Translate(dst_addr_abs, &dst_addr);
-        DCHECK(success);
+        dst_offset = image_file_.AbsToRelDisplacement(data) - dst_base.value();
         break;
       }
 
       case BlockGraph::RELATIVE_REF: {
-        dst_addr = RelativeAddress(data);
+        dst_offset = data - dst_base.value();
         break;
       }
 
       default: {
         NOTREACHED() << "Invalid reference type.";
-        break;
+        return false;
       }
     }
 
-    RelativeAddress dst_base(it->second.base);
-    BlockGraph::Offset dst_offset = dst_addr - dst_base;
     if (!AddReference(src_addr, it->second.type, kPointerSize, dst_base,
                       dst_offset, &references_)) {
       return false;
@@ -1650,15 +1634,13 @@ bool Decomposer::ValidateRelocs(const PEFile::RelocMap& reloc_map) {
   PEFile::RelocMap::const_iterator end(reloc_map.end());
   for (; it != end; ++it) {
     RelativeAddress src(it->first);
-    RelativeAddress dst;
-    if (!image_file_.Translate(it->second, &dst)) {
-      LOG(ERROR) << "Unable to translate relocation destination.";
+    RelativeAddress dummy;
+
+    if (!ValidateOrAddReference(
+            FIXUP_MUST_EXIST, src, BlockGraph::ABSOLUTE_REF,
+            sizeof(dummy), dummy, 0, &fixup_map_, &references_)) {
       return false;
     }
-
-    if (!ValidateOrAddReference(FIXUP_MUST_EXIST, src, BlockGraph::ABSOLUTE_REF,
-                                sizeof(dst), dst, 0, &fixup_map_, &references_))
-      return false;
   }
 
   return true;
@@ -2478,6 +2460,12 @@ CallbackDirective Decomposer::VisitIndirectMemoryCallInstruction(
   DCHECK_EQ(FC_CALL, META_GET_FC(instruction.meta));
   DCHECK_EQ(O_DISP, instruction.ops[0].type);
 
+  // TODO(rogerm): Consider changing to image_file_.AbsToRelDisplacement()
+  //     instead of translate. In theory, the indexing into a function-table
+  //     could be statically offset such that the displacement falls outside
+  //     of the image's address space. But, we have never seen the compiler
+  //     generate code like that. This is left to use Translate, which will
+  //     trigger an error in such a case.
   AbsoluteAddress disp_addr_abs(static_cast<uint32>(instruction.disp));
   RelativeAddress disp_addr_rel;
   if (!image_file_.Translate(disp_addr_abs, &disp_addr_rel)) {

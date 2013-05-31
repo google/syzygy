@@ -514,14 +514,8 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
     // Compute the new value of the reference.
     uint32 value = 0;
     switch (ref.type()) {
-      case BlockGraph::ABSOLUTE_REF: {
-          value = image_base.value() + dst_addr.value();
-#ifndef NDEBUG
-          DCHECK(value >= nt_headers_->OptionalHeader.ImageBase);
-          DCHECK(value < nt_headers_->OptionalHeader.ImageBase +
-              nt_headers_->OptionalHeader.SizeOfImage);
-#endif
-        }
+      case BlockGraph::ABSOLUTE_REF:
+        value = image_base.value() + dst_addr.value();
         break;
 
       case BlockGraph::PC_RELATIVE_REF:
