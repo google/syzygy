@@ -200,9 +200,9 @@ ProfileGrinder::PartData* ProfileGrinder::FindOrCreatePart(DWORD process_id,
 }
 
 
-bool ProfileGrinder::GetFunctionByRVA(IDiaSession* session,
-                                      RVA address,
-                                      IDiaSymbol** symbol) {
+bool ProfileGrinder::GetFunctionSymbolByRVA(IDiaSession* session,
+                                            RVA address,
+                                            IDiaSymbol** symbol) {
   DCHECK(session != NULL);
   DCHECK(symbol != NULL && *symbol == NULL);
 
@@ -228,34 +228,39 @@ bool ProfileGrinder::GetFunctionByRVA(IDiaSession* session,
   return true;
 }
 
-bool ProfileGrinder::GetInfoForCallerRVA(const CallerAddress& caller,
-                                         RVA* function_rva,
-                                         size_t* line) {
-  DCHECK(function_rva != NULL);
+bool ProfileGrinder::GetFunctionForCaller(const CallerAddress& caller,
+                                          FunctionAddress* function,
+                                          size_t* line) {
+  DCHECK(function != NULL);
   DCHECK(line != NULL);
 
   ScopedComPtr<IDiaSession> session;
   if (!GetSessionForModule(caller.module, session.Receive()))
     return false;
 
-  ScopedComPtr<IDiaSymbol> function;
-  if (!GetFunctionByRVA(session.get(), caller.rva, function.Receive())) {
+  ScopedComPtr<IDiaSymbol> function_sym;
+  if (!GetFunctionSymbolByRVA(session.get(),
+                              caller.rva,
+                              function_sym.Receive())) {
     LOG(ERROR) << "No symbol info available for function in module '"
                << caller.module->image_file_name << "'";
   }
 
   // Get the RVA of the function.
   DWORD rva = 0;
-  HRESULT hr = function->get_relativeVirtualAddress(&rva);
+  HRESULT hr = function_sym->get_relativeVirtualAddress(&rva);
   if (FAILED(hr)) {
     LOG(ERROR) << "Failure in get_relativeVirtualAddress: "
                << com::LogHr(hr) << ".";
     return false;
   }
-  *function_rva = rva;
+
+  // Return the module/rva we found.
+  function->module = caller.module;
+  function->rva = rva;
 
   ULONGLONG length = 0;
-  hr = function->get_length(&length);
+  hr = function_sym->get_length(&length);
   if (FAILED(hr)) {
     LOG(ERROR) << "Failure in get_length: " << com::LogHr(hr) << ".";
     return false;
@@ -298,10 +303,10 @@ bool ProfileGrinder::GetInfoForCallerRVA(const CallerAddress& caller,
   return true;
 }
 
-bool ProfileGrinder::GetInfoForFunctionRVA(const FunctionAddress& function,
-                                           std::wstring* function_name,
-                                           std::wstring* file_name,
-                                           size_t* line) {
+bool ProfileGrinder::GetInfoForFunction(const FunctionAddress& function,
+                                        std::wstring* function_name,
+                                        std::wstring* file_name,
+                                        size_t* line) {
   DCHECK(function_name != NULL);
   DCHECK(file_name != NULL);
   DCHECK(line != NULL);
@@ -311,7 +316,9 @@ bool ProfileGrinder::GetInfoForFunctionRVA(const FunctionAddress& function,
     return false;
 
   ScopedComPtr<IDiaSymbol> function_sym;
-  if (!GetFunctionByRVA(session.get(), function.rva, function_sym.Receive())) {
+  if (!GetFunctionSymbolByRVA(session.get(),
+                              function.rva,
+                              function_sym.Receive())) {
     LOG(ERROR) << "No symbol info available for function in module '"
                << function.module->image_file_name << "'";
     return false;
@@ -396,21 +403,18 @@ bool ProfileGrinder::ResolveCallersForPart(PartData* part) {
   InvocationEdgeMap::iterator edge_it(part->edges_.begin());
   for (; edge_it != part->edges_.end(); ++edge_it) {
     InvocationEdge& edge = edge_it->second;
-    RVA function_rva = 0;
-    if (GetInfoForCallerRVA(edge.caller, &function_rva, &edge.line)) {
-      FunctionAddress node_key;
-      node_key.module = edge.caller.module;
-      node_key.rva = function_rva;
-      InvocationNodeMap::iterator node_it(part->nodes_.find(node_key));
+    FunctionAddress function;
+    if (GetFunctionForCaller(edge.caller, &function, &edge.line)) {
+      InvocationNodeMap::iterator node_it(part->nodes_.find(function));
       if (node_it == part->nodes_.end()) {
         // This is a fringe node - e.g. this is a non-instrumented caller
         // calling into an instrumented function. Create the node now,
         // but note that we won't have any metrics recorded for the function
         // and must be careful not to try and tally exclusive stats for it.
         node_it = part->nodes_.insert(
-            std::make_pair(node_key, InvocationNode())).first;
+            std::make_pair(function, InvocationNode())).first;
 
-        node_it->second.function = node_key;
+        node_it->second.function = function;
         DCHECK_EQ(0, node_it->second.metrics.num_calls);
         DCHECK_EQ(0, node_it->second.metrics.cycles_sum);
       }
@@ -472,11 +476,7 @@ bool ProfileGrinder::OutputDataForPart(const PartData& part, FILE* file) {
     std::wstring function_name;
     std::wstring file_name;
     size_t line = 0;
-    if (GetInfoForFunctionRVA(node.function,
-                              &function_name,
-                              &file_name,
-                              &line)) {
-
+    if (GetInfoForFunction(node.function, &function_name, &file_name, &line)) {
       // Rewrite file path to use forward slashes instead of back slashes.
       ::ReplaceChars(file_name, L"\\", L"/", &file_name);
 
@@ -490,10 +490,10 @@ bool ProfileGrinder::OutputDataForPart(const PartData& part, FILE* file) {
       // Output the call information from this function.
       const InvocationEdge* call = node.first_call;
       for (; call != NULL; call = call->next_call) {
-        if (GetInfoForFunctionRVA(call->function,
-                                  &function_name,
-                                  &file_name,
-                                  &line)) {
+        if (GetInfoForFunction(call->function,
+                               &function_name,
+                               &file_name,
+                               &line)) {
 
           // Rewrite file path to use forward slashes instead of back slashes.
           ::ReplaceChars(file_name, L"\\", L"/", &file_name);
@@ -533,21 +533,21 @@ void ProfileGrinder::OnInvocationBatch(base::Time time,
       break;
     }
 
-    AbsoluteAddress64 function =
+    AbsoluteAddress64 function_addr =
         reinterpret_cast<AbsoluteAddress64>(info.function);
 
-    FunctionAddress function_rva;
-    ConvertToModuleRVA(process_id, function, &function_rva);
+    FunctionAddress function;
+    ConvertToModuleRVA(process_id, function_addr, &function);
 
     // We should always have module information for functions.
-    DCHECK(function_rva.module != NULL);
+    DCHECK(function.module != NULL);
 
-    AbsoluteAddress64 caller =
+    AbsoluteAddress64 caller_addr =
         reinterpret_cast<AbsoluteAddress64>(info.caller);
-    CallerAddress caller_rva;
-    ConvertToModuleRVA(process_id, caller, &caller_rva);
+    CallerAddress caller;
+    ConvertToModuleRVA(process_id, caller_addr, &caller);
 
-    AggregateEntryToPart(function_rva, caller_rva, info, part);
+    AggregateEntryToPart(function, caller, info, part);
   }
 }
 
@@ -562,12 +562,12 @@ void ProfileGrinder::OnThreadName(base::Time time,
   part->thread_name_ = thread_name.as_string();
 }
 
-void ProfileGrinder::AggregateEntryToPart(const FunctionAddress& function_rva,
-                                          const CallerAddress& caller_rva,
+void ProfileGrinder::AggregateEntryToPart(const FunctionAddress& function,
+                                          const CallerAddress& caller,
                                           const InvocationInfo& info,
                                           PartData* part) {
   // Have we recorded this node before?
-  InvocationNodeMap::iterator node_it(part->nodes_.find(function_rva));
+  InvocationNodeMap::iterator node_it(part->nodes_.find(function));
   if (node_it != part->nodes_.end()) {
     // Yups, we've seen this edge before.
     // Aggregate the new data with the old.
@@ -580,8 +580,8 @@ void ProfileGrinder::AggregateEntryToPart(const FunctionAddress& function_rva,
     found.metrics.cycles_sum += info.cycles_sum;
   } else {
     // Nopes, we haven't seen this pair before, insert it.
-    InvocationNode& node = part->nodes_[function_rva];
-    node.function = function_rva;
+    InvocationNode& node = part->nodes_[function];
+    node.function = function;
     node.metrics.num_calls = info.num_calls;
     node.metrics.cycles_min = info.cycles_min;
     node.metrics.cycles_max = info.cycles_max;
@@ -591,8 +591,8 @@ void ProfileGrinder::AggregateEntryToPart(const FunctionAddress& function_rva,
   // If the caller is NULL, we can't do anything with the edge as the
   // caller is unknown, so skip recording it. The data will be aggregated
   // to the edge above.
-  if (caller_rva.module != NULL) {
-    InvocationEdgeKey key(function_rva, caller_rva);
+  if (caller.module != NULL) {
+    InvocationEdgeKey key(function, caller);
 
     // Have we recorded this edge before?
     InvocationEdgeMap::iterator edge_it(part->edges_.find(key));
@@ -609,8 +609,8 @@ void ProfileGrinder::AggregateEntryToPart(const FunctionAddress& function_rva,
     } else {
       // Nopes, we haven't seen this edge before, insert it.
       InvocationEdge& edge = part->edges_[key];
-      edge.function = function_rva;
-      edge.caller = caller_rva;
+      edge.function = function;
+      edge.caller = caller;
       edge.metrics.num_calls = info.num_calls;
       edge.metrics.cycles_min = info.cycles_min;
       edge.metrics.cycles_max = info.cycles_max;

@@ -131,17 +131,22 @@ class ProfileGrinder : public GrinderInterface {
   // @param symbol on success returns the function's private symbol, or
   //     public symbol if no private symbol is available.
   // @returns true on success.
-  bool GetFunctionByRVA(IDiaSession* session,
-                        RVA address,
-                        IDiaSymbol** symbol);
-  bool GetInfoForCallerRVA(const CallerAddress& caller,
-                           RVA* function_rva,
-                           size_t* line);
+  bool GetFunctionSymbolByRVA(IDiaSession* session,
+                              RVA address,
+                              IDiaSymbol** symbol);
 
-  bool GetInfoForFunctionRVA(const FunctionAddress& function,
-                             std::wstring* function_name,
-                             std::wstring* file_name,
-                             size_t* line);
+  // Resolves the function and line number a particular caller belongs to.
+  // @param caller the location of the caller.
+  // @param function on success returns the caller's function location.
+  // @param line on success returns the caller's line number in @p function.
+  bool GetFunctionForCaller(const CallerAddress& caller,
+                            FunctionAddress* function,
+                            size_t* line);
+
+  bool GetInfoForFunction(const FunctionAddress& function,
+                          std::wstring* function_name,
+                          std::wstring* file_name,
+                          size_t* line);
 
   // Converts an absolute address to an RVA.
   void ConvertToModuleRVA(uint32 process_id,
@@ -149,8 +154,8 @@ class ProfileGrinder : public GrinderInterface {
                           ModuleRVA* rva);
 
   // Aggregates a single invocation info and/or creates a new node and edge.
-  void AggregateEntryToPart(const FunctionAddress& function_rva,
-                            const CallerAddress& caller_rva,
+  void AggregateEntryToPart(const FunctionAddress& function,
+                            const CallerAddress& caller,
                             const InvocationInfo& info,
                             PartData* part);
 
@@ -252,7 +257,7 @@ struct ProfileGrinder::InvocationNode {
   InvocationNode() : first_call(NULL) {
   }
 
-  // RVA for the function this instance represents.
+  // Location of the function this instance represents.
   FunctionAddress function;
 
   // The metrics we've aggregated for this function.
