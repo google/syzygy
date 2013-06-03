@@ -68,6 +68,13 @@ class StackCapture {
   // @returns the size of a StackCapture object with the given number of frames.
   static size_t GetSize(size_t max_num_frames);
 
+  // Calculate the max number of frames that can be fit into a memory region of
+  // the given size.
+  // @param bytes The number of bytes to be used.
+  // @returns the maxmimum number of frames that will fit in the provided number
+  //     of bytes.
+  static size_t GetMaxNumFrames(size_t bytes);
+
   // @returns the size of this initialized StackCapture object.
   size_t Size() const { return GetSize(max_num_frames_); }
 

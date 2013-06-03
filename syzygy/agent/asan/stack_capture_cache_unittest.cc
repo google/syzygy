@@ -67,7 +67,7 @@ TEST_F(StackCaptureCacheTest, CachePageTest) {
     ASSERT_TRUE(s1 != NULL);
     EXPECT_EQ(max_num_frames, s1->max_num_frames());
     EXPECT_EQ(s1->Size(), page->bytes_used());
-    page->ReleaseStackCapture(s1);
+    page->ReturnStackCapture(s1);
     EXPECT_EQ(0u, page->bytes_used());
 
     // Reallocating should get us the same page as the one we just returned.
@@ -75,7 +75,7 @@ TEST_F(StackCaptureCacheTest, CachePageTest) {
     EXPECT_EQ(s1, s2);
 
     // Figure out how many more allocations the page should give us.
-    size_t bytes_left = StackCaptureCache::kCachePageSize - page->bytes_used();
+    size_t bytes_left = page->bytes_left();
     size_t allocations_left = bytes_left / s2->Size();
 
     // Ensure we get exactly that many.
@@ -102,8 +102,7 @@ TEST_F(StackCaptureCacheTest, SaveStackTrace) {
   // We should be able to save the captures stack trace.
   const StackCapture* s1 = cache.SaveStackTrace(stack_id, frames, num_frames);
   ASSERT_TRUE(s1 != NULL);
-  EXPECT_EQ(StackCapture::kMaxNumFrames, s1->max_num_frames());
-  EXPECT_EQ(sizeof(StackCapture), s1->Size());
+  EXPECT_EQ(num_frames, s1->max_num_frames());
 
   // We should get a pointer to the initial stack capture object if we attempt
   // to save the same trace again.
@@ -118,8 +117,7 @@ TEST_F(StackCaptureCacheTest, SaveStackTrace) {
   // to save a different trace.
   const StackCapture* s3 = cache.SaveStackTrace(stack_id, frames, num_frames);
   EXPECT_NE(s1, s3);
-  EXPECT_EQ(StackCapture::kMaxNumFrames, s3->max_num_frames());
-  EXPECT_EQ(sizeof(StackCapture), s1->Size());
+  EXPECT_EQ(num_frames, s3->max_num_frames());
 }
 
 TEST_F(StackCaptureCacheTest, RestrictedStackTraces) {
@@ -136,8 +134,7 @@ TEST_F(StackCaptureCacheTest, RestrictedStackTraces) {
   // We should be able to save the captures stack trace.
   const StackCapture* s1 = cache.SaveStackTrace(stack_id, frames, num_frames);
   ASSERT_TRUE(s1 != NULL);
-  EXPECT_EQ(20u, s1->max_num_frames());
-  EXPECT_GT(sizeof(StackCapture), s1->Size());
+  EXPECT_EQ(num_frames, s1->max_num_frames());
 
   // We should get a pointer to the initial stack capture object if we attempt
   // to save the same trace again.
@@ -152,8 +149,7 @@ TEST_F(StackCaptureCacheTest, RestrictedStackTraces) {
   // to save a different trace.
   const StackCapture* s3 = cache.SaveStackTrace(stack_id, frames, num_frames);
   EXPECT_NE(s1, s3);
-  EXPECT_EQ(20u, s1->max_num_frames());
-  EXPECT_GT(sizeof(StackCapture), s1->Size());
+  EXPECT_EQ(num_frames, s1->max_num_frames());
 }
 
 TEST_F(StackCaptureCacheTest, MaxNumFrames) {
@@ -162,6 +158,33 @@ TEST_F(StackCaptureCacheTest, MaxNumFrames) {
   size_t max_num_frames = cache.max_num_frames() + 1;
   cache.set_max_num_frames(max_num_frames);
   ASSERT_EQ(max_num_frames, cache.max_num_frames());
+}
+
+TEST_F(StackCaptureCacheTest, ReclaimedStackCapture) {
+  AsanLogger logger;
+  TestStackCaptureCache cache(&logger);
+
+  // Grab a stack capture and insert it.
+  StackCapture stack_capture;
+  stack_capture.InitFromStack();
+  const StackCapture* s1 = cache.SaveStackTrace(stack_capture);
+  ASSERT_TRUE(s1 != NULL);
+
+  // Grab another one and insert it.
+  stack_capture.InitFromStack();
+  const StackCapture* s2 = cache.SaveStackTrace(stack_capture);
+  ASSERT_TRUE(s2 != NULL);
+
+  // Return the first one.
+  cache.ReleaseStackTrace(s1);
+
+  // Grab another one and insert it.
+  stack_capture.InitFromStack();
+  const StackCapture* s3 = cache.SaveStackTrace(stack_capture);
+  ASSERT_TRUE(s3 != NULL);
+
+  // We expect this third one to have been reclaimed.
+  EXPECT_EQ(s1, s3);
 }
 
 TEST_F(StackCaptureCacheTest, Statistics) {
@@ -176,12 +199,16 @@ TEST_F(StackCaptureCacheTest, Statistics) {
   EXPECT_EQ(0u, s.requested);
   EXPECT_EQ(0u, s.allocated);
   EXPECT_EQ(0u, s.references);
+  EXPECT_EQ(0u, s.frames_stored);
+  EXPECT_EQ(0u, s.frames_alive);
+  EXPECT_EQ(0u, s.frames_dead);
 
   // Grab a stack capture and insert it.
   StackCapture stack_capture;
   stack_capture.InitFromStack();
   const StackCapture* s1 = cache.SaveStackTrace(stack_capture);
   ASSERT_TRUE(s1 != NULL);
+  size_t s1_frames = s1->num_frames();
   cache.GetStatistics(&s);
   EXPECT_EQ(1u, s.cached);
   EXPECT_EQ(0u, s.saturated);
@@ -189,6 +216,9 @@ TEST_F(StackCaptureCacheTest, Statistics) {
   EXPECT_EQ(1u, s.requested);
   EXPECT_EQ(1u, s.allocated);
   EXPECT_EQ(1u, s.references);
+  EXPECT_EQ(s1_frames, s.frames_stored);
+  EXPECT_EQ(s1_frames, s.frames_alive);
+  EXPECT_EQ(0u, s.frames_dead);
 
   // Reinsert the same stack. We expect to get the same pointer back.
   const StackCapture* s2 = cache.SaveStackTrace(stack_capture);
@@ -201,11 +231,15 @@ TEST_F(StackCaptureCacheTest, Statistics) {
   EXPECT_EQ(2u, s.requested);
   EXPECT_EQ(1u, s.allocated);
   EXPECT_EQ(2u, s.references);
+  EXPECT_EQ(2 * s1_frames, s.frames_stored);
+  EXPECT_EQ(s1_frames, s.frames_alive);
+  EXPECT_EQ(0u, s.frames_dead);
 
   // Insert a new stack.
   stack_capture.InitFromStack();
   const StackCapture* s3 = cache.SaveStackTrace(stack_capture);
   ASSERT_TRUE(s3 != NULL);
+  size_t s3_frames = s3->num_frames();
   cache.GetStatistics(&s);
   EXPECT_EQ(2u, s.cached);
   EXPECT_EQ(0u, s.saturated);
@@ -213,6 +247,9 @@ TEST_F(StackCaptureCacheTest, Statistics) {
   EXPECT_EQ(3u, s.requested);
   EXPECT_EQ(2u, s.allocated);
   EXPECT_EQ(3u, s.references);
+  EXPECT_EQ(2 * s1_frames + s3_frames, s.frames_stored);
+  EXPECT_EQ(s1_frames + s3_frames, s.frames_alive);
+  EXPECT_EQ(0u, s.frames_dead);
 
   // Return the first stack. This should decrement the total reference count.
   cache.ReleaseStackTrace(s1);
@@ -224,18 +261,24 @@ TEST_F(StackCaptureCacheTest, Statistics) {
   EXPECT_EQ(3u, s.requested);
   EXPECT_EQ(2u, s.allocated);
   EXPECT_EQ(2u, s.references);
+  EXPECT_EQ(s1_frames + s3_frames, s.frames_stored);
+  EXPECT_EQ(s1_frames + s3_frames, s.frames_alive);
+  EXPECT_EQ(0u, s.frames_dead);
 
   // Return the 2nd stack. This should decrement the reference count, and leave
-  // a stack unreferenced.
+  // a stack unreferenced (and its frames dead).
   cache.ReleaseStackTrace(s2);
   s2 = NULL;
   cache.GetStatistics(&s);
-  EXPECT_EQ(2u, s.cached);
+  EXPECT_EQ(1u, s.cached);
   EXPECT_EQ(0u, s.saturated);
   EXPECT_EQ(1u, s.unreferenced);
   EXPECT_EQ(3u, s.requested);
   EXPECT_EQ(2u, s.allocated);
   EXPECT_EQ(1u, s.references);
+  EXPECT_EQ(s3_frames, s.frames_stored);
+  EXPECT_EQ(s3_frames, s.frames_alive);
+  EXPECT_EQ(s1_frames, s.frames_dead);
 
   // Insert the 3rd stack over and over again. We'll eventually saturate the
   // reference counter and it'll be a permanent part of the cache.
@@ -246,25 +289,32 @@ TEST_F(StackCaptureCacheTest, Statistics) {
     EXPECT_EQ(s3, s4);
   }
   cache.GetStatistics(&s);
-  EXPECT_EQ(2u, s.cached);
+  EXPECT_EQ(1u, s.cached);
   EXPECT_EQ(1u, s.saturated);
   EXPECT_EQ(1u, s.unreferenced);
   EXPECT_EQ(3u + kEnoughTimesToSaturate, s.requested);
   EXPECT_EQ(2u, s.allocated);
   EXPECT_EQ(1u + kEnoughTimesToSaturate, s.references);
+  EXPECT_EQ((1u + kEnoughTimesToSaturate) * s3_frames, s.frames_stored);
+  EXPECT_EQ(s3_frames, s.frames_alive);
+  EXPECT_EQ(s1_frames, s.frames_dead);
 
   // Return the 3rd stack as many times as it was referenced. It should still
-  // be saturated.
+  // be saturated. None of its frames should be stored (there are no active
+  // references), but it should still be 'alive' as it remains in the cache.
   for (size_t i = 0; i < kEnoughTimesToSaturate + 1; ++i)
     cache.ReleaseStackTrace(s3);
   s3 = NULL;
   cache.GetStatistics(&s);
-  EXPECT_EQ(2u, s.cached);
+  EXPECT_EQ(1u, s.cached);
   EXPECT_EQ(1u, s.saturated);
   EXPECT_EQ(1u, s.unreferenced);
   EXPECT_EQ(3u + kEnoughTimesToSaturate, s.requested);
   EXPECT_EQ(2u, s.allocated);
   EXPECT_EQ(0u, s.references);
+  EXPECT_EQ(0u, s.frames_stored);
+  EXPECT_EQ(s3_frames, s.frames_alive);
+  EXPECT_EQ(s1_frames, s.frames_dead);
 }
 
 }  // namespace asan

@@ -133,6 +133,8 @@ class StackCaptureCache {
     // We use 64-bit integers for the following because they can overflow a
     // 32-bit value for long running processes.
 
+    // These count information about stack captures.
+    // @{
     // The total number of stacks requested over the lifetime of the stack
     // cache.
     uint64 requested;
@@ -142,6 +144,21 @@ class StackCaptureCache {
     uint64 allocated;
     // The total number of active references to stack captures.
     uint64 references;
+    // @}
+
+    // These count information about individual frames.
+    // @{
+    // The total number of frames across all active stack captures. This is used
+    // for calculating our compression ratio. This double counts actually stored
+    // frames by the number of times they are referenced.
+    uint64 frames_stored;
+    // The total number of frames that are physically stored across all active
+    // stack captures. This does not double count multiply-referenced captures.
+    uint64 frames_alive;
+    // The total number of frames in unreferenced stack captures. This is used
+    // to figure out how much of our cache is actually dead.
+    uint64 frames_dead;
+    // @}
   };
 
   // Gets the current cache statistics. This must be called under lock_.
@@ -151,6 +168,23 @@ class StackCaptureCache {
   // Implementation function for logging statistics.
   // @param report The statistics to be reported.
   void LogStatisticsImpl(const Statistics& statistics) const;
+
+  // Grabs a temporary StackCapture from reclaimed_ or the current CachePage.
+  // Must be called under lock_. Takes care of updating frames_dead.
+  // @param num_frames The minimum number of frames that are required.
+  StackCapture* GetStackCapture(size_t num_frames);
+
+  // Returns a StackCapture to reclaimed_ or the current CachePage.
+  // Must be called under lock_. Takes care of updating frames_dead.
+  // @param stack_capture The stack to be returned either to the active cache
+  //     page or to the reclaimed_ array.
+  void ReturnStackCapture(StackCapture* stack_capture);
+
+  // Links a stack capture into the reclaimed_ list. Meant to be called by
+  // ReturnStackCapture only. Must be called under lock_. Takes care of updating
+  // frames_dead (on behalf of ReturnStackCapture).
+  // @param stack_capture The stack capture to be linked into reclaimed_.
+  void AddStackCaptureToReclaimedList(StackCapture* stack_capture);
 
   // The default number of iterations between each compression ratio report.
   // Zero (0) means do not report.
@@ -181,6 +215,11 @@ class StackCaptureCache {
   // Aggregate statistics about the cache. Accessed under lock_.
   Statistics statistics_;
 
+  // StackCaptures that have been reclaimed for reuse are stored in a link list
+  // according to their length. We reuse the first frame in the stack capture
+  // as a pointer to the next StackCapture of that size, if there is one.
+  StackCapture* reclaimed_[StackCapture::kMaxNumFrames + 1];
+
  private:
   DISALLOW_COPY_AND_ASSIGN(StackCaptureCache);
 };
@@ -200,14 +239,18 @@ class StackCaptureCache::CachePage {
   // @returns a new StackCapture, or NULL if the page is full.
   StackCapture* GetNextStackCapture(size_t max_num_frames);
 
-  // Releases the most recently allocated stack capture back to the page.
-  // @param stack_capture The stack capture to return. This must be the most
-  //     recently allocated capture as returned by GetNextStackCapture.
-  void ReleaseStackCapture(StackCapture* stack_capture);
+  // Returns the most recently allocated stack capture back to the page.
+  // @param stack_capture The stack capture to return.
+  // @returns false if the provided stack capture was not the most recently
+  //    allocated one, true otherwise.
+  bool ReturnStackCapture(StackCapture* stack_capture);
 
   // @returns the number of bytes used in this page. This is mainly a hook
   //     for unittesting.
   size_t bytes_used() const { return bytes_used_; }
+
+  // @returns the number of bytes left in this page.
+  size_t bytes_left() const { return kDataSize - bytes_used_; }
 
  protected:
   // The cache pages from a linked list, which allows for easy cleanup

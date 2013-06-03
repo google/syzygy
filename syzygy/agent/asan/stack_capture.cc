@@ -40,6 +40,14 @@ size_t StackCapture::GetSize(size_t max_num_frames) {
   return offsetof(StackCapture, frames_) + max_num_frames * sizeof(void*);
 }
 
+size_t StackCapture::GetMaxNumFrames(size_t bytes) {
+  if (bytes < offsetof(StackCapture, frames_))
+    return 0;
+  bytes -= offsetof(StackCapture, frames_);
+  bytes /= sizeof(void*);
+  return bytes;
+}
+
 void StackCapture::AddRef() {
   if (RefCountIsSaturated())
     return;
