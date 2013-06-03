@@ -40,6 +40,16 @@ _DecodeResult DistormDecompose(_CodeInfo* ci,
         DCHECK(result[i].ops[0].size == 0);
         result[i].ops[0].size = 16;
         break;
+      case I_FST:
+      case I_FSTP:
+      case I_FIST:
+      case I_FISTP:
+        // Distorm @229 has a bug, the flag do no reflect the memory store.
+        // https://code.google.com/p/distorm/issues/detail?id=70
+        // If FLAG_DST_WR is set that means that distorm has been fixed.
+        DCHECK_EQ(0, result[i].flags & FLAG_DST_WR);
+        result[i].flags |= FLAG_DST_WR;
+        break;
       default:
         break;
     }

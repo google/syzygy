@@ -71,6 +71,16 @@ const uint8 kFnstcw[] = { 0xD9, 0x7D, 0xEA };
 // fldcw m16
 const uint8 kFldcw[] = { 0xD9, 0x6D, 0xE4 };
 
+// Instructions for which distorm do not activated the write flag.
+// fst qword ptr [0A374E8h]
+const uint8 kFst[] = { 0xDD, 0x15, 0xE8, 0x74, 0xA3, 0x00 };
+// fstp qword ptr [0A374E8h]
+const uint8 kFstp[] = { 0xDD, 0x1D, 0xE8, 0x74, 0xA3, 0x00 };
+// fist qword ptr [0A374E8h]
+const uint8 kFist[] = { 0xDB, 0x15, 0xE0, 0x74, 0xA3, 0x00 };
+// fistp qword ptr [0A374E8h]
+const uint8 kFistp[] = { 0xDB, 0x1D, 0xE0, 0x74, 0xA3, 0x00 };
+
 // Nop Instruction byte sequences.
 const uint8 kNop2Mov[] = { 0x8B, 0xFF };
 const uint8 kNop3Lea[] = { 0x8D, 0x49, 0x00 };
@@ -280,6 +290,20 @@ TEST(DisassemblerUtilTest, WrongAccessSizeOnRawDistormDecomposeFldcw) {
                              &result_count));
   EXPECT_EQ(1U, result_count);
   EXPECT_EQ(0U, results[0].ops[0].size);
+}
+
+TEST(DisassemblerUtilTest, WrongWriteFlagOnRawDistormDecomposeFst) {
+  _DInst fst = DecodeBuffer(kFst, sizeof(kFst));
+  EXPECT_NE(0, fst.flags & FLAG_DST_WR);
+
+  _DInst fstp = DecodeBuffer(kFstp, sizeof(kFstp));
+  EXPECT_NE(0, fstp.flags & FLAG_DST_WR);
+
+  _DInst fist = DecodeBuffer(kFist, sizeof(kFist));
+  EXPECT_NE(0, fist.flags & FLAG_DST_WR);
+
+  _DInst fistp = DecodeBuffer(kFistp, sizeof(kFistp));
+  EXPECT_NE(0, fistp.flags & FLAG_DST_WR);
 }
 
 }  // namespace core
