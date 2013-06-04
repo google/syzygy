@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.2.22.0
+
+[r1567] Various bugfixes to make Syzygy able to decompose Adobe Flash binaries.
+[r1566] SyzyASAN - Added reference counting and reuse to stack cache.
+
 Version 0.2.21.1
 
 [r1542] SyzyASAN - Remove use of a kernel32 import that was not available on XP.
