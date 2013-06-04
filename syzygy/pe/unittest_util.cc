@@ -37,27 +37,6 @@ namespace {
 
 using pe::CvInfoPdb70;
 
-// This class wraps an HMODULE and ensures that ::FreeLibrary is called when it
-// goes out of scope.
-class ScopedHMODULE {
- public:
-  explicit ScopedHMODULE(HMODULE v): value_(v) {
-  }
-
-  ~ScopedHMODULE() {
-    if (value_) {
-      ::FreeLibrary(value_);
-    }
-  }
-
-  operator HMODULE() const {
-    return value_;
-  }
-
- private:
-  HMODULE value_;
-};
-
 bool EnumImportsProc(const base::win::PEImage &image,
                      const char* module,
                      DWORD ordinal,
@@ -209,7 +188,34 @@ const wchar_t *kProfileTraceFiles[4] = {
     L"profile_traces\\trace-4.bin",
 };
 
-void PELibUnitTest::CheckTestDll(const base::FilePath& path) {
+ScopedHMODULE::ScopedHMODULE() : value_(0) {
+}
+
+ScopedHMODULE::ScopedHMODULE(HMODULE v) : value_(v) {
+}
+
+void ScopedHMODULE::Reset(HMODULE value) {
+  if (value_ != value) {
+    Release();
+    value_ = value;
+  }
+}
+
+void ScopedHMODULE::Release() {
+  if (value_) {
+    ::FreeLibrary(value_);
+    value_ = 0;
+  }
+}
+
+ScopedHMODULE::~ScopedHMODULE() {
+  Release();
+}
+
+void PELibUnitTest::CheckTestDll(
+    const base::FilePath& path, ScopedHMODULE* module) {
+  DCHECK(module != NULL);
+
   LOADED_IMAGE loaded_image = {};
   BOOL success = ::MapAndLoad(WideToUTF8(path.value()).c_str(),
                               NULL,
@@ -220,13 +226,18 @@ void PELibUnitTest::CheckTestDll(const base::FilePath& path) {
   ASSERT_TRUE(success);
   EXPECT_TRUE(::UnMapAndLoad(&loaded_image));
 
-  ScopedHMODULE module(::LoadLibrary(path.value().c_str()));
-  if (module == NULL) {
+  module->Reset(::LoadLibrary(path.value().c_str()));
+  if (*module == NULL) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "LoadLibrary failed: " << com::LogWe(error);
   }
   ASSERT_TRUE(module != NULL);
-  CheckLoadedTestDll(module);
+  CheckLoadedTestDll(*module);
+}
+
+void PELibUnitTest::CheckTestDll(const base::FilePath& path) {
+  ScopedHMODULE module;
+  CheckTestDll(path, &module);
 }
 
 }  // namespace testing

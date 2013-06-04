@@ -15,9 +15,12 @@
 #include "base/environment.h"
 #include "base/stringprintf.h"
 #include "gtest/gtest.h"
+#include "syzygy/agent/asan/asan_rtl_impl.h"
+#include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/common/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/instrument/instrument_app.h"
+#include "syzygy/pe/test_dll.h"
 #include "syzygy/pe/unittest_util.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
@@ -27,6 +30,45 @@ namespace {
 
 using instrument::InstrumentApp;
 typedef common::Application<InstrumentApp> TestApp;
+
+enum AccessMode {
+  ASAN_READ_ACCESS = agent::asan::HeapProxy::ASAN_READ_ACCESS,
+  ASAN_WRITE_ACCESS = agent::asan::HeapProxy::ASAN_WRITE_ACCESS,
+  ASAN_UNKNOWN_ACCESS = agent::asan::HeapProxy::ASAN_UNKNOWN_ACCESS,
+};
+
+enum BadAccessKind {
+  UNKNOWN_BAD_ACCESS = agent::asan::HeapProxy::UNKNOWN_BAD_ACCESS,
+  USE_AFTER_FREE = agent::asan::HeapProxy::USE_AFTER_FREE,
+  HEAP_BUFFER_OVERFLOW = agent::asan::HeapProxy::HEAP_BUFFER_OVERFLOW,
+  HEAP_BUFFER_UNDERFLOW = agent::asan::HeapProxy::HEAP_BUFFER_UNDERFLOW,
+};
+
+// Contains the number of ASAN errors reported with our callback.
+int asan_error_count;
+// Contains the last ASAN error reported.
+agent::asan::AsanErrorInfo last_asan_error;
+
+void AsanSafeCallback(CONTEXT* ctx, agent::asan::AsanErrorInfo* info) {
+  asan_error_count++;
+  last_asan_error = *info;
+}
+
+void ResetAsanErrors() {
+  asan_error_count = 0;
+}
+
+void SetAsanCallBack() {
+  typedef void (WINAPI *AsanSetCallBack)(AsanErrorCallBack);
+
+  HMODULE asan_module = GetModuleHandle(L"asan_rtl.dll");
+  DCHECK(asan_module != NULL);
+  AsanSetCallBack set_callback = reinterpret_cast<AsanSetCallBack>(
+      ::GetProcAddress(asan_module, "asan_SetCallBack"));
+  DCHECK(set_callback != NULL);
+
+  set_callback(AsanSafeCallback);
+};
 
 class IntrumentAppIntegrationTest : public testing::PELibUnitTest {
  public:
@@ -58,6 +100,14 @@ class IntrumentAppIntegrationTest : public testing::PELibUnitTest {
     output_dll_path_ = temp_dir_.Append(input_dll_path_.BaseName());
 
     ASSERT_NO_FATAL_FAILURE(ConfigureTestApp(&test_app_));
+  }
+
+  void TearDown() {
+    // We need to release the module handle before Super::TearDown, otherwise
+    // the library file cannot be deleted.
+    module_.Release();
+
+    Super::TearDown();
   }
 
   // Points the application at the fixture's command-line and IO streams.
@@ -93,7 +143,95 @@ class IntrumentAppIntegrationTest : public testing::PELibUnitTest {
                            InstrumentApp::kAgentDllRpc));
 
     // Validate that the test dll loads post instrumentation.
-    ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path_));
+    ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path_, &module_));
+  }
+
+  // Invoke a test function inside test_dll by addressing it with a test id.
+  // Returns the value resulting of test function execution.
+  unsigned int InvokeTestDllFunction(EndToEndTestId test) {
+    // Load the exported 'function_name' function.
+    typedef unsigned int (CALLBACK* TestDllFuncs)(unsigned int);
+    TestDllFuncs func = reinterpret_cast<TestDllFuncs>(
+        ::GetProcAddress(module_, "EndToEndTest"));
+    DCHECK(func != NULL);
+
+    // Invoke it, and returns its value.
+    return func(test);
+  }
+
+  void EndToEndCheckTestDll() {
+    // Validate that behavior is unchanged after instrumentation.
+    EXPECT_EQ(0xfff80200, InvokeTestDllFunction(kArrayComputation1TestId));
+    EXPECT_EQ(0x00000200, InvokeTestDllFunction(kArrayComputation2TestId));
+  }
+
+  void AsanErrorCheck(EndToEndTestId test, BadAccessKind kind,
+      AccessMode mode, size_t size) {
+
+    ResetAsanErrors();
+    InvokeTestDllFunction(test);
+    EXPECT_LT(0, asan_error_count);
+    EXPECT_EQ(kind, last_asan_error.error_type);
+    EXPECT_EQ(mode, last_asan_error.access_mode);
+    EXPECT_EQ(size, last_asan_error.access_size);
+  }
+
+  void AsanErrorCheckTestDll() {
+    ASSERT_NO_FATAL_FAILURE(SetAsanCallBack());
+
+    AsanErrorCheck(kAsanRead8BufferOverflowTestId, HEAP_BUFFER_OVERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(kAsanRead16BufferOverflowTestId, HEAP_BUFFER_OVERFLOW,
+        ASAN_READ_ACCESS, 2);
+    AsanErrorCheck(kAsanRead32BufferOverflowTestId, HEAP_BUFFER_OVERFLOW,
+        ASAN_READ_ACCESS, 4);
+    AsanErrorCheck(kAsanRead64BufferOverflowTestId, HEAP_BUFFER_OVERFLOW,
+        ASAN_READ_ACCESS, 8);
+
+    AsanErrorCheck(kAsanRead8BufferUnderflowTestId, HEAP_BUFFER_UNDERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(kAsanRead16BufferUnderflowTestId, HEAP_BUFFER_UNDERFLOW,
+        ASAN_READ_ACCESS, 2);
+    AsanErrorCheck(kAsanRead32BufferUnderflowTestId, HEAP_BUFFER_UNDERFLOW,
+        ASAN_READ_ACCESS, 4);
+    AsanErrorCheck(kAsanRead64BufferUnderflowTestId, HEAP_BUFFER_UNDERFLOW,
+        ASAN_READ_ACCESS, 8);
+
+    AsanErrorCheck(kAsanWrite8BufferOverflowTestId, HEAP_BUFFER_OVERFLOW,
+        ASAN_WRITE_ACCESS, 1);
+    AsanErrorCheck(kAsanWrite16BufferOverflowTestId, HEAP_BUFFER_OVERFLOW,
+        ASAN_WRITE_ACCESS, 2);
+    AsanErrorCheck(kAsanWrite32BufferOverflowTestId, HEAP_BUFFER_OVERFLOW,
+        ASAN_WRITE_ACCESS, 4);
+    AsanErrorCheck(kAsanWrite64BufferOverflowTestId, HEAP_BUFFER_OVERFLOW,
+        ASAN_WRITE_ACCESS, 8);
+
+    AsanErrorCheck(kAsanWrite8BufferUnderflowTestId, HEAP_BUFFER_UNDERFLOW,
+        ASAN_WRITE_ACCESS, 1);
+    AsanErrorCheck(kAsanWrite16BufferUnderflowTestId, HEAP_BUFFER_UNDERFLOW,
+        ASAN_WRITE_ACCESS, 2);
+    AsanErrorCheck(kAsanWrite32BufferUnderflowTestId, HEAP_BUFFER_UNDERFLOW,
+        ASAN_WRITE_ACCESS, 4);
+    AsanErrorCheck(kAsanWrite64BufferUnderflowTestId, HEAP_BUFFER_UNDERFLOW,
+        ASAN_WRITE_ACCESS, 8);
+
+    AsanErrorCheck(kAsanRead8UseAfterFreeTestId, USE_AFTER_FREE,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(kAsanRead16UseAfterFreeTestId, USE_AFTER_FREE,
+        ASAN_READ_ACCESS, 2);
+    AsanErrorCheck(kAsanRead32UseAfterFreeTestId, USE_AFTER_FREE,
+        ASAN_READ_ACCESS, 4);
+    AsanErrorCheck(kAsanRead64UseAfterFreeTestId, USE_AFTER_FREE,
+        ASAN_READ_ACCESS, 8);
+
+    AsanErrorCheck(kAsanWrite8UseAfterFreeTestId, USE_AFTER_FREE,
+        ASAN_WRITE_ACCESS, 1);
+    AsanErrorCheck(kAsanWrite16UseAfterFreeTestId, USE_AFTER_FREE,
+        ASAN_WRITE_ACCESS, 2);
+    AsanErrorCheck(kAsanWrite32UseAfterFreeTestId, USE_AFTER_FREE,
+        ASAN_WRITE_ACCESS, 4);
+    AsanErrorCheck(kAsanWrite64UseAfterFreeTestId, USE_AFTER_FREE,
+        ASAN_WRITE_ACCESS, 8);
   }
 
   // Stashes the current log-level before each test instance and restores it
@@ -116,28 +254,58 @@ class IntrumentAppIntegrationTest : public testing::PELibUnitTest {
   base::FilePath input_dll_path_;
   base::FilePath output_dll_path_;
   // @}
+
+  testing::ScopedHMODULE module_;
 };
 
 }  // namespace
 
 TEST_F(IntrumentAppIntegrationTest, AsanEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+}
+
+TEST_F(IntrumentAppIntegrationTest, LivenessAsanEndToEnd) {
+  cmd_line_.AppendSwitchPath("use-liveness-analysis", input_dll_path_);
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+}
+
+TEST_F(IntrumentAppIntegrationTest, RedundantMemoryAsanEndToEnd) {
+  cmd_line_.AppendSwitchPath("remove-redundant-checks", input_dll_path_);
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+}
+
+TEST_F(IntrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
+  cmd_line_.AppendSwitchPath("use-liveness-analysis", input_dll_path_);
+  cmd_line_.AppendSwitchPath("remove-redundant-checks", input_dll_path_);
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
 TEST_F(IntrumentAppIntegrationTest, BBEntryEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("bbentry"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
 }
 
 TEST_F(IntrumentAppIntegrationTest, CallTraceEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("calltrace"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
 }
 
 TEST_F(IntrumentAppIntegrationTest, CoverageEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("coverage"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
 }
 
 TEST_F(IntrumentAppIntegrationTest, ProfileEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("profile"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
 }
 
-}  // integration_tests grinder
+}  // integration_tests instrument

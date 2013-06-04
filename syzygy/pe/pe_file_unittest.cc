@@ -175,7 +175,8 @@ TEST_F(PEFileTest, ReadImage) {
                 name1 == "LabelTestFunc" ||
                 name1 == "BringInOle32DelayLib" ||
                 name1 == "TestFunctionWithNoPrivateSymbols" ||
-                name1 == "FuncWithOffsetOutOfImage");
+                name1 == "FuncWithOffsetOutOfImage" ||
+                name1 == "EndToEndTest");
 
     std::string name2;
     AbsoluteAddress abs_addr;
@@ -312,6 +313,7 @@ TEST_F(PEFileTest, DecodeExports) {
     { RelativeAddress(0), "CreateFileW", "kernel32.CreateFileW", 13 },
     { RelativeAddress(0), "function1", "", 17 },
     { RelativeAddress(0), "FuncWithOffsetOutOfImage", "", 18 },
+    { RelativeAddress(0), "EndToEndTest", "", 20 },
   };
 
   ASSERT_EQ(ARRAYSIZE(expected), exports.size());

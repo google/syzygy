@@ -252,7 +252,7 @@ BOOL WINAPI asan_HeapQueryInformation(
   return ret == true;
 }
 
-void WINAPI asan_SetCallBack(void (*callback)(CONTEXT*, AsanErrorInfo*)) {
+void WINAPI asan_SetCallBack(AsanErrorCallBack callback) {
   DCHECK(asan_runtime != NULL);
   asan_runtime->SetErrorCallBack(base::Bind(callback));
 }

@@ -220,6 +220,7 @@
       'sources': [
         'test_dll.cc',
         'test_dll.def',
+        'test_dll.h',
         'test_dll.rc',
         'test_dll_label_test_func.asm',
       ],
@@ -251,6 +252,10 @@
             },
             'VCCLCompilerTool': {
               'BasicRuntimeChecks': '0',
+              # ASAN needs the application to be linked with the release static
+              # runtime library. Otherwise, memory allocation functions are
+              # wrapped and hide memory bugs like overflow/underflow.
+              'RuntimeLibrary':  '0', # 0 = /MT (nondebug static)
             },
           },
         },

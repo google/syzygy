@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "syzygy/pe/test_dll.h"
+
 #include <windows.h>  // NOLINT
 #include <objbase.h>  // NOLINT
 #include <winnt.h>  // NOLINT
@@ -21,6 +23,8 @@
 #include <time.h>
 
 #include <cstdlib>
+
+#include "base/basictypes.h"
 
 // Bring in a data import from export_dll.dll. This will cause a global data
 // symbol to be emitted pointing to the import entry, but with the type we give
@@ -443,4 +447,195 @@ DWORD FuncWithOffsetOutOfImage(int x, int y) {
   static const int kArray[4][256] = {};
   static const int kBigNum = 0xB0000000;
   return kArray[x][y + kBigNum];
+}
+
+static unsigned int ArrayComputation1() {
+  // Dummy function to validate end to end instrumentation.
+  const size_t kBufferLength = 1024;
+  char A[kBufferLength];
+  short B[kBufferLength];
+  int C[kBufferLength];
+
+  for (size_t i = 0; i < kBufferLength; ++i) {
+    if (i == 0)
+      A[i] = 0;
+    else
+      A[i] = 3*A[i-1] + 11;
+  }
+
+  for (size_t i = 0; i < kBufferLength; ++i) {
+    B[i] = i;
+    B[i] += A[i];
+    B[i] = (B[i] << 1) ^ B[i];
+  }
+
+  for (size_t i = 0; i < kBufferLength; ++i) {
+    C[i] = i;
+    C[i] += A[i] + B[i];
+    C[i] = ~C[i];
+  }
+
+  unsigned int sum = 0;
+  for (int i = 0; i < kBufferLength; ++i) {
+    sum += C[i] - (A[i] - B[i]);
+  }
+
+  return sum;
+}
+
+static unsigned int ArrayComputation2() {
+  // Dummy function to validate end to end instrumentation.
+  const size_t kBufferLength = 1024;
+  int A[kBufferLength];
+
+  for (size_t i = 0; i < kBufferLength; ++i) {
+    A[i] = i;
+  }
+
+  int *ptr1 = &A[0];
+  int *ptr2 = &A[kBufferLength-1];
+  int result = 0;
+  while (*ptr1 <= *ptr2) {
+    ptr1++;
+    ptr2--;
+    result++;
+  }
+
+  return result;
+}
+
+// NOTE: This is used to fool compiler aliasing analysis. Do not make it static
+//    nor const.
+int kOffsetMinusOne = -1;
+int kOffetZero = 0;
+int kOffetOne = 1;
+
+template<typename type>
+static type AsanWriteBufferOverflow() {
+  // Produce an ASAN error by writing one after the buffer.
+  type* ptr = new type[1];
+  ptr[kOffetZero] = static_cast<type>(1);
+  ptr[kOffetOne] = static_cast<type>(2);
+  type result = ptr[kOffetZero];
+  delete ptr;
+  return result;
+}
+
+template<typename type>
+static type AsanWriteBufferUnderflow() {
+  // Produce an ASAN error by writing one before the buffer.
+  type* ptr = new type[1];
+  ptr[kOffsetMinusOne] = static_cast<type>(1);
+  ptr[kOffetZero] = static_cast<type>(2);
+  type result = ptr[kOffetZero];
+  delete ptr;
+  return result;
+}
+
+template<typename type>
+static type AsanReadBufferOverflow() {
+  // Produce an ASAN error by reading one after the buffer.
+  type* ptr = new type[1];
+  *ptr = static_cast<type>(42);
+  type result = ptr[kOffetZero] + ptr[kOffetOne];
+  delete ptr;
+  return result;
+}
+
+template<typename type>
+static type AsanReadBufferUnderflow() {
+  // Produce an ASAN error by reading one before the buffer.
+  type* ptr = new type[1];
+  *ptr = static_cast<type>(42);
+  type result = ptr[kOffetZero] + ptr[kOffsetMinusOne];
+  delete ptr;
+  return result;
+}
+
+template<typename type>
+static type AsanReadUseAfterFree() {
+  // Produce an ASAN error by reading memory after deleting it.
+  type* ptr = new type[1];
+  *ptr = static_cast<type>(42);
+  delete ptr;
+  type result = ptr[kOffetZero];
+  return result;
+}
+
+template<typename type>
+static type AsanWriteUseAfterFree() {
+  // Produce an ASAN error by writing memory after deleting it.
+  type* ptr = new type[1];
+  *ptr = static_cast<type>(42);
+  type result = *ptr;
+  delete ptr;
+  ptr[kOffetZero] = static_cast<type>(12);
+  return result;
+}
+
+unsigned int CALLBACK EndToEndTest(EndToEndTestId test) {
+  // This function is used to dispatch test id to its corresponding function.
+  switch (test) {
+    // Behavior tests.
+    case kArrayComputation1TestId:
+      return ArrayComputation1();
+    case kArrayComputation2TestId:
+      return ArrayComputation2();
+
+    // Asan Memory Error.
+    case kAsanRead8BufferOverflowTestId:
+      return AsanReadBufferOverflow<int8>();
+    case kAsanRead16BufferOverflowTestId:
+      return AsanReadBufferOverflow<int16>();
+    case kAsanRead32BufferOverflowTestId:
+      return AsanReadBufferOverflow<int32>();
+    case kAsanRead64BufferOverflowTestId:
+      return AsanReadBufferOverflow<double>();
+
+    case kAsanRead8BufferUnderflowTestId:
+      return AsanReadBufferUnderflow<int8>();
+    case kAsanRead16BufferUnderflowTestId:
+      return AsanReadBufferUnderflow<int16>();
+    case kAsanRead32BufferUnderflowTestId:
+      return AsanReadBufferUnderflow<int32>();
+    case kAsanRead64BufferUnderflowTestId:
+      return AsanReadBufferUnderflow<double>();
+
+    case kAsanWrite8BufferOverflowTestId:
+      return AsanWriteBufferOverflow<int8>();
+    case kAsanWrite16BufferOverflowTestId:
+      return AsanWriteBufferOverflow<int16>();
+    case kAsanWrite32BufferOverflowTestId:
+      return AsanWriteBufferOverflow<int32>();
+    case kAsanWrite64BufferOverflowTestId:
+      return AsanWriteBufferOverflow<double>();
+
+    case kAsanWrite8BufferUnderflowTestId:
+      return AsanWriteBufferUnderflow<int8>();
+    case kAsanWrite16BufferUnderflowTestId:
+      return AsanWriteBufferUnderflow<int16>();
+    case kAsanWrite32BufferUnderflowTestId:
+      return AsanWriteBufferUnderflow<int32>();
+    case kAsanWrite64BufferUnderflowTestId:
+      return AsanWriteBufferUnderflow<double>();
+
+    case kAsanRead8UseAfterFreeTestId:
+      return AsanReadUseAfterFree<int8>();
+    case kAsanRead16UseAfterFreeTestId:
+      return AsanReadUseAfterFree<int16>();
+    case kAsanRead32UseAfterFreeTestId:
+      return AsanReadUseAfterFree<int32>();
+    case kAsanRead64UseAfterFreeTestId:
+      return AsanReadUseAfterFree<double>();
+
+    case kAsanWrite8UseAfterFreeTestId:
+      return AsanWriteUseAfterFree<int8>();
+    case kAsanWrite16UseAfterFreeTestId:
+      return AsanWriteUseAfterFree<int16>();
+    case kAsanWrite32UseAfterFreeTestId:
+      return AsanWriteUseAfterFree<int32>();
+    case kAsanWrite64UseAfterFreeTestId:
+      return AsanWriteUseAfterFree<double>();
+  }
+  return 0;
 }

@@ -52,10 +52,33 @@ extern const wchar_t *kCallTraceTraceFiles[4];
 extern const wchar_t *kCoverageTraceFiles[4];
 extern const wchar_t *kProfileTraceFiles[4];
 
+// This class wraps an HMODULE and ensures that ::FreeLibrary is called when it
+// goes out of scope.
+class ScopedHMODULE {
+ public:
+  ScopedHMODULE();
+  explicit ScopedHMODULE(HMODULE v);
+  ~ScopedHMODULE();
+
+  void Reset(HMODULE v);
+  void Release();
+
+  operator HMODULE() const {
+    return value_;
+  }
+
+ private:
+  HMODULE value_;
+};
+
 class PELibUnitTest : public testing::ApplicationTestBase {
  public:
   // Performs a series of assertions on the test DLL's integrity.
   static void CheckTestDll(const base::FilePath& path);
+
+  // Performs a series of assertions on the test DLL's integrity, and returns
+  // the module handle to allow more tests to be executed.
+  static void CheckTestDll(const base::FilePath& path, ScopedHMODULE* module);
 };
 
 }  // namespace testing

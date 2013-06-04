@@ -32,6 +32,7 @@
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/instrument/instrument.gyp:instrument_lib',
         '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:test_dll',
         '<(src)/testing/gtest.gyp:gtest',
       ],
       'msvs_settings': {

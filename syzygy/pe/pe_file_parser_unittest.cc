@@ -328,7 +328,7 @@ TEST_F(PEFileParserTest, ParseImportDir) {
   static size_t kNumKernel32Symbols = 68;
 #else
   // VC++ 2010 Debug/Coverage build.
-  static size_t kNumKernel32Symbols = 74;
+  static size_t kNumKernel32Symbols = 70;
 #endif
 
   // The number of expected symbols imported from export_dll.dll.
