@@ -248,10 +248,10 @@ class BlockGraphSerializer {
   // @{
   // Utility functions for loading and saving integer values with a simple
   // variable-length encoding.
-  bool SaveUint30(uint32 value, OutArchive* out_archive) const;
-  bool LoadUint30(uint32* value, InArchive* in_archive) const;
-  bool SaveInt30(int32 value, OutArchive* out_archive) const;
-  bool LoadInt30(int32* value, InArchive* in_archive) const;
+  bool SaveUint32(uint32 value, OutArchive* out_archive) const;
+  bool LoadUint32(uint32* value, InArchive* in_archive) const;
+  bool SaveInt32(int32 value, OutArchive* out_archive) const;
+  bool LoadInt32(int32* value, InArchive* in_archive) const;
   // @}
 
   // The mode in which the serializer is operating for block data.

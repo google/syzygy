@@ -28,7 +28,7 @@ using core::OutArchive;
 // TODO(chrisha): Enforce this via a unittest. Check in a version of a
 //     simple block-graph, and ensure it deserializes to the same in-memory
 //     representation.
-static const uint32 kSerializedBlockGraphVersion = 0;
+static const uint32 kSerializedBlockGraphVersion = 1;
 
 // Potentially saves a string, depending on whether or not OMIT_STRINGS is
 // enabled.
@@ -312,11 +312,11 @@ bool BlockGraphSerializer::SaveBlockProperties(const BlockGraph::Block& block,
   // We use a signed integer for saving the section ID, as -1 is used to
   // indicate 'no section'.
   if (!out_archive->Save(type) ||
-      !SaveUint30(block.size(), out_archive) ||
-      !SaveUint30(block.alignment(), out_archive) ||
+      !SaveUint32(block.size(), out_archive) ||
+      !SaveUint32(block.alignment(), out_archive) ||
       !out_archive->Save(block.source_ranges()) ||
       !out_archive->Save(block.addr()) ||
-      !SaveInt30(static_cast<uint32>(block.section()), out_archive) ||
+      !SaveInt32(static_cast<uint32>(block.section()), out_archive) ||
       !out_archive->Save(attributes) ||
       !MaybeSaveString(*this, block.name(), out_archive)) {
     LOG(ERROR) << "Unable to save properties for block with id "
@@ -347,11 +347,11 @@ bool BlockGraphSerializer::LoadBlockProperties(BlockGraph::Block* block,
   uint32 section = 0;
   uint16 attributes = 0;
   if (!in_archive->Load(&type) ||
-      !LoadUint30(&size, in_archive) ||
-      !LoadUint30(&alignment, in_archive) ||
+      !LoadUint32(&size, in_archive) ||
+      !LoadUint32(&alignment, in_archive) ||
       !in_archive->Load(&block->source_ranges_) ||
       !in_archive->Load(&block->addr_) ||
-      !LoadInt30(reinterpret_cast<int32*>(&section), in_archive) ||
+      !LoadInt32(reinterpret_cast<int32*>(&section), in_archive) ||
       !in_archive->Load(&attributes) ||
       !MaybeLoadString(*this, &block->name_, in_archive)) {
     LOG(ERROR) << "Unable to load properties for block with id "
@@ -385,7 +385,7 @@ bool BlockGraphSerializer::SaveBlockLabels(const BlockGraph::Block& block,
     return true;
 
   uint32 count = block.labels().size();
-  if (!SaveUint30(count, out_archive)) {
+  if (!SaveUint32(count, out_archive)) {
     LOG(ERROR) << "Unable to save label count.";
     return false;
   }
@@ -400,7 +400,7 @@ bool BlockGraphSerializer::SaveBlockLabels(const BlockGraph::Block& block,
     const BlockGraph::Label& label = label_iter->second;
     uint16 attributes = static_cast<uint16>(label.attributes());
 
-    if (!SaveInt30(offset, out_archive) || !out_archive->Save(attributes) ||
+    if (!SaveInt32(offset, out_archive) || !out_archive->Save(attributes) ||
         !MaybeSaveString(*this, label.name(), out_archive)) {
       LOG(ERROR) << "Unable to save label at offset "
                  << label_iter->first << " of block with id "
@@ -424,7 +424,7 @@ bool BlockGraphSerializer::LoadBlockLabels(BlockGraph::Block* block,
     return true;
 
   uint32 label_count = 0;
-  if (!LoadUint30(&label_count, in_archive)) {
+  if (!LoadUint32(&label_count, in_archive)) {
     LOG(ERROR) << "Unable to load label count.";
     return false;
   }
@@ -434,7 +434,7 @@ bool BlockGraphSerializer::LoadBlockLabels(BlockGraph::Block* block,
     uint16 attributes = 0;
     std::string name;
 
-    if (!LoadInt30(&offset, in_archive) || !(in_archive->Load(&attributes)) ||
+    if (!LoadInt32(&offset, in_archive) || !(in_archive->Load(&attributes)) ||
         !MaybeLoadString(*this, &name, in_archive)) {
       LOG(ERROR) << "Unable to load label " << i << " of " << label_count
                  << " for block with id " << block->id() << ".";
@@ -463,7 +463,7 @@ bool BlockGraphSerializer::SaveBlockData(const BlockGraph::Block& block,
 
   // We always output the data size.
   uint32 data_size = block.data_size();
-  if (!SaveUint30(data_size, out_archive)) {
+  if (!SaveUint32(data_size, out_archive)) {
     LOG(ERROR) << "Unable to save block data size for block with id "
                << block.id() << ".";
     return false;
@@ -533,7 +533,7 @@ bool BlockGraphSerializer::LoadBlockData(BlockGraph::Block* block,
   DCHECK(!block->owns_data());
 
   uint32 data_size = 0;
-  if (!LoadUint30(&data_size, in_archive)) {
+  if (!LoadUint32(&data_size, in_archive)) {
     LOG(ERROR) << "Unable to load data size for block with id "
                << block->id() << ".";
     return false;
@@ -636,7 +636,7 @@ bool BlockGraphSerializer::SaveBlockReferences(const BlockGraph::Block& block,
       block.references().begin();
   for (; it != block.references().end(); ++it) {
     int32 offset = it->first;
-    if (!SaveInt30(offset, out_archive) ||
+    if (!SaveInt32(offset, out_archive) ||
         !SaveReference(it->second, out_archive)) {
       LOG(ERROR) << "Unable to save (offset, reference) pair at offset "
                  << offset << " of block with id " << block.id() << ".";
@@ -667,7 +667,7 @@ bool BlockGraphSerializer::LoadBlockReferences(BlockGraph* block_graph,
   for (size_t i = 0; i < count; ++i) {
     int32 offset = 0;
     BlockGraph::Reference ref;
-    if (!LoadInt30(&offset, in_archive) ||
+    if (!LoadInt32(&offset, in_archive) ||
         !LoadReference(block_graph, &ref, in_archive)) {
       LOG(ERROR) << "Unable to load (offset, reference) pair " << i << " of "
                  << count << " for block with id " << block->id() << ".";
@@ -705,7 +705,7 @@ bool BlockGraphSerializer::SaveReference(const BlockGraph::Reference& ref,
 
   if (!out_archive->Save(type_size) ||
       !out_archive->Save(ref.referenced()->id()) ||
-      !SaveInt30(offset, out_archive) || !SaveInt30(base_delta, out_archive)) {
+      !SaveInt32(offset, out_archive) || !SaveInt32(base_delta, out_archive)) {
     LOG(ERROR) << "Unable to write reference properties.";
     return false;
   }
@@ -726,7 +726,7 @@ bool BlockGraphSerializer::LoadReference(BlockGraph* block_graph,
   int32 base_delta = 0;
 
   if (!in_archive->Load(&type_size) || !in_archive->Load(&id) ||
-      !LoadInt30(&offset, in_archive) || !LoadInt30(&base_delta, in_archive)) {
+      !LoadInt32(&offset, in_archive) || !LoadInt32(&base_delta, in_archive)) {
     LOG(ERROR) << "Unable to load reference properties.";
     return false;
   }
@@ -754,34 +754,32 @@ bool BlockGraphSerializer::LoadReference(BlockGraph* block_graph,
   return true;
 }
 
-// Saves an unsigned 30 bit value. This uses a variable length encoding where
-// the first two bits are reserved to indicate the number of bytes required to
+// Saves an unsigned 32 bit value. This uses a variable length encoding where
+// the first three bits are reserved to indicate the number of bytes required to
 // store the value.
-bool BlockGraphSerializer::SaveUint30(uint32 value,
+bool BlockGraphSerializer::SaveUint32(uint32 value,
                                       OutArchive* out_archive) const {
   DCHECK(out_archive != NULL);
 
-  // The maximum value we can represent is 30 bits, as we reserve 2 to indicate
-  // the byte count.
-  CHECK_GT((1u << 30), value);
-
   // Determine the number of bytes needed in the representation.
   uint32 bytes = 1;
-  if (value >= (1 << 22)) {
+  if (value >= (1 << 29)) {
+    bytes = 5;
+  } else if (value >= (1 << 21)) {
     bytes = 4;
-  } else if (value >= (1 << 14)) {
+  } else if (value >= (1 << 13)) {
     bytes = 3;
-  } else if (value >= (1 << 6)) {
+  } else if (value >= (1 << 5)) {
     bytes = 2;
   }
 
-  // Output the value, LSB first. We actually only output 6 bits of the LSB.
-  uint8 byte = (value & ((1 << 6) - 1));
-  byte |= ((bytes - 1) << 6);
-  value >>= 6;
+  // Output the value, LSB first. We actually only output 5 bits of the LSB.
+  uint8 byte = (value & ((1 << 5) - 1));
+  byte |= ((bytes - 1) << 5);
+  value >>= 5;
   while (true) {
     if (!out_archive->Save(byte)) {
-      LOG(ERROR) << "Unable to write variable-length 30-bit unsigned integer.";
+      LOG(ERROR) << "Unable to write variable-length 32-bit unsigned integer.";
       return false;
     }
 
@@ -795,8 +793,8 @@ bool BlockGraphSerializer::SaveUint30(uint32 value,
   return true;
 }
 
-// Loads an unsigned 30-bit value using the encoding discussed in SaveUint30.
-bool BlockGraphSerializer::LoadUint30(uint32* value,
+// Loads an unsigned 32-bit value using the encoding discussed in SaveUint32.
+bool BlockGraphSerializer::LoadUint32(uint32* value,
                                       InArchive* in_archive) const {
   DCHECK(value != NULL);
   DCHECK(in_archive != NULL);
@@ -808,16 +806,16 @@ bool BlockGraphSerializer::LoadUint30(uint32* value,
 
   while (true) {
     if (!in_archive->Load(&byte)) {
-      LOG(ERROR) << "Unable to read variable-length 30-bit unsigned integer.";
+      LOG(ERROR) << "Unable to read variable-length 32-bit unsigned integer.";
       return false;
     }
 
     // If we're reading the first byte, we need to read the number of bytes
-    // remaining from its 2 leading bits.
+    // remaining from its 3 leading bits.
     if (position == 0) {
-      bytes = (byte >> 6) & 0x3;
-      temp_value = byte & ((1 << 6) - 1);
-      position += 6;
+      bytes = (byte >> 5) & 0x7;
+      temp_value = byte & ((1 << 5) - 1);
+      position += 5;
     } else {
       temp_value |= byte << position;
       position += 8;
@@ -833,15 +831,15 @@ bool BlockGraphSerializer::LoadUint30(uint32* value,
   return true;
 }
 
-// Saves a signed 30-bit value using a variable length encoding. This can
-// represent signed values where the magnitude is at most 29-bits. We use a
+// Saves a signed 32-bit value using a variable length encoding. This can
+// represent signed values where the magnitude is at most 31-bits. We use a
 // simple sign-bit encoding, so there are 2 encodings for 0.
-bool BlockGraphSerializer::SaveInt30(int32 value,
+bool BlockGraphSerializer::SaveInt32(int32 value,
                                      OutArchive* out_archive) const {
   DCHECK(out_archive != NULL);
 
   uint32 uvalue = static_cast<uint32>(value < 0 ? -value : value);
-  CHECK_GT((1u << 29), uvalue);
+  CHECK_GT((1u << 31), uvalue);
 
   // Add the sign bit as the least significant bit. This allows values near 0
   // (positive or negative) to be encoded in as little space as possible.
@@ -849,19 +847,19 @@ bool BlockGraphSerializer::SaveInt30(int32 value,
   if (value < 0)
     uvalue |= 1;
 
-  if (!SaveUint30(uvalue, out_archive))
+  if (!SaveUint32(uvalue, out_archive))
     return false;
 
   return true;
 }
 
-bool BlockGraphSerializer::LoadInt30(int32* value,
+bool BlockGraphSerializer::LoadInt32(int32* value,
                                      InArchive* in_archive) const {
   DCHECK(value != NULL);
   DCHECK(in_archive != NULL);
 
   uint32 uvalue = 0;
-  if (!LoadUint30(&uvalue, in_archive))
+  if (!LoadUint32(&uvalue, in_archive))
     return false;
 
   *value = static_cast<int32>(uvalue >> 1);

@@ -25,10 +25,10 @@ namespace {
 
 class TestBlockGraphSerializer : public BlockGraphSerializer {
  public:
-  using BlockGraphSerializer::SaveUint30;
-  using BlockGraphSerializer::LoadUint30;
-  using BlockGraphSerializer::SaveInt30;
-  using BlockGraphSerializer::LoadInt30;
+  using BlockGraphSerializer::SaveUint32;
+  using BlockGraphSerializer::LoadUint32;
+  using BlockGraphSerializer::SaveInt32;
+  using BlockGraphSerializer::LoadInt32;
 };
 
 class BlockGraphSerializerTest : public ::testing::Test {
@@ -408,40 +408,44 @@ TEST_F(BlockGraphSerializerTest, HasAnyAttributes) {
   ASSERT_FALSE(s_.has_any_attributes(4 | 8));
 }
 
-TEST_F(BlockGraphSerializerTest, VariableLengthUint30Encoding) {
+TEST_F(BlockGraphSerializerTest, VariableLengthUint32Encoding) {
   const uint32 kTestValues[] = {
-      // 6-bit values (< 64) that map to 1 byte.
-      1, 27, 63,
-      // 14-bit values (< 16,384) that map to 2 bytes.
-      64, 1034, 16383,
-      // 22-bit values (< 4,194,304) that map to 3 bytes.
-      16384, 1023847, 4194303,
-      // 30-bit values (< 1,073,741,824) that map to 4 bytes.
-      4194304, 933985928, 1073741823 };
+      // 5-bit values (< 32) that map to 1 byte.
+      1, 27, 31,
+      // 13-bit values (< 8,192) that map to 2 bytes.
+      32, 1034, 8191,
+      // 21-bit values (< 2,097,152) that map to 3 bytes.
+      8192, 1023847, 2097151,
+      // 29-bit values (< 536,870,912) that map to 4 bytes.
+      2097152, 38274285, 536870911,
+      // 32-bit values (< 4,294,967,296) that map to 5 bytes.
+      536870912, 1610612736, 4294967295 };
 
   for (size_t i = 0; i < arraysize(kTestValues); ++i) {
     InitOutArchive();
-    ASSERT_TRUE(s_.SaveUint30(kTestValues[i], oa_.get()));
+    ASSERT_TRUE(s_.SaveUint32(kTestValues[i], oa_.get()));
     ASSERT_EQ((i / 3) + 1, v_.size());
 
     InitInArchive();
     uint32 value = 0;
-    ASSERT_TRUE(s_.LoadUint30(&value, ia_.get()));
+    ASSERT_TRUE(s_.LoadUint32(&value, ia_.get()));
 
     ASSERT_EQ(kTestValues[i], value);
   }
 }
 
-TEST_F(BlockGraphSerializerTest, VariableLengthInt30Encoding) {
+TEST_F(BlockGraphSerializerTest, VariableLengthInt32Encoding) {
   const int32 kTestValues[] = {
-      // 5-bit values (< 32) that map to 1 byte.
-      1, 27, 31,
-      // 13-bit values (< 8,192) that map to 2 bytes.
-      64, 1034, 8191,
-      // 21-bit values (< 2,097,152) that map to 3 bytes.
-      16384, 1023847, 2097151,
-      // 29-bit values (< 536,870,912) that map to 4 bytes.
-      4194304, 38274285, 536870911 };
+      // 4-bit values (< 16) that map to 1 byte.
+      1, 9, 15,
+      // 12-bit values (< 4,096) that map to 2 bytes.
+      16, 1034, 4095,
+      // 20-bit values (< 1,048,576) that map to 3 bytes.
+      4096, 815632, 1048575,
+      // 28-bit values (< 268,435,456) that map to 4 bytes.
+      1048576, 38274285, 268435455,
+      // 31-bit values (< 2,147,483,648) that map to 5 bytes.
+      268435456, 805306368, 2147483647 };
 
   for (size_t i = 0; i < arraysize(kTestValues); ++i) {
     // We try the value in a negative and positive format.
@@ -449,12 +453,12 @@ TEST_F(BlockGraphSerializerTest, VariableLengthInt30Encoding) {
       int32 expected_value = kTestValues[i] * j;
 
       InitOutArchive();
-      ASSERT_TRUE(s_.SaveInt30(expected_value, oa_.get()));
+      ASSERT_TRUE(s_.SaveInt32(expected_value, oa_.get()));
       ASSERT_EQ((i / 3) + 1, v_.size());
 
       InitInArchive();
       int32 value = 0;
-      ASSERT_TRUE(s_.LoadInt30(&value, ia_.get()));
+      ASSERT_TRUE(s_.LoadInt32(&value, ia_.get()));
 
       ASSERT_EQ(expected_value, value);
     }

@@ -441,6 +441,6 @@ void CALLBACK TestUnusedFuncs(HWND unused_window,
 
 DWORD FuncWithOffsetOutOfImage(int x, int y) {
   static const int kArray[4][256] = {};
-  static const int kBigNum = 9000000;
+  static const int kBigNum = 0xB0000000;
   return kArray[x][y + kBigNum];
 }
