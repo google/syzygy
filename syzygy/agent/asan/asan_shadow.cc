@@ -23,7 +23,7 @@ uint8 Shadow::shadow_[kShadowSize];
 
 void Shadow::SetUp() {
   // Poison the shadow memory.
-  Poison(shadow_, kShadowSize, kHeapNonAccessibleByteMask);
+  Poison(shadow_, kShadowSize, kAsanMemoryByte);
 }
 
 void Shadow::TearDown() {
@@ -93,6 +93,14 @@ bool Shadow::IsAccessible(const void* addr) {
     return false;
 
   return start < shadow;
+}
+
+Shadow::ShadowMarker Shadow::GetShadowMarkerForAddress(const void* addr) {
+  uintptr_t index = reinterpret_cast<uintptr_t>(addr);
+  index >>= 3;
+
+  DCHECK_GT(arraysize(shadow_), index);
+  return static_cast<ShadowMarker>(shadow_[index]);
 }
 
 void Shadow::AppendShadowByteText(const char *prefix,

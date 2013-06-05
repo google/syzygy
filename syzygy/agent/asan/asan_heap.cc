@@ -91,6 +91,7 @@ const char* HeapProxy::kHeapUseAfterFree = "heap-use-after-free";
 const char* HeapProxy::kHeapBufferUnderFlow = "heap-buffer-underflow";
 const char* HeapProxy::kHeapBufferOverFlow = "heap-buffer-overflow";
 const char* HeapProxy::kAttemptingDoubleFree = "attempting double-free";
+const char* HeapProxy::kWildAccess = "wild access";
 const char* HeapProxy::kHeapUnknownError = "heap-unknown-error";
 
 void ASANDbgCmd(const wchar_t* fmt, ...) {
@@ -468,7 +469,13 @@ HeapProxy::BlockHeader* HeapProxy::ToBlockHeader(const void* alloc) {
                      0,
                      &bad_access_info)) {
       bad_access_info.error_type = UNKNOWN_BAD_ACCESS;
-      ReportUnknownError(mem, context, stack, ASAN_UNKNOWN_ACCESS, 0);
+      ReportAsanErrorBase("unknown bad access",
+                          mem,
+                          context,
+                          stack,
+                          UNKNOWN_BAD_ACCESS,
+                          ASAN_READ_ACCESS,
+                          0);
     }
     return NULL;
   }
@@ -676,17 +683,17 @@ bool HeapProxy::OnBadAccess(const void* addr,
   return false;
 }
 
-void HeapProxy::ReportUnknownError(const void* addr,
-                                   const CONTEXT& context,
-                                   const StackCapture& stack,
-                                   AccessMode access_mode,
-                                   size_t access_size) {
+void HeapProxy::ReportWildAccess(const void* addr,
+                                 const CONTEXT& context,
+                                 const StackCapture& stack,
+                                 AccessMode access_mode,
+                                 size_t access_size) {
   DCHECK(addr != NULL);
-  ReportAsanErrorBase("unknown-crash",
+  ReportAsanErrorBase(AccessTypeToStr(WILD_ACCESS),
                       addr,
                       context,
                       stack,
-                      UNKNOWN_BAD_ACCESS,
+                      WILD_ACCESS,
                       access_mode,
                       access_size);
 
@@ -784,6 +791,10 @@ const char* HeapProxy::AccessTypeToStr(BadAccessKind bad_access_kind) {
       return kHeapBufferUnderFlow;
     case HEAP_BUFFER_OVERFLOW:
       return kHeapBufferOverFlow;
+    case WILD_ACCESS:
+      return kWildAccess;
+    case UNKNOWN_BAD_ACCESS:
+      return kHeapUnknownError;
     default:
       NOTREACHED() << "Unexpected bad access kind.";
       return NULL;

@@ -449,6 +449,9 @@ void CheckStringsMemoryAccesses(
 // This is the common part of the fast path shared between the different
 // implementations of the hooks, this does the following:
 //     - Saves the memory location in EDX for the slow path.
+//     - Checks if the address we're trying to access is signed, if so this mean
+//         that this is an access to the upper region of the memory (over the
+//         2GB limit) and we should report this as an invalid wild access.
 //     - Checks for zero shadow for this memory location. We use the cmp
 //         instruction so it'll set the sign flag if the upper bit of the shadow
 //         value of this memory location is set to 1.
@@ -456,7 +459,8 @@ void CheckStringsMemoryAccesses(
 //     - Otherwise it removes the memory location from the top of the stack.
 #define ASAN_FAST_PATH  \
     __asm push edx  \
-    __asm shr edx, 3  \
+    __asm sar edx, 3  \
+    __asm js report_failure  \
     __asm movzx edx, BYTE PTR[edx + agent::asan::Shadow::shadow_]  \
     __asm cmp dl, 0  \
     __asm jnz check_access_slow  \
@@ -502,7 +506,7 @@ void CheckStringsMemoryAccesses(
     __asm push access_mode_value  \
     /* Push ARG1: the memory location. */  \
     __asm push DWORD PTR[esp + 52]  \
-    __asm call agent::asan::CheckMemoryAccess  \
+    __asm call agent::asan::ReportBadMemoryAccess  \
     /* Remove 4 x ARG on stack. */  \
     __asm add esp, 16  \
     /* Restore original registers. */  \

@@ -17,6 +17,7 @@
 
 #include "base/hash_tables.h"
 #include "base/synchronization/lock.h"
+#include "syzygy/agent/asan/asan_shadow.h"
 #include "syzygy/agent/asan/stack_capture.h"
 
 namespace agent {
@@ -229,6 +230,7 @@ class StackCaptureCache {
 class StackCaptureCache::CachePage {
  public:
   explicit CachePage(CachePage* link) : next_page_(link), bytes_used_(0) {
+    Shadow::Poison(this, sizeof(CachePage), Shadow::kAsanMemoryByte);
   }
 
   ~CachePage();

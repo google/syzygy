@@ -310,15 +310,17 @@ void AsanErrorCallback(CONTEXT* context, AsanErrorInfo* error_info) {
   EXPECT_NE(HeapProxy::UNKNOWN_BAD_ACCESS, error_info->error_type);
 
   EXPECT_EQ(expected_error_type, error_info->error_type);
-  // We should at least have the stack trace of the allocation of this block.
-  EXPECT_GT(error_info->alloc_stack_size, 0U);
-  EXPECT_NE(0U, error_info->alloc_tid);
-  if (error_info->error_type == HeapProxy::USE_AFTER_FREE) {
-    EXPECT_GT(error_info->free_stack_size, 0U);
-    EXPECT_NE(0U, error_info->free_tid);
-  } else {
-    EXPECT_EQ(error_info->free_stack_size, 0U);
-    EXPECT_EQ(0U, error_info->free_tid);
+  if (error_info->error_type != HeapProxy::WILD_ACCESS) {
+    // We should at least have the stack trace of the allocation of this block.
+    EXPECT_GT(error_info->alloc_stack_size, 0U);
+    EXPECT_NE(0U, error_info->alloc_tid);
+    if (error_info->error_type == HeapProxy::USE_AFTER_FREE) {
+      EXPECT_GT(error_info->free_stack_size, 0U);
+      EXPECT_NE(0U, error_info->free_tid);
+    } else {
+      EXPECT_EQ(error_info->free_stack_size, 0U);
+      EXPECT_EQ(0U, error_info->free_tid);
+    }
   }
 
   if (error_info->error_type == HeapProxy::HEAP_BUFFER_OVERFLOW) {
@@ -456,6 +458,17 @@ TEST_F(AsanRtlTest, AsanCheckDoubleFree) {
   EXPECT_TRUE(LogContains(HeapProxy::kAttemptingDoubleFree));
   EXPECT_TRUE(LogContains("previously allocated here"));
   EXPECT_TRUE(LogContains("freed here"));
+}
+
+TEST_F(AsanRtlTest, AsanCheckWildAccess) {
+  check_access_fn =
+      ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
+  ASSERT_TRUE(check_access_fn != NULL);
+
+  SetCallBackFunction(&AsanErrorCallback);
+  AssertMemoryErrorIsDetected(reinterpret_cast<void*>(0x80000000),
+                              HeapProxy::WILD_ACCESS);
+  EXPECT_TRUE(LogContains(HeapProxy::kWildAccess));
 }
 
 void AsanRtlTest::AllocMemoryBuffers(int32 length, int32 element_size) {

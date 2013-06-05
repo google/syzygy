@@ -36,6 +36,7 @@ class Shadow {
   enum ShadowMarker {
     kHeapAddressableByte = 0x00,
     kHeapNonAccessibleByteMask = 0xf0,
+    kAsanMemoryByte = 0xf1,
     kHeapLeftRedzone = 0xfa,
     kHeapRightRedzone = 0xfb,
     kHeapFreedByte = 0xfd,
@@ -54,6 +55,9 @@ class Shadow {
 
   // Returns true iff the byte at @p addr is not poisoned.
   static bool IsAccessible(const void* addr);
+
+  // Returns the ShadowMarker value for the byte at @p addr.
+  static ShadowMarker GetShadowMarkerForAddress(const void* addr);
 
   // Appends a textual description of the shadow memory for @p addr to
   // @p output.

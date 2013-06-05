@@ -97,6 +97,7 @@ class HeapTest : public testing::TestWithAsanLogger {
     testing::TestWithAsanLogger::SetUp();
 
     HeapProxy::Init();
+    Shadow::SetUp();
 
     logger_.set_instance_id(instance_id());
     logger_.Init();
@@ -105,6 +106,7 @@ class HeapTest : public testing::TestWithAsanLogger {
 
   virtual void TearDown() OVERRIDE {
     ASSERT_TRUE(proxy_.Destroy());
+    Shadow::TearDown();
     testing::TestWithAsanLogger::TearDown();
   }
 
@@ -113,6 +115,8 @@ class HeapTest : public testing::TestWithAsanLogger {
   void VerifyAllocAccess(void* alloc, size_t size) {
     uint8* mem = reinterpret_cast<uint8*>(alloc);
     ASSERT_FALSE(Shadow::IsAccessible(mem - 1));
+    ASSERT_EQ(Shadow::GetShadowMarkerForAddress(mem - 1),
+              Shadow::kHeapLeftRedzone);
     for (size_t i = 0; i < size; ++i)
       ASSERT_TRUE(Shadow::IsAccessible(mem + i));
     ASSERT_FALSE(Shadow::IsAccessible(mem + size));
@@ -122,8 +126,13 @@ class HeapTest : public testing::TestWithAsanLogger {
   void VerifyFreedAccess(void* alloc, size_t size) {
     uint8* mem = reinterpret_cast<uint8*>(alloc);
     ASSERT_FALSE(Shadow::IsAccessible(mem - 1));
-    for (size_t i = 0; i < size; ++i)
+    ASSERT_EQ(Shadow::GetShadowMarkerForAddress(mem - 1),
+              Shadow::kHeapLeftRedzone);
+    for (size_t i = 0; i < size; ++i) {
       ASSERT_FALSE(Shadow::IsAccessible(mem + i));
+      ASSERT_EQ(Shadow::GetShadowMarkerForAddress(mem + i),
+                Shadow::kHeapFreedByte);
+    }
     ASSERT_FALSE(Shadow::IsAccessible(mem + size));
   }
 
@@ -461,6 +470,26 @@ TEST_F(HeapTest, QuarantineDoesntAlterBlockContents) {
                       sha1_after);
 
   ASSERT_EQ(0, memcmp(sha1_before, sha1_after, base::kSHA1Length));
+}
+
+TEST_F(HeapTest, InternalStructureArePoisoned) {
+  EXPECT_EQ(Shadow::kAsanMemoryByte,
+            Shadow::GetShadowMarkerForAddress(TestShadow::shadow_));
+
+  const size_t kAllocSize = 13;
+  // Ensure that the quarantine is large enough to keep this block..
+  proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
+  uint8* mem = static_cast<uint8*>(proxy_.Alloc(0, kAllocSize));
+  TestHeapProxy::BlockHeader* header =
+      const_cast<TestHeapProxy::BlockHeader*>(proxy_.ToBlockHeader(mem));
+
+  ASSERT_TRUE(header != NULL);
+  const void* alloc_stack_cache_addr =
+      reinterpret_cast<const void*>(header->alloc_stack);
+  EXPECT_EQ(Shadow::kAsanMemoryByte,
+            Shadow::GetShadowMarkerForAddress(alloc_stack_cache_addr));
+
+  ASSERT_TRUE(proxy_.Free(0, mem));
 }
 
 }  // namespace asan

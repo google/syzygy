@@ -48,9 +48,8 @@ TEST(ShadowTest, PoisonUnpoisonAccess) {
     }
 
     Shadow::Poison(start_addr, size, Shadow::kHeapNonAccessibleByteMask);
-    for (size_t i = 0; i < size; ++i) {
+    for (size_t i = 0; i < size; ++i)
       EXPECT_FALSE(Shadow::IsAccessible(start_addr + i));
-    }
     EXPECT_TRUE(Shadow::IsAccessible(start_addr - 1));
     EXPECT_TRUE(Shadow::IsAccessible(start_addr + size));
 
@@ -77,7 +76,7 @@ TEST(ShadowTest, SetUpAndTearDown) {
 
   Shadow::SetUp();
   for (size_t i = shadow_start; i < shadow_end; i += kShadowLookupInterval) {
-    ASSERT_EQ(Shadow::kHeapNonAccessibleByteMask, TestShadow::shadow_[i]);
+    ASSERT_EQ(Shadow::kAsanMemoryByte, TestShadow::shadow_[i]);
   }
   Shadow::TearDown();
   for (size_t i = shadow_start; i < shadow_end; i += kShadowLookupInterval) {

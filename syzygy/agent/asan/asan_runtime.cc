@@ -469,6 +469,21 @@ void AsanRuntime::ReportAsanErrorDetails(const void* addr,
                                          AsanErrorInfo* bad_access_info) {
   DCHECK(bad_access_info != NULL);
   base::AutoLock lock(heap_proxy_dlist_lock_);
+
+  // Checks if this is an access to an internal structure or if it's an access
+  // in the upper region of the memory (over the 2 GB limit).
+  if ((reinterpret_cast<size_t>(addr) & (1 << 31)) != 0 ||
+      Shadow::GetShadowMarkerForAddress(addr) == Shadow::kAsanMemoryByte) {
+    LIST_ENTRY* item = heap_proxy_dlist_.Flink;
+    CHECK(item != NULL);
+    HeapProxy* proxy = HeapProxy::FromListEntry(item);
+    CHECK(proxy != NULL);
+    bad_access_info->error_type = HeapProxy::WILD_ACCESS;
+    proxy->ReportWildAccess(addr, context, stack, access_mode,
+                            access_size);
+    return;
+  }
+
   // Iterates over the HeapProxy list to find the memory block containing this
   // address. We expect that there is at least one heap proxy extant.
   HeapProxy* proxy = NULL;
@@ -495,12 +510,14 @@ void AsanRuntime::ReportAsanErrorDetails(const void* addr,
 
   // If item is NULL then we went through the list without finding the heap
   // from which this address was allocated. We can just reuse the logger of
-  // the last heap proxy we saw to report an "unknown" error.
+  // the last heap proxy we saw to report an "unknown" error. As every poisoned
+  // block of the shadow memory should point to a memory block or to an internal
+  // structure this case should never happen.
   if (item == NULL) {
+    NOTREACHED();
     bad_access_info->error_type = HeapProxy::UNKNOWN_BAD_ACCESS;
     CHECK(proxy != NULL);
-    proxy->ReportUnknownError(addr, context, stack, access_mode,
-                              access_size);
+    proxy->ReportWildAccess(addr, context, stack, access_mode, access_size);
   }
 }
 

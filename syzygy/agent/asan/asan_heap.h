@@ -60,6 +60,7 @@ class HeapProxy {
   // encounter.
   enum BadAccessKind {
     UNKNOWN_BAD_ACCESS,
+    WILD_ACCESS,
     USE_AFTER_FREE,
     HEAP_BUFFER_OVERFLOW,
     HEAP_BUFFER_UNDERFLOW,
@@ -70,6 +71,7 @@ class HeapProxy {
   static const char* kHeapBufferUnderFlow;
   static const char* kHeapBufferOverFlow;
   static const char* kAttemptingDoubleFree;
+  static const char* kWildAccess;
   static const char* kHeapUnknownError;
 
   // The sleep time (in milliseconds) used to approximate the CPU frequency.
@@ -124,18 +126,18 @@ class HeapProxy {
                    size_t access_size,
                    AsanErrorInfo* bad_access_info);
 
-  // Report an unknown error while attempting to access a red-zoned heap
-  // address.
+  // Report a wild access to the memory; this can either be an access to an
+  // internal structure or an access to the upper memory (over the 2GB limit).
   // @param addr The address causing an error.
   // @param context The context at which the access occurred.
   // @param stack The stack capture at the point of error.
   // @param access_mode The kind of the access (read or write).
   // @param access_size The size of the access (in bytes).
-  void ReportUnknownError(const void* addr,
-                          const CONTEXT& context,
-                          const StackCapture& stack,
-                          AccessMode access_mode,
-                          size_t access_size);
+  void ReportWildAccess(const void* addr,
+                        const CONTEXT& context,
+                        const StackCapture& stack,
+                        AccessMode access_mode,
+                        size_t access_size);
 
   // @name Cast to/from HANDLE.
   // @{
