@@ -209,17 +209,19 @@ bool RunApp(const CommandLine& command_line,
   DWORD num_objects = arraysize(objects);
   switch (::WaitForMultipleObjects(num_objects, objects, FALSE, INFINITE)) {
     case WAIT_OBJECT_0 + 0: {
-      // The program has finished.
+      // The client process has finished.
       DWORD temp_exit_code;
       ::GetExitCodeProcess(process_handle, &temp_exit_code);
       *exit_code = temp_exit_code;
+      base::CloseProcessHandle(process_handle);
+      return true;
     }
-      // Fall through...
 
     case WAIT_OBJECT_0 + 1: {
-      // Someone stopped the logger or the application process has exited.
-      // Either way, release the process handle, we don't need it anymore.
+      // The logger has been shutdown. Kill the client process.
+      base::KillProcess(process_handle, 1, true);
       base::CloseProcessHandle(process_handle);
+      *exit_code = 1;
       return true;
     }
   }
