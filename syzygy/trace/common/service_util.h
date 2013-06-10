@@ -17,7 +17,9 @@
 #ifndef SYZYGY_TRACE_COMMON_SERVICE_UTIL_H_
 #define SYZYGY_TRACE_COMMON_SERVICE_UTIL_H_
 
+#include "base/command_line.h"
 #include "base/string_piece.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_handle.h"
 
 namespace trace {
@@ -34,10 +36,22 @@ bool AcquireMutex(const base::StringPiece16& mutex_name,
 // Helper function to initialize a named event. The event will automatically be
 // destroyed when the last handle to it disappears.
 // @param event_name The name of event to create.
-// @param hanel Will receive a handle to the named event.
+// @param handle Will receive a handle to the named event.
 // @returns true on success, false otherwise. Logs verbosely on failure.
 bool InitEvent(const base::StringPiece16& event_name,
                base::win::ScopedHandle* handle);
+
+// A helper to split a command line into two command lines. The split will
+// occur after the first non-switch parameter. The logger command line will
+// be populated by the switches and arguments up to and including the first
+// non-switch parameter. All remaining arguments and switches will be added
+// to the app command line. This function understands the "--" marker
+// which is used to allow switches to appear after the first non-switch
+// argument (otherwise CommandLine will sort the entire command line before
+// we get a chance to inspect it.).
+bool SplitCommandLine(const CommandLine* orig_command_line,
+                      CommandLine* logger_command_line,
+                      scoped_ptr<CommandLine>* app_command_line);
 
 // A helper class to manage a console handler for Control-C.
 class ScopedConsoleCtrlHandler {

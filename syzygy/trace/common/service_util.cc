@@ -14,6 +14,7 @@
 
 #include "syzygy/trace/common/service_util.h"
 
+#include "base/file_util.h"
 #include "sawbuck/common/com_utils.h"
 
 namespace trace {
@@ -95,6 +96,57 @@ bool ScopedConsoleCtrlHandler::Init(PHANDLER_ROUTINE handler) {
   }
 
   handler_ = handler;
+  return true;
+}
+
+bool SplitCommandLine(const CommandLine* orig_command_line,
+                      CommandLine* logger_command_line,
+                      scoped_ptr<CommandLine>* app_command_line) {
+  DCHECK(orig_command_line != NULL);
+  DCHECK(!orig_command_line->argv().empty());
+  DCHECK(logger_command_line != NULL);
+  DCHECK(app_command_line != NULL);
+
+  // Copy the initial parts of the command-line, up to and including the
+  // first non-switch argument (which should be the "action"), into a
+  // string vector for the logger command line.
+  CommandLine::StringVector logger_argv;
+  CommandLine::StringVector::const_iterator it =
+      orig_command_line->argv().begin();
+  logger_argv.push_back(*(it++));  // Always copy the program.
+  for (; it != orig_command_line->argv().end(); ++it) {
+    logger_argv.push_back(*it);
+    if ((*it)[0] != L'-') {
+      ++it;
+      break;
+    }
+  }
+
+  // Strip out the (optional) sentinel which marks the split between the
+  // two command-lines.
+  if (it != orig_command_line->argv().end() && *it == L"--")
+    ++it;
+
+  // Copy the rest of the command-line arguments into a string vector for the
+  // app command line.
+  CommandLine::StringVector app_argv;
+  for (; it != orig_command_line->argv().end(); ++it) {
+    app_argv.push_back(*it);
+  }
+
+  // Initialize logger command lines with the new arguments.
+  logger_command_line->InitFromArgv(logger_argv);
+
+  // Initialize application command lines with the new arguments.
+  if (!app_argv.empty()) {
+    // Avoid switches processing in application commandLine parsing.
+    // Otherwise, we break command like : logger.exe START -- <app> -d 1 -c 2.
+    // We should not re-order <app> parameters.
+    app_command_line->reset(new CommandLine(base::FilePath(app_argv[0])));
+    for (size_t arg = 1; arg < app_argv.size(); ++arg)
+      app_command_line->get()->AppendArgNative(app_argv[arg]);
+  }
+
   return true;
 }
 

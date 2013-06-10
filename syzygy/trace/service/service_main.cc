@@ -16,6 +16,8 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
+#include "base/environment.h"
+#include "base/file_util.h"
 #include "base/logging.h"
 #include "base/path_service.h"
 #include "base/process_util.h"
@@ -27,6 +29,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/threading/thread.h"
 #include "sawbuck/common/com_utils.h"
+#include "syzygy/trace/common/service_util.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
 #include "syzygy/trace/service/service.h"
@@ -66,7 +69,7 @@ BOOL WINAPI OnConsoleCtrl(DWORD ctrl_type) {
 const char* const kInstanceId = "instance-id";
 
 const char kUsage[] =
-    "Usage: call_trace_service ACTION [OPTIONS]\n"
+    "Usage: call_trace_service [OPTIONS] ACTION [-- command]\n"
     "\n"
     "Actions:\n"
     "  start              Start the call trace service. This causes an\n"
@@ -115,8 +118,44 @@ bool GetInstanceId(const CommandLine* cmd_line, std::wstring* id) {
   return true;
 }
 
-bool RunService(const CommandLine* cmd_line) {
+// A helper function which sets the Syzygy RPC instance id environment variable
+// then runs a given command line to completion.
+// TODO(etienneb): We should merge common code of logger and call_service.
+bool RunApp(const CommandLine& command_line,
+            const std::wstring& instance_id,
+            int* exit_code) {
+  DCHECK(exit_code != NULL);
+  scoped_ptr<base::Environment> env(base::Environment::Create());
+  CHECK(env != NULL);
+  env->SetVar(kSyzygyRpcInstanceIdEnvVar, WideToUTF8(instance_id));
+
+  LOG(INFO) << "Launching '" << command_line.GetProgram().value() << "'.";
+  VLOG(1) << "Command Line: " << command_line.GetCommandLineString();
+
+  // Launch a new process in the background.
+  base::ProcessHandle process_handle;
+  base::LaunchOptions options;
+  options.start_hidden = false;
+  if (!base::LaunchProcess(command_line, options, &process_handle)) {
+    LOG(ERROR)
+        << "Failed to launch '" << command_line.GetProgram().value() << "'.";
+    return false;
+  }
+
+  // Wait for and return the processes exit code.
+  // Note that this closes the process handle.
+  if (!base::WaitForExitCode(process_handle, exit_code)) {
+    LOG(ERROR) << "Failed to get exit code.";
+    return false;
+  }
+
+  return true;
+}
+
+bool RunService(const CommandLine* cmd_line,
+                const scoped_ptr<CommandLine>* app_cmd_line) {
   DCHECK(cmd_line != NULL);
+  DCHECK(app_cmd_line != NULL);
 
   base::Thread writer_thread("trace-file-writer");
   if (!writer_thread.StartWithOptions(
@@ -175,20 +214,33 @@ bool RunService(const CommandLine* cmd_line) {
     call_trace_service.set_num_incremental_buffers(num);
   }
 
-  // Setup the handler for exit signals.
-  if (!SetConsoleCtrlHandler(&OnConsoleCtrl, TRUE)) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to register shutdown handler: "
-               << com::LogWe(error) << ".";
-    return false;
+  if (app_cmd_line->get() != NULL) {
+    // Run the service in non-blocking mode.
+    call_trace_service.Start(true);
+
+    // We have a command to run, so launch that command and when it finishes
+    // stop the logger.
+    int exit_code = 0;
+    if (!RunApp(*app_cmd_line->get(), instance_id, &exit_code) ||
+        exit_code != 0) {
+      return false;
+    }
+  } else {
+    // Setup the handler for exit signals.
+    if (!SetConsoleCtrlHandler(&OnConsoleCtrl, TRUE)) {
+      DWORD error = ::GetLastError();
+      LOG(ERROR) << "Failed to register shutdown handler: "
+                 << com::LogWe(error) << ".";
+      return false;
+    }
+
+    // Run the service in blocking mode. This will not return until the service
+    // has been externally stopped.
+    call_trace_service.Start(false);
+
+    // We no longer need to look out for exit signals.
+    SetConsoleCtrlHandler(&OnConsoleCtrl, FALSE);
   }
-
-  // Run the service in blocking mode. This will not return until the service
-  // has been externally stopped.
-  call_trace_service.Start(false);
-
-  // We no longer need to look out for exit signals.
-  SetConsoleCtrlHandler(&OnConsoleCtrl, FALSE);
 
   // The call trace service will be stopped on destruction.
   return true;
@@ -301,6 +353,19 @@ extern "C" int main(int argc, char** argv) {
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   DCHECK(cmd_line != NULL);
 
+  CommandLine calltrace_command_line(CommandLine::NO_PROGRAM);
+  scoped_ptr<CommandLine> app_command_line;
+  if (!trace::common::SplitCommandLine(
+          cmd_line,
+          &calltrace_command_line,
+          &app_command_line)) {
+    LOG(ERROR) << "Failed to split command_line into logger and app parts.";
+    return false;
+  }
+
+  // Save the command-line in case we need to spawn.
+  cmd_line = &calltrace_command_line;
+
   if (cmd_line->HasSwitch("verbose")) {
     logging::SetMinLogLevel(kVlogLevelVerbose);
   }
@@ -315,7 +380,7 @@ extern "C" int main(int argc, char** argv) {
   }
 
   if (LowerCaseEqualsASCII(cmd_line->GetArgs()[0], "start")) {
-    return RunService(cmd_line) ? 0 : 1;
+    return RunService(cmd_line, &app_command_line) ? 0 : 1;
   }
 
   if (LowerCaseEqualsASCII(cmd_line->GetArgs()[0], "spawn")) {

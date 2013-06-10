@@ -120,66 +120,7 @@ bool SignalEvent(HANDLE event_handle, trace::common::Service* /* logger */) {
   return true;
 }
 
-// A helper to split a command line into two command lines. The split will
-// occur after the first non-switch parameter. The logger command line will
-// be populated by the switches and arguments up to and including the first
-// non-switch parameter. All remaining arguments and switches will be added
-// to the app command line. This function understands the "--" marker
-// which is used to allow switches to appear after the first non-switch
-// argument (otherwise CommandLine will sort the entire command line before
-// we get a chance to inspect it.).
-bool SplitCommandLine(const CommandLine* orig_command_line,
-                      CommandLine* logger_command_line,
-                      scoped_ptr<CommandLine>* app_command_line) {
-  DCHECK(orig_command_line != NULL);
-  DCHECK(!orig_command_line->argv().empty());
-  DCHECK(logger_command_line != NULL);
-  DCHECK(app_command_line != NULL);
-
-  // Copy the initial parts of the command-line, up to and including the
-  // first non-switch argument (which should be the "action"), into a
-  // string vector for the logger command line.
-  CommandLine::StringVector logger_argv;
-  CommandLine::StringVector::const_iterator it =
-      orig_command_line->argv().begin();
-  logger_argv.push_back(*(it++));  // Always copy the program.
-  for (; it != orig_command_line->argv().end(); ++it) {
-    logger_argv.push_back(*it);
-    if ((*it)[0] != L'-') {
-      ++it;
-      break;
-    }
-  }
-
-  // Strip out the (optional) sentinel which marks the split between the
-  // two command-lines.
-  if (it != orig_command_line->argv().end() && *it == L"--")
-    ++it;
-
-  // Copy the rest of the command-line arguments into a string vector for the
-  // app command line.
-  CommandLine::StringVector app_argv;
-  for (; it != orig_command_line->argv().end(); ++it) {
-    app_argv.push_back(*it);
-  }
-
-  // Initialize logger command lines with the new arguments.
-  logger_command_line->InitFromArgv(logger_argv);
-
-  // Initialize application command lines with the new arguments.
-  if (!app_argv.empty()) {
-    // Avoid switches processing in application commandLine parsing.
-    // Otherwise, we break command like : logger.exe START -- <app> -d 1 -c 2.
-    // We should not re-order <app> parameters.
-    app_command_line->reset(new CommandLine(base::FilePath(app_argv[0])));
-    for (size_t arg = 1; arg < app_argv.size(); ++arg)
-      app_command_line->get()->AppendArgNative(app_argv[arg]);
-  }
-
-  return true;
-}
-
-// A helper function which sets the syzygy RPC instance id environment variable
+// A helper function which sets the Syzygy RPC instance id environment variable
 // then runs a given command line to completion.
 bool RunApp(const CommandLine& command_line,
             const std::wstring& instance_id,
@@ -268,9 +209,10 @@ LoggerApp::~LoggerApp() {
 bool LoggerApp::ParseCommandLine(const CommandLine* command_line) {
   DCHECK(command_line != NULL);
 
-  if (!SplitCommandLine(command_line,
-                        &logger_command_line_,
-                        &app_command_line_)) {
+  if (!trace::common::SplitCommandLine(
+          command_line,
+          &logger_command_line_,
+          &app_command_line_)) {
     LOG(ERROR) << "Failed to split command_line into logger and app parts.";
     return false;
   }
