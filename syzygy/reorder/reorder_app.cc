@@ -326,15 +326,6 @@ bool ReorderApp::OptimizeBasicBlocks(const pe::PEFile::Signature& signature,
     return false;
   }
 
-  // Find the PDB file for the module.
-  base::FilePath pdb_path;
-  if (!pe::FindPdbForModule(instrumented_image_path_, &pdb_path) ||
-      pdb_path.empty()) {
-    LOG(ERROR) << "Failed to find PDB for instrumented image: "
-               << instrumented_image_path_.value();
-    return false;
-  }
-
   // Optimize the ordering at the basic-block level.
   BasicBlockOptimizer optimizer;
   if (!optimizer.Optimize(image_layout, *entry_counts, order)) {
