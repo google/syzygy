@@ -47,6 +47,12 @@
   __asm sahf  \
   __asm pop eax
 
+extern "C" uint32* _stdcall GetRawFrequencyData(
+    ::common::IndexedFrequencyData* data) {
+  DCHECK(data != NULL);
+  return agent::basic_block_entry::BasicBlockEntry::GetRawFrequencyData(data);
+}
+
 extern "C" void __declspec(naked) _basic_block_enter() {
   __asm {
     // This is expected to be called via instrumentation that looks like:
@@ -385,6 +391,14 @@ BasicBlockEntry::BasicBlockEntry() {
 BasicBlockEntry::~BasicBlockEntry() {
 }
 
+uint32* BasicBlockEntry::GetRawFrequencyData(IndexedFrequencyData* data) {
+  DCHECK(data != NULL);
+  ThreadState* state = ThreadState::Get(data->tls_index);
+  if (state == NULL)
+    state = Instance()->CreateThreadState(data);
+  return state->frequency_data();
+}
+
 void BasicBlockEntry::BasicBlockEntryHook(BasicBlockEntryFrame* entry_frame) {
   ScopedLastErrorKeeper scoped_last_error_keeper;
   DCHECK(entry_frame != NULL);
@@ -560,5 +574,5 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
   return state;
 }
 
-}  // namespace coverage
+}  // namespace basic_block_entry
 }  // namespace agent

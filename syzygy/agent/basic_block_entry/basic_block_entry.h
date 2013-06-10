@@ -39,6 +39,10 @@ extern "C" void _cdecl _basic_block_enter();
 // Instrumentation stub to handle the invocation of a DllMain-like entry point.
 extern "C" void _cdecl _indirect_penter_dllmain();
 
+// Instrumentation stub to handle a request for a pointer to frequency data.
+extern "C" uint32* _stdcall _get_raw_frequency_data(
+    ::common::IndexedFrequencyData* data);
+
 namespace agent {
 namespace basic_block_entry {
 
@@ -66,6 +70,9 @@ class BasicBlockEntry {
 
   // Retrieves the coverage singleton instance.
   static BasicBlockEntry* Instance();
+
+  // Returns a pointer to thread local frequency data. Used by the fast-path.
+  static uint32* WINAPI GetRawFrequencyData(IndexedFrequencyData* data);
 
   // Called from _basic_block_enter().
   static void WINAPI BasicBlockEntryHook(BasicBlockEntryFrame* entry_frame);
@@ -111,7 +118,7 @@ class BasicBlockEntry {
   ThreadStateManager thread_state_manager_;
 };
 
-}  // namespace coverage
+}  // namespace basic_block_entry
 }  // namespace agent
 
 #endif  // SYZYGY_AGENT_BASIC_BLOCK_ENTRY_BASIC_BLOCK_ENTRY_H_

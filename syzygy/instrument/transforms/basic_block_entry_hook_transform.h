@@ -70,6 +70,16 @@ class BasicBlockEntryHookTransform
     set_src_ranges_for_thunks_ = value;
   }
 
+  // Returns a flag denoting whether or not the instrumented application should
+  // call the fast-path hook.
+  bool inline_fast_path() { return set_inline_fast_path_; }
+
+  // Set a flag denoting whether or not the instrumented application should
+  // call the fast-path hook.
+  void set_inline_fast_path(bool value) {
+    set_inline_fast_path_ = value;
+  }
+
  protected:
   typedef std::map<BlockGraph::Offset, BlockGraph::Block*> ThunkBlockMap;
 
@@ -130,6 +140,14 @@ class BasicBlockEntryHookTransform
                          BlockGraph::Offset offset,
                          BlockGraph::Block** thunk);
 
+  // Create a fast path thunk in the instrumented application which updates the
+  // basic block count or calls the hook in the agent.
+  // @param block_graph The block graph in which to create the thunk.
+  // @param fast_path_block On success, contains the newly created thunk.
+  // @returns true on success; false otherwise.
+  bool CreateBasicBlockEntryThunk(BlockGraph* block_graph,
+                                  BlockGraph::Block** fast_path_block);
+
   // Adds the basic-block frequency data referenced by the coverage agent.
   AddIndexedFrequencyDataTransform add_frequency_data_;
 
@@ -138,6 +156,12 @@ class BasicBlockEntryHookTransform
 
   // The entry hook to which basic-block entry events are directed.
   BlockGraph::Reference bb_entry_hook_ref_;
+
+  // The entry hook to obtain raw frequency data pointer.
+  BlockGraph::Reference fd_entry_hook_ref_;
+
+  // The hook to call at each basic block entry.
+  BlockGraph::Block* fast_bb_entry_block_;
 
   // The section where the entry-point thunks were placed. This will only be
   // non-NULL after a successful application of the transform. This value is
@@ -150,6 +174,10 @@ class BasicBlockEntryHookTransform
   // If true, the thunks will have src ranges corresponding to the original
   // code; otherwise, the thunks will not have src ranges set.
   bool set_src_ranges_for_thunks_;
+
+  // If true, the instrumented application calls a fast injected hook before
+  // falling back to the hook in the agent.
+  bool set_inline_fast_path_;
 
   // The name of this transform.
   static const char kTransformName[];

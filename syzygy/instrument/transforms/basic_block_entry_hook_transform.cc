@@ -36,11 +36,13 @@ namespace {
 using block_graph::BasicBlock;
 using block_graph::BasicCodeBlock;
 using block_graph::BasicBlockAssembler;
+using block_graph::BasicBlockReference;
 using block_graph::BlockBuilder;
 using block_graph::BlockGraph;
 using block_graph::Displacement;
 using block_graph::Immediate;
 using block_graph::Operand;
+using block_graph::Successor;
 using common::kBasicBlockEntryAgentId;
 using pe::transforms::AddImportsTransform;
 
@@ -49,6 +51,7 @@ typedef BasicBlockEntryHookTransform::RelativeAddressRange RelativeAddressRange;
 
 const char kDefaultModuleName[] = "basic_block_entry_client.dll";
 const char kBasicBlockEnter[] = "_basic_block_enter";
+const char kGetRawFrequencyData[] = "GetRawFrequencyData";
 
 // Compares two relative address ranges to see if they overlap. Assumes they
 // are already sorted. This is used to validate basic-block ranges.
@@ -64,18 +67,23 @@ struct RelativeAddressRangesOverlapFunctor {
   }
 };
 
-// Sets up the basic-block entry hook import.
-bool SetupEntryHook(BlockGraph* block_graph,
-                    BlockGraph::Block* header_block,
-                    const std::string& module_name,
-                    BlockGraph::Reference* basic_block_enter) {
+// Sets up the basic-block entry and the frequency data hooks import.
+bool SetupEntryHooks(BlockGraph* block_graph,
+                     BlockGraph::Block* header_block,
+                     const std::string& module_name,
+                     BlockGraph::Reference* basic_block_enter,
+                     BlockGraph::Reference* get_raw_frequency_data) {
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
   DCHECK(basic_block_enter != NULL);
+  DCHECK(get_raw_frequency_data != NULL);
 
   // Setup the import module.
   ImportedModule module(module_name);
   size_t bb_index = module.AddSymbol(kBasicBlockEnter,
+                                     ImportedModule::kAlwaysImport);
+
+  size_t fd_index = module.AddSymbol(kGetRawFrequencyData,
                                      ImportedModule::kAlwaysImport);
 
   // Setup the add-imports transform.
@@ -84,7 +92,7 @@ bool SetupEntryHook(BlockGraph* block_graph,
 
   // Add the imports to the block-graph.
   if (!ApplyBlockGraphTransform(&add_imports, block_graph, header_block)) {
-    LOG(ERROR) << "Unable to add import entry for basic-block hook function.";
+    LOG(ERROR) << "Unable to add import entry hook functions.";
     return false;
   }
 
@@ -95,7 +103,25 @@ bool SetupEntryHook(BlockGraph* block_graph,
   }
   DCHECK(basic_block_enter->IsValid());
 
+  // Get a reference to the frequency-hook function.
+  if (!module.GetSymbolReference(fd_index, get_raw_frequency_data)) {
+    LOG(ERROR) << "Unable to get " << kGetRawFrequencyData << ".";
+    return false;
+  }
+  DCHECK(get_raw_frequency_data->IsValid());
+
   return true;
+}
+
+void AddSuccessorBetween(Successor::Condition condition,
+                         BasicCodeBlock* from,
+                         BasicCodeBlock* to) {
+  from->successors().push_back(
+      Successor(condition,
+                BasicBlockReference(BlockGraph::RELATIVE_REF,
+                                    BlockGraph::Reference::kMaximumSize,
+                                    to),
+                0));
 }
 
 }  // namespace
@@ -109,7 +135,8 @@ BasicBlockEntryHookTransform::BasicBlockEntryHookTransform()
                         common::kBasicBlockFrequencyDataVersion),
     thunk_section_(NULL),
     instrument_dll_name_(kDefaultModuleName),
-    set_src_ranges_for_thunks_(false) {
+    set_src_ranges_for_thunks_(false),
+    set_inline_fast_path_(false) {
 }
 
 bool BasicBlockEntryHookTransform::PreBlockGraphIteration(
@@ -118,11 +145,12 @@ bool BasicBlockEntryHookTransform::PreBlockGraphIteration(
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
-  // Setup basic block entry hook.
-  if (!SetupEntryHook(block_graph,
+  // Setup basic block entry and the frequency data hooks.
+  if (!SetupEntryHooks(block_graph,
                       header_block,
                       instrument_dll_name_,
-                      &bb_entry_hook_ref_)) {
+                      &bb_entry_hook_ref_,
+                      &fd_entry_hook_ref_)) {
     return false;
   }
 
@@ -138,6 +166,13 @@ bool BasicBlockEntryHookTransform::PreBlockGraphIteration(
                                                  pe::kCodeCharacteristics);
   DCHECK(thunk_section_ != NULL);
 
+  // Create basic block entry thunk, called when using the fast path.
+  if (set_inline_fast_path_) {
+    VLOG(1) << "Creating an inlined fast-path.";
+    if (!CreateBasicBlockEntryThunk(block_graph, &fast_bb_entry_block_))
+      return false;
+  }
+
   return true;
 }
 
@@ -145,6 +180,11 @@ bool BasicBlockEntryHookTransform::OnBlock(BlockGraph* block_graph,
                                            BlockGraph::Block* block) {
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
+  DCHECK(thunk_section_ != NULL);
+
+  // Skip blocks created by this transform.
+  if (block->section() == thunk_section_->id())
+    return true;
 
   if (block->type() != BlockGraph::CODE_BLOCK)
     return true;
@@ -170,6 +210,7 @@ bool BasicBlockEntryHookTransform::TransformBasicBlockSubGraph(
   DCHECK(block_graph != NULL);
   DCHECK(subgraph != NULL);
   DCHECK(bb_entry_hook_ref_.IsValid());
+  DCHECK(fd_entry_hook_ref_.IsValid());
   DCHECK(add_frequency_data_.frequency_data_block() != NULL);
 
   // Insert a call to the basic-block entry hook at the top of each code
@@ -200,9 +241,18 @@ bool BasicBlockEntryHookTransform::TransformBasicBlockSubGraph(
 
     // Assemble entry hook instrumentation into the instruction stream.
     BasicBlockAssembler bb_asm(bb->instructions().begin(), &bb->instructions());
-    bb_asm.push(basic_block_id);
-    bb_asm.push(module_data);
-    bb_asm.call(bb_entry_hook);
+
+    if (set_inline_fast_path_) {
+      // Inline fast-path: call to local hook.
+      DCHECK(fast_bb_entry_block_ != NULL);
+      bb_asm.push(basic_block_id);
+      bb_asm.call(Immediate(fast_bb_entry_block_, 0));
+    } else {
+      // Fallback path: call to agent hook.
+      bb_asm.push(basic_block_id);
+      bb_asm.push(module_data);
+      bb_asm.call(bb_entry_hook);
+    }
 
     bb_ranges_.push_back(source_range);
   }
@@ -435,6 +485,172 @@ bool BasicBlockEntryHookTransform::FindOrCreateThunk(
   DCHECK_EQ(1u, block_builder.new_blocks().size());
   *thunk = block_builder.new_blocks().front();
   (*thunk_block_map)[offset] = *thunk;
+
+  return true;
+}
+
+// This function injects into the instrumented application a fast hook to
+// improve data collection by avoiding repeated indirect calls from the
+// application to the agent, and by keeping a per-thread pointer to the
+// frequency data in a TLS slot accessible via the FS segment (fs:[0x700]
+// Reserved for user application).
+// See: http://en.wikipedia.org/wiki/Win32_Thread_Information_Block.
+//
+// The hook should be invoked like this:
+//  _asm {
+//    push block_id
+//    call fast_path_hook
+//  }
+//
+// This is the assembly code for the hook:
+//  _asm {
+//   bb1:
+//    push eax              ; Save flags and registers.
+//    lahf
+//    seto eax
+//    push eax
+//    push edx
+//    mov edx, [esp + 16]   ; Load block_id.
+//    mov eax, fs:[0x700]   ; Load Data Frequency Pointer.
+//    test eax, eax         ; Test pointer valid, otherwise load it.
+//    je bbs                ; Jump to slow path.
+//  bb2:
+//    add [eax + edx*4], 1  ; Increment Basic Block counter.
+//    jz bbo                ; Check if an overflow occurred.
+//  bb3:
+//    pop edx               ; Restore flags and registers.
+//    pop eax
+//    add al, 0x7F
+//    sahf
+//    pop eax
+//    ret 4
+//
+//  bbo:                    ; Overflow.
+//    sub [eax + edx*4], 1
+//    jmp bb3
+//
+//  bbs:                    ; Slow path, perform a call to the agent hook.
+//    push ecx
+//    push edx
+//    pushfd
+//
+//    push module_data
+//    call fd_entry_hook
+//    mov fs:[0x700], eax   ; Store the frequency_data_ pointer in TLS slot.
+//
+//    popfd
+//    pop edx
+//    pop ecx
+//    jmp bb2
+//  }
+bool BasicBlockEntryHookTransform::CreateBasicBlockEntryThunk(
+    BlockGraph* block_graph,
+    BlockGraph::Block** fast_path_block) {
+  DCHECK(block_graph != NULL);
+  DCHECK(fast_path_block != NULL);
+  DCHECK(thunk_section_ != NULL);
+
+  Operand bb_entry_hook(Displacement(bb_entry_hook_ref_.referenced(),
+                                     bb_entry_hook_ref_.offset()));
+
+  // Determine the name for this thunk.
+  std::string name = base::StringPrintf("bb_entry_%s", common::kThunkSuffix);
+
+  // Set up a basic block subgraph containing a single block description, with
+  // that block description containing the fast path.
+  block_graph::BasicBlockSubGraph subgraph;
+  block_graph::BasicBlockSubGraph::BlockDescription* desc =
+      subgraph.AddBlockDescription(
+          name, BlockGraph::CODE_BLOCK, thunk_section_->id(), 1, 0);
+
+  BasicCodeBlock* bb1 = subgraph.AddBasicCodeBlock("bb1");
+  desc->basic_block_order.push_back(bb1);
+  BasicBlockAssembler bb1_asm(bb1->instructions().begin(),
+                              &bb1->instructions());
+
+  BasicCodeBlock* bb2 = subgraph.AddBasicCodeBlock("bb2");
+  desc->basic_block_order.push_back(bb2);
+  BasicBlockAssembler bb2_asm(bb2->instructions().begin(),
+                              &bb2->instructions());
+
+  BasicCodeBlock* bb3 = subgraph.AddBasicCodeBlock("bb3");
+  desc->basic_block_order.push_back(bb3);
+  BasicBlockAssembler bb3_asm(bb3->instructions().begin(),
+                              &bb3->instructions());
+
+  BasicCodeBlock* bbo = subgraph.AddBasicCodeBlock("overflow");
+  desc->basic_block_order.push_back(bbo);
+  BasicBlockAssembler bbo_asm(bbo->instructions().begin(),
+                              &bbo->instructions());
+
+  BasicCodeBlock* bbs = subgraph.AddBasicCodeBlock("slowpath");
+  BasicBlockAssembler bbs_asm(bbs->instructions().begin(),
+                              &bbs->instructions());
+  desc->basic_block_order.push_back(bbs);
+
+  // Assemble instrumentation into the instruction stream.
+  Immediate module_data(add_frequency_data_.frequency_data_block(), 0);
+  Operand fd_entry_hook(Displacement(fd_entry_hook_ref_.referenced(),
+                                     fd_entry_hook_ref_.offset()));
+  Operand fd_slot(Displacement(0x700, core::kSize32Bit));
+
+  bb1_asm.push(core::eax);
+  bb1_asm.lahf();
+  bb1_asm.set(core::kOverflow, core::eax);
+  bb1_asm.push(core::eax);
+  bb1_asm.push(core::edx);
+  bb1_asm.mov(core::edx, Operand(core::esp, Displacement(16)));
+  bb1_asm.mov_fs(core::eax, Operand(Displacement(0x700)));
+  bb1_asm.test(core::eax, core::eax);
+
+  // Equivalent to: je slowpath.
+  AddSuccessorBetween(Successor::kConditionEqual, bb1, bbs);
+  AddSuccessorBetween(Successor::kConditionNotEqual, bb1, bb2);
+
+  bb2_asm.add(Operand(core::eax, core::edx, core::kTimes4),
+              Immediate(1, core::kSize8Bit));
+
+  // Equivalent to: jz overflow.
+  AddSuccessorBetween(Successor::kConditionEqual, bb2, bbo);
+  AddSuccessorBetween(Successor::kConditionNotEqual, bb2, bb3);
+
+  bb3_asm.pop(core::edx);
+  bb3_asm.pop(core::eax);
+  bb3_asm.add_b(core::eax, Immediate(0x7F, core::kSize8Bit));
+  bb3_asm.sahf();
+  bb3_asm.pop(core::eax);
+  bb3_asm.ret(4);
+
+  // Overflow block. Call each time a counter has an overflow.
+  // TODO(etienneb): Accumulate 32-bit overflow in a 64-bit external counter?
+  bbo_asm.sub(Operand(core::eax, core::edx, core::kTimes4),
+              Immediate(1, core::kSize8Bit));
+  AddSuccessorBetween(Successor::kConditionTrue, bbo, bb3);
+
+  // Slow path block. Should be called once by thread.
+  bbs_asm.push(core::ecx);
+  bbs_asm.push(core::edx);
+  bbs_asm.pushfd();
+
+  bbs_asm.push(module_data);
+  bbs_asm.call(fd_entry_hook);
+  bbs_asm.mov_fs(fd_slot, core::eax);
+
+  bbs_asm.popfd();
+  bbs_asm.pop(core::edx);
+  bbs_asm.pop(core::ecx);
+  AddSuccessorBetween(Successor::kConditionTrue, bbs, bb2);
+
+  // Condense the whole mess into a block.
+  BlockBuilder block_builder(block_graph);
+  if (!block_builder.Merge(&subgraph)) {
+    LOG(ERROR) << "Failed to build thunk block.";
+    return false;
+  }
+
+  // Exactly one new block should have been created.
+  DCHECK_EQ(1u, block_builder.new_blocks().size());
+  *fast_path_block = block_builder.new_blocks().front();
 
   return true;
 }

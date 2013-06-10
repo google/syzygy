@@ -21,3 +21,4 @@ EXPORTS
   _basic_block_enter
   _indirect_penter_dllmain
   _indirect_penter_exemain
+  GetRawFrequencyData

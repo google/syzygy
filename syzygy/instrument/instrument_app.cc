@@ -71,6 +71,8 @@ static const char kUsageFormatStr[] =
     "                            making the thunks resolve to the original\n"
     "                            function's name. This is at the cost of the\n"
     "                            uniqueness of address->name resolution.\n"
+    "    --inline-fast-path      Inline a fast path into the instrumented\n"
+    "                            image.\n"
     "    --input-pdb=<path>      The PDB for the DLL to instrument. If not\n"
     "                            explicitly provided will be searched for.\n"
     "    --filter=<path>         The path of the filter to be used in\n"
@@ -244,6 +246,7 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
   remove_redundant_checks_ = cmd_line->HasSwitch("remove-redundant-checks");
   instrument_unsafe_references_ = !cmd_line->HasSwitch("no-unsafe-refs");
   module_entry_only_ = cmd_line->HasSwitch("module-entry-only");
+  inline_fast_path_ = cmd_line->HasSwitch("inline-fast-path");
 
   // Set per-mode overrides as necessary.
   switch (mode_) {
@@ -342,6 +345,7 @@ int InstrumentApp::Run() {
         new instrument::transforms::BasicBlockEntryHookTransform);
     basic_block_entry_transform->set_instrument_dll_name(agent_dll_);
     basic_block_entry_transform->set_src_ranges_for_thunks(debug_friendly_);
+    basic_block_entry_transform->set_inline_fast_path(inline_fast_path_);
     relinker.AppendTransform(basic_block_entry_transform.get());
 
     add_bb_addr_stream_mutator.reset(

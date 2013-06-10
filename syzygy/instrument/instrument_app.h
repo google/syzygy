@@ -63,7 +63,8 @@ class InstrumentApp : public common::AppImplBase {
         instrument_unsafe_references_(true),
         module_entry_only_(false),
         use_liveness_analysis_(false),
-        remove_redundant_checks_(false){
+        remove_redundant_checks_(false),
+        inline_fast_path_(false) {
   }
 
   // @name Implementation of the AppImplBase interface.
@@ -107,6 +108,7 @@ class InstrumentApp : public common::AppImplBase {
   bool module_entry_only_;
   bool use_liveness_analysis_;
   bool remove_redundant_checks_;
+  bool inline_fast_path_;
   // @}
 
   // @name Internal machinery, replaceable for testing purposes.

@@ -425,6 +425,16 @@ TEST_F(IntrumentAppIntegrationTest, BBEntryEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(BBEntryCheckTestDll());
 }
 
+TEST_F(IntrumentAppIntegrationTest, InlineFastPathBBEntryEndToEnd) {
+  cmd_line_.AppendSwitchPath("inline-fast-path", input_dll_path_);
+  ASSERT_NO_FATAL_FAILURE(StartService());
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("bbentry"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(BBEntryInvokeTestDll());
+  ASSERT_NO_FATAL_FAILURE(StopService());
+  ASSERT_NO_FATAL_FAILURE(BBEntryCheckTestDll());
+}
+
 TEST_F(IntrumentAppIntegrationTest, CallTraceEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("calltrace"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());

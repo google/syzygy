@@ -24,8 +24,8 @@
 #include "syzygy/trace/common/unittest_util.h"
 #include "syzygy/trace/parse/unittest_util.h"
 
-// There's a quick a dirty way to get the HMODULE of this module for MS linkers.
-// HINSTANCE == HMODULE == &__ImageBase;
+// There's a quick and dirty way to get the HMODULE of this module for MS
+// linkers. HINSTANCE == HMODULE == &__ImageBase;
 // See http://blogs.msdn.com/b/oldnewthing/archive/2004/10/25/247180.aspx
 EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 
@@ -39,8 +39,7 @@ using testing::_;
 using testing::StrictMockParseEventHandler;
 using trace::parser::Parser;
 
-// This is the static basic-block frequency array that our coverage
-// instrumentation will point to.
+// This is the name of the agent DLL.
 const wchar_t kBasicBlockEntryClientDll[] = L"basic_block_entry_client.dll";
 
 // The number of basic blocks we'll work with for these tests.
@@ -146,6 +145,10 @@ class BasicBlockEntryTest : public testing::Test {
     indirect_penter_exemain_stub_ =
         ::GetProcAddress(agent_module_, "_indirect_penter_exemain");
     ASSERT_TRUE(indirect_penter_exemain_stub_ != NULL);
+
+    get_raw_frequency_data_stub_ =
+        ::GetProcAddress(agent_module_, "GetRawFrequencyData");
+    ASSERT_TRUE(get_raw_frequency_data_stub_ != NULL);
   }
 
   void UnloadDll() {
@@ -155,6 +158,7 @@ class BasicBlockEntryTest : public testing::Test {
       basic_block_enter_stub_ = NULL;
       indirect_penter_dllmain_stub_ = NULL;
       indirect_penter_exemain_stub_ = NULL;
+      get_raw_frequency_data_stub_ = NULL;
     }
   }
 
@@ -164,6 +168,7 @@ class BasicBlockEntryTest : public testing::Test {
       HMODULE module, DWORD reason, LPVOID reserved);
   static int __cdecl ExeMain();
   static int __cdecl ExeMainThunk();
+  static int __cdecl GetFrequencyDataThunk();
 
    void SimulateModuleEvent(DWORD reason) {
      DllMainThunk(kThisModule, reason, NULL);
@@ -205,6 +210,9 @@ class BasicBlockEntryTest : public testing::Test {
 
   // The ExeMain entry stub.
   static FARPROC indirect_penter_exemain_stub_;
+
+  // The entry stub to get a pointer to data frequency.
+  static FARPROC get_raw_frequency_data_stub_;
 };
 
 BOOL WINAPI BasicBlockEntryTest::DllMain(
@@ -225,6 +233,14 @@ int __cdecl BasicBlockEntryTest::ExeMain() {
   return 0;
 }
 
+int __declspec(naked) __cdecl BasicBlockEntryTest::GetFrequencyDataThunk() {
+  __asm {
+    push offset module_data_
+    call get_raw_frequency_data_stub_
+    ret
+  }
+}
+
 BOOL __declspec(naked) __cdecl BasicBlockEntryTest::ExeMainThunk() {
   __asm {
     push offset module_data_
@@ -238,6 +254,7 @@ uint32 BasicBlockEntryTest::default_frequency_data_[] = {};
 FARPROC BasicBlockEntryTest::basic_block_enter_stub_ = NULL;
 FARPROC BasicBlockEntryTest::indirect_penter_dllmain_stub_ = NULL;
 FARPROC BasicBlockEntryTest::indirect_penter_exemain_stub_ = NULL;
+FARPROC BasicBlockEntryTest::get_raw_frequency_data_stub_ = NULL;
 
 }  // namespace
 
@@ -396,6 +413,27 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBasicBlockEvents) {
 
   // Replay the log.
   ASSERT_NO_FATAL_FAILURE(ReplayLogs(1));
+}
+
+TEST_F(BasicBlockEntryTest, InvokeGetFrequencyData) {
+  ASSERT_NO_FATAL_FAILURE(StartService());
+  ASSERT_NO_FATAL_FAILURE(LoadDll());
+
+  // Simulate the process attach event.
+  ExeMainThunk();
+
+  // Check creation of a buffer on first call.
+  EXPECT_TRUE(::TlsGetValue(module_data_.tls_index) == NULL);
+  uint32* data1 = reinterpret_cast<uint32*>(GetFrequencyDataThunk());
+  EXPECT_TRUE(data1 != NULL);
+  EXPECT_TRUE(::TlsGetValue(module_data_.tls_index) != NULL);
+
+  // Next calls should return the same buffer.
+  uint32* data2 = reinterpret_cast<uint32*>(GetFrequencyDataThunk());
+  EXPECT_EQ(data1, data2);
+
+  // Unload the DLL and stop the service.
+  ASSERT_NO_FATAL_FAILURE(UnloadDll());
 }
 
 // TODO(rogerm): Add a decent multi-thread test case.

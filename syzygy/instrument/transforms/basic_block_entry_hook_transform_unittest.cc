@@ -47,6 +47,7 @@ using common::kBasicBlockFrequencyDataVersion;
 class TestBasicBlockEntryHookTransform : public BasicBlockEntryHookTransform {
  public:
   using BasicBlockEntryHookTransform::bb_entry_hook_ref_;
+  using BasicBlockEntryHookTransform::fast_bb_entry_block_;
   using BasicBlockEntryHookTransform::thunk_section_;
 
   BlockGraph::Block* frequency_data_block() {
@@ -58,38 +59,31 @@ class TestBasicBlockEntryHookTransform : public BasicBlockEntryHookTransform {
   }
 };
 
-typedef testing::TestDllTransformTest BasicBlockEntryHookTransformTest;
+class BasicBlockEntryHookTransformTest : public testing::TestDllTransformTest {
+ public:
+  enum InstrumentationKind {
+    kAgentInstrumentation,
+    kFastPathInstrumentation
+  };
+
+  void CheckBasicBlockInstrumentation(InstrumentationKind kind);
+
+ protected:
+  TestBasicBlockEntryHookTransform tx_;
+};
 
 }  // namespace
 
-TEST_F(BasicBlockEntryHookTransformTest, Apply) {
-  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
+TEST_F(BasicBlockEntryHookTransformTest, SetInlinePathFlag) {
+  EXPECT_FALSE(tx_.inline_fast_path());
+  tx_.set_inline_fast_path(true);
+  EXPECT_TRUE(tx_.inline_fast_path());
+  tx_.set_inline_fast_path(false);
+  EXPECT_FALSE(tx_.inline_fast_path());
+}
 
-  // Apply the transform.
-  TestBasicBlockEntryHookTransform tx;
-  tx.set_src_ranges_for_thunks(true);
-  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(&tx, &block_graph_,
-                                                    dos_header_block_));
-  ASSERT_TRUE(tx.frequency_data_block() != NULL);
-  ASSERT_TRUE(tx.thunk_section_ != NULL);
-  ASSERT_TRUE(tx.bb_entry_hook_ref_.IsValid());
-  ASSERT_LT(0u, tx.bb_ranges().size());
-
-  // Validate the basic-block frequency data structure.
-  block_graph::ConstTypedBlock<IndexedFrequencyData> frequency_data;
-  ASSERT_TRUE(frequency_data.Init(0, tx.frequency_data_block()));
-  EXPECT_EQ(kBasicBlockEntryAgentId, frequency_data->agent_id);
-  EXPECT_EQ(kBasicBlockFrequencyDataVersion, frequency_data->version);
-  EXPECT_EQ(tx.bb_ranges().size(), frequency_data->num_entries);
-  EXPECT_EQ(sizeof(uint32), frequency_data->frequency_size);
-  EXPECT_TRUE(frequency_data.HasReferenceAt(
-      frequency_data.OffsetOf(frequency_data->frequency_data)));
-  EXPECT_EQ(sizeof(IndexedFrequencyData), tx.frequency_data_block()->size());
-  EXPECT_EQ(sizeof(IndexedFrequencyData),
-            tx.frequency_data_block()->data_size());
-  EXPECT_EQ(frequency_data->num_entries * frequency_data->frequency_size,
-            tx.frequency_data_buffer_block()->size());
-
+void BasicBlockEntryHookTransformTest::CheckBasicBlockInstrumentation(
+    InstrumentationKind kind) {
   // Let's examine each eligible block to verify that its BB's have been
   // instrumented.
   size_t num_decomposed_blocks = 0;
@@ -104,7 +98,7 @@ TEST_F(BasicBlockEntryHookTransformTest, Apply) {
       continue;
 
     // We'll skip thunks, they're a mixed bag of things.
-    if (block.section() == tx.thunk_section_->id())
+    if (block.section() == tx_.thunk_section_->id())
       continue;
 
     // Blocks which are not bb-decomposable should be thunked. While there may
@@ -115,7 +109,7 @@ TEST_F(BasicBlockEntryHookTransformTest, Apply) {
           block.referrers().begin();
       for (; ref_iter != block.referrers().end(); ++ref_iter) {
         if (ref_iter->first != &block) {
-          ASSERT_EQ(tx.thunk_section_->id(), ref_iter->first->section());
+          ASSERT_EQ(tx_.thunk_section_->id(), ref_iter->first->section());
           ++num_external_thunks;
         }
       }
@@ -148,34 +142,98 @@ TEST_F(BasicBlockEntryHookTransformTest, Apply) {
       if (bb == NULL || bb->is_padding())
         continue;
       ++num_basic_blocks;
-      ASSERT_LE(3U, bb->instructions().size());
-      BasicBlock::Instructions::const_iterator inst_iter =
-          bb->instructions().begin();
 
-      // Instruction 1 should push the basic block id.
-      const Instruction& inst1 = *inst_iter;
-      EXPECT_EQ(I_PUSH, inst1.representation().opcode);
+      if (kind == kAgentInstrumentation) {
+        ASSERT_LE(3U, bb->instructions().size());
+        BasicBlock::Instructions::const_iterator inst_iter =
+            bb->instructions().begin();
 
-      // Instruction 2 should push the frequency data block pointer.
-      const Instruction& inst2 = *(++inst_iter);
-      EXPECT_EQ(I_PUSH, inst2.representation().opcode);
-      ASSERT_EQ(1U, inst2.references().size());
-      EXPECT_EQ(tx.frequency_data_block(),
-                inst2.references().begin()->second.block());
+        // Instruction 1 should push the basic block id.
+        const Instruction& inst1 = *inst_iter;
+        EXPECT_EQ(I_PUSH, inst1.representation().opcode);
 
-      // Instruction 3 should be a call to the bb entry hook.
-      const Instruction& inst3 = *(++inst_iter);
-      EXPECT_EQ(I_CALL, inst3.representation().opcode);
-      ASSERT_EQ(1U, inst3.references().size());
-      EXPECT_EQ(tx.bb_entry_hook_ref_.referenced(),
-                inst3.references().begin()->second.block());
+        // Instruction 2 should push the frequency data block pointer.
+        const Instruction& inst2 = *(++inst_iter);
+        EXPECT_EQ(I_PUSH, inst2.representation().opcode);
+        ASSERT_EQ(1U, inst2.references().size());
+        EXPECT_EQ(tx_.frequency_data_block(),
+                  inst2.references().begin()->second.block());
+
+        // Instruction 3 should be a call to the bb entry hook.
+        const Instruction& inst3 = *(++inst_iter);
+        EXPECT_EQ(I_CALL, inst3.representation().opcode);
+        ASSERT_EQ(1U, inst3.references().size());
+        EXPECT_EQ(tx_.bb_entry_hook_ref_.referenced(),
+                  inst3.references().begin()->second.block());
+      } else {
+        DCHECK(kind == kFastPathInstrumentation);
+        ASSERT_LE(2U, bb->instructions().size());
+        BasicBlock::Instructions::const_iterator inst_iter =
+            bb->instructions().begin();
+
+        // Instruction 1 should push the basic block id.
+        const Instruction& inst1 = *inst_iter;
+        EXPECT_EQ(I_PUSH, inst1.representation().opcode);
+
+        // Instruction 2 should be a call to the fast bb entry hook.
+        const Instruction& inst2 = *(++inst_iter);
+        EXPECT_EQ(I_CALL, inst2.representation().opcode);
+        ASSERT_EQ(1U, inst2.references().size());
+        EXPECT_EQ(tx_.fast_bb_entry_block_,
+                  inst2.references().begin()->second.block());
+      }
     }
     EXPECT_NE(0U, num_basic_blocks);
     total_basic_blocks += num_basic_blocks;
   }
 
   EXPECT_NE(0U, num_decomposed_blocks);
-  EXPECT_EQ(total_basic_blocks, tx.bb_ranges().size());
+  EXPECT_EQ(total_basic_blocks, tx_.bb_ranges().size());
+}
+
+TEST_F(BasicBlockEntryHookTransformTest, ApplyAgentInstrumentation) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
+
+  // Apply the transform.
+  tx_.set_src_ranges_for_thunks(true);
+  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(&tx_, &block_graph_,
+                                                    dos_header_block_));
+  ASSERT_TRUE(tx_.frequency_data_block() != NULL);
+  ASSERT_TRUE(tx_.thunk_section_ != NULL);
+  ASSERT_TRUE(tx_.bb_entry_hook_ref_.IsValid());
+  ASSERT_LT(0u, tx_.bb_ranges().size());
+
+  // Validate the basic-block frequency data structure.
+  block_graph::ConstTypedBlock<IndexedFrequencyData> frequency_data;
+  ASSERT_TRUE(frequency_data.Init(0, tx_.frequency_data_block()));
+  EXPECT_EQ(kBasicBlockEntryAgentId, frequency_data->agent_id);
+  EXPECT_EQ(kBasicBlockFrequencyDataVersion, frequency_data->version);
+  EXPECT_EQ(tx_.bb_ranges().size(), frequency_data->num_entries);
+  EXPECT_EQ(sizeof(uint32), frequency_data->frequency_size);
+  EXPECT_TRUE(frequency_data.HasReferenceAt(
+      frequency_data.OffsetOf(frequency_data->frequency_data)));
+  EXPECT_EQ(sizeof(IndexedFrequencyData), tx_.frequency_data_block()->size());
+  EXPECT_EQ(sizeof(IndexedFrequencyData),
+            tx_.frequency_data_block()->data_size());
+  EXPECT_EQ(frequency_data->num_entries * frequency_data->frequency_size,
+            tx_.frequency_data_buffer_block()->size());
+
+  // Validate that all basic block have been instrumented.
+  CheckBasicBlockInstrumentation(kAgentInstrumentation);
+}
+
+TEST_F(BasicBlockEntryHookTransformTest, ApplyFastPathInstrumentation) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
+
+  // Apply the transform.
+  tx_.set_inline_fast_path(true);
+
+  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(&tx_, &block_graph_,
+                                                    dos_header_block_));
+  ASSERT_TRUE(tx_.fast_bb_entry_block_ != NULL);
+
+  // Validate that all basic block have been instrumented.
+  CheckBasicBlockInstrumentation(kFastPathInstrumentation);
 }
 
 }  // namespace transforms
