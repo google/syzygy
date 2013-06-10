@@ -30,9 +30,12 @@
         '<(src)/syzygy/agent/coverage/coverage.gyp:coverage_client',
         '<(src)/syzygy/agent/profiler/profiler.gyp:profile_client',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/grinder/grinder.gyp:grinder_lib',
         '<(src)/syzygy/instrument/instrument.gyp:instrument_lib',
         '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:test_dll',
+        '<(src)/syzygy/trace/common/common.gyp:trace_unittest_utils',
+        '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
         '<(src)/testing/gtest.gyp:gtest',
       ],
       'msvs_settings': {

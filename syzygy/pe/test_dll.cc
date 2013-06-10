@@ -573,6 +573,43 @@ static type AsanWriteUseAfterFree() {
   return result;
 }
 
+
+// Functions below are used to test basic block counting in the end to end
+// unittest. We assume the compiler won't simplify any calls.
+
+// Avoiding global optimization.
+#pragma optimize("g", off)
+
+extern "C" unsigned int BBEntryCallOnce() {
+  return 42;
+}
+
+extern "C" unsigned int BBEntryFunction1() {
+  return 10;
+}
+
+extern "C" unsigned int BBEntryFunction2() {
+  return BBEntryFunction1() + BBEntryFunction1();
+}
+
+extern "C" unsigned int BBEntryFunction3() {
+  return BBEntryFunction2() + BBEntryFunction2();
+}
+
+extern "C" unsigned int BBEntryCallTree() {
+  return BBEntryFunction3() + 2;
+}
+
+extern "C" unsigned int BBEntryFunctionRecursive(int n) {
+  if (n == 1)
+    return 1;
+  return BBEntryFunctionRecursive(n - 1) + 1;
+}
+
+extern "C" unsigned int BBEntryCallRecursive() {
+  return BBEntryFunctionRecursive(42);
+}
+
 unsigned int CALLBACK EndToEndTest(EndToEndTestId test) {
   // This function is used to dispatch test id to its corresponding function.
   switch (test) {
@@ -636,6 +673,13 @@ unsigned int CALLBACK EndToEndTest(EndToEndTestId test) {
       return AsanWriteUseAfterFree<int32>();
     case kAsanWrite64UseAfterFreeTestId:
       return AsanWriteUseAfterFree<double>();
+
+    case kBBEntryCallOnce:
+      return BBEntryCallOnce();
+    case kBBEntryCallTree:
+      return BBEntryCallTree();
+    case kBBEntryCallRecursive:
+      return BBEntryCallRecursive();
   }
   return 0;
 }

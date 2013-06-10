@@ -47,7 +47,7 @@ struct ModuleIdentityComparator {
 typedef int EntryCountType;
 typedef int BasicBlockOffset;
 // An entry count map maps from the relative virtual address of the first
-// instruction or data byte in the basic bloc, to its entry count.
+// instruction or data byte in the basic block, to its entry count.
 typedef std::map<BasicBlockOffset, EntryCountType> EntryCountMap;
 
 typedef std::map<ModuleInformation,
@@ -73,7 +73,7 @@ typedef std::map<ModuleInformation,
                  PdbInfo,
                  ModuleIdentityComparator> PdbInfoMap;
 
-// A helper function to populate a ModuleInforamtion structure from a PE
+// A helper function to populate a ModuleInformation structure from a PE
 // signature.
 void InitModuleInfo(const pe::PEFile::Signature& signature,
                     ModuleInformation* module_info);

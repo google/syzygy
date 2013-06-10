@@ -29,7 +29,7 @@ namespace pdb {
 // Forward declarations.
 class PdbStream;
 
-// Read a symbol record table from a Pbd stream.
+// Read a symbol record table from a Pdb stream.
 // @param stream The stream containing the table.
 // @param symbol_table_size The size of the symbol record table.
 // @param symbol_vector The vector where the symbol records should be stored.

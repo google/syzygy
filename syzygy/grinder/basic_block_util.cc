@@ -73,7 +73,7 @@ bool FindEntryCountMap(const pe::PEFile::Signature& signature,
     }
   }
 
-  // Handle the case where the is no consistent module found.
+  // Handle the case where there is no consistent module found.
   if (tmp_entry_count_map == NULL) {
     LOG(ERROR) << "Did not find module in the entry count map.";
     return false;

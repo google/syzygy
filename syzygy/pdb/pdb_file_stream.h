@@ -71,11 +71,11 @@ class PdbFileStream : public PdbStream {
   virtual ~PdbFileStream();
 
   // Read @p count bytes from @p offset byte offset from page @p page_num and
-  // store them in dest.
+  // store them in @p dest.
   bool ReadFromPage(void* dest, uint32 page_num, size_t offset, size_t count);
 
  private:
-  // The handle to the open PDB file. This is reference counted so ownership so
+  // The handle to the open PDB file. This is reference counted so ownership of
   // that streams can outlive the PdbReader that created them.
   scoped_refptr<RefCountedFILE> file_;
 

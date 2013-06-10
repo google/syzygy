@@ -47,6 +47,10 @@ enum EndToEndTestId {
   kAsanWrite16UseAfterFreeTestId,
   kAsanWrite32UseAfterFreeTestId,
   kAsanWrite64UseAfterFreeTestId,
+
+  kBBEntryCallOnce,
+  kBBEntryCallTree,
+  kBBEntryCallRecursive,
 };
 
 #endif  // SYZYGY_PE_TEST_DLL_H_

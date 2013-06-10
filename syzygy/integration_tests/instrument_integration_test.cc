@@ -17,18 +17,28 @@
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_rtl_impl.h"
 #include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/common/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/grinder/basic_block_entry_count_grinder.h"
+#include "syzygy/grinder/basic_block_util.h"
+#include "syzygy/grinder/grinder.h"
 #include "syzygy/instrument/instrument_app.h"
+#include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/test_dll.h"
 #include "syzygy/pe/unittest_util.h"
-#include "syzygy/trace/protocol/call_trace_defs.h"
+#include "syzygy/trace/common/unittest_util.h"
 
 namespace integration_tests {
 
 namespace {
 
+using grinder::basic_block_util::EntryCountMap;
+using grinder::basic_block_util::ModuleEntryCountMap;
 using instrument::InstrumentApp;
+using trace::parser::Parser;
+typedef block_graph::BlockGraph::Block Block;
+typedef block_graph::BlockGraph::BlockMap BlockMap;
 typedef common::Application<InstrumentApp> TestApp;
 
 enum AccessMode {
@@ -76,7 +86,8 @@ class IntrumentAppIntegrationTest : public testing::PELibUnitTest {
 
   IntrumentAppIntegrationTest()
       : cmd_line_(base::FilePath(L"instrument.exe")),
-        test_impl_(test_app_.implementation()) {
+        test_impl_(test_app_.implementation()),
+        image_layout_(&block_graph_) {
   }
 
   void SetUp() {
@@ -99,6 +110,12 @@ class IntrumentAppIntegrationTest : public testing::PELibUnitTest {
     input_dll_path_ = testing::GetRelativePath(abs_input_dll_path_);
     output_dll_path_ = temp_dir_.Append(input_dll_path_.BaseName());
 
+    // Initialize call_service output directory for produced trace files.
+    traces_dir_ = temp_dir_.Append(L"traces");
+
+    // Initialize call_service session id.
+    service_.SetEnvironment();
+
     ASSERT_NO_FATAL_FAILURE(ConfigureTestApp(&test_app_));
   }
 
@@ -119,6 +136,14 @@ class IntrumentAppIntegrationTest : public testing::PELibUnitTest {
     test_app->set_err(err());
   }
 
+  void StartService() {
+    service_.Start(traces_dir_);
+  }
+
+  void StopService() {
+    service_.Stop();
+  }
+
   // Runs an instrumentation pass in the given mode and validates that the
   // resulting output DLL loads.
   void EndToEndTest(const std::string& mode) {
@@ -130,17 +155,6 @@ class IntrumentAppIntegrationTest : public testing::PELibUnitTest {
     common::Application<instrument::InstrumentApp> app;
     ASSERT_NO_FATAL_FAILURE(ConfigureTestApp(&app));
     ASSERT_EQ(0, app.Run());
-
-    // Make it non-mandatory that there be a trace service running.
-    scoped_ptr<base::Environment> env(base::Environment::Create());
-    std::string env_var;
-    env->SetVar(
-        ::kSyzygyRpcSessionMandatoryEnvVar,
-        base::StringPrintf("%s,0;%s,0;%s,0;%s,0",
-                           InstrumentApp::kAgentDllBasicBlockEntry,
-                           InstrumentApp::kAgentDllCoverage,
-                           InstrumentApp::kAgentDllProfile,
-                           InstrumentApp::kAgentDllRpc));
 
     // Validate that the test dll loads post instrumentation.
     ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path_, &module_));
@@ -234,6 +248,110 @@ class IntrumentAppIntegrationTest : public testing::PELibUnitTest {
         ASAN_WRITE_ACCESS, 8);
   }
 
+  void BBEntryInvokeTestDll() {
+    EXPECT_EQ(42, InvokeTestDllFunction(kBBEntryCallOnce));
+    EXPECT_EQ(42, InvokeTestDllFunction(kBBEntryCallTree));
+    EXPECT_EQ(42, InvokeTestDllFunction(kBBEntryCallRecursive));
+  }
+
+  void QueueTraces(Parser* parser) {
+    DCHECK(parser != NULL);
+
+    // Queue up the trace file(s) we engendered.
+    file_util::FileEnumerator enumerator(traces_dir_,
+                                         false,
+                                         file_util::FileEnumerator::FILES);
+    while (true) {
+      base::FilePath trace_file = enumerator.Next();
+      if (trace_file.empty())
+        break;
+      ASSERT_TRUE(parser->OpenTraceFile(trace_file));
+    }
+  }
+
+  const Block* FindBlockWithName(std::string name) {
+    const BlockMap& blocks = block_graph_.blocks();
+    BlockMap::const_iterator block_iter = blocks.begin();
+    for (; block_iter != blocks.end(); ++block_iter) {
+      const Block& block = block_iter->second;
+      if (block.type() != block_graph::BlockGraph::CODE_BLOCK)
+        continue;
+      if (block.name().compare(name) == 0)
+        return &block;
+    }
+    return NULL;
+  }
+
+  int GetBlockFrequency(const EntryCountMap& entry_count, const Block* block) {
+    DCHECK(block != NULL);
+    EntryCountMap::const_iterator entry =
+        entry_count.find(block->addr().value());
+    if (entry == entry_count.end())
+      return 0;
+    return entry->second;
+  }
+
+  void ExpectFunctionFrequency(const EntryCountMap& entry_count,
+                               const char* function_name,
+                               int expected_frequency) {
+    DCHECK(function_name != NULL);
+    const Block* block = FindBlockWithName(function_name);
+    ASSERT_TRUE(block != NULL);
+    int exec_frequency = GetBlockFrequency(entry_count, block);
+    EXPECT_EQ(expected_frequency, exec_frequency);
+  }
+
+  void DecomposeImage() {
+    // Decompose the DLL.
+    pe_image_.Init(input_dll_path_);
+    pe::Decomposer decomposer(pe_image_);
+    ASSERT_TRUE(decomposer.Decompose(&image_layout_));
+  }
+
+  void BBEntryCheckTestDll() {
+    Parser parser;
+    grinder::BasicBlockEntryCountGrinder grinder;
+
+    // Initialize trace parser.
+    ASSERT_TRUE(parser.Init(&grinder));
+    grinder.SetParser(&parser);
+
+    // Add generated traces to the parser.
+    QueueTraces(&parser);
+
+    // Parse all traces.
+    ASSERT_TRUE(parser.Consume());
+    ASSERT_FALSE(parser.error_occurred());
+    ASSERT_TRUE(grinder.Grind());
+
+    // Retrieve basic block count information.
+    const grinder::basic_block_util::ModuleEntryCountMap& module_entry_count =
+        grinder.entry_count_map();
+    ASSERT_EQ(1u, module_entry_count.size());
+
+    ModuleEntryCountMap::const_iterator entry_iter = module_entry_count.begin();
+    const EntryCountMap& entry_count = entry_iter->second;
+
+    // Decompose the output image.
+    ASSERT_NO_FATAL_FAILURE(DecomposeImage());
+
+    // Validate function entry counts.
+    ASSERT_NO_FATAL_FAILURE(
+        ExpectFunctionFrequency(entry_count, "BBEntryCallOnce", 1));
+    ASSERT_NO_FATAL_FAILURE(
+        ExpectFunctionFrequency(entry_count, "BBEntryCallTree", 1));
+    ASSERT_NO_FATAL_FAILURE(
+        ExpectFunctionFrequency(entry_count, "BBEntryFunction1", 4));
+    ASSERT_NO_FATAL_FAILURE(
+        ExpectFunctionFrequency(entry_count, "BBEntryFunction2", 2));
+    ASSERT_NO_FATAL_FAILURE(
+        ExpectFunctionFrequency(entry_count, "BBEntryFunction3", 1));
+    ASSERT_NO_FATAL_FAILURE(
+        ExpectFunctionFrequency(entry_count, "BBEntryCallRecursive", 1));
+    ASSERT_NO_FATAL_FAILURE(
+        ExpectFunctionFrequency(entry_count, "BBEntryFunctionRecursive", 42));
+  }
+
   // Stashes the current log-level before each test instance and restores it
   // after each test completes.
   testing::ScopedLogLevelSaver log_level_saver;
@@ -248,14 +366,24 @@ class IntrumentAppIntegrationTest : public testing::PELibUnitTest {
   base::FilePath stderr_path_;
   // @}
 
-  // @name Command-line and parameters.
+  // @name Command-line, parameters and outputs.
   // @{
   CommandLine cmd_line_;
   base::FilePath input_dll_path_;
   base::FilePath output_dll_path_;
+  base::FilePath traces_dir_;
   // @}
 
+  // The test_dll module.
   testing::ScopedHMODULE module_;
+
+  // Our call trace service process instance.
+  testing::CallTraceService service_;
+
+  // Decomposed image.
+  pe::PEFile pe_image_;
+  pe::ImageLayout image_layout_;
+  block_graph::BlockGraph block_graph_;
 };
 
 }  // namespace
@@ -289,8 +417,12 @@ TEST_F(IntrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
 }
 
 TEST_F(IntrumentAppIntegrationTest, BBEntryEndToEnd) {
+  ASSERT_NO_FATAL_FAILURE(StartService());
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("bbentry"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(BBEntryInvokeTestDll());
+  ASSERT_NO_FATAL_FAILURE(StopService());
+  ASSERT_NO_FATAL_FAILURE(BBEntryCheckTestDll());
 }
 
 TEST_F(IntrumentAppIntegrationTest, CallTraceEndToEnd) {
@@ -308,4 +440,4 @@ TEST_F(IntrumentAppIntegrationTest, ProfileEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
 }
 
-}  // integration_tests instrument
+}  // namespace integration_tests
