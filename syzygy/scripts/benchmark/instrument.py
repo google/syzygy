@@ -42,8 +42,8 @@ _MODE_INFO = {
   'fuzzing': None,
   'profile' : 'profile_client.dll'
 }
-_MODES = _MODE_INFO.keys()
-_DEFAULT_MODE = 'calltrace'
+MODES = _MODE_INFO.keys()
+DEFAULT_MODE = 'calltrace'
 
 
 # Give us silent access to internal member functions of the runner.
@@ -114,8 +114,9 @@ def _ParseArguments():
                     help=('The directory where the optimized chrome '
                           'installation will be created. From this location, '
                           'one can subsequently run benchmarks.'))
-  parser.add_option('--mode', choices=_MODES, default=_DEFAULT_MODE,
-                    help='The instrumentation mode (default: %default).')
+  parser.add_option('--mode', choices=MODES, default=DEFAULT_MODE,
+                    help='The instrumentation mode. Allowed values are '
+                         ' %s (default: %%default).' % ', '.join(MODES))
   (opts, args) = parser.parse_args()
 
   if len(args):

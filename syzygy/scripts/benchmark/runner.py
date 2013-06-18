@@ -18,6 +18,7 @@ extract metrics from ETW traces."""
 import chrome_control
 import ctypes
 import ctypes.wintypes
+import dromaeo
 import etw
 import etw_db
 import event_counter
@@ -33,6 +34,7 @@ import tempfile
 import time
 import win32api
 import _winreg
+
 
 # The following packages are typically not installed in the depot_tools
 # Python installation, from which pylint is run.
@@ -69,7 +71,8 @@ _IE_PROFILE_PATH = r'Google\Chrome Frame\User Data\iexplore'
 
 
 # Expose the chrome startup types from chrome_control.
-ALL_STARTUP_TYPES = chrome_control.ALL_STARTUP_TYPES
+_DROMAEO = 'dromaeo'
+ALL_STARTUP_TYPES = chrome_control.ALL_STARTUP_TYPES + (_DROMAEO,)
 DEFAULT_STARTUP_TYPE = chrome_control.DEFAULT_STARTUP_TYPE
 
 
@@ -106,6 +109,20 @@ def _DeletePrefetch():
 def _GetExePath(name):
   """Gets the path to a named executable."""
   path = pkg_resources.resource_filename(__name__, os.path.join('exe', name))
+
+  if not os.path.exists(path):
+    # If we're not running packaged from an egg, we assume we're being
+    # run from a virtual env in a build directory.
+    build_dir = os.path.abspath(os.path.join(os.path.dirname(sys.executable),
+                                             '../..'))
+    path = os.path.join(build_dir, name)
+  return path
+
+
+def _GetContentPath(name):
+  """Gets the path to a named data file."""
+  path = pkg_resources.resource_filename(__name__,
+                                         os.path.join('content', name))
 
   if not os.path.exists(path):
     # If we're not running packaged from an egg, we assume we're being
@@ -167,12 +184,18 @@ class ChromeRunner(object):
     self._call_trace_service = None
     self._call_trace_log_path = None
     self._call_trace_log_file = None
+    self._http_server = None
 
     self._profile_dir_is_temp = self._profile_dir == None
     if self._profile_dir_is_temp:
       self._profile_dir = tempfile.mkdtemp(prefix='chrome-profile')
       _LOGGER.info('Using temporary profile directory "%s".',
                    self._profile_dir)
+
+  def __del__(self):
+    # Make sure to wind down the http server thread.
+    if self._http_server:
+      self._http_server.shutdown()
 
   def ConfigureStartup(self, startup_type, url_list):
     """Configures the URL(s) that will be opened on startup.
@@ -181,17 +204,22 @@ class ChromeRunner(object):
       startup_type: The type of session startup to use. This must be one of
           the following values in ALL_STARTUP_TYPES.values()
       url_list: The list/tuple of URLs to open on startup, or None. This may
-          only be empty (or None) if the startup_type is STARUP_NEW_TAB_PAGE;
-          otherwise, at least one URL must be in the list.
+          only be empty (or None) if the startup_type is STARUP_NEW_TAB_PAGE, or
+          _DROMAEO, otherwise, at least one URL must be in the list.
     """
     _LOGGER.info('Configuring startup: %s, %s', startup_type, url_list)
     if not startup_type in ALL_STARTUP_TYPES:
       raise ValueError("Unrecognized startup type: %s" % startup_type)
     if url_list is not None and not isinstance(url_list, (list, tuple)):
       raise ValueError("Invalid URL list: %s" % url_list)
-    if not url_list and startup_type != chrome_control.STARTUP_NEW_TAB_PAGE:
+    empty_urls_allowed = [chrome_control.STARTUP_NEW_TAB_PAGE, _DROMAEO]
+    if not url_list and startup_type not in empty_urls_allowed:
       raise ValueError(
           "A non empty url list is required for startup type" % startup_type)
+    if startup_type == _DROMAEO:
+      if url_list:
+        raise ValueError('A url list is not supported for dromaeo mode.')
+      url_list = self._InitDromaeoMode()
 
     # Save the configuration.
     self._startup_type = startup_type
@@ -351,12 +379,23 @@ class ChromeRunner(object):
     if self._initialize_profile or not os.path.isdir(self._profile_dir):
       self._InitializeProfileDir()
 
+  def _InitDromaeoMode(self):
+    """Initialize the runner for Dromaeo mode."""
+    zip_file = _GetContentPath('dromaeo.zip')
+    self._http_server = dromaeo.DromaeoServer(zip_file, address='', port=0)
+    self._http_server.Run()
+    return [self._http_server.GetUrl()]
+
   def _TearDown(self):
     """Invoked once after all iterations are complete, or on failure."""
     if self._profile_dir_is_temp:
       _LOGGER.info('Deleting temporary profile directory "%s".',
                    self._profile_dir)
       shutil.rmtree(self._profile_dir, ignore_errors=True)
+
+    if self._http_server:
+      self._http_server.shutdown()
+      self._http_server = None
 
   def _RunOneIteration(self, i):
     """Perform the iteration."""
@@ -372,7 +411,16 @@ class ChromeRunner(object):
 
   def _DoIteration(self, it):
     """Invoked each iteration after Chrome has successfully launched."""
-    pass
+    if self._http_server:
+      # We're in dromaeo mode. Let's give it several minutes to finish.
+      # Note that the wait is aborted as soon as we are notified that it
+      # has finished.
+      self._http_server.WaitForResults(10 * 60)
+      print self._http_server.FormatResultsAsText()
+      self._http_server.Reset()
+    else:
+      # Give our Chrome instance some time to settle.
+      time.sleep(20)
 
   def _PreIteration(self, it):
     """Invoked prior to each iteration."""
@@ -422,8 +470,16 @@ class ChromeRunner(object):
     self._WaitTillChromeRunning(process)
     time.sleep(5)  # Give it some time to populate some session data.
     chrome_control.ShutDown(self._profile_dir)
+
+    # Hack the statup type if we're in dromaeo mode.
+    startup_type = self._startup_type
+    if startup_type == _DROMAEO:
+      startup_type = chrome_control.STARTUP_MULTIPAGE
+
+    # Configure chrome startup.
+    _LOGGER.info("%s, %s", startup_type, self._startup_urls)
     chrome_control.ConfigureStartup(self._profile_dir,
-                                    self._startup_type,
+                                    startup_type,
                                     self._startup_urls)
 
   def _WaitTillChromeRunning(self, process):
@@ -668,15 +724,19 @@ class BenchmarkRunner(ChromeRunner):
     return subprocess.Popen(cmd_line)
 
   def _DoIteration(self, it):
-    # Give our Chrome instance 10 seconds to settle.
-    time.sleep(10)
-
+    super(BenchmarkRunner, self)._DoIteration(it)
     # This must be called in _DoIteration, as the Chrome process needs to
     # still be running. By the time _PostIteration is called, it's dead.
     self._ProcessIbmPerfResults()
     self._CaptureWorkingSetMetrics()
 
   def _PreIteration(self, i):
+    if not self._cold_start:
+      # For warm start, we pre-warm chrome before every iteration.
+      process = self._LaunchChrome()
+      self._WaitTillChromeRunning(process)
+      chrome_control.ShutDown(self._profile_dir)
+
     self._StartLogging()
     if (self._prefetch == Prefetch.DISABLED or
         (i == 0 and self._prefetch == Prefetch.RESET_PRIOR_TO_FIRST_LAUNCH)):
@@ -704,6 +764,12 @@ class BenchmarkRunner(ChromeRunner):
     self.StopLoggingEtw()
 
   def _ProcessLogs(self):
+    if self._http_server:
+      results = self._http_server.GetResults() or []
+
+      for (key, value) in results.iteritems():
+        self._AddResult('Chrome', key, float(value))
+
     parser = etw.consumer.TraceEventSource()
     parser.OpenFileSession(self._kernel_file)
     parser.OpenFileSession(self._chrome_file)

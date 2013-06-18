@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import distutils.command.install_data
+import itertools
 import os.path
 
 # This is typically not present in the depot_tools Python installation.
@@ -47,38 +48,61 @@ class InstallData(distutils.command.install_data.install_data):
 
 # Source directories for the packages we bundle.
 _PACKAGE_DIRS = {
-  '': '.',
+    '': '.',
 }
 
 
 # The modules we distribute.
 _MODULES = [
-  'benchmark',
-  'chrome_control',
-  'chrome_utils',
-  'event_counter',
-  'ibmperf',
-  'instrument',
-  'optimize',
-  'profile',
-  'runner',
-  'trace_event'
+    'benchmark',
+    'chrome_control',
+    'chrome_utils',
+    'dromaeo',
+    'event_counter',
+    'ibmperf',
+    'instrument',
+    'optimize',
+    'profile',
+    'runner',
+    'trace_event',
+    'zip_http_server',
 ]
 
 
 _EXECUTABLES = [
-  'call_trace_client.dll',
-  'call_trace_control.exe',
-  'call_trace_service.exe',
-  'instrument.exe',
-  'profile_client.dll',
-  'relink.exe',
-  'reorder.exe',
-  'run_in_snapshot.exe',
-  'run_in_snapshot_x64.exe',
-  'run_in_snapshot_xp.exe',
-  'wsdump.exe',
+    'asan_rtl.dll',
+    'basic_block_entry_client.dll',
+    'call_trace_client.dll',
+    'call_trace_control.exe',
+    'call_trace_service.exe',
+    'coverage_client.dll',
+    'grinder.exe',
+    'instrument.exe',
+    'logger.exe',
+    'profile_client.dll',
+    'relink.exe',
+    'reorder.exe',
+    'run_in_snapshot.exe',
+    'run_in_snapshot_x64.exe',
+    'run_in_snapshot_xp.exe',
+    'wsdump.exe',
 ]
+
+
+_CONTENT = [
+    'dromaeo.zip',
+]
+
+
+_DATA_FILES = [
+    ('exe', _EXECUTABLES),
+    ('content', _CONTENT),
+]
+
+
+_EAGER_RESOURCES = [
+    '%s/%s' % pair for pair in itertools.chain.from_iterable(
+        itertools.product([dname], fname) for (dname, fname) in _DATA_FILES)]
 
 
 def main():
@@ -91,8 +115,8 @@ def main():
       url='http://no.where/',
       package_dir=_PACKAGE_DIRS,
       py_modules=_MODULES,
-      data_files=[('exe', _EXECUTABLES)],
-      eager_resources = ['exe/' + exe for exe in _EXECUTABLES],
+      data_files=_DATA_FILES,
+      eager_resources=_EAGER_RESOURCES,
       install_requires=[
         'ETW',
         'ETW-Db',
