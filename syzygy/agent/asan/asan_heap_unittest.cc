@@ -233,6 +233,25 @@ TEST_F(HeapTest, UnpoisonsQuarantine) {
   }
 }
 
+TEST_F(HeapTest, Realloc) {
+  const size_t kAllocSize = 100;
+  // As a special case, a realloc with a NULL input should succeed.
+  LPVOID mem = proxy_.ReAlloc(0, NULL, kAllocSize);
+  ASSERT_TRUE(mem != NULL);
+  mem = proxy_.ReAlloc(0, mem, kAllocSize + 5);
+  ASSERT_TRUE(mem != NULL);
+
+  // We always fail reallocs with the in-place flag.
+  ASSERT_EQ(NULL,
+            proxy_.ReAlloc(HEAP_REALLOC_IN_PLACE_ONLY, NULL, kAllocSize));
+  ASSERT_EQ(NULL,
+            proxy_.ReAlloc(HEAP_REALLOC_IN_PLACE_ONLY, mem, kAllocSize - 10));
+  ASSERT_EQ(NULL,
+            proxy_.ReAlloc(HEAP_REALLOC_IN_PLACE_ONLY, mem, kAllocSize + 10));
+
+  ASSERT_TRUE(proxy_.Free(0, mem));
+}
+
 TEST_F(HeapTest, AllocFree) {
   const size_t kAllocSize = 100;
   LPVOID mem = proxy_.Alloc(0, kAllocSize);

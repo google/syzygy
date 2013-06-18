@@ -238,12 +238,20 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
 void* HeapProxy::ReAlloc(DWORD flags, void* mem, size_t bytes) {
   DCHECK(heap_ != NULL);
 
-  void *new_mem = Alloc(flags, bytes);
-  if (new_mem != NULL && mem != NULL)
-    memcpy(new_mem, mem, std::min(bytes, Size(0, mem)));
+  // Always fail in-place reallocation requests.
+  if ((flags & HEAP_REALLOC_IN_PLACE_ONLY) != 0)
+    return NULL;
 
-  if (mem)
+  void *new_mem = Alloc(flags, bytes);
+  // Bail early if the new allocation didn't succeed
+  // and avoid freeing the existing allocation.
+  if (new_mem == NULL)
+    return NULL;
+
+  if (mem != NULL) {
+    memcpy(new_mem, mem, std::min(bytes, Size(0, mem)));
     Free(flags, mem);
+  }
 
   return new_mem;
 }
