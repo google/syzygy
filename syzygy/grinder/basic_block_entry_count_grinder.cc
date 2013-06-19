@@ -142,8 +142,14 @@ void BasicBlockEntryCountGrinder::UpdateBasicBlockEntryCount(
           instrumented_module.block_ranges[bb_id].start().value();
 
       EntryCountType& value = bb_entries[offs];
-      value += std::min(
-          amount, std::numeric_limits<EntryCountType>::max() - value);
+      if (amount < 0) {
+        // We need to detect uint32 to int32 overflow because JSON file output
+        // int32 and basic block agent use an uint32 counter.
+        value = std::numeric_limits<EntryCountType>::max();
+      } else {
+        value += std::min(
+            amount, std::numeric_limits<EntryCountType>::max() - value);
+      }
     }
   }
 }

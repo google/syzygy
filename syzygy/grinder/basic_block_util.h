@@ -44,8 +44,8 @@ struct ModuleIdentityComparator {
 };
 
 // Type definitions for the basic block entry count data.
-typedef int EntryCountType;
-typedef int BasicBlockOffset;
+typedef int32 EntryCountType;
+typedef int32 BasicBlockOffset;
 // An entry count map maps from the relative virtual address of the first
 // instruction or data byte in the basic block, to its entry count.
 typedef std::map<BasicBlockOffset, EntryCountType> EntryCountMap;
