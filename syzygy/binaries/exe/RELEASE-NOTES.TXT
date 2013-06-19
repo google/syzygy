@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.2.23.0
+
+[-----] Build infrastructure changes to properly source index this build.
+[r1578] SyzyASAN - Bugfix to Realloc.
+
 Version 0.2.22.0
 
 [r1567] Various bugfixes to make Syzygy able to decompose Adobe Flash binaries.
