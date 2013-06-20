@@ -68,7 +68,7 @@ class BasicBlockEntry {
   // be given to the ExeMainEntryHook by _indirect_penter_exemain.
   struct ExeMainEntryFrame;
 
-  // Retrieves the coverage singleton instance.
+  // Retrieves the basic block entry singleton instance.
   static BasicBlockEntry* Instance();
 
   // Returns a pointer to thread local frequency data. Used by the fast-path.

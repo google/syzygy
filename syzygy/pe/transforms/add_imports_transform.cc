@@ -720,7 +720,7 @@ bool AddImportsTransform::ImportedModule::GetSymbolReference(
   size_t symbol_iat_index = symbols_[index].iat_index;
   if (import_descriptor_.block() == NULL ||
       symbol_iat_index == kInvalidIatIndex) {
-    LOG(ERROR) << "Called GetAbsReference on an unitialized ImportedSymbol.";
+    LOG(ERROR) << "Called GetAbsReference on an uninitialized ImportedSymbol.";
     return false;
   }
 

@@ -217,7 +217,7 @@ using agent::common::ScopedLastErrorKeeper;
 using trace::client::TraceFileSegment;
 
 // All tracing runs through this object.
-base::LazyInstance<BasicBlockEntry> static_coverage_instance =
+base::LazyInstance<BasicBlockEntry> static_bbentry_instance =
     LAZY_INSTANCE_INITIALIZER;
 
 // Get the address of the module containing @p addr. We do this by querying
@@ -317,7 +317,7 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
   // allocation of IndexedFrequencyData::frequency_data.
   uint32* frequency_data_;
 
-  // The basic-block entry agent this tread state belongs to.
+  // The basic-block entry agent this thread state belongs to.
   BasicBlockEntry* agent_;
 
   // The thread's current trace-file segment, if any.
@@ -376,7 +376,7 @@ inline void BasicBlockEntry::ThreadState::Increment(uint32 basic_block_id) {
 }
 
 BasicBlockEntry* BasicBlockEntry::Instance() {
-  return static_coverage_instance.Pointer();
+  return static_bbentry_instance.Pointer();
 }
 
 BasicBlockEntry::BasicBlockEntry() {
@@ -540,7 +540,7 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
   // frequency struct plus a single RecordPrefix header.
   size_t segment_size = sizeof(RecordPrefix) + record_size;
 
-  // Allocate the actual segment for the coverage data.
+  // Allocate the actual segment for the basic block entry data.
   CHECK(session_.AllocateBuffer(segment_size, state->segment()));
 
   // Ensure it's big enough to allocate the basic-block frequency data

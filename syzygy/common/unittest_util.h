@@ -101,7 +101,7 @@ class ApplicationTestBase : public testing::Test {
 
   // @name Replacements for the standard IO streams.
   //
-  // By default they are routed to the NUL device (on first unitialized use).
+  // By default they are routed to the NUL device (on first uninitialized use).
   //
   // @{
   mutable file_util::ScopedFILE in_;

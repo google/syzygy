@@ -25,7 +25,7 @@ namespace block_graph {
 namespace {
 
 // Returns true if any of the instructions in the range [@p start, @p end) is
-// a, for the purposes of basic-block decompsition, control flow instruction.
+// a, for the purposes of basic-block decomposition, control flow instruction.
 bool HasControlFlow(BasicBlock::Instructions::const_iterator start,
                     BasicBlock::Instructions::const_iterator end) {
   for (; start != end; ++start) {

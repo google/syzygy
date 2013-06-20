@@ -124,7 +124,7 @@ struct AddImportsTransform::ImportedModule {
   // The various modes in which the transform will treat a symbol.
   enum TransformMode {
     // Will search for the imported symbol and explicitly add an import entry
-    // for it if it doesn't alreayd exist.
+    // for it if it doesn't already exist.
     kAlwaysImport,
     // Will search for the imported symbol, ignoring it if not found.
     kFindOnly,
