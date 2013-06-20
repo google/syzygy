@@ -86,11 +86,11 @@ void SetAsanCallBack() {
   set_callback(AsanSafeCallback);
 };
 
-class IntrumentAppIntegrationTest : public testing::PELibUnitTest {
+class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
  public:
   typedef testing::PELibUnitTest Super;
 
-  IntrumentAppIntegrationTest()
+  InstrumentAppIntegrationTest()
       : cmd_line_(base::FilePath(L"instrument.exe")),
         test_impl_(test_app_.implementation()),
         image_layout_(&block_graph_) {
@@ -465,27 +465,27 @@ class IntrumentAppIntegrationTest : public testing::PELibUnitTest {
 
 }  // namespace
 
-TEST_F(IntrumentAppIntegrationTest, AsanEndToEnd) {
+TEST_F(InstrumentAppIntegrationTest, AsanEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
-TEST_F(IntrumentAppIntegrationTest, LivenessAsanEndToEnd) {
+TEST_F(InstrumentAppIntegrationTest, LivenessAsanEndToEnd) {
   cmd_line_.AppendSwitchPath("use-liveness-analysis", input_dll_path_);
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
-TEST_F(IntrumentAppIntegrationTest, RedundantMemoryAsanEndToEnd) {
+TEST_F(InstrumentAppIntegrationTest, RedundantMemoryAsanEndToEnd) {
   cmd_line_.AppendSwitchPath("remove-redundant-checks", input_dll_path_);
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
-TEST_F(IntrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
+TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
   cmd_line_.AppendSwitchPath("use-liveness-analysis", input_dll_path_);
   cmd_line_.AppendSwitchPath("remove-redundant-checks", input_dll_path_);
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
@@ -493,7 +493,7 @@ TEST_F(IntrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
-TEST_F(IntrumentAppIntegrationTest, BBEntryEndToEnd) {
+TEST_F(InstrumentAppIntegrationTest, BBEntryEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(StartService());
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("bbentry"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
@@ -502,7 +502,7 @@ TEST_F(IntrumentAppIntegrationTest, BBEntryEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(BBEntryCheckTestDll());
 }
 
-TEST_F(IntrumentAppIntegrationTest, InlineFastPathBBEntryEndToEnd) {
+TEST_F(InstrumentAppIntegrationTest, InlineFastPathBBEntryEndToEnd) {
   cmd_line_.AppendSwitchPath("inline-fast-path", input_dll_path_);
   ASSERT_NO_FATAL_FAILURE(StartService());
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("bbentry"));
@@ -512,12 +512,12 @@ TEST_F(IntrumentAppIntegrationTest, InlineFastPathBBEntryEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(BBEntryCheckTestDll());
 }
 
-TEST_F(IntrumentAppIntegrationTest, CallTraceEndToEnd) {
+TEST_F(InstrumentAppIntegrationTest, CallTraceEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("calltrace"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
 }
 
-TEST_F(IntrumentAppIntegrationTest, CoverageEndToEnd) {
+TEST_F(InstrumentAppIntegrationTest, CoverageEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(StartService());
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("coverage"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
@@ -526,7 +526,18 @@ TEST_F(IntrumentAppIntegrationTest, CoverageEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(CoverageCheckTestDll());
 }
 
-TEST_F(IntrumentAppIntegrationTest, ProfileEndToEnd) {
+TEST_F(InstrumentAppIntegrationTest, BBEntryCoverageEndToEnd) {
+  // Coverage grinder must be able to process traces produced by bbentry
+  // instrumentation.
+  ASSERT_NO_FATAL_FAILURE(StartService());
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("bbentry"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(CoverageInvokeTestDll());
+  ASSERT_NO_FATAL_FAILURE(StopService());
+  ASSERT_NO_FATAL_FAILURE(CoverageCheckTestDll());
+}
+
+TEST_F(InstrumentAppIntegrationTest, ProfileEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("profile"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
 }
