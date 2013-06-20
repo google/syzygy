@@ -219,6 +219,7 @@
       'includes': ['../build/masm.gypi'],
       'sources': [
         'test_dll.cc',
+        'test_dll_cov.cc',
         'test_dll.def',
         'test_dll.h',
         'test_dll.rc',

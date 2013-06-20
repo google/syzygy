@@ -60,6 +60,11 @@ __declspec(dllimport) extern int function1();
 extern int function2();
 extern int function3();
 
+// Import coverage functions.
+extern int coverage_func1();
+extern int coverage_func2();
+extern int coverage_func3();
+
 #pragma auto_inline(off)
 
 DWORD WINAPI TestExport(size_t buf_len, char* buf) {
@@ -680,6 +685,13 @@ unsigned int CALLBACK EndToEndTest(EndToEndTestId test) {
       return BBEntryCallTree();
     case kBBEntryCallRecursive:
       return BBEntryCallRecursive();
+
+    case kCoverage1:
+      return coverage_func1();
+    case kCoverage2:
+      return coverage_func2();
+    case kCoverage3:
+      return coverage_func3();
   }
   return 0;
 }

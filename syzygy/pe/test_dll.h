@@ -51,6 +51,10 @@ enum EndToEndTestId {
   kBBEntryCallOnce,
   kBBEntryCallTree,
   kBBEntryCallRecursive,
+
+  kCoverage1,
+  kCoverage2,
+  kCoverage3,
 };
 
 #endif  // SYZYGY_PE_TEST_DLL_H_

@@ -57,6 +57,8 @@ class CoverageGrinder : public GrinderInterface {
 
   OutputFormat output_format() const { return output_format_; }
 
+  const CoverageData& coverage_data() { return coverage_data_; }
+
  protected:
   // Stores per-module coverage data, populated during calls to
   // OnIndexedFrequency.

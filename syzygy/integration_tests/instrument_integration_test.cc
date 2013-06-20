@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "base/environment.h"
+#include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_rtl_impl.h"
@@ -22,6 +23,7 @@
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/grinder/basic_block_entry_count_grinder.h"
 #include "syzygy/grinder/basic_block_util.h"
+#include "syzygy/grinder/coverage_grinder.h"
 #include "syzygy/grinder/grinder.h"
 #include "syzygy/instrument/instrument_app.h"
 #include "syzygy/pe/decomposer.h"
@@ -40,6 +42,10 @@ using trace::parser::Parser;
 typedef block_graph::BlockGraph::Block Block;
 typedef block_graph::BlockGraph::BlockMap BlockMap;
 typedef common::Application<InstrumentApp> TestApp;
+typedef grinder::CoverageData::LineExecutionCountMap LineExecutionCountMap;
+typedef grinder::CoverageData::SourceFileCoverageData SourceFileCoverageData;
+typedef grinder::CoverageData::SourceFileCoverageDataMap
+    SourceFileCoverageDataMap;
 
 enum AccessMode {
   ASAN_READ_ACCESS = agent::asan::HeapProxy::ASAN_READ_ACCESS,
@@ -352,6 +358,77 @@ class IntrumentAppIntegrationTest : public testing::PELibUnitTest {
         ExpectFunctionFrequency(entry_count, "BBEntryFunctionRecursive", 42));
   }
 
+  bool GetLineInfoExecution(const SourceFileCoverageData* data, size_t line) {
+    DCHECK(data != NULL);
+
+    const LineExecutionCountMap& lines = data->line_execution_count_map;
+    LineExecutionCountMap::const_iterator look = lines.find(line);
+    if (look != lines.end()) {
+      if (look->second != 0)
+        return true;
+    }
+
+    return false;
+  }
+
+  void CoverageInvokeTestDll() {
+    EXPECT_EQ(182, InvokeTestDllFunction(kCoverage1));
+    EXPECT_EQ(182, InvokeTestDllFunction(kCoverage2));
+    EXPECT_EQ(2, InvokeTestDllFunction(kCoverage3));
+  }
+
+  void CoverageCheckTestDll() {
+    Parser parser;
+    grinder::CoverageGrinder grinder;
+
+    // Initialize trace parser.
+    ASSERT_TRUE(parser.Init(&grinder));
+    grinder.SetParser(&parser);
+
+    // Add generated traces to the parser.
+    QueueTraces(&parser);
+
+    // Parse all traces.
+    ASSERT_TRUE(parser.Consume());
+    ASSERT_FALSE(parser.error_occurred());
+    ASSERT_TRUE(grinder.Grind());
+
+    // Retrieve coverage information.
+    const grinder::CoverageData& coverage_data = grinder.coverage_data();
+    const SourceFileCoverageDataMap& files =
+        coverage_data.source_file_coverage_data_map();
+
+    // Find file "test_dll_cov.cc".
+    SourceFileCoverageDataMap::const_iterator file = files.begin();
+    const SourceFileCoverageData* data = NULL;
+    for (; file != files.end(); ++file) {
+      if (EndsWith(file->first, "test_dll_cov.cc", true)) {
+        data = &file->second;
+        break;
+      }
+    }
+    ASSERT_TRUE(data != NULL);
+
+    // Validate function entry counts.
+    // Function: coverage_func1.
+    EXPECT_TRUE(GetLineInfoExecution(data, 26));
+    EXPECT_TRUE(GetLineInfoExecution(data, 27));
+
+    // Function: coverage_func2.
+    EXPECT_TRUE(GetLineInfoExecution(data, 33));
+    EXPECT_TRUE(GetLineInfoExecution(data, 34));
+    EXPECT_TRUE(GetLineInfoExecution(data, 35));
+    EXPECT_FALSE(GetLineInfoExecution(data, 38));
+    EXPECT_TRUE(GetLineInfoExecution(data, 40));
+
+    // Function: coverage_func3.
+    EXPECT_TRUE(GetLineInfoExecution(data, 45));
+    EXPECT_FALSE(GetLineInfoExecution(data, 47));
+    EXPECT_FALSE(GetLineInfoExecution(data, 48));
+    EXPECT_TRUE(GetLineInfoExecution(data, 50));
+    EXPECT_TRUE(GetLineInfoExecution(data, 52));
+  }
+
   // Stashes the current log-level before each test instance and restores it
   // after each test completes.
   testing::ScopedLogLevelSaver log_level_saver;
@@ -441,8 +518,12 @@ TEST_F(IntrumentAppIntegrationTest, CallTraceEndToEnd) {
 }
 
 TEST_F(IntrumentAppIntegrationTest, CoverageEndToEnd) {
+  ASSERT_NO_FATAL_FAILURE(StartService());
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("coverage"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(CoverageInvokeTestDll());
+  ASSERT_NO_FATAL_FAILURE(StopService());
+  ASSERT_NO_FATAL_FAILURE(CoverageCheckTestDll());
 }
 
 TEST_F(IntrumentAppIntegrationTest, ProfileEndToEnd) {
