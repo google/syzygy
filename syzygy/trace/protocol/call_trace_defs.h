@@ -86,6 +86,7 @@ enum TraceEventType {
   TRACE_THREAD_NAME,
   TRACE_INDEXED_FREQUENCY,
   TRACE_DYNAMIC_SYMBOL,
+  TRACE_SAMPLE_DATA,
 };
 
 // All traces are emitted at this trace level.
@@ -385,5 +386,38 @@ struct TraceDynamicSymbol {
   char symbol_name[1];
 };
 COMPILE_ASSERT_IS_POD(TraceDynamicSymbol);
+
+struct TraceSampleData {
+  enum { kTypeId = TRACE_SAMPLE_DATA };
+
+  // This is used to tie the data to a particular module, which has already
+  // been reported via a TraceModuleData struct.
+  ModuleAddr module_base_addr;
+  size_t module_size;
+  uint32 module_checksum;
+  uint32 module_time_date_stamp;
+
+  // The size of each bucket in the sample data. This will be a power of 2 in
+  // size.
+  uint32 bucket_size;
+
+  // The beginning of the sampling buckets as an address in the image.
+  // This will be aligned with the bucket size.
+  ModuleAddr bucket_start;
+
+  // The number of buckets in the sample data.
+  uint32 bucket_count;
+
+  // The time when the trace started and ended.
+  uint64 sampling_start_time;
+  uint64 sampling_end_time;
+
+  // The sampling rate, expressed in clock units.
+  uint64 sampling_rate;
+
+  // There are actually |bucket_count| buckets that follow.
+  uint32 buckets[1];
+};
+COMPILE_ASSERT_IS_POD(TraceSampleData);
 
 #endif  // SYZYGY_TRACE_PROTOCOL_CALL_TRACE_DEFS_H_

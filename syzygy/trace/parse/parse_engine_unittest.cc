@@ -26,12 +26,13 @@
 #include "gtest/gtest.h"
 #include "syzygy/trace/parse/parser.h"
 
+namespace {
+
+using testing::_;
 using trace::parser::Parser;
 using trace::parser::ParseEngine;
 using trace::parser::ParseEventHandler;
 using trace::parser::ModuleInformation;
-
-namespace {
 
 typedef std::multiset<FuncAddr> FunctionSet;
 typedef std::vector<TraceModuleData> ModuleSet;
@@ -190,6 +191,10 @@ class ParseEngineUnitTest
   MOCK_METHOD3(OnDynamicSymbol,
       void(DWORD process_id, uint32 symbol_id,
            const base::StringPiece& symbol_name));
+  MOCK_METHOD3(OnSampleData,
+               void(base::Time time,
+                    DWORD process_id,
+                    const TraceSampleData* data));
 
   static const DWORD kProcessId;
   static const DWORD kThreadId;
@@ -596,6 +601,37 @@ TEST_F(ParseEngineUnitTest, DynamicSymbol) {
       DispatchEventData(TRACE_DYNAMIC_SYMBOL,
                         data,
                         FIELD_OFFSET(TraceDynamicSymbol, symbol_name) - 1));
+  ASSERT_TRUE(error_occurred());
+}
+
+TEST_F(ParseEngineUnitTest, SampleData) {
+  const uint32 kBucketCount = 42;
+  char buffer[FIELD_OFFSET(TraceSampleData, buckets) +
+              kBucketCount * sizeof(uint32)] = {};
+  TraceSampleData* data = reinterpret_cast<TraceSampleData*>(buffer);
+
+  data->module_base_addr = reinterpret_cast<ModuleAddr>(0x01000000);
+  data->module_size = 32 * 1024 * 1024;
+  data->module_checksum = 0xDEADF00D;
+  data->module_time_date_stamp = 0x12345678;
+  data->bucket_size = 4;
+  data->bucket_start = reinterpret_cast<ModuleAddr>(0x01001000);
+  data->bucket_count = kBucketCount;
+  data->sampling_start_time = 0x0102030405060708;
+  data->sampling_end_time = 0x0203040506070809;
+  data->sampling_rate = 0x10000;
+
+  for (size_t i = 0; i < kBucketCount; ++i)
+    data->buckets[i] = i;
+
+  EXPECT_CALL(*this, OnSampleData(_, kProcessId, data));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_SAMPLE_DATA, data, sizeof(buffer)));
+  ASSERT_FALSE(error_occurred());
+
+  // Dispatch a malformed record and make sure the parser errors.
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_SAMPLE_DATA, data, sizeof(buffer) - 1));
   ASSERT_TRUE(error_occurred());
 }
 

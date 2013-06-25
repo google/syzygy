@@ -207,6 +207,14 @@ class ParseEngine {
   //     Does not explicitly set error occurred.
   bool DispatchDynamicSymbolEvent(EVENT_TRACE* event);
 
+  // Parses and dispatches sampling profiler data.
+  //
+  // @param event the event to dispatch.
+  //
+  // @return true if the event was successfully dispatched, false otherwise.
+  //     Does not explicitly set error occurred.
+  bool DispatchSampleDataEvent(EVENT_TRACE* event);
+
   // The name by which this parse engine is known.
   std::string name_;
 
@@ -230,7 +238,7 @@ class ParseEngine {
   DISALLOW_COPY_AND_ASSIGN(ParseEngine);
 };
 
-}  // namespace trace::parser
+}  // namespace parser
 }  // namespace trace
 
 #endif  // SYZYGY_TRACE_PARSE_PARSE_ENGINE_H_

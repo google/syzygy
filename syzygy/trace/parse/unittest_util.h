@@ -74,6 +74,10 @@ class MockParseEventHandler : public trace::parser::ParseEventHandler {
                void(DWORD process_id,
                     uint32 symbol_id,
                     const base::StringPiece& symbol_name));
+  MOCK_METHOD3(OnSampleData,
+               void(base::Time time,
+                    DWORD process_id,
+                    const TraceSampleData* data));
 };
 
 typedef testing::StrictMock<MockParseEventHandler> StrictMockParseEventHandler;

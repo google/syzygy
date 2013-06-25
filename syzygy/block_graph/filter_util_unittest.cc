@@ -27,7 +27,7 @@ typedef RelativeAddressFilter::Range Range;
 
 TEST(FilterUtilTest, IsFiltered) {
   const uint8 nop[] = { 0x90 };
-  const uint8 data[10] = { };
+  const uint8 data[10] = {};
 
   // Create some dummy blocks, etc. Initially they have no source ranges so
   // should all pass as instrumentable.

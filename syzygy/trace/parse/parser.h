@@ -205,6 +205,11 @@ class ParseEventHandler {
   virtual void OnDynamicSymbol(DWORD process_id,
                                uint32 symbol_id,
                                const base::StringPiece& symbol_name) = 0;
+
+  // Issued for sampling profiler data records.
+  virtual void OnSampleData(base::Time Time,
+                            DWORD process_id,
+                            const TraceSampleData* data) = 0;
 };
 
 // A default implementation of the ParseEventHandler interface. Provides
@@ -263,11 +268,13 @@ class ParseEventHandlerImpl : public ParseEventHandler {
   virtual void OnDynamicSymbol(DWORD process_id,
                                uint32 symbol_id,
                                const base::StringPiece& symbol_name) OVERRIDE;
-
+  virtual void OnSampleData(base::Time Time,
+                            DWORD process_id,
+                            const TraceSampleData* data) OVERRIDE;
   // @}
 };
 
-}  // namespace trace::parser
+}  // namespace parser
 }  // namespace trace
 
 #endif  // SYZYGY_TRACE_PARSE_PARSER_H_

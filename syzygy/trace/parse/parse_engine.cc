@@ -243,6 +243,10 @@ bool ParseEngine::DispatchEvent(EVENT_TRACE* event) {
       success = DispatchDynamicSymbolEvent(event);
       break;
 
+    case TRACE_SAMPLE_DATA:
+      success = DispatchSampleDataEvent(event);
+      break;
+
     default:
       LOG(ERROR) << "Unknown event type encountered.";
       break;
@@ -464,6 +468,36 @@ bool ParseEngine::DispatchDynamicSymbolEvent(EVENT_TRACE* event) {
   return true;
 }
 
+bool ParseEngine::DispatchSampleDataEvent(EVENT_TRACE* event) {
+  DCHECK(event != NULL);
+  DCHECK(event_handler_ != NULL);
+  DCHECK(error_occurred_ == false);
+
+  BinaryBufferReader reader(event->MofData, event->MofLength);
+  const TraceSampleData* data = NULL;
+  if (!reader.Read(&data)) {
+    LOG(ERROR) << "Short or empty TraceSampleData event.";
+    return false;
+  }
+  DCHECK(data != NULL);
+
+  // Calculate the expected size of the entire payload, headers included.
+  size_t expected_length = FIELD_OFFSET(TraceSampleData, buckets) +
+      sizeof(data->buckets[0]) * data->bucket_count;
+  if (event->MofLength < expected_length) {
+    LOG(ERROR) << "Payload smaller than size implied by TraceSampleData "
+               << "header.";
+    return false;
+  }
+
+  base::Time time(base::Time::FromFileTime(
+      reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
+  DWORD process_id = event->Header.ProcessId;
+  event_handler_->OnSampleData(time, process_id, data);
+
+  return true;
+}
+
 namespace {
 
 ModuleInformation ModuleTraceDataToModuleInformation(
@@ -536,5 +570,5 @@ bool ParseEngine::DispatchModuleEvent(EVENT_TRACE* event,
   return true;
 }
 
-}  // namespace trace::parser
+}  // namespace parser
 }  // namespace trace

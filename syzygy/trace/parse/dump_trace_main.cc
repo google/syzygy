@@ -325,6 +325,37 @@ class TraceFileDumper : public ParseEventHandler {
               process_id, symbol_id, symbol_name.as_string().c_str());
   }
 
+  virtual void OnSampleData(base::Time Time,
+                            DWORD process_id,
+                            const TraceSampleData* data) OVERRIDE {
+    DCHECK(data != NULL);
+
+    uint64 samples = 0;
+    for (uint32 i = 0; i < data->bucket_count; ++i)
+      samples += data->buckets[i];
+
+    ::fprintf(file_,
+              "OnSampleData: process-id=%d; module-base-addr=0x%08X;\n"
+              "    module-size=%d; module-checksum=0x%08X;\n"
+              "    module-time-date-stamp=0x%08X; bucket-size=%d;\n"
+              "    bucket-start=0x%08x; bucket-count=%d;\n"
+              "    sampling-start-time=0x%016llx;\n"
+              "    sampling-end-time=0x%016llx; sampling-rate=0x%016llx;\n"
+              "    samples=%lld\n",
+              process_id,
+              data->module_base_addr,
+              data->module_size,
+              data->module_checksum,
+              data->module_time_date_stamp,
+              data->bucket_size,
+              data->bucket_start,
+              data->bucket_count,
+              data->sampling_start_time,
+              data->sampling_end_time,
+              data->sampling_rate,
+              samples);
+  }
+
  private:
   FILE* file_;
   const char* indentation_;
