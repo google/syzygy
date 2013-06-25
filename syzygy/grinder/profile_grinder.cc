@@ -17,6 +17,8 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/string_util.h"
+#include "base/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/win/scoped_bstr.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/pe/find.h"
@@ -55,6 +57,71 @@ bool ModuleInformationKeyLess(const ModuleInformation& a,
 }
 
 }  // namespace
+
+ProfileGrinder::CodeLocation::CodeLocation()
+    : process_id_(0), symbol_id_(0), symbol_offset_(0), is_symbol_(false) {
+}
+
+void ProfileGrinder::CodeLocation::Set(
+    uint32 process_id, uint32 symbol_id, size_t symbol_offset) {
+  is_symbol_ = true;
+  process_id_ = process_id;
+  symbol_id_ = symbol_id;
+  symbol_offset_ = symbol_offset;
+}
+
+void ProfileGrinder::CodeLocation::Set(
+    const sym_util::ModuleInformation* module, RVA rva) {
+  is_symbol_ = false;
+  module_ = module;
+  rva_ = rva;
+  symbol_offset_ = 0;
+}
+
+std::string ProfileGrinder::CodeLocation::ToString() const {
+  if (is_symbol()) {
+    return base::StringPrintf("Symbol: %d, %d", process_id(), symbol_id());
+  } else {
+    return base::StringPrintf("Module/RVA: 0x%08X, 0x%08X", module(), rva());
+  }
+}
+
+bool ProfileGrinder::CodeLocation::operator<(const CodeLocation& o) const {
+  if (is_symbol_ > o.is_symbol_)
+    return true;
+
+  if (is_symbol_) {
+    if (process_id_ > o.process_id_)
+      return false;
+    if (process_id_ < o.process_id_)
+      return true;
+
+    if (symbol_id_ > o.symbol_id_)
+      return false;
+    if (symbol_id_ < o.symbol_id_)
+      return true;
+
+    return symbol_offset_ < o.symbol_offset_;
+  } else {
+    if (module_ > o.module_)
+      return false;
+    if (module_ < o.module_)
+      return true;
+    return rva_ < o.rva_;
+  }
+}
+
+void ProfileGrinder::CodeLocation::operator=(const CodeLocation& o) {
+  is_symbol_ = o.is_symbol_;
+  symbol_offset_ = o.symbol_offset_;
+  if (is_symbol_) {
+    process_id_ = o.process_id_;
+    symbol_id_ = o.symbol_id_;
+  } else {
+    rva_ = o.rva_;
+    module_ = o.module_;
+  }
+}
 
 ProfileGrinder::PartData::PartData()
     : process_id_(0), thread_id_(0) {
@@ -187,13 +254,14 @@ ProfileGrinder::PartData* ProfileGrinder::FindOrCreatePart(DWORD process_id,
   }
 
   // Lookup the part to aggregate to.
-  PartDataMap::iterator it = parts_.find(thread_id);
+  PartKey key(process_id, thread_id);
+  PartDataMap::iterator it = parts_.find(key);
   if (it == parts_.end()) {
     PartData part;
     part.process_id_ = process_id;
     part.thread_id_ = thread_id;
 
-    it = parts_.insert(std::make_pair(thread_id, part)).first;
+    it = parts_.insert(std::make_pair(key, part)).first;
   }
 
   return &it->second;
@@ -228,22 +296,40 @@ bool ProfileGrinder::GetFunctionSymbolByRVA(IDiaSession* session,
   return true;
 }
 
-bool ProfileGrinder::GetFunctionForCaller(const CallerAddress& caller,
-                                          FunctionAddress* function,
+bool ProfileGrinder::GetFunctionForCaller(const CallerLocation& caller,
+                                          FunctionLocation* function,
                                           size_t* line) {
   DCHECK(function != NULL);
   DCHECK(line != NULL);
 
+  if (caller.is_symbol()) {
+    // The function symbol for a caller is simply the same symbol with a
+    // zero offset.
+    function->Set(caller.process_id(), caller.symbol_id(), 0);
+    return true;
+  }
+
+  DCHECK(!caller.is_symbol());
+
+  if (caller.module() == NULL) {
+    // If the module is unknown, we fake a function per every K of memory.
+    // Turns out that V8 generates some code outside the JS heap, and as of
+    // June 2013, does not push symbols for the code.
+    function->Set(NULL, caller.rva() & ~1023);
+    *line = 0;
+    return true;
+  }
+
   ScopedComPtr<IDiaSession> session;
-  if (!GetSessionForModule(caller.module, session.Receive()))
+  if (!GetSessionForModule(caller.module(), session.Receive()))
     return false;
 
   ScopedComPtr<IDiaSymbol> function_sym;
   if (!GetFunctionSymbolByRVA(session.get(),
-                              caller.rva,
+                              caller.rva(),
                               function_sym.Receive())) {
     LOG(ERROR) << "No symbol info available for function in module '"
-               << caller.module->image_file_name << "'";
+               << caller.module()->image_file_name << "'";
   }
 
   // Get the RVA of the function.
@@ -256,8 +342,7 @@ bool ProfileGrinder::GetFunctionForCaller(const CallerAddress& caller,
   }
 
   // Return the module/rva we found.
-  function->module = caller.module;
-  function->rva = rva;
+  function->Set(caller.module(), rva);
 
   ULONGLONG length = 0;
   hr = function_sym->get_length(&length);
@@ -270,9 +355,7 @@ bool ProfileGrinder::GetFunctionForCaller(const CallerAddress& caller,
   if (length != 0) {
     ScopedComPtr<IDiaEnumLineNumbers> enum_lines;
 
-    hr = session->findLinesByRVA(caller.rva,
-                                 length,
-                                 enum_lines.Receive());
+    hr = session->findLinesByRVA(caller.rva(), length, enum_lines.Receive());
     if (FAILED(hr)) {
       LOG(ERROR) << "Failure in findLinesByRVA: " << com::LogHr(hr) << ".";
       return false;
@@ -303,7 +386,7 @@ bool ProfileGrinder::GetFunctionForCaller(const CallerAddress& caller,
   return true;
 }
 
-bool ProfileGrinder::GetInfoForFunction(const FunctionAddress& function,
+bool ProfileGrinder::GetInfoForFunction(const FunctionLocation& function,
                                         std::wstring* function_name,
                                         std::wstring* file_name,
                                         size_t* line) {
@@ -311,16 +394,45 @@ bool ProfileGrinder::GetInfoForFunction(const FunctionAddress& function,
   DCHECK(file_name != NULL);
   DCHECK(line != NULL);
 
+  if (function.is_symbol()) {
+    DCHECK_EQ(0U, function.symbol_offset());
+
+    DynamicSymbolKey key(function.process_id(), function.symbol_id());
+    DynamicSymbolMap::iterator it(dynamic_symbols_.find(key));
+
+    if (it != dynamic_symbols_.end()) {
+      // Get the function name.
+      *function_name = base::UTF8ToWide(it->second);
+      *file_name = L"*JAVASCRIPT*";
+      *line = 0;
+    } else {
+      LOG(ERROR) << "No symbol info available for symbol "
+                 << function.symbol_id() << " in process "
+                 << function.process_id();
+      return false;
+    }
+
+    return true;
+  }
+
+  DCHECK(!function.is_symbol());
+
+  if (function.module() == NULL) {
+    *function_name = base::StringPrintf(L"FakeFunction_0x%08X", function.rva());
+    *file_name = L"*UNKNOWN*";
+    return true;
+  }
+
   ScopedComPtr<IDiaSession> session;
-  if (!GetSessionForModule(function.module, session.Receive()))
+  if (!GetSessionForModule(function.module(), session.Receive()))
     return false;
 
   ScopedComPtr<IDiaSymbol> function_sym;
   if (!GetFunctionSymbolByRVA(session.get(),
-                              function.rva,
+                              function.rva(),
                               function_sym.Receive())) {
     LOG(ERROR) << "No symbol info available for function in module '"
-               << function.module->image_file_name << "'";
+               << function.module()->image_file_name << "'";
     return false;
   }
 
@@ -345,7 +457,7 @@ bool ProfileGrinder::GetInfoForFunction(const FunctionAddress& function,
   if (length != 0) {
     ScopedComPtr<IDiaEnumLineNumbers> enum_lines;
 
-    hr = session->findLinesByRVA(function.rva,
+    hr = session->findLinesByRVA(function.rva(),
                                  length,
                                  enum_lines.Receive());
     if (FAILED(hr)) {
@@ -403,7 +515,7 @@ bool ProfileGrinder::ResolveCallersForPart(PartData* part) {
   InvocationEdgeMap::iterator edge_it(part->edges_.begin());
   for (; edge_it != part->edges_.end(); ++edge_it) {
     InvocationEdge& edge = edge_it->second;
-    FunctionAddress function;
+    FunctionLocation function;
     if (GetFunctionForCaller(edge.caller, &function, &edge.line)) {
       InvocationNodeMap::iterator node_it(part->nodes_.find(function));
       if (node_it == part->nodes_.end()) {
@@ -437,7 +549,7 @@ bool ProfileGrinder::ResolveCallersForPart(PartData* part) {
       //     sufficient module information that we can resolve calls from
       //     system and dependent modules.
       LOG(WARNING) << "Found no info for module: '"
-                   << edge.caller.module->image_file_name << "'.";
+                   << edge.caller.module()->image_file_name << "'.";
     }
   }
 
@@ -533,21 +645,39 @@ void ProfileGrinder::OnInvocationBatch(base::Time time,
       break;
     }
 
-    AbsoluteAddress64 function_addr =
-        reinterpret_cast<AbsoluteAddress64>(info.function);
+    FunctionLocation function;
+    if ((info.flags & kFunctionIsSymbol) != 0) {
+      // The function is a dynamic symbol
+      function.Set(process_id, info.function_symbol_id, 0);
+    } else {
+      // The function is native.
+      AbsoluteAddress64 function_addr =
+          reinterpret_cast<AbsoluteAddress64>(info.function);
 
-    FunctionAddress function;
-    ConvertToModuleRVA(process_id, function_addr, &function);
+      ConvertToModuleRVA(process_id, function_addr, &function);
+    }
 
-    // We should always have module information for functions.
-    DCHECK(function.module != NULL);
+    CallerLocation caller;
+    if ((info.flags & kCallerIsSymbol) != 0) {
+      // The caller is a dynamic symbol.
+      caller.Set(process_id, info.caller_symbol_id, info.caller_offset);
+    } else {
+      // The caller is a native function.
+      AbsoluteAddress64 caller_addr =
+          reinterpret_cast<AbsoluteAddress64>(info.caller);
+      ConvertToModuleRVA(process_id, caller_addr, &caller);
+    }
 
-    AbsoluteAddress64 caller_addr =
-        reinterpret_cast<AbsoluteAddress64>(info.caller);
-    CallerAddress caller;
-    ConvertToModuleRVA(process_id, caller_addr, &caller);
-
-    AggregateEntryToPart(function, caller, info, part);
+    if (function.module() == NULL) {
+      LOG(ERROR) << "Function address "
+                 << base::StringPrintf("0x%08X", info.function )
+                 << " is outside all modules and symbols,"
+                 << " discarding information about "
+                 << info.num_calls << " invocations and "
+                 << info.cycles_sum << " cycles.";
+    } else {
+      AggregateEntryToPart(function, caller, info, part);
+    }
   }
 }
 
@@ -562,8 +692,16 @@ void ProfileGrinder::OnThreadName(base::Time time,
   part->thread_name_ = thread_name.as_string();
 }
 
-void ProfileGrinder::AggregateEntryToPart(const FunctionAddress& function,
-                                          const CallerAddress& caller,
+void ProfileGrinder::OnDynamicSymbol(DWORD process_id,
+                                     uint32 symbol_id,
+                                     const base::StringPiece& symbol_name) {
+  DynamicSymbolKey key(process_id, symbol_id);
+
+  dynamic_symbols_[key].assign(symbol_name.begin(), symbol_name.end());
+}
+
+void ProfileGrinder::AggregateEntryToPart(const FunctionLocation& function,
+                                          const CallerLocation& caller,
                                           const InvocationInfo& info,
                                           PartData* part) {
   // Have we recorded this node before?
@@ -591,7 +729,7 @@ void ProfileGrinder::AggregateEntryToPart(const FunctionAddress& function,
   // If the caller is NULL, we can't do anything with the edge as the
   // caller is unknown, so skip recording it. The data will be aggregated
   // to the edge above.
-  if (caller.module != NULL) {
+  if (caller.module() != NULL) {
     InvocationEdgeKey key(function, caller);
 
     // Have we recorded this edge before?
@@ -621,7 +759,7 @@ void ProfileGrinder::AggregateEntryToPart(const FunctionAddress& function,
 
 void ProfileGrinder::ConvertToModuleRVA(uint32 process_id,
                                         AbsoluteAddress64 addr,
-                                        ModuleRVA* rva) {
+                                        CodeLocation* rva) {
   DCHECK(rva != NULL);
 
   const ModuleInformation* module =
@@ -629,13 +767,9 @@ void ProfileGrinder::ConvertToModuleRVA(uint32 process_id,
 
   if (module == NULL) {
     // We have no module information for this address.
-    rva->module = NULL;
-    rva->rva = 0;
+    rva->Set(NULL, addr);
     return;
   }
-
-  // Convert the address to an RVA.
-  rva->rva = static_cast<RVA>(addr - module->base_address);
 
   // And find or record the canonical module information
   // for this module.
@@ -645,7 +779,7 @@ void ProfileGrinder::ConvertToModuleRVA(uint32 process_id,
   }
   DCHECK(it != modules_.end());
 
-  rva->module = &(*it);
+  rva->Set(&(*it), static_cast<RVA>(addr - module->base_address));
 }
 
 }  // namespace grinder

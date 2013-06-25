@@ -90,32 +90,37 @@ class ProfileGrinder : public GrinderInterface {
                             DWORD process_id,
                             DWORD thread_id,
                             const base::StringPiece& thread_name) OVERRIDE;
+  virtual void OnDynamicSymbol(DWORD process_id,
+                               uint32 symbol_id,
+                               const base::StringPiece& symbol_name) OVERRIDE;
   // @}
 
  protected:
   Parser* parser_;
 
- private:
   typedef sym_util::ModuleInformation ModuleInformation;
 
   // Forward declarations.
   struct PartData;
-  struct ModuleRVA;
+  class CodeLocation;
 
   // Represents the caller of a caller/callee pair.
-  struct CallerAddress;
+  struct CallerLocation;
   // Represents the function of a caller/callee pair.
-  struct FunctionAddress;
+  struct FunctionLocation;
 
   struct Metrics;
   struct InvocationNode;
   struct InvocationEdge;
 
+  // The key to the dynamic symbol map i
+  typedef std::pair<uint32, uint32> DynamicSymbolKey;
+  typedef std::map<DynamicSymbolKey, std::string> DynamicSymbolMap;
   typedef std::set<ModuleInformation,
       bool (*)(const ModuleInformation& a, const ModuleInformation& b)>
           ModuleInformationSet;
-  typedef std::map<FunctionAddress, InvocationNode> InvocationNodeMap;
-  typedef std::pair<FunctionAddress, CallerAddress> InvocationEdgeKey;
+  typedef std::map<FunctionLocation, InvocationNode> InvocationNodeMap;
+  typedef std::pair<FunctionLocation, CallerLocation> InvocationEdgeKey;
   typedef std::map<InvocationEdgeKey, InvocationEdge> InvocationEdgeMap;
 
   typedef base::win::ScopedComPtr<IDiaSession> SessionPtr;
@@ -139,11 +144,11 @@ class ProfileGrinder : public GrinderInterface {
   // @param caller the location of the caller.
   // @param function on success returns the caller's function location.
   // @param line on success returns the caller's line number in @p function.
-  bool GetFunctionForCaller(const CallerAddress& caller,
-                            FunctionAddress* function,
+  bool GetFunctionForCaller(const CallerLocation& caller,
+                            FunctionLocation* function,
                             size_t* line);
 
-  bool GetInfoForFunction(const FunctionAddress& function,
+  bool GetInfoForFunction(const FunctionLocation& function,
                           std::wstring* function_name,
                           std::wstring* file_name,
                           size_t* line);
@@ -151,11 +156,11 @@ class ProfileGrinder : public GrinderInterface {
   // Converts an absolute address to an RVA.
   void ConvertToModuleRVA(uint32 process_id,
                           trace::parser::AbsoluteAddress64 addr,
-                          ModuleRVA* rva);
+                          CodeLocation* rva);
 
   // Aggregates a single invocation info and/or creates a new node and edge.
-  void AggregateEntryToPart(const FunctionAddress& function,
-                            const CallerAddress& caller,
+  void AggregateEntryToPart(const FunctionLocation& function,
+                            const CallerLocation& caller,
                             const InvocationInfo& info,
                             PartData* part);
 
@@ -170,6 +175,9 @@ class ProfileGrinder : public GrinderInterface {
   // Outputs data for @p part to @p file.
   bool OutputDataForPart(const PartData& part, FILE* file);
 
+  // Keeps track of the dynamic symbols seen.
+  DynamicSymbolMap dynamic_symbols_;
+
   // Stores the modules we encounter.
   ModuleInformationSet modules_;
 
@@ -177,8 +185,9 @@ class ProfileGrinder : public GrinderInterface {
   ModuleSessionMap module_sessions_;
 
   // The parts we store. If thread_parts_ is false, we store only a single
-  // part with id 0.
-  typedef std::map<uint32, PartData> PartDataMap;
+  // part with id 0. The parts are keyed on process id/thread id.
+  typedef std::pair<uint32, uint32> PartKey;
+  typedef std::map<PartKey, PartData> PartDataMap;
   PartDataMap parts_;
 
   // If true, data is aggregated and output per-thread.
@@ -205,40 +214,81 @@ struct ProfileGrinder::PartData {
   InvocationEdgeMap edges_;
 };
 
-// RVA in a module. The module should be a canonical pointer
-// to the module information to make this comparable against
-// other RVAs in the same module.
-struct ProfileGrinder::ModuleRVA {
-  ModuleRVA() : module(NULL), rva(0) {
-  }
+// A code location is one of two things:
+//
+// 1. An RVA in a module, e.g. a module + offset.
+// 2. A ProcessId/SymbolId pair with an optional offset.
+//
+// The first represents native code, where module/RVA makes a canonical "name"
+// for a code location (whether function or call site) across multiple
+// processes. Note that the module should be a canonical pointer to the module
+// information to make this comparable against other RVAs in the same module.
+//
+// The second represents a dynamic symbol, which is always scoped by process
+// here represented by process id.
+class ProfileGrinder::CodeLocation {
+ public:
+  // Initializes an empty code location.
+  CodeLocation();
 
-  bool operator < (const ModuleRVA& o) const {
-    if (module > o.module)
-      return false;
-    if (module < o.module)
-      return true;
-    return rva < o.rva;
-  }
-  bool operator > (const ModuleRVA& o) const {
+  // Set to a symbol location with @p process_id, @p symbol_id and
+  // @p symbol_offset.
+  void Set(uint32 process_id, uint32 symbol_id, size_t symbol_offset);
+  // Set to a module/rva location with @p module and @p rva.
+  void Set(const sym_util::ModuleInformation* module, RVA rva);
+
+  // Returns true iff the code location is valid.
+  bool IsValid() { return is_symbol_ || (rva_ != 0 && module_ != NULL); }
+
+  // Returns a human-readable string representing this instance.
+  std::string ToString() const;
+
+  // @name Accessors
+  // @{
+  bool is_symbol() const { return is_symbol_; }
+
+  // @name Only valid when is_symbol() == true.
+  uint32 process_id() const { return process_id_; }
+  uint32 symbol_id() const { return symbol_id_; }
+  size_t symbol_offset() const { return symbol_offset_; }
+
+  // @name Only valid when is_symbol() == false.
+  const sym_util::ModuleInformation* module() const { return module_; }
+  RVA rva() const { return rva_; }
+  // @}
+
+  bool operator<(const CodeLocation& o) const;
+  void operator=(const CodeLocation& o);
+
+  bool operator>(const CodeLocation& o) const {
     return o < *this;
   }
-  bool operator == (const ModuleRVA& o) const {
+  bool operator==(const CodeLocation& o) const {
     return !(o < *this || *this < o);
   }
-  bool operator != (const ModuleRVA& o) const {
+  bool operator!=(const CodeLocation& o) const {
     return !(*this == o);
   }
 
-  const sym_util::ModuleInformation* module;
-  RVA rva;
+ private:
+  union {
+    uint32 process_id_;
+    const sym_util::ModuleInformation* module_;
+  };
+  union {
+    RVA rva_;
+    uint32 symbol_id_;
+  };
+  size_t symbol_offset_;
+  bool is_symbol_;
 };
 
 // Reprents the address of a function.
-struct ProfileGrinder::FunctionAddress : public ProfileGrinder::ModuleRVA {
+struct ProfileGrinder::FunctionLocation : public ProfileGrinder::CodeLocation {
 };
 
 // Reprents the address of a caller.
-struct ProfileGrinder::CallerAddress : public ProfileGrinder::ModuleRVA {
+struct ProfileGrinder::CallerLocation : public ProfileGrinder::CodeLocation {
 };
 
 // The metrics we capture per function and per caller.
@@ -258,7 +308,7 @@ struct ProfileGrinder::InvocationNode {
   }
 
   // Location of the function this instance represents.
-  FunctionAddress function;
+  FunctionLocation function;
 
   // The metrics we've aggregated for this function.
   Metrics metrics;
@@ -273,8 +323,8 @@ struct ProfileGrinder::InvocationEdge {
   }
 
   // The function/caller pair we denote.
-  FunctionAddress function;
-  CallerAddress caller;
+  FunctionLocation function;
+  CallerLocation caller;
 
   // Line number of the caller.
   size_t line;
