@@ -42,6 +42,7 @@
       '<(PRODUCT_DIR)/run_in_snapshot.exe',
       '<(PRODUCT_DIR)/run_in_snapshot_x64.exe',
       '<(PRODUCT_DIR)/run_in_snapshot_xp.exe',
+      '<(PRODUCT_DIR)/sampler.exe',
       '<(PRODUCT_DIR)/simulate.exe',
       '<(PRODUCT_DIR)/wsdump.exe',
       '<(PRODUCT_DIR)/zap_timestamp.exe',

@@ -53,6 +53,7 @@
         'py/etw_db/etw_db.gyp:*',
         'relink/relink.gyp:*',
         'reorder/reorder.gyp:*',
+        'sampler/sampler.gyp:*',
         'scripts/scripts.gyp:*',
         'scripts/benchmark/benchmark.gyp:*',
         'scripts/graph/graph.gyp:*',

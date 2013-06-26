@@ -73,6 +73,10 @@ run_in_snapshot_xp.exe:
   Simulate cold-start performance by running the provided executable on a
   cold virtual volume.
 
+sampler.exe:
+  A sampling profiler. This monitors running processes and attaches a
+  sampling profiler to modules of interest, dumping output to trace files.
+
 simulate.exe
   Simulates OS page faults by playing back a call_trace_client data file.
 

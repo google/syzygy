@@ -83,6 +83,9 @@
       # Reorder tests.
       '<(src)/syzygy/reorder/reorder.gyp:reorder_unittests',
 
+      # Sampler tests.
+      '<(src)/syzygy/sampler/sampler.gyp:sampler_unittests',
+
       # Simulator tests.
       '<(src)/syzygy/simulate/simulate.gyp:simulate_unittests',
 
