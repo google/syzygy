@@ -269,7 +269,7 @@ class Session : public base::RefCountedThreadSafe<Session> {
   DISALLOW_COPY_AND_ASSIGN(Session);
 };
 
-}  // namespace trace::service
+}  // namespace service
 }  // namespace trace
 
 #endif  // SYZYGY_TRACE_SERVICE_SESSION_H_

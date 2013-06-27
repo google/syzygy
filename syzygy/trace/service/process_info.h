@@ -101,7 +101,7 @@ struct ProcessInfo {
   DISALLOW_COPY_AND_ASSIGN(ProcessInfo);
 };
 
-}  // namespace trace::service
+}  // namespace service
 }  // namespace trace
 
 #endif  // SYZYGY_TRACE_SERVICE_PROCESS_INFO_H_

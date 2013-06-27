@@ -170,7 +170,7 @@ bool GetProcessStrings(uint32 pid,
   uint8* user_proc_params = NULL;
   UNICODE_STRING string_value[2] = {};
 
-  // Get the address of the process paramters.
+  // Get the address of the process parameters.
   const size_t kProcessParamOffset = FIELD_OFFSET(PEB, ProcessParameters);
   if (!::ReadProcessMemory(handle, peb_base_address + kProcessParamOffset,
                            &user_proc_params, sizeof(user_proc_params), NULL)) {
@@ -399,5 +399,5 @@ bool ProcessInfo::Initialize(uint32 pid) {
   return true;
 }
 
-}  // namespace trace::service
+}  // namespace service
 }  // namespace trace

@@ -428,7 +428,7 @@ bool Service::CreateSession(handle_t binding,
   }
   DCHECK(client_buffer != NULL);
 
-  // Copy into buffer info into the RPC struct, slicing off the private bits.
+  // Copy buffer info into the RPC struct, slicing off the private bits.
   *session_handle = reinterpret_cast<SessionHandle>(session.get());
   *call_trace_buffer = *client_buffer;
   *flags = flags_;
@@ -563,7 +563,7 @@ bool Service::CloseSession(SessionHandle* session_handle) {
   DCHECK(session.get() != NULL);
 
   // Signal that we want the session to close. This will cause it to
-  // schedule all of its oustanding buffers for writing. It will destroy
+  // schedule all of its outstanding buffers for writing. It will destroy
   // itself once it's reference count drops to zero.
   session->Close();
 

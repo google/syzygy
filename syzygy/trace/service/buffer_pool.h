@@ -94,7 +94,7 @@ class BufferPool {
   DISALLOW_COPY_AND_ASSIGN(BufferPool);
 };
 
-}  // namespace trace::service
+}  // namespace service
 }  // namespace trace
 
 #endif  // SYZYGY_TRACE_SERVICE_BUFFER_POOL_H_

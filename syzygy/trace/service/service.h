@@ -147,7 +147,7 @@ class Service {
   // false, then the call to Start() will only return when the service
   // receives a shutdown request (via the RequestShutdown() method).
   //
-  // Following the receipt of a shutdown request, it is the responsiblity of
+  // Following the receipt of a shutdown request, it is the responsibility of
   // the thread which owns the service to call Stop() on the service, which
   // will take care of concluding any in-flight requests and flushing all
   // outstanding call trace buffers to disk.
@@ -157,7 +157,7 @@ class Service {
   // by clients of the service; it may only be called by the thread which
   // created, and subsequently started, the service.
   //
-  // Following the receipt of a shutdown request, it is the responsiblity of
+  // Following the receipt of a shutdown request, it is the responsibility of
   // the thread which owns the service to call Stop() on the service, which
   // will take care of concluding any in-flight requests and flushing all
   // outstanding call trace buffers to disk.
@@ -290,7 +290,7 @@ class Service {
   // against the service endpoint.
   base::win::ScopedHandle service_mutex_;
 
-  // Signalled once the service has successfully initialized.
+  // Signaled once the service has successfully initialized.
   base::win::ScopedHandle service_event_;
 
   // Flags denoting the state of the RPC server.
@@ -308,7 +308,7 @@ class Service {
   DISALLOW_COPY_AND_ASSIGN(Service);
 };
 
-}  // namespace trace::service
+}  // namespace service
 }  // namespace trace
 
 #endif  // SYZYGY_TRACE_SERVICE_SERVICE_H_

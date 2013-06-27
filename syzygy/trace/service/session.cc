@@ -167,7 +167,7 @@ bool Session::FindBuffer(CallTraceBuffer* call_trace_buffer,
 
 #ifndef NDEBUG
   // Make sure fields that are not part of the ID also match. The client
-  // shouldnt' be playing with any of the call_trace_buffer fields.
+  // shouldn't be playing with any of the call_trace_buffer fields.
   if (call_trace_buffer->mapping_size != iter->second->mapping_size ||
       call_trace_buffer->buffer_size != iter->second->buffer_size) {
     LOG(WARNING) << "Received call trace buffer with mismatched attributes.";

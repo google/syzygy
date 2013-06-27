@@ -32,14 +32,14 @@ class Session;
 class TraceFileWriterFactory;
 
 // This class implements the interface the buffer consumer thread uses to
-// process incomming buffers.
+// process incoming buffers.
 class TraceFileWriter : public BufferConsumer {
  public:
   // Construct a TraceFileWriter instance.
   // @param message_loop The message loop on which this writer instance will
   //     consume buffers. The writer instance does NOT take ownership of the
   //     message_loop. The message_loop must outlive the writer instance.
-  // @param trace_directory The directoy into which this writer instance will
+  // @param trace_directory The directory into which this writer instance will
   //     write the trace file.
   TraceFileWriter(base::MessageLoop* message_loop,
                   const base::FilePath& trace_directory);

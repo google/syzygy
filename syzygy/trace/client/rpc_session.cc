@@ -44,7 +44,7 @@ bool RpcSession::MapSegmentBuffer(TraceFileSegment* segment) {
   // Get (or set) the mapping between the handle we've received and the
   // corresponding mapped base pointer. Note that the shared_memory_handles_
   // map is shared across threads, so we need to hold the shared_memory_lock_
-  // when we access/update it.  This should be the only synchronization point
+  // when we access/update it. This should be the only synchronization point
   // in the call trace client library (other than the initial creation of the
   // RpcSession object, of course).
   {
@@ -213,5 +213,5 @@ void RpcSession::FreeSharedMemory() {
   shared_memory_handles_.clear();
 }
 
-}  // namespace trace::client
+}  // namespace client
 }  // namespace trace

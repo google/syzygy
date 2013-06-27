@@ -52,7 +52,7 @@ class RpcServiceInstanceManager {
   static Service* instance_;
 };
 
-}  // namespace trace::service
+}  // namespace service
 }  // namespace trace
 
 #endif  // SYZYGY_TRACE_SERVICE_SERVICE_RPC_IMPL_H_
