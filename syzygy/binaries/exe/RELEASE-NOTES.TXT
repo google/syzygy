@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.2.24.0
+
+[r1581] Add bb and dromaeo modes into benchmark/optimize scripts.
+
 Version 0.2.23.0
 
 [-----] Build infrastructure changes to properly source index this build.
