@@ -507,6 +507,7 @@ void BasicBlockEntry::OnThreadDetach(IndexedFrequencyData* module_data) {
 BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
     IndexedFrequencyData* module_data) {
   DCHECK(module_data != NULL);
+  CHECK_NE(IndexedFrequencyData::INVALID_DATA_TYPE, module_data->data_type);
 
   // Create the thread-local state for this thread. By default, just point the
   // counter array to the statically allocated fall-back area.
@@ -560,7 +561,7 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
   CHECK(module != NULL);
   const base::win::PEImage image(module);
   const IMAGE_NT_HEADERS* nt_headers = image.GetNTHeaders();
-  trace_data->data_type = TraceIndexedFrequencyData::BASIC_BLOCK;
+  trace_data->data_type = module_data->data_type;
   trace_data->module_base_addr = reinterpret_cast<ModuleAddr>(image.module());
   trace_data->module_base_size = nt_headers->OptionalHeader.SizeOfImage;
   trace_data->module_checksum = nt_headers->OptionalHeader.CheckSum;

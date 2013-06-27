@@ -101,7 +101,8 @@ const char JumpTableCaseCountTransform::kTransformName[] =
 JumpTableCaseCountTransform::JumpTableCaseCountTransform()
     : add_frequency_data_(common::kJumpTableCountAgentId,
                           "Jump Table Frequency Data",
-                          common::kJumpTableFrequencyDataVersion),
+                          common::kJumpTableFrequencyDataVersion,
+                          common::IndexedFrequencyData::JUMP_TABLE),
       instrument_dll_name_(kDefaultModuleName),
       jump_table_case_count_(0) {
 }

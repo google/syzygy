@@ -208,6 +208,7 @@ TEST_F(BasicBlockEntryHookTransformTest, ApplyAgentInstrumentation) {
   ASSERT_TRUE(frequency_data.Init(0, tx_.frequency_data_block()));
   EXPECT_EQ(kBasicBlockEntryAgentId, frequency_data->agent_id);
   EXPECT_EQ(kBasicBlockFrequencyDataVersion, frequency_data->version);
+  EXPECT_EQ(IndexedFrequencyData::BASIC_BLOCK_ENTRY, frequency_data->data_type);
   EXPECT_EQ(tx_.bb_ranges().size(), frequency_data->num_entries);
   EXPECT_EQ(sizeof(uint32), frequency_data->frequency_size);
   EXPECT_TRUE(frequency_data.HasReferenceAt(

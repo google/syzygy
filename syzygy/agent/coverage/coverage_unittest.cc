@@ -48,7 +48,9 @@ IndexedFrequencyData coverage_data = {
     bb_seen_array,
     kBasicBlockCount,
     1U,  // frequency_size.
-    0U };  // initialization_attempted.
+    0U,  // initialization_attempted.
+    IndexedFrequencyData::COVERAGE
+  };
 
 MATCHER_P(ModuleAtAddress, module, "") {
   return arg->module_base_addr == module;

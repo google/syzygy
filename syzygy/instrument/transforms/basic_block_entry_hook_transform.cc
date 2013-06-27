@@ -132,7 +132,8 @@ const char BasicBlockEntryHookTransform::kTransformName[] =
 BasicBlockEntryHookTransform::BasicBlockEntryHookTransform()
   : add_frequency_data_(kBasicBlockEntryAgentId,
                         "Basic-Block Frequency Data",
-                        common::kBasicBlockFrequencyDataVersion),
+                        common::kBasicBlockFrequencyDataVersion,
+                        common::IndexedFrequencyData::BASIC_BLOCK_ENTRY),
     thunk_section_(NULL),
     instrument_dll_name_(kDefaultModuleName),
     set_src_ranges_for_thunks_(false),

@@ -105,6 +105,8 @@ TEST_F(JumpTableCaseCountTransformTest, Apply) {
   ASSERT_TRUE(frequency_data.Init(0, tx.frequency_data_block()));
   EXPECT_EQ(sizeof(uint32), frequency_data->frequency_size);
   EXPECT_EQ(common::kJumpTableCountAgentId, frequency_data->agent_id);
+  EXPECT_EQ(common::kJumpTableFrequencyDataVersion, frequency_data->version);
+  EXPECT_EQ(IndexedFrequencyData::JUMP_TABLE, frequency_data->data_type);
   EXPECT_EQ(sizeof(IndexedFrequencyData), tx.frequency_data_block()->size());
   EXPECT_EQ(sizeof(IndexedFrequencyData),
             tx.frequency_data_block()->data_size());

@@ -195,7 +195,8 @@ bool Coverage::InitializeCoverageData(void* module_base,
   // We can only handle this if it looks right.
   if (coverage_data->agent_id != kBasicBlockCoverageAgentId ||
       coverage_data->version != kBasicBlockFrequencyDataVersion ||
-      coverage_data->frequency_size != 1U) {
+      coverage_data->frequency_size != 1U ||
+      coverage_data->data_type != IndexedFrequencyData::COVERAGE) {
     LOG(ERROR) << "Unexpected values in the coverage data structures.";
     return false;
   }
@@ -240,7 +241,7 @@ bool Coverage::InitializeCoverageData(void* module_base,
 
   // Initialize the coverage data struct.
   base::win::PEImage image(module_base);
-  trace_coverage_data->data_type = TraceIndexedFrequencyData::BASIC_BLOCK;
+  trace_coverage_data->data_type = coverage_data->data_type;
   const IMAGE_NT_HEADERS* nt_headers = image.GetNTHeaders();
   trace_coverage_data->module_base_addr =
       reinterpret_cast<ModuleAddr>(image.module());

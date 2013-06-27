@@ -21,6 +21,7 @@
 
 #include "base/string_piece.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/core/address_space.h"
 
 namespace instrument {
@@ -31,6 +32,7 @@ class AddIndexedFrequencyDataTransform
           AddIndexedFrequencyDataTransform> {
  public:
   typedef block_graph::BlockGraph BlockGraph;
+  typedef common::IndexedFrequencyData IndexedFrequencyData;
 
   // Construct a transform which adds a static frequency data instance.
   // @param agent_id The agent that'll use those data.
@@ -38,7 +40,8 @@ class AddIndexedFrequencyDataTransform
   // @param version The version of the data structure used to store the data.
   AddIndexedFrequencyDataTransform(uint32 agent_id,
                                    const base::StringPiece& freq_name,
-                                   uint32 version);
+                                   uint32 version,
+                                   IndexedFrequencyData::DataType data_type);
 
   // Return the block which holds the frequency data. This will only be non-NULL
   // after a successful application of this transform.
@@ -84,9 +87,12 @@ class AddIndexedFrequencyDataTransform
 
   // Version of the data structure.
   uint32 version_;
+
+  // The type of the data in the IndexFrequencyData instance.
+  IndexedFrequencyData::DataType data_type_;
 };
 
-}  // transforms
-}  // instrument
+}  // namespace transforms
+}  // namespace instrument
 
 #endif  // SYZYGY_INSTRUMENT_TRANSFORMS_ADD_INDEXED_FREQUENCY_DATA_TRANSFORM_H_

@@ -349,11 +349,6 @@ COMPILE_ASSERT_IS_POD(TraceThreadNameInfo);
 struct TraceIndexedFrequencyData {
   enum { kTypeId = TRACE_INDEXED_FREQUENCY };
 
-  enum DataType {
-    BASIC_BLOCK = 0,
-    JUMP_TABLE = 1,
-  };
-
   // This is used to tie the data to a particular module, which has already
   // been reported via a TraceModuleData struct.
   ModuleAddr module_base_addr;
@@ -365,7 +360,8 @@ struct TraceIndexedFrequencyData {
   // output any other metadata that is required to map an index to an address.
   uint32 num_entries;
 
-  // The type of data contained in this frequency record.
+  // The type of data contained in this frequency record. This should be one of
+  // the data-types defined in IndexedFrequencyData::DataType.
   uint8 data_type;
 
   // The size of the frequency reports: 1, 2 or 4 bytes.

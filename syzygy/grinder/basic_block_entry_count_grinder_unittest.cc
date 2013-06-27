@@ -20,6 +20,7 @@
 #include "base/json/json_reader.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/metadata.h"
@@ -171,7 +172,7 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
     ::memset(buffer, 0, kBufferSize);
 
     data->reset(reinterpret_cast<TraceIndexedFrequencyData*>(buffer));
-    (*data)->data_type = TraceIndexedFrequencyData::BASIC_BLOCK;
+    (*data)->data_type = common::IndexedFrequencyData::BASIC_BLOCK_ENTRY;
     (*data)->module_base_addr =
         reinterpret_cast<ModuleAddr>(module_info.base_address);
     (*data)->module_base_size = module_info.module_size;
@@ -246,7 +247,7 @@ TEST_F(BasicBlockEntryCountGrinderTest, UpdateBasicBlockEntryCount) {
   // Validate 1-byte frequency data.
   ASSERT_NO_FATAL_FAILURE(
       GetFrequencyData(module_info.original_module, 1, &data));
-  ASSERT_EQ(TraceIndexedFrequencyData::BASIC_BLOCK, data->data_type);
+  ASSERT_EQ(common::IndexedFrequencyData::BASIC_BLOCK_ENTRY, data->data_type);
   ASSERT_EQ(1U, data->frequency_size);
   grinder.UpdateBasicBlockEntryCount(module_info, data.get());
   EXPECT_EQ(1U, grinder.entry_count_map().size());

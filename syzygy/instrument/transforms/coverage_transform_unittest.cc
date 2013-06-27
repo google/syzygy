@@ -61,6 +61,7 @@ TEST_F(CoverageInstrumentationTransformTest, Apply) {
 
   EXPECT_EQ(common::kBasicBlockCoverageAgentId, coverage_data->agent_id);
   EXPECT_EQ(common::kBasicBlockFrequencyDataVersion, coverage_data->version);
+  EXPECT_EQ(IndexedFrequencyData::COVERAGE, coverage_data->data_type);
   EXPECT_EQ(tx.bb_ranges().size(), coverage_data->num_entries);
   EXPECT_TRUE(coverage_data.HasReferenceAt(
       coverage_data.OffsetOf(coverage_data->frequency_data)));

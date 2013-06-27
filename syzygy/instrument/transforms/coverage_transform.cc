@@ -68,7 +68,8 @@ const char CoverageInstrumentationTransform::kTransformName[] =
 CoverageInstrumentationTransform::CoverageInstrumentationTransform()
     : add_bb_freq_data_tx_(kBasicBlockCoverageAgentId,
                            "Basic-Block Frequency Data",
-                           common::kBasicBlockFrequencyDataVersion) {
+                           common::kBasicBlockFrequencyDataVersion,
+                           common::IndexedFrequencyData::COVERAGE) {
   // Initialize the EntryThunkTransform.
   entry_thunk_tx_.set_instrument_unsafe_references(false);
   entry_thunk_tx_.set_only_instrument_module_entry(true);

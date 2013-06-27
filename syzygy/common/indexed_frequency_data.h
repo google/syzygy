@@ -31,6 +31,13 @@ namespace common {
 // section of its own. It will be initialized by the runtime client library
 // and is referred to by all of the instrumentation code.
 struct IndexedFrequencyData {
+  enum DataType {
+    INVALID_DATA_TYPE = 0,
+    BASIC_BLOCK_ENTRY = 1,
+    COVERAGE = 2,
+    JUMP_TABLE = 3,
+  };
+
   // An identifier denoting the agent with which this frequency data
   // instrumentation is intended to work.
   uint32 agent_id;
@@ -74,6 +81,9 @@ struct IndexedFrequencyData {
   // Upon first entry this is protected by the loader lock and afterwards it
   // is only read, so synchronization is not an issue.
   uint8 initialization_attempted;
+
+  // The type of data associated with this module.
+  uint8 data_type;
 };
 COMPILE_ASSERT_IS_POD(IndexedFrequencyData);
 

@@ -16,6 +16,7 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/grinder/grinder.h"
 #include "syzygy/pe/pe_file.h"
@@ -57,7 +58,9 @@ class TestGrinder : public GrinderInterface {
     on_bb_freq_was_called_ = true;
     ASSERT_TRUE(data != NULL);
 
-    ASSERT_EQ(TraceIndexedFrequencyData::BASIC_BLOCK, data->data_type);
+    ASSERT_TRUE(
+        data->data_type == common::IndexedFrequencyData::BASIC_BLOCK_ENTRY ||
+        data->data_type == common::IndexedFrequencyData::COVERAGE);
 
     // Lookup the module information.
     const ModuleInformation* module_info = parser_->GetModuleInformation(

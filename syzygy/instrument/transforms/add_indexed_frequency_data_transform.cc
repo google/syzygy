@@ -17,22 +17,21 @@
 #include "syzygy/instrument/transforms/add_indexed_frequency_data_transform.h"
 
 #include "syzygy/block_graph/typed_block.h"
-#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/pe/pe_utils.h"
 
 namespace instrument {
 namespace transforms {
 
-using common::IndexedFrequencyData;
-
 const char AddIndexedFrequencyDataTransform::kTransformName[] =
     "AddFrequencyDataTransform";
 
 AddIndexedFrequencyDataTransform::AddIndexedFrequencyDataTransform(
-    uint32 agent_id, const base::StringPiece& freq_name, uint32 version)
+    uint32 agent_id, const base::StringPiece& freq_name, uint32 version,
+    IndexedFrequencyData::DataType data_type)
         : agent_id_(agent_id),
           freq_name_(freq_name.begin(), freq_name.end()),
           version_(version),
+          data_type_(data_type),
           frequency_data_block_(NULL),
           frequency_data_buffer_block_(NULL) {
 }
@@ -43,6 +42,7 @@ bool AddIndexedFrequencyDataTransform::TransformBlockGraph(
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
   DCHECK(frequency_data_block_ == NULL);
+  DCHECK(data_type_ != IndexedFrequencyData::INVALID_DATA_TYPE);
 
   // Get the read/write ".data" section. We will add our blocks to it.
   BlockGraph::Section* section = block_graph->FindOrAddSection(
@@ -89,6 +89,7 @@ bool AddIndexedFrequencyDataTransform::TransformBlockGraph(
   // Initialize the non-zero fields of the structure.
   frequency_data->agent_id = agent_id_;
   frequency_data->version = version_;
+  frequency_data->data_type = data_type_;
   frequency_data->tls_index = TLS_OUT_OF_INDEXES;
 
   // Setup the frequency_data pointer such that it points to the newly allocated
@@ -136,5 +137,5 @@ bool AddIndexedFrequencyDataTransform::ConfigureFrequencyDataBuffer(
   return true;
 }
 
-}   // transforms
-}  // instrument
+}  // namespace transforms
+}  // namespace instrument

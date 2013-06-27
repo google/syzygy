@@ -122,7 +122,8 @@ void CoverageGrinder::OnIndexedFrequency(
   DCHECK(data != NULL);
   DCHECK(parser_ != NULL);
 
-  if (data->data_type != TraceIndexedFrequencyData::BASIC_BLOCK)
+  if (data->data_type != common::IndexedFrequencyData::COVERAGE &&
+      data->data_type != common::IndexedFrequencyData::BASIC_BLOCK_ENTRY)
     return;
 
   if (data->num_entries == 0) {

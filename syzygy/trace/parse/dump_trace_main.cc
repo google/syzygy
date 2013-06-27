@@ -26,6 +26,7 @@
 #include "base/win/event_trace_controller.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/windows_version.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/trace/parse/parser.h"
 #include "syzygy/trace/service/service.h"
 
@@ -38,10 +39,10 @@ using trace::parser::ModuleInformation;
 const char* GetIndexedDataTypeStr(uint8 data_type) {
   const char* ret = NULL;
   switch (data_type) {
-    case TraceIndexedFrequencyData::BASIC_BLOCK:
+    case common::IndexedFrequencyData::BASIC_BLOCK_ENTRY:
       ret = "basic-block entry counts";
       break;
-    case TraceIndexedFrequencyData::JUMP_TABLE:
+    case common::IndexedFrequencyData::JUMP_TABLE:
       ret = "jump-table case counts";
       break;
     default:

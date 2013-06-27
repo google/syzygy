@@ -24,6 +24,7 @@
 #include "base/logging.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/trace/parse/parser.h"
 
 namespace {
@@ -241,7 +242,7 @@ const TraceIndexedFrequencyData ParseEngineUnitTest::kIndexedFrequencyData = {
     0x33333333,
     0x44444444,
     1,
-    TraceIndexedFrequencyData::BASIC_BLOCK,
+    common::IndexedFrequencyData::BASIC_BLOCK_ENTRY,
     1,
     0 };
 
@@ -254,7 +255,7 @@ const TraceIndexedFrequencyData
         0x33333333,
         0x44444444,
         10,
-        TraceIndexedFrequencyData::BASIC_BLOCK,
+        common::IndexedFrequencyData::BASIC_BLOCK_ENTRY,
         4,
         0 };
 

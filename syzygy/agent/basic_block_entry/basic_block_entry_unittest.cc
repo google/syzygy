@@ -73,6 +73,7 @@ class BasicBlockEntryTest : public testing::Test {
   BasicBlockEntryTest()
       : agent_module_(NULL) {
     module_data_.agent_id = ::common::kBasicBlockEntryAgentId;
+    module_data_.data_type = ::common::IndexedFrequencyData::BASIC_BLOCK_ENTRY;
     module_data_.version = ::common::kBasicBlockFrequencyDataVersion;
     module_data_.tls_index = TLS_OUT_OF_INDEXES;
     module_data_.initialization_attempted = 0U;
@@ -269,6 +270,7 @@ TEST_F(BasicBlockEntryTest, NoServerNoCrash) {
   // values.
   ASSERT_EQ(::common::kBasicBlockEntryAgentId, module_data_.agent_id);
   ASSERT_EQ(::common::kBasicBlockFrequencyDataVersion, module_data_.version);
+  ASSERT_EQ(IndexedFrequencyData::BASIC_BLOCK_ENTRY, module_data_.data_type);
   ASSERT_NE(TLS_OUT_OF_INDEXES, module_data_.tls_index);
   ASSERT_NE(0U, module_data_.initialization_attempted);
   ASSERT_EQ(kNumBasicBlocks, module_data_.num_entries);
@@ -314,6 +316,7 @@ TEST_F(BasicBlockEntryTest, SingleThreadedDllBasicBlockEvents) {
   // Validate that it does not modify any of our initialization values.
   ASSERT_EQ(::common::kBasicBlockEntryAgentId, module_data_.agent_id);
   ASSERT_EQ(::common::kBasicBlockFrequencyDataVersion, module_data_.version);
+  ASSERT_EQ(IndexedFrequencyData::BASIC_BLOCK_ENTRY, module_data_.data_type);
   ASSERT_NE(TLS_OUT_OF_INDEXES, module_data_.tls_index);
   ASSERT_NE(0U, module_data_.initialization_attempted);
   ASSERT_EQ(kNumBasicBlocks, module_data_.num_entries);
@@ -371,6 +374,7 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBasicBlockEvents) {
   // Validate that it does not modify any of our initialization values.
   ASSERT_EQ(::common::kBasicBlockEntryAgentId, module_data_.agent_id);
   ASSERT_EQ(::common::kBasicBlockFrequencyDataVersion, module_data_.version);
+  ASSERT_EQ(IndexedFrequencyData::BASIC_BLOCK_ENTRY, module_data_.data_type);
   ASSERT_NE(TLS_OUT_OF_INDEXES, module_data_.tls_index);
   ASSERT_NE(0U, module_data_.initialization_attempted);
   ASSERT_EQ(kNumBasicBlocks, module_data_.num_entries);
