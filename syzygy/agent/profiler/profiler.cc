@@ -21,7 +21,6 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/environment.h"
-#include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/string_util.h"
 #include "base/utf_string_conversions.h"
@@ -39,10 +38,6 @@
 namespace {
 
 using agent::common::ScopedLastErrorKeeper;
-
-// All tracing runs through this object.
-base::LazyInstance<agent::profiler::Profiler> static_profiler_instance =
-    LAZY_INSTANCE_INITIALIZER;
 
 typedef std::pair<RetAddr, FuncAddr> InvocationKey;
 
@@ -207,9 +202,8 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
 extern "C" uintptr_t __cdecl ResolveReturnAddressLocation(
     uintptr_t pc_location) {
   using agent::profiler::Profiler;
-  Profiler* profiler = Profiler::Instance();
   return reinterpret_cast<uintptr_t>(
-      profiler->ResolveReturnAddressLocation(
+      Profiler::instance().ResolveReturnAddressLocation(
           reinterpret_cast<RetAddr*>(pc_location)));
 }
 
@@ -251,7 +245,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       break;
 
     case DLL_THREAD_DETACH:
-      Profiler::Instance()->OnThreadDetach();
+      Profiler::instance().OnThreadDetach();
       break;
 
     case DLL_PROCESS_DETACH:
@@ -271,20 +265,21 @@ void __cdecl AddDynamicSymbol(const void* address, size_t length,
                               const char* name, size_t name_len) {
   using agent::profiler::Profiler;
 
-  Profiler* profiler = Profiler::Instance();
-  profiler->AddSymbol(address, length, name, name_len);
+  Profiler::instance().AddSymbol(address, length, name, name_len);
 }
 
 void __cdecl MoveDynamicSymbol(const void* old_address,
                                const void* new_address) {
   using agent::profiler::Profiler;
 
-  Profiler* profiler = Profiler::Instance();
-  profiler->MoveSymbol(old_address, new_address);
+  Profiler::instance().MoveSymbol(old_address, new_address);
 }
 
 namespace agent {
 namespace profiler {
+
+// All tracing runs through this object.
+agent::profiler::Profiler Profiler::instance_;
 
 class Profiler::ThreadState
     : public ReturnThunkFactoryImpl<Profiler::ThreadState>,
@@ -806,20 +801,13 @@ LONG CALLBACK Profiler::ExceptionHandler(EXCEPTION_POINTERS* ex_info) {
             &ex_info->ExceptionRecord->ExceptionInformation);
 
     if (info->dwType == 0x1000) {
-      Profiler* instance = Profiler::Instance();
-      if (instance != NULL)
-        instance->OnThreadName(info->szName);
+      instance_.OnThreadName(info->szName);
     } else {
       LOG(WARNING) << "Unrecognised event type " << info->dwType;
     }
   }
 
   return EXCEPTION_CONTINUE_SEARCH;
-}
-
-
-Profiler* Profiler::Instance() {
-  return static_profiler_instance.Pointer();
 }
 
 Profiler::Profiler() : handler_registration_(NULL) {
@@ -894,8 +882,7 @@ void WINAPI Profiler::DllMainEntryHook(EntryFrame* entry_frame,
                                        uint64 cycles) {
   ScopedLastErrorKeeper keep_last_error;
 
-  Profiler* profiler = Profiler::Instance();
-  profiler->OnModuleEntry(entry_frame, function, cycles);
+  instance_.OnModuleEntry(entry_frame, function, cycles);
 }
 
 void WINAPI Profiler::FunctionEntryHook(EntryFrame* entry_frame,
@@ -903,8 +890,7 @@ void WINAPI Profiler::FunctionEntryHook(EntryFrame* entry_frame,
                                         uint64 cycles) {
   ScopedLastErrorKeeper keep_last_error;
 
-  Profiler* profiler = Profiler::Instance();
-  ThreadState* data = profiler->GetOrAllocateThreadState();
+  ThreadState* data = instance_.GetOrAllocateThreadState();
   DCHECK(data != NULL);
   if (data != NULL)
     data->OnFunctionEntry(entry_frame, function, cycles);
@@ -915,8 +901,7 @@ void WINAPI Profiler::OnV8FunctionEntry(FuncAddr function,
                                         uint64 cycles) {
   ScopedLastErrorKeeper keep_last_error;
 
-  Profiler* profiler = Profiler::Instance();
-  ThreadState* data = profiler->GetOrAllocateThreadState();
+  ThreadState* data = instance_.GetOrAllocateThreadState();
   if (data != NULL)
     data->OnV8FunctionEntry(function, return_addr_location, cycles);
 }

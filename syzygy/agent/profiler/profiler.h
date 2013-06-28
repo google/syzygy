@@ -29,7 +29,6 @@
 #include <vector>
 
 #include "base/hash_tables.h"
-#include "base/lazy_instance.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/thread_local.h"
 #include "syzygy/agent/common/entry_frame.h"
@@ -100,16 +99,13 @@ class Profiler {
   //     V8 during garbage collection.
   RetAddr* ResolveReturnAddressLocation(RetAddr* pc_location);
 
-  // Retrieves the profiler singleton instance.
-  static Profiler* Instance();
-
   // Called when a thread is terminating.
   void OnThreadDetach();
 
- private:
-  // Make sure the LazyInstance can be created.
-  friend struct base::DefaultLazyInstanceTraits<Profiler>;
+  // Retrieves the profiler singleton instance.
+  static Profiler& instance() { return instance_; }
 
+ private:
   Profiler();
   ~Profiler();
 
@@ -163,6 +159,9 @@ class Profiler {
 
   // This points to our per-thread state.
   mutable base::ThreadLocalPointer<ThreadState> tls_;
+
+  // The instance all profiling goes through.
+  static Profiler instance_;
 };
 
 }  // namespace profiler
