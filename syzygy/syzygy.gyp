@@ -29,7 +29,6 @@
         'agent/call_trace/call_trace.gyp:*',
         'agent/common/common.gyp:*',
         'agent/coverage/coverage.gyp:*',
-        'agent/jump_table_count/jump_table_count.gyp:*',
         'agent/profiler/profiler.gyp:*',
         'block_graph/analysis/block_graph_analysis.gyp:*',
         'block_graph/block_graph.gyp:*',

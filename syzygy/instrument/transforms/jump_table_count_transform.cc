@@ -49,8 +49,8 @@ using block_graph::Instruction;
 using block_graph::Operand;
 using pe::transforms::AddImportsTransform;
 
-const char kDefaultModuleName[] = "jump_table_count_client.dll";
-const char kJumpTableCaseCounter[] = "_jump_table_case_counter";
+const char kDefaultModuleName[] = "basic_block_entry_client.dll";
+const char kJumpTableCaseCounter[] = "_increment_indexed_freq_data";
 const char kThunkSuffix[] = "_jump_table_thunk";
 
 // Sets up the jump table counter hook import.

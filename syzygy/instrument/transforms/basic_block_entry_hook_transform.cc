@@ -50,7 +50,7 @@ typedef AddImportsTransform::ImportedModule ImportedModule;
 typedef BasicBlockEntryHookTransform::RelativeAddressRange RelativeAddressRange;
 
 const char kDefaultModuleName[] = "basic_block_entry_client.dll";
-const char kBasicBlockEnter[] = "_basic_block_enter";
+const char kBasicBlockEnter[] = "_increment_indexed_freq_data";
 const char kGetRawFrequencyData[] = "GetRawFrequencyData";
 
 // Compares two relative address ranges to see if they overlap. Assumes they

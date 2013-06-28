@@ -136,7 +136,7 @@ class BasicBlockEntryTest : public testing::Test {
     ASSERT_TRUE(agent_module_ != NULL);
 
     basic_block_enter_stub_ =
-        ::GetProcAddress(agent_module_, "_basic_block_enter");
+        ::GetProcAddress(agent_module_, "_increment_indexed_freq_data");
     ASSERT_TRUE(basic_block_enter_stub_ != NULL);
 
     indirect_penter_dllmain_stub_ =

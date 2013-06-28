@@ -53,13 +53,12 @@ extern "C" uint32* _stdcall GetRawFrequencyData(
   return agent::basic_block_entry::BasicBlockEntry::GetRawFrequencyData(data);
 }
 
-// TODO(sebmarchand): Rename this function to _increment_indexed_freq_data.
-extern "C" void __declspec(naked) _basic_block_enter() {
+extern "C" void __declspec(naked) _increment_indexed_freq_data() {
   __asm {
     // This is expected to be called via instrumentation that looks like:
     //    push index
     //    push module_data
-    //    call [_basic_block_enter]
+    //    call [_increment_indexed_freq_data]
     //
     // Stack: ... index, module_data, ret_addr.
 
@@ -74,7 +73,7 @@ extern "C" void __declspec(naked) _basic_block_enter() {
     push eax
 
     // Stack: ..., index, module_data, ret_addr, [4x register], esp, &ret_addr.
-    call agent::basic_block_entry::BasicBlockEntry::BasicBlockEntryHook
+    call agent::basic_block_entry::BasicBlockEntry::IncrementIndexedFreqDataHook
 
     // Stack: ... index, module_data, ret_addr, [4x register].
 
@@ -258,13 +257,14 @@ bool DatatypeVersionIsValid(uint32 datatype_id, uint32 version) {
 
 }  // namespace
 
-// The BasicBlockEntryHook parameters.
-struct BasicBlockEntry::BasicBlockEntryFrame {
+// The IncrementIndexedFreqDataHook parameters.
+struct BasicBlockEntry::IncrementIndexedFreqDataFrame {
   const void* ret_addr;
   IndexedFrequencyData* module_data;
   uint32 index;
 };
-COMPILE_ASSERT_IS_POD_OF_SIZE(BasicBlockEntry::BasicBlockEntryFrame, 12);
+COMPILE_ASSERT_IS_POD_OF_SIZE(BasicBlockEntry::IncrementIndexedFreqDataFrame,
+                              12);
 
 // The DllMainEntryHook parameters.
 struct BasicBlockEntry::DllMainEntryFrame {
@@ -407,7 +407,8 @@ uint32* BasicBlockEntry::GetRawFrequencyData(IndexedFrequencyData* data) {
   return state->frequency_data();
 }
 
-void BasicBlockEntry::BasicBlockEntryHook(BasicBlockEntryFrame* entry_frame) {
+void BasicBlockEntry::IncrementIndexedFreqDataHook(
+    IncrementIndexedFreqDataFrame* entry_frame) {
   ScopedLastErrorKeeper scoped_last_error_keeper;
   DCHECK(entry_frame != NULL);
   DCHECK(entry_frame->module_data != NULL);
@@ -415,7 +416,8 @@ void BasicBlockEntry::BasicBlockEntryHook(BasicBlockEntryFrame* entry_frame) {
             entry_frame->index);
 
   // TODO(rogerm): Consider extracting a fast path for state != NULL? Inline it
-  //     during instrumentation? Move it into the _basic_block_enter function?
+  //     during instrumentation? Move it into the _increment_indexed_freq_data
+  //     function?
   ThreadState* state = ThreadState::Get(entry_frame->module_data->tls_index);
   if (state == NULL)
     state = Instance()->CreateThreadState(entry_frame->module_data);

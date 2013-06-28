@@ -33,9 +33,8 @@
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/trace/client/rpc_session.h"
 
-// Instrumentation stub to handle a basic-block counting event.
-// TODO(sebmarchand): Rename this function to _increment_indexed_freq_data.
-extern "C" void _cdecl _basic_block_enter();
+// Instrumentation stub to increment an indexed frequency data counter.
+extern "C" void _cdecl _increment_indexed_freq_data();
 
 // Instrumentation stub to handle the invocation of a DllMain-like entry point.
 extern "C" void _cdecl _indirect_penter_dllmain();
@@ -58,9 +57,10 @@ class BasicBlockEntry {
   typedef ::agent::common::ThreadStateManager ThreadStateManager;
 
   // This structure describes the contents of the stack above a call to
-  // BasicBlockEntry::BasicBlockEntryHook. A pointer to this structure will
-  // be given to the BasicBlockEntryHook by _basic_block_enter.
-  struct BasicBlockEntryFrame;
+  // BasicBlockEntry::IncrementIndexedFreqDataHook. A pointer to this structure
+  // will be given to the IncrementIndexedFreqDataHook by
+  // _increment_indexed_freq_data.
+  struct IncrementIndexedFreqDataFrame;
 
   // This structure describes the contents of the stack above a call to
   // BasicBlockEntry::DllMainEntryHook(). A pointer to this structure will
@@ -78,8 +78,9 @@ class BasicBlockEntry {
   // Returns a pointer to thread local frequency data. Used by the fast-path.
   static uint32* WINAPI GetRawFrequencyData(IndexedFrequencyData* data);
 
-  // Called from _basic_block_enter().
-  static void WINAPI BasicBlockEntryHook(BasicBlockEntryFrame* entry_frame);
+  // Called from _increment_indexed_freq_data().
+  static void WINAPI IncrementIndexedFreqDataHook(
+      IncrementIndexedFreqDataFrame* entry_frame);
 
   // Called from _indirect_penter_dllmain.
   static void WINAPI DllMainEntryHook(DllMainEntryFrame* entry_frame);
