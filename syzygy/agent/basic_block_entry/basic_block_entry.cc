@@ -53,37 +53,38 @@ extern "C" uint32* _stdcall GetRawFrequencyData(
   return agent::basic_block_entry::BasicBlockEntry::GetRawFrequencyData(data);
 }
 
+// TODO(sebmarchand): Rename this function to _increment_indexed_freq_data.
 extern "C" void __declspec(naked) _basic_block_enter() {
   __asm {
     // This is expected to be called via instrumentation that looks like:
-    //    push bb_id
+    //    push index
     //    push module_data
     //    call [_basic_block_enter]
     //
-    // Stack: ... bb_id, module_data, ret_addr.
+    // Stack: ... index, module_data, ret_addr.
 
     // Stash volatile registers.
     BBENTRY_SAVE_REGISTERS
 
-    // Stack: ... bb_id, module_data, ret_addr, [4x register]
+    // Stack: ... index, module_data, ret_addr, [4x register]
 
     // Push the original esp value onto the stack as the entry-hook data.
-    // This gives the entry-hook a pointer to ret_addr, module_data and bb_id.
+    // This gives the entry-hook a pointer to ret_addr, module_data and index.
     lea eax, DWORD PTR[esp + 0x10]
     push eax
 
-    // Stack: ..., bb_id, module_data, ret_addr, [4x register], esp, &ret_addr.
+    // Stack: ..., index, module_data, ret_addr, [4x register], esp, &ret_addr.
     call agent::basic_block_entry::BasicBlockEntry::BasicBlockEntryHook
 
-    // Stack: ... bb_id, module_data, ret_addr, [4x register].
+    // Stack: ... index, module_data, ret_addr, [4x register].
 
     // Restore volatile registers.
     BBENTRY_RESTORE_REGISTERS
 
-    // Stack: ... bb_id, module_data, ret_addr.
+    // Stack: ... index, module_data, ret_addr.
 
-    // Return to the address pushed by our caller, popping off the bb_id and
-    // module_data values from the stack.
+    // Return to the address pushed by our caller, popping off the
+    // index and module_data values from the stack.
     ret 8
 
     // Stack: ...
@@ -211,8 +212,6 @@ namespace basic_block_entry {
 namespace {
 
 using ::common::IndexedFrequencyData;
-using ::common::kBasicBlockEntryAgentId;
-using ::common::kBasicBlockFrequencyDataVersion;
 using agent::common::ScopedLastErrorKeeper;
 using trace::client::TraceFileSegment;
 
@@ -248,13 +247,22 @@ HMODULE GetModuleForAddr(const void* addr) {
   return image.module();
 }
 
+// Returns true if @p version is the expected version for @p datatype_id.
+bool DatatypeVersionIsValid(uint32 datatype_id, uint32 version) {
+  if (datatype_id == ::common::IndexedFrequencyData::BASIC_BLOCK_ENTRY)
+    return version == ::common::kBasicBlockFrequencyDataVersion;
+  else if (datatype_id == ::common::IndexedFrequencyData::JUMP_TABLE)
+    return version == ::common::kJumpTableFrequencyDataVersion;
+  return false;
+}
+
 }  // namespace
 
 // The BasicBlockEntryHook parameters.
 struct BasicBlockEntry::BasicBlockEntryFrame {
   const void* ret_addr;
   IndexedFrequencyData* module_data;
-  uint32 basic_block_id;
+  uint32 index;
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(BasicBlockEntry::BasicBlockEntryFrame, 12);
 
@@ -305,9 +313,9 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
   // A helper to assign a ThreadState pointer to a TLS index.
   void Assign(DWORD tls_index);
 
-  // Saturation increment the frequency record for @p basic_block_id. Note
-  // that in Release mode, no range checking is performed on basic_block_id.
-  void Increment(uint32 basic_block_id);
+  // Saturation increment the frequency record for @p index. Note that in
+  // Release mode, no range checking is performed on index.
+  void Increment(uint32 index);
 
  protected:
   // As a shortcut, this points to the beginning of the array of basic-block
@@ -367,10 +375,10 @@ void BasicBlockEntry::ThreadState::Assign(DWORD tls_index) {
   ::TlsSetValue(tls_index, this);
 }
 
-inline void BasicBlockEntry::ThreadState::Increment(uint32 basic_block_id) {
+inline void BasicBlockEntry::ThreadState::Increment(uint32 index) {
   DCHECK(frequency_data_ != NULL);
-  DCHECK(trace_data_ == NULL || basic_block_id < trace_data_->num_entries);
-  uint32& element = frequency_data_[basic_block_id];
+  DCHECK(trace_data_ == NULL || index < trace_data_->num_entries);
+  uint32& element = frequency_data_[index];
   if (element != ~0U)
     ++element;
 }
@@ -404,14 +412,14 @@ void BasicBlockEntry::BasicBlockEntryHook(BasicBlockEntryFrame* entry_frame) {
   DCHECK(entry_frame != NULL);
   DCHECK(entry_frame->module_data != NULL);
   DCHECK_GT(entry_frame->module_data->num_entries,
-            entry_frame->basic_block_id);
+            entry_frame->index);
 
   // TODO(rogerm): Consider extracting a fast path for state != NULL? Inline it
   //     during instrumentation? Move it into the _basic_block_enter function?
   ThreadState* state = ThreadState::Get(entry_frame->module_data->tls_index);
   if (state == NULL)
     state = Instance()->CreateThreadState(entry_frame->module_data);
-  state->Increment(entry_frame->basic_block_id);
+  state->Increment(entry_frame->index);
 }
 
 void BasicBlockEntry::DllMainEntryHook(DllMainEntryFrame* entry_frame) {
@@ -468,10 +476,10 @@ void BasicBlockEntry::OnProcessAttach(IndexedFrequencyData* module_data) {
   DCHECK(module_data != NULL);
 
   // Exit if the magic number does not match.
-  CHECK_EQ(kBasicBlockEntryAgentId, module_data->agent_id);
+  CHECK_EQ(::common::kBasicBlockEntryAgentId, module_data->agent_id);
 
   // Exit if the version does not match.
-  CHECK_EQ(kBasicBlockFrequencyDataVersion, module_data->version);
+  CHECK(DatatypeVersionIsValid(module_data->data_type, module_data->version));
 
   // We allow for this hook to be called multiple times. We expect the first
   // time to occur under the loader lock, so we don't need to worry about

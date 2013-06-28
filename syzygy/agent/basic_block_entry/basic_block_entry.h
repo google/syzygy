@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// The runtime portion of a basic-block entry counting agent. This is
-// responsible for initializing the RPC connection and per-thread entry-count
-// buffer on demand as necessary as well as saturation incrementing the
-// appropriate counter when requested.
+// The runtime portion of a basic-block counting agent. This is responsible for
+// initializing the RPC connection and per-thread indexed-data-count buffer on
+// demand as necessary as well as saturation incrementing the appropriate
+// counter when requested.
 //
 // The instrumenter can be used to inject a run-time dependency on this
 // library as well as to add the appropriate entry-hook code.
@@ -33,7 +33,8 @@
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/trace/client/rpc_session.h"
 
-// Instrumentation stub to handle entry to a basic-block.
+// Instrumentation stub to handle a basic-block counting event.
+// TODO(sebmarchand): Rename this function to _increment_indexed_freq_data.
 extern "C" void _cdecl _basic_block_enter();
 
 // Instrumentation stub to handle the invocation of a DllMain-like entry point.
@@ -46,8 +47,11 @@ extern "C" uint32* _stdcall _get_raw_frequency_data(
 namespace agent {
 namespace basic_block_entry {
 
-// The basic-block entry counting agent.
+// The basic-block counting agent.
 // @note: There's a single instance of this class.
+// TODO(sebmarchand): Rename this class to BasicBlockAgent (or something
+//     similar) as this is used by various modes of instrumentation (basic block
+//     entry counting, basic block arc counts, jump table entry counts, etc).
 class BasicBlockEntry {
  public:
   typedef ::common::IndexedFrequencyData IndexedFrequencyData;
