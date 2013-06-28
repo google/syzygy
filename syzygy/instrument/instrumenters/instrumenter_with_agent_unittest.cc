@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/instrument/instrumenter_with_agent.h"
+#include "syzygy/instrument/instrumenters/instrumenter_with_agent.h"
 
 #include "base/command_line.h"
 #include "base/compiler_specific.h"

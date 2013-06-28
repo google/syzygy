@@ -17,8 +17,8 @@
 //     - Parse the shared command-line parameters.
 //     - Initialization the relinker.
 //     - Default implementation of Instrument.
-#ifndef SYZYGY_INSTRUMENT_INSTRUMENTER_WITH_AGENT_H_
-#define SYZYGY_INSTRUMENT_INSTRUMENTER_WITH_AGENT_H_
+#ifndef  SYZYGY_INSTRUMENT_INSTRUMENTERS_INSTRUMENTER_WITH_AGENT_H_
+#define  SYZYGY_INSTRUMENT_INSTRUMENTERS_INSTRUMENTER_WITH_AGENT_H_
 
 #include <string>
 
@@ -84,4 +84,4 @@ class InstrumenterWithAgent : public InstrumenterInterface {
 
 }  // namespace instrument
 
-#endif  // SYZYGY_INSTRUMENT_INSTRUMENTER_WITH_AGENT_H_
+#endif  // SYZYGY_INSTRUMENT_INSTRUMENTERS_INSTRUMENTER_WITH_AGENT_H_

@@ -23,9 +23,9 @@
       'sources': [
         'instrument_app.cc',
         'instrument_app.h',
-        'instrumenter_with_agent.cc',
-        'instrumenter_with_agent.h',
         'instrumenter.h',
+        'instrumenters/instrumenter_with_agent.cc',
+        'instrumenters/instrumenter_with_agent.h',
         'mutators/add_indexed_data_ranges_stream.cc',
         'mutators/add_indexed_data_ranges_stream.h',
         'transforms/add_indexed_frequency_data_transform.cc',
@@ -82,7 +82,7 @@
       'sources': [
         'instrument_app_unittest.cc',
         'instrument_unittests_main.cc',
-        'instrumenter_with_agent_unittest.cc',
+        'instrumenters/instrumenter_with_agent_unittest.cc',
         'mutators/add_indexed_data_ranges_stream_unittest.cc',
         'transforms/add_indexed_frequency_data_transform_unittest.cc',
         'transforms/asan_transform_unittest.cc',
