@@ -87,9 +87,12 @@ std::string ProfileGrinder::CodeLocation::ToString() const {
 }
 
 bool ProfileGrinder::CodeLocation::operator<(const CodeLocation& o) const {
-  if (is_symbol_ > o.is_symbol_)
+  if (is_symbol_ < o.is_symbol_)
     return true;
+  else if (is_symbol_ > o.is_symbol_)
+    return false;
 
+  DCHECK_EQ(o.is_symbol_, is_symbol_);
   if (is_symbol_) {
     if (process_id_ > o.process_id_)
       return false;
@@ -668,16 +671,7 @@ void ProfileGrinder::OnInvocationBatch(base::Time time,
       ConvertToModuleRVA(process_id, caller_addr, &caller);
     }
 
-    if (function.module() == NULL) {
-      LOG(ERROR) << "Function address "
-                 << base::StringPrintf("0x%08X", info.function )
-                 << " is outside all modules and symbols,"
-                 << " discarding information about "
-                 << info.num_calls << " invocations and "
-                 << info.cycles_sum << " cycles.";
-    } else {
-      AggregateEntryToPart(function, caller, info, part);
-    }
+    AggregateEntryToPart(function, caller, info, part);
   }
 }
 
@@ -726,34 +720,29 @@ void ProfileGrinder::AggregateEntryToPart(const FunctionLocation& function,
     node.metrics.cycles_sum = info.cycles_sum;
   }
 
-  // If the caller is NULL, we can't do anything with the edge as the
-  // caller is unknown, so skip recording it. The data will be aggregated
-  // to the edge above.
-  if (caller.module() != NULL) {
-    InvocationEdgeKey key(function, caller);
+  InvocationEdgeKey key(function, caller);
 
-    // Have we recorded this edge before?
-    InvocationEdgeMap::iterator edge_it(part->edges_.find(key));
-    if (edge_it != part->edges_.end()) {
-      // Yups, we've seen this edge before.
-      // Aggregate the new data with the old.
-      InvocationEdge& found = edge_it->second;
-      found.metrics.num_calls += info.num_calls;
-      found.metrics.cycles_min = std::min(found.metrics.cycles_min,
-                                          info.cycles_min);
-      found.metrics.cycles_max = std::max(found.metrics.cycles_max,
-                                          info.cycles_max);
-      found.metrics.cycles_sum += info.cycles_sum;
-    } else {
-      // Nopes, we haven't seen this edge before, insert it.
-      InvocationEdge& edge = part->edges_[key];
-      edge.function = function;
-      edge.caller = caller;
-      edge.metrics.num_calls = info.num_calls;
-      edge.metrics.cycles_min = info.cycles_min;
-      edge.metrics.cycles_max = info.cycles_max;
-      edge.metrics.cycles_sum = info.cycles_sum;
-    }
+  // Have we recorded this edge before?
+  InvocationEdgeMap::iterator edge_it(part->edges_.find(key));
+  if (edge_it != part->edges_.end()) {
+    // Yups, we've seen this edge before.
+    // Aggregate the new data with the old.
+    InvocationEdge& found = edge_it->second;
+    found.metrics.num_calls += info.num_calls;
+    found.metrics.cycles_min = std::min(found.metrics.cycles_min,
+                                        info.cycles_min);
+    found.metrics.cycles_max = std::max(found.metrics.cycles_max,
+                                        info.cycles_max);
+    found.metrics.cycles_sum += info.cycles_sum;
+  } else {
+    // Nopes, we haven't seen this edge before, insert it.
+    InvocationEdge& edge = part->edges_[key];
+    edge.function = function;
+    edge.caller = caller;
+    edge.metrics.num_calls = info.num_calls;
+    edge.metrics.cycles_min = info.cycles_min;
+    edge.metrics.cycles_max = info.cycles_max;
+    edge.metrics.cycles_sum = info.cycles_sum;
   }
 }
 
