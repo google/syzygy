@@ -62,16 +62,16 @@ class PdbDumpApp : public common::AppImplBase {
   std::vector<base::FilePath> pdb_files_;
 
   // Iff true, will explode the streams from pdb_files_ to individual files.
-  // Default fo false.
+  // Default to false.
   bool explode_streams_;
 
-  // Iff true, the symbol record stream will be dumped. Default fo false.
+  // Iff true, the symbol record stream will be dumped. Default to false.
   bool dump_symbol_record_;
 
-  // Iff true, the type info stream will be dumped. Default fo false.
+  // Iff true, the type info stream will be dumped. Default to false.
   bool dump_type_info_;
 
-  // Iff true, the module streams will be dumped. Default fo false.
+  // Iff true, the module streams will be dumped. Default to false.
   bool dump_modules_;
 };
 

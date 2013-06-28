@@ -59,7 +59,7 @@ const char* SpecialTypeName(uint32 special_type) {
   }
 }
 
-// Dump the name associated with a index type field in a leaf.
+// Dump the name associated with an index type field in a leaf.
 bool DumpTypeIndexName(uint32 type_value,
                        const TypeInfoRecordMap& type_map,
                        FILE* out,

@@ -42,11 +42,11 @@ const char kUsageFormatStr[] =
     "  and reports the time taken individually and on average for each.\n"
     "\n"
     "Required parameters:\n"
-    "  --image=IMAGE_FILE   The EXE of DLLl to decompose.\n"
+    "  --image=IMAGE_FILE   The EXE or DLL to decompose.\n"
     "  --iterations=NUM     The number of times to decompose the image.\n"
     "\n"
-    "Optional paramters:\n"
-    "  --csv=PATH           The path to which CVS output shoudl be written.\n";
+    "Optional parameters:\n"
+    "  --csv=PATH           The path to which CVS output should be written.\n";
 
 bool WriteCsvFile(const base::FilePath& path,
                   const std::vector<double>& samples) {
