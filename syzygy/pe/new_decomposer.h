@@ -72,7 +72,7 @@ class NewDecomposer {
   // decomposed block-graph will be decorated with extensive debug information.
   // If false then a functionally equivalent but undecorated decomposition
   // will be created. Defaults to true.
-  // @param parse_debug_info co ntrols whether or not debug information will
+  // @param parse_debug_info controls whether or not debug information will
   //     be parsed.
   void set_parse_debug_info(bool parse_debug_info) {
     parse_debug_info_ = parse_debug_info;

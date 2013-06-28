@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Command utility to decomposes an image and serializes the decomposition
-// to a file file. See decompose_app.* for the library implementation.
+// Command utility to decompose an image and serializes the decomposition to a
+// file. See decompose_app.* for the library implementation.
 
 #include "base/at_exit.h"
 #include "base/command_line.h"

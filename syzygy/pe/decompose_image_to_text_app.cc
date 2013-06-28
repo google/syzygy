@@ -17,6 +17,7 @@
 #include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/pe/block_util.h"
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/new_decomposer.h"
 #include "syzygy/pe/pe_file.h"
 
 #include "distorm.h"  // NOLINT
@@ -40,7 +41,9 @@ const char kUsageFormatStr[] =
   "Available options\n"
   "  --basic-blocks\n"
   "    Breaks each function down to basic blocks and dumps it at that level.\n"
-  "  --image=<image file>\n";
+  "  --image=<image file>\n"
+  "  --new-decomposer\n"
+  "    Use the new decomposer.\n";
 
 using block_graph::BlockGraph;
 using block_graph::BasicBlock;
@@ -97,6 +100,7 @@ void HexDump(const uint8* data, size_t size, FILE* out) {
 DecomposeImageToTextApp::DecomposeImageToTextApp()
     : common::AppImplBase("Image To Text Decomposer"),
       dump_basic_blocks_(false),
+      use_new_decomposer_(false),
       num_refs_(0) {
 }
 
@@ -120,6 +124,8 @@ bool DecomposeImageToTextApp::ParseCommandLine(
   }
 
   dump_basic_blocks_ = cmd_line->HasSwitch("basic-blocks");
+
+  use_new_decomposer_ = cmd_line->HasSwitch("new-decomposer");
 
   return true;
 }
@@ -338,7 +344,7 @@ void DecomposeImageToTextApp::DumpBlockToText(
                 ref.referenced()->name().c_str(),
                 ref.size());
     } else {
-      // See if there's a label at the desination's offset, and if so
+      // See if there's a label at the destination's offset, and if so
       // use that in preference to a raw numeric offset.
       BlockGraph::Block::LabelMap::const_iterator label =
           ref.referenced()->labels().find(ref.offset());
@@ -368,13 +374,26 @@ bool DecomposeImageToTextApp::DumpImageToText(
     return false;
   }
 
-  // And decompose it to an ImageLayout.
-  Decomposer decomposer(image_file);
   BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
-  if (!decomposer.Decompose(&image_layout)) {
-    LOG(ERROR) << "Unable to decompose image \"" << image_path.value() << "\".";
-    return false;
+
+ if (use_new_decomposer_) {
+    LOG(INFO) << "Using new decomposer for decomposition.";
+    NewDecomposer decomposer(image_file);
+    decomposer.set_parse_debug_info(true);
+    if (!decomposer.Decompose(&image_layout)) {
+      LOG(ERROR) << "Unable to decompose image \""
+          << image_path.value() << "\".";
+      return false;
+    }
+  } else {
+    // And decompose it to an ImageLayout.
+    Decomposer decomposer(image_file);
+    if (!decomposer.Decompose(&image_layout)) {
+      LOG(ERROR) << "Unable to decompose image \""
+          << image_path.value() << "\".";
+      return false;
+    }
   }
 
   num_refs_ = 0;

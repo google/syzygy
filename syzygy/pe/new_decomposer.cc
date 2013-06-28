@@ -76,7 +76,7 @@ struct BlockInfo {
   const block_graph::BlockGraph::Block* block;
   AddressType type;
 
-  // Ideally these would be a in a union but because they have non-trivial
+  // Ideally these would be in a union but because they have non-trivial
   // constructors they are not allowed.
   core::AbsoluteAddress abs_addr;
   core::FileOffsetAddress file_addr;
