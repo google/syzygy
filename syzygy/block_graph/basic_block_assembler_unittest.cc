@@ -73,7 +73,8 @@ class BasicBlockAssemblerTest : public testing::Test {
     instructions_.clear();
   }
 
-  BlockGraph::Block test_block_;
+  BlockGraph block_graph_;
+  BlockGraph::Block* test_block_;
   BasicCodeBlock test_bb_;
   BasicBlock::Instructions instructions_;
   BasicBlockAssembler asm_;
@@ -88,9 +89,10 @@ class BasicBlockAssemblerTest : public testing::Test {
 #define ASSERT_NO_REFS() ASSERT_NO_FATAL_FAILURE(AssertNoRefs())
 
 BasicBlockAssemblerTest::BasicBlockAssemblerTest()
-    : test_block_(99, BlockGraph::CODE_BLOCK, 10, "test block"),
+    : test_block_(NULL),
       test_bb_("foo"),
       asm_(instructions_.end(), &instructions_) {
+  test_block_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 10, "test block");
 }
 
 void TestValue(const Value& value,
@@ -179,11 +181,13 @@ TEST(UntypedReferenceTest, BasicBlockReferenceToBasicBlockConstructor) {
 }
 
 TEST(UntypedReferenceTest, BasicBlockReferenceToBlockConstructor) {
-  BlockGraph::Block b(0, BlockGraph::CODE_BLOCK, 20, "foo");
-  BasicBlockReference bbref(BlockGraph::ABSOLUTE_REF, 4, &b, 4, 10);
+  BlockGraph block_graph;
+  BlockGraph::Block* b =
+      block_graph.AddBlock(BlockGraph::CODE_BLOCK, 20, "foo");
+  BasicBlockReference bbref(BlockGraph::ABSOLUTE_REF, 4, b, 4, 10);
   UntypedReference r(bbref);
   EXPECT_EQ(NULL, r.basic_block());
-  EXPECT_EQ(&b, r.block());
+  EXPECT_EQ(b, r.block());
   EXPECT_EQ(4, r.offset());
   EXPECT_EQ(10, r.base());
   EXPECT_TRUE(r.IsValid());
@@ -203,7 +207,8 @@ TEST(UntypedReferenceTest, BasicBlockConstructor) {
 }
 
 TEST(UntypedReferenceTest, BlockConstructor) {
-  BlockGraph::Block b;
+  BlockGraph block_graph;
+  BlockGraph::Block b(0, BlockGraph::CODE_BLOCK, 0, "dummy", &block_graph);
   UntypedReference r(&b, 4, 10);
   EXPECT_EQ(NULL, r.basic_block());
   EXPECT_EQ(&b, r.block());
@@ -214,7 +219,8 @@ TEST(UntypedReferenceTest, BlockConstructor) {
 }
 
 TEST(UntypedReferenceTest, CopyConstructor) {
-  BlockGraph::Block b;
+  BlockGraph block_graph;
+  BlockGraph::Block b(0, BlockGraph::CODE_BLOCK, 0, "dummy", &block_graph);
   UntypedReference r1(&b, 4, 10);
 
   UntypedReference r2(r1);
@@ -226,7 +232,8 @@ TEST(UntypedReferenceTest, CopyConstructor) {
 }
 
 TEST(UntypedReferenceTest, Comparison) {
-  BlockGraph::Block b;
+  BlockGraph block_graph;
+  BlockGraph::Block b(0, BlockGraph::CODE_BLOCK, 0, "dummy", &block_graph);
   UntypedReference r1(&b, 4, 10);
 
   UntypedReference r2(&b, 0, 0);
@@ -272,13 +279,13 @@ TEST_F(ValueTest, Construction) {
 
   {
     const BlockGraph::Offset kOffs = 10;
-    Value value_block_ref(&test_block_, kOffs);
+    Value value_block_ref(test_block_, kOffs);
 
     ASSERT_EQ(0, value_block_ref.value());
     ASSERT_EQ(core::kSize32Bit, value_block_ref.size());
     ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK,
               value_block_ref.reference().referred_type());
-    ASSERT_EQ(&test_block_, value_block_ref.reference().block());
+    ASSERT_EQ(test_block_, value_block_ref.reference().block());
     ASSERT_EQ(kOffs, value_block_ref.reference().offset());
     ASSERT_EQ(kOffs, value_block_ref.reference().base());
 
@@ -301,14 +308,14 @@ TEST_F(ValueTest, Construction) {
 
   {
     // Explicitly specified size and reference info.
-    UntypedReference ref(&test_block_, 1, 2);
+    UntypedReference ref(test_block_, 1, 2);
     Value value_expl_ref(0xBE, core::kSize8Bit, ref);
 
     ASSERT_EQ(0xBE, value_expl_ref.value());
     ASSERT_EQ(core::kSize8Bit, value_expl_ref.size());
     ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK,
               value_expl_ref.reference().referred_type());
-    ASSERT_EQ(&test_block_, value_expl_ref.reference().block());
+    ASSERT_EQ(test_block_, value_expl_ref.reference().block());
     ASSERT_EQ(1, value_expl_ref.reference().offset());
     ASSERT_EQ(2, value_expl_ref.reference().base());
 
@@ -345,12 +352,12 @@ TEST_F(OperandTest, Construction) {
 
   // Register-indirect with displacement.
   TestOperandCopy(Operand(core::eax, Displacement(100)));
-  TestOperandCopy(Operand(core::eax, Displacement(&test_block_, 2)));
+  TestOperandCopy(Operand(core::eax, Displacement(test_block_, 2)));
   TestOperandCopy(Operand(core::eax, Displacement(&test_bb_)));
 
   // Displacement-only mode.
   TestOperandCopy(Operand(Displacement(100)));
-  TestOperandCopy(Operand(Displacement(&test_block_, 2)));
+  TestOperandCopy(Operand(Displacement(test_block_, 2)));
   TestOperandCopy(Operand(Displacement(&test_bb_)));
 
   TestOperandCopy(Operand(core::eax,
@@ -360,7 +367,7 @@ TEST_F(OperandTest, Construction) {
   TestOperandCopy(Operand(core::eax,
                           core::ebp,
                           core::kTimes2,
-                          Displacement(&test_block_, 2)));
+                          Displacement(test_block_, 2)));
   TestOperandCopy(Operand(core::eax,
                           core::ebp,
                           core::kTimes2,
@@ -375,23 +382,23 @@ TEST_F(OperandTest, Construction) {
                           Displacement(100)));
   TestOperandCopy(Operand(core::ebp,
                           core::kTimes2,
-                          Displacement(&test_block_, 2)));
+                          Displacement(test_block_, 2)));
   TestOperandCopy(Operand(core::ebp,
                           core::kTimes2,
                           Displacement(&test_bb_)));
 }
 
 TEST_F(BasicBlockAssemblerTest, call) {
-  asm_.call(Immediate(&test_block_, 0));
-  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+  asm_.call(Immediate(test_block_, 0));
+  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 
   asm_.call(Operand(Displacement(&test_bb_)));
   ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, &test_bb_);
 }
 
 TEST_F(BasicBlockAssemblerTest, jmp) {
-  asm_.jmp(Immediate(&test_block_, 0));
-  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+  asm_.jmp(Immediate(test_block_, 0));
+  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 
   asm_.jmp(Operand(Displacement(&test_bb_)));
   ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, &test_bb_);
@@ -400,17 +407,17 @@ TEST_F(BasicBlockAssemblerTest, jmp) {
 TEST_F(BasicBlockAssemblerTest, mov_b) {
   // mov BYTE PTR [base + index * scale + displ], immediate
   asm_.mov_b(Operand(core::eax, core::ebx, core::kTimes4,
-                     Displacement(&test_block_, 0)),
+                     Displacement(test_block_, 0)),
            Immediate(10));
-  ASSERT_REFS(3, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+  ASSERT_REFS(3, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 }
 
 TEST_F(BasicBlockAssemblerTest, movzx_b) {
   // movzx eax, BYTE PTR [base + index * scale + displ]
   asm_.movzx_b(core::eax,
                Operand(core::eax, core::ebx, core::kTimes4,
-                       Displacement(&test_block_, 0)));
-  ASSERT_REFS(4, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+                       Displacement(test_block_, 0)));
+  ASSERT_REFS(4, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 }
 
 TEST_F(BasicBlockAssemblerTest, mov) {
@@ -423,34 +430,34 @@ TEST_F(BasicBlockAssemblerTest, mov) {
   ASSERT_NO_REFS();
 
   // Immediate-with reference to register.
-  asm_.mov(core::eax, Immediate(&test_block_, 0));
-  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+  asm_.mov(core::eax, Immediate(test_block_, 0));
+  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 
   // Torture test; mov [displ], immediate,
   // both src and dst contain references.
-  asm_.mov(Operand(Displacement(&test_block_, 0)), Immediate(&test_bb_));
-  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_,
+  asm_.mov(Operand(Displacement(test_block_, 0)), Immediate(&test_bb_));
+  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_,
               6, BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, &test_bb_);
 
   // Torture test; mov [base + index * scale + displ], immediate,
   // both src and dst contain references.
   asm_.mov(Operand(core::eax, core::ebx, core::kTimes4,
-                   Displacement(&test_block_, 0)),
+                   Displacement(test_block_, 0)),
            Immediate(&test_bb_));
-  ASSERT_REFS(3, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_,
+  ASSERT_REFS(3, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_,
               7, BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, &test_bb_);
 }
 
 TEST_F(BasicBlockAssemblerTest, mov_fs) {
   asm_.mov_fs(Operand(core::eax, core::ebx, core::kTimes4,
-                      Displacement(&test_block_, 0)),
+                      Displacement(test_block_, 0)),
               core::eax);
-  ASSERT_REFS(4, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+  ASSERT_REFS(4, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 
   asm_.mov_fs(core::eax,
               Operand(core::eax, core::ebx, core::kTimes4,
-                      Displacement(&test_block_, 0)));
-  ASSERT_REFS(4, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+                      Displacement(test_block_, 0)));
+  ASSERT_REFS(4, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 }
 
 TEST_F(BasicBlockAssemblerTest, lea) {
@@ -467,8 +474,8 @@ TEST_F(BasicBlockAssemblerTest, push) {
   asm_.push(core::esp);
   ASSERT_NO_REFS();
 
-  asm_.push(Immediate(&test_block_, 0));
-  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+  asm_.push(Immediate(test_block_, 0));
+  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 
   asm_.push(Operand(core::eax, core::ebx, core::kTimes4,
                     Displacement(&test_bb_)));
@@ -533,16 +540,16 @@ TEST_F(BasicBlockAssemblerTest, test) {
   ASSERT_NO_REFS();
 
   // Immediate-with reference to register.
-  asm_.test(core::eax, Immediate(&test_block_, 0));
-  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+  asm_.test(core::eax, Immediate(test_block_, 0));
+  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 
   // Torture test: both src and dst contain references.
-  asm_.test(Operand(Displacement(&test_block_, 0)), Immediate(&test_bb_));
-  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_,
+  asm_.test(Operand(Displacement(test_block_, 0)), Immediate(&test_bb_));
+  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_,
               6, BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, &test_bb_);
 
-  asm_.test(Operand(Displacement(&test_block_, 0)), Immediate(10));
-  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+  asm_.test(Operand(Displacement(test_block_, 0)), Immediate(10));
+  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 }
 
 TEST_F(BasicBlockAssemblerTest, cmp_b) {
@@ -565,16 +572,16 @@ TEST_F(BasicBlockAssemblerTest, cmp) {
   ASSERT_NO_REFS();
 
   // Immediate-with reference to register.
-  asm_.cmp(core::eax, Immediate(&test_block_, 0));
-  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+  asm_.cmp(core::eax, Immediate(test_block_, 0));
+  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 
   // Torture test: both src and dst contain references.
-  asm_.cmp(Operand(Displacement(&test_block_, 0)), Immediate(&test_bb_));
-  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_,
+  asm_.cmp(Operand(Displacement(test_block_, 0)), Immediate(&test_bb_));
+  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_,
               6, BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, &test_bb_);
 
-  asm_.cmp(Operand(Displacement(&test_block_, 0)), Immediate(10));
-  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+  asm_.cmp(Operand(Displacement(test_block_, 0)), Immediate(10));
+  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 }
 
 TEST_F(BasicBlockAssemblerTest, add_b) {
@@ -597,16 +604,16 @@ TEST_F(BasicBlockAssemblerTest, add) {
   ASSERT_NO_REFS();
 
   // Immediate-with reference to register.
-  asm_.add(core::eax, Immediate(&test_block_, 0));
-  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+  asm_.add(core::eax, Immediate(test_block_, 0));
+  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 
   // Torture test: both src and dst contain references.
-  asm_.add(Operand(Displacement(&test_block_, 0)), Immediate(&test_bb_));
-  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_,
+  asm_.add(Operand(Displacement(test_block_, 0)), Immediate(&test_bb_));
+  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_,
               6, BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, &test_bb_);
 
-  asm_.add(Operand(Displacement(&test_block_, 0)), Immediate(10));
-  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+  asm_.add(Operand(Displacement(test_block_, 0)), Immediate(10));
+  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 }
 
 TEST_F(BasicBlockAssemblerTest, sub_b) {
@@ -629,16 +636,16 @@ TEST_F(BasicBlockAssemblerTest, sub) {
   ASSERT_NO_REFS();
 
   // Immediate-with reference to register.
-  asm_.sub(core::eax, Immediate(&test_block_, 0));
-  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+  asm_.sub(core::eax, Immediate(test_block_, 0));
+  ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 
   // Torture test: both src and dst contain references.
-  asm_.sub(Operand(Displacement(&test_block_, 0)), Immediate(&test_bb_));
-  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_,
+  asm_.sub(Operand(Displacement(test_block_, 0)), Immediate(&test_bb_));
+  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_,
               6, BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK, &test_bb_);
 
-  asm_.sub(Operand(Displacement(&test_block_, 0)), Immediate(10));
-  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, &test_block_);
+  asm_.sub(Operand(Displacement(test_block_, 0)), Immediate(10));
+  ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 }
 
 TEST_F(BasicBlockAssemblerTest, shl) {
@@ -663,14 +670,14 @@ TEST_F(BasicBlockAssemblerTest, ret) {
 
 TEST_F(BasicBlockAssemblerTest, UndefinedSourceRange) {
   ASSERT_EQ(asm_.source_range(), SourceRange());
-  asm_.call(Immediate(&test_block_, 0));
+  asm_.call(Immediate(test_block_, 0));
   ASSERT_EQ(instructions_.back().source_range(), SourceRange());
 }
 
 TEST_F(BasicBlockAssemblerTest, SetSourceRange) {
   SourceRange range(RelativeAddress(10), 10);
   asm_.set_source_range(range);
-  asm_.call(Immediate(&test_block_, 0));
+  asm_.call(Immediate(test_block_, 0));
   ASSERT_EQ(instructions_.back().source_range(), range);
 }
 
@@ -679,7 +686,7 @@ TEST_F(BasicBlockAssemblerTest, SetMultipleSourceRange) {
   SourceRange range2(RelativeAddress(20), 20);
 
   asm_.set_source_range(range1);
-  asm_.call(Immediate(&test_block_, 0));
+  asm_.call(Immediate(test_block_, 0));
   ASSERT_EQ(instructions_.back().source_range(), range1);
 
   asm_.set_source_range(range2);
@@ -690,4 +697,4 @@ TEST_F(BasicBlockAssemblerTest, SetMultipleSourceRange) {
   ASSERT_EQ(instructions_.back().source_range(), range2);
 }
 
-}  // namespace basic_block
+}  // namespace block_graph

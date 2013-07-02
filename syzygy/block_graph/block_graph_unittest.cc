@@ -87,11 +87,13 @@ const char* BlockTest::kBlockName = "block";
 const uint8 BlockTest::kTestData[] = "who's your daddy?";
 
 TEST(ReferenceTest, Initialization) {
-  BlockGraph::Block block(0, BlockGraph::CODE_BLOCK, 10, "foo");
-  BlockGraph::Reference ref(BlockGraph::RELATIVE_REF, 4, &block, 0, 0);
+  BlockGraph block_graph;
+  BlockGraph::Block* block =
+      block_graph.AddBlock(BlockGraph::CODE_BLOCK, 10, "foo");
+  BlockGraph::Reference ref(BlockGraph::RELATIVE_REF, 4, block, 0, 0);
   ASSERT_EQ(BlockGraph::RELATIVE_REF, ref.type());
   ASSERT_EQ(4u, ref.size());
-  ASSERT_EQ(&block, ref.referenced());
+  ASSERT_EQ(block, ref.referenced());
   ASSERT_EQ(0, ref.offset());
   ASSERT_EQ(0, ref.base());
   ASSERT_TRUE(ref.IsValid());
@@ -99,8 +101,10 @@ TEST(ReferenceTest, Initialization) {
 }
 
 TEST(ReferenceTest, IndirectReference) {
-  BlockGraph::Block block(0, BlockGraph::CODE_BLOCK, 10, "foo");
-  BlockGraph::Reference ref(BlockGraph::RELATIVE_REF, 4, &block, -8, 4);
+  BlockGraph block_graph;
+  BlockGraph::Block* block =
+      block_graph.AddBlock(BlockGraph::CODE_BLOCK, 10, "foo");
+  BlockGraph::Reference ref(BlockGraph::RELATIVE_REF, 4, block, -8, 4);
   ASSERT_TRUE(ref.IsValid());
   ASSERT_FALSE(ref.IsDirect());
 }

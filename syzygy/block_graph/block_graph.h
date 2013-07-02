@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// A block graph is a an abstract graph of blocks, each of which has an ID,
-// a type, a size and a few other properties. Each block represents either code
-// or data, and blocks can reference one another through references of various
+// A block graph is an abstract graph of blocks, each of which has an ID, a
+// type, a size and a few other properties. Each block represents either code or
+// data, and blocks can reference one another through references of various
 // types.
 //
 // The BlockGraph also stores minimum knowledge of sections (names and
@@ -511,13 +511,11 @@ class BlockGraph::Block {
   // disassemble from the code labels to discover all basic blocks.
   typedef std::map<Offset, Label> LabelMap;
 
-  // Blocks need to be default constructible for serialization.
-  Block();
-
   Block(BlockId id,
         BlockType type,
         Size size,
-        const base::StringPiece& name);
+        const base::StringPiece& name,
+        BlockGraph* block_graph);
   ~Block();
 
   // Accessors.
@@ -727,6 +725,9 @@ class BlockGraph::Block {
   // Give BlockGraphSerializer access to our innards for serialization.
   friend class BlockGraphSerializer;
 
+  // This constructor is used by serialization.
+  explicit Block(BlockGraph* block_graph);
+
   // Allocates and returns a new data buffer of the given size. The returned
   // data buffer will not have been initialized in any way.
   uint8* AllocateRawData(size_t size);
@@ -737,6 +738,10 @@ class BlockGraph::Block {
   Size alignment_;
   std::string name_;
   RelativeAddress addr_;
+
+  // BlockGraph to which belongs this Block. A block can only belongs to one
+  // Block Graph.
+  BlockGraph * block_graph_;
 
   SectionId section_;
   BlockAttributes attributes_;

@@ -31,7 +31,9 @@ TEST(FilterUtilTest, IsFiltered) {
 
   // Create some dummy blocks, etc. Initially they have no source ranges so
   // should all pass as instrumentable.
-  BlockGraph::Block block(0, BlockGraph::CODE_BLOCK, 10, "block");
+  BlockGraph block_graph;
+  BlockGraph::Block* block =
+      block_graph.AddBlock(BlockGraph::CODE_BLOCK, 10, "block");
   Instruction inst;
   EXPECT_TRUE(Instruction::FromBuffer(nop, arraysize(nop), &inst));
   BasicCodeBlock code_bb("code_bb");
@@ -46,7 +48,7 @@ TEST(FilterUtilTest, IsFiltered) {
 
   // Give all of the test data source ranges, but that don't conflict with
   // any of the ranges in the filter.
-  EXPECT_TRUE(block.source_ranges().Push(
+  EXPECT_TRUE(block->source_ranges().Push(
         BlockGraph::Block::SourceRanges::SourceRange(0, 10),
         BlockGraph::Block::SourceRanges::DestinationRange(
             RelativeAddress(35), 10)));
@@ -57,7 +59,7 @@ TEST(FilterUtilTest, IsFiltered) {
   data_bb.set_source_range(Range(RelativeAddress(29), arraysize(data)));
 
   // We expect nothing to be filtered.
-  EXPECT_FALSE(IsFiltered(f, &block));
+  EXPECT_FALSE(IsFiltered(f, block));
   EXPECT_FALSE(IsFiltered(f, &code_bb));
   EXPECT_FALSE(IsFiltered(f, &data_bb));
   EXPECT_FALSE(IsFiltered(f, code_bb_ptr));
@@ -68,7 +70,7 @@ TEST(FilterUtilTest, IsFiltered) {
   f.Mark(Range(RelativeAddress(30), 10));
 
   // We expect everything to be filtered.
-  EXPECT_TRUE(IsFiltered(f, &block));
+  EXPECT_TRUE(IsFiltered(f, block));
   EXPECT_TRUE(IsFiltered(f, &code_bb));
   EXPECT_TRUE(IsFiltered(f, &data_bb));
   EXPECT_TRUE(IsFiltered(f, code_bb_ptr));

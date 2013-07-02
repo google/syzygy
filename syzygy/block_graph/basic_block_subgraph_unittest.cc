@@ -51,7 +51,8 @@ class TestBasicBlockSubGraph : public BasicBlockSubGraph {
 }  // namespace
 
 TEST(BasicBlockSubGraphTest, AddBasicBlock) {
-  BlockGraph::Block block;
+  BlockGraph block_graph;
+  BlockGraph::Block block(0, BlockGraph::CODE_BLOCK, 0, "dummy", &block_graph);
   BasicBlockSubGraph subgraph;
   subgraph.set_original_block(&block);
   block.set_size(kDataSize);
@@ -146,7 +147,9 @@ TEST(BasicBlockSubGraphTest, MapsBasicBlocksToAtMostOneDescription) {
 }
 
 TEST(BasicBlockSubGraphTest, GetReachabilityMap) {
-  BlockGraph::Block external_block;
+  BlockGraph block_graph;
+  BlockGraph::Block external_block(0, BlockGraph::CODE_BLOCK, 0, "dummy",
+      &block_graph);
   BasicBlockSubGraph subgraph;
   static const uint8 kData[Reference::kMaximumSize] = { 0 };
 
@@ -201,7 +204,9 @@ TEST(BasicBlockSubGraphTest, GetReachabilityMap) {
 }
 
 TEST(BasicBlockSubGraphTest, HasValidSuccessors) {
-  BlockGraph::Block external_block;
+  BlockGraph block_graph;
+  BlockGraph::Block external_block(0, BlockGraph::CODE_BLOCK, 0, "dummy",
+      &block_graph);
   TestBasicBlockSubGraph subgraph;
 
   BasicCodeBlock* bb1 = subgraph.AddBasicCodeBlock("bb1");
@@ -266,15 +271,16 @@ TEST(BasicBlockSubGraphTest, HasValidSuccessors) {
 }
 
 TEST(BasicBlockSubGraphTest, HasValidReferrers) {
-  BlockGraph::Block b1 = BlockGraph::Block(0, BlockGraph::DATA_BLOCK, 4, "b1");
-  BlockGraph::Block b2 = BlockGraph::Block(0, BlockGraph::DATA_BLOCK, 4, "b2");
+  BlockGraph block_graph;
+  BlockGraph::Block* b1 = block_graph.AddBlock(BlockGraph::DATA_BLOCK, 4, "b1");
+  BlockGraph::Block* b2 = block_graph.AddBlock(BlockGraph::DATA_BLOCK, 4, "b2");
 
-  Reference ref(BlockGraph::ABSOLUTE_REF, 4, &b1, 0, 0);
-  ASSERT_TRUE(b2.SetReference(0, ref));
-  ASSERT_FALSE(b1.referrers().empty());
+  Reference ref(BlockGraph::ABSOLUTE_REF, 4, b1, 0, 0);
+  ASSERT_TRUE(b2->SetReference(0, ref));
+  ASSERT_FALSE(b1->referrers().empty());
 
   TestBasicBlockSubGraph subgraph;
-  subgraph.set_original_block(&b1);
+  subgraph.set_original_block(b1);
 
   ASSERT_FALSE(subgraph.HasValidReferrers());
 
@@ -288,7 +294,7 @@ TEST(BasicBlockSubGraphTest, HasValidReferrers) {
 
   ASSERT_FALSE(subgraph.HasValidReferrers());
 
-  bb1->referrers().insert(BasicBlockReferrer(&b2, 0));
+  bb1->referrers().insert(BasicBlockReferrer(b2, 0));
   ASSERT_TRUE(subgraph.HasValidReferrers());
 }
 

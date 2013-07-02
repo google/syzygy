@@ -82,7 +82,8 @@ class LivenessAnalysisTest : public testing::Test {
                            BasicCodeBlock* to);
 
  protected:
-  BlockGraph::Block test_block_;
+  BlockGraph block_graph_;
+  BlockGraph::Block* test_block_;
   BasicCodeBlock test_bb_;
   BasicBlock::Instructions instructions_;
   BasicBlockAssembler asm_;
@@ -92,12 +93,13 @@ class LivenessAnalysisTest : public testing::Test {
 
 LivenessAnalysisTest::LivenessAnalysisTest()
     : testing::Test(),
-      test_block_(99, BlockGraph::CODE_BLOCK, 10, "test block"),
+      test_block_(NULL),
       test_bb_("foo"),
       instructions_(),
       asm_(instructions_.end(), &instructions_),
       liveness_(),
       state_() {
+  test_block_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 10, "test block");
 }
 
 template<size_t N>
@@ -336,7 +338,7 @@ TEST_F(LivenessAnalysisTest, Mov1Analysis) {
 TEST_F(LivenessAnalysisTest, Mov2Analysis) {
   asm_.mov(core::eax, core::ebx);
   asm_.mov(core::edx, Immediate(10));
-  asm_.mov(core::ecx, Immediate(&test_block_, 0));
+  asm_.mov(core::ecx, Immediate(test_block_, 0));
   AnalyzeInstructions();
   EXPECT_FALSE(is_live(core::eax));
   EXPECT_TRUE(is_live(core::ebx));

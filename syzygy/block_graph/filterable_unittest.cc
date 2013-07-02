@@ -53,9 +53,12 @@ TEST(FilterableTest, IsFiltered) {
   const uint8 nop[] = { 0x90 };
   const uint8 data[10] = {};
 
+  BlockGraph block_graph;
+
   // Create some dummy blocks, etc. Initially they have no source ranges so
   // should all pass as instrumentable.
-  BlockGraph::Block block(0, BlockGraph::CODE_BLOCK, 10, "block");
+  BlockGraph::Block* block =
+      block_graph.AddBlock(BlockGraph::CODE_BLOCK, 10, "block");
   Instruction inst;
   EXPECT_TRUE(Instruction::FromBuffer(nop, arraysize(nop), &inst));
   BasicCodeBlock code_bb("code_bb");
@@ -65,7 +68,7 @@ TEST(FilterableTest, IsFiltered) {
   BasicBlock* data_bb_ptr = &data_bb;
 
   // We expect nothing to be filtered because there is none.
-  EXPECT_FALSE(f.IsFiltered(&block));
+  EXPECT_FALSE(f.IsFiltered(block));
   EXPECT_FALSE(f.IsFiltered(&code_bb));
   EXPECT_FALSE(f.IsFiltered(&data_bb));
   EXPECT_FALSE(f.IsFiltered(code_bb_ptr));
@@ -79,7 +82,7 @@ TEST(FilterableTest, IsFiltered) {
 
   // Give all of the test data source ranges, but that don't conflict with
   // any of the ranges in the filter.
-  EXPECT_TRUE(block.source_ranges().Push(
+  EXPECT_TRUE(block->source_ranges().Push(
         BlockGraph::Block::SourceRanges::SourceRange(0, 10),
         BlockGraph::Block::SourceRanges::DestinationRange(
             RelativeAddress(35), 10)));
@@ -90,7 +93,7 @@ TEST(FilterableTest, IsFiltered) {
   data_bb.set_source_range(Range(RelativeAddress(29), arraysize(data)));
 
   // We expect nothing to be filtered.
-  EXPECT_FALSE(f.IsFiltered(&block));
+  EXPECT_FALSE(f.IsFiltered(block));
   EXPECT_FALSE(f.IsFiltered(&code_bb));
   EXPECT_FALSE(f.IsFiltered(&data_bb));
   EXPECT_FALSE(f.IsFiltered(code_bb_ptr));
@@ -101,7 +104,7 @@ TEST(FilterableTest, IsFiltered) {
   raf.Mark(Range(RelativeAddress(30), 10));
 
   // We expect everything to be filtered.
-  EXPECT_TRUE(f.IsFiltered(&block));
+  EXPECT_TRUE(f.IsFiltered(block));
   EXPECT_TRUE(f.IsFiltered(&code_bb));
   EXPECT_TRUE(f.IsFiltered(&data_bb));
   EXPECT_TRUE(f.IsFiltered(code_bb_ptr));

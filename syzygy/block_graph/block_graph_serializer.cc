@@ -245,7 +245,8 @@ bool BlockGraphSerializer::LoadBlocks(BlockGraph* block_graph,
     }
 
     std::pair<BlockGraph::BlockMap::iterator, bool> result =
-        block_graph->blocks_.insert(std::make_pair(id, BlockGraph::Block()));
+        block_graph->blocks_.insert(
+            std::make_pair(id, BlockGraph::Block(block_graph)));
     if (!result.second) {
       LOG(ERROR) << "Unable to insert block with id " << id << ".";
       return false;

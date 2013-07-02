@@ -120,11 +120,13 @@ TEST(MetadataTest, SaveToBlock) {
   Metadata metadata1;
   InitMetadata(&metadata1);
 
-  BlockGraph::Block block(0, BlockGraph::DATA_BLOCK, 0, "Metadata");
-  EXPECT_TRUE(metadata1.SaveToBlock(&block));
+  BlockGraph block_graph;
+  BlockGraph::Block* block =
+      block_graph.AddBlock(BlockGraph::DATA_BLOCK, 0, "Metadata");
+  EXPECT_TRUE(metadata1.SaveToBlock(block));
 
   Metadata metadata2;
-  EXPECT_TRUE(metadata2.LoadFromBlock(&block));
+  EXPECT_TRUE(metadata2.LoadFromBlock(block));
   EXPECT_EQ(metadata1, metadata2);
 }
 

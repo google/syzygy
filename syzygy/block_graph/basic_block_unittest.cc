@@ -39,7 +39,9 @@ class BasicBlockTest: public testing::Test {
   BasicBlockTest()
       : basic_code_block_(kBlockName),
         basic_data_block_(kBlockName, kBlockData, kBlockSize),
-        macro_block_(kBlockId, kMacroBlockType, kBlockSize, kBlockName) {
+        macro_block_(NULL) {
+     macro_block_ = block_graph_.AddBlock(
+         kMacroBlockType, kBlockSize, kBlockName);
      basic_data_block_.set_label(BlockGraph::Label(
          "data", BlockGraph::DATA_LABEL | BlockGraph::CASE_TABLE_LABEL));
   }
@@ -65,7 +67,7 @@ class BasicBlockTest: public testing::Test {
       case I_JECXZ:
       case I_JG:   // Equivalent to JNLE.
       case I_JGE:  // Equivalent to JNL.
-      case I_JL:   // Equivalent to I_JNGE.
+      case I_JL:   // Equivalent to JNGE.
       case I_JLE:  // Equivalent to JNG.
       case I_JNO:
       case I_JNP:  // Equivalent to JPO.
@@ -114,7 +116,7 @@ class BasicBlockTest: public testing::Test {
   Successor CreateBranch(uint16 opcode, Successor::Offset target) {
     BasicBlockReference ref(BlockGraph::PC_RELATIVE_REF,
                             1,  // Size is immaterial in successors.
-                            &macro_block_,
+                            macro_block_,
                             target,
                             target);
     return Successor(Successor::OpCodeToCondition(opcode), ref, 0);
@@ -122,7 +124,6 @@ class BasicBlockTest: public testing::Test {
 
   // Some handy constants we'll use throughout the tests.
   // @{
-  static const BasicBlock::BlockId kBlockId;
   static const BasicBlock::BasicBlockType kBasicBlockType;
   static const BlockGraph::BlockType kMacroBlockType;
   static const char kBlockName[];
@@ -135,12 +136,12 @@ class BasicBlockTest: public testing::Test {
   // @}
 
  protected:
+  BlockGraph block_graph_;
   BasicCodeBlock basic_code_block_;
   BasicDataBlock basic_data_block_;
-  BlockGraph::Block macro_block_;
+  BlockGraph::Block* macro_block_;
 };
 
-const BasicBlock::BlockId BasicBlockTest::kBlockId = 1;
 const BasicBlock::BasicBlockType BasicBlockTest::kBasicBlockType =
     BasicBlock::BASIC_CODE_BLOCK;
 const BlockGraph::BlockType BasicBlockTest::kMacroBlockType =
@@ -325,14 +326,14 @@ TEST_F(BasicBlockTest, BlockReference) {
 
   BasicBlockReference ref(BlockGraph::RELATIVE_REF,
                           kRefSize,
-                          &macro_block_,
+                          macro_block_,
                           kOffset,
                           kBase);
   TestReferenceCopy(ref);
 
   EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK, ref.referred_type());
   EXPECT_EQ(NULL, ref.basic_block());
-  EXPECT_EQ(&macro_block_, ref.block());
+  EXPECT_EQ(macro_block_, ref.block());
   EXPECT_EQ(kRefSize, ref.size());
   EXPECT_EQ(kOffset, ref.offset());
   EXPECT_EQ(kBase, ref.base());
@@ -342,7 +343,7 @@ TEST_F(BasicBlockTest, BlockReference) {
   EXPECT_EQ(BlockGraph::PC_RELATIVE_REF, retyped.reference_type());
   EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK, retyped.referred_type());
   EXPECT_EQ(NULL, retyped.basic_block());
-  EXPECT_EQ(&macro_block_, retyped.block());
+  EXPECT_EQ(macro_block_, retyped.block());
   EXPECT_EQ(1, retyped.size());
   EXPECT_EQ(kOffset, retyped.offset());
   EXPECT_EQ(kBase, retyped.base());
@@ -355,7 +356,7 @@ TEST_F(BasicBlockTest, CompareBasicBlockReferences) {
   BasicBlockReference r2(
       BlockGraph::RELATIVE_REF, kRefSize, &basic_code_block_);
   BasicBlockReference r3(
-      BlockGraph::RELATIVE_REF, kRefSize, &macro_block_, 8, 8);
+      BlockGraph::RELATIVE_REF, kRefSize, macro_block_, 8, 8);
 
   EXPECT_TRUE(r1 == r2);
   EXPECT_TRUE(r2 == r1);
@@ -374,19 +375,21 @@ TEST_F(BasicBlockTest, InvalidBasicBlockReferrer) {
 TEST_F(BasicBlockTest, BlockReferrer) {
   static const BasicBlockReference::Offset kOffset = kBlockSize / 2;
 
-  BasicBlockReferrer referrer(&macro_block_, kOffset);
+  BasicBlockReferrer referrer(macro_block_, kOffset);
 
-  EXPECT_EQ(&macro_block_, referrer.block());
+  EXPECT_EQ(macro_block_, referrer.block());
   EXPECT_EQ(kOffset, referrer.offset());
   EXPECT_TRUE(referrer.IsValid());
 }
 
 TEST_F(BasicBlockTest, CompareBasicBlockRefererrs) {
-  BlockGraph::Block b2(kBlockId + 1, kMacroBlockType , kBlockSize, kBlockName);
+  BlockGraph block_graph;
+  BlockGraph::Block* b2 = block_graph.AddBlock(kMacroBlockType, kBlockSize,
+      kBlockName);
 
-  BasicBlockReferrer r1(&b2, 4);
-  BasicBlockReferrer r2(&b2, 4);
-  BasicBlockReferrer r3(&macro_block_, 8);
+  BasicBlockReferrer r1(b2, 4);
+  BasicBlockReferrer r2(b2, 4);
+  BasicBlockReferrer r3(macro_block_, 8);
 
   EXPECT_TRUE(r1 == r2);
   EXPECT_TRUE(r2 == r1);
@@ -635,12 +638,16 @@ TEST_F(InstructionTest, ToString) {
 }
 
 TEST_F(InstructionTest, CallsNonReturningFunction) {
+  BlockGraph block_graph;
+
   // Create a returning code block.
-  BlockGraph::Block returning(0, BlockGraph::CODE_BLOCK, 1, "return");
+  BlockGraph::Block* returning =
+      block_graph.AddBlock(BlockGraph::CODE_BLOCK, 1, "return");
 
   // Create a non-returning code block.
-  BlockGraph::Block non_returning(1, BlockGraph::CODE_BLOCK, 1, "non-return");
-  non_returning.set_attribute(BlockGraph::NON_RETURN_FUNCTION);
+  BlockGraph::Block* non_returning =
+       block_graph.AddBlock(BlockGraph::CODE_BLOCK, 1, "non-return");
+  non_returning->set_attribute(BlockGraph::NON_RETURN_FUNCTION);
 
   _DInst repr = {};
   repr.opcode = I_CALL;
@@ -657,21 +664,22 @@ TEST_F(InstructionTest, CallsNonReturningFunction) {
   call_relative.SetReference(
       1, BasicBlockReference(BlockGraph::RELATIVE_REF,
                              BlockGraph::Reference::kMaximumSize,
-                             &returning, 0, 0));
+                             returning, 0, 0));
   EXPECT_FALSE(call_relative.CallsNonReturningFunction());
 
   // Call the non-returning function directly.
   call_relative.SetReference(
       1, BasicBlockReference(BlockGraph::RELATIVE_REF,
                              BlockGraph::Reference::kMaximumSize,
-                             &non_returning, 0, 0));
+                             non_returning, 0, 0));
   EXPECT_TRUE(call_relative.CallsNonReturningFunction());
 
   // Setup an indirect call via a static function pointer (for example, an
   // import table).
   repr.ops[0].type = O_DISP;
-  BlockGraph::Block function_pointer(
-      2, BlockGraph::DATA_BLOCK, BlockGraph::Reference::kMaximumSize, "ptr");
+  BlockGraph::Block* function_pointer =
+      block_graph.AddBlock(BlockGraph::DATA_BLOCK,
+          BlockGraph::Reference::kMaximumSize, "ptr");
   const uint8 kCallIndirect[] = { 0xFF, 0x15, 0xDE, 0xAD, 0xBE, 0xEF };
   Instruction call_indirect;
   ASSERT_TRUE(Instruction::FromBuffer(kCallIndirect,
@@ -680,21 +688,21 @@ TEST_F(InstructionTest, CallsNonReturningFunction) {
   call_indirect.SetReference(
       2, BasicBlockReference(BlockGraph::RELATIVE_REF,
                              BlockGraph::Reference::kMaximumSize,
-                             &function_pointer, 0, 0));
+                             function_pointer, 0, 0));
   TestInstructionCopy(call_indirect);
 
   // Call the returning function via the pointer.
-  function_pointer.SetReference(
+  function_pointer->SetReference(
       0, BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
                                 BlockGraph::Reference::kMaximumSize,
-                                &returning, 0, 0));
+                                returning, 0, 0));
   EXPECT_FALSE(call_indirect.CallsNonReturningFunction());
 
   // Call the returning function via the pointer.
-  function_pointer.SetReference(
+  function_pointer->SetReference(
       0, BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
                                 BlockGraph::Reference::kMaximumSize,
-                                &non_returning, 0, 0));
+                                non_returning, 0, 0));
   EXPECT_TRUE(call_indirect.CallsNonReturningFunction());
 }
 
@@ -706,7 +714,7 @@ TEST_F(InstructionTest, FindOperandReference) {
     // Generate a dual-reference instruction.
     assm.mov(Operand(core::eax, core::ebx, core::kTimes4,
                      Displacement(&basic_code_block_)),
-             Immediate(&macro_block_, 30));
+             Immediate(macro_block_, 30));
     const Instruction& inst = instructions.back();
 
     BasicBlockReference ref0;
@@ -718,7 +726,7 @@ TEST_F(InstructionTest, FindOperandReference) {
     BasicBlockReference ref1;
     EXPECT_TRUE(inst.FindOperandReference(1, &ref1));
     EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK, ref1.referred_type());
-    EXPECT_EQ(&macro_block_, ref1.block());
+    EXPECT_EQ(macro_block_, ref1.block());
 
     BasicBlockReference ignore;
     EXPECT_FALSE(inst.FindOperandReference(2, &ignore));

@@ -36,15 +36,18 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
   struct MockBlockInfo {
     uint32 start;
     size_t size;
-    BlockGraph::Block block;
+    BlockGraph::Block* block;
 
-    MockBlockInfo(uint32 start_, size_t size_)
-        : start(start_), size(size_) {
-      block.set_addr(core::RelativeAddress(start));
-      block.set_size(size);
+    MockBlockInfo(uint32 start_, size_t size_, BlockGraph* block_graph)
+        : start(start_), size(size_), block(NULL) {
+      DCHECK(block_graph != NULL);
+      block = block_graph->AddBlock(BlockGraph::CODE_BLOCK, size_, "block");
+      block->set_addr(core::RelativeAddress(start));
+      block->set_size(size);
     }
 
-    MockBlockInfo() {
+    MockBlockInfo()
+        : start(0U), size(0U), block(NULL) {
     }
   };
   typedef std::vector<MockBlockInfo> MockBlockInfoList;
@@ -58,10 +61,10 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
     simulation_.reset(new PageFaultSimulation());
     ASSERT_TRUE(simulation_ != NULL);
 
-    blocks_[0] = MockBlockInfo(0x0, 0x50);
-    blocks_[1] = MockBlockInfo(0x0, 0x100);
-    blocks_[2] = MockBlockInfo(0x350, 0x100);
-    blocks_[3] = MockBlockInfo(0x1000, 0x50);
+    blocks_[0] = MockBlockInfo(0x0, 0x50, &block_graph_);
+    blocks_[1] = MockBlockInfo(0x0, 0x100, &block_graph_);
+    blocks_[2] = MockBlockInfo(0x350, 0x100, &block_graph_);
+    blocks_[3] = MockBlockInfo(0x1000, 0x50, &block_graph_);
   }
 
   // Checks if the given address is on one of our mock blocks.
@@ -134,7 +137,8 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
     for (uint32 i = 0; i < 5; i++) {
       uint32 block_start = Random(start, start + size);
       size_t block_size = Random(1, start + size - block_start);
-      mock_block_list.push_back(MockBlockInfo(block_start, block_size));
+      mock_block_list.push_back(
+          MockBlockInfo(block_start, block_size, &block_graph_));
     }
   }
 
@@ -168,7 +172,8 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
 
     // The block page_fault_size bytes from the end of each sequence should
     // always be loaded.
-    input.push_back(MockBlockInfo(fault, Random(1, page_fault_size)));
+    input.push_back(
+        MockBlockInfo(fault, Random(1, page_fault_size), &block_graph_));
 
     fault--;
     for (; fault >= static_cast<int>(start); fault--) {
@@ -179,7 +184,8 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
       if (random_(avg_length) == 0) {
         input.push_back(MockBlockInfo(fault,
             Random(page_fault_size * (current_size / page_fault_size) + 1,
-                   start + size - fault)));
+                   start + size - fault),
+            &block_graph_));
 
         current_size = 0;
       }
@@ -188,7 +194,8 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
     if (current_size > 0)
       input.push_back(MockBlockInfo(start,
           Random(page_fault_size * (current_size / page_fault_size) + 1,
-                 size)));
+                 size),
+          &block_graph_));
 
     // Add several random blocks at the end of the input that won't
     // have any effect on the output.
@@ -247,6 +254,8 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
   MockBlockInfo blocks_[4];
   core::RandomNumberGenerator random_;
   const base::Time time_;
+
+  BlockGraph block_graph_;
 };
 
 }  // namespace
@@ -282,7 +291,7 @@ TEST_F(PageFaultSimulatorTest, RandomInput) {
         GenerateRandomInput(output, random_(output.size()) + 1);
 
     for (size_t i = 0; i < input.size(); i++)
-      simulation_->OnFunctionEntry(time_, &input[i].block);
+      simulation_->OnFunctionEntry(time_, input[i].block);
 
     std::stringstream input_string;
     input_string << '{';
@@ -303,13 +312,13 @@ TEST_F(PageFaultSimulatorTest, ExactPageFaults) {
   simulation_->set_pages_per_code_fault(4);
 
   MockBlockInfo blocks[] = {
-      MockBlockInfo(0, 3),
-      MockBlockInfo(2, 2),
-      MockBlockInfo(5, 5)
+      MockBlockInfo(0, 3, &block_graph_),
+      MockBlockInfo(2, 2, &block_graph_),
+      MockBlockInfo(5, 5, &block_graph_)
   };
 
   for (uint32 i = 0; i < arraysize(blocks); i++) {
-    simulation_->OnFunctionEntry(time_, &blocks[i].block);
+    simulation_->OnFunctionEntry(time_, blocks[i].block);
   }
 
   PageSet::key_type expected_pages[] = {0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12};
@@ -322,7 +331,7 @@ TEST_F(PageFaultSimulatorTest, CorrectPageFaults) {
   simulation_->OnProcessStarted(time_, 1);
 
   for (int i = 0; i < arraysize(blocks_); i++) {
-    simulation_->OnFunctionEntry(time_, &blocks_[i].block);
+    simulation_->OnFunctionEntry(time_, blocks_[i].block);
   }
 
   EXPECT_EQ(simulation_->fault_count(), 74);
@@ -334,7 +343,7 @@ TEST_F(PageFaultSimulatorTest, CorrectPageFaultsWithBigPages) {
   simulation_->set_page_size(0x8000);
 
   for (int i = 0; i < arraysize(blocks_); i++) {
-    simulation_->OnFunctionEntry(time_, &blocks_[i].block);
+    simulation_->OnFunctionEntry(time_, blocks_[i].block);
   }
 
   EXPECT_EQ(simulation_->fault_count(), 1);
@@ -346,7 +355,7 @@ TEST_F(PageFaultSimulatorTest, CorrectPageFaultsWithFewPagesPerCodeFault) {
   simulation_->set_pages_per_code_fault(3);
 
   for (int i = 0; i < arraysize(blocks_); i++) {
-    simulation_->OnFunctionEntry(time_, &blocks_[i].block);
+    simulation_->OnFunctionEntry(time_, blocks_[i].block);
   }
 
   EXPECT_EQ(simulation_->fault_count(), 199);
@@ -357,7 +366,7 @@ TEST_F(PageFaultSimulatorTest, JSONSucceeds) {
   simulation_->OnProcessStarted(time_, 1);
 
   for (int i = 0; i < arraysize(blocks_); i++) {
-    simulation_->OnFunctionEntry(time_, &blocks_[i].block);
+    simulation_->OnFunctionEntry(time_, blocks_[i].block);
   }
 
   // Output JSON data to a file.

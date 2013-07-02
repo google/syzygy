@@ -42,7 +42,7 @@ class BlockGraphSerializer {
     DEFAULT_DATA_MODE = OUTPUT_NO_DATA,
 
     // In this mode of serialization, only blocks that own their own data will
-    // will have the data serialized explicitly. The other block data will be
+    // have the data serialized explicitly. The other block data will be
     // recovered via LoadBlockDataCallback, and saved via the optional
     // SaveBlockDataCallback.
     OUTPUT_OWNED_DATA,

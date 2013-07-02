@@ -58,20 +58,26 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
     uint32 start;
     size_t size;
     std::string name;
-    BlockGraph::Block block;
+    BlockGraph::Block* block;
 
-    MockBlockInfo(time_t time_, uint32 start_, size_t size_)
-        : time(time_), start(start_), size(size_), name("") {
-      block.set_addr(core::RelativeAddress(start));
-      block.set_size(size);
-      block.set_name(name);
+    MockBlockInfo(time_t time_, uint32 start_, size_t size_,
+        BlockGraph* block_graph)
+        : time(time_), start(start_), size(size_), name(""), block(NULL) {
+      DCHECK(block_graph != NULL);
+      block = block_graph->AddBlock(BlockGraph::CODE_BLOCK, size_, "block");
+      block->set_addr(core::RelativeAddress(start));
+      block->set_size(size);
+      block->set_name(name);
     }
 
-    MockBlockInfo(time_t time_, uint32 start_, size_t size_, std::string name_)
-        : time(time_), start(start_), size(size_), name(name_) {
-      block.set_addr(core::RelativeAddress(start));
-      block.set_size(size);
-      block.set_name(name);
+    MockBlockInfo(time_t time_, uint32 start_, size_t size_, std::string name_,
+        BlockGraph* block_graph)
+        : time(time_), start(start_), size(size_), name(name_), block(NULL) {
+      DCHECK(block_graph != NULL);
+      block = block_graph->AddBlock(BlockGraph::CODE_BLOCK, size_, name_);
+      block->set_addr(core::RelativeAddress(start));
+      block->set_size(size);
+      block->set_name(name);
     }
 
     MockBlockInfo() {
@@ -84,15 +90,15 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
 
   void SetUp() {
     simulation_.reset(new HeatMapSimulation());
-    blocks_[0] = MockBlockInfo(20, 0, 3, "A");
-    blocks_[1] = MockBlockInfo(20, 0, 3, "A");
-    blocks_[2] = MockBlockInfo(20, 2, 4, "C");
-    blocks_[3] = MockBlockInfo(20, 2, 1, "B");
-    blocks_[4] = MockBlockInfo(20, 10, 3, "B");
-    blocks_[5] = MockBlockInfo(20, 10, 3, "A");
-    blocks_[6] = MockBlockInfo(20, 10, 4, "B");
-    blocks_[7] = MockBlockInfo(20, 10, 1, "A");
-    blocks_[8] = MockBlockInfo(40, 2, 5, "B");
+    blocks_[0] = MockBlockInfo(20, 0, 3, "A", &block_graph_);
+    blocks_[1] = MockBlockInfo(20, 0, 3, "A", &block_graph_);
+    blocks_[2] = MockBlockInfo(20, 2, 4, "C", &block_graph_);
+    blocks_[3] = MockBlockInfo(20, 2, 1, "B", &block_graph_);
+    blocks_[4] = MockBlockInfo(20, 10, 3, "B", &block_graph_);
+    blocks_[5] = MockBlockInfo(20, 10, 3, "A", &block_graph_);
+    blocks_[6] = MockBlockInfo(20, 10, 4, "B", &block_graph_);
+    blocks_[7] = MockBlockInfo(20, 10, 1, "A", &block_graph_);
+    blocks_[8] = MockBlockInfo(40, 2, 5, "B", &block_graph_);
 
     time = Time::FromTimeT(10);
   }
@@ -133,7 +139,7 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
 
     for (uint32 i = 0; i < arraysize(blocks_); i++) {
       simulation_->OnFunctionEntry(Time::FromTimeT(blocks_[i].time),
-                                   &blocks_[i].block);
+                                   blocks_[i].block);
     }
 
     EXPECT_EQ(simulation_->time_memory_map().size(), expected_size);
@@ -157,7 +163,7 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
 
   // Turn a MockBlockInfoList into a vector.
   // @param input The MockBlockInfoList to be transformed.
-  // @param size The size of the lastest byte pointed by the MockBlockInfoList.
+  // @param size The size of the latest byte pointed by the MockBlockInfoList.
   // @returns A vector of size size where every element is equal to the number
   //     of different MockBlockInfos in input that cover to that position.
   std::vector<uint32> Vectorize(const MockBlockInfoList &input, size_t size) {
@@ -228,7 +234,8 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
           slices[slice + i]--;
       }
 
-      random_input.push_back(MockBlockInfo(time, slice + start, block_size));
+      random_input.push_back(
+          MockBlockInfo(time, slice + start, block_size, &block_graph_));
     }
 
     return random_input;
@@ -271,6 +278,7 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
   Time time;
   MockBlockInfo blocks_[9];
   core::RandomNumberGenerator random_;
+  BlockGraph block_graph_;
 };
 
 }  // namespace
@@ -441,7 +449,7 @@ TEST_F(HeatMapSimulationTest, RandomInput) {
 
     for (uint32 i = 0; i < random_input.size(); i++) {
       simulation_->OnFunctionEntry(Time::FromTimeT(random_input[i].time),
-                                   &random_input[i].block);
+                                   random_input[i].block);
     }
 
     for (uint32 i = 0; i < expected_size; i++) {

@@ -281,7 +281,7 @@ BlockGraph::Block* BlockGraph::AddBlock(BlockType type,
                                         const base::StringPiece& name) {
   BlockId id = ++next_block_id_;
   BlockMap::iterator it = blocks_.insert(
-      std::make_pair(id, Block(id, type, size, name))).first;
+      std::make_pair(id, Block(id, type, size, name, this))).first;
 
   return &it->second;
 }
@@ -697,37 +697,43 @@ bool BlockGraph::Label::AreValidAttributes(LabelAttributes attributes) {
   return true;
 }
 
-BlockGraph::Block::Block()
+BlockGraph::Block::Block(BlockGraph* block_graph)
     : id_(0),
       type_(BlockGraph::CODE_BLOCK),
       size_(0),
       alignment_(1),
       addr_(kInvalidAddress),
+      block_graph_(block_graph),
       section_(kInvalidSectionId),
       attributes_(0),
       owns_data_(false),
       data_(NULL),
       data_size_(0) {
+  DCHECK(block_graph != NULL);
 }
 
 BlockGraph::Block::Block(BlockId id,
                          BlockType type,
                          Size size,
-                         const base::StringPiece& name)
+                         const base::StringPiece& name,
+                         BlockGraph* block_graph)
     : id_(id),
       type_(type),
       size_(size),
       alignment_(1),
       name_(name.begin(), name.end()),
       addr_(kInvalidAddress),
+      block_graph_(block_graph),
       section_(kInvalidSectionId),
       attributes_(0),
       owns_data_(false),
       data_(NULL),
       data_size_(0) {
+  DCHECK(block_graph != NULL);
 }
 
 BlockGraph::Block::~Block() {
+  DCHECK(block_graph_ != NULL);
   if (owns_data_)
     delete [] data_;
 }
