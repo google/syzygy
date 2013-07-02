@@ -27,11 +27,13 @@
 #include "syzygy/pe/pe_relinker.h"
 
 namespace instrument {
+namespace instrumenters {
 
 class InstrumenterWithAgent : public InstrumenterInterface {
  public:
   InstrumenterWithAgent()
       : allow_overwrite_(false),
+        debug_friendly_(false),
         new_decomposer_(false),
         no_augment_pdb_(false),
         no_parse_debug_info_(false),
@@ -59,6 +61,19 @@ class InstrumenterWithAgent : public InstrumenterInterface {
   // @note The implementation should log on failure.
   virtual bool InstrumentImpl() = 0;
 
+  // Pure virtual method that should return the name of the instrumentation
+  // mode.
+  virtual const char* InstrumentationMode() = 0;
+
+  // Virtual method called by ParseCommandLine to parse the additional
+  // command-line arguments specific to an instrumenter.
+  // @param command_line the command-line to be parsed.
+  // @returns true by default. Should return false on error.
+  virtual bool ParseAdditionalCommandLineArguments(
+     const CommandLine* command_line) {
+   return true;
+  }
+
   // @name Internal machinery, replaceable for testing purposes.
   // @{
   virtual pe::PERelinker* GetRelinker();
@@ -75,6 +90,7 @@ class InstrumenterWithAgent : public InstrumenterInterface {
   base::FilePath output_dll_path_;
   base::FilePath output_pdb_path_;
   bool allow_overwrite_;
+  bool debug_friendly_;
   bool new_decomposer_;
   bool no_augment_pdb_;
   bool no_parse_debug_info_;
@@ -82,6 +98,7 @@ class InstrumenterWithAgent : public InstrumenterInterface {
   // @}
 };
 
+}  // namespace instrumenters
 }  // namespace instrument
 
 #endif  // SYZYGY_INSTRUMENT_INSTRUMENTERS_INSTRUMENTER_WITH_AGENT_H_

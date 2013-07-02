@@ -19,6 +19,7 @@
 #include "syzygy/common/application.h"
 
 namespace instrument {
+namespace instrumenters {
 
 bool InstrumenterWithAgent::ParseCommandLine(const CommandLine* command_line) {
   DCHECK(command_line != NULL);
@@ -47,8 +48,10 @@ bool InstrumenterWithAgent::ParseCommandLine(const CommandLine* command_line) {
   }
 
   // Ensure that both input and output have been specified.
-  if (input_dll_path_.empty() || output_dll_path_.empty())
+  if (input_dll_path_.empty() || output_dll_path_.empty()) {
+    LOG(ERROR) << "You must provide input and output file names.";
     return false;
+  }
 
   // Parse the remaining command line arguments.
   input_pdb_path_ = common::AppImplBase::AbsolutePath(
@@ -56,10 +59,36 @@ bool InstrumenterWithAgent::ParseCommandLine(const CommandLine* command_line) {
   output_pdb_path_ = common::AppImplBase::AbsolutePath(
       command_line->GetSwitchValuePath("output-pdb"));
   allow_overwrite_ = command_line->HasSwitch("overwrite");
+  debug_friendly_ = command_line->HasSwitch("debug-friendly");
   new_decomposer_ = command_line->HasSwitch("new-decomposer");
   no_augment_pdb_ = command_line->HasSwitch("no-augment-pdb");
   no_parse_debug_info_ = command_line->HasSwitch("no-parse-debug-info");
   no_strip_strings_ = command_line->HasSwitch("no-strip-strings");
+
+  if (!agent_dll_.empty()) {
+    LOG(INFO) << "Default agent DLL for " << InstrumentationMode() << " mode "
+              << "is \"" << agent_dll_ << "\".";
+  }
+
+  // Parse the custom agent if one is specified.
+  if (command_line->HasSwitch("agent")) {
+    std::string new_agent_dll = command_line->GetSwitchValueASCII("agent");
+    if (new_agent_dll != agent_dll_) {
+      agent_dll_ = new_agent_dll;
+      LOG(INFO) << "Using custom agent DLL \"" << agent_dll_ << "\".";
+    }
+  }
+
+  if (agent_dll_.empty()) {
+    LOG(ERROR) << "No agent DLL has been specified.";
+    return false;
+  }
+
+  if (!ParseAdditionalCommandLineArguments(command_line)) {
+    LOG(ERROR) << "Unable to parse the additional arguments from the command "
+               << "line.";
+    return false;
+  }
 
   return true;
 }
@@ -104,4 +133,5 @@ pe::PERelinker* InstrumenterWithAgent::GetRelinker() {
   return relinker_.get();
 }
 
+}  // namespace instrumenters
 }  // namespace instrument

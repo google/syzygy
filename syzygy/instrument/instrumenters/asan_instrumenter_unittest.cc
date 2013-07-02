@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/instrument/instrumenters/instrumenter_with_agent.h"
+#include "syzygy/instrument/instrumenters/asan_instrumenter.h"
 
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
@@ -26,50 +26,30 @@ namespace instrumenters {
 
 namespace {
 
-using testing::StrictMock;
-using testing::Return;
-using testing::_;
-
-const char kTestAgentDllName[] = "test_agent_dll.dll";
-
-class MockRelinker : public pe::PERelinker {
+class TestAsanInstrumenter : public AsanInstrumenter {
  public:
-  MOCK_METHOD0(Init, bool());
-  MOCK_METHOD0(Relink, bool());
+  using AsanInstrumenter::agent_dll_;
+  using AsanInstrumenter::input_dll_path_;
+  using AsanInstrumenter::input_pdb_path_;
+  using AsanInstrumenter::output_dll_path_;
+  using AsanInstrumenter::output_pdb_path_;
+  using AsanInstrumenter::allow_overwrite_;
+  using AsanInstrumenter::new_decomposer_;
+  using AsanInstrumenter::no_augment_pdb_;
+  using AsanInstrumenter::no_parse_debug_info_;
+  using AsanInstrumenter::no_strip_strings_;
+  using AsanInstrumenter::filter_path_;
+  using AsanInstrumenter::debug_friendly_;
+  using AsanInstrumenter::use_liveness_analysis_;
+  using AsanInstrumenter::remove_redundant_checks_;
+  using AsanInstrumenter::kAgentDllAsan;
 };
 
-class TestInstrumenterWithAgent : public InstrumenterWithAgent {
- public:
-  using InstrumenterWithAgent::input_dll_path_;
-  using InstrumenterWithAgent::input_pdb_path_;
-  using InstrumenterWithAgent::output_dll_path_;
-  using InstrumenterWithAgent::output_pdb_path_;
-  using InstrumenterWithAgent::allow_overwrite_;
-  using InstrumenterWithAgent::new_decomposer_;
-  using InstrumenterWithAgent::no_augment_pdb_;
-  using InstrumenterWithAgent::no_parse_debug_info_;
-  using InstrumenterWithAgent::no_strip_strings_;
-
-  TestInstrumenterWithAgent() {
-    agent_dll_ = kTestAgentDllName;
-  }
-
-  MOCK_METHOD0(InstrumentImpl, bool());
-
-  pe::PERelinker* GetRelinker() OVERRIDE {
-    return &mock_relinker_;
-  }
-
-  virtual const char* InstrumentationMode() { return "test"; }
-
-  StrictMock<MockRelinker> mock_relinker_;
-};
-
-class InstrumenterWithAgentTest : public testing::PELibUnitTest {
+class AsanInstrumenterTest : public testing::PELibUnitTest {
  public:
   typedef testing::PELibUnitTest Super;
 
-  InstrumenterWithAgentTest()
+  AsanInstrumenterTest()
       : cmd_line_(base::FilePath(L"instrument.exe")) {
   }
 
@@ -129,73 +109,65 @@ class InstrumenterWithAgentTest : public testing::PELibUnitTest {
   // @}
 
   // The fake instrumenter we delegate to.
-  TestInstrumenterWithAgent instrumenter_;
+  TestAsanInstrumenter instrumenter_;
 };
 
 }  // namespace
 
-TEST_F(InstrumenterWithAgentTest, EmptyCommandLineFails) {
-  ASSERT_FALSE(instrumenter_.ParseCommandLine(&cmd_line_));
-}
-
-TEST_F(InstrumenterWithAgentTest, ParseWithNoInputImageFails) {
+TEST_F(AsanInstrumenterTest, ParseMinimalAsan) {
+  cmd_line_.AppendSwitchASCII("mode", "asan");
+  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
   cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
 
-  ASSERT_FALSE(instrumenter_.ParseCommandLine(&cmd_line_));
-}
-
-TEST_F(InstrumenterWithAgentTest, ParseWithNoOutputImageFails) {
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-
-  ASSERT_FALSE(instrumenter_.ParseCommandLine(&cmd_line_));
-}
-
-TEST_F(InstrumenterWithAgentTest, DeprecatedParseNoModeSpecifyDlls) {
-  cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
-
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+
   EXPECT_EQ(abs_input_dll_path_, instrumenter_.input_dll_path_);
   EXPECT_EQ(output_dll_path_, instrumenter_.output_dll_path_);
-
+  EXPECT_EQ(std::string(TestAsanInstrumenter::kAgentDllAsan),
+            instrumenter_.agent_dll_);
   EXPECT_FALSE(instrumenter_.allow_overwrite_);
   EXPECT_FALSE(instrumenter_.new_decomposer_);
   EXPECT_FALSE(instrumenter_.no_augment_pdb_);
   EXPECT_FALSE(instrumenter_.no_parse_debug_info_);
   EXPECT_FALSE(instrumenter_.no_strip_strings_);
+  EXPECT_FALSE(instrumenter_.debug_friendly_);
+  EXPECT_FALSE(instrumenter_.use_liveness_analysis_);
+  EXPECT_FALSE(instrumenter_.remove_redundant_checks_);
 }
 
-TEST_F(InstrumenterWithAgentTest, agent_dll) {
-  EXPECT_STREQ(kTestAgentDllName, instrumenter_.agent_dll().c_str());
-}
-
-TEST_F(InstrumenterWithAgentTest, Instrument) {
-  SetUpValidCommandLine();
+TEST_F(AsanInstrumenterTest, ParseFullAsan) {
+  cmd_line_.AppendSwitchASCII("mode", "asan");
+  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+  cmd_line_.AppendSwitchPath("filter", test_dll_filter_path_);
+  cmd_line_.AppendSwitchASCII("agent", "foo.dll");
+  cmd_line_.AppendSwitch("debug-friendly");
+  cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
+  cmd_line_.AppendSwitch("new-decomposer");
+  cmd_line_.AppendSwitch("no-augment-pdb");
+  cmd_line_.AppendSwitch("no-parse-debug-info");
+  cmd_line_.AppendSwitch("no-strip-strings");
+  cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
+  cmd_line_.AppendSwitch("overwrite");
+  cmd_line_.AppendSwitch("use-liveness-analysis");
+  cmd_line_.AppendSwitch("remove-redundant-checks");
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
-  EXPECT_CALL(instrumenter_.mock_relinker_, Init()).WillOnce(Return(true));
-  EXPECT_CALL(instrumenter_.mock_relinker_, Relink()).WillOnce(Return(true));
-  EXPECT_CALL(instrumenter_, InstrumentImpl()).WillOnce(Return(true));
 
-  EXPECT_TRUE(instrumenter_.Instrument());
-}
-
-TEST_F(InstrumenterWithAgentTest, InstrumentFailsInit) {
-  SetUpValidCommandLine();
-
-  EXPECT_CALL(instrumenter_.mock_relinker_, Init()).WillOnce(Return(false));
-
-  EXPECT_FALSE(instrumenter_.Instrument());
-}
-
-TEST_F(InstrumenterWithAgentTest, InstrumentFailsRelink) {
-  SetUpValidCommandLine();
-
-  EXPECT_CALL(instrumenter_.mock_relinker_, Init()).WillOnce(Return(true));
-  EXPECT_CALL(instrumenter_.mock_relinker_, Relink()).WillOnce(Return(false));
-  EXPECT_CALL(instrumenter_, InstrumentImpl()).WillOnce(Return(true));
-
-  EXPECT_FALSE(instrumenter_.Instrument());
+  EXPECT_EQ(abs_input_dll_path_, instrumenter_.input_dll_path_);
+  EXPECT_EQ(output_dll_path_, instrumenter_.output_dll_path_);
+  EXPECT_EQ(abs_input_pdb_path_, instrumenter_.input_pdb_path_);
+  EXPECT_EQ(output_pdb_path_, instrumenter_.output_pdb_path_);
+  EXPECT_EQ(test_dll_filter_path_, instrumenter_.filter_path_);
+  EXPECT_EQ(std::string("foo.dll"), instrumenter_.agent_dll_);
+  EXPECT_TRUE(instrumenter_.allow_overwrite_);
+  EXPECT_TRUE(instrumenter_.new_decomposer_);
+  EXPECT_TRUE(instrumenter_.no_augment_pdb_);
+  EXPECT_TRUE(instrumenter_.no_parse_debug_info_);
+  EXPECT_TRUE(instrumenter_.no_strip_strings_);
+  EXPECT_TRUE(instrumenter_.debug_friendly_);
+  EXPECT_TRUE(instrumenter_.use_liveness_analysis_);
+  EXPECT_TRUE(instrumenter_.remove_redundant_checks_);
 }
 
 }  // namespace instrumenters
