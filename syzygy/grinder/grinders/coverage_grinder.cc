@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/grinder/coverage_grinder.h"
+#include "syzygy/grinder/grinders/coverage_grinder.h"
 
 #include "base/string_util.h"
 #include "base/files/file_path.h"
@@ -24,6 +24,7 @@
 #include "syzygy/pe/find.h"
 
 namespace grinder {
+namespace grinders {
 
 using basic_block_util::ModuleInformation;
 using basic_block_util::RelativeAddressRange;
@@ -189,4 +190,5 @@ void CoverageGrinder::OnIndexedFrequency(
   }
 }
 
+}  // namespace grinders
 }  // namespace grinder

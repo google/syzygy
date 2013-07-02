@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/grinder/profile_grinder.h"
+#include "syzygy/grinder/grinders/profile_grinder.h"
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
@@ -24,6 +24,7 @@
 #include "syzygy/pe/find.h"
 
 namespace grinder {
+namespace grinders {
 
 using base::win::ScopedBstr;
 using base::win::ScopedComPtr;
@@ -269,7 +270,6 @@ ProfileGrinder::PartData* ProfileGrinder::FindOrCreatePart(DWORD process_id,
 
   return &it->second;
 }
-
 
 bool ProfileGrinder::GetFunctionSymbolByRVA(IDiaSession* session,
                                             RVA address,
@@ -771,4 +771,5 @@ void ProfileGrinder::ConvertToModuleRVA(uint32 process_id,
   rva->Set(&(*it), static_cast<RVA>(addr - module->base_address));
 }
 
+}  // namespace grinders
 }  // namespace grinder

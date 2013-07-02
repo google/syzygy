@@ -14,14 +14,15 @@
 //
 // Declares the coverage grinder, which processes trace files containing
 // coverage data and produces LCOV output.
-#ifndef SYZYGY_GRINDER_COVERAGE_GRINDER_H_
-#define SYZYGY_GRINDER_COVERAGE_GRINDER_H_
+#ifndef SYZYGY_GRINDER_GRINDERS_COVERAGE_GRINDER_H_
+#define SYZYGY_GRINDER_GRINDERS_COVERAGE_GRINDER_H_
 
 #include "syzygy/grinder/basic_block_util.h"
 #include "syzygy/grinder/coverage_data.h"
 #include "syzygy/grinder/grinder.h"
 
 namespace grinder {
+namespace grinders {
 
 // This class processes trace files containing basic-block frequency data and
 // produces LCOV output.
@@ -81,6 +82,7 @@ class CoverageGrinder : public GrinderInterface {
   OutputFormat output_format_;
 };
 
+}  // namespace grinders
 }  // namespace grinder
 
-#endif  // SYZYGY_GRINDER_COVERAGE_GRINDER_H_
+#endif  // SYZYGY_GRINDER_GRINDERS_COVERAGE_GRINDER_H_

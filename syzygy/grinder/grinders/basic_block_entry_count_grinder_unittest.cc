@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/grinder/basic_block_entry_count_grinder.h"
+#include "syzygy/grinder/grinders/basic_block_entry_count_grinder.h"
 
 #include "base/file_util.h"
 #include "base/values.h"
@@ -27,6 +27,7 @@
 #include "syzygy/pe/unittest_util.h"
 
 namespace grinder {
+namespace grinders {
 
 namespace {
 
@@ -296,4 +297,5 @@ TEST_F(BasicBlockEntryCountGrinderTest, GrindCoverageDataSucceeds) {
   // TODO(rogerm): Inspect value for coverage specific expected data.
 }
 
+}  // namespace grinders
 }  // namespace grinder

@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/grinder/profile_grinder.h"
+#include "syzygy/grinder/grinders/profile_grinder.h"
 
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
 
 namespace grinder {
+namespace grinders {
 
 namespace {
 
@@ -229,4 +230,5 @@ TEST_F(ProfileGrinderTest, GrindAndOutputCacheGrindDataSucceeds) {
   // TODO(etienneb): Validate the output is a valid CacheGrind file.
 }
 
+}  // namespace grinders
 }  // namespace grinder

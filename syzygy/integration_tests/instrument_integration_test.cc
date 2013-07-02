@@ -21,10 +21,10 @@
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/common/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/grinder/basic_block_entry_count_grinder.h"
 #include "syzygy/grinder/basic_block_util.h"
-#include "syzygy/grinder/coverage_grinder.h"
 #include "syzygy/grinder/grinder.h"
+#include "syzygy/grinder/grinders/basic_block_entry_count_grinder.h"
+#include "syzygy/grinder/grinders/coverage_grinder.h"
 #include "syzygy/instrument/instrument_app.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/test_dll.h"
@@ -316,7 +316,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 
   void BBEntryCheckTestDll() {
     Parser parser;
-    grinder::BasicBlockEntryCountGrinder grinder;
+    grinder::grinders::BasicBlockEntryCountGrinder grinder;
 
     // Initialize trace parser.
     ASSERT_TRUE(parser.Init(&grinder));
@@ -379,7 +379,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 
   void CoverageCheckTestDll() {
     Parser parser;
-    grinder::CoverageGrinder grinder;
+    grinder::grinders::CoverageGrinder grinder;
 
     // Initialize trace parser.
     ASSERT_TRUE(parser.Init(&grinder));

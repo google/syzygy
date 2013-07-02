@@ -18,9 +18,9 @@
 #include "base/logging.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
-#include "syzygy/grinder/basic_block_entry_count_grinder.h"
-#include "syzygy/grinder/coverage_grinder.h"
-#include "syzygy/grinder/profile_grinder.h"
+#include "syzygy/grinder/grinders/basic_block_entry_count_grinder.h"
+#include "syzygy/grinder/grinders/coverage_grinder.h"
+#include "syzygy/grinder/grinders/profile_grinder.h"
 
 namespace grinder {
 
@@ -97,13 +97,13 @@ bool GrinderApp::ParseCommandLine(const CommandLine* command_line) {
   std::string mode = command_line->GetSwitchValueASCII("mode");
   if (LowerCaseEqualsASCII(mode, "profile")) {
     mode_ = kProfile;
-    grinder_.reset(new ProfileGrinder());
+    grinder_.reset(new grinders::ProfileGrinder());
   } else if (LowerCaseEqualsASCII(mode, "coverage")) {
     mode_ = kCoverage;
-    grinder_.reset(new CoverageGrinder());
+    grinder_.reset(new grinders::CoverageGrinder());
   } else if (LowerCaseEqualsASCII(mode, "bbentry")) {
     mode_ = kBasicBlockEntry;
-    grinder_.reset(new BasicBlockEntryCountGrinder());
+    grinder_.reset(new grinders::BasicBlockEntryCountGrinder());
   } else {
     PrintUsage(command_line->GetProgram(),
                base::StringPrintf("Unknown mode: %s.", mode.c_str()));

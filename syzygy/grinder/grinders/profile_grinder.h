@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SYZYGY_GRINDER_PROFILE_GRINDER_H_
-#define SYZYGY_GRINDER_PROFILE_GRINDER_H_
+#ifndef SYZYGY_GRINDER_GRINDERS_PROFILE_GRINDER_H_
+#define SYZYGY_GRINDER_GRINDERS_PROFILE_GRINDER_H_
 
 #include <dia2.h>
 #include <iostream>
@@ -23,6 +23,7 @@
 #include "syzygy/grinder/grinder.h"
 
 namespace grinder {
+namespace grinders {
 
 typedef uint32 RVA;
 
@@ -337,6 +338,7 @@ struct ProfileGrinder::InvocationEdge {
   InvocationEdge* next_call;
 };
 
+}  // namespace grinders
 }  // namespace grinder
 
-#endif  // SYZYGY_GRINDER_PROFILE_GRINDER_H_
+#endif  // SYZYGY_GRINDER_GRINDERS_PROFILE_GRINDER_H_

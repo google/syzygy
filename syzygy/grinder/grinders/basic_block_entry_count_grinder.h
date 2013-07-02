@@ -15,8 +15,8 @@
 // Declares the BasicBlockEntryCountGrinder class, which processes trace files
 // containing basic-block frequency data and outputs a summary JSON file.
 
-#ifndef SYZYGY_GRINDER_BASIC_BLOCK_ENTRY_COUNT_GRINDER_H_
-#define SYZYGY_GRINDER_BASIC_BLOCK_ENTRY_COUNT_GRINDER_H_
+#ifndef SYZYGY_GRINDER_GRINDERS_BASIC_BLOCK_ENTRY_COUNT_GRINDER_H_
+#define SYZYGY_GRINDER_GRINDERS_BASIC_BLOCK_ENTRY_COUNT_GRINDER_H_
 
 #include <map>
 #include <vector>
@@ -27,6 +27,7 @@
 #include "syzygy/grinder/grinder.h"
 
 namespace grinder {
+namespace grinders {
 
 // This class processes trace files containing basic-block frequency data,
 // populating an EntryCountMap with summary entry counts, and
@@ -125,6 +126,7 @@ class BasicBlockEntryCountGrinder : public GrinderInterface {
   DISALLOW_COPY_AND_ASSIGN(BasicBlockEntryCountGrinder);
 };
 
+}  // namespace grinders
 }  // namespace grinder
 
-#endif  // SYZYGY_GRINDER_BASIC_BLOCK_ENTRY_COUNT_GRINDER_H_
+#endif  // SYZYGY_GRINDER_GRINDERS_BASIC_BLOCK_ENTRY_COUNT_GRINDER_H_

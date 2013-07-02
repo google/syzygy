@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/grinder/basic_block_entry_count_grinder.h"
+#include "syzygy/grinder/grinders/basic_block_entry_count_grinder.h"
 
 #include <limits>
 
@@ -28,6 +28,7 @@
 #include "syzygy/pe/pe_file.h"
 
 namespace grinder {
+namespace grinders {
 
 BasicBlockEntryCountGrinder::BasicBlockEntryCountGrinder()
     : parser_(NULL),
@@ -204,4 +205,5 @@ BasicBlockEntryCountGrinder::FindOrCreateInstrumentedModule(
   return &info;
 }
 
+}  // namespace grinders
 }  // namespace grinder
