@@ -293,6 +293,8 @@ class BlockGraph {
   const Block* GetBlockById(BlockId id) const;
   // @}
 
+  const std::string& InternString(const base::StringPiece& str);
+
  private:
   // Give BlockGraphSerializer access to our innards for serialization.
   friend BlockGraphSerializer;
@@ -311,6 +313,9 @@ class BlockGraph {
 
   // Our block ID allocator.
   BlockId next_block_id_;
+
+  // A set of internalized string.
+  std::set<std::string> string_table_;
 };
 
 // The BlockGraph maintains a list of sections, and each block belongs

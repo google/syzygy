@@ -340,6 +340,17 @@ const BlockGraph::Block* BlockGraph::GetBlockById(BlockId id) const {
   return &it->second;
 }
 
+const std::string& BlockGraph::InternString(const base::StringPiece& str) {
+  const std::string& raw_string = str.data();
+  std::set<std::string>::iterator look = string_table_.find(raw_string);
+
+  // This string is not interned, add it.
+  if (look == string_table_.end())
+    look = string_table_.insert(str.data()).first;
+
+  return *look;
+}
+
 bool BlockGraph::RemoveBlockByIterator(BlockMap::iterator it) {
   DCHECK(it != blocks_.end());
 

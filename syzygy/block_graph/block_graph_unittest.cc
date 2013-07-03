@@ -757,7 +757,7 @@ TEST_F(BlockTest, RemoveAllReferences) {
   // Remove all references from block1.
   EXPECT_TRUE(block1->RemoveAllReferences());
 
-  // Veify that the references are as expected.
+  // Verify that the references are as expected.
   EXPECT_EQ(0U, block1->references().size());
   EXPECT_EQ(0U, block1->referrers().size());
   EXPECT_EQ(0U, block2->referrers().size());
@@ -1036,6 +1036,27 @@ TEST(BlockGraphTest, Labels) {
   expected.insert(std::make_pair(
       17, BlockGraph::Label("bar", BlockGraph::CODE_LABEL)));
   EXPECT_THAT(block->labels(), testing::ContainerEq(expected));
+}
+
+TEST(BlockGraphTest, InternStrings) {
+  std::string str1 = "Dummy";
+  std::string str2 = "Foo";
+  std::string str3 = "Bar";
+  std::string str4 = "Foo";
+
+  // Validate that string are interned correctly.
+  BlockGraph block_graph;
+  const std::string& interned_str1 = block_graph.InternString(str1);
+  const std::string& interned_str2 = block_graph.InternString(str2);
+  const std::string& interned_str3 = block_graph.InternString(str3);
+  const std::string& interned_str4 = block_graph.InternString(str4);
+
+  EXPECT_NE(&interned_str1, &interned_str2);
+  EXPECT_NE(&interned_str1, &interned_str3);
+  EXPECT_NE(&interned_str1, &interned_str4);
+  EXPECT_NE(&interned_str2, &interned_str3);
+  EXPECT_EQ(&interned_str2, &interned_str4);
+  EXPECT_NE(&interned_str3, &interned_str4);
 }
 
 namespace {
