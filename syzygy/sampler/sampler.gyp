@@ -23,6 +23,8 @@
       'sources': [
         'sampler_app.cc',
         'sampler_app.h',
+        'sampled_module_cache.cc',
+        'sampled_module_cache.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
@@ -45,6 +47,7 @@
       'target_name': 'sampler_unittests',
       'type': 'executable',
       'sources': [
+        'sampled_module_cache_unittest.cc',
         'sampler_app_unittest.cc',
         'sampler_unittests_main.cc',
       ],
