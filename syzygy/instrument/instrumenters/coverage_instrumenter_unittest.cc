@@ -160,5 +160,13 @@ TEST_F(CoverageInstrumenterTest, ParseFullCoverage) {
   EXPECT_TRUE(instrumenter_.debug_friendly_);
 }
 
+TEST_F(CoverageInstrumenterTest, InstrumentImpl) {
+  cmd_line_.AppendSwitchASCII("mode", "coverage");
+  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+
+  EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_.Instrument());
+}
 }  // namespace instrumenters
 }  // namespace instrument
