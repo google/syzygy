@@ -54,6 +54,12 @@ TEST_F(SampledModuleCacheTest, ConstructorAndProperties) {
   EXPECT_FALSE(cache.dead_module_callback().is_null());
 }
 
+TEST_F(SampledModuleCacheTest, EmptyCache) {
+  SampledModuleCache cache(2);
+  cache.RemoveDeadModules();
+  EXPECT_TRUE(cache.processes().empty());
+}
+
 TEST_F(SampledModuleCacheTest, EndToEnd) {
   SampledModuleCache cache(2);
   cache.set_dead_module_callback(dead_module_callback);
