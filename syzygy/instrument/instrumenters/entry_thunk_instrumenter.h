@@ -40,6 +40,9 @@ class EntryThunkInstrumenter : public InstrumenterWithAgent {
 
   ~EntryThunkInstrumenter() { }
 
+  // Returns the instrumentation mode.
+  Mode instrumentation_mode() { return instrumentation_mode_; }
+
  protected:
   // The name of the agents for the different mode of instrumentation.
   static const char kAgentDllProfile[];

@@ -23,7 +23,7 @@
 #include "base/time.h"
 #include "base/files/file_path.h"
 #include "syzygy/common/application.h"
-#include "syzygy/pe/pe_relinker.h"
+#include "syzygy/instrument/instrumenter.h"
 
 namespace instrument {
 
@@ -33,38 +33,8 @@ namespace instrument {
 // usage information.
 class InstrumentApp : public common::AppImplBase {
  public:
-
-  // A list of known clients libraries.
-  static const char kAgentDllAsan[];
-  static const char kAgentDllBasicBlockEntry[];
-  static const char kAgentDllCoverage[];
-  static const char kAgentDllProfile[];
-  static const char kAgentDllRpc[];
-
-  // The mode of the instrumenter.
-  enum Mode {
-    kInstrumentInvalidMode,
-    kInstrumentAsanMode,
-    kInstrumentBasicBlockEntryMode,
-    kInstrumentCallTraceMode,
-    kInstrumentCoverageMode,
-    kInstrumentProfileMode,
-  };
-
   InstrumentApp()
-      : common::AppImplBase("Instrumenter"),
-        mode_(kInstrumentInvalidMode),
-        allow_overwrite_(false),
-        new_decomposer_(false),
-        no_augment_pdb_(false),
-        no_parse_debug_info_(false),
-        no_strip_strings_(false),
-        debug_friendly_(false),
-        instrument_unsafe_references_(true),
-        module_entry_only_(false),
-        use_liveness_analysis_(false),
-        remove_redundant_checks_(false),
-        inline_fast_path_(false) {
+      : common::AppImplBase("Instrumenter") {
   }
 
   // @name Implementation of the AppImplBase interface.
@@ -85,37 +55,8 @@ class InstrumentApp : public common::AppImplBase {
   //     been updated.
   void ParseDeprecatedMode(const CommandLine* command_line);
 
-  // The mode of the instrumenter. This is valid after a successful call to
-  // ParseCommandLine.
-  Mode mode_;
-
-  // @name Command-line parameters.
-  // @{
-  base::FilePath input_dll_path_;
-  base::FilePath input_pdb_path_;
-  base::FilePath output_dll_path_;
-  base::FilePath output_pdb_path_;
-  base::FilePath filter_path_;
-  std::string agent_dll_;
-  bool allow_overwrite_;
-  bool new_decomposer_;
-  bool no_augment_pdb_;
-  bool no_parse_debug_info_;
-  bool no_strip_strings_;
-  bool debug_friendly_;
-  bool thunk_imports_;
-  bool instrument_unsafe_references_;
-  bool module_entry_only_;
-  bool use_liveness_analysis_;
-  bool remove_redundant_checks_;
-  bool inline_fast_path_;
-  // @}
-
-  // @name Internal machinery, replaceable for testing purposes.
-  // @{
-  virtual pe::PERelinker& GetRelinker();
-  scoped_ptr<pe::PERelinker> relinker_;
-  // @}
+  // The instrumenter we delegate to.
+  scoped_ptr<InstrumenterInterface> instrumenter_;
 };
 
 }  // namespace instrument

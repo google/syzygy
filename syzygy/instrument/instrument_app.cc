@@ -22,24 +22,14 @@
 
 #include "base/string_util.h"
 #include "base/stringprintf.h"
-#include "syzygy/common/indexed_frequency_data.h"
-#include "syzygy/instrument/mutators/add_indexed_data_ranges_stream.h"
-#include "syzygy/instrument/transforms/asan_transform.h"
-#include "syzygy/instrument/transforms/basic_block_entry_hook_transform.h"
-#include "syzygy/instrument/transforms/coverage_transform.h"
-#include "syzygy/instrument/transforms/entry_thunk_transform.h"
-#include "syzygy/instrument/transforms/thunk_import_references_transform.h"
-#include "syzygy/pe/decomposer.h"
-#include "syzygy/pe/image_filter.h"
-#include "syzygy/pe/pe_relinker.h"
+#include "syzygy/instrument/instrumenters/asan_instrumenter.h"
+#include "syzygy/instrument/instrumenters/bbentry_instrumenter.h"
+#include "syzygy/instrument/instrumenters/coverage_instrumenter.h"
+#include "syzygy/instrument/instrumenters/entry_thunk_instrumenter.h"
 
 namespace instrument {
 
 namespace {
-
-using block_graph::BlockGraph;
-using pe::Decomposer;
-using pe::PEFile;
 
 static const char kUsageFormatStr[] =
     "Usage: %ls [options]\n"
@@ -112,21 +102,6 @@ static const char kUsageFormatStr[] =
 
 }  // namespace
 
-const char InstrumentApp::kAgentDllAsan[] = "asan_rtl.dll";
-const char InstrumentApp::kAgentDllBasicBlockEntry[] =
-    "basic_block_entry_client.dll";
-const char InstrumentApp::kAgentDllCoverage[] = "coverage_client.dll";
-const char InstrumentApp::kAgentDllProfile[] = "profile_client.dll";
-const char InstrumentApp::kAgentDllRpc[] = "call_trace_client.dll";
-
-pe::PERelinker& InstrumentApp::GetRelinker() {
-  if (relinker_.get() == NULL) {
-    relinker_.reset(new pe::PERelinker());
-    CHECK(relinker_.get() != NULL);
-  }
-  return *(relinker_.get());
-}
-
 void InstrumentApp::ParseDeprecatedMode(const CommandLine* cmd_line) {
   DCHECK(cmd_line != NULL);
 
@@ -134,23 +109,23 @@ void InstrumentApp::ParseDeprecatedMode(const CommandLine* cmd_line) {
 
   if (client.empty()) {
     LOG(INFO) << "DEPRECATED: No mode specified, using --mode=calltrace.";
-    mode_ = kInstrumentCallTraceMode;
-    agent_dll_ = kAgentDllRpc;
+    instrumenter_.reset(new instrumenters::EntryThunkInstrumenter(
+        instrumenters::EntryThunkInstrumenter::CALL_TRACE));
     return;
   }
 
   if (LowerCaseEqualsASCII(client, "profiler")) {
     LOG(INFO) << "DEPRECATED: Using --mode=profile.";
-    mode_ = kInstrumentProfileMode;
-    agent_dll_ = kAgentDllProfile;
+    instrumenter_.reset(new instrumenters::EntryThunkInstrumenter(
+        instrumenters::EntryThunkInstrumenter::PROFILE));
   } else if (LowerCaseEqualsASCII(client, "rpc")) {
     LOG(INFO) << "DEPRECATED: Using --mode=calltrace.";
-    mode_ = kInstrumentCallTraceMode;
-    agent_dll_ = kAgentDllRpc;
+    instrumenter_.reset(new instrumenters::EntryThunkInstrumenter(
+        instrumenters::EntryThunkInstrumenter::CALL_TRACE));
   } else {
     LOG(INFO) << "DEPRECATED: Using --mode=calltrace --agent=" << client << ".";
-    mode_ = kInstrumentCallTraceMode;
-    agent_dll_ = client;
+    instrumenter_.reset(new instrumenters::EntryThunkInstrumenter(
+        instrumenters::EntryThunkInstrumenter::CALL_TRACE));
   }
 }
 
@@ -160,33 +135,6 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
   if (cmd_line->HasSwitch("help"))
     return Usage(cmd_line, "");
 
-  // TODO(chrisha): Simplify the input/output image parsing once external
-  //     tools have been updated.
-
-  // Parse the input image.
-  if (cmd_line->HasSwitch("input-dll")) {
-    LOG(WARNING) << "DEPRECATED: Using --input-dll.";
-    input_dll_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("input-dll"));
-  } else {
-    input_dll_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("input-image"));
-  }
-
-  // Parse the output image.
-  if (cmd_line->HasSwitch("output-dll")) {
-    LOG(WARNING) << "DEPRECATED: Using --output-dll.";
-    output_dll_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("output-dll"));
-  } else {
-    output_dll_path_ = AbsolutePath(cmd_line->GetSwitchValuePath(
-        "output-image"));
-  }
-
-  // Parse the filter path, if one was provided.
-  filter_path_ = cmd_line->GetSwitchValuePath("filter");
-
-  // Ensure that both input and output have been specified.
-  if (input_dll_path_.empty() || output_dll_path_.empty())
-    return Usage(cmd_line, "You must provide input and output file names.");
-
   // Get the mode and the default client DLL.
   if (!cmd_line->HasSwitch("mode")) {
     // TODO(chrisha): Remove this once build scripts and profiling tools have
@@ -195,216 +143,32 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
   } else {
     std::string mode = cmd_line->GetSwitchValueASCII("mode");
     if (LowerCaseEqualsASCII(mode, "asan")) {
-      mode_ = kInstrumentAsanMode;
-      agent_dll_ = kAgentDllAsan;
+      instrumenter_.reset(new instrumenters::AsanInstrumenter());
     } else if (LowerCaseEqualsASCII(mode, "bbentry")) {
-      mode_ = kInstrumentBasicBlockEntryMode;
-      agent_dll_ = kAgentDllBasicBlockEntry;
+      instrumenter_.reset(new instrumenters::BasicBlockEntryInstrumenter());
     } else if (LowerCaseEqualsASCII(mode, "calltrace")) {
-      mode_ = kInstrumentCallTraceMode;
-      agent_dll_ = kAgentDllRpc;
+      instrumenter_.reset(new instrumenters::EntryThunkInstrumenter(
+          instrumenters::EntryThunkInstrumenter::CALL_TRACE));
     } else if (LowerCaseEqualsASCII(mode, "coverage")) {
-      mode_ = kInstrumentCoverageMode;
-      agent_dll_ = kAgentDllCoverage;
+      instrumenter_.reset(new instrumenters::CoverageInstrumenter());
     } else if (LowerCaseEqualsASCII(mode, "profile")) {
-      mode_ = kInstrumentProfileMode;
-      agent_dll_ = kAgentDllProfile;
+      instrumenter_.reset(new instrumenters::EntryThunkInstrumenter(
+          instrumenters::EntryThunkInstrumenter::PROFILE));
     } else {
       return Usage(cmd_line,
                    base::StringPrintf("Unknown instrumentation mode: %s.",
                                       mode.c_str()).c_str());
     }
-
-    if (!agent_dll_.empty()) {
-      LOG(INFO) << "Default agent DLL for " << mode << " mode is \""
-                << agent_dll_ << "\".";
-    }
   }
-  DCHECK_NE(kInstrumentInvalidMode, mode_);
+  DCHECK(instrumenter_.get() != NULL);
 
-  // Parse the custom agent if one is specified.
-  if (cmd_line->HasSwitch("agent")) {
-    std::string new_agent_dll = cmd_line->GetSwitchValueASCII("agent");
-    if (new_agent_dll != agent_dll_) {
-      agent_dll_ = new_agent_dll;
-      LOG(INFO) << "Using custom agent DLL \"" << agent_dll_ << "\".";
-    }
-  }
-
-  // Parse the remaining command line arguments. Not all of these are valid in
-  // all modes, but we don't care too much about ignored arguments.
-  input_pdb_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("input-pdb"));
-  output_pdb_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("output-pdb"));
-  allow_overwrite_ = cmd_line->HasSwitch("overwrite");
-  new_decomposer_ = cmd_line->HasSwitch("new-decomposer");
-  no_augment_pdb_ = cmd_line->HasSwitch("no-augment-pdb");
-  no_parse_debug_info_ = cmd_line->HasSwitch("no-parse-debug-info");
-  no_strip_strings_ = cmd_line->HasSwitch("no-strip-strings");
-  debug_friendly_ = cmd_line->HasSwitch("debug-friendly");
-  thunk_imports_ = cmd_line->HasSwitch("instrument-imports");
-  use_liveness_analysis_ = cmd_line->HasSwitch("use-liveness-analysis");
-  remove_redundant_checks_ = cmd_line->HasSwitch("remove-redundant-checks");
-  instrument_unsafe_references_ = !cmd_line->HasSwitch("no-unsafe-refs");
-  module_entry_only_ = cmd_line->HasSwitch("module-entry-only");
-  inline_fast_path_ = cmd_line->HasSwitch("inline-fast-path");
-
-  // Set per-mode overrides as necessary.
-  switch (mode_) {
-    case kInstrumentBasicBlockEntryMode:
-    case kInstrumentCoverageMode: {
-      thunk_imports_ = false;
-      instrument_unsafe_references_ = false;
-      module_entry_only_ = true;
-    } break;
-
-    case kInstrumentProfileMode: {
-      instrument_unsafe_references_ = false;
-      module_entry_only_ = false;
-    } break;
-
-    default: break;
-  }
-
-  return true;
+  return instrumenter_->ParseCommandLine(cmd_line);
 }
 
 int InstrumentApp::Run() {
-  DCHECK_NE(kInstrumentInvalidMode, mode_);
+  DCHECK(instrumenter_.get() != NULL);
 
-  pe::PERelinker& relinker = GetRelinker();
-  relinker.set_input_path(input_dll_path_);
-  relinker.set_input_pdb_path(input_pdb_path_);
-  relinker.set_output_path(output_dll_path_);
-  relinker.set_output_pdb_path(output_pdb_path_);
-  relinker.set_allow_overwrite(allow_overwrite_);
-  relinker.set_augment_pdb(!no_augment_pdb_);
-  relinker.set_parse_debug_info(!no_parse_debug_info_);
-  relinker.set_use_new_decomposer(new_decomposer_);
-  relinker.set_strip_strings(!no_strip_strings_);
-
-  // Parse the filter if one was provided.
-  scoped_ptr<pe::ImageFilter> filter;
-  bool filter_used = false;
-  if (!filter_path_.empty()) {
-    filter.reset(new pe::ImageFilter());
-    if (!filter->LoadFromJSON(filter_path_)) {
-      LOG(ERROR) << "Failed to parse filter file: " << filter_path_.value();
-      return 1;
-    }
-
-    // Ensure it is for the input module.
-    if (!filter->IsForModule(input_dll_path_)) {
-      LOG(ERROR) << "Filter does not match the input module.";
-      return 1;
-    }
-  }
-
-  // Initialize the relinker. This does the decomposition, etc.
-  if (!relinker.Init()) {
-    LOG(ERROR) << "Failed to initialize relinker.";
-    return 1;
-  }
-
-  // A list of all possible transforms that we will need.
-  scoped_ptr<instrument::transforms::AsanTransform> asan_transform;
-  scoped_ptr<instrument::transforms::BasicBlockEntryHookTransform>
-      basic_block_entry_transform;
-  scoped_ptr<instrument::transforms::EntryThunkTransform> entry_thunk_tx;
-  scoped_ptr<instrument::transforms::ThunkImportReferencesTransform>
-      import_thunk_tx;
-  scoped_ptr<instrument::transforms::CoverageInstrumentationTransform>
-      coverage_tx;
-  scoped_ptr<instrument::mutators::AddIndexedDataRangesStreamPdbMutator>
-      add_bb_addr_stream_mutator;
-
-  // We are instrumenting in ASAN mode.
-  if (mode_ == kInstrumentAsanMode) {
-    asan_transform.reset(new instrument::transforms::AsanTransform);
-    asan_transform->set_instrument_dll_name(agent_dll_);
-    asan_transform->set_use_liveness_analysis(use_liveness_analysis_);
-    asan_transform->set_remove_redundant_checks(remove_redundant_checks_);
-
-    // Set up the filter if one was provided.
-    if (filter.get()) {
-      asan_transform->set_filter(&filter->filter);
-      filter_used = true;
-    }
-
-    // Set overwrite source range flag in the ASAN transform. The ASAN
-    // transformation will overwrite the source range of created instructions to
-    // the source range of corresponding instrumented instructions.
-    asan_transform->set_debug_friendly(debug_friendly_);
-
-    relinker.AppendTransform(asan_transform.get());
-  } else if (mode_ == kInstrumentBasicBlockEntryMode) {
-    // If we're in basic-block-entry mode, we need to apply the basic block
-    // entry hook transform (which adds basic-block frequency structures to
-    // the image and thunks the entry points) and we need to augment the PDB
-    // file with the basic block addresses.
-    basic_block_entry_transform.reset(
-        new instrument::transforms::BasicBlockEntryHookTransform);
-    basic_block_entry_transform->set_instrument_dll_name(agent_dll_);
-    basic_block_entry_transform->set_src_ranges_for_thunks(debug_friendly_);
-    basic_block_entry_transform->set_inline_fast_path(inline_fast_path_);
-    relinker.AppendTransform(basic_block_entry_transform.get());
-
-    add_bb_addr_stream_mutator.reset(
-        new instrument::mutators::AddIndexedDataRangesStreamPdbMutator(
-            basic_block_entry_transform->bb_ranges(),
-            common::kBasicBlockRangesStreamName));
-    relinker.AppendPdbMutator(add_bb_addr_stream_mutator.get());
-  } else if (mode_ == kInstrumentCoverageMode) {
-    // If we're in coverage mode, we need to add coverage structures to
-    // the image and we need to augment the PDB file with the basic block
-    // addresses.
-    coverage_tx.reset(
-        new instrument::transforms::CoverageInstrumentationTransform);
-    coverage_tx->set_instrument_dll_name(agent_dll_);
-    coverage_tx->set_src_ranges_for_thunks(debug_friendly_);
-    relinker.AppendTransform(coverage_tx.get());
-
-    add_bb_addr_stream_mutator.reset(
-        new instrument::mutators::AddIndexedDataRangesStreamPdbMutator(
-            coverage_tx->bb_ranges(),
-            common::kBasicBlockRangesStreamName));
-    relinker.AppendPdbMutator(add_bb_addr_stream_mutator.get());
-  } else {
-    // We're either in calltrace mode or profile mode. Each of these
-    // use the entry_thunk_tx, so we handle them in the same manner.
-    DCHECK(mode_ == kInstrumentCallTraceMode ||
-           mode_ == kInstrumentProfileMode);
-
-    // Set up the entry thunk instrumenting transform and add it to the
-    // relinker.
-    entry_thunk_tx.reset(new instrument::transforms::EntryThunkTransform);
-    entry_thunk_tx->set_instrument_dll_name(agent_dll_);
-    entry_thunk_tx->set_instrument_unsafe_references(
-        instrument_unsafe_references_);
-    entry_thunk_tx->set_src_ranges_for_thunks(debug_friendly_);
-    entry_thunk_tx->set_only_instrument_module_entry(module_entry_only_);
-    relinker.AppendTransform(entry_thunk_tx.get());
-
-    // If we are thunking imports then add the appropriate transform.
-    if (thunk_imports_) {
-      import_thunk_tx.reset(
-          new instrument::transforms::ThunkImportReferencesTransform);
-      // Use the selected client DLL.
-      import_thunk_tx->set_instrument_dll_name(agent_dll_);
-      relinker.AppendTransform(import_thunk_tx.get());
-    }
-  }
-
-  // If a filter was provided but not used output a warning.
-  if (filter.get() && !filter_used)
-    LOG(WARNING) << "Not using provided filter.";
-
-  // We let the PERelinker use the implicit OriginalOrderer.
-  if (!relinker.Relink()) {
-    LOG(ERROR) << "Unable to relink input image.";
-    return 1;
-  }
-
-  return 0;
+  return instrumenter_->Instrument() ? 0 : 1;
 }
 
 bool InstrumentApp::Usage(const CommandLine* cmd_line,

@@ -21,7 +21,7 @@
 #include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/common/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/pe/image_filter.h"
+#include "syzygy/instrument/instrumenters/entry_thunk_instrumenter.h"
 #include "syzygy/pe/pe_relinker.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
@@ -31,42 +31,9 @@ namespace instrument {
 
 namespace {
 
-using testing::StrictMock;
-using testing::Return;
-using testing::_;
-
-class MockRelinker : public pe::PERelinker {
- public:
-  MOCK_METHOD0(Init, bool());
-  MOCK_METHOD0(Relink, bool());
-};
-
 class TestInstrumentApp : public InstrumentApp {
  public:
-  using InstrumentApp::input_dll_path_;
-  using InstrumentApp::input_pdb_path_;
-  using InstrumentApp::output_dll_path_;
-  using InstrumentApp::output_pdb_path_;
-  using InstrumentApp::filter_path_;
-  using InstrumentApp::agent_dll_;
-  using InstrumentApp::allow_overwrite_;
-  using InstrumentApp::new_decomposer_;
-  using InstrumentApp::no_augment_pdb_;
-  using InstrumentApp::no_parse_debug_info_;
-  using InstrumentApp::no_strip_strings_;
-  using InstrumentApp::debug_friendly_;
-  using InstrumentApp::instrument_unsafe_references_;
-  using InstrumentApp::module_entry_only_;
-  using InstrumentApp::thunk_imports_;
-  using InstrumentApp::mode_;
-  using InstrumentApp::use_liveness_analysis_;
-  using InstrumentApp::remove_redundant_checks_;
-
-  pe::PERelinker& GetRelinker() OVERRIDE {
-    return mock_relinker_;
-  }
-
-  StrictMock<MockRelinker> mock_relinker_;
+  using InstrumentApp::instrumenter_;
 };
 
 typedef common::Application<TestInstrumentApp> TestApp;
@@ -101,24 +68,8 @@ class InstrumentAppTest : public testing::PELibUnitTest {
     input_pdb_path_ = testing::GetRelativePath(abs_input_pdb_path_);
     output_dll_path_ = temp_dir_.Append(input_dll_path_.BaseName());
     output_pdb_path_ = temp_dir_.Append(input_pdb_path_.BaseName());
-    test_dll_filter_path_ = temp_dir_.Append(L"test_dll_filter.json");
-    dummy_filter_path_ = temp_dir_.Append(L"dummy_filter.json");
 
     ASSERT_NO_FATAL_FAILURE(ConfigureTestApp(&test_app_));
-  }
-
-  void MakeFilters() {
-    // Create a valid test_dll filter. Just so it's not empty we mark the NT
-    // headers as non-instrumentable.
-    pe::ImageFilter filter;
-    ASSERT_TRUE(filter.Init(abs_input_dll_path_));
-    filter.filter.Mark(pe::ImageFilter::RelativeAddressFilter::Range(
-        core::RelativeAddress(0), 4096));
-    ASSERT_TRUE(filter.SaveToJSON(false, test_dll_filter_path_));
-
-    // Muck up the time date stamp and create an invalid filter.
-    filter.signature.module_time_date_stamp ^= 0x0F00BA55;
-    ASSERT_TRUE(filter.SaveToJSON(true, dummy_filter_path_));
   }
 
   // Points the application at the fixture's command-line and IO streams.
@@ -151,8 +102,6 @@ class InstrumentAppTest : public testing::PELibUnitTest {
   base::FilePath input_pdb_path_;
   base::FilePath output_dll_path_;
   base::FilePath output_pdb_path_;
-  base::FilePath test_dll_filter_path_;
-  base::FilePath dummy_filter_path_;
   // @}
 
   // @name Expected final values of input parameters.
@@ -177,292 +126,14 @@ TEST_F(InstrumentAppTest, ParseWithNoInputImageFails) {
   cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
 
   ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
+  ASSERT_EQ(1, test_impl_.Run());
 }
 
 TEST_F(InstrumentAppTest, ParseWithNoOutputImageFails) {
   cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
 
   ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
-}
-
-TEST_F(InstrumentAppTest, ParseMinimalAsan) {
-  cmd_line_.AppendSwitchASCII("mode", "asan");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-
-  EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-
-  EXPECT_EQ(InstrumentApp::kInstrumentAsanMode, test_impl_.mode_);
-  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-  EXPECT_EQ(std::string(InstrumentApp::kAgentDllAsan), test_impl_.agent_dll_);
-  EXPECT_FALSE(test_impl_.allow_overwrite_);
-  EXPECT_FALSE(test_impl_.new_decomposer_);
-  EXPECT_FALSE(test_impl_.no_augment_pdb_);
-  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
-  EXPECT_FALSE(test_impl_.no_strip_strings_);
-  EXPECT_FALSE(test_impl_.debug_friendly_);
-  EXPECT_FALSE(test_impl_.use_liveness_analysis_);
-  EXPECT_FALSE(test_impl_.remove_redundant_checks_);
-}
-
-TEST_F(InstrumentAppTest, ParseFullAsan) {
-  cmd_line_.AppendSwitchASCII("mode", "asan");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-  cmd_line_.AppendSwitchPath("filter", test_dll_filter_path_);
-  cmd_line_.AppendSwitchASCII("agent", "foo.dll");
-  cmd_line_.AppendSwitch("debug-friendly");
-  cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
-  cmd_line_.AppendSwitch("new-decomposer");
-  cmd_line_.AppendSwitch("no-augment-pdb");
-  cmd_line_.AppendSwitch("no-parse-debug-info");
-  cmd_line_.AppendSwitch("no-strip-strings");
-  cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
-  cmd_line_.AppendSwitch("overwrite");
-  cmd_line_.AppendSwitch("use-liveness-analysis");
-  cmd_line_.AppendSwitch("remove-redundant-checks");
-
-  EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-
-  EXPECT_EQ(InstrumentApp::kInstrumentAsanMode, test_impl_.mode_);
-  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-  EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
-  EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
-  EXPECT_EQ(test_dll_filter_path_, test_impl_.filter_path_);
-  EXPECT_EQ(std::string("foo.dll"), test_impl_.agent_dll_);
-  EXPECT_TRUE(test_impl_.allow_overwrite_);
-  EXPECT_TRUE(test_impl_.new_decomposer_);
-  EXPECT_TRUE(test_impl_.no_augment_pdb_);
-  EXPECT_TRUE(test_impl_.no_parse_debug_info_);
-  EXPECT_TRUE(test_impl_.no_strip_strings_);
-  EXPECT_TRUE(test_impl_.debug_friendly_);
-  EXPECT_TRUE(test_impl_.use_liveness_analysis_);
-  EXPECT_TRUE(test_impl_.remove_redundant_checks_);
-}
-
-TEST_F(InstrumentAppTest, ParseMinimalBasicBlockEntry) {
-  cmd_line_.AppendSwitchASCII("mode", "bbentry");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-
-  EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-
-  EXPECT_EQ(InstrumentApp::kInstrumentBasicBlockEntryMode, test_impl_.mode_);
-  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-  EXPECT_EQ(std::string(InstrumentApp::kAgentDllBasicBlockEntry),
-            test_impl_.agent_dll_);
-  EXPECT_FALSE(test_impl_.allow_overwrite_);
-  EXPECT_FALSE(test_impl_.new_decomposer_);
-  EXPECT_FALSE(test_impl_.no_augment_pdb_);
-  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
-  EXPECT_FALSE(test_impl_.no_strip_strings_);
-  EXPECT_FALSE(test_impl_.debug_friendly_);
-}
-
-TEST_F(InstrumentAppTest, ParseFullBasicBlockEntry) {
-  cmd_line_.AppendSwitchASCII("mode", "bbentry");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-  cmd_line_.AppendSwitchPath("filter", test_dll_filter_path_);
-  cmd_line_.AppendSwitchASCII("agent", "foo.dll");
-  cmd_line_.AppendSwitch("debug-friendly");
-  cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
-  cmd_line_.AppendSwitch("new-decomposer");
-  cmd_line_.AppendSwitch("no-augment-pdb");
-  cmd_line_.AppendSwitch("no-parse-debug-info");
-  cmd_line_.AppendSwitch("no-strip-strings");
-  cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
-  cmd_line_.AppendSwitch("overwrite");
-
-  EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-
-  EXPECT_EQ(InstrumentApp::kInstrumentBasicBlockEntryMode, test_impl_.mode_);
-  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-  EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
-  EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
-  EXPECT_EQ(test_dll_filter_path_, test_impl_.filter_path_);
-  EXPECT_EQ(std::string("foo.dll"), test_impl_.agent_dll_);
-  EXPECT_TRUE(test_impl_.allow_overwrite_);
-  EXPECT_TRUE(test_impl_.new_decomposer_);
-  EXPECT_TRUE(test_impl_.no_augment_pdb_);
-  EXPECT_TRUE(test_impl_.no_parse_debug_info_);
-  EXPECT_TRUE(test_impl_.no_strip_strings_);
-  EXPECT_TRUE(test_impl_.debug_friendly_);
-}
-
-TEST_F(InstrumentAppTest, ParseMinimalCallTrace) {
-  cmd_line_.AppendSwitchASCII("mode", "calltrace");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-
-  EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-
-  EXPECT_EQ(InstrumentApp::kInstrumentCallTraceMode, test_impl_.mode_);
-  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-  EXPECT_EQ(std::string(InstrumentApp::kAgentDllRpc),
-            test_impl_.agent_dll_);
-  EXPECT_FALSE(test_impl_.allow_overwrite_);
-  EXPECT_FALSE(test_impl_.new_decomposer_);
-  EXPECT_FALSE(test_impl_.no_augment_pdb_);
-  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
-  EXPECT_FALSE(test_impl_.no_strip_strings_);
-  EXPECT_FALSE(test_impl_.debug_friendly_);
-  EXPECT_FALSE(test_impl_.thunk_imports_);
-  EXPECT_TRUE(test_impl_.instrument_unsafe_references_);
-  EXPECT_FALSE(test_impl_.module_entry_only_);
-}
-
-TEST_F(InstrumentAppTest, ParseFullCallTrace) {
-  cmd_line_.AppendSwitchASCII("mode", "calltrace");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-  cmd_line_.AppendSwitchPath("filter", test_dll_filter_path_);
-  cmd_line_.AppendSwitchASCII("agent", "foo.dll");
-  cmd_line_.AppendSwitch("debug-friendly");
-  cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
-  cmd_line_.AppendSwitch("new-decomposer");
-  cmd_line_.AppendSwitch("no-augment-pdb");
-  cmd_line_.AppendSwitch("no-parse-debug-info");
-  cmd_line_.AppendSwitch("no-strip-strings");
-  cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
-  cmd_line_.AppendSwitch("overwrite");
-  cmd_line_.AppendSwitch("instrument-imports");
-  cmd_line_.AppendSwitch("module-entry-only");
-  cmd_line_.AppendSwitch("no-unsafe-refs");
-
-  EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-
-  EXPECT_EQ(InstrumentApp::kInstrumentCallTraceMode, test_impl_.mode_);
-  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-  EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
-  EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
-  EXPECT_EQ(test_dll_filter_path_, test_impl_.filter_path_);
-  EXPECT_EQ(std::string("foo.dll"), test_impl_.agent_dll_);
-  EXPECT_TRUE(test_impl_.allow_overwrite_);
-  EXPECT_TRUE(test_impl_.new_decomposer_);
-  EXPECT_TRUE(test_impl_.no_augment_pdb_);
-  EXPECT_TRUE(test_impl_.no_parse_debug_info_);
-  EXPECT_TRUE(test_impl_.no_strip_strings_);
-  EXPECT_TRUE(test_impl_.debug_friendly_);
-  EXPECT_TRUE(test_impl_.thunk_imports_);
-  EXPECT_FALSE(test_impl_.instrument_unsafe_references_);
-  EXPECT_TRUE(test_impl_.module_entry_only_);
-}
-
-TEST_F(InstrumentAppTest, ParseMinimalCoverage) {
-  cmd_line_.AppendSwitchASCII("mode", "coverage");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-
-  EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-
-  EXPECT_EQ(InstrumentApp::kInstrumentCoverageMode, test_impl_.mode_);
-  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-  EXPECT_EQ(std::string(InstrumentApp::kAgentDllCoverage),
-            test_impl_.agent_dll_);
-  EXPECT_FALSE(test_impl_.allow_overwrite_);
-  EXPECT_FALSE(test_impl_.new_decomposer_);
-  EXPECT_FALSE(test_impl_.no_augment_pdb_);
-  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
-  EXPECT_FALSE(test_impl_.no_strip_strings_);
-  EXPECT_FALSE(test_impl_.debug_friendly_);
-}
-
-TEST_F(InstrumentAppTest, ParseFullCoverage) {
-  cmd_line_.AppendSwitchASCII("mode", "coverage");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-  cmd_line_.AppendSwitchPath("filter", test_dll_filter_path_);
-  cmd_line_.AppendSwitchASCII("agent", "foo.dll");
-  cmd_line_.AppendSwitch("debug-friendly");
-  cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
-  cmd_line_.AppendSwitch("new-decomposer");
-  cmd_line_.AppendSwitch("no-augment-pdb");
-  cmd_line_.AppendSwitch("no-parse-debug-info");
-  cmd_line_.AppendSwitch("no-strip-strings");
-  cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
-  cmd_line_.AppendSwitch("overwrite");
-
-  EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-
-  EXPECT_EQ(InstrumentApp::kInstrumentCoverageMode, test_impl_.mode_);
-  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-  EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
-  EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
-  EXPECT_EQ(test_dll_filter_path_, test_impl_.filter_path_);
-  EXPECT_EQ(std::string("foo.dll"), test_impl_.agent_dll_);
-  EXPECT_TRUE(test_impl_.allow_overwrite_);
-  EXPECT_TRUE(test_impl_.new_decomposer_);
-  EXPECT_TRUE(test_impl_.no_augment_pdb_);
-  EXPECT_TRUE(test_impl_.no_parse_debug_info_);
-  EXPECT_TRUE(test_impl_.no_strip_strings_);
-  EXPECT_TRUE(test_impl_.debug_friendly_);
-}
-
-TEST_F(InstrumentAppTest, ParseMinimalProfile) {
-  cmd_line_.AppendSwitchASCII("mode", "profile");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-
-  EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-  EXPECT_EQ(InstrumentApp::kInstrumentProfileMode, test_impl_.mode_);
-  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-
-  EXPECT_EQ(std::string(InstrumentApp::kAgentDllProfile),
-            test_impl_.agent_dll_);
-
-  EXPECT_FALSE(test_impl_.allow_overwrite_);
-  EXPECT_FALSE(test_impl_.new_decomposer_);
-  EXPECT_FALSE(test_impl_.no_augment_pdb_);
-  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
-  EXPECT_FALSE(test_impl_.no_strip_strings_);
-  EXPECT_FALSE(test_impl_.debug_friendly_);
-  EXPECT_FALSE(test_impl_.thunk_imports_);
-  EXPECT_FALSE(test_impl_.instrument_unsafe_references_);
-  EXPECT_FALSE(test_impl_.module_entry_only_);
-}
-
-TEST_F(InstrumentAppTest, ParseFullProfile) {
-  cmd_line_.AppendSwitchASCII("mode", "profile");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-  cmd_line_.AppendSwitchPath("filter", test_dll_filter_path_);
-  cmd_line_.AppendSwitchASCII("agent", "foo.dll");
-  cmd_line_.AppendSwitch("debug-friendly");
-  cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
-  cmd_line_.AppendSwitch("new-decomposer");
-  cmd_line_.AppendSwitch("no-augment-pdb");
-  cmd_line_.AppendSwitch("no-parse-debug-info");
-  cmd_line_.AppendSwitch("no-strip-strings");
-  cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
-  cmd_line_.AppendSwitch("overwrite");
-  cmd_line_.AppendSwitch("instrument-imports");
-
-  EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-
-  EXPECT_EQ(InstrumentApp::kInstrumentProfileMode, test_impl_.mode_);
-  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-  EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
-  EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
-  EXPECT_EQ(test_dll_filter_path_, test_impl_.filter_path_);
-  EXPECT_EQ(std::string("foo.dll"), test_impl_.agent_dll_);
-  EXPECT_TRUE(test_impl_.allow_overwrite_);
-  EXPECT_TRUE(test_impl_.new_decomposer_);
-  EXPECT_TRUE(test_impl_.no_augment_pdb_);
-  EXPECT_TRUE(test_impl_.no_parse_debug_info_);
-  EXPECT_TRUE(test_impl_.no_strip_strings_);
-  EXPECT_TRUE(test_impl_.debug_friendly_);
-  EXPECT_TRUE(test_impl_.thunk_imports_);
+  ASSERT_EQ(1, test_impl_.Run());
 }
 
 TEST_F(InstrumentAppTest, DeprecatedParseNoModeSpecifyDlls) {
@@ -470,22 +141,12 @@ TEST_F(InstrumentAppTest, DeprecatedParseNoModeSpecifyDlls) {
   cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-  EXPECT_EQ(InstrumentApp::kInstrumentCallTraceMode, test_impl_.mode_);
-  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-
-  EXPECT_EQ(std::string(InstrumentApp::kAgentDllRpc),
-            test_impl_.agent_dll_);
-
-  EXPECT_FALSE(test_impl_.allow_overwrite_);
-  EXPECT_FALSE(test_impl_.new_decomposer_);
-  EXPECT_FALSE(test_impl_.no_augment_pdb_);
-  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
-  EXPECT_FALSE(test_impl_.no_strip_strings_);
-  EXPECT_FALSE(test_impl_.debug_friendly_);
-  EXPECT_FALSE(test_impl_.thunk_imports_);
-  EXPECT_TRUE(test_impl_.instrument_unsafe_references_);
-  EXPECT_FALSE(test_impl_.module_entry_only_);
+  instrumenters::EntryThunkInstrumenter* entry_thunk_instrumenter =
+      reinterpret_cast<instrumenters::EntryThunkInstrumenter*>
+          (test_impl_.instrumenter_.get());
+  ASSERT_TRUE(entry_thunk_instrumenter != NULL);
+  ASSERT_EQ(instrumenters::EntryThunkInstrumenter::CALL_TRACE,
+            entry_thunk_instrumenter->instrumentation_mode());
 }
 
 TEST_F(InstrumentAppTest, DeprecatedParseCallTraceClientRpc) {
@@ -494,22 +155,12 @@ TEST_F(InstrumentAppTest, DeprecatedParseCallTraceClientRpc) {
   cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-  EXPECT_EQ(InstrumentApp::kInstrumentCallTraceMode, test_impl_.mode_);
-  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-
-  EXPECT_EQ(std::string(InstrumentApp::kAgentDllRpc),
-            test_impl_.agent_dll_);
-
-  EXPECT_FALSE(test_impl_.allow_overwrite_);
-  EXPECT_FALSE(test_impl_.new_decomposer_);
-  EXPECT_FALSE(test_impl_.no_augment_pdb_);
-  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
-  EXPECT_FALSE(test_impl_.no_strip_strings_);
-  EXPECT_FALSE(test_impl_.debug_friendly_);
-  EXPECT_FALSE(test_impl_.thunk_imports_);
-  EXPECT_TRUE(test_impl_.instrument_unsafe_references_);
-  EXPECT_FALSE(test_impl_.module_entry_only_);
+  instrumenters::EntryThunkInstrumenter* entry_thunk_instrumenter =
+      reinterpret_cast<instrumenters::EntryThunkInstrumenter*>
+          (test_impl_.instrumenter_.get());
+  ASSERT_TRUE(entry_thunk_instrumenter != NULL);
+  ASSERT_EQ(instrumenters::EntryThunkInstrumenter::CALL_TRACE,
+            entry_thunk_instrumenter->instrumentation_mode());
 }
 
 TEST_F(InstrumentAppTest, DeprecatedParseCallTraceClientProfiler) {
@@ -518,113 +169,20 @@ TEST_F(InstrumentAppTest, DeprecatedParseCallTraceClientProfiler) {
   cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-  EXPECT_EQ(InstrumentApp::kInstrumentProfileMode, test_impl_.mode_);
-  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-
-  EXPECT_EQ(std::string(InstrumentApp::kAgentDllProfile),
-            test_impl_.agent_dll_);
-
-  EXPECT_FALSE(test_impl_.allow_overwrite_);
-  EXPECT_FALSE(test_impl_.new_decomposer_);
-  EXPECT_FALSE(test_impl_.no_augment_pdb_);
-  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
-  EXPECT_FALSE(test_impl_.no_strip_strings_);
-  EXPECT_FALSE(test_impl_.debug_friendly_);
-  EXPECT_FALSE(test_impl_.thunk_imports_);
-  EXPECT_FALSE(test_impl_.instrument_unsafe_references_);
-  EXPECT_FALSE(test_impl_.module_entry_only_);
+  instrumenters::EntryThunkInstrumenter* entry_thunk_instrumenter =
+      reinterpret_cast<instrumenters::EntryThunkInstrumenter*>
+          (test_impl_.instrumenter_.get());
+  ASSERT_TRUE(entry_thunk_instrumenter != NULL);
+  ASSERT_EQ(instrumenters::EntryThunkInstrumenter::PROFILE,
+            entry_thunk_instrumenter->instrumentation_mode());
 }
 
-TEST_F(InstrumentAppTest, DeprecatedParseCallTraceClientOtherDll) {
-  cmd_line_.AppendSwitchASCII("call-trace-client", "foo.dll");
+TEST_F(InstrumentAppTest, Run) {
   cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
   cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
-  EXPECT_EQ(InstrumentApp::kInstrumentCallTraceMode, test_impl_.mode_);
-  EXPECT_EQ(abs_input_dll_path_, test_impl_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, test_impl_.output_dll_path_);
-
-  EXPECT_EQ(std::string("foo.dll"),
-            test_impl_.agent_dll_);
-
-  EXPECT_FALSE(test_impl_.allow_overwrite_);
-  EXPECT_FALSE(test_impl_.new_decomposer_);
-  EXPECT_FALSE(test_impl_.no_augment_pdb_);
-  EXPECT_FALSE(test_impl_.no_parse_debug_info_);
-  EXPECT_FALSE(test_impl_.no_strip_strings_);
-  EXPECT_FALSE(test_impl_.debug_friendly_);
-  EXPECT_FALSE(test_impl_.thunk_imports_);
-  EXPECT_TRUE(test_impl_.instrument_unsafe_references_);
-  EXPECT_FALSE(test_impl_.module_entry_only_);
-}
-
-TEST_F(InstrumentAppTest, InstrumentFailsInit) {
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-
-  EXPECT_CALL(test_impl_.mock_relinker_, Init())
-      .WillOnce(Return(false));
-
-  EXPECT_EQ(1, test_app_.Run());
-}
-
-TEST_F(InstrumentAppTest, InstrumentFailsRelink) {
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-
-  EXPECT_CALL(test_impl_.mock_relinker_, Init())
-      .WillOnce(Return(true));
-
-  EXPECT_CALL(test_impl_.mock_relinker_, Relink())
-      .WillOnce(Return(false));
-
-  EXPECT_EQ(1, test_app_.Run());
-}
-
-TEST_F(InstrumentAppTest, Instrument) {
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-
-  EXPECT_CALL(test_impl_.mock_relinker_, Init())
-      .WillOnce(Return(true));
-
-  EXPECT_CALL(test_impl_.mock_relinker_, Relink())
-      .WillOnce(Return(true));
-
-  ASSERT_EQ(0, test_app_.Run());
-}
-
-TEST_F(InstrumentAppTest, FailsWithInvalidFilter) {
-  // Filters are applied in any mode, but run before any transformation is
-  // actually done. Thus, we don't test this in combination with every mode.
-  cmd_line_.AppendSwitchASCII("mode", "asan");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-  cmd_line_.AppendSwitchPath("filter", dummy_filter_path_);
-
-  // We don't expect the relinker to be called at all, as before we get that far
-  // the filter will be identified as being for the wrong module.
-
-  MakeFilters();
-  ASSERT_NE(0, test_app_.Run());
-}
-
-TEST_F(InstrumentAppTest, SucceedsWithValidFilter) {
-  cmd_line_.AppendSwitchASCII("mode", "asan");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-  cmd_line_.AppendSwitchPath("filter", test_dll_filter_path_);
-
-  EXPECT_CALL(test_impl_.mock_relinker_, Init())
-      .WillOnce(Return(true));
-
-  EXPECT_CALL(test_impl_.mock_relinker_, Relink())
-      .WillOnce(Return(true));
-
-  MakeFilters();
-  ASSERT_EQ(0, test_app_.Run());
+  ASSERT_EQ(0, test_impl_.Run());
 }
 
 }  // namespace instrument

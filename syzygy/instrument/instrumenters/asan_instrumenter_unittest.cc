@@ -17,6 +17,7 @@
 #include "base/command_line.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/image_filter.h"
 #include "syzygy/pe/unittest_util.h"
 
 namespace instrument {
@@ -72,6 +73,8 @@ class AsanInstrumenterTest : public testing::PELibUnitTest {
     input_pdb_path_ = testing::GetRelativePath(abs_input_pdb_path_);
     output_dll_path_ = temp_dir_.Append(input_dll_path_.BaseName());
     output_pdb_path_ = temp_dir_.Append(input_pdb_path_.BaseName());
+    test_dll_filter_path_ = temp_dir_.Append(L"test_dll_filter.json");
+    dummy_filter_path_ = temp_dir_.Append(L"dummy_filter.json");
   }
 
   void SetUpValidCommandLine() {
@@ -80,6 +83,20 @@ class AsanInstrumenterTest : public testing::PELibUnitTest {
   }
 
  protected:
+  void MakeFilters() {
+    // Create a valid test_dll filter. Just so it's not empty we mark the NT
+    // headers as non-instrumentable.
+    pe::ImageFilter filter;
+    ASSERT_TRUE(filter.Init(abs_input_dll_path_));
+    filter.filter.Mark(pe::ImageFilter::RelativeAddressFilter::Range(
+        core::RelativeAddress(0), 4096));
+    ASSERT_TRUE(filter.SaveToJSON(false, test_dll_filter_path_));
+
+    // Muck up the time date stamp and create an invalid filter.
+    filter.signature.module_time_date_stamp ^= 0x0F00BA55;
+    ASSERT_TRUE(filter.SaveToJSON(true, dummy_filter_path_));
+  }
+
   base::FilePath temp_dir_;
 
   // @name The redirected streams paths.
@@ -97,6 +114,7 @@ class AsanInstrumenterTest : public testing::PELibUnitTest {
   base::FilePath output_dll_path_;
   base::FilePath output_pdb_path_;
   base::FilePath test_dll_filter_path_;
+  base::FilePath dummy_filter_path_;
   // @}
 
   // @name Expected final values of input parameters.
@@ -166,6 +184,29 @@ TEST_F(AsanInstrumenterTest, ParseFullAsan) {
 TEST_F(AsanInstrumenterTest, InstrumentImpl) {
   SetUpValidCommandLine();
 
+  EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_.Instrument());
+}
+
+TEST_F(AsanInstrumenterTest, FailsWithInvalidFilter) {
+  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+  cmd_line_.AppendSwitchPath("filter", dummy_filter_path_);
+
+  // We don't expect the relinker to be called at all, as before we get that far
+  // the filter will be identified as being for the wrong module.
+
+  MakeFilters();
+  EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  EXPECT_FALSE(instrumenter_.Instrument());
+}
+
+TEST_F(AsanInstrumenterTest, SucceedsWithValidFilter) {
+  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+  cmd_line_.AppendSwitchPath("filter", test_dll_filter_path_);
+
+  MakeFilters();
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
   EXPECT_TRUE(instrumenter_.Instrument());
 }

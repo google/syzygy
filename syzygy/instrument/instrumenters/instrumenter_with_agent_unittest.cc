@@ -147,7 +147,7 @@ TEST_F(InstrumenterWithAgentTest, ParseWithNoOutputImageFails) {
   ASSERT_FALSE(instrumenter_.ParseCommandLine(&cmd_line_));
 }
 
-TEST_F(InstrumenterWithAgentTest, DeprecatedParseNoModeSpecifyDlls) {
+TEST_F(InstrumenterWithAgentTest, ParseInputDlls) {
   cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
   cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
 
