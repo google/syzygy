@@ -138,6 +138,11 @@ class BasicBlockSubGraph {
   // A helper function for querying a reachability map.
   static bool IsReachable(const ReachabilityMap& rm, const BasicBlock* bb);
 
+  // Dump a text representation of this subgraph.
+  // @param buf receives the text representation.
+  // @returns true if this subgraph was successfully dumped, false otherwise.
+  bool ToString(std::string* buf) const;
+
  protected:
   // @name Validation Functions.
   // @{

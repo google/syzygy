@@ -336,4 +336,62 @@ bool BasicBlockSubGraph::IsReachable(const ReachabilityMap& rm,
   return it->second;
 }
 
+
+bool BasicBlockSubGraph::ToString(std::string* buf) const {
+  DCHECK(buf != NULL);
+
+  std::stringstream out;
+
+  // Output block information.
+  out << "BLOCK";
+  if (original_block_ != NULL)
+    out << " " << original_block_->name();
+  out << std::endl;
+
+  const BasicBlockSubGraph::BasicBlockOrdering& original_order =
+      block_descriptions().front().basic_block_order;
+  BasicBlockSubGraph::BasicBlockOrdering::const_iterator bb_iter =
+      original_order.begin();
+  for (; bb_iter != original_order.end(); ++bb_iter) {
+    const BasicCodeBlock* bb = BasicCodeBlock::Cast(*bb_iter);
+    if (bb == NULL)
+      continue;
+
+    out << "bb" << bb->offset() << ":" << std::endl;
+
+    // Output instructions.
+    BasicCodeBlock::Instructions::const_iterator it =
+      bb->instructions().begin();
+    for (; it != bb->instructions().end(); ++it) {
+      std::string instruction_string;
+      if (!it->ToString(&instruction_string))
+        return false;
+      out << "  " << instruction_string << std::endl;
+    }
+
+    // Output successors.
+    if (bb->successors().empty())
+      continue;
+
+    out << "                 ";
+    BasicCodeBlock::Successors::const_iterator succ = bb->successors().begin();
+    for (; succ != bb->successors().end(); ++succ) {
+      std::string str;
+      if (succ->reference().basic_block()) {
+        out << succ->ToString()
+            << " bb" << succ->reference().basic_block()->offset()
+            << "  ";
+      } else {
+        out << "<*>  ";
+      }
+    }
+    out << std::endl;
+  }
+
+  // Commit the result.
+  *buf = out.str();
+
+  return true;
+}
+
 }  // namespace block_graph

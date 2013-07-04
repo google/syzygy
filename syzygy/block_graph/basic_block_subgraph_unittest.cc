@@ -19,6 +19,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block.h"
+#include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/assembler.h"
 
@@ -296,6 +297,26 @@ TEST(BasicBlockSubGraphTest, HasValidReferrers) {
 
   bb1->referrers().insert(BasicBlockReferrer(b2, 0));
   ASSERT_TRUE(subgraph.HasValidReferrers());
+}
+
+TEST(BasicBlockSubGraphTest, ToString) {
+  BlockGraph block_graph;
+  BlockGraph::Block block(0, BlockGraph::CODE_BLOCK, 0, "dummy", &block_graph);
+  BasicBlockSubGraph subgraph;
+  subgraph.set_original_block(&block);
+
+  BlockDescription* b1 = subgraph.AddBlockDescription(
+      "b1", BlockGraph::CODE_BLOCK, 7, 2, 42);
+
+  BasicCodeBlock* bb = subgraph.AddBasicCodeBlock("BB");
+  b1->basic_block_order.push_back(bb);
+  BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
+  assm.ret();
+
+  std::string result;
+  bool valid = subgraph.ToString(&result);
+  EXPECT_TRUE(valid);
+  EXPECT_FALSE(result.empty());
 }
 
 }  // namespace block_graph

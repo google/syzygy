@@ -619,6 +619,63 @@ bool Successor::SetReference(const BasicBlockReference& ref) {
   return inserted;
 }
 
+std::string Successor::ToString() const {
+  switch (condition_) {
+    case kConditionAbove:  // Equivalent to JNBE.
+      return"JA";
+
+    case kConditionAboveOrEqual:  // Equivalent to JNB and JNC.
+      return "JAE";
+
+    case kConditionBelow:  // Equivalent to JNAE and JC.
+      return "JB";
+
+    case kConditionBelowOrEqual:  // Equivalent to JNA.
+      return "JBE";
+
+    case kConditionGreater:  // Equivalent to JNLE.
+      return "JG";
+
+    case kConditionGreaterOrEqual:  // Equivalent to JNL.
+      return "JGE";
+
+    case kConditionLess:  // Equivalent to JNGE.
+      return "JL";
+
+    case kConditionLessOrEqual:  // Equivalent to JNG.
+      return "JLE";
+
+    case kConditionTrue:
+      return "JMP";
+
+    case kConditionNotOverflow:
+      return "JNO";
+
+    case kConditionNotParity:  // Equivalent to JPO.
+      return "JNP";
+
+    case kConditionNotSigned:
+      return "JNS";
+
+    case kConditionNotEqual:  // Equivalent to JNE.
+      return "JNZ";
+
+    case kConditionOverflow:
+      return "JO";
+
+    case kConditionParity:  // Equivalent to JPE.
+      return "JP";
+
+    case kConditionSigned:
+      return "JS";
+
+    case kConditionEqual:  // Equivalent to JE.
+      return "JZ";
+  }
+
+  return "";
+}
+
 const BasicBlock::Offset BasicBlock::kNoOffset = -1;
 
 BasicBlock::BasicBlock(const base::StringPiece& name,
