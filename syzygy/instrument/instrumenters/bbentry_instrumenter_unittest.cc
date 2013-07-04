@@ -15,8 +15,6 @@
 #include "syzygy/instrument/instrumenters/bbentry_instrumenter.h"
 
 #include "base/command_line.h"
-#include "base/compiler_specific.h"
-#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
@@ -96,8 +94,6 @@ class BasicBlockEntryInstrumenterTest : public testing::PELibUnitTest {
   base::FilePath input_pdb_path_;
   base::FilePath output_dll_path_;
   base::FilePath output_pdb_path_;
-  base::FilePath test_dll_filter_path_;
-  base::FilePath dummy_filter_path_;
   // @}
 
   // @name Expected final values of input parameters.
@@ -113,9 +109,7 @@ class BasicBlockEntryInstrumenterTest : public testing::PELibUnitTest {
 }  // namespace
 
 TEST_F(BasicBlockEntryInstrumenterTest, ParseMinimalBasicBlockEntry) {
-  cmd_line_.AppendSwitchASCII("mode", "bbentry");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+  SetUpValidCommandLine();
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
 
@@ -134,10 +128,7 @@ TEST_F(BasicBlockEntryInstrumenterTest, ParseMinimalBasicBlockEntry) {
 }
 
 TEST_F(BasicBlockEntryInstrumenterTest, ParseFullBasicBlockEntry) {
-  cmd_line_.AppendSwitchASCII("mode", "bbentry");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-  cmd_line_.AppendSwitchPath("filter", test_dll_filter_path_);
+  SetUpValidCommandLine();
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
   cmd_line_.AppendSwitch("debug-friendly");
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
@@ -166,9 +157,7 @@ TEST_F(BasicBlockEntryInstrumenterTest, ParseFullBasicBlockEntry) {
 }
 
 TEST_F(BasicBlockEntryInstrumenterTest, InstrumentImpl) {
-  cmd_line_.AppendSwitchASCII("mode", "bbentry");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+  SetUpValidCommandLine();
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
   EXPECT_TRUE(instrumenter_.Instrument());

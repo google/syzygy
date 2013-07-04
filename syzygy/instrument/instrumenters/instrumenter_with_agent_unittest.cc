@@ -15,7 +15,6 @@
 #include "syzygy/instrument/instrumenters/instrumenter_with_agent.h"
 
 #include "base/command_line.h"
-#include "base/compiler_specific.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -118,8 +117,6 @@ class InstrumenterWithAgentTest : public testing::PELibUnitTest {
   base::FilePath input_pdb_path_;
   base::FilePath output_dll_path_;
   base::FilePath output_pdb_path_;
-  base::FilePath test_dll_filter_path_;
-  base::FilePath dummy_filter_path_;
   // @}
 
   // @name Expected final values of input parameters.

@@ -15,8 +15,6 @@
 #include "syzygy/instrument/instrumenters/asan_instrumenter.h"
 
 #include "base/command_line.h"
-#include "base/compiler_specific.h"
-#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
@@ -99,7 +97,6 @@ class AsanInstrumenterTest : public testing::PELibUnitTest {
   base::FilePath output_dll_path_;
   base::FilePath output_pdb_path_;
   base::FilePath test_dll_filter_path_;
-  base::FilePath dummy_filter_path_;
   // @}
 
   // @name Expected final values of input parameters.
@@ -115,9 +112,7 @@ class AsanInstrumenterTest : public testing::PELibUnitTest {
 }  // namespace
 
 TEST_F(AsanInstrumenterTest, ParseMinimalAsan) {
-  cmd_line_.AppendSwitchASCII("mode", "asan");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+  SetUpValidCommandLine();
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
 
@@ -136,9 +131,7 @@ TEST_F(AsanInstrumenterTest, ParseMinimalAsan) {
 }
 
 TEST_F(AsanInstrumenterTest, ParseFullAsan) {
-  cmd_line_.AppendSwitchASCII("mode", "asan");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+  SetUpValidCommandLine();
   cmd_line_.AppendSwitchPath("filter", test_dll_filter_path_);
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
   cmd_line_.AppendSwitch("debug-friendly");
@@ -171,9 +164,7 @@ TEST_F(AsanInstrumenterTest, ParseFullAsan) {
 }
 
 TEST_F(AsanInstrumenterTest, InstrumentImpl) {
-  cmd_line_.AppendSwitchASCII("mode", "asan");
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+  SetUpValidCommandLine();
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
   EXPECT_TRUE(instrumenter_.Instrument());
