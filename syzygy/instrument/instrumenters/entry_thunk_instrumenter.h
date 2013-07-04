@@ -50,10 +50,10 @@ class EntryThunkInstrumenter : public InstrumenterWithAgent {
 
   // @name InstrumenterWithAgent overrides.
   // @{
-  virtual bool InstrumentImpl();
-  virtual const char* InstrumentationMode();
+  virtual bool InstrumentImpl() OVERRIDE;
+  virtual const char* InstrumentationMode() OVERRIDE;
   virtual bool ParseAdditionalCommandLineArguments(
-     const CommandLine* command_line);
+     const CommandLine* command_line) OVERRIDE;
   // @}
 
   // @name Command-line parameters.

@@ -59,7 +59,7 @@ class TestInstrumenterWithAgent : public InstrumenterWithAgent {
     return &mock_relinker_;
   }
 
-  virtual const char* InstrumentationMode() { return "test"; }
+  virtual const char* InstrumentationMode() OVERRIDE { return "test"; }
 
   StrictMock<MockRelinker> mock_relinker_;
 };

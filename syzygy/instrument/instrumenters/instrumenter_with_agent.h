@@ -44,8 +44,8 @@ class InstrumenterWithAgent : public InstrumenterInterface {
 
   // @name InstrumenterInterface implementation.
   // @{
-  virtual bool ParseCommandLine(const CommandLine* command_line);
-  virtual bool Instrument();
+  virtual bool ParseCommandLine(const CommandLine* command_line) OVERRIDE;
+  virtual bool Instrument() OVERRIDE;
   // @}
 
   // @name Accessors.

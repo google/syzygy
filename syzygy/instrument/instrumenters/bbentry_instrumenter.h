@@ -39,10 +39,10 @@ class BasicBlockEntryInstrumenter : public InstrumenterWithAgent {
 
   // @name InstrumenterWithAgent overrides.
   // @{
-  virtual bool InstrumentImpl();
-  virtual const char* InstrumentationMode() { return "bbentry"; }
+  virtual bool InstrumentImpl() OVERRIDE;
+  virtual const char* InstrumentationMode() OVERRIDE { return "bbentry"; }
   virtual bool ParseAdditionalCommandLineArguments(
-     const CommandLine* command_line);
+     const CommandLine* command_line) OVERRIDE;
   // @}
 
   // @name Command-line parameters.
