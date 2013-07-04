@@ -22,6 +22,8 @@
       'type': 'static_library',
       'sources': [
         'dlist.h',
+        'dll_notifications.cc',
+        'dll_notifications.h',
         'entry_frame.h',
         'process_utils.cc',
         'process_utils.h',
@@ -32,6 +34,7 @@
       'dependencies': [
         '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/pe/pe.gyp:test_dll',
         '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
         '<(src)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
       ],
@@ -41,6 +44,7 @@
       'type': 'executable',
       'sources': [
         'agent_common_unittests_main.cc',
+        'dll_notifications_unittest.cc',
         'process_utils_unittest.cc',
         'thread_state_unittest.cc',
       ],
