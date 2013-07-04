@@ -27,6 +27,8 @@ const char EntryThunkInstrumenter::kAgentDllRpc[] = "call_trace_client.dll";
 
 EntryThunkInstrumenter::EntryThunkInstrumenter(Mode instrumentation_mode)
     : instrumentation_mode_(instrumentation_mode),
+      instrument_unsafe_references_(false),
+      module_entry_only_(false),
       thunk_imports_(false) {
   DCHECK(instrumentation_mode != INVALID_MODE);
   switch (instrumentation_mode) {
@@ -70,7 +72,7 @@ bool EntryThunkInstrumenter::InstrumentImpl() {
 
 bool EntryThunkInstrumenter::ParseAdditionalCommandLineArguments(
     const CommandLine* command_line) {
-  if (instrumentation_mode_ != PROFILE) {
+  if (instrumentation_mode_ == CALL_TRACE) {
     module_entry_only_ = command_line->HasSwitch("module-entry-only");
     instrument_unsafe_references_ = !command_line->HasSwitch("no-unsafe-refs");
   }

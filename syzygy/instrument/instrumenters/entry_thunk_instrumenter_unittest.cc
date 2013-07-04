@@ -253,7 +253,7 @@ TEST_F(EntryThunkInstrumenterTest, InstrumentImplProfile) {
 
   EXPECT_TRUE(instrumenter_->ParseCommandLine(&cmd_line_));
   EXPECT_TRUE(instrumenter_->Instrument());
-
 }
+
 }  // namespace instrumenters
 }  // namespace instrument
