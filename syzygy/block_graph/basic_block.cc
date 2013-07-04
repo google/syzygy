@@ -410,7 +410,7 @@ bool Instruction::InvertConditionalBranchOpcode(uint16* opcode) {
       *opcode = I_JL;
       return true;
 
-    case I_JL:  // Equivalent to I_JNGE.
+    case I_JL:  // Equivalent to JNGE.
       *opcode = I_JGE;
       return true;
 
@@ -474,7 +474,7 @@ bool Instruction::InvertConditionalBranchOpcode(uint16* opcode) {
       //
       //     Note that popfd is prepended onto the instruction sequences of both
       //     fall-through and original-branch-target. To represent this we
-      //     should introduce pesudo instructions to represent each inversion,
+      //     should introduce pseudo instructions to represent each inversion,
       //     which would allow the inversion to be reversible.
       LOG(ERROR) << "Inversion of " << GET_MNEMONIC_NAME(*opcode)
                  << " is not supported.";
@@ -541,7 +541,7 @@ Successor::Condition Successor::OpCodeToCondition(Successor::OpCode op_code) {
     case I_JGE:  // Equivalent to JNL.
       return kConditionGreaterOrEqual;
 
-    case I_JL:  // Equivalent to I_JNGE.
+    case I_JL:  // Equivalent to JNGE.
       return kConditionLess;
 
     case I_JLE:  // Equivalent to JNG.
