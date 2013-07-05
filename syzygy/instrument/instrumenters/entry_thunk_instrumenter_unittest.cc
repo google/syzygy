@@ -26,6 +26,7 @@ namespace {
 
 class TestEntryThunkInstrumenter : public EntryThunkInstrumenter {
  public:
+  using EntryThunkInstrumenter::InstrumentImpl;
   using EntryThunkInstrumenter::agent_dll_;
   using EntryThunkInstrumenter::input_dll_path_;
   using EntryThunkInstrumenter::input_pdb_path_;
@@ -46,6 +47,8 @@ class TestEntryThunkInstrumenter : public EntryThunkInstrumenter {
 
   explicit TestEntryThunkInstrumenter(Mode instrumentation_mode)
       : EntryThunkInstrumenter(instrumentation_mode) {
+    // Call the GetRelinker function to initialize it.
+    EXPECT_TRUE(GetRelinker() != NULL);
   }
 };
 
@@ -243,7 +246,7 @@ TEST_F(EntryThunkInstrumenterTest, InstrumentImplCallTrace) {
       new TestEntryThunkInstrumenter(EntryThunkInstrumenter::CALL_TRACE));
 
   EXPECT_TRUE(instrumenter_->ParseCommandLine(&cmd_line_));
-  EXPECT_TRUE(instrumenter_->Instrument());
+  EXPECT_TRUE(instrumenter_->InstrumentImpl());
 }
 
 TEST_F(EntryThunkInstrumenterTest, InstrumentImplProfile) {
@@ -252,7 +255,7 @@ TEST_F(EntryThunkInstrumenterTest, InstrumentImplProfile) {
       new TestEntryThunkInstrumenter(EntryThunkInstrumenter::PROFILE));
 
   EXPECT_TRUE(instrumenter_->ParseCommandLine(&cmd_line_));
-  EXPECT_TRUE(instrumenter_->Instrument());
+  EXPECT_TRUE(instrumenter_->InstrumentImpl());
 }
 
 }  // namespace instrumenters

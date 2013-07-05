@@ -26,6 +26,7 @@ namespace {
 
 class TestBasicBlockEntryInstrumenter : public BasicBlockEntryInstrumenter {
  public:
+  using BasicBlockEntryInstrumenter::InstrumentImpl;
   using BasicBlockEntryInstrumenter::agent_dll_;
   using BasicBlockEntryInstrumenter::input_dll_path_;
   using BasicBlockEntryInstrumenter::input_pdb_path_;
@@ -39,6 +40,11 @@ class TestBasicBlockEntryInstrumenter : public BasicBlockEntryInstrumenter {
   using BasicBlockEntryInstrumenter::inline_fast_path_;
   using BasicBlockEntryInstrumenter::debug_friendly_;
   using BasicBlockEntryInstrumenter::kAgentDllBasicBlockEntry;
+
+  TestBasicBlockEntryInstrumenter() {
+    // Call the GetRelinker function to initialize it.
+    EXPECT_TRUE(GetRelinker() != NULL);
+  }
 };
 
 class BasicBlockEntryInstrumenterTest : public testing::PELibUnitTest {
@@ -160,7 +166,7 @@ TEST_F(BasicBlockEntryInstrumenterTest, InstrumentImpl) {
   SetUpValidCommandLine();
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
-  EXPECT_TRUE(instrumenter_.Instrument());
+  EXPECT_TRUE(instrumenter_.InstrumentImpl());
 }
 
 }  // namespace instrumenters

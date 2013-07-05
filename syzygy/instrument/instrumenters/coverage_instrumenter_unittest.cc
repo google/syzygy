@@ -26,6 +26,7 @@ namespace {
 
 class TestCoverageInstrumenter : public CoverageInstrumenter {
  public:
+  using CoverageInstrumenter::InstrumentImpl;
   using CoverageInstrumenter::agent_dll_;
   using CoverageInstrumenter::input_dll_path_;
   using CoverageInstrumenter::input_pdb_path_;
@@ -38,6 +39,12 @@ class TestCoverageInstrumenter : public CoverageInstrumenter {
   using CoverageInstrumenter::no_strip_strings_;
   using CoverageInstrumenter::debug_friendly_;
   using CoverageInstrumenter::kAgentDllCoverage;
+
+  TestCoverageInstrumenter() {
+    // Call the GetRelinker function to initialize it.
+    pe::PERelinker* relinker = GetRelinker();
+    EXPECT_TRUE(relinker != NULL);
+  }
 };
 
 class CoverageInstrumenterTest : public testing::PELibUnitTest {
@@ -155,7 +162,7 @@ TEST_F(CoverageInstrumenterTest, InstrumentImpl) {
   SetUpValidCommandLine();
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
-  EXPECT_TRUE(instrumenter_.Instrument());
+  EXPECT_TRUE(instrumenter_.InstrumentImpl());
 }
 }  // namespace instrumenters
 }  // namespace instrument

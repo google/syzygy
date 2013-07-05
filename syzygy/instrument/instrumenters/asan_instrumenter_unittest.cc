@@ -27,6 +27,7 @@ namespace {
 
 class TestAsanInstrumenter : public AsanInstrumenter {
  public:
+  using AsanInstrumenter::InstrumentImpl;
   using AsanInstrumenter::agent_dll_;
   using AsanInstrumenter::input_dll_path_;
   using AsanInstrumenter::input_pdb_path_;
@@ -42,6 +43,11 @@ class TestAsanInstrumenter : public AsanInstrumenter {
   using AsanInstrumenter::use_liveness_analysis_;
   using AsanInstrumenter::remove_redundant_checks_;
   using AsanInstrumenter::kAgentDllAsan;
+
+  TestAsanInstrumenter() {
+    // Call the GetRelinker function to initialize it.
+    EXPECT_TRUE(GetRelinker() != NULL);
+  }
 };
 
 class AsanInstrumenterTest : public testing::PELibUnitTest {
@@ -185,7 +191,7 @@ TEST_F(AsanInstrumenterTest, InstrumentImpl) {
   SetUpValidCommandLine();
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
-  EXPECT_TRUE(instrumenter_.Instrument());
+  EXPECT_TRUE(instrumenter_.InstrumentImpl());
 }
 
 TEST_F(AsanInstrumenterTest, FailsWithInvalidFilter) {
@@ -198,7 +204,7 @@ TEST_F(AsanInstrumenterTest, FailsWithInvalidFilter) {
 
   MakeFilters();
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
-  EXPECT_FALSE(instrumenter_.Instrument());
+  EXPECT_FALSE(instrumenter_.InstrumentImpl());
 }
 
 TEST_F(AsanInstrumenterTest, SucceedsWithValidFilter) {
@@ -208,7 +214,7 @@ TEST_F(AsanInstrumenterTest, SucceedsWithValidFilter) {
 
   MakeFilters();
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
-  EXPECT_TRUE(instrumenter_.Instrument());
+  EXPECT_TRUE(instrumenter_.InstrumentImpl());
 }
 
 }  // namespace instrumenters
