@@ -22,11 +22,11 @@ interface CallTrace {
   typedef [context_handle] void* SessionHandle;
 
   typedef struct {
-    // The shared memory handle that will be duplicated into the
-    // client's address space. This memory will be allocated by the
-    // server and the client should (on first receipt of a buffer with
-    // this handle) perform a ::MapViewOfFile() to get the corresponding
-    // local base address for this shared memory buffer.  Multiple
+    // The shared memory mapped file handle that will be duplicated into the
+    // client's address space. A shared file object will be created by the
+    // server and the client should (on first receipt of a buffer with this
+    // handle) perform a ::MapViewOfFile() to get the corresponding
+    // local base addreess of the memory mapped file. Multiple
     // CallTraceBuffer objects may share the same shared_memory_handle
     // value. The pair {shared_memory_handle, buffer_offset} uniquely
     // identifies a buffer.

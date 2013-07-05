@@ -32,6 +32,7 @@ namespace trace {
 namespace service {
 
 // Forward declaration.
+class BufferPool;
 class Session;
 
 // A Buffer extends the RPC defined CallTraceBuffer structure with the
@@ -57,7 +58,7 @@ struct Buffer : public ::CallTraceBuffer {
 
   // We augment the buffer with some additional state.
   Session* session;
-  uint8* data_ptr;
+  BufferPool* pool;
   BufferState state;
 };
 
@@ -88,7 +89,6 @@ class BufferPool {
   typedef std::vector<Buffer> BufferCollection;
   // Sadly ScopedHandle is not const correct.
   mutable base::win::ScopedHandle handle_;
-  uint8* base_ptr_;
   BufferCollection buffers_;
 
   DISALLOW_COPY_AND_ASSIGN(BufferPool);

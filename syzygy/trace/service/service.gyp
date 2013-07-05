@@ -24,6 +24,8 @@
         'buffer_consumer.h',
         'buffer_pool.cc',
         'buffer_pool.h',
+        'mapped_buffer.cc',
+        'mapped_buffer.h',
         'process_info.cc',
         'process_info.h',
         'service.cc',
@@ -47,6 +49,7 @@
       'target_name': 'rpc_service_unittests',
       'type': 'executable',
       'sources': [
+        'mapped_buffer_unittest.cc',
         'process_info_unittest.cc',
         'rpc_service_unittests_main.cc',
         'service_unittest.cc',

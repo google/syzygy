@@ -34,6 +34,7 @@
 #include "syzygy/common/buffer_writer.h"
 #include "syzygy/common/path_util.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
+#include "syzygy/trace/service/mapped_buffer.h"
 #include "syzygy/trace/service/service.h"
 
 namespace trace {
@@ -589,8 +590,12 @@ bool Session::CreateProcessEndedEvent(Buffer** buffer) {
 
   // Populate the various structures in the buffer.
 
+  MappedBuffer mapped_buffer(*buffer);
+  if (!mapped_buffer.Map())
+    return false;
+
   RecordPrefix* segment_prefix =
-      reinterpret_cast<RecordPrefix*>((*buffer)->data_ptr);
+      reinterpret_cast<RecordPrefix*>(mapped_buffer.data());
   DWORD timestamp = ::GetTickCount();
   segment_prefix->timestamp = timestamp;
   segment_prefix->size = sizeof(TraceFileSegmentHeader);

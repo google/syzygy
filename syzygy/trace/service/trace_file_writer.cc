@@ -33,6 +33,7 @@
 #include "syzygy/common/path_util.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/service/buffer_pool.h"
+#include "syzygy/trace/service/mapped_buffer.h"
 #include "syzygy/trace/service/session.h"
 #include "syzygy/trace/service/trace_file_writer_factory.h"
 
@@ -268,9 +269,13 @@ void TraceFileWriter::WriteBuffer(Session* session,
   DCHECK_EQ(MessageLoop::current(), message_loop_);
   DCHECK(trace_file_handle_.IsValid());
 
+  MappedBuffer mapped_buffer(buffer);
+  if (!mapped_buffer.Map())
+    return;
+
   // Parse the record prefix and segment header;
   volatile RecordPrefix* prefix =
-      reinterpret_cast<RecordPrefix*>(buffer->data_ptr);
+      reinterpret_cast<RecordPrefix*>(mapped_buffer.data());
   volatile TraceFileSegmentHeader* header =
       reinterpret_cast<volatile TraceFileSegmentHeader*>(prefix + 1);
 
@@ -294,7 +299,7 @@ void TraceFileWriter::WriteBuffer(Session* session,
       DCHECK(bytes_to_write != 0);
       DWORD bytes_written = 0;
       if (!::WriteFile(trace_file_handle_,
-                       buffer->data_ptr,
+                       mapped_buffer.data(),
                        bytes_to_write,
                        &bytes_written,
                        NULL) ||
@@ -311,9 +316,10 @@ void TraceFileWriter::WriteBuffer(Session* session,
   // chance to even touch the buffer. In that case, we'll end up writing the
   // buffer again. We clear the RecordPrefix and the TraceFileSegmentHeader so
   // that we'll at least see the buffer as empty and write nothing.
-  ::memset(buffer->data_ptr, 0,
+  ::memset(mapped_buffer.data(), 0,
            sizeof(RecordPrefix) + sizeof(TraceFileSegmentHeader));
 
+  mapped_buffer.Unmap();
   session->RecycleBuffer(buffer);
 }
 

@@ -24,15 +24,10 @@
 namespace trace {
 namespace service {
 
-BufferPool::BufferPool() : base_ptr_(NULL) {
+BufferPool::BufferPool() {
 }
 
 BufferPool::~BufferPool() {
-  if (base_ptr_ && !::UnmapViewOfFile(base_ptr_)) {
-    DWORD error = ::GetLastError();
-    DCHECK(handle_.IsValid());
-    LOG(WARNING) << "Failed to release buffer: " << com::LogWe(error) << ".";
-  }
 }
 
 bool BufferPool::Init(Session* session,
@@ -40,7 +35,6 @@ bool BufferPool::Init(Session* session,
                       size_t buffer_size) {
   DCHECK(num_buffers != 0);
   DCHECK(buffer_size != 0);
-  DCHECK(base_ptr_ == NULL);
   DCHECK(!handle_.IsValid());
 
   size_t mapping_size = num_buffers * buffer_size;
@@ -57,18 +51,8 @@ bool BufferPool::Init(Session* session,
     return false;
   }
 
-  // Map a view of the shared memory file into this process.
-  uint8* new_base_ptr = reinterpret_cast<uint8*>(
-      ::MapViewOfFile(new_handle, FILE_MAP_ALL_ACCESS, 0, 0, mapping_size));
-  if (new_base_ptr == NULL) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed mapping buffer: " << com::LogWe(error) << ".";
-    return false;
-  }
-
   // Take ownership of the newly created resources.
   handle_.Set(new_handle.Take());
-  base_ptr_ = new_base_ptr;
 
   // Create records for each buffer in the pool.
   buffers_.resize(num_buffers);
@@ -80,7 +64,7 @@ bool BufferPool::Init(Session* session,
     cb.buffer_offset = offset;
     cb.buffer_size = buffer_size;
     cb.session = session;
-    cb.data_ptr = base_ptr_ + offset;
+    cb.pool = this;
     cb.state = Buffer::kAvailable;
   }
 

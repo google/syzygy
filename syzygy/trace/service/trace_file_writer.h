@@ -47,8 +47,8 @@ class TraceFileWriter : public BufferConsumer {
   // Initialize this trace file writer.
   // @name BufferConsumer implementation.
   // @{
-  bool Open(Session* session) OVERRIDE;
-  bool Close(Session* session) OVERRIDE;
+  virtual bool Open(Session* session) OVERRIDE;
+  virtual bool Close(Session* session) OVERRIDE;
   virtual bool ConsumeBuffer(Buffer* buffer) OVERRIDE;
   virtual size_t block_size() const OVERRIDE;
   // @}
