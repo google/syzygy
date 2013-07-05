@@ -19,6 +19,7 @@
 #include <algorithm>
 
 #include "base/at_exit.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/logging.h"
@@ -810,15 +811,41 @@ LONG CALLBACK Profiler::ExceptionHandler(EXCEPTION_POINTERS* ex_info) {
   return EXCEPTION_CONTINUE_SEARCH;
 }
 
+void Profiler::OnDllEvent(agent::common::DllNotificationWatcher::EventType type,
+                          HMODULE module,
+                          size_t module_size,
+                          const base::StringPiece16& dll_path,
+                          const base::StringPiece16& dll_base_name) {
+  if (type == agent::common::DllNotificationWatcher::kDllLoaded) {
+    // Bail early if there's no session.
+    if (session_.IsDisabled())
+      return;
+
+    // Trace the load event.
+    ThreadState* state = GetOrAllocateThreadState();
+    if (state != NULL)
+      state->LogModule(module);
+  }
+}
+
 Profiler::Profiler() : handler_registration_(NULL) {
-  // Create our RPC session and allocate our initial trace segment on first use.
+  // Create our RPC session and allocate our initial trace segment on creation,
+  // aka at load time.
   ThreadState* data = CreateFirstThreadStateAndSession();
   CHECK(data != NULL) << "Failed to allocate thread local state.";
 
   handler_registration_ = ::AddVectoredExceptionHandler(TRUE, ExceptionHandler);
+
+  dll_watcher_.Init(base::Bind(&Profiler::OnDllEvent, base::Unretained(this)));
 }
 
 Profiler::~Profiler() {
+  // Since the DLL notification callback depends on thread and session state,
+  // let's tear it down first. Note that this grabs the loader's lock,
+  // so there's deadlock potential here, but no other thread will get a DLL
+  // notification after this call returns.
+  dll_watcher_.Reset();
+
   // Typically, this will happen on the last thread in the process. We must
   // explicitly clean up this thread's state as it will otherwise leak.
   FreeThreadState();

@@ -158,7 +158,7 @@ void CALLBACK DllNotificationWatcher::NotificationFunction(
 
   DllNotificationWatcher* self =
       reinterpret_cast<DllNotificationWatcher*>(context);
-  EventType event_type = DllLoaded;
+  EventType event_type = kDllLoaded;
   HMODULE module = NULL;
   size_t module_size = 0;
   base::StringPiece16 dll_path;
@@ -166,7 +166,7 @@ void CALLBACK DllNotificationWatcher::NotificationFunction(
 
   switch (reason) {
     case LDR_DLL_NOTIFICATION_REASON_LOADED:
-      event_type = DllLoaded;
+      event_type = kDllLoaded;
       module = reinterpret_cast<HMODULE>(data->Loaded.DllBase);
       module_size = data->Loaded.SizeOfImage;
       dll_path = ToStringPiece(data->Loaded.FullDllName);
@@ -174,7 +174,7 @@ void CALLBACK DllNotificationWatcher::NotificationFunction(
       break;
 
     case LDR_DLL_NOTIFICATION_REASON_UNLOADED:
-      event_type = DllUnloaded;
+      event_type = kDllUnloaded;
       module = reinterpret_cast<HMODULE>(data->Unloaded.DllBase);
       module_size = data->Unloaded.SizeOfImage;
       dll_path = ToStringPiece(data->Unloaded.FullDllName);

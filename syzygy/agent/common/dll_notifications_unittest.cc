@@ -81,12 +81,12 @@ TEST_F(DllNotificationWatcherTest, Init) {
 
   // We expect DLL load notifications for test_dll_ and its import dependency.
   EXPECT_CALL(receiver_,
-              OnNotification(DllNotificationWatcher::DllLoaded,
+              OnNotification(DllNotificationWatcher::kDllLoaded,
                              _, _,
                              testing::Eq(test_dll_path_.value()),
                              testing::Eq(test_dll_path_.BaseName().value())));
   EXPECT_CALL(receiver_,
-              OnNotification(DllNotificationWatcher::DllLoaded,
+              OnNotification(DllNotificationWatcher::kDllLoaded,
                              _, _,
                              _,
                              testing::Eq(L"export_dll.dll")));
@@ -96,12 +96,12 @@ TEST_F(DllNotificationWatcherTest, Init) {
 
   // Now we should see unload notification for the same DLLs.
   EXPECT_CALL(receiver_,
-              OnNotification(DllNotificationWatcher::DllUnloaded,
+              OnNotification(DllNotificationWatcher::kDllUnloaded,
                              _, _,
                              testing::Eq(test_dll_path_.value()),
                              testing::Eq(test_dll_path_.BaseName().value())));
   EXPECT_CALL(receiver_,
-              OnNotification(DllNotificationWatcher::DllUnloaded,
+              OnNotification(DllNotificationWatcher::kDllUnloaded,
                              _, _,
                              _,
                              testing::Eq(L"export_dll.dll")));

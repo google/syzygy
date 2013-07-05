@@ -21,6 +21,7 @@
 #include "base/bind.h"
 #include "base/file_util.h"
 #include "base/message_loop.h"
+#include "base/scoped_native_library.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread.h"
@@ -28,6 +29,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/agent/common/process_utils.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/unittest_util.h"
 #include "syzygy/trace/common/unittest_util.h"
 #include "syzygy/trace/parse/parser.h"
 #include "syzygy/trace/parse/unittest_util.h"
@@ -515,6 +517,9 @@ TEST_F(ProfilerTest, RecordsOneEntryPerModuleAndFunction) {
   // Get our own module handle.
   HMODULE self_module = ::GetModuleHandle(NULL);
 
+  // Make sure the test DLL isn't already loaded.
+  ASSERT_EQ(NULL, ::GetModuleHandle(testing::kTestDllName));
+
   ASSERT_NO_FATAL_FAILURE(LoadDll());
 
   // Record the module load twice.
@@ -524,6 +529,10 @@ TEST_F(ProfilerTest, RecordsOneEntryPerModuleAndFunction) {
   // And invoke Function A twice.
   ASSERT_NO_FATAL_FAILURE(InvokeFunctionAThunk());
   ASSERT_NO_FATAL_FAILURE(InvokeFunctionAThunk());
+
+  // Load this module late to verify it's included in the module list.
+  base::ScopedNativeLibrary test_dll(::LoadLibrary(testing::kTestDllName));
+  ASSERT_TRUE(test_dll.is_valid());
 
   // Get the module list prior to unloading the profile DLL.
   ModuleVector modules;

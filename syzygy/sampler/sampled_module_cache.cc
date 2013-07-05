@@ -90,14 +90,12 @@ void SampledModuleCache::MarkAllModulesDead() {
 }
 
 void SampledModuleCache::RemoveDeadModules() {
-  if (processes_.empty())
-    return;
-
   ProcessMap::iterator proc_it = processes_.begin();
   ProcessMap::iterator proc_it_next = proc_it;
-  ++proc_it_next;
 
   while (proc_it != processes_.end()) {
+    ++proc_it_next;
+
     // Remove any dead modules from the process.
     proc_it->second->RemoveDeadModules(dead_module_callback_);
 
@@ -110,8 +108,6 @@ void SampledModuleCache::RemoveDeadModules() {
     }
 
     proc_it = proc_it_next;
-    if (proc_it_next != processes_.end())
-      ++proc_it_next;
   }
 }
 
@@ -168,15 +164,12 @@ void SampledModuleCache::Process::MarkDead() {
 
 void SampledModuleCache::Process::RemoveDeadModules(
     DeadModuleCallback callback) {
-  if (modules_.empty())
-    return;
-
   ModuleMap::iterator mod_it = modules_.begin();
   ModuleMap::iterator mod_it_next = mod_it;
-  ++mod_it_next;
 
   while (mod_it != modules_.end()) {
     DCHECK(mod_it->second != NULL);
+    ++mod_it_next;
 
     if (!mod_it->second->alive()) {
       // Stop profiling.
@@ -193,8 +186,6 @@ void SampledModuleCache::Process::RemoveDeadModules(
     }
 
     mod_it = mod_it_next;
-    if (mod_it_next != modules_.end())
-      ++mod_it_next;
   }
 }
 

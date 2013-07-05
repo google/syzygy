@@ -31,6 +31,7 @@
 #include "base/hash_tables.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/thread_local.h"
+#include "syzygy/agent/common/dll_notifications.h"
 #include "syzygy/agent/common/entry_frame.h"
 #include "syzygy/agent/common/thread_state.h"
 #include "syzygy/agent/profiler/symbol_map.h"
@@ -127,6 +128,13 @@ class Profiler {
 
   class ThreadState;
 
+  // Sink for DLL load/unload event notifications.
+  void OnDllEvent(agent::common::DllNotificationWatcher::EventType type,
+                  HMODULE module,
+                  size_t module_size,
+                  const base::StringPiece16& dll_path,
+                  const base::StringPiece16& dll_base_name);
+
   ThreadState* CreateFirstThreadStateAndSession();
   ThreadState* GetOrAllocateThreadState();
   ThreadState* GetOrAllocateThreadStateImpl();
@@ -156,6 +164,9 @@ class Profiler {
 
   // Stores our vectored exception handler registration handle.
   void* handler_registration_;
+
+  // To keep track of modules added after initialization.
+  agent::common::DllNotificationWatcher dll_watcher_;
 
   // This points to our per-thread state.
   mutable base::ThreadLocalPointer<ThreadState> tls_;

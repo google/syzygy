@@ -33,8 +33,8 @@ namespace common {
 class DllNotificationWatcher {
  public:
   enum EventType {
-    DllLoaded,
-    DllUnloaded,
+    kDllLoaded,
+    kDllUnloaded,
   };
   typedef base::Callback<void(EventType type,
                               HMODULE module,
