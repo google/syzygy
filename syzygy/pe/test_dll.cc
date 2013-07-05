@@ -522,7 +522,7 @@ static type AsanWriteBufferOverflow() {
   ptr[kOffetZero] = static_cast<type>(1);
   ptr[kOffetOne] = static_cast<type>(2);
   type result = ptr[kOffetZero];
-  delete ptr;
+  delete[] ptr;
   return result;
 }
 
@@ -533,7 +533,7 @@ static type AsanWriteBufferUnderflow() {
   ptr[kOffsetMinusOne] = static_cast<type>(1);
   ptr[kOffetZero] = static_cast<type>(2);
   type result = ptr[kOffetZero];
-  delete ptr;
+  delete[] ptr;
   return result;
 }
 
@@ -543,7 +543,7 @@ static type AsanReadBufferOverflow() {
   type* ptr = new type[1];
   *ptr = static_cast<type>(42);
   type result = ptr[kOffetZero] + ptr[kOffetOne];
-  delete ptr;
+  delete[] ptr;
   return result;
 }
 
@@ -553,7 +553,7 @@ static type AsanReadBufferUnderflow() {
   type* ptr = new type[1];
   *ptr = static_cast<type>(42);
   type result = ptr[kOffetZero] + ptr[kOffsetMinusOne];
-  delete ptr;
+  delete[] ptr;
   return result;
 }
 
@@ -562,7 +562,7 @@ static type AsanReadUseAfterFree() {
   // Produce an ASAN error by reading memory after deleting it.
   type* ptr = new type[1];
   *ptr = static_cast<type>(42);
-  delete ptr;
+  delete[] ptr;
   type result = ptr[kOffetZero];
   return result;
 }
@@ -573,7 +573,7 @@ static type AsanWriteUseAfterFree() {
   type* ptr = new type[1];
   *ptr = static_cast<type>(42);
   type result = *ptr;
-  delete ptr;
+  delete[] ptr;
   ptr[kOffetZero] = static_cast<type>(12);
   return result;
 }
