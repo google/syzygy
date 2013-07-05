@@ -34,9 +34,9 @@ namespace transforms {
 namespace {
 
 using block_graph::BasicBlock;
-using block_graph::BasicCodeBlock;
 using block_graph::BasicBlockAssembler;
 using block_graph::BasicBlockReference;
+using block_graph::BasicCodeBlock;
 using block_graph::BlockBuilder;
 using block_graph::BlockGraph;
 using block_graph::Displacement;

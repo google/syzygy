@@ -34,7 +34,7 @@ namespace transforms {
 // for a basic-block entry-hook function and, for each code basic-block,
 // prepends a call to the entry-hook function taking a unique basic-block ID.
 // The entry-hook function is responsible for being non-disruptive to the
-// the calling environment. I.e., it must preserve all volatile registers, any
+// calling environment. I.e., it must preserve all volatile registers, any
 // registers it uses, and the processor flags.
 class BasicBlockEntryHookTransform
     : public block_graph::transforms::IterativeTransformImpl<
@@ -42,8 +42,8 @@ class BasicBlockEntryHookTransform
       public block_graph::transforms::NamedBasicBlockSubGraphTransformImpl<
           BasicBlockEntryHookTransform> {
  public:
-  typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
+  typedef block_graph::BlockGraph BlockGraph;
   typedef core::RelativeAddress RelativeAddress;
   typedef core::AddressRange<RelativeAddress, size_t> RelativeAddressRange;
   typedef std::vector<RelativeAddressRange> RelativeAddressRangeVector;
@@ -96,7 +96,7 @@ class BasicBlockEntryHookTransform
                                BlockGraph::Block* header_block);
   // @}
 
-  // @name BasicBlockSubGraphTransformInterface methods.
+  // @name BasicBlockSubGraphTransformInterface implementation.
   // @{
   virtual bool TransformBasicBlockSubGraph(
       BlockGraph* block_graph,

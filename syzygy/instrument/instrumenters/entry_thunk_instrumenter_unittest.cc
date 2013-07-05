@@ -84,8 +84,8 @@ class EntryThunkInstrumenterTest : public testing::PELibUnitTest {
   }
 
   void SetUpValidCommandLine() {
-    cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
-    cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
+    cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
+    cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
   }
 
  protected:

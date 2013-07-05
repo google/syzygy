@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/instrument/instrumenters/bbentry_instrumenter.h"
+#include "syzygy/instrument/instrumenters/branch_instrumenter.h"
 
 #include "base/command_line.h"
+#include "base/compiler_specific.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
@@ -24,34 +26,34 @@ namespace instrumenters {
 
 namespace {
 
-class TestBasicBlockEntryInstrumenter : public BasicBlockEntryInstrumenter {
+class TestBranchInstrumenter : public BranchInstrumenter {
  public:
-  using BasicBlockEntryInstrumenter::InstrumentImpl;
-  using BasicBlockEntryInstrumenter::agent_dll_;
-  using BasicBlockEntryInstrumenter::input_dll_path_;
-  using BasicBlockEntryInstrumenter::input_pdb_path_;
-  using BasicBlockEntryInstrumenter::output_dll_path_;
-  using BasicBlockEntryInstrumenter::output_pdb_path_;
-  using BasicBlockEntryInstrumenter::allow_overwrite_;
-  using BasicBlockEntryInstrumenter::new_decomposer_;
-  using BasicBlockEntryInstrumenter::no_augment_pdb_;
-  using BasicBlockEntryInstrumenter::no_parse_debug_info_;
-  using BasicBlockEntryInstrumenter::no_strip_strings_;
-  using BasicBlockEntryInstrumenter::inline_fast_path_;
-  using BasicBlockEntryInstrumenter::debug_friendly_;
-  using BasicBlockEntryInstrumenter::kAgentDllBasicBlockEntry;
+  using BranchInstrumenter::InstrumentImpl;
+  using BranchInstrumenter::agent_dll_;
+  using BranchInstrumenter::input_dll_path_;
+  using BranchInstrumenter::input_pdb_path_;
+  using BranchInstrumenter::output_dll_path_;
+  using BranchInstrumenter::output_pdb_path_;
+  using BranchInstrumenter::allow_overwrite_;
+  using BranchInstrumenter::new_decomposer_;
+  using BranchInstrumenter::no_augment_pdb_;
+  using BranchInstrumenter::no_parse_debug_info_;
+  using BranchInstrumenter::no_strip_strings_;
+  using BranchInstrumenter::debug_friendly_;
+  using BranchInstrumenter::kAgentDllBasicBlockEntry;
 
-  TestBasicBlockEntryInstrumenter() {
+  TestBranchInstrumenter() {
     // Call the GetRelinker function to initialize it.
-    EXPECT_TRUE(GetRelinker() != NULL);
+    pe::PERelinker* relinker = GetRelinker();
+    EXPECT_TRUE(relinker != NULL);
   }
 };
 
-class BasicBlockEntryInstrumenterTest : public testing::PELibUnitTest {
+class BranchInstrumenterTest : public testing::PELibUnitTest {
  public:
   typedef testing::PELibUnitTest Super;
 
-  BasicBlockEntryInstrumenterTest()
+  BranchInstrumenterTest()
       : cmd_line_(base::FilePath(L"instrument.exe")) {
   }
 
@@ -100,6 +102,8 @@ class BasicBlockEntryInstrumenterTest : public testing::PELibUnitTest {
   base::FilePath input_pdb_path_;
   base::FilePath output_dll_path_;
   base::FilePath output_pdb_path_;
+  base::FilePath test_dll_filter_path_;
+  base::FilePath dummy_filter_path_;
   // @}
 
   // @name Expected final values of input parameters.
@@ -109,32 +113,32 @@ class BasicBlockEntryInstrumenterTest : public testing::PELibUnitTest {
   // @}
 
   // The fake instrumenter we delegate to.
-  TestBasicBlockEntryInstrumenter instrumenter_;
+  TestBranchInstrumenter instrumenter_;
 };
 
 }  // namespace
 
-TEST_F(BasicBlockEntryInstrumenterTest, ParseMinimalBasicBlockEntry) {
+TEST_F(BranchInstrumenterTest, ParseMinimalBranch) {
   SetUpValidCommandLine();
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
 
   EXPECT_EQ(abs_input_dll_path_, instrumenter_.input_dll_path_);
   EXPECT_EQ(output_dll_path_, instrumenter_.output_dll_path_);
-  EXPECT_EQ(
-      std::string(TestBasicBlockEntryInstrumenter::kAgentDllBasicBlockEntry),
-      instrumenter_.agent_dll_);
+  EXPECT_EQ(std::string(TestBranchInstrumenter::kAgentDllBasicBlockEntry),
+            instrumenter_.agent_dll_);
   EXPECT_FALSE(instrumenter_.allow_overwrite_);
   EXPECT_FALSE(instrumenter_.new_decomposer_);
   EXPECT_FALSE(instrumenter_.no_augment_pdb_);
   EXPECT_FALSE(instrumenter_.no_parse_debug_info_);
   EXPECT_FALSE(instrumenter_.no_strip_strings_);
   EXPECT_FALSE(instrumenter_.debug_friendly_);
-  EXPECT_FALSE(instrumenter_.inline_fast_path_);
 }
 
-TEST_F(BasicBlockEntryInstrumenterTest, ParseFullBasicBlockEntry) {
+TEST_F(BranchInstrumenterTest, ParseFullBranch) {
   SetUpValidCommandLine();
+
+  cmd_line_.AppendSwitchPath("filter", test_dll_filter_path_);
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
   cmd_line_.AppendSwitch("debug-friendly");
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
@@ -142,7 +146,6 @@ TEST_F(BasicBlockEntryInstrumenterTest, ParseFullBasicBlockEntry) {
   cmd_line_.AppendSwitch("no-augment-pdb");
   cmd_line_.AppendSwitch("no-parse-debug-info");
   cmd_line_.AppendSwitch("no-strip-strings");
-  cmd_line_.AppendSwitch("inline-fast-path");
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitch("overwrite");
 
@@ -155,14 +158,13 @@ TEST_F(BasicBlockEntryInstrumenterTest, ParseFullBasicBlockEntry) {
   EXPECT_EQ(std::string("foo.dll"), instrumenter_.agent_dll_);
   EXPECT_TRUE(instrumenter_.allow_overwrite_);
   EXPECT_TRUE(instrumenter_.new_decomposer_);
-  EXPECT_TRUE(instrumenter_.inline_fast_path_);
   EXPECT_TRUE(instrumenter_.no_augment_pdb_);
   EXPECT_TRUE(instrumenter_.no_parse_debug_info_);
   EXPECT_TRUE(instrumenter_.no_strip_strings_);
   EXPECT_TRUE(instrumenter_.debug_friendly_);
 }
 
-TEST_F(BasicBlockEntryInstrumenterTest, InstrumentImpl) {
+TEST_F(BranchInstrumenterTest, InstrumentImpl) {
   SetUpValidCommandLine();
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));

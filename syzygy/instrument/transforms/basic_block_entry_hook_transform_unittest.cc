@@ -35,9 +35,9 @@ namespace transforms {
 namespace {
 
 using block_graph::BasicBlock;
-using block_graph::BasicCodeBlock;
 using block_graph::BasicBlockDecomposer;
 using block_graph::BasicBlockSubGraph;
+using block_graph::BasicCodeBlock;
 using block_graph::BlockGraph;
 using block_graph::Instruction;
 using common::IndexedFrequencyData;
@@ -72,19 +72,9 @@ class BasicBlockEntryHookTransformTest : public testing::TestDllTransformTest {
   TestBasicBlockEntryHookTransform tx_;
 };
 
-}  // namespace
-
-TEST_F(BasicBlockEntryHookTransformTest, SetInlinePathFlag) {
-  EXPECT_FALSE(tx_.inline_fast_path());
-  tx_.set_inline_fast_path(true);
-  EXPECT_TRUE(tx_.inline_fast_path());
-  tx_.set_inline_fast_path(false);
-  EXPECT_FALSE(tx_.inline_fast_path());
-}
-
 void BasicBlockEntryHookTransformTest::CheckBasicBlockInstrumentation(
     InstrumentationKind kind) {
-  // Let's examine each eligible block to verify that its BB's have been
+  // Let's examine each eligible block to verify that its basic blocks have been
   // instrumented.
   size_t num_decomposed_blocks = 0;
   size_t total_basic_blocks = 0;
@@ -191,6 +181,16 @@ void BasicBlockEntryHookTransformTest::CheckBasicBlockInstrumentation(
   EXPECT_EQ(total_basic_blocks, tx_.bb_ranges().size());
 }
 
+}  // namespace
+
+TEST_F(BasicBlockEntryHookTransformTest, SetInlinePathFlag) {
+  EXPECT_FALSE(tx_.inline_fast_path());
+  tx_.set_inline_fast_path(true);
+  EXPECT_TRUE(tx_.inline_fast_path());
+  tx_.set_inline_fast_path(false);
+  EXPECT_FALSE(tx_.inline_fast_path());
+}
+
 TEST_F(BasicBlockEntryHookTransformTest, ApplyAgentInstrumentation) {
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
 
@@ -233,7 +233,7 @@ TEST_F(BasicBlockEntryHookTransformTest, ApplyFastPathInstrumentation) {
                                                     dos_header_block_));
   ASSERT_TRUE(tx_.fast_bb_entry_block_ != NULL);
 
-  // Validate that all basic block have been instrumented.
+  // Validate that all basic blocks have been instrumented.
   CheckBasicBlockInstrumentation(kFastPathInstrumentation);
 }
 

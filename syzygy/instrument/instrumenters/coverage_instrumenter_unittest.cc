@@ -79,8 +79,8 @@ class CoverageInstrumenterTest : public testing::PELibUnitTest {
   }
 
   void SetUpValidCommandLine() {
-    cmd_line_.AppendSwitchPath("input-dll", input_dll_path_);
-    cmd_line_.AppendSwitchPath("output-dll", output_dll_path_);
+    cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
+    cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
   }
 
  protected:
@@ -164,5 +164,6 @@ TEST_F(CoverageInstrumenterTest, InstrumentImpl) {
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
   EXPECT_TRUE(instrumenter_.InstrumentImpl());
 }
+
 }  // namespace instrumenters
 }  // namespace instrument

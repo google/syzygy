@@ -24,6 +24,7 @@
 #include "base/stringprintf.h"
 #include "syzygy/instrument/instrumenters/asan_instrumenter.h"
 #include "syzygy/instrument/instrumenters/bbentry_instrumenter.h"
+#include "syzygy/instrument/instrumenters/branch_instrumenter.h"
 #include "syzygy/instrument/instrumenters/coverage_instrumenter.h"
 #include "syzygy/instrument/instrumenters/entry_thunk_instrumenter.h"
 
@@ -35,7 +36,7 @@ static const char kUsageFormatStr[] =
     "Usage: %ls [options]\n"
     "  Required arguments:\n"
     "    --input-image=<path> The input image to instrument.\n"
-    "    --mode=asan|bbentry|calltrace|coverage|profile\n"
+    "    --mode=asan|bbentry|branch|calltrace|coverage|profile\n"
     "                            Specifies which instrumentation mode is to\n"
     "                            be used. If this is not specified it is\n"
     "                            equivalent to specifying --mode=calltrace\n"
@@ -146,6 +147,8 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
       instrumenter_.reset(new instrumenters::AsanInstrumenter());
     } else if (LowerCaseEqualsASCII(mode, "bbentry")) {
       instrumenter_.reset(new instrumenters::BasicBlockEntryInstrumenter());
+    } else if (LowerCaseEqualsASCII(mode, "branch")) {
+      instrumenter_.reset(new instrumenters::BranchInstrumenter());
     } else if (LowerCaseEqualsASCII(mode, "calltrace")) {
       instrumenter_.reset(new instrumenters::EntryThunkInstrumenter(
           instrumenters::EntryThunkInstrumenter::CALL_TRACE));

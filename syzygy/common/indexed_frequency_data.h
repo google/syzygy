@@ -34,8 +34,9 @@ struct IndexedFrequencyData {
   enum DataType {
     INVALID_DATA_TYPE = 0,
     BASIC_BLOCK_ENTRY = 1,
-    COVERAGE = 2,
-    JUMP_TABLE = 3,
+    BRANCH = 2,
+    COVERAGE = 3,
+    JUMP_TABLE = 4,
   };
 
   // An identifier denoting the agent with which this frequency data
