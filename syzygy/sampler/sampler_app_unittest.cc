@@ -14,7 +14,9 @@
 
 #include "syzygy/sampler/sampler_app.h"
 
+#include "base/path_service.h"
 #include "base/files/scoped_temp_dir.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/application.h"
 #include "syzygy/core/unittest_util.h"
@@ -26,7 +28,15 @@ namespace {
 
 class TestSamplerApp : public SamplerApp {
  public:
-  // TODO(chrisha): Expose internals for testing.
+  using SamplerApp::ModuleSignature;
+  using SamplerApp::ModuleSignatureSet;
+  using SamplerApp::PidSet;
+
+  using SamplerApp::GetModuleSignature;
+
+  using SamplerApp::pids_;
+  using SamplerApp::blacklist_pids_;
+  using SamplerApp::module_sigs_;
 };
 
 class SamplerAppTest : public testing::PELibUnitTest {
@@ -55,7 +65,20 @@ class SamplerAppTest : public testing::PELibUnitTest {
     app_.set_in(in());
     app_.set_out(out());
     app_.set_err(err());
+
+    test_dll_path = testing::GetOutputRelativePath(testing::kTestDllName);
+    ASSERT_TRUE(TestSamplerApp::GetModuleSignature(test_dll_path,
+                                                   &test_dll_sig));
+
+    ASSERT_TRUE(PathService::Get(base::FILE_EXE, &self_path));
+    ASSERT_TRUE(TestSamplerApp::GetModuleSignature(self_path,
+                                                   &self_sig));
   }
+
+  base::FilePath test_dll_path;
+  base::FilePath self_path;
+  TestSamplerApp::ModuleSignature test_dll_sig;
+  TestSamplerApp::ModuleSignature self_sig;
 
  protected:
   // The command line to be given to the application under test.
@@ -80,8 +103,86 @@ class SamplerAppTest : public testing::PELibUnitTest {
 
 }  // namespace
 
-TEST_F(SamplerAppTest, ParseCommandLineFails) {
+// Comparison operator for ModuleSignatures. This is outside the anonymous
+// namespace so that it is found by name resolution.
+bool operator==(const TestSamplerApp::ModuleSignature& s1,
+                const TestSamplerApp::ModuleSignature& s2) {
+  return s1.size == s2.size && s1.time_date_stamp == s2.time_date_stamp &&
+      s1.checksum == s2.checksum;
+}
+
+TEST_F(SamplerAppTest, ParseEmptyCommandLineFails) {
   ASSERT_FALSE(impl_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(SamplerAppTest, ParseEmptyPidsFails) {
+  cmd_line_.AppendSwitch(TestSamplerApp::kPids);
+  cmd_line_.AppendArgPath(test_dll_path);
+  ASSERT_FALSE(impl_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(SamplerAppTest, ParseInvalidPidFails) {
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kPids, "1234,ab");
+  cmd_line_.AppendArgPath(test_dll_path);
+  ASSERT_FALSE(impl_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(SamplerAppTest, ParseEmptyPids) {
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kPids, ",,,");
+  cmd_line_.AppendArgPath(test_dll_path);
+  ASSERT_FALSE(impl_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(SamplerAppTest, ParseOnePidWithManyEmptyPids) {
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kPids, ",1234,,");
+  cmd_line_.AppendArgPath(test_dll_path);
+  ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
+
+  EXPECT_THAT(impl_.pids_, testing::ElementsAre(1234));
+  EXPECT_FALSE(impl_.blacklist_pids_);
+  EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
+}
+
+TEST_F(SamplerAppTest, ParseNoModulesFails) {
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kPids, "1234");
+  ASSERT_FALSE(impl_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(SamplerAppTest, ParseInvalidModuleFails) {
+  cmd_line_.AppendArg("this_module_does_not_exist.dll");
+  ASSERT_FALSE(impl_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(SamplerAppTest, ParseMinimal) {
+  cmd_line_.AppendArgPath(test_dll_path);
+  ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
+
+  EXPECT_TRUE(impl_.pids_.empty());
+  EXPECT_TRUE(impl_.blacklist_pids_);
+  EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
+}
+
+TEST_F(SamplerAppTest, ParseFullWhitelist) {
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kPids, "1,2,3");
+  cmd_line_.AppendArgPath(test_dll_path);
+  ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
+
+  EXPECT_THAT(impl_.pids_, testing::ElementsAre(1, 2, 3));
+  EXPECT_FALSE(impl_.blacklist_pids_);
+  EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
+}
+
+TEST_F(SamplerAppTest, ParseFullBlacklist) {
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kPids, "1,2,3");
+  cmd_line_.AppendSwitch(TestSamplerApp::kBlacklistPids);
+  cmd_line_.AppendArgPath(test_dll_path);
+  cmd_line_.AppendArgPath(self_path);
+  ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
+
+  EXPECT_THAT(impl_.pids_, testing::ElementsAre(1, 2, 3));
+  EXPECT_TRUE(impl_.blacklist_pids_);
+  EXPECT_THAT(impl_.module_sigs_,
+              testing::ElementsAre(test_dll_sig, self_sig));
 }
 
 }  // namespace sampler
