@@ -25,7 +25,7 @@ namespace instrumenters {
 const char AsanInstrumenter::kAgentDllAsan[] = "asan_rtl.dll";
 
 AsanInstrumenter::AsanInstrumenter()
-    : use_liveness_analysis_(false),
+    : use_liveness_analysis_(true),
       remove_redundant_checks_(false) {
   agent_dll_ = kAgentDllAsan;
 }
@@ -70,7 +70,7 @@ bool AsanInstrumenter::ParseAdditionalCommandLineArguments(
     const CommandLine* command_line) {
   // Parse the additional command line arguments.
   filter_path_ = command_line->GetSwitchValuePath("filter");
-  use_liveness_analysis_ = command_line->HasSwitch("use-liveness-analysis");
+  use_liveness_analysis_ = !command_line->HasSwitch("no-liveness-analysis");
   remove_redundant_checks_ = command_line->HasSwitch("remove-redundant-checks");
 
   return true;

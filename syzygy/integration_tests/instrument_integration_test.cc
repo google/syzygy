@@ -465,29 +465,28 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 
 }  // namespace
 
-TEST_F(InstrumentAppIntegrationTest, AsanEndToEnd) {
+TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
+  cmd_line_.AppendArg("no-liveness-analysis");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
 TEST_F(InstrumentAppIntegrationTest, LivenessAsanEndToEnd) {
-  cmd_line_.AppendSwitchPath("use-liveness-analysis", input_dll_path_);
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
 TEST_F(InstrumentAppIntegrationTest, RedundantMemoryAsanEndToEnd) {
-  cmd_line_.AppendSwitchPath("remove-redundant-checks", input_dll_path_);
+  cmd_line_.AppendArg("remove-redundant-checks");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
 TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
-  cmd_line_.AppendSwitchPath("use-liveness-analysis", input_dll_path_);
-  cmd_line_.AppendSwitchPath("remove-redundant-checks", input_dll_path_);
+  cmd_line_.AppendArg("remove-redundant-checks");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
@@ -503,7 +502,7 @@ TEST_F(InstrumentAppIntegrationTest, BBEntryEndToEnd) {
 }
 
 TEST_F(InstrumentAppIntegrationTest, InlineFastPathBBEntryEndToEnd) {
-  cmd_line_.AppendSwitchPath("inline-fast-path", input_dll_path_);
+  cmd_line_.AppendArg("inline-fast-path");
   ASSERT_NO_FATAL_FAILURE(StartService());
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("bbentry"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());

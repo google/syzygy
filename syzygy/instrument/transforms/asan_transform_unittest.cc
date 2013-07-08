@@ -721,6 +721,21 @@ TEST_F(AsanTransformTest, ImportsAreRedirected) {
   expected.insert("asan_check_16_byte_write_access");
   expected.insert("asan_check_32_byte_write_access");
 
+  expected.insert("asan_check_1_byte_read_access_no_flags");
+  expected.insert("asan_check_2_byte_read_access_no_flags");
+  expected.insert("asan_check_4_byte_read_access_no_flags");
+  expected.insert("asan_check_8_byte_read_access_no_flags");
+  expected.insert("asan_check_10_byte_read_access_no_flags");
+  expected.insert("asan_check_16_byte_read_access_no_flags");
+  expected.insert("asan_check_32_byte_read_access_no_flags");
+  expected.insert("asan_check_1_byte_write_access_no_flags");
+  expected.insert("asan_check_2_byte_write_access_no_flags");
+  expected.insert("asan_check_4_byte_write_access_no_flags");
+  expected.insert("asan_check_8_byte_write_access_no_flags");
+  expected.insert("asan_check_10_byte_write_access_no_flags");
+  expected.insert("asan_check_16_byte_write_access_no_flags");
+  expected.insert("asan_check_32_byte_write_access_no_flags");
+
   expected.insert("asan_check_repz_4_byte_cmps_access");
   expected.insert("asan_check_repz_4_byte_movs_access");
   expected.insert("asan_check_repz_4_byte_stos_access");

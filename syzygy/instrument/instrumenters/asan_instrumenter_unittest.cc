@@ -150,7 +150,7 @@ TEST_F(AsanInstrumenterTest, ParseMinimalAsan) {
   EXPECT_FALSE(instrumenter_.no_parse_debug_info_);
   EXPECT_FALSE(instrumenter_.no_strip_strings_);
   EXPECT_FALSE(instrumenter_.debug_friendly_);
-  EXPECT_FALSE(instrumenter_.use_liveness_analysis_);
+  EXPECT_TRUE(instrumenter_.use_liveness_analysis_);
   EXPECT_FALSE(instrumenter_.remove_redundant_checks_);
 }
 
@@ -166,7 +166,7 @@ TEST_F(AsanInstrumenterTest, ParseFullAsan) {
   cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitch("overwrite");
-  cmd_line_.AppendSwitch("use-liveness-analysis");
+  cmd_line_.AppendSwitch("no-liveness-analysis");
   cmd_line_.AppendSwitch("remove-redundant-checks");
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
@@ -183,7 +183,7 @@ TEST_F(AsanInstrumenterTest, ParseFullAsan) {
   EXPECT_TRUE(instrumenter_.no_parse_debug_info_);
   EXPECT_TRUE(instrumenter_.no_strip_strings_);
   EXPECT_TRUE(instrumenter_.debug_friendly_);
-  EXPECT_TRUE(instrumenter_.use_liveness_analysis_);
+  EXPECT_FALSE(instrumenter_.use_liveness_analysis_);
   EXPECT_TRUE(instrumenter_.remove_redundant_checks_);
 }
 
