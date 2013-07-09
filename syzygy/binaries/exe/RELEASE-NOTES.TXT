@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.2.25.0
+
+[r1624] Turn on the liveness analysis for the asan instrumentation.
+[r1617] Refactor the instrumenter application.
+
 Version 0.2.24.0
 
 [r1581] Add bb and dromaeo modes into benchmark/optimize scripts.

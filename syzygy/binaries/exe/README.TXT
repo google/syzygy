@@ -1,8 +1,8 @@
 Syzygy Post-Link Transformation Toolchain
 =========================================
 
-Date:     2013/06/26
-Version:  0.2.24.0 (1591)
+Date:     2013/07/08
+Version:  0.2.25.0 (1626)
 
 The Syzygy project consists of a suite of tools for the instrumentation of
 PE binaries. The various instrumentation modes allow for computing code
@@ -72,6 +72,10 @@ run_in_snapshot_x64.exe:
 run_in_snapshot_xp.exe:
   Simulate cold-start performance by running the provided executable on a
   cold virtual volume.
+
+sampler.exe:
+  A sampling profiler. This monitors running processes and attaches a
+  sampling profiler to modules of interest, dumping output to trace files.
 
 simulate.exe
   Simulates OS page faults by playing back a call_trace_client data file.
