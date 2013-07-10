@@ -86,6 +86,9 @@ bool BlockGraphSerializer::Save(const BlockGraph& block_graph,
     return false;
   }
 
+  // TODO(etienneb): We should serialize the string table in the block graph,
+  //    and encode string ids instead of the raw strings.
+
   // This function takes care of outputting a meaningful log message on
   // failure.
   if (!SaveBlockGraphProperties(block_graph, out_archive))
@@ -319,7 +322,8 @@ bool BlockGraphSerializer::SaveBlockProperties(const BlockGraph::Block& block,
       !out_archive->Save(block.addr()) ||
       !SaveInt32(static_cast<uint32>(block.section()), out_archive) ||
       !out_archive->Save(attributes) ||
-      !MaybeSaveString(*this, block.name(), out_archive)) {
+      !MaybeSaveString(*this, block.name(), out_archive) ||
+      !MaybeSaveString(*this, block.compiland_name(), out_archive)) {
     LOG(ERROR) << "Unable to save properties for block with id "
                << block.id() << ".";
     return false;
@@ -347,6 +351,8 @@ bool BlockGraphSerializer::LoadBlockProperties(BlockGraph::Block* block,
   uint32 alignment = 0;
   uint32 section = 0;
   uint16 attributes = 0;
+  std::string name;
+  std::string compiland_name;
   if (!in_archive->Load(&type) ||
       !LoadUint32(&size, in_archive) ||
       !LoadUint32(&alignment, in_archive) ||
@@ -354,7 +360,8 @@ bool BlockGraphSerializer::LoadBlockProperties(BlockGraph::Block* block,
       !in_archive->Load(&block->addr_) ||
       !LoadInt32(reinterpret_cast<int32*>(&section), in_archive) ||
       !in_archive->Load(&attributes) ||
-      !MaybeLoadString(*this, &block->name_, in_archive)) {
+      !MaybeLoadString(*this, &name, in_archive) ||
+      !MaybeLoadString(*this, &compiland_name, in_archive)) {
     LOG(ERROR) << "Unable to load properties for block with id "
                << block->id() << ".";
     return false;
@@ -374,7 +381,8 @@ bool BlockGraphSerializer::LoadBlockProperties(BlockGraph::Block* block,
   block->alignment_ = alignment;
   block->section_ = section;
   block->attributes_ = attributes;
-
+  block->set_name(name);
+  block->set_compiland_name(compiland_name);
   return true;
 }
 

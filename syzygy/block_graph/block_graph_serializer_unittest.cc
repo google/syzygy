@@ -68,6 +68,13 @@ class BlockGraphSerializerTest : public ::testing::Test {
     rd1->set_section(rdata->id());
     rd2->set_section(rdata->id());
 
+    // Set compiland name.
+    c1->set_compiland_name("c.o");
+    c2->set_compiland_name("c.o");
+    d1->set_compiland_name("d.o");
+    rd1->set_compiland_name("d.o");
+    rd2->set_compiland_name("d.o");
+
     // Set up alignments.
     d1->set_alignment(16);
     rd1->set_alignment(16);

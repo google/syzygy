@@ -138,7 +138,7 @@ bool ReferrersEqual(const BlockGraph::Block& b1,
   return true;
 }
 
-}
+}  // namespace
 
 // Compares two Blocks to each other.
 bool BlocksEqual(const BlockGraph::Block& b1,
@@ -155,6 +155,9 @@ bool BlocksEqual(const BlockGraph::Block& b1,
   }
 
   if (!MaybeCompareStrings(b1.name(), b2.name(), bgs))
+    return false;
+
+  if (!MaybeCompareStrings(b1.compiland_name(), b2.compiland_name(), bgs))
     return false;
 
   // Compare the labels.

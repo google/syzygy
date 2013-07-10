@@ -36,6 +36,7 @@
 #include "syzygy/common/align.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
+#include "syzygy/core/string_table.h"
 
 namespace block_graph {
 
@@ -293,7 +294,9 @@ class BlockGraph {
   const Block* GetBlockById(BlockId id) const;
   // @}
 
-  const std::string& InternString(const base::StringPiece& str);
+  // Get the string table.
+  // @returns the string table of this BlockGraph.
+  core::StringTable& string_table() { return string_table_; }
 
  private:
   // Give BlockGraphSerializer access to our innards for serialization.
@@ -314,8 +317,8 @@ class BlockGraph {
   // Our block ID allocator.
   BlockId next_block_id_;
 
-  // A set of internalized string.
-  std::set<std::string> string_table_;
+  // A string table used to intern strings.
+  core::StringTable string_table_;
 };
 
 // The BlockGraph maintains a list of sections, and each block belongs
@@ -538,8 +541,14 @@ class BlockGraph::Block {
     size_ = size;
   }
 
-  const std::string& name() const { return name_; }
-  void set_name(const base::StringPiece& name) { name.CopyToString(&name_); }
+  const std::string& name() const {
+    DCHECK(name_ != NULL);
+    return *name_;
+  }
+  void set_name(const base::StringPiece& name);
+
+  const std::string& compiland_name() const;
+  void set_compiland_name(const base::StringPiece& name);
 
   Size alignment() const { return alignment_; }
   void set_alignment(Size alignment) {
@@ -756,12 +765,13 @@ class BlockGraph::Block {
   BlockType type_;
   Size size_;
   Size alignment_;
-  std::string name_;
+  const std::string* name_;
+  const std::string* compiland_name_;
   RelativeAddress addr_;
 
   // BlockGraph to which belongs this Block. A block can only belongs to one
   // Block Graph.
-  BlockGraph * block_graph_;
+  BlockGraph* block_graph_;
 
   SectionId section_;
   BlockAttributes attributes_;

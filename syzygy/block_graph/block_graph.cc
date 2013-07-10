@@ -340,17 +340,6 @@ const BlockGraph::Block* BlockGraph::GetBlockById(BlockId id) const {
   return &it->second;
 }
 
-const std::string& BlockGraph::InternString(const base::StringPiece& str) {
-  const std::string& raw_string = str.data();
-  std::set<std::string>::iterator look = string_table_.find(raw_string);
-
-  // This string is not interned, add it.
-  if (look == string_table_.end())
-    look = string_table_.insert(str.data()).first;
-
-  return *look;
-}
-
 bool BlockGraph::RemoveBlockByIterator(BlockMap::iterator it) {
   DCHECK(it != blocks_.end());
 
@@ -715,6 +704,8 @@ BlockGraph::Block::Block(BlockGraph* block_graph)
       type_(BlockGraph::CODE_BLOCK),
       size_(0),
       alignment_(1),
+      name_(NULL),
+      compiland_name_(NULL),
       addr_(kInvalidAddress),
       block_graph_(block_graph),
       section_(kInvalidSectionId),
@@ -734,7 +725,8 @@ BlockGraph::Block::Block(BlockId id,
       type_(type),
       size_(size),
       alignment_(1),
-      name_(name.begin(), name.end()),
+      name_(NULL),
+      compiland_name_(NULL),
       addr_(kInvalidAddress),
       block_graph_(block_graph),
       section_(kInvalidSectionId),
@@ -743,12 +735,34 @@ BlockGraph::Block::Block(BlockId id,
       data_(NULL),
       data_size_(0) {
   DCHECK(block_graph != NULL);
+  set_name(name);
 }
 
 BlockGraph::Block::~Block() {
   DCHECK(block_graph_ != NULL);
   if (owns_data_)
     delete [] data_;
+}
+
+void BlockGraph::Block::set_name(const base::StringPiece& name) {
+  DCHECK(block_graph_ != NULL);
+  const std::string& interned_name =
+      block_graph_->string_table().InternString(name);
+  name_ = &interned_name;
+}
+
+const std::string& BlockGraph::Block::compiland_name() const {
+  DCHECK(block_graph_ != NULL);
+  if (compiland_name_ == NULL)
+    return block_graph_->string_table().InternString("");
+  return *compiland_name_;
+}
+
+void BlockGraph::Block::set_compiland_name(const base::StringPiece& name) {
+  DCHECK(block_graph_ != NULL);
+  const std::string& interned_name =
+      block_graph_->string_table().InternString(name);
+  compiland_name_ = &interned_name;
 }
 
 uint8* BlockGraph::Block::AllocateRawData(size_t data_size) {

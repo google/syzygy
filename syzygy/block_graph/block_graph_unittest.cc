@@ -219,6 +219,10 @@ TEST_F(BlockTest, Accessors) {
   block_->set_name("foo");
   ASSERT_STREQ("foo", block_->name().c_str());
 
+  ASSERT_STRNE("foo.o", block_->compiland_name().c_str());
+  block_->set_compiland_name("foo.o");
+  ASSERT_STREQ("foo.o", block_->compiland_name().c_str());
+
   ASSERT_NE(16U, block_->alignment());
   block_->set_alignment(16);
   ASSERT_EQ(16U, block_->alignment());
@@ -1040,7 +1044,7 @@ TEST(BlockGraphTest, Labels) {
   EXPECT_THAT(block->labels(), testing::ContainerEq(expected));
 }
 
-TEST(BlockGraphTest, InternStrings) {
+TEST(BlockGraphTest, StringTable) {
   std::string str1 = "Dummy";
   std::string str2 = "Foo";
   std::string str3 = "Bar";
@@ -1048,10 +1052,11 @@ TEST(BlockGraphTest, InternStrings) {
 
   // Validate that string are interned correctly.
   BlockGraph block_graph;
-  const std::string& interned_str1 = block_graph.InternString(str1);
-  const std::string& interned_str2 = block_graph.InternString(str2);
-  const std::string& interned_str3 = block_graph.InternString(str3);
-  const std::string& interned_str4 = block_graph.InternString(str4);
+  core::StringTable& strtab = block_graph.string_table();
+  const std::string& interned_str1 = strtab.InternString(str1);
+  const std::string& interned_str2 = strtab.InternString(str2);
+  const std::string& interned_str3 = strtab.InternString(str3);
+  const std::string& interned_str4 = strtab.InternString(str4);
 
   EXPECT_NE(&interned_str1, &interned_str2);
   EXPECT_NE(&interned_str1, &interned_str3);

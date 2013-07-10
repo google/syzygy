@@ -1499,6 +1499,9 @@ bool NewDecomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
       return false;
     }
 
+    // Set the block compiland name.
+    block->set_compiland_name(name);
+
     // Set the block attributes.
     block->set_attribute(BlockGraph::SECTION_CONTRIB);
     if (!is_built_by_supported_compiler)
