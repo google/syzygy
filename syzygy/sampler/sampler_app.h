@@ -20,6 +20,7 @@
 
 #include <set>
 
+#include "base/time.h"
 #include "base/files/file_path.h"
 #include "syzygy/common/application.h"
 #include "syzygy/sampler/sampled_module_cache.h"
@@ -44,8 +45,16 @@ class SamplerApp : public common::AppImplBase {
   // @name Command-line switches.
   // @{
   static const char kBlacklistPids[];
+  static const char kBucketSize[];
   static const char kPids[];
+  static const char kSamplingInterval[];
   static const char kOutputDir[];
+  // @}
+
+  // @name Default command-line values.
+  // @{
+  static const size_t kDefaultLog2BucketSize;
+  static const base::TimeDelta kDefaultSamplingInterval;
   // @}
 
   // These are exposed for use by anonymous helper functions.
@@ -106,6 +115,10 @@ class SamplerApp : public common::AppImplBase {
   // If this is true then the PidSet plays the role of a blacklist. If false it
   // is a whitelist.
   bool blacklist_pids_;
+
+  // Sampling profiler parameters.
+  size_t log2_bucket_size_;
+  base::TimeDelta sampling_interval_;
 
   // List of modules of interest. Any instances of these modules that are
   // loaded in processes of interest (those that get through our process

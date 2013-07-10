@@ -47,6 +47,8 @@ class TestSamplerApp : public SamplerApp {
   using SamplerApp::pids_;
   using SamplerApp::blacklist_pids_;
   using SamplerApp::module_sigs_;
+  using SamplerApp::log2_bucket_size_;
+  using SamplerApp::sampling_interval_;
   using SamplerApp::running_;
 
   void WaitUntilStartProfiling() {
@@ -215,6 +217,84 @@ TEST_F(SamplerAppTest, ParseInvalidModuleFails) {
   ASSERT_FALSE(impl_.ParseCommandLine(&cmd_line_));
 }
 
+TEST_F(SamplerAppTest, ParseSmallBucketSizeFails) {
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kBucketSize, "2");
+  cmd_line_.AppendArgPath(test_dll_path);
+  ASSERT_FALSE(impl_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(SamplerAppTest, ParseNonPowerOfTwoBucketSizeFails) {
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kBucketSize, "33");
+  cmd_line_.AppendArgPath(test_dll_path);
+  ASSERT_FALSE(impl_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(SamplerAppTest, ParseInvalidBucketSizeFails) {
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kBucketSize, "yay");
+  cmd_line_.AppendArgPath(test_dll_path);
+  ASSERT_FALSE(impl_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(SamplerAppTest, ParseValidBucketSizeMinimal) {
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kBucketSize, "8");
+  cmd_line_.AppendArgPath(test_dll_path);
+  ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
+
+  EXPECT_TRUE(impl_.pids_.empty());
+  EXPECT_TRUE(impl_.blacklist_pids_);
+  EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
+  EXPECT_EQ(3u, impl_.log2_bucket_size_);
+  EXPECT_EQ(SamplerApp::kDefaultSamplingInterval, impl_.sampling_interval_);
+}
+
+TEST_F(SamplerAppTest, ParseTooSmallSamplingIntervalFails) {
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kSamplingInterval, "1e-7");
+  cmd_line_.AppendArgPath(test_dll_path);
+  ASSERT_FALSE(impl_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(SamplerAppTest, ParseInvalidSamplingIntervalFails) {
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kSamplingInterval, "3zz");
+  cmd_line_.AppendArgPath(test_dll_path);
+  ASSERT_FALSE(impl_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(SamplerAppTest, ParseValidSamplingIntervalInteger) {
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kSamplingInterval, "2");
+  cmd_line_.AppendArgPath(test_dll_path);
+  ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
+
+  EXPECT_TRUE(impl_.pids_.empty());
+  EXPECT_TRUE(impl_.blacklist_pids_);
+  EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
+  EXPECT_EQ(SamplerApp::kDefaultLog2BucketSize, impl_.log2_bucket_size_);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(2), impl_.sampling_interval_);
+}
+
+TEST_F(SamplerAppTest, ParseValidSamplingIntervalDecimal) {
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kSamplingInterval, "1.5");
+  cmd_line_.AppendArgPath(test_dll_path);
+  ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
+
+  EXPECT_TRUE(impl_.pids_.empty());
+  EXPECT_TRUE(impl_.blacklist_pids_);
+  EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
+  EXPECT_EQ(SamplerApp::kDefaultLog2BucketSize, impl_.log2_bucket_size_);
+  EXPECT_EQ(base::TimeDelta::FromMilliseconds(1500), impl_.sampling_interval_);
+}
+
+TEST_F(SamplerAppTest, ParseValidSamplingIntervalScientific) {
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kSamplingInterval, "1e-3");
+  cmd_line_.AppendArgPath(test_dll_path);
+  ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
+
+  EXPECT_TRUE(impl_.pids_.empty());
+  EXPECT_TRUE(impl_.blacklist_pids_);
+  EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
+  EXPECT_EQ(SamplerApp::kDefaultLog2BucketSize, impl_.log2_bucket_size_);
+  EXPECT_EQ(base::TimeDelta::FromMilliseconds(1), impl_.sampling_interval_);
+}
+
 TEST_F(SamplerAppTest, ParseMinimal) {
   cmd_line_.AppendArgPath(test_dll_path);
   ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
@@ -222,20 +302,28 @@ TEST_F(SamplerAppTest, ParseMinimal) {
   EXPECT_TRUE(impl_.pids_.empty());
   EXPECT_TRUE(impl_.blacklist_pids_);
   EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
+  EXPECT_EQ(SamplerApp::kDefaultLog2BucketSize, impl_.log2_bucket_size_);
+  EXPECT_EQ(SamplerApp::kDefaultSamplingInterval, impl_.sampling_interval_);
 }
 
 TEST_F(SamplerAppTest, ParseFullWhitelist) {
   cmd_line_.AppendSwitchASCII(TestSamplerApp::kPids, "1,2,3");
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kBucketSize, "8");
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kSamplingInterval, "1e-3");
   cmd_line_.AppendArgPath(test_dll_path);
   ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
 
   EXPECT_THAT(impl_.pids_, testing::ElementsAre(1, 2, 3));
   EXPECT_FALSE(impl_.blacklist_pids_);
   EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
+  EXPECT_EQ(3, impl_.log2_bucket_size_);
+  EXPECT_EQ(base::TimeDelta::FromMilliseconds(1), impl_.sampling_interval_);
 }
 
 TEST_F(SamplerAppTest, ParseFullBlacklist) {
   cmd_line_.AppendSwitchASCII(TestSamplerApp::kPids, "1,2,3");
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kBucketSize, "8");
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kSamplingInterval, "1e-3");
   cmd_line_.AppendSwitch(TestSamplerApp::kBlacklistPids);
   cmd_line_.AppendArgPath(test_dll_path);
   cmd_line_.AppendArgPath(self_path);
@@ -245,6 +333,8 @@ TEST_F(SamplerAppTest, ParseFullBlacklist) {
   EXPECT_TRUE(impl_.blacklist_pids_);
   EXPECT_THAT(impl_.module_sigs_,
               testing::ElementsAre(test_dll_sig, self_sig));
+  EXPECT_EQ(3, impl_.log2_bucket_size_);
+  EXPECT_EQ(base::TimeDelta::FromMilliseconds(1), impl_.sampling_interval_);
 }
 
 TEST_F(SamplerAppTest, SampleSelfPidWhitelist) {

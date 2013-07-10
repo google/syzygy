@@ -17,8 +17,10 @@
 #include <psapi.h>
 
 #include "base/bind.h"
+#include "base/stringprintf.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
+#include "syzygy/common/align.h"
 #include "syzygy/pe/pe_file.h"
 
 namespace sampler {
@@ -36,17 +38,176 @@ const char kUsageFormatStr[] =
     "\n"
     "Options:\n"
     "\n"
-    "  blacklist-pids      If a list of PIDs is specified with --pids, this\n"
-    "                      makes the list a blacklist of processes not to be\n"
-    "                      monitored. Defaults to false, in which case the\n"
-    "                      list is a whitelist.\n"
-    "  pids=PID1,PID2,...  Specifies a list of PIDs. If specified these are\n"
-    "                      used as a filter (by default a whitelist) for\n"
-    "                      processes to be profiled. If not specified all\n"
-    "                      processes will be potentially profiled.\n"
-    "  output-dir=DIR      Specifies the output directory into which trace\n"
-    "                      files will be written.\n"
+    "  --blacklist-pids      If a list of PIDs is specified with --pids, this\n"
+    "                        makes the list a blacklist of processes not to\n"
+    "                        be monitored. Defaults to false, in which case\n"
+    "                        the list is a whitelist.\n"
+    "  --bucket-size=POSINT  Specifies the bucket size. This must be a power\n"
+    "                        of two, and must be >= 4. Defaults to 4.\n"
+    "  --pids=PID1,PID2,...  Specifies a list of PIDs. If specified these are\n"
+    "                        used as a filter (by default a whitelist) for\n"
+    "                        processes to be profiled. If not specified all\n"
+    "                        processes will be potentially profiled.\n"
+    "  --sampling-interval=INTERVAL\n"
+    "                        Sets the sampling interval. This is a floating\n"
+    "                        point value in seconds. Scientific notation is\n"
+    "                        acceptable. Defaults to 1ms, or 0.001s. Not all\n"
+    "                        sampling intervals are available on all systems\n"
+    "                        the closest value available will be used. The\n"
+    "                        actual sampling interval used will be reported.\n"
+    "  --output-dir=DIR      Specifies the output directory into which trace\n"
+    "                        files will be written.\n"
     "\n";
+
+// Parses the bucket size. Leaves the value unchanged if it is not specified.
+bool ParseBucketSize(const CommandLine* command_line,
+                     size_t* log2_bucket_size) {
+  DCHECK(command_line != NULL);
+  DCHECK(log2_bucket_size != NULL);
+
+  if (!command_line->HasSwitch(SamplerApp::kBucketSize))
+    return true;
+
+  std::string s = command_line->GetSwitchValueASCII(SamplerApp::kBucketSize);
+  size_t bucket_size = 0;
+  if (!base::StringToSizeT(s, &bucket_size)) {
+    LOG(ERROR) << "--" << SamplerApp::kBucketSize << " must be an integer.";
+    return false;
+  }
+  if (!common::IsPowerOfTwo(bucket_size)) {
+    LOG(ERROR) << "--" << SamplerApp::kBucketSize << " must be a power of 2.";
+    return false;
+  }
+  if (bucket_size < 4) {
+    LOG(ERROR) << "--" << SamplerApp::kBucketSize << " must be >= 4.";
+    return false;
+  }
+
+  // Convert to a power of two, as required by the SamplingProfiler API.
+  *log2_bucket_size = 2;
+  while (bucket_size != 4) {
+    bucket_size >>= 1;
+    ++(*log2_bucket_size);
+  }
+
+  return true;
+}
+
+// Parses the sampling interval. Leaves the value unchanged if it is not
+// specified.
+bool ParseSamplingInterval(const CommandLine* command_line,
+                           base::TimeDelta* sampling_interval) {
+  DCHECK(command_line != NULL);
+  DCHECK(sampling_interval != NULL);
+
+  if (!command_line->HasSwitch(SamplerApp::kSamplingInterval))
+    return true;
+
+  std::string s = command_line->GetSwitchValueASCII(
+      SamplerApp::kSamplingInterval);
+  double d = 0;
+  if (!base::StringToDouble(s, &d)) {
+    LOG(ERROR) << "--" << SamplerApp::kSamplingInterval << " must be a double.";
+    return false;
+  }
+  if (d <= 0) {
+    LOG(ERROR) << "-- " << SamplerApp::kSamplingInterval
+               << " must be positive.";
+    return false;
+  }
+
+  int64 us = static_cast<int64>(1000000 * d);
+  if (us <= 0) {
+    LOG(ERROR) << "--" << SamplerApp::kSamplingInterval
+               << " must be at least 1us.";
+    return false;
+  }
+
+  // TimeDelta has its finest resolution in microseconds, so we convert to
+  // that.
+  *sampling_interval = base::TimeDelta::FromMicroseconds(us);
+  return true;
+}
+
+// A utility function for converting a time delta to a human readable string.
+const std::string TimeDeltaToString(const base::TimeDelta& td) {
+  // Aliases to constants from base::Time (which have overly long names).
+  const int64& kMillisecond = base::Time::kMicrosecondsPerMillisecond;
+  const int64& kSecond = base::Time::kMicrosecondsPerSecond;
+  const int64& kMinute = base::Time::kMicrosecondsPerMinute;
+  const int64& kHour = base::Time::kMicrosecondsPerHour;
+  const int64& kDay = base::Time::kMicrosecondsPerDay;
+  int64 us = td.InMicroseconds();
+
+  if (us == 0)
+    return "0s";
+
+  bool negative = us < 0;
+  if (negative)
+    us *= -1;
+
+  std::string s;
+  if (negative)
+    s = "-";
+
+  // Special case: We're less than a second.
+  if (us < kSecond) {
+    // We're in the hundreds of milliseconds.
+    if (us >= 100 * kMillisecond) {
+      s.append(base::StringPrintf("%.6fs", static_cast<double>(us) / kSecond));
+    } else if (us >= kMillisecond) {
+      // We're in the milliseconds.
+      s.append(base::StringPrintf("%.3fms",
+                                  static_cast<double>(us) / kMillisecond));
+    } else {
+      // We're in microseconds.
+      s.append(base::StringPrintf("%lldus", us));
+    }
+    return s;
+  }
+
+  int64 days = us / kDay;
+  int64 hours = (us % kDay) / kHour;
+  int64 minutes = (us % kHour) / kMinute;
+  int64 seconds = (us % kMinute) / kSecond;
+  us %= kSecond;
+
+  if (days > 0)
+    s.append(base::StringPrintf("%lldd", days));
+  if (hours > 0)
+    s.append(base::StringPrintf("%lldh", hours));
+  if (minutes > 0)
+    s.append(base::StringPrintf("%lldm", minutes));
+  if (seconds > 0 || us > 0)
+    s.append(base::StringPrintf("%lld.%06llds", seconds, us));
+
+  return s;
+}
+
+// Sets the sampling interval used across all sampling profilers.
+bool SetSamplingInterval(const base::TimeDelta& sampling_interval) {
+  // Set the sampling interval.
+  if (!base::win::SamplingProfiler::SetSamplingInterval(sampling_interval)) {
+    LOG(ERROR) << "SetSamplingInterval failed.";
+    return false;
+  }
+
+  // If the actual sampling interval and the requested one don't match, then
+  // output a warning.
+  base::TimeDelta actual_sampling_interval;
+  if (!base::win::SamplingProfiler::GetSamplingInterval(
+          &actual_sampling_interval)) {
+    LOG(ERROR) << "GetSamplingInterval failed.";
+    return false;
+  }
+  if (actual_sampling_interval != sampling_interval) {
+    LOG(WARNING) << "Requested sampling interval of "
+                 << TimeDeltaToString(sampling_interval)
+                 << " but actual sampling interval is "
+                 << TimeDeltaToString(actual_sampling_interval) << ".";
+  }
+  return true;
+}
 
 // Populates a vector of active process IDs on the system. By the time has
 // returned some of the PIDs may no longer be active, and others may have
@@ -259,8 +420,14 @@ bool InspectProcessModules(DWORD pid,
 }  // namespace
 
 const char SamplerApp::kBlacklistPids[] = "blacklist-pids";
+const char SamplerApp::kBucketSize[] = "bucket-size";
 const char SamplerApp::kPids[] = "pids";
+const char SamplerApp::kSamplingInterval[] = "sampling-interval";
 const char SamplerApp::kOutputDir[] = "output-dir";
+
+const size_t SamplerApp::kDefaultLog2BucketSize = 2;
+const base::TimeDelta SamplerApp::kDefaultSamplingInterval =
+    base::TimeDelta::FromMilliseconds(1);
 
 base::Lock SamplerApp::console_ctrl_lock_;
 SamplerApp* SamplerApp::console_ctrl_owner_ = NULL;
@@ -268,6 +435,8 @@ SamplerApp* SamplerApp::console_ctrl_owner_ = NULL;
 SamplerApp::SamplerApp()
     : common::AppImplBase("Sampler"),
       blacklist_pids_(true),
+      log2_bucket_size_(kDefaultLog2BucketSize),
+      sampling_interval_(kDefaultSamplingInterval),
       running_(true) {
 }
 
@@ -279,6 +448,12 @@ bool SamplerApp::ParseCommandLine(const CommandLine* command_line) {
 
   if (command_line->HasSwitch("help"))
     return PrintUsage(command_line->GetProgram(), "");
+
+  // Parse the profiler parameters.
+  if (!ParseBucketSize(command_line, &log2_bucket_size_) ||
+      !ParseSamplingInterval(command_line, &sampling_interval_)) {
+    return PrintUsage(command_line->GetProgram(), "");
+  }
 
   // By default we set up an empty PID blacklist. This means that all PIDs
   // will be profiled.
@@ -340,7 +515,10 @@ int SamplerApp::Run() {
 }
 
 int SamplerApp::RunImpl() {
-  SampledModuleCache cache(2);
+  if (!SetSamplingInterval(sampling_interval_))
+    return 1;
+
+  SampledModuleCache cache(log2_bucket_size_);
   cache.set_dead_module_callback(
       base::Bind(&SamplerApp::OnDeadModule, base::Unretained(this)));
 
