@@ -34,6 +34,7 @@
 #include "syzygy/pe/pe_relinker.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/pe/transforms/add_imports_transform.h"
 #include "third_party/distorm/files/include/mnemonics.h"
 
 namespace instrument {
@@ -60,6 +61,13 @@ class TestAsanBasicBlockTransform : public AsanBasicBlockTransform {
   explicit TestAsanBasicBlockTransform(AsanHookMap* hooks_check_access)
       : AsanBasicBlockTransform(hooks_check_access) {
   }
+};
+
+// A derived class to expose protected members for unit-testing.
+class TestAsanTransform : public AsanTransform {
+ public:
+  using AsanTransform::FunctionInterceptionSet;
+  using AsanTransform::InterceptFunctions;
 };
 
 class AsanTransformTest : public testing::TestDllTransformTest {
@@ -177,7 +185,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
 
  protected:
   base::ScopedTempDir temp_dir_;
-  AsanTransform asan_transform_;
+  TestAsanTransform asan_transform_;
   HookMap hooks_check_access_ref_;
   std::map<HookMapEntryKey, BlockGraph::Block*> hooks_check_access_;
   BasicBlockSubGraph subgraph_;
@@ -603,7 +611,7 @@ TEST_F(AsanTransformTest, InstrumentableRepzStringInstructions) {
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
         basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
 
- // Each instrumentable instructions implies 1 new instructions.
+  // Each instrumentable instructions implies 1 new instructions.
   uint32 expected_basic_block_size = count_instructions + basic_block_size;
 
   // Validate basic block size.
@@ -805,6 +813,87 @@ TEST_F(AsanTransformTest, AsanHooksAreStubbed) {
     ASSERT_STREQ(common::kThunkSectionName,
                  reinterpret_cast<const char*>(stub_sec->Name));
   }
+}
+
+TEST_F(AsanTransformTest, InterceptFunctions) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
+
+  BlockGraph::Block* b1 =
+      block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "testAsan_b1");
+  BlockGraph::Block* b2 =
+      block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "testAsan_b2");
+  BlockGraph::Block* b3 =
+      block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "testAsan_b3");
+  ASSERT_TRUE(b1 != NULL);
+  ASSERT_TRUE(b2 != NULL);
+  ASSERT_TRUE(b3 != NULL);
+
+  ASSERT_TRUE(b1->references().empty());
+  ASSERT_TRUE(b1->referrers().empty());
+  ASSERT_TRUE(b2->references().empty());
+  ASSERT_TRUE(b2->referrers().empty());
+  ASSERT_TRUE(b3->references().empty());
+  ASSERT_TRUE(b3->referrers().empty());
+
+  // Add a reference from b2 to b1 and from b3 to b1.
+  BlockGraph::Reference ref_b2_b1(BlockGraph::PC_RELATIVE_REF, 1, b1, 0, 0);
+  BlockGraph::Reference ref_b3_b1(BlockGraph::PC_RELATIVE_REF, 1, b1, 1, 1);
+  ASSERT_TRUE(b2->SetReference(0, ref_b2_b1));
+  ASSERT_TRUE(b3->SetReference(1, ref_b3_b1));
+
+  EXPECT_EQ(2U, b1->referrers().size());
+
+  pe::transforms::AddImportsTransform::ImportedModule import_module("foo.dll");
+
+  size_t num_blocks_pre_transform = block_graph_.blocks().size();
+  size_t num_sections_pre_transform = block_graph_.sections().size();
+  // Intercept the calls to b1.
+  TestAsanTransform::FunctionInterceptionSet function_set;
+  function_set.insert("testAsan_b1");
+  EXPECT_TRUE(asan_transform_.InterceptFunctions(&import_module,
+                                                 &block_graph_,
+                                                 dos_header_block_,
+                                                 function_set));
+
+  // The block graph should have grown by 3 blocks:
+  //     - the Import Address Table (IAT),
+  //     - the Import Name Table (INT),
+  //     - the thunk.
+  EXPECT_EQ(num_blocks_pre_transform + 3, block_graph_.blocks().size());
+
+  // The .thunks section should have been added.
+  EXPECT_EQ(num_sections_pre_transform + 1, block_graph_.sections().size());
+
+  BlockGraph::Section* thunk_section = block_graph_.FindSection(
+      common::kThunkSectionName);
+  EXPECT_TRUE(thunk_section != NULL);
+
+  const BlockGraph::Block* block_in_thunk_section = NULL;
+  BlockGraph::BlockMap::const_iterator iter_blocks =
+      block_graph_.blocks().begin();
+  for (; iter_blocks != block_graph_.blocks().end(); ++iter_blocks) {
+    if (iter_blocks->second.section() == thunk_section->id()) {
+      // There should be only one block in the thunk section.
+      EXPECT_TRUE(block_in_thunk_section == NULL);
+      block_in_thunk_section = &iter_blocks->second;
+    }
+  }
+
+  // Only the thunk should be referring to b1.
+  EXPECT_EQ(1U, b1->referrers().size());
+
+  // The only referrer to b1 should be the block we've found in the thunk
+  // section.
+  BlockGraph::Block* thunk_block = b1->referrers().begin()->first;
+  ASSERT_TRUE(thunk_block != NULL);
+  EXPECT_EQ(thunk_block, block_in_thunk_section);
+
+  // The thunks should be referred only by b2 and b3.
+  EXPECT_EQ(2U, thunk_block->referrers().size());
+  EXPECT_TRUE(thunk_block->referrers().find(std::make_pair(b2, 0)) !=
+              thunk_block->referrers().end());
+  EXPECT_TRUE(thunk_block->referrers().find(std::make_pair(b3, 1)) !=
+              thunk_block->referrers().end());
 }
 
 }  // namespace transforms

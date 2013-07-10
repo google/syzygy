@@ -508,6 +508,12 @@ class BlockGraph::Block {
   // A map between bytes in this block and bytes in the original image.
   typedef core::AddressRangeMap<DataRange, SourceRange> SourceRanges;
 
+  // The flags that can be passed to the TransferReferrers function.
+  enum TransferReferrersFlags {
+    kSkipInternalReferences = (1 << 0),
+    kTransferInternalReferences = (1 << 1)
+  };
+
   // Typed labels associated with various offsets in the block. Some of these
   // labels (of type CODE_LABEL) represent code start points for disassembly
   // while others (of type DATA_LABEL) represent the start of embedded data
@@ -716,10 +722,15 @@ class BlockGraph::Block {
 
   // Change all references to this block to refer to @p new_block instead,
   // while offsetting each reference by @p offset.
+  // @param offset The offset that we should apply to each reference.
+  // @param new_block The block the reference should point to.
+  // @param flags The flags that control some parameters of this function.
   // @note this fails if any of the transferred references end up with offsets
   //     less than zero, or greater than new_block->size().
   // @returns true iff all references were transferred successfully.
-  bool TransferReferrers(Offset offset, Block* new_block);
+  bool TransferReferrers(Offset offset,
+                         Block* new_block,
+                         TransferReferrersFlags flags);
 
   // Returns true if this block contains the given range of bytes.
   bool Contains(RelativeAddress address, size_t size) const;

@@ -961,11 +961,13 @@ TEST(BlockGraphTest, References) {
   //     this test.
   int old_level = logging::GetMinLogLevel();
   logging::SetMinLogLevel(logging::LOG_FATAL);
-  ASSERT_FALSE(b2->TransferReferrers(b3->size(), b3));
+  ASSERT_FALSE(b2->TransferReferrers(b3->size(),
+      b3, BlockGraph::Block::kTransferInternalReferences));
   logging::SetMinLogLevel(old_level);
 
   // Now move the references from b2 to b3
-  ASSERT_TRUE(b2->TransferReferrers(0, b3));
+  ASSERT_TRUE(b2->TransferReferrers(0,
+      b3, BlockGraph::Block::kTransferInternalReferences));
   // Test that b2 no longer has referrers.
   EXPECT_THAT(b2->referrers(), BlockGraph::Block::ReferrerSet());
 

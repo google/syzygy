@@ -599,7 +599,9 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
     }
 
     // Redirect all referrers to the new block.
-    block->TransferReferrers(start_offset, new_block);
+    block->TransferReferrers(start_offset,
+                             new_block,
+                             BlockGraph::Block::kTransferInternalReferences);
 
     // Check that we've removed all references and
     // referrers from the original block.
@@ -1150,7 +1152,7 @@ bool BlockGraph::Block::HasLabel(Offset offset) const {
 }
 
 bool BlockGraph::Block::TransferReferrers(Offset offset,
-                                          Block* new_block) {
+    Block* new_block, TransferReferrersFlags flags) {
   // Redirect all referrers to the new block, we copy the referrer set
   // because it is otherwise mutated during iteration.
   BlockGraph::Block::ReferrerSet referrers = referrers_;
@@ -1163,6 +1165,9 @@ bool BlockGraph::Block::TransferReferrers(Offset offset,
         referrer.first->references().find(referrer.second));
     DCHECK(found_ref != referrer.first->references().end());
     BlockGraph::Reference ref(found_ref->second);
+
+    if ((flags & kSkipInternalReferences) != 0 && referrer.first == this)
+      continue;
 
     Offset new_offset = ref.offset() + offset;
     Offset new_base = ref.base() + offset;

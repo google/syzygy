@@ -29,6 +29,7 @@
 #include "syzygy/block_graph/analysis/memory_access_analysis.h"
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
+#include "syzygy/pe/transforms/add_imports_transform.h"
 
 namespace instrument {
 namespace transforms {
@@ -196,6 +197,39 @@ class AsanTransform
   static const char kAsanHookStubName[];
 
  protected:
+  // A structure containing the information that we need to intercept a
+  // function.
+  struct FunctionInterceptionInfo {
+    // The function's block.
+    BlockGraph::Block* function_block;
+    // The index for the Asan hook for this function.
+    size_t asan_symbol_index;
+
+    FunctionInterceptionInfo() : function_block(NULL), asan_symbol_index(~0U) {
+    }
+  };
+
+  typedef pe::transforms::AddImportsTransform::ImportedModule ImportedModule;
+  typedef std::set<std::string> FunctionInterceptionSet;
+  typedef std::map<std::string,
+                   FunctionInterceptionInfo> FunctionInterceptionInfoMap;
+
+  // Intercept the calls to the functions for which we want to check the
+  // arguments (i.e. the CRT functions written in assembly) and thunk them. The
+  // thunk will contain the following instructions:
+  //     call asan_rtl![hook_name]
+  //     jmp [function_name]
+  // @param import_module The module for which the imports should be added.
+  // @param block_graph The block-graph to modify.
+  // @param header_block The block containing the module's DOS header of this
+  //     block-graph.
+  // @param functions_set The list of the function that we want to intercept.
+  // @returns true on success, false on error.
+  bool InterceptFunctions(ImportedModule* import_module,
+                          BlockGraph* block_graph,
+                          BlockGraph::Block* header_block,
+                          const FunctionInterceptionSet& functions_set);
+
   // Name of the asan_rtl DLL we import. Defaults to "asan_rtl.dll".
   std::string asan_dll_name_;
 
@@ -213,6 +247,7 @@ class AsanTransform
   // successful PreBlockGraphIteration.
   AsanBasicBlockTransform::AsanHookMap check_access_hooks_ref_;
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(AsanTransform);
 };
 
