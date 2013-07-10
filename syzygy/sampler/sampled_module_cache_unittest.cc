@@ -71,13 +71,22 @@ TEST_F(SampledModuleCacheTest, EndToEnd) {
       ::OpenProcess(kAccess, FALSE, ::GetCurrentProcessId()));
   ASSERT_TRUE(proc.IsValid());
 
+  SampledModuleCache::ProfilingStatus status =
+      SampledModuleCache::kProfilingStarted;
+  const SampledModuleCache::Module* module = NULL;
+
   // Try to add an invalid module. This should fail.
   HMODULE module_handle = ::GetModuleHandle(NULL);
-  EXPECT_FALSE(cache.AddModule(proc.Get(), module_handle - 1));
+  EXPECT_FALSE(cache.AddModule(
+      proc.Get(), module_handle - 1, &status, &module));
+  EXPECT_TRUE(module == NULL);
   EXPECT_EQ(0u, cache.processes().size());
+  EXPECT_EQ(0u, cache.module_count());
 
   // Add this module. This should succeed.
-  EXPECT_TRUE(cache.AddModule(proc.Get(), module_handle));
+  EXPECT_TRUE(cache.AddModule(proc.Get(), module_handle, &status, &module));
+  EXPECT_EQ(SampledModuleCache::kProfilingStarted, status);
+  EXPECT_TRUE(module != NULL);
 
   EXPECT_EQ(1u, cache.processes().size());
   const SampledModuleCache::Process* process =
@@ -86,23 +95,30 @@ TEST_F(SampledModuleCacheTest, EndToEnd) {
   EXPECT_TRUE(IsAlive(process));
 
   EXPECT_EQ(1u, cache.processes().begin()->second->modules().size());
-  const SampledModuleCache::Module* module = process->modules().begin()->second;
-  ASSERT_TRUE(module != NULL);
+  const SampledModuleCache::Module* m = process->modules().begin()->second;
+  ASSERT_TRUE(m != NULL);
   EXPECT_TRUE(IsAlive(module));
+  EXPECT_EQ(1u, cache.module_count());
+  EXPECT_EQ(module, m);
 
   // Mark the modules as dead.
   cache.MarkAllModulesDead();
   EXPECT_FALSE(IsAlive(process));
   EXPECT_FALSE(IsAlive(module));
+  EXPECT_EQ(1u, cache.module_count());
 
   // Re-add the module. This should simply mark the existing module as alive.
-  cache.AddModule(proc.Get(), module_handle);
+  EXPECT_TRUE(cache.AddModule(proc.Get(), module_handle, &status, &module));
+  EXPECT_EQ(SampledModuleCache::kProfilingContinued, status);
+  EXPECT_EQ(m, module);
+
   EXPECT_EQ(1u, cache.processes().size());
   EXPECT_EQ(process, cache.processes().begin()->second);
   EXPECT_TRUE(IsAlive(process));
   EXPECT_EQ(1u, process->modules().size());
   EXPECT_EQ(module, process->modules().begin()->second);
   EXPECT_TRUE(IsAlive(module));
+  EXPECT_EQ(1u, cache.module_count());
 
   // Clean up the modules. Nothing should be removed and the callback should
   // not be invoked.
@@ -113,6 +129,7 @@ TEST_F(SampledModuleCacheTest, EndToEnd) {
   EXPECT_EQ(1u, process->modules().size());
   EXPECT_EQ(module, process->modules().begin()->second);
   EXPECT_TRUE(IsAlive(module));
+  EXPECT_EQ(1u, cache.module_count());
 
   EXPECT_CALL(mock, OnDeadModule(module)).Times(1);
 
@@ -121,6 +138,7 @@ TEST_F(SampledModuleCacheTest, EndToEnd) {
   cache.MarkAllModulesDead();
   cache.RemoveDeadModules();
   EXPECT_EQ(0u, cache.processes().size());
+  EXPECT_EQ(0u, cache.module_count());
 }
 
 }  // namespace sampler

@@ -30,7 +30,7 @@ typedef SampledModuleCache::Process::ModuleMap ModuleMap;
 }  // namespace
 
 SampledModuleCache::SampledModuleCache(size_t log2_bucket_size)
-      : log2_bucket_size_(log2_bucket_size) {
+      : log2_bucket_size_(log2_bucket_size), module_count_(0) {
   DCHECK_LE(2u, log2_bucket_size);
   DCHECK_GE(31u, log2_bucket_size);
 }
@@ -41,8 +41,15 @@ SampledModuleCache::~SampledModuleCache() {
   RemoveDeadModules();
 }
 
-bool SampledModuleCache::AddModule(HANDLE process, HMODULE module) {
+bool SampledModuleCache::AddModule(HANDLE process,
+                                   HMODULE module_handle,
+                                   ProfilingStatus* status,
+                                   const Module** module) {
   DCHECK(process != INVALID_HANDLE_VALUE);
+  DCHECK(status != NULL);
+  DCHECK(module != NULL);
+
+  *module = NULL;
 
   // Create or find the process object. We don't actually insert it into the
   // map until everything has succeeded, saving us the cleanup on failure.
@@ -69,8 +76,12 @@ bool SampledModuleCache::AddModule(HANDLE process, HMODULE module) {
   }
   DCHECK(proc != NULL);
 
-  if (!proc->AddModule(module, log2_bucket_size_))
+  if (!proc->AddModule(module_handle, log2_bucket_size_, status, module))
     return false;
+
+  DCHECK(*module != NULL);
+  if (*status == kProfilingStarted)
+    ++module_count_;
 
   if (scoped_proc.get() != NULL) {
     // Initialization was successful so we can safely insert the newly created
@@ -97,7 +108,9 @@ void SampledModuleCache::RemoveDeadModules() {
     ++proc_it_next;
 
     // Remove any dead modules from the process.
+    size_t old_module_count = proc_it->second->modules().size();
     proc_it->second->RemoveDeadModules(dead_module_callback_);
+    size_t new_module_count = proc_it->second->modules().size();
 
     // If the process itself is dead (contains no more profiling modules) then
     // remove it.
@@ -106,6 +119,10 @@ void SampledModuleCache::RemoveDeadModules() {
       delete proc;
       processes_.erase(proc_it);
     }
+
+    module_count_ += new_module_count;
+    module_count_ -= old_module_count;
+    DCHECK_LE(0u, module_count_);
 
     proc_it = proc_it_next;
   }
@@ -121,13 +138,19 @@ SampledModuleCache::Process::~Process() {
   RemoveDeadModules(DeadModuleCallback());
 }
 
-bool SampledModuleCache::Process::AddModule(HMODULE module,
-                                            size_t log2_bucket_size) {
+bool SampledModuleCache::Process::AddModule(HMODULE module_handle,
+                                            size_t log2_bucket_size,
+                                            ProfilingStatus* status,
+                                            const Module** module) {
   DCHECK(module != INVALID_HANDLE_VALUE);
   DCHECK_LE(2u, log2_bucket_size);
   DCHECK_GE(31u, log2_bucket_size);
+  DCHECK(status != NULL);
+  DCHECK(module != NULL);
 
-  ModuleMap::iterator mod_it = modules_.find(module);
+  *module = NULL;
+
+  ModuleMap::iterator mod_it = modules_.find(module_handle);
   if (mod_it != modules_.end()) {
     // The module is already being profiled. Simply mark it as being alive.
     mod_it->second->MarkAlive();
@@ -135,12 +158,14 @@ bool SampledModuleCache::Process::AddModule(HMODULE module,
     // And mark ourselves as being alive while we're at it.
     MarkAlive();
 
+    *status = kProfilingContinued;
+    *module = mod_it->second;
     return true;
   }
 
   // Create a new module object. We don't actually insert it into the map until
   // everything has succeeded, saving us the cleanup on failure.
-  scoped_ptr<Module> mod(new Module(this, module, log2_bucket_size));
+  scoped_ptr<Module> mod(new Module(this, module_handle, log2_bucket_size));
 
   if (!mod->Init())
     return false;
@@ -150,8 +175,11 @@ bool SampledModuleCache::Process::AddModule(HMODULE module,
 
   // Initialization was successful so we can safely insert the initialized
   // (and currently profiling) module into the map.
-  modules_.insert(std::make_pair(module, mod.release()));
+  mod_it = modules_.insert(std::make_pair(module_handle, mod.release())).first;
+  MarkAlive();
 
+  *status = kProfilingStarted;
+  *module = mod_it->second;
   return true;
 }
 

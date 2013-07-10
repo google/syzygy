@@ -33,11 +33,13 @@
 //   cache.MarkAllModulesDead();
 //
 //   for (... each module we want to profile ...) {
-//     // We have a |handle| to the process to be profiled and the address of
-//     // the |module| to be processed as an HMODULE. The module may already be
-//     // in the process of being profiled, but this will simply mark it as
-//     // still being alived and eligible for continued profiling.
-//     cache.AddModule(handle, module);
+//     // We have a |handle| to the process to be profiled and the
+//     // |module_handle| to be processed. The module may already be in the
+//     // process of being profiled, but this will simply mark it as still
+//     // being alive and eligible for continued profiling. The |status| of the
+//     // operation and a pointer to the |module| will be set.
+//     if (cache.AddModule(handle, module_handle, &status, &module))
+//       ...
 //   }
 //
 //   // Clean up any modules that haven't been added (or re-added and marked as
@@ -65,6 +67,11 @@ class SampledModuleCache {
   // Forward declarations. See below for details.
   class Process;
   class Module;
+
+  enum ProfilingStatus {
+    kProfilingStarted,
+    kProfilingContinued,
+  };
 
   typedef std::map<WORD, Process*> ProcessMap;
 
@@ -106,10 +113,17 @@ class SampledModuleCache {
   // @param process A handle to the process. This handle will be duplicated
   //     and the cache will take responsibility for lifetime management of the
   //     copy.
-  // @param module The module to be profiled.
+  // @param module_handle The handle to the module to be profiled.
+  // @param status The status of the profiled module. This will only be set on
+  //     success.
+  // @param module A pointer to the added module. This will only be non-NULL on
+  //     success.
   // @returns true if the process and module were added and profiling was
   //     successfully started.
-  bool AddModule(HANDLE process, HMODULE module);
+  bool AddModule(HANDLE process,
+                 HMODULE module_handle,
+                 ProfilingStatus* status,
+                 const Module** module);
 
   // Marks all processes and modules as dead.
   void MarkAllModulesDead();
@@ -117,6 +131,10 @@ class SampledModuleCache {
   // Cleans up no longer running modules and processes. Prior to removal of a
   // module the dead module callback will be invoked, if set.
   void RemoveDeadModules();
+
+  // @returns the total number of modules currently being profiled across all
+  // processes.
+  size_t module_count() const { return module_count_; }
 
  private:
   // The set of all processes, and modules within them, that are currently
@@ -130,6 +148,9 @@ class SampledModuleCache {
   // The callback that is being invoked when dead modules are removed, or when
   // the entire cache is being destroyed.
   DeadModuleCallback dead_module_callback_;
+
+  // The total number of modules being profiled across all processes.
+  size_t module_count_;
 
   DISALLOW_COPY_AND_ASSIGN(SampledModuleCache);
 };
@@ -161,13 +182,20 @@ class SampledModuleCache::Process {
   // Adds the provided module to the set of modules that are being profiled in
   // this process. Only returns true if the module is able to be successfully
   // queried and the sampling profiler is started.
-  // @param module The module to be added.
+  // @param module_handle The handle to the module to be added.
   // @param log2_bucket_size The number of bits in the bucket size to be used
   //     by the sampling profiler. This must be in the range 2-31, for bucket
   //     sizes of 4 bytes to 2 gigabytes. See base/win/sampling_profiler.h
   //     for more details.
+  // @param status The status of the profiled module. This will only be set on
+  //     success.
+  // @param module A pointer to the added module. This will only be non-NULL on
+  //     success.
   // @returns true on success, false otherwise.
-  bool AddModule(HMODULE module, size_t log2_bucket_size);
+  bool AddModule(HMODULE module_handle,
+                 size_t log2_bucket_size,
+                 ProfilingStatus* status,
+                 const Module** module);
 
  protected:
   friend class SampledModuleCache;

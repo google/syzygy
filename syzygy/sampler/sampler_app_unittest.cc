@@ -14,8 +14,12 @@
 
 #include "syzygy/sampler/sampler_app.h"
 
+#include "base/bind.h"
 #include "base/path_service.h"
+#include "base/stringprintf.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/synchronization/condition_variable.h"
+#include "base/threading/thread.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/application.h"
@@ -28,15 +32,60 @@ namespace {
 
 class TestSamplerApp : public SamplerApp {
  public:
-  using SamplerApp::ModuleSignature;
-  using SamplerApp::ModuleSignatureSet;
+  TestSamplerApp()
+      : start_profiling_(&cv_lock_),
+        start_profiling_counter_(0),
+        stop_profiling_(&cv_lock_),
+        stop_profiling_counter_(0) {
+  }
+
   using SamplerApp::PidSet;
 
   using SamplerApp::GetModuleSignature;
+  using SamplerApp::set_running;
 
   using SamplerApp::pids_;
   using SamplerApp::blacklist_pids_;
   using SamplerApp::module_sigs_;
+  using SamplerApp::running_;
+
+  void WaitUntilStartProfiling() {
+    base::AutoLock auto_lock(cv_lock_);
+    while (start_profiling_counter_ == 0)
+      start_profiling_.Wait();
+    --start_profiling_counter_;
+  }
+
+  void WaitUntilStopProfiling() {
+    base::AutoLock auto_lock(cv_lock_);
+    while (stop_profiling_counter_ == 0)
+      stop_profiling_.Wait();
+    --stop_profiling_counter_;
+  }
+
+ protected:
+  virtual void OnStartProfiling(
+      const SampledModuleCache::Module* module) OVERRIDE {
+    DCHECK(module != NULL);
+    base::AutoLock auto_lock(cv_lock_);
+    ++start_profiling_counter_;
+    start_profiling_.Signal();
+  }
+
+  virtual void OnStopProfiling(
+      const SampledModuleCache::Module* module) OVERRIDE {
+    DCHECK(module != NULL);
+    base::AutoLock auto_lock(cv_lock_);
+    ++stop_profiling_counter_;
+    stop_profiling_.Signal();
+  }
+
+ private:
+  base::Lock cv_lock_;
+  base::ConditionVariable start_profiling_;  // Under cv_lock_.
+  size_t start_profiling_counter_;  // Under cv_lock_.
+  base::ConditionVariable stop_profiling_;  // Under cv_lock_.
+  size_t stop_profiling_counter_;  // Under cv_lock_.
 };
 
 class SamplerAppTest : public testing::PELibUnitTest {
@@ -46,11 +95,14 @@ class SamplerAppTest : public testing::PELibUnitTest {
 
   SamplerAppTest()
       : cmd_line_(base::FilePath(L"sampler.exe")),
-        impl_(app_.implementation()) {
+        impl_(app_.implementation()),
+        worker_thread_("worker-thread") {
   }
 
   virtual void SetUp() OVERRIDE {
     Super::SetUp();
+
+    ASSERT_TRUE(worker_thread_.Start());
 
     // Setup the IO streams.
     ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir_));
@@ -73,6 +125,13 @@ class SamplerAppTest : public testing::PELibUnitTest {
     ASSERT_TRUE(PathService::Get(base::FILE_EXE, &self_path));
     ASSERT_TRUE(TestSamplerApp::GetModuleSignature(self_path,
                                                    &self_sig));
+  }
+
+  // Runs the application asynchronously. Provides the return value via the
+  // output parameter.
+  void RunAppAsync(int* ret) {
+    DCHECK(ret != NULL);
+    *ret = impl_.Run();
   }
 
   base::FilePath test_dll_path;
@@ -99,6 +158,9 @@ class SamplerAppTest : public testing::PELibUnitTest {
   base::FilePath stdout_path_;
   base::FilePath stderr_path_;
   // @}
+
+  // A worker thread for posting asynchronous tasks.
+  base::Thread worker_thread_;
 };
 
 }  // namespace
@@ -183,6 +245,45 @@ TEST_F(SamplerAppTest, ParseFullBlacklist) {
   EXPECT_TRUE(impl_.blacklist_pids_);
   EXPECT_THAT(impl_.module_sigs_,
               testing::ElementsAre(test_dll_sig, self_sig));
+}
+
+TEST_F(SamplerAppTest, SampleSelfPidWhitelist) {
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kPids,
+      base::StringPrintf("%d", ::GetCurrentProcessId()));
+  cmd_line_.AppendArgPath(self_path);
+  ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
+
+  int ret = 0;
+  base::Closure run = base::Bind(
+      &SamplerAppTest::RunAppAsync,
+      base::Unretained(this),
+      base::Unretained(&ret));
+  worker_thread_.message_loop()->PostTask(FROM_HERE, run);
+
+  // Wait for profiling to start.
+  impl_.WaitUntilStartProfiling();
+
+  // Busy loop for a few seconds. This will guarantee that we get some samples
+  // and have non-empty module data.
+  base::Time start = base::Time::Now();
+  int i = 0;
+  while ((base::Time::Now() - start) < base::TimeDelta::FromSeconds(2)) {
+    i += rand();
+    i ^= rand();
+  }
+
+  // Stop the profiler.
+  impl_.set_running(false);
+
+  // Stop the worker thread. This will return when the app has returned.
+  worker_thread_.Stop();
+
+  // We should also have received a profiling stop event.
+  impl_.WaitUntilStopProfiling();
+
+  // TODO(chrisha): Ensure that profiler output was produced.
+
+  ASSERT_EQ(0, ret);
 }
 
 }  // namespace sampler
