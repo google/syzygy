@@ -211,7 +211,6 @@ bool ProfileGrinder::GetSessionForModule(const ModuleInformation* module,
           pdb_path.empty()) {
         LOG(ERROR) << "Unable to find PDB for module \""
                    << module_path.value() << "\".";
-        return false;
       }
 
       hr = source->loadDataFromPdb(pdb_path.value().c_str());
