@@ -101,7 +101,9 @@ class TestMemoryAccessAnalysis: public MemoryAccessAnalysis {
 
 class MemoryAccessAnalysisTest : public testing::Test {
  public:
-  MemoryAccessAnalysisTest() : bb_("Dummy") {}
+  MemoryAccessAnalysisTest() : bb_(NULL) {
+    bb_ = subgraph_.AddBasicCodeBlock("Dummy");
+  }
 
   bool Intersect(const block_graph::BasicBlock* bb, const State& state) {
     return memory_access_.Intersect(bb, state);
@@ -117,7 +119,8 @@ class MemoryAccessAnalysisTest : public testing::Test {
  protected:
   TestMemoryAccessAnalysis memory_access_;
   TestMemoryAccessAnalysisState state_;
-  BasicCodeBlock bb_;
+  BasicBlockSubGraph subgraph_;
+  BasicCodeBlock* bb_;
 };
 
 bool TestMemoryAccessAnalysisState::IsEmpty(core::Register reg) const {
@@ -306,24 +309,24 @@ TEST_F(MemoryAccessAnalysisTest, GetStateOf) {
   EXPECT_TRUE(state_.IsEmpty());
 
   // Get an non-existing basic block.
-  GetStateAtEntryOf(&bb_, &state_);
+  GetStateAtEntryOf(bb_, &state_);
   EXPECT_TRUE(state_.IsEmpty());
 }
 
 TEST_F(MemoryAccessAnalysisTest, IntersectEmpty) {
-  memory_access_.GetStateAtEntryOf(&bb_, &state_);
+  memory_access_.GetStateAtEntryOf(bb_, &state_);
   EXPECT_TRUE(state_.IsEmpty());
 
   // Perform an initial intersection with an empty set.
   TestMemoryAccessAnalysisState state;
-  Intersect(&bb_, state);
+  Intersect(bb_, state);
 
   state.Execute(kReadEax10);
   state.Execute(kReadEax11);
 
   // Perform an second intersection with a non empty set.
-  Intersect(&bb_, state_);
-  GetStateAtEntryOf(&bb_, &state_);
+  Intersect(bb_, state_);
+  GetStateAtEntryOf(bb_, &state_);
 
   // The results must be empty.
   EXPECT_TRUE(state_.IsEmpty());
@@ -338,7 +341,7 @@ TEST_F(MemoryAccessAnalysisTest, IntersectStates) {
   state1.Execute(kReadEax13);
   state1.Execute(kReadEax14);
   state1.Execute(kReadEax15);
-  Intersect(&bb_, state1);
+  Intersect(bb_, state1);
 
   // Intersection with displacements [10, 11, 12, 14].
   TestMemoryAccessAnalysisState state2;
@@ -346,10 +349,10 @@ TEST_F(MemoryAccessAnalysisTest, IntersectStates) {
   state2.Execute(kReadEax11);
   state2.Execute(kReadEax12);
   state2.Execute(kReadEax14);
-  Intersect(&bb_, state2);
+  Intersect(bb_, state2);
 
   // Check current state [10, 11, 12, 14].
-  GetStateAtEntryOf(&bb_, &state_);
+  GetStateAtEntryOf(bb_, &state_);
   EXPECT_TRUE(state_.Contains(core::eax, 10));
   EXPECT_TRUE(state_.Contains(core::eax, 11));
   EXPECT_TRUE(state_.Contains(core::eax, 12));
@@ -362,10 +365,10 @@ TEST_F(MemoryAccessAnalysisTest, IntersectStates) {
   state3.Execute(kReadEax10);
   state3.Execute(kReadEax11);
   state3.Execute(kReadEax15);
-  Intersect(&bb_, state3);
+  Intersect(bb_, state3);
 
   // Check current state [10, 11].
-  GetStateAtEntryOf(&bb_, &state_);
+  GetStateAtEntryOf(bb_, &state_);
   EXPECT_TRUE(state_.Contains(core::eax, 10));
   EXPECT_TRUE(state_.Contains(core::eax, 11));
   EXPECT_FALSE(state_.Contains(core::eax, 12));
@@ -376,10 +379,10 @@ TEST_F(MemoryAccessAnalysisTest, IntersectStates) {
   // Intersection with displacements [15].
   TestMemoryAccessAnalysisState state4;
   state4.Execute(kReadEax15);
-  Intersect(&bb_, state4);
+  Intersect(bb_, state4);
 
   // The state must be empty.
-  GetStateAtEntryOf(&bb_, &state_);
+  GetStateAtEntryOf(bb_, &state_);
   EXPECT_TRUE(state_.IsEmpty());
 }
 

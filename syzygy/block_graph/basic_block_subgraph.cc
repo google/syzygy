@@ -71,7 +71,7 @@ block_graph::BasicCodeBlock* BasicBlockSubGraph::AddBasicCodeBlock(
     const base::StringPiece& name) {
   DCHECK(!name.empty());
 
-  scoped_ptr<BasicCodeBlock> new_code_block(new BasicCodeBlock(name));
+  scoped_ptr<BasicCodeBlock> new_code_block(new BasicCodeBlock(this, name));
   bool inserted = basic_blocks_.insert(new_code_block.get()).second;
   DCHECK(inserted);
 
@@ -85,7 +85,7 @@ block_graph::BasicDataBlock* BasicBlockSubGraph::AddBasicDataBlock(
   DCHECK(!name.empty());
 
   scoped_ptr<BasicDataBlock> new_data_block(
-      new BasicDataBlock(name, data, size));
+      new BasicDataBlock(this, name, data, size));
   bool inserted = basic_blocks_.insert(new_data_block.get()).second;
   DCHECK(inserted);
 

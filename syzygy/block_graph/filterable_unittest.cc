@@ -15,6 +15,7 @@
 #include "syzygy/block_graph/filterable.h"
 
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/basic_block_subgraph.h"
 
 namespace block_graph {
 
@@ -54,6 +55,7 @@ TEST(FilterableTest, IsFiltered) {
   const uint8 data[10] = {};
 
   BlockGraph block_graph;
+  BasicBlockSubGraph subgraph;
 
   // Create some dummy blocks, etc. Initially they have no source ranges so
   // should all pass as instrumentable.
@@ -61,16 +63,17 @@ TEST(FilterableTest, IsFiltered) {
       block_graph.AddBlock(BlockGraph::CODE_BLOCK, 10, "block");
   Instruction inst;
   EXPECT_TRUE(Instruction::FromBuffer(nop, arraysize(nop), &inst));
-  BasicCodeBlock code_bb("code_bb");
-  code_bb.instructions().push_back(inst);
-  BasicDataBlock data_bb("data_bb", data, arraysize(data));
-  BasicBlock* code_bb_ptr = &code_bb;
-  BasicBlock* data_bb_ptr = &data_bb;
+  BasicCodeBlock* code_bb = subgraph.AddBasicCodeBlock("code_bb");
+  code_bb->instructions().push_back(inst);
+  BasicDataBlock* data_bb =
+      subgraph.AddBasicDataBlock("data_bb", arraysize(data), data);
+  BasicBlock* code_bb_ptr = code_bb;
+  BasicBlock* data_bb_ptr = data_bb;
 
   // We expect nothing to be filtered because there is none.
   EXPECT_FALSE(f.IsFiltered(block));
-  EXPECT_FALSE(f.IsFiltered(&code_bb));
-  EXPECT_FALSE(f.IsFiltered(&data_bb));
+  EXPECT_FALSE(f.IsFiltered(code_bb));
+  EXPECT_FALSE(f.IsFiltered(data_bb));
   EXPECT_FALSE(f.IsFiltered(code_bb_ptr));
   EXPECT_FALSE(f.IsFiltered(data_bb_ptr));
   EXPECT_FALSE(f.IsFiltered(inst));
@@ -88,14 +91,14 @@ TEST(FilterableTest, IsFiltered) {
             RelativeAddress(35), 10)));
   inst.set_source_range(
       Range(RelativeAddress(32), arraysize(nop)));
-  code_bb.instructions().begin()->set_source_range(
+  code_bb->instructions().begin()->set_source_range(
       Range(RelativeAddress(38), arraysize(nop)));
-  data_bb.set_source_range(Range(RelativeAddress(29), arraysize(data)));
+  data_bb->set_source_range(Range(RelativeAddress(29), arraysize(data)));
 
   // We expect nothing to be filtered.
   EXPECT_FALSE(f.IsFiltered(block));
-  EXPECT_FALSE(f.IsFiltered(&code_bb));
-  EXPECT_FALSE(f.IsFiltered(&data_bb));
+  EXPECT_FALSE(f.IsFiltered(code_bb));
+  EXPECT_FALSE(f.IsFiltered(data_bb));
   EXPECT_FALSE(f.IsFiltered(code_bb_ptr));
   EXPECT_FALSE(f.IsFiltered(data_bb_ptr));
   EXPECT_FALSE(f.IsFiltered(inst));
@@ -105,8 +108,8 @@ TEST(FilterableTest, IsFiltered) {
 
   // We expect everything to be filtered.
   EXPECT_TRUE(f.IsFiltered(block));
-  EXPECT_TRUE(f.IsFiltered(&code_bb));
-  EXPECT_TRUE(f.IsFiltered(&data_bb));
+  EXPECT_TRUE(f.IsFiltered(code_bb));
+  EXPECT_TRUE(f.IsFiltered(data_bb));
   EXPECT_TRUE(f.IsFiltered(code_bb_ptr));
   EXPECT_TRUE(f.IsFiltered(data_bb_ptr));
   EXPECT_TRUE(f.IsFiltered(inst));

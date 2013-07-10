@@ -84,7 +84,6 @@ class LivenessAnalysisTest : public testing::Test {
  protected:
   BlockGraph block_graph_;
   BlockGraph::Block* test_block_;
-  BasicCodeBlock test_bb_;
   BasicBlock::Instructions instructions_;
   BasicBlockAssembler asm_;
   LivenessAnalysis liveness_;
@@ -94,7 +93,6 @@ class LivenessAnalysisTest : public testing::Test {
 LivenessAnalysisTest::LivenessAnalysisTest()
     : testing::Test(),
       test_block_(NULL),
-      test_bb_("foo"),
       instructions_(),
       asm_(instructions_.end(), &instructions_),
       liveness_(),

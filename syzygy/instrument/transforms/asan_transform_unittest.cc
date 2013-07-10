@@ -64,10 +64,11 @@ class TestAsanBasicBlockTransform : public AsanBasicBlockTransform {
 
 class AsanTransformTest : public testing::TestDllTransformTest {
  public:
-  AsanTransformTest() :
-      basic_block_("test block"),
-      bb_asm_(basic_block_.instructions().begin(),
-              &basic_block_.instructions()) {
+  AsanTransformTest() : basic_block_(NULL) {
+    basic_block_ = subgraph_.AddBasicCodeBlock("dummy");
+    bb_asm_.reset(new block_graph::BasicBlockAssembler(
+        basic_block_->instructions().begin(),
+        &basic_block_->instructions()));
   }
 
   void AddHookRef(const std::string& hook_name,
@@ -163,7 +164,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
       return false;
 
     // Append this instruction to the basic block.
-    basic_block_.instructions().push_back(temp);
+    basic_block_->instructions().push_back(temp);
 
     return true;
   }
@@ -179,8 +180,9 @@ class AsanTransformTest : public testing::TestDllTransformTest {
   AsanTransform asan_transform_;
   HookMap hooks_check_access_ref_;
   std::map<HookMapEntryKey, BlockGraph::Block*> hooks_check_access_;
-  BasicCodeBlock basic_block_;
-  block_graph::BasicBlockAssembler bb_asm_;
+  BasicBlockSubGraph subgraph_;
+  BasicCodeBlock* basic_block_;
+  scoped_ptr<block_graph::BasicBlockAssembler> bb_asm_;
 };
 
 const BasicBlock::Size AsanTransformTest::kDataSize = 32;
@@ -237,12 +239,12 @@ TEST_F(AsanTransformTest, ApplyAsanTransform) {
 
 TEST_F(AsanTransformTest, InjectAsanHooks) {
   // Add a read access to the memory.
-  bb_asm_.mov(core::eax, block_graph::Operand(core::ebx));
+  bb_asm_->mov(core::eax, block_graph::Operand(core::ebx));
   // Add a write access to the memory.
-  bb_asm_.mov(block_graph::Operand(core::ecx), core::edx);
+  bb_asm_->mov(block_graph::Operand(core::ecx), core::edx);
 
   // Add source ranges to the instruction.
-  block_graph::Instruction& i1 = *basic_block_.instructions().begin();
+  block_graph::Instruction& i1 = *basic_block_->instructions().begin();
   Instruction::SourceRange source_range =
       Instruction::SourceRange(RelativeAddress(1000), i1.size());
   i1.set_source_range(source_range);
@@ -251,18 +253,18 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-      &basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+      basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
 
   // Ensure that the basic block is instrumented.
 
   // We had 2 instructions initially, and for each of them we add 3
   // instructions, so we expect to have 2 + 3 * 2 = 8 instructions.
-  ASSERT_EQ(basic_block_.instructions().size(), 8);
+  ASSERT_EQ(basic_block_->instructions().size(), 8);
 
   // Walk through the instructions to ensure that the Asan hooks have been
   // injected.
   BasicBlock::Instructions::const_iterator iter_inst =
-      basic_block_.instructions().begin();
+      basic_block_->instructions().begin();
 
   Instruction::SourceRange empty_source_range;
   ASSERT_TRUE(empty_source_range != source_range);
@@ -295,21 +297,21 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_CALL);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_MOV);
 
-  ASSERT_TRUE(iter_inst == basic_block_.instructions().end());
+  ASSERT_TRUE(iter_inst == basic_block_->instructions().end());
 }
 
 TEST_F(AsanTransformTest, InjectAsanHooksWithSourceRange) {
   // Add a read access to the memory.
-  bb_asm_.mov(core::eax, block_graph::Operand(core::ebx));
+  bb_asm_->mov(core::eax, block_graph::Operand(core::ebx));
 
   // Add a source range to the instruction.
-  block_graph::Instruction& i1 = *basic_block_.instructions().begin();
+  block_graph::Instruction& i1 = *basic_block_->instructions().begin();
   Instruction::SourceRange source_range =
       Instruction::SourceRange(RelativeAddress(1000), i1.size());
   i1.set_source_range(source_range);
 
   // Keep track of basic block size.
-  uint32 before_instructions_count = basic_block_.instructions().size();
+  uint32 before_instructions_count = basic_block_->instructions().size();
 
   // Instrument this basic block.
   InitHooksRefs();
@@ -317,17 +319,17 @@ TEST_F(AsanTransformTest, InjectAsanHooksWithSourceRange) {
   bb_transform.set_debug_friendly(true);
 
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-        &basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+        basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
 
   // Ensure this basic block is instrumented.
-  uint32 after_instructions_count = basic_block_.instructions().size();
+  uint32 after_instructions_count = basic_block_->instructions().size();
   ASSERT_LT(before_instructions_count, after_instructions_count);
 
   // Walk through the instructions and validate the source range.
   BasicBlock::Instructions::const_iterator iter_inst =
-      basic_block_.instructions().begin();
+      basic_block_->instructions().begin();
 
-  for ( ; iter_inst != basic_block_.instructions().end(); ++iter_inst)
+  for ( ; iter_inst != basic_block_->instructions().end(); ++iter_inst)
     EXPECT_EQ(source_range, iter_inst->source_range());
 }
 
@@ -335,28 +337,28 @@ TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
   uint32 instrumentable_instructions = 0;
 
   // Generate a bunch of instrumentable and non instrumentable instructions.
-  bb_asm_.mov(core::eax, block_graph::Operand(core::ebx));
+  bb_asm_->mov(core::eax, block_graph::Operand(core::ebx));
   instrumentable_instructions++;
-  bb_asm_.mov(block_graph::Operand(core::ecx), core::edx);
+  bb_asm_->mov(block_graph::Operand(core::ecx), core::edx);
   instrumentable_instructions++;
-  bb_asm_.call(block_graph::Operand(core::ecx));
+  bb_asm_->call(block_graph::Operand(core::ecx));
   instrumentable_instructions++;
-  bb_asm_.jmp(block_graph::Operand(core::ecx));
+  bb_asm_->jmp(block_graph::Operand(core::ecx));
   instrumentable_instructions++;
-  bb_asm_.push(block_graph::Operand(core::eax));
+  bb_asm_->push(block_graph::Operand(core::eax));
   instrumentable_instructions++;
 
   // Non-instrumentable.
-  bb_asm_.lea(core::eax, block_graph::Operand(core::ecx));
+  bb_asm_->lea(core::eax, block_graph::Operand(core::ecx));
 
-  uint32 expected_instructions_count = basic_block_.instructions().size()
+  uint32 expected_instructions_count = basic_block_->instructions().size()
       + 3 * instrumentable_instructions;
   // Instrument this basic block.
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-      &basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
-  ASSERT_EQ(basic_block_.instructions().size(), expected_instructions_count);
+      basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+  ASSERT_EQ(basic_block_->instructions().size(), expected_instructions_count);
 }
 
 TEST_F(AsanTransformTest, InstrumentAndRemoveRedundantChecks) {
@@ -364,26 +366,26 @@ TEST_F(AsanTransformTest, InstrumentAndRemoveRedundantChecks) {
 
   // Generate a bunch of instrumentable and non instrumentable instructions.
   // We generate operand [ecx] multiple time as a redundant memory access.
-  bb_asm_.mov(core::eax, block_graph::Operand(core::ecx));
+  bb_asm_->mov(core::eax, block_graph::Operand(core::ecx));
   instrumentable_instructions++;
-  bb_asm_.mov(block_graph::Operand(core::ecx), core::edx);
+  bb_asm_->mov(block_graph::Operand(core::ecx), core::edx);
   // Validate that indirect call clear the memory state.
-  bb_asm_.call(block_graph::Operand(core::ecx));
-  bb_asm_.push(block_graph::Operand(core::eax));
+  bb_asm_->call(block_graph::Operand(core::ecx));
+  bb_asm_->push(block_graph::Operand(core::eax));
   instrumentable_instructions++;
-  bb_asm_.mov(core::eax, block_graph::Operand(core::ecx));
+  bb_asm_->mov(core::eax, block_graph::Operand(core::ecx));
   instrumentable_instructions++;
-  bb_asm_.jmp(block_graph::Operand(core::ecx));
+  bb_asm_->jmp(block_graph::Operand(core::ecx));
 
-  uint32 expected_instructions_count = basic_block_.instructions().size()
+  uint32 expected_instructions_count = basic_block_->instructions().size()
       + 3 * instrumentable_instructions;
   // Instrument this basic block.
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   bb_transform.set_remove_redundant_checks(true);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-      &basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
-  ASSERT_EQ(basic_block_.instructions().size(), expected_instructions_count);
+      basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+  ASSERT_EQ(basic_block_->instructions().size(), expected_instructions_count);
 }
 
 TEST_F(AsanTransformTest, NonInstrumentableStackBasedInstructions) {
@@ -414,16 +416,16 @@ TEST_F(AsanTransformTest, NonInstrumentableStackBasedInstructions) {
   ASSERT_TRUE(AddInstructionFromBuffer(kMov2, sizeof(kMov2)));
 
   // Keep track of the basic block size before Asan transform.
-  uint32 expected_basic_block_size = basic_block_.instructions().size();
+  uint32 expected_basic_block_size = basic_block_->instructions().size();
 
   // Instrument this basic block.
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-        &basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+        basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
 
   // Non-instrumentable instructions implies no change.
-  EXPECT_EQ(expected_basic_block_size, basic_block_.instructions().size());
+  EXPECT_EQ(expected_basic_block_size, basic_block_->instructions().size());
 }
 
 TEST_F(AsanTransformTest, InstrumentableStackBasedUnsafeInstructions) {
@@ -433,17 +435,17 @@ TEST_F(AsanTransformTest, InstrumentableStackBasedUnsafeInstructions) {
   ASSERT_TRUE(AddInstructionFromBuffer(kDec1, sizeof(kDec1)));
 
   // Keep track of the basic block size before Asan transform.
-  uint32 previous_basic_block_size = basic_block_.instructions().size();
+  uint32 previous_basic_block_size = basic_block_->instructions().size();
 
   // Instrument this basic block considering invalid stack manipulation.
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-        &basic_block_, AsanBasicBlockTransform::kUnsafeStackAccess));
+        basic_block_, AsanBasicBlockTransform::kUnsafeStackAccess));
 
   // This instruction should have been instrumented, and we must observe
   // a increase in size.
-  EXPECT_LT(previous_basic_block_size, basic_block_.instructions().size());
+  EXPECT_LT(previous_basic_block_size, basic_block_->instructions().size());
 }
 
 TEST_F(AsanTransformTest, NonInstrumentableSegmentBasedInstructions) {
@@ -456,27 +458,27 @@ TEST_F(AsanTransformTest, NonInstrumentableSegmentBasedInstructions) {
   ASSERT_TRUE(AddInstructionFromBuffer(kInc1, sizeof(kInc1)));
 
   // Keep track of the basic block size before Asan transform.
-  uint32 expected_basic_block_size = basic_block_.instructions().size();
+  uint32 expected_basic_block_size = basic_block_->instructions().size();
 
   // Instrument this basic block.
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-        &basic_block_,
+        basic_block_,
         AsanBasicBlockTransform::kSafeStackAccess));
 
   // Non-instrumentable instructions implies no change.
-  EXPECT_EQ(expected_basic_block_size, basic_block_.instructions().size());
+  EXPECT_EQ(expected_basic_block_size, basic_block_->instructions().size());
 }
 
 TEST_F(AsanTransformTest, FilteredInstructionsNotInstrumented) {
   // Add a read access to the memory.
-  bb_asm_.mov(core::eax, block_graph::Operand(core::ebx));
+  bb_asm_->mov(core::eax, block_graph::Operand(core::ebx));
   // Add a write access to the memory.
-  bb_asm_.mov(block_graph::Operand(core::ecx), core::edx);
+  bb_asm_->mov(block_graph::Operand(core::ecx), core::edx);
 
   // Add a source range to the first instruction.
-  block_graph::Instruction& i1 = *basic_block_.instructions().begin();
+  block_graph::Instruction& i1 = *basic_block_->instructions().begin();
   i1.set_source_range(Instruction::SourceRange(
       RelativeAddress(1000), i1.size()));
 
@@ -492,19 +494,19 @@ TEST_F(AsanTransformTest, FilteredInstructionsNotInstrumented) {
 
   // Instrument this basic block.
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-        &basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+        basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
 
   // Ensure that the basic block is instrumented, but only the second
   // instruction.
 
   // We had 2 instructions initially. For the second one we add 3
   // instructions, so we expect to have 1 + (1 + 3) = 5 instructions.
-  ASSERT_EQ(basic_block_.instructions().size(), 5);
+  ASSERT_EQ(basic_block_->instructions().size(), 5);
 
   // Walk through the instructions to ensure that the Asan hooks have been
   // injected.
   BasicBlock::Instructions::const_iterator iter_inst =
-      basic_block_.instructions().begin();
+      basic_block_->instructions().begin();
 
   // Ensure the first instruction is not instrumented at all.
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_MOV);
@@ -521,7 +523,7 @@ TEST_F(AsanTransformTest, FilteredInstructionsNotInstrumented) {
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_CALL);
   ASSERT_TRUE((iter_inst++)->representation().opcode == I_MOV);
 
-  ASSERT_TRUE(iter_inst == basic_block_.instructions().end());
+  ASSERT_TRUE(iter_inst == basic_block_->instructions().end());
 }
 
 TEST_F(AsanTransformTest, InstrumentableStringInstructions) {
@@ -548,22 +550,22 @@ TEST_F(AsanTransformTest, InstrumentableStringInstructions) {
   EXPECT_TRUE(AddInstructionFromBuffer(stosb, sizeof(stosb)));
 
   // Keep number of instrumentable instructions.
-  uint32 count_instructions = basic_block_.instructions().size();
+  uint32 count_instructions = basic_block_->instructions().size();
 
   // Keep track of the basic block size before Asan transform.
-  uint32 basic_block_size = basic_block_.instructions().size();
+  uint32 basic_block_size = basic_block_->instructions().size();
 
   // Instrument this basic block.
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-        &basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+        basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
 
   // Each instrumentable instructions implies 1 new instructions.
   uint32 expected_basic_block_size = count_instructions + basic_block_size;
 
   // Validate basic block size.
-  ASSERT_EQ(basic_block_.instructions().size(), expected_basic_block_size);
+  ASSERT_EQ(basic_block_->instructions().size(), expected_basic_block_size);
 }
 
 TEST_F(AsanTransformTest, InstrumentableRepzStringInstructions) {
@@ -590,22 +592,22 @@ TEST_F(AsanTransformTest, InstrumentableRepzStringInstructions) {
   EXPECT_TRUE(AddInstructionFromBuffer(stosb, sizeof(stosb)));
 
   // Keep number of instrumentable instructions.
-  uint32 count_instructions = basic_block_.instructions().size();
+  uint32 count_instructions = basic_block_->instructions().size();
 
   // Keep track of the basic block size before Asan transform.
-  uint32 basic_block_size = basic_block_.instructions().size();
+  uint32 basic_block_size = basic_block_->instructions().size();
 
   // Instrument this basic block.
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-        &basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+        basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
 
  // Each instrumentable instructions implies 1 new instructions.
   uint32 expected_basic_block_size = count_instructions + basic_block_size;
 
   // Validate basic block size.
-  ASSERT_EQ(basic_block_.instructions().size(), expected_basic_block_size);
+  ASSERT_EQ(basic_block_->instructions().size(), expected_basic_block_size);
 }
 
 namespace {

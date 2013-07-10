@@ -36,6 +36,7 @@ namespace block_graph {
 
 // Forward declarations.
 class BasicBlock;
+class BasicBlockSubGraph;
 class BasicCodeBlock;
 class BasicDataBlock;
 class Instruction;
@@ -570,9 +571,11 @@ class BasicBlock {
 
  protected:
   // Initialize a basic block.
+  // @param subgraph The subgraph that owns this basic block.
   // @param name A textual identifier for this basic block.
   // @param type The disposition (code, data, padding) of this basic block.
-  BasicBlock(const base::StringPiece& name,
+  BasicBlock(BasicBlockSubGraph* subgraph,
+             const base::StringPiece& name,
              BasicBlockType type);
 
   // The type of this basic block.
@@ -599,16 +602,15 @@ class BasicBlock {
   // Tracks whether or not this basic block is unreachable padding.
   bool is_padding_;
 
+  // The subgraph to which belongs this basic block.
+  BasicBlockSubGraph* subgraph_;
+
  private:
   DISALLOW_COPY_AND_ASSIGN(BasicBlock);
 };
 
 class BasicCodeBlock : public BasicBlock {
  public:
-  // Initialize a basic code block.
-  // @param name A textual identifier for this basic block.
-  explicit BasicCodeBlock(const base::StringPiece& name);
-
   // Down-cast from basic block to basic code block.
   static BasicCodeBlock* Cast(BasicBlock* basic_block);
   static const BasicCodeBlock* Cast(const BasicBlock* basic_block);
@@ -630,6 +632,16 @@ class BasicCodeBlock : public BasicBlock {
   Size GetInstructionSize() const;
 
  private:
+   // BasicBlockSubGraph has a factory for this type.
+   friend class BasicBlockSubGraph;
+
+  // Initialize a basic code block.
+  // @param subgraph The subgraph to which belongs this basic block.
+  // @param name A textual identifier for this basic block.
+  // @note This is protected so that basic-blocks may only be created via the
+  //     subgraph factory.
+  BasicCodeBlock(BasicBlockSubGraph* subgraph, const base::StringPiece& name);
+
   // The set of non-branching instructions comprising this basic-block.
   // Any branching at the end of the basic-block is represented using the
   // successors_ member.
@@ -648,17 +660,6 @@ class BasicCodeBlock : public BasicBlock {
 class BasicDataBlock : public BasicBlock {
  public:
   typedef BlockGraph::Block::SourceRange SourceRange;
-
-  // Initialize a basic data or padding block.
-  // @param name A textual identifier for this basic block.
-  // @param type The disposition (data or padding) of this basic block.
-  // @param data The block's data, must be non-NULL.
-  // @param size The size of @p data, must be greater than zero.
-  // @note The block does not take ownership of @p data, and @p data must have
-  //     a lifetime greater than the block.
-  BasicDataBlock(const base::StringPiece& name,
-                 const uint8* data,
-                 Size size);
 
   // Down-cast from basic block to basic data block.
   static BasicDataBlock* Cast(BasicBlock* basic_block);
@@ -689,6 +690,24 @@ class BasicDataBlock : public BasicBlock {
   virtual bool IsValid() const OVERRIDE;
 
  private:
+   // BasicBlockSubGraph has a factory for this type.
+   friend class BasicBlockSubGraph;
+
+  // Initialize a basic data or padding block.
+  // @param subgraph The subgraph to which belongs this basic block.
+  // @param name A textual identifier for this basic block.
+  // @param type The disposition (data or padding) of this basic block.
+  // @param data The block's data, must be non-NULL.
+  // @param size The size of @p data, must be greater than zero.
+  // @note The block does not take ownership of @p data, and @p data must have
+  //     a lifetime greater than the block.
+  // @note This is protected so that basic-blocks may only be created via the
+  //     subgraph factory.
+  BasicDataBlock(BasicBlockSubGraph* subgraph,
+                 const base::StringPiece& name,
+                 const uint8* data,
+                 Size size);
+
   // The number of bytes of data in the original block that corresponds with
   // this basic block.
   Size size_;

@@ -19,6 +19,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
+#include "syzygy/block_graph/basic_block_subgraph.h"
 
 #include "distorm.h"  // NOLINT
 #include "mnemonics.h"  // NOLINT
@@ -37,12 +38,15 @@ class BasicBlockTest: public testing::Test {
   // fixture, so each will have its own fresh instance of basic_code_block_
   // and macro_block_ to play with.
   BasicBlockTest()
-      : basic_code_block_(kBlockName),
-        basic_data_block_(kBlockName, kBlockData, kBlockSize),
+      : basic_code_block_(NULL),
+        basic_data_block_(NULL),
         macro_block_(NULL) {
      macro_block_ = block_graph_.AddBlock(
          kMacroBlockType, kBlockSize, kBlockName);
-     basic_data_block_.set_label(BlockGraph::Label(
+     basic_code_block_ = subgraph_.AddBasicCodeBlock(kBlockName);
+     basic_data_block_ =
+         subgraph_.AddBasicDataBlock(kBlockName, kBlockSize, kBlockData);
+     basic_data_block_->set_label(BlockGraph::Label(
          "data", BlockGraph::DATA_LABEL | BlockGraph::CASE_TABLE_LABEL));
   }
 
@@ -137,8 +141,9 @@ class BasicBlockTest: public testing::Test {
 
  protected:
   BlockGraph block_graph_;
-  BasicCodeBlock basic_code_block_;
-  BasicDataBlock basic_data_block_;
+  BasicBlockSubGraph subgraph_;
+  BasicCodeBlock* basic_code_block_;
+  BasicDataBlock* basic_data_block_;
   BlockGraph::Block* macro_block_;
 };
 
@@ -169,7 +174,7 @@ TEST_F(BasicBlockTest, InstructionConstructor) {
   {
     // This should copy the references.
     BasicBlockReference r1(
-        BlockGraph::RELATIVE_REF, kRefSize, &basic_code_block_);
+        BlockGraph::RELATIVE_REF, kRefSize, basic_code_block_);
     Instruction call_instr = CreateCall(r1);
     ASSERT_TRUE(call_instr.references().size() == 1);
     Instruction call_temp(call_instr);
@@ -190,88 +195,88 @@ TEST_F(BasicBlockTest, Cast) {
   EXPECT_EQ(NULL, BasicDataBlock::Cast(const_bb_ptr));
 
   // Cast an underlying basic code block.
-  bb_ptr = &basic_code_block_;
-  const_bb_ptr = &basic_code_block_;
-  EXPECT_EQ(&basic_code_block_, BasicCodeBlock::Cast(bb_ptr));
-  EXPECT_EQ(&basic_code_block_, BasicCodeBlock::Cast(const_bb_ptr));
+  bb_ptr = basic_code_block_;
+  const_bb_ptr = basic_code_block_;
+  EXPECT_EQ(basic_code_block_, BasicCodeBlock::Cast(bb_ptr));
+  EXPECT_EQ(basic_code_block_, BasicCodeBlock::Cast(const_bb_ptr));
   EXPECT_EQ(NULL, BasicDataBlock::Cast(bb_ptr));
   EXPECT_EQ(NULL, BasicDataBlock::Cast(const_bb_ptr));
 
   // Should gracefully handle NULL.
-  bb_ptr = &basic_data_block_;
-  const_bb_ptr = &basic_data_block_;
+  bb_ptr = basic_data_block_;
+  const_bb_ptr = basic_data_block_;
   EXPECT_EQ(NULL, BasicCodeBlock::Cast(bb_ptr));
   EXPECT_EQ(NULL, BasicCodeBlock::Cast(const_bb_ptr));
-  EXPECT_EQ(&basic_data_block_, BasicDataBlock::Cast(bb_ptr));
-  EXPECT_EQ(&basic_data_block_, BasicDataBlock::Cast(const_bb_ptr));
+  EXPECT_EQ(basic_data_block_, BasicDataBlock::Cast(bb_ptr));
+  EXPECT_EQ(basic_data_block_, BasicDataBlock::Cast(const_bb_ptr));
 }
 
 TEST_F(BasicBlockTest, BasicCodeBlockAccessors) {
-  EXPECT_EQ(BasicBlock::BASIC_CODE_BLOCK, basic_code_block_.type());
-  EXPECT_STREQ(kBlockName, basic_code_block_.name().c_str());
-  EXPECT_TRUE(basic_code_block_.referrers().empty());
+  EXPECT_EQ(BasicBlock::BASIC_CODE_BLOCK, basic_code_block_->type());
+  EXPECT_STREQ(kBlockName, basic_code_block_->name().c_str());
+  EXPECT_TRUE(basic_code_block_->referrers().empty());
 
-  basic_code_block_.set_offset(kBlockSize);
-  EXPECT_EQ(kBlockSize, basic_code_block_.offset());
+  basic_code_block_->set_offset(kBlockSize);
+  EXPECT_EQ(kBlockSize, basic_code_block_->offset());
 }
 
 TEST_F(BasicBlockTest, BasicDataBlockAccessors) {
-  EXPECT_EQ(BasicBlock::BASIC_DATA_BLOCK, basic_data_block_.type());
-  EXPECT_STREQ(kBlockName, basic_data_block_.name().c_str());
-  EXPECT_EQ(&kBlockData[0], basic_data_block_.data());
-  EXPECT_EQ(kBlockSize, basic_data_block_.size());
+  EXPECT_EQ(BasicBlock::BASIC_DATA_BLOCK, basic_data_block_->type());
+  EXPECT_STREQ(kBlockName, basic_data_block_->name().c_str());
+  EXPECT_EQ(&kBlockData[0], basic_data_block_->data());
+  EXPECT_EQ(kBlockSize, basic_data_block_->size());
   EXPECT_EQ(BasicDataBlock::SourceRange(),
-            basic_data_block_.source_range());
-  EXPECT_TRUE(basic_data_block_.references().empty());
-  EXPECT_TRUE(basic_data_block_.referrers().empty());
-  EXPECT_TRUE(basic_data_block_.has_label());
-  EXPECT_TRUE(basic_data_block_.label().has_attributes(
+            basic_data_block_->source_range());
+  EXPECT_TRUE(basic_data_block_->references().empty());
+  EXPECT_TRUE(basic_data_block_->referrers().empty());
+  EXPECT_TRUE(basic_data_block_->has_label());
+  EXPECT_TRUE(basic_data_block_->label().has_attributes(
       BlockGraph::DATA_LABEL | BlockGraph::CASE_TABLE_LABEL));
 
   const BasicDataBlock::SourceRange
       kTestRange(core::RelativeAddress(0xF00D), 13);
-  basic_data_block_.set_source_range(kTestRange);
-  EXPECT_EQ(kTestRange, basic_data_block_.source_range());
+  basic_data_block_->set_source_range(kTestRange);
+  EXPECT_EQ(kTestRange, basic_data_block_->source_range());
 }
 
 TEST_F(BasicBlockTest, GetInstructionSize) {
-  basic_code_block_.instructions().push_back(CreateRet());
-  basic_code_block_.instructions().push_back(CreateRet());
-  basic_code_block_.instructions().push_back(CreateRet());
-  basic_code_block_.instructions().push_back(CreateRet());
-  basic_code_block_.successors().push_back(CreateBranch(I_JZ, kOffset1));
+  basic_code_block_->instructions().push_back(CreateRet());
+  basic_code_block_->instructions().push_back(CreateRet());
+  basic_code_block_->instructions().push_back(CreateRet());
+  basic_code_block_->instructions().push_back(CreateRet());
+  basic_code_block_->successors().push_back(CreateBranch(I_JZ, kOffset1));
 
-  ASSERT_EQ(4 * CreateRet().size(), basic_code_block_.GetInstructionSize());
+  ASSERT_EQ(4 * CreateRet().size(), basic_code_block_->GetInstructionSize());
 }
 
 TEST_F(BasicBlockTest, EmptyBasicBlockIsNotValid) {
   // Upon creation the code block has neither instructions nor successors,
   // which we consider to be an invalid state.
-  ASSERT_FALSE(basic_code_block_.IsValid());
+  ASSERT_FALSE(basic_code_block_->IsValid());
 }
 
 TEST_F(BasicBlockTest, BasicBlockWithOnlyConditionalSuccessorIsNotValid) {
-  basic_code_block_.successors().push_back(CreateBranch(I_JNZ, kOffset1));
-  ASSERT_FALSE(basic_code_block_.IsValid());
+  basic_code_block_->successors().push_back(CreateBranch(I_JNZ, kOffset1));
+  ASSERT_FALSE(basic_code_block_->IsValid());
 }
 
 TEST_F(BasicBlockTest,
        BasicBlockWithConditionalAndFallThroughSuccessorsIsValid) {
-  basic_code_block_.successors().push_back(CreateBranch(I_JNZ, kOffset1));
-  basic_code_block_.successors().push_back(CreateBranch(I_JZ, kOffset2));
-  ASSERT_TRUE(basic_code_block_.IsValid());
+  basic_code_block_->successors().push_back(CreateBranch(I_JNZ, kOffset1));
+  basic_code_block_->successors().push_back(CreateBranch(I_JZ, kOffset2));
+  ASSERT_TRUE(basic_code_block_->IsValid());
 }
 
 TEST_F(BasicBlockTest,
        BasicBlockWithFallThroughSuccessorIsValid) {
-  basic_code_block_.successors().push_back(CreateBranch(I_JMP, kOffset2));
-  ASSERT_TRUE(basic_code_block_.IsValid());
+  basic_code_block_->successors().push_back(CreateBranch(I_JMP, kOffset2));
+  ASSERT_TRUE(basic_code_block_->IsValid());
 }
 
 TEST_F(BasicBlockTest,
        BasicBlockWithTerminalInstructionNoSuccessorsIsValid) {
-  basic_code_block_.instructions().push_back(CreateRet());
-  ASSERT_TRUE(basic_code_block_.IsValid());
+  basic_code_block_->instructions().push_back(CreateRet());
+  ASSERT_TRUE(basic_code_block_->IsValid());
 }
 
 namespace {
@@ -306,14 +311,14 @@ TEST_F(BasicBlockTest, InvalidBasicBlockReference) {
 TEST_F(BasicBlockTest, BasicBlockReference) {
   BasicBlockReference ref(BlockGraph::RELATIVE_REF,
                           kRefSize,
-                          &basic_code_block_);
+                          basic_code_block_);
 
   EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK,
             ref.referred_type());
   TestReferenceCopy(ref);
 
   EXPECT_EQ(NULL, ref.block());
-  EXPECT_EQ(&basic_code_block_, ref.basic_block());
+  EXPECT_EQ(basic_code_block_, ref.basic_block());
   EXPECT_EQ(kRefSize, ref.size());
   EXPECT_EQ(0, ref.offset());
   EXPECT_EQ(0, ref.base());
@@ -352,9 +357,9 @@ TEST_F(BasicBlockTest, BlockReference) {
 
 TEST_F(BasicBlockTest, CompareBasicBlockReferences) {
   BasicBlockReference r1(
-      BlockGraph::RELATIVE_REF, kRefSize, &basic_code_block_);
+      BlockGraph::RELATIVE_REF, kRefSize, basic_code_block_);
   BasicBlockReference r2(
-      BlockGraph::RELATIVE_REF, kRefSize, &basic_code_block_);
+      BlockGraph::RELATIVE_REF, kRefSize, basic_code_block_);
   BasicBlockReference r3(
       BlockGraph::RELATIVE_REF, kRefSize, macro_block_, 8, 8);
 
@@ -479,8 +484,8 @@ TEST_F(SuccessorTest, BasicCodeBlockConstructor) {
   const Successor::Condition kCondition = Successor::kConditionAbove;
   const Successor::Size kSuccessorSize = 5;
   uint8 data[20] = {};
-  BasicCodeBlock bb("bb");
-  BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, &bb);
+  BasicCodeBlock* bb = subgraph_.AddBasicCodeBlock("bb");
+  BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, bb);
 
   Successor s(kCondition,
               bb_ref,
@@ -494,8 +499,8 @@ TEST_F(SuccessorTest, BasicCodeBlockConstructor) {
 
 TEST_F(SuccessorTest, SetBranchTarget) {
   uint8 data[20] = {};
-  BasicCodeBlock bb("bb");
-  BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, &bb);
+  BasicCodeBlock* bb = subgraph_.AddBasicCodeBlock("bb");
+  BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, bb);
 
   Successor s;
   s.SetReference(bb_ref);
@@ -713,7 +718,7 @@ TEST_F(InstructionTest, FindOperandReference) {
   {
     // Generate a dual-reference instruction.
     assm.mov(Operand(core::eax, core::ebx, core::kTimes4,
-                     Displacement(&basic_code_block_)),
+                     Displacement(basic_code_block_)),
              Immediate(macro_block_, 30));
     const Instruction& inst = instructions.back();
 
@@ -721,7 +726,7 @@ TEST_F(InstructionTest, FindOperandReference) {
     EXPECT_TRUE(inst.FindOperandReference(0, &ref0));
     EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK,
               ref0.referred_type());
-    EXPECT_EQ(&basic_code_block_, ref0.basic_block());
+    EXPECT_EQ(basic_code_block_, ref0.basic_block());
 
     BasicBlockReference ref1;
     EXPECT_TRUE(inst.FindOperandReference(1, &ref1));
@@ -736,7 +741,7 @@ TEST_F(InstructionTest, FindOperandReference) {
   {
     // Generate a singe-reference instruction with an 8-bit immediate.
     assm.mov(Operand(core::eax, core::ebx, core::kTimes4,
-                     Displacement(&basic_code_block_)),
+                     Displacement(basic_code_block_)),
              Immediate(0x10, core::kSize8Bit));
 
     const Instruction& inst = instructions.back();
@@ -745,7 +750,7 @@ TEST_F(InstructionTest, FindOperandReference) {
     EXPECT_TRUE(inst.FindOperandReference(0, &ref0));
     EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK,
               ref0.referred_type());
-    EXPECT_EQ(&basic_code_block_, ref0.basic_block());
+    EXPECT_EQ(basic_code_block_, ref0.basic_block());
 
     BasicBlockReference ignore;
     EXPECT_FALSE(inst.FindOperandReference(1, &ignore));

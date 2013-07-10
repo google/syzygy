@@ -25,8 +25,9 @@ namespace {
 class BlockUtilTest: public testing::Test {
  public:
   BlockUtilTest()
-      : bb_("foo"),
+      : bb_(NULL),
         start_addr_(0xF00D) {
+    bb_ = subgraph_.AddBasicCodeBlock("foo");
   }
 
   void TestAttributes(BlockGraph::BlockAttributes attributes, bool expected) {
@@ -40,7 +41,7 @@ class BlockUtilTest: public testing::Test {
     using core::ebp;
     using core::esp;
 
-    BasicBlockAssembler assm(bb_.instructions().begin(), &bb_.instructions());
+    BasicBlockAssembler assm(bb_->instructions().begin(), &bb_->instructions());
 
     assm.push(ebp);
     assm.mov(ebp, esp);
@@ -48,11 +49,11 @@ class BlockUtilTest: public testing::Test {
     assm.pop(ebp);
     // assm.ret(0);
 
-    BasicBlock::Instructions::iterator inst_it(bb_.instructions().begin());
+    BasicBlock::Instructions::iterator inst_it(bb_->instructions().begin());
     BlockGraph::RelativeAddress next_addr(start_addr_);
 
     BasicBlock::Offset next_offs = 0;
-    for (; inst_it != bb_.instructions().end(); ++inst_it) {
+    for (; inst_it != bb_->instructions().end(); ++inst_it) {
       if (add_source_ranges)
         inst_it->set_source_range(
             Instruction::SourceRange(next_addr, inst_it->size()));
@@ -61,16 +62,16 @@ class BlockUtilTest: public testing::Test {
       next_offs += inst_it->size();
     }
 
-    BasicBlockReference ref(BlockGraph::PC_RELATIVE_REF, 4, &bb_);
-    bb_.successors().push_back(
+    BasicBlockReference ref(BlockGraph::PC_RELATIVE_REF, 4, bb_);
+    bb_->successors().push_back(
         Successor(Successor::kConditionAbove, ref, 5));
     next_offs += 5;
 
     if (add_source_ranges)
-      bb_.successors().back().set_source_range(
+      bb_->successors().back().set_source_range(
           Successor::SourceRange(next_addr, 5));
 
-    bb_.successors().push_back(
+    bb_->successors().push_back(
         Successor(Successor::kConditionBelowOrEqual, ref, 0));
 
     return next_offs;
@@ -79,7 +80,8 @@ class BlockUtilTest: public testing::Test {
  protected:
   BlockGraph image_;
   BlockGraph::RelativeAddress start_addr_;
-  BasicCodeBlock bb_;
+  BasicBlockSubGraph subgraph_;
+  BasicCodeBlock* bb_;
 };
 
 }  // namespace
@@ -126,7 +128,7 @@ TEST_F(BlockUtilTest, GetBasicBlockSourceRangeEmptyFails) {
   BlockGraph::Size instr_len = AddInstructions(false);
 
   BlockGraph::Block::SourceRange source_range;
-  ASSERT_FALSE(GetBasicBlockSourceRange(bb_, &source_range));
+  ASSERT_FALSE(GetBasicBlockSourceRange(*bb_, &source_range));
   EXPECT_EQ(0, source_range.size());
 }
 
@@ -135,12 +137,12 @@ TEST_F(BlockUtilTest, GetBasicBlockSourceRangeNonContiguousFails) {
 
   // Make the range non-contiguous by pushing the successor out one byte.
   BlockGraph::Block::SourceRange range =
-      bb_.successors().front().source_range();
-  bb_.successors().front().set_source_range(
+      bb_->successors().front().source_range();
+  bb_->successors().front().set_source_range(
       BlockGraph::Block::SourceRange(range.start() + 1, range.size()));
 
   BlockGraph::Block::SourceRange source_range;
-  ASSERT_FALSE(GetBasicBlockSourceRange(bb_, &source_range));
+  ASSERT_FALSE(GetBasicBlockSourceRange(*bb_, &source_range));
   EXPECT_EQ(0, source_range.size());
 }
 
@@ -148,7 +150,7 @@ TEST_F(BlockUtilTest, GetBasicBlockSourceRangeSequentialSucceeds) {
   BlockGraph::Size instr_len = AddInstructions(true);
 
   BlockGraph::Block::SourceRange source_range;
-  ASSERT_TRUE(GetBasicBlockSourceRange(bb_, &source_range));
+  ASSERT_TRUE(GetBasicBlockSourceRange(*bb_, &source_range));
   BlockGraph::Block::SourceRange expected_range(
       BlockGraph::RelativeAddress(0xF00D), instr_len);
   EXPECT_EQ(expected_range, source_range);
@@ -158,13 +160,14 @@ TEST_F(BlockUtilTest, GetBasicBlockSourceRangeNonSequentialSucceeds) {
   BlockGraph::Size instr_len = AddInstructions(true);
 
   // Shuffle the ranges by flipping the first and last ranges.
-  BlockGraph::Block::SourceRange temp = bb_.successors().front().source_range();
-  bb_.successors().front().set_source_range(
-      bb_.instructions().front().source_range());
-  bb_.instructions().front().set_source_range(temp);
+  BlockGraph::Block::SourceRange temp =
+      bb_->successors().front().source_range();
+  bb_->successors().front().set_source_range(
+      bb_->instructions().front().source_range());
+  bb_->instructions().front().set_source_range(temp);
 
   BlockGraph::Block::SourceRange source_range;
-  ASSERT_TRUE(GetBasicBlockSourceRange(bb_, &source_range));
+  ASSERT_TRUE(GetBasicBlockSourceRange(*bb_, &source_range));
   BlockGraph::Block::SourceRange expected_range(
       BlockGraph::RelativeAddress(0xF00D), instr_len);
   EXPECT_EQ(expected_range, source_range);
@@ -174,12 +177,12 @@ TEST_F(BlockUtilTest, GetBasicBlockSourceRangePrependInstructionsSucceeds) {
   BlockGraph::Size instr_len = AddInstructions(true);
 
   // Prepend some instrumentation-like code.
-  BasicBlockAssembler assm(bb_.instructions().begin(), &bb_.instructions());
+  BasicBlockAssembler assm(bb_->instructions().begin(), &bb_->instructions());
   assm.push(Immediate(0xBADF00D));
-  assm.call(Displacement(&bb_));
+  assm.call(Displacement(bb_));
 
   BlockGraph::Block::SourceRange source_range;
-  ASSERT_TRUE(GetBasicBlockSourceRange(bb_, &source_range));
+  ASSERT_TRUE(GetBasicBlockSourceRange(*bb_, &source_range));
   BlockGraph::Block::SourceRange expected_range(
       BlockGraph::RelativeAddress(0xF00D), instr_len);
   EXPECT_EQ(expected_range, source_range);
@@ -225,26 +228,20 @@ TEST_F(BlockUtilTest, IsUnsafeReference) {
 }
 
 TEST_F(BlockUtilTest, CheckNoUnexpectedStackFrameManipulation) {
-  BasicBlockSubGraph bbsg;
-  BasicCodeBlock* bb = bbsg.AddBasicCodeBlock("dummy");
-
   // Prepend some instrumentation with a conventional calling convention.
-  BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
+  BasicBlockAssembler assm(bb_->instructions().begin(), &bb_->instructions());
   assm.push(core::ebp);
   assm.mov(core::ebp, core::esp);
   assm.mov(core::eax, Operand(core::ebp,  Displacement(8)));
   assm.pop(core::ebp);
   assm.ret(0);
 
-  EXPECT_FALSE(HasUnexpectedStackFrameManipulation(&bbsg));
+  EXPECT_FALSE(HasUnexpectedStackFrameManipulation(&subgraph_));
 }
 
 TEST_F(BlockUtilTest, CheckInvalidInstructionUnexpectedStackFrameManipulation) {
-  BasicBlockSubGraph bbsg;
-  BasicCodeBlock* bb = bbsg.AddBasicCodeBlock("dummy");
-
   // Prepend some instrumentation with a conventional calling convention.
-  BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
+  BasicBlockAssembler assm(bb_->instructions().begin(), &bb_->instructions());
   assm.push(core::ebp);
   assm.mov(core::ebp, core::esp);
   // The instruction LEA is invalid stack frame manipulation.
@@ -252,15 +249,12 @@ TEST_F(BlockUtilTest, CheckInvalidInstructionUnexpectedStackFrameManipulation) {
   assm.pop(core::ebp);
   assm.ret(0);
 
-  EXPECT_TRUE(HasUnexpectedStackFrameManipulation(&bbsg));
+  EXPECT_TRUE(HasUnexpectedStackFrameManipulation(&subgraph_));
 }
 
 TEST_F(BlockUtilTest, CheckInvalidRegisterUnexpectedStackFrameManipulation) {
-  BasicBlockSubGraph bbsg;
-  BasicCodeBlock* bb = bbsg.AddBasicCodeBlock("dummy");
-
   // Prepend some instrumentation with a conventional calling convention.
-  BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
+  BasicBlockAssembler assm(bb_->instructions().begin(), &bb_->instructions());
   assm.push(core::ebp);
   // The instruction MOV use an invalid register EAX.
   assm.mov(core::ebp, core::eax);
@@ -268,7 +262,7 @@ TEST_F(BlockUtilTest, CheckInvalidRegisterUnexpectedStackFrameManipulation) {
   assm.pop(core::ebp);
   assm.ret(0);
 
-  EXPECT_TRUE(HasUnexpectedStackFrameManipulation(&bbsg));
+  EXPECT_TRUE(HasUnexpectedStackFrameManipulation(&subgraph_));
 }
 
 namespace {

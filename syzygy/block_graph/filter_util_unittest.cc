@@ -15,6 +15,7 @@
 #include "syzygy/block_graph/filter_util.h"
 
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/basic_block_subgraph.h"
 
 namespace block_graph {
 
@@ -32,15 +33,17 @@ TEST(FilterUtilTest, IsFiltered) {
   // Create some dummy blocks, etc. Initially they have no source ranges so
   // should all pass as instrumentable.
   BlockGraph block_graph;
+  BasicBlockSubGraph subgraph;
   BlockGraph::Block* block =
       block_graph.AddBlock(BlockGraph::CODE_BLOCK, 10, "block");
   Instruction inst;
   EXPECT_TRUE(Instruction::FromBuffer(nop, arraysize(nop), &inst));
-  BasicCodeBlock code_bb("code_bb");
-  code_bb.instructions().push_back(inst);
-  BasicDataBlock data_bb("data_bb", data, arraysize(data));
-  BasicBlock* code_bb_ptr = &code_bb;
-  BasicBlock* data_bb_ptr = &data_bb;
+  BasicCodeBlock* code_bb = subgraph.AddBasicCodeBlock("code_bb");
+  code_bb->instructions().push_back(inst);
+  BasicDataBlock* data_bb =
+      subgraph.AddBasicDataBlock("data_bb", arraysize(data), data);
+  BasicBlock* code_bb_ptr = code_bb;
+  BasicBlock* data_bb_ptr = data_bb;
 
   // Create a filter.
   RelativeAddressFilter f(Range(RelativeAddress(0), 100));
@@ -54,14 +57,14 @@ TEST(FilterUtilTest, IsFiltered) {
             RelativeAddress(35), 10)));
   inst.set_source_range(
       Range(RelativeAddress(32), arraysize(nop)));
-  code_bb.instructions().begin()->set_source_range(
+  code_bb->instructions().begin()->set_source_range(
       Range(RelativeAddress(38), arraysize(nop)));
-  data_bb.set_source_range(Range(RelativeAddress(29), arraysize(data)));
+  data_bb->set_source_range(Range(RelativeAddress(29), arraysize(data)));
 
   // We expect nothing to be filtered.
   EXPECT_FALSE(IsFiltered(f, block));
-  EXPECT_FALSE(IsFiltered(f, &code_bb));
-  EXPECT_FALSE(IsFiltered(f, &data_bb));
+  EXPECT_FALSE(IsFiltered(f, code_bb));
+  EXPECT_FALSE(IsFiltered(f, data_bb));
   EXPECT_FALSE(IsFiltered(f, code_bb_ptr));
   EXPECT_FALSE(IsFiltered(f, data_bb_ptr));
   EXPECT_FALSE(IsFiltered(f, inst));
@@ -71,8 +74,8 @@ TEST(FilterUtilTest, IsFiltered) {
 
   // We expect everything to be filtered.
   EXPECT_TRUE(IsFiltered(f, block));
-  EXPECT_TRUE(IsFiltered(f, &code_bb));
-  EXPECT_TRUE(IsFiltered(f, &data_bb));
+  EXPECT_TRUE(IsFiltered(f, code_bb));
+  EXPECT_TRUE(IsFiltered(f, data_bb));
   EXPECT_TRUE(IsFiltered(f, code_bb_ptr));
   EXPECT_TRUE(IsFiltered(f, data_bb_ptr));
   EXPECT_TRUE(IsFiltered(f, inst));
