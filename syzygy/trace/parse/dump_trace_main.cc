@@ -42,6 +42,9 @@ const char* GetIndexedDataTypeStr(uint8 data_type) {
     case common::IndexedFrequencyData::BASIC_BLOCK_ENTRY:
       ret = "basic-block entry counts";
       break;
+    case common::IndexedFrequencyData::COVERAGE:
+      ret = "coverage entry counts";
+      break;
     case common::IndexedFrequencyData::JUMP_TABLE:
       ret = "jump-table case counts";
       break;

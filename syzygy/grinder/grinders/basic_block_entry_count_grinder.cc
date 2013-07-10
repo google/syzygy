@@ -73,7 +73,7 @@ void BasicBlockEntryCountGrinder::OnIndexedFrequency(
   DCHECK(parser_ != NULL);
 
   if (data->data_type != common::IndexedFrequencyData::BASIC_BLOCK_ENTRY &&
-      data->data_type != common::IndexedFrequencyData::COVERAGE )
+      data->data_type != common::IndexedFrequencyData::COVERAGE)
     return;
 
   if (data->num_entries == 0) {
