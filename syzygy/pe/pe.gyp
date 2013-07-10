@@ -235,6 +235,9 @@
           'DelayLoadDLLs': [
             'ole32.dll',
           ],
+          'IgnoreDefaultLibraryNames': [
+            'libcmtd.lib',
+          ],
         },
       },
       # We more or less want this to always be a release-style executable
