@@ -213,10 +213,11 @@ TEST(UntypedReferenceTest, BasicBlockConstructor) {
 
 TEST(UntypedReferenceTest, BlockConstructor) {
   BlockGraph block_graph;
-  BlockGraph::Block b(0, BlockGraph::CODE_BLOCK, 0, "dummy", &block_graph);
-  UntypedReference r(&b, 4, 10);
+  BlockGraph::Block* b =
+      block_graph.AddBlock(BlockGraph::CODE_BLOCK, 0, "dummy");
+  UntypedReference r(b, 4, 10);
   EXPECT_EQ(NULL, r.basic_block());
-  EXPECT_EQ(&b, r.block());
+  EXPECT_EQ(b, r.block());
   EXPECT_EQ(4, r.offset());
   EXPECT_EQ(10, r.base());
   EXPECT_TRUE(r.IsValid());
@@ -225,8 +226,9 @@ TEST(UntypedReferenceTest, BlockConstructor) {
 
 TEST(UntypedReferenceTest, CopyConstructor) {
   BlockGraph block_graph;
-  BlockGraph::Block b(0, BlockGraph::CODE_BLOCK, 0, "dummy", &block_graph);
-  UntypedReference r1(&b, 4, 10);
+  BlockGraph::Block* b =
+      block_graph.AddBlock(BlockGraph::CODE_BLOCK, 0, "dummy");
+  UntypedReference r1(b, 4, 10);
 
   UntypedReference r2(r1);
   EXPECT_EQ(r1.basic_block(), r2.basic_block());
@@ -239,10 +241,11 @@ TEST(UntypedReferenceTest, CopyConstructor) {
 TEST(UntypedReferenceTest, Comparison) {
   BlockGraph block_graph;
   BasicBlockSubGraph subgraph;
-  BlockGraph::Block b(0, BlockGraph::CODE_BLOCK, 0, "dummy", &block_graph);
-  UntypedReference r1(&b, 4, 10);
+  BlockGraph::Block* b =
+      block_graph.AddBlock(BlockGraph::CODE_BLOCK, 0, "dummy");
+  UntypedReference r1(b, 4, 10);
 
-  UntypedReference r2(&b, 0, 0);
+  UntypedReference r2(b, 0, 0);
   EXPECT_FALSE(r1 == r2);
 
   BasicCodeBlock* bcb = subgraph.AddBasicCodeBlock("foo");

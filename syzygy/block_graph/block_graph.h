@@ -522,11 +522,6 @@ class BlockGraph::Block {
   // disassemble from the code labels to discover all basic blocks.
   typedef std::map<Offset, Label> LabelMap;
 
-  Block(BlockId id,
-        BlockType type,
-        Size size,
-        const base::StringPiece& name,
-        BlockGraph* block_graph);
   ~Block();
 
   // Accessors.
@@ -740,6 +735,15 @@ class BlockGraph::Block {
   friend class BlockGraph;
   // Give BlockGraphSerializer access to our innards for serialization.
   friend class BlockGraphSerializer;
+
+  // Full constructor.
+  // @note This is protected so that blocks may only be created via the
+  //     BlockGraph factory.
+  Block(BlockId id,
+        BlockType type,
+        Size size,
+        const base::StringPiece& name,
+        BlockGraph* block_graph);
 
   // This constructor is used by serialization.
   explicit Block(BlockGraph* block_graph);

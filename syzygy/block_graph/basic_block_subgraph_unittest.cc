@@ -53,11 +53,12 @@ class TestBasicBlockSubGraph : public BasicBlockSubGraph {
 
 TEST(BasicBlockSubGraphTest, AddBasicBlock) {
   BlockGraph block_graph;
-  BlockGraph::Block block(0, BlockGraph::CODE_BLOCK, 0, "dummy", &block_graph);
+  BlockGraph::Block* block =
+      block_graph.AddBlock(BlockGraph::CODE_BLOCK, 0, "dummy");
   BasicBlockSubGraph subgraph;
-  subgraph.set_original_block(&block);
-  block.set_size(kDataSize);
-  block.SetData(kData, kDataSize);
+  subgraph.set_original_block(block);
+  block->set_size(kDataSize);
+  block->SetData(kData, kDataSize);
 
   // Add a basic data block.
   BasicDataBlock* bb1 = subgraph.AddBasicDataBlock("bb1", kDataSize, kData);
@@ -149,8 +150,8 @@ TEST(BasicBlockSubGraphTest, MapsBasicBlocksToAtMostOneDescription) {
 
 TEST(BasicBlockSubGraphTest, GetReachabilityMap) {
   BlockGraph block_graph;
-  BlockGraph::Block external_block(0, BlockGraph::CODE_BLOCK, 0, "dummy",
-      &block_graph);
+  BlockGraph::Block* external_block =
+      block_graph.AddBlock(BlockGraph::CODE_BLOCK, 0, "dummy");
   BasicBlockSubGraph subgraph;
   static const uint8 kData[Reference::kMaximumSize] = { 0 };
 
@@ -174,7 +175,7 @@ TEST(BasicBlockSubGraphTest, GetReachabilityMap) {
   ASSERT_TRUE(Instruction::FromBuffer(kJmp, sizeof(kJmp), &jmp));
   Instruction ret;
   ASSERT_TRUE(Instruction::FromBuffer(kRet, sizeof(kRet), &ret));
-  bb1->referrers().insert(BasicBlockReferrer(&external_block, 0));
+  bb1->referrers().insert(BasicBlockReferrer(external_block, 0));
   bb1->instructions().push_back(jmp);
   bb1->instructions().back().SetReference(
       3, BasicBlockReference(BlockGraph::RELATIVE_REF,
@@ -206,13 +207,13 @@ TEST(BasicBlockSubGraphTest, GetReachabilityMap) {
 
 TEST(BasicBlockSubGraphTest, HasValidSuccessors) {
   BlockGraph block_graph;
-  BlockGraph::Block external_block(0, BlockGraph::CODE_BLOCK, 0, "dummy",
-      &block_graph);
+  BlockGraph::Block* external_block =
+      block_graph.AddBlock(BlockGraph::CODE_BLOCK, 0, "dummy");
   TestBasicBlockSubGraph subgraph;
 
   BasicCodeBlock* bb1 = subgraph.AddBasicCodeBlock("bb1");
   ASSERT_FALSE(bb1 == NULL);
-  bb1->referrers().insert(BasicBlockReferrer(&external_block, 0));
+  bb1->referrers().insert(BasicBlockReferrer(external_block, 0));
 
   BasicCodeBlock* bb2 = subgraph.AddBasicCodeBlock("bb2");
   ASSERT_FALSE(bb2 == NULL);
@@ -301,9 +302,10 @@ TEST(BasicBlockSubGraphTest, HasValidReferrers) {
 
 TEST(BasicBlockSubGraphTest, ToString) {
   BlockGraph block_graph;
-  BlockGraph::Block block(0, BlockGraph::CODE_BLOCK, 0, "dummy", &block_graph);
+  BlockGraph::Block* block =
+      block_graph.AddBlock(BlockGraph::CODE_BLOCK, 0, "dummy");
   BasicBlockSubGraph subgraph;
-  subgraph.set_original_block(&block);
+  subgraph.set_original_block(block);
 
   BlockDescription* b1 = subgraph.AddBlockDescription(
       "b1", BlockGraph::CODE_BLOCK, 7, 2, 42);
