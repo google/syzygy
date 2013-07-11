@@ -223,6 +223,7 @@ class BlockGraph {
   // @param name The section name.
   // @returns the section if one is found, NULL otherwise.
   Section* FindSection(const base::StringPiece& name);
+  const Section* FindSection(const base::StringPiece& name) const;
 
   // Find or adds section with the given name.
   //

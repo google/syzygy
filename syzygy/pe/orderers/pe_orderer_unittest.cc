@@ -41,21 +41,6 @@ using block_graph::OrderedBlockGraph;
 using block_graph::TypedBlock;
 using core::RelativeAddress;
 
-const BlockGraph::Section* FindSection(const BlockGraph* block_graph,
-                                       const char* section_name) {
-  DCHECK(block_graph != NULL);
-  DCHECK(section_name != NULL);
-
-  BlockGraph::SectionMap::const_iterator section_it =
-      block_graph->sections().begin();
-  for (; section_it != block_graph->sections().end(); ++section_it) {
-    if (section_it->second.name() == section_name)
-      return &section_it->second;
-  }
-
-  return NULL;
-}
-
 const BlockGraph::Block* GetDataDirEntryBlock(
     const ConstTypedBlock<IMAGE_NT_HEADERS>& nt_headers,
     size_t data_dir_index) {
@@ -113,9 +98,12 @@ void VerifyValidLayout(const OrderedBlockGraph* obg,
   header_blocks.push_back(nt_headers.block());
   ASSERT_NO_FATAL_FAILURE(VerifySectionStartsWith(obg, NULL, header_blocks));
 
+  const BlockGraph* block_graph = obg->block_graph();
+  DCHECK(block_graph != NULL);
+
   // Check that the resources are in the right section.
   const BlockGraph::Section* rsrc_section =
-      FindSection(obg->block_graph(), kResourceSectionName);
+      block_graph->FindSection(kResourceSectionName);
   const BlockGraph::Block* rsrc_data_dir =
       GetDataDirEntryBlock(nt_headers, IMAGE_DIRECTORY_ENTRY_RESOURCE);
 
@@ -126,7 +114,7 @@ void VerifyValidLayout(const OrderedBlockGraph* obg,
 
   // Check that the relocs are in the right section.
   const BlockGraph::Section* reloc_section =
-      FindSection(obg->block_graph(), kRelocSectionName);
+      block_graph->FindSection(kRelocSectionName);
   const BlockGraph::Block* reloc_data_dir =
       GetDataDirEntryBlock(nt_headers, IMAGE_DIRECTORY_ENTRY_BASERELOC);
 

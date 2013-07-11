@@ -233,11 +233,18 @@ BlockGraph::Section* BlockGraph::AddSection(const base::StringPiece& name,
 }
 
 BlockGraph::Section* BlockGraph::FindSection(const base::StringPiece& name) {
+  const BlockGraph* self = const_cast<const BlockGraph*>(this);
+  const BlockGraph::Section* section = self->FindSection(name);
+  return const_cast<BlockGraph::Section*>(section);
+}
+
+const BlockGraph::Section* BlockGraph::FindSection(
+    const base::StringPiece& name) const {
   // This is a linear scan, but thankfully images generally do not have many
   // sections and we do not create them very often. Fast lookup by index is
   // more important. If this ever becomes an issue, we could keep around a
   // second index by name.
-  SectionMap::iterator it = sections_.begin();
+  SectionMap::const_iterator it = sections_.begin();
   for (; it != sections_.end(); ++it) {
     if (it->second.name() == name)
       return &it->second;

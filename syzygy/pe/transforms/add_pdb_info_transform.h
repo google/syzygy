@@ -57,7 +57,7 @@ class AddPdbInfoTransform
   virtual bool TransformBlockGraph(
       BlockGraph* block_graph, BlockGraph::Block* dos_header_block) OVERRIDE;
 
-  // The tranform name.
+  // The transform name.
   static const char kTransformName[];
 
  private:

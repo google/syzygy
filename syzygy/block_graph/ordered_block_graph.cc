@@ -95,15 +95,7 @@ OrderedBlockGraph::OrderedBlockGraph(BlockGraph* block_graph)
     DCHECK_LT(i, block_infos_.size());
     // Get the SectionInfo for the section containing the block.
     BlockGraph::SectionId section_id = block_it->second.section();
-    const Section* section = NULL;
-    if (section_id != BlockGraph::kInvalidSectionId) {
-      BlockGraph::SectionMap::const_iterator section_it =
-          block_graph_->sections().find(section_id);
-      // Blocks can have orphaned section IDs if the section has been deleted
-      // from underneath them.
-      if (section_it != block_graph_->sections().end())
-        section = &section_it->second;
-    }
+    const Section* section = block_graph_->GetSectionById(section_id);
     SectionInfo* section_info = GetSectionInfo(section);
     DCHECK(section_info != NULL);
 

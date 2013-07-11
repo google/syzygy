@@ -56,14 +56,7 @@ bool AddMetadataTransform::TransformBlockGraph(
   BlockGraph::Block* block = NULL;
 
   // Look for the section.
-  BlockGraph::SectionMap::const_iterator section_it =
-      block_graph->sections().begin();
-  for (; section_it != block_graph->sections().end(); ++section_it) {
-    if (section_it->second.name() == common::kSyzygyMetadataSectionName) {
-      section = &section_it->second;
-      break;
-    }
-  }
+  section = block_graph->FindSection(common::kSyzygyMetadataSectionName);
 
   // If we found the section then look for the block.
   if (section != NULL) {
