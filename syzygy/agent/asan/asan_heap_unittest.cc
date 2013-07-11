@@ -46,7 +46,7 @@ class TestHeapProxy : public HeapProxy {
   using HeapProxy::ToBlockHeader;
   using HeapProxy::GetBlockTrailer;
 
-  explicit TestHeapProxy(StackCaptureCache* stack_cache, AsanLogger* logger)
+  TestHeapProxy(StackCaptureCache* stack_cache, AsanLogger* logger)
       : HeapProxy(stack_cache, logger) {
   }
 
@@ -162,7 +162,6 @@ TEST_F(HeapTest, SetQuarantineMaxSize) {
   // Increments the quarantine max size if it was set to 0.
   if (quarantine_size == 0)
     quarantine_size++;
-  DCHECK_GT(quarantine_size, 0U);
   proxy_.SetQuarantineMaxSize(quarantine_size);
   ASSERT_EQ(quarantine_size, proxy_.quarantine_max_size());
 }
@@ -466,7 +465,7 @@ TEST_F(HeapTest, CaptureTID) {
 
 TEST_F(HeapTest, QuarantineDoesntAlterBlockContents) {
   const size_t kAllocSize = 13;
-  // Ensure that the quarantine is large enough to keep this block..
+  // Ensure that the quarantine is large enough to keep this block.
   proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
   void* mem = proxy_.Alloc(0, kAllocSize);
   ASSERT_TRUE(mem != NULL);
@@ -496,7 +495,7 @@ TEST_F(HeapTest, InternalStructureArePoisoned) {
             Shadow::GetShadowMarkerForAddress(TestShadow::shadow_));
 
   const size_t kAllocSize = 13;
-  // Ensure that the quarantine is large enough to keep this block..
+  // Ensure that the quarantine is large enough to keep this block.
   proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
   uint8* mem = static_cast<uint8*>(proxy_.Alloc(0, kAllocSize));
   TestHeapProxy::BlockHeader* header =
