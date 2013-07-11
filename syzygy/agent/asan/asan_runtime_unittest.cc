@@ -75,7 +75,7 @@ bool callback_called = false;
 
 // A simple callback that change the value of a boolean to indicate that it has
 // been called.
-void TestCallback(CONTEXT* context, AsanErrorInfo* error_info) {
+void TestCallback(AsanErrorInfo* error_info) {
   callback_called = true;
 }
 
@@ -92,12 +92,9 @@ TEST_F(AsanRuntimeTest, OnError) {
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
   asan_runtime_.SetErrorCallBack(base::Bind(&TestCallback));
   callback_called = false;
-  CONTEXT context;
-  RtlCaptureContext(&context);
-  StackCapture stack;
-  stack.InitFromStack();
   AsanErrorInfo bad_access_info = {};
-  asan_runtime_.OnError(&context, &bad_access_info);
+  RtlCaptureContext(&bad_access_info.context);
+  asan_runtime_.OnError(&bad_access_info);
   ASSERT_TRUE(callback_called);
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
@@ -177,16 +174,15 @@ TEST_F(AsanRuntimeTest, ExitOnFailure) {
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
 
   EXPECT_TRUE(asan_runtime_.flags()->exit_on_failure);
-  CONTEXT context = {};
-  RtlCaptureContext(&context);
-
   AsanErrorInfo bad_access_info = {};
+  RtlCaptureContext(&bad_access_info.context);
+
   // We need to delete the files and directory created by this unittest because
   // the EXPECT_EXIT macro will clone the process and this new process will exit
   // after the call to OnError, without calling the destructor of this class
   // (who takes care of deleting the temporary files/directories).
   DeleteTempFileAndDirectory();
-  EXPECT_EXIT(asan_runtime_.OnError(&context, &bad_access_info),
+  EXPECT_EXIT(asan_runtime_.OnError(&bad_access_info),
               ::testing::ExitedWithCode(EXIT_FAILURE), "");
 }
 

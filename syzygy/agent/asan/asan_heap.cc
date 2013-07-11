@@ -21,7 +21,6 @@
 #include "base/debug/alias.h"
 #include "base/debug/stack_trace.h"
 #include "base/strings/sys_string_conversions.h"
-#include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 #include "syzygy/common/align.h"
@@ -94,48 +93,9 @@ const char* HeapProxy::kAttemptingDoubleFree = "attempting double-free";
 const char* HeapProxy::kWildAccess = "wild access";
 const char* HeapProxy::kHeapUnknownError = "heap-unknown-error";
 
-void ASANDbgCmd(const wchar_t* fmt, ...) {
-  // The string should start with "ASAN" to be interpreted by the debugger as a
-  // command.
-  std::wstring command_wstring = L"ASAN ";
-  va_list args;
-  va_start(args, fmt);
-
-  // Append the actual command to the wstring.
-  base::StringAppendV(&command_wstring, fmt, args);
-
-  // Append "; g" to make sure that the debugger continue its execution after
-  // executing this command. This is needed because when the .ocommand function
-  // is used under Windbg the debugger will break on OutputDebugString.
-  command_wstring.append(L"; g");
-
-  OutputDebugString(command_wstring.c_str());
-}
-
-void ASANDbgMessage(const wchar_t* fmt, ...) {
-  // Prepend the message with the .echo command so it'll be printed into the
-  // debugger's console.
-  std::wstring message_wstring = L".echo ";
-  va_list args;
-  va_start(args, fmt);
-
-  // Append the actual message to the wstring.
-  base::StringAppendV(&message_wstring, fmt, args);
-
-  // Treat the message as a command to print it.
-  ASANDbgCmd(message_wstring.c_str());
-}
-
-// Switch to the caller's context and print its stack trace in Windbg.
-void ASANDbgPrintContext(const CONTEXT& context) {
-  ASANDbgMessage(L"Caller's context (%p) and stack trace:", &context);
-  ASANDbgCmd(L".cxr %p; kv", reinterpret_cast<uint32>(&context));
-}
-
 HeapProxy::HeapProxy(StackCaptureCache* stack_cache, AsanLogger* logger)
     : heap_(NULL),
       stack_cache_(stack_cache),
-      logger_(logger),
       head_(NULL),
       tail_(NULL),
       quarantine_size_(0),
@@ -273,20 +233,6 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
     // is only applied to block after invalidating their magic number and freed
     // them.
     DCHECK(block->state == QUARANTINED);
-
-    BadAccessKind bad_access_kind =
-        GetBadAccessKind(static_cast<const uint8*>(mem), block);
-    DCHECK_NE(UNKNOWN_BAD_ACCESS, bad_access_kind);
-
-    CONTEXT context = {};
-    ::RtlCaptureContext(&context);
-    AsanErrorInfo error_info = {};
-    error_info.error_type = UNKNOWN_BAD_ACCESS;
-
-    ReportAsanError(kAttemptingDoubleFree, static_cast<const uint8*>(mem),
-                    context, stack, bad_access_kind, block,
-                    ASAN_UNKNOWN_ACCESS, 0, &error_info);
-
     return false;
   }
 
@@ -460,33 +406,8 @@ HeapProxy::BlockHeader* HeapProxy::ToBlockHeader(const void* alloc) {
 
   const uint8* mem = static_cast<const uint8*>(alloc);
   const BlockHeader* header = reinterpret_cast<const BlockHeader*>(mem) - 1;
-  if (header->magic_number != kBlockHeaderSignature) {
-    CONTEXT context = {};
-    ::RtlCaptureContext(&context);
-
-    StackCapture stack;
-    stack.InitFromStack();
-
-    AsanErrorInfo bad_access_info = {};
-    base::debug::Alias(&bad_access_info);
-
-    if (!OnBadAccess(mem,
-                     context,
-                     stack,
-                     ASAN_UNKNOWN_ACCESS,
-                     0,
-                     &bad_access_info)) {
-      bad_access_info.error_type = UNKNOWN_BAD_ACCESS;
-      ReportAsanErrorBase("unknown bad access",
-                          mem,
-                          context,
-                          stack,
-                          UNKNOWN_BAD_ACCESS,
-                          ASAN_READ_ACCESS,
-                          0);
-    }
+  if (header->magic_number != kBlockHeaderSignature)
     return NULL;
-  }
 
   return const_cast<BlockHeader*>(header);
 }
@@ -513,78 +434,6 @@ uint8* HeapProxy::ToAlloc(BlockHeader* block) {
   uint8* mem = reinterpret_cast<uint8*>(block);
 
   return mem + sizeof(BlockHeader);
-}
-
-void HeapProxy::ReportAddressInformation(const void* addr,
-                                         BlockHeader* header,
-                                         BadAccessKind bad_access_kind,
-                                         AsanErrorInfo* bad_access_info) {
-  DCHECK(addr != NULL);
-  DCHECK(header != NULL);
-  DCHECK(bad_access_info != NULL);
-
-  BlockTrailer* trailer = GetBlockTrailer(header);
-  DCHECK(trailer != NULL);
-
-  uint8* block_alloc = ToAlloc(header);
-  int offset = 0;
-  char* offset_relativity = "";
-  switch (bad_access_kind) {
-    case HEAP_BUFFER_OVERFLOW:
-      offset = static_cast<const uint8*>(addr) - block_alloc
-          - header->block_size;
-      offset_relativity = "beyond";
-      break;
-    case HEAP_BUFFER_UNDERFLOW:
-      offset = block_alloc - static_cast<const uint8*>(addr);
-      offset_relativity = "before";
-      break;
-    case USE_AFTER_FREE:
-      offset = static_cast<const uint8*>(addr) - block_alloc;
-      offset_relativity = "inside";
-      break;
-    default:
-      NOTREACHED() << "Error trying to dump address information.";
-  }
-
-  size_t shadow_info_bytes = base::snprintf(
-      bad_access_info->shadow_info,
-      arraysize(bad_access_info->shadow_info) - 1,
-      "%08X is %d bytes %s %d-byte block [%08X,%08X)\n",
-      addr,
-      offset,
-      offset_relativity,
-      header->block_size,
-      block_alloc,
-      block_alloc + header->block_size);
-
-  // Ensure that we had enough space to store the full shadow info message.
-  DCHECK_LE(shadow_info_bytes, arraysize(bad_access_info->shadow_info) - 1);
-
-  // If we're not writing textual logs we can return here.
-  if (!logger_->log_as_text())
-    return;
-
-  logger_->Write(bad_access_info->shadow_info);
-  if (trailer->free_stack != NULL) {
-    std::string message = base::StringPrintf(
-        "freed here (stack_id=0x%08X):\n", trailer->free_stack->stack_id());
-    logger_->WriteWithStackTrace(message,
-                                 trailer->free_stack->frames(),
-                                 trailer->free_stack->num_frames());
-  }
-  if (header->alloc_stack != NULL) {
-    std::string message = base::StringPrintf(
-        "previously allocated here (stack_id=0x%08X):\n",
-        header->alloc_stack->stack_id());
-    logger_->WriteWithStackTrace(message,
-                                 header->alloc_stack->frames(),
-                                 header->alloc_stack->num_frames());
-  }
-
-  std::string shadow_text;
-  Shadow::AppendShadowMemoryText(addr, &shadow_text);
-  logger_->Write(shadow_text);
 }
 
 HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const void* addr,
@@ -638,16 +487,10 @@ HeapProxy::BlockHeader* HeapProxy::FindAddressBlock(const void* addr) {
   return header;
 }
 
-bool HeapProxy::OnBadAccess(const void* addr,
-                            const CONTEXT& context,
-                            const StackCapture& stack,
-                            AccessMode access_mode,
-                            size_t access_size,
-                            AsanErrorInfo* bad_access_info) {
-  DCHECK(addr != NULL);
+bool HeapProxy::GetBadAccessInformation(AsanErrorInfo* bad_access_info) {
+  DCHECK(bad_access_info != NULL);
   base::AutoLock lock(lock_);
-  BadAccessKind bad_access_kind = UNKNOWN_BAD_ACCESS;
-  BlockHeader* header = FindAddressBlock(addr);
+  BlockHeader* header = FindAddressBlock(bad_access_info->location);
 
   if (header == NULL)
     return false;
@@ -655,13 +498,15 @@ bool HeapProxy::OnBadAccess(const void* addr,
   BlockTrailer* trailer = GetBlockTrailer(header);
   DCHECK(trailer != NULL);
 
-  bad_access_kind = GetBadAccessKind(addr, header);
+  if (bad_access_info->error_type != DOUBLE_FREE) {
+    bad_access_info->error_type = GetBadAccessKind(bad_access_info->location,
+                                                   header);
+  }
+
   // Get the bad access description if we've been able to determine its kind.
-  if (bad_access_kind != UNKNOWN_BAD_ACCESS) {
-    bad_access_info->error_type = bad_access_kind;
+  if (bad_access_info->error_type != UNKNOWN_BAD_ACCESS) {
     bad_access_info->microseconds_since_free = GetTimeSinceFree(header);
 
-    const char* bug_descr = AccessTypeToStr(bad_access_kind);
     if (header->alloc_stack != NULL) {
       memcpy(bad_access_info->alloc_stack,
              header->alloc_stack->frames(),
@@ -676,119 +521,62 @@ bool HeapProxy::OnBadAccess(const void* addr,
       bad_access_info->free_stack_size = trailer->free_stack->num_frames();
       bad_access_info->free_tid = trailer->free_tid;
     }
-    ReportAsanError(bug_descr,
-                    addr,
-                    context,
-                    stack,
-                    bad_access_kind,
-                    header,
-                    access_mode,
-                    access_size,
-                    bad_access_info);
+    GetAddressInformation(header, bad_access_info);
     return true;
   }
 
   return false;
 }
 
-void HeapProxy::ReportWildAccess(const void* addr,
-                                 const CONTEXT& context,
-                                 const StackCapture& stack,
-                                 AccessMode access_mode,
-                                 size_t access_size) {
-  DCHECK(addr != NULL);
-  ReportAsanErrorBase(AccessTypeToStr(WILD_ACCESS),
-                      addr,
-                      context,
-                      stack,
-                      WILD_ACCESS,
-                      access_mode,
-                      access_size);
-
-  ASANDbgPrintContext(context);
-}
-
-void HeapProxy::ReportAsanError(const char* bug_descr,
-                                const void* addr,
-                                const CONTEXT& context,
-                                const StackCapture& stack,
-                                BadAccessKind bad_access_kind,
-                                BlockHeader* header,
-                                AccessMode access_mode,
-                                size_t access_size,
-                                AsanErrorInfo* bad_access_info) {
-  DCHECK(bug_descr != NULL);
-  DCHECK(addr != NULL);
+void HeapProxy::GetAddressInformation(BlockHeader* header,
+                                      AsanErrorInfo* bad_access_info) {
   DCHECK(header != NULL);
+  DCHECK(bad_access_info != NULL);
 
-  BlockTrailer* trailer = GetBlockTrailer(header);
-  DCHECK(trailer != NULL);
+  DCHECK(header != NULL);
+  DCHECK(bad_access_info != NULL);
+  DCHECK(bad_access_info->location != NULL);
 
-  ReportAsanErrorBase(bug_descr,
-                      addr,
-                      context,
-                      stack,
-                      bad_access_kind,
-                      access_mode,
-                      access_size);
-
-  // Print the Windbg information to display the allocation stack if present.
-  if (header->alloc_stack != NULL) {
-    ASANDbgMessage(L"Allocation stack trace:");
-    ASANDbgCmd(L"dps %p l%d",
-               header->alloc_stack->frames(),
-               header->alloc_stack->num_frames());
+  uint8* block_alloc = ToAlloc(header);
+  int offset = 0;
+  char* offset_relativity = "";
+  switch (bad_access_info->error_type) {
+    case HEAP_BUFFER_OVERFLOW:
+      offset = static_cast<const uint8*>(bad_access_info->location)
+          - block_alloc - header->block_size;
+      offset_relativity = "beyond";
+      break;
+    case HEAP_BUFFER_UNDERFLOW:
+      offset = block_alloc -
+          static_cast<const uint8*>(bad_access_info->location);
+      offset_relativity = "before";
+      break;
+    case USE_AFTER_FREE:
+      offset = static_cast<const uint8*>(bad_access_info->location)
+          - block_alloc;
+      offset_relativity = "inside";
+      break;
+    case WILD_ACCESS:
+    case DOUBLE_FREE:
+    case UNKNOWN_BAD_ACCESS:
+      return;
+    default:
+      NOTREACHED() << "Error trying to dump address information.";
   }
 
-  // Print the Windbg information to display the free stack if present.
-  if (trailer->free_stack != NULL) {
-    ASANDbgMessage(L"Free stack trace:");
-    ASANDbgCmd(L"dps %p l%d",
-               trailer->free_stack->frames(),
-               trailer->free_stack->num_frames());
-  }
+  size_t shadow_info_bytes = base::snprintf(
+      bad_access_info->shadow_info,
+      arraysize(bad_access_info->shadow_info) - 1,
+      "%08X is %d bytes %s %d-byte block [%08X,%08X)\n",
+      bad_access_info->location,
+      offset,
+      offset_relativity,
+      header->block_size,
+      block_alloc,
+      block_alloc + header->block_size);
 
-  ReportAddressInformation(addr, header, bad_access_kind, bad_access_info);
-
-  ASANDbgPrintContext(context);
-}
-
-void HeapProxy::ReportAsanErrorBase(const char* bug_descr,
-                                    const void* addr,
-                                    const CONTEXT& context,
-                                    const StackCapture& stack,
-                                    BadAccessKind bad_access_kind,
-                                    AccessMode access_mode,
-                                    size_t access_size) {
-  DCHECK(bug_descr != NULL);
-  DCHECK(addr != NULL);
-
-  // If we're not logging text
-  if (!logger_->log_as_text())
-    return;
-
-  // Print the base of the Windbg help message.
-  ASANDbgMessage(L"An Asan error has been found (%ls), here are the details:",
-                 base::SysUTF8ToWide(bug_descr).c_str());
-
-  // TODO(sebmarchand): Print PC, BP and SP.
-  std::string output(base::StringPrintf(
-      "SyzyASAN error: %s on address 0x%08X (stack_id=0x%08X)\n",
-      bug_descr, addr, stack.stack_id()));
-  if (access_mode != ASAN_UNKNOWN_ACCESS) {
-    const char* access_mode_str = NULL;
-    if (access_mode == ASAN_READ_ACCESS)
-      access_mode_str = "READ";
-    else
-      access_mode_str = "WRITE";
-    base::StringAppendF(&output,
-                        "%s of size %d at 0x%08X\n",
-                        access_mode_str,
-                        access_size);
-  }
-
-  // Log the failure and stack.
-  logger_->WriteWithContext(output, context);
+  // Ensure that we had enough space to store the full shadow info message.
+  DCHECK_LE(shadow_info_bytes, arraysize(bad_access_info->shadow_info) - 1);
 }
 
 const char* HeapProxy::AccessTypeToStr(BadAccessKind bad_access_kind) {
@@ -801,6 +589,8 @@ const char* HeapProxy::AccessTypeToStr(BadAccessKind bad_access_kind) {
       return kHeapBufferOverFlow;
     case WILD_ACCESS:
       return kWildAccess;
+    case DOUBLE_FREE:
+      return kAttemptingDoubleFree;
     case UNKNOWN_BAD_ACCESS:
       return kHeapUnknownError;
     default:

@@ -20,6 +20,7 @@
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/agent/asan/stack_capture.h"
 
 namespace {
 
@@ -126,11 +127,15 @@ BOOL WINAPI asan_HeapFree(HANDLE heap,
     return FALSE;
 
   if (!proxy->Free(flags, mem)) {
-    CONTEXT context;
-    ::RtlCaptureContext(&context);
     AsanErrorInfo error_info = {};
-    error_info.error_type = HeapProxy::UNKNOWN_BAD_ACCESS;
-    asan_runtime->OnError(&context, &error_info);
+    ::RtlCaptureContext(&error_info.context);
+    error_info.location = mem;
+    error_info.error_type = HeapProxy::DOUBLE_FREE;
+    proxy->GetBadAccessInformation(&error_info);
+    agent::asan::StackCapture stack;
+    stack.InitFromStack();
+    error_info.crash_stack_id = stack.ComputeRelativeStackId();
+    asan_runtime->OnError(&error_info);
     return false;
   }
 
@@ -290,25 +295,26 @@ void ReportBadMemoryAccess(void* location,
   // Capture the context and restore the value of the register as before calling
   // the asan hook.
 
-  // Capture the current context.
-  CONTEXT context = {};
+  // We keep a structure with all the useful information about this bad access
+  // on the stack.
+  AsanErrorInfo bad_access_info = {};
 
   // We need to call ::RtlCaptureContext if we want SegSS and SegCS to be
   // properly set.
-  ::RtlCaptureContext(&context);
-  context.ContextFlags = CONTEXT_INTEGER | CONTEXT_CONTROL;
+  ::RtlCaptureContext(&bad_access_info.context);
+  bad_access_info.context.ContextFlags = CONTEXT_INTEGER | CONTEXT_CONTROL;
 
   // Restore the original value of the registers.
-  context.Eip = asan_context->original_eip;
-  context.Eax = asan_context->original_eax;
-  context.Ecx = asan_context->original_ecx;
-  context.Edx = asan_context->original_edx;
-  context.Ebx = asan_context->original_ebx;
-  context.Ebp = asan_context->original_ebp;
-  context.Esp = asan_context->original_esp;
-  context.Esi = asan_context->original_esi;
-  context.Edi = asan_context->original_edi;
-  context.EFlags = asan_context->original_eflags;
+  bad_access_info.context.Eip = asan_context->original_eip;
+  bad_access_info.context.Eax = asan_context->original_eax;
+  bad_access_info.context.Ecx = asan_context->original_ecx;
+  bad_access_info.context.Edx = asan_context->original_edx;
+  bad_access_info.context.Ebx = asan_context->original_ebx;
+  bad_access_info.context.Ebp = asan_context->original_ebp;
+  bad_access_info.context.Esp = asan_context->original_esp;
+  bad_access_info.context.Esi = asan_context->original_esi;
+  bad_access_info.context.Edi = asan_context->original_edi;
+  bad_access_info.context.EFlags = asan_context->original_eflags;
 
   StackCapture stack;
   stack.InitFromStack();
@@ -321,9 +327,8 @@ void ReportBadMemoryAccess(void* location,
   if (asan_runtime->ShouldIgnoreError(stack.stack_id()))
     return;
 
-  // We keep a structure with all the useful information about this bad access
-  // on the stack.
-  AsanErrorInfo bad_access_info = {};
+  bad_access_info.crash_stack_id = stack.stack_id();
+  bad_access_info.location = location;
   bad_access_info.access_mode = access_mode;
   bad_access_info.access_size = access_size;
   bad_access_info.alloc_stack_size = 0U;
@@ -336,15 +341,10 @@ void ReportBadMemoryAccess(void* location,
   // Make sure this structure is not optimized out.
   base::debug::Alias(&bad_access_info);
 
-  asan_runtime->ReportAsanErrorDetails(location,
-                                       context,
-                                       stack,
-                                       access_mode,
-                                       access_size,
-                                       &bad_access_info);
+  asan_runtime->GetBadAccessInformation(&bad_access_info);
 
-  // Call the callback to handle this error.
-  asan_runtime->OnError(&context, &bad_access_info);
+  // Report this error.
+  asan_runtime->OnError(&bad_access_info);
 }
 
 // Check if the memory location is accessible and report an error on bad memory

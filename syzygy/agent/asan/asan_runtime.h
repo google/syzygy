@@ -32,27 +32,47 @@ namespace agent {
 namespace asan {
 
 class AsanLogger;
-class StackCaptureCache;
 
 // Store the information about a bad memory access.
 // TODO(sebmarchand): Add an array with the copy of the shadow memory around
 //     this bad access.
 struct AsanErrorInfo {
+  // The address where the bad access happened.
+  void* location;
+  // The context prior to the crash.
+  CONTEXT context;
+  // The allocation stack trace.
   void* alloc_stack[agent::asan::StackCapture::kMaxNumFrames];
+  // The size of the allocation stack trace.
   uint8 alloc_stack_size;
+  // The ID of the allocation thread.
   DWORD alloc_tid;
+  // The free stack trace.
   void* free_stack[agent::asan::StackCapture::kMaxNumFrames];
+  // The size of the free stack trace.
   uint8 free_stack_size;
+  // The ID of the free thread.
   DWORD free_tid;
+  // The ID of the crash stack, this is needed to be able to blacklist some
+  // known bugs.
+  StackCapture::StackId crash_stack_id;
+  // The error type.
   HeapProxy::BadAccessKind error_type;
+  // The access mode.
   HeapProxy::AccessMode access_mode;
+  // The access size.
   size_t access_size;
+  // The information about the shadow memory for this address, this would be
+  // something like: "0x12345678 is located 8 bytes inside of 10-bytes region
+  // [0x12345670,0x1234567A)."
   char shadow_info[128];
+  // The time since the memory block containing this address has been freed.
+  // This would be equal to zero if the block is still allocated.
   uint64 microseconds_since_free;
 };
 
 // An Asan Runtime manager.
-// This class take care of initializing the different modules (stack cache,
+// This class takes care of initializing the different modules (stack cache,
 // logger...) and provide the functions to report an error.
 // Basic usage:
 //     AsanRuntime* asan_runtime = new AsanRuntime();
@@ -60,12 +80,13 @@ struct AsanErrorInfo {
 //     AsanRuntime::GetAsanFlagsEnvVar(&asan_flags_str);
 //     asan_runtime->SetUp(asan_flags_str);  // Initialize the modules.
 //     ...
-//     CONTEXT context;
-//     ::RtlCaptureContext(&context);
+//     AsanErrorInfo bad_access_info = {};
+//     ::RtlCaptureContext(&bad_access_info.context);
 //     StackCapture stack;
 //     stack.InitFromStack();
 //     stack.set_stack_id(stack.ComputeRelativeStackId());
-//     asan_runtime->OnError((&context, stack.stack_id());
+//     bad_access_info.crash_stack_id = stack.stack_id();
+//     asan_runtime->OnError(&bad_access_info);
 //     asan_runtime->TearDown();  // Release the modules.
 //     delete asan_runtime;
 class AsanRuntime {
@@ -73,7 +94,7 @@ class AsanRuntime {
   typedef std::set<StackCapture::StackId> StackIdSet;
 
   // The type of callback used by the OnError function.
-  typedef base::Callback<void(CONTEXT*, AsanErrorInfo*)> AsanOnErrorCallBack;
+  typedef base::Callback<void(AsanErrorInfo*)> AsanOnErrorCallBack;
 
   AsanRuntime();
   ~AsanRuntime();
@@ -101,9 +122,8 @@ class AsanRuntime {
   void TearDown();
 
   // The error handler.
-  // @param context The context when the error has been reported.
   // @param error_info The information about this error.
-  void OnError(CONTEXT* context, AsanErrorInfo* error_info);
+  void OnError(AsanErrorInfo* error_info);
 
   // Set the callback called on error.
   // TODO(sebmarchand): Move the signature of this callback to an header file
@@ -121,20 +141,6 @@ class AsanRuntime {
   // Remove an heap proxy from the heap proxies list.
   void RemoveHeap(HeapProxy* heap);
 
-  // Report the details of an Asan error by walking the heap proxies list.
-  // @param addr The red-zoned address causing a bad access.
-  // @param context The context at which the access occurred.
-  // @param stack The stack capture at the point of error.
-  // @param access_mode The kind of the access (read or write).
-  // @param access_size The size of the access (in bytes).
-  // @param bad_access_info Will receive the information about this access.
-  void ReportAsanErrorDetails(const void* addr,
-                              const CONTEXT& context,
-                              const StackCapture& stack,
-                              HeapProxy::AccessMode access_mode,
-                              size_t access_size,
-                              AsanErrorInfo* bad_access_info);
-
   // Returns true if we should ignore the given @p stack_id, false
   // otherwise.
   bool ShouldIgnoreError(size_t stack_id) const {
@@ -143,6 +149,10 @@ class AsanRuntime {
     return flags_.ignored_stack_ids.find(stack_id) !=
         flags_.ignored_stack_ids.end();
   }
+
+  // Get information about a bad access.
+  // @param bad_access_info Will receive the information about this access.
+  void GetBadAccessInformation(AsanErrorInfo* error_info);
 
  protected:
   // A structure to track the values of the flags.

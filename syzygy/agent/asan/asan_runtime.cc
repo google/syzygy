@@ -19,6 +19,8 @@
 #include "base/environment.h"
 #include "base/logging.h"
 #include "base/string_number_conversions.h"
+#include "base/string_util.h"
+#include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/strings/string_tokenizer.h"
 #include "base/strings/sys_string_conversions.h"
@@ -46,12 +48,11 @@ typedef void  (__cdecl * SetCrashKeyValueFuncPtr)(const char*, const char*);
 // callback in the ASAN runtime.
 // @param context The context when the error has been reported.
 // @param error_info The information about this error.
-void DefaultErrorHandler(CONTEXT* context, AsanErrorInfo* error_info) {
-  DCHECK(context != NULL);
+void DefaultErrorHandler(AsanErrorInfo* error_info) {
   DCHECK(error_info != NULL);
 
   ULONG_PTR arguments[] = {
-    reinterpret_cast<ULONG_PTR>(context),
+    reinterpret_cast<ULONG_PTR>(&error_info->context),
     reinterpret_cast<ULONG_PTR>(error_info)
   };
 
@@ -111,10 +112,8 @@ void GetBreakpadFunctions(WinProcExceptionFilter* crash_func,
 // @param error_info The information about this error.
 void BreakpadErrorHandler(WinProcExceptionFilter crash_func_ptr,
                           SetCrashKeyValueFuncPtr set_key_value_func_ptr,
-                          CONTEXT* context,
                           AsanErrorInfo* error_info) {
   DCHECK(crash_func_ptr != NULL);
-  DCHECK(context != NULL);
   DCHECK(error_info != NULL);
 
   if (set_key_value_func_ptr != NULL) {
@@ -129,12 +128,14 @@ void BreakpadErrorHandler(WinProcExceptionFilter crash_func_ptr,
 
   EXCEPTION_RECORD exception = {};
   exception.ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
-  exception.ExceptionAddress = reinterpret_cast<PVOID>(context->Eip);
+  exception.ExceptionAddress = reinterpret_cast<PVOID>(
+      error_info->context.Eip);
   exception.NumberParameters = 2;
-  exception.ExceptionInformation[0] = reinterpret_cast<ULONG_PTR>(context);
+  exception.ExceptionInformation[0] = reinterpret_cast<ULONG_PTR>(
+      &error_info->context);
   exception.ExceptionInformation[1] = reinterpret_cast<ULONG_PTR>(error_info);
 
-  EXCEPTION_POINTERS pointers = { &exception, context };
+  EXCEPTION_POINTERS pointers = { &exception, &error_info->context };
   crash_func_ptr(&pointers);
   NOTREACHED();
 }
@@ -216,6 +217,53 @@ bool CurrentProcessIsLargeAddressAware() {
   return process_is_large_address_aware;
 }
 
+// A helper function to send a command to Windbg. Windbg should first receive
+// the ".ocommand ASAN" command to treat those messages as commands.
+void ASANDbgCmd(const wchar_t* fmt, ...) {
+  if (!base::debug::BeingDebugged())
+    return;
+  // The string should start with "ASAN" to be interpreted by the debugger as a
+  // command.
+  std::wstring command_wstring = L"ASAN ";
+  va_list args;
+  va_start(args, fmt);
+
+  // Append the actual command to the wstring.
+  base::StringAppendV(&command_wstring, fmt, args);
+
+  // Append "; g" to make sure that the debugger continues its execution after
+  // executing this command. This is needed because when the .ocommand function
+  // is used under Windbg the debugger will break on OutputDebugString.
+  command_wstring.append(L"; g");
+
+  OutputDebugString(command_wstring.c_str());
+}
+
+// A helper function to print a message to Windbg's console.
+void ASANDbgMessage(const wchar_t* fmt, ...) {
+  if (!base::debug::BeingDebugged())
+    return;
+  // Prepend the message with the .echo command so it'll be printed into the
+  // debugger's console.
+  std::wstring message_wstring = L".echo ";
+  va_list args;
+  va_start(args, fmt);
+
+  // Append the actual message to the wstring.
+  base::StringAppendV(&message_wstring, fmt, args);
+
+  // Treat the message as a command to print it.
+  ASANDbgCmd(message_wstring.c_str());
+}
+
+// Switch to the caller's context and print its stack trace in Windbg.
+void ASANDbgPrintContext(const CONTEXT& context) {
+  if (!base::debug::BeingDebugged())
+    return;
+  ASANDbgMessage(L"Caller's context (%p) and stack trace:", &context);
+  ASANDbgCmd(L".cxr %p; kv", reinterpret_cast<uint32>(&context));
+}
+
 }  // namespace
 
 const char AsanRuntime::kSyzyAsanEnvVar[] = "SYZYGY_ASAN_OPTIONS";
@@ -295,12 +343,72 @@ void AsanRuntime::TearDown() {
   // not be empty here.
 }
 
-void AsanRuntime::OnError(CONTEXT* context, AsanErrorInfo* error_info) {
-  DCHECK(context != NULL);
+void AsanRuntime::OnError(AsanErrorInfo* error_info) {
+  DCHECK(error_info != NULL);
+
+  const char* bug_descr =
+      HeapProxy::AccessTypeToStr(error_info->error_type);
+  if (logger_->log_as_text()) {
+    std::string output(base::StringPrintf(
+        "SyzyASAN error: %s on address 0x%08X (stack_id=0x%08X)\n",
+        bug_descr, error_info->location, error_info->crash_stack_id));
+    if (error_info->access_mode != HeapProxy::ASAN_UNKNOWN_ACCESS) {
+      const char* access_mode_str = NULL;
+      if (error_info->access_mode == HeapProxy::ASAN_READ_ACCESS)
+        access_mode_str = "READ";
+      else
+        access_mode_str = "WRITE";
+      base::StringAppendF(&output,
+                          "%s of size %d at 0x%08X\n",
+                          access_mode_str,
+                          error_info->access_size);
+    }
+
+    // Log the failure and stack.
+    logger_->WriteWithContext(output, error_info->context);
+
+    logger_->Write(error_info->shadow_info);
+    if (error_info->free_stack_size != 0U) {
+      logger_->WriteWithStackTrace("freed here:\n",
+                                   error_info->free_stack,
+                                   error_info->free_stack_size);
+    }
+    if (error_info->alloc_stack_size != NULL) {
+      logger_->WriteWithStackTrace("previously allocated here:\n",
+                                   error_info->alloc_stack,
+                                   error_info->alloc_stack_size);
+    }
+    if (error_info->error_type != HeapProxy::WILD_ACCESS &&
+        error_info->error_type != HeapProxy::UNKNOWN_BAD_ACCESS) {
+      std::string shadow_text;
+      Shadow::AppendShadowMemoryText(error_info->location, &shadow_text);
+      logger_->Write(shadow_text);
+    }
+  }
+
+  // Print the base of the Windbg help message.
+  ASANDbgMessage(L"An Asan error has been found (%ls), here are the details:",
+                 base::SysUTF8ToWide(bug_descr).c_str());
+
+  // Print the Windbg information to display the allocation stack if present.
+  if (error_info->alloc_stack_size != NULL) {
+    ASANDbgMessage(L"Allocation stack trace:");
+    ASANDbgCmd(L"dps %p l%d",
+               error_info->alloc_stack,
+               error_info->alloc_stack_size);
+  }
+
+  // Print the Windbg information to display the free stack if present.
+  if (error_info->free_stack_size != NULL) {
+    ASANDbgMessage(L"Free stack trace:");
+    ASANDbgCmd(L"dps %p l%d",
+               error_info->free_stack,
+               error_info->free_stack_size);
+  }
 
   if (flags_.minidump_on_failure) {
     DCHECK(logger_.get() != NULL);
-    logger_->SaveMiniDump(context, error_info);
+    logger_->SaveMiniDump(&error_info->context, error_info);
   }
 
   if (flags_.exit_on_failure) {
@@ -311,7 +419,7 @@ void AsanRuntime::OnError(CONTEXT* context, AsanErrorInfo* error_info) {
 
   // Call the callback to handle this error.
   DCHECK(!asan_error_callback_.is_null());
-  asan_error_callback_.Run(context, error_info);
+  asan_error_callback_.Run(error_info);
 }
 
 void AsanRuntime::SetErrorCallBack(const AsanOnErrorCallBack& callback) {
@@ -461,63 +569,33 @@ void AsanRuntime::RemoveHeap(HeapProxy* heap) {
   RemoveEntryList(HeapProxy::ToListEntry(heap));
 }
 
-void AsanRuntime::ReportAsanErrorDetails(const void* addr,
-                                         const CONTEXT& context,
-                                         const StackCapture& stack,
-                                         HeapProxy::AccessMode access_mode,
-                                         size_t access_size,
-                                         AsanErrorInfo* bad_access_info) {
-  DCHECK(bad_access_info != NULL);
+void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
   base::AutoLock lock(heap_proxy_dlist_lock_);
 
   // Checks if this is an access to an internal structure or if it's an access
   // in the upper region of the memory (over the 2 GB limit).
-  if ((reinterpret_cast<size_t>(addr) & (1 << 31)) != 0 ||
-      Shadow::GetShadowMarkerForAddress(addr) == Shadow::kAsanMemoryByte) {
+  if ((reinterpret_cast<size_t>(error_info->location) & (1 << 31)) != 0 ||
+      Shadow::GetShadowMarkerForAddress(error_info->location)
+          == Shadow::kAsanMemoryByte) {
+      error_info->error_type = HeapProxy::WILD_ACCESS;
+  } else {
+    // Iterates over the HeapProxy list to find the memory block containing this
+    // address. We expect that there is at least one heap proxy extant.
+    HeapProxy* proxy = NULL;
     LIST_ENTRY* item = heap_proxy_dlist_.Flink;
     CHECK(item != NULL);
-    HeapProxy* proxy = HeapProxy::FromListEntry(item);
-    CHECK(proxy != NULL);
-    bad_access_info->error_type = HeapProxy::WILD_ACCESS;
-    proxy->ReportWildAccess(addr, context, stack, access_mode,
-                            access_size);
-    return;
-  }
+    while (item != NULL) {
+      LIST_ENTRY* next_item = NULL;
+      if (item->Flink != &heap_proxy_dlist_) {
+        next_item = item->Flink;
+      }
 
-  // Iterates over the HeapProxy list to find the memory block containing this
-  // address. We expect that there is at least one heap proxy extant.
-  HeapProxy* proxy = NULL;
-  LIST_ENTRY* item = heap_proxy_dlist_.Flink;
-  CHECK(item != NULL);
-  while (item != NULL) {
-    LIST_ENTRY* next_item = NULL;
-    if (item->Flink != &heap_proxy_dlist_) {
-      next_item = item->Flink;
+      proxy = HeapProxy::FromListEntry(item);
+      if (proxy->GetBadAccessInformation(error_info))
+        break;
+
+      item = next_item;
     }
-
-    proxy = HeapProxy::FromListEntry(item);
-    if (proxy->OnBadAccess(addr,
-                           context,
-                           stack,
-                           access_mode,
-                           access_size,
-                           bad_access_info)) {
-      break;
-    }
-
-    item = next_item;
-  }
-
-  // If item is NULL then we went through the list without finding the heap
-  // from which this address was allocated. We can just reuse the logger of
-  // the last heap proxy we saw to report an "unknown" error. As every poisoned
-  // block of the shadow memory should point to a memory block or to an internal
-  // structure this case should never happen.
-  if (item == NULL) {
-    NOTREACHED();
-    bad_access_info->error_type = HeapProxy::UNKNOWN_BAD_ACCESS;
-    CHECK(proxy != NULL);
-    proxy->ReportWildAccess(addr, context, stack, access_mode, access_size);
   }
 }
 

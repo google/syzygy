@@ -65,7 +65,7 @@ int asan_error_count;
 // Contains the last ASAN error reported.
 agent::asan::AsanErrorInfo last_asan_error;
 
-void AsanSafeCallback(CONTEXT* ctx, agent::asan::AsanErrorInfo* info) {
+void AsanSafeCallback(agent::asan::AsanErrorInfo* info) {
   asan_error_count++;
   last_asan_error = *info;
 }

@@ -31,19 +31,9 @@ namespace agent {
 namespace asan {
 
 // Forward declaration.
-class AsanLogger;
 class StackCapture;
 class StackCaptureCache;
 struct AsanErrorInfo;
-
-// An helper function to send a command to Windbg. Windbg should first receive
-// the ".ocommand ASAN" command to treat those messages as commands.
-// TODO(sebmarchand): Move this function and the following one to the
-//     AsanRuntime class once it's ready.
-void ASANDbgCmd(const wchar_t* fmt, ...);
-
-// An helper function to print a message to Windbg's console.
-void ASANDbgMessage(const wchar_t* fmt, ...);
 
 // Makes like a Win32 heap manager heap, but adds a redzone before and after
 // each allocation and maintains a quarantine list of freed blocks.
@@ -64,6 +54,7 @@ class HeapProxy {
     USE_AFTER_FREE,
     HEAP_BUFFER_OVERFLOW,
     HEAP_BUFFER_UNDERFLOW,
+    DOUBLE_FREE
   };
 
   // The different types of error we can encounter.
@@ -111,33 +102,10 @@ class HeapProxy {
                         unsigned long* return_length);
   // @}
 
-  // Report a bad access to the heap.
-  // @param addr The red-zoned address causing a bad access.
-  // @param context The context at which the access occurred.
-  // @param stack The stack capture at the point of error.
-  // @param access_mode The kind of the access (read or write).
-  // @param access_size The size of the access (in bytes).
+  // Get information about a bad access.
   // @param bad_access_info Will receive the information about this access.
   // @returns true if the address belongs to a memory block, false otherwise.
-  bool OnBadAccess(const void* addr,
-                   const CONTEXT& context,
-                   const StackCapture& stack,
-                   AccessMode access_mode,
-                   size_t access_size,
-                   AsanErrorInfo* bad_access_info);
-
-  // Report a wild access to the memory; this can either be an access to an
-  // internal structure or an access to the upper memory (over the 2GB limit).
-  // @param addr The address causing an error.
-  // @param context The context at which the access occurred.
-  // @param stack The stack capture at the point of error.
-  // @param access_mode The kind of the access (read or write).
-  // @param access_size The size of the access (in bytes).
-  void ReportWildAccess(const void* addr,
-                        const CONTEXT& context,
-                        const StackCapture& stack,
-                        AccessMode access_mode,
-                        size_t access_size);
+  bool GetBadAccessInformation(AsanErrorInfo* bad_access_info);
 
   // @name Cast to/from HANDLE.
   // @{
@@ -238,57 +206,11 @@ class HeapProxy {
   // it's below the limit.
   void TrimQuarantine();
 
-  // Get the information about an address belonging to a memory block. This
-  // function will output the relative position of this address inside a block
-  // and the bounds of this block.
-  // @param addr The address for which we want information.
-  // @param header The block containing the address.
-  // @param bad_access_kind The kind of bad access corresponding to this
-  //     address.
-  // @param bad_access_info Will receive the information about this access.
-  void ReportAddressInformation(const void* addr,
-                                BlockHeader* header,
-                                BadAccessKind bad_access_kind,
-                                AsanErrorInfo* bad_access_info);
-
-  // Low-level ASAN reporting function. This function dumps the stack,
-  // optionally including an extra (free-form) description of the address
-  // being accessed when the error occurred.
-  // @param bug_descr The description of the error.
-  // @param addr The address causing an error.
-  // @param context The context at which the access occurred.
-  // @param stack The stack capture at the point of error.
-  // @param bad_access_kind The kind of error.
-  // @param access_mode The mode of the access (read or write).
-  // @param access_size The size of the access (in bytes).
-  void ReportAsanErrorBase(const char* bug_descr,
-                           const void* addr,
-                           const CONTEXT& context,
-                           const StackCapture& stack,
-                           BadAccessKind bad_access_kind,
-                           AccessMode access_mode,
-                           size_t access_size);
-
-  // Report an ASAN error, automatically including information about the
-  // address being accessed when the error occurred.
-  // @param bug_descr The description of the error.
-  // @param addr The address causing an error.
-  // @param context The context at which the access occurred.
-  // @param stack The stack capture at the point of error.
-  // @param bad_access_kind The kind of error.
+  // Get the information about an address relative to a block.
   // @param header The header of the block containing this address.
-  // @param access_mode The kind of the access (read or write).
-  // @param access_size The size of the access (in bytes).
-  // @param bad_access_info Will receive the information about this access.
-  void ReportAsanError(const char* bug_descr,
-                       const void* addr,
-                       const CONTEXT& context,
-                       const StackCapture& stack,
-                       BadAccessKind bad_access_kind,
-                       BlockHeader* header,
-                       AccessMode access_mode,
-                       size_t access_size,
-                       AsanErrorInfo* bad_access_info);
+  // @param bad_access_info Will receive the information about this address.
+  void GetAddressInformation(BlockHeader* header,
+                             AsanErrorInfo* bad_access_info);
 
   // Returns the time since the block @p header was freed (in microseconds).
   uint64 GetTimeSinceFree(const BlockHeader* header);
@@ -307,9 +229,6 @@ class HeapProxy {
 
   // A repository of unique stack captures recorded on alloc and free.
   StackCaptureCache* const stack_cache_;
-
-  // The logger to use when an error occurs.
-  AsanLogger* const logger_;
 
   // Protects concurrent access to HeapProxy internals.
   base::Lock lock_;

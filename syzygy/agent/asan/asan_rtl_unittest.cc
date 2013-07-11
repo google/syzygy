@@ -68,8 +68,7 @@ const size_t kAllocSize = 13;
     F(BOOL, HeapQueryInformation,  \
       (HANDLE heap, HEAP_INFORMATION_CLASS info_class,  \
        PVOID info, SIZE_T info_length, PSIZE_T return_length))  \
-    F(void, SetCallBack,  \
-      (void (*callback)(CONTEXT* context, AsanErrorInfo* error_info)))  \
+    F(void, SetCallBack, (void (*callback)(AsanErrorInfo* error_info)))  \
 
 #define DECLARE_ASAN_FUNCTION_PTR(ret, name, args) \
     typedef ret (WINAPI* name##FunctionPtr)args;
@@ -302,10 +301,9 @@ void CheckSpecialAccessAndCompareContexts(void* dst, void* src, int len) {
   context_before_hook = NULL;
 }
 
-void AsanErrorCallback(CONTEXT* context, AsanErrorInfo* error_info) {
+void AsanErrorCallback(AsanErrorInfo* error_info) {
   // TODO(sebmarchand): Stash the error info in a fixture-static variable and
   // assert on specific conditions after the fact.
-  EXPECT_TRUE(context != NULL);
   EXPECT_TRUE(context_before_hook != NULL);
   EXPECT_NE(HeapProxy::UNKNOWN_BAD_ACCESS, error_info->error_type);
 
@@ -331,12 +329,11 @@ void AsanErrorCallback(CONTEXT* context, AsanErrorInfo* error_info) {
 
   memory_error_detected = true;
   ExpectEqualContexts(*context_before_hook,
-                      *context,
+                      error_info->context,
                       CONTEXT_INTEGER | CONTEXT_CONTROL);
 }
 
-void AsanErrorCallbackWithoutComparingContext(CONTEXT* context,
-                                              AsanErrorInfo* error_info) {
+void AsanErrorCallbackWithoutComparingContext(AsanErrorInfo* error_info) {
   memory_error_detected = true;
 }
 
@@ -474,8 +471,8 @@ TEST_F(AsanRtlTest, AsanCheckWildAccess) {
 void AsanRtlTest::AllocMemoryBuffers(int32 length, int32 element_size) {
   DCHECK(memory_src_ == NULL);
   DCHECK(memory_dst_ == NULL);
-  DCHECK(memory_length_ == 0);
-  DCHECK(memory_size_ == 0);
+  DCHECK_EQ(0, memory_length_);
+  DCHECK_EQ(0, memory_size_);
 
   // Keep track of memory size.
   memory_length_ = length;
