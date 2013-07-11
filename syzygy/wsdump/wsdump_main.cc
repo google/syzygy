@@ -172,7 +172,7 @@ void OutputProcessInfo(const ProcessInfo& info,
   json->CloseList();
 }
 
-} // namespace
+}  // namespace
 
 int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;

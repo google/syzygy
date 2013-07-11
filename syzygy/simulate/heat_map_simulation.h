@@ -255,6 +255,6 @@ class HeatMapSimulation::TimeSlice {
   uint32 total_;
 };
 
-} // namespace simulate
+}  // namespace simulate
 
 #endif  // SYZYGY_SIMULATE_HEAT_MAP_SIMULATION_H_

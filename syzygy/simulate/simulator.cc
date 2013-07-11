@@ -106,4 +106,4 @@ void Simulator::OnBatchFunctionEntry(base::Time time,
   }
 }
 
-} // namespace simulate
+}  // namespace simulate

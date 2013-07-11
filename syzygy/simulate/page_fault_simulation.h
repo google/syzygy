@@ -106,6 +106,6 @@ class PageFaultSimulation : public SimulationEventHandler {
   size_t pages_per_code_fault_;
 };
 
-} // namespace simulate
+}  // namespace simulate
 
 #endif  // SYZYGY_SIMULATE_PAGE_FAULT_SIMULATION_H_

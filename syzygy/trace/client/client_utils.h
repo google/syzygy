@@ -184,7 +184,7 @@ bool IsRpcSessionMandatoryForThisModule();
 //     session is not mandatory.
 bool InitializeRpcSession(RpcSession* rpc_session, TraceFileSegment* segment);
 
-}  // namespace trace::client
+}  // namespace client
 }  // namespace trace
 
 #endif  // SYZYGY_TRACE_CLIENT_CLIENT_UTILS_H_

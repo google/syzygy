@@ -291,5 +291,5 @@ bool ParseEngineRpc::ConsumeSegmentEvents(
   return true;
 }
 
-}  // namespace trace::parser
+}  // namespace parser
 }  // namespace trace

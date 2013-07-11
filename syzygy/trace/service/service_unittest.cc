@@ -420,7 +420,7 @@ void CheckIsStillRunning(ProcessHandle handle) {
   ASSERT_EQ(WAIT_TIMEOUT, exit_code);
 }
 
-} // namespace
+}  // namespace
 
 TEST_F(CallTraceServiceTest, StartStop) {
   EXPECT_TRUE(call_trace_service_.Start(true));

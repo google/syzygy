@@ -95,4 +95,4 @@ void PageFaultSimulation::OnFunctionEntry(base::Time /*time*/,
   }
 }
 
-} // namespace simulate
+}  // namespace simulate

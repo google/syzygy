@@ -455,5 +455,5 @@ bool Client::ThreadLocalData::FlushSegment() {
   return client->session_.ExchangeBuffer(&segment);
 }
 
-}  // namespace agent::client
+}  // namespace client
 }  // namespace agent

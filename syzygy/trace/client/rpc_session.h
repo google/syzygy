@@ -105,7 +105,7 @@ class RpcSession {
   std::wstring instance_id_;
 };
 
-}  // namespace trace::client
+}  // namespace client
 }  // namespace trace
 
 #endif  // SYZYGY_TRACE_CLIENT_RPC_SESSION_H_

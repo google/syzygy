@@ -186,4 +186,4 @@ void HeatMapSimulation::OnFunctionEntry(base::Time time,
   max_memory_slice_bytes_ = std::max(max_memory_slice_bytes_, last_slice);
 }
 
-} // namespace simulate
+}  // namespace simulate

@@ -826,5 +826,5 @@ TEST_F(AsanRtlTest, AsanSpecialInstructionCheckShortcutAccess) {
   FreeMemoryBuffers();
 }
 
-} // namespace asan
-} // namespace agent
+}  // namespace asan
+}  // namespace agent

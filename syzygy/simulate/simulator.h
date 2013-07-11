@@ -88,6 +88,6 @@ class Simulator : public trace::parser::ParseEventHandlerImpl {
   SimulationEventHandler* simulation_;
 };
 
-} // namespace simulate
+}  // namespace simulate
 
 #endif  // SYZYGY_SIMULATE_SIMULATOR_H_

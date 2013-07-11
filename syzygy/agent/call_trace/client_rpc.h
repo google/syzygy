@@ -128,7 +128,7 @@ class Client {
   mutable base::ThreadLocalPointer<ThreadLocalData> tls_;
 };
 
-}  // namespace agent::client
+}  // namespace client
 }  // namespace agent
 
 #endif  // SYZYGY_AGENT_CALL_TRACE_CLIENT_RPC_H_

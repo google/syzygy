@@ -72,7 +72,7 @@ class ParseEngineRpc : public ParseEngine {
   DISALLOW_COPY_AND_ASSIGN(ParseEngineRpc);
 };
 
-}  // namespace trace::parser
+}  // namespace parser
 }  // namespace trace
 
 #endif  // SYZYGY_TRACE_PARSE_PARSE_ENGINE_RPC_H_

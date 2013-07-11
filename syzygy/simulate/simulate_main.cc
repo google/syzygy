@@ -60,7 +60,7 @@ int Usage(const char* message) {
   return 1;
 }
 
-} // namespace
+}  // namespace
 
 int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;

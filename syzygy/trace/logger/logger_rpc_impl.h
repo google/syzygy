@@ -52,7 +52,7 @@ class RpcLoggerInstanceManager {
   static Logger* instance_;
 };
 
-}  // namespace trace::logger
+}  // namespace logger
 }  // namespace trace
 
 #endif  // SYZYGY_TRACE_LOGGER_LOGGER_RPC_IMPL_H_

@@ -404,5 +404,5 @@ bool InitializeRpcSession(RpcSession* rpc_session, TraceFileSegment* segment) {
   return false;
 }
 
-}  // namespace trace::client
+}  // namespace client
 }  // namespace trace

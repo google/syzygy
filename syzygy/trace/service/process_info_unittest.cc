@@ -116,5 +116,5 @@ TEST(ProcessInfoTest, CurrentProcess) {
   EXPECT_EQ(0, process_info.exe_time_date_stamp);
 }
 
-}  // namespace trace::service
+}  // namespace service
 }  // namespace trace

@@ -30,7 +30,7 @@ class StackCaptureTest : public testing::Test {
   }
 };
 
-} // namespace
+}  // namespace
 
 TEST_F(StackCaptureTest, InitFromBuffer) {
   StackCapture capture;
