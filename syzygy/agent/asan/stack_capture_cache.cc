@@ -41,6 +41,7 @@ size_t StackCaptureCache::compression_reporting_period_ =
 StackCaptureCache::CachePage::~CachePage() {
   if (next_page_ != NULL)
     delete next_page_;
+  Shadow::Unpoison(this, sizeof(CachePage));
 }
 
 StackCapture* StackCaptureCache::CachePage::GetNextStackCapture(
@@ -271,7 +272,6 @@ void StackCaptureCache::LogStatisticsImpl(const Statistics& statistics) const {
       statistics.saturated,
       statistics.cached));
 }
-
 
 StackCapture* StackCaptureCache::GetStackCapture(size_t num_frames) {
 #ifndef NDEBUG

@@ -317,5 +317,14 @@ TEST_F(StackCaptureCacheTest, Statistics) {
   EXPECT_EQ(s1_frames, s.frames_dead);
 }
 
+TEST_F(StackCaptureCacheTest, CachePagesArePoisoned) {
+  scoped_ptr<TestStackCaptureCache::CachePage> page(
+      new TestStackCaptureCache::CachePage(NULL));
+  void* cache_page_ptr = reinterpret_cast<void*>(page.get());
+  EXPECT_FALSE(Shadow::IsAccessible(cache_page_ptr));
+  page.reset(NULL);
+  EXPECT_TRUE(Shadow::IsAccessible(cache_page_ptr));
+}
+
 }  // namespace asan
 }  // namespace agent
