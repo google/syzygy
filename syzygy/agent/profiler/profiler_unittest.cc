@@ -36,7 +36,6 @@
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/service/service.h"
 #include "syzygy/trace/service/service_rpc_impl.h"
-#include "syzygy/trace/service/trace_file_writer_factory.h"
 
 extern "C" {
 
@@ -84,7 +83,6 @@ using testing::AllOf;
 using testing::Return;
 using testing::StrictMockParseEventHandler;
 using trace::service::RpcServiceInstanceManager;
-using trace::service::TraceFileWriterFactory;
 using trace::service::Service;
 using trace::parser::Parser;
 using trace::parser::ParseEventHandler;

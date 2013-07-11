@@ -130,7 +130,7 @@ class SamplerApp : public common::AppImplBase {
   bool running_;  // Under lock.
 
   // Only one instance of this class can register for console control messages,
-  // on a first-come first-servce basis.
+  // on a first-come first-serve basis.
   static base::Lock console_ctrl_lock_;
   static SamplerApp* console_ctrl_owner_;  // Under console_ctrl_lock_.
 };

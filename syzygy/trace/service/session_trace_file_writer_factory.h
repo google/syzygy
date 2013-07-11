@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file declares the TraceFileWriter class, which is the default
-// implementation for the buffer consumer used by the call trace service.
+// This file declares the factory for SessionTraceFileWriter objects. This is
+// used by the service to create buffer-consumers for individual sessions.
 
-#ifndef SYZYGY_TRACE_SERVICE_TRACE_FILE_WRITER_FACTORY_H_
-#define SYZYGY_TRACE_SERVICE_TRACE_FILE_WRITER_FACTORY_H_
+#ifndef SYZYGY_TRACE_SERVICE_SESSION_TRACE_FILE_WRITER_FACTORY_H_
+#define SYZYGY_TRACE_SERVICE_SESSION_TRACE_FILE_WRITER_FACTORY_H_
 
 #include <set>
 
@@ -31,18 +31,18 @@ namespace base { class MessageLoop; }
 namespace trace {
 namespace service {
 
-class TraceFileWriter;
+class SessionTraceFileWriter;
 
 // This class creates manages buffer consumer instances for a call trace
 // service instance.
-class TraceFileWriterFactory : public BufferConsumerFactory {
+class SessionTraceFileWriterFactory : public BufferConsumerFactory {
  public:
-  // construct a TraceFileWriterFactory instance.
-  // @param message_loop The message loop on which TraceFileWriter instances
-  //     created by this factory will consume buffers. The factory instance
-  //     does NOT take ownership of the message_loop. The message_loop must
-  //     outlive the factory instance.
-  explicit TraceFileWriterFactory(base::MessageLoop* message_loop);
+  // construct a SessionTraceFileWriterFactory instance.
+  // @param message_loop The message loop on which SessionTraceFileWriter
+  //     instances created by this factory will consume buffers. The factory
+  //     instance does NOT take ownership of the message_loop. The message_loop
+  //     must outlive the factory instance.
+  explicit SessionTraceFileWriterFactory(base::MessageLoop* message_loop);
 
   // @name BufferConsumerFactory implementation.
   // @{
@@ -70,10 +70,10 @@ class TraceFileWriterFactory : public BufferConsumerFactory {
   base::Lock lock_;
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(TraceFileWriterFactory);
+  DISALLOW_COPY_AND_ASSIGN(SessionTraceFileWriterFactory);
 };
 
 }  // namespace service
 }  // namespace trace
 
-#endif  // SYZYGY_TRACE_SERVICE_TRACE_FILE_WRITER_FACTORY_H_
+#endif  // SYZYGY_TRACE_SERVICE_SESSION_TRACE_FILE_WRITER_FACTORY_H_

@@ -37,7 +37,6 @@
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
 #include "syzygy/trace/service/service_rpc_impl.h"
-#include "syzygy/trace/service/trace_file_writer_factory.h"
 
 using namespace trace::client;
 

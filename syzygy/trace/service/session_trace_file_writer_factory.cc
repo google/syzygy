@@ -11,12 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-// This file implements the TraceFileWriter and TraceFileWriterFactory classes
-// which provide an implementation and factory, respectively, for the default
-// buffer consumer used by the call trace service.
 
-#include "syzygy/trace/service/trace_file_writer_factory.h"
+#include "syzygy/trace/service/session_trace_file_writer_factory.h"
 
 #include <time.h>
 
@@ -35,18 +31,20 @@
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/service/buffer_pool.h"
 #include "syzygy/trace/service/session.h"
-#include "syzygy/trace/service/trace_file_writer.h"
+#include "syzygy/trace/service/session_trace_file_writer.h"
 
 namespace trace {
 namespace service {
 
-TraceFileWriterFactory::TraceFileWriterFactory(base::MessageLoop* message_loop)
+SessionTraceFileWriterFactory::SessionTraceFileWriterFactory(
+    base::MessageLoop* message_loop)
     : message_loop_(message_loop), trace_file_directory_(L".") {
   DCHECK(message_loop != NULL);
   DCHECK_EQ(base::MessageLoop::TYPE_IO, message_loop->type());
 }
 
-bool TraceFileWriterFactory::SetTraceFileDirectory(const base::FilePath& path) {
+bool SessionTraceFileWriterFactory::SetTraceFileDirectory(
+    const base::FilePath& path) {
   DCHECK(!path.empty());
   if (!file_util::CreateDirectory(path)) {
     LOG(ERROR) << "Failed to create trace file directory '" << path.value()
@@ -58,13 +56,13 @@ bool TraceFileWriterFactory::SetTraceFileDirectory(const base::FilePath& path) {
   return true;
 }
 
-bool TraceFileWriterFactory::CreateConsumer(
+bool SessionTraceFileWriterFactory::CreateConsumer(
     scoped_refptr<BufferConsumer>* consumer) {
   DCHECK(consumer != NULL);
   DCHECK(message_loop_ != NULL);
 
   // Allocate a new trace file writer.
-  *consumer = new TraceFileWriter(message_loop_, trace_file_directory_);
+  *consumer = new SessionTraceFileWriter(message_loop_, trace_file_directory_);
   return true;
 }
 

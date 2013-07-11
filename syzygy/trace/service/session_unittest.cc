@@ -28,24 +28,24 @@
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/service/service.h"
 #include "syzygy/trace/service/service_rpc_impl.h"
-#include "syzygy/trace/service/trace_file_writer.h"
-#include "syzygy/trace/service/trace_file_writer_factory.h"
+#include "syzygy/trace/service/session_trace_file_writer.h"
+#include "syzygy/trace/service/session_trace_file_writer_factory.h"
 
 namespace trace {
 namespace service {
 
 namespace {
 
-class TestTraceFileWriter : public TraceFileWriter {
+class TestSessionTraceFileWriter : public SessionTraceFileWriter {
  public:
-  explicit TestTraceFileWriter(MessageLoop* message_loop,
-                               const base::FilePath& trace_directory)
-      : TraceFileWriter(message_loop, trace_directory),
+  explicit TestSessionTraceFileWriter(
+      MessageLoop* message_loop, const base::FilePath& trace_directory)
+      : SessionTraceFileWriter(message_loop, trace_directory),
         num_buffers_to_recycle_(0) {
     base::subtle::Barrier_AtomicIncrement(&num_instances_, 1);
   }
 
-  ~TestTraceFileWriter() {
+  ~TestSessionTraceFileWriter() {
     base::subtle::Barrier_AtomicIncrement(&num_instances_, -1);
   }
 
@@ -59,7 +59,7 @@ class TestTraceFileWriter : public TraceFileWriter {
       ASSERT_TRUE(buffer != NULL);
       ASSERT_EQ(buffer->session, session_ref_.get());
       ASSERT_TRUE(
-        TraceFileWriter::ConsumeBuffer(buffer));
+        SessionTraceFileWriter::ConsumeBuffer(buffer));
 
       --num_buffers_to_recycle_;
     }
@@ -118,20 +118,21 @@ class TestTraceFileWriter : public TraceFileWriter {
   static volatile base::subtle::Atomic32 num_instances_;
 };
 
-volatile base::subtle::Atomic32 TestTraceFileWriter::num_instances_ = 0;
+volatile base::subtle::Atomic32 TestSessionTraceFileWriter::num_instances_ = 0;
 
-class TestTraceFileWriterFactory : public TraceFileWriterFactory {
+class TestSessionTraceFileWriterFactory : public SessionTraceFileWriterFactory {
  public:
-   explicit TestTraceFileWriterFactory(MessageLoop* message_loop)
-       : TraceFileWriterFactory(message_loop) {
+   explicit TestSessionTraceFileWriterFactory(MessageLoop* message_loop)
+       : SessionTraceFileWriterFactory(message_loop) {
    }
 
    bool CreateConsumer(scoped_refptr<BufferConsumer>* consumer) OVERRIDE {
      // w00t, somewhat bogus coverage ploy, at least will reuse the DCHECKS.
-     EXPECT_TRUE(TraceFileWriterFactory::CreateConsumer(consumer));
+     EXPECT_TRUE(SessionTraceFileWriterFactory::CreateConsumer(consumer));
      EXPECT_TRUE((*consumer)->HasOneRef());
 
-     *consumer = new TestTraceFileWriter(message_loop_, trace_file_directory_);
+     *consumer = new TestSessionTraceFileWriter(
+        message_loop_, trace_file_directory_);
      return true;
    }
 };
@@ -151,7 +152,7 @@ class TestSession : public Session {
   }
 
   void AllowBuffersToBeRecycled(size_t num_buffers) {
-    static_cast<TestTraceFileWriter*>(
+    static_cast<TestSessionTraceFileWriter*>(
         buffer_consumer())->AllowBuffersToBeRecycled(num_buffers);
   }
 
@@ -295,8 +296,8 @@ class SessionTest : public ::testing::Test {
         consumer_thread_has_started_(
             consumer_thread_.StartWithOptions(
                 base::Thread::Options(MessageLoop::TYPE_IO, 0))),
-        trace_file_writer_factory_(consumer_thread_.message_loop()),
-        call_trace_service_(&trace_file_writer_factory_),
+        session_trace_file_writer_factory_(consumer_thread_.message_loop()),
+        call_trace_service_(&session_trace_file_writer_factory_),
         rpc_service_instance_manager_(&call_trace_service_),
         worker1_("Worker1"),
         worker2_("Worker2") {
@@ -307,7 +308,7 @@ class SessionTest : public ::testing::Test {
 
     ASSERT_TRUE(consumer_thread_has_started_);
     EXPECT_EQ(0, call_trace_service_.num_active_sessions());
-    EXPECT_EQ(0, TestTraceFileWriter::num_instances());
+    EXPECT_EQ(0, TestSessionTraceFileWriter::num_instances());
 
     // Setup the buffer management to make it easy to force buffer contention.
     call_trace_service_.set_num_incremental_buffers(2);
@@ -315,8 +316,8 @@ class SessionTest : public ::testing::Test {
 
     // Create a temporary directory for the call trace files.
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-    ASSERT_TRUE(
-        trace_file_writer_factory_.SetTraceFileDirectory(temp_dir_.path()));
+    ASSERT_TRUE(session_trace_file_writer_factory_.SetTraceFileDirectory(
+        temp_dir_.path()));
 
     // We give the service instance a "unique" id so that it does not interfere
     // with any other instances or tests that might be concurrently active.
@@ -347,7 +348,7 @@ class SessionTest : public ::testing::Test {
     EXPECT_TRUE(call_trace_service_.Stop());
     EXPECT_FALSE(call_trace_service_.is_running());
     EXPECT_EQ(0, call_trace_service_.num_active_sessions());
-    EXPECT_EQ(0, TestTraceFileWriter::num_instances());
+    EXPECT_EQ(0, TestSessionTraceFileWriter::num_instances());
   }
 
  protected:
@@ -360,7 +361,7 @@ class SessionTest : public ::testing::Test {
 
   // The call trace service related objects. These declarations MUST be in
   // this order.
-  TestTraceFileWriterFactory trace_file_writer_factory_;
+  TestSessionTraceFileWriterFactory session_trace_file_writer_factory_;
   TestService call_trace_service_;
   RpcServiceInstanceManager rpc_service_instance_manager_;
 
@@ -576,5 +577,5 @@ TEST_F(SessionTest, LargeBufferRequestAvoidsBackPressure) {
   ASSERT_EQ(buffer3, session->last_singleton_buffer_destroyed_);
 }
 
-}  // namespace trace
 }  // namespace service
+}  // namespace trace

@@ -35,7 +35,7 @@
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
 #include "syzygy/trace/service/service_rpc_impl.h"
-#include "syzygy/trace/service/trace_file_writer_factory.h"
+#include "syzygy/trace/service/session_trace_file_writer_factory.h"
 
 using namespace trace::client;
 
@@ -94,8 +94,8 @@ class CallTraceServiceTest : public testing::Test {
         consumer_thread_has_started_(
             consumer_thread_.StartWithOptions(
                 base::Thread::Options(MessageLoop::TYPE_IO, 0))),
-        trace_file_writer_factory_(consumer_thread_.message_loop()),
-        call_trace_service_(&trace_file_writer_factory_),
+        session_trace_file_writer_factory_(consumer_thread_.message_loop()),
+        call_trace_service_(&session_trace_file_writer_factory_),
         rpc_service_instance_manager_(&call_trace_service_),
         client_rpc_binding_(NULL) {
   }
@@ -108,8 +108,8 @@ class CallTraceServiceTest : public testing::Test {
 
     // Create a temporary directory for the call trace files.
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-    ASSERT_TRUE(
-        trace_file_writer_factory_.SetTraceFileDirectory(temp_dir_.path()));
+    ASSERT_TRUE(session_trace_file_writer_factory_.SetTraceFileDirectory(
+        temp_dir_.path()));
 
     // We give the service instance a "unique" id so that it does not interfere
     // with any other instances or tests that might be concurrently active.
@@ -341,7 +341,7 @@ class CallTraceServiceTest : public testing::Test {
 
   // The call trace service related objects. These declarations MUST be in
   // this order.
-  TraceFileWriterFactory trace_file_writer_factory_;
+  SessionTraceFileWriterFactory session_trace_file_writer_factory_;
   Service call_trace_service_;
   RpcServiceInstanceManager rpc_service_instance_manager_;
 
@@ -467,7 +467,7 @@ TEST_F(CallTraceServiceTest, IsSingletonPerInstanceId) {
   // Create a new local service instance and see if it starts. We use a new
   // instance to pick up the new instance id and to make sure any state in
   // the static service instance doesn't compromise the test.
-  Service local_call_trace_service(&trace_file_writer_factory_);
+  Service local_call_trace_service(&session_trace_file_writer_factory_);
   local_call_trace_service.set_instance_id(duplicate_id);
   EXPECT_FALSE(local_call_trace_service.Start(true));
   EXPECT_TRUE(local_call_trace_service.Stop());
@@ -491,7 +491,7 @@ TEST_F(CallTraceServiceTest, IsConcurrentWithDifferentInstanceId) {
   // Create a new local service instance and see if it starts. We use a new
   // instance to pick up the new instance id and to make sure any state in
   // the static service instance doesn't compromise the test.
-  Service local_call_trace_service(&trace_file_writer_factory_);
+  Service local_call_trace_service(&session_trace_file_writer_factory_);
   local_call_trace_service.set_instance_id(internal_id);
   EXPECT_TRUE(local_call_trace_service.Start(true));
   EXPECT_TRUE(local_call_trace_service.Stop());

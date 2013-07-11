@@ -34,7 +34,7 @@
 #include "syzygy/trace/rpc/rpc_helpers.h"
 #include "syzygy/trace/service/service.h"
 #include "syzygy/trace/service/service_rpc_impl.h"
-#include "syzygy/trace/service/trace_file_writer_factory.h"
+#include "syzygy/trace/service/session_trace_file_writer_factory.h"
 
 namespace trace {
 namespace service {
@@ -165,8 +165,8 @@ bool RunService(const CommandLine* cmd_line,
   }
 
   MessageLoop* message_loop = writer_thread.message_loop();
-  TraceFileWriterFactory trace_file_writer_factory(message_loop);
-  Service call_trace_service(&trace_file_writer_factory);
+  SessionTraceFileWriterFactory session_trace_file_writer_factory(message_loop);
+  Service call_trace_service(&session_trace_file_writer_factory);
   RpcServiceInstanceManager rpc_instance(&call_trace_service);
 
   // Get/set the instance id.
@@ -183,7 +183,7 @@ bool RunService(const CommandLine* cmd_line,
   base::FilePath trace_directory(cmd_line->GetSwitchValuePath("trace-dir"));
   if (trace_directory.empty())
     trace_directory = base::FilePath(L".");
-  if (!trace_file_writer_factory.SetTraceFileDirectory(trace_directory))
+  if (!session_trace_file_writer_factory.SetTraceFileDirectory(trace_directory))
     return false;
 
   // Setup the buffer size.
