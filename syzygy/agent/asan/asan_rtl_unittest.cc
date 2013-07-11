@@ -69,6 +69,24 @@ const size_t kAllocSize = 13;
       (HANDLE heap, HEAP_INFORMATION_CLASS info_class,  \
        PVOID info, SIZE_T info_length, PSIZE_T return_length))  \
     F(void, SetCallBack, (void (*callback)(AsanErrorInfo* error_info)))  \
+    F(void, check_memcpy_args,  \
+      (void* destination, const void* source, size_t num))  \
+    F(void, check_memmove_args,  \
+      (void* destination, const void* source, size_t num))  \
+    F(void, check_memset_args,  \
+      (void* ptr, int value, size_t num))  \
+    F(void, check_memchr_args, (const void* ptr, int value, size_t num))  \
+    F(void, check_strcspn_args, (const char* str1, const char* str2))  \
+    F(void, check_strlen_args, (const char* str))  \
+    F(void, check_strrchr_args, (const char* str, int character))  \
+    F(void, check_strcmp_args, (const char* str1, const char* str2))  \
+    F(void, check_strpbrk_args, (const char* str1, const char* str2))  \
+    F(void, check_strstr_args, (const char* str1, const char* str2))  \
+    F(void, check_strspn_args, (const char* str1, const char* str2))  \
+    F(void, check_strncpy_args,  \
+      (char* destination, const char* source, size_t num))  \
+    F(void, check_strncat_args,  \
+      (char* destination, const char* source, size_t num))
 
 #define DECLARE_ASAN_FUNCTION_PTR(ret, name, args) \
     typedef ret (WINAPI* name##FunctionPtr)args;

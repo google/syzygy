@@ -86,3 +86,18 @@ EXPORTS
   asan_HeapSetInformation
   asan_HeapQueryInformation
   asan_SetCallBack
+
+  ; Interceptor functions.
+  asan_check_memcpy_args
+  asan_check_memmove_args
+  asan_check_memset_args
+  asan_check_memchr_args
+  asan_check_strcspn_args
+  asan_check_strlen_args
+  asan_check_strrchr_args
+  asan_check_strcmp_args
+  asan_check_strpbrk_args
+  asan_check_strstr_args
+  asan_check_strspn_args
+  asan_check_strncpy_args
+  asan_check_strncat_args

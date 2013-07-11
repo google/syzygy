@@ -85,6 +85,61 @@ BOOL WINAPI asan_HeapQueryInformation(
 typedef void (*AsanErrorCallBack)(agent::asan::AsanErrorInfo*);
 void WINAPI asan_SetCallBack(AsanErrorCallBack callback);
 
+void __stdcall asan_check_memcpy_args(size_t do_not_use_eip,
+                                      void* destination,
+                                      const void* source,
+                                      size_t num);
+
+void __stdcall asan_check_memmove_args(size_t do_not_use_eip,
+                                       void* destination,
+                                       const void* source,
+                                       size_t num);
+
+void __stdcall asan_check_memset_args(size_t do_not_use_eip,
+                                      void* ptr,
+                                      int value,
+                                      size_t num);
+
+void __stdcall asan_check_memchr_args(size_t do_not_use_eip,
+                                      const void* ptr,
+                                      int value, size_t num);
+
+void __stdcall asan_check_strcspn_args(size_t do_not_use_eip,
+                                       const char* str1,
+                                       const char* str2);
+
+void __stdcall asan_check_strlen_args(size_t do_not_use_eip, const char* str);
+
+void __stdcall asan_check_strrchr_args(size_t do_not_use_eip,
+                                       const char* str,
+                                       int character);
+
+void __stdcall asan_check_strcmp_args(size_t do_not_use_eip,
+                                      const char* str1,
+                                      const char* str2);
+
+void __stdcall asan_check_strpbrk_args(size_t do_not_use_eip,
+                                       const char* str1,
+                                       const char* str2);
+
+void __stdcall asan_check_strstr_args(size_t do_not_use_eip,
+                                      const char* str1,
+                                      const char* str2);
+
+void __stdcall asan_check_strspn_args(size_t do_not_use_eip,
+                                      const char* str1,
+                                      const char* str2);
+
+void __stdcall asan_check_strncpy_args(size_t do_not_use_eip,
+                                       char* destination,
+                                       const char* source,
+                                       size_t num);
+
+void __stdcall asan_check_strncat_args(size_t do_not_use_eip,
+                                       char* destination,
+                                       const char* source,
+                                       size_t num);
+
 }  // extern "C"
 
 #endif  // SYZYGY_AGENT_ASAN_ASAN_RTL_IMPL_H_
