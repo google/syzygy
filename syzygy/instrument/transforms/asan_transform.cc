@@ -948,7 +948,7 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
 bool AsanTransform::InterceptFunctions(ImportedModule* import_module,
     BlockGraph* block_graph,
     BlockGraph::Block* header_block,
-    const AsanTransform::FunctionInterceptionSet& functions_set) {
+    const FunctionInterceptionSet& functions_set) {
   DCHECK(import_module != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
@@ -1063,8 +1063,8 @@ bool AsanTransform::InterceptFunctions(ImportedModule* import_module,
     // function. We expect this call to return false as we're overriding an
     // existing reference.
     if (thunk->SetReference(thunk->references().rbegin()->first,
-            BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
-                                  BlockGraph::Reference::kMaximumSize,
+            BlockGraph::Reference(thunk->references().rbegin()->second.type(),
+                                  thunk->references().rbegin()->second.size(),
                                   iter_redirection_info->second.function_block,
                                   0U,
                                   0U))) {
