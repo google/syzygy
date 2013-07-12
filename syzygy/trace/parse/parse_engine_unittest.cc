@@ -620,7 +620,7 @@ TEST_F(ParseEngineUnitTest, SampleData) {
   data->bucket_count = kBucketCount;
   data->sampling_start_time = 0x0102030405060708;
   data->sampling_end_time = 0x0203040506070809;
-  data->sampling_rate = 0x10000;
+  data->sampling_interval = 0x10000;
 
   for (size_t i = 0; i < kBucketCount; ++i)
     data->buckets[i] = i;

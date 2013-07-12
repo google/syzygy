@@ -17,15 +17,22 @@
 #include <psapi.h>
 
 #include "base/bind.h"
+#include "base/file_util.h"
 #include "base/stringprintf.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "syzygy/common/align.h"
+#include "syzygy/common/buffer_writer.h"
 #include "syzygy/pe/pe_file.h"
+#include "syzygy/trace/common/clock.h"
+#include "syzygy/trace/protocol/call_trace_defs.h"
+#include "syzygy/trace/service/trace_file_writer.h"
 
 namespace sampler {
 
 namespace {
+
+typedef trace::service::TraceFileWriter TraceFileWriter;
 
 const char kUsageFormatStr[] =
     "Usage: %ls [options] MODULE_PATH1 [MODULE_PATH2 ...]\n"
@@ -44,6 +51,9 @@ const char kUsageFormatStr[] =
     "                        the list is a whitelist.\n"
     "  --bucket-size=POSINT  Specifies the bucket size. This must be a power\n"
     "                        of two, and must be >= 4. Defaults to 4.\n"
+    "  --output-dir=DIR      The path to write trace-files. Will be created\n"
+    "                        if it doesn't exist. Defaults to the current\n"
+    "                        working directory.\n"
     "  --pids=PID1,PID2,...  Specifies a list of PIDs. If specified these are\n"
     "                        used as a filter (by default a whitelist) for\n"
     "                        processes to be profiled. If not specified all\n"
@@ -417,6 +427,130 @@ bool InspectProcessModules(DWORD pid,
   return true;
 }
 
+// Writes a trace data object to a trace file, preceding it with a record
+// prefix and trace-file segment header as necessary.
+template<typename TraceDataType>
+bool WriteTraceRecord(const TraceDataType* trace_data,
+                      size_t size,
+                      TraceEventType data_type,
+                      TraceFileWriter* writer) {
+  DCHECK(writer != NULL);
+
+  std::vector<uint8> buffer;
+  common::VectorBufferWriter w(&buffer);
+
+  // Write the record prefix for the segment header.
+  RecordPrefix record = {};
+  record.timestamp = ::GetTickCount();
+  record.size = sizeof(TraceFileSegmentHeader);
+  record.type = TraceFileSegmentHeader::kTypeId;
+  record.version.hi = TRACE_VERSION_HI;
+  record.version.lo = TRACE_VERSION_LO;
+  if (!w.Write(record))
+    return false;
+
+  // Write the segment header.
+  TraceFileSegmentHeader segment = {};
+  segment.thread_id = 0;
+  segment.segment_length = sizeof(RecordPrefix) + size;
+  if (!w.Write(segment))
+    return false;
+
+  // Now write a record-prefix for the actual data.
+  record.size = size;
+  record.type = data_type;
+  if (!w.Write(record))
+    return false;
+
+  // Write the actual data.
+  if (!w.Write(size, reinterpret_cast<const void*>(trace_data)))
+    return false;
+
+  // Align the output to the block size.
+  if (!w.Align(writer->block_size()))
+    return false;
+
+  // Write the whole chunk of data.
+  if (!writer->WriteRecord(buffer.data(), buffer.size()))
+    return false;
+
+  return true;
+}
+
+// Output a TRACE_PROCESS_ATTACH_EVENT for |module|. This allows the grinder
+// to tie subsequent sample data to a module on disk.
+bool WriteTraceModuleDataRecord(const SampledModuleCache::Module* module,
+                                TraceFileWriter* writer) {
+  DCHECK(module != NULL);
+  DCHECK(writer != NULL);
+
+  TraceModuleData module_data = {};
+  module_data.module_base_addr = reinterpret_cast<ModuleAddr>(module->module());
+  module_data.module_base_size = module->module_size();
+  module_data.module_checksum = module->module_checksum();
+  module_data.module_time_date_stamp = module->module_time_date_stamp();
+
+  base::FilePath basename = module->module_path().BaseName();
+  ::wcsncpy(module_data.module_name, basename.value().c_str(),
+            arraysize(module_data.module_name) - 1);
+
+  ::wcsncpy(module_data.module_exe, module->module_path().value().c_str(),
+            arraysize(module_data.module_exe) - 1);
+
+  // We simulate a 'process attached to module' event. The sampling is across
+  // all threads in a process, so we can't actually tie the data to any
+  // particular thread.
+  if (!WriteTraceRecord(&module_data, sizeof(module_data),
+                        TRACE_PROCESS_ATTACH_EVENT, writer)) {
+    return false;
+  }
+
+  return true;
+}
+
+// Converts the sample data in |module| to a TraceSampleData buffer and outputs
+// it to the provided TraceFileWriter.
+bool WriteTraceSampleDataRecord(uint64 sampling_interval_in_cycles,
+                                const SampledModuleCache::Module* module,
+                                TraceFileWriter* writer) {
+  DCHECK(module != NULL);
+  DCHECK(writer != NULL);
+
+  const ULONG* buckets = module->profiler().buckets().data();
+  size_t bucket_count = module->profiler().buckets().size();
+  DCHECK_LT(0u, bucket_count);
+
+  // Calculate the size of the buffer required to store the samples.
+  size_t size = offsetof(TraceSampleData, buckets) +
+      sizeof(buckets[0]) * bucket_count;
+
+  std::vector<uint8> buffer(size);
+  TraceSampleData* data = reinterpret_cast<TraceSampleData*>(buffer.data());
+
+  COMPILE_ASSERT(sizeof(buckets[0]) == sizeof(data->buckets[0]),
+                 buckets_have_mismatched_sizes);
+
+  // Populate the TraceSampleData structure.
+  data->module_base_addr = reinterpret_cast<ModuleAddr>(module->module());
+  data->module_size = module->module_size();
+  data->module_checksum = module->module_checksum();
+  data->module_time_date_stamp = module->module_time_date_stamp();
+  data->bucket_size = 1 << module->log2_bucket_size();
+  data->bucket_start = reinterpret_cast<ModuleAddr>(module->buckets_begin());
+  data->bucket_count = bucket_count;
+  data->sampling_start_time = module->profiling_start_time();
+  data->sampling_end_time = module->profiling_stop_time();
+  data->sampling_interval = sampling_interval_in_cycles;
+
+  // Copy the samples into the buffer.
+  ::memcpy(data->buckets, buckets, sizeof(buckets[0]) * bucket_count);
+
+  if (!WriteTraceRecord(data, size, TRACE_SAMPLE_DATA, writer))
+    return false;
+
+  return true;
+}
+
 }  // namespace
 
 const char SamplerApp::kBlacklistPids[] = "blacklist-pids";
@@ -437,7 +571,8 @@ SamplerApp::SamplerApp()
       blacklist_pids_(true),
       log2_bucket_size_(kDefaultLog2BucketSize),
       sampling_interval_(kDefaultSamplingInterval),
-      running_(true) {
+      running_(true),
+      sampling_interval_in_cycles_(0) {
 }
 
 SamplerApp::~SamplerApp() {
@@ -464,6 +599,8 @@ bool SamplerApp::ParseCommandLine(const CommandLine* command_line) {
 
     blacklist_pids_ = command_line->HasSwitch(kBlacklistPids);
   }
+
+  output_dir_ = command_line->GetSwitchValuePath(kOutputDir);
 
   const CommandLine::StringVector& args = command_line->GetArgs();
   if (args.size() == 0) {
@@ -515,8 +652,32 @@ int SamplerApp::Run() {
 }
 
 int SamplerApp::RunImpl() {
+  // Ensure the output directory exists.
+  if (!output_dir_.empty()) {
+    if (!file_util::PathExists(output_dir_)) {
+      LOG(INFO) << "Creating output directory \"" << output_dir_.value()
+                << "\".";
+    }
+    if (!file_util::CreateDirectory(output_dir_)) {
+      LOG(ERROR) << "Failed to create output directory \""
+                 << output_dir_.value() << "\".";
+      return false;
+    }
+  }
+
   if (!SetSamplingInterval(sampling_interval_))
     return 1;
+
+  // TODO(chrisha): Output the clock information to the trace file. This should
+  //     be part of the header!
+
+  // Get the system clock information and calculate our sampling interval in
+  // system clock cycles.
+  trace::common::ClockInfo clock_info = {};
+  trace::common::GetClockInfo(&clock_info);
+  double interval_in_seconds = sampling_interval_.InSecondsF();
+  sampling_interval_in_cycles_ =
+      interval_in_seconds * clock_info.tsc_info.frequency;
 
   SampledModuleCache cache(log2_bucket_size_);
   cache.set_dead_module_callback(
@@ -661,8 +822,36 @@ void SamplerApp::OnDeadModule(const SampledModuleCache::Module* module) {
   // Invoke our testing seam callback.
   OnStopProfiling(module);
 
-  LOG(INFO) << "Dumping dead module.";
-  // TODO(chrisha): Implement flushing to call-trace files!
+  const SampledModuleCache::Process* process = module->process();
+  DCHECK(process != NULL);
+
+  base::FilePath basename = TraceFileWriter::GenerateTraceFileBaseName(
+          process->process_info());
+  base::FilePath trace_file_path = output_dir_.Append(basename);
+
+  LOG(INFO) << "Writing module samples to \"" << trace_file_path.value()
+            << "\".";
+
+  // TODO(chrisha): If we deal with processes with multiple profiled modules
+  //     or repeatedly loaded and unloaded modules, we could persist a trace
+  //     file writer for each process and use it repeatedly.
+
+  TraceFileWriter writer;
+  if (!writer.Open(trace_file_path))
+    return;
+
+  if (!writer.WriteHeader(process->process_info()))
+    return;
+
+  if (!WriteTraceModuleDataRecord(module, &writer))
+    return;
+
+  if (!WriteTraceSampleDataRecord(sampling_interval_in_cycles_, module,
+                                  &writer)) {
+    return;
+  }
+
+  return;
 }
 
 bool SamplerApp::GetModuleSignature(

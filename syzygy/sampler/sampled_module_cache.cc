@@ -19,13 +19,50 @@
 #include "base/stringprintf.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/common/align.h"
+#include "syzygy/common/path_util.h"
 #include "syzygy/pe/pe_file.h"
+#include "syzygy/trace/common/clock.h"
 
 namespace sampler {
 
 namespace {
 
 typedef SampledModuleCache::Process::ModuleMap ModuleMap;
+
+// Gets the path associated with a module.
+bool GetModulePath(HANDLE process, HMODULE module, base::FilePath* path) {
+  DCHECK(process != INVALID_HANDLE_VALUE);
+  DCHECK(module != INVALID_HANDLE_VALUE);
+  DCHECK(path != NULL);
+
+  std::vector<wchar_t> filename(1024);
+  while (true) {
+    DWORD length = ::GetModuleFileNameExW(process,
+                                          module,
+                                          filename.data(),
+                                          filename.size());
+    if (length == 0) {
+      DWORD error = ::GetLastError();
+      LOG(ERROR) << "GetModuleFileNameExW failed: " << com::LogWe(error);
+      return false;
+    }
+
+    // If we didn't use the entire vector than we had enough room and we
+    // managed to read the entire filename.
+    if (length < filename.size())
+      break;
+
+    // Otherwise we need more space, so double the vector and try again.
+    filename.resize(filename.size() * 2);
+  }
+
+  base::FilePath temp_path = base::FilePath(filename.data());
+
+  if (!common::ConvertDevicePathToDrivePath(temp_path, path))
+    return false;
+
+  return true;
+}
 
 }  // namespace
 
@@ -70,6 +107,10 @@ bool SampledModuleCache::AddModule(HANDLE process,
     }
 
     scoped_proc.reset(new Process(temp_handle, pid));
+
+    if (!scoped_proc->Init())
+      return false;
+
     proc = scoped_proc.get();
   } else {
     proc = proc_it->second;
@@ -136,6 +177,12 @@ SampledModuleCache::Process::Process(HANDLE process, DWORD pid)
 SampledModuleCache::Process::~Process() {
   MarkDead();
   RemoveDeadModules(DeadModuleCallback());
+}
+
+bool SampledModuleCache::Process::Init() {
+  if (!process_info_.Initialize(pid_))
+    return false;
+  return true;
 }
 
 bool SampledModuleCache::Process::AddModule(HMODULE module_handle,
@@ -229,6 +276,7 @@ SampledModuleCache::Module::Module(Process* process,
       buckets_end_(NULL),
       log2_bucket_size_(log2_bucket_size),
       profiling_start_time_(0),
+      profiling_stop_time_(0),
       alive_(true) {
   DCHECK(process != NULL);
   DCHECK(module_ != INVALID_HANDLE_VALUE);
@@ -237,6 +285,9 @@ SampledModuleCache::Module::Module(Process* process,
 }
 
 bool SampledModuleCache::Module::Init() {
+  if (!GetModulePath(process_->process(), module_, &module_path_))
+    return false;
+
   // Read the headers.
   char headers[4096] = {};
   size_t net_bytes_read = 0;
@@ -342,6 +393,20 @@ bool SampledModuleCache::Module::Init() {
   }
   DCHECK_EQ(bucket_count, profiler_.buckets().size());
 
+  return true;
+}
+
+bool SampledModuleCache::Module::Start() {
+  if (!profiler_.Start())
+    return false;
+  profiling_start_time_ = trace::common::GetTsc();
+  return true;
+}
+
+bool SampledModuleCache::Module::Stop() {
+  if (!profiler_.Stop())
+    return false;
+  profiling_stop_time_ = trace::common::GetTsc();
   return true;
 }
 

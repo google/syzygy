@@ -30,6 +30,8 @@
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
+        '<(src)/syzygy/trace/service/service.gyp:rpc_service_lib',
       ],
     },
     {
@@ -59,6 +61,8 @@
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:test_dll',
+        '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',
+        '<(src)/syzygy/trace/parse/parse.gyp:parse_unittest_utils',
       ],
     },
   ],

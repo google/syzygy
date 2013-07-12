@@ -59,6 +59,7 @@
 #include "base/win/scoped_handle.h"
 #include "syzygy/common/application.h"
 #include "syzygy/trace/common/clock.h"
+#include "syzygy/trace/service/process_info.h"
 
 namespace sampler {
 
@@ -171,12 +172,19 @@ class SampledModuleCache::Process {
   // Destructor.
   ~Process();
 
+  // Initializes this process object.
+  // @returns true on success, false otherwise.
+  bool Init();
+
   // @name Accessors.
   // @{
   HANDLE process() const { return process_.Get(); }
   DWORD pid() const { return pid_; }
   ModuleMap& modules() { return modules_; }
   const ModuleMap& modules() const { return modules_; }
+  const trace::service::ProcessInfo& process_info() const {
+    return process_info_;
+  }
   // @}
 
   // Adds the provided module to the set of modules that are being profiled in
@@ -226,6 +234,9 @@ class SampledModuleCache::Process {
   // The set of all modules that are currently being profiled.
   ModuleMap modules_;
 
+  // Information about this process. This is required for writing trace files.
+  trace::service::ProcessInfo process_info_;
+
   // This is used for cleaning up no longer running processes using a mark and
   // sweep technique. The containing SampledModuleCache enforces the invariant
   // that alive_ is false if and only if all of our child modules are dead.
@@ -249,6 +260,24 @@ class SampledModuleCache::Module {
   //     for more details.
   Module(Process* process, HMODULE module, size_t log2_bucket_size);
 
+  // @name Accessors.
+  // @{
+  Process* process() { return process_; }
+  const Process* process() const { return process_; }
+  HMODULE module() const { return module_; }
+  const base::FilePath& module_path() const { return module_path_; }
+  size_t module_size() const { return module_size_; }
+  uint32 module_checksum() const { return module_checksum_; }
+  uint32 module_time_date_stamp() const { return module_time_date_stamp_; }
+  const void* buckets_begin() const { return buckets_begin_; }
+  const void* buckets_end() const { return buckets_end_; }
+  size_t log2_bucket_size() const { return log2_bucket_size_; }
+  uint64 profiling_start_time() const { return profiling_start_time_; }
+  uint64 profiling_stop_time() const { return profiling_stop_time_; }
+  base::win::SamplingProfiler& profiler() { return profiler_; }
+  const base::win::SamplingProfiler& profiler() const { return profiler_; }
+  // @}
+
  protected:
   friend class SampledModuleCache;
 
@@ -267,11 +296,11 @@ class SampledModuleCache::Module {
 
   // Starts the sampling profiler.
   // @returns true on success, false otherwise.
-  bool Start() { return profiler_.Start(); }
+  bool Start();
 
   // Stops the sampling profiler.
   // @returns true on success, false otherwise.
-  bool Stop() { return profiler_.Stop(); }
+  bool Stop();
 
  private:
   friend class SampledModuleCacheTest;  // Testing seam.
@@ -283,6 +312,9 @@ class SampledModuleCache::Module {
   // module in the other process' address space. Modules are stored in
   // a set in their parent Process, keyed off the module handle.
   HMODULE module_;
+
+  // The path to the module.
+  base::FilePath module_path_;
 
   // Information that uniquely identifies the module. This information is needed
   // when we output the TraceSampleData record to the trace file.
@@ -297,8 +329,10 @@ class SampledModuleCache::Module {
   const void* buckets_end_;
   size_t log2_bucket_size_;
 
-  // The time when we started profiling this module, as reported by RDTSC.
+  // The time when we started and stopped profiling this module, as reported by
+  // RDTSC.
   uint64 profiling_start_time_;
+  uint64 profiling_stop_time_;
 
   // The sampling profiler instance that is profiling this module.
   base::win::SamplingProfiler profiler_;

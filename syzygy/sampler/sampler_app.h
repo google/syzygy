@@ -120,6 +120,9 @@ class SamplerApp : public common::AppImplBase {
   size_t log2_bucket_size_;
   base::TimeDelta sampling_interval_;
 
+  // The output directory where trace files will be written.
+  base::FilePath output_dir_;
+
   // List of modules of interest. Any instances of these modules that are
   // loaded in processes of interest (those that get through our process
   // filter) will be profiled.
@@ -128,6 +131,11 @@ class SamplerApp : public common::AppImplBase {
   // Used to indicate whether or not the sampler should continue running.
   base::Lock lock_;
   bool running_;  // Under lock.
+
+  // @name Internal state and calculations.
+  // @{
+  uint64 sampling_interval_in_cycles_;
+  // @}
 
   // Only one instance of this class can register for console control messages,
   // on a first-come first-serve basis.

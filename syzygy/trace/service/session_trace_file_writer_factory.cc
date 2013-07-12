@@ -14,23 +14,8 @@
 
 #include "syzygy/trace/service/session_trace_file_writer_factory.h"
 
-#include <time.h>
-
-#include "base/atomicops.h"
-#include "base/bind.h"
 #include "base/file_util.h"
-#include "base/logging.h"
 #include "base/message_loop.h"
-#include "base/stringprintf.h"
-#include "base/files/file_path.h"
-#include "base/memory/scoped_ptr.h"
-#include "sawbuck/common/com_utils.h"
-#include "syzygy/common/align.h"
-#include "syzygy/common/buffer_writer.h"
-#include "syzygy/common/path_util.h"
-#include "syzygy/trace/protocol/call_trace_defs.h"
-#include "syzygy/trace/service/buffer_pool.h"
-#include "syzygy/trace/service/session.h"
 #include "syzygy/trace/service/session_trace_file_writer.h"
 
 namespace trace {

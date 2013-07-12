@@ -408,8 +408,8 @@ struct TraceSampleData {
   uint64 sampling_start_time;
   uint64 sampling_end_time;
 
-  // The sampling rate, expressed in clock units.
-  uint64 sampling_rate;
+  // The sampling interval, expressed in clock cycles.
+  uint64 sampling_interval;
 
   // There are actually |bucket_count| buckets that follow.
   uint32 buckets[1];

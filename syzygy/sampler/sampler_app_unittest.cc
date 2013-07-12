@@ -20,15 +20,20 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/threading/thread.h"
+#include "base/win/pe_image.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/application.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/trace/parse/parser.h"
+#include "syzygy/trace/parse/unittest_util.h"
 
 namespace sampler {
 
 namespace {
+
+using testing::_;
 
 class TestSamplerApp : public SamplerApp {
  public:
@@ -36,7 +41,8 @@ class TestSamplerApp : public SamplerApp {
       : start_profiling_(&cv_lock_),
         start_profiling_counter_(0),
         stop_profiling_(&cv_lock_),
-        stop_profiling_counter_(0) {
+        stop_profiling_counter_(0),
+        on_stop_profiling_sample_count_(0) {
   }
 
   using SamplerApp::PidSet;
@@ -46,6 +52,7 @@ class TestSamplerApp : public SamplerApp {
 
   using SamplerApp::pids_;
   using SamplerApp::blacklist_pids_;
+  using SamplerApp::output_dir_;
   using SamplerApp::module_sigs_;
   using SamplerApp::log2_bucket_size_;
   using SamplerApp::sampling_interval_;
@@ -58,11 +65,14 @@ class TestSamplerApp : public SamplerApp {
     --start_profiling_counter_;
   }
 
-  void WaitUntilStopProfiling() {
+  // Waits until a module has finished profiling, returning the total number of
+  // samples set.
+  uint64 WaitUntilStopProfiling() {
     base::AutoLock auto_lock(cv_lock_);
     while (stop_profiling_counter_ == 0)
       stop_profiling_.Wait();
     --stop_profiling_counter_;
+    return on_stop_profiling_sample_count_;
   }
 
  protected:
@@ -78,6 +88,12 @@ class TestSamplerApp : public SamplerApp {
       const SampledModuleCache::Module* module) OVERRIDE {
     DCHECK(module != NULL);
     base::AutoLock auto_lock(cv_lock_);
+
+    // Count up the number of samples.
+    on_stop_profiling_sample_count_ = 0;
+    for (size_t i = 0; i < module->profiler().buckets().size(); ++i)
+      on_stop_profiling_sample_count_ += module->profiler().buckets()[i];
+
     ++stop_profiling_counter_;
     stop_profiling_.Signal();
   }
@@ -88,6 +104,38 @@ class TestSamplerApp : public SamplerApp {
   size_t start_profiling_counter_;  // Under cv_lock_.
   base::ConditionVariable stop_profiling_;  // Under cv_lock_.
   size_t stop_profiling_counter_;  // Under cv_lock_.
+
+  // This will be set to the total number of samples collected in the last
+  // OnStopProfiling event.
+  uint64 on_stop_profiling_sample_count_;  // Under cv_lock_.
+};
+
+class TestParseEventHandler : public testing::MockParseEventHandler {
+ public:
+  TestParseEventHandler() : sample_count(0) {
+    ::memset(&trace_sample_data, 0, sizeof(trace_sample_data));
+  }
+
+  // This is used to inspect the results of an OnSampleData call. We remember
+  // the number of samples in trace_sample_data_sample_count_.
+  void TestOnSampleData(base::Time time,
+                        DWORD process_id,
+                        const TraceSampleData* data) {
+    DCHECK(data != NULL);
+    sample_count = 0;
+    for (size_t i = 0; i < data->bucket_count; ++i)
+      sample_count += data->buckets[i];
+
+    ::memcpy(&trace_sample_data, data, sizeof(trace_sample_data));
+  }
+
+  // This will be a copy of the TraceSampleData buffer seen by the last
+  // call to TestOnSampleData, minus the bucket table.
+  TraceSampleData trace_sample_data;
+
+  // This will be set to the total number of samples seen in the last
+  // TraceSampleData buffer seen by TestOnSampleData.
+  uint64 sample_count;
 };
 
 class SamplerAppTest : public testing::PELibUnitTest {
@@ -127,6 +175,8 @@ class SamplerAppTest : public testing::PELibUnitTest {
     ASSERT_TRUE(PathService::Get(base::FILE_EXE, &self_path));
     ASSERT_TRUE(TestSamplerApp::GetModuleSignature(self_path,
                                                    &self_sig));
+
+    output_dir = temp_dir_.AppendASCII("output");
   }
 
   // Runs the application asynchronously. Provides the return value via the
@@ -140,6 +190,9 @@ class SamplerAppTest : public testing::PELibUnitTest {
   base::FilePath self_path;
   TestSamplerApp::ModuleSignature test_dll_sig;
   TestSamplerApp::ModuleSignature self_sig;
+
+  // The trace file directory.
+  base::FilePath output_dir;
 
  protected:
   // The command line to be given to the application under test.
@@ -245,6 +298,7 @@ TEST_F(SamplerAppTest, ParseValidBucketSizeMinimal) {
   EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
   EXPECT_EQ(3u, impl_.log2_bucket_size_);
   EXPECT_EQ(SamplerApp::kDefaultSamplingInterval, impl_.sampling_interval_);
+  EXPECT_TRUE(impl_.output_dir_.empty());
 }
 
 TEST_F(SamplerAppTest, ParseTooSmallSamplingIntervalFails) {
@@ -269,6 +323,7 @@ TEST_F(SamplerAppTest, ParseValidSamplingIntervalInteger) {
   EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
   EXPECT_EQ(SamplerApp::kDefaultLog2BucketSize, impl_.log2_bucket_size_);
   EXPECT_EQ(base::TimeDelta::FromSeconds(2), impl_.sampling_interval_);
+  EXPECT_TRUE(impl_.output_dir_.empty());
 }
 
 TEST_F(SamplerAppTest, ParseValidSamplingIntervalDecimal) {
@@ -281,6 +336,7 @@ TEST_F(SamplerAppTest, ParseValidSamplingIntervalDecimal) {
   EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
   EXPECT_EQ(SamplerApp::kDefaultLog2BucketSize, impl_.log2_bucket_size_);
   EXPECT_EQ(base::TimeDelta::FromMilliseconds(1500), impl_.sampling_interval_);
+  EXPECT_TRUE(impl_.output_dir_.empty());
 }
 
 TEST_F(SamplerAppTest, ParseValidSamplingIntervalScientific) {
@@ -293,6 +349,20 @@ TEST_F(SamplerAppTest, ParseValidSamplingIntervalScientific) {
   EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
   EXPECT_EQ(SamplerApp::kDefaultLog2BucketSize, impl_.log2_bucket_size_);
   EXPECT_EQ(base::TimeDelta::FromMilliseconds(1), impl_.sampling_interval_);
+  EXPECT_TRUE(impl_.output_dir_.empty());
+}
+
+TEST_F(SamplerAppTest, ParseOutputDir) {
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kOutputDir, "foo");
+  cmd_line_.AppendArgPath(test_dll_path);
+  ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
+
+  EXPECT_TRUE(impl_.pids_.empty());
+  EXPECT_TRUE(impl_.blacklist_pids_);
+  EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
+  EXPECT_EQ(SamplerApp::kDefaultLog2BucketSize, impl_.log2_bucket_size_);
+  EXPECT_EQ(SamplerApp::kDefaultSamplingInterval, impl_.sampling_interval_);
+  EXPECT_EQ(base::FilePath(L"foo"), impl_.output_dir_);
 }
 
 TEST_F(SamplerAppTest, ParseMinimal) {
@@ -304,12 +374,14 @@ TEST_F(SamplerAppTest, ParseMinimal) {
   EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
   EXPECT_EQ(SamplerApp::kDefaultLog2BucketSize, impl_.log2_bucket_size_);
   EXPECT_EQ(SamplerApp::kDefaultSamplingInterval, impl_.sampling_interval_);
+  EXPECT_TRUE(impl_.output_dir_.empty());
 }
 
 TEST_F(SamplerAppTest, ParseFullWhitelist) {
   cmd_line_.AppendSwitchASCII(TestSamplerApp::kPids, "1,2,3");
   cmd_line_.AppendSwitchASCII(TestSamplerApp::kBucketSize, "8");
   cmd_line_.AppendSwitchASCII(TestSamplerApp::kSamplingInterval, "1e-3");
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kOutputDir, "foo");
   cmd_line_.AppendArgPath(test_dll_path);
   ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
 
@@ -318,6 +390,7 @@ TEST_F(SamplerAppTest, ParseFullWhitelist) {
   EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
   EXPECT_EQ(3, impl_.log2_bucket_size_);
   EXPECT_EQ(base::TimeDelta::FromMilliseconds(1), impl_.sampling_interval_);
+  EXPECT_EQ(base::FilePath(L"foo"), impl_.output_dir_);
 }
 
 TEST_F(SamplerAppTest, ParseFullBlacklist) {
@@ -325,6 +398,7 @@ TEST_F(SamplerAppTest, ParseFullBlacklist) {
   cmd_line_.AppendSwitchASCII(TestSamplerApp::kBucketSize, "8");
   cmd_line_.AppendSwitchASCII(TestSamplerApp::kSamplingInterval, "1e-3");
   cmd_line_.AppendSwitch(TestSamplerApp::kBlacklistPids);
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kOutputDir, "foo");
   cmd_line_.AppendArgPath(test_dll_path);
   cmd_line_.AppendArgPath(self_path);
   ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
@@ -335,11 +409,14 @@ TEST_F(SamplerAppTest, ParseFullBlacklist) {
               testing::ElementsAre(test_dll_sig, self_sig));
   EXPECT_EQ(3, impl_.log2_bucket_size_);
   EXPECT_EQ(base::TimeDelta::FromMilliseconds(1), impl_.sampling_interval_);
+  EXPECT_EQ(base::FilePath(L"foo"), impl_.output_dir_);
 }
 
 TEST_F(SamplerAppTest, SampleSelfPidWhitelist) {
   cmd_line_.AppendSwitchASCII(TestSamplerApp::kPids,
       base::StringPrintf("%d", ::GetCurrentProcessId()));
+  cmd_line_.AppendSwitchASCII(TestSamplerApp::kSamplingInterval, "0.25");
+  cmd_line_.AppendSwitchPath(TestSamplerApp::kOutputDir, output_dir);
   cmd_line_.AppendArgPath(self_path);
   ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
 
@@ -352,6 +429,9 @@ TEST_F(SamplerAppTest, SampleSelfPidWhitelist) {
 
   // Wait for profiling to start.
   impl_.WaitUntilStartProfiling();
+
+  // We expect the output directory to exist by now.
+  EXPECT_TRUE(file_util::PathExists(output_dir));
 
   // Busy loop for a few seconds. This will guarantee that we get some samples
   // and have non-empty module data.
@@ -369,11 +449,58 @@ TEST_F(SamplerAppTest, SampleSelfPidWhitelist) {
   worker_thread_.Stop();
 
   // We should also have received a profiling stop event.
-  impl_.WaitUntilStopProfiling();
+  uint64 sample_count = impl_.WaitUntilStopProfiling();
+  EXPECT_LT(0, sample_count);
 
-  // TODO(chrisha): Ensure that profiler output was produced.
+  // Ensure that profiler output was produced.
+  file_util::FileEnumerator fe(output_dir,
+                               false,
+                               file_util::FileEnumerator::FILES,
+                               L"*.*");
+  base::FilePath dmp_path = fe.Next();
+  EXPECT_FALSE(dmp_path.empty());
+
+  int64 dmp_size = 0;
+  EXPECT_TRUE(file_util::GetFileSize(dmp_path, &dmp_size));
+  EXPECT_LT(0, dmp_size);
+
+  // We expect no other output to have been produced.
+  EXPECT_TRUE(fe.Next().empty());
 
   ASSERT_EQ(0, ret);
+
+  // Now parse the generated trace file. We expect it to parse without issues
+  // and to contain a process started, process attached to module, and module
+  // sample data events.
+  testing::StrictMock<TestParseEventHandler> parse_handler;
+  {
+    testing::InSequence in_sequence;
+    EXPECT_CALL(parse_handler, OnProcessStarted(_, _, _)).Times(1);
+    EXPECT_CALL(parse_handler, OnProcessAttach(_, _, _, _)).Times(1);
+    EXPECT_CALL(parse_handler, OnSampleData(_, _, _)).Times(1).WillOnce(
+        testing::Invoke(&parse_handler,
+                        &TestParseEventHandler::TestOnSampleData));
+  }
+
+  trace::parser::Parser parser;
+  ASSERT_TRUE(parser.Init(&parse_handler));
+  ASSERT_TRUE(parser.OpenTraceFile(dmp_path));
+  ASSERT_TRUE(parser.Consume());
+  ASSERT_FALSE(parser.error_occurred());
+  ASSERT_TRUE(parser.Close());
+
+  // Make sure that the TraceModuleData the parser saw agrees with our
+  // expectations.
+  base::win::PEImage pe_image(::GetModuleHandleA(NULL));
+  EXPECT_EQ(reinterpret_cast<ModuleAddr>(pe_image.module()),
+            parse_handler.trace_sample_data.module_base_addr);
+  EXPECT_EQ(pe_image.GetNTHeaders()->OptionalHeader.SizeOfImage,
+            parse_handler.trace_sample_data.module_size);
+  EXPECT_EQ(pe_image.GetNTHeaders()->OptionalHeader.CheckSum,
+            parse_handler.trace_sample_data.module_checksum);
+  EXPECT_EQ(pe_image.GetNTHeaders()->FileHeader.TimeDateStamp,
+            parse_handler.trace_sample_data.module_time_date_stamp);
+  EXPECT_EQ(sample_count, parse_handler.sample_count);
 }
 
 }  // namespace sampler

@@ -344,7 +344,7 @@ class TraceFileDumper : public ParseEventHandler {
               "    module-time-date-stamp=0x%08X; bucket-size=%d;\n"
               "    bucket-start=0x%08x; bucket-count=%d;\n"
               "    sampling-start-time=0x%016llx;\n"
-              "    sampling-end-time=0x%016llx; sampling-rate=0x%016llx;\n"
+              "    sampling-end-time=0x%016llx; sampling-interval=0x%016llx;\n"
               "    samples=%lld\n",
               process_id,
               data->module_base_addr,
@@ -356,7 +356,7 @@ class TraceFileDumper : public ParseEventHandler {
               data->bucket_count,
               data->sampling_start_time,
               data->sampling_end_time,
-              data->sampling_rate,
+              data->sampling_interval,
               samples);
   }
 
