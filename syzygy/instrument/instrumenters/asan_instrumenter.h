@@ -47,8 +47,9 @@ class AsanInstrumenter : public InstrumenterWithAgent {
   // @name Command-line parameters.
   // @{
   base::FilePath filter_path_;
-  bool use_liveness_analysis_;
+  bool intercept_crt_functions_;
   bool remove_redundant_checks_;
+  bool use_liveness_analysis_;
   // @}
 
   // The transform for this agent.

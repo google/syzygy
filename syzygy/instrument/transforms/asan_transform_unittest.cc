@@ -218,6 +218,14 @@ TEST_F(AsanTransformTest, SetUseLivenessFlag) {
   EXPECT_FALSE(bb_transform.use_liveness_analysis());
 }
 
+TEST_F(AsanTransformTest, SetInterceptCRTFuntionsFlag) {
+  EXPECT_FALSE(asan_transform_.intercept_crt_functions());
+  asan_transform_.set_intercept_crt_functions(true);
+  EXPECT_TRUE(asan_transform_.intercept_crt_functions());
+  asan_transform_.set_intercept_crt_functions(false);
+  EXPECT_FALSE(asan_transform_.intercept_crt_functions());
+}
+
 TEST_F(AsanTransformTest, SetRemoveRedundantChecksFlag) {
   EXPECT_FALSE(asan_transform_.remove_redundant_checks());
   asan_transform_.set_remove_redundant_checks(true);

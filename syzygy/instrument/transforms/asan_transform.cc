@@ -690,6 +690,7 @@ AsanTransform::AsanTransform()
       debug_friendly_(false),
       use_liveness_analysis_(false),
       remove_redundant_checks_(false),
+      intercept_crt_functions_(false),
       check_access_hooks_ref_() {
 }
 
@@ -930,6 +931,16 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
   }
 
   RedirectReferences(dst_blocks, reference_redirect_map);
+
+  if (intercept_crt_functions_) {
+    FunctionInterceptionSet interception_set;
+    interception_set.insert("memset");
+    interception_set.insert("memchr");
+    InterceptFunctions(&module_asan,
+                       block_graph,
+                       header_block,
+                       interception_set);
+  }
 
   // The timestamp 1 corresponds to Thursday, 01 Jan 1970 00:00:01 GMT. Setting
   // the timestamp of the image import descriptor to this value allows us to

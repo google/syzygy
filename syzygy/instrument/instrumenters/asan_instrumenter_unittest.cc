@@ -31,6 +31,7 @@ class TestAsanInstrumenter : public AsanInstrumenter {
   using AsanInstrumenter::agent_dll_;
   using AsanInstrumenter::input_dll_path_;
   using AsanInstrumenter::input_pdb_path_;
+  using AsanInstrumenter::intercept_crt_functions_;
   using AsanInstrumenter::output_dll_path_;
   using AsanInstrumenter::output_pdb_path_;
   using AsanInstrumenter::allow_overwrite_;
@@ -150,6 +151,7 @@ TEST_F(AsanInstrumenterTest, ParseMinimalAsan) {
   EXPECT_FALSE(instrumenter_.no_parse_debug_info_);
   EXPECT_FALSE(instrumenter_.no_strip_strings_);
   EXPECT_FALSE(instrumenter_.debug_friendly_);
+  EXPECT_FALSE(instrumenter_.intercept_crt_functions_);
   EXPECT_TRUE(instrumenter_.use_liveness_analysis_);
   EXPECT_FALSE(instrumenter_.remove_redundant_checks_);
 }
@@ -160,6 +162,7 @@ TEST_F(AsanInstrumenterTest, ParseFullAsan) {
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
   cmd_line_.AppendSwitch("debug-friendly");
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
+  cmd_line_.AppendSwitch("intercept-crt-functions");
   cmd_line_.AppendSwitch("new-decomposer");
   cmd_line_.AppendSwitch("no-augment-pdb");
   cmd_line_.AppendSwitch("no-parse-debug-info");
@@ -183,6 +186,7 @@ TEST_F(AsanInstrumenterTest, ParseFullAsan) {
   EXPECT_TRUE(instrumenter_.no_parse_debug_info_);
   EXPECT_TRUE(instrumenter_.no_strip_strings_);
   EXPECT_TRUE(instrumenter_.debug_friendly_);
+  EXPECT_TRUE(instrumenter_.intercept_crt_functions_);
   EXPECT_FALSE(instrumenter_.use_liveness_analysis_);
   EXPECT_TRUE(instrumenter_.remove_redundant_checks_);
 }
