@@ -75,7 +75,7 @@ const size_t kAllocSize = 13;
     F(_cdecl, void, memmove,  \
       (void* destination, const void* source, size_t num))  \
     F(_cdecl, void, memset, (void* ptr, int value, size_t num))  \
-    F(_cdecl, void, memchr, (const void* ptr, int value, size_t num))  \
+    F(_cdecl, const void*, memchr, (const void* ptr, int value, size_t num))  \
     F(_cdecl, void, strcspn, (const char* str1, const char* str2))  \
     F(_cdecl, void, strlen, (const char* str))  \
     F(_cdecl, void, strrchr, (const char* str, int character))  \
@@ -846,18 +846,56 @@ TEST_F(AsanRtlTest, AsanCheckMemset) {
   uint8* mem = reinterpret_cast<uint8*>(
       HeapAllocFunction(heap_, 0, kAllocSize));
   ASSERT_TRUE(mem != NULL);
+  memory_error_detected = false;
 
   SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
-  memsetFunction(mem, 0, kAllocSize);
+  memsetFunction(mem, 0xAA, kAllocSize);
   EXPECT_FALSE(memory_error_detected);
-  memsetFunction(mem - 1, 0, kAllocSize);
+  for (size_t i = 0; i < kAllocSize; ++i) {
+    EXPECT_EQ(0xAA, mem[i]);
+  }
+
+  memsetFunction(mem - 1, 0xBB, kAllocSize);
   EXPECT_TRUE(memory_error_detected);
+  for (size_t i = 0; i < kAllocSize; ++i) {
+    EXPECT_EQ(0xBB, mem[i - 1]);
+  }
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+
   memory_error_detected = false;
-  memsetFunction(mem, 0, kAllocSize + 1);
+  memsetFunction(mem, 0xCC, kAllocSize + 1);
+  for (size_t i = 0; i < kAllocSize + 1; ++i) {
+    EXPECT_EQ(0xCC, mem[i]);
+  }
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+}
+
+TEST_F(AsanRtlTest, AsanCheckMemchr) {
+  const size_t kAllocSize = 13;
+  uint8* mem = reinterpret_cast<uint8*>(
+      HeapAllocFunction(heap_, 0, kAllocSize));
+  ASSERT_TRUE(mem != NULL);
+  memset(mem, 0, kAllocSize);
+  mem[4] = 0xAA;
   memory_error_detected = false;
+
+  SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
+  EXPECT_EQ(mem + 4, memchrFunction(mem, mem[4], kAllocSize));
+  EXPECT_EQ(NULL, memchrFunction(mem, mem[4] + 1, kAllocSize));
+  EXPECT_FALSE(memory_error_detected);
+
+  // mem[-1] points to the block header, we need to make sure that it doesn't
+  // contain the value we're looking for.
+  mem[-1] = 0;
+  EXPECT_EQ(mem + 4, memchrFunction(mem - 1, mem[4], kAllocSize));
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+
+  memory_error_detected = false;
+  EXPECT_EQ(mem + 4, memchrFunction(mem + 1, mem[4], kAllocSize));
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
 }
 
 }  // namespace asan

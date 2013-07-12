@@ -777,8 +777,11 @@ void __cdecl asan_memset(unsigned char* ptr, int value, size_t num) {
   memset(ptr, value, num);
 }
 
-void __cdecl asan_memchr(const unsigned char* ptr, int value, size_t num) {
-  // TODO(sebmarchand): Implement this function.
+const void* __cdecl asan_memchr(const unsigned char* ptr,
+                                int value,
+                                size_t num) {
+  TestMemoryRange(ptr, num, HeapProxy::ASAN_READ_ACCESS);
+  return memchr(ptr, value, num);
 }
 
 void __cdecl asan_strcspn(const char* str1, const char* str2) {
