@@ -216,9 +216,8 @@ class AsanTransform
 
   // Intercept the calls to the functions for which we want to check the
   // arguments (i.e. the CRT functions written in assembly) and thunk them. The
-  // thunk will contain the following instructions:
-  //     call asan_rtl![hook_name]
-  //     jmp [function_name]
+  // thunk will defer the call to the original function to its instrumented
+  // version in asan_rtl.
   // @param import_module The module for which the imports should be added.
   // @param block_graph The block-graph to modify.
   // @param header_block The block containing the module's DOS header of this

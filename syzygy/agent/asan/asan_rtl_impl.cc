@@ -48,306 +48,6 @@ void TearDownRtl() {
   process_heap = NULL;
 }
 
-}  // namespace asan
-}  // namespace agent
-
-extern "C" {
-
-HANDLE WINAPI asan_HeapCreate(DWORD options,
-                              SIZE_T initial_size,
-                              SIZE_T maximum_size) {
-  DCHECK(asan_runtime != NULL);
-  scoped_ptr<HeapProxy> proxy(new HeapProxy(asan_runtime->stack_cache(),
-                                            asan_runtime->logger()));
-  if (!proxy->Create(options, initial_size, maximum_size))
-    return NULL;
-
-  asan_runtime->AddHeap(proxy.get());
-
-  return HeapProxy::ToHandle(proxy.release());
-}
-
-BOOL WINAPI asan_HeapDestroy(HANDLE heap) {
-  DCHECK(process_heap != NULL);
-  if (heap == process_heap)
-    return ::HeapDestroy(heap);
-
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return FALSE;
-
-  asan_runtime->RemoveHeap(proxy);
-
-  if (proxy->Destroy()) {
-    delete proxy;
-    return TRUE;
-  }
-
-  return FALSE;
-}
-
-LPVOID WINAPI asan_HeapAlloc(HANDLE heap,
-                             DWORD flags,
-                             SIZE_T bytes) {
-  DCHECK(process_heap != NULL);
-  if (heap == process_heap)
-    return ::HeapAlloc(heap, flags, bytes);
-
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return NULL;
-
-  return proxy->Alloc(flags, bytes);
-}
-
-LPVOID WINAPI asan_HeapReAlloc(HANDLE heap,
-                               DWORD flags,
-                               LPVOID mem,
-                               SIZE_T bytes) {
-  DCHECK(process_heap != NULL);
-  if (heap == process_heap)
-    return ::HeapReAlloc(heap, flags, mem, bytes);
-
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return NULL;
-
-  return proxy->ReAlloc(flags, mem, bytes);
-}
-
-BOOL WINAPI asan_HeapFree(HANDLE heap,
-                          DWORD flags,
-                          LPVOID mem) {
-  DCHECK(process_heap != NULL);
-  if (heap == process_heap)
-    return ::HeapFree(heap, flags, mem);
-
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return FALSE;
-
-  if (!proxy->Free(flags, mem)) {
-    AsanErrorInfo error_info = {};
-    ::RtlCaptureContext(&error_info.context);
-    error_info.location = mem;
-    error_info.error_type = HeapProxy::DOUBLE_FREE;
-    proxy->GetBadAccessInformation(&error_info);
-    agent::asan::StackCapture stack;
-    stack.InitFromStack();
-    error_info.crash_stack_id = stack.ComputeRelativeStackId();
-    asan_runtime->OnError(&error_info);
-    return false;
-  }
-
-  return true;
-}
-
-SIZE_T WINAPI asan_HeapSize(HANDLE heap,
-                            DWORD flags,
-                            LPCVOID mem) {
-  DCHECK(process_heap != NULL);
-  if (heap == process_heap)
-    return ::HeapSize(heap, flags, mem);
-
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return -1;
-
-  return proxy->Size(flags, mem);
-}
-
-BOOL WINAPI asan_HeapValidate(HANDLE heap,
-                              DWORD flags,
-                              LPCVOID mem) {
-  DCHECK(process_heap != NULL);
-  if (heap == process_heap)
-    return ::HeapValidate(heap, flags, mem);
-
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return FALSE;
-
-  return proxy->Validate(flags, mem);
-}
-
-SIZE_T WINAPI asan_HeapCompact(HANDLE heap,
-                               DWORD flags) {
-  DCHECK(process_heap != NULL);
-  if (heap == process_heap)
-    return ::HeapCompact(heap, flags);
-
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return 0;
-
-  return proxy->Compact(flags);
-}
-
-BOOL WINAPI asan_HeapLock(HANDLE heap) {
-  DCHECK(process_heap != NULL);
-  if (heap == process_heap)
-    return ::HeapLock(heap);
-
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return FALSE;
-
-  return proxy->Lock();
-}
-
-BOOL WINAPI asan_HeapUnlock(HANDLE heap) {
-  DCHECK(process_heap != NULL);
-  if (heap == process_heap)
-    return ::HeapUnlock(heap);
-
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return FALSE;
-
-  return proxy->Unlock();
-}
-
-BOOL WINAPI asan_HeapWalk(HANDLE heap,
-                          LPPROCESS_HEAP_ENTRY entry) {
-  DCHECK(process_heap != NULL);
-  if (heap == process_heap)
-    return ::HeapWalk(heap, entry);
-
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return FALSE;
-
-  return proxy->Walk(entry);
-}
-
-BOOL WINAPI asan_HeapSetInformation(
-    HANDLE heap, HEAP_INFORMATION_CLASS info_class,
-    PVOID info, SIZE_T info_length) {
-  DCHECK(process_heap != NULL);
-  if (heap == NULL || heap == process_heap)
-    return ::HeapSetInformation(heap, info_class, info, info_length);
-
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return FALSE;
-
-  return proxy->SetInformation(info_class, info, info_length);
-}
-
-BOOL WINAPI asan_HeapQueryInformation(
-    HANDLE heap, HEAP_INFORMATION_CLASS info_class,
-    PVOID info, SIZE_T info_length, PSIZE_T return_length) {
-  DCHECK(process_heap != NULL);
-  if (heap == NULL || heap == process_heap) {
-    return ::HeapQueryInformation(heap,
-                                  info_class,
-                                  info,
-                                  info_length,
-                                  return_length);
-  }
-
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return FALSE;
-
-  bool ret = proxy->QueryInformation(info_class,
-                                     info,
-                                     info_length,
-                                     return_length);
-  return ret == true;
-}
-
-void WINAPI asan_SetCallBack(AsanErrorCallBack callback) {
-  DCHECK(asan_runtime != NULL);
-  asan_runtime->SetErrorCallBack(base::Bind(callback));
-}
-
-void __cdecl asan_check_memcpy_args(size_t do_not_use_eip,
-                                    unsigned char* destination,
-                                    const unsigned char* source,
-                                    size_t num) {
-  // TODO(sebmarchand): Implement this function.
-}
-
-void __cdecl asan_check_memmove_args(size_t do_not_use_eip,
-                                     unsigned char* destination,
-                                     const unsigned char* source,
-                                     size_t num) {
-  // TODO(sebmarchand): Implement this function.
-}
-
-void __cdecl asan_check_memset_args(size_t do_not_use_eip,
-                                    unsigned char* ptr,
-                                    int value,
-                                    size_t num) {
-  // TODO(sebmarchand): Implement this function.
-}
-
-void __cdecl asan_check_memchr_args(size_t do_not_use_eip,
-                                    const unsigned char* ptr,
-                                    int value, size_t num) {
-  // TODO(sebmarchand): Implement this function.
-}
-
-void __cdecl asan_check_strcspn_args(size_t do_not_use_eip,
-                                     const char* str1,
-                                     const char* str2) {
-  // TODO(sebmarchand): Implement this function.
-}
-
-void __cdecl asan_check_strlen_args(size_t do_not_use_eip, const char* str) {
-  // TODO(sebmarchand): Implement this function.
-}
-
-void __cdecl asan_check_strrchr_args(size_t do_not_use_eip,
-                                     const char* str,
-                                     int character) {
-  // TODO(sebmarchand): Implement this function.
-}
-
-void __cdecl asan_check_strcmp_args(size_t do_not_use_eip,
-                                    const char* str1,
-                                    const char* str2) {
-  // TODO(sebmarchand): Implement this function.
-}
-
-void __cdecl asan_check_strpbrk_args(size_t do_not_use_eip,
-                                     const char* str1,
-                                     const char* str2) {
-  // TODO(sebmarchand): Implement this function.
-}
-
-void __cdecl asan_check_strstr_args(size_t do_not_use_eip,
-                                    const char* str1,
-                                    const char* str2) {
-  // TODO(sebmarchand): Implement this function.
-}
-
-void __cdecl asan_check_strspn_args(size_t do_not_use_eip,
-                                    const char* str1,
-                                    const char* str2) {
-  // TODO(sebmarchand): Implement this function.
-}
-
-void __cdecl asan_check_strncpy_args(size_t do_not_use_eip,
-                                     char* destination,
-                                     const char* source,
-                                     size_t num) {
-  // TODO(sebmarchand): Implement this function.
-}
-
-void __cdecl asan_check_strncat_args(size_t do_not_use_eip,
-                                     char* destination,
-                                     const char* source,
-                                     size_t num) {
-  // TODO(sebmarchand): Implement this function.
-}
-
-}  // extern "C"
-
-namespace agent {
-namespace asan {
-
 // Contents of the registers before calling the ASAN memory check function.
 #pragma pack(push, 1)
 struct AsanContext {
@@ -799,3 +499,322 @@ ASAN_CHECK_STRINGS(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 2, 0)
 ASAN_CHECK_STRINGS(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 1, 0)
 
 #undef ASAN_CHECK_STRINGS
+
+namespace {
+
+void ContextToAsanContext(const CONTEXT& context,
+                          agent::asan::AsanContext* asan_context) {
+  DCHECK(asan_context != NULL);
+  asan_context->original_eax = context.Eax;
+  asan_context->original_ebp = context.Ebp;
+  asan_context->original_ebx = context.Ebx;
+  asan_context->original_ecx = context.Ecx;
+  asan_context->original_edi = context.Edi;
+  asan_context->original_edx = context.Edx;
+  asan_context->original_eflags = context.EFlags;
+  asan_context->original_eip = context.Eip;
+  asan_context->original_esi = context.Esi;
+  asan_context->original_esp = context.Esp;
+}
+
+// Test that a memory range is accessible. Report an error if it's not.
+// @param memory The pointer to the beginning of the memory range that we want
+//     to check.
+// @param size The size of the memory range that we want to check.
+// @param access_mode The access mode.
+void TestMemoryRange(const uint8* memory,
+                     size_t size,
+                     HeapProxy::AccessMode access_mode) {
+  // TODO(sebmarchand): This approach is pretty limited because it only check
+  //     if the first and the last elements are accessible. Once we have the
+  //     plumbing in place we should benchmark a check that looks at each
+  //     address to be touched (via the shadow memory, 8 bytes at a time).
+  if (!agent::asan::Shadow::IsAccessible(memory) ||
+      !agent::asan::Shadow::IsAccessible(memory + size - 1)) {
+    agent::asan::AsanContext asan_context = {};
+    CONTEXT context = {};
+    ::RtlCaptureContext(&context);
+    ContextToAsanContext(context, &asan_context);
+    const uint8* location = NULL;
+    if (!agent::asan::Shadow::IsAccessible(memory))
+      location = memory;
+    else
+      location = memory + size - 1;
+    ReportBadMemoryAccess(const_cast<uint8*>(location),
+                          access_mode,
+                          1U,
+                          &asan_context);
+  }
+}
+
+}  // namespace
+
+extern "C" {
+
+HANDLE WINAPI asan_HeapCreate(DWORD options,
+                              SIZE_T initial_size,
+                              SIZE_T maximum_size) {
+  DCHECK(asan_runtime != NULL);
+  scoped_ptr<HeapProxy> proxy(new HeapProxy(asan_runtime->stack_cache(),
+                                            asan_runtime->logger()));
+  if (!proxy->Create(options, initial_size, maximum_size))
+    return NULL;
+
+  asan_runtime->AddHeap(proxy.get());
+
+  return HeapProxy::ToHandle(proxy.release());
+}
+
+BOOL WINAPI asan_HeapDestroy(HANDLE heap) {
+  DCHECK(process_heap != NULL);
+  if (heap == process_heap)
+    return ::HeapDestroy(heap);
+
+  HeapProxy* proxy = HeapProxy::FromHandle(heap);
+  if (!proxy)
+    return FALSE;
+
+  asan_runtime->RemoveHeap(proxy);
+
+  if (proxy->Destroy()) {
+    delete proxy;
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+LPVOID WINAPI asan_HeapAlloc(HANDLE heap,
+                             DWORD flags,
+                             SIZE_T bytes) {
+  DCHECK(process_heap != NULL);
+  if (heap == process_heap)
+    return ::HeapAlloc(heap, flags, bytes);
+
+  HeapProxy* proxy = HeapProxy::FromHandle(heap);
+  if (!proxy)
+    return NULL;
+
+  return proxy->Alloc(flags, bytes);
+}
+
+LPVOID WINAPI asan_HeapReAlloc(HANDLE heap,
+                               DWORD flags,
+                               LPVOID mem,
+                               SIZE_T bytes) {
+  DCHECK(process_heap != NULL);
+  if (heap == process_heap)
+    return ::HeapReAlloc(heap, flags, mem, bytes);
+
+  HeapProxy* proxy = HeapProxy::FromHandle(heap);
+  if (!proxy)
+    return NULL;
+
+  return proxy->ReAlloc(flags, mem, bytes);
+}
+
+BOOL WINAPI asan_HeapFree(HANDLE heap,
+                          DWORD flags,
+                          LPVOID mem) {
+  DCHECK(process_heap != NULL);
+  if (heap == process_heap)
+    return ::HeapFree(heap, flags, mem);
+
+  HeapProxy* proxy = HeapProxy::FromHandle(heap);
+  if (!proxy)
+    return FALSE;
+
+  if (!proxy->Free(flags, mem)) {
+    AsanErrorInfo error_info = {};
+    ::RtlCaptureContext(&error_info.context);
+    error_info.location = mem;
+    error_info.error_type = HeapProxy::DOUBLE_FREE;
+    proxy->GetBadAccessInformation(&error_info);
+    agent::asan::StackCapture stack;
+    stack.InitFromStack();
+    error_info.crash_stack_id = stack.ComputeRelativeStackId();
+    asan_runtime->OnError(&error_info);
+    return false;
+  }
+
+  return true;
+}
+
+SIZE_T WINAPI asan_HeapSize(HANDLE heap,
+                            DWORD flags,
+                            LPCVOID mem) {
+  DCHECK(process_heap != NULL);
+  if (heap == process_heap)
+    return ::HeapSize(heap, flags, mem);
+
+  HeapProxy* proxy = HeapProxy::FromHandle(heap);
+  if (!proxy)
+    return -1;
+
+  return proxy->Size(flags, mem);
+}
+
+BOOL WINAPI asan_HeapValidate(HANDLE heap,
+                              DWORD flags,
+                              LPCVOID mem) {
+  DCHECK(process_heap != NULL);
+  if (heap == process_heap)
+    return ::HeapValidate(heap, flags, mem);
+
+  HeapProxy* proxy = HeapProxy::FromHandle(heap);
+  if (!proxy)
+    return FALSE;
+
+  return proxy->Validate(flags, mem);
+}
+
+SIZE_T WINAPI asan_HeapCompact(HANDLE heap,
+                               DWORD flags) {
+  DCHECK(process_heap != NULL);
+  if (heap == process_heap)
+    return ::HeapCompact(heap, flags);
+
+  HeapProxy* proxy = HeapProxy::FromHandle(heap);
+  if (!proxy)
+    return 0;
+
+  return proxy->Compact(flags);
+}
+
+BOOL WINAPI asan_HeapLock(HANDLE heap) {
+  DCHECK(process_heap != NULL);
+  if (heap == process_heap)
+    return ::HeapLock(heap);
+
+  HeapProxy* proxy = HeapProxy::FromHandle(heap);
+  if (!proxy)
+    return FALSE;
+
+  return proxy->Lock();
+}
+
+BOOL WINAPI asan_HeapUnlock(HANDLE heap) {
+  DCHECK(process_heap != NULL);
+  if (heap == process_heap)
+    return ::HeapUnlock(heap);
+
+  HeapProxy* proxy = HeapProxy::FromHandle(heap);
+  if (!proxy)
+    return FALSE;
+
+  return proxy->Unlock();
+}
+
+BOOL WINAPI asan_HeapWalk(HANDLE heap,
+                          LPPROCESS_HEAP_ENTRY entry) {
+  DCHECK(process_heap != NULL);
+  if (heap == process_heap)
+    return ::HeapWalk(heap, entry);
+
+  HeapProxy* proxy = HeapProxy::FromHandle(heap);
+  if (!proxy)
+    return FALSE;
+
+  return proxy->Walk(entry);
+}
+
+BOOL WINAPI asan_HeapSetInformation(
+    HANDLE heap, HEAP_INFORMATION_CLASS info_class,
+    PVOID info, SIZE_T info_length) {
+  DCHECK(process_heap != NULL);
+  if (heap == NULL || heap == process_heap)
+    return ::HeapSetInformation(heap, info_class, info, info_length);
+
+  HeapProxy* proxy = HeapProxy::FromHandle(heap);
+  if (!proxy)
+    return FALSE;
+
+  return proxy->SetInformation(info_class, info, info_length);
+}
+
+BOOL WINAPI asan_HeapQueryInformation(
+    HANDLE heap, HEAP_INFORMATION_CLASS info_class,
+    PVOID info, SIZE_T info_length, PSIZE_T return_length) {
+  DCHECK(process_heap != NULL);
+  if (heap == NULL || heap == process_heap) {
+    return ::HeapQueryInformation(heap,
+                                  info_class,
+                                  info,
+                                  info_length,
+                                  return_length);
+  }
+
+  HeapProxy* proxy = HeapProxy::FromHandle(heap);
+  if (!proxy)
+    return FALSE;
+
+  bool ret = proxy->QueryInformation(info_class,
+                                     info,
+                                     info_length,
+                                     return_length);
+  return ret == true;
+}
+
+void WINAPI asan_SetCallBack(AsanErrorCallBack callback) {
+  DCHECK(asan_runtime != NULL);
+  asan_runtime->SetErrorCallBack(base::Bind(callback));
+}
+
+void __cdecl asan_memcpy(unsigned char* destination,
+                         const unsigned char* source,
+                         size_t num) {
+  // TODO(sebmarchand): Implement this function.
+}
+
+void __cdecl asan_memmove(unsigned char* destination,
+                          const unsigned char* source,
+                          size_t num) {
+  // TODO(sebmarchand): Implement this function.
+}
+
+void __cdecl asan_memset(unsigned char* ptr, int value, size_t num) {
+  TestMemoryRange(ptr, num, HeapProxy::ASAN_WRITE_ACCESS);
+  memset(ptr, value, num);
+}
+
+void __cdecl asan_memchr(const unsigned char* ptr, int value, size_t num) {
+  // TODO(sebmarchand): Implement this function.
+}
+
+void __cdecl asan_strcspn(const char* str1, const char* str2) {
+  // TODO(sebmarchand): Implement this function.
+}
+
+void __cdecl asan_strlen(const char* str) {
+  // TODO(sebmarchand): Implement this function.
+}
+
+void __cdecl asan_strrchr(const char* str, int character) {
+  // TODO(sebmarchand): Implement this function.
+}
+
+void __cdecl asan_strcmp(const char* str1, const char* str2) {
+  // TODO(sebmarchand): Implement this function.
+}
+
+void __cdecl asan_strpbrk(const char* str1, const char* str2) {
+  // TODO(sebmarchand): Implement this function.
+}
+
+void __cdecl asan_strstr(const char* str1, const char* str2) {
+  // TODO(sebmarchand): Implement this function.
+}
+
+void __cdecl asan_strspn(const char* str1, const char* str2) {
+  // TODO(sebmarchand): Implement this function.
+}
+
+void __cdecl asan_strncpy(char* destination, const char* source, size_t num) {
+  // TODO(sebmarchand): Implement this function.
+}
+
+void __cdecl asan_strncat(char* destination, const char* source, size_t num) {
+  // TODO(sebmarchand): Implement this function.
+}
+
+}  // extern "C"

@@ -70,23 +70,22 @@ const size_t kAllocSize = 13;
        PVOID info, SIZE_T info_length, PSIZE_T return_length))  \
     F(WINAPI, void, SetCallBack,  \
       (void (*callback)(AsanErrorInfo* error_info)))  \
-    F(_cdecl, void, check_memcpy_args,  \
+    F(_cdecl, void, memcpy,  \
+      (void* destination, const void* source,  size_t num))  \
+    F(_cdecl, void, memmove,  \
       (void* destination, const void* source, size_t num))  \
-    F(_cdecl, void, check_memmove_args,  \
-      (void* destination, const void* source, size_t num))  \
-    F(_cdecl, void, check_memset_args, (void* ptr, int value, size_t num))  \
-    F(_cdecl, void, check_memchr_args,  \
-      (const void* ptr, int value, size_t num))  \
-    F(_cdecl, void, check_strcspn_args, (const char* str1, const char* str2))  \
-    F(_cdecl, void, check_strlen_args, (const char* str))  \
-    F(_cdecl, void, check_strrchr_args, (const char* str, int character))  \
-    F(_cdecl, void, check_strcmp_args, (const char* str1, const char* str2))  \
-    F(_cdecl, void, check_strpbrk_args, (const char* str1, const char* str2))  \
-    F(_cdecl, void, check_strstr_args, (const char* str1, const char* str2))  \
-    F(_cdecl, void, check_strspn_args, (const char* str1, const char* str2))  \
-    F(_cdecl, void, check_strncpy_args,  \
+    F(_cdecl, void, memset, (void* ptr, int value, size_t num))  \
+    F(_cdecl, void, memchr, (const void* ptr, int value, size_t num))  \
+    F(_cdecl, void, strcspn, (const char* str1, const char* str2))  \
+    F(_cdecl, void, strlen, (const char* str))  \
+    F(_cdecl, void, strrchr, (const char* str, int character))  \
+    F(_cdecl, void, strcmp, (const char* str1, const char* str2))  \
+    F(_cdecl, void, strpbrk, (const char* str1, const char* str2))  \
+    F(_cdecl, void, strstr, (const char* str1, const char* str2))  \
+    F(_cdecl, void, strspn, (const char* str1, const char* str2))  \
+    F(_cdecl, void, strncpy,  \
       (char* destination, const char* source, size_t num))  \
-    F(_cdecl, void, check_strncat_args,  \
+    F(_cdecl, void, strncat,  \
       (char* destination, const char* source, size_t num))
 
 #define DECLARE_ASAN_FUNCTION_PTR(convention, ret, name, args) \
@@ -840,6 +839,25 @@ TEST_F(AsanRtlTest, AsanSpecialInstructionCheckShortcutAccess) {
   }
 
   FreeMemoryBuffers();
+}
+
+TEST_F(AsanRtlTest, AsanCheckMemset) {
+  const size_t kAllocSize = 13;
+  uint8* mem = reinterpret_cast<uint8*>(
+      HeapAllocFunction(heap_, 0, kAllocSize));
+  ASSERT_TRUE(mem != NULL);
+
+  SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
+  memsetFunction(mem, 0, kAllocSize);
+  EXPECT_FALSE(memory_error_detected);
+  memsetFunction(mem - 1, 0, kAllocSize);
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  memory_error_detected = false;
+  memsetFunction(mem, 0, kAllocSize + 1);
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  memory_error_detected = false;
 }
 
 }  // namespace asan

@@ -879,21 +879,8 @@ TEST_F(AsanTransformTest, InterceptFunctions) {
     }
   }
 
-  // Only the thunk should be referring to b1.
-  EXPECT_EQ(1U, b1->referrers().size());
-
-  // The only referrer to b1 should be the block we've found in the thunk
-  // section.
-  BlockGraph::Block* thunk_block = b1->referrers().begin()->first;
-  ASSERT_TRUE(thunk_block != NULL);
-  EXPECT_EQ(thunk_block, block_in_thunk_section);
-
-  // The thunks should be referred only by b2 and b3.
-  EXPECT_EQ(2U, thunk_block->referrers().size());
-  EXPECT_TRUE(thunk_block->referrers().find(std::make_pair(b2, 0)) !=
-              thunk_block->referrers().end());
-  EXPECT_TRUE(thunk_block->referrers().find(std::make_pair(b3, 1)) !=
-              thunk_block->referrers().end());
+  // Nothing should refer to b1 anymore.
+  EXPECT_EQ(0U, b1->referrers().size());
 }
 
 }  // namespace transforms

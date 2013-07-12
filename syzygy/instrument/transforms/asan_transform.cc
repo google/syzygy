@@ -968,7 +968,7 @@ bool AsanTransform::InterceptFunctions(ImportedModule* import_module,
       continue;
 
     // Generate the name of the hook for this function and add it to the image.
-    std::string hook_name = base::StringPrintf("asan_check_%s_args",
+    std::string hook_name = base::StringPrintf("asan_%s",
         iter_blocks->second.name().c_str());
     size_t symbol_index =
         import_module->AddSymbol(hook_name, ImportedModule::kAlwaysImport);
@@ -998,14 +998,8 @@ bool AsanTransform::InterceptFunctions(ImportedModule* import_module,
     return false;
   }
 
-  // Create a dummy block that will be use during the thunk creation. We need
-  // this so we don't redirect our thunk's reference to the original block.
-  BlockGraph::Block* dummy_block = block_graph->AddBlock(BlockGraph::CODE_BLOCK,
-                                                         4,
-                                                         "thunk_dummy");
-
-  // For every function that we want to intercept we create a thunk that'll call
-  // the Asan check function and jump to the original function.
+  // For every function that we want to intercept we create a thunk that'll
+  // verify the parameters and call the original function.
   FunctionInterceptionInfoMap::iterator iter_redirection_info =
       function_redirection_info_map.begin();
   for (; iter_redirection_info != function_redirection_info_map.end();
@@ -1031,14 +1025,8 @@ bool AsanTransform::InterceptFunctions(ImportedModule* import_module,
     BasicCodeBlock* bb = bbsg.AddBasicCodeBlock(thunk_name);
     block_desc->basic_block_order.push_back(bb);
     BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
-    assm.call(Operand(Displacement(import_reference.referenced(),
+    assm.jmp(Operand(Displacement(import_reference.referenced(),
                                    import_reference.offset())));
-    // Temporarily point to a dummy block, we'll adjust the reference once we've
-    // redirected all the references to the current function to this thunk.
-    // TODO(sebmarchand): This is a little bit ugly, we should make this cleaner
-    //     by exposing a way to ignore some of the references in
-    //     TransferReferrers function.
-    assm.jmp(Immediate(dummy_block, 0U));
 
     // Condense into a block.
     BlockBuilder block_builder(block_graph);
@@ -1058,26 +1046,6 @@ bool AsanTransform::InterceptFunctions(ImportedModule* import_module,
                  << "of a function.";
       return false;
     }
-
-    // Replace the reference to the dummy block by a reference to the original
-    // function. We expect this call to return false as we're overriding an
-    // existing reference.
-    if (thunk->SetReference(thunk->references().rbegin()->first,
-            BlockGraph::Reference(thunk->references().rbegin()->second.type(),
-                                  thunk->references().rbegin()->second.size(),
-                                  iter_redirection_info->second.function_block,
-                                  0U,
-                                  0U))) {
-      LOG(ERROR) << "Failed to replace the reference to the dummy block.";
-      return false;
-    }
-  }
-
-  // There should be no reference to the dummy block.
-  DCHECK(dummy_block->referrers().empty());
-  if (!block_graph->RemoveBlock(dummy_block)) {
-    LOG(ERROR) << "Failed to remove the dummy block from the block graph.";
-    return false;
   }
 
   return true;
