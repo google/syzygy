@@ -39,8 +39,10 @@ size_t StackCaptureCache::compression_reporting_period_ =
     StackCaptureCache::kDefaultCompressionReportingPeriod;
 
 StackCaptureCache::CachePage::~CachePage() {
-  if (next_page_ != NULL)
-    delete next_page_;
+  // It's our parent StackCaptureCache's responsibility to clean up the linked
+  // list of cache pages. We balk if we're being deleted and haven't been
+  // properly unlinked from the linked list.
+  DCHECK(next_page_ == NULL);
   Shadow::Unpoison(this, sizeof(CachePage));
 }
 
@@ -99,8 +101,13 @@ StackCaptureCache::StackCaptureCache(AsanLogger* logger, size_t max_num_frames)
 }
 
 StackCaptureCache::~StackCaptureCache() {
-  if (current_page_ != NULL)
-    delete current_page_;
+  // Clean up the linked list of cache pages.
+  while (current_page_ != NULL) {
+    CachePage* page = current_page_;
+    current_page_ = page->next_page_;
+    page->next_page_ = NULL;
+    delete page;
+  }
 }
 
 void StackCaptureCache::Init() {

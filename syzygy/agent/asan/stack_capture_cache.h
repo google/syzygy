@@ -255,6 +255,10 @@ class StackCaptureCache::CachePage {
   size_t bytes_left() const { return kDataSize - bytes_used_; }
 
  protected:
+  // The parent StackCaptureCache is responsible for cleaning up the linked list
+  // of cache pages, thus needs access to our internals.
+  friend StackCaptureCache;
+
   // The cache pages from a linked list, which allows for easy cleanup
   // when the cache is destroyed.
   CachePage* next_page_;
