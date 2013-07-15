@@ -115,8 +115,10 @@ bool AddIndexedFrequencyDataTransform::TransformBlockGraph(
 
 bool AddIndexedFrequencyDataTransform::ConfigureFrequencyDataBuffer(
     uint32 num_entries,
+    uint32 num_columns,
     uint8 frequency_size) {
   DCHECK_NE(0U, num_entries);
+  DCHECK_NE(0U, num_columns);
   DCHECK(frequency_size == 1 || frequency_size == 2 || frequency_size == 4);
   DCHECK(frequency_data_block_ != NULL);
   DCHECK(frequency_data_buffer_block_ != NULL);
@@ -127,10 +129,11 @@ bool AddIndexedFrequencyDataTransform::ConfigureFrequencyDataBuffer(
   block_graph::TypedBlock<IndexedFrequencyData> frequency_data;
   CHECK(frequency_data.Init(0, frequency_data_block_));
   frequency_data->num_entries = num_entries;
+  frequency_data->num_columns = num_columns;
   frequency_data->frequency_size = frequency_size;
 
   // Resize the buffer block.
-  size_t buffer_size = num_entries * frequency_size;
+  size_t buffer_size = num_entries * num_columns * frequency_size;
   frequency_data_buffer_block_->set_size(buffer_size);
 
   // And we're done.

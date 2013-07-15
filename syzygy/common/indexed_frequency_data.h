@@ -64,13 +64,16 @@ struct IndexedFrequencyData {
   // any thread-specific context it requires and refer to this pointer as a
   // fall-back measure if tracing is disabled.
   //
-  // The total size (in bytes) of the buffer pointed to by is
-  // num_entries * frequency_size.
+  // The total size (in bytes) of the buffer pointed to is
+  // num_entries * num_columns * frequency_size.
   void* frequency_data;
 
   // The number of entries in the frequency table. This is required by the
   // runtime client library so it knows how big an array to allocate.
   uint32 num_entries;
+
+  // The number of columns for each entry.
+  uint32 num_columns;
 
   // The number of bytes used for each element of frequency_data: 1, 4, or 8.
   uint8 frequency_size;

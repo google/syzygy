@@ -71,6 +71,7 @@ void BasicBlockEntryCountGrinder::OnIndexedFrequency(
     const TraceIndexedFrequencyData* data) {
   DCHECK(data != NULL);
   DCHECK(parser_ != NULL);
+  DCHECK_NE(0U, data->num_columns);
 
   if (data->data_type != common::IndexedFrequencyData::BASIC_BLOCK_ENTRY &&
       data->data_type != common::IndexedFrequencyData::COVERAGE)
@@ -128,6 +129,7 @@ void BasicBlockEntryCountGrinder::UpdateBasicBlockEntryCount(
 
   DCHECK(data != NULL);
   DCHECK_NE(0U, data->num_entries);
+  DCHECK_NE(0U, data->num_columns);
 
   DCHECK(data->data_type == common::IndexedFrequencyData::BASIC_BLOCK_ENTRY ||
          data->data_type == common::IndexedFrequencyData::COVERAGE);

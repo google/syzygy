@@ -242,6 +242,7 @@ const TraceIndexedFrequencyData ParseEngineUnitTest::kIndexedFrequencyData = {
     0x33333333,
     0x44444444,
     1,
+    1,
     common::IndexedFrequencyData::BASIC_BLOCK_ENTRY,
     1,
     0 };
@@ -255,6 +256,7 @@ const TraceIndexedFrequencyData
         0x33333333,
         0x44444444,
         10,
+        1,
         common::IndexedFrequencyData::BASIC_BLOCK_ENTRY,
         4,
         0 };

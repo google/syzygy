@@ -47,6 +47,7 @@ IndexedFrequencyData coverage_data = {
     TLS_OUT_OF_INDEXES,
     bb_seen_array,
     kBasicBlockCount,
+    1U,  // num_columns.
     1U,  // frequency_size.
     0U,  // initialization_attempted.
     IndexedFrequencyData::COVERAGE

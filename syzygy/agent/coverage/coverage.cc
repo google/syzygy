@@ -196,6 +196,7 @@ bool Coverage::InitializeCoverageData(void* module_base,
   if (coverage_data->agent_id != kBasicBlockCoverageAgentId ||
       coverage_data->version != kBasicBlockFrequencyDataVersion ||
       coverage_data->frequency_size != 1U ||
+      coverage_data->num_columns != 1U ||
       coverage_data->data_type != IndexedFrequencyData::COVERAGE) {
     LOG(ERROR) << "Unexpected values in the coverage data structures.";
     return false;
@@ -210,7 +211,7 @@ bool Coverage::InitializeCoverageData(void* module_base,
 
   // Determine the size of the basic block frequency struct.
   size_t bb_freq_size = sizeof(TraceIndexedFrequencyData) +
-      coverage_data->num_entries - 1;
+      coverage_data->num_entries * coverage_data->frequency_size - 1;
 
   // Determine the size of the buffer we need. We need room for the basic block
   // frequency struct plus a single RecordPrefix header.
@@ -251,6 +252,7 @@ bool Coverage::InitializeCoverageData(void* module_base,
   trace_coverage_data->module_time_date_stamp =
       nt_headers->FileHeader.TimeDateStamp;
   trace_coverage_data->frequency_size = 1;
+  trace_coverage_data->num_columns = 1;
   trace_coverage_data->num_entries = coverage_data->num_entries;
 
   // Hook up the newly allocated buffer to the call-trace instrumentation.

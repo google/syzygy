@@ -197,6 +197,7 @@ bool JumpTableCaseCountTransform::PostBlockGraphIteration(
   }
 
   if (!add_frequency_data_.ConfigureFrequencyDataBuffer(jump_table_case_count_,
+                                                        1,
                                                         sizeof(uint32))) {
     LOG(ERROR) << "Failed to configure frequency data buffer.";
     return false;

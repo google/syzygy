@@ -45,6 +45,9 @@ const char* GetIndexedDataTypeStr(uint8 data_type) {
     case common::IndexedFrequencyData::COVERAGE:
       ret = "coverage entry counts";
       break;
+    case common::IndexedFrequencyData::BRANCH:
+      ret = "branch entry counts";
+      break;
     case common::IndexedFrequencyData::JUMP_TABLE:
       ret = "jump-table case counts";
       break;
@@ -308,7 +311,8 @@ class TraceFileDumper : public ParseEventHandler {
               "OnIndexedFrequency: process-id=%d; thread-id=%d;\n"
               "    module-base-addr=0x%08X; module-base-size=%d\n"
               "    module-checksum=0x%08X; module-time-date-stamp=0x%08X\n"
-              "    frequency-size=%d; data-type=%s; num-entries=%d\n",
+              "    frequency-size=%d; num_columns=%d; num-entries=%d;\n"
+              "    data-type=%s;\n",
               process_id,
               thread_id,
               data->module_base_addr,
@@ -316,8 +320,9 @@ class TraceFileDumper : public ParseEventHandler {
               data->module_checksum,
               data->module_time_date_stamp,
               data->frequency_size,
-              GetIndexedDataTypeStr(data->data_type),
-              data->num_entries);
+              data->num_columns,
+              data->num_entries,
+              GetIndexedDataTypeStr(data->data_type));
   }
 
   virtual void OnDynamicSymbol(DWORD process_id,

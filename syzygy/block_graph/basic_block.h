@@ -246,7 +246,7 @@ class Instruction {
   // Copy constructor.
   Instruction(const Instruction& other);
 
-  // Factory to construct an initialized an Instruction instance from a buffer.
+  // Factory to construct an initialized Instruction instance from a buffer.
   // @param buf the data comprising the instruction.
   // @param len the maximum length (in bytes) of @p buf to consume
   // @returns true on success, false otherwise.
@@ -388,7 +388,7 @@ class Successor {
     kConditionBelow = core::kBelow,  // JB, JNAE and JC.
     kConditionBelowOrEqual = core::kBelowEqual,  // JBE and JNA.
     kConditionEqual = core::kEqual,  // JE and JZ.
-    kConditionGreater =  core::kGreater,  // JG and JNLE.
+    kConditionGreater = core::kGreater,  // JG and JNLE.
     kConditionGreaterOrEqual = core::kGreaterEqual,  // JGE and JNL.
     kConditionLess = core::kLess,  // JL and JNGE.
     kConditionLessOrEqual = core::kLessEqual,  // JLE and JNG.

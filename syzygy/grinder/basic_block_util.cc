@@ -191,8 +191,12 @@ bool IsValidFrequencySize(size_t size) {
 // TODO(sebmarchand): Move this to indexed_frequency_util.
 uint32 GetFrequency(const TraceIndexedFrequencyData* data, size_t bb_id) {
   DCHECK(data != NULL);
+  DCHECK_EQ(1U, data->num_columns);
   DCHECK(IsValidFrequencySize(data->frequency_size));
   DCHECK_LT(bb_id, data->num_entries);
+
+  DCHECK(data->data_type == common::IndexedFrequencyData::BASIC_BLOCK_ENTRY ||
+         data->data_type == common::IndexedFrequencyData::COVERAGE);
 
   switch (data->frequency_size) {
     case 1:

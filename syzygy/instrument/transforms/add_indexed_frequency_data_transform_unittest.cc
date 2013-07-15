@@ -31,14 +31,13 @@ namespace transforms {
 
 namespace {
 
+typedef common::IndexedFrequencyData::DataType DataType;
 using block_graph::BlockGraph;
 using common::IndexedFrequencyData;
 
 const uint32 kAgentId = 0xDEADBEEF;
 const uint32 kAgentVersion = 5;
 const uint32 kNumEntries = 7;
-const uint8 kFrequencySize = 4;
-const uint8 kDataType = 9;
 
 class AddFrequencyDataTransformTest
     : public testing::TestDllTransformTest {
@@ -46,13 +45,17 @@ class AddFrequencyDataTransformTest
   virtual void SetUp() OVERRIDE {
     ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
   }
+
+  void Apply(size_t num_entries,
+             size_t num_columns,
+             size_t frequency_size,
+             DataType data_type);
 };
 
-}  // namespace
-
-TEST_F(AddFrequencyDataTransformTest, Apply) {
+void AddFrequencyDataTransformTest::Apply(size_t num_entries,
+    size_t num_columns, size_t frequency_size, DataType data_type) {
   AddIndexedFrequencyDataTransform tx(kAgentId, "Test", kAgentVersion,
-      static_cast<IndexedFrequencyData::DataType>(kDataType));
+      data_type);
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
       &tx, &block_graph_, dos_header_block_));
 
@@ -67,25 +70,63 @@ TEST_F(AddFrequencyDataTransformTest, Apply) {
   ASSERT_TRUE(frequency_data.Init(0, frequency_data_block));
   EXPECT_EQ(kAgentId, frequency_data->agent_id);
   EXPECT_EQ(kAgentVersion, frequency_data->version);
-  EXPECT_EQ(kDataType, frequency_data->data_type);
+  EXPECT_EQ(data_type, frequency_data->data_type);
   EXPECT_EQ(TLS_OUT_OF_INDEXES, frequency_data->tls_index);
   EXPECT_EQ(0U, frequency_data->num_entries);
+  EXPECT_EQ(0U, frequency_data->num_columns);
   EXPECT_EQ(0U, frequency_data->frequency_size);
   EXPECT_EQ(0U, frequency_data->initialization_attempted);
 
   // Configure the frequency data buffer.
-  ASSERT_TRUE(tx.ConfigureFrequencyDataBuffer(kNumEntries,
-                                              kFrequencySize));
+  ASSERT_TRUE(tx.ConfigureFrequencyDataBuffer(num_entries,
+                                              num_columns,
+                                              frequency_size));
   BlockGraph::Block* buffer_block = tx.frequency_data_buffer_block();
   EXPECT_TRUE(buffer_block != NULL);
 
   EXPECT_TRUE(frequency_data.HasReferenceAt(
       frequency_data.OffsetOf(frequency_data->frequency_data)));
 
-  EXPECT_EQ(kNumEntries, frequency_data->num_entries);
-  EXPECT_EQ(kFrequencySize, frequency_data->frequency_size);
+  EXPECT_EQ(num_entries, frequency_data->num_entries);
+  EXPECT_EQ(num_columns, frequency_data->num_columns);
+  EXPECT_EQ(frequency_size, frequency_data->frequency_size);
   EXPECT_EQ(0, buffer_block->data_size());
-  EXPECT_EQ((kNumEntries * kFrequencySize), buffer_block->size());
+  EXPECT_EQ((num_entries * num_columns * frequency_size), buffer_block->size());
+}
+
+}  // namespace
+
+TEST_F(AddFrequencyDataTransformTest, ApplySingleByteColumn) {
+  const uint32 kNumColumns = 1;
+  const uint8 kFrequencySize = 1;
+  const uint8 kDataType = 9;
+  ASSERT_NO_FATAL_FAILURE(
+      Apply(kNumEntries, kNumColumns, kFrequencySize,
+          common::IndexedFrequencyData::BASIC_BLOCK_ENTRY));
+}
+
+TEST_F(AddFrequencyDataTransformTest, ApplyMultipleByteColumn) {
+  const uint32 kNumColumns = 4;
+  const uint8 kFrequencySize = 1;
+  ASSERT_NO_FATAL_FAILURE(
+      Apply(kNumEntries, kNumColumns, kFrequencySize,
+          common::IndexedFrequencyData::BASIC_BLOCK_ENTRY));
+}
+
+TEST_F(AddFrequencyDataTransformTest, ApplySingleWordColumn) {
+  const uint32 kNumColumns = 1;
+  const uint8 kFrequencySize = 4;
+  ASSERT_NO_FATAL_FAILURE(
+      Apply(kNumEntries, kNumColumns, kFrequencySize,
+          common::IndexedFrequencyData::BASIC_BLOCK_ENTRY));
+}
+
+TEST_F(AddFrequencyDataTransformTest, ApplyMultipleWordColumn) {
+  const uint32 kNumColumns = 4;
+  const uint8 kFrequencySize = 4;
+  ASSERT_NO_FATAL_FAILURE(
+      Apply(kNumEntries, kNumColumns, kFrequencySize,
+          common::IndexedFrequencyData::BASIC_BLOCK_ENTRY));
 }
 
 }  // namespace transforms

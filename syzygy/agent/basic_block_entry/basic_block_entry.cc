@@ -542,7 +542,10 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
   }
 
   // Determine the size of the basic block frequency table.
-  size_t data_size = module_data->num_entries * sizeof(uint32);
+  DCHECK_LT(0U, module_data->frequency_size);
+  DCHECK_LT(0U, module_data->num_columns);
+  size_t data_size = module_data->num_entries * module_data->frequency_size *
+      module_data->num_columns;
 
   // Determine the size of the basic block frequency record.
   size_t record_size = sizeof(TraceIndexedFrequencyData) + data_size - 1;
@@ -576,8 +579,9 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
   trace_data->module_base_size = nt_headers->OptionalHeader.SizeOfImage;
   trace_data->module_checksum = nt_headers->OptionalHeader.CheckSum;
   trace_data->module_time_date_stamp = nt_headers->FileHeader.TimeDateStamp;
-  trace_data->frequency_size = sizeof(uint32);
+  trace_data->frequency_size = module_data->frequency_size;
   trace_data->num_entries = module_data->num_entries;
+  trace_data->num_columns = module_data->num_columns;
 
   // Hook up the newly allocated buffer to the call-trace instrumentation.
   state->set_frequency_data(trace_data->frequency_data);

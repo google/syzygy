@@ -63,6 +63,7 @@ class AddIndexedFrequencyDataTransform
   // @param frequency_size The size (in bytes) of each frequency counter. This
   //     must be 1, 2 or 4.
   bool ConfigureFrequencyDataBuffer(uint32 num_entries,
+                                    uint32 num_columns,
                                     uint8 frequency_size);
 
   // The transform name.

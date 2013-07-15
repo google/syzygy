@@ -232,6 +232,10 @@ TEST(GrinderBasicBlockUtilTest, GetFrequency) {
       reinterpret_cast<TraceIndexedFrequencyData*>(buffer);
   ::memcpy(data->frequency_data, kData, sizeof(kData));
 
+  // Set 1 column of basic block entry count.
+  data->num_columns = 1;
+  data->data_type = common::IndexedFrequencyData::BASIC_BLOCK_ENTRY;
+
   // Validate 1-byte frequency data.
   data->frequency_size = 1;
   data->num_entries = sizeof(kData) / data->frequency_size;

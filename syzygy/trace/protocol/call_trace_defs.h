@@ -360,6 +360,10 @@ struct TraceIndexedFrequencyData {
   // output any other metadata that is required to map an index to an address.
   uint32 num_entries;
 
+  // The number of columns for each record. Each column entry has the data sized
+  // specified by |frequency_size|.
+  uint32 num_columns;
+
   // The type of data contained in this frequency record. This should be one of
   // the data-types defined in IndexedFrequencyData::DataType.
   uint8 data_type;

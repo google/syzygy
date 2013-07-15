@@ -173,14 +173,15 @@ class BasicBlockEntryCountGrinderTest : public testing::PELibUnitTest {
     ::memset(buffer, 0, kBufferSize);
 
     data->reset(reinterpret_cast<TraceIndexedFrequencyData*>(buffer));
-    (*data)->data_type = common::IndexedFrequencyData::BASIC_BLOCK_ENTRY;
     (*data)->module_base_addr =
         reinterpret_cast<ModuleAddr>(module_info.base_address);
     (*data)->module_base_size = module_info.module_size;
     (*data)->module_checksum = module_info.image_checksum;
     (*data)->module_time_date_stamp = module_info.time_date_stamp;
-    (*data)->frequency_size = frequency_size;
     (*data)->num_entries = kNumBasicBlocks;
+    (*data)->num_columns = 1U;
+    (*data)->data_type = common::IndexedFrequencyData::BASIC_BLOCK_ENTRY;
+    (*data)->frequency_size = frequency_size;
 
     for (size_t i = 0; i < kNumBasicBlocks; ++i) {
       uint8 value = i + 1;
