@@ -82,6 +82,14 @@ class BasicBlockEntry {
   static void WINAPI IncrementIndexedFreqDataHook(
       IncrementIndexedFreqDataFrame* entry_frame);
 
+  // Called from _branch_enter.
+  static void WINAPI BranchEnterHook(
+      IncrementIndexedFreqDataFrame* entry_frame);
+
+  // Called from _branch_exit.
+  static void WINAPI BranchExitHook(
+      IncrementIndexedFreqDataFrame* entry_frame);
+
   // Called from _indirect_penter_dllmain.
   static void WINAPI DllMainEntryHook(DllMainEntryFrame* entry_frame);
 

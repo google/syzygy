@@ -47,128 +47,96 @@
   __asm sahf  \
   __asm pop eax
 
+#define BBENTRY_REDIRECT_CALL(handler)  \
+  {  \
+    /* Stash volatile registers. */  \
+    BBENTRY_SAVE_REGISTERS  \
+    \
+    /* Stack: ... index, module_data, ret_addr, [4x register] */  \
+    \
+    /* Push the original esp value onto the stack as the entry-hook data. */  \
+    /* This gives the entry-hook a pointer to ret_addr, module_data and */  \
+    /* index. */  \
+    __asm lea eax, DWORD PTR[esp + 0x10]  \
+    __asm push eax  \
+    \
+    /* Stack: ..., index, module_data, ret_addr, [4x register], esp, */  \
+    /*    &ret_addr. */  \
+    __asm call handler  \
+    /* Stack: ... index, module_data, ret_addr, [4x register]. */  \
+    \
+    /* Restore volatile registers. */  \
+    BBENTRY_RESTORE_REGISTERS  \
+  }
+
 extern "C" uint32* _stdcall GetRawFrequencyData(
     ::common::IndexedFrequencyData* data) {
   DCHECK(data != NULL);
   return agent::basic_block_entry::BasicBlockEntry::GetRawFrequencyData(data);
 }
 
+extern "C" void __declspec(naked) _branch_enter() {
+  // This is expected to be called via instrumentation that looks like:
+  //    push index
+  //    push module_data
+  //    call [_branch_enter]
+  // Stack: ... index, module_data, ret_addr.
+  BBENTRY_REDIRECT_CALL(
+      agent::basic_block_entry::BasicBlockEntry::BranchEnterHook);
+  // Return to the address pushed by our caller, popping off the index and
+  // module_data values from the stack.
+  __asm ret 8
+}
+
+extern "C" void __declspec(naked) _branch_exit() {
+  // This is expected to be called via instrumentation that looks like:
+  //    push index
+  //    push module_data
+  //    call [_branch_enter]
+  // Stack: ... index, module_data, ret_addr.
+  BBENTRY_REDIRECT_CALL(
+      agent::basic_block_entry::BasicBlockEntry::BranchExitHook);
+  // Return to the address pushed by our caller, popping off the index and
+  // module_data values from the stack.
+  __asm ret 8
+}
+
 extern "C" void __declspec(naked) _increment_indexed_freq_data() {
-  __asm {
-    // This is expected to be called via instrumentation that looks like:
-    //    push index
-    //    push module_data
-    //    call [_increment_indexed_freq_data]
-    //
-    // Stack: ... index, module_data, ret_addr.
-
-    // Stash volatile registers.
-    BBENTRY_SAVE_REGISTERS
-
-    // Stack: ... index, module_data, ret_addr, [4x register]
-
-    // Push the original esp value onto the stack as the entry-hook data.
-    // This gives the entry-hook a pointer to ret_addr, module_data and index.
-    lea eax, DWORD PTR[esp + 0x10]
-    push eax
-
-    // Stack: ..., index, module_data, ret_addr, [4x register], esp, &ret_addr.
-    call agent::basic_block_entry::BasicBlockEntry::IncrementIndexedFreqDataHook
-
-    // Stack: ... index, module_data, ret_addr, [4x register].
-
-    // Restore volatile registers.
-    BBENTRY_RESTORE_REGISTERS
-
-    // Stack: ... index, module_data, ret_addr.
-
-    // Return to the address pushed by our caller, popping off the
-    // index and module_data values from the stack.
-    ret 8
-
-    // Stack: ...
-  }
+  // This is expected to be called via instrumentation that looks like:
+  //    push index
+  //    push module_data
+  //    call [_branch_enter]
+  // Stack: ... index, module_data, ret_addr.
+  BBENTRY_REDIRECT_CALL(
+      agent::basic_block_entry::BasicBlockEntry::IncrementIndexedFreqDataHook);
+  // Return to the address pushed by our caller, popping off the index and
+  // module_data values from the stack.
+  __asm ret 8
 }
 
 extern "C" void __declspec(naked) _indirect_penter_dllmain() {
-  __asm {
-    // This is expected to be called via a thunk that looks like:
-    //    push module_data
-    //    push function
-    //    jmp [_indirect_penter_dllmain]
-    //
-    // Stack: ... reserved, reason, module, ret_addr, module_data, function.
-
-    // Stash volatile registers.
-    BBENTRY_SAVE_REGISTERS
-
-    // Stack: ... reserved, reason, module, ret_addr, module_data, function,
-    //        [4x register].
-
-    // Push the original esp value onto the stack as the entry-hook data.
-    // This gives the dll entry-hook a pointer to function, module_data,
-    // ret_addr, module, reason and reserved.
-    lea eax, DWORD PTR[esp + 0x10]
-    push eax
-
-    // Stack: ... reserved, reason, module, ret_addr, module_data, function,
-    //        [4x register], &function.
-
-    call agent::basic_block_entry::BasicBlockEntry::DllMainEntryHook
-
-    // Stack: ... reserved, reason, module, ret_addr, module_data, function,
-    //        [4x register].
-
-    // Restore volatile registers.
-    BBENTRY_RESTORE_REGISTERS
-
-    // Stack: ... reserved, reason, module, ret_addr, module_data, function.
-
-    // Return to the thunked function, popping module_data off the stack as
-    // we go.
-    ret 4
-
-    // Stack: ... reserved, reason, module, ret_addr.
-  }
+  // This is expected to be called via a thunk that looks like:
+  //    push module_data
+  //    push function
+  //    jmp [_indirect_penter_dllmain]
+  // Stack: ... reserved, reason, module, ret_addr, module_data, function.
+  BBENTRY_REDIRECT_CALL(
+      agent::basic_block_entry::BasicBlockEntry::DllMainEntryHook);
+  // Return to the thunked function, popping module_data off the stack as we go.
+  __asm ret 4
 }
 
 extern "C" void __declspec(naked) _indirect_penter_exemain() {
-  __asm {
-    // This is expected to be called via a thunk that looks like:
-    //    push module_data
-    //    push function
-    //    jmp [_indirect_penter_exe_main]
-    //
-    // Stack: ... ret_addr, module_data, function.
-
-    // Stash volatile registers.
-    BBENTRY_SAVE_REGISTERS
-
-    // Stack: ... ret_addr, module_data, function, [4x register].
-
-    // Push the original esp value onto the stack as the entry-hook data.
-    // This gives the exe entry-hook a pointer to function, module_data,
-    // and ret_addr.
-    lea eax, DWORD PTR[esp + 0x10]
-    push eax
-
-    // Stack: ... ret_addr, module_data, function, [4x register], frame.
-
-    call agent::basic_block_entry::BasicBlockEntry::ExeMainEntryHook
-
-    // Stack: ... ret_addr, module_data, function, [4x register].
-
-    // Restore volatile registers.
-    BBENTRY_RESTORE_REGISTERS
-
-    // Stack: ... ret_addr, module_data, function.
-
-    // Return to the thunked function, popping module_data off the stack as
-    // we go.
-    ret 4
-
-    // Stack: ... reserved, reason, module, ret_addr.
-  }
+  // This is expected to be called via a thunk that looks like:
+  //    push module_data
+  //    push function
+  //    jmp [_indirect_penter_exe_main]
+  //
+  // Stack: ... ret_addr, module_data, function.
+  BBENTRY_REDIRECT_CALL(
+      agent::basic_block_entry::BasicBlockEntry::ExeMainEntryHook);
+  // Return to the thunked function, popping module_data off the stack as we go.
+  __asm ret 4
 }
 
 BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
@@ -422,6 +390,34 @@ void BasicBlockEntry::IncrementIndexedFreqDataHook(
   if (state == NULL)
     state = Instance()->CreateThreadState(entry_frame->module_data);
   state->Increment(entry_frame->index);
+}
+
+void BasicBlockEntry::BranchEnterHook(
+    IncrementIndexedFreqDataFrame* entry_frame) {
+  ScopedLastErrorKeeper scoped_last_error_keeper;
+  DCHECK(entry_frame != NULL);
+  DCHECK(entry_frame->module_data != NULL);
+  DCHECK_GT(entry_frame->module_data->num_entries,
+            entry_frame->index);
+  ThreadState* state = ThreadState::Get(entry_frame->module_data->tls_index);
+  if (state == NULL)
+    state = Instance()->CreateThreadState(entry_frame->module_data);
+
+  // TODO(etienneb): implement branch agent.
+}
+
+void BasicBlockEntry::BranchExitHook(
+    IncrementIndexedFreqDataFrame* entry_frame) {
+  ScopedLastErrorKeeper scoped_last_error_keeper;
+  DCHECK(entry_frame != NULL);
+  DCHECK(entry_frame->module_data != NULL);
+  DCHECK_GT(entry_frame->module_data->num_entries,
+            entry_frame->index);
+  ThreadState* state = ThreadState::Get(entry_frame->module_data->tls_index);
+  if (state == NULL)
+    state = Instance()->CreateThreadState(entry_frame->module_data);
+
+  // TODO(etienneb): implement branch agent.
 }
 
 void BasicBlockEntry::DllMainEntryHook(DllMainEntryFrame* entry_frame) {

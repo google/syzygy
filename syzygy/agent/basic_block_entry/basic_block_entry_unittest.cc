@@ -144,6 +144,14 @@ class BasicBlockEntryTest : public testing::Test {
         ::GetProcAddress(agent_module_, "_increment_indexed_freq_data");
     ASSERT_TRUE(basic_block_enter_stub_ != NULL);
 
+    basic_block_enter_stub_ =
+        ::GetProcAddress(agent_module_, "_increment_indexed_freq_data");
+    ASSERT_TRUE(basic_block_enter_stub_ != NULL);
+
+    basic_block_increment_stub_ =
+        ::GetProcAddress(agent_module_, "_increment_indexed_freq_data");
+    ASSERT_TRUE(basic_block_increment_stub_ != NULL);
+
     indirect_penter_dllmain_stub_ =
         ::GetProcAddress(agent_module_, "_indirect_penter_dllmain");
     ASSERT_TRUE(indirect_penter_dllmain_stub_ != NULL);
@@ -162,6 +170,8 @@ class BasicBlockEntryTest : public testing::Test {
       ASSERT_TRUE(::FreeLibrary(agent_module_));
       agent_module_ = NULL;
       basic_block_enter_stub_ = NULL;
+      basic_block_exit_stub_ = NULL;
+      basic_block_increment_stub_ = NULL;
       indirect_penter_dllmain_stub_ = NULL;
       indirect_penter_exemain_stub_ = NULL;
       get_raw_frequency_data_stub_ = NULL;
@@ -184,7 +194,7 @@ class BasicBlockEntryTest : public testing::Test {
      __asm {
        push basic_block_id
        push offset module_data_
-       call basic_block_enter_stub_
+       call basic_block_increment_stub_
      }
    }
 
@@ -210,6 +220,12 @@ class BasicBlockEntryTest : public testing::Test {
 
   // The basic-block entry entrance hook.
   static FARPROC basic_block_enter_stub_;
+
+  // The basic-block exit hook.
+  static FARPROC basic_block_exit_stub_;
+
+  // The basic-block increment hook.
+  static FARPROC basic_block_increment_stub_;
 
   // The DllMain entry stub.
   static FARPROC indirect_penter_dllmain_stub_;
@@ -258,6 +274,8 @@ BOOL __declspec(naked) __cdecl BasicBlockEntryTest::ExeMainThunk() {
 IndexedFrequencyData BasicBlockEntryTest::module_data_ = {};
 uint32 BasicBlockEntryTest::default_frequency_data_[] = {};
 FARPROC BasicBlockEntryTest::basic_block_enter_stub_ = NULL;
+FARPROC BasicBlockEntryTest::basic_block_exit_stub_ = NULL;
+FARPROC BasicBlockEntryTest::basic_block_increment_stub_ = NULL;
 FARPROC BasicBlockEntryTest::indirect_penter_dllmain_stub_ = NULL;
 FARPROC BasicBlockEntryTest::indirect_penter_exemain_stub_ = NULL;
 FARPROC BasicBlockEntryTest::get_raw_frequency_data_stub_ = NULL;

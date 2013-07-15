@@ -17,6 +17,8 @@ LIBRARY basic_block_entry_client.dll
 
 EXPORTS
   ; Our profile hook functions, invoked through machine instrumentation.
+  _branch_enter
+  _branch_exit
   _increment_indexed_freq_data
   _indirect_penter_dllmain
   _indirect_penter_exemain
