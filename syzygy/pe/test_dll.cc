@@ -578,6 +578,51 @@ static type AsanWriteUseAfterFree() {
   return result;
 }
 
+// Disable the intrinsic version of the intercepted function.
+#pragma function(memset)
+
+template<typename type>
+static type AsanMemsetOverflow() {
+  const size_t kArraySize = 10;
+  type* ptr = new type[kArraySize];
+  memset(ptr, 0xFF, kArraySize * sizeof(type) + 1);
+  type result = ptr[0];
+  delete[] ptr;
+  return result;
+}
+
+template<typename type>
+static type AsanMemsetUnderflow() {
+  const size_t kArraySize = 10;
+  type* ptr = new type[kArraySize];
+  memset(reinterpret_cast<uint8*>(ptr) - 1, 0xFF, kArraySize * sizeof(type));
+  type result = ptr[0];
+  delete[] ptr;
+  return result;
+}
+
+template<typename type>
+static type AsanMemchrOverflow() {
+  const size_t kArraySize = 10;
+  type* ptr = new type[kArraySize];
+  memset(ptr, 0xAA, kArraySize * sizeof(type));
+  type result = reinterpret_cast<type>(
+      memchr(ptr, 0xFF, kArraySize * sizeof(type) + 1));
+  delete[] ptr;
+  return result;
+}
+
+template<typename type>
+static type AsanMemchrUnderflow() {
+  const size_t kArraySize = 10;
+  type* ptr = new type[kArraySize];
+  memset(ptr, 0xAA, kArraySize * sizeof(type));
+  type result = reinterpret_cast<type>(
+      memchr(reinterpret_cast<uint8*>(ptr) - 1, 0xFF,
+             kArraySize * sizeof(type)));
+  delete[] ptr;
+  return result;
+}
 
 // Functions below are used to test basic block counting in the end to end
 // unittest. We assume the compiler won't simplify any calls.
@@ -617,6 +662,9 @@ extern "C" unsigned int BBEntryCallRecursive() {
 
 unsigned int CALLBACK EndToEndTest(EndToEndTestId test) {
   // This function is used to dispatch test id to its corresponding function.
+  // TODO(sebmarchand): Move out all those function to separate .cc/.h files
+  //     based on groups (ie: mem* functions, str* functions, BB-related
+  //     functions, etc).
   switch (test) {
     // Behavior tests.
     case kArrayComputation1TestId:
@@ -678,6 +726,15 @@ unsigned int CALLBACK EndToEndTest(EndToEndTestId test) {
       return AsanWriteUseAfterFree<int32>();
     case kAsanWrite64UseAfterFreeTestId:
       return AsanWriteUseAfterFree<double>();
+
+    case kAsanMemsetOverflow:
+      return AsanMemsetOverflow<int32>();
+    case kAsanMemsetUnderflow:
+      return AsanMemsetUnderflow<int32>();
+    case kAsanMemchrOverflow:
+      return AsanMemchrOverflow<int32>();
+    case kAsanMemchrUnderflow:
+      return AsanMemchrUnderflow<int32>();
 
     case kBBEntryCallOnce:
       return BBEntryCallOnce();

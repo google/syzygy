@@ -48,6 +48,11 @@ enum EndToEndTestId {
   kAsanWrite32UseAfterFreeTestId,
   kAsanWrite64UseAfterFreeTestId,
 
+  kAsanMemsetOverflow,
+  kAsanMemsetUnderflow,
+  kAsanMemchrOverflow,
+  kAsanMemchrUnderflow,
+
   kBBEntryCallOnce,
   kBBEntryCallTree,
   kBBEntryCallRecursive,

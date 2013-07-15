@@ -254,6 +254,17 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
         ASAN_WRITE_ACCESS, 8);
   }
 
+  void AsanErrorCheckInterceptedFunctions() {
+    AsanErrorCheck(kAsanMemsetOverflow, HEAP_BUFFER_OVERFLOW,
+        ASAN_WRITE_ACCESS, 1);
+    AsanErrorCheck(kAsanMemsetUnderflow, HEAP_BUFFER_UNDERFLOW,
+        ASAN_WRITE_ACCESS, 1);
+    AsanErrorCheck(kAsanMemchrOverflow, HEAP_BUFFER_OVERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(kAsanMemchrUnderflow, HEAP_BUFFER_UNDERFLOW,
+        ASAN_READ_ACCESS, 1);
+  }
+
   void BBEntryInvokeTestDll() {
     EXPECT_EQ(42, InvokeTestDllFunction(kBBEntryCallOnce));
     EXPECT_EQ(42, InvokeTestDllFunction(kBBEntryCallTree));
@@ -466,30 +477,32 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 }  // namespace
 
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
-  cmd_line_.AppendArg("no-liveness-analysis");
+  cmd_line_.AppendSwitch("no-liveness-analysis");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
-TEST_F(InstrumentAppIntegrationTest, LivenessAsanEndToEnd) {
+TEST_F(InstrumentAppIntegrationTest, AsanEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
 TEST_F(InstrumentAppIntegrationTest, RedundantMemoryAsanEndToEnd) {
-  cmd_line_.AppendArg("remove-redundant-checks");
+  cmd_line_.AppendSwitch("remove-redundant-checks");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
 TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
-  cmd_line_.AppendArg("remove-redundant-checks");
+  cmd_line_.AppendSwitch("remove-redundant-checks");
+  cmd_line_.AppendSwitch("intercept-crt-functions");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckInterceptedFunctions());
 }
 
 TEST_F(InstrumentAppIntegrationTest, BBEntryEndToEnd) {
@@ -502,7 +515,7 @@ TEST_F(InstrumentAppIntegrationTest, BBEntryEndToEnd) {
 }
 
 TEST_F(InstrumentAppIntegrationTest, InlineFastPathBBEntryEndToEnd) {
-  cmd_line_.AppendArg("inline-fast-path");
+  cmd_line_.AppendSwitch("inline-fast-path");
   ASSERT_NO_FATAL_FAILURE(StartService());
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("bbentry"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
