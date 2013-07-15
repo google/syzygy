@@ -269,7 +269,7 @@ bool PEFile::Translate(FileOffsetAddress offs, RelativeAddress* rel) const {
     return false;
   }
 
-  *rel =  previous_section_start + section_offset;
+  *rel = previous_section_start + section_offset;
 
   return true;
 }

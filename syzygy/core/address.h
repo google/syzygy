@@ -103,14 +103,14 @@ template <AddressType type> class AddressImpl {
   }
 
   AddressImpl<type> AlignUp(size_t alignment) const {
-    DCHECK(alignment > 0);
+    DCHECK_NE(0U, alignment);
     // Round up to nearest multiple of alignment.
     uint32 value = ((value_ + alignment - 1) / alignment) * alignment;
     return AddressImpl<type>(value);
   }
 
   bool IsAligned(size_t alignment) const {
-    DCHECK(alignment > 0);
+    DCHECK_NE(0U, alignment);
     return (value_ % alignment) == 0;
   }
 

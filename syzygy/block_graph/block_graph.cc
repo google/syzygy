@@ -981,7 +981,7 @@ const uint8* BlockGraph::Block::ResizeData(size_t new_size) {
 }
 
 uint8* BlockGraph::Block::GetMutableData() {
-  DCHECK(data_size_ != 0);
+  DCHECK_NE(0U, data_size_);
   DCHECK(data_ != NULL);
 
   // Make a copy if we don't already own the data.

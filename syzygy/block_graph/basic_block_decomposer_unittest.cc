@@ -107,7 +107,7 @@ bool HasGapOrIsOutOfOrder(const BasicBlock* lhs, const BasicBlock* rhs) {
 // See: basic_block_assembly_func.asm
 typedef BasicBlockTest BasicBlockDecomposerTest;
 
-}
+}  // namespace
 
 TEST_F(BasicBlockDecomposerTest, Decompose) {
   ASSERT_NO_FATAL_FAILURE(InitBlockGraph());
@@ -162,7 +162,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   ASSERT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs_[1]->type());
   BasicCodeBlock* bb1 = BasicCodeBlock::Cast(bbs_[1]);
   ASSERT_EQ(1u, bb1->instructions().size());
-  ASSERT_EQ(1u, bb1->successors().size());;
+  ASSERT_EQ(1u, bb1->successors().size());
   ASSERT_EQ(bbs_[2],
             bb1->successors().front().reference().basic_block());
   ASSERT_EQ(1u, bb1->alignment());
@@ -174,7 +174,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   BasicCodeBlock* bb2 = BasicCodeBlock::Cast(bbs_[2]);
   ASSERT_TRUE(bb2 != NULL);
   ASSERT_EQ(2u, bb2->instructions().size());
-  ASSERT_EQ(1u, bb2->successors().size());;
+  ASSERT_EQ(1u, bb2->successors().size());
   ASSERT_EQ(bbs_[3], bb2->successors().front().reference().basic_block());
   ASSERT_EQ(1u, bbs_[2]->alignment());
 
@@ -185,7 +185,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   BasicCodeBlock* bb3 = BasicCodeBlock::Cast(bbs_[3]);
   ASSERT_TRUE(bb3 != NULL);
   ASSERT_EQ(1u, bb3->instructions().size());
-  ASSERT_EQ(2u, bb3->successors().size());;
+  ASSERT_EQ(2u, bb3->successors().size());
   ASSERT_EQ(bb3, bb3->successors().front().reference().basic_block());
   ASSERT_EQ(bbs_[4], bb3->successors().back().reference().basic_block());
   ASSERT_EQ(1u, bbs_[3]->alignment());
@@ -197,7 +197,7 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   BasicCodeBlock* bb4 = BasicCodeBlock::Cast(bbs_[4]);
   ASSERT_TRUE(bb4 != NULL);
   ASSERT_EQ(1u, bb4->instructions().size());
-  ASSERT_EQ(0u, bb4->successors().size());;
+  ASSERT_EQ(0u, bb4->successors().size());
   ASSERT_EQ(1u, bbs_[4]->alignment());
 
   // Basic-block 5 - case_1.

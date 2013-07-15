@@ -76,7 +76,7 @@ void DumpReference(const BasicBlockReference& ref, FILE* out) {
 
     case BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK: {
         const BasicBlock* bb = ref.basic_block();
-        DCHECK(ref.offset() == 0);
+        DCHECK_EQ(0, ref.offset());
 
         ::fprintf(out, " ; (%s)", bb->name().c_str());
       }

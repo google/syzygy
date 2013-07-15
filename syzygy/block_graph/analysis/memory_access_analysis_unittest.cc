@@ -155,7 +155,7 @@ bool TestMemoryAccessAnalysisState::HasNonRedundantAccess(
   DCHECK(decoded);
 
   // Expect to decode the entire buffer.
-  DCHECK(temp.size() == N);
+  DCHECK_EQ(N, temp.size());
 
   // Execute the decoded instruction, and modify the current state.
   return MemoryAccessAnalysis::State::HasNonRedundantAccess(temp);
@@ -171,7 +171,7 @@ void TestMemoryAccessAnalysisState::Execute(const uint8 (& data)[N]) {
   DCHECK(decoded);
 
   // Expect to decode the entire buffer.
-  DCHECK(temp.size() == N);
+  DCHECK_EQ(N, temp.size());
 
   // Execute the decoded instruction, and modify the current state.
   MemoryAccessAnalysis::State::Execute(temp);

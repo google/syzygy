@@ -23,7 +23,7 @@ bool IsPowerOfTwo(size_t value) {
 }
 
 size_t AlignUp(size_t value, size_t alignment) {
-  DCHECK(alignment != 0);
+  DCHECK_NE(0U, alignment);
 
   if (IsPowerOfTwo(alignment)) {
     return (value + alignment - 1) & ~(alignment - 1);
@@ -33,7 +33,7 @@ size_t AlignUp(size_t value, size_t alignment) {
 }
 
 size_t AlignDown(size_t value, size_t alignment) {
-  DCHECK(alignment != 0);
+  DCHECK_NE(0U, alignment);
 
   if (IsPowerOfTwo(alignment)) {
     return value & ~(alignment - 1);
@@ -51,7 +51,7 @@ bool IsPowerOfTwo64(uint64 value) {
 }
 
 uint64 AlignUp64(uint64 value, uint64 alignment) {
-  DCHECK(alignment != 0);
+  DCHECK_NE(0U, alignment);
 
   if (IsPowerOfTwo64(alignment)) {
     return (value + alignment - 1) & ~(alignment - 1);
@@ -61,7 +61,7 @@ uint64 AlignUp64(uint64 value, uint64 alignment) {
 }
 
 uint64 AlignDown64(uint64 value, uint64 alignment) {
-  DCHECK(alignment != 0);
+  DCHECK_NE(0U, alignment);
 
   if (IsPowerOfTwo64(alignment)) {
     return value & ~(alignment - 1);

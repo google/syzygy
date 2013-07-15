@@ -189,7 +189,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
     if (::fread(&segment_prefix,
                 sizeof(segment_prefix),
                 1,
-                trace_file.get()) !=  1) {
+                trace_file.get()) != 1) {
       if (::feof(trace_file.get()))
         break;
 
@@ -209,7 +209,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
     if (::fread(&segment_header,
                 sizeof(segment_header),
                 1,
-                trace_file.get()) !=  1) {
+                trace_file.get()) != 1) {
       LOG(ERROR) << "Failed to read segment header.";
       return false;
     }
@@ -223,7 +223,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
     }
 
     if (::fread(buffer.get(), segment_header.segment_length, 1,
-                trace_file.get()) !=  1) {
+                trace_file.get()) != 1) {
       LOG(ERROR) << "Failed to read segment.";
       return false;
     }

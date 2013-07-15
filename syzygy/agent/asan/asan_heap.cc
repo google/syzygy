@@ -147,12 +147,11 @@ bool HeapProxy::Destroy() {
   // Flush the quarantine.
   SetQuarantineMaxSize(0);
 
-  if (::HeapDestroy(heap_)) {
-    heap_ = NULL;
-    return true;
-  }
+  if (!::HeapDestroy(heap_))
+    return false;
 
-  return false;
+  heap_ = NULL;
+  return true;
 }
 
 void* HeapProxy::Alloc(DWORD flags, size_t bytes) {

@@ -249,7 +249,7 @@ TEST_F(CoverageClientTest, VisitOneBB) {
   EXPECT_CALL(handler_, OnProcessAttach(_,
                                         process_id,
                                         thread_id,
-                                        ModuleAtAddress(self)));;
+                                        ModuleAtAddress(self)));
   EXPECT_CALL(handler_, OnIndexedFrequency(
       _,
       process_id,

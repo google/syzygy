@@ -183,7 +183,7 @@ bool GetJumpTableSize(const BlockGraph::Block* block,
   else
     max_end_offset = block->size();
 
-  DCHECK(max_end_offset != 0);
+  DCHECK_NE(0, max_end_offset);
 
   BlockGraph::Block::ReferenceMap::const_iterator iter_ref =
       block->references().find(beginning_offset);
