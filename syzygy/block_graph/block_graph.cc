@@ -210,8 +210,6 @@ std::string BlockGraph::LabelAttributesToString(
   return s;
 }
 
-const core::RelativeAddress kInvalidAddress(0xFFFFFFFF);
-
 const BlockGraph::SectionId BlockGraph::kInvalidSectionId = -1;
 
 BlockGraph::BlockGraph()
@@ -713,7 +711,7 @@ BlockGraph::Block::Block(BlockGraph* block_graph)
       alignment_(1),
       name_(NULL),
       compiland_name_(NULL),
-      addr_(kInvalidAddress),
+      addr_(RelativeAddress::kInvalidAddress),
       block_graph_(block_graph),
       section_(kInvalidSectionId),
       attributes_(0),
@@ -734,7 +732,7 @@ BlockGraph::Block::Block(BlockId id,
       alignment_(1),
       name_(NULL),
       compiland_name_(NULL),
-      addr_(kInvalidAddress),
+      addr_(RelativeAddress::kInvalidAddress),
       block_graph_(block_graph),
       section_(kInvalidSectionId),
       attributes_(0),

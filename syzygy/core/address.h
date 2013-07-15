@@ -47,6 +47,8 @@ enum AddressType {
 // types of addresses in implementation.
 template <AddressType type> class AddressImpl {
  public:
+  static const AddressImpl kInvalidAddress;
+
   AddressImpl() : value_(0) {
   }
   explicit AddressImpl(uint32 value) : value_(value) {

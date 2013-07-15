@@ -28,6 +28,10 @@ void CompileAsserts() {
                  file_offset_must_be_4_byte);
 }
 
+const RelativeAddress RelativeAddress::kInvalidAddress(~0U);
+const AbsoluteAddress AbsoluteAddress::kInvalidAddress(~0U);
+const FileOffsetAddress FileOffsetAddress::kInvalidAddress(~0U);
+
 std::ostream& operator<<(std::ostream& str, RelativeAddress addr) {
   str << base::StringPrintf("Relative(0x%08X)", addr.value());
   return str;

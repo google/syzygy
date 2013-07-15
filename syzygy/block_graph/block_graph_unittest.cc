@@ -198,7 +198,7 @@ TEST_F(BlockTest, Initialization) {
   ASSERT_EQ(kBlockSize, block_->size());
   ASSERT_EQ(1, block_->alignment());
   ASSERT_STREQ(kBlockName, block_->name().c_str());
-  ASSERT_EQ(kInvalidAddress, block_->addr());
+  ASSERT_EQ(RelativeAddress::kInvalidAddress, block_->addr());
   ASSERT_EQ(BlockGraph::kInvalidSectionId, block_->section());
   ASSERT_EQ(0, block_->attributes());
   ASSERT_EQ(NULL, block_->data());

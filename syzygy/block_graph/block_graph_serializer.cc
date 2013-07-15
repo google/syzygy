@@ -342,7 +342,7 @@ bool BlockGraphSerializer::LoadBlockProperties(BlockGraph::Block* block,
   DCHECK_EQ(0u, block->size_);
   DCHECK_EQ(1u, block->alignment_);
   DCHECK_EQ(0u, block->source_ranges_.size());
-  DCHECK_EQ(kInvalidAddress, block->addr_);
+  DCHECK_EQ(RelativeAddress::kInvalidAddress, block->addr_);
   DCHECK_EQ(BlockGraph::kInvalidSectionId, block->section_);
   DCHECK_EQ(0u, block->attributes_);
 

@@ -43,10 +43,6 @@ namespace block_graph {
 // Forward declaration.
 class BlockGraphSerializer;
 
-// The invalid address can never occur in an graph, it's used as default
-// value for block addresses.
-extern const core::RelativeAddress kInvalidAddress;
-
 #define BLOCK_ATTRIBUTE_ENUM(F) \
     /* Set for functions declared non-returning. */ \
     F(NON_RETURN_FUNCTION) \
