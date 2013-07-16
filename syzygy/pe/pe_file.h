@@ -27,30 +27,66 @@
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
 #include "syzygy/core/serialization.h"
+#include "syzygy/pe/pe_coff_file.h"
 
 namespace pe {
 
-// This duplicates a similar constant in the core namespace, declared by
-// block_graph.h. We duplicate it here so as not to add an uneccessary
-// dependency.
-// Header data and other data not from a regular section is considered as
-// being from an invalid section.
-extern const size_t kInvalidSection;
+// Traits of the PE address space.
+struct PEAddressSpaceTraits {
+  // Native addresses for PE files: relative virtual addresses (RVAs).
+  typedef core::RelativeAddress AddressType;
 
-class PEFile {
+  // Native sizes for PE files.
+  typedef size_t SizeType;
+
+  // @returns an address different from all valid addresses for the
+  // specified address type.
+  static const AddressType invalid_address() {
+    return AddressType::kInvalidAddress;
+  }
+
+  // @returns the address at which to insert global headers.
+  static const AddressType header_address() {
+    return AddressType(0);
+  }
+
+  // Return the RVA to which the section will be mapped when the
+  // program is loaded.
+  //
+  // @param header the section header.
+  // @returns the RVA of the section.
+  static AddressType GetSectionAddress(const IMAGE_SECTION_HEADER& header) {
+    return AddressType(header.VirtualAddress);
+  }
+
+  // Return the number of bytes that will be occupied by the section
+  // when the program is loaded, including any run-time padding.
+  //
+  // @param header the section header.
+  // @returns the run-time size of the section.
+  static SizeType GetSectionSize(const IMAGE_SECTION_HEADER& header) {
+    return SizeType(header.Misc.VirtualSize);
+  }
+};
+
+// A raw, sparse, representation of a PE file. It offers a view of the
+// contents of the file as would be mapped into memory, if the program
+// were loaded.
+class PEFile : public PECoffFile<PEAddressSpaceTraits> {
  public:
-  // Used for storing the signature of a PE file.
   struct Signature;
 
   typedef core::AbsoluteAddress AbsoluteAddress;
   typedef core::FileOffsetAddress FileOffsetAddress;
   typedef core::RelativeAddress RelativeAddress;
 
-  // Contains relocation addresses.
+  // A set of locations in the RVA address space where an address is
+  // present and needs to be relocated.
   typedef std::set<RelativeAddress> RelocSet;
 
-  // Contains the decoded relocation information, where each item
-  // in the map is the address and value of a relocatable entry.
+  // A map from locations in the RVA address space where an address is
+  // present and needs to be relocated, to the absolute addresses they
+  // refer to.
   typedef std::map<RelativeAddress, AbsoluteAddress> RelocMap;
 
   // Information about a single export.
@@ -65,139 +101,175 @@ class PEFile {
   struct ImportDll;
   typedef std::vector<ImportDll> ImportDllVector;
 
+  // Allow overloading of the following functions inherited from
+  // PECoffFile.
+  using PECoffFile<PEAddressSpaceTraits>::ReadImage;
+  using PECoffFile<PEAddressSpaceTraits>::ReadImageString;
+  using PECoffFile<PEAddressSpaceTraits>::GetImageData;
+  using PECoffFile<PEAddressSpaceTraits>::Contains;
+  using PECoffFile<PEAddressSpaceTraits>::GetSectionIndex;
+  using PECoffFile<PEAddressSpaceTraits>::GetSectionHeader;
+
+  // Construct a PEFile object not yet bound to any file.
   PEFile();
+
+  // Destroy this PEFile object, invalidating all pointers obtained
+  // through GetImageData(), or headers returned by corresponding
+  // accessor methods.
   ~PEFile();
 
-  const base::FilePath& path() const { return path_; }
-
-  // Read in the image file at path.
+  // Read in the image file at @p path, making its data
+  // available. A PE file reader may only read a single file.
+  //
+  // @param path the path to the file to read.
+  // @returns true on success, false on error.
   bool Init(const base::FilePath& path);
 
-  // Populates a signature object with the signature of this PE file. This
-  // is only valid if called after Init.
+  // Retrieve the signature of this PE file. May only be called after
+  // a file has been read with Init().
+  //
+  // @param signature the object to copy the signature to.
   void GetSignature(Signature* signature) const;
 
-  // Decodes the relocation information from the image to relocs.
+  // Decode relocation information from the image, inserting the
+  // results into @p relocs.
+  //
   // TODO(siggi): Consider folding this member into ReadRelocs.
+  //
+  // @param relocs the set to which relocations are to be added.
+  // @returns true on success, false on error.
   bool DecodeRelocs(RelocSet* relocs) const;
-  // Reads all reloc values from the image.
+
+  // Retrieve relocation target addresses for the specified set of
+  // relocations.
+  //
+  // @param relocs the set of relocations to look up.
+  // @param reloc_values the map to which relocation--target pairs are
+  // to be added.
+  // @returns true on success, false on error.
   bool ReadRelocs(const RelocSet& relocs, RelocMap* reloc_values) const;
 
-  // Decodes the import information in the image.
+  // Decode import information from the image.
+  //
+  // @param imports where to place the decoded imports.
+  // @returns true on success, false on error.
   bool DecodeImports(ImportDllVector* imports) const;
 
-  // Decodes the export information in the image.
+  // Decode export information from the image.
+  //
+  // @param exports where to place the decoded exports.
+  // @returns true on success, false on error.
   bool DecodeExports(ExportInfoVector* exports) const;
 
-  // @{
-  // Translate between relative and absolute addresses.
+  // Translate a relative address to an absolute address, based on the
+  // preferred loading address of this PE file.
+  //
+  // @param rel the address to translate.
+  // @param abs where to place the resulting address.
+  // @returns true on success, false on error.
   bool Translate(RelativeAddress rel, AbsoluteAddress* abs) const;
+
+  // Translate an absolute address to a relative address, based on the
+  // preferred loading address of this PE file.
+  //
+  // @param abs the address to translate.
+  // @param rel where to place the resulting address.
+  // @returns true on success, false on error.
   bool Translate(AbsoluteAddress abs, RelativeAddress* rel) const;
+
+  // Translate a file offset present in the on-disk file to the
+  // relative address it maps to at run-time.
+  //
+  // @param offs the file offset to translate.
+  // @param rel where to place the resulting address.
+  // @returns true on success, false on error.
   bool Translate(FileOffsetAddress offs, RelativeAddress* rel) const;
+
+  // Translate a relative address to the file offset it is mapped from
+  // in the on-disk file.
+  //
+  // @param rel the address to translate.
+  // @param offs where to place the resulting address.
+  // @returns true on success, false on error.
   bool Translate(RelativeAddress rel, FileOffsetAddress* offs) const;
+
+  // Absolute address wrappers around the same-named methods from
+  // PECoffFile, which deal with relative addresses. Each of the
+  // following method is equivalent to applying Translate() to the
+  // absolute address then calling the corresponding RVA-based method.
+  //
+  // @see pe::PECoffFile @{
+  bool ReadImage(AbsoluteAddress addr, void* data, size_t len) const;
+  bool ReadImageString(AbsoluteAddress addr, std::string* str) const;
+  const uint8* GetImageData(AbsoluteAddress addr, size_t len) const;
+  uint8* GetImageData(AbsoluteAddress addr, size_t len);
+  bool Contains(AbsoluteAddress addr, size_t len) const;
+  size_t GetSectionIndex(AbsoluteAddress addr, size_t len) const;
+  const IMAGE_SECTION_HEADER* GetSectionHeader(AbsoluteAddress addr,
+                                               size_t len) const;
   // @}
 
-  // Read len bytes from image at offset offs to data.
-  bool ReadImage(RelativeAddress rel, void* data, size_t len) const;
-  bool ReadImage(AbsoluteAddress abs, void* data, size_t len) const;
-
-  // Read a zero-terminated string from offs into str.
-  bool ReadImageString(RelativeAddress rel, std::string* str) const;
-  bool ReadImageString(AbsoluteAddress abs, std::string* str) const;
-
-  // Get a pointer to the image at addr, provided the image contains data
-  // for [addr, addr + len)
-  const uint8* GetImageData(RelativeAddress rel, size_t len) const;
-  const uint8* GetImageData(AbsoluteAddress abs, size_t len) const;
-  uint8* GetImageData(RelativeAddress rel, size_t len);
-  uint8* GetImageData(AbsoluteAddress abs, size_t len);
-
-  // Check whether or not a given address range is inside the
-  // address space of the PE image.
-  bool Contains(RelativeAddress rel, size_t len) const;
-  bool Contains(AbsoluteAddress abs, size_t len) const;
-
-  // Returns the section index associated with a given address. Returns
-  // kInvalidSection if the address does not lie within a section.
-  size_t GetSectionIndex(RelativeAddress rel, size_t len) const;
-  size_t GetSectionIndex(AbsoluteAddress abs, size_t len) const;
-
-  // Returns a pointer to the section header associated with a given address.
-  // Returns NULL if the address does not lie within a section.
-  const IMAGE_SECTION_HEADER* GetSectionHeader(RelativeAddress rel,
-                                               size_t len) const;
-  const IMAGE_SECTION_HEADER* GetSectionHeader(AbsoluteAddress rel,
-                                               size_t len) const;
-
-  // Returns the section index associated with the given name. Returns
-  // kInvalidSection if no section with that name is found.
+  // Retrieve the index of the first section with the specified name.
+  //
+  // @param name the name of the section to look up.
+  // @returns the index of the section, or kInvalidSection if none is
+  // found.
   size_t GetSectionIndex(const char* name) const;
 
-  // Returns the section header associated with the given name. Returns
-  // kInvalidSection if no section with the name is found.
+  // Retrieve a pointer to the header structure of the first section
+  // with the specified name.
+  //
+  // @param name the name of the section to look up.
+  // @returns a pointer to the header structure of the section, or
+  // NULL if none is found.
   const IMAGE_SECTION_HEADER* GetSectionHeader(const char* name) const;
 
-  // Helper to stringify the name of a section.
-  std::string GetSectionName(size_t section_index) const;
-  static std::string GetSectionName(const IMAGE_SECTION_HEADER& section);
-
-  // Accessors.
+  // @returns a pointer to the DOS header structure of this PE file.
   const IMAGE_DOS_HEADER* dos_header() const {
     return dos_header_;
   }
 
+  // @returns a pointer to the NT headers structure of this PE file.
   const IMAGE_NT_HEADERS* nt_headers() const {
     return nt_headers_;
   }
 
-  const IMAGE_SECTION_HEADER* section_headers() const {
-    return section_headers_;
-  }
-
-  const IMAGE_SECTION_HEADER* section_header(size_t num_section) const {
-    if (nt_headers_ != NULL &&
-        num_section < nt_headers_->FileHeader.NumberOfSections)
-      return section_headers_ + num_section;
-
-    return NULL;
-  }
-
+  // Subtract the preferred loading address of this PE file from the
+  // specified displacement.
+  //
+  // @param abs_disp the value to translate.
+  // @returns the new offset, relative to the preferred loading
+  // address.
   uint32 PEFile::AbsToRelDisplacement(uint32 abs_disp) const {
     return abs_disp - nt_headers_->OptionalHeader.ImageBase;
   }
 
  private:
+  // Read all NT headers, including common COFF headers. Insert
+  // a range covering all headers.
+  //
+  // @param file the input file stream.
+  // @returns true on success, false on error.
   bool ReadHeaders(FILE* file);
-  bool ReadSections(FILE* file);
 
-  base::FilePath path_;
   const IMAGE_DOS_HEADER* dos_header_;
   const IMAGE_NT_HEADERS* nt_headers_;
-  const IMAGE_SECTION_HEADER* section_headers_;
-
-  typedef std::vector<uint8> SectionBuffer;
-  struct SectionInfo {
-    SectionInfo() : id(kInvalidSection) {
-    }
-    size_t id;
-    SectionBuffer buffer;
-  };
-  typedef core::AddressSpace<RelativeAddress, size_t, SectionInfo>
-      ImageAddressSpace;
-
-  // Contains all data in the image. The address space has a range defined
-  // for the header and each section in the image, with its associated
-  // SectionBuffer as the data.
-  ImageAddressSpace image_data_;
 
   DISALLOW_COPY_AND_ASSIGN(PEFile);
 };
 
-// This structure holds a PE file signature.
+// A parsed PE file signature; a signature describes some module. It
+// offers access to the exploded components of the PE signature,
+// comparison, and serialization.
 struct PEFile::Signature {
+  // Construct a default all-zero signature.
   Signature() : module_size(0), module_time_date_stamp(0), module_checksum(0) {
   }
 
+  // Construct a signature from the specified module information.
+  //
+  // @param module_info the module information from which to extract
+  // signature data.
   explicit Signature(const sym_util::ModuleInformation& module_info)
       : path(module_info.image_file_name),
         base_address(module_info.base_address),
@@ -206,70 +278,124 @@ struct PEFile::Signature {
         module_checksum(module_info.image_checksum) {
   }
 
-  // The original path is kept for convenience. This should always be an
-  // absolute path.
+  // The original module path, kept for convenience. This should
+  // always be an absolute path.
+  //
   // TODO(chrisha): Check that the path is absolute at all sites where this
   //     path is used.
   std::wstring path;
 
-  // The signature consists of the following 4 fields.
+  // The four signature components.
+  // @{
+  // The preferred loading address of the module.
   AbsoluteAddress base_address;
-  size_t module_size;
-  uint32 module_time_date_stamp;
-  uint32 module_checksum;
 
-  // Compares this signature to another one. The paths do not have to match.
+  // The on-disk size in bytes of the module file.
+  size_t module_size;
+
+  // The on-disk modification time of the module file.
+  uint32 module_time_date_stamp;
+
+  // A 32-bit checksum of the module file.
+  uint32 module_checksum;
+  // @}
+
+  // Compare the specified signature with this one. Signatures are
+  // consistent with one another if their four components match; paths
+  // may differ.
+  //
+  // @param signature the signature to compare to.
+  // @returns true if the signatures are consistent, false otherwise.
   bool IsConsistent(const Signature& signature) const;
 
-  // Compares this signature to another one.
-  // The paths and the checksum do not have to match.
+  // Compare the specified signature with this one in the same way as
+  // IsConsistent(), except that in addition signatures may differ.
+  //
+  // @param signature the signature to compare to.
+  // @returns true if the signatures are consistent except possibly
+  // for the signature, false otherwise.
   bool IsConsistentExceptForChecksum(const Signature& signature) const;
 
-  // We need an equality operator for serialization unittests.
+  // Compare the specified signature with this one. Signatures are
+  // equal if their paths are the same and they are consistent.
+  //
+  // @param signature the signature to compare to.
+  // @returns true if the signatures are equal, false otherwise.
+  // @note We need an equality operator for serialization unittests.
   bool operator==(const Signature& signature) const {
     return path == signature.path && IsConsistent(signature);
   }
 
-  // For serialization.
+  // Serialize this signature to @p out_archive.
+  //
+  // @param out_archive the archive to serialize to.
+  // @returns true on success, false on error.
   bool Save(core::OutArchive* out_archive) const;
+
+  // Deserializea a signature from @p in_archive, replacing the
+  // contents of this structure.
+  //
+  // @param in_archive the archive to deserialize from.
+  // @returns true on success, false on error.
   bool Load(core::InArchive* in_archive);
 };
 
-// Information about a single export.
+// A structure exposing information about a single export.
 struct PEFile::ExportInfo {
-  // Address of the exported function.
+  // The address of the exported function.
   RelativeAddress function;
 
-  // Name of the export, if any.
+  // The name of the export, if any.
   std::string name;
 
-  // Export forward string, if any.
+  // The export forward string, if any.
   std::string forward;
 
-  // Export ordinal.
+  // The export ordinal.
   uint16 ordinal;
 };
 
-// Information about a single import.
+// A structure exposing information about a single import.
 struct PEFile::ImportInfo {
+  // Construct an ImportInfo structure from its components.
+  //
+  // @param h the ordinal hint.
+  // @param o the function ordinal.
+  // @param n the function name.
   ImportInfo(uint16 h, uint16 o, const char* n)
       : hint(h),
         ordinal(o),
         function(n) {
   }
 
+  // Construct an ImportInfo structure for a named function with no
+  // ordinal information.
+  //
+  // @param function_name the function name.
   explicit ImportInfo(const char* function_name)
       : hint(0),
         ordinal(0),
         function(function_name) {
   }
+
+  // Construct an ImportInfo structure for a function referenced by
+  // ordinal.
+  //
+  // @param function_ordinal the function ordinal.
   explicit ImportInfo(uint16 function_ordinal)
       : hint(0),
         ordinal(function_ordinal) {
   }
+
+  // Construct a default all-zero ImportInfo structure.
   ImportInfo() : hint(0), ordinal(0) {
   }
 
+  // Compare the specified structure with this one. ImportInfo
+  // structures are equal if their components are equal.
+  //
+  // @param o the structure to compare to.
+  // @returns true if the signatures are equal, false otherwise.
   bool operator==(const ImportInfo& o) const {
     return hint == o.hint && ordinal == o.ordinal && function == o.function;
   }
@@ -277,15 +403,17 @@ struct PEFile::ImportInfo {
   // The loader ordinal hint for this import.
   uint16 hint;
 
-  // The ordinal of the function if function.empty().
+  // The ordinal of the function if the function field is empty.
   uint16 ordinal;
 
-  // If non-empty, the name of the function.
+  // The name of the function, or the empty string for imports by
+  // ordinal.
   std::string function;
 };
 
-// Information about all imports for a given DLL.
+// A structure holding information about all imports from a given DLL.
 struct PEFile::ImportDll {
+  // Construct a default empty ImportDll structure.
   ImportDll() {
     memset(&desc, 0, sizeof(desc));
     desc.ForwarderChain = -1;
@@ -297,7 +425,8 @@ struct PEFile::ImportDll {
   // Name of the DLL imported.
   std::string name;
 
-  // One entry for each imported function.
+  // A vector of ImportInfo structures, one for each imported
+  // function.
   ImportInfoVector functions;
 };
 

@@ -134,6 +134,7 @@ void CheckLoadedTestDll(HMODULE module) {
 
 const wchar_t testing::kTestDllName[] = L"test_dll.dll";
 const wchar_t testing::kTestDllPdbName[] = L"test_dll.dll.pdb";
+const wchar_t testing::kTestDllObjName[] = L"obj\\test_dll\\test_dll.obj";
 
 const wchar_t kAsanInstrumentedTestDllName[] =
     L"asan_instrumented_test_dll.dll";
