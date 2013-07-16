@@ -95,11 +95,27 @@ unsigned int CALLBACK EndToEndTest(testing::EndToEndTestId test) {
     case testing::kAsanMemsetOverflow:
       return testing::AsanMemsetOverflow<int32>();
     case testing::kAsanMemsetUnderflow:
-      return testing::AsanMemsetUnderflow<int32>();
+      return testing::AsanMemsetUnderflow<int8>();
     case testing::kAsanMemchrOverflow:
-      return testing::AsanMemchrOverflow<int32>();
+      return testing::AsanMemchrOverflow<double>();
     case testing::kAsanMemchrUnderflow:
       return testing::AsanMemchrUnderflow<int32>();
+    case testing::kAsanMemmoveReadOverflow:
+      return testing::AsanMemmoveReadOverflow<double>();
+    case testing::kAsanMemmoveReadUnderflow:
+      return testing::AsanMemmoveReadUnderflow<int16>();
+    case testing::kAsanMemmoveWriteOverflow:
+      return testing::AsanMemmoveWriteOverflow<size_t>();
+    case testing::kAsanMemmoveWriteUnderflow:
+      return testing::AsanMemmoveWriteUnderflow<int8>();
+    case testing::kAsanMemcpyReadOverflow:
+      return testing::AsanMemcpyReadOverflow<int32>();
+    case testing::kAsanMemcpyReadUnderflow:
+      return testing::AsanMemcpyReadUnderflow<int8>();
+    case testing::kAsanMemcpyWriteOverflow:
+      return testing::AsanMemcpyWriteOverflow<double>();
+    case testing::kAsanMemcpyWriteUnderflow:
+      return testing::AsanMemcpyWriteUnderflow<int16>();
 
     // Basic block entry test cases.
     case testing::kBBEntryCallOnce:

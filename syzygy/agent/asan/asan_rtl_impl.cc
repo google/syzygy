@@ -760,21 +760,25 @@ void WINAPI asan_SetCallBack(AsanErrorCallBack callback) {
   asan_runtime->SetErrorCallBack(base::Bind(callback));
 }
 
-void __cdecl asan_memcpy(unsigned char* destination,
-                         const unsigned char* source,
-                         size_t num) {
-  // TODO(sebmarchand): Implement this function.
-}
-
-void __cdecl asan_memmove(unsigned char* destination,
+void* __cdecl asan_memcpy(unsigned char* destination,
                           const unsigned char* source,
                           size_t num) {
-  // TODO(sebmarchand): Implement this function.
+  TestMemoryRange(source, num, HeapProxy::ASAN_READ_ACCESS);
+  TestMemoryRange(destination, num, HeapProxy::ASAN_WRITE_ACCESS);
+  return memcpy(destination, source, num);
 }
 
-void __cdecl asan_memset(unsigned char* ptr, int value, size_t num) {
+void* __cdecl asan_memmove(unsigned char* destination,
+                           const unsigned char* source,
+                           size_t num) {
+  TestMemoryRange(source, num, HeapProxy::ASAN_READ_ACCESS);
+  TestMemoryRange(destination, num, HeapProxy::ASAN_WRITE_ACCESS);
+  return memmove(destination, source, num);
+}
+
+void* __cdecl asan_memset(unsigned char* ptr, int value, size_t num) {
   TestMemoryRange(ptr, num, HeapProxy::ASAN_WRITE_ACCESS);
-  memset(ptr, value, num);
+  return memset(ptr, value, num);
 }
 
 const void* __cdecl asan_memchr(const unsigned char* ptr,

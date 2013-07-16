@@ -265,6 +265,22 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
         ASAN_READ_ACCESS, 1);
     AsanErrorCheck(testing::kAsanMemchrUnderflow, HEAP_BUFFER_UNDERFLOW,
         ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanMemmoveReadOverflow, HEAP_BUFFER_OVERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanMemmoveReadUnderflow, HEAP_BUFFER_UNDERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanMemmoveWriteOverflow, HEAP_BUFFER_OVERFLOW,
+        ASAN_WRITE_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanMemmoveWriteUnderflow, HEAP_BUFFER_UNDERFLOW,
+        ASAN_WRITE_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanMemcpyReadOverflow, HEAP_BUFFER_OVERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanMemcpyReadUnderflow, HEAP_BUFFER_UNDERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanMemcpyWriteOverflow, HEAP_BUFFER_OVERFLOW,
+        ASAN_WRITE_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanMemcpyWriteUnderflow, HEAP_BUFFER_UNDERFLOW,
+        ASAN_WRITE_ACCESS, 1);
   }
 
   void BBEntryInvokeTestDll() {

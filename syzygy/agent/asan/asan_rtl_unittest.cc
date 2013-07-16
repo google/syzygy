@@ -70,11 +70,11 @@ const size_t kAllocSize = 13;
        PVOID info, SIZE_T info_length, PSIZE_T return_length))  \
     F(WINAPI, void, SetCallBack,  \
       (void (*callback)(AsanErrorInfo* error_info)))  \
-    F(_cdecl, void, memcpy,  \
+    F(_cdecl, void*, memcpy,  \
       (void* destination, const void* source,  size_t num))  \
-    F(_cdecl, void, memmove,  \
+    F(_cdecl, void*, memmove,  \
       (void* destination, const void* source, size_t num))  \
-    F(_cdecl, void, memset, (void* ptr, int value, size_t num))  \
+    F(_cdecl, void*, memset, (void* ptr, int value, size_t num))  \
     F(_cdecl, const void*, memchr, (const void* ptr, int value, size_t num))  \
     F(_cdecl, void, strcspn, (const char* str1, const char* str2))  \
     F(_cdecl, void, strlen, (const char* str))  \
@@ -849,24 +849,21 @@ TEST_F(AsanRtlTest, AsanCheckMemset) {
   memory_error_detected = false;
 
   SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
-  memsetFunction(mem, 0xAA, kAllocSize);
+  EXPECT_EQ(mem, memsetFunction(mem, 0xAA, kAllocSize));
   EXPECT_FALSE(memory_error_detected);
-  for (size_t i = 0; i < kAllocSize; ++i) {
+  for (size_t i = 0; i < kAllocSize; ++i)
     EXPECT_EQ(0xAA, mem[i]);
-  }
 
-  memsetFunction(mem - 1, 0xBB, kAllocSize);
+  EXPECT_EQ(mem - 1, memsetFunction(mem - 1, 0xBB, kAllocSize));
   EXPECT_TRUE(memory_error_detected);
-  for (size_t i = 0; i < kAllocSize; ++i) {
+  for (size_t i = 0; i < kAllocSize; ++i)
     EXPECT_EQ(0xBB, mem[i - 1]);
-  }
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
 
   memory_error_detected = false;
-  memsetFunction(mem, 0xCC, kAllocSize + 1);
-  for (size_t i = 0; i < kAllocSize + 1; ++i) {
+  EXPECT_EQ(mem, memsetFunction(mem, 0xCC, kAllocSize + 1));
+  for (size_t i = 0; i < kAllocSize + 1; ++i)
     EXPECT_EQ(0xCC, mem[i]);
-  }
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
 }
@@ -896,6 +893,73 @@ TEST_F(AsanRtlTest, AsanCheckMemchr) {
   EXPECT_EQ(mem + 4, memchrFunction(mem + 1, mem[4], kAllocSize));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+}
+
+TEST_F(AsanRtlTest, AsanCheckMemmove) {
+  const size_t kAllocSize = 13;
+  uint8* mem_src = reinterpret_cast<uint8*>(
+      HeapAllocFunction(heap_, 0, kAllocSize));
+  ASSERT_TRUE(mem_src != NULL);
+  memory_error_detected = false;
+  // Fill the array with value going from 0 to kAllocSize;
+  for (size_t i = 0; i < kAllocSize; ++i)
+    mem_src[i] = i;
+
+  SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
+  // Shift all the value from one index to the right.
+  EXPECT_EQ(mem_src + 1, memmoveFunction(mem_src + 1, mem_src, kAllocSize - 1));
+  EXPECT_FALSE(memory_error_detected);
+  EXPECT_EQ(0, mem_src[0]);
+  for (size_t i = 1; i < kAllocSize; ++i)
+    EXPECT_EQ(i - 1, mem_src[i]);
+
+  // Re-shift them to the left.
+  EXPECT_EQ(mem_src, memmoveFunction(mem_src, mem_src + 1, kAllocSize));
+  EXPECT_TRUE(memory_error_detected);
+  for (size_t i = 0; i < kAllocSize - 1; ++i)
+    EXPECT_EQ(i, mem_src[i]);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+
+  // Shift them to the left one more time.
+  EXPECT_EQ(mem_src - 1, memmoveFunction(mem_src - 1, mem_src, kAllocSize));
+  EXPECT_TRUE(memory_error_detected);
+  for (int i = -1; i < static_cast<int>(kAllocSize) - 2; ++i)
+    EXPECT_EQ(i + 1, mem_src[i]);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+}
+
+TEST_F(AsanRtlTest, AsanCheckMemcpy) {
+  const size_t kAllocSize = 13;
+  uint8* mem_src = reinterpret_cast<uint8*>(
+      HeapAllocFunction(heap_, 0, kAllocSize));
+  ASSERT_TRUE(mem_src != NULL);
+  uint8* mem_dst = reinterpret_cast<uint8*>(
+      HeapAllocFunction(heap_, 0, kAllocSize));
+  ASSERT_TRUE(mem_dst != NULL);
+  memory_error_detected = false;
+  // Fill the array with value going from 0 to kAllocSize;
+  for (size_t i = 0; i < kAllocSize; ++i) {
+    mem_src[i] = i;
+    mem_dst[i] = ~i;
+  }
+
+  SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
+  EXPECT_EQ(mem_dst, memcpyFunction(mem_dst, mem_src, kAllocSize));
+  EXPECT_FALSE(memory_error_detected);
+  for (size_t i = 0; i < kAllocSize; ++i)
+    EXPECT_EQ(mem_dst[i], mem_src[i]);
+
+  EXPECT_EQ(mem_dst, memcpyFunction(mem_dst, mem_src, kAllocSize + 1));
+  EXPECT_TRUE(memory_error_detected);
+  for (size_t i = 0; i < kAllocSize + 1; ++i)
+    EXPECT_EQ(mem_dst[i], mem_src[i]);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+
+  EXPECT_EQ(mem_dst, memcpyFunction(mem_dst, mem_src - 1, kAllocSize));
+  EXPECT_TRUE(memory_error_detected);
+  for (int i = -1; i < static_cast<int>(kAllocSize) - 1; ++i)
+    EXPECT_EQ(mem_dst[i + 1], mem_src[i]);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
 }
 
 }  // namespace asan

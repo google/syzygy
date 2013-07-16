@@ -85,17 +85,17 @@ BOOL WINAPI asan_HeapQueryInformation(
 typedef void (*AsanErrorCallBack)(agent::asan::AsanErrorInfo*);
 void WINAPI asan_SetCallBack(AsanErrorCallBack callback);
 
-void __cdecl asan_memcpy(unsigned char* destination,
-                         const unsigned char* source,
-                         size_t num);
-
-void __cdecl asan_memmove(unsigned char* destination,
+void* __cdecl asan_memcpy(unsigned char* destination,
                           const unsigned char* source,
                           size_t num);
 
-void __cdecl asan_memset(unsigned char* ptr,
-                         int value,
-                         size_t num);
+void* __cdecl asan_memmove(unsigned char* destination,
+                           const unsigned char* source,
+                           size_t num);
+
+void* __cdecl asan_memset(unsigned char* ptr,
+                          int value,
+                          size_t num);
 
 const void* __cdecl asan_memchr(const unsigned char* ptr,
                                 int value, size_t num);
