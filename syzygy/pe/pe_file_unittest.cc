@@ -313,7 +313,6 @@ TEST_F(PEFileTest, DecodeExports) {
     { RelativeAddress(0), "CreateFileW", "kernel32.CreateFileW", 13 },
     { RelativeAddress(0), "function1", "", 17 },
     { RelativeAddress(0), "FuncWithOffsetOutOfImage", "", 18 },
-    { RelativeAddress(0), "EndToEndTest", "", 20 },
   };
 
   ASSERT_EQ(ARRAYSIZE(expected), exports.size());

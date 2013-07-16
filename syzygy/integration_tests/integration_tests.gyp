@@ -23,6 +23,7 @@
         'instrument_integration_test.cc',
       ],
       'dependencies': [
+        'integration_tests_dll',
         '<(src)/syzygy/agent/asan/asan.gyp:asan_rtl',
         '<(src)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
             'basic_block_entry_client',
@@ -33,7 +34,6 @@
         '<(src)/syzygy/grinder/grinder.gyp:grinder_lib',
         '<(src)/syzygy/instrument/instrument.gyp:instrument_lib',
         '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
-        '<(src)/syzygy/pe/pe.gyp:test_dll',
         '<(src)/syzygy/trace/common/common.gyp:trace_unittest_utils',
         '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
         '<(src)/testing/gtest.gyp:gtest',
@@ -45,6 +45,68 @@
           # mode, thus on long term, we should remove this.
           # Disable support for large address spaces.
           'LargeAddressAware': 1,
+        },
+      },
+    },
+    {
+      'target_name': 'integration_tests_dll',
+      'type': 'loadable_module',
+      'sources': [
+        'integration_tests_dll.cc',
+        'integration_tests_dll.def',
+        'integration_tests_dll.h',
+        'integration_tests_dll.rc',
+        'asan_check_tests.h',
+        'asan_interceptors_tests.h',
+        'bb_entry_tests.cc',
+        'bb_entry_tests.h',
+        'behavior_tests.cc',
+        'behavior_tests.h',
+        'coverage_tests.cc',
+        'coverage_tests.h',
+      ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          # ASAN agent is compiled without large address spaces to allow an
+          # memory optimization on the shadow memory. Agents should run in both
+          # mode, thus on long term, we should remove this.
+          # Disable support for large address spaces.
+          'LargeAddressAware': 1,
+        },
+      },
+      # We more or less want this to always be a release-style executable
+      # to facilitate instrumentation.
+      # We have to do this per configuration, as base.gypi specifies
+      # this per-config, which binds tighter than the defaults above.
+      'configurations': {
+        'Debug_Base': {
+          'msvs_settings': {
+            'VCLinkerTool': {
+              # This corresponds to /INCREMENTAL:NO. With incremental linking
+              # enabled, every function resolves to a location in a jump table
+              # which jumps to the function proper. This gets in the way of
+              # disassembly.
+              'LinkIncremental': '1',
+            },
+            'VCCLCompilerTool': {
+              'BasicRuntimeChecks': '0',
+              # ASAN needs the application to be linked with the release static
+              # runtime library. Otherwise, memory allocation functions are
+              # wrapped and hide memory bugs like overflow/underflow.
+              'RuntimeLibrary':  '0', # 0 = /MT (nondebug static)
+            },
+          },
+        },
+        'Common_Base': {
+          'msvs_settings': {
+            'VCLinkerTool': {
+              # This corresponds to /PROFILE, which ensures that the
+              # PDB file contains a FIXUP stream.
+              # TODO(chrisha): Move this to base.gypi so everything links
+              #     with this flag.
+              'Profile': 'true',
+            },
+          },
         },
       },
     },

@@ -26,8 +26,8 @@
 #include "syzygy/grinder/grinders/basic_block_entry_count_grinder.h"
 #include "syzygy/grinder/grinders/coverage_grinder.h"
 #include "syzygy/instrument/instrument_app.h"
+#include "syzygy/integration_tests/integration_tests_dll.h"
 #include "syzygy/pe/decomposer.h"
-#include "syzygy/pe/test_dll.h"
 #include "syzygy/pe/unittest_util.h"
 #include "syzygy/trace/common/unittest_util.h"
 
@@ -112,7 +112,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 
     // Initialize the (potential) input and output path values.
     base::FilePath abs_input_dll_path_ =
-        testing::GetExeRelativePath(testing::kTestDllName);
+        testing::GetExeRelativePath(L"integration_tests_dll.dll");
     input_dll_path_ = testing::GetRelativePath(abs_input_dll_path_);
     output_dll_path_ = temp_dir_.Append(input_dll_path_.BaseName());
 
@@ -163,12 +163,12 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     ASSERT_EQ(0, app.Run());
 
     // Validate that the test dll loads post instrumentation.
-    ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_dll_path_, &module_));
+    ASSERT_NO_FATAL_FAILURE(LoadTestDll(output_dll_path_, &module_));
   }
 
   // Invoke a test function inside test_dll by addressing it with a test id.
   // Returns the value resulting of test function execution.
-  unsigned int InvokeTestDllFunction(EndToEndTestId test) {
+  unsigned int InvokeTestDllFunction(testing::EndToEndTestId test) {
     // Load the exported 'function_name' function.
     typedef unsigned int (CALLBACK* TestDllFuncs)(unsigned int);
     TestDllFuncs func = reinterpret_cast<TestDllFuncs>(
@@ -181,11 +181,13 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 
   void EndToEndCheckTestDll() {
     // Validate that behavior is unchanged after instrumentation.
-    EXPECT_EQ(0xfff80200, InvokeTestDllFunction(kArrayComputation1TestId));
-    EXPECT_EQ(0x00000200, InvokeTestDllFunction(kArrayComputation2TestId));
+    EXPECT_EQ(0xfff80200,
+              InvokeTestDllFunction(testing::kArrayComputation1TestId));
+    EXPECT_EQ(0x00000200,
+              InvokeTestDllFunction(testing::kArrayComputation2TestId));
   }
 
-  void AsanErrorCheck(EndToEndTestId test, BadAccessKind kind,
+  void AsanErrorCheck(testing::EndToEndTestId test, BadAccessKind kind,
       AccessMode mode, size_t size) {
 
     ResetAsanErrors();
@@ -199,76 +201,76 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
   void AsanErrorCheckTestDll() {
     ASSERT_NO_FATAL_FAILURE(SetAsanCallBack());
 
-    AsanErrorCheck(kAsanRead8BufferOverflowTestId, HEAP_BUFFER_OVERFLOW,
+    AsanErrorCheck(testing::kAsanRead8BufferOverflowTestId,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanRead16BufferOverflowTestId,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 2);
+    AsanErrorCheck(testing::kAsanRead32BufferOverflowTestId,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 4);
+    AsanErrorCheck(testing::kAsanRead64BufferOverflowTestId,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 8);
+
+    AsanErrorCheck(testing::kAsanRead8BufferUnderflowTestId,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanRead16BufferUnderflowTestId,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 2);
+    AsanErrorCheck(testing::kAsanRead32BufferUnderflowTestId,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 4);
+    AsanErrorCheck(testing::kAsanRead64BufferUnderflowTestId,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 8);
+
+    AsanErrorCheck(testing::kAsanWrite8BufferOverflowTestId,
+        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanWrite16BufferOverflowTestId,
+        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 2);
+    AsanErrorCheck(testing::kAsanWrite32BufferOverflowTestId,
+        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 4);
+    AsanErrorCheck(testing::kAsanWrite64BufferOverflowTestId,
+        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 8);
+
+    AsanErrorCheck(testing::kAsanWrite8BufferUnderflowTestId,
+        HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanWrite16BufferUnderflowTestId,
+        HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 2);
+    AsanErrorCheck(testing::kAsanWrite32BufferUnderflowTestId,
+        HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 4);
+    AsanErrorCheck(testing::kAsanWrite64BufferUnderflowTestId,
+        HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 8);
+
+    AsanErrorCheck(testing::kAsanRead8UseAfterFreeTestId, USE_AFTER_FREE,
         ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(kAsanRead16BufferOverflowTestId, HEAP_BUFFER_OVERFLOW,
+    AsanErrorCheck(testing::kAsanRead16UseAfterFreeTestId, USE_AFTER_FREE,
         ASAN_READ_ACCESS, 2);
-    AsanErrorCheck(kAsanRead32BufferOverflowTestId, HEAP_BUFFER_OVERFLOW,
+    AsanErrorCheck(testing::kAsanRead32UseAfterFreeTestId, USE_AFTER_FREE,
         ASAN_READ_ACCESS, 4);
-    AsanErrorCheck(kAsanRead64BufferOverflowTestId, HEAP_BUFFER_OVERFLOW,
+    AsanErrorCheck(testing::kAsanRead64UseAfterFreeTestId, USE_AFTER_FREE,
         ASAN_READ_ACCESS, 8);
 
-    AsanErrorCheck(kAsanRead8BufferUnderflowTestId, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(kAsanRead16BufferUnderflowTestId, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 2);
-    AsanErrorCheck(kAsanRead32BufferUnderflowTestId, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 4);
-    AsanErrorCheck(kAsanRead64BufferUnderflowTestId, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 8);
-
-    AsanErrorCheck(kAsanWrite8BufferOverflowTestId, HEAP_BUFFER_OVERFLOW,
+    AsanErrorCheck(testing::kAsanWrite8UseAfterFreeTestId, USE_AFTER_FREE,
         ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(kAsanWrite16BufferOverflowTestId, HEAP_BUFFER_OVERFLOW,
+    AsanErrorCheck(testing::kAsanWrite16UseAfterFreeTestId, USE_AFTER_FREE,
         ASAN_WRITE_ACCESS, 2);
-    AsanErrorCheck(kAsanWrite32BufferOverflowTestId, HEAP_BUFFER_OVERFLOW,
+    AsanErrorCheck(testing::kAsanWrite32UseAfterFreeTestId, USE_AFTER_FREE,
         ASAN_WRITE_ACCESS, 4);
-    AsanErrorCheck(kAsanWrite64BufferOverflowTestId, HEAP_BUFFER_OVERFLOW,
-        ASAN_WRITE_ACCESS, 8);
-
-    AsanErrorCheck(kAsanWrite8BufferUnderflowTestId, HEAP_BUFFER_UNDERFLOW,
-        ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(kAsanWrite16BufferUnderflowTestId, HEAP_BUFFER_UNDERFLOW,
-        ASAN_WRITE_ACCESS, 2);
-    AsanErrorCheck(kAsanWrite32BufferUnderflowTestId, HEAP_BUFFER_UNDERFLOW,
-        ASAN_WRITE_ACCESS, 4);
-    AsanErrorCheck(kAsanWrite64BufferUnderflowTestId, HEAP_BUFFER_UNDERFLOW,
-        ASAN_WRITE_ACCESS, 8);
-
-    AsanErrorCheck(kAsanRead8UseAfterFreeTestId, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(kAsanRead16UseAfterFreeTestId, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 2);
-    AsanErrorCheck(kAsanRead32UseAfterFreeTestId, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 4);
-    AsanErrorCheck(kAsanRead64UseAfterFreeTestId, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 8);
-
-    AsanErrorCheck(kAsanWrite8UseAfterFreeTestId, USE_AFTER_FREE,
-        ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(kAsanWrite16UseAfterFreeTestId, USE_AFTER_FREE,
-        ASAN_WRITE_ACCESS, 2);
-    AsanErrorCheck(kAsanWrite32UseAfterFreeTestId, USE_AFTER_FREE,
-        ASAN_WRITE_ACCESS, 4);
-    AsanErrorCheck(kAsanWrite64UseAfterFreeTestId, USE_AFTER_FREE,
+    AsanErrorCheck(testing::kAsanWrite64UseAfterFreeTestId, USE_AFTER_FREE,
         ASAN_WRITE_ACCESS, 8);
   }
 
   void AsanErrorCheckInterceptedFunctions() {
-    AsanErrorCheck(kAsanMemsetOverflow, HEAP_BUFFER_OVERFLOW,
+    AsanErrorCheck(testing::kAsanMemsetOverflow, HEAP_BUFFER_OVERFLOW,
         ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(kAsanMemsetUnderflow, HEAP_BUFFER_UNDERFLOW,
+    AsanErrorCheck(testing::kAsanMemsetUnderflow, HEAP_BUFFER_UNDERFLOW,
         ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(kAsanMemchrOverflow, HEAP_BUFFER_OVERFLOW,
+    AsanErrorCheck(testing::kAsanMemchrOverflow, HEAP_BUFFER_OVERFLOW,
         ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(kAsanMemchrUnderflow, HEAP_BUFFER_UNDERFLOW,
+    AsanErrorCheck(testing::kAsanMemchrUnderflow, HEAP_BUFFER_UNDERFLOW,
         ASAN_READ_ACCESS, 1);
   }
 
   void BBEntryInvokeTestDll() {
-    EXPECT_EQ(42, InvokeTestDllFunction(kBBEntryCallOnce));
-    EXPECT_EQ(42, InvokeTestDllFunction(kBBEntryCallTree));
-    EXPECT_EQ(42, InvokeTestDllFunction(kBBEntryCallRecursive));
+    EXPECT_EQ(42, InvokeTestDllFunction(testing::kBBEntryCallOnce));
+    EXPECT_EQ(42, InvokeTestDllFunction(testing::kBBEntryCallTree));
+    EXPECT_EQ(42, InvokeTestDllFunction(testing::kBBEntryCallRecursive));
   }
 
   void QueueTraces(Parser* parser) {
@@ -383,9 +385,9 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
   }
 
   void CoverageInvokeTestDll() {
-    EXPECT_EQ(182, InvokeTestDllFunction(kCoverage1));
-    EXPECT_EQ(182, InvokeTestDllFunction(kCoverage2));
-    EXPECT_EQ(2, InvokeTestDllFunction(kCoverage3));
+    EXPECT_EQ(182, InvokeTestDllFunction(testing::kCoverage1));
+    EXPECT_EQ(182, InvokeTestDllFunction(testing::kCoverage2));
+    EXPECT_EQ(2, InvokeTestDllFunction(testing::kCoverage3));
   }
 
   void CoverageCheckTestDll() {
@@ -409,11 +411,11 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     const SourceFileCoverageDataMap& files =
         coverage_data.source_file_coverage_data_map();
 
-    // Find file "test_dll_cov.cc".
+    // Find file "coverage_tests.cc".
     SourceFileCoverageDataMap::const_iterator file = files.begin();
     const SourceFileCoverageData* data = NULL;
     for (; file != files.end(); ++file) {
-      if (EndsWith(file->first, "test_dll_cov.cc", true)) {
+      if (EndsWith(file->first, "coverage_tests.cc", true)) {
         data = &file->second;
         break;
       }
@@ -422,22 +424,22 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 
     // Validate function entry counts.
     // Function: coverage_func1.
-    EXPECT_TRUE(GetLineInfoExecution(data, 26));
-    EXPECT_TRUE(GetLineInfoExecution(data, 27));
+    EXPECT_TRUE(GetLineInfoExecution(data, 28));
+    EXPECT_TRUE(GetLineInfoExecution(data, 29));
 
     // Function: coverage_func2.
-    EXPECT_TRUE(GetLineInfoExecution(data, 33));
-    EXPECT_TRUE(GetLineInfoExecution(data, 34));
     EXPECT_TRUE(GetLineInfoExecution(data, 35));
-    EXPECT_FALSE(GetLineInfoExecution(data, 38));
-    EXPECT_TRUE(GetLineInfoExecution(data, 40));
+    EXPECT_TRUE(GetLineInfoExecution(data, 36));
+    EXPECT_TRUE(GetLineInfoExecution(data, 37));
+    EXPECT_FALSE(GetLineInfoExecution(data, 40));
+    EXPECT_TRUE(GetLineInfoExecution(data, 42));
 
     // Function: coverage_func3.
-    EXPECT_TRUE(GetLineInfoExecution(data, 45));
-    EXPECT_FALSE(GetLineInfoExecution(data, 47));
-    EXPECT_FALSE(GetLineInfoExecution(data, 48));
-    EXPECT_TRUE(GetLineInfoExecution(data, 50));
+    EXPECT_TRUE(GetLineInfoExecution(data, 47));
+    EXPECT_FALSE(GetLineInfoExecution(data, 49));
+    EXPECT_FALSE(GetLineInfoExecution(data, 50));
     EXPECT_TRUE(GetLineInfoExecution(data, 52));
+    EXPECT_TRUE(GetLineInfoExecution(data, 54));
   }
 
   // Stashes the current log-level before each test instance and restores it

@@ -76,9 +76,8 @@ class PELibUnitTest : public testing::ApplicationTestBase {
   // Performs a series of assertions on the test DLL's integrity.
   static void CheckTestDll(const base::FilePath& path);
 
-  // Performs a series of assertions on the test DLL's integrity, and returns
-  // the module handle to allow more tests to be executed.
-  static void CheckTestDll(const base::FilePath& path, ScopedHMODULE* module);
+  // Loads the test DLL and returns its module handle.
+  static void LoadTestDll(const base::FilePath& path, ScopedHMODULE* module);
 };
 
 }  // namespace testing

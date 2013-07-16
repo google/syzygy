@@ -212,8 +212,8 @@ ScopedHMODULE::~ScopedHMODULE() {
   Release();
 }
 
-void PELibUnitTest::CheckTestDll(
-    const base::FilePath& path, ScopedHMODULE* module) {
+void PELibUnitTest::LoadTestDll(const base::FilePath& path,
+                                ScopedHMODULE* module) {
   DCHECK(module != NULL);
 
   LOADED_IMAGE loaded_image = {};
@@ -232,12 +232,12 @@ void PELibUnitTest::CheckTestDll(
     LOG(ERROR) << "LoadLibrary failed: " << com::LogWe(error);
   }
   ASSERT_TRUE(module != NULL);
-  CheckLoadedTestDll(*module);
 }
 
 void PELibUnitTest::CheckTestDll(const base::FilePath& path) {
   ScopedHMODULE module;
-  CheckTestDll(path, &module);
+  LoadTestDll(path, &module);
+  CheckLoadedTestDll(module);
 }
 
 }  // namespace testing

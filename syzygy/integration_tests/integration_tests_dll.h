@@ -11,8 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SYZYGY_PE_TEST_DLL_H_
-#define SYZYGY_PE_TEST_DLL_H_
+//
+// This file declares the entry point for the different end to end
+// instrumentation tests.
+#ifndef SYZYGY_INTEGRATION_TESTS_INTEGRATION_TESTS_DLL_H_
+#define SYZYGY_INTEGRATION_TESTS_INTEGRATION_TESTS_DLL_H_
+
+namespace testing {
 
 // This enumeration contains an unique id for each end to end test. It is used
 // to perform an indirect call through the DLL entry point 'EndToEndTest'.
@@ -62,4 +67,6 @@ enum EndToEndTestId {
   kCoverage3,
 };
 
-#endif  // SYZYGY_PE_TEST_DLL_H_
+}  // namespace testing
+
+#endif  // SYZYGY_INTEGRATION_TESTS_INTEGRATION_TESTS_DLL_H_

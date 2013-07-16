@@ -15,6 +15,8 @@
 // NOTE: Do *NOT* modify line number because this file is used for testing end
 // to end coverage.
 
+namespace testing {
+
 // Avoid any optimization.
 #pragma optimize("", off)
 
@@ -51,3 +53,5 @@ int coverage_func3() {
   }
   return sum;
 }
+
+}  // namespace testing
