@@ -57,6 +57,18 @@
       'regexp': '.*\\.(asm)$',
       'include': 0,
     },
+    # Exclude the source files from test_dll.dll and integration_tests_dll.dll.
+    # We can't get coverage for these modules because this requires us
+    # double-instrumenting them (once with the coverage agent, and again with
+    # the agent being tested), something we don't yet support.
+    {
+      'regexp': 'Syzygy/pe/test_dll.*\\.(h|cc)',
+      'include': 0,
+    },
+    {
+      'regexp': 'Syzygy/integration_tests/.*_tests(_dll)?\\.(h|cc)',
+      'include': 0,
+    },
 
     # Groups
     {

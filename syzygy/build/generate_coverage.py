@@ -29,7 +29,6 @@ _DLLS_TO_INSTRUMENT = [
     'basic_block_entry_client.dll',
     'call_trace_client.dll',
     'coverage_client.dll',
-    'integration_tests_dll.dll',
     'profile_client.dll',
 ]
 
