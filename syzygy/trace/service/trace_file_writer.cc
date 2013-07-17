@@ -137,8 +137,8 @@ bool TraceFileWriter::WriteHeader(const ProcessInfo& process_info) {
   // Make sure we record the path to the executable as a path with a drive
   // letter, rather than using device names.
   base::FilePath drive_path;
-  if (!common::ConvertDevicePathToDrivePath(process_info.executable_path,
-                                            &drive_path)) {
+  if (!::common::ConvertDevicePathToDrivePath(process_info.executable_path,
+                                              &drive_path)) {
     return false;
   }
 
@@ -148,7 +148,7 @@ bool TraceFileWriter::WriteHeader(const ProcessInfo& process_info) {
 
   // Skip past the fixed sized portion of the header and populate the variable
   // length fields.
-  common::VectorBufferWriter writer(&buffer);
+  ::common::VectorBufferWriter writer(&buffer);
   if (!writer.Consume(offsetof(TraceFileHeader, blob_data)) ||
       !writer.WriteString(drive_path.value()) ||
       !writer.WriteString(process_info.command_line) ||
@@ -164,9 +164,9 @@ bool TraceFileWriter::WriteHeader(const ProcessInfo& process_info) {
            sizeof(header->signature));
   header->server_version.lo = TRACE_VERSION_LO;
   header->server_version.hi = TRACE_VERSION_HI;
-  header->timestamp = ::GetTickCount();
-  header->process_id = process_info.process_id;
+  header->header_size = buffer.size();
   header->block_size = block_size_;
+  header->process_id = process_info.process_id;
   header->module_base_address = process_info.exe_base_address;
   header->module_size = process_info.exe_image_size;
   header->module_checksum = process_info.exe_checksum;
@@ -174,7 +174,7 @@ bool TraceFileWriter::WriteHeader(const ProcessInfo& process_info) {
   header->os_version_info = process_info.os_version_info;
   header->system_info = process_info.system_info;
   header->memory_status = process_info.memory_status;
-  header->header_size = buffer.size();
+  trace::common::GetClockInfo(&header->clock_info);
 
   // Align the header buffer up to the block size.
   writer.Align(block_size_);
@@ -225,8 +225,8 @@ bool TraceFileWriter::WriteRecord(const void* data, size_t length) {
   }
 
   // Figure out the total size that we'll write to disk.
-  size_t bytes_to_write = common::AlignUp(kHeaderLength + segment_length,
-                                          block_size_);
+  size_t bytes_to_write = ::common::AlignUp(kHeaderLength + segment_length,
+                                            block_size_);
 
   // Ensure that the total number of bytes to write does not exceed the
   // maximum record length.

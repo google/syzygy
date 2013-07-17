@@ -303,7 +303,7 @@ bool GetModulePath(void* module_base, base::FilePath* module_path) {
   }
 
   base::FilePath device_path(buffer);
-  if (!common::ConvertDevicePathToDrivePath(device_path, module_path))
+  if (!::common::ConvertDevicePathToDrivePath(device_path, module_path))
     return false;
 
   return true;

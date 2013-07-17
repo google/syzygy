@@ -47,7 +47,7 @@ namespace {
 using base::ProcessHandle;
 using base::TERMINATION_STATUS_STILL_RUNNING;
 using base::win::ScopedHandle;
-using common::AlignUp;
+using ::common::AlignUp;
 using trace::parser::ParseEnvironmentStrings;
 using trace::parser::ParseTraceFileHeaderBlob;
 

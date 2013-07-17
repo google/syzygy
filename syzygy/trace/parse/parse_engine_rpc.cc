@@ -168,7 +168,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
 
   // Notify the event handler that a process has started.
   LARGE_INTEGER big_timestamp = {};
-  big_timestamp.QuadPart = file_header->timestamp;
+  big_timestamp.QuadPart = file_header->clock_info.ticks_reference;
   base::Time start_time(base::Time::FromFileTime(
       *reinterpret_cast<FILETIME*>(&big_timestamp)));
   event_handler_->OnProcessStarted(start_time, file_header->process_id,

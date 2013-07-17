@@ -238,7 +238,7 @@ bool Session::RecycleBuffer(Buffer* buffer) {
 
   // Is this a special singleton buffer? If so, we don't want to return it to
   // the pool but rather destroy it immediately.
-  size_t normal_buffer_size = common::AlignUp(
+  size_t normal_buffer_size = ::common::AlignUp(
       call_trace_service_->buffer_size_in_bytes(),
       buffer_consumer_->block_size());
   if (buffer->buffer_offset == 0 &&
@@ -341,7 +341,7 @@ bool Session::AllocateBufferPool(
   }
 
   // Initialize the shared buffer pool.
-  buffer_size = common::AlignUp(buffer_size, buffer_consumer_->block_size());
+  buffer_size = ::common::AlignUp(buffer_size, buffer_consumer_->block_size());
   if (!pool->Init(this, num_buffers, buffer_size)) {
     LOG(ERROR) << "Failed to initialize shared memory buffer.";
     return false;
@@ -596,7 +596,7 @@ bool Session::CreateProcessEndedEvent(Buffer** buffer) {
 
   RecordPrefix* segment_prefix =
       reinterpret_cast<RecordPrefix*>(mapped_buffer.data());
-  DWORD timestamp = ::GetTickCount();
+  uint64 timestamp = trace::common::GetTicks();
   segment_prefix->timestamp = timestamp;
   segment_prefix->size = sizeof(TraceFileSegmentHeader);
   segment_prefix->type = TraceFileSegmentHeader::kTypeId;

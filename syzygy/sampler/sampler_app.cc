@@ -441,7 +441,7 @@ bool WriteTraceRecord(const TraceDataType* trace_data,
 
   // Write the record prefix for the segment header.
   RecordPrefix record = {};
-  record.timestamp = ::GetTickCount();
+  record.timestamp = trace::common::GetTicks();
   record.size = sizeof(TraceFileSegmentHeader);
   record.type = TraceFileSegmentHeader::kTypeId;
   record.version.hi = TRACE_VERSION_HI;

@@ -168,7 +168,7 @@ TEST_F(TraceFileWriterTest, WriteRecordSucceeds) {
   record->version.lo = TRACE_VERSION_LO;
   header->segment_length = 1;
 
-  data.resize(common::AlignUp(data.size(), w.block_size()));
+  data.resize(::common::AlignUp(data.size(), w.block_size()));
   EXPECT_TRUE(w.WriteRecord(data.data(), data.size()));
 
   ASSERT_TRUE(w.Close());

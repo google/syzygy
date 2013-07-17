@@ -73,7 +73,7 @@ TEST_F(ParseTraceFileHeaderBlobTest, FailsOnTruncatedHeader) {
 }
 
 TEST_F(ParseTraceFileHeaderBlobTest, FailsOnShortData) {
-  common::VectorBufferWriter writer(&buffer_);
+  ::common::VectorBufferWriter writer(&buffer_);
   ASSERT_TRUE(writer.Consume(buffer_.size()));
 
   for (size_t i = 0; i < 8; ++i) {
@@ -86,7 +86,7 @@ TEST_F(ParseTraceFileHeaderBlobTest, FailsOnShortData) {
 }
 
 TEST_F(ParseTraceFileHeaderBlobTest, FailsOnExtraData) {
-  common::VectorBufferWriter writer(&buffer_);
+  ::common::VectorBufferWriter writer(&buffer_);
   ASSERT_TRUE(writer.Consume(buffer_.size()));
 
   // We get a trailing zero for free simply from the string literal.
@@ -101,7 +101,7 @@ TEST_F(ParseTraceFileHeaderBlobTest, FailsOnExtraData) {
 }
 
 TEST_F(ParseTraceFileHeaderBlobTest, SucceedsOnGoodData) {
-  common::VectorBufferWriter writer(&buffer_);
+  ::common::VectorBufferWriter writer(&buffer_);
   ASSERT_TRUE(writer.Consume(buffer_.size()));
 
   const wchar_t kModulePath[] = L"C:\\path\\to\\some\\module.dll";
