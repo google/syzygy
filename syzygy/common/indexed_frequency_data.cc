@@ -23,6 +23,7 @@ const uint32 kJumpTableCountAgentId = 0x07AB1E0C;
 // This should be incremented when incompatible changes are made to a tracing
 // client.
 const uint32 kBasicBlockFrequencyDataVersion = 1;
+const uint32 kBranchFrequencyDataVersion = 1;
 const uint32 kJumpTableFrequencyDataVersion = 1;
 
 const char kBasicBlockRangesStreamName[] = "/Syzygy/BasicBlockRanges";

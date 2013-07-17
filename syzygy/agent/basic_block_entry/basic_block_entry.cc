@@ -26,6 +26,7 @@
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/agent/common/process_utils.h"
 #include "syzygy/agent/common/scoped_last_error_keeper.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/common/logging.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
@@ -182,9 +183,23 @@ using ::common::IndexedFrequencyData;
 using agent::common::ScopedLastErrorKeeper;
 using trace::client::TraceFileSegment;
 
+// The indexed_frequency_data for the branch instrumentation mode has 3 columns.
+struct BranchFrequency {
+  unsigned int frequency;
+  unsigned int branch_taken;
+  unsigned int miss_predicted;
+};
+
 // All tracing runs through this object.
 base::LazyInstance<BasicBlockEntry> static_bbentry_instance =
     LAZY_INSTANCE_INITIALIZER;
+
+// Increment and saturate a 32-bit value.
+inline uint32 IncrementAndSaturate(uint32 value) {
+  if (value != ~0U)
+    ++value;
+  return value;
+}
 
 // Get the address of the module containing @p addr. We do this by querying
 // for the allocation that contains @p addr. This must lie within the
@@ -218,6 +233,8 @@ HMODULE GetModuleForAddr(const void* addr) {
 bool DatatypeVersionIsValid(uint32 datatype_id, uint32 version) {
   if (datatype_id == ::common::IndexedFrequencyData::BASIC_BLOCK_ENTRY)
     return version == ::common::kBasicBlockFrequencyDataVersion;
+  else if (datatype_id == ::common::IndexedFrequencyData::BRANCH)
+    return version == ::common::kBranchFrequencyDataVersion;
   else if (datatype_id == ::common::IndexedFrequencyData::JUMP_TABLE)
     return version == ::common::kJumpTableFrequencyDataVersion;
   return false;
@@ -275,6 +292,9 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
   void set_trace_data(TraceIndexedFrequencyData* trace_data);
   // @}
 
+  // Allocate a temporary buffer used by the branch predictor simulator.
+  void AllocatePredictorData(size_t size);
+
   // A helper to return a ThreadState pointer given a TLS index.
   static ThreadState* Get(DWORD tls_index);
 
@@ -285,6 +305,12 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
   // Release mode, no range checking is performed on index.
   void Increment(uint32 index);
 
+  // Update state and frequency when a jump enters the basic block @p index.
+  void Enter(uint32 index);
+
+  // Update state and frequency when a jump leaves the basic block @p index.
+  void Leave(uint32 index);
+
  protected:
   // As a shortcut, this points to the beginning of the array of basic-block
   // entry frequency values. With tracing enabled, this is equivalent to:
@@ -292,6 +318,9 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
   // If tracing is not enabled, this will be set to point to a static
   // allocation of IndexedFrequencyData::frequency_data.
   uint32* frequency_data_;
+
+  // The branch predictor state (2-bit saturating counter).
+  uint8* predictor_data_;
 
   // The basic-block entry agent this thread state belongs to.
   BasicBlockEntry* agent_;
@@ -303,6 +332,9 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
   // the associated trace file segment's buffer.
   TraceIndexedFrequencyData* trace_data_;
 
+  // The basic block id before the last leaving jump.
+  uint32 last_basic_block_id_;
+
  private:
   DISALLOW_COPY_AND_ASSIGN(ThreadState);
 };
@@ -310,7 +342,9 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
 BasicBlockEntry::ThreadState::ThreadState(BasicBlockEntry* agent, void* buffer)
     : agent_(agent),
       frequency_data_(static_cast<uint32*>(buffer)),
-      trace_data_(NULL) {
+      predictor_data_(NULL),
+      trace_data_(NULL),
+      last_basic_block_id_(~0U) {
   DCHECK(agent != NULL);
   DCHECK(buffer != NULL);
 }
@@ -319,6 +353,10 @@ BasicBlockEntry::ThreadState::~ThreadState() {
   // If we have an outstanding buffer, let's deallocate it now.
   if (segment_.write_ptr != NULL && !agent_->session_.IsDisabled())
     agent_->session_.ReturnBuffer(&segment_);
+
+  // If the predictor space was used, free it.
+  if (predictor_data_ != NULL)
+    delete [] predictor_data_;
 }
 
 void BasicBlockEntry::ThreadState::set_frequency_data(void* buffer) {
@@ -330,6 +368,11 @@ void BasicBlockEntry::ThreadState::set_trace_data(
     TraceIndexedFrequencyData* trace_data) {
   DCHECK(trace_data != NULL);
   trace_data_ = trace_data;
+}
+
+void BasicBlockEntry::ThreadState::AllocatePredictorData(size_t size) {
+  DCHECK(predictor_data_ == NULL);
+  predictor_data_ = new uint8[size];
 }
 
 BasicBlockEntry::ThreadState* BasicBlockEntry::ThreadState::Get(
@@ -347,8 +390,67 @@ inline void BasicBlockEntry::ThreadState::Increment(uint32 index) {
   DCHECK(frequency_data_ != NULL);
   DCHECK(trace_data_ == NULL || index < trace_data_->num_entries);
   uint32& element = frequency_data_[index];
-  if (element != ~0U)
-    ++element;
+  element = IncrementAndSaturate(element);
+}
+
+inline void BasicBlockEntry::ThreadState::Enter(uint32 basic_block_id) {
+  DCHECK(frequency_data_ != NULL);
+  DCHECK(predictor_data_ != NULL);
+  DCHECK(trace_data_ == NULL || basic_block_id < trace_data_->num_entries);
+
+  const uint32 kInvalidBasicBlockId = ~0U;
+
+  BranchFrequency* frequencies =
+      reinterpret_cast<BranchFrequency*>(frequency_data_);
+
+  uint32 last_basic_block_id = last_basic_block_id_;
+
+  bool taken = false;
+  // Check if entering from a jump or something else (call).
+  if (last_basic_block_id_ != kInvalidBasicBlockId)
+    taken = (basic_block_id != last_basic_block_id_ + 1);
+  last_basic_block_id_ = kInvalidBasicBlockId;
+
+  BranchFrequency& current = frequencies[basic_block_id];
+  BranchFrequency& previous = frequencies[last_basic_block_id];
+
+  // Count the execution of this basic block.
+  if (current.frequency != kInvalidBasicBlockId)
+    current.frequency = IncrementAndSaturate(current.frequency);
+
+  // If last jump was taken, count the branch taken in the previous basic block.
+  if (taken) {
+    if (previous.branch_taken != kInvalidBasicBlockId)
+      previous.branch_taken = IncrementAndSaturate(previous.branch_taken);
+  }
+
+  // Simulate the branch predictor.
+  // see: http://en.wikipedia.org/wiki/Branch_predictor
+  // states:
+  //    0: Weakly not taken
+  //    1: Weakly not taken
+  //    2: Weakly taken
+  //    3: Weakly taken
+  if (last_basic_block_id != kInvalidBasicBlockId) {
+    uint8& state = predictor_data_[last_basic_block_id];
+    if (taken) {
+      if (state < 2)
+        previous.miss_predicted = IncrementAndSaturate(previous.miss_predicted);
+      if (state < 3)
+        ++state;
+    } else {
+      if (state > 1)
+        previous.miss_predicted = IncrementAndSaturate(previous.miss_predicted);
+      if (state != 0)
+        --state;
+    }
+  }
+}
+
+inline void BasicBlockEntry::ThreadState::Leave(uint32 basic_block_id) {
+  DCHECK(frequency_data_ != NULL);
+  DCHECK(trace_data_ == NULL || basic_block_id < trace_data_->num_entries);
+  last_basic_block_id_ = basic_block_id;
 }
 
 BasicBlockEntry* BasicBlockEntry::Instance() {
@@ -402,8 +504,7 @@ void BasicBlockEntry::BranchEnterHook(
   ThreadState* state = ThreadState::Get(entry_frame->module_data->tls_index);
   if (state == NULL)
     state = Instance()->CreateThreadState(entry_frame->module_data);
-
-  // TODO(etienneb): implement branch agent.
+  state->Enter(entry_frame->index);
 }
 
 void BasicBlockEntry::BranchExitHook(
@@ -416,8 +517,7 @@ void BasicBlockEntry::BranchExitHook(
   ThreadState* state = ThreadState::Get(entry_frame->module_data->tls_index);
   if (state == NULL)
     state = Instance()->CreateThreadState(entry_frame->module_data);
-
-  // TODO(etienneb): implement branch agent.
+  state->Leave(entry_frame->index);
 }
 
 void BasicBlockEntry::DllMainEntryHook(DllMainEntryFrame* entry_frame) {
@@ -581,6 +681,10 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
 
   // Hook up the newly allocated buffer to the call-trace instrumentation.
   state->set_frequency_data(trace_data->frequency_data);
+
+  // The branch agent uses a temporary buffer to simulate the branch predictor.
+  if (module_data->data_type == ::common::IndexedFrequencyData::BRANCH)
+    state->AllocatePredictorData(module_data->num_entries);
 
   return state;
 }

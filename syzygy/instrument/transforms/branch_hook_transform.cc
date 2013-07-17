@@ -105,7 +105,7 @@ const char BranchHookTransform::kTransformName[] = "BranchTransform";
 BranchHookTransform::BranchHookTransform()
   : add_frequency_data_(kBasicBlockEntryAgentId,
                         "Basic-Block Branch Information Data",
-                        common::kBasicBlockFrequencyDataVersion,
+                        common::kBranchFrequencyDataVersion,
                         common::IndexedFrequencyData::BRANCH),
     instrument_dll_name_(kDefaultModuleName) {
 }
@@ -179,9 +179,9 @@ bool BranchHookTransform::TransformBasicBlockSubGraph(
     }
 
     // We use the location/index in the bb_ranges vector of the current
-    // basic-block range as the basic_block_id, and we pass a pointer to
-    // the frequency data block as the module_data parameter. We then make
-    // a memory indirect call to the bb_entry_hook.
+    // basic-block range as the basic_block_id, and we pass a pointer to the
+    // frequency data block as the module_data parameter. We then make a memory
+    // indirect call to the bb_entry_hook.
     Immediate basic_block_id(bb_ranges_.size(), core::kSize32Bit);
     Immediate module_data(add_frequency_data_.frequency_data_block(), 0);
 
@@ -235,7 +235,7 @@ bool BranchHookTransform::PostBlockGraphIteration(
   }
 
   if (!add_frequency_data_.ConfigureFrequencyDataBuffer(num_basic_blocks,
-                                                        1,
+                                                        3,
                                                         sizeof(uint32))) {
     LOG(ERROR) << "Failed to configure frequency data buffer.";
     return false;

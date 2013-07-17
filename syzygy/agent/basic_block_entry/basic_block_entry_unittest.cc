@@ -44,6 +44,7 @@ const wchar_t kBasicBlockEntryClientDll[] = L"basic_block_entry_client.dll";
 
 // The number of columns we'll work with for these tests.
 const uint32 kNumColumns = 1;
+const uint32 kNumBranchColumns = 3;
 
 // The number of basic blocks we'll work with for these tests.
 const uint32 kNumBasicBlocks = 2;
@@ -57,17 +58,17 @@ MATCHER_P(ModuleAtAddress, module, "") {
 }
 
 // A helper to match basic-block frequency results to expectations.
-MATCHER_P3(FrequencyDataMatches, module, bb_count, bb_freqs, "") {
+MATCHER_P3(FrequencyDataMatches, module, values_count, bb_freqs, "") {
   if (arg->module_base_addr != module)
     return false;
 
   if (arg->frequency_size != sizeof(uint32))
     return false;
 
-  if (arg->num_entries != bb_count)
+  if ( arg->num_entries * arg->num_columns != values_count)
     return false;
 
-  return ::memcmp(bb_freqs, arg->frequency_data, bb_count) == 0;
+  return ::memcmp(bb_freqs, arg->frequency_data, values_count) == 0;
 }
 
 // The test fixture for the basic-block entry agent.
@@ -75,6 +76,9 @@ class BasicBlockEntryTest : public testing::Test {
  public:
   BasicBlockEntryTest()
       : agent_module_(NULL) {
+  }
+
+  void ConfigureBasicBlockAgent() {
     module_data_.agent_id = ::common::kBasicBlockEntryAgentId;
     module_data_.data_type = ::common::IndexedFrequencyData::BASIC_BLOCK_ENTRY;
     module_data_.version = ::common::kBasicBlockFrequencyDataVersion;
@@ -85,6 +89,19 @@ class BasicBlockEntryTest : public testing::Test {
     module_data_.frequency_size = sizeof(default_frequency_data_[0]);
     module_data_.frequency_data = default_frequency_data_;
     ::memset(&default_frequency_data_, 0, sizeof(default_frequency_data_));
+  }
+
+  void ConfigureBranchAgent() {
+    module_data_.agent_id = ::common::kBasicBlockEntryAgentId;
+    module_data_.data_type = ::common::IndexedFrequencyData::BRANCH;
+    module_data_.version = ::common::kBasicBlockFrequencyDataVersion;
+    module_data_.tls_index = TLS_OUT_OF_INDEXES;
+    module_data_.initialization_attempted = 0U;
+    module_data_.num_entries = kNumBasicBlocks;
+    module_data_.num_columns = kNumBranchColumns;
+    module_data_.frequency_size = sizeof(default_branch_data_[0]);
+    module_data_.frequency_data = default_branch_data_;
+    ::memset(&default_branch_data_, 0, sizeof(default_branch_data_));
   }
 
   virtual void SetUp() OVERRIDE {
@@ -141,12 +158,12 @@ class BasicBlockEntryTest : public testing::Test {
     ASSERT_TRUE(agent_module_ != NULL);
 
     basic_block_enter_stub_ =
-        ::GetProcAddress(agent_module_, "_increment_indexed_freq_data");
+        ::GetProcAddress(agent_module_, "_branch_enter");
     ASSERT_TRUE(basic_block_enter_stub_ != NULL);
 
-    basic_block_enter_stub_ =
-        ::GetProcAddress(agent_module_, "_increment_indexed_freq_data");
-    ASSERT_TRUE(basic_block_enter_stub_ != NULL);
+    basic_block_exit_stub_ =
+        ::GetProcAddress(agent_module_, "_branch_exit");
+    ASSERT_TRUE(basic_block_exit_stub_ != NULL);
 
     basic_block_increment_stub_ =
         ::GetProcAddress(agent_module_, "_increment_indexed_freq_data");
@@ -186,15 +203,31 @@ class BasicBlockEntryTest : public testing::Test {
   static int __cdecl ExeMainThunk();
   static int __cdecl GetFrequencyDataThunk();
 
-   void SimulateModuleEvent(DWORD reason) {
-     DllMainThunk(kThisModule, reason, NULL);
-   }
+  void SimulateModuleEvent(DWORD reason) {
+    DllMainThunk(kThisModule, reason, NULL);
+  }
 
-   void SimulateBasicBlockEntry(uint32 basic_block_id) {
+  void SimulateBasicBlockEntry(uint32 basic_block_id) {
+    __asm {
+      push basic_block_id
+      push offset module_data_
+      call basic_block_increment_stub_
+    }
+  }
+
+  void SimulateBranchEnter(uint32 basic_block_id) {
+    __asm {
+      push basic_block_id
+      push offset module_data_
+      call basic_block_enter_stub_
+    }
+  }
+
+  void SimulateBranchLeave(uint32 basic_block_id) {
      __asm {
        push basic_block_id
        push offset module_data_
-       call basic_block_increment_stub_
+       call basic_block_exit_stub_
      }
    }
 
@@ -217,6 +250,7 @@ class BasicBlockEntryTest : public testing::Test {
   // This will be a stand-in for the (usually statically allocated) fall-back
   // frequency to which module_data_.frequency_data will point.
   static uint32 default_frequency_data_[kNumBasicBlocks];
+  static uint32 default_branch_data_[kNumBranchColumns * kNumBasicBlocks];
 
   // The basic-block entry entrance hook.
   static FARPROC basic_block_enter_stub_;
@@ -273,6 +307,7 @@ BOOL __declspec(naked) __cdecl BasicBlockEntryTest::ExeMainThunk() {
 
 IndexedFrequencyData BasicBlockEntryTest::module_data_ = {};
 uint32 BasicBlockEntryTest::default_frequency_data_[] = {};
+uint32 BasicBlockEntryTest::default_branch_data_[] = {};
 FARPROC BasicBlockEntryTest::basic_block_enter_stub_ = NULL;
 FARPROC BasicBlockEntryTest::basic_block_exit_stub_ = NULL;
 FARPROC BasicBlockEntryTest::basic_block_increment_stub_ = NULL;
@@ -283,6 +318,9 @@ FARPROC BasicBlockEntryTest::get_raw_frequency_data_stub_ = NULL;
 }  // namespace
 
 TEST_F(BasicBlockEntryTest, NoServerNoCrash) {
+  // Configure for BasicBlock mode.
+  ConfigureBasicBlockAgent();
+
   // Load the agent dll.
   ASSERT_NO_FATAL_FAILURE(LoadDll());
 
@@ -331,6 +369,9 @@ TEST_F(BasicBlockEntryTest, NoServerNoCrash) {
 }
 
 TEST_F(BasicBlockEntryTest, SingleThreadedDllBasicBlockEvents) {
+  // Configure for BasicBlock mode.
+  ConfigureBasicBlockAgent();
+
   ASSERT_NO_FATAL_FAILURE(StartService());
   ASSERT_NO_FATAL_FAILURE(LoadDll());
 
@@ -377,7 +418,7 @@ TEST_F(BasicBlockEntryTest, SingleThreadedDllBasicBlockEvents) {
   EXPECT_CALL(handler_, OnProcessAttach(_,
                                         process_id,
                                         thread_id,
-                                        ModuleAtAddress(self)));;
+                                        ModuleAtAddress(self)));
   EXPECT_CALL(handler_, OnIndexedFrequency(
       _,
       process_id,
@@ -390,6 +431,9 @@ TEST_F(BasicBlockEntryTest, SingleThreadedDllBasicBlockEvents) {
 }
 
 TEST_F(BasicBlockEntryTest, SingleThreadedExeBasicBlockEvents) {
+  // Configure for BasicBlock mode.
+  ConfigureBasicBlockAgent();
+
   ASSERT_NO_FATAL_FAILURE(StartService());
   ASSERT_NO_FATAL_FAILURE(LoadDll());
 
@@ -411,6 +455,7 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBasicBlockEvents) {
   // call count in the allocated frequency map. The default frequency data
   // should be left unchanged.
   SimulateBasicBlockEntry(0);
+
   ASSERT_EQ(default_frequency_data_, module_data_.frequency_data);
   ASSERT_EQ(0U, default_frequency_data_[0]);
 
@@ -446,6 +491,9 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBasicBlockEvents) {
 }
 
 TEST_F(BasicBlockEntryTest, InvokeGetFrequencyData) {
+  // Configure for BasicBlock mode.
+  ConfigureBasicBlockAgent();
+
   ASSERT_NO_FATAL_FAILURE(StartService());
   ASSERT_NO_FATAL_FAILURE(LoadDll());
 
@@ -464,6 +512,83 @@ TEST_F(BasicBlockEntryTest, InvokeGetFrequencyData) {
 
   // Unload the DLL and stop the service.
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
+}
+
+TEST_F(BasicBlockEntryTest, SingleThreadedExeBranchEvents) {
+  // Configure for Branch mode.
+  ConfigureBranchAgent();
+
+  ASSERT_NO_FATAL_FAILURE(StartService());
+  ASSERT_NO_FATAL_FAILURE(LoadDll());
+
+  // Simulate the process attach event.
+  ExeMainThunk();
+
+  // Validate that it does not modify any of our initialization values.
+  ASSERT_EQ(::common::kBasicBlockEntryAgentId, module_data_.agent_id);
+  ASSERT_EQ(::common::kBasicBlockFrequencyDataVersion, module_data_.version);
+  ASSERT_EQ(IndexedFrequencyData::BRANCH, module_data_.data_type);
+  ASSERT_NE(TLS_OUT_OF_INDEXES, module_data_.tls_index);
+  ASSERT_NE(0U, module_data_.initialization_attempted);
+  ASSERT_EQ(kNumBranchColumns, module_data_.num_columns);
+  ASSERT_EQ(kNumBasicBlocks, module_data_.num_entries);
+  ASSERT_EQ(default_branch_data_, module_data_.frequency_data);
+
+  // Visiting an initial basic-block should not fail. It should initialize the
+  // TLS index, allocate a frequency map for this thread, and increment the
+  // call count in the allocated frequency map. The default frequency data
+  // should be left unchanged.
+  SimulateBranchEnter(0);
+  SimulateBranchLeave(0);
+  ASSERT_EQ(default_branch_data_, module_data_.frequency_data);
+  for (size_t i = 0; i < kNumBranchColumns; ++i) {
+    ASSERT_EQ(0U, default_branch_data_[i]);
+  }
+
+  // Make a few more calls, just to keep things interesting.
+  SimulateBranchEnter(1);
+  SimulateBranchLeave(1);
+  SimulateBranchEnter(0);
+  SimulateBranchLeave(0);
+  SimulateBranchEnter(1);
+  SimulateBranchLeave(1);
+  SimulateBranchEnter(0);
+  SimulateBranchLeave(0);
+  for (int i = 0; i < 6; ++i) {
+    SimulateBasicBlockEntry(1);
+    SimulateBranchLeave(1);
+  }
+  for (int i = 0; i < 6; ++i) {
+    SimulateBranchEnter(0);
+    SimulateBranchLeave(0);
+  }
+
+  // Unload the DLL and stop the service.
+  ASSERT_NO_FATAL_FAILURE(UnloadDll());
+
+  HMODULE self = ::GetModuleHandle(NULL);
+  DWORD process_id = ::GetCurrentProcessId();
+  DWORD thread_id = ::GetCurrentThreadId();
+
+  static const uint32 kExpectedBranchData[kNumBranchColumns * kNumBasicBlocks] =
+      { 9, 11, 2, 2, 3, 0 };
+
+  // Set up expectations for what should be in the trace.
+  EXPECT_CALL(handler_, OnProcessStarted(_, process_id, _));
+  EXPECT_CALL(handler_, OnProcessAttach(_,
+                                        process_id,
+                                        thread_id,
+                                        ModuleAtAddress(self)));
+  const uint32 kNumData = kNumBranchColumns * kNumBasicBlocks;
+  EXPECT_CALL(handler_, OnIndexedFrequency(
+      _,
+      process_id,
+      thread_id,
+      FrequencyDataMatches(self, kNumData, kExpectedBranchData)));
+  EXPECT_CALL(handler_, OnProcessEnded(_, process_id));
+
+  // Replay the log.
+  ASSERT_NO_FATAL_FAILURE(ReplayLogs(1));
 }
 
 // TODO(rogerm): Add a decent multi-thread test case.

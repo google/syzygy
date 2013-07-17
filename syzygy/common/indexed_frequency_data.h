@@ -105,6 +105,9 @@ extern const uint32 kJumpTableCountAgentId;
 // The basic-block trace agent version.
 extern const uint32 kBasicBlockFrequencyDataVersion;
 
+// The branch trace agent version.
+extern const uint32 kBranchFrequencyDataVersion;
+
 // The jump table trace agent version.
 extern const uint32 kJumpTableFrequencyDataVersion;
 
