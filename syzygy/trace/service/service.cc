@@ -231,9 +231,12 @@ bool Service::RunRPC(bool non_blocking) {
 
     // Wait here if we're in blocking mode.
     if (!non_blocking) {
+      VLOG(1) << "Call-trace service is running in blocking mode.";
       status = RpcMgmtWaitServerListen();
 
-      if (status != RPC_S_OK) {
+      if (status == RPC_S_OK) {
+        VLOG(1) << "Call-trace service has finished accepting requests.";
+      } else {
         LOG(ERROR) << "Failed to wait on RPC server: "
                    << com::LogWe(status) << ".";
       }
@@ -246,9 +249,8 @@ bool Service::RunRPC(bool non_blocking) {
     return false;
   }
 
-  if (rpc_is_non_blocking_) {
-    VLOG(1) << "RPC server is running.";
-  }
+  if (rpc_is_non_blocking_)
+    VLOG(1) << "Call-trace service is running in non-blocking mode.";
 
   return true;
 }
@@ -318,7 +320,12 @@ bool Service::Start(bool non_blocking) {
 
   LOG(INFO) << "The call-trace service is running.";
 
-  return RunRPC(non_blocking);
+  if (!RunRPC(non_blocking))
+    return false;
+
+  LOG(INFO) << "The call-trace service is no longer running.";
+
+  return true;
 }
 
 bool Service::Stop() {

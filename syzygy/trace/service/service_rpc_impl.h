@@ -44,7 +44,7 @@ class RpcServiceInstanceManager {
   }
 
   static Service* GetInstance() {
-    DCHECK(instance_ != NULL);
+    CHECK(instance_ != NULL);
     return instance_;
   }
 

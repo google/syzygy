@@ -270,7 +270,7 @@ class ChromeRunner(object):
     # and to log traces to log_dir.
     exe_file = _GetExePath('call_trace_service.exe')
     exe_dir = os.path.dirname(exe_file)
-    command = [exe_file, 'start', '--trace-dir=%s' % log_dir]
+    command = [exe_file, 'start', '--trace-dir=%s' % log_dir, '--verbose']
 
     # Create a log file to which the call-trace service can direct its
     # standard error stream. Keep it around so we can dump it at the end.
@@ -307,7 +307,7 @@ class ChromeRunner(object):
     # shutdown.
     exe_file = _GetExePath('call_trace_service.exe')
     exe_dir = os.path.dirname(exe_file)
-    command = [exe_file, 'stop']
+    command = [exe_file, 'stop', '--verbose']
     status = subprocess.call(command, cwd=exe_dir)
     if status != 0:
       raise RunnerError('Failed to stop call-trace service')
