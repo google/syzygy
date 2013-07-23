@@ -96,6 +96,11 @@ class BranchHookTransform
   // The entry hook to which basic-block exit events are directed.
   BlockGraph::Reference exit_hook_ref_;
 
+  // The section where the entry-point thunks were placed. This will only be
+  // non-NULL after a successful application of the transform. This value is
+  // retained for unit-testing purposes.
+  BlockGraph::Section* thunk_section_;
+
   // The instrumentation dll used by this transform.
   std::string instrument_dll_name_;
 

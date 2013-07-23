@@ -107,6 +107,7 @@ BranchHookTransform::BranchHookTransform()
                         "Basic-Block Branch Information Data",
                         common::kBranchFrequencyDataVersion,
                         common::IndexedFrequencyData::BRANCH),
+    thunk_section_(NULL),
     instrument_dll_name_(kDefaultModuleName) {
 }
 
@@ -240,6 +241,29 @@ bool BranchHookTransform::PostBlockGraphIteration(
     LOG(ERROR) << "Failed to configure frequency data buffer.";
     return false;
   }
+
+  // Add the module entry thunks.
+  EntryThunkTransform add_thunks;
+  add_thunks.set_only_instrument_module_entry(true);
+  add_thunks.set_instrument_dll_name(instrument_dll_name_);
+  add_thunks.set_src_ranges_for_thunks(true);
+
+  Immediate module_data(add_frequency_data_.frequency_data_block(), 0);
+  if (!add_thunks.SetEntryThunkParameter(module_data)) {
+    LOG(ERROR) << "Failed to configure the entry thunks with the module_data "
+               << "parameter.";
+    return false;
+  }
+
+  if (!ApplyBlockGraphTransform(&add_thunks, block_graph, header_block)) {
+    LOG(ERROR) << "Unable to thunk module entry points.";
+    return false;
+  }
+
+  // Find or create the section we put our thunks in.
+  thunk_section_ = block_graph->FindOrAddSection(common::kThunkSectionName,
+                                                 pe::kCodeCharacteristics);
+  DCHECK(thunk_section_ != NULL);
 
   return true;
 }

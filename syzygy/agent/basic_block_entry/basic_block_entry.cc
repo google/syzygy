@@ -395,7 +395,6 @@ inline void BasicBlockEntry::ThreadState::Increment(uint32 index) {
 
 inline void BasicBlockEntry::ThreadState::Enter(uint32 basic_block_id) {
   DCHECK(frequency_data_ != NULL);
-  DCHECK(predictor_data_ != NULL);
   DCHECK(trace_data_ == NULL || basic_block_id < trace_data_->num_entries);
 
   const uint32 kInvalidBasicBlockId = ~0U;
@@ -431,7 +430,8 @@ inline void BasicBlockEntry::ThreadState::Enter(uint32 basic_block_id) {
   //    1: Weakly not taken
   //    2: Weakly taken
   //    3: Weakly taken
-  if (last_basic_block_id != kInvalidBasicBlockId) {
+  // When session is disabled, predictor_data_ is not allocated and is NULL.
+  if (predictor_data_ != NULL && last_basic_block_id != kInvalidBasicBlockId) {
     uint8& state = predictor_data_[last_basic_block_id];
     if (taken) {
       if (state < 2)

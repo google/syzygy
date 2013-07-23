@@ -48,6 +48,7 @@ class TestBranchHookTransform : public BranchHookTransform {
  public:
   using BranchHookTransform::enter_hook_ref_;
   using BranchHookTransform::exit_hook_ref_;
+  using BranchHookTransform::thunk_section_;
 
   BlockGraph::Block* frequency_data_block() {
     return add_frequency_data_.frequency_data_block();
@@ -76,6 +77,10 @@ void BranchHookTransformTest::CheckBasicBlockInstrumentation() {
 
     // Skip non-code blocks.
     if (block.type() != BlockGraph::CODE_BLOCK)
+      continue;
+
+    // We'll skip thunks, they're a mixed bag of things.
+    if (block.section() == tx_.thunk_section_->id())
       continue;
 
     // Skip non-decomposable.
