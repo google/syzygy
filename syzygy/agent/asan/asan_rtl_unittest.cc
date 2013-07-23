@@ -326,7 +326,7 @@ void AsanErrorCallback(AsanErrorInfo* error_info) {
   EXPECT_NE(HeapProxy::UNKNOWN_BAD_ACCESS, error_info->error_type);
 
   EXPECT_EQ(expected_error_type, error_info->error_type);
-  if (error_info->error_type != HeapProxy::WILD_ACCESS) {
+  if (error_info->error_type >= HeapProxy::USE_AFTER_FREE) {
     // We should at least have the stack trace of the allocation of this block.
     EXPECT_GT(error_info->alloc_stack_size, 0U);
     EXPECT_NE(0U, error_info->alloc_tid);
@@ -484,6 +484,17 @@ TEST_F(AsanRtlTest, AsanCheckWildAccess) {
   AssertMemoryErrorIsDetected(reinterpret_cast<void*>(0x80000000),
                               HeapProxy::WILD_ACCESS);
   EXPECT_TRUE(LogContains(HeapProxy::kWildAccess));
+}
+
+TEST_F(AsanRtlTest, AsanCheckInvalidAccess) {
+  check_access_fn =
+      ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
+  ASSERT_TRUE(check_access_fn != NULL);
+
+  SetCallBackFunction(&AsanErrorCallback);
+  AssertMemoryErrorIsDetected(reinterpret_cast<void*>(0x00000000),
+                              HeapProxy::INVALID_ADDRESS);
+  EXPECT_TRUE(LogContains(HeapProxy::kInvalidAddress));
 }
 
 void AsanRtlTest::AllocMemoryBuffers(int32 length, int32 element_size) {

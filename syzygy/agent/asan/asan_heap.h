@@ -49,8 +49,16 @@ class HeapProxy {
   // Enumeration of the different kinds of bad heap accesses that we can
   // encounter.
   enum BadAccessKind {
+    // This enum should start with bad access type that are not relative to a
+    // heap block.
+    // @note The ordering is important because those labels are used in
+    //     numeric inequalities.
     UNKNOWN_BAD_ACCESS,
     WILD_ACCESS,
+    INVALID_ADDRESS,
+
+    // This enum should end with bad access types that are relative to heap
+    // blocks.
     USE_AFTER_FREE,
     HEAP_BUFFER_OVERFLOW,
     HEAP_BUFFER_UNDERFLOW,
@@ -62,6 +70,7 @@ class HeapProxy {
   static const char* kHeapBufferUnderFlow;
   static const char* kHeapBufferOverFlow;
   static const char* kAttemptingDoubleFree;
+  static const char* kInvalidAddress;
   static const char* kWildAccess;
   static const char* kHeapUnknownError;
 

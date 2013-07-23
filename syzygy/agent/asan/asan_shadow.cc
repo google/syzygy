@@ -24,11 +24,15 @@ uint8 Shadow::shadow_[kShadowSize];
 void Shadow::SetUp() {
   // Poison the shadow memory.
   Poison(shadow_, kShadowSize, kAsanMemoryByte);
+  // Poison the first 64k of the memory as they're not addressable.
+  Poison(0, 0x10000, kInvalidAddress);
 }
 
 void Shadow::TearDown() {
   // Unpoison the shadow memory.
   Unpoison(shadow_, kShadowSize);
+  // Unpoison the first 64k of the memory.
+  Unpoison(0, 0x10000);
 }
 
 void Shadow::Reset() {

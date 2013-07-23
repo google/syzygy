@@ -90,6 +90,7 @@ const char* HeapProxy::kHeapUseAfterFree = "heap-use-after-free";
 const char* HeapProxy::kHeapBufferUnderFlow = "heap-buffer-underflow";
 const char* HeapProxy::kHeapBufferOverFlow = "heap-buffer-overflow";
 const char* HeapProxy::kAttemptingDoubleFree = "attempting double-free";
+const char* HeapProxy::kInvalidAddress = "invalid address";
 const char* HeapProxy::kWildAccess = "wild access";
 const char* HeapProxy::kHeapUnknownError = "heap-unknown-error";
 
@@ -588,6 +589,8 @@ const char* HeapProxy::AccessTypeToStr(BadAccessKind bad_access_kind) {
       return kHeapBufferOverFlow;
     case WILD_ACCESS:
       return kWildAccess;
+    case INVALID_ADDRESS:
+      return kInvalidAddress;
     case DOUBLE_FREE:
       return kAttemptingDoubleFree;
     case UNKNOWN_BAD_ACCESS:

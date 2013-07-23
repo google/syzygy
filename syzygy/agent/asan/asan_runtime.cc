@@ -378,8 +378,7 @@ void AsanRuntime::OnError(AsanErrorInfo* error_info) {
                                    error_info->alloc_stack,
                                    error_info->alloc_stack_size);
     }
-    if (error_info->error_type != HeapProxy::WILD_ACCESS &&
-        error_info->error_type != HeapProxy::UNKNOWN_BAD_ACCESS) {
+    if (error_info->error_type >= HeapProxy::USE_AFTER_FREE) {
       std::string shadow_text;
       Shadow::AppendShadowMemoryText(error_info->location, &shadow_text);
       logger_->Write(shadow_text);
@@ -578,6 +577,9 @@ void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
       Shadow::GetShadowMarkerForAddress(error_info->location)
           == Shadow::kAsanMemoryByte) {
       error_info->error_type = HeapProxy::WILD_ACCESS;
+  } else if (Shadow::GetShadowMarkerForAddress(error_info->location) ==
+      Shadow::kInvalidAddress){
+    error_info->error_type = HeapProxy::INVALID_ADDRESS;
   } else {
     // Iterates over the HeapProxy list to find the memory block containing this
     // address. We expect that there is at least one heap proxy extant.

@@ -68,18 +68,26 @@ TEST(ShadowTest, SetUpAndTearDown) {
 
   // Don't check all the shadow bytes otherwise this test will take too much
   // time.
-  const size_t kShadowLookupInterval = 25;
+  const size_t kLookupInterval = 25;
 
   intptr_t shadow_array_start = reinterpret_cast<intptr_t>(TestShadow::shadow_);
   size_t shadow_start = shadow_array_start >> 3;
   size_t shadow_end = shadow_start + (TestShadow::kShadowSize >> 3);
 
+  const size_t non_addressable_memory_end = (0x10000 >> 3);
+
   Shadow::SetUp();
-  for (size_t i = shadow_start; i < shadow_end; i += kShadowLookupInterval) {
+  for (size_t i = shadow_start; i < shadow_end; i += kLookupInterval) {
     ASSERT_EQ(Shadow::kAsanMemoryByte, TestShadow::shadow_[i]);
   }
+  for (size_t i = 0; i < non_addressable_memory_end; i += kLookupInterval) {
+    ASSERT_EQ(Shadow::kInvalidAddress, TestShadow::shadow_[i]);
+  }
   Shadow::TearDown();
-  for (size_t i = shadow_start; i < shadow_end; i += kShadowLookupInterval) {
+  for (size_t i = shadow_start; i < shadow_end; i += kLookupInterval) {
+    ASSERT_EQ(Shadow::kHeapAddressableByte, TestShadow::shadow_[i]);
+  }
+  for (size_t i = 0; i < non_addressable_memory_end; i += kLookupInterval) {
     ASSERT_EQ(Shadow::kHeapAddressableByte, TestShadow::shadow_[i]);
   }
 }
