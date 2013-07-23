@@ -715,7 +715,7 @@ bool AsanTransform::PreBlockGraphIteration(BlockGraph* block_graph,
   BlockGraph::Reference read_write_hook;
   if (!CreateHooksStub(block_graph, kAsanHookStubName,
                        AsanBasicBlockTransform::kReadAccess,
-                      &read_write_hook)) {
+                       &read_write_hook)) {
     return false;
   }
 
@@ -723,7 +723,7 @@ bool AsanTransform::PreBlockGraphIteration(BlockGraph* block_graph,
   BlockGraph::Reference instr_hook;
   if (!CreateHooksStub(block_graph, kAsanHookStubName,
                        AsanBasicBlockTransform::kInstrAccess,
-                      &instr_hook)) {
+                       &instr_hook)) {
     return false;
   }
 
@@ -1016,7 +1016,7 @@ bool AsanTransform::InterceptFunctions(ImportedModule* import_module,
   FunctionInterceptionInfoMap::iterator iter_redirection_info =
       function_redirection_info_map.begin();
   for (; iter_redirection_info != function_redirection_info_map.end();
-      ++iter_redirection_info) {
+       ++iter_redirection_info) {
     DCHECK(iter_redirection_info->second.function_block != NULL);
     DCHECK_NE(~0U, iter_redirection_info->second.asan_symbol_index);
     BlockGraph::Reference import_reference;
@@ -1039,7 +1039,7 @@ bool AsanTransform::InterceptFunctions(ImportedModule* import_module,
     block_desc->basic_block_order.push_back(bb);
     BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
     assm.jmp(Operand(Displacement(import_reference.referenced(),
-                                   import_reference.offset())));
+                                  import_reference.offset())));
 
     // Condense into a block.
     BlockBuilder block_builder(block_graph);
@@ -1059,6 +1059,14 @@ bool AsanTransform::InterceptFunctions(ImportedModule* import_module,
                  << "of a function.";
       return false;
     }
+
+    // Temporarily make the interceptor imports point to their original
+    // function. These references will be ... has been loaded. This is necessary
+    // so that Chrome sandbox code (which runs under the loader lock before all
+    // imports have been resolved) doesn't crash.
+    import_reference.referenced()->SetReference(import_reference.offset(),
+        BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4,
+            iter_redirection_info->second.function_block, 0, 0));
   }
 
   return true;

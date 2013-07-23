@@ -887,8 +887,8 @@ TEST_F(AsanTransformTest, InterceptFunctions) {
     }
   }
 
-  // Nothing should refer to b1 anymore.
-  EXPECT_EQ(0U, b1->referrers().size());
+  // Only the entry in the IAT should refer to b1.
+  EXPECT_EQ(1U, b1->referrers().size());
 }
 
 }  // namespace transforms

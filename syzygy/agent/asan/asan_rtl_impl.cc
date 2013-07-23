@@ -525,6 +525,9 @@ void ContextToAsanContext(const CONTEXT& context,
 void TestMemoryRange(const uint8* memory,
                      size_t size,
                      HeapProxy::AccessMode access_mode) {
+
+  if (size == 0U)
+    return;
   // TODO(sebmarchand): This approach is pretty limited because it only check
   //     if the first and the last elements are accessible. Once we have the
   //     plumbing in place we should benchmark a check that looks at each
