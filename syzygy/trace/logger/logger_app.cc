@@ -56,17 +56,19 @@ const char kUsageFormatStr[] =
     "    stop   Stop a separately running logger instance.\n"
     "\n"
     "  Options:\n"
+    "    --append             Append to (instead of truncating) the output\n"
+    "                         file. This option is valid for the start and\n"
+    "                         spawn actions.\n"
     "    --instance-id=ID     A unique (up to 16 character) ID to identify\n"
     "                         the logger instance.\n"
-    "    --minidump-dir=PATH The directory path in which minidumps, if any,\n"
+    "    --minidump-dir=PATH  The directory path in which minidumps, if any,\n"
     "                         should be generated.\n"
     "    --output-file=PATH   The file path to which logs should be written.\n"
     "                         This may be stdout (the default), stderr or a\n"
     "                         file path. This option is valid for the start\n"
     "                         and spawn actions.\n"
-    "    --append             Append to (instead of truncating) the output\n"
-    "                         file. This option is valid for the start and\n"
-    "                         spawn actions.\n";
+    "    --unique-instance-id Automatically generate a unique ID for the\n"
+    "                         logger instance.\n";
 
 // Names for kernel objects used to synchronize with a logger singleton.
 const wchar_t kLoggerMutexRoot[] = L"syzygy-logger-mutex";
