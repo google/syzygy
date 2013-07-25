@@ -21,6 +21,7 @@
       '<(PRODUCT_DIR)/benchmark.zip',
       '<(PRODUCT_DIR)/syzyprof.msi',
       '<(PRODUCT_DIR)/binaries.zip',
+      '<(PRODUCT_DIR)/symbols.zip',
     ],
   },
   'includes': [
@@ -87,6 +88,29 @@
             '--subdir',
             'experimental',
             '<@(experimental_binaries)',
+          ],
+        },
+        {
+          'action_name': 'create_symbols_zip',
+          'msvs_cygwin_shell': 0,
+          'inputs': [
+            'create_zip.py',
+            '<@(symbols)',
+            '<@(experimental_symbols)',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/symbols.zip',
+          ],
+          'action': [
+            '<(python_exe)',
+            'create_zip.py',
+            '--output',
+            '<(PRODUCT_DIR)/symbols.zip',
+            '--files',
+            '<@(symbols)',
+            '--subdir',
+            'experimental',
+            '<@(experimental_symbols)',
           ],
         },
       ],

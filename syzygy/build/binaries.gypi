@@ -53,6 +53,37 @@
       '<(PRODUCT_DIR)/call_trace_client.dll',
       '<(PRODUCT_DIR)/coverage_client.dll',
       '<(PRODUCT_DIR)/profile_client.dll',
+    ],
+
+    'experimental_binaries': [
+      # Experimental executables.
+      '<(PRODUCT_DIR)/code_tally.exe',
+      '<(PRODUCT_DIR)/compare.exe',
+      '<(PRODUCT_DIR)/pdb_dumper.exe',
+      '<(PRODUCT_DIR)/timed_decomposer.exe',
+    ],
+
+    'symbols': [
+      # Executables symbols.
+      '<(PRODUCT_DIR)/call_trace_control.exe.pdb',
+      '<(PRODUCT_DIR)/call_trace_service.exe.pdb',
+      '<(PRODUCT_DIR)/decompose.exe.pdb',
+      '<(PRODUCT_DIR)/decompose_image_to_text.exe.pdb',
+      '<(PRODUCT_DIR)/dump_trace.exe.pdb',
+      '<(PRODUCT_DIR)/genfilter.exe.pdb',
+      '<(PRODUCT_DIR)/grinder.exe.pdb',
+      '<(PRODUCT_DIR)/instrument.exe.pdb',
+      '<(PRODUCT_DIR)/logger.exe.pdb',
+      '<(PRODUCT_DIR)/pdbfind.exe.pdb',
+      '<(PRODUCT_DIR)/relink.exe.pdb',
+      '<(PRODUCT_DIR)/reorder.exe.pdb',
+      '<(PRODUCT_DIR)/run_in_snapshot.exe.pdb',
+      '<(PRODUCT_DIR)/run_in_snapshot_x64.exe.pdb',
+      '<(PRODUCT_DIR)/run_in_snapshot_xp.exe.pdb',
+      '<(PRODUCT_DIR)/sampler.exe.pdb',
+      '<(PRODUCT_DIR)/simulate.exe.pdb',
+      '<(PRODUCT_DIR)/wsdump.exe.pdb',
+      '<(PRODUCT_DIR)/zap_timestamp.exe.pdb',
 
       # Instrumentation Agent Symbols.
       '<(PRODUCT_DIR)/asan_rtl.dll.pdb',
@@ -62,12 +93,12 @@
       '<(PRODUCT_DIR)/profile_client.dll.pdb',
     ],
 
-    'experimental_binaries': [
+    'experimental_symbols': [
       # Experimental executables.
-      '<(PRODUCT_DIR)/code_tally.exe',
-      '<(PRODUCT_DIR)/compare.exe',
-      '<(PRODUCT_DIR)/pdb_dumper.exe',
-      '<(PRODUCT_DIR)/timed_decomposer.exe',
+      '<(PRODUCT_DIR)/code_tally.exe.pdb',
+      '<(PRODUCT_DIR)/compare.exe.pdb',
+      '<(PRODUCT_DIR)/pdb_dumper.exe.pdb',
+      '<(PRODUCT_DIR)/timed_decomposer.exe.pdb',
     ],
   }
 }
