@@ -120,18 +120,21 @@ class PECoffFileTest : public testing::PELibUnitTest {
     Super::SetUp();
 
     test_dll_path_ = testing::GetExeRelativePath(testing::kTestDllName);
-    test_dll_obj_path_ =
-        testing::GetOutputRelativePath(testing::kTestDllObjName);
+    test_dll_coff_obj_path_ =
+        testing::GetOutputRelativePath(testing::kTestDllCoffObjName);
+    test_dll_ltcg_obj_path_ =
+        testing::GetOutputRelativePath(testing::kTestDllLtcgObjName);
   }
 
  protected:
   bool InitImages() {
     return pe_image_file_.Init(test_dll_path_, true) &&
-        coff_image_file_.Init(test_dll_obj_path_, false);
+        coff_image_file_.Init(test_dll_coff_obj_path_, false);
   }
 
   base::FilePath test_dll_path_;
-  base::FilePath test_dll_obj_path_;
+  base::FilePath test_dll_coff_obj_path_;
+  base::FilePath test_dll_ltcg_obj_path_;
 
   TestPECoffFile<ShiftedVirtualAddressTraits> pe_image_file_;
   TestPECoffFile<ShiftedFileOffsetAddressTraits> coff_image_file_;
@@ -158,7 +161,7 @@ TEST_F(PECoffFileTest, Init) {
   EXPECT_TRUE(coff_image_file_.section_headers() == NULL);
 
   ASSERT_TRUE(pe_image_file_.Init(test_dll_path_, true));
-  ASSERT_TRUE(coff_image_file_.Init(test_dll_obj_path_, false));
+  ASSERT_TRUE(coff_image_file_.Init(test_dll_coff_obj_path_, false));
 
   EXPECT_TRUE(pe_image_file_.file_header() != NULL);
   EXPECT_TRUE(pe_image_file_.section_headers() != NULL);
@@ -170,6 +173,10 @@ TEST_F(PECoffFileTest, Init) {
 
   EXPECT_TRUE(pe_image_file_.file_header()->SizeOfOptionalHeader != 0);
   EXPECT_TRUE(coff_image_file_.file_header()->PointerToSymbolTable != 0);
+}
+
+TEST_F(PECoffFileTest, FailOnAnonymousObject) {
+  ASSERT_FALSE(coff_image_file_.Init(test_dll_ltcg_obj_path_, false));
 }
 
 // Compare header data obtained from different methods.

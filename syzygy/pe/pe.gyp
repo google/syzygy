@@ -192,6 +192,7 @@
         'pe_lib',
         'pe_unittest_utils',
         'test_dll',
+        'test_dll_obj',
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_unittest_lib',
         '<(src)/syzygy/block_graph/orderers/block_graph_orderers.gyp:'
@@ -277,6 +278,46 @@
           },
         },
       },
+    },
+    {
+      # This target generates the test_dll object files in different
+      # formats, for testing.
+      'target_name': 'test_dll_obj',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'actions': [
+        {
+          'action_name': 'compile_coff',
+          'inputs': [
+            'test_dll.cc',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/obj/test_dll/test_dll.coff_obj',
+          ],
+          'action': [
+            'cl',
+            '/c',
+            '/Fo<(PRODUCT_DIR)\\obj\\test_dll\\test_dll.coff_obj',
+            'test_dll.cc',
+          ],
+        },
+        {
+          'action_name': 'compile_ltcg',
+          'inputs': [
+            'test_dll.cc',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/obj/test_dll/test_dll.ltcg_obj',
+          ],
+          'action': [
+            'cl',
+            '/c',
+            '/GL',
+            '/Fo<(PRODUCT_DIR)\\obj\\test_dll\\test_dll.ltcg_obj',
+            'test_dll.cc',
+          ],
+        },
+      ],
     },
     {
       'target_name': 'export_dll',

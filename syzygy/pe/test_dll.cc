@@ -22,8 +22,6 @@
 
 #include <cstdlib>
 
-#include "base/basictypes.h"
-
 // Bring in a data import from export_dll.dll. This will cause a global data
 // symbol to be emitted pointing to the import entry, but with the type we give
 // here. If the type is bigger than the entire import table then the data

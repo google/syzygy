@@ -72,6 +72,17 @@ std::string PECoffFile<AddressSpaceTraits>::GetSectionName(
 template <typename AddressSpaceTraits>
 bool PECoffFile<AddressSpaceTraits>::ReadCommonHeaders(
     FILE* file, FileOffsetAddress file_header_start) {
+  // Test for unsupported object files.
+  uint16 obj_sig[2];
+  if (!ReadAt(file, 0, obj_sig, sizeof(obj_sig))) {
+    LOG(ERROR) << "Unable to read first 4 bytes from object file.";
+    return false;
+  }
+  if (obj_sig[0] == 0 && obj_sig[1] == 0xFFFF) {
+    LOG(ERROR) << "Unsupported anonymous object file.";
+    return false;
+  }
+
   // Read the COFF file header.
   IMAGE_FILE_HEADER file_header = {};
   if (!ReadAt(file, file_header_start.value(),
