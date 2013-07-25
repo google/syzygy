@@ -372,7 +372,7 @@ void BasicBlockEntry::ThreadState::set_trace_data(
 
 void BasicBlockEntry::ThreadState::AllocatePredictorData(size_t size) {
   DCHECK(predictor_data_ == NULL);
-  predictor_data_ = new uint8[size];
+  predictor_data_ = new uint8[size]();
 }
 
 BasicBlockEntry::ThreadState* BasicBlockEntry::ThreadState::Get(
@@ -402,22 +402,24 @@ inline void BasicBlockEntry::ThreadState::Enter(uint32 basic_block_id) {
   BranchFrequency* frequencies =
       reinterpret_cast<BranchFrequency*>(frequency_data_);
 
-  uint32 last_basic_block_id = last_basic_block_id_;
-
-  bool taken = false;
-  // Check if entering from a jump or something else (call).
-  if (last_basic_block_id_ != kInvalidBasicBlockId)
-    taken = (basic_block_id != last_basic_block_id_ + 1);
-  last_basic_block_id_ = kInvalidBasicBlockId;
-
+  // Retrieve information for the current basic block.
   BranchFrequency& current = frequencies[basic_block_id];
-  BranchFrequency& previous = frequencies[last_basic_block_id];
 
   // Count the execution of this basic block.
   if (current.frequency != kInvalidBasicBlockId)
     current.frequency = IncrementAndSaturate(current.frequency);
 
+  // Check if entering from a jump or something else (call).
+  if (last_basic_block_id_ == kInvalidBasicBlockId)
+    return;
+  uint32 last_basic_block_id = last_basic_block_id_;
+  last_basic_block_id_ = kInvalidBasicBlockId;
+
+  // Retrieve information for the previous basic block.
+  BranchFrequency& previous = frequencies[last_basic_block_id];
+
   // If last jump was taken, count the branch taken in the previous basic block.
+  bool taken = (basic_block_id != last_basic_block_id_ + 1);
   if (taken) {
     if (previous.branch_taken != kInvalidBasicBlockId)
       previous.branch_taken = IncrementAndSaturate(previous.branch_taken);
@@ -426,10 +428,10 @@ inline void BasicBlockEntry::ThreadState::Enter(uint32 basic_block_id) {
   // Simulate the branch predictor.
   // see: http://en.wikipedia.org/wiki/Branch_predictor
   // states:
-  //    0: Weakly not taken
+  //    0: Strongly not taken
   //    1: Weakly not taken
   //    2: Weakly taken
-  //    3: Weakly taken
+  //    3: Strongly taken
   // When session is disabled, predictor_data_ is not allocated and is NULL.
   if (predictor_data_ != NULL && last_basic_block_id != kInvalidBasicBlockId) {
     uint8& state = predictor_data_[last_basic_block_id];

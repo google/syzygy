@@ -571,7 +571,7 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBranchEvents) {
   DWORD thread_id = ::GetCurrentThreadId();
 
   static const uint32 kExpectedBranchData[kNumBranchColumns * kNumBasicBlocks] =
-      { 9, 11, 2, 2, 3, 0 };
+      { 9, 8, 3, 2, 0, 0 };
 
   // Set up expectations for what should be in the trace.
   EXPECT_CALL(handler_, OnProcessStarted(_, process_id, _));
