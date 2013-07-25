@@ -168,6 +168,13 @@ const wchar_t *kBBEntryTraceFiles[4] = {
     L"basic_block_entry_traces\\trace-4.bin",
 };
 
+const wchar_t *kBranchTraceFiles[4] = {
+    L"branch_traces\\trace-1.bin",
+    L"branch_traces\\trace-2.bin",
+    L"branch_traces\\trace-3.bin",
+    L"branch_traces\\trace-4.bin",
+};
+
 const wchar_t *kCallTraceTraceFiles[4] = {
     L"call_trace_traces\\trace-1.bin",
     L"call_trace_traces\\trace-2.bin",
