@@ -239,20 +239,58 @@ TEST(GrinderBasicBlockUtilTest, GetFrequency) {
   // Validate 1-byte frequency data.
   data->frequency_size = 1;
   data->num_entries = sizeof(kData) / data->frequency_size;
-  EXPECT_EQ(0x44, GetFrequency(data, 0x4));
-  EXPECT_EQ(0xAA, GetFrequency(data, 0xA));
+  EXPECT_EQ(0x44, GetFrequency(data, 0x4, 0));
+  EXPECT_EQ(0xAA, GetFrequency(data, 0xA, 0));
 
   // Validate 2-byte frequency data.
   data->frequency_size = 2;
   data->num_entries = sizeof(kData) / data->frequency_size;
-  EXPECT_EQ(0x5544, GetFrequency(data, 0x2));
-  EXPECT_EQ(0x9988, GetFrequency(data, 0x4));
+  EXPECT_EQ(0x5544, GetFrequency(data, 0x2, 0));
+  EXPECT_EQ(0x9988, GetFrequency(data, 0x4, 0));
 
   // Validate 4-byte frequency data.
   data->frequency_size = 4;
   data->num_entries = sizeof(kData) / data->frequency_size;
-  EXPECT_EQ(0x33221100, GetFrequency(data, 0x0));
-  EXPECT_EQ(0xBBAA9988, GetFrequency(data, 0x2));
+  EXPECT_EQ(0x33221100, GetFrequency(data, 0x0, 0));
+  EXPECT_EQ(0xBBAA9988, GetFrequency(data, 0x2, 0));
+}
+
+TEST(GrinderBasicBlockUtilTest, GetFrequencyWithColumns) {
+  // Counter data we'll test against.
+  static const uint8 kData[] = { 0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
+                                 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB };
+
+  // A buffer over which we'll overlay a TraceIndexedFrequencyData struct.
+  uint8 buffer[sizeof(TraceIndexedFrequencyData) + sizeof(kData) - 1] = {};
+  ::memset(buffer, 0, sizeof(buffer));
+
+  // A TraceDataBlockFrequencyData structure with the frequency_data populated
+  // with a copy of kData.
+  TraceIndexedFrequencyData* data =
+      reinterpret_cast<TraceIndexedFrequencyData*>(buffer);
+  ::memcpy(data->frequency_data, kData, sizeof(kData));
+
+  // Set 2 columns of basic block entry count.
+  data->num_columns = 2;
+  data->data_type = common::IndexedFrequencyData::BASIC_BLOCK_ENTRY;
+
+  // Validate 1-byte frequency data.
+  data->frequency_size = 1;
+  data->num_entries = sizeof(kData) / data->frequency_size;
+  EXPECT_EQ(0x88, GetFrequency(data, 0x4, 0));
+  EXPECT_EQ(0x99, GetFrequency(data, 0x4, 1));
+
+  // Validate 2-byte frequency data.
+  data->frequency_size = 2;
+  data->num_entries = sizeof(kData) / data->frequency_size;
+  EXPECT_EQ(0x9988, GetFrequency(data, 0x2, 0));
+  EXPECT_EQ(0xBBAA, GetFrequency(data, 0x2, 1));
+
+  // Validate 4-byte frequency data.
+  data->frequency_size = 4;
+  data->num_entries = sizeof(kData) / data->frequency_size;
+  EXPECT_EQ(0x33221100, GetFrequency(data, 0x0, 0));
+  EXPECT_EQ(0x77665544, GetFrequency(data, 0x0, 1));
 }
 
 }  // namespace basic_block_util

@@ -30,7 +30,7 @@
 
 namespace grinder {
 
-namespace  {
+namespace {
 
 using core::JSONFileWriter;
 using basic_block_util::EntryCountType;

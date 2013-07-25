@@ -173,7 +173,7 @@ void CoverageGrinder::OnIndexedFrequency(
   // Run over the BB frequency data and mark non-zero frequency BBs as having
   // been visited.
   for (size_t bb_index = 0; bb_index < data->num_entries; ++bb_index) {
-    uint32 bb_freq = GetFrequency(data, bb_index);
+    uint32 bb_freq = GetFrequency(data, bb_index, 0);
 
     if (bb_freq == 0)
       continue;

@@ -141,7 +141,7 @@ void BasicBlockEntryCountGrinder::UpdateBasicBlockEntryCount(
   // block using saturation arithmetic.
 
   for (size_t bb_id = 0; bb_id < data->num_entries; ++bb_id) {
-    EntryCountType amount = GetFrequency(data, bb_id);
+    EntryCountType amount = GetFrequency(data, bb_id, 0);
     if (amount != 0) {
       BasicBlockOffset offs =
           instrumented_module.block_ranges[bb_id].start().value();

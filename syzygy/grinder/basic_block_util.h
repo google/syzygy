@@ -107,7 +107,9 @@ bool IsValidFrequencySize(size_t size);
 
 // @returns the frequency value contained in @p data for the basic_block given
 //     by @p bb_id.
-uint32 GetFrequency(const TraceIndexedFrequencyData* data,  size_t bb_id);
+uint32 GetFrequency(const TraceIndexedFrequencyData* data,
+                    size_t bb_id,
+                    size_t column);
 
 }  // namespace basic_block_util
 }  // namespace grinder
