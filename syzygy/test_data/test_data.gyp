@@ -552,7 +552,7 @@
         '<(src)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
             'basic_block_entry_client',
         '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
-        'basic_block_entry_instrumented_test_dll',
+        'branch_instrumented_test_dll',
       ],
       'actions': [
         {
