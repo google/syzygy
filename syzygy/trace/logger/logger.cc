@@ -365,7 +365,11 @@ bool Logger::SaveMiniDump(HANDLE process,
   base::FilePath final_name(
       base::StringPrintf(L"minidump-%08u-%08u-%08u.dmp",
                          pid, tid, ::GetTickCount()));
-  if (!file_util::Move(temp_file_path, minidump_dir_.Append(final_name))) {
+  base::FilePath final_path = minidump_dir_.Append(final_name);
+  if (file_util::Move(temp_file_path, final_path)) {
+    LOG(INFO) << "A minidump has been written to \"" << final_path.value()
+              << "\".";
+  } else {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to move dump file to final location "
                << com::LogWe(error) << ".";
