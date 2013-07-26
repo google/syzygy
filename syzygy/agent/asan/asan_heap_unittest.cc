@@ -509,5 +509,28 @@ TEST_F(HeapTest, InternalStructureArePoisoned) {
   ASSERT_TRUE(proxy_.Free(0, mem));
 }
 
+TEST_F(HeapTest, GetNullTerminatedArraySize) {
+  // Ensure that the quarantine is large enough to keep the allocated blocks in
+  // this test.
+  proxy_.SetQuarantineMaxSize(kMaxAllocSize * 2);
+  const char* test_strings[] = { "", "abc", "abcdefg", "abcdefghijklmno" };
+
+  for (size_t i = 0; i < arraysize(test_strings); ++i) {
+    size_t string_size = strlen(test_strings[i]);
+    char* mem = reinterpret_cast<char*>(
+        proxy_.Alloc(0, string_size + 1));
+    ASSERT_TRUE(mem != NULL);
+    strcpy(static_cast<char*>(mem), test_strings[i]);
+    size_t size = 0;
+    EXPECT_TRUE(Shadow::GetNullTerminatedArraySize(mem, &size));
+    EXPECT_EQ(string_size, size - 1);
+    mem[string_size] = 'a';
+    mem[string_size + 1] = 0;
+    EXPECT_FALSE(Shadow::GetNullTerminatedArraySize(mem, &size));
+    EXPECT_EQ(string_size, size - 1);
+    ASSERT_TRUE(proxy_.Free(0, mem));
+  }
+}
+
 }  // namespace asan
 }  // namespace agent

@@ -92,5 +92,40 @@ TEST(ShadowTest, SetUpAndTearDown) {
   }
 }
 
+TEST(ShadowTest, GetNullTerminatedArraySize) {
+  // Reset the shadow memory.
+  TestShadow::Reset();
+  const size_t kArrayLength = 100;
+  const uint8 kMarkerValue = 0xAA;
+
+  uint8 test_array[kArrayLength];
+  uint8* aligned_test_array = reinterpret_cast<uint8*>(
+      common::AlignUp(reinterpret_cast<size_t>(test_array), 8));
+  size_t aligned_array_length = common::AlignDown(kArrayLength -
+      (aligned_test_array - test_array), 8);
+
+  ::memset(aligned_test_array, kMarkerValue, aligned_array_length);
+  Shadow::Poison(aligned_test_array, aligned_array_length,
+      Shadow::kHeapNonAccessibleByteMask);
+
+  size_t sizes_to_test[] = { 4, 7, 11, 15, 21, 87 };
+
+  for (size_t i = 0; i < arraysize(sizes_to_test); ++i) {
+    Shadow::Unpoison(aligned_test_array, sizes_to_test[i]);
+    aligned_test_array[sizes_to_test[i] - 1] = 0;
+    size_t size = 0;
+    EXPECT_TRUE(Shadow::GetNullTerminatedArraySize(aligned_test_array, &size));
+    EXPECT_EQ(sizes_to_test[i], size);
+    aligned_test_array[sizes_to_test[i] - 1] = kMarkerValue;
+
+    aligned_test_array[sizes_to_test[i]] = kMarkerValue;
+    EXPECT_FALSE(Shadow::GetNullTerminatedArraySize(aligned_test_array, &size));
+    EXPECT_EQ(sizes_to_test[i], size);
+
+    Shadow::Poison(aligned_test_array, common::AlignUp(sizes_to_test[i], 8),
+        Shadow::kHeapNonAccessibleByteMask);
+  }
+}
+
 }  // namespace asan
 }  // namespace agent

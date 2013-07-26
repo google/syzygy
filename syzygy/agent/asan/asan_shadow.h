@@ -45,24 +45,49 @@ class Shadow {
 
   // Poisons @p size bytes starting at @p addr with @p shadow_val value.
   // @pre addr + size mod 8 == 0.
+  // @param address The starting address.
+  // @param size The size of the memory to poison.
+  // @param shadow_val The poison marker value.
   static void Poison(const void* addr, size_t size, ShadowMarker shadow_val);
 
   // Un-poisons @p size bytes starting at @p addr.
   // @pre addr mod 8 == 0 && size mod 8 == 0.
+  // @param addr The starting address.
+  // @param size The size of the memory to unpoison.
   static void Unpoison(const void* addr, size_t size);
 
   // Mark @p size bytes starting at @p addr as freed.
+  // @param addr The starting address.
+  // @param size The size of the memory to mark as freed.
   static void MarkAsFreed(const void* addr, size_t size);
 
   // Returns true iff the byte at @p addr is not poisoned.
+  // @param addr The address that we want to check.
+  // @returns true if this address is accessible, false otherwise.
   static bool IsAccessible(const void* addr);
 
   // Returns the ShadowMarker value for the byte at @p addr.
+  // @param addr The address for which we want the ShadowMarker value.
+  // @returns the ShadowMarker value for this address.
   static ShadowMarker GetShadowMarkerForAddress(const void* addr);
 
   // Appends a textual description of the shadow memory for @p addr to
   // @p output.
+  // @param addr The address for which we want to get the textual description.
+  // @param output The string in which we want to store this information.
   static void AppendShadowMemoryText(const void* addr, std::string* output);
+
+  // Returns true iff the array starting at @p addr is null terminated within a
+  // contiguous accessible region of memory. When returning true the length of
+  // the null-terminated array (including the trailing zero) will be returned
+  // via @p size. When returning false the offset of the invalid access will be
+  // returned via @p size.
+  // @param The starting address of the array that we want to check.
+  // @param Will receive the size of the null terminated array or the offset of
+  //     the invalid access.
+  // @return true iff the array starting at @p addr is null terminated within a
+  //     contiguous accessible region of memory, false otherwise.
+  static bool GetNullTerminatedArraySize(const void* addr, size_t* size);
 
  protected:
   // Reset the shadow memory.

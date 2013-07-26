@@ -155,5 +155,35 @@ void Shadow::AppendShadowMemoryText(const void* addr,
       kHeapFreedByte >> 4, kHeapFreedByte & 15);
 }
 
+bool Shadow::GetNullTerminatedArraySize(const void* addr, size_t* size) {
+  DCHECK(addr != NULL);
+  DCHECK(size != NULL);
+
+  uintptr_t index = reinterpret_cast<uintptr_t>(addr);
+  const uint8* addr_value = reinterpret_cast<const uint8*>(addr);
+  index >>= 3;
+  *size = 0;
+
+  // Scan the input array 8 bytes at a time until we've found a NULL value or
+  // we've reached the end of an accessible memory block.
+  // TODO(sebmarchand): Look into doing this more efficiently.
+  while (true) {
+    uint8 shadow = shadow_[index++];
+    if ((shadow & kHeapNonAccessibleByteMask) != 0)
+      return false;
+
+    uint8 max_index = shadow ? shadow : 8;
+    while (max_index-- > 0) {
+      (*size)++;
+      if (*addr_value == 0)
+        return true;
+      addr_value++;
+    }
+
+    if (shadow != 0)
+      return false;
+  }
+}
+
 }  // namespace asan
 }  // namespace agent
