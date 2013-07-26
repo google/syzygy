@@ -596,7 +596,7 @@ bool Session::CreateProcessEndedEvent(Buffer** buffer) {
 
   RecordPrefix* segment_prefix =
       reinterpret_cast<RecordPrefix*>(mapped_buffer.data());
-  uint64 timestamp = trace::common::GetTicks();
+  uint64 timestamp = trace::common::GetTsc();
   segment_prefix->timestamp = timestamp;
   segment_prefix->size = sizeof(TraceFileSegmentHeader);
   segment_prefix->type = TraceFileSegmentHeader::kTypeId;

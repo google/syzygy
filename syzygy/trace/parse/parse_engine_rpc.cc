@@ -167,10 +167,8 @@ bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
   AddModuleInformation(file_header->process_id, module_info);
 
   // Notify the event handler that a process has started.
-  LARGE_INTEGER big_timestamp = {};
-  big_timestamp.QuadPart = file_header->clock_info.ticks_reference;
   base::Time start_time(base::Time::FromFileTime(
-      *reinterpret_cast<FILETIME*>(&big_timestamp)));
+      file_header->clock_info.file_time));
   event_handler_->OnProcessStarted(start_time, file_header->process_id,
                                    &system_info);
 
@@ -275,7 +273,14 @@ bool ParseEngineRpc::ConsumeSegmentEvents(
     }
 
     event_record.Header.Class.Type = prefix->type;
-    event_record.Header.TimeStamp.QuadPart = prefix->timestamp;
+
+    // The TimeStamp is interpreted as a FILETIME, so we convert the timer
+    // value to that.
+    trace::common::TscToFileTime(
+        file_header.clock_info,
+        prefix->timestamp,
+        reinterpret_cast<FILETIME*>(&event_record.Header.TimeStamp));
+
     event_record.MofData = prefix + 1;
     event_record.MofLength = prefix->size;
     if (!DispatchEvent(&event_record)) {

@@ -213,7 +213,7 @@ void FillPrefix(RecordPrefix* prefix, int type, size_t size) {
   prefix->version.hi = TRACE_VERSION_HI;
   prefix->version.lo = TRACE_VERSION_LO;
   prefix->type = static_cast<uint16>(type);
-  prefix->timestamp = ::GetTickCount();
+  prefix->timestamp = trace::common::GetTsc();
 }
 
 // Writes the segment header at the top of a segment, updating the bytes
