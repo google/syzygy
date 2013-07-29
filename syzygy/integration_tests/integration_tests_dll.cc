@@ -96,14 +96,20 @@ unsigned int CALLBACK EndToEndTest(testing::EndToEndTestId test) {
       return testing::AsanMemsetOverflow<int32>();
     case testing::kAsanMemsetUnderflow:
       return testing::AsanMemsetUnderflow<int8>();
+    case testing::kAsanMemsetUseAfterFree:
+      return testing::AsanMemsetUseAfterFree<size_t>();
     case testing::kAsanMemchrOverflow:
       return testing::AsanMemchrOverflow<double>();
     case testing::kAsanMemchrUnderflow:
       return testing::AsanMemchrUnderflow<int32>();
+    case testing::kAsanMemchrUseAfterFree:
+      return testing::AsanMemchrUseAfterFree<double>();
     case testing::kAsanMemmoveReadOverflow:
       return testing::AsanMemmoveReadOverflow<double>();
     case testing::kAsanMemmoveReadUnderflow:
       return testing::AsanMemmoveReadUnderflow<int16>();
+    case testing::kAsanMemmoveUseAfterFree:
+      return testing::AsanMemmoveUseAfterFree<uint32>();
     case testing::kAsanMemmoveWriteOverflow:
       return testing::AsanMemmoveWriteOverflow<size_t>();
     case testing::kAsanMemmoveWriteUnderflow:
@@ -112,10 +118,35 @@ unsigned int CALLBACK EndToEndTest(testing::EndToEndTestId test) {
       return testing::AsanMemcpyReadOverflow<int32>();
     case testing::kAsanMemcpyReadUnderflow:
       return testing::AsanMemcpyReadUnderflow<int8>();
+    case testing::kAsanMemcpyUseAfterFree:
+      return testing::AsanMemcpyUseAfterFree<int16>();
     case testing::kAsanMemcpyWriteOverflow:
       return testing::AsanMemcpyWriteOverflow<double>();
     case testing::kAsanMemcpyWriteUnderflow:
       return testing::AsanMemcpyWriteUnderflow<int16>();
+
+    case testing::kAsanStrcspnKeysOverflow:
+      return testing::AsanStrcspnKeysOverflow();
+    case testing::kAsanStrcspnKeysUnderflow:
+      return testing::AsanStrcspnKeysUnderflow();
+    case testing::kAsanStrcspnSrcOverflow:
+      return testing::AsanStrcspnSrcOverflow();
+    case testing::kAsanStrcspnSrcUnderflow:
+      return testing::AsanStrcspnSrcUnderflow();
+    case testing::kAsanStrcspnUseAfterFree:
+      return testing::AsanStrcspnUseAfterFree();
+    case testing::kAsanStrlenOverflow:
+      return testing::AsanStrlenOverflow();
+    case testing::kAsanStrlenUnderflow:
+      return testing::AsanStrlenUnderflow();
+    case testing::kAsanStrlenUseAfterFree:
+      return testing::AsanStrlenUseAfterFree();
+    case testing::kAsanStrrchrOverflow:
+      return testing::AsanStrrchrOverflow();
+    case testing::kAsanStrrchrUnderflow:
+      return testing::AsanStrrchrUnderflow();
+    case testing::kAsanStrrchrUseAfterFree:
+      return testing::AsanStrrchrUseAfterFree();
 
     // Basic block entry test cases.
     case testing::kBBEntryCallOnce:

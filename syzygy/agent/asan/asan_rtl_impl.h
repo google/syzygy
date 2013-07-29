@@ -100,13 +100,13 @@ void* __cdecl asan_memset(unsigned char* ptr,
 const void* __cdecl asan_memchr(const unsigned char* ptr,
                                 int value, size_t num);
 
-void __cdecl asan_strcspn(const char* str1,
-                          const char* str2);
+size_t __cdecl asan_strcspn(const char* str1,
+                            const char* str2);
 
-void __cdecl asan_strlen(const char* str);
+size_t __cdecl asan_strlen(const char* str);
 
-void __cdecl asan_strrchr(const char* str,
-                          int character);
+const char* __cdecl asan_strrchr(const char* str,
+                                 int character);
 
 void __cdecl asan_strcmp(const char* str1,
                          const char* str2);

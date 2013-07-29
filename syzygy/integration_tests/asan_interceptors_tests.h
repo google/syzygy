@@ -22,7 +22,7 @@
 namespace testing {
 
 // Disable the intrinsic version of the intercepted function.
-#pragma function(memset, memcpy)
+#pragma function(memset, memcpy, strlen)
 
 template<typename type>
 static type AsanMemsetOverflow() {
@@ -45,6 +45,16 @@ static type AsanMemsetUnderflow() {
 }
 
 template<typename type>
+static type AsanMemsetUseAfterFree() {
+  const size_t kArraySize = 10;
+  type* ptr = new type[kArraySize];
+  type result = ptr[0];
+  delete[] ptr;
+  memset(reinterpret_cast<uint8*>(ptr), 0xFF, kArraySize * sizeof(type));
+  return result;
+}
+
+template<typename type>
 static type AsanMemchrOverflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
@@ -63,6 +73,17 @@ static type AsanMemchrUnderflow() {
   memchr(reinterpret_cast<uint8*>(ptr) - 1, 0xFF, kArraySize * sizeof(type));
   type result = ptr[0];
   delete[] ptr;
+  return result;
+}
+
+template<typename type>
+static type AsanMemchrUseAfterFree() {
+  const size_t kArraySize = 10;
+  type* ptr = new type[kArraySize];
+  memset(ptr, 0xAA, kArraySize * sizeof(type));
+  type result = ptr[0];
+  delete[] ptr;
+  memchr(ptr, 0xFF, kArraySize * sizeof(type));
   return result;
 }
 
@@ -107,6 +128,17 @@ static type AsanMemmoveReadUnderflow() {
   memmove(ptr, reinterpret_cast<uint8*>(ptr) - 1, kArraySize * sizeof(type));
   type result = ptr[0];
   delete[] ptr;
+  return result;
+}
+
+template<typename type>
+static type AsanMemmoveUseAfterFree() {
+  const size_t kArraySize = 10;
+  type* ptr = new type[kArraySize];
+  memset(ptr, 0xAA, kArraySize * sizeof(type));
+  type result = ptr[0];
+  delete[] ptr;
+  memmove(ptr, ptr, kArraySize * sizeof(type));
   return result;
 }
 
@@ -161,6 +193,41 @@ static type AsanMemcpyReadUnderflow() {
   delete[] dst;
   return result;
 }
+
+template<typename type>
+static type AsanMemcpyUseAfterFree() {
+  const size_t kArraySize = 10;
+  type* src = new type[kArraySize];
+  type* dst = new type[kArraySize];
+  memset(src, 0xAA, kArraySize * sizeof(type));
+  type result = src[0];
+  delete[] src;
+  memcpy(dst, src, kArraySize * sizeof(type));
+  delete[] dst;
+  return result;
+}
+
+size_t AsanStrcspnKeysOverflow();
+
+size_t AsanStrcspnKeysUnderflow();
+
+size_t AsanStrcspnSrcOverflow();
+
+size_t AsanStrcspnSrcUnderflow();
+
+size_t AsanStrcspnUseAfterFree();
+
+size_t AsanStrlenOverflow();
+
+size_t AsanStrlenUnderflow();
+
+size_t AsanStrlenUseAfterFree();
+
+size_t AsanStrrchrOverflow();
+
+size_t AsanStrrchrUnderflow();
+
+size_t AsanStrrchrUseAfterFree();
 
 }  // namespace testing
 

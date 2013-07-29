@@ -52,18 +52,19 @@
       'target_name': 'integration_tests_dll',
       'type': 'loadable_module',
       'sources': [
-        'integration_tests_dll.cc',
-        'integration_tests_dll.def',
-        'integration_tests_dll.h',
-        'integration_tests_dll.rc',
         'asan_check_tests.h',
         'asan_interceptors_tests.h',
+        'asan_interceptors_tests.cc',
         'bb_entry_tests.cc',
         'bb_entry_tests.h',
         'behavior_tests.cc',
         'behavior_tests.h',
         'coverage_tests.cc',
         'coverage_tests.h',
+        'integration_tests_dll.cc',
+        'integration_tests_dll.def',
+        'integration_tests_dll.h',
+        'integration_tests_dll.rc',
       ],
       'msvs_settings': {
         'VCLinkerTool': {

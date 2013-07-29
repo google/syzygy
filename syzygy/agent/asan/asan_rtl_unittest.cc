@@ -76,9 +76,9 @@ const size_t kAllocSize = 13;
       (void* destination, const void* source, size_t num))  \
     F(_cdecl, void*, memset, (void* ptr, int value, size_t num))  \
     F(_cdecl, const void*, memchr, (const void* ptr, int value, size_t num))  \
-    F(_cdecl, void, strcspn, (const char* str1, const char* str2))  \
-    F(_cdecl, void, strlen, (const char* str))  \
-    F(_cdecl, void, strrchr, (const char* str, int character))  \
+    F(_cdecl, size_t, strcspn, (const char* str1, const char* str2))  \
+    F(_cdecl, size_t, strlen, (const char* str))  \
+    F(_cdecl, const char*, strrchr, (const char* str, int character))  \
     F(_cdecl, void, strcmp, (const char* str1, const char* str2))  \
     F(_cdecl, void, strpbrk, (const char* str1, const char* str2))  \
     F(_cdecl, void, strstr, (const char* str1, const char* str2))  \
@@ -877,6 +877,7 @@ TEST_F(AsanRtlTest, AsanCheckMemset) {
     EXPECT_EQ(0xCC, mem[i]);
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem));
 }
 
 TEST_F(AsanRtlTest, AsanCheckMemchr) {
@@ -904,6 +905,7 @@ TEST_F(AsanRtlTest, AsanCheckMemchr) {
   EXPECT_EQ(mem + 4, memchrFunction(mem + 1, mem[4], kAllocSize));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem));
 }
 
 TEST_F(AsanRtlTest, AsanCheckMemmove) {
@@ -931,12 +933,14 @@ TEST_F(AsanRtlTest, AsanCheckMemmove) {
     EXPECT_EQ(i, mem_src[i]);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
 
+  memory_error_detected = false;
   // Shift them to the left one more time.
   EXPECT_EQ(mem_src - 1, memmoveFunction(mem_src - 1, mem_src, kAllocSize));
   EXPECT_TRUE(memory_error_detected);
   for (int i = -1; i < static_cast<int>(kAllocSize) - 2; ++i)
     EXPECT_EQ(i + 1, mem_src[i]);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem_src));
 }
 
 TEST_F(AsanRtlTest, AsanCheckMemcpy) {
@@ -966,11 +970,116 @@ TEST_F(AsanRtlTest, AsanCheckMemcpy) {
     EXPECT_EQ(mem_dst[i], mem_src[i]);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
 
+  memory_error_detected = false;
   EXPECT_EQ(mem_dst, memcpyFunction(mem_dst, mem_src - 1, kAllocSize));
   EXPECT_TRUE(memory_error_detected);
   for (int i = -1; i < static_cast<int>(kAllocSize) - 1; ++i)
     EXPECT_EQ(mem_dst[i + 1], mem_src[i]);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem_src));
+  EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem_dst));
+}
+
+TEST_F(AsanRtlTest, AsanCheckStrcspn) {
+  const char* str_value = "abc1";
+  char* str = reinterpret_cast<char*>(
+      HeapAllocFunction(heap_, 0, strlen(str_value) + 1));
+  ASSERT_TRUE(str != NULL);
+  strcpy(str, str_value);
+
+  const char* keys_value = "12";
+  char* keys = reinterpret_cast<char*>(
+      HeapAllocFunction(heap_, 0, strlen(keys_value) + 1));
+  ASSERT_TRUE(keys != NULL);
+  strcpy(keys, keys_value);
+
+  SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
+  memory_error_detected = false;
+
+  EXPECT_EQ(strcspn(str, keys), strcspnFunction(str, keys));
+  EXPECT_FALSE(memory_error_detected);
+
+  // str[-1] points to the block header, we need to make sure that it doesn't
+  // contain the value \0.
+  str[-1] = 'a';
+  EXPECT_EQ(strcspn(str - 1, keys), strcspnFunction(str - 1, keys));
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+
+  memory_error_detected = false;
+  size_t keys_len = strlen(keys);
+  keys[keys_len] = 'a';
+  keys[keys_len + 1] = 0;
+  EXPECT_EQ(strcspn(str, keys), strcspnFunction(str, keys));
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+
+  EXPECT_TRUE(HeapFreeFunction(heap_, 0, str));
+  EXPECT_TRUE(HeapFreeFunction(heap_, 0, keys));
+}
+
+TEST_F(AsanRtlTest, AsanCheckStrlen) {
+  const char* str_value = "test_strlen";
+  char* str = reinterpret_cast<char*>(
+      HeapAllocFunction(heap_, 0, strlen(str_value) + 1));
+  ASSERT_TRUE(str != NULL);
+  strcpy(str, str_value);
+
+  SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
+  memory_error_detected = false;
+
+  EXPECT_EQ(strlen(str), strlenFunction(str));
+  EXPECT_FALSE(memory_error_detected);
+
+  // str[-1] points to the block header, we need to make sure that it doesn't
+  // contain the value \0.
+  str[-1] = 'a';
+  EXPECT_EQ(strlen(str - 1), strlenFunction(str - 1));
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+
+  memory_error_detected = false;
+  size_t str_len = strlen(str);
+  str[str_len] = 'a';
+  str[str_len + 1] = 0;
+  EXPECT_EQ(strlen(str), strlenFunction(str));
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+
+  EXPECT_TRUE(HeapFreeFunction(heap_, 0, str));
+}
+
+TEST_F(AsanRtlTest, AsanCheckStrrchr) {
+  const char* str_value = "test_strrchr";
+  char* str = reinterpret_cast<char*>(
+      HeapAllocFunction(heap_, 0, strlen(str_value) + 1));
+  ASSERT_TRUE(str != NULL);
+  strcpy(str, str_value);
+
+  SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
+  memory_error_detected = false;
+
+  EXPECT_EQ(strrchr(str, 'c'), strrchrFunction(str, 'c'));
+  EXPECT_FALSE(memory_error_detected);
+  EXPECT_EQ(strrchr(str, 'z'), strrchrFunction(str, 'z'));
+  EXPECT_FALSE(memory_error_detected);
+
+  // str[-1] points to the block header, we need to make sure that it doesn't
+  // contain the value \0.
+  str[-1] = 'a';
+  EXPECT_EQ(strrchr(str - 1, 'c'), strrchrFunction(str - 1, 'c'));
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+
+  memory_error_detected = false;
+  size_t str_len = strlen(str);
+  str[str_len] = 'a';
+  str[str_len + 1] = 0;
+  EXPECT_EQ(strrchr(str, 'c'), strrchrFunction(str, 'c'));
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+
+  EXPECT_TRUE(HeapFreeFunction(heap_, 0, str));
 }
 
 }  // namespace asan

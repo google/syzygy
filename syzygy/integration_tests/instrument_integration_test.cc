@@ -261,14 +261,20 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
         ASAN_WRITE_ACCESS, 1);
     AsanErrorCheck(testing::kAsanMemsetUnderflow, HEAP_BUFFER_UNDERFLOW,
         ASAN_WRITE_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanMemsetUseAfterFree, USE_AFTER_FREE,
+        ASAN_WRITE_ACCESS, 1);
     AsanErrorCheck(testing::kAsanMemchrOverflow, HEAP_BUFFER_OVERFLOW,
         ASAN_READ_ACCESS, 1);
     AsanErrorCheck(testing::kAsanMemchrUnderflow, HEAP_BUFFER_UNDERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanMemchrUseAfterFree, USE_AFTER_FREE,
         ASAN_READ_ACCESS, 1);
     AsanErrorCheck(testing::kAsanMemmoveReadOverflow, HEAP_BUFFER_OVERFLOW,
         ASAN_READ_ACCESS, 1);
     AsanErrorCheck(testing::kAsanMemmoveReadUnderflow, HEAP_BUFFER_UNDERFLOW,
         ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanMemmoveUseAfterFree, USE_AFTER_FREE,
+        ASAN_WRITE_ACCESS, 1);
     AsanErrorCheck(testing::kAsanMemmoveWriteOverflow, HEAP_BUFFER_OVERFLOW,
         ASAN_WRITE_ACCESS, 1);
     AsanErrorCheck(testing::kAsanMemmoveWriteUnderflow, HEAP_BUFFER_UNDERFLOW,
@@ -277,10 +283,35 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
         ASAN_READ_ACCESS, 1);
     AsanErrorCheck(testing::kAsanMemcpyReadUnderflow, HEAP_BUFFER_UNDERFLOW,
         ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanMemcpyUseAfterFree, USE_AFTER_FREE,
+        ASAN_READ_ACCESS, 1);
     AsanErrorCheck(testing::kAsanMemcpyWriteOverflow, HEAP_BUFFER_OVERFLOW,
         ASAN_WRITE_ACCESS, 1);
     AsanErrorCheck(testing::kAsanMemcpyWriteUnderflow, HEAP_BUFFER_UNDERFLOW,
         ASAN_WRITE_ACCESS, 1);
+
+    AsanErrorCheck(testing::kAsanStrcspnKeysOverflow, HEAP_BUFFER_OVERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanStrcspnKeysUnderflow, HEAP_BUFFER_UNDERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanStrcspnSrcOverflow, HEAP_BUFFER_OVERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanStrcspnSrcUnderflow, HEAP_BUFFER_UNDERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanStrcspnUseAfterFree, USE_AFTER_FREE,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanStrlenOverflow, HEAP_BUFFER_OVERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanStrlenUnderflow, HEAP_BUFFER_UNDERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanStrlenUseAfterFree, USE_AFTER_FREE,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanStrrchrOverflow, HEAP_BUFFER_OVERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanStrrchrUnderflow, HEAP_BUFFER_UNDERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanStrrchrUseAfterFree, USE_AFTER_FREE,
+        ASAN_READ_ACCESS, 1);
   }
 
   void BBEntryInvokeTestDll() {

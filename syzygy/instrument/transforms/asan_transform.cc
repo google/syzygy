@@ -938,6 +938,9 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
     interception_set.insert("memcpy");
     interception_set.insert("memmove");
     interception_set.insert("memset");
+    interception_set.insert("strcspn");
+    interception_set.insert("strlen");
+    interception_set.insert("strrchr");
     InterceptFunctions(&module_asan,
                        block_graph,
                        header_block,
