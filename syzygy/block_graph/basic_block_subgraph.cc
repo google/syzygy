@@ -53,6 +53,7 @@ BasicBlockSubGraph::~BasicBlockSubGraph() {
 
 BasicBlockSubGraph::BlockDescription* BasicBlockSubGraph::AddBlockDescription(
     const base::StringPiece& name,
+    const base::StringPiece& compiland,
     BlockType type,
     SectionId section,
     Size alignment,
@@ -60,6 +61,7 @@ BasicBlockSubGraph::BlockDescription* BasicBlockSubGraph::AddBlockDescription(
   block_descriptions_.push_back(BlockDescription());
   BlockDescription* desc = &block_descriptions_.back();
   desc->name.assign(name.begin(), name.end());
+  desc->compiland_name.assign(compiland.begin(), compiland.end());
   desc->type = type;
   desc->section = section;
   desc->alignment = alignment;
@@ -335,7 +337,6 @@ bool BasicBlockSubGraph::IsReachable(const ReachabilityMap& rm,
   DCHECK(it != rm.end());
   return it->second;
 }
-
 
 bool BasicBlockSubGraph::ToString(std::string* buf) const {
   DCHECK(buf != NULL);

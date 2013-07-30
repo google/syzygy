@@ -425,7 +425,7 @@ TEST_F(MemoryAccessAnalysisTest, Analyze) {
   BasicBlockSubGraph subgraph;
 
   BlockDescription* block = subgraph.AddBlockDescription(
-      "b1", BlockGraph::CODE_BLOCK, 7, 2, 42);
+      "b1", "b1.obj", BlockGraph::CODE_BLOCK, 7, 2, 42);
 
   BasicCodeBlock* bb_if = subgraph.AddBasicCodeBlock("if");
   BasicCodeBlock* bb_true = subgraph.AddBasicCodeBlock("true");
@@ -498,7 +498,7 @@ TEST_F(MemoryAccessAnalysisTest, AnalyzeWithData) {
   const size_t raw_data_len = ARRAYSIZE(raw_data);
 
   BlockDescription* block = subgraph.AddBlockDescription(
-      "b1", BlockGraph::CODE_BLOCK, 7, 2, 42);
+      "b1", "b1.obj", BlockGraph::CODE_BLOCK, 7, 2, 42);
 
   BasicCodeBlock* bb = subgraph.AddBasicCodeBlock("bb");
   BasicDataBlock* data =

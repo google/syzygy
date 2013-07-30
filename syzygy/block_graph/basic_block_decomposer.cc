@@ -177,6 +177,7 @@ bool BasicBlockDecomposer::Decompose() {
   subgraph_->block_descriptions().push_back(BlockDescription());
   BlockDescription& desc = subgraph_->block_descriptions().back();
   desc.name = block_->name();
+  desc.compiland_name = block_->compiland_name();
   desc.type = block_->type();
   desc.alignment = block_->alignment();
   desc.attributes = block_->attributes();

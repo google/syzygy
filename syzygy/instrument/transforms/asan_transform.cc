@@ -469,7 +469,12 @@ bool CreateHooksStub(BlockGraph* block_graph,
   // Create the thunk for standard "load/store" (received address in EDX).
   BasicBlockSubGraph bbsg;
   BasicBlockSubGraph::BlockDescription* block_desc = bbsg.AddBlockDescription(
-      stub_name_with_id, BlockGraph::CODE_BLOCK, thunk_section->id(), 1, 0);
+      stub_name_with_id,
+      thunk_section->name(),
+      BlockGraph::CODE_BLOCK,
+      thunk_section->id(),
+      1,
+      0);
 
   BasicCodeBlock* bb = bbsg.AddBasicCodeBlock(stub_name_with_id);
   block_desc->basic_block_order.push_back(bb);
@@ -976,7 +981,6 @@ bool AsanTransform::InterceptFunctions(ImportedModule* import_module,
   // Find the blocks that we want to intercept. This is O(N log(M)), with N
   // being the number of blocks in the image and M the number of functions that
   // we want to intercept.
-  // TODO(sebmarchand): Find a better algorithm if M increases.
   block_graph::BlockGraph::BlockMap::iterator iter_blocks =
       block_graph->blocks_mutable().begin();
   for (; iter_blocks != block_graph->blocks_mutable().end(); ++iter_blocks) {
@@ -1037,7 +1041,12 @@ bool AsanTransform::InterceptFunctions(ImportedModule* import_module,
     // Generate a basic code block for this thunk.
     BasicBlockSubGraph bbsg;
     BasicBlockSubGraph::BlockDescription* block_desc = bbsg.AddBlockDescription(
-        thunk_name, BlockGraph::CODE_BLOCK, thunk_section->id(), 1, 0);
+        thunk_name,
+        thunk_section->name(),
+        BlockGraph::CODE_BLOCK,
+        thunk_section->id(),
+        1,
+        0);
     BasicCodeBlock* bb = bbsg.AddBasicCodeBlock(thunk_name);
     block_desc->basic_block_order.push_back(bb);
     BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());

@@ -311,7 +311,12 @@ BlockGraph::Block* ThunkImportReferencesTransform::CreateOneThunk(
   // assembler writing into that basic block.
   BasicBlockSubGraph bbsg;
   BasicBlockSubGraph::BlockDescription* block_desc = bbsg.AddBlockDescription(
-      thunk_name, BlockGraph::CODE_BLOCK, thunk_section_->id(), 1, 0);
+      thunk_name,
+      NULL,
+      BlockGraph::CODE_BLOCK,
+      thunk_section_->id(),
+      1,
+      0);
   BasicCodeBlock* bb = bbsg.AddBasicCodeBlock(name);
   block_desc->basic_block_order.push_back(bb);
   BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());

@@ -90,7 +90,12 @@ bool ExplodeBasicBlockSubGraphTransform::TransformBasicBlockSubGraph(
       ++output_data_blocks_;
 
     BasicBlockSubGraph::BlockDescription* desc = subgraph->AddBlockDescription(
-        bb->name(), type, subgraph->original_block()->section(), 4, attributes);
+        bb->name(),
+        subgraph->original_block()->compiland_name(),
+        type,
+        subgraph->original_block()->section(),
+        4,
+        attributes);
     desc->basic_block_order.push_back(bb);
   }
   return true;

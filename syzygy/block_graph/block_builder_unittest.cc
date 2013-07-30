@@ -99,7 +99,7 @@ class BlockBuilderTest : public testing::BasicBlockTest {
                   0));
 
     BasicBlockSubGraph::BlockDescription* d1 = subgraph_.AddBlockDescription(
-        "new_block", BlockGraph::CODE_BLOCK, 0, 1, 0);
+        "new_block", "new_compiland", BlockGraph::CODE_BLOCK, 0, 1, 0);
     d1->basic_block_order.push_back(bb1);
     d1->basic_block_order.push_back(bb2);
     d1->basic_block_order.push_back(bb3);
@@ -241,7 +241,7 @@ TEST_F(BlockBuilderTest, Merge) {
       8, BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, bb3))).second);
 
   BasicBlockSubGraph::BlockDescription* d1 = subgraph_.AddBlockDescription(
-      "new_block", BlockGraph::CODE_BLOCK, 0, 1, 0);
+      "new_block", "new block compiland", BlockGraph::CODE_BLOCK, 0, 1, 0);
   d1->basic_block_order.push_back(bb1);
   d1->basic_block_order.push_back(bb2);
   d1->basic_block_order.push_back(bb3);

@@ -299,23 +299,21 @@ TEST_F(NewDecomposerTest, LabelsAndAttributes) {
                                    &names);
 
       base::StringPiece block_name(block->name());
+      base::StringPiece compiland_name(block->compiland_name());
 
-      if (std::find(names.begin(), names.end(), "DllMain") != names.end() &&
-          block_name.ends_with("\\test_dll.obj")) {
+      if (strcmp(block_name.data(), "DllMain") == 0 &&
+          compiland_name.ends_with("\\test_dll.obj")) {
         ASSERT_TRUE(dll_main_block == NULL);
         dll_main_block = &it->second;
-      } else if (std::find(names.begin(), names.end(),
-                           "FunctionWithInlineAssembly") != names.end() &&
-          block_name.ends_with("\\test_dll.obj")) {
+      } else if (strcmp(block_name.data(), "FunctionWithInlineAssembly") == 0 &&
+          compiland_name.ends_with("\\test_dll.obj")) {
         ASSERT_TRUE(func_with_inl_asm_block == NULL);
         func_with_inl_asm_block = &it->second;
-      } else if (std::find(names.begin(), names.end(),
-                           "found_bx") != names.end() &&
-            block_name.ends_with("\\strchr.obj")) {
+      } else if (strcmp(block_name.data(), "found_bx") == 0 &&
+            compiland_name.ends_with("\\strchr.obj")) {
         ASSERT_TRUE(strchr_block == NULL);
         strchr_block = &it->second;
-      } else if (std::find(names.begin(), names.end(),
-                           "__imp_load_CoCreateGuid") != names.end()) {
+      } else if (strcmp(block_name.data(), "__imp_load_CoCreateGuid") == 0) {
         ASSERT_TRUE(imp_load_block == NULL);
         imp_load_block = &it->second;
       }

@@ -440,7 +440,12 @@ bool BasicBlockEntryHookTransform::FindOrCreateThunk(
   BasicBlockSubGraph subgraph;
   BasicCodeBlock* bb = subgraph.AddBasicCodeBlock(name);
   BasicBlockSubGraph::BlockDescription* desc = subgraph.AddBlockDescription(
-      name, BlockGraph::CODE_BLOCK, thunk_section_->id(), 1, 0);
+      name,
+      NULL,
+      BlockGraph::CODE_BLOCK,
+      thunk_section_->id(),
+      1,
+      0);
   desc->basic_block_order.push_back(bb);
 
   // Find the source range associated with this block.
@@ -563,7 +568,12 @@ bool BasicBlockEntryHookTransform::CreateBasicBlockEntryThunk(
   block_graph::BasicBlockSubGraph subgraph;
   block_graph::BasicBlockSubGraph::BlockDescription* desc =
       subgraph.AddBlockDescription(
-          name, BlockGraph::CODE_BLOCK, thunk_section_->id(), 1, 0);
+          name,
+          NULL,
+          BlockGraph::CODE_BLOCK,
+          thunk_section_->id(),
+          1,
+          0);
 
   BasicCodeBlock* bb1 = subgraph.AddBasicCodeBlock("bb1");
   desc->basic_block_order.push_back(bb1);

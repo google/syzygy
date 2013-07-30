@@ -702,7 +702,7 @@ bool MergeContext::GenerateLayout(const BasicBlockSubGraph& subgraph) {
       continue;
 
     Block* new_block = block_graph_->AddBlock(
-      description.type, 0, description.name);
+        description.type, 0, description.name);
     if (new_block == NULL) {
       LOG(ERROR) << "Failed to create block '" << description.name << "'.";
       return false;

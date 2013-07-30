@@ -99,7 +99,7 @@ TEST(BasicBlockSubGraphTest, AddBasicBlock) {
 TEST(BasicBlockSubGraphTest, AddBlockDescription) {
   TestBasicBlockSubGraph subgraph;
   BlockDescription* b1 = subgraph.AddBlockDescription(
-      "b1", BlockGraph::CODE_BLOCK, 7, 2, 42);
+      "b1", "b1.obj", BlockGraph::CODE_BLOCK, 7, 2, 42);
   ASSERT_FALSE(b1 == NULL);
   EXPECT_EQ("b1", b1->name);
   EXPECT_EQ(BlockGraph::CODE_BLOCK, b1->type);
@@ -128,12 +128,12 @@ TEST(BasicBlockSubGraphTest, MapsBasicBlocksToAtMostOneDescription) {
 
   // Add a block description for a mythical b1.
   BlockDescription* b1 = subgraph.AddBlockDescription(
-      "b1", BlockGraph::CODE_BLOCK, 0, 1, 0);
+      "b1", "b1.obj", BlockGraph::CODE_BLOCK, 0, 1, 0);
   ASSERT_FALSE(b1 == NULL);
 
   // Add a block description for a mythical b2.
   BlockDescription* b2 = subgraph.AddBlockDescription(
-      "b2", BlockGraph::CODE_BLOCK, 0, 1, 0);
+      "b2", "b2.obj", BlockGraph::CODE_BLOCK, 0, 1, 0);
   ASSERT_FALSE(b2 == NULL);
 
   // There are no blocks assigned twice (bb1 and bb2 are in separate blocks).
@@ -220,13 +220,13 @@ TEST(BasicBlockSubGraphTest, HasValidSuccessors) {
 
   // Add a block description for a mythical b1.
   BlockDescription* b1 = subgraph.AddBlockDescription(
-      "b1", BlockGraph::CODE_BLOCK, 0, 1, 0);
+      "b1", "b1.obj", BlockGraph::CODE_BLOCK, 0, 1, 0);
   ASSERT_FALSE(b1 == NULL);
   b1->basic_block_order.push_back(bb1);
 
   // Add a block description for a mythical b2.
   BlockDescription* b2 = subgraph.AddBlockDescription(
-      "b2", BlockGraph::CODE_BLOCK, 0, 1, 0);
+      "b2", "b2.obj", BlockGraph::CODE_BLOCK, 0, 1, 0);
   ASSERT_FALSE(b2 == NULL);
   b2->basic_block_order.push_back(bb2);
 
@@ -290,7 +290,7 @@ TEST(BasicBlockSubGraphTest, HasValidReferrers) {
   ASSERT_FALSE(bb1 == NULL);
 
   BlockDescription* b1_desc = subgraph.AddBlockDescription(
-      "b1_desc", BlockGraph::DATA_BLOCK, 0, 1, 0);
+      "b1_desc", "b1_desc.obj", BlockGraph::DATA_BLOCK, 0, 1, 0);
   ASSERT_FALSE(b1_desc == NULL);
   b1_desc->basic_block_order.push_back(bb1);
 
@@ -308,7 +308,7 @@ TEST(BasicBlockSubGraphTest, ToString) {
   subgraph.set_original_block(block);
 
   BlockDescription* b1 = subgraph.AddBlockDescription(
-      "b1", BlockGraph::CODE_BLOCK, 7, 2, 42);
+      "b1", "b1.obj", BlockGraph::CODE_BLOCK, 7, 2, 42);
 
   BasicCodeBlock* bb = subgraph.AddBasicCodeBlock("BB");
   b1->basic_block_order.push_back(bb);

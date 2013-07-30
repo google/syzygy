@@ -1431,7 +1431,7 @@ TEST_F(LivenessAnalysisTest, AnalyzeWithData) {
   const uint8 raw_data[] = { 0, 1, 2, 3, 4 };
 
   BlockDescription* block = subgraph.AddBlockDescription(
-      "b1", BlockGraph::CODE_BLOCK, 7, 2, 42);
+      "b1", "b1.obj", BlockGraph::CODE_BLOCK, 7, 2, 42);
 
   BasicCodeBlock* bb = subgraph.AddBasicCodeBlock("bb");
   BasicDataBlock* data =

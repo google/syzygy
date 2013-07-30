@@ -633,8 +633,17 @@ bool AddLabelToBlock(Offset offset,
   DCHECK_LE(offset, static_cast<Offset>(block->size()));
 
   // Try to create the label.
-  if (block->SetLabel(offset, name, label_attributes))
+  if (block->SetLabel(offset, name, label_attributes)) {
+    // If there was no label at offset 0, then this block has not yet been
+    // renamed, and still has its section contribution as a name. Update it to
+    // the first symbol we get for it. We parse symbols from most useful
+    // (undecorated function names) to least useful (mangled public symbols), so
+    // this ensures a block has the most useful name.
+    if (offset == 0)
+      block->set_name(name);
+
     return true;
+  }
 
   // If we get here there's an already existing label. Update it.
   BlockGraph::Label label;

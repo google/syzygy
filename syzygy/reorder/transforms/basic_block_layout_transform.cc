@@ -403,6 +403,7 @@ bool BasicBlockSubGraphLayoutTransform::CreateBlockDescriptions(
 
     BasicBlockSubGraph::BlockDescription* block_desc =
         bbsg->AddBlockDescription(name,
+                                  orig_block_desc->compiland_name,
                                   orig_block_desc->type,
                                   orig_block_desc->section,
                                   orig_block_desc->alignment,

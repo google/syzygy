@@ -56,6 +56,7 @@ class BasicBlockSubGraph {
   // in at most one BlockDescription at any time.
   struct BlockDescription {
     std::string name;
+    std::string compiland_name;
     BlockType type;
     SectionId section;
     Size alignment;
@@ -88,6 +89,7 @@ class BasicBlockSubGraph {
 
   // Initializes and returns a new block description.
   // @param name The name of the block.
+  // @param compiland The name of the compiland associated with this block.
   // @param type The type of the block.
   // @param section The ID of the section in which the block should reside.
   // @param alignment The alignment of the block.
@@ -95,6 +97,7 @@ class BasicBlockSubGraph {
   // @param attributes The attributes of the block.
   // @returns A pointer to the newly created block description.
   BlockDescription* AddBlockDescription(const base::StringPiece& name,
+                                        const base::StringPiece& compiland,
                                         BlockType type,
                                         SectionId section,
                                         Size alignment,
