@@ -525,6 +525,12 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 
 }  // namespace
 
+TEST_F(InstrumentAppIntegrationTest, AsanEndToEnd) {
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+}
+
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
   cmd_line_.AppendSwitch("no-liveness-analysis");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
@@ -532,21 +538,14 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanEndToEnd) {
-  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
-  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
-}
-
-TEST_F(InstrumentAppIntegrationTest, RedundantMemoryAsanEndToEnd) {
-  cmd_line_.AppendSwitch("remove-redundant-checks");
+TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoRedundancyAnalysis) {
+  cmd_line_.AppendSwitch("no-redundancy-analysis");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
 TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
-  cmd_line_.AppendSwitch("remove-redundant-checks");
   cmd_line_.AppendSwitch("intercept-crt-functions");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());

@@ -26,7 +26,7 @@ const char AsanInstrumenter::kAgentDllAsan[] = "asan_rtl.dll";
 
 AsanInstrumenter::AsanInstrumenter()
     : intercept_crt_functions_(false),
-      remove_redundant_checks_(false),
+      remove_redundant_checks_(true),
       use_liveness_analysis_(true) {
   agent_dll_ = kAgentDllAsan;
 }
@@ -73,7 +73,7 @@ bool AsanInstrumenter::ParseAdditionalCommandLineArguments(
   // Parse the additional command line arguments.
   filter_path_ = command_line->GetSwitchValuePath("filter");
   use_liveness_analysis_ = !command_line->HasSwitch("no-liveness-analysis");
-  remove_redundant_checks_ = command_line->HasSwitch("remove-redundant-checks");
+  remove_redundant_checks_ = !command_line->HasSwitch("no-redundancy-analysis");
   intercept_crt_functions_ = command_line->HasSwitch("intercept-crt-functions");
 
   return true;
