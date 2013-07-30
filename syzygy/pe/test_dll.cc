@@ -58,11 +58,15 @@ extern int function3();
 
 #pragma auto_inline(off)
 
+static void TestStatic(char* buf, size_t buf_len, const char* src) {
+  ::strncpy(buf, src, buf_len);
+}
+
 DWORD WINAPI TestExport(size_t buf_len, char* buf) {
   static const char kTestString[] =
       "The quick brown fox jumped over the lazy dog";
 
-  ::strncpy(buf, kTestString, buf_len);
+  TestStatic(buf, buf_len, kTestString);
 
   return 0;
 }

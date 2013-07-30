@@ -59,6 +59,8 @@
       'sources': [
         'block_util.cc',
         'block_util.h',
+        'coff_file.cc',
+        'coff_file.h',
         'dia_browser.cc',
         'dia_browser.h',
         'dia_util.cc',
@@ -165,6 +167,7 @@
       'type': 'executable',
       'sources': [
         'block_util_unittest.cc',
+        'coff_file_unittest.cc',
         'decompose_app_unittest.cc',
         'decompose_image_to_text_unittest.cc',
         'decomposer_unittest.cc',
@@ -297,6 +300,8 @@
           'action': [
             'cl',
             '/c',
+            '/Gy',  # Enable function-level linking.
+            '/Zi',  # Enable debug information in COFF+PDB.
             '/Fo<(PRODUCT_DIR)\\obj\\test_dll\\test_dll.coff_obj',
             'test_dll.cc',
           ],
