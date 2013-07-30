@@ -870,6 +870,7 @@ TEST_F(AsanRtlTest, AsanCheckMemset) {
   for (size_t i = 0; i < kAllocSize; ++i)
     EXPECT_EQ(0xBB, mem[i - 1]);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  ResetLog();
 
   memory_error_detected = false;
   EXPECT_EQ(mem, memsetFunction(mem, 0xCC, kAllocSize + 1));
@@ -877,6 +878,8 @@ TEST_F(AsanRtlTest, AsanCheckMemset) {
     EXPECT_EQ(0xCC, mem[i]);
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  ResetLog();
+
   EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem));
 }
 
@@ -900,11 +903,14 @@ TEST_F(AsanRtlTest, AsanCheckMemchr) {
   EXPECT_EQ(mem + 4, memchrFunction(mem - 1, mem[4], kAllocSize));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  ResetLog();
 
   memory_error_detected = false;
   EXPECT_EQ(mem + 4, memchrFunction(mem + 1, mem[4], kAllocSize));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  ResetLog();
+
   EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem));
 }
 
@@ -932,6 +938,7 @@ TEST_F(AsanRtlTest, AsanCheckMemmove) {
   for (size_t i = 0; i < kAllocSize - 1; ++i)
     EXPECT_EQ(i, mem_src[i]);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  ResetLog();
 
   memory_error_detected = false;
   // Shift them to the left one more time.
@@ -940,6 +947,8 @@ TEST_F(AsanRtlTest, AsanCheckMemmove) {
   for (int i = -1; i < static_cast<int>(kAllocSize) - 2; ++i)
     EXPECT_EQ(i + 1, mem_src[i]);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  ResetLog();
+
   EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem_src));
 }
 
@@ -969,6 +978,7 @@ TEST_F(AsanRtlTest, AsanCheckMemcpy) {
   for (size_t i = 0; i < kAllocSize + 1; ++i)
     EXPECT_EQ(mem_dst[i], mem_src[i]);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  ResetLog();
 
   memory_error_detected = false;
   EXPECT_EQ(mem_dst, memcpyFunction(mem_dst, mem_src - 1, kAllocSize));
@@ -976,6 +986,8 @@ TEST_F(AsanRtlTest, AsanCheckMemcpy) {
   for (int i = -1; i < static_cast<int>(kAllocSize) - 1; ++i)
     EXPECT_EQ(mem_dst[i + 1], mem_src[i]);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  ResetLog();
+
   EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem_src));
   EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem_dst));
 }
@@ -1005,6 +1017,7 @@ TEST_F(AsanRtlTest, AsanCheckStrcspn) {
   EXPECT_EQ(strcspn(str - 1, keys), strcspnFunction(str - 1, keys));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  ResetLog();
 
   memory_error_detected = false;
   size_t keys_len = strlen(keys);
@@ -1013,6 +1026,7 @@ TEST_F(AsanRtlTest, AsanCheckStrcspn) {
   EXPECT_EQ(strcspn(str, keys), strcspnFunction(str, keys));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  ResetLog();
 
   EXPECT_TRUE(HeapFreeFunction(heap_, 0, str));
   EXPECT_TRUE(HeapFreeFunction(heap_, 0, keys));
@@ -1037,6 +1051,7 @@ TEST_F(AsanRtlTest, AsanCheckStrlen) {
   EXPECT_EQ(strlen(str - 1), strlenFunction(str - 1));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  ResetLog();
 
   memory_error_detected = false;
   size_t str_len = strlen(str);
@@ -1045,6 +1060,7 @@ TEST_F(AsanRtlTest, AsanCheckStrlen) {
   EXPECT_EQ(strlen(str), strlenFunction(str));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  ResetLog();
 
   EXPECT_TRUE(HeapFreeFunction(heap_, 0, str));
 }
@@ -1070,6 +1086,7 @@ TEST_F(AsanRtlTest, AsanCheckStrrchr) {
   EXPECT_EQ(strrchr(str - 1, 'c'), strrchrFunction(str - 1, 'c'));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  ResetLog();
 
   memory_error_detected = false;
   size_t str_len = strlen(str);
@@ -1078,6 +1095,7 @@ TEST_F(AsanRtlTest, AsanCheckStrrchr) {
   EXPECT_EQ(strrchr(str, 'c'), strrchrFunction(str, 'c'));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  ResetLog();
 
   EXPECT_TRUE(HeapFreeFunction(heap_, 0, str));
 }

@@ -32,7 +32,7 @@ TestWithAsanLogger::TestWithAsanLogger()
 void TestWithAsanLogger::SetUp() {
   // Create and open the log file.
   ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-  log_file_path_ = temp_dir_.path().Append(L"log.txt");
+  CHECK(file_util::CreateTemporaryFileInDir(temp_dir_.path(), &log_file_path_));
   log_file_.reset(file_util::OpenFile(log_file_path_, "wb"));
 
   // Configure the environment (to pass the instance id to the agent DLL).
@@ -63,8 +63,8 @@ void TestWithAsanLogger::TearDown() {
 
 bool TestWithAsanLogger::LogContains(const base::StringPiece& message) {
   if (!log_contents_read_ && log_file_.get() != NULL) {
-    std::string contents;
     CHECK(file_util::ReadFileToString(log_file_path_, &log_contents_));
+    log_contents_read_ = true;
   }
   return log_contents_.find(message.as_string()) != std::string::npos;
 }
@@ -73,6 +73,15 @@ void TestWithAsanLogger::DeleteTempFileAndDirectory() {
   log_file_.reset();
   if (temp_dir_.IsValid())
     temp_dir_.Delete();
+}
+
+void TestWithAsanLogger::ResetLog() {
+  DCHECK(log_file_.get() != NULL);
+  CHECK(file_util::CreateTemporaryFileInDir(temp_dir_.path(), &log_file_path_));
+  file_util::ScopedFILE log_file(file_util::OpenFile(log_file_path_, "wb"));
+  log_service_.set_destination(log_file.get());
+  log_file_.reset(log_file.release());
+  log_contents_read_ = false;
 }
 
 }  // namespace testing

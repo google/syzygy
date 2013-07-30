@@ -41,6 +41,7 @@ class Logger : public trace::common::Service {
   // Set the destination file for this logger.
   void set_destination(FILE* destination) {
     DCHECK(destination != NULL);
+    base::AutoLock auto_lock(write_lock_);
     destination_ = destination;
   }
 

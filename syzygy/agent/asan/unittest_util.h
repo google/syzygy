@@ -49,6 +49,9 @@ class TestWithAsanLogger : public testing::Test {
   // Delete the temporary file used for the logging and its directory.
   void DeleteTempFileAndDirectory();
 
+  // Reset the log contents.
+  void ResetLog();
+
  private:
   // The log service instance.
   trace::logger::Logger log_service_;
