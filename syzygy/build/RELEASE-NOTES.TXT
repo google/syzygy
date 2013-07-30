@@ -1,6 +1,14 @@
 Syzygy Release Notes
 ====================
 
+Version 0.2.26.0
+
+[r1684] SyzyASan - Enable the redundant checks analysis by default.
+[r1679] SyzyASan - Add a logging message when a minidump is saved to the disk.
+[r1678] Add the PDB of our binaries to the binaries-syms archive.
+[r1650] Sampling profiler (sampler.exe) now fully functional.
+[r1636] Add --sampling-interval and --bucket-size parameters to sampler.exe.
+
 Version 0.2.25.0
 
 [r1624] Turn on the liveness analysis for the asan instrumentation.
@@ -13,17 +21,17 @@ Version 0.2.24.0
 Version 0.2.23.0
 
 [-----] Build infrastructure changes to properly source index this build.
-[r1578] SyzyASAN - Bugfix to Realloc.
+[r1578] SyzyASan - Bugfix to Realloc.
 
 Version 0.2.22.0
 
 [r1567] Various bugfixes to make Syzygy able to decompose Adobe Flash binaries.
-[r1566] SyzyASAN - Added reference counting and reuse to stack cache.
+[r1566] SyzyASan - Added reference counting and reuse to stack cache.
 
 Version 0.2.21.1
 
-[r1542] SyzyASAN - Remove use of a kernel32 import that was not available on XP.
-[r1529] SyzyASAN - More performance improvements to slow path.
+[r1542] SyzyASan - Remove use of a kernel32 import that was not available on XP.
+[r1529] SyzyASan - More performance improvements to slow path.
 
 Version 0.2.21.0
 
@@ -34,36 +42,36 @@ Version 0.2.21.0
 
 Version 0.2.20.0
 
-[r1490] SyzyASAN - Cut shadow size in half.
+[r1490] SyzyASan - Cut shadow size in half.
 [r1469] Disable DCHECKs in official builds.
-[r1466] SyzyASAN - Make the slow path faster.
+[r1466] SyzyASan - Make the slow path faster.
 
 Version 0.2.19.0
 
-[r1460] SyzyASAN - Include all stack frames by default.
-[r1459] SyzyASAN - Fix asan logger shutdown on error.
-[r1456] SyzyASAN - Capture time between free and use-after-free.
+[r1460] SyzyASan - Include all stack frames by default.
+[r1459] SyzyASan - Fix asan logger shutdown on error.
+[r1456] SyzyASan - Capture time between free and use-after-free.
 
 Version 0.2.18.0
 
-[r1444] SyzyASAN - Use breakpad key/value pairs to label crashes.
-[r1443] SyzyASAN - Leave contents of freed blocks intact for better debugging.
+[r1444] SyzyASan - Use breakpad key/value pairs to label crashes.
+[r1443] SyzyASan - Leave contents of freed blocks intact for better debugging.
 
 Version 0.2.17.1
 
-[r1425] SyzyASAN - Save crash analyses to the stack.
-[r1424] SyzyASAN - Directly report crashes via breakpad, if available.
+[r1425] SyzyASan - Save crash analyses to the stack.
+[r1424] SyzyASan - Directly report crashes via breakpad, if available.
 [r1417] Fix parsing to support trace files larger than 4GB.
-[r1411] SyzyASAN - Add support for string and other special instructions.
+[r1411] SyzyASan - Add support for string and other special instructions.
 
 Version 0.2.16.0
 
 [r1390] New genfilter tool for creating image filters.
-[r1389] Runtime filtering of SyzyASAN bugs by stack-trace IDs.
+[r1389] Runtime filtering of SyzyASan bugs by stack-trace IDs.
 [r1385] Performance improvements to profiler instrumentation.
-[r1381] Many performance improvements for SyzyASAN.
-[r1374] Instrumentation time filtering enabled for SyzyASAN.
-[r1366] SyzyASAN stack-traces can have configurable max depth and bottom frame
+[r1381] Many performance improvements for SyzyASan.
+[r1374] Instrumentation time filtering enabled for SyzyASan.
+[r1366] SyzyASan stack-traces can have configurable max depth and bottom frame
         trimming.
 
 Version 0.2.15.0
@@ -79,10 +87,10 @@ Version 0.2.14.0
 Version 0.2.13.0
 
 [r1284] Started keeping release notes.
-[r1283] SyzyASAN uses remote stack tracing in RPC logging service so as to get
+[r1283] SyzyASan uses remote stack tracing in RPC logging service so as to get
         accurate traces even in sandboxed code.
 [r1282] Much simplified straight-path decomposer.
-[r1281] SyzyASAN no longer corrupts IAT entries and NT headers size/start values
+[r1281] SyzyASan no longer corrupts IAT entries and NT headers size/start values
         are properly calculated.
 [r1276] PDB/MSF files contain properly formatted free page maps.
 [r1272] zap_timestamps for normalizing PE/PDB pairs.
