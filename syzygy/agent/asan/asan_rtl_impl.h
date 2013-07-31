@@ -108,25 +108,25 @@ size_t __cdecl asan_strlen(const char* str);
 const char* __cdecl asan_strrchr(const char* str,
                                  int character);
 
-void __cdecl asan_strcmp(const char* str1,
-                         const char* str2);
+int __cdecl asan_strcmp(const char* str1,
+                        const char* str2);
 
-void __cdecl asan_strpbrk(const char* str1,
-                          const char* str2);
+const char* __cdecl asan_strpbrk(const char* str1,
+                                 const char* str2);
 
-void __cdecl asan_strstr(const char* str1,
-                         const char* str2);
+const char* __cdecl asan_strstr(const char* str1,
+                                const char* str2);
 
-void __cdecl asan_strspn(const char* str1,
-                         const char* str2);
+size_t __cdecl asan_strspn(const char* str1,
+                           const char* str2);
 
-void __cdecl asan_strncpy(char* destination,
-                          const char* source,
-                          size_t num);
+char* __cdecl asan_strncpy(char* destination,
+                           const char* source,
+                           size_t num);
 
-void __cdecl asan_strncat(char* destination,
-                          const char* source,
-                          size_t num);
+char* __cdecl asan_strncat(char* destination,
+                           const char* source,
+                           size_t num);
 
 }  // extern "C"
 

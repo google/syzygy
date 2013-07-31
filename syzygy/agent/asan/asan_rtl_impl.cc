@@ -830,28 +830,96 @@ const char* __cdecl asan_strrchr(const char* str, int character) {
   return strrchr(str, character);
 }
 
-void __cdecl asan_strcmp(const char* str1, const char* str2) {
-  // TODO(sebmarchand): Implement this function.
+int __cdecl asan_strcmp(const char* str1, const char* str2) {
+  size_t size = 0;
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str1, &size)) {
+    ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
+                    HeapProxy::ASAN_READ_ACCESS);
+  }
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str2, &size)) {
+    ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
+                    HeapProxy::ASAN_READ_ACCESS);
+  }
+  return strcmp(str1, str2);
 }
 
-void __cdecl asan_strpbrk(const char* str1, const char* str2) {
-  // TODO(sebmarchand): Implement this function.
+const char* __cdecl asan_strpbrk(const char* str1, const char* str2) {
+  size_t size = 0;
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str1, &size)) {
+    ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
+                    HeapProxy::ASAN_READ_ACCESS);
+  }
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str2, &size)) {
+    ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
+                    HeapProxy::ASAN_READ_ACCESS);
+  }
+  return strpbrk(str1, str2);
 }
 
-void __cdecl asan_strstr(const char* str1, const char* str2) {
-  // TODO(sebmarchand): Implement this function.
+const char* __cdecl asan_strstr(const char* str1, const char* str2) {
+  size_t size = 0;
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str1, &size)) {
+    ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
+                    HeapProxy::ASAN_READ_ACCESS);
+  }
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str2, &size)) {
+    ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
+                    HeapProxy::ASAN_READ_ACCESS);
+  }
+  return strstr(str1, str2);
 }
 
-void __cdecl asan_strspn(const char* str1, const char* str2) {
-  // TODO(sebmarchand): Implement this function.
+size_t __cdecl asan_strspn(const char* str1, const char* str2) {
+  size_t size = 0;
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str1, &size)) {
+    ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
+                    HeapProxy::ASAN_READ_ACCESS);
+  }
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str2, &size)) {
+    ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
+                    HeapProxy::ASAN_READ_ACCESS);
+  }
+  return strspn(str1, str2);
 }
 
-void __cdecl asan_strncpy(char* destination, const char* source, size_t num) {
-  // TODO(sebmarchand): Implement this function.
+char* __cdecl asan_strncpy(char* destination, const char* source, size_t num) {
+  if (num != 0U) {
+    size_t src_size = 0;
+    if (!agent::asan::Shadow::GetNullTerminatedArraySize(source, &src_size) &&
+        src_size <= num) {
+      ReportBadAccess(reinterpret_cast<const uint8*>(source) + src_size,
+                      HeapProxy::ASAN_READ_ACCESS);
+    }
+    // We can't use the GetNullTerminatedArraySize function here, as destination
+    // might not be null terminated.
+    TestMemoryRange(reinterpret_cast<const uint8*>(destination),
+                    num,
+                    HeapProxy::ASAN_WRITE_ACCESS);
+  }
+  return strncpy(destination, source, num);
 }
 
-void __cdecl asan_strncat(char* destination, const char* source, size_t num) {
-  // TODO(sebmarchand): Implement this function.
+char* __cdecl asan_strncat(char* destination, const char* source, size_t num) {
+  if (num != 0U) {
+    size_t src_size = 0;
+    if (!agent::asan::Shadow::GetNullTerminatedArraySize(source, &src_size) &&
+        src_size <= num) {
+      ReportBadAccess(reinterpret_cast<const uint8*>(source) + src_size,
+                      HeapProxy::ASAN_READ_ACCESS);
+    }
+    size_t dst_size = 0;
+    if (!agent::asan::Shadow::GetNullTerminatedArraySize(destination,
+                                                         &dst_size)) {
+      ReportBadAccess(reinterpret_cast<const uint8*>(destination) + dst_size,
+                      HeapProxy::ASAN_WRITE_ACCESS);
+    } else {
+      // Test if we can append the source to the destination.
+      TestMemoryRange(reinterpret_cast<const uint8*>(destination + dst_size),
+                      std::min(num, src_size - 1),
+                      HeapProxy::ASAN_WRITE_ACCESS);
+    }
+  }
+  return strncat(destination, source, num);
 }
 
 }  // extern "C"
