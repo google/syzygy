@@ -29,17 +29,24 @@ namespace {
 
 // Accessing a module acquired from process iteration calls is inherently racy,
 // as we don't hold any kind of reference to the module, and so the module
-// could be unloaded while we're accessing it. In practice this shouldn't
-// happen to us, as we'll be running under the loader's lock in all cases.
-bool CaptureModuleInformation(const IMAGE_NT_HEADERS* nt_headers,
-                              TraceModuleData* module_event) {
-  DCHECK(nt_headers != NULL);
-  DCHECK(module_event != NULL);
+// could be unloaded while we're accessing it.
+bool CaptureModuleInformation(const base::win::PEImage& image,
+                              size_t* module_base_size,
+                              uint32* module_checksum,
+                              uint32* module_time_date_stamp) {
+  DCHECK(module_base_size != NULL);
+  DCHECK(module_checksum != NULL);
+  DCHECK(module_time_date_stamp != NULL);
 
   __try {
-    module_event->module_base_size = nt_headers->OptionalHeader.SizeOfImage;
-    module_event->module_checksum = nt_headers->OptionalHeader.CheckSum;
-    module_event->module_time_date_stamp = nt_headers->FileHeader.TimeDateStamp;
+    const IMAGE_NT_HEADERS* nt_headers = image.GetNTHeaders();
+    *module_base_size = nt_headers->OptionalHeader.SizeOfImage;
+    *module_checksum = nt_headers->OptionalHeader.CheckSum;
+    *module_time_date_stamp = nt_headers->FileHeader.TimeDateStamp;
+
+    // Make reasonably sure we're actually looking at a module.
+    if (!image.VerifyMagic())
+      return false;
   } __except(EXCEPTION_EXECUTE_HANDLER) {
     return false;
   }
@@ -79,6 +86,19 @@ bool LogModule(HMODULE module,
   DCHECK(session != NULL);
   DCHECK(segment != NULL);
 
+  // See whether we can acquire the module data.
+  base::win::PEImage image(module);
+  size_t module_base_size = 0;
+  uint32 module_checksum = 0;
+  uint32 module_time_date_stamp = 0;
+  if (!CaptureModuleInformation(image,
+                                &module_base_size,
+                                &module_checksum,
+                                &module_time_date_stamp)) {
+    LOG(ERROR) << "Failed to capture module information.";
+    return false;
+  }
+
   // Make sure the event we're about to write will fit.
   if (!segment->CanAllocate(sizeof(TraceModuleData)) ||
       !session->ExchangeBuffer(segment)) {
@@ -95,13 +115,10 @@ bool LogModule(HMODULE module,
           TRACE_PROCESS_ATTACH_EVENT, sizeof(TraceModuleData)));
   DCHECK(module_event != NULL);
 
-  // Populate the log record.
-  base::win::PEImage image(module);
   module_event->module_base_addr = module;
-  if (!CaptureModuleInformation(image.GetNTHeaders(), module_event)) {
-    LOG(ERROR) << "Failed to capture module information.";
-    return false;
-  }
+  module_event->module_base_size = module_base_size;
+  module_event->module_checksum = module_checksum;
+  module_event->module_time_date_stamp = module_time_date_stamp;
 
   wchar_t module_name[MAX_PATH] = { 0 };
   if (::GetMappedFileName(::GetCurrentProcess(), module,

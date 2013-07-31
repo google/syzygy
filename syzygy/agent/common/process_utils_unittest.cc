@@ -134,6 +134,28 @@ TEST_F(ProcessUtilsTest, LogModule) {
 
   ASSERT_TRUE(LogModule(self, &session, &segment));
 
+  // Logging an unloaded or invalid module should fail.
+
+  size_t kAllocSize = 4096;
+  // Reserve an unmapped range of memory.
+  void* unmapped =
+      ::VirtualAlloc(NULL, kAllocSize, MEM_RESERVE, PAGE_READWRITE);
+  ASSERT_NE(static_cast<void*>(NULL), unmapped);
+
+  // Make sure logging the address as a module fails, logs nothing, but
+  // doesn't crash. This simulates logging an unloaded module.
+  ASSERT_FALSE(LogModule(static_cast<HMODULE>(unmapped), &session, &segment));
+
+  // Now allocate the first page, and make sure we don't log it absent the
+  // magic numbers in a valid module. This simulates logging an unloaded
+  // module, whose address space has been reused for data.
+  ASSERT_NE(static_cast<void*>(NULL),
+           ::VirtualAlloc(unmapped, kAllocSize, MEM_COMMIT, PAGE_READWRITE));
+  ASSERT_FALSE(LogModule(static_cast<HMODULE>(unmapped), &session, &segment));
+
+  // Free our alloc.
+  EXPECT_TRUE(::VirtualFree(unmapped, 0, MEM_RELEASE));
+
   ASSERT_NO_FATAL_FAILURE(StopService());
 
   EXPECT_CALL(handler_, OnProcessStarted(_, process_id, _));
