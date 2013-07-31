@@ -83,6 +83,8 @@
         'assertions.h',
         'buffer_writer.cc',
         'buffer_writer.h',
+        'dbghelp_util.cc',
+        'dbghelp_util.h',
         'defs.cc',
         'defs.h',
         'indexed_frequency_data.cc',

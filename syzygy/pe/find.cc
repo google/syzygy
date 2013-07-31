@@ -18,15 +18,13 @@
 
 #include "syzygy/pe/find.h"
 
-#include <dbghelp.h>
-#include <winnt.h>
-
 #include "base/environment.h"
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/utf_string_conversions.h"
 #include "base/strings/string_split.h"
 #include "sawbuck/common/com_utils.h"
+#include "syzygy/common/dbghelp_util.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/pdb_info.h"
 #include "syzygy/pe/pe_data.h"
@@ -117,12 +115,8 @@ bool FindFile(const base::FilePath& file_path,
 
   HANDLE handle = ::GetCurrentProcess();
 
-  BOOL result = ::SymInitialize(handle, NULL, FALSE);
-  if (result == FALSE) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "SymInitialize failed: " << com::LogWe(error);
+  if (!common::SymInitialize(handle, NULL, false))
     return false;
-  }
 
   base::FilePath dir = file_path.DirName();
   std::wstring basename = file_path.BaseName().value();
@@ -139,16 +133,16 @@ bool FindFile(const base::FilePath& file_path,
 
   // Search for the file.
   wchar_t buffer[MAX_PATH];
-  result = ::SymFindFileInPathW(handle,
-                                paths.c_str(),
-                                basename.c_str(),
-                                const_cast<void*>(id),
-                                data,
-                                0,
-                                flags,
-                                &buffer[0],
-                                callback,
-                                callback_context);
+  BOOL result = ::SymFindFileInPathW(handle,
+                                     paths.c_str(),
+                                     basename.c_str(),
+                                     const_cast<void*>(id),
+                                     data,
+                                     0,
+                                     flags,
+                                     &buffer[0],
+                                     callback,
+                                     callback_context);
   if (::SymCleanup(handle) == FALSE) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "SymCleanup failed: " << com::LogWe(error);

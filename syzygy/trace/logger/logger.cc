@@ -25,6 +25,7 @@
 #include "base/stringprintf.h"
 #include "base/win/scoped_handle.h"
 #include "sawbuck/common/com_utils.h"
+#include "syzygy/common/dbghelp_util.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
 
 namespace trace {
@@ -184,11 +185,8 @@ bool Logger::AppendTrace(HANDLE process,
   //     - Use undecorated names
   //     - Get line numbers
   ::SymSetOptions(SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME | SYMOPT_LOAD_LINES);
-  if (!::SymInitialize(process, NULL, TRUE)) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "SymInitialize failed: " << com::LogWe(error) << ".";
+  if (!::common::SymInitialize(process, NULL, true))
     return false;
-  }
 
   // Append each line of the trace to the message string.
   for (size_t i = 0; i < trace_length; ++i) {
@@ -239,11 +237,8 @@ bool Logger::CaptureRemoteTrace(HANDLE process,
   //     - Use undecorated names
   //     - Get line numbers
   ::SymSetOptions(SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME | SYMOPT_LOAD_LINES);
-  if (!::SymInitialize(process, NULL, TRUE)) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "SymInitialize failed: " << com::LogWe(error) << ".";
+  if (!::common::SymInitialize(process, NULL, true))
     return false;
-  }
 
   // Initialize a stack frame structure.
   STACKFRAME64 stack_frame;

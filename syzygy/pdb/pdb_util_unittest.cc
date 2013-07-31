@@ -25,6 +25,7 @@
 #include "base/win/pe_image.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/common/dbghelp_util.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_reader.h"
@@ -74,7 +75,7 @@ class PdbUtilTest : public testing::Test {
   }
 
   void SetUp() {
-    ASSERT_TRUE(::SymInitialize(process_, NULL, FALSE));
+    ASSERT_TRUE(common::SymInitialize(process_, NULL, false));
 
     ASSERT_HRESULT_SUCCEEDED(::CoCreateGuid(&new_guid_));
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
