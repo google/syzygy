@@ -285,6 +285,7 @@ struct TraceSystemInfo {
   OSVERSIONINFOEX os_version_info;
   SYSTEM_INFO system_info;
   MEMORYSTATUSEX memory_status;
+  trace::common::ClockInfo clock_info;
   TraceEnvironmentStrings environment_strings;
 };
 

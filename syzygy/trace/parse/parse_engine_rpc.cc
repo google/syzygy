@@ -144,6 +144,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
   system_info.os_version_info = file_header->os_version_info;
   system_info.system_info = file_header->system_info;
   system_info.memory_status = file_header->memory_status;
+  system_info.clock_info = file_header->clock_info;
 
   // Parse the header blob. This fails if there is any extra data, enforcing
   // a valid header size as a side effect.

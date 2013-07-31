@@ -143,6 +143,25 @@ class TraceFileDumper : public ParseEventHandler {
               memory_status.ullAvailPhys);
   }
 
+  void PrintClockInfo(base::Time time,
+                      const trace::common::ClockInfo& clock_info) {
+    ::fprintf(file_,
+              "[%012lld] %sClockInfo: file_time=0x%08X%08X; "
+              "ticks_reference=%llu; tsc_reference=%llu; "
+              "ticks_info.frequency=%llu; ticks_info.resolution=%llu; "
+              "tsc_info.frequency=%llu; tsc_info.resolution=%llu\n",
+              time.ToInternalValue(),
+              indentation_,
+              clock_info.file_time.dwHighDateTime,
+              clock_info.file_time.dwLowDateTime,
+              clock_info.ticks_reference,
+              clock_info.tsc_reference,
+              clock_info.ticks_info.frequency,
+              clock_info.ticks_info.resolution,
+              clock_info.tsc_info.frequency,
+              clock_info.tsc_info.resolution);
+  }
+
   void PrintEnvironmentString(base::Time time,
                               const std::wstring& key,
                               const std::wstring& value) {
@@ -175,6 +194,7 @@ class TraceFileDumper : public ParseEventHandler {
     PrintOsVersionInfo(time, data->os_version_info);
     PrintSystemInfo(time, data->system_info);
     PrintMemoryStatus(time, data->memory_status);
+    PrintClockInfo(time, data->clock_info);
     PrintEnvironmentStrings(time, data->environment_strings);
     indentation_ = "";
   }
