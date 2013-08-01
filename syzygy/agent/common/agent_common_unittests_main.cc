@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "base/at_exit.h"
 #include "base/command_line.h"
+#include "base/win/scoped_com_initializer.h"
 #include "gtest/gtest.h"
 
 int main(int argc, char** argv) {
@@ -20,5 +21,10 @@ int main(int argc, char** argv) {
 
   CommandLine::Init(argc, argv);
   base::AtExitManager at_exit;
+  // Run these tests CoInitialized, as otherwise the CoInit state of the main
+  // thread will Yo-Yo, leading to repeated loading and unloading of arbitrary
+  // COM DLLs on arbitrary threads, which leads to flakiness.
+  base::win::ScopedCOMInitializer com_initializer;
+
   return RUN_ALL_TESTS();
 }
