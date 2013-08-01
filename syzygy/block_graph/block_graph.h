@@ -186,10 +186,14 @@ class BlockGraph {
   static std::string LabelAttributesToString(LabelAttributes label_attributes);
 
   enum ReferenceType {
+    // Common reference types.
     PC_RELATIVE_REF,
     ABSOLUTE_REF,
     RELATIVE_REF,
     FILE_OFFSET_REF,
+    // Object-file reference types.
+    SECTION_REF,
+    SECTION_OFFSET_REF,
     // Must be last!
     REFERENCE_TYPE_MAX,
   };

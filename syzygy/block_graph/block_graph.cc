@@ -1245,6 +1245,11 @@ bool BlockGraph::Reference::IsValidTypeSize(ReferenceType type, Size size) {
     case FILE_OFFSET_REF:
       return size == 4;
 
+    case SECTION_REF:
+      return size == 2;
+    case SECTION_OFFSET_REF:
+      return size == 1 || size == 4;
+
     default:
       NOTREACHED() << "Unknown ReferenceType.";
   }

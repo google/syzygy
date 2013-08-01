@@ -947,12 +947,20 @@ TEST(BlockGraphTest, References) {
   BlockGraph::Reference r_file(BlockGraph::FILE_OFFSET_REF, 4, b2, 23, 23);
   ASSERT_TRUE(b1->SetReference(9, r_file));
 
+  BlockGraph::Reference r_sect(BlockGraph::SECTION_REF, 2, b2, 0, 0);
+  ASSERT_TRUE(b1->SetReference(13, r_sect));
+  BlockGraph::Reference r_sect_off(BlockGraph::SECTION_OFFSET_REF, 4,
+                                   b2, 27, 27);
+  ASSERT_TRUE(b1->SetReference(15, r_sect_off));
+
   // Test that the reference map is as expected.
   BlockGraph::Block::ReferenceMap expected;
   expected.insert(std::make_pair(0, r_pc));
   expected.insert(std::make_pair(1, r_abs));
   expected.insert(std::make_pair(5, r_rel));
   expected.insert(std::make_pair(9, r_file));
+  expected.insert(std::make_pair(13, r_sect));
+  expected.insert(std::make_pair(15, r_sect_off));
   EXPECT_THAT(b1->references(), testing::ContainerEq(expected));
 
   // Test reference transfer.
@@ -985,6 +993,10 @@ TEST(BlockGraphTest, References) {
       BlockGraph::Reference(BlockGraph::RELATIVE_REF, 4, b3, 17, 17)));
   expected.insert(std::make_pair(9,
       BlockGraph::Reference(BlockGraph::FILE_OFFSET_REF, 4, b3, 23, 23)));
+  expected.insert(std::make_pair(13,
+      BlockGraph::Reference(BlockGraph::SECTION_REF, 2, b3, 0, 0)));
+  expected.insert(std::make_pair(15,
+      BlockGraph::Reference(BlockGraph::SECTION_OFFSET_REF, 4, b3, 27, 27)));
   EXPECT_THAT(b1->references(), testing::ContainerEq(expected));
 
   // Remove the references.
@@ -992,6 +1004,8 @@ TEST(BlockGraphTest, References) {
   ASSERT_TRUE(b1->RemoveReference(1));
   ASSERT_TRUE(b1->RemoveReference(5));
   ASSERT_TRUE(b1->RemoveReference(9));
+  ASSERT_TRUE(b1->RemoveReference(13));
+  ASSERT_TRUE(b1->RemoveReference(15));
   EXPECT_THAT(b1->references(), BlockGraph::Block::ReferenceMap());
 
   EXPECT_THAT(b2->referrers(), BlockGraph::Block::ReferrerSet());
