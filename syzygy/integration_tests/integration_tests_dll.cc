@@ -129,12 +129,14 @@ unsigned int CALLBACK EndToEndTest(testing::EndToEndTestId test) {
       return testing::AsanStrcspnKeysOverflow();
     case testing::kAsanStrcspnKeysUnderflow:
       return testing::AsanStrcspnKeysUnderflow();
+    case testing::kAsanStrcspnKeysUseAfterFree:
+      return testing::AsanStrcspnKeysUseAfterFree();
     case testing::kAsanStrcspnSrcOverflow:
       return testing::AsanStrcspnSrcOverflow();
     case testing::kAsanStrcspnSrcUnderflow:
       return testing::AsanStrcspnSrcUnderflow();
-    case testing::kAsanStrcspnUseAfterFree:
-      return testing::AsanStrcspnUseAfterFree();
+    case testing::kAsanStrcspnSrcUseAfterFree:
+      return testing::AsanStrcspnSrcUseAfterFree();
     case testing::kAsanStrlenOverflow:
       return testing::AsanStrlenOverflow();
     case testing::kAsanStrlenUnderflow:
@@ -147,6 +149,78 @@ unsigned int CALLBACK EndToEndTest(testing::EndToEndTestId test) {
       return testing::AsanStrrchrUnderflow();
     case testing::kAsanStrrchrUseAfterFree:
       return testing::AsanStrrchrUseAfterFree();
+    case testing::kAsanStrcmpSrc1Overflow:
+      return testing::AsanStrcmpSrc1Overflow();
+    case testing::kAsanStrcmpSrc1Underflow:
+      return testing::AsanStrcmpSrc1Underflow();
+    case testing::kAsanStrcmpSrc1UseAfterFree:
+      return testing::AsanStrcmpSrc1UseAfterFree();
+    case testing::kAsanStrcmpSrc2Overflow:
+      return testing::AsanStrcmpSrc2Overflow();
+    case testing::kAsanStrcmpSrc2Underflow:
+      return testing::AsanStrcmpSrc2Underflow();
+    case testing::kAsanStrcmpSrc2UseAfterFree:
+      return testing::AsanStrcmpSrc2UseAfterFree();
+    case testing::kAsanStrpbrkKeysOverflow:
+      return testing::AsanStrpbrkKeysOverflow();
+    case testing::kAsanStrpbrkKeysUnderflow:
+      return testing::AsanStrpbrkKeysUnderflow();
+    case testing::kAsanStrpbrkKeysUseAfterFree:
+      return testing::AsanStrpbrkKeysUseAfterFree();
+    case testing::kAsanStrpbrkSrcOverflow:
+      return testing::AsanStrpbrkSrcOverflow();
+    case testing::kAsanStrpbrkSrcUnderflow:
+      return testing::AsanStrpbrkSrcUnderflow();
+    case testing::kAsanStrpbrkSrcUseAfterFree:
+      return testing::AsanStrpbrkSrcUseAfterFree();
+    case testing::kAsanStrstrSrc1Overflow:
+      return testing::AsanStrstrSrc1Overflow();
+    case testing::kAsanStrstrSrc1Underflow:
+      return testing::AsanStrstrSrc1Underflow();
+    case testing::kAsanStrstrSrc1UseAfterFree:
+      return testing::AsanStrstrSrc1UseAfterFree();
+    case testing::kAsanStrstrSrc2Overflow:
+      return testing::AsanStrstrSrc2Overflow();
+    case testing::kAsanStrstrSrc2Underflow:
+      return testing::AsanStrstrSrc2Underflow();
+    case testing::kAsanStrstrSrc2UseAfterFree:
+      return testing::AsanStrstrSrc2UseAfterFree();
+    case testing::kAsanStrspnKeysOverflow:
+      return testing::AsanStrspnKeysOverflow();
+    case testing::kAsanStrspnKeysUnderflow:
+      return testing::AsanStrspnKeysUnderflow();
+    case testing::kAsanStrspnKeysUseAfterFree:
+      return testing::AsanStrspnKeysUseAfterFree();
+    case testing::kAsanStrspnSrcOverflow:
+      return testing::AsanStrspnSrcOverflow();
+    case testing::kAsanStrspnSrcUnderflow:
+      return testing::AsanStrspnSrcUnderflow();
+    case testing::kAsanStrspnSrcUseAfterFree:
+      return testing::AsanStrspnSrcUseAfterFree();
+    case testing::kAsanStrncpySrcOverflow:
+      return testing::AsanStrncpySrcOverflow();
+    case testing::kAsanStrncpySrcUnderflow:
+      return testing::AsanStrncpySrcUnderflow();
+    case testing::kAsanStrncpySrcUseAfterFree:
+      return testing::AsanStrncpySrcUseAfterFree();
+    case testing::kAsanStrncpyDstOverflow:
+      return testing::AsanStrncpyDstOverflow();
+    case testing::kAsanStrncpyDstUnderflow:
+      return testing::AsanStrncpyDstUnderflow();
+    case testing::kAsanStrncpyDstUseAfterFree:
+      return testing::AsanStrncpyDstUseAfterFree();
+    case testing::kAsanStrncatSuffixOverflow:
+      return testing::AsanStrncatSuffixOverflow();
+    case testing::kAsanStrncatSuffixUnderflow:
+      return testing::AsanStrncatSuffixUnderflow();
+    case testing::kAsanStrncatSuffixUseAfterFree:
+      return testing::AsanStrncatSuffixUseAfterFree();
+    case testing::kAsanStrncatDstOverflow:
+      return testing::AsanStrncatDstOverflow();
+    case testing::kAsanStrncatDstUnderflow:
+      return testing::AsanStrncatDstUnderflow();
+    case testing::kAsanStrncatDstUseAfterFree:
+      return testing::AsanStrncatDstUseAfterFree();
 
     // Basic block entry test cases.
     case testing::kBBEntryCallOnce:

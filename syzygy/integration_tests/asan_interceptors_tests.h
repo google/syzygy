@@ -22,7 +22,7 @@
 namespace testing {
 
 // Disable the intrinsic version of the intercepted function.
-#pragma function(memset, memcpy, strlen)
+#pragma function(memset, memcpy, strlen, strcmp)
 
 template<typename type>
 static type AsanMemsetOverflow() {
@@ -211,11 +211,13 @@ size_t AsanStrcspnKeysOverflow();
 
 size_t AsanStrcspnKeysUnderflow();
 
+size_t AsanStrcspnKeysUseAfterFree();
+
 size_t AsanStrcspnSrcOverflow();
 
 size_t AsanStrcspnSrcUnderflow();
 
-size_t AsanStrcspnUseAfterFree();
+size_t AsanStrcspnSrcUseAfterFree();
 
 size_t AsanStrlenOverflow();
 
@@ -228,6 +230,78 @@ size_t AsanStrrchrOverflow();
 size_t AsanStrrchrUnderflow();
 
 size_t AsanStrrchrUseAfterFree();
+
+size_t AsanStrcmpSrc1Overflow();
+
+size_t AsanStrcmpSrc1Underflow();
+
+size_t AsanStrcmpSrc1UseAfterFree();
+
+size_t AsanStrcmpSrc2Overflow();
+
+size_t AsanStrcmpSrc2Underflow();
+
+size_t AsanStrcmpSrc2UseAfterFree();
+
+size_t AsanStrpbrkKeysOverflow();
+
+size_t AsanStrpbrkKeysUnderflow();
+
+size_t AsanStrpbrkKeysUseAfterFree();
+
+size_t AsanStrpbrkSrcOverflow();
+
+size_t AsanStrpbrkSrcUnderflow();
+
+size_t AsanStrpbrkSrcUseAfterFree();
+
+size_t AsanStrstrSrc1Overflow();
+
+size_t AsanStrstrSrc1Underflow();
+
+size_t AsanStrstrSrc1UseAfterFree();
+
+size_t AsanStrstrSrc2Overflow();
+
+size_t AsanStrstrSrc2Underflow();
+
+size_t AsanStrstrSrc2UseAfterFree();
+
+size_t AsanStrspnKeysOverflow();
+
+size_t AsanStrspnKeysUnderflow();
+
+size_t AsanStrspnKeysUseAfterFree();
+
+size_t AsanStrspnSrcOverflow();
+
+size_t AsanStrspnSrcUnderflow();
+
+size_t AsanStrspnSrcUseAfterFree();
+
+size_t AsanStrncpySrcOverflow();
+
+size_t AsanStrncpySrcUnderflow();
+
+size_t AsanStrncpySrcUseAfterFree();
+
+size_t AsanStrncpyDstOverflow();
+
+size_t AsanStrncpyDstUnderflow();
+
+size_t AsanStrncpyDstUseAfterFree();
+
+size_t AsanStrncatSuffixOverflow();
+
+size_t AsanStrncatSuffixUnderflow();
+
+size_t AsanStrncatSuffixUseAfterFree();
+
+size_t AsanStrncatDstOverflow();
+
+size_t AsanStrncatDstUnderflow();
+
+size_t AsanStrncatDstUseAfterFree();
 
 }  // namespace testing
 

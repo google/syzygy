@@ -946,6 +946,12 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
     interception_set.insert("strcspn");
     interception_set.insert("strlen");
     interception_set.insert("strrchr");
+    interception_set.insert("strcmp");
+    interception_set.insert("strpbrk");
+    interception_set.insert("strstr");
+    interception_set.insert("strspn");
+    interception_set.insert("strncpy");
+    interception_set.insert("strncat");
     InterceptFunctions(&module_asan,
                        block_graph,
                        header_block,
