@@ -31,21 +31,18 @@ import colorama
 
 _LOGGER = logging.getLogger(os.path.basename(__file__))
 
+# A list of per-test Application Verifier checks to not run.
+_DISABLED_CHECKS = {
+  # We have a test that deliberately causes an exception which is caught and
+  # handled by the code under test. However, AV propogates this exception and
+  # launches a modal dialog window, which causes the test to timeout.
+  'agent_common_unittests.exe': [
+    'Exceptions'
+  ],
+}
 
 # A list of per-test Application Verifier exceptions.
 _EXCEPTIONS = {
-  'profile_unittests.exe': [
-    # This leak occurs only in Debug, which leaks a thread local variable
-    # used to check thread restrictions.
-    ('Error', 'TLS', 848, 'agent::profiler::.*::ProfilerTest::UnloadDll'),
-    # This leak occurs due to a leaky global lock in ScopedHandle.
-    ('Error', 'Locks', 513, 'agent::profiler::.*::ProfilerTest::UnloadDll'),
-  ],
-  'parse_unittests.exe': [
-    # This leak occurs only in Debug, which leaks a thread local variable
-    # used to check thread restrictions.
-    ('Error', 'TLS', 848, '.*::ParseEngineRpcTest::UnloadCallTraceDll'),
-  ],
   'basic_block_entry_unittests.exe': [
     # This is a known (semi-intentional) leak of the TLS index and the last
     # active thread's TLS data on module unload.
@@ -67,6 +64,18 @@ _EXCEPTIONS = {
     # This leak occurs only in Debug, which leaks a thread local variable
     # used to check thread restrictions.
     ('Error', 'TLS', 848, '.*::PELibUnitTest::CheckTestDll'),
+  ],
+  'parse_unittests.exe': [
+    # This leak occurs only in Debug, which leaks a thread local variable
+    # used to check thread restrictions.
+    ('Error', 'TLS', 848, '.*::ParseEngineRpcTest::UnloadCallTraceDll'),
+  ],
+  'profile_unittests.exe': [
+    # This leak occurs only in Debug, which leaks a thread local variable
+    # used to check thread restrictions.
+    ('Error', 'TLS', 848, 'agent::profiler::.*::ProfilerTest::UnloadDll'),
+    # This leak occurs due to a leaky global lock in ScopedHandle.
+    ('Error', 'Locks', 513, 'agent::profiler::.*::ProfilerTest::UnloadDll'),
   ],
 }
 
@@ -144,12 +153,13 @@ def _RunUnderAppVerifier(command):
   runner = verifier.AppverifierTestRunner(False)
   image_path = os.path.abspath(command[0])
   image_name = os.path.basename(image_path)
+  disabled_checks = _DISABLED_CHECKS.get(image_name, [])
 
   if not os.path.isfile(image_path):
     raise Error('Path not found: %s' % image_path)
 
   # Set up the verifier configuration.
-  runner.SetImageDefaults(image_name)
+  runner.SetImageDefaults(image_name, disabled_checks=disabled_checks)
   runner.ClearImageLogs(image_name)
 
   # Run the executable. We disable exception catching as it interferes with
@@ -159,10 +169,17 @@ def _RunUnderAppVerifier(command):
   popen = subprocess.Popen(command)
   (dummy_stdout, dummy_stderr) = popen.communicate()
 
-  # Process the AppVerifier logs, outputting any errors.
+  # Process the AppVerifier logs, filtering exceptions.
   app_verifier_errors = runner.ProcessLogs(image_name)
   (error_count, app_verifier_errors) = FilterExceptions(
       image_name, app_verifier_errors)
+
+  # Generate warnings for error categories that were disabled.
+  for check in disabled_checks:
+    app_verifier_errors.append(
+          'Warning: Disabled AppVerifier %s checks.' % check)
+
+  # Output all warnings and errors.
   for error in app_verifier_errors:
     msg = Colorize(str(error) + '\n')
     sys.stderr.write(msg)

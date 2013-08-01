@@ -189,17 +189,20 @@ class AppverifierTestRunner:
       # this fails if verifier had no settings for the image
       pass
 
-  def SetImageDefaults(self, image_name):
+  def SetImageDefaults(self, image_name, disabled_checks=[]):
     '''Configures a default set of tests for image_name
 
       Arguments:
         image_name: the basename of a test, e.g. 'common_unittest.exe'
+        disabled_checks: A list of checks to disable, by top level category
+            name.
     '''
     self.ResetImage(image_name)
 
     image = self.manager.Images.Add(image_name)
     for check in image.Checks:
-      if check.Name in self.default_checks_:
+      if (check.Name in self.default_checks_ and
+          check.Name not in disabled_checks):
         check.Enabled = True
         self.SetStopBreaks(check)
 
