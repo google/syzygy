@@ -23,6 +23,7 @@
 
 #include "base/files/file_path.h"
 #include "sawbuck/sym_util/types.h"
+#include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/grinder/line_info.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -53,6 +54,27 @@ typedef std::map<BasicBlockOffset, EntryCountType> EntryCountMap;
 typedef std::map<ModuleInformation,
                  EntryCountMap,
                  ModuleIdentityComparator> ModuleEntryCountMap;
+
+// Type definitions for the indexed frequency data.
+typedef std::pair<RelativeAddress, size_t> IndexedFrequencyOffset;
+typedef std::map<IndexedFrequencyOffset, EntryCountType> IndexedFrequencyMap;
+// The information kept for each module.
+struct IndexedFrequencyInformation {
+  uint32 num_entries;
+  uint32 num_columns;
+  common::IndexedFrequencyData::DataType data_type;
+  uint8 frequency_size;
+  IndexedFrequencyMap frequency_map;
+};
+
+bool operator==(const IndexedFrequencyInformation& lhs,
+                const IndexedFrequencyInformation& rhs);
+
+// An indexed frequency map maps from the relative virtual address of the first
+// instruction or data byte in the basic block, to its frequencies.
+typedef std::map<ModuleInformation,
+                 IndexedFrequencyInformation,
+                 ModuleIdentityComparator> ModuleIndexedFrequencyMap;
 
 // This structure holds the information extracted from a PDB file for a
 // given module.

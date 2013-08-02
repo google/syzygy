@@ -14,6 +14,8 @@
 
 #include "syzygy/common/indexed_frequency_data.h"
 
+#include "base/logging.h"
+
 namespace common {
 
 const uint32 kBasicBlockCoverageAgentId = 0xC05E4A6E;
@@ -27,5 +29,40 @@ const uint32 kBranchFrequencyDataVersion = 1;
 const uint32 kJumpTableFrequencyDataVersion = 1;
 
 const char kBasicBlockRangesStreamName[] = "/Syzygy/BasicBlockRanges";
+
+// This must be kept in sync with IndexedFrequencyDataType::DataType.
+const char* IndexedFrequencyDataTypeName[] = {
+  NULL,
+  "basic-block",
+  "branch",
+  "coverage",
+  "jumptable",
+};
+COMPILE_ASSERT(arraysize(IndexedFrequencyDataTypeName) ==
+    IndexedFrequencyData::MAX_DATA_TYPE, length_mismatch);
+
+bool IndexedFrequencyDataTypeToString(IndexedFrequencyData::DataType type,
+                                      std::string* result) {
+  DCHECK(result != NULL);
+  if (type > IndexedFrequencyData::INVALID_DATA_TYPE &&
+      type < IndexedFrequencyData::MAX_DATA_TYPE) {
+    *result = IndexedFrequencyDataTypeName[type];
+    return true;
+  }
+
+  return false;
+}
+
+bool ParseFrequencyDataType(const base::StringPiece& str,
+                            IndexedFrequencyData::DataType* type) {
+  DCHECK(type != NULL);
+  for (int i = 1; i < IndexedFrequencyData::MAX_DATA_TYPE; ++i) {
+    if (str.compare(IndexedFrequencyDataTypeName[i]) == 0) {
+      *type = static_cast<IndexedFrequencyData::DataType>(i);
+      return true;
+    }
+  }
+  return false;
+}
 
 }  // namespace common

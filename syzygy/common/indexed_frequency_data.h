@@ -21,6 +21,7 @@
 #include <windows.h>
 
 #include "base/basictypes.h"
+#include "base/string_piece.h"
 #include "syzygy/common/assertions.h"
 
 namespace common {
@@ -31,12 +32,16 @@ namespace common {
 // section of its own. It will be initialized by the runtime client library
 // and is referred to by all of the instrumentation code.
 struct IndexedFrequencyData {
+
+  // Describe the kind of data contained in frequency_data;
+  // IndexedFrequencyDataTypeName must be maintained if this is changed.
   enum DataType {
     INVALID_DATA_TYPE = 0,
     BASIC_BLOCK_ENTRY = 1,
     BRANCH = 2,
     COVERAGE = 3,
     JUMP_TABLE = 4,
+    MAX_DATA_TYPE = 5,
   };
 
   // An identifier denoting the agent with which this frequency data
@@ -114,6 +119,22 @@ extern const uint32 kJumpTableFrequencyDataVersion;
 // The name of the basic-block ranges stream added to the PDB by
 // any instrumentation employing basic-block trace data.
 extern const char kBasicBlockRangesStreamName[];
+
+// A string table mapping from DataType to text representation.
+// This array must be maintained if enum DataType is changed.
+extern const char* IndexedFrequencyDataTypeName[];
+
+// Produce a human readable name for the IndexedFrequencyData::DataType.
+// @param type type to convert in string.
+// @param result on success, receives the textual representation of @p type.
+bool IndexedFrequencyDataTypeToString(IndexedFrequencyData::DataType type,
+                                      std::string* result);
+
+// Parse a string to get the IndexedFrequencyData::DataType.
+// @param str the string to convert.
+// @param result on success, receives the DataType value of @p str.
+bool ParseFrequencyDataType(const base::StringPiece& str,
+                            IndexedFrequencyData::DataType* type);
 
 }  // namespace common
 

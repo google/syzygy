@@ -43,6 +43,14 @@ bool ModuleIdentityComparator::operator()(
   return lhs.image_file_name < rhs.image_file_name;
 }
 
+bool operator==(const IndexedFrequencyInformation& lhs,
+                const IndexedFrequencyInformation& rhs) {
+  return lhs.num_entries == rhs.num_entries &&
+      lhs.num_columns == rhs.num_columns &&
+      lhs.data_type == rhs.data_type &&
+      lhs.frequency_map == rhs.frequency_map;
+}
+
 void InitModuleInfo(const pe::PEFile::Signature& signature,
                     ModuleInformation* module_info) {
   DCHECK(module_info != NULL);
