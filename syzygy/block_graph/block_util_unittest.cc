@@ -288,14 +288,14 @@ TEST_F(BlockUtilOnTestDataTest, GetJumpTableSize) {
 
   // Iterates over the blocks of the block_graph. We expect to find only one
   // block containing one jump table.
-  for (; block_iter != block_graph_.blocks().end(); ++ block_iter) {
+  for (; block_iter != block_graph_.blocks().end(); ++block_iter) {
     if (block_iter->second.type() != BlockGraph::CODE_BLOCK)
       continue;
 
     // Iterates over the labels of the block to find the jump tables.
     BlockGraph::Block::LabelMap::const_iterator iter_label =
         block_iter->second.labels().begin();
-    for (; iter_label != block_iter->second.labels().end();++iter_label) {
+    for (; iter_label != block_iter->second.labels().end(); ++iter_label) {
       if (!iter_label->second.has_attributes(BlockGraph::JUMP_TABLE_LABEL))
         continue;
 

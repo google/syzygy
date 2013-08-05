@@ -632,8 +632,8 @@ class BasicCodeBlock : public BasicBlock {
   Size GetInstructionSize() const;
 
  private:
-   // BasicBlockSubGraph has a factory for this type.
-   friend class BasicBlockSubGraph;
+  // BasicBlockSubGraph has a factory for this type.
+  friend class BasicBlockSubGraph;
 
   // Initialize a basic code block.
   // @param subgraph The subgraph to which belongs this basic block.
@@ -690,8 +690,8 @@ class BasicDataBlock : public BasicBlock {
   virtual bool IsValid() const OVERRIDE;
 
  private:
-   // BasicBlockSubGraph has a factory for this type.
-   friend class BasicBlockSubGraph;
+  // BasicBlockSubGraph has a factory for this type.
+  friend class BasicBlockSubGraph;
 
   // Initialize a basic data or padding block.
   // @param subgraph The subgraph to which belongs this basic block.

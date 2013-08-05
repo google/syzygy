@@ -65,7 +65,6 @@
 #include "syzygy/block_graph/basic_block.h"
 
 #include <algorithm>
-#include <ostream>
 
 #include "base/stringprintf.h"
 #include "syzygy/core/assembler.h"
@@ -77,7 +76,7 @@ namespace block_graph {
 
 namespace {
 
- // A list of printable names corresponding to basic block types. This needs to
+// A list of printable names corresponding to basic block types. This needs to
 // be kept in sync with the BasicBlock::BasicBlockType enum!
 const char* kBasicBlockType[] = {
   "BASIC_CODE_BLOCK",
@@ -114,7 +113,7 @@ bool UpdateBasicBlockReferenceMap(BasicBlock::Size object_size,
 #ifndef NDEBUG
   // Validate no overlap with the previous reference, if any.
   if (result.first != ref_map->begin()) {
-   Iterator prev(result.first);
+    Iterator prev(result.first);
     --prev;
     DCHECK_GE(static_cast<BasicBlock::Size>(offset),
               prev->first + prev->second.size());

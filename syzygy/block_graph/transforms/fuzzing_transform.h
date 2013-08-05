@@ -35,7 +35,7 @@ class LivenessFuzzingBasicBlockTransform
     : public block_graph::transforms::NamedBasicBlockSubGraphTransformImpl<
           LivenessFuzzingBasicBlockTransform> {
  public:
-   LivenessFuzzingBasicBlockTransform() {}
+  LivenessFuzzingBasicBlockTransform() {}
 
   // The transform name.
   static const char kTransformName[];

@@ -253,7 +253,7 @@ bool BasicBlockSubGraph::HasValidReferrers() const {
   // Make sure all of the referrers were incremented to 1. If we missed any
   // they will still be 0.
   ReferrerCountMap::const_iterator count_iter = external_referrers.begin();
-  for (;count_iter != external_referrers.end(); ++count_iter) {
+  for (; count_iter != external_referrers.end(); ++count_iter) {
     if (count_iter->second != 1) {
       LOG(ERROR) << "Basic-block composition does not properly update a "
                  << "referrer.";

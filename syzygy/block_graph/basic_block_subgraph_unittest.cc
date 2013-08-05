@@ -44,9 +44,9 @@ const uint8 kData[kDataSize] = {0};
 // A derived class to expose protected members for unit-testing.
 class TestBasicBlockSubGraph : public BasicBlockSubGraph {
  public:
-   using BasicBlockSubGraph::HasValidReferrers;
-   using BasicBlockSubGraph::HasValidSuccessors;
-   using BasicBlockSubGraph::MapsBasicBlocksToAtMostOneDescription;
+  using BasicBlockSubGraph::HasValidReferrers;
+  using BasicBlockSubGraph::HasValidSuccessors;
+  using BasicBlockSubGraph::MapsBasicBlocksToAtMostOneDescription;
 };
 
 }  // namespace

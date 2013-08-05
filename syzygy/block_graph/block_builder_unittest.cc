@@ -46,9 +46,9 @@ const uint8 kNop9[9] = { 0x66, 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 class BlockBuilderTest : public testing::BasicBlockTest {
  public:
-   static Instruction* AddInstruction(BasicCodeBlock* bb,
-                                      const uint8* buf,
-                                      size_t len) {
+  static Instruction* AddInstruction(BasicCodeBlock* bb,
+                                     const uint8* buf,
+                                     size_t len) {
     CHECK(bb != NULL);
     Instruction tmp;
     EXPECT_TRUE(Instruction::FromBuffer(buf, len, &tmp));

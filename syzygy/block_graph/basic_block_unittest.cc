@@ -176,7 +176,7 @@ TEST_F(BasicBlockTest, InstructionConstructor) {
     BasicBlockReference r1(
         BlockGraph::RELATIVE_REF, kRefSize, basic_code_block_);
     Instruction call_instr = CreateCall(r1);
-    ASSERT_TRUE(call_instr.references().size() == 1);
+    ASSERT_EQ(1, call_instr.references().size());
     Instruction call_temp(call_instr);
     ASSERT_EQ(call_instr.references(), call_temp.references());
   }

@@ -118,7 +118,7 @@ bool MemoryAccessAnalysis::Intersect(const block_graph::BasicBlock* bb,
         changed = true;
       } else if (*it2 < *it1) {
         ++it2;
-      } else { // *it1 == *it2
+      } else {  // *it1 == *it2
         ++it1;
         ++it2;
       }

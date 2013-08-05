@@ -138,7 +138,7 @@ class MemoryAccessAnalysis {
   bool Intersect(const block_graph::BasicBlock* bb, const State& state);
 
   // Data structure to keep a set of memory locations for each basic block.
-  typedef std::map<const block_graph::BasicBlock*,State> StateMap;
+  typedef std::map<const block_graph::BasicBlock*, State> StateMap;
   StateMap states_;
 
  private:

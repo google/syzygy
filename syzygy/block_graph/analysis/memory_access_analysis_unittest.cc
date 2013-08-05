@@ -110,7 +110,7 @@ class MemoryAccessAnalysisTest : public testing::Test {
   }
 
   void GetStateAtEntryOf(const BasicBlock* bb, State* state) const {
-   return memory_access_.GetStateAtEntryOf(bb, state);
+    return memory_access_.GetStateAtEntryOf(bb, state);
   }
 
   template<size_t N>
