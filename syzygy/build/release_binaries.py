@@ -114,12 +114,15 @@ def main():
   archive_url = _SYZYGY_ARCHIVE_URL % { 'revision': revision }
   benchmark_url = archive_url + '/benchmark.zip'
   binaries_url = archive_url + '/binaries.zip'
+  symbols_url = archive_url + '/symbols.zip'
 
   # Download the archives.
   _LOGGER.info('Retrieving benchmark archive at "%s".', benchmark_url)
   benchmark_data = _Download(benchmark_url)
   _LOGGER.info('Retrieving binaries archive at "%s".', binaries_url)
   binaries_data = _Download(binaries_url)
+  _LOGGER.info('Retrieving symbols archive at "%s".', symbols_url)
+  symbols_data = _Download(symbols_url)
 
   # Create a new feature branch off the master branch for the release
   # before we start changing any files.
@@ -139,6 +142,11 @@ def main():
   # Extract the binaries archives to the exe directory.
   _LOGGER.info('Unzipping binaries archive.')
   archive = zipfile.ZipFile(cStringIO.StringIO(binaries_data))
+  archive.extractall(_EXE_DIR)
+
+  # Extract the symbols archives to the exe directory.
+  _LOGGER.info('Unzipping symbols archive.')
+  archive = zipfile.ZipFile(cStringIO.StringIO(symbols_data))
   archive.extractall(_EXE_DIR)
 
   # Add all the new files to the repo.
