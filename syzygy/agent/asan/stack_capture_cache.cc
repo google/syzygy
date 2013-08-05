@@ -117,7 +117,7 @@ void StackCaptureCache::Init() {
 const StackCapture* StackCaptureCache::SaveStackTrace(
     StackId stack_id, const void* const* frames, size_t num_frames) {
   DCHECK(frames != NULL);
-  DCHECK(num_frames != 0);
+  DCHECK_NE(num_frames, 0U);
   DCHECK(current_page_ != NULL);
 
   bool must_log = false;

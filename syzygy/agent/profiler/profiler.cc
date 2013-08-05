@@ -610,7 +610,7 @@ void Profiler::ThreadState::RecordInvocation(RetAddr caller,
       info->flags = 0;
     } else {
       // We're in a dynamic function symbol, record the details.
-      DCHECK(function_symbol->id() != 0);
+      DCHECK_NE(function_symbol->id(), 0);
 
       info->function_symbol_id = function_symbol->id();
       info->flags = kFunctionIsSymbol;
@@ -622,7 +622,7 @@ void Profiler::ThreadState::RecordInvocation(RetAddr caller,
       info->caller_offset = 0;
     } else {
       // We're in a dynamic caller_symbol, record the details.
-      DCHECK(caller_symbol->id() != 0);
+      DCHECK_NE(caller_symbol->id(), 0);
 
       info->caller_symbol_id = caller_symbol->id();
       info->flags |= kCallerIsSymbol;

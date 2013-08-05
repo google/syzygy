@@ -100,7 +100,7 @@
 //      );
 //
 
-#define InsertTailList(ListHead,Entry) {\
+#define InsertTailList(ListHead, Entry) {\
     PLIST_ENTRY _EX_Blink;\
     PLIST_ENTRY _EX_ListHead;\
     _EX_ListHead = (ListHead);\
@@ -119,7 +119,7 @@
 //      );
 //
 
-#define InsertHeadList(ListHead,Entry) {\
+#define InsertHeadList(ListHead, Entry) {\
     PLIST_ENTRY _EX_Flink;\
     PLIST_ENTRY _EX_ListHead;\
     _EX_ListHead = (ListHead);\

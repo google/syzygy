@@ -162,7 +162,7 @@ TEST_F(ProcessUtilsTest, LogModule) {
   EXPECT_CALL(handler_, OnProcessAttach(_,
                                         process_id,
                                         thread_id,
-                                        ModuleAtAddress(self)));;
+                                        ModuleAtAddress(self)));
   EXPECT_CALL(handler_, OnProcessEnded(_, process_id));
 
   ASSERT_NO_FATAL_FAILURE(ReplayLogs(1));
