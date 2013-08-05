@@ -59,6 +59,8 @@
       'sources': [
         'block_util.cc',
         'block_util.h',
+        'coff_decomposer.cc',
+        'coff_decomposer.h',
         'coff_file.cc',
         'coff_file.h',
         'dia_browser.cc',
@@ -168,6 +170,7 @@
       'type': 'executable',
       'sources': [
         'block_util_unittest.cc',
+        'coff_decomposer_unittest.cc',
         'coff_file_unittest.cc',
         'decompose_app_unittest.cc',
         'decompose_image_to_text_unittest.cc',
