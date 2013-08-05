@@ -46,6 +46,8 @@
         'grinders/basic_block_entry_count_grinder.h',
         'grinders/coverage_grinder.cc',
         'grinders/coverage_grinder.h',
+        'grinders/indexed_frequency_data_grinder.cc',
+        'grinders/indexed_frequency_data_grinder.h',
         'grinders/profile_grinder.cc',
         'grinders/profile_grinder.h',
       ],

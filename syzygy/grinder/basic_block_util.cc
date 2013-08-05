@@ -206,6 +206,7 @@ uint32 GetFrequency(const TraceIndexedFrequencyData* data,
   DCHECK_LT(column, data->num_columns);
 
   DCHECK(data->data_type == common::IndexedFrequencyData::BASIC_BLOCK_ENTRY ||
+         data->data_type == common::IndexedFrequencyData::BRANCH ||
          data->data_type == common::IndexedFrequencyData::COVERAGE);
 
   size_t offset = bb_id * data->num_columns + column;

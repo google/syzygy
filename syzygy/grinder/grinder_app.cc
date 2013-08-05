@@ -20,6 +20,7 @@
 #include "base/stringprintf.h"
 #include "syzygy/grinder/grinders/basic_block_entry_count_grinder.h"
 #include "syzygy/grinder/grinders/coverage_grinder.h"
+#include "syzygy/grinder/grinders/indexed_frequency_data_grinder.h"
 #include "syzygy/grinder/grinders/profile_grinder.h"
 
 namespace grinder {
@@ -40,7 +41,7 @@ const char kUsageFormatStr[] =
     "\n"
     "Required parameters\n"
     "  --mode=<mode>\n"
-    "    The processing mode. Must be one of 'bbentry', 'coverage' or \n"
+    "    The processing mode. Must be one of 'bbentry', 'branch', 'coverage'\n"
     "    or 'profile'.\n"
     "Optional parameters\n"
     "  --output-file=<output file>\n"
@@ -104,6 +105,9 @@ bool GrinderApp::ParseCommandLine(const CommandLine* command_line) {
   } else if (LowerCaseEqualsASCII(mode, "bbentry")) {
     mode_ = kBasicBlockEntry;
     grinder_.reset(new grinders::BasicBlockEntryCountGrinder());
+  } else if (LowerCaseEqualsASCII(mode, "branch")) {
+    mode_ = kIndexedFrequencyData;
+    grinder_.reset(new grinders::IndexedFrequencyDataGrinder());
   } else {
     PrintUsage(command_line->GetProgram(),
                base::StringPrintf("Unknown mode: %s.", mode.c_str()));
