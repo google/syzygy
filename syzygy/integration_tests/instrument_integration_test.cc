@@ -25,6 +25,7 @@
 #include "syzygy/grinder/grinder.h"
 #include "syzygy/grinder/grinders/basic_block_entry_count_grinder.h"
 #include "syzygy/grinder/grinders/coverage_grinder.h"
+#include "syzygy/grinder/grinders/indexed_frequency_data_grinder.h"
 #include "syzygy/instrument/instrument_app.h"
 #include "syzygy/integration_tests/integration_tests_dll.h"
 #include "syzygy/pe/decomposer.h"
@@ -36,7 +37,10 @@ namespace integration_tests {
 namespace {
 
 using grinder::basic_block_util::EntryCountMap;
+using grinder::basic_block_util::IndexedFrequencyInformation;
+using grinder::basic_block_util::IndexedFrequencyMap;
 using grinder::basic_block_util::ModuleEntryCountMap;
+using grinder::basic_block_util::ModuleIndexedFrequencyMap;
 using instrument::InstrumentApp;
 using trace::parser::Parser;
 typedef block_graph::BlockGraph::Block Block;
@@ -431,6 +435,16 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     return entry->second;
   }
 
+  int GetBlockFrequency(const IndexedFrequencyMap& frequencies,
+                        const Block* block) {
+    DCHECK(block != NULL);
+    IndexedFrequencyMap::const_iterator entry =
+        frequencies.find(std::make_pair(block->addr().value(), 0));
+    if (entry == frequencies.end())
+      return 0;
+    return entry->second;
+  }
+
   void ExpectFunctionFrequency(const EntryCountMap& entry_count,
                                const char* function_name,
                                int expected_frequency) {
@@ -438,6 +452,16 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     const Block* block = FindBlockWithName(function_name);
     ASSERT_TRUE(block != NULL);
     int exec_frequency = GetBlockFrequency(entry_count, block);
+    EXPECT_EQ(expected_frequency, exec_frequency);
+  }
+
+  void ExpectFunctionFrequency(const IndexedFrequencyMap& frequencies,
+                               const char* function_name,
+                               int expected_frequency) {
+    DCHECK(function_name != NULL);
+    const Block* block = FindBlockWithName(function_name);
+    ASSERT_TRUE(block != NULL);
+    int exec_frequency = GetBlockFrequency(frequencies, block);
     EXPECT_EQ(expected_frequency, exec_frequency);
   }
 
@@ -490,6 +514,51 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
         ExpectFunctionFrequency(entry_count, "BBEntryCallRecursive", 1));
     ASSERT_NO_FATAL_FAILURE(
         ExpectFunctionFrequency(entry_count, "BBEntryFunctionRecursive", 42));
+  }
+
+  void BranchCheckTestDll() {
+    Parser parser;
+    grinder::grinders::IndexedFrequencyDataGrinder grinder;
+
+    // Initialize trace parser.
+    ASSERT_TRUE(parser.Init(&grinder));
+    grinder.SetParser(&parser);
+
+    // Add generated traces to the parser.
+    QueueTraces(&parser);
+
+    // Parse all traces.
+    ASSERT_TRUE(parser.Consume());
+    ASSERT_FALSE(parser.error_occurred());
+    ASSERT_TRUE(grinder.Grind());
+
+    // Retrieve basic block count information.
+    const grinder::basic_block_util::ModuleIndexedFrequencyMap& module_map =
+        grinder.frequency_data_map();
+    ASSERT_EQ(1u, module_map.size());
+
+    ModuleIndexedFrequencyMap::const_iterator entry_iter = module_map.begin();
+    const IndexedFrequencyInformation& information = entry_iter->second;
+    const IndexedFrequencyMap& frequency_map = information.frequency_map;
+
+    // Decompose the output image.
+    ASSERT_NO_FATAL_FAILURE(DecomposeImage());
+
+    // Validate function entry counts.
+    ASSERT_NO_FATAL_FAILURE(
+        ExpectFunctionFrequency(frequency_map, "BBEntryCallOnce", 1));
+    ASSERT_NO_FATAL_FAILURE(
+        ExpectFunctionFrequency(frequency_map, "BBEntryCallTree", 1));
+    ASSERT_NO_FATAL_FAILURE(
+        ExpectFunctionFrequency(frequency_map, "BBEntryFunction1", 4));
+    ASSERT_NO_FATAL_FAILURE(
+        ExpectFunctionFrequency(frequency_map, "BBEntryFunction2", 2));
+    ASSERT_NO_FATAL_FAILURE(
+        ExpectFunctionFrequency(frequency_map, "BBEntryFunction3", 1));
+    ASSERT_NO_FATAL_FAILURE(
+        ExpectFunctionFrequency(frequency_map, "BBEntryCallRecursive", 1));
+    ASSERT_NO_FATAL_FAILURE(
+        ExpectFunctionFrequency(frequency_map, "BBEntryFunctionRecursive", 42));
   }
 
   bool GetLineInfoExecution(const SourceFileCoverageData* data, size_t line) {
@@ -644,6 +713,15 @@ TEST_F(InstrumentAppIntegrationTest, InlineFastPathBBEntryEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(BBEntryInvokeTestDll());
   ASSERT_NO_FATAL_FAILURE(StopService());
   ASSERT_NO_FATAL_FAILURE(BBEntryCheckTestDll());
+}
+
+TEST_F(InstrumentAppIntegrationTest, BranchEndToEnd) {
+  ASSERT_NO_FATAL_FAILURE(StartService());
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("branch"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(BBEntryInvokeTestDll());
+  ASSERT_NO_FATAL_FAILURE(StopService());
+  ASSERT_NO_FATAL_FAILURE(BranchCheckTestDll());
 }
 
 TEST_F(InstrumentAppIntegrationTest, CallTraceEndToEnd) {
