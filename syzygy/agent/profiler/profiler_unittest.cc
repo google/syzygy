@@ -716,7 +716,12 @@ TEST_F(ProfilerTest, OnDynamicFunctionEntry) {
 namespace {
 
 void WINAPI TlsAction(PVOID h, DWORD reason, PVOID reserved) {
-  InvokeFunctionAThunk();
+  // We sometimes get stray threads winding up inside a unittest, and those
+  // will generate a TLS callback. If we pass these through, flakiness will
+  // result, so we pass only through calls on from base::Thread, which
+  // we identify by the presence of a message loop.
+  if (MessageLoop::current() != NULL)
+    InvokeFunctionAThunk();
 }
 
 }  // namespace
