@@ -224,12 +224,12 @@ class BasicBlockEntryTest : public testing::Test {
   }
 
   void SimulateBranchLeave(uint32 basic_block_id) {
-     __asm {
-       push basic_block_id
-       push offset module_data_
-       call basic_block_exit_stub_
-     }
-   }
+    __asm {
+      push basic_block_id
+      push offset module_data_
+      call basic_block_exit_stub_
+    }
+  }
 
   // The directory where trace file output will be written.
   base::ScopedTempDir temp_dir_;
@@ -478,7 +478,7 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBasicBlockEvents) {
   EXPECT_CALL(handler_, OnProcessAttach(_,
                                         process_id,
                                         thread_id,
-                                        ModuleAtAddress(self)));;
+                                        ModuleAtAddress(self)));
   EXPECT_CALL(handler_, OnIndexedFrequency(
       _,
       process_id,
