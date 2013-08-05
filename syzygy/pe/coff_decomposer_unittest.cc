@@ -47,7 +47,7 @@ class CoffDecomposerTest : public testing::Test {
     testing::Test::SetUp();
 
     test_dll_obj_path_ =
-        testing::GetExeRelativePath(testing::kTestDllCoffObjName);
+        testing::GetExeTestDataRelativePath(testing::kTestDllCoffObjName);
     ASSERT_TRUE(image_file_.Init(test_dll_obj_path_));
   }
 

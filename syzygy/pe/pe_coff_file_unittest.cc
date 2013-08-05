@@ -121,9 +121,9 @@ class PECoffFileTest : public testing::PELibUnitTest {
 
     test_dll_path_ = testing::GetExeRelativePath(testing::kTestDllName);
     test_dll_coff_obj_path_ =
-        testing::GetOutputRelativePath(testing::kTestDllCoffObjName);
+        testing::GetExeTestDataRelativePath(testing::kTestDllCoffObjName);
     test_dll_ltcg_obj_path_ =
-        testing::GetOutputRelativePath(testing::kTestDllLtcgObjName);
+        testing::GetExeTestDataRelativePath(testing::kTestDllLtcgObjName);
   }
 
  protected:

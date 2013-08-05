@@ -29,9 +29,8 @@ namespace testing {
 extern const wchar_t kTestDllName[];
 extern const wchar_t kTestDllPdbName[];
 
-// Name of the test DLL object files, relative to the output
-// directory. The two object files are guaranteed to be in the
-// specified format.
+// Name of the test DLL object files, relative to the test_data directory.
+// The two object files are guaranteed to be in the specified format.
 extern const wchar_t kTestDllCoffObjName[];
 extern const wchar_t kTestDllLtcgObjName[];
 

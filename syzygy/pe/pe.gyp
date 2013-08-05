@@ -299,14 +299,14 @@
             'test_dll.cc',
           ],
           'outputs': [
-            '<(PRODUCT_DIR)/obj/test_dll/test_dll.coff_obj',
+            '<(PRODUCT_DIR)/test_data/test_dll.coff_obj',
           ],
           'action': [
             'cl',
             '/c',
             '/Gy',  # Enable function-level linking.
             '/Zi',  # Enable debug information in COFF+PDB.
-            '/Fo<(PRODUCT_DIR)\\obj\\test_dll\\test_dll.coff_obj',
+            '/Fo<(PRODUCT_DIR)\\test_data\\test_dll.coff_obj',
             'test_dll.cc',
           ],
         },
@@ -316,13 +316,13 @@
             'test_dll.cc',
           ],
           'outputs': [
-            '<(PRODUCT_DIR)/obj/test_dll/test_dll.ltcg_obj',
+            '<(PRODUCT_DIR)/test_data/test_dll.ltcg_obj',
           ],
           'action': [
             'cl',
             '/c',
             '/GL',
-            '/Fo<(PRODUCT_DIR)\\obj\\test_dll\\test_dll.ltcg_obj',
+            '/Fo<(PRODUCT_DIR)\\test_data\\test_dll.ltcg_obj',
             'test_dll.cc',
           ],
         },

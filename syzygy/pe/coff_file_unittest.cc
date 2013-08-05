@@ -37,7 +37,7 @@ class CoffFileTest : public testing::PELibUnitTest {
     Super::SetUp();
 
     test_dll_obj_path_ =
-        testing::GetOutputRelativePath(testing::kTestDllCoffObjName);
+        testing::GetExeTestDataRelativePath(testing::kTestDllCoffObjName);
   }
 
  protected:
