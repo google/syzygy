@@ -14,8 +14,12 @@
 
 #include "syzygy/pe/pe_utils.h"
 
+#include "base/strings/string_split.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/pe_file.h"
+#include "syzygy/pe/unittest_util.h"
 #include "syzygy/pe/transforms/add_imports_transform.h"
 
 namespace pe {
@@ -251,6 +255,95 @@ TEST_F(PEUtilsTest, GetNtHeadersBlockFromDosHeaderBlockConst) {
   ASSERT_EQ(nt_headers_block_,
             GetNtHeadersBlockFromDosHeaderBlock(
                 const_cast<const BlockGraph::Block*>(dos_header_block_)));
+}
+
+TEST_F(PEUtilsTest, GetSectionType) {
+  // Only the characteristics of the header should matter in determining the
+  // type of a section.
+  IMAGE_SECTION_HEADER code_header = {};
+  code_header.Characteristics = IMAGE_SCN_CNT_CODE |
+                                IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_EXECUTE;
+
+  // Anything that is readable and isn't code will be identified as data.
+  IMAGE_SECTION_HEADER data_header = {};
+  data_header.Characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA |
+                                IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE |
+                                IMAGE_SCN_ALIGN_4096BYTES;
+  IMAGE_SECTION_HEADER rdata_header = {};
+  rdata_header.Characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA |
+                                 IMAGE_SCN_MEM_READ |
+                                 IMAGE_SCN_LNK_COMDAT;
+  IMAGE_SECTION_HEADER bss_header = {};
+  bss_header.Characteristics = IMAGE_SCN_CNT_UNINITIALIZED_DATA |
+                               IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE |
+                               IMAGE_SCN_ALIGN_2BYTES;
+
+  // Anything that is neither readable nor code nor initialized data will be
+  // flagged as unknown.
+  IMAGE_SECTION_HEADER strange_header = {};
+  strange_header.Characteristics = IMAGE_SCN_CNT_UNINITIALIZED_DATA |
+                                   IMAGE_SCN_MEM_WRITE;
+
+  EXPECT_EQ(kSectionCode, GetSectionType(code_header));
+  EXPECT_EQ(kSectionData, GetSectionType(data_header));
+  EXPECT_EQ(kSectionData, GetSectionType(rdata_header));
+  EXPECT_EQ(kSectionData, GetSectionType(bss_header));
+  EXPECT_EQ(kSectionUnknown, GetSectionType(strange_header));
+}
+
+TEST_F(PEUtilsTest, AddLabelToBlock) {
+  BlockGraph::Block* block =
+      block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 0x100, "AddLabelToBlock");
+  ASSERT_TRUE(block != NULL);
+
+  ASSERT_TRUE(AddLabelToBlock(0x10, "L1", BlockGraph::DEBUG_START_LABEL,
+                              block));
+  ASSERT_TRUE(AddLabelToBlock(0x20, "L2", BlockGraph::CALL_SITE_LABEL,
+                              block));
+
+  BlockGraph::Label label;
+  ASSERT_TRUE(block->GetLabel(0x10, &label));
+  EXPECT_TRUE(label.name() == "L1");
+  EXPECT_TRUE(label.attributes() == BlockGraph::DEBUG_START_LABEL);
+  ASSERT_TRUE(block->GetLabel(0x20, &label));
+  EXPECT_TRUE(label.name() == "L2");
+  EXPECT_TRUE(label.attributes() == BlockGraph::CALL_SITE_LABEL);
+
+  ASSERT_TRUE(AddLabelToBlock(0x10, "L3", BlockGraph::CODE_LABEL, block));
+  ASSERT_TRUE(block->GetLabel(0x10, &label));
+
+  std::vector<std::string> names;
+  base::SplitStringUsingSubstr(label.name(), kLabelNameSep, &names);
+  EXPECT_TRUE(std::find(names.begin(), names.end(), "L1") != names.end());
+  EXPECT_TRUE(std::find(names.begin(), names.end(), "L3") != names.end());
+  EXPECT_EQ(BlockGraph::DEBUG_START_LABEL | BlockGraph::CODE_LABEL,
+            label.attributes());
+}
+
+TEST_F(PEUtilsTest, CopySectionInfoToBlockGraph) {
+  pe::PEFile image_file;
+
+  ASSERT_TRUE(image_file.Init(
+      testing::GetExeRelativePath(testing::kTestDllName)));
+  ASSERT_TRUE(CopySectionInfoToBlockGraph(image_file, &block_graph_));
+
+  const BlockGraph::SectionMap& sections = block_graph_.sections();
+  size_t num_sections = sections.size();
+  ASSERT_EQ(image_file.file_header()->NumberOfSections, num_sections);
+
+  for (size_t i = 0; i < num_sections; ++i) {
+    const IMAGE_SECTION_HEADER* header = image_file.section_header(i);
+    BlockGraph::SectionMap::const_iterator it = sections.find(i);
+    ASSERT_TRUE(it != sections.end());
+
+    EXPECT_EQ(i, it->second.id());
+    EXPECT_EQ(header->Characteristics, it->second.characteristics());
+
+    char name[IMAGE_SIZEOF_SHORT_NAME + 1] = {};
+    strncpy(name, reinterpret_cast<const char*>(header->Name),
+            IMAGE_SIZEOF_SHORT_NAME);
+    EXPECT_EQ(name, it->second.name());
+  }
 }
 
 TEST_F(PEUtilsTest, GetExeEntryPoint) {

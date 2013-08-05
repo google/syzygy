@@ -114,8 +114,6 @@ class NewDecomposer {
   // @{
   // Performs the actual decomposition.
   bool DecomposeImpl();
-  // Creates sections in the block-graph corresponding to those in the image.
-  bool CreateBlockGraphSections();
   // Parses PE-related blocks and references.
   bool CreatePEImageBlocksAndReferences(IntermediateReferences* references);
   // Creates blocks from the COFF group symbols in the linker symbol stream.

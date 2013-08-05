@@ -22,6 +22,15 @@
 
 namespace pe {
 
+// @name Operations on PE/COFF headers.
+// @{
+// Known section types.
+enum SectionType {
+  kSectionCode,
+  kSectionData,
+  kSectionUnknown
+};
+
 // Typical section names.
 extern const char kCodeSectionName[];
 extern const char kReadOnlyDataSectionName[];
@@ -65,6 +74,49 @@ block_graph::BlockGraph::Block* GetNtHeadersBlockFromDosHeaderBlock(
 // @returns true on success, false otherwise.
 bool UpdateDosHeader(block_graph::BlockGraph::Block* dos_header_block);
 
+// Determine the type of a section based on its attributes. Used to tag
+// blocks with an appropriate type.
+//
+// @param header the header of the section.
+// @returns the type of section.
+SectionType GetSectionType(const IMAGE_SECTION_HEADER& header);
+// @}
+
+// @name Block graph helpers.
+// @{
+// The separator that is used between the multiple symbol names that can be
+// associated with a single label.
+extern const char kLabelNameSep[];
+
+// Add the specified label to @p block, merging with existing labels at the
+// same position, if any. Label names are joined with kLabelNameSep.
+// Attributes are OR-ed.
+//
+// @param offset the position to insert the label at.
+// @param name the name of the label to insert.
+// @param label_attributes attributes to add to the label.
+// @param block the block to add the label to.
+// @returns true on success, false on failure.
+bool AddLabelToBlock(block_graph::BlockGraph::Offset offset,
+                     const base::StringPiece& name,
+                     block_graph::BlockGraph::LabelAttributes label_attributes,
+                     block_graph::BlockGraph::Block* block);
+
+// Create sections in @p image corresponding to the ones in @p image_file,
+// copying over relevant information.
+//
+// @tparam ImageFile the class of the file reader; must be derived
+//     from PECoffFile.
+// @param image_file the image file to read sections from.
+// @param block_graph the block graph to add sections to.
+// @returns true on success, false on failure.
+template <typename ImageFile>
+bool CopySectionInfoToBlockGraph(const ImageFile& image_file,
+                                 block_graph::BlockGraph* block_graph);
+// @}
+
+// @name Operations on entry points.
+// @{
 typedef std::pair<block_graph::BlockGraph::Block*,
                   block_graph::BlockGraph::Offset> EntryPoint;
 typedef std::set<EntryPoint> EntryPointSet;
@@ -123,6 +175,10 @@ bool GetTlsInitializers(block_graph::BlockGraph::Block* dos_header_block,
 bool HasImportEntry(block_graph::BlockGraph::Block* header_block,
                     const base::StringPiece& dll_name,
                     bool* has_import_entry);
+// @}
+
 }  // namespace pe
+
+#include "syzygy/pe/pe_utils_impl.h"
 
 #endif  // SYZYGY_PE_PE_UTILS_H_

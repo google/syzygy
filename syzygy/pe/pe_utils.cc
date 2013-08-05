@@ -15,6 +15,7 @@
 #include "syzygy/pe/pe_utils.h"
 
 #include "base/string_util.h"
+#include "base/strings/string_split.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/pe/dos_stub.h"
 
@@ -81,6 +82,9 @@ const char kRelocSectionName[] = ".reloc";
 const char kResourceSectionName[] = ".rsrc";
 const char kTlsSectionName[] = ".tls";
 
+// These constants reflect what we see in MSVS-produced PE files. They do not
+// exhaustively cover all possibilities and there are very likely other valid
+// combinations of characteristics.
 const DWORD kCodeCharacteristics =
     IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_EXECUTE;
 const DWORD kReadOnlyDataCharacteristics =
@@ -232,6 +236,71 @@ bool UpdateDosHeader(BlockGraph::Block* dos_header_block) {
   dos_header->e_lfarlc = sizeof(*dos_header);
 
   DCHECK(IsValidDosHeaderBlock(dos_header_block));
+
+  return true;
+}
+
+SectionType GetSectionType(const IMAGE_SECTION_HEADER& header) {
+  if ((header.Characteristics & IMAGE_SCN_CNT_CODE) != 0)
+    return kSectionCode;
+  if ((header.Characteristics & kReadOnlyDataCharacteristics) != 0)
+    return kSectionData;
+  return kSectionUnknown;
+}
+
+// We use ", " as a separator between symbol names. We sometimes see commas
+// in symbol names but do not see whitespace. Thus, this provides a useful
+// separator that is also human friendly to read.
+const char kLabelNameSep[] = ", ";
+
+bool AddLabelToBlock(BlockGraph::Offset offset,
+                     const base::StringPiece& name,
+                     BlockGraph::LabelAttributes label_attributes,
+                     BlockGraph::Block* block) {
+  DCHECK(block != NULL);
+
+  // It is possible for labels to be attached to the first byte past a block
+  // (things like debug end, scope end, etc). It is up to the caller to be more
+  // strict about the offset if need be.
+  DCHECK_LE(0, offset);
+  DCHECK_LE(offset, static_cast<BlockGraph::Offset>(block->size()));
+
+  // Try to create the label.
+  if (block->SetLabel(offset, name, label_attributes)) {
+    // If there was no label at offset 0, then this block has not yet been
+    // renamed, and still has its section contribution as a name. Update it to
+    // the first symbol we get for it. We parse symbols from most useful
+    // (undecorated function names) to least useful (mangled public symbols), so
+    // this ensures a block has the most useful name.
+    if (offset == 0)
+      block->set_name(name);
+
+    return true;
+  }
+
+  // If we get here there's an already existing label. Update it.
+  BlockGraph::Label label;
+  CHECK(block->GetLabel(offset, &label));
+
+  // Merge the names if this isn't a repeated name.
+  std::string name_str = name.as_string();
+  std::string new_name = label.name();
+  std::vector<std::string> names;
+  base::SplitStringUsingSubstr(label.name(), kLabelNameSep, &names);
+  if (std::find(names.begin(), names.end(), name_str) == names.end()) {
+    names.push_back(name_str);
+    new_name.append(kLabelNameSep);
+    new_name.append(name_str);
+  }
+
+  // Merge the attributes.
+  BlockGraph::LabelAttributes new_label_attr = label.attributes() |
+      label_attributes;
+
+  // Update the label.
+  label = BlockGraph::Label(new_name, new_label_attr);
+  CHECK(block->RemoveLabel(offset));
+  CHECK(block->SetLabel(offset, label));
 
   return true;
 }

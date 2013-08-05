@@ -98,6 +98,7 @@
         'pe_file_writer.h',
         'pe_utils.cc',
         'pe_utils.h',
+        'pe_utils_impl.h',
         'pe_relinker.cc',
         'pe_relinker.h',
         'serialization.cc',

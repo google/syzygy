@@ -222,12 +222,6 @@ bool GetTypeInfo(IDiaSymbol* symbol, size_t* length) {
   return true;
 }
 
-enum SectionType {
-  kSectionCode,
-  kSectionData,
-  kSectionUnknown
-};
-
 SectionType GetSectionType(const IMAGE_SECTION_HEADER* header) {
   DCHECK(header != NULL);
   if ((header->Characteristics & IMAGE_SCN_CNT_CODE) != 0)
