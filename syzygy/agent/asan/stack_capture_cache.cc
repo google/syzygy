@@ -111,7 +111,7 @@ StackCaptureCache::~StackCaptureCache() {
 }
 
 void StackCaptureCache::Init() {
-   compression_reporting_period_ = kDefaultCompressionReportingPeriod;
+  compression_reporting_period_ = kDefaultCompressionReportingPeriod;
 }
 
 const StackCapture* StackCaptureCache::SaveStackTrace(

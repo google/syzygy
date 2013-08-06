@@ -191,7 +191,7 @@ TEST_F(HeapTest, Quarantine) {
   ASSERT_TRUE(proxy_.Free(0, mem));
   // Allocate a bunch of blocks until the first one is pushed out of the
   // quarantine.
-  for (size_t i = 0;i < number_of_allocs; ++i) {
+  for (size_t i = 0; i < number_of_allocs; ++i) {
     ASSERT_TRUE(proxy_.InQuarantine(mem));
     LPVOID mem2 = proxy_.Alloc(0, kAllocSize);
     ASSERT_TRUE(mem2 != NULL);
@@ -216,7 +216,7 @@ TEST_F(HeapTest, UnpoisonsQuarantine) {
 
   // Assert that the shadow memory has been correctly poisoned.
   intptr_t mem_start = reinterpret_cast<intptr_t>(proxy_.ToBlockHeader(mem));
-  ASSERT_TRUE((mem_start & 7) == 0);
+  ASSERT_EQ(0, (mem_start & 7) );
   size_t shadow_start = mem_start >> 3;
   size_t shadow_alloc_size = real_alloc_size >> 3;
   for (size_t i = shadow_start; i < shadow_start + shadow_alloc_size; ++i) {
@@ -369,7 +369,7 @@ TEST_F(HeapTest, SetQueryInformation) {
       proxy_.QueryInformation(HeapCompatibilityInformation,
                               &compat_flag, sizeof(compat_flag), &ret));
   ASSERT_EQ(sizeof(compat_flag), ret);
-  ASSERT_TRUE(compat_flag != -1);
+  ASSERT_NE(~0U, compat_flag);
 
   // Put the heap in LFH, which should always succeed, except when a debugger
   // is attached. When a debugger is attached, the heap is wedged in certain

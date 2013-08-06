@@ -578,12 +578,11 @@ void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
           == Shadow::kAsanMemoryByte) {
       error_info->error_type = HeapProxy::WILD_ACCESS;
   } else if (Shadow::GetShadowMarkerForAddress(error_info->location) ==
-      Shadow::kInvalidAddress){
+      Shadow::kInvalidAddress) {
     error_info->error_type = HeapProxy::INVALID_ADDRESS;
   } else {
     // Iterates over the HeapProxy list to find the memory block containing this
     // address. We expect that there is at least one heap proxy extant.
-    HeapProxy* proxy = NULL;
     LIST_ENTRY* item = heap_proxy_dlist_.Flink;
     CHECK(item != NULL);
     while (item != NULL) {
@@ -592,7 +591,7 @@ void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
         next_item = item->Flink;
       }
 
-      proxy = HeapProxy::FromListEntry(item);
+      HeapProxy* proxy = HeapProxy::FromListEntry(item);
       if (proxy->GetBadAccessInformation(error_info))
         break;
 

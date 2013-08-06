@@ -166,7 +166,6 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
     return NULL;
 
   // Poison head and tail zones, and un-poison alloc.
-  size_t header_size = sizeof(BlockHeader);
   size_t trailer_size = alloc_size - sizeof(BlockHeader) - bytes;
   Shadow::Poison(block_header, sizeof(BlockHeader), Shadow::kHeapLeftRedzone);
 

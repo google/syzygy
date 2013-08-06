@@ -136,7 +136,7 @@ TEST_F(AsanRtlImplTest, SetQueryInformation) {
       asan_HeapQueryInformation(heap_, HeapCompatibilityInformation,
                                 &compat_flag, sizeof(compat_flag), &ret));
   ASSERT_EQ(sizeof(compat_flag), ret);
-  ASSERT_TRUE(compat_flag != -1);
+  ASSERT_NE(~0U, compat_flag);
 
   // Put the heap in LFH, which should always succeed, except when a debugger
   // is attached. When a debugger is attached, the heap is wedged in certain

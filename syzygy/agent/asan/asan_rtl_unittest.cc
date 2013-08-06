@@ -249,7 +249,7 @@ void CheckAccessAndCaptureContexts(
     mov edx, location
     // Call through.
     call dword ptr[check_access_fn + 0]
-check_access_expected_eip:
+ check_access_expected_eip:
 
     RTL_CAPTURE_CONTEXT(after, check_access_expected_eip)
 
@@ -281,7 +281,7 @@ void CheckSpecialAccess(CONTEXT* before, CONTEXT* after,
     cmp direction_flag_forward, 0
     jne skip_reverse_direction
     std
-skip_reverse_direction:
+ skip_reverse_direction:
 
     // Avoid undefined behavior by forcing values.
     mov eax, 0x01234567
@@ -297,7 +297,7 @@ skip_reverse_direction:
 
     // Call through.
     call dword ptr[check_access_fn + 0]
-special_access_expected_eip:
+ special_access_expected_eip:
 
     RTL_CAPTURE_CONTEXT(after, special_access_expected_eip)
 

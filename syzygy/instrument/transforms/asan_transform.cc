@@ -353,7 +353,7 @@ std::string GetAsanCheckAccessFunctionName(
                           access_mode_str,
                           info.save_flags ? "" : "_no_flags");
   StringToLowerASCII(&function_name);
-  return function_name.c_str();
+  return function_name;
 }
 
 // Add the imports for the asan check access hooks to the block-graph.
