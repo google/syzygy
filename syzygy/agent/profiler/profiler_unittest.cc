@@ -593,7 +593,7 @@ TEST_F(ProfilerTest, RecordsThreadName) {
   EXPECT_CALL(handler_, OnInvocationBatch(_,
                                           ::GetCurrentProcessId(),
                                           ::GetCurrentThreadId(),
-                                          _ , _));
+                                          _, _));
   EXPECT_CALL(handler_, OnThreadName(_,
                                      ::GetCurrentProcessId(),
                                      ::GetCurrentThreadId(),

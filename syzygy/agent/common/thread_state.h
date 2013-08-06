@@ -69,25 +69,23 @@ class ThreadStateManager {
   void Unregister(ThreadStateBase* item);
 
   // Transfer @p item from the list of active items to the death row list. This
-  // does not delete @p item immediately.
+  // does not delete @p item immediately if it's called on @p items' own
+  // thread.
   void MarkForDeath(ThreadStateBase* item);
 
  protected:
-  // A helper method which gathers up any dead items from the death row list,
-  // optionally transfers @p item from the list of active items to the death
-  // row list, then delete all of the dead items. As a convenience, it takes
-  // an optional bool param which will be set to true if there are any items
-  // still being managed by this ThreadStateManager instance upon this
-  // functions return.
-  void Scavenge(ThreadStateBase* item, bool* has_items_remaining);
+  // A helper method which gathers up any dead items from the death row list.
+  // @returns true iff there are any items still being managed by this
+  //     ThreadStateManager instance upon this functions return.
+  bool Scavenge();
 
   // Gathers all items which have been marked for death whose owning threads
-  // have terminated into @p dead_items. These items can subsequently be deleted
-  // using the Delete() method.
+  // have terminated into @p dead_items. These items can subsequently be
+  // deleted using the Delete() method.
   void GatherDeadItemsUnlocked(LIST_ENTRY* dead_items);
 
-  // Deletes (using the delete operator) each item in @p dead_items.
-  static void DeleteDeadItems(LIST_ENTRY* dead_items);
+  // Deletes (using the delete operator) each item in @p items.
+  static void DeleteItems(LIST_ENTRY* items);
 
   // Returns true if the thread which owns @p item has terminated.
   static bool IsThreadDead(ThreadStateBase* item);

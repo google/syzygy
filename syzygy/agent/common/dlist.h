@@ -132,4 +132,8 @@
 
 #endif  // InitializeListHead
 
+
+BOOL IsNodeOnList(PLIST_ENTRY ListHead, PLIST_ENTRY Entry);
+
+
 #endif  // SYZYGY_AGENT_COMMON_DLIST_H_

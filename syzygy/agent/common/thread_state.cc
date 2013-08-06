@@ -20,7 +20,8 @@ namespace agent {
 namespace common {
 
 ThreadStateBase::ThreadStateBase()
-    : thread_handle_(::OpenThread(SYNCHRONIZE, FALSE, ::GetCurrentThreadId())) {
+    : thread_handle_(
+        ::OpenThread(SYNCHRONIZE, FALSE, ::GetCurrentThreadId())) {
   DCHECK(thread_handle_.IsValid());
   InitializeListHead(&entry_);
 }
@@ -35,10 +36,36 @@ ThreadStateManager::ThreadStateManager() {
 }
 
 ThreadStateManager::~ThreadStateManager() {
-  bool has_leaked_items = false;
-  Scavenge(NULL, &has_leaked_items);
-  if (has_leaked_items)
-    LOG(WARNING) << "Leaking thread state items.";
+  // Destroy all active and death row thread states here. Note that this is
+  // racy as hell if other threads are active, but it's the caller's
+  // responsibilty to ensure that's not the case.
+
+  // Attempt an orderly deletion of items of the death row.
+  Scavenge();
+
+  // Note that we don't hold lock_ for these operations, as the destructor
+  // has to be the only member of the party at this point.
+  if (!IsListEmpty(&death_row_items_)) {
+    // This will happen if the items have been marked for death, but their
+    // threads are still active.
+    LOG(WARNING) << "Active death row items at manager destruction.";
+
+    DeleteItems(&death_row_items_);
+  }
+
+  if (!IsListEmpty(&active_items_)) {
+    // This can and will happen if other threads in the process have been
+    // terminated, as that'll orphan their thread states.
+    LOG(WARNING) << "Active thread states at manager destruction.";
+
+    DeleteItems(&active_items_);
+  }
+
+  // If either of these asserts fire, then there are active threads in the
+  // process that are still interacting with the manager. This is obviously
+  // very bad, as the manager is about to wink out of existence.
+  DCHECK(IsListEmpty(&active_items_));
+  DCHECK(IsListEmpty(&death_row_items_));
 }
 
 void ThreadStateManager::Register(ThreadStateBase* item) {
@@ -57,40 +84,56 @@ void ThreadStateManager::Unregister(ThreadStateBase* item) {
 
 void ThreadStateManager::MarkForDeath(ThreadStateBase* item) {
   DCHECK(item != NULL);
-  Scavenge(item, NULL);
+
+  {
+    base::AutoLock auto_lock(lock_);
+
+    // Make sure the item we're marking is on the active or death row lists.
+    DCHECK(IsNodeOnList(&active_items_, &item->entry_) ||
+           IsNodeOnList(&death_row_items_, &item->entry_));
+
+    // Pull it out of the list it's on, this'll preserve it over the scavenge
+    // below, in the unlikely case that the item is being marked from another
+    // thread than it's own.
+    RemoveEntryList(&item->entry_);
+  }
+
+  // Use this opportunity to scavenge existing thread states on death row.
+  Scavenge();
+
+  // Mark item for death, for later scavenging.
+  {
+    base::AutoLock auto_lock(lock_);
+
+    InsertHeadList(&death_row_items_, &item->entry_);
+  }
 }
 
-void ThreadStateManager::Scavenge(ThreadStateBase* item, bool* has_more_items) {
+bool ThreadStateManager::Scavenge() {
   // We'll store the list of scavenged items here.
   LIST_ENTRY dead_items;
   InitializeListHead(&dead_items);
+  bool has_more_items = false;
 
   // Acquire the lock when interacting with the internal data.
   {
     base::AutoLock auto_lock(lock_);
 
-    // Put all of the death row items belong to dead threads into dead_items.
+    // Put all of the death row items belonging
+    // to dead threads into dead_items.
     GatherDeadItemsUnlocked(&dead_items);
-
-    // If there's an item to mark for death, do so. We do this after gathering
-    // the dead items because the item in question presumably belongs to the
-    // current thread and so could never be gathered.
-    if (item != NULL) {
-      RemoveEntryList(&item->entry_);
-      InsertHeadList(&death_row_items_, &item->entry_);
-    }
 
     // Return whether or not the thread state manager is no longer holding
     // any items.
-    if (has_more_items != NULL) {
-      *has_more_items =
-          !IsListEmpty(&active_items_) || !IsListEmpty(&death_row_items_);
-    }
+    has_more_items =
+        !IsListEmpty(&active_items_) || !IsListEmpty(&death_row_items_);
   }
 
   // We can delete any dead items we found outside of the lock.
-  DeleteDeadItems(&dead_items);
+  DeleteItems(&dead_items);
   DCHECK(IsListEmpty(&dead_items));
+
+  return has_more_items;
 }
 
 void ThreadStateManager::GatherDeadItemsUnlocked(LIST_ENTRY* dead_items) {
@@ -127,13 +170,13 @@ bool ThreadStateManager::IsThreadDead(ThreadStateBase* item) {
   return ::WaitForSingleObject(item->thread_handle_, 0)  == WAIT_OBJECT_0;
 }
 
-void ThreadStateManager::DeleteDeadItems(LIST_ENTRY* dead_items) {
-  DCHECK(dead_items != NULL);
-  // Ok, let's kill any entries we scavenged.
-  while (!IsListEmpty(dead_items)) {
+void ThreadStateManager::DeleteItems(LIST_ENTRY* items) {
+  DCHECK(items != NULL);
+  // Let's delete all entries in items.
+  while (!IsListEmpty(items)) {
     ThreadStateBase* item =
-        CONTAINING_RECORD(dead_items->Flink, ThreadStateBase, entry_);
-    RemoveHeadList(dead_items);
+        CONTAINING_RECORD(items->Flink, ThreadStateBase, entry_);
+    RemoveHeadList(items);
     InitializeListHead(&item->entry_);
     delete item;
   }

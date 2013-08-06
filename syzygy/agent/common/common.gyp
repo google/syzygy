@@ -21,6 +21,7 @@
       'target_name': 'agent_common_lib',
       'type': 'static_library',
       'sources': [
+        'dlist.cc',
         'dlist.h',
         'dll_notifications.cc',
         'dll_notifications.h',
@@ -44,6 +45,7 @@
       'type': 'executable',
       'sources': [
         'agent_common_unittests_main.cc',
+        'dlist_unittest.cc',
         'dll_notifications_unittest.cc',
         'process_utils_unittest.cc',
         'thread_state_unittest.cc',
