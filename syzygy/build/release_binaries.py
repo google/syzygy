@@ -144,10 +144,12 @@ def main():
   archive = zipfile.ZipFile(cStringIO.StringIO(binaries_data))
   archive.extractall(_EXE_DIR)
 
-  # Extract the symbols archives to the exe directory.
+  # Extract the symbols for the agents to the exe directory.
   _LOGGER.info('Unzipping symbols archive.')
   archive = zipfile.ZipFile(cStringIO.StringIO(symbols_data))
-  archive.extractall(_EXE_DIR)
+  for symbol in archive.infolist():
+    if symbol.filename.endswith('.dll.pdb'):
+      archive.extract(symbol.filename, _EXE_DIR)
 
   # Add all the new files to the repo.
   _LOGGER.info('Committing release files.')
