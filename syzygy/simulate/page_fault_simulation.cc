@@ -57,7 +57,7 @@ bool PageFaultSimulation::SerializeToJSON(FILE* output,
   }
 
   PageSet::const_iterator i = pages_.begin();
-  for (; i != pages_.end(); i++) {
+  for (; i != pages_.end(); ++i) {
     if (!json_file.OutputInteger(*i)) {
       return false;
     }

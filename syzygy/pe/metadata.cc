@@ -165,7 +165,6 @@ bool LoadPEFileSignature(const DictionaryValue& dictionary,
   int module_size = 0;
   std::string stamp;
   std::string checksum;
-  Value* value = NULL;
   if (!dictionary.GetString(kPathKey, &path) ||
       !dictionary.GetInteger(kBaseAddressKey, &base_address) ||
       !dictionary.GetInteger(kModuleSizeKey, &module_size) ||

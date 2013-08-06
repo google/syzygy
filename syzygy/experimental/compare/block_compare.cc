@@ -113,7 +113,6 @@ int BlockCompare(const BlockGraph::Block* block0,
                block0->data_size() - data_index);
     if (c != 0)
       return c;
-    data_index = block0->data_size();
   }
 
   // We don't need to compare bytes [data_size, size), as these are always

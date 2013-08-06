@@ -2281,7 +2281,6 @@ CallbackDirective Decomposer::LookPastInstructionForData(
 }
 
 void Decomposer::MarkDisassembledPastEnd() {
-  static size_t count = 0;
   DCHECK(current_block_ != NULL);
   current_block_->set_attribute(BlockGraph::DISASSEMBLED_PAST_END);
   // TODO(chrisha): The entire "disassembled past end" and non-returning
@@ -2809,7 +2808,6 @@ bool Decomposer::OmapAndValidateFixups(const std::vector<OMAP>& omap_from,
   }
 
   // Ensure the fixups are all valid, and populate the fixup map.
-  size_t skipped = 0;
   for (size_t i = 0; i < pdb_fixups.size(); ++i) {
     if (!pdb_fixups[i].ValidHeader()) {
       LOG(ERROR) << "Unknown fixup header: "

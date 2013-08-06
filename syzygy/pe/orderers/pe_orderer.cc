@@ -199,8 +199,6 @@ bool PEOrderer::OrderBlockGraph(OrderedBlockGraph* ordered_block_graph,
   DCHECK(ordered_block_graph != NULL);
   DCHECK(dos_header_block != NULL);
 
-  BlockGraph* block_graph = ordered_block_graph->block_graph();
-
   TypedBlock<IMAGE_DOS_HEADER> dos_header;
   TypedBlock<IMAGE_NT_HEADERS> nt_headers;
   if (!ValidateAndLayoutHeaders(ordered_block_graph, dos_header_block,

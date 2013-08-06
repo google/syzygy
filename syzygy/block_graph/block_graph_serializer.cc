@@ -401,7 +401,7 @@ bool BlockGraphSerializer::SaveBlockLabels(const BlockGraph::Block& block,
 
   BlockGraph::Block::LabelMap::const_iterator label_iter =
       block.labels().begin();
-  for (; label_iter != block.labels().end(); label_iter++) {
+  for (; label_iter != block.labels().end(); ++label_iter) {
     COMPILE_ASSERT(BlockGraph::LABEL_ATTRIBUTES_MAX <= (1 << 16),
                    label_attributes_require_more_than_16_bits);
 

@@ -772,9 +772,8 @@ bool ZapTimestamp::CalculatePdbGuid() {
   PatchAddressSpace::const_iterator range_it = pe_file_addr_space_.begin();
   for (; range_it != pe_file_addr_space_.end(); ++range_it) {
     // Consume any data before this range.
-    size_t bytes_to_hash = 0;
     if (cur < range_it->first.start()) {
-      bytes_to_hash = range_it->first.start() - cur;
+      size_t bytes_to_hash = range_it->first.start() - cur;
       if (!Md5Consume(bytes_to_hash, pe_file.get(), &md5_context))
         return false;  // This logs verbosely for us.
     }

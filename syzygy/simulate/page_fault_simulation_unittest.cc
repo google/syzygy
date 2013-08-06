@@ -87,7 +87,7 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
   //     false on otherwise.
   bool CorrectPageFaults() {
     PageSet::const_iterator iter = simulation_->pages().begin();
-    for (; iter != simulation_->pages().end(); iter++) {
+    for (; iter != simulation_->pages().end(); ++iter) {
       bool block_found = false;
 
       // If this address was loaded, then some address between this one and
@@ -222,7 +222,7 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
     // Search through the output for groups of adjacent numbers, and add a
     // MockBlockInfoList that would generate these numbers to input_list.
     PageSet::iterator iter = output.begin();
-    for (; iter != output.end(); iter++) {
+    for (; iter != output.end(); ++iter) {
       if (last != 0 && *iter - last > 1) {
         input_list.push_back(
             GeneratePartRandomInput(last - size + 1, size, avg_length));

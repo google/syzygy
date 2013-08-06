@@ -34,7 +34,7 @@ class LinearOrderGeneratorTest : public testing::OrderGeneratorTest {
     // Verifies that the given block list appears in a linear order in the
     // original image.
     core::RelativeAddress cur_addr;
-    for (; it != end; it++) {
+    for (; it != end; ++it) {
       core::RelativeAddress addr;
       EXPECT_TRUE(image_layout_.blocks.GetAddressOf(it->block, &addr));
       EXPECT_LT(cur_addr, addr);

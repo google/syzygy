@@ -575,7 +575,7 @@ bool ImageLayoutBuilder::ReconcileBlockGraphAndImageLayout() {
   std::list<BlockGraph::Block*> blocks_to_remove;
 
   for (; it_block_graph != image_layout_->blocks.graph()->blocks().end();
-       it_block_graph++) {
+       ++it_block_graph) {
     // Determine if the current block exist in the image layout.
     if (!image_layout_->blocks.ContainsBlock(&it_block_graph->second)) {
       // If it doesn't we check to see if this block belongs to the reloc
@@ -597,7 +597,7 @@ bool ImageLayoutBuilder::ReconcileBlockGraphAndImageLayout() {
   // The useless blocks are removed from the block-graph.
   std::list<BlockGraph::Block*>::iterator iter_blocks =
       blocks_to_remove.begin();
-  for (; iter_blocks != blocks_to_remove.end(); iter_blocks++) {
+  for (; iter_blocks != blocks_to_remove.end(); ++iter_blocks) {
     if (!image_layout_->blocks.graph()->RemoveBlock(*iter_blocks)) {
       LOG(ERROR) << "Unable to remove block with ID " << (*iter_blocks)->id()
                  << " from the block-graph.";

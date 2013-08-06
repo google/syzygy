@@ -121,14 +121,14 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
 
     // Loop through all the functions and add the number of times they were
     // called to their respective MemorySlice and TimeSlice totals.
-    for (uint32 i = 0; i < expected_size; i++) {
+    for (uint32 i = 0; i < expected_size; ++i) {
       TimeSlice::MemorySliceMap::iterator u = expected_slices[i].begin();
-      for (; u != expected_slices[i].end(); u++) {
+      for (; u != expected_slices[i].end(); ++u) {
         u->second.total = 0;
 
         TimeSlice::FunctionMap::const_iterator functions_iter =
             u->second.functions.begin();
-        for (; functions_iter != u->second.functions.end(); functions_iter++) {
+        for (; functions_iter != u->second.functions.end(); ++functions_iter) {
           u->second.total += functions_iter->second;
           expected_totals[i] += functions_iter->second;
         }

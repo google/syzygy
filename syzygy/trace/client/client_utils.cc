@@ -292,8 +292,6 @@ bool GetModulePath(void* module_base, base::FilePath* module_path) {
   DCHECK(module_base != NULL);
   DCHECK(module_path != NULL);
 
-  HMODULE module = reinterpret_cast<HMODULE>(module_base);
-
   wchar_t buffer[1024];
   if (::GetMappedFileName(::GetCurrentProcess(), module_base, buffer,
                           arraysize(buffer)) == 0) {

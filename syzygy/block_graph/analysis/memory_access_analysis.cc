@@ -65,8 +65,6 @@ void MemoryAccessAnalysis::PropagateForward(const Instruction& instr,
                                             State* state) {
   DCHECK(state != NULL);
 
-  const _DInst& repr = instr.representation();
-
   state->Execute(instr);
 
   if (instr.IsCall() || instr.IsControlFlow()) {

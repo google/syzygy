@@ -377,7 +377,6 @@ bool BasicBlockSubGraph::ToString(std::string* buf) const {
     out << "                 ";
     BasicCodeBlock::Successors::const_iterator succ = bb->successors().begin();
     for (; succ != bb->successors().end(); ++succ) {
-      std::string str;
       if (succ->reference().basic_block()) {
         out << succ->ToString()
             << " bb" << succ->reference().basic_block()->offset()
