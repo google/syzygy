@@ -23,7 +23,10 @@ import shutil
 import sys
 
 
+# These binaries will always be instrumented.
 _EXECUTABLES = ['chrome.dll']
+# These binaries will only be instrumented if present.
+_EXECUTABLES_OPTIONAL = ['chrome_child.dll']
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -46,9 +49,59 @@ MODES = _MODE_INFO.keys()
 DEFAULT_MODE = 'calltrace'
 
 
+def InstrumentExecutable(
+    chrome_dir, output_dir, mode, args, agent_dll, executable, optional):
+  """Makes an instrumented copy of the Chrome files in |chrome_dir| in
+  |output_dir|.
+
+  Args:
+    chrome_dir: the directory containing the input files.
+    output_dir: the directory where the output will be generated.
+    mode: the instrumentation mode to use.
+    args: additional arguments for instrument.exe
+    agent_dll: the basename of the agent DLL to use.
+    executable: the basename of the executable to instrument.
+    optional: if True then this will succeed even if the binary does not
+        exist; otherwise, this will fail if the binary does not exist.
+
+  Raises:
+    InstrumentationError if instrumentation fails.
+  """
+  src_file = os.path.join(chrome_dir, executable)
+  if not os.path.isfile(src_file):
+    if not optional:
+      raise InstrumentationError('Missing mandatory "%s".' % executable)
+    _LOGGER.info('Not instrumenting missing optional "%s".', executable)
+    return
+
+  _LOGGER.info('Instrumenting %s "%s".',
+               "optional" if optional else "mandatory",
+               executable)
+  dst_file = os.path.join(output_dir, executable)
+
+  # In generating the command-line we place the additional arguments first
+  # so that we can subsequently override those arguments we explicitly set.
+  cmd = [runner._GetExePath('instrument.exe')]
+  cmd += args
+  cmd += ['--input-image=%s' % src_file,
+          '--output-image=%s' % dst_file,
+          '--mode=%s' % mode,
+          '--overwrite']
+
+  if agent_dll:
+    cmd.append('--agent=%s' % agent_dll)
+
+  if mode == 'profile':
+    cmd.append('--no-interior-refs')
+
+  ret = chrome_utils.Subprocess(cmd)
+  if ret != 0:
+    raise InstrumentationError('Failed to instrument "%s".' % executable)
+
+
 # Give us silent access to internal member functions of the runner.
 # pylint: disable=W0212
-def InstrumentChrome(chrome_dir, output_dir, mode):
+def InstrumentChrome(chrome_dir, output_dir, mode, args):
   """Makes an instrumented copy of the Chrome files in chrome_dir in
   output_dir.
 
@@ -56,6 +109,7 @@ def InstrumentChrome(chrome_dir, output_dir, mode):
     chrome_dir: the directory containing the input files.
     output_dir: the directory where the output will be generated.
     mode: the instrumentation mode to use.
+    args: additional arguments for instrument.exe
 
   Raises:
     InstrumentationError if instrumentation fails.
@@ -74,27 +128,16 @@ def InstrumentChrome(chrome_dir, output_dir, mode):
     shutil.copy2(runner._GetExePath(agent_dll), output_dir)
 
   for path in _EXECUTABLES:
-    _LOGGER.info('Instrumenting "%s".', path)
-    src_file = os.path.join(chrome_dir, path)
-    dst_file = os.path.join(output_dir, path)
-    cmd = [runner._GetExePath('instrument.exe'),
-           '--input-image=%s' % src_file,
-           '--output-image=%s' % dst_file,
-           '--mode=%s' % mode,
-           '--overwrite']
-    if agent_dll:
-      cmd.append('--agent=%s' % agent_dll)
+    InstrumentExecutable(
+        chrome_dir, output_dir, mode, args, agent_dll, path, False)
 
-    if mode == 'profile':
-      cmd.append('--no-interior-refs')
-
-    ret = chrome_utils.Subprocess(cmd)
-    if ret != 0:
-      raise InstrumentationError('Failed to instrument "%s".' % path)
+  for path in _EXECUTABLES_OPTIONAL:
+    InstrumentExecutable(
+        chrome_dir, output_dir, mode, args, agent_dll, path, True)
 
 
 _USAGE = """\
-%prog [options]
+%prog [options] [-- additional options for instrument.exe]
 
 Copies the Chrome executables supplied in an input directory to an output
 directory and instruments them at the destination. Leaves the instrumented
@@ -111,16 +154,13 @@ def _ParseArguments():
                     help=('The input directory where the original Chrome '
                           'executables are to be found.'))
   parser.add_option('--output-dir', dest='output_dir',
-                    help=('The directory where the optimized chrome '
+                    help=('The directory where the optimized Chrome '
                           'installation will be created. From this location, '
                           'one can subsequently run benchmarks.'))
   parser.add_option('--mode', choices=MODES, default=DEFAULT_MODE,
                     help='The instrumentation mode. Allowed values are '
                          ' %s (default: %%default).' % ', '.join(MODES))
   (opts, args) = parser.parse_args()
-
-  if len(args):
-    parser.error('Unexpected argument(s).')
 
   # Minimally configure logging.
   if opts.verbose:
@@ -129,21 +169,21 @@ def _ParseArguments():
     logging.basicConfig(level=logging.WARNING)
 
   if not opts.input_dir or not opts.output_dir:
-    parser.error('You must provide input and output directories')
+    parser.error('You must provide input and output directories.')
 
   opts.input_dir = os.path.abspath(opts.input_dir)
   opts.output_dir = os.path.abspath(opts.output_dir)
 
-  return opts
+  return (opts, args)
 
 
 def main():
   """Parses arguments and runs the instrumentation process."""
 
-  opts = _ParseArguments()
+  opts, args = _ParseArguments()
 
   try:
-    InstrumentChrome(opts.input_dir, opts.output_dir, opts.mode)
+    InstrumentChrome(opts.input_dir, opts.output_dir, opts.mode, args)
   except Exception:
     _LOGGER.exception('Instrumentation failed.')
     return 1
