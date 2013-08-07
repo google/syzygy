@@ -1,6 +1,13 @@
 Syzygy Release Notes
 ====================
 
+Version 0.2.27.0
+
+[r1716] Flaky unittest fixit. Fixed 4 cases of known occasional test failures.
+[r1715] reorder.exe can handle multiple instrumented modules.
+[r1713] Chrome optimization scripts updated to handle multi-DLL builds.
+[r1695] SyzyASan - Implemented interceptors of CRT string.h functions.
+
 Version 0.2.26.0
 
 [r1684] SyzyASan - Enable the redundant checks analysis by default.
