@@ -81,13 +81,18 @@ void Simulator::OnFunctionEntry(base::Time time,
                                 const TraceEnterExitEventData* data) {
   DCHECK(playback_ != NULL);
   DCHECK(data != NULL);
+  bool error = false;
   const BlockGraph::Block* block = playback_->FindFunctionBlock(
-      process_id, data->function);
+      process_id, data->function, &error);
 
-  if (block == NULL) {
+  if (error) {
+    LOG(ERROR) << "Playback::FindFunctionBlock failed.";
     parser_->set_error_occurred(true);
     return;
   }
+
+  if (block == NULL)
+    return;
 
   // Call our simulation with the event data we have.
   DCHECK(simulation_ != NULL);

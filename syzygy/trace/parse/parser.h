@@ -105,7 +105,7 @@ class Parser {
   // Close all currently open trace files.
   bool Close();
 
- private:
+ protected:
   typedef std::list<ParseEngine*> ParseEngineSet;
   typedef ParseEngineSet::iterator ParseEngineIter;
 

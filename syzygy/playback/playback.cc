@@ -221,9 +221,12 @@ bool Playback::MatchesInstrumentedModuleSignature(
 }
 
 const Playback::BlockGraph::Block* Playback::FindFunctionBlock(
-    DWORD process_id, FuncAddr function) {
+    DWORD process_id, FuncAddr function, bool* error) {
   DCHECK(parser_ != NULL);
   DCHECK(image_ != NULL);
+  DCHECK(error != NULL);
+
+  *error = false;
 
   AbsoluteAddress64 abs_address =
       reinterpret_cast<AbsoluteAddress64>(function);
@@ -236,6 +239,7 @@ const Playback::BlockGraph::Block* Playback::FindFunctionBlock(
   if (module_info == NULL) {
     LOG(ERROR) << "Failed to resolve module for entry event (pid="
                << process_id << ", addr=0x" << function << ").";
+    *error = true;
     return NULL;
   }
 
@@ -257,11 +261,13 @@ const Playback::BlockGraph::Block* Playback::FindFunctionBlock(
   const BlockGraph::Block* block = image_->blocks.GetBlockByAddress(rva);
   if (block == NULL) {
     LOG(ERROR) << "Unable to map " << rva << " to a block.";
+    *error = true;
     return NULL;
   }
   if (block->type() != BlockGraph::CODE_BLOCK) {
     LOG(ERROR) << rva << " maps to a non-code block (" << block->name()
                << " in " << module_info->image_file_name << ").";
+    *error = true;
     return NULL;
   }
 

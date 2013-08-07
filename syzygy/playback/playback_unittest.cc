@@ -23,6 +23,7 @@
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/trace/parse/parse_engine.h"
 #include "syzygy/trace/parse/unittest_util.h"
 
 namespace playback {
@@ -35,6 +36,23 @@ using testing::GetExeRelativePath;
 using testing::GetExeTestDataRelativePath;
 using testing::MockParseEventHandler;
 using testing::Return;
+
+// A test parse engine that exposes some internals so we can simulate some
+// events.
+class TestParseEngine : trace::parser::ParseEngine {
+ public:
+  using trace::parser::ParseEngine::AddModuleInformation;
+  using trace::parser::ParseEngine::RemoveModuleInformation;
+};
+
+// A test parser that exposes the parse engine, so we can feed it simulated
+// events.
+class TestParser : public trace::parser::Parser {
+ public:
+  TestParseEngine* active_parse_engine() const {
+    return reinterpret_cast<TestParseEngine*>(active_parse_engine_);
+  }
+};
 
 class PlaybackTest : public testing::PELibUnitTest {
  public:
@@ -63,11 +81,10 @@ class PlaybackTest : public testing::PELibUnitTest {
         new Playback(module_path_, instrumented_path_, trace_files_));
 
     parse_event_handler_.reset(new MockParseEventHandler);
-    parser_.reset(new Playback::Parser);
+    parser_.reset(new TestParser);
     return parser_->Init(parse_event_handler_.get());
   }
 
- protected:
   scoped_ptr<Playback> playback_;
 
   base::FilePath module_path_;
@@ -79,7 +96,7 @@ class PlaybackTest : public testing::PELibUnitTest {
   pe::ImageLayout image_layout_;
 
   scoped_ptr<MockParseEventHandler> parse_event_handler_;
-  scoped_ptr<Playback::Parser> parser_;
+  scoped_ptr<TestParser> parser_;
 };
 
 }  // namespace
@@ -131,6 +148,73 @@ TEST_F(PlaybackTest, ConsumeCallTraceEvents) {
               OnInvocationBatch(_, _, _, _, _)).Times(0);
 
   EXPECT_TRUE(parser_->Consume());
+}
+
+TEST_F(PlaybackTest, FindFunctionBlock) {
+  EXPECT_TRUE(Init());
+  EXPECT_TRUE(playback_->Init(&input_dll_, &image_layout_, parser_.get()));
+
+  // Get the instrumented module's signature. We need this so we can inject
+  // modules into the parse engine.
+  pe::PEFile pe_file;
+  pe::PEFile::Signature pe_sig;
+  ASSERT_TRUE(pe_file.Init(instrumented_path_));
+  pe_file.GetSignature(&pe_sig);
+
+  trace::parser::ModuleInformation module_info = {};
+  module_info.base_address = pe_sig.base_address.value();
+  module_info.module_size = pe_sig.module_size;
+  module_info.image_checksum = pe_sig.module_checksum;
+  module_info.time_date_stamp = pe_sig.module_time_date_stamp;
+  module_info.image_file_name = input_dll_.path().value();
+
+  const DWORD kPid = 0x1234;
+
+  // Get pointers to text and data.
+  const IMAGE_SECTION_HEADER* text = input_dll_.GetSectionHeader(".text");
+  const IMAGE_SECTION_HEADER* data = input_dll_.GetSectionHeader(".data");
+  ASSERT_TRUE(text != NULL);
+  ASSERT_TRUE(data != NULL);
+  FuncAddr text_addr = reinterpret_cast<FuncAddr>(
+      module_info.base_address + text->VirtualAddress);
+  FuncAddr data_addr = reinterpret_cast<FuncAddr>(
+      module_info.base_address + data->VirtualAddress);
+
+  trace::parser::ModuleInformation other_module_info = {};
+  other_module_info.base_address = 0x3F000000;
+  other_module_info.module_size = 0x00010000;
+  other_module_info.image_checksum = 0xF000BA55;
+  other_module_info.time_date_stamp = 0xDEADBEEF;
+  other_module_info.image_file_name = L"other_module.dll";
+  FuncAddr other_text_addr = reinterpret_cast<FuncAddr>(
+      other_module_info.base_address + 0x1000);
+
+  ASSERT_TRUE(parser_->active_parse_engine()->AddModuleInformation(
+      kPid, module_info));
+
+  // We should be able to find text.
+  bool error = false;
+  EXPECT_TRUE(playback_->FindFunctionBlock(kPid, text_addr, &error) != NULL);
+  EXPECT_FALSE(error);
+
+  // We should get an error looking up data.
+  error = false;
+  EXPECT_TRUE(playback_->FindFunctionBlock(kPid, data_addr, &error) == NULL);
+  EXPECT_TRUE(error);
+
+  // We should get an error looking up an address outside of the module.
+  error = false;
+  EXPECT_TRUE(
+      playback_->FindFunctionBlock(kPid, other_text_addr, &error) == NULL);
+  EXPECT_TRUE(error);
+
+  // Now add the dummy module. Another lookup should succeed but return NULL.
+  ASSERT_TRUE(parser_->active_parse_engine()->AddModuleInformation(
+      kPid, other_module_info));
+  error = false;
+  EXPECT_TRUE(
+      playback_->FindFunctionBlock(kPid, other_text_addr, &error) == NULL);
+  EXPECT_FALSE(error);
 }
 
 }  // namespace playback

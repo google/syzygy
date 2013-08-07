@@ -441,13 +441,21 @@ void Reorderer::OnFunctionEntry(base::Time time,
                                 const TraceEnterExitEventData* data) {
   DCHECK(data != NULL);
 
+  bool error = false;
   const BlockGraph::Block* block = playback_.FindFunctionBlock(process_id,
-                                                               data->function);
+                                                               data->function,
+                                                               &error);
 
-  if (block == NULL) {
+  // Handle the error if any occurred.
+  if (error) {
+    LOG(ERROR) << "Playback::FindFunctionBlock failed.";
     parser_.set_error_occurred(true);
     return;
   }
+
+  // If no block was found then we simply ignore the event.
+  if (block == NULL)
+    return;
 
   // Get the time of the call. Since batched function calls come in with the
   // same time stamp, we rely on their relative ordering and UniqueTime's
@@ -460,6 +468,7 @@ void Reorderer::OnFunctionEntry(base::Time time,
                                           process_id,
                                           thread_id,
                                           entry_time)) {
+    LOG(ERROR) << order_generator_->name() << "::OnCodeBlockEntry failed.";
     parser_.set_error_occurred(true);
     return;
   }

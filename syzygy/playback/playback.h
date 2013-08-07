@@ -73,10 +73,15 @@ class Playback {
   // Gets a code block from our image from its function address and process id.
   // @param process_id The process id of the module where the function resides.
   // @param function The relative address of the function we are searching.
-  // @returns The code block function and process_id refer to, or NULL in case
-  //     of an error.
+  // @param error Will be set to true if an error occurs.
+  // @returns The code block @p function and @p process_id refer to, or NULL if
+  //     no such block can be found (this can occur if events for multiple
+  //     instrumented modules occur in the same trace file, and we are
+  //     processing an event from a module that is not our module of interest.)
+  //     If an error occurs this will also return NULL.
   const BlockGraph::Block* FindFunctionBlock(DWORD process_id,
-                                             FuncAddr function);
+                                             FuncAddr function,
+                                             bool* error);
 
   // @name Accessors
   // @{
