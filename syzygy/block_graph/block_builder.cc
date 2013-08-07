@@ -262,7 +262,7 @@ class MergeContext {
   BlockGraph* const block_graph_;
 
   // The original block from which the new blocks are derived.
-  const Block* const original_block_;
+  const Block* original_block_;
 
   // The set of blocks generated in this context so far.
   BlockVector new_blocks_;
@@ -859,16 +859,16 @@ void MergeContext::RemoveOriginalBlock(BasicBlockSubGraph* subgraph) {
   DCHECK(subgraph != NULL);
   DCHECK_EQ(original_block_, subgraph->original_block());
 
-  Block* original_block_ = const_cast<Block*>(this->original_block_);
-  if (original_block_ == NULL)
+  Block* original_block = const_cast<Block*>(this->original_block_);
+  if (original_block == NULL)
     return;
 
-  DCHECK(!original_block_->HasExternalReferrers());
+  DCHECK(!original_block->HasExternalReferrers());
 
-  bool removed = original_block_->RemoveAllReferences();
+  bool removed = original_block->RemoveAllReferences();
   DCHECK(removed);
 
-  removed = block_graph_->RemoveBlock(original_block_);
+  removed = block_graph_->RemoveBlock(original_block);
   DCHECK(removed);
 
   subgraph->set_original_block(NULL);
