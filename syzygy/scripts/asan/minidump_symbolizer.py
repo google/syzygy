@@ -101,6 +101,9 @@ def ProcessMinidump(minidump_filename, cdb_path, pdb_path):
     _Command(debugger, '.reload /fi chrome.dll')
     _Command(debugger, '.symfix')
 
+  # Enable the line number informations.
+  _Command(debugger, '.lines')
+
   # Get the SyzyASan crash stack and try to find the frame containing the
   # bad access info structure.
 
