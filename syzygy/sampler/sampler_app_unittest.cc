@@ -433,15 +433,6 @@ TEST_F(SamplerAppTest, SampleSelfPidWhitelist) {
   // We expect the output directory to exist by now.
   EXPECT_TRUE(file_util::PathExists(output_dir));
 
-  // Busy loop for a few seconds. This will guarantee that we get some samples
-  // and have non-empty module data.
-  base::Time start = base::Time::Now();
-  int i = 0;
-  while ((base::Time::Now() - start) < base::TimeDelta::FromSeconds(2)) {
-    i += rand();
-    i ^= rand();
-  }
-
   // Stop the profiler.
   impl_.set_running(false);
 
@@ -449,8 +440,12 @@ TEST_F(SamplerAppTest, SampleSelfPidWhitelist) {
   worker_thread_.Stop();
 
   // We should also have received a profiling stop event.
-  uint64 sample_count = impl_.WaitUntilStopProfiling();
-  EXPECT_LT(0, sample_count);
+  uint32 sample_count = impl_.WaitUntilStopProfiling();
+
+  // NOTE: There's no way for us to find out exactly when the sampler has
+  //     started, and under high load the system may defer starting the sampler
+  //     or not process the interrupts. Thus, any test that inspects the
+  //     number of samplers seen by the profiler is doomed to be flaky.
 
   // Ensure that profiler output was produced.
   file_util::FileEnumerator fe(output_dir,
