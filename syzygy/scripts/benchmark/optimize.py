@@ -68,7 +68,7 @@ def _InstrumentAndProfile(work_dir, mode, opts):
 
   # Instrument the provided Chrome executables in input_dir, and store
   # the profiled executables in instrumented_dir.
-  instrument.InstrumentChrome(opts.input_dir, instrumented_dir, mode)
+  instrument.InstrumentChrome(opts.input_dir, instrumented_dir, mode, [])
 
   # Then profile the instrumented executables in instrumented_dir.
   trace_files = profile.ProfileChrome(instrumented_dir,
@@ -90,23 +90,41 @@ def _InstrumentAndProfile(work_dir, mode, opts):
 
 # Give us silent access to the internals of our runner.
 # pylint: disable=W0212
-def _OptimizeChrome(chrome_dir, work_dir, output_dir, log_files, bb_entry_file):
-  """Generate an optimized version of the chome.dll in @p chrome_dir based on
-  the calltrace instrumented version of chrome.dll in @p work_dir, the
-  calltrace @p log_files and an optional JSON @p bb_entry_file.
+def _OptimizeChromeBinary(chrome_dir, work_dir, output_dir, log_files,
+                          bb_entry_file, basename, optional):
+  """Optimizes a single Chrome binary with the given |basename|. The original
+  binary in |chrome_dir| will be optimized using the data in the provided
+  |log_files|, assuming that they have been generated with respect to the
+  instrumented binary in |work_dir|. If |bb_entry_file| is provided then basic
+  block optimizations will also be applied.
 
-  The optimized chrome will be written to @p output_dir.
+  Args:
+    chrome_dir: The directory holding the original Chrome binaries.
+    work_dir: The work directory containing the instrumented files.
+    output_dir: The directory where the optimized binaries will be written.
+    log_files: The calltrace log files to be used in generating an order file.
+    bb_entry_file: The BB entry counts to be used in optimizing the binary.
+    basename: The basename of the binary to optimize.
+    optional: If False then the binary must be present and must optimized.
+        Otherwise, this will do nothing and silently return if the input
+        binary does not exist.
   """
   # Calculate all the path parameters.
-  input_image = os.path.join(chrome_dir, 'chrome.dll')
-  instrumented_image = os.path.join(
-      work_dir, 'calltrace', 'instrumented', 'chrome.dll')
-  order_file = os.path.join(work_dir, 'chrome.dll-order.json')
-  output_image = os.path.join(output_dir, 'chrome.dll')
-  output_pdb = os.path.join(output_dir, 'chrome.dll.pdb')
+  input_image = os.path.join(chrome_dir, basename)
 
-  # Generate the ordering file for chrome.dll.
-  _LOGGER.info('Generating ordering file for Chrome.')
+  if not os.path.isfile(input_image):
+    if not optional:
+      raise OptimizationError('Missing mandatory "%s".' % basename)
+    _LOGGER.info('Not instrumenting missing optional "%s".', basename)
+    return
+
+  instrumented_image = os.path.join(
+      work_dir, 'calltrace', 'instrumented', basename)
+  order_file = os.path.join(work_dir, basename + '-order.json')
+  output_image = os.path.join(output_dir, basename)
+
+  # Generate the ordering file for the binary.
+  _LOGGER.info('Generating ordering file for "%s".', basename)
   cmd = [
       runner._GetExePath('reorder.exe'),
       '--verbose',
@@ -120,7 +138,8 @@ def _OptimizeChrome(chrome_dir, work_dir, output_dir, log_files, bb_entry_file):
   cmd.extend(log_files)
   ret = chrome_utils.Subprocess(cmd)
   if ret != 0:
-    raise OptimizationError('Failed to generate an ordering for chrome.dll')
+    raise OptimizationError(
+        'Failed to generate an ordering for "%s".' % basename)
 
   # Populate output_dir with a copy of the original chome installation.
   _LOGGER.info('Copying "%s" to output dir "%s".', chrome_dir, output_dir)
@@ -129,31 +148,72 @@ def _OptimizeChrome(chrome_dir, work_dir, output_dir, log_files, bb_entry_file):
                             output_dir)
   chrome_utils.CopyChromeFiles(chrome_dir, output_dir)
 
-  # Replace chrome.dll in output_dir with an optimized version.
-  _LOGGER.info('Optimizing chrome.dll')
+  # Replace the bninary in output_dir with an optimized version.
+  _LOGGER.info('Optimizing "%s".', basename)
   cmd = [runner._GetExePath('relink.exe'),
          '--verbose',
          '--input-image=%s' % input_image,
          '--output-image=%s' % output_image,
-         '--output-pdb=%s' % output_pdb,
          '--order-file=%s' % order_file,
          '--overwrite']
   ret = chrome_utils.Subprocess(cmd)
   if ret != 0:
-    raise OptimizationError('Failed to relink chrome.dll')
+    raise OptimizationError('Failed to relink "%s".' % basename)
 
 
-def _CopyBinaries(src_dir, tgt_dir):
-  """Copies the chrome dll and pdb files from @p src_dir to @p tgt_dir."""
+def _OptimizeChrome(chrome_dir, work_dir, output_dir, log_files, bb_entry_file):
+  """Generate an optimized version of the Chrome binaries in |chrome_dir| based
+  on the calltrace instrumented version in |work_dir|, the calltrace
+  |log_files| and an optional JSON |bb_entry_file|. The optimized Chrome
+  binaries will be written to |output_dir|.
+
+    chrome_dir: The directory holding the original Chrome binaries.
+    work_dir: The work directory containing the instrumented files.
+    output_dir: The directory where the optimized binaries will be written.
+    log_files: The calltrace log files to be used in generating an order file.
+    bb_entry_file: The BB entry counts to be used in optimizing the binary.
+  """
+
+  for basename in instrument.EXECUTABLES:
+    _OptimizeChromeBinary(chrome_dir, work_dir, output_dir, log_files,
+                         bb_entry_file, basename, False)
+
+  for basename in instrument.EXECUTABLES_OPTIONAL:
+    _OptimizeChromeBinary(chrome_dir, work_dir, output_dir, log_files,
+                         bb_entry_file, basename, True)
+
+
+def _CopyBinaries(orig_dir, src_dir, tgt_dir):
+  """Copies the optimized Chrome binaries and PDB files from |src_dir| to
+  |tgt_dir|. For optional binaries it is expected that the copy succeed if a
+  copy of the binary also exists in |orig_dir|.
+
+  Args:
+    orig_dir: The directory containing the original binaries.
+    src_dir: The source directory.
+    tgt_dir: The target directory.
+  """
   if not os.path.isdir(tgt_dir):
-    _LOGGER.info('_CopyBinaries target dir not found. Creating "%s"', tgt_dir)
+    _LOGGER.info('_CopyBinaries target dir not found. Creating "%s".', tgt_dir)
     os.makedirs(tgt_dir)
 
-  files = ('chrome.dll', 'chrome.dll.pdb')
+  # Generate a list of files to copy.
+  files = []
+  for path in instrument.EXECUTABLES:
+    files.append(path)
+    files.append(path + '.pdb')
+
+  for path in instrument.EXECUTABLES_OPTIONAL:
+    orig_file = os.path.join(orig_dir, path)
+    if os.path.isfile(orig_file):
+      files.append(path)
+      files.append(path + '.pdb')
+
+  # Copy over the files.
   for path in files:
     src_file = os.path.join(src_dir, path)
     tgt_file = os.path.join(tgt_dir, path)
-    _LOGGER.info('Placing optimized %s in %s', path, tgt_dir)
+    _LOGGER.info('Placing optimized "%s" in "%s".', path, tgt_dir)
     shutil.copy2(src_file, tgt_file)
 
 
@@ -256,7 +316,7 @@ def main():
     _OptimizeChrome(
         opts.input_dir, work_dir, opts.output_dir, trace_files, bb_entry_file)
     if opts.copy_to:
-      _CopyBinaries(opts.output_dir, opts.copy_to)
+      _CopyBinaries(opts.input_dir, opts.output_dir, opts.copy_to)
   except OptimizationError:
     _LOGGER.exception('Optimization failed.')
     return 1

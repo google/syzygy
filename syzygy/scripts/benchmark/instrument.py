@@ -24,9 +24,9 @@ import sys
 
 
 # These binaries will always be instrumented.
-_EXECUTABLES = ['chrome.dll']
+EXECUTABLES = ['chrome.dll']
 # These binaries will only be instrumented if present.
-_EXECUTABLES_OPTIONAL = ['chrome_child.dll']
+EXECUTABLES_OPTIONAL = ['chrome_child.dll']
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -127,11 +127,11 @@ def InstrumentChrome(chrome_dir, output_dir, mode, args):
   if agent_dll:
     shutil.copy2(runner._GetExePath(agent_dll), output_dir)
 
-  for path in _EXECUTABLES:
+  for path in EXECUTABLES:
     InstrumentExecutable(
         chrome_dir, output_dir, mode, args, agent_dll, path, False)
 
-  for path in _EXECUTABLES_OPTIONAL:
+  for path in EXECUTABLES_OPTIONAL:
     InstrumentExecutable(
         chrome_dir, output_dir, mode, args, agent_dll, path, True)
 
