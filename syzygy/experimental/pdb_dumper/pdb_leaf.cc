@@ -37,7 +37,7 @@ const char* LeafName(uint16 leaf_type) {
     case cci::record_type: { \
       return #record_type; \
     }
-    LEAF_CASE_TABLE(LEAF_TYPE_NAME);
+    LEAF_CASE_TABLE(LEAF_TYPE_NAME)
 #undef LEAF_TYPE_NAME
     default :
       return NULL;
@@ -52,7 +52,7 @@ const char* SpecialTypeName(uint32 special_type) {
     case cci::record_type: { \
       return #record_type; \
     }
-    SPECIAL_TYPE_CASE_TABLE(SPECIAL_TYPE_NAME);
+    SPECIAL_TYPE_CASE_TABLE(SPECIAL_TYPE_NAME)
 #undef SPECIAL_TYPE_NAME
     default :
       return NULL;
@@ -1088,7 +1088,7 @@ size_t NumericLeafSize(uint16 symbol_type) {
     case cci::sym_type: { \
       return sizeof(cci::struct_type); \
     }
-    NUMERIC_LEAVES_CASE_TABLE(LEAF_TYPE_SIZE);
+    NUMERIC_LEAVES_CASE_TABLE(LEAF_TYPE_SIZE)
 #undef LEAF_TYPE_SIZE
     default:
       return 0;
@@ -1102,7 +1102,7 @@ const char* NumericLeafName(uint16 leaf_type) {
     case cci::leaf_type: { \
       return #leaf_type; \
     }
-    NUMERIC_LEAVES_CASE_TABLE(LEAF_TYPE_NAME);
+    NUMERIC_LEAVES_CASE_TABLE(LEAF_TYPE_NAME)
 #undef LEAF_TYPE_NAME
     default:
       return NULL;
@@ -1117,7 +1117,7 @@ void DumpNumericLeaf(FILE* out, uint16 leaf_type, PdbStream* stream) {
       Dump ## struct_type(out, stream); \
       break; \
     }
-      NUMERIC_LEAVES_CASE_TABLE(NUMERIC_LEAF_TYPE_DUMP);
+      NUMERIC_LEAVES_CASE_TABLE(NUMERIC_LEAF_TYPE_DUMP)
 #undef NUMERIC_LEAF_TYPE_DUMP
   }
 }
@@ -1150,9 +1150,8 @@ bool DumpLeaf(const TypeInfoRecordMap& type_map,
                                  stream, \
                                  len, \
                                  indent_level + 1); \
-      break; \
     }
-      LEAF_CASE_TABLE(LEAF_TYPE_DUMP);
+      LEAF_CASE_TABLE(LEAF_TYPE_DUMP)
 #undef LEAF_TYPE_DUMP
     default:
       return false;

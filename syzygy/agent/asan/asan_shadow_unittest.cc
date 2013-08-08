@@ -36,7 +36,7 @@ class TestShadow : public Shadow {
 TEST(ShadowTest, PoisonUnpoisonAccess) {
   // Reset the shadow memory.
   TestShadow::Reset();
-  for (size_t i = 0; i < 100; ++i) {
+  for (size_t count = 0; count < 100; ++count) {
     // Use a random 8-byte aligned end address.
     const size_t size = base::RandInt(1, 16384);
     const uint8* end_addr =

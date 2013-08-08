@@ -807,7 +807,6 @@ void BlockGraph::Block::InsertData(Offset offset,
     // Does this affect already allocated data?
     if (static_cast<Size>(offset) < data_size_) {
       // Reallocate, shift the old data to the end, and zero out the new data.
-      size_t old_data_size = data_size_;
       size_t bytes_to_shift = data_size_ - offset;
       ResizeData(data_size_ + size);
       uint8* new_data = GetMutableData();

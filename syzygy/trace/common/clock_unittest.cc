@@ -111,7 +111,7 @@ TEST(TimerToFileTimeTest, PositiveInterval) {
 
   // This corresponds to 100ns ticks, which is the same precision as the
   // underlying filetime.
-  ti.frequency = 10e6;
+  ti.frequency = 10000000;
   ti.resolution = 1;
 
   // We expect the filetime to have increased by 100 intervals.
@@ -129,7 +129,7 @@ TEST(TimerToFileTimeTest, NegativeInterval) {
 
   // This corresponds to 100ns ticks, which is the same precision as the
   // underlying filetime.
-  ti.frequency = 10e6;
+  ti.frequency = 10000000;
   ti.resolution = 1;
 
   // We expect the filetime to have decreased by 100 intervals.

@@ -90,21 +90,21 @@ TEST_F(BufferWriterTest, WriteBehaviour) {
   EXPECT_FALSE(writer.Consume(sizeof(buffer_)));  // Write past the end.
   EXPECT_FALSE(writer.Consume(0xFFFFFFFF));  // Overflow of pos_.
 
-  uint8 data8[sizeof(buffer_)];
+  uint8 data8[sizeof(buffer_)] = {};
 
   EXPECT_TRUE(writer.Write(1, data8));
   EXPECT_EQ(2u, writer.pos());
   EXPECT_FALSE(writer.Write(arraysize(data8), (void*)data8));
 
-  uint16 data16[sizeof(buffer_) / 2];
+  uint16 data16[sizeof(buffer_) / 2] = {};
   EXPECT_TRUE(writer.Write(1, data16));
   EXPECT_EQ(4u, writer.pos());
   EXPECT_FALSE(writer.Write(arraysize(data16), data16));
 
-  uint16 small_datum;
+  uint16 small_datum = 42;
   struct {
     uint8 buffer[sizeof(buffer_)];
-  } big_datum;
+  } big_datum = {};
 
   EXPECT_TRUE(writer.Write(small_datum));
   EXPECT_EQ(6u, writer.pos());

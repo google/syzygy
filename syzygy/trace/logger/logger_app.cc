@@ -304,7 +304,7 @@ int LoggerApp::Run() {
 // A helper function to find the handler method for a given action.
 const LoggerApp::ActionTableEntry* LoggerApp::FindActionHandler(
     const base::StringPiece16& action) {
-  for (int i = 0; i < arraysize(kActionTable); ++i) {
+  for (size_t i = 0; i < arraysize(kActionTable); ++i) {
     if (::_wcsicmp(kActionTable[i].action, action.data()) == 0)
       return &kActionTable[i];
   }
@@ -376,7 +376,7 @@ bool LoggerApp::Start() {
   ::wcsncpy_s(saved_instance_id,
               arraysize(saved_instance_id),
               instance_id_.c_str(),
-              -1);
+              _TRUNCATE);
 
   // Register the handler for Ctrl-C.
   if (!SetConsoleCtrlHandler(&OnConsoleCtrl, TRUE)) {

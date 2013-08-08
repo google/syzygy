@@ -642,7 +642,6 @@ void BasicBlockDecomposer::CheckAllControlFlowIsValid() const {
     if (bb == NULL)
       continue;
 
-    const BasicBlock::Instructions& instructions = bb->instructions();
     const BasicBlock::Successors& successors = bb->successors();
 
     // There may be at most 2 successors.

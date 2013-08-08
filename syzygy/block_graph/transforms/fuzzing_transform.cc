@@ -121,7 +121,7 @@ bool FuzzingTransform::OnBlock(
   // Apply a basic block transform.
   LivenessFuzzingBasicBlockTransform liveness_transform;
   if (!ApplyBasicBlockSubGraphTransform(
-           &liveness_transform, block_graph, block, NULL)) {
+          &liveness_transform, block_graph, block, NULL)) {
     return false;
   }
 
@@ -129,4 +129,4 @@ bool FuzzingTransform::OnBlock(
 }
 
 }  // namespace transforms
-}  // namespace instrument
+}  // namespace block_graph

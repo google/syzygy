@@ -101,7 +101,6 @@ bool MemoryAccessAnalysis::Intersect(const block_graph::BasicBlock* bb,
   bool changed = false;
   // Subtract non redundant memory accesses.
   for (int r = 0; r < core::kRegisterMax; ++r) {
-    RegisterCode reg = RegisterCode(r);
     const std::set<int32>& from = state.active_memory_accesses_[r];
     std::set<int32>& to = bbentry_state->second.active_memory_accesses_[r];
 
@@ -181,7 +180,6 @@ void MemoryAccessAnalysis::Analyze(const BasicBlockSubGraph* subgraph) {
     Instructions::const_iterator inst_iter = instructions.begin();
     for ( ; inst_iter != instructions.end(); ++inst_iter) {
       const Instruction& inst = *inst_iter;
-      const BasicBlock::BasicBlockReferenceMap& references = inst.references();
       PropagateForward(inst, &state);
     }
 

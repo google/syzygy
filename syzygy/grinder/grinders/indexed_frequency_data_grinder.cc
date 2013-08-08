@@ -118,7 +118,6 @@ void IndexedFrequencyDataGrinder::UpdateBasicBlockFrequencyData(
     const TraceIndexedFrequencyData* data) {
   using basic_block_util::BasicBlockOffset;
   using basic_block_util::EntryCountType;
-  using basic_block_util::EntryCountMap;
   using basic_block_util::GetFrequency;
   using basic_block_util::IndexedFrequencyInformation;
   using basic_block_util::IndexedFrequencyMap;

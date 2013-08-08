@@ -471,7 +471,8 @@ BasicBlockEntry::BasicBlockEntry() {
 BasicBlockEntry::~BasicBlockEntry() {
 }
 
-uint32* BasicBlockEntry::GetRawFrequencyData(IndexedFrequencyData* data) {
+uint32* WINAPI BasicBlockEntry::GetRawFrequencyData(
+    IndexedFrequencyData* data) {
   DCHECK(data != NULL);
   ThreadState* state = ThreadState::Get(data->tls_index);
   if (state == NULL)
@@ -479,7 +480,7 @@ uint32* BasicBlockEntry::GetRawFrequencyData(IndexedFrequencyData* data) {
   return state->frequency_data();
 }
 
-void BasicBlockEntry::IncrementIndexedFreqDataHook(
+void WINAPI BasicBlockEntry::IncrementIndexedFreqDataHook(
     IncrementIndexedFreqDataFrame* entry_frame) {
   ScopedLastErrorKeeper scoped_last_error_keeper;
   DCHECK(entry_frame != NULL);
@@ -496,7 +497,7 @@ void BasicBlockEntry::IncrementIndexedFreqDataHook(
   state->Increment(entry_frame->index);
 }
 
-void BasicBlockEntry::BranchEnterHook(
+void WINAPI BasicBlockEntry::BranchEnterHook(
     IncrementIndexedFreqDataFrame* entry_frame) {
   ScopedLastErrorKeeper scoped_last_error_keeper;
   DCHECK(entry_frame != NULL);
@@ -509,7 +510,7 @@ void BasicBlockEntry::BranchEnterHook(
   state->Enter(entry_frame->index);
 }
 
-void BasicBlockEntry::BranchExitHook(
+void WINAPI BasicBlockEntry::BranchExitHook(
     IncrementIndexedFreqDataFrame* entry_frame) {
   ScopedLastErrorKeeper scoped_last_error_keeper;
   DCHECK(entry_frame != NULL);
@@ -522,7 +523,7 @@ void BasicBlockEntry::BranchExitHook(
   state->Leave(entry_frame->index);
 }
 
-void BasicBlockEntry::DllMainEntryHook(DllMainEntryFrame* entry_frame) {
+void WINAPI BasicBlockEntry::DllMainEntryHook(DllMainEntryFrame* entry_frame) {
   ScopedLastErrorKeeper scoped_last_error_keeper;
   DCHECK(entry_frame != NULL);
   switch (entry_frame->reason) {
@@ -549,7 +550,7 @@ void BasicBlockEntry::DllMainEntryHook(DllMainEntryFrame* entry_frame) {
   }
 }
 
-void BasicBlockEntry::ExeMainEntryHook(ExeMainEntryFrame* entry_frame) {
+void WINAPI BasicBlockEntry::ExeMainEntryHook(ExeMainEntryFrame* entry_frame) {
   ScopedLastErrorKeeper scoped_last_error_keeper;
   DCHECK(entry_frame != NULL);
   Instance()->OnProcessAttach(entry_frame->module_data);

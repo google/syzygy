@@ -658,7 +658,7 @@ SIZE_T WINAPI asan_HeapSize(HANDLE heap,
 
   HeapProxy* proxy = HeapProxy::FromHandle(heap);
   if (!proxy)
-    return -1;
+    return static_cast<SIZE_T>(-1);
 
   return proxy->Size(flags, mem);
 }

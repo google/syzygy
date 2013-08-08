@@ -90,7 +90,7 @@ void BlockHash::Hash(const BlockGraph::Block* block) {
   if (data_index < block->data_size()) {
     MD5Update(&md5_context,
         StringPiece(reinterpret_cast<const char*>(
-            block->data() + data_index, block->data_size() - data_index)));
+            block->data() + data_index), block->data_size() - data_index));
     data_index = block->data_size();
   }
 

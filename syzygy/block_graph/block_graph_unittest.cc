@@ -244,7 +244,6 @@ TEST_F(BlockTest, Accessors) {
 
 TEST_F(BlockTest, AllocateData) {
   // Test AllocateData.
-  const size_t kBlockSize = 0x20;
   uint8* data = block_->AllocateData(block_->size());
   ASSERT_TRUE(block_->owns_data());
   ASSERT_EQ(block_->size(), block_->data_size());
@@ -1253,7 +1252,6 @@ TEST(BlockGraphAddressSpaceTest, GetFirstIntersectingBlock) {
 TEST(BlockGraphAddressSpaceTest, GetContainingBlock) {
   BlockGraph image;
   BlockGraph::AddressSpace address_space(&image);
-  BlockGraph::Block* found_block = NULL;
 
   BlockGraph::Block* block1 = address_space.AddBlock(BlockGraph::CODE_BLOCK,
                                                      RelativeAddress(0x1000),

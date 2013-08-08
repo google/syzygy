@@ -163,8 +163,6 @@ Disassembler::WalkResult Disassembler::Walk() {
 
         case kDirectiveTerminatePath:
           terminate = true;
-
-        default:
           break;
       }
 

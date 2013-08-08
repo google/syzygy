@@ -483,7 +483,6 @@ TEST_F(SuccessorTest, DefaultConstructor) {
 TEST_F(SuccessorTest, BasicCodeBlockConstructor) {
   const Successor::Condition kCondition = Successor::kConditionAbove;
   const Successor::Size kSuccessorSize = 5;
-  uint8 data[20] = {};
   BasicCodeBlock* bb = subgraph_.AddBasicCodeBlock("bb");
   BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, bb);
 
@@ -498,7 +497,6 @@ TEST_F(SuccessorTest, BasicCodeBlockConstructor) {
 }
 
 TEST_F(SuccessorTest, SetBranchTarget) {
-  uint8 data[20] = {};
   BasicCodeBlock* bb = subgraph_.AddBasicCodeBlock("bb");
   BasicBlockReference bb_ref(BlockGraph::ABSOLUTE_REF, 4, bb);
 
@@ -654,10 +652,6 @@ TEST_F(InstructionTest, CallsNonReturningFunction) {
        block_graph.AddBlock(BlockGraph::CODE_BLOCK, 1, "non-return");
   non_returning->set_attribute(BlockGraph::NON_RETURN_FUNCTION);
 
-  _DInst repr = {};
-  repr.opcode = I_CALL;
-  repr.meta = FC_CALL;
-  repr.ops[0].type = O_PC;
   Instruction call_relative;
   ASSERT_TRUE(Instruction::FromBuffer(kCallRelative,
                                       sizeof(kCallRelative),
@@ -681,7 +675,6 @@ TEST_F(InstructionTest, CallsNonReturningFunction) {
 
   // Setup an indirect call via a static function pointer (for example, an
   // import table).
-  repr.ops[0].type = O_DISP;
   BlockGraph::Block* function_pointer =
       block_graph.AddBlock(BlockGraph::DATA_BLOCK,
           BlockGraph::Reference::kMaximumSize, "ptr");

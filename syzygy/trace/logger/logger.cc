@@ -282,6 +282,8 @@ bool Logger::CaptureRemoteTrace(HANDLE process,
 }
 
 bool Logger::Write(const base::StringPiece& message) {
+  DCHECK(destination_ != NULL);
+
   if (message.empty())
     return true;
 
