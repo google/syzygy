@@ -26,6 +26,8 @@
 namespace grinder {
 namespace grinders {
 
+namespace {
+
 using basic_block_util::ModuleInformation;
 using basic_block_util::RelativeAddressRange;
 using basic_block_util::GetFrequency;
@@ -34,6 +36,8 @@ using basic_block_util::IsValidFrequencySize;
 using basic_block_util::PdbInfo;
 using basic_block_util::PdbInfoMap;
 using trace::parser::AbsoluteAddress64;
+
+}  // namespace
 
 CoverageGrinder::CoverageGrinder()
     : parser_(NULL),
@@ -45,6 +49,8 @@ CoverageGrinder::~CoverageGrinder() {
 }
 
 bool CoverageGrinder::ParseCommandLine(const CommandLine* command_line) {
+  DCHECK(command_line != NULL);
+
   // If the switch isn't present we have nothing to do!
   const char kOutputFormat[] = "output-format";
   if (!command_line->HasSwitch(kOutputFormat))
@@ -124,8 +130,9 @@ void CoverageGrinder::OnIndexedFrequency(
   DCHECK(parser_ != NULL);
 
   if (data->data_type != common::IndexedFrequencyData::COVERAGE &&
-      data->data_type != common::IndexedFrequencyData::BASIC_BLOCK_ENTRY)
+      data->data_type != common::IndexedFrequencyData::BASIC_BLOCK_ENTRY) {
     return;
+  }
 
   if (data->num_entries == 0) {
     LOG(INFO) << "Skipping empty basic block frequency data.";

@@ -50,6 +50,8 @@
         'grinders/indexed_frequency_data_grinder.h',
         'grinders/profile_grinder.cc',
         'grinders/profile_grinder.h',
+        'grinders/sample_grinder.cc',
+        'grinders/sample_grinder.h',
       ],
       'dependencies': [
         '<(src)/sawbuck/common/common.gyp:common',
@@ -78,6 +80,7 @@
         'grinders/basic_block_entry_count_grinder_unittest.cc',
         'grinders/coverage_grinder_unittest.cc',
         'grinders/profile_grinder_unittest.cc',
+        'grinders/sample_grinder_unittest.cc',
       ],
       'dependencies': [
         'grinder_lib',
@@ -88,6 +91,7 @@
         '<(src)/syzygy/test_data/test_data.gyp:basic_block_entry_traces',
         '<(src)/syzygy/test_data/test_data.gyp:coverage_traces',
         '<(src)/syzygy/test_data/test_data.gyp:profile_traces',
+        '<(src)/syzygy/trace/service/service.gyp:rpc_service_lib',
       ],
     },
     {
