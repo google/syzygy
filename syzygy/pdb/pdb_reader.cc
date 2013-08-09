@@ -69,7 +69,9 @@ bool PdbReader::Read(const base::FilePath& pdb_path, PdbFile* pdb_file) {
 
   PdbHeader header = { 0 };
 
-  // Read the header from the first page in the file.
+  // Read the header from the first page in the file. The page size we use here
+  // is irrelevant as after reading the header we get the actual page size in
+  // use by the PDB and from then on use that.
   uint32 header_page = 0;
   scoped_refptr<PdbFileStream> header_stream(new PdbFileStream(
       file, sizeof(header), &header_page, kPdbPageSize));
