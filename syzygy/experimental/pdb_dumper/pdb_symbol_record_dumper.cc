@@ -62,7 +62,7 @@ const char* SymbolTypeName(uint16 symbol_type) {
     case cci::sym_type: { \
       return #sym_type; \
     }
-    SYM_TYPE_CASE_TABLE(SYM_TYPE_NAME);
+    SYM_TYPE_CASE_TABLE(SYM_TYPE_NAME)
 #undef SYM_TYPE_NAME
     default :
       return NULL;
@@ -557,7 +557,7 @@ void DumpSymbolRecords(FILE* out,
                                     indent_level + 1); \
       break; \
     }
-      SYM_TYPE_CASE_TABLE(SYM_TYPE_DUMP);
+      SYM_TYPE_CASE_TABLE(SYM_TYPE_DUMP)
 #undef SYM_TYPE_DUMP
     }
 

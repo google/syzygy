@@ -90,7 +90,7 @@ bool ParseEnvironmentStrings(const wchar_t* env_string,
     if (env_string[i - 2] == 0 && env_string[i - 1] == 0)
       break;
 
-     ++i;
+    ++i;
   }
 
   BinaryBufferReader reader(env_string, sizeof(env_string[0]) * i);

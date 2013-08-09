@@ -103,4 +103,4 @@ TEST_F(SimulatorTest, SuccesfulRead) {
   ASSERT_TRUE(simulator_->ParseTraceFiles());
 }
 
-}  //namespace simulate
+}  // namespace simulate

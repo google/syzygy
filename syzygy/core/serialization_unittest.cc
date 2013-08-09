@@ -51,7 +51,6 @@ struct Foo {
 
 class SerializationTest : public testing::Test {
  public:
-
   virtual void SetUp() {
     ASSERT_TRUE(file_util::CreateNewTempDirectory(L"", &temp_dir_));
   }
@@ -75,7 +74,7 @@ class SerializationTest : public testing::Test {
 
   const base::FilePath& temp_dir() const { return temp_dir_; }
 
-private:
+ private:
   base::FilePath temp_dir_;
 };
 

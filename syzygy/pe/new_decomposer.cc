@@ -598,7 +598,7 @@ bool ScopeSymTagToLabelProperties(enum SymTagEnum sym_tag,
       return true;
     }
     default:
-    return false;
+      return false;
   }
   return false;
 }

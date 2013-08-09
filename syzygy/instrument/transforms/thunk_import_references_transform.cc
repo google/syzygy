@@ -299,7 +299,6 @@ BlockGraph::Block* ThunkImportReferencesTransform::CreateOneThunk(
   using block_graph::BasicCodeBlock;
   using block_graph::BlockBuilder;
   using block_graph::Operand;
-  using block_graph::Immediate;
   using block_graph::Displacement;
 
   // Construct the name for the new thunk.

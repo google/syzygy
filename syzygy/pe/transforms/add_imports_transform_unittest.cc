@@ -31,7 +31,9 @@ namespace {
 
 class AddImportsTransformTest : public testing::PELibUnitTest {
  public:
-  AddImportsTransformTest() : image_layout_(&block_graph_) {
+  AddImportsTransformTest()
+      : image_layout_(&block_graph_),
+        dos_header_block_(NULL) {
   }
 
   virtual void SetUp() {

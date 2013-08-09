@@ -319,7 +319,7 @@ int PdbDumpApp::Run() {
         dbi_stream.modules().begin();
       ::fprintf(out(), "Module info, %d records:\n",
                 dbi_stream.modules().size());
-      for(; iter_modules != dbi_stream.modules().end(); ++iter_modules) {
+      for (; iter_modules != dbi_stream.modules().end(); ++iter_modules) {
         if (iter_modules->module_info_base().stream != -1) {
           PdbStream* module_stream =
               pdb_file.GetStream(iter_modules->module_info_base().stream);

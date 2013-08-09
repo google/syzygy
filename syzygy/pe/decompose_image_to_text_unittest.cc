@@ -19,7 +19,6 @@
 #include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/common/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/pe/decompose_image_to_text_app.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
 

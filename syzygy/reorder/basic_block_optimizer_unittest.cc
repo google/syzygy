@@ -114,7 +114,7 @@ class BasicBlockOrdererTest : public testing::BasicBlockTest {
 };
 
 const size_t BasicBlockOrdererTest::kBasicBlockOffsets[kNumCodeBasicBlocks] =
-   { 0, 23, 24, 31, 36, 37, 42, 49 };
+    { 0, 23, 24, 31, 36, 37, 42, 49 };
 
 class BasicBlockOptimizerTest : public testing::OrderGeneratorTest {
  public:

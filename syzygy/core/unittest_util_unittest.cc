@@ -34,10 +34,10 @@ TEST(CoreUnittestUtils, GetRelativePath) {
 
   EXPECT_EQ(kEmptyPath, GetRelativePath(kPath1, kPath4));
   EXPECT_EQ(kCurrentDir, GetRelativePath(kPath1, kPath1));
-  EXPECT_EQ(kRelPath1From2,GetRelativePath(kPath1, kPath2));
-  EXPECT_EQ(kRelPath2From1,GetRelativePath(kPath2, kPath1));
-  EXPECT_EQ(kRelPath1From3,GetRelativePath(kPath1, kPath3));
-  EXPECT_EQ(kRelPath3From1,GetRelativePath(kPath3, kPath1));
+  EXPECT_EQ(kRelPath1From2, GetRelativePath(kPath1, kPath2));
+  EXPECT_EQ(kRelPath2From1, GetRelativePath(kPath2, kPath1));
+  EXPECT_EQ(kRelPath1From3, GetRelativePath(kPath1, kPath3));
+  EXPECT_EQ(kRelPath3From1, GetRelativePath(kPath3, kPath1));
 
   base::FilePath sub_dir;
   ASSERT_TRUE(file_util::GetCurrentDirectory(&sub_dir));

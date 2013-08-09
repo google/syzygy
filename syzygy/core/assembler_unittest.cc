@@ -28,7 +28,7 @@ class TestSerializer : public core::AssemblerImpl::InstructionSerializer {
     const void* ref;
   };
 
-  TestSerializer () {
+  TestSerializer() {
   }
 
   virtual void AppendInstruction(uint32 location,

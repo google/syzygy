@@ -102,7 +102,6 @@ TEST_F(ImageSourceMapTest, OmapConversion) {
   const RelativeAddressRange a_new(RelativeAddress(1152), 128);
   const RelativeAddressRange b_old(RelativeAddress(1536), 128);
   const RelativeAddressRange b_new(RelativeAddress(1024), 128);
-  const size_t size_old = 2048;
   const size_t size_new = 1536;
 
   ImageSourceMap source_map;

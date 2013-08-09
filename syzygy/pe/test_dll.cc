@@ -137,56 +137,56 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
 
   // Switch over the UTF16 character space.
   switch (c) {
-   case L'Q':
-   case L'W':
-   case L'E':
-   case L'R':
-   case L'T':
-   case L'Y':
-    is_qwerty = true;
-    is_upper_case = true;
-    break;
+    case L'Q':
+    case L'W':
+    case L'E':
+    case L'R':
+    case L'T':
+    case L'Y':
+      is_qwerty = true;
+      is_upper_case = true;
+      break;
 
-   case L'q':
-   case L'w':
-   case L'e':
-   case L'r':
-   case L't':
-   case L'y':
-    is_qwerty = true;
-    is_upper_case = false;
-    break;
+    case L'q':
+    case L'w':
+    case L'e':
+    case L'r':
+    case L't':
+    case L'y':
+      is_qwerty = true;
+      is_upper_case = false;
+      break;
 
-   case L'A':
-   case L'S':
-   case L'D':
-   case L'F':
-   case L'G':
-   case L'H':
-    is_asdfgh = true;
-    is_upper_case = true;
-    break;
+    case L'A':
+    case L'S':
+    case L'D':
+    case L'F':
+    case L'G':
+    case L'H':
+      is_asdfgh = true;
+      is_upper_case = true;
+      break;
 
-   case L'a':
-   case L's':
-   case L'd':
-   case L'f':
-   case L'g':
-   case L'h':
-    is_asdfgh = true;
-    is_upper_case = false;
-    break;
+    case L'a':
+    case L's':
+    case L'd':
+    case L'f':
+    case L'g':
+    case L'h':
+      is_asdfgh = true;
+      is_upper_case = false;
+      break;
 
-   case ' ':
-   case '\t':
-   case '\r':
-   case '\n':
-    is_whitespace = true;
-    break;
+    case ' ':
+    case '\t':
+    case '\r':
+    case '\n':
+      is_whitespace = true;
+      break;
 
-   default:
-    is_other = true;
-    break;
+    default:
+      is_other = true;
+      break;
   }
 
   char buffer[1024] = {'\0'};

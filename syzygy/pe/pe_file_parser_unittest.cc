@@ -65,6 +65,7 @@ class TestPEFileParser: public PEFileParser {
 
 class PEFileParserTest: public testing::PELibUnitTest {
   typedef testing::PELibUnitTest Super;
+
  public:
   PEFileParserTest() : address_space_(&image_), loaded_image_(NULL) {
   }

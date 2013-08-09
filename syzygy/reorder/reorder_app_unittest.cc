@@ -74,7 +74,8 @@ class ReorderAppTest : public testing::PELibUnitTest {
   ReorderAppTest()
       : cmd_line_(base::FilePath(L"reorder.exe")),
         test_impl_(test_app_.implementation()),
-        seed_(1234567) {
+        seed_(1234567),
+        pretty_print_(false) {
   }
 
   void SetUp() {
@@ -233,7 +234,7 @@ TEST_F(ReorderAppTest, ParseMinimalLinearOrderCommandLine) {
   EXPECT_EQ(abs_instrumented_image_path_, test_impl_.instrumented_image_path_);
   EXPECT_EQ(abs_output_file_path_, test_impl_.output_file_path_);
   EXPECT_EQ(abs_trace_file_path_, test_impl_.trace_file_paths_.front());
-  EXPECT_EQ(0U,test_impl_.seed_);
+  EXPECT_EQ(0U, test_impl_.seed_);
   EXPECT_FALSE(test_impl_.pretty_print_);
   EXPECT_EQ(Reorderer::kFlagReorderCode | Reorderer::kFlagReorderData,
             test_impl_.flags_);
@@ -262,7 +263,7 @@ TEST_F(ReorderAppTest, ParseFullLinearOrderCommandLine) {
   EXPECT_EQ(abs_bb_entry_count_file_path_,
             test_impl_.bb_entry_count_file_path_);
   EXPECT_EQ(abs_trace_file_path_, test_impl_.trace_file_paths_.front());
-  EXPECT_EQ(0U,test_impl_.seed_);
+  EXPECT_EQ(0U, test_impl_.seed_);
   EXPECT_TRUE(test_impl_.pretty_print_);
   EXPECT_EQ(0, test_impl_.flags_ & Reorderer::kFlagReorderCode);
   EXPECT_EQ(0, test_impl_.flags_ & Reorderer::kFlagReorderData);
@@ -283,7 +284,7 @@ TEST_F(ReorderAppTest, ParseMinimalDeprecatedLinearOrderCommandLine) {
   EXPECT_EQ(abs_instrumented_image_path_, test_impl_.instrumented_image_path_);
   EXPECT_EQ(abs_output_file_path_, test_impl_.output_file_path_);
   EXPECT_EQ(abs_trace_file_path_, test_impl_.trace_file_paths_.front());
-  EXPECT_EQ(0U,test_impl_.seed_);
+  EXPECT_EQ(0U, test_impl_.seed_);
   EXPECT_FALSE(test_impl_.pretty_print_);
 
   EXPECT_TRUE(test_impl_.SetUp());
@@ -303,7 +304,7 @@ TEST_F(ReorderAppTest, ParseFullDeprecatedLinearOrderCommandLine) {
   EXPECT_EQ(abs_input_image_path_, test_impl_.input_image_path_);
   EXPECT_EQ(abs_instrumented_image_path_, test_impl_.instrumented_image_path_);
   EXPECT_EQ(abs_output_file_path_, test_impl_.output_file_path_);
-  EXPECT_EQ(0U,test_impl_.seed_);
+  EXPECT_EQ(0U, test_impl_.seed_);
   EXPECT_TRUE(test_impl_.pretty_print_);
 
   EXPECT_TRUE(test_impl_.SetUp());
@@ -355,7 +356,7 @@ TEST_F(ReorderAppTest, ParseDeadCodeFinderCommandLine) {
   EXPECT_EQ(abs_instrumented_image_path_, test_impl_.instrumented_image_path_);
   EXPECT_EQ(abs_output_file_path_, test_impl_.output_file_path_);
   EXPECT_EQ(abs_trace_file_path_, test_impl_.trace_file_paths_.front());
-  EXPECT_EQ(0U,test_impl_.seed_);
+  EXPECT_EQ(0U, test_impl_.seed_);
   EXPECT_TRUE(test_impl_.pretty_print_);
 
   EXPECT_TRUE(test_impl_.SetUp());

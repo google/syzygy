@@ -63,7 +63,6 @@ const wchar_t kPdbName[] = L"syzygy\\pe\\test_data\\test_dll.pdb";
 
 class DiaBrowserTest: public testing::Test {
  public:
-
   DiaBrowserTest() {
   }
 
@@ -128,7 +127,7 @@ class DiaBrowserTest: public testing::Test {
   ScopedComPtr<IDiaSymbol> global_;
 };
 
-}  // namespace
+}  // namespace pe
 
 namespace pe {
 

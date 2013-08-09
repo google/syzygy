@@ -44,7 +44,7 @@ class TestGrinder : public GrinderInterface {
     ASSERT_TRUE(parser != NULL);
     parser_ = parser;
   }
-  virtual bool Grind() OVERRIDE { return true; };
+  virtual bool Grind() OVERRIDE { return true; }
   virtual bool OutputData(FILE*) OVERRIDE { return true; }
   // @}
 

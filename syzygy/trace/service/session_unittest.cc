@@ -122,19 +122,19 @@ volatile base::subtle::Atomic32 TestSessionTraceFileWriter::num_instances_ = 0;
 
 class TestSessionTraceFileWriterFactory : public SessionTraceFileWriterFactory {
  public:
-   explicit TestSessionTraceFileWriterFactory(MessageLoop* message_loop)
-       : SessionTraceFileWriterFactory(message_loop) {
-   }
+  explicit TestSessionTraceFileWriterFactory(MessageLoop* message_loop)
+      : SessionTraceFileWriterFactory(message_loop) {
+  }
 
-   bool CreateConsumer(scoped_refptr<BufferConsumer>* consumer) OVERRIDE {
-     // w00t, somewhat bogus coverage ploy, at least will reuse the DCHECKS.
-     EXPECT_TRUE(SessionTraceFileWriterFactory::CreateConsumer(consumer));
-     EXPECT_TRUE((*consumer)->HasOneRef());
+  bool CreateConsumer(scoped_refptr<BufferConsumer>* consumer) OVERRIDE {
+    // w00t, somewhat bogus coverage ploy, at least will reuse the DCHECKS.
+    EXPECT_TRUE(SessionTraceFileWriterFactory::CreateConsumer(consumer));
+    EXPECT_TRUE((*consumer)->HasOneRef());
 
-     *consumer = new TestSessionTraceFileWriter(
-        message_loop_, trace_file_directory_);
-     return true;
-   }
+    *consumer = new TestSessionTraceFileWriter(
+       message_loop_, trace_file_directory_);
+    return true;
+  }
 };
 
 class TestSession : public Session {

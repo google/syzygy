@@ -40,12 +40,12 @@ class TestPdbStream : public PdbStream {
     DCHECK(bytes_read != NULL);
 
     if (pos() == length()) {
-      bytes_read = 0;
+      *bytes_read = 0;
       return true;
     }
 
     count = std::min(count, length() - pos());
-    memset(dest, 0xFF, count);
+    ::memset(dest, 0xFF, count);
     Seek(pos() + count);
     *bytes_read = count;
 

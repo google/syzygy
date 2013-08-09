@@ -804,7 +804,7 @@ LONG CALLBACK Profiler::ExceptionHandler(EXCEPTION_POINTERS* ex_info) {
     if (info->dwType == 0x1000) {
       instance_.OnThreadName(info->szName);
     } else {
-      LOG(WARNING) << "Unrecognised event type " << info->dwType;
+      LOG(WARNING) << "Unrecognized event type " << info->dwType;
     }
   }
 

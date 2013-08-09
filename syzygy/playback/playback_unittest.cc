@@ -39,7 +39,7 @@ using testing::Return;
 
 // A test parse engine that exposes some internals so we can simulate some
 // events.
-class TestParseEngine : trace::parser::ParseEngine {
+class TestParseEngine : public trace::parser::ParseEngine {
  public:
   using trace::parser::ParseEngine::AddModuleInformation;
   using trace::parser::ParseEngine::RemoveModuleInformation;

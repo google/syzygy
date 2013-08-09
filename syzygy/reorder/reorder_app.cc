@@ -18,7 +18,6 @@
 #include "syzygy/reorder/reorder_app.h"
 
 #include <objbase.h>
-#include <iostream>
 
 #include "base/string_number_conversions.h"
 #include "base/stringprintf.h"

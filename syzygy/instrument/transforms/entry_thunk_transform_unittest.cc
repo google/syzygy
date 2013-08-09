@@ -60,7 +60,8 @@ struct ParamThunk {
 class EntryThunkTransformTest : public testing::Test {
  public:
   EntryThunkTransformTest()
-      : dos_header_block_(NULL),
+      : num_sections_pre_transform_(0),
+        dos_header_block_(NULL),
         nt_headers_block_(NULL),
         foo_(NULL),
         bar_(NULL),

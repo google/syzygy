@@ -162,8 +162,8 @@ void SampledModuleCache::RemoveDeadModules() {
     }
 
     module_count_ += new_module_count;
+    DCHECK_LE(old_module_count, module_count_);
     module_count_ -= old_module_count;
-    DCHECK_LE(0u, module_count_);
 
     proc_it = proc_it_next;
   }

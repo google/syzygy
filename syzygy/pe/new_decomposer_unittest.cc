@@ -329,7 +329,7 @@ TEST_F(NewDecomposerTest, LabelsAndAttributes) {
   // TODO(chrisha): When alignment calculations are complete, re-enable this
   //     test.
   // DllMain has a jump table so it should have pointer alignment.
-  //ASSERT_EQ(kPointerSize, dll_main_block->alignment());
+  // ASSERT_EQ(kPointerSize, dll_main_block->alignment());
 
   // Validate that the FunctionWithInlineAssembly block has the appropriate
   // attributes.

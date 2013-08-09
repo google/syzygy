@@ -550,13 +550,12 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
 
         // Finally, calculate the value of the file offset.
         value = file_range.start().value() + section_offset;
+        break;
       }
-      break;
 
       default:
         LOG(ERROR) << "Impossible reference type";
         return false;
-        break;
     }
 
     // Now store the new value.

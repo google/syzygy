@@ -145,8 +145,8 @@ class CallTraceServiceTest : public testing::Test {
     std::wstring protocol;
     std::wstring endpoint;
 
-   ::GetSyzygyCallTraceRpcProtocol(&protocol);
-   ::GetSyzygyCallTraceRpcEndpoint(instance_id_, &endpoint);
+    ::GetSyzygyCallTraceRpcProtocol(&protocol);
+    ::GetSyzygyCallTraceRpcEndpoint(instance_id_, &endpoint);
 
     ASSERT_TRUE(client_rpc_binding_ == 0);
 

@@ -32,7 +32,7 @@ void DumpTypeInfoStream(FILE* out,
                         const TypeInfoRecordMap& type_info_record_map) {
   DCHECK(stream != NULL);
 
-  DumpIndentedText(out, 0,"Type Info Header:\n");
+  DumpIndentedText(out, 0, "Type Info Header:\n");
   DumpIndentedText(out, 1, "version: 0x%08X\n", type_info_header.version);
   DumpIndentedText(out, 1, "len: 0x%08X\n", type_info_header.len);
   DumpIndentedText(out, 1, "type_min: 0x%08X\n", type_info_header.type_min);

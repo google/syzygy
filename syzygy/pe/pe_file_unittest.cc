@@ -33,7 +33,7 @@ using core::RelativeAddress;
 class PEFileTest: public testing::PELibUnitTest {
   typedef testing::PELibUnitTest Super;
 
-public:
+ public:
   PEFileTest() : test_dll_(NULL) {
   }
 
@@ -284,7 +284,7 @@ TEST_F(PEFileTest, DecodeRelocs) {
   // fall within the image's address space
   ASSERT_TRUE(!reloc_values.empty());
   PEFile::RelocMap::const_iterator i = reloc_values.begin();
-  for (;i != reloc_values.end(); ++i) {
+  for (; i != reloc_values.end(); ++i) {
     // Note:
     //  i->first is a relative pointer yielded by the relocation table
     //  i->second is the absolute value of that pointer (i.e., the relocation)

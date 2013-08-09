@@ -99,7 +99,6 @@ void AddFrequencyDataTransformTest::Apply(size_t num_entries,
 TEST_F(AddFrequencyDataTransformTest, ApplySingleByteColumn) {
   const uint32 kNumColumns = 1;
   const uint8 kFrequencySize = 1;
-  const uint8 kDataType = 9;
   ASSERT_NO_FATAL_FAILURE(
       Apply(kNumEntries, kNumColumns, kFrequencySize,
           common::IndexedFrequencyData::BASIC_BLOCK_ENTRY));
