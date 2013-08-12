@@ -17,13 +17,12 @@
 // (basic blocks, functions, compilands), and output to a variety of formats
 // (JSON, CSV, LCOV).
 //
-// TODO(chrisha): Implement the actual rolling up to bbs/functions/compilands
-//     and produce output.
+// TODO(chrisha): Implement OutputData.
 
 #ifndef SYZYGY_GRINDER_GRINDERS_SAMPLE_GRINDER_H_
 #define SYZYGY_GRINDER_GRINDERS_SAMPLE_GRINDER_H_
 
-#include "syzygy/core/address.h"
+#include "syzygy/core/address_space.h"
 #include "syzygy/grinder/grinder.h"
 
 namespace grinder {
@@ -75,6 +74,18 @@ class SampleGrinder : public GrinderInterface {
   struct ModuleData;
 
  protected:
+  // We store some metadata for each basic-block in an image, allowing us to
+  // roll up the heat based on different categories.
+  struct BasicBlockData {
+    std::string* compiland;
+    std::string* function;
+    double heat;
+  };
+  // This is the type of address-space that is used for representing estimates
+  // of heat calculated from aggregate sample data.
+  typedef core::AddressSpace<core::RelativeAddress, size_t, BasicBlockData>
+      HeatMap;
+
   // Finds or creates the sample data associated with the given module.
   ModuleData* GetModuleData(
       const base::FilePath& module_path,
@@ -102,6 +113,18 @@ class SampleGrinder : public GrinderInterface {
       double clock_rate,
       const TraceSampleData* sample_data,
       SampleGrinder::ModuleData* module_data);
+
+  // Given a populated @p heat_map and aggregate @p module_data, estimates heat
+  // for each range in the @p heat_map. The values represent an estimate of
+  // amount of time spent in the range, in seconds.
+  // @param module_data Aggregate module data.
+  // @param heat A pre-populated address space representing the basic blocks of
+  //     the module in question.
+  // @returns the total weight of orphaned samples that were unable to be mapped
+  //     to any range in the heat map.
+  static double IncrementHeatMapFromModuleData(
+      const SampleGrinder::ModuleData* module_data,
+      HeatMap* heat_map);
 
   // The aggregation level to be used in processing samples.
   AggregationLevel aggregation_level_;

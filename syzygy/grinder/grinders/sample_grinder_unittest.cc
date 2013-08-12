@@ -35,8 +35,16 @@ static uint32 kDummyBucketSize = 4;
 // SampleGrinder with some internal details exposed for testing.
 class TestSampleGrinder : public SampleGrinder {
  public:
+  // Types.
+  typedef SampleGrinder::BasicBlockData BasicBlockData;
+  typedef SampleGrinder::HeatMap HeatMap;
+
+  // Functions.
   using SampleGrinder::UpsampleModuleData;
   using SampleGrinder::IncrementModuleData;
+  using SampleGrinder::IncrementHeatMapFromModuleData;
+
+  // Members.
   using SampleGrinder::aggregation_level_;
   using SampleGrinder::parser_;
 };
@@ -361,6 +369,55 @@ TEST_F(SampleGrinderTest, IncrementModuleData) {
   EXPECT_DOUBLE_EQ(0.3, module_data.buckets[1]);
   EXPECT_DOUBLE_EQ(0.2, module_data.buckets[2]);
   EXPECT_DOUBLE_EQ(1.2, BucketSum(module_data));
+}
+
+TEST_F(SampleGrinderTest, IncrementHeatMapFromModuleData) {
+  // Make 9 buckets, each with 1 second of samples in them.
+  SampleGrinder::ModuleData module_data;
+  module_data.bucket_size = 4;
+  module_data.buckets.resize(9, 1.0);
+
+  // RVA    : 0     4     8     12    16    20    24    28    32    36
+  // Buckets: |--0--|--1--|--2--|--3--|--4--|--5--|--6--|--7--|--8--|
+  // Ranges : |--A--|B|       |C| |D| |E |F |  |--G--|  |H| |I|
+  // A perfectly spans a bucket.
+  // B aligns with the left edge of a bucket, but claims all of it.
+  // C aligns with the right edge of a bucket, but claims all of it.
+  // D is in the middle of a bucket and claims all of it.
+  // E and F share a bucket, covering all of it.
+  // G spans 2 buckets.
+  // H and I share a bucket, but don't cover it entirely.
+
+  typedef TestSampleGrinder::BasicBlockData BasicBlockData;
+  typedef TestSampleGrinder::HeatMap HeatMap;
+  typedef TestSampleGrinder::HeatMap::AddressSpace::Range Range;
+  typedef TestSampleGrinder::HeatMap::AddressSpace::Range::Address RVA;
+
+  HeatMap heat_map;
+  const BasicBlockData kData = {};
+  ASSERT_TRUE(heat_map.Insert(Range(RVA(0), 4), kData));  // A.
+  ASSERT_TRUE(heat_map.Insert(Range(RVA(4), 2), kData));  // B.
+  ASSERT_TRUE(heat_map.Insert(Range(RVA(10), 2), kData));  // C.
+  ASSERT_TRUE(heat_map.Insert(Range(RVA(13), 2), kData));  // D.
+  ASSERT_TRUE(heat_map.Insert(Range(RVA(16), 2), kData));  // E.
+  ASSERT_TRUE(heat_map.Insert(Range(RVA(18), 2), kData));  // F.
+  ASSERT_TRUE(heat_map.Insert(Range(RVA(22), 4), kData));  // G.
+  ASSERT_TRUE(heat_map.Insert(Range(RVA(28), 1), kData));  // H.
+  ASSERT_TRUE(heat_map.Insert(Range(RVA(31), 1), kData));  // I.
+
+  double orphaned_samples = TestSampleGrinder::IncrementHeatMapFromModuleData(
+      &module_data, &heat_map);
+  EXPECT_EQ(1.0, orphaned_samples);
+
+  // We expect the heat to have been distributed to the ranges in the following
+  // quantities.
+  const double kHeat[] = { /* A */ 1.0, /* B */ 1.0, /* C */ 1.0,
+                           /* D */ 1.0, /* E */ 0.5, /* F */ 0.5,
+                           /* G */ 2.0, /* H */ 0.5, /* I */ 0.5 };
+  ASSERT_EQ(arraysize(kHeat), heat_map.size());
+  HeatMap::const_iterator it = heat_map.begin();
+  for (size_t i = 0; it != heat_map.end(); ++it, ++i)
+    EXPECT_DOUBLE_EQ(kHeat[i], it->second.heat);
 }
 
 TEST_F(SampleGrinderTest, ParseEmptyCommandLineSucceeds) {

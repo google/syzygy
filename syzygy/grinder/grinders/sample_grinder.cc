@@ -26,11 +26,26 @@ namespace {
 using basic_block_util::ModuleInformation;
 using trace::parser::AbsoluteAddress64;
 
+typedef core::AddressRange<core::RelativeAddress, size_t> Range;
+
 core::RelativeAddress GetBucketStart(const TraceSampleData* sample_data) {
   DCHECK(sample_data != NULL);
   return core::RelativeAddress(
       reinterpret_cast<uint32>(sample_data->bucket_start) -
           reinterpret_cast<uint32>(sample_data->module_base_addr));
+}
+
+// Returns the size of an intersection between a given address range and a
+// sample bucket.
+size_t IntersectionSize(const Range& range,
+                        const core::RelativeAddress& bucket_start,
+                        size_t bucket_size) {
+  size_t left = std::max(range.start().value(), bucket_start.value());
+  size_t right = std::min(range.end().value(),
+                          bucket_start.value() + bucket_size);
+  if (right <= left)
+    return 0;
+  return right - left;
 }
 
 }  // namespace
@@ -256,6 +271,77 @@ bool SampleGrinder::IncrementModuleData(
   }
 
   return true;
+}
+
+double SampleGrinder::IncrementHeatMapFromModuleData(
+    const SampleGrinder::ModuleData* module_data,
+    HeatMap* heat_map) {
+  DCHECK(module_data != NULL);
+  DCHECK(heat_map != NULL);
+
+  double orphaned_samples = 0.0;
+  double total_samples = 0.0;
+
+  // We walk through the sample buckets, and for each one we find the range of
+  // heat map entries that intersect with it. We then divide up the heat to
+  // each of these ranges in proportion to the size of their intersection.
+  core::RelativeAddress rva_bucket(module_data->bucket_start);
+  HeatMap::iterator it = heat_map->begin();
+  size_t i = 0;
+  for (; i < module_data->buckets.size(); ++i) {
+    // Advance the current heat map range as long as it's strictly to the left
+    // of the current bucket.
+    while (it != heat_map->end() && it->first.end() <= rva_bucket)
+      ++it;
+    if (it == heat_map->end())
+      break;
+
+    // If the current heat map range is strictly to the right of the current
+    // bucket then those samples have nowhere to be distributed.
+    if (rva_bucket + module_data->bucket_size <= it->first.start()) {
+      // Tally them up as orphaned samples.
+      orphaned_samples += module_data->buckets[i];
+    } else {
+      // Otherwise we heat map ranges that overlap the current bucket.
+
+      // Advance the current heat map range until we're strictly to the right
+      // of the current bucket.
+      HeatMap::iterator it_end = it;
+      ++it_end;
+      while (it_end != heat_map->end() &&
+          it_end->first.start() < rva_bucket + module_data->bucket_size) {
+        ++it_end;
+      }
+
+      // Find the total size of the intersections, to be used as a scaling
+      // value for distributing the samples. This is done so that *all* of the
+      // samples are distributed, as the bucket may span space that is not
+      // covered by any heat map ranges.
+      size_t total_intersection = 0;
+      for (HeatMap::iterator it2 = it; it2 != it_end; ++it2) {
+        total_intersection += IntersectionSize(it2->first,
+            rva_bucket, module_data->bucket_size);
+      }
+
+      // Now distribute the samples to the various ranges.
+      for (HeatMap::iterator it2 = it; it2 != it_end; ++it2) {
+        size_t intersection = IntersectionSize(it2->first,
+            rva_bucket, module_data->bucket_size);
+        it2->second.heat += intersection * module_data->buckets[i] /
+            total_intersection;
+      }
+    }
+
+    // Advance past the current bucket.
+    total_samples += module_data->buckets[i];
+    rva_bucket += module_data->bucket_size;
+  }
+
+  // Pick up any trailing orphaned buckets.
+  for (; i < module_data->buckets.size(); ++i)
+    orphaned_samples += module_data->buckets[i];
+
+  return orphaned_samples;
 }
 
 bool SampleGrinder::ModuleKey::operator<(
