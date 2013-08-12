@@ -16,9 +16,11 @@
 
 #include "base/at_exit.h"
 #include "base/atomicops.h"
+#include "base/command_line.h"
 #include "base/logging.h"
 #include "syzygy/agent/asan/asan_rtl_impl.h"
 #include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/common/logging.h"
 
 namespace {
 
@@ -71,17 +73,14 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
     case DLL_PROCESS_ATTACH:
       // Create the At-Exit manager.
       SetUpAtExitManager();
-      SetUpAsanRuntime();
 
       // Disable logging. In the case of Chrome this is running in a sandboxed
       // process where logging to file doesn't help us any. In other cases the
       // log output will still go to console.
-      logging::InitLogging(
-          NULL,
-          logging::LOG_NONE,
-          logging::DONT_LOCK_LOG_FILE,
-          logging::DELETE_OLD_LOG_FILE,
-          logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
+      CommandLine::Init(0, NULL);
+      common::InitLoggingForDll(L"asan");
+
+      SetUpAsanRuntime();
 
       break;
 
