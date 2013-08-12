@@ -13,18 +13,18 @@
 // limitations under the License.
 //
 // This file declares the RpcLoggerInstanceManager which binds the call
-// trace service RPC handlers to a trace::logger::Logger instance.
+// trace service RPC handlers to a trace::agent_logger::Logger instance.
 
-#ifndef SYZYGY_TRACE_LOGGER_LOGGER_RPC_IMPL_H_
-#define SYZYGY_TRACE_LOGGER_LOGGER_RPC_IMPL_H_
+#ifndef SYZYGY_TRACE_AGENT_LOGGER_AGENT_LOGGER_RPC_IMPL_H_
+#define SYZYGY_TRACE_AGENT_LOGGER_AGENT_LOGGER_RPC_IMPL_H_
 
 #include "base/logging.h"
 
 namespace trace {
-namespace logger {
+namespace agent_logger {
 
 // Forward declaration.
-class Logger;
+class AgentLogger;
 
 // A helper class to manage a "global" Logger instance to which the RPC
 // callbacks are bound. You can create an instance of this manager to
@@ -32,7 +32,7 @@ class Logger;
 // scope.
 class RpcLoggerInstanceManager {
  public:
-  explicit RpcLoggerInstanceManager(Logger* logger) {
+  explicit RpcLoggerInstanceManager(AgentLogger* logger) {
     DCHECK(logger != NULL);
     DCHECK(instance_ == NULL);
     instance_ = logger;
@@ -43,16 +43,16 @@ class RpcLoggerInstanceManager {
     instance_ = NULL;
   }
 
-  static Logger* GetInstance() {
+  static AgentLogger* GetInstance() {
     DCHECK(instance_ != NULL);
     return instance_;
   }
 
  protected:
-  static Logger* instance_;
+  static AgentLogger* instance_;
 };
 
-}  // namespace logger
+}  // namespace agent_logger
 }  // namespace trace
 
-#endif  // SYZYGY_TRACE_LOGGER_LOGGER_RPC_IMPL_H_
+#endif  // SYZYGY_TRACE_AGENT_LOGGER_AGENT_LOGGER_RPC_IMPL_H_

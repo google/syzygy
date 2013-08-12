@@ -29,8 +29,8 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_runtime.h"
-#include "syzygy/trace/logger/logger.h"
-#include "syzygy/trace/logger/logger_rpc_impl.h"
+#include "syzygy/trace/agent_logger/agent_logger.h"
+#include "syzygy/trace/agent_logger/agent_logger_rpc_impl.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
 namespace agent {
@@ -75,8 +75,8 @@ TEST_F(AsanLoggerTest, EndToEnd) {
     file_util::ScopedFILE destination(file_util::OpenFile(temp_path_, "wb"));
 
     // Start up the logging service.
-    trace::logger::Logger server;
-    trace::logger::RpcLoggerInstanceManager instance_manager(&server);
+    trace::agent_logger::AgentLogger server;
+    trace::agent_logger::RpcLoggerInstanceManager instance_manager(&server);
     server.set_instance_id(instance_id_);
     server.set_destination(destination.get());
     server.set_minidump_dir(temp_dir_.path());
@@ -122,8 +122,8 @@ TEST_F(AsanLoggerTest, Stop) {
   file_util::ScopedFILE destination(file_util::OpenFile(temp_path_, "wb"));
 
   // Start up the logging service.
-  trace::logger::Logger server;
-  trace::logger::RpcLoggerInstanceManager instance_manager(&server);
+  trace::agent_logger::AgentLogger server;
+  trace::agent_logger::RpcLoggerInstanceManager instance_manager(&server);
   server.set_instance_id(instance_id_);
   server.set_destination(destination.get());
   server.set_stopped_callback(

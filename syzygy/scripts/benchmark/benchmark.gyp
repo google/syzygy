@@ -41,6 +41,7 @@
         # build rule. These need to go to inputs of the action below to make
         # sure the benchmark egg is rebuilt on any change to them.
         'benchmark_executables': [
+          '<(PRODUCT_DIR)/agent_logger.exe',
           '<(PRODUCT_DIR)/asan_rtl.dll',
           '<(PRODUCT_DIR)/basic_block_entry_client.dll',
           '<(PRODUCT_DIR)/call_trace_client.dll',
@@ -50,7 +51,6 @@
           '<(PRODUCT_DIR)/dromaeo.zip',
           '<(PRODUCT_DIR)/grinder.exe',
           '<(PRODUCT_DIR)/instrument.exe',
-          '<(PRODUCT_DIR)/logger.exe',
           '<(PRODUCT_DIR)/profile_client.dll',
           '<(PRODUCT_DIR)/relink.exe',
           '<(PRODUCT_DIR)/reorder.exe',
@@ -84,8 +84,8 @@
         '<(src)/syzygy/snapshot/snapshot.gyp:run_in_snapshot',
         '<(src)/syzygy/snapshot/snapshot.gyp:run_in_snapshot_xp',
         '<(src)/syzygy/snapshot/snapshot.gyp:run_in_snapshot_x64',
+        '<(src)/syzygy/trace/agent_logger/agent_logger.gyp:agent_logger',
         '<(src)/syzygy/trace/etw_control/etw_control.gyp:call_trace_control',
-        '<(src)/syzygy/trace/logger/logger.gyp:logger',
         '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
         '<(src)/syzygy/wsdump/wsdump.gyp:wsdump',
         '<(src)/third_party/dromaeo/dromaeo.gyp:dromaeo_zip',

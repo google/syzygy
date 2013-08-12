@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file declares the trace::logger::Logger class which implements
-// a simple logging service over RPC.
+// This file declares the trace::agent_logger::AgentLogger class which
+// implements a simple logging service over RPC.
 
-#ifndef SYZYGY_TRACE_LOGGER_LOGGER_H_
-#define SYZYGY_TRACE_LOGGER_LOGGER_H_
+#ifndef SYZYGY_TRACE_AGENT_LOGGER_AGENT_LOGGER_H_
+#define SYZYGY_TRACE_AGENT_LOGGER_AGENT_LOGGER_H_
 
 #include "base/callback.h"
 #include "base/file_util.h"
@@ -28,15 +28,15 @@
 #include "syzygy/trace/rpc/logger_rpc.h"
 
 namespace trace {
-namespace logger {
+namespace agent_logger {
 
 // Implements the Logger interface (see "logger_rpc.idl").
 //
 // Note: The Logger expects to be the only RPC service running in the process.
-class Logger : public trace::common::Service {
+class AgentLogger : public trace::common::Service {
  public:
-  Logger();
-  virtual ~Logger();
+  AgentLogger();
+  virtual ~AgentLogger();
 
   // Set the destination file for this logger.
   void set_destination(FILE* destination) {
@@ -126,10 +126,10 @@ class Logger : public trace::common::Service {
   base::Lock symbol_lock_;
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(Logger);
+  DISALLOW_COPY_AND_ASSIGN(AgentLogger);
 };
 
-}  // namespace logger
+}  // namespace agent_logger
 }  // namespace trace
 
-#endif  // SYZYGY_TRACE_LOGGER_LOGGER_H_
+#endif  // SYZYGY_TRACE_AGENT_LOGGER_AGENT_LOGGER_H_

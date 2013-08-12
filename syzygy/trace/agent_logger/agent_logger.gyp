@@ -18,15 +18,15 @@
   },
   'targets': [
     {
-      'target_name': 'logger_lib',
+      'target_name': 'agent_logger_lib',
       'type': 'static_library',
       'sources': [
-        'logger.cc',
-        'logger.h',
-        'logger_app.cc',
-        'logger_app.h',
-        'logger_rpc_impl.cc',
-        'logger_rpc_impl.h',
+        'agent_logger.cc',
+        'agent_logger.h',
+        'agent_logger_app.cc',
+        'agent_logger_app.h',
+        'agent_logger_rpc_impl.cc',
+        'agent_logger_rpc_impl.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
@@ -37,15 +37,15 @@
       ],
     },
     {
-      'target_name': 'logger_unittests',
+      'target_name': 'agent_logger_unittests',
       'type': 'executable',
       'sources': [
-        'logger_app_unittest.cc',
-        'logger_unittest.cc',
-        'logger_unittests_main.cc',
+        'agent_logger_app_unittest.cc',
+        'agent_logger_unittest.cc',
+        'agent_logger_unittests_main.cc',
       ],
       'dependencies': [
-        'logger_lib',
+        'agent_logger_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/common/common.gyp:common_unittest_utils',
         '<(src)/testing/gtest.gyp:gtest',
@@ -53,14 +53,14 @@
       ],
     },
     {
-      'target_name': 'logger',
+      'target_name': 'agent_logger',
       'type': 'executable',
       'sources': [
-        'logger_main.cc',
-        'logger.rc',
+        'agent_logger_main.cc',
+        'agent_logger.rc',
       ],
       'dependencies': [
-        'logger_lib',
+        'agent_logger_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/common/common.gyp:common_lib',
       ],

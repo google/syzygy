@@ -16,6 +16,11 @@ CONTENTS
 Executables
 -----------
 
+agent_logger.exe
+  A RPC logging service. For use with ASAN instrumented binaries, accepting
+  error logs across process boundaries. Works for sandboxed processes, like
+  Chrome.
+
 call_trace_control.exe
   Controls ETW kernel logging services. This tool is primarily intended for
   use with the Chrome benchmarking and profiling scripts, packaged elsewhere.
@@ -48,11 +53,6 @@ grinder.exe
 
 instrument.exe
   Instruments a PE file with a given agent.
-
-logger.exe
-  A RPC logging service. For use with ASAN instrumented binaries, accepting
-  error logs across process boundaries. Works for sandboxed processes, like
-  Chrome.
 
 pdbfind.exe
   A utility for locating the PDB file that is matched to a given PE file.

@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file defines the trace::logger::LoggerApp class which implements the
-// LoggerApp RPC interface.
+// This file defines the trace::agent_logger::LoggerApp class which implements
+// the LoggerApp RPC interface.
 
-#include "syzygy/trace/logger/logger_app.h"
+#include "syzygy/trace/agent_logger/agent_logger_app.h"
 
 #include "base/bind.h"
 #include "base/environment.h"
@@ -28,15 +28,15 @@
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/scoped_handle.h"
+#include "syzygy/trace/agent_logger/agent_logger.h"
+#include "syzygy/trace/agent_logger/agent_logger_rpc_impl.h"
 #include "syzygy/trace/common/service_util.h"
-#include "syzygy/trace/logger/logger.h"
-#include "syzygy/trace/logger/logger_rpc_impl.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/logger_rpc.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
 
 namespace trace {
-namespace logger {
+namespace agent_logger {
 
 namespace {
 
@@ -199,7 +199,7 @@ const LoggerApp::ActionTableEntry LoggerApp::kActionTable[] = {
 };
 
 LoggerApp::LoggerApp()
-    : ::common::AppImplBase("Logger"),
+    : ::common::AppImplBase("AgentLogger"),
       logger_command_line_(CommandLine::NO_PROGRAM),
       action_handler_(NULL),
       append_(false) {
@@ -361,7 +361,7 @@ bool LoggerApp::Start() {
     auto_close.reset(output_file);
 
   // Initialize the logger instance.
-  Logger logger;
+  AgentLogger logger;
   logger.set_destination(output_file);
   logger.set_minidump_dir(mini_dump_dir_);
   logger.set_instance_id(instance_id_);
@@ -573,5 +573,5 @@ bool LoggerApp::Usage(const CommandLine* command_line,
   return false;
 }
 
-}  // namespace logger
+}  // namespace agent_logger
 }  // namespace trace

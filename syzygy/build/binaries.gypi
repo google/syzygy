@@ -27,6 +27,7 @@
   'variables': {
     'binaries': [
       # Executables.
+      '<(PRODUCT_DIR)/agent_logger.exe',
       '<(PRODUCT_DIR)/call_trace_control.exe',
       '<(PRODUCT_DIR)/call_trace_service.exe',
       '<(PRODUCT_DIR)/decompose.exe',
@@ -35,7 +36,6 @@
       '<(PRODUCT_DIR)/genfilter.exe',
       '<(PRODUCT_DIR)/grinder.exe',
       '<(PRODUCT_DIR)/instrument.exe',
-      '<(PRODUCT_DIR)/logger.exe',
       '<(PRODUCT_DIR)/pdbfind.exe',
       '<(PRODUCT_DIR)/relink.exe',
       '<(PRODUCT_DIR)/reorder.exe',
@@ -65,6 +65,7 @@
 
     'symbols': [
       # Executables symbols.
+      '<(PRODUCT_DIR)/agent_logger.exe.pdb',
       '<(PRODUCT_DIR)/call_trace_control.exe.pdb',
       '<(PRODUCT_DIR)/call_trace_service.exe.pdb',
       '<(PRODUCT_DIR)/decompose.exe.pdb',
@@ -73,7 +74,6 @@
       '<(PRODUCT_DIR)/genfilter.exe.pdb',
       '<(PRODUCT_DIR)/grinder.exe.pdb',
       '<(PRODUCT_DIR)/instrument.exe.pdb',
-      '<(PRODUCT_DIR)/logger.exe.pdb',
       '<(PRODUCT_DIR)/pdbfind.exe.pdb',
       '<(PRODUCT_DIR)/relink.exe.pdb',
       '<(PRODUCT_DIR)/reorder.exe.pdb',

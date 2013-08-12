@@ -70,6 +70,7 @@ _MODULES = [
 
 
 _EXECUTABLES = [
+    'agent_logger.exe',
     'asan_rtl.dll',
     'basic_block_entry_client.dll',
     'call_trace_client.dll',
@@ -78,7 +79,6 @@ _EXECUTABLES = [
     'coverage_client.dll',
     'grinder.exe',
     'instrument.exe',
-    'logger.exe',
     'profile_client.dll',
     'relink.exe',
     'reorder.exe',

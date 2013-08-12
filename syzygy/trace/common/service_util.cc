@@ -140,7 +140,8 @@ bool SplitCommandLine(const CommandLine* orig_command_line,
   // Initialize application command lines with the new arguments.
   if (!app_argv.empty()) {
     // Avoid switches processing in application commandLine parsing.
-    // Otherwise, we break command like : logger.exe START -- <app> -d 1 -c 2.
+    // Otherwise, we break command like:
+    //     agent_logger.exe START -- <app> -d 1 -c 2.
     // We should not re-order <app> parameters.
     app_command_line->reset(new CommandLine(base::FilePath(app_argv[0])));
     for (size_t arg = 1; arg < app_argv.size(); ++arg)

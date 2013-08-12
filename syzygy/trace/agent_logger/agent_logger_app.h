@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file declares the trace::logger::LoggerApp class which implements
+// This file declares the trace::agent_logger::LoggerApp class which implements
 // a simple logging service for binding to RPC.
 
-#ifndef SYZYGY_TRACE_LOGGER_LOGGER_APP_H_
-#define SYZYGY_TRACE_LOGGER_LOGGER_APP_H_
+#ifndef SYZYGY_TRACE_AGENT_LOGGER_AGENT_LOGGER_APP_H_
+#define SYZYGY_TRACE_AGENT_LOGGER_AGENT_LOGGER_APP_H_
 
 #include "base/basictypes.h"
 #include "base/command_line.h"
@@ -27,7 +27,7 @@
 #include "syzygy/common/application.h"
 
 namespace trace {
-namespace logger {
+namespace agent_logger {
 
 // Encapsulates a Logger as a command-line application.
 //
@@ -154,7 +154,7 @@ class LoggerApp : public common::AppImplBase {
   DISALLOW_COPY_AND_ASSIGN(LoggerApp);
 };
 
-}  // namespace logger
+}  // namespace agent_logger
 }  // namespace trace
 
-#endif  // SYZYGY_TRACE_LOGGER_LOGGER_APP_H_
+#endif  // SYZYGY_TRACE_AGENT_LOGGER_AGENT_LOGGER_APP_H_

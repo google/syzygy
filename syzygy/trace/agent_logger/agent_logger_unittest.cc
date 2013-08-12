@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/trace/logger/logger.h"
+#include "syzygy/trace/agent_logger/agent_logger.h"
 
 #include "base/bind.h"
 #include "base/callback.h"
@@ -23,11 +23,11 @@
 #include "base/threading/thread.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/trace/logger/logger_rpc_impl.h"
+#include "syzygy/trace/agent_logger/agent_logger_rpc_impl.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
 
 namespace trace {
-namespace logger {
+namespace agent_logger {
 
 namespace {
 
@@ -72,9 +72,9 @@ bool TextContainsKnownStack(const std::string& text, size_t start_offset) {
   return true;
 }
 
-class TestLogger : public Logger {
+class TestLogger : public AgentLogger {
  public:
-  using Logger::destination_;
+  using AgentLogger::destination_;
 };
 
 class LoggerTest : public testing::Test {
@@ -122,13 +122,13 @@ class LoggerTest : public testing::Test {
     ASSERT_TRUE(!logger_.started_callback().is_null());
     ASSERT_TRUE(!logger_.interrupted_callback().is_null());
     ASSERT_TRUE(!logger_.stopped_callback().is_null());
-    ASSERT_EQ(Logger::kUnused, logger_.state());
+    ASSERT_EQ(AgentLogger::kUnused, logger_.state());
 
     // Start the logger.
     EXPECT_CALL(*this, LoggerStartedCallback(&logger_))
         .WillOnce(Return(true));
     ASSERT_TRUE(logger_.Start());
-    ASSERT_EQ(Logger::kRunning, logger_.state());
+    ASSERT_EQ(AgentLogger::kRunning, logger_.state());
 
     // At some point we expect someone to stop the logger, and the logger
     // interrupted callback will fire.
@@ -137,7 +137,7 @@ class LoggerTest : public testing::Test {
   }
 
   virtual void TearDown() OVERRIDE {
-    if (logger_.state() != Logger::kStopped) {
+    if (logger_.state() != AgentLogger::kStopped) {
       ASSERT_TRUE(logger_.Stop());
       ASSERT_NO_FATAL_FAILURE(WaitForLoggerToFinish());
     }
@@ -147,7 +147,7 @@ class LoggerTest : public testing::Test {
     EXPECT_CALL(*this, LoggerStoppedCallback(&logger_))
         .WillOnce(Return(true));
     ASSERT_TRUE(logger_.Join());
-    ASSERT_EQ(Logger::kStopped, logger_.state());
+    ASSERT_EQ(AgentLogger::kStopped, logger_.state());
   }
 
   void DoCaptureRemoteTrace(HANDLE process, std::vector<DWORD>* trace_data) {
@@ -394,5 +394,5 @@ TEST_F(LoggerTest, RpcGenerateMiniDump) {
   // TODO(rogerm): Validate the stack-trace in the mini-dump.
 }
 
-}  // namespace logger
+}  // namespace agent_logger
 }  // namespace trace

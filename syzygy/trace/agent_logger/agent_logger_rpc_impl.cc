@@ -15,7 +15,7 @@
 // This file implements the RPC stubs which bind the LoggerService RPC
 // handlers to a Logger instance.
 
-#include "syzygy/trace/logger/logger_rpc_impl.h"
+#include "syzygy/trace/agent_logger/agent_logger_rpc_impl.h"
 
 #include <windows.h>
 #include <winnt.h>
@@ -23,15 +23,15 @@
 #include "base/process.h"
 #include "base/win/scoped_handle.h"
 #include "sawbuck/common/com_utils.h"
-#include "syzygy/trace/logger/logger.h"
+#include "syzygy/trace/agent_logger/agent_logger.h"
 #include "syzygy/trace/rpc/logger_rpc.h"
 
 namespace {
 
 using base::ProcessId;
 using base::win::ScopedHandle;
-using trace::logger::RpcLoggerInstanceManager;
-using trace::logger::Logger;
+using trace::agent_logger::RpcLoggerInstanceManager;
+using trace::agent_logger::AgentLogger;
 
 bool GetClientInfo(handle_t binding, ProcessId* pid, ScopedHandle* handle) {
   DCHECK(pid != NULL);
@@ -93,9 +93,9 @@ void InitContext(const ExecutionContext* ext_ctx, CONTEXT* ctx) {
 }  // namespace
 
 // The instance to which the RPC callbacks are bound.
-Logger* RpcLoggerInstanceManager::instance_ = NULL;
+AgentLogger* RpcLoggerInstanceManager::instance_ = NULL;
 
-// RPC entrypoint for Logger::Write().
+// RPC entrypoint for AgentLogger::Write().
 boolean LoggerService_Write(
     /* [in] */ handle_t binding,
     /* [string][in] */ const unsigned char *text) {
@@ -105,7 +105,7 @@ boolean LoggerService_Write(
   }
 
   // Get the logger instance.
-  Logger* instance = RpcLoggerInstanceManager::GetInstance();
+  AgentLogger* instance = RpcLoggerInstanceManager::GetInstance();
 
   // Write the log message.
   std::string message(reinterpret_cast<const char*>(text));
@@ -132,7 +132,7 @@ boolean LoggerService_WriteWithContext(
     return false;
 
   // Get the logger instance.
-  Logger* instance = RpcLoggerInstanceManager::GetInstance();
+  AgentLogger* instance = RpcLoggerInstanceManager::GetInstance();
 
   // Capture the stack trace for the caller's context.
   CONTEXT context = {};
@@ -174,7 +174,7 @@ boolean LoggerService_WriteWithTrace(
     return false;
 
   // Get the logger instance.
-  Logger* instance = RpcLoggerInstanceManager::GetInstance();
+  AgentLogger* instance = RpcLoggerInstanceManager::GetInstance();
 
   // Create the log message.
   std::string message(reinterpret_cast<const char*>(text));
@@ -189,7 +189,7 @@ boolean LoggerService_WriteWithTrace(
   return true;
 }
 
-// RPC entrypoint for Logger::SaveMinidump().
+// RPC entrypoint for AgentLogger::SaveMinidump().
 boolean LoggerService_SaveMiniDump(
     /* [in] */ handle_t binding,
     /* [in] */ unsigned long thread_id,
@@ -206,14 +206,14 @@ boolean LoggerService_SaveMiniDump(
   if (!GetClientInfo(binding, &pid, &handle))
     return false;
 
-  Logger* instance = RpcLoggerInstanceManager::GetInstance();
+  AgentLogger* instance = RpcLoggerInstanceManager::GetInstance();
   if (!instance->SaveMiniDump(handle, pid, thread_id, exception, flags))
     return false;
 
   return true;
 }
 
-// RPC entrypoint for Logger::Stop().
+// RPC entrypoint for AgentLogger::Stop().
 boolean LoggerService_Stop(/* [in] */ handle_t binding) {
   if (binding == NULL) {
     LOG(ERROR) << "Invalid input parameter(s).";
@@ -226,7 +226,7 @@ boolean LoggerService_Stop(/* [in] */ handle_t binding) {
   if (!GetClientInfo(binding, &pid, &handle))
     return false;
 
-  Logger* instance = RpcLoggerInstanceManager::GetInstance();
+  AgentLogger* instance = RpcLoggerInstanceManager::GetInstance();
   if (!instance->Stop())
     return false;
 

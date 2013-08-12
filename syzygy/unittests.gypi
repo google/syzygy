@@ -92,10 +92,11 @@
       # Trace tests.
       '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib_unittests',
       '<(src)/syzygy/trace/common/common.gyp:trace_common_unittests',
-      '<(src)/syzygy/trace/logger/logger.gyp:logger_unittests',
       '<(src)/syzygy/trace/parse/parse.gyp:parse_unittests',
       '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_unittests',
       '<(src)/syzygy/trace/service/service.gyp:rpc_service_unittests',
+      '<(src)/syzygy/trace/agent_logger/agent_logger.gyp:'
+          'agent_logger_unittests',
 
       # WSDump tests.
       '<(src)/syzygy/wsdump/wsdump.gyp:wsdump_unittests',

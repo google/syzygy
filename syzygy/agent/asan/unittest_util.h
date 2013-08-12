@@ -19,8 +19,8 @@
 #include "base/string_piece.h"
 #include "base/files/scoped_temp_dir.h"
 #include "gtest/gtest.h"
-#include "syzygy/trace/logger/logger.h"
-#include "syzygy/trace/logger/logger_rpc_impl.h"
+#include "syzygy/trace/agent_logger/agent_logger.h"
+#include "syzygy/trace/agent_logger/agent_logger_rpc_impl.h"
 
 namespace testing {
 
@@ -54,11 +54,11 @@ class TestWithAsanLogger : public testing::Test {
 
  private:
   // The log service instance.
-  trace::logger::Logger log_service_;
+  trace::agent_logger::AgentLogger log_service_;
 
   // Manages the binding between the RPC stub functions and a log service
   // instance.
-  trace::logger::RpcLoggerInstanceManager log_service_instance_;
+  trace::agent_logger::RpcLoggerInstanceManager log_service_instance_;
 
   // The instance ID used by the running logger instance.
   std::wstring instance_id_;

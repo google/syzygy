@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file defines the trace::logger::Logger class which implements the
+// This file defines the trace::agent_logger::Logger class which implements the
 // Logger RPC interface.
 
-#include "syzygy/trace/logger/logger.h"
+#include "syzygy/trace/agent_logger/agent_logger.h"
 
 #include <windows.h>  // NOLINT
 #include <dbghelp.h>
@@ -29,7 +29,7 @@
 #include "syzygy/trace/rpc/rpc_helpers.h"
 
 namespace trace {
-namespace logger {
+namespace agent_logger {
 
 namespace {
 
@@ -125,19 +125,19 @@ BOOL CALLBACK ReadProcessMemoryProc64(HANDLE process,
 
 }  // namespace
 
-Logger::Logger()
+AgentLogger::AgentLogger()
     : trace::common::Service(L"Logger"),
       destination_(NULL) {
 }
 
-Logger::~Logger() {
+AgentLogger::~AgentLogger() {
   if (state() != kStopped) {
     ignore_result(Stop());
     ignore_result(Join());
   }
 }
 
-bool Logger::StartImpl() {
+bool AgentLogger::StartImpl() {
   LOG(INFO) << "Starting the logging service.";
 
   if (!InitRpc())
@@ -149,13 +149,13 @@ bool Logger::StartImpl() {
   return true;
 }
 
-bool Logger::StopImpl() {
+bool AgentLogger::StopImpl() {
   if (!StopRpc())
     return false;
   return true;
 }
 
-bool Logger::JoinImpl() {
+bool AgentLogger::JoinImpl() {
   // Finish processing all RPC events. If Stop() has previously been called
   // this will simply ensure that all outstanding requests are handled. If
   // Stop has not been called, this will continue (i.e., block) handling events
@@ -166,7 +166,7 @@ bool Logger::JoinImpl() {
   return true;
 }
 
-bool Logger::AppendTrace(HANDLE process,
+bool AgentLogger::AppendTrace(HANDLE process,
                          const DWORD* trace_data,
                          size_t trace_length,
                          std::string* message) {
@@ -216,7 +216,7 @@ bool Logger::AppendTrace(HANDLE process,
   return true;
 }
 
-bool Logger::CaptureRemoteTrace(HANDLE process,
+bool AgentLogger::CaptureRemoteTrace(HANDLE process,
                                 CONTEXT* context,
                                 std::vector<DWORD>* trace_data) {
   DCHECK(context != NULL);
@@ -281,7 +281,7 @@ bool Logger::CaptureRemoteTrace(HANDLE process,
   return true;
 }
 
-bool Logger::Write(const base::StringPiece& message) {
+bool AgentLogger::Write(const base::StringPiece& message) {
   DCHECK(destination_ != NULL);
 
   if (message.empty())
@@ -310,7 +310,7 @@ bool Logger::Write(const base::StringPiece& message) {
   return true;
 }
 
-bool Logger::SaveMiniDump(HANDLE process,
+bool AgentLogger::SaveMiniDump(HANDLE process,
                           base::ProcessId pid,
                           DWORD tid,
                           DWORD exc_ptr,
@@ -376,7 +376,7 @@ bool Logger::SaveMiniDump(HANDLE process,
   return true;
 }
 
-bool Logger::InitRpc() {
+bool AgentLogger::InitRpc() {
   RPC_STATUS status = RPC_S_OK;
 
   // Initialize the RPC protocol we want to use.
@@ -421,7 +421,7 @@ bool Logger::InitRpc() {
   return true;
 }
 
-bool Logger::StartRpc() {
+bool AgentLogger::StartRpc() {
   // This method must be called by the owning thread, so no need to otherwise
   // synchronize the method invocation.
   VLOG(1) << "Starting the RPC server.";
@@ -448,7 +448,7 @@ bool Logger::StartRpc() {
   return true;
 }
 
-bool Logger::StopRpc() {
+bool AgentLogger::StopRpc() {
   // This method may be called by any thread, but it does not inspect or modify
   // the internal state of the Logger; so, no synchronization is required.
   VLOG(1) << "Requesting an asynchronous shutdown of the logging service.";
@@ -466,7 +466,7 @@ bool Logger::StopRpc() {
   return true;
 }
 
-bool Logger::FinishRpc() {
+bool AgentLogger::FinishRpc() {
   bool error = false;
   RPC_STATUS status = RPC_S_OK;
 
@@ -482,7 +482,7 @@ bool Logger::FinishRpc() {
   status = ::RpcServerUnregisterIf(
       LoggerService_Logger_v1_0_s_ifspec, NULL, FALSE);
   if (status != RPC_S_OK) {
-    LOG(ERROR) << "Failed to unregister the Logger RPC interface: "
+    LOG(ERROR) << "Failed to unregister the AgentLogger RPC interface: "
                 << com::LogWe(status) << ".";
     error = true;
   }
@@ -490,7 +490,7 @@ bool Logger::FinishRpc() {
   status = ::RpcServerUnregisterIf(
       LoggerService_LoggerControl_v1_0_s_ifspec, NULL, FALSE);
   if (status != RPC_S_OK) {
-    LOG(ERROR) << "Failed to unregister Logger Control RPC interface: "
+    LOG(ERROR) << "Failed to unregister AgentLogger Control RPC interface: "
                 << com::LogWe(status) << ".";
     error = true;
   }
@@ -502,5 +502,5 @@ bool Logger::FinishRpc() {
   return !error;
 }
 
-}  // namespace logger
+}  // namespace agent_logger
 }  // namespace trace

@@ -11,14 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-#ifdef APSTUDIO_INVOKED
-#error Don't open this file in the GUI, it'll be massacred on save.
-#endif  // APSTUDIO_INVOKED
 
-#define SYZYGY_FILETYPE VFT_APP
-#define SYZYGY_DESCRIPTION "Syzygy RPC Logging Service"
-#define SYZYGY_INTERNALNAME "Logging Service"
-#define SYZYGY_ORIGINALFILENAME "logger.exe"
+#include "base/at_exit.h"
+#include "base/command_line.h"
+#include "syzygy/trace/agent_logger/agent_logger_app.h"
 
-#include "syzygy/common/version.rc"
+int main(int argc, const char* const* argv) {
+  base::AtExitManager at_exit_manager;
+  CommandLine::Init(argc, argv);
+  return common::Application<trace::agent_logger::LoggerApp>().Run();
+}

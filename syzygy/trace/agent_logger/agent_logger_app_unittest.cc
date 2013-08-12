@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/trace/logger/logger_app.h"
+#include "syzygy/trace/agent_logger/agent_logger_app.h"
 
 #include <psapi.h>
 #include <userenv.h>
@@ -41,7 +41,7 @@
 using namespace trace::client;
 
 namespace trace {
-namespace logger {
+namespace agent_logger {
 
 namespace {
 
@@ -76,7 +76,7 @@ class LoggerAppTest : public testing::ApplicationTestBase {
   typedef testing::ApplicationTestBase Super;
 
   LoggerAppTest()
-      : cmd_line_(base::FilePath(L"logger.exe")),
+      : cmd_line_(base::FilePath(L"agent_logger.exe")),
         test_impl_(test_app_.implementation()) {
   }
 
@@ -299,5 +299,5 @@ TEST_F(LoggerAppTest, SpawnStatusAndStop) {
   // TODO(rogerm): Write me!
 }
 
-}  // namespace logger
+}  // namespace agent_logger
 }  // namespace trace
