@@ -99,6 +99,7 @@ def ProcessMinidump(minidump_filename, cdb_path, pdb_path):
   if pdb_path is not None:
     _Command(debugger, '.sympath %s' % pdb_path)
     _Command(debugger, '.reload /fi chrome.dll')
+    _Command(debugger, '.reload /fi asan_rtl.dll')
     _Command(debugger, '.symfix')
 
   # Enable the line number informations.
@@ -147,7 +148,7 @@ def ProcessMinidump(minidump_filename, cdb_path, pdb_path):
   for line in alloc_stack: print line
   if len(free_stack) != 0:
     print '\nFree stack:'
-    for line in alloc_stack: print line
+    for line in free_stack: print line
   print '\n', _ERROR_HELP_URL
 
   return
@@ -170,7 +171,8 @@ def _ParseArguments():
                     default=_DEFAULT_CDB_PATH,
                     help='(Optional) The path to cdb.exe.')
   parser.add_option('--pdb-path',
-                    help='(Optional) The path to the pdb file.')
+                    help='(Optional) The path to the folder containing the'
+                         ' PDBs.')
   (opts, args) = parser.parse_args()
 
   if len(args):
