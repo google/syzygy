@@ -23,7 +23,9 @@
 #define SYZYGY_GRINDER_GRINDERS_SAMPLE_GRINDER_H_
 
 #include "syzygy/core/address_space.h"
+#include "syzygy/core/string_table.h"
 #include "syzygy/grinder/grinder.h"
+#include "syzygy/pe/pe_file.h"
 
 namespace grinder {
 namespace grinders {
@@ -37,7 +39,12 @@ class SampleGrinder : public GrinderInterface {
     kBasicBlock,
     kFunction,
     kCompiland,
+    kAggregationLevelMax,  // Must be last.
   };
+
+  // The names of the aggregation levels. These must be kept in sync with
+  // AggregationLevel.
+  static const char* kAggregationLevelNames[];
 
   SampleGrinder();
   ~SampleGrinder();
@@ -66,6 +73,7 @@ class SampleGrinder : public GrinderInterface {
   // @name Parameter names.
   // @{
   static const char kAggregationLevel[];
+  static const char kImage[];
   // @}
 
   // Forward declarations. These are public so that they are accessible by
@@ -73,12 +81,14 @@ class SampleGrinder : public GrinderInterface {
   struct ModuleKey;
   struct ModuleData;
 
- protected:
+  // Some type definitions. There are public so that they are accessible by
+  // anonymous helper functions.
+
   // We store some metadata for each basic-block in an image, allowing us to
   // roll up the heat based on different categories.
   struct BasicBlockData {
-    std::string* compiland;
-    std::string* function;
+    const std::string* compiland;
+    const std::string* function;
     double heat;
   };
   // This is the type of address-space that is used for representing estimates
@@ -86,6 +96,11 @@ class SampleGrinder : public GrinderInterface {
   typedef core::AddressSpace<core::RelativeAddress, size_t, BasicBlockData>
       HeatMap;
 
+  // This is the final aggregate type used to represent heat as rolled up to
+  // named objects (compilands or functions).
+  typedef std::map<const std::string*, double> NameHeatMap;
+
+ protected:
   // Finds or creates the sample data associated with the given module.
   ModuleData* GetModuleData(
       const base::FilePath& module_path,
@@ -120,14 +135,32 @@ class SampleGrinder : public GrinderInterface {
   // @param module_data Aggregate module data.
   // @param heat A pre-populated address space representing the basic blocks of
   //     the module in question.
+  // @param total_samples The total number of samples processed will be returned
+  //     here. This is optional and may be NULL.
   // @returns the total weight of orphaned samples that were unable to be mapped
   //     to any range in the heat map.
   static double IncrementHeatMapFromModuleData(
-      const SampleGrinder::ModuleData* module_data,
-      HeatMap* heat_map);
+      const SampleGrinder::ModuleData& module_data,
+      HeatMap* heat_map,
+      double* total_samples);
+
+  // Given a populated @p heat_map performs an aggregation of the heat based
+  // on function or compiland names.
+  // @param aggregation_level The aggregation level. Must be one of
+  //     kFunction or kCompiland.
+  // @param heat_map The BB heat map to be aggregated.
+  // @param name_heat_map The named heat map to be populated.
+  static void RollUpByName(AggregationLevel aggregation_level,
+                           const HeatMap& heat_map,
+                           NameHeatMap* name_heat_map);
 
   // The aggregation level to be used in processing samples.
   AggregationLevel aggregation_level_;
+
+  // The module that we are currently processing.
+  base::FilePath image_path_;
+  pe::PEFile image_;
+  pe::PEFile::Signature image_signature_;
 
   // Points to the parser that is feeding us events. Used to get module
   // information.
@@ -145,6 +178,11 @@ class SampleGrinder : public GrinderInterface {
   // size observed in trace files.
   typedef std::map<ModuleKey, ModuleData> ModuleDataMap;
   ModuleDataMap module_data_;
+
+  // These are used for holding final results. They are populated by Grind().
+  core::StringTable string_table_;
+  HeatMap heat_map_;
+  NameHeatMap name_heat_map_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(SampleGrinder);

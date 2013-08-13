@@ -15,8 +15,13 @@
 #include "syzygy/grinder/grinders/sample_grinder.h"
 
 #include "base/string_util.h"
+#include "base/stringprintf.h"
+#include "syzygy/block_graph/basic_block_decomposer.h"
+#include "syzygy/block_graph/block_graph.h"
+#include "syzygy/block_graph/block_util.h"
 #include "syzygy/common/align.h"
 #include "syzygy/grinder/basic_block_util.h"
+#include "syzygy/pe/decomposer.h"
 
 namespace grinder {
 namespace grinders {
@@ -26,6 +31,7 @@ namespace {
 using basic_block_util::ModuleInformation;
 using trace::parser::AbsoluteAddress64;
 
+typedef block_graph::BlockGraph BlockGraph;
 typedef core::AddressRange<core::RelativeAddress, size_t> Range;
 
 core::RelativeAddress GetBucketStart(const TraceSampleData* sample_data) {
@@ -48,9 +54,141 @@ size_t IntersectionSize(const Range& range,
   return right - left;
 }
 
+bool BuildHeatMapForCodeBlock(const Range& block_range,
+                              const BlockGraph::Block* block,
+                              core::StringTable* string_table,
+                              SampleGrinder::HeatMap* heat_map) {
+  DCHECK(block != NULL);
+  DCHECK(string_table != NULL);
+  DCHECK(heat_map != NULL);
+  DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
+
+  const std::string* compiland = &string_table->InternString(
+      block->compiland_name());
+  const std::string* function = &string_table->InternString(
+      block->name());
+  SampleGrinder::BasicBlockData data = { compiland, function, 0.0 };
+
+  // If the code block is basic block decomposable then decompose it and
+  // iterate over its basic blocks.
+  bool handled_basic_blocks = false;
+  if (block_graph::CodeBlockAttributesAreBasicBlockSafe(block)) {
+    block_graph::BasicBlockSubGraph bbsg;
+    block_graph::BasicBlockDecomposer bbd(block, &bbsg);
+    if (bbd.Decompose()) {
+      block_graph::BasicBlockSubGraph::BBCollection::const_iterator bb_it =
+          bbsg.basic_blocks().begin();
+      for (; bb_it != bbsg.basic_blocks().end(); ++bb_it) {
+        const block_graph::BasicBlock* bb = *bb_it;
+        DCHECK(bb != NULL);
+
+        // We only care about basic code blocks.
+        if (bb->type() != block_graph::BasicBlock::BASIC_CODE_BLOCK)
+          continue;
+        const block_graph::BasicCodeBlock* bcb =
+            block_graph::BasicCodeBlock::Cast(bb);
+        DCHECK(bcb != NULL);
+
+        block_graph::BasicBlockSubGraph::Offset offset = bcb->offset();
+        DCHECK_NE(block_graph::BasicBlock::kNoOffset, offset);
+        core::RelativeAddress rva(block_range.start() + offset);
+
+        // Add a range for the basic-block if it has non-zero size.
+        if (bcb->GetInstructionSize() != 0) {
+          Range range(rva, bcb->GetInstructionSize());
+          if (!heat_map->Insert(range, data)) {
+            LOG(ERROR) << "Failed to insert basic code block into heat map.";
+            return false;
+          }
+        }
+
+        // Iterate over any successors.
+        if (!bcb->successors().empty()) {
+          // The instruction that the successor represents immediately follows
+          // the instruction itself.
+          rva += bcb->GetInstructionSize();
+
+          block_graph::BasicBlock::Successors::const_iterator succ_it =
+              bcb->successors().begin();
+          for (; succ_it != bcb->successors().end(); ++succ_it) {
+            if (succ_it->instruction_size() != 0) {
+              Range range(rva, succ_it->instruction_size());
+              if (!heat_map->Insert(range, data)) {
+                LOG(ERROR) << "Failed to insert successor into heat map.";
+                return false;
+              }
+            }
+          }
+        }
+      }
+      handled_basic_blocks = true;
+    }
+  }
+
+  if (!handled_basic_blocks) {
+    // If we couldn't basic block decompose then we simply treat it as a
+    // single macro block.
+    if (!heat_map->Insert(block_range, data)) {
+      LOG(ERROR) << "Failed to insert code block into heat map.";
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// Builds an empty heat map for the given module. One range is created per
+// basic-block. Non-decomposable code blocks are represented by a single range.
+bool BuildEmptyHeatMap(const SampleGrinder::ModuleKey& module_key,
+                       const SampleGrinder::ModuleData& module_data,
+                       const pe::PEFile& image,
+                       core::StringTable* string_table,
+                       SampleGrinder::HeatMap* heat_map) {
+  DCHECK(string_table != NULL);
+  DCHECK(heat_map != NULL);
+
+  // Decompose the module.
+  pe::Decomposer decomposer(image);
+  BlockGraph bg;
+  pe::ImageLayout image_layout(&bg);
+  LOG(INFO) << "Decomposing module \"" << module_data.module_path.value()
+            << "\".";
+  if (!decomposer.Decompose(&image_layout)) {
+    LOG(ERROR) << "Failed to decompose module \""
+               << module_data.module_path.value() << "\".";
+    return false;
+  }
+
+  // Iterate over all of the code blocks and basic-block decompose them.
+  LOG(INFO) << "Creating initial basic-block heat map for module \""
+            << module_data.module_path.value() << "\".";
+  BlockGraph::AddressSpace::AddressSpaceImpl::const_iterator block_it =
+      image_layout.blocks.begin();
+  for (; block_it != image_layout.blocks.end(); ++block_it) {
+    const BlockGraph::Block* block = block_it->second;
+    if (block->type() != BlockGraph::CODE_BLOCK)
+      continue;
+
+    if (!BuildHeatMapForCodeBlock(block_it->first, block, string_table,
+                                  heat_map)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 }  // namespace
 
+// NOTE: This must be kept in sync with SampleGrinder::AggregationLevel.
+const char* SampleGrinder::kAggregationLevelNames[] = {
+    "basic-block", "function", "compiland" };
+COMPILE_ASSERT(arraysize(SampleGrinder::kAggregationLevelNames) ==
+                   SampleGrinder::kAggregationLevelMax,
+               AggregationLevelNames_out_of_sync);
+
 const char SampleGrinder::kAggregationLevel[] = "aggregation-level";
+const char SampleGrinder::kImage[] = "image";
 
 SampleGrinder::SampleGrinder()
     : aggregation_level_(kBasicBlock),
@@ -67,17 +205,30 @@ bool SampleGrinder::ParseCommandLine(const CommandLine* command_line) {
 
   if (command_line->HasSwitch(kAggregationLevel)) {
     std::string s = command_line->GetSwitchValueASCII(kAggregationLevel);
-    if (LowerCaseEqualsASCII(s, "basic-block")) {
+    if (LowerCaseEqualsASCII(s, kAggregationLevelNames[kBasicBlock])) {
       aggregation_level_ = kBasicBlock;
-    } else if (LowerCaseEqualsASCII(s, "function")) {
+    } else if (LowerCaseEqualsASCII(s, kAggregationLevelNames[kFunction])) {
       aggregation_level_ = kFunction;
-    } else if (LowerCaseEqualsASCII(s, "compiland")) {
+    } else if (LowerCaseEqualsASCII(s, kAggregationLevelNames[kCompiland])) {
       aggregation_level_ = kCompiland;
     } else {
       LOG(ERROR) << "Unknown aggregation level: " << s << ".";
       return false;
     }
   }
+
+  // Parse the image parameter, and initialize information about the image of
+  // interest.
+  image_path_ = command_line->GetSwitchValuePath(kImage);
+  if (image_path_.empty()) {
+    LOG(ERROR) << "Must specify --image.";
+    return false;
+  }
+  if (!image_.Init(image_path_)) {
+    LOG(ERROR) << "Failed to parse image \"" << image_path_.value() << "\".";
+    return false;
+  }
+  image_.GetSignature(&image_signature_);
 
   return true;
 }
@@ -93,8 +244,34 @@ bool SampleGrinder::Grind() {
                  << "will be partial.";
   }
 
-  // TODO(chrisha): Implement rolling up.
-  LOG(WARNING) << "Grind not implemented.";
+  ModuleDataMap::const_iterator mod_it = module_data_.begin();
+  if (!BuildEmptyHeatMap(mod_it->first, mod_it->second, image_,
+                         &string_table_, &heat_map_)) {
+    LOG(ERROR) << "Unable to build empty heat map for module \""
+                << mod_it->second.module_path.value() << "\".";
+    return false;
+  }
+
+  // If any samples did not map to code blocks then output a warning.
+  double total = 0.0;
+  double orphaned = IncrementHeatMapFromModuleData(
+      mod_it->second, &heat_map_, &total);
+  if (orphaned > 0) {
+    LOG(WARNING) << base::StringPrintf("%.2f%% (%.4f s) ",
+                                        orphaned / total,
+                                        orphaned)
+                  << "samples were orphaned for module \""
+                  << mod_it->second.module_path.value() << "\".";
+  }
+
+  if (aggregation_level_ != kBasicBlock) {
+    LOG(INFO) << "Rolling up basic-block heat to \""
+              << kAggregationLevelNames[aggregation_level_] << "\" level.";
+    RollUpByName(aggregation_level_, heat_map_, &name_heat_map_);
+    // We can clear the heat map as it was only needed as an intermediate.
+    heat_map_.Clear();
+  }
+
   return true;
 }
 
@@ -131,6 +308,18 @@ void SampleGrinder::OnSampleData(base::Time Time,
     LOG(ERROR) << "Failed to find module information for TraceSampleData "
                << "record.";
     event_handler_errored_ = true;
+    return;
+  }
+
+  // Filter based on the image of interest.
+  // TODO(chrisha): Make this work for multiple modules simultaneously. The
+  //     output model of a Grinder is currently too narrow to do this in any
+  //     meaningful way.
+  if (image_signature_.module_size != module_info->module_size ||
+      image_signature_.module_checksum != module_info->image_checksum ||
+      image_signature_.module_time_date_stamp != module_info->time_date_stamp) {
+    LOG(WARNING) << "Skipping sample data for module \""
+                 << module_info->image_file_name << "\".";
     return;
   }
 
@@ -274,21 +463,21 @@ bool SampleGrinder::IncrementModuleData(
 }
 
 double SampleGrinder::IncrementHeatMapFromModuleData(
-    const SampleGrinder::ModuleData* module_data,
-    HeatMap* heat_map) {
-  DCHECK(module_data != NULL);
+    const SampleGrinder::ModuleData& module_data,
+    HeatMap* heat_map,
+    double* total_samples) {
   DCHECK(heat_map != NULL);
 
   double orphaned_samples = 0.0;
-  double total_samples = 0.0;
+  double temp_total_samples = 0.0;
 
   // We walk through the sample buckets, and for each one we find the range of
   // heat map entries that intersect with it. We then divide up the heat to
   // each of these ranges in proportion to the size of their intersection.
-  core::RelativeAddress rva_bucket(module_data->bucket_start);
+  core::RelativeAddress rva_bucket(module_data.bucket_start);
   HeatMap::iterator it = heat_map->begin();
   size_t i = 0;
-  for (; i < module_data->buckets.size(); ++i) {
+  for (; i < module_data.buckets.size(); ++i) {
     // Advance the current heat map range as long as it's strictly to the left
     // of the current bucket.
     while (it != heat_map->end() && it->first.end() <= rva_bucket)
@@ -298,9 +487,9 @@ double SampleGrinder::IncrementHeatMapFromModuleData(
 
     // If the current heat map range is strictly to the right of the current
     // bucket then those samples have nowhere to be distributed.
-    if (rva_bucket + module_data->bucket_size <= it->first.start()) {
+    if (rva_bucket + module_data.bucket_size <= it->first.start()) {
       // Tally them up as orphaned samples.
-      orphaned_samples += module_data->buckets[i];
+      orphaned_samples += module_data.buckets[i];
     } else {
       // Otherwise we heat map ranges that overlap the current bucket.
 
@@ -309,7 +498,7 @@ double SampleGrinder::IncrementHeatMapFromModuleData(
       HeatMap::iterator it_end = it;
       ++it_end;
       while (it_end != heat_map->end() &&
-          it_end->first.start() < rva_bucket + module_data->bucket_size) {
+          it_end->first.start() < rva_bucket + module_data.bucket_size) {
         ++it_end;
       }
 
@@ -320,28 +509,51 @@ double SampleGrinder::IncrementHeatMapFromModuleData(
       size_t total_intersection = 0;
       for (HeatMap::iterator it2 = it; it2 != it_end; ++it2) {
         total_intersection += IntersectionSize(it2->first,
-            rva_bucket, module_data->bucket_size);
+            rva_bucket, module_data.bucket_size);
       }
 
       // Now distribute the samples to the various ranges.
       for (HeatMap::iterator it2 = it; it2 != it_end; ++it2) {
         size_t intersection = IntersectionSize(it2->first,
-            rva_bucket, module_data->bucket_size);
-        it2->second.heat += intersection * module_data->buckets[i] /
+            rva_bucket, module_data.bucket_size);
+        it2->second.heat += intersection * module_data.buckets[i] /
             total_intersection;
       }
     }
 
     // Advance past the current bucket.
-    total_samples += module_data->buckets[i];
-    rva_bucket += module_data->bucket_size;
+    temp_total_samples += module_data.buckets[i];
+    rva_bucket += module_data.bucket_size;
   }
 
   // Pick up any trailing orphaned buckets.
-  for (; i < module_data->buckets.size(); ++i)
-    orphaned_samples += module_data->buckets[i];
+  for (; i < module_data.buckets.size(); ++i) {
+    orphaned_samples += module_data.buckets[i];
+    temp_total_samples += module_data.buckets[i];
+  }
+
+  if (total_samples != NULL)
+    *total_samples = temp_total_samples;
 
   return orphaned_samples;
+}
+
+void SampleGrinder::RollUpByName(AggregationLevel aggregation_level,
+                                 const HeatMap& heat_map,
+                                 NameHeatMap* name_heat_map) {
+  DCHECK(aggregation_level == kFunction || aggregation_level == kCompiland);
+  DCHECK(name_heat_map != NULL);
+
+  HeatMap::const_iterator it = heat_map.begin();
+  for (; it != heat_map.end(); ++it) {
+    const std::string* name = it->second.function;
+    if (aggregation_level == kCompiland)
+      name = it->second.compiland;
+
+    NameHeatMap::iterator nhm_it = name_heat_map->insert(
+        std::make_pair(name, 0.0)).first;
+    nhm_it->second += it->second.heat;
+  }
 }
 
 bool SampleGrinder::ModuleKey::operator<(

@@ -14,6 +14,8 @@
 
 #include "syzygy/grinder/grinders/sample_grinder.h"
 
+#include "base/strings/utf_string_conversions.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/buffer_writer.h"
@@ -35,18 +37,18 @@ static uint32 kDummyBucketSize = 4;
 // SampleGrinder with some internal details exposed for testing.
 class TestSampleGrinder : public SampleGrinder {
  public:
-  // Types.
-  typedef SampleGrinder::BasicBlockData BasicBlockData;
-  typedef SampleGrinder::HeatMap HeatMap;
-
   // Functions.
   using SampleGrinder::UpsampleModuleData;
   using SampleGrinder::IncrementModuleData;
   using SampleGrinder::IncrementHeatMapFromModuleData;
+  using SampleGrinder::RollUpByName;
 
   // Members.
   using SampleGrinder::aggregation_level_;
+  using SampleGrinder::image_path_;
   using SampleGrinder::parser_;
+  using SampleGrinder::heat_map_;
+  using SampleGrinder::name_heat_map_;
 };
 
 class SampleGrinderTest : public testing::PELibUnitTest {
@@ -54,14 +56,7 @@ class SampleGrinderTest : public testing::PELibUnitTest {
   SampleGrinderTest()
       : cmd_line_(base::FilePath(L"sample_grinder.exe")),
         sample_data_(NULL) {
-    clock_info_.file_time.dwHighDateTime = 0x12345678;
-    clock_info_.file_time.dwLowDateTime= 0x87654321;
-    clock_info_.ticks_info.frequency = 1000;
-    clock_info_.ticks_info.resolution = 16;
-    clock_info_.ticks_reference = 0x00000000AAAAAAAA;
-    clock_info_.tsc_info.frequency = 1000000;
-    clock_info_.tsc_info.resolution = 1;
-    clock_info_.tsc_reference = 0xAAAAAAAABBBBBBBB;
+    trace::common::GetClockInfo(&clock_info_);
   }
 
   virtual void SetUp() OVERRIDE {
@@ -109,16 +104,10 @@ class SampleGrinderTest : public testing::PELibUnitTest {
     sample_data_->sampling_end_time = clock_info_.tsc_reference;
     sample_data_->sampling_interval = clock_info_.tsc_info.frequency / 100;
 
-    // Initialize the buckets of data. We do a kind of round robin splitting.
-    size_t samples_left = 10 * 100;
-    for (size_t index = 0; samples_left > 0; ++index) {
-      size_t samples_to_give = (index % 9) + 1;
-      if (samples_to_give < samples_left)
-        samples_to_give = samples_left;
-      sample_data_->buckets[index % sample_data_->bucket_count] +=
-          samples_to_give;
-      samples_left -= samples_to_give;
-    }
+    // We put 1000 samples (10s of heat) into the first bucket. This will
+    // correspond to the first bucket of a function, so will definitely map to
+    // code.
+    sample_data_->buckets[0] = 1000;
   }
 
   // Given a raw record, wraps it with a RecordPrefix/TraceFileSegmentHeader/
@@ -217,14 +206,69 @@ class SampleGrinderTest : public testing::PELibUnitTest {
   void GrindSucceeds(SampleGrinder::AggregationLevel aggregation_level) {
     TestSampleGrinder g;
 
+    cmd_line_.AppendSwitchPath(SampleGrinder::kImage, test_dll_path_);
+    cmd_line_.AppendSwitchASCII(
+        SampleGrinder::kAggregationLevel,
+        SampleGrinder::kAggregationLevelNames[aggregation_level]);
+    ASSERT_TRUE(g.ParseCommandLine(&cmd_line_));
+
     ASSERT_NO_FATAL_FAILURE(CreateDummySampleData());
     ASSERT_NO_FATAL_FAILURE(WriteDummySampleData());
     ASSERT_NO_FATAL_FAILURE(InitParser(&g));
     g.SetParser(&parser_);
     ASSERT_TRUE(parser_.Consume());
 
-    g.aggregation_level_ = aggregation_level;
-    EXPECT_TRUE(g.Grind());
+    ASSERT_TRUE(g.Grind());
+
+    // 1000 samples at a rate of 0.01 samples/sec = 10 seconds of heat.
+    double expected_heat = 10.0;
+    double total_heat = 0;
+
+    // Check that the output has gone to the right intermediate representation
+    // after grinding. We also check that there was a non-zero amount of
+    // 'heat' distributed.
+    if (aggregation_level == SampleGrinder::kBasicBlock) {
+      ASSERT_FALSE(g.heat_map_.empty());
+      ASSERT_TRUE(g.name_heat_map_.empty());
+
+      TestSampleGrinder::HeatMap::const_iterator it =
+          g.heat_map_.begin();
+      for (; it != g.heat_map_.end(); ++it) {
+        if (it->second.heat > 0)
+          LOG(INFO) << ".";
+        total_heat += it->second.heat;
+      }
+
+      EXPECT_DOUBLE_EQ(10.0, total_heat);
+    } else {
+      ASSERT_TRUE(g.heat_map_.empty());
+      ASSERT_FALSE(g.name_heat_map_.empty());
+
+      // Look through the NameHeatMap output.
+      bool compiland_seen = false;
+      bool function_seen = false;
+      TestSampleGrinder::NameHeatMap::const_iterator it =
+          g.name_heat_map_.begin();
+      for (; it != g.name_heat_map_.end(); ++it) {
+        base::FilePath path(UTF8ToWide(*it->first));
+        if (path.BaseName().value() == L"test_dll_label_test_func.obj")
+          compiland_seen = true;
+        if (*it->first == "_LabelTestFunc")
+          function_seen = true;
+        if (it->second > 0)
+          LOG(INFO) << ".";
+        total_heat += it->second;
+      }
+
+      if (aggregation_level == SampleGrinder::kCompiland) {
+        EXPECT_TRUE(compiland_seen);
+        EXPECT_FALSE(function_seen);
+      } else {
+        EXPECT_FALSE(compiland_seen);
+        EXPECT_TRUE(function_seen);
+      }
+    }
+    EXPECT_DOUBLE_EQ(10.0, total_heat);
 
     // TODO(chrisha): Check that valid output has been produced.
   }
@@ -388,10 +432,10 @@ TEST_F(SampleGrinderTest, IncrementHeatMapFromModuleData) {
   // G spans 2 buckets.
   // H and I share a bucket, but don't cover it entirely.
 
-  typedef TestSampleGrinder::BasicBlockData BasicBlockData;
-  typedef TestSampleGrinder::HeatMap HeatMap;
-  typedef TestSampleGrinder::HeatMap::AddressSpace::Range Range;
-  typedef TestSampleGrinder::HeatMap::AddressSpace::Range::Address RVA;
+  typedef SampleGrinder::BasicBlockData BasicBlockData;
+  typedef SampleGrinder::HeatMap HeatMap;
+  typedef SampleGrinder::HeatMap::AddressSpace::Range Range;
+  typedef SampleGrinder::HeatMap::AddressSpace::Range::Address RVA;
 
   HeatMap heat_map;
   const BasicBlockData kData = {};
@@ -405,9 +449,11 @@ TEST_F(SampleGrinderTest, IncrementHeatMapFromModuleData) {
   ASSERT_TRUE(heat_map.Insert(Range(RVA(28), 1), kData));  // H.
   ASSERT_TRUE(heat_map.Insert(Range(RVA(31), 1), kData));  // I.
 
+  double total_samples = 0;
   double orphaned_samples = TestSampleGrinder::IncrementHeatMapFromModuleData(
-      &module_data, &heat_map);
-  EXPECT_EQ(1.0, orphaned_samples);
+      module_data, &heat_map, &total_samples);
+  EXPECT_DOUBLE_EQ(1.0, orphaned_samples);
+  EXPECT_DOUBLE_EQ(9.0, total_samples);
 
   // We expect the heat to have been distributed to the ranges in the following
   // quantities.
@@ -420,33 +466,85 @@ TEST_F(SampleGrinderTest, IncrementHeatMapFromModuleData) {
     EXPECT_DOUBLE_EQ(kHeat[i], it->second.heat);
 }
 
-TEST_F(SampleGrinderTest, ParseEmptyCommandLineSucceeds) {
+TEST_F(SampleGrinderTest, RollUpByName) {
+  const std::string kFoo = "foo";
+  const std::string kBar = "bar";
+
+  typedef TestSampleGrinder::HeatMap::AddressSpace::Range Range;
+  typedef TestSampleGrinder::HeatMap::AddressSpace::Range::Address RVA;
+
+  // Create a very simple heat map.
+  TestSampleGrinder::HeatMap heat_map;
+  TestSampleGrinder::BasicBlockData bbd0 = { &kFoo, &kBar, 1.0 };
+  TestSampleGrinder::BasicBlockData bbd1 = { &kBar, &kFoo, 2.0 };
+  ASSERT_TRUE(heat_map.Insert(Range(RVA(0), 4), bbd0));
+  ASSERT_TRUE(heat_map.Insert(Range(RVA(4), 4), bbd1));
+
+  TestSampleGrinder::NameHeatMap nhm;
+  TestSampleGrinder::NameHeatMap expected_nhm;
+
+  expected_nhm[&kFoo] = 2.0;
+  expected_nhm[&kBar] = 1.0;
+  TestSampleGrinder::RollUpByName(SampleGrinder::kFunction, heat_map, &nhm);
+  EXPECT_THAT(nhm, testing::ContainerEq(expected_nhm));
+
+  nhm.clear();
+  expected_nhm[&kFoo] = 1.0;
+  expected_nhm[&kBar] = 2.0;
+  TestSampleGrinder::RollUpByName(SampleGrinder::kCompiland, heat_map, &nhm);
+  EXPECT_THAT(nhm, testing::ContainerEq(expected_nhm));
+}
+
+TEST_F(SampleGrinderTest, ParseEmptyCommandLineFails) {
   TestSampleGrinder g;
+  EXPECT_FALSE(g.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(SampleGrinderTest, ParseMinimalCommandLineSucceeds) {
+  TestSampleGrinder g;
+  cmd_line_.AppendSwitchPath(SampleGrinder::kImage, test_dll_path_);
   EXPECT_TRUE(g.ParseCommandLine(&cmd_line_));
+  EXPECT_EQ(test_dll_path_, g.image_path_);
   EXPECT_EQ(SampleGrinder::kBasicBlock, g.aggregation_level_);
 }
 
 TEST_F(SampleGrinderTest, ParseCommandLineAggregationLevel) {
-  TestSampleGrinder g;
-  EXPECT_EQ(SampleGrinder::kBasicBlock, g.aggregation_level_);
-
+  cmd_line_.AppendSwitchPath(SampleGrinder::kImage, test_dll_path_);
   cmd_line_.AppendSwitchASCII(SampleGrinder::kAggregationLevel, "basic-block");
-  EXPECT_TRUE(g.ParseCommandLine(&cmd_line_));
-  EXPECT_EQ(SampleGrinder::kBasicBlock, g.aggregation_level_);
+  {
+    TestSampleGrinder g;
+    EXPECT_TRUE(g.ParseCommandLine(&cmd_line_));
+    EXPECT_EQ(test_dll_path_, g.image_path_);
+    EXPECT_EQ(SampleGrinder::kBasicBlock, g.aggregation_level_);
+  }
 
   cmd_line_.Init(0, NULL);
+  cmd_line_.AppendSwitchPath(SampleGrinder::kImage, test_dll_path_);
   cmd_line_.AppendSwitchASCII(SampleGrinder::kAggregationLevel, "function");
-  EXPECT_TRUE(g.ParseCommandLine(&cmd_line_));
-  EXPECT_EQ(SampleGrinder::kFunction, g.aggregation_level_);
+  {
+    TestSampleGrinder g;
+    EXPECT_TRUE(g.ParseCommandLine(&cmd_line_));
+    EXPECT_EQ(test_dll_path_, g.image_path_);
+    EXPECT_EQ(SampleGrinder::kFunction, g.aggregation_level_);
+  }
 
   cmd_line_.Init(0, NULL);
+  cmd_line_.AppendSwitchPath(SampleGrinder::kImage, test_dll_path_);
   cmd_line_.AppendSwitchASCII(SampleGrinder::kAggregationLevel, "compiland");
-  EXPECT_TRUE(g.ParseCommandLine(&cmd_line_));
-  EXPECT_EQ(SampleGrinder::kCompiland, g.aggregation_level_);
+  {
+    TestSampleGrinder g;
+    EXPECT_TRUE(g.ParseCommandLine(&cmd_line_));
+    EXPECT_EQ(test_dll_path_, g.image_path_);
+    EXPECT_EQ(SampleGrinder::kCompiland, g.aggregation_level_);
+  }
 
   cmd_line_.Init(0, NULL);
+  cmd_line_.AppendSwitchPath(SampleGrinder::kImage, test_dll_path_);
   cmd_line_.AppendSwitchASCII(SampleGrinder::kAggregationLevel, "foobar");
-  EXPECT_FALSE(g.ParseCommandLine(&cmd_line_));
+  {
+    TestSampleGrinder g;
+    EXPECT_FALSE(g.ParseCommandLine(&cmd_line_));
+  }
 }
 
 TEST_F(SampleGrinderTest, SetParserSucceeds) {
