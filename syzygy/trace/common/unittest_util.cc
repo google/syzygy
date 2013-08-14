@@ -20,6 +20,8 @@
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/win/scoped_handle.h"
+#include "syzygy/common/align.h"
+#include "syzygy/common/buffer_writer.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
@@ -101,6 +103,41 @@ void CallTraceService::SetEnvironment() {
   env_var.insert(0, instance_id_);
 
   ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar, env_var));
+}
+
+void WriteRecord(uint64 timestamp,
+                 uint16 record_type,
+                 const void* data,
+                 size_t length,
+                 trace::service::TraceFileWriter* writer) {
+  ASSERT_TRUE(data != NULL);
+  ASSERT_TRUE(writer != NULL);
+
+  std::vector<uint8> buffer;
+  ::common::VectorBufferWriter buffer_writer(&buffer);
+
+  RecordPrefix record = {};
+  record.timestamp = timestamp;
+  record.type = TraceFileSegmentHeader::kTypeId;
+  record.size = sizeof(TraceFileSegmentHeader);
+  record.version.hi = TRACE_VERSION_HI;
+  record.version.lo = TRACE_VERSION_LO;
+  ASSERT_TRUE(buffer_writer.Write(record));
+
+  TraceFileSegmentHeader header = {};
+  header.segment_length = sizeof(RecordPrefix) + length;
+  header.thread_id = ::GetCurrentThreadId();
+  ASSERT_TRUE(buffer_writer.Write(header));
+
+  record.type = record_type;
+  record.size = length;
+  ASSERT_TRUE(buffer_writer.Write(record));
+
+  ASSERT_TRUE(buffer_writer.Write(
+      length, reinterpret_cast<const void*>(data)));
+
+  buffer.resize(::common::AlignUp(buffer.size(), writer->block_size()));
+  ASSERT_TRUE(writer->WriteRecord(buffer.data(), buffer.size()));
 }
 
 }  // namespace testing

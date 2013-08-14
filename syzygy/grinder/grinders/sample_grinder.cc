@@ -82,7 +82,6 @@ bool BuildHeatMapForCodeBlock(const Range& block_range,
         const block_graph::BasicBlock* bb = *bb_it;
         DCHECK(bb != NULL);
 
-        // We only care about basic code blocks.
         if (bb->type() != block_graph::BasicBlock::BASIC_CODE_BLOCK)
           continue;
         const block_graph::BasicCodeBlock* bcb =
@@ -165,14 +164,86 @@ bool BuildEmptyHeatMap(const SampleGrinder::ModuleKey& module_key,
   BlockGraph::AddressSpace::AddressSpaceImpl::const_iterator block_it =
       image_layout.blocks.begin();
   for (; block_it != image_layout.blocks.end(); ++block_it) {
+    // We only care about code blocks. We also don't care about gap blocks,
+    // which have no meaningful content.
     const BlockGraph::Block* block = block_it->second;
     if (block->type() != BlockGraph::CODE_BLOCK)
+      continue;
+    if (block->attributes() & BlockGraph::GAP_BLOCK)
       continue;
 
     if (!BuildHeatMapForCodeBlock(block_it->first, block, string_table,
                                   heat_map)) {
       return false;
     }
+  }
+
+  return true;
+}
+
+// Output the given @p heat_map to the given @p file in CSV format.
+bool OutputHeatMap(const SampleGrinder::HeatMap& heat_map, FILE* file) {
+  if (::fprintf(file, "RVA, Size, Compiland, Function, Heat\n") <= 0)
+    return false;
+  SampleGrinder::HeatMap::const_iterator it = heat_map.begin();
+  for (; it != heat_map.end(); ++it) {
+    if (::fprintf(file,
+                  "0x%08X, %d, %s, %s, %.10e\n",
+                  it->first.start().value(),
+                  it->first.size(),
+                  it->second.compiland->c_str(),
+                  it->second.function->c_str(),
+                  it->second.heat) <= 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// A type used for converting NameHeatMaps to a sorted vector.
+typedef std::pair<double, const std::string*> HeatNamePair;
+
+// Comparator for heat-name pairs, sorting by decreasing heat then increasing
+// name.
+struct HeatNamePairComparator {
+  bool operator()(const HeatNamePair& hnp1, const HeatNamePair& hnp2) const {
+    if (hnp1.first > hnp2.first)
+      return true;
+    if (hnp1.first < hnp2.first)
+      return false;
+    return *hnp1.second < *hnp2.second;
+  }
+};
+
+// Output the given @p name_heat_map to the given @p file in CSV format.
+// The column header that is output will depend on the @p aggregation_level.
+bool OutputNameHeatMap(SampleGrinder::AggregationLevel aggregation_level,
+                       const SampleGrinder::NameHeatMap& name_heat_map,
+                       FILE* file) {
+  DCHECK(aggregation_level == SampleGrinder::kCompiland ||
+         aggregation_level == SampleGrinder::kFunction);
+  const char* name = "Compiland";
+  if (aggregation_level == SampleGrinder::kFunction)
+    name = "Function";
+  if (::fprintf(file, "%s, Heat\n", name) <= 0)
+    return false;
+
+  std::vector<HeatNamePair> heat_name_pairs;
+  heat_name_pairs.reserve(name_heat_map.size());
+
+  SampleGrinder::NameHeatMap::const_iterator it = name_heat_map.begin();
+  for (; it != name_heat_map.end(); ++it) {
+    heat_name_pairs.push_back(HeatNamePair(it->second, it->first));
+  }
+
+  std::sort(heat_name_pairs.begin(),
+            heat_name_pairs.end(),
+            HeatNamePairComparator());
+
+  for (size_t i = 0; i < heat_name_pairs.size(); ++i) {
+    const HeatNamePair& hnp = heat_name_pairs[i];
+    if (::fprintf(file, "%s, %.10e\n", hnp.second->c_str(), hnp.first) <= 0)
+      return false;
   }
 
   return true;
@@ -244,7 +315,18 @@ bool SampleGrinder::Grind() {
                  << "will be partial.";
   }
 
-  ModuleDataMap::const_iterator mod_it = module_data_.begin();
+  // Find the sample data for the module of interest.
+  ModuleKey module_key = { image_signature_.module_size,
+                           image_signature_.module_checksum,
+                           image_signature_.module_time_date_stamp };
+  ModuleDataMap::const_iterator mod_it = module_data_.find(module_key);
+
+  if (mod_it == module_data_.end()) {
+    LOG(ERROR) << "No sample data was found for module \""
+               << image_path_.value() << "\".";
+    return false;
+  }
+
   if (!BuildEmptyHeatMap(mod_it->first, mod_it->second, image_,
                          &string_table_, &heat_map_)) {
     LOG(ERROR) << "Unable to build empty heat map for module \""
@@ -276,8 +358,23 @@ bool SampleGrinder::Grind() {
 }
 
 bool SampleGrinder::OutputData(FILE* file) {
-  // TODO(chrisha): Implement output.
-  LOG(WARNING) << "OutputData not implemented.";
+  // If the aggregation level is basic-block, then output the data in the
+  // HeatMap.
+  bool success = false;
+  if (aggregation_level_ == kBasicBlock) {
+    if (OutputHeatMap(heat_map_, file))
+      success = true;
+  } else {
+    // Otherwise output the data in the NameHeatMap.
+    if (OutputNameHeatMap(aggregation_level_, name_heat_map_, file))
+      success = true;
+  }
+
+  if (!success) {
+    LOG(ERROR) << "Failed to write to file.";
+    return false;
+  }
+
   return true;
 }
 

@@ -46,6 +46,23 @@
       ],
     },
     {
+      'target_name': 'sampler_unittest_utils',
+      'type': 'static_library',
+      'sources': [
+        'unittest_util.cc',
+        'unittest_util.h',
+      ],
+      'dependencies': [
+        '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:test_dll',
+        '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
+        '<(src)/syzygy/trace/common/common.gyp:trace_unittest_utils',
+      ],
+    },
+    {
       'target_name': 'sampler_unittests',
       'type': 'executable',
       'sources': [
@@ -55,12 +72,10 @@
       ],
       'dependencies': [
         'sampler_lib',
+        'sampler_unittest_utils',
         '<(src)/base/base.gyp:base',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
-        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
-        '<(src)/syzygy/pe/pe.gyp:test_dll',
         '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',
         '<(src)/syzygy/trace/parse/parse.gyp:parse_unittest_utils',
       ],

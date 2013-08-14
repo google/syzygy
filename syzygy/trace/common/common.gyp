@@ -21,6 +21,7 @@
       'target_name': 'trace_unittest_utils',
       'type': 'static_library',
       'dependencies': [
+        '<(src)/syzygy/trace/service/service.gyp:rpc_service_lib',
         '<(src)/testing/gtest.gyp:gtest'
       ],
       'sources': [

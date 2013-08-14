@@ -32,6 +32,7 @@ class GrinderApp : public common::AppImplBase {
     kCoverage,
     kBasicBlockEntry,
     kIndexedFrequencyData,
+    kSample,
   };
 
   // @name Implementation of the AppImplbase interface.

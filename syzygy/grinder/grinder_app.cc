@@ -22,6 +22,7 @@
 #include "syzygy/grinder/grinders/coverage_grinder.h"
 #include "syzygy/grinder/grinders/indexed_frequency_data_grinder.h"
 #include "syzygy/grinder/grinders/profile_grinder.h"
+#include "syzygy/grinder/grinders/sample_grinder.h"
 
 namespace grinder {
 
@@ -39,10 +40,20 @@ const char kUsageFormatStr[] =
     "  KCacheGrind-compatible output files for further processing with code\n"
     "  coverage or line profiler visualization tools.\n"
     "\n"
+    "  In 'sample' mode it processes sampling profiler data and outputs heat\n"
+    "  per basic-block/function/compiland in CSV format.\n"
+    "\n"
     "Required parameters\n"
     "  --mode=<mode>\n"
-    "    The processing mode. Must be one of 'bbentry', 'branch', 'coverage'\n"
-    "    or 'profile'.\n"
+    "    The processing mode. Must be one of 'bbentry', 'branch', 'coverage',\n"
+    "    'profile' or 'sample'.\n"
+    "sample mode required parameters\n"
+    "  --image=<path>\n"
+    "    The path to the image for which sampling information is to be\n"
+    "    processed. This must be specified as trace files may contain\n"
+    "    information about several modules, and only one module may be\n"
+    "    processed at a time.\n"
+    "\n"
     "Optional parameters\n"
     "  --output-file=<output file>\n"
     "    The location of output file. If not specified, output is to stdout.\n"
@@ -53,7 +64,12 @@ const char kUsageFormatStr[] =
     "profile mode optional parameters\n"
     "  --thread-parts\n"
     "    Aggregate and output separate parts for each thread seen in the\n"
-    "    trace files.\n";
+    "    trace files.\n"
+    "sample mode optional parameters\n"
+    "  --aggregation-level=<level>\n"
+    "    The level of aggregation. Must be one of 'basic-block', 'function'\n"
+    "    or 'compiland'. Defaults to 'basic-block'.\n"
+    "\n";
 
 }  // namespace
 
@@ -108,6 +124,9 @@ bool GrinderApp::ParseCommandLine(const CommandLine* command_line) {
   } else if (LowerCaseEqualsASCII(mode, "branch")) {
     mode_ = kIndexedFrequencyData;
     grinder_.reset(new grinders::IndexedFrequencyDataGrinder());
+  } else if (LowerCaseEqualsASCII(mode, "sample")) {
+    mode_ = kSample;
+    grinder_.reset(new grinders::SampleGrinder());
   } else {
     PrintUsage(command_line->GetProgram(),
                base::StringPrintf("Unknown mode: %s.", mode.c_str()));

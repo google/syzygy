@@ -88,6 +88,7 @@
         '<(src)/testing/gtest.gyp:gtest',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(src)/syzygy/sampler/sampler.gyp:sampler_unittest_utils',
         '<(src)/syzygy/test_data/test_data.gyp:basic_block_entry_traces',
         '<(src)/syzygy/test_data/test_data.gyp:coverage_traces',
         '<(src)/syzygy/test_data/test_data.gyp:profile_traces',

@@ -17,22 +17,18 @@
 #include "base/strings/utf_string_conversions.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/common/align.h"
-#include "syzygy/common/buffer_writer.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/sampler/unittest_util.h"
 #include "syzygy/trace/common/clock.h"
+#include "syzygy/trace/common/unittest_util.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
-#include "syzygy/trace/service/trace_file_writer.h"
 
 namespace grinder {
 namespace grinders {
 
 namespace {
-
-static uint32 kDummyModuleAddress = 0x07000000;
-static uint32 kDummyBucketSize = 4;
 
 // SampleGrinder with some internal details exposed for testing.
 class TestSampleGrinder : public SampleGrinder {
@@ -75,78 +71,6 @@ class SampleGrinderTest : public testing::PELibUnitTest {
     sample_data_ = reinterpret_cast<TraceSampleData*>(buffer_.data());
   }
 
-  // Generates dummy trace data for test_dll.
-  void CreateDummySampleData() {
-    const IMAGE_SECTION_HEADER* text_header =
-        test_dll_pe_file_.GetSectionHeader(".text");
-    ASSERT_TRUE(text_header != NULL);
-
-    // Initialize a TraceSampleData record. We make it look like we sampled
-    // for 10 seconds at 100 Hz.
-    size_t bucket_count =
-        (text_header->Misc.VirtualSize + kDummyBucketSize - 1) /
-            kDummyBucketSize;
-
-    PrepareDummySampleDataBuffer(bucket_count);
-    ASSERT_TRUE(sample_data_ != NULL);
-
-    sample_data_->module_base_addr =
-        reinterpret_cast<ModuleAddr>(kDummyModuleAddress);
-    sample_data_->module_checksum = test_dll_pe_sig_.module_checksum;
-    sample_data_->module_time_date_stamp =
-        test_dll_pe_sig_.module_time_date_stamp;
-    sample_data_->bucket_size = kDummyBucketSize;
-    sample_data_->bucket_start = reinterpret_cast<ModuleAddr>(
-        kDummyModuleAddress + text_header->VirtualAddress);
-    sample_data_->bucket_count = bucket_count;
-    sample_data_->sampling_start_time =
-        clock_info_.tsc_reference - 10 * clock_info_.tsc_info.frequency;
-    sample_data_->sampling_end_time = clock_info_.tsc_reference;
-    sample_data_->sampling_interval = clock_info_.tsc_info.frequency / 100;
-
-    // We put 1000 samples (10s of heat) into the first bucket. This will
-    // correspond to the first bucket of a function, so will definitely map to
-    // code.
-    sample_data_->buckets[0] = 1000;
-  }
-
-  // Given a raw record, wraps it with a RecordPrefix/TraceFileSegmentHeader/
-  // RecordPrefix header before pushing it to the provided TraceFileWriter.
-  void WriteRecord(uint64 timestamp,
-                   uint16 record_type,
-                   const void* data,
-                   size_t length,
-                   trace::service::TraceFileWriter* writer) {
-    ASSERT_TRUE(data != NULL);
-    ASSERT_TRUE(writer != NULL);
-
-    std::vector<uint8> buffer;
-    ::common::VectorBufferWriter buffer_writer(&buffer);
-
-    RecordPrefix record = {};
-    record.timestamp = timestamp;
-    record.type = TraceFileSegmentHeader::kTypeId;
-    record.size = sizeof(TraceFileSegmentHeader);
-    record.version.hi = TRACE_VERSION_HI;
-    record.version.lo = TRACE_VERSION_LO;
-    ASSERT_TRUE(buffer_writer.Write(record));
-
-    TraceFileSegmentHeader header = {};
-    header.segment_length = sizeof(RecordPrefix) + length;
-    header.thread_id = ::GetCurrentThreadId();
-    ASSERT_TRUE(buffer_writer.Write(header));
-
-    record.type = record_type;
-    record.size = length;
-    ASSERT_TRUE(buffer_writer.Write(record));
-
-    ASSERT_TRUE(buffer_writer.Write(
-        length, reinterpret_cast<const void*>(data)));
-
-    buffer.resize(::common::AlignUp(buffer.size(), writer->block_size()));
-    ASSERT_TRUE(writer->WriteRecord(buffer.data(), buffer.size()));
-  }
-
   void WriteDummySampleData() {
     ASSERT_FALSE(test_dll_path_.empty());
     ASSERT_TRUE(temp_dir_.empty());
@@ -155,46 +79,8 @@ class SampleGrinderTest : public testing::PELibUnitTest {
     this->CreateTemporaryDir(&temp_dir_);
 
     trace_file_path_ = temp_dir_.AppendASCII("sample.bin");
-    trace::service::TraceFileWriter writer;
-    ASSERT_TRUE(writer.Open(trace_file_path_));
-
-    // Write a dummy header.
-    trace::service::ProcessInfo process_info;
-    ASSERT_TRUE(process_info.Initialize(::GetCurrentProcessId()));
-    ASSERT_TRUE(writer.WriteHeader(process_info));
-
-    // Write a dummy module loaded event.
-    TraceModuleData module_data = {};
-    module_data.module_base_addr =
-        reinterpret_cast<ModuleAddr>(kDummyModuleAddress);
-    module_data.module_base_size = test_dll_pe_sig_.module_size;
-    module_data.module_checksum = test_dll_pe_sig_.module_checksum;
-    module_data.module_time_date_stamp =
-        test_dll_pe_sig_.module_time_date_stamp;
-    wcsncpy(module_data.module_name,
-            test_dll_path_.value().c_str(),
-            arraysize(module_data.module_name));
-
-    ASSERT_NO_FATAL_FAILURE(WriteRecord(
-        clock_info_.tsc_reference,
-        TRACE_PROCESS_ATTACH_EVENT,
-        &module_data,
-        sizeof(module_data),
-        &writer));
-
-    // The TraceSampleData should already be initialized
-    ASSERT_LT(0u, buffer_.size());
-    ASSERT_TRUE(sample_data_ != NULL);
-
-    // Write the sample data and close the file.
-    ASSERT_NO_FATAL_FAILURE(WriteRecord(
-        clock_info_.tsc_reference,
-        TraceSampleData::kTypeId,
-        buffer_.data(),
-        buffer_.size(),
-        &writer));
-
-    ASSERT_TRUE(writer.Close());
+    ASSERT_NO_FATAL_FAILURE(testing::WriteDummySamplerTraceFile(
+        trace_file_path_));
   }
 
   void InitParser(trace::parser::ParseEventHandlerImpl* handler) {
@@ -212,7 +98,6 @@ class SampleGrinderTest : public testing::PELibUnitTest {
         SampleGrinder::kAggregationLevelNames[aggregation_level]);
     ASSERT_TRUE(g.ParseCommandLine(&cmd_line_));
 
-    ASSERT_NO_FATAL_FAILURE(CreateDummySampleData());
     ASSERT_NO_FATAL_FAILURE(WriteDummySampleData());
     ASSERT_NO_FATAL_FAILURE(InitParser(&g));
     g.SetParser(&parser_);
@@ -270,7 +155,17 @@ class SampleGrinderTest : public testing::PELibUnitTest {
     }
     EXPECT_DOUBLE_EQ(10.0, total_heat);
 
-    // TODO(chrisha): Check that valid output has been produced.
+    // Produce the output.
+    base::FilePath csv_path = temp_dir_.Append(L"output.csv");
+    file_util::ScopedFILE csv_file(file_util::OpenFile(csv_path, "wb"));
+    ASSERT_TRUE(csv_file.get() != NULL);
+    ASSERT_TRUE(g.OutputData(csv_file.get()));
+    csv_file.reset();
+
+    // Ensure output was produced.
+    int64 file_size = 0;
+    ASSERT_TRUE(file_util::GetFileSize(csv_path, &file_size));
+    ASSERT_LT(0u, file_size);
   }
 
   base::FilePath test_dll_path_;

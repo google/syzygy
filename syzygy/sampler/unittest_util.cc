@@ -1,0 +1,129 @@
+// Copyright 2013 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "syzygy/sampler/unittest_util.h"
+
+#include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/pe_file.h"
+#include "syzygy/pe/unittest_util.h"
+#include "syzygy/trace/common/unittest_util.h"
+#include "syzygy/trace/protocol/call_trace_defs.h"
+
+namespace testing {
+
+namespace {
+
+static uint32 kDummyModuleAddress = 0x07000000;
+static uint32 kDummyBucketSize = 4;
+
+void InitializeDummyTraceSampleData(
+    const trace::common::ClockInfo& clock_info,
+    const pe::PEFile& test_dll_pe_file,
+    const pe::PEFile::Signature& test_dll_pe_sig,
+    std::vector<uint8>* buffer) {
+  const IMAGE_SECTION_HEADER* text_header =
+        test_dll_pe_file.GetSectionHeader(".text");
+  ASSERT_TRUE(text_header != NULL);
+
+  // Initialize a TraceSampleData record. We make it look like we sampled
+  // for 10 seconds at 100 Hz.
+  size_t bucket_count =
+      (text_header->Misc.VirtualSize + kDummyBucketSize - 1) /
+          kDummyBucketSize;
+
+  buffer->resize(offsetof(TraceSampleData, buckets) +
+                     sizeof(uint32) * bucket_count);
+  TraceSampleData* sample_data = reinterpret_cast<TraceSampleData*>(
+      buffer->data());
+
+  sample_data->module_base_addr =
+      reinterpret_cast<ModuleAddr>(kDummyModuleAddress);
+  sample_data->module_size = test_dll_pe_sig.module_size;
+  sample_data->module_checksum = test_dll_pe_sig.module_checksum;
+  sample_data->module_time_date_stamp =
+      test_dll_pe_sig.module_time_date_stamp;
+  sample_data->bucket_size = kDummyBucketSize;
+  sample_data->bucket_start = reinterpret_cast<ModuleAddr>(
+      kDummyModuleAddress + text_header->VirtualAddress);
+  sample_data->bucket_count = bucket_count;
+  sample_data->sampling_start_time =
+      clock_info.tsc_reference - 10 * clock_info.tsc_info.frequency;
+  sample_data->sampling_end_time = clock_info.tsc_reference;
+  sample_data->sampling_interval = clock_info.tsc_info.frequency / 100;
+
+  // We put 1000 samples (10s of heat) into the first bucket. This will
+  // correspond to the first bucket of a function, so will definitely map to
+  // code.
+  sample_data->buckets[0] = 1000;
+}
+
+}  // namespace
+
+void WriteDummySamplerTraceFile(const base::FilePath& path) {
+  trace::common::ClockInfo clock_info = {};
+  trace::common::GetClockInfo(&clock_info);
+
+  base::FilePath test_dll_path = GetOutputRelativePath(kTestDllName);
+  pe::PEFile test_dll_pe_file;
+  ASSERT_TRUE(test_dll_pe_file.Init(test_dll_path));
+
+  pe::PEFile::Signature test_dll_pe_sig;
+  test_dll_pe_file.GetSignature(&test_dll_pe_sig);
+
+  trace::service::TraceFileWriter writer;
+  ASSERT_TRUE(writer.Open(path));
+
+  // Write a dummy header.
+  trace::service::ProcessInfo process_info;
+  ASSERT_TRUE(process_info.Initialize(::GetCurrentProcessId()));
+  ASSERT_TRUE(writer.WriteHeader(process_info));
+
+  // Write a dummy module loaded event.
+  TraceModuleData module_data = {};
+  module_data.module_base_addr =
+      reinterpret_cast<ModuleAddr>(kDummyModuleAddress);
+  module_data.module_base_size = test_dll_pe_sig.module_size;
+  module_data.module_checksum = test_dll_pe_sig.module_checksum;
+  module_data.module_time_date_stamp =
+      test_dll_pe_sig.module_time_date_stamp;
+  wcsncpy(module_data.module_name,
+          test_dll_path.value().c_str(),
+          arraysize(module_data.module_name));
+
+  ASSERT_NO_FATAL_FAILURE(testing::WriteRecord(
+      clock_info.tsc_reference,
+      TRACE_PROCESS_ATTACH_EVENT,
+      &module_data,
+      sizeof(module_data),
+      &writer));
+
+  // The TraceSampleData should already be initialized
+  std::vector<uint8> buffer;
+  InitializeDummyTraceSampleData(
+      clock_info, test_dll_pe_file, test_dll_pe_sig, &buffer);
+  ASSERT_FALSE(buffer.empty());
+
+  // Write the sample data and close the file.
+  ASSERT_NO_FATAL_FAILURE(testing::WriteRecord(
+      clock_info.tsc_reference,
+      TraceSampleData::kTypeId,
+      buffer.data(),
+      buffer.size(),
+      &writer));
+
+  ASSERT_TRUE(writer.Close());
+}
+
+}  // namespace testing

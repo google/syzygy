@@ -19,6 +19,7 @@
 #include "syzygy/common/application.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/sampler/unittest_util.h"
 
 namespace grinder {
 
@@ -163,6 +164,29 @@ TEST_F(GrinderAppTest, CoverageEndToEnd) {
   ASSERT_TRUE(file_util::Delete(output_file, false));
   cmd_line_.AppendSwitchPath("output-file", output_file);
   cmd_line_.AppendSwitchASCII("output-format", "lcov");
+
+  ASSERT_TRUE(!file_util::PathExists(output_file));
+
+  EXPECT_EQ(0, app_.Run());
+
+  // Verify that the output file was created.
+  EXPECT_TRUE(file_util::PathExists(output_file));
+}
+
+TEST_F(GrinderAppTest, SampleEndToEnd) {
+  base::FilePath trace_file = temp_dir_.Append(L"sampler.bin");
+  ASSERT_NO_FATAL_FAILURE(testing::WriteDummySamplerTraceFile(trace_file));
+  ASSERT_TRUE(file_util::PathExists(trace_file));
+
+  cmd_line_.AppendSwitchASCII("mode", "sample");
+  cmd_line_.AppendSwitchPath(
+      "image", testing::GetOutputRelativePath(testing::kTestDllName));
+  cmd_line_.AppendArgPath(trace_file);
+
+  base::FilePath output_file;
+  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));
+  ASSERT_TRUE(file_util::Delete(output_file, false));
+  cmd_line_.AppendSwitchPath("output-file", output_file);
 
   ASSERT_TRUE(!file_util::PathExists(output_file));
 

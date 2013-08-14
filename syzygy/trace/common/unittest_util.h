@@ -21,6 +21,7 @@
 #include "base/string_piece.h"
 #include "base/files/file_path.h"
 #include "gtest/gtest.h"
+#include "syzygy/trace/service/trace_file_writer.h"
 
 namespace testing {
 
@@ -49,6 +50,19 @@ class CallTraceService {
   // The handle to the call trace service process.
   base::ProcessHandle service_process_;
 };
+
+// Given a raw record, wraps it with a RecordPrefix/TraceFileSegmentHeader/
+// RecordPrefix header before pushing it to the provided TraceFileWriter.
+// @param timestamp The timestamp to use for the record.
+// @param record_type The type of the record.
+// @param data The raw data.
+// @param length The length of the raw data.
+// @param writer The trace file writer to be written to.
+void WriteRecord(uint64 timestamp,
+                 uint16 record_type,
+                 const void* data,
+                 size_t length,
+                 trace::service::TraceFileWriter* writer);
 
 }  // namespace testing
 
