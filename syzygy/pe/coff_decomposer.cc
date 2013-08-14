@@ -389,6 +389,9 @@ bool CoffDecomposer::CreateBlocksFromSections() {
                  << name << "\".";
       return false;
     }
+
+    // Assuming block graph section IDs match those of the image file.
+    block->set_section(i);
     block->set_attribute(BlockGraph::SECTION_CONTRIB);
 
     // Add to section-block map so we can find it later.
@@ -514,10 +517,6 @@ Block* CoffDecomposer::CreateBlock(BlockType type,
       Block::DataRange(0, size),
       Block::SourceRange(block_addr, size));
   DCHECK(pushed);
-
-  BlockGraph::SectionId section = image_file_.GetSectionIndex(addr, size);
-  if (section != BlockGraph::kInvalidSectionId)
-    block->set_section(section);
 
   const uint8* data = image_file_.GetImageData(addr, size);
   if (data != NULL)
