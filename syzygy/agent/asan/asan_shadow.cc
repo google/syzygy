@@ -155,7 +155,9 @@ void Shadow::AppendShadowMemoryText(const void* addr,
       kHeapFreedByte >> 4, kHeapFreedByte & 15);
 }
 
-bool Shadow::GetNullTerminatedArraySize(const void* addr, size_t* size) {
+bool Shadow::GetNullTerminatedArraySize(const void* addr,
+                                        size_t* size,
+                                        size_t max_size) {
   DCHECK(addr != NULL);
   DCHECK(size != NULL);
 
@@ -175,7 +177,7 @@ bool Shadow::GetNullTerminatedArraySize(const void* addr, size_t* size) {
     uint8 max_index = shadow ? shadow : 8;
     while (max_index-- > 0) {
       (*size)++;
-      if (*addr_value == 0)
+      if (*size == max_size || *addr_value == 0)
         return true;
       addr_value++;
     }

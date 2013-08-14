@@ -522,11 +522,11 @@ TEST_F(HeapTest, GetNullTerminatedArraySize) {
     ASSERT_TRUE(mem != NULL);
     strcpy(static_cast<char*>(mem), test_strings[i]);
     size_t size = 0;
-    EXPECT_TRUE(Shadow::GetNullTerminatedArraySize(mem, &size));
+    EXPECT_TRUE(Shadow::GetNullTerminatedArraySize(mem, &size, 0U));
     EXPECT_EQ(string_size, size - 1);
     mem[string_size] = 'a';
     mem[string_size + 1] = 0;
-    EXPECT_FALSE(Shadow::GetNullTerminatedArraySize(mem, &size));
+    EXPECT_FALSE(Shadow::GetNullTerminatedArraySize(mem, &size, 0U));
     EXPECT_EQ(string_size, size - 1);
     ASSERT_TRUE(proxy_.Free(0, mem));
   }

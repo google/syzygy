@@ -463,12 +463,12 @@ size_t AsanStrncpySrcOverflow() {
   char* src = new char[strlen(str_value) + 1];
   strcpy(src, str_value);
 
-  char* destination = new char[strlen(str_value) + 1];
+  char* destination = new char[strlen(str_value) + 2];
 
   size_t source_len = strlen(src);
   src[source_len] = 'a';
 
-  char* result = strncpy(destination, src, source_len + 1);
+  char* result = strncpy(destination, src, source_len + 2);
 
   delete[] src;
   delete[] destination;
@@ -551,7 +551,7 @@ size_t AsanStrncatSuffixOverflow() {
   const char* prefix_value = "test_";
   const char* suffix_value = "strncat";
 
-  char* mem = new char[strlen(prefix_value) + strlen(suffix_value) + 1];
+  char* mem = new char[strlen(prefix_value) + strlen(suffix_value) + 2];
   strcpy(mem, prefix_value);
 
   char* suffix = new char[strlen(suffix_value) + 1];
@@ -560,7 +560,7 @@ size_t AsanStrncatSuffixOverflow() {
   size_t suffix_len = strlen(suffix);
   suffix[suffix_len] = 'a';
 
-  char* result = strncpy(mem, suffix, suffix_len + 1);
+  char* result = strncat(mem, suffix, suffix_len + 2);
 
   delete[] suffix;
   delete[] mem;
@@ -577,7 +577,7 @@ size_t AsanStrncatSuffixUnderflow() {
   char* suffix = new char[strlen(suffix_value) + 1];
   strcpy(suffix, suffix_value);
 
-  char* result = strncpy(mem, suffix - 1, strlen(suffix));
+  char* result = strncat(mem, suffix - 1, strlen(suffix));
 
   delete[] suffix;
   delete[] mem;
@@ -595,7 +595,7 @@ size_t AsanStrncatSuffixUseAfterFree() {
   strcpy(suffix, suffix_value);
 
   delete[] suffix;
-  char* result = strncpy(mem, suffix, strlen(suffix_value));
+  char* result = strncat(mem, suffix, strlen(suffix_value));
 
   delete[] mem;
   return reinterpret_cast<size_t>(result);

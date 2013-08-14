@@ -114,13 +114,20 @@ TEST(ShadowTest, GetNullTerminatedArraySize) {
     Shadow::Unpoison(aligned_test_array, sizes_to_test[i]);
     aligned_test_array[sizes_to_test[i] - 1] = 0;
     size_t size = 0;
-    EXPECT_TRUE(Shadow::GetNullTerminatedArraySize(aligned_test_array, &size));
+    EXPECT_TRUE(Shadow::GetNullTerminatedArraySize(aligned_test_array,
+                                                   &size,
+                                                   0U));
     EXPECT_EQ(sizes_to_test[i], size);
     aligned_test_array[sizes_to_test[i] - 1] = kMarkerValue;
 
     aligned_test_array[sizes_to_test[i]] = kMarkerValue;
-    EXPECT_FALSE(Shadow::GetNullTerminatedArraySize(aligned_test_array, &size));
+    EXPECT_FALSE(Shadow::GetNullTerminatedArraySize(aligned_test_array,
+                                                    &size,
+                                                    0U));
     EXPECT_EQ(sizes_to_test[i], size);
+    EXPECT_TRUE(Shadow::GetNullTerminatedArraySize(aligned_test_array,
+                                                   &size,
+                                                   sizes_to_test[i]));
 
     Shadow::Poison(aligned_test_array, common::AlignUp(sizes_to_test[i], 8),
         Shadow::kHeapNonAccessibleByteMask);

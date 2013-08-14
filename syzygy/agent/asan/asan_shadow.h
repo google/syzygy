@@ -82,12 +82,15 @@ class Shadow {
   // the null-terminated array (including the trailing zero) will be returned
   // via @p size. When returning false the offset of the invalid access will be
   // returned via @p size.
-  // @param The starting address of the array that we want to check.
-  // @param Will receive the size of the null terminated array or the offset of
-  //     the invalid access.
+  // @param addr The starting address of the array that we want to check.
+  // @param size Will receive the size of the null terminated array or the
+  //     offset of the invalid access.
+  // @param max_size The maximum length to check. Ignored if set to zero.
   // @return true iff the array starting at @p addr is null terminated within a
   //     contiguous accessible region of memory, false otherwise.
-  static bool GetNullTerminatedArraySize(const void* addr, size_t* size);
+  static bool GetNullTerminatedArraySize(const void* addr,
+                                         size_t* size,
+                                         size_t max_size);
 
  protected:
   // Reset the shadow memory.

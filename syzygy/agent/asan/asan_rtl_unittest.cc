@@ -1323,9 +1323,15 @@ TEST_F(AsanRtlTest, AsanCheckStrncpy) {
   source[source_len + 1] = 0;
   memory_error_detected = false;
   EXPECT_EQ(destination,
-            strncpyFunction(destination, source, strlen(source)));
+            strncpyFunction(destination, source, strlen(source) + 1));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  ResetLog();
+
+  memory_error_detected = false;
+  EXPECT_EQ(destination,
+            strncpyFunction(destination, source, strlen(source)));
+  EXPECT_FALSE(memory_error_detected);
   ResetLog();
 
   EXPECT_TRUE(HeapFreeFunction(heap_, 0, source));
@@ -1388,7 +1394,7 @@ TEST_F(AsanRtlTest, AsanCheckStrncat) {
   memory_error_detected = false;
   strcpy(mem, prefix_value);
   strcpy(buffer, prefix_value);
-  EXPECT_EQ(mem, strncatFunction(mem, suffix, strlen(suffix)));
+  EXPECT_EQ(mem, strncatFunction(mem, suffix, strlen(suffix) + 1));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   EXPECT_STRCASEEQ(strncat(buffer, suffix, strlen(suffix)), mem);
