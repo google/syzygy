@@ -53,7 +53,7 @@ class BlockGraphSerializer;
     /* specially. */ \
     F(PE_PARSED) \
     /* Set for blocks that are created from section contribution */ \
-    /* information. */ \
+    /* information or directly from COFF sections. */ \
     F(SECTION_CONTRIB) \
     /* This is used to indicate that a block consists purely of padding */ \
     /* data. */ \
@@ -91,6 +91,15 @@ class BlockGraphSerializer;
     /* This is set for blocks that have been parsed as COFF groups. The */ \
     /* contents of these blocks are semantically indivisible. */ \
     F(COFF_GROUP) \
+    /* COFF headers block; not set for PE. */ \
+    F(COFF_HEADERS) \
+    /* COFF symbol table. */ \
+    F(COFF_SYMBOL_TABLE) \
+    /* COFF symbol table. */ \
+    F(COFF_STRING_TABLE) \
+    /* COFF relocation table; these should be ignored when dealing with */ \
+    /* block graphs, as all the information is represented as references. */ \
+    F(COFF_RELOC_DATA) \
     /* This always needs to be set to the next available attribute bit. */ \
     F(BLOCK_ATTRIBUTES_MAX)
 

@@ -28,7 +28,7 @@ using core::OutArchive;
 // TODO(chrisha): Enforce this via a unittest. Check in a version of a
 //     simple block-graph, and ensure it deserializes to the same in-memory
 //     representation.
-static const uint32 kSerializedBlockGraphVersion = 1;
+static const uint32 kSerializedBlockGraphVersion = 2;
 
 // Potentially saves a string, depending on whether or not OMIT_STRINGS is
 // enabled.
@@ -307,11 +307,7 @@ bool BlockGraphSerializer::SaveBlockProperties(const BlockGraph::Block& block,
                                                OutArchive* out_archive) const {
   DCHECK(out_archive != NULL);
 
-  COMPILE_ASSERT(BlockGraph::BLOCK_ATTRIBUTES_MAX <= (1 << 16),
-                 block_attributes_need_more_than_16_bits);
-
   uint8 type = static_cast<uint8>(block.type());
-  uint16 attributes = static_cast<uint16>(block.attributes());
 
   // We use a signed integer for saving the section ID, as -1 is used to
   // indicate 'no section'.
@@ -321,7 +317,7 @@ bool BlockGraphSerializer::SaveBlockProperties(const BlockGraph::Block& block,
       !out_archive->Save(block.source_ranges()) ||
       !out_archive->Save(block.addr()) ||
       !SaveInt32(static_cast<uint32>(block.section()), out_archive) ||
-      !out_archive->Save(attributes) ||
+      !out_archive->Save(block.attributes()) ||
       !MaybeSaveString(*this, block.name(), out_archive) ||
       !MaybeSaveString(*this, block.compiland_name(), out_archive)) {
     LOG(ERROR) << "Unable to save properties for block with id "
@@ -350,7 +346,7 @@ bool BlockGraphSerializer::LoadBlockProperties(BlockGraph::Block* block,
   uint32 size = 0;
   uint32 alignment = 0;
   uint32 section = 0;
-  uint16 attributes = 0;
+  uint32 attributes = 0;
   std::string name;
   std::string compiland_name;
   if (!in_archive->Load(&type) ||

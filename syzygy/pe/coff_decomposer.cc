@@ -168,7 +168,7 @@ bool CoffDecomposer::CreateBlocksAndReferencesFromHeaders() {
     LOG(ERROR) << "Unable to create block for headers.";
     return false;
   }
-  block->set_attribute(BlockGraph::PE_PARSED);
+  block->set_attribute(BlockGraph::COFF_HEADERS);
 
   // Create a reference for the symbol table pointer.
   FileOffsetAddress symbols_ptr_addr(
@@ -225,7 +225,7 @@ bool CoffDecomposer::CreateBlocksAndReferencesFromSymbolAndStringTables() {
     LOG(ERROR) << "Unable to create block for symbols.";
     return false;
   }
-  block->set_attribute(BlockGraph::PE_PARSED);
+  block->set_attribute(BlockGraph::COFF_SYMBOL_TABLE);
 
   // Create a block for the strings table that follows.
   FileOffsetAddress strings_start(image_file_.strings_address());
@@ -236,7 +236,7 @@ bool CoffDecomposer::CreateBlocksAndReferencesFromSymbolAndStringTables() {
     LOG(ERROR) << "Unable to create block for strings.";
     return false;
   }
-  block->set_attribute(BlockGraph::PE_PARSED);
+  block->set_attribute(BlockGraph::COFF_STRING_TABLE);
 
   // Add references.
   size_t num_symbols = image_file_.file_header()->NumberOfSymbols;
@@ -293,7 +293,7 @@ bool CoffDecomposer::CreateBlocksFromRelocationTables() {
                     relocs_start, relocs_size, kRelocsBlockName);
     if (block == NULL)
       return false;
-    block->set_attribute(BlockGraph::PE_PARSED);
+    block->set_attribute(BlockGraph::COFF_RELOC_DATA);
   }
   return true;
 }
