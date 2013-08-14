@@ -100,6 +100,8 @@ class BlockGraphSerializer;
     /* COFF relocation table; these should be ignored when dealing with */ \
     /* block graphs, as all the information is represented as references. */ \
     F(COFF_RELOC_DATA) \
+    /* COFF BSS (unmapped) block; has size but no data. */ \
+    F(COFF_BSS) \
     /* This always needs to be set to the next available attribute bit. */ \
     F(BLOCK_ATTRIBUTES_MAX)
 

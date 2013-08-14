@@ -28,6 +28,7 @@
 // - one block for the symbol table;
 // - and a separate block for the string table;
 // - one block for the raw data of each section;
+// - one unmapped block for each BSS section;
 // - and one block for each relocation table.
 //
 // The different blocks have been split in this way in anticipation of

@@ -359,18 +359,10 @@ bool CoffDecomposer::CreateBlocksFromSections() {
   // Build a block for each data or code section.
   size_t num_sections = image_file_.file_header()->NumberOfSections;
   for (size_t i = 0; i < num_sections; ++i) {
-    if (!image_file_.IsSectionMapped(i))
-      continue;
-
     const IMAGE_SECTION_HEADER* header = image_file_.section_header(i);
     DCHECK(header != NULL);
     BlockType block_type = GetSectionType(*header) == kSectionCode ?
                            BlockGraph::CODE_BLOCK : BlockGraph::DATA_BLOCK;
-
-    // Compute the address of the block; when using function-level
-    // linking, each function begins at offset zero.
-    FileOffsetAddress addr(FileOffsetAddress::kInvalidAddress);
-    CHECK(image_file_.SectionOffsetToFileOffset(i, 0, &addr));
 
     // Retrieve or make up a suitable name for the block.
     std::string name(image_file_.GetSectionName(*header));
@@ -379,6 +371,14 @@ bool CoffDecomposer::CreateBlocksFromSections() {
       name.append(kSectionComdatSep);
       if (it->second != NULL)
         name.append(it->second);
+    }
+
+    // Compute the address of the block; when using function-level linking,
+    // each function begins at offset zero. Unmapped sections (BSS) get an
+    // unmapped block with an invalid address.
+    FileOffsetAddress addr(FileOffsetAddress::kInvalidAddress);
+    if (image_file_.IsSectionMapped(i)) {
+      CHECK(image_file_.SectionOffsetToFileOffset(i, 0, &addr));
     }
 
     // Put everything together into a block.
@@ -392,7 +392,8 @@ bool CoffDecomposer::CreateBlocksFromSections() {
 
     // Assuming block graph section IDs match those of the image file.
     block->set_section(i);
-    block->set_attribute(BlockGraph::SECTION_CONTRIB);
+    block->set_attribute(image_file_.IsSectionMapped(i) ?
+                         BlockGraph::SECTION_CONTRIB : BlockGraph::COFF_BSS);
 
     // Add to section-block map so we can find it later.
     section_block_map_.insert(std::make_pair(i, block));
@@ -504,6 +505,18 @@ Block* CoffDecomposer::CreateBlock(BlockType type,
                                    const base::StringPiece& name) {
   DCHECK(image_ != NULL);
 
+  if (addr == FileOffsetAddress::kInvalidAddress) {
+    // Unmapped block.
+    Block* block = image_->graph()->AddBlock(type, size, name);
+    if (block == NULL) {
+      LOG(ERROR) << "Unable to add unmapped block \"" << name.as_string()
+                 << "\" with size " << size << ".";
+      return NULL;
+    }
+    return block;
+  }
+
+  // Otherwise, we have a normal mapped block.
   BlockGraphAddress block_addr(FileOffsetToBlockGraphAddress(addr));
   Block* block = image_->AddBlock(type, block_addr, size, name);
   if (block == NULL) {
@@ -617,16 +630,14 @@ bool CoffDecomposer::CreateSymbolOffsetReference(FileOffsetAddress src_addr,
     return false;
   }
 
-  if (symbol->SectionNumber != 0 &&
-      image_file_.IsSectionMapped(symbol->SectionNumber - 1)) {
+  if (symbol->SectionNumber != 0) {
     // Section symbol.
     return CreateSectionOffsetReference(src_addr, ref_type, ref_size,
                                         symbol->SectionNumber - 1, offset);
   } else {
-    // External symbol or BSS symbol. As a convention, we use
-    // a reference to the symbol table, since there is no
-    // corresponding block. The offset is ignored (will be inferred
-    // from the symbol value and reference type).
+    // External symbol. As a convention, we use a reference to the symbol
+    // table, since there is no corresponding block. The offset is ignored
+    // (will be inferred from the symbol value and reference type).
     size_t symbol_index = symbol - image_file_.symbols();
     return CreateFileOffsetReference(
         src_addr, ref_type, ref_size,

@@ -74,7 +74,8 @@ TEST_F(CoffDecomposerTest, Decompose) {
   // same number in the block graph and image layout.
   EXPECT_LT(0u, block_graph.blocks().size());
   EXPECT_LT(0u, image_layout.blocks.size());
-  EXPECT_EQ(block_graph.blocks().size(), image_layout.blocks.size());
+  EXPECT_EQ(block_graph.blocks().size(),
+            image_layout.blocks.size() + kNumBssSections);
 
   // We expect the ImageLayout sections to agree with the BlockGraph
   // sections in number, id, name and characteristics.
@@ -117,16 +118,15 @@ TEST_F(CoffDecomposerTest, Decompose) {
     }
   }
   EXPECT_EQ(num_section_blocks + num_non_section_blocks,
-            image_layout.blocks.size());
+            block_graph.blocks().size());
 
   // There should be at least as many code blocks as there are functions in
   // test_dll.cc.
   EXPECT_LE(kNumFunctions, num_code_blocks);
 
-  // There should be exactly one block per non-BSS section in an object file
-  // with function-level linking.
-  EXPECT_EQ(image_file_.file_header()->NumberOfSections - kNumBssSections,
-            num_section_blocks);
+  // There should be exactly one block per section (including BSS sections)
+  // in an object file with function-level linking.
+  EXPECT_EQ(image_file_.file_header()->NumberOfSections, num_section_blocks);
 
   // Non-section blocks should be: the header block, the symbol and string
   // tables, and the per-section relocations tables.
@@ -168,12 +168,14 @@ TEST_F(CoffDecomposerTest, FunctionsAndLabels) {
     else if (name.find(".bss") != std::string::npos)
       ++num_bss_blocks;
 
-    if (name.find("DllMain") != std::string::npos) {
-      EXPECT_TRUE(dll_main_block == NULL);
-      dll_main_block = &block_it->second;
-    } else if (name.find("FunctionWithInlineAssembly") != std::string::npos) {
-      EXPECT_TRUE(func_with_inl_asm_block == NULL);
-      func_with_inl_asm_block = &block_it->second;
+    if (block->type() == BlockGraph::CODE_BLOCK) {
+      if (name.find("DllMain") != std::string::npos) {
+        EXPECT_TRUE(dll_main_block == NULL);
+        dll_main_block = &block_it->second;
+      } else if (name.find("FunctionWithInlineAssembly") != std::string::npos) {
+        EXPECT_TRUE(func_with_inl_asm_block == NULL);
+        func_with_inl_asm_block = &block_it->second;
+      }
     }
   }
 
@@ -181,9 +183,7 @@ TEST_F(CoffDecomposerTest, FunctionsAndLabels) {
   EXPECT_EQ(kNumDataSections, num_data_blocks);
   EXPECT_EQ(kNumRDataSections, num_rdata_blocks);
   EXPECT_EQ(kNumDebugSections, num_debug_blocks);
-
-  // BSS sections should not map to any blocks.
-  EXPECT_EQ(0, num_bss_blocks);
+  EXPECT_EQ(kNumBssSections, num_bss_blocks);
 
   EXPECT_TRUE(dll_main_block != NULL);
   EXPECT_TRUE(func_with_inl_asm_block != NULL);
