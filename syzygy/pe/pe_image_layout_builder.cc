@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/pe/image_layout_builder.h"
+#include "syzygy/pe/pe_image_layout_builder.h"
 
 #include <algorithm>
 #include <ctime>
@@ -162,17 +162,13 @@ class RefAddrLess {
 
 namespace pe {
 
-ImageLayoutBuilder::ImageLayoutBuilder(ImageLayout* image_layout)
-    : image_layout_(image_layout),
-      padding_(0),
+PEImageLayoutBuilder::PEImageLayoutBuilder(ImageLayout* image_layout)
+    : PECoffImageLayoutBuilder(image_layout),
       dos_header_block_(NULL),
       nt_headers_block_(NULL) {
-  DCHECK(image_layout != NULL);
-  DCHECK_EQ(0u, image_layout->blocks.address_space_impl().size());
-  DCHECK_EQ(0u, image_layout->sections.size());
 }
 
-bool ImageLayoutBuilder::LayoutImageHeaders(
+bool PEImageLayoutBuilder::LayoutImageHeaders(
     BlockGraph::Block* dos_header_block) {
   DCHECK(dos_header_block != NULL);
   DCHECK(dos_header_block_ == NULL);
@@ -195,6 +191,15 @@ bool ImageLayoutBuilder::LayoutImageHeaders(
   dos_header_block_ = dos_header_block;
   nt_headers_block_ = nt_headers_block;
 
+  // Initialize alignments.
+  ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
+  if (!nt_headers.Init(0, nt_headers_block)) {
+    LOG(ERROR) << "Unable to cast NT headers.";
+    return false;
+  }
+  PECoffImageLayoutBuilder::Init(nt_headers->OptionalHeader.SectionAlignment,
+                                 nt_headers->OptionalHeader.FileAlignment);
+
   // Layout the two blocks in the image layout.
   if (!LayoutBlockImpl(dos_header_block))
     return false;
@@ -204,127 +209,7 @@ bool ImageLayoutBuilder::LayoutImageHeaders(
   return true;
 }
 
-bool ImageLayoutBuilder::OpenSection(const char* name, uint32 characteristics) {
-  DCHECK(name != NULL);
-  DCHECK(nt_headers_block_ != NULL);
-
-  // If we're already in a section, close it.
-  if (section_start_.value() != 0)
-    CloseSection();
-
-  ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
-  if (!nt_headers.Init(0, nt_headers_block_)) {
-    LOG(ERROR) << "Unable to cast NT headers.";
-    return false;
-  }
-
-  // Align to the start of the next section.
-  DCHECK_GT(cursor_.value(), 0u);
-  cursor_ = cursor_.AlignUp(nt_headers->OptionalHeader.SectionAlignment);
-
-  // Remember the start of the section and reset the initialized data cursors.
-  DCHECK_EQ(0u, section_start_.value());
-  DCHECK_EQ(0u, section_auto_init_end_.value());
-  DCHECK_EQ(0u, section_init_end_.value());
-  section_start_ = cursor_;
-  section_auto_init_end_ = cursor_;
-  section_init_end_ = cursor_;
-
-  // Create a section.
-  ImageLayout::SectionInfo section_info;
-  section_info.name = name;
-  section_info.addr = section_start_;
-  section_info.size = 0;
-  section_info.data_size = 0;
-  section_info.characteristics = characteristics;
-  image_layout_->sections.push_back(section_info);
-
-  return true;
-}
-
-bool ImageLayoutBuilder::OpenSection(const BlockGraph::Section* section) {
-  return OpenSection(section->name().c_str(), section->characteristics());
-}
-
-bool ImageLayoutBuilder::LayoutBlock(BlockGraph::Block* block) {
-  DCHECK(block != NULL);
-  return LayoutBlock(block->alignment(), block);
-}
-
-bool ImageLayoutBuilder::LayoutBlock(size_t alignment,
-                                     BlockGraph::Block* block) {
-  DCHECK(block != NULL);
-  DCHECK_NE(0u, section_start_.value());
-
-  // If this is not the first block of the section and we have padding, then
-  // output the padding.
-  if (padding_ > 0 && cursor_ > section_start_)
-    cursor_ += padding_;
-
-  cursor_ = cursor_.AlignUp(alignment);
-
-  // If we have explicit data, advance the explicit data cursor.
-  if (block->data_size() > 0)
-    section_auto_init_end_ = cursor_ + block->data_size();
-
-  // This advances the cursor for us.
-  if (!LayoutBlockImpl(block))
-    return false;
-
-  return true;
-}
-
-void ImageLayoutBuilder::CloseExplicitSectionData() {
-  DCHECK_NE(0u, section_start_.value());
-  section_init_end_ = cursor_;
-}
-
-bool ImageLayoutBuilder::CloseSection() {
-  DCHECK_NE(0u, section_start_.value());
-  DCHECK_LT(0u, image_layout_->sections.size());
-
-  DCHECK(nt_headers_block_ != NULL);
-  ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
-  if (!nt_headers.Init(0, nt_headers_block_)) {
-    LOG(ERROR) << "Unable to cast NT headers.";
-    return false;
-  }
-
-  size_t section_size = cursor_ - section_start_;
-
-  // If provided use the explicit initialized data size, otherwise use the
-  // automatic one.
-  size_t init_size = 0;
-  if (section_init_end_ > cursor_) {
-    if (section_auto_init_end_ > section_init_end_) {
-      LOG(ERROR) << "Blocks with initialized data lay beyond explicitly "
-                    "specified end of initialized data.";
-      return false;
-    }
-    init_size = section_init_end_ - section_start_;
-  } else {
-    init_size = section_auto_init_end_ - section_start_;
-  }
-
-  // A section must have *some* presence in the file.
-  if (init_size == 0)
-    init_size = 1;
-
-  init_size = common::AlignUp(init_size,
-                              nt_headers->OptionalHeader.FileAlignment);
-
-  ImageLayout::SectionInfo& section_info = image_layout_->sections.back();
-  section_info.size = section_size;
-  section_info.data_size = init_size;
-
-  section_start_.set_value(0);
-  section_auto_init_end_.set_value(0);
-  section_init_end_.set_value(0);
-
-  return true;
-}
-
-bool ImageLayoutBuilder::LayoutOrderedBlockGraph(
+bool PEImageLayoutBuilder::LayoutOrderedBlockGraph(
     const OrderedBlockGraph& obg) {
   // The ordered block graph has to refer to the same underlying block graph,
   // and the headers must be laid out. However, nothing else should yet have
@@ -342,6 +227,7 @@ bool ImageLayoutBuilder::LayoutOrderedBlockGraph(
   // Iterate through the sections.
   for (; section_it != section_end; ++section_it) {
     BlockGraph::Section* section = (*section_it)->section();
+    DCHECK(section != NULL);
 
     // Stop iterating when we see the relocs.
     if (section->name() == kRelocSectionName) {
@@ -349,7 +235,7 @@ bool ImageLayoutBuilder::LayoutOrderedBlockGraph(
       break;
     }
 
-    if (!OpenSection(section))
+    if (!OpenSection(*section))
       return false;
 
     // Iterate over the blocks.
@@ -375,7 +261,7 @@ bool ImageLayoutBuilder::LayoutOrderedBlockGraph(
   return true;
 }
 
-bool ImageLayoutBuilder::Finalize() {
+bool PEImageLayoutBuilder::Finalize() {
   if (!CreateRelocsSection())
     return false;
 
@@ -391,19 +277,7 @@ bool ImageLayoutBuilder::Finalize() {
   return true;
 }
 
-// Lays out a block at the current cursor location.
-bool ImageLayoutBuilder::LayoutBlockImpl(BlockGraph::Block* block) {
-  DCHECK(block != NULL);
-  if (!image_layout_->blocks.InsertBlock(cursor_, block)) {
-    LOG(ERROR) << "InsertBlock failed for block (id=" << block->id()
-               << ", name=\"" << block->name() << "\").";
-    return false;
-  }
-  cursor_ += block->size();
-  return true;
-}
-
-bool ImageLayoutBuilder::SortSafeSehTable() {
+bool PEImageLayoutBuilder::SortSafeSehTable() {
   DCHECK(nt_headers_block_ != NULL);
 
   TypedBlock<IMAGE_NT_HEADERS> nt_headers;
@@ -483,7 +357,7 @@ bool ImageLayoutBuilder::SortSafeSehTable() {
   return true;
 }
 
-bool ImageLayoutBuilder::CreateRelocsSection() {
+bool PEImageLayoutBuilder::CreateRelocsSection() {
   RelocWriter writer;
 
   DCHECK(nt_headers_block_ != NULL);
@@ -556,7 +430,7 @@ bool ImageLayoutBuilder::CreateRelocsSection() {
   return true;
 }
 
-bool ImageLayoutBuilder::ReconcileBlockGraphAndImageLayout() {
+bool PEImageLayoutBuilder::ReconcileBlockGraphAndImageLayout() {
   // Get the reloc section ID from the block-graph.
   BlockGraph::Section* reloc_section =
       image_layout_->blocks.graph()->FindSection(kRelocSectionName);
@@ -610,7 +484,7 @@ bool ImageLayoutBuilder::ReconcileBlockGraphAndImageLayout() {
   return true;
 }
 
-bool ImageLayoutBuilder::FinalizeHeaders() {
+bool PEImageLayoutBuilder::FinalizeHeaders() {
   // The DOS and NT headers must be set at this point.
   DCHECK(dos_header_block_ != NULL);
   DCHECK(nt_headers_block_ != NULL);

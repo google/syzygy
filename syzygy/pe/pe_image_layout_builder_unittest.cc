@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/pe/image_layout_builder.h"
+#include "syzygy/pe/pe_image_layout_builder.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -41,11 +41,11 @@ using core::RelativeAddress;
 
 namespace {
 
-class ImageLayoutBuilderTest : public testing::PELibUnitTest {
+class PEImageLayoutBuilderTest : public testing::PELibUnitTest {
   typedef testing::PELibUnitTest Super;
 
  public:
-  ImageLayoutBuilderTest()
+  PEImageLayoutBuilderTest()
       : image_layout_(&block_graph_), dos_header_block_(NULL) {
   }
 
@@ -87,9 +87,9 @@ class ImageLayoutBuilderTest : public testing::PELibUnitTest {
 
 }  // namespace
 
-TEST_F(ImageLayoutBuilderTest, Initialization) {
+TEST_F(PEImageLayoutBuilderTest, Initialization) {
   ImageLayout layout(&block_graph_);
-  ImageLayoutBuilder builder(&layout);
+  PEImageLayoutBuilder builder(&layout);
 
   EXPECT_EQ(&layout, builder.image_layout());
   EXPECT_EQ(&block_graph_, builder.block_graph());
@@ -97,55 +97,22 @@ TEST_F(ImageLayoutBuilderTest, Initialization) {
   EXPECT_EQ(NULL, builder.nt_headers_block());
 }
 
-TEST_F(ImageLayoutBuilderTest, LayoutImageHeaders) {
+TEST_F(PEImageLayoutBuilderTest, LayoutImageHeaders) {
   ImageLayout layout(&block_graph_);
-  ImageLayoutBuilder builder(&layout);
+  PEImageLayoutBuilder builder(&layout);
 
   EXPECT_TRUE(builder.LayoutImageHeaders(dos_header_block_));
   EXPECT_EQ(dos_header_block_, builder.dos_header_block());
   EXPECT_TRUE(builder.nt_headers_block() != NULL);
 }
 
-TEST_F(ImageLayoutBuilderTest, AddSection) {
-  ImageLayout layout(&block_graph_);
-  ImageLayoutBuilder builder(&layout);
-
-  ASSERT_TRUE(builder.LayoutImageHeaders(dos_header_block_));
-
-  // Create a few dummy blocks for populating our sections.
-  BlockGraph::Block* b1 = block_graph_.AddBlock(BlockGraph::CODE_BLOCK,
-                                                0x1234, "b1");
-  BlockGraph::Block* b2 = block_graph_.AddBlock(BlockGraph::CODE_BLOCK,
-                                                0x1234, "b2");
-  b1->AllocateData(0x1000);
-  b2->AllocateData(0x1000);
-  memset(b1->GetMutableData(), 0xcc, 0x1000);
-  memset(b2->GetMutableData(), 0xcc, 0x1000);
-
-  const uint32 kCharacteristics = IMAGE_SCN_CNT_CODE;
-  EXPECT_TRUE(builder.OpenSection("foo", kCharacteristics));
-  EXPECT_TRUE(builder.LayoutBlock(b1));
-  EXPECT_TRUE(builder.CloseSection());
-
-  EXPECT_TRUE(builder.OpenSection("bar", kCharacteristics));
-  EXPECT_TRUE(builder.LayoutBlock(b2));
-  EXPECT_TRUE(builder.CloseSection());
-
-  ImageLayout::SectionInfo expected[] = {
-      { "foo", RelativeAddress(0x1000), 0x1234, 0x1000, kCharacteristics },
-      { "bar", RelativeAddress(0x3000), 0x1234, 0x1000, kCharacteristics }};
-
-  EXPECT_THAT(builder.image_layout()->sections,
-              testing::ElementsAreArray(expected));
-}
-
-TEST_F(ImageLayoutBuilderTest, RewriteTestDll) {
+TEST_F(PEImageLayoutBuilderTest, RewriteTestDll) {
   OrderedBlockGraph obg(&block_graph_);
   block_graph::orderers::OriginalOrderer orig_orderer;
   ASSERT_TRUE(orig_orderer.OrderBlockGraph(&obg, dos_header_block_));
 
   ImageLayout layout(&block_graph_);
-  ImageLayoutBuilder builder(&layout);
+  PEImageLayoutBuilder builder(&layout);
   ASSERT_TRUE(builder.LayoutImageHeaders(dos_header_block_));
   EXPECT_TRUE(builder.LayoutOrderedBlockGraph(obg));
   EXPECT_TRUE(builder.Finalize());
@@ -168,13 +135,13 @@ TEST_F(ImageLayoutBuilderTest, RewriteTestDll) {
   EXPECT_LE(rewritten_size, orig_size);
 }
 
-TEST_F(ImageLayoutBuilderTest, PadTestDll) {
+TEST_F(PEImageLayoutBuilderTest, PadTestDll) {
   OrderedBlockGraph obg(&block_graph_);
   block_graph::orderers::OriginalOrderer orig_orderer;
   ASSERT_TRUE(orig_orderer.OrderBlockGraph(&obg, dos_header_block_));
 
   ImageLayout layout(&block_graph_);
-  ImageLayoutBuilder builder(&layout);
+  PEImageLayoutBuilder builder(&layout);
   builder.set_padding(100);
   ASSERT_TRUE(builder.LayoutImageHeaders(dos_header_block_));
   EXPECT_TRUE(builder.LayoutOrderedBlockGraph(obg));
@@ -224,13 +191,13 @@ TEST_F(ImageLayoutBuilderTest, PadTestDll) {
   EXPECT_GE(rewritten_size, orig_size + expected_file_size_increase);
 }
 
-TEST_F(ImageLayoutBuilderTest, RandomizeTestDll) {
+TEST_F(PEImageLayoutBuilderTest, RandomizeTestDll) {
   OrderedBlockGraph obg(&block_graph_);
   block_graph::orderers::RandomOrderer random_orderer(true);
   ASSERT_TRUE(random_orderer.OrderBlockGraph(&obg, dos_header_block_));
 
   ImageLayout layout(&block_graph_);
-  ImageLayoutBuilder builder(&layout);
+  PEImageLayoutBuilder builder(&layout);
   ASSERT_TRUE(builder.LayoutImageHeaders(dos_header_block_));
   EXPECT_TRUE(builder.LayoutOrderedBlockGraph(obg));
   EXPECT_TRUE(builder.Finalize());
@@ -240,7 +207,7 @@ TEST_F(ImageLayoutBuilderTest, RandomizeTestDll) {
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(temp_file_));
 }
 
-TEST_F(ImageLayoutBuilderTest, ShiftTestDll) {
+TEST_F(PEImageLayoutBuilderTest, ShiftTestDll) {
   // Create an empty section. We will place this at the beginning of the
   // image to ensure that everything gets shifted by a fixed amount. A loadable
   // module is a good indication that we properly parsed everything.
@@ -268,7 +235,7 @@ TEST_F(ImageLayoutBuilderTest, ShiftTestDll) {
   obg.PlaceAtHead(section);
 
   ImageLayout layout(&block_graph_);
-  ImageLayoutBuilder builder(&layout);
+  PEImageLayoutBuilder builder(&layout);
   ASSERT_TRUE(builder.LayoutImageHeaders(dos_header_block_));
   EXPECT_TRUE(builder.LayoutOrderedBlockGraph(obg));
   EXPECT_TRUE(builder.Finalize());

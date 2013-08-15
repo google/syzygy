@@ -24,12 +24,12 @@
 #include "syzygy/pdb/pdb_writer.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/find.h"
-#include "syzygy/pe/image_layout_builder.h"
 #include "syzygy/pe/image_source_map.h"
 #include "syzygy/pe/metadata.h"
 #include "syzygy/pe/new_decomposer.h"
 #include "syzygy/pe/pdb_info.h"
 #include "syzygy/pe/pe_file_writer.h"
+#include "syzygy/pe/pe_image_layout_builder.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/serialization.h"
 #include "syzygy/pe/orderers/pe_orderer.h"
@@ -361,21 +361,21 @@ bool BuildImageLayout(size_t padding,
 
   LOG(INFO) << "Building image layout.";
 
-  ImageLayoutBuilder builder(image_layout);
+  PEImageLayoutBuilder builder(image_layout);
   builder.set_padding(padding);
   if (!builder.LayoutImageHeaders(dos_header_block)) {
-    LOG(ERROR) << "ImageLayoutBuilder::LayoutImageHeaders failed.";
+    LOG(ERROR) << "PEImageLayoutBuilder::LayoutImageHeaders failed.";
     return false;
   }
 
   if (!builder.LayoutOrderedBlockGraph(ordered_block_graph)) {
-    LOG(ERROR) << "ImageLayoutBuilder::LayoutOrderedBlockGraph failed.";
+    LOG(ERROR) << "PEImageLayoutBuilder::LayoutOrderedBlockGraph failed.";
     return false;
   }
 
   LOG(INFO) << "Finalizing image layout.";
   if (!builder.Finalize()) {
-    LOG(ERROR) << "ImageLayoutBuilder::Finalize failed.";
+    LOG(ERROR) << "PEImageLayoutBuilder::Finalize failed.";
     return false;
   }
 

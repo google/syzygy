@@ -23,8 +23,8 @@
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
-#include "syzygy/pe/image_layout_builder.h"
 #include "syzygy/pe/pe_file_writer.h"
+#include "syzygy/pe/pe_image_layout_builder.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
 
@@ -384,7 +384,7 @@ TEST_F(PEOrdererTest, SucceedsWithTestDll) {
                                             dos_header_block_));
 
   ImageLayout layout(&block_graph_);
-  ImageLayoutBuilder builder(&layout);
+  PEImageLayoutBuilder builder(&layout);
   ASSERT_TRUE(builder.LayoutImageHeaders(dos_header_block_));
   ASSERT_TRUE(builder.LayoutOrderedBlockGraph(*ordered_block_graph_.get()));
   ASSERT_TRUE(builder.Finalize());

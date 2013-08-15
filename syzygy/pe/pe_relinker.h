@@ -65,7 +65,7 @@
 #include "syzygy/block_graph/orderer.h"
 #include "syzygy/block_graph/transform.h"
 #include "syzygy/pdb/pdb_mutator.h"
-#include "syzygy/pe/image_layout_builder.h"
+#include "syzygy/pe/image_layout.h"
 #include "syzygy/pe/pe_file.h"
 
 namespace pe {
@@ -90,7 +90,7 @@ namespace pe {
 // 3. The image is ordered:
 //    a) Orderers provided by the user are applied.
 //    b) PEOrderer is applied.
-// 4. ImageLayoutBuilder is used to convert the OrderedBlockGraph to an
+// 4. PEImageLayoutBuilder is used to convert the OrderedBlockGraph to an
 //    ImageLayout.
 // 5. Image and accompanying PDB file are written. (Filenames are inferred from
 //    input filenames or directly specified.)
