@@ -28,8 +28,8 @@
 
 namespace pe {
 
-// A helper class that assists in assigning address space to PE or COFF
-// image sections and blocks.
+// A helper class that assists in mapping PE or COFF image sections and
+// blocks to an address space.
 //
 // Image layout builders are stateful objects that progressively lay out
 // blocks at increasing addresses. A builder keeps information on the
@@ -40,11 +40,11 @@ class PECoffImageLayoutBuilder {
   typedef block_graph::OrderedBlockGraph OrderedBlockGraph;
   typedef core::RelativeAddress RelativeAddress;
 
-  // Set the inter-block padding. If this is non-zero, blank space will be
-  // left between blocks laid out within a same section. The content of the
-  // padding is left unspecified and will appear as a gap in the address
-  // space, usually filled by the file writer with appropriate padding
-  // bytes.
+  // Set the inter-block padding. If this is non-zero, it specifies the
+  // minimum amount of blank space that will be left between blocks laid out
+  // within a same section. The content of the padding is left unspecified
+  // and will appear as a gap in the address space, usually filled by the
+  // file writer with appropriate padding bytes.
   //
   // @param padding the new inter-block padding.
   void set_padding(size_t padding) { padding_ = padding; }

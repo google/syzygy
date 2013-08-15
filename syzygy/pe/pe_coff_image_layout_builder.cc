@@ -35,7 +35,7 @@ void PECoffImageLayoutBuilder::Init(size_t section_alignment,
   DCHECK_LT(0u, section_alignment);
   DCHECK_LT(0u, file_alignment);
   DCHECK_LE(file_alignment, section_alignment);
-  DCHECK(section_alignment % file_alignment == 0u);
+  DCHECK_EQ(0u, section_alignment % file_alignment);
 
   section_alignment_ = section_alignment;
   file_alignment_ = file_alignment;
@@ -46,7 +46,7 @@ bool PECoffImageLayoutBuilder::OpenSection(const char* name,
   DCHECK(name != NULL);
 
   // If we're already in a section, close it.
-  if (section_start_.value() != 0u)
+  if (section_start_.value() != 0)
     CloseSection();
 
   // Align to the start of the next section.
@@ -90,13 +90,13 @@ bool PECoffImageLayoutBuilder::LayoutBlock(size_t alignment,
 
   // If this is not the first block of the section and we have padding, then
   // output the padding.
-  if (padding_ > 0u && cursor_ > section_start_)
+  if (padding_ > 0 && cursor_ > section_start_)
     cursor_ += padding_;
 
   cursor_ = cursor_.AlignUp(alignment);
 
   // If we have explicit data, advance the explicit data cursor.
-  if (block->data_size() > 0u)
+  if (block->data_size() > 0)
     section_auto_init_end_ = cursor_ + block->data_size();
 
   // This advances the cursor for us.
