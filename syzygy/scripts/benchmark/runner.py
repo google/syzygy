@@ -451,7 +451,8 @@ class ChromeRunner(object):
     Returns the subprocess.Popen wrapping the launched process.
     """
     cmd_line = [self._chrome_exe,
-                '--user-data-dir=%s' % self._profile_dir]
+                '--user-data-dir=%s' % self._profile_dir,
+                '--noerrdialogs']
     if extra_arguments:
       cmd_line.extend(extra_arguments)
 

@@ -57,16 +57,6 @@ _MESSAGE_WINDOW_CLASS = 'Chrome_MessageWindow'
 _WIDGET_WINDOW_BASE_CLASS = 'Chrome_WidgetWin_'
 
 
-def _SendChromeEndSession(window, dummy_extra):
-  # There may be more than one top level window that is a candidate for the
-  # "root" instance. They will all have a class name starting with the common
-  # prefix in _WIDGET_WINDOW_CLASS_NAME. All but the root will ignore (as of
-  # 2012/04/11) the WM_ENDSESSION message, but the root instance will respond
-  # by shutting down the entire chrome session.
-  if win32gui.GetClassName(window).startswith(_WIDGET_WINDOW_BASE_CLASS):
-    win32gui.PostMessage(window, win32con.WM_ENDSESSION)
-
-
 def _FindProfileWindow(profile_dir):
   """Find the message window associated with profile_dir, if any."""
   profile_dir = os.path.abspath(profile_dir)
@@ -112,18 +102,16 @@ def ShutDown(profile_dir, timeout_ms=win32event.INFINITE):
 
   # Get the thread and process IDs associated with this window.
   (thread_id, process_id) = win32process.GetWindowThreadProcessId(message_win)
+  _LOGGER.info('Found Chrome window with TID=%d PID=%d.', thread_id, process_id)
 
   # Open the process in question, so we can wait for it to exit.
   permissions = win32con.SYNCHRONIZE | win32con.PROCESS_QUERY_INFORMATION
   process_handle = win32api.OpenProcess(permissions, False, process_id)
 
-  # Loop around to periodically retry the end session window message.
-  # It appears that there are times during Chrome startup where it'll
-  # igore this message, or perhaps we sometimes hit a case where there
-  # are no appropriate top-level windows.
+  # Loop around to periodically retry to close Chrome.
   while True:
-    # Now send WM_ENDSESSION to all top-level widget windows on that thread.
-    win32gui.EnumThreadWindows(thread_id, _SendChromeEndSession, None)
+    _LOGGER.info('Killing Chrome with PID=%d.', process_id)
+    subprocess.call(['taskkill.exe', '/PID', str(process_id)])
 
     # Wait for the process to exit and get its exit status.
     curr_timeout_ms = 2000
@@ -133,6 +121,7 @@ def ShutDown(profile_dir, timeout_ms=win32event.INFINITE):
 
       timeout_ms -= curr_timeout_ms
 
+    _LOGGER.info('Waiting for Chrome PID=%d to exit.', process_id)
     result = win32event.WaitForSingleObject(process_handle, curr_timeout_ms)
     # Exit the loop on successful wait.
     if result == win32event.WAIT_OBJECT_0:
@@ -140,11 +129,12 @@ def ShutDown(profile_dir, timeout_ms=win32event.INFINITE):
 
     # Did we time out?
     if timeout_ms == 0:
+      _LOGGER.error('Time-out waiting for Chrome process to exit.')
       raise TimeoutException
-
 
   exit_status = win32process.GetExitCodeProcess(process_handle)
   process_handle.Close()
+  _LOGGER.info('Chrome exited with status %d.', exit_status)
 
   return exit_status
 
