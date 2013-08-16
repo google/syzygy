@@ -42,7 +42,25 @@ using agent::asan::HeapProxy;
 using agent::asan::StackCaptureCache;
 using base::win::WinProcExceptionFilter;
 
-typedef void  (__cdecl * SetCrashKeyValueFuncPtr)(const char*, const char*);
+// Signatures of the various Breakpad functions for setting custom crash
+// key-value pairs.
+// Post r194002.
+typedef void (__cdecl * SetCrashKeyValuePairPtr)(const char*, const char*);
+// Post r217590.
+typedef void (__cdecl * SetCrashKeyValueImplPtr)(const wchar_t*,
+                                                 const wchar_t*);
+
+// Collects the various Breakpad-related exported functions.
+struct BreakpadFunctions {
+  // The Breakpad crash reporting entry point.
+  WinProcExceptionFilter crash_for_exception_ptr;
+
+  // Various flavours of the custom key-value setting function. The version
+  // exported depends on the version of Chrome. It is possible for both of these
+  // to be NULL even if crash_for_exception_ptr is not NULL.
+  SetCrashKeyValuePairPtr set_crash_key_value_pair_ptr;
+  SetCrashKeyValueImplPtr set_crash_key_value_impl_ptr;
+};
 
 // The default error handler. It is expected that this will be bound in a
 // callback in the ASAN runtime.
@@ -66,63 +84,75 @@ void DefaultErrorHandler(AsanErrorInfo* error_info) {
 // Returns the breakpad crash reporting functions if breakpad is enabled for
 // the current executable.
 //
-// @param crash_func A pointer to a crash reporting function will be returned
-//     here, or NULL.
-// @param key_value_func A pointer to a function to set additional key/value
-//     attributes for the crash before calling crash_func, or NULL. This may
-//     return NULL even if crash_func returns non-NULL.
-//
 // If we're running in the context of a breakpad enabled binary we can
 // report errors directly via that breakpad entry-point. This allows us
 // to report the exact context of the error without including the asan_rtl
 // in crash context, depending on where and when we capture the context.
-void GetBreakpadFunctions(WinProcExceptionFilter* crash_func,
-                          SetCrashKeyValueFuncPtr* key_value_func ) {
-  DCHECK(crash_func != NULL);
-  DCHECK(key_value_func != NULL);
+//
+// @param breakpad_functions The Breakpad functions structure to be populated.
+// @returns true if we found breakpad functions, false otherwise.
+bool GetBreakpadFunctions(BreakpadFunctions* breakpad_functions) {
+  DCHECK(breakpad_functions != NULL);
+
+  // Clear the structure.
+  ::memset(breakpad_functions, 0, sizeof(*breakpad_functions));
 
   // The named entry-point exposed to report a crash.
   static const char kCrashHandlerSymbol[] = "CrashForException";
 
   // The named entry-point exposed to annotate a crash with a key/value pair.
-  static const char kSetCrashKeyValueSymbol[] = "SetCrashKeyValuePair";
+  static const char kSetCrashKeyValuePairSymbol[] = "SetCrashKeyValuePair";
+  static const char kSetCrashKeyValueImplSymbol[] = "SetCrashKeyValueImpl";
 
   // Get a handle to the current executable image.
   HMODULE exe_hmodule = ::GetModuleHandle(NULL);
 
   // Lookup the crash handler symbol.
-  *crash_func = reinterpret_cast<WinProcExceptionFilter>(
-      ::GetProcAddress(exe_hmodule, kCrashHandlerSymbol));
+  breakpad_functions->crash_for_exception_ptr =
+      reinterpret_cast<WinProcExceptionFilter>(
+          ::GetProcAddress(exe_hmodule, kCrashHandlerSymbol));
+  if (breakpad_functions->crash_for_exception_ptr == NULL)
+    return false;
 
   // Lookup the crash annotation symbol.
-  *key_value_func = reinterpret_cast<SetCrashKeyValueFuncPtr>(
-      ::GetProcAddress(exe_hmodule, kSetCrashKeyValueSymbol));
+  breakpad_functions->set_crash_key_value_pair_ptr =
+      reinterpret_cast<SetCrashKeyValuePairPtr>(
+          ::GetProcAddress(exe_hmodule, kSetCrashKeyValuePairSymbol));
+  breakpad_functions->set_crash_key_value_impl_ptr =
+      reinterpret_cast<SetCrashKeyValueImplPtr>(
+          ::GetProcAddress(exe_hmodule, kSetCrashKeyValueImplSymbol));
+
+  return true;
 }
 
 // The breakpad error handler. It is expected that this will be bound in a
 // callback in the ASAN runtime.
-// @param func_ptr A pointer to the breakpad error reporting function. This
-//     will be used to perform the error reporting.
-// @param crash_func_ptr A pointer to the breakpad crash reporting function.
-// @param key_value_func A pointer to a function to set additional key/value
-//     attributes for the crash before calling crash_func. For backwards
-//     compatibility, with older breakpad clients, this parameter is optional
-//     (it may be NULL).
-// @param context The context when the error has been reported.
+// @param breakpad_functions A struct containing pointers to the various
+//     Breakpad reporting functions.
 // @param error_info The information about this error.
-void BreakpadErrorHandler(WinProcExceptionFilter crash_func_ptr,
-                          SetCrashKeyValueFuncPtr set_key_value_func_ptr,
+void BreakpadErrorHandler(const BreakpadFunctions& breakpad_functions,
                           AsanErrorInfo* error_info) {
-  DCHECK(crash_func_ptr != NULL);
+  DCHECK(breakpad_functions.crash_for_exception_ptr != NULL);
   DCHECK(error_info != NULL);
 
-  if (set_key_value_func_ptr != NULL) {
-    set_key_value_func_ptr(
+  if (breakpad_functions.set_crash_key_value_pair_ptr != NULL) {
+    breakpad_functions.set_crash_key_value_pair_ptr(
         "asan-error-type",
         HeapProxy::AccessTypeToStr(error_info->error_type));
     if (error_info->shadow_info[0] != '\0') {
-      set_key_value_func_ptr(
+      breakpad_functions.set_crash_key_value_pair_ptr(
           "asan-error-message", error_info->shadow_info);
+    }
+  } else if (breakpad_functions.set_crash_key_value_impl_ptr != NULL) {
+    const char* type = HeapProxy::AccessTypeToStr(error_info->error_type);
+    std::wstring wstr = UTF8ToWide(type);
+    breakpad_functions.set_crash_key_value_impl_ptr(
+        L"asan-error-type", wstr.c_str());
+
+    if (error_info->shadow_info[0] != '\0') {
+      wstr = UTF8ToWide(error_info->shadow_info);
+      breakpad_functions.set_crash_key_value_impl_ptr(
+          L"asan-error-message", wstr.c_str());
     }
   }
 
@@ -136,7 +166,7 @@ void BreakpadErrorHandler(WinProcExceptionFilter crash_func_ptr,
   exception.ExceptionInformation[1] = reinterpret_cast<ULONG_PTR>(error_info);
 
   EXCEPTION_POINTERS pointers = { &exception, &error_info->context };
-  crash_func_ptr(&pointers);
+  breakpad_functions.crash_for_exception_ptr(&pointers);
   NOTREACHED();
 }
 
@@ -319,13 +349,10 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // Register the error reporting callback to use if/when an ASAN error is
   // detected. If we're able to resolve a breakpad error reporting function
   // then use that; otherwise, fall back to the default error handler.
-  WinProcExceptionFilter crash_func_ptr = NULL;
-  SetCrashKeyValueFuncPtr set_key_value_func_ptr = NULL;
-  GetBreakpadFunctions(&crash_func_ptr, &set_key_value_func_ptr);
-  if (crash_func_ptr != NULL) {
+  BreakpadFunctions breakpad_functions = {};
+  if (GetBreakpadFunctions(&breakpad_functions)) {
     LOG(INFO) << "SyzyASAN: Using Breakpad for error reporting.";
-    SetErrorCallBack(base::Bind(
-        &BreakpadErrorHandler, crash_func_ptr, set_key_value_func_ptr));
+    SetErrorCallBack(base::Bind(&BreakpadErrorHandler, breakpad_functions));
   } else {
     LOG(INFO) << "SyzyASAN: Using default error reporting handler.";
     SetErrorCallBack(base::Bind(&DefaultErrorHandler));
