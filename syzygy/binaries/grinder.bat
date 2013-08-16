@@ -23,7 +23,7 @@ import os
 
 # Prepend the eggs we need to our python path.
 _EGGS = [
-    'Benchmark_Chrome-0.1_r1713-py2.6.egg',
+    'Benchmark_Chrome-0.1_r1737-py2.6.egg',
     'ETW-0.6.5.0-py2.6.egg',
     'ETW_Db-0.1_r1543-py2.6.egg',
     'setuptools-0.6c11-py2.6.egg',

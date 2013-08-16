@@ -1,6 +1,13 @@
 Syzygy Release Notes
 ====================
 
+Version 0.2.28.0
+
+[r1738] SyzyASan - Support for new Breakpad exported functions.
+[r1737] Fix to benchmarking automation scripts to more cleanly shutdown Chrome.
+[r1729] Full grinder support for sampling profiler data.
+[r1722] Fix to PDB generation to handle large PDBs.
+
 Version 0.2.27.0
 
 [r1716] Flaky unittest fixit. Fixed 4 cases of known occasional test failures.

@@ -1,8 +1,8 @@
 Syzygy Post-Link Transformation Toolchain
 =========================================
 
-Date:     2013/08/07
-Version:  0.2.27.0 (1717)
+Date:     2013/08/16
+Version:  0.2.28.0 (1739)
 
 The Syzygy project consists of a suite of tools for the instrumentation of
 PE binaries. The various instrumentation modes allow for computing code
@@ -15,6 +15,11 @@ CONTENTS
 
 Executables
 -----------
+
+agent_logger.exe
+  A RPC logging service. For use with ASAN instrumented binaries, accepting
+  error logs across process boundaries. Works for sandboxed processes, like
+  Chrome.
 
 call_trace_control.exe
   Controls ETW kernel logging services. This tool is primarily intended for
@@ -48,11 +53,6 @@ grinder.exe
 
 instrument.exe
   Instruments a PE file with a given agent.
-
-logger.exe
-  A RPC logging service. For use with ASAN instrumented binaries, accepting
-  error logs across process boundaries. Works for sandboxed processes, like
-  Chrome.
 
 pdbfind.exe
   A utility for locating the PDB file that is matched to a given PE file.
