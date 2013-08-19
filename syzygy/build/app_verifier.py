@@ -33,10 +33,10 @@ _LOGGER = logging.getLogger(os.path.basename(__file__))
 
 # A list of per-test Application Verifier checks to not run.
 _DISABLED_CHECKS = {
-  # We have a test that deliberately causes an exception which is caught and
-  # handled by the code under test. However, AV propogates this exception and
-  # launches a modal dialog window, which causes the test to timeout.
   'agent_common_unittests.exe': [
+    # We have a test that deliberately causes an exception which is caught and
+    # handled by the code under test. However, AV propogates this exception and
+    # launches a modal dialog window, which causes the test to timeout.
     'Exceptions'
   ],
 }
@@ -44,18 +44,18 @@ _DISABLED_CHECKS = {
 # A list of per-test Application Verifier exceptions.
 _EXCEPTIONS = {
   'basic_block_entry_unittests.exe': [
+    # This leak occurs due to a leaky global lock in ScopedHandle.
+    ('Error', 'Locks', 513, '.*::BasicBlockEntryTest::UnloadDll'),
     # This is a known (semi-intentional) leak of the TLS index and the last
     # active thread's TLS data on module unload.
     ('Error', 'TLS', 848, '.*::BasicBlockEntryTest::UnloadDll'),
-    # This leak occurs due to a leaky global lock in ScopedHandle.
-    ('Error', 'Locks', 513, '.*::BasicBlockEntryTest::UnloadDll'),
   ],
   'coverage_unittests.exe': [
     # This leak occurs only in Debug, which leaks a thread local variable
     # used to check thread restrictions.
     ('Error', 'TLS', 848, '.*::CoverageClientTest::UnloadDll'),
   ],
-  'instrument_unittests.exe':[
+  'instrument_unittests.exe': [
     # The ASAN runtime ends up freeing a heap while holding it's critical
     # section.
     ('Error', 'Locks', 513, '.*::PELibUnitTest::CheckTestDll'),
@@ -71,11 +71,11 @@ _EXCEPTIONS = {
     ('Error', 'TLS', 848, '.*::ParseEngineRpcTest::UnloadCallTraceDll'),
   ],
   'profile_unittests.exe': [
+    # This leak occurs due to a leaky global lock in ScopedHandle.
+    ('Error', 'Locks', 513, 'agent::profiler::.*::ProfilerTest::UnloadDll'),
     # This leak occurs only in Debug, which leaks a thread local variable
     # used to check thread restrictions.
     ('Error', 'TLS', 848, 'agent::profiler::.*::ProfilerTest::UnloadDll'),
-    # This leak occurs due to a leaky global lock in ScopedHandle.
-    ('Error', 'Locks', 513, 'agent::profiler::.*::ProfilerTest::UnloadDll'),
   ],
 }
 
@@ -83,9 +83,10 @@ _EXCEPTIONS = {
 # A list of unittests that should not be run under the application verifier at
 # all.
 _BLACK_LIST = [
-  # This can't be run under AppVerifier because we end up double hooking the
+  # These can't be run under AppVerifier because we end up double hooking the
   # operating system heap function, leading to nonsense.
   'asan_rtl_unittests.exe',
+  'integration_tests.exe',
 ]
 
 

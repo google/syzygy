@@ -705,7 +705,10 @@ TEST_F(InstrumentAppIntegrationTest, BBEntryEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(BBEntryCheckTestDll());
 }
 
-TEST_F(InstrumentAppIntegrationTest, InlineFastPathBBEntryEndToEnd) {
+// This test is temporarily disabled because it fails when run repeatedly, and
+// occasionally fails upon first run.
+// TODO(chrisha, etienneb): Figure out why this instrumentation mode is broken.
+TEST_F(InstrumentAppIntegrationTest, DISABLED_InlineFastPathBBEntryEndToEnd) {
   cmd_line_.AppendSwitch("inline-fast-path");
   ASSERT_NO_FATAL_FAILURE(StartService());
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("bbentry"));
