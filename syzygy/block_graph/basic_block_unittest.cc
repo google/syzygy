@@ -290,6 +290,7 @@ void TestReferenceCopy(const BasicBlockReference& input) {
   EXPECT_EQ(input.offset(), copy.offset());
   EXPECT_EQ(input.size(), copy.size());
   EXPECT_EQ(input.IsValid(), copy.IsValid());
+  EXPECT_EQ(input.tags(), copy.tags());
 }
 
 }  // namespace
@@ -315,6 +316,7 @@ TEST_F(BasicBlockTest, BasicBlockReference) {
 
   EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK,
             ref.referred_type());
+  ref.tags().insert(&ref);
   TestReferenceCopy(ref);
 
   EXPECT_EQ(NULL, ref.block());
@@ -465,6 +467,7 @@ void TestSuccessorCopy(const Successor& input) {
   EXPECT_EQ(input.has_label(), copy.has_label());
   EXPECT_EQ(input.source_range(), copy.source_range());
   EXPECT_EQ(input.instruction_size(), copy.instruction_size());
+  EXPECT_EQ(input.tags(), copy.tags());
 }
 
 }  // namespace
@@ -507,16 +510,19 @@ TEST_F(SuccessorTest, SetBranchTarget) {
   EXPECT_EQ(bb_ref, s.reference());
 }
 
-TEST_F(SuccessorTest, Labels) {
+TEST_F(SuccessorTest, LabelsAndTags) {
   Successor successor;
   EXPECT_FALSE(successor.has_label());
 
   BlockGraph::Label label("Foo", BlockGraph::CODE_LABEL);
   successor.set_label(label);
+  successor.tags().insert(&successor);
 
   TestSuccessorCopy(successor);
   EXPECT_TRUE(successor.has_label());
   EXPECT_TRUE(successor.label() == label);
+  EXPECT_EQ(1u, successor.tags().size());
+  EXPECT_NE(successor.tags().end(), successor.tags().find(&successor));
 }
 
 TEST_F(SuccessorTest, OpCodeToCondition) {
@@ -630,6 +636,24 @@ TEST_F(InstructionTest, ConstructionFromData) {
   call.set_label(label);
   EXPECT_EQ(label, call.label());
   TestInstructionCopy(call);
+}
+
+TEST_F(InstructionTest, Copy) {
+  const uint8 kCallRelative[] = { 0xE8, 0xDE, 0xAD, 0xBE, 0xEF };
+  Instruction call;
+  ASSERT_TRUE(
+      Instruction::FromBuffer(kCallRelative, arraysize(kCallRelative), &call));
+  call.set_source_range(Instruction::SourceRange(core::RelativeAddress(0), 5));
+  call.set_label(BlockGraph::Label("foo", 0));
+  call.tags().insert(&call);
+
+  Instruction copy(call);
+  EXPECT_EQ(call.opcode(), copy.opcode());
+  EXPECT_EQ(call.size(), copy.size());
+  EXPECT_EQ(call.references(), copy.references());
+  EXPECT_EQ(call.source_range(), copy.source_range());
+  EXPECT_EQ(call.label(), copy.label());
+  EXPECT_EQ(call.tags(), copy.tags());
 }
 
 TEST_F(InstructionTest, ToString) {

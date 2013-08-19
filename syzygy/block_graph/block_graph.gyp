@@ -47,6 +47,7 @@
         'ordered_block_graph.h',
         'ordered_block_graph_internal.h',
         'orderer.h',
+        'tags.h',
         'transform.cc',
         'transform.h',
         'typed_block.h',

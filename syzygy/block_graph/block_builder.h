@@ -19,6 +19,7 @@
 
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
+#include "syzygy/block_graph/tags.h"
 
 namespace block_graph {
 
@@ -30,11 +31,16 @@ class BlockBuilder {
   // Merge the @p subgraph into the block graph. This will create all blocks
   // and block relationships described by the subgraph and remove the
   // original block (if any) from which the subgraph was derived.
+  // @param subgraph The subgraph to be merged.
+  // @returns true on success, false otherwise.
   bool Merge(BasicBlockSubGraph* subgraph);
 
-  // Returns the set of new blocks created upon merging in one or more
-  // subgraphs.
+  // @returns the set of new blocks created upon merging in one or more
+  //     subgraphs.
   const BlockVector& new_blocks() const { return new_blocks_; }
+
+  // @returns the tag info map. This is populated by a successful call to Merge.
+  const TagInfoMap& tag_info_map() const { return tag_info_map_; }
 
  private:
   // The block-graph that subgraphs will be merged into.
@@ -42,6 +48,9 @@ class BlockBuilder {
 
   // The set of blocks created so far.
   BlockVector new_blocks_;
+
+  // The tag info map tracking all user data in the subgraph.
+  TagInfoMap tag_info_map_;
 
   DISALLOW_COPY_AND_ASSIGN(BlockBuilder);
 };

@@ -74,13 +74,30 @@ const uint8 kNop9[9] = { 0x66, 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 };
 const uint8* kNops[] = { NULL, kNop1, kNop2, kNop3, kNop4, kNop5, kNop6,
     kNop7, kNop8, kNop9 };
 
+// Updates the tag info map for the given taggable object.
+void UpdateTagInfoMap(const TagSet& tag_set,
+                      TaggedObjectType type,
+                      BlockGraph::Block* block,
+                      BlockGraph::Offset offset,
+                      BlockGraph::Size size,
+                      TagInfoMap* tag_info_map) {
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), block);
+  DCHECK_NE(reinterpret_cast<TagInfoMap*>(NULL), tag_info_map);
+  TagInfo tag_info(type, block, offset, size);
+  TagSet::const_iterator tag_it = tag_set.begin();
+  for (; tag_it != tag_set.end(); ++tag_it)
+    (*tag_info_map)[*tag_it].push_back(tag_info);
+}
+
 // A utility class to package up the context in which new blocks are generated.
 class MergeContext {
  public:
   // Initialize a MergeContext with the block graph and original block.
-  MergeContext(BlockGraph* bg, const Block* ob)
-      : sub_graph_(NULL), block_graph_(bg), original_block_(ob) {
-    DCHECK(bg != NULL);
+  MergeContext(BlockGraph* bg, const Block* ob, TagInfoMap* tag_info_map)
+      : sub_graph_(NULL), block_graph_(bg), original_block_(ob),
+        tag_info_map_(tag_info_map) {
+    DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), bg);
+    DCHECK_NE(reinterpret_cast<TagInfoMap*>(NULL), tag_info_map);
   }
 
   // Accessor.
@@ -107,14 +124,24 @@ class MergeContext {
   typedef BlockGraph::Block::SourceRange SourceRange;
 
   // Temporary data structures used during layouting.
+  // This can effectively have 3 states:
+  // condition == Successor::kInvalidCondition && successor == NULL.
+  //   The successor is unused.
+  // condition == Successor::kInvalidCondition && successor != NULL.
+  //   The successor is elided (has no representation in the block).
+  // condition != Successor::kInvalidCondition && successor != NULL.
+  //   The successor will have an explicit representation in the block.
   struct SuccessorLayoutInfo {
     // The condition flags for this successor.
-    // Set to Successor::kInvalidCondition if unused.
+    // Set to Successor::kInvalidCondition if unused or elided.
     Successor::Condition condition;
     // The reference this condition refers to.
     BasicBlockReference reference;
     // The size of this successor's manifestation.
     Size size;
+    // A pointer to the original successor. This is used for propagating tags.
+    // This is set to NULL if the successor isn't used at all.
+    const Successor* successor;
   };
   struct BasicBlockLayoutInfo {
     // The basic block this layout info concerns. Useful for debugging.
@@ -264,6 +291,9 @@ class MergeContext {
   // The original block from which the new blocks are derived.
   const Block* original_block_;
 
+  // The tag info map tracking all user data in the subgraph.
+  TagInfoMap* tag_info_map_;
+
   // The set of blocks generated in this context so far.
   BlockVector new_blocks_;
 
@@ -333,8 +363,26 @@ bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
     const SuccessorLayoutInfo& successor = info.successors[i];
 
     // Exit loop early if appropriate.
-    if (successor.condition == Successor::kInvalidCondition)
+    if (successor.condition == Successor::kInvalidCondition &&
+        successor.successor == NULL) {
       break;
+    }
+
+    // A pointer to the original successor should always be set for any
+    // manifested or elided successor.
+    DCHECK_NE(reinterpret_cast<Successor*>(NULL), successor.successor);
+
+    // If this represents an elided successor then simply emit tag information
+    // and continue.
+    if (successor.condition == Successor::kInvalidCondition) {
+      // Update the tag-info map for the successor.
+      UpdateTagInfoMap(successor.successor->tags(), kSuccessorTag, info.block,
+                       successor_start, 0, tag_info_map_);
+      UpdateTagInfoMap(successor.successor->reference().tags(),
+                       kReferenceTag, info.block, successor_start, 0,
+                       tag_info_map_);
+      continue;
+    }
 
     // Default to a short reference.
     ValueSize reference_size = core::kSize8Bit;
@@ -388,6 +436,17 @@ bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
 
     // Make sure the assembler produced what we expected.
     DCHECK_EQ(successor.size, instructions.back().size());
+    DCHECK_EQ(1u, instructions.back().references().size());
+
+    // Copy the tags that are associated with the successor reference to the
+    // appropriately sized instruction reference. CopyInstructions will then
+    // take care of updating the tag info map.
+    instructions.back().references().begin()->second.tags() =
+        successor.reference.tags();
+
+    // Update the tag-info map for the successor.
+    UpdateTagInfoMap(successor.successor->tags(), kSuccessorTag, info.block,
+                     successor_start, successor.size, tag_info_map_);
 
     // Walk our start address forwards.
     successor_start += successor.size;
@@ -411,10 +470,10 @@ bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
 bool MergeContext::InsertNops(Offset offset,
                               Size bytes,
                               Block* new_block) {
-  DCHECK(new_block != NULL);
+  DCHECK_NE(reinterpret_cast<Block*>(NULL), new_block);
 
   uint8* buffer = new_block->GetMutableData();
-  DCHECK(buffer != NULL);
+  DCHECK_NE(reinterpret_cast<uint8*>(NULL), buffer);
 
   size_t kMaxNopLength = arraysize(kNops) - 1;
   buffer += offset;
@@ -435,16 +494,20 @@ bool MergeContext::InsertNops(Offset offset,
 bool MergeContext::CopyInstructions(
     const BasicBlock::Instructions& instructions,
     Offset offset, Block* new_block) {
-  DCHECK(new_block != NULL);
+  DCHECK_NE(reinterpret_cast<Block*>(NULL), new_block);
   DCHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, new_block->type());
   // Get the target buffer.
   uint8* buffer = new_block->GetMutableData();
-  DCHECK(buffer != NULL);
+  DCHECK_NE(reinterpret_cast<uint8*>(NULL), buffer);
 
   // Copy the instruction data and assign each instruction an offset.
   InstructionConstIter it = instructions.begin();
   for (; it != instructions.end(); ++it) {
     const Instruction& instruction = *it;
+
+    // Update the tag-info map for the instruction.
+    UpdateTagInfoMap(instruction.tags(), kInstructionTag, new_block,
+                     offset, instruction.size(), tag_info_map_);
 
     // Copy the instruction bytes.
     ::memcpy(buffer + offset,
@@ -477,19 +540,24 @@ void MergeContext::CopyReferences(
   for (; it != references.end(); ++it) {
     BlockGraph::Reference resolved = ResolveReference(it->second);
 
-    CHECK(new_block->SetReference(offset + it->first, resolved));
+    Offset ref_offset = offset + it->first;
+    CHECK(new_block->SetReference(ref_offset, resolved));
+
+    // Update the tag-info map for this reference.
+    UpdateTagInfoMap(it->second.tags(), kReferenceTag, new_block, ref_offset,
+                     resolved.size(), tag_info_map_);
   }
 }
 
 bool MergeContext::CopyData(const BasicDataBlock* data_block,
                             Offset offset,
                             Block* new_block) {
-  DCHECK(data_block != NULL);
+  DCHECK_NE(reinterpret_cast<BasicDataBlock*>(NULL), data_block);
   DCHECK_EQ(BasicBlock::BASIC_DATA_BLOCK, data_block->type());
 
   // Get the target buffer.
   uint8* buffer = new_block->GetMutableData();
-  DCHECK(buffer != NULL);
+  DCHECK_NE(reinterpret_cast<uint8*>(NULL), buffer);
 
   // Copy the basic-new_block_'s data bytes.
   ::memcpy(buffer + offset, data_block->data(), data_block->size());
@@ -532,6 +600,7 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
     for (size_t i = 0; i < arraysize(info.successors); ++i) {
       info.successors[i].condition = Successor::kInvalidCondition;
       info.successors[i].size = 0;
+      info.successors[i].successor = NULL;
     }
 
     // Find the next basic block, if any.
@@ -556,6 +625,7 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
 
     // Process the first successor, if any.
     size_t manifested_successors = 0;
+    size_t elided_successors = 0;
     if (succ_it != succ_end) {
       const BasicBlock* destination_bb = succ_it->reference().basic_block();
 
@@ -569,11 +639,15 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
         info.successor_label = succ_it->label();
 
       // Only manifest this successor if it's not referencing the next block.
+      SuccessorLayoutInfo& successor =
+          info.successors[manifested_successors + elided_successors];
+      successor.successor = &(*succ_it);
       if (destination_bb == NULL || destination_bb != next_bb) {
-        SuccessorLayoutInfo& successor =
-            info.successors[manifested_successors++];
+        ++manifested_successors;
         successor.condition = succ_it->condition();
         successor.reference = succ_it->reference();
+      } else {
+        ++elided_successors;
       }
 
       // Go to the next successor, if any.
@@ -596,7 +670,11 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
       }
 
       // Only manifest this successor if it's not referencing the next block.
+      SuccessorLayoutInfo& successor =
+          info.successors[manifested_successors + elided_successors];
+      successor.successor = &(*succ_it);
       if (destination_bb == NULL || destination_bb != next_bb) {
+        ++manifested_successors;
         Successor::Condition condition = succ_it->condition();
 
         // If we've already manifested a successor above, it'll be for the
@@ -610,13 +688,21 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
           condition = Successor::kConditionTrue;
         }
 
-        SuccessorLayoutInfo& successor =
-            info.successors[manifested_successors++];
-
         successor.condition = condition;
         successor.reference = succ_it->reference();
+      } else {
+        ++elided_successors;
       }
     }
+
+    // A basic-block can have at most 2 successors by definition. Since we emit
+    // a successor layout struct for each one (whether or not its elided), we
+    // expect there to have been as many successors emitted as there are
+    // successors in the basic block itself.
+    DCHECK_GE(arraysize(info.successors),
+              manifested_successors + elided_successors);
+    DCHECK_EQ(code_block->successors().size(),
+              manifested_successors + elided_successors);
   }
 
   return true;
@@ -662,8 +748,15 @@ bool MergeContext::GenerateBlockLayout(const BasicBlockOrdering& order) {
 
         // Exit the loop if this (and possibly the subsequent) successor
         // is un-manifested.
-        if (successor.condition == Successor::kInvalidCondition)
+        if (successor.condition == Successor::kInvalidCondition &&
+            successor.successor == NULL) {
           break;
+        }
+
+        // Skip over elided successors.
+        DCHECK_NE(reinterpret_cast<Successor*>(NULL), successor.successor);
+        if (successor.condition == Successor::kInvalidCondition)
+          continue;
 
         // Compute the new size and update the start offset for the next
         // successor (if any).
@@ -756,6 +849,22 @@ bool MergeContext::PopulateBlock(const BasicBlockOrdering& order) {
     const BasicBlock* bb = *bb_iter;
     const BasicBlockLayoutInfo& info = FindLayoutInfo(bb);
 
+    // Determine the tag type and size associated with this basic block.
+    TaggedObjectType tag_type = kBasicDataBlockTag;
+    size_t tag_size = info.basic_block_size;
+    if (bb->type() == BasicBlock::BASIC_CODE_BLOCK) {
+      // We include the size of the successors if its a basic code block.
+      tag_type = kBasicCodeBlockTag;
+      for (size_t i = 0; i < arraysize(info.successors); ++i) {
+        if (info.successors[i].condition != Successor::kInvalidCondition)
+          tag_size += info.successors[i].size;
+      }
+    }
+
+    // Update the tag-info map for the basic block.
+    UpdateTagInfoMap(bb->tags(), tag_type, info.block, info.start_offset,
+                     tag_size, tag_info_map_);
+
     // Handle any padding for alignment.
     if (info.start_offset > prev_offset) {
       if (!InsertNops(prev_offset, info.start_offset - prev_offset,
@@ -821,7 +930,7 @@ bool MergeContext::PopulateBlocks(const BasicBlockSubGraph& subgraph) {
 }
 
 void MergeContext::UpdateReferrers(const BasicBlock* bb) const {
-  DCHECK(bb != NULL);
+  DCHECK_NE(reinterpret_cast<BasicBlock*>(NULL), bb);
 
   // Find the current location of this basic block.
   BasicBlockLayoutInfoMap::const_iterator layout_it = layout_info_.find(bb);
@@ -856,7 +965,7 @@ void MergeContext::UpdateReferrers(const BasicBlock* bb) const {
 }
 
 void MergeContext::RemoveOriginalBlock(BasicBlockSubGraph* subgraph) {
-  DCHECK(subgraph != NULL);
+  DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), subgraph);
   DCHECK_EQ(original_block_, subgraph->original_block());
 
   Block* original_block = const_cast<Block*>(this->original_block_);
@@ -948,7 +1057,7 @@ Size MergeContext::ComputeRequiredSuccessorSize(
     case BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK: {
         Size short_size = GetShortSuccessorSize(successor.condition);
         const BasicBlock* dest_bb = successor.reference.basic_block();
-        DCHECK(dest_bb != NULL);
+        DCHECK_NE(reinterpret_cast<BasicBlock*>(NULL), dest_bb);
         const BasicBlockLayoutInfo& dest = FindLayoutInfo(dest_bb);
 
         // If the destination is within the same destination block,
@@ -1026,9 +1135,11 @@ BlockBuilder::BlockBuilder(BlockGraph* bg) : block_graph_(bg) {
 }
 
 bool BlockBuilder::Merge(BasicBlockSubGraph* subgraph) {
-  DCHECK(subgraph != NULL);
+  DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), subgraph);
 
-  MergeContext context(block_graph_, subgraph->original_block());
+  MergeContext context(block_graph_,
+                       subgraph->original_block(),
+                       &tag_info_map_);
 
   if (!context.GenerateBlocks(*subgraph))
     return false;

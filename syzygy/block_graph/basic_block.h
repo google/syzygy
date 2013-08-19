@@ -26,6 +26,7 @@
 
 #include "base/string_piece.h"
 #include "syzygy/block_graph/block_graph.h"
+#include "syzygy/block_graph/tags.h"
 #include "syzygy/common/align.h"
 #include "syzygy/core/assembler.h"
 #include "syzygy/core/disassembler_util.h"
@@ -144,6 +145,10 @@ class BasicBlockReference {
     return size_ != 0 && referred_block_ != NULL;
   }
 
+  // @returns the tags associated with this object.
+  TagSet& tags() { return tags_; }
+  const TagSet& tags() const { return tags_; }
+
  protected:
   // Denotes whether this reference is to a block or basic block.
   ReferredType referred_type_;
@@ -170,6 +175,9 @@ class BasicBlockReference {
   // basic-block. This must be a location strictly within the target block's
   // byte range.
   Offset base_;
+
+  // The tags that are applied to this object.
+  TagSet tags_;
 };
 
 // This class keeps track of a reference from an external block to a basic
@@ -337,6 +345,10 @@ class Instruction {
                                            const BlockGraph::Block* target,
                                            Offset offset);
 
+  // @returns the tags associated with this object.
+  TagSet& tags() { return tags_; }
+  const TagSet& tags() const { return tags_; }
+
  protected:
   // Construct an instruction from its parsed representation and underlying
   // memory buffer.
@@ -360,6 +372,9 @@ class Instruction {
 
   // Deprecated.
   Offset offset_;
+
+  // The tags that are applied to this object.
+  TagSet tags_;
 };
 
 // This class represents a control flow transfer to a basic block, which
@@ -477,6 +492,10 @@ class Successor {
   // Returns a textual description of this successor.
   std::string ToString() const;
 
+  // @returns the tags associated with this object.
+  TagSet& tags() { return tags_; }
+  const TagSet& tags() const { return tags_; }
+
  protected:
   // The type of branch represented by this successor.
   Condition condition_;
@@ -493,6 +512,9 @@ class Successor {
   // The size of the instruction this successor is derived from,
   // or zero if it's synthesized or added post-decomposition.
   Size instruction_size_;
+
+  // The tags that are applied to this object.
+  TagSet tags_;
 };
 
 // An indivisible portion of code or data within a code block.
@@ -569,6 +591,10 @@ class BasicBlock {
   // directional; the block should be considered immutable once this is called.
   void MarkAsPadding();
 
+  // @returns the tags associated with this object.
+  TagSet& tags() { return tags_; }
+  const TagSet& tags() const { return tags_; }
+
  protected:
   // Initialize a basic block.
   // @param subgraph The subgraph that owns this basic block.
@@ -604,6 +630,9 @@ class BasicBlock {
 
   // The subgraph to which belongs this basic block.
   BasicBlockSubGraph* subgraph_;
+
+  // The tags that are applied to this object.
+  TagSet tags_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BasicBlock);

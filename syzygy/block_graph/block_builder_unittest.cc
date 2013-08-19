@@ -117,39 +117,49 @@ class BlockBuilderTest : public testing::BasicBlockTest {
 
 }  // namespace
 
+// A comparison operator for TagInfo objects. Needed for use with ContainerEq.
+bool operator==(const TagInfo& ti1, const TagInfo& ti2) {
+  return ti1.type == ti2.type && ti1.block == ti2.block &&
+      ti1.offset == ti2.offset && ti1.size == ti2.size;
+}
+
 // This test constructs the following subgraph then merges it into block graph.
+// It adds tags to each element and also ensures that the tagging mechanism
+// works as expected.
 //
 // +-------+
 // | Data  |
 // +---+---+
 //     |
 //     +-->  +---------+
-// bb1   0   | 5 bytes |  Ref: 4-byte ref to code block @ 1, Label1 (code+call)
+// bb1   0   | 5 bytes |  Ref: 4-byte ref to code block @ 1, Label1 (code+call).
 //           +---------+
-//           | 2 bytes |  Successor: 1-byte ref to bb1 @ 6
+//           | 2 bytes |  Successor: 1-byte ref to bb1 @ 6.
 //           +---------+
-//           | 2 bytes |  Successor: 1-byte ref to bb3 @ 8
+//           | 2 bytes |  Successor: 1-byte ref to bb3 @ 8.
 //           +---------+
-// bb2   9   | 2 bytes |  Label2 (code)
+// bb2   9   | 2 bytes |  Label2 (code).
 //           +---------+
 //           | 3 bytes |
 //           +---------+
 // bb3   14  | 2 bytes |  Label3 (code).
 //           +---------+
-//           | 1 bytes |
-//           +---------+  Successor: elided here. Label4
+//           | 1 byte  |
+//           +---------+  Successor: elided here. Label4.
 // bb4   17  | 7 bytes |
 //           +---------+
 //           | 9 bytes |
 //           +---------+
-//           | 2 bytes |  Successor: 1-byte ref to bb2 @ 34
-// data  35  +---------+  Label5 (data).
-//           | 4 bytes |  Ref: 4-byte ref to bb1 @ 35
+//           | 2 bytes |  Successor: 1-byte ref to bb2 @ 34.
 //           +---------+
-//           | 4 bytes |  Ref: 4-byte ref to bb2 @ 39
+//           | 1 byte  |  Injected NOP due to data alignment.
+// data  36  +---------+  Label5 (data).
+//           | 4 bytes |  Ref: 4-byte ref to bb1 @ 36.
 //           +---------+
-//           | 4 bytes |  Ref: 4-byte ref to bb3 @ 43
-//       47  +---------+
+//           | 4 bytes |  Ref: 4-byte ref to bb2 @ 40.
+//           +---------+
+//           | 4 bytes |  Ref: 4-byte ref to bb3 @ 44.
+//       48  +---------+
 //
 TEST_F(BlockBuilderTest, Merge) {
   // Setup a code block which is referenced from a data block and references
@@ -173,27 +183,35 @@ TEST_F(BlockBuilderTest, Merge) {
   subgraph_.set_original_block(original);
   BasicCodeBlock* bb1 = subgraph_.AddBasicCodeBlock("bb1");
   ASSERT_TRUE(bb1 != NULL);
+  bb1->tags().insert(bb1);
   BasicCodeBlock* bb2 = subgraph_.AddBasicCodeBlock("bb2");
   ASSERT_TRUE(bb2 != NULL);
+  bb2->tags().insert(bb2);
   BasicCodeBlock* bb3 = subgraph_.AddBasicCodeBlock("bb3");
   ASSERT_TRUE(bb3 != NULL);
+  bb3->tags().insert(bb3);
   BasicCodeBlock* bb4 = subgraph_.AddBasicCodeBlock("bb4");
   ASSERT_TRUE(bb4 != NULL);
+  bb4->tags().insert(bb4);
   BasicDataBlock* table = subgraph_.AddBasicDataBlock("table", 12, kEmptyData);
   ASSERT_TRUE(table != NULL);
+  table->tags().insert(table);
 
   // Flesh out bb1 with an instruction having a reference and 2 successors.
   Instruction* inst = AddInstruction(bb1, kCall, sizeof(kCall));
   Label label_1("1", BlockGraph::CODE_LABEL | BlockGraph::CALL_SITE_LABEL);
   inst->set_label(label_1);
   ASSERT_TRUE(inst != NULL);
-  ASSERT_TRUE(inst->references().insert(
-      std::make_pair(1, BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4,
-                                            other, 0, 0))).second);
-  bb1->successors().push_back(
-      Successor(Successor::kConditionEqual,
-                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb1),
-                0));
+  BasicBlockReference bb1_abs_ref(BlockGraph::ABSOLUTE_REF, 4, other, 0, 0);
+  bb1_abs_ref.tags().insert(&bb1_abs_ref);
+  ASSERT_TRUE(inst->references().insert(std::make_pair(1, bb1_abs_ref)).second);
+  Instruction* bb1_inst1 = inst;
+  bb1_inst1->tags().insert(bb1_inst1);
+  BasicBlockReference bb1_succ1_ref(BlockGraph::RELATIVE_REF, 4, bb1);
+  bb1_succ1_ref.tags().insert(&bb1_succ1_ref);
+  Successor bb1_succ1(Successor::kConditionEqual, bb1_succ1_ref, 0);
+  bb1_succ1.tags().insert(&bb1_succ1);
+  bb1->successors().push_back(bb1_succ1);
   bb1->successors().push_back(
       Successor(Successor::kConditionNotEqual,
                 BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb3),
@@ -207,20 +225,23 @@ TEST_F(BlockBuilderTest, Merge) {
   ASSERT_TRUE(inst != NULL);
   ASSERT_TRUE(AddInstruction(bb2, kNop3, sizeof(kNop3)) != NULL);
 
-  // Flesh out bb3 with some instructions and a single  successor.
+  // Flesh out bb3 with some instructions and a single successor.
+  // We set tags on the successor and its reference. Since these are elided
+  // we expect zero-sized entries in the tag info map.
   inst = AddInstruction(bb3, kNop2, sizeof(kNop2));
   Label label_3("3", BlockGraph::CODE_LABEL);
   inst->set_label(label_3);
   ASSERT_TRUE(inst != NULL);
   ASSERT_TRUE(AddInstruction(bb3, kNop1, sizeof(kNop1)) != NULL);
-  bb3->successors().push_back(
-      Successor(Successor::kConditionTrue,
-                BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb4),
-                0));
+  BasicBlockReference bb3_succ_ref(BlockGraph::RELATIVE_REF, 4, bb4);
+  bb3_succ_ref.tags().insert(&bb3_succ_ref);
+  Successor bb3_succ(Successor::kConditionTrue, bb3_succ_ref, 0);
+  bb3_succ.tags().insert(&bb3_succ);
+  bb3->successors().push_back(bb3_succ);
   Label label_4("4", BlockGraph::CODE_LABEL);
   bb3->successors().back().set_label(label_4);
 
-  // Flesh out bb4 with some instructions and a single  successor.
+  // Flesh out bb4 with some instructions and a single successor.
   ASSERT_TRUE(AddInstruction(bb4, kNop7, sizeof(kNop7)) != NULL);
   ASSERT_TRUE(AddInstruction(bb4, kNop9, sizeof(kNop9)) != NULL);
   bb4->successors().push_back(
@@ -237,8 +258,9 @@ TEST_F(BlockBuilderTest, Merge) {
       0, BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, bb1))).second);
   ASSERT_TRUE(table->references().insert(std::make_pair(
       4, BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, bb2))).second);
-  ASSERT_TRUE(table->references().insert(std::make_pair(
-      8, BasicBlockReference(BlockGraph::ABSOLUTE_REF, 4, bb3))).second);
+  BasicBlockReference table_ref3(BlockGraph::ABSOLUTE_REF, 4, bb3);
+  table_ref3.tags().insert(&table_ref3);
+  ASSERT_TRUE(table->references().insert(std::make_pair(8, table_ref3)).second);
 
   BasicBlockSubGraph::BlockDescription* d1 = subgraph_.AddBlockDescription(
       "new_block", "new block compiland", BlockGraph::CODE_BLOCK, 0, 1, 0);
@@ -259,6 +281,27 @@ TEST_F(BlockBuilderTest, Merge) {
   EXPECT_EQ(48U, new_block->size());
   EXPECT_EQ(new_block->data_size(), new_block->size());
   EXPECT_EQ(table->alignment(), new_block->alignment());
+
+  // Validate the tags.
+  TagInfoMap expected_tags;
+  expected_tags[bb1].push_back(TagInfo(kBasicCodeBlockTag, new_block, 0, 9));
+  expected_tags[bb2].push_back(TagInfo(kBasicCodeBlockTag, new_block, 9, 5));
+  expected_tags[bb3].push_back(TagInfo(kBasicCodeBlockTag, new_block, 14, 3));
+  expected_tags[bb4].push_back(TagInfo(kBasicCodeBlockTag, new_block, 17, 18));
+  expected_tags[table].push_back(
+      TagInfo(kBasicDataBlockTag, new_block, 36, 12));
+  expected_tags[bb1_inst1].push_back(TagInfo(kInstructionTag, new_block, 0, 5));
+  expected_tags[&bb1_abs_ref].push_back(
+      TagInfo(kReferenceTag, new_block, 1, 4));
+  expected_tags[&bb1_succ1_ref].push_back(
+      TagInfo(kReferenceTag, new_block, 6, 1));
+  expected_tags[&bb1_succ1].push_back(TagInfo(kSuccessorTag, new_block, 5, 2));
+  expected_tags[&bb3_succ_ref].push_back(
+      TagInfo(kReferenceTag, new_block, 17, 0));
+  expected_tags[&bb3_succ].push_back(TagInfo(kSuccessorTag, new_block, 17, 0));
+  expected_tags[&table_ref3].push_back(
+      TagInfo(kReferenceTag, new_block, 44, 4));
+  EXPECT_THAT(builder.tag_info_map(), ::testing::ContainerEq(expected_tags));
 
   // Validate the new block's references.
   Block::ReferenceMap expected_references;

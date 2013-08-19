@@ -148,7 +148,6 @@ BasicBlockReference::BasicBlockReference()
       base_(BasicBlock::kNoOffset) {
 }
 
-
 BasicBlockReference::BasicBlockReference(ReferenceType type,
                                          Size size,
                                          Block* block,
@@ -197,7 +196,8 @@ BasicBlockReference::BasicBlockReference(const BasicBlockReference& other)
       size_(other.size_),
       referred_block_(other.referred_block_),
       offset_(other.offset_),
-      base_(other.base_) {
+      base_(other.base_),
+      tags_(other.tags_) {
 }
 
 BasicBlockReferrer::BasicBlockReferrer()
@@ -245,7 +245,8 @@ Instruction::Instruction(const Instruction& other)
       references_(other.references_),
       source_range_(other.source_range_),
       label_(other.label_),
-      offset_(BasicBlock::kNoOffset) {
+      offset_(BasicBlock::kNoOffset),
+      tags_(other.tags_) {
   ::memcpy(data_, other.data_, sizeof(data_));
 }
 
@@ -594,7 +595,8 @@ Successor::Successor(const Successor& other)
       reference_(other.reference_),
       source_range_(other.source_range_),
       instruction_size_(other.instruction_size_),
-      label_(other.label_) {
+      label_(other.label_),
+      tags_(other.tags_) {
 }
 
 Successor::Condition Successor::InvertCondition(Condition cond) {

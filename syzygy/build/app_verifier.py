@@ -221,7 +221,8 @@ def _RunNormally(command):
   (dummy_stdout, dummy_stderr) = popen.communicate()
 
   # To be consistent with _RunUnderAppVerifier we output warnings at the end.
-  sys.stderr.write(Colorize('Warning: AppVerifier was disabled for this test.'))
+  sys.stderr.write(Colorize(
+      'Warning: AppVerifier was disabled for this test.\n'))
   return popen.returncode
 
 
