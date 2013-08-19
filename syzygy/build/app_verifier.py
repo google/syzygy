@@ -206,11 +206,22 @@ def _RunUnderAppVerifier(command):
 
 
 def _RunNormally(command):
+  # We reset the image settings so that AppVerifier isn't left incidentally
+  # configured.
+  runner = verifier.AppverifierTestRunner(False)
+  image_path = os.path.abspath(command[0])
+  image_name = os.path.basename(image_path)
+  runner.ClearImageLogs(image_name)
+  runner.ResetImage(image_name)
+
   image_path = os.path.abspath(command[0])
   command = [image_path] + command[1:]
   _LOGGER.info('Running %s outside of AppVerifier.' % command)
   popen = subprocess.Popen(command)
   (dummy_stdout, dummy_stderr) = popen.communicate()
+
+  # To be consistent with _RunUnderAppVerifier we output warnings at the end.
+  sys.stderr.write(Colorize('Warning: AppVerifier was disabled for this test.'))
   return popen.returncode
 
 
