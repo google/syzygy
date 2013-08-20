@@ -61,6 +61,9 @@
       '<(PRODUCT_DIR)/compare.exe',
       '<(PRODUCT_DIR)/pdb_dumper.exe',
       '<(PRODUCT_DIR)/timed_decomposer.exe',
+
+      # Experimental python scripts.
+      '<(src)/syzygy/experimental/code_tally/convert_code_tally.py',
     ],
 
     'symbols': [
