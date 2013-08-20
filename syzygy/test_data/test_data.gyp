@@ -37,6 +37,28 @@
       ],
     },
     {
+      'target_name': 'copy_test_dll_compilands',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'sources': [
+      ],
+      'dependencies': [
+        '<(src)/syzygy/pe/pe.gyp:test_dll',
+      ],
+      'copies': [
+        {
+          'destination': '<(PRODUCT_DIR)/test_data',
+          'files': [
+            # We rely on pe.gyp:test_dll producing these
+            # intermediate/auxiliary output files.
+            '<(PRODUCT_DIR)/obj/test_dll/test_dll_label_test_func.obj',
+            '<(PRODUCT_DIR)/lib/export_dll.lib',
+            '<(PRODUCT_DIR)/lib/test_dll_no_private_symbols.lib',
+          ],
+        },
+      ],
+    },
+    {
       'target_name': 'call_trace_instrumented_test_dll',
       'type': 'none',
       'msvs_cygwin_shell': 0,
