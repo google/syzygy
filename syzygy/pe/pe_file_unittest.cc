@@ -349,11 +349,6 @@ TEST_F(PEFileTest, DecodeImports) {
     PEFile::ImportDll& dll = imports[i];
     if (0 == base::strcasecmp("export_dll.dll", dll.name.c_str())) {
       ASSERT_EQ(4, dll.functions.size());
-      for (size_t i = 0; i < dll.functions.size(); ++i) {
-        LOG(ERROR) << dll.functions[i].hint << ":"
-                   << dll.functions[i].ordinal << ":"
-                   << dll.functions[i].function;
-      }
       // Depending on the optimization settings the order of these elements can
       // actually be different.
       ASSERT_THAT(dll.functions, testing::WhenSortedBy(
