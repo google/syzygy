@@ -86,6 +86,7 @@ bool MemoryRangeIsAccessible(uint8* mem, size_t len) {
 double HeapProxy::cpu_cycles_per_us_ = 0.0;
 // The default quarantine size for a new Heap.
 size_t HeapProxy::default_quarantine_max_size_ = kDefaultQuarantineMaxSize_;
+size_t HeapProxy::trailer_padding_size_ = 0;
 const char* HeapProxy::kHeapUseAfterFree = "heap-use-after-free";
 const char* HeapProxy::kHeapBufferUnderFlow = "heap-buffer-underflow";
 const char* HeapProxy::kHeapBufferOverFlow = "heap-buffer-overflow";
@@ -396,6 +397,7 @@ size_t HeapProxy::GetAllocSize(size_t bytes) {
   const size_t kAllocGranularity = 8;
   bytes += sizeof(BlockHeader);
   bytes += sizeof(BlockTrailer);
+  bytes += trailer_padding_size_;
   return common::AlignUp(bytes, kAllocGranularity);
 }
 

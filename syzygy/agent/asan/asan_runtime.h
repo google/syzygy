@@ -162,6 +162,7 @@ class AsanRuntime {
           reporting_period(0U),
           bottom_frames_to_skip(0U),
           max_num_frames(0U),
+          trailer_padding_size(0U),
           exit_on_failure(false),
           minidump_on_failure(false),
           log_as_text(true) {
@@ -179,6 +180,9 @@ class AsanRuntime {
 
     // The max number of frames for a stack trace.
     size_t max_num_frames;
+
+    // The size of the padding added to every memory block trailer.
+    size_t trailer_padding_size;
 
     // The stack ids we ignore.
     StackIdSet ignored_stack_ids;
@@ -210,6 +214,7 @@ class AsanRuntime {
   static const char kNoLogAsText[];
   static const char kQuarantineSize[];
   static const wchar_t kSyzyAsanDll[];
+  static const char kTrailerPaddingSize[];
   // @}
 
   // @name Accessors.

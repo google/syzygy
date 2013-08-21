@@ -298,8 +298,7 @@ void ASANDbgPrintContext(const CONTEXT& context) {
 
 const char AsanRuntime::kSyzyAsanEnvVar[] = "SYZYGY_ASAN_OPTIONS";
 
-const char AsanRuntime::kBottomFramesToSkip[] =
-    "bottom_frames_to_skip";
+const char AsanRuntime::kBottomFramesToSkip[] = "bottom_frames_to_skip";
 const char AsanRuntime::kCompressionReportingPeriod[] =
     "compression_reporting_period";
 const char AsanRuntime::kExitOnFailure[] = "exit_on_failure";
@@ -309,6 +308,7 @@ const char AsanRuntime::kMiniDumpOnFailure[] = "minidump_on_failure";
 const char AsanRuntime::kNoLogAsText[] = "no_log_as_text";
 const char AsanRuntime::kQuarantineSize[] = "quarantine_size";
 const wchar_t AsanRuntime::kSyzyAsanDll[] = L"asan_rtl.dll";
+const char AsanRuntime::kTrailerPaddingSize[] = "trailer_padding_size";
 
 AsanRuntime::AsanRuntime()
     : logger_(NULL), stack_cache_(NULL), asan_error_callback_(), flags_(),
@@ -505,6 +505,15 @@ bool AsanRuntime::ParseFlagsFromString(std::wstring str) {
     return false;
   }
 
+  // Parse the trailer padding size flag.
+  flags_.trailer_padding_size = 0;
+  if (!UpdateSizetFromCommandLine(cmd_line, kTrailerPaddingSize,
+                                  &flags_.trailer_padding_size)) {
+    LOG(ERROR) << "Unable to read " << kTrailerPaddingSize << " from the "
+               << "argument list.";
+    return false;
+  }
+
   // Parse the reporting period flag.
   flags_.reporting_period =
       StackCaptureCache::GetDefaultCompressionReportingPeriod();
@@ -570,6 +579,7 @@ bool AsanRuntime::GetAsanFlagsEnvVar(std::wstring* env_var_wstr) {
 void AsanRuntime::PropagateFlagsValues() const {
   // TODO(sebmarchand): Look into edit-free ways to expose new flags to the
   //     different modules.
+  HeapProxy::SetTrailerPaddingSize(flags_.trailer_padding_size);
   HeapProxy::set_default_quarantine_max_size(flags_.quarantine_size);
   StackCapture::set_bottom_frames_to_skip(flags_.bottom_frames_to_skip);
   StackCaptureCache::set_compression_reporting_period(flags_.reporting_period);

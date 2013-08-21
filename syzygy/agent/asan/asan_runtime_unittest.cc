@@ -42,6 +42,7 @@ class TestAsanRuntime : public AsanRuntime {
   using AsanRuntime::kIgnoredStackIds;
   using AsanRuntime::kQuarantineSize;
   using AsanRuntime::kSyzyAsanEnvVar;
+  using AsanRuntime::kTrailerPaddingSize;
   using AsanRuntime::PropagateFlagsValues;
   using AsanRuntime::flags;
   using AsanRuntime::set_flags;
@@ -157,6 +158,19 @@ TEST_F(AsanRuntimeTest, SetBottomFramesToSkip) {
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
 
   EXPECT_EQ(frames_to_skip, StackCapture::bottom_frames_to_skip());
+}
+
+TEST_F(AsanRuntimeTest, SetTrailerPaddingSize) {
+  size_t trailer_padding_size = HeapProxy::trailer_padding_size() + 1;
+  std::string new_trailer_padding_size_str =
+      base::UintToString(trailer_padding_size);
+  current_command_line_.AppendSwitchASCII(
+      TestAsanRuntime::kTrailerPaddingSize, new_trailer_padding_size_str);
+
+  ASSERT_NO_FATAL_FAILURE(
+      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
+
+  EXPECT_EQ(trailer_padding_size, HeapProxy::trailer_padding_size());
 }
 
 TEST_F(AsanRuntimeTest, SetExitOnFailure) {

@@ -146,6 +146,17 @@ class HeapProxy {
     return quarantine_max_size_;
   }
 
+  // Set the trailer padding size.
+  // @param trailer_padding_size The trailer padding size, in bytes.
+  static void SetTrailerPaddingSize(size_t trailer_padding_size) {
+    trailer_padding_size_ = trailer_padding_size;
+  }
+
+  // Get the trailer padding size.
+  static size_t trailer_padding_size() {
+    return trailer_padding_size_;
+  }
+
   // Static initialization of HeapProxy context.
   static void Init();
 
@@ -229,6 +240,10 @@ class HeapProxy {
 
   // Default max size of blocks in quarantine (in bytes).
   static size_t default_quarantine_max_size_;
+
+  // The size of the padding that we append to every block (in bytes). Defaults
+  // to zero.
+  static size_t trailer_padding_size_;
 
   // The number of CPU cycles per microsecond on the current machine.
   static double cpu_cycles_per_us_;

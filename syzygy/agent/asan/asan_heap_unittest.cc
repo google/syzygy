@@ -532,5 +532,35 @@ TEST_F(HeapTest, GetNullTerminatedArraySize) {
   }
 }
 
+TEST_F(HeapTest, SetTrailerPaddingSize) {
+  const size_t kAllocSize = 100;
+  // As we're playing with the padding size in these tests, we need to make sure
+  // that the blocks don't end up in the quarantine, otherwise we won't be able
+  // to unpoison them correctly (we don't keep the padding size in the blocks).
+  proxy_.SetQuarantineMaxSize(kAllocSize - 1);
+  size_t original_alloc_size = TestHeapProxy::GetAllocSize(kAllocSize);
+  size_t original_trailer_padding_size = TestHeapProxy::trailer_padding_size();
+
+  for (size_t padding = 0; padding < 16; ++padding) {
+    size_t augmented_trailer_padding_size = original_trailer_padding_size +
+        padding;
+    proxy_.SetTrailerPaddingSize(augmented_trailer_padding_size);
+    size_t augmented_alloc_size = TestHeapProxy::GetAllocSize(kAllocSize);
+    EXPECT_GE(augmented_alloc_size ,original_alloc_size);
+
+    LPVOID mem = proxy_.Alloc(0, kAllocSize);
+    ASSERT_TRUE(mem != NULL);
+
+    size_t offset = kAllocSize;
+    for (; offset < augmented_alloc_size - sizeof(TestHeapProxy::BlockHeader);
+         ++offset) {
+      EXPECT_FALSE(Shadow::IsAccessible(
+          reinterpret_cast<const uint8*>(mem) + offset));
+    }
+    ASSERT_TRUE(proxy_.Free(0, mem));
+  }
+  proxy_.SetTrailerPaddingSize(original_trailer_padding_size);
+}
+
 }  // namespace asan
 }  // namespace agent
