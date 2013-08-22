@@ -58,23 +58,23 @@ bool GetRelocationTypeAndSize(const IMAGE_RELOCATION& reloc,
       // Ignored, as per the specifications.
       return false;
     case IMAGE_REL_I386_DIR32:
-      *ref_type = BlockGraph::ABSOLUTE_REF;
+      *ref_type = BlockGraph::RELOC_ABSOLUTE_REF;
       *ref_size = sizeof(uint32);
       return true;
     case IMAGE_REL_I386_DIR32NB:
-      *ref_type = BlockGraph::RELATIVE_REF;
+      *ref_type = BlockGraph::RELOC_RELATIVE_REF;
       *ref_size = sizeof(uint32);
       return true;
     case IMAGE_REL_I386_SECTION:
-      *ref_type = BlockGraph::SECTION_REF;
+      *ref_type = BlockGraph::RELOC_SECTION_REF;
       *ref_size = sizeof(uint16);
       return true;
     case IMAGE_REL_I386_SECREL:
-      *ref_type = BlockGraph::SECTION_OFFSET_REF;
+      *ref_type = BlockGraph::RELOC_SECTION_OFFSET_REF;
       *ref_size = sizeof(uint32);
       return true;
     case IMAGE_REL_I386_SECREL7:
-      *ref_type = BlockGraph::SECTION_OFFSET_REF;
+      *ref_type = BlockGraph::RELOC_SECTION_OFFSET_REF;
       // TODO(lenh): This is actually a 7-bit offset;
       // BlockGraph::Reference only represents byte sizes. We pass
       // as a 1-byte reference as there are no actual 8-bit
@@ -82,7 +82,7 @@ bool GetRelocationTypeAndSize(const IMAGE_RELOCATION& reloc,
       *ref_size = 1;
       return true;
     case IMAGE_REL_I386_REL32:
-      *ref_type = BlockGraph::PC_RELATIVE_REF;
+      *ref_type = BlockGraph::RELOC_PC_RELATIVE_REF;
       *ref_size = sizeof(uint32);
       return true;
     default:

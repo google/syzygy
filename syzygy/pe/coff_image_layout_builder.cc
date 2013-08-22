@@ -85,19 +85,19 @@ bool GetCoffRelocationType(BlockGraph::ReferenceType ref_type,
                            BlockGraph::Size ref_size,
                            uint16* coff_reloc_type) {
   switch (ref_type) {
-    case BlockGraph::ABSOLUTE_REF:
+    case BlockGraph::RELOC_ABSOLUTE_REF:
       DCHECK_EQ(sizeof(uint32), ref_size);
       *coff_reloc_type = IMAGE_REL_I386_DIR32;
       return true;
-    case BlockGraph::RELATIVE_REF:
+    case BlockGraph::RELOC_RELATIVE_REF:
       DCHECK_EQ(sizeof(uint32), ref_size);
       *coff_reloc_type = IMAGE_REL_I386_DIR32NB;
       return true;
-    case BlockGraph::SECTION_REF:
+    case BlockGraph::RELOC_SECTION_REF:
       DCHECK_EQ(sizeof(uint16), ref_size);
       *coff_reloc_type = IMAGE_REL_I386_SECTION;
       return true;
-    case BlockGraph::SECTION_OFFSET_REF:
+    case BlockGraph::RELOC_SECTION_OFFSET_REF:
       if (ref_size == sizeof(uint32)) {
          *coff_reloc_type = IMAGE_REL_I386_SECREL;
       } else {
@@ -105,7 +105,7 @@ bool GetCoffRelocationType(BlockGraph::ReferenceType ref_type,
         *coff_reloc_type = IMAGE_REL_I386_SECREL7;
       }
       return true;
-    case BlockGraph::PC_RELATIVE_REF:
+    case BlockGraph::RELOC_PC_RELATIVE_REF:
       DCHECK_EQ(sizeof(uint32), ref_size);
       *coff_reloc_type = IMAGE_REL_I386_REL32;
       return true;
@@ -115,8 +115,8 @@ bool GetCoffRelocationType(BlockGraph::ReferenceType ref_type,
   }
 }
 
-// For each reference in @p block, add a COFF relocation to the specified
-// vector.
+// For each relocation reference in @p block, add a COFF relocation to the
+// specified vector.
 //
 // @param block the block whose references are to be translated to
 //     relocations.
@@ -131,6 +131,10 @@ bool AddRelocs(const BlockGraph::Block& block,
   BlockGraph::Block::ReferenceMap::const_iterator it =
       block.references().begin();
   for (; it != block.references().end(); ++it) {
+    // Skip non-relocation references.
+    if ((it->second.type() & BlockGraph::RELOC_REF_BIT) == 0)
+      continue;
+
     IMAGE_RELOCATION reloc = {};
 
     // Sections constructed by this class all have zero base RVA, so the

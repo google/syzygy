@@ -1233,7 +1233,7 @@ bool BlockGraph::Reference::IsValid() const {
 }
 
 bool BlockGraph::Reference::IsValidTypeSize(ReferenceType type, Size size) {
-  switch (type) {
+  switch (type & ~RELOC_REF_BIT) {
     // We see 8- and 32-bit relative JMPs.
     case PC_RELATIVE_REF:
       return size == 1 || size == 4;
