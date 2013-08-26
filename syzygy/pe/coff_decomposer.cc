@@ -271,6 +271,29 @@ bool CoffDecomposer::CreateBlocksAndReferencesFromSymbolAndStringTables() {
             0)) {
       return false;
     }
+
+    // Section definitions for associative COMDAT sections require an
+    // additional section reference within the auxiliary symbol.
+    if (symbol->StorageClass == IMAGE_SYM_CLASS_STATIC &&
+        symbol->Type >> 4 != IMAGE_SYM_DTYPE_FUNCTION &&
+        symbol->NumberOfAuxSymbols == 1) {
+      const IMAGE_AUX_SYMBOL* aux =
+          reinterpret_cast<const IMAGE_AUX_SYMBOL*>(image_file_.symbol(i + 1));
+      DCHECK(aux != NULL);
+      if (aux->Section.Selection == IMAGE_COMDAT_SELECT_ASSOCIATIVE) {
+        FileOffsetAddress number_addr(
+            start + sizeof(IMAGE_SYMBOL) +
+            offsetof(IMAGE_AUX_SYMBOL, Section.Number));
+        if (!CreateSectionOffsetReference(
+                number_addr,
+                BlockGraph::SECTION_REF,
+                sizeof(short),
+                aux->Section.Number - 1,
+                0)) {
+          return false;
+        }
+      }
+    }
   }
 
   return true;

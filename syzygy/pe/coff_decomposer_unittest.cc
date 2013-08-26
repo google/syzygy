@@ -89,11 +89,25 @@ TEST_F(CoffDecomposerTest, Decompose) {
               image_layout.sections[i].characteristics);
   }
 
-  // Check that the number of sections and blocks match expectations.
+  // Count symbols.
+  size_t num_internal_symbols = 0;
+  size_t num_assoc_comdat_sections = 0;
+  size_t num_symbols = image_file_.file_header()->NumberOfSymbols;
+  for (size_t i = 0; i < num_symbols; ++i) {
+    const IMAGE_SYMBOL* symbol = image_file_.symbol(i);
+    i += symbol->NumberOfAuxSymbols;
+    if (symbol->SectionNumber > 0)
+      ++num_internal_symbols;
+  }
+
+  // Check that the number of sections, blocks and references match
+  // expectations.
   size_t num_code_blocks = 0;
   size_t num_section_blocks = 0;
   size_t num_section_blocks_with_references = 0;
+  size_t num_debug_section_blocks = 0;
   size_t num_non_section_blocks = 0;
+  size_t num_references_in_symbol_table = 0;
   BlockGraph::BlockMap::const_iterator it =
       block_graph.blocks().begin();
   for (; it != block_graph.blocks().end(); ++it) {
@@ -104,11 +118,20 @@ TEST_F(CoffDecomposerTest, Decompose) {
 
     if (block.section() == BlockGraph::kInvalidSectionId) {
       ++num_non_section_blocks;
+
+      if ((block.attributes() & BlockGraph::COFF_SYMBOL_TABLE) != 0)
+        num_references_in_symbol_table = block.references().size();
     } else {
       // If this is not a header block, it should refer to a valid
       // section index.
       EXPECT_LT(block.section(), block_graph.sections().size());
       ++num_section_blocks;
+
+      BlockGraph::Section* section =
+          block_graph.GetSectionById(block.section());
+      DCHECK(section != NULL);
+      if (section->name() == ".debug$S")
+        ++num_debug_section_blocks;
 
       size_t num_relocs =
           image_file_.section_header(block.section())->NumberOfRelocations;
@@ -119,6 +142,13 @@ TEST_F(CoffDecomposerTest, Decompose) {
   }
   EXPECT_EQ(num_section_blocks + num_non_section_blocks,
             block_graph.blocks().size());
+
+  // Each symbol has one section and one section offset reference; plus,
+  // each associative COMDAT section definition must have one additional
+  // reference. In test_dll.obj, only .debug$S sections should be COMDAT
+  // associative, except the global .debug$S section.
+  EXPECT_EQ(2 * num_internal_symbols + num_debug_section_blocks - 1,
+            num_references_in_symbol_table);
 
   // There should be at least as many code blocks as there are functions in
   // test_dll.cc.

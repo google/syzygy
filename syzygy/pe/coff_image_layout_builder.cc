@@ -298,11 +298,12 @@ bool CoffImageLayoutBuilder::LayoutSectionBlocks(
           std::make_pair(it->second.referenced(), it->second.offset());
       symbol_map.insert(std::make_pair(ref_pair, i)).first->second = i;
 
-      // We skip one reference forward, as there are two references for each
-      // symbol entry.
-      ++it;
-      DCHECK(it != symbols_block_->references().end());
-      ++it;
+      // Skip any other references for this symbol or its auxiliary symbols.
+      size_t next_index = i + 1 + symbols[i].NumberOfAuxSymbols;
+      do {
+        ++it;
+      } while (it != symbols_block_->references().end() &&
+               it->first / sizeof(IMAGE_SYMBOL) < next_index);
     } else {
       // External or misc (unreferenced), that lies between references.
       DCHECK_GE(0, symbols[i].SectionNumber);
