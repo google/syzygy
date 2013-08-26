@@ -68,6 +68,9 @@ typedef std::vector<IMAGE_RELOCATION> RelocVector;
 typedef std::map<std::pair<BlockGraph::Block*, BlockGraph::Offset>, size_t>
     SymbolMap;
 
+// A map from section IDs to their (new) position in the resulting layout.
+typedef std::map<BlockGraph::SectionId, size_t> SectionIndexMap;
+
 // Microsoft specifications recommend 4-byte alignment for object files.
 const size_t kFileAlignment = 4;
 
@@ -197,7 +200,7 @@ bool CoffImageLayoutBuilder::LayoutImage(
   if (!LayoutSectionBlocks(ordered_graph))
     return false;
 
-  if (!LayoutSymbolAndStringTables())
+  if (!LayoutSymbolAndStringTables(ordered_graph))
     return false;
 
   if (!RemoveOldRelocBlocks())
@@ -414,7 +417,8 @@ bool CoffImageLayoutBuilder::LayoutSectionBlocks(
   return true;
 }
 
-bool CoffImageLayoutBuilder::LayoutSymbolAndStringTables() {
+bool CoffImageLayoutBuilder::LayoutSymbolAndStringTables(
+    const OrderedBlockGraph& ordered_graph) {
   DCHECK(headers_block_ != NULL);
   DCHECK(symbols_block_ != NULL);
   DCHECK(strings_block_ != NULL);
@@ -440,6 +444,20 @@ bool CoffImageLayoutBuilder::LayoutSymbolAndStringTables() {
   if (!LayoutBlockImpl(strings_block_))
     return false;
 
+  // Compute the section index map, used to remap symbol section references.
+  SectionIndexMap section_index_map;
+  OrderedBlockGraph::SectionList::const_iterator section_it =
+      ordered_graph.ordered_sections().begin();
+  OrderedBlockGraph::SectionList::const_iterator section_end =
+      ordered_graph.ordered_sections().end();
+  size_t section_index = 0;
+  for (; section_it != section_end; ++section_it) {
+    BlockGraph::Section* section = (*section_it)->section();
+    DCHECK(section != NULL);
+    section_index_map.insert(std::make_pair(section->id(), section_index));
+    ++section_index;
+  }
+
   // Fix references.
   BlockGraph::Block::ReferenceMap::const_iterator it =
       symbols_block_->references().begin();
@@ -456,7 +474,13 @@ bool CoffImageLayoutBuilder::LayoutSymbolAndStringTables() {
           return false;
         }
 
-        *section_number = it->second.referenced()->section() + 1;
+        SectionIndexMap::iterator section_index_it =
+            section_index_map.find(it->second.referenced()->section());
+        if (section_index_it == section_index_map.end()) {
+          LOG(ERROR) << "Reference to unmapped section.";
+          return false;
+        }
+        *section_number = section_index_it->second + 1;
         DCHECK_EQ(*section_number, symbols[symbol_index].SectionNumber);
         break;
       }

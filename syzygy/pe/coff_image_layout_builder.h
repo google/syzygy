@@ -79,8 +79,9 @@ class CoffImageLayoutBuilder : public PECoffImageLayoutBuilder {
 
   // Lay out the symbol and string tables, and update the COFF file header.
   //
+  // @param ordered_graph the ordered block graph.
   // @returns true on success, false on failure.
-  bool LayoutSymbolAndStringTables();
+  bool LayoutSymbolAndStringTables(const OrderedBlockGraph& ordered_graph);
 
   // Remove unmapped relocation blocks, and ensure that no other block is
   // left unmapped.
