@@ -20,6 +20,7 @@
 #include "base/file_util.h"
 #include "base/files/file_path.h"
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/unittest_util.h"
 
 namespace testing {
@@ -76,6 +77,16 @@ class ScopedHMODULE {
  private:
   HMODULE value_;
 };
+
+// Given a block-graph that represents a decomposed PE image this reaches in
+// and modifies the GUID and path values in place. This prevents any written
+// images from matching the same symbol file. If this is not done it is possible
+// for the debugger to cause an exception to be raised while loading a symbol
+// file whose signature does match, but whose contents don't match, a
+// transformed PE file.
+// @param dos_header_block The DOS header block.
+// @note Meant to be called from within an ASSERT_NO_FATAL_FAILURE block.
+void TwiddlePdbGuidAndPath(block_graph::BlockGraph::Block* dos_header_block);
 
 class PELibUnitTest : public testing::ApplicationTestBase {
  public:

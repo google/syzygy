@@ -29,13 +29,21 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "sawbuck/common/com_utils.h"
+#include "syzygy/block_graph/typed_block.h"
 #include "syzygy/pe/pe_data.h"
 
 namespace testing {
 
 namespace {
 
+using block_graph::BlockGraph;
+using block_graph::TypedBlock;
 using pe::CvInfoPdb70;
+
+typedef TypedBlock<CvInfoPdb70> CvInfoPdb;
+typedef TypedBlock<IMAGE_DOS_HEADER> DosHeader;
+typedef TypedBlock<IMAGE_NT_HEADERS> NtHeaders;
+typedef TypedBlock<IMAGE_DEBUG_DIRECTORY> ImageDebugDirectory;
 
 bool EnumImportsProc(const base::win::PEImage &image,
                      const char* module,
@@ -220,6 +228,56 @@ void ScopedHMODULE::Release() {
 
 ScopedHMODULE::~ScopedHMODULE() {
   Release();
+}
+
+void TwiddlePdbGuidAndPath(BlockGraph::Block* dos_header_block) {
+  ASSERT_NE(reinterpret_cast<BlockGraph::Block*>(NULL), dos_header_block);
+
+  DosHeader dos_header;
+  ASSERT_TRUE(dos_header.Init(0, dos_header_block));
+
+  NtHeaders nt_headers;
+  ASSERT_TRUE(dos_header.Dereference(dos_header->e_lfanew, &nt_headers));
+
+  const IMAGE_DATA_DIRECTORY& debug_dir_info =
+    nt_headers->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_DEBUG];
+  ImageDebugDirectory debug_dir;
+  ASSERT_TRUE(nt_headers.Dereference(debug_dir_info.VirtualAddress,
+                                     &debug_dir));
+
+  // Find the codeview debug directory entry.
+  int32 index = -1;
+  for (size_t i = 0; i < debug_dir.ElementCount(); ++i) {
+    if (debug_dir[i].Type == IMAGE_DEBUG_TYPE_CODEVIEW) {
+      index = i;
+      break;
+    }
+  }
+  ASSERT_NE(-1, index);
+
+  CvInfoPdb cv_info_pdb;
+  ASSERT_TRUE(debug_dir.Dereference(debug_dir[index].PointerToRawData,
+                                    &cv_info_pdb));
+
+  // Modify the GUID.
+  cv_info_pdb->signature.Data1 ^= 0xFFFFFFFF;
+
+  // Write a nonsense name using a simple encoding.
+  size_t block_size = cv_info_pdb.block()->size();
+  size_t string_start = cv_info_pdb.OffsetOf(cv_info_pdb->pdb_file_name);
+  ASSERT_LT(string_start, block_size);
+  size_t string_len = block_size - string_start;
+  for (size_t i = 0; i < string_len && cv_info_pdb->pdb_file_name[i] != 0;
+       ++i) {
+    char& c = cv_info_pdb->pdb_file_name[i];
+    if (c >= 'a' && c <= 'z') {
+      c = 'z' - (c - 'a');
+    } else if (c >= 'A' && c <= 'Z') {
+      c = 'Z' - (c - 'A');
+    } else if (c >= '0' && c <= '9') {
+      c = '9' - (c - '0');
+    }
+  }
 }
 
 void PELibUnitTest::LoadTestDll(const base::FilePath& path,

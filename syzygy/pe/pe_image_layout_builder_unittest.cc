@@ -140,6 +140,10 @@ TEST_F(PEImageLayoutBuilderTest, PadTestDll) {
   block_graph::orderers::OriginalOrderer orig_orderer;
   ASSERT_TRUE(orig_orderer.OrderBlockGraph(&obg, dos_header_block_));
 
+  // We modify the CV info so that the debugger doesn't try to load the
+  // wrong symbols for this image.
+  ASSERT_NO_FATAL_FAILURE(testing::TwiddlePdbGuidAndPath(dos_header_block_));
+
   ImageLayout layout(&block_graph_);
   PEImageLayoutBuilder builder(&layout);
   builder.set_padding(100);
@@ -196,6 +200,10 @@ TEST_F(PEImageLayoutBuilderTest, RandomizeTestDll) {
   block_graph::orderers::RandomOrderer random_orderer(true);
   ASSERT_TRUE(random_orderer.OrderBlockGraph(&obg, dos_header_block_));
 
+  // We modify the CV info so that the debugger doesn't try to load the
+  // wrong symbols for this image.
+  ASSERT_NO_FATAL_FAILURE(testing::TwiddlePdbGuidAndPath(dos_header_block_));
+
   ImageLayout layout(&block_graph_);
   PEImageLayoutBuilder builder(&layout);
   ASSERT_TRUE(builder.LayoutImageHeaders(dos_header_block_));
@@ -233,6 +241,10 @@ TEST_F(PEImageLayoutBuilderTest, ShiftTestDll) {
   // Move the new section to the beginning of the image. This causes everything
   // to be shifted by a fixed amount.
   obg.PlaceAtHead(section);
+
+  // We modify the CV info so that the debugger doesn't try to load the
+  // wrong symbols for this image.
+  ASSERT_NO_FATAL_FAILURE(testing::TwiddlePdbGuidAndPath(dos_header_block_));
 
   ImageLayout layout(&block_graph_);
   PEImageLayoutBuilder builder(&layout);
