@@ -420,6 +420,58 @@ TEST_F(BlockTest, InsertData) {
   EXPECT_EQ(expected_references, block1->references());
 }
 
+TEST_F(BlockTest, InsertDataAtEndOfBlock) {
+  // Create a block.
+  BlockGraph::Block* block1 = image_.AddBlock(
+      BlockGraph::CODE_BLOCK, 4 * kPtrSize, "Block1");
+  block1->AllocateData(3 * kPtrSize);
+  EXPECT_EQ(4 * kPtrSize, block1->size());
+
+  // Create a block with a pointer to the end of block1.
+  BlockGraph::Block* block2 = image_.AddBlock(
+      BlockGraph::CODE_BLOCK, kPtrSize, "Block2");
+  block2->SetReference(0, BlockGraph::Reference(BlockGraph::RELATIVE_REF,
+                                                kPtrSize,
+                                                block1,
+                                                block1->size(),
+                                                block1->size()));
+
+  // Shift block1 in the middle.
+  block1->InsertData(kPtrSize, kPtrSize, false);
+
+  // Ensure the data_size and block size are as expected.
+  EXPECT_EQ(5 * kPtrSize, block1->size());
+  EXPECT_EQ(4 * kPtrSize, block1->data_size());
+
+  // Ensure that the end reference has moved along.
+  BlockGraph::Reference expected_ref(BlockGraph::RELATIVE_REF,
+                                     kPtrSize,
+                                     block1,
+                                     block1->size(),
+                                     block1->size());
+
+  BlockGraph::Reference actual_ref;
+  EXPECT_TRUE(block2->GetReference(0, &actual_ref));
+  EXPECT_EQ(expected_ref, actual_ref);
+
+  // Shift block1 at the end.
+  block1->InsertData(block1->size(), kPtrSize, false);
+
+  // Ensure the data_size and block size are as expected.
+  EXPECT_EQ(6 * kPtrSize, block1->size());
+  EXPECT_EQ(4 * kPtrSize, block1->data_size());
+
+  // Ensure that the end reference has moved along.
+  expected_ref = BlockGraph::Reference(BlockGraph::RELATIVE_REF,
+                                       kPtrSize,
+                                       block1,
+                                       block1->size(),
+                                       block1->size());
+
+  EXPECT_TRUE(block2->GetReference(0, &actual_ref));
+  EXPECT_EQ(expected_ref, actual_ref);
+}
+
 TEST_F(BlockTest, InsertDataImplicit) {
   BlockGraph::Block* block1 = image_.AddBlock(
       BlockGraph::CODE_BLOCK, 40, "Block1");

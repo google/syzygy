@@ -1222,8 +1222,15 @@ bool BlockGraph::Reference::IsValid() const {
   if (referenced_ == NULL)
     return false;
 
-  // First see if the base address is valid for the referenced block.
-  if (base_ < 0 || static_cast<size_t>(base_) >= referenced_->size())
+  // First see if the base address is valid for the referenced block. Base
+  // addresses must track an existing position in the block, between zero
+  // (beginning of the block), and one past the last byte (end of the
+  // block). These are the same offsets that are valid for InsertData(),
+  // such that inserting data at that position or before would shift the
+  // reference along. Hence, an end reference (one past the size of the
+  // block) would always be shifted regardless of the point of insertion;
+  // conversely, a reference to address zero would never move.
+  if (base_ < 0 || static_cast<size_t>(base_) > referenced_->size())
     return false;
 
   if (!IsValidTypeSize(type_, size_))
