@@ -448,3 +448,36 @@ DWORD FuncWithOffsetOutOfImage(int x, int y) {
   static const int kBigNum = 0xB0000000;
   return kArray[x][y + kBigNum];
 }
+
+// This function should use all the CRT intercepted functions, it's used to make
+// sure that these functions are really intercepted.
+// @note The logic of this function doesn't really make sense, it's only purpose
+//      is to make sure that there's a reference to the intercepted function in
+//      this DLL, this function shouldn't be called.
+size_t intercepted_functions() {
+  const size_t kArraySize = 64;
+  char buffer[kArraySize];
+  char buffer2[kArraySize];
+
+  // mem* functions.
+  memset(buffer, 0xAA, kArraySize * sizeof(char));
+  memchr(buffer, 0xFF, kArraySize * sizeof(char));
+  memmove(buffer + kArraySize / 2, buffer, kArraySize / 4);
+  memcpy(buffer2, buffer, kArraySize * sizeof(char));
+
+  // str* functions.
+  buffer[kArraySize - 1] = 0;
+  buffer2[kArraySize - 1] = 0;
+  size_t string_size = strlen(buffer);
+  strcspn(buffer, "test");
+  strrchr(buffer, 0);
+  strcmp(buffer, buffer2);
+  strpbrk(buffer, "test");
+  strstr(buffer, buffer2);
+  strspn(buffer, "test");
+  strncpy(buffer2, buffer, string_size);
+  buffer2[2] = 0;
+  strncat(buffer2, buffer, string_size / 4);
+
+  return 0;
+}

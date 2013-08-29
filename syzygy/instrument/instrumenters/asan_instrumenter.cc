@@ -25,7 +25,7 @@ namespace instrumenters {
 const char AsanInstrumenter::kAgentDllAsan[] = "asan_rtl.dll";
 
 AsanInstrumenter::AsanInstrumenter()
-    : intercept_crt_functions_(false),
+    : intercept_crt_functions_(true),
       remove_redundant_checks_(true),
       use_liveness_analysis_(true) {
   agent_dll_ = kAgentDllAsan;
@@ -74,7 +74,7 @@ bool AsanInstrumenter::ParseAdditionalCommandLineArguments(
   filter_path_ = command_line->GetSwitchValuePath("filter");
   use_liveness_analysis_ = !command_line->HasSwitch("no-liveness-analysis");
   remove_redundant_checks_ = !command_line->HasSwitch("no-redundancy-analysis");
-  intercept_crt_functions_ = command_line->HasSwitch("intercept-crt-functions");
+  intercept_crt_functions_ = !command_line->HasSwitch("no-crt-interceptors");
 
   return true;
 }

@@ -774,6 +774,20 @@ TEST_F(AsanTransformTest, ImportsAreRedirected) {
   expected.insert("asan_check_1_byte_movs_access");
   expected.insert("asan_check_1_byte_stos_access");
 
+  expected.insert("asan_memcpy");
+  expected.insert("asan_memmove");
+  expected.insert("asan_memset");
+  expected.insert("asan_memchr");
+  expected.insert("asan_strcspn");
+  expected.insert("asan_strlen");
+  expected.insert("asan_strrchr");
+  expected.insert("asan_strcmp");
+  expected.insert("asan_strpbrk");
+  expected.insert("asan_strstr");
+  expected.insert("asan_strspn");
+  expected.insert("asan_strncpy");
+  expected.insert("asan_strncat");
+
   EXPECT_EQ(expected, imports);
 }
 

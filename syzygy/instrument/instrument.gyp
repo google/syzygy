@@ -121,6 +121,7 @@
         '<(src)/syzygy/pdb/pdb.gyp:pdb_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:test_dll',
+        '<(src)/syzygy/test_data/test_data.gyp:asan_instrumented_test_dll',
       ],
     },
   ],

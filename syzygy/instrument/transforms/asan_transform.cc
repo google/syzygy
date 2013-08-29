@@ -256,8 +256,6 @@ void InjectAsanHook(BasicBlockAssembler* bb_asm,
                     const LivenessAnalysis::State& state) {
   DCHECK(hook != NULL);
 
-  // TODO(etienneb): Use liveness information to implement more efficient hook.
-
   // Determine which kind of probe to inject.
   if (info.mode == AsanBasicBlockTransform::kReadAccess ||
       info.mode == AsanBasicBlockTransform::kWriteAccess) {

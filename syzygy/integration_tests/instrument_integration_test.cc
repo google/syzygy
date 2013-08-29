@@ -688,8 +688,14 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoRedundancyAnalysis) {
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
+TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoCRTInterceptors) {
+  cmd_line_.AppendSwitch("no-crt-interceptors");
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+}
+
 TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
-  cmd_line_.AppendSwitch("intercept-crt-functions");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
