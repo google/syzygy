@@ -154,6 +154,13 @@ class AsanRuntime {
   // @param bad_access_info Will receive the information about this access.
   void GetBadAccessInformation(AsanErrorInfo* error_info);
 
+  // The name of the environment variable holding the experiment opt-in coin
+  // toss value.
+  static const char kSyzygyAsanCoinTossEnvVar[];
+
+  // The name of the environment variable containing the command-line.
+  static const char kSyzygyAsanOptionsEnvVar[];
+
  protected:
   // A structure to track the values of the flags.
   struct AsanFlags {
@@ -165,7 +172,9 @@ class AsanRuntime {
           trailer_padding_size(0U),
           exit_on_failure(false),
           minidump_on_failure(false),
-          log_as_text(true) {
+          log_as_text(true),
+          opted_in(false),
+          coin_toss(0) {
     }
 
     // The default size of the quarantine of the HeapProxy, in bytes.
@@ -198,10 +207,11 @@ class AsanRuntime {
     // If true, we should generate a textual log describing any errors.
     // Defaults to true;
     bool log_as_text;
-  };
 
-  // The name of the environment variable containing the command-line.
-  static const char kSyzyAsanEnvVar[];
+    // Experiment configuration.
+    bool opted_in;
+    uint64 coin_toss;
+  };
 
   // @name Flag strings.
   // @{

@@ -123,10 +123,11 @@ class HeapProxy {
   // @}
 
   // Set the default max size of the quarantine of a heap proxy.
-  // @param quarantine_max_size The maximum size of the quarantine list, in
+  // @param quarantine_size The maximum size of the quarantine list, in
   //     bytes.
-  static void set_default_quarantine_max_size(size_t quarantine_max_size) {
-    default_quarantine_max_size_ = quarantine_max_size;
+  static void set_default_quarantine_max_size(
+      size_t default_quarantine_max_size) {
+    default_quarantine_max_size_ = default_quarantine_max_size;
   }
 
   // Get the default max size of the quarantine of a heap proxy.
@@ -137,7 +138,7 @@ class HeapProxy {
   // Set the max size of the quarantine of a heap proxy. If the current size of
   // the quarantine is greater than this new max size then the extra blocks are
   // removed from the quarantine.
-  // @param quarantine_max_size The maximum size of the quarantine list, in
+  // @param quarantine_size The maximum size of the quarantine list, in
   //     bytes.
   void SetQuarantineMaxSize(size_t quarantine_max_size);
 
@@ -148,7 +149,7 @@ class HeapProxy {
 
   // Set the trailer padding size.
   // @param trailer_padding_size The trailer padding size, in bytes.
-  static void SetTrailerPaddingSize(size_t trailer_padding_size) {
+  static void set_trailer_padding_size(size_t trailer_padding_size) {
     trailer_padding_size_ = trailer_padding_size;
   }
 
@@ -236,7 +237,11 @@ class HeapProxy {
   uint64 GetTimeSinceFree(const BlockHeader* header);
 
   // Arbitrarily keep 16 megabytes of quarantine per heap by default.
-  static const size_t kDefaultQuarantineMaxSize_ = 16 * 1024 * 1024;
+  static const size_t kDefaultQuarantineMaxSize = 16 * 1024 * 1024;
+
+  // By default we use no additional padding between heap blocks, beyond the
+  // header and footer.
+  static const size_t kDefaultTrailerPaddingSize = 0;
 
   // Default max size of blocks in quarantine (in bytes).
   static size_t default_quarantine_max_size_;

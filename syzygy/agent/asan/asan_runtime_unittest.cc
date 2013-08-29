@@ -41,23 +41,31 @@ class TestAsanRuntime : public AsanRuntime {
   using AsanRuntime::kExitOnFailure;
   using AsanRuntime::kIgnoredStackIds;
   using AsanRuntime::kQuarantineSize;
-  using AsanRuntime::kSyzyAsanEnvVar;
   using AsanRuntime::kTrailerPaddingSize;
   using AsanRuntime::PropagateFlagsValues;
   using AsanRuntime::flags;
   using AsanRuntime::set_flags;
 };
 
+class TestHeapProxy : public HeapProxy {
+ public:
+  using HeapProxy::kDefaultQuarantineMaxSize;
+};
+
 class AsanRuntimeTest : public testing::TestWithAsanLogger {
  public:
+  typedef testing::TestWithAsanLogger Super;
+
   AsanRuntimeTest() : current_command_line_(CommandLine::NO_PROGRAM) {
   }
 
   void SetUp() OVERRIDE {
-    testing::TestWithAsanLogger::SetUp();
-    scoped_ptr<base::Environment> env(base::Environment::Create());
-    ASSERT_TRUE(env.get() != NULL);
-    env->UnSetVar(TestAsanRuntime::kSyzyAsanEnvVar);
+    Super::SetUp();
+
+    env_.reset(base::Environment::Create());
+    ASSERT_TRUE(env_.get() != NULL);
+    env_->UnSetVar(TestAsanRuntime::kSyzygyAsanOptionsEnvVar);
+    env_->UnSetVar(TestAsanRuntime::kSyzygyAsanCoinTossEnvVar);
 
     // Setup the "global" state.
     HeapProxy::Init();
@@ -65,11 +73,22 @@ class AsanRuntimeTest : public testing::TestWithAsanLogger {
     StackCaptureCache::Init();
   }
 
+  void TearDown() OVERRIDE {
+    // Clear the environment so other tests aren't affected.
+    env_->UnSetVar(TestAsanRuntime::kSyzygyAsanOptionsEnvVar);
+    env_->UnSetVar(TestAsanRuntime::kSyzygyAsanCoinTossEnvVar);
+
+    Super::TearDown();
+  }
+
   // The test runtime instance.
   TestAsanRuntime asan_runtime_;
 
   // The value of the command-line that we want to test.
   CommandLine current_command_line_;
+
+  // The process environment.
+  scoped_ptr<base::Environment> env_;
 };
 
 bool callback_called = false;
@@ -243,6 +262,27 @@ TEST_F(AsanRuntimeTest, SetFlags) {
   ASSERT_EQ(flags.bottom_frames_to_skip, StackCapture::bottom_frames_to_skip());
   ASSERT_EQ(flags.max_num_frames,
             asan_runtime_.stack_cache()->max_num_frames());
+}
+
+TEST_F(AsanRuntimeTest, NotOptedInWithNoCoinToss) {
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.SetUp(std::wstring()));
+  ASSERT_FALSE(asan_runtime_.flags()->opted_in);
+}
+
+TEST_F(AsanRuntimeTest, NotOptedInWithInvalidCoinToss) {
+  env_->SetVar(TestAsanRuntime::kSyzygyAsanCoinTossEnvVar,
+               "This is not a numeric value.");
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.SetUp(std::wstring()));
+  ASSERT_FALSE(asan_runtime_.flags()->opted_in);
+}
+
+TEST_F(AsanRuntimeTest, OptedInWithCoinToss) {
+  env_->SetVar(TestAsanRuntime::kSyzygyAsanCoinTossEnvVar, "0xF");
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.SetUp(std::wstring()));
+  ASSERT_TRUE(asan_runtime_.flags()->opted_in);
+  ASSERT_NE(TestHeapProxy::kDefaultQuarantineMaxSize,
+            asan_runtime_.flags()->quarantine_size);
+  ASSERT_NE(0u, asan_runtime_.flags()->trailer_padding_size);
 }
 
 }  // namespace asan

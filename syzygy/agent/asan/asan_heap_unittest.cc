@@ -544,7 +544,7 @@ TEST_F(HeapTest, SetTrailerPaddingSize) {
   for (size_t padding = 0; padding < 16; ++padding) {
     size_t augmented_trailer_padding_size = original_trailer_padding_size +
         padding;
-    proxy_.SetTrailerPaddingSize(augmented_trailer_padding_size);
+    proxy_.set_trailer_padding_size(augmented_trailer_padding_size);
     size_t augmented_alloc_size = TestHeapProxy::GetAllocSize(kAllocSize);
     EXPECT_GE(augmented_alloc_size ,original_alloc_size);
 
@@ -559,7 +559,7 @@ TEST_F(HeapTest, SetTrailerPaddingSize) {
     }
     ASSERT_TRUE(proxy_.Free(0, mem));
   }
-  proxy_.SetTrailerPaddingSize(original_trailer_padding_size);
+  proxy_.set_trailer_padding_size(original_trailer_padding_size);
 }
 
 }  // namespace asan
