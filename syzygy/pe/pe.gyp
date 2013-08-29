@@ -319,6 +319,9 @@
             '/Fo<(PRODUCT_DIR)\\test_data\\test_dll.coff_obj',
             'test_dll.cc',
           ],
+          'dependencies': [
+            'test_dll.cc',
+          ],
         },
         {
           'action_name': 'compile_ltcg',
