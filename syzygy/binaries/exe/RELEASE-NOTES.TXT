@@ -1,6 +1,14 @@
 Syzygy Release Notes
 ====================
 
+Version 0.2.29.0
+
+[r1759] SyzyASan - Add ASAN RTL support for a quarantine size/trailer padding
+        size experiment.
+[r1758] SyzyASan - Use the CRT interceptors by default.
+[r1750] SyzyASan - Adds a parameter to the command line to specify the blocks
+        padding size.
+
 Version 0.2.28.0
 
 [r1738] SyzyASan - Support for new Breakpad exported functions.
