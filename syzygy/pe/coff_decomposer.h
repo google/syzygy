@@ -167,6 +167,15 @@ class CoffDecomposer {
   // @returns true on success, false on failure.
   bool CreateReferencesFromRelocations();
 
+  // Add references to debug section blocks created with
+  // CreateBlocksFromSections(), for debug symbol offsets and pointers not
+  // covered by relocations.
+  //
+  // Also add attributes to blocks based on debug information.
+  //
+  // @returns true on success, false on failure.
+  bool CreateReferencesFromDebugInfo();
+
   // Add jump and case table labels to code blocks, based on STATIC entries
   // present in the COFF symbol table.
   //

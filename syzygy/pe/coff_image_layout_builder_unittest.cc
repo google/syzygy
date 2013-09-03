@@ -87,17 +87,17 @@ class CoffImageLayoutBuilderTest : public testing::PELibUnitTest {
   }
 
  protected:
-  // Decompose, reorder, and lay out test_dll.coff_obj into a new object
-  // file, located at new_test_dll_obj_path_.
-  void RewriteTestDllObj(block_graph::BlockGraphOrdererInterface* orderer) {
-    DCHECK(orderer != NULL);
-
-    // Decompose the original image.
-    CoffFile image_file;
-    ASSERT_TRUE(image_file.Init(test_dll_obj_path_));
-
-    CoffDecomposer decomposer(image_file);
+  // Decompose test_dll.coff_obj.
+  void DecomposeOriginal() {
+    ASSERT_TRUE(image_file_.Init(test_dll_obj_path_));
+    CoffDecomposer decomposer(image_file_);
     ASSERT_TRUE(decomposer.Decompose(&image_layout_));
+  }
+
+  // Reorder and lay out test_dll.coff_obj into a new object file, located
+  // at new_test_dll_obj_path_.
+  void LayoutAndWriteNew(block_graph::BlockGraphOrdererInterface* orderer) {
+    DCHECK(orderer != NULL);
 
     // Fetch headers block.
     ConstTypedBlock<IMAGE_FILE_HEADER> file_header;
@@ -124,14 +124,32 @@ class CoffImageLayoutBuilderTest : public testing::PELibUnitTest {
     ASSERT_TRUE(writer.WriteImage(new_test_dll_obj_path_));
   }
 
+  // Decompose, reorder, and lay out test_dll.coff_obj.
+  void RewriteTestDllObj(block_graph::BlockGraphOrdererInterface* orderer) {
+    DCHECK(orderer != NULL);
+
+    ASSERT_NO_FATAL_FAILURE(DecomposeOriginal());
+    ASSERT_NO_FATAL_FAILURE(LayoutAndWriteNew(orderer));
+  }
+
   base::FilePath test_dll_obj_path_;
   base::FilePath new_test_dll_obj_path_;
   base::FilePath temp_dir_path_;
 
-  // Original image layout and block graph.
+  // Original image details.
+  CoffFile image_file_;
   BlockGraph block_graph_;
   ImageLayout image_layout_;
 };
+
+bool IsDebugBlock(const BlockGraph::Block& block, const BlockGraph& graph) {
+  if (block.section() == BlockGraph::kInvalidSectionId)
+    return false;
+  const BlockGraph::Section* section = graph.GetSectionById(block.section());
+  if (section->name() != ".debug$S")
+    return false;
+  return true;
+}
 
 }  // namespace
 
@@ -223,6 +241,90 @@ TEST_F(CoffImageLayoutBuilderTest, Shuffle) {
                 ref_it->second.referenced()->data_size());
     }
     EXPECT_EQ(symbol_ref_block_sizes.size(), i);
+  }
+}
+
+TEST_F(CoffImageLayoutBuilderTest, ShiftedCode) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeOriginal());
+
+  // Store hard-coded references in debug sections.
+  std::vector<BlockGraph::Reference> orig_refs;
+  BlockGraph::BlockMap::const_iterator it =
+      block_graph_.blocks().begin();
+  for (; it != block_graph_.blocks().end(); ++it) {
+    if (!IsDebugBlock(it->second, block_graph_))
+      continue;
+    BlockGraph::Block::ReferenceMap::const_iterator ref_it =
+        it->second.references().begin();
+    for (; ref_it != it->second.references().end(); ++ref_it) {
+      if (ref_it->second.referenced()->type() != BlockGraph::CODE_BLOCK ||
+          (ref_it->second.type() & BlockGraph::RELOC_REF_BIT) != 0) {
+        continue;
+      }
+      orig_refs.push_back(ref_it->second);
+    }
+  }
+
+  // Shift every code block.
+  BlockGraph::BlockMap& blocks = block_graph_.blocks_mutable();
+  BlockGraph::BlockMap::iterator mutable_it = blocks.begin();
+  for (; mutable_it != blocks.end(); ++mutable_it) {
+    if (mutable_it->second.type() != BlockGraph::CODE_BLOCK)
+      continue;
+
+    mutable_it->second.InsertData(0, 11, false);
+    uint8* data = mutable_it->second.GetMutableData();
+    for (size_t i = 0; i < 11; ++i) {
+      // NOP.
+      data[i] = 0x90;
+    }
+  }
+
+  // Check that references have been shifted.
+  size_t i = 0;
+  it = block_graph_.blocks().begin();
+  for (; it != block_graph_.blocks().end(); ++it) {
+    if (!IsDebugBlock(it->second, block_graph_))
+      continue;
+    BlockGraph::Block::ReferenceMap::const_iterator ref_it =
+        it->second.references().begin();
+    for (; ref_it != it->second.references().end(); ++ref_it) {
+      if (ref_it->second.referenced()->type() != BlockGraph::CODE_BLOCK ||
+          (ref_it->second.type() & BlockGraph::RELOC_REF_BIT) != 0) {
+        continue;
+      }
+      ASSERT_EQ(orig_refs[i++].offset() + 11, ref_it->second.offset());
+    }
+  }
+
+  // Write the new object.
+  block_graph::orderers::OriginalOrderer orig_orderer;
+  ASSERT_NO_FATAL_FAILURE(LayoutAndWriteNew(&orig_orderer));
+
+  // Redecompose.
+  CoffFile image_file;
+  ASSERT_TRUE(image_file.Init(new_test_dll_obj_path_));
+
+  CoffDecomposer decomposer(image_file);
+  block_graph::BlockGraph block_graph;
+  pe::ImageLayout image_layout(&block_graph);
+  ASSERT_TRUE(decomposer.Decompose(&image_layout));
+
+  // Compare references.
+  i = 0;
+  it = block_graph.blocks().begin();
+  for (; it != block_graph.blocks().end(); ++it) {
+    if (!IsDebugBlock(it->second, block_graph))
+      continue;
+    BlockGraph::Block::ReferenceMap::const_iterator ref_it =
+        it->second.references().begin();
+    for (; ref_it != it->second.references().end(); ++ref_it) {
+      if (ref_it->second.referenced()->type() != BlockGraph::CODE_BLOCK ||
+          (ref_it->second.type() & BlockGraph::RELOC_REF_BIT) != 0) {
+        continue;
+      }
+      EXPECT_EQ(orig_refs[i++].offset() + 11, ref_it->second.offset());
+    }
   }
 }
 

@@ -358,6 +358,32 @@ bool CoffImageLayoutBuilder::LayoutSectionBlocks(
       DCHECK(block != NULL);
       DCHECK((block->attributes() &
               (BlockGraph::SECTION_CONTRIB | BlockGraph::COFF_BSS)) != 0);
+
+      // Fix non-relocation references (for debug sections).
+      BlockGraph::Block::ReferenceMap::const_iterator ref_it =
+          block->references().begin();
+      for (; ref_it != block->references().end(); ++ref_it) {
+        // Section blocks should only have relocations and function-relative
+        // file pointers, represented as section offsets, thanks to
+        // function-level linking.
+        if ((ref_it->second.type() & BlockGraph::RELOC_REF_BIT) != 0)
+          continue;
+        if (ref_it->second.type() != BlockGraph::SECTION_OFFSET_REF) {
+            LOG(ERROR) << "Unexpected reference type " << ref_it->second.type()
+                       << " in section " << section_index << ".";
+            return false;
+        }
+
+        DCHECK_EQ(4u, ref_it->second.size());
+        TypedBlock<uint32> value;
+        if (!value.Init(ref_it->first, block)) {
+          LOG(ERROR) << "Unable to cast reference.";
+          return false;
+        }
+        *value = ref_it->second.offset();
+      }
+
+      // Lay out and collect relocations.
       if (!LayoutBlock(block))
         return false;
       if (!AddRelocs(*block, symbol_map, &relocs))

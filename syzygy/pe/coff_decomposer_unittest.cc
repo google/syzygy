@@ -135,7 +135,14 @@ TEST_F(CoffDecomposerTest, Decompose) {
 
       size_t num_relocs =
           image_file_.section_header(block.section())->NumberOfRelocations;
-      EXPECT_EQ(num_relocs, block.references().size());
+      // Debug sections also have hard-coded references in addition to
+      // relocation references, so the numbers will not match exactly, but
+      // it will be at least that many.
+      if (image_file_.GetSectionName(block.section()) == ".debug$S") {
+        EXPECT_LE(num_relocs, block.references().size());
+      } else {
+        EXPECT_EQ(num_relocs, block.references().size());
+      }
       if (block.references().size() > 0)
         ++num_section_blocks_with_references;
     }

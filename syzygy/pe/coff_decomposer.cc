@@ -16,14 +16,20 @@
 
 #include "base/auto_reset.h"
 #include "base/strings/string_split.h"
+#include "syzygy/block_graph/typed_block.h"
+#include "syzygy/common/align.h"
 #include "syzygy/pe/pe_utils.h"
+#include "third_party/cci/files/cvinfo.h"
 
 namespace pe {
 
 namespace {
 
+namespace cci = Microsoft_Cci_Pdb;
+
 using base::AutoReset;
 using block_graph::BlockGraph;
+using block_graph::ConstTypedBlock;
 using core::AbsoluteAddress;
 using core::RelativeAddress;
 
@@ -38,6 +44,8 @@ const char kHeadersBlockName[] = "<headers>";
 const char kSymbolsBlockName[] = "<symbols>";
 const char kStringsBlockName[] = "<strings>";
 const char kRelocsBlockName[] = "<relocs>";
+
+const size_t kDebugSubsectionAlignment = 4;
 
 // Retrieve the relocation type and size for the specified COFF
 // relocation.
@@ -93,6 +101,255 @@ bool GetRelocationTypeAndSize(const IMAGE_RELOCATION& reloc,
   }
 }
 
+// Parse a CodeView debug symbol subsection, adding references and
+// attributes as needed to @p block.
+//
+// @param start the offset to the beginning of the contents (excluding type
+//     and length) of the subsection inside @p block.
+// @param size the size of the subsection.
+// @param block the debug section block.
+// @returns true on success, or false on failure.
+bool ParseDebugSymbols(size_t start, size_t size, Block* block) {
+  DCHECK(block != NULL);
+
+  // We assume that functions do not nest, hence dependent debug symbols
+  // should all refer to the last function symbol, whose block is stored in
+  // current_func.
+  size_t section_index = block->section();
+  Block* current_func = NULL;
+  size_t cursor = start;
+  while (cursor < size) {
+    ConstTypedBlock<cci::SYMTYPE> dsym;
+    if (!dsym.Init(cursor, block)) {
+      LOG(ERROR) << "Unable to read debug symbol header at offset "
+                 << cursor << " in .debug$S section " << section_index << ".";
+      return false;
+    }
+    cursor += sizeof(*dsym);
+
+    switch (dsym->rectyp) {
+      case cci::S_GPROC32:
+      case cci::S_LPROC32: {
+        ConstTypedBlock<cci::ProcSym32> proc;
+        if (!proc.Init(cursor, block)) {
+          LOG(ERROR) << "Unable to read debug procedure (" << dsym->rectyp
+                     << ") symbol at offset " << cursor
+                     << " in .debug$S section " << section_index << ".";
+          return false;
+        }
+
+        // Get the existing relocation reference that points to the correct
+        // function block.
+        Reference reloc_ref;
+        if (!block->GetReference(cursor + offsetof(cci::ProcSym32, off),
+                                 &reloc_ref)) {
+          LOG(ERROR) << "No relocation reference in ProcSym32 "
+                     << "(missing COFF relocation?) at offset "
+                     << cursor + offsetof(cci::ProcSym32, off)
+                     << " in .debug$S section " << section_index << ".";
+          return false;
+        }
+        current_func = reloc_ref.referenced();
+
+        // These are function-relative offsets; we can use section offsets
+        // as we assume function-level linking.
+        if (!block->SetReference(cursor + offsetof(cci::ProcSym32, dbgStart),
+                                 Reference(BlockGraph::SECTION_OFFSET_REF,
+                                           sizeof(proc->dbgStart),
+                                           current_func,
+                                           proc->dbgStart, proc->dbgStart))) {
+          LOG(ERROR) << "Unable to create reference at offset "
+                     << cursor + offsetof(cci::ProcSym32, dbgStart)
+                     << " in .debug$S section " << section_index << ".";
+          return false;
+        }
+        if (!block->SetReference(cursor + offsetof(cci::ProcSym32, dbgEnd),
+                                 Reference(BlockGraph::SECTION_OFFSET_REF,
+                                           sizeof(proc->dbgEnd),
+                                           current_func,
+                                           proc->dbgEnd, proc->dbgEnd))) {
+          LOG(ERROR) << "Unable to create reference at offset "
+                     << cursor + offsetof(cci::ProcSym32, dbgEnd)
+                     << " in .debug$S section " << section_index << ".";
+          return false;
+        }
+        break;
+      }
+
+      case cci::S_FRAMEPROC: {
+        ConstTypedBlock<cci::FrameProcSym> frame;
+        if (!frame.Init(cursor, block)) {
+          LOG(ERROR) << "Unable to read debug frame (" << dsym->rectyp
+                     << ") symbol at offset " << cursor
+                     << " in .debug$S section " << section_index << ".";
+          return false;
+        }
+
+        DCHECK(current_func != NULL);
+        if ((frame->flags & cci::fHasInlAsm) != 0)
+          current_func->set_attribute(BlockGraph::HAS_INLINE_ASSEMBLY);
+        if ((frame->flags & cci::fHasSEH) != 0)
+          current_func->set_attribute(BlockGraph::HAS_EXCEPTION_HANDLING);
+        break;
+      }
+
+      case cci::S_BLOCK32:
+      case cci::S_BPREL32:
+      case cci::S_CALLSITEINFO:
+      case cci::S_CONSTANT:
+      case cci::S_END:
+      case cci::S_FRAMECOOKIE:
+      case cci::S_GDATA32:
+      case cci::S_GTHREAD32:
+      case cci::S_LABEL32:
+      case cci::S_LDATA32:
+      case cci::S_OBJNAME:
+      case cci::S_UDT:
+        break;
+
+      // MSVC-specific symbols. We're seeing those in MSVC-generated COFF
+      // files, though they are not defined in CvInfo.h. They seem to
+      // contain environment data (build variables, command line, and such).
+      case 0x113C:
+      case 0x113D:
+        break;
+
+      default:
+        LOG(ERROR) << "Unsupported debug symbol type 0x"
+                   << std::hex << dsym->rectyp << std::dec
+                   << " at offset "
+                   << cursor - sizeof(*dsym) + offsetof(cci::SYMTYPE, rectyp)
+                   << " in .debug$S section " << section_index << ".";
+        return false;
+    }
+    cursor += dsym->reclen - sizeof(*dsym) + sizeof(dsym->reclen);
+  }
+  return true;
+}
+
+// Parse a CodeView debug line number subsection, adding references as
+// needed to @p block.
+//
+// @param start the offset to the beginning of the contents (excluding type
+//     and length) of the subsection inside @p block.
+// @param size the size of the subsection.
+// @param block the debug section block.
+// @returns true on success, or false on failure.
+bool ParseDebugLines(size_t start, size_t size, Block* block) {
+  DCHECK(block != NULL);
+
+  size_t section_index = block->section();
+  size_t cursor = start;
+
+  // Parse the section info.
+  ConstTypedBlock<cci::CV_LineSection> line_section;
+  if (!line_section.Init(cursor, block)) {
+    LOG(ERROR) << "Unable to read debug line section header at offset "
+               << cursor << " in .debug$S section " << section_index << ".";
+    return false;
+  }
+
+  // Get the existing relocation reference that points to the function
+  // block these lines are for.
+  Reference reloc_ref;
+  if (!block->GetReference(cursor + offsetof(cci::CV_LineSection, off),
+                           &reloc_ref)) {
+    LOG(ERROR) << "No relocation reference in CV_LineSection "
+               << "(missing COFF relocation?) at offset "
+               << cursor + offsetof(cci::ProcSym32, off)
+               << " in .debug$S section " << section_index << ".";
+    return false;
+  }
+  Block* func = reloc_ref.referenced();
+  cursor += sizeof(*line_section);
+
+  // Parse the source info.
+  ConstTypedBlock<cci::CV_SourceFile> line_file;
+  if (!line_file.Init(cursor, block)) {
+    LOG(ERROR) << "Unable to read debug line file header at offset "
+               << cursor << " in .debug$S section " << section_index << ".";
+    return false;
+  }
+  DCHECK_GE(size, line_file->linsiz);
+  cursor += sizeof(*line_file);
+
+  // The rest of the subsection is an array of CV_Line structures.
+  ConstTypedBlock<cci::CV_Line> lines;
+  if (!lines.Init(cursor, block)) {
+    LOG(ERROR) << "Unable to read debug line file header at offset "
+               << cursor << " in .debug$S section " << section_index << ".";
+    return false;
+  }
+  DCHECK_GE(lines.ElementCount(), line_file->count);
+
+  for (size_t i = 0; i < line_file->count; ++i) {
+    // This should be a function-relative offset; we can use a section
+    // offset as we assume function-level linking.
+    Reference ref(BlockGraph::SECTION_OFFSET_REF, sizeof(lines[i].offset),
+                  func, lines[i].offset, lines[i].offset);
+    if (!block->SetReference(cursor + offsetof(cci::CV_Line, offset), ref)) {
+      LOG(ERROR) << "Unable to create reference at offset "
+                 << cursor + offsetof(cci::CV_Line, offset)
+                 << " in .debug$S section " << section_index << ".";
+      return false;
+    }
+    cursor += sizeof(lines[i]);
+  }
+
+  return true;
+}
+
+// Parse all CodeView debug subsections in the specified debug section
+// block.
+//
+// @param block the debug section block.
+// @returns true on success, or false on failure.
+bool ParseDebugSubsections(Block* block) {
+  DCHECK(block != NULL);
+
+  size_t section_index = block->section();
+  size_t cursor = sizeof(uint32);
+  while (cursor < block->data_size()) {
+    ConstTypedBlock<uint32> type;
+    if (!type.Init(cursor, block)) {
+      LOG(ERROR) << "Unable to read debug subsection type at offset "
+                 << cursor << " in .debug$S section " << section_index << ".";
+      return false;
+    }
+    cursor += sizeof(*type);
+
+    ConstTypedBlock<uint32> size;
+    if (!size.Init(cursor, block)) {
+      LOG(ERROR) << "Unable to read debug subsection size at offset "
+                 << cursor << " in .debug$S section " << section_index << ".";
+      return false;
+    }
+    cursor += sizeof(*size);
+
+    switch (*type) {
+      case cci::SYMBOLS:
+        if (!ParseDebugSymbols(cursor, *size, block))
+          return false;
+        break;
+      case cci::LINES:
+        if (!ParseDebugLines(cursor, *size, block))
+          return false;
+        break;
+      case cci::STRINGTABLE:
+      case cci::FILECHKSMS:
+      case cci::FRAMEDATA:
+        break;
+      default:
+        LOG(ERROR) << "Unsupported debug subsection type " << *type
+                   << " at offset " << cursor
+                   << " in .debug$S section " << section_index << ".";
+        return false;
+    }
+    cursor += common::AlignUp(*size, sizeof(kDebugSubsectionAlignment));
+  }
+  return true;
+}
+
 }  // namespace
 
 const char CoffDecomposer::kSectionComdatSep[] = "; COMDAT=";
@@ -128,9 +385,10 @@ bool CoffDecomposer::Decompose(ImageLayout* image_layout) {
   if (!CreateBlocksAndReferencesFromNonSections())
     return false;
 
-  // TODO(lenh): Add references from debug sections.
-
   if (!CreateReferencesFromRelocations())
+    return false;
+
+  if (!CreateReferencesFromDebugInfo())
     return false;
 
   if (!CreateLabelsFromSymbols())
@@ -422,6 +680,40 @@ bool CoffDecomposer::CreateBlocksFromSections() {
     section_block_map_.insert(std::make_pair(i, block));
   }
 
+  return true;
+}
+
+bool CoffDecomposer::CreateReferencesFromDebugInfo() {
+  DCHECK(image_ != NULL);
+
+  // Read debug data directly from the block graph, since debug section
+  // blocks have already been inserted.
+  BlockGraph::BlockMap& blocks = image_->graph()->blocks_mutable();
+  BlockGraph::BlockMap::iterator it = blocks.begin();
+  for (; it != blocks.end(); ++it) {
+    size_t section_index = it->second.section();
+    BlockGraph::Section* section =
+        image_->graph()->GetSectionById(section_index);
+    if (section == NULL || section->name() != ".debug$S")
+      continue;
+
+    Block* block = &it->second;
+    ConstTypedBlock<uint32> magic;
+    if (!magic.Init(0, block)) {
+      LOG(ERROR) << "Unable to read magic number from .debug$S section "
+                 << section_index << ".";
+      return false;
+    }
+    if (*magic != cci::C13) {
+      LOG(ERROR) << "Unsupported CV version " << *magic
+                 << " in .debug$S section " << section_index << ".";
+      return false;
+    }
+
+    // Parse subsections.
+    if (!ParseDebugSubsections(block))
+      return false;
+  }
   return true;
 }
 
