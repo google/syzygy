@@ -155,14 +155,21 @@ size_t GetNetBBSize(const BasicBlockSubGraph& bbsg) {
   return net_bb_size;
 }
 
+struct BasicBlockOffsetComparator {
+  bool operator()(const BasicBlock* bb0, const BasicBlock* bb1) {
+    DCHECK_NE(reinterpret_cast<const BasicBlock*>(NULL), bb0);
+    DCHECK_NE(reinterpret_cast<const BasicBlock*>(NULL), bb1);
+    return bb0->offset() < bb1->offset();
+  }
+};
+
 void ValidateHasInlineAssemblyBlock5677(const BasicBlockSubGraph& bbsg) {
   ASSERT_EQ(3u, bbsg.basic_blocks().size());
 
-  BasicBlockSubGraph::BBCollection::const_iterator bb_it =
-      bbsg.basic_blocks().begin();
-  const BasicBlock* bb0 = *bb_it;
-  const BasicBlock* bb1 = *(++bb_it);
-  const BasicBlock* bb2 = *(++bb_it);
+  // Get the basic blocks sorted by their original offsets.
+  std::vector<const BasicBlock*> bbs(bbsg.basic_blocks().begin(),
+                                     bbsg.basic_blocks().end());
+  std::sort(bbs.begin(), bbs.end(), BasicBlockOffsetComparator());
 
   // cachedHasSSE2
   // bb0:
@@ -172,9 +179,10 @@ void ValidateHasInlineAssemblyBlock5677(const BasicBlockSubGraph& bbsg) {
   // 0044DA58  sub         esp,14h
   // 0044DA5B  test        byte ptr ds:[41EA07Ch],al
   // 0044DA61  jne         bb2
-  EXPECT_EQ(BasicBlock::BASIC_CODE_BLOCK, bb0->type());
-  const BasicCodeBlock* bcb0 = BasicCodeBlock::Cast(bb0);
+  EXPECT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs[0]->type());
+  const BasicCodeBlock* bcb0 = BasicCodeBlock::Cast(bbs[0]);
   ASSERT_NE(reinterpret_cast<const BasicCodeBlock*>(NULL), bcb0);
+  EXPECT_EQ(0, bcb0->offset());
   EXPECT_EQ(5u, bcb0->instructions().size());
   EXPECT_EQ(17u, bcb0->GetInstructionSize());
   EXPECT_EQ(2u, bcb0->successors().size());
@@ -206,9 +214,10 @@ void ValidateHasInlineAssemblyBlock5677(const BasicBlockSubGraph& bbsg) {
   // 0044DAA3  mov         esp,ebp
   // 0044DAA5  pop         ebp
   // 0044DAA6  ret
-  EXPECT_EQ(BasicBlock::BASIC_CODE_BLOCK, bb1->type());
-  const BasicCodeBlock* bcb1 = BasicCodeBlock::Cast(bb1);
+  EXPECT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs[1]->type());
+  const BasicCodeBlock* bcb1 = BasicCodeBlock::Cast(bbs[1]);
   ASSERT_NE(reinterpret_cast<const BasicCodeBlock*>(NULL), bcb1);
+  EXPECT_EQ(19, bcb1->offset());
   EXPECT_EQ(26u, bcb1->instructions().size());
   EXPECT_EQ(68u, bcb1->GetInstructionSize());
   EXPECT_EQ(0u, bcb1->successors().size());
@@ -219,9 +228,10 @@ void ValidateHasInlineAssemblyBlock5677(const BasicBlockSubGraph& bbsg) {
   // 0044DAAE  pop         ebp
   // 0044DAAF  ret
   // 0044DAB0
-  EXPECT_EQ(BasicBlock::BASIC_CODE_BLOCK, bb2->type());
-  const BasicCodeBlock* bcb2 = BasicCodeBlock::Cast(bb2);
+  EXPECT_EQ(BasicBlock::BASIC_CODE_BLOCK, bbs[2]->type());
+  const BasicCodeBlock* bcb2 = BasicCodeBlock::Cast(bbs[2]);
   ASSERT_NE(reinterpret_cast<const BasicCodeBlock*>(NULL), bcb2);
+  EXPECT_EQ(87, bcb2->offset());
   EXPECT_EQ(4u, bcb2->instructions().size());
   EXPECT_EQ(9u, bcb2->GetInstructionSize());
   EXPECT_EQ(0u, bcb2->successors().size());
