@@ -129,8 +129,31 @@ bool DumpAnnotationSym(FILE* out,
                        PdbStream* stream,
                        uint16 len,
                        uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this symbol.
-  return false;
+  cci::AnnotationSym symbol_info = {};
+
+  size_t to_read = offsetof(cci::AnnotationSym, rgsz);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&symbol_info, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    LOG(ERROR) << "Unable to read symbol record.";
+    return false;
+  }
+
+  DumpIndentedText(out, indent_level, "Offset: 0x%08X\n", symbol_info.off);
+  DumpIndentedText(out, indent_level, "Segment: 0x%04X\n", symbol_info.seg);
+  DumpIndentedText(out, indent_level, "Number of strings: %d\n",
+      symbol_info.csz);
+
+  for (int i = 0; i < symbol_info.csz; ++i) {
+    std::string annotation;
+    if (!ReadString(stream, &annotation)) {
+      LOG(ERROR) << "Unable to read an annotation.";
+      return false;
+    }
+    DumpIndentedText(out, indent_level + 1, "%d: %s\n", i, annotation.c_str());
+  }
+
+  return true;
 }
 
 bool DumpManyTypRef(FILE* out,
