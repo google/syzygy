@@ -160,7 +160,6 @@ BasicBlockDecomposer::BasicBlockDecomposer(const BlockGraph::Block* block,
   //     turn on check_decomposition_results_ by default only ifndef NDEBUG.
   DCHECK(block != NULL);
   DCHECK(block->type() == BlockGraph::CODE_BLOCK);
-  DCHECK(CodeBlockAttributesAreBasicBlockSafe(block));
   DCHECK(subgraph != NULL);
 }
 

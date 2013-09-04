@@ -26,7 +26,9 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block_test_util.h"
+#include "syzygy/block_graph/block_graph_serializer.h"
 #include "syzygy/core/address.h"
+#include "syzygy/core/serialization.h"
 #include "syzygy/core/unittest_util.h"
 
 #include "mnemonics.h"  // NOLINT
@@ -43,7 +45,6 @@ using block_graph::Successor;
 using core::AbsoluteAddress;
 using core::Disassembler;
 using testing::_;
-using testing::BasicBlockTest;
 using testing::Return;
 
 typedef BlockGraph::Block Block;
@@ -105,7 +106,126 @@ bool HasGapOrIsOutOfOrder(const BasicBlock* lhs, const BasicBlock* rhs) {
 // A test fixture which generates a block-graph to use for basic-block
 // related testing.
 // See: basic_block_assembly_func.asm
-typedef BasicBlockTest BasicBlockDecomposerTest;
+class BasicBlockDecomposerTest : public testing::BasicBlockTest {
+ public:
+  void InitBlockGraphFromSerializedFile(const wchar_t* src_relative_path) {
+    base::FilePath path = testing::GetSrcRelativePath(src_relative_path);
+    file_util::ScopedFILE file(file_util::OpenFile(path, "rb"));
+    ASSERT_TRUE(file.get() != NULL);
+    core::FileInStream is(file.get());
+    core::InArchive ia(&is);
+    BlockGraphSerializer bgs;
+    ASSERT_TRUE(bgs.Load(&block_graph_, &ia));
+  }
+};
+
+// Calculates the net size of all bytes covered by the given basic-block
+// decomposition.
+size_t GetNetBBSize(const BasicBlockSubGraph& bbsg) {
+  // We expect the decomposition to cover the entire block.
+  size_t net_bb_size = 0;
+  for (BasicBlockSubGraph::BBCollection::const_iterator bb_it =
+           bbsg.basic_blocks().begin();
+       bb_it != bbsg.basic_blocks().end();
+       ++bb_it) {
+    switch ((*bb_it)->type()) {
+      case BasicBlock::BASIC_CODE_BLOCK: {
+        const BasicCodeBlock* bcb = BasicCodeBlock::Cast(*bb_it);
+        CHECK_NE(reinterpret_cast<const BasicCodeBlock*>(NULL), bcb);
+        net_bb_size += bcb->GetInstructionSize();
+
+        for (BasicCodeBlock::Successors::const_iterator succ_it =
+                 bcb->successors().begin();
+             succ_it != bcb->successors().end();
+             ++succ_it) {
+          net_bb_size += succ_it->instruction_size();
+        }
+
+        break;
+      }
+
+      case BasicBlock::BASIC_DATA_BLOCK: {
+        const BasicDataBlock* bdb = BasicDataBlock::Cast(*bb_it);
+        CHECK_NE(reinterpret_cast<const BasicDataBlock*>(NULL), bdb);
+        net_bb_size += bdb->size();
+        break;
+      }
+    }
+  }
+  return net_bb_size;
+}
+
+void ValidateHasInlineAssemblyBlock5677(const BasicBlockSubGraph& bbsg) {
+  ASSERT_EQ(3u, bbsg.basic_blocks().size());
+
+  BasicBlockSubGraph::BBCollection::const_iterator bb_it =
+      bbsg.basic_blocks().begin();
+  const BasicBlock* bb0 = *bb_it;
+  const BasicBlock* bb1 = *(++bb_it);
+  const BasicBlock* bb2 = *(++bb_it);
+
+  // cachedHasSSE2
+  // bb0:
+  // 0044DA50  push        ebp
+  // 0044DA51  mov         ebp,esp
+  // 0044DA53  mov         eax,1
+  // 0044DA58  sub         esp,14h
+  // 0044DA5B  test        byte ptr ds:[41EA07Ch],al
+  // 0044DA61  jne         bb2
+  EXPECT_EQ(BasicBlock::BASIC_CODE_BLOCK, bb0->type());
+  const BasicCodeBlock* bcb0 = BasicCodeBlock::Cast(bb0);
+  ASSERT_NE(reinterpret_cast<const BasicCodeBlock*>(NULL), bcb0);
+  EXPECT_EQ(5u, bcb0->instructions().size());
+  EXPECT_EQ(17u, bcb0->GetInstructionSize());
+  EXPECT_EQ(2u, bcb0->successors().size());
+
+  // bb1:
+  // 0044DA63  or          dword ptr ds:[41EA07Ch],eax
+  // 0044DA69  xor         eax,eax
+  // 0044DA6B  mov         dword ptr [ebp-14h],eax
+  // 0044DA6E  mov         dword ptr [ebp-10h],eax
+  // 0044DA71  mov         dword ptr [ebp-0Ch],eax
+  // 0044DA74  mov         dword ptr [ebp-8],eax
+  // 0044DA77  push        ebx
+  // 0044DA78  lea         eax,[ebp-14h]
+  // 0044DA7B  push        edi
+  // 0044DA7C  mov         dword ptr [ebp-4],eax
+  // 0044DA7F  mov         eax,1
+  // 0044DA84  cpuid
+  // 0044DA86  mov         edi,dword ptr [ebp-4]
+  // 0044DA89  mov         dword ptr [edi],eax
+  // 0044DA8B  mov         dword ptr [edi+4],ebx
+  // 0044DA8E  mov         dword ptr [edi+8],ecx
+  // 0044DA91  mov         dword ptr [edi+0Ch],edx
+  // 0044DA94  mov         eax,dword ptr [ebp-8]
+  // 0044DA97  shr         eax,1Ah
+  // 0044DA9A  and         al,1
+  // 0044DA9C  pop         edi
+  // 0044DA9D  mov         byte ptr ds:[041EA078h],al
+  // 0044DAA2  pop         ebx
+  // 0044DAA3  mov         esp,ebp
+  // 0044DAA5  pop         ebp
+  // 0044DAA6  ret
+  EXPECT_EQ(BasicBlock::BASIC_CODE_BLOCK, bb1->type());
+  const BasicCodeBlock* bcb1 = BasicCodeBlock::Cast(bb1);
+  ASSERT_NE(reinterpret_cast<const BasicCodeBlock*>(NULL), bcb1);
+  EXPECT_EQ(26u, bcb1->instructions().size());
+  EXPECT_EQ(68u, bcb1->GetInstructionSize());
+  EXPECT_EQ(0u, bcb1->successors().size());
+
+  // bb2:
+  // 0044DAA7  mov         al,byte ptr ds:[041EA078h]
+  // 0044DAAC  mov         esp,ebp
+  // 0044DAAE  pop         ebp
+  // 0044DAAF  ret
+  // 0044DAB0
+  EXPECT_EQ(BasicBlock::BASIC_CODE_BLOCK, bb2->type());
+  const BasicCodeBlock* bcb2 = BasicCodeBlock::Cast(bb2);
+  ASSERT_NE(reinterpret_cast<const BasicCodeBlock*>(NULL), bcb2);
+  EXPECT_EQ(4u, bcb2->instructions().size());
+  EXPECT_EQ(9u, bcb2->GetInstructionSize());
+  EXPECT_EQ(0u, bcb2->successors().size());
+}
 
 }  // namespace
 
@@ -304,6 +424,31 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
 
 TEST_F(BasicBlockDecomposerTest, DecomposeBlockWithLabelPastData) {
   ASSERT_NO_FATAL_FAILURE(InitBasicBlockSubGraphWithLabelPastEnd());
+}
+
+TEST_F(BasicBlockDecomposerTest, HasInlineAssembly) {
+  ASSERT_NO_FATAL_FAILURE(InitBlockGraphFromSerializedFile(
+      L"syzygy/block_graph/test_data/has_inline_assembly.bg"));
+
+  BlockGraph::BlockMap::const_iterator block_it = block_graph_.blocks().begin();
+  for (; block_it != block_graph_.blocks().end(); ++block_it) {
+    const BlockGraph::Block* block = &(block_it->second);
+
+    // We skip the 'master' blocks. These are simply dummy blocks that act as
+    // sources and destinations for references, to keep the remaining blocks
+    // intact.
+    if (block->name() == "CodeMaster" || block->name() == "DataMaster")
+      continue;
+
+    BasicBlockSubGraph bbsg;
+    BasicBlockDecomposer bbd(block, &bbsg);
+    ASSERT_TRUE(bbd.Decompose());
+    EXPECT_EQ(block->size(), GetNetBBSize(bbsg));
+
+    // Validate a block in detail.
+    if (block->id() == 5677)
+      ASSERT_NO_FATAL_FAILURE(ValidateHasInlineAssemblyBlock5677(bbsg));
+  }
 }
 
 }  // namespace block_graph
