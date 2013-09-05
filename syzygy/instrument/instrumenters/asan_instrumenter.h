@@ -21,6 +21,7 @@
 #include "base/command_line.h"
 #include "syzygy/instrument/instrumenters/instrumenter_with_agent.h"
 #include "syzygy/instrument/transforms/asan_transform.h"
+#include "syzygy/pe/image_filter.h"
 #include "syzygy/pe/pe_relinker.h"
 
 namespace instrument {
@@ -54,6 +55,9 @@ class AsanInstrumenter : public InstrumenterWithAgent {
 
   // The transform for this agent.
   scoped_ptr<instrument::transforms::AsanTransform> asan_transform_;
+
+  // The image filter (optional).
+  scoped_ptr<pe::ImageFilter> filter_;
 };
 
 }  // namespace instrumenters

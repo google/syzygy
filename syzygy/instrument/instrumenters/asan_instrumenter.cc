@@ -17,7 +17,6 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "syzygy/common/application.h"
-#include "syzygy/pe/image_filter.h"
 
 namespace instrument {
 namespace instrumenters {
@@ -55,8 +54,10 @@ bool AsanInstrumenter::InstrumentImpl() {
   asan_transform_->set_remove_redundant_checks(remove_redundant_checks_);
 
   // Set up the filter if one was provided.
-  if (filter.get())
-    asan_transform_->set_filter(&filter->filter);
+  if (filter.get()) {
+    filter_.reset(filter.release());
+    asan_transform_->set_filter(&filter_->filter);
+  }
 
   // Set overwrite source range flag in the ASAN transform. The ASAN
   // transformation will overwrite the source range of created instructions to
