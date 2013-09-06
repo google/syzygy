@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.2.29.1
+
+[r1768] SyzyASan - Fix an ugly bug in the way we were setting up the filter in
+        AsanInstrumenter
+
 Version 0.2.29.0
 
 [r1759] SyzyASan - Add ASAN RTL support for a quarantine size/trailer padding
