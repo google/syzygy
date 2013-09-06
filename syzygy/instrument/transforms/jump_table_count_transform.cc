@@ -28,7 +28,7 @@
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
 #include "syzygy/pe/block_util.h"
 #include "syzygy/pe/pe_utils.h"
-#include "syzygy/pe/transforms/add_imports_transform.h"
+#include "syzygy/pe/transforms/pe_add_imports_transform.h"
 
 namespace instrument {
 namespace transforms {
@@ -47,7 +47,8 @@ using block_graph::Displacement;
 using block_graph::Immediate;
 using block_graph::Instruction;
 using block_graph::Operand;
-using pe::transforms::AddImportsTransform;
+using pe::transforms::PEAddImportsTransform;
+using pe::transforms::ImportedModule;
 
 const char kDefaultModuleName[] = "basic_block_entry_client.dll";
 const char kJumpTableCaseCounter[] = "_increment_indexed_freq_data";
@@ -68,13 +69,13 @@ bool SetupCounterHook(BlockGraph* block_graph,
   DCHECK(jump_table_case_counter != NULL);
 
   // Setup the import module.
-  AddImportsTransform::ImportedModule module(module_name);
+  ImportedModule module(module_name);
   size_t index_case_counter = module.AddSymbol(
       kJumpTableCaseCounter,
-      AddImportsTransform::ImportedModule::kAlwaysImport);
+      ImportedModule::kAlwaysImport);
 
   // Setup the add-imports transform.
-  AddImportsTransform add_imports;
+  PEAddImportsTransform add_imports;
   add_imports.AddModule(&module);
 
   // Add the imports to the block-graph.

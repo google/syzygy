@@ -26,7 +26,7 @@
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
 #include "syzygy/pe/block_util.h"
 #include "syzygy/pe/pe_utils.h"
-#include "syzygy/pe/transforms/add_imports_transform.h"
+#include "syzygy/pe/transforms/pe_add_imports_transform.h"
 
 namespace instrument {
 namespace transforms {
@@ -44,9 +44,9 @@ using block_graph::Immediate;
 using block_graph::Operand;
 using block_graph::Successor;
 using common::kBasicBlockEntryAgentId;
-using pe::transforms::AddImportsTransform;
+using pe::transforms::PEAddImportsTransform;
 
-typedef AddImportsTransform::ImportedModule ImportedModule;
+typedef pe::transforms::ImportedModule ImportedModule;
 
 const char kDefaultModuleName[] = "basic_block_entry_client.dll";
 const char kBranchEnter[] = "_branch_enter";
@@ -72,7 +72,7 @@ bool SetupEntryHooks(BlockGraph* block_graph,
                                        ImportedModule::kAlwaysImport);
 
   // Setup the add-imports transform.
-  AddImportsTransform add_imports;
+  PEAddImportsTransform add_imports;
   add_imports.AddModule(&module);
 
   // Add the imports to the block-graph.

@@ -29,7 +29,7 @@
 #include "syzygy/block_graph/analysis/memory_access_analysis.h"
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
-#include "syzygy/pe/transforms/add_imports_transform.h"
+#include "syzygy/pe/transforms/pe_add_imports_transform.h"
 
 namespace instrument {
 namespace transforms {
@@ -214,7 +214,7 @@ class AsanTransform
     }
   };
 
-  typedef pe::transforms::AddImportsTransform::ImportedModule ImportedModule;
+  typedef pe::transforms::ImportedModule ImportedModule;
   typedef std::set<std::string> FunctionInterceptionSet;
   typedef std::map<std::string,
                    FunctionInterceptionInfo> FunctionInterceptionInfoMap;

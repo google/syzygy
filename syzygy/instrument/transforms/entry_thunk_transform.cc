@@ -20,7 +20,7 @@
 #include "syzygy/block_graph/block_util.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/pe/pe_utils.h"
-#include "syzygy/pe/transforms/add_imports_transform.h"
+#include "syzygy/pe/transforms/pe_add_imports_transform.h"
 
 namespace instrument {
 namespace transforms {
@@ -34,9 +34,9 @@ using block_graph::BlockBuilder;
 using block_graph::BlockGraph;
 using block_graph::Displacement;
 using block_graph::Operand;
-using pe::transforms::AddImportsTransform;
+using pe::transforms::PEAddImportsTransform;
 
-typedef AddImportsTransform::ImportedModule ImportedModule;
+typedef pe::transforms::ImportedModule ImportedModule;
 
 const char EntryThunkTransform::kTransformName[] =
     "EntryThunkTransform";
@@ -131,7 +131,7 @@ bool EntryThunkTransform::PreBlockGraphIteration(
     return true;
 
   // Run the transform.
-  AddImportsTransform add_imports_transform;
+  PEAddImportsTransform add_imports_transform;
   add_imports_transform.AddModule(&import_module);
   if (!add_imports_transform.TransformBlockGraph(block_graph, header_block)) {
     LOG(ERROR) << "Unable to add imports for instrumentation DLL.";

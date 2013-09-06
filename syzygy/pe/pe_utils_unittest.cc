@@ -20,13 +20,13 @@
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/unittest_util.h"
-#include "syzygy/pe/transforms/add_imports_transform.h"
+#include "syzygy/pe/transforms/pe_add_imports_transform.h"
 
 namespace pe {
 
 using block_graph::BlockGraph;
 using core::RelativeAddress;
-using pe::transforms::AddImportsTransform;
+using pe::transforms::PEAddImportsTransform;
 
 namespace {
 
@@ -401,14 +401,14 @@ TEST_F(PEUtilsTest, GetTlsInitializers) {
 
 TEST_F(PEUtilsTest, HasImportEntry) {
   // Creates an imported module.
-  AddImportsTransform::ImportedModule module("foo.dll");
+  transforms::ImportedModule module("foo.dll");
   const char* kFooFunc = "foo_func";
   size_t function_foo = module.AddSymbol(
-      kFooFunc, AddImportsTransform::ImportedModule::kAlwaysImport);
+      kFooFunc, transforms::ImportedModule::kAlwaysImport);
   ASSERT_EQ(kFooFunc, module.GetSymbolName(function_foo));
 
   // Apply the transform to add this module import to the block-graph.
-  AddImportsTransform transform;
+  PEAddImportsTransform transform;
   transform.AddModule(&module);
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
       &transform, &block_graph_, dos_header_block_));

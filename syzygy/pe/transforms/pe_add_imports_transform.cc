@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// The AddImportsTransform can be summed up as follows:
+// The PEAddImportsTransform can be summed up as follows:
 //
 // (1) Make sure that the imports and IAT data directories exist.
 // (2) For each module to be imported, either find it in the import data
@@ -106,7 +106,7 @@
 //     thunk[i, k]     } Block
 //     module_name[i]  } Block
 
-#include "syzygy/pe/transforms/add_imports_transform.h"
+#include "syzygy/pe/transforms/pe_add_imports_transform.h"
 
 #include "base/string_piece.h"
 #include "base/string_util.h"
@@ -371,7 +371,7 @@ bool FindOrAddImportedSymbol(bool find_only,
   DCHECK(iat_index != NULL);
   DCHECK(added != NULL);
 
-  *iat_index = AddImportsTransform::ImportedModule::kInvalidIatIndex;
+  *iat_index = ImportedModule::kInvalidImportIndex;
   *added = false;
 
   TypedBlock<IMAGE_IMPORT_BY_NAME*> hna, iat;
@@ -517,13 +517,14 @@ bool FindOrAddImportedSymbol(bool find_only,
 
 }  // namespace
 
-const char AddImportsTransform::kTransformName[] = "AddImportsTransform";
+const char PEAddImportsTransform::kTransformName[] = "PEAddImportsTransform";
 
-AddImportsTransform::AddImportsTransform()
-    : modules_added_(0), symbols_added_(0) {
+PEAddImportsTransform::PEAddImportsTransform()
+    : image_import_descriptor_block_(NULL),
+      import_address_table_block_(NULL) {
 }
 
-bool AddImportsTransform::TransformBlockGraph(
+bool PEAddImportsTransform::TransformBlockGraph(
     BlockGraph* block_graph, BlockGraph::Block* dos_header_block) {
   DCHECK(block_graph != NULL);
   DCHECK(dos_header_block != NULL);
@@ -533,7 +534,7 @@ bool AddImportsTransform::TransformBlockGraph(
   // 'find only'.
   bool find_only = true;
   for (size_t i = 0; i < imported_modules_.size(); ++i) {
-    if (imported_modules_[i]->mode_ != ImportedModule::kFindOnly) {
+    if (imported_modules_[i]->mode() != ImportedModule::kFindOnly) {
       find_only = false;
       break;
     }
@@ -641,7 +642,7 @@ bool AddImportsTransform::TransformBlockGraph(
     bool module_added = false;
     bool module_exists = false;
     if (!FindOrAddImageImportDescriptor(
-            module->mode_ == ImportedModule::kFindOnly,
+            module->mode() == ImportedModule::kFindOnly,
             module->name().c_str(),
             block_graph,
             image_import_descriptor_block_,
@@ -655,90 +656,66 @@ bool AddImportsTransform::TransformBlockGraph(
 
     // If we're fact finding only and the module does not exist then we don't
     // need to look up its symbols.
-    if (module->mode_ == ImportedModule::kFindOnly && !module_exists) {
+    if (module->mode() == ImportedModule::kFindOnly && !module_exists) {
       DCHECK(!module_added);
       continue;
     }
 
     DCHECK(module_exists);
-    module->added_ = module_added;
+    UpdateModule(true, module_added, module);
     modules_added_ += module_added;
 
-    // This should always succeed as iid was initialized earlier.
-    bool inited = module->import_descriptor_.Init(iid.offset(), iid.block());
-    DCHECK(inited);
-
     for (size_t j = 0; j < module->size(); ++j) {
-      ImportedModule::Symbol& symbol = module->symbols_[j];
-
       // Now, for each symbol get the offset of the IAT entry. This will create
       // the entry (and all accompanying structures) if necessary.
-      size_t symbol_iat_index = ImportedModule::kInvalidIatIndex;
+      size_t symbol_iat_index = ImportedModule::kInvalidImportIndex;
       bool symbol_added = false;
-      if (!FindOrAddImportedSymbol(symbol.mode == ImportedModule::kFindOnly,
-                                   symbol.name.c_str(),
-                                   iid,
-                                   block_graph,
-                                   import_address_table_block_,
-                                   &symbol_iat_index,
-                                   &symbol_added)) {
+      if (!FindOrAddImportedSymbol(
+              module->GetSymbolMode(j) == ImportedModule::kFindOnly,
+              module->GetSymbolName(j).c_str(),
+              iid,
+              block_graph,
+              import_address_table_block_,
+              &symbol_iat_index,
+              &symbol_added)) {
         LOG(ERROR) << "Failed to find or import symbol.";
         return false;
       }
       symbols_added_ += symbol_added;
-      symbol.iat_index = symbol_iat_index;
-      symbol.added = symbol_added;
+      UpdateModuleSymbolIndex(j, symbol_iat_index, symbol_added, module);
     }
+
+    // Build references.
+    ImageThunkData32 thunks;
+    if (!iid.Dereference(iid->FirstThunk, &thunks)) {
+      LOG(ERROR) << "Unable to dereference IMAGE_THUNK_DATA32.";
+      return false;
+    }
+
+    for (size_t j = 0; j < module->size(); ++j) {
+      size_t symbol_iat_index = module->GetSymbolImportIndex(j);
+      if (symbol_iat_index == ImportedModule::kInvalidImportIndex)
+        continue;
+      if (symbol_iat_index >= thunks.ElementCount()) {
+        LOG(ERROR) << "Invalid symbol_index for IAT.";
+        return false;
+      }
+
+      Offset offset =
+          thunks.OffsetOf(thunks[symbol_iat_index].u1.AddressOfData);
+      BlockGraph::Reference ref(BlockGraph::ABSOLUTE_REF, kPtrSize,
+                                thunks.block(), offset, offset);
+      UpdateModuleSymbolReference(j, ref, true, module);
+    }
+
+    // Update the version date/time stamp if requested.
+    if (module->date() != ImportedModule::kInvalidDate)
+      iid->TimeDateStamp = module->date();
   }
 
   // Update the data directory sizes.
   import_directory->Size = image_import_descriptor_block_->size();
   iat_directory->Size = import_address_table_block_->size();
-
-  return true;
-}
-
-const size_t AddImportsTransform::ImportedModule::kInvalidIatIndex = -1;
-
-size_t AddImportsTransform::ImportedModule::AddSymbol(
-    const base::StringPiece& symbol_name,
-    ImportedModule::TransformMode mode) {
-  Symbol symbol = {symbol_name.as_string(), kInvalidIatIndex, mode};
-  symbols_.push_back(symbol);
-
-  if (mode != ImportedModule::kFindOnly)
-    mode_ = ImportedModule::kAlwaysImport;
-
-  return symbols_.size() - 1;
-}
-
-bool AddImportsTransform::ImportedModule::GetSymbolReference(
-    size_t index, BlockGraph::Reference* abs_reference) const {
-  DCHECK_LT(index, symbols_.size());
-  DCHECK(abs_reference != NULL);
-
-  size_t symbol_iat_index = symbols_[index].iat_index;
-  if (import_descriptor_.block() == NULL ||
-      symbol_iat_index == kInvalidIatIndex) {
-    LOG(ERROR) << "Called GetAbsReference on an uninitialized ImportedSymbol.";
-    return false;
-  }
-
-  ImageThunkData32 thunks;
-  if (!import_descriptor_.Dereference(import_descriptor_->FirstThunk,
-                                      &thunks)) {
-    LOG(ERROR) << "Unable to dereference IMAGE_THUNK_DATA32.";
-    return false;
-  }
-
-  if (symbol_iat_index >= thunks.ElementCount()) {
-    LOG(ERROR) << "Invalid symbol_index for IAT.";
-    return false;
-  }
-
-  Offset offset = thunks.OffsetOf(thunks[symbol_iat_index].u1.AddressOfData);
-  *abs_reference = BlockGraph::Reference(
-      BlockGraph::ABSOLUTE_REF, kPtrSize, thunks.block(), offset, offset);
 
   return true;
 }

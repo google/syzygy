@@ -27,7 +27,7 @@
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/instrument/transforms/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
-#include "syzygy/pe/transforms/add_imports_transform.h"
+#include "syzygy/pe/transforms/pe_add_imports_transform.h"
 
 namespace instrument {
 namespace transforms {
@@ -37,7 +37,7 @@ namespace {
 using block_graph::BlockGraph;
 using block_graph::TypedBlock;
 using core::AbsoluteAddress;
-using pe::transforms::AddImportsTransform;
+using pe::transforms::PEAddImportsTransform;
 
 typedef BlockGraph::Block::ReferrerSet ReferrerSet;
 

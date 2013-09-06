@@ -57,7 +57,8 @@ const char kDelayThunkSuffix[] = "_DelayImportThunk";
 
 }  // namespace
 
-using pe::transforms::AddImportsTransform;
+using pe::transforms::PEAddImportsTransform;
+using pe::transforms::ImportedModule;
 
 const char ThunkImportReferencesTransform::kTransformName[] =
     "ThunkImportReferencesTransform";
@@ -81,10 +82,9 @@ bool ThunkImportReferencesTransform::TransformBlockGraph(
   modules_to_exclude_.insert(instrument_dll_name_);
 
   // Start by finding or adding import entries for our instrumentation hook.
-  AddImportsTransform::ImportedModule import_module(
-      instrument_dll_name_);
+  ImportedModule import_module(instrument_dll_name_);
   size_t hook_index = import_module.AddSymbol(
-      kEntryHookName, AddImportsTransform::ImportedModule::kAlwaysImport);
+      kEntryHookName, ImportedModule::kAlwaysImport);
 
   add_imports_transform_.AddModule(&import_module);
 

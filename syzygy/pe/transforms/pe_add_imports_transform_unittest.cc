@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/pe/transforms/add_imports_transform.h"
+#include "syzygy/pe/transforms/pe_add_imports_transform.h"
 
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -25,13 +25,12 @@ namespace transforms {
 
 using block_graph::BlockGraph;
 using core::RelativeAddress;
-typedef AddImportsTransform::ImportedModule ImportedModule;
 
 namespace {
 
-class AddImportsTransformTest : public testing::PELibUnitTest {
+class PEAddImportsTransformTest : public testing::PELibUnitTest {
  public:
-  AddImportsTransformTest()
+  PEAddImportsTransformTest()
       : image_layout_(&block_graph_),
         dos_header_block_(NULL) {
   }
@@ -74,7 +73,7 @@ void TestSymbols(const ImportedModule& module) {
 
 }  // namespace
 
-TEST_F(AddImportsTransformTest, AddImportsExisting) {
+TEST_F(PEAddImportsTransformTest, AddImportsExisting) {
   ImportedModule module("export_dll.dll");
   size_t function1 = module.AddSymbol("function1",
                                       ImportedModule::kAlwaysImport);
@@ -83,10 +82,12 @@ TEST_F(AddImportsTransformTest, AddImportsExisting) {
   EXPECT_EQ("function1", module.GetSymbolName(function1));
   EXPECT_EQ("function3", module.GetSymbolName(function3));
   EXPECT_EQ(ImportedModule::kAlwaysImport, module.mode());
-  EXPECT_EQ(ImportedModule::kAlwaysImport, module.GetSymbolMode(function1));
-  EXPECT_EQ(ImportedModule::kAlwaysImport, module.GetSymbolMode(function3));
+  EXPECT_EQ(ImportedModule::kAlwaysImport,
+            module.GetSymbolMode(function1));
+  EXPECT_EQ(ImportedModule::kAlwaysImport,
+            module.GetSymbolMode(function3));
 
-  AddImportsTransform transform;
+  PEAddImportsTransform transform;
   transform.AddModule(&module);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
       &transform, &block_graph_, dos_header_block_));
@@ -101,15 +102,15 @@ TEST_F(AddImportsTransformTest, AddImportsExisting) {
   EXPECT_FALSE(module.SymbolWasAdded(function1));
   EXPECT_FALSE(module.SymbolWasAdded(function3));
 
-  EXPECT_NE(ImportedModule::kInvalidIatIndex,
-            module.GetSymbolIatIndex(function1));
-  EXPECT_NE(ImportedModule::kInvalidIatIndex,
-            module.GetSymbolIatIndex(function3));
+  EXPECT_NE(ImportedModule::kInvalidImportIndex,
+            module.GetSymbolImportIndex(function1));
+  EXPECT_NE(ImportedModule::kInvalidImportIndex,
+            module.GetSymbolImportIndex(function3));
 
   EXPECT_NO_FATAL_FAILURE(TestSymbols(module));
 }
 
-TEST_F(AddImportsTransformTest, AddImportsNewSymbol) {
+TEST_F(PEAddImportsTransformTest, AddImportsNewSymbol) {
   ImportedModule module("export_dll.dll");
   size_t function1 = module.AddSymbol("function1",
                                       ImportedModule::kAlwaysImport);
@@ -121,20 +122,19 @@ TEST_F(AddImportsTransformTest, AddImportsNewSymbol) {
   EXPECT_EQ("function3", module.GetSymbolName(function3));
   EXPECT_EQ("function4", module.GetSymbolName(function4));
   EXPECT_EQ(ImportedModule::kAlwaysImport, module.mode());
-  EXPECT_EQ(ImportedModule::kAlwaysImport, module.GetSymbolMode(function1));
-  EXPECT_EQ(ImportedModule::kAlwaysImport, module.GetSymbolMode(function3));
-  EXPECT_EQ(ImportedModule::kAlwaysImport, module.GetSymbolMode(function4));
+  EXPECT_EQ(ImportedModule::kAlwaysImport,
+            module.GetSymbolMode(function1));
+  EXPECT_EQ(ImportedModule::kAlwaysImport,
+            module.GetSymbolMode(function3));
+  EXPECT_EQ(ImportedModule::kAlwaysImport,
+            module.GetSymbolMode(function4));
 
-  EXPECT_TRUE(module.import_descriptor().block() == NULL);
-
-  AddImportsTransform transform;
+  PEAddImportsTransform transform;
   transform.AddModule(&module);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
       &transform, &block_graph_, dos_header_block_));
   EXPECT_EQ(0u, transform.modules_added());
   EXPECT_EQ(1u, transform.symbols_added());
-
-  EXPECT_TRUE(module.import_descriptor().block() != NULL);
 
   EXPECT_TRUE(module.ModuleIsImported());
   EXPECT_TRUE(module.SymbolIsImported(function1));
@@ -146,19 +146,19 @@ TEST_F(AddImportsTransformTest, AddImportsNewSymbol) {
   EXPECT_FALSE(module.SymbolWasAdded(function3));
   EXPECT_TRUE(module.SymbolWasAdded(function4));
 
-  EXPECT_NE(ImportedModule::kInvalidIatIndex,
-            module.GetSymbolIatIndex(function1));
-  EXPECT_NE(ImportedModule::kInvalidIatIndex,
-            module.GetSymbolIatIndex(function3));
-  EXPECT_NE(ImportedModule::kInvalidIatIndex,
-            module.GetSymbolIatIndex(function4));
+  EXPECT_NE(ImportedModule::kInvalidImportIndex,
+            module.GetSymbolImportIndex(function1));
+  EXPECT_NE(ImportedModule::kInvalidImportIndex,
+            module.GetSymbolImportIndex(function3));
+  EXPECT_NE(ImportedModule::kInvalidImportIndex,
+            module.GetSymbolImportIndex(function4));
 
   EXPECT_NO_FATAL_FAILURE(TestSymbols(module));
 
   // TODO(chrisha): Write the image and try to load it!
 }
 
-TEST_F(AddImportsTransformTest, AddImportsNewModule) {
+TEST_F(PEAddImportsTransformTest, AddImportsNewModule) {
   ImportedModule module("call_trace_client_rpc.dll");
   size_t indirect_penter = module.AddSymbol(
       "_indirect_penter", ImportedModule::kAlwaysImport);
@@ -174,7 +174,7 @@ TEST_F(AddImportsTransformTest, AddImportsNewModule) {
   EXPECT_EQ(ImportedModule::kAlwaysImport,
             module.GetSymbolMode(indirect_penter_dllmain));
 
-  AddImportsTransform transform;
+  PEAddImportsTransform transform;
   transform.AddModule(&module);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
       &transform, &block_graph_, dos_header_block_));
@@ -189,27 +189,29 @@ TEST_F(AddImportsTransformTest, AddImportsNewModule) {
   EXPECT_TRUE(module.SymbolWasAdded(indirect_penter));
   EXPECT_TRUE(module.SymbolWasAdded(indirect_penter_dllmain));
 
-  EXPECT_NE(ImportedModule::kInvalidIatIndex,
-            module.GetSymbolIatIndex(indirect_penter));
-  EXPECT_NE(ImportedModule::kInvalidIatIndex,
-            module.GetSymbolIatIndex(indirect_penter_dllmain));
+  EXPECT_NE(ImportedModule::kInvalidImportIndex,
+            module.GetSymbolImportIndex(indirect_penter));
+  EXPECT_NE(ImportedModule::kInvalidImportIndex,
+            module.GetSymbolImportIndex(indirect_penter_dllmain));
 
   EXPECT_NO_FATAL_FAILURE(TestSymbols(module));
 
   // TODO(chrisha): Write the image and try to load it!
 }
 
-TEST_F(AddImportsTransformTest, FindImportsExisting) {
+TEST_F(PEAddImportsTransformTest, FindImportsExisting) {
   ImportedModule module("export_dll.dll");
-  size_t function1 = module.AddSymbol("function1", ImportedModule::kFindOnly);
-  size_t function3 = module.AddSymbol("function3", ImportedModule::kFindOnly);
+  size_t function1 = module.AddSymbol("function1",
+                                      ImportedModule::kFindOnly);
+  size_t function3 = module.AddSymbol("function3",
+                                      ImportedModule::kFindOnly);
   EXPECT_EQ("function1", module.GetSymbolName(function1));
   EXPECT_EQ("function3", module.GetSymbolName(function3));
   EXPECT_EQ(ImportedModule::kFindOnly, module.mode());
   EXPECT_EQ(ImportedModule::kFindOnly, module.GetSymbolMode(function1));
   EXPECT_EQ(ImportedModule::kFindOnly, module.GetSymbolMode(function3));
 
-  AddImportsTransform transform;
+  PEAddImportsTransform transform;
   transform.AddModule(&module);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
       &transform, &block_graph_, dos_header_block_));
@@ -224,17 +226,20 @@ TEST_F(AddImportsTransformTest, FindImportsExisting) {
   EXPECT_FALSE(module.SymbolWasAdded(function1));
   EXPECT_FALSE(module.SymbolWasAdded(function3));
 
-  EXPECT_NE(ImportedModule::kInvalidIatIndex,
-            module.GetSymbolIatIndex(function1));
-  EXPECT_NE(ImportedModule::kInvalidIatIndex,
-            module.GetSymbolIatIndex(function3));
+  EXPECT_NE(ImportedModule::kInvalidImportIndex,
+            module.GetSymbolImportIndex(function1));
+  EXPECT_NE(ImportedModule::kInvalidImportIndex,
+            module.GetSymbolImportIndex(function3));
 }
 
-TEST_F(AddImportsTransformTest, FindImportsNewSymbol) {
+TEST_F(PEAddImportsTransformTest, FindImportsNewSymbol) {
   ImportedModule module("export_dll.dll");
-  size_t function1 = module.AddSymbol("function1", ImportedModule::kFindOnly);
-  size_t function3 = module.AddSymbol("function3", ImportedModule::kFindOnly);
-  size_t function4 = module.AddSymbol("function4", ImportedModule::kFindOnly);
+  size_t function1 = module.AddSymbol("function1",
+                                      ImportedModule::kFindOnly);
+  size_t function3 = module.AddSymbol("function3",
+                                      ImportedModule::kFindOnly);
+  size_t function4 = module.AddSymbol("function4",
+                                      ImportedModule::kFindOnly);
   EXPECT_EQ("function1", module.GetSymbolName(function1));
   EXPECT_EQ("function3", module.GetSymbolName(function3));
   EXPECT_EQ("function4", module.GetSymbolName(function4));
@@ -243,7 +248,7 @@ TEST_F(AddImportsTransformTest, FindImportsNewSymbol) {
   EXPECT_EQ(ImportedModule::kFindOnly, module.GetSymbolMode(function3));
   EXPECT_EQ(ImportedModule::kFindOnly, module.GetSymbolMode(function4));
 
-  AddImportsTransform transform;
+  PEAddImportsTransform transform;
   transform.AddModule(&module);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
       &transform, &block_graph_, dos_header_block_));
@@ -260,15 +265,15 @@ TEST_F(AddImportsTransformTest, FindImportsNewSymbol) {
   EXPECT_FALSE(module.SymbolWasAdded(function3));
   EXPECT_FALSE(module.SymbolWasAdded(function4));
 
-  EXPECT_NE(ImportedModule::kInvalidIatIndex,
-            module.GetSymbolIatIndex(function1));
-  EXPECT_NE(ImportedModule::kInvalidIatIndex,
-            module.GetSymbolIatIndex(function3));
-  EXPECT_EQ(ImportedModule::kInvalidIatIndex,
-            module.GetSymbolIatIndex(function4));
+  EXPECT_NE(ImportedModule::kInvalidImportIndex,
+            module.GetSymbolImportIndex(function1));
+  EXPECT_NE(ImportedModule::kInvalidImportIndex,
+            module.GetSymbolImportIndex(function3));
+  EXPECT_EQ(ImportedModule::kInvalidImportIndex,
+            module.GetSymbolImportIndex(function4));
 }
 
-TEST_F(AddImportsTransformTest, FindImportsNewModule) {
+TEST_F(PEAddImportsTransformTest, FindImportsNewModule) {
   ImportedModule module("call_trace_client_rpc.dll");
   size_t indirect_penter = module.AddSymbol(
       "_indirect_penter", ImportedModule::kFindOnly);
@@ -279,11 +284,12 @@ TEST_F(AddImportsTransformTest, FindImportsNewModule) {
   EXPECT_EQ("_indirect_penter_dllmain",
             module.GetSymbolName(indirect_penter_dllmain));
   EXPECT_EQ(ImportedModule::kFindOnly, module.mode());
-  EXPECT_EQ(ImportedModule::kFindOnly, module.GetSymbolMode(indirect_penter));
+  EXPECT_EQ(ImportedModule::kFindOnly,
+            module.GetSymbolMode(indirect_penter));
   EXPECT_EQ(ImportedModule::kFindOnly,
             module.GetSymbolMode(indirect_penter_dllmain));
 
-  AddImportsTransform transform;
+  PEAddImportsTransform transform;
   transform.AddModule(&module);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
       &transform, &block_graph_, dos_header_block_));
@@ -298,10 +304,10 @@ TEST_F(AddImportsTransformTest, FindImportsNewModule) {
   EXPECT_FALSE(module.SymbolWasAdded(indirect_penter));
   EXPECT_FALSE(module.SymbolWasAdded(indirect_penter_dllmain));
 
-  EXPECT_EQ(ImportedModule::kInvalidIatIndex,
-            module.GetSymbolIatIndex(indirect_penter));
-  EXPECT_EQ(ImportedModule::kInvalidIatIndex,
-            module.GetSymbolIatIndex(indirect_penter_dllmain));
+  EXPECT_EQ(ImportedModule::kInvalidImportIndex,
+            module.GetSymbolImportIndex(indirect_penter));
+  EXPECT_EQ(ImportedModule::kInvalidImportIndex,
+            module.GetSymbolImportIndex(indirect_penter_dllmain));
 }
 
 }  // namespace transforms

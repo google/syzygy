@@ -51,14 +51,14 @@ using block_graph::analysis::LivenessAnalysis;
 using block_graph::analysis::MemoryAccessAnalysis;
 using core::Register;
 using core::RegisterCode;
-using pe::transforms::AddImportsTransform;
+using pe::transforms::PEAddImportsTransform;
 
 // A simple struct that can be used to let us access strings using TypedBlock.
 struct StringStruct {
   const char string[1];
 };
 
-typedef AddImportsTransform::ImportedModule ImportedModule;
+typedef pe::transforms::ImportedModule ImportedModule;
 typedef AsanBasicBlockTransform::MemoryAccessMode AsanMemoryAccessMode;
 typedef AsanBasicBlockTransform::AsanHookMap HookMap;
 typedef std::vector<AsanBasicBlockTransform::AsanHookMapEntryKey>
@@ -394,7 +394,7 @@ bool AddAsanCheckAccessHooks(
 
   // Transforms the block-graph.
 
-  AddImportsTransform add_imports_transform;
+  PEAddImportsTransform add_imports_transform;
   add_imports_transform.AddModule(import_module);
 
   if (!add_imports_transform.TransformBlockGraph(block_graph, header_block)) {
@@ -872,16 +872,25 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
   }
 
   // Query the kernel32 imports.
-  AddImportsTransform find_kernel_imports;
+  PEAddImportsTransform find_kernel_imports;
   find_kernel_imports.AddModule(&module_kernel32);
   if (!find_kernel_imports.TransformBlockGraph(block_graph, header_block)) {
     LOG(ERROR) << "Unable to find kernel32 imports for redirection.";
     return false;
   }
 
+  // The timestamp 1 corresponds to Thursday, 01 Jan 1970 00:00:01 GMT. Setting
+  // the timestamp of the image import descriptor to this value allows us to
+  // temporarily bind the library until the loader finishes loading this module.
+  // As the value is far in the past this means that the entries in the IAT for
+  // this module will all be replaced by pointers into the actual library.
+  // We need to bind the IAT for our module to make sure the stub is used until
+  // the sandbox lets the loader finish patching the IAT entries.
+  static const size_t kDateInThePast = 1;
+
   // Add ASAN imports for those kernel32 functions we found. These will later
   // be redirected.
-  ImportedModule module_asan(asan_dll_name_);
+  ImportedModule module_asan(asan_dll_name_, kDateInThePast);
   for (size_t i = 0; i < arraysize(kKernel32Redirects); ++i) {
     size_t kernel32_index = override_indexes[i].first;
     if (module_kernel32.SymbolIsImported(kernel32_index)) {
@@ -896,7 +905,7 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
   // Another transform can safely be run without invalidating the results
   // stored in module_kernel32, as additions to the IAT will strictly be
   // performed at the end.
-  AddImportsTransform add_imports_transform;
+  PEAddImportsTransform add_imports_transform;
   add_imports_transform.AddModule(&module_asan);
   if (!add_imports_transform.TransformBlockGraph(block_graph, header_block)) {
     LOG(ERROR) << "Unable to add imports for import redirection.";
@@ -956,17 +965,6 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
                        interception_set);
   }
 
-  // The timestamp 1 corresponds to Thursday, 01 Jan 1970 00:00:01 GMT. Setting
-  // the timestamp of the image import descriptor to this value allows us to
-  // temporarily bind the library until the loader finishes loading this module.
-  // As the value is far in the past this means that the entries in the IAT for
-  // this module will all be replace by pointers into the actual library.
-  static const size_t kDateInThePast = 1;
-
-  // We need to bind the IAT for our module to make sure the stub is used until
-  // the sandbox lets the loader finish patching the IAT entries.
-  module_asan.import_descriptor()->TimeDateStamp = kDateInThePast;
-
   return true;
 }
 
@@ -1005,7 +1003,7 @@ bool AsanTransform::InterceptFunctions(ImportedModule* import_module,
   }
 
   // Transforms the block-graph.
-  AddImportsTransform add_imports_transform;
+  PEAddImportsTransform add_imports_transform;
   add_imports_transform.AddModule(import_module);
   if (!add_imports_transform.TransformBlockGraph(block_graph, header_block)) {
     LOG(ERROR) << "Unable to add imports for Asan instrumentation DLL.";

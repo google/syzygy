@@ -34,7 +34,7 @@
 #include "syzygy/pe/pe_relinker.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
-#include "syzygy/pe/transforms/add_imports_transform.h"
+#include "syzygy/pe/transforms/pe_add_imports_transform.h"
 #include "third_party/distorm/files/include/mnemonics.h"
 
 namespace instrument {
@@ -865,7 +865,7 @@ TEST_F(AsanTransformTest, InterceptFunctions) {
 
   EXPECT_EQ(2U, b1->referrers().size());
 
-  pe::transforms::AddImportsTransform::ImportedModule import_module("foo.dll");
+  pe::transforms::ImportedModule import_module("foo.dll");
 
   size_t num_blocks_pre_transform = block_graph_.blocks().size();
   size_t num_sections_pre_transform = block_graph_.sections().size();

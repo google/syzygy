@@ -29,7 +29,7 @@
 #include "base/string_piece.h"
 #include "syzygy/block_graph/iterate.h"
 #include "syzygy/block_graph/transforms/iterative_transform.h"
-#include "syzygy/pe/transforms/add_imports_transform.h"
+#include "syzygy/pe/transforms/pe_add_imports_transform.h"
 
 namespace instrument {
 namespace transforms {
@@ -113,7 +113,7 @@ class ThunkImportReferencesTransform
                                     const base::StringPiece& name);
 
   // Exposed for testing. Valid after Apply() is called.
-  pe::transforms::AddImportsTransform& add_imports_transform() {
+  pe::transforms::PEAddImportsTransform& add_imports_transform() {
     return add_imports_transform_;
   }
 
@@ -146,7 +146,7 @@ class ThunkImportReferencesTransform
 
   // The transform used to add imports for our instrumentation. It also
   // conveniently stores references to the blocks containing the IAT and IDT.
-  pe::transforms::AddImportsTransform add_imports_transform_;
+  pe::transforms::PEAddImportsTransform add_imports_transform_;
 
   // Name of the instrumentation DLL we import. Defaults to "call_trace.dll".
   std::string instrument_dll_name_;
