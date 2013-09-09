@@ -31,7 +31,10 @@ namespace {
 class PrepareHeadersTransformTest : public testing::Test {
  public:
   PrepareHeadersTransformTest()
-      : dos_header_block_(NULL), nt_headers_block_(NULL) {
+      : expected_dos_header_size_(0),
+        expected_nt_headers_size_(0),
+        dos_header_block_(NULL),
+        nt_headers_block_(NULL) {
   }
 
   virtual void SetUp() {

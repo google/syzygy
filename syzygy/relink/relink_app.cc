@@ -14,7 +14,6 @@
 
 #include "syzygy/relink/relink_app.h"
 
-#include "base/logging_win.h"
 #include "base/string_number_conversions.h"
 #include "syzygy/block_graph/orderers/original_orderer.h"
 #include "syzygy/block_graph/orderers/random_orderer.h"
@@ -138,7 +137,7 @@ bool RelinkApp::ParseCommandLine(const CommandLine* cmd_line) {
     return Usage(cmd_line, "You must specify --output-image.");
   }
 
-  // Ensure that we have an input-image, either explicity specified, or to be
+  // Ensure that we have an input-image, either explicitly specified, or to be
   // taken from an order file.
   if (input_image_path_.empty() && order_file_path_.empty()) {
     return Usage(

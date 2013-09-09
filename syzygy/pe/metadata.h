@@ -21,7 +21,6 @@
 #ifndef SYZYGY_PE_METADATA_H_
 #define SYZYGY_PE_METADATA_H_
 
-#include "base/logging_win.h"
 #include "base/time.h"
 #include "base/values.h"
 #include "syzygy/block_graph/block_graph.h"
