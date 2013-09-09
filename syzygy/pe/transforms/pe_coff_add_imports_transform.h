@@ -237,6 +237,7 @@ class ImportedModule {
   // Set to true if this module was added to image by the transform.
   bool added_;
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(ImportedModule);
 };
 
@@ -268,7 +269,7 @@ class PECoffAddImportsTransform {
   //
   // @param imported whether the module is imported.
   // @param added whether the module has been added by the transform.
-  // @param imported_module the module to udpate.
+  // @param imported_module the module to update.
   static void UpdateModule(bool imported,
                            bool added,
                            ImportedModule* imported_module);
@@ -278,7 +279,7 @@ class PECoffAddImportsTransform {
   // @param index the index of the symbol to update.
   // @param import_index the import index to associate with the symbol.
   // @param added whether an entry was added for this symbol.
-  // @param imported_module the module to udpate.
+  // @param imported_module the module to update.
   static void UpdateModuleSymbolIndex(
       size_t index,
       size_t import_index,
@@ -290,7 +291,7 @@ class PECoffAddImportsTransform {
   // @param index the index of the symbol to update.
   // @param ref the import reference to associate with the symbol.
   // @param is_ptr whether the reference is to a pointer or the actual thing.
-  // @param imported_module the module to udpate.
+  // @param imported_module the module to update.
   static void UpdateModuleSymbolReference(
       size_t index,
       block_graph::BlockGraph::Reference ref,

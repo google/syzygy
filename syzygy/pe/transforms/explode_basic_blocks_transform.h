@@ -62,6 +62,7 @@ class ExplodeBasicBlockSubGraphTransform
   size_t output_code_blocks_;
   size_t output_data_blocks_;
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(ExplodeBasicBlockSubGraphTransform);
 };
 
@@ -112,6 +113,7 @@ class ExplodeBasicBlocksTransform
   size_t output_code_blocks_;
   size_t output_data_blocks_;
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(ExplodeBasicBlocksTransform);
 };
 

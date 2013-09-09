@@ -87,7 +87,7 @@ class AddDebugDirectoryEntryTransform
   bool added_;
   // Stores the block housing the debug data directory entries.
   BlockGraph::Block* block_;
-  // Stores the offset into the block of the found or craeted debug data
+  // Stores the offset into the block of the found or created debug data
   // directory entry.
   BlockGraph::Offset offset_;
 
