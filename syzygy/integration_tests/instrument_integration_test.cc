@@ -23,7 +23,6 @@
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/grinder/basic_block_util.h"
 #include "syzygy/grinder/grinder.h"
-#include "syzygy/grinder/grinders/basic_block_entry_count_grinder.h"
 #include "syzygy/grinder/grinders/coverage_grinder.h"
 #include "syzygy/grinder/grinders/indexed_frequency_data_grinder.h"
 #include "syzygy/instrument/instrument_app.h"
@@ -36,10 +35,8 @@ namespace integration_tests {
 
 namespace {
 
-using grinder::basic_block_util::EntryCountMap;
 using grinder::basic_block_util::IndexedFrequencyInformation;
 using grinder::basic_block_util::IndexedFrequencyMap;
-using grinder::basic_block_util::ModuleEntryCountMap;
 using grinder::basic_block_util::ModuleIndexedFrequencyMap;
 using instrument::InstrumentApp;
 using trace::parser::Parser;
@@ -426,15 +423,6 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     return NULL;
   }
 
-  int GetBlockFrequency(const EntryCountMap& entry_count, const Block* block) {
-    DCHECK(block != NULL);
-    EntryCountMap::const_iterator entry =
-        entry_count.find(block->addr().value());
-    if (entry == entry_count.end())
-      return 0;
-    return entry->second;
-  }
-
   int GetBlockFrequency(const IndexedFrequencyMap& frequencies,
                         const Block* block) {
     DCHECK(block != NULL);
@@ -443,16 +431,6 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     if (entry == frequencies.end())
       return 0;
     return entry->second;
-  }
-
-  void ExpectFunctionFrequency(const EntryCountMap& entry_count,
-                               const char* function_name,
-                               int expected_frequency) {
-    DCHECK(function_name != NULL);
-    const Block* block = FindBlockWithName(function_name);
-    ASSERT_TRUE(block != NULL);
-    int exec_frequency = GetBlockFrequency(entry_count, block);
-    EXPECT_EQ(expected_frequency, exec_frequency);
   }
 
   void ExpectFunctionFrequency(const IndexedFrequencyMap& frequencies,
@@ -474,7 +452,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 
   void BBEntryCheckTestDll() {
     Parser parser;
-    grinder::grinders::BasicBlockEntryCountGrinder grinder;
+    grinder::grinders::IndexedFrequencyDataGrinder grinder;
 
     // Initialize trace parser.
     ASSERT_TRUE(parser.Init(&grinder));
@@ -489,12 +467,14 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     ASSERT_TRUE(grinder.Grind());
 
     // Retrieve basic block count information.
-    const grinder::basic_block_util::ModuleEntryCountMap& module_entry_count =
-        grinder.entry_count_map();
+    const ModuleIndexedFrequencyMap& module_entry_count =
+        grinder.frequency_data_map();
     ASSERT_EQ(1u, module_entry_count.size());
 
-    ModuleEntryCountMap::const_iterator entry_iter = module_entry_count.begin();
-    const EntryCountMap& entry_count = entry_iter->second;
+    ModuleIndexedFrequencyMap::const_iterator entry_iter =
+        module_entry_count.begin();
+    const IndexedFrequencyInformation& info = entry_iter->second;
+    const IndexedFrequencyMap& entry_count = info.frequency_map;
 
     // Decompose the output image.
     ASSERT_NO_FATAL_FAILURE(DecomposeImage());
