@@ -92,6 +92,39 @@ bool FindEntryCountMap(const pe::PEFile::Signature& signature,
   return true;
 }
 
+bool FindIndexedFrequencyInfo(
+    const pe::PEFile::Signature& signature,
+    const ModuleIndexedFrequencyMap& module_entry_map,
+    const IndexedFrequencyInformation** information) {
+  DCHECK(information != NULL);
+  *information = NULL;
+
+  // Find exactly one consistent entry count vector in the map.
+  const IndexedFrequencyInformation* result = NULL;
+  ModuleIndexedFrequencyMap::const_iterator it = module_entry_map.begin();
+  for (; it != module_entry_map.end(); ++it) {
+    const pe::PEFile::Signature candidate(it->first);
+    if (candidate.IsConsistent(signature)) {
+      if (result != NULL) {
+        LOG(ERROR) << "Found multiple module instances in the "
+                   << "indexed frequency map.";
+        return false;
+      }
+      result = &it->second;
+    }
+  }
+
+  // Handle the case where there is no consistent module found.
+  if (result == NULL) {
+    LOG(ERROR) << "Did not find module in the entry count map.";
+    return false;
+  }
+
+  // Return the entry counts that were found.
+  *information = result;
+  return true;
+}
+
 bool LoadBasicBlockRanges(const base::FilePath& pdb_path,
                           RelativeAddressRangeVector* bb_ranges) {
   DCHECK(!pdb_path.empty());

@@ -39,9 +39,10 @@ using block_graph::BasicDataBlock;
 using block_graph::BasicBlockDecomposer;
 using block_graph::BasicBlockSubGraph;
 using block_graph::Successor;
-using grinder::basic_block_util::EntryCountMap;
 using grinder::basic_block_util::EntryCountType;
-using grinder::basic_block_util::EntryCountMap;
+using grinder::basic_block_util::IndexedFrequencyInformation;
+using grinder::basic_block_util::IndexedFrequencyOffset;
+using grinder::basic_block_util::IndexedFrequencyMap;
 using grinder::basic_block_util::InitModuleInfo;
 using grinder::basic_block_util::ModuleEntryCountMap;
 using grinder::basic_block_util::ModuleInformation;
@@ -158,7 +159,7 @@ bool HasHigherEntryCount(const CountForBasicBlock& lhs,
   return lhs.first > rhs.first;
 }
 
-bool GetEntryCountByOffset(const EntryCountMap& entry_counts,
+bool GetEntryCountByOffset(const IndexedFrequencyInformation& entry_counts,
                            const RelativeAddress& base_rva,
                            Offset offset,
                            EntryCountType* entry_count) {
@@ -166,9 +167,10 @@ bool GetEntryCountByOffset(const EntryCountMap& entry_counts,
   DCHECK(entry_count != NULL);
 
   *entry_count = 0;
-  EntryCountMap::const_iterator it(
-      entry_counts.find(base_rva.value() + offset));
-  if (it != entry_counts.end())
+  IndexedFrequencyOffset key = std::make_pair(base_rva.value() + offset, 0);
+  IndexedFrequencyMap::const_iterator it =
+      entry_counts.frequency_map.find(key);
+  if (it != entry_counts.frequency_map.end())
     *entry_count = it->second;
   return true;
 }
@@ -179,7 +181,7 @@ BasicBlockOptimizer::BasicBlockOrderer::BasicBlockOrderer(
     const BasicBlockSubGraph& subgraph,
     const RelativeAddress& addr,
     Size size,
-    const EntryCountMap& entry_counts)
+    const IndexedFrequencyInformation& entry_counts)
         : subgraph_(subgraph),
           addr_(addr),
           size_(size),
@@ -573,10 +575,19 @@ BasicBlockOptimizer::BasicBlockOptimizer()
     : cold_section_name_(kDefaultColdSectionName) {
 }
 
-bool BasicBlockOptimizer::Optimize(const ImageLayout& image_layout,
-                                   const EntryCountMap& entry_counts,
-                                   Order* order) {
+bool BasicBlockOptimizer::Optimize(
+    const ImageLayout& image_layout,
+    const IndexedFrequencyInformation& entry_counts,
+    Order* order) {
   DCHECK(order != NULL);
+
+  if (entry_counts.data_type !=
+          ::common::IndexedFrequencyData::BASIC_BLOCK_ENTRY &&
+      entry_counts.data_type !=
+          ::common::IndexedFrequencyData::BRANCH) {
+    LOG(ERROR) << "Invalid frequency data type.";
+    return false;
+  }
 
   // Keep track of which blocks have been explicitly ordered. This will be used
   // when implicitly placing blocks.
@@ -629,7 +640,7 @@ bool BasicBlockOptimizer::Optimize(const ImageLayout& image_layout,
 bool BasicBlockOptimizer::OptimizeBlock(
     const BlockGraph::Block* block,
     const ImageLayout& image_layout,
-    const EntryCountMap& entry_counts,
+    const IndexedFrequencyInformation& entry_counts,
     Order::BlockSpecVector* warm_block_specs,
     Order::BlockSpecVector* cold_block_specs) {
   DCHECK(block != NULL);
@@ -719,7 +730,7 @@ bool BasicBlockOptimizer::OptimizeBlock(
 
 bool BasicBlockOptimizer::OptimizeSection(
     const ImageLayout& image_layout,
-    const EntryCountMap& entry_counts,
+    const IndexedFrequencyInformation& entry_counts,
     const ConstBlockVector& explicit_blocks,
     Order::SectionSpec* orig_section_spec,
     Order::BlockSpecVector* warm_block_specs,

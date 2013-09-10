@@ -107,6 +107,11 @@ bool FindEntryCountMap(const pe::PEFile::Signature& signature,
                        const ModuleEntryCountMap& module_entry_count_map,
                        const EntryCountMap** entry_count_map);
 
+bool FindIndexedFrequencyInfo(
+    const pe::PEFile::Signature& signature,
+    const ModuleIndexedFrequencyMap& module_entry_map,
+    const IndexedFrequencyInformation** information);
+
 // A helper function to populate @p bb_ranges from the PDB file given by
 // @p pdb_path.
 // @returns true on success, false otherwise.

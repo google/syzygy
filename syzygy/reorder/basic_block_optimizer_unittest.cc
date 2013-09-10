@@ -34,7 +34,8 @@ using block_graph::BasicDataBlock;
 using block_graph::BlockGraph;
 using core::RelativeAddress;
 using grinder::basic_block_util::EntryCountType;
-using grinder::basic_block_util::EntryCountMap;
+using grinder::basic_block_util::IndexedFrequencyInformation;
+using grinder::basic_block_util::IndexedFrequencyMap;
 using grinder::basic_block_util::ModuleEntryCountMap;
 using grinder::basic_block_util::LoadBasicBlockRanges;
 using grinder::basic_block_util::RelativeAddressRange;
@@ -56,7 +57,7 @@ class TestBasicBlockOrderer : public BasicBlockOptimizer::BasicBlockOrderer {
       const BasicBlockSubGraph& subgraph,
       const RelativeAddress& addr,
       Size size,
-      const EntryCountMap& entry_counts)
+      const IndexedFrequencyInformation& entry_counts)
           : BasicBlockOptimizer::BasicBlockOrderer(
                 subgraph, addr, size, entry_counts) {
   }
@@ -94,22 +95,30 @@ class BasicBlockOrdererTest : public testing::BasicBlockTest {
 
   void SetEntryCounts(uint32 bb0, uint32 bb1, uint32 bb2, uint32 bb3,
                       uint32 bb4, uint32 bb5, uint32 bb6, uint32 bb7) {
-    entry_counts_.clear();
+    entry_counts_.num_entries = kNumCodeBasicBlocks;
+    entry_counts_.num_columns = 1;
+    entry_counts_.data_type =
+        ::common::IndexedFrequencyData::BASIC_BLOCK_ENTRY;
+    entry_counts_.frequency_size = 4;
 
-    entry_counts_[start_addr_.value() + kBasicBlockOffsets[0]] = bb0;
-    entry_counts_[start_addr_.value() + kBasicBlockOffsets[1]] = bb1;
-    entry_counts_[start_addr_.value() + kBasicBlockOffsets[2]] = bb2;
-    entry_counts_[start_addr_.value() + kBasicBlockOffsets[3]] = bb3;
-    entry_counts_[start_addr_.value() + kBasicBlockOffsets[4]] = bb4;
-    entry_counts_[start_addr_.value() + kBasicBlockOffsets[5]] = bb5;
-    entry_counts_[start_addr_.value() + kBasicBlockOffsets[6]] = bb6;
-    entry_counts_[start_addr_.value() + kBasicBlockOffsets[7]] = bb7;
-    ASSERT_EQ(kNumCodeBasicBlocks, entry_counts_.size());
+    IndexedFrequencyMap& frequency_map = entry_counts_.frequency_map;
+    frequency_map.clear();
+
+    uint32 start = start_addr_.value();
+    frequency_map[std::make_pair(start + kBasicBlockOffsets[0], 0)] = bb0;
+    frequency_map[std::make_pair(start + kBasicBlockOffsets[1], 0)] = bb1;
+    frequency_map[std::make_pair(start + kBasicBlockOffsets[2], 0)] = bb2;
+    frequency_map[std::make_pair(start + kBasicBlockOffsets[3], 0)] = bb3;
+    frequency_map[std::make_pair(start + kBasicBlockOffsets[4], 0)] = bb4;
+    frequency_map[std::make_pair(start + kBasicBlockOffsets[5], 0)] = bb5;
+    frequency_map[std::make_pair(start + kBasicBlockOffsets[6], 0)] = bb6;
+    frequency_map[std::make_pair(start + kBasicBlockOffsets[7], 0)] = bb7;
+    ASSERT_EQ(kNumCodeBasicBlocks, frequency_map.size());
   }
 
   static const size_t kBasicBlockOffsets[kNumCodeBasicBlocks];
 
-  EntryCountMap entry_counts_;
+  IndexedFrequencyInformation entry_counts_;
   scoped_ptr<TestBasicBlockOrderer> orderer_;
 };
 
@@ -357,7 +366,12 @@ TEST_F(BasicBlockOptimizerTest, Accessors) {
 
 TEST_F(BasicBlockOptimizerTest, EmptyOrderingAllCold) {
   Order order;
-  EntryCountMap entry_counts;
+  IndexedFrequencyInformation entry_counts;
+  entry_counts.num_entries = 0;
+  entry_counts.num_columns = 1;
+  entry_counts.data_type = ::common::IndexedFrequencyData::BASIC_BLOCK_ENTRY;
+  entry_counts.frequency_size = 4;
+
   ASSERT_TRUE(
       optimizer_.Optimize(image_layout_, entry_counts, &order));
 
@@ -407,7 +421,13 @@ TEST_F(BasicBlockOptimizerTest, HotCold) {
   ASSERT_EQ(1U, subgraph.block_descriptions().size());
 
   // Generate an entry count map with a non-zero count for every other BB.
-  EntryCountMap entry_counts;
+  IndexedFrequencyInformation entry_counts;
+  entry_counts.num_entries = 0;
+  entry_counts.num_columns = 1;
+  entry_counts.data_type = ::common::IndexedFrequencyData::BASIC_BLOCK_ENTRY;
+  entry_counts.frequency_size = 4;
+  IndexedFrequencyMap& frequency_map = entry_counts.frequency_map;
+
   const BasicBlockSubGraph::BlockDescription& desc =
       subgraph.block_descriptions().front();
   BasicBlockSubGraph::BasicBlockOrdering::const_iterator it(
@@ -419,8 +439,7 @@ TEST_F(BasicBlockOptimizerTest, HotCold) {
   BlockGraph::Offset start_offs = subgraph.original_block()->addr().value();
   for (; it != desc.basic_block_order.end(); ++it) {
     if (is_hot && BasicCodeBlock::Cast(*it) != NULL) {
-
-      entry_counts[start_offs + (*it)->offset()] = 1;
+      frequency_map[std::make_pair(start_offs + (*it)->offset(), 0)] = 1;
       ++num_hot_blocks;
     }
 

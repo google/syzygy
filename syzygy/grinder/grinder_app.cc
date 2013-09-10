@@ -120,7 +120,7 @@ bool GrinderApp::ParseCommandLine(const CommandLine* command_line) {
     grinder_.reset(new grinders::CoverageGrinder());
   } else if (LowerCaseEqualsASCII(mode, "bbentry")) {
     mode_ = kBasicBlockEntry;
-    grinder_.reset(new grinders::BasicBlockEntryCountGrinder());
+    grinder_.reset(new grinders::IndexedFrequencyDataGrinder());
   } else if (LowerCaseEqualsASCII(mode, "branch")) {
     mode_ = kIndexedFrequencyData;
     grinder_.reset(new grinders::IndexedFrequencyDataGrinder());

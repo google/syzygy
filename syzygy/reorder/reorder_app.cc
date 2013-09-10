@@ -22,8 +22,8 @@
 #include "base/string_number_conversions.h"
 #include "base/stringprintf.h"
 #include "base/strings/string_split.h"
-#include "syzygy/grinder/basic_block_entry_count_serializer.h"
 #include "syzygy/grinder/basic_block_util.h"
+#include "syzygy/grinder/indexed_frequency_data_serializer.h"
 #include "syzygy/pe/find.h"
 #include "syzygy/reorder/basic_block_optimizer.h"
 #include "syzygy/reorder/dead_code_finder.h"
@@ -34,12 +34,13 @@ namespace reorder {
 
 namespace {
 
-using grinder::basic_block_util::EntryCountMap;
-using grinder::basic_block_util::ModuleEntryCountMap;
+using grinder::basic_block_util::IndexedFrequencyMap;
+using grinder::basic_block_util::IndexedFrequencyInformation;
+using grinder::basic_block_util::ModuleIndexedFrequencyMap;
 using grinder::basic_block_util::LoadBasicBlockRanges;
-using grinder::basic_block_util::FindEntryCountMap;
+using grinder::basic_block_util::FindIndexedFrequencyInfo;
 using grinder::basic_block_util::RelativeAddressRangeVector;
-using grinder::BasicBlockEntryCountSerializer;
+using grinder::IndexedFrequencyDataSerializer;
 
 static const char kUsageFormatStr[] =
     "Usage: %ls [options] [log files ...]\n"
@@ -310,16 +311,18 @@ bool ReorderApp::OptimizeBasicBlocks(const pe::PEFile::Signature& signature,
   LOG(INFO) << "Performing basic block ordering.";
 
   // Load the basic-block entry count data.
-  ModuleEntryCountMap module_entry_count_map;
-  BasicBlockEntryCountSerializer serializer;
+  ModuleIndexedFrequencyMap module_entry_count_map;
+  IndexedFrequencyDataSerializer serializer;
   if (!serializer.LoadFromJson(bb_entry_count_file_path_,
                                &module_entry_count_map)) {
     LOG(ERROR) << "Failed to load basic-block entry count data";
     return false;
   }
 
-  const EntryCountMap* entry_counts = NULL;
-  if (!FindEntryCountMap(signature, module_entry_count_map, &entry_counts)) {
+  const IndexedFrequencyInformation* entry_counts = NULL;
+  if (!FindIndexedFrequencyInfo(signature,
+                                module_entry_count_map,
+                                &entry_counts)) {
     LOG(ERROR) << "Failed to find entry count vector for '"
                << signature.path << "'.";
     return false;

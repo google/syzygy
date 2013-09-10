@@ -32,7 +32,8 @@ namespace reorder {
 // basic-block entry count data.
 class BasicBlockOptimizer {
  public:
-  typedef grinder::basic_block_util::EntryCountMap EntryCountMap;
+  typedef grinder::basic_block_util::IndexedFrequencyInformation
+      IndexedFrequencyInformation;
   typedef pe::ImageLayout ImageLayout;
   typedef Reorderer::Order Order;
 
@@ -54,7 +55,7 @@ class BasicBlockOptimizer {
 
   // Basic-block optimize the given @p order.
   bool Optimize(const ImageLayout& image_layout,
-                const EntryCountMap& entry_counts,
+                const IndexedFrequencyInformation& entry_counts,
                 Order* order);
 
  protected:
@@ -64,14 +65,14 @@ class BasicBlockOptimizer {
   // Optimize the layout of all basic-blocks in a block.
   static bool OptimizeBlock(const BlockGraph::Block* block,
                             const ImageLayout& image_layout,
-                            const EntryCountMap& entry_counts,
+                            const IndexedFrequencyInformation& entry_counts,
                             Order::BlockSpecVector* warm_block_specs,
                             Order::BlockSpecVector* cold_block_specs);
 
   // Optimize the layout of all basic-blocks in a section, as defined by the
   // given @p section_spec and the original @p image_layout.
   static bool OptimizeSection(const ImageLayout& image_layout,
-                              const EntryCountMap& entry_counts,
+                              const IndexedFrequencyInformation& entry_counts,
                               const ConstBlockVector& explicit_blocks,
                               Order::SectionSpec* orig_section_spec,
                               Order::BlockSpecVector* warm_block_specs,
@@ -97,12 +98,14 @@ class BasicBlockOptimizer::BasicBlockOrderer {
   typedef BlockGraph::Offset Offset;
   typedef BlockGraph::Size Size;
   typedef grinder::basic_block_util::EntryCountType EntryCountType;
+  typedef grinder::basic_block_util::IndexedFrequencyInformation
+      IndexedFrequencyInformation;
   typedef grinder::basic_block_util::RelativeAddress RelativeAddress;
 
   BasicBlockOrderer(const BasicBlockSubGraph& subgraph,
                     const RelativeAddress& addr,
                     Size size,
-                    const EntryCountMap& entry_counts);
+                    const IndexedFrequencyInformation& entry_counts);
 
   // Get the number of times the block itself was entered. This assumes that
   // the entry point of the block is its first basic block.
@@ -147,12 +150,12 @@ class BasicBlockOptimizer::BasicBlockOrderer {
   const BasicBlockSubGraph& subgraph_;
   const RelativeAddress& addr_;
   const Size size_;
-  const EntryCountMap& entry_counts_;
+  const IndexedFrequencyInformation& entry_counts_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BasicBlockOrderer);
 };
 
-}
+}  // namespace reorder
 
 #endif  // SYZYGY_REORDER_BASIC_BLOCK_OPTIMIZER_H_
