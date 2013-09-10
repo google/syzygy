@@ -288,32 +288,37 @@ bool CoffImageLayoutBuilder::LayoutSectionBlocks(
   BlockGraph::Block::ReferenceMap::const_iterator it =
       symbols_block_->references().begin();
   for (size_t i = 0; i < num_symbols; i += 1 + symbols[i].NumberOfAuxSymbols) {
-    size_t ref_symbol_index = it->first / sizeof(IMAGE_SYMBOL);
-    DCHECK_LE(i, ref_symbol_index);
-    DCHECK_GT(num_symbols, ref_symbol_index);
+    if (it != symbols_block_->references().end()) {
+      size_t ref_symbol_index = it->first / sizeof(IMAGE_SYMBOL);
+      DCHECK_LE(i, ref_symbol_index);
+      DCHECK_GT(num_symbols, ref_symbol_index);
 
-    if (i == ref_symbol_index) {
-      // Resolved (referenced) symbol. We override previously inserted
-      // symbols for the same reference; this gives priority to actual
-      // symbols at offset zero, rather than section definition symbols.
-      DCHECK_LT(0, symbols[i].SectionNumber);
-      std::pair<BlockGraph::Block*, BlockGraph::Offset> ref_pair =
+      if (i == ref_symbol_index) {
+        // Resolved (referenced) symbol. We override previously inserted
+        // symbols for the same reference; this gives priority to actual
+        // symbols at offset zero, rather than section definition symbols.
+        DCHECK_LT(0, symbols[i].SectionNumber);
+        std::pair<BlockGraph::Block*, BlockGraph::Offset> ref_pair =
           std::make_pair(it->second.referenced(), it->second.offset());
-      symbol_map.insert(std::make_pair(ref_pair, i)).first->second = i;
+        symbol_map.insert(std::make_pair(ref_pair, i)).first->second = i;
 
-      // Skip any other references for this symbol or its auxiliary symbols.
-      size_t next_index = i + 1 + symbols[i].NumberOfAuxSymbols;
-      do {
-        ++it;
-      } while (it != symbols_block_->references().end() &&
-               it->first / sizeof(IMAGE_SYMBOL) < next_index);
-    } else {
-      // External or misc (unreferenced), that lies between references.
-      DCHECK_GE(0, symbols[i].SectionNumber);
-      std::pair<BlockGraph::Block*, BlockGraph::Offset> ref_pair =
-          std::make_pair(symbols_block_, i * sizeof(symbols[i]));
-      symbol_map.insert(std::make_pair(ref_pair, i));
+        // Skip any other references for this symbol or its auxiliary
+        // symbols.
+        size_t next_index = i + 1 + symbols[i].NumberOfAuxSymbols;
+        do {
+          ++it;
+        } while (it != symbols_block_->references().end() &&
+                 it->first / sizeof(IMAGE_SYMBOL) < next_index);
+
+        continue;
+      }
     }
+
+    // External or misc (unreferenced), that lies between references.
+    DCHECK_GE(0, symbols[i].SectionNumber);
+    std::pair<BlockGraph::Block*, BlockGraph::Offset> ref_pair =
+        std::make_pair(symbols_block_, i * sizeof(symbols[i]));
+    symbol_map.insert(std::make_pair(ref_pair, i));
   }
   DCHECK(it == symbols_block_->references().end());
 
