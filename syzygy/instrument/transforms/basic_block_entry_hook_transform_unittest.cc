@@ -47,7 +47,6 @@ using common::kBasicBlockFrequencyDataVersion;
 class TestBasicBlockEntryHookTransform : public BasicBlockEntryHookTransform {
  public:
   using BasicBlockEntryHookTransform::bb_entry_hook_ref_;
-  using BasicBlockEntryHookTransform::fast_bb_entry_block_;
   using BasicBlockEntryHookTransform::thunk_section_;
 
   BlockGraph::Block* frequency_data_block() {
@@ -169,8 +168,6 @@ void BasicBlockEntryHookTransformTest::CheckBasicBlockInstrumentation(
         const Instruction& inst2 = *(++inst_iter);
         EXPECT_EQ(I_CALL, inst2.representation().opcode);
         ASSERT_EQ(1U, inst2.references().size());
-        EXPECT_EQ(tx_.fast_bb_entry_block_,
-                  inst2.references().begin()->second.block());
       }
     }
     EXPECT_NE(0U, num_basic_blocks);
@@ -221,20 +218,6 @@ TEST_F(BasicBlockEntryHookTransformTest, ApplyAgentInstrumentation) {
 
   // Validate that all basic block have been instrumented.
   CheckBasicBlockInstrumentation(kAgentInstrumentation);
-}
-
-TEST_F(BasicBlockEntryHookTransformTest, ApplyFastPathInstrumentation) {
-  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
-
-  // Apply the transform.
-  tx_.set_inline_fast_path(true);
-
-  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(&tx_, &block_graph_,
-                                                    dos_header_block_));
-  ASSERT_TRUE(tx_.fast_bb_entry_block_ != NULL);
-
-  // Validate that all basic blocks have been instrumented.
-  CheckBasicBlockInstrumentation(kFastPathInstrumentation);
 }
 
 }  // namespace transforms

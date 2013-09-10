@@ -157,12 +157,6 @@ class BasicBlockEntryHookTransform
   // The entry hook to which basic-block entry events are directed.
   BlockGraph::Reference bb_entry_hook_ref_;
 
-  // The entry hook to obtain raw frequency data pointer.
-  BlockGraph::Reference fd_entry_hook_ref_;
-
-  // The hook to call at each basic block entry.
-  BlockGraph::Block* fast_bb_entry_block_;
-
   // The section where the entry-point thunks were placed. This will only be
   // non-NULL after a successful application of the transform. This value is
   // retained for unit-testing purposes.
