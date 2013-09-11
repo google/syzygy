@@ -150,29 +150,31 @@ TEST(GrinderBasicBlockUtilTest, FindEntryCountVector) {
   // Initialize a signature matching the module_info.
   pe::PEFile::Signature signature(module_info);
 
-  // Create an empty entry count map.
-  ModuleEntryCountMap module_entry_count_map;
-  EXPECT_TRUE(module_entry_count_map.empty());
+  // Create an empty count map.
+  ModuleIndexedFrequencyMap module_count_map;
+  EXPECT_TRUE(module_count_map.empty());
 
   // Search the empty map for the module..
-  const EntryCountMap* entry_count_map = NULL;
+  const IndexedFrequencyInformation* count_map = NULL;
   EXPECT_FALSE(
-      FindEntryCountMap(signature, module_entry_count_map, &entry_count_map));
-  EXPECT_EQ(NULL, entry_count_map);
+      FindIndexedFrequencyInfo(signature, module_count_map, &count_map));
+  EXPECT_EQ(NULL, count_map);
 
   // Insert a matching module and search again.
-  const EntryCountMap* entry_count_map_1 = &module_entry_count_map[module_info];
+  const IndexedFrequencyInformation* count_map_1 =
+      &module_count_map[module_info];
   EXPECT_TRUE(
-      FindEntryCountMap(signature, module_entry_count_map, &entry_count_map));
-  EXPECT_EQ(entry_count_map_1, entry_count_map);
+      FindIndexedFrequencyInfo(signature, module_count_map, &count_map));
+  EXPECT_EQ(count_map_1, count_map);
 
   // Insert a second matching module and search again. This should fail.
   module_info.image_file_name = L"Some other file name";
-  const EntryCountMap* entry_count_map_2 = &module_entry_count_map[module_info];
-  ASSERT_NE(entry_count_map_1, entry_count_map_2);
+  const IndexedFrequencyInformation* count_map_2 =
+      &module_count_map[module_info];
+  ASSERT_NE(count_map_1, count_map_2);
   EXPECT_FALSE(
-      FindEntryCountMap(signature, module_entry_count_map, &entry_count_map));
-  EXPECT_EQ(NULL, entry_count_map);
+      FindIndexedFrequencyInfo(signature, module_count_map, &count_map));
+  EXPECT_EQ(NULL, count_map);
 }
 
 TEST(GrinderBasicBlockUtilTest, LoadBasicBlockRanges) {

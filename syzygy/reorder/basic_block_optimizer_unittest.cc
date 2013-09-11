@@ -36,7 +36,6 @@ using core::RelativeAddress;
 using grinder::basic_block_util::EntryCountType;
 using grinder::basic_block_util::IndexedFrequencyInformation;
 using grinder::basic_block_util::IndexedFrequencyMap;
-using grinder::basic_block_util::ModuleEntryCountMap;
 using grinder::basic_block_util::LoadBasicBlockRanges;
 using grinder::basic_block_util::RelativeAddressRange;
 using grinder::basic_block_util::RelativeAddressRangeVector;

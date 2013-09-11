@@ -100,13 +100,6 @@ typedef std::map<ModuleInformation,
 void InitModuleInfo(const pe::PEFile::Signature& signature,
                     ModuleInformation* module_info);
 
-// Given a module @p signature, find the matching @p module_information
-// and @p entry_count_map in the given @p module_entry_count_map.
-// @returns true on success, false otherwise.
-bool FindEntryCountMap(const pe::PEFile::Signature& signature,
-                       const ModuleEntryCountMap& module_entry_count_map,
-                       const EntryCountMap** entry_count_map);
-
 bool FindIndexedFrequencyInfo(
     const pe::PEFile::Signature& signature,
     const ModuleIndexedFrequencyMap& module_entry_map,

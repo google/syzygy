@@ -61,37 +61,6 @@ void InitModuleInfo(const pe::PEFile::Signature& signature,
   module_info->time_date_stamp = signature.module_time_date_stamp;
 }
 
-bool FindEntryCountMap(const pe::PEFile::Signature& signature,
-                       const ModuleEntryCountMap& module_entry_count_map,
-                       const EntryCountMap** entry_count_map) {
-  DCHECK(entry_count_map != NULL);
-  *entry_count_map = NULL;
-
-  // Find exactly one consistent entry count vector in the map.
-  const EntryCountMap* tmp_entry_count_map = NULL;
-  ModuleEntryCountMap::const_iterator it = module_entry_count_map.begin();
-  for (; it != module_entry_count_map.end(); ++it) {
-    const pe::PEFile::Signature candidate(it->first);
-    if (candidate.IsConsistent(signature)) {
-      if (tmp_entry_count_map != NULL) {
-        LOG(ERROR) << "Found multiple module instances in the entry count map.";
-        return false;
-      }
-      tmp_entry_count_map = &it->second;
-    }
-  }
-
-  // Handle the case where there is no consistent module found.
-  if (tmp_entry_count_map == NULL) {
-    LOG(ERROR) << "Did not find module in the entry count map.";
-    return false;
-  }
-
-  // Return the entry counts that were found.
-  *entry_count_map = tmp_entry_count_map;
-  return true;
-}
-
 bool FindIndexedFrequencyInfo(
     const pe::PEFile::Signature& signature,
     const ModuleIndexedFrequencyMap& module_entry_map,
