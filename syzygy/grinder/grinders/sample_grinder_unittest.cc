@@ -106,7 +106,7 @@ class SampleGrinderTest : public testing::PELibUnitTest {
     ASSERT_TRUE(g.Grind());
 
     // 1000 samples at a rate of 0.01 samples/sec = 10 seconds of heat.
-    double expected_heat = 10.0;
+    const double expected_heat = 10.0;
     double total_heat = 0;
 
     // Check that the output has gone to the right intermediate representation
@@ -124,7 +124,7 @@ class SampleGrinderTest : public testing::PELibUnitTest {
         total_heat += it->second.heat;
       }
 
-      EXPECT_DOUBLE_EQ(10.0, total_heat);
+      EXPECT_DOUBLE_EQ(expected_heat, total_heat);
     } else {
       ASSERT_TRUE(g.heat_map_.empty());
       ASSERT_FALSE(g.name_heat_map_.empty());
