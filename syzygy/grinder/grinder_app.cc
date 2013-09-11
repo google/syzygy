@@ -18,7 +18,6 @@
 #include "base/logging.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
-#include "syzygy/grinder/grinders/basic_block_entry_count_grinder.h"
 #include "syzygy/grinder/grinders/coverage_grinder.h"
 #include "syzygy/grinder/grinders/indexed_frequency_data_grinder.h"
 #include "syzygy/grinder/grinders/profile_grinder.h"

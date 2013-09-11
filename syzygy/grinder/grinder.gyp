@@ -21,8 +21,6 @@
       'target_name': 'grinder_lib',
       'type': 'static_library',
       'sources': [
-        'basic_block_entry_count_serializer.cc',
-        'basic_block_entry_count_serializer.h',
         'basic_block_util.cc',
         'basic_block_util.h',
         'cache_grind_writer.cc',
@@ -42,8 +40,6 @@
         'lcov_writer.h',
         'line_info.cc',
         'line_info.h',
-        'grinders/basic_block_entry_count_grinder.cc',
-        'grinders/basic_block_entry_count_grinder.h',
         'grinders/coverage_grinder.cc',
         'grinders/coverage_grinder.h',
         'grinders/indexed_frequency_data_grinder.cc',
@@ -67,7 +63,6 @@
       'type': 'executable',
       'sources': [
         'basic_block_util_unittest.cc',
-        'basic_block_entry_count_serializer_unittest.cc',
         'cache_grind_writer_unittest.cc',
         'coverage_data_unittest.cc',
         'find_unittest.cc',
@@ -77,7 +72,6 @@
         'indexed_frequency_data_serializer_unittest.cc',
         'lcov_writer_unittest.cc',
         'line_info_unittest.cc',
-        'grinders/basic_block_entry_count_grinder_unittest.cc',
         'grinders/coverage_grinder_unittest.cc',
         'grinders/profile_grinder_unittest.cc',
         'grinders/sample_grinder_unittest.cc',
