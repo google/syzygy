@@ -48,16 +48,6 @@ class CoffImageLayoutBuilder : public PECoffImageLayoutBuilder {
   bool LayoutImage(const block_graph::OrderedBlockGraph& ordered_graph);
 
  private:
-  // Retrieve the blocks containing the headers, symbol and strings tables
-  // from the image layout block graph.
-  //
-  // @param headers_block where to store the headers block.
-  // @param symbols_block where to store the symbol table block.
-  // @param strings_block where to store the string table block.
-  void FindSpecialBlocks(BlockGraph::Block** headers_block,
-                         BlockGraph::Block** symbols_block,
-                         BlockGraph::Block** strings_block);
-
   // Lay out the incomplete COFF file header and section table. This
   // essentially reserves space for these entities, copying over the old
   // data, assuming the headers block is correctly sized for the expected

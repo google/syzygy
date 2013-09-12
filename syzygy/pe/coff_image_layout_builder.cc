@@ -179,7 +179,13 @@ bool CoffImageLayoutBuilder::LayoutImage(
   BlockGraph::Block* headers_block = NULL;
   BlockGraph::Block* symbols_block = NULL;
   BlockGraph::Block* strings_block = NULL;
-  FindSpecialBlocks(&headers_block, &symbols_block, &strings_block);
+
+  if (!FindCoffSpecialBlocks(image_layout_->blocks.graph(),
+                             &headers_block, &symbols_block, &strings_block)) {
+    LOG(ERROR) << "Block graph is missing some COFF special blocks. "
+               << "Not a COFF block graph?";
+    return false;
+  }
   DCHECK(headers_block != NULL);
   DCHECK(symbols_block != NULL);
   DCHECK(strings_block != NULL);
@@ -207,28 +213,6 @@ bool CoffImageLayoutBuilder::LayoutImage(
     return false;
 
   return true;
-}
-
-void CoffImageLayoutBuilder::FindSpecialBlocks(
-    BlockGraph::Block** headers_block,
-    BlockGraph::Block** symbols_block,
-    BlockGraph::Block** strings_block) {
-  DCHECK(headers_block != NULL);
-  DCHECK(symbols_block != NULL);
-  DCHECK(strings_block != NULL);
-
-  // Walk through all the blocks once to find all the special blocks.
-  BlockGraph::BlockMap& blocks =
-      image_layout_->blocks.graph()->blocks_mutable();
-  BlockGraph::BlockMap::iterator it = blocks.begin();
-  for (; it != blocks.end(); ++it) {
-    if ((it->second.attributes() & BlockGraph::COFF_HEADERS) != 0)
-      *headers_block = &it->second;
-    else if ((it->second.attributes() & BlockGraph::COFF_SYMBOL_TABLE) != 0)
-      *symbols_block = &it->second;
-    else if ((it->second.attributes() & BlockGraph::COFF_STRING_TABLE) != 0)
-      *strings_block = &it->second;
-  }
 }
 
 bool CoffImageLayoutBuilder::LayoutHeaders() {
