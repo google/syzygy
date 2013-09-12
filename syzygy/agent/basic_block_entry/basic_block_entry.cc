@@ -13,6 +13,61 @@
 // limitations under the License.
 //
 // Implementation of the basic-block entry counting agent library.
+//
+// The operation of this module is in two parts: instrumentation and agent.
+// Both parts work together to gather metrics on the execution of a module.
+//
+// * Instrumentation
+//    The instrumenter is responsible for injecting probes within the
+//    instrumented module to call entry-points in the agent. There are two
+//    kinds of supported instrumentation: basic block entry count and branch
+//    profiling.
+//
+//    Instrumentation for basic block entry count:
+//      BB1: [code]       --->   BB1: push bb_id
+//           call func                push module_data
+//           jz BB2                   call [increment_hook]
+//                                    [code]
+//                                    call func
+//                                    jz BB2
+//
+//    Instrumentation for branch profiling:
+//      BB1: [code]       --->   BB1: push bb_id
+//           call func                push module_data
+//           jz BB2                   call [entry_hook]
+//                                    [code]
+//                                    call func
+//                                    push bb_id
+//                                    push module_data
+//                                    call [leave_hook]
+//                                    jz BB2
+//
+//    Using the last block id produced by an entry_hook to determine the
+//    previous executed basic block won't work. As an example, the call to
+//    'func' will move the control flow to another function and modify the last
+//    executed basic block. The leave hook must be called at the end the basic
+//    block, before following control flow to any other basic blocks.
+//
+//    The calling convention is callee clean-up. The callee is responsible for
+//    cleaning up any values on the stack. This calling convention is chosen
+//    to keep the application code size as low as possible.
+//
+// * Agent
+//    The agent is responsible for allocating a trace segment and collecting
+//    metrics. The trace segment with be dump to a file for post-processing.
+//
+//    The agent keeps a ThreadState for each running thread. The thread state
+//    is accessible through a TLS mechanism and contains information needed by
+//    the hook (pointer to trace segment, buffer, lock, ...).
+//
+//    There are two mechanisms to collect metrics:
+//    - Basic mode: In the basic mode, the hook acquires a lock and updates a
+//      process-wide segment shared by all threads. In this mode, no events can
+//      be lost.
+//    - Buffered mode: A per-thread buffer is used to collect execution
+//      information. A batch commit is done when the buffer is full. In this
+//      mode, under a non-standard execution (crash, force exit, ...) pending
+//      events may be lost.
 
 #include "syzygy/agent/basic_block_entry/basic_block_entry.h"
 
@@ -31,7 +86,7 @@
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
 // Save caller-save registers (eax, ecx, edx) and flags (eflags).
-#define BBENTRY_SAVE_REGISTERS  \
+#define BBPROBE_SAVE_REGISTERS  \
   __asm push eax  \
   __asm lahf  \
   __asm seto al  \
@@ -40,7 +95,7 @@
   __asm push edx
 
 // Restore caller-save registers (eax, ecx, edx) and flags (eflags).
-#define BBENTRY_RESTORE_REGISTERS  \
+#define BBPROBE_RESTORE_REGISTERS  \
   __asm pop edx  \
   __asm pop ecx  \
   __asm pop eax  \
@@ -48,70 +103,77 @@
   __asm sahf  \
   __asm pop eax
 
-#define BBENTRY_REDIRECT_CALL(handler)  \
+#define BBPROBE_REDIRECT_CALL(handler)  \
   {  \
     /* Stash volatile registers. */  \
-    BBENTRY_SAVE_REGISTERS  \
+    BBPROBE_SAVE_REGISTERS  \
     \
-    /* Stack: ... index, module_data, ret_addr, [4x register] */  \
+    /* Stack: ... basic_block_id, module_data, ret_addr, [4x register] */  \
     \
     /* Push the original esp value onto the stack as the entry-hook data. */  \
     /* This gives the entry-hook a pointer to ret_addr, module_data and */  \
-    /* index. */  \
+    /* basic block id. */  \
     __asm lea eax, DWORD PTR[esp + 0x10]  \
     __asm push eax  \
     \
-    /* Stack: ..., index, module_data, ret_addr, [4x register], esp, */  \
-    /*    &ret_addr. */  \
+    /* Stack: ..., basic_block_id, module_data, ret_addr, [4x register], */  \
+    /*    esp, &ret_addr. */  \
     __asm call handler  \
-    /* Stack: ... index, module_data, ret_addr, [4x register]. */  \
+    /* Stack: ... basic_block_id, module_data, ret_addr, [4x register]. */  \
     \
     /* Restore volatile registers. */  \
-    BBENTRY_RESTORE_REGISTERS  \
+    BBPROBE_RESTORE_REGISTERS  \
   }
-
-extern "C" uint32* _stdcall GetRawFrequencyData(
-    ::common::IndexedFrequencyData* data) {
-  DCHECK(data != NULL);
-  return agent::basic_block_entry::BasicBlockEntry::GetRawFrequencyData(data);
-}
 
 extern "C" void __declspec(naked) _branch_enter() {
   // This is expected to be called via instrumentation that looks like:
-  //    push index
+  //    push basic_block_id
   //    push module_data
   //    call [_branch_enter]
-  // Stack: ... index, module_data, ret_addr.
-  BBENTRY_REDIRECT_CALL(
+  // Stack: ... basic_block_id, module_data, ret_addr.
+  BBPROBE_REDIRECT_CALL(
       agent::basic_block_entry::BasicBlockEntry::BranchEnterHook);
-  // Return to the address pushed by our caller, popping off the index and
-  // module_data values from the stack.
+  // Return to the address pushed by our caller, popping off the basic block
+  // id and module_data values from the stack.
+  __asm ret 8
+}
+
+extern "C" void __declspec(naked) _branch_enter_buffered() {
+  // This is expected to be called via instrumentation that looks like:
+  //    push basic_block_id
+  //    push module_data
+  //    call [_branch_enter_buffered]
+  // Stack: ... basic_block_id, module_data, ret_addr.
+  BBPROBE_REDIRECT_CALL(
+      agent::basic_block_entry::BasicBlockEntry::BranchEnterBufferedHook);
+  // Return to the address pushed by our caller, popping off the basic block id
+  // and module_data values from the stack.
   __asm ret 8
 }
 
 extern "C" void __declspec(naked) _branch_exit() {
   // This is expected to be called via instrumentation that looks like:
-  //    push index
+  //    push basic_block_id
   //    push module_data
-  //    call [_branch_enter]
-  // Stack: ... index, module_data, ret_addr.
-  BBENTRY_REDIRECT_CALL(
+  //    call [_branch_exit]
+  // Stack: ... basic_block_id, module_data, ret_addr.
+  BBPROBE_REDIRECT_CALL(
       agent::basic_block_entry::BasicBlockEntry::BranchExitHook);
-  // Return to the address pushed by our caller, popping off the index and
-  // module_data values from the stack.
+  // Return to the address pushed by our caller, popping off the basic block id
+  // and module_data values from the stack.
   __asm ret 8
 }
 
 extern "C" void __declspec(naked) _increment_indexed_freq_data() {
   // This is expected to be called via instrumentation that looks like:
-  //    push index
+  //    push basic_block_id
   //    push module_data
-  //    call [_branch_enter]
-  // Stack: ... index, module_data, ret_addr.
-  BBENTRY_REDIRECT_CALL(
+  //    call [_increment_indexed_freq_data]
+  // Stack: ... basic_block_id, module_data, ret_addr.
+  BBPROBE_REDIRECT_CALL(
       agent::basic_block_entry::BasicBlockEntry::IncrementIndexedFreqDataHook);
-  // Return to the address pushed by our caller, popping off the index and
-  // module_data values from the stack.
+  // Return to the address pushed by our caller, popping off the basic block id
+  // and module_data values from the stack.
   __asm ret 8
 }
 
@@ -121,7 +183,7 @@ extern "C" void __declspec(naked) _indirect_penter_dllmain() {
   //    push function
   //    jmp [_indirect_penter_dllmain]
   // Stack: ... reserved, reason, module, ret_addr, module_data, function.
-  BBENTRY_REDIRECT_CALL(
+  BBPROBE_REDIRECT_CALL(
       agent::basic_block_entry::BasicBlockEntry::DllMainEntryHook);
   // Return to the thunked function, popping module_data off the stack as we go.
   __asm ret 4
@@ -134,7 +196,7 @@ extern "C" void __declspec(naked) _indirect_penter_exemain() {
   //    jmp [_indirect_penter_exe_main]
   //
   // Stack: ... ret_addr, module_data, function.
-  BBENTRY_REDIRECT_CALL(
+  BBPROBE_REDIRECT_CALL(
       agent::basic_block_entry::BasicBlockEntry::ExeMainEntryHook);
   // Return to the thunked function, popping module_data off the stack as we go.
   __asm ret 4
@@ -183,11 +245,29 @@ using ::common::IndexedFrequencyData;
 using agent::common::ScopedLastErrorKeeper;
 using trace::client::TraceFileSegment;
 
+const uint32 kInvalidBasicBlockId = ~0U;
+
+// The size in DWORD of the buffer. We choose a multiple of memory page size.
+const size_t kBufferSize = 4096;
+// The number of entries in the simulated branch predictor cache.
+const size_t kPredictorCacheSize = 4096;
+
+// The indexed_frequency_data for the bbentry instrumentation mode has 1 column.
+struct BBEntryFrequency {
+  uint32 frequency;
+};
+
 // The indexed_frequency_data for the branch instrumentation mode has 3 columns.
 struct BranchFrequency {
-  unsigned int frequency;
-  unsigned int branch_taken;
-  unsigned int miss_predicted;
+  uint32 frequency;
+  uint32 branch_taken;
+  uint32 miss_predicted;
+};
+
+// An entry in the basic block id buffer.
+struct BranchBufferEntry {
+  uint32 basic_block_id;
+  uint32 last_basic_block_id;
 };
 
 // All tracing runs through this object.
@@ -203,7 +283,7 @@ inline uint32 IncrementAndSaturate(uint32 value) {
 
 // Get the address of the module containing @p addr. We do this by querying
 // for the allocation that contains @p addr. This must lie within the
-// instrumented module, and be part of the single allocation in  which the
+// instrumented module, and be part of the single allocation in which the
 // image of the module lies. The base of the module will be the base address
 // of the allocation.
 // TODO(rogerm): Move to agent::common.
@@ -230,14 +310,35 @@ HMODULE GetModuleForAddr(const void* addr) {
 }
 
 // Returns true if @p version is the expected version for @p datatype_id.
-bool DatatypeVersionIsValid(uint32 datatype_id, uint32 version) {
-  if (datatype_id == ::common::IndexedFrequencyData::BASIC_BLOCK_ENTRY)
-    return version == ::common::kBasicBlockFrequencyDataVersion;
-  else if (datatype_id == ::common::IndexedFrequencyData::BRANCH)
-    return version == ::common::kBranchFrequencyDataVersion;
-  else if (datatype_id == ::common::IndexedFrequencyData::JUMP_TABLE)
-    return version == ::common::kJumpTableFrequencyDataVersion;
-  return false;
+bool DatatypeVersionIsValid(uint32 data_type,
+                            uint32 agent_id,
+                            uint32 version,
+                            uint32 frequency_size,
+                            uint32 num_columns) {
+  // We can only handle this if it looks right.
+  const size_t kIntSize = sizeof(int);
+  if (data_type == IndexedFrequencyData::BRANCH) {
+    if (agent_id != ::common::kBasicBlockEntryAgentId ||
+        version != ::common::kBranchFrequencyDataVersion ||
+        frequency_size != kIntSize ||
+        num_columns != 3U) {
+      LOG(ERROR) << "Unexpected values in the branch data structures.";
+      return false;
+    }
+  } else if (data_type == IndexedFrequencyData::BASIC_BLOCK_ENTRY) {
+    if (agent_id != ::common::kBasicBlockEntryAgentId ||
+        version != ::common::kBasicBlockFrequencyDataVersion ||
+        frequency_size != kIntSize ||
+        num_columns != 1U) {
+      LOG(ERROR) << "Unexpected values in the basic block data structures.";
+      return false;
+    }
+  } else {
+    LOG(ERROR) << "Unexpected entry kind.";
+    return false;
+  }
+
+  return true;
 }
 
 }  // namespace
@@ -274,42 +375,66 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(BasicBlockEntry::ExeMainEntryFrame, 12);
 class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
  public:
   // Initialize a ThreadState instance.
-  ThreadState(BasicBlockEntry* agent, void* buffer);
+  // @param module_data Module information injected in the instrumented
+  //     application.
+  // @param lock Lock associated with the @p frequency_data.
+  // @param frequency_data Buffer to commit counters update.
+  ThreadState(IndexedFrequencyData* module_data,
+              base::Lock* lock,
+              void* frequency_data);
 
   // Destroy a ThreadState instance.
   ~ThreadState();
 
-  // @name Accessors.
-  // @{
-  uint32* frequency_data() { return frequency_data_; }
-  TraceFileSegment* segment() { return &segment_; }
-  TraceIndexedFrequencyData* trace_data() { return trace_data_; }
-  // @}
+  // Allocate space to buffer basic block ids.
+  void AllocateBasicBlockIdBuffer();
 
-  // @name Mutators.
-  // @{
-  void set_frequency_data(void* buffer);
-  void set_trace_data(TraceIndexedFrequencyData* trace_data);
-  // @}
-
-  // Allocate a temporary buffer used by the branch predictor simulator.
-  void AllocatePredictorData(size_t size);
-
-  // A helper to return a ThreadState pointer given a TLS index.
-  static ThreadState* Get(DWORD tls_index);
-
-  // A helper to assign a ThreadState pointer to a TLS index.
-  void Assign(DWORD tls_index);
+  // Allocate temporary space to simulate a branch predictor.
+  void AllocatePredictorCache();
 
   // Saturation increment the frequency record for @p index. Note that in
   // Release mode, no range checking is performed on index.
-  void Increment(uint32 index);
+  // @param basic_block_id the basic block index.
+  void Increment(uint32 basic_block_id);
 
-  // Update state and frequency when a jump enters the basic block @p index.
-  void Enter(uint32 index);
+  // Update state and frequency when a jump enters the basic block @p index
+  // coming from the basic block @last.
+  // @param basic_block_id the basic block index.
+  // @param last_basic_block_id the originating basic block index from which we
+  //     enter @p basic_block_id.
+  void Enter(uint32 basic_block_id, uint32 last_basic_block_id);
 
   // Update state and frequency when a jump leaves the basic block @p index.
-  void Leave(uint32 index);
+  // @param basic_block_id the basic block index.
+  void Leave(uint32 basic_block_id);
+
+  // Push a basic block id in the basic block ids buffer, to be processed later.
+  // @param basic_block_id the basic block index.
+  // @returns true when the buffer is full and there is no room for an other
+  //     entry, false otherwise.
+  bool Push(uint32 basic_block_id);
+
+  // Flush pending values in the basic block ids buffer.
+  void Flush();
+
+  // Return the id of the most recent basic block executed.
+  uint32 last_basic_block_id() { return last_basic_block_id_; }
+
+  // Reset the most recent basic block executed.
+  void reset_last_basic_block_id();
+
+  // Return the lock associated with 'trace_data_' for atomic update.
+  base::Lock* trace_lock() { return trace_lock_; }
+
+  // For a given basic block id, returns the corresponding BBEntryFrequency.
+  // @param basic_block_id the basic block index.
+  // @returns the bbentry frequency entry for a given basic block id.
+  BBEntryFrequency& GetBBEntryFrequency(uint32 basic_block_id);
+
+  // For a given basic block id, returns the corresponding BranchFrequency.
+  // @param basic_block_id the basic block index.
+  // @returns the branch frequency entry for a given basic block id.
+  BranchFrequency& GetBranchFrequency(uint32 basic_block_id);
 
  protected:
   // As a shortcut, this points to the beginning of the array of basic-block
@@ -317,109 +442,114 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
   //     reinterpret_cast<uint32*>(this->trace_data->frequency_data)
   // If tracing is not enabled, this will be set to point to a static
   // allocation of IndexedFrequencyData::frequency_data.
-  uint32* frequency_data_;
+  uint32* frequency_data_;  // Under trace_lock_.
 
-  // The branch predictor state (2-bit saturating counter).
-  uint8* predictor_data_;
-
-  // The basic-block entry agent this thread state belongs to.
-  BasicBlockEntry* agent_;
-
-  // The thread's current trace-file segment, if any.
-  trace::client::TraceFileSegment segment_;
+  // Module information this thread state is gathering information on.
+  const IndexedFrequencyData* module_data_;
 
   // The basic-block frequency record we're populating. This will point into
   // the associated trace file segment's buffer.
-  TraceIndexedFrequencyData* trace_data_;
+  const TraceIndexedFrequencyData* trace_data_;
 
-  // The basic block id before the last leaving jump.
+  // Lock corresponding to 'trace_data_'. Any modification to frequency_data_
+  // must hold the lock to be thread-safe.
+  base::Lock* trace_lock_;
+
+  // Buffer used to queue basic block ids for later processing in batches.
+  std::vector<BranchBufferEntry> basic_block_id_buffer_;
+
+  // Current offset of the next available entry in the basic block id buffer.
+  uint32 basic_block_id_buffer_offset_;
+
+  // The branch predictor state (2-bit saturating counter).
+  std::vector<uint8> predictor_data_;
+
+  // The last basic block id executed.
   uint32 last_basic_block_id_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ThreadState);
 };
 
-BasicBlockEntry::ThreadState::ThreadState(BasicBlockEntry* agent, void* buffer)
-    : agent_(agent),
-      frequency_data_(static_cast<uint32*>(buffer)),
-      predictor_data_(NULL),
-      trace_data_(NULL),
-      last_basic_block_id_(~0U) {
-  DCHECK(agent != NULL);
-  DCHECK(buffer != NULL);
+BasicBlockEntry::ThreadState::ThreadState(IndexedFrequencyData* module_data,
+                                          base::Lock* lock,
+                                          void* frequency_data)
+    : frequency_data_(static_cast<uint32*>(frequency_data)),
+      module_data_(module_data),
+      trace_lock_(lock),
+      basic_block_id_buffer_offset_(0),
+      last_basic_block_id_(kInvalidBasicBlockId) {
 }
 
 BasicBlockEntry::ThreadState::~ThreadState() {
-  // If we have an outstanding buffer, let's deallocate it now.
-  if (segment_.write_ptr != NULL && !agent_->session_.IsDisabled())
-    agent_->session_.ReturnBuffer(&segment_);
-
-  // If the predictor space was used, free it.
-  if (predictor_data_ != NULL)
-    delete [] predictor_data_;
+  if (!basic_block_id_buffer_.empty())
+    Flush();
 }
 
-void BasicBlockEntry::ThreadState::set_frequency_data(void* buffer) {
-  DCHECK(buffer != NULL);
-  frequency_data_ = static_cast<uint32*>(buffer);
+void BasicBlockEntry::ThreadState::AllocateBasicBlockIdBuffer() {
+  DCHECK(basic_block_id_buffer_.empty());
+  basic_block_id_buffer_.resize(kBufferSize * sizeof(BranchBufferEntry));
 }
 
-void BasicBlockEntry::ThreadState::set_trace_data(
-    TraceIndexedFrequencyData* trace_data) {
-  DCHECK(trace_data != NULL);
-  trace_data_ = trace_data;
+void BasicBlockEntry::ThreadState::AllocatePredictorCache() {
+  DCHECK(predictor_data_.empty());
+  predictor_data_.resize(kPredictorCacheSize);
 }
 
-void BasicBlockEntry::ThreadState::AllocatePredictorData(size_t size) {
-  DCHECK(predictor_data_ == NULL);
-  predictor_data_ = new uint8[size]();
+void BasicBlockEntry::ThreadState::reset_last_basic_block_id() {
+  last_basic_block_id_ = kInvalidBasicBlockId;
 }
 
-BasicBlockEntry::ThreadState* BasicBlockEntry::ThreadState::Get(
-    DWORD tls_index) {
-  DCHECK_NE(TLS_OUT_OF_INDEXES, tls_index);
-  return static_cast<ThreadState*>(::TlsGetValue(tls_index));
-}
-
-void BasicBlockEntry::ThreadState::Assign(DWORD tls_index) {
-  DCHECK_NE(TLS_OUT_OF_INDEXES, tls_index);
-  ::TlsSetValue(tls_index, this);
-}
-
-inline void BasicBlockEntry::ThreadState::Increment(uint32 index) {
+BBEntryFrequency& BasicBlockEntry::ThreadState::GetBBEntryFrequency(
+    uint32 basic_block_id) {
   DCHECK(frequency_data_ != NULL);
-  DCHECK(trace_data_ == NULL || index < trace_data_->num_entries);
-  uint32& element = frequency_data_[index];
-  element = IncrementAndSaturate(element);
+  BBEntryFrequency* frequencies =
+      reinterpret_cast<BBEntryFrequency*>(frequency_data_);
+  BBEntryFrequency& entry = frequencies[basic_block_id];
+  return entry;
 }
 
-inline void BasicBlockEntry::ThreadState::Enter(uint32 basic_block_id) {
+BranchFrequency& BasicBlockEntry::ThreadState::GetBranchFrequency(
+    uint32 basic_block_id) {
   DCHECK(frequency_data_ != NULL);
-  DCHECK(trace_data_ == NULL || basic_block_id < trace_data_->num_entries);
-
-  const uint32 kInvalidBasicBlockId = ~0U;
-
   BranchFrequency* frequencies =
       reinterpret_cast<BranchFrequency*>(frequency_data_);
+  BranchFrequency& entry = frequencies[basic_block_id];
+  return entry;
+}
+
+inline void BasicBlockEntry::ThreadState::Increment(uint32 basic_block_id) {
+  DCHECK(frequency_data_ != NULL);
+  DCHECK(module_data_ != NULL);
+  DCHECK_LT(basic_block_id, module_data_->num_entries);
+
+  // Retrieve information for the basic block.
+  BBEntryFrequency& entry = GetBBEntryFrequency(basic_block_id);
+  entry.frequency = IncrementAndSaturate(entry.frequency);
+}
+
+void BasicBlockEntry::ThreadState::Enter(
+    uint32 basic_block_id, uint32 last_basic_block_id) {
+  DCHECK(frequency_data_ != NULL);
+  DCHECK(module_data_ != NULL);
+  DCHECK_LT(basic_block_id, module_data_->num_entries);
 
   // Retrieve information for the current basic block.
-  BranchFrequency& current = frequencies[basic_block_id];
+  BranchFrequency& current = GetBranchFrequency(basic_block_id);
 
   // Count the execution of this basic block.
   if (current.frequency != kInvalidBasicBlockId)
     current.frequency = IncrementAndSaturate(current.frequency);
 
   // Check if entering from a jump or something else (call).
-  if (last_basic_block_id_ == kInvalidBasicBlockId)
+  if (last_basic_block_id == kInvalidBasicBlockId)
     return;
-  uint32 last_basic_block_id = last_basic_block_id_;
-  last_basic_block_id_ = kInvalidBasicBlockId;
 
   // Retrieve information for the previous basic block.
-  BranchFrequency& previous = frequencies[last_basic_block_id];
+  BranchFrequency& previous = GetBranchFrequency(last_basic_block_id);
 
   // If last jump was taken, count the branch taken in the previous basic block.
-  bool taken = (basic_block_id != last_basic_block_id_ + 1);
+  bool taken = (basic_block_id != last_basic_block_id + 1);
   if (taken) {
     if (previous.branch_taken != kInvalidBasicBlockId)
       previous.branch_taken = IncrementAndSaturate(previous.branch_taken);
@@ -432,9 +562,12 @@ inline void BasicBlockEntry::ThreadState::Enter(uint32 basic_block_id) {
   //    1: Weakly not taken
   //    2: Weakly taken
   //    3: Strongly taken
-  // When session is disabled, predictor_data_ is not allocated and is NULL.
-  if (predictor_data_ != NULL && last_basic_block_id != kInvalidBasicBlockId) {
-    uint8& state = predictor_data_[last_basic_block_id];
+  if (predictor_data_.empty())
+    return;
+  DCHECK(predictor_data_.size() == kPredictorCacheSize);
+  if (last_basic_block_id != kInvalidBasicBlockId) {
+    size_t offset = last_basic_block_id % kPredictorCacheSize;
+    uint8& state = predictor_data_[offset];
     if (taken) {
       if (state < 2)
         previous.miss_predicted = IncrementAndSaturate(previous.miss_predicted);
@@ -450,9 +583,38 @@ inline void BasicBlockEntry::ThreadState::Enter(uint32 basic_block_id) {
 }
 
 inline void BasicBlockEntry::ThreadState::Leave(uint32 basic_block_id) {
-  DCHECK(frequency_data_ != NULL);
-  DCHECK(trace_data_ == NULL || basic_block_id < trace_data_->num_entries);
+  DCHECK(module_data_ != NULL);
+  DCHECK_LT(basic_block_id, module_data_->num_entries);
+
   last_basic_block_id_ = basic_block_id;
+}
+
+bool BasicBlockEntry::ThreadState::Push(uint32 basic_block_id) {
+  DCHECK(module_data_ != NULL);
+  DCHECK(basic_block_id < module_data_->num_entries);
+
+  uint32 last_offset = basic_block_id_buffer_offset_;
+  DCHECK_LT(last_offset, basic_block_id_buffer_.size());
+
+  BranchBufferEntry* entry = &basic_block_id_buffer_[last_offset];
+  entry->basic_block_id = basic_block_id;
+  entry->last_basic_block_id = last_basic_block_id_;
+
+  ++basic_block_id_buffer_offset_;
+
+  return basic_block_id_buffer_offset_ == kBufferSize;
+}
+
+void BasicBlockEntry::ThreadState::Flush() {
+  uint32 last_offset = basic_block_id_buffer_offset_;
+
+  for (size_t offset = 0; offset < last_offset; ++offset) {
+    BranchBufferEntry* entry = &basic_block_id_buffer_[last_offset];
+    Enter(entry->basic_block_id, entry->last_basic_block_id);
+  }
+
+  // Reset buffer.
+  basic_block_id_buffer_offset_ = 0;
 }
 
 BasicBlockEntry* BasicBlockEntry::Instance() {
@@ -460,66 +622,175 @@ BasicBlockEntry* BasicBlockEntry::Instance() {
 }
 
 BasicBlockEntry::BasicBlockEntry() {
-  // Create a session. We immediately return the buffer that gets allocated
-  // to us. The client will perform thread-local buffer management on an as-
-  // needed basis.
-  trace::client::TraceFileSegment dummy_segment;
-  if (trace::client::InitializeRpcSession(&session_, &dummy_segment))
-    CHECK(session_.ReturnBuffer(&dummy_segment));
+  // Create a session.
+  trace::client::InitializeRpcSession(&session_, &segment_);
 }
 
 BasicBlockEntry::~BasicBlockEntry() {
 }
 
-uint32* WINAPI BasicBlockEntry::GetRawFrequencyData(
-    IndexedFrequencyData* data) {
+bool BasicBlockEntry::InitializeFrequencyData(
+    ::common::IndexedFrequencyData* data) {
   DCHECK(data != NULL);
-  ThreadState* state = ThreadState::Get(data->tls_index);
-  if (state == NULL)
-    state = Instance()->CreateThreadState(data);
-  return state->frequency_data();
+
+  // Nothing to allocate? We're done!
+  if (data->num_entries == 0) {
+    LOG(WARNING) << "Module contains no instrumented basic blocks, not "
+                 << "allocating data segment.";
+    return true;
+  }
+
+  // Determine the size of the basic block frequency table.
+  DCHECK_LT(0U, data->frequency_size);
+  DCHECK_LT(0U, data->num_columns);
+  size_t data_size = data->num_entries * data->frequency_size *
+      data->num_columns;
+
+  // Determine the size of the basic block frequency record.
+  size_t record_size = sizeof(TraceIndexedFrequencyData) + data_size - 1;
+
+  // Determine the size of the buffer we need. We need room for the basic block
+  // frequency struct plus a single RecordPrefix header.
+  size_t segment_size = sizeof(RecordPrefix) + record_size;
+
+  // Allocate the actual segment for the frequency data.
+  if (!session_.AllocateBuffer(segment_size, &segment_)) {
+    LOG(ERROR) << "Failed to allocate frequency data segment.";
+    return false;
+  }
+
+  // Ensure it's big enough to allocate the basic-block frequency data we want.
+  // This automatically accounts for the RecordPrefix overhead.
+  if (!segment_.CanAllocate(record_size)) {
+    LOG(ERROR) << "Returned frequency data segment smaller than expected.";
+    return false;
+  }
+
+  // Allocate the basic-block frequency data. We will leave this allocated and
+  // let it get flushed during tear-down of the call-trace client.
+  TraceIndexedFrequencyData* trace_data =
+      reinterpret_cast<TraceIndexedFrequencyData*>(
+          segment_.AllocateTraceRecordImpl(TRACE_INDEXED_FREQUENCY,
+                                           record_size));
+  DCHECK(trace_data != NULL);
+
+  // Initialize the basic block frequency data struct.
+  HMODULE module = GetModuleForAddr(data);
+  CHECK(module != NULL);
+  const base::win::PEImage image(module);
+  const IMAGE_NT_HEADERS* nt_headers = image.GetNTHeaders();
+  trace_data->data_type = data->data_type;
+  trace_data->module_base_addr = reinterpret_cast<ModuleAddr>(image.module());
+  trace_data->module_base_size = nt_headers->OptionalHeader.SizeOfImage;
+  trace_data->module_checksum = nt_headers->OptionalHeader.CheckSum;
+  trace_data->module_time_date_stamp = nt_headers->FileHeader.TimeDateStamp;
+  trace_data->frequency_size = data->frequency_size;
+  trace_data->num_entries = data->num_entries;
+  trace_data->num_columns = data->num_columns;
+
+  // Hook up the newly allocated buffer to the call-trace instrumentation.
+  data->frequency_data =
+      reinterpret_cast<uint32*>(&trace_data->frequency_data[0]);
+
+  return true;
+}
+
+BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
+    IndexedFrequencyData* module_data) {
+  DCHECK(module_data != NULL);
+  CHECK_NE(IndexedFrequencyData::INVALID_DATA_TYPE, module_data->data_type);
+
+  // Create the thread-local state for this thread. By default, just point the
+  // counter array to the statically allocated fall-back area.
+  ThreadState* state =
+    new ThreadState(module_data, &lock_, module_data->frequency_data);
+  CHECK(state != NULL);
+
+  // Register the thread state with the thread state manager.
+  thread_state_manager_.Register(state);
+
+  // If we're not actually tracing, then we're done.
+  if (session_.IsDisabled())
+    return state;
+
+  // Nothing to allocate? We're done!
+  if (module_data->num_entries == 0) {
+    LOG(WARNING) << "Module contains no instrumented basic blocks.";
+    return state;
+  }
+
+  return state;
+}
+
+inline BasicBlockEntry::ThreadState* BasicBlockEntry::GetThreadState(
+    IndexedFrequencyData* module_data) {
+  ScopedLastErrorKeeper scoped_last_error_keeper;
+
+  DWORD tls_index = module_data->tls_index;
+  DCHECK_NE(TLS_OUT_OF_INDEXES, tls_index);
+  ThreadState* state = static_cast<ThreadState*>(::TlsGetValue(tls_index));
+  return state;
 }
 
 void WINAPI BasicBlockEntry::IncrementIndexedFreqDataHook(
     IncrementIndexedFreqDataFrame* entry_frame) {
-  ScopedLastErrorKeeper scoped_last_error_keeper;
   DCHECK(entry_frame != NULL);
   DCHECK(entry_frame->module_data != NULL);
   DCHECK_GT(entry_frame->module_data->num_entries,
             entry_frame->index);
 
-  // TODO(rogerm): Consider extracting a fast path for state != NULL? Inline it
-  //     during instrumentation? Move it into the _increment_indexed_freq_data
-  //     function?
-  ThreadState* state = ThreadState::Get(entry_frame->module_data->tls_index);
+  ThreadState* state = GetThreadState(entry_frame->module_data);
   if (state == NULL)
-    state = Instance()->CreateThreadState(entry_frame->module_data);
+    return;
+
+  base::AutoLock scoped_lock(*state->trace_lock());
   state->Increment(entry_frame->index);
 }
 
 void WINAPI BasicBlockEntry::BranchEnterHook(
     IncrementIndexedFreqDataFrame* entry_frame) {
-  ScopedLastErrorKeeper scoped_last_error_keeper;
   DCHECK(entry_frame != NULL);
   DCHECK(entry_frame->module_data != NULL);
   DCHECK_GT(entry_frame->module_data->num_entries,
             entry_frame->index);
-  ThreadState* state = ThreadState::Get(entry_frame->module_data->tls_index);
+  ThreadState* state = GetThreadState(entry_frame->module_data);
   if (state == NULL)
-    state = Instance()->CreateThreadState(entry_frame->module_data);
-  state->Enter(entry_frame->index);
+    return;
+
+  base::AutoLock scoped_lock(*state->trace_lock());
+  uint32 last_basic_block_id = state->last_basic_block_id();
+  state->Enter(entry_frame->index, last_basic_block_id);
+  state->reset_last_basic_block_id();
 }
 
-void WINAPI BasicBlockEntry::BranchExitHook(
+void WINAPI BasicBlockEntry::BranchEnterBufferedHook(
     IncrementIndexedFreqDataFrame* entry_frame) {
-  ScopedLastErrorKeeper scoped_last_error_keeper;
   DCHECK(entry_frame != NULL);
   DCHECK(entry_frame->module_data != NULL);
   DCHECK_GT(entry_frame->module_data->num_entries,
             entry_frame->index);
-  ThreadState* state = ThreadState::Get(entry_frame->module_data->tls_index);
+  ThreadState* state = GetThreadState(entry_frame->module_data);
   if (state == NULL)
-    state = Instance()->CreateThreadState(entry_frame->module_data);
+    return;
+
+  if (state->Push(entry_frame->index)) {
+    base::AutoLock scoped_lock(*state->trace_lock());
+    state->Flush();
+  }
+  state->reset_last_basic_block_id();
+}
+
+inline void WINAPI BasicBlockEntry::BranchExitHook(
+    IncrementIndexedFreqDataFrame* entry_frame) {
+  DCHECK(entry_frame != NULL);
+  DCHECK(entry_frame->module_data != NULL);
+  DCHECK_GT(entry_frame->module_data->num_entries,
+            entry_frame->index);
+
+  ThreadState* state = GetThreadState(entry_frame->module_data);
+  if (state == NULL)
+    return;
+
   state->Leave(entry_frame->index);
 }
 
@@ -559,6 +830,9 @@ void WINAPI BasicBlockEntry::ExeMainEntryHook(ExeMainEntryFrame* entry_frame) {
 void BasicBlockEntry::RegisterModule(const void* addr) {
   DCHECK(addr != NULL);
 
+  if (session_.IsDisabled())
+    return;
+
   // Allocate a segment for the module information.
   trace::client::TraceFileSegment module_info_segment;
   CHECK(session_.AllocateBuffer(&module_info_segment));
@@ -580,7 +854,11 @@ void BasicBlockEntry::OnProcessAttach(IndexedFrequencyData* module_data) {
   CHECK_EQ(::common::kBasicBlockEntryAgentId, module_data->agent_id);
 
   // Exit if the version does not match.
-  CHECK(DatatypeVersionIsValid(module_data->data_type, module_data->version));
+  CHECK(DatatypeVersionIsValid(module_data->data_type,
+                               module_data->agent_id,
+                               module_data->version,
+                               module_data->frequency_size,
+                               module_data->num_columns));
 
   // We allow for this hook to be called multiple times. We expect the first
   // time to occur under the loader lock, so we don't need to worry about
@@ -599,8 +877,29 @@ void BasicBlockEntry::OnProcessAttach(IndexedFrequencyData* module_data) {
   // Register this module with the call_trace if the session is not disabled.
   // Note that we expect module_data to be statically defined within the
   // module of interest, so we can use its address to lookup the module.
-  if (!session_.IsDisabled())
-    RegisterModule(module_data);
+  if (session_.IsDisabled()) {
+    LOG(WARNING) << "Unable to initialize client as we are not tracing.";
+  } else {
+    if (!InitializeFrequencyData(module_data)) {
+      LOG(ERROR) << "Failed to initialize frequency data.";
+      return;
+    }
+  }
+
+  RegisterModule(module_data);
+
+  // Allocate space used by branch instrumentation.
+  ThreadState* state = CreateThreadState(module_data);
+  if (module_data->data_type == ::common::IndexedFrequencyData::BRANCH)
+    state->AllocatePredictorCache();
+
+  // Allocate buffer to which basic block id are pushed before being committed.
+  state->AllocateBasicBlockIdBuffer();
+
+  // Store the thread state in the TLS slot.
+  ::TlsSetValue(module_data->tls_index, state);
+
+  LOG(INFO) << "BBEntry client initialized.";
 }
 
 void BasicBlockEntry::OnThreadDetach(IndexedFrequencyData* module_data) {
@@ -608,88 +907,9 @@ void BasicBlockEntry::OnThreadDetach(IndexedFrequencyData* module_data) {
   DCHECK_EQ(1U, module_data->initialization_attempted);
   DCHECK_NE(TLS_OUT_OF_INDEXES, module_data->tls_index);
 
-  ThreadState* state = ThreadState::Get(module_data->tls_index);
+  ThreadState* state = GetThreadState(module_data);
   if (state != NULL)
     thread_state_manager_.MarkForDeath(state);
-}
-
-BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
-    IndexedFrequencyData* module_data) {
-  DCHECK(module_data != NULL);
-  CHECK_NE(IndexedFrequencyData::INVALID_DATA_TYPE, module_data->data_type);
-
-  // Create the thread-local state for this thread. By default, just point the
-  // counter array to the statically allocated fall-back area.
-  ThreadState* state = new ThreadState(this, module_data->frequency_data);
-  CHECK(state != NULL);
-
-  // Associate the thread_state with the current thread.
-  state->Assign(module_data->tls_index);
-
-  // Register the thread state with the thread state manager.
-  thread_state_manager_.Register(state);
-
-  // If we're not actually tracing, then we're done.
-  if (session_.IsDisabled())
-    return state;
-
-  // Nothing to allocate? We're done!
-  if (module_data->num_entries == 0) {
-    LOG(WARNING) << "Module contains no instrumented basic blocks, not "
-                 << "allocating basic-block trace data segment.";
-    return state;
-  }
-
-  // Determine the size of the basic block frequency table.
-  DCHECK_LT(0U, module_data->frequency_size);
-  DCHECK_LT(0U, module_data->num_columns);
-  size_t data_size = module_data->num_entries * module_data->frequency_size *
-      module_data->num_columns;
-
-  // Determine the size of the basic block frequency record.
-  size_t record_size = sizeof(TraceIndexedFrequencyData) + data_size - 1;
-
-  // Determine the size of the buffer we need. We need room for the basic block
-  // frequency struct plus a single RecordPrefix header.
-  size_t segment_size = sizeof(RecordPrefix) + record_size;
-
-  // Allocate the actual segment for the basic block entry data.
-  CHECK(session_.AllocateBuffer(segment_size, state->segment()));
-
-  // Ensure it's big enough to allocate the basic-block frequency data
-  // we want. This automatically accounts for the RecordPrefix overhead.
-  CHECK(state->segment()->CanAllocate(record_size));
-
-  // Allocate the basic-block frequency data. We will leave this allocated and
-  // let it get flushed during tear-down of the call-trace client.
-  TraceIndexedFrequencyData* trace_data =
-      reinterpret_cast<TraceIndexedFrequencyData*>(
-          state->segment()->AllocateTraceRecordImpl(TRACE_INDEXED_FREQUENCY,
-                                                    record_size));
-  DCHECK(trace_data != NULL);
-
-  // Initialize the basic block frequency data struct.
-  HMODULE module = GetModuleForAddr(module_data);
-  CHECK(module != NULL);
-  const base::win::PEImage image(module);
-  const IMAGE_NT_HEADERS* nt_headers = image.GetNTHeaders();
-  trace_data->data_type = module_data->data_type;
-  trace_data->module_base_addr = reinterpret_cast<ModuleAddr>(image.module());
-  trace_data->module_base_size = nt_headers->OptionalHeader.SizeOfImage;
-  trace_data->module_checksum = nt_headers->OptionalHeader.CheckSum;
-  trace_data->module_time_date_stamp = nt_headers->FileHeader.TimeDateStamp;
-  trace_data->frequency_size = module_data->frequency_size;
-  trace_data->num_entries = module_data->num_entries;
-  trace_data->num_columns = module_data->num_columns;
-
-  // Hook up the newly allocated buffer to the call-trace instrumentation.
-  state->set_frequency_data(trace_data->frequency_data);
-
-  // The branch agent uses a temporary buffer to simulate the branch predictor.
-  if (module_data->data_type == ::common::IndexedFrequencyData::BRANCH)
-    state->AllocatePredictorData(module_data->num_entries);
-
-  return state;
 }
 
 }  // namespace basic_block_entry

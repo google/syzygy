@@ -38,7 +38,7 @@ ThreadStateManager::ThreadStateManager() {
 ThreadStateManager::~ThreadStateManager() {
   // Destroy all active and death row thread states here. Note that this is
   // racy as hell if other threads are active, but it's the caller's
-  // responsibilty to ensure that's not the case.
+  // responsibility to ensure that's not the case.
 
   // Attempt an orderly deletion of items of the death row.
   Scavenge();

@@ -176,10 +176,6 @@ class BasicBlockEntryTest : public testing::Test {
     indirect_penter_exemain_stub_ =
         ::GetProcAddress(agent_module_, "_indirect_penter_exemain");
     ASSERT_TRUE(indirect_penter_exemain_stub_ != NULL);
-
-    get_raw_frequency_data_stub_ =
-        ::GetProcAddress(agent_module_, "GetRawFrequencyData");
-    ASSERT_TRUE(get_raw_frequency_data_stub_ != NULL);
   }
 
   void UnloadDll() {
@@ -191,7 +187,6 @@ class BasicBlockEntryTest : public testing::Test {
       basic_block_increment_stub_ = NULL;
       indirect_penter_dllmain_stub_ = NULL;
       indirect_penter_exemain_stub_ = NULL;
-      get_raw_frequency_data_stub_ = NULL;
     }
   }
 
@@ -266,9 +261,6 @@ class BasicBlockEntryTest : public testing::Test {
 
   // The ExeMain entry stub.
   static FARPROC indirect_penter_exemain_stub_;
-
-  // The entry stub to get a pointer to data frequency.
-  static FARPROC get_raw_frequency_data_stub_;
 };
 
 BOOL WINAPI BasicBlockEntryTest::DllMain(
@@ -289,14 +281,6 @@ int __cdecl BasicBlockEntryTest::ExeMain() {
   return 0;
 }
 
-int __declspec(naked) __cdecl BasicBlockEntryTest::GetFrequencyDataThunk() {
-  __asm {
-    push offset module_data_
-    call get_raw_frequency_data_stub_
-    ret
-  }
-}
-
 BOOL __declspec(naked) __cdecl BasicBlockEntryTest::ExeMainThunk() {
   __asm {
     push offset module_data_
@@ -313,7 +297,6 @@ FARPROC BasicBlockEntryTest::basic_block_exit_stub_ = NULL;
 FARPROC BasicBlockEntryTest::basic_block_increment_stub_ = NULL;
 FARPROC BasicBlockEntryTest::indirect_penter_dllmain_stub_ = NULL;
 FARPROC BasicBlockEntryTest::indirect_penter_exemain_stub_ = NULL;
-FARPROC BasicBlockEntryTest::get_raw_frequency_data_stub_ = NULL;
 
 }  // namespace
 
@@ -386,14 +369,12 @@ TEST_F(BasicBlockEntryTest, SingleThreadedDllBasicBlockEvents) {
   ASSERT_NE(0U, module_data_.initialization_attempted);
   ASSERT_EQ(kNumColumns, module_data_.num_columns);
   ASSERT_EQ(kNumBasicBlocks, module_data_.num_entries);
-  ASSERT_EQ(default_frequency_data_, module_data_.frequency_data);
 
-  // Visiting an initial basic-block should not fail. It should initialize the
-  // TLS index, allocate a frequency map for this thread, and increment the
-  // call count in the allocated frequency map. The default frequency data
-  // should be left unchanged.
+  // The frequency_data must be allocated and frequency_data must point to it.
+  ASSERT_NE(default_branch_data_, module_data_.frequency_data);
+
+  // Visiting an initial basic-block should not fail.
   SimulateBasicBlockEntry(0);
-  ASSERT_EQ(default_frequency_data_, module_data_.frequency_data);
   ASSERT_EQ(0U, default_frequency_data_[0]);
 
   // Make a few more calls, just to keep things interesting.
@@ -448,15 +429,12 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBasicBlockEvents) {
   ASSERT_NE(0U, module_data_.initialization_attempted);
   ASSERT_EQ(kNumColumns, module_data_.num_columns);
   ASSERT_EQ(kNumBasicBlocks, module_data_.num_entries);
-  ASSERT_EQ(default_frequency_data_, module_data_.frequency_data);
 
-  // Visiting an initial basic-block should not fail. It should initialize the
-  // TLS index, allocate a frequency map for this thread, and increment the
-  // call count in the allocated frequency map. The default frequency data
-  // should be left unchanged.
+  // The frequency_data must be allocated and frequency_data must point to it.
+  ASSERT_NE(default_branch_data_, module_data_.frequency_data);
+
+  // Visiting an initial basic-block should not fail.
   SimulateBasicBlockEntry(0);
-
-  ASSERT_EQ(default_frequency_data_, module_data_.frequency_data);
   ASSERT_EQ(0U, default_frequency_data_[0]);
 
   // Make a few more calls, just to keep things interesting.
@@ -490,30 +468,6 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBasicBlockEvents) {
   ASSERT_NO_FATAL_FAILURE(ReplayLogs(1));
 }
 
-TEST_F(BasicBlockEntryTest, InvokeGetFrequencyData) {
-  // Configure for BasicBlock mode.
-  ConfigureBasicBlockAgent();
-
-  ASSERT_NO_FATAL_FAILURE(StartService());
-  ASSERT_NO_FATAL_FAILURE(LoadDll());
-
-  // Simulate the process attach event.
-  ExeMainThunk();
-
-  // Check creation of a buffer on first call.
-  EXPECT_TRUE(::TlsGetValue(module_data_.tls_index) == NULL);
-  uint32* data1 = reinterpret_cast<uint32*>(GetFrequencyDataThunk());
-  EXPECT_TRUE(data1 != NULL);
-  EXPECT_TRUE(::TlsGetValue(module_data_.tls_index) != NULL);
-
-  // Next calls should return the same buffer.
-  uint32* data2 = reinterpret_cast<uint32*>(GetFrequencyDataThunk());
-  EXPECT_EQ(data1, data2);
-
-  // Unload the DLL and stop the service.
-  ASSERT_NO_FATAL_FAILURE(UnloadDll());
-}
-
 TEST_F(BasicBlockEntryTest, SingleThreadedExeBranchEvents) {
   // Configure for Branch mode.
   ConfigureBranchAgent();
@@ -532,15 +486,14 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBranchEvents) {
   ASSERT_NE(0U, module_data_.initialization_attempted);
   ASSERT_EQ(kNumBranchColumns, module_data_.num_columns);
   ASSERT_EQ(kNumBasicBlocks, module_data_.num_entries);
-  ASSERT_EQ(default_branch_data_, module_data_.frequency_data);
 
-  // Visiting an initial basic-block should not fail. It should initialize the
-  // TLS index, allocate a frequency map for this thread, and increment the
-  // call count in the allocated frequency map. The default frequency data
-  // should be left unchanged.
+  // The frequency_data must be allocated and frequency_data must point to it.
+  ASSERT_NE(default_branch_data_, module_data_.frequency_data);
+
+  // Visiting an initial basic-block should not fail.
   SimulateBranchEnter(0);
   SimulateBranchLeave(0);
-  ASSERT_EQ(default_branch_data_, module_data_.frequency_data);
+  ASSERT_NE(default_branch_data_, module_data_.frequency_data);
   for (size_t i = 0; i < kNumBranchColumns; ++i) {
     ASSERT_EQ(0U, default_branch_data_[i]);
   }
@@ -555,7 +508,7 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBranchEvents) {
   SimulateBranchEnter(0);
   SimulateBranchLeave(0);
   for (int i = 0; i < 6; ++i) {
-    SimulateBasicBlockEntry(1);
+    SimulateBranchEnter(1);
     SimulateBranchLeave(1);
   }
   for (int i = 0; i < 6; ++i) {
@@ -571,7 +524,7 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBranchEvents) {
   DWORD thread_id = ::GetCurrentThreadId();
 
   static const uint32 kExpectedBranchData[kNumBranchColumns * kNumBasicBlocks] =
-      { 9, 8, 3, 2, 0, 0 };
+      { 9, 5, 2, 8, 2, 2 };
 
   // Set up expectations for what should be in the trace.
   EXPECT_CALL(handler_, OnProcessStarted(_, process_id, _));
