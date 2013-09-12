@@ -35,8 +35,8 @@
         'pe_add_imports_transform.h',
         'pe_coff_add_imports_transform.cc',
         'pe_coff_add_imports_transform.h',
-        'prepare_headers_transform.cc',
-        'prepare_headers_transform.h',
+        'pe_prepare_headers_transform.cc',
+        'pe_prepare_headers_transform.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
@@ -58,8 +58,8 @@
         'explode_basic_blocks_transform_unittest.cc',
         'pe_add_imports_transform_unittest.cc',
         'pe_coff_add_imports_transform_unittest.cc',
+        'pe_prepare_headers_transform_unittest.cc',
         'pe_transforms_unittests_main.cc',
-        'prepare_headers_transform_unittest.cc',
       ],
       'dependencies': [
         'pe_transforms_lib',

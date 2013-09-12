@@ -22,17 +22,17 @@
 // and will be valid after the transform. The NT headers are not necessarily
 // valid.
 
-#ifndef SYZYGY_PE_TRANSFORMS_PREPARE_HEADERS_TRANSFORM_H_
-#define SYZYGY_PE_TRANSFORMS_PREPARE_HEADERS_TRANSFORM_H_
+#ifndef SYZYGY_PE_TRANSFORMS_PE_PREPARE_HEADERS_TRANSFORM_H_
+#define SYZYGY_PE_TRANSFORMS_PE_PREPARE_HEADERS_TRANSFORM_H_
 
 #include "syzygy/block_graph/transforms/named_transform.h"
 
 namespace pe {
 namespace transforms {
 
-class PrepareHeadersTransform
+class PEPrepareHeadersTransform
     : public block_graph::transforms::NamedBlockGraphTransformImpl<
-        PrepareHeadersTransform> {
+          PEPrepareHeadersTransform> {
  public:
   typedef block_graph::BlockGraph BlockGraph;
 
@@ -51,4 +51,4 @@ class PrepareHeadersTransform
 }  // namespace transforms
 }  // namespace pe
 
-#endif  // SYZYGY_PE_TRANSFORMS_PREPARE_HEADERS_TRANSFORM_H_
+#endif  // SYZYGY_PE_TRANSFORMS_PE_PREPARE_HEADERS_TRANSFORM_H_

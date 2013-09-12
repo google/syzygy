@@ -29,7 +29,7 @@
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
-#include "syzygy/pe/transforms/prepare_headers_transform.h"
+#include "syzygy/pe/transforms/pe_prepare_headers_transform.h"
 
 namespace pe {
 
@@ -70,7 +70,7 @@ class PEImageLayoutBuilderTest : public testing::PELibUnitTest {
     ASSERT_TRUE(IsValidDosHeaderBlock(dos_header_block_));
 
     // Prepare the headers. This puts our DOS stub in place.
-    transforms::PrepareHeadersTransform prep_headers;
+    transforms::PEPrepareHeadersTransform prep_headers;
     ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
         &prep_headers, &block_graph_, dos_header_block_));
   }
@@ -230,7 +230,7 @@ TEST_F(PEImageLayoutBuilderTest, ShiftTestDll) {
   // Prepare the headers (again). We need to do this to make sure that the image
   // headers accurately reflect the number of sections as we've added a new
   // one.
-  transforms::PrepareHeadersTransform prep_headers;
+  transforms::PEPrepareHeadersTransform prep_headers;
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
       &prep_headers, &block_graph_, dos_header_block_));
 

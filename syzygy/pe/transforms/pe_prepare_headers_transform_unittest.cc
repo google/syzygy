@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/pe/transforms/prepare_headers_transform.h"
+#include "syzygy/pe/transforms/pe_prepare_headers_transform.h"
 
 #include "base/stringprintf.h"
 #include "gtest/gtest.h"
@@ -28,9 +28,9 @@ using block_graph::TypedBlock;
 
 namespace {
 
-class PrepareHeadersTransformTest : public testing::Test {
+class PEPrepareHeadersTransformTest : public testing::Test {
  public:
-  PrepareHeadersTransformTest()
+  PEPrepareHeadersTransformTest()
       : expected_dos_header_size_(0),
         expected_nt_headers_size_(0),
         dos_header_block_(NULL),
@@ -89,10 +89,10 @@ class PrepareHeadersTransformTest : public testing::Test {
 
 }  // namespace
 
-TEST_F(PrepareHeadersTransformTest, ShrinkHeaders) {
+TEST_F(PEPrepareHeadersTransformTest, ShrinkHeaders) {
   BuildHeaders(100, block_graph_.sections().size() + 2);
 
-  PrepareHeadersTransform tx;
+  PEPrepareHeadersTransform tx;
   EXPECT_TRUE(tx.TransformBlockGraph(&block_graph_, dos_header_block_));
 
   ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
@@ -105,12 +105,12 @@ TEST_F(PrepareHeadersTransformTest, ShrinkHeaders) {
             nt_headers->FileHeader.NumberOfSections);
 }
 
-TEST_F(PrepareHeadersTransformTest, GrowHeaders) {
+TEST_F(PEPrepareHeadersTransformTest, GrowHeaders) {
   size_t section_count = block_graph_.sections().size() - 2;
   ASSERT_LT(section_count, block_graph_.sections().size());
   BuildHeaders(0, section_count);
 
-  PrepareHeadersTransform tx;
+  PEPrepareHeadersTransform tx;
   EXPECT_TRUE(tx.TransformBlockGraph(&block_graph_, dos_header_block_));
 
   ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;

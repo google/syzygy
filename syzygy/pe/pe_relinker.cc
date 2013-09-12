@@ -35,7 +35,7 @@
 #include "syzygy/pe/orderers/pe_orderer.h"
 #include "syzygy/pe/transforms/add_metadata_transform.h"
 #include "syzygy/pe/transforms/add_pdb_info_transform.h"
-#include "syzygy/pe/transforms/prepare_headers_transform.h"
+#include "syzygy/pe/transforms/pe_prepare_headers_transform.h"
 
 namespace pe {
 
@@ -275,7 +275,7 @@ bool ApplyTransforms(const base::FilePath& input_path,
 
   pe::transforms::AddMetadataTransform add_metadata_tx(input_path);
   pe::transforms::AddPdbInfoTransform add_pdb_info_tx(output_pdb_path, 1, guid);
-  pe::transforms::PrepareHeadersTransform prep_headers_tx;
+  pe::transforms::PEPrepareHeadersTransform prep_headers_tx;
 
   // We first run the sequence of user requested transforms.
 

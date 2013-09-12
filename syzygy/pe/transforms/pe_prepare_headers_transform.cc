@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/pe/transforms/prepare_headers_transform.h"
+#include "syzygy/pe/transforms/pe_prepare_headers_transform.h"
 
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/pe/pe_utils.h"
@@ -25,10 +25,10 @@ using block_graph::TypedBlock;
 typedef TypedBlock<IMAGE_DOS_HEADER> DosHeader;
 typedef TypedBlock<IMAGE_NT_HEADERS> NtHeaders;
 
-const char PrepareHeadersTransform::kTransformName[] =
-    "PrepareHeadersTransform";
+const char PEPrepareHeadersTransform::kTransformName[] =
+    "PEPrepareHeadersTransform";
 
-bool PrepareHeadersTransform::TransformBlockGraph(
+bool PEPrepareHeadersTransform::TransformBlockGraph(
     BlockGraph* block_graph, BlockGraph::Block* dos_header_block) {
   DCHECK(block_graph != NULL);
   DCHECK(dos_header_block != NULL);
