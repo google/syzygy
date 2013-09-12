@@ -16,6 +16,7 @@
 
 #include <vector>
 #include "gtest/gtest.h"
+#include "syzygy/core/disassembler_util.h"
 
 namespace core {
 
@@ -158,6 +159,35 @@ TEST_F(AssemblerTest, OperandImpl) {
     EXPECT_EQ(0xCA, op.displacement().value());
     EXPECT_EQ(&ref, op.displacement().reference());
     EXPECT_EQ(kSize8Bit, op.displacement().size());
+  }
+}
+
+TEST_F(AssemblerTest, Nop) {
+  asm_.nop(0);
+  EXPECT_TRUE(serializer_.code.empty());
+
+  // NOPs are generated in bunches of instructions of up to 15 bytes in
+  // length. We validate that each one of them is in fact a sequence of NOPs.
+  for (size_t i = 1; i <= 15; ++i) {
+    asm_.nop(i);
+    EXPECT_EQ(i, serializer_.code.size());
+
+    // The sequence of bytes should consist of NOP instructions.
+    size_t j = 0;
+    size_t instruction_count = 0;
+    while (j < i) {
+      _DInst instruction = {};
+      ASSERT_TRUE(DecodeOneInstruction(serializer_.code.data() + j,
+                                       i - j,
+                                       &instruction));
+      ASSERT_TRUE(IsNop(instruction));
+      j += instruction.size;
+      ++instruction_count;
+    }
+    // 1 or 2 instructions should be generated.
+    ASSERT_LT(0u, instruction_count);
+    ASSERT_GE(2u, instruction_count);
+    serializer_.code.clear();
   }
 }
 
@@ -1014,6 +1044,26 @@ TEST_F(AssemblerTest, Shr) {
   EXPECT_BYTES(0xD1, 0xE9);
   asm_.shr(ecx, ImmediateImpl(0x3, kSize8Bit));
   EXPECT_BYTES(0xC1, 0xE9, 0x03);
+}
+
+TEST_F(AssemblerTest, Xchg) {
+  // Any exchange with the eax register should generate a single byte
+  // instruction.
+  asm_.xchg(eax, eax);
+  EXPECT_BYTES(0x90);
+  asm_.xchg(eax, ecx);
+  EXPECT_BYTES(0x91);
+  asm_.xchg(esp, eax);
+  EXPECT_BYTES(0x94);
+
+  // Any exchanges not involving the eax register should generate 2-byte
+  // instructions.
+  asm_.xchg(ebx, ecx);
+  EXPECT_BYTES(0x87, 0xCB);
+  asm_.xchg(edx, esp);
+  EXPECT_BYTES(0x87, 0xE2);
+  asm_.xchg(esp, edx);
+  EXPECT_BYTES(0x87, 0xD4);
 }
 
 TEST_F(AssemblerTest, Ja) {

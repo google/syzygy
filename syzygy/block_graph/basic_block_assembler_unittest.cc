@@ -397,6 +397,31 @@ TEST_F(OperandTest, Construction) {
                           Displacement(test_bb_)));
 }
 
+TEST_F(BasicBlockAssemblerTest, nop) {
+  // We can't use ASSERT_NO_REFS here as nop may generate more than 1
+  // instruction, an exception to the rule of 1 instruction that ASSERT_NO_REFS
+  // enforces.
+  asm_.nop(0);
+  ASSERT_EQ(0u, instructions_.size());
+
+  // Exactly 1 or 2 instructions should be emitted per NOP length from
+  // 1 to 15.
+  for (size_t i = 1; i <= 15; ++i) {
+    asm_.nop(i);
+    ASSERT_LT(0u, instructions_.size());
+    ASSERT_GE(2u, instructions_.size());
+
+    // NOP instructions should have no references.
+    for (BasicCodeBlock::Instructions::const_iterator inst_it =
+             instructions_.begin();
+         inst_it != instructions_.end();
+         ++inst_it) {
+      ASSERT_EQ(0u, inst_it->references().size());
+    }
+    instructions_.clear();
+  }
+}
+
 TEST_F(BasicBlockAssemblerTest, call) {
   asm_.call(Immediate(test_block_, 0));
   ASSERT_REFS(1, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
@@ -674,6 +699,14 @@ TEST_F(BasicBlockAssemblerTest, ret) {
   ASSERT_NO_REFS();
 
   asm_.ret(4);
+  ASSERT_NO_REFS();
+}
+
+TEST_F(BasicBlockAssemblerTest, xchg) {
+  asm_.xchg(core::eax, core::ecx);
+  ASSERT_NO_REFS();
+
+  asm_.xchg(core::esp, core::edx);
   ASSERT_NO_REFS();
 }
 

@@ -248,6 +248,10 @@ BasicBlockAssembler::BasicBlockAssembler(uint32 location,
     : serializer_(where, list), asm_(location, &serializer_) {
 }
 
+void BasicBlockAssembler::nop(size_t size) {
+  asm_.nop(size);
+}
+
 void BasicBlockAssembler::call(const Immediate& dst) {
   // In the context of BasicBlockAssembler it only makes sense for calls with
   // immediate parameters to be backed by a 32-bit reference.
@@ -542,6 +546,10 @@ void BasicBlockAssembler::ret() {
 
 void BasicBlockAssembler::ret(uint16 n) {
   asm_.ret(n);
+}
+
+void BasicBlockAssembler::xchg(Register dst, Register src) {
+  asm_.xchg(dst, src);
 }
 
 void BasicBlockAssembler::PushMandatoryReferenceInfo(

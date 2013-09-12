@@ -32,14 +32,20 @@ const Register edi(kRegisterEdi);
 namespace {
 
 enum Mod {
-  Reg1Ind = 0,  // Register indirect mode.
-  Reg1ByteDisp = 1,  // Register + byte displacement.
-  Reg1WordDisp = 2,  // Register + word displacement.
-  Reg1 = 3,  // Register + word displacement.
+  kReg1Ind = 0,  // Register indirect mode.
+  kReg1ByteDisp = 1,  // Register + byte displacement.
+  kReg1WordDisp = 2,  // Register + word displacement.
+  kReg1 = 3,  // Register itself.
 };
 
 const uint8 kTwoByteOpCodePrefix = 0x0F;
+// Prefix group 2 (segment selection).
 const uint8 kFsSegmentPrefix = 0x64;
+// Prefix group 3 (operand size override).
+const uint8 kOperandSizePrefix = 0x66;
+
+// Some opcodes that are used repeatedly.
+const uint8 kNopOpCode = 0x1F;
 
 // Returns true if @p operand is a displacement only - e.g.
 // specifies neither a base, nor an index register.
@@ -170,6 +176,9 @@ class AssemblerImpl::InstructionBuffer {
   const void*const* references() const { return references_; }
   // @}
 
+  // Emits operand size prefix (0x66) bytes.
+  // @param count The number of operand size prefix bytes to emit.
+  void EmitOperandSizePrefix(size_t count);
   // Emit an opcode byte.
   void EmitOpCodeByte(uint8 opcode);
   // Emit a ModR/M byte, reg_op is either a register or an opcode
@@ -237,6 +246,11 @@ AssemblerImpl::InstructionBuffer::~InstructionBuffer() {
   asm_->Output(*this);
 }
 
+void AssemblerImpl::InstructionBuffer::EmitOperandSizePrefix(size_t count) {
+  for (size_t i = 0; i < count; ++i)
+    EmitByte(kOperandSizePrefix);
+}
+
 void AssemblerImpl::InstructionBuffer::EmitOpCodeByte(uint8 opcode) {
   EmitByte(opcode);
 }
@@ -290,22 +304,22 @@ void AssemblerImpl::InstructionBuffer::EmitOperand(
       DCHECK_EQ(kTimes1, op.scale());
 
       // The [disp32] mode is encoded by overloading [EBP].
-      EmitModRMByte(Reg1Ind, reg_op, kRegisterEbp);
+      EmitModRMByte(kReg1Ind, reg_op, kRegisterEbp);
       Emit32BitDisplacement(op.displacement());
     } else {
       // Base register only, is it ESP?
       if (op.base() == kRegisterEsp) {
         // The [ESP] and [ESP+disp] cases cannot be encoded without a SIB byte.
         if (op.displacement().size() == kSizeNone) {
-          EmitModRMByte(Reg1Ind, reg_op, kRegisterEsp);
+          EmitModRMByte(kReg1Ind, reg_op, kRegisterEsp);
           EmitScaleIndexBaseByte(kTimes1, kRegisterEsp, kRegisterEsp);
         } else if (op.displacement().size() == kSize8Bit) {
-          EmitModRMByte(Reg1ByteDisp, reg_op, kRegisterEsp);
+          EmitModRMByte(kReg1ByteDisp, reg_op, kRegisterEsp);
           EmitScaleIndexBaseByte(kTimes1, kRegisterEsp, kRegisterEsp);
           Emit8BitDisplacement(op.displacement());
         } else {
           DCHECK_EQ(kSize32Bit, op.displacement().size());
-          EmitModRMByte(Reg1WordDisp, reg_op, kRegisterEsp);
+          EmitModRMByte(kReg1WordDisp, reg_op, kRegisterEsp);
           EmitScaleIndexBaseByte(kTimes1, kRegisterEsp, kRegisterEsp);
           Emit32BitDisplacement(op.displacement());
         }
@@ -313,19 +327,19 @@ void AssemblerImpl::InstructionBuffer::EmitOperand(
         if (op.base() == kRegisterEbp) {
           // The [EBP] case cannot be encoded canonically, there always must
           // be a (zero) displacement.
-          EmitModRMByte(Reg1ByteDisp, reg_op, op.base());
+          EmitModRMByte(kReg1ByteDisp, reg_op, op.base());
           Emit8BitDisplacement(DisplacementImpl(0, kSize8Bit, NULL));
         } else {
-          EmitModRMByte(Reg1Ind, reg_op, op.base());
+          EmitModRMByte(kReg1Ind, reg_op, op.base());
         }
       } else if (op.displacement().size() == kSize8Bit) {
         // It's [base+disp8], or possibly [EBP].
-        EmitModRMByte(Reg1ByteDisp, reg_op, op.base());
+        EmitModRMByte(kReg1ByteDisp, reg_op, op.base());
         Emit8BitDisplacement(op.displacement());
       } else {
         DCHECK_EQ(kSize32Bit, op.displacement().size());
         // It's [base+disp32].
-        EmitModRMByte(Reg1WordDisp, reg_op, op.base());
+        EmitModRMByte(kReg1WordDisp, reg_op, op.base());
         Emit32BitDisplacement(op.displacement());
       }
     }
@@ -335,7 +349,7 @@ void AssemblerImpl::InstructionBuffer::EmitOperand(
     DCHECK_EQ(kRegisterNone, op.base());
 
     // This mode always has a 32 bit displacement.
-    EmitModRMByte(Reg1Ind, reg_op, kRegisterEsp);
+    EmitModRMByte(kReg1Ind, reg_op, kRegisterEsp);
     EmitScaleIndexBaseByte(op.scale(), op.index(), kRegisterEbp);
     Emit32BitDisplacement(op.displacement());
   } else {
@@ -345,15 +359,15 @@ void AssemblerImpl::InstructionBuffer::EmitOperand(
 
     // Is there a displacement?
     if (op.displacement().size() == kSizeNone) {
-      EmitModRMByte(Reg1Ind, reg_op, kRegisterEsp);
+      EmitModRMByte(kReg1Ind, reg_op, kRegisterEsp);
       EmitScaleIndexBaseByte(op.scale(), op.index(), op.base());
     } else if (op.displacement().size() == kSize8Bit) {
-      EmitModRMByte(Reg1ByteDisp, reg_op, kRegisterEsp);
+      EmitModRMByte(kReg1ByteDisp, reg_op, kRegisterEsp);
       EmitScaleIndexBaseByte(op.scale(), op.index(), op.base());
       Emit8BitDisplacement(op.displacement());
     } else {
       DCHECK_EQ(kSize32Bit, op.displacement().size());
-      EmitModRMByte(Reg1WordDisp, reg_op, kRegisterEsp);
+      EmitModRMByte(kReg1WordDisp, reg_op, kRegisterEsp);
       EmitScaleIndexBaseByte(op.scale(), op.index(), op.base());
       Emit32BitDisplacement(op.displacement());
     }
@@ -417,7 +431,7 @@ void AssemblerImpl::InstructionBuffer::Emit16BitValue(uint16 value) {
 void AssemblerImpl::InstructionBuffer::EmitArithmeticInstruction(
     uint8 op, Register dst, Register src) {
   EmitOpCodeByte(op);
-  EmitModRMByte(Reg1, dst.code(), src.code());
+  EmitModRMByte(kReg1, dst.code(), src.code());
 }
 
 void AssemblerImpl::InstructionBuffer::EmitArithmeticInstruction(
@@ -441,11 +455,11 @@ void AssemblerImpl::InstructionBuffer::EmitArithmeticInstructionToRegister(
     Emit32BitDisplacement(src);
   } else if (src.size() == kSize8Bit) {
     EmitOpCodeByte(op_8);
-    EmitModRMByte(Reg1, sub_op, dst.code());
+    EmitModRMByte(kReg1, sub_op, dst.code());
     Emit8BitDisplacement(src);
   } else {
     EmitOpCodeByte(op_32);
-    EmitModRMByte(Reg1, sub_op, dst.code());
+    EmitModRMByte(kReg1, sub_op, dst.code());
     Emit32BitDisplacement(src);
   }
 }
@@ -459,7 +473,7 @@ void AssemblerImpl::InstructionBuffer::EmitArithmeticInstructionToRegister8bit(
     EmitOpCodeByte(op_eax);
   } else {
     EmitOpCodeByte(op_8);
-    EmitModRMByte(Reg1, sub_op, dst.code());
+    EmitModRMByte(kReg1, sub_op, dst.code());
   }
   Emit8BitDisplacement(src);
 }
@@ -496,6 +510,94 @@ void AssemblerImpl::InstructionBuffer::EmitByte(uint8 byte) {
 AssemblerImpl::AssemblerImpl(uint32 location, InstructionSerializer* serializer)
     : location_(location), serializer_(serializer) {
   DCHECK(serializer != NULL);
+}
+
+void AssemblerImpl::nop(size_t size) {
+  // These are NOP sequences suggested by the Intel Architecture
+  // Software Developer's manual, page 4-8.
+  //
+  //  1: 0x90
+  //  2: 0x66 0x90
+  //  3: 0x66 0x66 0x90
+  //  4: 0x0F 0x1F 0x40 0x00
+  //  5: 0x0F 0x1F 0x44 0x00 0x00
+  //  6: 0x66 0x0F 0x1F 0x44 0x00 0x00
+  //  7: 0x0F 0x1F 0x80 0x00 0x00 0x00 0x00
+  //  8: 0x0F 0x1F 0x84 0x00 0x00 0x00 0x00 0x00
+  //  9: 0x66 0x0F 0x1F 0x84 0x00 0x00 0x00 0x00 0x00
+  // 10: 0x66 0x66 0x0F 0x1F 0x84 0x00 0x00 0x00 0x00 0x00
+  // 11: 0x66 0x66 0x66 0x0F 0x1F 0x84 0x00 0x00 0x00 0x00 0x00
+  //
+  // It is further suggested not to put consecutive XCHG NOPs with prefixes,
+  // but rather to mix them with 0x1F NOPs or XCHG NOPs without prefixes. The
+  // basic nops without any operand prefixes (0x66) have been implemented as
+  // helper functions nop1, nop4, nop5, nop7 and nop8. This implementation of
+  // NOP sequences has been inspired by Oracle's HotSpot JVM JIT assembler
+  // (http://openjdk.java.net/groups/hotspot/).
+
+  // Eat up the NOPs in chunks of 15 bytes.
+  while (size >= 15) {
+    nop8(3);  // 11-byte non-XCHG NOP.
+    nop1(3);  // 4-byte prefixed XCHG NOP.
+    size -= 15;
+  }
+  DCHECK_GE(14u, size);
+
+  // Handle the last chunk of bytes.
+  size_t prefix_count = 0;
+  switch (size) {
+    // Handle 12- to 14-byte NOPs.
+    case 14:
+      ++prefix_count;
+    case 13:
+      ++prefix_count;
+    case 12:
+      nop8(prefix_count);  // 8- to 10-byte non-XCHG NOP.
+      nop1(3);  // 4-byte prefixed XCHG NOP.
+      return;
+
+    // Handle 8- to 11-byte NOPs.
+    case 11:
+      ++prefix_count;
+    case 10:
+      ++prefix_count;
+    case 9:
+      ++prefix_count;
+    case 8:
+      nop8(prefix_count);  // 8- to 11-byte non-XCHG NOP.
+      return;
+
+    // Handle 7-byte NOPs.
+    case 7:
+      nop7(prefix_count);  // 7-byte non-XCHG NOP.
+      return;
+
+    // Handle 5- to 6-byte NOPs.
+    case 6:
+      ++prefix_count;
+    case 5:
+      nop5(prefix_count);  // 5- to 6-byte non-XCHG NOP.
+      return;
+
+    // Handle 4-byte NOPs.
+    case 4:
+      nop4(prefix_count);  // 4-byte non-XCHG NOP.
+      return;
+
+    // Handle 1- to 3-byte NOPs.
+    case 3:
+      ++prefix_count;
+    case 2:
+      ++prefix_count;
+    case 1:
+      nop1(prefix_count);  // 1- to 3-byte XCHG NOP.
+      return;
+
+    case 0:
+      // Nothing to do!
+      break;
+  }
+  return;
 }
 
 void AssemblerImpl::call(const ImmediateImpl& dst) {
@@ -589,7 +691,7 @@ void AssemblerImpl::set(ConditionCode cc, Register dst) {
   // AMD64 Architecture Programmers Manual Volume 3: General-Purpose and System
   // Instructions: The reg field in the ModR/M byte is unused.
   Register unused = core::eax;
-  instr.EmitModRMByte(Reg1, unused.code(), dst.code());
+  instr.EmitModRMByte(kReg1, unused.code(), dst.code());
 }
 
 void AssemblerImpl::mov_b(const OperandImpl& dst, const ImmediateImpl& src) {
@@ -611,7 +713,7 @@ void AssemblerImpl::mov(Register dst, Register src) {
   InstructionBuffer instr(this);
 
   instr.EmitOpCodeByte(0x8B);
-  instr.EmitModRMByte(Reg1, dst.code(), src.code());
+  instr.EmitModRMByte(kReg1, dst.code(), src.code());
 }
 
 void AssemblerImpl::mov(Register dst, const OperandImpl& src) {
@@ -899,10 +1001,10 @@ void AssemblerImpl::shl(Register dst, const ImmediateImpl& src) {
   InstructionBuffer instr(this);
   if (src.value() == 1) {
     instr.EmitOpCodeByte(0xD1);
-    instr.EmitModRMByte(Reg1, 4, dst.code());
+    instr.EmitModRMByte(kReg1, 4, dst.code());
   } else {
     instr.EmitOpCodeByte(0xC1);
-    instr.EmitModRMByte(Reg1, 4, dst.code());
+    instr.EmitModRMByte(kReg1, 4, dst.code());
     instr.Emit8BitDisplacement(src);
   }
 }
@@ -911,12 +1013,78 @@ void AssemblerImpl::shr(Register dst, const ImmediateImpl& src) {
   InstructionBuffer instr(this);
   if (src.value() == 1) {
     instr.EmitOpCodeByte(0xD1);
-    instr.EmitModRMByte(Reg1, 5, dst.code());
+    instr.EmitModRMByte(kReg1, 5, dst.code());
   } else {
     instr.EmitOpCodeByte(0xC1);
-    instr.EmitModRMByte(Reg1, 5, dst.code());
+    instr.EmitModRMByte(kReg1, 5, dst.code());
     instr.Emit8BitDisplacement(src);
   }
+}
+
+void AssemblerImpl::xchg(Register dst, Register src) {
+  InstructionBuffer instr(this);
+  // If either register is EAX there's a 1-byte encoding.
+  if (src.code() == kRegisterEax || dst.code() == kRegisterEax) {
+    RegisterCode other_register = dst.code();
+    if (dst.code() == kRegisterEax)
+      other_register = src.code();
+    instr.EmitOpCodeByte(0x90 | other_register);
+  } else {
+    // Otherwise we use a 2-byte encoding with a ModR/M byte.
+    instr.EmitOpCodeByte(0x87);
+    instr.EmitModRMByte(kReg1, src.code(), dst.code());
+  }
+}
+
+void AssemblerImpl::nop1(size_t prefix_count) {
+  InstructionBuffer instr(this);
+  instr.EmitOperandSizePrefix(prefix_count);
+  // 1 byte: XCHG EAX, EAX
+  instr.EmitOpCodeByte(0x90);
+}
+
+void AssemblerImpl::nop4(size_t prefix_count) {
+  InstructionBuffer instr(this);
+  instr.EmitOperandSizePrefix(prefix_count);
+  // 4 bytes: NOP DWORD PTR [EAX + 0] 8-bit offset
+  instr.EmitOpCodeByte(kTwoByteOpCodePrefix);
+  instr.EmitOpCodeByte(kNopOpCode);
+  instr.EmitModRMByte(kReg1ByteDisp, 0, kRegisterEax);
+  instr.Emit8BitDisplacement(DisplacementImpl(0, kSize8Bit));
+}
+
+void AssemblerImpl::nop5(size_t prefix_count) {
+  InstructionBuffer instr(this);
+  instr.EmitOperandSizePrefix(prefix_count);
+  // 5 bytes: NOP DWORD PTR [EAX + EAX * 1 + 0] 8-bit offset
+  instr.EmitOpCodeByte(kTwoByteOpCodePrefix);
+  instr.EmitOpCodeByte(kNopOpCode);
+  // esp in the ModR/M byte indicates SIB to follow.
+  instr.EmitModRMByte(kReg1ByteDisp, 0, kRegisterEsp);
+  instr.EmitScaleIndexBaseByte(kTimes1, kRegisterEax, kRegisterEax);
+  instr.Emit8BitDisplacement(DisplacementImpl(0, kSize8Bit));
+}
+
+void AssemblerImpl::nop7(size_t prefix_count) {
+  InstructionBuffer instr(this);
+  instr.EmitOperandSizePrefix(prefix_count);
+  // 7 bytes: NOP DWORD PTR [EAX + 0] 32-bit offset
+  instr.EmitOpCodeByte(kTwoByteOpCodePrefix);
+  instr.EmitOpCodeByte(kNopOpCode);
+  instr.EmitModRMByte(kReg1WordDisp, 0, kRegisterEax);
+  instr.Emit32BitDisplacement(DisplacementImpl(0, kSize32Bit));
+}
+
+void AssemblerImpl::nop8(size_t prefix_count) {
+  InstructionBuffer instr(this);
+  instr.EmitOperandSizePrefix(prefix_count);
+  // 8 bytes: NOP DWORD PTR [EAX + EAX * 1 + 0] 32-bit offset
+  instr.EmitOpCodeByte(kTwoByteOpCodePrefix);
+  instr.EmitOpCodeByte(kNopOpCode);
+  // esp in the ModR/M byte indicates SIB to follow.
+  instr.EmitModRMByte(kReg1WordDisp, 0, kRegisterEsp);
+  instr.EmitScaleIndexBaseByte(kTimes1, kRegisterEax, kRegisterEax);
+  instr.Emit32BitDisplacement(DisplacementImpl(0, kSize32Bit));
 }
 
 void AssemblerImpl::Output(const InstructionBuffer& instr) {
