@@ -161,6 +161,10 @@ class BasicBlockEntryTest : public testing::Test {
         ::GetProcAddress(agent_module_, "_branch_enter");
     ASSERT_TRUE(basic_block_enter_stub_ != NULL);
 
+    basic_block_enter_buffered_stub_ =
+        ::GetProcAddress(agent_module_, "_branch_enter_buffered");
+    ASSERT_TRUE(basic_block_enter_buffered_stub_ != NULL);
+
     basic_block_exit_stub_ =
         ::GetProcAddress(agent_module_, "_branch_exit");
     ASSERT_TRUE(basic_block_exit_stub_ != NULL);
@@ -183,6 +187,7 @@ class BasicBlockEntryTest : public testing::Test {
       ASSERT_TRUE(::FreeLibrary(agent_module_));
       agent_module_ = NULL;
       basic_block_enter_stub_ = NULL;
+      basic_block_enter_buffered_stub_ = NULL;
       basic_block_exit_stub_ = NULL;
       basic_block_increment_stub_ = NULL;
       indirect_penter_dllmain_stub_ = NULL;
@@ -218,6 +223,14 @@ class BasicBlockEntryTest : public testing::Test {
     }
   }
 
+  void SimulateBranchEnterBuffered(uint32 basic_block_id) {
+    __asm {
+      push basic_block_id
+      push offset module_data_
+      call basic_block_enter_buffered_stub_
+    }
+  }
+
   void SimulateBranchLeave(uint32 basic_block_id) {
     __asm {
       push basic_block_id
@@ -249,6 +262,9 @@ class BasicBlockEntryTest : public testing::Test {
 
   // The basic-block entry entrance hook.
   static FARPROC basic_block_enter_stub_;
+
+  // The basic-block entry entrance hook (with buffering).
+  static FARPROC basic_block_enter_buffered_stub_;
 
   // The basic-block exit hook.
   static FARPROC basic_block_exit_stub_;
@@ -293,6 +309,7 @@ IndexedFrequencyData BasicBlockEntryTest::module_data_ = {};
 uint32 BasicBlockEntryTest::default_frequency_data_[] = {};
 uint32 BasicBlockEntryTest::default_branch_data_[] = {};
 FARPROC BasicBlockEntryTest::basic_block_enter_stub_ = NULL;
+FARPROC BasicBlockEntryTest::basic_block_enter_buffered_stub_ = NULL;
 FARPROC BasicBlockEntryTest::basic_block_exit_stub_ = NULL;
 FARPROC BasicBlockEntryTest::basic_block_increment_stub_ = NULL;
 FARPROC BasicBlockEntryTest::indirect_penter_dllmain_stub_ = NULL;
@@ -542,6 +559,56 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBranchEvents) {
 
   // Replay the log.
   ASSERT_NO_FATAL_FAILURE(ReplayLogs(1));
+}
+
+TEST_F(BasicBlockEntryTest, BranchWithBufferingEvents) {
+  // Configure for Branch mode.
+  ConfigureBranchAgent();
+
+  ASSERT_NO_FATAL_FAILURE(StartService());
+  ASSERT_NO_FATAL_FAILURE(LoadDll());
+
+  // Simulate the process attach event.
+  ExeMainThunk();
+
+  // Visiting an initial basic-block should not fail.
+  SimulateBranchEnterBuffered(0);
+  SimulateBranchLeave(0);
+  SimulateBranchEnterBuffered(1);
+  SimulateBranchLeave(1);
+  ASSERT_NE(default_branch_data_, module_data_.frequency_data);
+
+  // Keep a pointer to raw counters.
+  uint32* frequency_data =
+      reinterpret_cast<uint32*>(module_data_.frequency_data);
+
+  // Validate no events have been committed.
+  for (size_t i = 0; i < kNumBranchColumns; ++i) {
+    EXPECT_EQ(0U, frequency_data[i]);
+  }
+
+  // Force a flush.
+  const int kBigEnoughToCauseAFlush = BasicBlockEntry::kBufferSize + 1;
+  for (int i = 0; i < kBigEnoughToCauseAFlush; ++i) {
+    SimulateBranchEnterBuffered(0);
+    SimulateBranchLeave(0);
+  }
+
+  // Validate some events are committed.
+  EXPECT_NE(0U, frequency_data[0 * kNumBranchColumns]);
+  // Entering basic block 1 must be committed.
+  EXPECT_EQ(1U, frequency_data[1 * kNumBranchColumns]);
+
+  // Force a flush.
+  uint32 old_count = frequency_data[0];
+  for (int i = 0; i < kBigEnoughToCauseAFlush; ++i) {
+    SimulateBranchEnterBuffered(0);
+    SimulateBranchLeave(0);
+  }
+
+  // Expect to have increasing values.
+  uint32 new_count = frequency_data[0];
+  EXPECT_LT(old_count, new_count);
 }
 
 // TODO(rogerm): Add a decent multi-thread test case.

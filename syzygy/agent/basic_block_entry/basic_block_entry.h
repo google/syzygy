@@ -47,6 +47,11 @@ class BasicBlockEntry {
   typedef ::common::IndexedFrequencyData IndexedFrequencyData;
   typedef ::agent::common::ThreadStateManager ThreadStateManager;
 
+  // The size in DWORD of the buffer. We choose a multiple of memory page size.
+  static const size_t kBufferSize = 4096;
+  // The number of entries in the simulated branch predictor cache.
+  static const size_t kPredictorCacheSize = 4096;
+
   // This structure describes the contents of the stack above a call to
   // BasicBlockEntry::IncrementIndexedFreqDataHook. A pointer to this structure
   // will be given to the IncrementIndexedFreqDataHook by

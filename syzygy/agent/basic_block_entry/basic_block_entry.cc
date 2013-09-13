@@ -247,11 +247,6 @@ using trace::client::TraceFileSegment;
 
 const uint32 kInvalidBasicBlockId = ~0U;
 
-// The size in DWORD of the buffer. We choose a multiple of memory page size.
-const size_t kBufferSize = 4096;
-// The number of entries in the simulated branch predictor cache.
-const size_t kPredictorCacheSize = 4096;
-
 // The indexed_frequency_data for the bbentry instrumentation mode has 1 column.
 struct BBEntryFrequency {
   uint32 frequency;
@@ -609,7 +604,7 @@ void BasicBlockEntry::ThreadState::Flush() {
   uint32 last_offset = basic_block_id_buffer_offset_;
 
   for (size_t offset = 0; offset < last_offset; ++offset) {
-    BranchBufferEntry* entry = &basic_block_id_buffer_[last_offset];
+    BranchBufferEntry* entry = &basic_block_id_buffer_[offset];
     Enter(entry->basic_block_id, entry->last_basic_block_id);
   }
 
@@ -908,8 +903,11 @@ void BasicBlockEntry::OnThreadDetach(IndexedFrequencyData* module_data) {
   DCHECK_NE(TLS_OUT_OF_INDEXES, module_data->tls_index);
 
   ThreadState* state = GetThreadState(module_data);
-  if (state != NULL)
-    thread_state_manager_.MarkForDeath(state);
+  if (state == NULL)
+    return;
+
+  state->Flush();
+  thread_state_manager_.MarkForDeath(state);
 }
 
 }  // namespace basic_block_entry
