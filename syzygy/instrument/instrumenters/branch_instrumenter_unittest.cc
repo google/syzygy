@@ -40,6 +40,7 @@ class TestBranchInstrumenter : public BranchInstrumenter {
   using BranchInstrumenter::no_parse_debug_info_;
   using BranchInstrumenter::no_strip_strings_;
   using BranchInstrumenter::debug_friendly_;
+  using BranchInstrumenter::buffering_;
   using BranchInstrumenter::kAgentDllBasicBlockEntry;
 
   TestBranchInstrumenter() {
@@ -133,6 +134,7 @@ TEST_F(BranchInstrumenterTest, ParseMinimalBranch) {
   EXPECT_FALSE(instrumenter_.no_parse_debug_info_);
   EXPECT_FALSE(instrumenter_.no_strip_strings_);
   EXPECT_FALSE(instrumenter_.debug_friendly_);
+  EXPECT_FALSE(instrumenter_.buffering_);
 }
 
 TEST_F(BranchInstrumenterTest, ParseFullBranch) {
@@ -148,6 +150,7 @@ TEST_F(BranchInstrumenterTest, ParseFullBranch) {
   cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitch("overwrite");
+  cmd_line_.AppendSwitch("buffering");
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
 
@@ -162,6 +165,7 @@ TEST_F(BranchInstrumenterTest, ParseFullBranch) {
   EXPECT_TRUE(instrumenter_.no_parse_debug_info_);
   EXPECT_TRUE(instrumenter_.no_strip_strings_);
   EXPECT_TRUE(instrumenter_.debug_friendly_);
+  EXPECT_TRUE(instrumenter_.buffering_);
 }
 
 TEST_F(BranchInstrumenterTest, InstrumentImpl) {

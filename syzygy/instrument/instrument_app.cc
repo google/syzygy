@@ -92,6 +92,8 @@ static const char kUsageFormatStr[] =
     "                            analysis.\n"
     "    --no-redundancy-analysis\n"
     "                            Disables redundant memory access analysis.\n"
+    "  branch mode options:\n"
+    "    --buffering             Enable per-thread buffering of events.\n"
     "  calltrace mode options:\n"
     "    --instrument-imports    Also instrument calls to imports.\n"
     "    --module-entry-only     If specified then the per-function entry\n"

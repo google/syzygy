@@ -47,6 +47,7 @@ using common::kBasicBlockFrequencyDataVersion;
 class TestBranchHookTransform : public BranchHookTransform {
  public:
   using BranchHookTransform::enter_hook_ref_;
+  using BranchHookTransform::enter_buffered_hook_ref_;
   using BranchHookTransform::exit_hook_ref_;
   using BranchHookTransform::thunk_section_;
 
@@ -61,13 +62,19 @@ class TestBranchHookTransform : public BranchHookTransform {
 
 class BranchHookTransformTest : public testing::TestDllTransformTest {
  public:
-  void CheckBasicBlockInstrumentation();
+  enum InstrumentationKind {
+    kBasicInstrumentation,
+    kBufferedInstrumentation
+  };
+
+  void CheckBasicBlockInstrumentation(InstrumentationKind mode);
 
  protected:
   TestBranchHookTransform tx_;
 };
 
-void BranchHookTransformTest::CheckBasicBlockInstrumentation() {
+void BranchHookTransformTest::CheckBasicBlockInstrumentation(
+    InstrumentationKind mode) {
   // Let's examine each eligible block to verify that its basic blocks have been
   // instrumented.
   BlockGraph::BlockMap::const_iterator block_iter =
@@ -123,8 +130,15 @@ void BranchHookTransformTest::CheckBasicBlockInstrumentation() {
       const Instruction& inst3 = *inst_iter;
       EXPECT_EQ(I_CALL, inst3.representation().opcode);
       ASSERT_EQ(1U, inst3.references().size());
-      EXPECT_EQ(tx_.enter_hook_ref_.referenced(),
-                inst3.references().begin()->second.block());
+      if (mode == kBasicInstrumentation) {
+        EXPECT_EQ(tx_.enter_hook_ref_.referenced(),
+                  inst3.references().begin()->second.block());
+      } else if (mode == kBufferedInstrumentation) {
+        EXPECT_EQ(tx_.enter_buffered_hook_ref_.referenced(),
+                  inst3.references().begin()->second.block());
+      } else {
+        NOTREACHED();
+      }
       ASSERT_TRUE(++inst_iter != bb->instructions().end());
 
       // Check exit hook function call.
@@ -200,7 +214,24 @@ TEST_F(BranchHookTransformTest, ApplyAgentInstrumentation) {
   EXPECT_EQ(expected_size, tx_.frequency_data_buffer_block()->size());
 
   // Validate that all basic blocks have been instrumented.
-  ASSERT_NO_FATAL_FAILURE(CheckBasicBlockInstrumentation());
+  ASSERT_NO_FATAL_FAILURE(
+      CheckBasicBlockInstrumentation(kBasicInstrumentation));
+}
+
+TEST_F(BranchHookTransformTest, ApplyBufferedAgentInstrumentation) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
+
+  // Activate buffering.
+  tx_.set_buffering(true);
+
+  // Apply the transform.
+  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(&tx_, &block_graph_,
+                                                    dos_header_block_));
+  ASSERT_TRUE(tx_.enter_buffered_hook_ref_.IsValid());
+
+  // Validate that all basic blocks have been instrumented.
+  ASSERT_NO_FATAL_FAILURE(
+      CheckBasicBlockInstrumentation(kBufferedInstrumentation));
 }
 
 }  // namespace transforms

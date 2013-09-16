@@ -63,6 +63,12 @@ class BranchHookTransform
     instrument_dll_name_.assign(value.begin(), value.end());
   }
 
+  // @name Accessors and mutators.
+  // @{
+  bool buffering() const { return buffering_; }
+  void set_buffering(bool buffering) { buffering_ = buffering; }
+  // @}
+
  protected:
   friend NamedBlockGraphTransformImpl<BranchHookTransform>;
   friend IterativeTransformImpl<BranchHookTransform>;
@@ -93,6 +99,10 @@ class BranchHookTransform
   // The entry hook to which basic-block entry events are directed.
   BlockGraph::Reference enter_hook_ref_;
 
+  // The entry hook to which basic-block entry events are directed when
+  // buffering is activated.
+  BlockGraph::Reference enter_buffered_hook_ref_;
+
   // The entry hook to which basic-block exit events are directed.
   BlockGraph::Reference exit_hook_ref_;
 
@@ -106,6 +116,9 @@ class BranchHookTransform
 
   // The name of this transform.
   static const char kTransformName[];
+
+  // Flag indicating if event buffering is activated.
+  bool buffering_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BranchHookTransform);

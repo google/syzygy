@@ -42,7 +42,7 @@ class BasicBlockEntryInstrumenter : public InstrumenterWithAgent {
   virtual bool InstrumentImpl() OVERRIDE;
   virtual const char* InstrumentationMode() OVERRIDE { return "bbentry"; }
   virtual bool ParseAdditionalCommandLineArguments(
-     const CommandLine* command_line) OVERRIDE;
+      const CommandLine* command_line) OVERRIDE;
   // @}
 
   // @name Command-line parameters.

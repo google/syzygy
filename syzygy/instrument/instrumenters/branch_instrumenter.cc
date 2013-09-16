@@ -33,6 +33,7 @@ bool BranchInstrumenter::InstrumentImpl() {
   branch_transform_.reset(
       new instrument::transforms::BranchHookTransform());
   branch_transform_->set_instrument_dll_name(agent_dll_);
+  branch_transform_->set_buffering(buffering_);
   relinker_->AppendTransform(branch_transform_.get());
 
   add_bb_addr_stream_mutator_.reset(new
@@ -40,6 +41,14 @@ bool BranchInstrumenter::InstrumentImpl() {
           branch_transform_->bb_ranges(),
           common::kBasicBlockRangesStreamName));
   relinker_->AppendPdbMutator(add_bb_addr_stream_mutator_.get());
+
+  return true;
+}
+
+bool BranchInstrumenter::ParseAdditionalCommandLineArguments(
+    const CommandLine* command_line) {
+  // Parse the additional command line arguments.
+  buffering_ = command_line->HasSwitch("buffering");
 
   return true;
 }

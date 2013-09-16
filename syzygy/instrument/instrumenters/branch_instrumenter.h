@@ -29,7 +29,6 @@ namespace instrumenters {
 class BranchInstrumenter : public InstrumenterWithAgent {
  public:
   BranchInstrumenter();
-
   ~BranchInstrumenter() { }
 
  protected:
@@ -40,6 +39,8 @@ class BranchInstrumenter : public InstrumenterWithAgent {
   // @{
   virtual bool InstrumentImpl();
   virtual const char* InstrumentationMode() { return "branch"; }
+  virtual bool ParseAdditionalCommandLineArguments(
+      const CommandLine* command_line) OVERRIDE;
   // @}
 
   // The transform for this agent.
@@ -48,6 +49,12 @@ class BranchInstrumenter : public InstrumenterWithAgent {
   // The PDB mutator for this agent.
   scoped_ptr<instrument::mutators::AddIndexedDataRangesStreamPdbMutator>
       add_bb_addr_stream_mutator_;
+
+  // @name Command-line parameters.
+  // @{
+  bool buffering_;
+  // @}
+
 };
 
 }  // namespace instrumenters
