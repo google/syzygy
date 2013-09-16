@@ -16,8 +16,12 @@
 
 #include "syzygy/agent/basic_block_entry/basic_block_entry.h"
 
+#include "base/bind.h"
+#include "base/callback.h"
 #include "base/file_util.h"
+#include "base/stringprintf.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/threading/thread.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/indexed_frequency_data.h"
@@ -49,6 +53,12 @@ const uint32 kNumBranchColumns = 3;
 // The number of basic blocks we'll work with for these tests.
 const uint32 kNumBasicBlocks = 2;
 
+// The number of threads used for parallel tests.
+const uint32 kNumThreads = 8;
+
+// Number of iterations done by each thread.
+const uint32 kNumThreadIteration = 4 * BasicBlockEntry::kBufferSize;
+
 // The module defining this lib/executable.
 const HMODULE kThisModule = reinterpret_cast<HMODULE>(&__ImageBase);
 
@@ -74,6 +84,12 @@ MATCHER_P3(FrequencyDataMatches, module, values_count, bb_freqs, "") {
 // The test fixture for the basic-block entry agent.
 class BasicBlockEntryTest : public testing::Test {
  public:
+  enum InstrumentationMode {
+    kBasicBlockEntryInstrumentation,
+    kBranchInstrumentation,
+    kBufferedBranchInstrumentation
+  };
+
   BasicBlockEntryTest()
       : agent_module_(NULL) {
   }
@@ -102,6 +118,21 @@ class BasicBlockEntryTest : public testing::Test {
     module_data_.frequency_size = sizeof(default_branch_data_[0]);
     module_data_.frequency_data = default_branch_data_;
     ::memset(&default_branch_data_, 0, sizeof(default_branch_data_));
+  }
+
+  void ConfigureAgent(InstrumentationMode mode) {
+    switch (mode) {
+      case kBasicBlockEntryInstrumentation:
+        ConfigureBasicBlockAgent();
+        break;
+      case kBranchInstrumentation:
+      case kBufferedBranchInstrumentation:
+        ConfigureBranchAgent();
+        break;
+      default:
+        NOTREACHED();
+        break;
+    }
   }
 
   virtual void SetUp() OVERRIDE {
@@ -237,6 +268,86 @@ class BasicBlockEntryTest : public testing::Test {
       push offset module_data_
       call basic_block_exit_stub_
     }
+  }
+
+  void SimulateThreadExecution(InstrumentationMode mode) {
+    // Simulate the thread attach event.
+    SimulateModuleEvent(DLL_THREAD_ATTACH);
+
+    // Simulate the thread loop.
+    for (uint32 i = 0; i < kNumThreadIteration; ++i) {
+      for (uint32 j = 0; j < kNumBasicBlocks; ++j) {
+        switch (mode) {
+          case kBasicBlockEntryInstrumentation:
+            SimulateBasicBlockEntry(j);
+            break;
+          case kBranchInstrumentation:
+            SimulateBranchEnter(j);
+            SimulateBranchLeave(j);
+            break;
+          case kBufferedBranchInstrumentation:
+            SimulateBranchEnterBuffered(j);
+            SimulateBranchLeave(j);
+            break;
+          default:
+            NOTREACHED();
+            break;
+        }
+      }
+    }
+
+    // Simulate the thread detach event.
+    SimulateModuleEvent(DLL_THREAD_DETACH);
+  }
+
+  void CheckThreadExecution(InstrumentationMode mode) {
+    // Configure for instrumented mode.
+    ConfigureAgent(mode);
+
+    ASSERT_NO_FATAL_FAILURE(StartService());
+    ASSERT_NO_FATAL_FAILURE(LoadDll());
+
+    // Simulate the process attach event.
+    SimulateModuleEvent(DLL_PROCESS_ATTACH);
+
+    std::vector<base::Thread*> threads;
+    for (size_t i = 0; i < kNumThreads; ++i) {
+      std::string thread_name = base::StringPrintf("thread-%d", i);
+      threads.push_back(new base::Thread(thread_name.c_str()));
+
+      threads[i]->Start();
+      threads[i]->message_loop()->PostTask(FROM_HERE,
+          base::Bind(&BasicBlockEntryTest::SimulateThreadExecution,
+                     base::Unretained(this),
+                     mode));
+    }
+
+    // Stop all running tasks.
+    for (size_t i = 0; i < kNumThreads; ++i) {
+      threads[i]->Stop();
+      delete threads[i];
+    }
+    threads.clear();
+
+    // Simulate the process detach event.
+    SimulateModuleEvent(DLL_PROCESS_DETACH);
+
+    // Validate all events have been committed.
+    const uint32* frequency_data =
+        reinterpret_cast<uint32*>(module_data_.frequency_data);
+    uint32 kColumns = kNumColumns;
+    if (mode == kBranchInstrumentation ||
+        mode == kBufferedBranchInstrumentation) {
+      kColumns = kNumBranchColumns;
+    }
+    const uint32 expected_frequency = kNumThreads * kNumThreadIteration;
+    for (size_t i = 0; i < kNumBasicBlocks; ++i) {
+      EXPECT_EQ(expected_frequency, frequency_data[i * kColumns]);
+    }
+
+    // Unload the DLL and stop the service.
+    ASSERT_NO_FATAL_FAILURE(UnloadDll());
+    ASSERT_NO_FATAL_FAILURE(StopService());
   }
 
   // The directory where trace file output will be written.
@@ -611,7 +722,19 @@ TEST_F(BasicBlockEntryTest, BranchWithBufferingEvents) {
   EXPECT_LT(old_count, new_count);
 }
 
-// TODO(rogerm): Add a decent multi-thread test case.
+TEST_F(BasicBlockEntryTest, MultiThreadedBasicBlockEvents) {
+  ASSERT_NO_FATAL_FAILURE(
+      CheckThreadExecution(kBasicBlockEntryInstrumentation));
+}
+
+TEST_F(BasicBlockEntryTest, MultiThreadedBranchEvents) {
+  ASSERT_NO_FATAL_FAILURE(CheckThreadExecution(kBranchInstrumentation));
+}
+
+TEST_F(BasicBlockEntryTest, MultiThreadedBufferdBranchEvents) {
+  ASSERT_NO_FATAL_FAILURE(
+      CheckThreadExecution(kBufferedBranchInstrumentation));
+}
 
 }  // namespace basic_block_entry
 }  // namespace agent

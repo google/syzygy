@@ -442,12 +442,7 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
   // Module information this thread state is gathering information on.
   const IndexedFrequencyData* module_data_;
 
-  // The basic-block frequency record we're populating. This will point into
-  // the associated trace file segment's buffer.
-  const TraceIndexedFrequencyData* trace_data_;
-
-  // Lock corresponding to 'trace_data_'. Any modification to frequency_data_
-  // must hold the lock to be thread-safe.
+  // Lock corresponding to 'frequency_data_'.
   base::Lock* trace_lock_;
 
   // Buffer used to queue basic block ids for later processing in batches.
@@ -704,6 +699,10 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
   // Register the thread state with the thread state manager.
   thread_state_manager_.Register(state);
 
+  // Store the thread state in the TLS slot.
+  DCHECK_NE(TLS_OUT_OF_INDEXES, module_data->tls_index);
+  ::TlsSetValue(module_data->tls_index, state);
+
   // If we're not actually tracing, then we're done.
   if (session_.IsDisabled())
     return state;
@@ -713,6 +712,13 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
     LOG(WARNING) << "Module contains no instrumented basic blocks.";
     return state;
   }
+
+  // Allocate space used by branch instrumentation.
+  if (module_data->data_type == ::common::IndexedFrequencyData::BRANCH)
+    state->AllocatePredictorCache();
+
+  // Allocate buffer to which basic block id are pushed before being committed.
+  state->AllocateBasicBlockIdBuffer();
 
   return state;
 }
@@ -735,8 +741,10 @@ void WINAPI BasicBlockEntry::IncrementIndexedFreqDataHook(
             entry_frame->index);
 
   ThreadState* state = GetThreadState(entry_frame->module_data);
-  if (state == NULL)
-    return;
+  if (state == NULL) {
+    ScopedLastErrorKeeper scoped_last_error_keeper;
+    state = Instance()->CreateThreadState(entry_frame->module_data);
+  }
 
   base::AutoLock scoped_lock(*state->trace_lock());
   state->Increment(entry_frame->index);
@@ -749,8 +757,10 @@ void WINAPI BasicBlockEntry::BranchEnterHook(
   DCHECK_GT(entry_frame->module_data->num_entries,
             entry_frame->index);
   ThreadState* state = GetThreadState(entry_frame->module_data);
-  if (state == NULL)
-    return;
+  if (state == NULL) {
+    ScopedLastErrorKeeper scoped_last_error_keeper;
+    state = Instance()->CreateThreadState(entry_frame->module_data);
+  }
 
   base::AutoLock scoped_lock(*state->trace_lock());
   uint32 last_basic_block_id = state->last_basic_block_id();
@@ -765,8 +775,10 @@ void WINAPI BasicBlockEntry::BranchEnterBufferedHook(
   DCHECK_GT(entry_frame->module_data->num_entries,
             entry_frame->index);
   ThreadState* state = GetThreadState(entry_frame->module_data);
-  if (state == NULL)
-    return;
+  if (state == NULL) {
+    ScopedLastErrorKeeper scoped_last_error_keeper;
+    state = Instance()->CreateThreadState(entry_frame->module_data);
+  }
 
   if (state->Push(entry_frame->index)) {
     base::AutoLock scoped_lock(*state->trace_lock());
@@ -882,17 +894,6 @@ void BasicBlockEntry::OnProcessAttach(IndexedFrequencyData* module_data) {
   }
 
   RegisterModule(module_data);
-
-  // Allocate space used by branch instrumentation.
-  ThreadState* state = CreateThreadState(module_data);
-  if (module_data->data_type == ::common::IndexedFrequencyData::BRANCH)
-    state->AllocatePredictorCache();
-
-  // Allocate buffer to which basic block id are pushed before being committed.
-  state->AllocateBasicBlockIdBuffer();
-
-  // Store the thread state in the TLS slot.
-  ::TlsSetValue(module_data->tls_index, state);
 
   LOG(INFO) << "BBEntry client initialized.";
 }
