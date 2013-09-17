@@ -160,40 +160,6 @@ TEST_F(PERelinkerTest, Properties) {
   EXPECT_EQ(0u, relinker.padding());
 }
 
-TEST_F(PERelinkerTest, AppendTransforms) {
-  TestPERelinker relinker;
-
-  MockTransform transform1, transform2;
-  std::vector<BlockGraphTransformInterface*> transforms;
-  transforms.push_back(&transform2);
-
-  relinker.AppendTransform(&transform1);
-  relinker.AppendTransforms(transforms);
-
-  std::vector<BlockGraphTransformInterface*> expected;
-  expected.push_back(&transform1);
-  expected.push_back(&transform2);
-
-  EXPECT_EQ(expected, relinker.transforms_);
-}
-
-TEST_F(PERelinkerTest, AppendOrderers) {
-  TestPERelinker relinker;
-
-  MockOrderer orderer1, orderer2;
-  std::vector<BlockGraphOrdererInterface*> orderers;
-  orderers.push_back(&orderer2);
-
-  relinker.AppendOrderer(&orderer1);
-  relinker.AppendOrderers(orderers);
-
-  std::vector<BlockGraphOrdererInterface*> expected;
-  expected.push_back(&orderer1);
-  expected.push_back(&orderer2);
-
-  EXPECT_EQ(expected, relinker.orderers_);
-}
-
 TEST_F(PERelinkerTest, AppendPdbMutators) {
   TestPERelinker relinker;
 
@@ -265,7 +231,7 @@ TEST_F(PERelinkerTest, IntermediateAccessors) {
   EXPECT_TRUE(relinker.Init());
 
   EXPECT_EQ(input_dll_, relinker.input_pe_file().path());
-  EXPECT_TRUE(relinker.dos_header_block() != NULL);
+  EXPECT_TRUE(relinker.headers_block() != NULL);
 }
 
 TEST_F(PERelinkerTest, FailsWhenTransformFails) {

@@ -66,6 +66,7 @@
 #include "syzygy/block_graph/transform.h"
 #include "syzygy/pdb/pdb_mutator.h"
 #include "syzygy/pe/image_layout.h"
+#include "syzygy/pe/pe_coff_relinker.h"
 #include "syzygy/pe/pe_file.h"
 
 namespace pe {
@@ -74,9 +75,12 @@ namespace pe {
 // to applying some transform(s) to it, to generating the layout and finally
 // writing the image and accompanying PDB to disk.
 //
-// Creating a PERelinker and not changing its default configuration yields an
-// identity relinker that will produce an identical (nearly, except for cosmetic
-// differences in some headers) image to the input.
+// Creating a PERelinker and not changing its default configuration yields
+// an identity relinker that will produce an identical (nearly, except for
+// cosmetic differences in some headers) image to the input. If no orderers
+// are specified the default original orderer will be applied. If, in
+// addition, no transforms have been added this effectively makes the entire
+// relinker an identity relinker.
 //
 // The workflow is as follows:
 //
@@ -94,22 +98,15 @@ namespace pe {
 //    ImageLayout.
 // 5. Image and accompanying PDB file are written. (Filenames are inferred from
 //    input filenames or directly specified.)
-class PERelinker {
+class PERelinker : public PECoffRelinker {
  public:
-  typedef block_graph::BlockGraph BlockGraph;
-  typedef block_graph::BlockGraphOrdererInterface Orderer;
-  typedef block_graph::BlockGraphTransformInterface Transform;
-
   PERelinker();
 
   // @name Accessors.
   // @{
-  const base::FilePath& input_path() const { return input_path_; }
   const base::FilePath& input_pdb_path() const { return input_pdb_path_; }
-  const base::FilePath& output_path() const { return output_path_; }
   const base::FilePath& output_pdb_path() const { return output_pdb_path_; }
   bool add_metadata() const { return add_metadata_; }
-  bool allow_overwrite() const { return allow_overwrite_; }
   bool augment_pdb() const { return augment_pdb_; }
   bool compress_pdb() const { return compress_pdb_; }
   bool parse_debug_info() const { return parse_debug_info_; }
@@ -120,23 +117,14 @@ class PERelinker {
 
   // @name Mutators for controlling relinker behaviour.
   // @{
-  void set_input_path(const base::FilePath& input_path) {
-    input_path_ = input_path;
-  }
   void set_input_pdb_path(const base::FilePath& input_pdb_path) {
     input_pdb_path_ = input_pdb_path;
-  }
-  void set_output_path(const base::FilePath& output_path) {
-    output_path_ = output_path;
   }
   void set_output_pdb_path(const base::FilePath& output_pdb_path) {
     output_pdb_path_ = output_pdb_path;
   }
   void set_add_metadata(bool add_metadata) {
     add_metadata_ = add_metadata;
-  }
-  void set_allow_overwrite(bool allow_overwrite) {
-    allow_overwrite_ = allow_overwrite;
   }
   void set_augment_pdb(bool augment_pdb) {
     augment_pdb_ = augment_pdb;
@@ -157,45 +145,6 @@ class PERelinker {
     padding_ = padding;
   }
   // @}
-
-  // Appends a transform to be applied by this relinker. If no transforms are
-  // specified, none will be applied and the transform is effectively the
-  // identity transform. Each transform will be applied in the order added
-  // to the relinker, assuming all earlier transforms have succeeded.
-  //
-  // @param transform the transform to append to the list of transforms to
-  //     apply. The pointer must remain valid for the lifespan of the relinker.
-  void AppendTransform(Transform* transform);
-
-  // Appends a list of transforms to be applied by this relinker. Each transform
-  // will be applied in the order added to the relinker, assuming all earlier
-  // transforms have succeeded.
-  //
-  // @param transforms a vector of transforms to be applied to the input image.
-  //     The pointers must remain valid for the lifespan of the relinker.
-  void AppendTransforms(const std::vector<Transform*>& transforms);
-
-  // Appends an orderer to be applied by this relinker.
-  //
-  // If no orderers are specified the default orderer will be applied. If no
-  // transforms have been applied this makes the entire relinker an identity
-  // relinker. Each orderer will be applied in the order added to the relinker,
-  // assuming all earlier orderers have succeeded.
-  //
-  // @param orderer a orderer to be applied to the input image. The pointer must
-  //     remain valid for the lifespan of the relinker.
-  void AppendOrderer(Orderer* orderer);
-
-  // Appends a list of orderers to be applied by this relinker.
-  //
-  // If no orderers are specified the default orderer will be applied. If no
-  // transforms have been applied this makes the entire relinker an identity
-  // relinker. Each orderer will be applied in the order added to the relinker,
-  // assuming all earlier orderers have succeeded.
-  //
-  // @param orderers a vector of orderers to be applied to the input image.
-  //     The pointers must remain valid for the lifespan of the relinker.
-  void AppendOrderers(const std::vector<Orderer*>& orderers);
 
   // Appends a PDB mutator to be applied by this relinker.
   //
@@ -246,24 +195,15 @@ class PERelinker {
   //
   // @pre Init has been successfully called.
   const PEFile& input_pe_file() const { return input_pe_file_; }
-  const ImageLayout& input_image_layout() const { return input_image_layout_; }
-  const BlockGraph& block_graph() const { return block_graph_; }
-  const BlockGraph::Block* dos_header_block() const {
-    return dos_header_block_; }
   const GUID& output_guid() const { return output_guid_; }
   // @}
 
  protected:
-  base::FilePath input_path_;
   base::FilePath input_pdb_path_;
-  base::FilePath output_path_;
   base::FilePath output_pdb_path_;
 
   // If true, metadata will be added to the output image. Defaults to true.
   bool add_metadata_;
-  // If true, allow the relinker to rewrite the input files in place. Defaults
-  // to false.
-  bool allow_overwrite_;
   // If true, the PDB will be augmented with a serialized block-graph and
   // image layout. Defaults to true.
   bool augment_pdb_;
@@ -284,12 +224,7 @@ class PERelinker {
 
   // The vectors of user supplied transforms, orderers and mutators to be
   // applied.
-  std::vector<Transform*> transforms_;
-  std::vector<Orderer*> orderers_;
   std::vector<pdb::PdbMutatorInterface*> pdb_mutators_;
-
-  // The internal state of the relinker.
-  bool inited_;
 
   // Intermediate variables that are initialized and used by Relink. They are
   // made externally accessible so that transforms and orderers may make use
@@ -297,12 +232,6 @@ class PERelinker {
 
   // These refer to the original image, and don't change after init.
   PEFile input_pe_file_;
-  ImageLayout input_image_layout_;
-
-  // These refer to the image the whole way through the process. They may
-  // evolve.
-  BlockGraph block_graph_;
-  BlockGraph::Block* dos_header_block_;
 
   // These are for the new image that will be produced at the end of Relink.
   GUID output_guid_;

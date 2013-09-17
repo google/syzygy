@@ -693,29 +693,10 @@ bool WriteSyzygyBlockGraphStream(const PEFile& pe_file,
 }  // namespace
 
 PERelinker::PERelinker()
-    : add_metadata_(true), allow_overwrite_(false), augment_pdb_(true),
+    : add_metadata_(true), augment_pdb_(true),
       compress_pdb_(false), parse_debug_info_(true), strip_strings_(false),
-      use_new_decomposer_(false), padding_(0), inited_(false),
-      input_image_layout_(&block_graph_), dos_header_block_(NULL),
+      use_new_decomposer_(false), padding_(0),
       output_guid_(GUID_NULL) {
-}
-
-void PERelinker::AppendTransform(Transform* transform) {
-  DCHECK(transform != NULL);
-  transforms_.push_back(transform);
-}
-
-void PERelinker::AppendTransforms(const std::vector<Transform*>& transforms) {
-  transforms_.insert(transforms_.end(), transforms.begin(), transforms.end());
-}
-
-void PERelinker::AppendOrderer(Orderer* orderer) {
-  DCHECK(orderer != NULL);
-  orderers_.push_back(orderer);
-}
-
-void PERelinker::AppendOrderers(const std::vector<Orderer*>& orderers) {
-  orderers_.insert(orderers_.end(), orderers.begin(), orderers.end());
 }
 
 void PERelinker::AppendPdbMutator(PdbMutatorInterface* pdb_mutator) {
@@ -759,7 +740,7 @@ bool PERelinker::Init() {
   // Decompose the image.
   if (!Decompose(use_new_decomposer_, parse_debug_info_,
                  input_pe_file_, input_pdb_path_,
-                 &input_image_layout_, &dos_header_block_)) {
+                 &input_image_layout_, &headers_block_)) {
     return false;
   }
 
@@ -777,18 +758,18 @@ bool PERelinker::Relink() {
   // Transform it.
   if (!ApplyTransforms(input_path_, output_pdb_path_, output_guid_,
                        add_metadata_, &transforms_, &block_graph_,
-                       dos_header_block_)) {
+                       headers_block_)) {
     return false;
   }
 
   // Order it.
   OrderedBlockGraph ordered_block_graph(&block_graph_);
-  if (!ApplyOrderers(&orderers_, &ordered_block_graph, dos_header_block_))
+  if (!ApplyOrderers(&orderers_, &ordered_block_graph, headers_block_))
     return false;
 
   // Lay it out.
   ImageLayout output_image_layout(&block_graph_);
-  if (!BuildImageLayout(padding_, ordered_block_graph, dos_header_block_,
+  if (!BuildImageLayout(padding_, ordered_block_graph, headers_block_,
                         &output_image_layout)) {
     return false;
   }

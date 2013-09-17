@@ -436,8 +436,7 @@ class NewDecomposerAfterRelinkTest : public NewDecomposerTest {
     // Get the NT headers block associated with the in-memory representation of
     // the relinked image.
     BlockGraph::Block* nt1 = NULL;
-    ASSERT_NO_FATAL_FAILURE(GetNtHeadersBlock(relinker_.dos_header_block(),
-                                              &nt1));
+    ASSERT_NO_FATAL_FAILURE(GetNtHeadersBlock(relinker_.headers_block(), &nt1));
     ASSERT_TRUE(nt1 != NULL);
 
     // Get the NT headers block associated with the decomposition just performed

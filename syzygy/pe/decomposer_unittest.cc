@@ -383,8 +383,7 @@ class DecomposerAfterRelinkTest : public DecomposerTest {
     DCHECK(image_layout != NULL);
 
     BlockGraph::Block* nt1 = NULL;
-    ASSERT_NO_FATAL_FAILURE(GetNtHeadersBlock(relinker_.dos_header_block(),
-                                              &nt1));
+    ASSERT_NO_FATAL_FAILURE(GetNtHeadersBlock(relinker_.headers_block(), &nt1));
     ASSERT_TRUE(nt1 != NULL);
 
     BlockGraph::Block* dos_header_block =
