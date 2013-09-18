@@ -34,6 +34,7 @@ namespace pe {
 class PECoffRelinker {
  public:
   typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::OrderedBlockGraph OrderedBlockGraph;
   typedef block_graph::BlockGraphOrdererInterface Orderer;
   typedef block_graph::BlockGraphTransformInterface Transform;
 
@@ -132,6 +133,24 @@ class PECoffRelinker {
   // Construct a default PECoffRelinker. Initialize properties to default
   // values.
   PECoffRelinker();
+
+  // Apply user-supplied transforms to the block graph, followed by the
+  // specified extra transforms, if any.
+  //
+  // @param post_transforms extra transforms to apply to the block graph
+  //     after the user-supplied transforms.
+  // @returns true on success, or false on failure.
+  bool ApplyTransforms(const std::vector<Transform*>& post_transforms);
+
+  // Apply user-supplied orderers to the specified ordered block graph, or
+  // the default original orderer if none has been added, followed by the
+  // specified extra orderers, if any.
+  //
+  // @param post_orderers extra orderers to apply to the block graph.
+  // @param ordered_graph the ordered block graph to order or reorder.
+  // @returns true on success, or false on failure.
+  bool ApplyOrderers(const std::vector<Orderer*>& post_orderers,
+                     OrderedBlockGraph* ordered_graph);
 
   // The path to the main input file.
   base::FilePath input_path_;

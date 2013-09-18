@@ -15,7 +15,6 @@
 #include "syzygy/pe/pe_relinker.h"
 
 #include "base/file_util.h"
-#include "syzygy/block_graph/orderers/original_orderer.h"
 #include "syzygy/core/zstream.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_file.h"
@@ -94,22 +93,6 @@ void GetOmapRange(const std::vector<ImageLayout::SectionInfo>& sections,
   RelativeAddress start_of_image = sections.front().addr;
   RelativeAddress end_of_image = sections.back().addr;
   *range = RelativeAddressRange(start_of_image, end_of_image - start_of_image);
-}
-
-// TODO(chrisha): Make this utility function part of orderer.h.
-bool ApplyOrderer(Orderer* orderer,
-                  OrderedBlockGraph* obg,
-                  BlockGraph::Block* header_block) {
-  DCHECK(orderer != NULL);
-  DCHECK(obg != NULL);
-  DCHECK(header_block != NULL);
-
-  if (!orderer->OrderBlockGraph(obg, header_block)) {
-    LOG(ERROR) << "Orderer failed: " << orderer->name();
-    return false;
-  }
-
-  return true;
 }
 
 bool ApplyPdbMutator(PdbMutatorInterface* pdb_mutator,
@@ -253,83 +236,6 @@ bool Decompose(bool use_new_decomposer,
   if (*dos_header_block == NULL) {
     LOG(ERROR) << "Unable to find the DOS header block.";
     return false;
-  }
-
-  return true;
-}
-
-bool ApplyTransforms(const base::FilePath& input_path,
-                     const base::FilePath& output_pdb_path,
-                     const GUID& guid,
-                     bool add_metadata,
-                     std::vector<Transform*>* transforms,
-                     BlockGraph* block_graph,
-                     BlockGraph::Block* dos_header_block) {
-  DCHECK(transforms != NULL);
-  DCHECK(block_graph != NULL);
-  DCHECK(dos_header_block != NULL);
-
-  LOG(INFO) << "Transforming block graph.";
-
-  std::vector<Transform*> local_transforms(*transforms);
-
-  pe::transforms::AddMetadataTransform add_metadata_tx(input_path);
-  pe::transforms::AddPdbInfoTransform add_pdb_info_tx(output_pdb_path, 1, guid);
-  pe::transforms::PEPrepareHeadersTransform prep_headers_tx;
-
-  // We first run the sequence of user requested transforms.
-
-  // If we've been requested to we add metadata to the image.
-  if (add_metadata)
-    local_transforms.push_back(&add_metadata_tx);
-
-  // Update the PDB information to point to the correct PDB file.
-  local_transforms.push_back(&add_pdb_info_tx);
-
-  // Finally, run the prepare headers transform. This ensures that the header
-  // block is properly sized to receive layout information post-ordering.
-  local_transforms.push_back(&prep_headers_tx);
-
-  // Apply the transforms.
-  for (size_t i = 0; i < local_transforms.size(); ++i) {
-    LOG(INFO) << "Applying transform: " << local_transforms[i]->name() << ".";
-    // ApplyBlockGraphTransform takes care of verbosely logging any failures.
-    if (!ApplyBlockGraphTransform(local_transforms[i],
-                                  block_graph,
-                                  dos_header_block)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-bool ApplyOrderers(std::vector<Orderer*>* orderers,
-                   OrderedBlockGraph* obg,
-                   BlockGraph::Block* dos_header_block) {
-  DCHECK(orderers != NULL);
-  DCHECK(obg != NULL);
-  DCHECK(dos_header_block != NULL);
-
-  LOG(INFO) << "Ordering block graph.";
-
-  std::vector<Orderer*> local_orderers(*orderers);
-
-  block_graph::orderers::OriginalOrderer orig_orderer;
-  pe::orderers::PEOrderer pe_orderer;
-
-  if (local_orderers.size() == 0) {
-    LOG(INFO) << "No orderers specified, using original orderer.";
-    local_orderers.push_back(&orig_orderer);
-  }
-
-  local_orderers.push_back(&pe_orderer);
-
-  // Apply the orderers.
-  for (size_t i = 0; i < local_orderers.size(); ++i) {
-    LOG(INFO) << "Applying orderer: " << local_orderers[i]->name();
-    if (!ApplyOrderer(local_orderers[i], obg, dos_header_block))
-      return false;
   }
 
   return true;
@@ -755,16 +661,34 @@ bool PERelinker::Relink() {
     return false;
   }
 
-  // Transform it.
-  if (!ApplyTransforms(input_path_, output_pdb_path_, output_guid_,
-                       add_metadata_, &transforms_, &block_graph_,
-                       headers_block_)) {
+  // Transform it. In addition to user-supplied transforms, we apply the
+  // following mandatory extra transforms for PE, in order:
+  //  1. Add metadata if asked to.
+  //  2. Update the PDB information to point to the correct PDB file.
+  //  3. Finally, run the prepare headers transform. This ensures that the
+  //     header block is properly sized to receive layout information
+  //     post-ordering.
+  std::vector<Transform*> post_transforms;
+  pe::transforms::AddMetadataTransform add_metadata_tx(input_path_);
+  pe::transforms::AddPdbInfoTransform add_pdb_info_tx(output_pdb_path_, 1,
+                                                      output_guid_);
+  pe::transforms::PEPrepareHeadersTransform prep_headers_tx;
+
+  if (add_metadata_)
+    post_transforms.push_back(&add_metadata_tx);
+  post_transforms.push_back(&add_pdb_info_tx);
+  post_transforms.push_back(&prep_headers_tx);
+
+  if (!ApplyTransforms(post_transforms))
     return false;
-  }
 
   // Order it.
+  std::vector<Orderer*> post_orderers;
+  pe::orderers::PEOrderer pe_orderer;
+  post_orderers.push_back(&pe_orderer);
+
   OrderedBlockGraph ordered_block_graph(&block_graph_);
-  if (!ApplyOrderers(&orderers_, &ordered_block_graph, headers_block_))
+  if (!ApplyOrderers(post_orderers, &ordered_block_graph))
     return false;
 
   // Lay it out.
