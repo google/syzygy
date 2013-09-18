@@ -21,7 +21,7 @@
 namespace instrument {
 namespace instrumenters {
 
-const char AsanInstrumenter::kAgentDllAsan[] = "asan_rtl.dll";
+const char AsanInstrumenter::kAgentDllAsan[] = "syzyasan_rtl.dll";
 
 AsanInstrumenter::AsanInstrumenter()
     : intercept_crt_functions_(true),

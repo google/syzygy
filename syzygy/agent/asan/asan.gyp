@@ -43,12 +43,12 @@
       ],
     },
     {
-      'target_name': 'asan_rtl',
+      'target_name': 'syzyasan_rtl',
       'type': 'loadable_module',
       'sources': [
-        'asan_rtl.cc',
-        'asan_rtl.def',
-        'asan_rtl.rc',
+        'syzyasan_rtl.cc',
+        'syzyasan_rtl.def',
+        'syzyasan_rtl.rc',
       ],
       'dependencies': [
         'asan_rtl_lib',
@@ -120,8 +120,8 @@
         'unittest_util.h',
       ],
       'dependencies': [
-        'asan_rtl',
         'asan_rtl_lib',
+        'syzyasan_rtl',
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',

@@ -234,7 +234,7 @@ class AsanTransform
                           BlockGraph::Block* header_block,
                           const FunctionInterceptionSet& functions_set);
 
-  // Name of the asan_rtl DLL we import. Defaults to "asan_rtl.dll".
+  // Name of the asan_rtl DLL we import. Defaults to "syzyasan_rtl.dll".
   std::string asan_dll_name_;
 
   // Activate the overwriting of source range for created instructions.

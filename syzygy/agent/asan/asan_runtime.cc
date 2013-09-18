@@ -86,7 +86,7 @@ void DefaultErrorHandler(AsanErrorInfo* error_info) {
 //
 // If we're running in the context of a breakpad enabled binary we can
 // report errors directly via that breakpad entry-point. This allows us
-// to report the exact context of the error without including the asan_rtl
+// to report the exact context of the error without including the ASan RTL
 // in crash context, depending on where and when we capture the context.
 //
 // @param breakpad_functions The Breakpad functions structure to be populated.
@@ -368,7 +368,7 @@ const char AsanRuntime::kMaxNumberOfFrames[] = "max_num_frames";
 const char AsanRuntime::kMiniDumpOnFailure[] = "minidump_on_failure";
 const char AsanRuntime::kNoLogAsText[] = "no_log_as_text";
 const char AsanRuntime::kQuarantineSize[] = "quarantine_size";
-const wchar_t AsanRuntime::kSyzyAsanDll[] = L"asan_rtl.dll";
+const wchar_t AsanRuntime::kSyzyAsanDll[] = L"syzyasan_rtl.dll";
 const char AsanRuntime::kTrailerPaddingSize[] = "trailer_padding_size";
 
 AsanRuntime::AsanRuntime()

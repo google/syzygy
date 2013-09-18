@@ -38,7 +38,7 @@ class InstrumentationError(Exception):
 
 
 _MODE_INFO = {
-  'asan': 'asan_rtl.dll',
+  'asan': 'syzyasan_rtl.dll',
   'bbentry': 'basic_block_entry_client.dll',
   'calltrace': 'call_trace_client.dll',
   'coverage': 'coverage_client.dll',

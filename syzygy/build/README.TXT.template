@@ -96,10 +96,6 @@ Instrumentation Agents
 The release package includes the following instrumentation agent libraries,
 and their debugging symbols (PDB files).
 
-asan_rtl.dll
-  The runtime library associated with the address-sanitizer instrumentation
-  mode. Useful for finding heap use errors (use after free, double free, etc).
-
 basic_block_entry_client.dll
   The agent associated with the basic-block entry instrumentation mode. This
   collects frequency of execution counts for each basic block in a binary.
@@ -122,6 +118,10 @@ profile_client.dll
   and exit events per thread. Intended for use with grinder to produce
   cachegrind files. These can then be used with a KCacheGrind or QCacheGrind
   for visualization.
+
+syzyasan_rtl.dll
+  The runtime library associated with the address-sanitizer instrumentation
+  mode. Useful for finding heap use errors (use after free, double free, etc).
 
 Experimental Executables
 ------------------------

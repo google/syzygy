@@ -106,7 +106,8 @@ class AsanRtlTest : public testing::TestWithAsanLogger {
     testing::TestWithAsanLogger::SetUp();
 
     // Load the ASAN runtime library.
-    base::FilePath asan_rtl_path = testing::GetExeRelativePath(L"asan_rtl.dll");
+    base::FilePath asan_rtl_path =
+        testing::GetExeRelativePath(L"syzyasan_rtl.dll");
     asan_rtl_ = ::LoadLibrary(asan_rtl_path.value().c_str());
     ASSERT_TRUE(asan_rtl_ != NULL);
 

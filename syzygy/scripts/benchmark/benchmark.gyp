@@ -42,7 +42,6 @@
         # sure the benchmark egg is rebuilt on any change to them.
         'benchmark_executables': [
           '<(PRODUCT_DIR)/agent_logger.exe',
-          '<(PRODUCT_DIR)/asan_rtl.dll',
           '<(PRODUCT_DIR)/basic_block_entry_client.dll',
           '<(PRODUCT_DIR)/call_trace_client.dll',
           '<(PRODUCT_DIR)/call_trace_control.exe',
@@ -57,6 +56,7 @@
           '<(PRODUCT_DIR)/run_in_snapshot.exe',
           '<(PRODUCT_DIR)/run_in_snapshot_xp.exe',
           '<(PRODUCT_DIR)/run_in_snapshot_x64.exe',
+          '<(PRODUCT_DIR)/syzyasan_rtl.dll',
           '<(PRODUCT_DIR)/virtualenv.exe',
           '<(PRODUCT_DIR)/wsdump.exe',
         ],
@@ -68,7 +68,7 @@
         '<@(benchmark_sources)',
       ],
       'dependencies': [
-        '<(src)/syzygy/agent/asan/asan.gyp:asan_rtl',
+        '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl',
         '<(src)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
             'basic_block_entry_client',
         '<(src)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',

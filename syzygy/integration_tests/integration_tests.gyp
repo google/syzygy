@@ -24,7 +24,7 @@
       ],
       'dependencies': [
         'integration_tests_dll',
-        '<(src)/syzygy/agent/asan/asan.gyp:asan_rtl',
+        '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl',
         '<(src)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
             'basic_block_entry_client',
         '<(src)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',

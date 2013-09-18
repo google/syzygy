@@ -13,7 +13,7 @@
 ; limitations under the License.
 ;
 ; Export declarations for the ASAN RTL DLL.
-LIBRARY asan_rtl.dll
+LIBRARY syzyasan_rtl.dll
 
 EXPORTS
   ; Access checking functions.

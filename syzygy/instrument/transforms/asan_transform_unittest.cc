@@ -633,7 +633,7 @@ typedef std::set<std::string> StringSet;
 typedef std::set<PVOID> FunctionsIATAddressSet;
 typedef std::vector<std::string> StringVector;
 
-const char kAsanRtlDll[] = "asan_rtl.dll";
+const char kAsanRtlDll[] = "syzyasan_rtl.dll";
 
 bool EnumKernel32HeapImports(const PEImage &image, LPCSTR module,
                              DWORD ordinal, LPCSTR name, DWORD hint,
@@ -808,7 +808,7 @@ TEST_F(AsanTransformTest, AsanHooksAreStubbed) {
   ASSERT_TRUE(image.VerifyMagic());
 
   // Iterate over the image import descriptors. We want to make sure the
-  // one for asan_rtl.dll is bound.
+  // one for syzyasan_rtl.dll is bound.
   DWORD size = image.GetImageDirectoryEntrySize(IMAGE_DIRECTORY_ENTRY_IMPORT);
   PIMAGE_IMPORT_DESCRIPTOR iid = image.GetFirstImportChunk();
   ASSERT_TRUE(iid != NULL);

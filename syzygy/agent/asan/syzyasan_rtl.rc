@@ -18,7 +18,7 @@
 
 #define SYZYGY_FILETYPE VFT_DLL
 #define SYZYGY_DESCRIPTION "Syzygy ASAN runtime DLL"
-#define SYZYGY_INTERNALNAME "ASAN_RTL"
-#define SYZYGY_ORIGINALFILENAME "asan_rtl.dll"
+#define SYZYGY_INTERNALNAME "SYZYASAN_RTL"
+#define SYZYGY_ORIGINALFILENAME "syzyasan_rtl.dll"
 
 #include "syzygy/common/version.rc"

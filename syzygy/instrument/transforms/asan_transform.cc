@@ -686,7 +686,7 @@ const char AsanTransform::kTransformName[] = "SyzyAsanTransform";
 
 const char AsanTransform::kAsanHookStubName[] = "asan_hook_stub";
 
-const char AsanTransform::kSyzyAsanDll[] = "asan_rtl.dll";
+const char AsanTransform::kSyzyAsanDll[] = "syzyasan_rtl.dll";
 
 AsanTransform::AsanTransform()
     : asan_dll_name_(kSyzyAsanDll),

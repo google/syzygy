@@ -48,11 +48,11 @@
       '<(PRODUCT_DIR)/zap_timestamp.exe',
 
       # Agents.
-      '<(PRODUCT_DIR)/asan_rtl.dll',
       '<(PRODUCT_DIR)/basic_block_entry_client.dll',
       '<(PRODUCT_DIR)/call_trace_client.dll',
       '<(PRODUCT_DIR)/coverage_client.dll',
       '<(PRODUCT_DIR)/profile_client.dll',
+      '<(PRODUCT_DIR)/syzyasan_rtl.dll',
     ],
 
     'experimental_binaries': [
@@ -89,11 +89,11 @@
       '<(PRODUCT_DIR)/zap_timestamp.exe.pdb',
 
       # Instrumentation Agent Symbols.
-      '<(PRODUCT_DIR)/asan_rtl.dll.pdb',
       '<(PRODUCT_DIR)/basic_block_entry_client.dll.pdb',
       '<(PRODUCT_DIR)/call_trace_client.dll.pdb',
       '<(PRODUCT_DIR)/coverage_client.dll.pdb',
       '<(PRODUCT_DIR)/profile_client.dll.pdb',
+      '<(PRODUCT_DIR)/syzyasan_rtl.dll.pdb',
     ],
 
     'experimental_symbols': [

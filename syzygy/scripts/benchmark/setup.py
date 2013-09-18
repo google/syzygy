@@ -71,7 +71,6 @@ _MODULES = [
 
 _EXECUTABLES = [
     'agent_logger.exe',
-    'asan_rtl.dll',
     'basic_block_entry_client.dll',
     'call_trace_client.dll',
     'call_trace_control.exe',
@@ -85,6 +84,7 @@ _EXECUTABLES = [
     'run_in_snapshot.exe',
     'run_in_snapshot_x64.exe',
     'run_in_snapshot_xp.exe',
+    'syzyasan_rtl.dll',
     'wsdump.exe',
 ]
 

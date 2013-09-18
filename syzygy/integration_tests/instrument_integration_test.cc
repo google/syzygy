@@ -78,7 +78,7 @@ void ResetAsanErrors() {
 void SetAsanCallBack() {
   typedef void (WINAPI *AsanSetCallBack)(AsanErrorCallBack);
 
-  HMODULE asan_module = GetModuleHandle(L"asan_rtl.dll");
+  HMODULE asan_module = GetModuleHandle(L"syzyasan_rtl.dll");
   DCHECK(asan_module != NULL);
   AsanSetCallBack set_callback = reinterpret_cast<AsanSetCallBack>(
       ::GetProcAddress(asan_module, "asan_SetCallBack"));
