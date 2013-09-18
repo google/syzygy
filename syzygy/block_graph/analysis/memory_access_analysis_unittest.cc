@@ -81,9 +81,9 @@ void AddSuccessorBetween(Successor::Condition condition,
 
 class TestMemoryAccessAnalysisState: public MemoryAccessAnalysis::State {
  public:
-  bool IsEmpty(core::Register reg) const;
+  bool IsEmpty(const core::Register32& reg) const;
   bool IsEmpty() const;
-  bool Contains(core::Register reg, int32 displ) const;
+  bool Contains(const core::Register32& reg, int32 displ) const;
 
   template<size_t N>
   bool HasNonRedundantAccess(const uint8 (& data)[N]) const;
@@ -123,24 +123,22 @@ class MemoryAccessAnalysisTest : public testing::Test {
   BasicCodeBlock* bb_;
 };
 
-bool TestMemoryAccessAnalysisState::IsEmpty(core::Register reg) const {
-  DCHECK_LT(reg.code(), core::kRegisterMax);
-  return active_memory_accesses_[reg.code()].empty();
+bool TestMemoryAccessAnalysisState::IsEmpty(const core::Register32& reg) const {
+  return active_memory_accesses_[reg.id() - core::kRegister32Min].empty();
 }
 
 bool TestMemoryAccessAnalysisState::IsEmpty() const {
-  for (int r = 0; r < core::kRegisterMax; ++r) {
-    core::RegisterCode reg = core::RegisterCode(r);
-    if (!IsEmpty(core::Register(reg)))
+  for (int r = 0; r < core::kRegister32Count; ++r) {
+    if (!IsEmpty(core::kRegisters32[r]))
       return false;
   }
   return true;
 }
 
 bool TestMemoryAccessAnalysisState::Contains(
-    core::Register reg, int32 displ) const {
-  DCHECK_LT(reg.code(), core::kRegisterMax);
-  const std::set<int32>& offsets = active_memory_accesses_[reg.code()];
+    const core::Register32& reg, int32 displ) const {
+  const std::set<int32>& offsets = active_memory_accesses_[
+      reg.id() - core::kRegister32Min];
   return offsets.find(displ) != offsets.end();
 }
 

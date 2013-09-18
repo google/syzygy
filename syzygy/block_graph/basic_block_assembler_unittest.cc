@@ -554,17 +554,15 @@ TEST_F(BasicBlockAssemblerTest, setxx) {
   ASSERT_NO_REFS();
 }
 
-TEST_F(BasicBlockAssemblerTest, test_b) {
+TEST_F(BasicBlockAssemblerTest, test) {
   // Simple register-register operation.
-  asm_.test_b(core::eax, core::ebx);
+  asm_.test(core::al, core::bl);
   ASSERT_NO_REFS();
 
   // Simple immediate-register operation.
-  asm_.test_b(core::eax, Immediate(10, core::kSize8Bit));
+  asm_.test(core::al, Immediate(10, core::kSize8Bit));
   ASSERT_NO_REFS();
-}
 
-TEST_F(BasicBlockAssemblerTest, test) {
   // Simple register-register operation.
   asm_.test(core::eax, core::ebx);
   ASSERT_NO_REFS();
@@ -586,17 +584,15 @@ TEST_F(BasicBlockAssemblerTest, test) {
   ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 }
 
-TEST_F(BasicBlockAssemblerTest, cmp_b) {
-  // Simple register-register operation.
-  asm_.cmp_b(core::eax, core::ebx);
+TEST_F(BasicBlockAssemblerTest, cmp) {
+    // Simple register-register operation.
+  asm_.cmp(core::al, core::bl);
   ASSERT_NO_REFS();
 
   // Simple immediate-register operation.
-  asm_.cmp_b(core::eax, Immediate(10, core::kSize8Bit));
+  asm_.cmp(core::al, Immediate(10, core::kSize8Bit));
   ASSERT_NO_REFS();
-}
 
-TEST_F(BasicBlockAssemblerTest, cmp) {
   // Simple register-register operation.
   asm_.cmp(core::eax, core::ebx);
   ASSERT_NO_REFS();
@@ -618,17 +614,15 @@ TEST_F(BasicBlockAssemblerTest, cmp) {
   ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 }
 
-TEST_F(BasicBlockAssemblerTest, add_b) {
+TEST_F(BasicBlockAssemblerTest, add) {
   // Simple register-register operation.
-  asm_.add_b(core::eax, core::ebx);
+  asm_.add(core::al, core::bl);
   ASSERT_NO_REFS();
 
   // Simple immediate-register operation.
-  asm_.add_b(core::eax, Immediate(10, core::kSize8Bit));
+  asm_.add(core::al, Immediate(10, core::kSize8Bit));
   ASSERT_NO_REFS();
-}
 
-TEST_F(BasicBlockAssemblerTest, add) {
   // Simple register-register operation.
   asm_.add(core::eax, core::ebx);
   ASSERT_NO_REFS();
@@ -650,17 +644,15 @@ TEST_F(BasicBlockAssemblerTest, add) {
   ASSERT_REFS(2, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 }
 
-TEST_F(BasicBlockAssemblerTest, sub_b) {
+TEST_F(BasicBlockAssemblerTest, sub) {
   // Simple register-register operation.
-  asm_.sub_b(core::eax, core::ebx);
+  asm_.sub(core::al, core::bl);
   ASSERT_NO_REFS();
 
   // Simple immediate-register operation.
-  asm_.sub_b(core::eax, Immediate(10, core::kSize8Bit));
+  asm_.sub(core::al, Immediate(10, core::kSize8Bit));
   ASSERT_NO_REFS();
-}
 
-TEST_F(BasicBlockAssemblerTest, sub) {
   // Simple register-register operation.
   asm_.sub(core::eax, core::ebx);
   ASSERT_NO_REFS();
@@ -707,6 +699,18 @@ TEST_F(BasicBlockAssemblerTest, xchg) {
   ASSERT_NO_REFS();
 
   asm_.xchg(core::esp, core::edx);
+  ASSERT_NO_REFS();
+
+  asm_.xchg(core::ax, core::cx);
+  ASSERT_NO_REFS();
+
+  asm_.xchg(core::sp, core::dx);
+  ASSERT_NO_REFS();
+
+  asm_.xchg(core::al, core::ch);
+  ASSERT_NO_REFS();
+
+  asm_.xchg(core::dh, core::bl);
   ASSERT_NO_REFS();
 }
 

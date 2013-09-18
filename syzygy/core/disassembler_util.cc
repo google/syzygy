@@ -223,4 +223,59 @@ bool IsDebugInterrupt(const _DInst& instruction) {
       instruction.opcode == I_INT_3;
 }
 
+_RegisterType GetRegisterType(const Register& reg) {
+  return GetRegisterType(reg.id());
+}
+
+_RegisterType GetRegisterType(RegisterId reg_id) {
+  static const _RegisterType kRegisterTypesById[kRegisterMax] = {
+    R_AL,  R_CL,  R_DL,  R_BL,  R_AH,  R_CH,  R_DH,  R_BH,  // 8-bit.
+    R_AX,  R_CX,  R_DX,  R_BX,  R_SP,  R_BP,  R_SI,  R_DI,  // 16-bit.
+    R_EAX, R_ECX, R_EDX, R_EBX, R_ESP, R_EBP, R_ESI, R_EDI  // 32-bit.
+  };
+  DCHECK_LE(kRegisterMin, reg_id);
+  DCHECK_GT(kRegisterMax, reg_id);
+  return kRegisterTypesById[reg_id];
+}
+
+RegisterId GetRegisterId(uint32 distorm_reg_type) {
+  switch (distorm_reg_type) {
+    // 8-bit registers.
+    case R_AL: return kRegisterAl;
+    case R_CL: return kRegisterCl;
+    case R_DL: return kRegisterDl;
+    case R_BL: return kRegisterBl;
+    case R_AH: return kRegisterAh;
+    case R_CH: return kRegisterCh;
+    case R_DH: return kRegisterDh;
+    case R_BH: return kRegisterBh;
+
+    // 16-bit registers.
+    case R_AX: return kRegisterAx;
+    case R_CX: return kRegisterCx;
+    case R_DX: return kRegisterDx;
+    case R_BX: return kRegisterBx;
+    case R_SP: return kRegisterSp;
+    case R_BP: return kRegisterBp;
+    case R_SI: return kRegisterSi;
+    case R_DI: return kRegisterDi;
+
+    // 32-bit registers.
+    case R_EAX: return kRegisterEax;
+    case R_ECX: return kRegisterEcx;
+    case R_EDX: return kRegisterEdx;
+    case R_EBX: return kRegisterEbx;
+    case R_ESP: return kRegisterEsp;
+    case R_EBP: return kRegisterEbp;
+    case R_ESI: return kRegisterEsi;
+    case R_EDI: return kRegisterEdi;
+
+    default: return kRegisterNone;
+  }
+}
+
+const Register& GetRegister(uint32 distorm_reg_type) {
+  return Register::Get(GetRegisterId(distorm_reg_type));
+}
+
 }  // namespace core

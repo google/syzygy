@@ -137,10 +137,10 @@ bool Value::operator==(const Value& rhs) const {
   return value_ == rhs.value_;
 }
 
-Operand::Operand(core::Register base) : operand_(base) {
+Operand::Operand(const core::Register32& base) : operand_(base) {
 }
 
-Operand::Operand(core::Register base, const Displacement& displ)
+Operand::Operand(const core::Register32& base, const Displacement& displ)
     : reference_(displ.reference()),
       operand_(base, CopyValue(&reference_, displ.value_)) {
 }
@@ -150,21 +150,21 @@ Operand::Operand(const Displacement& displ)
       operand_(CopyValue(&reference_, displ.value_)) {
 }
 
-Operand::Operand(core::Register base,
-                 core::Register index,
+Operand::Operand(const core::Register32& base,
+                 const core::Register32& index,
                  core::ScaleFactor scale,
                  const Displacement& displ)
     : reference_(displ.reference_),
       operand_(base, index, scale, CopyValue(&reference_, displ.value_)) {
 }
 
-Operand::Operand(core::Register base,
-                 core::Register index,
+Operand::Operand(const core::Register32& base,
+                 const core::Register32& index,
                  core::ScaleFactor scale)
     : operand_(base, index, scale) {
 }
 
-Operand::Operand(core::Register index,
+Operand::Operand(const core::Register32& index,
                  core::ScaleFactor scale,
                  const Displacement& displ)
     : reference_(displ.reference_),
@@ -286,7 +286,7 @@ void BasicBlockAssembler::j(ConditionCode code, const Immediate& dst) {
   asm_.j(code, dst.value_);
 }
 
-void BasicBlockAssembler::set(ConditionCode code, Register dst) {
+void BasicBlockAssembler::set(ConditionCode code, const Register32& dst) {
   asm_.set(code, dst);
 }
 
@@ -306,30 +306,30 @@ void BasicBlockAssembler::sahf() {
   asm_.sahf();
 }
 
-void BasicBlockAssembler::test_b(Register dst, Register src) {
-  asm_.test_b(dst, src);
-}
-
-void BasicBlockAssembler::test_b(Register dst, const Immediate& src) {
-  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
-  asm_.test_b(dst, src.value_);
-}
-
-void BasicBlockAssembler::test(Register dst, Register src) {
+void BasicBlockAssembler::test(const Register8& dst, const Register8& src) {
   asm_.test(dst, src);
 }
 
-void BasicBlockAssembler::test(Register dst, const Operand& src) {
+void BasicBlockAssembler::test(const Register8& dst, const Immediate& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  asm_.test(dst, src.value_);
+}
+
+void BasicBlockAssembler::test(const Register32& dst, const Register32& src) {
+  asm_.test(dst, src);
+}
+
+void BasicBlockAssembler::test(const Register32& dst, const Operand& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
   asm_.test(dst, src.operand_);
 }
 
-void BasicBlockAssembler::test(const Operand& dst, Register src) {
+void BasicBlockAssembler::test(const Operand& dst, const Register32& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
   asm_.test(dst.operand_, src);
 }
 
-void BasicBlockAssembler::test(Register dst, const Immediate& src) {
+void BasicBlockAssembler::test(const Register32& dst, const Immediate& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
   asm_.test(dst, src.value_);
 }
@@ -340,30 +340,30 @@ void BasicBlockAssembler::test(const Operand&  dst, const Immediate& src) {
   asm_.test(dst.operand_, src.value_);
 }
 
-void BasicBlockAssembler::cmp_b(Register dst, Register src) {
-  asm_.cmp_b(dst, src);
-}
-
-void BasicBlockAssembler::cmp_b(Register dst, const Immediate& src) {
-  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
-  asm_.cmp_b(dst, src.value_);
-}
-
-void BasicBlockAssembler::cmp(Register dst, Register src) {
+void BasicBlockAssembler::cmp(const Register8& dst, const Register8& src) {
   asm_.cmp(dst, src);
 }
 
-void BasicBlockAssembler::cmp(Register dst, const Operand& src) {
+void BasicBlockAssembler::cmp(const Register8& dst, const Immediate& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  asm_.cmp(dst, src.value_);
+}
+
+void BasicBlockAssembler::cmp(const Register32& dst, const Register32& src) {
+  asm_.cmp(dst, src);
+}
+
+void BasicBlockAssembler::cmp(const Register32& dst, const Operand& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
   asm_.cmp(dst, src.operand_);
 }
 
-void BasicBlockAssembler::cmp(const Operand& dst, Register src) {
+void BasicBlockAssembler::cmp(const Operand& dst, const Register32& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
   asm_.cmp(dst.operand_, src);
 }
 
-void BasicBlockAssembler::cmp(Register dst, const Immediate& src) {
+void BasicBlockAssembler::cmp(const Register32& dst, const Immediate& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
   asm_.cmp(dst, src.value_);
 }
@@ -374,30 +374,30 @@ void BasicBlockAssembler::cmp(const Operand&  dst, const Immediate& src) {
   asm_.cmp(dst.operand_, src.value_);
 }
 
-void BasicBlockAssembler::add_b(Register dst, Register src) {
-  asm_.add_b(dst, src);
-}
-
-void BasicBlockAssembler::add_b(Register dst, const Immediate& src) {
-  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
-  asm_.add_b(dst, src.value_);
-}
-
-void BasicBlockAssembler::add(Register dst, Register src) {
+void BasicBlockAssembler::add(const Register8& dst, const Register8& src) {
   asm_.add(dst, src);
 }
 
-void BasicBlockAssembler::add(Register dst, const Operand& src) {
+void BasicBlockAssembler::add(const Register8& dst, const Immediate& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  asm_.add(dst, src.value_);
+}
+
+void BasicBlockAssembler::add(const Register32& dst, const Register32& src) {
+  asm_.add(dst, src);
+}
+
+void BasicBlockAssembler::add(const Register32& dst, const Operand& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
   asm_.add(dst, src.operand_);
 }
 
-void BasicBlockAssembler::add(const Operand& dst, Register src) {
+void BasicBlockAssembler::add(const Operand& dst, const Register32& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
   asm_.add(dst.operand_, src);
 }
 
-void BasicBlockAssembler::add(Register dst, const Immediate& src) {
+void BasicBlockAssembler::add(const Register32& dst, const Immediate& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
   asm_.add(dst, src.value_);
 }
@@ -408,30 +408,30 @@ void BasicBlockAssembler::add(const Operand& dst, const Immediate& src) {
   asm_.add(dst.operand_, src.value_);
 }
 
-void BasicBlockAssembler::sub_b(Register dst, Register src) {
-  asm_.sub_b(dst, src);
-}
-
-void BasicBlockAssembler::sub_b(Register dst, const Immediate& src) {
-  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
-  asm_.sub_b(dst, src.value_);
-}
-
-void BasicBlockAssembler::sub(Register dst, Register src) {
+void BasicBlockAssembler::sub(const Register8& dst, const Register8& src) {
   asm_.sub(dst, src);
 }
 
-void BasicBlockAssembler::sub(Register dst, const Operand& src) {
+void BasicBlockAssembler::sub(const Register8& dst, const Immediate& src) {
+  PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
+  asm_.sub(dst, src.value_);
+}
+
+void BasicBlockAssembler::sub(const Register32& dst, const Register32& src) {
+  asm_.sub(dst, src);
+}
+
+void BasicBlockAssembler::sub(const Register32& dst, const Operand& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
   asm_.sub(dst, src.operand_);
 }
 
-void BasicBlockAssembler::sub(const Operand& dst, Register src) {
+void BasicBlockAssembler::sub(const Operand& dst, const Register32& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
   asm_.sub(dst.operand_, src);
 }
 
-void BasicBlockAssembler::sub(Register dst, const Immediate& src) {
+void BasicBlockAssembler::sub(const Register32& dst, const Immediate& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
   asm_.sub(dst, src.value_);
 }
@@ -442,12 +442,12 @@ void BasicBlockAssembler::sub(const Operand& dst, const Immediate& src) {
   asm_.sub(dst.operand_, src.value_);
 }
 
-void BasicBlockAssembler::shl(Register dst, const Immediate& src) {
+void BasicBlockAssembler::shl(const Register32& dst, const Immediate& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
   asm_.shl(dst, src.value_);
 }
 
-void BasicBlockAssembler::shr(Register dst, const Immediate& src) {
+void BasicBlockAssembler::shr(const Register32& dst, const Immediate& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
   asm_.shr(dst, src.value_);
 }
@@ -460,29 +460,29 @@ void BasicBlockAssembler::mov_b(const Operand& dst, const Immediate& src) {
   asm_.mov_b(dst.operand_, src.value_);
 }
 
-void BasicBlockAssembler::movzx_b(Register dst, const Operand& src) {
+void BasicBlockAssembler::movzx_b(const Register32& dst, const Operand& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
   CheckReferenceSize(core::kSize32Bit, src);
   asm_.movzx_b(dst, src.operand_);
 }
 
-void BasicBlockAssembler::mov(Register dst, Register src) {
+void BasicBlockAssembler::mov(const Register32& dst, const Register32& src) {
   asm_.mov(dst, src);
 }
 
-void BasicBlockAssembler::mov(Register dst, const Operand& src) {
+void BasicBlockAssembler::mov(const Register32& dst, const Operand& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
   CheckReferenceSize(core::kSize32Bit, src);
   asm_.mov(dst, src.operand_);
 }
 
-void BasicBlockAssembler::mov(const Operand& dst, Register src) {
+void BasicBlockAssembler::mov(const Operand& dst, const Register32& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
   CheckReferenceSize(core::kSize32Bit, dst);
   asm_.mov(dst.operand_, src);
 }
 
-void BasicBlockAssembler::mov(Register dst, const Immediate& src) {
+void BasicBlockAssembler::mov(const Register32& dst, const Immediate& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
   CheckReferenceSize(core::kSize32Bit, src);
   asm_.mov(dst, src.value_);
@@ -496,25 +496,25 @@ void BasicBlockAssembler::mov(const Operand& dst, const Immediate& src) {
   asm_.mov(dst.operand_, src.value_);
 }
 
-void BasicBlockAssembler::mov_fs(Register dst, const Operand& src) {
+void BasicBlockAssembler::mov_fs(const Register32& dst, const Operand& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
   CheckReferenceSize(core::kSize32Bit, src);
   asm_.mov_fs(dst, src.operand_);
 }
 
-void BasicBlockAssembler::mov_fs(const Operand& dst, Register src) {
+void BasicBlockAssembler::mov_fs(const Operand& dst, const Register32& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
   CheckReferenceSize(core::kSize32Bit, dst);
   asm_.mov_fs(dst.operand_, src);
 }
 
-void BasicBlockAssembler::lea(Register dst, const Operand& src) {
+void BasicBlockAssembler::lea(const Register32& dst, const Operand& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
   CheckReferenceSize(core::kSize32Bit, src);
   asm_.lea(dst, src.operand_);
 }
 
-void BasicBlockAssembler::push(Register src) {
+void BasicBlockAssembler::push(const Register32& src) {
   asm_.push(src);
 }
 
@@ -530,7 +530,7 @@ void BasicBlockAssembler::push(const Operand& src) {
   asm_.push(src.operand_);
 }
 
-void BasicBlockAssembler::pop(Register dst) {
+void BasicBlockAssembler::pop(const Register32& dst) {
   asm_.pop(dst);
 }
 
@@ -548,7 +548,15 @@ void BasicBlockAssembler::ret(uint16 n) {
   asm_.ret(n);
 }
 
-void BasicBlockAssembler::xchg(Register dst, Register src) {
+void BasicBlockAssembler::xchg(const Register32& dst, const Register32& src) {
+  asm_.xchg(dst, src);
+}
+
+void BasicBlockAssembler::xchg(const Register16& dst, const Register16& src) {
+  asm_.xchg(dst, src);
+}
+
+void BasicBlockAssembler::xchg(const Register8& dst, const Register8& src) {
   asm_.xchg(dst, src);
 }
 

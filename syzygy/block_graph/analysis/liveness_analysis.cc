@@ -29,7 +29,6 @@ namespace analysis {
 namespace {
 
 using core::Register;
-using core::RegisterCode;
 typedef BasicBlockSubGraph::BBCollection BBCollection;
 typedef block_graph::BasicBlockSubGraph::BasicBlock BasicBlock;
 typedef block_graph::BasicBlockSubGraph::BasicBlock::Instructions Instructions;
@@ -102,10 +101,11 @@ State::State(const State& state) {
   StateHelper::Copy(state, this);
 }
 
-bool State::IsLive(Register reg) const {
-  DCHECK(core::kRegisterEax <= reg.code());
-  DCHECK(reg.code() <= core::kRegisterEdi);
-  RegisterMask mask = StateHelper::RegisterToRegisterMask(reg.code() + R_EAX);
+bool State::IsLive(const Register& reg) const {
+  // Convert from core::Register representation of registers to the bits
+  // representation we use internally, by way of the Distorm _RegisterType.
+  RegisterMask mask = StateHelper::RegisterToRegisterMask(
+      core::GetRegisterType(reg));
   return StateHelper::IsPartiallySet(*this, mask);
 }
 

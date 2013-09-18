@@ -20,7 +20,9 @@
 #include <string>
 
 #include "base/basictypes.h"
+#include "syzygy/core/register.h"
 #include "distorm.h"  // NOLINT
+#include "mnemonics.h"  // NOLINT
 
 namespace core {
 
@@ -133,6 +135,31 @@ bool IsInterrupt(const _DInst& instruction);
 // @returns true if @p instruction is the debug interrupt instruction, false
 //     otherwise.
 bool IsDebugInterrupt(const _DInst& instruction);
+
+// @name Distorm _RegisterType conversion.
+// @{
+
+// Converts from a register to a Distorm _RegisterType.
+// @param reg The register object whose type we wish to retrieve.
+// @returns the Distorm register type.
+_RegisterType GetRegisterType(const Register& reg);
+
+// Converts from a register id to a Distorm _RegisterType.
+// @param reg_id The register id to to convert to a _RegisterType.
+// @returns the Distorm register type.
+_RegisterType GetRegisterType(RegisterId reg_id);
+
+// Given a Distorm register type, converts to a RegisterId.
+// @param distorm_reg_type The Distorm register type to be converted.
+// @returns the id of the register.
+RegisterId GetRegisterId(uint32 distorm_reg_type);
+
+// Given a Distorm register type, returns the associated register object.
+// @param distorm_reg_type The Distorm register type to be converted.
+// @returns a const reference to the register object.
+const Register& GetRegister(uint32 distorm_reg_type);
+
+// @}
 
 }  // namespace core
 

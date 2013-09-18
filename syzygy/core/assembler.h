@@ -19,24 +19,9 @@
 #ifndef SYZYGY_CORE_ASSEMBLER_H_
 #define SYZYGY_CORE_ASSEMBLER_H_
 
-#include "base/basictypes.h"
-#include "base/logging.h"
+#include "syzygy/core/register.h"
 
 namespace core {
-
-enum RegisterCode {
-  kRegisterNone = -1,
-  kRegisterEax = 0,
-  kRegisterEcx = 1,
-  kRegisterEdx = 2,
-  kRegisterEbx = 3,
-  kRegisterEsp = 4,
-  kRegisterEbp = 5,
-  kRegisterEsi = 6,
-  kRegisterEdi = 7,
-  // RegisterCode must be below this value.
-  kRegisterMax = 8,
-};
 
 // The condition codes by which conditional branches are determined. This enum
 // is taken from the V8 project, and has the property that the conditions are
@@ -92,30 +77,6 @@ inline ConditionCode NegateConditionCode(ConditionCode cc) {
   return static_cast<ConditionCode>(cc ^ 1);
 }
 
-// Each instance of this class names a register.
-class Register {
- public:
-  explicit Register(RegisterCode code) : code_(code) {
-    DCHECK(code != kRegisterNone);
-  }
-
-  RegisterCode code() const { return code_; }
-  void set_code(RegisterCode code) { code_ = code; }
-
- private:
-  RegisterCode code_;
-};
-
-// Convenience constants for the x86 registers.
-extern const Register eax;
-extern const Register ecx;
-extern const Register edx;
-extern const Register ebx;
-extern const Register esp;
-extern const Register ebp;
-extern const Register esi;
-extern const Register edi;
-
 // Selects a scale for the Operand addressing modes.
 // The values match the encoding in the x86 SIB bytes.
 enum ScaleFactor {
@@ -125,12 +86,8 @@ enum ScaleFactor {
   kTimes8 = 3,
 };
 
-// Size for immediate and displacement operands.
-enum ValueSize {
-  kSizeNone,
-  kSize8Bit,
-  kSize32Bit,
-};
+// We use the same enum for value sizes.
+typedef RegisterSize ValueSize;
 
 // An instance of this class is an explicit value, which is either
 // an immediate or a displacement.
@@ -166,52 +123,52 @@ typedef ValueImpl DisplacementImpl;
 class OperandImpl {
  public:
   // A register-indirect mode.
-  explicit OperandImpl(Register base);
+  explicit OperandImpl(const Register32& base);
 
   // A register-indirect with displacement mode.
-  OperandImpl(Register base, const DisplacementImpl& displ);
+  OperandImpl(const Register32& base, const DisplacementImpl& displ);
 
   // A displacement-only mode.
   explicit OperandImpl(const DisplacementImpl& displ);
 
   // The full [base + index * scale + displ32] mode.
   // @note esp cannot be used as an index register.
-  OperandImpl(Register base,
-              Register index,
+  OperandImpl(const Register32& base,
+              const Register32& index,
               ScaleFactor scale,
               const DisplacementImpl& displ);
 
   // The [base + index * scale] mode.
   // @note esp cannot be used as an index register.
-  OperandImpl(Register base,
-              Register index,
+  OperandImpl(const Register32& base,
+              const Register32& index,
               ScaleFactor scale);
 
   // The [index * scale + displ32] mode - e.g. no base.
   // @note esp cannot be used as an index register.
-  OperandImpl(Register index,
+  OperandImpl(const Register32& index,
               ScaleFactor scale,
               const DisplacementImpl& displ);
 
   // Low-level constructor, none of the parameters are checked.
-  OperandImpl(RegisterCode base,
-              RegisterCode index,
+  OperandImpl(RegisterId base,
+              RegisterId index,
               ScaleFactor scale,
               const DisplacementImpl& displacement);
 
   // @name Accessors.
   // @{
-  RegisterCode base() const { return base_; }
-  RegisterCode index() const { return index_; }
+  RegisterId base() const { return base_; }
+  RegisterId index() const { return index_; }
   ScaleFactor scale() const { return scale_; }
   const DisplacementImpl& displacement() const { return displacement_; }
   // @}
 
  private:
   // The base register involved, or none.
-  RegisterCode base_;
+  RegisterId base_;
   // The index register involved, or none.
-  RegisterCode index_;
+  RegisterId index_;
   // The scaling factor, must be kTimes1 if no index register.
   ScaleFactor scale_;
   // The displacement, if any.
@@ -271,36 +228,36 @@ class AssemblerImpl {
 
   // @name Set flags.
   // @{
-  void set(ConditionCode cc, Register src);
+  void set(ConditionCode cc, const Register32& src);
   // @}
 
   // @name Byte mov varieties.
   // @{
   void mov_b(const OperandImpl& dst, const ImmediateImpl& src);
-  void movzx_b(Register dst, const OperandImpl& src);
+  void movzx_b(const Register32& dst, const OperandImpl& src);
   // @}
 
   // @name Double-word mov varieties.
   // @{
-  void mov(Register dst, Register src);
-  void mov(Register dst, const OperandImpl& src);
-  void mov(const OperandImpl& dst, Register src);
-  void mov(Register dst, const ImmediateImpl& src);
+  void mov(const Register32& dst, const Register32& src);
+  void mov(const Register32& dst, const OperandImpl& src);
+  void mov(const OperandImpl& dst, const Register32& src);
+  void mov(const Register32& dst, const ImmediateImpl& src);
   void mov(const OperandImpl& dst, const ImmediateImpl& src);
-  void mov_fs(Register dst, const OperandImpl& src);
-  void mov_fs(const OperandImpl& dst, Register src);
+  void mov_fs(const Register32& dst, const OperandImpl& src);
+  void mov_fs(const OperandImpl& dst, const Register32& src);
   // @}
 
   // @name Load effective address.
-  void lea(Register dst, const OperandImpl& src);
+  void lea(const Register32& dst, const OperandImpl& src);
 
   // @name Stack manipulation.
   // @{
-  void push(Register src);
+  void push(const Register32& src);
   void push(const ImmediateImpl& src);
   void push(const OperandImpl& src);
 
-  void pop(Register dst);
+  void pop(const Register32& dst);
   void pop(const OperandImpl& dst);
   // @}
 
@@ -314,54 +271,59 @@ class AssemblerImpl {
 
   // @name Arithmetic operations.
   // @{
-  void test_b(Register dst, Register src);
-  void test_b(Register dst, const ImmediateImpl& src);
+  void test(const Register8& dst, const Register8& src);
+  void test(const Register8& dst, const ImmediateImpl& src);
 
-  void test(Register dst, Register src);
-  void test(Register dst, const OperandImpl& src);
-  void test(const OperandImpl& dst, Register src);
-  void test(Register dst, const ImmediateImpl& src);
+  void test(const Register32& dst, const Register32& src);
+  void test(const Register32& dst, const OperandImpl& src);
+  void test(const OperandImpl& dst, const Register32& src);
+  void test(const Register32& dst, const ImmediateImpl& src);
   void test(const OperandImpl& dst, const ImmediateImpl& src);
 
-  void cmp_b(Register dst, Register src);
-  void cmp_b(Register dst, const ImmediateImpl& src);
+  void cmp(const Register8& dst, const Register8& src);
+  void cmp(const Register8& dst, const ImmediateImpl& src);
 
-  void cmp(Register dst, Register src);
-  void cmp(Register dst, const OperandImpl& src);
-  void cmp(const OperandImpl& dst, Register src);
-  void cmp(Register dst, const ImmediateImpl& src);
+  void cmp(const Register32& dst, const Register32& src);
+  void cmp(const Register32& dst, const OperandImpl& src);
+  void cmp(const OperandImpl& dst, const Register32& src);
+  void cmp(const Register32& dst, const ImmediateImpl& src);
   void cmp(const OperandImpl& dst, const ImmediateImpl& src);
 
-  void add_b(Register dst, Register src);
-  void add_b(Register dst, const ImmediateImpl& src);
+  void add(const Register8& dst, const Register8& src);
+  void add(const Register8& dst, const ImmediateImpl& src);
 
-  void add(Register dst, Register src);
-  void add(Register dst, const OperandImpl& src);
-  void add(const OperandImpl& dst, Register src);
-  void add(Register dst, const ImmediateImpl& src);
+  void add(const Register32& dst, const Register32& src);
+  void add(const Register32& dst, const OperandImpl& src);
+  void add(const OperandImpl& dst, const Register32& src);
+  void add(const Register32& dst, const ImmediateImpl& src);
   void add(const OperandImpl& dst, const ImmediateImpl& src);
 
-  void sub_b(Register dst, Register src);
-  void sub_b(Register dst, const ImmediateImpl& src);
+  void sub(const Register8& dst, const Register8& src);
+  void sub(const Register8& dst, const ImmediateImpl& src);
 
-  void sub(Register dst, Register src);
-  void sub(Register dst, const OperandImpl& src);
-  void sub(const OperandImpl& dst, Register src);
-  void sub(Register dst, const ImmediateImpl& src);
+  void sub(const Register32& dst, const Register32& src);
+  void sub(const Register32& dst, const OperandImpl& src);
+  void sub(const OperandImpl& dst, const Register32& src);
+  void sub(const Register32& dst, const ImmediateImpl& src);
   void sub(const OperandImpl& dst, const ImmediateImpl& src);
   // @}
 
   // @name Shifting operations.
   // @{
-  void shl(Register dst, const ImmediateImpl& src);
-  void shr(Register dst, const ImmediateImpl& src);
+  void shl(const Register32& dst, const ImmediateImpl& src);
+  void shr(const Register32& dst, const ImmediateImpl& src);
   // @}
 
   // Exchange contents of two registers.
   // @param dst The destination register.
   // @param src The source register.
   // @note Exchanges involving eax generate shorter byte code.
-  void xchg(Register dst, Register src);
+  // @note This instruction can be used as a primitive for writing
+  //     synchronization mechanisms as there is an implicit lock taken
+  //     during execution.
+  void xchg(const Register32& dst, const Register32& src);
+  void xchg(const Register16& dst, const Register16& src);
+  void xchg(const Register8& dst, const Register8& src);
 
   // @name Aliases
   // @{

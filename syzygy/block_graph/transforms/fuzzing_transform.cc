@@ -32,7 +32,6 @@ using block_graph::BasicBlockAssembler;
 using block_graph::BasicCodeBlock;
 using block_graph::Instruction;
 using block_graph::Immediate;
-using core::Register;
 
 }  // namespace
 
@@ -74,9 +73,8 @@ bool LivenessFuzzingBasicBlockTransform::TransformBasicBlockSubGraph(
       liveness.PropagateBackward(instr, &state);
 
       // Rewrite dead registers.
-      uint32 reg_code = core::kRegisterEax;
-      for ( ; reg_code <= core::kRegisterEdi; ++reg_code) {
-        Register reg(static_cast<core::RegisterCode>(reg_code));
+      for (size_t i = 0; i < core::kRegister32Count; ++i) {
+        const core::Register32& reg = core::kRegisters32[i];
         if (state.IsLive(reg))
           continue;
 

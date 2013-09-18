@@ -205,30 +205,30 @@ typedef Value Displacement;
 class Operand {
  public:
   // A register-indirect mode.
-  explicit Operand(core::Register base);
+  explicit Operand(const core::Register32& base);
 
   // A register-indirect with displacement mode.
-  Operand(core::Register base, const Displacement& displ);
+  Operand(const core::Register32& base, const Displacement& displ);
 
   // A displacement-only mode.
   explicit Operand(const Displacement& displ);
 
   // The full [base + index * scale + displ32] mode.
   // @note esp cannot be used as an index register.
-  Operand(core::Register base,
-          core::Register index,
+  Operand(const core::Register32& base,
+          const core::Register32& index,
           core::ScaleFactor scale,
           const Displacement& displ);
 
   // The full [base + index * scale] mode.
   // @note esp cannot be used as an index register.
-  Operand(core::Register base,
-          core::Register index,
+  Operand(const core::Register32& base,
+          const core::Register32& index,
           core::ScaleFactor scale);
 
   // The [index * scale + displ32] mode.
   // @note esp cannot be used as an index register.
-  Operand(core::Register index,
+  Operand(const core::Register32& index,
           core::ScaleFactor scale,
           const Displacement& displ);
 
@@ -243,8 +243,8 @@ class Operand {
 
   // @name Accessors.
   // @{
-  core::RegisterCode base() const { return operand_.base(); }
-  core::RegisterCode index() const { return operand_.index(); }
+  const core::RegisterId base() const { return operand_.base(); }
+  const core::RegisterId index() const { return operand_.index(); }
   core::ScaleFactor scale() const { return operand_.scale(); }
   Displacement displacement() const {
     return Displacement(reference_, operand_.displacement());
@@ -262,7 +262,9 @@ class BasicBlockAssembler {
  public:
   typedef BlockGraph::Block::SourceRange SourceRange;
   typedef BasicBlock::Instructions Instructions;
-  typedef core::Register Register;
+  typedef core::Register8 Register8;
+  typedef core::Register16 Register16;
+  typedef core::Register32 Register32;
   typedef core::ConditionCode ConditionCode;
 
   // Constructs a basic block assembler that inserts new instructions
@@ -318,81 +320,81 @@ class BasicBlockAssembler {
   void popfd();
   void lahf();
   void sahf();
-  void set(ConditionCode code, Register dst);
+  void set(ConditionCode code, const Register32& dst);
   // @}
 
   // @name Arithmetic operations.
   // @{
-  void test_b(Register dst, Register src);
-  void test_b(Register dst, const Immediate& src);
+  void test(const Register8& dst, const Register8& src);
+  void test(const Register8& dst, const Immediate& src);
 
-  void test(Register dst, Register src);
-  void test(Register dst, const Operand& src);
-  void test(const Operand& dst, Register src);
-  void test(Register dst, const Immediate& src);
+  void test(const Register32& dst, const Register32& src);
+  void test(const Register32& dst, const Operand& src);
+  void test(const Operand& dst, const Register32& src);
+  void test(const Register32& dst, const Immediate& src);
   void test(const Operand& dst, const Immediate& src);
 
-  void cmp_b(Register dst, Register src);
-  void cmp_b(Register dst, const Immediate& src);
+  void cmp(const Register8& dst, const Register8& src);
+  void cmp(const Register8& dst, const Immediate& src);
 
-  void cmp(Register dst, Register src);
-  void cmp(Register dst, const Operand& src);
-  void cmp(const Operand& dst, Register src);
-  void cmp(Register dst, const Immediate& src);
+  void cmp(const Register32& dst, const Register32& src);
+  void cmp(const Register32& dst, const Operand& src);
+  void cmp(const Operand& dst, const Register32& src);
+  void cmp(const Register32& dst, const Immediate& src);
   void cmp(const Operand& dst, const Immediate& src);
 
-  void add_b(Register dst, Register src);
-  void add_b(Register dst, const Immediate& src);
+  void add(const Register8& dst, const Register8& src);
+  void add(const Register8& dst, const Immediate& src);
 
-  void add(Register dst, Register src);
-  void add(Register dst, const Operand& src);
-  void add(const Operand& dst, Register src);
-  void add(Register dst, const Immediate& src);
+  void add(const Register32& dst, const Register32& src);
+  void add(const Register32& dst, const Operand& src);
+  void add(const Operand& dst, const Register32& src);
+  void add(const Register32& dst, const Immediate& src);
   void add(const Operand& dst, const Immediate& src);
 
-  void sub_b(Register dst, Register src);
-  void sub_b(Register dst, const Immediate& src);
+  void sub(const Register8& dst, const Register8& src);
+  void sub(const Register8& dst, const Immediate& src);
 
-  void sub(Register dst, Register src);
-  void sub(Register dst, const Operand& src);
-  void sub(const Operand& dst, Register src);
-  void sub(Register dst, const Immediate& src);
+  void sub(const Register32& dst, const Register32& src);
+  void sub(const Register32& dst, const Operand& src);
+  void sub(const Operand& dst, const Register32& src);
+  void sub(const Register32& dst, const Immediate& src);
   void sub(const Operand& dst, const Immediate& src);
   // @}
 
   // @name Shifting operations.
   // @{
-  void shl(Register dst, const Immediate& src);
-  void shr(Register dst, const Immediate& src);
+  void shl(const Register32& dst, const Immediate& src);
+  void shr(const Register32& dst, const Immediate& src);
   // @}
 
   // @name Byte mov varieties.
   // @{
   void mov_b(const Operand& dst, const Immediate& src);
-  void movzx_b(Register dst, const Operand& src);
+  void movzx_b(const Register32& dst, const Operand& src);
   // @}
 
   // @name Double-word mov varieties.
   // @{
-  void mov(Register dst, Register src);
-  void mov(Register dst, const Operand& src);
-  void mov(const Operand& dst, Register src);
-  void mov(Register dst, const Immediate& src);
+  void mov(const Register32& dst, const Register32& src);
+  void mov(const Register32& dst, const Operand& src);
+  void mov(const Operand& dst, const Register32& src);
+  void mov(const Register32& dst, const Immediate& src);
   void mov(const Operand& dst, const Immediate& src);
-  void mov_fs(Register dst, const Operand& src);
-  void mov_fs(const Operand& dst, Register src);
+  void mov_fs(const Register32& dst, const Operand& src);
+  void mov_fs(const Operand& dst, const Register32& src);
   // @}
 
   // @name Load effective address.
-  void lea(Register dst, const Operand& src);
+  void lea(const Register32& dst, const Operand& src);
 
   // @name Stack manipulation.
   // @{
-  void push(Register src);
+  void push(const Register32& src);
   void push(const Immediate& src);
   void push(const Operand& src);
 
-  void pop(Register dst);
+  void pop(const Register32& dst);
   void pop(const Operand& dst);
   // @}
 
@@ -406,7 +408,9 @@ class BasicBlockAssembler {
   // @param dst The destination register.
   // @param src The source register.
   // @note Exchanges involving eax generate shorter byte code.
-  void xchg(Register dst, Register src);
+  void xchg(const Register32& dst, const Register32& src);
+  void xchg(const Register16& dst, const Register16& src);
+  void xchg(const Register8& dst, const Register8& src);
 
  private:
   typedef BlockGraph::ReferenceType ReferenceType;

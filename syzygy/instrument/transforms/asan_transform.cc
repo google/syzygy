@@ -49,8 +49,7 @@ using block_graph::TypedBlock;
 using block_graph::Value;
 using block_graph::analysis::LivenessAnalysis;
 using block_graph::analysis::MemoryAccessAnalysis;
-using core::Register;
-using core::RegisterCode;
+using core::Register32;
 using pe::transforms::PEAddImportsTransform;
 
 // A simple struct that can be used to let us access strings using TypedBlock.
@@ -195,14 +194,17 @@ bool DecodeMemoryAccess(const Instruction& instr,
   // Determine operand of the access.
   if (repr.ops[mem_op_id].type == O_SMEM) {
     // Simple memory dereference with optional displacement.
-    Register base_reg(RegisterCode(repr.ops[mem_op_id].index - R_EAX));
+    const Register32& base_reg = core::CastAsRegister32(
+        core::GetRegister(repr.ops[mem_op_id].index));
+
     // Get the displacement for the operand.
     Displacement displ = ComputeDisplacementForOperand(instr, mem_op_id);
-
     *access = Operand(base_reg, displ);
   } else if (repr.ops[0].type == O_MEM || repr.ops[1].type == O_MEM) {
     // Complex memory dereference.
-    Register index_reg(RegisterCode(repr.ops[mem_op_id].index - R_EAX));
+    const Register32& index_reg = core::CastAsRegister32(
+        core::GetRegister(repr.ops[mem_op_id].index));
+
     core::ScaleFactor scale = core::kTimes1;
     switch (repr.scale) {
       case 2:
@@ -223,7 +225,9 @@ bool DecodeMemoryAccess(const Instruction& instr,
 
     // Compute the full operand.
     if (repr.base != R_NONE) {
-      Register base_reg(RegisterCode(repr.base - R_EAX));
+      const Register32& base_reg = core::CastAsRegister32(
+          core::GetRegister(repr.base));
+
       if (displ.size() == core::kSizeNone) {
         // No displacement, it's a [base + index * scale] access.
         *access = Operand(base_reg, index_reg, scale);

@@ -56,12 +56,18 @@ const uint8 kMovEspZero[5] = { 0xBC, 0x00, 0x00, 0x00, 0x00 };
 const uint8 kMovEbpZero[5] = { 0xBD, 0x00, 0x00, 0x00, 0x00 };
 // _asm cmp eax, ebx
 const uint8 kCmpEaxEbx[2] = { 0x3B, 0xC3 };
+// _asm mov ax, 0
+const uint8 kMovAxZero[4] = { 0x66, 0xB8, 0x00, 0x00 };
+// _asm mov al, 0
+const uint8 kMovAlZero[2] =  { 0xB0, 0x00 };
 
 class LivenessAnalysisTest : public testing::Test {
  public:
   LivenessAnalysisTest();
 
-  inline bool is_live(core::Register reg) const { return state_.IsLive(reg); }
+  inline bool is_live(const core::Register& reg) const {
+    return state_.IsLive(reg);
+  }
   inline bool are_arithmetic_flags_live() const {
     return state_.AreArithmeticFlagsLive();
   }
@@ -329,7 +335,11 @@ TEST_F(LivenessAnalysisTest, Mov1Analysis) {
   asm_.mov(core::ecx, core::ebx);
   AnalyzeInstructions();
   EXPECT_FALSE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ax));
+  EXPECT_FALSE(is_live(core::ah));
   EXPECT_TRUE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::bx));
+  EXPECT_TRUE(is_live(core::bl));
   EXPECT_FALSE(is_live(core::ecx));
 }
 
@@ -339,7 +349,11 @@ TEST_F(LivenessAnalysisTest, Mov2Analysis) {
   asm_.mov(core::ecx, Immediate(test_block_, 0));
   AnalyzeInstructions();
   EXPECT_FALSE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ax));
+  EXPECT_FALSE(is_live(core::ah));
   EXPECT_TRUE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::bx));
+  EXPECT_TRUE(is_live(core::bl));
   EXPECT_FALSE(is_live(core::ecx));
   EXPECT_FALSE(is_live(core::edx));
 }
@@ -349,11 +363,25 @@ TEST_F(LivenessAnalysisTest, DefineAllRegisters) {
   DefineAllRegisters();
   AnalyzeInstructions();
   EXPECT_FALSE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ax));
+  EXPECT_FALSE(is_live(core::al));
+  EXPECT_FALSE(is_live(core::ah));
   EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_FALSE(is_live(core::bx));
+  EXPECT_FALSE(is_live(core::bl));
+  EXPECT_FALSE(is_live(core::bh));
   EXPECT_FALSE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(core::cx));
+  EXPECT_FALSE(is_live(core::cl));
+  EXPECT_FALSE(is_live(core::ch));
   EXPECT_FALSE(is_live(core::edx));
+  EXPECT_FALSE(is_live(core::dx));
+  EXPECT_FALSE(is_live(core::dl));
+  EXPECT_FALSE(is_live(core::dh));
   EXPECT_FALSE(is_live(core::esi));
+  EXPECT_FALSE(is_live(core::si));
   EXPECT_FALSE(is_live(core::edi));
+  EXPECT_FALSE(is_live(core::di));
   EXPECT_FALSE(are_arithmetic_flags_live());
 }
 
@@ -364,11 +392,21 @@ TEST_F(LivenessAnalysisTest, Defs1Analysis) {
   AddInstructionFromBuffer(kMovEsiZero);
   AnalyzeInstructions();
   EXPECT_FALSE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ax));
+  EXPECT_FALSE(is_live(core::ah));
   EXPECT_TRUE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::bx));
+  EXPECT_TRUE(is_live(core::bl));
   EXPECT_FALSE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(core::cx));
+  EXPECT_FALSE(is_live(core::cl));
   EXPECT_TRUE(is_live(core::edx));
+  EXPECT_TRUE(is_live(core::dx));
+  EXPECT_TRUE(is_live(core::dl));
   EXPECT_FALSE(is_live(core::esi));
+  EXPECT_FALSE(is_live(core::si));
   EXPECT_TRUE(is_live(core::edi));
+  EXPECT_TRUE(is_live(core::di));
 }
 
 TEST_F(LivenessAnalysisTest, Defs2Analysis) {
@@ -378,11 +416,39 @@ TEST_F(LivenessAnalysisTest, Defs2Analysis) {
   AddInstructionFromBuffer(kMovEdiZero);
   AnalyzeInstructions();
   EXPECT_TRUE(is_live(core::eax));
+  EXPECT_TRUE(is_live(core::ax));
+  EXPECT_TRUE(is_live(core::al));
   EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_FALSE(is_live(core::bx));
+  EXPECT_FALSE(is_live(core::bh));
   EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(core::cx));
+  EXPECT_TRUE(is_live(core::cl));
   EXPECT_FALSE(is_live(core::edx));
+  EXPECT_FALSE(is_live(core::dx));
+  EXPECT_FALSE(is_live(core::dl));
   EXPECT_TRUE(is_live(core::esi));
+  EXPECT_TRUE(is_live(core::si));
   EXPECT_FALSE(is_live(core::edi));
+  EXPECT_FALSE(is_live(core::di));
+}
+
+TEST_F(LivenessAnalysisTest, Analysis16Bit) {
+  AddInstructionFromBuffer(kMovAxZero);
+  AnalyzeInstructions();
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ax));
+  EXPECT_FALSE(is_live(core::al));
+  EXPECT_FALSE(is_live(core::ah));
+}
+
+TEST_F(LivenessAnalysisTest, Analysis8Bit) {
+  AddInstructionFromBuffer(kMovAlZero);
+  AnalyzeInstructions();
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_TRUE(is_live(core::ax));
+  EXPECT_FALSE(is_live(core::al));
+  EXPECT_TRUE(is_live(core::ah));
 }
 
 TEST_F(LivenessAnalysisTest, OperandTypeLeft) {
@@ -518,8 +584,16 @@ TEST_F(LivenessAnalysisTest, InstructionsWithPartialDefine) {
   AddInstructionFromBuffer(kCmp);
   AddInstructionFromBuffer(kStore);
   AnalyzeInstructions();
+
   EXPECT_TRUE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::bx));
+  EXPECT_FALSE(is_live(core::bl));
+  EXPECT_TRUE(is_live(core::bh));
+
   EXPECT_TRUE(is_live(core::edx));
+  EXPECT_TRUE(is_live(core::dx));
+  EXPECT_TRUE(is_live(core::dl));
+  EXPECT_TRUE(is_live(core::dh));
 }
 
 TEST_F(LivenessAnalysisTest, InstructionsWithPartialDefineAll) {

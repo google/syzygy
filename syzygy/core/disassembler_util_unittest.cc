@@ -222,6 +222,28 @@ TEST(DisassemblerUtilTest, IsDebugInterrupt) {
   EXPECT_TRUE(IsDebugInterrupt(DecodeBuffer(kInt3, sizeof(kInt3))));
 }
 
+TEST(DisassemblerUtilTest, GetRegisterType) {
+  EXPECT_EQ(R_DL, GetRegisterType(core::kRegisterDl));
+  EXPECT_EQ(R_AX, GetRegisterType(core::kRegisterAx));
+  EXPECT_EQ(R_EDI, GetRegisterType(core::kRegisterEdi));
+
+  EXPECT_EQ(R_BH, GetRegisterType(core::bh));
+  EXPECT_EQ(R_CX, GetRegisterType(core::cx));
+  EXPECT_EQ(R_ESP, GetRegisterType(core::esp));
+}
+
+TEST(DisassemblerUtilTest, GetRegisterId) {
+  EXPECT_EQ(kRegisterAl, GetRegisterId(R_AL));
+  EXPECT_EQ(kRegisterSp, GetRegisterId(R_SP));
+  EXPECT_EQ(kRegisterEdi, GetRegisterId(R_EDI));
+}
+
+TEST(DisassemblerUtilTest, GetRegister) {
+  EXPECT_EQ(core::bh, GetRegister(R_BH));
+  EXPECT_EQ(core::cx, GetRegister(R_CX));
+  EXPECT_EQ(core::ebp, GetRegister(R_EBP));
+}
+
 TEST(DisassemblerUtilTest, DistormDecompose) {
   const unsigned int kMaxResults = 16;
   unsigned int result_count = 0;

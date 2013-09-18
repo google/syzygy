@@ -68,17 +68,6 @@ do { \
 
 }  // namespace
 
-TEST_F(AssemblerTest, Registers) {
-  EXPECT_EQ(kRegisterEax, eax.code());
-  EXPECT_EQ(kRegisterEcx, ecx.code());
-  EXPECT_EQ(kRegisterEdx, edx.code());
-  EXPECT_EQ(kRegisterEbx, ebx.code());
-  EXPECT_EQ(kRegisterEsp, esp.code());
-  EXPECT_EQ(kRegisterEbp, ebp.code());
-  EXPECT_EQ(kRegisterEsi, esi.code());
-  EXPECT_EQ(kRegisterEdi, edi.code());
-}
-
 TEST_F(AssemblerTest, ValueImpl) {
   ValueImpl imm1;
   EXPECT_EQ(0, imm1.value());
@@ -770,15 +759,15 @@ TEST_F(AssemblerTest, Flags) {
 }
 
 TEST_F(AssemblerTest, TestByte) {
-  asm_.test_b(eax, ebx);
+  asm_.test(al, bl);
   EXPECT_BYTES(0x84, 0xC3);
-  asm_.test_b(ebx, eax);
-  EXPECT_BYTES(0x84, 0xD8);
+  asm_.test(bh, al);
+  EXPECT_BYTES(0x84, 0xF8);
 
-  asm_.test_b(eax, ImmediateImpl(0x0A, kSize8Bit));
+  asm_.test(al, ImmediateImpl(0x0A, kSize8Bit));
   EXPECT_BYTES(0xA8, 0x0A);
-  asm_.test_b(ebx, ImmediateImpl(0x0A, kSize8Bit));
-  EXPECT_BYTES(0xF6, 0xC3, 0x0A);
+  asm_.test(bh, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0xF6, 0xC7, 0x0A);
 }
 
 TEST_F(AssemblerTest, Test) {
@@ -834,15 +823,15 @@ TEST_F(AssemblerTest, Test) {
 }
 
 TEST_F(AssemblerTest, CmpByte) {
-  asm_.cmp_b(eax, ebx);
+  asm_.cmp(al, bl);
   EXPECT_BYTES(0x3A, 0xC3);
-  asm_.cmp_b(ebx, eax);
-  EXPECT_BYTES(0x3A, 0xD8);
+  asm_.cmp(bh, al);
+  EXPECT_BYTES(0x3A, 0xF8);
 
-  asm_.cmp_b(eax, ImmediateImpl(0x0A, kSize8Bit));
+  asm_.cmp(al, ImmediateImpl(0x0A, kSize8Bit));
   EXPECT_BYTES(0x3C, 0x0A);
-  asm_.cmp_b(ebx, ImmediateImpl(0x0A, kSize8Bit));
-  EXPECT_BYTES(0x80, 0xFB, 0x0A);
+  asm_.cmp(bh, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x80, 0xFF, 0x0A);
 }
 
 TEST_F(AssemblerTest, Cmp) {
@@ -898,15 +887,15 @@ TEST_F(AssemblerTest, Cmp) {
 }
 
 TEST_F(AssemblerTest, AddByte) {
-  asm_.add_b(eax, ebx);
+  asm_.add(al, bl);
   EXPECT_BYTES(0x02, 0xC3);
-  asm_.add_b(ebx, eax);
-  EXPECT_BYTES(0x02, 0xD8);
+  asm_.add(bh, al);
+  EXPECT_BYTES(0x02, 0xF8);
 
-  asm_.add_b(eax, ImmediateImpl(0x0A, kSize8Bit));
+  asm_.add(al, ImmediateImpl(0x0A, kSize8Bit));
   EXPECT_BYTES(0x04, 0x0A);
-  asm_.add_b(ebx, ImmediateImpl(0x0A, kSize8Bit));
-  EXPECT_BYTES(0x80, 0xC3, 0x0A);
+  asm_.add(bh, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x80, 0xC7, 0x0A);
 }
 
 
@@ -962,15 +951,15 @@ TEST_F(AssemblerTest, Add) {
 }
 
 TEST_F(AssemblerTest, SubByte) {
-  asm_.sub_b(eax, ebx);
+  asm_.sub(al, bl);
   EXPECT_BYTES(0x2A, 0xC3);
-  asm_.sub_b(ebx, eax);
-  EXPECT_BYTES(0x2A, 0xD8);
+  asm_.sub(bh, al);
+  EXPECT_BYTES(0x2A, 0xF8);
 
-  asm_.sub_b(eax, ImmediateImpl(0x0A, kSize8Bit));
+  asm_.sub(al, ImmediateImpl(0x0A, kSize8Bit));
   EXPECT_BYTES(0x2C, 0x0A);
-  asm_.sub_b(ebx, ImmediateImpl(0x0A, kSize8Bit));
-  EXPECT_BYTES(0x80, 0xEB, 0x0A);
+  asm_.sub(bh, ImmediateImpl(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x80, 0xEF, 0x0A);
 }
 
 TEST_F(AssemblerTest, Sub) {
@@ -1046,7 +1035,7 @@ TEST_F(AssemblerTest, Shr) {
   EXPECT_BYTES(0xC1, 0xE9, 0x03);
 }
 
-TEST_F(AssemblerTest, Xchg) {
+TEST_F(AssemblerTest, Xchg32) {
   // Any exchange with the eax register should generate a single byte
   // instruction.
   asm_.xchg(eax, eax);
@@ -1064,6 +1053,52 @@ TEST_F(AssemblerTest, Xchg) {
   EXPECT_BYTES(0x87, 0xE2);
   asm_.xchg(esp, edx);
   EXPECT_BYTES(0x87, 0xD4);
+}
+
+TEST_F(AssemblerTest, Xchg16) {
+  // Any exchange with the ax register should generate 2-byte instructions.
+  asm_.xchg(ax, ax);
+  EXPECT_BYTES(0x66, 0x90);
+  asm_.xchg(ax, cx);
+  EXPECT_BYTES(0x66, 0x91);
+  asm_.xchg(sp, ax);
+  EXPECT_BYTES(0x66, 0x94);
+
+  // Any exchanges not involving the ax register should generate 3-byte
+  // instructions.
+  asm_.xchg(cx, dx);
+  EXPECT_BYTES(0x66, 0x87, 0xD1);
+  asm_.xchg(bx, cx);
+  EXPECT_BYTES(0x66, 0x87, 0xCB);
+  asm_.xchg(dx, sp);
+  EXPECT_BYTES(0x66, 0x87, 0xE2);
+  asm_.xchg(sp, dx);
+  EXPECT_BYTES(0x66, 0x87, 0xD4);
+  asm_.xchg(bp, dx);
+  EXPECT_BYTES(0x66, 0x87, 0xD5);
+  asm_.xchg(si, sp);
+  EXPECT_BYTES(0x66, 0x87, 0xE6);
+  asm_.xchg(di, cx);
+  EXPECT_BYTES(0x66, 0x87, 0xCF);
+}
+
+TEST_F(AssemblerTest, Xchg8) {
+  asm_.xchg(al, ah);
+  EXPECT_BYTES(0x86, 0xE0);
+  asm_.xchg(cl, bl);
+  EXPECT_BYTES(0x86, 0xD9);
+  asm_.xchg(dl, bh);
+  EXPECT_BYTES(0x86, 0xFA);
+  asm_.xchg(bl, dh);
+  EXPECT_BYTES(0x86, 0xF3);
+  asm_.xchg(ah, cl);
+  EXPECT_BYTES(0x86, 0xCC);
+  asm_.xchg(ch, dl);
+  EXPECT_BYTES(0x86, 0xD5);
+  asm_.xchg(dh, ch);
+  EXPECT_BYTES(0x86, 0xEE);
+  asm_.xchg(bh, al);
+  EXPECT_BYTES(0x86, 0xC7);
 }
 
 TEST_F(AssemblerTest, Ja) {

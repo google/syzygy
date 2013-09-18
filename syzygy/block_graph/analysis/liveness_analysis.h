@@ -172,7 +172,7 @@ class LivenessAnalysis::State {
   // Check if a register has not been proven unused.
   // @param reg Register to check liveness information.
   // @returns true if the register may be alive, false otherwise.
-  bool IsLive(core::Register reg) const;
+  bool IsLive(const core::Register& reg) const;
 
   // Check if the arithmetic flags has not been proved unused.
   // @returns true if the flags may be used, false otherwise.

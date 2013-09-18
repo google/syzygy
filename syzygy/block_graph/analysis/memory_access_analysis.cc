@@ -33,7 +33,7 @@ namespace analysis {
 namespace {
 
 using block_graph::Operand;
-typedef core::RegisterCode RegisterCode;
+typedef core::RegisterId RegisterId;
 typedef block_graph::BasicBlockSubGraph::BasicBlock BasicBlock;
 typedef block_graph::BasicBlockSubGraph::BasicBlock::Instructions Instructions;
 
@@ -80,9 +80,8 @@ void MemoryAccessAnalysis::PropagateForward(const Instruction& instr,
     return;
   }
 
-  for (int r = 0; r < core::kRegisterMax; ++r) {
-    RegisterCode reg = RegisterCode(r);
-    if (defs.IsLive(core::Register(reg))) {
+  for (size_t r = 0; r < core::kRegister32Count; ++r) {
+    if (defs.IsLive(core::kRegisters32[r])) {
       // This register is modified, clear all memory accesses with this base.
       state->active_memory_accesses_[r].clear();
     }
@@ -100,7 +99,7 @@ bool MemoryAccessAnalysis::Intersect(const block_graph::BasicBlock* bb,
 
   bool changed = false;
   // Subtract non redundant memory accesses.
-  for (int r = 0; r < core::kRegisterMax; ++r) {
+  for (size_t r = 0; r < core::kRegister32Count; ++r) {
     const std::set<int32>& from = state.active_memory_accesses_[r];
     std::set<int32>& to = bbentry_state->second.active_memory_accesses_[r];
 
@@ -210,9 +209,8 @@ MemoryAccessAnalysis::State::State() {
 }
 
 MemoryAccessAnalysis::State::State(const State& state) {
-  for (int r = 0; r < core::kRegisterMax; ++r) {
-    RegisterCode reg = RegisterCode(r);
-    active_memory_accesses_[reg] = state.active_memory_accesses_[reg];
+  for (size_t r = 0; r < core::kRegister32Count; ++r) {
+    active_memory_accesses_[r] = state.active_memory_accesses_[r];
   }
 }
 
@@ -242,13 +240,15 @@ bool MemoryAccessAnalysis::State::HasNonRedundantAccess(
           return true;
 
         // Simple memory dereference with optional displacement.
-        RegisterCode base_reg = RegisterCode(op.index - R_EAX);
+        RegisterId base_reg_id = core::GetRegisterId(op.index);
+        DCHECK_LE(core::kRegister32Min, base_reg_id);
+        DCHECK_LT(base_reg_id, core::kRegister32Max);
+        size_t base_reg = base_reg_id - core::kRegister32Min;
 
         BasicBlockReference reference;
         if (instr.FindOperandReference(op_id, &reference))
           return true;
 
-        DCHECK(base_reg < core::kRegisterMax);
         const std::set<int32>& accesses = active_memory_accesses_[base_reg];
         if (accesses.find(repr.disp) == accesses.end())
           return true;
@@ -282,21 +282,22 @@ void MemoryAccessAnalysis::State::Execute(const Instruction& instr) {
       continue;
 
     // Simple memory dereference with optional displacement.
-    RegisterCode base_reg = RegisterCode(op.index - R_EAX);
+    RegisterId base_reg_id = core::GetRegisterId(op.index);
+    DCHECK_LE(core::kRegister32Min, base_reg_id);
+    DCHECK_LT(base_reg_id, core::kRegister32Max);
+    size_t base_reg = base_reg_id - core::kRegister32Min;
 
     BasicBlockReference reference;
     if (instr.FindOperandReference(op_id, &reference))
       continue;
 
-    DCHECK(base_reg < core::kRegisterMax);
     active_memory_accesses_[base_reg].insert(repr.disp);
   }
 }
 
 void MemoryAccessAnalysis::State::Clear() {
-  for (int r = 0; r < core::kRegisterMax; ++r) {
-    RegisterCode reg = RegisterCode(r);
-    active_memory_accesses_[reg].clear();
+  for (size_t r = 0; r < core::kRegister32Count; ++r) {
+    active_memory_accesses_[r].clear();
   }
 }
 
