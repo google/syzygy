@@ -75,7 +75,7 @@ MATCHER_P3(FrequencyDataMatches, module, values_count, bb_freqs, "") {
   if (arg->frequency_size != sizeof(uint32))
     return false;
 
-  if ( arg->num_entries * arg->num_columns != values_count)
+  if (arg->num_entries * arg->num_columns != values_count)
     return false;
 
   return ::memcmp(bb_freqs, arg->frequency_data, values_count) == 0;
@@ -88,6 +88,11 @@ class BasicBlockEntryTest : public testing::Test {
     kBasicBlockEntryInstrumentation,
     kBranchInstrumentation,
     kBufferedBranchInstrumentation
+  };
+
+  enum MainMode {
+    kDllMain,
+    kExeMain
   };
 
   BasicBlockEntryTest()
@@ -118,6 +123,36 @@ class BasicBlockEntryTest : public testing::Test {
     module_data_.frequency_size = sizeof(default_branch_data_[0]);
     module_data_.frequency_data = default_branch_data_;
     ::memset(&default_branch_data_, 0, sizeof(default_branch_data_));
+  }
+
+  void Startup(MainMode mode) {
+    switch (mode) {
+      case kDllMain:
+        // Simulate the process attach event.
+        SimulateModuleEvent(DLL_PROCESS_ATTACH);
+        break;
+      case kExeMain:
+        // Simulate the call to main.
+        ExeMainThunk();
+        break;
+      default:
+        NOTREACHED();
+        break;
+    }
+  }
+
+  void Shutdown(MainMode mode) {
+    switch (mode) {
+      case kDllMain:
+        // Simulate the process detach event.
+        SimulateModuleEvent(DLL_PROCESS_DETACH);
+        break;
+      case kExeMain:
+        break;
+      default:
+        NOTREACHED();
+        break;
+    }
   }
 
   void ConfigureAgent(InstrumentationMode mode) {
@@ -270,45 +305,49 @@ class BasicBlockEntryTest : public testing::Test {
     }
   }
 
-  void SimulateThreadExecution(InstrumentationMode mode) {
+  void SimulateThreadStep(InstrumentationMode mode, uint32 basic_block_id) {
+    switch (mode) {
+      case kBasicBlockEntryInstrumentation:
+        SimulateBasicBlockEntry(basic_block_id);
+        break;
+      case kBranchInstrumentation:
+        SimulateBranchEnter(basic_block_id);
+        SimulateBranchLeave(basic_block_id);
+        break;
+      case kBufferedBranchInstrumentation:
+        SimulateBranchEnterBuffered(basic_block_id);
+        SimulateBranchLeave(basic_block_id);
+        break;
+      default:
+        NOTREACHED();
+        break;
+    }
+  }
+
+  void SimulateThreadExecution(MainMode main_mode, InstrumentationMode mode) {
     // Simulate the thread attach event.
-    SimulateModuleEvent(DLL_THREAD_ATTACH);
+    if (main_mode == kDllMain)
+      SimulateModuleEvent(DLL_THREAD_ATTACH);
 
     // Simulate the thread loop.
     for (uint32 i = 0; i < kNumThreadIteration; ++i) {
-      for (uint32 j = 0; j < kNumBasicBlocks; ++j) {
-        switch (mode) {
-          case kBasicBlockEntryInstrumentation:
-            SimulateBasicBlockEntry(j);
-            break;
-          case kBranchInstrumentation:
-            SimulateBranchEnter(j);
-            SimulateBranchLeave(j);
-            break;
-          case kBufferedBranchInstrumentation:
-            SimulateBranchEnterBuffered(j);
-            SimulateBranchLeave(j);
-            break;
-          default:
-            NOTREACHED();
-            break;
-        }
-      }
+      for (uint32 j = 0; j < kNumBasicBlocks; ++j)
+        SimulateThreadStep(mode, j);
     }
 
     // Simulate the thread detach event.
-    SimulateModuleEvent(DLL_THREAD_DETACH);
+    if (main_mode == kDllMain)
+      SimulateModuleEvent(DLL_THREAD_DETACH);
   }
 
-  void CheckThreadExecution(InstrumentationMode mode) {
+  void CheckThreadExecution(MainMode main_mode, InstrumentationMode mode) {
     // Configure for instrumented mode.
     ConfigureAgent(mode);
 
     ASSERT_NO_FATAL_FAILURE(StartService());
     ASSERT_NO_FATAL_FAILURE(LoadDll());
 
-    // Simulate the process attach event.
-    SimulateModuleEvent(DLL_PROCESS_ATTACH);
+    Startup(main_mode);
 
     std::vector<base::Thread*> threads;
     for (size_t i = 0; i < kNumThreads; ++i) {
@@ -319,6 +358,7 @@ class BasicBlockEntryTest : public testing::Test {
       threads[i]->message_loop()->PostTask(FROM_HERE,
           base::Bind(&BasicBlockEntryTest::SimulateThreadExecution,
                      base::Unretained(this),
+                     main_mode,
                      mode));
     }
 
@@ -329,20 +369,58 @@ class BasicBlockEntryTest : public testing::Test {
     }
     threads.clear();
 
-    // Simulate the process detach event.
-    SimulateModuleEvent(DLL_PROCESS_DETACH);
+    Shutdown(main_mode);
 
     // Validate all events have been committed.
     const uint32* frequency_data =
         reinterpret_cast<uint32*>(module_data_.frequency_data);
-    uint32 kColumns = kNumColumns;
-    if (mode == kBranchInstrumentation ||
-        mode == kBufferedBranchInstrumentation) {
-      kColumns = kNumBranchColumns;
-    }
+    uint32 num_columns = module_data_.num_columns;
+
     const uint32 expected_frequency = kNumThreads * kNumThreadIteration;
     for (size_t i = 0; i < kNumBasicBlocks; ++i) {
-      EXPECT_EQ(expected_frequency, frequency_data[i * kColumns]);
+      EXPECT_EQ(expected_frequency, frequency_data[i * num_columns]);
+    }
+
+    // Unload the DLL and stop the service.
+    ASSERT_NO_FATAL_FAILURE(UnloadDll());
+    ASSERT_NO_FATAL_FAILURE(StopService());
+  }
+
+  void CheckExecution(MainMode main_mode, InstrumentationMode mode) {
+    // Configure for instrumented mode.
+    ConfigureAgent(mode);
+
+    ASSERT_NO_FATAL_FAILURE(StartService());
+    ASSERT_NO_FATAL_FAILURE(LoadDll());
+
+    // Simulate the process attach event.
+    Startup(main_mode);
+
+    // Keep a pointer to raw counters.
+    const uint32* frequency_data =
+        reinterpret_cast<uint32*>(module_data_.frequency_data);
+    uint32 num_columns = module_data_.num_columns;
+
+    // Validate no events have been committed.
+    for (size_t i = 0; i < num_columns; ++i) {
+      EXPECT_EQ(0U, frequency_data[i]);
+    }
+
+    // Simulate a sequential execution.
+    for (size_t i = 0; i < kNumThreads; ++i) {
+      for (uint32 j = 0; j < kNumThreadIteration; ++j) {
+        for (uint32 k = 0; k < kNumBasicBlocks; ++k)
+          SimulateThreadStep(mode, k);
+      }
+    }
+
+    // Simulate the process detach event.
+    Shutdown(main_mode);
+
+    // Validate all events have been committed.
+    const uint32 expected_frequency = kNumThreads * kNumThreadIteration;
+    for (size_t i = 0; i < kNumBasicBlocks; ++i) {
+      EXPECT_EQ(expected_frequency, frequency_data[i * num_columns]);
     }
 
     // Unload the DLL and stop the service.
@@ -449,8 +527,7 @@ TEST_F(BasicBlockEntryTest, NoServerNoCrash) {
   ASSERT_EQ(kNumBasicBlocks, module_data_.num_entries);
   ASSERT_EQ(default_frequency_data_, module_data_.frequency_data);
 
-  // Visiting an initial basic-block should not fail. It should initialize the
-  // TLS index, map the frequency data to the default array, and increment the
+  // Visiting an initial basic-block should not fail. It should increment the
   // call count in the default array.
   SimulateBasicBlockEntry(0);
   ASSERT_EQ(1U, default_frequency_data_[0]);
@@ -510,7 +587,7 @@ TEST_F(BasicBlockEntryTest, SingleThreadedDllBasicBlockEvents) {
   SimulateBasicBlockEntry(1);
   SimulateBasicBlockEntry(0);
 
-  // Simulate the process attach event.
+  // Simulate the process detach event.
   SimulateModuleEvent(DLL_PROCESS_DETACH);
 
   // Unload the DLL and stop the service.
@@ -569,6 +646,9 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBasicBlockEvents) {
   SimulateBasicBlockEntry(0);
   SimulateBasicBlockEntry(1);
   SimulateBasicBlockEntry(0);
+
+  // Simulate the process detach event.
+  SimulateModuleEvent(DLL_PROCESS_DETACH);
 
   // Unload the DLL and stop the service.
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
@@ -643,6 +723,9 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBranchEvents) {
     SimulateBranchEnter(0);
     SimulateBranchLeave(0);
   }
+
+  // Simulate the process detach event.
+  SimulateModuleEvent(DLL_PROCESS_DETACH);
 
   // Unload the DLL and stop the service.
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
@@ -720,20 +803,58 @@ TEST_F(BasicBlockEntryTest, BranchWithBufferingEvents) {
   // Expect to have increasing values.
   uint32 new_count = frequency_data[0];
   EXPECT_LT(old_count, new_count);
+
+  ASSERT_NO_FATAL_FAILURE(StopService());
 }
 
-TEST_F(BasicBlockEntryTest, MultiThreadedBasicBlockEvents) {
+TEST_F(BasicBlockEntryTest, SingleExeBranchEvents) {
   ASSERT_NO_FATAL_FAILURE(
-      CheckThreadExecution(kBasicBlockEntryInstrumentation));
+    CheckExecution(kExeMain, kBranchInstrumentation));
 }
 
-TEST_F(BasicBlockEntryTest, MultiThreadedBranchEvents) {
-  ASSERT_NO_FATAL_FAILURE(CheckThreadExecution(kBranchInstrumentation));
-}
-
-TEST_F(BasicBlockEntryTest, MultiThreadedBufferdBranchEvents) {
+TEST_F(BasicBlockEntryTest, SingleDllBranchEvents) {
   ASSERT_NO_FATAL_FAILURE(
-      CheckThreadExecution(kBufferedBranchInstrumentation));
+    CheckExecution(kDllMain, kBranchInstrumentation));
+}
+
+TEST_F(BasicBlockEntryTest, SingleExeBranchBufferedEvents) {
+  ASSERT_NO_FATAL_FAILURE(
+    CheckExecution(kExeMain, kBufferedBranchInstrumentation));
+}
+
+TEST_F(BasicBlockEntryTest, SingleDllBranchBufferedEvents) {
+  ASSERT_NO_FATAL_FAILURE(
+    CheckExecution(kDllMain, kBufferedBranchInstrumentation));
+}
+
+TEST_F(BasicBlockEntryTest, MultiThreadedDllBasicBlockEvents) {
+  ASSERT_NO_FATAL_FAILURE(
+      CheckThreadExecution(kDllMain, kBasicBlockEntryInstrumentation));
+}
+
+TEST_F(BasicBlockEntryTest, MultiThreadedExeBasicBlockEvents) {
+  ASSERT_NO_FATAL_FAILURE(
+      CheckThreadExecution(kExeMain, kBasicBlockEntryInstrumentation));
+}
+
+TEST_F(BasicBlockEntryTest, MultiThreadedDllBranchEvents) {
+  ASSERT_NO_FATAL_FAILURE(
+      CheckThreadExecution(kDllMain, kBranchInstrumentation));
+}
+
+TEST_F(BasicBlockEntryTest, MultiThreadedExeBranchEvents) {
+  ASSERT_NO_FATAL_FAILURE(
+      CheckThreadExecution(kExeMain, kBranchInstrumentation));
+}
+
+TEST_F(BasicBlockEntryTest, MultiThreadedDllBufferdBranchEvents) {
+  ASSERT_NO_FATAL_FAILURE(
+      CheckThreadExecution(kDllMain, kBufferedBranchInstrumentation));
+}
+
+TEST_F(BasicBlockEntryTest, MultiThreadedExeBufferdBranchEvents) {
+  ASSERT_NO_FATAL_FAILURE(
+      CheckThreadExecution(kExeMain, kBufferedBranchInstrumentation));
 }
 
 }  // namespace basic_block_entry
