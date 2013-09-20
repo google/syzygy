@@ -202,12 +202,12 @@ def main():
   with open(input_file, 'r') as f:
     input_data = json.load(f)
 
-  entities = _generate_entities(input_json)
+  entities = _generate_entities(input_data)
 
   with open(output_file, 'w') as f:
     _output_converted_json(f,
                            options,
-                           input_json['executable']['name'],
+                           input_data['executable']['name'],
                            entities)
 
 

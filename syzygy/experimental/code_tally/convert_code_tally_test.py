@@ -15,7 +15,11 @@
 # limitations under the License.
 
 import json
+import os
 import StringIO
+import subprocess
+import sys
+import tempfile
 import unittest
 
 import convert_code_tally
@@ -158,6 +162,21 @@ class ConvertCodeTallyTest(unittest.TestCase):
         self.check_entity_dump(entity, 'c:\\folder', 8.0, False)
       else:
         self.fail('Unknown entity, %s' % str(entity))
+
+  def test_end_to_end(self):
+    """Just check that the script can be called without any problems."""
+    try:
+      input_file = tempfile.NamedTemporaryFile(delete=False)
+      json.dump(INPUT_JSON, input_file)
+      input_file.close()
+
+      output_file = tempfile.NamedTemporaryFile()
+
+      subprocess.check_call([sys.executable, 'convert_code_tally.py',
+                             input_file.name, output_file.name])
+    finally:
+      if os.path.exists(input_file.name):
+        os.remove(input_file.name)
 
 
 if __name__ == '__main__':
