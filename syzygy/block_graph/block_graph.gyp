@@ -50,6 +50,7 @@
         'tags.h',
         'transform.cc',
         'transform.h',
+        'transform_policy.h',
         'typed_block.h',
         'typed_block_internal.h',
       ],
