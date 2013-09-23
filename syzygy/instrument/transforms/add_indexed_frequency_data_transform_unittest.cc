@@ -55,7 +55,7 @@ class AddFrequencyDataTransformTest
 void AddFrequencyDataTransformTest::Apply(size_t num_entries,
     size_t num_columns, size_t frequency_size, DataType data_type) {
   AddIndexedFrequencyDataTransform tx(kAgentId, "Test", kAgentVersion,
-      data_type);
+      data_type, sizeof(common::IndexedFrequencyData));
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
       &tx, &block_graph_, dos_header_block_));
 
@@ -71,7 +71,6 @@ void AddFrequencyDataTransformTest::Apply(size_t num_entries,
   EXPECT_EQ(kAgentId, frequency_data->agent_id);
   EXPECT_EQ(kAgentVersion, frequency_data->version);
   EXPECT_EQ(data_type, frequency_data->data_type);
-  EXPECT_EQ(TLS_OUT_OF_INDEXES, frequency_data->tls_index);
   EXPECT_EQ(0U, frequency_data->num_entries);
   EXPECT_EQ(0U, frequency_data->num_columns);
   EXPECT_EQ(0U, frequency_data->frequency_size);

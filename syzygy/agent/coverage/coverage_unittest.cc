@@ -44,7 +44,6 @@ uint8 bb_seen_array[kBasicBlockCount] = {};
 IndexedFrequencyData coverage_data = {
     ::common::kBasicBlockCoverageAgentId,
     ::common::kBasicBlockFrequencyDataVersion,
-    TLS_OUT_OF_INDEXES,
     bb_seen_array,
     kBasicBlockCount,
     1U,  // num_columns.

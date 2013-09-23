@@ -55,11 +55,6 @@ struct IndexedFrequencyData {
   // change is made to the data structure or its usage.
   uint32 version;
 
-  // The TLS slot associated with this module (if any). This allows for the
-  // frequency trace data to be managed on a per-thread basis, if desired by the
-  // agent.
-  DWORD tls_index;
-
   // This points to an array of length 'num_entries' counter elements. At
   // link time it is initialized to point to statically allocated array that is
   // in the .data section of the image (this is done so that if capture is not

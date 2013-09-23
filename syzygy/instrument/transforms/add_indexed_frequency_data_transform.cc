@@ -27,13 +27,16 @@ const char AddIndexedFrequencyDataTransform::kTransformName[] =
 
 AddIndexedFrequencyDataTransform::AddIndexedFrequencyDataTransform(
     uint32 agent_id, const base::StringPiece& freq_name, uint32 version,
-    IndexedFrequencyData::DataType data_type)
+    IndexedFrequencyData::DataType data_type,
+    size_t indexed_frequency_data_size)
         : agent_id_(agent_id),
           freq_name_(freq_name.begin(), freq_name.end()),
           version_(version),
           data_type_(data_type),
           frequency_data_block_(NULL),
+          frequency_data_block_size_(indexed_frequency_data_size),
           frequency_data_buffer_block_(NULL) {
+  DCHECK_LE(sizeof(IndexedFrequencyData), indexed_frequency_data_size);
 }
 
 bool AddIndexedFrequencyDataTransform::TransformBlockGraph(
@@ -56,7 +59,7 @@ bool AddIndexedFrequencyDataTransform::TransformBlockGraph(
   // Add a block for the frequency data.
   BlockGraph::Block* data_block =
       block_graph->AddBlock(BlockGraph::DATA_BLOCK,
-                            sizeof(IndexedFrequencyData),
+                            frequency_data_block_size_,
                             freq_name_);
   if (data_block == NULL) {
     LOG(ERROR) << "Failed to add the " << freq_name_ << " block.";
@@ -85,12 +88,10 @@ bool AddIndexedFrequencyDataTransform::TransformBlockGraph(
     LOG(ERROR) << "Failed to allocate frequency data.";
     return false;
   }
-
   // Initialize the non-zero fields of the structure.
   frequency_data->agent_id = agent_id_;
   frequency_data->version = version_;
   frequency_data->data_type = data_type_;
-  frequency_data->tls_index = TLS_OUT_OF_INDEXES;
 
   // Setup the frequency_data pointer such that it points to the newly allocated
   // buffer.
@@ -122,7 +123,7 @@ bool AddIndexedFrequencyDataTransform::ConfigureFrequencyDataBuffer(
   DCHECK(frequency_size == 1 || frequency_size == 2 || frequency_size == 4);
   DCHECK(frequency_data_block_ != NULL);
   DCHECK(frequency_data_buffer_block_ != NULL);
-  DCHECK_EQ(sizeof(IndexedFrequencyData),
+  DCHECK_EQ(frequency_data_block_size_,
             frequency_data_block_->data_size());
 
   // Update the related fields in the data structure.

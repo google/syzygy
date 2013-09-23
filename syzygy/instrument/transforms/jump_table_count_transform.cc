@@ -103,7 +103,8 @@ JumpTableCaseCountTransform::JumpTableCaseCountTransform()
     : add_frequency_data_(common::kJumpTableCountAgentId,
                           "Jump Table Frequency Data",
                           common::kJumpTableFrequencyDataVersion,
-                          common::IndexedFrequencyData::JUMP_TABLE),
+                          common::IndexedFrequencyData::JUMP_TABLE,
+                          sizeof(common::IndexedFrequencyData)),
       instrument_dll_name_(kDefaultModuleName),
       jump_table_case_count_(0) {
 }

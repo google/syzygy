@@ -38,10 +38,14 @@ class AddIndexedFrequencyDataTransform
   // @param agent_id The agent that'll use those data.
   // @param freq_name The name of the frequency data block.
   // @param version The version of the data structure used to store the data.
+  // @param indexed_frequency_data_size The size of the indexed_frequency_data
+  //     structure or extended version. Instrumenters may add fields after the
+  //     common part of the indexed_frequency_data structure.
   AddIndexedFrequencyDataTransform(uint32 agent_id,
                                    const base::StringPiece& freq_name,
                                    uint32 version,
-                                   IndexedFrequencyData::DataType data_type);
+                                   IndexedFrequencyData::DataType data_type,
+                                   size_t indexed_frequency_data_size);
 
   // Return the block which holds the frequency data. This will only be non-NULL
   // after a successful application of this transform.
@@ -77,6 +81,10 @@ class AddIndexedFrequencyDataTransform
   // transform. This becomes non-NULL after a successful application of the
   // transform.
   BlockGraph::Block* frequency_data_block_;
+
+  // The size of the statically allocated block.
+  size_t frequency_data_block_size_;
+
   // The statically allocated frequency data buffer block that is added by the
   // transform. This becomes non-NULL after a successful application of the
   // transform. This is allocated as a separate block because it is

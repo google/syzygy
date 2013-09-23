@@ -17,6 +17,7 @@
 #include "syzygy/instrument/transforms/basic_block_entry_hook_transform.h"
 
 #include "gtest/gtest.h"
+#include "syzygy/agent/basic_block_entry/basic_block_entry.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
@@ -34,6 +35,7 @@ namespace instrument {
 namespace transforms {
 namespace {
 
+using agent::basic_block_entry::BasicBlockEntry;
 using block_graph::BasicBlock;
 using block_graph::BasicBlockDecomposer;
 using block_graph::BasicBlockSubGraph;
@@ -43,6 +45,9 @@ using block_graph::Instruction;
 using common::IndexedFrequencyData;
 using common::kBasicBlockEntryAgentId;
 using common::kBasicBlockFrequencyDataVersion;
+
+typedef BasicBlockEntry::BasicBlockIndexedFrequencyData
+   BasicBlockIndexedFrequencyData;
 
 class TestBasicBlockEntryHookTransform : public BasicBlockEntryHookTransform {
  public:
@@ -210,8 +215,9 @@ TEST_F(BasicBlockEntryHookTransformTest, ApplyAgentInstrumentation) {
   EXPECT_EQ(sizeof(uint32), frequency_data->frequency_size);
   EXPECT_TRUE(frequency_data.HasReferenceAt(
       frequency_data.OffsetOf(frequency_data->frequency_data)));
-  EXPECT_EQ(sizeof(IndexedFrequencyData), tx_.frequency_data_block()->size());
-  EXPECT_EQ(sizeof(IndexedFrequencyData),
+  EXPECT_EQ(sizeof(BasicBlockIndexedFrequencyData),
+            tx_.frequency_data_block()->size());
+  EXPECT_EQ(sizeof(BasicBlockIndexedFrequencyData),
             tx_.frequency_data_block()->data_size());
   EXPECT_EQ(frequency_data->num_entries * frequency_data->frequency_size,
             tx_.frequency_data_buffer_block()->size());

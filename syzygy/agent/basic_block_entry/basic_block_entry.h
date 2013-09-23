@@ -47,6 +47,9 @@ class BasicBlockEntry {
   typedef ::common::IndexedFrequencyData IndexedFrequencyData;
   typedef ::agent::common::ThreadStateManager ThreadStateManager;
 
+  // Forward declaration.
+  struct BasicBlockIndexedFrequencyData;
+
   // The size in DWORD of the buffer. We choose a multiple of memory page size.
   static const size_t kBufferSize = 4096;
   // The number of entries in the simulated branch predictor cache.
@@ -87,6 +90,23 @@ class BasicBlockEntry {
   static void WINAPI BranchExitHook(
       IncrementIndexedFreqDataFrame* entry_frame);
 
+  // Called from _function_enter_slotX.
+  template<int S>
+  static inline void __fastcall FunctionEnterHookSlot(
+      IndexedFrequencyData* module_data);
+
+  // Called from _branch_enter_slotX.
+  template<int S>
+  static inline void __fastcall BranchEnterHookSlot(uint32 index);
+
+  // Called from _branch_enter_buffered_slotX.
+  template<int S>
+  static inline void __fastcall BranchEnterBufferedHookSlot(uint32 index);
+
+  // Called from _branch_exit_slotX.
+  template<int S>
+  static inline void __fastcall BranchExitHookSlot(uint32 index);
+
   // Called from _indirect_penter_dllmain.
   static void WINAPI DllMainEntryHook(DllMainEntryFrame* entry_frame);
 
@@ -106,7 +126,7 @@ class BasicBlockEntry {
   ~BasicBlockEntry();
 
   // Initializes the given frequency data element.
-  bool InitializeFrequencyData(::common::IndexedFrequencyData* data);
+  bool InitializeFrequencyData(IndexedFrequencyData* data);
 
   // Handles EXE startup on ExeMainEntryHook and DLL_PROCESS_ATTACH messages
   // received by DllMainEntryHook().
@@ -119,6 +139,14 @@ class BasicBlockEntry {
   // Registers the module containing @p addr with the call_trace_service.
   void RegisterModule(const void* addr);
 
+  // Register a TLS slot for this module.
+  void RegisterFastPathSlot(IndexedFrequencyData* module_data,
+                            unsigned int slot);
+
+  // Unregister a TLS slot for this module.
+  void UnregisterFastPathSlot(IndexedFrequencyData* module_data,
+                              unsigned int slot);
+
   // Create the local thread state for the current thread. This should only
   // be called if the local thread state has not already been created.
   ThreadState* CreateThreadState(IndexedFrequencyData* module_data);
@@ -126,6 +154,14 @@ class BasicBlockEntry {
   // Returns the local thread state for the current thread. If the thread state
   // is unavailable, this function returns NULL.
   static ThreadState* GetThreadState(IndexedFrequencyData* module_data);
+
+  // Returns the local thread state for the current thread (when instrumented
+  // with fast-path).
+  template<int S>
+  static ThreadState* GetThreadStateSlot();
+
+  // Registered thread local specific slot.
+  uint32 registered_slots_;
 
   // The RPC session we're logging to/through.
   trace::client::RpcSession session_;
@@ -141,6 +177,25 @@ class BasicBlockEntry {
 
   // Global lock to avoid concurrent segment_ update.
   base::Lock lock_;
+};
+
+// This structure contains the BasicBlockEntry IndexedFrequencyData specifics
+// information.
+struct BasicBlockEntry::BasicBlockIndexedFrequencyData {
+  // The indexed frequency data information common for all agents.
+  ::common::IndexedFrequencyData module_data;
+
+  // The TLS slot associated with this module (if any). This allows for the
+  // frequency trace data to be managed on a per-thread basis, if desired by the
+  // agent. The TLS index is initialized to TLS_OUT_OF_INDEXES by the
+  // instrumenter.
+  DWORD tls_index;
+
+  // The FS slot associated with this module (if any). This allows for the
+  // frequency trace data to be managed on a per-thread basis, if desired by the
+  // agent. An unused slot is initialized to zero by the instrumenter, otherwise
+  // it is initialized to a slot index between 1 and 4.
+  DWORD fs_slot;
 };
 
 }  // namespace basic_block_entry

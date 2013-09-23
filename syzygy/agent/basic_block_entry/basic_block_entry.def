@@ -19,7 +19,23 @@ EXPORTS
   ; Our profile hook functions, invoked through machine instrumentation.
   _branch_enter
   _branch_enter_buffered
+  _branch_enter_buffered_s1
+  _branch_enter_buffered_s2
+  _branch_enter_buffered_s3
+  _branch_enter_buffered_s4
+  _branch_enter_s1
+  _branch_enter_s2
+  _branch_enter_s3
+  _branch_enter_s4
+  _function_enter_s1
+  _function_enter_s2
+  _function_enter_s3
+  _function_enter_s4
   _branch_exit
+  _branch_exit_s1
+  _branch_exit_s2
+  _branch_exit_s3
+  _branch_exit_s4
   _increment_indexed_freq_data
   _indirect_penter_dllmain
   _indirect_penter_exemain

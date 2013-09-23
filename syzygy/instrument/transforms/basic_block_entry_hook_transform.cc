@@ -19,6 +19,7 @@
 #include "base/logging.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
+#include "syzygy/agent/basic_block_entry/basic_block_entry.h"
 #include "syzygy/block_graph/block_builder.h"
 #include "syzygy/block_graph/block_util.h"
 #include "syzygy/common/defs.h"
@@ -33,6 +34,7 @@ namespace transforms {
 
 namespace {
 
+using agent::basic_block_entry::BasicBlockEntry;
 using block_graph::BasicBlock;
 using block_graph::BasicBlockAssembler;
 using block_graph::BasicBlockReference;
@@ -46,8 +48,10 @@ using block_graph::Successor;
 using common::kBasicBlockEntryAgentId;
 using pe::transforms::PEAddImportsTransform;
 
-typedef pe::transforms::ImportedModule ImportedModule;
 typedef BasicBlockEntryHookTransform::RelativeAddressRange RelativeAddressRange;
+typedef BasicBlockEntry::BasicBlockIndexedFrequencyData
+   BasicBlockIndexedFrequencyData;
+typedef pe::transforms::ImportedModule ImportedModule;
 
 const char kDefaultModuleName[] = "basic_block_entry_client.dll";
 const char kBasicBlockEnter[] = "_increment_indexed_freq_data";
@@ -120,7 +124,8 @@ BasicBlockEntryHookTransform::BasicBlockEntryHookTransform()
   : add_frequency_data_(kBasicBlockEntryAgentId,
                         "Basic-Block Frequency Data",
                         common::kBasicBlockFrequencyDataVersion,
-                        common::IndexedFrequencyData::BASIC_BLOCK_ENTRY),
+                        common::IndexedFrequencyData::BASIC_BLOCK_ENTRY,
+                        sizeof(BasicBlockIndexedFrequencyData)),
     thunk_section_(NULL),
     instrument_dll_name_(kDefaultModuleName),
     set_src_ranges_for_thunks_(false),
@@ -248,6 +253,12 @@ bool BasicBlockEntryHookTransform::PostBlockGraphIteration(
     LOG(ERROR) << "Failed to configure frequency data buffer.";
     return false;
   }
+
+  // Initialized BasicBlock agent specific fields
+  block_graph::TypedBlock<BasicBlockIndexedFrequencyData> frequency_data;
+  CHECK(frequency_data.Init(0, add_frequency_data_.frequency_data_block()));
+  frequency_data->fs_slot = 0;
+  frequency_data->tls_index = TLS_OUT_OF_INDEXES;
 
   // Add the module entry thunks.
   EntryThunkTransform add_thunks;

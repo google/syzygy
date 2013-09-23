@@ -56,10 +56,6 @@
 //    The agent is responsible for allocating a trace segment and collecting
 //    metrics. The trace segment with be dump to a file for post-processing.
 //
-//    The agent keeps a ThreadState for each running thread. The thread state
-//    is accessible through a TLS mechanism and contains information needed by
-//    the hook (pointer to trace segment, buffer, lock, ...).
-//
 //    There are two mechanisms to collect metrics:
 //    - Basic mode: In the basic mode, the hook acquires a lock and updates a
 //      process-wide segment shared by all threads. In this mode, no events can
@@ -68,6 +64,20 @@
 //      information. A batch commit is done when the buffer is full. In this
 //      mode, under a non-standard execution (crash, force exit, ...) pending
 //      events may be lost.
+//
+//    The agent keeps a ThreadState for each running thread. The thread state
+//    is accessible through a TLS mechanism and contains information needed by
+//    the hook (pointer to trace segment, buffer, lock, ...).
+//
+//    There are two mechanisms to keep a reference to the thread state:
+//    - TLS: The default mechanism uses the standard windows TLS API to keep
+//      a per-thread reference to the thread state. The TLS index is allocated
+//      and kept inside the module data information in the instrumented image.
+//    - FS-Slot: This mechanism uses application specific slot available through
+//      the FS segment (fs:[0x700] Reserved for user application).
+//      See: http://en.wikipedia.org/wiki/Win32_Thread_Information_Block.
+//      There is no API to check whether another module is using this slot, thus
+//      this mechanism must be used in a controlled environment.
 
 #include "syzygy/agent/basic_block_entry/basic_block_entry.h"
 
@@ -84,6 +94,10 @@
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/common/logging.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
+
+unsigned long __readfsdword(unsigned long);
+void __writefsdword(unsigned long, unsigned long);
+#pragma intrinsic(__readfsdword, __writefsdword)
 
 // Save caller-save registers (eax, ecx, edx) and flags (eflags).
 #define BBPROBE_SAVE_REGISTERS  \
@@ -103,8 +117,8 @@
   __asm sahf  \
   __asm pop eax
 
-#define BBPROBE_REDIRECT_CALL(handler)  \
-  {  \
+#define BBPROBE_REDIRECT_CALL(function_name, handler, stack_size)  \
+  extern "C" void __declspec(naked) function_name() {  \
     /* Stash volatile registers. */  \
     BBPROBE_SAVE_REGISTERS  \
     \
@@ -118,89 +132,89 @@
     \
     /* Stack: ..., basic_block_id, module_data, ret_addr, [4x register], */  \
     /*    esp, &ret_addr. */  \
-    __asm call handler  \
+    __asm call agent::basic_block_entry::BasicBlockEntry::handler  \
     /* Stack: ... basic_block_id, module_data, ret_addr, [4x register]. */  \
     \
     /* Restore volatile registers. */  \
     BBPROBE_RESTORE_REGISTERS  \
+    __asm ret stack_size  \
   }
 
-extern "C" void __declspec(naked) _branch_enter() {
-  // This is expected to be called via instrumentation that looks like:
-  //    push basic_block_id
-  //    push module_data
-  //    call [_branch_enter]
-  // Stack: ... basic_block_id, module_data, ret_addr.
-  BBPROBE_REDIRECT_CALL(
-      agent::basic_block_entry::BasicBlockEntry::BranchEnterHook);
-  // Return to the address pushed by our caller, popping off the basic block
-  // id and module_data values from the stack.
-  __asm ret 8
-}
+#define BBPROBE_REDIRECT_CALL_SLOT(function_name, handler, type, slot)  \
+  static void __fastcall safe ## function_name ## _s ## slot(type index) {  \
+    agent::basic_block_entry::BasicBlockEntry::handler<slot>(index);  \
+  }  \
+  extern "C" void __declspec(naked) function_name ## _s ## slot() {  \
+    /* Stash volatile registers. */  \
+    BBPROBE_SAVE_REGISTERS  \
+    /* Call handler */  \
+    __asm mov ecx, DWORD PTR[esp + 0x14]  \
+    __asm call safe ## function_name ## _s ## slot  \
+    /* Restore volatile registers. */  \
+    BBPROBE_RESTORE_REGISTERS  \
+    /* Return and remove index from stack. */  \
+    __asm ret 4  \
+  }
 
-extern "C" void __declspec(naked) _branch_enter_buffered() {
-  // This is expected to be called via instrumentation that looks like:
-  //    push basic_block_id
-  //    push module_data
-  //    call [_branch_enter_buffered]
-  // Stack: ... basic_block_id, module_data, ret_addr.
-  BBPROBE_REDIRECT_CALL(
-      agent::basic_block_entry::BasicBlockEntry::BranchEnterBufferedHook);
-  // Return to the address pushed by our caller, popping off the basic block id
-  // and module_data values from the stack.
-  __asm ret 8
-}
+// This is expected to be called via instrumentation that looks like:
+//    push basic_block_id
+//    push module_data
+//    call [function_name]
+BBPROBE_REDIRECT_CALL(_branch_enter, BranchEnterHook, 8)
+BBPROBE_REDIRECT_CALL(_branch_enter_buffered, BranchEnterBufferedHook, 8)
+BBPROBE_REDIRECT_CALL(_branch_exit, BranchExitHook, 8)
+BBPROBE_REDIRECT_CALL(_increment_indexed_freq_data,
+                      IncrementIndexedFreqDataHook,
+                      8)
 
-extern "C" void __declspec(naked) _branch_exit() {
-  // This is expected to be called via instrumentation that looks like:
-  //    push basic_block_id
-  //    push module_data
-  //    call [_branch_exit]
-  // Stack: ... basic_block_id, module_data, ret_addr.
-  BBPROBE_REDIRECT_CALL(
-      agent::basic_block_entry::BasicBlockEntry::BranchExitHook);
-  // Return to the address pushed by our caller, popping off the basic block id
-  // and module_data values from the stack.
-  __asm ret 8
-}
+// This is expected to be called via instrumentation that looks like:
+//    push module_data
+//    call [function_name]
+BBPROBE_REDIRECT_CALL_SLOT(_function_enter,
+                           FunctionEnterHookSlot,
+                           ::common::IndexedFrequencyData*,
+                           1)
+BBPROBE_REDIRECT_CALL_SLOT(_function_enter,
+                           FunctionEnterHookSlot,
+                           ::common::IndexedFrequencyData*,
+                           2)
+BBPROBE_REDIRECT_CALL_SLOT(_function_enter,
+                           FunctionEnterHookSlot,
+                           ::common::IndexedFrequencyData*,
+                           3)
+BBPROBE_REDIRECT_CALL_SLOT(_function_enter,
+                           FunctionEnterHookSlot,
+                           ::common::IndexedFrequencyData*,
+                           4)
 
-extern "C" void __declspec(naked) _increment_indexed_freq_data() {
-  // This is expected to be called via instrumentation that looks like:
-  //    push basic_block_id
-  //    push module_data
-  //    call [_increment_indexed_freq_data]
-  // Stack: ... basic_block_id, module_data, ret_addr.
-  BBPROBE_REDIRECT_CALL(
-      agent::basic_block_entry::BasicBlockEntry::IncrementIndexedFreqDataHook);
-  // Return to the address pushed by our caller, popping off the basic block id
-  // and module_data values from the stack.
-  __asm ret 8
-}
+// This is expected to be called via instrumentation that looks like:
+//    push basic_block_id
+//    call [function_name]
+BBPROBE_REDIRECT_CALL_SLOT(_branch_enter, BranchEnterHookSlot, DWORD, 1)
+BBPROBE_REDIRECT_CALL_SLOT(_branch_enter, BranchEnterHookSlot, DWORD, 2)
+BBPROBE_REDIRECT_CALL_SLOT(_branch_enter, BranchEnterHookSlot, DWORD, 3)
+BBPROBE_REDIRECT_CALL_SLOT(_branch_enter, BranchEnterHookSlot, DWORD, 4)
 
-extern "C" void __declspec(naked) _indirect_penter_dllmain() {
-  // This is expected to be called via a thunk that looks like:
-  //    push module_data
-  //    push function
-  //    jmp [_indirect_penter_dllmain]
-  // Stack: ... reserved, reason, module, ret_addr, module_data, function.
-  BBPROBE_REDIRECT_CALL(
-      agent::basic_block_entry::BasicBlockEntry::DllMainEntryHook);
-  // Return to the thunked function, popping module_data off the stack as we go.
-  __asm ret 4
-}
+BBPROBE_REDIRECT_CALL_SLOT(_branch_enter_buffered,
+                           BranchEnterBufferedHookSlot, DWORD, 1)
+BBPROBE_REDIRECT_CALL_SLOT(_branch_enter_buffered,
+                           BranchEnterBufferedHookSlot, DWORD, 2)
+BBPROBE_REDIRECT_CALL_SLOT(_branch_enter_buffered,
+                           BranchEnterBufferedHookSlot, DWORD, 3)
+BBPROBE_REDIRECT_CALL_SLOT(_branch_enter_buffered,
+                           BranchEnterBufferedHookSlot, DWORD, 4)
 
-extern "C" void __declspec(naked) _indirect_penter_exemain() {
-  // This is expected to be called via a thunk that looks like:
-  //    push module_data
-  //    push function
-  //    jmp [_indirect_penter_exe_main]
-  //
-  // Stack: ... ret_addr, module_data, function.
-  BBPROBE_REDIRECT_CALL(
-      agent::basic_block_entry::BasicBlockEntry::ExeMainEntryHook);
-  // Return to the thunked function, popping module_data off the stack as we go.
-  __asm ret 4
-}
+BBPROBE_REDIRECT_CALL_SLOT(_branch_exit, BranchExitHookSlot, DWORD, 1)
+BBPROBE_REDIRECT_CALL_SLOT(_branch_exit, BranchExitHookSlot, DWORD, 2)
+BBPROBE_REDIRECT_CALL_SLOT(_branch_exit, BranchExitHookSlot, DWORD, 3)
+BBPROBE_REDIRECT_CALL_SLOT(_branch_exit, BranchExitHookSlot, DWORD, 4)
+
+// This is expected to be called via a thunk that looks like:
+//    push module_data
+//    push function
+//    jmp [function_name]
+BBPROBE_REDIRECT_CALL(_indirect_penter_dllmain, DllMainEntryHook, 4)
+BBPROBE_REDIRECT_CALL(_indirect_penter_exemain, ExeMainEntryHook, 4)
 
 BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
   // Our AtExit manager required by base.
@@ -245,6 +259,8 @@ using ::common::IndexedFrequencyData;
 using agent::common::ScopedLastErrorKeeper;
 using trace::client::TraceFileSegment;
 
+const uint32 kUserApplicationSlot = 0x700;
+const uint32 kNumSlots = 4U;
 const uint32 kInvalidBasicBlockId = ~0U;
 
 // The indexed_frequency_data for the bbentry instrumentation mode has 1 column.
@@ -431,6 +447,13 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
   // @returns the branch frequency entry for a given basic block id.
   BranchFrequency& GetBranchFrequency(uint32 basic_block_id);
 
+  // Retrieve the indexed_frequency_data specific fields for this agent.
+  // @returns a pointer to the specific fields.
+  const BasicBlockIndexedFrequencyData* GetBasicBlockData() const {
+    return
+        reinterpret_cast<const BasicBlockIndexedFrequencyData*>(module_data_);
+  }
+
  protected:
   // As a shortcut, this points to the beginning of the array of basic-block
   // entry frequency values. With tracing enabled, this is equivalent to:
@@ -474,6 +497,12 @@ BasicBlockEntry::ThreadState::ThreadState(IndexedFrequencyData* module_data,
 BasicBlockEntry::ThreadState::~ThreadState() {
   if (!basic_block_id_buffer_.empty())
     Flush();
+
+  uint32 slot = GetBasicBlockData()->fs_slot;
+  if (slot != 0) {
+    uint32 address = kUserApplicationSlot + 4 * (slot - 1);
+    __writefsdword(address, 0);
+  }
 }
 
 void BasicBlockEntry::ThreadState::AllocateBasicBlockIdBuffer() {
@@ -611,7 +640,7 @@ BasicBlockEntry* BasicBlockEntry::Instance() {
   return static_bbentry_instance.Pointer();
 }
 
-BasicBlockEntry::BasicBlockEntry() {
+BasicBlockEntry::BasicBlockEntry() : registered_slots_() {
   // Create a session.
   trace::client::InitializeRpcSession(&session_, &segment_);
 }
@@ -619,8 +648,7 @@ BasicBlockEntry::BasicBlockEntry() {
 BasicBlockEntry::~BasicBlockEntry() {
 }
 
-bool BasicBlockEntry::InitializeFrequencyData(
-    ::common::IndexedFrequencyData* data) {
+bool BasicBlockEntry::InitializeFrequencyData(IndexedFrequencyData* data) {
   DCHECK(data != NULL);
 
   // Nothing to allocate? We're done!
@@ -690,6 +718,10 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
   DCHECK(module_data != NULL);
   CHECK_NE(IndexedFrequencyData::INVALID_DATA_TYPE, module_data->data_type);
 
+  // Get a pointer to the extended indexed frequency data.
+  BasicBlockIndexedFrequencyData* basicblock_data =
+      reinterpret_cast<BasicBlockIndexedFrequencyData*>(module_data);
+
   // Create the thread-local state for this thread. By default, just point the
   // counter array to the statically allocated fall-back area.
   ThreadState* state =
@@ -700,12 +732,22 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
   thread_state_manager_.Register(state);
 
   // Store the thread state in the TLS slot.
-  DCHECK_NE(TLS_OUT_OF_INDEXES, module_data->tls_index);
-  ::TlsSetValue(module_data->tls_index, state);
+  DCHECK_NE(TLS_OUT_OF_INDEXES, basicblock_data->tls_index);
+  ::TlsSetValue(basicblock_data->tls_index, state);
 
   // If we're not actually tracing, then we're done.
   if (session_.IsDisabled())
     return state;
+
+  uint32 slot = basicblock_data->fs_slot;
+  if (slot != 0) {
+    uint32 address = kUserApplicationSlot + 4 * (slot - 1);
+    // Sanity check: The slot must be available (not used by an other tool).
+    DWORD content = __readfsdword(address);
+    CHECK_EQ(content, 0U);
+    // Put the current state to the TLS slot.
+    __writefsdword(address, reinterpret_cast<unsigned long>(state));
+  }
 
   // Nothing to allocate? We're done!
   if (module_data->num_entries == 0) {
@@ -725,12 +767,24 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
 
 inline BasicBlockEntry::ThreadState* BasicBlockEntry::GetThreadState(
     IndexedFrequencyData* module_data) {
+  DCHECK(module_data != NULL);
   ScopedLastErrorKeeper scoped_last_error_keeper;
 
-  DWORD tls_index = module_data->tls_index;
+  // Get a pointer to the extended indexed frequency data.
+  BasicBlockIndexedFrequencyData* basicblock_data =
+      reinterpret_cast<BasicBlockIndexedFrequencyData*>(module_data);
+
+  DWORD tls_index = basicblock_data->tls_index;
   DCHECK_NE(TLS_OUT_OF_INDEXES, tls_index);
   ThreadState* state = static_cast<ThreadState*>(::TlsGetValue(tls_index));
   return state;
+}
+
+template<int S>
+inline BasicBlockEntry::ThreadState* BasicBlockEntry::GetThreadStateSlot() {
+  uint32 address = kUserApplicationSlot + 4 * (S - 1);
+  DWORD content = __readfsdword(address);
+  return reinterpret_cast<BasicBlockEntry::ThreadState*>(content);
 }
 
 void WINAPI BasicBlockEntry::IncrementIndexedFreqDataHook(
@@ -787,6 +841,58 @@ void WINAPI BasicBlockEntry::BranchEnterBufferedHook(
   state->reset_last_basic_block_id();
 }
 
+template<int S>
+void __fastcall BasicBlockEntry::FunctionEnterHookSlot(
+    IndexedFrequencyData* module_data) {
+  DCHECK(module_data != NULL);
+
+  // Check if ThreadState is already created.
+  ThreadState* state = GetThreadStateSlot<S>();
+  if (state != NULL)
+    return;
+
+  // Get or create the ThreadState.
+  state = GetThreadState(module_data);
+  if (state == NULL) {
+    ScopedLastErrorKeeper scoped_last_error_keeper;
+    state = Instance()->CreateThreadState(module_data);
+  }
+}
+
+template<int S>
+void __fastcall BasicBlockEntry::BranchEnterHookSlot(uint32 index) {
+  ThreadState* state = GetThreadStateSlot<S>();
+  if (state == NULL)
+    return;
+
+  base::AutoLock scoped_lock(*state->trace_lock());
+  uint32 last_basic_block_id = state->last_basic_block_id();
+  state->Enter(index, last_basic_block_id);
+  state->reset_last_basic_block_id();
+}
+
+template<int S>
+void __fastcall BasicBlockEntry::BranchEnterBufferedHookSlot(uint32 index) {
+  ThreadState* state = GetThreadStateSlot<S>();
+  if (state == NULL)
+    return;
+
+  if (state->Push(index)) {
+    base::AutoLock scoped_lock(*state->trace_lock());
+    state->Flush();
+  }
+  state->reset_last_basic_block_id();
+}
+
+template<int S>
+void __fastcall BasicBlockEntry::BranchExitHookSlot(uint32 index) {
+  ThreadState* state = GetThreadStateSlot<S>();
+  if (state == NULL)
+    return;
+
+  state->Leave(index);
+}
+
 inline void WINAPI BasicBlockEntry::BranchExitHook(
     IncrementIndexedFreqDataFrame* entry_frame) {
   DCHECK(entry_frame != NULL);
@@ -837,9 +943,6 @@ void WINAPI BasicBlockEntry::ExeMainEntryHook(ExeMainEntryFrame* entry_frame) {
 void BasicBlockEntry::RegisterModule(const void* addr) {
   DCHECK(addr != NULL);
 
-  if (session_.IsDisabled())
-    return;
-
   // Allocate a segment for the module information.
   trace::client::TraceFileSegment module_info_segment;
   CHECK(session_.AllocateBuffer(&module_info_segment));
@@ -854,8 +957,34 @@ void BasicBlockEntry::RegisterModule(const void* addr) {
   CHECK(session_.ReturnBuffer(&module_info_segment));
 }
 
+void BasicBlockEntry::RegisterFastPathSlot(
+    IndexedFrequencyData* module_data, unsigned int slot) {
+  DCHECK_NE(slot, 0U);
+  DCHECK_LE(slot, kNumSlots);
+  DCHECK(module_data != NULL);
+
+  // The slot must not have been registered.
+  CHECK_EQ((1 << slot) & registered_slots_, 0U);
+  registered_slots_ |= (1 << slot);
+}
+
+void BasicBlockEntry::UnregisterFastPathSlot(
+    IndexedFrequencyData* module_data, unsigned int slot) {
+  DCHECK_NE(slot, 0U);
+  DCHECK_LE(slot, kNumSlots);
+  DCHECK(module_data != NULL);
+
+  // The slot must be registered.
+  CHECK_NE((1 << slot) & registered_slots_, 0U);
+  registered_slots_ &= ~(1 << slot);
+}
+
 void BasicBlockEntry::OnProcessAttach(IndexedFrequencyData* module_data) {
   DCHECK(module_data != NULL);
+
+  // Get a pointer to the extended indexed frequency data.
+  BasicBlockIndexedFrequencyData* basicblock_data =
+      reinterpret_cast<BasicBlockIndexedFrequencyData*>(module_data);
 
   // Exit if the magic number does not match.
   CHECK_EQ(::common::kBasicBlockEntryAgentId, module_data->agent_id);
@@ -877,20 +1006,25 @@ void BasicBlockEntry::OnProcessAttach(IndexedFrequencyData* module_data) {
   module_data->initialization_attempted = 1U;
 
   // We expect this to be executed exactly once for each module.
-  CHECK_EQ(TLS_OUT_OF_INDEXES, module_data->tls_index);
-  module_data->tls_index = ::TlsAlloc();
-  CHECK_NE(TLS_OUT_OF_INDEXES, module_data->tls_index);
+  CHECK_EQ(TLS_OUT_OF_INDEXES, basicblock_data->tls_index);
+  basicblock_data->tls_index = ::TlsAlloc();
+  CHECK_NE(TLS_OUT_OF_INDEXES, basicblock_data->tls_index);
+
+  // If there is a FS slot configured, register it.
+  if (basicblock_data->fs_slot != 0)
+    RegisterFastPathSlot(module_data, basicblock_data->fs_slot);
 
   // Register this module with the call_trace if the session is not disabled.
   // Note that we expect module_data to be statically defined within the
   // module of interest, so we can use its address to lookup the module.
   if (session_.IsDisabled()) {
     LOG(WARNING) << "Unable to initialize client as we are not tracing.";
-  } else {
-    if (!InitializeFrequencyData(module_data)) {
-      LOG(ERROR) << "Failed to initialize frequency data.";
-      return;
-    }
+    return;
+  }
+
+  if (!InitializeFrequencyData(module_data)) {
+    LOG(ERROR) << "Failed to initialize frequency data.";
+    return;
   }
 
   RegisterModule(module_data);
@@ -901,7 +1035,12 @@ void BasicBlockEntry::OnProcessAttach(IndexedFrequencyData* module_data) {
 void BasicBlockEntry::OnThreadDetach(IndexedFrequencyData* module_data) {
   DCHECK(module_data != NULL);
   DCHECK_EQ(1U, module_data->initialization_attempted);
-  DCHECK_NE(TLS_OUT_OF_INDEXES, module_data->tls_index);
+
+  // Get a pointer to the extended indexed frequency data.
+  BasicBlockIndexedFrequencyData* basicblock_data =
+      reinterpret_cast<BasicBlockIndexedFrequencyData*>(module_data);
+
+  DCHECK_NE(TLS_OUT_OF_INDEXES, basicblock_data->tls_index);
 
   ThreadState* state = GetThreadState(module_data);
   if (state == NULL)

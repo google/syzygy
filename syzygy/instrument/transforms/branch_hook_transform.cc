@@ -19,6 +19,7 @@
 #include "base/logging.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
+#include "syzygy/agent/basic_block_entry/basic_block_entry.h"
 #include "syzygy/block_graph/block_builder.h"
 #include "syzygy/block_graph/block_util.h"
 #include "syzygy/common/defs.h"
@@ -33,6 +34,7 @@ namespace transforms {
 
 namespace {
 
+using agent::basic_block_entry::BasicBlockEntry;
 using block_graph::BasicBlock;
 using block_graph::BasicBlockAssembler;
 using block_graph::BasicBlockReference;
@@ -46,6 +48,8 @@ using block_graph::Successor;
 using common::kBasicBlockEntryAgentId;
 using pe::transforms::PEAddImportsTransform;
 
+typedef BasicBlockEntry::BasicBlockIndexedFrequencyData
+   BasicBlockIndexedFrequencyData;
 typedef pe::transforms::ImportedModule ImportedModule;
 
 const char kDefaultModuleName[] = "basic_block_entry_client.dll";
@@ -119,7 +123,8 @@ BranchHookTransform::BranchHookTransform()
   : add_frequency_data_(kBasicBlockEntryAgentId,
                         "Basic-Block Branch Information Data",
                         common::kBranchFrequencyDataVersion,
-                        common::IndexedFrequencyData::BRANCH),
+                        common::IndexedFrequencyData::BRANCH,
+                        sizeof(BasicBlockIndexedFrequencyData)),
     thunk_section_(NULL),
     instrument_dll_name_(kDefaultModuleName),
     buffering_(false),
@@ -262,6 +267,12 @@ bool BranchHookTransform::PostBlockGraphIteration(
     LOG(ERROR) << "Failed to configure frequency data buffer.";
     return false;
   }
+
+  // Initialized BasicBlock agent specific fields
+  block_graph::TypedBlock<BasicBlockIndexedFrequencyData> frequency_data;
+  CHECK(frequency_data.Init(0, add_frequency_data_.frequency_data_block()));
+  frequency_data->fs_slot = 0;
+  frequency_data->tls_index = TLS_OUT_OF_INDEXES;
 
   // Add the module entry thunks.
   EntryThunkTransform add_thunks;
