@@ -18,7 +18,7 @@
   },
   'targets': [
     {
-      'target_name': 'asan_rtl_lib',
+      'target_name': 'syzyasan_rtl_lib',
       'type': 'static_library',
       'sources': [
         'asan_heap.cc',
@@ -51,7 +51,7 @@
         'syzyasan_rtl.rc',
       ],
       'dependencies': [
-        'asan_rtl_lib',
+        'syzyasan_rtl_lib',
         '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
@@ -104,7 +104,7 @@
       },
     },
     {
-      'target_name': 'asan_rtl_unittests',
+      'target_name': 'syzyasan_rtl_unittests',
       'type': 'executable',
       'sources': [
         'asan_heap_unittest.cc',
@@ -120,7 +120,7 @@
         'unittest_util.h',
       ],
       'dependencies': [
-        'asan_rtl_lib',
+        'syzyasan_rtl_lib',
         'syzyasan_rtl',
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',

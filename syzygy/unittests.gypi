@@ -30,7 +30,7 @@
       '<(src)/syzygy/agent/common/common.gyp:agent_common_unittests',
 
       # Agent tests.
-      '<(src)/syzygy/agent/asan/asan.gyp:asan_rtl_unittests',
+      '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl_unittests',
       '<(src)/syzygy/agent/coverage/coverage.gyp:coverage_unittests',
       '<(src)/syzygy/agent/profiler/profiler.gyp:profile_unittests',
       '<(src)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
