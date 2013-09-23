@@ -16,6 +16,7 @@
 
 #include "base/file_util.h"
 #include "base/logging.h"
+#include "base/string_number_conversions.h"
 #include "syzygy/common/application.h"
 #include "syzygy/pe/image_filter.h"
 
@@ -24,8 +25,10 @@ namespace instrumenters {
 
 const char BranchInstrumenter::kAgentDllBasicBlockEntry[] =
     "basic_block_entry_client.dll";
+const uint32 kNumSlots = 4U;
 
-BranchInstrumenter::BranchInstrumenter() {
+BranchInstrumenter::BranchInstrumenter()
+    : buffering_(false), fs_slot_(0U) {
   agent_dll_ = kAgentDllBasicBlockEntry;
 }
 
@@ -34,6 +37,7 @@ bool BranchInstrumenter::InstrumentImpl() {
       new instrument::transforms::BranchHookTransform());
   branch_transform_->set_instrument_dll_name(agent_dll_);
   branch_transform_->set_buffering(buffering_);
+  branch_transform_->set_fs_slot(fs_slot_);
   relinker_->AppendTransform(branch_transform_.get());
 
   add_bb_addr_stream_mutator_.reset(new
@@ -50,6 +54,17 @@ bool BranchInstrumenter::ParseAdditionalCommandLineArguments(
   // Parse the additional command line arguments.
   buffering_ = command_line->HasSwitch("buffering");
 
+  if (command_line->HasSwitch("fs-slot")) {
+    std::string fs_slot_str = command_line->GetSwitchValueASCII("fs-slot");
+    if (!base::StringToUint(fs_slot_str, &fs_slot_)) {
+      LOG(ERROR) << "Unrecognized FS-slot: not a valid number.";
+      return false;
+    }
+    if (fs_slot_ == 0 || fs_slot_ > kNumSlots) {
+      LOG(ERROR) << "fs-slot must be from 1 to " << kNumSlots << ".";
+      return false;
+    }
+  }
   return true;
 }
 

@@ -41,6 +41,7 @@ class TestBranchInstrumenter : public BranchInstrumenter {
   using BranchInstrumenter::no_strip_strings_;
   using BranchInstrumenter::debug_friendly_;
   using BranchInstrumenter::buffering_;
+  using BranchInstrumenter::fs_slot_;
   using BranchInstrumenter::kAgentDllBasicBlockEntry;
 
   TestBranchInstrumenter() {
@@ -135,6 +136,7 @@ TEST_F(BranchInstrumenterTest, ParseMinimalBranch) {
   EXPECT_FALSE(instrumenter_.no_strip_strings_);
   EXPECT_FALSE(instrumenter_.debug_friendly_);
   EXPECT_FALSE(instrumenter_.buffering_);
+  EXPECT_EQ(0U, instrumenter_.fs_slot_);
 }
 
 TEST_F(BranchInstrumenterTest, ParseFullBranch) {
@@ -151,6 +153,7 @@ TEST_F(BranchInstrumenterTest, ParseFullBranch) {
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitch("overwrite");
   cmd_line_.AppendSwitch("buffering");
+  cmd_line_.AppendSwitchASCII("fs-slot", "2");
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
 
@@ -166,6 +169,31 @@ TEST_F(BranchInstrumenterTest, ParseFullBranch) {
   EXPECT_TRUE(instrumenter_.no_strip_strings_);
   EXPECT_TRUE(instrumenter_.debug_friendly_);
   EXPECT_TRUE(instrumenter_.buffering_);
+  EXPECT_EQ(2U, instrumenter_.fs_slot_);
+}
+
+TEST_F(BranchInstrumenterTest, ParseHugeSlotFail) {
+  SetUpValidCommandLine();
+  cmd_line_.AppendSwitchASCII("fs-slot", "8");
+  EXPECT_FALSE(instrumenter_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(BranchInstrumenterTest, ParseNegativeSlotFail) {
+  SetUpValidCommandLine();
+  cmd_line_.AppendSwitchASCII("fs-slot", "-1");
+  EXPECT_FALSE(instrumenter_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(BranchInstrumenterTest, ParseZeroSlotFail) {
+  SetUpValidCommandLine();
+  cmd_line_.AppendSwitchASCII("fs-slot", "0");
+  EXPECT_FALSE(instrumenter_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(BranchInstrumenterTest, ParseDummySlotFail) {
+  SetUpValidCommandLine();
+  cmd_line_.AppendSwitchASCII("fs-slot", "dummy");
+  EXPECT_FALSE(instrumenter_.ParseCommandLine(&cmd_line_));
 }
 
 TEST_F(BranchInstrumenterTest, InstrumentImpl) {

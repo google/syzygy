@@ -53,6 +53,7 @@ class BranchInstrumenter : public InstrumenterWithAgent {
   // @name Command-line parameters.
   // @{
   bool buffering_;
+  uint32 fs_slot_;
   // @}
 
 };

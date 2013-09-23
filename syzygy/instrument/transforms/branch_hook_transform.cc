@@ -122,7 +122,8 @@ BranchHookTransform::BranchHookTransform()
                         common::IndexedFrequencyData::BRANCH),
     thunk_section_(NULL),
     instrument_dll_name_(kDefaultModuleName),
-    buffering_(false) {
+    buffering_(false),
+    fs_slot_(0U) {
 }
 
 bool BranchHookTransform::PreBlockGraphIteration(
