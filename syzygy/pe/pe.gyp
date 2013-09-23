@@ -225,6 +225,7 @@
         '<(src)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
         '<(src)/syzygy/test_data/test_data.gyp:copy_test_dll',
         '<(src)/syzygy/test_data/test_data.gyp:copy_test_dll_compilands',
+        '<(src)/syzygy/testing/testing.gyp:testing_lib',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
       ],

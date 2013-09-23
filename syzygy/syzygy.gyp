@@ -59,6 +59,7 @@
         'simulate/simulate.gyp:*',
         'snapshot/snapshot.gyp:*',
         'test_data/test_data.gyp:*',
+        'testing/testing.gyp:*',
         'trace/agent_logger/agent_logger.gyp:*',
         'trace/client/client.gyp:*',
         'trace/common/common.gyp:*',
