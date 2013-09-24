@@ -67,8 +67,6 @@ class BranchHookTransform
   // @{
   bool buffering() const { return buffering_; }
   void set_buffering(bool buffering) { buffering_ = buffering; }
-
-  uint32 fs_slot() const { return fs_slot_; }
   void set_fs_slot(uint32 slot) { fs_slot_ = slot; }
   // @}
 
@@ -99,12 +97,11 @@ class BranchHookTransform
   // Stores the RVAs in the original image for each instrumented basic block.
   RelativeAddressRangeVector bb_ranges_;
 
+  // The entry hook to which function entry events are directed.
+  BlockGraph::Reference function_enter_hook_ref_;
+
   // The entry hook to which basic-block entry events are directed.
   BlockGraph::Reference enter_hook_ref_;
-
-  // The entry hook to which basic-block entry events are directed when
-  // buffering is activated.
-  BlockGraph::Reference enter_buffered_hook_ref_;
 
   // The entry hook to which basic-block exit events are directed.
   BlockGraph::Reference exit_hook_ref_;

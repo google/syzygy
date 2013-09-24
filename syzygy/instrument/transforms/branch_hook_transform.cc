@@ -49,37 +49,64 @@ using common::kBasicBlockEntryAgentId;
 using pe::transforms::PEAddImportsTransform;
 
 typedef BasicBlockEntry::BasicBlockIndexedFrequencyData
-   BasicBlockIndexedFrequencyData;
+    BasicBlockIndexedFrequencyData;
 typedef pe::transforms::ImportedModule ImportedModule;
 
 const char kDefaultModuleName[] = "basic_block_entry_client.dll";
+const char kBranchFunctionEnter[] = "_function_enter";
 const char kBranchEnter[] = "_branch_enter";
 const char kBranchEnterBuffered[] = "_branch_enter_buffered";
 const char kBranchExit[] = "_branch_exit";
+const size_t kNumBranchSlot = 4;
 
 // Sets up the entry and the exit hooks import.
 bool SetupEntryHooks(BlockGraph* block_graph,
                      BlockGraph::Block* header_block,
                      const std::string& module_name,
+                     bool buffering,
+                     uint32 fs_slot,
+                     BlockGraph::Reference* function_enter,
                      BlockGraph::Reference* branch_enter,
-                     BlockGraph::Reference* branch_enter_buffered,
                      BlockGraph::Reference* branch_exit) {
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
   DCHECK(branch_enter != NULL);
-  DCHECK(branch_enter_buffered != NULL);
   DCHECK(branch_exit != NULL);
+
+  // Determine which hooks to use.
+  std::string function_enter_name;
+  std::string branch_enter_name;
+  std::string branch_exit_name;
+
+  if (buffering) {
+    branch_enter_name = kBranchEnterBuffered;
+    branch_exit_name = kBranchExit;
+  } else {
+    branch_enter_name = kBranchEnter;
+    branch_exit_name = kBranchExit;
+  }
+
+  if (fs_slot != 0) {
+    function_enter_name =
+        base::StringPrintf("%s_s%d", kBranchFunctionEnter, fs_slot);
+    branch_enter_name =
+        base::StringPrintf("%s_s%d", branch_enter_name.c_str(), fs_slot);
+    branch_exit_name =
+        base::StringPrintf("%s_s%d", branch_exit_name.c_str(), fs_slot);
+  }
 
   // Setup the import module.
   ImportedModule module(module_name);
-  size_t enter_index = module.AddSymbol(kBranchEnter,
+  size_t enter_index = module.AddSymbol(branch_enter_name,
                                         ImportedModule::kAlwaysImport);
 
-  size_t enter_buffered_index =
-      module.AddSymbol(kBranchEnterBuffered, ImportedModule::kAlwaysImport);
-
-  size_t exit_index = module.AddSymbol(kBranchExit,
+  size_t exit_index = module.AddSymbol(branch_exit_name,
                                        ImportedModule::kAlwaysImport);
+  size_t function_enter_index = 0;
+  if (!function_enter_name.empty()) {
+    function_enter_index = module.AddSymbol(function_enter_name,
+                                            ImportedModule::kAlwaysImport);
+  }
 
   // Setup the add-imports transform.
   PEAddImportsTransform add_imports;
@@ -98,19 +125,20 @@ bool SetupEntryHooks(BlockGraph* block_graph,
   }
   DCHECK(branch_enter->IsValid());
 
-  // Get a reference to the entry-hook function (buffered version).
-  if (!module.GetSymbolReference(enter_buffered_index, branch_enter_buffered)) {
-    LOG(ERROR) << "Unable to get " << kBranchEnterBuffered << ".";
-    return false;
-  }
-  DCHECK(branch_enter->IsValid());
-
   // Get a reference to the exit-hook function.
   if (!module.GetSymbolReference(exit_index, branch_exit)) {
     LOG(ERROR) << "Unable to get " << kBranchExit << ".";
     return false;
   }
   DCHECK(branch_exit->IsValid());
+
+  if (!function_enter_name.empty()) {
+    if (!module.GetSymbolReference(function_enter_index, function_enter)) {
+      LOG(ERROR) << "Unable to get " << function_enter_name << ".";
+      return false;
+    }
+    DCHECK(function_enter->IsValid());
+  }
 
   return true;
 }
@@ -141,8 +169,10 @@ bool BranchHookTransform::PreBlockGraphIteration(
   if (!SetupEntryHooks(block_graph,
                       header_block,
                       instrument_dll_name_,
+                      buffering_,
+                      fs_slot_,
+                      &function_enter_hook_ref_,
                       &enter_hook_ref_,
-                      &enter_buffered_hook_ref_,
                       &exit_hook_ref_)) {
     return false;
   }
@@ -180,9 +210,13 @@ bool BranchHookTransform::TransformBasicBlockSubGraph(
   DCHECK(block_graph != NULL);
   DCHECK(subgraph != NULL);
   DCHECK(enter_hook_ref_.IsValid());
-  DCHECK(enter_buffered_hook_ref_.IsValid());
   DCHECK(exit_hook_ref_.IsValid());
   DCHECK(add_frequency_data_.frequency_data_block() != NULL);
+
+  // Determine whether we must pass the module_data pointer to the hooks.
+  bool need_module_data = true;
+  if (fs_slot_ != 0)
+    need_module_data = false;
 
   // Insert a call to the basic-block entry hook at the top of each code
   // basic-block.
@@ -209,16 +243,13 @@ bool BranchHookTransform::TransformBasicBlockSubGraph(
     Immediate module_data(add_frequency_data_.frequency_data_block(), 0);
 
     // Assemble entry hook instrumentation into the instruction stream.
-    BlockGraph::Reference* enter_hook_ref = &enter_hook_ref_;
-    if (buffering_)
-      enter_hook_ref = &enter_buffered_hook_ref_;
-
-    Operand enter_hook(Displacement(enter_hook_ref->referenced(),
-                                    enter_hook_ref->offset()));
+    Operand enter_hook(Displacement(enter_hook_ref_.referenced(),
+                                    enter_hook_ref_.offset()));
     BasicBlockAssembler bb_asm_enter(bb->instructions().begin(),
                                      &bb->instructions());
     bb_asm_enter.push(basic_block_id);
-    bb_asm_enter.push(module_data);
+    if (need_module_data)
+      bb_asm_enter.push(module_data);
     bb_asm_enter.call(enter_hook);
 
     // Find the last non jumping instruction in the basic block.
@@ -239,12 +270,33 @@ bool BranchHookTransform::TransformBasicBlockSubGraph(
       BasicBlockAssembler bb_asm_exit(last_instruction,
                                       &bb->instructions());
       bb_asm_exit.push(basic_block_id);
-      bb_asm_exit.push(module_data);
+      if (need_module_data)
+        bb_asm_exit.push(module_data);
       bb_asm_exit.call(exit_hook);
     }
 
     // Push the range for the current basic block.
     bb_ranges_.push_back(source_range);
+  }
+
+  // Insert a call to the function entry hook at the beginning of the function.
+  if (function_enter_hook_ref_.IsValid()) {
+    // Get the basic block ordering.
+    DCHECK_EQ(1U, subgraph->block_descriptions().size());
+    const BasicBlockSubGraph::BasicBlockOrdering& original_order =
+        subgraph->block_descriptions().front().basic_block_order;
+
+    BasicCodeBlock* first_bb = BasicCodeBlock::Cast(*original_order.begin());
+    DCHECK(first_bb != NULL);
+
+    // Assemble function enter hook instrumentation into the instruction stream.
+    Immediate module_data(add_frequency_data_.frequency_data_block(), 0);
+    Operand func_hook(Displacement(function_enter_hook_ref_.referenced(),
+                                   function_enter_hook_ref_.offset()));
+    BasicBlockAssembler func_asm_enter(first_bb->instructions().begin(),
+                                       &first_bb->instructions());
+    func_asm_enter.push(module_data);
+    func_asm_enter.call(func_hook);
   }
 
   return true;
@@ -271,7 +323,7 @@ bool BranchHookTransform::PostBlockGraphIteration(
   // Initialized BasicBlock agent specific fields
   block_graph::TypedBlock<BasicBlockIndexedFrequencyData> frequency_data;
   CHECK(frequency_data.Init(0, add_frequency_data_.frequency_data_block()));
-  frequency_data->fs_slot = 0;
+  frequency_data->fs_slot = fs_slot_;
   frequency_data->tls_index = TLS_OUT_OF_INDEXES;
 
   // Add the module entry thunks.

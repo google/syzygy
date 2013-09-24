@@ -47,14 +47,16 @@ using common::kBasicBlockEntryAgentId;
 using common::kBasicBlockFrequencyDataVersion;
 
 typedef BasicBlockEntry::BasicBlockIndexedFrequencyData
-   BasicBlockIndexedFrequencyData;
+    BasicBlockIndexedFrequencyData;
 
 class TestBranchHookTransform : public BranchHookTransform {
  public:
+  using BranchHookTransform::function_enter_hook_ref_;
   using BranchHookTransform::enter_hook_ref_;
-  using BranchHookTransform::enter_buffered_hook_ref_;
   using BranchHookTransform::exit_hook_ref_;
   using BranchHookTransform::thunk_section_;
+  using BranchHookTransform::buffering_;
+  using BranchHookTransform::fs_slot_;
 
   BlockGraph::Block* frequency_data_block() {
     return add_frequency_data_.frequency_data_block();
@@ -67,19 +69,24 @@ class TestBranchHookTransform : public BranchHookTransform {
 
 class BranchHookTransformTest : public testing::TestDllTransformTest {
  public:
-  enum InstrumentationKind {
-    kBasicInstrumentation,
-    kBufferedInstrumentation
-  };
-
-  void CheckBasicBlockInstrumentation(InstrumentationKind mode);
+  void CheckBasicBlockInstrumentation();
 
  protected:
   TestBranchHookTransform tx_;
 };
 
-void BranchHookTransformTest::CheckBasicBlockInstrumentation(
-    InstrumentationKind mode) {
+void BranchHookTransformTest::CheckBasicBlockInstrumentation() {
+  // Determine whether the module_data should be passed as an argument.
+  bool need_module_data = true;
+  if (tx_.fs_slot_ != 0)
+    need_module_data = false;
+
+  // Determine whether a function_enter hook should be added at the beginning of
+  // each instrumented block.
+  bool need_function_enter = false;
+  if (tx_.function_enter_hook_ref_.IsValid())
+    need_function_enter = true;
+
   // Let's examine each eligible block to verify that its basic blocks have been
   // instrumented.
   BlockGraph::BlockMap::const_iterator block_iter =
@@ -104,6 +111,13 @@ void BranchHookTransformTest::CheckBasicBlockInstrumentation(
     BasicBlockDecomposer bb_decomposer(&block, &subgraph);
     ASSERT_TRUE(bb_decomposer.Decompose());
 
+    // Retrieve the first basic block.
+    DCHECK_EQ(1U, subgraph.block_descriptions().size());
+    const BasicBlockSubGraph::BasicBlockOrdering& original_order =
+        subgraph.block_descriptions().front().basic_block_order;
+    BasicCodeBlock* first_bb = BasicCodeBlock::Cast(*original_order.begin());
+    DCHECK(first_bb != NULL);
+
     // Check if each non-padding basic code-block begins with the
     // instrumentation sequence.
     BasicBlockSubGraph::BBCollection::const_iterator bb_iter =
@@ -118,32 +132,46 @@ void BranchHookTransformTest::CheckBasicBlockInstrumentation(
           bb->instructions().begin();
       ASSERT_TRUE(inst_iter != bb->instructions().end());
 
+      if (need_function_enter && bb == first_bb) {
+        // Instruction 1 should push the frequency data block pointer.
+        const Instruction& inst1 = *inst_iter;
+        EXPECT_EQ(I_PUSH, inst1.representation().opcode);
+        ASSERT_EQ(1U, inst1.references().size());
+        EXPECT_EQ(tx_.frequency_data_block(),
+                  inst1.references().begin()->second.block());
+        ASSERT_TRUE(++inst_iter != bb->instructions().end());
+
+        // Instruction 2 should be a call to the function enter hook.
+        const Instruction& inst2 = *inst_iter;
+        EXPECT_EQ(I_CALL, inst2.representation().opcode);
+        ASSERT_EQ(1U, inst2.references().size());
+        EXPECT_EQ(tx_.function_enter_hook_ref_.referenced(),
+                  inst2.references().begin()->second.block());
+        ASSERT_TRUE(++inst_iter != bb->instructions().end());
+      }
+
       // Instruction 1 should push the basic block id.
       const Instruction& inst1 = *inst_iter;
       EXPECT_EQ(I_PUSH, inst1.representation().opcode);
+      ASSERT_EQ(0U, inst1.references().size());
       ASSERT_TRUE(++inst_iter != bb->instructions().end());
 
       // Instruction 2 should push the frequency data block pointer.
-      const Instruction& inst2 = *inst_iter;
-      EXPECT_EQ(I_PUSH, inst2.representation().opcode);
-      ASSERT_EQ(1U, inst2.references().size());
-      EXPECT_EQ(tx_.frequency_data_block(),
-                inst2.references().begin()->second.block());
-      ASSERT_TRUE(++inst_iter != bb->instructions().end());
+      if (need_module_data) {
+        const Instruction& inst2 = *inst_iter;
+        EXPECT_EQ(I_PUSH, inst2.representation().opcode);
+        ASSERT_EQ(1U, inst2.references().size());
+        EXPECT_EQ(tx_.frequency_data_block(),
+                  inst2.references().begin()->second.block());
+        ASSERT_TRUE(++inst_iter != bb->instructions().end());
+      }
 
       // Instruction 3 should be a call to the enter hook.
       const Instruction& inst3 = *inst_iter;
       EXPECT_EQ(I_CALL, inst3.representation().opcode);
       ASSERT_EQ(1U, inst3.references().size());
-      if (mode == kBasicInstrumentation) {
-        EXPECT_EQ(tx_.enter_hook_ref_.referenced(),
-                  inst3.references().begin()->second.block());
-      } else if (mode == kBufferedInstrumentation) {
-        EXPECT_EQ(tx_.enter_buffered_hook_ref_.referenced(),
-                  inst3.references().begin()->second.block());
-      } else {
-        NOTREACHED();
-      }
+      EXPECT_EQ(tx_.enter_hook_ref_.referenced(),
+                inst3.references().begin()->second.block());
       ASSERT_TRUE(++inst_iter != bb->instructions().end());
 
       // Check exit hook function call.
@@ -171,12 +199,14 @@ void BranchHookTransformTest::CheckBasicBlockInstrumentation(
       ASSERT_TRUE(++rev_inst_iter != bb->instructions().rend());
 
       // Instruction 2 should push the frequency data block pointer.
-      const Instruction& rev_inst2 = *rev_inst_iter;
-      EXPECT_EQ(I_PUSH, rev_inst2.representation().opcode);
-      ASSERT_EQ(1U, rev_inst2.references().size());
-      EXPECT_EQ(tx_.frequency_data_block(),
-                rev_inst2.references().begin()->second.block());
-      ASSERT_TRUE(++rev_inst_iter != bb->instructions().rend());
+      if (need_module_data) {
+        const Instruction& rev_inst2 = *rev_inst_iter;
+        EXPECT_EQ(I_PUSH, rev_inst2.representation().opcode);
+        ASSERT_EQ(1U, rev_inst2.references().size());
+        EXPECT_EQ(tx_.frequency_data_block(),
+                  rev_inst2.references().begin()->second.block());
+        ASSERT_TRUE(++rev_inst_iter != bb->instructions().rend());
+      }
 
       // Instruction 1 should push the basic block id.
       const Instruction& rev_inst1 = *rev_inst_iter;
@@ -220,8 +250,7 @@ TEST_F(BranchHookTransformTest, ApplyAgentInstrumentation) {
   EXPECT_EQ(expected_size, tx_.frequency_data_buffer_block()->size());
 
   // Validate that all basic blocks have been instrumented.
-  ASSERT_NO_FATAL_FAILURE(
-      CheckBasicBlockInstrumentation(kBasicInstrumentation));
+  ASSERT_NO_FATAL_FAILURE(CheckBasicBlockInstrumentation());
 }
 
 TEST_F(BranchHookTransformTest, ApplyBufferedAgentInstrumentation) {
@@ -229,15 +258,54 @@ TEST_F(BranchHookTransformTest, ApplyBufferedAgentInstrumentation) {
 
   // Activate buffering.
   tx_.set_buffering(true);
+  ASSERT_TRUE(tx_.buffering_);
 
   // Apply the transform.
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(&tx_, &block_graph_,
                                                     dos_header_block_));
-  ASSERT_TRUE(tx_.enter_buffered_hook_ref_.IsValid());
+  ASSERT_FALSE(tx_.function_enter_hook_ref_.IsValid());
+  ASSERT_TRUE(tx_.enter_hook_ref_.IsValid());
 
   // Validate that all basic blocks have been instrumented.
-  ASSERT_NO_FATAL_FAILURE(
-      CheckBasicBlockInstrumentation(kBufferedInstrumentation));
+  ASSERT_NO_FATAL_FAILURE(CheckBasicBlockInstrumentation());
+}
+
+TEST_F(BranchHookTransformTest, ApplySlotAgentInstrumentation) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
+
+  // Activate fs-slot.
+  tx_.set_buffering(false);
+  tx_.set_fs_slot(1);
+  ASSERT_FALSE(tx_.buffering_);
+  ASSERT_EQ(tx_.fs_slot_, 1U);
+
+  // Apply the transform.
+  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(&tx_, &block_graph_,
+                                                    dos_header_block_));
+  ASSERT_TRUE(tx_.function_enter_hook_ref_.IsValid());
+  ASSERT_TRUE(tx_.enter_hook_ref_.IsValid());
+
+  // Validate that all basic blocks have been instrumented.
+  ASSERT_NO_FATAL_FAILURE(CheckBasicBlockInstrumentation());
+}
+
+TEST_F(BranchHookTransformTest, ApplySlotBufferedAgentInstrumentation) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
+
+  // Activate buffering and fs-slot.
+  tx_.set_buffering(true);
+  tx_.set_fs_slot(1);
+  ASSERT_TRUE(tx_.buffering_);
+  ASSERT_EQ(tx_.fs_slot_, 1U);
+
+  // Apply the transform.
+  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(&tx_, &block_graph_,
+                                                    dos_header_block_));
+  ASSERT_TRUE(tx_.function_enter_hook_ref_.IsValid());
+  ASSERT_TRUE(tx_.enter_hook_ref_.IsValid());
+
+  // Validate that all basic blocks have been instrumented.
+  ASSERT_NO_FATAL_FAILURE(CheckBasicBlockInstrumentation());
 }
 
 }  // namespace transforms

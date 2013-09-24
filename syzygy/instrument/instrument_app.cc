@@ -94,6 +94,8 @@ static const char kUsageFormatStr[] =
     "                            Disables redundant memory access analysis.\n"
     "  branch mode options:\n"
     "    --buffering             Enable per-thread buffering of events.\n"
+    "    --fs-slot=<slot>        Specify which FS slot to use for thread\n"
+    "                            local storage.\n"
     "  calltrace mode options:\n"
     "    --instrument-imports    Also instrument calls to imports.\n"
     "    --module-entry-only     If specified then the per-function entry\n"
