@@ -151,6 +151,10 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     service_.Stop();
   }
 
+  void UnloadDll() {
+    module_.Reset(NULL);
+  }
+
   // Runs an instrumentation pass in the given mode and validates that the
   // resulting output DLL loads.
   void EndToEndTest(const std::string& mode) {
@@ -691,24 +695,46 @@ TEST_F(InstrumentAppIntegrationTest, BBEntryEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(BBEntryCheckTestDll());
 }
 
-// This test is temporarily disabled because it fails when run repeatedly, and
-// occasionally fails upon first run.
-// TODO(chrisha, etienneb): Figure out why this instrumentation mode is broken.
-TEST_F(InstrumentAppIntegrationTest, DISABLED_InlineFastPathBBEntryEndToEnd) {
-  cmd_line_.AppendSwitch("inline-fast-path");
-  ASSERT_NO_FATAL_FAILURE(StartService());
-  ASSERT_NO_FATAL_FAILURE(EndToEndTest("bbentry"));
-  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(BBEntryInvokeTestDll());
-  ASSERT_NO_FATAL_FAILURE(StopService());
-  ASSERT_NO_FATAL_FAILURE(BBEntryCheckTestDll());
-}
-
 TEST_F(InstrumentAppIntegrationTest, BranchEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(StartService());
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("branch"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(BBEntryInvokeTestDll());
+  ASSERT_NO_FATAL_FAILURE(UnloadDll());
+  ASSERT_NO_FATAL_FAILURE(StopService());
+  ASSERT_NO_FATAL_FAILURE(BranchCheckTestDll());
+}
+
+TEST_F(InstrumentAppIntegrationTest, BranchWithBufferingEndToEnd) {
+  cmd_line_.AppendSwitch("buffering");
+  ASSERT_NO_FATAL_FAILURE(StartService());
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("branch"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(BBEntryInvokeTestDll());
+  ASSERT_NO_FATAL_FAILURE(UnloadDll());
+  ASSERT_NO_FATAL_FAILURE(StopService());
+  ASSERT_NO_FATAL_FAILURE(BranchCheckTestDll());
+}
+
+TEST_F(InstrumentAppIntegrationTest, BranchWithSlotEndToEnd) {
+  cmd_line_.AppendSwitchASCII("fs-slot", "1");
+  ASSERT_NO_FATAL_FAILURE(StartService());
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("branch"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(BBEntryInvokeTestDll());
+  ASSERT_NO_FATAL_FAILURE(UnloadDll());
+  ASSERT_NO_FATAL_FAILURE(StopService());
+  ASSERT_NO_FATAL_FAILURE(BranchCheckTestDll());
+}
+
+TEST_F(InstrumentAppIntegrationTest, BranchWithSlotAndBufferingEndToEnd) {
+  cmd_line_.AppendSwitch("buffering");
+  cmd_line_.AppendSwitchASCII("fs-slot", "1");
+  ASSERT_NO_FATAL_FAILURE(StartService());
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("branch"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(BBEntryInvokeTestDll());
+  ASSERT_NO_FATAL_FAILURE(UnloadDll());
   ASSERT_NO_FATAL_FAILURE(StopService());
   ASSERT_NO_FATAL_FAILURE(BranchCheckTestDll());
 }
