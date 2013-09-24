@@ -33,6 +33,14 @@ class TransformPolicyInterface {
   // class.
   typedef block_graph::BlockGraph BlockGraph;
 
+  // Determines if the given code block's attributes make it eligible for
+  // basic-block decomposition.
+  // @param code_block The code block to evaluate.
+  // @returns true if the code block has safe attributes, false otherwise.
+  // @pre code_block must be of type BlockGraph::CODE_BLOCK.
+  virtual bool CodeBlockAttributesAreBasicBlockSafe(
+      const BlockGraph::Block* code_block) const = 0;
+
   // Determines if the given code block is safe for basic-block decomposition.
   // @param code_block The code block to evaluate.
   // @returns true if it is safe to basic block decompose the given code block,
@@ -43,14 +51,13 @@ class TransformPolicyInterface {
 
   // Returns true if the given references @p ref from @p referrer may be safely
   // redirected. If both the referrer and the referenced blocks are irregular
-  // in any way we cannot safely assume that @p ref has call semantics, i.e.,
-  // where a return address is at the top of stack at entry. For any
+  // in any way we cannot safely assume that @p reference has call semantics,
+  // i.e., where a return address is at the top of stack at entry. For any
   // instrumentation or manipulation that uses return address swizzling,
   // instrumenting an unsafe reference generally leads to crashes.
   // @param referrer The block containing the reference.
   // @param reference The reference itself.
-  // @returns true if the reference is unsafe and should not be thunked, false
-  //     otherwise.
+  // @returns true if the reference is safe and may be thunked, false otherwise.
   virtual bool ReferenceIsSafeToRedirect(
       const BlockGraph::Block* referrer,
       const BlockGraph::Reference& reference) const = 0;
