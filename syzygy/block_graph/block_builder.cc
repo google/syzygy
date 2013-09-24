@@ -674,7 +674,6 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
           info.successors[manifested_successors + elided_successors];
       successor.successor = &(*succ_it);
       if (destination_bb == NULL || destination_bb != next_bb) {
-        ++manifested_successors;
         Successor::Condition condition = succ_it->condition();
 
         // If we've already manifested a successor above, it'll be for the
@@ -687,6 +686,8 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
 
           condition = Successor::kConditionTrue;
         }
+
+        ++manifested_successors;
 
         successor.condition = condition;
         successor.reference = succ_it->reference();
