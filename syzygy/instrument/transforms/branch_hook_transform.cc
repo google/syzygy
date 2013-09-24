@@ -38,6 +38,7 @@ using agent::basic_block_entry::BasicBlockEntry;
 using block_graph::BasicBlock;
 using block_graph::BasicBlockAssembler;
 using block_graph::BasicBlockReference;
+using block_graph::BasicBlockSubGraph;
 using block_graph::BasicCodeBlock;
 using block_graph::BlockBuilder;
 using block_graph::BlockGraph;
@@ -50,6 +51,8 @@ using pe::transforms::PEAddImportsTransform;
 
 typedef BasicBlockEntry::BasicBlockIndexedFrequencyData
     BasicBlockIndexedFrequencyData;
+typedef BasicBlockSubGraph::BlockDescriptionList
+    BlockDescriptionList;
 typedef pe::transforms::ImportedModule ImportedModule;
 
 const char kDefaultModuleName[] = "basic_block_entry_client.dll";
@@ -218,85 +221,92 @@ bool BranchHookTransform::TransformBasicBlockSubGraph(
   if (fs_slot_ != 0)
     need_module_data = false;
 
-  // Insert a call to the basic-block entry hook at the top of each code
-  // basic-block.
-  BasicBlockSubGraph::BBCollection::iterator it =
-      subgraph->basic_blocks().begin();
-  for (; it != subgraph->basic_blocks().end(); ++it) {
-    BasicCodeBlock* bb = BasicCodeBlock::Cast(*it);
-    if (bb == NULL || bb->is_padding())
-      continue;
+  BlockDescriptionList& descriptions = subgraph->block_descriptions();
+  BlockDescriptionList::iterator description = descriptions.begin();
+  for (; description != descriptions.end(); ++description) {
+    BasicBlockSubGraph::BasicBlockOrdering& original_order =
+        (*description).basic_block_order;
 
-    // Find the source range associated with this basic-block.
-    BlockGraph::Block::SourceRange source_range;
-    if (!GetBasicBlockSourceRange(*bb, &source_range)) {
-      LOG(ERROR) << "Unable to get source range for basic block '"
-                 << bb->name() << "'";
-      return false;
-    }
-
-    // We use the location/index in the bb_ranges vector of the current
-    // basic-block range as the basic_block_id, and we pass a pointer to the
-    // frequency data block as the module_data parameter. We then make a memory
-    // indirect call to the bb_entry_hook.
-    Immediate basic_block_id(bb_ranges_.size(), core::kSize32Bit);
-    Immediate module_data(add_frequency_data_.frequency_data_block(), 0);
-
-    // Assemble entry hook instrumentation into the instruction stream.
-    Operand enter_hook(Displacement(enter_hook_ref_.referenced(),
-                                    enter_hook_ref_.offset()));
-    BasicBlockAssembler bb_asm_enter(bb->instructions().begin(),
-                                     &bb->instructions());
-    bb_asm_enter.push(basic_block_id);
-    if (need_module_data)
-      bb_asm_enter.push(module_data);
-    bb_asm_enter.call(enter_hook);
-
-    // Find the last non jumping instruction in the basic block.
-    BasicBlock::Instructions::iterator last = bb->instructions().begin();
-    BasicBlock::Instructions::iterator last_instruction = last;
-    for (; last != bb->instructions().end(); ++last) {
-      if (!last->IsReturn() && !last->IsBranch()) {
-        last_instruction = last;
-        ++last_instruction;
-      }
-    }
-
-    if (last == bb->instructions().end() ||
-        !last->CallsNonReturningFunction()) {
-      // Assemble exit hook instrumentation into the instruction stream.
-      Operand exit_hook(Displacement(exit_hook_ref_.referenced(),
-                                     exit_hook_ref_.offset()));
-      BasicBlockAssembler bb_asm_exit(last_instruction,
-                                      &bb->instructions());
-      bb_asm_exit.push(basic_block_id);
-      if (need_module_data)
-        bb_asm_exit.push(module_data);
-      bb_asm_exit.call(exit_hook);
-    }
-
-    // Push the range for the current basic block.
-    bb_ranges_.push_back(source_range);
-  }
-
-  // Insert a call to the function entry hook at the beginning of the function.
-  if (function_enter_hook_ref_.IsValid()) {
-    // Get the basic block ordering.
-    DCHECK_EQ(1U, subgraph->block_descriptions().size());
-    const BasicBlockSubGraph::BasicBlockOrdering& original_order =
-        subgraph->block_descriptions().front().basic_block_order;
-
+    // Get the first basic block of this ordering.
+    DCHECK(!original_order.empty());
     BasicCodeBlock* first_bb = BasicCodeBlock::Cast(*original_order.begin());
     DCHECK(first_bb != NULL);
 
-    // Assemble function enter hook instrumentation into the instruction stream.
-    Immediate module_data(add_frequency_data_.frequency_data_block(), 0);
-    Operand func_hook(Displacement(function_enter_hook_ref_.referenced(),
-                                   function_enter_hook_ref_.offset()));
-    BasicBlockAssembler func_asm_enter(first_bb->instructions().begin(),
-                                       &first_bb->instructions());
-    func_asm_enter.push(module_data);
-    func_asm_enter.call(func_hook);
+    // Insert a call to the basic-block entry hook at the beginning and the end
+    // of each code basic-block.
+    BasicBlockSubGraph::BasicBlockOrdering::const_iterator it =
+      original_order.begin();
+    for (; it != original_order.end(); ++it) {
+      BasicCodeBlock* bb = BasicCodeBlock::Cast(*it);
+      if (bb == NULL || bb->is_padding())
+        continue;
+
+      // Find the source range associated with this basic-block.
+      BlockGraph::Block::SourceRange source_range;
+      if (!GetBasicBlockSourceRange(*bb, &source_range)) {
+        LOG(ERROR) << "Unable to get source range for basic block '"
+                   << bb->name() << "'";
+        return false;
+      }
+
+      // We use the index in the bb_ranges vector of the current basic-block
+      // range as the basic_block_id, and we pass a pointer to the frequency
+      // data block as the module_data parameter. We then make a memory indirect
+      // call to the bb_entry_hook.
+      Immediate basic_block_id(bb_ranges_.size(), core::kSize32Bit);
+      Immediate module_data(add_frequency_data_.frequency_data_block(), 0);
+
+      // Assemble entry hook instrumentation into the instruction stream.
+      BlockGraph::Reference* enter_hook_ref = &enter_hook_ref_;
+      Operand enter_hook(Displacement(enter_hook_ref->referenced(),
+                                      enter_hook_ref->offset()));
+      BasicBlockAssembler bb_asm_enter(bb->instructions().begin(),
+                                       &bb->instructions());
+      bb_asm_enter.push(basic_block_id);
+      if (need_module_data)
+        bb_asm_enter.push(module_data);
+      bb_asm_enter.call(enter_hook);
+
+      // Find the last non jumping instruction in the basic block.
+      BasicBlock::Instructions::iterator last = bb->instructions().begin();
+      BasicBlock::Instructions::iterator last_instruction = last;
+      for (; last != bb->instructions().end(); ++last) {
+        if (!last->IsReturn() && !last->IsBranch()) {
+          last_instruction = last;
+          ++last_instruction;
+        }
+      }
+
+      if (last == bb->instructions().end() ||
+          !last->CallsNonReturningFunction()) {
+        // Assemble exit hook instrumentation into the instruction stream.
+        Operand exit_hook(Displacement(exit_hook_ref_.referenced(),
+                                       exit_hook_ref_.offset()));
+        BasicBlockAssembler bb_asm_exit(last_instruction,
+                                        &bb->instructions());
+        bb_asm_exit.push(basic_block_id);
+        if (need_module_data)
+          bb_asm_exit.push(module_data);
+        bb_asm_exit.call(exit_hook);
+      }
+
+      // Push the range for the current basic block.
+      bb_ranges_.push_back(source_range);
+    }
+
+    // Insert a call to the function entry hook at the beginning of the
+    // function.
+    if (function_enter_hook_ref_.IsValid()) {
+      // Assemble function enter hook instrumentation into the instruction
+      // stream.
+      Immediate module_data(add_frequency_data_.frequency_data_block(), 0);
+      Operand func_hook(Displacement(function_enter_hook_ref_.referenced(),
+                                     function_enter_hook_ref_.offset()));
+      BasicBlockAssembler func_asm_enter(first_bb->instructions().begin(),
+                                         &first_bb->instructions());
+      func_asm_enter.push(module_data);
+      func_asm_enter.call(func_hook);
+    }
   }
 
   return true;
