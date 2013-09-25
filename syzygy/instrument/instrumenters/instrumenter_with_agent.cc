@@ -125,9 +125,17 @@ bool InstrumenterWithAgent::Instrument() {
   return true;
 }
 
+pe::PETransformPolicy* InstrumenterWithAgent::GetTransformPolicy() {
+  if (policy_.get() == NULL) {
+    policy_.reset(new pe::PETransformPolicy());
+    CHECK(policy_.get() != NULL);
+  }
+  return policy_.get();
+}
+
 pe::PERelinker* InstrumenterWithAgent::GetRelinker() {
   if (relinker_.get() == NULL) {
-    relinker_.reset(new pe::PERelinker());
+    relinker_.reset(new pe::PERelinker(GetTransformPolicy()));
     CHECK(relinker_.get() != NULL);
   }
   return relinker_.get();

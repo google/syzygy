@@ -42,7 +42,8 @@ class ExplodeBasicBlocksTransformTest : public testing::PELibUnitTest {
   }
 
   void PerformRandomizationTest(ExplodeBasicBlocksTransform* transform) {
-    pe::PERelinker relinker;
+    pe::PETransformPolicy policy;
+    pe::PERelinker relinker(&policy);
     relinker.set_input_path(input_path_);
     relinker.set_output_path(output_path_);
     relinker.set_padding(8);

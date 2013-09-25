@@ -76,11 +76,13 @@ bool ApplyOrderersToBlockGraph(const std::vector<Orderer*>& orderers,
 
 }  // namespace
 
-PECoffRelinker::PECoffRelinker()
-    : allow_overwrite_(false),
+PECoffRelinker::PECoffRelinker(const TransformPolicyInterface* transform_policy)
+    : transform_policy_(transform_policy),
+      allow_overwrite_(false),
       inited_(false),
       input_image_layout_(&block_graph_),
       headers_block_(NULL) {
+  DCHECK(transform_policy != NULL);
 }
 
 void PECoffRelinker::AppendTransform(Transform* transform) {

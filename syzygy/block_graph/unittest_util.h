@@ -19,6 +19,7 @@
 
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/block_graph/block_graph_serializer.h"
+#include "syzygy/block_graph/transform_policy.h"
 
 namespace testing {
 
@@ -40,6 +41,27 @@ bool BlockGraphsEqual(
 
 // Generate a block-graph to use in the tests.
 bool GenerateTestBlockGraph(block_graph::BlockGraph* image);
+
+// A dummy transform policy object for unittesting.
+class DummyTransformPolicy : public block_graph::TransformPolicyInterface {
+ public:
+  DummyTransformPolicy() { }
+  virtual ~DummyTransformPolicy() { }
+
+  // @name TransformPolicyInterface implementation
+  // @{
+  virtual bool CodeBlockAttributesAreBasicBlockSafe(
+      const BlockGraph::Block* code_block) const OVERRIDE;
+  virtual bool CodeBlockIsSafeToBasicBlockDecompose(
+      const BlockGraph::Block* code_block) const OVERRIDE;
+  virtual bool ReferenceIsSafeToRedirect(
+      const BlockGraph::Block* referrer,
+      const BlockGraph::Reference& reference) const OVERRIDE;
+  // @}
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(DummyTransformPolicy);
+};
 
 }  // namespace testing
 

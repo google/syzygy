@@ -110,6 +110,10 @@ bool WriteImage(const ImageLayout& image_layout,
 
 }  // namespace
 
+CoffRelinker::CoffRelinker(const CoffTransformPolicy* transform_policy)
+    : PECoffRelinker(transform_policy) {
+}
+
 bool CoffRelinker::Init() {
   DCHECK(inited_ == false);
 

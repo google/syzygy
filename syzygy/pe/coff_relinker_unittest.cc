@@ -34,6 +34,10 @@ using testing::StrictMock;
 
 class TestCoffRelinker : public CoffRelinker {
  public:
+  explicit TestCoffRelinker(const CoffTransformPolicy* transform_policy)
+      : CoffRelinker(transform_policy) {
+  }
+
   using CoffRelinker::transforms_;
   using CoffRelinker::orderers_;
 };
@@ -50,6 +54,7 @@ class CoffRelinkerTest : public testing::PELibUnitTest {
     new_test_dll_path_ = temp_dir_path_.Append(testing::kTestDllName);
   }
 
+  CoffTransformPolicy policy_;
   base::FilePath test_dll_obj_path_;
   base::FilePath new_test_dll_obj_path_;
   base::FilePath new_test_dll_path_;
@@ -71,21 +76,21 @@ class MockOrderer : public BlockGraphOrdererInterface {
 }  // namespace
 
 TEST_F(CoffRelinkerTest, InitFailsOnUnspecifiedInput) {
-  TestCoffRelinker relinker;
+  TestCoffRelinker relinker(&policy_);
 
   relinker.set_output_path(new_test_dll_obj_path_);
   EXPECT_FALSE(relinker.Init());
 }
 
 TEST_F(CoffRelinkerTest, InitFailsOnUnspecifiedOutput) {
-  TestCoffRelinker relinker;
+  TestCoffRelinker relinker(&policy_);
 
   relinker.set_input_path(test_dll_obj_path_);
   EXPECT_FALSE(relinker.Init());
 }
 
 TEST_F(CoffRelinkerTest, InitFailsOnNonexistentInput) {
-  TestCoffRelinker relinker;
+  TestCoffRelinker relinker(&policy_);
 
   relinker.set_input_path(temp_dir_path_.Append(L"nonexistent.dll"));
   relinker.set_output_path(new_test_dll_obj_path_);
@@ -93,7 +98,7 @@ TEST_F(CoffRelinkerTest, InitFailsOnNonexistentInput) {
 }
 
 TEST_F(CoffRelinkerTest, InitFailsOnDisallowedOverwrite) {
-  TestCoffRelinker relinker;
+  TestCoffRelinker relinker(&policy_);
 
   // Copy the image in case the test actually does overwrite the input; this
   // way we don't accidentally turf our test data.
@@ -107,7 +112,7 @@ TEST_F(CoffRelinkerTest, InitFailsOnDisallowedOverwrite) {
 }
 
 TEST_F(CoffRelinkerTest, InitSucceeds) {
-  TestCoffRelinker relinker;
+  TestCoffRelinker relinker(&policy_);
 
   relinker.set_input_path(test_dll_obj_path_);
   relinker.set_output_path(new_test_dll_obj_path_);
@@ -116,7 +121,7 @@ TEST_F(CoffRelinkerTest, InitSucceeds) {
 }
 
 TEST_F(CoffRelinkerTest, IntermediateAccessors) {
-  TestCoffRelinker relinker;
+  TestCoffRelinker relinker(&policy_);
 
   relinker.set_input_path(test_dll_obj_path_);
   relinker.set_output_path(new_test_dll_obj_path_);
@@ -128,7 +133,7 @@ TEST_F(CoffRelinkerTest, IntermediateAccessors) {
 }
 
 TEST_F(CoffRelinkerTest, FailsWhenTransformFails) {
-  TestCoffRelinker relinker;
+  TestCoffRelinker relinker(&policy_);
   StrictMock<MockTransform> transform;
 
   EXPECT_CALL(transform, TransformBlockGraph(_, _)).WillOnce(Return(false));
@@ -141,7 +146,7 @@ TEST_F(CoffRelinkerTest, FailsWhenTransformFails) {
 }
 
 TEST_F(CoffRelinkerTest, FailsWhenOrdererFails) {
-  TestCoffRelinker relinker;
+  TestCoffRelinker relinker(&policy_);
   StrictMock<MockOrderer> orderer;
 
   EXPECT_CALL(orderer, OrderBlockGraph(_, _)).WillOnce(Return(false));
@@ -154,7 +159,7 @@ TEST_F(CoffRelinkerTest, FailsWhenOrdererFails) {
 }
 
 TEST_F(CoffRelinkerTest, Success) {
-  TestCoffRelinker relinker;
+  TestCoffRelinker relinker(&policy_);
   StrictMock<MockTransform> transform;
   StrictMock<MockOrderer> orderer;
 
@@ -172,7 +177,7 @@ TEST_F(CoffRelinkerTest, Success) {
 }
 
 TEST_F(CoffRelinkerTest, IdentityRelink) {
-  TestCoffRelinker relinker;
+  TestCoffRelinker relinker(&policy_);
 
   relinker.set_input_path(test_dll_obj_path_);
   relinker.set_output_path(new_test_dll_obj_path_);

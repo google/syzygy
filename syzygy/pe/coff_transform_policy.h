@@ -27,6 +27,7 @@ namespace pe {
 // files.
 class CoffTransformPolicy : public block_graph::TransformPolicyInterface {
  public:
+  CoffTransformPolicy() { }
   virtual ~CoffTransformPolicy() { }
 
   // @name TransformPolicyInterface implementation
@@ -39,6 +40,9 @@ class CoffTransformPolicy : public block_graph::TransformPolicyInterface {
       const BlockGraph::Block* referrer,
       const BlockGraph::Reference& reference) const OVERRIDE;
   // @}
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(CoffTransformPolicy);
 };
 
 }  // namespace pe

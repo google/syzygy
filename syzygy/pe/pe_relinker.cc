@@ -598,11 +598,13 @@ bool WriteSyzygyBlockGraphStream(const PEFile& pe_file,
 
 }  // namespace
 
-PERelinker::PERelinker()
-    : add_metadata_(true), augment_pdb_(true),
+PERelinker::PERelinker(const PETransformPolicy* transform_policy)
+    : PECoffRelinker(transform_policy),
+      add_metadata_(true), augment_pdb_(true),
       compress_pdb_(false), parse_debug_info_(true), strip_strings_(false),
       use_new_decomposer_(false), padding_(0),
       output_guid_(GUID_NULL) {
+  DCHECK(transform_policy != NULL);
 }
 
 void PERelinker::AppendPdbMutator(PdbMutatorInterface* pdb_mutator) {

@@ -24,6 +24,7 @@
 #include "base/files/file_path.h"
 #include "syzygy/block_graph/orderer.h"
 #include "syzygy/block_graph/transform.h"
+#include "syzygy/block_graph/transform_policy.h"
 #include "syzygy/pe/image_layout.h"
 
 namespace pe {
@@ -34,9 +35,10 @@ namespace pe {
 class PECoffRelinker {
  public:
   typedef block_graph::BlockGraph BlockGraph;
-  typedef block_graph::OrderedBlockGraph OrderedBlockGraph;
   typedef block_graph::BlockGraphOrdererInterface Orderer;
   typedef block_graph::BlockGraphTransformInterface Transform;
+  typedef block_graph::OrderedBlockGraph OrderedBlockGraph;
+  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
 
   // Change the path to the main input file. By default, it is empty.
   //
@@ -132,7 +134,8 @@ class PECoffRelinker {
  protected:
   // Construct a default PECoffRelinker. Initialize properties to default
   // values.
-  PECoffRelinker();
+  // @param transform_policy The policy that dictates how to apply transforms.
+  explicit PECoffRelinker(const TransformPolicyInterface* transform_policy);
 
   // Apply user-supplied transforms to the block graph, followed by the
   // specified extra transforms, if any.
@@ -151,6 +154,9 @@ class PECoffRelinker {
   // @returns true on success, or false on failure.
   bool ApplyOrderers(const std::vector<Orderer*>& post_orderers,
                      OrderedBlockGraph* ordered_graph);
+
+  // The policy that dictates how to apply transforms.
+  const TransformPolicyInterface* transform_policy_;
 
   // The path to the main input file.
   base::FilePath input_path_;

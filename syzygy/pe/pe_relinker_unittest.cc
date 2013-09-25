@@ -44,6 +44,10 @@ using testing::StrictMock;
 
 class TestPERelinker : public PERelinker {
  public:
+  explicit TestPERelinker(const PETransformPolicy* transform_policy)
+      : PERelinker(transform_policy) {
+  }
+
   using PERelinker::transforms_;
   using PERelinker::orderers_;
   using PERelinker::pdb_mutators_;
@@ -64,6 +68,7 @@ class PERelinkerTest : public testing::PELibUnitTest {
     temp_pdb_ = temp_dir_.Append(testing::kTestDllPdbName);
   }
 
+  PETransformPolicy policy_;
   base::FilePath input_dll_;
   base::FilePath input_pdb_;
   base::FilePath temp_dir_;
@@ -92,7 +97,7 @@ class MockPdbMutator : public PdbMutatorInterface {
 }  // namespace
 
 TEST_F(PERelinkerTest, Properties) {
-  TestPERelinker relinker;
+  TestPERelinker relinker(&policy_);
   base::FilePath dummy_path(L"foo");
 
   EXPECT_EQ(base::FilePath(), relinker.input_path());
@@ -161,7 +166,7 @@ TEST_F(PERelinkerTest, Properties) {
 }
 
 TEST_F(PERelinkerTest, AppendPdbMutators) {
-  TestPERelinker relinker;
+  TestPERelinker relinker(&policy_);
 
   MockPdbMutator pdb_mutator1, pdb_mutator2;
   std::vector<PdbMutatorInterface*> pdb_mutators;
@@ -178,21 +183,21 @@ TEST_F(PERelinkerTest, AppendPdbMutators) {
 }
 
 TEST_F(PERelinkerTest, InitFailsOnUnspecifiedInput) {
-  TestPERelinker relinker;
+  TestPERelinker relinker(&policy_);
 
   relinker.set_output_path(temp_dll_);
   EXPECT_FALSE(relinker.Init());
 }
 
 TEST_F(PERelinkerTest, InitFailsOnUnspecifiedOutput) {
-  TestPERelinker relinker;
+  TestPERelinker relinker(&policy_);
 
   relinker.set_input_path(input_dll_);
   EXPECT_FALSE(relinker.Init());
 }
 
 TEST_F(PERelinkerTest, InitFailsOnNonexistentInput) {
-  TestPERelinker relinker;
+  TestPERelinker relinker(&policy_);
 
   relinker.set_input_path(temp_dir_.Append(L"nonexistent.dll"));
   relinker.set_output_path(temp_dll_);
@@ -200,7 +205,7 @@ TEST_F(PERelinkerTest, InitFailsOnNonexistentInput) {
 }
 
 TEST_F(PERelinkerTest, InitFailsOnDisallowedOverwrite) {
-  TestPERelinker relinker;
+  TestPERelinker relinker(&policy_);
 
   // Copy the image in case the test actually does overwrite the input; this
   // way we don't accidentally turf our test data.
@@ -214,7 +219,7 @@ TEST_F(PERelinkerTest, InitFailsOnDisallowedOverwrite) {
 }
 
 TEST_F(PERelinkerTest, InitSucceeds) {
-  TestPERelinker relinker;
+  TestPERelinker relinker(&policy_);
 
   relinker.set_input_path(input_dll_);
   relinker.set_output_path(temp_dll_);
@@ -223,7 +228,7 @@ TEST_F(PERelinkerTest, InitSucceeds) {
 }
 
 TEST_F(PERelinkerTest, IntermediateAccessors) {
-  TestPERelinker relinker;
+  TestPERelinker relinker(&policy_);
 
   relinker.set_input_path(input_dll_);
   relinker.set_output_path(temp_dll_);
@@ -235,7 +240,7 @@ TEST_F(PERelinkerTest, IntermediateAccessors) {
 }
 
 TEST_F(PERelinkerTest, FailsWhenTransformFails) {
-  TestPERelinker relinker;
+  TestPERelinker relinker(&policy_);
   StrictMock<MockTransform> transform;
 
   EXPECT_CALL(transform, TransformBlockGraph(_, _)).WillOnce(Return(false));
@@ -248,7 +253,7 @@ TEST_F(PERelinkerTest, FailsWhenTransformFails) {
 }
 
 TEST_F(PERelinkerTest, FailsWhenOrdererFails) {
-  TestPERelinker relinker;
+  TestPERelinker relinker(&policy_);
   StrictMock<MockOrderer> orderer;
 
   EXPECT_CALL(orderer, OrderBlockGraph(_, _)).WillOnce(Return(false));
@@ -261,7 +266,7 @@ TEST_F(PERelinkerTest, FailsWhenOrdererFails) {
 }
 
 TEST_F(PERelinkerTest, FailsWhenPdbMutatorFails) {
-  TestPERelinker relinker;
+  TestPERelinker relinker(&policy_);
   StrictMock<MockPdbMutator> pdb_mutator;
 
   EXPECT_CALL(pdb_mutator, MutatePdb(_)).WillOnce(Return(false));
@@ -274,7 +279,7 @@ TEST_F(PERelinkerTest, FailsWhenPdbMutatorFails) {
 }
 
 TEST_F(PERelinkerTest, Success) {
-  TestPERelinker relinker;
+  TestPERelinker relinker(&policy_);
   StrictMock<MockTransform> transform;
   StrictMock<MockOrderer> orderer;
   StrictMock<MockPdbMutator> pdb_mutator;
@@ -295,7 +300,7 @@ TEST_F(PERelinkerTest, Success) {
 }
 
 TEST_F(PERelinkerTest, IdentityRelink) {
-  TestPERelinker relinker;
+  TestPERelinker relinker(&policy_);
 
   relinker.set_input_path(input_dll_);
   relinker.set_output_path(temp_dll_);
@@ -340,7 +345,7 @@ TEST_F(PERelinkerTest, IdentityRelink) {
 }
 
 TEST_F(PERelinkerTest, IdentityRelinkNewDecomposer) {
-  TestPERelinker relinker;
+  TestPERelinker relinker(&policy_);
 
   relinker.set_input_path(input_dll_);
   relinker.set_output_path(temp_dll_);
@@ -387,7 +392,7 @@ TEST_F(PERelinkerTest, IdentityRelinkNewDecomposer) {
 }
 
 TEST_F(PERelinkerTest, BlockGraphStreamIsCreated) {
-  TestPERelinker relinker;
+  TestPERelinker relinker(&policy_);
 
   relinker.set_input_path(input_dll_);
   relinker.set_output_path(temp_dll_);
@@ -419,7 +424,7 @@ TEST_F(PERelinkerTest, BlockGraphStreamIsCreated) {
 }
 
 TEST_F(PERelinkerTest, BlockGraphStreamVersionIsTheCurrentOne) {
-  TestPERelinker relinker;
+  TestPERelinker relinker(&policy_);
 
   relinker.set_input_path(input_dll_);
   relinker.set_output_path(temp_dll_);

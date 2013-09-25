@@ -76,7 +76,9 @@ class InstrumenterWithAgent : public InstrumenterInterface {
 
   // @name Internal machinery, replaceable for testing purposes.
   // @{
+  virtual pe::PETransformPolicy* GetTransformPolicy();
   virtual pe::PERelinker* GetRelinker();
+  scoped_ptr<pe::PETransformPolicy> policy_;
   scoped_ptr<pe::PERelinker> relinker_;
   // @}
 

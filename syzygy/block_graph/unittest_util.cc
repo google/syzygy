@@ -273,4 +273,20 @@ bool GenerateTestBlockGraph(block_graph::BlockGraph* image) {
   return true;
 }
 
+bool DummyTransformPolicy::CodeBlockAttributesAreBasicBlockSafe(
+      const BlockGraph::Block* code_block) const {
+  return true;
+}
+
+bool DummyTransformPolicy::CodeBlockIsSafeToBasicBlockDecompose(
+    const BlockGraph::Block* code_block) const {
+  return true;
+}
+
+bool DummyTransformPolicy::ReferenceIsSafeToRedirect(
+    const BlockGraph::Block* referrer,
+    const BlockGraph::Reference& reference) const {
+  return true;
+}
+
 }  // namespace testing

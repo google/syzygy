@@ -40,6 +40,7 @@
 #define SYZYGY_PE_COFF_RELINKER_H_
 
 #include "syzygy/pe/coff_file.h"
+#include "syzygy/pe/coff_transform_policy.h"
 #include "syzygy/pe/pe_coff_relinker.h"
 
 namespace pe {
@@ -66,7 +67,8 @@ class CoffRelinker : public PECoffRelinker {
  public:
   // Construct a default CoffRelinker. Initialize properties to default
   // values.
-  CoffRelinker() {}
+  // @param transform_policy The policy that dictates how to apply transforms.
+  explicit CoffRelinker(const CoffTransformPolicy* transform_policy);
 
   // Read and decompose the main input image, treated as a COFF file.
   //

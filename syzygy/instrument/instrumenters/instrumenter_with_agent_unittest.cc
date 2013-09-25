@@ -33,8 +33,13 @@ const char kTestAgentDllName[] = "test_agent_dll.dll";
 
 class MockRelinker : public pe::PERelinker {
  public:
+  MockRelinker() : pe::PERelinker(&policy_) { }
+
   MOCK_METHOD0(Init, bool());
   MOCK_METHOD0(Relink, bool());
+
+ private:
+  pe::PETransformPolicy policy_;
 };
 
 class TestInstrumenterWithAgent : public InstrumenterWithAgent {

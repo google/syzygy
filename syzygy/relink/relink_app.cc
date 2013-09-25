@@ -188,7 +188,8 @@ bool RelinkApp::SetUp() {
 }
 
 int RelinkApp::Run() {
-  pe::PERelinker relinker;
+  pe::PETransformPolicy policy;
+  pe::PERelinker relinker(&policy);
   relinker.set_input_path(input_image_path_);
   relinker.set_input_pdb_path(input_pdb_path_);
   relinker.set_output_path(output_image_path_);

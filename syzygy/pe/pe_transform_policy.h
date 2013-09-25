@@ -27,6 +27,7 @@ namespace pe {
 // files.
 class PETransformPolicy : public block_graph::TransformPolicyInterface {
  public:
+  PETransformPolicy() { }
   virtual ~PETransformPolicy() { }
 
   // @name TransformPolicyInterface implementation
@@ -39,6 +40,9 @@ class PETransformPolicy : public block_graph::TransformPolicyInterface {
       const BlockGraph::Block* referrer,
       const BlockGraph::Reference& reference) const OVERRIDE;
   // @}
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(PETransformPolicy);
 };
 
 }  // namespace pe

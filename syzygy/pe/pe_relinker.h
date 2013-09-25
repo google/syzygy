@@ -68,6 +68,7 @@
 #include "syzygy/pe/image_layout.h"
 #include "syzygy/pe/pe_coff_relinker.h"
 #include "syzygy/pe/pe_file.h"
+#include "syzygy/pe/pe_transform_policy.h"
 
 namespace pe {
 
@@ -100,7 +101,9 @@ namespace pe {
 //    input filenames or directly specified.)
 class PERelinker : public PECoffRelinker {
  public:
-  PERelinker();
+  // Constructor.
+  // @param transform_policy The policy that dictates how to apply transforms.
+  explicit PERelinker(const PETransformPolicy* transform_policy);
 
   // @name Accessors.
   // @{

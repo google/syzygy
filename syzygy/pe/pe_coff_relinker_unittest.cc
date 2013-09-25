@@ -17,6 +17,7 @@
 #include "base/file_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
@@ -31,6 +32,10 @@ using block_graph::OrderedBlockGraph;
 
 class TestPECoffRelinker : public PECoffRelinker {
  public:
+  explicit TestPECoffRelinker(const TransformPolicyInterface* transform_policy)
+      : PECoffRelinker(transform_policy) {
+  }
+
   using PECoffRelinker::transforms_;
   using PECoffRelinker::orderers_;
 };
@@ -50,7 +55,8 @@ class MockOrderer : public BlockGraphOrdererInterface {
 }  // namespace
 
 TEST(PECoffRelinkerTest, Properties) {
-  TestPECoffRelinker relinker;
+  testing::DummyTransformPolicy policy;
+  TestPECoffRelinker relinker(&policy);
   base::FilePath dummy_path(L"foo");
 
   EXPECT_EQ(base::FilePath(), relinker.input_path());
@@ -69,7 +75,8 @@ TEST(PECoffRelinkerTest, Properties) {
 }
 
 TEST(PECoffRelinkerTest, AppendTransforms) {
-  TestPECoffRelinker relinker;
+  testing::DummyTransformPolicy policy;
+  TestPECoffRelinker relinker(&policy);
 
   MockTransform transform1, transform2;
   std::vector<BlockGraphTransformInterface*> transforms;
@@ -86,7 +93,8 @@ TEST(PECoffRelinkerTest, AppendTransforms) {
 }
 
 TEST(PECoffRelinkerTest, AppendOrderers) {
-  TestPECoffRelinker relinker;
+  testing::DummyTransformPolicy policy;
+  TestPECoffRelinker relinker(&policy);
 
   MockOrderer orderer1, orderer2;
   std::vector<BlockGraphOrdererInterface*> orderers;
