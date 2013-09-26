@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.0.1
+
+[-----] Build infrastructure changes to support renamed ASAN RTL.
+
 Version 0.7.0.0
 
 [r1807] SyzyASan - Reduce the contention in StackCaptureCache.
