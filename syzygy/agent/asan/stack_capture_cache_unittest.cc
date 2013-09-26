@@ -36,7 +36,7 @@ class TestStackCaptureCache : public StackCaptureCache {
 
   void GetStatistics(Statistics* s) {
     DCHECK(s != NULL);
-    base::AutoLock auto_lock(lock_);
+    base::AutoLock auto_lock(stats_lock_);
     GetStatisticsUnlocked(s);
   }
 };
@@ -190,6 +190,7 @@ TEST_F(StackCaptureCacheTest, ReclaimedStackCapture) {
 TEST_F(StackCaptureCacheTest, Statistics) {
   AsanLogger logger;
   TestStackCaptureCache cache(&logger);
+  cache.set_compression_reporting_period(1U);
   TestStackCaptureCache::Statistics s = {};
 
   cache.GetStatistics(&s);

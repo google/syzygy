@@ -40,7 +40,7 @@ TEST_F(StackCaptureTest, InitFromBuffer) {
   EXPECT_EQ(0u, capture.stack_id());
   EXPECT_EQ(0, capture.num_frames());
   EXPECT_EQ(StackCapture::kMaxNumFrames, capture.max_num_frames());
-  EXPECT_EQ(NULL, capture.frames());
+  EXPECT_TRUE(capture.frames() != NULL);
 
   // Create some fake stack trace data.
   ULONG stack_id = 10;

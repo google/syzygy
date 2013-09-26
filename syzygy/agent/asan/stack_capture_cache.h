@@ -108,7 +108,7 @@ class StackCaptureCache {
 
   // Logs the current stack capture cache statistics. This method is thread
   // safe.
-  void LogStatistics() const;
+  void LogStatistics();
 
  protected:
   // The container type in which we store the cached stacks. This enforces
@@ -118,9 +118,7 @@ class StackCaptureCache {
 
   // Used for shuttling around statistics about this cache.
   struct Statistics {
-    // The total number of stacks currently in the cache. This isn't actually
-    // updated in realtime, as this is the same as known_stacks_.size(). It is
-    // populated when we take a snapshot of the statistics with GetStatistics.
+    // The total number of stacks currently in the cache.
     size_t cached;
     // The current total size of the stack cache, in bytes.
     size_t size;
@@ -175,12 +173,6 @@ class StackCaptureCache {
   // @param num_frames The minimum number of frames that are required.
   StackCapture* GetStackCapture(size_t num_frames);
 
-  // Returns a StackCapture to reclaimed_ or the current CachePage.
-  // Must be called under lock_. Takes care of updating frames_dead.
-  // @param stack_capture The stack to be returned either to the active cache
-  //     page or to the reclaimed_ array.
-  void ReturnStackCapture(StackCapture* stack_capture);
-
   // Links a stack capture into the reclaimed_ list. Meant to be called by
   // ReturnStackCapture only. Must be called under lock_. Takes care of updating
   // frames_dead (on behalf of ReturnStackCapture).
@@ -191,6 +183,9 @@ class StackCaptureCache {
   // Zero (0) means do not report.
   static const size_t kDefaultCompressionReportingPeriod = 0;
 
+  // The default number of known stacks sets that we keep.
+  static const size_t kKnownStacksSharding = 16;
+
   // The number of allocations between reports of the stack trace cache
   // compression ratio. Zero (0) means do not report. Values like 1 million
   // seem to be pretty good with Chrome.
@@ -199,26 +194,36 @@ class StackCaptureCache {
   // Logger instance to which to report the compression ratio.
   AsanLogger* const logger_;
 
-  // A lock to protect the known stacks set from concurrent access.
-  mutable base::Lock lock_;
+  // Locks to protect the known stacks sets from concurrent access.
+  mutable base::Lock known_stacks_locks_[kKnownStacksSharding];
 
   // The max depth of the stack traces to allocate. This can change, but it
   // doesn't really make sense to do so.
   size_t max_num_frames_;
 
-  // The set of known stacks. Accessed under lock_.
-  StackSet known_stacks_;
+  // The sets of known stacks. Accessed under known_stacks_locks_.
+  StackSet known_stacks_[kKnownStacksSharding];
+
+  // A lock protecting access to current_page_.
+  base::Lock current_page_lock_;
 
   // The current page from which new stack captures are allocated.
-  // Accessed under lock_.
+  // Accessed under current_page_lock_.
   CachePage* current_page_;
 
-  // Aggregate statistics about the cache. Accessed under lock_.
+  // A lock protecting access to statistics_.
+  mutable base::Lock stats_lock_;
+
+  // Aggregate statistics about the cache. Accessed under stats_lock_.
   Statistics statistics_;
+
+  // Locks to protect each reclaimed list from concurrent access.
+  base::Lock reclaimed_locks_[StackCapture::kMaxNumFrames + 1];
 
   // StackCaptures that have been reclaimed for reuse are stored in a link list
   // according to their length. We reuse the first frame in the stack capture
   // as a pointer to the next StackCapture of that size, if there is one.
+  // Accessed under reclaimed_locks_.
   StackCapture* reclaimed_[StackCapture::kMaxNumFrames + 1];
 
  private:

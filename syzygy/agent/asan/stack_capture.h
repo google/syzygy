@@ -105,9 +105,11 @@ class StackCapture {
   //     capture.
   size_t max_num_frames() const { return max_num_frames_; }
 
-  // @returns a pointer to the captured stack frames, or NULL if no stack
-  //     frames have been captured.
-  const void* const* frames() const { return IsValid() ? frames_ : NULL; }
+  // @returns a pointer to the stack frames array, or NULL if the array has a
+  //     size of 0.
+  const void* const* frames() const {
+    return max_num_frames_ != 0 ? frames_ : NULL;
+  }
 
   // Sets the stack ID for a given trace.
   // @param The stack ID to set.
