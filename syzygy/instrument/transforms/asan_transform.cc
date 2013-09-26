@@ -45,6 +45,7 @@ using block_graph::Displacement;
 using block_graph::Immediate;
 using block_graph::Instruction;
 using block_graph::Operand;
+using block_graph::TransformPolicyInterface;
 using block_graph::TypedBlock;
 using block_graph::Value;
 using block_graph::analysis::LivenessAnalysis;
@@ -364,6 +365,7 @@ std::string GetAsanCheckAccessFunctionName(
 // @param import_module The module for which the import should be added.
 // @param check_access_hook_map The map where the reference to the imports
 //     should be stored.
+// @param policy The policy object restricting how the transform is applied.
 // @param block_graph The block-graph to populate.
 // @param header_block The block containing the module's DOS header of this
 //     block-graph.
@@ -373,10 +375,12 @@ bool AddAsanCheckAccessHooks(
     const AsanBasicBlockTransform::AsanDefaultHookMap& default_stub_map,
     ImportedModule* import_module,
     HookMap* check_access_hook_map,
+    const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* header_block) {
   DCHECK(import_module != NULL);
   DCHECK(check_access_hook_map != NULL);
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
@@ -401,7 +405,8 @@ bool AddAsanCheckAccessHooks(
   PEAddImportsTransform add_imports_transform;
   add_imports_transform.AddModule(import_module);
 
-  if (!add_imports_transform.TransformBlockGraph(block_graph, header_block)) {
+  if (!add_imports_transform.TransformBlockGraph(
+          policy, block_graph, header_block)) {
     LOG(ERROR) << "Unable to add imports for Asan instrumentation DLL.";
     return false;
   }
@@ -657,7 +662,10 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
 }
 
 bool AsanBasicBlockTransform::TransformBasicBlockSubGraph(
-    BlockGraph* block_graph, BasicBlockSubGraph* subgraph) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BasicBlockSubGraph* subgraph) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(subgraph != NULL);
 
@@ -701,8 +709,10 @@ AsanTransform::AsanTransform()
       check_access_hooks_ref_() {
 }
 
-bool AsanTransform::PreBlockGraphIteration(BlockGraph* block_graph,
-                                           BlockGraph::Block* header_block) {
+bool AsanTransform::PreBlockGraphIteration(
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* header_block) {
   bool already_instrumented = false;
   // Ensure that this image has not already been instrumented.
   if (!pe::HasImportEntry(header_block, kSyzyAsanDll, &already_instrumented)) {
@@ -808,6 +818,7 @@ bool AsanTransform::PreBlockGraphIteration(BlockGraph* block_graph,
                                default_stub_map,
                                &import_module,
                                &check_access_hooks_ref_,
+                               policy,
                                block_graph,
                                header_block)) {
     return false;
@@ -815,8 +826,10 @@ bool AsanTransform::PreBlockGraphIteration(BlockGraph* block_graph,
   return true;
 }
 
-bool AsanTransform::OnBlock(BlockGraph* block_graph,
+bool AsanTransform::OnBlock(const TransformPolicyInterface* policy,
+                            BlockGraph* block_graph,
                             BlockGraph::Block* block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
   if (block->type() != BlockGraph::CODE_BLOCK)
@@ -832,14 +845,22 @@ bool AsanTransform::OnBlock(BlockGraph* block_graph,
   transform.set_remove_redundant_checks(remove_redundant_checks());
   transform.set_filter(filter());
 
-  if (!ApplyBasicBlockSubGraphTransform(&transform, block_graph, block, NULL))
+  if (!ApplyBasicBlockSubGraphTransform(
+          &transform, policy, block_graph, block, NULL)) {
     return false;
+  }
 
   return true;
 }
 
-bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
-                                            BlockGraph::Block* header_block) {
+bool AsanTransform::PostBlockGraphIteration(
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* header_block) {
+  DCHECK(policy != NULL);
+  DCHECK(block_graph != NULL);
+  DCHECK(header_block != NULL);
+
   // This function redirects the heap-related kernel32 imports to point to a set
   // of "override" imports in the ASAN runtime.
 
@@ -878,7 +899,8 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
   // Query the kernel32 imports.
   PEAddImportsTransform find_kernel_imports;
   find_kernel_imports.AddModule(&module_kernel32);
-  if (!find_kernel_imports.TransformBlockGraph(block_graph, header_block)) {
+  if (!find_kernel_imports.TransformBlockGraph(
+          policy, block_graph, header_block)) {
     LOG(ERROR) << "Unable to find kernel32 imports for redirection.";
     return false;
   }
@@ -911,7 +933,8 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
   // performed at the end.
   PEAddImportsTransform add_imports_transform;
   add_imports_transform.AddModule(&module_asan);
-  if (!add_imports_transform.TransformBlockGraph(block_graph, header_block)) {
+  if (!add_imports_transform.TransformBlockGraph(
+          policy, block_graph, header_block)) {
     LOG(ERROR) << "Unable to add imports for import redirection.";
     return false;
   }
@@ -964,6 +987,7 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
     interception_set.insert("strncpy");
     interception_set.insert("strncat");
     InterceptFunctions(&module_asan,
+                       policy,
                        block_graph,
                        header_block,
                        interception_set);
@@ -972,7 +996,9 @@ bool AsanTransform::PostBlockGraphIteration(BlockGraph* block_graph,
   return true;
 }
 
-bool AsanTransform::InterceptFunctions(ImportedModule* import_module,
+bool AsanTransform::InterceptFunctions(
+    ImportedModule* import_module,
+    const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* header_block,
     const FunctionInterceptionSet& functions_set) {
@@ -1009,7 +1035,8 @@ bool AsanTransform::InterceptFunctions(ImportedModule* import_module,
   // Transforms the block-graph.
   PEAddImportsTransform add_imports_transform;
   add_imports_transform.AddModule(import_module);
-  if (!add_imports_transform.TransformBlockGraph(block_graph, header_block)) {
+  if (!add_imports_transform.TransformBlockGraph(
+          policy, block_graph, header_block)) {
     LOG(ERROR) << "Unable to add imports for Asan instrumentation DLL.";
     return false;
   }

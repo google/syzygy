@@ -19,6 +19,7 @@
 
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
+#include "syzygy/block_graph/transform_policy.h"
 
 namespace block_graph {
 
@@ -35,10 +36,12 @@ class BlockGraphTransformInterface {
 
   // Applies this transform to the provided block graph.
   //
+  // @param policy The policy object restricting how the transform is applied.
   // @param block_graph The block graph to transform.
   // @param header_block The header block of the block graph to transform.
   // @returns true on success, false otherwise.
-  virtual bool TransformBlockGraph(BlockGraph* block_graph,
+  virtual bool TransformBlockGraph(const TransformPolicyInterface* policy,
+                                   BlockGraph* block_graph,
                                    BlockGraph::Block* header_block) = 0;
 };
 
@@ -47,10 +50,12 @@ class BlockGraphTransformInterface {
 // block graph.
 //
 // @param transform the transform to apply.
+// @param policy The policy object restricting how the transform is applied.
 // @param block_graph the block graph to transform.
 // @param header_block the header block from block_graph.
 // @returns true on success, false otherwise.
 bool ApplyBlockGraphTransform(BlockGraphTransformInterface* transform,
+                              const TransformPolicyInterface* policy,
                               BlockGraph* block_graph,
                               BlockGraph::Block* header_block);
 
@@ -67,11 +72,13 @@ class BasicBlockSubGraphTransformInterface {
 
   // Applies this transform to the provided block.
   //
+  // @param policy The policy object restricting how the transform is applied.
   // @param block_graph the block-graph of which the basic block subgraph
   //     is a part.
   // @param basic_block_subgraph the basic block subgraph to be transformed.
   // @returns true on success, false otherwise.
   virtual bool TransformBasicBlockSubGraph(
+      const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
       BasicBlockSubGraph* basic_block_subgraph) = 0;
 };
@@ -81,6 +88,7 @@ class BasicBlockSubGraphTransformInterface {
 // recomposes the block.
 //
 // @param transform the transform to apply.
+// @param policy The policy object restricting how the transform is applied.
 // @param block_graph the block containing the block to be transformed.
 // @param block the block to be transformed.
 // @param new_blocks On success, any newly created blocks will be returned
@@ -90,6 +98,7 @@ class BasicBlockSubGraphTransformInterface {
 // @returns true on success, false otherwise.
 bool ApplyBasicBlockSubGraphTransform(
     BasicBlockSubGraphTransformInterface* transform,
+    const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* block,
     BlockVector* new_blocks);

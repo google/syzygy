@@ -20,6 +20,7 @@
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/pe_file.h"
+#include "syzygy/pe/pe_transform_policy.h"
 #include "syzygy/pe/unittest_util.h"
 
 namespace testing {
@@ -33,6 +34,9 @@ class TestDllTransformTest : public testing::PELibUnitTest {
   // Typically, you would call inside an ASSERT_NO_FATAL_FAILURE clause.
   void DecomposeTestDll();
 
+  // The policy object restricting how the transform is applied.
+  pe::PETransformPolicy policy_;
+
   // The PEFile instance referring to test_dll.
   pe::PEFile pe_file_;
 
@@ -43,6 +47,6 @@ class TestDllTransformTest : public testing::PELibUnitTest {
   block_graph::BlockGraph::Block* dos_header_block_;
 };
 
-}  // testing
+}  // namespace testing
 
 #endif  // SYZYGY_INSTRUMENT_TRANSFORMS_UNITTEST_UTIL_H_

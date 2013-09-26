@@ -23,6 +23,7 @@
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/block_graph/transform.h"
+#include "syzygy/block_graph/unittest_util.h"
 
 #include "mnemonics.h"  // NOLINT
 
@@ -36,6 +37,7 @@ using block_graph::BasicCodeBlock;
 using block_graph::BasicBlockDecomposer;
 using block_graph::Instruction;
 using block_graph::Immediate;
+using testing::DummyTransformPolicy;
 
 class TestLivenessFuzzingBasicBlockTransform :
     public LivenessFuzzingBasicBlockTransform {
@@ -46,7 +48,7 @@ class TestLivenessFuzzingBasicBlockTransform :
 }  // namespace
 
 TEST(LivenessFuzzingBasicBlockTransformTest, SingleBasicBlock) {
-  BlockGraph block;
+  BlockGraph bg;
   BasicBlockSubGraph subgraph;
   BasicCodeBlock* bb = subgraph.AddBasicCodeBlock("bb");
   ASSERT_TRUE(bb != NULL);
@@ -57,9 +59,10 @@ TEST(LivenessFuzzingBasicBlockTransformTest, SingleBasicBlock) {
   assembly.mov(core::eax, Immediate(0, core::kSize32Bit));
 
   // Transforms the basic block.
+  DummyTransformPolicy policy;
   TestLivenessFuzzingBasicBlockTransform tx;
   size_t previous_size = bb->instructions().size();
-  ASSERT_TRUE(tx.TransformBasicBlockSubGraph(&block, &subgraph));
+  ASSERT_TRUE(tx.TransformBasicBlockSubGraph(&policy, &bg, &subgraph));
 
   // Expecting two new instructions.
   size_t expected_size = previous_size + 2;

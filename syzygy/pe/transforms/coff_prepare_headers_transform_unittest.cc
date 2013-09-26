@@ -17,6 +17,7 @@
 #include "base/stringprintf.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/pe/pe_utils.h"
 
 namespace pe {
@@ -68,6 +69,7 @@ class CoffPrepareHeadersTransformTest : public testing::Test {
 
   size_t expected_coff_headers_size_;
 
+  testing::DummyTransformPolicy policy_;
   BlockGraph block_graph_;
   BlockGraph::Block* file_header_block_;
 };
@@ -79,7 +81,8 @@ TEST_F(CoffPrepareHeadersTransformTest, ShrinkCoffHeaders) {
   ASSERT_TRUE(file_header_block_ != NULL);
 
   CoffPrepareHeadersTransform tx;
-  EXPECT_TRUE(tx.TransformBlockGraph(&block_graph_, file_header_block_));
+  EXPECT_TRUE(tx.TransformBlockGraph(
+      &policy_, &block_graph_, file_header_block_));
 
   ConstTypedBlock<IMAGE_FILE_HEADER> file_header;
   ASSERT_TRUE(file_header.Init(0, file_header_block_));
@@ -96,7 +99,8 @@ TEST_F(CoffPrepareHeadersTransformTest, GrowCoffHeaders) {
   ASSERT_TRUE(file_header_block_ != NULL);
 
   CoffPrepareHeadersTransform tx;
-  EXPECT_TRUE(tx.TransformBlockGraph(&block_graph_, file_header_block_));
+  EXPECT_TRUE(tx.TransformBlockGraph(
+      &policy_, &block_graph_, file_header_block_));
 
   ConstTypedBlock<IMAGE_FILE_HEADER> file_header;
   ASSERT_TRUE(file_header.Init(0, file_header_block_));

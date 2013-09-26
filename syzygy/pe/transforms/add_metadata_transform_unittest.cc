@@ -15,6 +15,7 @@
 #include "syzygy/pe/transforms/add_metadata_transform.h"
 
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/metadata.h"
@@ -58,6 +59,7 @@ class AddMetadataTransformTest : public testing::PELibUnitTest {
   }
 
   base::FilePath module_path_;
+  testing::DummyTransformPolicy policy_;
   BlockGraph block_graph_;
   BlockGraph::Block* header_block_;
   BlockGraph::Block* metadata_block_;
@@ -68,7 +70,7 @@ class AddMetadataTransformTest : public testing::PELibUnitTest {
 TEST_F(AddMetadataTransformTest, SucceedsWhenNoMetadata) {
   AddMetadataTransform transform(module_path_);
   EXPECT_TRUE(ApplyBlockGraphTransform(
-      &transform, &block_graph_, header_block_));
+      &transform, &policy_, &block_graph_, header_block_));
   EXPECT_TRUE(transform.metadata_block() != NULL);
 
   // Expect the metadata to decode.
@@ -81,7 +83,7 @@ TEST_F(AddMetadataTransformTest, ReplaceSucceeds) {
   AddMetadataTransform transform(module_path_);
   AddMetadataBlock();
   EXPECT_TRUE(ApplyBlockGraphTransform(
-      &transform, &block_graph_, header_block_));
+      &transform, &policy_, &block_graph_, header_block_));
   EXPECT_EQ(metadata_block_, transform.metadata_block());
 
   // Expect the metadata to decode.
@@ -95,7 +97,7 @@ TEST_F(AddMetadataTransformTest, FailsIfMultipleMetadataBlocks) {
   AddMetadataBlock();
   AddMetadataBlock();
   EXPECT_FALSE(ApplyBlockGraphTransform(
-      &transform, &block_graph_, header_block_));
+      &transform, &policy_, &block_graph_, header_block_));
   EXPECT_EQ(NULL, transform.metadata_block());
 }
 

@@ -32,6 +32,7 @@ class AddIndexedFrequencyDataTransform
           AddIndexedFrequencyDataTransform> {
  public:
   typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
   typedef common::IndexedFrequencyData IndexedFrequencyData;
 
   // Construct a transform which adds a static frequency data instance.
@@ -58,7 +59,8 @@ class AddIndexedFrequencyDataTransform
   }
 
   // BlockGraphTransformInterface Implementation.
-  virtual bool TransformBlockGraph(BlockGraph* block_graph,
+  virtual bool TransformBlockGraph(const TransformPolicyInterface* policy,
+                                   BlockGraph* block_graph,
                                    BlockGraph::Block* header_block) OVERRIDE;
 
   // After applying the transform, this method can be used to allocate the

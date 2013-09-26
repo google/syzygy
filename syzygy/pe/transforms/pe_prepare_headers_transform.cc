@@ -29,7 +29,10 @@ const char PEPrepareHeadersTransform::kTransformName[] =
     "PEPrepareHeadersTransform";
 
 bool PEPrepareHeadersTransform::TransformBlockGraph(
-    BlockGraph* block_graph, BlockGraph::Block* dos_header_block) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* dos_header_block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(dos_header_block != NULL);
 

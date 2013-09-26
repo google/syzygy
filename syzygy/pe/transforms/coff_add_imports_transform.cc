@@ -58,7 +58,10 @@ const char CoffAddImportsTransform::kTransformName[] =
     "CoffAddImportsTransform";
 
 bool CoffAddImportsTransform::TransformBlockGraph(
-    BlockGraph* block_graph, BlockGraph::Block* headers_block) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* headers_block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(headers_block != NULL);
 

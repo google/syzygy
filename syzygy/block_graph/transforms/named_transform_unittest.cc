@@ -26,7 +26,8 @@ namespace {
 class MockNamedBlockGraphTransform :
     public NamedBlockGraphTransformImpl<MockNamedBlockGraphTransform> {
  public:
-  bool TransformBlockGraph(BlockGraph* /*block_graph*/,
+  bool TransformBlockGraph(const TransformPolicyInterface* /*policy*/,
+                           BlockGraph* /*block_graph*/,
                            BlockGraph::Block* /*header_block*/) {
     return true;
   }
@@ -39,6 +40,7 @@ class MockNamedBasicBlockSubGraphTransform :
         MockNamedBasicBlockSubGraphTransform> {
  public:
   bool TransformBasicBlockSubGraph(
+      const TransformPolicyInterface* /*policy*/,
       BlockGraph* /*block_graph*/,
       BasicBlockSubGraph* /*basic_block_subgraph*/) {
     return true;

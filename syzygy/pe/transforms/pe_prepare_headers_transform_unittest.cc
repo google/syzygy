@@ -17,6 +17,7 @@
 #include "base/stringprintf.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/pe/pe_utils.h"
 
 namespace pe {
@@ -82,6 +83,7 @@ class PEPrepareHeadersTransformTest : public testing::Test {
   size_t expected_dos_header_size_;
   size_t expected_nt_headers_size_;
 
+  testing::DummyTransformPolicy policy_;
   BlockGraph block_graph_;
   BlockGraph::Block* dos_header_block_;
   BlockGraph::Block* nt_headers_block_;
@@ -93,7 +95,8 @@ TEST_F(PEPrepareHeadersTransformTest, ShrinkHeaders) {
   BuildHeaders(100, block_graph_.sections().size() + 2);
 
   PEPrepareHeadersTransform tx;
-  EXPECT_TRUE(tx.TransformBlockGraph(&block_graph_, dos_header_block_));
+  EXPECT_TRUE(tx.TransformBlockGraph(
+      &policy_, &block_graph_, dos_header_block_));
 
   ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
   ASSERT_TRUE(nt_headers.Init(0, nt_headers_block_));
@@ -111,7 +114,8 @@ TEST_F(PEPrepareHeadersTransformTest, GrowHeaders) {
   BuildHeaders(0, section_count);
 
   PEPrepareHeadersTransform tx;
-  EXPECT_TRUE(tx.TransformBlockGraph(&block_graph_, dos_header_block_));
+  EXPECT_TRUE(tx.TransformBlockGraph(
+      &policy_, &block_graph_, dos_header_block_));
 
   ConstTypedBlock<IMAGE_NT_HEADERS> nt_headers;
   ASSERT_TRUE(nt_headers.Init(0, nt_headers_block_));

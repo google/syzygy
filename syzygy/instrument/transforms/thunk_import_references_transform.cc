@@ -74,8 +74,12 @@ ThunkImportReferencesTransform::ThunkImportReferencesTransform()
 }
 
 bool ThunkImportReferencesTransform::TransformBlockGraph(
+    const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* header_block) {
+  DCHECK(policy != NULL);
+  DCHECK(block_graph != NULL);
+  DCHECK(header_block != NULL);
   DCHECK(thunk_section_ == NULL);
 
   // We always exclude our own agent DLL from instrumentation.
@@ -88,7 +92,8 @@ bool ThunkImportReferencesTransform::TransformBlockGraph(
 
   add_imports_transform_.AddModule(&import_module);
 
-  if (!add_imports_transform_.TransformBlockGraph(block_graph, header_block)) {
+  if (!add_imports_transform_.TransformBlockGraph(
+          policy, block_graph, header_block)) {
     LOG(ERROR) << "Unable to add imports for instrumentation DLL.";
     return false;
   }

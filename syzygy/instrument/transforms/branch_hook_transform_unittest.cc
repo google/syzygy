@@ -222,8 +222,8 @@ TEST_F(BranchHookTransformTest, ApplyAgentInstrumentation) {
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
 
   // Apply the transform.
-  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(&tx_, &block_graph_,
-                                                    dos_header_block_));
+  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &tx_, &policy_, &block_graph_, dos_header_block_));
   ASSERT_TRUE(tx_.frequency_data_block() != NULL);
   ASSERT_TRUE(tx_.enter_hook_ref_.IsValid());
   ASSERT_TRUE(tx_.exit_hook_ref_.IsValid());
@@ -261,8 +261,8 @@ TEST_F(BranchHookTransformTest, ApplyBufferedAgentInstrumentation) {
   ASSERT_TRUE(tx_.buffering_);
 
   // Apply the transform.
-  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(&tx_, &block_graph_,
-                                                    dos_header_block_));
+  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &tx_, &policy_, &block_graph_, dos_header_block_));
   ASSERT_FALSE(tx_.function_enter_hook_ref_.IsValid());
   ASSERT_TRUE(tx_.enter_hook_ref_.IsValid());
 
@@ -280,8 +280,8 @@ TEST_F(BranchHookTransformTest, ApplySlotAgentInstrumentation) {
   ASSERT_EQ(tx_.fs_slot_, 1U);
 
   // Apply the transform.
-  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(&tx_, &block_graph_,
-                                                    dos_header_block_));
+  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &tx_, &policy_, &block_graph_, dos_header_block_));
   ASSERT_TRUE(tx_.function_enter_hook_ref_.IsValid());
   ASSERT_TRUE(tx_.enter_hook_ref_.IsValid());
 
@@ -299,8 +299,8 @@ TEST_F(BranchHookTransformTest, ApplySlotBufferedAgentInstrumentation) {
   ASSERT_EQ(tx_.fs_slot_, 1U);
 
   // Apply the transform.
-  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(&tx_, &block_graph_,
-                                                    dos_header_block_));
+  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &tx_, &policy_, &block_graph_, dos_header_block_));
   ASSERT_TRUE(tx_.function_enter_hook_ref_.IsValid());
   ASSERT_TRUE(tx_.enter_hook_ref_.IsValid());
 

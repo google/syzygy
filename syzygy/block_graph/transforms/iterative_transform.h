@@ -42,10 +42,12 @@ class IterativeTransformImpl
   // iterating through the blocks and calling OnBlock for each one, and finally
   // calling Post. If any step fails the entire transform fails.
   //
+  // @param policy The policy object restricting how the transform is applied.
   // @param block_graph the block graph being transformed.
   // @param block the block to process.
   // @returns true on success, false otherwise.
-  virtual bool TransformBlockGraph(BlockGraph* block_graph,
+  virtual bool TransformBlockGraph(const TransformPolicyInterface* policy,
+                                   BlockGraph* block_graph,
                                    BlockGraph::Block* header_block) OVERRIDE;
 
  protected:
@@ -53,10 +55,12 @@ class IterativeTransformImpl
   // If it fails, the rest of the transform will not run. A default
   // implementation is provided but it may be overridden.
   //
+  // @param policy The policy object restricting how the transform is applied.
   // @param block_graph the block graph being transformed.
   // @param header_block the header block.
   // @returns true on success, false otherwise.
-  bool PreBlockGraphIteration(BlockGraph* block_graph,
+  bool PreBlockGraphIteration(const TransformPolicyInterface* policy,
+                              BlockGraph* block_graph,
                               BlockGraph::Block* header_block) {
     return true;
   }
@@ -66,10 +70,12 @@ class IterativeTransformImpl
   // failed. This function must be implemented by the derived class. This will
   // not be called if PreBlockGraphIteration fails.
   //
+  // @param policy The policy object restricting how the transform is applied.
   // @param block_graph the block graph being transformed.
   // @param block the block to process.
   // @returns true on success, false otherwise.
-  bool OnBlock(BlockGraph* block_graph,
+  bool OnBlock(const TransformPolicyInterface* policy,
+               BlockGraph* block_graph,
                BlockGraph::Block* block);
 
   // This function is called after the iterative portion of the transform. If
@@ -77,10 +83,12 @@ class IterativeTransformImpl
   // implementation is provided but it may be overridden. This will not be
   // called if PreBlockGraphIteration fails or any call to OnBlock fails.
   //
+  // @param policy The policy object restricting how the transform is applied.
   // @param block_graph the block graph being transformed.
   // @param header_block the header block.
   // @returns true on success, false otherwise.
-  bool PostBlockGraphIteration(BlockGraph* block_graph,
+  bool PostBlockGraphIteration(const TransformPolicyInterface* policy,
+                               BlockGraph* block_graph,
                                BlockGraph::Block* header_block) {
     return true;
   }
@@ -88,10 +96,16 @@ class IterativeTransformImpl
 
 template <class DerivedType>
 bool IterativeTransformImpl<DerivedType>::TransformBlockGraph(
-    BlockGraph* block_graph, BlockGraph::Block* header_block) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* header_block) {
+  DCHECK(policy != NULL);
+  DCHECK(block_graph != NULL);
+  DCHECK(header_block != NULL);
+
   DerivedType* self = static_cast<DerivedType*>(this);
 
-  if (!self->PreBlockGraphIteration(block_graph, header_block)) {
+  if (!self->PreBlockGraphIteration(policy, block_graph, header_block)) {
     LOG(ERROR) << "PreBlockGraphIteration failed for \"" << name()
                << "\" transform.";
     return false;
@@ -99,14 +113,15 @@ bool IterativeTransformImpl<DerivedType>::TransformBlockGraph(
 
   bool result = IterateBlockGraph(
       base::Bind(&DerivedType::OnBlock,
-                 base::Unretained(self)),
+                 base::Unretained(self),
+                 base::Unretained(policy)),
       block_graph);
   if (!result) {
     LOG(ERROR) << "Iteration failed for \"" << name() << "\" transform.";
     return false;
   }
 
-  if (!self->PostBlockGraphIteration(block_graph, header_block)) {
+  if (!self->PostBlockGraphIteration(policy, block_graph, header_block)) {
     LOG(ERROR) << "PostBlockGraphIteration failed for \"" << name()
                << "\" transform.";
     return false;

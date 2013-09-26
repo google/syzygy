@@ -44,6 +44,7 @@ class BasicBlockEntryHookTransform
  public:
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
   typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
   typedef core::RelativeAddress RelativeAddress;
   typedef core::AddressRange<RelativeAddress, size_t> RelativeAddressRange;
   typedef std::vector<RelativeAddressRange> RelativeAddressRangeVector;
@@ -89,16 +90,21 @@ class BasicBlockEntryHookTransform
 
   // @name IterativeTransformImpl implementation.
   // @{
-  bool PreBlockGraphIteration(BlockGraph* block_graph,
+  bool PreBlockGraphIteration(const TransformPolicyInterface* policy,
+                              BlockGraph* block_graph,
                               BlockGraph::Block* header_block);
-  bool OnBlock(BlockGraph* block_graph, BlockGraph::Block* block);
-  bool PostBlockGraphIteration(BlockGraph* block_graph,
+  bool OnBlock(const TransformPolicyInterface* policy,
+               BlockGraph* block_graph,
+               BlockGraph::Block* block);
+  bool PostBlockGraphIteration(const TransformPolicyInterface* policy,
+                               BlockGraph* block_graph,
                                BlockGraph::Block* header_block);
   // @}
 
   // @name BasicBlockSubGraphTransformInterface implementation.
   // @{
   virtual bool TransformBasicBlockSubGraph(
+      const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
       BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
   // @}

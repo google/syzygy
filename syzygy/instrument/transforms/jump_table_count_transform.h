@@ -48,6 +48,7 @@ class JumpTableCaseCountTransform
 
  protected:
   typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
 
   // @name Accessors. For testing.
   // @{
@@ -74,10 +75,14 @@ class JumpTableCaseCountTransform
 
   // @name IterativeTransformImpl implementation.
   // @{
-  bool PreBlockGraphIteration(BlockGraph* block_graph,
+  bool PreBlockGraphIteration(const TransformPolicyInterface* policy,
+                              BlockGraph* block_graph,
                               BlockGraph::Block* header_block);
-  bool OnBlock(BlockGraph* block_graph, BlockGraph::Block* block);
-  bool PostBlockGraphIteration(BlockGraph* block_graph,
+  bool OnBlock(const TransformPolicyInterface* policy,
+               BlockGraph* block_graph,
+               BlockGraph::Block* block);
+  bool PostBlockGraphIteration(const TransformPolicyInterface* policy,
+                               BlockGraph* block_graph,
                                BlockGraph::Block* header_block);
   // @}
 

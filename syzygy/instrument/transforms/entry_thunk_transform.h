@@ -65,6 +65,7 @@ class EntryThunkTransform
  public:
   typedef block_graph::Immediate Immediate;
   typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
 
   EntryThunkTransform();
 
@@ -140,9 +141,12 @@ class EntryThunkTransform
 
   // @name IterativeTransformImpl implementation.
   // @{
-  bool PreBlockGraphIteration(
-      BlockGraph* block_graph, BlockGraph::Block* header_block);
-  bool OnBlock(BlockGraph* block_graph, BlockGraph::Block* block);
+  bool PreBlockGraphIteration(const TransformPolicyInterface* policy,
+                              BlockGraph* block_graph,
+                              BlockGraph::Block* header_block);
+  bool OnBlock(const TransformPolicyInterface* policy,
+               BlockGraph* block_graph,
+               BlockGraph::Block* block);
   // @}
 
   // Instrument a single block.

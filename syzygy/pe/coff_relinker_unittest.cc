@@ -28,6 +28,7 @@ using block_graph::BlockGraph;
 using block_graph::BlockGraphOrdererInterface;
 using block_graph::BlockGraphTransformInterface;
 using block_graph::OrderedBlockGraph;
+using block_graph::TransformPolicyInterface;
 using testing::_;
 using testing::Return;
 using testing::StrictMock;
@@ -64,13 +65,18 @@ class CoffRelinkerTest : public testing::PELibUnitTest {
 class MockTransform : public BlockGraphTransformInterface {
  public:
   const char* name() const { return "MockTransform"; }
-  MOCK_METHOD2(TransformBlockGraph, bool(BlockGraph*, BlockGraph::Block*));
+  MOCK_METHOD3(TransformBlockGraph,
+               bool(const TransformPolicyInterface*,
+                    BlockGraph*,
+                    BlockGraph::Block*));
 };
 
 class MockOrderer : public BlockGraphOrdererInterface {
  public:
   const char* name() const { return "MockOrderer"; }
-  MOCK_METHOD2(OrderBlockGraph, bool(OrderedBlockGraph*, BlockGraph::Block*));
+  MOCK_METHOD2(OrderBlockGraph,
+               bool(OrderedBlockGraph*,
+                    BlockGraph::Block*));
 };
 
 }  // namespace
@@ -136,7 +142,7 @@ TEST_F(CoffRelinkerTest, FailsWhenTransformFails) {
   TestCoffRelinker relinker(&policy_);
   StrictMock<MockTransform> transform;
 
-  EXPECT_CALL(transform, TransformBlockGraph(_, _)).WillOnce(Return(false));
+  EXPECT_CALL(transform, TransformBlockGraph(_, _, _)).WillOnce(Return(false));
 
   relinker.AppendTransform(&transform);
   relinker.set_input_path(test_dll_obj_path_);
@@ -163,7 +169,7 @@ TEST_F(CoffRelinkerTest, Success) {
   StrictMock<MockTransform> transform;
   StrictMock<MockOrderer> orderer;
 
-  EXPECT_CALL(transform, TransformBlockGraph(_, _)).WillOnce(Return(true));
+  EXPECT_CALL(transform, TransformBlockGraph(_, _, _)).WillOnce(Return(true));
   EXPECT_CALL(orderer, OrderBlockGraph(_, _)).WillOnce(Return(true));
 
   relinker.AppendTransform(&transform);

@@ -30,7 +30,9 @@ const char AddDebugDirectoryEntryTransform::kTransformName[] =
     "AddDebugDirectoryEntryTransform";
 
 bool AddDebugDirectoryEntryTransform::TransformBlockGraph(
-    BlockGraph* block_graph, BlockGraph::Block* dos_header_block) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* dos_header_block) {
   DCHECK(block_graph != NULL);
   DCHECK(dos_header_block != NULL);
 

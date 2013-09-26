@@ -29,6 +29,7 @@ using block_graph::BlockGraph;
 using block_graph::BlockGraphOrdererInterface;
 using block_graph::BlockGraphTransformInterface;
 using block_graph::OrderedBlockGraph;
+using block_graph::TransformPolicyInterface;
 
 class TestPECoffRelinker : public PECoffRelinker {
  public:
@@ -43,7 +44,10 @@ class TestPECoffRelinker : public PECoffRelinker {
 class MockTransform : public BlockGraphTransformInterface {
  public:
   const char* name() const { return "MockTransform"; }
-  MOCK_METHOD2(TransformBlockGraph, bool(BlockGraph*, BlockGraph::Block*));
+  MOCK_METHOD3(TransformBlockGraph,
+               bool(const TransformPolicyInterface*,
+                    BlockGraph*,
+                    BlockGraph::Block*));
 };
 
 class MockOrderer : public BlockGraphOrdererInterface {

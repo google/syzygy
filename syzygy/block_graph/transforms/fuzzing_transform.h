@@ -43,6 +43,7 @@ class LivenessFuzzingBasicBlockTransform
  protected:
   // @name BasicBlockSubGraphTransformInterface method.
   virtual bool TransformBasicBlockSubGraph(
+      const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
       BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
 
@@ -59,7 +60,9 @@ class FuzzingTransform
 
   // @name IterativeTransformImpl implementation.
   // @{
-  bool OnBlock(BlockGraph* block_graph, BlockGraph::Block* block);
+  bool OnBlock(const TransformPolicyInterface* policy,
+               BlockGraph* block_graph,
+               BlockGraph::Block* block);
   // @}
 
   // The transform name.

@@ -25,24 +25,30 @@ typedef block_graph::BlockGraphOrdererInterface Orderer;
 using block_graph::ApplyBlockGraphTransform;
 using block_graph::BlockGraph;
 using block_graph::OrderedBlockGraph;
+using block_graph::TransformPolicyInterface;
 using core::RelativeAddress;
 
 // Apply transforms to the specified block graph.
 //
 // @param transforms the transforms to apply.
+// @param policy The policy object restricting how the transform is applied.
 // @param block_graph the block graph to transform.
 // @param headers_block the headers block in @p block_graph.
 // @returns true on success, or false on failure.
 bool ApplyTransformsToBlockGraph(const std::vector<Transform*>& transforms,
+                                 const TransformPolicyInterface* policy,
                                  BlockGraph* block_graph,
                                  BlockGraph::Block* headers_block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(headers_block != NULL);
 
   for (size_t i = 0; i < transforms.size(); ++i) {
     LOG(INFO) << "Applying transform: " << transforms[i]->name() << ".";
-    if (!ApplyBlockGraphTransform(transforms[i], block_graph, headers_block))
+    if (!ApplyBlockGraphTransform(
+        transforms[i], policy, block_graph, headers_block)) {
       return false;
+    }
   }
 
   return true;
@@ -107,10 +113,12 @@ void PECoffRelinker::AppendOrderers(const std::vector<Orderer*>& orderers) {
 bool PECoffRelinker::ApplyTransforms(
     const std::vector<Transform*>& post_transforms) {
   LOG(INFO) << "Transforming block graph.";
-  if (!ApplyTransformsToBlockGraph(transforms_, &block_graph_, headers_block_))
+  if (!ApplyTransformsToBlockGraph(
+      transforms_, transform_policy_, &block_graph_, headers_block_)) {
     return false;
-  if (!ApplyTransformsToBlockGraph(post_transforms,
-                                   &block_graph_, headers_block_)) {
+  }
+  if (!ApplyTransformsToBlockGraph(
+      post_transforms, transform_policy_, &block_graph_, headers_block_)) {
     return false;
   }
   return true;

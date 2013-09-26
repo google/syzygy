@@ -39,8 +39,9 @@ class CoverageInstrumentationTransform
       public block_graph::transforms::NamedBasicBlockSubGraphTransformImpl<
           CoverageInstrumentationTransform> {
  public:
-  typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
+  typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
   typedef core::RelativeAddress RelativeAddress;
   typedef core::AddressRange<RelativeAddress, size_t> RelativeAddressRange;
   typedef std::vector<RelativeAddressRange> RelativeAddressRangeVector;
@@ -53,6 +54,7 @@ class CoverageInstrumentationTransform
 
   // BasicBlockSubGraphTransform implementation.
   virtual bool TransformBasicBlockSubGraph(
+      const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
       BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
 
@@ -102,15 +104,18 @@ class CoverageInstrumentationTransform
   // Called prior to iterating over the blocks. This creates the coverage
   // data block, populating coverage_data_block_ and
   // basic_block_seen_array_ref_.
-  bool PreBlockGraphIteration(BlockGraph* block_graph,
+  bool PreBlockGraphIteration(const TransformPolicyInterface* policy,
+                              BlockGraph* block_graph,
                               BlockGraph::Block* header_block);
   // Called after iterating over the blocks. Increments basic_block_count_ as
   // code blocks are processed.
-  bool OnBlock(BlockGraph* block_graph,
+  bool OnBlock(const TransformPolicyInterface* policy,
+               BlockGraph* block_graph,
                BlockGraph::Block* block);
   // Called after iterating over the blocks. Sets the basic-block count member
   // of coverage_data_block_.
-  bool PostBlockGraphIteration(BlockGraph* block_graph,
+  bool PostBlockGraphIteration(const TransformPolicyInterface* policy,
+                               BlockGraph* block_graph,
                                BlockGraph::Block* header_block);
   // @}
 

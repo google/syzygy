@@ -40,7 +40,10 @@ const char LivenessFuzzingBasicBlockTransform::kTransformName[]
 const char FuzzingTransform::kTransformName[] = "FuzzingTransform";
 
 bool LivenessFuzzingBasicBlockTransform::TransformBasicBlockSubGraph(
-    BlockGraph* block_graph, BasicBlockSubGraph* subgraph) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BasicBlockSubGraph* subgraph) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(subgraph != NULL);
 
@@ -106,10 +109,13 @@ FuzzingTransform::FuzzingTransform() {
 }
 
 bool FuzzingTransform::OnBlock(
-    BlockGraph* block_graph, BlockGraph::Block* block) {
-
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
+
   if (block->type() != BlockGraph::CODE_BLOCK)
     return true;
 
@@ -119,7 +125,7 @@ bool FuzzingTransform::OnBlock(
   // Apply a basic block transform.
   LivenessFuzzingBasicBlockTransform liveness_transform;
   if (!ApplyBasicBlockSubGraphTransform(
-          &liveness_transform, block_graph, block, NULL)) {
+          &liveness_transform, policy, block_graph, block, NULL)) {
     return false;
   }
 

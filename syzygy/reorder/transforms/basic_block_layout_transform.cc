@@ -112,8 +112,10 @@ BasicBlockLayoutTransform::~BasicBlockLayoutTransform() {
 }
 
 bool BasicBlockLayoutTransform::PreBlockGraphIteration(
+    const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* header_block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
@@ -125,8 +127,13 @@ bool BasicBlockLayoutTransform::PreBlockGraphIteration(
 }
 
 bool BasicBlockLayoutTransform::OnBlock(
+    const TransformPolicyInterface* policy,
     block_graph::BlockGraph* block_graph,
     block_graph::BlockGraph::Block* block) {
+  DCHECK(policy != NULL);
+  DCHECK(block_graph != NULL);
+  DCHECK(block != NULL);
+
   // Get the range of block specifications that are to be applied to this
   // source block.
   BlockInfos::iterator it_begin = std::lower_bound(block_infos_.begin(),
@@ -174,6 +181,7 @@ bool BasicBlockLayoutTransform::OnBlock(
     BasicBlockSubGraphLayoutTransform bb_layout_tx(bb_map);
     if (!ApplyBasicBlockSubGraphTransform(
             &bb_layout_tx,
+            policy,
             block_graph,
             block,
             &new_blocks)) {
@@ -291,8 +299,10 @@ const char BasicBlockSubGraphLayoutTransform::kTransformName[] =
     "BasicBlockSubGraphLayoutTransform";
 
 bool BasicBlockSubGraphLayoutTransform::TransformBasicBlockSubGraph(
+    const TransformPolicyInterface* policy,
     BlockGraph* bg,
     BasicBlockSubGraph* bbsg) {
+  DCHECK(policy != NULL);
   DCHECK(bg != NULL);
   DCHECK(bbsg != NULL);
   DCHECK_EQ(1u, bbsg->block_descriptions().size());

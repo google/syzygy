@@ -40,6 +40,7 @@ AddIndexedFrequencyDataTransform::AddIndexedFrequencyDataTransform(
 }
 
 bool AddIndexedFrequencyDataTransform::TransformBlockGraph(
+    const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* header_block) {
   DCHECK(block_graph != NULL);

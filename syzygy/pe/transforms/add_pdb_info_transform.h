@@ -31,6 +31,7 @@ namespace pe {
 namespace transforms {
 
 using block_graph::BlockGraph;
+using block_graph::TransformPolicyInterface;
 using block_graph::transforms::NamedBlockGraphTransformImpl;
 
 // A PE BlockGraph transform for adding/updating the a debug directory entry
@@ -51,11 +52,14 @@ class AddPdbInfoTransform
 
   // Adds or finds the debug data directory of the given type.
   //
+  // @param policy The policy object restricting how the transform is applied.
   // @param block_graph The block graph to transform.
   // @param dos_header_block The DOS header block of the block graph.
   // @returns true on success, false otherwise.
   virtual bool TransformBlockGraph(
-      BlockGraph* block_graph, BlockGraph::Block* dos_header_block) OVERRIDE;
+      const TransformPolicyInterface* policy,
+      BlockGraph* block_graph,
+      BlockGraph::Block* dos_header_block) OVERRIDE;
 
   // The transform name.
   static const char kTransformName[];

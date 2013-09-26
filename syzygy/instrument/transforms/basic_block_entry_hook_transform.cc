@@ -45,6 +45,7 @@ using block_graph::Displacement;
 using block_graph::Immediate;
 using block_graph::Operand;
 using block_graph::Successor;
+using block_graph::TransformPolicyInterface;
 using common::kBasicBlockEntryAgentId;
 using pe::transforms::PEAddImportsTransform;
 
@@ -71,7 +72,8 @@ struct RelativeAddressRangesOverlapFunctor {
 };
 
 // Sets up the basic-block entry and the frequency data hooks import.
-bool SetupEntryHooks(BlockGraph* block_graph,
+bool SetupEntryHooks(const TransformPolicyInterface* policy,
+                     BlockGraph* block_graph,
                      BlockGraph::Block* header_block,
                      const std::string& module_name,
                      BlockGraph::Reference* basic_block_enter) {
@@ -89,7 +91,8 @@ bool SetupEntryHooks(BlockGraph* block_graph,
   add_imports.AddModule(&module);
 
   // Add the imports to the block-graph.
-  if (!ApplyBlockGraphTransform(&add_imports, block_graph, header_block)) {
+  if (!ApplyBlockGraphTransform(
+          &add_imports, policy, block_graph, header_block)) {
     LOG(ERROR) << "Unable to add import entry hook functions.";
     return false;
   }
@@ -133,22 +136,25 @@ BasicBlockEntryHookTransform::BasicBlockEntryHookTransform()
 }
 
 bool BasicBlockEntryHookTransform::PreBlockGraphIteration(
+    const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* header_block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
   // Setup basic block entry and the frequency data hooks.
-  if (!SetupEntryHooks(block_graph,
-                      header_block,
-                      instrument_dll_name_,
-                      &bb_entry_hook_ref_)) {
+  if (!SetupEntryHooks(policy,
+                       block_graph,
+                       header_block,
+                       instrument_dll_name_,
+                       &bb_entry_hook_ref_)) {
     return false;
   }
 
   // Add the static basic-block frequency data.
   if (!ApplyBlockGraphTransform(
-          &add_frequency_data_, block_graph, header_block)) {
+          &add_frequency_data_, policy, block_graph, header_block)) {
     LOG(ERROR) << "Failed to insert basic-block frequency data.";
     return false;
   }
@@ -161,8 +167,11 @@ bool BasicBlockEntryHookTransform::PreBlockGraphIteration(
   return true;
 }
 
-bool BasicBlockEntryHookTransform::OnBlock(BlockGraph* block_graph,
-                                           BlockGraph::Block* block) {
+bool BasicBlockEntryHookTransform::OnBlock(
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
   DCHECK(thunk_section_ != NULL);
@@ -180,18 +189,21 @@ bool BasicBlockEntryHookTransform::OnBlock(BlockGraph* block_graph,
     return true;
   }
 
-  if (!ApplyBasicBlockSubGraphTransform(this, block_graph, block, NULL))
+  if (!ApplyBasicBlockSubGraphTransform(this, policy, block_graph, block, NULL))
     return false;
 
   return true;
 }
 
 bool BasicBlockEntryHookTransform::TransformBasicBlockSubGraph(
-    BlockGraph* block_graph , BasicBlockSubGraph* subgraph) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph ,
+    BasicBlockSubGraph* subgraph) {
   // TODO(rogerm): A lot of this is boilerplate that can be hoisted to an
   //     IterativeBasicBlockSubgraphTransform (or some such). In particular,
   //     iterating the subgraph, dispatch on code/data basic block, and the
   //     bb_ranges_ are duplicated in the coverage transform.
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(subgraph != NULL);
   DCHECK(bb_entry_hook_ref_.IsValid());
@@ -237,7 +249,10 @@ bool BasicBlockEntryHookTransform::TransformBasicBlockSubGraph(
 }
 
 bool BasicBlockEntryHookTransform::PostBlockGraphIteration(
-    BlockGraph* block_graph, BlockGraph::Block* header_block) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* header_block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
@@ -273,7 +288,8 @@ bool BasicBlockEntryHookTransform::PostBlockGraphIteration(
     return false;
   }
 
-  if (!ApplyBlockGraphTransform(&add_thunks, block_graph, header_block)) {
+  if (!ApplyBlockGraphTransform(
+          &add_thunks, policy, block_graph, header_block)) {
     LOG(ERROR) << "Unable to thunk module entry points.";
     return false;
   }

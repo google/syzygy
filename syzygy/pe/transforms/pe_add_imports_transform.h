@@ -58,6 +58,7 @@ class PEAddImportsTransform
       public PECoffAddImportsTransform {
  public:
   typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
 
   PEAddImportsTransform();
 
@@ -71,11 +72,14 @@ class PEAddImportsTransform
   // this can be used to provide stubs at program launch time, that will be
   // replaced by the loader once the real library is loaded.
   //
+  // @param policy The policy object restricting how the transform is applied.
   // @param block_graph the BlockGraph to populate.
   // @param dos_header_block the block containing the module's DOS header.
   // @returns true on success, false otherwise.
   virtual bool TransformBlockGraph(
-      BlockGraph* block_graph, BlockGraph::Block* dos_header_block) OVERRIDE;
+      const TransformPolicyInterface* policy,
+      BlockGraph* block_graph,
+      BlockGraph::Block* dos_header_block) OVERRIDE;
 
   // @returns a pointer to the Block containing the Image Import Descriptor.
   BlockGraph::Block* image_import_descriptor_block() {

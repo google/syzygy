@@ -55,6 +55,7 @@ class BasicBlockLayoutTransform
           BasicBlockLayoutTransform> {
  public:
   typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
   typedef BlockGraph::RelativeAddress RelativeAddress;
   typedef Reorderer::Order Order;
 
@@ -77,9 +78,12 @@ class BasicBlockLayoutTransform
   // @{
   friend block_graph::transforms::IterativeTransformImpl<
       BasicBlockLayoutTransform>;
-  bool PreBlockGraphIteration(BlockGraph* block_graph,
+  bool PreBlockGraphIteration(const TransformPolicyInterface* policy,
+                              BlockGraph* block_graph,
                               BlockGraph::Block* header_block);
-  bool OnBlock(BlockGraph* block_graph, BlockGraph::Block* block);
+  bool OnBlock(const TransformPolicyInterface* policy,
+               BlockGraph* block_graph,
+               BlockGraph::Block* block);
   // @}
 
   // @name NamedBlockGraphTransformImpl implementation.
@@ -132,6 +136,7 @@ class BasicBlockSubGraphLayoutTransform
  public:
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
   typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
   typedef Reorderer::Order Order;
 
   // When exploding a block, its basic blocks may end up being mapped across
@@ -154,6 +159,7 @@ class BasicBlockSubGraphLayoutTransform
   // @name BasicBlockSubGraphTransformInterface.
   // @{
   virtual bool TransformBasicBlockSubGraph(
+      const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
       BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
   // @}

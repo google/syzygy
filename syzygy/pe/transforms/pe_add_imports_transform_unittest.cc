@@ -15,6 +15,7 @@
 #include "syzygy/pe/transforms/pe_add_imports_transform.h"
 
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_utils.h"
@@ -53,6 +54,7 @@ class PEAddImportsTransformTest : public testing::PELibUnitTest {
   }
 
   PEFile pe_file_;
+  testing::DummyTransformPolicy policy_;
   BlockGraph block_graph_;
   ImageLayout image_layout_;
   BlockGraph::Block* dos_header_block_;
@@ -90,7 +92,7 @@ TEST_F(PEAddImportsTransformTest, AddImportsExisting) {
   PEAddImportsTransform transform;
   transform.AddModule(&module);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &transform, &block_graph_, dos_header_block_));
+      &transform, &policy_, &block_graph_, dos_header_block_));
   EXPECT_EQ(0u, transform.modules_added());
   EXPECT_EQ(0u, transform.symbols_added());
 
@@ -132,7 +134,7 @@ TEST_F(PEAddImportsTransformTest, AddImportsNewSymbol) {
   PEAddImportsTransform transform;
   transform.AddModule(&module);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &transform, &block_graph_, dos_header_block_));
+      &transform, &policy_, &block_graph_, dos_header_block_));
   EXPECT_EQ(0u, transform.modules_added());
   EXPECT_EQ(1u, transform.symbols_added());
 
@@ -177,7 +179,7 @@ TEST_F(PEAddImportsTransformTest, AddImportsNewModule) {
   PEAddImportsTransform transform;
   transform.AddModule(&module);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &transform, &block_graph_, dos_header_block_));
+      &transform, &policy_, &block_graph_, dos_header_block_));
   EXPECT_EQ(1u, transform.modules_added());
   EXPECT_EQ(2u, transform.symbols_added());
 
@@ -214,7 +216,7 @@ TEST_F(PEAddImportsTransformTest, FindImportsExisting) {
   PEAddImportsTransform transform;
   transform.AddModule(&module);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &transform, &block_graph_, dos_header_block_));
+      &transform, &policy_, &block_graph_, dos_header_block_));
   EXPECT_EQ(0u, transform.modules_added());
   EXPECT_EQ(0u, transform.symbols_added());
 
@@ -251,7 +253,7 @@ TEST_F(PEAddImportsTransformTest, FindImportsNewSymbol) {
   PEAddImportsTransform transform;
   transform.AddModule(&module);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &transform, &block_graph_, dos_header_block_));
+      &transform, &policy_, &block_graph_, dos_header_block_));
   EXPECT_EQ(0u, transform.modules_added());
   EXPECT_EQ(0u, transform.symbols_added());
 
@@ -292,7 +294,7 @@ TEST_F(PEAddImportsTransformTest, FindImportsNewModule) {
   PEAddImportsTransform transform;
   transform.AddModule(&module);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &transform, &block_graph_, dos_header_block_));
+      &transform, &policy_, &block_graph_, dos_header_block_));
   EXPECT_EQ(0u, transform.modules_added());
   EXPECT_EQ(0u, transform.symbols_added());
 

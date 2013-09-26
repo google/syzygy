@@ -18,11 +18,13 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/unittest_util.h"
 
 namespace block_graph {
 namespace {
 
 using testing::_;
+using testing::DummyTransformPolicy;
 using testing::Invoke;
 using testing::Return;
 
@@ -49,7 +51,7 @@ const MyData kDataBytes = { reinterpret_cast<void(*)(int)>(0xCAFEBABE),
 // Note the reference to
 // y starts 5 bytes from the end.
 const uint8 kCodeBytes[] = {
-  0x8B, 0x44, 0x24, 0x04,               // mov eax,dword ptr [esp+4]
+  0x8B, 0x44, 0x24, 0x04,              // mov eax,dword ptr [esp+4]
   0x01, 0x05, 0x00, 0x00, 0x00, 0x00,  // add dword ptr [_y],eax
   0xC3                                 // ret
 };
@@ -63,6 +65,7 @@ class ApplyBlockGraphTransformTest : public testing::Test {
   }
 
  protected:
+  DummyTransformPolicy policy_;
   BlockGraph block_graph_;
   BlockGraph::Block* header_block_;
 };
@@ -73,9 +76,13 @@ class MockBlockGraphTransform : public BlockGraphTransformInterface {
 
   virtual const char* name() const { return "MockBlockGraphTransform"; }
 
-  MOCK_METHOD2(TransformBlockGraph, bool(BlockGraph*, BlockGraph::Block*));
+  MOCK_METHOD3(TransformBlockGraph,
+               bool(const TransformPolicyInterface*,
+                    BlockGraph*,
+                    BlockGraph::Block*));
 
-  bool DeleteHeader(BlockGraph* block_graph,
+  bool DeleteHeader(const TransformPolicyInterface* policy,
+                    BlockGraph* block_graph,
                     BlockGraph::Block* header_block) {
     CHECK(block_graph->RemoveBlock(header_block));
     return true;
@@ -125,6 +132,7 @@ class ApplyBasicBlockSubGraphTransformTest : public testing::Test {
   }
 
  protected:
+  DummyTransformPolicy policy_;
   BlockGraph block_graph_;
   BlockGraph::Block* data_block_;
   BlockGraph::Block* code_block_;
@@ -137,26 +145,30 @@ class MockBasicBlockSubGraphTransform :
 
   virtual const char* name() const { return "MockBasicBlockSubGraphTransform"; }
 
-  MOCK_METHOD2(TransformBasicBlockSubGraph,
-               bool(BlockGraph*, BasicBlockSubGraph*));
+  MOCK_METHOD3(TransformBasicBlockSubGraph,
+               bool(const TransformPolicyInterface*,
+                    BlockGraph*,
+                    BasicBlockSubGraph*));
 };
 
 }  // namespace
 
 TEST_F(ApplyBlockGraphTransformTest, NormalTransformSucceeds) {
   MockBlockGraphTransform transform;
-  EXPECT_CALL(transform, TransformBlockGraph(_, _)).Times(1).
+  EXPECT_CALL(transform, TransformBlockGraph(_, _, _)).Times(1).
       WillOnce(Return(true));
   EXPECT_TRUE(ApplyBlockGraphTransform(&transform,
+                                       &policy_,
                                        &block_graph_,
                                        header_block_));
 }
 
 TEST_F(ApplyBlockGraphTransformTest, DeletingHeaderFails) {
   MockBlockGraphTransform transform;
-  EXPECT_CALL(transform, TransformBlockGraph(_, _)).Times(1).WillOnce(
+  EXPECT_CALL(transform, TransformBlockGraph(_, _, _)).Times(1).WillOnce(
       Invoke(&transform, &MockBlockGraphTransform::DeleteHeader));
   EXPECT_FALSE(ApplyBlockGraphTransform(&transform,
+                                        &policy_,
                                         &block_graph_,
                                         header_block_));
 }
@@ -168,9 +180,10 @@ TEST_F(ApplyBasicBlockSubGraphTransformTest, TransformFails) {
 
   // Apply an empty transform that reports failure.
   MockBasicBlockSubGraphTransform transform;
-  EXPECT_CALL(transform, TransformBasicBlockSubGraph(_, _)).Times(1).
+  EXPECT_CALL(transform, TransformBasicBlockSubGraph(_, _, _)).Times(1).
       WillOnce(Return(false));
   EXPECT_FALSE(ApplyBasicBlockSubGraphTransform(&transform,
+                                                &policy_,
                                                 &block_graph_,
                                                 code_block_,
                                                 NULL));
@@ -189,9 +202,10 @@ TEST_F(ApplyBasicBlockSubGraphTransformTest, EmptyTransformSucceeds) {
   // Apply an empty transform that reports success.
   MockBasicBlockSubGraphTransform transform;
   BlockVector new_blocks;
-  EXPECT_CALL(transform, TransformBasicBlockSubGraph(_, _)).Times(1).
+  EXPECT_CALL(transform, TransformBasicBlockSubGraph(_, _, _)).Times(1).
       WillOnce(Return(true));
   EXPECT_TRUE(ApplyBasicBlockSubGraphTransform(&transform,
+                                               &policy_,
                                                &block_graph_,
                                                code_block_,
                                                &new_blocks));

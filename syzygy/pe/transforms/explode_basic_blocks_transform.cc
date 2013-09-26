@@ -65,7 +65,10 @@ ExplodeBasicBlockSubGraphTransform::ExplodeBasicBlockSubGraphTransform(
 }
 
 bool ExplodeBasicBlockSubGraphTransform::TransformBasicBlockSubGraph(
-    BlockGraph* block_graph , BasicBlockSubGraph* subgraph) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BasicBlockSubGraph* subgraph) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(subgraph != NULL);
 
@@ -113,8 +116,11 @@ ExplodeBasicBlocksTransform::ExplodeBasicBlocksTransform()
       output_data_blocks_(0) {
 }
 
-bool ExplodeBasicBlocksTransform::OnBlock(BlockGraph* block_graph,
-                                          BlockGraph::Block* block) {
+bool ExplodeBasicBlocksTransform::OnBlock(
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
 
@@ -141,8 +147,10 @@ bool ExplodeBasicBlocksTransform::OnBlock(BlockGraph* block_graph,
 
   ExplodeBasicBlockSubGraphTransform transform(exclude_padding_);
 
-  if (!ApplyBasicBlockSubGraphTransform(&transform, block_graph, block, NULL))
+  if (!ApplyBasicBlockSubGraphTransform(
+          &transform, policy, block_graph, block, NULL)) {
     return false;
+  }
 
   ++input_code_blocks_;
   output_code_blocks_ += transform.output_code_blocks();
@@ -152,7 +160,9 @@ bool ExplodeBasicBlocksTransform::OnBlock(BlockGraph* block_graph,
 }
 
 bool ExplodeBasicBlocksTransform::PostBlockGraphIteration(
-    BlockGraph* unused_block_graph, BlockGraph::Block* unused_header_block) {
+    const TransformPolicyInterface* unused_policy,
+    BlockGraph* unused_block_graph,
+    BlockGraph::Block* unused_header_block) {
   LOG(INFO) << "Exploded " << input_code_blocks_ << " input code blocks to";
   LOG(INFO) << "  Code blocks: " << output_code_blocks_;
   LOG(INFO) << "  Data blocks: " << output_data_blocks_;

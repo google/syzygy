@@ -19,6 +19,7 @@
 #include "base/bind.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/unittest_util.h"
 
 namespace block_graph {
 namespace transforms {
@@ -42,6 +43,7 @@ class IterativeTransformTest : public testing::Test {
   }
 
  protected:
+  testing::DummyTransformPolicy policy_;
   BlockGraph block_graph_;
   BlockGraph::Block* header_block_;
 };
@@ -49,16 +51,27 @@ class IterativeTransformTest : public testing::Test {
 class MockIterativeTransform
     : public IterativeTransformImpl<MockIterativeTransform> {
  public:
-  MOCK_METHOD2(PreBlockGraphIteration, bool(BlockGraph*, BlockGraph::Block*));
-  MOCK_METHOD2(OnBlock, bool(BlockGraph*, BlockGraph::Block*));
-  MOCK_METHOD2(PostBlockGraphIteration, bool(BlockGraph*, BlockGraph::Block*));
+  MOCK_METHOD3(PreBlockGraphIteration,
+               bool(const TransformPolicyInterface*,
+                    BlockGraph*,
+                    BlockGraph::Block*));
+  MOCK_METHOD3(OnBlock,
+               bool(const TransformPolicyInterface*,
+                    BlockGraph*,
+                    BlockGraph::Block*));
+  MOCK_METHOD3(PostBlockGraphIteration,
+               bool(const TransformPolicyInterface*,
+                    BlockGraph*,
+                    BlockGraph::Block*));
 
-  bool DeleteBlock(BlockGraph* block_graph,
+  bool DeleteBlock(const TransformPolicyInterface* policy,
+                   BlockGraph* block_graph,
                    BlockGraph::Block* block) {
     return block_graph->RemoveBlock(block);
   }
 
-  bool AddBlock(BlockGraph* block_graph,
+  bool AddBlock(const TransformPolicyInterface* policy,
+                BlockGraph* block_graph,
                 BlockGraph::Block* block) {
     BlockGraph::Block* new_block =
         block_graph->AddBlock(BlockGraph::DATA_BLOCK, 10, "Added");
@@ -75,86 +88,95 @@ const char MockIterativeTransform::kTransformName[] =
 
 TEST_F(IterativeTransformTest, PreBlockGraphIterationFails) {
   StrictMock<MockIterativeTransform> transform;
-  EXPECT_CALL(transform, PreBlockGraphIteration(_, _)).Times(1).
+  EXPECT_CALL(transform, PreBlockGraphIteration(_, _, _)).Times(1).
       WillOnce(Return(false));
-  EXPECT_CALL(transform, OnBlock(_, _)).Times(0);
-  EXPECT_CALL(transform, PostBlockGraphIteration(_, _)).Times(0);
-  EXPECT_FALSE(transform.TransformBlockGraph(&block_graph_, header_block_));
+  EXPECT_CALL(transform, OnBlock(_, _, _)).Times(0);
+  EXPECT_CALL(transform, PostBlockGraphIteration(_, _, _)).Times(0);
+  EXPECT_FALSE(transform.TransformBlockGraph(
+      &policy_, &block_graph_, header_block_));
   EXPECT_EQ(2u, block_graph_.blocks().size());
 }
 
 TEST_F(IterativeTransformTest, OnBlockFails) {
   StrictMock<MockIterativeTransform> transform;
-  EXPECT_CALL(transform, PreBlockGraphIteration(_, _)).Times(1).
+  EXPECT_CALL(transform, PreBlockGraphIteration(_, _, _)).Times(1).
       WillOnce(Return(true));
-  EXPECT_CALL(transform, OnBlock(_, _)).Times(1).WillOnce(Return(false));
-  EXPECT_CALL(transform, PostBlockGraphIteration(_, _)).Times(0);
-  EXPECT_FALSE(transform.TransformBlockGraph(&block_graph_, header_block_));
+  EXPECT_CALL(transform, OnBlock(_, _, _)).Times(1).WillOnce(Return(false));
+  EXPECT_CALL(transform, PostBlockGraphIteration(_, _, _)).Times(0);
+  EXPECT_FALSE(transform.TransformBlockGraph(
+      &policy_, &block_graph_, header_block_));
   EXPECT_EQ(2u, block_graph_.blocks().size());
 }
 
 TEST_F(IterativeTransformTest, PostBlockGraphIterationFails) {
   StrictMock<MockIterativeTransform> transform;
-  EXPECT_CALL(transform, PreBlockGraphIteration(_, _)).Times(1).
+  EXPECT_CALL(transform, PreBlockGraphIteration(_, _, _)).Times(1).
       WillOnce(Return(true));
-  EXPECT_CALL(transform, OnBlock(_, _)).Times(2).WillRepeatedly(Return(true));
-  EXPECT_CALL(transform, PostBlockGraphIteration(_, _)).Times(1).
+  EXPECT_CALL(transform, OnBlock(_, _, _)).Times(2).
+      WillRepeatedly(Return(true));
+  EXPECT_CALL(transform, PostBlockGraphIteration(_, _, _)).Times(1).
       WillOnce(Return(false));
-  EXPECT_FALSE(transform.TransformBlockGraph(&block_graph_, header_block_));
+  EXPECT_FALSE(transform.TransformBlockGraph(
+      &policy_, &block_graph_, header_block_));
   EXPECT_EQ(2u, block_graph_.blocks().size());
 }
 
 TEST_F(IterativeTransformTest, Normal) {
   StrictMock<MockIterativeTransform> transform;
-  EXPECT_CALL(transform, PreBlockGraphIteration(_, _)).Times(1).
+  EXPECT_CALL(transform, PreBlockGraphIteration(_, _, _)).Times(1).
       WillOnce(Return(true));
-  EXPECT_CALL(transform, OnBlock(_, _)).Times(2).WillRepeatedly(Return(true));
-  EXPECT_CALL(transform, PostBlockGraphIteration(_, _)).Times(1).
+  EXPECT_CALL(transform, OnBlock(_, _, _)).Times(2).
+      WillRepeatedly(Return(true));
+  EXPECT_CALL(transform, PostBlockGraphIteration(_, _, _)).Times(1).
       WillOnce(Return(true));
-  EXPECT_TRUE(transform.TransformBlockGraph(&block_graph_, header_block_));
+  EXPECT_TRUE(transform.TransformBlockGraph(
+      &policy_, &block_graph_, header_block_));
   EXPECT_EQ(2u, block_graph_.blocks().size());
 }
 
 TEST_F(IterativeTransformTest, Add) {
   StrictMock<MockIterativeTransform> transform;
-  EXPECT_CALL(transform, PreBlockGraphIteration(_, _)).Times(1).
+  EXPECT_CALL(transform, PreBlockGraphIteration(_, _, _)).Times(1).
       WillOnce(Return(true));
-  EXPECT_CALL(transform, PostBlockGraphIteration(_, _)).Times(1).
+  EXPECT_CALL(transform, PostBlockGraphIteration(_, _, _)).Times(1).
       WillOnce(Return(true));
 
-  EXPECT_CALL(transform, OnBlock(_, _)).Times(2).WillOnce(Return(true)).
+  EXPECT_CALL(transform, OnBlock(_, _, _)).Times(2).WillOnce(Return(true)).
       WillOnce(Invoke(&transform, &MockIterativeTransform::AddBlock));
 
-  EXPECT_TRUE(transform.TransformBlockGraph(&block_graph_, header_block_));
+  EXPECT_TRUE(transform.TransformBlockGraph(
+      &policy_, &block_graph_, header_block_));
   EXPECT_EQ(3u, block_graph_.blocks().size());
 }
 
 TEST_F(IterativeTransformTest, Delete) {
   StrictMock<MockIterativeTransform> transform;
-  EXPECT_CALL(transform, PreBlockGraphIteration(_, _)).Times(1).
+  EXPECT_CALL(transform, PreBlockGraphIteration(_, _, _)).Times(1).
       WillOnce(Return(true));
-  EXPECT_CALL(transform, PostBlockGraphIteration(_, _)).Times(1).
+  EXPECT_CALL(transform, PostBlockGraphIteration(_, _, _)).Times(1).
       WillOnce(Return(true));
 
-  EXPECT_CALL(transform, OnBlock(_, _)).Times(2).WillOnce(Return(true)).
+  EXPECT_CALL(transform, OnBlock(_, _, _)).Times(2).WillOnce(Return(true)).
       WillOnce(Invoke(&transform, &MockIterativeTransform::DeleteBlock));
 
-  EXPECT_TRUE(transform.TransformBlockGraph(&block_graph_, header_block_));
+  EXPECT_TRUE(transform.TransformBlockGraph(
+      &policy_, &block_graph_, header_block_));
   EXPECT_EQ(1u, block_graph_.blocks().size());
 }
 
 TEST_F(IterativeTransformTest, AddAndDelete) {
   StrictMock<MockIterativeTransform> transform;
-  EXPECT_CALL(transform, PreBlockGraphIteration(_, _)).Times(1).
+  EXPECT_CALL(transform, PreBlockGraphIteration(_, _, _)).Times(1).
       WillOnce(Return(true));
-  EXPECT_CALL(transform, PostBlockGraphIteration(_, _)).Times(1).
+  EXPECT_CALL(transform, PostBlockGraphIteration(_, _, _)).Times(1).
       WillOnce(Return(true));
 
-  EXPECT_CALL(transform, OnBlock(_, _)).Times(2).
+  EXPECT_CALL(transform, OnBlock(_, _, _)).Times(2).
       WillOnce(Invoke(&transform, &MockIterativeTransform::AddBlock)).
       WillOnce(Invoke(&transform, &MockIterativeTransform::DeleteBlock));
 
-  EXPECT_TRUE(transform.TransformBlockGraph(&block_graph_, header_block_));
+  EXPECT_TRUE(transform.TransformBlockGraph(
+      &policy_, &block_graph_, header_block_));
   EXPECT_EQ(2u, block_graph_.blocks().size());
 }
 

@@ -245,7 +245,7 @@ TEST_F(AsanTransformTest, ApplyAsanTransform) {
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
 
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &asan_transform_, &block_graph_, dos_header_block_));
+      &asan_transform_, &policy_, &block_graph_, dos_header_block_));
 
   // TODO(sebmarchand): Ensure that each memory access is instrumented by
   // decomposing each block of the new block-graph into basic blocks and walk
@@ -873,6 +873,7 @@ TEST_F(AsanTransformTest, InterceptFunctions) {
   TestAsanTransform::FunctionInterceptionSet function_set;
   function_set.insert("testAsan_b1");
   EXPECT_TRUE(asan_transform_.InterceptFunctions(&import_module,
+                                                 &policy_,
                                                  &block_graph_,
                                                  dos_header_block_,
                                                  function_set));

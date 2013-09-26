@@ -51,6 +51,7 @@ namespace pe {
 namespace transforms {
 
 using block_graph::BlockGraph;
+using block_graph::TransformPolicyInterface;
 using block_graph::transforms::NamedBlockGraphTransformImpl;
 
 // A transform for adding COFF symbols to a given block graph.
@@ -68,11 +69,14 @@ class CoffAddImportsTransform
   // Perform the transform. Add entries for any missing symbols to the COFF
   // symbol table, and fill the attached imported module objects.
   //
+  // @param policy The policy object restricting how the transform is applied.
   // @param block_graph the BlockGraph to populate.
   // @param headers_block the block containing the headers.
   // @returns true on success, false otherwise.
   virtual bool TransformBlockGraph(
-      BlockGraph* block_graph, BlockGraph::Block* headers_block) OVERRIDE;
+      const TransformPolicyInterface* policy,
+      BlockGraph* block_graph,
+      BlockGraph::Block* headers_block) OVERRIDE;
 
   // The name of this transform.
   static const char kTransformName[];

@@ -22,6 +22,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/block_graph/orderers/original_orderer.h"
 #include "syzygy/block_graph/orderers/random_orderer.h"
 #include "syzygy/core/unittest_util.h"
@@ -72,10 +73,11 @@ class PEImageLayoutBuilderTest : public testing::PELibUnitTest {
     // Prepare the headers. This puts our DOS stub in place.
     transforms::PEPrepareHeadersTransform prep_headers;
     ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
-        &prep_headers, &block_graph_, dos_header_block_));
+        &prep_headers, &policy_, &block_graph_, dos_header_block_));
   }
 
  protected:
+  testing::DummyTransformPolicy policy_;
   base::FilePath image_path_;
   PEFile image_file_;
   BlockGraph block_graph_;
@@ -232,7 +234,7 @@ TEST_F(PEImageLayoutBuilderTest, ShiftTestDll) {
   // one.
   transforms::PEPrepareHeadersTransform prep_headers;
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &prep_headers, &block_graph_, dos_header_block_));
+      &prep_headers, &policy_, &block_graph_, dos_header_block_));
 
   OrderedBlockGraph obg(&block_graph_);
   block_graph::orderers::OriginalOrderer orig_orderer;

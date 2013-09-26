@@ -39,6 +39,7 @@ using block_graph::BlockGraph;
 using block_graph::Displacement;
 using block_graph::Immediate;
 using block_graph::Operand;
+using block_graph::TransformPolicyInterface;
 
 typedef CoverageInstrumentationTransform::RelativeAddressRange
     RelativeAddressRange;
@@ -77,8 +78,10 @@ CoverageInstrumentationTransform::CoverageInstrumentationTransform()
 }
 
 bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
+    const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BasicBlockSubGraph* basic_block_subgraph) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(basic_block_subgraph != NULL);
 
@@ -123,12 +126,15 @@ bool CoverageInstrumentationTransform::TransformBasicBlockSubGraph(
 }
 
 bool CoverageInstrumentationTransform::PreBlockGraphIteration(
-    BlockGraph* block_graph, BlockGraph::Block* header_block) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* header_block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
   if (!ApplyBlockGraphTransform(
-          &add_bb_freq_data_tx_, block_graph, header_block)) {
+          &add_bb_freq_data_tx_, policy, block_graph, header_block)) {
     LOG(ERROR) << "Failed to insert basic-block frequency data.";
     return false;
   }
@@ -137,7 +143,10 @@ bool CoverageInstrumentationTransform::PreBlockGraphIteration(
 }
 
 bool CoverageInstrumentationTransform::OnBlock(
-    BlockGraph* block_graph, BlockGraph::Block* block) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
 
@@ -150,7 +159,8 @@ bool CoverageInstrumentationTransform::OnBlock(
     return true;
 
   // Apply our basic block transform.
-  if (!ApplyBasicBlockSubGraphTransform(this, block_graph, block, NULL)) {
+  if (!ApplyBasicBlockSubGraphTransform(
+      this, policy, block_graph, block, NULL)) {
     return false;
   }
 
@@ -158,7 +168,10 @@ bool CoverageInstrumentationTransform::OnBlock(
 }
 
 bool CoverageInstrumentationTransform::PostBlockGraphIteration(
-    BlockGraph* block_graph, BlockGraph::Block* header_block) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* header_block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
@@ -170,7 +183,7 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
       add_bb_freq_data_tx_.frequency_data_block(), 0);
   entry_thunk_tx_.SetEntryThunkParameter(ref_to_freq_data);
   if (!ApplyBlockGraphTransform(
-          &entry_thunk_tx_, block_graph, header_block)) {
+          &entry_thunk_tx_, policy, block_graph, header_block)) {
     LOG(ERROR) << "Failed to thunk image entry points.";
     return false;
   }

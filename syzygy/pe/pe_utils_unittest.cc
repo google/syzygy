@@ -17,6 +17,7 @@
 #include "base/strings/string_split.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/unittest_util.h"
@@ -55,6 +56,7 @@ class PEUtilsTest : public testing::Test {
   void CreateNtHeadersBlock();
   void CreateEntryPoints();
 
+  testing::DummyTransformPolicy policy_;
   BlockGraph block_graph_;
 
   BlockGraph::Block* nt_headers_block_;
@@ -411,7 +413,7 @@ TEST_F(PEUtilsTest, HasImportEntry) {
   PEAddImportsTransform transform;
   transform.AddModule(&module);
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &transform, &block_graph_, dos_header_block_));
+      &transform, &policy_, &block_graph_, dos_header_block_));
 
   // Ensure that we can find this module, and that we can't find a
   // non-imported module.

@@ -36,6 +36,7 @@ namespace {
 using block_graph::BlockGraphOrdererInterface;
 using block_graph::BlockGraphTransformInterface;
 using block_graph::OrderedBlockGraph;
+using block_graph::TransformPolicyInterface;
 using pdb::PdbFile;
 using pdb::PdbMutatorInterface;
 using testing::_;
@@ -79,7 +80,10 @@ class PERelinkerTest : public testing::PELibUnitTest {
 class MockTransform : public BlockGraphTransformInterface {
  public:
   const char* name() const { return "MockTransform"; }
-  MOCK_METHOD2(TransformBlockGraph, bool(BlockGraph*, BlockGraph::Block*));
+  MOCK_METHOD3(TransformBlockGraph,
+               bool(const TransformPolicyInterface*,
+                    BlockGraph*,
+                    BlockGraph::Block*));
 };
 
 class MockOrderer : public BlockGraphOrdererInterface {
@@ -243,7 +247,7 @@ TEST_F(PERelinkerTest, FailsWhenTransformFails) {
   TestPERelinker relinker(&policy_);
   StrictMock<MockTransform> transform;
 
-  EXPECT_CALL(transform, TransformBlockGraph(_, _)).WillOnce(Return(false));
+  EXPECT_CALL(transform, TransformBlockGraph(_, _, _)).WillOnce(Return(false));
 
   relinker.AppendTransform(&transform);
   relinker.set_input_path(input_dll_);
@@ -284,7 +288,7 @@ TEST_F(PERelinkerTest, Success) {
   StrictMock<MockOrderer> orderer;
   StrictMock<MockPdbMutator> pdb_mutator;
 
-  EXPECT_CALL(transform, TransformBlockGraph(_, _)).WillOnce(Return(true));
+  EXPECT_CALL(transform, TransformBlockGraph(_, _, _)).WillOnce(Return(true));
   EXPECT_CALL(orderer, OrderBlockGraph(_, _)).WillOnce(Return(true));
   EXPECT_CALL(pdb_mutator, MutatePdb(_)).WillOnce(Return(true));
 

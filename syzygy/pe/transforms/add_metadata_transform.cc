@@ -31,7 +31,10 @@ AddMetadataTransform::AddMetadataTransform(const base::FilePath& module_path)
 }
 
 bool AddMetadataTransform::TransformBlockGraph(
-    BlockGraph* block_graph, BlockGraph::Block* /*dos_header_block*/) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* /*dos_header_block*/) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
 
   metadata_block_ = NULL;

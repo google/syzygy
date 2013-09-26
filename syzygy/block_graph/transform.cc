@@ -21,10 +21,12 @@
 namespace block_graph {
 
 bool ApplyBlockGraphTransform(BlockGraphTransformInterface* transform,
+                              const TransformPolicyInterface* policy,
                               BlockGraph* block_graph,
                               BlockGraph::Block* header_block) {
   DCHECK(transform != NULL);
   DCHECK(transform->name() != NULL);
+  DCHECK(policy != NULL);
   DCHECK_GT(strlen(transform->name()), 0u);
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
@@ -33,7 +35,7 @@ bool ApplyBlockGraphTransform(BlockGraphTransformInterface* transform,
   // that it still exists after the transform.
   BlockGraph::BlockId header_block_id = header_block->id();
 
-  if (!transform->TransformBlockGraph(block_graph, header_block)) {
+  if (!transform->TransformBlockGraph(policy, block_graph, header_block)) {
     LOG(ERROR) << "Transform \"" << transform->name() << "\" failed.";
     return false;
   }
@@ -53,10 +55,12 @@ bool ApplyBlockGraphTransform(BlockGraphTransformInterface* transform,
 
 bool ApplyBasicBlockSubGraphTransform(
     BasicBlockSubGraphTransformInterface* transform,
+    const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* block,
     BlockVector* new_blocks) {
   DCHECK(transform != NULL);
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
   DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
@@ -69,7 +73,7 @@ bool ApplyBasicBlockSubGraphTransform(
     return false;
 
   // Call the transform.
-  if (!transform->TransformBasicBlockSubGraph(block_graph, &subgraph))
+  if (!transform->TransformBasicBlockSubGraph(policy, block_graph, &subgraph))
     return false;
 
   // Update the block-graph post transform.

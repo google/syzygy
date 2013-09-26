@@ -34,6 +34,7 @@ using block_graph::BlockBuilder;
 using block_graph::BlockGraph;
 using block_graph::Displacement;
 using block_graph::Operand;
+using block_graph::TransformPolicyInterface;
 using pe::transforms::PEAddImportsTransform;
 
 typedef pe::transforms::ImportedModule ImportedModule;
@@ -85,7 +86,12 @@ bool EntryThunkTransform::FunctionThunkIsParameterized() const {
 }
 
 bool EntryThunkTransform::PreBlockGraphIteration(
-    BlockGraph* block_graph, BlockGraph::Block* header_block) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* header_block) {
+  DCHECK(policy != NULL);
+  DCHECK(block_graph != NULL);
+  DCHECK(header_block != NULL);
   DCHECK(thunk_section_ == NULL);
 
   if (!GetEntryPoints(header_block))
@@ -133,7 +139,8 @@ bool EntryThunkTransform::PreBlockGraphIteration(
   // Run the transform.
   PEAddImportsTransform add_imports_transform;
   add_imports_transform.AddModule(&import_module);
-  if (!add_imports_transform.TransformBlockGraph(block_graph, header_block)) {
+  if (!add_imports_transform.TransformBlockGraph(
+          policy, block_graph, header_block)) {
     LOG(ERROR) << "Unable to add imports for instrumentation DLL.";
     return false;
   }
@@ -155,7 +162,8 @@ bool EntryThunkTransform::PreBlockGraphIteration(
   return true;
 }
 
-bool EntryThunkTransform::OnBlock(BlockGraph* block_graph,
+bool EntryThunkTransform::OnBlock(const TransformPolicyInterface* policy,
+                                  BlockGraph* block_graph,
                                   BlockGraph::Block* block) {
   DCHECK(block != NULL);
 

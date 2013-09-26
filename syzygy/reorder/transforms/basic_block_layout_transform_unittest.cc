@@ -80,7 +80,8 @@ TEST_F(BasicBlockSubGraphLayoutTransformTest, NonContiguousBlockIndicesFails) {
   ASSERT_TRUE(Insert(52, 2, 3));
   ASSERT_TRUE(Insert(64, 2, 4));
   BasicBlockSubGraphLayoutTransform tx(bb_map_);
-  EXPECT_FALSE(tx.TransformBasicBlockSubGraph(&block_graph_, &subgraph_));
+  EXPECT_FALSE(tx.TransformBasicBlockSubGraph(
+      &policy_, &block_graph_, &subgraph_));
 }
 
 TEST_F(BasicBlockSubGraphLayoutTransformTest,
@@ -97,7 +98,8 @@ TEST_F(BasicBlockSubGraphLayoutTransformTest,
   ASSERT_TRUE(Insert(52, 0, 8));
   ASSERT_TRUE(Insert(64, 0, 10));
   BasicBlockSubGraphLayoutTransform tx(bb_map_);
-  EXPECT_FALSE(tx.TransformBasicBlockSubGraph(&block_graph_, &subgraph_));
+  EXPECT_FALSE(tx.TransformBasicBlockSubGraph(
+      &policy_, &block_graph_, &subgraph_));
 }
 
 TEST_F(BasicBlockSubGraphLayoutTransformTest, Identity) {
@@ -113,7 +115,8 @@ TEST_F(BasicBlockSubGraphLayoutTransformTest, Identity) {
   ASSERT_TRUE(Insert(64, 0, 9));
 
   BasicBlockSubGraphLayoutTransform tx(bb_map_);
-  EXPECT_TRUE(tx.TransformBasicBlockSubGraph(&block_graph_, &subgraph_));
+  EXPECT_TRUE(tx.TransformBasicBlockSubGraph(
+      &policy_, &block_graph_, &subgraph_));
   LayoutIsAsExpected();
 }
 
@@ -135,7 +138,8 @@ TEST_F(BasicBlockSubGraphLayoutTransformTest, CodeAndDataSplit) {
   // padding that can be deleted.
 
   BasicBlockSubGraphLayoutTransform tx(bb_map_);
-  EXPECT_TRUE(tx.TransformBasicBlockSubGraph(&block_graph_, &subgraph_));
+  EXPECT_TRUE(tx.TransformBasicBlockSubGraph(
+      &policy_, &block_graph_, &subgraph_));
   LayoutIsAsExpected();
 }
 
@@ -167,7 +171,8 @@ TEST_F(BasicBlockLayoutTransformTest, NewSectionNoBlocksFails) {
   order.sections[0].blocks.resize(0);
 
   BasicBlockLayoutTransform tx(&order);
-  EXPECT_FALSE(tx.TransformBlockGraph(&block_graph_, header_block_));
+  EXPECT_FALSE(tx.TransformBlockGraph(
+      &policy_, &block_graph_, header_block_));
 }
 
 TEST_F(BasicBlockLayoutTransformTest, InvalidExistingSectionFails) {
@@ -180,7 +185,8 @@ TEST_F(BasicBlockLayoutTransformTest, InvalidExistingSectionFails) {
   order.sections[0].blocks[0].block = assembly_func_;
 
   BasicBlockLayoutTransform tx(&order);
-  EXPECT_FALSE(tx.TransformBlockGraph(&block_graph_, header_block_));
+  EXPECT_FALSE(tx.TransformBlockGraph(
+      &policy_, &block_graph_, header_block_));
 }
 
 TEST_F(BasicBlockLayoutTransformTest, ReorderSection) {
@@ -195,7 +201,8 @@ TEST_F(BasicBlockLayoutTransformTest, ReorderSection) {
   order.sections[0].blocks[2].block = func1_;
 
   BasicBlockLayoutTransform tx(&order);
-  EXPECT_TRUE(tx.TransformBlockGraph(&block_graph_, header_block_));
+  EXPECT_TRUE(tx.TransformBlockGraph(
+      &policy_, &block_graph_, header_block_));
 
   // No new blocks or sections were created.
   EXPECT_EQ(5u, block_graph_.blocks().size());
@@ -223,7 +230,8 @@ TEST_F(BasicBlockLayoutTransformTest, CreateNewSection) {
   DWORD text_section_characteristics = text_section_->characteristics();
 
   BasicBlockLayoutTransform tx(&order);
-  EXPECT_TRUE(tx.TransformBlockGraph(&block_graph_, header_block_));
+  EXPECT_TRUE(tx.TransformBlockGraph(
+      &policy_, &block_graph_, header_block_));
 
   // No new blocks were created, but one new section was.
   EXPECT_EQ(5u, block_graph_.blocks().size());
@@ -281,7 +289,8 @@ TEST_F(BasicBlockLayoutTransformTest, SplitBlock) {
   BlockGraph::BlockId old_assembly_func_id = assembly_func_->id();
 
   BasicBlockLayoutTransform tx(&order);
-  EXPECT_TRUE(tx.TransformBlockGraph(&block_graph_, header_block_));
+  EXPECT_TRUE(tx.TransformBlockGraph(
+      &policy_, &block_graph_, header_block_));
 
   // One new block has been created and no new sections.
   EXPECT_EQ(6u, block_graph_.blocks().size());

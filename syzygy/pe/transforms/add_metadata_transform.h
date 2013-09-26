@@ -25,6 +25,7 @@ namespace pe {
 namespace transforms {
 
 using block_graph::BlockGraph;
+using block_graph::TransformPolicyInterface;
 using block_graph::transforms::NamedBlockGraphTransformImpl;
 
 class AddMetadataTransform
@@ -37,11 +38,13 @@ class AddMetadataTransform
 
   // Applies this transform to the provided PE image block graph.
   //
+  // @param policy The policy object restricting how the transform is applied.
   // @param block_graph The block graph to transform.
   // @param dos_header_block The DOS header block of the block graph. This is
   //     unused in this transform.
   // @returns true on success, false otherwise.
   virtual bool TransformBlockGraph(
+      const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
       BlockGraph::Block* /*dos_header_block*/) OVERRIDE;
 

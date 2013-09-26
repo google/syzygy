@@ -66,6 +66,7 @@ class AsanBasicBlockTransform
 
   typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
+  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
   typedef MemoryAccessInfo AsanHookMapEntryKey;
   // Map of hooks to asan check access functions.
   typedef std::map<AsanHookMapEntryKey, BlockGraph::Reference> AsanHookMap;
@@ -106,6 +107,7 @@ class AsanBasicBlockTransform
  protected:
   // @name BasicBlockSubGraphTransformInterface method.
   virtual bool TransformBasicBlockSubGraph(
+      const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
       BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
 
@@ -148,6 +150,7 @@ class AsanTransform
       public block_graph::Filterable {
  public:
   typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
   typedef AsanBasicBlockTransform::MemoryAccessInfo MemoryAccessInfo;
   typedef AsanBasicBlockTransform::MemoryAccessMode MemoryAccessMode;
 
@@ -156,10 +159,14 @@ class AsanTransform
 
   // @name IterativeTransformImpl implementation.
   // @{
-  bool PreBlockGraphIteration(BlockGraph* block_graph,
+  bool PreBlockGraphIteration(const TransformPolicyInterface* policy,
+                              BlockGraph* block_graph,
                               BlockGraph::Block* header_block);
-  bool OnBlock(BlockGraph* block_graph, BlockGraph::Block* block);
-  bool PostBlockGraphIteration(BlockGraph* block_graph,
+  bool OnBlock(const TransformPolicyInterface* policy,
+               BlockGraph* block_graph,
+               BlockGraph::Block* block);
+  bool PostBlockGraphIteration(const TransformPolicyInterface* policy,
+                               BlockGraph* block_graph,
                                BlockGraph::Block* header_block);
   // @}
 
@@ -224,12 +231,14 @@ class AsanTransform
   // thunk will defer the call to the original function to its instrumented
   // version in asan_rtl.
   // @param import_module The module for which the imports should be added.
+  // @param policy The policy object restricting how the transform is applied.
   // @param block_graph The block-graph to modify.
   // @param header_block The block containing the module's DOS header of this
   //     block-graph.
   // @param functions_set The list of the function that we want to intercept.
   // @returns true on success, false on error.
   bool InterceptFunctions(ImportedModule* import_module,
+                          const TransformPolicyInterface* policy,
                           BlockGraph* block_graph,
                           BlockGraph::Block* header_block,
                           const FunctionInterceptionSet& functions_set);

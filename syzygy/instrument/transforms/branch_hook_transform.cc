@@ -46,6 +46,7 @@ using block_graph::Displacement;
 using block_graph::Immediate;
 using block_graph::Operand;
 using block_graph::Successor;
+using block_graph::TransformPolicyInterface;
 using common::kBasicBlockEntryAgentId;
 using pe::transforms::PEAddImportsTransform;
 
@@ -63,7 +64,8 @@ const char kBranchExit[] = "_branch_exit";
 const size_t kNumBranchSlot = 4;
 
 // Sets up the entry and the exit hooks import.
-bool SetupEntryHooks(BlockGraph* block_graph,
+bool SetupEntryHooks(const TransformPolicyInterface* policy,
+                     BlockGraph* block_graph,
                      BlockGraph::Block* header_block,
                      const std::string& module_name,
                      bool buffering,
@@ -71,6 +73,7 @@ bool SetupEntryHooks(BlockGraph* block_graph,
                      BlockGraph::Reference* function_enter,
                      BlockGraph::Reference* branch_enter,
                      BlockGraph::Reference* branch_exit) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
   DCHECK(branch_enter != NULL);
@@ -116,7 +119,8 @@ bool SetupEntryHooks(BlockGraph* block_graph,
   add_imports.AddModule(&module);
 
   // Add the imports to the block-graph.
-  if (!ApplyBlockGraphTransform(&add_imports, block_graph, header_block)) {
+  if (!ApplyBlockGraphTransform(
+          &add_imports, policy, block_graph, header_block)) {
     LOG(ERROR) << "Unable to add import entry hook functions.";
     return false;
   }
@@ -163,26 +167,29 @@ BranchHookTransform::BranchHookTransform()
 }
 
 bool BranchHookTransform::PreBlockGraphIteration(
+    const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* header_block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
   // Setup instrumentation functions hooks.
-  if (!SetupEntryHooks(block_graph,
-                      header_block,
-                      instrument_dll_name_,
-                      buffering_,
-                      fs_slot_,
-                      &function_enter_hook_ref_,
-                      &enter_hook_ref_,
-                      &exit_hook_ref_)) {
+  if (!SetupEntryHooks(policy,
+                       block_graph,
+                       header_block,
+                       instrument_dll_name_,
+                       buffering_,
+                       fs_slot_,
+                       &function_enter_hook_ref_,
+                       &enter_hook_ref_,
+                       &exit_hook_ref_)) {
     return false;
   }
 
   // Add the static basic-block frequency data.
   if (!ApplyBlockGraphTransform(
-          &add_frequency_data_, block_graph, header_block)) {
+          &add_frequency_data_, policy, block_graph, header_block)) {
     LOG(ERROR) << "Failed to insert basic-block frequency data.";
     return false;
   }
@@ -190,7 +197,8 @@ bool BranchHookTransform::PreBlockGraphIteration(
   return true;
 }
 
-bool BranchHookTransform::OnBlock(BlockGraph* block_graph,
+bool BranchHookTransform::OnBlock(const TransformPolicyInterface* policy,
+                                  BlockGraph* block_graph,
                                   BlockGraph::Block* block) {
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
@@ -202,14 +210,17 @@ bool BranchHookTransform::OnBlock(BlockGraph* block_graph,
   if (!pe::CodeBlockIsBasicBlockDecomposable(block))
     return true;
 
-  if (!ApplyBasicBlockSubGraphTransform(this, block_graph, block, NULL))
+  if (!ApplyBasicBlockSubGraphTransform(this, policy, block_graph, block, NULL))
     return false;
 
   return true;
 }
 
 bool BranchHookTransform::TransformBasicBlockSubGraph(
-    BlockGraph* block_graph , BasicBlockSubGraph* subgraph) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BasicBlockSubGraph* subgraph) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(subgraph != NULL);
   DCHECK(enter_hook_ref_.IsValid());
@@ -313,7 +324,10 @@ bool BranchHookTransform::TransformBasicBlockSubGraph(
 }
 
 bool BranchHookTransform::PostBlockGraphIteration(
-    BlockGraph* block_graph, BlockGraph::Block* header_block) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* header_block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
@@ -349,7 +363,8 @@ bool BranchHookTransform::PostBlockGraphIteration(
     return false;
   }
 
-  if (!ApplyBlockGraphTransform(&add_thunks, block_graph, header_block)) {
+  if (!ApplyBlockGraphTransform(
+          &add_thunks, policy, block_graph, header_block)) {
     LOG(ERROR) << "Unable to thunk module entry points.";
     return false;
   }

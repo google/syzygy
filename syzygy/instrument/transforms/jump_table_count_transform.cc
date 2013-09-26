@@ -47,6 +47,7 @@ using block_graph::Displacement;
 using block_graph::Immediate;
 using block_graph::Instruction;
 using block_graph::Operand;
+using block_graph::TransformPolicyInterface;
 using pe::transforms::PEAddImportsTransform;
 using pe::transforms::ImportedModule;
 
@@ -55,12 +56,14 @@ const char kJumpTableCaseCounter[] = "_increment_indexed_freq_data";
 const char kThunkSuffix[] = "_jump_table_thunk";
 
 // Sets up the jump table counter hook import.
+// @param policy The policy object restricting how the transform is applied.
 // @param block_graph The block-graph to populate.
 // @param header_block The header block from block_graph.
 // @param module_name The name of the module implementing the hooks.
 // @param jump_table_case_counter will refer to the imported hook function.
 // @returns true on success, false otherwise.
-bool SetupCounterHook(BlockGraph* block_graph,
+bool SetupCounterHook(const TransformPolicyInterface* policy,
+                      BlockGraph* block_graph,
                       BlockGraph::Block* header_block,
                       const std::string& module_name,
                       BlockGraph::Reference* jump_table_case_counter) {
@@ -79,7 +82,8 @@ bool SetupCounterHook(BlockGraph* block_graph,
   add_imports.AddModule(&module);
 
   // Add the imports to the block-graph.
-  if (!ApplyBlockGraphTransform(&add_imports, block_graph, header_block)) {
+  if (!ApplyBlockGraphTransform(
+          &add_imports, policy, block_graph, header_block)) {
     LOG(ERROR) << "Unable to add import entry for jump table hook functions.";
     return false;
   }
@@ -110,13 +114,16 @@ JumpTableCaseCountTransform::JumpTableCaseCountTransform()
 }
 
 bool JumpTableCaseCountTransform::PreBlockGraphIteration(
+    const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* header_block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
   // Setup the jump table counter entry hook.
-  if (!SetupCounterHook(block_graph,
+  if (!SetupCounterHook(policy,
+                        block_graph,
                         header_block,
                         instrument_dll_name_,
                         &jump_table_case_counter_hook_ref_)) {
@@ -125,6 +132,7 @@ bool JumpTableCaseCountTransform::PreBlockGraphIteration(
 
   // Add the static jump table count frequency data.
   if (!ApplyBlockGraphTransform(&add_frequency_data_,
+                                policy,
                                 block_graph,
                                 header_block)) {
     LOG(ERROR) << "Failed to insert jump table count frequency data.";
@@ -139,8 +147,11 @@ bool JumpTableCaseCountTransform::PreBlockGraphIteration(
   return true;
 }
 
-bool JumpTableCaseCountTransform::OnBlock(BlockGraph* block_graph,
-                                          BlockGraph::Block* block) {
+bool JumpTableCaseCountTransform::OnBlock(
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
 
@@ -188,8 +199,10 @@ bool JumpTableCaseCountTransform::OnBlock(BlockGraph* block_graph,
 }
 
 bool JumpTableCaseCountTransform::PostBlockGraphIteration(
+    const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* header_block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
@@ -217,7 +230,8 @@ bool JumpTableCaseCountTransform::PostBlockGraphIteration(
     return false;
   }
 
-  if (!ApplyBlockGraphTransform(&add_thunks, block_graph, header_block)) {
+  if (!ApplyBlockGraphTransform(
+          &add_thunks, policy, block_graph, header_block)) {
     LOG(ERROR) << "Unable to thunk module entry points.";
     return false;
   }

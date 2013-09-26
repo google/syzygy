@@ -35,6 +35,7 @@ class ExplodeBasicBlockSubGraphTransform
  public:
   typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
+  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
 
   // Initialize a new ExplodeBasicBlockSubGraphTransform instance.
   explicit ExplodeBasicBlockSubGraphTransform(bool exclude_padding);
@@ -42,6 +43,7 @@ class ExplodeBasicBlockSubGraphTransform
   // @name BasicBlockSubGraphTransformInterface methods.
   // @{
   virtual bool TransformBasicBlockSubGraph(
+      const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
       BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
   // @}
@@ -74,19 +76,27 @@ class ExplodeBasicBlocksTransform
           ExplodeBasicBlocksTransform> {
  public:
   typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
 
   // Initialize a new ExplodeBasicBlocksTransform instance.
   ExplodeBasicBlocksTransform();
 
   // Explodes each basic code block in @p block referenced by into separate
   // blocks, then erases @p block from @p block_graph.
+  // @param policy The policy object restricting how the transform is applied.
   // @param block_graph The block graph being modified.
   // @param block The block to explode, this must be in @p block_graph.
   // @note This method is required by the IterativeTransformImpl parent class.
-  bool OnBlock(BlockGraph* block_graph, BlockGraph::Block* block);
+  bool OnBlock(const TransformPolicyInterface* policy,
+               BlockGraph* block_graph,
+               BlockGraph::Block* block);
 
   // Logs metrics about the performed transform.
-  bool PostBlockGraphIteration(BlockGraph* block_graph,
+  // @param policy The policy object restricting how the transform is applied.
+  // @param block_graph The block graph being modified.
+  // @param header_block The header block associated with the image.
+  bool PostBlockGraphIteration(const TransformPolicyInterface* policy,
+                               BlockGraph* block_graph,
                                BlockGraph::Block* header_block);
 
   // @name Accessors.

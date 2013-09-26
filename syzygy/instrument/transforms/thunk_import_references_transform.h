@@ -40,6 +40,8 @@ class ThunkImportReferencesTransform
     : public block_graph::transforms::NamedBlockGraphTransformImpl<
           ThunkImportReferencesTransform> {
  public:
+  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
+
   ThunkImportReferencesTransform();
 
   // Adds a module to the list of those from which imports are excluded from
@@ -89,7 +91,9 @@ class ThunkImportReferencesTransform
   // @name IterativeTransformImpl implementation.
   // @{
   virtual bool TransformBlockGraph(
-      BlockGraph* block_graph, BlockGraph::Block* header_block) OVERRIDE;
+      const TransformPolicyInterface* policy,
+      BlockGraph* block_graph,
+      BlockGraph::Block* header_block) OVERRIDE;
   // @}
 
   // Accessor.

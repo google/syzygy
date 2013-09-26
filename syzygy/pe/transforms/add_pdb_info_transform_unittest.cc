@@ -16,6 +16,7 @@
 
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/unittest_util.h"
@@ -39,6 +40,7 @@ class AddPdbInfoTransformTest : public testing::PELibUnitTest {
         dos_header_block_(NULL) {
   }
 
+  testing::DummyTransformPolicy policy_;
   ImageLayout image_layout_;
   BlockGraph block_graph_;
   BlockGraph::Block* dos_header_block_;
@@ -59,7 +61,7 @@ TEST_F(AddPdbInfoTransformTest, UpdateExisting) {
 
   AddPdbInfoTransform transform(kPdbPath, kPdbAge, kPdbGuid);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &transform, &block_graph_, dos_header_block_));
+      &transform, &policy_, &block_graph_, dos_header_block_));
 
   // TODO(chrisha): Create the image and the PDB in a temp directory and
   //     see if pe::FindPdbForModule can find it. If so, then so will the
@@ -88,7 +90,7 @@ TEST_F(AddPdbInfoTransformTest, CreateNew) {
 
   AddPdbInfoTransform transform(kPdbPath, kPdbAge, kPdbGuid);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &transform, &block_graph_, dos_header_block_));
+      &transform, &policy_, &block_graph_, dos_header_block_));
 }
 
 }  // namespace transforms

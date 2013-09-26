@@ -18,6 +18,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
+#include "syzygy/block_graph/unittest_util.h"
 
 extern "C" {
 
@@ -98,6 +99,7 @@ class BasicBlockTest : public ::testing::Test {
   // Start address of the assembly function.
   RelativeAddress start_addr_;
 
+  testing::DummyTransformPolicy policy_;
   BlockGraph block_graph_;
   Section* text_section_;
   Section* data_section_;

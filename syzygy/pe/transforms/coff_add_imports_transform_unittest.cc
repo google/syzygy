@@ -16,6 +16,7 @@
 
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/block_graph/orderers/original_orderer.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/coff_decomposer.h"
@@ -128,6 +129,7 @@ class CoffAddImportsTransformTest : public testing::PELibUnitTest {
   base::FilePath temp_dir_path_;
 
   // Original image details.
+  testing::DummyTransformPolicy policy_;
   CoffFile image_file_;
   BlockGraph block_graph_;
   ImageLayout image_layout_;
@@ -150,7 +152,7 @@ TEST_F(CoffAddImportsTransformTest, AddImportsExisting) {
   CoffAddImportsTransform transform;
   transform.AddModule(&module);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &transform, &block_graph_, headers_block_));
+      &transform, &policy_, &block_graph_, headers_block_));
   EXPECT_EQ(0u, transform.modules_added());
   EXPECT_EQ(0u, transform.symbols_added());
 
@@ -182,7 +184,7 @@ TEST_F(CoffAddImportsTransformTest, AddImportsNewSymbol) {
   CoffAddImportsTransform transform;
   transform.AddModule(&module);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &transform, &block_graph_, headers_block_));
+      &transform, &policy_, &block_graph_, headers_block_));
   EXPECT_EQ(0u, transform.modules_added());
   EXPECT_EQ(1u, transform.symbols_added());
 
@@ -216,7 +218,7 @@ TEST_F(CoffAddImportsTransformTest, FindImportsExisting) {
   CoffAddImportsTransform transform;
   transform.AddModule(&module);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &transform, &block_graph_, headers_block_));
+      &transform, &policy_, &block_graph_, headers_block_));
   EXPECT_EQ(0u, transform.modules_added());
   EXPECT_EQ(0u, transform.symbols_added());
 
@@ -246,7 +248,7 @@ TEST_F(CoffAddImportsTransformTest, FindImportsNewSymbol) {
   CoffAddImportsTransform transform;
   transform.AddModule(&module);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &transform, &block_graph_, headers_block_));
+      &transform, &policy_, &block_graph_, headers_block_));
   EXPECT_EQ(0u, transform.modules_added());
   EXPECT_EQ(0u, transform.symbols_added());
 

@@ -27,7 +27,10 @@ const char CoffPrepareHeadersTransform::kTransformName[] =
     "CoffPrepareHeadersTransform";
 
 bool CoffPrepareHeadersTransform::TransformBlockGraph(
-    BlockGraph* block_graph, BlockGraph::Block* headers_block) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* headers_block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(headers_block != NULL);
 

@@ -16,6 +16,7 @@
 
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/unittest_util.h"
@@ -40,6 +41,7 @@ class AddDebugDirectoryEntryTransformTest : public testing::PELibUnitTest {
         dos_header_block_(NULL) {
   }
 
+  testing::DummyTransformPolicy policy_;
   ImageLayout image_layout_;
   BlockGraph block_graph_;
   BlockGraph::Block* dos_header_block_;
@@ -60,7 +62,7 @@ TEST_F(AddDebugDirectoryEntryTransformTest, FindExisting) {
 
   AddDebugDirectoryEntryTransform transform(IMAGE_DEBUG_TYPE_CODEVIEW, false);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &transform, &block_graph_, dos_header_block_));
+      &transform, &policy_, &block_graph_, dos_header_block_));
 
   EXPECT_FALSE(transform.added());
   EXPECT_TRUE(transform.block() != NULL);
@@ -93,7 +95,7 @@ TEST_F(AddDebugDirectoryEntryTransformTest, CreateNew) {
 
   AddDebugDirectoryEntryTransform transform(IMAGE_DEBUG_TYPE_CODEVIEW, false);
   EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &transform, &block_graph_, dos_header_block_));
+      &transform, &policy_, &block_graph_, dos_header_block_));
 
   EXPECT_TRUE(transform.added());
   EXPECT_TRUE(transform.block() != NULL);

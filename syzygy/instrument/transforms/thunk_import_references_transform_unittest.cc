@@ -160,7 +160,7 @@ TEST_F(ThunkImportReferencesTransformTest, TestInstrumentation) {
 
   // Run the transform.
   ASSERT_TRUE(ApplyBlockGraphTransform(
-      &transform, &block_graph_, dos_header_block_));
+      &transform, &policy_, &block_graph_, dos_header_block_));
 
   // Check that we now have a thunks section.
   BlockGraph::Section* thunks_section =

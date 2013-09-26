@@ -34,7 +34,10 @@ const char AddPdbInfoTransform::kTransformName[] =
     "AddPdbInfoTransform";
 
 bool AddPdbInfoTransform::TransformBlockGraph(
-    BlockGraph* block_graph, BlockGraph::Block* dos_header_block) {
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* dos_header_block) {
+  DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(dos_header_block != NULL);
 
@@ -48,8 +51,8 @@ bool AddPdbInfoTransform::TransformBlockGraph(
   // Find or create the appropriate debug directory entry.
   AddDebugDirectoryEntryTransform debug_dir_tx(IMAGE_DEBUG_TYPE_CODEVIEW,
                                                false);
-  if (!block_graph::ApplyBlockGraphTransform(&debug_dir_tx, block_graph,
-                                             dos_header_block)) {
+  if (!block_graph::ApplyBlockGraphTransform(
+          &debug_dir_tx, policy, block_graph, dos_header_block)) {
     LOG(ERROR) << debug_dir_tx.name() << " failed.";
     return false;
   }

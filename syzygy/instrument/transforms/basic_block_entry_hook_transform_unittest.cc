@@ -198,8 +198,8 @@ TEST_F(BasicBlockEntryHookTransformTest, ApplyAgentInstrumentation) {
 
   // Apply the transform.
   tx_.set_src_ranges_for_thunks(true);
-  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(&tx_, &block_graph_,
-                                                    dos_header_block_));
+  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &tx_, &policy_, &block_graph_, dos_header_block_));
   ASSERT_TRUE(tx_.frequency_data_block() != NULL);
   ASSERT_TRUE(tx_.thunk_section_ != NULL);
   ASSERT_TRUE(tx_.bb_entry_hook_ref_.IsValid());
