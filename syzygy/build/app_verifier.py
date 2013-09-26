@@ -85,8 +85,8 @@ _EXCEPTIONS = {
 _BLACK_LIST = [
   # These can't be run under AppVerifier because we end up double hooking the
   # operating system heap function, leading to nonsense.
-  'asan_rtl_unittests.exe',
   'integration_tests.exe',
+  'syzyasan_rtl_unittests.exe',
 ]
 
 
