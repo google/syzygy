@@ -19,8 +19,6 @@ import chrome_control
 import ctypes
 import ctypes.wintypes
 import dromaeo
-import etw
-import etw_db
 import event_counter
 import glob
 import ibmperf
@@ -39,7 +37,13 @@ import _winreg
 # The following packages are typically not installed in the depot_tools
 # Python installation, from which pylint is run.
 # pylint: disable=E0611,F0401
-import pkg_resources
+try:
+  # Make pkg_resources a conditional import.
+  import pkg_resources
+except ImportError:
+  pkg_resources = None
+import etw
+import etw_db
 import win32com.shell.shell as shell
 import win32com.shell.shellcon as shellcon
 
@@ -108,7 +112,9 @@ def _DeletePrefetch():
 
 def _GetExePath(name):
   """Gets the path to a named executable."""
-  path = pkg_resources.resource_filename(__name__, os.path.join('exe', name))
+  path = None
+  if pkg_resources:
+    path = pkg_resources.resource_filename(__name__, os.path.join('exe', name))
 
   if not os.path.exists(path):
     # If we're not running packaged from an egg, we assume we're being
@@ -121,8 +127,10 @@ def _GetExePath(name):
 
 def _GetContentPath(name):
   """Gets the path to a named data file."""
-  path = pkg_resources.resource_filename(__name__,
-                                         os.path.join('content', name))
+  path = None
+  if pkg_resources:
+    path = pkg_resources.resource_filename(__name__,
+                                           os.path.join('content', name))
 
   if not os.path.exists(path):
     # If we're not running packaged from an egg, we assume we're being
@@ -409,7 +417,7 @@ class ChromeRunner(object):
       _LOGGER.info("Shutting down Chrome Profile: %s", self._profile_dir)
       chrome_control.ShutDown(self._profile_dir)
 
-  def _DoIteration(self, it):
+  def _DoIteration(self, dummy_it):
     """Invoked each iteration after Chrome has successfully launched."""
     if self._http_server:
       # We're in dromaeo mode. Let's give it several minutes to finish.
