@@ -1,8 +1,8 @@
 Syzygy Post-Link Transformation Toolchain
 =========================================
 
-Date:     2013/09/05
-Version:  0.2.29.1 (1769)
+Date:     2013/09/26
+Version:  0.7.0.1 (1810)
 
 The Syzygy project consists of a suite of tools for the instrumentation of
 PE binaries. The various instrumentation modes allow for computing code
@@ -96,10 +96,6 @@ Instrumentation Agents
 The release package includes the following instrumentation agent libraries,
 and their debugging symbols (PDB files).
 
-asan_rtl.dll
-  The runtime library associated with the address-sanitizer instrumentation
-  mode. Useful for finding heap use errors (use after free, double free, etc).
-
 basic_block_entry_client.dll
   The agent associated with the basic-block entry instrumentation mode. This
   collects frequency of execution counts for each basic block in a binary.
@@ -122,6 +118,10 @@ profile_client.dll
   and exit events per thread. Intended for use with grinder to produce
   cachegrind files. These can then be used with a KCacheGrind or QCacheGrind
   for visualization.
+
+syzyasan_rtl.dll
+  The runtime library associated with the address-sanitizer instrumentation
+  mode. Useful for finding heap use errors (use after free, double free, etc).
 
 Experimental Executables
 ------------------------

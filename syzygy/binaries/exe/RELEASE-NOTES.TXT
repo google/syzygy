@@ -1,6 +1,16 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.0.1
+
+[-----] Build infrastructure changes to support renamed ASAN RTL.
+
+Version 0.7.0.0
+
+[r1807] SyzyASan - Reduce the contention in StackCaptureCache.
+[r1791] SyzyASan - Rename asan_rtl.dll to syzyasan_rtl.dll
+[r1787] Add branch events buffering to the instrumenter.
+
 Version 0.2.29.1
 
 [r1768] SyzyASan - Fix an ugly bug in the way we were setting up the filter in
