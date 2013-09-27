@@ -44,7 +44,7 @@ def _ProcessBBEntries(log_files, output_dir):
   """
   output_file = os.path.join(output_dir, 'bbentries.json')
   cmd = [
-      runner._GetExePath('grinder.exe'),
+      runner._GetExePath('grinder.exe'),  # pylint: disable=W0212
       '--mode=bbentry',
       '--output-file=%s' % output_file,
   ]
@@ -141,14 +141,14 @@ def _OptimizeChromeBinary(chrome_dir, work_dir, output_dir, log_files,
     raise OptimizationError(
         'Failed to generate an ordering for "%s".' % basename)
 
-  # Populate output_dir with a copy of the original chome installation.
+  # Populate output_dir with a copy of the original chrome installation.
   _LOGGER.info('Copying "%s" to output dir "%s".', chrome_dir, output_dir)
   if os.path.isfile(output_dir):
     raise OptimizationError('File present at output dir location: "%s"',
                             output_dir)
   chrome_utils.CopyChromeFiles(chrome_dir, output_dir)
 
-  # Replace the bninary in output_dir with an optimized version.
+  # Replace the binary in output_dir with an optimized version.
   _LOGGER.info('Optimizing "%s".', basename)
   cmd = [runner._GetExePath('relink.exe'),
          '--verbose',

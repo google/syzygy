@@ -86,6 +86,6 @@ def CopyChromeFiles(src_dir, tgt_dir):
         # When run as part of the build, there may be build targets still in
         # flight that we don't depend on and can't copy (because they're opened
         # exclusively by the build process).  Let's assume that all the files we
-        # want will copy correctly, ignore the exeption, and hope for the best
+        # want will copy correctly, ignore the exception, and hope for the best
         # on the other side.
         _LOGGER.warn('Skipped "%s".', rel_path)

@@ -110,7 +110,7 @@ class IbmPerfTool(object):
   def _Popen(self, cmd_line):
     """Creates a subprocess.Popen object for the given command-line.
 
-    Seperated for easy injection of results in unittests.
+    Separated for easy injection of results in unittests.
 
     Args:
       cmd_line: The command line to execute, with the executable and each
@@ -214,7 +214,7 @@ class HardwarePerformanceCounter(IbmPerfTool):
     non_free_metrics: A list of metrics that require a hardware counter.
   """
 
-  # The CYCLES counter is a special case, as it is always available ony any
+  # The CYCLES counter is a special case, as it is always available on any
   # machine.
   _CYCLES = "CYCLES"
 

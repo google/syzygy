@@ -69,7 +69,7 @@ class DromaeoServer(zip_http_server.HTTPZipFileServer):
     if request_handler_class is None:
       request_handler_class = RequestHandler
 
-    # Iniialize the base class.
+    # Initialize the base class.
     server_address = (address, port)
     zip_http_server.HTTPZipFileServer.__init__(
         self, server_address, request_handler_class, zip_file)
@@ -88,7 +88,7 @@ class DromaeoServer(zip_http_server.HTTPZipFileServer):
     """Stores the results of the benchmark and sets an event to notify any other
     thread waiting on the results.
     """
-    self._results = results;
+    self._results = results
     self._results_have_been_set.set()
 
   def HasResults(self):
@@ -104,7 +104,7 @@ class DromaeoServer(zip_http_server.HTTPZipFileServer):
     self._results_have_been_set.wait(timeout)
 
   def Reset(self):
-    """Resets the event noficication of the results being set."""
+    """Resets the event notification of the results being set."""
     self._results_have_been_set.clear()
 
   def GetUrl(self):
@@ -148,7 +148,6 @@ def main(argv):
 
   # Run the server in another thread.
   print "Starting dromaeo server."
-  interrupted = False
   server.Run()
   print "URl: %s" % server.GetURL()
   try:
