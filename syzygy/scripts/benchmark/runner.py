@@ -944,24 +944,39 @@ class BenchmarkRunner(ChromeRunner):
     if returncode != 0:
       raise RunnerError('Failed to get working set stats.')
 
+    abs_chrome_exe = os.path.abspath(self._chrome_exe)
     working_sets = json.loads(stdout)
     results = []
     for process in working_sets:
+      is_chrome_of_interest = False
       total_ws = None
       chrome_ws = None
+      chrome_child_ws = None
       for module in process.get('modules'):
         module_name = module.get('module_name')
+        if module_name == abs_chrome_exe:
+          is_chrome_of_interest = True
         if module_name == 'Total':
           total_ws = map(module.get, self._WS_METRIC_NAMES)
         if module_name.endswith('\\chrome.dll'):
           chrome_ws = map(module.get, self._WS_METRIC_NAMES)
+        if module_name.endswith('\\chrome_child.dll'):
+          chrome_child_ws = map(module.get, self._WS_METRIC_NAMES)
 
-      results.append((total_ws, chrome_ws))
+      if is_chrome_of_interest:
+        results.append((total_ws, chrome_ws, chrome_child_ws))
 
     # Order the results to make the metrics output order somewhat stable.
     results.sort()
     for i in xrange(len(results)):
-      for value, name in zip(results[i][0], self._WS_OUTPUT_NAMES):
+      total_ws, chrome_ws, chrome_child_ws = results[i]
+      for value, name in zip(total_ws, self._WS_OUTPUT_NAMES):
         self._AddResult('Chrome', 'TotalWs[%i][%s]' % (i, name), value)
-      for value, name in zip(results[i][1], self._WS_OUTPUT_NAMES):
-        self._AddResult('Chrome', 'ChromeDllWs[%i][%s]' % (i, name), value)
+      if chrome_ws:
+        for value, name in zip(chrome_ws, self._WS_OUTPUT_NAMES):
+          self._AddResult('Chrome', 'ChromeDllWs[%i][%s]' % (i, name),
+                          value)
+      if chrome_child_ws:
+        for value, name in zip(chrome_child_ws, self._WS_OUTPUT_NAMES):
+          self._AddResult('Chrome', 'ChromeChildDllWs[%i][%s]' % (i, name),
+                          value)

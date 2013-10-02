@@ -170,6 +170,7 @@ void OutputProcessInfo(const ProcessInfo& info,
     OutputModule(it->module_name, *it, json);
 
   json->CloseList();
+  json->CloseDict();
 }
 
 }  // namespace

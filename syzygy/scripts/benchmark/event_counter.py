@@ -32,6 +32,7 @@ import etw.descriptors.pagefault_xp as pagefault_xp
 # TODO(siggi): Make these configurable?
 _CHROME_RE = re.compile(r'^chrome\.exe$', re.I)
 _MODULES_TO_TRACK = set(['chrome.exe', 'chrome.dll'])
+_OPTIONAL_MODULES_TO_TRACK = set(['chrome_child.dll'])
 
 
 # These are used as bucket names in hard/soft fault accounting dicts.
@@ -143,6 +144,8 @@ class LogEventCounter(etw.EventConsumer):
       basename = os.path.basename(module.file_name).lower()
       if basename in _MODULES_TO_TRACK:
         return basename
+      if basename in _OPTIONAL_MODULES_TO_TRACK:
+        return basename
 
     return _OTHER
 
@@ -152,11 +155,13 @@ class LogEventCounter(etw.EventConsumer):
     process_desc = self._process_db.GetThreadProcess(event.TThreadId)
     if process_desc and _CHROME_RE.search(process_desc.image_file_name):
       module_name = self._GetModuleName(process_desc, event)
+      self._hardfaults.setdefault(module_name, 0)
       self._hardfaults[module_name] += 1
 
   def _OnSoftFault(self, event, fault_type):
     def UpdateModuleCount(module_name):
-      self._softfaults[module_name][fault_type] += 1
+      sf = self._softfaults.setdefault(module_name, _MakeEmptySoftFaultDict())
+      sf[fault_type] += 1
 
     # Resolve the faulting process.
     process_desc = self._process_db.GetProcess(event.process_id)
