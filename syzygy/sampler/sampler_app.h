@@ -54,7 +54,6 @@ class SamplerApp : public common::AppImplBase {
   // @name Default command-line values.
   // @{
   static const size_t kDefaultLog2BucketSize;
-  static const base::TimeDelta kDefaultSamplingInterval;
   // @}
 
   // These are exposed for use by anonymous helper functions.

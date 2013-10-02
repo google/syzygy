@@ -61,10 +61,11 @@ const char kUsageFormatStr[] =
     "  --sampling-interval=INTERVAL\n"
     "                        Sets the sampling interval. This is a floating\n"
     "                        point value in seconds. Scientific notation is\n"
-    "                        acceptable. Defaults to 1ms, or 0.001s. Not all\n"
-    "                        sampling intervals are available on all systems\n"
-    "                        the closest value available will be used. The\n"
-    "                        actual sampling interval used will be reported.\n"
+    "                        acceptable. Defaults to the current system\n"
+    "                        setting. Not all sampling intervals are\n"
+    "                        available on all systems so the closest value\n"
+    "                        available will be used. The actual sampling\n"
+    "                        interval used will be reported.\n"
     "  --output-dir=DIR      Specifies the output directory into which trace\n"
     "                        files will be written.\n"
     "\n";
@@ -195,27 +196,43 @@ const std::string TimeDeltaToString(const base::TimeDelta& td) {
 }
 
 // Sets the sampling interval used across all sampling profilers.
-bool SetSamplingInterval(const base::TimeDelta& sampling_interval) {
-  // Set the sampling interval.
-  if (!base::win::SamplingProfiler::SetSamplingInterval(sampling_interval)) {
-    LOG(ERROR) << "SetSamplingInterval failed.";
-    return false;
+bool SetSamplingInterval(base::TimeDelta* sampling_interval) {
+  bool use_system_default = sampling_interval->ToInternalValue() == 0;
+
+  if (!use_system_default) {
+    // Set the sampling interval.
+    if (!base::win::SamplingProfiler::SetSamplingInterval(
+            *sampling_interval)) {
+      LOG(ERROR) << "SetSamplingInterval failed.";
+      return false;
+    }
   }
 
-  // If the actual sampling interval and the requested one don't match, then
-  // output a warning.
+  // Get the actual sampling interval.
   base::TimeDelta actual_sampling_interval;
   if (!base::win::SamplingProfiler::GetSamplingInterval(
           &actual_sampling_interval)) {
     LOG(ERROR) << "GetSamplingInterval failed.";
     return false;
   }
-  if (actual_sampling_interval != sampling_interval) {
-    LOG(WARNING) << "Requested sampling interval of "
-                 << TimeDeltaToString(sampling_interval)
-                 << " but actual sampling interval is "
-                 << TimeDeltaToString(actual_sampling_interval) << ".";
+
+  if (use_system_default) {
+    // If we're using the system default then report it.
+    LOG(INFO) << "Using system default sampling interval of "
+              << TimeDeltaToString(actual_sampling_interval) << ".";
+  } else {
+    // If the actual sampling interval and the requested one don't match, then
+    // output a warning.
+    if (actual_sampling_interval != *sampling_interval) {
+      LOG(WARNING) << "Requested sampling interval of "
+                   << TimeDeltaToString(*sampling_interval)
+                   << " but actual sampling interval is "
+                   << TimeDeltaToString(actual_sampling_interval) << ".";
+    }
   }
+
+  *sampling_interval = actual_sampling_interval;
+
   return true;
 }
 
@@ -560,8 +577,6 @@ const char SamplerApp::kSamplingInterval[] = "sampling-interval";
 const char SamplerApp::kOutputDir[] = "output-dir";
 
 const size_t SamplerApp::kDefaultLog2BucketSize = 2;
-const base::TimeDelta SamplerApp::kDefaultSamplingInterval =
-    base::TimeDelta::FromMilliseconds(1);
 
 base::Lock SamplerApp::console_ctrl_lock_;
 SamplerApp* SamplerApp::console_ctrl_owner_ = NULL;
@@ -570,7 +585,7 @@ SamplerApp::SamplerApp()
     : common::AppImplBase("Sampler"),
       blacklist_pids_(true),
       log2_bucket_size_(kDefaultLog2BucketSize),
-      sampling_interval_(kDefaultSamplingInterval),
+      sampling_interval_(),
       running_(true),
       sampling_interval_in_cycles_(0) {
 }
@@ -665,7 +680,7 @@ int SamplerApp::RunImpl() {
     }
   }
 
-  if (!SetSamplingInterval(sampling_interval_))
+  if (!SetSamplingInterval(&sampling_interval_))
     return 1;
 
   // TODO(chrisha): Output the clock information to the trace file. This should

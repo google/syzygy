@@ -35,6 +35,8 @@ namespace {
 
 using testing::_;
 
+const base::TimeDelta kDefaultSamplingInterval;
+
 class TestSamplerApp : public SamplerApp {
  public:
   TestSamplerApp()
@@ -297,7 +299,7 @@ TEST_F(SamplerAppTest, ParseValidBucketSizeMinimal) {
   EXPECT_TRUE(impl_.blacklist_pids_);
   EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
   EXPECT_EQ(3u, impl_.log2_bucket_size_);
-  EXPECT_EQ(SamplerApp::kDefaultSamplingInterval, impl_.sampling_interval_);
+  EXPECT_EQ(kDefaultSamplingInterval, impl_.sampling_interval_);
   EXPECT_TRUE(impl_.output_dir_.empty());
 }
 
@@ -361,7 +363,7 @@ TEST_F(SamplerAppTest, ParseOutputDir) {
   EXPECT_TRUE(impl_.blacklist_pids_);
   EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
   EXPECT_EQ(SamplerApp::kDefaultLog2BucketSize, impl_.log2_bucket_size_);
-  EXPECT_EQ(SamplerApp::kDefaultSamplingInterval, impl_.sampling_interval_);
+  EXPECT_EQ(kDefaultSamplingInterval, impl_.sampling_interval_);
   EXPECT_EQ(base::FilePath(L"foo"), impl_.output_dir_);
 }
 
@@ -373,7 +375,7 @@ TEST_F(SamplerAppTest, ParseMinimal) {
   EXPECT_TRUE(impl_.blacklist_pids_);
   EXPECT_THAT(impl_.module_sigs_, testing::ElementsAre(test_dll_sig));
   EXPECT_EQ(SamplerApp::kDefaultLog2BucketSize, impl_.log2_bucket_size_);
-  EXPECT_EQ(SamplerApp::kDefaultSamplingInterval, impl_.sampling_interval_);
+  EXPECT_EQ(kDefaultSamplingInterval, impl_.sampling_interval_);
   EXPECT_TRUE(impl_.output_dir_.empty());
 }
 
