@@ -46,12 +46,6 @@ const char kUsageFormatStr[] =
     "  --mode=<mode>\n"
     "    The processing mode. Must be one of 'bbentry', 'branch', 'coverage',\n"
     "    'profile' or 'sample'.\n"
-    "sample mode required parameters\n"
-    "  --image=<path>\n"
-    "    The path to the image for which sampling information is to be\n"
-    "    processed. This must be specified as trace files may contain\n"
-    "    information about several modules, and only one module may be\n"
-    "    processed at a time.\n"
     "\n"
     "Optional parameters\n"
     "  --output-file=<output file>\n"
@@ -70,6 +64,12 @@ const char kUsageFormatStr[] =
     "    'compiland' or 'line'. Output is in CSV format, except for 'line'\n"
     "    aggregation, which outputs to KCacheGrind format. Defaults to\n"
     "    'basic-block'.\n"
+    "  --image=<path>\n"
+    "    The path to the image for which sampling information is to be\n"
+    "    processed. If this is not specified then aggregate information\n"
+    "    will be reported for all modules encountered in the trace files.\n"
+    "    This must be specified for 'basic-block' aggregation modes, as\n"
+    "    only one module may be processed at a time in this mode.\n"
     "\n";
 
 }  // namespace

@@ -143,11 +143,17 @@ bool BuildHeatMapForCodeBlock(const Range& block_range,
 // basic-block. Non-decomposable code blocks are represented by a single range.
 bool BuildEmptyHeatMap(const SampleGrinder::ModuleKey& module_key,
                        const SampleGrinder::ModuleData& module_data,
-                       const pe::PEFile& image,
                        core::StringTable* string_table,
                        HeatMap* heat_map) {
   DCHECK(string_table != NULL);
   DCHECK(heat_map != NULL);
+
+  pe::PEFile image;
+  if (!image.Init(module_data.module_path)) {
+    LOG(ERROR) << "Failed to read PE file \""
+               << module_data.module_path.value() << "\".";
+    return false;
+  }
 
   // Decompose the module.
   pe::Decomposer decomposer(image);
@@ -369,14 +375,17 @@ bool SampleGrinder::ParseCommandLine(const CommandLine* command_line) {
   // interest.
   image_path_ = command_line->GetSwitchValuePath(kImage);
   if (image_path_.empty()) {
-    LOG(ERROR) << "Must specify --image.";
-    return false;
+    if (aggregation_level_ == kBasicBlock) {
+      LOG(ERROR) << "Must specify --image in basic-block mode.";
+      return false;
+    }
+  } else {
+    if (!image_.Init(image_path_)) {
+      LOG(ERROR) << "Failed to parse image \"" << image_path_.value() << "\".";
+      return false;
+    }
+    image_.GetSignature(&image_signature_);
   }
-  if (!image_.Init(image_path_)) {
-    LOG(ERROR) << "Failed to parse image \"" << image_path_.value() << "\".";
-    return false;
-  }
-  image_.GetSignature(&image_signature_);
 
   return true;
 }
@@ -392,67 +401,73 @@ bool SampleGrinder::Grind() {
                  << "will be partial.";
   }
 
-  // Find the sample data for the module of interest.
-  ModuleKey module_key = { image_signature_.module_size,
-                           image_signature_.module_checksum,
-                           image_signature_.module_time_date_stamp };
-  ModuleDataMap::const_iterator mod_it = module_data_.find(module_key);
-
-  if (mod_it == module_data_.end()) {
-    LOG(ERROR) << "No sample data was found for module \""
-               << image_path_.value() << "\".";
-    return false;
-  }
-
-  // Build an empty heat map. How exactly we do this depends on the aggregation
-  // mode.
-  bool empty_heat_map_built = false;
-  if (aggregation_level_ == kLine) {
-    // In line aggregation mode we simply extract line info from the PDB.
-    empty_heat_map_built = BuildEmptyHeatMap(image_path_, &line_info_,
-                                             &heat_map_);
-  } else {
-    // In basic-block, function and compiland aggregation mode we decompose the
-    // image to get compilands, functions and basic blocks.
-    // TODO(chrisha): We shouldn't need full decomposition for this.
-    empty_heat_map_built = BuildEmptyHeatMap(mod_it->first, mod_it->second,
-                                             image_, &string_table_,
-                                             &heat_map_);
-  }
-
-  if (!empty_heat_map_built) {
-    LOG(ERROR) << "Unable to build empty heat map for module \""
-                << mod_it->second.module_path.value() << "\".";
-    return false;
-  }
-
-  // Populate the heat map by pouring the sample data into it. If any samples
-  // did not map to code blocks then output a warning.
-  double total = 0.0;
-  double orphaned = IncrementHeatMapFromModuleData(
-      mod_it->second, &heat_map_, &total);
-  if (orphaned > 0) {
-    LOG(WARNING) << base::StringPrintf("%.2f%% (%.4f s) ",
-                                        orphaned / total,
-                                        orphaned)
-                  << "samples were orphaned for module \""
-                  << mod_it->second.module_path.value() << "\".";
-  }
-
-  if (aggregation_level_ == kFunction || aggregation_level_ == kCompiland) {
-    LOG(INFO) << "Rolling up basic-block heat to \""
-              << kAggregationLevelNames[aggregation_level_] << "\" level.";
-    RollUpByName(aggregation_level_, heat_map_, &name_heat_map_);
-    // We can clear the heat map as it was only needed as an intermediate.
-    heat_map_.Clear();
-  } else if (aggregation_level_ == kLine) {
-    LOG(INFO) << "Rolling up basic-block heat to lines.";
-    if (!RollUpToLines(heat_map_, &line_info_)) {
-      LOG(ERROR) << "Failed to roll-up heat to lines.";
+  // Bail if no data has been processed.
+  if (module_data_.empty()) {
+    if (!image_path_.empty()) {
+      LOG(ERROR) << "No sample data was found for module \""
+                 << image_path_.value() << "\".";
+      return false;
+    } else {
+      LOG(ERROR) << "No sample data encountered.";
       return false;
     }
-    // We can clear the heat map as it was only needed as an intermediate.
-    heat_map_.Clear();
+  }
+
+  // Process each module.
+  ModuleDataMap::const_iterator mod_it = module_data_.begin();
+  for (; mod_it != module_data_.end(); ++mod_it) {
+    LOG(INFO) << "Processing aggregate samples for module \""
+              << mod_it->second.module_path.value() << "\".";
+
+    // Build an empty heat map. How exactly we do this depends on the
+    // aggregation mode.
+    bool empty_heat_map_built = false;
+    if (aggregation_level_ == kLine) {
+      // In line aggregation mode we simply extract line info from the PDB.
+      empty_heat_map_built = BuildEmptyHeatMap(
+          mod_it->second.module_path, &line_info_, &heat_map_);
+    } else {
+      // In basic-block, function and compiland aggregation mode we decompose
+      // the image to get compilands, functions and basic blocks.
+      // TODO(chrisha): We shouldn't need full decomposition for this.
+      empty_heat_map_built = BuildEmptyHeatMap(
+          mod_it->first, mod_it->second, &string_table_, &heat_map_);
+    }
+
+    if (!empty_heat_map_built) {
+      LOG(ERROR) << "Unable to build empty heat map for module \""
+                  << mod_it->second.module_path.value() << "\".";
+      return false;
+    }
+
+    // Populate the heat map by pouring the sample data into it. If any samples
+    // did not map to code blocks then output a warning.
+    double total = 0.0;
+    double orphaned = IncrementHeatMapFromModuleData(
+        mod_it->second, &heat_map_, &total);
+    if (orphaned > 0) {
+      LOG(WARNING) << base::StringPrintf("%.2f%% (%.4f s) ",
+                                          orphaned / total,
+                                          orphaned)
+                    << "samples were orphaned for module \""
+                    << mod_it->second.module_path.value() << "\".";
+    }
+
+    if (aggregation_level_ == kFunction || aggregation_level_ == kCompiland) {
+      LOG(INFO) << "Rolling up basic-block heat to \""
+                << kAggregationLevelNames[aggregation_level_] << "\" level.";
+      RollUpByName(aggregation_level_, heat_map_, &name_heat_map_);
+      // We can clear the heat map as it was only needed as an intermediate.
+      heat_map_.Clear();
+    } else if (aggregation_level_ == kLine) {
+      LOG(INFO) << "Rolling up basic-block heat to lines.";
+      if (!RollUpToLines(heat_map_, &line_info_)) {
+        LOG(ERROR) << "Failed to roll-up heat to lines.";
+        return false;
+      }
+      // We can clear the heat map as it was only needed as an intermediate.
+      heat_map_.Clear();
+    }
   }
 
   return true;
@@ -516,21 +531,24 @@ void SampleGrinder::OnSampleData(base::Time Time,
     return;
   }
 
-  // Filter based on the image of interest.
-  // TODO(chrisha): Make this work for multiple modules simultaneously. The
-  //     output model of a Grinder is currently too narrow to do this in any
-  //     meaningful way.
-  if (image_signature_.module_size != module_info->module_size ||
-      image_signature_.module_checksum != module_info->image_checksum ||
-      image_signature_.module_time_date_stamp != module_info->time_date_stamp) {
-    LOG(WARNING) << "Skipping sample data for module \""
-                 << module_info->image_file_name << "\".";
-    return;
+  // Filter based on the image of interest, if provided.
+  if (!image_path_.empty()) {
+    if (image_signature_.module_size != module_info->module_size ||
+        image_signature_.module_checksum != module_info->image_checksum ||
+        image_signature_.module_time_date_stamp !=
+            module_info->time_date_stamp) {
+      LOG(INFO) << "Skipping sample data for module \""
+                << module_info->image_file_name << "\".";
+      return;
+    }
   }
 
   // Get the summary data associated with this module.
   ModuleData* module_data = GetModuleData(
       base::FilePath(module_info->image_file_name), data);
+
+  LOG(INFO) << "Aggregating sample info for module \""
+            << module_data->module_path.value() << "\".";
 
   // Make sure that we have a high enough bucket resolution to be able to
   // represent the data that we're processing. This may involve 'upsampling'

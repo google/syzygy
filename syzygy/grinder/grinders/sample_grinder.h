@@ -157,7 +157,8 @@ class SampleGrinder : public GrinderInterface {
   // The aggregation level to be used in processing samples.
   AggregationLevel aggregation_level_;
 
-  // The module that we are currently processing.
+  // If image_path_ is not empty, then this data is used as a filter for
+  // processing.
   base::FilePath image_path_;
   pe::PEFile image_;
   pe::PEFile::Signature image_signature_;

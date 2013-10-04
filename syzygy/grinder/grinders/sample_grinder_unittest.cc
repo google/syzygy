@@ -93,10 +93,13 @@ class SampleGrinderTest : public testing::PELibUnitTest {
     ASSERT_TRUE(parser_.OpenTraceFile(trace_file_path_));
   }
 
-  void GrindSucceeds(SampleGrinder::AggregationLevel aggregation_level) {
+  void GrindSucceeds(SampleGrinder::AggregationLevel aggregation_level,
+                     bool specify_image) {
     TestSampleGrinder g;
 
-    cmd_line_.AppendSwitchPath(SampleGrinder::kImage, test_dll_path_);
+    if (specify_image)
+      cmd_line_.AppendSwitchPath(SampleGrinder::kImage, test_dll_path_);
+
     cmd_line_.AppendSwitchASCII(
         SampleGrinder::kAggregationLevel,
         SampleGrinder::kAggregationLevelNames[aggregation_level]);
@@ -452,6 +455,51 @@ TEST_F(SampleGrinderTest, ParseMinimalCommandLineSucceeds) {
 }
 
 TEST_F(SampleGrinderTest, ParseCommandLineAggregationLevel) {
+  // Test command line without specifying '--image'.
+
+  cmd_line_.AppendSwitchASCII(SampleGrinder::kAggregationLevel, "basic-block");
+  {
+    TestSampleGrinder g;
+    EXPECT_FALSE(g.ParseCommandLine(&cmd_line_));
+  }
+
+  cmd_line_.Init(0, NULL);
+  cmd_line_.AppendSwitchASCII(SampleGrinder::kAggregationLevel, "function");
+  {
+    TestSampleGrinder g;
+    EXPECT_TRUE(g.ParseCommandLine(&cmd_line_));
+    EXPECT_TRUE(g.image_path_.empty());
+    EXPECT_EQ(SampleGrinder::kFunction, g.aggregation_level_);
+  }
+
+  cmd_line_.Init(0, NULL);
+  cmd_line_.AppendSwitchASCII(SampleGrinder::kAggregationLevel, "compiland");
+  {
+    TestSampleGrinder g;
+    EXPECT_TRUE(g.ParseCommandLine(&cmd_line_));
+    EXPECT_TRUE(g.image_path_.empty());
+    EXPECT_EQ(SampleGrinder::kCompiland, g.aggregation_level_);
+  }
+
+  cmd_line_.Init(0, NULL);
+  cmd_line_.AppendSwitchASCII(SampleGrinder::kAggregationLevel, "line");
+  {
+    TestSampleGrinder g;
+    EXPECT_TRUE(g.ParseCommandLine(&cmd_line_));
+    EXPECT_TRUE(g.image_path_.empty());
+    EXPECT_EQ(SampleGrinder::kLine, g.aggregation_level_);
+  }
+
+  cmd_line_.Init(0, NULL);
+  cmd_line_.AppendSwitchASCII(SampleGrinder::kAggregationLevel, "foobar");
+  {
+    TestSampleGrinder g;
+    EXPECT_FALSE(g.ParseCommandLine(&cmd_line_));
+  }
+
+  // Test command line when specifying '--image'.
+
+  cmd_line_.Init(0, NULL);
   cmd_line_.AppendSwitchPath(SampleGrinder::kImage, test_dll_path_);
   cmd_line_.AppendSwitchASCII(SampleGrinder::kAggregationLevel, "basic-block");
   {
@@ -469,6 +517,16 @@ TEST_F(SampleGrinderTest, ParseCommandLineAggregationLevel) {
     EXPECT_TRUE(g.ParseCommandLine(&cmd_line_));
     EXPECT_EQ(test_dll_path_, g.image_path_);
     EXPECT_EQ(SampleGrinder::kFunction, g.aggregation_level_);
+  }
+
+  cmd_line_.Init(0, NULL);
+  cmd_line_.AppendSwitchPath(SampleGrinder::kImage, test_dll_path_);
+  cmd_line_.AppendSwitchASCII(SampleGrinder::kAggregationLevel, "line");
+  {
+    TestSampleGrinder g;
+    EXPECT_TRUE(g.ParseCommandLine(&cmd_line_));
+    EXPECT_EQ(test_dll_path_, g.image_path_);
+    EXPECT_EQ(SampleGrinder::kLine, g.aggregation_level_);
   }
 
   cmd_line_.Init(0, NULL);
@@ -500,22 +558,37 @@ TEST_F(SampleGrinderTest, SetParserSucceeds) {
 
 TEST_F(SampleGrinderTest, GrindBasicBlock) {
   TestSampleGrinder g;
-  ASSERT_NO_FATAL_FAILURE(GrindSucceeds(SampleGrinder::kBasicBlock));
+  ASSERT_NO_FATAL_FAILURE(GrindSucceeds(SampleGrinder::kBasicBlock, true));
 }
 
 TEST_F(SampleGrinderTest, GrindFunction) {
   TestSampleGrinder g;
-  ASSERT_NO_FATAL_FAILURE(GrindSucceeds(SampleGrinder::kFunction));
+  ASSERT_NO_FATAL_FAILURE(GrindSucceeds(SampleGrinder::kFunction, true));
+}
+
+TEST_F(SampleGrinderTest, GrindFunctionNoImageSpecified) {
+  TestSampleGrinder g;
+  ASSERT_NO_FATAL_FAILURE(GrindSucceeds(SampleGrinder::kFunction, false));
 }
 
 TEST_F(SampleGrinderTest, GrindCompiland) {
   TestSampleGrinder g;
-  ASSERT_NO_FATAL_FAILURE(GrindSucceeds(SampleGrinder::kCompiland));
+  ASSERT_NO_FATAL_FAILURE(GrindSucceeds(SampleGrinder::kCompiland, true));
+}
+
+TEST_F(SampleGrinderTest, GrindCompilandNoImageSpecified) {
+  TestSampleGrinder g;
+  ASSERT_NO_FATAL_FAILURE(GrindSucceeds(SampleGrinder::kCompiland, false));
 }
 
 TEST_F(SampleGrinderTest, GrindLine) {
   TestSampleGrinder g;
-  ASSERT_NO_FATAL_FAILURE(GrindSucceeds(SampleGrinder::kLine));
+  ASSERT_NO_FATAL_FAILURE(GrindSucceeds(SampleGrinder::kLine, true));
+}
+
+TEST_F(SampleGrinderTest, GrindLineNoImageSpecified) {
+  TestSampleGrinder g;
+  ASSERT_NO_FATAL_FAILURE(GrindSucceeds(SampleGrinder::kLine, false));
 }
 
 }  // namespace grinders
