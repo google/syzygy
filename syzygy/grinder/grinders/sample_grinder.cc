@@ -20,8 +20,10 @@
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/block_graph/block_util.h"
 #include "syzygy/common/align.h"
-#include "syzygy/grinder/basic_block_util.h"
+#include "syzygy/grinder/cache_grind_writer.h"
+#include "syzygy/grinder/coverage_data.h"
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/find.h"
 
 namespace grinder {
 namespace grinders {
@@ -33,6 +35,7 @@ using trace::parser::AbsoluteAddress64;
 
 typedef block_graph::BlockGraph BlockGraph;
 typedef core::AddressRange<core::RelativeAddress, size_t> Range;
+typedef SampleGrinder::HeatMap HeatMap;
 
 core::RelativeAddress GetBucketStart(const TraceSampleData* sample_data) {
   DCHECK(sample_data != NULL);
@@ -57,7 +60,7 @@ size_t IntersectionSize(const Range& range,
 bool BuildHeatMapForCodeBlock(const Range& block_range,
                               const BlockGraph::Block* block,
                               core::StringTable* string_table,
-                              SampleGrinder::HeatMap* heat_map) {
+                              HeatMap* heat_map) {
   DCHECK(block != NULL);
   DCHECK(string_table != NULL);
   DCHECK(heat_map != NULL);
@@ -142,7 +145,7 @@ bool BuildEmptyHeatMap(const SampleGrinder::ModuleKey& module_key,
                        const SampleGrinder::ModuleData& module_data,
                        const pe::PEFile& image,
                        core::StringTable* string_table,
-                       SampleGrinder::HeatMap* heat_map) {
+                       HeatMap* heat_map) {
   DCHECK(string_table != NULL);
   DCHECK(heat_map != NULL);
 
@@ -181,11 +184,82 @@ bool BuildEmptyHeatMap(const SampleGrinder::ModuleKey& module_key,
   return true;
 }
 
+bool BuildEmptyHeatMap(const base::FilePath& image_path,
+                       LineInfo* line_info,
+                       HeatMap* heat_map) {
+  DCHECK(line_info != NULL);
+  DCHECK(heat_map != NULL);
+
+  base::FilePath pdb_path;
+  if (!pe::FindPdbForModule(image_path, &pdb_path) ||
+      pdb_path.empty()) {
+    LOG(ERROR) << "Unable to find PDB for image \"" << image_path.value()
+               << "\".";
+    return false;
+  }
+  if (!line_info->Init(pdb_path)) {
+    LOG(ERROR) << "Failed to read line info from PDB \""
+               << pdb_path.value() << "\".";
+    return false;
+  }
+
+  for (size_t i = 0; i < line_info->source_lines().size(); ++i) {
+    const LineInfo::SourceLine& line = line_info->source_lines()[i];
+    SampleGrinder::BasicBlockData data = { NULL, NULL, 0.0 };
+    Range range(line.address, line.size);
+    // We don't care about collisions, because there are often multiple
+    // lines that will map to the same source range.
+    heat_map->Insert(range, data);
+  }
+
+  return true;
+}
+
+bool RollUpToLines(const HeatMap& heat_map, LineInfo* line_info) {
+  DCHECK(line_info != NULL);
+
+  // Determine the minimum non-zero amount of heat in any bucket. We scale
+  // heat by this to integer values.
+  double min_heat = std::numeric_limits<double>::max();
+  HeatMap::const_iterator heat_it = heat_map.begin();
+  for (; heat_it != heat_map.end(); ++heat_it) {
+    double h = heat_it->second.heat;
+    if (h > 0 && h < min_heat)
+      min_heat = h;
+  }
+
+  // Scale the heat values to integers, and update the line info.
+  for (heat_it = heat_map.begin(); heat_it != heat_map.end(); ++heat_it) {
+    double d = heat_it->second.heat;
+    if (d == 0)
+      continue;
+    d /= min_heat;
+
+    // Use saturation arithmetic, and ensure that no value is zero.
+    uint32 ui = 0;
+    if (d >= std::numeric_limits<uint32>::max()) {
+      ui = std::numeric_limits<uint32>::max();
+    } else {
+      ui = static_cast<uint32>(d);
+      if (ui == 0)
+        ui = 1;
+    }
+
+    // Increment the weight associated with the BB-range in the line info.
+    if (!line_info->Visit(heat_it->first.start(), heat_it->first.size(), ui)) {
+      LOG(ERROR) << "LineInfo::Visit failed.";
+      return false;
+    }
+  }
+
+  return true;
+}
+
 // Output the given @p heat_map to the given @p file in CSV format.
-bool OutputHeatMap(const SampleGrinder::HeatMap& heat_map, FILE* file) {
+bool OutputHeatMap(const HeatMap& heat_map, FILE* file) {
   if (::fprintf(file, "RVA, Size, Compiland, Function, Heat\n") <= 0)
     return false;
-  SampleGrinder::HeatMap::const_iterator it = heat_map.begin();
+  HeatMap::const_iterator it = heat_map.begin();
   for (; it != heat_map.end(); ++it) {
     if (::fprintf(file,
                   "0x%08X, %d, %s, %s, %.10e\n",
@@ -253,7 +327,7 @@ bool OutputNameHeatMap(SampleGrinder::AggregationLevel aggregation_level,
 
 // NOTE: This must be kept in sync with SampleGrinder::AggregationLevel.
 const char* SampleGrinder::kAggregationLevelNames[] = {
-    "basic-block", "function", "compiland" };
+    "basic-block", "function", "compiland", "line" };
 COMPILE_ASSERT(arraysize(SampleGrinder::kAggregationLevelNames) ==
                    SampleGrinder::kAggregationLevelMax,
                AggregationLevelNames_out_of_sync);
@@ -276,13 +350,16 @@ bool SampleGrinder::ParseCommandLine(const CommandLine* command_line) {
 
   if (command_line->HasSwitch(kAggregationLevel)) {
     std::string s = command_line->GetSwitchValueASCII(kAggregationLevel);
-    if (LowerCaseEqualsASCII(s, kAggregationLevelNames[kBasicBlock])) {
-      aggregation_level_ = kBasicBlock;
-    } else if (LowerCaseEqualsASCII(s, kAggregationLevelNames[kFunction])) {
-      aggregation_level_ = kFunction;
-    } else if (LowerCaseEqualsASCII(s, kAggregationLevelNames[kCompiland])) {
-      aggregation_level_ = kCompiland;
-    } else {
+    bool known_level = false;
+    for (size_t i = 0; i < arraysize(kAggregationLevelNames); ++i) {
+      if (LowerCaseEqualsASCII(s, kAggregationLevelNames[i])) {
+        known_level = true;
+        aggregation_level_ = static_cast<AggregationLevel>(i);
+        break;
+      }
+    }
+
+    if (!known_level) {
       LOG(ERROR) << "Unknown aggregation level: " << s << ".";
       return false;
     }
@@ -327,14 +404,30 @@ bool SampleGrinder::Grind() {
     return false;
   }
 
-  if (!BuildEmptyHeatMap(mod_it->first, mod_it->second, image_,
-                         &string_table_, &heat_map_)) {
+  // Build an empty heat map. How exactly we do this depends on the aggregation
+  // mode.
+  bool empty_heat_map_built = false;
+  if (aggregation_level_ == kLine) {
+    // In line aggregation mode we simply extract line info from the PDB.
+    empty_heat_map_built = BuildEmptyHeatMap(image_path_, &line_info_,
+                                             &heat_map_);
+  } else {
+    // In basic-block, function and compiland aggregation mode we decompose the
+    // image to get compilands, functions and basic blocks.
+    // TODO(chrisha): We shouldn't need full decomposition for this.
+    empty_heat_map_built = BuildEmptyHeatMap(mod_it->first, mod_it->second,
+                                             image_, &string_table_,
+                                             &heat_map_);
+  }
+
+  if (!empty_heat_map_built) {
     LOG(ERROR) << "Unable to build empty heat map for module \""
                 << mod_it->second.module_path.value() << "\".";
     return false;
   }
 
-  // If any samples did not map to code blocks then output a warning.
+  // Populate the heat map by pouring the sample data into it. If any samples
+  // did not map to code blocks then output a warning.
   double total = 0.0;
   double orphaned = IncrementHeatMapFromModuleData(
       mod_it->second, &heat_map_, &total);
@@ -346,10 +439,18 @@ bool SampleGrinder::Grind() {
                   << mod_it->second.module_path.value() << "\".";
   }
 
-  if (aggregation_level_ != kBasicBlock) {
+  if (aggregation_level_ == kFunction || aggregation_level_ == kCompiland) {
     LOG(INFO) << "Rolling up basic-block heat to \""
               << kAggregationLevelNames[aggregation_level_] << "\" level.";
     RollUpByName(aggregation_level_, heat_map_, &name_heat_map_);
+    // We can clear the heat map as it was only needed as an intermediate.
+    heat_map_.Clear();
+  } else if (aggregation_level_ == kLine) {
+    LOG(INFO) << "Rolling up basic-block heat to lines.";
+    if (!RollUpToLines(heat_map_, &line_info_)) {
+      LOG(ERROR) << "Failed to roll-up heat to lines.";
+      return false;
+    }
     // We can clear the heat map as it was only needed as an intermediate.
     heat_map_.Clear();
   }
@@ -362,12 +463,19 @@ bool SampleGrinder::OutputData(FILE* file) {
   // HeatMap.
   bool success = false;
   if (aggregation_level_ == kBasicBlock) {
-    if (OutputHeatMap(heat_map_, file))
-      success = true;
+    success = OutputHeatMap(heat_map_, file);
+  } else if (aggregation_level_ == kFunction ||
+             aggregation_level_ == kCompiland) {
+    // If we've aggregated by function or compiland then output the data in
+    // the NameHeatMap.
+    success = OutputNameHeatMap(aggregation_level_, name_heat_map_, file);
   } else {
-    // Otherwise output the data in the NameHeatMap.
-    if (OutputNameHeatMap(aggregation_level_, name_heat_map_, file))
-      success = true;
+    // Otherwise, we're aggregating to lines and we output cache-grind formatted
+    // line-info data.
+    DCHECK_EQ(kLine, aggregation_level_);
+    CoverageData coverage_data;
+    coverage_data.Add(line_info_);
+    success = WriteCacheGrindCoverageFile(coverage_data, file);
   }
 
   if (!success) {

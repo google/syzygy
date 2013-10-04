@@ -66,8 +66,10 @@ const char kUsageFormatStr[] =
     "    trace files.\n"
     "sample mode optional parameters\n"
     "  --aggregation-level=<level>\n"
-    "    The level of aggregation. Must be one of 'basic-block', 'function'\n"
-    "    or 'compiland'. Defaults to 'basic-block'.\n"
+    "    The level of aggregation. Must be one of 'basic-block', 'function',\n"
+    "    'compiland' or 'line'. Output is in CSV format, except for 'line'\n"
+    "    aggregation, which outputs to KCacheGrind format. Defaults to\n"
+    "    'basic-block'.\n"
     "\n";
 
 }  // namespace

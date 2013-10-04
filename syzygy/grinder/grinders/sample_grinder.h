@@ -14,16 +14,15 @@
 //
 // Declares the sample grinder, which processes trace files containing
 // TraceSampleData records. It can aggregate to a variety of targets
-// (basic blocks, functions, compilands), and output to a variety of formats
-// (JSON, CSV, LCOV).
-//
-// TODO(chrisha): Implement OutputData.
+// (basic blocks, functions, compilands, lines), and output to a variety of
+// formats (CSV, KCacheGrind).
 
 #ifndef SYZYGY_GRINDER_GRINDERS_SAMPLE_GRINDER_H_
 #define SYZYGY_GRINDER_GRINDERS_SAMPLE_GRINDER_H_
 
 #include "syzygy/core/address_space.h"
 #include "syzygy/core/string_table.h"
+#include "syzygy/grinder/basic_block_util.h"
 #include "syzygy/grinder/grinder.h"
 #include "syzygy/pe/pe_file.h"
 
@@ -39,6 +38,7 @@ class SampleGrinder : public GrinderInterface {
     kBasicBlock,
     kFunction,
     kCompiland,
+    kLine,
     kAggregationLevelMax,  // Must be last.
   };
 
@@ -179,10 +179,14 @@ class SampleGrinder : public GrinderInterface {
   typedef std::map<ModuleKey, ModuleData> ModuleDataMap;
   ModuleDataMap module_data_;
 
-  // These are used for holding final results. They are populated by Grind().
+  // These are used for holding final results. They are populated by Grind()
+  // when the aggregation mode is anything except 'line'.
   core::StringTable string_table_;
   HeatMap heat_map_;
   NameHeatMap name_heat_map_;
+
+  // Used only in 'line' aggregation mode. Populated by Grind().
+  LineInfo line_info_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(SampleGrinder);

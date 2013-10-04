@@ -30,6 +30,9 @@ namespace grinders {
 
 namespace {
 
+const wchar_t kTestDllLabelTestFuncAsm[] =
+    L"syzygy\\pe\\test_dll_label_test_func.asm";
+
 // SampleGrinder with some internal details exposed for testing.
 class TestSampleGrinder : public SampleGrinder {
  public:
@@ -45,6 +48,7 @@ class TestSampleGrinder : public SampleGrinder {
   using SampleGrinder::parser_;
   using SampleGrinder::heat_map_;
   using SampleGrinder::name_heat_map_;
+  using SampleGrinder::line_info_;
 };
 
 class SampleGrinderTest : public testing::PELibUnitTest {
@@ -115,6 +119,7 @@ class SampleGrinderTest : public testing::PELibUnitTest {
     if (aggregation_level == SampleGrinder::kBasicBlock) {
       ASSERT_FALSE(g.heat_map_.empty());
       ASSERT_TRUE(g.name_heat_map_.empty());
+      ASSERT_TRUE(g.line_info_.source_lines().empty());
 
       TestSampleGrinder::HeatMap::const_iterator it =
           g.heat_map_.begin();
@@ -125,9 +130,11 @@ class SampleGrinderTest : public testing::PELibUnitTest {
       }
 
       EXPECT_DOUBLE_EQ(expected_heat, total_heat);
-    } else {
+    } else if (aggregation_level == SampleGrinder::kCompiland ||
+               aggregation_level == SampleGrinder::kFunction) {
       ASSERT_TRUE(g.heat_map_.empty());
       ASSERT_FALSE(g.name_heat_map_.empty());
+      ASSERT_TRUE(g.line_info_.source_lines().empty());
 
       // Look through the NameHeatMap output.
       bool compiland_seen = false;
@@ -152,6 +159,47 @@ class SampleGrinderTest : public testing::PELibUnitTest {
         EXPECT_FALSE(compiland_seen);
         EXPECT_TRUE(function_seen);
       }
+    } else {
+      ASSERT_EQ(SampleGrinder::kLine, aggregation_level);
+      ASSERT_TRUE(g.heat_map_.empty());
+      ASSERT_TRUE(g.name_heat_map_.empty());
+      ASSERT_FALSE(g.line_info_.source_lines().empty());
+
+      // Get the path to the source file where all of the heat should land.
+      base::FilePath source_file_path =
+          testing::GetSrcRelativePath(kTestDllLabelTestFuncAsm);
+      std::string source_file = WideToUTF8(source_file_path.value());
+
+      // All of the heat is in the first 4-byte bucket of the LabelTestFunc.
+      // Thus, it will be spread evenly across the source ranges in those 4
+      // bytes, with the lowest value scaled to 1. The scaling makes the visit
+      // count the same as the encoded instruction size.
+      typedef std::map<size_t, uint32> LineVisitCountMap;
+      LineVisitCountMap expected, actual;
+      expected[60] = 1;  // Label. Ends up being a 1 byte source range.
+      expected[63] = 1;  // push ebp (1 byte).
+      expected[64] = 2;  // mov ebp, esp (2 bytes).
+      expected[65] = 1;  // push ecx (1 byte).
+
+      uint32 min_visit_count = 0xFFFFFFFF;
+      for (size_t i = 0; i < g.line_info_.source_lines().size(); ++i) {
+        const LineInfo::SourceLine& line = g.line_info_.source_lines()[i];
+        if (line.visit_count == 0)
+          continue;
+
+        if (line.visit_count < min_visit_count)
+          min_visit_count = line.visit_count;
+
+        EXPECT_EQ(source_file, *line.source_file_name);
+        actual[line.line_number] = line.visit_count;
+      }
+      EXPECT_EQ(1u, min_visit_count);
+
+      EXPECT_THAT(expected, testing::ContainerEq(actual));
+
+      // We can't say anything concrete about the total heat, as it has been
+      // scaled such that the smallest non-zero value is a 1.
+      total_heat = 10.0;
     }
     EXPECT_DOUBLE_EQ(10.0, total_heat);
 
@@ -463,6 +511,11 @@ TEST_F(SampleGrinderTest, GrindFunction) {
 TEST_F(SampleGrinderTest, GrindCompiland) {
   TestSampleGrinder g;
   ASSERT_NO_FATAL_FAILURE(GrindSucceeds(SampleGrinder::kCompiland));
+}
+
+TEST_F(SampleGrinderTest, GrindLine) {
+  TestSampleGrinder g;
+  ASSERT_NO_FATAL_FAILURE(GrindSucceeds(SampleGrinder::kLine));
 }
 
 }  // namespace grinders
