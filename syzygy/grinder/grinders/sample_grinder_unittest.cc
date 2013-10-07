@@ -179,10 +179,10 @@ class SampleGrinderTest : public testing::PELibUnitTest {
       // count the same as the encoded instruction size.
       typedef std::map<size_t, uint32> LineVisitCountMap;
       LineVisitCountMap expected, actual;
-      expected[60] = 1;  // Label. Ends up being a 1 byte source range.
-      expected[63] = 1;  // push ebp (1 byte).
-      expected[64] = 2;  // mov ebp, esp (2 bytes).
-      expected[65] = 1;  // push ecx (1 byte).
+      expected[61] = 1;  // Label. Ends up being a 1 byte source range.
+      expected[64] = 1;  // push ebp (1 byte).
+      expected[65] = 2;  // mov ebp, esp (2 bytes).
+      expected[66] = 1;  // push ecx (1 byte).
 
       uint32 min_visit_count = 0xFFFFFFFF;
       for (size_t i = 0; i < g.line_info_.source_lines().size(); ++i) {

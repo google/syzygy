@@ -28,6 +28,23 @@ namespace {
 static uint32 kDummyModuleAddress = 0x07000000;
 static uint32 kDummyBucketSize = 4;
 
+// Returns the address of 'LabelTestFunc'.
+void GetLabelTestFuncAdddress(const pe::PEFile& test_dll_pe_file,
+                              pe::PEFile::RelativeAddress* function_rva) {
+  DCHECK(function_rva != NULL);
+
+  // Get the address of the exported function.
+  pe::PEFile::ExportInfoVector exports;
+  ASSERT_TRUE(test_dll_pe_file.DecodeExports(&exports));
+  for (size_t i = 0; i < exports.size(); ++i) {
+    if (exports[i].name == "LabelTestFunc") {
+      *function_rva = exports[i].function;
+      break;
+    }
+  };
+  ASSERT_NE(0u, function_rva->value());
+}
+
 void InitializeDummyTraceSampleData(
     const trace::common::ClockInfo& clock_info,
     const pe::PEFile& test_dll_pe_file,
@@ -36,6 +53,16 @@ void InitializeDummyTraceSampleData(
   const IMAGE_SECTION_HEADER* text_header =
         test_dll_pe_file.GetSectionHeader(".text");
   ASSERT_TRUE(text_header != NULL);
+
+  // Get the index of the first bucket mapping to LabelTestFunc.
+  pe::PEFile::RelativeAddress text_rva(text_header->VirtualAddress);
+  pe::PEFile::RelativeAddress function_rva;
+  ASSERT_NO_FATAL_FAILURE(GetLabelTestFuncAdddress(test_dll_pe_file,
+                                                   &function_rva));
+  ASSERT_LE(text_rva, function_rva);
+  size_t offset = function_rva.value() - text_rva.value();
+  ASSERT_EQ(0u, offset % 4);
+  size_t index = offset / 4;
 
   // Initialize a TraceSampleData record. We make it look like we sampled
   // for 10 seconds at 100 Hz.
@@ -63,10 +90,9 @@ void InitializeDummyTraceSampleData(
   sample_data->sampling_end_time = clock_info.tsc_reference;
   sample_data->sampling_interval = clock_info.tsc_info.frequency / 100;
 
-  // We put 1000 samples (10s of heat) into the first bucket. This will
-  // correspond to the first bucket of a function, so will definitely map to
-  // code.
-  sample_data->buckets[0] = 1000;
+  // We put 1000 samples (10s of heat) into the first bucket associated with
+  // 'LabelTestFunc'.
+  sample_data->buckets[index] = 1000;
 }
 
 }  // namespace

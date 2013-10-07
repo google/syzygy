@@ -57,6 +57,7 @@ PUBLIC _LabelTestFunc
 _TEXT SEGMENT
 tv64 = -4      ; size = 4
 _k$ = 8        ; size = 4
+ALIGN 4        ; This is required for sample grinder unittests.
 _LabelTestFunc PROC
 ; File c:\src\labeltestfunc.cc
 ; Line 2
