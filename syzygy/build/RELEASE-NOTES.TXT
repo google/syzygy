@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.1.0
+
+[r1817] Sampling profiler now supports KCacheGrind output format.
+[r1814] Fixes to benchmarking scripts to handle multi-DLL Chrome builds.
+
 Version 0.7.0.1
 
 [-----] Build infrastructure changes to support renamed ASAN RTL.
