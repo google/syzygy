@@ -161,6 +161,12 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
   DCHECK(heap_ != NULL);
 
   size_t alloc_size = GetAllocSize(bytes);
+
+  // GetAllocSize can return a smaller value if the alloc size is incorrect
+  // (i.e. 0xffffffff).
+  if (alloc_size < bytes)
+    return NULL;
+
   BlockHeader* block_header =
       reinterpret_cast<BlockHeader*>(::HeapAlloc(heap_, flags, alloc_size));
 
