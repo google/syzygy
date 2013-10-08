@@ -17,10 +17,9 @@
 // follows:
 //
 // TEST(Foo, Bar) {
-//   ASSERT_NO_FATAL_FAILURE(testing::SetToolchainPaths());
-//   base::CommandLine cmd_line(testing::kLinkerPath);
+//   base::CommandLine cmd_line(testing::kToolchainWrapperPath);
 //   ...
-//   base::LaunchProcess(cmd_line, ...);
+//   base::LaunchProcess(cmd_line, 'link.exe', ...);
 // }
 
 #ifndef SYZYGY_TESTING_TOOLCHAIN_H_
@@ -30,18 +29,8 @@
 
 namespace testing {
 
-// Semi-colon separated list of paths that need to be in PATH for the
-// toolchain to run.
-extern const char kToolchainPaths[];
-
-// Paths to the actual tools themselves.
-extern const wchar_t kCompilerPath[];
-extern const wchar_t kLinkerPath[];
-
-// Prepares the environment for toolchain use (cl.exe and link.exe) by
-// setting the appropriate paths. This is meant to be called from within an
-// EXPECT_/ASSERT_NO_FATAL_FAILURES wrapper.
-void SetToolchainPaths();
+// Absolute path of the toolchain-wrapping batch file.
+extern const wchar_t kToolchainWrapperPath[];
 
 }  // namespace testing
 

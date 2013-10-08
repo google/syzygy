@@ -22,13 +22,37 @@
       'type': 'none',
       'msvs_cygwin_shell': 0,
       'sources': [
+        '<(src)/syzygy/build/variable_expansion.py',
         'toolchain_paths.gen.template',
+        'toolchain_wrapper.bat.template',
       ],
       'actions': [
         {
+          'action_name': 'make_toolchain_wrapper.bat',
+          'inputs': [
+            '<(src)/syzygy/build/variable_expansion.py',
+            '<(src)/syzygy/testing/toolchain_wrapper.bat.template',
+          ],
+          'outputs': [
+            '<(SHARED_INTERMEDIATE_DIR)/syzygy/testing/toolchain_wrapper.bat',
+          ],
+          'action': [
+            '<(python_exe)',
+            '<(src)/syzygy/build/variable_expansion.py',
+            '--input=<(src)/syzygy/testing/'
+                'toolchain_wrapper.bat.template',
+            '--output=<(SHARED_INTERMEDIATE_DIR)/syzygy/testing/'
+                'toolchain_wrapper.bat',
+            # The $(VCInstallDir) already contains a trailing slash, so we don't
+            # need to emit one.
+            'VCVARSALL=$(VCInstallDir)vcvarsall.bat',
+          ],
+          'process_outputs_as_sources': 1,
+        },
+        {
           'action_name': 'make_toolchain_paths.gen',
           'inputs': [
-            '<(src)/syzygy/build/make_toolchain_paths_gen.py',
+            '<(src)/syzygy/build/variable_expansion.py',
             '<(src)/syzygy/testing/toolchain_paths.gen.template',
           ],
           'outputs': [
@@ -36,13 +60,13 @@
           ],
           'action': [
             '<(python_exe)',
-            '<(src)/syzygy/build/make_toolchain_paths_gen.py',
-            '--input=<(src)/syzygy/testing/toolchain_paths.gen.template',
-            '--output='
-                '<(SHARED_INTERMEDIATE_DIR)/syzygy/testing/toolchain_paths.gen',
-            # We need the trailing slash to get around string escaping issues
-            # with the MSVS macros.
-            '--vs-install-dir=$(VSInstallDir)\\',
+            '<(src)/syzygy/build/variable_expansion.py',
+            '--input=<(src)/syzygy/testing/'
+                'toolchain_paths.gen.template',
+            '--output=<(SHARED_INTERMEDIATE_DIR)/syzygy/testing/'
+                'toolchain_paths.gen',
+            'TOOLCHAIN_WRAPPER_PATH=<(SHARED_INTERMEDIATE_DIR)/syzygy/testing/'
+                'toolchain_wrapper.bat',
           ],
           'process_outputs_as_sources': 1,
         },

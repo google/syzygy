@@ -22,69 +22,13 @@
 
 namespace testing {
 
-namespace {
-
-typedef std::vector<std::string> StringVector;
-typedef std::set<std::string> StringSet;
-
-const char kPathVar[] = "PATH";
-const char kPathSep = ';';
-
-void AppendPaths(const StringVector& paths,
-                 StringSet* new_path_set,
-                 StringVector* new_paths) {
-  DCHECK_NE(reinterpret_cast<StringSet*>(NULL), new_path_set);
-  DCHECK_NE(reinterpret_cast<StringVector*>(NULL), new_paths);
-
-  for (size_t i = 0; i < paths.size(); ++i) {
-    const std::string& path = paths[i];
-    std::string lower_path = StringToLowerASCII(path);
-    std::pair<StringSet::iterator, bool> result =
-        new_path_set->insert(lower_path);
-
-    // If the path was already in the path set, then don't append it.
-    if (!result.second)
-      continue;
-
-    new_paths->push_back(path);
-  }
-}
-
-}  // namespace
-
-// This brings in auto-generated data in the form a macro definitions. It is
+// This brings in auto-generated data in the form of macro definitions. It is
 // included here to keep the scope as narrow as possible.
 #include "syzygy/testing/toolchain_paths.gen"
 
-const char kToolchainPaths[] = TOOLCHAIN_PATHS;
-const wchar_t kCompilerPath[] = COMPILER_PATH;
-const wchar_t kLinkerPath[] = LINKER_PATH;
+const wchar_t kToolchainWrapperPath[] = TOOLCHAIN_WRAPPER_PATH;
 
 // Undefine the macros brought in from toolchain_paths.gen.
-#undef TOOLCHAIN_PATHS
-#undef COMPILER_PATH
-#undef LINKER_PATH
-
-void SetToolchainPaths() {
-  base::Environment* env = base::Environment::Create();
-  ASSERT_NE(reinterpret_cast<base::Environment*>(NULL), env);
-
-  std::string path;
-  ASSERT_TRUE(env->GetVar(kPathVar, &path));
-
-  StringVector paths;
-  base::SplitString(path, kPathSep, &paths);
-
-  StringVector toolchain_paths;
-  base::SplitString(std::string(kToolchainPaths), kPathSep, &toolchain_paths);
-
-  StringSet new_path_set;
-  StringVector new_paths;
-  AppendPaths(toolchain_paths, &new_path_set, &new_paths);
-  AppendPaths(paths, &new_path_set, &new_paths);
-
-  std::string new_path = JoinString(new_paths, kPathSep);
-  ASSERT_TRUE(env->SetVar(kPathVar, new_path));
-}
+#undef TOOLCHAIN_WRAPPER_PATH
 
 }  // namespace testing
