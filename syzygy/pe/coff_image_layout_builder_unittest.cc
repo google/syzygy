@@ -16,6 +16,9 @@
 
 #include <cstring>
 
+#include "base/command_line.h"
+#include "base/process_util.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/block_graph/orderers/original_orderer.h"
@@ -25,8 +28,10 @@
 #include "syzygy/pe/coff_decomposer.h"
 #include "syzygy/pe/coff_file.h"
 #include "syzygy/pe/coff_file_writer.h"
+#include "syzygy/pe/new_decomposer.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/testing/toolchain.h"
 
 namespace pe {
 namespace {
@@ -74,16 +79,35 @@ class ShuffleOrderer : public block_graph::BlockGraphOrdererInterface {
   core::RandomNumberGenerator rng_;
 };
 
+// We can't rely on CommandLine to built the command-line string for us
+// because it doesn't maintain the order of arguments.
+void MakeCommandLineString(const CommandLine::StringVector& args,
+                           CommandLine::StringType* cmd_line) {
+  DCHECK(cmd_line != NULL);
+
+  cmd_line->clear();
+  for (size_t i = 0; i < args.size(); ++i) {
+    if (i > 0)
+      cmd_line->push_back(L' ');
+    cmd_line->push_back(L'"');
+    cmd_line->append(args[i]);
+    cmd_line->push_back(L'"');
+  }
+}
+
 class CoffImageLayoutBuilderTest : public testing::PELibUnitTest {
  public:
   CoffImageLayoutBuilderTest() : image_layout_(&block_graph_) {
   }
 
   virtual void SetUp() OVERRIDE {
+    testing::PELibUnitTest::SetUp();
+
     test_dll_obj_path_ =
         testing::GetExeTestDataRelativePath(testing::kTestDllCoffObjName);
     ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir_path_));
     new_test_dll_obj_path_ = temp_dir_path_.Append(L"test_dll.obj");
+    new_test_dll_path_ = temp_dir_path_.Append(testing::kTestDllName);
   }
 
  protected:
@@ -132,8 +156,59 @@ class CoffImageLayoutBuilderTest : public testing::PELibUnitTest {
     ASSERT_NO_FATAL_FAILURE(LayoutAndWriteNew(orderer));
   }
 
+  // Call the linker to produce a new test DLL located at
+  // new_test_dll_obj_path_.
+  void LinkNewTestDll() {
+    // Link the rewritten object file into a new DLL.
+    base::LaunchOptions opts;
+    opts.wait = true;
+
+    // Build linker command line.
+    CommandLine::StringVector args;
+    args.push_back(testing::kToolchainWrapperPath);
+    args.push_back(L"LINK.EXE");
+    args.push_back(L"/NOLOGO");
+    args.push_back(L"/INCREMENTAL:NO");
+    args.push_back(L"/DEBUG");
+    args.push_back(L"/PROFILE");
+    args.push_back(L"/SAFESEH");
+    args.push_back(L"/LARGEADDRESSAWARE");
+    args.push_back(L"/NXCOMPAT");
+    args.push_back(L"/NODEFAULTLIB:libcmtd.lib");
+    args.push_back(L"/DLL");
+    args.push_back(L"/MACHINE:X86");
+    args.push_back(L"/SUBSYSTEM:CONSOLE");
+
+    args.push_back(L"/OUT:" + new_test_dll_path_.value());
+    args.push_back(L"/IMPLIB:" +
+                   temp_dir_path_.Append(L"test_dll.lib").value());
+    args.push_back(L"/PDB:" +
+                   temp_dir_path_.Append(L"test_dll.dll.pdb").value());
+
+    args.push_back(L"/LIBPATH:" +
+                   testing::GetExeTestDataRelativePath(L".").value());
+    args.push_back(L"ole32.lib");
+    args.push_back(L"export_dll.lib");
+    args.push_back(L"test_dll_no_private_symbols.lib");
+
+    base::FilePath def_path(
+        testing::GetSrcRelativePath(L"syzygy\\pe\\test_dll.def"));
+    base::FilePath label_test_func_obj_path(
+        testing::GetExeTestDataRelativePath(L"test_dll_label_test_func.obj"));
+    args.push_back(L"/DEF:" + def_path.value());
+    args.push_back(label_test_func_obj_path.value());
+    args.push_back(new_test_dll_obj_path_.value());
+
+    // Link and check result.
+    CommandLine::StringType cmd_line;
+    MakeCommandLineString(args, &cmd_line);
+    ASSERT_TRUE(base::LaunchProcess(cmd_line, opts, NULL));
+    ASSERT_NO_FATAL_FAILURE(CheckTestDll(new_test_dll_path_));
+  }
+
   base::FilePath test_dll_obj_path_;
   base::FilePath new_test_dll_obj_path_;
+  base::FilePath new_test_dll_path_;
   base::FilePath temp_dir_path_;
 
   // Original image details.
@@ -326,6 +401,58 @@ TEST_F(CoffImageLayoutBuilderTest, ShiftedCode) {
       EXPECT_EQ(orig_refs[i++].offset() + 11, ref_it->second.offset());
     }
   }
+}
+
+TEST_F(CoffImageLayoutBuilderTest, RedecomposePE) {
+  block_graph::orderers::OriginalOrderer orig_orderer;
+  ASSERT_NO_FATAL_FAILURE(RewriteTestDllObj(&orig_orderer));
+  ASSERT_NO_FATAL_FAILURE(LinkNewTestDll());
+
+  PEFile pe_file;
+  ASSERT_TRUE(pe_file.Init(new_test_dll_path_));
+
+  NewDecomposer pe_decomposer(pe_file);
+  block_graph::BlockGraph pe_block_graph;
+  pe::ImageLayout pe_image_layout(&pe_block_graph);
+  ASSERT_TRUE(pe_decomposer.Decompose(&pe_image_layout));
+}
+
+TEST_F(CoffImageLayoutBuilderTest, RedecomposeRandom) {
+  ShuffleOrderer shuffle_orderer(1234);
+  ASSERT_NO_FATAL_FAILURE(RewriteTestDllObj(&shuffle_orderer));
+
+  // Redecompose.
+  CoffFile image_file;
+  ASSERT_TRUE(image_file.Init(new_test_dll_obj_path_));
+
+  CoffDecomposer decomposer(image_file);
+  block_graph::BlockGraph block_graph;
+  pe::ImageLayout image_layout(&block_graph);
+  ASSERT_TRUE(decomposer.Decompose(&image_layout));
+
+  // Compare the results of the two decompositions.
+  ConstTypedBlock<IMAGE_FILE_HEADER> file_header;
+  BlockGraph::Block* headers_block =
+      image_layout.blocks.GetBlockByAddress(RelativeAddress(0));
+  ASSERT_TRUE(headers_block != NULL);
+  ASSERT_TRUE(file_header.Init(0, headers_block));
+
+  EXPECT_EQ(image_layout_.sections.size(), image_layout.sections.size());
+  EXPECT_EQ(image_layout_.blocks.size(), image_layout.blocks.size());
+}
+
+TEST_F(CoffImageLayoutBuilderTest, RedecomposePERandom) {
+  ShuffleOrderer shuffle_orderer(1234);
+  ASSERT_NO_FATAL_FAILURE(RewriteTestDllObj(&shuffle_orderer));
+  ASSERT_NO_FATAL_FAILURE(LinkNewTestDll());
+
+  PEFile pe_file;
+  ASSERT_TRUE(pe_file.Init(new_test_dll_path_));
+
+  NewDecomposer pe_decomposer(pe_file);
+  block_graph::BlockGraph pe_block_graph;
+  pe::ImageLayout pe_image_layout(&pe_block_graph);
+  ASSERT_TRUE(pe_decomposer.Decompose(&pe_image_layout));
 }
 
 }  // namespace pe

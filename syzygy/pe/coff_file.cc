@@ -75,12 +75,16 @@ bool CoffFile::SectionOffsetToFileOffset(size_t section_index,
                                          FileOffsetAddress* addr) const {
   DCHECK(addr != NULL);
 
-  if (section_index >= file_header_->NumberOfSections)
+  if (section_index >= file_header_->NumberOfSections) {
+    LOG(ERROR) << "Unknown section index " << section_index << ".";
     return false;
+  }
 
   const IMAGE_SECTION_HEADER* header = &section_headers_[section_index];
-  if (offset >= header->SizeOfRawData)
+  if (offset > header->SizeOfRawData) {
+    LOG(ERROR) << "Section offset " << section_index << " out of bounds.";
     return false;
+  }
 
   addr->set_value(header->PointerToRawData + offset);
   return true;

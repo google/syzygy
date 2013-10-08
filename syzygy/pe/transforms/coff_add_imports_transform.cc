@@ -41,7 +41,7 @@ void ReadExistingSymbols(const TypedBlock<IMAGE_SYMBOL>& symbols,
                          const TypedBlock<char>& strings,
                          CoffAddImportsTransform::NameMap* known_names) {
   size_t num_symbols = symbols.ElementCount();
-  for (size_t i = 0; i < num_symbols; ++i) {
+  for (size_t i = 0; i < num_symbols; i += 1 + symbols[i].NumberOfAuxSymbols) {
     IMAGE_SYMBOL* symbol = &symbols[i];
     std::string name;
     if (symbol->N.Name.Short != 0)
@@ -124,9 +124,7 @@ bool CoffAddImportsTransform::TransformBlockGraph(
     }
 
     size_t string_cursor = strings_block->size();
-    strings_block->InsertData(strings_block->size(),
-                              string_len_to_add,
-                              true);
+    strings_block->InsertData(string_cursor, string_len_to_add, true);
     strings_block->ResizeData(strings_block->size());
     if (!strings.Init(0, strings_block)) {
       LOG(ERROR) << "Unable to cast string table.";

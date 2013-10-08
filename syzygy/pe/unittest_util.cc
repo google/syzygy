@@ -145,6 +145,9 @@ const wchar_t testing::kTestDllPdbName[] = L"test_dll.dll.pdb";
 
 const wchar_t testing::kTestDllCoffObjName[] = L"test_dll.coff_obj";
 const wchar_t testing::kTestDllLtcgObjName[] = L"test_dll.ltcg_obj";
+const wchar_t testing::kTestDllCoffObjPdbName[] = L"test_dll.coff_obj.pdb";
+const wchar_t testing::kTestDllLtcgObjPdbName[] = L"test_dll.ltcg_obj.pdb";
+
 
 const wchar_t kAsanInstrumentedTestDllName[] =
     L"asan_instrumented_test_dll.dll";

@@ -315,6 +315,7 @@
       'target_name': 'test_dll_obj',
       'type': 'none',
       'msvs_cygwin_shell': 0,
+      'working_dir': '<(PRODUCT_DIR)/test_data',
       'actions': [
         {
           'action_name': 'compile_coff',
@@ -323,6 +324,7 @@
           ],
           'outputs': [
             '<(PRODUCT_DIR)/test_data/test_dll.coff_obj',
+            '<(PRODUCT_DIR)/test_data/test_dll.coff_obj.pdb',
           ],
           'action': [
             'cl',
@@ -330,6 +332,7 @@
             '/Gy',  # Enable function-level linking.
             '/Zi',  # Enable debug information in COFF+PDB.
             '/Fo<(PRODUCT_DIR)\\test_data\\test_dll.coff_obj',
+            '/Fd<(PRODUCT_DIR)\\test_data\\test_dll.coff_obj.pdb',
             'test_dll.cc',
           ],
           'dependencies': [
@@ -343,12 +346,14 @@
           ],
           'outputs': [
             '<(PRODUCT_DIR)/test_data/test_dll.ltcg_obj',
+            '<(PRODUCT_DIR)/test_data/test_dll.ltcg_obj.pdb',
           ],
           'action': [
             'cl',
             '/c',
             '/GL',
             '/Fo<(PRODUCT_DIR)\\test_data\\test_dll.ltcg_obj',
+            '/Fd<(PRODUCT_DIR)\\test_data\\test_dll.ltcg_obj.pdb',
             'test_dll.cc',
           ],
         },
