@@ -351,7 +351,7 @@ StackCapture* StackCaptureCache::GetStackCapture(size_t num_frames) {
       DCHECK_LE(StackCapture::GetSize(max_num_frames), bytes_left);
       unused_stack_capture =
           current_page_->GetNextStackCapture(max_num_frames);
-      DCHECK(stack_capture != NULL);
+      DCHECK(unused_stack_capture != NULL);
     }
 
     // Allocate a new page (that links to the current page) and use it to
