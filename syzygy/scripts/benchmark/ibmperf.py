@@ -184,7 +184,7 @@ class HardwarePerformanceCounter(IbmPerfTool):
   Not that Query must be called while the counters are running (prior to
   calling Stop), as all data is discarded upon calling Stop. Example usage:
 
-  hpc = HardwarePerformanceCounter(ibmperf_dir="C:\ibmperf\bin")
+  hpc = HardwarePerformanceCounter(ibmperf_dir="C:\\ibmperf\\bin")
   hpc.Start(["CYCLES", "NONHALTED_CYCLES", "TLB_MISSES"],
             PrivilegeLevel.USER)
 
