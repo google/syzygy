@@ -108,8 +108,10 @@ bool PECoffFile<AddressSpaceTraits>::ReadCommonHeaders(
       LOG(ERROR) << "Unable to read optional header.";
       return false;
     }
-    DCHECK_EQ(opt_header.SizeOfHeaders,
-              header_end.AlignUp(opt_header.FileAlignment).value());
+    // In a sane world the stated header size will match that manually
+    // calculated by walking the headers and aligning up by the file alignment.
+    // However, this is not necessary for the PE file to be valid, and there may
+    // be a gap between the two.
     header_size = opt_header.SizeOfHeaders;
   }
 
