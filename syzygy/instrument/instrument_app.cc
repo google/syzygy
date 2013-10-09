@@ -26,6 +26,7 @@
 #include "syzygy/instrument/instrumenters/bbentry_instrumenter.h"
 #include "syzygy/instrument/instrumenters/branch_instrumenter.h"
 #include "syzygy/instrument/instrumenters/coverage_instrumenter.h"
+#include "syzygy/instrument/instrumenters/entry_call_instrumenter.h"
 #include "syzygy/instrument/instrumenters/entry_thunk_instrumenter.h"
 
 namespace instrument {
@@ -162,8 +163,7 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
     } else if (LowerCaseEqualsASCII(mode, "coverage")) {
       instrumenter_.reset(new instrumenters::CoverageInstrumenter());
     } else if (LowerCaseEqualsASCII(mode, "profile")) {
-      instrumenter_.reset(new instrumenters::EntryThunkInstrumenter(
-          instrumenters::EntryThunkInstrumenter::PROFILE));
+      instrumenter_.reset(new instrumenters::EntryCallInstrumenter());
     } else {
       return Usage(cmd_line,
                    base::StringPrintf("Unknown instrumentation mode: %s.",

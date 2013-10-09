@@ -618,8 +618,9 @@ class BasicBlock {
   // Useful as a stable, unique identifier for basic blocks in a decomposition.
   Offset offset_;
 
-  // The set of basic blocks references (from other basic blocks in same
-  // original block) to this basic block.
+  // The set of blocks that reference this basic block. This is exclusive
+  // of references from other basic blocks, e.g. references from the block
+  // (or blocks) that are currently decomposed to basic blocks.
   BasicBlockReferrerSet referrers_;
 
   // The label associated with this basic block.
