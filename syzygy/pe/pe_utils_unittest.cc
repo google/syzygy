@@ -14,6 +14,7 @@
 
 #include "syzygy/pe/pe_utils.h"
 
+#include "base/path_service.h"
 #include "base/strings/string_split.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -474,6 +475,51 @@ TEST_F(PEUtilsTest, FindCoffSpecialBlocks) {
   EXPECT_EQ(headers_block, actual_headers_block);
   EXPECT_EQ(symbols_block, actual_symbols_block);
   EXPECT_EQ(strings_block, actual_strings_block);
+}
+
+TEST_F(PEUtilsTest, GuessFileType) {
+  base::FilePath fake(L"C:\\this\\path\\should\\not\\exist-at.all");
+  base::FilePath dir = testing::GetExeRelativePath(L"test_data");
+  base::FilePath pe_dll = testing::GetOutputRelativePath(
+      testing::kTestDllName);
+  base::FilePath coff_obj = testing::GetExeTestDataRelativePath(
+      testing::kTestDllCoffObjName);
+  base::FilePath ltcg_obj = testing::GetExeTestDataRelativePath(
+      testing::kTestDllLtcgObjName);
+  base::FilePath pe_exe;
+  ASSERT_TRUE(PathService::Get(base::FILE_EXE, &pe_exe));
+  base::FilePath pdb = testing::GetOutputRelativePath(
+      testing::kTestDllPdbName);
+
+  // Doesn't exist.
+  FileType file_type = kUnknownFileType;
+  EXPECT_FALSE(GuessFileType(fake, &file_type));
+  EXPECT_EQ(kUnknownFileType, file_type);
+
+  // Can't be opened for reading.
+  file_type = kUnknownFileType;
+  EXPECT_FALSE(GuessFileType(dir, &file_type));
+  EXPECT_EQ(kUnknownFileType, file_type);
+
+  file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(pe_dll, &file_type));
+  EXPECT_EQ(kPeFileType, file_type);
+
+  file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(coff_obj, &file_type));
+  EXPECT_EQ(kCoffFileType, file_type);
+
+  file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(ltcg_obj, &file_type));
+  EXPECT_EQ(kUnknownFileType, file_type);
+
+  file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(pe_exe, &file_type));
+  EXPECT_EQ(kPeFileType, file_type);
+
+  file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(pdb, &file_type));
+  EXPECT_EQ(kPdbFileType, file_type);
 }
 
 }  // namespace pe

@@ -516,4 +516,50 @@ bool FindCoffSpecialBlocks(BlockGraph* block_graph,
   return headers_block_found && symbols_block_found && strings_block_found;
 }
 
+bool GuessFileType(const base::FilePath& path, FileType* file_type) {
+  DCHECK(!path.empty());
+  DCHECK(file_type != NULL);
+
+  *file_type = kUnknownFileType;
+
+  if (!file_util::PathExists(path)) {
+    LOG(ERROR) << "File does not exist: " << path.value();
+    return false;
+  }
+
+  file_util::ScopedFILE file(file_util::OpenFile(path, "rb"));
+  if (file.get() == NULL) {
+    LOG(ERROR) << "Unable to open file for reading: " << path.value();
+    return false;
+  }
+
+  // - PE files all contain DOS stubs, and the first two bytes of 16-bit DOS
+  //   exectuables are always "MZ" (0x4d 0x5a)
+  // - X86 COFF files begin with 0x4c 0x01.
+  // - X64 COFF files begin with 0x64 0x86.
+  // - Itanium COFF files begin with 0x00 0x02.
+  // - PDB files begin with a long string "Microsoft ...". We check the first
+  //   4 bytes and call it quits there.
+
+  uint8 magic[4] = {};
+  if (fread(&magic, sizeof(magic[0]), arraysize(magic), file.get()) !=
+          arraysize(magic)) {
+    LOG(ERROR) << "Failed to read first 2 bytes from file: "
+               << path.value();
+    return false;
+  }
+
+  if (magic[0] == 'M' && magic[1] == 'Z') {
+    *file_type = kPeFileType;
+  } else if (magic[0] == 0x4C && magic[1] == 0x01) {
+    // We don't care about other COFF file machine types for now.
+    *file_type = kCoffFileType;
+  } else if (magic[0] == 'M' && magic[1] == 'i' && magic[2] == 'c' &&
+             magic[3] == 'r') {
+    *file_type = kPdbFileType;
+  }
+
+  return true;
+}
+
 }  // namespace pe

@@ -192,6 +192,22 @@ bool FindCoffSpecialBlocks(block_graph::BlockGraph* block_graph,
                            block_graph::BlockGraph::Block** symbols_block,
                            block_graph::BlockGraph::Block** strings_block);
 
+// A list of known file types.
+enum FileType {
+  kUnknownFileType,
+  kPdbFileType,
+  kCoffFileType,
+  kPeFileType,
+};
+
+// Guesses the type of the given file. This does not do extensive validation.
+// There may be false positives, but there will be no false negatives.
+// @param path The path of the file whose type is to be determined. This must
+//     not be empty.
+// @param file_type Will be populated with the type of the file.
+// @returns true on success, false on failure.
+bool GuessFileType(const base::FilePath& path, FileType* file_type);
+
 }  // namespace pe
 
 #include "syzygy/pe/pe_utils_impl.h"
