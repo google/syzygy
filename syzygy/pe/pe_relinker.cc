@@ -607,16 +607,18 @@ PERelinker::PERelinker(const PETransformPolicy* transform_policy)
   DCHECK(transform_policy != NULL);
 }
 
-void PERelinker::AppendPdbMutator(PdbMutatorInterface* pdb_mutator) {
+bool PERelinker::AppendPdbMutator(PdbMutatorInterface* pdb_mutator) {
   DCHECK(pdb_mutator != NULL);
   pdb_mutators_.push_back(pdb_mutator);
+  return true;
 }
 
-void PERelinker::AppendPdbMutators(
+bool PERelinker::AppendPdbMutators(
     const std::vector<PdbMutatorInterface*>& pdb_mutators) {
   pdb_mutators_.insert(pdb_mutators_.end(),
                        pdb_mutators.begin(),
                        pdb_mutators.end());
+  return true;
 }
 
 bool PERelinker::Init() {

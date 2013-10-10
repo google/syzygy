@@ -220,7 +220,7 @@ int RelinkApp::Run() {
   // If fuzzing is enabled, add it to the relinker.
   if (fuzz_) {
     fuzzing_transform.reset(new block_graph::transforms::FuzzingTransform);
-    relinker.AppendTransform(fuzzing_transform.get());
+    CHECK(relinker.AppendTransform(fuzzing_transform.get()));
   }
 
   // If an order file is provided we are performing an explicit ordering.
@@ -236,14 +236,14 @@ int RelinkApp::Run() {
     // the order specification. It will modify it in place so that it is ready
     // to be used by the ExplicitOrderer to finish the job.
     bb_layout.reset(new reorder::transforms::BasicBlockLayoutTransform(&order));
-    relinker.AppendTransform(bb_layout.get());
+    CHECK(relinker.AppendTransform(bb_layout.get()));
 
     // Append an OriginalOrderer to the relinker. We do this so that the
     // original order is preserved entirely for sections that are not
     // fully specified by the order file, and therefore not ordered by the
     // ExplicitOrderer.
     orig_orderer.reset(new block_graph::orderers::OriginalOrderer());
-    relinker.AppendOrderer(orig_orderer.get());
+    CHECK(relinker.AppendOrderer(orig_orderer.get()));
 
     // Allocate an explicit orderer.
     orderer.reset(new reorder::orderers::ExplicitOrderer(&order));
@@ -256,7 +256,7 @@ int RelinkApp::Run() {
     if (basic_blocks_) {
       bb_explode.reset(new pe::transforms::ExplodeBasicBlocksTransform());
       bb_explode->set_exclude_padding(exclude_bb_padding_);
-      relinker.AppendTransform(bb_explode.get());
+      CHECK(relinker.AppendTransform(bb_explode.get()));
     }
 
     // Allocate the random block orderer.
@@ -264,7 +264,7 @@ int RelinkApp::Run() {
   }
 
   // Append the orderer to the relinker.
-  relinker.AppendOrderer(orderer.get());
+  CHECK(relinker.AppendOrderer(orderer.get()));
 
   // Perform the actual relink.
   if (!relinker.Relink()) {

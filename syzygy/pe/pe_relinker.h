@@ -105,6 +105,9 @@ class PERelinker : public PECoffRelinker {
   // @param transform_policy The policy that dictates how to apply transforms.
   explicit PERelinker(const PETransformPolicy* transform_policy);
 
+  // @see RelinkerInterface::image_format()
+  virtual ImageFormat image_format() const OVERRIDE { return PE_IMAGE; }
+
   // @name Accessors.
   // @{
   const base::FilePath& input_pdb_path() const { return input_pdb_path_; }
@@ -149,24 +152,12 @@ class PERelinker : public PECoffRelinker {
   }
   // @}
 
-  // Appends a PDB mutator to be applied by this relinker.
-  //
-  // Each mutator will be applied in the order added to the relinker,
-  // assuming all earlier mutators have succeeded.
-  //
-  // @param pdb_mutator a PDB mutator to be applied to the input image. The
-  //     pointer must remain valid for the lifespan of the relinker.
-  void AppendPdbMutator(pdb::PdbMutatorInterface* pdb_mutator);
+  // @see RelinkerInterface::AppendPdbMutator()
+  virtual bool AppendPdbMutator(pdb::PdbMutatorInterface* pdb_mutator) OVERRIDE;
 
-  // Appends a list of PDB mutators to be applied by this relinker.
-  //
-  // Each mutator will be applied in the order added to the relinker,
-  // assuming all earlier mutators have succeeded.
-  //
-  // @param pdb_mutators a vector of mutators to be applied to the input image.
-  //     The pointers must remain valid for the lifespan of the relinker.
-  void AppendPdbMutators(
-      const std::vector<pdb::PdbMutatorInterface*>& pdb_mutators);
+  // @see RelinkerInterface::AppendPdbMutators()
+  virtual bool AppendPdbMutators(
+      const std::vector<pdb::PdbMutatorInterface*>& pdb_mutators) OVERRIDE;
 
   // Runs the initialization phase of the relinker. This consists of decomposing
   // the input image, after which the intermediate data accessors declared below
@@ -178,14 +169,14 @@ class PERelinker : public PECoffRelinker {
   //     to calling this.
   // @post input_pe_file and input_image_layout may be called after this.
   // @note This entrypoint is virtual for unittest/mocking purposes.
-  virtual bool Init();
+  virtual bool Init() OVERRIDE;
 
   // Runs the relinker, generating an output image and PDB.
   //
   // @returns true on success, false otherwise.
   // @pre Init must have been called successfully.
   // @note This entrypoint is virtual for unittest/mocking purposes.
-  virtual bool Relink();
+  virtual bool Relink() OVERRIDE;
 
   // @name Intermediate data accessors.
   // @{

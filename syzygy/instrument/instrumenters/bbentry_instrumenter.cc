@@ -36,13 +36,15 @@ bool BasicBlockEntryInstrumenter::InstrumentImpl() {
   bbentry_transform_->set_instrument_dll_name(agent_dll_);
   bbentry_transform_->set_inline_fast_path(inline_fast_path_);
   bbentry_transform_->set_src_ranges_for_thunks(debug_friendly_);
-  relinker_->AppendTransform(bbentry_transform_.get());
+  if (!relinker_->AppendTransform(bbentry_transform_.get()))
+    return false;
 
   add_bb_addr_stream_mutator_.reset(new
       instrument::mutators::AddIndexedDataRangesStreamPdbMutator(
           bbentry_transform_->bb_ranges(),
           common::kBasicBlockRangesStreamName));
-  relinker_->AppendPdbMutator(add_bb_addr_stream_mutator_.get());
+  if (!relinker_->AppendPdbMutator(add_bb_addr_stream_mutator_.get()))
+    return false;
 
   return true;
 }

@@ -91,23 +91,27 @@ PECoffRelinker::PECoffRelinker(const TransformPolicyInterface* transform_policy)
   DCHECK(transform_policy != NULL);
 }
 
-void PECoffRelinker::AppendTransform(Transform* transform) {
+bool PECoffRelinker::AppendTransform(Transform* transform) {
   DCHECK(transform != NULL);
   transforms_.push_back(transform);
+  return true;
 }
 
-void PECoffRelinker::AppendTransforms(
+bool PECoffRelinker::AppendTransforms(
     const std::vector<Transform*>& transforms) {
   transforms_.insert(transforms_.end(), transforms.begin(), transforms.end());
+  return true;
 }
 
-void PECoffRelinker::AppendOrderer(Orderer* orderer) {
+bool PECoffRelinker::AppendOrderer(Orderer* orderer) {
   DCHECK(orderer != NULL);
   orderers_.push_back(orderer);
+  return true;
 }
 
-void PECoffRelinker::AppendOrderers(const std::vector<Orderer*>& orderers) {
+bool PECoffRelinker::AppendOrderers(const std::vector<Orderer*>& orderers) {
   orderers_.insert(orderers_.end(), orderers.begin(), orderers.end());
+  return true;
 }
 
 bool PECoffRelinker::ApplyTransforms(

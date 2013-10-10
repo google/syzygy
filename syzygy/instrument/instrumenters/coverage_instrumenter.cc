@@ -33,13 +33,15 @@ bool CoverageInstrumenter::InstrumentImpl() {
       new instrument::transforms::CoverageInstrumentationTransform());
   coverage_transform_->set_instrument_dll_name(agent_dll_);
   coverage_transform_->set_src_ranges_for_thunks(debug_friendly_);
-  relinker_->AppendTransform(coverage_transform_.get());
+  if (!relinker_->AppendTransform(coverage_transform_.get()))
+    return false;
 
   add_bb_addr_stream_mutator_.reset(
         new instrument::mutators::AddIndexedDataRangesStreamPdbMutator(
             coverage_transform_->bb_ranges(),
             common::kBasicBlockRangesStreamName));
-  relinker_->AppendPdbMutator(add_bb_addr_stream_mutator_.get());
+  if (!relinker_->AppendPdbMutator(add_bb_addr_stream_mutator_.get()))
+    return false;
 
   return true;
 }

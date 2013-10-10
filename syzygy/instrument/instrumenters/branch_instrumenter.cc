@@ -38,13 +38,15 @@ bool BranchInstrumenter::InstrumentImpl() {
   branch_transform_->set_instrument_dll_name(agent_dll_);
   branch_transform_->set_buffering(buffering_);
   branch_transform_->set_fs_slot(fs_slot_);
-  relinker_->AppendTransform(branch_transform_.get());
+  if (!relinker_->AppendTransform(branch_transform_.get()))
+    return false;
 
   add_bb_addr_stream_mutator_.reset(new
       instrument::mutators::AddIndexedDataRangesStreamPdbMutator(
           branch_transform_->bb_ranges(),
           common::kBasicBlockRangesStreamName));
-  relinker_->AppendPdbMutator(add_bb_addr_stream_mutator_.get());
+  if (!relinker_->AppendPdbMutator(add_bb_addr_stream_mutator_.get()))
+    return false;
 
   return true;
 }

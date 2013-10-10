@@ -64,7 +64,8 @@ bool AsanInstrumenter::InstrumentImpl() {
   // the source range of corresponding instrumented instructions.
   asan_transform_->set_debug_friendly(debug_friendly_);
 
-  relinker_->AppendTransform(asan_transform_.get());
+  if (!relinker_->AppendTransform(asan_transform_.get()))
+    return false;
 
   return true;
 }

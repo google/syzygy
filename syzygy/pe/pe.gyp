@@ -117,6 +117,7 @@
         'pe_relinker.h',
         'pe_transform_policy.cc',
         'pe_transform_policy.h',
+        'relinker.h',
         'serialization.cc',
         'serialization.h',
       ],

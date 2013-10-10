@@ -20,19 +20,17 @@
 
 #include <vector>
 
-#include "base/logging.h"
 #include "base/files/file_path.h"
-#include "syzygy/block_graph/orderer.h"
-#include "syzygy/block_graph/transform.h"
 #include "syzygy/block_graph/transform_policy.h"
 #include "syzygy/pe/image_layout.h"
+#include "syzygy/pe/relinker.h"
 
 namespace pe {
 
 // Base class for full file-to-file transformations of PE or COFF files;
 // PERelinker and CoffRelinker extend this class. It provides implementation
 // for common book-keeping routines for transforms and orderers.
-class PECoffRelinker {
+class PECoffRelinker : public RelinkerInterface {
  public:
   typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::BlockGraphOrdererInterface Orderer;
@@ -72,33 +70,18 @@ class PECoffRelinker {
   // @returns whether output files may be overwritten.
   bool allow_overwrite() const { return allow_overwrite_; }
 
-  // Add a transform to be applied. Transform objects must outlive the
-  // relinker. Each transform will be applied in the order added to the
-  // relinker, assuming all earlier transforms have succeeded.
-  //
-  // @param transform a orderer to be applied.
-  void AppendTransform(Transform* transform);
+  // @see RelinkerInterface::AppendTransform()
+  virtual bool AppendTransform(Transform* transform) OVERRIDE;
 
-  // Add transforms to be applied. Transform objects must outlive the
-  // relinker. Each transform will be applied in the order added to the
-  // relinker, assuming all earlier transforms have succeeded.
-  //
-  // @param transforms transforms to be applied, in order.
-  void AppendTransforms(const std::vector<Transform*>& transforms);
+  // @see RelinkerInterface::AppendTransforms()
+  virtual bool AppendTransforms(
+      const std::vector<Transform*>& transforms) OVERRIDE;
 
-  // Add an orderer to be applied. Orderer objects must outlive the
-  // relinker. Each orderer will be applied in the order added to the
-  // relinker, assuming all earlier orderers have succeeded.
-  //
-  // @param orderer an orderer to be applied.
-  void AppendOrderer(Orderer* orderer);
+  // @see RelinkerInterface::AppendOrderer()
+  virtual bool AppendOrderer(Orderer* orderer) OVERRIDE;
 
-  // Add orderers to be applied. Orderer objects must outlive the
-  // relinker. Each orderer will be applied in the order added to the
-  // relinker, assuming all earlier orderers have succeeded.
-  //
-  // @param orderers orderers to be applied, in order.
-  void AppendOrderers(const std::vector<Orderer*>& orderers);
+  // @see RelinkerInterface::AppendOrderers()
+  virtual bool AppendOrderers(const std::vector<Orderer*>& orderers) OVERRIDE;
 
   // The following accessors provide access to properties not initialized by
   // this class; they should be valid after the relinker has been

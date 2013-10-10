@@ -56,7 +56,8 @@ bool EntryThunkInstrumenter::InstrumentImpl() {
       instrument_unsafe_references_);
   entry_thunk_transform_->set_src_ranges_for_thunks(debug_friendly_);
   entry_thunk_transform_->set_only_instrument_module_entry(module_entry_only_);
-  relinker_->AppendTransform(entry_thunk_transform_.get());
+  if (!relinker_->AppendTransform(entry_thunk_transform_.get()))
+    return false;
 
   // If we are thunking imports then add the appropriate transform.
   if (thunk_imports_) {
@@ -64,7 +65,8 @@ bool EntryThunkInstrumenter::InstrumentImpl() {
         new instrument::transforms::ThunkImportReferencesTransform);
     // Use the selected client DLL.
     import_thunk_tx_->set_instrument_dll_name(agent_dll_);
-    relinker_->AppendTransform(import_thunk_tx_.get());
+    if (!relinker_->AppendTransform(import_thunk_tx_.get()))
+      return false;
   }
 
   return true;

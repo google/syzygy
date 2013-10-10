@@ -70,17 +70,20 @@ class CoffRelinker : public PECoffRelinker {
   // @param transform_policy The policy that dictates how to apply transforms.
   explicit CoffRelinker(const CoffTransformPolicy* transform_policy);
 
+  // @see RelinkerInterface::image_format()
+  virtual ImageFormat image_format() const OVERRIDE { return COFF_IMAGE; }
+
   // Read and decompose the main input image, treated as a COFF file.
   //
   // @returns true on success, false otherwise.
-  bool Init();
+  virtual bool Init() OVERRIDE;
 
   // After a successful call to Init(), apply transforms, followed by
   // orderers, then the resulting COFF file is written to the main output
   // path.
   //
   // @returns true on success, false otherwise.
-  bool Relink();
+  virtual bool Relink() OVERRIDE;
 
   // After a successful call to Init(), retrieve the original unmodified
   // COFF file reader.
