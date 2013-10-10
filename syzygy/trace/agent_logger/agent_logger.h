@@ -51,6 +51,14 @@ class AgentLogger : public trace::common::Service {
   void set_minidump_dir(const base::FilePath& dir) { minidump_dir_ = dir; }
   // @}
 
+  // Get/Set the symbolize_stack_traces_ flag.
+  // @{
+  bool symbolize_stack_traces() { return symbolize_stack_traces_; }
+  void set_symbolize_stack_traces(bool value) {
+    symbolize_stack_traces_ = value;
+  }
+  // @}
+
   // Append a trace dump for @p process, given @p trace_data containing
   // @p trace_length elements. The output will be appended to @p message.
   //
@@ -124,6 +132,9 @@ class AgentLogger : public trace::common::Service {
   // The lock used to serialize access to the debug help library used to
   // symbolize traces.
   base::Lock symbol_lock_;
+
+  // Indicates if we should symbolize the stack traces. Defaults to true.
+  bool symbolize_stack_traces_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(AgentLogger);

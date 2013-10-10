@@ -127,7 +127,8 @@ BOOL CALLBACK ReadProcessMemoryProc64(HANDLE process,
 
 AgentLogger::AgentLogger()
     : trace::common::Service(L"Logger"),
-      destination_(NULL) {
+      destination_(NULL),
+      symbolize_stack_traces_(true) {
 }
 
 AgentLogger::~AgentLogger() {
@@ -167,11 +168,24 @@ bool AgentLogger::JoinImpl() {
 }
 
 bool AgentLogger::AppendTrace(HANDLE process,
-                         const DWORD* trace_data,
-                         size_t trace_length,
-                         std::string* message) {
+                              const DWORD* trace_data,
+                              size_t trace_length,
+                              std::string* message) {
   DCHECK(trace_data != NULL);
   DCHECK(message != NULL);
+
+  // If we don't want to symbolize the stack traces then we just dump the
+  // frame addresses.
+  if (!symbolize_stack_traces_) {
+    for (size_t i = 0; i < trace_length; ++i) {
+      DWORD frame_ptr = trace_data[i];
+      base::StringAppendF(message,
+                          "    #%d 0x%012llx\n",
+                          i,
+                          frame_ptr);
+    }
+    return true;
+  }
 
   // TODO(rogerm): Add an RPC session to the logger and its interface. This
   //     would serialize calls per process and provide a convenient mechanism
@@ -217,8 +231,8 @@ bool AgentLogger::AppendTrace(HANDLE process,
 }
 
 bool AgentLogger::CaptureRemoteTrace(HANDLE process,
-                                CONTEXT* context,
-                                std::vector<DWORD>* trace_data) {
+                                     CONTEXT* context,
+                                     std::vector<DWORD>* trace_data) {
   DCHECK(context != NULL);
   DCHECK(trace_data != NULL);
 
@@ -229,6 +243,12 @@ bool AgentLogger::CaptureRemoteTrace(HANDLE process,
 
   trace_data->clear();
   trace_data->reserve(64);
+
+  // If we don't want to symbolize the stack trace then there's no reason to
+  // capture it.
+  if (!symbolize_stack_traces_) {
+    return true;
+  }
 
   base::AutoLock auto_lock(symbol_lock_);
 
@@ -311,10 +331,10 @@ bool AgentLogger::Write(const base::StringPiece& message) {
 }
 
 bool AgentLogger::SaveMiniDump(HANDLE process,
-                          base::ProcessId pid,
-                          DWORD tid,
-                          DWORD exc_ptr,
-                          DWORD flags) {
+                               base::ProcessId pid,
+                               DWORD tid,
+                               DWORD exc_ptr,
+                               DWORD flags) {
   DCHECK(!minidump_dir_.empty());
 
   // Create a temporary file to which to write the minidump. We'll rename it

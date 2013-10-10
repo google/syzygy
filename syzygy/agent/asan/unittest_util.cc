@@ -49,6 +49,7 @@ void TestWithAsanLogger::SetUp() {
   log_service_.set_instance_id(instance_id_);
   log_service_.set_destination(log_file_.get());
   log_service_.set_minidump_dir(temp_dir_.path());
+  log_service_.set_symbolize_stack_traces(false);
   ASSERT_TRUE(log_service_.Start());
 
   log_contents_read_ = false;
