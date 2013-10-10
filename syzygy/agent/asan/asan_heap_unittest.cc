@@ -43,8 +43,8 @@ class TestHeapProxy : public HeapProxy {
   using HeapProxy::GetAllocSize;
   using HeapProxy::GetBadAccessKind;
   using HeapProxy::GetTimeSinceFree;
-  using HeapProxy::ToBlockHeader;
   using HeapProxy::GetBlockTrailer;
+  using HeapProxy::UserPointerToBlockHeader;
 
   TestHeapProxy(StackCaptureCache* stack_cache, AsanLogger* logger)
       : HeapProxy(stack_cache, logger) {
@@ -76,7 +76,8 @@ class TestHeapProxy : public HeapProxy {
     base::AutoLock lock(lock_);
     BlockHeader* current_block = head_;
     while (current_block != NULL) {
-      void* block_alloc = static_cast<void*>(ToAlloc(current_block));
+      void* block_alloc = static_cast<void*>(
+          BlockHeaderToUserPointer(current_block));
       EXPECT_TRUE(block_alloc != NULL);
       if (block_alloc == mem) {
         EXPECT_TRUE(current_block->state == QUARANTINED);
@@ -215,7 +216,8 @@ TEST_F(HeapTest, UnpoisonsQuarantine) {
   ASSERT_TRUE(proxy_.InQuarantine(mem));
 
   // Assert that the shadow memory has been correctly poisoned.
-  intptr_t mem_start = reinterpret_cast<intptr_t>(proxy_.ToBlockHeader(mem));
+  intptr_t mem_start = reinterpret_cast<intptr_t>(
+      proxy_.UserPointerToBlockHeader(mem));
   ASSERT_EQ(0, (mem_start & 7) );
   size_t shadow_start = mem_start >> 3;
   size_t shadow_alloc_size = real_alloc_size >> 3;
@@ -270,7 +272,7 @@ TEST_F(HeapTest, DoubleFree) {
   LPVOID mem = proxy_.Alloc(0, kAllocSize);
   ASSERT_TRUE(mem != NULL);
   ASSERT_TRUE(proxy_.Free(0, mem));
-  ASSERT_TRUE(proxy_.IsQuarantined(proxy_.ToBlockHeader(mem)));
+  ASSERT_TRUE(proxy_.IsQuarantined(proxy_.UserPointerToBlockHeader(mem)));
   ASSERT_FALSE(proxy_.Free(0, mem));
 }
 
@@ -404,7 +406,8 @@ TEST_F(HeapTest, GetBadAccessKind) {
   uint8* mem = static_cast<uint8*>(proxy_.Alloc(0, kAllocSize));
   ASSERT_FALSE(mem == NULL);
   TestHeapProxy::BlockHeader* header =
-      const_cast<TestHeapProxy::BlockHeader*>(proxy_.ToBlockHeader(mem));
+      const_cast<TestHeapProxy::BlockHeader*>(
+          proxy_.UserPointerToBlockHeader(mem));
   uint8* heap_underflow_address = mem - 1;
   uint8* heap_overflow_address = mem + kAllocSize * sizeof(uint8);
   ASSERT_TRUE(proxy_.IsUnderflowAccess(heap_underflow_address, header));
@@ -422,7 +425,8 @@ TEST_F(HeapTest, GetTimeSinceFree) {
   proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
   uint8* mem = static_cast<uint8*>(proxy_.Alloc(0, kAllocSize));
   TestHeapProxy::BlockHeader* header =
-      const_cast<TestHeapProxy::BlockHeader*>(proxy_.ToBlockHeader(mem));
+      const_cast<TestHeapProxy::BlockHeader*>(
+          proxy_.UserPointerToBlockHeader(mem));
 
   base::TimeTicks time_before_free = base::TimeTicks::HighResNow();
   ASSERT_EQ(0U, proxy_.GetTimeSinceFree(header));
@@ -449,10 +453,11 @@ TEST_F(HeapTest, CaptureTID) {
   proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
   uint8* mem = static_cast<uint8*>(proxy_.Alloc(0, kAllocSize));
   ASSERT_TRUE(proxy_.Free(0, mem));
-  ASSERT_TRUE(proxy_.IsQuarantined(proxy_.ToBlockHeader(mem)));
+  ASSERT_TRUE(proxy_.IsQuarantined(proxy_.UserPointerToBlockHeader(mem)));
 
   TestHeapProxy::BlockHeader* header =
-      const_cast<TestHeapProxy::BlockHeader*>(proxy_.ToBlockHeader(mem));
+      const_cast<TestHeapProxy::BlockHeader*>(
+          proxy_.UserPointerToBlockHeader(mem));
   ASSERT_TRUE(header != NULL);
   TestHeapProxy::BlockTrailer* trailer =
       const_cast<TestHeapProxy::BlockTrailer*>(proxy_.GetBlockTrailer(header));
@@ -476,7 +481,8 @@ TEST_F(HeapTest, QuarantineDoesntAlterBlockContents) {
                       sha1_before);
 
   TestHeapProxy::BlockHeader* header =
-      const_cast<TestHeapProxy::BlockHeader*>(proxy_.ToBlockHeader(mem));
+      const_cast<TestHeapProxy::BlockHeader*>(
+          proxy_.UserPointerToBlockHeader(mem));
 
   ASSERT_TRUE(proxy_.Free(0, mem));
   ASSERT_TRUE(proxy_.IsQuarantined(header));
@@ -498,7 +504,8 @@ TEST_F(HeapTest, InternalStructureArePoisoned) {
   proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
   uint8* mem = static_cast<uint8*>(proxy_.Alloc(0, kAllocSize));
   TestHeapProxy::BlockHeader* header =
-      const_cast<TestHeapProxy::BlockHeader*>(proxy_.ToBlockHeader(mem));
+      const_cast<TestHeapProxy::BlockHeader*>(
+          proxy_.UserPointerToBlockHeader(mem));
 
   ASSERT_TRUE(header != NULL);
   const void* alloc_stack_cache_addr =

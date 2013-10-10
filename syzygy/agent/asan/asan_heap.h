@@ -198,14 +198,14 @@ class HeapProxy {
   // Magic number to identify the beginning of a block header.
   static const size_t kBlockHeaderSignature = 0xCA80E7;
 
-  // Returns the block header for an alloc.
-  BlockHeader* ToBlockHeader(const void* alloc);
+  // Returns the block header for a user pointer.
+  BlockHeader* UserPointerToBlockHeader(const void* user_pointer);
+
+  // Returns the user pointer for a block header.
+  uint8* BlockHeaderToUserPointer(BlockHeader* block);
 
   // Returns the block trailer for a block header.
   BlockTrailer* GetBlockTrailer(const BlockHeader* header);
-
-  // Returns alloc for a block.
-  uint8* ToAlloc(BlockHeader* block);
 
   // Find the memory block containing @p addr.
   // @returns a pointer to this memory block in case of success, NULL otherwise.

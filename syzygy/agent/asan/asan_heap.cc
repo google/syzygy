@@ -194,7 +194,7 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
   block_trailer->free_tid = 0;
   block_trailer->next_free_block = NULL;
 
-  uint8* block_alloc = ToAlloc(block_header);
+  uint8* block_alloc = BlockHeaderToUserPointer(block_header);
   DCHECK(MemoryRangeIsAccessible(block_alloc, bytes));
 
   Shadow::Poison(block_alloc + bytes, trailer_size, Shadow::kHeapRightRedzone);
@@ -225,7 +225,7 @@ void* HeapProxy::ReAlloc(DWORD flags, void* mem, size_t bytes) {
 
 bool HeapProxy::Free(DWORD flags, void* mem) {
   DCHECK(heap_ != NULL);
-  BlockHeader* block = ToBlockHeader(mem);
+  BlockHeader* block = UserPointerToBlockHeader(mem);
   // The standard allows to call free on a null pointer. ToBlock returns null if
   // the given pointer is null so we return true here.
   if (block == NULL)
@@ -243,7 +243,7 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
     return false;
   }
 
-  DCHECK(ToAlloc(block) == mem);
+  DCHECK(BlockHeaderToUserPointer(block) == mem);
   BlockTrailer* trailer = GetBlockTrailer(block);
   trailer->free_stack = stack_cache_->SaveStackTrace(stack);
   trailer->free_timestamp = trace::common::GetTsc();
@@ -252,8 +252,10 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
   // If the size of the allocation is zero then we shouldn't check the shadow
   // memory as it'll only contain the red-zone for the head and tail of this
   // block.
-  if (block->block_size != 0 && !Shadow::IsAccessible(ToAlloc(block)))
+  if (block->block_size != 0 && !Shadow::IsAccessible(
+      BlockHeaderToUserPointer(block))) {
     return false;
+  }
 
   QuarantineBlock(block);
   return true;
@@ -261,7 +263,7 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
 
 size_t HeapProxy::Size(DWORD flags, const void* mem) {
   DCHECK(heap_ != NULL);
-  BlockHeader* block = ToBlockHeader(mem);
+  BlockHeader* block = UserPointerToBlockHeader(mem);
   if (block == NULL)
     return -1;
 
@@ -270,7 +272,7 @@ size_t HeapProxy::Size(DWORD flags, const void* mem) {
 
 bool HeapProxy::Validate(DWORD flags, const void* mem) {
   DCHECK(heap_ != NULL);
-  return ::HeapValidate(heap_, flags, ToBlockHeader(mem)) == TRUE;
+  return ::HeapValidate(heap_, flags, UserPointerToBlockHeader(mem)) == TRUE;
 }
 
 size_t HeapProxy::Compact(DWORD flags) {
@@ -379,7 +381,7 @@ void HeapProxy::QuarantineBlock(BlockHeader* block) {
   // Note that the original data is left intact. This may make it easier
   // to debug a crash report/dump on access to a quarantined block.
   size_t alloc_size = GetAllocSize(block->block_size);
-  uint8* mem = ToAlloc(block);
+  uint8* mem = BlockHeaderToUserPointer(block);
   Shadow::MarkAsFreed(mem, block->block_size);
 
   {
@@ -408,11 +410,12 @@ size_t HeapProxy::GetAllocSize(size_t bytes) {
   return common::AlignUp(bytes, kAllocGranularity);
 }
 
-HeapProxy::BlockHeader* HeapProxy::ToBlockHeader(const void* alloc) {
-  if (alloc == NULL)
+HeapProxy::BlockHeader* HeapProxy::UserPointerToBlockHeader(
+    const void* user_pointer) {
+  if (user_pointer == NULL)
     return NULL;
 
-  const uint8* mem = static_cast<const uint8*>(alloc);
+  const uint8* mem = static_cast<const uint8*>(user_pointer);
   const BlockHeader* header = reinterpret_cast<const BlockHeader*>(mem) - 1;
   if (header->magic_number != kBlockHeaderSignature)
     return NULL;
@@ -434,7 +437,7 @@ HeapProxy::BlockTrailer* HeapProxy::GetBlockTrailer(const BlockHeader* header) {
   return reinterpret_cast<BlockTrailer*>(mem + aligned_size);
 }
 
-uint8* HeapProxy::ToAlloc(BlockHeader* block) {
+uint8* HeapProxy::BlockHeaderToUserPointer(BlockHeader* block) {
   DCHECK(block != NULL);
   DCHECK_EQ(kBlockHeaderSignature, block->magic_number);
   DCHECK(block->state == ALLOCATED || block->state == QUARANTINED);
@@ -460,9 +463,9 @@ HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const void* addr,
     // TODO(sebmarchand): Find a way to fix this bug.
     bad_access_kind = USE_AFTER_FREE;
   } else {
-    if (addr < (ToAlloc(header)))
+    if (addr < (BlockHeaderToUserPointer(header)))
       bad_access_kind = HEAP_BUFFER_UNDERFLOW;
-    else if (addr >= (ToAlloc(header) + header->block_size))
+    else if (addr >= (BlockHeaderToUserPointer(header) + header->block_size))
       bad_access_kind = HEAP_BUFFER_OVERFLOW;
   }
   return bad_access_kind;
@@ -545,7 +548,7 @@ void HeapProxy::GetAddressInformation(BlockHeader* header,
   DCHECK(bad_access_info != NULL);
   DCHECK(bad_access_info->location != NULL);
 
-  uint8* block_alloc = ToAlloc(header);
+  uint8* block_alloc = BlockHeaderToUserPointer(header);
   int offset = 0;
   char* offset_relativity = "";
   switch (bad_access_info->error_type) {
