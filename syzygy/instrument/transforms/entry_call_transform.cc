@@ -79,6 +79,7 @@ bool EntryCallBasicBlockTransform::TransformBasicBlockSubGraph(
   DCHECK_NE(static_cast<BasicCodeBlock*>(NULL), bb);
   DCHECK_EQ(0, bb->offset());
 
+  // Create a new basic block for the entry hook.
   BasicCodeBlock* entry_hook =
       basic_block_subgraph->AddBasicCodeBlock("EntryHook");
   DCHECK_NE(static_cast<BasicCodeBlock*>(NULL), entry_hook);
@@ -92,8 +93,16 @@ bool EntryCallBasicBlockTransform::TransformBasicBlockSubGraph(
 
   // In debug friendly mode we assign the previously first instruction's
   // address to the inserted call.
-  if (debug_friendly_)
-    assm.set_source_range(bb->instructions().front().source_range());
+  if (debug_friendly_) {
+    if (bb->instructions().size() != 0) {
+      assm.set_source_range(bb->instructions().front().source_range());
+    } else {
+      LOG(WARNING) << "Function \""
+                   << basic_block_subgraph->original_block()->name()
+                   << "\" starts with an empty basic block. "
+                   << "Not inserting a source range for it.";
+    }
+  }
 
   assm.call(Operand(Displacement(hook_reference_.referenced(),
                                  hook_reference_.offset())));
@@ -115,16 +124,20 @@ bool EntryCallBasicBlockTransform::TransformBasicBlockSubGraph(
 
   // Now run through the code BBs in the function, and re-route any refs to the
   // former head of function to the entry hook. The point of this is to route
-  // explicit self-recursion through the entry hook, while leaving loops alone.
+  // explicit self-recursion or self-references through the entry hook, while
+  // leaving loops alone.
   // Loops will be implemented as either explicit control flow in successors,
-  // or else may involve computed jumps through data "bbs".
+  // or else may involve computed jumps through data "BBs", and by diverting
+  // only instructions, we're sure to not divert loops through the entry hook.
+  //
   // Note that this is not comprehensive, as it's in general impossible to
   // distinguish tail recursion elimination from a loop at the semantic
   // level of instructions.
+  //
   // We choose to err on the side of performance and robustness, as
   // mis-instrumenting a loop will result in pushing the profiler's shadow
-  // stack for every iteration, and then popping it as many times on exit.
-  // This will lead to poor performance at least, but may also cause the
+  // stack for every loop iteration, and then popping it as many times on exit.
+  // This will lead to poor performance at best, but may also cause the
   // shadow stack to blow up in the extreme.
   BasicBlockSubGraph::BasicBlockOrdering::iterator bb_iter = bb_order.begin();
 
@@ -306,6 +319,38 @@ bool EntryCallTransform::GetEntryPoints(BlockGraph::Block* header_block) {
       return false;
     }
   }
+
+  return true;
+}
+
+bool EntryCallTransform::PostBlockGraphIteration(
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* header_block) {
+  // Make sure the thunks section contains at least one block, as its existence
+  // is what Chrome's glue code looks for to see whether it's instrumented.
+  BlockGraph::Section* thunk_section =
+      block_graph->FindSection(common::kThunkSectionName);
+  if (thunk_section != NULL) {
+    // It already exists - we're done!
+    return true;
+  }
+
+  // The section didn't already exist, create it.
+  thunk_section = block_graph->FindOrAddSection(common::kThunkSectionName,
+                                                pe::kCodeCharacteristics);
+  DCHECK(thunk_section != NULL);
+
+  // Create a one-byte marker block and assign it to the thunks segment.
+  BlockGraph::Block* marker =
+      block_graph->AddBlock(BlockGraph::CODE_BLOCK, 1, "InstrumentationMarker");
+  DCHECK(marker != NULL);
+
+  marker->set_section(thunk_section->id());
+
+  // Provide the marker function with valid code.
+  static const uint8 kRet[] = { 0xC3 };
+  marker->SetData(kRet, sizeof(kRet));
 
   return true;
 }

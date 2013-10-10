@@ -25,6 +25,7 @@
 #include "syzygy/block_graph/transform.h"
 #include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/common/defs.h"
+#include "syzygy/instrument/transforms/unittest_util.h"
 #include "syzygy/pe/pe_utils.h"
 
 namespace instrument {
@@ -45,7 +46,7 @@ class TestingEntryCallBasicBlockTransform
 };
 
 
-class EntryCallTransformTest : public testing::Test {
+class EntryCallTransformTest : public testing::TestDllTransformTest {
 };
 
 class EntryCallBasicBlockTransformTest : public testing::BasicBlockTest {
@@ -191,6 +192,24 @@ TEST_F(EntryCallTransformTest, AccessorsAndMutators) {
 
   tx.set_instrument_dll_name("HulaBonga.dll");
   EXPECT_STREQ("HulaBonga.dll", tx.instrument_dll_name());
+}
+
+TEST_F(EntryCallTransformTest, TransformCreatesThunkSection) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
+
+  using block_graph::BlockGraph;
+  ASSERT_EQ(static_cast<BlockGraph::Section*>(NULL),
+            block_graph_.FindSection(common::kThunkSectionName));
+
+  EntryCallTransform transform(false);
+
+  // Run the transform.
+  ASSERT_TRUE(ApplyBlockGraphTransform(
+      &transform, &policy_, &block_graph_, dos_header_block_));
+
+  // Check that the thunks section now exists.
+  ASSERT_NE(static_cast<BlockGraph::Section*>(NULL),
+            block_graph_.FindSection(common::kThunkSectionName));
 }
 
 }  // namespace transforms

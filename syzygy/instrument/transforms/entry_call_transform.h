@@ -107,6 +107,9 @@ class EntryCallTransform
   bool OnBlock(const TransformPolicyInterface* policy,
                BlockGraph* block_graph,
                BlockGraph::Block* block);
+  bool PostBlockGraphIteration(const TransformPolicyInterface* policy,
+                               BlockGraph* block_graph,
+                               BlockGraph::Block* header_block);
   // @}
 
  private:
