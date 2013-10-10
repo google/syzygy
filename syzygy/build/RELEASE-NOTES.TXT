@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.2.0
+
+[r1827] New instrumentation mode for profiler.
+[r1819] Fixes for broken sample grinder unittests in official build mode.
+
 Version 0.7.1.0
 
 [r1817] Sampling profiler now supports KCacheGrind output format.
