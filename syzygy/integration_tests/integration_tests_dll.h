@@ -126,6 +126,9 @@ enum EndToEndTestId {
   kCoverage1,
   kCoverage2,
   kCoverage3,
+
+  kProfileCallExport,
+  kProfileGetMyRVA,
 };
 
 }  // namespace testing

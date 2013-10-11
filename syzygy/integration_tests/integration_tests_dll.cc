@@ -22,6 +22,7 @@
 #include "syzygy/integration_tests/bb_entry_tests.h"
 #include "syzygy/integration_tests/behavior_tests.h"
 #include "syzygy/integration_tests/coverage_tests.h"
+#include "syzygy/integration_tests/profile_tests.h"
 
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
   return TRUE;
@@ -237,6 +238,12 @@ unsigned int CALLBACK EndToEndTest(testing::EndToEndTestId test) {
       return testing::coverage_func2();
     case testing::kCoverage3:
       return testing::coverage_func3();
+
+    // Profile test cases.
+    case testing::kProfileCallExport:
+      return testing::CallExportedFunction();
+    case testing::kProfileGetMyRVA:
+      return testing::GetMyRVA();
   }
   return 0;
 }

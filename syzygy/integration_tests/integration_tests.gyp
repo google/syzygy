@@ -40,9 +40,9 @@
       ],
       'msvs_settings': {
         'VCLinkerTool': {
-          # ASAN agent is compiled without large address spaces to allow an
+          # ASAN agent is compiled without large address spaces to allow a
           # memory optimization on the shadow memory. Agents should run in both
-          # mode, thus on long term, we should remove this.
+          # modes, thus in the long term, we should remove this.
           # Disable support for large address spaces.
           'LargeAddressAware': 1,
         },
@@ -65,12 +65,17 @@
         'integration_tests_dll.def',
         'integration_tests_dll.h',
         'integration_tests_dll.rc',
+        'profile_tests.cc',
+        'profile_tests.h',
+      ],
+      'dependencies': [
+        '<(src)/syzygy/pe/pe.gyp:export_dll',
       ],
       'msvs_settings': {
         'VCLinkerTool': {
-          # ASAN agent is compiled without large address spaces to allow an
+          # ASAN agent is compiled without large address spaces to allow a
           # memory optimization on the shadow memory. Agents should run in both
-          # mode, thus on long term, we should remove this.
+          # modes, thus in the long term, we should remove this.
           # Disable support for large address spaces.
           'LargeAddressAware': 1,
         },

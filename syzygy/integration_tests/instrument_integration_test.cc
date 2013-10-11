@@ -15,6 +15,7 @@
 #include "base/environment.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
+#include "base/files/file_path.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_rtl_impl.h"
 #include "syzygy/agent/asan/asan_runtime.h"
@@ -25,6 +26,7 @@
 #include "syzygy/grinder/grinder.h"
 #include "syzygy/grinder/grinders/coverage_grinder.h"
 #include "syzygy/grinder/grinders/indexed_frequency_data_grinder.h"
+#include "syzygy/grinder/grinders/profile_grinder.h"
 #include "syzygy/instrument/instrument_app.h"
 #include "syzygy/integration_tests/integration_tests_dll.h"
 #include "syzygy/pe/decomposer.h"
@@ -87,6 +89,22 @@ void SetAsanCallBack() {
   set_callback(AsanSafeCallback);
 };
 
+class TestingProfileGrinder : public grinder::grinders::ProfileGrinder {
+ public:
+  // Expose for testing.
+  typedef grinder::grinders::ProfileGrinder::InvocationNodeMap
+      InvocationNodeMap;
+  typedef grinder::grinders::ProfileGrinder::ModuleInformationSet
+      ModuleInformationSet;
+
+  using grinder::grinders::ProfileGrinder::PartData;
+  using grinder::grinders::ProfileGrinder::PartDataMap;
+  using grinder::grinders::ProfileGrinder::PartKey;
+
+  using grinder::grinders::ProfileGrinder::modules_;
+  using grinder::grinders::ProfileGrinder::parts_;
+};
+
 class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
  public:
   typedef testing::PELibUnitTest Super;
@@ -94,7 +112,8 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
   InstrumentAppIntegrationTest()
       : cmd_line_(base::FilePath(L"instrument.exe")),
         test_impl_(test_app_.implementation()),
-        image_layout_(&block_graph_) {
+        image_layout_(&block_graph_),
+        get_my_rva_(NULL) {
   }
 
   void SetUp() {
@@ -399,6 +418,21 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     EXPECT_EQ(42, InvokeTestDllFunction(testing::kBBEntryCallRecursive));
   }
 
+  void ProfileInvokeTestDll() {
+    EXPECT_EQ(5, InvokeTestDllFunction(testing::kProfileCallExport));
+    // Save the RVA of one of the invoked functions for testing later.
+    get_my_rva_ = InvokeTestDllFunction(testing::kProfileGetMyRVA);
+
+    // The profiler will record the address of the first instruction of the
+    // original function, which is six bytes past the start of the function
+    // as seen by itself post-instrumentation.
+    get_my_rva_ += 6;
+  }
+
+  uint32 ProfileInvokeGetRVA() {
+    return InvokeTestDllFunction(testing::kProfileGetMyRVA);
+  }
+
   void QueueTraces(Parser* parser) {
     DCHECK(parser != NULL);
 
@@ -616,6 +650,63 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     EXPECT_TRUE(GetLineInfoExecution(data, 54));
   }
 
+  static bool ContainsString(const std::vector<std::wstring>& vec,
+                             const wchar_t* str) {
+    return std::find(vec.begin(), vec.end(), str) != vec.end();
+  }
+
+  void ProfileCheckTestDll(bool thunk_imports) {
+    Parser parser;
+    TestingProfileGrinder grinder;
+
+    // Have the grinder aggregate all data to a single part.
+    grinder.set_thread_parts(false);
+
+    // Initialize trace parser.
+    ASSERT_TRUE(parser.Init(&grinder));
+    grinder.SetParser(&parser);
+
+    // Add generated traces to the parser.
+    QueueTraces(&parser);
+
+    // Parse all traces.
+    ASSERT_TRUE(parser.Consume());
+    ASSERT_FALSE(parser.error_occurred());
+    ASSERT_TRUE(grinder.Grind());
+
+    const TestingProfileGrinder::ModuleInformationSet& modules =
+        grinder.modules_;
+    TestingProfileGrinder::ModuleInformationSet::const_iterator mod_it;
+    std::vector<std::wstring> module_names;
+    for (mod_it = modules.begin(); mod_it != modules.end(); ++mod_it) {
+      base::FilePath image_name(mod_it->image_file_name);
+      module_names.push_back(image_name.BaseName().value());
+    }
+
+    EXPECT_TRUE(ContainsString(module_names, L"integration_tests_dll.dll"));
+    // If imports are thunked, we expect to find a module entry for the export
+    // DLL - otherwise it shouldn't be in there at all.
+    if (thunk_imports) {
+      EXPECT_TRUE(ContainsString(module_names, L"export_dll.dll"));
+    } else {
+      EXPECT_FALSE(ContainsString(module_names, L"export_dll.dll"));
+    }
+
+    // Make sure at least one function we know of was hit.
+    ASSERT_EQ(1U, grinder.parts_.size());
+    const TestingProfileGrinder::PartData& data =
+        grinder.parts_.begin()->second;
+
+    TestingProfileGrinder::InvocationNodeMap::const_iterator node_it =
+        data.nodes_.begin();
+    for (; node_it != data.nodes_.end(); ++node_it) {
+      if (node_it->second.function.rva() == get_my_rva_)
+        return;
+    }
+
+    FAIL() << "Didn't find GetMyRVA function entry.";
+  }
+
   // Stashes the current log-level before each test instance and restores it
   // after each test completes.
   testing::ScopedLogLevelSaver log_level_saver;
@@ -648,6 +739,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
   pe::PEFile pe_image_;
   pe::ImageLayout image_layout_;
   block_graph::BlockGraph block_graph_;
+  uint32 get_my_rva_;
 };
 
 }  // namespace
@@ -765,8 +857,22 @@ TEST_F(InstrumentAppIntegrationTest, BBEntryCoverageEndToEnd) {
 }
 
 TEST_F(InstrumentAppIntegrationTest, ProfileEndToEnd) {
+  ASSERT_NO_FATAL_FAILURE(StartService());
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("profile"));
-  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(ProfileInvokeTestDll());
+  ASSERT_NO_FATAL_FAILURE(UnloadDll());
+  ASSERT_NO_FATAL_FAILURE(StopService());
+  ASSERT_NO_FATAL_FAILURE(ProfileCheckTestDll(false));
+}
+
+TEST_F(InstrumentAppIntegrationTest, ProfileWithImportsEndToEnd) {
+  cmd_line_.AppendSwitch("instrument-imports");
+  ASSERT_NO_FATAL_FAILURE(StartService());
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("profile"));
+  ASSERT_NO_FATAL_FAILURE(ProfileInvokeTestDll());
+  ASSERT_NO_FATAL_FAILURE(UnloadDll());
+  ASSERT_NO_FATAL_FAILURE(StopService());
+  ASSERT_NO_FATAL_FAILURE(ProfileCheckTestDll(true));
 }
 
 }  // namespace integration_tests

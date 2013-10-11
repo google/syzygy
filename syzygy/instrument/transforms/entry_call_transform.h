@@ -132,7 +132,7 @@ class EntryCallTransform
   bool debug_friendly_;
 
   // Name of the instrumentation DLL we import.
-  // Defaults to "call_trace_client.dll".
+  // Defaults to "profile_client.dll".
   std::string instrument_dll_name_;
 
   // This contains the set of entrypoints that have DllMain calling conventions.
