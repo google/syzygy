@@ -23,6 +23,7 @@ namespace pe {
 PECoffImageLayoutBuilder::PECoffImageLayoutBuilder(ImageLayout* image_layout)
     : image_layout_(image_layout),
       padding_(0),
+      code_alignment_(1),
       section_alignment_(1),
       file_alignment_(1) {
   DCHECK(image_layout != NULL);
@@ -93,6 +94,9 @@ bool PECoffImageLayoutBuilder::LayoutBlock(size_t alignment,
   if (padding_ > 0 && cursor_ > section_start_)
     cursor_ += padding_;
 
+  // Keep the larger alignment.
+  if (block->type() == BlockGraph::CODE_BLOCK && alignment < code_alignment_)
+    alignment = code_alignment_;
   cursor_ = cursor_.AlignUp(alignment);
 
   // If we have explicit data, advance the explicit data cursor.

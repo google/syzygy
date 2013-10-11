@@ -54,6 +54,9 @@ const char kUsageFormatStr[] =
     "                          Default is inferred from output-image.\n"
     "    --overwrite           Allow output files to be overwritten.\n"
     "    --padding=<integer>   Add bytes of padding between blocks.\n"
+    "    --code-alignment=<integer>\n"
+    "                          Force a minimal alignment for code blocks.\n"
+    "                          Default value is 1.\n"
     "\n"
     "  Testing Options:\n"
     "    --seed=<integer>      Randomly reorder based on the given seed.\n"
@@ -71,21 +74,13 @@ const char kUsageFormatStr[] =
     "    * The --exclude-bb-padding option is only effective if\n"
     "      --basic-blocks is specified.\n";
 
-bool ParsePadding(const std::wstring& value_str, size_t* out_value) {
-  DCHECK(out_value != NULL);
-
-  int temp;
-  if (!base::StringToInt(value_str, &temp) || temp < 0) {
-    return false;
-  }
-
-  *out_value = static_cast<size_t>(temp);
-  return true;
-}
-
 bool ParseUInt32(const std::wstring& value_str, uint32* out_value) {
   DCHECK(out_value != NULL);
-  return base::StringToInt(value_str, reinterpret_cast<int*>(out_value));
+  unsigned temp;
+  if (!base::StringToUint(value_str, &temp))
+    return false;
+  *out_value = temp;
+  return true;
 }
 
 void GuessPdbPath(const base::FilePath& module_path, base::FilePath* pdb_path) {
@@ -160,10 +155,18 @@ bool RelinkApp::ParseCommandLine(const CommandLine* cmd_line) {
   // Parse the padding argument.
   if (cmd_line->HasSwitch("padding")) {
     std::wstring padding_str(cmd_line->GetSwitchValueNative("padding"));
-    if (!ParsePadding(padding_str, &padding_))
+    if (!ParseUInt32(padding_str, &padding_))
       return Usage(cmd_line, "Invalid padding value.");
   }
 
+  // Parse the code alignment argument.
+  if (cmd_line->HasSwitch("code-alignment")) {
+    std::wstring align_str(cmd_line->GetSwitchValueNative("code-alignment"));
+    if (!ParseUInt32(align_str, &code_alignment_))
+      return Usage(cmd_line, "Invalid code-alignment value.");
+    if (code_alignment_ == 0)
+      return Usage(cmd_line, "Code-alignment value cannot be zero.");
+  }
   return true;
 }
 
@@ -195,6 +198,7 @@ int RelinkApp::Run() {
   relinker.set_output_path(output_image_path_);
   relinker.set_output_pdb_path(output_pdb_path_);
   relinker.set_padding(padding_);
+  relinker.set_code_alignment(code_alignment_);
   relinker.set_add_metadata(output_metadata_);
   relinker.set_allow_overwrite(overwrite_);
   relinker.set_augment_pdb(!no_augment_pdb_);

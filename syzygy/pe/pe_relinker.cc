@@ -259,6 +259,7 @@ bool ApplyPdbMutators(const std::vector<PdbMutatorInterface*>& pdb_mutators,
 
 // Lays out the image.
 bool BuildImageLayout(size_t padding,
+                      size_t code_alignment,
                       const OrderedBlockGraph& ordered_block_graph,
                       BlockGraph::Block* dos_header_block,
                       ImageLayout* image_layout) {
@@ -269,6 +270,7 @@ bool BuildImageLayout(size_t padding,
 
   PEImageLayoutBuilder builder(image_layout);
   builder.set_padding(padding);
+  builder.set_code_alignment(code_alignment);
   if (!builder.LayoutImageHeaders(dos_header_block)) {
     LOG(ERROR) << "PEImageLayoutBuilder::LayoutImageHeaders failed.";
     return false;
@@ -602,7 +604,7 @@ PERelinker::PERelinker(const PETransformPolicy* transform_policy)
     : PECoffRelinker(transform_policy),
       add_metadata_(true), augment_pdb_(true),
       compress_pdb_(false), parse_debug_info_(true), strip_strings_(false),
-      use_new_decomposer_(false), padding_(0),
+      use_new_decomposer_(false), padding_(0), code_alignment_(1),
       output_guid_(GUID_NULL) {
   DCHECK(transform_policy != NULL);
 }
@@ -697,7 +699,8 @@ bool PERelinker::Relink() {
 
   // Lay it out.
   ImageLayout output_image_layout(&block_graph_);
-  if (!BuildImageLayout(padding_, ordered_block_graph, headers_block_,
+  if (!BuildImageLayout(padding_, code_alignment_,
+                        ordered_block_graph, headers_block_,
                         &output_image_layout)) {
     return false;
   }

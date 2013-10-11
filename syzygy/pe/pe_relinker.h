@@ -119,6 +119,7 @@ class PERelinker : public PECoffRelinker {
   bool strip_strings() const { return strip_strings_; }
   bool use_new_decomposer() const { return use_new_decomposer_; }
   size_t padding() const { return padding_; }
+  size_t code_alignment() const { return code_alignment_; }
   // @}
 
   // @name Mutators for controlling relinker behaviour.
@@ -149,6 +150,9 @@ class PERelinker : public PECoffRelinker {
   }
   void set_padding(size_t padding) {
     padding_ = padding;
+  }
+  void set_code_alignment(size_t alignment) {
+    code_alignment_ = alignment;
   }
   // @}
 
@@ -215,6 +219,8 @@ class PERelinker : public PECoffRelinker {
   // Indicates the amount of padding to be added between blocks. Zero is the
   // default value and indicates no padding will be added.
   size_t padding_;
+  // Minimal code block alignment.
+  size_t code_alignment_;
 
   // The vectors of user supplied transforms, orderers and mutators to be
   // applied.

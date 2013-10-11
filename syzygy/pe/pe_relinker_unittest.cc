@@ -167,6 +167,12 @@ TEST_F(PERelinkerTest, Properties) {
   EXPECT_EQ(10u, relinker.padding());
   relinker.set_padding(0);
   EXPECT_EQ(0u, relinker.padding());
+
+  EXPECT_EQ(1u, relinker.code_alignment());
+  relinker.set_code_alignment(10);
+  EXPECT_EQ(10u, relinker.code_alignment());
+  relinker.set_code_alignment(1);
+  EXPECT_EQ(1u, relinker.code_alignment());
 }
 
 TEST_F(PERelinkerTest, AppendPdbMutators) {

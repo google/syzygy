@@ -53,6 +53,12 @@ class PECoffImageLayoutBuilder {
   // @see set_padding(size_t)
   size_t padding() const { return padding_; }
 
+  // @param alignment the minimal alignment for a code block.
+  void set_code_alignment(size_t alignment) { code_alignment_ = alignment; }
+
+  // @returns the current code block alignment.
+  size_t code_alignment() const { return code_alignment_; }
+
   // @returns the mutable image layout this builder builds to.
   ImageLayout* image_layout() { return image_layout_; }
 
@@ -148,6 +154,9 @@ class PECoffImageLayoutBuilder {
 
   // The inter-block padding.
   size_t padding_;
+
+  // The minimal code block alignment.
+  size_t code_alignment_;
 
   // The current position of the output cursor.
   RelativeAddress cursor_;

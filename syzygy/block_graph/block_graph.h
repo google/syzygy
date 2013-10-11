@@ -274,7 +274,7 @@ class BlockGraph {
 
   // Removes the section with the given id from the BlockGraph.
   //
-  // @param section The id of the section to remove.
+  // @param id The id of the section to remove.
   // @returns true on success, false otherwise.
   bool RemoveSectionById(SectionId id);
 

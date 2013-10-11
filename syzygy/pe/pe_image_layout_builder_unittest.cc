@@ -97,6 +97,18 @@ TEST_F(PEImageLayoutBuilderTest, Initialization) {
   EXPECT_EQ(&block_graph_, builder.block_graph());
   EXPECT_EQ(NULL, builder.dos_header_block());
   EXPECT_EQ(NULL, builder.nt_headers_block());
+  EXPECT_EQ(0, builder.padding());
+  EXPECT_EQ(1, builder.code_alignment());
+}
+
+TEST_F(PEImageLayoutBuilderTest, Accessors) {
+  ImageLayout layout(&block_graph_);
+  PEImageLayoutBuilder builder(&layout);
+
+  builder.set_padding(16);
+  builder.set_code_alignment(8);
+  EXPECT_EQ(16, builder.padding());
+  EXPECT_EQ(8, builder.code_alignment());
 }
 
 TEST_F(PEImageLayoutBuilderTest, LayoutImageHeaders) {
@@ -195,6 +207,38 @@ TEST_F(PEImageLayoutBuilderTest, PadTestDll) {
   ASSERT_TRUE(file_util::GetFileSize(image_path_, &orig_size));
   ASSERT_TRUE(file_util::GetFileSize(temp_file_, &rewritten_size));
   EXPECT_GE(rewritten_size, orig_size + expected_file_size_increase);
+}
+
+TEST_F(PEImageLayoutBuilderTest, CodeAlignmentTestDll) {
+  OrderedBlockGraph obg(&block_graph_);
+  block_graph::orderers::OriginalOrderer orig_orderer;
+  ASSERT_TRUE(orig_orderer.OrderBlockGraph(&obg, dos_header_block_));
+
+  // We modify the CV info so that the debugger doesn't try to load the
+  // wrong symbols for this image.
+  ASSERT_NO_FATAL_FAILURE(testing::TwiddlePdbGuidAndPath(dos_header_block_));
+
+  const uint32 kCodeAlignment = 8;
+  ImageLayout layout(&block_graph_);
+  PEImageLayoutBuilder builder(&layout);
+  builder.set_code_alignment(kCodeAlignment);
+  ASSERT_TRUE(builder.LayoutImageHeaders(dos_header_block_));
+  EXPECT_TRUE(builder.LayoutOrderedBlockGraph(obg));
+  EXPECT_TRUE(builder.Finalize());
+
+  PEFileWriter writer(layout);
+  ASSERT_TRUE(writer.WriteImage(temp_file_));
+  ASSERT_NO_FATAL_FAILURE(CheckTestDll(temp_file_));
+
+  // Validate that code blocks are aligned correctly.
+  BlockGraph::AddressSpace::RangeMapConstIter iter = layout.blocks.begin();
+  for (; iter != layout.blocks.end(); ++iter) {
+    BlockGraph::Block* block = iter->second;
+    BlockGraph::AddressSpace::Range range =iter->first;
+    if (block->type() == BlockGraph::CODE_BLOCK) {
+      EXPECT_TRUE(range.start().IsAligned(kCodeAlignment));
+    }
+  }
 }
 
 TEST_F(PEImageLayoutBuilderTest, RandomizeTestDll) {

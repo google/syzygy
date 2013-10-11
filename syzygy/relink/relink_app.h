@@ -32,6 +32,7 @@ class RelinkApp : public common::AppImplBase {
       : AppImplBase("Relinker"),
         seed_(0),
         padding_(0),
+        code_alignment_(1),
         no_augment_pdb_(false),
         compress_pdb_(false),
         no_strip_strings_(false),
@@ -65,6 +66,7 @@ class RelinkApp : public common::AppImplBase {
   base::FilePath order_file_path_;
   uint32 seed_;
   size_t padding_;
+  size_t code_alignment_;
   bool no_augment_pdb_;
   bool compress_pdb_;
   bool no_strip_strings_;
