@@ -14,6 +14,8 @@
 
 #include "syzygy/agent/asan/asan_heap.h"
 
+#include <algorithm>
+
 #include "base/logging.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
@@ -160,22 +162,41 @@ bool HeapProxy::Destroy() {
 void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
   DCHECK(heap_ != NULL);
 
-  size_t alloc_size = GetAllocSize(bytes);
+  size_t alloc_size = GetAllocSize(bytes, kDefaultAllocGranularity);
 
   // GetAllocSize can return a smaller value if the alloc size is incorrect
   // (i.e. 0xffffffff).
   if (alloc_size < bytes)
     return NULL;
 
-  BlockHeader* block_header =
-      reinterpret_cast<BlockHeader*>(::HeapAlloc(heap_, flags, alloc_size));
+  uint8* block_mem = reinterpret_cast<uint8*>(
+      ::HeapAlloc(heap_, flags, alloc_size));
 
-  if (block_header == NULL)
+  return InitializeAsanBlock(block_mem,
+                             bytes,
+                             alloc_size,
+                             kDefaultAllocGranularityLog);
+}
+
+void* HeapProxy::InitializeAsanBlock(uint8* asan_pointer,
+                                     size_t user_size,
+                                     size_t asan_size,
+                                     size_t alloc_granularity_log) {
+  if (asan_pointer == NULL)
     return NULL;
 
-  // Poison head and tail zones, and un-poison alloc.
-  size_t trailer_size = alloc_size - sizeof(BlockHeader) - bytes;
-  Shadow::Poison(block_header, sizeof(BlockHeader), Shadow::kHeapLeftRedzone);
+  if (alloc_granularity_log < Shadow::kShadowGranularityLog)
+    alloc_granularity_log = Shadow::kShadowGranularityLog;
+
+  size_t header_size = common::AlignUp(sizeof(BlockHeader),
+                                       1 << alloc_granularity_log);
+
+  BlockHeader* block_header = reinterpret_cast<BlockHeader*>(
+      asan_pointer + header_size - sizeof(BlockHeader));
+
+  // Poison the block header.
+  size_t trailer_size = asan_size - user_size - header_size;
+  Shadow::Poison(asan_pointer, header_size, Shadow::kHeapLeftRedzone);
 
   // Capture the current stack. InitFromStack is inlined to preserve the
   // greatest number of stack frames.
@@ -184,10 +205,11 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
 
   // Initialize the block fields.
   block_header->magic_number = kBlockHeaderSignature;
-  block_header->block_size = bytes;
+  block_header->block_size = user_size;
   block_header->state = ALLOCATED;
   block_header->alloc_stack = stack_cache_->SaveStackTrace(stack);
   block_header->alloc_tid = ::GetCurrentThreadId();
+  block_header->alignment_log = alloc_granularity_log;
 
   BlockTrailer* block_trailer = GetBlockTrailer(block_header);
   block_trailer->free_stack = NULL;
@@ -195,9 +217,12 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
   block_trailer->next_free_block = NULL;
 
   uint8* block_alloc = BlockHeaderToUserPointer(block_header);
-  DCHECK(MemoryRangeIsAccessible(block_alloc, bytes));
+  DCHECK(MemoryRangeIsAccessible(block_alloc, user_size));
 
-  Shadow::Poison(block_alloc + bytes, trailer_size, Shadow::kHeapRightRedzone);
+  // Poison the block trailer.
+  Shadow::Poison(block_alloc + user_size,
+                 trailer_size,
+                 Shadow::kHeapRightRedzone);
 
   return block_alloc;
 }
@@ -347,7 +372,8 @@ void HeapProxy::TrimQuarantine() {
       if (head_ == NULL)
         tail_ = NULL;
 
-      alloc_size = GetAllocSize(free_block->block_size);
+      alloc_size = GetAllocSize(free_block->block_size,
+                                kDefaultAllocGranularity);
 
       DCHECK_GE(quarantine_size_, alloc_size);
       quarantine_size_ -= alloc_size;
@@ -380,7 +406,8 @@ void HeapProxy::QuarantineBlock(BlockHeader* block) {
   // Poison the released alloc (marked as freed) and quarantine the block.
   // Note that the original data is left intact. This may make it easier
   // to debug a crash report/dump on access to a quarantined block.
-  size_t alloc_size = GetAllocSize(block->block_size);
+  size_t alloc_size = GetAllocSize(block->block_size,
+                                   kDefaultAllocGranularity);
   uint8* mem = BlockHeaderToUserPointer(block);
   Shadow::MarkAsFreed(mem, block->block_size);
 
@@ -400,14 +427,11 @@ void HeapProxy::QuarantineBlock(BlockHeader* block) {
   TrimQuarantine();
 }
 
-size_t HeapProxy::GetAllocSize(size_t bytes) {
-  // The Windows heap is 8-byte granular, so there's no gain in a lower
-  // allocation granularity.
-  const size_t kAllocGranularity = 8;
-  bytes += sizeof(BlockHeader);
+size_t HeapProxy::GetAllocSize(size_t bytes, size_t alignment) {
+  bytes += std::max(sizeof(BlockHeader), alignment);
   bytes += sizeof(BlockTrailer);
   bytes += trailer_padding_size_;
-  return common::AlignUp(bytes, kAllocGranularity);
+  return common::AlignUp(bytes, alignment);
 }
 
 HeapProxy::BlockHeader* HeapProxy::UserPointerToBlockHeader(
@@ -421,6 +445,25 @@ HeapProxy::BlockHeader* HeapProxy::UserPointerToBlockHeader(
     return NULL;
 
   return const_cast<BlockHeader*>(header);
+}
+
+uint8* HeapProxy::BlockHeaderToAsanPointer(const BlockHeader* header) {
+  if (header == NULL || header->magic_number != kBlockHeaderSignature)
+    return NULL;
+
+  return reinterpret_cast<uint8*>(
+      common::AlignDown(reinterpret_cast<size_t>(header),
+                        1 << header->alignment_log));
+}
+
+uint8* HeapProxy::UserPointerToAsanPointer(const void* user_pointer) {
+  if (user_pointer == NULL)
+    return NULL;
+
+  const BlockHeader* header =
+      reinterpret_cast<const BlockHeader*>(user_pointer) - 1;
+
+  return BlockHeaderToAsanPointer(header);
 }
 
 HeapProxy::BlockTrailer* HeapProxy::GetBlockTrailer(const BlockHeader* header) {
@@ -442,9 +485,7 @@ uint8* HeapProxy::BlockHeaderToUserPointer(BlockHeader* block) {
   DCHECK_EQ(kBlockHeaderSignature, block->magic_number);
   DCHECK(block->state == ALLOCATED || block->state == QUARANTINED);
 
-  uint8* mem = reinterpret_cast<uint8*>(block);
-
-  return mem + sizeof(BlockHeader);
+  return reinterpret_cast<uint8*>(block + 1);
 }
 
 HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const void* addr,

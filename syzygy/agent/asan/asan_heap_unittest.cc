@@ -14,12 +14,15 @@
 
 #include "syzygy/agent/asan/asan_heap.h"
 
+#include <algorithm>
+
 #include "base/rand_util.h"
 #include "base/sha1.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 #include "syzygy/agent/asan/unittest_util.h"
+#include "syzygy/common/align.h"
 #include "syzygy/trace/common/clock.h"
 
 namespace agent {
@@ -39,15 +42,26 @@ class TestHeapProxy : public HeapProxy {
  public:
   using HeapProxy::BlockHeader;
   using HeapProxy::BlockTrailer;
+  using HeapProxy::BlockHeaderToAsanPointer;
+  using HeapProxy::BlockHeaderToUserPointer;
   using HeapProxy::FindAddressBlock;
   using HeapProxy::GetAllocSize;
   using HeapProxy::GetBadAccessKind;
   using HeapProxy::GetTimeSinceFree;
   using HeapProxy::GetBlockTrailer;
+  using HeapProxy::InitializeAsanBlock;
   using HeapProxy::UserPointerToBlockHeader;
+  using HeapProxy::UserPointerToAsanPointer;
+  using HeapProxy::kDefaultAllocGranularityLog;
 
   TestHeapProxy(StackCaptureCache* stack_cache, AsanLogger* logger)
       : HeapProxy(stack_cache, logger) {
+  }
+
+  // Calculates the underlying allocation size for an allocation of @p bytes.
+  // This assume a granularity of @p kDefaultAllocGranularity bytes.
+  static size_t GetAllocSize(size_t bytes) {
+    return GetAllocSize(bytes, kDefaultAllocGranularity);
   }
 
   // Verify that the access to @p addr contained in @p header is an underflow.
@@ -567,6 +581,93 @@ TEST_F(HeapTest, SetTrailerPaddingSize) {
     ASSERT_TRUE(proxy_.Free(0, mem));
   }
   proxy_.set_trailer_padding_size(original_trailer_padding_size);
+}
+
+TEST_F(HeapTest, InitializeAsanBlock) {
+  const size_t kBufferSize = 8192;
+  uint8 buffer[kBufferSize];
+  const uint8 kBufferHeaderValue = 0xAE;
+  const uint8 kBufferTrailerValue = 0xEA;
+
+  for (size_t alloc_alignment_log = Shadow::kShadowGranularityLog;
+       alloc_alignment_log < 12;
+       ++alloc_alignment_log) {
+    const size_t kAllocSize = 100;
+    size_t alloc_alignment = 1 << alloc_alignment_log;
+    size_t asan_alloc_size = proxy_.GetAllocSize(kAllocSize,
+                                                 alloc_alignment);
+
+    // Align the beginning of the buffer to the current granularity. Ensure that
+    // there's some room to store some magic bytes in front of this block.
+    uint8* buffer_align_begin = reinterpret_cast<uint8*>(common::AlignUp(
+        reinterpret_cast<size_t>(buffer) + 1, alloc_alignment));
+
+    // Calculate the size of the zone of the buffer that we use to ensure that
+    // we don't corrupt the heap.
+    size_t buffer_header_size = buffer_align_begin - buffer;
+    size_t buffer_trailer_size = kBufferSize - buffer_header_size -
+        asan_alloc_size;
+    ASSERT_GE(kBufferSize, asan_alloc_size + buffer_header_size);
+
+    // Initialize the buffers.
+    memset(buffer, kBufferHeaderValue, buffer_header_size);
+    memset(buffer_align_begin + asan_alloc_size,
+           kBufferTrailerValue,
+           buffer_trailer_size);
+
+    // Initialize the ASan block.
+    void* user_ptr = proxy_.InitializeAsanBlock(buffer_align_begin,
+                                                kAllocSize,
+                                                asan_alloc_size,
+                                                alloc_alignment_log);
+    void* expected_user_ptr = reinterpret_cast<void*>(buffer_align_begin +
+        std::max(sizeof(TestHeapProxy::BlockHeader), alloc_alignment));
+    EXPECT_TRUE(user_ptr == expected_user_ptr);
+    EXPECT_TRUE(common::IsAligned(reinterpret_cast<size_t>(user_ptr),
+                                  alloc_alignment));
+
+    // Ensure that the block header is valid. UserPointerToBlockHeader takes
+    // care of checking the magic number in the signature of the block.
+    TestHeapProxy::BlockHeader* block_header = proxy_.UserPointerToBlockHeader(
+        user_ptr);
+    EXPECT_TRUE(block_header != NULL);
+    EXPECT_EQ(::GetCurrentThreadId(), block_header->alloc_tid);
+
+    // Test the various accessors.
+    EXPECT_TRUE(proxy_.BlockHeaderToUserPointer(block_header) == user_ptr);
+    EXPECT_TRUE(proxy_.UserPointerToAsanPointer(user_ptr) ==
+        buffer_align_begin);
+    EXPECT_TRUE(proxy_.BlockHeaderToAsanPointer(block_header) ==
+        buffer_align_begin);
+
+    size_t i = 0;
+    // Ensure that the buffer header is accessible and correctly tagged.
+    for (; i < buffer_header_size; ++i) {
+      EXPECT_EQ(kBufferHeaderValue, buffer[i]);
+      EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
+    }
+    // Ensure that the block header isn't accessible.
+    for (; i < buffer_header_size + (reinterpret_cast<uint8*>(user_ptr) -
+        buffer_align_begin); ++i) {
+      EXPECT_FALSE(Shadow::IsAccessible(buffer + i));
+    }
+    // Ensure that the user block is accessible.
+    size_t block_trailer_offset = i + kAllocSize;
+    for (; i < block_trailer_offset; ++i) {
+      EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
+    }
+    // Ensure that the block trailer isn't accessible.
+    for (; i < buffer_header_size + asan_alloc_size; ++i) {
+      EXPECT_FALSE(Shadow::IsAccessible(buffer + i));
+    }
+    // Ensure that the buffer trailer is accessible and correctly tagged.
+    for (;i < buffer_trailer_size;
+         ++i) {
+      EXPECT_EQ(kBufferTrailerValue, buffer[i]);
+      EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
+    }
+    Shadow::Unpoison(buffer_align_begin, asan_alloc_size);
+  }
 }
 
 }  // namespace asan

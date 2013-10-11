@@ -26,6 +26,10 @@ namespace asan {
 // An all-static class that manages the ASAN shadow memory.
 class Shadow {
  public:
+   // The granularity of the shadow memory.
+   static const size_t kShadowGranularityLog = 3;
+   static const size_t kShadowGranularity = 1 << kShadowGranularityLog;
+
   // Set up the shadow memory.
   static void SetUp();
 
@@ -107,7 +111,7 @@ class Shadow {
 
   // One shadow byte for every 8 bytes in a 2G address space. By default Chrome
   // is not large address aware, so we shouldn't be using the high memory.
-  static const size_t kShadowSize = 1 << (31 - 3);
+  static const size_t kShadowSize = 1 << (31 - kShadowGranularityLog);
   static uint8 shadow_[kShadowSize];
 };
 

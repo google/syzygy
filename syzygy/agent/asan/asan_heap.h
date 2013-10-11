@@ -174,7 +174,8 @@ class HeapProxy {
   // Every allocated block starts with a BlockHeader...
   struct BlockHeader {
     size_t magic_number : 24;
-    BlockState state : 8;
+    BlockState state : 4;
+    size_t alignment_log : 4;
     size_t block_size;
     const StackCapture* alloc_stack;
     DWORD alloc_tid;
@@ -196,10 +197,29 @@ class HeapProxy {
   COMPILE_ASSERT(sizeof(BlockTrailer) == 20, asan_block_trailer_too_big);
 
   // Magic number to identify the beginning of a block header.
-  static const size_t kBlockHeaderSignature = 0xCA80E7;
+  static const size_t kBlockHeaderSignature = 0xCA80;
+
+  // Initialize an ASan block. This will red-zone the header and trailer, green
+  // zone the user data, and grab an allocation stack trace and other metadata.
+  // @param asan_pointer The ASan block to initialize.
+  // @param user_size The user size for this block.
+  // @param asan_size The total size of this block.
+  // @param alloc_granularity_log The allocation granularity for this block.
+  // @returns The user pointer for this block on success, NULL otherwise.
+  void* InitializeAsanBlock(uint8* asan_pointer,
+                            size_t user_size,
+                            size_t asan_size,
+                            size_t alloc_granularity_log);
 
   // Returns the block header for a user pointer.
   BlockHeader* UserPointerToBlockHeader(const void* user_pointer);
+
+  // Returns the ASan pointer for a user pointer. This should be equal to the
+  // block pointer for the blocks allocated by this proxy.
+  uint8* UserPointerToAsanPointer(const void* user_pointer);
+
+  // Returns the ASan pointer for a block header.
+  uint8* BlockHeaderToAsanPointer(const BlockHeader* header);
 
   // Returns the user pointer for a block header.
   uint8* BlockHeaderToUserPointer(BlockHeader* block);
@@ -216,9 +236,9 @@ class HeapProxy {
   // @param header The header of the block containing this address.
   BadAccessKind GetBadAccessKind(const void* addr, BlockHeader* header);
 
-  // Calculates the underlying allocation size for a requested
-  // allocation of @p bytes.
-  static size_t GetAllocSize(size_t bytes);
+  // Calculates the underlying allocation size for a requested allocation of @p
+  // bytes, with an alignment of @p alignment bytes.
+  static size_t GetAllocSize(size_t bytes, size_t alignment);
 
   // Quarantines @p block and flushes quarantine overage.
   void QuarantineBlock(BlockHeader* block);
@@ -242,6 +262,11 @@ class HeapProxy {
   // By default we use no additional padding between heap blocks, beyond the
   // header and footer.
   static const size_t kDefaultTrailerPaddingSize = 0;
+
+  // The default alloc granularity. The Windows heap is 8-byte granular, so
+  // there's no gain in a lower allocation granularity.
+  static const size_t kDefaultAllocGranularity = 8;
+  static const uint16 kDefaultAllocGranularityLog = 3;
 
   // Default max size of blocks in quarantine (in bytes).
   static size_t default_quarantine_max_size_;
