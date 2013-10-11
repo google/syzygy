@@ -27,12 +27,11 @@ namespace {
 
 class TestAsanInstrumenter : public AsanInstrumenter {
  public:
-  using AsanInstrumenter::InstrumentImpl;
   using AsanInstrumenter::agent_dll_;
-  using AsanInstrumenter::input_dll_path_;
+  using AsanInstrumenter::input_image_path_;
   using AsanInstrumenter::input_pdb_path_;
   using AsanInstrumenter::intercept_crt_functions_;
-  using AsanInstrumenter::output_dll_path_;
+  using AsanInstrumenter::output_image_path_;
   using AsanInstrumenter::output_pdb_path_;
   using AsanInstrumenter::allow_overwrite_;
   using AsanInstrumenter::new_decomposer_;
@@ -44,10 +43,12 @@ class TestAsanInstrumenter : public AsanInstrumenter {
   using AsanInstrumenter::use_liveness_analysis_;
   using AsanInstrumenter::remove_redundant_checks_;
   using AsanInstrumenter::kAgentDllAsan;
+  using AsanInstrumenter::InstrumentImpl;
+  using InstrumenterWithAgent::CreateRelinker;
 
   TestAsanInstrumenter() {
-    // Call the GetRelinker function to initialize it.
-    EXPECT_TRUE(GetRelinker() != NULL);
+    // Call the GetPERelinker function to initialize it.
+    EXPECT_TRUE(GetPERelinker() != NULL);
   }
 };
 
@@ -74,19 +75,19 @@ class AsanInstrumenterTest : public testing::PELibUnitTest {
     InitStreams(stdin_path_, stdout_path_, stderr_path_);
 
     // Initialize the (potential) input and output path values.
-    abs_input_dll_path_ = testing::GetExeRelativePath(testing::kTestDllName);
-    input_dll_path_ = testing::GetRelativePath(abs_input_dll_path_);
+    abs_input_image_path_ = testing::GetExeRelativePath(testing::kTestDllName);
+    input_image_path_ = testing::GetRelativePath(abs_input_image_path_);
     abs_input_pdb_path_ = testing::GetExeRelativePath(testing::kTestDllPdbName);
     input_pdb_path_ = testing::GetRelativePath(abs_input_pdb_path_);
-    output_dll_path_ = temp_dir_.Append(input_dll_path_.BaseName());
+    output_image_path_ = temp_dir_.Append(input_image_path_.BaseName());
     output_pdb_path_ = temp_dir_.Append(input_pdb_path_.BaseName());
     test_dll_filter_path_ = temp_dir_.Append(L"test_dll_filter.json");
     dummy_filter_path_ = temp_dir_.Append(L"dummy_filter.json");
   }
 
   void SetUpValidCommandLine() {
-    cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-    cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+    cmd_line_.AppendSwitchPath("input-image", input_image_path_);
+    cmd_line_.AppendSwitchPath("output-image", output_image_path_);
   }
 
  protected:
@@ -94,7 +95,7 @@ class AsanInstrumenterTest : public testing::PELibUnitTest {
     // Create a valid test_dll filter. Just so it's not empty we mark the NT
     // headers as non-instrumentable.
     pe::ImageFilter filter;
-    ASSERT_TRUE(filter.Init(abs_input_dll_path_));
+    ASSERT_TRUE(filter.Init(abs_input_image_path_));
     filter.filter.Mark(pe::ImageFilter::RelativeAddressFilter::Range(
         core::RelativeAddress(0), 4096));
     ASSERT_TRUE(filter.SaveToJSON(false, test_dll_filter_path_));
@@ -116,9 +117,9 @@ class AsanInstrumenterTest : public testing::PELibUnitTest {
   // @name Command-line and parameters.
   // @{
   CommandLine cmd_line_;
-  base::FilePath input_dll_path_;
+  base::FilePath input_image_path_;
   base::FilePath input_pdb_path_;
-  base::FilePath output_dll_path_;
+  base::FilePath output_image_path_;
   base::FilePath output_pdb_path_;
   base::FilePath test_dll_filter_path_;
   base::FilePath dummy_filter_path_;
@@ -126,7 +127,7 @@ class AsanInstrumenterTest : public testing::PELibUnitTest {
 
   // @name Expected final values of input parameters.
   // @{
-  base::FilePath abs_input_dll_path_;
+  base::FilePath abs_input_image_path_;
   base::FilePath abs_input_pdb_path_;
   // @}
 
@@ -141,8 +142,8 @@ TEST_F(AsanInstrumenterTest, ParseMinimalAsan) {
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
 
-  EXPECT_EQ(abs_input_dll_path_, instrumenter_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, instrumenter_.output_dll_path_);
+  EXPECT_EQ(abs_input_image_path_, instrumenter_.input_image_path_);
+  EXPECT_EQ(output_image_path_, instrumenter_.output_image_path_);
   EXPECT_EQ(std::string(TestAsanInstrumenter::kAgentDllAsan),
             instrumenter_.agent_dll_);
   EXPECT_FALSE(instrumenter_.allow_overwrite_);
@@ -174,8 +175,8 @@ TEST_F(AsanInstrumenterTest, ParseFullAsan) {
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
 
-  EXPECT_EQ(abs_input_dll_path_, instrumenter_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, instrumenter_.output_dll_path_);
+  EXPECT_EQ(abs_input_image_path_, instrumenter_.input_image_path_);
+  EXPECT_EQ(output_image_path_, instrumenter_.output_image_path_);
   EXPECT_EQ(abs_input_pdb_path_, instrumenter_.input_pdb_path_);
   EXPECT_EQ(output_pdb_path_, instrumenter_.output_pdb_path_);
   EXPECT_EQ(test_dll_filter_path_, instrumenter_.filter_path_);
@@ -195,12 +196,13 @@ TEST_F(AsanInstrumenterTest, InstrumentImpl) {
   SetUpValidCommandLine();
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_.CreateRelinker());
   EXPECT_TRUE(instrumenter_.InstrumentImpl());
 }
 
 TEST_F(AsanInstrumenterTest, FailsWithInvalidFilter) {
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+  cmd_line_.AppendSwitchPath("input-image", input_image_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
   cmd_line_.AppendSwitchPath("filter", dummy_filter_path_);
 
   // We don't expect the relinker to be called at all, as before we get that far
@@ -208,16 +210,18 @@ TEST_F(AsanInstrumenterTest, FailsWithInvalidFilter) {
 
   MakeFilters();
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_.CreateRelinker());
   EXPECT_FALSE(instrumenter_.InstrumentImpl());
 }
 
 TEST_F(AsanInstrumenterTest, SucceedsWithValidFilter) {
-  cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-  cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+  cmd_line_.AppendSwitchPath("input-image", input_image_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
   cmd_line_.AppendSwitchPath("filter", test_dll_filter_path_);
 
   MakeFilters();
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_.CreateRelinker());
   EXPECT_TRUE(instrumenter_.InstrumentImpl());
 }
 

@@ -26,11 +26,10 @@ namespace {
 
 class TestBasicBlockEntryInstrumenter : public BasicBlockEntryInstrumenter {
  public:
-  using BasicBlockEntryInstrumenter::InstrumentImpl;
   using BasicBlockEntryInstrumenter::agent_dll_;
-  using BasicBlockEntryInstrumenter::input_dll_path_;
+  using BasicBlockEntryInstrumenter::input_image_path_;
   using BasicBlockEntryInstrumenter::input_pdb_path_;
-  using BasicBlockEntryInstrumenter::output_dll_path_;
+  using BasicBlockEntryInstrumenter::output_image_path_;
   using BasicBlockEntryInstrumenter::output_pdb_path_;
   using BasicBlockEntryInstrumenter::allow_overwrite_;
   using BasicBlockEntryInstrumenter::new_decomposer_;
@@ -40,10 +39,12 @@ class TestBasicBlockEntryInstrumenter : public BasicBlockEntryInstrumenter {
   using BasicBlockEntryInstrumenter::inline_fast_path_;
   using BasicBlockEntryInstrumenter::debug_friendly_;
   using BasicBlockEntryInstrumenter::kAgentDllBasicBlockEntry;
+  using BasicBlockEntryInstrumenter::InstrumentImpl;
+  using InstrumenterWithAgent::CreateRelinker;
 
   TestBasicBlockEntryInstrumenter() {
-    // Call the GetRelinker function to initialize it.
-    EXPECT_TRUE(GetRelinker() != NULL);
+    // Call the GetPERelinker function to initialize it.
+    EXPECT_TRUE(GetPERelinker() != NULL);
   }
 };
 
@@ -70,17 +71,17 @@ class BasicBlockEntryInstrumenterTest : public testing::PELibUnitTest {
     InitStreams(stdin_path_, stdout_path_, stderr_path_);
 
     // Initialize the (potential) input and output path values.
-    abs_input_dll_path_ = testing::GetExeRelativePath(testing::kTestDllName);
-    input_dll_path_ = testing::GetRelativePath(abs_input_dll_path_);
+    abs_input_image_path_ = testing::GetExeRelativePath(testing::kTestDllName);
+    input_image_path_ = testing::GetRelativePath(abs_input_image_path_);
     abs_input_pdb_path_ = testing::GetExeRelativePath(testing::kTestDllPdbName);
     input_pdb_path_ = testing::GetRelativePath(abs_input_pdb_path_);
-    output_dll_path_ = temp_dir_.Append(input_dll_path_.BaseName());
+    output_image_path_ = temp_dir_.Append(input_image_path_.BaseName());
     output_pdb_path_ = temp_dir_.Append(input_pdb_path_.BaseName());
   }
 
   void SetUpValidCommandLine() {
-    cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-    cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+    cmd_line_.AppendSwitchPath("input-image", input_image_path_);
+    cmd_line_.AppendSwitchPath("output-image", output_image_path_);
   }
 
  protected:
@@ -96,15 +97,15 @@ class BasicBlockEntryInstrumenterTest : public testing::PELibUnitTest {
   // @name Command-line and parameters.
   // @{
   CommandLine cmd_line_;
-  base::FilePath input_dll_path_;
+  base::FilePath input_image_path_;
   base::FilePath input_pdb_path_;
-  base::FilePath output_dll_path_;
+  base::FilePath output_image_path_;
   base::FilePath output_pdb_path_;
   // @}
 
   // @name Expected final values of input parameters.
   // @{
-  base::FilePath abs_input_dll_path_;
+  base::FilePath abs_input_image_path_;
   base::FilePath abs_input_pdb_path_;
   // @}
 
@@ -119,8 +120,8 @@ TEST_F(BasicBlockEntryInstrumenterTest, ParseMinimalBasicBlockEntry) {
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
 
-  EXPECT_EQ(abs_input_dll_path_, instrumenter_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, instrumenter_.output_dll_path_);
+  EXPECT_EQ(abs_input_image_path_, instrumenter_.input_image_path_);
+  EXPECT_EQ(output_image_path_, instrumenter_.output_image_path_);
   EXPECT_EQ(
       std::string(TestBasicBlockEntryInstrumenter::kAgentDllBasicBlockEntry),
       instrumenter_.agent_dll_);
@@ -148,8 +149,8 @@ TEST_F(BasicBlockEntryInstrumenterTest, ParseFullBasicBlockEntry) {
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
 
-  EXPECT_EQ(abs_input_dll_path_, instrumenter_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, instrumenter_.output_dll_path_);
+  EXPECT_EQ(abs_input_image_path_, instrumenter_.input_image_path_);
+  EXPECT_EQ(output_image_path_, instrumenter_.output_image_path_);
   EXPECT_EQ(abs_input_pdb_path_, instrumenter_.input_pdb_path_);
   EXPECT_EQ(output_pdb_path_, instrumenter_.output_pdb_path_);
   EXPECT_EQ(std::string("foo.dll"), instrumenter_.agent_dll_);
@@ -166,6 +167,7 @@ TEST_F(BasicBlockEntryInstrumenterTest, InstrumentImpl) {
   SetUpValidCommandLine();
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_.CreateRelinker());
   EXPECT_TRUE(instrumenter_.InstrumentImpl());
 }
 

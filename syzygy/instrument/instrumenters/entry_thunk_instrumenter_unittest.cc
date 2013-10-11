@@ -26,11 +26,10 @@ namespace {
 
 class TestEntryThunkInstrumenter : public EntryThunkInstrumenter {
  public:
-  using EntryThunkInstrumenter::InstrumentImpl;
   using EntryThunkInstrumenter::agent_dll_;
-  using EntryThunkInstrumenter::input_dll_path_;
+  using EntryThunkInstrumenter::input_image_path_;
   using EntryThunkInstrumenter::input_pdb_path_;
-  using EntryThunkInstrumenter::output_dll_path_;
+  using EntryThunkInstrumenter::output_image_path_;
   using EntryThunkInstrumenter::output_pdb_path_;
   using EntryThunkInstrumenter::allow_overwrite_;
   using EntryThunkInstrumenter::new_decomposer_;
@@ -44,11 +43,13 @@ class TestEntryThunkInstrumenter : public EntryThunkInstrumenter {
   using EntryThunkInstrumenter::instrumentation_mode_;
   using EntryThunkInstrumenter::kAgentDllProfile;
   using EntryThunkInstrumenter::kAgentDllRpc;
+  using EntryThunkInstrumenter::InstrumentImpl;
+  using InstrumenterWithAgent::CreateRelinker;
 
   explicit TestEntryThunkInstrumenter(Mode instrumentation_mode)
       : EntryThunkInstrumenter(instrumentation_mode) {
-    // Call the GetRelinker function to initialize it.
-    EXPECT_TRUE(GetRelinker() != NULL);
+    // Call the GetPERelinker function to initialize it.
+    EXPECT_TRUE(GetPERelinker() != NULL);
   }
 };
 
@@ -75,17 +76,17 @@ class EntryThunkInstrumenterTest : public testing::PELibUnitTest {
     InitStreams(stdin_path_, stdout_path_, stderr_path_);
 
     // Initialize the (potential) input and output path values.
-    abs_input_dll_path_ = testing::GetExeRelativePath(testing::kTestDllName);
-    input_dll_path_ = testing::GetRelativePath(abs_input_dll_path_);
+    abs_input_image_path_ = testing::GetExeRelativePath(testing::kTestDllName);
+    input_image_path_ = testing::GetRelativePath(abs_input_image_path_);
     abs_input_pdb_path_ = testing::GetExeRelativePath(testing::kTestDllPdbName);
     input_pdb_path_ = testing::GetRelativePath(abs_input_pdb_path_);
-    output_dll_path_ = temp_dir_.Append(input_dll_path_.BaseName());
+    output_image_path_ = temp_dir_.Append(input_image_path_.BaseName());
     output_pdb_path_ = temp_dir_.Append(input_pdb_path_.BaseName());
   }
 
   void SetUpValidCommandLine() {
-    cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-    cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+    cmd_line_.AppendSwitchPath("input-image", input_image_path_);
+    cmd_line_.AppendSwitchPath("output-image", output_image_path_);
   }
 
  protected:
@@ -101,15 +102,15 @@ class EntryThunkInstrumenterTest : public testing::PELibUnitTest {
   // @name Command-line and parameters.
   // @{
   CommandLine cmd_line_;
-  base::FilePath input_dll_path_;
+  base::FilePath input_image_path_;
   base::FilePath input_pdb_path_;
-  base::FilePath output_dll_path_;
+  base::FilePath output_image_path_;
   base::FilePath output_pdb_path_;
   // @}
 
   // @name Expected final values of input parameters.
   // @{
-  base::FilePath abs_input_dll_path_;
+  base::FilePath abs_input_image_path_;
   base::FilePath abs_input_pdb_path_;
   // @}
 
@@ -128,8 +129,8 @@ TEST_F(EntryThunkInstrumenterTest, ParseMinimalCallTrace) {
 
   EXPECT_EQ(EntryThunkInstrumenter::CALL_TRACE,
             instrumenter_->instrumentation_mode_);
-  EXPECT_EQ(abs_input_dll_path_, instrumenter_->input_dll_path_);
-  EXPECT_EQ(output_dll_path_, instrumenter_->output_dll_path_);
+  EXPECT_EQ(abs_input_image_path_, instrumenter_->input_image_path_);
+  EXPECT_EQ(output_image_path_, instrumenter_->output_image_path_);
   EXPECT_EQ(std::string(TestEntryThunkInstrumenter::kAgentDllRpc),
             instrumenter_->agent_dll_);
   EXPECT_FALSE(instrumenter_->allow_overwrite_);
@@ -165,8 +166,8 @@ TEST_F(EntryThunkInstrumenterTest, ParseFullCallTrace) {
 
   EXPECT_EQ(EntryThunkInstrumenter::CALL_TRACE,
             instrumenter_->instrumentation_mode_);
-  EXPECT_EQ(abs_input_dll_path_, instrumenter_->input_dll_path_);
-  EXPECT_EQ(output_dll_path_, instrumenter_->output_dll_path_);
+  EXPECT_EQ(abs_input_image_path_, instrumenter_->input_image_path_);
+  EXPECT_EQ(output_image_path_, instrumenter_->output_image_path_);
   EXPECT_EQ(abs_input_pdb_path_, instrumenter_->input_pdb_path_);
   EXPECT_EQ(output_pdb_path_, instrumenter_->output_pdb_path_);
   EXPECT_EQ(std::string("foo.dll"), instrumenter_->agent_dll_);
@@ -190,8 +191,8 @@ TEST_F(EntryThunkInstrumenterTest, ParseMinimalProfile) {
 
   EXPECT_EQ(EntryThunkInstrumenter::PROFILE,
             instrumenter_->instrumentation_mode_);
-  EXPECT_EQ(abs_input_dll_path_, instrumenter_->input_dll_path_);
-  EXPECT_EQ(output_dll_path_, instrumenter_->output_dll_path_);
+  EXPECT_EQ(abs_input_image_path_, instrumenter_->input_image_path_);
+  EXPECT_EQ(output_image_path_, instrumenter_->output_image_path_);
 
   EXPECT_EQ(std::string(TestEntryThunkInstrumenter::kAgentDllProfile),
             instrumenter_->agent_dll_);
@@ -226,8 +227,8 @@ TEST_F(EntryThunkInstrumenterTest, ParseFullProfile) {
 
   EXPECT_EQ(EntryThunkInstrumenter::PROFILE,
             instrumenter_->instrumentation_mode_);
-  EXPECT_EQ(abs_input_dll_path_, instrumenter_->input_dll_path_);
-  EXPECT_EQ(output_dll_path_, instrumenter_->output_dll_path_);
+  EXPECT_EQ(abs_input_image_path_, instrumenter_->input_image_path_);
+  EXPECT_EQ(output_image_path_, instrumenter_->output_image_path_);
   EXPECT_EQ(abs_input_pdb_path_, instrumenter_->input_pdb_path_);
   EXPECT_EQ(output_pdb_path_, instrumenter_->output_pdb_path_);
   EXPECT_EQ(std::string("foo.dll"), instrumenter_->agent_dll_);
@@ -246,6 +247,7 @@ TEST_F(EntryThunkInstrumenterTest, InstrumentImplCallTrace) {
       new TestEntryThunkInstrumenter(EntryThunkInstrumenter::CALL_TRACE));
 
   EXPECT_TRUE(instrumenter_->ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_->CreateRelinker());
   EXPECT_TRUE(instrumenter_->InstrumentImpl());
 }
 
@@ -255,6 +257,7 @@ TEST_F(EntryThunkInstrumenterTest, InstrumentImplProfile) {
       new TestEntryThunkInstrumenter(EntryThunkInstrumenter::PROFILE));
 
   EXPECT_TRUE(instrumenter_->ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_->CreateRelinker());
   EXPECT_TRUE(instrumenter_->InstrumentImpl());
 }
 

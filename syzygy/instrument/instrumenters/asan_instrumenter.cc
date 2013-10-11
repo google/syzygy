@@ -30,6 +30,13 @@ AsanInstrumenter::AsanInstrumenter()
   agent_dll_ = kAgentDllAsan;
 }
 
+bool AsanInstrumenter::ImageFormatIsSupported(
+    pe::ImageFormat image_format) {
+  if (image_format == pe::PE_IMAGE || image_format == pe::COFF_IMAGE)
+    return true;
+  return false;
+}
+
 bool AsanInstrumenter::InstrumentImpl() {
   // Parse the filter if one was provided.
   scoped_ptr<pe::ImageFilter> filter;
@@ -41,7 +48,7 @@ bool AsanInstrumenter::InstrumentImpl() {
     }
 
     // Ensure it is for the input module.
-    if (!filter->IsForModule(input_dll_path_)) {
+    if (!filter->IsForModule(input_image_path_)) {
       LOG(ERROR) << "Filter does not match the input module.";
       return false;
     }

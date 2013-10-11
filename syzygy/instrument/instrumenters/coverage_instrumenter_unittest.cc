@@ -26,11 +26,10 @@ namespace {
 
 class TestCoverageInstrumenter : public CoverageInstrumenter {
  public:
-  using CoverageInstrumenter::InstrumentImpl;
   using CoverageInstrumenter::agent_dll_;
-  using CoverageInstrumenter::input_dll_path_;
+  using CoverageInstrumenter::input_image_path_;
   using CoverageInstrumenter::input_pdb_path_;
-  using CoverageInstrumenter::output_dll_path_;
+  using CoverageInstrumenter::output_image_path_;
   using CoverageInstrumenter::output_pdb_path_;
   using CoverageInstrumenter::allow_overwrite_;
   using CoverageInstrumenter::new_decomposer_;
@@ -39,10 +38,12 @@ class TestCoverageInstrumenter : public CoverageInstrumenter {
   using CoverageInstrumenter::no_strip_strings_;
   using CoverageInstrumenter::debug_friendly_;
   using CoverageInstrumenter::kAgentDllCoverage;
+  using CoverageInstrumenter::InstrumentImpl;
+  using InstrumenterWithAgent::CreateRelinker;
 
   TestCoverageInstrumenter() {
-    // Call the GetRelinker function to initialize it.
-    pe::PERelinker* relinker = GetRelinker();
+    // Call the GetPERelinker function to initialize it.
+    pe::PERelinker* relinker = GetPERelinker();
     EXPECT_TRUE(relinker != NULL);
   }
 };
@@ -70,17 +71,17 @@ class CoverageInstrumenterTest : public testing::PELibUnitTest {
     InitStreams(stdin_path_, stdout_path_, stderr_path_);
 
     // Initialize the (potential) input and output path values.
-    abs_input_dll_path_ = testing::GetExeRelativePath(testing::kTestDllName);
-    input_dll_path_ = testing::GetRelativePath(abs_input_dll_path_);
+    abs_input_image_path_ = testing::GetExeRelativePath(testing::kTestDllName);
+    input_image_path_ = testing::GetRelativePath(abs_input_image_path_);
     abs_input_pdb_path_ = testing::GetExeRelativePath(testing::kTestDllPdbName);
     input_pdb_path_ = testing::GetRelativePath(abs_input_pdb_path_);
-    output_dll_path_ = temp_dir_.Append(input_dll_path_.BaseName());
+    output_image_path_ = temp_dir_.Append(input_image_path_.BaseName());
     output_pdb_path_ = temp_dir_.Append(input_pdb_path_.BaseName());
   }
 
   void SetUpValidCommandLine() {
-    cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-    cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+    cmd_line_.AppendSwitchPath("input-image", input_image_path_);
+    cmd_line_.AppendSwitchPath("output-image", output_image_path_);
   }
 
  protected:
@@ -96,15 +97,15 @@ class CoverageInstrumenterTest : public testing::PELibUnitTest {
   // @name Command-line and parameters.
   // @{
   CommandLine cmd_line_;
-  base::FilePath input_dll_path_;
+  base::FilePath input_image_path_;
   base::FilePath input_pdb_path_;
-  base::FilePath output_dll_path_;
+  base::FilePath output_image_path_;
   base::FilePath output_pdb_path_;
   // @}
 
   // @name Expected final values of input parameters.
   // @{
-  base::FilePath abs_input_dll_path_;
+  base::FilePath abs_input_image_path_;
   base::FilePath abs_input_pdb_path_;
   // @}
 
@@ -119,8 +120,8 @@ TEST_F(CoverageInstrumenterTest, ParseMinimalCoverage) {
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
 
-  EXPECT_EQ(abs_input_dll_path_, instrumenter_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, instrumenter_.output_dll_path_);
+  EXPECT_EQ(abs_input_image_path_, instrumenter_.input_image_path_);
+  EXPECT_EQ(output_image_path_, instrumenter_.output_image_path_);
   EXPECT_EQ(std::string(TestCoverageInstrumenter::kAgentDllCoverage),
             instrumenter_.agent_dll_);
   EXPECT_FALSE(instrumenter_.allow_overwrite_);
@@ -145,8 +146,8 @@ TEST_F(CoverageInstrumenterTest, ParseFullCoverage) {
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
 
-  EXPECT_EQ(abs_input_dll_path_, instrumenter_.input_dll_path_);
-  EXPECT_EQ(output_dll_path_, instrumenter_.output_dll_path_);
+  EXPECT_EQ(abs_input_image_path_, instrumenter_.input_image_path_);
+  EXPECT_EQ(output_image_path_, instrumenter_.output_image_path_);
   EXPECT_EQ(abs_input_pdb_path_, instrumenter_.input_pdb_path_);
   EXPECT_EQ(output_pdb_path_, instrumenter_.output_pdb_path_);
   EXPECT_EQ(std::string("foo.dll"), instrumenter_.agent_dll_);
@@ -162,6 +163,7 @@ TEST_F(CoverageInstrumenterTest, InstrumentImpl) {
   SetUpValidCommandLine();
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_.CreateRelinker());
   EXPECT_TRUE(instrumenter_.InstrumentImpl());
 }
 

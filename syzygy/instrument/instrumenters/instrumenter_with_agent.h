@@ -24,6 +24,7 @@
 
 #include "base/command_line.h"
 #include "syzygy/instrument/instrumenter.h"
+#include "syzygy/pe/coff_relinker.h"
 #include "syzygy/pe/pe_relinker.h"
 
 namespace instrument {
@@ -32,7 +33,8 @@ namespace instrumenters {
 class InstrumenterWithAgent : public InstrumenterInterface {
  public:
   InstrumenterWithAgent()
-      : allow_overwrite_(false),
+      : image_format_(pe::PE_IMAGE),
+        allow_overwrite_(false),
         debug_friendly_(false),
         new_decomposer_(false),
         no_augment_pdb_(false),
@@ -56,7 +58,12 @@ class InstrumenterWithAgent : public InstrumenterInterface {
   // @}
 
  protected:
-  // Template method that does the actual instrumentation for a given agent.
+  // Virtual method that determines whether or not the input object file
+  // format is supported by the instrumenter. The default implementation
+  // supports PE files, and does not support COFF files.
+  virtual bool ImageFormatIsSupported(pe::ImageFormat image_format);
+
+  // Virtual method that does the actual instrumentation for a given agent.
   // This function is meant to be called by the Instrument function.
   // @note The implementation should log on failure.
   virtual bool InstrumentImpl() = 0;
@@ -71,25 +78,34 @@ class InstrumenterWithAgent : public InstrumenterInterface {
   // @returns true by default. Should return false on error.
   virtual bool ParseAdditionalCommandLineArguments(
      const CommandLine* command_line) {
-   return true;
+    return true;
   }
 
-  // @name Internal machinery, replaceable for testing purposes.
+  // @name Internal machinery, replaceable for testing purposes. These will
+  //     only ever be called once per object lifetime.
   // @{
-  virtual pe::PETransformPolicy* GetTransformPolicy();
-  virtual pe::PERelinker* GetRelinker();
-  scoped_ptr<pe::PETransformPolicy> policy_;
-  scoped_ptr<pe::PERelinker> relinker_;
+  virtual pe::PETransformPolicy* GetPETransformPolicy();
+  virtual pe::CoffTransformPolicy* GetCoffTransformPolicy();
+  virtual pe::PERelinker* GetPERelinker();
+  virtual pe::CoffRelinker* GetCoffRelinker();
   // @}
+
+  // Creates and configures a relinker. This is split out for unittesting
+  // purposes, allowing child classes to test their InstrumentImpl functions
+  // in isolation.
+  bool CreateRelinker();
 
   // The agent DLL used by this instrumentation.
   std::string agent_dll_;
 
+  // The type of image file we are transforming.
+  pe::ImageFormat image_format_;
+
   // @name Command-line parameters.
   // @{
-  base::FilePath input_dll_path_;
+  base::FilePath input_image_path_;
   base::FilePath input_pdb_path_;
-  base::FilePath output_dll_path_;
+  base::FilePath output_image_path_;
   base::FilePath output_pdb_path_;
   bool allow_overwrite_;
   bool debug_friendly_;
@@ -98,6 +114,19 @@ class InstrumenterWithAgent : public InstrumenterInterface {
   bool no_parse_debug_info_;
   bool no_strip_strings_;
   // @}
+
+  // This is used to save a pointer to the object returned by the call to
+  // Get(PE|Coff)Relinker. Ownership of the object is internal in the default
+  // case, but may be external during tests.
+  pe::RelinkerInterface* relinker_;
+
+ private:
+  // They are used as containers for holding policy and relinker objects that
+  // are allocated by our default Get* implementations above.
+  scoped_ptr<block_graph::TransformPolicyInterface> policy_object_;
+  scoped_ptr<pe::RelinkerInterface> relinker_object_;
+
+  DISALLOW_COPY_AND_ASSIGN(InstrumenterWithAgent);
 };
 
 }  // namespace instrumenters
