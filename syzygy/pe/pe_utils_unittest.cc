@@ -490,6 +490,8 @@ TEST_F(PEUtilsTest, GuessFileType) {
   ASSERT_TRUE(PathService::Get(base::FILE_EXE, &pe_exe));
   base::FilePath pdb = testing::GetOutputRelativePath(
       testing::kTestDllPdbName);
+  base::FilePath null_machine_coff = testing::GetSrcRelativePath(
+      testing::kMachineTypeNullCoffName);
 
   // Doesn't exist.
   FileType file_type = kUnknownFileType;
@@ -520,6 +522,10 @@ TEST_F(PEUtilsTest, GuessFileType) {
   file_type = kUnknownFileType;
   EXPECT_TRUE(GuessFileType(pdb, &file_type));
   EXPECT_EQ(kPdbFileType, file_type);
+
+  file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(null_machine_coff, &file_type));
+  EXPECT_EQ(kCoffFileType, file_type);
 }
 
 }  // namespace pe

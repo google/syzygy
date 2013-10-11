@@ -535,6 +535,8 @@ bool GuessFileType(const base::FilePath& path, FileType* file_type) {
 
   // - PE files all contain DOS stubs, and the first two bytes of 16-bit DOS
   //   exectuables are always "MZ" (0x4d 0x5a)
+  // - Machine independent COFF files begin with 0x00 0x00, and then two bytes
+  //   that aren't 0xFF 0xFF. LTCG object files are followed by 0xFF 0xFF.
   // - X86 COFF files begin with 0x4c 0x01.
   // - X64 COFF files begin with 0x64 0x86.
   // - Itanium COFF files begin with 0x00 0x02.
@@ -554,6 +556,12 @@ bool GuessFileType(const base::FilePath& path, FileType* file_type) {
   } else if (magic[0] == 0x4C && magic[1] == 0x01) {
     // We don't care about other COFF file machine types for now.
     *file_type = kCoffFileType;
+  } else if (magic[0] == 0x00 && magic[1] == 0x00) {
+    // This is a machine independent COFF file (doesn't contain machine code,
+    // but only symbol tables). We check that it is not full of LTCG
+    // intermediate code, as we don't support that file format.
+    if (magic[2] != 0xFF || magic[3] != 0xFF)
+      *file_type = kCoffFileType;
   } else if (magic[0] == 'M' && magic[1] == 'i' && magic[2] == 'c' &&
              magic[3] == 'r') {
     *file_type = kPdbFileType;
