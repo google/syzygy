@@ -221,6 +221,13 @@ class HeapProxy {
   bool MarkBlockAsQuarantined(BlockHeader* block_header,
                               const StackCapture& stack);
 
+  // Clean up the metadata of an ASan block.
+  // @param block_header The header of the block.
+  // @param block_header The trailer of the block.
+  // @note This leaves the memory red-zoned.
+  void ReleaseASanBlock(BlockHeader* block_header,
+                        BlockTrailer* block_trailer);
+
   // Returns the block header for a user pointer.
   BlockHeader* UserPointerToBlockHeader(const void* user_pointer);
 

@@ -401,21 +401,28 @@ void HeapProxy::TrimQuarantine() {
       quarantine_size_ -= alloc_size;
     }
 
-    // Return pointers to the stacks for reference counting purposes. We do this
-    // outside of the heap lock to reduce contention.
-    if (free_block->alloc_stack != NULL) {
-      stack_cache_->ReleaseStackTrace(free_block->alloc_stack);
-      free_block->alloc_stack = NULL;
-    }
-    if (trailer->free_stack != NULL) {
-      stack_cache_->ReleaseStackTrace(trailer->free_stack);
-      trailer->free_stack = NULL;
-    }
+    // Clean up the block's metadata. We do this outside of the heap lock to
+    // reduce contention.
+    ReleaseASanBlock(free_block, trailer);
 
-    free_block->state = FREED;
     Shadow::Unpoison(free_block, alloc_size);
     ::HeapFree(heap_, 0, free_block);
   }
+}
+
+void HeapProxy::ReleaseASanBlock(BlockHeader* block_header,
+                                 BlockTrailer* block_trailer) {
+  // Return pointers to the stacks for reference counting purposes.
+  if (block_header->alloc_stack != NULL) {
+    stack_cache_->ReleaseStackTrace(block_header->alloc_stack);
+    block_header->alloc_stack = NULL;
+  }
+  if (block_trailer->free_stack != NULL) {
+    stack_cache_->ReleaseStackTrace(block_trailer->free_stack);
+    block_trailer->free_stack = NULL;
+  }
+
+  block_header->state = FREED;
 }
 
 void HeapProxy::QuarantineBlock(BlockHeader* block) {

@@ -51,6 +51,7 @@ class TestHeapProxy : public HeapProxy {
   using HeapProxy::GetBlockTrailer;
   using HeapProxy::InitializeAsanBlock;
   using HeapProxy::MarkBlockAsQuarantined;
+  using HeapProxy::ReleaseASanBlock;
   using HeapProxy::UserPointerToBlockHeader;
   using HeapProxy::UserPointerToAsanPointer;
   using HeapProxy::kDefaultAllocGranularityLog;
@@ -84,6 +85,11 @@ class TestHeapProxy : public HeapProxy {
   bool IsQuarantined(BlockHeader* header) {
     EXPECT_TRUE(header != NULL);
     return header->state == QUARANTINED;
+  }
+
+  bool IsFreed(BlockHeader* header) {
+    EXPECT_TRUE(header != NULL);
+    return header->state == FREED;
   }
 
   // Determines if the address @p mem corresponds to a block in quarantine.
@@ -782,6 +788,44 @@ TEST_F(HeapTest, MarkBlockAsQuarantined) {
     EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
     EXPECT_TRUE(fake_block.TestBlockHeader());
     EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
+  }
+}
+
+TEST_F(HeapTest, ReleaseASanBlock) {
+  for (size_t alloc_alignment_log = Shadow::kShadowGranularityLog;
+       alloc_alignment_log < 12;
+       ++alloc_alignment_log) {
+    FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
+    const size_t kAllocSize = 100;
+    EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
+    EXPECT_TRUE(fake_block.TestBlockHeader());
+    EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
+
+    TestHeapProxy::BlockHeader* block_header = proxy_.UserPointerToBlockHeader(
+        fake_block.user_ptr);
+    TestHeapProxy::BlockTrailer* block_trailer = proxy_.GetBlockTrailer(
+        block_header);
+    StackCapture* alloc_stack = const_cast<StackCapture*>(
+        block_header->alloc_stack);
+    StackCapture* free_stack = const_cast<StackCapture*>(
+        block_trailer->free_stack);
+
+    ASSERT_TRUE(alloc_stack != NULL);
+    ASSERT_TRUE(free_stack != NULL);
+    EXPECT_EQ(1U, alloc_stack->ref_count());
+    EXPECT_EQ(1U, free_stack->ref_count());
+    alloc_stack->AddRef();
+    free_stack->AddRef();
+    EXPECT_EQ(2U, alloc_stack->ref_count());
+    EXPECT_EQ(2U, free_stack->ref_count());
+
+    proxy_.ReleaseASanBlock(block_header, block_trailer);
+
+    EXPECT_TRUE(proxy_.IsFreed(block_header));
+    EXPECT_EQ(1U, alloc_stack->ref_count());
+    EXPECT_EQ(1U, free_stack->ref_count());
+    alloc_stack->RemoveRef();
+    free_stack->RemoveRef();
   }
 }
 

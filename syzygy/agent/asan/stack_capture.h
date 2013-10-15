@@ -95,6 +95,9 @@ class StackCapture {
   // @returns true if this stack capture is not referenced, false otherwise.
   bool HasNoRefs() const { return ref_count_ == 0; }
 
+  // @returns the reference count for this stack capture.
+  RefCount ref_count() const { return ref_count_; }
+
   // @returns the ID associated with this stack trace.
   StackId stack_id() const { return stack_id_; }
 
