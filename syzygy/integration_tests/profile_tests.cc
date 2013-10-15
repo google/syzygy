@@ -25,7 +25,9 @@ unsigned int CallExportedFunction() {
   return function2();
 }
 
-unsigned int GetMyRVA() {
+// Make sure this function isn't inlined - the tests rely on being
+// able to instrument its explicit instantiation.
+unsigned int __declspec(noinline) GetMyRVA() {
   // Compute and return our own RVA.
   return reinterpret_cast<char*>(GetMyRVA) -
       reinterpret_cast<char*>(&__ImageBase);
