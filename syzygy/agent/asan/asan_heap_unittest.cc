@@ -50,6 +50,7 @@ class TestHeapProxy : public HeapProxy {
   using HeapProxy::GetTimeSinceFree;
   using HeapProxy::GetBlockTrailer;
   using HeapProxy::InitializeAsanBlock;
+  using HeapProxy::MarkBlockAsQuarantined;
   using HeapProxy::UserPointerToBlockHeader;
   using HeapProxy::UserPointerToAsanPointer;
   using HeapProxy::kDefaultAllocGranularityLog;
@@ -567,7 +568,7 @@ TEST_F(HeapTest, SetTrailerPaddingSize) {
         padding;
     proxy_.set_trailer_padding_size(augmented_trailer_padding_size);
     size_t augmented_alloc_size = TestHeapProxy::GetAllocSize(kAllocSize);
-    EXPECT_GE(augmented_alloc_size ,original_alloc_size);
+    EXPECT_GE(augmented_alloc_size, original_alloc_size);
 
     LPVOID mem = proxy_.Alloc(0, kAllocSize);
     ASSERT_TRUE(mem != NULL);
@@ -583,62 +584,69 @@ TEST_F(HeapTest, SetTrailerPaddingSize) {
   proxy_.set_trailer_padding_size(original_trailer_padding_size);
 }
 
-TEST_F(HeapTest, InitializeAsanBlock) {
-  const size_t kBufferSize = 8192;
-  uint8 buffer[kBufferSize];
-  const uint8 kBufferHeaderValue = 0xAE;
-  const uint8 kBufferTrailerValue = 0xEA;
+namespace {
 
-  for (size_t alloc_alignment_log = Shadow::kShadowGranularityLog;
-       alloc_alignment_log < 12;
-       ++alloc_alignment_log) {
-    const size_t kAllocSize = 100;
-    size_t alloc_alignment = 1 << alloc_alignment_log;
-    size_t asan_alloc_size = proxy_.GetAllocSize(kAllocSize,
-                                                 alloc_alignment);
+// A unittest fixture to test the bookkeeping functions.
+struct FakeAsanBlock {
+  static const size_t kBufferSize = 8192;
+  static const uint8 kBufferHeaderValue = 0xAE;
+  static const uint8 kBufferTrailerValue = 0xEA;
+
+  FakeAsanBlock(TestHeapProxy* proxy, size_t alloc_alignment_log)
+      : proxy(proxy),
+        is_initialized(false),
+        alloc_alignment_log(alloc_alignment_log),
+        alloc_alignment(1 << alloc_alignment_log),
+        buffer_align_begin(NULL),
+        user_ptr(NULL) {
+  }
+  ~FakeAsanBlock() {
+    Shadow::Unpoison(buffer_align_begin, asan_alloc_size);
+  }
+
+  // Initialize an ASan block in the buffer.
+  // @param alloc_size The user size of the ASan block.
+  // @returns true on success, false otherwise.
+  bool InitializeBlock(size_t alloc_size) {
+    asan_alloc_size = proxy->GetAllocSize(alloc_size,
+                                          alloc_alignment);
 
     // Align the beginning of the buffer to the current granularity. Ensure that
-    // there's some room to store some magic bytes in front of this block.
-    uint8* buffer_align_begin = reinterpret_cast<uint8*>(common::AlignUp(
+    // there's room to store magic bytes in front of this block.
+    buffer_align_begin = reinterpret_cast<uint8*>(common::AlignUp(
         reinterpret_cast<size_t>(buffer) + 1, alloc_alignment));
 
     // Calculate the size of the zone of the buffer that we use to ensure that
     // we don't corrupt the heap.
-    size_t buffer_header_size = buffer_align_begin - buffer;
-    size_t buffer_trailer_size = kBufferSize - buffer_header_size -
+    buffer_header_size = buffer_align_begin - buffer;
+    buffer_trailer_size = kBufferSize - buffer_header_size -
         asan_alloc_size;
-    ASSERT_GE(kBufferSize, asan_alloc_size + buffer_header_size);
+    EXPECT_GE(kBufferSize, asan_alloc_size + buffer_header_size);
 
-    // Initialize the buffers.
+    // Initialize the buffer header and trailer.
     memset(buffer, kBufferHeaderValue, buffer_header_size);
     memset(buffer_align_begin + asan_alloc_size,
            kBufferTrailerValue,
            buffer_trailer_size);
 
+    StackCapture stack;
+    stack.InitFromStack();
     // Initialize the ASan block.
-    void* user_ptr = proxy_.InitializeAsanBlock(buffer_align_begin,
-                                                kAllocSize,
-                                                asan_alloc_size,
-                                                alloc_alignment_log);
-    void* expected_user_ptr = reinterpret_cast<void*>(buffer_align_begin +
-        std::max(sizeof(TestHeapProxy::BlockHeader), alloc_alignment));
-    EXPECT_TRUE(user_ptr == expected_user_ptr);
+    user_ptr = proxy->InitializeAsanBlock(buffer_align_begin,
+                                          alloc_size,
+                                          asan_alloc_size,
+                                          alloc_alignment_log,
+                                          stack);
+    EXPECT_TRUE(user_ptr != NULL);
     EXPECT_TRUE(common::IsAligned(reinterpret_cast<size_t>(user_ptr),
                                   alloc_alignment));
-
-    // Ensure that the block header is valid. UserPointerToBlockHeader takes
-    // care of checking the magic number in the signature of the block.
-    TestHeapProxy::BlockHeader* block_header = proxy_.UserPointerToBlockHeader(
-        user_ptr);
-    EXPECT_TRUE(block_header != NULL);
-    EXPECT_EQ(::GetCurrentThreadId(), block_header->alloc_tid);
-
-    // Test the various accessors.
-    EXPECT_TRUE(proxy_.BlockHeaderToUserPointer(block_header) == user_ptr);
-    EXPECT_TRUE(proxy_.UserPointerToAsanPointer(user_ptr) ==
+    EXPECT_TRUE(proxy->UserPointerToAsanPointer(user_ptr) ==
         buffer_align_begin);
-    EXPECT_TRUE(proxy_.BlockHeaderToAsanPointer(block_header) ==
-        buffer_align_begin);
+
+    void* expected_user_ptr = reinterpret_cast<void*>(
+        buffer_align_begin + std::max(sizeof(TestHeapProxy::BlockHeader),
+                                      alloc_alignment));
+    EXPECT_TRUE(user_ptr == expected_user_ptr);
 
     size_t i = 0;
     // Ensure that the buffer header is accessible and correctly tagged.
@@ -646,13 +654,13 @@ TEST_F(HeapTest, InitializeAsanBlock) {
       EXPECT_EQ(kBufferHeaderValue, buffer[i]);
       EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
     }
+    size_t user_block_offset = reinterpret_cast<uint8*>(user_ptr) - buffer;
     // Ensure that the block header isn't accessible.
-    for (; i < buffer_header_size + (reinterpret_cast<uint8*>(user_ptr) -
-        buffer_align_begin); ++i) {
+    for (; i < user_block_offset; ++i) {
       EXPECT_FALSE(Shadow::IsAccessible(buffer + i));
     }
     // Ensure that the user block is accessible.
-    size_t block_trailer_offset = i + kAllocSize;
+    size_t block_trailer_offset = i + alloc_size;
     for (; i < block_trailer_offset; ++i) {
       EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
     }
@@ -661,12 +669,119 @@ TEST_F(HeapTest, InitializeAsanBlock) {
       EXPECT_FALSE(Shadow::IsAccessible(buffer + i));
     }
     // Ensure that the buffer trailer is accessible and correctly tagged.
-    for (;i < buffer_trailer_size;
-         ++i) {
+    for (; i < kBufferSize; ++i) {
       EXPECT_EQ(kBufferTrailerValue, buffer[i]);
       EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
     }
-    Shadow::Unpoison(buffer_align_begin, asan_alloc_size);
+
+    is_initialized = true;
+    return true;
+  }
+
+  // Ensures that this block has a valid block header.
+  bool TestBlockHeader() {
+    if (!is_initialized)
+      return false;
+
+    // Ensure that the block header is valid. UserPointerToBlockHeader takes
+    // care of checking the magic number in the signature of the block.
+    TestHeapProxy::BlockHeader* block_header = proxy->UserPointerToBlockHeader(
+        user_ptr);
+    EXPECT_TRUE(block_header != NULL);
+    EXPECT_EQ(::GetCurrentThreadId(), block_header->alloc_tid);
+    EXPECT_TRUE(block_header->alloc_stack != NULL);
+
+    // Test the various accessors.
+    EXPECT_TRUE(proxy->BlockHeaderToUserPointer(block_header) == user_ptr);
+    EXPECT_TRUE(proxy->BlockHeaderToAsanPointer(block_header) ==
+        buffer_align_begin);
+
+    return true;
+  }
+
+  // Mark the current ASan block as quarantined.
+  bool MarkBlockAsQuarantined() {
+    if (!is_initialized)
+      return false;
+
+    TestHeapProxy::BlockHeader* block_header = proxy->UserPointerToBlockHeader(
+        user_ptr);
+    TestHeapProxy::BlockTrailer* block_trailer = proxy->GetBlockTrailer(
+        block_header);
+    EXPECT_TRUE(block_trailer != NULL);
+    EXPECT_TRUE(block_trailer->free_stack == NULL);
+    EXPECT_EQ(0U, block_trailer->free_tid);
+
+    StackCapture stack;
+    stack.InitFromStack();
+    // Mark the block as quarantined.
+    EXPECT_TRUE(proxy->MarkBlockAsQuarantined(block_header, stack));
+    EXPECT_TRUE(block_trailer->free_stack != NULL);
+    EXPECT_EQ(::GetCurrentThreadId(), block_trailer->free_tid);
+
+    size_t i = 0;
+    // Ensure that the buffer header is accessible and correctly tagged.
+    for (; i < buffer_header_size; ++i) {
+      EXPECT_EQ(kBufferHeaderValue, buffer[i]);
+      EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
+    }
+    // Ensure that the whole block isn't accessible.
+    for (; i < buffer_header_size + asan_alloc_size; ++i) {
+      EXPECT_FALSE(Shadow::IsAccessible(buffer + i));
+    }
+    // Ensure that the buffer trailer is accessible and correctly tagged.
+    for (; i < kBufferSize; ++i) {
+      EXPECT_EQ(kBufferTrailerValue, buffer[i]);
+      EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
+    }
+    return true;
+  }
+
+  // The buffer we use internally.
+  uint8 buffer[kBufferSize];
+
+  // The heap proxy we delegate to.
+  TestHeapProxy* proxy;
+
+  // The alignment of the current allocation.
+  size_t alloc_alignment;
+  size_t alloc_alignment_log;
+
+  // The sizes of the different sub-structures in the buffer.
+  size_t asan_alloc_size;
+  size_t buffer_header_size;
+  size_t buffer_trailer_size;
+
+  // The pointers to the different sub-structures in the buffer.
+  uint8* buffer_align_begin;
+  void* user_ptr;
+
+  // Indicate if the buffer has been initialized.
+  bool is_initialized;
+};
+
+}  // namespace
+
+TEST_F(HeapTest, InitializeAsanBlock) {
+  for (size_t alloc_alignment_log = Shadow::kShadowGranularityLog;
+       alloc_alignment_log < 12;
+       ++alloc_alignment_log) {
+    FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
+    const size_t kAllocSize = 100;
+    EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
+    EXPECT_TRUE(fake_block.TestBlockHeader());
+  }
+}
+
+TEST_F(HeapTest, MarkBlockAsQuarantined) {
+  for (size_t alloc_alignment_log = Shadow::kShadowGranularityLog;
+       alloc_alignment_log < 12;
+       ++alloc_alignment_log) {
+    FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
+    const size_t kAllocSize = 100;
+    EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
+    EXPECT_TRUE(fake_block.TestBlockHeader());
+    EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
   }
 }
 

@@ -200,16 +200,26 @@ class HeapProxy {
   static const size_t kBlockHeaderSignature = 0xCA80;
 
   // Initialize an ASan block. This will red-zone the header and trailer, green
-  // zone the user data, and grab an allocation stack trace and other metadata.
+  // zone the user data, and save the allocation stack trace and other metadata.
   // @param asan_pointer The ASan block to initialize.
   // @param user_size The user size for this block.
   // @param asan_size The total size of this block.
   // @param alloc_granularity_log The allocation granularity for this block.
+  // @param stack The allocation stack capture for this block.
   // @returns The user pointer for this block on success, NULL otherwise.
   void* InitializeAsanBlock(uint8* asan_pointer,
                             size_t user_size,
                             size_t asan_size,
-                            size_t alloc_granularity_log);
+                            size_t alloc_granularity_log,
+                            const StackCapture& stack);
+
+  // Mark a block as quarantined. This will red-zone the user data, and save the
+  // deallocation stack trace and other metadata.
+  // @param block_header The header for this block.
+  // @param stack The deallocation stack for this block.
+  // @returns true on success, false otherwise.
+  bool MarkBlockAsQuarantined(BlockHeader* block_header,
+                              const StackCapture& stack);
 
   // Returns the block header for a user pointer.
   BlockHeader* UserPointerToBlockHeader(const void* user_pointer);

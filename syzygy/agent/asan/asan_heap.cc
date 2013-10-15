@@ -172,16 +172,23 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
   uint8* block_mem = reinterpret_cast<uint8*>(
       ::HeapAlloc(heap_, flags, alloc_size));
 
+  // Capture the current stack. InitFromStack is inlined to preserve the
+  // greatest number of stack frames.
+  StackCapture stack;
+  stack.InitFromStack();
+
   return InitializeAsanBlock(block_mem,
                              bytes,
                              alloc_size,
-                             kDefaultAllocGranularityLog);
+                             kDefaultAllocGranularityLog,
+                             stack);
 }
 
 void* HeapProxy::InitializeAsanBlock(uint8* asan_pointer,
                                      size_t user_size,
                                      size_t asan_size,
-                                     size_t alloc_granularity_log) {
+                                     size_t alloc_granularity_log,
+                                     const StackCapture& stack) {
   if (asan_pointer == NULL)
     return NULL;
 
@@ -197,11 +204,6 @@ void* HeapProxy::InitializeAsanBlock(uint8* asan_pointer,
   // Poison the block header.
   size_t trailer_size = asan_size - user_size - header_size;
   Shadow::Poison(asan_pointer, header_size, Shadow::kHeapLeftRedzone);
-
-  // Capture the current stack. InitFromStack is inlined to preserve the
-  // greatest number of stack frames.
-  StackCapture stack;
-  stack.InitFromStack();
 
   // Initialize the block fields.
   block_header->magic_number = kBlockHeaderSignature;
@@ -256,20 +258,33 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
   if (block == NULL)
     return true;
 
+  DCHECK(BlockHeaderToUserPointer(block) == mem);
+
   // Capture the current stack.
   StackCapture stack;
   stack.InitFromStack();
 
-  if (block->state != ALLOCATED) {
+  // Mark the block as quarantined.
+  if (!MarkBlockAsQuarantined(block, stack))
+    return false;
+
+  QuarantineBlock(block);
+
+  return true;
+}
+
+bool HeapProxy::MarkBlockAsQuarantined(BlockHeader* block_header,
+                                       const StackCapture& stack) {
+
+  if (block_header->state != ALLOCATED) {
     // We're not supposed to see another kind of block here, the FREED state
     // is only applied to block after invalidating their magic number and freed
     // them.
-    DCHECK(block->state == QUARANTINED);
+    DCHECK(block_header->state == QUARANTINED);
     return false;
   }
 
-  DCHECK(BlockHeaderToUserPointer(block) == mem);
-  BlockTrailer* trailer = GetBlockTrailer(block);
+  BlockTrailer* trailer = GetBlockTrailer(block_header);
   trailer->free_stack = stack_cache_->SaveStackTrace(stack);
   trailer->free_timestamp = trace::common::GetTsc();
   trailer->free_tid = ::GetCurrentThreadId();
@@ -277,12 +292,19 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
   // If the size of the allocation is zero then we shouldn't check the shadow
   // memory as it'll only contain the red-zone for the head and tail of this
   // block.
-  if (block->block_size != 0 && !Shadow::IsAccessible(
-      BlockHeaderToUserPointer(block))) {
+  if (block_header->block_size != 0 &&
+      !Shadow::IsAccessible(BlockHeaderToUserPointer(block_header))) {
     return false;
   }
 
-  QuarantineBlock(block);
+  block_header->state = QUARANTINED;
+
+  // Poison the released alloc (marked as freed) and quarantine the block.
+  // Note that the original data is left intact. This may make it easier
+  // to debug a crash report/dump on access to a quarantined block.
+  uint8* mem = BlockHeaderToUserPointer(block_header);
+  Shadow::MarkAsFreed(mem, block_header->block_size);
+
   return true;
 }
 
@@ -399,17 +421,9 @@ void HeapProxy::TrimQuarantine() {
 void HeapProxy::QuarantineBlock(BlockHeader* block) {
   DCHECK(block != NULL);
 
-  BlockTrailer* free_block_trailer = GetBlockTrailer(block);
-  DCHECK(free_block_trailer->next_free_block == NULL);
-  block->state = QUARANTINED;
-
-  // Poison the released alloc (marked as freed) and quarantine the block.
-  // Note that the original data is left intact. This may make it easier
-  // to debug a crash report/dump on access to a quarantined block.
+  DCHECK(GetBlockTrailer(block)->next_free_block == NULL);
   size_t alloc_size = GetAllocSize(block->block_size,
                                    kDefaultAllocGranularity);
-  uint8* mem = BlockHeaderToUserPointer(block);
-  Shadow::MarkAsFreed(mem, block->block_size);
 
   {
     base::AutoLock lock(lock_);

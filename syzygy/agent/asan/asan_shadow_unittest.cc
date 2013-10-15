@@ -53,7 +53,8 @@ TEST(ShadowTest, PoisonUnpoisonAccess) {
     EXPECT_TRUE(Shadow::IsAccessible(start_addr - 1));
     EXPECT_TRUE(Shadow::IsAccessible(start_addr + size));
 
-    const size_t aligned_size = common::AlignUp(size, 8);
+    const size_t aligned_size = common::AlignUp(size,
+                                                Shadow::kShadowGranularity);
     const uint8* aligned_start_addr = end_addr - aligned_size;
     Shadow::Unpoison(aligned_start_addr, aligned_size);
     for (size_t i = 0; i < size; ++i) {
@@ -100,9 +101,10 @@ TEST(ShadowTest, GetNullTerminatedArraySize) {
 
   uint8 test_array[kArrayLength];
   uint8* aligned_test_array = reinterpret_cast<uint8*>(
-      common::AlignUp(reinterpret_cast<size_t>(test_array), 8));
+      common::AlignUp(reinterpret_cast<size_t>(test_array),
+                      Shadow::kShadowGranularity));
   size_t aligned_array_length = common::AlignDown(kArrayLength -
-      (aligned_test_array - test_array), 8);
+      (aligned_test_array - test_array), Shadow::kShadowGranularity);
 
   ::memset(aligned_test_array, kMarkerValue, aligned_array_length);
   Shadow::Poison(aligned_test_array, aligned_array_length,
@@ -129,9 +131,10 @@ TEST(ShadowTest, GetNullTerminatedArraySize) {
                                                    &size,
                                                    sizes_to_test[i]));
 
-    Shadow::Poison(aligned_test_array, common::AlignUp(sizes_to_test[i], 8),
-        Shadow::kHeapNonAccessibleByteMask);
+    Shadow::Poison(aligned_test_array, common::AlignUp(sizes_to_test[i],
+       Shadow::kShadowGranularity), Shadow::kHeapNonAccessibleByteMask);
   }
+  Shadow::Unpoison(aligned_test_array, aligned_array_length);
 }
 
 }  // namespace asan
