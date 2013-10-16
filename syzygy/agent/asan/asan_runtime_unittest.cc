@@ -22,6 +22,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_heap.h"
+#include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/unittest_util.h"
 
 namespace agent {
@@ -56,7 +57,9 @@ class AsanRuntimeTest : public testing::TestWithAsanLogger {
  public:
   typedef testing::TestWithAsanLogger Super;
 
-  AsanRuntimeTest() : current_command_line_(CommandLine::NO_PROGRAM) {
+  AsanRuntimeTest()
+      : current_command_line_(CommandLine::NO_PROGRAM),
+        stack_cache_(&logger_) {
   }
 
   void SetUp() OVERRIDE {
@@ -68,9 +71,9 @@ class AsanRuntimeTest : public testing::TestWithAsanLogger {
     env_->UnSetVar(TestAsanRuntime::kSyzygyAsanCoinTossEnvVar);
 
     // Setup the "global" state.
-    HeapProxy::Init();
     StackCapture::Init();
     StackCaptureCache::Init();
+    HeapProxy::Init(&stack_cache_);
   }
 
   void TearDown() OVERRIDE {
@@ -80,6 +83,9 @@ class AsanRuntimeTest : public testing::TestWithAsanLogger {
 
     Super::TearDown();
   }
+
+  AsanLogger logger_;
+  StackCaptureCache stack_cache_;
 
   // The test runtime instance.
   TestAsanRuntime asan_runtime_;
@@ -144,7 +150,7 @@ TEST_F(AsanRuntimeTest, SetDefaultQuarantineMaxSize) {
   EXPECT_EQ(quarantine_max_size, HeapProxy::default_quarantine_max_size());
 
   // Ensure that the heap proxies use the new quarantine max size.
-  HeapProxy heap_proxy(asan_runtime_.stack_cache(), asan_runtime_.logger());
+  HeapProxy heap_proxy;
   ASSERT_TRUE(heap_proxy.Create(0, 0, 0));
   EXPECT_EQ(quarantine_max_size, heap_proxy.quarantine_max_size());
   ASSERT_TRUE(heap_proxy.Destroy());

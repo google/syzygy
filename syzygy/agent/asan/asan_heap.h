@@ -78,7 +78,7 @@ class HeapProxy {
   // Exposed for testing.
   static const size_t kSleepTimeForApproximatingCPUFrequency = 100;
 
-  HeapProxy(StackCaptureCache* cache, AsanLogger* logger);
+  HeapProxy();
   ~HeapProxy();
 
   // @name Cast to/from HANDLE.
@@ -159,7 +159,8 @@ class HeapProxy {
   }
 
   // Static initialization of HeapProxy context.
-  static void Init();
+  // @param cache The stack capture cache shared by the HeapProxy.
+  static void Init(StackCaptureCache* cache);
 
   // Returns a string describing a bad access kind.
   static const char* AccessTypeToStr(BadAccessKind bad_access_kind);
@@ -207,42 +208,46 @@ class HeapProxy {
   // @param alloc_granularity_log The allocation granularity for this block.
   // @param stack The allocation stack capture for this block.
   // @returns The user pointer for this block on success, NULL otherwise.
-  void* InitializeAsanBlock(uint8* asan_pointer,
-                            size_t user_size,
-                            size_t asan_size,
-                            size_t alloc_granularity_log,
-                            const StackCapture& stack);
+  static void* InitializeAsanBlock(uint8* asan_pointer,
+                                   size_t user_size,
+                                   size_t asan_size,
+                                   size_t alloc_granularity_log,
+                                   const StackCapture& stack);
 
   // Mark a block as quarantined. This will red-zone the user data, and save the
   // deallocation stack trace and other metadata.
   // @param block_header The header for this block.
   // @param stack The deallocation stack for this block.
   // @returns true on success, false otherwise.
-  bool MarkBlockAsQuarantined(BlockHeader* block_header,
-                              const StackCapture& stack);
+  static bool MarkBlockAsQuarantined(BlockHeader* block_header,
+                                     const StackCapture& stack);
 
   // Clean up the metadata of an ASan block.
   // @param block_header The header of the block.
   // @param block_header The trailer of the block.
   // @note This leaves the memory red-zoned.
-  void ReleaseASanBlock(BlockHeader* block_header,
-                        BlockTrailer* block_trailer);
+  static void ReleaseASanBlock(BlockHeader* block_header,
+                               BlockTrailer* block_trailer);
 
   // Returns the block header for a user pointer.
-  BlockHeader* UserPointerToBlockHeader(const void* user_pointer);
+  static BlockHeader* UserPointerToBlockHeader(const void* user_pointer);
 
   // Returns the ASan pointer for a user pointer. This should be equal to the
   // block pointer for the blocks allocated by this proxy.
-  uint8* UserPointerToAsanPointer(const void* user_pointer);
+  static uint8* UserPointerToAsanPointer(const void* user_pointer);
 
   // Returns the ASan pointer for a block header.
-  uint8* BlockHeaderToAsanPointer(const BlockHeader* header);
+  static uint8* BlockHeaderToAsanPointer(const BlockHeader* header);
 
   // Returns the user pointer for a block header.
-  uint8* BlockHeaderToUserPointer(BlockHeader* block);
+  static uint8* BlockHeaderToUserPointer(BlockHeader* block);
 
   // Returns the block trailer for a block header.
-  BlockTrailer* GetBlockTrailer(const BlockHeader* header);
+  static BlockTrailer* GetBlockTrailer(const BlockHeader* header);
+
+  // Calculates the underlying allocation size for a requested allocation of @p
+  // bytes, with an alignment of @p alignment bytes.
+  static size_t GetAllocSize(size_t bytes, size_t alignment);
 
   // Find the memory block containing @p addr.
   // @returns a pointer to this memory block in case of success, NULL otherwise.
@@ -252,10 +257,6 @@ class HeapProxy {
   // @param addr The address causing a bad heap access.
   // @param header The header of the block containing this address.
   BadAccessKind GetBadAccessKind(const void* addr, BlockHeader* header);
-
-  // Calculates the underlying allocation size for a requested allocation of @p
-  // bytes, with an alignment of @p alignment bytes.
-  static size_t GetAllocSize(size_t bytes, size_t alignment);
 
   // Quarantines @p block and flushes quarantine overage.
   void QuarantineBlock(BlockHeader* block);
@@ -299,7 +300,9 @@ class HeapProxy {
   HANDLE heap_;
 
   // A repository of unique stack captures recorded on alloc and free.
-  StackCaptureCache* const stack_cache_;
+  // @note This variable is declared as static to improve the stack cache
+  //     compression for the process with several heap.
+  static StackCaptureCache* stack_cache_;
 
   // Protects concurrent access to HeapProxy internals.
   base::Lock lock_;

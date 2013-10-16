@@ -85,6 +85,7 @@ bool MemoryRangeIsAccessible(uint8* mem, size_t len) {
 
 }  // namespace
 
+StackCaptureCache* HeapProxy::stack_cache_ = NULL;
 double HeapProxy::cpu_cycles_per_us_ = 0.0;
 // The default quarantine size for a new Heap.
 size_t HeapProxy::default_quarantine_max_size_ = kDefaultQuarantineMaxSize;
@@ -97,15 +98,12 @@ const char* HeapProxy::kInvalidAddress = "invalid address";
 const char* HeapProxy::kWildAccess = "wild access";
 const char* HeapProxy::kHeapUnknownError = "heap-unknown-error";
 
-HeapProxy::HeapProxy(StackCaptureCache* stack_cache, AsanLogger* logger)
+HeapProxy::HeapProxy()
     : heap_(NULL),
-      stack_cache_(stack_cache),
       head_(NULL),
       tail_(NULL),
       quarantine_size_(0),
       quarantine_max_size_(0) {
-  DCHECK(stack_cache != NULL);
-  DCHECK(logger != NULL);
 }
 
 HeapProxy::~HeapProxy() {
@@ -115,9 +113,11 @@ HeapProxy::~HeapProxy() {
   DCHECK(heap_ == NULL);
 }
 
-void HeapProxy::Init() {
+void HeapProxy::Init(StackCaptureCache* cache) {
+  DCHECK(cache != NULL);
   default_quarantine_max_size_ = kDefaultQuarantineMaxSize;
   trailer_padding_size_ = kDefaultTrailerPaddingSize;
+  stack_cache_ = cache;
 }
 
 HANDLE HeapProxy::ToHandle(HeapProxy* proxy) {

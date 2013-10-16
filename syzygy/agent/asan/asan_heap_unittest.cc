@@ -56,9 +56,7 @@ class TestHeapProxy : public HeapProxy {
   using HeapProxy::UserPointerToAsanPointer;
   using HeapProxy::kDefaultAllocGranularityLog;
 
-  TestHeapProxy(StackCaptureCache* stack_cache, AsanLogger* logger)
-      : HeapProxy(stack_cache, logger) {
-  }
+  TestHeapProxy() { }
 
   // Calculates the underlying allocation size for an allocation of @p bytes.
   // This assume a granularity of @p kDefaultAllocGranularity bytes.
@@ -112,13 +110,13 @@ class TestHeapProxy : public HeapProxy {
 
 class HeapTest : public testing::TestWithAsanLogger {
  public:
-  HeapTest() : stack_cache_(&logger_), proxy_(&stack_cache_, &logger_) {
+  HeapTest() : stack_cache_(&logger_) {
   }
 
   virtual void SetUp() OVERRIDE {
     testing::TestWithAsanLogger::SetUp();
 
-    HeapProxy::Init();
+    HeapProxy::Init(&stack_cache_);
     Shadow::SetUp();
 
     logger_.set_instance_id(instance_id());

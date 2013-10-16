@@ -395,11 +395,11 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   InitializeListHead(&heap_proxy_dlist_);
 
   // Setup the "global" state.
-  HeapProxy::Init();
   StackCapture::Init();
   StackCaptureCache::Init();
   SetUpLogger();
   SetUpStackCache();
+  HeapProxy::Init(stack_cache_.get());
   if (!ParseFlagsFromString(flags_command_line)) {
     LOG(ERROR) << "Unable to parse the flags from the input string (\""
                << flags_command_line.c_str() << "\").";

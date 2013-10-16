@@ -564,8 +564,7 @@ HANDLE WINAPI asan_HeapCreate(DWORD options,
                               SIZE_T initial_size,
                               SIZE_T maximum_size) {
   DCHECK(asan_runtime != NULL);
-  scoped_ptr<HeapProxy> proxy(new HeapProxy(asan_runtime->stack_cache(),
-                                            asan_runtime->logger()));
+  scoped_ptr<HeapProxy> proxy(new HeapProxy());
   if (!proxy->Create(options, initial_size, maximum_size))
     return NULL;
 
