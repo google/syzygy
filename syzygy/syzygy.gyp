@@ -48,6 +48,7 @@
         'pe/pe.gyp:*',
         'pe/orderers/pe_orderers.gyp:*',
         'pe/transforms/pe_transforms.gyp:*',
+        'pehacker/pehacker.gyp:*',
         'playback/playback.gyp:*',
         'py/py.gyp:*',
         'py/etw_db/etw_db.gyp:*',

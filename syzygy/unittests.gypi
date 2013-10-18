@@ -77,6 +77,9 @@
       '<(src)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_unittests',
       '<(src)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_unittests',
 
+      # PEHacker tests.
+      '<(src)/syzygy/pehacker/pehacker.gyp:pehacker_unittests',
+
       # Playback tests.
       '<(src)/syzygy/playback/playback.gyp:playback_unittests',
 
