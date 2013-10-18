@@ -230,20 +230,43 @@ class HeapProxy {
                                BlockTrailer* block_trailer);
 
   // Returns the block header for a user pointer.
+  // @param user_pointer The user pointer for which we want the block header
+  //     pointer.
+  // @returns A pointer to the block header of @p user_pointer on success, NULL
+  //    otherwise.
   static BlockHeader* UserPointerToBlockHeader(const void* user_pointer);
 
   // Returns the ASan pointer for a user pointer. This should be equal to the
   // block pointer for the blocks allocated by this proxy.
+  // @param user_pointer The user pointer for which we want the ASan pointer.
+  // @returns A pointer to the ASan pointer of @p user_pointer on success, NULL
+  //    otherwise.
   static uint8* UserPointerToAsanPointer(const void* user_pointer);
 
+  // Returns the user pointer for an ASan pointer.
+  // @param asan_pointer The ASan pointer for which we want the user pointer.
+  // @returns A pointer to the user pointer of @p asan_pointer on success, NULL
+  //    otherwise.
+  static uint8* AsanPointerToUserPointer(void* asan_pointer);
+
   // Returns the ASan pointer for a block header.
+  // @param header The block header pointer for which we want the ASan pointer.
+  // @returns A pointer to the ASan pointer of @p header.
   static uint8* BlockHeaderToAsanPointer(const BlockHeader* header);
 
   // Returns the user pointer for a block header.
-  static uint8* BlockHeaderToUserPointer(BlockHeader* block);
+  // @param header The block header pointer for which we want the user pointer.
+  // @returns A pointer to the user pointer of @p header.
+  static uint8* BlockHeaderToUserPointer(BlockHeader* header);
 
   // Returns the block trailer for a block header.
-  static BlockTrailer* GetBlockTrailer(const BlockHeader* header);
+  // @param block The block header pointer for which we want the block trailer
+  //     pointer.
+  // @returns A pointer to the block trailer of @p header.
+  // @note This function doesn't validate its return value, it just checks that
+  //     the given block header is valid and returns a pointer to the location
+  //     where the trailer should be.
+  static BlockTrailer* BlockHeaderToBlockTrailer(const BlockHeader* header);
 
   // Calculates the underlying allocation size for a requested allocation of @p
   // bytes, with an alignment of @p alignment bytes.

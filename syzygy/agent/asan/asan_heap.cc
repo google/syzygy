@@ -192,6 +192,24 @@ void* HeapProxy::InitializeAsanBlock(uint8* asan_pointer,
   if (asan_pointer == NULL)
     return NULL;
 
+  // Here's the layout of an ASan block:
+  //
+  // +----------------------+--------------+-------+---------------+---------+
+  // | Block Header Padding | Block Header | Block | Block Trailer | Padding |
+  // +----------------------+--------------+-------+---------------+---------+
+  //
+  // Block Header padding (optional): This is only present when the block has an
+  //     alignment bigger than the size of the BlockHeader structure. In this
+  //     case the size of the padding will be stored at the beginning of this
+  //     zone. This zone is poisoned.
+  // Block Header: A structure containing some of the metadata about this block.
+  //     This zone is poisoned.
+  // Block: The user space. This zone isn't poisoned.
+  // Block Trailer: A structure containing some of the metadata about this
+  //     block. This zone is poisoned.
+  // Padding (optional): Some padding to align the size of the whole structure
+  //     to the block alignment. This zone is poisoned.
+
   if (alloc_granularity_log < Shadow::kShadowGranularityLog)
     alloc_granularity_log = Shadow::kShadowGranularityLog;
 
@@ -200,6 +218,14 @@ void* HeapProxy::InitializeAsanBlock(uint8* asan_pointer,
 
   BlockHeader* block_header = reinterpret_cast<BlockHeader*>(
       asan_pointer + header_size - sizeof(BlockHeader));
+
+  // Check if we need the block header padding size at the beginning of the
+  // block.
+  if (header_size > sizeof(BlockHeader)) {
+    size_t padding_size = header_size - sizeof(BlockHeader);
+    DCHECK_GE(padding_size, sizeof(padding_size));
+    *(reinterpret_cast<size_t*>(asan_pointer)) = padding_size;
+  }
 
   // Poison the block header.
   size_t trailer_size = asan_size - user_size - header_size;
@@ -213,7 +239,7 @@ void* HeapProxy::InitializeAsanBlock(uint8* asan_pointer,
   block_header->alloc_tid = ::GetCurrentThreadId();
   block_header->alignment_log = alloc_granularity_log;
 
-  BlockTrailer* block_trailer = GetBlockTrailer(block_header);
+  BlockTrailer* block_trailer = BlockHeaderToBlockTrailer(block_header);
   block_trailer->free_stack = NULL;
   block_trailer->free_tid = 0;
   block_trailer->next_free_block = NULL;
@@ -284,7 +310,7 @@ bool HeapProxy::MarkBlockAsQuarantined(BlockHeader* block_header,
     return false;
   }
 
-  BlockTrailer* trailer = GetBlockTrailer(block_header);
+  BlockTrailer* trailer = BlockHeaderToBlockTrailer(block_header);
   trailer->free_stack = stack_cache_->SaveStackTrace(stack);
   trailer->free_timestamp = trace::common::GetTsc();
   trailer->free_tid = ::GetCurrentThreadId();
@@ -387,7 +413,7 @@ void HeapProxy::TrimQuarantine() {
       DCHECK(tail_ != NULL);
 
       free_block = head_;
-      trailer = GetBlockTrailer(free_block);
+      trailer = BlockHeaderToBlockTrailer(free_block);
       DCHECK(trailer != NULL);
 
       head_ = trailer->next_free_block;
@@ -428,7 +454,7 @@ void HeapProxy::ReleaseASanBlock(BlockHeader* block_header,
 void HeapProxy::QuarantineBlock(BlockHeader* block) {
   DCHECK(block != NULL);
 
-  DCHECK(GetBlockTrailer(block)->next_free_block == NULL);
+  DCHECK(BlockHeaderToBlockTrailer(block)->next_free_block == NULL);
   size_t alloc_size = GetAllocSize(block->block_size,
                                    kDefaultAllocGranularity);
 
@@ -437,7 +463,7 @@ void HeapProxy::QuarantineBlock(BlockHeader* block) {
 
     quarantine_size_ += alloc_size;
     if (tail_ != NULL) {
-      GetBlockTrailer(tail_)->next_free_block = block;
+      BlockHeaderToBlockTrailer(tail_)->next_free_block = block;
     } else {
       DCHECK(head_ == NULL);
       head_ = block;
@@ -452,7 +478,7 @@ size_t HeapProxy::GetAllocSize(size_t bytes, size_t alignment) {
   bytes += std::max(sizeof(BlockHeader), alignment);
   bytes += sizeof(BlockTrailer);
   bytes += trailer_padding_size_;
-  return common::AlignUp(bytes, alignment);
+  return common::AlignUp(bytes, Shadow::kShadowGranularity);
 }
 
 HeapProxy::BlockHeader* HeapProxy::UserPointerToBlockHeader(
@@ -468,9 +494,29 @@ HeapProxy::BlockHeader* HeapProxy::UserPointerToBlockHeader(
   return const_cast<BlockHeader*>(header);
 }
 
-uint8* HeapProxy::BlockHeaderToAsanPointer(const BlockHeader* header) {
-  if (header == NULL || header->magic_number != kBlockHeaderSignature)
+uint8* HeapProxy::AsanPointerToUserPointer(void* asan_pointer) {
+  if (asan_pointer == NULL)
     return NULL;
+
+  // Check if the ASan pointer is also pointing to the block header.
+  BlockHeader* header = reinterpret_cast<BlockHeader*>(asan_pointer);
+  if (header->magic_number == kBlockHeaderSignature)
+    return BlockHeaderToUserPointer(const_cast<BlockHeader*>(header));
+
+  // There's an offset between the ASan pointer and the block header, use it to
+  // get the user pointer.
+  size_t offset = *(reinterpret_cast<const size_t*>(asan_pointer));
+  header = reinterpret_cast<BlockHeader*>(
+      reinterpret_cast<uint8*>(asan_pointer) + offset);
+
+  // No need to check the signature of the header here, this is already done in
+  // BlockHeaderToUserPointer.
+  return BlockHeaderToUserPointer(header);
+}
+
+uint8* HeapProxy::BlockHeaderToAsanPointer(const BlockHeader* header) {
+  DCHECK(header != NULL);
+  DCHECK_EQ(kBlockHeaderSignature, header->magic_number);
 
   return reinterpret_cast<uint8*>(
       common::AlignDown(reinterpret_cast<size_t>(header),
@@ -487,7 +533,8 @@ uint8* HeapProxy::UserPointerToAsanPointer(const void* user_pointer) {
   return BlockHeaderToAsanPointer(header);
 }
 
-HeapProxy::BlockTrailer* HeapProxy::GetBlockTrailer(const BlockHeader* header) {
+HeapProxy::BlockTrailer* HeapProxy::BlockHeaderToBlockTrailer(
+    const BlockHeader* header) {
   DCHECK(header != NULL);
   DCHECK_EQ(kBlockHeaderSignature, header->magic_number);
   // We want the block trailers to be 4 byte aligned after the end of a block.
@@ -501,12 +548,12 @@ HeapProxy::BlockTrailer* HeapProxy::GetBlockTrailer(const BlockHeader* header) {
   return reinterpret_cast<BlockTrailer*>(mem + aligned_size);
 }
 
-uint8* HeapProxy::BlockHeaderToUserPointer(BlockHeader* block) {
-  DCHECK(block != NULL);
-  DCHECK_EQ(kBlockHeaderSignature, block->magic_number);
-  DCHECK(block->state == ALLOCATED || block->state == QUARANTINED);
+uint8* HeapProxy::BlockHeaderToUserPointer(BlockHeader* header) {
+  DCHECK(header != NULL);
+  DCHECK_EQ(kBlockHeaderSignature, header->magic_number);
+  DCHECK(header->state == ALLOCATED || header->state == QUARANTINED);
 
-  return reinterpret_cast<uint8*>(block + 1);
+  return reinterpret_cast<uint8*>(header + 1);
 }
 
 HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const void* addr,
@@ -568,7 +615,7 @@ bool HeapProxy::GetBadAccessInformation(AsanErrorInfo* bad_access_info) {
   if (header == NULL)
     return false;
 
-  BlockTrailer* trailer = GetBlockTrailer(header);
+  BlockTrailer* trailer = BlockHeaderToBlockTrailer(header);
   DCHECK(trailer != NULL);
 
   if (bad_access_info->error_type != DOUBLE_FREE) {
@@ -690,7 +737,7 @@ uint64 HeapProxy::GetTimeSinceFree(const BlockHeader* header) {
   if (header->state == ALLOCATED)
     return 0;
 
-  BlockTrailer* trailer = GetBlockTrailer(header);
+  BlockTrailer* trailer = BlockHeaderToBlockTrailer(header);
   DCHECK(trailer != NULL);
 
   uint64 cycles_since_free = trace::common::GetTsc() - trailer->free_timestamp;

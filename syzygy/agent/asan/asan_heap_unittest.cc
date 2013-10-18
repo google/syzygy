@@ -42,13 +42,14 @@ class TestHeapProxy : public HeapProxy {
  public:
   using HeapProxy::BlockHeader;
   using HeapProxy::BlockTrailer;
+  using HeapProxy::AsanPointerToUserPointer;
   using HeapProxy::BlockHeaderToAsanPointer;
+  using HeapProxy::BlockHeaderToBlockTrailer;
   using HeapProxy::BlockHeaderToUserPointer;
   using HeapProxy::FindAddressBlock;
   using HeapProxy::GetAllocSize;
   using HeapProxy::GetBadAccessKind;
   using HeapProxy::GetTimeSinceFree;
-  using HeapProxy::GetBlockTrailer;
   using HeapProxy::InitializeAsanBlock;
   using HeapProxy::MarkBlockAsQuarantined;
   using HeapProxy::ReleaseASanBlock;
@@ -102,7 +103,7 @@ class TestHeapProxy : public HeapProxy {
         EXPECT_TRUE(current_block->state == QUARANTINED);
         return true;
       }
-      current_block = GetBlockTrailer(current_block)->next_free_block;
+      current_block = BlockHeaderToBlockTrailer(current_block)->next_free_block;
     }
     return false;
   }
@@ -479,7 +480,8 @@ TEST_F(HeapTest, CaptureTID) {
           proxy_.UserPointerToBlockHeader(mem));
   ASSERT_TRUE(header != NULL);
   TestHeapProxy::BlockTrailer* trailer =
-      const_cast<TestHeapProxy::BlockTrailer*>(proxy_.GetBlockTrailer(header));
+      const_cast<TestHeapProxy::BlockTrailer*>(
+          proxy_.BlockHeaderToBlockTrailer(header));
   ASSERT_TRUE(trailer != NULL);
 
   ASSERT_EQ(header->alloc_tid, ::GetCurrentThreadId());
@@ -644,8 +646,13 @@ struct FakeAsanBlock {
     EXPECT_TRUE(user_ptr != NULL);
     EXPECT_TRUE(common::IsAligned(reinterpret_cast<size_t>(user_ptr),
                                   alloc_alignment));
+    EXPECT_TRUE(common::IsAligned(
+        reinterpret_cast<size_t>(buffer_align_begin) + asan_alloc_size,
+        Shadow::kShadowGranularity));
     EXPECT_TRUE(proxy->UserPointerToAsanPointer(user_ptr) ==
         buffer_align_begin);
+    EXPECT_TRUE(proxy->AsanPointerToUserPointer(buffer_align_begin) ==
+        user_ptr);
 
     void* expected_user_ptr = reinterpret_cast<void*>(
         buffer_align_begin + std::max(sizeof(TestHeapProxy::BlockHeader),
@@ -710,8 +717,8 @@ struct FakeAsanBlock {
 
     TestHeapProxy::BlockHeader* block_header = proxy->UserPointerToBlockHeader(
         user_ptr);
-    TestHeapProxy::BlockTrailer* block_trailer = proxy->GetBlockTrailer(
-        block_header);
+    TestHeapProxy::BlockTrailer* block_trailer =
+        proxy->BlockHeaderToBlockTrailer(block_header);
     EXPECT_TRUE(block_trailer != NULL);
     EXPECT_TRUE(block_trailer->free_stack == NULL);
     EXPECT_EQ(0U, block_trailer->free_tid);
@@ -801,8 +808,8 @@ TEST_F(HeapTest, ReleaseASanBlock) {
 
     TestHeapProxy::BlockHeader* block_header = proxy_.UserPointerToBlockHeader(
         fake_block.user_ptr);
-    TestHeapProxy::BlockTrailer* block_trailer = proxy_.GetBlockTrailer(
-        block_header);
+    TestHeapProxy::BlockTrailer* block_trailer =
+        proxy_.BlockHeaderToBlockTrailer(block_header);
     StackCapture* alloc_stack = const_cast<StackCapture*>(
         block_header->alloc_stack);
     StackCapture* free_stack = const_cast<StackCapture*>(
