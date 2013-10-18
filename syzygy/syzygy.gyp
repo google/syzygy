@@ -42,6 +42,7 @@
         'instrument/instrument.gyp:*',
         'installer/installer.gyp:*',
         'integration_tests/integration_tests.gyp:*',
+        'optimize/optimize.gyp:*',
         'pdb/pdb.gyp:*',
         'pdbfind/pdbfind.gyp:*',
         'pe/pe.gyp:*',

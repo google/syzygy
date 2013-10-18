@@ -63,6 +63,9 @@
       # Instrumenter tests.
       '<(src)/syzygy/instrument/instrument.gyp:instrument_unittests',
 
+      # Optimize tests.
+      '<(src)/syzygy/optimize/optimize.gyp:optimize_unittests',
+
       # PDB tests.
       '<(src)/syzygy/pdb/pdb.gyp:pdb_unittests',
 
