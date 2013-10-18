@@ -14,6 +14,8 @@
 
 #include "syzygy/optimize/optimize_app.h"
 
+#include "syzygy/pe/pe_relinker.h"
+
 namespace optimize {
 
 namespace {
@@ -59,12 +61,34 @@ bool OptimizeApp::ParseCommandLine(const CommandLine* cmd_line) {
 }
 
 bool OptimizeApp::SetUp() {
-  // TODO(etienneb) implement this.
+  DCHECK(!input_image_path_.empty());
+  DCHECK(!output_image_path_.empty());
   return true;
 }
 
 int OptimizeApp::Run() {
-  // TODO(etienneb) implement this.
+  pe::PETransformPolicy policy;
+  pe::PERelinker relinker(&policy);
+  relinker.set_input_path(input_image_path_);
+  relinker.set_input_pdb_path(input_pdb_path_);
+  relinker.set_output_path(output_image_path_);
+  relinker.set_output_pdb_path(output_pdb_path_);
+  relinker.set_allow_overwrite(overwrite_);
+
+  // Initialize the relinker. This does the decomposition, etc.
+  if (!relinker.Init()) {
+    LOG(ERROR) << "Failed to initialize relinker.";
+    return 1;
+  }
+
+  // TODO(etienneb) Add more transform / re-ordering here.
+
+  // Perform the actual relink.
+  if (!relinker.Relink()) {
+    LOG(ERROR) << "Unable to relink input image.";
+    return 1;
+  }
+
   return 0;
 }
 

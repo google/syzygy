@@ -28,6 +28,8 @@
         '<(src)/base/base.gyp:base',
         '<(src)/sawbuck/common/common.gyp:common',
         '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
       ],
     },
     {

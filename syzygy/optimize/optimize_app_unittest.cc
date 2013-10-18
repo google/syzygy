@@ -188,4 +188,14 @@ TEST_F(OptimizeAppTest, ParseFullCommandLineWithInputAndOutputPdb) {
   EXPECT_TRUE(test_impl_.SetUp());
 }
 
+
+TEST_F(OptimizeAppTest, RelinkDecompose) {
+  cmd_line_.AppendSwitchPath("input-image", input_image_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
+  cmd_line_.AppendSwitch("overwrite");
+
+  ASSERT_EQ(0, test_app_.Run());
+  ASSERT_NO_FATAL_FAILURE(CheckTestDll(output_image_path_));
+}
+
 }  // namespace optimize
