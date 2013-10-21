@@ -179,7 +179,7 @@ class HeapProxy {
     size_t alignment_log : 4;
     size_t block_size;
     const StackCapture* alloc_stack;
-    DWORD alloc_tid;
+    const StackCapture* free_stack;
   };
   COMPILE_ASSERT((sizeof(BlockHeader) & 7) == 0,
                  asan_block_header_not_multiple_of_8_bytes);
@@ -188,8 +188,8 @@ class HeapProxy {
   // ... and ends with a BlockTrailer.
   #pragma pack(push, 4)
   struct BlockTrailer {
+    DWORD alloc_tid;
     uint64 free_timestamp;
-    const StackCapture* free_stack;
     DWORD free_tid;
     // Free blocks are linked together.
     BlockHeader* next_free_block;

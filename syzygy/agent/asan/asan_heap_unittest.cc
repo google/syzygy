@@ -484,7 +484,7 @@ TEST_F(HeapTest, CaptureTID) {
           proxy_.BlockHeaderToBlockTrailer(header));
   ASSERT_TRUE(trailer != NULL);
 
-  ASSERT_EQ(header->alloc_tid, ::GetCurrentThreadId());
+  ASSERT_EQ(trailer->alloc_tid, ::GetCurrentThreadId());
   ASSERT_EQ(trailer->free_tid, ::GetCurrentThreadId());
 }
 
@@ -699,7 +699,9 @@ struct FakeAsanBlock {
     TestHeapProxy::BlockHeader* block_header = proxy->UserPointerToBlockHeader(
         user_ptr);
     EXPECT_TRUE(block_header != NULL);
-    EXPECT_EQ(::GetCurrentThreadId(), block_header->alloc_tid);
+    TestHeapProxy::BlockTrailer* block_trailer =
+        TestHeapProxy::BlockHeaderToBlockTrailer(block_header);
+    EXPECT_EQ(::GetCurrentThreadId(), block_trailer->alloc_tid);
     EXPECT_TRUE(block_header->alloc_stack != NULL);
 
     // Test the various accessors.
@@ -719,15 +721,15 @@ struct FakeAsanBlock {
         user_ptr);
     TestHeapProxy::BlockTrailer* block_trailer =
         proxy->BlockHeaderToBlockTrailer(block_header);
+    EXPECT_TRUE(block_header->free_stack == NULL);
     EXPECT_TRUE(block_trailer != NULL);
-    EXPECT_TRUE(block_trailer->free_stack == NULL);
     EXPECT_EQ(0U, block_trailer->free_tid);
 
     StackCapture stack;
     stack.InitFromStack();
     // Mark the block as quarantined.
     EXPECT_TRUE(proxy->MarkBlockAsQuarantined(block_header, stack));
-    EXPECT_TRUE(block_trailer->free_stack != NULL);
+    EXPECT_TRUE(block_header->free_stack != NULL);
     EXPECT_EQ(::GetCurrentThreadId(), block_trailer->free_tid);
 
     size_t i = 0;
@@ -813,7 +815,7 @@ TEST_F(HeapTest, ReleaseASanBlock) {
     StackCapture* alloc_stack = const_cast<StackCapture*>(
         block_header->alloc_stack);
     StackCapture* free_stack = const_cast<StackCapture*>(
-        block_trailer->free_stack);
+        block_header->free_stack);
 
     ASSERT_TRUE(alloc_stack != NULL);
     ASSERT_TRUE(free_stack != NULL);

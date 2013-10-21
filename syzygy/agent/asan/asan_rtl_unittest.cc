@@ -866,11 +866,16 @@ TEST_F(AsanRtlTest, AsanCheckMemset) {
   for (size_t i = 0; i < kAllocSize; ++i)
     EXPECT_EQ(0xAA, mem[i]);
 
+  // mem[-1] points to the block header, we need to make sure that it doesn't
+  // contain the value we're looking for.
+  uint8 last_block_header_byte = mem[-1];
+  mem[-1] = 0;
   EXPECT_EQ(mem - 1, memsetFunction(mem - 1, 0xBB, kAllocSize));
   EXPECT_TRUE(memory_error_detected);
   for (size_t i = 0; i < kAllocSize; ++i)
     EXPECT_EQ(0xBB, mem[i - 1]);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  mem[-1] = last_block_header_byte;
   ResetLog();
 
   memory_error_detected = false;
@@ -900,10 +905,12 @@ TEST_F(AsanRtlTest, AsanCheckMemchr) {
 
   // mem[-1] points to the block header, we need to make sure that it doesn't
   // contain the value we're looking for.
+  uint8 last_block_header_byte = mem[-1];
   mem[-1] = 0;
   EXPECT_EQ(mem + 4, memchrFunction(mem - 1, mem[4], kAllocSize));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  mem[-1] = last_block_header_byte;
   ResetLog();
 
   memory_error_detected = false;
@@ -943,11 +950,17 @@ TEST_F(AsanRtlTest, AsanCheckMemmove) {
 
   memory_error_detected = false;
   // Shift them to the left one more time.
+
+  // mem_src[-1] points to the block header, we need to make sure that it
+  // doesn't contain the value we're looking for.
+  uint8 last_block_header_byte = mem_src[-1];
+  mem_src[-1] = 0;
   EXPECT_EQ(mem_src - 1, memmoveFunction(mem_src - 1, mem_src, kAllocSize));
   EXPECT_TRUE(memory_error_detected);
   for (int i = -1; i < static_cast<int>(kAllocSize) - 2; ++i)
     EXPECT_EQ(i + 1, mem_src[i]);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  mem_src[-1] = last_block_header_byte;
   ResetLog();
 
   EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem_src));
@@ -982,11 +995,14 @@ TEST_F(AsanRtlTest, AsanCheckMemcpy) {
   ResetLog();
 
   memory_error_detected = false;
+  uint8 last_block_header_byte = mem_dst[-1];
+  mem_dst[-1] = 0;
   EXPECT_EQ(mem_dst, memcpyFunction(mem_dst, mem_src - 1, kAllocSize));
   EXPECT_TRUE(memory_error_detected);
   for (int i = -1; i < static_cast<int>(kAllocSize) - 1; ++i)
     EXPECT_EQ(mem_dst[i + 1], mem_src[i]);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  mem_dst[-1] = last_block_header_byte;
   ResetLog();
 
   EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem_src));
@@ -1014,10 +1030,12 @@ TEST_F(AsanRtlTest, AsanCheckStrcspn) {
 
   // str[-1] points to the block header, we need to make sure that it doesn't
   // contain the value \0.
+  uint8 last_block_header_byte = str[-1];
   str[-1] = 'a';
   EXPECT_EQ(strcspn(str - 1, keys), strcspnFunction(str - 1, keys));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  str[-1] = last_block_header_byte;
   ResetLog();
 
   memory_error_detected = false;
@@ -1048,10 +1066,12 @@ TEST_F(AsanRtlTest, AsanCheckStrlen) {
 
   // str[-1] points to the block header, we need to make sure that it doesn't
   // contain the value \0.
+  uint8 last_block_header_byte = str[-1];
   str[-1] = 'a';
   EXPECT_EQ(strlen(str - 1), strlenFunction(str - 1));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  str[-1] = last_block_header_byte;
   ResetLog();
 
   memory_error_detected = false;
@@ -1083,10 +1103,12 @@ TEST_F(AsanRtlTest, AsanCheckStrrchr) {
 
   // str[-1] points to the block header, we need to make sure that it doesn't
   // contain the value \0.
+  uint8 last_block_header_byte = str[-1];
   str[-1] = 'a';
   EXPECT_EQ(strrchr(str - 1, 'c'), strrchrFunction(str - 1, 'c'));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  str[-1] = last_block_header_byte;
   ResetLog();
 
   memory_error_detected = false;
@@ -1122,10 +1144,12 @@ TEST_F(AsanRtlTest, AsanCheckStrcmp) {
 
   // str[-1] points to the block header, we need to make sure that it doesn't
   // contain the value \0.
+  uint8 last_block_header_byte = str[-1];
   str[-1] = 'a';
   EXPECT_EQ(strcmp(str - 1, keys), strcmpFunction(str - 1, keys));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  str[-1] = last_block_header_byte;
   ResetLog();
 
   memory_error_detected = false;
@@ -1162,10 +1186,12 @@ TEST_F(AsanRtlTest, AsanCheckStrpbrk) {
 
   // str[-1] points to the block header, we need to make sure that it doesn't
   // contain the value \0.
+  uint8 last_block_header_byte = str[-1];
   str[-1] = 'a';
   EXPECT_EQ(strpbrk(str - 1, keys), strpbrkFunction(str - 1, keys));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  str[-1] = last_block_header_byte;
   ResetLog();
 
   memory_error_detected = false;
@@ -1202,10 +1228,12 @@ TEST_F(AsanRtlTest, AsanCheckStrstr) {
 
   // str[-1] points to the block header, we need to make sure that it doesn't
   // contain the value \0.
+  uint8 last_block_header_byte = str[-1];
   str[-1] = 'a';
   EXPECT_EQ(strstr(str - 1, keys), strstrFunction(str - 1, keys));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  str[-1] = last_block_header_byte;
   ResetLog();
 
   memory_error_detected = false;
@@ -1242,10 +1270,12 @@ TEST_F(AsanRtlTest, AsanCheckStrspn) {
 
   // str[-1] points to the block header, we need to make sure that it doesn't
   // contain the value \0.
+  uint8 last_block_header_byte = str[-1];
   str[-1] = 'a';
   EXPECT_EQ(strspn(str - 1, keys), strspnFunction(str - 1, keys));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  str[-1] = last_block_header_byte;
   ResetLog();
 
   memory_error_detected = false;
@@ -1286,20 +1316,24 @@ TEST_F(AsanRtlTest, AsanCheckStrncpy) {
   EXPECT_FALSE(memory_error_detected);
 
   // Test an underflow on the source.
+  uint8 last_block_header_byte = source[-1];
   source[-1] = 'a';
   EXPECT_EQ(destination,
             strncpyFunction(destination, source - 1, strlen(str_value)));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  source[-1] = last_block_header_byte;
   ResetLog();
 
   // Test an underflow on the destination.
   memory_error_detected = false;
+  last_block_header_byte = destination[-1];
   destination[-1] = 'a';
   EXPECT_EQ(destination - 1,
             strncpyFunction(destination - 1, source, strlen(str_value)));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  destination[-1] = last_block_header_byte;
   ResetLog();
 
   // Test an overflow on the destination.
@@ -1368,16 +1402,19 @@ TEST_F(AsanRtlTest, AsanCheckStrncat) {
 
   // Test an underflow on the suffix.
   suffix[-1] = 'a';
+  uint8 last_block_header_byte = suffix[-1];
   strcpy(mem, prefix_value);
   strcpy(buffer, prefix_value);
   EXPECT_EQ(mem, strncatFunction(mem, suffix - 1, strlen(suffix_value)));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
   EXPECT_STRCASEEQ(strncat(buffer, suffix - 1, strlen(suffix_value)), mem);
+  suffix[-1] = last_block_header_byte;
   ResetLog();
 
   // Test an underflow on the destination.
   memory_error_detected = false;
+  last_block_header_byte = mem[-1];
   mem[-1] = 'a';
   strcpy(mem, prefix_value);
   strcpy(buffer, prefix_value);
@@ -1386,6 +1423,7 @@ TEST_F(AsanRtlTest, AsanCheckStrncat) {
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
   EXPECT_STRCASEEQ(strncat(buffer, suffix, strlen(suffix_value)), mem);
+  mem[-1] = last_block_header_byte;
   ResetLog();
 
   // Test an overflow on the suffix.

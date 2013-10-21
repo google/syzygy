@@ -236,13 +236,13 @@ void* HeapProxy::InitializeAsanBlock(uint8* asan_pointer,
   block_header->block_size = user_size;
   block_header->state = ALLOCATED;
   block_header->alloc_stack = stack_cache_->SaveStackTrace(stack);
-  block_header->alloc_tid = ::GetCurrentThreadId();
+  block_header->free_stack = NULL;
   block_header->alignment_log = alloc_granularity_log;
 
   BlockTrailer* block_trailer = BlockHeaderToBlockTrailer(block_header);
-  block_trailer->free_stack = NULL;
   block_trailer->free_tid = 0;
   block_trailer->next_free_block = NULL;
+  block_trailer->alloc_tid = ::GetCurrentThreadId();
 
   uint8* block_alloc = BlockHeaderToUserPointer(block_header);
   DCHECK(MemoryRangeIsAccessible(block_alloc, user_size));
@@ -310,8 +310,9 @@ bool HeapProxy::MarkBlockAsQuarantined(BlockHeader* block_header,
     return false;
   }
 
+  block_header->free_stack = stack_cache_->SaveStackTrace(stack);
+
   BlockTrailer* trailer = BlockHeaderToBlockTrailer(block_header);
-  trailer->free_stack = stack_cache_->SaveStackTrace(stack);
   trailer->free_timestamp = trace::common::GetTsc();
   trailer->free_tid = ::GetCurrentThreadId();
 
@@ -443,9 +444,9 @@ void HeapProxy::ReleaseASanBlock(BlockHeader* block_header,
     stack_cache_->ReleaseStackTrace(block_header->alloc_stack);
     block_header->alloc_stack = NULL;
   }
-  if (block_trailer->free_stack != NULL) {
-    stack_cache_->ReleaseStackTrace(block_trailer->free_stack);
-    block_trailer->free_stack = NULL;
+  if (block_header->free_stack != NULL) {
+    stack_cache_->ReleaseStackTrace(block_header->free_stack);
+    block_header->free_stack = NULL;
   }
 
   block_header->state = FREED;
@@ -627,18 +628,18 @@ bool HeapProxy::GetBadAccessInformation(AsanErrorInfo* bad_access_info) {
   if (bad_access_info->error_type != UNKNOWN_BAD_ACCESS) {
     bad_access_info->microseconds_since_free = GetTimeSinceFree(header);
 
-    if (header->alloc_stack != NULL) {
-      memcpy(bad_access_info->alloc_stack,
-             header->alloc_stack->frames(),
-             header->alloc_stack->num_frames() * sizeof(void*));
-      bad_access_info->alloc_stack_size = header->alloc_stack->num_frames();
-      bad_access_info->alloc_tid = header->alloc_tid;
-    }
-    if (trailer->free_stack != NULL) {
+    DCHECK(header->alloc_stack != NULL);
+    memcpy(bad_access_info->alloc_stack,
+           header->alloc_stack->frames(),
+           header->alloc_stack->num_frames() * sizeof(void*));
+    bad_access_info->alloc_stack_size = header->alloc_stack->num_frames();
+    bad_access_info->alloc_tid = trailer->alloc_tid;
+
+    if (header->state != ALLOCATED) {
       memcpy(bad_access_info->free_stack,
-             trailer->free_stack->frames(),
-             trailer->free_stack->num_frames() * sizeof(void*));
-      bad_access_info->free_stack_size = trailer->free_stack->num_frames();
+             header->free_stack->frames(),
+             header->free_stack->num_frames() * sizeof(void*));
+      bad_access_info->free_stack_size = header->free_stack->num_frames();
       bad_access_info->free_tid = trailer->free_tid;
     }
     GetAddressInformation(header, bad_access_info);
