@@ -1,0 +1,207 @@
+PE HACKER
+=========
+
+PE Hacker is a general purpose tool for manipulating Windows 32-bit PE files. It
+is driven by a configuration file, which may in turn be specialized via the
+command-line.
+
+
+1. Configuration File Format
+============================
+
+A configuration file consists of a UTF-8 JSON-encoded text file. The format is
+heavily inspired by the GYP format, used by the Chromium family of projects. The
+top level consists of a dictionary. It is expected that this dictionary contain
+a 'targets' entry, which itself must be a list of dictionaries. This list
+contains a description of transformations to be applied to each target, with
+the targets being processed in the order they are specified. At minimum, each
+target specifies an input module, an output and a list of operations to be
+applied:
+
+{
+  'targets': [
+    # Module 1.
+    {
+      # Paths are relative to the current working directory by default.
+      'input_module': 'foo.dll',
+      'output_module': 'bar.dll',
+      'operations': [
+        ...
+      ],
+    },
+    # Module 2.
+    {
+      ...
+    },
+    # Other modules...
+    ...
+  ]
+}
+
+Each operation is itself a dictionary describing the specific operation to be
+applied to the input module. The operations will be applied sequentially in
+their order of declaration. The format of this dictionary is specific to the
+operation in question, but they all contain a 'type' entry naming the type of
+operation to apply.
+
+1.1 Defining Variables
+----------------------
+
+The top level dictionary of a configuration file may specify a dictionary of
+named local variables that can be used in variable expansion through the rest of
+the configuration file. These have the format:
+
+{
+  'variables': {
+    'name': 'value',
+  },
+  ...
+}
+
+Variable names can not be repeated, and must be unique. Variable names must be
+valid C-style variable names. By convention user-defined variables use the
+naming style 'user_defined_variable'.
+
+1.2 Built-in Variables
+----------------------
+
+There are a handful of built-in variables that are defined automatically at
+runtime. By convention there use uppercase names like 'BUILT_IN_VARIABLE'. They
+consist of:
+
+  ROOT: The full path of the directory containing the root PEHacker
+        configuration file that is being processed.
+
+1.3 Default Variable Values
+---------------------------
+
+Variables may be specified via the command-line. However, it is sometimes useful
+to specify default values for variables that have not been explicitly specified.
+This can be done by suffixing the variable name with the '%' character in the
+'variables' section.
+
+1.4 Variable Expansion
+----------------------
+
+Variables are referenced via the standard shell mechanism: $(name).
+Variables are expanded immediately as they are encountered during processing.
+
+
+2. Operations
+=============
+
+Individual operations and their configuration file dictionary formats are
+defined below.
+
+2.1 Adding Imports
+------------------
+
+This operation injects imports into a PE file. It proceeds as follows:
+
+  - Injects an import data directory if none exists.
+  - Injects an import for the module if none exists.
+  - Injects an import for the function if none exists.
+
+Newly created entries will be added to the end of any existing lists. Imports
+may be specified by name or as ordinals. The operation is configured as follows:
+
+  {
+    'type': 'add_imports',
+    'modules': [
+      {
+        # Adds an import dependency on bar.dll, complaining if one already
+        # exists.
+        'module_name': 'bar.dll',
+        'must_not_exist': True,
+
+        'imports': [
+          # Adds an import for bar.dll:FooBar, failing if one already exists.
+          { 'function_name': 'FooBar', 'must_not_exist': True },
+
+          # Adds an import for bar.dll:2, not failing if one already exists
+          # ('must_not_exist' was not explicitly specified and defaults to
+          # False.)
+          { 'ordinal': 2 },
+        ]
+      }
+    ]
+  }
+
+2.2 Ordering Imports
+--------------------
+
+This operation explicitly orders imports. Any imported modules or functions
+not explicitly specified will maintain their original relative ordering but be
+pushed to the end of any explicitly named imports.
+
+  {
+    'type': 'order_imports',
+    'modules': [
+      # bar.dll will be the first imported module. Its imports will be left in
+      # their original order.
+      { 'module_name': 'bar.dll' },
+
+      # foo.dll will be the second imported module.
+      {
+        'module_name': 'foo.dll',
+        # Function 'FooBar' will be made the first import. Any other functions
+        # will be left in their original orders.
+        'imports': [
+          { 'function_name': 'FooBar' }
+        ],
+      },
+
+      # baz.dll will be left in its original relative position, but it's
+      # imports will themselves be reordered.
+      {
+        'module_name': 'baz.dll',
+
+        # The presence of this key indicates that the module entry itself is
+        # not to be ordered, but its imports are. If not specified this
+        # defaults to True.
+        'order': False,
+
+        'imports': [
+          { 'function_name': 'baz1' },
+          { 'function_name': 'baz2' }
+        ],
+      }
+    ],
+  }
+
+2.3 Removing Unused Imports
+---------------------------
+
+This operation removes any imports that are not explicitly referenced by
+anything in the PE file.
+
+  {
+    'type': 'removed_unused_imports',
+
+    # If this is specified then modules containing no imports will be left in
+    # the import table. If not specified this defaults to True, in which case
+    # empty module imports will be removed.
+    'remove_empty_modules': False
+  }
+
+2.4 Redirecting Imports
+-----------------------
+
+This operation hijacks an import entry and redirects all its referrers to
+another import entry.
+
+  {
+    'type': 'redirect_imports',
+    'redirects': [
+      {
+        # Redirects all uses of foo.dll:foo to bar.dll:3. Both imports must
+        # exist at the time of this operation.
+        'from': { 'module_name': 'foo.dll', 'function_name': 'foo' },
+        'to': { 'module_name': 'bar.dll', 'ordinal': 3 },
+      },
+      {
+        # Another redirect...
+      },
+      ...
+    ],
+  }
