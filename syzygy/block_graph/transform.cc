@@ -89,4 +89,45 @@ bool ApplyBasicBlockSubGraphTransform(
   return true;
 }
 
+bool ApplyBasicBlockSubGraphTransforms(
+    const std::vector<BasicBlockSubGraphTransformInterface*>& transforms,
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* block,
+    BlockVector* new_blocks) {
+  DCHECK(policy != NULL);
+  DCHECK(block_graph != NULL);
+  DCHECK(block != NULL);
+  DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
+  DCHECK(CodeBlockAttributesAreBasicBlockSafe(block));
+
+  // Decompose block to basic blocks.
+  BasicBlockSubGraph subgraph;
+  BasicBlockDecomposer bb_decomposer(block, &subgraph);
+  if (!bb_decomposer.Decompose())
+    return false;
+
+  // Call the transforms.
+  std::vector<BasicBlockSubGraphTransformInterface*>::const_iterator it =
+      transforms.begin();
+  for (; it != transforms.end(); ++it) {
+    BasicBlockSubGraphTransformInterface* transform = *it;
+    DCHECK(transform != NULL);
+    if (!transform->TransformBasicBlockSubGraph(policy, block_graph, &subgraph))
+      return false;
+  }
+
+  // Update the block-graph post transform.
+  BlockBuilder builder(block_graph);
+  if (!builder.Merge(&subgraph))
+    return false;
+
+  if (new_blocks != NULL) {
+    new_blocks->assign(builder.new_blocks().begin(),
+                       builder.new_blocks().end());
+  }
+
+  return true;
+}
+
 }  // namespace block_graph

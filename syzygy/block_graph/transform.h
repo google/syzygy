@@ -103,6 +103,26 @@ bool ApplyBasicBlockSubGraphTransform(
     BlockGraph::Block* block,
     BlockVector* new_blocks);
 
+// Applies a series of BasicBlockSubGraphTransform to a single block. Takes
+// care of basic-block decomposing the block, passes it to the transform, and
+// recomposes the block.
+//
+// @param transforms the series of transform to apply.
+// @param policy The policy object restricting how the transform is applied.
+// @param block_graph the block containing the block to be transformed.
+// @param block the block to be transformed.
+// @param new_blocks On success, any newly created blocks will be returned
+//     here. Note that this parameter may be NULL if you are not interested
+//     in retrieving the set of new blocks.
+// @pre block must be a code block.
+// @returns true on success, false otherwise.
+bool ApplyBasicBlockSubGraphTransforms(
+    const std::vector<BasicBlockSubGraphTransformInterface*>& transforms,
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* block,
+    BlockVector* new_blocks);
+
 }  // namespace block_graph
 
 #endif  // SYZYGY_BLOCK_GRAPH_TRANSFORM_H_

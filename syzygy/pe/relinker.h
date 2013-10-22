@@ -49,7 +49,7 @@ class RelinkerInterface {
   // relinker. Each transform will be applied in the order added to the
   // relinker, assuming all earlier transforms have succeeded.
   //
-  // @param transform a orderer to be applied.
+  // @param transform a transform to be applied.
   // @returns true on success, or false if adding transforms is not
   //     supported.
   virtual bool AppendTransform(Transform* transform) {

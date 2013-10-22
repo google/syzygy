@@ -240,4 +240,24 @@ TEST_F(ApplyBasicBlockSubGraphTransformTest, EmptyTransformSucceeds) {
   EXPECT_EQ(new_block, ref.referenced());
 }
 
+TEST_F(ApplyBasicBlockSubGraphTransformTest, VectorTransformSucceeds) {
+  // Validate applying a vector of transforms.
+  MockBasicBlockSubGraphTransform transform1;
+  MockBasicBlockSubGraphTransform transform2;
+  BlockVector new_blocks;
+  EXPECT_CALL(transform1, TransformBasicBlockSubGraph(_, _, _)).Times(1).
+      WillOnce(Return(true));
+  EXPECT_CALL(transform2, TransformBasicBlockSubGraph(_, _, _)).Times(1).
+      WillOnce(Return(true));
+
+  std::vector<BasicBlockSubGraphTransformInterface*> transforms;
+  transforms.push_back(&transform1);
+  transforms.push_back(&transform2);
+  EXPECT_TRUE(ApplyBasicBlockSubGraphTransforms(transforms,
+                                                &policy_,
+                                                &block_graph_,
+                                                code_block_,
+                                                &new_blocks));
+}
+
 }  // namespace block_graph

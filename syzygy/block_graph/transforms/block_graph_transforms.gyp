@@ -21,6 +21,8 @@
       'target_name': 'block_graph_transforms_lib',
       'type': 'static_library',
       'sources': [
+        'chained_basic_block_transforms.cc',
+        'chained_basic_block_transforms.h',
         'fuzzing_transform.cc',
         'fuzzing_transform.h',
         'iterative_transform.h',
@@ -40,6 +42,7 @@
       'type': 'executable',
       'sources': [
         'block_graph_transforms_unittests_main.cc',
+        'chained_basic_block_transforms_unittest.cc',
         'fuzzing_transform_unittest.cc',
         'iterative_transform_unittest.cc',
         'named_transform_unittest.cc',
