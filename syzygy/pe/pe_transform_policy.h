@@ -23,7 +23,7 @@
 
 namespace pe {
 
-// The interface that guides image and basic-block transfom decisions for PE
+// The interface that guides image and basic-block transform decisions for PE
 // files.
 class PETransformPolicy : public block_graph::TransformPolicyInterface {
  public:

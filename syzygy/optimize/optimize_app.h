@@ -30,7 +30,10 @@ namespace optimize {
 class OptimizeApp : public common::AppImplBase {
  public:
   OptimizeApp()
-      : AppImplBase("Optimize") {
+      : AppImplBase("Optimize"),
+        overwrite_(false),
+        inlining_(false),
+        fuzz_(false) {
   }
 
   // @name Implementation of the AppImplBase interface.
@@ -55,6 +58,8 @@ class OptimizeApp : public common::AppImplBase {
   base::FilePath output_pdb_path_;
   base::FilePath branch_file_path_;
   bool overwrite_;
+  bool inlining_;
+  bool fuzz_;
   // @}
 
  private:

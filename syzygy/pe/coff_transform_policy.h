@@ -23,7 +23,7 @@
 
 namespace pe {
 
-// The interface that guides image and basic-block transfom decisions for COFF
+// The interface that guides image and basic-block transform decisions for COFF
 // files.
 class CoffTransformPolicy : public block_graph::TransformPolicyInterface {
  public:

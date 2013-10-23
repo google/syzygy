@@ -23,6 +23,8 @@
       'sources': [
         'optimize_app.h',
         'optimize_app.cc',
+        'transforms/inlining_transform.cc',
+        'transforms/inlining_transform.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
@@ -49,6 +51,7 @@
       'sources': [
         'optimize_app_unittest.cc',
         'optimize_unittests_main.cc',
+        'transforms/inlining_transform_unittest.cc',
       ],
       'dependencies': [
         'optimize_lib',

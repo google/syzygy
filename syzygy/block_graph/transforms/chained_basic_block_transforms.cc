@@ -15,7 +15,6 @@
 // Implementation of ChainedBasicBlockTransform.
 
 #include "syzygy/block_graph/transforms/chained_basic_block_transforms.h"
-#include "syzygy/pe/block_util.h"
 
 namespace block_graph {
 namespace transforms {
@@ -39,8 +38,16 @@ bool ChainedBasicBlockTransforms::OnBlock(
   DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), block);
 
-  if (block->type() != BlockGraph::CODE_BLOCK ||
-      !policy->CodeBlockAttributesAreBasicBlockSafe(block) ||
+  // Avoid decomposition if no transforms are applied.
+  if (transforms_.empty())
+    return true;
+
+  // Only code can be decomposed.
+  if (block->type() != BlockGraph::CODE_BLOCK)
+    return true;
+
+  // Apply the decomposition policy.
+  if (!policy->CodeBlockAttributesAreBasicBlockSafe(block) ||
       !policy->CodeBlockIsSafeToBasicBlockDecompose(block)) {
     return true;
   }

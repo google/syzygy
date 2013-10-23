@@ -14,6 +14,8 @@
 
 #include "syzygy/pe/pe_transform_policy.h"
 
+#include "syzygy/pe/block_util.h"
+
 namespace pe {
 
 bool PETransformPolicy::CodeBlockAttributesAreBasicBlockSafe(
@@ -23,7 +25,8 @@ bool PETransformPolicy::CodeBlockAttributesAreBasicBlockSafe(
 
 bool PETransformPolicy::CodeBlockIsSafeToBasicBlockDecompose(
     const BlockGraph::Block* code_block) const {
-  return true;
+  // TODO(chrisha): Move the implementation of that function here.
+  return pe::CodeBlockIsBasicBlockDecomposable(code_block);
 }
 
 bool PETransformPolicy::ReferenceIsSafeToRedirect(

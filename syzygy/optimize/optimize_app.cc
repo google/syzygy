@@ -14,11 +14,21 @@
 
 #include "syzygy/optimize/optimize_app.h"
 
+#include "syzygy/block_graph/block_graph.h"
+#include "syzygy/block_graph/transforms/chained_basic_block_transforms.h"
+#include "syzygy/block_graph/transforms/fuzzing_transform.h"
+#include "syzygy/block_graph/transforms/named_transform.h"
+#include "syzygy/optimize/transforms/inlining_transform.h"
 #include "syzygy/pe/pe_relinker.h"
+#include "syzygy/pe/pe_transform_policy.h"
 
 namespace optimize {
 
 namespace {
+
+using block_graph::transforms::ChainedBasicBlockTransforms;
+using block_graph::transforms::FuzzingTransform;
+using optimize::transforms::InliningTransform;
 
 const char kUsageFormatStr[] =
     "Usage: %ls [options]\n"
@@ -32,6 +42,9 @@ const char kUsageFormatStr[] =
     "    --output-pdb=<path>   Output path for the rewritten PDB file.\n"
     "                          Default is inferred from output-image.\n"
     "    --overwrite           Allow output files to be overwritten.\n"
+    "\n"
+    "  Testing Options:\n"
+    "    --fuzz                Fuzz the binary.\n"
     "\n";
 
 }  // namespace
@@ -48,6 +61,8 @@ bool OptimizeApp::ParseCommandLine(const CommandLine* cmd_line) {
   branch_file_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("branch-file"));
 
   overwrite_ = cmd_line->HasSwitch("overwrite");
+  inlining_ = cmd_line->HasSwitch("inlining");
+  fuzz_ = cmd_line->HasSwitch("fuzz");
 
   // The --input-image argument is required.
   if (input_image_path_.empty())
@@ -81,7 +96,28 @@ int OptimizeApp::Run() {
     return 1;
   }
 
-  // TODO(etienneb) Add more transform / re-ordering here.
+  // Construct a chain of basic block transforms.
+  ChainedBasicBlockTransforms chains;
+
+  // Declare transforms we may apply.
+  scoped_ptr<InliningTransform> inlining_transform;
+  scoped_ptr<FuzzingTransform> fuzzing_transform;
+
+  // If inlining is enabled, add it to the chain.
+  if (inlining_) {
+    inlining_transform.reset(new InliningTransform());
+    CHECK(chains.AppendTransform(inlining_transform.get()));
+  }
+
+  // Append the chain to the relinker.
+  if (!relinker.AppendTransform(&chains))
+    return false;
+
+  // If fuzzing is enabled, add it to the chain.
+  if (fuzz_) {
+    fuzzing_transform.reset(new block_graph::transforms::FuzzingTransform);
+    CHECK(relinker.AppendTransform(fuzzing_transform.get()));
+  }
 
   // Perform the actual relink.
   if (!relinker.Relink()) {
