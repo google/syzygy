@@ -1036,13 +1036,10 @@ bool BlockGraph::Block::SetReference(Offset offset, const Reference& ref) {
         NOTREACHED() << "Trying to insert conflicting reference.";
     }
 
-    // Examine the reference at the same offset if there is one. We expect it to
-    // have the same size and type.
-    if (it != references_.end() && it->first == offset) {
-      if (it->second.size() != ref.size() || it->second.type() != ref.type()) {
-      }
+    // Skip the reference at the same offset if there is one. This reference
+    // will be replaced by the new one.
+    if (it != references_.end() && it->first == offset)
       ++it;
-    }
 
     // This is the first reference after our offset. Check to see if it lands
     // within the range we want to occupy.
