@@ -17,7 +17,7 @@
 namespace pe {
 
 bool PETransformPolicy::CodeBlockAttributesAreBasicBlockSafe(
-      const BlockGraph::Block* code_block) const {
+    const BlockGraph::Block* code_block) const {
   return true;
 }
 

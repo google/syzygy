@@ -173,8 +173,8 @@ class MergeContext {
   // @param source_range The source range (if any) to assign.
   // @param new_offset The offset in the new block where the original bytes
   //     will now live.
-  // @param new_block The block to change.
   // @param new_size The number of bytes the new range occupies.
+  // @param new_block The block to change.
   void CopySourceRange(const SourceRange& source_range,
                        Offset new_offset,
                        Size new_size,
@@ -197,20 +197,20 @@ class MergeContext {
   // @param offset the offset at which to insert NOPs.
   // @param bytes the number of NOP bytes to insert.
   // @param new_block the block in which to insert the NOPs.
-  bool InsertNops(Offset offset,
-                  Size bytes,
-                  Block* new_block);
+  bool InsertNops(Offset offset, Size bytes, Block* new_block);
 
   // Copy the given @p instructions to the current working block.
-  // @param offset The offset where the @p instructions should be inserted.
   // @param instructions The instructions to copy.
+  // @param offset The offset where the @p instructions should be inserted.
+  // @param new_block the block in which to insert the instructions.
   bool CopyInstructions(const BasicBlock::Instructions& instructions,
                         Offset offset,
                         Block* new_block);
 
   // Copy the data (or padding bytes) in @p basic_block into new working block.
-  // @param offset The offset where the @p basic_block should be inserted.
   // @param basic_block The basic_block to copy.
+  // @param offset The offset where the @p basic_block should be inserted.
+  // @param new_block the block in which to insert the data.
   bool CopyData(const BasicDataBlock* basic_block,
                 Offset offset,
                 Block* new_block);
@@ -236,8 +236,7 @@ class MergeContext {
   bool PopulateBlock(const BasicBlockOrdering& order);
 
   // Populate all new blocks with data and/or instructions per layout_info_.
-  // @param order their ordering.
-  // @param new_block The resultant block.
+  // @param subgraph The subgraph to process.
   bool PopulateBlocks(const BasicBlockSubGraph& subgraph);
 
   // Transfer all external referrers that refer to @p bb to point to
@@ -337,9 +336,8 @@ void MergeContext::CopySourceRange(const SourceRange& source_range,
   DCHECK_NE(0U, new_size);
 
   // If the range is empty, there's nothing to do.
-  if (source_range.size() == 0) {
+  if (source_range.size() == 0)
     return;
-  }
 
   // Insert the new source range mapping into the new block.
   bool inserted = new_block->source_ranges().Insert(
@@ -467,9 +465,7 @@ bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
   return true;
 }
 
-bool MergeContext::InsertNops(Offset offset,
-                              Size bytes,
-                              Block* new_block) {
+bool MergeContext::InsertNops(Offset offset, Size bytes, Block* new_block) {
   DCHECK_NE(reinterpret_cast<Block*>(NULL), new_block);
 
   uint8* buffer = new_block->GetMutableData();
@@ -510,9 +506,7 @@ bool MergeContext::CopyInstructions(
                      offset, instruction.size(), tag_info_map_);
 
     // Copy the instruction bytes.
-    ::memcpy(buffer + offset,
-             instruction.data(),
-             instruction.size());
+    ::memcpy(buffer + offset, instruction.data(), instruction.size());
 
     // Preserve the label on the instruction, if any.
     if (instruction.has_label())
@@ -1056,26 +1050,26 @@ Size MergeContext::ComputeRequiredSuccessorSize(
       return GetLongSuccessorSize(successor.condition);
 
     case BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK: {
-        Size short_size = GetShortSuccessorSize(successor.condition);
-        const BasicBlock* dest_bb = successor.reference.basic_block();
-        DCHECK_NE(reinterpret_cast<BasicBlock*>(NULL), dest_bb);
-        const BasicBlockLayoutInfo& dest = FindLayoutInfo(dest_bb);
+      Size short_size = GetShortSuccessorSize(successor.condition);
+      const BasicBlock* dest_bb = successor.reference.basic_block();
+      DCHECK_NE(reinterpret_cast<BasicBlock*>(NULL), dest_bb);
+      const BasicBlockLayoutInfo& dest = FindLayoutInfo(dest_bb);
 
-        // If the destination is within the same destination block,
-        // let's see if we can use a short reach here.
-        if (info.block == dest.block) {
-          Offset destination_offset =
-              dest.start_offset - (start_offset + short_size);
+      // If the destination is within the same destination block,
+      // let's see if we can use a short reach here.
+      if (info.block == dest.block) {
+        Offset destination_offset =
+            dest.start_offset - (start_offset + short_size);
 
-          // Are we in-bounds for a short reference?
-          if (destination_offset <= std::numeric_limits<int8>::max() &&
-              destination_offset >= std::numeric_limits<int8>::min()) {
-            return short_size;
-          }
+        // Are we in-bounds for a short reference?
+        if (destination_offset <= std::numeric_limits<int8>::max() &&
+            destination_offset >= std::numeric_limits<int8>::min()) {
+          return short_size;
         }
-
-        return GetLongSuccessorSize(successor.condition);
       }
+
+      return GetLongSuccessorSize(successor.condition);
+    }
 
     default:
       NOTREACHED() << "Impossible Successor reference type.";
