@@ -1,0 +1,16 @@
+{
+  "variables": {
+    "var1": "foo$(var1)",
+  },
+  "targets": [
+    {
+      "input_module": "$(ROOT)/dummy1.dll",
+      "output_module": "$(var1).dll",
+      "operations": [
+        {
+          "type": "none",
+        },
+      ],
+    },
+  ],
+}

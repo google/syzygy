@@ -58,6 +58,9 @@ void ApplicationTestBase::SetUp() {
 
   // Save the log level so that we can restore it in TearDown.
   log_level_ = logging::GetMinLogLevel();
+
+  // By default we don't log to console.
+  log_to_console_ = false;
 }
 
 void ApplicationTestBase::TearDown() {
@@ -81,6 +84,14 @@ bool ApplicationTestBase::HandleLogMessage(int severity, const char* file,
   if (severity < logging::GetMinLogLevel())
     return true;
   fprintf(self_->err(), "%s", str.c_str());
+  fflush(self_->err());
+
+  // If we're logging to console then repeat the message there.
+  if (self_->log_to_console_) {
+    fprintf(stdout, "%s", str.c_str());
+    fflush(stdout);
+  }
+
   return true;
 }
 

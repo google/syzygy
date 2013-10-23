@@ -23,6 +23,8 @@
       'sources': [
         'pehacker_app.cc',
         'pehacker_app.h',
+        'variables.cc',
+        'variables.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
@@ -54,6 +56,7 @@
       'sources': [
         'pehacker_app_unittest.cc',
         'pehacker_unittests_main.cc',
+        'variables_unittest.cc',
       ],
       'dependencies': [
         'pehacker_lib',

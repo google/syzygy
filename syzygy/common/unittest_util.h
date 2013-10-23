@@ -44,7 +44,8 @@ class ScopedLogLevelSaver {
 // An intermediate class to add helper streams to a unit-test fixture.
 class ApplicationTestBase : public testing::Test {
  public:
-  ApplicationTestBase() : log_level_(0), log_handler_(NULL) { }
+  ApplicationTestBase()
+      : log_level_(0), log_handler_(NULL), log_to_console_(false) { }
 
   // @name IO Stream Accessors.
   // Call InitStreams() to route the IO streams to/from specific files;
@@ -81,6 +82,11 @@ class ApplicationTestBase : public testing::Test {
     logging::SetMinLogLevel(logging::LOG_FATAL);
   }
 
+  // Enables logging to screen for the test in which this is called.
+  void EnableLoggingToConsole() {
+    log_to_console_ = true;
+  }
+
  protected:
   typedef testing::Test Super;
 
@@ -114,6 +120,11 @@ class ApplicationTestBase : public testing::Test {
 
   // The log message handler that was intercepted.
   logging::LogMessageHandlerFunction log_handler_;
+
+  // If this is true then log messages handled by this fixture will be repeated
+  // to the console rather than simply going to the wrapped stderr. Defaults to
+  // false.
+  bool log_to_console_;
 
   // The instance of this test that is redirecting logging. This only works for
   // a single instance at a time, but only one test is running at a time so

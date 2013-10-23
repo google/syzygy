@@ -1,0 +1,18 @@
+{
+  "variables": {
+    "var1": "$(var2)bar",
+    "var2": "f$(var3)$(var3)",
+    "var3": "o",
+  },
+  "targets": [
+    {
+      "input_module": "$(ROOT)/dummy1.dll",
+      "output_module": "$(var1)-does-not-exist.dll",
+      "operations": [
+        {
+          "type": "none",
+        },
+      ],
+    },
+  ],
+}

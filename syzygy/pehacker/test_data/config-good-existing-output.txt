@@ -1,0 +1,13 @@
+{
+  "targets": [
+    {
+      "input_module": "$(ROOT)/dummy1.dll",
+      "output_module": "$(ROOT)/dummy2.dll",
+      "operations": [
+        {
+          "type": "none",
+        },
+      ],
+    },
+  ],
+}
