@@ -76,10 +76,17 @@ class Shadow {
   static ShadowMarker GetShadowMarkerForAddress(const void* addr);
 
   // Appends a textual description of the shadow memory for @p addr to
-  // @p output.
+  // @p output, including the values of the shadow bytes and a legend.
   // @param addr The address for which we want to get the textual description.
   // @param output The string in which we want to store this information.
   static void AppendShadowMemoryText(const void* addr, std::string* output);
+
+  // Appends a textual description of the shadow memory for @p addr to
+  // @p output. This only appends the values of the shadow bytes.
+  // @param addr The address whose shadow memory is to be described.
+  // @param output The string to be populated with the shadow memory
+  //     information.
+  static void AppendShadowArrayText(const void* addr, std::string* output);
 
   // Returns true iff the array starting at @p addr is null terminated within a
   // contiguous accessible region of memory. When returning true the length of

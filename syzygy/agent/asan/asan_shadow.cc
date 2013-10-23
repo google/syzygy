@@ -130,17 +130,20 @@ void Shadow::AppendShadowByteText(const char *prefix,
   base::StringAppendF(output, "\n");
 }
 
-void Shadow::AppendShadowMemoryText(const void* addr,
-                                    std::string* output) {
+void Shadow::AppendShadowArrayText(const void* addr, std::string* output) {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
   index >>= 3;
-  base::StringAppendF(output, "Shadow bytes around the buggy address:\n");
   size_t index_start = index;
   index_start &= ~0x7;
   for (int i = -4; i <= 4; i++) {
     const char * const prefix = (i == 0) ? "=>" : "  ";
     AppendShadowByteText(prefix, (index_start + i * 8), output, index);
   }
+}
+
+void Shadow::AppendShadowMemoryText(const void* addr, std::string* output) {
+  base::StringAppendF(output, "Shadow bytes around the buggy address:\n");
+  AppendShadowArrayText(addr, output);
   base::StringAppendF(output,
       "Shadow byte legend (one shadow byte represents 8 application bytes):\n");
   base::StringAppendF(output, "  Addressable:           %x%x\n",

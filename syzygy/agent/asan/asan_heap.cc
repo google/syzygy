@@ -696,8 +696,17 @@ void HeapProxy::GetAddressInformation(BlockHeader* header,
       block_alloc,
       block_alloc + header->block_size);
 
-  // Ensure that we had enough space to store the full shadow info message.
+  std::string shadow_memory;
+  Shadow::AppendShadowArrayText(bad_access_info->location, &shadow_memory);
+  size_t shadow_mem_bytes = base::snprintf(
+      bad_access_info->shadow_memory,
+      arraysize(bad_access_info->shadow_memory) - 1,
+      "%s",
+      shadow_memory.c_str());
+
+  // Ensure that we had enough space to store the full shadow information.
   DCHECK_LE(shadow_info_bytes, arraysize(bad_access_info->shadow_info) - 1);
+  DCHECK_LE(shadow_mem_bytes, arraysize(bad_access_info->shadow_memory) - 1);
 }
 
 const char* HeapProxy::AccessTypeToStr(BadAccessKind bad_access_kind) {

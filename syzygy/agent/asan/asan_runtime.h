@@ -34,8 +34,6 @@ namespace asan {
 class AsanLogger;
 
 // Store the information about a bad memory access.
-// TODO(sebmarchand): Add an array with the copy of the shadow memory around
-//     this bad access.
 struct AsanErrorInfo {
   // The address where the bad access happened.
   void* location;
@@ -66,6 +64,8 @@ struct AsanErrorInfo {
   // something like: "0x12345678 is located 8 bytes inside of 10-bytes region
   // [0x12345670,0x1234567A)."
   char shadow_info[128];
+  // A textual description of the shadow memory around |location|.
+  char shadow_memory[512];
   // The time since the memory block containing this address has been freed.
   // This would be equal to zero if the block is still allocated.
   uint64 microseconds_since_free;
