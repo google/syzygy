@@ -23,8 +23,11 @@
 #include "base/time.h"
 #include "base/values.h"
 #include "base/files/file_path.h"
+#include "base/memory/scoped_vector.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/application.h"
+#include "syzygy/pe/pe_file.h"
+#include "syzygy/pe/pe_transform_policy.h"
 
 namespace pehacker {
 
@@ -46,6 +49,30 @@ class PEHackerApp : public common::AppImplBase {
 
  protected:
   typedef block_graph::BlockGraph BlockGraph;
+
+  // Modules being maintained by the pipeline are uniquely identified by
+  // their input and output names. This allows the same module to be processed
+  // multiple times by the pipeline, being written to different destinations.
+  struct ImageId {
+    base::FilePath input_module;
+    base::FilePath output_module;
+    bool operator<(const ImageId& rhs) const;
+  };
+
+  // This maintains information about a module that is being processed by
+  // the pipeline.
+  struct ImageInfo {
+    ImageInfo() : header_block(NULL) { }
+    base::FilePath input_module;
+    base::FilePath output_module;
+    base::FilePath input_pdb;
+    base::FilePath output_pdb;
+    pe::PEFile pe_file;
+    BlockGraph block_graph;
+    BlockGraph::Block* header_block;
+  };
+
+  typedef std::map<ImageId, ImageInfo*> ImageInfoMap;
 
   // @name Utility members.
   // @{
@@ -80,21 +107,49 @@ class PEHackerApp : public common::AppImplBase {
   // @param target A target to process.
   // @param operations A list of operations to process.
   // @param operation An operation to process.
-  // @param block_graph The block-graph to be modified.
+  // @param image_info Information about the image being transformed.
   // @returns true on success, false otherwise.
   bool ProcessConfigurationFile(bool dry_run);
   bool ProcessTargets(bool dry_run, base::ListValue* targets);
   bool ProcessTarget(bool dry_run, base::DictionaryValue* target);
   bool ProcessOperations(bool dry_run,
                          base::ListValue* operations,
-                         BlockGraph* block_graph);
+                         ImageInfo* image_info);
   bool ProcessOperation(bool dry_run,
                         base::DictionaryValue* operation,
-                        BlockGraph* block_graph);
-  bool ProcessAddImports(bool dry_run,
-                         base::DictionaryValue* operation,
-                         BlockGraph* block_graph);
+                        ImageInfo* image_info);
   // @}
+
+  // Validates input and output module paths, and infers/validates input and
+  // output PDB paths. Logs an error on failure.
+  // @param input_module The path to the input module.
+  // @param output_module The path to the output module.
+  // @param input_pdb The path to the input PDB. This may be empty, in which
+  //     case it will be automatically determined.
+  // @param output_pdb The path to the output PDB. This may be empty, in
+  //     which case it will be automatically determined.
+  // @returns true on success, false otherwise.
+  bool ValidateAndInferPaths(const base::FilePath& input_module,
+                             const base::FilePath& output_module,
+                             base::FilePath* input_pdb,
+                             base::FilePath* output_pdb);
+
+  // Looks up the already decomposed image, or loads and decomposes it for the
+  // first time.
+  // @param input_module The path to the input module.
+  // @param output_module The path to the output module.
+  // @param input_pdb The path to the input PDB.
+  // @param output_pdb The path to the output PDB.
+  // @returns a pointer to the ImageInfo for the requested image. Returns NULL
+  //     on failure.
+  ImageInfo* GetImageInfo(const base::FilePath& input_module,
+                          const base::FilePath& output_module,
+                          const base::FilePath& input_pdb,
+                          const base::FilePath& output_pdb);
+
+  // Writes any transformed images back to disk.
+  // @returns true on success, false otherwise.
+  bool WriteImages();
 
   // @name Command-line parameters.
   base::FilePath config_file_;
@@ -107,6 +162,13 @@ class PEHackerApp : public common::AppImplBase {
 
   // The configuration file is parsed as a JSON file and stored here.
   scoped_ptr<base::DictionaryValue> config_;
+
+  // These house the modules that are being transformed by the pipeline.
+  ScopedVector<ImageInfo> image_infos_;
+  ImageInfoMap image_info_map_;
+
+  // The policy object used by the various transforms.
+  pe::PETransformPolicy policy_;
 };
 
 }  // namespace pehacker

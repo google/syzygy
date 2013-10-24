@@ -7,6 +7,7 @@
   "targets": [
     {
       "input_module": "$(ROOT)/dummy1.dll",
+      "input_pdb": "$(ROOT)/dummy1.dll.pdb",
       "output_module": "$(var1)-does-not-exist.dll",
       "operations": [
         {

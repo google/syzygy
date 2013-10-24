@@ -23,7 +23,11 @@
 #include "base/json/json_reader.h"
 #include "base/strings/string_split.h"
 #include "syzygy/core/file_util.h"
+#include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/find.h"
+#include "syzygy/pehacker/operation.h"
 #include "syzygy/pehacker/variables.h"
+#include "syzygy/pehacker/operations/add_imports_operation.h"
 
 namespace pehacker {
 
@@ -43,8 +47,10 @@ static const char kUsageFormatStr[] = "Usage: %ls [options]\n"
 
 // Gets the value under key |name| in |dictionary|, performing variable
 // expansion using |variables|, and finally converting it to a normalized path
-// in |path|. Returns true on success, false otherwise.
-bool GetFilePath(const base::DictionaryValue& dictionary,
+// in |path|. If |optional| this will return true if the key doesn't exist
+// and leave |path| unchanged. Returns true on success, false otherwise.
+bool GetFilePath(bool optional,
+                 const base::DictionaryValue& dictionary,
                  const base::DictionaryValue& variables,
                  const std::string& name,
                  base::FilePath* path) {
@@ -52,6 +58,9 @@ bool GetFilePath(const base::DictionaryValue& dictionary,
 
   const base::Value* value;
   if (!dictionary.Get(name, &value)) {
+    if (optional)
+      return true;
+
     LOG(ERROR) << "Dictionary does not contain key \"" << name << "\".";
     return false;
   }
@@ -69,6 +78,14 @@ bool GetFilePath(const base::DictionaryValue& dictionary,
 }
 
 }  // namespace
+
+bool PEHackerApp::ImageId::operator<(const ImageId& rhs) const {
+  if (input_module.value() < rhs.input_module.value())
+    return true;
+  if (input_module.value() > rhs.input_module.value())
+    return false;
+  return output_module.value() < rhs.output_module.value();
+}
 
 bool PEHackerApp::ParseCommandLine(const CommandLine* cmd_line) {
   DCHECK_NE(reinterpret_cast<const CommandLine*>(NULL), cmd_line);
@@ -119,6 +136,9 @@ int PEHackerApp::Run() {
     return 1;
 
   if (!ProcessConfigurationFile(false))
+    return 1;
+
+  if (!WriteImages())
     return 1;
 
   return 0;
@@ -281,11 +301,18 @@ bool PEHackerApp::ProcessTarget(bool dry_run, base::DictionaryValue* target) {
   DCHECK_NE(reinterpret_cast<base::DictionaryValue*>(NULL), target);
 
   base::FilePath input_module;
-  if (!GetFilePath(*target, variables_, "input_module", &input_module))
-    return false;
-
   base::FilePath output_module;
-  if (!GetFilePath(*target, variables_, "output_module", &output_module))
+  base::FilePath input_pdb;
+  base::FilePath output_pdb;
+  bool opt = false;
+  if (!GetFilePath(opt, *target, variables_, "input_module", &input_module))
+    return false;
+  if (!GetFilePath(opt, *target, variables_, "output_module", &output_module))
+    return false;
+  opt = true;
+  if (!GetFilePath(opt, *target, variables_, "input_pdb", &input_pdb))
+    return false;
+  if (!GetFilePath(opt, *target, variables_, "output_pdb", &output_pdb))
     return false;
 
   base::ListValue* operations = NULL;
@@ -294,32 +321,24 @@ bool PEHackerApp::ProcessTarget(bool dry_run, base::DictionaryValue* target) {
     return false;
   }
 
-  // Validate the input path exists.
-  if (!file_util::PathExists(input_module)) {
-    LOG(ERROR) << "Path for \"input_module\" does not exist: "
-               << input_module.value();
+  // Validate and infer module-related paths.
+  if (!ValidateAndInferPaths(
+          input_module, output_module, &input_pdb, &output_pdb)) {
     return false;
   }
 
-  // If we're not overwriting then make sure the output path does not exist.
-  if (!overwrite_ && file_util::PathExists(output_module)) {
-    LOG(ERROR) << "Path for \"output_module\" exists: "
-               << output_module.value();
-    LOG(ERROR) << "Specify --overwrite to ignore this error.";
-    return false;
-  }
-
-  BlockGraph* block_graph = NULL;
+  ImageInfo* image_info = NULL;
   if (!dry_run) {
-    // TODO(chrisha): Decompose the PE file, or find the already decomposed
-    //     version of it.
-    LOG(ERROR) << "Target processing not yet implemented.";
-    return false;
+    // Get the decomposed image.
+    image_info = GetImageInfo(
+        input_module, output_module, input_pdb, output_pdb);
+    if (image_info == NULL)
+      return false;
   }
 
   VLOG(1) << "Processing operations for module \"" << input_module.value()
           << "\".";
-  if (!ProcessOperations(dry_run, operations, block_graph))
+  if (!ProcessOperations(dry_run, operations, image_info))
     return false;
 
   return true;
@@ -327,10 +346,10 @@ bool PEHackerApp::ProcessTarget(bool dry_run, base::DictionaryValue* target) {
 
 bool PEHackerApp::ProcessOperations(bool dry_run,
                                     base::ListValue* operations,
-                                    BlockGraph* block_graph) {
+                                    ImageInfo* image_info) {
   DCHECK_NE(reinterpret_cast<base::ListValue*>(NULL), operations);
   if (!dry_run)
-    DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+    DCHECK_NE(reinterpret_cast<ImageInfo*>(NULL), image_info);
 
   for (size_t i = 0; i < operations->GetSize(); ++i) {
     base::DictionaryValue* operation = NULL;
@@ -339,7 +358,7 @@ bool PEHackerApp::ProcessOperations(bool dry_run,
       return false;
     }
 
-    if (!ProcessOperation(dry_run, operation, block_graph))
+    if (!ProcessOperation(dry_run, operation, image_info))
       return false;
   }
 
@@ -348,10 +367,10 @@ bool PEHackerApp::ProcessOperations(bool dry_run,
 
 bool PEHackerApp::ProcessOperation(bool dry_run,
                                    base::DictionaryValue* operation,
-                                   BlockGraph* block_graph) {
+                                   ImageInfo* image_info) {
   DCHECK_NE(reinterpret_cast<base::DictionaryValue*>(NULL), operation);
   if (!dry_run)
-    DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+    DCHECK_NE(reinterpret_cast<ImageInfo*>(NULL), image_info);
 
   std::string type;
   if (!operation->GetString("type", &type)) {
@@ -360,32 +379,181 @@ bool PEHackerApp::ProcessOperation(bool dry_run,
   }
 
   // Dispatch to the appropriate operation implementation.
+  scoped_ptr<OperationInterface> operation_impl;
   if (type == "none") {
     // The 'none' operation is always defined, and does nothing. This is
     // mainly there for simple unittesting of configuration files.
     return true;
   } else if (type == "add_imports") {
-    if (!ProcessAddImports(dry_run, operation, block_graph))
-      return false;
+    operation_impl.reset(new operations::AddImportsOperation());
   } else {
     LOG(ERROR) << "Unrecognized operation type \"" << type << "\".";
+    return false;
+  }
+
+  // Initialize the operation.
+  DCHECK_NE(reinterpret_cast<OperationInterface*>(NULL), operation_impl.get());
+  if (!operation_impl->Init(&policy_, operation)) {
+    LOG(ERROR) << "Failed to initialize \"" << operation_impl->name()
+               << "\".";
+    return false;
+  }
+
+  // If not in a dry-run then apply the operation.
+  if (!dry_run && !operation_impl->Apply(&policy_,
+                                         &image_info->block_graph,
+                                         image_info->header_block)) {
+    LOG(ERROR) << "Failed to apply \"" << operation_impl->name() << "\".";
     return false;
   }
 
   return true;
 }
 
-bool PEHackerApp::ProcessAddImports(bool dry_run,
-                                    base::DictionaryValue* operation,
-                                    BlockGraph* block_graph) {
-  DCHECK_NE(reinterpret_cast<base::DictionaryValue*>(NULL), operation);
-  if (!dry_run) {
-    DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
-    LOG(ERROR) << "The add_imports operation is not yet implemented.";
+// TODO(chrisha): Lift this to a utility function? Something similar is done
+//     in PERelinker.
+bool PEHackerApp::ValidateAndInferPaths(
+    const base::FilePath& input_module,
+    const base::FilePath& output_module,
+    base::FilePath* input_pdb,
+    base::FilePath* output_pdb) {
+  DCHECK(!input_module.empty());
+  DCHECK(!output_module.empty());
+  DCHECK_NE(reinterpret_cast<base::FilePath*>(NULL), input_pdb);
+  DCHECK_NE(reinterpret_cast<base::FilePath*>(NULL), output_pdb);
+
+  if (!file_util::PathExists(input_module)) {
+    LOG(ERROR) << "Input module not found: " << input_module.value();
+    return false;
+  }
+
+  if (!overwrite_ && file_util::PathExists(output_module)) {
+    LOG(ERROR) << "Output module exists: " << output_module.value();
+    LOG(ERROR) << "Specify --overwrite to ignore this error.";
+    return false;
+  }
+
+  // If no input PDB was specified then search for it.
+  if (input_pdb->empty()) {
+    LOG(INFO) << "Input PDB not specified, searching for it.";
+    if (!pe::FindPdbForModule(input_module, input_pdb) ||
+        input_pdb->empty()) {
+      LOG(ERROR) << "Unable to find PDB file for module: "
+                 << input_module.value();
+      return NULL;
+    }
+  }
+
+  if (!file_util::PathExists(*input_pdb)) {
+    LOG(ERROR) << "Input PDB not found: " << input_pdb->value();
+    return false;
+  }
+
+  // If no output PDB path is specified, infer one.
+  if (output_pdb->empty()) {
+    // If the input and output DLLs have the same basename, default to writing
+    // using the same PDB basename, but alongside the new module.
+    if (input_module.BaseName() == output_module.BaseName()) {
+      *output_pdb = output_module.DirName().Append(input_module.BaseName());
+    } else {
+      // Otherwise, default to using the output basename with a PDB extension
+      // added to it.
+      *output_pdb = output_module.AddExtension(L"pdb");
+    }
+
+    LOG(INFO) << "Using default output PDB path: " << output_pdb->value();
+  }
+
+  if (!overwrite_ && file_util::PathExists(*output_pdb)) {
+    LOG(ERROR) << "Output PDB exists: " << output_pdb->value();
+    LOG(ERROR) << "Specify --overwrite to ignore this error.";
+    return false;
+  }
+
+  // Perform some extra checking to make sure that writes aren't going to
+  // collide. This prevents us from overwriting the input, effectively
+  // preventing in-place transforms. This is not fool-proof in the face of
+  // weird junctions but it will catch common errors.
+
+  core::FilePathCompareResult result =
+      core::CompareFilePaths(input_module, output_module);
+  if (result == core::kEquivalentFilePaths) {
+    LOG(ERROR) << "Input and output module paths are equivalent.";
+    LOG(ERROR) << "Input module path: " << input_module.value();
+    LOG(ERROR) << "Output module path: " << output_module.value();
+    return false;
+  }
+
+  result = core::CompareFilePaths(*input_pdb, *output_pdb);
+  if (result == core::kEquivalentFilePaths) {
+    LOG(ERROR) << "Input and output PDB paths are equivalent.";
+    LOG(ERROR) << "Input PDB path: " << input_pdb->value();
+    LOG(ERROR) << "Output PDB path: " << output_pdb->value();
+    return false;
+  }
+
+  result = core::CompareFilePaths(output_module, *output_pdb);
+  if (result == core::kEquivalentFilePaths) {
+    LOG(ERROR) << "Output module and PDB paths are equivalent.";
+    LOG(ERROR) << "Output module path: " << output_module.value();
+    LOG(ERROR) << "Output PDB path: " << output_pdb->value();
     return false;
   }
 
   return true;
+}
+
+PEHackerApp::ImageInfo* PEHackerApp::GetImageInfo(
+    const base::FilePath& input_module,
+    const base::FilePath& output_module,
+    const base::FilePath& input_pdb,
+    const base::FilePath& output_pdb) {
+  DCHECK(!input_module.empty());
+  DCHECK(!output_module.empty());
+  DCHECK(!input_pdb.empty());
+  DCHECK(!output_pdb.empty());
+
+  // Return the existing module if it exists.
+  ImageId image_id = { input_module, output_module };
+  ImageInfoMap::iterator it = image_info_map_.find(image_id);
+  if (it != image_info_map_.end())
+    return it->second;
+
+  // Initialize a new ImageInfo struct.
+  scoped_ptr<ImageInfo> image_info(new ImageInfo());
+  image_info->input_module = input_module;
+  image_info->output_module = output_module;
+  image_info->input_pdb = input_pdb;
+  image_info->output_pdb = output_pdb;
+  if (!image_info->pe_file.Init(input_module)) {
+    LOG(ERROR) << "Failed to read image: " << input_module.value();
+    return NULL;
+  }
+
+  // Decompose the image.
+  pe::ImageLayout image_layout(&image_info->block_graph);
+  pe::Decomposer decomposer(image_info->pe_file);
+  if (!decomposer.Decompose(&image_layout)) {
+    LOG(ERROR) << "Failed to decompose image: " << input_module.value();
+    return NULL;
+  }
+
+  // Lookup the header block.
+  image_info->header_block = image_layout.blocks.GetBlockByAddress(
+      BlockGraph::RelativeAddress(0));
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL),
+            image_info->header_block);
+
+  // Decomposition was successful. Add it to the map, transfer the image info to
+  // the scoped array and return it.
+  it = image_info_map_.insert(std::make_pair(image_id, image_info.get())).first;
+  image_infos_.push_back(image_info.release());
+  return it->second;
+}
+
+bool PEHackerApp::WriteImages() {
+  LOG(ERROR) << "Writing image not yet implemented.";
+  return false;
 }
 
 }  // namespace pehacker
