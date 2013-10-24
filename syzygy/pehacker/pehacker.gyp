@@ -21,10 +21,13 @@
       'target_name': 'pehacker_lib',
       'type': 'static_library',
       'sources': [
+        'operation.h',
         'pehacker_app.cc',
         'pehacker_app.h',
         'variables.cc',
         'variables.h',
+        'operations/add_imports_operation.cc',
+        'operations/add_imports_operation.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
@@ -57,6 +60,7 @@
         'pehacker_app_unittest.cc',
         'pehacker_unittests_main.cc',
         'variables_unittest.cc',
+        'operations/add_imports_operation_unittest.cc',
       ],
       'dependencies': [
         'pehacker_lib',
