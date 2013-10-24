@@ -262,6 +262,7 @@
       'dependencies': [
         'export_dll',
         'test_dll_no_private_symbols',
+        '<(src)/syzygy/common/common.gyp:syzygy_version',
       ],
       'msvs_settings': {
         'VCLinkerTool': {
