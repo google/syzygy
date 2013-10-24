@@ -17,10 +17,10 @@
 
 vars = {
   "chrome_revision": "202420",
-  "gmock_revision": "410",
-  "gtest_revision": "629",
+  "gmock_revision": "453",
+  "gtest_revision": "664",
   "googleurl_revision": "183",
-  "gyp_revision": "1635",
+  "gyp_revision": "1719",
 
   "chrome_base": "http://src.chromium.org/svn/trunk",
 }
