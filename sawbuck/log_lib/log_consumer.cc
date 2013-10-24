@@ -147,10 +147,11 @@ bool LogParser::ParseTraceEvent(EVENT_TRACE* event) {
   trace.thread_id = event->Header.ThreadId;
   BinaryBufferReader reader(event->MofData, event->MofLength);
 
-  void* const* id;
+  void* const* id = NULL;
   if (reader.ReadString(&trace.name, &trace.name_len) &&
       reader.Read(&id),
       reader.ReadString(&trace.extra, &trace.extra_len)) {
+    DCHECK(id != NULL);
     trace.id = *id;
 
     switch (event->Header.Class.Type) {

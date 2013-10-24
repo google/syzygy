@@ -245,8 +245,8 @@ bool ReadFrequencyData(const base::DictionaryValue* dict_value,
       }
 
       // Add this entry to our map.
-      if (!values.insert(std::make_pair(std::make_pair(address, column - 1),
-                                        entry_count)).second) {
+      if (!values.insert(std::make_pair(std::make_pair(
+          core::RelativeAddress(address), column - 1), entry_count)).second) {
         LOG(ERROR) << "Duplicate basic block address in frequency list.";
         return false;
       }

@@ -104,14 +104,14 @@ class BasicBlockOrdererTest : public testing::BasicBlockTest {
     frequency_map.clear();
 
     uint32 start = start_addr_.value();
-    frequency_map[std::make_pair(start + kBasicBlockOffsets[0], 0)] = bb0;
-    frequency_map[std::make_pair(start + kBasicBlockOffsets[1], 0)] = bb1;
-    frequency_map[std::make_pair(start + kBasicBlockOffsets[2], 0)] = bb2;
-    frequency_map[std::make_pair(start + kBasicBlockOffsets[3], 0)] = bb3;
-    frequency_map[std::make_pair(start + kBasicBlockOffsets[4], 0)] = bb4;
-    frequency_map[std::make_pair(start + kBasicBlockOffsets[5], 0)] = bb5;
-    frequency_map[std::make_pair(start + kBasicBlockOffsets[6], 0)] = bb6;
-    frequency_map[std::make_pair(start + kBasicBlockOffsets[7], 0)] = bb7;
+    frequency_map[std::make_pair(start_addr_ + kBasicBlockOffsets[0], 0)] = bb0;
+    frequency_map[std::make_pair(start_addr_ + kBasicBlockOffsets[1], 0)] = bb1;
+    frequency_map[std::make_pair(start_addr_ + kBasicBlockOffsets[2], 0)] = bb2;
+    frequency_map[std::make_pair(start_addr_ + kBasicBlockOffsets[3], 0)] = bb3;
+    frequency_map[std::make_pair(start_addr_ + kBasicBlockOffsets[4], 0)] = bb4;
+    frequency_map[std::make_pair(start_addr_ + kBasicBlockOffsets[5], 0)] = bb5;
+    frequency_map[std::make_pair(start_addr_ + kBasicBlockOffsets[6], 0)] = bb6;
+    frequency_map[std::make_pair(start_addr_ + kBasicBlockOffsets[7], 0)] = bb7;
     ASSERT_EQ(kNumCodeBasicBlocks, frequency_map.size());
   }
 
@@ -435,7 +435,7 @@ TEST_F(BasicBlockOptimizerTest, HotCold) {
   size_t num_hot_blocks = 0;
 
   bool is_hot = true;
-  BlockGraph::Offset start_offs = subgraph.original_block()->addr().value();
+  BlockGraph::RelativeAddress start_offs = subgraph.original_block()->addr();
   for (; it != desc.basic_block_order.end(); ++it) {
     if (is_hot && BasicCodeBlock::Cast(*it) != NULL) {
       frequency_map[std::make_pair(start_offs + (*it)->offset(), 0)] = 1;

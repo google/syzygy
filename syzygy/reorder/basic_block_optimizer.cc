@@ -166,7 +166,7 @@ bool GetEntryCountByOffset(const IndexedFrequencyInformation& entry_counts,
   DCHECK(entry_count != NULL);
 
   *entry_count = 0;
-  IndexedFrequencyOffset key = std::make_pair(base_rva.value() + offset, 0);
+  IndexedFrequencyOffset key = std::make_pair(base_rva + offset, 0);
   IndexedFrequencyMap::const_iterator it =
       entry_counts.frequency_map.find(key);
   if (it != entry_counts.frequency_map.end())

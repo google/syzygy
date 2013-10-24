@@ -465,7 +465,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
                         const Block* block) {
     DCHECK(block != NULL);
     IndexedFrequencyMap::const_iterator entry =
-        frequencies.find(std::make_pair(block->addr().value(), 0));
+        frequencies.find(std::make_pair(block->addr(), 0));
     if (entry == frequencies.end())
       return 0;
     return entry->second;

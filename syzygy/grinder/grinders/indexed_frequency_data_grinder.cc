@@ -121,6 +121,7 @@ void IndexedFrequencyDataGrinder::UpdateBasicBlockFrequencyData(
   using basic_block_util::GetFrequency;
   using basic_block_util::IndexedFrequencyInformation;
   using basic_block_util::IndexedFrequencyMap;
+  using basic_block_util::RelativeAddress;
 
   DCHECK(data != NULL);
   DCHECK_NE(0U, data->num_entries);
@@ -163,7 +164,8 @@ void IndexedFrequencyDataGrinder::UpdateBasicBlockFrequencyData(
         BasicBlockOffset offs =
             instrumented_module.block_ranges[bb_id].start().value();
 
-        EntryCountType& value = bb_entries[std::make_pair(offs, column)];
+        EntryCountType& value = bb_entries[
+            std::make_pair(RelativeAddress(offs), column)];
         if (amount < 0) {
           // We need to detect uint32 to int32 overflow because JSON file output
           // int32 and basic block agent use an uint32 counter.

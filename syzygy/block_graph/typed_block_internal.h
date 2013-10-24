@@ -63,7 +63,7 @@ class TypedBlockImpl {
   //
   // @tparam T2 the new encapsulated type.
   template <typename T2> struct ReboundChild {
-    typedef typename ChildType::Rebind<T2>::Type Type;
+    typedef typename ChildType::template Rebind<typename T2>::Type Type;
   };
 
   // Default constructor.

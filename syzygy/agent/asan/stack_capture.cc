@@ -14,6 +14,8 @@
 
 #include "syzygy/agent/asan/stack_capture.h"
 
+#include <algorithm>
+
 #include "base/logging.h"
 #include "base/process_util.h"
 

@@ -16,7 +16,7 @@
 
 #include <imagehlp.h>
 
-#include <algorithm>
+#include <functional>
 
 #include "base/command_line.h"
 #include "base/file_util.h"

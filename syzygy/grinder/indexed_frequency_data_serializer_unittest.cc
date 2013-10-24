@@ -193,8 +193,9 @@ TEST_F(IndexedFrequencyDataSerializerTest, PopulateFromJsonValueFails) {
     entry->Append(Value::CreateIntegerValue(i * i));
     entry->Append(Value::CreateIntegerValue(100 * i));
     entry->Append(Value::CreateIntegerValue(100 * i + 1));
-    expected_values[std::make_pair(i * i, 0)] = 100 * i;
-    expected_values[std::make_pair(i * i, 1)] = 100 * i + 1;
+    expected_values[std::make_pair(core::RelativeAddress(i * i), 0)] = 100 * i;
+    expected_values[std::make_pair(core::RelativeAddress(i * i), 1)] =
+        100 * i + 1;
 
     frequencies->Append(entry.release());
   }
@@ -225,7 +226,7 @@ TEST_F(IndexedFrequencyDataSerializerTest, RoundTrip) {
   IndexedFrequencyMap& counters = frequency_info.frequency_map;
   for (size_t i = 0; i < num_basic_blocks; ++i) {
     for (size_t c = 0; c < num_columns; ++c)
-      counters[std::make_pair(i * i, c)] = i + c + 1;
+      counters[std::make_pair(core::RelativeAddress(i * i), c)] = i + c + 1;
   }
 
   base::FilePath json_path(temp_dir_.path().AppendASCII("test.json"));

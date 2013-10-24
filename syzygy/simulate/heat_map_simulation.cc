@@ -14,6 +14,8 @@
 
 #include "syzygy/simulate/heat_map_simulation.h"
 
+#include <functional>
+
 namespace simulate {
 
 HeatMapSimulation::HeatMapSimulation()

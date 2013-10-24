@@ -67,7 +67,7 @@ template <typename T> class TypedBlock
   typedef T ObjectType;
 
   template <typename T2> struct Rebind {
-    typedef TypedBlock<T2> Type;
+    typedef TypedBlock<typename T2> Type;
   };
 
   TypedBlock() : TypedBlockImpl() { }

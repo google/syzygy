@@ -14,6 +14,8 @@
 
 #include "syzygy/pdb/pdb_file_stream.h"
 
+#include <algorithm>
+
 #include "base/logging.h"
 
 namespace pdb {
