@@ -22,6 +22,7 @@
 #include "syzygy/common/align.h"
 #include "syzygy/grinder/cache_grind_writer.h"
 #include "syzygy/grinder/coverage_data.h"
+#include "syzygy/pe/block_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/find.h"
 
@@ -75,7 +76,7 @@ bool BuildHeatMapForCodeBlock(const Range& block_range,
   // If the code block is basic block decomposable then decompose it and
   // iterate over its basic blocks.
   bool handled_basic_blocks = false;
-  if (block_graph::CodeBlockAttributesAreBasicBlockSafe(block)) {
+  if (pe::CodeBlockIsBasicBlockDecomposable(block)) {
     block_graph::BasicBlockSubGraph bbsg;
     block_graph::BasicBlockDecomposer bbd(block, &bbsg);
     if (bbd.Decompose()) {
