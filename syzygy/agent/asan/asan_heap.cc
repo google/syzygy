@@ -299,6 +299,14 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
   return true;
 }
 
+void HeapProxy::MarkBlockAsQuarantined(void* asan_pointer,
+                                       const StackCapture& stack) {
+  DCHECK_NE(reinterpret_cast<void*>(NULL), asan_pointer);
+  BlockHeader* block_header = AsanPointerToBlockHeader(asan_pointer);
+
+  MarkBlockAsQuarantined(block_header, stack);
+}
+
 bool HeapProxy::MarkBlockAsQuarantined(BlockHeader* block_header,
                                        const StackCapture& stack) {
 
@@ -437,8 +445,22 @@ void HeapProxy::TrimQuarantine() {
   }
 }
 
+void HeapProxy::DestroyAsanBlock(void* asan_pointer) {
+  DCHECK_NE(reinterpret_cast<void*>(NULL), asan_pointer);
+
+  BlockHeader* block_header = AsanPointerToBlockHeader(asan_pointer);
+  DCHECK_NE(reinterpret_cast<void*>(NULL), block_header);
+  BlockTrailer* block_trailer = BlockHeaderToBlockTrailer(block_header);
+  DCHECK_NE(reinterpret_cast<void*>(NULL), block_trailer);
+
+  ReleaseASanBlock(block_header, block_trailer);
+}
+
 void HeapProxy::ReleaseASanBlock(BlockHeader* block_header,
                                  BlockTrailer* block_trailer) {
+  DCHECK_NE(reinterpret_cast<void*>(NULL), block_header);
+  DCHECK_NE(reinterpret_cast<void*>(NULL), block_trailer);
+
   // Return pointers to the stacks for reference counting purposes.
   if (block_header->alloc_stack != NULL) {
     stack_cache_->ReleaseStackTrace(block_header->alloc_stack);
@@ -493,6 +515,16 @@ HeapProxy::BlockHeader* HeapProxy::UserPointerToBlockHeader(
     return NULL;
 
   return const_cast<BlockHeader*>(header);
+}
+
+HeapProxy::BlockHeader* HeapProxy::AsanPointerToBlockHeader(
+    void* asan_pointer) {
+  DCHECK_NE(reinterpret_cast<void*>(NULL), asan_pointer);
+
+  void* user_pointer = AsanPointerToUserPointer(asan_pointer);
+  DCHECK_NE(reinterpret_cast<void*>(NULL), user_pointer);
+
+  return UserPointerToBlockHeader(user_pointer);
 }
 
 uint8* HeapProxy::AsanPointerToUserPointer(void* asan_pointer) {
@@ -760,6 +792,35 @@ uint64 HeapProxy::GetTimeSinceFree(const BlockHeader* header) {
   DCHECK_NE(0.0, cpu_cycles_per_us_);
 
   return cycles_since_free / cpu_cycles_per_us_;
+}
+
+void HeapProxy::GetAsanExtent(const void* user_pointer,
+                              void** asan_pointer,
+                              size_t* size) {
+  DCHECK_NE(reinterpret_cast<void*>(NULL), user_pointer);
+  DCHECK_NE(reinterpret_cast<void*>(NULL), asan_pointer);
+  DCHECK_NE(reinterpret_cast<void*>(NULL), size);
+
+  *asan_pointer = UserPointerToAsanPointer(user_pointer);
+  BlockHeader* block_header = UserPointerToBlockHeader(user_pointer);
+
+  DCHECK_NE(reinterpret_cast<void*>(NULL), block_header);
+  *size = GetAllocSize(block_header->block_size,
+                       1 << block_header->alignment_log);
+}
+
+void HeapProxy::GetUserExtent(const void* asan_pointer,
+                              void** user_pointer,
+                              size_t* size) {
+  DCHECK_NE(reinterpret_cast<void*>(NULL), asan_pointer);
+  DCHECK_NE(reinterpret_cast<void*>(NULL), user_pointer);
+  DCHECK_NE(reinterpret_cast<void*>(NULL), size);
+
+  *user_pointer = AsanPointerToUserPointer(const_cast<void*>(asan_pointer));
+  BlockHeader* block_header = UserPointerToBlockHeader(*user_pointer);
+
+  DCHECK_NE(reinterpret_cast<void*>(NULL), block_header);
+  *size = block_header->block_size;
 }
 
 }  // namespace asan

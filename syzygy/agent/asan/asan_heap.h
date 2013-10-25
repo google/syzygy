@@ -165,6 +165,57 @@ class HeapProxy {
   // Returns a string describing a bad access kind.
   static const char* AccessTypeToStr(BadAccessKind bad_access_kind);
 
+  // Calculates the underlying allocation size for a requested allocation of
+  // @p bytes, with an alignment of @p alignment bytes.
+  static size_t GetAllocSize(size_t bytes, size_t alignment);
+
+  // Returns the location and size of the ASan block wrapping a given user
+  // pointer.
+  // @param user_pointer The user pointer for this ASan block.
+  // @param asan_pointer Receives the ASan pointer.
+  // @param size Receives the size of this ASan block.
+  static void GetAsanExtent(const void* user_pointer,
+                            void** asan_pointer,
+                            size_t* size);
+
+  // Given a pointer to an ASan wrapped allocation, returns the location and
+  // size of the user data contained within.
+  // @param asan_pointer The pointer to the ASan block.
+  // @param user_pointer Receives the user pointer.
+  // @param size Receives the size of the user part of this block.
+  static void GetUserExtent(const void* asan_pointer,
+                            void** user_pointer,
+                            size_t* size);
+
+  // Initialize an ASan block. This will red-zone the header and trailer, green
+  // zone the user data, and save the allocation stack trace and other metadata.
+  // @param asan_pointer The ASan block to initialize.
+  // @param user_size The user size for this block.
+  // @param asan_size The total size of this block.
+  // @param alloc_granularity_log The allocation granularity for this block.
+  // @param stack The allocation stack capture for this block.
+  // @returns The user pointer for this block on success, NULL otherwise.
+  static void* InitializeAsanBlock(uint8* asan_pointer,
+                                   size_t user_size,
+                                   size_t asan_size,
+                                   size_t alloc_granularity_log,
+                                   const StackCapture& stack);
+
+  // Mark the given block as freed, but still residing in memory. This will
+  // red-zone the user data and grab a free stack trace and other metadata.
+  // After this call the object is effectively quarantined and access to it will
+  // be caught as errors.
+  // @param asan_pointer The pointer to the ASan block.
+  // @param stack The free stack capture for this block.
+  static void MarkBlockAsQuarantined(void* asan_pointer,
+                                     const StackCapture& stack);
+
+  // Clean up the object's metadata. The object is dead entirely, clean up the
+  // metadata. This makes sure that we can decrement stack trace ref-counts and
+  // reap them. This leaves the memory red-zoned (inaccessible).
+  // @param asan_pointer The pointer to the ASan block.
+  static void DestroyAsanBlock(void* asan_pointer);
+
  protected:
   enum BlockState {
     ALLOCATED,
@@ -200,20 +251,6 @@ class HeapProxy {
   // Magic number to identify the beginning of a block header.
   static const size_t kBlockHeaderSignature = 0xCA80;
 
-  // Initialize an ASan block. This will red-zone the header and trailer, green
-  // zone the user data, and save the allocation stack trace and other metadata.
-  // @param asan_pointer The ASan block to initialize.
-  // @param user_size The user size for this block.
-  // @param asan_size The total size of this block.
-  // @param alloc_granularity_log The allocation granularity for this block.
-  // @param stack The allocation stack capture for this block.
-  // @returns The user pointer for this block on success, NULL otherwise.
-  static void* InitializeAsanBlock(uint8* asan_pointer,
-                                   size_t user_size,
-                                   size_t asan_size,
-                                   size_t alloc_granularity_log,
-                                   const StackCapture& stack);
-
   // Mark a block as quarantined. This will red-zone the user data, and save the
   // deallocation stack trace and other metadata.
   // @param block_header The header for this block.
@@ -243,6 +280,13 @@ class HeapProxy {
   //    otherwise.
   static uint8* UserPointerToAsanPointer(const void* user_pointer);
 
+  // Returns the block header for an ASan pointer.
+  // @param asan_pointer The ASan pointer for which we want the block header
+  //     pointer.
+  // @returns A pointer to the block header of @p asan_pointer on success, NULL
+  //     otherwise.
+  static BlockHeader* AsanPointerToBlockHeader(void* asan_pointer);
+
   // Returns the user pointer for an ASan pointer.
   // @param asan_pointer The ASan pointer for which we want the user pointer.
   // @returns A pointer to the user pointer of @p asan_pointer on success, NULL
@@ -267,10 +311,6 @@ class HeapProxy {
   //     the given block header is valid and returns a pointer to the location
   //     where the trailer should be.
   static BlockTrailer* BlockHeaderToBlockTrailer(const BlockHeader* header);
-
-  // Calculates the underlying allocation size for a requested allocation of @p
-  // bytes, with an alignment of @p alignment bytes.
-  static size_t GetAllocSize(size_t bytes, size_t alignment);
 
   // Find the memory block containing @p addr.
   // @returns a pointer to this memory block in case of success, NULL otherwise.

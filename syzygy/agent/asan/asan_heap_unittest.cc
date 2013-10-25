@@ -43,6 +43,7 @@ class TestHeapProxy : public HeapProxy {
   using HeapProxy::BlockHeader;
   using HeapProxy::BlockTrailer;
   using HeapProxy::AsanPointerToUserPointer;
+  using HeapProxy::AsanPointerToBlockHeader;
   using HeapProxy::BlockHeaderToAsanPointer;
   using HeapProxy::BlockHeaderToBlockTrailer;
   using HeapProxy::BlockHeaderToUserPointer;
@@ -51,8 +52,6 @@ class TestHeapProxy : public HeapProxy {
   using HeapProxy::GetBadAccessKind;
   using HeapProxy::GetTimeSinceFree;
   using HeapProxy::InitializeAsanBlock;
-  using HeapProxy::MarkBlockAsQuarantined;
-  using HeapProxy::ReleaseASanBlock;
   using HeapProxy::UserPointerToBlockHeader;
   using HeapProxy::UserPointerToAsanPointer;
   using HeapProxy::kDefaultAllocGranularityLog;
@@ -79,6 +78,11 @@ class TestHeapProxy : public HeapProxy {
   // free.
   bool IsUseAfterAccess(uint8* addr, BlockHeader* header) {
     return GetBadAccessKind(addr, header) == USE_AFTER_FREE;
+  }
+
+  bool IsAllocated(BlockHeader* header) {
+    EXPECT_TRUE(header != NULL);
+    return header->state == ALLOCATED;
   }
 
   bool IsQuarantined(BlockHeader* header) {
@@ -608,12 +612,14 @@ struct FakeAsanBlock {
   }
   ~FakeAsanBlock() {
     Shadow::Unpoison(buffer_align_begin, asan_alloc_size);
+    memset(buffer, 0, sizeof(buffer));
   }
 
   // Initialize an ASan block in the buffer.
   // @param alloc_size The user size of the ASan block.
   // @returns true on success, false otherwise.
   bool InitializeBlock(size_t alloc_size) {
+    user_alloc_size = alloc_size;
     asan_alloc_size = proxy->GetAllocSize(alloc_size,
                                           alloc_alignment);
 
@@ -627,7 +633,7 @@ struct FakeAsanBlock {
     buffer_header_size = buffer_align_begin - buffer;
     buffer_trailer_size = kBufferSize - buffer_header_size -
         asan_alloc_size;
-    EXPECT_GE(kBufferSize, asan_alloc_size + buffer_header_size);
+    EXPECT_GT(kBufferSize, asan_alloc_size + buffer_header_size);
 
     // Initialize the buffer header and trailer.
     memset(buffer, kBufferHeaderValue, buffer_header_size);
@@ -702,12 +708,32 @@ struct FakeAsanBlock {
     TestHeapProxy::BlockTrailer* block_trailer =
         TestHeapProxy::BlockHeaderToBlockTrailer(block_header);
     EXPECT_EQ(::GetCurrentThreadId(), block_trailer->alloc_tid);
+    EXPECT_EQ(user_alloc_size, block_header->block_size);
+    EXPECT_EQ(alloc_alignment_log, block_header->alignment_log);
     EXPECT_TRUE(block_header->alloc_stack != NULL);
+    EXPECT_TRUE(proxy->IsAllocated(block_header));
+
+    void* tmp_user_pointer = NULL;
+    size_t tmp_user_size = 0;
+    HeapProxy::GetUserExtent(buffer_align_begin,
+                             &tmp_user_pointer,
+                             &tmp_user_size);
+    EXPECT_TRUE(tmp_user_pointer == user_ptr);
+    EXPECT_EQ(user_alloc_size, tmp_user_size);
+
+    void* tmp_asan_pointer = NULL;
+    HeapProxy::GetAsanExtent(user_ptr,
+                             &tmp_asan_pointer,
+                             &tmp_user_size);
+    EXPECT_TRUE(tmp_asan_pointer == buffer_align_begin);
+    EXPECT_EQ(asan_alloc_size, tmp_user_size);
 
     // Test the various accessors.
     EXPECT_TRUE(proxy->BlockHeaderToUserPointer(block_header) == user_ptr);
     EXPECT_TRUE(proxy->BlockHeaderToAsanPointer(block_header) ==
         buffer_align_begin);
+    EXPECT_TRUE(proxy->AsanPointerToBlockHeader(buffer_align_begin) ==
+        block_header);
 
     return true;
   }
@@ -728,8 +754,9 @@ struct FakeAsanBlock {
     StackCapture stack;
     stack.InitFromStack();
     // Mark the block as quarantined.
-    EXPECT_TRUE(proxy->MarkBlockAsQuarantined(block_header, stack));
+    proxy->MarkBlockAsQuarantined(buffer_align_begin, stack);
     EXPECT_TRUE(block_header->free_stack != NULL);
+    EXPECT_TRUE(proxy->IsQuarantined(block_header));
     EXPECT_EQ(::GetCurrentThreadId(), block_trailer->free_tid);
 
     size_t i = 0;
@@ -762,6 +789,7 @@ struct FakeAsanBlock {
 
   // The sizes of the different sub-structures in the buffer.
   size_t asan_alloc_size;
+  size_t user_alloc_size;
   size_t buffer_header_size;
   size_t buffer_trailer_size;
 
@@ -798,7 +826,7 @@ TEST_F(HeapTest, MarkBlockAsQuarantined) {
   }
 }
 
-TEST_F(HeapTest, ReleaseASanBlock) {
+TEST_F(HeapTest, DestroyAsanBlock) {
   for (size_t alloc_alignment_log = Shadow::kShadowGranularityLog;
        alloc_alignment_log < 12;
        ++alloc_alignment_log) {
@@ -826,7 +854,7 @@ TEST_F(HeapTest, ReleaseASanBlock) {
     EXPECT_EQ(2U, alloc_stack->ref_count());
     EXPECT_EQ(2U, free_stack->ref_count());
 
-    proxy_.ReleaseASanBlock(block_header, block_trailer);
+    proxy_.DestroyAsanBlock(fake_block.buffer_align_begin);
 
     EXPECT_TRUE(proxy_.IsFreed(block_header));
     EXPECT_EQ(1U, alloc_stack->ref_count());

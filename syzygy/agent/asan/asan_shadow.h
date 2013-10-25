@@ -42,6 +42,7 @@ class Shadow {
     kHeapNonAccessibleByteMask = 0xf0,
     kAsanMemoryByte = 0xf1,
     kInvalidAddress = 0xf2,
+    kUserRedzone = 0xf3,
     kHeapLeftRedzone = 0xfa,
     kHeapRightRedzone = 0xfb,
     kHeapFreedByte = 0xfd,
