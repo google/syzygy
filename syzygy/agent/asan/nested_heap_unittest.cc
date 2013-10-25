@@ -45,7 +45,11 @@ class NestedHeapTest : public testing::Test {
   }
 
   static const size_t kMaxAlignment = 2048;
-  static const size_t kBufferSize = kMaxAlignment * 2;
+  // If we want to test the alignments up to 2048 we need a buffer of at least
+  // 3 * 2048 bytes:
+  // +--- 0 <= size < 2048 bytes---+---2048 bytes---+--2048 bytes--+
+  // ^buffer                       ^aligned_buffer  ^user_pointer
+  static const size_t kBufferSize = kMaxAlignment * 3;
 
   bool MemoryRangeIsPoisoned(const uint8* address, size_t size) {
     EXPECT_TRUE(address != NULL);
