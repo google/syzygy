@@ -101,3 +101,14 @@ EXPORTS
   asan_strspn
   asan_strncpy
   asan_strncat
+
+  ; Functions for the nested heaps.
+  asan_PoisonMemoryRange
+  asan_UnpoisonMemoryRange
+  asan_GetAsanObjectSize
+  asan_InitializeObject
+  asan_GetUserExtent
+  asan_GetAsanExtent
+  asan_QuarantineObject
+  asan_DestroyObject
+  asan_CloneObject

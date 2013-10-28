@@ -86,7 +86,21 @@ const size_t kAllocSize = 13;
     F(_cdecl, char*, strncpy,  \
       (char* destination, const char* source, size_t num))  \
     F(_cdecl, char*, strncat,  \
-      (char* destination, const char* source, size_t num))
+      (char* destination, const char* source, size_t num))  \
+    F(_cdecl, void, PoisonMemoryRange, (const void* address, size_t size))  \
+    F(_cdecl, void, UnpoisonMemoryRange, (const void* address, size_t size))  \
+    F(_cdecl, void, GetAsanObjectSize,  \
+      (size_t user_object_size, size_t alignment))  \
+    F(_cdecl, void, InitializeObject,  \
+      (void* asan_pointer, size_t user_object_size, size_t alignment))  \
+    F(_cdecl, void, GetUserExtent,  \
+      (const void* asan_pointer, void** user_pointer, size_t* size))  \
+    F(_cdecl, void, GetAsanExtent,  \
+      (const void* user_pointer, void** asan_pointer, size_t* size))  \
+    F(_cdecl, void, QuarantineObject, (void* asan_pointer))  \
+    F(_cdecl, void, DestroyObject, (void* asan_pointer))  \
+    F(_cdecl, void, CloneObject,  \
+      (const void* src_asan_pointer, const void* dst_asan_pointer))
 
 #define DECLARE_ASAN_FUNCTION_PTR(convention, ret, name, args) \
   typedef ret (convention* name##FunctionPtr)args;
