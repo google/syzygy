@@ -474,6 +474,28 @@ void HeapProxy::ReleaseASanBlock(BlockHeader* block_header,
   block_header->state = FREED;
 }
 
+void HeapProxy::CloneObject(const void* src_asan_pointer,
+                            void* dst_asan_pointer) {
+  DCHECK_NE(reinterpret_cast<void*>(NULL), src_asan_pointer);
+  DCHECK_NE(reinterpret_cast<void*>(NULL), dst_asan_pointer);
+
+  BlockHeader* block_header = AsanPointerToBlockHeader(
+      const_cast<void*>(src_asan_pointer));
+  DCHECK_NE(reinterpret_cast<void*>(NULL), block_header);
+
+  DCHECK_NE(reinterpret_cast<StackCapture*>(NULL), block_header->alloc_stack);
+  const_cast<StackCapture*>(block_header->alloc_stack)->AddRef();
+  if (block_header->free_stack != NULL)
+    const_cast<StackCapture*>(block_header->free_stack)->AddRef();
+
+  size_t alloc_size = GetAllocSize(block_header->block_size,
+                                   1 << block_header->alignment_log);
+
+  memcpy(dst_asan_pointer, src_asan_pointer, alloc_size);
+
+  Shadow::CloneShadowRange(src_asan_pointer, dst_asan_pointer, alloc_size);
+}
+
 void HeapProxy::QuarantineBlock(BlockHeader* block) {
   DCHECK(block != NULL);
 

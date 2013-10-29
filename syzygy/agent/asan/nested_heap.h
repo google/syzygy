@@ -97,7 +97,7 @@ void asan_DestroyObject(void* asan_pointer);
 // @param src_asan_pointer The pointer to the ASan source block.
 // @param dst_asan_pointer The pointer to the ASan destination block.
 void asan_CloneObject(const void* src_asan_pointer,
-                      const void* dst_asan_pointer);
+                      void* dst_asan_pointer);
 
 }  // extern "C"
 

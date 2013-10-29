@@ -107,6 +107,24 @@ Shadow::ShadowMarker Shadow::GetShadowMarkerForAddress(const void* addr) {
   return static_cast<ShadowMarker>(shadow_[index]);
 }
 
+void Shadow::CloneShadowRange(const void* src_pointer,
+                              void* dst_pointer,
+                              size_t size) {
+  DCHECK_EQ(0U, size & 0x7);
+
+  uintptr_t src_index = reinterpret_cast<uintptr_t>(src_pointer);
+  DCHECK_EQ(0U, src_index & 0x7);
+  src_index >>= 3;
+
+  uintptr_t dst_index = reinterpret_cast<uintptr_t>(dst_pointer);
+  DCHECK_EQ(0U, dst_index & 0x7);
+  dst_index >>= 3;
+
+  size_t size_shadow = size >> 3;
+
+  memcpy(shadow_ + dst_index, shadow_ + src_index, size_shadow);
+}
+
 void Shadow::AppendShadowByteText(const char *prefix,
                                   uintptr_t index,
                                   std::string* output,

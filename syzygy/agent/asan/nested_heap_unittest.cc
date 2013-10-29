@@ -71,8 +71,9 @@ class NestedHeapTest : public testing::Test {
 
   AsanRuntime runtime_;
 
-  // The buffer we use internally.
+  // The buffers we use internally.
   uint8 buffer[kBufferSize];
+  uint8 buffer_copy[kBufferSize];
 };
 
 }  // namespace
@@ -85,16 +86,22 @@ TEST_F(NestedHeapTest, IntegrationTest) {
   EXPECT_TRUE(MemoryRangeIsAccessible(buffer, kBufferSize));
 
   const size_t kAllocSize = 100;
+  const uint8 kMagicValue = 0x9C;
 
   for (size_t alignment = Shadow::kShadowGranularity;
        alignment <= kMaxAlignment;
        alignment *= 2) {
     uint8* aligned_buffer = reinterpret_cast<uint8*>(
         common::AlignUp(reinterpret_cast<size_t>(buffer), alignment));
+    uint8* aligned_buffer_copy = reinterpret_cast<uint8*>(
+        common::AlignUp(reinterpret_cast<size_t>(buffer_copy), alignment));
     size_t real_buffer_size = kBufferSize - (aligned_buffer - buffer);
+    size_t real_buffer_copy_size = kBufferSize - (aligned_buffer_copy -
+        buffer_copy);
 
     size_t asan_size = asan_GetAsanObjectSize(kAllocSize, alignment);
     ASSERT_GT(real_buffer_size, asan_size);
+    ASSERT_GT(real_buffer_copy_size, asan_size);
 
     asan_InitializeObject(aligned_buffer, kAllocSize, alignment);
 
@@ -103,11 +110,29 @@ TEST_F(NestedHeapTest, IntegrationTest) {
     asan_GetUserExtent(aligned_buffer, &user_pointer, &tmp_size);
     EXPECT_NE(reinterpret_cast<void*>(NULL), user_pointer);
     EXPECT_EQ(kAllocSize, tmp_size);
+    memset(user_pointer, kMagicValue, kAllocSize);
 
     void* asan_pointer = NULL;
     asan_GetAsanExtent(user_pointer, &asan_pointer, &tmp_size);
     EXPECT_EQ(asan_size, tmp_size);
     EXPECT_EQ(reinterpret_cast<void*>(aligned_buffer), asan_pointer);
+
+    asan_CloneObject(aligned_buffer, aligned_buffer_copy);
+    void* user_pointer_copy = NULL;
+    asan_GetUserExtent(aligned_buffer_copy, &user_pointer_copy, &tmp_size);
+    EXPECT_NE(reinterpret_cast<void*>(NULL), user_pointer_copy);
+
+    for (size_t i = 0; i < kAllocSize; ++i) {
+      EXPECT_EQ(kMagicValue, reinterpret_cast<uint8*>(user_pointer_copy)[i]);
+    }
+    size_t header_size = reinterpret_cast<uint8*>(user_pointer_copy)
+        - aligned_buffer_copy;
+    EXPECT_TRUE(MemoryRangeIsPoisoned(aligned_buffer_copy, header_size));
+    EXPECT_TRUE(MemoryRangeIsAccessible(reinterpret_cast<uint8*>(user_pointer),
+                                        kAllocSize));
+    EXPECT_TRUE(MemoryRangeIsPoisoned(
+        reinterpret_cast<uint8*>(user_pointer) + kAllocSize,
+        asan_size - kAllocSize - header_size));
 
     asan_QuarantineObject(aligned_buffer);
     EXPECT_TRUE(MemoryRangeIsPoisoned(aligned_buffer, asan_size));

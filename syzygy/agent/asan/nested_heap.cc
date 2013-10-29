@@ -45,7 +45,7 @@ void asan_UnpoisonMemoryRange(const void* address, size_t size) {
 }
 
 size_t asan_GetAsanObjectSize(size_t user_object_size,
-                                     size_t alignment) {
+                              size_t alignment) {
   return HeapProxy::GetAllocSize(user_object_size, alignment);
 }
 
@@ -60,8 +60,8 @@ void asan_GetUserExtent(const void* asan_pointer,
 }
 
 void asan_GetAsanExtent(const void* user_pointer,
-                               void** asan_pointer,
-                               size_t* size) {
+                        void** asan_pointer,
+                        size_t* size) {
   DCHECK(user_pointer != NULL);
   DCHECK(asan_pointer != NULL);
   DCHECK(size != NULL);
@@ -70,8 +70,8 @@ void asan_GetAsanExtent(const void* user_pointer,
 }
 
 void asan_InitializeObject(void* asan_pointer,
-                                  size_t user_object_size,
-                                  size_t alignment) {
+                           size_t user_object_size,
+                           size_t alignment) {
   DCHECK(asan_pointer != NULL);
 
   uint8 alignment_log = base::bits::Log2Floor(alignment);
@@ -103,7 +103,6 @@ void asan_DestroyObject(void* asan_pointer) {
 }
 
 void asan_CloneObject(const void* src_asan_pointer,
-                             const void* dst_asan_pointer) {
-  // TODO(sebmarchand): Implement this function.
-  NOTREACHED();
+                      void* dst_asan_pointer) {
+  HeapProxy::CloneObject(src_asan_pointer, dst_asan_pointer);
 }

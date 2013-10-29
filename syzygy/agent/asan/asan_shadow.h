@@ -104,6 +104,17 @@ class Shadow {
                                          size_t* size,
                                          size_t max_size);
 
+  // Clones a shadow memory range from one location to another.
+  // @pre src_pointer mod 8 == 0.
+  // @pre dst_pointer mod 8 == 0.
+  // @pre size mod 8 == 0.
+  // @param src_pointer The starting address of the range to copy.
+  // @param dst_pointer The destination where the copy should be made.
+  // @param size The size of the range to copy.
+  static void CloneShadowRange(const void* src_pointer,
+                               void* dst_pointer,
+                               size_t size);
+
  protected:
   // Reset the shadow memory.
   static void Reset();

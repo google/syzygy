@@ -598,7 +598,13 @@ namespace {
 
 // A unittest fixture to test the bookkeeping functions.
 struct FakeAsanBlock {
-  static const size_t kBufferSize = 8192;
+  static const size_t kMaxAlignmentLog = 12;
+  static const size_t kMaxAlignment = 1 << kMaxAlignmentLog;
+  // If we want to test the alignments up to 2048 we need a buffer of at least
+  // 3 * 2048 bytes:
+  // +--- 0 <= size < 2048 bytes---+---2048 bytes---+--2048 bytes--+
+  // ^buffer                       ^aligned_buffer  ^user_pointer
+  static const size_t kBufferSize = 3 * kMaxAlignment;
   static const uint8 kBufferHeaderValue = 0xAE;
   static const uint8 kBufferTrailerValue = 0xEA;
 
@@ -607,8 +613,11 @@ struct FakeAsanBlock {
         is_initialized(false),
         alloc_alignment_log(alloc_alignment_log),
         alloc_alignment(1 << alloc_alignment_log),
-        buffer_align_begin(NULL),
         user_ptr(NULL) {
+    // Align the beginning of the buffer to the current granularity. Ensure that
+    // there's room to store magic bytes in front of this block.
+    buffer_align_begin = reinterpret_cast<uint8*>(common::AlignUp(
+        reinterpret_cast<size_t>(buffer) + 1, alloc_alignment));
   }
   ~FakeAsanBlock() {
     Shadow::Unpoison(buffer_align_begin, asan_alloc_size);
@@ -622,11 +631,6 @@ struct FakeAsanBlock {
     user_alloc_size = alloc_size;
     asan_alloc_size = proxy->GetAllocSize(alloc_size,
                                           alloc_alignment);
-
-    // Align the beginning of the buffer to the current granularity. Ensure that
-    // there's room to store magic bytes in front of this block.
-    buffer_align_begin = reinterpret_cast<uint8*>(common::AlignUp(
-        reinterpret_cast<size_t>(buffer) + 1, alloc_alignment));
 
     // Calculate the size of the zone of the buffer that we use to ensure that
     // we don't corrupt the heap.
@@ -805,7 +809,7 @@ struct FakeAsanBlock {
 
 TEST_F(HeapTest, InitializeAsanBlock) {
   for (size_t alloc_alignment_log = Shadow::kShadowGranularityLog;
-       alloc_alignment_log < 12;
+       alloc_alignment_log <= FakeAsanBlock::kMaxAlignmentLog;
        ++alloc_alignment_log) {
     FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
     const size_t kAllocSize = 100;
@@ -816,7 +820,7 @@ TEST_F(HeapTest, InitializeAsanBlock) {
 
 TEST_F(HeapTest, MarkBlockAsQuarantined) {
   for (size_t alloc_alignment_log = Shadow::kShadowGranularityLog;
-       alloc_alignment_log < 12;
+       alloc_alignment_log <= FakeAsanBlock::kMaxAlignmentLog;
        ++alloc_alignment_log) {
     FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
     const size_t kAllocSize = 100;
@@ -828,7 +832,7 @@ TEST_F(HeapTest, MarkBlockAsQuarantined) {
 
 TEST_F(HeapTest, DestroyAsanBlock) {
   for (size_t alloc_alignment_log = Shadow::kShadowGranularityLog;
-       alloc_alignment_log < 12;
+       alloc_alignment_log <= FakeAsanBlock::kMaxAlignmentLog;
        ++alloc_alignment_log) {
     FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
     const size_t kAllocSize = 100;
@@ -861,6 +865,57 @@ TEST_F(HeapTest, DestroyAsanBlock) {
     EXPECT_EQ(1U, free_stack->ref_count());
     alloc_stack->RemoveRef();
     free_stack->RemoveRef();
+  }
+}
+
+TEST_F(HeapTest, CloneBlock) {
+  for (size_t alloc_alignment_log = Shadow::kShadowGranularityLog;
+       alloc_alignment_log <= FakeAsanBlock::kMaxAlignmentLog;
+       ++alloc_alignment_log) {
+    // Create a fake block and mark it as quarantined.
+    FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
+    const size_t kAllocSize = 100;
+    EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
+    EXPECT_TRUE(fake_block.TestBlockHeader());
+    // Fill the block with a non zero value.
+    memset(fake_block.user_ptr, 0xEE, kAllocSize);
+    EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
+
+    size_t asan_alloc_size = fake_block.asan_alloc_size;
+
+    // Get the current count of the alloc and free stack traces.
+    TestHeapProxy::BlockHeader* block_header = proxy_.UserPointerToBlockHeader(
+        fake_block.user_ptr);
+    StackCapture* alloc_stack = const_cast<StackCapture*>(
+        block_header->alloc_stack);
+    StackCapture* free_stack = const_cast<StackCapture*>(
+        block_header->free_stack);
+
+    ASSERT_TRUE(alloc_stack != NULL);
+    ASSERT_TRUE(free_stack != NULL);
+
+    size_t alloc_stack_count = alloc_stack->ref_count();
+    size_t free_stack_count = alloc_stack->ref_count();
+
+    // Clone the fake block into a second one.
+    FakeAsanBlock fake_block_2(&proxy_, alloc_alignment_log);
+    proxy_.CloneObject(fake_block.buffer_align_begin,
+                       fake_block_2.buffer_align_begin);
+    fake_block_2.asan_alloc_size = asan_alloc_size;
+
+    // Ensure that the stack trace counts have been incremented.
+    EXPECT_EQ(alloc_stack_count + 1, alloc_stack->ref_count());
+    EXPECT_EQ(free_stack_count + 1, free_stack->ref_count());
+
+    for (size_t i = 0; i < asan_alloc_size; ++i) {
+      // Ensure that the blocks have the same content.
+      EXPECT_EQ(fake_block.buffer_align_begin[i],
+                fake_block_2.buffer_align_begin[i]);
+      EXPECT_EQ(
+          Shadow::GetShadowMarkerForAddress(fake_block.buffer_align_begin + i),
+          Shadow::GetShadowMarkerForAddress(
+              fake_block_2.buffer_align_begin + i));
+    }
   }
 }
 

@@ -216,6 +216,23 @@ class HeapProxy {
   // @param asan_pointer The pointer to the ASan block.
   static void DestroyAsanBlock(void* asan_pointer);
 
+  // Clones an object from one location to another. This mediates access to the
+  // protected header and footer wrapping the user object, as the client code
+  // may itself be instrumented. This will also copy the shadow memory and the
+  // contents of the block: the new object will preserve the alive or free
+  // status of the old object.
+  // NOTES:
+  // - The client must ensure there is sufficient room at the destination for
+  //   the object to be cloned.
+  // - If the source object is no longer needed it is up to the client to call
+  //   QuarantineObject or DestroyObject.
+  // - It is up to the client to ensure that the destination address meets any
+  //   alignment requirements of the source object.
+  // @param src_asan_pointer The pointer to the ASan source block.
+  // @param dst_asan_pointer The pointer to the ASan destination block.
+  static void CloneObject(const void* src_asan_pointer,
+                          void* dst_asan_pointer);
+
  protected:
   enum BlockState {
     ALLOCATED,
