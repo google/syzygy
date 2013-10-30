@@ -87,7 +87,7 @@ EXPORTS
   asan_HeapQueryInformation
   asan_SetCallBack
 
-  ; Interceptor functions.
+  ; CRT Interceptor functions.
   asan_memcpy
   asan_memmove
   asan_memset
@@ -101,6 +101,9 @@ EXPORTS
   asan_strspn
   asan_strncpy
   asan_strncat
+
+  ; Other interceptor functions.
+  asan_ReadFile
 
   ; Functions for the nested heaps.
   asan_PoisonMemoryRange

@@ -410,6 +410,11 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
         ASAN_WRITE_ACCESS, 1);
     AsanErrorCheck(testing::kAsanStrncatDstUseAfterFree, USE_AFTER_FREE,
         ASAN_WRITE_ACCESS, 1);
+
+    AsanErrorCheck(testing::kAsanReadFileOverflow, HEAP_BUFFER_OVERFLOW,
+        ASAN_WRITE_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanReadFileUseAfterFree, USE_AFTER_FREE,
+        ASAN_WRITE_ACCESS, 1);
   }
 
   void BBEntryInvokeTestDll() {
@@ -764,8 +769,8 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoRedundancyAnalysis) {
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoCRTInterceptors) {
-  cmd_line_.AppendSwitch("no-crt-interceptors");
+TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoFunctionInterceptors) {
+  cmd_line_.AppendSwitch("no-interceptors");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());

@@ -128,6 +128,12 @@ char* __cdecl asan_strncat(char* destination,
                            const char* source,
                            size_t num);
 
+BOOL WINAPI asan_ReadFile(HANDLE hFile,
+                          LPVOID lpBuffer,
+                          DWORD nNumberOfBytesToRead,
+                          LPDWORD lpNumberOfBytesRead,
+                          LPOVERLAPPED lpOverlapped);
+
 }  // extern "C"
 
 #endif  // SYZYGY_AGENT_ASAN_ASAN_RTL_IMPL_H_

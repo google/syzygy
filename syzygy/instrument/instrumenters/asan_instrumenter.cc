@@ -24,7 +24,7 @@ namespace instrumenters {
 const char AsanInstrumenter::kAgentDllAsan[] = "syzyasan_rtl.dll";
 
 AsanInstrumenter::AsanInstrumenter()
-    : intercept_crt_functions_(true),
+    : use_interceptors_(true),
       remove_redundant_checks_(true),
       use_liveness_analysis_(true) {
   agent_dll_ = kAgentDllAsan;
@@ -56,7 +56,7 @@ bool AsanInstrumenter::InstrumentImpl() {
 
   asan_transform_.reset(new instrument::transforms::AsanTransform());
   asan_transform_->set_instrument_dll_name(agent_dll_);
-  asan_transform_->set_intercept_crt_functions(intercept_crt_functions_);
+  asan_transform_->set_use_interceptors(use_interceptors_);
   asan_transform_->set_use_liveness_analysis(use_liveness_analysis_);
   asan_transform_->set_remove_redundant_checks(remove_redundant_checks_);
 
@@ -83,7 +83,7 @@ bool AsanInstrumenter::ParseAdditionalCommandLineArguments(
   filter_path_ = command_line->GetSwitchValuePath("filter");
   use_liveness_analysis_ = !command_line->HasSwitch("no-liveness-analysis");
   remove_redundant_checks_ = !command_line->HasSwitch("no-redundancy-analysis");
-  intercept_crt_functions_ = !command_line->HasSwitch("no-crt-interceptors");
+  use_interceptors_ = !command_line->HasSwitch("no-interceptors");
 
   return true;
 }

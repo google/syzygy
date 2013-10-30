@@ -49,7 +49,7 @@ class AsanInstrumenter : public InstrumenterWithAgent {
   // @name Command-line parameters.
   // @{
   base::FilePath filter_path_;
-  bool intercept_crt_functions_;
+  bool use_interceptors_;
   bool remove_redundant_checks_;
   bool use_liveness_analysis_;
   // @}

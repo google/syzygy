@@ -13,7 +13,10 @@
 // limitations under the License.
 #include "syzygy/integration_tests/asan_interceptors_tests.h"
 
+#include <windows.h>  // NOLINT
+
 #include <algorithm>
+#include <string>
 
 namespace testing {
 
@@ -28,6 +31,26 @@ void Alloc2TestStrings(char** str1, char** str2) {
   const char* keys_value = "12";
   *str2 = new char[strlen(keys_value) + 1];
   strcpy(*str2, keys_value);
+}
+
+// Create a temporary filename.
+bool CreateTemporaryFilename(std::wstring* filename) {
+  if (filename == NULL)
+    return false;
+
+  wchar_t temp_path[MAX_PATH + 1];
+  wchar_t temp_filename[MAX_PATH + 1];
+  DWORD path_len = ::GetTempPath(MAX_PATH, temp_path);
+
+  if (path_len >= MAX_PATH || path_len <= 0)
+    return false;
+
+  if (::GetTempFileName(temp_path, L"", 0, temp_filename) == 0)
+    return false;
+
+  *filename = temp_filename;
+
+  return true;
 }
 
 }  // namespace
@@ -653,6 +676,108 @@ size_t AsanStrncatDstUseAfterFree() {
 
   delete[] suffix;
   return reinterpret_cast<size_t>(result);
+}
+
+size_t AsanReadFileOverflow() {
+  std::wstring temp_filename;
+
+  if (!CreateTemporaryFilename(&temp_filename))
+    return false;
+
+  std::string filename_utf8(temp_filename.begin(), temp_filename.end());
+
+  // Creates a temporary file and write a string into it.
+  FILE* temp_file_ptr = ::fopen(filename_utf8.c_str(), "w");
+  if (temp_file_ptr == NULL)
+    return 0;
+
+  const char* kTestString = "Test of asan_ReadFile";
+  const size_t kTestStringLength = strlen(kTestString);
+
+  ::fwrite(kTestString, sizeof(char), kTestStringLength, temp_file_ptr);
+
+  ::fclose(temp_file_ptr);
+
+  // Get a handle to the newly created file.
+  HANDLE temp_file_handle =
+      ::CreateFile(temp_filename.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING,
+                    FILE_ATTRIBUTE_NORMAL, NULL);
+  if (temp_file_handle == INVALID_HANDLE_VALUE) {
+    return 0;
+  }
+
+  char* alloc = new char[kTestStringLength];
+  memset(alloc, 0, kTestStringLength);
+
+  DWORD bytes_read = 0;
+  if (!::ReadFile(temp_file_handle,
+                  alloc,
+                  kTestStringLength + 1,
+                  &bytes_read,
+                  NULL)) {
+    return 0;
+  }
+
+  if (!::CloseHandle(temp_file_handle))
+    return 0;
+
+  if (!::DeleteFileW(temp_filename.c_str()))
+    return 0;
+
+  delete[] alloc;
+
+  return bytes_read;
+}
+
+size_t AsanReadFileUseAfterFree() {
+  std::wstring temp_filename;
+
+  if (!CreateTemporaryFilename(&temp_filename))
+    return false;
+
+  std::string filename_utf(temp_filename.begin(), temp_filename.end());
+
+  // Creates a temporary file and write a string into it.
+  FILE* temp_file_ptr = ::fopen(filename_utf.c_str(), "w");
+  if (temp_file_ptr == NULL) {
+    return 0;
+  }
+
+  const char* kTestString = "Test of asan_ReadFile";
+  const size_t kTestStringLength = strlen(kTestString);
+
+  ::fwrite(kTestString, sizeof(char), kTestStringLength, temp_file_ptr);
+
+  ::fclose(temp_file_ptr);
+
+  // Get a handle to the newly created file.
+  HANDLE temp_file_handle =
+      ::CreateFile(temp_filename.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING,
+                   FILE_ATTRIBUTE_NORMAL, NULL);
+  if (temp_file_handle == INVALID_HANDLE_VALUE)
+    return 0;
+
+  char* alloc = new char[kTestStringLength];
+  memset(alloc, 0, kTestStringLength);
+
+  delete[] alloc;
+
+  DWORD bytes_read = 0;
+  if (!::ReadFile(temp_file_handle,
+                  alloc,
+                  kTestStringLength,
+                  &bytes_read,
+                  NULL)) {
+    return 0;
+  }
+
+  if (!::CloseHandle(temp_file_handle))
+    return 0;
+
+  if (!::DeleteFileW(temp_filename.c_str()))
+    return 0;
+
+  return bytes_read;
 }
 
 }  // namespace testing

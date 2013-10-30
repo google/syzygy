@@ -223,6 +223,11 @@ unsigned int CALLBACK EndToEndTest(testing::EndToEndTestId test) {
     case testing::kAsanStrncatDstUseAfterFree:
       return testing::AsanStrncatDstUseAfterFree();
 
+    case testing::kAsanReadFileOverflow:
+      return testing::AsanReadFileOverflow();
+    case testing::kAsanReadFileUseAfterFree:
+      return testing::AsanReadFileUseAfterFree();
+
     // Basic block entry test cases.
     case testing::kBBEntryCallOnce:
       return BBEntryCallOnce();

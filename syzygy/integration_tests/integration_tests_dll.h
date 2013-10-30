@@ -119,6 +119,9 @@ enum EndToEndTestId {
   kAsanStrncatDstUnderflow,
   kAsanStrncatDstUseAfterFree,
 
+  kAsanReadFileOverflow,
+  kAsanReadFileUseAfterFree,
+
   kBBEntryCallOnce,
   kBBEntryCallTree,
   kBBEntryCallRecursive,

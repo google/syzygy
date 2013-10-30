@@ -303,6 +303,10 @@ size_t AsanStrncatDstUnderflow();
 
 size_t AsanStrncatDstUseAfterFree();
 
+size_t AsanReadFileOverflow();
+
+size_t AsanReadFileUseAfterFree();
+
 }  // namespace testing
 
 #endif  // SYZYGY_INTEGRATION_TESTS_ASAN_INTERCEPTORS_TESTS_H_

@@ -705,7 +705,7 @@ AsanTransform::AsanTransform()
       debug_friendly_(false),
       use_liveness_analysis_(false),
       remove_redundant_checks_(false),
-      intercept_crt_functions_(false),
+      use_interceptors_(false),
       check_access_hooks_ref_() {
 }
 
@@ -869,8 +869,9 @@ bool AsanTransform::PostBlockGraphIteration(
   struct Kernel32ImportRedirect {
     const char* import_name;
     const char* redirect_name;
+    std::pair<size_t, size_t> override_indexes;
   };
-  static const Kernel32ImportRedirect kKernel32Redirects[] = {
+  static const Kernel32ImportRedirect kKernel32HeapRedirects[] = {
     { "HeapCreate", "asan_HeapCreate" },
     { "HeapDestroy", "asan_HeapDestroy" },
     { "HeapAlloc", "asan_HeapAlloc" },
@@ -885,15 +886,28 @@ bool AsanTransform::PostBlockGraphIteration(
     { "HeapSetInformation", "asan_HeapSetInformation" },
     { "HeapQueryInformation", "asan_HeapQueryInformation" },
   };
+  static const Kernel32ImportRedirect kKernel32FunctionRedirects[] = {
+    { "ReadFile", "asan_ReadFile" },
+  };
+
+  // TODO(sebmarchand): Use the RedirectImport transform when it's ready.
+  std::vector<Kernel32ImportRedirect> kernel32_redirects;
+  for (size_t i = 0; i < arraysize(kKernel32HeapRedirects); ++i)
+    kernel32_redirects.push_back(kKernel32HeapRedirects[i]);
+
+  if (use_interceptors_)
+    for (size_t i = 0; i < arraysize(kKernel32FunctionRedirects); ++i)
+      kernel32_redirects.push_back(kKernel32FunctionRedirects[i]);
 
   // Initialize the module info for querying kernel32 imports.
-  std::vector<std::pair<size_t, size_t>> override_indexes;
   ImportedModule module_kernel32("kernel32.dll");
-  for (size_t i = 0; i < arraysize(kKernel32Redirects); ++i) {
+  std::vector<Kernel32ImportRedirect>::iterator iter =
+      kernel32_redirects.begin();
+  for (; iter != kernel32_redirects.end(); ++iter) {
     size_t kernel32_index =
-        module_kernel32.AddSymbol(kKernel32Redirects[i].import_name,
+        module_kernel32.AddSymbol(iter->import_name,
                                   ImportedModule::kFindOnly);
-    override_indexes.push_back(std::make_pair(kernel32_index, kInvalidIndex));
+    iter->override_indexes = std::make_pair(kernel32_index, kInvalidIndex);
   }
 
   // Query the kernel32 imports.
@@ -917,14 +931,15 @@ bool AsanTransform::PostBlockGraphIteration(
   // Add ASAN imports for those kernel32 functions we found. These will later
   // be redirected.
   ImportedModule module_asan(asan_dll_name_, kDateInThePast);
-  for (size_t i = 0; i < arraysize(kKernel32Redirects); ++i) {
-    size_t kernel32_index = override_indexes[i].first;
+  iter = kernel32_redirects.begin();
+  for (; iter != kernel32_redirects.end(); ++iter) {
+    size_t kernel32_index = iter->override_indexes.first;
     if (module_kernel32.SymbolIsImported(kernel32_index)) {
       size_t asan_index = module_asan.AddSymbol(
-          kKernel32Redirects[i].redirect_name,
+          iter->redirect_name,
           ImportedModule::kAlwaysImport);
-      DCHECK_EQ(kInvalidIndex, override_indexes[i].second);
-      override_indexes[i].second = asan_index;
+      DCHECK_EQ(kInvalidIndex, iter->override_indexes.second);
+      iter->override_indexes.second = asan_index;
     }
   }
 
@@ -944,10 +959,11 @@ bool AsanTransform::PostBlockGraphIteration(
   // Stores the reference mapping we want to rewrite.
   ReferenceMap reference_redirect_map;
 
-  for (size_t i = 0; i < override_indexes.size(); ++i) {
+  iter = kernel32_redirects.begin();
+  for (; iter != kernel32_redirects.end(); ++iter) {
     // Symbols that aren't imported don't need to be redirected.
-    size_t kernel32_index = override_indexes[i].first;
-    size_t asan_index = override_indexes[i].second;
+    size_t kernel32_index = iter->override_indexes.first;
+    size_t asan_index = iter->override_indexes.second;
     if (!module_kernel32.SymbolIsImported(kernel32_index)) {
       DCHECK_EQ(kInvalidIndex, asan_index);
       continue;
@@ -971,7 +987,7 @@ bool AsanTransform::PostBlockGraphIteration(
 
   RedirectReferences(dst_blocks, reference_redirect_map);
 
-  if (intercept_crt_functions_) {
+  if (use_interceptors_) {
     FunctionInterceptionSet interception_set;
     interception_set.insert("memchr");
     interception_set.insert("memcpy");

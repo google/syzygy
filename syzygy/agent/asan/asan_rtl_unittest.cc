@@ -100,7 +100,10 @@ const size_t kAllocSize = 13;
     F(_cdecl, void, QuarantineObject, (void* asan_pointer))  \
     F(_cdecl, void, DestroyObject, (void* asan_pointer))  \
     F(_cdecl, void, CloneObject,  \
-      (const void* src_asan_pointer, const void* dst_asan_pointer))
+      (const void* src_asan_pointer, const void* dst_asan_pointer))  \
+    F(WINAPI, LPVOID, ReadFile,  \
+      (HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead,  \
+       LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped))
 
 #define DECLARE_ASAN_FUNCTION_PTR(convention, ret, name, args) \
   typedef ret (convention* name##FunctionPtr)args;
@@ -1471,6 +1474,79 @@ TEST_F(AsanRtlTest, AsanCheckStrncat) {
 
   EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem));
   EXPECT_TRUE(HeapFreeFunction(heap_, 0, suffix));
+}
+
+TEST_F(AsanRtlTest, AsanReadFile) {
+  testing::ScopedTempFile temp_file;
+  FILE* temp_file_ptr = file_util::OpenFile(temp_file.path(), "w");
+  EXPECT_TRUE(temp_file_ptr != NULL);
+
+  const char* kTestString = "AsanRtlTest.AsanReadFile";
+  const size_t kTestStringLength = strlen(kTestString);
+
+  EXPECT_EQ(kTestStringLength,
+            ::fwrite(kTestString,
+                     sizeof(char),
+                     kTestStringLength,
+                     temp_file_ptr));
+
+  file_util::CloseFile(temp_file_ptr);
+
+  HANDLE temp_file_handle =
+      ::CreateFile(temp_file.path().value().c_str(), GENERIC_READ, 0, NULL,
+                    OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  ASSERT_NE(INVALID_HANDLE_VALUE, temp_file_handle);
+
+  char* alloc = reinterpret_cast<char*>(
+      HeapAllocFunction(heap_, 0, kTestStringLength));
+  memset(alloc, 0, kTestStringLength);
+
+  SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
+  memory_error_detected = false;
+
+  DWORD bytes_read = 0;
+  EXPECT_TRUE(ReadFileFunction(temp_file_handle,
+                               alloc,
+                               kTestStringLength,
+                               &bytes_read,
+                               NULL));
+  EXPECT_EQ(kTestStringLength, bytes_read);
+  EXPECT_FALSE(memory_error_detected);
+  ::CloseHandle(temp_file_handle);
+
+  temp_file_handle =
+      ::CreateFile(temp_file.path().value().c_str(), GENERIC_READ, 0, NULL,
+                   OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  ASSERT_NE(INVALID_HANDLE_VALUE, temp_file_handle);
+  bytes_read = 0;
+  EXPECT_TRUE(ReadFileFunction(temp_file_handle,
+                               alloc,
+                               kTestStringLength + 1,
+                               &bytes_read,
+                               NULL));
+  EXPECT_EQ(kTestStringLength, bytes_read);
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  ::CloseHandle(temp_file_handle);
+  ResetLog();
+
+  memory_error_detected = false;
+  temp_file_handle =
+      ::CreateFile(temp_file.path().value().c_str(), GENERIC_READ, 0, NULL,
+                   OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  ASSERT_NE(INVALID_HANDLE_VALUE, temp_file_handle);
+  bytes_read = 0;
+  EXPECT_TRUE(HeapFreeFunction(heap_, 0, alloc));
+  EXPECT_TRUE(ReadFileFunction(temp_file_handle,
+                               alloc,
+                               kTestStringLength,
+                               &bytes_read,
+                               NULL));
+  EXPECT_EQ(kTestStringLength, bytes_read);
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
+  ::CloseHandle(temp_file_handle);
+  ResetLog();
 }
 
 }  // namespace asan

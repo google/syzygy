@@ -926,4 +926,19 @@ char* __cdecl asan_strncat(char* destination, const char* source, size_t num) {
   return strncat(destination, source, num);
 }
 
+BOOL WINAPI asan_ReadFile(HANDLE hFile,
+                          LPVOID lpBuffer,
+                          DWORD nNumberOfBytesToRead,
+                          LPDWORD lpNumberOfBytesRead,
+                          LPOVERLAPPED lpOverlapped) {
+  TestMemoryRange(reinterpret_cast<uint8*>(lpBuffer),
+                  nNumberOfBytesToRead,
+                  HeapProxy::ASAN_WRITE_ACCESS);
+  return ReadFile(hFile,
+                  lpBuffer,
+                  nNumberOfBytesToRead,
+                  lpNumberOfBytesRead,
+                  lpOverlapped);
+}
+
 }  // extern "C"

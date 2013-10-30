@@ -69,6 +69,7 @@
         'profile_tests.h',
       ],
       'dependencies': [
+        '<(src)/syzygy/common/common.gyp:syzygy_version',
         '<(src)/syzygy/pe/pe.gyp:export_dll',
       ],
       'msvs_settings': {

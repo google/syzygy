@@ -182,9 +182,9 @@ class AsanTransform
   bool debug_friendly() const { return debug_friendly_; }
   void set_debug_friendly(bool flag) { debug_friendly_ = flag; }
 
-  bool intercept_crt_functions() const { return intercept_crt_functions_; }
-  void set_intercept_crt_functions(bool intercept_crt_functions) {
-    intercept_crt_functions_ = intercept_crt_functions;
+  bool use_interceptors() const { return use_interceptors_; }
+  void set_use_interceptors(bool use_interceptors) {
+    use_interceptors_ = use_interceptors;
   }
 
   bool use_liveness_analysis() const { return use_liveness_analysis_; }
@@ -256,8 +256,8 @@ class AsanTransform
   // memory checks added by this transform.
   bool remove_redundant_checks_;
 
-  // Set iff we should intercept the CRT functions.
-  bool intercept_crt_functions_;
+  // Set iff we should use the functions interceptors.
+  bool use_interceptors_;
 
   // References to the different asan check access import entries. Valid after
   // successful PreBlockGraphIteration.

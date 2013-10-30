@@ -219,11 +219,11 @@ TEST_F(AsanTransformTest, SetUseLivenessFlag) {
 }
 
 TEST_F(AsanTransformTest, SetInterceptCRTFuntionsFlag) {
-  EXPECT_FALSE(asan_transform_.intercept_crt_functions());
-  asan_transform_.set_intercept_crt_functions(true);
-  EXPECT_TRUE(asan_transform_.intercept_crt_functions());
-  asan_transform_.set_intercept_crt_functions(false);
-  EXPECT_FALSE(asan_transform_.intercept_crt_functions());
+  EXPECT_FALSE(asan_transform_.use_interceptors());
+  asan_transform_.set_use_interceptors(true);
+  EXPECT_TRUE(asan_transform_.use_interceptors());
+  asan_transform_.set_use_interceptors(false);
+  EXPECT_FALSE(asan_transform_.use_interceptors());
 }
 
 TEST_F(AsanTransformTest, SetRemoveRedundantChecksFlag) {
@@ -651,6 +651,25 @@ bool EnumKernel32HeapImports(const PEImage &image, LPCSTR module,
   return true;
 }
 
+bool EnumKernel32InterceptedFunctionsImports(
+    const PEImage &image, LPCSTR module, DWORD ordinal, LPCSTR name, DWORD hint,
+    PIMAGE_THUNK_DATA iat, PVOID cookie) {
+  DCHECK(module != NULL);
+  DCHECK(cookie != NULL);
+
+  StringVector* modules = reinterpret_cast<StringVector*>(cookie);
+
+  // TODO(sebmarchand): Put the function name in a list when we'll have more
+  //     more than one intercepted function.
+  if (_stricmp("kernel32.dll", module) == 0 &&
+      strncmp("ReadFile", name, 8) == 0) {
+    DCHECK(name != NULL);
+    modules->push_back(name);
+  }
+
+  return true;
+}
+
 bool EnumAsanImports(const PEImage &image, LPCSTR module,
                      DWORD ordinal, LPCSTR name, DWORD hint,
                      PIMAGE_THUNK_DATA iat, PVOID cookie) {
@@ -714,6 +733,8 @@ TEST_F(AsanTransformTest, ImportsAreRedirected) {
 
   StringVector heap_imports;
   ASSERT_TRUE(image.EnumAllImports(&EnumKernel32HeapImports, &heap_imports));
+  ASSERT_TRUE(image.EnumAllImports(&EnumKernel32InterceptedFunctionsImports,
+                                   &heap_imports));
 
   // This isn't strictly speaking a full test, as we only check that the new
   // imports have been added. It's however more trouble than it's worth to
