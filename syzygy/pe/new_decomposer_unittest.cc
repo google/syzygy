@@ -16,6 +16,7 @@
 
 #include "base/string_util.h"
 #include "base/strings/string_split.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/block_graph_serializer.h"
 #include "syzygy/block_graph/typed_block.h"
@@ -36,6 +37,7 @@ namespace {
 using block_graph::BlockGraph;
 using block_graph::ConstTypedBlock;
 using core::RelativeAddress;
+using testing::ContainerEq;
 
 const size_t kPointerSize = BlockGraph::Reference::kMaximumSize;
 
@@ -178,22 +180,56 @@ TEST_F(NewDecomposerTest, Decompose) {
               image_layout.sections[i].characteristics);
   }
 
+  typedef std::map<BlockGraph::SectionId, size_t> SectionCountMap;
+  typedef std::map<BlockGraph::BlockType, size_t> BlockTypeCountMap;
+
   // We expect every block to be associated with a section, and only two blocks
-  // should not be assigned to a section--the two header blocks.
-  size_t non_section_blocks = 0;
+  // should not be assigned to a section--the two header blocks. Similarly, set
+  // expectations on the number of blocks per section, and the number of blocks
+  // by type.
+  SectionCountMap section_counts;
+  BlockTypeCountMap block_type_counts;
   BlockGraph::BlockMap::const_iterator it =
       block_graph.blocks().begin();
   for (; it != block_graph.blocks().end(); ++it) {
     const BlockGraph::Block& block = it->second;
-    if (block.section() == BlockGraph::kInvalidSectionId) {
-      ++non_section_blocks;
-    } else {
-      // If this is not a header block, it should refer to a valid section id.
-      EXPECT_LE(0u, block.section());
-      EXPECT_LT(block.section(), block_graph.sections().size());
-    }
+    ++section_counts[block.section()];
+    ++block_type_counts[block.type()];
   }
-  EXPECT_EQ(2u, non_section_blocks);
+
+  SectionCountMap expected_section_counts;
+#ifndef NDEBUG
+  // Debug build.
+  expected_section_counts[-1] = 2;
+  expected_section_counts[0] = 349;
+  expected_section_counts[1] = 467;
+  expected_section_counts[2] = 112;
+  expected_section_counts[3] = 1;
+  expected_section_counts[4] = 1;
+  expected_section_counts[5] = 2;
+#else
+  // Release build.
+  expected_section_counts[-1] = 2;
+  expected_section_counts[0] = 322;
+  expected_section_counts[1] = 427;
+  expected_section_counts[2] = 99;
+  expected_section_counts[3] = 1;
+  expected_section_counts[4] = 1;
+  expected_section_counts[5] = 2;
+#endif
+  EXPECT_THAT(expected_section_counts, ContainerEq(section_counts));
+
+  BlockTypeCountMap expected_block_type_counts;
+#ifndef NDEBUG
+  // Debug build.
+  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 349;
+  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 585;
+#else
+  // Release build.
+  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 322;
+  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 532;
+#endif
+  EXPECT_THAT(expected_block_type_counts, ContainerEq(block_type_counts));
 
   // Every byte of each section must be accounted for by all of the non-header
   // blocks.
@@ -285,51 +321,110 @@ TEST_F(NewDecomposerTest, LabelsAndAttributes) {
   const BlockGraph::Block* func_with_inl_asm_block = NULL;
   const BlockGraph::Block* strchr_block = NULL;
   const BlockGraph::Block* imp_load_block = NULL;
+  const BlockGraph::Block* no_private_symbols_block = NULL;
+
+  typedef std::map<BlockGraph::BlockAttributeEnum, size_t> AttribCountMap;
+  AttribCountMap attrib_counts;
   {
-    BlockGraph::BlockMap::const_iterator it =
-        block_graph.blocks().begin();
+    typedef std::map<std::string, const BlockGraph::Block**> TestBlockMap;
+
+    TestBlockMap test_blocks;
+    test_blocks.insert(std::make_pair("DllMain", &dll_main_block));
+    test_blocks.insert(std::make_pair("FunctionWithInlineAssembly",
+                                      &func_with_inl_asm_block));
+    test_blocks.insert(std::make_pair("found_bx", &strchr_block));
+    test_blocks.insert(std::make_pair("__imp_load_CoCreateGuid",
+                                      &imp_load_block));
+    test_blocks.insert(std::make_pair("TestFunctionWithNoPrivateSymbols",
+                                      &no_private_symbols_block));
+
+    BlockGraph::BlockMap::const_iterator it = block_graph.blocks().begin();
     for (; it != block_graph.blocks().end(); ++it) {
-      const BlockGraph::Block* block = &(it->second);
+      const BlockGraph::Block& block = it->second;
 
-      BlockGraph::Label label;
-      if (!block->GetLabel(0, &label))
-        continue;
-      std::vector<std::string> names;
-      base::SplitStringUsingSubstr(label.name(), NewDecomposer::kLabelNameSep,
-                                   &names);
-
-      base::StringPiece block_name(block->name());
-      base::StringPiece compiland_name(block->compiland_name());
-
-      if (strcmp(block_name.data(), "DllMain") == 0 &&
-          compiland_name.ends_with("\\test_dll.obj")) {
-        ASSERT_TRUE(dll_main_block == NULL);
-        dll_main_block = &it->second;
-      } else if (strcmp(block_name.data(), "FunctionWithInlineAssembly") == 0 &&
-          compiland_name.ends_with("\\test_dll.obj")) {
-        ASSERT_TRUE(func_with_inl_asm_block == NULL);
-        func_with_inl_asm_block = &it->second;
-      } else if (strcmp(block_name.data(), "found_bx") == 0 &&
-            compiland_name.ends_with("\\strchr.obj")) {
-        ASSERT_TRUE(strchr_block == NULL);
-        strchr_block = &it->second;
-      } else if (strcmp(block_name.data(), "__imp_load_CoCreateGuid") == 0) {
-        ASSERT_TRUE(imp_load_block == NULL);
-        imp_load_block = &it->second;
+      // Count the attributes across the entire block-graph.
+      for (size_t i = 0; i < BlockGraph::BLOCK_ATTRIBUTES_MAX_BIT; ++i) {
+        BlockGraph::BlockAttributeEnum attr =
+            static_cast<BlockGraph::BlockAttributeEnum>(1 << i);
+        if (block.attributes() & attr)
+          ++attrib_counts[attr];
       }
+
+      TestBlockMap::const_iterator test_it = test_blocks.find(block.name());
+      if (test_it == test_blocks.end())
+        continue;
+
+      ASSERT_TRUE(*test_it->second == NULL);
+      *test_it->second = &block;
     }
   }
+
   ASSERT_TRUE(dll_main_block != NULL);
   ASSERT_TRUE(func_with_inl_asm_block != NULL);
   ASSERT_TRUE(strchr_block != NULL);
   ASSERT_TRUE(imp_load_block != NULL);
+  ASSERT_TRUE(no_private_symbols_block != NULL);
 
+  // Check the attribute counts.
+  AttribCountMap expected_attrib_counts;
+#ifndef NDEBUG
+  // Debug build.
+  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 7;
+  expected_attrib_counts[BlockGraph::GAP_BLOCK] = 210;
+  expected_attrib_counts[BlockGraph::PE_PARSED] = 95;
+  expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 720;
+  expected_attrib_counts[BlockGraph::PADDING_BLOCK] = 210;
+  expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 15;
+  expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 142;
+  expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 24;
+  expected_attrib_counts[BlockGraph::THUNK] = 6;
+  expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
+#else
+  // Release build.
+  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 7;
+  expected_attrib_counts[BlockGraph::GAP_BLOCK] = 185;
+  expected_attrib_counts[BlockGraph::PE_PARSED] = 93;
+  expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 665;
+  expected_attrib_counts[BlockGraph::PADDING_BLOCK] = 185;
+  expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 14;
+  expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 140;
+  expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 22;
+  expected_attrib_counts[BlockGraph::THUNK] = 6;
+  expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
+#endif
+  EXPECT_THAT(expected_attrib_counts, ContainerEq(attrib_counts));
+
+  // The block with no private symbols should only have a single public symbol
+  // label, and an inferred jump and case table.
+#ifndef NDEBUG
+  // Debug build.
+  const BlockGraph::Offset kJumpOffset = 212;
+  const BlockGraph::Offset kCaseOffset = 240;
+#else
+  // Release build.
+  const BlockGraph::Offset kJumpOffset = 140;
+  const BlockGraph::Offset kCaseOffset = 168;
+#endif
+  ASSERT_FALSE(no_private_symbols_block == NULL);
+  EXPECT_EQ(3u, no_private_symbols_block->labels().size());
+  BlockGraph::Block::LabelMap::const_iterator label_it =
+      no_private_symbols_block->labels().begin();
+  EXPECT_EQ(0, label_it->first);
+  EXPECT_EQ(BlockGraph::PUBLIC_SYMBOL_LABEL, label_it->second.attributes());
+  ++label_it;
+  EXPECT_EQ(kJumpOffset, label_it->first);
+  EXPECT_EQ(BlockGraph::DATA_LABEL | BlockGraph::JUMP_TABLE_LABEL,
+            label_it->second.attributes());
+  ++label_it;
+  EXPECT_EQ(kCaseOffset, label_it->first);
+  EXPECT_EQ(BlockGraph::DATA_LABEL | BlockGraph::CASE_TABLE_LABEL,
+            label_it->second.attributes());
+
+  // The imp_load block should be a thunk.
   ASSERT_NE(0UL, imp_load_block->attributes() & BlockGraph::THUNK);
 
-  // TODO(chrisha): When alignment calculations are complete, re-enable this
-  //     test.
   // DllMain has a jump table so it should have pointer alignment.
-  // ASSERT_EQ(kPointerSize, dll_main_block->alignment());
+  ASSERT_EQ(kPointerSize, dll_main_block->alignment());
 
   // Validate that the FunctionWithInlineAssembly block has the appropriate
   // attributes.
@@ -348,7 +443,7 @@ TEST_F(NewDecomposerTest, LabelsAndAttributes) {
   static const size_t kCallSiteLabelCount = 10;
 #endif
 
-  // Validate compiland name.
+  // Validate compiland names.
   EXPECT_TRUE(EndsWith(dll_main_block->compiland_name(),
                        "\\test_dll.obj",
                        true));

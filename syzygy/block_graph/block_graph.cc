@@ -502,6 +502,12 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
   size_t alignment = first_block->alignment();
   BlockAttributes attributes = 0;
 
+  // Some attributes are only propagated if they are present on *all* blocks
+  // in the range.
+  static const BlockAttributes kUniformAttributes =
+      GAP_BLOCK | PADDING_BLOCK | BUILT_BY_SYZYGY;
+  BlockAttributes uniform_attributes = kUniformAttributes;
+
   BlockGraph::Block::SourceRanges source_ranges;
 
   // Remove the found blocks from the address space, and make sure they're all
@@ -520,7 +526,11 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
       have_data = true;
       memcpy(&merged_data.at(addr - begin), block->data(), block->data_size());
     }
-    attributes |= block->attributes();
+
+    // Add any non-uniform attributes to the block, and keep track of the
+    // uniform attributes.
+    attributes |= block->attributes() & ~kUniformAttributes;
+    uniform_attributes &= block->attributes();
 
     // Merge in the source ranges from each block.
     BlockGraph::Offset block_offset = addr - begin;
@@ -552,7 +562,7 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
   new_block->source_ranges() = source_ranges;
   new_block->set_section(section_id);
   new_block->set_alignment(alignment);
-  new_block->set_attributes(attributes);
+  new_block->set_attributes(attributes | uniform_attributes);
   if (have_data) {
     uint8* data = new_block->CopyData(merged_data.size(), &merged_data.at(0));
     if (data == NULL) {

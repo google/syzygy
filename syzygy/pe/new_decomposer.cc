@@ -42,6 +42,13 @@ namespace cci = Microsoft_Cci_Pdb;
 
 namespace {
 
+using block_graph::BlockGraph;
+using core::AbsoluteAddress;
+using core::FileOffsetAddress;
+using core::RelativeAddress;
+
+typedef BlockGraph::Block Block;
+
 // A small helper struct for dumping block information to log messages.
 // TODO(chrisha): Move this to block_graph and reuse it everywhere!
 struct BlockInfo {
@@ -52,41 +59,41 @@ struct BlockInfo {
     kRelativeAddress,
   };
 
-  explicit BlockInfo(const block_graph::BlockGraph::Block* block)
+  explicit BlockInfo(const Block* block)
       : block(block), type(kNoAddress) {
-    DCHECK(block != NULL);
+    DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
   }
 
-  BlockInfo(const block_graph::BlockGraph::Block* block,
-            core::AbsoluteAddress address)
+  BlockInfo(const Block* block,
+            AbsoluteAddress address)
       : block(block), type(kAbsoluteAddress), abs_addr(address) {
-    DCHECK(block != NULL);
+    DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
   }
-  BlockInfo(const block_graph::BlockGraph::Block* block,
-            core::FileOffsetAddress address)
+  BlockInfo(const Block* block,
+            FileOffsetAddress address)
       : block(block), type(kFileOffsetAddress), file_addr(address) {
-    DCHECK(block != NULL);
+    DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
   }
-  BlockInfo(const block_graph::BlockGraph::Block* block,
-            core::RelativeAddress address)
+  BlockInfo(const Block* block,
+            RelativeAddress address)
       : block(block), type(kRelativeAddress), rel_addr(address) {
-    DCHECK(block != NULL);
+    DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
   }
 
-  const block_graph::BlockGraph::Block* block;
+  const Block* block;
   AddressType type;
 
   // Ideally these would be in a union but because they have non-trivial
   // constructors they are not allowed.
-  core::AbsoluteAddress abs_addr;
-  core::FileOffsetAddress file_addr;
-  core::RelativeAddress rel_addr;
+  AbsoluteAddress abs_addr;
+  FileOffsetAddress file_addr;
+  RelativeAddress rel_addr;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BlockInfo);
 };
 
-}  // anonymous namespace
+}  // namespace
 
 // Pretty prints a BlockInfo to an ostream. This has to be outside of any
 // namespaces so that operator<< is found properly.
@@ -131,16 +138,12 @@ namespace {
 
 using base::win::ScopedBstr;
 using base::win::ScopedComPtr;
-using block_graph::BlockGraph;
 using builder::Callback;
 using builder::Opt;
 using builder::Or;
 using builder::Seq;
 using builder::Star;
-using core::AbsoluteAddress;
-using core::RelativeAddress;
 
-typedef BlockGraph::Block Block;
 typedef BlockGraph::BlockType BlockType;
 typedef BlockGraph::Offset Offset;
 typedef BlockGraph::Reference Reference;
@@ -154,6 +157,10 @@ typedef std::vector<pdb::PdbFixup> PdbFixups;
 
 const char kJumpTable[] = "<jump-table>";
 const char kCaseTable[] = "<case-table>";
+
+// The MS linker pads between code blocks with int3s.
+static const uint8 kInt3 = 0xCC;
+static const size_t kPointerSize = BlockGraph::Reference::kMaximumSize;
 
 // Some helper functions for testing ranges.
 template<typename T1, typename T2, typename T3>
@@ -174,19 +181,19 @@ bool InitializeDia(const PEFile& image_file,
                    IDiaDataSource** dia_source,
                    IDiaSession** dia_session,
                    IDiaSymbol** global) {
-  DCHECK(*dia_source == NULL);
-  DCHECK(*dia_session == NULL);
-  DCHECK(*global == NULL);
+  DCHECK_EQ(reinterpret_cast<IDiaDataSource*>(NULL), *dia_source);
+  DCHECK_EQ(reinterpret_cast<IDiaSession*>(NULL), *dia_session);
+  DCHECK_EQ(reinterpret_cast<IDiaSymbol*>(NULL), *global);
 
   if (!CreateDiaSource(dia_source))
     return false;
-  DCHECK(*dia_source != NULL);
+  DCHECK_NE(reinterpret_cast<IDiaDataSource*>(NULL), *dia_source);
 
   // We create the session using the PDB file directly, as we've already
   // validated that it matches the module.
   if (!CreateDiaSession(pdb_path, *dia_source, dia_session))
     return false;
-  DCHECK(*dia_session != NULL);
+  DCHECK_NE(reinterpret_cast<IDiaSession*>(NULL), *dia_session);
 
   HRESULT hr = (*dia_session)->get_globalScope(global);
   if (hr != S_OK) {
@@ -201,10 +208,10 @@ bool InitializeDia(const PEFile& image_file,
 // Given a compiland, returns its compiland details.
 bool GetCompilandDetailsForCompiland(IDiaSymbol* compiland,
                                      IDiaSymbol** compiland_details) {
-  DCHECK(compiland != NULL);
-  DCHECK(compiland_details != NULL);
+  DCHECK_NE(reinterpret_cast<IDiaSymbol*>(NULL), compiland);
+  DCHECK_NE(reinterpret_cast<IDiaSymbol**>(NULL), compiland_details);
   DCHECK(IsSymTag(compiland, SymTagCompiland));
-  DCHECK(*compiland_details == NULL);
+  DCHECK_EQ(reinterpret_cast<IDiaSymbol*>(NULL), *compiland_details);
 
   // Get the enumeration of compiland details.
   ScopedComPtr<IDiaEnumSymbols> enum_symbols;
@@ -252,7 +259,7 @@ KnownCompilerInfo kKnownCompilerInfos[] = {
 // Given a compiland, determines whether the compiler used is one of those that
 // we whitelist.
 bool IsBuiltBySupportedCompiler(IDiaSymbol* compiland) {
-  DCHECK(compiland != NULL);
+  DCHECK_NE(reinterpret_cast<IDiaSymbol*>(NULL), compiland);
   DCHECK(IsSymTag(compiland, SymTagCompiland));
 
   ScopedComPtr<IDiaSymbol> compiland_details;
@@ -267,7 +274,7 @@ bool IsBuiltBySupportedCompiler(IDiaSymbol* compiland) {
     }
     return false;
   }
-  DCHECK(compiland_details.get() != NULL);
+  DCHECK_NE(reinterpret_cast<IDiaSymbol*>(NULL), compiland_details.get());
 
   // Get the compiler name.
   ScopedBstr compiler_name;
@@ -294,7 +301,7 @@ bool AddIntermediateReference(IntermediateReferences* references,
                               ReferenceType type,
                               BlockGraph::Size size,
                               RelativeAddress dst_addr) {
-  DCHECK(references != NULL);
+  DCHECK_NE(reinterpret_cast<IntermediateReferences*>(NULL), references);
   IntermediateReference ref = { src_addr, type, size, dst_addr };
   references->push_back(ref);
   return true;
@@ -308,7 +315,7 @@ bool CreateReference(RelativeAddress src_addr,
                      RelativeAddress base_addr,
                      RelativeAddress dst_addr,
                      BlockGraph::AddressSpace* image) {
-  DCHECK(image != NULL);
+  DCHECK_NE(reinterpret_cast<BlockGraph::AddressSpace*>(NULL), image);
 
   // Get the source block and offset, and ensure that the reference fits
   // within it.
@@ -362,9 +369,9 @@ bool CreateReference(RelativeAddress src_addr,
 bool LoadDebugStreams(IDiaSession* dia_session,
                       PdbFixups* pdb_fixups,
                       OMAPs* omap_from) {
-  DCHECK(dia_session != NULL);
-  DCHECK(pdb_fixups != NULL);
-  DCHECK(omap_from != NULL);
+  DCHECK_NE(reinterpret_cast<IDiaSession*>(NULL), dia_session);
+  DCHECK_NE(reinterpret_cast<PdbFixups*>(NULL), pdb_fixups);
+  DCHECK_NE(reinterpret_cast<OMAPs*>(NULL), omap_from);
 
   // Load the fixups. These must exist.
   SearchResult search_result = FindAndLoadDiaDebugStreamByName(
@@ -393,8 +400,8 @@ bool GetFixupDestinationAndType(const PEFile& image_file,
                                 const pdb::PdbFixup& fixup,
                                 RelativeAddress* dst_addr,
                                 ReferenceType* ref_type) {
-  DCHECK(dst_addr != NULL);
-  DCHECK(ref_type != NULL);
+  DCHECK_NE(reinterpret_cast<RelativeAddress*>(NULL), dst_addr);
+  DCHECK_NE(reinterpret_cast<ReferenceType*>(NULL), ref_type);
 
   RelativeAddress src_addr(fixup.rva_location);
 
@@ -453,8 +460,8 @@ bool CreateReferencesFromFixupsImpl(
     const OMAPs& omap_from,
     PEFile::RelocSet* reloc_set,
     BlockGraph::AddressSpace* image) {
-  DCHECK(reloc_set != NULL);
-  DCHECK(image != NULL);
+  DCHECK_NE(reinterpret_cast<PEFile::RelocSet*>(NULL), reloc_set);
+  DCHECK_NE(reinterpret_cast<BlockGraph::AddressSpace*>(NULL), image);
 
   bool have_omap = !omap_from.empty();
   size_t fixups_used = 0;
@@ -547,8 +554,8 @@ bool CreateReferencesFromFixupsImpl(
 }
 
 bool GetDataSymbolSize(IDiaSymbol* symbol, size_t* length) {
-  DCHECK(symbol != NULL);
-  DCHECK(length != NULL);
+  DCHECK_NE(reinterpret_cast<IDiaSymbol*>(NULL), symbol);
+  DCHECK_NE(reinterpret_cast<size_t*>(NULL), length);
 
   *length = 0;
   ScopedComPtr<IDiaSymbol> type;
@@ -578,8 +585,8 @@ bool ScopeSymTagToLabelProperties(enum SymTagEnum sym_tag,
                                   size_t scope_count,
                                   BlockGraph::LabelAttributes* attr,
                                   std::string* name) {
-  DCHECK(attr != NULL);
-  DCHECK(name != NULL);
+  DCHECK_NE(reinterpret_cast<BlockGraph::LabelAttributes*>(NULL), attr);
+  DCHECK_NE(reinterpret_cast<std::string*>(NULL), name);
 
   switch (sym_tag) {
     case SymTagFuncDebugStart: {
@@ -651,8 +658,8 @@ template<typename SymbolType>
 const SymbolType* ParseSymbol(uint16 symbol_length,
                               pdb::PdbStream* stream,
                               std::vector<uint8>* buffer) {
-  DCHECK(stream != NULL);
-  DCHECK(buffer != NULL);
+  DCHECK_NE(reinterpret_cast<pdb::PdbStream*>(NULL), stream);
+  DCHECK_NE(reinterpret_cast<std::vector<uint8>*>(NULL), buffer);
 
   buffer->clear();
 
@@ -676,7 +683,7 @@ bool VisitNonControlFlowInstruction(const _DInst& instr,
   DCHECK_NE(0u, block_addr.value());
   DCHECK_NE(0u, instr_addr.value());
   DCHECK_LE(block_addr, instr_addr);
-  DCHECK(block != NULL);
+  DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
 
   // TODO(chrisha): We could walk the operands and follow references
   //     explicitly. If any of them are of reference type and there's no
@@ -729,8 +736,8 @@ bool VisitPcRelativeControlFlowInstruction(bool create_missing_refs,
   DCHECK_NE(0u, instr_addr.value());
   DCHECK_LT(image_addr, block_addr);
   DCHECK_LE(block_addr, instr_addr);
-  DCHECK(image != NULL);
-  DCHECK(block != NULL);
+  DCHECK_NE(reinterpret_cast<BlockGraph::AddressSpace*>(NULL), image);
+  DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
 
   int fc = META_GET_FC(instr.meta);
   DCHECK(fc == FC_UNC_BRANCH || fc == FC_CALL || fc == FC_CND_BRANCH);
@@ -818,8 +825,8 @@ bool VisitInstruction(bool create_missing_refs,
   DCHECK_NE(0u, instr_addr.value());
   DCHECK_LT(image_addr, block_addr);
   DCHECK_LE(block_addr, instr_addr);
-  DCHECK(image != NULL);
-  DCHECK(block != NULL);
+  DCHECK_NE(reinterpret_cast<BlockGraph::AddressSpace*>(NULL), image);
+  DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
 
   int fc = META_GET_FC(instr.meta);
 
@@ -842,8 +849,8 @@ bool DisassembleCodeBlockAndLabelData(bool create_missing_refs,
                                       AbsoluteAddress block_addr,
                                       BlockGraph::AddressSpace* image,
                                       Block* block) {
-  DCHECK(image != NULL);
-  DCHECK(block != NULL);
+  DCHECK_NE(reinterpret_cast<BlockGraph::AddressSpace*>(NULL), image);
+  DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
   DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
 
   // We simultaneously walk through the block's references while disassembling
@@ -992,7 +999,7 @@ bool DisassembleCodeBlockAndLabelData(bool create_missing_refs,
 bool JumpAndCaseTableAlreadyLabelled(const Block* block,
                                      Offset offset,
                                      BlockGraph::LabelAttributes attr) {
-  DCHECK(block != NULL);
+  DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
 
   // We can't say anything about blocks that we were not able to disassemble.
   if (block->attributes() & BlockGraph::ERRORED_DISASSEMBLY)
@@ -1015,6 +1022,117 @@ bool JumpAndCaseTableAlreadyLabelled(const Block* block,
              << BlockGraph::BlockAttributesToString(attr) << ".";
 
   return false;
+}
+
+// If the given run of bytes consists of a single value repeated, returns that
+// value. Otherwise, returns -1.
+int RepeatedValue(const uint8* data, size_t size) {
+  DCHECK_NE(reinterpret_cast<uint8*>(NULL), data);
+  const uint8* data_end = data + size;
+  uint8 value = *(data++);
+  for (; data < data_end; ++data) {
+    if (*data != value)
+      return -1;
+  }
+  return value;
+}
+
+// Searches through the given image layout graph, and labels blocks that are
+// simply padding blocks.
+bool FindPaddingBlocks(ImageLayout* image_layout) {
+  DCHECK_NE(reinterpret_cast<ImageLayout*>(NULL), image_layout);
+
+  BlockGraph* block_graph = image_layout->blocks.graph();
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+
+  BlockGraph::BlockMap::iterator block_it =
+      block_graph->blocks_mutable().begin();
+  for (; block_it != block_graph->blocks_mutable().end(); ++block_it) {
+    Block& block = block_it->second;
+
+    // Padding blocks must not have any symbol information: no labels,
+    // no references, no referrers, and they must be a gap block.
+    if (block.labels().size() != 0 ||
+        block.references().size() != 0 ||
+        block.referrers().size() != 0 ||
+        (block.attributes() & BlockGraph::GAP_BLOCK) == 0) {
+      continue;
+    }
+
+    switch (block.type()) {
+      // Code blocks should be fully defined and consist of only int3s.
+      case BlockGraph::CODE_BLOCK: {
+        if (block.data_size() != block.size() ||
+            RepeatedValue(block.data(), block.data_size()) != kInt3)
+          continue;
+        break;
+      }
+
+      // Data blocks should be uninitialized or have fully defined data
+      // consisting only of zeros.
+      default: {
+        DCHECK_EQ(BlockGraph::DATA_BLOCK, block.type());
+        if (block.data_size() == 0)  // Uninitialized data blocks are padding.
+          break;
+        if (block.data_size() != block.size() ||
+            RepeatedValue(block.data(), block.data_size()) != 0)
+          continue;
+      }
+    }
+
+    // If we fall through to this point, then the block is a padding block.
+    block.set_attribute(BlockGraph::PADDING_BLOCK);
+  }
+
+  return true;
+}
+
+bool CodeBlockHasAlignedJumpTables(const Block* block) {
+  DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
+  DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
+
+  // Iterate over the labels of this block looking for jump tables.
+  bool has_jump_tables = false;
+  Block::LabelMap::const_iterator label_it =
+      block->labels().begin();
+  for (; label_it != block->labels().end(); ++label_it) {
+    if (!label_it->second.has_attributes(BlockGraph::JUMP_TABLE_LABEL))
+      continue;
+
+    has_jump_tables = true;
+
+    // If the jump table is misaligned we can return false immediately.
+    if (label_it->first % kPointerSize != 0)
+      return false;
+  }
+
+  return has_jump_tables;
+}
+
+bool AlignCodeBlocksWithJumpTables(ImageLayout* image_layout) {
+  DCHECK_NE(reinterpret_cast<ImageLayout*>(NULL), image_layout);
+
+  BlockGraph::AddressSpace::RangeMapConstIter block_it =
+      image_layout->blocks.begin();
+  for (; block_it != image_layout->blocks.end(); ++block_it) {
+    Block* block = block_it->second;
+
+    // We only care about code blocks that are already aligned 0 mod 4 but
+    // whose explicit alignment is currently less than that.
+    if (block->type() != BlockGraph::CODE_BLOCK)
+      continue;
+    if (block->alignment() >= kPointerSize)
+      continue;
+    if (block_it->first.start().value() % kPointerSize != 0)
+      continue;
+
+    // Inspect them to see if they have aligned jump tables. If they do,
+    // set the alignment of the block itself.
+    if (CodeBlockHasAlignedJumpTables(block_it->second))
+      block->set_alignment(kPointerSize);
+  }
+
+  return true;
 }
 
 }  // namespace
@@ -1057,11 +1175,11 @@ NewDecomposer::NewDecomposer(const PEFile& image_file)
 }
 
 bool NewDecomposer::Decompose(ImageLayout* image_layout) {
-  DCHECK(image_layout != NULL);
+  DCHECK_NE(reinterpret_cast<ImageLayout*>(NULL), image_layout);
 
   // The temporaries should be NULL.
-  DCHECK(image_layout_ == NULL);
-  DCHECK(image_ == NULL);
+  DCHECK_EQ(reinterpret_cast<ImageLayout*>(NULL), image_layout_);
+  DCHECK_EQ(reinterpret_cast<BlockGraph::AddressSpace*>(NULL), image_);
 
   // We start by finding the PDB path.
   if (!FindAndValidatePdbPath())
@@ -1120,15 +1238,15 @@ bool NewDecomposer::LoadBlockGraphFromPdbStream(
     const PEFile& image_file,
     pdb::PdbStream* block_graph_stream,
     ImageLayout* image_layout) {
-  DCHECK(block_graph_stream != NULL);
-  DCHECK(image_layout != NULL);
+  DCHECK_NE(reinterpret_cast<pdb::PdbStream*>(NULL), block_graph_stream);
+  DCHECK_NE(reinterpret_cast<ImageLayout*>(NULL), image_layout);
   LOG(INFO) << "Reading block-graph and image layout from the PDB.";
 
   // Initialize an input archive pointing to the stream.
   scoped_refptr<pdb::PdbByteStream> byte_stream = new pdb::PdbByteStream();
   if (!byte_stream->Init(block_graph_stream))
     return false;
-  DCHECK(byte_stream.get() != NULL);
+  DCHECK_NE(reinterpret_cast<pdb::PdbByteStream*>(NULL), byte_stream.get());
 
   core::ScopedInStreamPtr pdb_in_stream;
   pdb_in_stream.reset(core::CreateByteInStream(
@@ -1181,8 +1299,8 @@ bool NewDecomposer::LoadBlockGraphFromPdb(const base::FilePath& pdb_path,
                                           const PEFile& image_file,
                                           ImageLayout* image_layout,
                                           bool* stream_exists) {
-  DCHECK(image_layout != NULL);
-  DCHECK(stream_exists != NULL);
+  DCHECK_NE(reinterpret_cast<ImageLayout*>(NULL), image_layout);
+  DCHECK_NE(reinterpret_cast<bool*>(NULL), stream_exists);
 
   pdb::PdbFile pdb_file;
   pdb::PdbReader pdb_reader;
@@ -1281,12 +1399,21 @@ bool NewDecomposer::DecomposeImpl() {
   if (parse_debug_info_ && !ProcessSymbols(global.get()))
     return false;
 
+  // Now, find and label any padding blocks.
+  if (!FindPaddingBlocks(image_layout_))
+    return false;
+
+  // Set the alignment on code blocks with jump tables. This ensures that the
+  // jump tables remain aligned post-transform.
+  if (!AlignCodeBlocksWithJumpTables(image_layout_))
+    return false;
+
   return true;
 }
 
 bool NewDecomposer::CreatePEImageBlocksAndReferences(
     IntermediateReferences* references) {
-  DCHECK(references != NULL);
+  DCHECK_NE(reinterpret_cast<IntermediateReferences*>(NULL), references);
 
   PEFileParser::AddReferenceCallback add_reference(
       base::Bind(&AddIntermediateReference, base::Unretained(references)));
@@ -1435,7 +1562,7 @@ bool NewDecomposer::CreateGapBlocks() {
   // Iterate through all the image sections.
   for (size_t i = 0; i < num_sections; ++i) {
     const IMAGE_SECTION_HEADER* header = image_file_.section_header(i);
-    DCHECK(header != NULL);
+    DCHECK_NE(reinterpret_cast<IMAGE_SECTION_HEADER*>(NULL), header);
 
     BlockType type = BlockGraph::CODE_BLOCK;
     const char* section_type = NULL;
@@ -1481,13 +1608,13 @@ bool NewDecomposer::FinalizeIntermediateReferences(
 }
 
 bool NewDecomposer::DisassembleCodeBlocksAndLabelData() {
-  DCHECK(image_ != NULL);
+  DCHECK_NE(reinterpret_cast<BlockGraph::AddressSpace*>(NULL), image_);
 
-  const BlockGraph::Block* dos_header_block =
+  const Block* dos_header_block =
       image_->GetBlockByAddress(RelativeAddress(0));
-  DCHECK(dos_header_block != NULL);
+  DCHECK_NE(reinterpret_cast<Block*>(NULL), dos_header_block);
 
-  const BlockGraph::Block* nt_headers_block =
+  const Block* nt_headers_block =
       GetNtHeadersBlockFromDosHeaderBlock(dos_header_block);
   if (nt_headers_block == NULL) {
     LOG(ERROR) << "Unable to get NT headers block for image.";
@@ -1498,17 +1625,17 @@ bool NewDecomposer::DisassembleCodeBlocksAndLabelData() {
   // with impunity.
   const IMAGE_NT_HEADERS* nt_headers =
       reinterpret_cast<const IMAGE_NT_HEADERS*>(nt_headers_block->data());
-  core::AbsoluteAddress image_base(nt_headers->OptionalHeader.ImageBase);
+  AbsoluteAddress image_base(nt_headers->OptionalHeader.ImageBase);
 
   // Walk through the blocks and disassemble each one of them.
   BlockGraph::AddressSpace::RangeMapConstIter it = image_->begin();
   for (; it != image_->end(); ++it) {
-    BlockGraph::Block* block = it->second;
+    Block* block = it->second;
 
     if (block->type() != BlockGraph::CODE_BLOCK)
       continue;
 
-    core::AbsoluteAddress abs_addr(image_base + it->first.start().value());
+    AbsoluteAddress abs_addr(image_base + it->first.start().value());
     if (!DisassembleCodeBlockAndLabelData(
         parse_debug_info_, image_base, abs_addr, image_, block)) {
       return false;
@@ -1519,7 +1646,7 @@ bool NewDecomposer::DisassembleCodeBlocksAndLabelData() {
 }
 
 bool NewDecomposer::CreateReferencesFromFixups(IDiaSession* session) {
-  DCHECK(session != NULL);
+  DCHECK_NE(reinterpret_cast<IDiaSession*>(NULL), session);
 
   PEFile::RelocSet reloc_set;
   if (!image_file_.DecodeRelocs(&reloc_set))
@@ -1547,7 +1674,7 @@ bool NewDecomposer::CreateReferencesFromFixups(IDiaSession* session) {
 }
 
 bool NewDecomposer::ProcessSymbols(IDiaSymbol* root) {
-  DCHECK(root != NULL);
+  DCHECK_NE(reinterpret_cast<IDiaSymbol*>(NULL), root);
 
   DiaBrowser::MatchCallback on_push_function_or_thunk_symbol(
       base::Bind(&NewDecomposer::OnPushFunctionOrThunkSymbol,
@@ -1606,8 +1733,8 @@ bool NewDecomposer::VisitLinkerSymbol(VisitLinkerSymbolContext* context,
                                       uint16 symbol_length,
                                       uint16 symbol_type,
                                       pdb::PdbStream* stream) {
-  DCHECK(context != NULL);
-  DCHECK(stream != NULL);
+  DCHECK_NE(reinterpret_cast<VisitLinkerSymbolContext*>(NULL), context);
+  DCHECK_NE(reinterpret_cast<pdb::PdbStream*>(NULL), stream);
 
   if (symbol_type != cci::S_COFFGROUP)
     return true;
@@ -1660,7 +1787,7 @@ bool NewDecomposer::VisitLinkerSymbol(VisitLinkerSymbolContext* context,
   DCHECK_LT(context->current_group_start, end);
 
   // Create a block for this bracketed COFF group.
-  BlockGraph::Block* block = CreateBlock(
+  Block* block = CreateBlock(
       BlockGraph::DATA_BLOCK,
       context->current_group_start,
       end - context->current_group_start,
@@ -1689,7 +1816,7 @@ DiaBrowser::BrowserDirective NewDecomposer::OnPushFunctionOrThunkSymbol(
   DCHECK_EQ(sym_tags.size(), symbols.size());
   DiaBrowser::SymbolPtr symbol = symbols.back();
 
-  DCHECK(current_block_ == NULL);
+  DCHECK_EQ(reinterpret_cast<Block*>(NULL), current_block_);
   DCHECK_EQ(current_address_, RelativeAddress(0));
   DCHECK_EQ(0u, current_scope_count_);
 
@@ -1795,7 +1922,7 @@ DiaBrowser::BrowserDirective NewDecomposer::OnFunctionChildSymbol(
 
   // This can only be called from the context of a function, so we expect the
   // parent function block to be set and remembered.
-  DCHECK(current_block_ != NULL);
+  DCHECK_NE(reinterpret_cast<Block*>(NULL), current_block_);
 
   // The set of sym tags here should match the pattern used in the DiaBrowser
   // instance set up in ProcessSymbols.
@@ -1939,7 +2066,7 @@ DiaBrowser::BrowserDirective NewDecomposer::OnPublicSymbol(
     const DiaBrowser::SymbolPtrVector& symbols) {
   DCHECK(!symbols.empty());
   DCHECK_EQ(sym_tags.size(), symbols.size());
-  DCHECK(current_block_ == NULL);
+  DCHECK_EQ(reinterpret_cast<Block*>(NULL), current_block_);
   DiaBrowser::SymbolPtr symbol = symbols.back();
 
   HRESULT hr = E_FAIL;
@@ -2028,7 +2155,7 @@ DiaBrowser::BrowserDirective NewDecomposer::OnScopeSymbol(
     enum SymTagEnum type, DiaBrowser::SymbolPtr symbol) {
   // We should only get here via the successful exploration of a SymTagFunction,
   // so current_block_ should be set.
-  DCHECK(current_block_ != NULL);
+  DCHECK_NE(reinterpret_cast<Block*>(NULL), current_block_);
 
   HRESULT hr = E_FAIL;
   DWORD rva = 0;
@@ -2078,7 +2205,7 @@ DiaBrowser::BrowserDirective NewDecomposer::OnCallSiteSymbol(
     DiaBrowser::SymbolPtr symbol) {
   // We should only get here via the successful exploration of a SymTagFunction,
   // so current_block_ should be set.
-  DCHECK(current_block_ != NULL);
+  DCHECK_NE(reinterpret_cast<Block*>(NULL), current_block_);
 
   HRESULT hr = E_FAIL;
   DWORD rva = 0;
@@ -2165,7 +2292,7 @@ Block* NewDecomposer::CreateBlockOrFindCoveringPeBlock(
 
     return block;
   }
-  DCHECK(block == NULL);
+  DCHECK_EQ(reinterpret_cast<Block*>(NULL), block);
 
   return CreateBlock(type, addr, size, name);
 }
@@ -2222,7 +2349,7 @@ bool NewDecomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
   // Now iterate the blocks and fill in gaps.
   for (; it != end; ++it) {
     const Block* block = it->second;
-    DCHECK(block != NULL);
+    DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
     RelativeAddress block_end = it->first.start() + block->size();
     if (block_end >= section_end)
       break;

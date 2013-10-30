@@ -1395,6 +1395,19 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
   ASSERT_TRUE(block3->SetReference(0x1,
       BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 4, block2, 0x4, 0x4)));
 
+  // Set some attributes that should trivially propagate to the merged block.
+  block2->set_attribute(BlockGraph::PE_PARSED);
+  block3->set_attribute(BlockGraph::ERRORED_DISASSEMBLY);
+
+  // Set an attribute that only propagates because it is present in both blocks.
+  block2->set_attribute(BlockGraph::GAP_BLOCK);
+  block3->set_attribute(BlockGraph::GAP_BLOCK);
+
+  // Set an attribute that doesn't propagate because it is not present in both
+  // blocks.
+  block2->set_attribute(BlockGraph::PADDING_BLOCK);
+
+  // Blocks 2 and 3 will be merged.
   BlockGraph::Block* merged = address_space.MergeIntersectingBlocks(
       BlockGraph::AddressSpace::Range(RelativeAddress(0x1014), 0x30));
 
@@ -1440,6 +1453,11 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
   expected_refs.insert(std::make_pair(0x6,
       BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4, merged, 0x20, 0x20)));
   EXPECT_THAT(block1->references(), testing::ContainerEq(expected_refs));
+
+  // Expect the attributes to have been propagated properly.
+  EXPECT_EQ(BlockGraph::PE_PARSED | BlockGraph::ERRORED_DISASSEMBLY |
+                BlockGraph::GAP_BLOCK,
+            merged->attributes());
 
   // We expect that the block graph and the address space have the same size,
   // as MergeIntersectingBlocks deletes the old blocks from the BlockGraph.

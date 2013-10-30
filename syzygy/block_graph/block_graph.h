@@ -43,6 +43,8 @@ namespace block_graph {
 // Forward declaration.
 class BlockGraphSerializer;
 
+// NOTE: When adding attributes be sure to update any uses of them in
+//       block_graph.cc, for example in MergeIntersectingBlocks.
 #define BLOCK_ATTRIBUTE_ENUM(F) \
     /* Set for functions declared non-returning. */ \
     F(NON_RETURN_FUNCTION) \
