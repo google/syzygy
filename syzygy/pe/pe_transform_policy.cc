@@ -14,13 +14,15 @@
 
 #include "syzygy/pe/pe_transform_policy.h"
 
+#include "syzygy/block_graph/block_util.h"
 #include "syzygy/pe/block_util.h"
 
 namespace pe {
 
 bool PETransformPolicy::CodeBlockAttributesAreBasicBlockSafe(
     const BlockGraph::Block* code_block) const {
-  return true;
+  // TODO(chrisha): Move the implementation of that function here.
+  return block_graph::CodeBlockAttributesAreBasicBlockSafe(code_block);
 }
 
 bool PETransformPolicy::CodeBlockIsSafeToBasicBlockDecompose(

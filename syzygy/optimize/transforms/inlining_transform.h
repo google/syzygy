@@ -13,6 +13,9 @@
 // limitations under the License.
 //
 // This class implements the functions inlining transformation.
+//
+// The inlining expansion replaces a function call site with the body of the
+// callee. It is used to eliminate the time overhead when a function is called.
 
 #ifndef SYZYGY_OPTIMIZE_TRANSFORMS_INLINING_TRANSFORM_H_
 #define SYZYGY_OPTIMIZE_TRANSFORMS_INLINING_TRANSFORM_H_
