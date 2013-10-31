@@ -46,6 +46,9 @@ namespace {
 
 const size_t kPointerSize = BlockGraph::Reference::kMaximumSize;
 
+static const BlockGraph::BlockAttributes kGapOrPadding =
+    BlockGraph::GAP_BLOCK | BlockGraph::PADDING_BLOCK;
+
 // Exposes the protected methods for testing.
 class TestDecomposer: public Decomposer {
  public:
@@ -180,60 +183,49 @@ TEST_F(DecomposerTest, Decompose) {
       block_graph.blocks().begin();
   for (; it != block_graph.blocks().end(); ++it) {
     const BlockGraph::Block& block = it->second;
+
+    // We can't count gap or padding blocks, as more or less of these can appear
+    // based on the directory in which the user performed the build.
+    if (block.attributes() & kGapOrPadding)
+      continue;
+
     ++section_counts[block.section()];
     ++block_type_counts[block.type()];
   }
 
   SectionCountMap expected_section_counts;
 #ifndef NDEBUG
-#ifdef _COVERAGE_BUILD
-  // Coverage build.
-  expected_section_counts[-1] = 2;
-  expected_section_counts[0] = 349;
-  expected_section_counts[1] = 468;
-  expected_section_counts[2] = 112;
-  expected_section_counts[3] = 1;
-  expected_section_counts[4] = 1;
-  expected_section_counts[5] = 2;
-#else
   // Debug build.
   expected_section_counts[-1] = 2;
-  expected_section_counts[0] = 349;
-  expected_section_counts[1] = 467;
-  expected_section_counts[2] = 112;
+  expected_section_counts[0] = 302;
+  expected_section_counts[1] = 329;
+  expected_section_counts[2] = 88;
   expected_section_counts[3] = 1;
   expected_section_counts[4] = 1;
-  expected_section_counts[5] = 2;
-#endif
+  expected_section_counts[5] = 1;
 #else
   // Release build.
   expected_section_counts[-1] = 2;
-  expected_section_counts[0] = 322;
-  expected_section_counts[1] = 427;
-  expected_section_counts[2] = 99;
+  expected_section_counts[0] = 280;
+  expected_section_counts[1] = 303;
+  expected_section_counts[2] = 81;
   expected_section_counts[3] = 1;
   expected_section_counts[4] = 1;
-  expected_section_counts[5] = 2;
+  expected_section_counts[5] = 1;
 #endif
-  EXPECT_THAT(expected_section_counts, ContainerEq(section_counts));
+  EXPECT_THAT(section_counts, ContainerEq(expected_section_counts));
 
   BlockTypeCountMap expected_block_type_counts;
 #ifndef NDEBUG
-#ifdef _COVERAGE_BUILD
-  // Coverage build.
-  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 349;
-  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 586;
-#else
   // Debug build.
-  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 349;
-  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 585;
-#endif
+  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 302;
+  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 422;
 #else
   // Release build.
-  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 322;
-  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 532;
+  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 280;
+  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 389;
 #endif
-  EXPECT_THAT(expected_block_type_counts, ContainerEq(block_type_counts));
+  EXPECT_THAT(block_type_counts, ContainerEq(expected_block_type_counts));
 
   // Make sure that all bracketed COFF groups have been parsed. There are 8
   // of them that we currently know of:
@@ -312,6 +304,12 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
       for (size_t i = 0; i < BlockGraph::BLOCK_ATTRIBUTES_MAX_BIT; ++i) {
         BlockGraph::BlockAttributeEnum attr =
             static_cast<BlockGraph::BlockAttributeEnum>(1 << i);
+
+        // We don't count gap or padding blocks as they vary from machine to
+        // machine depending on lengths of certain strings.
+        if (attr & kGapOrPadding)
+          continue;
+
         if (block.attributes() & attr)
           ++attrib_counts[attr];
       }
@@ -328,28 +326,10 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   // Check the attribute counts.
   AttribCountMap expected_attrib_counts;
 #ifndef NDEBUG
-#ifdef _COVERAGE_BUILD
-  // Coverage build.
-  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 8;
-  expected_attrib_counts[BlockGraph::GAP_BLOCK] = 211;
-  expected_attrib_counts[BlockGraph::PE_PARSED] = 95;
-  expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 720;
-  expected_attrib_counts[BlockGraph::PADDING_BLOCK] = 211;
-  expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 15;
-  expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 142;
-  expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 68;
-  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 4;
-  expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 24;
-  expected_attrib_counts[BlockGraph::DISASSEMBLED_PAST_END] = 7;
-  expected_attrib_counts[BlockGraph::THUNK] = 6;
-  expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
-#else
   // Debug build.
   expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 8;
-  expected_attrib_counts[BlockGraph::GAP_BLOCK] = 210;
   expected_attrib_counts[BlockGraph::PE_PARSED] = 95;
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 720;
-  expected_attrib_counts[BlockGraph::PADDING_BLOCK] = 210;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 15;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 142;
   expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 68;
@@ -358,14 +338,11 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   expected_attrib_counts[BlockGraph::DISASSEMBLED_PAST_END] = 7;
   expected_attrib_counts[BlockGraph::THUNK] = 6;
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
-#endif
 #else
   // Release build.
   expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 8;
-  expected_attrib_counts[BlockGraph::GAP_BLOCK] = 185;
   expected_attrib_counts[BlockGraph::PE_PARSED] = 93;
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 665;
-  expected_attrib_counts[BlockGraph::PADDING_BLOCK] = 185;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 14;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 140;
   expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 63;
@@ -375,7 +352,7 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   expected_attrib_counts[BlockGraph::THUNK] = 6;
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
 #endif
-  EXPECT_THAT(expected_attrib_counts, ContainerEq(attrib_counts));
+  EXPECT_THAT(attrib_counts, ContainerEq(expected_attrib_counts));
 
   // The block with no private symbols should be marked as ERRORED_DISASSEMBLY,
   // and only have a single public symbol label.
