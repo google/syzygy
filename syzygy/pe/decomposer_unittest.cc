@@ -186,6 +186,16 @@ TEST_F(DecomposerTest, Decompose) {
 
   SectionCountMap expected_section_counts;
 #ifndef NDEBUG
+#ifdef _COVERAGE_BUILD
+  // Coverage build.
+  expected_section_counts[-1] = 2;
+  expected_section_counts[0] = 349;
+  expected_section_counts[1] = 468;
+  expected_section_counts[2] = 112;
+  expected_section_counts[3] = 1;
+  expected_section_counts[4] = 1;
+  expected_section_counts[5] = 2;
+#else
   // Debug build.
   expected_section_counts[-1] = 2;
   expected_section_counts[0] = 349;
@@ -194,6 +204,7 @@ TEST_F(DecomposerTest, Decompose) {
   expected_section_counts[3] = 1;
   expected_section_counts[4] = 1;
   expected_section_counts[5] = 2;
+#endif
 #else
   // Release build.
   expected_section_counts[-1] = 2;
@@ -208,9 +219,15 @@ TEST_F(DecomposerTest, Decompose) {
 
   BlockTypeCountMap expected_block_type_counts;
 #ifndef NDEBUG
+#ifdef _COVERAGE_BUILD
+  // Coverage build.
+  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 349;
+  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 586;
+#else
   // Debug build.
   expected_block_type_counts[BlockGraph::CODE_BLOCK] = 349;
   expected_block_type_counts[BlockGraph::DATA_BLOCK] = 585;
+#endif
 #else
   // Release build.
   expected_block_type_counts[BlockGraph::CODE_BLOCK] = 322;
@@ -311,6 +328,22 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   // Check the attribute counts.
   AttribCountMap expected_attrib_counts;
 #ifndef NDEBUG
+#ifdef _COVERAGE_BUILD
+  // Coverage build.
+  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 8;
+  expected_attrib_counts[BlockGraph::GAP_BLOCK] = 211;
+  expected_attrib_counts[BlockGraph::PE_PARSED] = 95;
+  expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 720;
+  expected_attrib_counts[BlockGraph::PADDING_BLOCK] = 211;
+  expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 15;
+  expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 142;
+  expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 68;
+  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 4;
+  expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 24;
+  expected_attrib_counts[BlockGraph::DISASSEMBLED_PAST_END] = 7;
+  expected_attrib_counts[BlockGraph::THUNK] = 6;
+  expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
+#else
   // Debug build.
   expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 8;
   expected_attrib_counts[BlockGraph::GAP_BLOCK] = 210;
@@ -325,6 +358,7 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   expected_attrib_counts[BlockGraph::DISASSEMBLED_PAST_END] = 7;
   expected_attrib_counts[BlockGraph::THUNK] = 6;
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
+#endif
 #else
   // Release build.
   expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 8;
