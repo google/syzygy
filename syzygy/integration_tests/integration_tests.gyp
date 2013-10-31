@@ -101,6 +101,11 @@
               # runtime library. Otherwise, memory allocation functions are
               # wrapped and hide memory bugs like overflow/underflow.
               'RuntimeLibrary':  '0', # 0 = /MT (nondebug static)
+              # Disable the iterator debugging for this project. We need to do
+              # this because we link against the release version of the C
+              # runtime library, and the iterator debugging relies on some
+              # functions present only in the debug version of the library.
+              'PreprocessorDefinitions': ['_HAS_ITERATOR_DEBUGGING=0'],
             },
           },
         },
