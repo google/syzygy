@@ -35,6 +35,9 @@ const char kUsageFormatStr[] =
     "  Options:\n"
     "    --basic-blocks        Reorder at the basic-block level. At present,\n"
     "                          this is only supported for random reorderings.\n"
+    "    --code-alignment=<integer>\n"
+    "                          Force a minimal alignment for code blocks.\n"
+    "                          Default value is 1.\n"
     "    --compress-pdb        If --no-augment-pdb is specified, causes the\n"
     "                          augmented PDB stream to be compressed.\n"
     "    --exclude-bb-padding  When randomly reordering basic blocks, exclude\n"
@@ -42,6 +45,7 @@ const char kUsageFormatStr[] =
     "                          output binary.\n"
     "    --input-pdb=<path>    The PDB file associated with the input DLL.\n"
     "                          Default is inferred from input-image.\n"
+    "    --new-decomposer      Use the new decomposer.\n"
     "    --no-augment-pdb      Indicates that the relinker should not augment\n"
     "                          the PDB with roundtrip decomposition info.\n"
     "    --no-metadata         Prevents the relinker from adding metadata\n"
@@ -54,13 +58,11 @@ const char kUsageFormatStr[] =
     "                          Default is inferred from output-image.\n"
     "    --overwrite           Allow output files to be overwritten.\n"
     "    --padding=<integer>   Add bytes of padding between blocks.\n"
-    "    --code-alignment=<integer>\n"
-    "                          Force a minimal alignment for code blocks.\n"
-    "                          Default value is 1.\n"
+    "    --verbose             Log verbosely.\n"
     "\n"
     "  Testing Options:\n"
-    "    --seed=<integer>      Randomly reorder based on the given seed.\n"
     "    --fuzz                Fuzz the binary.\n"
+    "    --seed=<integer>      Randomly reorder based on the given seed.\n"
     "\n"
     "  Deprecated Options:\n"
     "    --input-dll=<path>    Aliased to --input-image.\n"
@@ -91,6 +93,9 @@ void GuessPdbPath(const base::FilePath& module_path, base::FilePath* pdb_path) {
 }  // namespace
 
 bool RelinkApp::ParseCommandLine(const CommandLine* cmd_line) {
+  if (cmd_line->HasSwitch("help"))
+    return Usage(cmd_line, "");
+
   input_image_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("input-image"));
   if (cmd_line->HasSwitch("input-dll")) {
     if (input_image_path_.empty()) {
@@ -126,6 +131,7 @@ bool RelinkApp::ParseCommandLine(const CommandLine* cmd_line) {
   basic_blocks_ = cmd_line->HasSwitch("basic-blocks");
   exclude_bb_padding_ = cmd_line->HasSwitch("exclude-bb-padding");
   fuzz_ = cmd_line->HasSwitch("fuzz");
+  new_decomposer_ = cmd_line->HasSwitch("new-decomposer");
 
   // The --output-image argument is required.
   if (output_image_path_.empty()) {
@@ -167,6 +173,7 @@ bool RelinkApp::ParseCommandLine(const CommandLine* cmd_line) {
     if (code_alignment_ == 0)
       return Usage(cmd_line, "Code-alignment value cannot be zero.");
   }
+
   return true;
 }
 
@@ -204,6 +211,7 @@ int RelinkApp::Run() {
   relinker.set_augment_pdb(!no_augment_pdb_);
   relinker.set_compress_pdb(compress_pdb_);
   relinker.set_strip_strings(!no_strip_strings_);
+  relinker.set_use_new_decomposer(new_decomposer_);
 
   // Initialize the relinker. This does the decomposition, etc.
   if (!relinker.Init()) {

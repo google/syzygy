@@ -548,7 +548,9 @@ bool CreateReferencesFromFixupsImpl(
     ++fixups_used;
   }
 
-  LOG(INFO) << "Used " << fixups_used << " of " << pdb_fixups.size() << ".";
+  VLOG(1) << "Used " << fixups_used << " of " << pdb_fixups.size()
+          << " fixups (" << (pdb_fixups.size() - fixups_used)
+          << " unused).";
 
   return true;
 }
@@ -713,10 +715,10 @@ bool VisitNonControlFlowInstruction(const _DInst& instr,
         ref_it->second.base() != 0 &&
         (block->attributes() & BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER)) {
       block->set_attribute(BlockGraph::ERRORED_DISASSEMBLY);
-      LOG(WARNING) << "Found a non-control-flow code-block to "
-                   << "middle-of-code-block reference from "
-                   << BlockInfo(block, block_addr) << " to "
-                   << BlockInfo(ref_block) << ".";
+      VLOG(1) << "Found a non-control-flow code-block to "
+              << "middle-of-code-block reference from "
+              << BlockInfo(block, block_addr) << " to "
+              << BlockInfo(ref_block) << ".";
       return true;
     }
   }
@@ -770,11 +772,31 @@ bool VisitPcRelativeControlFlowInstruction(bool create_missing_refs,
     // block is not MSVC-like.
     if (size < Reference::kMaximumSize) {
       block->set_attribute(BlockGraph::ERRORED_DISASSEMBLY);
-      Offset offset_instr = instr_addr - block_addr;
-      LOG(WARNING) << "Found a " << size << "-byte PC-relative instruction to "
-                   << "an external " << abs_dst << " at offset "
-                   << offset_instr << " of " << BlockInfo(block, block_addr)
-                   << ".";
+
+      RelativeAddress block_rel_addr(block_addr.value() - image_addr.value());
+      Offset src_offset = instr_addr - block_addr;
+
+      // Look up the destination block. We expect this to be in the image.
+      Block* dst_block = image->GetContainingBlock(rel_dst, 1);
+      if (dst_block == NULL) {
+        LOG(ERROR) << "Found a " << size << "-byte PC-relative instruction "
+                   << "at offset " << src_offset << " of block "
+                   << BlockInfo(block, block_rel_addr)
+                   << " to an address " << rel_dst
+                   << " outside the image.";
+        return false;
+      }
+
+      // Give a detailed message about the location of the unexpected short
+      // PC-relative reference.
+      RelativeAddress dst_block_addr;
+      CHECK(image->GetAddressOf(dst_block, &dst_block_addr));
+      Offset dst_offset = rel_dst - dst_block_addr;
+      VLOG(1) << "Found a " << size << "-byte PC-relative instruction "
+              << "at offset " << src_offset << " of "
+              << BlockInfo(block, block_rel_addr)
+              << " to offset " << dst_offset << " of "
+              << BlockInfo(dst_block, dst_block_addr);
       return true;
     } else {
       // Long PC-relative references to other blocks should have been given to
@@ -1363,48 +1385,60 @@ bool NewDecomposer::DecomposeImpl() {
     IntermediateReferences references;
 
     // First we parse out the PE blocks.
+    VLOG(1) << "Parsing PE blocks.";
     if (!CreatePEImageBlocksAndReferences(&references))
       return false;
 
     // Now we parse the COFF group symbols from the linker's symbol stream.
     // These indicate things like static initializers, which must stay together
     // in a single block.
+    VLOG(1) << "Parsing COFF groups.";
     if (!CreateBlocksFromCoffGroups())
       return false;
 
     // Next we parse out section contributions. Some of these may coincide with
     // existing PE parsed blocks, but when they do we expect them to be exact
     // collisions.
+    VLOG(1) << "Parsing section contributions.";
     if (!CreateBlocksFromSectionContribs(dia_session.get()))
       return false;
 
     // Flesh out the rest of the image with gap blocks.
+    VLOG(1) << "Creating gap blocks.";
     if (!CreateGapBlocks())
       return false;
 
     // Finalize the PE-parsed intermediate references.
+    VLOG(1) << "Finalizing intermediate references.";
     if (!FinalizeIntermediateReferences(references))
       return false;
   }
 
   // Parse the fixups and use them to create references.
+  VLOG(1) << "Parsing fixups.";
   if (!CreateReferencesFromFixups(dia_session.get()))
     return false;
 
   // Disassemble code blocks and use the results to infer case and jump tables.
+  VLOG(1) << "Disassembling code blocks.";
   if (!DisassembleCodeBlocksAndLabelData())
     return false;
 
   // Annotate the block-graph with symbol information.
-  if (parse_debug_info_ && !ProcessSymbols(global.get()))
-    return false;
+  if (parse_debug_info_) {
+    VLOG(1) << "Parsing symbols.";
+    if (!ProcessSymbols(global.get()))
+      return false;
+  }
 
   // Now, find and label any padding blocks.
+  VLOG(1) << "Labeling padding blocks.";
   if (!FindPaddingBlocks(image_layout_))
     return false;
 
   // Set the alignment on code blocks with jump tables. This ensures that the
   // jump tables remain aligned post-transform.
+  VLOG(1) << "Calculating code block alignments.";
   if (!AlignCodeBlocksWithJumpTables(image_layout_))
     return false;
 
@@ -1499,13 +1533,13 @@ bool NewDecomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
     DWORD section_id = 0;
     BOOL code = FALSE;
     ScopedComPtr<IDiaSymbol> compiland;
-    ScopedBstr bstr_name;
+    ScopedBstr bstr_compiland_name;
     if ((hr = section_contrib->get_relativeVirtualAddress(&rva)) != S_OK ||
         (hr = section_contrib->get_length(&length)) != S_OK ||
         (hr = section_contrib->get_addressSection(&section_id)) != S_OK ||
         (hr = section_contrib->get_code(&code)) != S_OK ||
         (hr = section_contrib->get_compiland(compiland.Receive())) != S_OK ||
-        (hr = compiland->get_name(bstr_name.Receive())) != S_OK) {
+        (hr = compiland->get_name(bstr_compiland_name.Receive())) != S_OK) {
       LOG(ERROR) << "Failed to get section contribution properties: "
                  << com::LogHr(hr) << ".";
       return false;
@@ -1523,11 +1557,28 @@ bool NewDecomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
     if (section_id == rsrc_id)
       continue;
 
-    std::string name;
-    if (!WideToUTF8(bstr_name, bstr_name.Length(), &name)) {
+    std::string compiland_name;
+    if (!WideToUTF8(bstr_compiland_name, bstr_compiland_name.Length(),
+                    &compiland_name)) {
       LOG(ERROR) << "Failed to convert compiland name to UTF8.";
       return false;
     }
+
+    // Give a name to the block based on the basename of the object file. This
+    // will eventually be replaced by the full symbol name, if one exists for
+    // the block.
+    size_t last_component = compiland_name.find_last_of('\\');
+    size_t extension = compiland_name.find_last_of('.');
+    if (last_component == std::string::npos) {
+      last_component = 0;
+    } else {
+      // We don't want to include the last slash.
+      ++last_component;
+    }
+    if (extension > last_component)
+      extension = std::string::npos;
+    std::string name = compiland_name.substr(last_component, extension);
+    LOG(INFO) << "Using block name \"" << name << "\".";
 
     // TODO(chrisha): We see special section contributions with the name
     //     "* CIL *". These are concatenations of data symbols and can very
@@ -1540,12 +1591,13 @@ bool NewDecomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
     Block* block = CreateBlockOrFindCoveringPeBlock(
         block_type, RelativeAddress(rva), length, name);
     if (block == NULL) {
-      LOG(ERROR) << "Unable to create block for compiland \"" << name << "\".";
+      LOG(ERROR) << "Unable to create block for compiland \""
+                 << compiland_name << "\".";
       return false;
     }
 
     // Set the block compiland name.
-    block->set_compiland_name(name);
+    block->set_compiland_name(compiland_name);
 
     // Set the block attributes.
     block->set_attribute(BlockGraph::SECTION_CONTRIB);
