@@ -21,8 +21,10 @@
       'target_name': 'optimize_lib',
       'type': 'static_library',
       'sources': [
-        'optimize_app.h',
         'optimize_app.cc',
+        'optimize_app.h',
+        'application_profile.cc',
+        'application_profile.h',
         'transforms/inlining_transform.cc',
         'transforms/inlining_transform.h',
       ],
@@ -30,6 +32,7 @@
         '<(src)/base/base.gyp:base',
         '<(src)/sawbuck/common/common.gyp:common',
         '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/grinder/grinder.gyp:grinder_lib',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
         '<(src)/syzygy/pe/transforms/pe_transforms.gyp:pe_transforms_lib',
       ],
@@ -49,6 +52,7 @@
       'target_name': 'optimize_unittests',
       'type': 'executable',
       'sources': [
+        'application_profile_unittest.cc',
         'optimize_app_unittest.cc',
         'optimize_unittests_main.cc',
         'transforms/inlining_transform_unittest.cc',
