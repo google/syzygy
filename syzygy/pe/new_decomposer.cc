@@ -548,10 +548,6 @@ bool CreateReferencesFromFixupsImpl(
     ++fixups_used;
   }
 
-  VLOG(1) << "Used " << fixups_used << " of " << pdb_fixups.size()
-          << " fixups (" << (pdb_fixups.size() - fixups_used)
-          << " unused).";
-
   return true;
 }
 
@@ -618,13 +614,22 @@ scoped_refptr<pdb::PdbStream> GetLinkerSymbolStream(
     const pdb::PdbFile& pdb_file) {
   static const char kLinkerModuleName[] = "* Linker *";
 
-  scoped_refptr<pdb::PdbStream> dbi_stream =
+  // Get the DBI stream.
+  scoped_refptr<pdb::PdbStream> stream =
       pdb_file.GetStream(pdb::kDbiStream);
-  if (dbi_stream.get() == NULL) {
+  if (stream.get() == NULL) {
     LOG(ERROR) << "PDB does not contain a DBI stream.";
     return false;
   }
 
+  // Read the entire thing into memory before parsing it. This makes parsing
+  // much faster.
+  scoped_refptr<pdb::PdbByteStream> dbi_stream(new pdb::PdbByteStream());
+  if (!dbi_stream->Init(stream)) {
+    LOG(ERROR) << "Failed to read DBI stream.";
+  }
+
+  // Parse the DBI stream.
   pdb::DbiStream dbi;
   if (!dbi.Read(dbi_stream.get())) {
     LOG(ERROR) << "Unable to parse DBI stream.";
@@ -643,11 +648,17 @@ scoped_refptr<pdb::PdbStream> GetLinkerSymbolStream(
     return false;
   }
 
-  scoped_refptr<pdb::PdbStream> symbols = pdb_file.GetStream(
-      linker.module_info_base().stream);
-  if (symbols.get() == NULL) {
+  // Get the symbol stream.
+  stream = pdb_file.GetStream(linker.module_info_base().stream);
+  if (stream.get() == NULL) {
     LOG(ERROR) << "Unable to open linker symbol stream.";
     return false;
+  }
+
+  // Also read it entirely into memory for faster parsing.
+  scoped_refptr<pdb::PdbByteStream> symbols(new pdb::PdbByteStream());
+  if (!symbols->Init(stream)) {
+    LOG(ERROR) << "Failed to read linker symbol stream.";
   }
 
   return symbols;
@@ -1575,10 +1586,10 @@ bool NewDecomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
       // We don't want to include the last slash.
       ++last_component;
     }
-    if (extension > last_component)
-      extension = std::string::npos;
-    std::string name = compiland_name.substr(last_component, extension);
-    LOG(INFO) << "Using block name \"" << name << "\".";
+    if (extension < last_component)
+      extension = compiland_name.size();
+    std::string name = compiland_name.substr(last_component,
+                                             extension - last_component);
 
     // TODO(chrisha): We see special section contributions with the name
     //     "* CIL *". These are concatenations of data symbols and can very
