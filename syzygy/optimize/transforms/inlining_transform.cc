@@ -24,12 +24,13 @@
 //     - No branching instructions (except the last return).
 //     - No basic blocks reference, data block, jump-table, etc...
 //  Example:
-//     - XOR EAX, EAX
-//       RET
+//     - xor eax, eax
+//       ret
 
 #include "syzygy/optimize/transforms/inlining_transform.h"
 
 #include "syzygy/block_graph/basic_block.h"
+#include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/block_graph/block_graph.h"
 // TODO(etienneb): liveness analysis internal should be hoisted to an
@@ -44,14 +45,37 @@ namespace transforms {
 namespace {
 
 using block_graph::BasicBlock;
+using block_graph::BasicBlockAssembler;
 using block_graph::BasicBlockDecomposer;
 using block_graph::BasicBlockReference;
 using block_graph::BasicCodeBlock;
+using block_graph::Immediate;
 using block_graph::Instruction;
 using block_graph::Successor;
 using block_graph::analysis::LivenessAnalysis;
 
 typedef Instruction::BasicBlockReferenceMap BasicBlockReferenceMap;
+
+// These patterns are often produced by the MSVC compiler. They're common enough
+// that the inlining transformation matches them by pattern rather than
+// disassembling them.
+
+// ret
+const uint8 kEmptyBody1[] = { 0xC3 };
+
+// push %ebp
+// mov %ebp, %esp
+// pop %ebp
+// ret
+const uint8 kEmptyBody2[] = { 0x55, 0x8B, 0xEC, 0x5D, 0xC3 };
+
+// push %ebp
+// mov %ebp, %esp
+// mov %eax, [%ebp + 0x4]
+// pop %ebp
+// ret
+const uint8 kGetProgramCounter[] = {
+    0x55, 0x8B, 0xEC, 0x8B, 0x45, 0x04, 0x5D, 0xC3 };
 
 // Match a call instruction to a direct callee (i.e. no indirect calls).
 bool MatchDirectCall(const Instruction& instr, BlockGraph::Block** callee) {
@@ -65,14 +89,91 @@ bool MatchDirectCall(const Instruction& instr, BlockGraph::Block** callee) {
     return false;
   }
 
-  // The callee must be a code block.
+  // The callee must be the beginning of a code block.
   const BasicBlockReference& ref = instr.references().begin()->second;
   BlockGraph::Block* block = ref.block();
-  if (block == NULL || block->type() != BlockGraph::CODE_BLOCK)
+  if (block == NULL ||
+      ref.base() != 0 ||
+      ref.offset() != 0 ||
+      block->type() != BlockGraph::CODE_BLOCK) {
     return false;
+  }
 
   // Returns the matched callee.
   *callee = block;
+  return true;
+}
+
+bool MatchRawBytes(BlockGraph::Block* callee,
+                   const uint8* bytes,
+                   size_t length) {
+  if (callee->size() != length ||
+      ::memcmp(callee->data(), bytes, length) != 0) {
+    return false;
+  }
+
+  return true;
+}
+
+bool MatchGetProgramCounter(BlockGraph::Block* callee) {
+  size_t length = sizeof(kGetProgramCounter);
+  if (MatchRawBytes(callee, kGetProgramCounter, length))
+    return true;
+
+  return false;
+}
+
+bool MatchEmptyBody(BlockGraph::Block* callee) {
+  size_t length1 = sizeof(kEmptyBody1);
+  if (MatchRawBytes(callee, kEmptyBody1, length1))
+    return true;
+
+  size_t length2 = sizeof(kEmptyBody2);
+  if (MatchRawBytes(callee, kEmptyBody2, length2))
+    return true;
+
+  return false;
+}
+
+// Match trampoline body in a subgraph. It consist of a jump to a block.
+bool MatchTrampolineBody(const BasicBlockSubGraph& subgraph,
+                         BasicBlockReference* target) {
+  DCHECK_NE(reinterpret_cast<BasicBlockReference*>(NULL), target);
+
+  // Trampoline must have one basic block.
+  if (subgraph.basic_blocks().size() != 1)
+    return false;
+
+  // The basic block must be empty and must have one JMP successor.
+  BasicCodeBlock* bb = BasicCodeBlock::Cast(*subgraph.basic_blocks().begin());
+  if (bb == NULL ||
+      !bb->instructions().empty() ||
+      bb->successors().size() != 1 ||
+      bb->successors().front().condition() != Successor::kConditionTrue) {
+    return false;
+  }
+
+  // Must match a valid reference to a block.
+  const Successor& succ = bb->successors().front();
+  const BasicBlockReference& reference = succ.reference();
+  if (reference.block() == NULL)
+    return false;
+
+  // Returns the matched block.
+  *target = reference;
+  return true;
+}
+
+// Generate a call to the trampoline destination.
+bool InlineTrampolineBody(const BasicBlockReference& trampoline,
+                          BasicBlock::Instructions::iterator target,
+                          BasicBlock::Instructions* instructions) {
+  DCHECK_NE(reinterpret_cast<BasicBlock::Instructions*>(NULL), instructions);
+
+  BasicBlockAssembler assembler(target, instructions);
+  assembler.call(
+      Immediate(trampoline.block(), trampoline.offset(), trampoline.base()));
+
   return true;
 }
 
@@ -141,20 +242,6 @@ bool MatchTrivialBody(const BasicBlockSubGraph& subgraph,
   return true;
 }
 
-// Decompose a block to a subgraph.
-bool DecomposeToBasicBlock(const BlockGraph::Block* block,
-                           BasicBlockSubGraph* subgraph) {
-  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), block);
-  DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), subgraph);
-
-  // Decompose block to basic blocks.
-  BasicBlockDecomposer decomposer(block, subgraph);
-  if (!decomposer.Decompose())
-    return false;
-
-  return true;
-}
-
 // Copy the body of the callee at a call-site in the caller.
 bool InlineTrivialBody(const BasicCodeBlock* body,
                        BasicBlock::Instructions::iterator target,
@@ -182,6 +269,20 @@ bool InlineTrivialBody(const BasicCodeBlock* body,
 
   // Insert the inlined instructions at the call-site.
   instructions->splice(target, new_body);
+  return true;
+}
+
+// Decompose a block to a subgraph.
+bool DecomposeToBasicBlock(const BlockGraph::Block* block,
+                           BasicBlockSubGraph* subgraph) {
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), block);
+  DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), subgraph);
+
+  // Decompose block to basic blocks.
+  BasicBlockDecomposer decomposer(block, subgraph);
+  if (!decomposer.Decompose())
+    return false;
+
   return true;
 }
 
@@ -231,14 +332,35 @@ bool InliningTransform::TransformBasicBlockSubGraph(
         continue;
       }
 
+      if (MatchEmptyBody(callee)) {
+          // Body is empty, remove call-site.
+          bb->instructions().erase(call_iter);
+          continue;
+      }
+
+      if (MatchGetProgramCounter(callee)) {
+        // TODO(etienneb): Implement Get Program Counter with a fixup.
+        continue;
+      }
+
       // For a small callee, try to replace callee instructions in-place.
       // Add one byte to take into account the return instruction.
       if (callee->size() <= instr.size() + 1) {
         BasicBlockSubGraph callee_subgraph;
-        BasicCodeBlock* body;
+        BasicCodeBlock* body = NULL;
+        BasicBlockReference target;
 
-        if (DecomposeToBasicBlock(callee, &callee_subgraph) &&
-            MatchTrivialBody(callee_subgraph, &body) &&
+        if (!DecomposeToBasicBlock(callee, &callee_subgraph))
+          continue;
+
+        if (MatchTrampolineBody(callee_subgraph, &target) &&
+            InlineTrampolineBody(target, call_iter, &bb->instructions())) {
+          // Inlining successful, remove call-site.
+          bb->instructions().erase(call_iter);
+          continue;
+        }
+
+        if (MatchTrivialBody(callee_subgraph, &body) &&
             InlineTrivialBody(body, call_iter, &bb->instructions())) {
           // Inlining successful, remove call-site.
           bb->instructions().erase(call_iter);

@@ -37,12 +37,29 @@ using block_graph::BasicBlockSubGraph;
 using block_graph::BlockBuilder;
 using block_graph::Immediate;
 using block_graph::Instruction;
+using block_graph::Successor;
 using testing::ElementsAreArray;
 
 typedef block_graph::BasicBlockSubGraph::BasicCodeBlock BasicCodeBlock;
 
+// This enum is used to drive the contents of the callee.
+enum CalleeKind {
+  // Block DirectTrampoline
+  //   dummy: jmp target
+  kDirectTrampoline,
+  // Block RecursiveTrampoline
+  //   dummy: jmp dummy
+  kRecursiveTrampoline,
+};
+
 // _asm ret
 const uint8 kCodeRet[] = { 0xC3 };
+
+// _asm push ebp
+// _asm mov ebp, esp
+// _asm pop ebp
+// _asm ret
+const uint8 kCodeEmpty[] = { 0x55, 0x8B, 0xEC, 0x5D, 0xC3 };
 
 // _asm ret8
 const uint8 kCodeRetWithOffset[] = { 0xC2, 0x08, 0x00 };
@@ -106,6 +123,9 @@ class InliningTransformTest : public testing::Test {
   void AddBlockFromBuffer(const uint8* data,
                           size_t length,
                           BlockGraph::Block** block);
+  void CreateCalleeBlock(CalleeKind kind,
+                         BlockGraph::Block* target,
+                         BlockGraph::Block** callee);
   void CreateCallSiteToBlock(BlockGraph::Block* callee);
   void ApplyTransformOnCaller();
   void SaveCaller();
@@ -115,6 +135,7 @@ class InliningTransformTest : public testing::Test {
   BlockGraph::Block* caller_;
   BlockGraph::Block* callee_;
   std::vector<uint8> original_;
+  BasicBlockSubGraph callee_subgraph_;
 };
 
 void InliningTransformTest::AddBlockFromBuffer(const uint8* data,
@@ -125,6 +146,51 @@ void InliningTransformTest::AddBlockFromBuffer(const uint8* data,
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), *block);
   (*block)->SetData(data, length);
 }
+
+// Produce a callee block. The content of the body is determined by |kind|.
+void InliningTransformTest::CreateCalleeBlock(CalleeKind kind,
+                                              BlockGraph::Block* target,
+                                              BlockGraph::Block** callee) {
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block**>(NULL), callee);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), *callee);
+
+  // Decompose to subgraph.
+  BasicBlockSubGraph subgraph;
+  BasicBlockDecomposer decomposer(*callee, &subgraph);
+  ASSERT_TRUE(decomposer.Decompose());
+
+  // Retrieve the single basic block.
+  ASSERT_EQ(1U, subgraph.basic_blocks().size());
+  BasicCodeBlock* code = BasicCodeBlock::Cast(*subgraph.basic_blocks().begin());
+  DCHECK_NE(reinterpret_cast<BasicCodeBlock*>(NULL), code);
+
+  // Clear instructions and open an assembler at the start of the basic block.
+  BasicBlock::Instructions& instructions = code->instructions();
+  instructions.clear();
+  BasicBlockAssembler assembler(instructions.begin(), &instructions);
+
+  switch (kind) {
+    case kRecursiveTrampoline:
+      assembler.jmp(Immediate(code));
+      break;
+    case kDirectTrampoline: {
+      Successor successor(
+          Successor::kConditionTrue,
+          BasicBlockReference(BlockGraph::PC_RELATIVE_REF, 4, target, 0, 0),
+          4);
+      code->successors().push_back(successor);
+      break;
+    }
+    default:
+      NOTREACHED() << "Invalid callee kind.";
+  }
+
+  // Rebuild block.
+  BlockBuilder builder(&block_graph_);
+  ASSERT_TRUE(builder.Merge(&subgraph));
+  CHECK_EQ(1u, builder.new_blocks().size());
+  *callee = *builder.new_blocks().begin();
+};
 
 void InliningTransformTest::CreateCallSiteToBlock(BlockGraph::Block* callee) {
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), caller_);
@@ -229,6 +295,15 @@ TEST_F(InliningTransformTest, InlineTrivialRet42) {
   EXPECT_THAT(kCodeRet42, ElementsAreArray(callee_->data(), callee_->size()));
 }
 
+TEST_F(InliningTransformTest, InlineEmptyBody) {
+  ASSERT_NO_FATAL_FAILURE(
+      AddBlockFromBuffer(kCodeEmpty, sizeof(kCodeEmpty), &callee_));
+  ASSERT_NO_FATAL_FAILURE(CreateCallSiteToBlock(callee_));
+  ASSERT_NO_FATAL_FAILURE(ApplyTransformOnCaller());
+
+  EXPECT_THAT(kCodeRet, ElementsAreArray(caller_->data(), caller_->size()));
+}
+
 TEST_F(InliningTransformTest, InlineTrivialTwoCalls) {
   BlockGraph::Block* callee1 = NULL;
   BlockGraph::Block* callee2 = NULL;
@@ -245,7 +320,7 @@ TEST_F(InliningTransformTest, InlineTrivialTwoCalls) {
 
   // Expect both calls to be inlined and instructions to be in the right order.
   EXPECT_THAT(kCodeRetBoth,
-              ElementsAreArray(caller_->data(), caller_->size()));
+    ElementsAreArray(caller_->data(), caller_->size()));
 }
 
 TEST_F(InliningTransformTest, DontInlineReturnWithOffset) {
@@ -358,6 +433,50 @@ TEST_F(InliningTransformTest, DontInlineCalleePolicy) {
 
   // Cannot inline exception handling. (i.e. policy handling).
   EXPECT_THAT(original_, ElementsAreArray(caller_->data(), caller_->size()));
+}
+
+TEST_F(InliningTransformTest, DontInfiniteLoopOnSelfTrampoline) {
+  ASSERT_NO_FATAL_FAILURE(
+      AddBlockFromBuffer(kCodeRet, sizeof(kCodeRet), &callee_));
+  ASSERT_NO_FATAL_FAILURE(
+      CreateCalleeBlock(kRecursiveTrampoline, callee_, &callee_));
+  ASSERT_NO_FATAL_FAILURE(CreateCallSiteToBlock(callee_));
+  ASSERT_NO_FATAL_FAILURE(ApplyTransformOnCaller());
+}
+
+TEST_F(InliningTransformTest, InlineTrampolineToCode) {
+  BlockGraph::Block* dummy = NULL;
+  ASSERT_NO_FATAL_FAILURE(
+      AddBlockFromBuffer(kCodeRet42, sizeof(kCodeRet42), &dummy));
+  ASSERT_NO_FATAL_FAILURE(
+      AddBlockFromBuffer(kCodeRet, sizeof(kCodeRet), &callee_));
+  ASSERT_NO_FATAL_FAILURE(
+      CreateCalleeBlock(kDirectTrampoline, dummy, &callee_));
+  ASSERT_NO_FATAL_FAILURE(CreateCallSiteToBlock(callee_));
+  ASSERT_NO_FATAL_FAILURE(ApplyTransformOnCaller());
+
+  // Validate that the reference from caller is to dummy.
+  ASSERT_EQ(1U, callee_->references().size());
+  BlockGraph::Reference reference = callee_->references().begin()->second;
+  EXPECT_EQ(dummy, reference.referenced());
+}
+
+TEST_F(InliningTransformTest, InlineTrampolineToData) {
+  BlockGraph::Block* dummy =
+        block_graph_.AddBlock(BlockGraph::DATA_BLOCK, sizeof(kCodeRet0), "d1");
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), dummy);
+  dummy->SetData(kCodeRet0, sizeof(kCodeRet0));
+  ASSERT_NO_FATAL_FAILURE(
+      AddBlockFromBuffer(kCodeRet, sizeof(kCodeRet), &callee_));
+  ASSERT_NO_FATAL_FAILURE(
+      CreateCalleeBlock(kDirectTrampoline, dummy, &callee_));
+  ASSERT_NO_FATAL_FAILURE(CreateCallSiteToBlock(callee_));
+  ASSERT_NO_FATAL_FAILURE(ApplyTransformOnCaller());
+
+  // Validate that the reference from caller is still to callee.
+  ASSERT_EQ(1U, callee_->references().size());
+  BlockGraph::Reference reference = callee_->references().begin()->second;
+  EXPECT_EQ(dummy, reference.referenced());
 }
 
 }  // namespace transforms
