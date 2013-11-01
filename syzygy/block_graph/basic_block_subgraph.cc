@@ -381,6 +381,9 @@ bool BasicBlockSubGraph::ToString(std::string* buf) const {
         out << succ->ToString()
             << " bb" << succ->reference().basic_block()->offset()
             << "  ";
+      } else if (succ->reference().block()) {
+        out << succ->ToString()
+            << " <" << succ->reference().block()->name() << ">  ";
       } else {
         out << "<*>  ";
       }
