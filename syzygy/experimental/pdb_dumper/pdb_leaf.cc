@@ -134,7 +134,7 @@ void DumpMemberAttributeField(FILE* out,
   DumpIndentedText(out, indent_level, "Access attribute:\n");
   switch (attribute.access) {
     case LeafMemberAttributeField::no_access_protection:
-      DumpIndentedText(out, indent_level + 1, "No access protection\n");
+      DumpIndentedText(out, indent_level + 1, "no access protection\n");
       break;
     case LeafMemberAttributeField::private_access:
       DumpIndentedText(out, indent_level + 1, "private\n");

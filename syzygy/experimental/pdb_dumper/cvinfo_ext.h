@@ -26,6 +26,7 @@
 namespace Microsoft_Cci_Pdb {
 
 // Symbols that are not in the enum in the cv_info file.
+const uint16 S_COMPILE3 = 0x113C;
 const uint16 S_MSTOOLENV_V3 = 0x113D;
 
 }  // namespace Microsoft_Cci_Pdb
@@ -46,8 +47,8 @@ const uint16 S_MSTOOLENV_V3 = 0x113D;
     decl(S_LDATA32_ST, Unknown) \
     decl(S_GDATA32_ST, Unknown) \
     decl(S_PUB32_ST, Unknown) \
-    decl(S_LPROC32_ST, Unknown) \
-    decl(S_GPROC32_ST, Unknown) \
+    decl(S_LPROC32_ST, ProcSym32) \
+    decl(S_GPROC32_ST, ProcSym32) \
     decl(S_VFTABLE32, VpathSym32) \
     decl(S_REGREL32_ST, Unknown) \
     decl(S_LTHREAD32_ST, Unknown) \
@@ -138,7 +139,7 @@ const uint16 S_MSTOOLENV_V3 = 0x113D;
     decl(S_CALLSITEINFO, CallsiteInfo) \
     decl(S_FRAMECOOKIE, FrameCookie) \
     decl(S_DISCARDED, DiscardedSym) \
-    decl(S_RECTYPE_MAX, Unknown) \
+    decl(S_COMPILE3, CompileSym2) \
     decl(S_MSTOOLENV_V3, Unknown)
 
 // This macro allows the easy construction of switch statements over the
@@ -366,13 +367,13 @@ const uint16 S_MSTOOLENV_V3 = 0x113D;
     decl(T_32PBOOL64) \
     decl(T_64PBOOL64)
 
+// All of the data structures below need to have tight alignment so that they
+// can be overlaid directly onto byte streams.
+#pragma pack(push, 1)
+
 // This structure represent a bitfields for a leaf member attribute field as
 // it is describet in the document "Microsoft Symbol and Type Information". Here
 // is the bit format:
-// access      :2 Specifies the access protection of the item
-//             0 No access protection
-//             1 Private
-//             2 Protected
 // mprop       :3 Specifies the properties for methods
 //             0 Vanilla method
 //             1 Virtual method
@@ -387,7 +388,9 @@ const uint16 S_MSTOOLENV_V3 = 0x113D;
 // noconstruct :1 True if the class cannot be constructed
 // reserved    :8
 union LeafMemberAttributeField {
-  enum accessProtection {
+  // This is effectively the same as CV_access_e in cvconst.h, but with a value
+  // defined for 0.
+  enum AccessProtection {
     no_access_protection = 0,
     private_access = 1,
     protected_access = 2,
@@ -395,8 +398,8 @@ union LeafMemberAttributeField {
   };
   uint16 raw;
   struct {
-    uint16 access      : 2;
-    uint16 mprop       : 3;
+    uint16 access      : 2;  // Of type AccessProtection.
+    uint16 mprop       : 3;  // Of type CV_methodprop.
     uint16 pseudo      : 1;
     uint16 noinherit   : 1;
     uint16 noconstruct : 1;
@@ -442,5 +445,69 @@ union LeafModifierAttribute {
 // We coerce a stream of bytes to this structure, so we require it to be
 // exactly 2 bytes in size.
 COMPILE_ASSERT_IS_POD_OF_SIZE(LeafModifierAttribute, 2);
+
+// This defines flags used in compiland details. See COMPILANDSYM_FLAGS for
+// detail.
+union CompileSymFlags {
+  uint32 raw;
+  struct {
+    // Language index. See CV_CFL_LANG.
+    uint16 iLanguage : 8;
+    // Compiled with edit and continue support.
+    uint16 fEC : 1;
+    // Not compiled with debug info.
+    uint16 fNoDbgInfo : 1;
+    // Compiled with LTCG.
+    uint16 fLTCG : 1;
+    // Compiled with -Bzalign.
+    uint16 fNoDataAlign : 1;
+    // Managed code/data present.
+    uint16 fManagedPresent : 1;
+    // Compiled with /GS.
+    uint16 fSecurityChecks : 1;
+    // Compiled with /hotpatch.
+    uint16 fHotPatch : 1;
+    // Converted with CVTCIL.
+    uint16 fCVTCIL : 1;
+    // MSIL netmodule
+    uint16 fMSILModule : 1;
+    uint16 reserved : 15;
+  };
+};
+// We coerce a stream of bytes to this structure, so we require it to be
+// exactly 4 bytes in size.
+COMPILE_ASSERT_IS_POD_OF_SIZE(CompileSymFlags, 4);
+
+// This is a new compiland details symbol type seen in MSVS 2010 and later.
+struct CompileSym2 {
+  // uint16 reclen;  // Record length.
+  // uint16 rectyp;  // S_COMPILE3.
+  CompileSymFlags flags;
+  // Target processor. See CV_CPU_TYPE_e enum.
+  uint16 machine;
+  // Front-end major version number.
+  uint16 verFEMajor;
+  // Front-end minor version number.
+  uint16 verFEMinor;
+  // Front-end build version number.
+  uint16 verFEBuild;
+  // Front-end revision number.
+  uint16 verFERevision;
+  // Back-end major version number.
+  uint16 verMajor;
+  // Back-end minor version number.
+  uint16 verMinor;
+  // Back-end build version number.
+  uint16 verBuild;
+  // Back-end revision number.
+  uint16 verRevision;
+  // Zero-terminated compiler version string. This is followed by zero or more
+  // zero-terminated strings 'verArgs'. The whole list is terminated by an
+  // empty verArg string (a double-zero).
+  char verSt[1];
+};
+COMPILE_ASSERT_IS_POD_OF_SIZE(CompileSym2, 23);
+
+#pragma pack(pop)
 
 #endif  // SYZYGY_EXPERIMENTAL_PDB_DUMPER_CVINFO_EXT_H_

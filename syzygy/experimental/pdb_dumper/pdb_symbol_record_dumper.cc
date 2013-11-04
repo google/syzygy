@@ -168,8 +168,15 @@ bool DumpObjNameSym(FILE* out,
                     PdbStream* stream,
                     uint16 len,
                     uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this symbol.
-  return false;
+  DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
+  DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
+  cci::ObjNameSym sym = {};
+  std::string name;
+  if (!ReadSymbolAndName(stream, len, &sym, &name))
+    return false;
+  DumpIndentedText(out, indent_level, "Signature: 0x%08X\n", sym.signature);
+  DumpIndentedText(out, indent_level, "Name     : %s\n", name.c_str());
+  return true;
 }
 
 bool DumpThunkSym32(FILE* out,
@@ -279,8 +286,40 @@ bool DumpProcSym32(FILE* out,
                    PdbStream* stream,
                    uint16 len,
                    uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this symbol.
-  return false;
+  DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
+  DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
+  cci::ProcSym32 sym = {};
+  std::string name;
+  if (!ReadSymbolAndName(stream, len, &sym, &name))
+    return false;
+  DumpIndentedText(out, indent_level, "Parent     : 0x%08X\n", sym.parent);
+  DumpIndentedText(out, indent_level, "End        : 0x%08X\n", sym.end);
+  DumpIndentedText(out, indent_level, "Next       : 0x%08X\n", sym.next);
+  DumpIndentedText(out, indent_level, "Length     : %d\n", sym.len);
+  DumpIndentedText(out, indent_level, "Debug start: %d\n", sym.dbgStart);
+  DumpIndentedText(out, indent_level, "Debug end  : %d\n", sym.dbgEnd);
+  DumpIndentedText(out, indent_level, "Type index : 0x%08X\n", sym.typind);
+  DumpIndentedText(out, indent_level, "Offset     : 0x%08X\n", sym.off);
+  DumpIndentedText(out, indent_level, "Segment    : %d\n", sym.seg);
+  DumpIndentedText(out, indent_level, "Flags:\n");
+  DumpIndentedText(out, indent_level + 1, "No FPO              : %d\n",
+                   (sym.flags & cci::CV_PFLAG_NOFPO) > 0);
+  DumpIndentedText(out, indent_level + 1, "Interrupt return    : %d\n",
+                   (sym.flags & cci::CV_PFLAG_INT) > 0);
+  DumpIndentedText(out, indent_level + 1, "Far return          : %d\n",
+                   (sym.flags & cci::CV_PFLAG_FAR) > 0);
+  DumpIndentedText(out, indent_level + 1, "No return           : %d\n",
+                   (sym.flags & cci::CV_PFLAG_NEVER) > 0);
+  DumpIndentedText(out, indent_level + 1, "Not reached         : %d\n",
+                   (sym.flags & cci::CV_PFLAG_NOTREACHED) > 0);
+  DumpIndentedText(out, indent_level + 1, "Custom call         : %d\n",
+                   (sym.flags & cci::CV_PFLAG_CUST_CALL) > 0);
+  DumpIndentedText(out, indent_level + 1, "No inline           : %d\n",
+                   (sym.flags & cci::CV_PFLAG_NOINLINE) > 0);
+  DumpIndentedText(out, indent_level + 1, "Optimized debug info: %d\n",
+                   (sym.flags & cci::CV_PFLAG_OPTDBGINFO) > 0);
+  DumpIndentedText(out, indent_level, "Name: %s\n", name.c_str());
+  return true;
 }
 
 bool DumpRegRel32(FILE* out,
@@ -314,12 +353,130 @@ bool DumpProcSymMips(FILE* out,
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
+
+bool DumpCompileSymFlags(FILE* out,
+                         const CompileSymFlags& flags,
+                         uint8 indent_level) {
+  DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
+  DumpIndentedText(out, indent_level, "Flags:\n");
+  DumpIndentedText(out, indent_level + 1, "Language         : %d\n",
+                   flags.iLanguage);
+  DumpIndentedText(out, indent_level + 1, "Edit and continue: %d\n",
+                   flags.fEC);
+  DumpIndentedText(out, indent_level + 1, "No debug info    : %d\n",
+                   flags.fNoDbgInfo);
+  DumpIndentedText(out, indent_level + 1, "LTCG             : %d\n",
+                   flags.fLTCG);
+  DumpIndentedText(out, indent_level + 1, "No data aling    : %d\n",
+                   flags.fNoDataAlign);
+  DumpIndentedText(out, indent_level + 1, "Managed present  : %d\n",
+                   flags.fManagedPresent);
+  DumpIndentedText(out, indent_level + 1, "Security checks  : %d\n",
+                   flags.fSecurityChecks);
+  DumpIndentedText(out, indent_level + 1, "Hot patch        : %d\n",
+                   flags.fHotPatch);
+  return true;
+}
+
+// Dumps a CompileSym or a CompileSym2. Care must be taken to ensure that
+// |CompileSymType| and |symbol_version| agree.
+template <typename CompileSymType>
+bool DumpCompileSymImpl(FILE* out,
+                        PdbStream* stream,
+                        uint16 len,
+                        uint8 indent_level,
+                        int symbol_version) {
+  DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
+  DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
+
+  std::vector<char> data(len, 0);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(data.data(), len, &bytes_read) ||
+      bytes_read != len) {
+    return false;
+  }
+
+  // Dump the flags. These are the same in both structures.
+  const CompileSymFlags* cf =
+      reinterpret_cast<const CompileSymFlags*>(data.data());
+  if (!DumpCompileSymFlags(out, *cf, indent_level))
+    return false;
+
+  // Dump the rest of the fields.
+  const CompileSymType* cs =
+      reinterpret_cast<const CompileSymType*>(data.data());
+  const CompileSym2* cs2 =
+      reinterpret_cast<const CompileSym2*>(data.data());
+  DumpIndentedText(out, indent_level, "Machine                : %d\n",
+                   cs->machine);
+  DumpIndentedText(out, indent_level, "Front-end major version: %d\n",
+                   cs->verFEMajor);
+  DumpIndentedText(out, indent_level, "Front-end minor version: %d\n",
+                   cs->verFEMinor);
+  DumpIndentedText(out, indent_level, "Front-end build number : %d\n",
+                   cs->verFEBuild);
+  if (symbol_version == 2) {
+    DumpIndentedText(out, indent_level, "Front-end revision     : %d\n",
+                     cs2->verFERevision);
+  }
+  DumpIndentedText(out, indent_level, "Back-end major version : %d\n",
+                   cs->verMajor);
+  DumpIndentedText(out, indent_level, "Back-end minor version : %d\n",
+                   cs->verMinor);
+  DumpIndentedText(out, indent_level, "Back-end build number  : %d\n",
+                   cs->verBuild);
+  if (symbol_version == 2) {
+    DumpIndentedText(out, indent_level, "Back-end revision      : %d\n",
+                     cs2->verRevision);
+  }
+
+  size_t version_string = offsetof(CompileSymType, verSt);
+
+  // Dump the compiler version string.
+  const char* str = data.data() + version_string;
+  size_t max_len = data.size() - version_string;
+  size_t str_len = ::strnlen(str, max_len);
+  DumpIndentedText(out, indent_level, "Version string         : %.*s\n",
+                   str_len, str);
+  str += str_len + 1;
+  max_len -= str_len + 1;
+
+  // Dump any arguments.
+  if (max_len > 0 && str[0] != 0) {
+    DumpIndentedText(out, indent_level, "Version string arguments:\n");
+    size_t i = 0;
+    while (str[0] != NULL) {
+      str_len = ::strnlen(str, max_len);
+      DumpIndentedText(out, indent_level + 1, "%d: %.*s\n", i, str);
+      ++i;
+      str += str_len + 1;
+      max_len -= str_len + 1;
+    }
+  }
+
+  return true;
+}
+
 bool DumpCompileSym(FILE* out,
                     PdbStream* stream,
                     uint16 len,
                     uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this symbol.
-  return false;
+  DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
+  DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
+  if (!DumpCompileSymImpl<cci::CompileSym>(out, stream, len, indent_level, 1))
+    return false;
+  return true;
+}
+
+bool DumpCompileSym2(FILE* out,
+                     PdbStream* stream,
+                     uint16 len,
+                     uint8 indent_level) {
+  DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
+  DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
+  if (!DumpCompileSymImpl<CompileSym2>(out, stream, len, indent_level, 2))
+    return false;
+  return true;
 }
 
 bool DumpManyRegSym2(FILE* out,
@@ -535,8 +692,10 @@ bool DumpDiscardedSym(FILE* out,
 bool DumpUnknown(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {
   if (len == 0)
     return true;
-  DumpIndentedText(out, indent_level, "Unsupported symbol type. Data:\n");
-  return DumpUnknownBlock(out, stream, len, indent_level + 1);
+  DumpIndentedText(out, indent_level, "Unsupported symbol type.\n");
+  DumpIndentedText(out, indent_level + 1, "Length: %d\n", len);
+  DumpIndentedText(out, indent_level + 1, "Data:\n");
+  return DumpUnknownBlock(out, stream, len, indent_level + 2);
 }
 
 }  //  namespace
@@ -560,14 +719,16 @@ void DumpSymbolRecords(FILE* out,
     if (symbol_type_text != NULL) {
       DumpIndentedText(out,
                        indent_level,
-                       "Symbol Type: 0x%04X %s\n",
+                       "Symbol Type: 0x%04X %s (offset 0x%08X)\n",
                        symbol_iter->type,
-                       symbol_type_text);
+                       symbol_type_text,
+                       symbol_iter->start_position - 4);
     } else {
       DumpIndentedText(out,
                        indent_level,
-                       "Unknown symbol Type: 0x%04X\n",
-                       symbol_iter->type);
+                       "Unknown symbol Type: 0x%04X (offset 0x%08X)\n",
+                       symbol_iter->type,
+                       symbol_iter->start_position - 4);
     }
     bool success = false;
     switch (symbol_iter->type) {
