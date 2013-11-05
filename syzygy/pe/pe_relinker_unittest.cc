@@ -144,12 +144,6 @@ TEST_F(PERelinkerTest, Properties) {
   relinker.set_compress_pdb(false);
   EXPECT_FALSE(relinker.compress_pdb());
 
-  EXPECT_TRUE(relinker.parse_debug_info());
-  relinker.set_parse_debug_info(false);
-  EXPECT_FALSE(relinker.parse_debug_info());
-  relinker.set_parse_debug_info(true);
-  EXPECT_TRUE(relinker.parse_debug_info());
-
   EXPECT_FALSE(relinker.strip_strings());
   relinker.set_strip_strings(true);
   EXPECT_TRUE(relinker.strip_strings());
@@ -359,7 +353,6 @@ TEST_F(PERelinkerTest, IdentityRelinkNewDecomposer) {
 
   relinker.set_input_path(input_dll_);
   relinker.set_output_path(temp_dll_);
-  relinker.set_parse_debug_info(false);
   relinker.set_use_new_decomposer(true);
 
   // We let the relinker infer the PDB output. The mechanism should cause it

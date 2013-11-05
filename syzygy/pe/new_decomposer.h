@@ -67,16 +67,6 @@ class NewDecomposer {
   // @param pdb_path the path to the PDB file to be used in decomposing the
   //     image.
   void set_pdb_path(const base::FilePath& pdb_path) { pdb_path_ = pdb_path; }
-
-  // Sets whether or not debug information is parsed. If true then the
-  // decomposed block-graph will be decorated with extensive debug information.
-  // If false then a functionally equivalent but undecorated decomposition
-  // will be created. Defaults to true.
-  // @param parse_debug_info controls whether or not debug information will
-  //     be parsed.
-  void set_parse_debug_info(bool parse_debug_info) {
-    parse_debug_info_ = parse_debug_info;
-  }
   // @}
 
   // @name Accessors
@@ -86,8 +76,6 @@ class NewDecomposer {
   // decomposition.
   // @returns the PDB path.
   const base::FilePath& pdb_path() const { return pdb_path_; }
-  // @returns true if the decomposed block-graph will contain debug information.
-  bool parse_debug_info() const { return parse_debug_info_; }
   // @}
 
  protected:
@@ -127,13 +115,13 @@ class NewDecomposer {
   bool FinalizeIntermediateReferences(const IntermediateReferences& references);
   // Creates inter-block references from fixups.
   bool CreateReferencesFromFixups(IDiaSession* session);
-  // Disassembles code blocks and labels jump and case tables.
-  bool DisassembleCodeBlocksAndLabelData();
+  // Disassembles code blocks.
+  // TODO(chrisha): Remove this in favor of using BasicBlockDecomposer.
+  bool DisassembleCodeBlocks();
   // Processes symbols from the PDB, setting block names and labels. This
   // step is purely optional and only necessary to provide debug information.
   // This adds names to blocks, adds code labels and their names, and adds
-  // more informative names to data labels. Only called if parse_debug_info_
-  // is true.
+  // more informative names to data labels.
   bool ProcessSymbols(IDiaSymbol* root);
   // @}
 
@@ -214,10 +202,6 @@ class NewDecomposer {
   const PEFile& image_file_;
   // The path to corresponding PDB file.
   base::FilePath pdb_path_;
-  // Controls whether or not debug information is added to the decomposed
-  // image. If this is false then a completely functional but non-decorated
-  // decomposition will be created.
-  bool parse_debug_info_;
 
   // @name Temporaries that are only valid while inside DecomposeImpl.
   //     Prevents us from having to pass these around everywhere.

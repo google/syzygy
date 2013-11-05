@@ -380,7 +380,6 @@ bool DecomposeImageToTextApp::DumpImageToText(
  if (use_new_decomposer_) {
     LOG(INFO) << "Using new decomposer for decomposition.";
     NewDecomposer decomposer(image_file);
-    decomposer.set_parse_debug_info(true);
     if (!decomposer.Decompose(&image_layout)) {
       LOG(ERROR) << "Unable to decompose image \""
           << image_path.value() << "\".";

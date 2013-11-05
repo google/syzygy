@@ -34,7 +34,6 @@ class TestCoverageInstrumenter : public CoverageInstrumenter {
   using CoverageInstrumenter::allow_overwrite_;
   using CoverageInstrumenter::new_decomposer_;
   using CoverageInstrumenter::no_augment_pdb_;
-  using CoverageInstrumenter::no_parse_debug_info_;
   using CoverageInstrumenter::no_strip_strings_;
   using CoverageInstrumenter::debug_friendly_;
   using CoverageInstrumenter::kAgentDllCoverage;
@@ -127,7 +126,6 @@ TEST_F(CoverageInstrumenterTest, ParseMinimalCoverage) {
   EXPECT_FALSE(instrumenter_.allow_overwrite_);
   EXPECT_FALSE(instrumenter_.new_decomposer_);
   EXPECT_FALSE(instrumenter_.no_augment_pdb_);
-  EXPECT_FALSE(instrumenter_.no_parse_debug_info_);
   EXPECT_FALSE(instrumenter_.no_strip_strings_);
   EXPECT_FALSE(instrumenter_.debug_friendly_);
 }
@@ -139,7 +137,6 @@ TEST_F(CoverageInstrumenterTest, ParseFullCoverage) {
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
   cmd_line_.AppendSwitch("new-decomposer");
   cmd_line_.AppendSwitch("no-augment-pdb");
-  cmd_line_.AppendSwitch("no-parse-debug-info");
   cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitch("overwrite");
@@ -154,7 +151,6 @@ TEST_F(CoverageInstrumenterTest, ParseFullCoverage) {
   EXPECT_TRUE(instrumenter_.allow_overwrite_);
   EXPECT_TRUE(instrumenter_.new_decomposer_);
   EXPECT_TRUE(instrumenter_.no_augment_pdb_);
-  EXPECT_TRUE(instrumenter_.no_parse_debug_info_);
   EXPECT_TRUE(instrumenter_.no_strip_strings_);
   EXPECT_TRUE(instrumenter_.debug_friendly_);
 }

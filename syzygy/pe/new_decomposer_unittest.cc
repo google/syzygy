@@ -81,13 +81,9 @@ TEST_F(NewDecomposerTest, MutatorsAndAccessors) {
 
   NewDecomposer decomposer(image_file);
   EXPECT_TRUE(decomposer.pdb_path().empty());
-  EXPECT_TRUE(decomposer.parse_debug_info());
 
   decomposer.set_pdb_path(pdb_path);
   EXPECT_EQ(pdb_path, decomposer.pdb_path());
-
-  decomposer.set_parse_debug_info(false);
-  EXPECT_FALSE(decomposer.parse_debug_info());
 }
 
 TEST_F(NewDecomposerTest, Decompose) {
@@ -389,6 +385,7 @@ TEST_F(NewDecomposerTest, LabelsAndAttributes) {
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 720;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 15;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 142;
+  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 8;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 24;
   expected_attrib_counts[BlockGraph::THUNK] = 6;
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
@@ -399,6 +396,7 @@ TEST_F(NewDecomposerTest, LabelsAndAttributes) {
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 665;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 14;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 140;
+  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 8;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 22;
   expected_attrib_counts[BlockGraph::THUNK] = 6;
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
@@ -406,30 +404,13 @@ TEST_F(NewDecomposerTest, LabelsAndAttributes) {
   EXPECT_THAT(attrib_counts, ContainerEq(expected_attrib_counts));
 
   // The block with no private symbols should only have a single public symbol
-  // label, and an inferred jump and case table.
-#ifndef NDEBUG
-  // Debug build.
-  const BlockGraph::Offset kJumpOffset = 212;
-  const BlockGraph::Offset kCaseOffset = 240;
-#else
-  // Release build.
-  const BlockGraph::Offset kJumpOffset = 140;
-  const BlockGraph::Offset kCaseOffset = 168;
-#endif
+  // label.
   ASSERT_FALSE(no_private_symbols_block == NULL);
-  EXPECT_EQ(3u, no_private_symbols_block->labels().size());
+  EXPECT_EQ(1u, no_private_symbols_block->labels().size());
   BlockGraph::Block::LabelMap::const_iterator label_it =
       no_private_symbols_block->labels().begin();
   EXPECT_EQ(0, label_it->first);
   EXPECT_EQ(BlockGraph::PUBLIC_SYMBOL_LABEL, label_it->second.attributes());
-  ++label_it;
-  EXPECT_EQ(kJumpOffset, label_it->first);
-  EXPECT_EQ(BlockGraph::DATA_LABEL | BlockGraph::JUMP_TABLE_LABEL,
-            label_it->second.attributes());
-  ++label_it;
-  EXPECT_EQ(kCaseOffset, label_it->first);
-  EXPECT_EQ(BlockGraph::DATA_LABEL | BlockGraph::CASE_TABLE_LABEL,
-            label_it->second.attributes());
 
   // The imp_load block should be a thunk.
   ASSERT_NE(0UL, imp_load_block->attributes() & BlockGraph::THUNK);

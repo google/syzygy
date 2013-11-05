@@ -38,7 +38,6 @@ class InstrumenterWithAgent : public InstrumenterInterface {
         debug_friendly_(false),
         new_decomposer_(false),
         no_augment_pdb_(false),
-        no_parse_debug_info_(false),
         no_strip_strings_(false) {
   }
 
@@ -111,7 +110,6 @@ class InstrumenterWithAgent : public InstrumenterInterface {
   bool debug_friendly_;
   bool new_decomposer_;
   bool no_augment_pdb_;
-  bool no_parse_debug_info_;
   bool no_strip_strings_;
   // @}
 

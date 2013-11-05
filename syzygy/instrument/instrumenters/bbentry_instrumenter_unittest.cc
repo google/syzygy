@@ -34,7 +34,6 @@ class TestBasicBlockEntryInstrumenter : public BasicBlockEntryInstrumenter {
   using BasicBlockEntryInstrumenter::allow_overwrite_;
   using BasicBlockEntryInstrumenter::new_decomposer_;
   using BasicBlockEntryInstrumenter::no_augment_pdb_;
-  using BasicBlockEntryInstrumenter::no_parse_debug_info_;
   using BasicBlockEntryInstrumenter::no_strip_strings_;
   using BasicBlockEntryInstrumenter::inline_fast_path_;
   using BasicBlockEntryInstrumenter::debug_friendly_;
@@ -128,7 +127,6 @@ TEST_F(BasicBlockEntryInstrumenterTest, ParseMinimalBasicBlockEntry) {
   EXPECT_FALSE(instrumenter_.allow_overwrite_);
   EXPECT_FALSE(instrumenter_.new_decomposer_);
   EXPECT_FALSE(instrumenter_.no_augment_pdb_);
-  EXPECT_FALSE(instrumenter_.no_parse_debug_info_);
   EXPECT_FALSE(instrumenter_.no_strip_strings_);
   EXPECT_FALSE(instrumenter_.debug_friendly_);
   EXPECT_FALSE(instrumenter_.inline_fast_path_);
@@ -141,7 +139,6 @@ TEST_F(BasicBlockEntryInstrumenterTest, ParseFullBasicBlockEntry) {
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
   cmd_line_.AppendSwitch("new-decomposer");
   cmd_line_.AppendSwitch("no-augment-pdb");
-  cmd_line_.AppendSwitch("no-parse-debug-info");
   cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitch("inline-fast-path");
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
@@ -158,7 +155,6 @@ TEST_F(BasicBlockEntryInstrumenterTest, ParseFullBasicBlockEntry) {
   EXPECT_TRUE(instrumenter_.new_decomposer_);
   EXPECT_TRUE(instrumenter_.inline_fast_path_);
   EXPECT_TRUE(instrumenter_.no_augment_pdb_);
-  EXPECT_TRUE(instrumenter_.no_parse_debug_info_);
   EXPECT_TRUE(instrumenter_.no_strip_strings_);
   EXPECT_TRUE(instrumenter_.debug_friendly_);
 }

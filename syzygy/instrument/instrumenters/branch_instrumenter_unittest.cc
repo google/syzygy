@@ -36,7 +36,6 @@ class TestBranchInstrumenter : public BranchInstrumenter {
   using BranchInstrumenter::allow_overwrite_;
   using BranchInstrumenter::new_decomposer_;
   using BranchInstrumenter::no_augment_pdb_;
-  using BranchInstrumenter::no_parse_debug_info_;
   using BranchInstrumenter::no_strip_strings_;
   using BranchInstrumenter::debug_friendly_;
   using BranchInstrumenter::buffering_;
@@ -133,7 +132,6 @@ TEST_F(BranchInstrumenterTest, ParseMinimalBranch) {
   EXPECT_FALSE(instrumenter_.allow_overwrite_);
   EXPECT_FALSE(instrumenter_.new_decomposer_);
   EXPECT_FALSE(instrumenter_.no_augment_pdb_);
-  EXPECT_FALSE(instrumenter_.no_parse_debug_info_);
   EXPECT_FALSE(instrumenter_.no_strip_strings_);
   EXPECT_FALSE(instrumenter_.debug_friendly_);
   EXPECT_FALSE(instrumenter_.buffering_);
@@ -149,7 +147,6 @@ TEST_F(BranchInstrumenterTest, ParseFullBranch) {
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
   cmd_line_.AppendSwitch("new-decomposer");
   cmd_line_.AppendSwitch("no-augment-pdb");
-  cmd_line_.AppendSwitch("no-parse-debug-info");
   cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitch("overwrite");
@@ -166,7 +163,6 @@ TEST_F(BranchInstrumenterTest, ParseFullBranch) {
   EXPECT_TRUE(instrumenter_.allow_overwrite_);
   EXPECT_TRUE(instrumenter_.new_decomposer_);
   EXPECT_TRUE(instrumenter_.no_augment_pdb_);
-  EXPECT_TRUE(instrumenter_.no_parse_debug_info_);
   EXPECT_TRUE(instrumenter_.no_strip_strings_);
   EXPECT_TRUE(instrumenter_.debug_friendly_);
   EXPECT_TRUE(instrumenter_.buffering_);

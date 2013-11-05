@@ -737,8 +737,7 @@ bool VisitNonControlFlowInstruction(const _DInst& instr,
   return true;
 }
 
-bool VisitPcRelativeControlFlowInstruction(bool create_missing_refs,
-                                           const _DInst& instr,
+bool VisitPcRelativeControlFlowInstruction(const _DInst& instr,
                                            AbsoluteAddress image_addr,
                                            AbsoluteAddress block_addr,
                                            AbsoluteAddress instr_addr,
@@ -833,11 +832,6 @@ bool VisitPcRelativeControlFlowInstruction(bool create_missing_refs,
     }
   }
 
-  // Create the missing reference if need be. These are found by basic-block
-  // disassembly so aren't strictly needed, but are useful debug information.
-  if (!create_missing_refs)
-    return true;
-
   Offset offset_dst = rel_dst - dst_block_addr;
   Reference ref(BlockGraph::PC_RELATIVE_REF, size, dst_block, offset_dst,
                 offset_dst);
@@ -846,8 +840,7 @@ bool VisitPcRelativeControlFlowInstruction(bool create_missing_refs,
   return true;
 }
 
-bool VisitInstruction(bool create_missing_refs,
-                      const _DInst& instr,
+bool VisitInstruction(const _DInst& instr,
                       AbsoluteAddress image_addr,
                       AbsoluteAddress block_addr,
                       AbsoluteAddress instr_addr,
@@ -870,18 +863,17 @@ bool VisitInstruction(bool create_missing_refs,
 
   if ((fc == FC_UNC_BRANCH || fc == FC_CALL || fc == FC_CND_BRANCH) &&
       instr.ops[0].type == O_PC) {
-    return VisitPcRelativeControlFlowInstruction(create_missing_refs,
+    return VisitPcRelativeControlFlowInstruction(
         instr, image_addr, block_addr, instr_addr, image, block);
   }
 
   return true;
 }
 
-bool DisassembleCodeBlockAndLabelData(bool create_missing_refs,
-                                      AbsoluteAddress image_addr,
-                                      AbsoluteAddress block_addr,
-                                      BlockGraph::AddressSpace* image,
-                                      Block* block) {
+bool DisassembleCodeBlock(AbsoluteAddress image_addr,
+                          AbsoluteAddress block_addr,
+                          BlockGraph::AddressSpace* image,
+                          Block* block) {
   DCHECK_NE(reinterpret_cast<BlockGraph::AddressSpace*>(NULL), image);
   DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
   DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
@@ -943,10 +935,8 @@ bool DisassembleCodeBlockAndLabelData(bool create_missing_refs,
     // Visit the instruction itself. This validates that the instruction is of
     // a type we expect to encounter, and may also cause internal references to
     // be created.
-    if (!VisitInstruction(create_missing_refs, inst, image_addr, block_addr,
-                          addr, image, block)) {
+    if (!VisitInstruction(inst, image_addr, block_addr, addr, image, block))
       return false;
-    }
 
     // Step past the instruction.
     addr += inst.size;
@@ -977,54 +967,19 @@ bool DisassembleCodeBlockAndLabelData(bool create_missing_refs,
     }
   }
 
-  // If we get here then we've encountered data. We need to label data
-  // sections as appropriate.
-
-  bool data_label_added = false;
-  Offset end_of_code_offset = offset;
-
-  std::set<Offset>::const_iterator off_it = self_refs.begin();
-  for (; off_it != self_refs.end(); ++off_it) {
-    Offset referred_offset = *off_it;
-
-    // References to data must be beyond the decoded instructions.
-    if (referred_offset < end_of_code_offset)
-      continue;
-
-    // Determine if this offset points at another reference.
-    bool ref_at_offset = false;
-    if (ref_it != ref_map.end()) {
-      // Step past any references.
-      while (ref_it != ref_map.end() && ref_it->first < referred_offset)
-        ++ref_it;
-
-      // Stop the disassembly if the next byte is data. Namely, it coincides
-      // with a reference.
-      if (ref_it->first == referred_offset)
-        ref_at_offset = true;
-    }
-
-    // Build and set the data label.
-    BlockGraph::LabelAttributes attr = BlockGraph::DATA_LABEL;
-    const char* name = NULL;
-    if (ref_at_offset) {
-      name = kJumpTable;
-      attr |= BlockGraph::JUMP_TABLE_LABEL;
-    } else {
-      name = kCaseTable;
-      attr |= BlockGraph::CASE_TABLE_LABEL;
-    }
-    if (!AddLabelToBlock(referred_offset, name, attr, block))
-      return false;
-    data_label_added = true;
-  }
-
-  if (!data_label_added) {
-    block->set_attribute(BlockGraph::ERRORED_DISASSEMBLY);
-    VLOG(1) << "Disassembled into data but found no references to it for "
-            << BlockInfo(block, block_addr) << ".";
+  // If we get here then we've encountered data. If there's a data label then
+  // all is well.
+  BlockGraph::Label label;
+  if (block->GetLabel(offset, &label) &&
+      (label.attributes() & BlockGraph::DATA_LABEL) != 0) {
     return true;
   }
+
+  // Otherwise, we've apparently disassembled into data that we've not been
+  // informed of. Mark the block as dirty and move on.
+  block->set_attribute(BlockGraph::ERRORED_DISASSEMBLY);
+  VLOG(1) << "Disassembled into unlabeled data at offset " << offset << " of "
+          << BlockInfo(block, block_addr) << ".";
 
   return true;
 }
@@ -1203,8 +1158,8 @@ struct NewDecomposer::VisitLinkerSymbolContext {
 };
 
 NewDecomposer::NewDecomposer(const PEFile& image_file)
-    : image_file_(image_file), parse_debug_info_(true), image_layout_(NULL),
-      image_(NULL), current_block_(NULL), current_scope_count_(0) {
+    : image_file_(image_file), image_layout_(NULL), image_(NULL),
+      current_block_(NULL), current_scope_count_(0) {
 }
 
 bool NewDecomposer::Decompose(ImageLayout* image_layout) {
@@ -1430,17 +1385,15 @@ bool NewDecomposer::DecomposeImpl() {
   if (!CreateReferencesFromFixups(dia_session.get()))
     return false;
 
-  // Disassemble code blocks and use the results to infer case and jump tables.
+  // Disassemble code blocks.
   VLOG(1) << "Disassembling code blocks.";
-  if (!DisassembleCodeBlocksAndLabelData())
+  if (!DisassembleCodeBlocks())
     return false;
 
   // Annotate the block-graph with symbol information.
-  if (parse_debug_info_) {
-    VLOG(1) << "Parsing symbols.";
-    if (!ProcessSymbols(global.get()))
-      return false;
-  }
+  VLOG(1) << "Parsing symbols.";
+  if (!ProcessSymbols(global.get()))
+    return false;
 
   // Now, find and label any padding blocks.
   VLOG(1) << "Labeling padding blocks.";
@@ -1670,7 +1623,7 @@ bool NewDecomposer::FinalizeIntermediateReferences(
   return true;
 }
 
-bool NewDecomposer::DisassembleCodeBlocksAndLabelData() {
+bool NewDecomposer::DisassembleCodeBlocks() {
   DCHECK_NE(reinterpret_cast<BlockGraph::AddressSpace*>(NULL), image_);
 
   const Block* dos_header_block =
@@ -1699,8 +1652,7 @@ bool NewDecomposer::DisassembleCodeBlocksAndLabelData() {
       continue;
 
     AbsoluteAddress abs_addr(image_base + it->first.start().value());
-    if (!DisassembleCodeBlockAndLabelData(
-        parse_debug_info_, image_base, abs_addr, image_, block)) {
+    if (!DisassembleCodeBlock(image_base, abs_addr, image_, block)) {
       return false;
     }
   }

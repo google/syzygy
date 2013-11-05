@@ -64,7 +64,6 @@ class TestInstrumenterWithAgent : public InstrumenterWithAgent {
   using InstrumenterWithAgent::allow_overwrite_;
   using InstrumenterWithAgent::new_decomposer_;
   using InstrumenterWithAgent::no_augment_pdb_;
-  using InstrumenterWithAgent::no_parse_debug_info_;
   using InstrumenterWithAgent::no_strip_strings_;
 
   TestInstrumenterWithAgent() {
@@ -202,7 +201,6 @@ TEST_F(InstrumenterWithAgentTest, ParseInputImages) {
   EXPECT_FALSE(instrumenter.allow_overwrite_);
   EXPECT_FALSE(instrumenter.new_decomposer_);
   EXPECT_FALSE(instrumenter.no_augment_pdb_);
-  EXPECT_FALSE(instrumenter.no_parse_debug_info_);
   EXPECT_FALSE(instrumenter.no_strip_strings_);
 }
 

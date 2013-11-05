@@ -187,7 +187,6 @@ bool InitializePaths(const base::FilePath& input_path,
 
 // Decomposes the module enclosed by the given PE file.
 bool Decompose(bool use_new_decomposer,
-               bool parse_debug_info,
                const PEFile& pe_file,
                const base::FilePath& pdb_path,
                ImageLayout* image_layout,
@@ -203,11 +202,8 @@ bool Decompose(bool use_new_decomposer,
   // Decompose the input image.
   if (use_new_decomposer) {
     LOG(INFO) << "Using new decomposer for decomposition.";
-    if (!parse_debug_info)
-      LOG(INFO) << "Not parsing debug information.";
     NewDecomposer decomposer(pe_file);
     decomposer.set_pdb_path(pdb_path);
-    decomposer.set_parse_debug_info(parse_debug_info);
     if (!decomposer.Decompose(&orig_image_layout)) {
       LOG(ERROR) << "Unable to decompose module: " << pe_file.path().value();
       return false;
@@ -603,9 +599,8 @@ bool WriteSyzygyBlockGraphStream(const PEFile& pe_file,
 PERelinker::PERelinker(const PETransformPolicy* transform_policy)
     : PECoffRelinker(transform_policy),
       add_metadata_(true), augment_pdb_(true),
-      compress_pdb_(false), parse_debug_info_(true), strip_strings_(false),
-      use_new_decomposer_(false), padding_(0), code_alignment_(1),
-      output_guid_(GUID_NULL) {
+      compress_pdb_(false), strip_strings_(false), use_new_decomposer_(false),
+      padding_(0), code_alignment_(1), output_guid_(GUID_NULL) {
   DCHECK(transform_policy != NULL);
 }
 
@@ -650,8 +645,7 @@ bool PERelinker::Init() {
   }
 
   // Decompose the image.
-  if (!Decompose(use_new_decomposer_, parse_debug_info_,
-                 input_pe_file_, input_pdb_path_,
+  if (!Decompose(use_new_decomposer_, input_pe_file_, input_pdb_path_,
                  &input_image_layout_, &headers_block_)) {
     return false;
   }

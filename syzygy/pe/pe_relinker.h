@@ -115,7 +115,6 @@ class PERelinker : public PECoffRelinker {
   bool add_metadata() const { return add_metadata_; }
   bool augment_pdb() const { return augment_pdb_; }
   bool compress_pdb() const { return compress_pdb_; }
-  bool parse_debug_info() const { return parse_debug_info_; }
   bool strip_strings() const { return strip_strings_; }
   bool use_new_decomposer() const { return use_new_decomposer_; }
   size_t padding() const { return padding_; }
@@ -138,9 +137,6 @@ class PERelinker : public PECoffRelinker {
   }
   void set_compress_pdb(bool compress_pdb) {
     compress_pdb_ = compress_pdb;
-  }
-  void set_parse_debug_info(bool parse_debug_info) {
-    parse_debug_info_ = parse_debug_info;
   }
   void set_strip_strings(bool strip_strings) {
     strip_strings_ = strip_strings;
@@ -208,9 +204,6 @@ class PERelinker : public PECoffRelinker {
   // If true, then the augmented PDB stream will be compressed as it is written.
   // Defaults to false.
   bool compress_pdb_;
-  // If true, then the decomposition will parse full symbol information.
-  // Defaults to true.
-  bool parse_debug_info_;
   // If true, strings associated with a block-graph will not be serialized into
   // the PDB. Defaults to false.
   bool strip_strings_;
