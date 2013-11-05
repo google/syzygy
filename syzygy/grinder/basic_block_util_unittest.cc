@@ -14,11 +14,13 @@
 
 #include "syzygy/grinder/basic_block_util.h"
 
+#include "base/files/scoped_temp_dir.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/grinder/grinder.h"
+#include "syzygy/grinder/indexed_frequency_data_serializer.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/unittest_util.h"
 
@@ -175,6 +177,72 @@ TEST(GrinderBasicBlockUtilTest, FindEntryCountVector) {
   EXPECT_FALSE(
       FindIndexedFrequencyInfo(signature, module_count_map, &count_map));
   EXPECT_EQ(NULL, count_map);
+}
+
+TEST(GrinderBasicBlockUtilTest, LoadBranchStatisticsFromFileFailed) {
+  // A temporary directory into which temp files will be written.
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+
+  // Create a prototype module info structure.
+  ModuleInformation module_info;
+  EXPECT_NO_FATAL_FAILURE(PopulateModuleInformation(&module_info));
+  pe::PEFile::Signature signature(module_info);
+
+  // Validate non existing file is reported.
+  IndexedFrequencyMap frequencies;
+  base::FilePath invalid_path(L"this_file_doesnt_exists");
+  EXPECT_FALSE(
+      LoadBranchStatisticsFromFile(invalid_path, signature, &frequencies));
+
+  // Validate invalid file format is reported.
+  base::FilePath empty_file;
+  ASSERT_TRUE(
+      file_util::CreateTemporaryFileInDir(temp_dir.path(), &empty_file));
+  EXPECT_FALSE(
+      LoadBranchStatisticsFromFile(empty_file, signature, &frequencies));
+
+  // Serialize to a file without any module.
+  base::FilePath temp_file;
+  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir.path(), &temp_file));
+  ModuleIndexedFrequencyMap modules;
+  IndexedFrequencyDataSerializer serializer;
+  ASSERT_TRUE(serializer.SaveAsJson(modules, temp_file));
+
+  // Expect to not find the module with the current signature.
+  EXPECT_FALSE(
+      LoadBranchStatisticsFromFile(temp_file, signature, &frequencies));
+}
+
+TEST(GrinderBasicBlockUtilTest, LoadBranchStatisticsFromFile) {
+  // A temporary directory into which temp files will be written.
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+
+  // Create a prototype module info structure.
+  ModuleInformation module_info;
+  EXPECT_NO_FATAL_FAILURE(PopulateModuleInformation(&module_info));
+  pe::PEFile::Signature signature(module_info);
+
+  // Populate module information.
+  ModuleIndexedFrequencyMap modules;
+  IndexedFrequencyInformation information;
+  information.data_type = common::IndexedFrequencyData::BRANCH;
+  information.frequency_size = 4;
+  information.num_columns = 3;
+  information.num_entries = 0;
+  modules[module_info] = information;
+
+  // Serialize to a file.
+  base::FilePath temp_file;
+  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir.path(), &temp_file));
+  IndexedFrequencyDataSerializer serializer;
+  ASSERT_TRUE(serializer.SaveAsJson(modules, temp_file));
+
+  // Expect to find the module with the current signature.
+  IndexedFrequencyMap frequencies;
+  EXPECT_TRUE(
+      LoadBranchStatisticsFromFile(temp_file, signature, &frequencies));
 }
 
 TEST(GrinderBasicBlockUtilTest, LoadBasicBlockRanges) {

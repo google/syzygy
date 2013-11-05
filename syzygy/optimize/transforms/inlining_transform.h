@@ -24,6 +24,7 @@
 #include "syzygy/block_graph/transform_policy.h"
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
+#include "syzygy/optimize/application_profile.h"
 
 namespace optimize {
 namespace transforms {
@@ -35,7 +36,9 @@ class InliningTransform
     : public block_graph::transforms::NamedBasicBlockSubGraphTransformImpl<
           InliningTransform> {
  public:
-  InliningTransform() {}
+  // Constructor.
+  // @param profile Application profile information.
+  explicit InliningTransform(ApplicationProfile* profile);
 
   // @name BasicBlockSubGraphTransformInterface implementation.
   // @{
@@ -47,6 +50,9 @@ class InliningTransform
 
   // The transform name.
   static const char kTransformName[];
+
+ protected:
+  ApplicationProfile* profile_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(InliningTransform);

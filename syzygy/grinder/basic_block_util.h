@@ -105,6 +105,16 @@ bool FindIndexedFrequencyInfo(
     const ModuleIndexedFrequencyMap& module_entry_map,
     const IndexedFrequencyInformation** information);
 
+// A helper function to populate @p frequencies from a branching file for a
+// given module signature.
+// @param file the file containing branching information.
+// @param signature the signature of the module to retrieve.
+// @param frequencies receives the module branch frequencies.
+// @returns true on success, false otherwise.
+bool LoadBranchStatisticsFromFile(const base::FilePath& file,
+                                  const pe::PEFile::Signature& signature,
+                                  IndexedFrequencyMap* frequencies);
+
 // A helper function to populate @p bb_ranges from the PDB file given by
 // @p pdb_path.
 // @returns true on success, false otherwise.

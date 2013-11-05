@@ -23,6 +23,7 @@
 #include "syzygy/block_graph/block_builder.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/block_graph/unittest_util.h"
+#include "syzygy/optimize/application_profile.h"
 #include "syzygy/pe/pe_transform_policy.h"
 
 namespace optimize {
@@ -41,6 +42,7 @@ using block_graph::Successor;
 using testing::ElementsAreArray;
 
 typedef block_graph::BasicBlockSubGraph::BasicCodeBlock BasicCodeBlock;
+typedef pe::ImageLayout ImageLayout;
 
 // This enum is used to drive the contents of the callee.
 enum CalleeKind {
@@ -107,9 +109,22 @@ const uint8 kCodeIndirectCall[] = { 0xFF, 0x55, 0xF8, 0xC3 };
 // _asm jmp [eax]
 const uint8 kCodeJmpSucessor[] = { 0xFF, 0x65, 0xF8 };
 
+class TestInliningTransform : public InliningTransform {
+ public:
+  explicit TestInliningTransform(ApplicationProfile* profile)
+      : InliningTransform(profile) {
+  }
+
+  using InliningTransform::profile_;
+};
+
 class InliningTransformTest : public testing::Test {
  public:
-  InliningTransformTest() : caller_(NULL), callee_(NULL) {
+  InliningTransformTest()
+      : caller_(NULL),
+        callee_(NULL),
+        image_(&block_graph_),
+        profile_(&image_) {
   }
 
   virtual void SetUp() {
@@ -136,6 +151,8 @@ class InliningTransformTest : public testing::Test {
   BlockGraph::Block* callee_;
   std::vector<uint8> original_;
   BasicBlockSubGraph callee_subgraph_;
+  ImageLayout image_;
+  ApplicationProfile profile_;
 };
 
 void InliningTransformTest::AddBlockFromBuffer(const uint8* data,
@@ -235,7 +252,7 @@ void InliningTransformTest::ApplyTransformOnCaller() {
   ASSERT_TRUE(decomposer.Decompose());
 
   // Apply inlining transform.
-  InliningTransform tx;
+  InliningTransform tx(&profile_);
   ASSERT_TRUE(
       tx.TransformBasicBlockSubGraph(&policy_, &block_graph_, &subgraph));
 
@@ -249,8 +266,9 @@ void InliningTransformTest::ApplyTransformOnCaller() {
 }  // namespace
 
 TEST_F(InliningTransformTest, NameAccessor) {
-  InliningTransform tx;
+  TestInliningTransform tx(&profile_);
   EXPECT_STREQ("InlineBasicBlockTransform", tx.name());
+  EXPECT_EQ(&profile_, tx.profile_);
 }
 
 TEST_F(InliningTransformTest, PreTransformValidation) {

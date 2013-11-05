@@ -21,6 +21,7 @@
 #include <functional>
 
 #include "syzygy/common/indexed_frequency_data.h"
+#include "syzygy/grinder/indexed_frequency_data_serializer.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/find.h"
@@ -91,6 +92,41 @@ bool FindIndexedFrequencyInfo(
 
   // Return the entry counts that were found.
   *information = result;
+  return true;
+}
+
+bool LoadBranchStatisticsFromFile(const base::FilePath& file,
+                                  const pe::PEFile::Signature& signature,
+                                  IndexedFrequencyMap* frequencies) {
+  DCHECK(!file.empty());
+  DCHECK_NE(reinterpret_cast<IndexedFrequencyMap*>(NULL), frequencies);
+
+  // Load profile information from JSON file.
+  ModuleIndexedFrequencyMap module_entry_count_map;
+  IndexedFrequencyDataSerializer serializer;
+  if (!serializer.LoadFromJson(file, &module_entry_count_map)) {
+    LOG(ERROR) << "Failed to load profile information.";
+    return false;
+  }
+
+  // Retrieve the module with the right signature.
+  const IndexedFrequencyInformation* branch_statistics = NULL;
+  if (!FindIndexedFrequencyInfo(signature,
+                                module_entry_count_map,
+                                &branch_statistics)) {
+    LOG(ERROR) << "Failed to find module for '"
+               << signature.path << "'.";
+    return false;
+  }
+  DCHECK_NE(reinterpret_cast<const IndexedFrequencyInformation*>(NULL),
+            branch_statistics);
+
+  // Validate that the data is in the expected format.
+  DCHECK_EQ(3U, branch_statistics->num_columns);
+  DCHECK_EQ(common::IndexedFrequencyData::BRANCH, branch_statistics->data_type);
+  DCHECK_EQ(4U, branch_statistics->frequency_size);
+
+  *frequencies = branch_statistics->frequency_map;
   return true;
 }
 

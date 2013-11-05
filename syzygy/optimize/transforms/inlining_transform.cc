@@ -54,6 +54,7 @@ using block_graph::Instruction;
 using block_graph::Successor;
 using block_graph::analysis::LivenessAnalysis;
 
+typedef ApplicationProfile::BlockProfile BlockProfile;
 typedef Instruction::BasicBlockReferenceMap BasicBlockReferenceMap;
 
 // These patterns are often produced by the MSVC compiler. They're common enough
@@ -289,6 +290,11 @@ bool DecomposeToBasicBlock(const BlockGraph::Block* block,
 }  // namespace
 
 const char InliningTransform::kTransformName[] = "InlineBasicBlockTransform";
+
+InliningTransform::InliningTransform(ApplicationProfile* profile)
+    : profile_(profile) {
+  DCHECK_NE(reinterpret_cast<ApplicationProfile*>(NULL), profile);
+}
 
 bool InliningTransform::TransformBasicBlockSubGraph(
     const TransformPolicyInterface* policy,

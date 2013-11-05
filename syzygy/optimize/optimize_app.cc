@@ -18,6 +18,9 @@
 #include "syzygy/block_graph/transforms/chained_basic_block_transforms.h"
 #include "syzygy/block_graph/transforms/fuzzing_transform.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
+#include "syzygy/common/indexed_frequency_data.h"
+#include "syzygy/grinder/basic_block_util.h"
+#include "syzygy/optimize/application_profile.h"
 #include "syzygy/optimize/transforms/inlining_transform.h"
 #include "syzygy/pe/pe_relinker.h"
 #include "syzygy/pe/pe_transform_policy.h"
@@ -28,6 +31,9 @@ namespace {
 
 using block_graph::transforms::ChainedBasicBlockTransforms;
 using block_graph::transforms::FuzzingTransform;
+using common::IndexedFrequencyData;
+using grinder::basic_block_util::IndexedFrequencyMap;
+using grinder::basic_block_util::LoadBranchStatisticsFromFile;
 using optimize::transforms::InliningTransform;
 
 const char kUsageFormatStr[] =
@@ -35,6 +41,7 @@ const char kUsageFormatStr[] =
     "  Required Options:\n"
     "    --input-image=<path>  The input image file to optimize.\n"
     "    --output-image=<path> Output path for the rewritten image file.\n"
+    "\n"
     "  Options:\n"
     "    --branch-file=<path>  Branch statistics in JSON format.\n"
     "    --input-pdb=<path>    The PDB file associated with the input DLL.\n"
@@ -96,6 +103,34 @@ int OptimizeApp::Run() {
     return 1;
   }
 
+  // Get module signature and layout.
+  pe::PEFile::Signature signature;
+  relinker.input_pe_file().GetSignature(&signature);
+  const pe::ImageLayout& image_layout = relinker.input_image_layout();
+
+  // Load profile information from file.
+  ApplicationProfile profile(&image_layout);
+  if (!branch_file_path_.empty()) {
+    IndexedFrequencyMap frequencies;
+    if (!LoadBranchStatisticsFromFile(branch_file_path_,
+                                      signature,
+                                      &frequencies)) {
+      LOG(ERROR) << "Unable to load profile information.";
+      return 1;
+    }
+    if (!profile.ImportFrequencies(frequencies)) {
+      LOG(ERROR) << "Could not import metrics for '"
+                 << branch_file_path_.value() << "'.";
+      return false;
+    }
+  }
+
+  // Compute global profile information for the current block graph.
+  if (!profile.ComputeGlobalProfile()) {
+    LOG(ERROR) << "Unable to build profile information.";
+    return 1;
+  }
+
   // Construct a chain of basic block transforms.
   ChainedBasicBlockTransforms chains;
 
@@ -105,7 +140,7 @@ int OptimizeApp::Run() {
 
   // If inlining is enabled, add it to the chain.
   if (inlining_) {
-    inlining_transform.reset(new InliningTransform());
+    inlining_transform.reset(new InliningTransform(&profile));
     CHECK(chains.AppendTransform(inlining_transform.get()));
   }
 
