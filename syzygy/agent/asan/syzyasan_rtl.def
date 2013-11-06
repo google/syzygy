@@ -105,6 +105,9 @@ EXPORTS
   ; Other interceptor functions.
   asan_ReadFile
 
+  ; Functions exposed for testing purposes.
+  asan_SetInterceptorCallback
+
   ; Functions for the nested heaps.
   asan_PoisonMemoryRange
   asan_UnpoisonMemoryRange
@@ -115,3 +118,4 @@ EXPORTS
   asan_QuarantineObject
   asan_DestroyObject
   asan_CloneObject
+

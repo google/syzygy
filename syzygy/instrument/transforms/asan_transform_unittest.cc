@@ -630,14 +630,18 @@ namespace {
 
 using base::win::PEImage;
 typedef std::set<std::string> StringSet;
-typedef std::set<PVOID> FunctionsIATAddressSet;
+typedef std::set<void*> FunctionsIATAddressSet;
 typedef std::vector<std::string> StringVector;
 
 const char kAsanRtlDll[] = "syzyasan_rtl.dll";
 
-bool EnumKernel32HeapImports(const PEImage &image, LPCSTR module,
-                             DWORD ordinal, LPCSTR name, DWORD hint,
-                             PIMAGE_THUNK_DATA iat, PVOID cookie) {
+bool EnumKernel32HeapImports(const PEImage &image,
+                             const char* module,
+                             unsigned long ordinal,
+                             const char* name,
+                             unsigned long hint,
+                             PIMAGE_THUNK_DATA iat,
+                             void* cookie) {
   DCHECK(module != NULL);
   DCHECK(cookie != NULL);
 
@@ -651,16 +655,20 @@ bool EnumKernel32HeapImports(const PEImage &image, LPCSTR module,
   return true;
 }
 
-bool EnumKernel32InterceptedFunctionsImports(
-    const PEImage &image, LPCSTR module, DWORD ordinal, LPCSTR name, DWORD hint,
-    PIMAGE_THUNK_DATA iat, PVOID cookie) {
+bool EnumKernel32InterceptedFunctionsImports(const PEImage &image,
+                                             const char* module,
+                                             unsigned long ordinal,
+                                             const char* name,
+                                             unsigned long hint,
+                                             PIMAGE_THUNK_DATA iat,
+                                             void* cookie) {
   DCHECK(module != NULL);
   DCHECK(cookie != NULL);
 
   StringVector* modules = reinterpret_cast<StringVector*>(cookie);
 
   // TODO(sebmarchand): Put the function name in a list when we'll have more
-  //     more than one intercepted function.
+  //     than one intercepted function.
   if (_stricmp("kernel32.dll", module) == 0 &&
       strncmp("ReadFile", name, 8) == 0) {
     DCHECK(name != NULL);
@@ -670,9 +678,13 @@ bool EnumKernel32InterceptedFunctionsImports(
   return true;
 }
 
-bool EnumAsanImports(const PEImage &image, LPCSTR module,
-                     DWORD ordinal, LPCSTR name, DWORD hint,
-                     PIMAGE_THUNK_DATA iat, PVOID cookie) {
+bool EnumAsanImports(const PEImage &image,
+                     const char* module,
+                     unsigned long ordinal,
+                     const char* name,
+                     unsigned long hint,
+                     PIMAGE_THUNK_DATA iat,
+                     void* cookie) {
   DCHECK(module != NULL);
   DCHECK(cookie != NULL);
 
@@ -687,12 +699,12 @@ bool EnumAsanImports(const PEImage &image, LPCSTR module,
 }
 
 bool GetAsanHooksIATEntries(const PEImage &image,
-                            LPCSTR module,
-                            DWORD ordinal,
-                            LPCSTR name,
-                            DWORD hint,
+                            const char* module,
+                            unsigned long ordinal,
+                            const char* name,
+                            unsigned long hint,
                             PIMAGE_THUNK_DATA iat,
-                            PVOID cookie) {
+                            void* cookie) {
   DCHECK(module != NULL);
   DCHECK(cookie != NULL);
 

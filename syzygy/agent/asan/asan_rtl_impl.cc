@@ -15,12 +15,14 @@
 #include "syzygy/agent/asan/asan_rtl_impl.h"
 
 #include "base/bind.h"
+#include "base/callback.h"
 #include "base/logging.h"
 #include "base/debug/alias.h"
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 #include "syzygy/agent/asan/stack_capture.h"
+#include "syzygy/agent/common/scoped_last_error_keeper.h"
 
 namespace {
 
@@ -32,6 +34,11 @@ HANDLE process_heap = NULL;
 
 // The asan runtime manager.
 AsanRuntime* asan_runtime = NULL;
+
+// A callback that will be used in the functions interceptors once the call
+// to the intercepted function has been done. This is for testing purposes
+// only.
+InterceptorTailCallback interceptor_tail_callback = NULL;
 
 }  // namespace
 
@@ -75,6 +82,9 @@ void ReportBadMemoryAccess(void* location,
                            struct AsanContext* asan_context) {
   // Capture the context and restore the value of the register as before calling
   // the asan hook.
+
+  // Save the last error value so this function will be able to restore it.
+  agent::common::ScopedLastErrorKeeper scoped_last_error_keeper;
 
   // We keep a structure with all the useful information about this bad access
   // on the stack.
@@ -556,6 +566,18 @@ void TestMemoryRange(const uint8* memory,
   }
 }
 
+// Helper function to test if the memory range of a given structure is
+// accessible.
+// @tparam T the type of the structure to be tested.
+// @param structure A pointer to this structure.
+// @param access mode The access mode.
+template <typename T>
+void TestStructure(const T* structure, HeapProxy::AccessMode access_mode) {
+  TestMemoryRange(reinterpret_cast<const uint8*>(structure),
+                  sizeof(T),
+                  access_mode);
+}
+
 }  // namespace
 
 extern "C" {
@@ -926,19 +948,58 @@ char* __cdecl asan_strncat(char* destination, const char* source, size_t num) {
   return strncat(destination, source, num);
 }
 
-BOOL WINAPI asan_ReadFile(HANDLE hFile,
-                          LPVOID lpBuffer,
-                          DWORD nNumberOfBytesToRead,
-                          LPDWORD lpNumberOfBytesRead,
-                          LPOVERLAPPED lpOverlapped) {
-  TestMemoryRange(reinterpret_cast<uint8*>(lpBuffer),
-                  nNumberOfBytesToRead,
+void asan_SetInterceptorCallback(InterceptorTailCallback callback) {
+  interceptor_tail_callback = callback;
+}
+
+BOOL WINAPI asan_ReadFile(HANDLE file_handle,
+                          LPVOID buffer,
+                          DWORD bytes_to_read,
+                          LPDWORD bytes_read,
+                          LPOVERLAPPED overlapped) {
+  // TODO(sebmarchand): Add more checks for the asynchronous calls to this
+  //     function. More details about the asynchronous calls to ReadFile are
+  //     available here: http://support.microsoft.com/kb/156932.
+
+  // Ensures that the input values are accessible.
+
+  TestMemoryRange(reinterpret_cast<uint8*>(buffer),
+                  bytes_to_read,
                   HeapProxy::ASAN_WRITE_ACCESS);
-  return ReadFile(hFile,
-                  lpBuffer,
-                  nNumberOfBytesToRead,
-                  lpNumberOfBytesRead,
-                  lpOverlapped);
+
+  if (bytes_read != NULL)
+    TestStructure<DWORD>(bytes_read, HeapProxy::ASAN_WRITE_ACCESS);
+
+  if (overlapped != NULL)
+    TestStructure<OVERLAPPED>(overlapped, HeapProxy::ASAN_READ_ACCESS);
+
+  BOOL ret = ReadFile(file_handle,
+                      buffer,
+                      bytes_to_read,
+                      bytes_read,
+                      overlapped);
+
+  // Run the interceptor callback if it has been set.
+  if (interceptor_tail_callback != NULL)
+    (*interceptor_tail_callback)();
+
+  if (ret == FALSE)
+    return ret;
+
+  // Even if the overlapped pointer wasn't NULL it might become invalid after
+  // the call to ReadFile, and so we can't test that this structure is
+  // accessible.
+
+  DCHECK_EQ(TRUE, ret);
+  CHECK(bytes_read == NULL || *bytes_read <= bytes_to_read);
+  TestMemoryRange(reinterpret_cast<uint8*>(buffer),
+                  bytes_to_read,
+                  HeapProxy::ASAN_WRITE_ACCESS);
+
+  if (bytes_read != NULL)
+    TestStructure<DWORD>(bytes_read, HeapProxy::ASAN_WRITE_ACCESS);
+
+  return ret;
 }
 
 }  // extern "C"

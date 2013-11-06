@@ -38,8 +38,8 @@ bool CreateTemporaryFilename(std::wstring* filename) {
   if (filename == NULL)
     return false;
 
-  wchar_t temp_path[MAX_PATH + 1];
-  wchar_t temp_filename[MAX_PATH + 1];
+  wchar_t temp_path[MAX_PATH + 1] = {};
+  wchar_t temp_filename[MAX_PATH + 1] = {};
   DWORD path_len = ::GetTempPath(MAX_PATH, temp_path);
 
   if (path_len >= MAX_PATH || path_len <= 0)
@@ -51,6 +51,27 @@ bool CreateTemporaryFilename(std::wstring* filename) {
   *filename = temp_filename;
 
   return true;
+}
+
+// Initialize a temporary file with a given string and returns an handle to it.
+HANDLE InitTemporaryFile(const std::wstring& filename,
+                         const char* test_string) {
+  std::string filename_utf8(filename.begin(), filename.end());
+
+  // Creates a temporary file and write a string into it.
+  FILE* temp_file_ptr = ::fopen(filename_utf8.c_str(), "w");
+  if (temp_file_ptr == NULL)
+    return 0;
+
+  ::fwrite(test_string, sizeof(char), strlen(test_string), temp_file_ptr);
+
+  ::fclose(temp_file_ptr);
+
+  // Get a handle to the newly created file.
+  HANDLE file_handle =
+      ::CreateFile(filename.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING,
+                    FILE_ATTRIBUTE_NORMAL, NULL);
+  return file_handle;
 }
 
 }  // namespace
@@ -684,33 +705,21 @@ size_t AsanReadFileOverflow() {
   if (!CreateTemporaryFilename(&temp_filename))
     return false;
 
-  std::string filename_utf8(temp_filename.begin(), temp_filename.end());
-
-  // Creates a temporary file and write a string into it.
-  FILE* temp_file_ptr = ::fopen(filename_utf8.c_str(), "w");
-  if (temp_file_ptr == NULL)
-    return 0;
-
-  const char* kTestString = "Test of asan_ReadFile";
+  const char* kTestString = "Test of asan_ReadFile: Overflow";
   const size_t kTestStringLength = strlen(kTestString);
 
-  ::fwrite(kTestString, sizeof(char), kTestStringLength, temp_file_ptr);
+  HANDLE file_handle = InitTemporaryFile(temp_filename, kTestString);
 
-  ::fclose(temp_file_ptr);
-
-  // Get a handle to the newly created file.
-  HANDLE temp_file_handle =
-      ::CreateFile(temp_filename.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING,
-                    FILE_ATTRIBUTE_NORMAL, NULL);
-  if (temp_file_handle == INVALID_HANDLE_VALUE) {
+  if (file_handle == INVALID_HANDLE_VALUE)
     return 0;
-  }
 
   char* alloc = new char[kTestStringLength];
   memset(alloc, 0, kTestStringLength);
 
+  // Do an overflow on the destination buffer. It should be detected by the
+  // ASan interceptor of ReadFile.
   DWORD bytes_read = 0;
-  if (!::ReadFile(temp_file_handle,
+  if (!::ReadFile(file_handle,
                   alloc,
                   kTestStringLength + 1,
                   &bytes_read,
@@ -718,13 +727,13 @@ size_t AsanReadFileOverflow() {
     return 0;
   }
 
-  if (!::CloseHandle(temp_file_handle))
-    return 0;
-
-  if (!::DeleteFileW(temp_filename.c_str()))
-    return 0;
-
   delete[] alloc;
+
+  if (!::CloseHandle(file_handle))
+    return 0;
+
+  if (!::DeleteFile(temp_filename.c_str()))
+    return 0;
 
   return bytes_read;
 }
@@ -735,26 +744,12 @@ size_t AsanReadFileUseAfterFree() {
   if (!CreateTemporaryFilename(&temp_filename))
     return false;
 
-  std::string filename_utf(temp_filename.begin(), temp_filename.end());
-
-  // Creates a temporary file and write a string into it.
-  FILE* temp_file_ptr = ::fopen(filename_utf.c_str(), "w");
-  if (temp_file_ptr == NULL) {
-    return 0;
-  }
-
-  const char* kTestString = "Test of asan_ReadFile";
+  const char* kTestString = "Test of asan_ReadFile: use-after-free";
   const size_t kTestStringLength = strlen(kTestString);
 
-  ::fwrite(kTestString, sizeof(char), kTestStringLength, temp_file_ptr);
+  HANDLE file_handle = InitTemporaryFile(temp_filename, kTestString);
 
-  ::fclose(temp_file_ptr);
-
-  // Get a handle to the newly created file.
-  HANDLE temp_file_handle =
-      ::CreateFile(temp_filename.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING,
-                   FILE_ATTRIBUTE_NORMAL, NULL);
-  if (temp_file_handle == INVALID_HANDLE_VALUE)
+  if (file_handle == INVALID_HANDLE_VALUE)
     return 0;
 
   char* alloc = new char[kTestStringLength];
@@ -763,7 +758,10 @@ size_t AsanReadFileUseAfterFree() {
   delete[] alloc;
 
   DWORD bytes_read = 0;
-  if (!::ReadFile(temp_file_handle,
+
+  // Do an use-after-free on the destination buffer. It should be detected by
+  // the ASan interceptor of ReadFile.
+  if (!::ReadFile(file_handle,
                   alloc,
                   kTestStringLength,
                   &bytes_read,
@@ -771,10 +769,10 @@ size_t AsanReadFileUseAfterFree() {
     return 0;
   }
 
-  if (!::CloseHandle(temp_file_handle))
+  if (!::CloseHandle(file_handle))
     return 0;
 
-  if (!::DeleteFileW(temp_filename.c_str()))
+  if (!::DeleteFile(temp_filename.c_str()))
     return 0;
 
   return bytes_read;

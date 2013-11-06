@@ -895,9 +895,10 @@ bool AsanTransform::PostBlockGraphIteration(
   for (size_t i = 0; i < arraysize(kKernel32HeapRedirects); ++i)
     kernel32_redirects.push_back(kKernel32HeapRedirects[i]);
 
-  if (use_interceptors_)
+  if (use_interceptors_) {
     for (size_t i = 0; i < arraysize(kKernel32FunctionRedirects); ++i)
       kernel32_redirects.push_back(kKernel32FunctionRedirects[i]);
+  }
 
   // Initialize the module info for querying kernel32 imports.
   ImportedModule module_kernel32("kernel32.dll");

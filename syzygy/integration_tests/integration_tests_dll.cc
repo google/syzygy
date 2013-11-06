@@ -30,6 +30,8 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
 
 unsigned int CALLBACK EndToEndTest(testing::EndToEndTestId test) {
   // This function is used to dispatch test id to its corresponding function.
+  // TODO(sebmarchand): Move this to a macro to facilitate the maintainance of
+  //     this list.
   switch (test) {
     // Behavior test cases.
     case testing::kArrayComputation1TestId:
