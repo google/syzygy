@@ -239,6 +239,25 @@ void ValidateHasInlineAssemblyBlock5677(const BasicBlockSubGraph& bbsg) {
 
 }  // namespace
 
+TEST_F(BasicBlockDecomposerTest, DecomposeNoSubGraph) {
+  ASSERT_NO_FATAL_FAILURE(InitBlockGraph());
+  BasicBlockDecomposer bbd(assembly_func_, NULL);
+  EXPECT_TRUE(bbd.Decompose());
+}
+
+TEST_F(BasicBlockDecomposerTest, DecomposeFailsInvalidCodeDataLayout) {
+  // RET, 0x00, INT3.
+  static const uint8 kData[] = { 0xC3, 0x00, 0xCC };
+  BlockGraph::Block* b = block_graph_.AddBlock(BlockGraph::CODE_BLOCK,
+                                               3, "BadCodeDataLayout");
+  b->SetData(kData, arraysize(kData));
+  b->SetLabel(0, "Code", BlockGraph::CODE_LABEL);
+  b->SetLabel(1, "Data", BlockGraph::DATA_LABEL);
+  b->SetLabel(2, "Code", BlockGraph::CODE_LABEL);
+  BasicBlockDecomposer bbd(b, NULL);
+  EXPECT_FALSE(bbd.Decompose());
+}
+
 TEST_F(BasicBlockDecomposerTest, Decompose) {
   ASSERT_NO_FATAL_FAILURE(InitBlockGraph());
   ASSERT_NO_FATAL_FAILURE(InitBasicBlockSubGraph());

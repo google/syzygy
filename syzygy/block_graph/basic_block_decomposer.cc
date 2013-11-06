@@ -125,29 +125,6 @@ bool SplitInstructionListAt(Offset offset,
   return true;
 }
 
-bool GetCodeRange(const BlockGraph::Block* block, Offset* begin, Offset* end) {
-  DCHECK(block != NULL);
-  DCHECK(begin != NULL);
-  DCHECK(end != NULL);
-  DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
-
-  // By default, we assume the entire block is code.
-  *begin = 0;
-  *end = block->size();
-
-  // We then move up the end offset if the block ends in data.
-  BlockGraph::Block::LabelMap::const_reverse_iterator it =
-      block->labels().rbegin();
-  for (; it != block->labels().rend(); ++it) {
-    const BlockGraph::Label& label = it->second;
-    if (!label.has_attributes(BlockGraph::DATA_LABEL))
-      break;
-    *end = it->first;
-  }
-
-  return TRUE;
-}
-
 }  // namespace
 
 BasicBlockDecomposer::BasicBlockDecomposer(const BlockGraph::Block* block,
@@ -160,7 +137,12 @@ BasicBlockDecomposer::BasicBlockDecomposer(const BlockGraph::Block* block,
   //     turn on check_decomposition_results_ by default only ifndef NDEBUG.
   DCHECK(block != NULL);
   DCHECK(block->type() == BlockGraph::CODE_BLOCK);
-  DCHECK(subgraph != NULL);
+
+  // If no subgraph was provided then use a scratch one.
+  if (subgraph == NULL) {
+    scratch_subgraph_.reset(new BasicBlockSubGraph());
+    subgraph_ = scratch_subgraph_.get();
+  }
 }
 
 bool BasicBlockDecomposer::Decompose() {
@@ -171,6 +153,11 @@ bool BasicBlockDecomposer::Decompose() {
 
   if (!Disassemble())
     return false;
+
+  // Don't bother with the following book-keeping work if the results aren't
+  // being looked at.
+  if (scratch_subgraph_.get() != NULL)
+    return true;
 
   typedef BasicBlockSubGraph::BlockDescription BlockDescription;
   subgraph_->block_descriptions().push_back(BlockDescription());
@@ -217,15 +204,15 @@ bool BasicBlockDecomposer::DecodeInstruction(Offset offset,
   const uint8* buffer = block_->data() + offset;
   size_t max_length = code_end_offset - offset;
   if (!Instruction::FromBuffer(buffer, max_length, instruction)) {
-    LOG(ERROR) << "Failed to decode instruction at offset " << offset
-               << " of block '" << block_->name() << "'.";
+    VLOG(1) << "Failed to decode instruction at offset " << offset
+            << " of block '" << block_->name() << "'.";
 
     // Dump the bytes to aid in debugging.
     std::string dump;
     size_t dump_length = std::min(max_length, Instruction::kMaxSize);
     for (size_t i = 0; i < dump_length; ++i)
       base::StringAppendF(&dump, " %02X", buffer[i]);
-    LOG(ERROR) << ".text =" << dump << (dump_length < max_length ? "..." : ".");
+    VLOG(2) << ".text =" << dump << (dump_length < max_length ? "..." : ".");
 
     // Return false to indicate an error.
     return false;
@@ -316,9 +303,7 @@ BasicBlock* BasicBlockDecomposer::GetBasicBlockAt(Offset offset) const {
   return bb;
 }
 
-void BasicBlockDecomposer::InitJumpTargets(Offset code_begin_offset,
-                                           Offset code_end_offset) {
-  DCHECK_LE(0, code_begin_offset);
+void BasicBlockDecomposer::InitJumpTargets(Offset code_end_offset) {
   DCHECK_LE(static_cast<Size>(code_end_offset), block_->size());
 
   // Make sure the jump target set is empty.
@@ -334,12 +319,12 @@ void BasicBlockDecomposer::InitJumpTargets(Offset code_begin_offset,
     DCHECK_EQ(block_, ref.referenced());
     DCHECK_LE(0, ref.base());
     DCHECK_LT(static_cast<size_t>(ref.base()), block_->size());
-    DCHECK_EQ(ref.base(), ref.offset());
 
-    // If the referred offset is within the code bounds, then it is a jump
-    // target.
-    if (code_begin_offset <= ref.base() && ref.base() < code_end_offset)
-      jump_targets_.insert(ref.base());
+    // Ignore references to the data portion of the block.
+    if (ref.base() >= code_end_offset)
+      continue;
+
+    jump_targets_.insert(ref.base());
   }
 }
 
@@ -349,9 +334,9 @@ bool BasicBlockDecomposer::HandleInstruction(const Instruction& instruction,
   // the OS system libraries, mediated by an OS system call. We expect that
   // they NEVER occur in application code.
   if (instruction.IsSystemCall()) {
-    LOG(ERROR) << "Encountered an unexpected " << instruction.GetName()
-               << " instruction at offset " << offset << " of block '"
-               << block_->name() << "'.";
+    VLOG(1) << "Encountered an unexpected " << instruction.GetName()
+            << " instruction at offset " << offset << " of block '"
+            << block_->name() << "'.";
     return false;
   }
 
@@ -428,7 +413,15 @@ bool BasicBlockDecomposer::HandleInstruction(const Instruction& instruction,
   // information conveyed by the bytes in the instruction. This should
   // handle all inter-block jumps (thunks, tail-call elimination, etc).
   // Otherwise, create a reference into the current block.
-  if (!found) {
+  if (found) {
+    // This is an explicit branching instruction so we expect the reference to
+    // be direct.
+    if (!ref.IsDirect()) {
+      VLOG(1) << "Encountered an explicit control flow instruction containing "
+              << "an indirect reference.";
+      return false;
+    }
+  } else {
     Offset target_offset =
         next_instruction_offset + instruction.representation().imm.addr;
     DCHECK_LE(0, target_offset);
@@ -473,20 +466,70 @@ bool BasicBlockDecomposer::EndCurrentBasicBlock(Offset end_offset) {
   return true;
 }
 
-bool BasicBlockDecomposer::ParseInstructions() {
-  // Find the beginning and ending offsets of code bytes within the block.
-  Offset code_begin_offset = 0;
-  Offset code_end_offset = 0;
-  if (!GetCodeRange(block_, &code_begin_offset, &code_end_offset)) {
-    LOG(ERROR) << "Failed to determine code byte range.";
-    return false;
+bool BasicBlockDecomposer::GetCodeRangeAndCreateDataBasicBlocks(Offset* end) {
+  DCHECK_NE(reinterpret_cast<Offset*>(NULL), end);
+
+  *end = 0;
+
+  // By default, we assume the entire block is code.
+  Offset code_end = block_->size();
+
+  // Iterate over all labels, looking for data labels.
+  BlockGraph::Block::LabelMap::const_reverse_iterator it =
+      block_->labels().rbegin();
+  bool saw_non_data_label = false;
+  for (; it != block_->labels().rend(); ++it) {
+    const BlockGraph::Label& label = it->second;
+    if (label.has_attributes(BlockGraph::DATA_LABEL)) {
+      // There should never be data labels beyond the end of the block.
+      if (it->first >= static_cast<Offset>(block_->size())) {
+        VLOG(1) << "Encountered a data label at offset " << it->first
+                << "of block \"" << block_->name() << "\" of size "
+                << block_->size() << ".";
+        return false;
+      }
+
+      // If a non-data label was already encountered, and now there's another
+      // data label then bail: the block does not respect the 'code first,
+      // data second' supported layout requirement.
+      if (saw_non_data_label) {
+        VLOG(1) << "Block \"" << block_->name() << "\" has an unsupported "
+                << "code-data layout.";
+        VLOG(1) << "Unexpected data label at offset " << it->first << ".";
+        return false;
+      }
+
+      // Create a data block and update the end-of-code offset. This should
+      // never fail because this is the first time blocks are being created and
+      // they are strictly non-overlapping by the iteration logic of this
+      // function.
+      size_t size = code_end - it->first;
+      CHECK(InsertBasicBlockRange(it->first, size,
+                                  BasicBlock::BASIC_DATA_BLOCK));
+      code_end = it->first;
+    } else {
+      // Remember that a non-data label was seen. No further data labels should
+      // be encountered.
+      saw_non_data_label = true;
+    }
   }
 
+  *end = code_end;
+
+  return true;
+}
+
+bool BasicBlockDecomposer::ParseInstructions() {
+  // Find the beginning and ending offsets of code bytes within the block.
+  Offset code_end_offset = 0;
+  if (!GetCodeRangeAndCreateDataBasicBlocks(&code_end_offset))
+    return false;
+
   // Initialize jump_targets_ to include un-discoverable targets.
-  InitJumpTargets(code_begin_offset, code_end_offset);
+  InitJumpTargets(code_end_offset);
 
   // Disassemble the instruction stream into rudimentary basic blocks.
-  Offset offset = code_begin_offset;
+  Offset offset = 0;
   current_block_start_ = offset;
   while (offset < code_end_offset) {
     // Decode the next instruction.
@@ -522,20 +565,16 @@ bool BasicBlockDecomposer::Disassemble() {
     return false;
   }
 
+  // Everything below this point is simply book-keeping that can't fail. These
+  // can safely be skipped in a dry-run.
+  if (scratch_subgraph_.get() != NULL)
+    return true;
+
   // Split the basic blocks at branch targets.
-  if (!SplitCodeBlocksAtBranchTargets()) {
-    LOG(ERROR) << "Failed to split code blocks at branch targets.";
-    return false;
-  }
+  SplitCodeBlocksAtBranchTargets();
 
   // By this point, we should have basic blocks for all visited code.
   CheckAllJumpTargetsStartABasicCodeBlock();
-
-  // Demarcate the data basic blocks. There should be no overlap with code.
-  if (!FillInDataBlocks()) {
-    LOG(ERROR) << "Failed to fill in data basic-block ranges.";
-    return false;
-  }
 
   // We should now have contiguous block ranges that cover every byte in the
   // macro block. Verify that this is so.
@@ -547,25 +586,16 @@ bool BasicBlockDecomposer::Disassemble() {
 
   // Populate the referrers in the basic block data structures by copying
   // them from the original source block.
-  if (!CopyExternalReferrers()) {
-    LOG(ERROR) << "Failed to populate basic-block referrers.";
-    return false;
-  }
+  CopyExternalReferrers();
 
   // Populate the references in the basic block data structures by copying
   // them from the original source block. This does not handle the successor
   // references.
-  if (!CopyReferences()) {
-    LOG(ERROR) << "Failed to populate basic-block references.";
-    return false;
-  }
+  CopyReferences();
 
   // Wire up the basic-block successors. These are not handled by
   // CopyReferences(), above.
-  if (!ResolveSuccessors()) {
-    LOG(ERROR) << "Failed to resolve basic-block successors.";
-    return false;
-  }
+  ResolveSuccessors();
 
   // All the control flow we have derived should be valid.
   CheckAllControlFlowIsValid();
@@ -844,7 +874,7 @@ bool BasicBlockDecomposer::InsertBasicBlockRange(Offset offset,
   return true;
 }
 
-bool BasicBlockDecomposer::SplitCodeBlocksAtBranchTargets() {
+void BasicBlockDecomposer::SplitCodeBlocksAtBranchTargets() {
   JumpTargets::const_iterator jump_target_iter(jump_targets_.begin());
   for (; jump_target_iter != jump_targets_.end(); ++jump_target_iter) {
     // Resolve the target basic-block.
@@ -896,38 +926,15 @@ bool BasicBlockDecomposer::SplitCodeBlocksAtBranchTargets() {
     target_code_block->successors().push_back(
         Successor(Successor::kConditionTrue, ref, 0));
 
-    // Create the basic-block representing the second "half".
-    if (!InsertBasicBlockRange(target_offset,
-                               target_bb_range.size() - left_split_size,
-                               target_code_block->type())) {
-      LOG(ERROR) << "Failed to insert second half of split block.";
-      return false;
-    }
+    // This shouldn't fail because the range used to exist, and we just resized
+    // it.
+    CHECK(InsertBasicBlockRange(target_offset,
+                                target_bb_range.size() - left_split_size,
+                                target_code_block->type()));
   }
-
-  return true;
 }
 
-bool BasicBlockDecomposer::FillInDataBlocks() {
-  BlockGraph::Block::LabelMap::const_iterator iter = block_->labels().begin();
-  BlockGraph::Block::LabelMap::const_iterator end = block_->labels().end();
-  for (; iter != end; ++iter) {
-    if (!iter->second.has_attributes(BlockGraph::DATA_LABEL))
-      continue;
-
-    BlockGraph::Block::LabelMap::const_iterator next = iter;
-    ++next;
-
-    BlockGraph::Offset bb_start = iter->first;
-    BlockGraph::Offset bb_end = (next == end) ? block_->size() : next->first;
-    size_t bb_size = bb_end - bb_start;
-    if (!InsertBasicBlockRange(bb_start, bb_size, BasicBlock::BASIC_DATA_BLOCK))
-      return false;
-  }
-  return true;
-}
-
-bool BasicBlockDecomposer::CopyExternalReferrers() {
+void BasicBlockDecomposer::CopyExternalReferrers() {
   const BlockGraph::Block::ReferrerSet& referrers = block_->referrers();
   BlockGraph::Block::ReferrerSet::const_iterator iter = referrers.begin();
   for (; iter != referrers.end(); ++iter) {
@@ -945,12 +952,9 @@ bool BasicBlockDecomposer::CopyExternalReferrers() {
     bool found = referrer->GetReference(source_offset, &reference);
     DCHECK(found);
 
-    // Find the basic block the reference refers to. It can only have an
-    // offset that's different from the base if it's not a code block.
+    // Find the basic block the reference refers to.
     BasicBlock* target_bb = GetBasicBlockAt(reference.base());
     DCHECK(target_bb != NULL);
-    DCHECK(reference.base() == reference.offset() ||
-           target_bb->type() != BasicBlock::BASIC_CODE_BLOCK);
 
     // Insert the referrer into the target bb's referrer set. Note that there
     // is no corresponding reference update to the referring block. The
@@ -960,11 +964,9 @@ bool BasicBlockDecomposer::CopyExternalReferrers() {
         BasicBlockReferrer(referrer, source_offset)).second;
     DCHECK(inserted);
   }
-
-  return true;
 }
 
-bool BasicBlockDecomposer::CopyReferences(
+void BasicBlockDecomposer::CopyReferences(
     Offset item_offset, Size item_size, BasicBlockReferenceMap* refs) {
   DCHECK_LE(0, item_offset);
   DCHECK_LT(0U, item_size);
@@ -1003,6 +1005,7 @@ bool BasicBlockDecomposer::CopyReferences(
       DCHECK(target_bb != NULL);
 
       // Create target basic-block relative values for the base and offset.
+      // TODO(chrisha): Make BasicBlockReferences handle indirect references.
       CHECK_EQ(reference.offset(), reference.base());
 
       // Insert a reference to the target basic block.
@@ -1014,10 +1017,9 @@ bool BasicBlockDecomposer::CopyReferences(
       DCHECK(inserted);
     }
   }
-  return true;
 }
 
-bool BasicBlockDecomposer::CopyReferences() {
+void BasicBlockDecomposer::CopyReferences() {
   // Copy the references for the source range of each basic-block (by
   // instruction for code basic-blocks). External referrers and successors are
   // handled in separate passes.
@@ -1032,12 +1034,9 @@ bool BasicBlockDecomposer::CopyReferences() {
       BasicBlock::Instructions::iterator inst_iter =
           code_block->instructions().begin();
       for (; inst_iter != code_block->instructions().end(); ++inst_iter) {
-        if (!CopyReferences(inst_offset,
-                            inst_iter->size(),
-                            &inst_iter->references())) {
-          return false;
-        }
-
+        CopyReferences(inst_offset,
+                       inst_iter->size(),
+                       &inst_iter->references());
         inst_offset += inst_iter->size();
       }
     }
@@ -1045,19 +1044,14 @@ bool BasicBlockDecomposer::CopyReferences() {
     BasicDataBlock* data_block = BasicDataBlock::Cast(*bb_iter);
     if (data_block != NULL) {
       DCHECK_NE(BasicBlock::BASIC_CODE_BLOCK, data_block->type());
-
-      if (!CopyReferences(data_block->offset(),
-                          data_block->size(),
-                          &data_block->references())) {
-        return false;
-      }
+      CopyReferences(data_block->offset(),
+                     data_block->size(),
+                     &data_block->references());
     }
   }
-
-  return true;
 }
 
-bool BasicBlockDecomposer::ResolveSuccessors() {
+void BasicBlockDecomposer::ResolveSuccessors() {
   BasicBlockSubGraph::BBCollection::iterator bb_iter =
       subgraph_->basic_blocks().begin();
   for (; bb_iter != subgraph_->basic_blocks().end(); ++bb_iter) {
@@ -1086,8 +1080,6 @@ bool BasicBlockDecomposer::ResolveSuccessors() {
       DCHECK(succ_iter->reference().IsValid());
     }
   }
-
-  return true;
 }
 
 void BasicBlockDecomposer::MarkUnreachableCodeAsPadding() {

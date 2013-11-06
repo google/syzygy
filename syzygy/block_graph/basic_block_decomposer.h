@@ -77,6 +77,8 @@ class BasicBlockDecomposer {
   // Initialize the BasicBlockDecomposer instance.
   // @param block The block to be decomposed
   // @param subgraph The basic-block sub-graph data structure to populate.
+  //     This can be NULL if the results of the decomposition aren't
+  //     necessary.
   // @pre block is safe for basic-block decomposition. That is,
   //     CodeBlockAttributesAreBasicBlockSafe(block) returns true.
   BasicBlockDecomposer(const BlockGraph::Block* block,
@@ -132,6 +134,11 @@ class BasicBlockDecomposer {
   // code and data basic blocks forming an original address space.
   bool Disassemble();
 
+  // Determines the code range of the block, and creates any data blocks. This
+  // will return false if an invalid block layout is encountered.
+  // @param end Will be filled in with the end of the code range.
+  bool GetCodeRangeAndCreateDataBasicBlocks(Offset* end);
+
   // Performs an initial linear pass at disassembling the code bytes of the
   // block into rudimentary basic blocks. The initial set of basic blocks are
   // each terminated at branch points. A subsequent pass will further split
@@ -145,10 +152,9 @@ class BasicBlockDecomposer {
   // This covers all locations which are externally referenced, as well as
   // those that are internally referenced via jump tables. These jump targets
   // may be otherwise un-discoverable through disassembly.
-  // @param code_begin_offset the offset at which code bytes begin.
   // @param code_end_offset the first offset above @p code_begin_offset at
   //     which the bytes are no longer code.
-  void InitJumpTargets(Offset code_begin_offset, Offset code_end_offset);
+  void InitJumpTargets(Offset code_end_offset);
 
   // Decode the bytes at @p offset into @p instruction. This function takes
   // into consideration the range of offsets which denote code.
@@ -196,28 +202,24 @@ class BasicBlockDecomposer {
 
   // Split code basic-blocks at branch targets such that no basic-block
   // has a reference that it not to its head.
-  bool SplitCodeBlocksAtBranchTargets();
-
-  // Creates basic blocks for all known data symbols in the block.
-  // @returns true on success.
-  bool FillInDataBlocks();
+  void SplitCodeBlocksAtBranchTargets();
 
   // Propagate the referrers from the original block into the basic blocks
   // so that referrers can be tracked as the basic blocks are manipulated.
-  bool CopyExternalReferrers();
+  void CopyExternalReferrers();
 
   // Helper function to populate @p refs with the set of references originating
   // from its source range in the original block.
-  bool CopyReferences(Offset item_offset,
+  void CopyReferences(Offset item_offset,
                       Size item_size,
                       BasicBlockReferenceMap* refs);
 
   // Propagate the references from the original block into the basic blocks
   // so that they can be tracked as the basic blocks are manipulated.
-  bool CopyReferences();
+  void CopyReferences();
 
   // Resolve intra-block control flow references and referrers.
-  bool ResolveSuccessors();
+  void ResolveSuccessors();
 
   // Convert any unreachable code basic block into padding basic blocks.
   void MarkUnreachableCodeAsPadding();
@@ -252,6 +254,10 @@ class BasicBlockDecomposer {
   // A debugging flag indicating whether the decomposition results should be
   // CHECKed.
   bool check_decomposition_results_;
+
+  // If no explicit subgraph was provided then we need to use one as scratch
+  // space in order to do some work.
+  scoped_ptr<BasicBlockSubGraph> scratch_subgraph_;
 };
 
 }  // namespace block_graph
