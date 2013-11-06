@@ -21,6 +21,7 @@
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/grinder/basic_block_util.h"
 #include "syzygy/optimize/application_profile.h"
+#include "syzygy/optimize/transforms/block_alignment_transform.h"
 #include "syzygy/optimize/transforms/inlining_transform.h"
 #include "syzygy/pe/pe_relinker.h"
 #include "syzygy/pe/pe_transform_policy.h"
@@ -34,6 +35,7 @@ using block_graph::transforms::FuzzingTransform;
 using common::IndexedFrequencyData;
 using grinder::basic_block_util::IndexedFrequencyMap;
 using grinder::basic_block_util::LoadBranchStatisticsFromFile;
+using optimize::transforms::BlockAlignmentTransform;
 using optimize::transforms::InliningTransform;
 
 const char kUsageFormatStr[] =
@@ -69,6 +71,7 @@ bool OptimizeApp::ParseCommandLine(const CommandLine* cmd_line) {
 
   overwrite_ = cmd_line->HasSwitch("overwrite");
   inlining_ = cmd_line->HasSwitch("inlining");
+  block_alignment_ = cmd_line->HasSwitch("block-alignment");
   fuzz_ = cmd_line->HasSwitch("fuzz");
 
   // The --input-image argument is required.
@@ -136,12 +139,19 @@ int OptimizeApp::Run() {
 
   // Declare transforms we may apply.
   scoped_ptr<InliningTransform> inlining_transform;
+  scoped_ptr<BlockAlignmentTransform> block_alignment_transform;
   scoped_ptr<FuzzingTransform> fuzzing_transform;
 
   // If inlining is enabled, add it to the chain.
   if (inlining_) {
     inlining_transform.reset(new InliningTransform(&profile));
     CHECK(chains.AppendTransform(inlining_transform.get()));
+  }
+
+  // If block alignment is enabled, add it to the chain.
+  if (block_alignment_) {
+    block_alignment_transform.reset(new BlockAlignmentTransform());
+    CHECK(chains.AppendTransform(block_alignment_transform.get()));
   }
 
   // Append the chain to the relinker.

@@ -33,6 +33,7 @@ class OptimizeApp : public common::AppImplBase {
       : AppImplBase("Optimize"),
         overwrite_(false),
         inlining_(false),
+        block_alignment_(false),
         fuzz_(false) {
   }
 
@@ -59,6 +60,7 @@ class OptimizeApp : public common::AppImplBase {
   base::FilePath branch_file_path_;
   bool overwrite_;
   bool inlining_;
+  bool block_alignment_;
   bool fuzz_;
   // @}
 

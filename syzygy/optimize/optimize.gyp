@@ -25,6 +25,8 @@
         'optimize_app.h',
         'application_profile.cc',
         'application_profile.h',
+        'transforms/block_alignment_transform.cc',
+        'transforms/block_alignment_transform.h',
         'transforms/inlining_transform.cc',
         'transforms/inlining_transform.h',
       ],
@@ -55,6 +57,7 @@
         'application_profile_unittest.cc',
         'optimize_app_unittest.cc',
         'optimize_unittests_main.cc',
+        'transforms/block_alignment_transform_unittest.cc',
         'transforms/inlining_transform_unittest.cc',
       ],
       'dependencies': [
