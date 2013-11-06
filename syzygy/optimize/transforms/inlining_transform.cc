@@ -49,13 +49,22 @@ using block_graph::BasicBlockAssembler;
 using block_graph::BasicBlockDecomposer;
 using block_graph::BasicBlockReference;
 using block_graph::BasicCodeBlock;
+using block_graph::Displacement;
 using block_graph::Immediate;
 using block_graph::Instruction;
+using block_graph::Operand;
 using block_graph::Successor;
 using block_graph::analysis::LivenessAnalysis;
 
 typedef ApplicationProfile::BlockProfile BlockProfile;
 typedef Instruction::BasicBlockReferenceMap BasicBlockReferenceMap;
+
+enum MatchKind {
+  kInvalidMatch,
+  kReturnMatch,
+  kDirectTrampolineMatch,
+  kIndirectTrampolineMatch,
+};
 
 // These patterns are often produced by the MSVC compiler. They're common enough
 // that the inlining transformation matches them by pattern rather than
@@ -136,53 +145,18 @@ bool MatchEmptyBody(BlockGraph::Block* callee) {
   return false;
 }
 
-// Match trampoline body in a subgraph. It consist of a jump to a block.
-bool MatchTrampolineBody(const BasicBlockSubGraph& subgraph,
-                         BasicBlockReference* target) {
-  DCHECK_NE(reinterpret_cast<BasicBlockReference*>(NULL), target);
-
-  // Trampoline must have one basic block.
-  if (subgraph.basic_blocks().size() != 1)
-    return false;
-
-  // The basic block must be empty and must have one JMP successor.
-  BasicCodeBlock* bb = BasicCodeBlock::Cast(*subgraph.basic_blocks().begin());
-  if (bb == NULL ||
-      !bb->instructions().empty() ||
-      bb->successors().size() != 1 ||
-      bb->successors().front().condition() != Successor::kConditionTrue) {
-    return false;
-  }
-
-  // Must match a valid reference to a block.
-  const Successor& succ = bb->successors().front();
-  const BasicBlockReference& reference = succ.reference();
-  if (reference.block() == NULL)
-    return false;
-
-  // Returns the matched block.
-  *target = reference;
-  return true;
-}
-
-// Generate a call to the trampoline destination.
-bool InlineTrampolineBody(const BasicBlockReference& trampoline,
-                          BasicBlock::Instructions::iterator target,
-                          BasicBlock::Instructions* instructions) {
-  DCHECK_NE(reinterpret_cast<BasicBlock::Instructions*>(NULL), instructions);
-
-  BasicBlockAssembler assembler(target, instructions);
-  assembler.call(
-      Immediate(trampoline.block(), trampoline.offset(), trampoline.base()));
-
-  return true;
-}
-
 // Match trivial body in a subgraph. A trivial body is a single basic block
 // without control flow, stack manipulation or other unsupported constructs.
 bool MatchTrivialBody(const BasicBlockSubGraph& subgraph,
+                      MatchKind* kind,
+                      BasicBlockReference* reference,
                       BasicCodeBlock** body) {
   DCHECK_NE(reinterpret_cast<BasicCodeBlock**>(NULL), body);
+  DCHECK_NE(reinterpret_cast<MatchKind*>(NULL), kind);
+  DCHECK_NE(reinterpret_cast<BasicBlockReference*>(NULL), reference);
+
+  // Assume no match.
+  *kind = kInvalidMatch;
 
   // Trivial body only has one basic block.
   if (subgraph.basic_blocks().size() != 1)
@@ -191,22 +165,11 @@ bool MatchTrivialBody(const BasicBlockSubGraph& subgraph,
   if (bb == NULL)
     return false;
 
-  bool has_return = false;
-
   // Iterates through each instruction.
   BasicBlock::Instructions::iterator inst_iter = bb->instructions().begin();
   for (; inst_iter != bb->instructions().end(); ++inst_iter) {
     const Instruction& instr = *inst_iter;
-
-    // Return instruction is valid.
-    if (instr.IsReturn()) {
-      has_return = true;
-      continue;
-    }
-
-    // Avoid control flow instructions.
-    if (instr.IsControlFlow())
-      return false;
+    const _DInst& repr = instr.representation();
 
     // Do not allow any references to a basic block.
     const BasicBlockReferenceMap& references = instr.references();
@@ -217,6 +180,40 @@ bool MatchTrivialBody(const BasicBlockSubGraph& subgraph,
         return false;
       }
     }
+
+    // Return instruction is valid.
+    if (instr.IsReturn()) {
+      *kind = kReturnMatch;
+
+      // Move to the next instruction and leave loop. This instruction must be
+      // the last one in the basic block.
+      ++inst_iter;
+      break;
+    }
+
+    // Match an indirect jump from a global variable.
+    BasicBlockReference target_ref;
+    if (instr.IsBranch() &&
+        instr.references().size() == 1 &&
+        instr.FindOperandReference(0, &target_ref) &&
+        target_ref.block() != NULL &&
+        repr.opcode == I_JMP &&
+        repr.ops[0].type  == O_DISP &&
+        repr.ops[0].size == 32 &&
+        repr.ops[0].index == 0) {
+      // Match displacement to a block.
+      *kind = kIndirectTrampolineMatch;
+      *reference = target_ref;
+
+      // Move to the next instruction and leave loop. This instruction must be
+      // the last one in the basic block.
+      ++inst_iter;
+      break;
+    }
+
+    // Avoid control flow instructions.
+    if (instr.IsControlFlow())
+      return false;
 
     // Avoid stack manipulation
     LivenessAnalysis::State defs;
@@ -233,18 +230,44 @@ bool MatchTrivialBody(const BasicBlockSubGraph& subgraph,
     }
   }
 
-  // The basic block must have a return (to remove the caller address on stack)
-  // and must not have successors.
-  if (!bb->successors().empty() || !has_return)
+  // All instructions must have been checked.
+  if (inst_iter != bb->instructions().end())
     return false;
 
+  if (*kind == kInvalidMatch) {
+    // Try to match a tail-call to an other block.
+    if (bb->successors().size() != 1 ||
+        bb->successors().front().condition() != Successor::kConditionTrue) {
+      return false;
+    }
+
+    // Must match a valid reference to a block.
+    const Successor& succ = bb->successors().front();
+    const BasicBlockReference& ref = succ.reference();
+    if (ref.block() == NULL)
+      return false;
+
+    // Matched a direct trampoline.
+    *kind = kDirectTrampolineMatch;
+    *reference = ref;
+  } else {
+    // The basic block must have a return (to remove the caller address on
+    // stack) or be an indirect tail-call to an other block and must not have
+    // successors.
+    if (!bb->successors().empty())
+      return false;
+  }
+
   // Returns the matched body.
+  DCHECK_NE(kInvalidMatch, *kind);
   *body = bb;
   return true;
 }
 
 // Copy the body of the callee at a call-site in the caller.
-bool InlineTrivialBody(const BasicCodeBlock* body,
+bool InlineTrivialBody(MatchKind kind,
+                       const BasicBlockReference& reference,
+                       const BasicCodeBlock* body,
                        BasicBlock::Instructions::iterator target,
                        BasicBlock::Instructions* instructions) {
   DCHECK_NE(reinterpret_cast<BasicBlock::Instructions*>(NULL), instructions);
@@ -258,7 +281,10 @@ bool InlineTrivialBody(const BasicCodeBlock* body,
     const Instruction& instr = *inst_iter;
     const _DInst& repr = instr.representation();
 
-    if (instr.IsReturn()) {
+    if (instr.IsBranch()) {
+      // Skip the indirect branch instruction.
+      DCHECK_EQ(kind, kIndirectTrampolineMatch);
+    } else if (instr.IsReturn()) {
       if (repr.ops[0].type != O_NONE) {
         // TODO(etienneb): 'ret 8' must be converted to a 'add %esp, 8'.
         return false;
@@ -266,6 +292,26 @@ bool InlineTrivialBody(const BasicCodeBlock* body,
     } else {
       new_body.push_back(instr);
     }
+  }
+
+  // Replacing the return or the tail-call instruction.
+  BasicBlockAssembler assembler(target, instructions);
+  switch (kind) {
+    case kReturnMatch:
+      break;
+    case kDirectTrampolineMatch:
+      DCHECK(reference.IsValid());
+      assembler.call(
+          Immediate(reference.block(), reference.offset(), reference.base()));
+      break;
+    case kIndirectTrampolineMatch:
+      DCHECK(reference.IsValid());
+      assembler.call(Operand(Displacement(reference.block(),
+                                          reference.offset(),
+                                          reference.base())));
+      break;
+    default:
+      NOTREACHED();
   }
 
   // Insert the inlined instructions at the call-site.
@@ -339,9 +385,9 @@ bool InliningTransform::TransformBasicBlockSubGraph(
       }
 
       if (MatchEmptyBody(callee)) {
-          // Body is empty, remove call-site.
-          bb->instructions().erase(call_iter);
-          continue;
+        // Body is empty, remove call-site.
+        bb->instructions().erase(call_iter);
+        continue;
       }
 
       if (MatchGetProgramCounter(callee)) {
@@ -355,19 +401,14 @@ bool InliningTransform::TransformBasicBlockSubGraph(
         BasicBlockSubGraph callee_subgraph;
         BasicCodeBlock* body = NULL;
         BasicBlockReference target;
+        MatchKind match_kind = kInvalidMatch;
 
         if (!DecomposeToBasicBlock(callee, &callee_subgraph))
           continue;
 
-        if (MatchTrampolineBody(callee_subgraph, &target) &&
-            InlineTrampolineBody(target, call_iter, &bb->instructions())) {
-          // Inlining successful, remove call-site.
-          bb->instructions().erase(call_iter);
-          continue;
-        }
-
-        if (MatchTrivialBody(callee_subgraph, &body) &&
-            InlineTrivialBody(body, call_iter, &bb->instructions())) {
+        if (MatchTrivialBody(callee_subgraph, &match_kind, &target, &body) &&
+            InlineTrivialBody(match_kind, target, body, call_iter,
+                              &bb->instructions())) {
           // Inlining successful, remove call-site.
           bb->instructions().erase(call_iter);
           continue;

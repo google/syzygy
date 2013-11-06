@@ -36,8 +36,10 @@ using block_graph::BasicBlockDecomposer;
 using block_graph::BasicBlockReference;
 using block_graph::BasicBlockSubGraph;
 using block_graph::BlockBuilder;
+using block_graph::Displacement;
 using block_graph::Immediate;
 using block_graph::Instruction;
+using block_graph::Operand;
 using block_graph::Successor;
 using testing::ElementsAreArray;
 
@@ -49,10 +51,15 @@ enum CalleeKind {
   // Block DirectTrampoline
   //   dummy: jmp target
   kDirectTrampoline,
+  // Block IndirectTrampoline
+  //   dummy: jmp [target]
+  kIndirectTrampoline,
   // Block RecursiveTrampoline
   //   dummy: jmp dummy
   kRecursiveTrampoline,
 };
+
+const uint8 kData[] = { 0x01, 0x02, 0x03, 0x04 };
 
 // _asm ret
 const uint8 kCodeRet[] = { 0xC3 };
@@ -106,9 +113,6 @@ const uint8 kCodeSelfJump[] = { 0x0B, 0xC0, 0x75, 0xFC, 0xC3 };
 // _asm ret
 const uint8 kCodeIndirectCall[] = { 0xFF, 0x55, 0xF8, 0xC3 };
 
-// _asm jmp [eax]
-const uint8 kCodeJmpSucessor[] = { 0xFF, 0x65, 0xF8 };
-
 class TestInliningTransform : public InliningTransform {
  public:
   explicit TestInliningTransform(ApplicationProfile* profile)
@@ -121,7 +125,8 @@ class TestInliningTransform : public InliningTransform {
 class InliningTransformTest : public testing::Test {
  public:
   InliningTransformTest()
-      : caller_(NULL),
+      : data_(NULL),
+        caller_(NULL),
         callee_(NULL),
         image_(&block_graph_),
         profile_(&image_) {
@@ -132,6 +137,10 @@ class InliningTransformTest : public testing::Test {
         block_graph_.AddBlock(BlockGraph::CODE_BLOCK, sizeof(kCodeRet), "ret");
     DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), caller_);
     caller_->SetData(kCodeRet, sizeof(kCodeRet));
+
+    data_ = block_graph_.AddBlock(BlockGraph::DATA_BLOCK, sizeof(kData), "int");
+    DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), data_);
+    data_->SetData(kData, sizeof(kData));
   }
 
  protected:
@@ -147,6 +156,7 @@ class InliningTransformTest : public testing::Test {
 
   pe::PETransformPolicy policy_;
   BlockGraph block_graph_;
+  BlockGraph::Block* data_;
   BlockGraph::Block* caller_;
   BlockGraph::Block* callee_;
   std::vector<uint8> original_;
@@ -198,6 +208,9 @@ void InliningTransformTest::CreateCalleeBlock(CalleeKind kind,
       code->successors().push_back(successor);
       break;
     }
+    case kIndirectTrampoline:
+      assembler.jmp(Operand(Displacement(target, 0, 0)));
+      break;
     default:
       NOTREACHED() << "Invalid callee kind.";
   }
@@ -338,7 +351,7 @@ TEST_F(InliningTransformTest, InlineTrivialTwoCalls) {
 
   // Expect both calls to be inlined and instructions to be in the right order.
   EXPECT_THAT(kCodeRetBoth,
-    ElementsAreArray(caller_->data(), caller_->size()));
+              ElementsAreArray(caller_->data(), caller_->size()));
 }
 
 TEST_F(InliningTransformTest, DontInlineReturnWithOffset) {
@@ -479,7 +492,7 @@ TEST_F(InliningTransformTest, InlineTrampolineToCode) {
   EXPECT_EQ(dummy, reference.referenced());
 }
 
-TEST_F(InliningTransformTest, InlineTrampolineToData) {
+TEST_F(InliningTransformTest, DontInlineTrampolineToData) {
   BlockGraph::Block* dummy =
         block_graph_.AddBlock(BlockGraph::DATA_BLOCK, sizeof(kCodeRet0), "d1");
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), dummy);
@@ -495,6 +508,20 @@ TEST_F(InliningTransformTest, InlineTrampolineToData) {
   ASSERT_EQ(1U, callee_->references().size());
   BlockGraph::Reference reference = callee_->references().begin()->second;
   EXPECT_EQ(dummy, reference.referenced());
+}
+
+TEST_F(InliningTransformTest, InlineIndirectTrampoline) {
+  ASSERT_NO_FATAL_FAILURE(
+      AddBlockFromBuffer(kCodeRet, sizeof(kCodeRet), &callee_));
+  ASSERT_NO_FATAL_FAILURE(
+      CreateCalleeBlock(kIndirectTrampoline, data_, &callee_));
+  ASSERT_NO_FATAL_FAILURE(CreateCallSiteToBlock(callee_));
+  ASSERT_NO_FATAL_FAILURE(ApplyTransformOnCaller());
+
+  // Validate that the reference from caller is to |data_|.
+  ASSERT_EQ(1U, callee_->references().size());
+  BlockGraph::Reference reference = callee_->references().begin()->second;
+  EXPECT_EQ(data_, reference.referenced());
 }
 
 }  // namespace transforms
