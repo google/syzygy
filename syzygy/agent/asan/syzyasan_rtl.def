@@ -104,6 +104,7 @@ EXPORTS
 
   ; Other interceptor functions.
   asan_ReadFile
+  asan_WriteFile
 
   ; Functions exposed for testing purposes.
   asan_SetInterceptorCallback

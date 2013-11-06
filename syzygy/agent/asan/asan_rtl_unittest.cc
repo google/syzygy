@@ -108,9 +108,12 @@ const size_t kAllocSize = 13;
     F(_cdecl, void, DestroyObject, (void* asan_pointer))  \
     F(_cdecl, void, CloneObject,  \
       (const void* src_asan_pointer, const void* dst_asan_pointer))  \
-    F(WINAPI, LPVOID, ReadFile,  \
-      (HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead,  \
-       LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped))  \
+    F(WINAPI, BOOL, ReadFile,  \
+      (HANDLE file_handle, LPVOID buffer, DWORD bytes_to_read,  \
+       LPDWORD bytes_read, LPOVERLAPPED overlapped))  \
+    F(WINAPI, BOOL, WriteFile,  \
+      (HANDLE file_handle, LPCVOID buffer, DWORD bytes_to_write,  \
+       LPDWORD bytes_written, LPOVERLAPPED overlapped))  \
     F(_cdecl, void, SetInterceptorCallback, (void (*callback)()))
 
 #define DECLARE_ASAN_FUNCTION_PTR(convention, ret, name, args) \
@@ -1568,6 +1571,7 @@ TEST_F(AsanRtlReadFileTest, AsanReadFile) {
                                &bytes_read,
                                NULL));
   EXPECT_EQ(kTestStringLength, bytes_read);
+  EXPECT_STREQ(kTestString, alloc.get());
   EXPECT_FALSE(memory_error_detected);
 }
 
@@ -1587,6 +1591,7 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileWithOverlapped) {
                                &bytes_read,
                                &overlapped));
   EXPECT_EQ(kTestStringLength - kOffset, bytes_read);
+  EXPECT_STREQ(kTestString + kOffset, alloc.get());
   EXPECT_FALSE(memory_error_detected);
 }
 
@@ -1601,6 +1606,7 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileOverflow) {
                                &bytes_read,
                                NULL));
   EXPECT_EQ(kTestStringLength, bytes_read);
+  EXPECT_EQ(0U, ::strncmp(kTestString, alloc.get(), bytes_read));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
 }
@@ -1621,6 +1627,7 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileUAFOnOverlapped) {
                                &bytes_read,
                                overlapped_ptr));
   EXPECT_EQ(kTestStringLength - kOffset, bytes_read);
+  EXPECT_STREQ(kTestString + kOffset, alloc.get());
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
 }
@@ -1637,6 +1644,7 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileUseAfterFree) {
                                &bytes_read,
                                NULL));
   EXPECT_EQ(kTestStringLength, bytes_read);
+  EXPECT_STREQ(kTestString, alloc_ptr);
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
 }
@@ -1644,30 +1652,30 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileUseAfterFree) {
 namespace {
 
 typedef ScopedASanAlloc<char>* AsanReadFileCallbackData;
-AsanReadFileCallbackData callback_data = NULL;
+AsanReadFileCallbackData readfile_callback_data = NULL;
 
 void AsanReadFileCallback() {
-  ASSERT_TRUE(callback_data != NULL);
-  callback_data->reset(NULL);
+  ASSERT_TRUE(readfile_callback_data != NULL);
+  readfile_callback_data->reset(NULL);
 }
 
 }  // namespace
 
 TEST_F(AsanRtlReadFileTest, AsanReadFileUAFAfterInternalCall) {
-  // This test makes sure that use-after-free on the input buffer given to
-  // the ReadFile function are correctly detected.
+  // This test makes sure that use-after-free errors on the input buffer given
+  // to the ReadFile function are correctly detected.
   ScopedASanAlloc<char> alloc(this, kTestStringLength);
   memset(alloc.get(), 0, kTestStringLength);
-
-  callback_data = &alloc;
+  char* alloc_ptr = alloc.get();
+  readfile_callback_data = &alloc;
 
   // Set the callback that we want to use once the internal call to ReadFile
   // returns.
   SetInterceptorCallbackFunction(&AsanReadFileCallback);
 
   // Read from the file using the interceptor, this will call the ReadFile
-  // callback once the internal call to ReadFile, and result in freeing the
-  // buffer.
+  // callback once the internal call to ReadFile returns, and result in freeing
+  // the buffer.
   DWORD bytes_read = 0;
   EXPECT_TRUE(ReadFileFunction(temp_file_handle_.Get(),
                                alloc.get(),
@@ -1676,9 +1684,215 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileUAFAfterInternalCall) {
                                NULL));
 
   EXPECT_EQ(kTestStringLength, bytes_read);
+  EXPECT_STREQ(kTestString, alloc_ptr);
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
+
+  SetInterceptorCallbackFunction(NULL);
+}
+
+namespace {
+
+// Helps to test the asan_WriteFile function.
+class AsanRtlWriteFileTest : public AsanRtlTest {
+ public:
+  typedef AsanRtlTest Super;
+
+  AsanRtlWriteFileTest()
+      : temp_file_handle_(INVALID_HANDLE_VALUE) {
+  }
+
+  void SetUp() OVERRIDE {
+    Super::SetUp();
+
+    temp_file_handle_.Set(::CreateFile(temp_file_.path().value().c_str(),
+                                       GENERIC_READ | GENERIC_WRITE,
+                                       0,
+                                       NULL,
+                                       OPEN_EXISTING,
+                                       FILE_ATTRIBUTE_NORMAL,
+                                       NULL));
+    ASSERT_NE(INVALID_HANDLE_VALUE, temp_file_handle_.Get());
+    SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
+  }
+
+  bool ReadFileContent(std::string* pipe_content, size_t kOffset) {
+    EXPECT_TRUE(pipe_content != NULL);
+    const size_t kMaxContentLength = 64;
+    pipe_content->clear();
+    pipe_content->resize(kMaxContentLength);
+    DWORD bytes_read = 0;
+    ::SetFilePointer(temp_file_handle_.Get(), kOffset, 0, FILE_BEGIN);
+    if (::ReadFile(temp_file_handle_.Get(),
+                   &(*pipe_content)[0],
+                   kMaxContentLength,
+                   &bytes_read,
+                   NULL) == FALSE) {
+      return false;
+    }
+    // Ensures that the buffer is big enough to store the pipe content.
+    EXPECT_TRUE(bytes_read < kMaxContentLength);
+
+    return true;
+  }
+
+  static const char kTestString[];
+  static const size_t kTestStringLength;
+
+ protected:
+  testing::ScopedTempFile temp_file_;
+
+  base::win::ScopedHandle temp_file_handle_;
+};
+
+const char AsanRtlWriteFileTest::kTestString[] = "Test of asan_WriteFile";
+const size_t AsanRtlWriteFileTest::kTestStringLength =
+    sizeof(AsanRtlWriteFileTest::kTestString);
+
+}  // namespace
+
+TEST_F(AsanRtlWriteFileTest, AsanWriteFile) {
+  // Test that the function works correctly with valid parameters. In this case
+  // we don't pass an OVERLAPPED structure to the function.
+  DWORD bytes_written = 0;
+  ScopedASanAlloc<char> alloc(this, kTestStringLength);
+  EXPECT_TRUE(WriteFileFunction(temp_file_handle_.Get(),
+                                kTestString,
+                                kTestStringLength,
+                                &bytes_written,
+                                NULL));
+  EXPECT_EQ(kTestStringLength, bytes_written);
+  EXPECT_FALSE(memory_error_detected);
+  std::string file_content;
+  EXPECT_TRUE(ReadFileContent(&file_content, 0));
+  EXPECT_STREQ(kTestString, file_content.c_str());
+}
+
+TEST_F(AsanRtlWriteFileTest, AsanWriteFileWithOverlapped) {
+  ScopedASanAlloc<char> alloc(this, kTestStringLength);
+  // Test that the function works correctly with valid parameters. Here we pass
+  // an OVERLAPPED structure to the function, which indicates that we want to do
+  // the write after a given offset.
+  OVERLAPPED overlapped = {};
+  // Start the write from the middle of the test string.
+  const size_t kOffset = kTestStringLength / 2;
+  overlapped.Offset = kOffset;
+  DWORD bytes_written = 0;
+  EXPECT_TRUE(WriteFileFunction(temp_file_handle_.Get(),
+                                kTestString + kOffset,
+                                kTestStringLength - kOffset,
+                                &bytes_written,
+                                &overlapped));
+  EXPECT_EQ(kTestStringLength - kOffset, bytes_written);
+  EXPECT_FALSE(memory_error_detected);
+  std::string file_content;
+  EXPECT_TRUE(ReadFileContent(&file_content, kOffset));
+  EXPECT_STREQ(kTestString + kOffset, file_content.c_str());
+}
+
+TEST_F(AsanRtlWriteFileTest, AsanWriteFileOverflow) {
+  // Test that the function works correctly with valid parameters. In this case
+  // we don't pass an OVERLAPPED structure to the function.
+  DWORD bytes_written = 0;
+  ScopedASanAlloc<char> alloc(this, kTestStringLength);
+  strcpy(alloc.get(), kTestString);
+  EXPECT_TRUE(WriteFileFunction(temp_file_handle_.Get(),
+                                alloc.get(),
+                                kTestStringLength + 1,
+                                &bytes_written,
+                                NULL));
+  EXPECT_EQ(kTestStringLength + 1, bytes_written);
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  std::string file_content;
+  EXPECT_TRUE(ReadFileContent(&file_content, 0));
+  EXPECT_STREQ(kTestString, file_content.c_str());
+}
+
+TEST_F(AsanRtlWriteFileTest, AsanWriteFileUAFOnOverlapped) {
+  // Test an use-after-free on the overlapped structure.
+  ScopedASanAlloc<OVERLAPPED> overlapped(this, sizeof(OVERLAPPED));
+  // Start the write from the middle of the test string.
+  const size_t kOffset = kTestStringLength / 2;
+  overlapped->Offset = kOffset;
+  DWORD bytes_written = 0;
+  OVERLAPPED* overlapped_ptr = overlapped.get();
+  overlapped.reset(NULL);
+  EXPECT_TRUE(WriteFileFunction(temp_file_handle_.Get(),
+                                kTestString + kOffset,
+                                kTestStringLength - kOffset,
+                                &bytes_written,
+                                overlapped_ptr));
+  EXPECT_EQ(kTestStringLength - kOffset, bytes_written);
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
+  std::string file_content;
+  EXPECT_TRUE(ReadFileContent(&file_content, kOffset));
+  EXPECT_STREQ(kTestString + kOffset, file_content.c_str());
+}
+
+TEST_F(AsanRtlWriteFileTest, AsanWriteFileUseAfterFree) {
+  // Test if an use-after-free on the destination buffer is correctly detected.
+  DWORD bytes_written = 0;
+  ScopedASanAlloc<char> alloc(this, kTestStringLength);
+  strcpy(alloc.get(), kTestString);
+  char* alloc_ptr = alloc.get();
+  alloc.reset(NULL);
+  EXPECT_TRUE(WriteFileFunction(temp_file_handle_.Get(),
+                                alloc_ptr,
+                                kTestStringLength,
+                                &bytes_written,
+                                NULL));
+  EXPECT_EQ(kTestStringLength, bytes_written);
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
+  std::string file_content;
+  EXPECT_TRUE(ReadFileContent(&file_content, 0));
+  EXPECT_STREQ(kTestString, file_content.c_str());
+}
+
+namespace {
+
+typedef ScopedASanAlloc<char>* AsanWriteFileCallbackData;
+AsanWriteFileCallbackData writefile_callback_data = NULL;
+
+void AsanWriteFileCallback() {
+  ASSERT_TRUE(writefile_callback_data != NULL);
+  writefile_callback_data->reset(NULL);
+}
+
+}  // namespace
+
+TEST_F(AsanRtlWriteFileTest, AsanWriteFileUAFAfterInternalCall) {
+  // This test makes sure that use-after-free errors on the input buffer given
+  // to the WriteFile function are correctly detected.
+  ScopedASanAlloc<char> alloc(this, kTestStringLength);
+  strcpy(alloc.get(), kTestString);
+
+  writefile_callback_data = &alloc;
+
+  // Set the callback that we want to use once the internal call to WriteFile
+  // returns.
+  SetInterceptorCallbackFunction(&AsanWriteFileCallback);
+
+  // Write to the file using the interceptor, this will call the WriteFile
+  // callback once the internal call to WriteFile returns, and result in freeing
+  // the buffer.
+  DWORD bytes_written = 0;
+  EXPECT_TRUE(WriteFileFunction(temp_file_handle_.Get(),
+                                alloc.get(),
+                                kTestStringLength,
+                                &bytes_written,
+                                NULL));
+
+  EXPECT_EQ(kTestStringLength, bytes_written);
 
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
+
+  std::string file_content;
+  EXPECT_TRUE(ReadFileContent(&file_content, 0));
+  EXPECT_STREQ(kTestString, file_content.c_str());
 
   SetInterceptorCallbackFunction(NULL);
 }

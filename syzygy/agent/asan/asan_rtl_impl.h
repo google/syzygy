@@ -128,17 +128,23 @@ char* __cdecl asan_strncat(char* destination,
                            const char* source,
                            size_t num);
 
+// Allows specifying a callback that will be called by the function interceptors
+// once the internal call to the intercepted function returns. This is for
+// testing purposes only.
+typedef void (*InterceptorTailCallback)(void);
+void asan_SetInterceptorTailCallback(InterceptorTailCallback callback);
+
 BOOL WINAPI asan_ReadFile(HANDLE file_handle,
                           LPVOID buffer,
                           DWORD bytes_to_read,
                           LPDWORD bytes_read,
                           LPOVERLAPPED overlapped);
 
-// Allows specifying a callback that will be called by the function interceptors
-// once the internal call to the intercepted function returns. This is for
-// testing purposes only.
-typedef void (*InterceptorTailCallback)(void);
-void asan_SetInterceptorTailCallback(InterceptorTailCallback callback);
+BOOL WINAPI asan_WriteFile(HANDLE file_handle,
+                           LPCVOID buffer,
+                           DWORD bytes_to_write,
+                           LPDWORD bytes_written,
+                           LPOVERLAPPED overlapped);
 
 }  // extern "C"
 
