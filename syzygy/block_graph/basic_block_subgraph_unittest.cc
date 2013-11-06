@@ -62,6 +62,7 @@ TEST(BasicBlockSubGraphTest, AddBasicBlock) {
 
   // Add a basic data block.
   BasicDataBlock* bb1 = subgraph.AddBasicDataBlock("bb1", kDataSize, kData);
+  EXPECT_EQ(0U, bb1->id());
   ASSERT_FALSE(bb1 == NULL);
   ASSERT_EQ(bb1, BasicDataBlock::Cast(bb1));
   ASSERT_TRUE(BasicCodeBlock::Cast(bb1) == NULL);
@@ -74,6 +75,7 @@ TEST(BasicBlockSubGraphTest, AddBasicBlock) {
   // Add one that overlaps.
   BasicDataBlock* bb2 =
       subgraph.AddBasicDataBlock("bb2", kDataSize / 2, kData + kDataSize / 2);
+  EXPECT_EQ(1U, bb2->id());
   ASSERT_FALSE(bb1 == NULL);
   ASSERT_EQ(bb2, BasicDataBlock::Cast(bb2));
   ASSERT_TRUE(BasicCodeBlock::Cast(bb2) == NULL);
@@ -85,6 +87,7 @@ TEST(BasicBlockSubGraphTest, AddBasicBlock) {
 
   // Add a code block.
   BasicCodeBlock* bb3 = subgraph.AddBasicCodeBlock("bb3");
+  EXPECT_EQ(2U, bb3->id());
   ASSERT_FALSE(bb3 == NULL);
   ASSERT_EQ(bb3, BasicCodeBlock::Cast(bb3));
   EXPECT_EQ("bb3", bb3->name());
@@ -94,6 +97,16 @@ TEST(BasicBlockSubGraphTest, AddBasicBlock) {
   ASSERT_NE(bb1, bb2);
   ASSERT_NE(implicit_cast<BasicBlock*>(bb1), bb3);
   ASSERT_NE(implicit_cast<BasicBlock*>(bb2), bb3);
+
+  // Check BBCollection ordering.
+  const BasicBlockSubGraph::BBCollection& blocks = subgraph.basic_blocks();
+  BasicBlockSubGraph::BBCollection::const_iterator it = blocks.begin();
+  BasicBlockSubGraph::BlockId current_id = (*it)->id();
+  ++it;
+  for (; it != blocks.end(); ++ it) {
+    EXPECT_LT(current_id, (*it)->id());
+    current_id = (*it)->id();
+  }
 }
 
 TEST(BasicBlockSubGraphTest, AddBlockDescription) {

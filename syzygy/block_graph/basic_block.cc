@@ -681,10 +681,12 @@ const BasicBlock::Offset BasicBlock::kNoOffset = -1;
 
 BasicBlock::BasicBlock(BasicBlockSubGraph* subgraph,
                        const base::StringPiece& name,
+                       BlockId id,
                        BasicBlock::BasicBlockType type)
     : subgraph_(subgraph),
       name_(name.begin(), name.end()),
       alignment_(1),
+      id_(id),
       type_(type),
       offset_(kNoOffset),
       is_padding_(false) {
@@ -706,8 +708,9 @@ void BasicBlock::MarkAsPadding() {
 }
 
 BasicCodeBlock::BasicCodeBlock(BasicBlockSubGraph* subgraph,
-                               const base::StringPiece& name)
-    : BasicBlock(subgraph, name, BASIC_CODE_BLOCK) {
+                               const base::StringPiece& name,
+                               BlockId id)
+    : BasicBlock(subgraph, name, id, BASIC_CODE_BLOCK) {
 }
 
 BasicCodeBlock* BasicCodeBlock::Cast(BasicBlock* basic_block) {
@@ -776,9 +779,10 @@ BasicBlock::Size BasicCodeBlock::GetInstructionSize() const {
 
 BasicDataBlock::BasicDataBlock(BasicBlockSubGraph* subgraph,
                                const base::StringPiece& name,
+                               BlockId id,
                                const uint8* data,
                                Size size)
-    : BasicBlock(subgraph, name, BasicBlock::BASIC_DATA_BLOCK),
+    : BasicBlock(subgraph, name, id, BasicBlock::BASIC_DATA_BLOCK),
       size_(size),
       data_(data) {
   DCHECK(data != NULL);

@@ -38,7 +38,7 @@ bool HasControlFlow(BasicBlock::Instructions::const_iterator start,
 }  // namespace
 
 BasicBlockSubGraph::BasicBlockSubGraph()
-    : original_block_(NULL) {
+    : original_block_(NULL), next_block_id_(0U) {
 }
 
 BasicBlockSubGraph::~BasicBlockSubGraph() {
@@ -73,7 +73,8 @@ block_graph::BasicCodeBlock* BasicBlockSubGraph::AddBasicCodeBlock(
     const base::StringPiece& name) {
   DCHECK(!name.empty());
 
-  scoped_ptr<BasicCodeBlock> new_code_block(new BasicCodeBlock(this, name));
+  BlockId id = next_block_id_++;
+  scoped_ptr<BasicCodeBlock> new_code_block(new BasicCodeBlock(this, name, id));
   bool inserted = basic_blocks_.insert(new_code_block.get()).second;
   DCHECK(inserted);
 
@@ -86,8 +87,9 @@ block_graph::BasicDataBlock* BasicBlockSubGraph::AddBasicDataBlock(
     const uint8* data) {
   DCHECK(!name.empty());
 
+  BlockId id = next_block_id_++;
   scoped_ptr<BasicDataBlock> new_data_block(
-      new BasicDataBlock(this, name, data, size));
+      new BasicDataBlock(this, name, id, data, size));
   bool inserted = basic_blocks_.insert(new_data_block.get()).second;
   DCHECK(inserted);
 

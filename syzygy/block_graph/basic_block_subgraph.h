@@ -64,8 +64,9 @@ class BasicBlockSubGraph {
     BasicBlockOrdering basic_block_order;
   };
 
+  typedef BlockGraph::BlockId BlockId;
   typedef std::list<BlockDescription> BlockDescriptionList;
-  typedef std::set<BasicBlock*> BBCollection;
+  typedef std::set<BasicBlock*, BasicBlockIdLess> BBCollection;
   typedef std::map<const BasicBlock*, bool> ReachabilityMap;
 
   // Initialize a basic block sub-graph.
@@ -166,6 +167,9 @@ class BasicBlockSubGraph {
   // A list of block descriptions for the blocks that are to be created from
   // this basic block sub-graph.
   BlockDescriptionList block_descriptions_;
+
+  // Our block ID allocator.
+  BlockId next_block_id_;
 };
 
 }  // namespace block_graph

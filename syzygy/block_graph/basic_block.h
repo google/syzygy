@@ -564,6 +564,8 @@ class BasicBlock {
 
   // Accessors.
   // @{
+  BlockId id() const { return id_; }
+
   BasicBlockType type() const { return type_; }
   const std::string& name() const { return name_; }
   bool is_padding() const { return is_padding_; }
@@ -599,10 +601,15 @@ class BasicBlock {
   // Initialize a basic block.
   // @param subgraph The subgraph that owns this basic block.
   // @param name A textual identifier for this basic block.
+  // @param id The unique identifier for this basic block.
   // @param type The disposition (code, data, padding) of this basic block.
   BasicBlock(BasicBlockSubGraph* subgraph,
              const base::StringPiece& name,
+             BlockId id,
              BasicBlockType type);
+
+  // The unique id for this basic block.
+  BlockId id_;
 
   // The type of this basic block.
   BasicBlockType type_;
@@ -668,9 +675,11 @@ class BasicCodeBlock : public BasicBlock {
   // Initialize a basic code block.
   // @param subgraph The subgraph to which belongs this basic block.
   // @param name A textual identifier for this basic block.
+  // @param id The unique identifier representing this basic block.
   // @note This is protected so that basic-blocks may only be created via the
   //     subgraph factory.
-  BasicCodeBlock(BasicBlockSubGraph* subgraph, const base::StringPiece& name);
+  BasicCodeBlock(BasicBlockSubGraph* subgraph, const base::StringPiece& name,
+                 BlockId id);
 
   // The set of non-branching instructions comprising this basic-block.
   // Any branching at the end of the basic-block is represented using the
@@ -726,6 +735,7 @@ class BasicDataBlock : public BasicBlock {
   // Initialize a basic data or padding block.
   // @param subgraph The subgraph to which belongs this basic block.
   // @param name A textual identifier for this basic block.
+  // @param id The unique identifier representing this block.
   // @param type The disposition (data or padding) of this basic block.
   // @param data The block's data, must be non-NULL.
   // @param size The size of @p data, must be greater than zero.
@@ -735,6 +745,7 @@ class BasicDataBlock : public BasicBlock {
   //     subgraph factory.
   BasicDataBlock(BasicBlockSubGraph* subgraph,
                  const base::StringPiece& name,
+                 BlockId id,
                  const uint8* data,
                  Size size);
 
@@ -755,6 +766,16 @@ class BasicDataBlock : public BasicBlock {
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BasicDataBlock);
+};
+
+// Less-than comparator. Useful to keep ordered set stable.
+struct BasicBlockIdLess {
+  bool operator()(const BasicBlock* lhs,
+                  const BasicBlock* rhs) const {
+    DCHECK_NE(reinterpret_cast<const BasicBlock*>(NULL), lhs);
+    DCHECK_NE(reinterpret_cast<const BasicBlock*>(NULL), rhs);
+    return lhs->id() < rhs->id();
+  }
 };
 
 }  // namespace block_graph
