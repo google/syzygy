@@ -33,6 +33,8 @@ _SRC_DIR = os.path.abspath(
 _VERSION_FILE = os.path.join(_SRC_DIR, 'syzygy/VERSION')
 _BINARIES_DIR = os.path.join(_SRC_DIR, 'syzygy/binaries')
 _EXE_DIR = os.path.join(_BINARIES_DIR, 'exe')
+_INCLUDE_DIR = os.path.join(_BINARIES_DIR, 'include')
+_LIB_DIR = os.path.join(_BINARIES_DIR, 'lib')
 
 
 _SYZYGY_WATERFALL_URL = 'http://build.chromium.org/p/client.syzygy'
@@ -115,6 +117,8 @@ def main():
   benchmark_url = archive_url + '/benchmark.zip'
   binaries_url = archive_url + '/binaries.zip'
   symbols_url = archive_url + '/symbols.zip'
+  include_url = archive_url + '/include.zip'
+  lib_url = archive_url + '/lib.zip'
 
   # Download the archives.
   _LOGGER.info('Retrieving benchmark archive at "%s".', benchmark_url)
@@ -123,6 +127,10 @@ def main():
   binaries_data = _Download(binaries_url)
   _LOGGER.info('Retrieving symbols archive at "%s".', symbols_url)
   symbols_data = _Download(symbols_url)
+  _LOGGER.info('Retrieving include archive at "%s".', include_url)
+  include_data = _Download(include_url)
+  _LOGGER.info('Retrieving library archive at "%s".', lib_url)
+  lib_data = _Download(lib_url)
 
   # Create a new feature branch off the master branch for the release
   # before we start changing any files.
@@ -133,13 +141,15 @@ def main():
   shutil.rmtree(_BINARIES_DIR, True)
   os.makedirs(_BINARIES_DIR)
   os.makedirs(_EXE_DIR)
+  os.makedirs(_INCLUDE_DIR)
+  os.makedirs(_LIB_DIR)
 
   # Extract the contents of the benchmark archive to the binaries directory.
   _LOGGER.info('Unzipping benchmark archive.')
   archive = zipfile.ZipFile(cStringIO.StringIO(benchmark_data))
   archive.extractall(_BINARIES_DIR)
 
-  # Extract the binaries archives to the exe directory.
+  # Extract the binaries archive to the exe directory.
   _LOGGER.info('Unzipping binaries archive.')
   archive = zipfile.ZipFile(cStringIO.StringIO(binaries_data))
   archive.extractall(_EXE_DIR)
@@ -150,6 +160,16 @@ def main():
   for symbol in archive.infolist():
     if symbol.filename.endswith('.dll.pdb'):
       archive.extract(symbol.filename, _EXE_DIR)
+
+  # Extract the include archive to the include directory.
+  _LOGGER.info('Unzipping include archive.')
+  archive = zipfile.ZipFile(cStringIO.StringIO(include_data))
+  archive.extractall(_INCLUDE_DIR)
+
+  # Extract the lib archive to the lib directory.
+  _LOGGER.info('Unzipping include archive.')
+  archive = zipfile.ZipFile(cStringIO.StringIO(lib_data))
+  archive.extractall(_LIB_DIR)
 
   # Add all the new files to the repo.
   _LOGGER.info('Committing release files.')

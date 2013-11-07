@@ -22,6 +22,8 @@
       '<(PRODUCT_DIR)/syzyprof.msi',
       '<(PRODUCT_DIR)/binaries.zip',
       '<(PRODUCT_DIR)/symbols.zip',
+      '<(PRODUCT_DIR)/include.zip',
+      '<(PRODUCT_DIR)/lib.zip',
     ],
   },
   'includes': [
@@ -111,6 +113,44 @@
             '--subdir',
             'experimental',
             '<@(experimental_symbols)',
+          ],
+        },
+        {
+          'action_name': 'create_include_zip',
+          'msvs_cygwin_shell': 0,
+          'inputs': [
+            'create_zip.py',
+            '<(src)/syzygy/agent/asan/nested_heap.h',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/include.zip',
+          ],
+          'action': [
+            '<(python_exe)',
+            'create_zip.py',
+            '--output',
+            '<(PRODUCT_DIR)/include.zip',
+            '--files',
+            '<(src)/syzygy/agent/asan/nested_heap.h',
+          ],
+        },
+        {
+          'action_name': 'create_lib_zip',
+          'msvs_cygwin_shell': 0,
+          'inputs': [
+            'create_zip.py',
+            '<(PRODUCT_DIR)/lib/syzyasan_rtl.lib',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/lib.zip',
+          ],
+          'action': [
+            '<(python_exe)',
+            'create_zip.py',
+            '--output',
+            '<(PRODUCT_DIR)/lib.zip',
+            '--files',
+            '<(PRODUCT_DIR)/lib/syzyasan_rtl.lib',
           ],
         },
       ],
