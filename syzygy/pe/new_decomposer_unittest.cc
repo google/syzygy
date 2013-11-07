@@ -213,6 +213,7 @@ TEST_F(NewDecomposerTest, Decompose) {
   expected_section_counts[4] = 1;
   expected_section_counts[5] = 1;
 #else
+#ifndef OFFICIAL_BUILD
   // Release build.
   expected_section_counts[-1] = 2;
   expected_section_counts[0] = 280;
@@ -221,6 +222,16 @@ TEST_F(NewDecomposerTest, Decompose) {
   expected_section_counts[3] = 1;
   expected_section_counts[4] = 1;
   expected_section_counts[5] = 1;
+#else
+  // Official build.
+  expected_section_counts[-1] = 2;
+  expected_section_counts[0] = 279;
+  expected_section_counts[1] = 303;
+  expected_section_counts[2] = 81;
+  expected_section_counts[3] = 1;
+  expected_section_counts[4] = 1;
+  expected_section_counts[5] = 1;
+#endif
 #endif
   EXPECT_THAT(section_counts, ContainerEq(expected_section_counts));
 
@@ -230,9 +241,15 @@ TEST_F(NewDecomposerTest, Decompose) {
   expected_block_type_counts[BlockGraph::CODE_BLOCK] = 302;
   expected_block_type_counts[BlockGraph::DATA_BLOCK] = 422;
 #else
+#ifndef OFFICIAL_BUILD
   // Release build.
   expected_block_type_counts[BlockGraph::CODE_BLOCK] = 280;
   expected_block_type_counts[BlockGraph::DATA_BLOCK] = 389;
+#else
+  // Official build.
+  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 279;
+  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 389;
+#endif
 #endif
   EXPECT_THAT(block_type_counts, ContainerEq(expected_block_type_counts));
 
@@ -390,16 +407,29 @@ TEST_F(NewDecomposerTest, LabelsAndAttributes) {
   expected_attrib_counts[BlockGraph::THUNK] = 6;
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
 #else
+#ifndef OFFICIAL_BUILD
   // Release build.
   expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 7;
   expected_attrib_counts[BlockGraph::PE_PARSED] = 93;
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 665;
-  expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 14;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 140;
+  expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 14;
   expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 8;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 22;
   expected_attrib_counts[BlockGraph::THUNK] = 6;
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
+#else
+  // Official build.
+  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 7;
+  expected_attrib_counts[BlockGraph::PE_PARSED] = 93;
+  expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 664;
+  expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 141;
+  expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 14;
+  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 8;
+  expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 22;
+  expected_attrib_counts[BlockGraph::THUNK] = 6;
+  expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
+#endif
 #endif
   EXPECT_THAT(attrib_counts, ContainerEq(expected_attrib_counts));
 
