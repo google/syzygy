@@ -1,6 +1,12 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.4.1
+
+[r1893] Fix the failures on the decomposer unittests for the official build.
+[r1892] SyzyASan - Add the header and the lib file of syzyasan_rtl.dll to the
+        released binaries.
+
 Version 0.7.4.0
 
 [r1889] SyzyASan - Interception of the ReadFile and WriteFile functions.
