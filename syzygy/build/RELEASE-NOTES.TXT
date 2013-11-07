@@ -1,6 +1,12 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.4.0
+
+[r1889] SyzyASan - Interception of the ReadFile and WriteFile functions.
+[r1864] Bug fix for sampling profiler grinder.
+[r1862] SyzyASan - Implementation of the API for the nested heaps.
+
 Version 0.7.3.0
 
 [r1840] Improved integration testing for profiler.
