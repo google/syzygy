@@ -18,6 +18,7 @@
 #include <stack>
 #include <vector>
 
+#include "syzygy/block_graph/analysis/control_flow_analysis.h"
 #include "syzygy/block_graph/analysis/liveness_analysis_internal.h"
 #include "syzygy/core/assembler.h"
 #include "syzygy/core/disassembler_util.h"
@@ -38,58 +39,6 @@ typedef block_graph::Instruction::Representation Representation;
 typedef LivenessAnalysis::State State;
 typedef LivenessAnalysis::State::RegisterMask RegisterMask;
 typedef LivenessAnalysis::State::FlagsMask FlagsMask;
-
-void FlattenBasicBlocksInPostOrder(
-    const BBCollection& basic_blocks,
-    std::vector<const BasicCodeBlock*>* order) {
-  // Build a reverse post-order (RPO) ordering of basic blocks. This is needed
-  // for faster fix-point convergence, but works with any ordering.
-  // TODO(etienneb): Hoist this to a ControlFlowAnalysis class.
-  std::set<const BasicBlock*> marked;
-  std::stack<const BasicBlock*> working;
-
-  // For each basic block, flatten its reachable sub-tree in post-order.
-  BBCollection::const_iterator iter_end = basic_blocks.end();
-  for (BBCollection::const_iterator iter = basic_blocks.begin();
-       iter != iter_end; ++iter) {
-    // When not marked, mark it and add it to working stack.
-    if (marked.insert(*iter).second)
-      working.push(*iter);
-
-    // Flatten this tree without following back-edge, push them in post-order.
-    while (!working.empty()) {
-      const BasicBlock* top = working.top();
-
-      // Skip data basic block.
-      const BasicCodeBlock* bb = BasicCodeBlock::Cast(top);
-      if (bb == NULL) {
-        working.pop();
-        continue;
-      }
-
-      // Add unvisited child to the working stack.
-      bool has_unvisited_child = false;
-      const BasicBlock::Successors& successors = bb->successors();
-      Successors::const_iterator succ_end = successors.end();
-      for (Successors::const_iterator succ = successors.begin();
-           succ != succ_end;  ++succ) {
-        BasicBlock* basic_block = succ->reference().basic_block();
-        // When not marked, mark it and add it to working stack.
-        if (marked.insert(basic_block).second) {
-          working.push(basic_block);
-          has_unvisited_child = true;
-          break;
-        }
-      }
-
-      if (!has_unvisited_child) {
-        // Push this basic block in post-order in the ordering.
-        order->push_back(bb);
-        working.pop();
-      }
-    }
-  }
-}
 
 }  // namespace
 
@@ -215,7 +164,7 @@ void LivenessAnalysis::Analyze(const BasicBlockSubGraph* subgraph) {
   // Produce a post-order basic blocks ordering.
   const BBCollection& basic_blocks = subgraph->basic_blocks();
   std::vector<const BasicCodeBlock*> order;
-  FlattenBasicBlocksInPostOrder(basic_blocks, &order);
+  ControlFlowAnalysis::FlattenBasicBlocksInPostOrder(basic_blocks, &order);
 
   // Initialize liveness information of each basic block (empty set).
   std::vector<const BasicCodeBlock*>::const_iterator fw_iter = order.begin();

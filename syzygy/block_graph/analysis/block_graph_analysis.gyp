@@ -21,11 +21,13 @@
       'target_name': 'block_graph_analysis_lib',
       'type': 'static_library',
       'sources': [
+        'control_flow_analysis.cc',
+        'control_flow_analysis.h',
+        'liveness_analysis.cc',
         'liveness_analysis.h',
         'liveness_analysis_internal.h',
-        'liveness_analysis.cc',
-        'memory_access_analysis.h',
         'memory_access_analysis.cc',
+        'memory_access_analysis.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
@@ -39,6 +41,7 @@
       'type': 'executable',
       'sources': [
         'block_graph_analysis_unittests_main.cc',
+        'control_flow_analysis_unittest.cc',
         'liveness_analysis_unittest.cc',
         'memory_access_analysis_unittest.cc',
       ],
