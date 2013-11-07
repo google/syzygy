@@ -866,28 +866,29 @@ bool AsanTransform::PostBlockGraphIteration(
 
   static const size_t kInvalidIndex = -1;
 
+  static const char* kKernel32RedirectionPrefix = "asan_";
   struct Kernel32ImportRedirect {
     const char* import_name;
-    const char* redirect_name;
     std::pair<size_t, size_t> override_indexes;
   };
   static const Kernel32ImportRedirect kKernel32HeapRedirects[] = {
-    { "HeapCreate", "asan_HeapCreate" },
-    { "HeapDestroy", "asan_HeapDestroy" },
-    { "HeapAlloc", "asan_HeapAlloc" },
-    { "HeapReAlloc", "asan_HeapReAlloc" },
-    { "HeapFree", "asan_HeapFree" },
-    { "HeapSize", "asan_HeapSize" },
-    { "HeapValidate", "asan_HeapValidate" },
-    { "HeapCompact", "asan_HeapCompact" },
-    { "HeapLock", "asan_HeapLock" },
-    { "HeapUnlock", "asan_HeapUnlock" },
-    { "HeapWalk", "asan_HeapWalk" },
-    { "HeapSetInformation", "asan_HeapSetInformation" },
-    { "HeapQueryInformation", "asan_HeapQueryInformation" },
+    { "HeapCreate" },
+    { "HeapDestroy" },
+    { "HeapAlloc" },
+    { "HeapReAlloc" },
+    { "HeapFree" },
+    { "HeapSize" },
+    { "HeapValidate" },
+    { "HeapCompact" },
+    { "HeapLock" },
+    { "HeapUnlock" },
+    { "HeapWalk" },
+    { "HeapSetInformation" },
+    { "HeapQueryInformation" },
   };
   static const Kernel32ImportRedirect kKernel32FunctionRedirects[] = {
-    { "ReadFile", "asan_ReadFile" },
+    { "ReadFile" },
+    { "WriteFile" },
   };
 
   // TODO(sebmarchand): Use the RedirectImport transform when it's ready.
@@ -937,7 +938,9 @@ bool AsanTransform::PostBlockGraphIteration(
     size_t kernel32_index = iter->override_indexes.first;
     if (module_kernel32.SymbolIsImported(kernel32_index)) {
       size_t asan_index = module_asan.AddSymbol(
-          iter->redirect_name,
+          base::StringPrintf("%s%s",
+                             kKernel32RedirectionPrefix,
+                             iter->import_name),
           ImportedModule::kAlwaysImport);
       DCHECK_EQ(kInvalidIndex, iter->override_indexes.second);
       iter->override_indexes.second = asan_index;

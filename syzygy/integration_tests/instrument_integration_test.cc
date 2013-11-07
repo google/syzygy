@@ -415,6 +415,10 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
         ASAN_WRITE_ACCESS, 1);
     AsanErrorCheck(testing::kAsanReadFileUseAfterFree, USE_AFTER_FREE,
         ASAN_WRITE_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanWriteFileOverflow, HEAP_BUFFER_OVERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanWriteFileUseAfterFree, USE_AFTER_FREE,
+        ASAN_READ_ACCESS, 1);
   }
 
   void BBEntryInvokeTestDll() {

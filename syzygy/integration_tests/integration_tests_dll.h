@@ -137,6 +137,8 @@ namespace testing {
     decl(kAsanStrncatDstUseAfterFree, testing::AsanStrncatDstUseAfterFree)  \
     decl(kAsanReadFileOverflow, testing::AsanReadFileOverflow)  \
     decl(kAsanReadFileUseAfterFree, testing::AsanReadFileUseAfterFree)  \
+    decl(kAsanWriteFileOverflow, testing::AsanWriteFileOverflow)  \
+    decl(kAsanWriteFileUseAfterFree, testing::AsanWriteFileUseAfterFree)  \
     decl(kBBEntryCallOnce, BBEntryCallOnce)  \
     decl(kBBEntryCallTree, BBEntryCallTree)  \
     decl(kBBEntryCallRecursive, BBEntryCallRecursive)  \

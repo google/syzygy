@@ -666,13 +666,19 @@ bool EnumKernel32InterceptedFunctionsImports(const PEImage &image,
   DCHECK(cookie != NULL);
 
   StringVector* modules = reinterpret_cast<StringVector*>(cookie);
+  static const char* kInterceptedFunctions[] = {
+    "ReadFile",
+    "WriteFile",
+  };
 
-  // TODO(sebmarchand): Put the function name in a list when we'll have more
-  //     than one intercepted function.
-  if (_stricmp("kernel32.dll", module) == 0 &&
-      strncmp("ReadFile", name, 8) == 0) {
-    DCHECK(name != NULL);
-    modules->push_back(name);
+  if (_stricmp("kernel32.dll", module) == 0) {
+    for (size_t i = 0; i < arraysize(kInterceptedFunctions); ++i) {
+      if (base::strcasecmp(kInterceptedFunctions[i], name) == 0) {
+        DCHECK(name != NULL);
+        modules->push_back(name);
+        return true;
+      }
+    }
   }
 
   return true;
@@ -745,8 +751,9 @@ TEST_F(AsanTransformTest, ImportsAreRedirected) {
 
   StringVector heap_imports;
   ASSERT_TRUE(image.EnumAllImports(&EnumKernel32HeapImports, &heap_imports));
+  StringVector intercepted_functions_imports;
   ASSERT_TRUE(image.EnumAllImports(&EnumKernel32InterceptedFunctionsImports,
-                                   &heap_imports));
+                                   &intercepted_functions_imports));
 
   // This isn't strictly speaking a full test, as we only check that the new
   // imports have been added. It's however more trouble than it's worth to
@@ -755,6 +762,11 @@ TEST_F(AsanTransformTest, ImportsAreRedirected) {
   for (size_t i = 0; i < heap_imports.size(); ++i) {
     std::string asan_import = "asan_";
     asan_import.append(heap_imports[i]);
+    expected.insert(asan_import);
+  }
+  for (size_t i = 0; i < intercepted_functions_imports.size(); ++i) {
+    std::string asan_import = "asan_";
+    asan_import.append(intercepted_functions_imports[i]);
     expected.insert(asan_import);
   }
   expected.insert("asan_check_1_byte_read_access");

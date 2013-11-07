@@ -69,8 +69,8 @@ HANDLE InitTemporaryFile(const std::wstring& filename,
 
   // Get a handle to the newly created file.
   HANDLE file_handle =
-      ::CreateFile(filename.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING,
-                    FILE_ATTRIBUTE_NORMAL, NULL);
+      ::CreateFile(filename.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL,
+                   OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
   return file_handle;
 }
 
@@ -776,6 +776,85 @@ size_t AsanReadFileUseAfterFree() {
     return 0;
 
   return bytes_read;
+}
+
+size_t AsanWriteFileOverflow() {
+  std::wstring temp_filename;
+
+  if (!CreateTemporaryFilename(&temp_filename))
+    return false;
+
+  const char* kTestString = "Test of asan_WriteFile: overflow";
+  const size_t kTestStringLength = strlen(kTestString);
+
+  HANDLE file_handle = InitTemporaryFile(temp_filename, "");
+
+  if (file_handle == INVALID_HANDLE_VALUE)
+    return 0;
+
+  char* alloc = new char[kTestStringLength];
+  strcpy(alloc, kTestString);
+
+  // Do an overflow on the input buffer. It should be detected by the ASan
+  // interceptor of WriteFile.
+  DWORD bytes_written = 0;
+  if (!::WriteFile(file_handle,
+                   alloc,
+                   kTestStringLength + 1,
+                   &bytes_written,
+                   NULL)) {
+    return 0;
+  }
+
+  delete[] alloc;
+
+  if (!::CloseHandle(file_handle))
+    return 0;
+
+  if (!::DeleteFile(temp_filename.c_str()))
+    return 0;
+
+  return bytes_written;
+}
+
+size_t AsanWriteFileUseAfterFree() {
+  std::wstring temp_filename;
+
+  if (!CreateTemporaryFilename(&temp_filename))
+    return false;
+
+  const char* kTestString = "Test of asan_WriteFile: use-after-free";
+  const size_t kTestStringLength = strlen(kTestString);
+
+  HANDLE file_handle = InitTemporaryFile(temp_filename, "");
+
+  if (file_handle == INVALID_HANDLE_VALUE)
+    return 0;
+
+  char* alloc = new char[kTestStringLength];
+  strcpy(alloc, kTestString);
+
+  delete[] alloc;
+
+  DWORD bytes_written = 0;
+
+  // Do a use-after-free on the input buffer. It should be detected by the ASan
+  // interceptor of WriteFile.
+  if (!::WriteFile(file_handle,
+                   alloc,
+                   kTestStringLength,
+                   &bytes_written,
+                   NULL)) {
+    return 0;
+  }
+
+  if (!::CloseHandle(file_handle))
+    return 0;
+
+  if (!::DeleteFile(temp_filename.c_str()))
+    return 0;
+
+  return bytes_written;
 }
 
 }  // namespace testing
