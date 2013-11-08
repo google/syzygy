@@ -1,6 +1,23 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.4.1
+
+[r1893] Fix the failures on the decomposer unittests for the official build.
+[r1892] SyzyASan - Add the header and the lib file of syzyasan_rtl.dll to the
+        released binaries.
+
+Version 0.7.4.0
+
+[r1889] SyzyASan - Interception of the ReadFile and WriteFile functions.
+[r1864] Bug fix for sampling profiler grinder.
+[r1862] SyzyASan - Implementation of the API for the nested heaps.
+
+Version 0.7.3.0
+
+[r1840] Improved integration testing for profiler.
+[r1838] Refactor HeapProxy to expose the redzoning functions in an API.
+
 Version 0.7.2.0
 
 [r1827] New instrumentation mode for profiler.
