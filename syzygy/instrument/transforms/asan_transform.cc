@@ -713,14 +713,11 @@ bool AsanTransform::PreBlockGraphIteration(
     const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* header_block) {
-  bool already_instrumented = false;
-  // Ensure that this image has not already been instrumented.
-  if (!pe::HasImportEntry(header_block, kSyzyAsanDll, &already_instrumented)) {
-    LOG(ERROR) << "Unable to check if the image is already instrumented.";
-    return false;
-  }
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), header_block);
 
-  if (already_instrumented) {
+  // Ensure that this image has not already been instrumented.
+  if (block_graph->FindSection(common::kThunkSectionName)) {
     LOG(ERROR) << "The image is already instrumented.";
     return false;
   }
