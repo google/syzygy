@@ -80,6 +80,9 @@ _CC_HEADERS = (r'.+\.h$', r'.+\.inl$', r'.+\.hxx$', r'.+\.hpp$')
 _CC_FILES = _CC_SOURCES + _CC_HEADERS
 _CC_SOURCES_RE = re.compile('|'.join('(?:%s)' % x for x in _CC_SOURCES))
 
+# Ignore the headers present in the binaries directory, as they're a copy of
+# another header, making the header guard invalid.
+_CC_FILES_BLACKLIST = [r'syzygy\\binaries\\.+\.h$']
 
 # Regular expressions used to extract headers and recognize empty lines.
 _INCLUDE_RE = re.compile(r'^\s*#\s*include\s+(?P<header>[<"][^<"]+[>"])'
@@ -240,7 +243,8 @@ def CheckChange(input_api, output_api, committing):
 
   # We run lint only on C/C++ files so that we avoid getting notices about
   # files being ignored.
-  is_cc_file = lambda x: input_api.FilterSourceFile(x, white_list=_CC_FILES)
+  is_cc_file = lambda x: input_api.FilterSourceFile(x, white_list=_CC_FILES,
+      black_list=_CC_FILES_BLACKLIST)
   results += input_api.canned_checks.CheckChangeLintsClean(
       input_api, output_api, source_file_filter=is_cc_file)
 
