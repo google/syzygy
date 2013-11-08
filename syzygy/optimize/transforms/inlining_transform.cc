@@ -18,12 +18,21 @@
 // runs after the standard compiler WPO, it may face custom calling convention
 // and strange stack manipulations. Thus, every expansion must be safe.
 //
+// The pattern based inlining is able to inline many common cases encounter with
+// common compilers. This inlining transformation avoids decomposing the block
+// which is much more efficient.
+//   Example:
+//     - push ebp
+//       mov ebp, esp
+//       pop ebp
+//       ret
+//
 // The trivial body inlining is able to inline any trivial accessors.
-//  Assumptions:
-//     - No stack manipulations.
-//     - No branching instructions (except the last return).
+//   Assumptions:
+//     - No stack manipulations (except local push/pop).
+//     - No branching instructions (except the last return or jump).
 //     - No basic blocks reference, data block, jump-table, etc...
-//  Example:
+//   Example:
 //     - xor eax, eax
 //       ret
 
@@ -62,6 +71,7 @@ typedef Instruction::BasicBlockReferenceMap BasicBlockReferenceMap;
 enum MatchKind {
   kInvalidMatch,
   kReturnMatch,
+  kReturnConstantMatch,
   kDirectTrampolineMatch,
   kIndirectTrampolineMatch,
 };
@@ -147,13 +157,23 @@ bool MatchEmptyBody(BlockGraph::Block* callee) {
 
 // Match trivial body in a subgraph. A trivial body is a single basic block
 // without control flow, stack manipulation or other unsupported constructs.
+// @param subgraph The subgraph to try matching a trivial body.
+// @param kind On a match, receives the kind of match was found.
+// @param return_constant Receives the number of bytes to pop from the stack
+//     after the body (when kind is kReturnConstantMatch).
+// @param reference Receives a reference to a target continuation (when kind is
+//     kDirectTrampolineMatch or kIndirectTrampolineMatch).
+// @param body On success, receives the trivial body.
+// @returns true on success, false otherwise.
 bool MatchTrivialBody(const BasicBlockSubGraph& subgraph,
                       MatchKind* kind,
+                      size_t* return_constant,
                       BasicBlockReference* reference,
                       BasicCodeBlock** body) {
-  DCHECK_NE(reinterpret_cast<BasicCodeBlock**>(NULL), body);
   DCHECK_NE(reinterpret_cast<MatchKind*>(NULL), kind);
+  DCHECK_NE(reinterpret_cast<size_t*>(NULL), return_constant);
   DCHECK_NE(reinterpret_cast<BasicBlockReference*>(NULL), reference);
+  DCHECK_NE(reinterpret_cast<BasicCodeBlock**>(NULL), body);
 
   // Assume no match.
   *kind = kInvalidMatch;
@@ -164,6 +184,9 @@ bool MatchTrivialBody(const BasicBlockSubGraph& subgraph,
   BasicCodeBlock* bb = BasicCodeBlock::Cast(*subgraph.basic_blocks().begin());
   if (bb == NULL)
     return false;
+
+  // Current local stack depth.
+  size_t stack_depth = 0;
 
   // Iterates through each instruction.
   BasicBlock::Instructions::iterator inst_iter = bb->instructions().begin();
@@ -183,7 +206,15 @@ bool MatchTrivialBody(const BasicBlockSubGraph& subgraph,
 
     // Return instruction is valid.
     if (instr.IsReturn()) {
-      *kind = kReturnMatch;
+      // Match return with or without a constant.
+      if (repr.ops[0].type == O_NONE) {
+        *kind = kReturnMatch;
+      } else if (repr.ops[0].type == O_IMM) {
+        *kind = kReturnConstantMatch;
+        *return_constant = repr.imm.dword;
+      } else {
+        return false;
+      }
 
       // Move to the next instruction and leave loop. This instruction must be
       // the last one in the basic block.
@@ -215,18 +246,39 @@ bool MatchTrivialBody(const BasicBlockSubGraph& subgraph,
     if (instr.IsControlFlow())
       return false;
 
-    // Avoid stack manipulation
-    LivenessAnalysis::State defs;
-    LivenessAnalysis::StateHelper::GetDefsOf(instr, &defs);
+    // Avoid unsafe stack manipulation.
+    if (repr.opcode == I_PUSH &&
+        (repr.ops[0].type == O_IMM ||
+         repr.ops[0].type == O_IMM1 ||
+         repr.ops[0].type == O_IMM2)) {
+      // Pushing a constant is valid.
+      stack_depth += 4;
+    } else if (repr.opcode == I_PUSH &&
+               repr.ops[0].type == O_REG &&
+               repr.ops[0].index != R_EBP &&
+               repr.ops[0].index != R_ESP) {
+      // Pushing a register is valid.
+      stack_depth += 4;
+    } else if (repr.opcode == I_POP &&
+               repr.ops[0].type == O_REG &&
+               repr.ops[0].index != R_EBP &&
+               repr.ops[0].index != R_ESP &&
+               stack_depth >= 4) {
+      // Popping a register is valid.
+      stack_depth -= 4;
+    } else {
+      LivenessAnalysis::State defs;
+      LivenessAnalysis::StateHelper::GetDefsOf(instr, &defs);
 
-    LivenessAnalysis::State uses;
-    LivenessAnalysis::StateHelper::GetUsesOf(instr, &uses);
+      LivenessAnalysis::State uses;
+      LivenessAnalysis::StateHelper::GetUsesOf(instr, &uses);
 
-    if (defs.IsLive(core::esp) ||
-        defs.IsLive(core::ebp) ||
-        uses.IsLive(core::esp) ||
-        uses.IsLive(core::ebp)) {
-      return false;
+      if (defs.IsLive(core::esp) ||
+          defs.IsLive(core::ebp) ||
+          uses.IsLive(core::esp) ||
+          uses.IsLive(core::ebp)) {
+        return false;
+      }
     }
   }
 
@@ -265,7 +317,15 @@ bool MatchTrivialBody(const BasicBlockSubGraph& subgraph,
 }
 
 // Copy the body of the callee at a call-site in the caller.
+// @param kind The kind of inlining to perform.
+// @param return_constant The number of bytes to pop from the stack.
+// @param reference The reference to the continuation.
+// @param body The trivial body to be inlined.
+// @param target The place where to insert the callee body into the caller.
+// @param instructions The caller body that receives a copy of the callee body.
+// @returns true on success, false otherwise.
 bool InlineTrivialBody(MatchKind kind,
+                       size_t return_constant,
                        const BasicBlockReference& reference,
                        const BasicCodeBlock* body,
                        BasicBlock::Instructions::iterator target,
@@ -285,10 +345,7 @@ bool InlineTrivialBody(MatchKind kind,
       // Skip the indirect branch instruction.
       DCHECK_EQ(kind, kIndirectTrampolineMatch);
     } else if (instr.IsReturn()) {
-      if (repr.ops[0].type != O_NONE) {
-        // TODO(etienneb): 'ret 8' must be converted to a 'add %esp, 8'.
-        return false;
-      }
+      // Nothing to do here with return instruction (see below).
     } else {
       new_body.push_back(instr);
     }
@@ -298,6 +355,12 @@ bool InlineTrivialBody(MatchKind kind,
   BasicBlockAssembler assembler(target, instructions);
   switch (kind) {
     case kReturnMatch:
+      break;
+    case kReturnConstantMatch:
+      // Replace a 'ret 4' instruction by a 'lea %esp, [%esp + 0x4]'.
+      // Instruction add cannot be used because flags must be preserved,
+      assembler.lea(core::esp,
+                    Operand(core::esp, Displacement(return_constant)));
       break;
     case kDirectTrampolineMatch:
       DCHECK(reference.IsValid());
@@ -399,6 +462,7 @@ bool InliningTransform::TransformBasicBlockSubGraph(
       // Add one byte to take into account the return instruction.
       if (callee->size() <= instr.size() + 1) {
         BasicBlockSubGraph callee_subgraph;
+        size_t return_constant = 0;
         BasicCodeBlock* body = NULL;
         BasicBlockReference target;
         MatchKind match_kind = kInvalidMatch;
@@ -406,9 +470,10 @@ bool InliningTransform::TransformBasicBlockSubGraph(
         if (!DecomposeToBasicBlock(callee, &callee_subgraph))
           continue;
 
-        if (MatchTrivialBody(callee_subgraph, &match_kind, &target, &body) &&
-            InlineTrivialBody(match_kind, target, body, call_iter,
-                              &bb->instructions())) {
+        if (MatchTrivialBody(callee_subgraph, &match_kind, &return_constant,
+                             &target, &body) &&
+            InlineTrivialBody(match_kind, return_constant, target, body,
+                              call_iter, &bb->instructions())) {
           // Inlining successful, remove call-site.
           bb->instructions().erase(call_iter);
           continue;

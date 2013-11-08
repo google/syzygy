@@ -73,6 +73,9 @@ const uint8 kCodeEmpty[] = { 0x55, 0x8B, 0xEC, 0x5D, 0xC3 };
 // _asm ret8
 const uint8 kCodeRetWithOffset[] = { 0xC2, 0x08, 0x00 };
 
+// _asm lea esp, [esp + 8]
+const uint8 kCodeLeaEsp8[] = { 0x8D, 0x64, 0x24, 0x08, 0xC3 };
+
 // _asm xor eax, eax
 const uint8 kCodeRet0[] = { 0x33, 0xC0, 0xC3 };
 
@@ -112,6 +115,11 @@ const uint8 kCodeSelfJump[] = { 0x0B, 0xC0, 0x75, 0xFC, 0xC3 };
 // _asm call  dword ptr [eax]
 // _asm ret
 const uint8 kCodeIndirectCall[] = { 0xFF, 0x55, 0xF8, 0xC3 };
+
+// _asm push 2
+// _asm pop eax
+// _asm ret
+const uint8 kStackCst[] = { 0x6A, 0x02, 0x58, 0xC3 };
 
 class TestInliningTransform : public InliningTransform {
  public:
@@ -354,7 +362,7 @@ TEST_F(InliningTransformTest, InlineTrivialTwoCalls) {
               ElementsAreArray(caller_->data(), caller_->size()));
 }
 
-TEST_F(InliningTransformTest, DontInlineReturnWithOffset) {
+TEST_F(InliningTransformTest, InlineReturnWithOffset) {
   ASSERT_NO_FATAL_FAILURE(
       AddBlockFromBuffer(kCodeRetWithOffset,
                          sizeof(kCodeRetWithOffset),
@@ -362,8 +370,8 @@ TEST_F(InliningTransformTest, DontInlineReturnWithOffset) {
   ASSERT_NO_FATAL_FAILURE(CreateCallSiteToBlock(callee_));
   ASSERT_NO_FATAL_FAILURE(ApplyTransformOnCaller());
 
-  // A return with an offset cannot be inlined. (i.e. stack manipulation).
-  EXPECT_THAT(original_, ElementsAreArray(caller_->data(), caller_->size()));
+  // A return with an offset is inlined.
+  EXPECT_THAT(kCodeLeaEsp8, ElementsAreArray(caller_->data(), caller_->size()));
 }
 
 TEST_F(InliningTransformTest, DontInlineStackManipulation) {
@@ -522,6 +530,15 @@ TEST_F(InliningTransformTest, InlineIndirectTrampoline) {
   ASSERT_EQ(1U, callee_->references().size());
   BlockGraph::Reference reference = callee_->references().begin()->second;
   EXPECT_EQ(data_, reference.referenced());
+}
+
+TEST_F(InliningTransformTest, InlineConstantOnStack) {
+  ASSERT_NO_FATAL_FAILURE(
+      AddBlockFromBuffer(kStackCst, sizeof(kStackCst), &callee_));
+  ASSERT_NO_FATAL_FAILURE(CreateCallSiteToBlock(callee_));
+  ASSERT_NO_FATAL_FAILURE(ApplyTransformOnCaller());
+
+  EXPECT_THAT(kStackCst, ElementsAreArray(caller_->data(), caller_->size()));
 }
 
 }  // namespace transforms
