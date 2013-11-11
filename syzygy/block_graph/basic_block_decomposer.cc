@@ -561,7 +561,7 @@ bool BasicBlockDecomposer::ParseInstructions() {
 bool BasicBlockDecomposer::Disassemble() {
   // Parse the code bytes into instructions and rudimentary basic blocks.
   if (!ParseInstructions()) {
-    LOG(ERROR) << "Failed to parse instruction bytes.";
+    VLOG(1) << "Failed to parse instruction bytes.";
     return false;
   }
 

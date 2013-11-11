@@ -76,7 +76,13 @@ bool DecodeOneInstruction(
   if (result != DECRES_MEMORYERR && result != DECRES_SUCCESS)
     return false;
 
-  DCHECK_EQ(1u, decoded);
+  // It's possible for the decode to fail as having decoded a single partially
+  // valid instruction (ie: valid prefix of an instruction, waiting on more
+  // data), in which case it will return MEMORYERR (wants more data) and a
+  // decoded length of zero.
+  if (decoded == 0)
+    return false;
+
   DCHECK_GE(length, instruction->size);
   DCHECK_LT(0, instruction->size);
 

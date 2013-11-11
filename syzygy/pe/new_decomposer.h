@@ -116,7 +116,6 @@ class NewDecomposer {
   // Creates inter-block references from fixups.
   bool CreateReferencesFromFixups(IDiaSession* session);
   // Disassembles code blocks.
-  // TODO(chrisha): Remove this in favor of using BasicBlockDecomposer.
   bool DisassembleCodeBlocks();
   // Processes symbols from the PDB, setting block names and labels. This
   // step is purely optional and only necessary to provide debug information.

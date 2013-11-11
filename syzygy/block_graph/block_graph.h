@@ -72,6 +72,7 @@ class BlockGraphSerializer;
     /* This is set for blocks whose initial disassembly was incomplete. */ \
     /* This is not necessarily an error, as we see have seen blocks with */ \
     /* unreachable code, even in release mode. */ \
+    /* DEPRECATED AND DISAPPEARING WITH THE OLD DECOMPOSER. */ \
     F(INCOMPLETE_DISASSEMBLY) \
     /* This is set for blocks whose disassembly was unable to finish due to */ \
     /* an error. This block has violated assumptions that we make or */ \
@@ -85,6 +86,7 @@ class BlockGraphSerializer;
     /* This is set for blocks whose disassembly went off the end of the */ \
     /* block, or into data. These blocks have control flow that we are not */ \
     /* aware of, or are otherwise malformed. */ \
+    /* DEPRECATED AND DISAPPEARING WITH THE OLD DECOMPOSER. */ \
     F(DISASSEMBLED_PAST_END) \
     /* This is set for blocks that have a thunk symbol pointing to them. */ \
     /* Typically thunk blocks are compiler or linker-generated, such as */ \
@@ -97,7 +99,7 @@ class BlockGraphSerializer;
     F(COFF_HEADERS) \
     /* COFF symbol table. */ \
     F(COFF_SYMBOL_TABLE) \
-    /* COFF symbol table. */ \
+    /* COFF string table. */ \
     F(COFF_STRING_TABLE) \
     /* COFF relocation table; these should be ignored when dealing with */ \
     /* block graphs, as all the information is represented as references. */ \
