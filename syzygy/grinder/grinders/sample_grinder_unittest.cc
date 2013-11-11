@@ -14,6 +14,7 @@
 
 #include "syzygy/grinder/grinders/sample_grinder.h"
 
+#include "base/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -193,7 +194,8 @@ class SampleGrinderTest : public testing::PELibUnitTest {
         if (line.visit_count < min_visit_count)
           min_visit_count = line.visit_count;
 
-        EXPECT_EQ(source_file, *line.source_file_name);
+        EXPECT_EQ(StringToLowerASCII(source_file),
+                  StringToLowerASCII(*line.source_file_name));
         actual[line.line_number] = line.visit_count;
       }
       EXPECT_EQ(1u, min_visit_count);
