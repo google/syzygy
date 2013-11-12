@@ -154,7 +154,7 @@ bool BasicBlockDecomposer::Decompose() {
   if (!Disassemble())
     return false;
 
-  // Don't bother with the following book-keeping work if the results aren't
+  // Don't bother with the following bookkeeping work if the results aren't
   // being looked at.
   if (scratch_subgraph_.get() != NULL)
     return true;
@@ -424,8 +424,17 @@ bool BasicBlockDecomposer::HandleInstruction(const Instruction& instruction,
   } else {
     Offset target_offset =
         next_instruction_offset + instruction.representation().imm.addr;
-    DCHECK_LE(0, target_offset);
-    DCHECK_LT(static_cast<Size>(target_offset), block_->size());
+
+    // If we don't have a reference (coming from a fixup) for a PC-relative jump
+    // then we expect its destination to be in the block. We only see otherwise
+    // in assembly generated code where section contributions don't correspond
+    // to entire function bodies.
+    if (target_offset < 0 ||
+        static_cast<Size>(target_offset) >= block_->size()) {
+      VLOG(1) << "Unexpected PC-relative target offset is external to block.";
+      return false;
+    }
+
     ref = BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF,
                                 1,  // Size is irrelevant in successors.
                                 const_cast<Block*>(block_),
@@ -508,6 +517,10 @@ bool BasicBlockDecomposer::GetCodeRangeAndCreateDataBasicBlocks(Offset* end) {
                                   BasicBlock::BASIC_DATA_BLOCK));
       code_end = it->first;
     } else {
+      // We ignore the debug-end label, as it can come after block data.
+      if (label.attributes() == BlockGraph::DEBUG_END_LABEL)
+        continue;
+
       // Remember that a non-data label was seen. No further data labels should
       // be encountered.
       saw_non_data_label = true;
@@ -560,10 +573,8 @@ bool BasicBlockDecomposer::ParseInstructions() {
 
 bool BasicBlockDecomposer::Disassemble() {
   // Parse the code bytes into instructions and rudimentary basic blocks.
-  if (!ParseInstructions()) {
-    VLOG(1) << "Failed to parse instruction bytes.";
+  if (!ParseInstructions())
     return false;
-  }
 
   // Everything below this point is simply book-keeping that can't fail. These
   // can safely be skipped in a dry-run.

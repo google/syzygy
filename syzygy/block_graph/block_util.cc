@@ -36,10 +36,12 @@ bool CodeBlockAttributesAreBasicBlockSafe(
   static const BlockGraph::BlockAttributes kInvalidAttributes =
       BlockGraph::GAP_BLOCK |
       BlockGraph::PADDING_BLOCK |
+      // TODO(chrisha): Make this configurable.
       BlockGraph::HAS_INLINE_ASSEMBLY |
       BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER |
       BlockGraph::ERRORED_DISASSEMBLY |
       BlockGraph::HAS_EXCEPTION_HANDLING |
+      // TODO(chrisha): Remove this!
       BlockGraph::DISASSEMBLED_PAST_END;
   if ((block->attributes() & kInvalidAttributes) != 0)
     return false;

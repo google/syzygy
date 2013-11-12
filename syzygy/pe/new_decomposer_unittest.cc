@@ -402,7 +402,7 @@ TEST_F(NewDecomposerTest, LabelsAndAttributes) {
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 720;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 15;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 142;
-  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 6;
+  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 2;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 24;
   expected_attrib_counts[BlockGraph::THUNK] = 6;
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
@@ -414,7 +414,7 @@ TEST_F(NewDecomposerTest, LabelsAndAttributes) {
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 665;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 140;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 14;
-  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 6;
+  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 2;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 22;
   expected_attrib_counts[BlockGraph::THUNK] = 6;
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
@@ -425,7 +425,7 @@ TEST_F(NewDecomposerTest, LabelsAndAttributes) {
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 664;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 141;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 14;
-  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 6;
+  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 2;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 22;
   expected_attrib_counts[BlockGraph::THUNK] = 6;
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
