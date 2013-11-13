@@ -459,15 +459,22 @@ TEST_F(BasicBlockDecomposerTest, HasInlineAssembly) {
   ASSERT_NO_FATAL_FAILURE(InitBlockGraphFromSerializedFile(
       L"syzygy/block_graph/test_data/has_inline_assembly.bg"));
 
-  BlockGraph::BlockMap::const_iterator block_it = block_graph_.blocks().begin();
+  BlockGraph::BlockMap::iterator block_it =
+      block_graph_.blocks_mutable().begin();
   for (; block_it != block_graph_.blocks().end(); ++block_it) {
-    const BlockGraph::Block* block = &(block_it->second);
+    BlockGraph::Block* block = &(block_it->second);
 
     // We skip the 'master' blocks. These are simply dummy blocks that act as
     // sources and destinations for references, to keep the remaining blocks
     // intact.
     if (block->name() == "CodeMaster" || block->name() == "DataMaster")
       continue;
+
+    // We remove the ERRORED_DISASSEMBLY bit from the block, as the BB
+    // decomposer uses that to cache decomposition results and will fail
+    // early if it is set.
+    // TODO(chrisha): Remove me when caching happens in the policy object!
+    block->clear_attribute(BlockGraph::ERRORED_DISASSEMBLY);
 
     BasicBlockSubGraph bbsg;
     BasicBlockDecomposer bbd(block, &bbsg);

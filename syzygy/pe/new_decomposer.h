@@ -115,8 +115,6 @@ class NewDecomposer {
   bool FinalizeIntermediateReferences(const IntermediateReferences& references);
   // Creates inter-block references from fixups.
   bool CreateReferencesFromFixups(IDiaSession* session);
-  // Disassembles code blocks.
-  bool DisassembleCodeBlocks();
   // Processes symbols from the PDB, setting block names and labels. This
   // step is purely optional and only necessary to provide debug information.
   // This adds names to blocks, adds code labels and their names, and adds

@@ -21,7 +21,6 @@
 #include "base/strings/string_split.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
-#include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/core/zstream.h"
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
@@ -1067,11 +1066,6 @@ bool NewDecomposer::DecomposeImpl() {
   if (!ProcessSymbols(global.get()))
     return false;
 
-  // Disassemble code blocks.
-  VLOG(1) << "Disassembling code blocks.";
-  if (!DisassembleCodeBlocks())
-    return false;
-
   // Now, find and label any padding blocks.
   VLOG(1) << "Labeling padding blocks.";
   if (!FindPaddingBlocks(image_layout_))
@@ -1297,29 +1291,6 @@ bool NewDecomposer::FinalizeIntermediateReferences(
       return false;
     }
   }
-  return true;
-}
-
-bool NewDecomposer::DisassembleCodeBlocks() {
-  DCHECK_NE(reinterpret_cast<BlockGraph::AddressSpace*>(NULL), image_);
-
-  // Walk through the blocks and disassemble each one of them.
-  BlockGraph::AddressSpace::RangeMapConstIter it = image_->begin();
-  for (; it != image_->end(); ++it) {
-    Block* block = it->second;
-
-    // We're only interested in code blocks.
-    if (block->type() != BlockGraph::CODE_BLOCK)
-      continue;
-
-    // If this block can't be disassembled then set its disassembly error bit.
-    // TODO(chrisha): Don't actually call this at all. Let disassembly happen
-    //     on demand, as its not needed for a correct decomposition.
-    block_graph::BasicBlockDecomposer bb_decomposer(block, NULL);
-    if (!bb_decomposer.Decompose())
-      block->set_attribute(BlockGraph::ERRORED_DISASSEMBLY);
-  }
-
   return true;
 }
 
