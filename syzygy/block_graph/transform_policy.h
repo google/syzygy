@@ -33,21 +33,12 @@ class TransformPolicyInterface {
   // class.
   typedef block_graph::BlockGraph BlockGraph;
 
-  // Determines if the given code block's attributes make it eligible for
-  // basic-block decomposition.
-  // @param code_block The code block to evaluate.
-  // @returns true if the code block has safe attributes, false otherwise.
-  // @pre code_block must be of type BlockGraph::CODE_BLOCK.
-  virtual bool CodeBlockAttributesAreBasicBlockSafe(
-      const BlockGraph::Block* code_block) const = 0;
-
-  // Determines if the given code block is safe for basic-block decomposition.
-  // @param code_block The code block to evaluate.
-  // @returns true if it is safe to basic block decompose the given code block,
+  // Determines if the given block is safe for basic-block decomposition.
+  // @param block The block to evaluate.
+  // @returns true if it is safe to basic block decompose the given block,
   //     false otherwise.
-  // @pre code_block must be of type BlockGraph::CODE_BLOCK.
-  virtual bool CodeBlockIsSafeToBasicBlockDecompose(
-      const BlockGraph::Block* code_block) const = 0;
+  virtual bool BlockIsSafeToBasicBlockDecompose(
+      const BlockGraph::Block* block) const = 0;
 
   // Returns true if the given references @p ref from @p referrer may be safely
   // redirected. If both the referrer and the referenced blocks are irregular

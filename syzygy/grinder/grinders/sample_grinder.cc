@@ -18,13 +18,12 @@
 #include "base/stringprintf.h"
 #include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/block_graph/block_graph.h"
-#include "syzygy/block_graph/block_util.h"
 #include "syzygy/common/align.h"
 #include "syzygy/grinder/cache_grind_writer.h"
 #include "syzygy/grinder/coverage_data.h"
-#include "syzygy/pe/block_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/find.h"
+#include "syzygy/pe/pe_transform_policy.h"
 
 namespace grinder {
 namespace grinders {
@@ -58,7 +57,8 @@ size_t IntersectionSize(const Range& range,
   return right - left;
 }
 
-bool BuildHeatMapForCodeBlock(const Range& block_range,
+bool BuildHeatMapForCodeBlock(const pe::PETransformPolicy& policy,
+                              const Range& block_range,
                               const BlockGraph::Block* block,
                               core::StringTable* string_table,
                               HeatMap* heat_map) {
@@ -76,7 +76,7 @@ bool BuildHeatMapForCodeBlock(const Range& block_range,
   // If the code block is basic block decomposable then decompose it and
   // iterate over its basic blocks.
   bool handled_basic_blocks = false;
-  if (pe::CodeBlockIsBasicBlockDecomposable(block)) {
+  if (policy.BlockIsSafeToBasicBlockDecompose(block)) {
     block_graph::BasicBlockSubGraph bbsg;
     block_graph::BasicBlockDecomposer bbd(block, &bbsg);
     if (bbd.Decompose()) {
@@ -168,6 +168,8 @@ bool BuildEmptyHeatMap(const SampleGrinder::ModuleKey& module_key,
     return false;
   }
 
+  pe::PETransformPolicy policy;
+
   // Iterate over all of the code blocks and basic-block decompose them.
   LOG(INFO) << "Creating initial basic-block heat map for module \""
             << module_data.module_path.value() << "\".";
@@ -182,7 +184,7 @@ bool BuildEmptyHeatMap(const SampleGrinder::ModuleKey& module_key,
     if (block->attributes() & BlockGraph::GAP_BLOCK)
       continue;
 
-    if (!BuildHeatMapForCodeBlock(block_it->first, block, string_table,
+    if (!BuildHeatMapForCodeBlock(policy, block_it->first, block, string_table,
                                   heat_map)) {
       return false;
     }

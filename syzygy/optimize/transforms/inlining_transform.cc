@@ -417,7 +417,7 @@ bool InliningTransform::TransformBasicBlockSubGraph(
   DCHECK_NE(reinterpret_cast<const BlockGraph::Block*>(NULL), caller);
 
   // Apply the decomposition policy to the caller.
-  if (!policy->CodeBlockIsSafeToBasicBlockDecompose(caller))
+  if (!policy->BlockIsSafeToBasicBlockDecompose(caller))
     return true;
 
   // Iterates through each basic block.
@@ -443,7 +443,7 @@ bool InliningTransform::TransformBasicBlockSubGraph(
       // Avoid self recursion inlining.
       // Apply the decomposition policy to the callee.
       if (caller == callee ||
-          !policy->CodeBlockIsSafeToBasicBlockDecompose(callee)) {
+          !policy->BlockIsSafeToBasicBlockDecompose(callee)) {
         continue;
       }
 

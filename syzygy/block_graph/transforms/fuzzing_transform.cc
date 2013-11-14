@@ -116,10 +116,9 @@ bool FuzzingTransform::OnBlock(
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
 
-  if (block->type() != BlockGraph::CODE_BLOCK)
-    return true;
-
-  if (!CodeBlockAttributesAreBasicBlockSafe(block))
+  // Use the policy to skip blocks that aren't eligible for basic block
+  // decomposition.
+  if (!policy->BlockIsSafeToBasicBlockDecompose(block))
     return true;
 
   // Apply a basic block transform.

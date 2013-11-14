@@ -16,20 +16,17 @@
 
 namespace pe {
 
-bool CoffTransformPolicy::CodeBlockAttributesAreBasicBlockSafe(
-      const BlockGraph::Block* code_block) const {
-  return true;
-}
-
-bool CoffTransformPolicy::CodeBlockIsSafeToBasicBlockDecompose(
-    const BlockGraph::Block* code_block) const {
-  return true;
+bool CoffTransformPolicy::BlockIsSafeToBasicBlockDecompose(
+    const BlockGraph::Block* block) const {
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), block);
+  return pe_policy_.BlockIsSafeToBasicBlockDecompose(block);
 }
 
 bool CoffTransformPolicy::ReferenceIsSafeToRedirect(
     const BlockGraph::Block* referrer,
     const BlockGraph::Reference& reference) const {
-  return true;
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), referrer);
+  return pe_policy_.ReferenceIsSafeToRedirect(referrer, reference);
 }
 
 }  // namespace pe

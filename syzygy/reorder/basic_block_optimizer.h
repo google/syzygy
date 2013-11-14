@@ -24,6 +24,7 @@
 #include "syzygy/grinder/basic_block_util.h"
 #include "syzygy/pe/image_layout.h"
 #include "syzygy/pe/pe_file.h"
+#include "syzygy/pe/pe_transform_policy.h"
 #include "syzygy/reorder/reorderer.h"
 
 namespace reorder {
@@ -63,7 +64,8 @@ class BasicBlockOptimizer {
   typedef block_graph::ConstBlockVector ConstBlockVector;
 
   // Optimize the layout of all basic-blocks in a block.
-  static bool OptimizeBlock(const BlockGraph::Block* block,
+  static bool OptimizeBlock(const pe::PETransformPolicy& policy,
+                            const BlockGraph::Block* block,
                             const ImageLayout& image_layout,
                             const IndexedFrequencyInformation& entry_counts,
                             Order::BlockSpecVector* warm_block_specs,
@@ -71,7 +73,8 @@ class BasicBlockOptimizer {
 
   // Optimize the layout of all basic-blocks in a section, as defined by the
   // given @p section_spec and the original @p image_layout.
-  static bool OptimizeSection(const ImageLayout& image_layout,
+  static bool OptimizeSection(const pe::PETransformPolicy& policy,
+                              const ImageLayout& image_layout,
                               const IndexedFrequencyInformation& entry_counts,
                               const ConstBlockVector& explicit_blocks,
                               Order::SectionSpec* orig_section_spec,

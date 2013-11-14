@@ -25,7 +25,6 @@
 #include "syzygy/common/defs.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
-#include "syzygy/pe/block_util.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/transforms/pe_add_imports_transform.h"
 
@@ -203,11 +202,8 @@ bool BranchHookTransform::OnBlock(const TransformPolicyInterface* policy,
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
 
-  if (block->type() != BlockGraph::CODE_BLOCK)
-    return true;
-
-  // Ignore non-decomposable block.
-  if (!pe::CodeBlockIsBasicBlockDecomposable(block))
+  // Ignore non-decomposable blocks.
+  if (!policy->BlockIsSafeToBasicBlockDecompose(block))
     return true;
 
   if (!ApplyBasicBlockSubGraphTransform(this, policy, block_graph, block, NULL))

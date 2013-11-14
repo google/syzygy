@@ -21,34 +21,6 @@
 
 namespace block_graph {
 
-bool CodeBlockAttributesAreBasicBlockSafe(
-    const block_graph::BlockGraph::Block* block) {
-  DCHECK(block != NULL);
-  DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
-
-  // If the block was built by our toolchain it's inherently safe. This
-  // attribute is used to whitelist a block.
-  if (block->attributes() & BlockGraph::BUILT_BY_SYZYGY)
-    return true;
-
-  // Any of the following attributes make it unsafe to basic-block
-  // decompose the code block.
-  static const BlockGraph::BlockAttributes kInvalidAttributes =
-      BlockGraph::GAP_BLOCK |
-      BlockGraph::PADDING_BLOCK |
-      // TODO(chrisha): Make this configurable.
-      BlockGraph::HAS_INLINE_ASSEMBLY |
-      BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER |
-      BlockGraph::ERRORED_DISASSEMBLY |
-      BlockGraph::HAS_EXCEPTION_HANDLING |
-      // TODO(chrisha): Remove this!
-      BlockGraph::DISASSEMBLED_PAST_END;
-  if ((block->attributes() & kInvalidAttributes) != 0)
-    return false;
-
-  return true;
-}
-
 bool GetBasicBlockSourceRange(const BasicCodeBlock& bb,
                               BlockGraph::Block::SourceRange* source_range) {
   DCHECK(source_range != NULL);

@@ -19,7 +19,6 @@
 #include "syzygy/block_graph/basic_block_test_util.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/pe/block_util.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/reorder/order_generator_test.h"
 
@@ -155,7 +154,7 @@ class BasicBlockOptimizerTest : public testing::OrderGeneratorTest {
         const BlockGraph::Block* block = ip.first->second;
         if (block->type() != BlockGraph::CODE_BLOCK) {
           ++num_non_code_blocks_;
-        } else if (pe::CodeBlockIsBasicBlockDecomposable(block)) {
+        } else if (policy_.BlockIsSafeToBasicBlockDecompose(block)) {
           ++num_decomposable_blocks_;
         } else {
           ++num_non_decomposable_blocks_;
@@ -182,6 +181,7 @@ class BasicBlockOptimizerTest : public testing::OrderGeneratorTest {
   }
 
  protected:
+  pe::PETransformPolicy policy_;
   BasicBlockOptimizer optimizer_;
   size_t num_decomposable_blocks_;
   size_t num_non_decomposable_blocks_;

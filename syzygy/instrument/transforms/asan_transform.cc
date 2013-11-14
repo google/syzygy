@@ -25,7 +25,6 @@
 #include "syzygy/block_graph/block_builder.h"
 #include "syzygy/block_graph/block_util.h"
 #include "syzygy/common/defs.h"
-#include "syzygy/pe/block_util.h"
 #include "syzygy/pe/pe_utils.h"
 #include "third_party/distorm/files/include/mnemonics.h"
 #include "third_party/distorm/files/src/x86defs.h"
@@ -829,10 +828,8 @@ bool AsanTransform::OnBlock(const TransformPolicyInterface* policy,
   DCHECK(policy != NULL);
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
-  if (block->type() != BlockGraph::CODE_BLOCK)
-    return true;
 
-  if (!pe::CodeBlockIsBasicBlockDecomposable(block))
+  if (!policy->BlockIsSafeToBasicBlockDecompose(block))
     return true;
 
   // Use the filter that was passed to us for our child transform.

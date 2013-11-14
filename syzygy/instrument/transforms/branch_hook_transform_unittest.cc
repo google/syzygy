@@ -26,7 +26,6 @@
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/instrument/transforms/unittest_util.h"
-#include "syzygy/pe/block_util.h"
 #include "syzygy/pe/unittest_util.h"
 
 #include "mnemonics.h"  // NOLINT
@@ -102,8 +101,8 @@ void BranchHookTransformTest::CheckBasicBlockInstrumentation() {
     if (block.section() == tx_.thunk_section_->id())
       continue;
 
-    // Skip non-decomposable.
-    if (!pe::CodeBlockIsBasicBlockDecomposable(&block))
+    // Skip non-decomposable blocks.
+    if (!policy_.BlockIsSafeToBasicBlockDecompose(&block))
       continue;
 
     // Decompose the block to basic-blocks.

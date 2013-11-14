@@ -30,12 +30,6 @@ class BlockUtilTest: public testing::Test {
     bb_ = subgraph_.AddBasicCodeBlock("foo");
   }
 
-  void TestAttributes(BlockGraph::BlockAttributes attributes, bool expected) {
-    BlockGraph::Block* code = image_.AddBlock(BlockGraph::CODE_BLOCK, 40, "c");
-    code->set_attributes(attributes);
-    ASSERT_EQ(expected, CodeBlockAttributesAreBasicBlockSafe(code));
-  }
-
   BlockGraph::Size AddInstructions(bool add_source_ranges) {
     using core::eax;
     using core::ebp;
@@ -85,44 +79,6 @@ class BlockUtilTest: public testing::Test {
 };
 
 }  // namespace
-
-TEST_F(BlockUtilTest, CodeBlockAttributesAreBasicBlockSafeGapBlock) {
-  ASSERT_NO_FATAL_FAILURE(TestAttributes(BlockGraph::GAP_BLOCK, false));
-}
-
-TEST_F(BlockUtilTest, CodeBlockAttributesAreBasicBlockSafePaddingBlock) {
-  ASSERT_NO_FATAL_FAILURE(TestAttributes(BlockGraph::PADDING_BLOCK, false));
-}
-
-TEST_F(BlockUtilTest, CodeBlockAttributesAreBasicBlockSafeHasInlineAssembly) {
-  ASSERT_NO_FATAL_FAILURE(TestAttributes(BlockGraph::HAS_INLINE_ASSEMBLY,
-                                         false));
-}
-
-TEST_F(BlockUtilTest, CodeBlockAttributesAreBasicBlockSafeUnsupportedCompiler) {
-  ASSERT_NO_FATAL_FAILURE(TestAttributes(
-      BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER, false));
-}
-
-TEST_F(BlockUtilTest, CodeBlockAttributesAreBasicBlockSafeErroredDisassembly) {
-  ASSERT_NO_FATAL_FAILURE(TestAttributes(BlockGraph::ERRORED_DISASSEMBLY,
-                                         false));
-}
-
-TEST_F(BlockUtilTest, CodeBlockAttributesAreBasicBlockSafeExceptionHandling) {
-  ASSERT_NO_FATAL_FAILURE(TestAttributes(BlockGraph::HAS_EXCEPTION_HANDLING,
-                                         false));
-}
-
-TEST_F(BlockUtilTest, CodeBlockAttributesAreBasicBlockSafeDisassembledPastEnd) {
-  ASSERT_NO_FATAL_FAILURE(TestAttributes(BlockGraph::DISASSEMBLED_PAST_END,
-                                         false));
-}
-
-TEST_F(BlockUtilTest, CodeBlockAttributesAreBasicBlockSafeBuiltBySyzygy) {
-  ASSERT_NO_FATAL_FAILURE(TestAttributes(
-      BlockGraph::HAS_INLINE_ASSEMBLY | BlockGraph::BUILT_BY_SYZYGY, true));
-}
 
 TEST_F(BlockUtilTest, GetBasicBlockSourceRangeEmptyFails) {
   BlockGraph::Size instr_len = AddInstructions(false);

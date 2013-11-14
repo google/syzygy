@@ -256,10 +256,8 @@ bool EntryCallTransform::OnBlock(const TransformPolicyInterface* policy,
   DCHECK_NE(static_cast<BlockGraph*>(NULL), block_graph);
   DCHECK_NE(static_cast<BlockGraph::Block*>(NULL), block);
 
-  if (block->type() != BlockGraph::CODE_BLOCK)
-    return true;
-
-  if (!CodeBlockAttributesAreBasicBlockSafe(block))
+  // Skip blocks that aren't eligible for basic-block decomposition.
+  if (!policy->BlockIsSafeToBasicBlockDecompose(block))
     return true;
 
   // Apply the basic block transform.

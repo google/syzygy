@@ -19,7 +19,6 @@
 
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_builder.h"
-#include "syzygy/pe/block_util.h"
 
 namespace pe {
 namespace transforms {
@@ -132,7 +131,7 @@ bool ExplodeBasicBlocksTransform::OnBlock(
   if (block->attributes() & BlockGraph::GAP_BLOCK)
     return true;
 
-  if (!CodeBlockIsBasicBlockDecomposable(block)) {
+  if (!policy->BlockIsSafeToBasicBlockDecompose(block)) {
     VLOG(1) << "Skipping block '" << block->name() << "', attributes: "
             << BlockGraph::BlockAttributesToString(block->attributes());
 

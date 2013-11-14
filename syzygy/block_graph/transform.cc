@@ -64,7 +64,7 @@ bool ApplyBasicBlockSubGraphTransform(
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
   DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
-  DCHECK(CodeBlockAttributesAreBasicBlockSafe(block));
+  DCHECK(policy->BlockIsSafeToBasicBlockDecompose(block));
 
   // Decompose block to basic blocks.
   BasicBlockSubGraph subgraph;
@@ -99,7 +99,7 @@ bool ApplyBasicBlockSubGraphTransforms(
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
   DCHECK_EQ(BlockGraph::CODE_BLOCK, block->type());
-  DCHECK(CodeBlockAttributesAreBasicBlockSafe(block));
+  DCHECK(policy->BlockIsSafeToBasicBlockDecompose(block));
 
   // Decompose block to basic blocks.
   BasicBlockSubGraph subgraph;

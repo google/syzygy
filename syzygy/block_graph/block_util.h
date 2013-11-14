@@ -23,14 +23,6 @@
 
 namespace block_graph {
 
-// Determines whether @p block's attributes preclude basic-block
-// decomposition.
-// @param block the code block whose attributes are to be inspected.
-// @returns true if the block attributes are safe for decomposition to basic-
-//     blocks, false otherwise.
-// @pre block has type CODE_BLOCK.
-bool CodeBlockAttributesAreBasicBlockSafe(const BlockGraph::Block* block);
-
 // Determines whether @p bb's instructions and successors comprise a contiguous
 // source range, and return it if so.
 // @param bb the basic block to inspect.

@@ -50,10 +50,8 @@ class DummyTransformPolicy : public block_graph::TransformPolicyInterface {
 
   // @name TransformPolicyInterface implementation
   // @{
-  virtual bool CodeBlockAttributesAreBasicBlockSafe(
-      const BlockGraph::Block* code_block) const OVERRIDE;
-  virtual bool CodeBlockIsSafeToBasicBlockDecompose(
-      const BlockGraph::Block* code_block) const OVERRIDE;
+  virtual bool BlockIsSafeToBasicBlockDecompose(
+      const BlockGraph::Block* block) const OVERRIDE;
   virtual bool ReferenceIsSafeToRedirect(
       const BlockGraph::Block* referrer,
       const BlockGraph::Reference& reference) const OVERRIDE;

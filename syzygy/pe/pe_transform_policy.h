@@ -27,21 +27,57 @@ namespace pe {
 // files.
 class PETransformPolicy : public block_graph::TransformPolicyInterface {
  public:
-  PETransformPolicy() { }
+  PETransformPolicy();
   virtual ~PETransformPolicy() { }
 
   // @name TransformPolicyInterface implementation
   // @{
-  virtual bool CodeBlockAttributesAreBasicBlockSafe(
-      const BlockGraph::Block* code_block) const OVERRIDE;
-  virtual bool CodeBlockIsSafeToBasicBlockDecompose(
-      const BlockGraph::Block* code_block) const OVERRIDE;
+  virtual bool BlockIsSafeToBasicBlockDecompose(
+      const BlockGraph::Block* block) const OVERRIDE;
   virtual bool ReferenceIsSafeToRedirect(
       const BlockGraph::Block* referrer,
       const BlockGraph::Reference& reference) const OVERRIDE;
   // @}
 
- private:
+  bool allow_inline_assembly() const { return allow_inline_assembly_; }
+  void set_allow_inline_assembly(bool value) {
+    allow_inline_assembly_ = value;
+  }
+
+  // TODO(chrisha): When Decomposer disappears (the last place doing disassembly
+  //     that is *not* the basic-block decomposer), make these protected member
+  //     functions.
+
+  // Internal implementation details. Exposed for unittesting.
+  bool CodeBlockIsSafeToBasicBlockDecompose(
+      const BlockGraph::Block* code_block) const;
+  // Checks that the attributes (derived from symbol data) are consistent.
+  static bool CodeBlockAttributesAreBasicBlockSafe(
+      const BlockGraph::Block* code_block,
+      bool allow_inline_assembly);
+  // Checks that the code-data layout of the block is consistent. Assumes that
+  // the block attributes have already been checked and are valid.
+  static bool CodeBlockLayoutIsClConsistent(
+      const BlockGraph::Block* code_block);
+  // Checks that all outgoing references are consistent. Assumes that the block
+  // attributes have already been checked and are valid.
+  static bool CodeBlockReferencesAreClConsistent(
+      const BlockGraph::Block* code_block);
+  // Checks that all referrers are consistent. Assumes that the block layout has
+  // already been checked and is valid.
+  static bool CodeBlockReferrersAreClConsistent(
+      const BlockGraph::Block* code_block);
+
+ protected:
+  // Block IDs are stable, unique and can't be reused. That makes them perfect
+  // for a cache ID.
+  typedef std::map<const BlockGraph::BlockId, bool> BlockResultCache;
+  scoped_ptr<BlockResultCache> block_result_cache_;
+
+  // Determines whether or not we will allow decomposition of blocks with
+  // inline assembly.
+  bool allow_inline_assembly_;
+
   DISALLOW_COPY_AND_ASSIGN(PETransformPolicy);
 };
 

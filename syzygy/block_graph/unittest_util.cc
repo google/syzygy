@@ -273,19 +273,18 @@ bool GenerateTestBlockGraph(block_graph::BlockGraph* image) {
   return true;
 }
 
-bool DummyTransformPolicy::CodeBlockAttributesAreBasicBlockSafe(
-      const BlockGraph::Block* code_block) const {
-  return true;
-}
-
-bool DummyTransformPolicy::CodeBlockIsSafeToBasicBlockDecompose(
-    const BlockGraph::Block* code_block) const {
+bool DummyTransformPolicy::BlockIsSafeToBasicBlockDecompose(
+    const BlockGraph::Block* block) const {
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), block);
+  if (block->type() != BlockGraph::CODE_BLOCK)
+    return false;
   return true;
 }
 
 bool DummyTransformPolicy::ReferenceIsSafeToRedirect(
     const BlockGraph::Block* referrer,
     const BlockGraph::Reference& reference) const {
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), referrer);
   return true;
 }
 

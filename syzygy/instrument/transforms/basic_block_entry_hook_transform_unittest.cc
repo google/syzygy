@@ -26,7 +26,6 @@
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/instrument/transforms/unittest_util.h"
-#include "syzygy/pe/block_util.h"
 #include "syzygy/pe/unittest_util.h"
 
 #include "mnemonics.h"  // NOLINT
@@ -97,7 +96,7 @@ void BasicBlockEntryHookTransformTest::CheckBasicBlockInstrumentation(
 
     // Blocks which are not bb-decomposable should be thunked. While there may
     // be some internal referrers, the only external referrers should be thunks.
-    if (!pe::CodeBlockIsBasicBlockDecomposable(&block)) {
+    if (!policy_.BlockIsSafeToBasicBlockDecompose(&block)) {
       size_t num_external_thunks = 0;
       BlockGraph::Block::ReferrerSet::const_iterator ref_iter =
           block.referrers().begin();

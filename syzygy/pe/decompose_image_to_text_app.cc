@@ -15,7 +15,6 @@
 #include "syzygy/pe/decompose_image_to_text_app.h"
 
 #include "syzygy/block_graph/basic_block_decomposer.h"
-#include "syzygy/pe/block_util.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/new_decomposer.h"
 #include "syzygy/pe/pe_file.h"
@@ -309,12 +308,8 @@ void DecomposeImageToTextApp::DumpBlockToText(
 
   // Attempt basic block decomposition if BB-dumping is requested.
   // Note that on success we return early from here.
-  // TODO(siggi): Remove the cl consistent check and section contrib checks
-  //     once the BB decomposer is no longer asserting on non-consistent inputs.
   if (dump_basic_blocks_ &&
-      block->type() == BlockGraph::CODE_BLOCK &&
-      block->attributes() == BlockGraph::SECTION_CONTRIB &&
-      pe::CodeBlockIsClConsistent(block)) {
+      block->type() == BlockGraph::CODE_BLOCK) {
     BasicBlockSubGraph subgraph;
     BasicBlockDecomposer decomposer(block, &subgraph);
 

@@ -79,8 +79,6 @@ class BasicBlockDecomposer {
   // @param subgraph The basic-block sub-graph data structure to populate.
   //     This can be NULL if the results of the decomposition aren't
   //     necessary.
-  // @pre block is safe for basic-block decomposition. That is,
-  //     CodeBlockAttributesAreBasicBlockSafe(block) returns true.
   BasicBlockDecomposer(const BlockGraph::Block* block,
                        BasicBlockSubGraph* subgraph);
 

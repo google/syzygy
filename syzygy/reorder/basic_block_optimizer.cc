@@ -21,7 +21,6 @@
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
-#include "syzygy/pe/block_util.h"
 #include "syzygy/pe/find.h"
 #include "syzygy/pe/pe_utils.h"
 
@@ -607,6 +606,8 @@ bool BasicBlockOptimizer::Optimize(
   cold_section_spec->id = Order::SectionSpec::kNewSectionId;
   cold_section_spec->characteristics = pe::kCodeCharacteristics;
 
+  pe::PETransformPolicy policy;
+
   // Iterate over the sections in the original order and update their basic-
   // block orderings.
   for (size_t i = 0; i < num_sections; ++i) {
@@ -615,7 +616,8 @@ bool BasicBlockOptimizer::Optimize(
     Order::BlockSpecVector cold_block_specs;
 
     // Get the collection of warm and cold block spec for this section.
-    if (!OptimizeSection(image_layout,
+    if (!OptimizeSection(policy,
+                         image_layout,
                          entry_counts,
                          explicit_blocks,
                          section_spec,
@@ -637,6 +639,7 @@ bool BasicBlockOptimizer::Optimize(
 
 // Get an ordered list of warm and cold basic blocks for the given @p block.
 bool BasicBlockOptimizer::OptimizeBlock(
+    const pe::PETransformPolicy& policy,
     const BlockGraph::Block* block,
     const ImageLayout& image_layout,
     const IndexedFrequencyInformation& entry_counts,
@@ -676,7 +679,7 @@ bool BasicBlockOptimizer::OptimizeBlock(
 
   // Handle non-decomposable code blocks as large opaque basic-blocks. We've
   // already established that the block is warm, so just place it as is.
-  if (!pe::CodeBlockIsBasicBlockDecomposable(block)) {
+  if (!policy.BlockIsSafeToBasicBlockDecompose(block)) {
     warm_block_specs->push_back(Order::BlockSpec(block));
     return true;
   }
@@ -728,6 +731,7 @@ bool BasicBlockOptimizer::OptimizeBlock(
 }
 
 bool BasicBlockOptimizer::OptimizeSection(
+    const pe::PETransformPolicy& policy,
     const ImageLayout& image_layout,
     const IndexedFrequencyInformation& entry_counts,
     const ConstBlockVector& explicit_blocks,
@@ -745,7 +749,8 @@ bool BasicBlockOptimizer::OptimizeSection(
     DCHECK(block_spec->basic_block_offsets.empty());
     DCHECK(IsExplicitBlock(explicit_blocks, block_spec->block));
 
-    if (!OptimizeBlock(block_spec->block,
+    if (!OptimizeBlock(policy,
+                       block_spec->block,
                        image_layout,
                        entry_counts,
                        warm_block_specs,
@@ -775,7 +780,8 @@ bool BasicBlockOptimizer::OptimizeSection(
         continue;
 
       // We apply the same optimization as for explicitly placed blocks.
-      if (!OptimizeBlock(it->second,
+      if (!OptimizeBlock(policy,
+                         it->second,
                          image_layout,
                          entry_counts,
                          warm_block_specs,

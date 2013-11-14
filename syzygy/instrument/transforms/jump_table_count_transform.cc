@@ -26,7 +26,6 @@
 #include "syzygy/common/defs.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
-#include "syzygy/pe/block_util.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/transforms/pe_add_imports_transform.h"
 

@@ -57,8 +57,6 @@
       'target_name': 'pe_lib',
       'type': 'static_library',
       'sources': [
-        'block_util.cc',
-        'block_util.h',
         'coff_decomposer.cc',
         'coff_decomposer.h',
         'coff_file.cc',
@@ -184,7 +182,6 @@
       'target_name': 'pe_unittests',
       'type': 'executable',
       'sources': [
-        'block_util_unittest.cc',
         'coff_decomposer_unittest.cc',
         'coff_file_unittest.cc',
         'coff_file_writer_unittest.cc',

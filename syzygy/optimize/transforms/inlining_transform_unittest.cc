@@ -145,6 +145,7 @@ class InliningTransformTest : public testing::Test {
         block_graph_.AddBlock(BlockGraph::CODE_BLOCK, sizeof(kCodeRet), "ret");
     DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), caller_);
     caller_->SetData(kCodeRet, sizeof(kCodeRet));
+    caller_->SetLabel(0, "code", BlockGraph::CODE_LABEL);
 
     data_ = block_graph_.AddBlock(BlockGraph::DATA_BLOCK, sizeof(kData), "int");
     DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), data_);
@@ -180,6 +181,7 @@ void InliningTransformTest::AddBlockFromBuffer(const uint8* data,
   *block = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, length, "test");
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), *block);
   (*block)->SetData(data, length);
+  (*block)->SetLabel(0, "code", BlockGraph::CODE_LABEL);
 }
 
 // Produce a callee block. The content of the body is determined by |kind|.

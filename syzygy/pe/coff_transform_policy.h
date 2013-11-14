@@ -20,6 +20,7 @@
 #define SYZYGY_PE_COFF_TRANSFORM_POLICY_H_
 
 #include "syzygy/block_graph/transform_policy.h"
+#include "syzygy/pe/pe_transform_policy.h"
 
 namespace pe {
 
@@ -32,16 +33,19 @@ class CoffTransformPolicy : public block_graph::TransformPolicyInterface {
 
   // @name TransformPolicyInterface implementation
   // @{
-  virtual bool CodeBlockAttributesAreBasicBlockSafe(
-      const BlockGraph::Block* code_block) const OVERRIDE;
-  virtual bool CodeBlockIsSafeToBasicBlockDecompose(
-      const BlockGraph::Block* code_block) const OVERRIDE;
+  virtual bool BlockIsSafeToBasicBlockDecompose(
+      const BlockGraph::Block* block) const OVERRIDE;
   virtual bool ReferenceIsSafeToRedirect(
       const BlockGraph::Block* referrer,
       const BlockGraph::Reference& reference) const OVERRIDE;
   // @}
 
  private:
+  // TODO(chrisha): For now we are only a thin wrapper around a PE transform
+  //     policy. When the rest of the COFF machinery lands reimplement this to
+  //     respect the differences between COFF and PE code blocks.
+  PETransformPolicy pe_policy_;
+
   DISALLOW_COPY_AND_ASSIGN(CoffTransformPolicy);
 };
 

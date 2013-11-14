@@ -25,7 +25,6 @@
 #include "syzygy/common/defs.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
-#include "syzygy/pe/block_util.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/transforms/pe_add_imports_transform.h"
 
@@ -183,7 +182,7 @@ bool BasicBlockEntryHookTransform::OnBlock(
   if (block->type() != BlockGraph::CODE_BLOCK)
     return true;
 
-  if (!pe::CodeBlockIsBasicBlockDecomposable(block)) {
+  if (!policy->BlockIsSafeToBasicBlockDecompose(block)) {
     if (!ThunkNonDecomposableCodeBlock(block_graph, block))
       return false;
     return true;
@@ -314,7 +313,6 @@ bool BasicBlockEntryHookTransform::ThunkNonDecomposableCodeBlock(
     BlockGraph* block_graph, BlockGraph::Block* code_block) {
   DCHECK(block_graph != NULL);
   DCHECK(code_block != NULL);
-  DCHECK(!pe::CodeBlockIsBasicBlockDecomposable(code_block));
 
   // Typedef for the thunk block map. The key is the offset within the callee
   // block and the value is the thunk block that forwards to the callee at that
@@ -350,7 +348,6 @@ bool BasicBlockEntryHookTransform::EnsureReferrerIsThunked(
   DCHECK(block_graph != NULL);
   DCHECK(code_block != NULL);
   DCHECK(thunk_block_map != NULL);
-  DCHECK(!pe::CodeBlockIsBasicBlockDecomposable(code_block));
 
   // Get the reference.
   BlockGraph::Reference ref;

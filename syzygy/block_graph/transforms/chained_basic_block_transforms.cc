@@ -42,15 +42,10 @@ bool ChainedBasicBlockTransforms::OnBlock(
   if (transforms_.empty())
     return true;
 
-  // Only code can be decomposed.
-  if (block->type() != BlockGraph::CODE_BLOCK)
+  // Use the decomposition policy to skip blocks that aren't eligible for
+  // basic-block decomposition.
+  if (!policy->BlockIsSafeToBasicBlockDecompose(block))
     return true;
-
-  // Apply the decomposition policy.
-  if (!policy->CodeBlockAttributesAreBasicBlockSafe(block) ||
-      !policy->CodeBlockIsSafeToBasicBlockDecompose(block)) {
-    return true;
-  }
 
   // Apply the series of basic block transforms to this block.
   if (!ApplyBasicBlockSubGraphTransforms(

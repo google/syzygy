@@ -25,7 +25,6 @@
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/instrument/transforms/unittest_util.h"
-#include "syzygy/pe/block_util.h"
 
 #include "mnemonics.h"  // NOLINT
 
@@ -61,8 +60,6 @@ typedef testing::TestDllTransformTest JumpTableCaseCountTransformTest;
 
 // Ensures that the @p block is a jump table case count thunk.
 void CheckBlockIsAThunk(BlockGraph::Block* block) {
-  ASSERT_TRUE(pe::CodeBlockIsBasicBlockDecomposable(block));
-
   // Decompose the block to basic-blocks.
   BasicBlockSubGraph subgraph;
   BasicBlockDecomposer bb_decomposer(block, &subgraph);

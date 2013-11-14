@@ -25,18 +25,12 @@ using block_graph::BlockGraph;
 
 }  // namespace
 
-TEST(CoffTransformPolicyTest, CodeBlockAttributesAreBasicBlockSafe) {
+TEST(CoffTransformPolicyTest, CodeBlockIsSafeToBasicBlockDecomposeSimple) {
   CoffTransformPolicy policy;
   BlockGraph bg;
   BlockGraph::Block* b = bg.AddBlock(BlockGraph::CODE_BLOCK, 1, "");
-  EXPECT_TRUE(policy.CodeBlockAttributesAreBasicBlockSafe(b));
-}
-
-TEST(CoffTransformPolicyTest, CodeBlockIsSafeToBasicBlockDecompose) {
-  CoffTransformPolicy policy;
-  BlockGraph bg;
-  BlockGraph::Block* b = bg.AddBlock(BlockGraph::CODE_BLOCK, 1, "");
-  EXPECT_TRUE(policy.CodeBlockIsSafeToBasicBlockDecompose(b));
+  b->SetLabel(0, "code", BlockGraph::CODE_LABEL);
+  EXPECT_TRUE(policy.BlockIsSafeToBasicBlockDecompose(b));
 }
 
 TEST(CoffTransformPolicyTest, ReferenceIsSafeToRedirect) {

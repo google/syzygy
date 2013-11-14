@@ -18,7 +18,6 @@
 #include "syzygy/block_graph/block_util.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/core/disassembler_util.h"
-#include "syzygy/pe/block_util.h"
 #include "syzygy/pe/pe_utils.h"
 
 namespace instrument {
@@ -150,12 +149,8 @@ bool CoverageInstrumentationTransform::OnBlock(
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
 
-  // We only care about code blocks.
-  if (block->type() != BlockGraph::CODE_BLOCK)
-    return true;
-
   // We only care about blocks that are safe for basic block decomposition.
-  if (!pe::CodeBlockIsBasicBlockDecomposable(block))
+  if (!policy->BlockIsSafeToBasicBlockDecompose(block))
     return true;
 
   // Apply our basic block transform.
