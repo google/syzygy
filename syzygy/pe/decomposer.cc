@@ -2198,11 +2198,27 @@ BlockGraph::Block* Decomposer::FindOrCreateBlock(
     if (directive == kAllowPartialCoveringBlock)
       return block;
 
-    // Always allow collisions where the new block is a proper subset of
-    // an existing PE parsed block. The PE parser often knows more than we do
-    // about blocks that need to stick together.
-    if (block->attributes() & BlockGraph::PE_PARSED)
+    if (block->attributes() & BlockGraph::PE_PARSED) {
+      // Always allow collisions where the new block is a proper subset of
+      // an existing PE parsed block. The PE parser often knows more than we do
+      // about blocks that need to stick together.
       directive = kAllowCoveringBlock;
+
+      // Allow PE-parsed blocks to be grown to reflect reality. For example,
+      // in VS2013 the linker makes space for 2 debug directories rather than
+      // just one, and the symbols reflect this. We parse the debug directory
+      // with the size indicated in the PE header, which conflicts with that
+      // indicated by the section contributions.
+      if (name == "* Linker *" && size > block->size()) {
+        if (!image_->ResizeBlock(block, size)) {
+          LOG(ERROR) << "Failed to extend PE parsed block with linker "
+                     << "section contribution.";
+          return false;
+        }
+        const uint8* data = image_file_.GetImageData(addr, size);
+        block->SetData(data, size);
+      }
+    }
 
     bool collision = false;
     switch (directive) {

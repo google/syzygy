@@ -843,6 +843,14 @@ class BlockGraph::AddressSpace {
                   Size size,
                   const base::StringPiece& name);
 
+  // Resizes a block in the address-space by extending to the right, or
+  // trimming. Updates the block size but does not udpate its contents. This
+  // invalidates any RangeMap iterators to the block in question.
+  // @param block The block whose size is to change.
+  // @param size The new size of the block. Must be > 0.
+  // @returns true on success, false if not possible due to a conflict.
+  bool ResizeBlock(Block* block, size_t size);
+
   // Merges all blocks that intersect @p range into a single block.
   // Moves labels and references from the intersecting blocks to the
   // merged block, and changes referring blocks to refer to the new,

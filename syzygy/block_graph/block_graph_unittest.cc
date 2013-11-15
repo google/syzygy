@@ -1195,6 +1195,51 @@ TEST(BlockGraphAddressSpaceTest, AddBlock) {
                                      "code") != NULL);
 }
 
+TEST(BlockGraphAddressSpaceTest, ResizeBlock) {
+  BlockGraph image;
+  BlockGraph::AddressSpace address_space(&image);
+  EXPECT_EQ(0u, address_space.size());
+
+  BlockGraph::Block* b1 = address_space.AddBlock(BlockGraph::CODE_BLOCK,
+                                                 RelativeAddress(0x1000),
+                                                 0x20,
+                                                 "code");
+  BlockGraph::Block* b2 = address_space.AddBlock(BlockGraph::CODE_BLOCK,
+                                                 RelativeAddress(0x1030),
+                                                 0x20,
+                                                 "code");
+  EXPECT_EQ(2u, address_space.size());
+
+  const size_t kNewSizes[] = { 0x28, 0x32, 0x20, 0x20 };
+  const size_t kExpectedSizes[] = { 0x28, 0x28, 0x20, 0x20 };
+  COMPILE_ASSERT(sizeof(kNewSizes) == sizeof(kExpectedSizes),
+                 size_arrays_must_match);
+
+  // Grow successfully first. Then grow, but expect failure. Then shrink.
+  // Finally, stay the same size.
+  for (size_t i = 0; i < arraysize(kNewSizes); ++i) {
+    bool expected_result = kNewSizes[i] == kExpectedSizes[i];
+    EXPECT_EQ(expected_result, address_space.ResizeBlock(b1, kNewSizes[i]));
+
+    EXPECT_EQ(2u, address_space.size());
+    EXPECT_TRUE(address_space.ContainsBlock(b1));
+    EXPECT_TRUE(address_space.ContainsBlock(b2));
+    EXPECT_EQ(kExpectedSizes[i], b1->size());
+    BlockGraph::AddressSpace::RangeMapConstIter block_it =
+        address_space.address_space_impl().FindContaining(
+            BlockGraph::AddressSpace::Range(RelativeAddress(0x1000), 1));
+    EXPECT_TRUE(block_it != address_space.address_space_impl().end());
+    EXPECT_EQ(RelativeAddress(0x1000), block_it->first.start());
+    EXPECT_EQ(kExpectedSizes[i], block_it->first.size());
+    EXPECT_EQ(b1, block_it->second);
+  }
+
+  // Finally, trying to resize a block that's not in the address space
+  // should fail.
+  BlockGraph::Block* b3 = image.AddBlock(BlockGraph::CODE_BLOCK, 1, "c");
+  EXPECT_FALSE(address_space.ResizeBlock(b3, 1));
+}
+
 TEST(BlockGraphAddressSpaceTest, InsertBlock) {
   BlockGraph image;
   BlockGraph::AddressSpace address_space(&image);

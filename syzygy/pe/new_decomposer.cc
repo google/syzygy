@@ -1918,18 +1918,47 @@ Block* NewDecomposer::CreateBlockOrFindCoveringPeBlock(
     RelativeAddress block_addr;
     CHECK(image_->GetAddressOf(block, &block_addr));
 
-    RelativeRange existing_block(block_addr, block->size());
+    // Allow PE-parsed blocks to be grown to reflect reality. For example,
+    // in VS2013 the linker makes space for 2 debug directories rather than
+    // just one, and the symbols reflect this. We parse the debug directory
+    // with the size indicated in the PE header, which conflicts with that
+    // indicated by the section contributions.
+    if (name == "* Linker *" && block_addr == addr && size > block->size()) {
+      if (!image_->ResizeBlock(block, size)) {
+        LOG(ERROR) << "Failed to extend PE-parsed "
+                   << BlockInfo(block, block_addr) << " with linker "
+                   << "section contribution of size " << size << ".";
+
+        // Get the conflicting block and output additional information about
+        // it.
+        Block* conflict = image_->GetFirstIntersectingBlock(
+            block_addr + block->size(), size - block->size());
+        if (conflict) {
+          RelativeAddress conflict_addr;
+          CHECK(image_->GetAddressOf(conflict, &conflict_addr));
+          LOG(ERROR) << "Conflicts with existing "
+                     << BlockInfo(conflict, conflict_addr) << ".";
+        }
+
+        return NULL;
+      }
+
+      // Update the data in the extended block.
+      const uint8* data = image_file_.GetImageData(addr, size);
+      block->SetData(data, size);
+      return block;
+    }
 
     // If this is not a PE parsed or COFF group block that covers us entirely,
     // then this is an error.
     static const BlockGraph::BlockAttributes kCoveringAttributes =
         BlockGraph::PE_PARSED | BlockGraph::COFF_GROUP;
+    RelativeRange existing_block(block_addr, block->size());
     if ((block->attributes() & kCoveringAttributes) == 0 ||
         !existing_block.Contains(addr, size)) {
       LOG(ERROR) << "Trying to create block \"" << name.as_string() << "\" at "
                  << addr.value() << " with size " << size << " that conflicts "
-                 << "with existing block \"" << block->name() << " at "
-                 << block_addr << " with size " << block->size() << ".";
+                 << "with existing " << BlockInfo(block, block_addr) << ".";
       return NULL;
     }
 
