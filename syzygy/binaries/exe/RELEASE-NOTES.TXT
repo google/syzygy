@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.5.0
+
+[r1906] Various fixes for VS2013 support.
+
 Version 0.7.4.1
 
 [r1893] Fix the failures on the decomposer unittests for the official build.
