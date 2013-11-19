@@ -307,19 +307,28 @@ TEST_F(PEUtilsTest, AddLabelToBlock) {
   BlockGraph::Label label;
   ASSERT_TRUE(block->GetLabel(0x10, &label));
   EXPECT_TRUE(label.name() == "L1");
-  EXPECT_TRUE(label.attributes() == BlockGraph::DEBUG_START_LABEL);
+  EXPECT_EQ(BlockGraph::DEBUG_START_LABEL, label.attributes());
   ASSERT_TRUE(block->GetLabel(0x20, &label));
   EXPECT_TRUE(label.name() == "L2");
-  EXPECT_TRUE(label.attributes() == BlockGraph::CALL_SITE_LABEL);
+  EXPECT_EQ(BlockGraph::CALL_SITE_LABEL, label.attributes());
 
   ASSERT_TRUE(AddLabelToBlock(0x10, "L3", BlockGraph::CODE_LABEL, block));
   ASSERT_TRUE(block->GetLabel(0x10, &label));
+  EXPECT_EQ(BlockGraph::DEBUG_START_LABEL | BlockGraph::CODE_LABEL,
+            label.attributes());
 
   std::vector<std::string> names;
   base::SplitStringUsingSubstr(label.name(), kLabelNameSep, &names);
   EXPECT_TRUE(std::find(names.begin(), names.end(), "L1") != names.end());
   EXPECT_TRUE(std::find(names.begin(), names.end(), "L3") != names.end());
   EXPECT_EQ(BlockGraph::DEBUG_START_LABEL | BlockGraph::CODE_LABEL,
+            label.attributes());
+
+  // Add a data label to L3. It should supercede the code label, and cause it
+  // to be removed.
+  ASSERT_TRUE(AddLabelToBlock(0x10, "L4", BlockGraph::DATA_LABEL, block));
+  ASSERT_TRUE(block->GetLabel(0x10, &label));
+  EXPECT_EQ(BlockGraph::DEBUG_START_LABEL | BlockGraph::DATA_LABEL,
             label.attributes());
 }
 

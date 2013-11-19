@@ -297,6 +297,13 @@ bool AddLabelToBlock(BlockGraph::Offset offset,
   BlockGraph::LabelAttributes new_label_attr = label.attributes() |
       label_attributes;
 
+  // We often see code labels that coincide with data labels, as a terminating
+  // label of a switch statement. Data labels take priority.
+  if ((new_label_attr & BlockGraph::DATA_LABEL) &&
+      (new_label_attr & BlockGraph::CODE_LABEL)) {
+    new_label_attr ^= BlockGraph::CODE_LABEL;
+  }
+
   // Update the label.
   label = BlockGraph::Label(new_name, new_label_attr);
   CHECK(block->RemoveLabel(offset));

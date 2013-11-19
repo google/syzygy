@@ -20,12 +20,79 @@
 
 namespace core {
 
+namespace {
+
+// Handle improperly decoded instructions. Returns true if an instruction was
+// handled, false otherwise. If this returns false then none of the output
+// parameters will have been changed.
+bool HandleBadDecode(_CodeInfo* ci,
+                     _DInst result[],
+                     unsigned int max_instructions,
+                     unsigned int* used_instructions_count,
+                     _DecodeResult* ret) {
+  DCHECK_NE(reinterpret_cast<_CodeInfo*>(NULL), ci);
+  DCHECK_LE(1u, max_instructions);
+  DCHECK_NE(reinterpret_cast<unsigned int*>(NULL), used_instructions_count);
+  DCHECK_NE(reinterpret_cast<_DecodeResult*>(NULL), ret);
+
+  size_t size = 0;
+
+  // 3-byte VEX encoded instructions.
+  if (ci->code[0] == 0xC4) {
+    // vpermq
+    if (ci->code[1] == 0xE3 && ci->code[2] == 0xFD) {
+      size = 6;
+    } else if (ci->code[1] == 0xE2 && ci->code[2] == 0x4D) {
+      // vpermd
+      size = 5;
+    }
+  }
+
+  if (size == 0)
+    return false;
+
+  // We set the bare minimum properties that are required for any
+  // subsequent processing that we perform.
+
+  *used_instructions_count = 1;
+
+  ::memset(result, 0, sizeof(result[0]));
+  result[0].addr = ci->codeOffset;
+  result[0].size = size;
+
+  DCHECK_EQ(FC_NONE, META_GET_FC(result[0].meta));
+  DCHECK_EQ(O_NONE, result[0].ops[0].type);
+  DCHECK_EQ(O_NONE, result[0].ops[1].type);
+  DCHECK_EQ(O_NONE, result[0].ops[2].type);
+  DCHECK_EQ(O_NONE, result[0].ops[3].type);
+
+  *ret = DECRES_SUCCESS;
+
+  return true;
+}
+
+}  // namespace
+
 _DecodeResult DistormDecompose(_CodeInfo* ci,
                                _DInst result[],
                                unsigned int max_instructions,
                                unsigned int* used_instructions_count) {
   _DecodeResult ret =
       distorm_decompose(ci, result, max_instructions, used_instructions_count);
+
+  // Distorm @229 has a bug where it has problems decoding some AVX
+  // instructions. The encoding is described in detail here:
+  //   http://en.wikipedia.org/wiki/VEX_prefix
+  // An issue has been filed here:
+  //   https://code.google.com/p/distorm/issues/detail?id=77
+  // This is a workaround until the bug is fixed. We only care about the case
+  // where decoding failed.
+  if (ret != DECRES_SUCCESS && *used_instructions_count == 0) {
+    if (HandleBadDecode(ci, result, max_instructions, used_instructions_count,
+                        &ret)) {
+      return ret;
+    }
+  }
 
   for (unsigned int i = 0; i < *used_instructions_count; ++i) {
     // Distorm @229 has a bug where the access size for I_FNSTCW and I_FLDCW

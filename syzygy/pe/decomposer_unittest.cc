@@ -349,8 +349,8 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 720;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 15;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 142;
-  expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 68;
-  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 4;
+  expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 9;
+  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 1;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 24;
   expected_attrib_counts[BlockGraph::DISASSEMBLED_PAST_END] = 7;
   expected_attrib_counts[BlockGraph::THUNK] = 6;
@@ -362,9 +362,9 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   expected_attrib_counts[BlockGraph::PE_PARSED] = 93;
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 665;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 140;
-  expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 63;
+  expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 9;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 14;
-  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 4;
+  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 1;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 22;
   expected_attrib_counts[BlockGraph::DISASSEMBLED_PAST_END] = 7;
   expected_attrib_counts[BlockGraph::THUNK] = 6;
@@ -375,9 +375,9 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   expected_attrib_counts[BlockGraph::PE_PARSED] = 93;
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 664;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 141;
-  expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 65;
+  expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 9;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 14;
-  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 4;
+  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 1;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 22;
   expected_attrib_counts[BlockGraph::DISASSEMBLED_PAST_END] = 7;
   expected_attrib_counts[BlockGraph::THUNK] = 6;

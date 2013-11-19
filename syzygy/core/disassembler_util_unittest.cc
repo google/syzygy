@@ -120,6 +120,25 @@ const uint8 kSysExit[] = { 0x0F, 0x35 };
 const uint8 kInt2[] = { 0xCD, 0x02 };
 const uint8 kInt3[] = { 0xCC };
 
+// Improperly handled instructions.
+const uint8 kVpermq[] = { 0xC4, 0xE3, 0xFD, 0x00, 0xED, 0x44 };
+const uint8 kVpermd[] = { 0xC4, 0xE2, 0x4D, 0x36, 0xC0 };
+
+void TestBadlyDecodedInstruction(const uint8* code, size_t code_length) {
+  _DInst inst[1] = {};
+  unsigned int inst_count = 0;
+  _DecodeResult result = RawDecomposeCode(
+      code, code_length, inst, arraysize(inst), &inst_count);
+  EXPECT_EQ(DECRES_MEMORYERR, result);
+  EXPECT_EQ(0u, inst_count);
+
+  result = DecomposeCode(
+      code, code_length, inst, arraysize(inst), &inst_count);
+  EXPECT_EQ(DECRES_SUCCESS, result);
+  EXPECT_EQ(1u, inst_count);
+  EXPECT_EQ(code_length, inst[0].size);
+}
+
 }  // namespace
 
 TEST(DisassemblerUtilTest, DistormWrapperVxorpsPasses) {
@@ -326,6 +345,20 @@ TEST(DisassemblerUtilTest, WrongWriteFlagOnRawDistormDecomposeFst) {
 
   _DInst fistp = DecodeBuffer(kFistp, sizeof(kFistp));
   EXPECT_NE(0, fistp.flags & FLAG_DST_WR);
+}
+
+// If this test starts failing then Distorm now properly handles the vpermq
+// instruction. Please remove the workaround in disassembler_util.cc.
+TEST(DisassemblerUtilTest, TestBadlyDecodedVpermq) {
+  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
+      kVpermq, sizeof(kVpermq)));
+}
+
+// If this test starts failing then Distorm now properly handles the vpermd
+// instruction. Please remove the workaround in disassembler_util.cc.
+TEST(DisassemblerUtilTest, TestBadlyDecodedVpermd) {
+  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
+      kVpermd, sizeof(kVpermd)));
 }
 
 }  // namespace core

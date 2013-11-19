@@ -24,7 +24,7 @@
 #define COMPILE_ASSERT_IS_POD(x) \
     COMPILE_ASSERT(std::is_pod<x>::value, must_be_POD)
 
-// Causes compilationt to fail if the given object is not a POD of a given size.
+// Causes compilation to fail if the given object is not a POD of a given size.
 #define COMPILE_ASSERT_IS_POD_OF_SIZE(x, s) \
     COMPILE_ASSERT(std::is_pod<x>::value && (sizeof(x) == s), \
                    must_be_a_POD_of_ ## s ## _bytes_in_size)

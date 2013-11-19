@@ -2043,8 +2043,16 @@ bool Decomposer::CreateCodeReferences() {
   BlockGraph::BlockMap::iterator end(image_->graph()->blocks_mutable().end());
   for (; it != end; ++it) {
     BlockGraph::Block* block = &it->second;
+
     if (block->type() != BlockGraph::CODE_BLOCK)
       continue;
+
+    // We shouldn't attempt disassembly on unsafe blocks. The new decomposer
+    // has this fixed, but this is a workaround here for now.
+    if (!pe::PETransformPolicy::CodeBlockAttributesAreBasicBlockSafe(
+            block, false)) {
+      continue;
+    }
 
     if (!CreateCodeReferencesForBlock(block))
       return false;
