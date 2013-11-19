@@ -87,13 +87,18 @@ bool GetAddressOfBlock(const BlockGraph::Block* block,
 
 }  // namespace
 
+ApplicationProfile::ApplicationProfile(const ImageLayout* image_layout)
+    : image_layout_(image_layout), global_temperature_(0.0) {
+  empty_profile_.reset(new BlockProfile());
+}
+
 const BlockProfile* ApplicationProfile::GetBlockProfile(
     const BlockGraph::Block* block) const {
   ProfileMap::const_iterator it = profiles_.find(block->id());
   if (it != profiles_.end())
     return &it->second;
 
-  return NULL;
+  return empty_profile_.get();
 }
 
 bool ApplicationProfile::ComputeGlobalProfile() {
@@ -171,6 +176,9 @@ bool ApplicationProfile::ComputeGlobalProfile() {
     top->set_percentile(sum / global_temperature_);
     sum += top->temperature();
   }
+
+  // Force block never executed to be at the last percentile.
+  empty_profile_->set_percentile(1.0);
 
   return true;
 }

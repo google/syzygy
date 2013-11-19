@@ -23,7 +23,7 @@
 //
 //   foreach block in block_graph {
 //     ApplicationProfile::BlockProfile* bp = profile.GetBlockProfile();
-//     if (bp && bp->percentile() < 0.05)
+//     if (bp->percentile() < 0.05)
 //       LOG(INFO) << "This function is probably hot: " << block->name();
 //   }
 //
@@ -55,13 +55,12 @@ class ApplicationProfile {
   // Constructor.
   // @param image_layout The image layout.
   // @note |image_layout| must remains alive until this class get destroyed.
-  explicit ApplicationProfile(const ImageLayout* image_layout)
-      : image_layout_(image_layout), global_temperature_(0.0) {
-  }
+  explicit ApplicationProfile(const ImageLayout* image_layout);
 
   // Retrieve the profile for a given block.
   // @param block the block to find profile information.
-  // @returns the profile of the block or NULL when no profile is available.
+  // @returns the profile of the block or singleton empty profile when there is
+  //     no information available.
   const BlockProfile* GetBlockProfile(const BlockGraph::Block* block) const;
 
   // @returns the global temperature of the basic block;
@@ -95,6 +94,9 @@ class ApplicationProfile {
   // The profiles for blocks of the block_graph.
   ProfileMap profiles_;
 
+  // A empty profile used for all block never executed.
+  scoped_ptr<BlockProfile> empty_profile_;
+
  private:
   DISALLOW_COPY_AND_ASSIGN(ApplicationProfile);
 };
@@ -102,6 +104,11 @@ class ApplicationProfile {
 // This class contains profile information for a block (function).
 class ApplicationProfile::BlockProfile {
  public:
+  // Default constructor. Produce information for a block never executed.
+  BlockProfile()
+      : count_(0), temperature_(0), percentile_(0) {
+  }
+
   // Constructor.
   // @param count the block entry count.
   // @param temperature the temperature of a block is the sum of the basic

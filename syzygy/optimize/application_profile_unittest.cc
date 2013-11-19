@@ -50,6 +50,7 @@ class TestAplicationProfile : public ApplicationProfile {
   using ApplicationProfile::image_layout_;
   using ApplicationProfile::global_temperature_;
   using ApplicationProfile::profiles_;
+  using ApplicationProfile::empty_profile_;
 
   explicit TestAplicationProfile(ImageLayout* layout)
       : ApplicationProfile(layout) {
@@ -167,7 +168,7 @@ TEST_F(ApplicationProfileTest, BuildApplicationProfile) {
 
   ASSERT_NE(reinterpret_cast<const BlockProfile*>(NULL), profile1);
   ASSERT_NE(reinterpret_cast<const BlockProfile*>(NULL), profile2);
-  ASSERT_EQ(reinterpret_cast<const BlockProfile*>(NULL), profile3);
+  ASSERT_NE(reinterpret_cast<const BlockProfile*>(NULL), profile3);
 
   EXPECT_EQ(kBlock1Count, profile1->count());
   EXPECT_EQ(kBlock2Count, profile2->count());
@@ -177,6 +178,9 @@ TEST_F(ApplicationProfileTest, BuildApplicationProfile) {
 
   EXPECT_LT(0.90, profile1->percentile());
   EXPECT_GT(0.10, profile2->percentile());
+
+  EXPECT_EQ(app.empty_profile_.get(), profile3);
+  EXPECT_EQ(1.0, app.empty_profile_->percentile());
 }
 
 }  // namespace optimize
