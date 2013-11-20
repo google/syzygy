@@ -361,29 +361,41 @@ def _ParseArguments():
   parser.add_option('-v', '--verbose', dest='verbose',
                     action='store_true', default=False,
                     help='Enable verbose logging.')
-  parser.add_option('', '--build-dir', dest='build_dir',
-                    help='The directory containing the build to generate '
-                         'a code coverage report for.')
-  parser.add_option('', '--perf-tools-dir', dest='perf_tools_dir',
+  parser.add_option('--build-dir', dest='build_dir',
+                    help='The directory where build output is placed.')
+  parser.add_option('--target', dest='target',
+                    help='The build profile for which coverage is being '
+                         'generated. If not specified, default to None. '
+                         'Will be appended to --build-dir to generate the '
+                         'name of the directory containing the binaries '
+                         'to analyze.')
+  parser.add_option('--perf-tools-dir', dest='perf_tools_dir',
                     default=_PERF_TOOLS_DIR,
                     help='The directory where the VS performance tools, '
                          '"vsinstr.exe" and "vsperfcmd.exe" are found. '
                          'Ignored if --syzygy is specified.')
-  parser.add_option('', '--coverage-analyzer-dir', dest='coverage_analyzer_dir',
+  parser.add_option('--coverage-analyzer-dir', dest='coverage_analyzer_dir',
                     default=_COVERAGE_ANALYZER_DIR,
                     help='The directory where "coverage_analyzer.exe" '
                          'is found. Ignored if --syzygy is specified.')
-  parser.add_option('', '--keep-work-dir', action='store_true', default=False,
+  parser.add_option('--keep-work-dir', action='store_true', default=False,
                     help='Keep temporary directory after run.')
-  parser.add_option('', '--syzygy', action='store_true', default=False,
+  parser.add_option('--syzygy', action='store_true', default=False,
                     help='Use Syzygy coverage tools.')
 
   (opts, args) = parser.parse_args()
   if args:
     parser.error('This script does not accept any arguments.')
+
   if not opts.build_dir:
     parser.error('You must provide a build directory.')
   opts.build_dir = os.path.abspath(opts.build_dir)
+
+  # If a target name was specified, then refine the build path with that.
+  if opts.target:
+    opts.build_dir = os.path.abspath(os.path.join(opts.build_dir, opts.target))
+  if not os.path.isdir(opts.build_dir):
+    parser.error('Path does not exist: %s' % opts.build_dir)
 
   if opts.verbose:
     logging.basicConfig(level=logging.INFO)
