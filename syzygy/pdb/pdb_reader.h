@@ -40,7 +40,7 @@ class PdbReader {
   //
   // @param pdb_path the PDB file to read.
   // @param pdb_file the empty PdbFile object to be filled in.
-  // @return true on success, false otherwise.
+  // @returns true on success, false otherwise.
   bool Read(const base::FilePath& pdb_path, PdbFile* pdb_file);
 
  private:

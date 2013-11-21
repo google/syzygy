@@ -392,7 +392,7 @@ bool WritePdbFile(const base::FilePath& output_pdb_path,
 // @param pdb_file The PDB file to which the stream will be added.
 // @param replace_stream If true, will cause a new stream to be created even if
 //     another one already existed.
-// @return a pointer to the PDB stream on success, NULL on failure.
+// @returns a pointer to the PDB stream on success, NULL on failure.
 PdbStream* GetOrCreatePdbStreamByName(const char* stream_name,
                                       bool replace_stream,
                                       NameStreamMap* name_stream_map,

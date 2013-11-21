@@ -55,18 +55,18 @@ class ParseEngine {
   // consumption. It is an error to call this method given a file that
   // will not be recognized by the parse engine.
   //
-  // @return true on success.
+  // @returns true on success.
   virtual bool OpenTraceFile(const base::FilePath& trace_file_path) = 0;
 
   // Consume all events across all currently open trace files and for each
   // event call the dispatcher to notify the event handler.
   //
-  // @return true on success.
+  // @returns true on success.
   virtual bool ConsumeAllEvents() = 0;
 
   // Close all currently open trace files.
   //
-  // @return true on success.
+  // @returns true on success.
   virtual bool CloseAllTraceFiles() = 0;
 
   // Given an address and a process id, returns the module in memory at that
@@ -75,7 +75,7 @@ class ParseEngine {
   // @param process_id The id of the process to look up.
   // @param addr An address in the memory space of the process.
   //
-  // @return NULL if no such module exists; otherwise, a pointer to the module.
+  // @returns NULL if no such module exists; otherwise, a pointer to the module.
   const ModuleInformation* GetModuleInformation(uint32 process_id,
                                                 AbsoluteAddress64 addr) const;
 
@@ -99,7 +99,7 @@ class ParseEngine {
   // @param process_id The process in which the module has been loaded.
   // @param module_info The meta-data describing the loaded module.
   //
-  // @return true on success.
+  // @returns true on success.
   bool AddModuleInformation(DWORD process_id,
                             const ModuleInformation& module_info);
 
@@ -109,7 +109,7 @@ class ParseEngine {
   // @param process_id The process in which the module has been unloaded.
   // @param module_info The meta-data describing the loaded module.
   //
-  // @return true on success.
+  // @returns true on success.
   bool RemoveModuleInformation(DWORD process_id,
                                const ModuleInformation& module_info);
 
@@ -117,7 +117,7 @@ class ParseEngine {
   // process map.
   //
   // @param process_id The process which has been unloaded.
-  // @return true on success.
+  // @returns true on success.
   bool RemoveProcessInformation(DWORD process_id);
 
   // The main entry point by which trace events are dispatched to the
@@ -125,7 +125,7 @@ class ParseEngine {
   //
   // @param event The event to dispatch.
   //
-  // @return true if the event was recognized and handled in some way; false
+  // @returns true if the event was recognized and handled in some way; false
   //     if the event must be handled elsewhere. If an error occurs during
   //     the handling of the event, the error_occurred_ flag will be set to
   //     true.
@@ -137,7 +137,7 @@ class ParseEngine {
   // @param event The event to dispatch.
   // @param type TRACE_ENTER_EVENT or TRACE_EXIT_EVENT
   //
-  // @return true if the event was successfully dispatched, false otherwise.
+  // @returns true if the event was successfully dispatched, false otherwise.
   //     If an error occurred, the error_occurred_ flag will be set to
   //     true.
   bool DispatchEntryExitEvent(EVENT_TRACE* event, TraceEventType type);
@@ -147,7 +147,7 @@ class ParseEngine {
   //
   // @param event The event to dispatch.
   //
-  // @return true if the event was successfully dispatched, false otherwise.
+  // @returns true if the event was successfully dispatched, false otherwise.
   //     If an error occurred, the error_occurred_ flag will be set to
   //     true.
   bool DispatchBatchEnterEvent(EVENT_TRACE* event);
@@ -156,7 +156,7 @@ class ParseEngine {
   //
   // @param event The event to dispatch.
   //
-  // @return true if the event was successfully dispatched, false otherwise.
+  // @returns true if the event was successfully dispatched, false otherwise.
   //     If an error occurred the error_occurred_ flag will be set to true.
   bool DispatchProcessEndedEvent(EVENT_TRACE* event);
 
@@ -165,7 +165,7 @@ class ParseEngine {
   //
   // @param event The event to dispatch.
   //
-  // @return true if the event was successfully dispatched, false otherwise.
+  // @returns true if the event was successfully dispatched, false otherwise.
   //     If an error occurred, the error_occurred_ flag will be set to
   //     true.
   bool DispatchBatchInvocationEvent(EVENT_TRACE* event);
@@ -177,7 +177,7 @@ class ParseEngine {
   // @param type One of TRACE_PROCESS_ATTACH_EVENT, TRACE_PROCESS_DETACH_EVENT,
   //     TRACE_THREAD_ATTACH_EVENT, or TRACE_THREAD_DETACH_EVENT.
   //
-  // @return true if the event was successfully dispatched, false otherwise.
+  // @returns true if the event was successfully dispatched, false otherwise.
   //     If an error occurred, the error_occurred_ flag will be set to
   //     true.
   bool DispatchModuleEvent(EVENT_TRACE* event, TraceEventType type);
@@ -186,7 +186,7 @@ class ParseEngine {
   //
   // @param event The event to dispatch.
   //
-  // @return true if the event was successfully dispatched, false otherwise.
+  // @returns true if the event was successfully dispatched, false otherwise.
   //     If an error occurred, the error_occurred_ flag will be set to
   //     true.
   bool DispatchThreadNameEvent(EVENT_TRACE* event);
@@ -195,7 +195,7 @@ class ParseEngine {
   //
   // @param event the event to dispatch.
   //
-  // @return true if the event was successfully dispatched, false otherwise.
+  // @returns true if the event was successfully dispatched, false otherwise.
   //     Does not explicitly set error occurred.
   bool DispatchIndexedFrequencyEvent(EVENT_TRACE* event);
 
@@ -203,7 +203,7 @@ class ParseEngine {
   //
   // @param event the event to dispatch.
   //
-  // @return true if the event was successfully dispatched, false otherwise.
+  // @returns true if the event was successfully dispatched, false otherwise.
   //     Does not explicitly set error occurred.
   bool DispatchDynamicSymbolEvent(EVENT_TRACE* event);
 
@@ -211,7 +211,7 @@ class ParseEngine {
   //
   // @param event the event to dispatch.
   //
-  // @return true if the event was successfully dispatched, false otherwise.
+  // @returns true if the event was successfully dispatched, false otherwise.
   //     Does not explicitly set error occurred.
   bool DispatchSampleDataEvent(EVENT_TRACE* event);
 

@@ -288,7 +288,7 @@ class Decomposer {
   // @param image_layout The image-layout we're trying to populate.
   // @param stream_exist A pointer to a boolean to indicate if the block-graph
   //     stream exists in the PDB.
-  // @return true if the block-graph has been successfully loaded, false
+  // @returns true if the block-graph has been successfully loaded, false
   //     otherwise.
   bool LoadBlockGraphFromPdb(const base::FilePath& pdb_path,
                              const PEFile& image_file,
@@ -300,7 +300,7 @@ class Decomposer {
   //     block data pointers.
   // @param block_graph_stream The stream containing the block-graph.
   // @param image_layout The image-layout we're trying to populate.
-  // @return true if the block-graph has been successfully loaded, false
+  // @returns true if the block-graph has been successfully loaded, false
   //     otherwise.
   bool LoadBlockGraphFromPdbStream(const PEFile& image_file,
                                    pdb::PdbStream* block_graph_stream,

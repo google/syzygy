@@ -127,7 +127,7 @@ bool LoadBasicBlockRanges(const base::FilePath& pdb_path,
 // @param pdb_info_cache the cache of PDB info already seen.
 // @param module_info the info representing the module to find PDB info for.
 // @param pdb_info a pointer to the pdb info will be returned here.
-// @return true on success, false otherwise.
+// @returns true on success, false otherwise.
 bool LoadPdbInfo(PdbInfoMap* pdb_info_cache,
                  const ModuleInformation& module_info,
                  PdbInfo** pdb_info);

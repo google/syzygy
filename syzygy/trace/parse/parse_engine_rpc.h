@@ -51,13 +51,13 @@ class ParseEngineRpc : public ParseEngine {
   //
   // For each segment in the trace file calls ConsumeSegmentEvents().
   //
-  // @return true on success
+  // @returns true on success
   bool ConsumeTraceFile(const base::FilePath& trace_file_path);
 
-  // Dispactches all of the events in the given segment buffer.
+  // Dispatches all of the events in the given segment buffer.
   //
   // @param file_header the header information describing the trace file.
-  // @param segment_header the header iformation describign the segment.
+  // @param segment_header the header information describing the segment.
   // @param buffer the full segment data buffer.
   // @param buffer_length the length of the segment data buffer (in bytes).
   // @return true on success.

@@ -98,7 +98,7 @@ class Shadow {
   // @param size Will receive the size of the null terminated array or the
   //     offset of the invalid access.
   // @param max_size The maximum length to check. Ignored if set to zero.
-  // @return true iff the array starting at @p addr is null terminated within a
+  // @returns true iff the array starting at @p addr is null terminated within a
   //     contiguous accessible region of memory, false otherwise.
   static bool GetNullTerminatedArraySize(const void* addr,
                                          size_t* size,

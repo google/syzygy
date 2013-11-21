@@ -737,12 +737,12 @@ class BlockGraph::Block {
   // Gets the label at the given @p offset.
   // @param offset the offset of the label to get.
   // @param label the string to receive the label.
-  // @return true if the label exists, false otherwise.
+  // @returns true if the label exists, false otherwise.
   bool GetLabel(Offset offset, Label* label) const;
 
   // Removes the label at the given @p offset.
   // @param offset the offset of the label to remove.
-  // @return true if the label existed and was removed, false it it did not
+  // @returns true if the label existed and was removed, false it it did not
   //     exist.
   bool RemoveLabel(Offset offset);
 

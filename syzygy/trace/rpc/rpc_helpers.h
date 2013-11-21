@@ -34,7 +34,7 @@ namespace client {
 // @param endpoint The endpoint/address to bind.
 // @param out_handle A handle to the rpc binding will be returned here.
 //
-// @return true on success.
+// @returns true on success.
 bool CreateRpcBinding(const base::StringPiece16& protocol,
                       const base::StringPiece16& endpoint,
                       handle_t* out_handle);

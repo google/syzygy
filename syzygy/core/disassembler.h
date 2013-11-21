@@ -161,7 +161,7 @@ class Disassembler {
   CallbackDirective NotifyOnInstruction(AbsoluteAddress addr,
                                         const _DInst& inst);
 
-  // @return true iff the range [addr ... addr + len) is in the function.
+  // @returns true iff the range [addr ... addr + len) is in the function.
   bool IsInBlock(AbsoluteAddress addr) const;
 
   // The code we refer to.
@@ -185,6 +185,6 @@ class Disassembler {
   size_t disassembled_bytes_;
 };
 
-}  // namespace image_util
+}  // namespace core
 
 #endif  // SYZYGY_CORE_DISASSEMBLER_H_

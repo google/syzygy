@@ -55,7 +55,7 @@ bool CreateDiaSource(IDiaDataSource** created_source);
 // @param file the file to open.
 // @param dia_source the DIA source to use.
 // @param dia_session pointer that will receive the created DIA session.
-// @return true on success, false otherwise.
+// @returns true on success, false otherwise.
 bool CreateDiaSession(const base::FilePath& file,
                       IDiaDataSource* dia_source,
                       IDiaSession** dia_session);

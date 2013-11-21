@@ -242,7 +242,7 @@ class HeatMapSimulation::TimeSlice {
   // each function.
   // @param json_file The file where the functions will be serialized.
   // @param functions The given functions.
-  // @return true on success, false on failure.
+  // @returns true on success, false on failure.
   static bool PrintJSONFunctions(core::JSONFileWriter& json_file,
                                  const FunctionMap& functions);
 
