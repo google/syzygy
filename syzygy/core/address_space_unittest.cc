@@ -50,8 +50,19 @@ std::ostream& operator<<(std::ostream& os,
 }  // namespace
 
 TEST(AddressRangeTest, Create) {
-  PointerRange pointer_range(NULL, std::numeric_limits<size_t>::max());
-  IntegerRange integer_range(0, std::numeric_limits<size_t>::max());
+  PointerRange pointer_range1(NULL, std::numeric_limits<size_t>::max());
+  IntegerRange integer_range1(0, std::numeric_limits<size_t>::max());
+
+  PointerRange pointer_range2(NULL, 0);
+  IntegerRange integer_range2(0, 0);
+}
+
+TEST(AddressRangeTest, IsEmtpy) {
+  PointerRange pointer_range1(NULL, 0);
+  EXPECT_TRUE(pointer_range1.IsEmpty());
+
+  PointerRange pointer_range2(NULL, 1);
+  EXPECT_FALSE(pointer_range2.IsEmpty());
 }
 
 TEST(AddressRangeTest, Contains) {
@@ -67,6 +78,19 @@ TEST(AddressRangeTest, Contains) {
   EXPECT_TRUE(IntegerRange(10, 10).Contains(IntegerRange(10, 10)));
   EXPECT_TRUE(IntegerRange(10, 10).Contains(IntegerRange(15, 5)));
   EXPECT_TRUE(IntegerRange(10, 10).Contains(IntegerRange(10, 5)));
+
+  // An empty range contains no full range.
+  EXPECT_FALSE(IntegerRange(10, 0).Contains(IntegerRange(10, 1)));
+  EXPECT_FALSE(IntegerRange(10, 0).Contains(IntegerRange(9, 2)));
+
+  // An empty range contains itself.
+  EXPECT_TRUE(IntegerRange(10, 0).Contains(IntegerRange(10, 0)));
+
+  // An non-empty range contains any empty range with a start address within it
+  // or on its boundary.
+  EXPECT_TRUE(IntegerRange(10, 2).Contains(IntegerRange(11, 0)));
+  EXPECT_TRUE(IntegerRange(10, 2).Contains(IntegerRange(10, 0)));
+  EXPECT_TRUE(IntegerRange(10, 2).Contains(IntegerRange(12, 0)));
 }
 
 TEST(AddressRangeTest, Intersects) {
@@ -82,6 +106,15 @@ TEST(AddressRangeTest, Intersects) {
   EXPECT_TRUE(IntegerRange(10, 10).Intersects(IntegerRange(10, 10)));
   EXPECT_TRUE(IntegerRange(10, 10).Intersects(IntegerRange(15, 5)));
   EXPECT_TRUE(IntegerRange(10, 10).Intersects(IntegerRange(10, 5)));
+
+  // An empty range only intersects with a non-empty range if its address lies
+  // strictly within the non-empty range.
+  EXPECT_TRUE(IntegerRange(10, 2).Intersects(IntegerRange(11, 0)));
+  EXPECT_TRUE(IntegerRange(11, 0).Intersects(IntegerRange(10, 2)));
+  EXPECT_FALSE(IntegerRange(10, 2).Intersects(IntegerRange(10, 0)));
+  EXPECT_FALSE(IntegerRange(10, 2).Intersects(IntegerRange(12, 0)));
+  EXPECT_FALSE(IntegerRange(10, 0).Intersects(IntegerRange(10, 2)));
+  EXPECT_FALSE(IntegerRange(12, 0).Intersects(IntegerRange(10, 2)));
 }
 
 TEST(AddressRangeTest, Operators) {
@@ -89,6 +122,12 @@ TEST(AddressRangeTest, Operators) {
   EXPECT_TRUE(IntegerRange(9, 10) < IntegerRange(10, 10));
   EXPECT_TRUE(IntegerRange(9, 11) < IntegerRange(10, 10));
   EXPECT_TRUE(IntegerRange(10, 9) < IntegerRange(10, 10));
+
+  EXPECT_TRUE(IntegerRange(10, 0) < IntegerRange(10, 1));
+  EXPECT_FALSE(IntegerRange(10, 1) < IntegerRange(10, 0));
+  EXPECT_FALSE(IntegerRange(10, 0) < IntegerRange(10, 0));
+  EXPECT_TRUE(IntegerRange(10, 0) == IntegerRange(10, 0));
+  EXPECT_FALSE(IntegerRange(10, 0) != IntegerRange(10, 0));
 }
 
 TEST(AddressRangeTest, AddressRangeSerialization) {
@@ -118,6 +157,9 @@ TEST(AddressSpaceTest, Insert) {
   EXPECT_FALSE(address_space.Insert(IntegerAddressSpace::Range(95, 10), item));
   EXPECT_FALSE(address_space.Insert(IntegerAddressSpace::Range(100, 5), item));
   EXPECT_FALSE(address_space.Insert(IntegerAddressSpace::Range(105, 5), item));
+
+  // Empty insertions should be rejected.
+  EXPECT_FALSE(address_space.Insert(IntegerAddressSpace::Range(10, 0), item));
 }
 
 TEST(AddressSpaceTest, FindOrInsert) {
@@ -151,6 +193,9 @@ TEST(AddressSpaceTest, FindOrInsert) {
   EXPECT_FALSE(address_space.Insert(Range(101, 8), item, &attempt));
   EXPECT_FALSE(address_space.Insert(Range(105, 5), item, &attempt));
   EXPECT_FALSE(address_space.Insert(Range(105, 9), item, &attempt));
+
+  // Empty insertions should be rejected.
+  EXPECT_FALSE(address_space.FindOrInsert(Range(10, 0), item, &attempt));
 }
 
 TEST(AddressSpaceTest, SubsumeInsert) {
@@ -194,6 +239,9 @@ TEST(AddressSpaceTest, SubsumeInsert) {
   // should replace those ranges.
   EXPECT_TRUE(address_space.SubsumeInsert(Range(85, 50), item));
   EXPECT_TRUE(address_space.ranges().size() == 1);
+
+  // Empty insertions should be rejected.
+  EXPECT_FALSE(address_space.SubsumeInsert(Range(10, 0), item));
 }
 
 TEST(AddressSpaceTest, Remove) {
@@ -217,6 +265,9 @@ TEST(AddressSpaceTest, Remove) {
   // Items should have been removed.
   ASSERT_FALSE(address_space.Remove(IntegerAddressSpace::Range(100, 10)));
   ASSERT_FALSE(address_space.Remove(IntegerAddressSpace::Range(110, 5)));
+
+  // Empty removals should always fail.
+  EXPECT_FALSE(address_space.Remove(IntegerAddressSpace::Range(10, 0)));
 }
 
 TEST(AddressSpaceTest, RemoveByIter) {
@@ -267,6 +318,11 @@ TEST(AddressSpaceTest, Intersects) {
   // Empty intersections should fail.
   ASSERT_FALSE(address_space.Intersects(95, 5));
   ASSERT_FALSE(address_space.Intersects(115, 5));
+
+  // Intersections with empty ranges should fail.
+  ASSERT_FALSE(address_space.Intersects(50, 0));
+  ASSERT_FALSE(address_space.Intersects(100, 0));
+  ASSERT_FALSE(address_space.Intersects(101, 0));
 }
 
 TEST(AddressSpaceTest, ContainsExactly) {
@@ -292,6 +348,11 @@ TEST(AddressSpaceTest, ContainsExactly) {
   // Intersections should fail.
   ASSERT_FALSE(address_space.ContainsExactly(95, 10));
   ASSERT_FALSE(address_space.ContainsExactly(125, 10));
+
+  // Containment of with empty ranges should always fail.
+  ASSERT_FALSE(address_space.ContainsExactly(50, 0));
+  ASSERT_FALSE(address_space.ContainsExactly(100, 0));
+  ASSERT_FALSE(address_space.ContainsExactly(101, 0));
 }
 
 TEST(AddressSpaceTest, Contains) {
@@ -319,6 +380,11 @@ TEST(AddressSpaceTest, Contains) {
   // Intersections should fail.
   ASSERT_FALSE(address_space.Contains(95, 10));
   ASSERT_FALSE(address_space.Contains(125, 10));
+
+  // Containment of with empty ranges should always fail.
+  ASSERT_FALSE(address_space.Contains(50, 0));
+  ASSERT_FALSE(address_space.Contains(100, 0));
+  ASSERT_FALSE(address_space.Contains(101, 0));
 }
 
 TEST(AddressSpaceTest, FindFirstIntersection) {
@@ -357,6 +423,10 @@ TEST(AddressSpaceTest, FindFirstIntersection) {
 
   it = address_space.FindFirstIntersection(IntegerAddressSpace::Range(130, 30));
   EXPECT_TRUE(it == address_space.ranges().end());
+
+  // Empty ranges should never be found.
+  it = address_space.FindFirstIntersection(IntegerAddressSpace::Range(102, 0));
+  EXPECT_TRUE(it == address_space.ranges().end());
 }
 
 TEST(AddressSpaceTest, FindContaining) {
@@ -388,6 +458,10 @@ TEST(AddressSpaceTest, FindContaining) {
 
   it = address_space.FindContaining(IntegerAddressSpace::Range(109, 7));
   EXPECT_TRUE(it == address_space.ranges().end());
+
+  // Empty ranges should never be found.
+  it = address_space.FindContaining(IntegerAddressSpace::Range(101, 0));
+  EXPECT_TRUE(it == address_space.ranges().end());
 }
 
 TEST(AddressSpaceTest, FindIntersecting) {
@@ -413,6 +487,10 @@ TEST(AddressSpaceTest, FindIntersecting) {
   ASSERT_TRUE(it_pair.second != address_space.ranges().end());
   EXPECT_EQ(100, it_pair.first->first.start());
   EXPECT_EQ(120, it_pair.second->first.start());
+
+  it_pair = address_space.FindIntersecting(IntegerAddressSpace::Range(101, 0));
+  EXPECT_TRUE(it_pair.first == it_pair.second);
+  EXPECT_TRUE(it_pair.first == address_space.ranges().end());
 }
 
 TEST(AddressRangeMapTest, IsSimple) {
@@ -454,6 +532,7 @@ TEST(AddressRangeMapTest, FindRangePair) {
 
   EXPECT_EQ(NULL, map.FindRangePair(5, 10));
   EXPECT_EQ(NULL, map.FindRangePair(IntegerRange(50, 1)));
+  EXPECT_EQ(NULL, map.FindRangePair(2, 0));
 }
 
 TEST(AddressRangeMapTest, IsMapped) {
@@ -466,6 +545,8 @@ TEST(AddressRangeMapTest, IsMapped) {
   EXPECT_TRUE(map.IsMapped(IntegerRange(45, 5)));
 
   EXPECT_FALSE(map.IsMapped(15, 10));
+
+  EXPECT_FALSE(map.IsMapped(0, 0));
 }
 
 TEST(AddressRangeMapTest, InOrderPush) {
@@ -484,6 +565,10 @@ TEST(AddressRangeMapTest, InOrderPush) {
   EXPECT_FALSE(map.Push(IntegerRange(25, 10), IntegerRange(1025, 10)));
 
   EXPECT_TRUE(map.Push(IntegerRange(40, 10), IntegerRange(1040, 10)));
+  EXPECT_EQ(3u, map.size());
+
+  EXPECT_FALSE(map.Push(IntegerRange(0, 0), IntegerRange(1000, 1)));
+  EXPECT_FALSE(map.Push(IntegerRange(0, 1), IntegerRange(1000, 0)));
   EXPECT_EQ(3u, map.size());
 
   IntegerRangePairs expected;
@@ -558,6 +643,11 @@ TEST(AddressRangeMapTest, Insert) {
 
   // Inserting a contiguous range at end should merge with previous.
   EXPECT_TRUE(map.Insert(IntegerRange(50, 10), IntegerRange(1050, 10)));
+  EXPECT_EQ(3u, map.size());
+
+  // Inserting empty ranges should do nothing.
+  EXPECT_FALSE(map.Insert(IntegerRange(0, 0), IntegerRange(1000, 1)));
+  EXPECT_FALSE(map.Insert(IntegerRange(0, 1), IntegerRange(1000, 0)));
   EXPECT_EQ(3u, map.size());
 
   IntegerRangePairs expected;
@@ -712,6 +802,7 @@ TEST(AddressRangeMapTest, InsertUnmappedAtStart) {
   ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1020, 10)));
 
   map.InsertUnmappedRange(IntegerRange(0, 10));
+  map.InsertUnmappedRange(IntegerRange(0, 0));
 
   IntegerRangePairs expected;
   expected.push_back(
@@ -728,6 +819,7 @@ TEST(AddressRangeMapTest, InsertUnmappedInMiddle) {
   ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1020, 10)));
 
   map.InsertUnmappedRange(IntegerRange(15, 5));
+  map.InsertUnmappedRange(IntegerRange(15, 0));
 
   IntegerRangePairs expected;
   expected.push_back(
@@ -744,6 +836,7 @@ TEST(AddressRangeMapTest, InsertUnmappedAfterEnd) {
   ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1020, 10)));
 
   map.InsertUnmappedRange(IntegerRange(30, 10));
+  map.InsertUnmappedRange(IntegerRange(30, 0));
 
   IntegerRangePairs expected;
   expected.push_back(
@@ -759,6 +852,7 @@ TEST(AddressRangeMapTest, InsertUnmappedSplit) {
   ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
 
   map.InsertUnmappedRange(IntegerRange(5, 5));
+  map.InsertUnmappedRange(IntegerRange(5, 0));
 
   IntegerRangePairs expected;
   expected.push_back(
@@ -774,6 +868,7 @@ TEST(AddressRangeMapTest, InsertUnmappedSplitSingleton) {
   ASSERT_TRUE(map.Push(IntegerRange(0, 2), IntegerRange(1000, 1)));
 
   map.InsertUnmappedRange(IntegerRange(1, 1));
+  map.InsertUnmappedRange(IntegerRange(1, 0));
 
   IntegerRangePairs expected;
   expected.push_back(
@@ -788,6 +883,7 @@ TEST(AddressRangeMapTest, RemoveMappedNoData) {
   IntegerRangeMap map;
 
   map.RemoveMappedRange(IntegerRange(10, 10));
+  map.RemoveMappedRange(IntegerRange(10, 0));
 
   EXPECT_TRUE(map.empty());
 }
@@ -798,6 +894,7 @@ TEST(AddressRangeMapTest, RemoveMappedEmpty) {
   ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1020, 10)));
 
   map.RemoveMappedRange(IntegerRange(10, 10));
+  map.RemoveMappedRange(IntegerRange(10, 0));
 
   IntegerRangePairs expected;
   expected.push_back(
@@ -815,6 +912,7 @@ TEST(AddressRangeMapTest, RemoveMappedNoSplit) {
   ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1020, 10)));
 
   map.RemoveMappedRange(IntegerRange(10, 10));
+  map.RemoveMappedRange(IntegerRange(10, 0));
 
   IntegerRangePairs expected;
   expected.push_back(
@@ -831,6 +929,7 @@ TEST(AddressRangeMapTest, RemoveMappedSplitLeft) {
   ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1020, 10)));
 
   map.RemoveMappedRange(IntegerRange(5, 10));
+  map.RemoveMappedRange(IntegerRange(5, 0));
 
   IntegerRangePairs expected;
   expected.push_back(
@@ -847,6 +946,7 @@ TEST(AddressRangeMapTest, RemoveMappedSplitRight) {
   ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1020, 10)));
 
   map.RemoveMappedRange(IntegerRange(15, 10));
+  map.RemoveMappedRange(IntegerRange(15, 0));
 
   IntegerRangePairs expected;
   expected.push_back(
@@ -863,6 +963,7 @@ TEST(AddressRangeMapTest, RemoveMappedSplitBoth) {
   ASSERT_TRUE(map.Push(IntegerRange(20, 10), IntegerRange(1020, 10)));
 
   map.RemoveMappedRange(IntegerRange(5, 20));
+  map.RemoveMappedRange(IntegerRange(5, 0));
 
   IntegerRangePairs expected;
   expected.push_back(
@@ -878,6 +979,7 @@ TEST(AddressRangeMapTest, RemoveMappedSplitBothSingleton) {
   ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
 
   map.RemoveMappedRange(IntegerRange(5, 2));
+  map.RemoveMappedRange(IntegerRange(5, 0));
 
   IntegerRangePairs expected;
   expected.push_back(
@@ -893,6 +995,7 @@ TEST(AddressRangeMapTest, RemoveMappedBeyondEnd) {
   ASSERT_TRUE(map.Push(IntegerRange(0, 10), IntegerRange(1000, 10)));
 
   map.RemoveMappedRange(IntegerRange(10, 10));
+  map.RemoveMappedRange(IntegerRange(10, 0));
 
   IntegerRangePairs expected;
   expected.push_back(

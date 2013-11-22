@@ -207,7 +207,6 @@ class AddressRange {
 
   AddressRange(const AddressType &start, const SizeType& size)
       : start_(start), size_(size) {
-    DCHECK_GT(size_, 0U);
   }
 
   AddressRange(const AddressRange &other)
@@ -219,7 +218,14 @@ class AddressRange {
     size_ = other.size_;
   }
 
-  // Returns true iff @p other is contained within this range.
+  // @returns true if this range is empty.
+  bool IsEmpty() const { return size_ == 0; }
+
+  // Determines if a given address range is contained within this range.
+  // @param other The range to check.
+  // @param addr Start address of the range to check.
+  // @param size The size of the other range to check.
+  // @returns true iff @p other is contained within this range.
   bool Contains(const AddressRange& other) const {
     if (other.start_ < start_ || other.end() > end())
       return false;
@@ -230,7 +236,11 @@ class AddressRange {
     return Contains(AddressRange(addr, size));
   }
 
-  // Returns true iff @p other intersects this range.
+  // Determines if a given range intersects this range.
+  // @param other The range to test.
+  // @param addr Start address of the range to check.
+  // @param size The size of the other range to check.
+  // @returns true iff @p other intersects this range.
   bool Intersects(const AddressRange& other) const {
     if (other.end() <= start_ || other.start_ >= end())
       return false;
@@ -241,20 +251,24 @@ class AddressRange {
     return Intersects(AddressRange(addr, size));
   }
 
+  // @name Comparison operators. These are for the purposes of the map that we
+  //     use for tracking the address space.
+  // @{
   bool operator<(const AddressRange& other) const {
-    // This assumes the Address and Size types may only provide operator <.
-    return start_ < other.start_ ||
-        !(other.start_ < start_) && size_ < other.size_;
+    // This assumes the Address and Size types provide operator <.
+    return internal::CompleteAddressRangeLess<AddressRange>()(*this, other);
   }
 
   bool operator==(const AddressRange& other) const {
-    // If neither is less, they have to be equal.
+    // If neither is less, they have to be equal. That is, they conflict as
+    // far as the address-space is concerned.
     return !(other < *this) && !(*this < other);
   }
 
   bool operator!=(const AddressRange& other) const {
     return !operator==(other);
   }
+  // @}
 
   AddressType start() const { return start_; }
   AddressType end() const { return start_ + size_; }
@@ -480,6 +494,10 @@ bool AddressSpace<AddressType, SizeType, ItemType>::Insert(
     const Range& range,
     const ItemType& item,
     typename RangeMap::iterator* ret_it) {
+  // We can't insert empty ranges.
+  if (range.IsEmpty())
+    return false;
+
   // Is there an intersecting block?
   RangeMap::iterator it = FindFirstIntersection(range);
   if (it != ranges_.end())
@@ -499,6 +517,10 @@ bool AddressSpace<AddressType, SizeType, ItemType>::FindOrInsert(
     const Range& range,
     const ItemType& item,
     typename RangeMap::iterator* ret_it) {
+  // We can't insert empty ranges.
+  if (range.IsEmpty())
+    return false;
+
   // Is there already an existing block exactly matching that range? If so,
   // return it.
   RangeMap::iterator it = FindFirstIntersection(range);
@@ -522,6 +544,10 @@ bool AddressSpace<AddressType, SizeType, ItemType>::SubsumeInsert(
     const Range& range,
     const ItemType& item,
     typename RangeMap::iterator* ret_it) {
+  // We can't insert empty ranges.
+  if (range.IsEmpty())
+    return false;
+
   RangeMapIterPair its = FindIntersecting(range);
 
   // We only need to check how we intersect the first and last ranges; we
@@ -574,6 +600,10 @@ void AddressSpace<AddressType, SizeType, ItemType>::MergeInsert(
     const Range& range,
     const ItemType& item,
     typename RangeMap::iterator* ret_it) {
+  // We can't insert empty ranges.
+  if (range.IsEmpty())
+    return;
+
   RangeMapIterPair its = FindIntersecting(range);
 
   AddressType start_addr = range.start();
@@ -612,6 +642,10 @@ void AddressSpace<AddressType, SizeType, ItemType>::MergeInsert(
 
 template <typename AddressType, typename SizeType, typename ItemType>
 bool AddressSpace<AddressType, SizeType, ItemType>::Remove(const Range& range) {
+  // We can't remove empty ranges.
+  if (range.IsEmpty())
+    return false;
+
   RangeMap::iterator it = ranges_.find(range);
   if (it == ranges_.end())
     return false;
@@ -631,6 +665,10 @@ template <typename AddressType, typename SizeType, typename ItemType>
 typename AddressSpace<AddressType, SizeType, ItemType>::RangeMap::iterator
 AddressSpace<AddressType, SizeType, ItemType>::FindFirstIntersection(
     const Range& range) {
+  // Empty items do not exist in the address-space.
+  if (range.IsEmpty())
+    return ranges_.end();
+
   RangeMap::iterator it(ranges_.lower_bound(range));
 
   // There are three cases we need to handle here:
@@ -666,6 +704,10 @@ template <typename AddressType, typename SizeType, typename ItemType>
 typename AddressSpace<AddressType, SizeType, ItemType>::RangeMapIterPair
 AddressSpace<AddressType, SizeType, ItemType>::FindIntersecting(
     const Range& range) {
+  // Empty ranges find nothing.
+  if (range.IsEmpty())
+    return std::make_pair(ranges_.end(), ranges_.end());
+
   // Find the start of the range first.
   RangeMap::iterator begin(FindFirstIntersection(range));
 
@@ -741,6 +783,10 @@ template <typename SourceRangeType, typename DestinationRangeType>
 const std::pair<SourceRangeType, DestinationRangeType>*
 AddressRangeMap<SourceRangeType, DestinationRangeType>::FindRangePair(
     const SourceRange& src_range) const {
+  // No empty range exists in the mapping.
+  if (src_range.IsEmpty())
+    return NULL;
+
   // Find the first existing source range that is not less than src_range.
   // The returned iterator either intersects src_range, or is strictly greater
   // than it.
@@ -756,6 +802,10 @@ AddressRangeMap<SourceRangeType, DestinationRangeType>::FindRangePair(
 template <typename SourceRangeType, typename DestinationRangeType>
 bool AddressRangeMap<SourceRangeType, DestinationRangeType>::IsMapped(
     const SourceRange& src_range) const {
+  // By definition no empty range is mapped.
+  if (src_range.IsEmpty())
+    return false;
+
   // Find the first existing source range that is not less than src_range.
   // The returned iterator either intersects src_range, or is strictly greater
   // than it.
@@ -785,6 +835,10 @@ bool AddressRangeMap<SourceRangeType, DestinationRangeType>::IsMapped(
 template <typename SourceRangeType, typename DestinationRangeType>
 bool AddressRangeMap<SourceRangeType, DestinationRangeType>::Insert(
     const SourceRange& src_range, const DestinationRange& dst_range) {
+  // No empty ranges may be inserted in the mapping.
+  if (src_range.IsEmpty() || dst_range.IsEmpty())
+    return false;
+
   // Find the first existing source range that is not less than src_range.
   RangePairs::iterator it = std::lower_bound(
       range_pairs_.begin(),
@@ -873,6 +927,10 @@ bool AddressRangeMap<SourceRangeType, DestinationRangeType>::Insert(
 template <typename SourceRangeType, typename DestinationRangeType>
 bool AddressRangeMap<SourceRangeType, DestinationRangeType>::Push(
     const SourceRange& src_range, const DestinationRange& dst_range) {
+  // We can't insert empty ranges.
+  if (src_range.IsEmpty() || dst_range.IsEmpty())
+    return false;
+
   if (!range_pairs_.empty()) {
     SourceRange& last_src_range = range_pairs_.back().first;
 
@@ -953,6 +1011,10 @@ AddressRangeMap<SourceRangeType, DestinationRangeType>::LowerBound(
 template <typename SourceRangeType, typename DestinationRangeType>
 void AddressRangeMap<SourceRangeType, DestinationRangeType>::
     InsertUnmappedRange(const SourceRange& unmapped) {
+  // Unmapping an empty range is a nop.
+  if (unmapped.IsEmpty())
+    return;
+
   typedef typename SourceRange::Size SrcSize;
   typedef typename DestinationRange::Size DstSize;
   typedef typename DestinationRange::Address DstAddr;
@@ -1023,6 +1085,10 @@ void AddressRangeMap<SourceRangeType, DestinationRangeType>::
 template <typename SourceRangeType, typename DestinationRangeType>
 void AddressRangeMap<SourceRangeType, DestinationRangeType>::
     RemoveMappedRange(const SourceRange& mapped) {
+  // Removing an empty range is a nop.
+  if (mapped.IsEmpty())
+    return;
+
   typedef typename SourceRange::Size SrcSize;
   typedef typename DestinationRange::Size DstSize;
   typedef typename DestinationRange::Address DstAddr;
