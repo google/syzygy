@@ -114,7 +114,7 @@ class HeapProxy {
   // Get information about a bad access.
   // @param bad_access_info Will receive the information about this access.
   // @returns true if the address belongs to a memory block, false otherwise.
-  bool GetBadAccessInformation(AsanErrorInfo* bad_access_info);
+  static bool GetBadAccessInformation(AsanErrorInfo* bad_access_info);
 
   // @name Cast to/from HANDLE.
   // @{
@@ -329,30 +329,48 @@ class HeapProxy {
   //     where the trailer should be.
   static BlockTrailer* BlockHeaderToBlockTrailer(const BlockHeader* header);
 
-  // Find the memory block containing @p addr.
-  // @returns a pointer to this memory block in case of success, NULL otherwise.
-  BlockHeader* FindAddressBlock(const void* addr);
+  // Returns the time since the block @p header was freed (in microseconds).
+  // @param header The block for which we want the time since free.
+  static uint64 GetTimeSinceFree(const BlockHeader* header);
 
   // Give the type of a bad heap access corresponding to an address.
   // @param addr The address causing a bad heap access.
   // @param header The header of the block containing this address.
-  BadAccessKind GetBadAccessKind(const void* addr, BlockHeader* header);
+  // @returns The type of the bad heap access corresponding to this address.
+  static BadAccessKind GetBadAccessKind(const void* addr, BlockHeader* header);
 
-  // Quarantines @p block and flushes quarantine overage.
+  // Get the information about an address relative to a block.
+  // @param header The header of the block containing this address.
+  // @param bad_access_info Will receive the information about this address.
+  static void GetAddressInformation(BlockHeader* header,
+                                    AsanErrorInfo* bad_access_info);
+
+  // Find the memory block containing @p addr.
+  // @param addr The address for which we want to find the containing block.
+  // @note |addr| may be in the header or trailer of the block, not strictly
+  //     within its data.
+  // @returns a pointer to this memory block in case of success, NULL otherwise.
+  static BlockHeader* FindBlockContainingAddress(uint8* addr);
+
+  // Find the memory block containing the block @p inner_block.
+  // @param inner_block The block for which we want to find the containing
+  //     block.
+  // @returns a pointer to this memory block in case of success, NULL otherwise.
+  static BlockHeader* FindContainingBlock(BlockHeader* inner_block);
+
+  // Find the freed memory block containing the block @p inner_block.
+  // @param inner_block The block for which we want to find the containing
+  //     freed block.
+  // @returns a pointer to this memory block in case of success, NULL otherwise.
+  static BlockHeader* FindContainingFreedBlock(BlockHeader* inner_block);
+
+  // Quarantines @p block and trims the quarantine if it has grown too big.
+  // @param block The block to quarantine.
   void QuarantineBlock(BlockHeader* block);
 
   // If the quarantine size is over quarantine_max_size_, trim it down until
   // it's below the limit.
   void TrimQuarantine();
-
-  // Get the information about an address relative to a block.
-  // @param header The header of the block containing this address.
-  // @param bad_access_info Will receive the information about this address.
-  void GetAddressInformation(BlockHeader* header,
-                             AsanErrorInfo* bad_access_info);
-
-  // Returns the time since the block @p header was freed (in microseconds).
-  uint64 GetTimeSinceFree(const BlockHeader* header);
 
   // Arbitrarily keep 16 megabytes of quarantine per heap by default.
   static const size_t kDefaultQuarantineMaxSize = 16 * 1024 * 1024;

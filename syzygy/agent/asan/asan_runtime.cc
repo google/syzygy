@@ -711,22 +711,8 @@ void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
       Shadow::kInvalidAddress) {
     error_info->error_type = HeapProxy::INVALID_ADDRESS;
   } else {
-    // Iterates over the HeapProxy list to find the memory block containing this
-    // address. We expect that there is at least one heap proxy extant.
-    LIST_ENTRY* item = heap_proxy_dlist_.Flink;
-    CHECK(item != NULL);
-    while (item != NULL) {
-      LIST_ENTRY* next_item = NULL;
-      if (item->Flink != &heap_proxy_dlist_) {
-        next_item = item->Flink;
-      }
-
-      HeapProxy* proxy = HeapProxy::FromListEntry(item);
-      if (proxy->GetBadAccessInformation(error_info))
-        break;
-
-      item = next_item;
-    }
+    // TODO(sebmarchand): Add some code to check if the heap is corrupted.
+    HeapProxy::GetBadAccessInformation(error_info);
   }
 }
 

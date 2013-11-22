@@ -34,6 +34,9 @@ namespace {
 
 typedef StackCapture::StackId StackId;
 
+// The first 64kB of the memory are not addressable.
+const uint8* kAddressLowerLimit = reinterpret_cast<uint8*>(0x10000);
+
 // Utility class which implements an auto lock for a HeapProxy.
 class HeapLocker {
  public:
@@ -324,14 +327,6 @@ bool HeapProxy::MarkBlockAsQuarantined(BlockHeader* block_header,
   trailer->free_timestamp = trace::common::GetTsc();
   trailer->free_tid = ::GetCurrentThreadId();
 
-  // If the size of the allocation is zero then we shouldn't check the shadow
-  // memory as it'll only contain the red-zone for the head and tail of this
-  // block.
-  if (block_header->block_size != 0 &&
-      !Shadow::IsAccessible(BlockHeaderToUserPointer(block_header))) {
-    return false;
-  }
-
   block_header->state = QUARANTINED;
 
   // Poison the released alloc (marked as freed) and quarantine the block.
@@ -619,53 +614,212 @@ HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const void* addr,
   BadAccessKind bad_access_kind = UNKNOWN_BAD_ACCESS;
 
   if (header->state == QUARANTINED) {
-    // At this point we can't know if this address belongs to this
-    // quarantined block... If the block containing this address has been
-    // moved from the quarantine list its memory space could have been re-used
-    // and freed again (so having this block in the quarantine list don't
-    // guarantee that this is the original block).
-    // TODO(sebmarchand): Find a way to fix this bug.
     bad_access_kind = USE_AFTER_FREE;
   } else {
     if (addr < (BlockHeaderToUserPointer(header)))
       bad_access_kind = HEAP_BUFFER_UNDERFLOW;
     else if (addr >= (BlockHeaderToUserPointer(header) + header->block_size))
       bad_access_kind = HEAP_BUFFER_OVERFLOW;
+    else if (Shadow::GetShadowMarkerForAddress(addr) ==
+        Shadow::kHeapFreedByte) {
+      // This is a use after free on a block managed by a nested heap.
+      bad_access_kind = USE_AFTER_FREE;
+    }
   }
   return bad_access_kind;
 }
 
-HeapProxy::BlockHeader* HeapProxy::FindAddressBlock(const void* addr) {
+HeapProxy::BlockHeader* HeapProxy::FindBlockContainingAddress(uint8* addr) {
   DCHECK(addr != NULL);
-  PROCESS_HEAP_ENTRY heap_entry = {};
-  memset(&heap_entry, 0, sizeof(heap_entry));
-  BlockHeader* header = NULL;
 
-  // Walk through the heap to find the block containing @p addr.
-  HeapLocker heap_locker(this);
-  while (Walk(&heap_entry)) {
-    uint8* entry_upper_bound =
-        static_cast<uint8*>(heap_entry.lpData) + heap_entry.cbData;
+  uint8* original_addr = addr;
+  addr = reinterpret_cast<uint8*>(
+      common::AlignDown(reinterpret_cast<size_t>(addr),
+      Shadow::kShadowGranularity));
 
-    if (heap_entry.lpData <= addr && entry_upper_bound > addr) {
-      header = reinterpret_cast<BlockHeader*>(heap_entry.lpData);
-      // Ensures that the block have been allocated by this proxy.
-      if (header->magic_number == kBlockHeaderSignature) {
-        DCHECK(header->state != FREED);
-        break;
-      } else {
-        header = NULL;
+  // Here's what the memory will look like for a block nested into another one:
+  //          +-----------------------------+--------------+---------------+
+  // Shadow:  |        Left redzone         |              | Right redzone |
+  //          +------+---------------+------+--------------+-------+-------+
+  // Memory:  |      | BH_2 Padding  | BH_2 | Data Block 2 | BT_2  |       |
+  //          | BH_1 +---------------+------+--------------+-------+ BT_1  |
+  //          |      |                 Data Block 1                |       |
+  //          +------+---------------------------------------------+-------+
+  // Legend:
+  //   - BH_X: Block header of the block X.
+  //   - BT_X: Block trailer of the block X.
+  //
+  // In this example block 2 has an alignment different from block 1, hence the
+  // padding in front of its header.
+  //
+  // There can be several scenarios:
+  //
+  // 1) |addr| doesn't point to an address corresponding to a left redzone in
+  //    the shadow. In this case we should walk the shadow until we find the
+  //    header of a block containing |addr|.
+  //
+  // 2) |addr| points to the left redzone of the blocks, this can be due to
+  //    several types of bad accesses: a underflow on block 1, a underflow on
+  //    block 2 or a use after free on block 1. In this case we need to scan the
+  //    shadow to the left and to the right until we find a block header, or
+  //    until we get out of the shadow. We'll get 2 pointers to the bounds of
+  //    the left redzone, at least one of them will point to a block header, if
+  //    not then the heap is corrupted. If exactly one of them points to a
+  //    header then it's our block header, if it doesn't encapsulate |addr| then
+  //    the heap is corrupted. If both of them point to a block header then the
+  //    address will fall in the header of exactly one of them. If both or
+  //    neither, we have heap corruption.
+
+  // This corresponds to the first case.
+  if (Shadow::GetShadowMarkerForAddress(reinterpret_cast<void*>(addr)) !=
+      Shadow::kHeapLeftRedzone) {
+    while (addr >= kAddressLowerLimit) {
+      addr -= Shadow::kShadowGranularity;
+      if (Shadow::GetShadowMarkerForAddress(reinterpret_cast<void*>(addr)) ==
+          Shadow::kHeapLeftRedzone) {
+        BlockHeader* header = reinterpret_cast<BlockHeader*>(addr -
+            (sizeof(BlockHeader) - Shadow::kShadowGranularity));
+        if (header->magic_number != kBlockHeaderSignature)
+          continue;
+        size_t block_size = GetAllocSize(header->block_size,
+                                         1 << header->alignment_log);
+        uint8* asan_ptr = BlockHeaderToAsanPointer(header);
+        if (reinterpret_cast<uint8*>(original_addr) < asan_ptr + block_size)
+          return header;
       }
+    }
+
+    // This address doesn't belong to any block.
+    return NULL;
+  }
+
+  // The bad access occurred in a left redzone, this corresponds to the second
+  // case.
+
+  // Starts by looking for the left bound.
+  uint8* left_bound = reinterpret_cast<uint8*>(addr);
+  BlockHeader* left_header = NULL;
+  size_t left_block_size = 0;
+  while (Shadow::GetShadowMarkerForAddress(left_bound) ==
+      Shadow::kHeapLeftRedzone) {
+    BlockHeader* temp_header = reinterpret_cast<BlockHeader*>(left_bound);
+    if (temp_header->magic_number == kBlockHeaderSignature) {
+      left_header = temp_header;
+      left_block_size = GetAllocSize(left_header->block_size,
+                                     1 << left_header->alignment_log);
+      break;
+    }
+    left_bound -= Shadow::kShadowGranularity;
+  }
+
+  // Look for the right bound.
+  uint8* right_bound = reinterpret_cast<uint8*>(addr);
+  BlockHeader* right_header = NULL;
+  size_t right_block_size = 0;
+  while (Shadow::GetShadowMarkerForAddress(right_bound +
+      Shadow::kShadowGranularity) == Shadow::kHeapLeftRedzone) {
+    right_bound += Shadow::kShadowGranularity;
+    BlockHeader* temp_header = reinterpret_cast<BlockHeader*>(right_bound);
+    if (temp_header->magic_number == kBlockHeaderSignature) {
+      right_header = temp_header;
+      right_block_size = GetAllocSize(right_header->block_size,
+                                      1 << right_header->alignment_log);
+      break;
     }
   }
 
-  return header;
+  CHECK(left_header != NULL || right_header != NULL);
+
+  // If only one of the bounds corresponds to a block header then we return it.
+
+  if (left_header != NULL && right_header == NULL) {
+    if (original_addr >= reinterpret_cast<uint8*>(left_header) +
+        left_block_size) {
+      // TODO(sebmarchand): Report that the heap is corrupted.
+      return NULL;
+    }
+    return left_header;
+  }
+
+  if (right_header != NULL && left_header == NULL) {
+    if (original_addr < BlockHeaderToAsanPointer(right_header) ||
+        original_addr >= BlockHeaderToAsanPointer(right_header) +
+        right_block_size) {
+      // TODO(sebmarchand): Report that the heap is corrupted.
+      return NULL;
+    }
+    return right_header;
+  }
+
+  DCHECK(left_header != NULL && right_header != NULL);
+
+  // Otherwise we start by looking if |addr| is contained in the rightmost
+  // block.
+  uint8* right_block_left_bound = reinterpret_cast<uint8*>(
+      BlockHeaderToAsanPointer(right_header));
+  if (original_addr >= right_block_left_bound &&
+      original_addr < right_block_left_bound + right_block_size) {
+    return right_header;
+  }
+
+  uint8* left_block_left_bound = reinterpret_cast<uint8*>(
+      BlockHeaderToAsanPointer(left_header));
+  if (original_addr < left_block_left_bound ||
+      original_addr >= left_block_left_bound + left_block_size) {
+    // TODO(sebmarchand): Report that the heap is corrupted.
+    return NULL;
+  }
+
+  return left_header;
+}
+
+HeapProxy::BlockHeader* HeapProxy::FindContainingFreedBlock(
+    BlockHeader* inner_block) {
+  DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), inner_block);
+  BlockHeader* containing_block = NULL;
+  do {
+    containing_block = FindContainingBlock(inner_block);
+    inner_block = containing_block;
+  } while (containing_block != NULL &&
+           containing_block->state != QUARANTINED);
+  return containing_block;
+}
+
+HeapProxy::BlockHeader* HeapProxy::FindContainingBlock(
+    BlockHeader* inner_block) {
+  DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), inner_block);
+  DCHECK_EQ(kBlockHeaderSignature, inner_block->magic_number);
+
+  size_t addr = reinterpret_cast<size_t>(inner_block);
+  addr = common::AlignDown(addr - Shadow::kShadowGranularity,
+                           Shadow::kShadowGranularity);
+
+  // Try to find a block header containing this block.
+  while (addr >= reinterpret_cast<size_t>(kAddressLowerLimit)) {
+    // Only look at the addresses tagged as the redzone of a block.
+    if (Shadow::GetShadowMarkerForAddress(reinterpret_cast<void*>(addr)) ==
+        Shadow::kHeapLeftRedzone) {
+      BlockHeader* temp_header = reinterpret_cast<BlockHeader*>(addr);
+      if (temp_header->magic_number == kBlockHeaderSignature) {
+        size_t block_size = GetAllocSize(temp_header->block_size,
+                                    1 << temp_header->alignment_log);
+        // Makes sure that the inner block is contained in this block.
+        if (reinterpret_cast<size_t>(inner_block) <
+            reinterpret_cast<size_t>(temp_header) + block_size) {
+          return temp_header;
+        }
+      }
+    }
+    addr -= Shadow::kShadowGranularity;
+  }
+
+  return NULL;
 }
 
 bool HeapProxy::GetBadAccessInformation(AsanErrorInfo* bad_access_info) {
   DCHECK(bad_access_info != NULL);
-  base::AutoLock lock(lock_);
-  BlockHeader* header = FindAddressBlock(bad_access_info->location);
+  BlockHeader* header = FindBlockContainingAddress(
+      reinterpret_cast<uint8*>(bad_access_info->location));
 
   if (header == NULL)
     return false;
@@ -676,6 +830,14 @@ bool HeapProxy::GetBadAccessInformation(AsanErrorInfo* bad_access_info) {
   if (bad_access_info->error_type != DOUBLE_FREE) {
     bad_access_info->error_type = GetBadAccessKind(bad_access_info->location,
                                                    header);
+  }
+
+  // Checks if there's a containing block in the case of a use after free on a
+  // block owned by a nested heap.
+  BlockHeader* containing_block = NULL;
+  if (bad_access_info->error_type == USE_AFTER_FREE &&
+      header->state != QUARANTINED) {
+    containing_block = FindContainingFreedBlock(header);
   }
 
   // Get the bad access description if we've been able to determine its kind.
@@ -690,11 +852,18 @@ bool HeapProxy::GetBadAccessInformation(AsanErrorInfo* bad_access_info) {
     bad_access_info->alloc_tid = trailer->alloc_tid;
 
     if (header->state != ALLOCATED) {
+      const StackCapture* free_stack = header->free_stack;
+      BlockTrailer* free_stack_trailer = trailer;
+      // Use the free metadata of the containing block if there's one.
+      if (containing_block != NULL) {
+        free_stack = containing_block->free_stack;
+        free_stack_trailer = BlockHeaderToBlockTrailer(containing_block);
+      }
       memcpy(bad_access_info->free_stack,
-             header->free_stack->frames(),
-             header->free_stack->num_frames() * sizeof(void*));
-      bad_access_info->free_stack_size = header->free_stack->num_frames();
-      bad_access_info->free_tid = trailer->free_tid;
+             free_stack->frames(),
+             free_stack->num_frames() * sizeof(void*));
+      bad_access_info->free_stack_size = free_stack->num_frames();
+      bad_access_info->free_tid = free_stack_trailer->free_tid;
     }
     GetAddressInformation(header, bad_access_info);
     return true;

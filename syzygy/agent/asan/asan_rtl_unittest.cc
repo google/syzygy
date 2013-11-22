@@ -229,6 +229,7 @@ class ScopedASanAlloc : public scoped_ptr<T, ASanDeleteHelper> {
     ASSERT_TRUE(asan_rtl != NULL);
     reset(reinterpret_cast<T*>(
         asan_rtl->HeapAllocFunction(asan_rtl->heap(), 0, size * sizeof(T))));
+    memset(get(), 0, size * sizeof(T));
   }
 
   T operator[](int i) const {
@@ -1455,8 +1456,8 @@ TEST_F(AsanRtlTest, AsanCheckStrncat) {
       strncat(buffer, suffix.get(), strlen(suffix_value)), mem.get());
 
   // Test an underflow on the suffix.
-  suffix[-1] = 'a';
   uint8 last_block_header_byte = suffix[-1];
+  suffix[-1] = 'a';
   strcpy(mem.get(), prefix_value);
   strcpy(buffer, prefix_value);
   EXPECT_EQ(mem.get(),

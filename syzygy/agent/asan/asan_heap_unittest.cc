@@ -16,10 +16,12 @@
 
 #include <algorithm>
 
+#include "base/bits.h"
 #include "base/rand_util.h"
 #include "base/sha1.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_logger.h"
+#include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 #include "syzygy/agent/asan/unittest_util.h"
 #include "syzygy/common/align.h"
@@ -47,7 +49,9 @@ class TestHeapProxy : public HeapProxy {
   using HeapProxy::BlockHeaderToAsanPointer;
   using HeapProxy::BlockHeaderToBlockTrailer;
   using HeapProxy::BlockHeaderToUserPointer;
-  using HeapProxy::FindAddressBlock;
+  using HeapProxy::FindBlockContainingAddress;
+  using HeapProxy::FindContainingBlock;
+  using HeapProxy::FindContainingFreedBlock;
   using HeapProxy::GetAllocSize;
   using HeapProxy::GetBadAccessKind;
   using HeapProxy::GetTimeSinceFree;
@@ -93,6 +97,20 @@ class TestHeapProxy : public HeapProxy {
   bool IsFreed(BlockHeader* header) {
     EXPECT_TRUE(header != NULL);
     return header->state == FREED;
+  }
+
+  static void MarkBlockHeaderAsQuarantined(BlockHeader* header) {
+    EXPECT_TRUE(header != NULL);
+    StackCapture stack;
+    stack.InitFromStack();
+    header->free_stack = stack_cache_->SaveStackTrace(stack);
+    header->state = QUARANTINED;
+  }
+
+  static void MarkBlockHeaderAsAllocated(BlockHeader* header) {
+    EXPECT_TRUE(header != NULL);
+    header->free_stack = NULL;
+    header->state = ALLOCATED;
   }
 
   // Determines if the address @p mem corresponds to a block in quarantine.
@@ -411,15 +429,239 @@ TEST_F(HeapTest, SetQueryInformation) {
                             &compat_flag, sizeof(compat_flag)));
 }
 
-TEST_F(HeapTest, FindAddressBlock) {
-  const size_t kAllocSize = 100;
-  void* mem = proxy_.Alloc(0, kAllocSize);
-  ASSERT_FALSE(mem == NULL);
-  ASSERT_FALSE(proxy_.FindAddressBlock(static_cast<const uint8*>(mem)) == NULL);
-  uint8* out_of_bounds_address =
-      static_cast<uint8*>(mem) + kAllocSize * 2;
-  ASSERT_TRUE(proxy_.FindAddressBlock(out_of_bounds_address) == NULL);
-  ASSERT_TRUE(proxy_.Free(0, mem));
+namespace {
+
+// Here's the block layout created in this fixture:
+// +-----+------+-----+-----+-----+-----+-----+-----+-----+------+-----+-----+
+// |     |      |     | BH3 | DB3 | BT3 | BH4 | DB4 | BT4 | GAP2 |     |     |
+// |     | GAP1 | BH2 +-----+-----+-----+-----+-----+-----+------+ BT2 |     |
+// | BH1 |      |     |                   DB2                    |     | BT1 |
+// |     |------+-----+------------------------------------------+-----+     |
+// |     |                             DB1                             |     |
+// +-----+-------------------------------------------------------------+-----+
+// Legend:
+//   - BHX: Block header of the block X.
+//   - DBX: Data block of the block X.
+//   - BTX: Block trailer of the block X.
+//   - GAP1: Memory gap between the header of block 1 and that of block 2. This
+//     is due to the fact that block 2 has a non standard alignment and the
+//     beginning of its header is aligned to this value.
+//   - GAP2: Memory gap between block 4 and the trailer of block 2.
+// Remarks:
+//   - Block 1, 3 and 4 are 8 bytes aligned.
+//   - Block 2 is 64 bytes aligned.
+//   - Block 3 and 4 are both contained in block 2, which is contained in
+//     block 1.
+class NestedBlocksTest : public HeapTest {
+ public:
+  typedef HeapTest Super;
+
+  virtual void SetUp() OVERRIDE {
+    Super::SetUp();
+
+    InitializeBlockLayout();
+  }
+
+  virtual void TearDown() OVERRIDE {
+    Shadow::Unpoison(aligned_buffer_,
+                     kBufferSize - (aligned_buffer_ - buffer_));
+    Super::TearDown();
+  }
+
+  void InitializeBlockLayout() {
+    inner_blocks_size_ =
+        TestHeapProxy::GetAllocSize(kInternalAllocSize, kInnerBlockAlignment);
+    block_2_size_ = TestHeapProxy::GetAllocSize(
+        inner_blocks_size_ * 2 + kGapSize, kBlock2Alignment);
+    const size_t kAlignMaxGap = kBlock2Alignment;
+    block_1_size_ = TestHeapProxy::GetAllocSize(block_2_size_ + kAlignMaxGap,
+                                                kBlock1Alignment);
+
+    aligned_buffer_ = reinterpret_cast<uint8*>(common::AlignUp(
+        reinterpret_cast<size_t>(buffer_), Shadow::kShadowGranularity));
+
+    ASSERT_GT(kBufferSize - (aligned_buffer_ - buffer_), block_1_size_);
+
+    StackCapture stack;
+    stack.InitFromStack();
+
+    // Initialize block 1.
+    data_block_1_ = reinterpret_cast<uint8*>(HeapProxy::InitializeAsanBlock(
+        aligned_buffer_,
+        block_2_size_ + kAlignMaxGap,
+        block_1_size_,
+        base::bits::Log2Floor(kBlock1Alignment),
+        stack));
+    ASSERT_NE(reinterpret_cast<uint8*>(NULL), data_block_1_);
+    block_1_ = TestHeapProxy::UserPointerToBlockHeader(data_block_1_);
+    ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), block_1_);
+
+    size_t data_block_1_aligned = common::AlignUp(reinterpret_cast<size_t>(
+        data_block_1_), kBlock2Alignment);
+    // Initialize block 2.
+    data_block_2_ = reinterpret_cast<uint8*>(HeapProxy::InitializeAsanBlock(
+        reinterpret_cast<uint8*>(data_block_1_aligned),
+        inner_blocks_size_ * 2 + kGapSize,
+        block_2_size_,
+        base::bits::Log2Floor(kBlock2Alignment),
+        stack));
+    ASSERT_NE(reinterpret_cast<uint8*>(NULL), data_block_2_);
+    block_2_ = TestHeapProxy::UserPointerToBlockHeader(data_block_2_);
+    ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), block_2_);
+
+    // Initialize block 3.
+    data_block_3_ = reinterpret_cast<uint8*>(HeapProxy::InitializeAsanBlock(
+        reinterpret_cast<uint8*>(data_block_2_),
+        kInternalAllocSize,
+        inner_blocks_size_,
+        base::bits::Log2Floor(kInnerBlockAlignment),
+        stack));
+    ASSERT_NE(reinterpret_cast<uint8*>(NULL), data_block_3_);
+    block_3_ = TestHeapProxy::UserPointerToBlockHeader(data_block_3_);
+    ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), block_3_);
+
+    // Initialize block 4.
+    data_block_4_ = reinterpret_cast<uint8*>(HeapProxy::InitializeAsanBlock(
+        reinterpret_cast<uint8*>(data_block_2_) + inner_blocks_size_,
+        kInternalAllocSize,
+        inner_blocks_size_,
+        base::bits::Log2Floor(kInnerBlockAlignment),
+        stack));
+    ASSERT_NE(reinterpret_cast<uint8*>(NULL), data_block_4_);
+    block_4_ = TestHeapProxy::UserPointerToBlockHeader(data_block_4_);
+    ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), block_4_);
+  }
+
+ protected:
+  static const size_t kBufferSize = 512;
+  static const size_t kBlock1Alignment = 8;
+  static const size_t kBlock2Alignment = 64;
+  static const size_t kInnerBlockAlignment = 8;
+  static const size_t kInternalAllocSize = 13;
+  static const size_t kGapSize = 5;
+
+  uint8 buffer_[kBufferSize];
+  uint8* aligned_buffer_;
+
+  uint8* data_block_1_;
+  uint8* data_block_2_;
+  uint8* data_block_3_;
+  uint8* data_block_4_;
+
+  size_t block_1_size_;
+  size_t block_2_size_;
+  size_t inner_blocks_size_;
+
+  TestHeapProxy::BlockHeader* block_1_;
+  TestHeapProxy::BlockHeader* block_2_;
+  TestHeapProxy::BlockHeader* block_3_;
+  TestHeapProxy::BlockHeader* block_4_;
+};
+
+}  // namespace
+
+TEST_F(NestedBlocksTest, FindBlockContainingAddress) {
+  // Test with an address before block 1.
+  EXPECT_EQ(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL),
+      proxy_.FindBlockContainingAddress(
+          proxy_.BlockHeaderToAsanPointer(block_1_) - 1));
+
+  // Test with an address in the block header of block 1.
+  EXPECT_EQ(block_1_, proxy_.FindBlockContainingAddress(data_block_1_ - 1));
+
+  // Test with an address in the gap section before the header of block 2.
+  EXPECT_EQ(block_1_, proxy_.FindBlockContainingAddress(
+      proxy_.BlockHeaderToAsanPointer(block_2_) - 1));
+
+  // Test with an address in the block header of block 2.
+  EXPECT_EQ(block_2_, proxy_.FindBlockContainingAddress(data_block_2_ - 1));
+
+  // Test with an address in the block header of block 3.
+  EXPECT_EQ(block_3_, proxy_.FindBlockContainingAddress(data_block_3_ - 1));
+
+  // Test the first byte of the data of block 2, it corresponds to the block
+  // header of block 3.
+  EXPECT_EQ(block_3_, proxy_.FindBlockContainingAddress(data_block_2_));
+
+  // Test the first byte of the data of block 3.
+  EXPECT_EQ(block_3_, proxy_.FindBlockContainingAddress(data_block_3_));
+
+  // Test with an address in the block trailer 3.
+  EXPECT_EQ(block_3_, proxy_.FindBlockContainingAddress(
+      reinterpret_cast<uint8*>(proxy_.BlockHeaderToBlockTrailer(block_3_))));
+
+  // Test with an address in the block header of block 4.
+  EXPECT_EQ(block_4_, proxy_.FindBlockContainingAddress(data_block_4_ - 1));
+
+  // Test the first byte of the data of block 4.
+  EXPECT_EQ(block_4_, proxy_.FindBlockContainingAddress(data_block_4_));
+
+  // Test with an address in the block trailer 4.
+  EXPECT_EQ(block_4_, proxy_.FindBlockContainingAddress(
+      reinterpret_cast<uint8*>(proxy_.BlockHeaderToBlockTrailer(block_4_))));
+
+  // Test with an address in the gap section after block 4.
+  EXPECT_EQ(block_2_, proxy_.FindBlockContainingAddress(data_block_2_ +
+      inner_blocks_size_ * 2));
+
+  // Test with an address in the block trailer 2.
+  EXPECT_EQ(block_2_, proxy_.FindBlockContainingAddress(
+      reinterpret_cast<uint8*>(proxy_.BlockHeaderToBlockTrailer(block_2_))));
+
+  // Test with an address in the block trailer 1.
+  EXPECT_EQ(block_1_, proxy_.FindBlockContainingAddress(
+      reinterpret_cast<uint8*>(proxy_.BlockHeaderToBlockTrailer(block_1_))));
+
+  // Test with an address after the block trailer 1.
+  EXPECT_EQ(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL),
+      proxy_.FindBlockContainingAddress(reinterpret_cast<uint8*>(block_1_)
+          + block_1_size_));
+}
+
+TEST_F(NestedBlocksTest, FindContainingBlock) {
+  ASSERT_EQ(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL),
+            TestHeapProxy::FindContainingBlock(block_1_));
+  ASSERT_EQ(block_1_, TestHeapProxy::FindContainingBlock(block_2_));
+  ASSERT_EQ(block_2_, TestHeapProxy::FindContainingBlock(block_3_));
+  ASSERT_EQ(block_2_, TestHeapProxy::FindContainingBlock(block_4_));
+}
+
+TEST_F(NestedBlocksTest, FindContainingFreedBlock) {
+  ASSERT_EQ(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL),
+            TestHeapProxy::FindContainingFreedBlock(block_1_));
+  ASSERT_EQ(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL),
+            TestHeapProxy::FindContainingFreedBlock(block_2_));
+  ASSERT_EQ(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL),
+            TestHeapProxy::FindContainingFreedBlock(block_3_));
+  ASSERT_EQ(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL),
+            TestHeapProxy::FindContainingFreedBlock(block_4_));
+
+  // Mark the block 2 as quarantined and makes sure that it is found as the
+  // containing block of block 3 and 4.
+
+  proxy_.MarkBlockHeaderAsQuarantined(block_2_);
+
+  EXPECT_EQ(block_2_, TestHeapProxy::FindContainingFreedBlock(block_3_));
+  EXPECT_EQ(block_2_, TestHeapProxy::FindContainingFreedBlock(block_4_));
+
+  proxy_.MarkBlockHeaderAsQuarantined(block_3_);
+  EXPECT_EQ(block_2_, TestHeapProxy::FindContainingFreedBlock(block_4_));
+
+  proxy_.MarkBlockHeaderAsAllocated(block_2_);
+  proxy_.MarkBlockHeaderAsAllocated(block_3_);
+
+  // Mark the block 1 as quarantined and makes sure that it is found as the
+  // containing block of block 2, 3 and 4.
+
+  proxy_.MarkBlockHeaderAsQuarantined(block_1_);
+
+  EXPECT_EQ(block_1_, TestHeapProxy::FindContainingFreedBlock(block_2_));
+  EXPECT_EQ(block_1_, TestHeapProxy::FindContainingFreedBlock(block_3_));
+  EXPECT_EQ(block_1_, TestHeapProxy::FindContainingFreedBlock(block_4_));
+
+  proxy_.MarkBlockHeaderAsQuarantined(block_3_);
+  EXPECT_EQ(block_1_, TestHeapProxy::FindContainingFreedBlock(block_2_));
+  EXPECT_EQ(block_1_, TestHeapProxy::FindContainingFreedBlock(block_4_));
 }
 
 TEST_F(HeapTest, GetBadAccessKind) {
@@ -917,6 +1159,93 @@ TEST_F(HeapTest, CloneBlock) {
               fake_block_2.buffer_align_begin + i));
     }
   }
+}
+
+TEST_F(HeapTest, GetBadAccessInformation) {
+  FakeAsanBlock fake_block(&proxy_, Shadow::kShadowGranularityLog);
+  const size_t kAllocSize = 100;
+  EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
+
+  AsanErrorInfo error_info = {};
+  error_info.location = reinterpret_cast<uint8*>(fake_block.user_ptr) +
+      kAllocSize + 1;
+  EXPECT_TRUE(HeapProxy::GetBadAccessInformation(&error_info));
+  EXPECT_EQ(HeapProxy::HEAP_BUFFER_OVERFLOW, error_info.error_type);
+
+  EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
+  error_info.location = fake_block.user_ptr;
+  EXPECT_TRUE(HeapProxy::GetBadAccessInformation(&error_info));
+  EXPECT_EQ(HeapProxy::USE_AFTER_FREE, error_info.error_type);
+
+  error_info.location = fake_block.buffer_align_begin - 1;
+  EXPECT_FALSE(HeapProxy::GetBadAccessInformation(&error_info));
+}
+
+TEST_F(HeapTest, GetBadAccessInformationNestedBlock) {
+  // Test a nested use after free. We allocate an outer block and an inner block
+  // inside it, then we mark the outer block as quarantined and we test a bad
+  // access inside the inner block.
+
+  FakeAsanBlock fake_block(&proxy_, Shadow::kShadowGranularityLog);
+  const size_t kInnerBlockAllocSize = 100;
+
+  // Allocates the outer block.
+  size_t outer_block_size = TestHeapProxy::GetAllocSize(kInnerBlockAllocSize);
+  EXPECT_TRUE(fake_block.InitializeBlock(outer_block_size));
+
+  // Allocates the inner block.
+  StackCapture stack;
+  stack.InitFromStack();
+  void* inner_block_data = proxy_.InitializeAsanBlock(
+      reinterpret_cast<uint8*>(fake_block.user_ptr),
+                               kInnerBlockAllocSize,
+                               outer_block_size,
+                               Shadow::kShadowGranularityLog,
+                               stack);
+
+  ASSERT_NE(reinterpret_cast<void*>(NULL), inner_block_data);
+
+  TestHeapProxy::BlockHeader* inner_block =
+      TestHeapProxy::UserPointerToBlockHeader(inner_block_data);
+  ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), inner_block);
+  TestHeapProxy::BlockHeader* outer_block =
+      TestHeapProxy::UserPointerToBlockHeader(fake_block.user_ptr);
+  ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), outer_block);
+
+  AsanErrorInfo error_info = {};
+
+  // Mark the inner block as quarantined and check that we detect a use after
+  // free when trying to access its data.
+  proxy_.MarkBlockHeaderAsQuarantined(inner_block);
+  EXPECT_FALSE(proxy_.IsAllocated(inner_block));
+  EXPECT_TRUE(proxy_.IsAllocated(outer_block));
+  EXPECT_NE(reinterpret_cast<void*>(NULL), inner_block->free_stack);
+
+  error_info.location = fake_block.user_ptr;
+  EXPECT_TRUE(HeapProxy::GetBadAccessInformation(&error_info));
+  EXPECT_EQ(HeapProxy::USE_AFTER_FREE, error_info.error_type);
+  EXPECT_NE(reinterpret_cast<void*>(NULL), error_info.free_stack);
+
+  EXPECT_EQ(inner_block->free_stack->num_frames(), error_info.free_stack_size);
+  for (size_t i = 0; i < inner_block->free_stack->num_frames(); ++i)
+    EXPECT_EQ(inner_block->free_stack->frames()[i], error_info.free_stack[i]);
+
+  // Mark the outer block as quarantined, we should detect a use after free
+  // when trying to access the data of the inner block, and the free stack
+  // should be the one of the outer block.
+  EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
+  EXPECT_FALSE(proxy_.IsAllocated(outer_block));
+  EXPECT_NE(reinterpret_cast<void*>(NULL), outer_block->free_stack);
+
+  // Tests an access in the inner block.
+  error_info.location = inner_block_data;
+  EXPECT_TRUE(HeapProxy::GetBadAccessInformation(&error_info));
+  EXPECT_EQ(HeapProxy::USE_AFTER_FREE, error_info.error_type);
+  EXPECT_NE(reinterpret_cast<void*>(NULL), error_info.free_stack);
+
+  EXPECT_EQ(outer_block->free_stack->num_frames(), error_info.free_stack_size);
+  for (size_t i = 0; i < outer_block->free_stack->num_frames(); ++i)
+    EXPECT_EQ(outer_block->free_stack->frames()[i], error_info.free_stack[i]);
 }
 
 }  // namespace asan

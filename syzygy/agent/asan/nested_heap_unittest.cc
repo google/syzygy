@@ -16,7 +16,6 @@
 
 #include <algorithm>
 
-#include "base/bits.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_rtl_impl.h"
@@ -79,12 +78,6 @@ class NestedHeapTest : public testing::Test {
 }  // namespace
 
 TEST_F(NestedHeapTest, IntegrationTest) {
-  EXPECT_TRUE(MemoryRangeIsAccessible(buffer, kBufferSize));
-  asan_PoisonMemoryRange(buffer, kBufferSize);
-  EXPECT_TRUE(MemoryRangeIsPoisoned(buffer, kBufferSize));
-  asan_UnpoisonMemoryRange(buffer, kBufferSize);
-  EXPECT_TRUE(MemoryRangeIsAccessible(buffer, kBufferSize));
-
   const size_t kAllocSize = 100;
   const uint8 kMagicValue = 0x9C;
 
@@ -98,6 +91,12 @@ TEST_F(NestedHeapTest, IntegrationTest) {
     size_t real_buffer_size = kBufferSize - (aligned_buffer - buffer);
     size_t real_buffer_copy_size = kBufferSize - (aligned_buffer_copy -
         buffer_copy);
+
+    EXPECT_TRUE(MemoryRangeIsAccessible(aligned_buffer, real_buffer_size));
+    asan_PoisonMemoryRange(aligned_buffer, real_buffer_size);
+    EXPECT_TRUE(MemoryRangeIsPoisoned(aligned_buffer, real_buffer_size));
+    asan_UnpoisonMemoryRange(aligned_buffer, real_buffer_size);
+    EXPECT_TRUE(MemoryRangeIsAccessible(aligned_buffer, real_buffer_size));
 
     size_t asan_size = asan_GetAsanObjectSize(kAllocSize, alignment);
     ASSERT_GT(real_buffer_size, asan_size);
@@ -142,6 +141,7 @@ TEST_F(NestedHeapTest, IntegrationTest) {
     EXPECT_TRUE(MemoryRangeIsPoisoned(aligned_buffer, asan_size));
 
     asan_UnpoisonMemoryRange(aligned_buffer, real_buffer_size);
+    asan_UnpoisonMemoryRange(aligned_buffer_copy, real_buffer_copy_size);
   }
 }
 
