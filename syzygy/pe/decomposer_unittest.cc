@@ -296,6 +296,7 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   const BlockGraph::Block* strchr_block = NULL;
   const BlockGraph::Block* imp_load_block = NULL;
   const BlockGraph::Block* no_private_symbols_block = NULL;
+  const BlockGraph::Block* test_string_block = NULL;
 
   typedef std::map<BlockGraph::BlockAttributeEnum, size_t> AttribCountMap;
   AttribCountMap attrib_counts;
@@ -312,6 +313,8 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
                                       &imp_load_block));
     test_blocks.insert(std::make_pair("TestFunctionWithNoPrivateSymbols",
                                       &no_private_symbols_block));
+    test_blocks.insert(std::make_pair("kTestString",
+                                      &test_string_block));
 
     BlockGraph::BlockMap::const_iterator it = block_graph.blocks().begin();
     for (; it != block_graph.blocks().end(); ++it) {
@@ -385,6 +388,10 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
 #endif
 #endif
   EXPECT_THAT(attrib_counts, ContainerEq(expected_attrib_counts));
+
+  // The kTestString block should have alignment >= 64.
+  ASSERT_FALSE(test_string_block == NULL);
+  EXPECT_LE(64u, test_string_block->alignment());
 
   // The block with no private symbols should be marked as ERRORED_DISASSEMBLY,
   // and only have a single public symbol label.

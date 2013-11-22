@@ -63,7 +63,7 @@ static void TestStatic(char* buf, size_t buf_len, const char* src) {
 }
 
 DWORD WINAPI TestExport(size_t buf_len, char* buf) {
-  static const char kTestString[] =
+  __declspec(align(64)) static const char kTestString[] =
       "The quick brown fox jumped over the lazy dog";
 
   TestStatic(buf, buf_len, kTestString);

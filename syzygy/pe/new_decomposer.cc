@@ -799,6 +799,34 @@ bool AlignCodeBlocksWithJumpTables(ImageLayout* image_layout) {
   return true;
 }
 
+void GuessDataBlockAlignment(uint32 max_alignment,
+                             RelativeAddress block_rva,
+                             Block* block) {
+  DCHECK_NE(static_cast<Block*>(NULL), block);
+  DCHECK_EQ(BlockGraph::DATA_BLOCK, block->type());
+  uint32 alignment = block_rva.GetAlignment();
+  // Cap the alignment.
+  if (alignment > max_alignment)
+    alignment = max_alignment;
+  block->set_alignment(alignment);
+}
+
+void GuessDataBlockAlignments(const PEFile& pe_file,
+                              ImageLayout* image_layout) {
+  DCHECK_NE(static_cast<ImageLayout*>(NULL), image_layout);
+
+  uint32 max_alignment = pe_file.nt_headers()->OptionalHeader.SectionAlignment;
+
+  BlockGraph::AddressSpace::RangeMapConstIter it = image_layout->blocks.begin();
+  for (; it != image_layout->blocks.end(); ++it) {
+    RelativeAddress block_rva = it->first.start();
+    BlockGraph::Block* block = it->second;
+    if (block->type() != BlockGraph::DATA_BLOCK)
+      continue;
+    GuessDataBlockAlignment(max_alignment, block_rva, block);
+  }
+}
+
 }  // namespace
 
 // We use ", " as a separator between symbol names. We sometimes see commas
@@ -1076,6 +1104,13 @@ bool NewDecomposer::DecomposeImpl() {
   VLOG(1) << "Calculating code block alignments.";
   if (!AlignCodeBlocksWithJumpTables(image_layout_))
     return false;
+
+  // Set the alignment of data blocks. This is not precise in that it simply
+  // guesses the alignment based on the address of the block. Some instructions
+  // have alignment requirements on their data but unfortunately the PDB does
+  // not contain explicit alignment information.
+  VLOG(1) << "Guessing data block alignments.";
+  GuessDataBlockAlignments(image_file_, image_layout_);
 
   return true;
 }
