@@ -36,6 +36,7 @@ typedef block_graph::BasicBlockSubGraph::BasicBlock::Instructions Instructions;
 typedef block_graph::BasicBlockSubGraph::BasicBlock::Successors Successors;
 typedef block_graph::BasicBlockSubGraph::BasicCodeBlock BasicCodeBlock;
 typedef block_graph::Instruction::Representation Representation;
+typedef ControlFlowAnalysis::BasicBlockOrdering BasicBlockOrdering;
 typedef LivenessAnalysis::State State;
 typedef LivenessAnalysis::State::RegisterMask RegisterMask;
 typedef LivenessAnalysis::State::FlagsMask FlagsMask;
@@ -167,7 +168,7 @@ void LivenessAnalysis::Analyze(const BasicBlockSubGraph* subgraph) {
   ControlFlowAnalysis::FlattenBasicBlocksInPostOrder(basic_blocks, &order);
 
   // Initialize liveness information of each basic block (empty set).
-  std::vector<const BasicCodeBlock*>::const_iterator fw_iter = order.begin();
+  BasicBlockOrdering::const_iterator fw_iter = order.begin();
   for (; fw_iter != order.end(); ++fw_iter)
     StateHelper::Clear(&live_in_[*fw_iter]);
 
@@ -177,9 +178,8 @@ void LivenessAnalysis::Analyze(const BasicBlockSubGraph* subgraph) {
   while (changed) {
     changed = false;
 
-    std::vector<const BasicCodeBlock*>::const_reverse_iterator  bb_iter =
-        order.rbegin();
-    for (; bb_iter != order.rend(); ++bb_iter) {
+    BasicBlockOrdering::const_iterator  bb_iter = order.begin();
+    for (; bb_iter != order.end(); ++bb_iter) {
       const BasicCodeBlock* bb = *bb_iter;
 
       // Merge current liveness information with every successor information.
