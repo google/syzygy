@@ -1193,6 +1193,20 @@ TEST(BlockGraphAddressSpaceTest, AddBlock) {
                                      RelativeAddress(0x1020),
                                      0x10,
                                      "code") != NULL);
+
+  // We should be able to add arbitrary many zero-sized blocks at any address.
+  EXPECT_TRUE(address_space.AddBlock(BlockGraph::CODE_BLOCK,
+                                     RelativeAddress(0x1020),
+                                     0,
+                                     "zerocode1") != NULL);
+  EXPECT_EQ(address_space.address_space_impl().size() + 1,
+            address_space.block_addresses().size());
+  EXPECT_TRUE(address_space.AddBlock(BlockGraph::CODE_BLOCK,
+                                     RelativeAddress(0x1020),
+                                     0,
+                                     "zerocode2") != NULL);
+  EXPECT_EQ(address_space.address_space_impl().size() + 2,
+            address_space.block_addresses().size());
 }
 
 TEST(BlockGraphAddressSpaceTest, ResizeBlock) {
@@ -1234,6 +1248,23 @@ TEST(BlockGraphAddressSpaceTest, ResizeBlock) {
     EXPECT_EQ(b1, block_it->second);
   }
 
+  // Shrink to size zero. The block should be in the list of blocks by address,
+  // but not in the actual address space itself.
+  EXPECT_TRUE(address_space.ResizeBlock(b1, 0));
+  EXPECT_EQ(2u, address_space.size());
+  EXPECT_EQ(1u, address_space.address_space_impl().size());
+  EXPECT_TRUE(address_space.ContainsBlock(b1));
+  EXPECT_TRUE(address_space.ContainsBlock(b2));
+  EXPECT_EQ(0u, b1->size());
+  BlockGraph::AddressSpace::RangeMapConstIter block_it =
+      address_space.address_space_impl().FindContaining(
+          BlockGraph::AddressSpace::Range(RelativeAddress(0x1000), 1));
+  EXPECT_TRUE(block_it == address_space.address_space_impl().end());
+  BlockGraph::AddressSpace::BlockAddressMap::const_iterator addr_it =
+      address_space.block_addresses().find(b1);
+  EXPECT_TRUE(addr_it != address_space.block_addresses().end());
+  EXPECT_EQ(RelativeAddress(0x1000), addr_it->second);
+
   // Finally, trying to resize a block that's not in the address space
   // should fail.
   BlockGraph::Block* b3 = image.AddBlock(BlockGraph::CODE_BLOCK, 1, "c");
@@ -1250,12 +1281,17 @@ TEST(BlockGraphAddressSpaceTest, InsertBlock) {
       image.AddBlock(BlockGraph::CODE_BLOCK, 0x10, "code");
   BlockGraph::Block* block3 =
       image.AddBlock(BlockGraph::CODE_BLOCK, 0x10, "code");
+  BlockGraph::Block* block4 =
+      image.AddBlock(BlockGraph::CODE_BLOCK, 0, "code");
 
   ASSERT_TRUE(address_space.InsertBlock(RelativeAddress(0x1000), block1));
   ASSERT_FALSE(address_space.InsertBlock(RelativeAddress(0x1000), block2));
   ASSERT_TRUE(address_space.InsertBlock(RelativeAddress(0x1010), block2));
   ASSERT_FALSE(address_space.InsertBlock(RelativeAddress(0x1018), block3));
   ASSERT_TRUE(address_space.InsertBlock(RelativeAddress(0x1030), block3));
+  ASSERT_TRUE(address_space.InsertBlock(RelativeAddress(0x1030), block4));
+  EXPECT_EQ(4u, address_space.size());
+  EXPECT_EQ(3u, address_space.address_space_impl().size());
 
   RelativeAddress addr;
   EXPECT_TRUE(address_space.GetAddressOf(block1, &addr));
@@ -1269,6 +1305,10 @@ TEST(BlockGraphAddressSpaceTest, InsertBlock) {
   EXPECT_TRUE(address_space.GetAddressOf(block3, &addr));
   EXPECT_EQ(0x1030, addr.value());
   EXPECT_EQ(0x1030, block3->addr().value());
+
+  EXPECT_TRUE(address_space.GetAddressOf(block4, &addr));
+  EXPECT_EQ(0x1030, addr.value());
+  EXPECT_EQ(0x1030, block4->addr().value());
 
   // Insert a block into a second address space.
   BlockGraph::AddressSpace address_space2(&image);

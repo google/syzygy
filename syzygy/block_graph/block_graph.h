@@ -661,6 +661,7 @@ class BlockGraph::Block {
 
   // Allocates and returns a new data buffer of the given size. The returned
   // data will have been initialized to zero.
+  // @pre data_size > 0.
   // @pre data_size <= size().
   uint8* AllocateData(size_t data_size);
 
@@ -818,7 +819,9 @@ class BlockGraph::Block {
 
 // A graph address space endows a graph with a non-overlapping ordering
 // on blocks, where each block occupies zero or one address ranges in the
-// address space. No two blocks may overlap in an address space.
+// address space. No two blocks may overlap in an address space. Empty blocks
+// are not stored in the underlying address-space implementation itself, but do
+// have associated addresses and are stored in the block-address map.
 class BlockGraph::AddressSpace {
  public:
   typedef core::AddressSpace<RelativeAddress, BlockGraph::Size, Block*>
@@ -829,6 +832,7 @@ class BlockGraph::AddressSpace {
   typedef AddressSpaceImpl::RangeMapConstIter RangeMapConstIter;
   typedef AddressSpaceImpl::RangeMapIterPair RangeMapIterPair;
   typedef AddressSpaceImpl::RangeMapConstIterPair RangeMapConstIterPair;
+  typedef stdext::hash_map<const Block*, RelativeAddress> BlockAddressMap;
 
   // Constructs a new empty address space.
   // @p start to @p start + @p size on @p graph.
@@ -908,18 +912,27 @@ class BlockGraph::AddressSpace {
     return address_space_.ranges().end();
   }
 
+  // @returns the number of blocks in the address-space. This includes empty
+  //     blocks, which won't actually be visited by iteration.
   size_t size() const {
-    return address_space_.ranges().size();
+    // We use the size of the map of addresses, as zero sized blocks only live
+    // there.
+    return block_addresses_.size();
   }
 
+  // @returns a reference to the underlaying address-space implementation. Only
+  //     non-empty blocks are inserted in the address space.
   const AddressSpaceImpl& address_space_impl() const {
     return address_space_;
   }
 
- private:
-  bool InsertImpl(RelativeAddress addr, Block* block);
+  // @returne a reference to the map of blocks addresses, by block pointer.
+  const BlockAddressMap& block_addresses() const {
+    return block_addresses_;
+  }
 
-  typedef stdext::hash_map<const Block*, RelativeAddress> BlockAddressMap;
+ protected:
+  bool InsertImpl(RelativeAddress addr, Block* block);
 
   AddressSpaceImpl address_space_;
   BlockAddressMap block_addresses_;

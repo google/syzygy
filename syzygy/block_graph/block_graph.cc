@@ -365,12 +365,15 @@ BlockGraph::AddressSpace::AddressSpace(BlockGraph* graph)
 BlockGraph::Block* BlockGraph::AddressSpace::AddBlock(
     BlockType type, RelativeAddress addr, Size size,
     const base::StringPiece& name) {
-  // First check to see that the range is clear.
-  AddressSpaceImpl::Range range(addr, size);
-  AddressSpaceImpl::RangeMap::iterator it =
-      address_space_.FindFirstIntersection(range);
-  if (it != address_space_.ranges().end())
-    return NULL;
+
+  if (size > 0) {
+    // First check to see that the range is clear.
+    AddressSpaceImpl::Range range(addr, size);
+    AddressSpaceImpl::RangeMap::iterator it =
+        address_space_.FindFirstIntersection(range);
+    if (it != address_space_.ranges().end())
+      return NULL;
+  }
 
   BlockGraph::Block* block = graph_->AddBlock(type, size, name);
   DCHECK(block != NULL);
@@ -382,7 +385,6 @@ BlockGraph::Block* BlockGraph::AddressSpace::AddBlock(
 
 bool BlockGraph::AddressSpace::ResizeBlock(Block* block, size_t size) {
   DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
-  DCHECK_LT(0u, size);
 
   // Determine if the block is in the address space. If so, this also finds its
   // address.
@@ -390,35 +392,45 @@ bool BlockGraph::AddressSpace::ResizeBlock(Block* block, size_t size) {
   if (block_it == block_addresses_.end())
     return false;
 
-  // Find the iterator associated with this blocks range.
-  AddressSpaceImpl::Range range(block_it->second, 1);
-  AddressSpaceImpl::RangeMap::iterator range_it =
-      address_space_.FindContaining(range);
-  CHECK(range_it != address_space_.end());
-
   // If the size isn't changing then we can return right away.
-  if (range_it->first.size() == size)
+  if (block->size() == size)
     return true;
 
-  // If the size is growing make sure we can grow it.
-  if (range_it->first.size() < size) {
-    // Get the next block.
-    AddressSpaceImpl::RangeMap::iterator range_next = range_it;
-    ++range_next;
+  // If the original size is non-zero we expect it to be in the address-space.
+  AddressSpaceImpl::RangeMap::iterator range_it;
+  if (block->size() > 0) {
+    // Find the iterator associated with this blocks range.
+    AddressSpaceImpl::Range range(block_it->second, 1);
+    range_it = address_space_.FindContaining(range);
+    CHECK(range_it != address_space_.end());
 
-    // If the current block extended to the new size conflicts with the old
-    // block then we can't do the resize.
-    if (range_next != address_space_.end() &&
-        range_it->first.start() + size > range_next->first.start()) {
-      return false;
+    // We expect the sizes to agree.
+    CHECK_EQ(block->size(), range_it->first.size());
+
+    // If the size is growing make sure we can grow it.
+    if (range_it->first.size() < size) {
+      // Get the next block.
+      AddressSpaceImpl::RangeMap::iterator range_next = range_it;
+      ++range_next;
+
+      // If the current block extended to the new size conflicts with the old
+      // block then we can't do the resize.
+      if (range_next != address_space_.end() &&
+          range_it->first.start() + size > range_next->first.start()) {
+        return false;
+      }
     }
+
+    // Remove the existing block from the address-space.
+    address_space_.Remove(range_it);
   }
 
-  // Remove and reinsert the block with the correct range.
-  address_space_.Remove(range_it);
-  address_space_.Insert(Range(block_it->second, size), block, &range_it);
+  // Reinsert the block with its new range if its not empty. If the block is
+  // empty it won't be added back to the address space.
+  if (size > 0)
+    address_space_.Insert(Range(block_it->second, size), block, &range_it);
 
-  // Update the block size.
+  // Update the block with its new size.
   block->set_size(size);
 
   return true;
@@ -481,12 +493,15 @@ bool BlockGraph::AddressSpace::GetAddressOf(const Block* block,
 }
 
 bool BlockGraph::AddressSpace::InsertImpl(RelativeAddress addr, Block* block) {
-  Range range(addr, block->size());
-  bool inserted = address_space_.Insert(range, block);
-  if (!inserted)
-    return false;
+  // Only insert the block in the address-space if it has non-zero size.
+  if (block->size() > 0) {
+    Range range(addr, block->size());
+    bool inserted = address_space_.Insert(range, block);
+    if (!inserted)
+      return false;
+  }
 
-  inserted = block_addresses_.insert(std::make_pair(block, addr)).second;
+  bool inserted = block_addresses_.insert(std::make_pair(block, addr)).second;
   DCHECK(inserted);
   // Update the address stored in the block.
   block->set_addr(addr);
@@ -1008,16 +1023,20 @@ const uint8* BlockGraph::Block::ResizeData(size_t new_size) {
     // Not in our ownership and shrinking. We only need to adjust our length.
     data_size_ = new_size;
   } else {
-    // Either our own data, or it's growing (or both). We need to reallocate.
-    uint8* new_data = new uint8[new_size];
-    if (new_data == NULL)
-      return NULL;
+    // Either our own data, or it's growing (or both).
+    uint8* new_data = NULL;
 
-    // Copy the (head of the) old data.
-    memcpy(new_data, data_, std::min(data_size_, new_size));
-    if (new_size > data_size_) {
-      // Zero the tail.
-      memset(new_data + data_size_, 0, new_size - data_size_);
+    // If the new size is non-zero we need to reallocate.
+    if (new_size > 0) {
+      new_data = new uint8[new_size];
+      CHECK(new_data);
+
+      // Copy the (head of the) old data.
+      memcpy(new_data, data_, std::min(data_size_, new_size));
+      if (new_size > data_size_) {
+        // Zero the tail.
+        memset(new_data + data_size_, 0, new_size - data_size_);
+      }
     }
 
     if (owns_data())
