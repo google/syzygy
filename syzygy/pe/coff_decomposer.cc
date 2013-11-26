@@ -204,15 +204,28 @@ bool ParseDebugSymbols(size_t start, size_t size, Block* block) {
       case cci::S_LABEL32:
       case cci::S_LDATA32:
       case cci::S_OBJNAME:
+      case cci::S_REGISTER:
+      case cci::S_REGREL32:
+      case cci::S_THUNK32:
       case cci::S_UDT:
         break;
 
-      // MSVC-specific symbols. We're seeing those in MSVC-generated COFF
-      // files, though they are not defined in CvInfo.h. They seem to
-      // contain environment data (build variables, command line, and such).
+      // These correspond to S_COMPILE3 and S_MSTOOLENV_V3, but they aren't
+      // defined in the version of cvinfo that we are using.
+      // TODO(chrisha): Move cvinfo_ext.h out of experimental so that we can
+      //     refer to these newly defined symbol types.
       case 0x113C:
       case 0x113D:
         break;
+
+      // These are unknown symbol types, but currently seen. From inspection
+      // they don't appear to contain references that need to be parsed.
+      // TODO(chrisha): Figure out what these symbols are.
+      case 0x113E:
+      case 0x1141:
+      case 0x1142:
+      case 0x1143:
+      case 0x1144:
 
       default:
         LOG(ERROR) << "Unsupported debug symbol type 0x"
@@ -326,18 +339,20 @@ bool ParseDebugSubsections(Block* block) {
     }
     cursor += sizeof(*size);
 
-    switch (*type) {
-      case cci::SYMBOLS:
+    // A sentinel bit marks some sections ignored. We parse them even if they
+    // are ignored.
+    switch (*type & ~cci::DEBUG_S_IGNORE) {
+      case cci::DEBUG_S_SYMBOLS:
         if (!ParseDebugSymbols(cursor, *size, block))
           return false;
         break;
-      case cci::LINES:
+      case cci::DEBUG_S_LINES:
         if (!ParseDebugLines(cursor, *size, block))
           return false;
         break;
-      case cci::STRINGTABLE:
-      case cci::FILECHKSMS:
-      case cci::FRAMEDATA:
+      case cci::DEBUG_S_STRINGTABLE:
+      case cci::DEBUG_S_FILECHKSMS:
+      case cci::DEBUG_S_FRAMEDATA:
         break;
       default:
         LOG(ERROR) << "Unsupported debug subsection type " << *type
