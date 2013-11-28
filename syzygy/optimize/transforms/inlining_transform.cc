@@ -57,7 +57,9 @@ using block_graph::BasicBlock;
 using block_graph::BasicBlockAssembler;
 using block_graph::BasicBlockDecomposer;
 using block_graph::BasicBlockReference;
+using block_graph::BasicBlockSubGraph;
 using block_graph::BasicCodeBlock;
+using block_graph::BlockGraph;
 using block_graph::Displacement;
 using block_graph::Immediate;
 using block_graph::Instruction;
@@ -461,16 +463,26 @@ bool InliningTransform::TransformBasicBlockSubGraph(
       // For a small callee, try to replace callee instructions in-place.
       // Add one byte to take into account the return instruction.
       if (callee->size() <= instr.size() + 1) {
-        BasicBlockSubGraph callee_subgraph;
+        BasicBlockSubGraph* callee_subgraph;
         size_t return_constant = 0;
         BasicCodeBlock* body = NULL;
         BasicBlockReference target;
         MatchKind match_kind = kInvalidMatch;
 
-        if (!DecomposeToBasicBlock(callee, &callee_subgraph))
-          continue;
+        // Look in the subgraph cache for an already decomposed subgraph.
+        SubGraphCache::iterator look = subgraph_cache_.find(callee);
+        if (look != subgraph_cache_.end()) {
+          callee_subgraph = &look->second;
+        } else {
+          // Not in cache, decompose it.
+          callee_subgraph = &subgraph_cache_[callee];
+          if (!DecomposeToBasicBlock(callee, callee_subgraph)) {
+            subgraph_cache_.erase(callee);
+            continue;
+          }
+        }
 
-        if (MatchTrivialBody(callee_subgraph, &match_kind, &return_constant,
+        if (MatchTrivialBody(*callee_subgraph, &match_kind, &return_constant,
                              &target, &body) &&
             InlineTrivialBody(match_kind, return_constant, target, body,
                               call_iter, &bb->instructions())) {

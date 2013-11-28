@@ -36,6 +36,7 @@ using block_graph::BasicBlockDecomposer;
 using block_graph::BasicBlockReference;
 using block_graph::BasicBlockSubGraph;
 using block_graph::BlockBuilder;
+using block_graph::BlockGraph;
 using block_graph::Displacement;
 using block_graph::Immediate;
 using block_graph::Instruction;
@@ -128,6 +129,7 @@ class TestInliningTransform : public InliningTransform {
   }
 
   using InliningTransform::profile_;
+  using InliningTransform::subgraph_cache_;
 };
 
 class InliningTransformTest : public testing::Test {
@@ -292,6 +294,30 @@ TEST_F(InliningTransformTest, NameAccessor) {
   TestInliningTransform tx(&profile_);
   EXPECT_STREQ("InlineBasicBlockTransform", tx.name());
   EXPECT_EQ(&profile_, tx.profile_);
+}
+
+TEST_F(InliningTransformTest, SubgraphCache) {
+  TestInliningTransform tx(&profile_);
+
+  // Create a valid inlining candidate.
+  ASSERT_NO_FATAL_FAILURE(
+      AddBlockFromBuffer(kCodeRet42, sizeof(kCodeRet42), &callee_));
+  ASSERT_NO_FATAL_FAILURE(CreateCallSiteToBlock(callee_));
+
+  // The cache must be empty.
+  EXPECT_TRUE(tx.subgraph_cache_.empty());
+
+  // Decompose to subgraph.
+  BasicBlockSubGraph subgraph;
+  BasicBlockDecomposer decomposer(caller_, &subgraph);
+  ASSERT_TRUE(decomposer.Decompose());
+
+  // Apply inlining transform.
+  ASSERT_TRUE(
+      tx.TransformBasicBlockSubGraph(&policy_, &block_graph_, &subgraph));
+
+  // Expect the subgraph to be cached.
+  EXPECT_EQ(1U, tx.subgraph_cache_.size());
 }
 
 TEST_F(InliningTransformTest, PreTransformValidation) {

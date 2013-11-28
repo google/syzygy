@@ -16,6 +16,11 @@
 //
 // The inlining expansion replaces a function call site with the body of the
 // callee. It is used to eliminate the time overhead when a function is called.
+//
+// TODO(etienneb): The actual implementation does not inline a sequence of
+//    calls like Foo -> Bar -> Bat. This may be addressed by iterating this
+//    function until no changes occurred or by changing the ordering the
+//    blocks are traversed in the ChainedBasicBlockTransform.
 
 #ifndef SYZYGY_OPTIMIZE_TRANSFORMS_INLINING_TRANSFORM_H_
 #define SYZYGY_OPTIMIZE_TRANSFORMS_INLINING_TRANSFORM_H_
@@ -28,14 +33,16 @@
 
 namespace optimize {
 namespace transforms {
-  typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
-  typedef block_graph::BlockGraph BlockGraph;
-  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
 
 class InliningTransform
     : public block_graph::transforms::NamedBasicBlockSubGraphTransformImpl<
           InliningTransform> {
  public:
+  typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
+  typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
+  typedef std::map<BlockGraph::Block*, BasicBlockSubGraph> SubGraphCache;
+
   // Constructor.
   // @param profile Application profile information.
   explicit InliningTransform(ApplicationProfile* profile);
@@ -53,6 +60,9 @@ class InliningTransform
 
  protected:
   ApplicationProfile* profile_;
+
+  // A cache of decomposed subgraphs.
+  SubGraphCache subgraph_cache_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(InliningTransform);
