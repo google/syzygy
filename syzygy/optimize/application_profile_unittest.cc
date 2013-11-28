@@ -16,26 +16,52 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/basic_block_decomposer.h"
+#include "syzygy/block_graph/basic_block_subgraph.h"
 
 namespace optimize {
 
 namespace {
 
+using block_graph::BasicBlockDecomposer;
+using block_graph::BasicBlockSubGraph;
 using block_graph::BlockGraph;
 using grinder::basic_block_util::IndexedFrequencyMap;
 using grinder::basic_block_util::IndexedFrequencyOffset;
 using testing::ContainerEq;
 
 typedef ApplicationProfile::BlockProfile BlockProfile;
+typedef BasicBlockSubGraph::BasicCodeBlock BasicCodeBlock;
 typedef BlockGraph::Offset Offset;
+typedef SubGraphProfile::BasicBlockProfile BasicBlockProfile;
 typedef core::RelativeAddress RelativeAddress;
 typedef grinder::basic_block_util::EntryCountType EntryCountType;
 typedef pe::ImageLayout ImageLayout;
+
+const size_t kEntryCountColumn = 0;
+const size_t kTakenCountColumn = 1;
+const size_t kMissPredictedColumn = 2;
 
 const size_t kBlock1Count = 42;
 const size_t kBlock2Count = 128;
 const size_t kBlock2BodyCount = 256;
 const size_t kBlock3Count = 0;
+
+const core::RelativeAddress kSmallCodeAddress(0x3000);
+const Offset kBasicBlockOffset0 = 0;
+const Offset kBasicBlockOffset1 = 4;
+const Offset kBasicBlockOffset2 = 7;
+const EntryCountType kBasicBlockCount0 = 100;
+const EntryCountType kBasicBlockCount1 = 80;
+const EntryCountType kBasicBlockCount2 = 20;
+const uint8 kSmallCode[] = {
+    0x3B, 0xC1,  // cmp %eax, %ecx
+    0x7D, 0x03,  // jge +7
+    0x03, 0xC1,  // add %eax, %ecx
+    0xC3,        // ret
+    0x2B, 0xC1,  // sub %eax, %ecx
+    0xC3         // ret
+};
 
 class TestBlockProfile : public ApplicationProfile::BlockProfile {
  public:
@@ -67,12 +93,17 @@ class ApplicationProfileTest : public testing::Test  {
     // Build a dummy block graph.
     BlockGraph::Section* section1 = block_graph_.AddSection(".text", 0);
     BlockGraph::Section* section2 = block_graph_.AddSection(".text_cold", 0);
+    BlockGraph::Section* section3 = block_graph_.AddSection(".text_sub", 0);
     block1_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 10, "block1");
     block2_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 10, "block2");
     block3_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 10, "block3");
     block1_->set_section(section1->id());
     block2_->set_section(section2->id());
     block3_->set_section(section2->id());
+
+    block_code_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK,
+                                        sizeof(kSmallCode),
+                                        "SmallCode");
 
     // Build a dummy image layout.
     pe::ImageLayout::SectionInfo section_info1 = {};
@@ -89,15 +120,23 @@ class ApplicationProfileTest : public testing::Test  {
     section_info2.data_size = 0x1000;
     layout_.sections.push_back(section_info2);
 
+    pe::ImageLayout::SectionInfo section_info3 = {};
+    section_info3.name = section3->name();
+    section_info3.addr = kSmallCodeAddress;
+    section_info3.size = 0x1000;
+    section_info3.data_size = 0x1000;
+    layout_.sections.push_back(section_info3);
+
     // Insert blocks into the image layout.
     layout_.blocks.InsertBlock(section_info1.addr, block1_);
     layout_.blocks.InsertBlock(section_info2.addr, block2_);
     layout_.blocks.InsertBlock(section_info2.addr + block2_->size(), block3_);
+    layout_.blocks.InsertBlock(section_info3.addr, block_code_);
+
+    block_code_->SetData(kSmallCode, sizeof(kSmallCode));
   }
 
   void PopulateFrequencies(IndexedFrequencyMap* frequencies) {
-    const size_t kEntryCountColumn = 0;
-
     // Insert frequency for block 1.
     const RelativeAddress kBlock1Address = RelativeAddress(0x1000);
     (*frequencies)[std::make_pair(kBlock1Address, kEntryCountColumn)] =
@@ -113,11 +152,35 @@ class ApplicationProfileTest : public testing::Test  {
         kBlock2BodyCount;
   }
 
+  void PopulateSubgraphFrequencies(IndexedFrequencyMap* frequencies) {
+    // Insert frequencies for SmallCode.
+    const RelativeAddress kBlockAddress0 =
+        RelativeAddress(kSmallCodeAddress + kBasicBlockOffset0);
+    const RelativeAddress kBlockAddress1 =
+        RelativeAddress(kSmallCodeAddress + kBasicBlockOffset1);
+    const RelativeAddress kBlockAddress2 =
+        RelativeAddress(kSmallCodeAddress + kBasicBlockOffset2);
+
+    (*frequencies)[std::make_pair(kBlockAddress0, kEntryCountColumn)] =
+        kBasicBlockCount0;
+    (*frequencies)[std::make_pair(kBlockAddress1, kEntryCountColumn)] =
+        kBasicBlockCount1;
+    (*frequencies)[std::make_pair(kBlockAddress2, kEntryCountColumn)] =
+        kBasicBlockCount2;
+
+    (*frequencies)[std::make_pair(kBlockAddress0, kTakenCountColumn)] =
+        kBasicBlockCount2;
+
+    (*frequencies)[std::make_pair(kBlockAddress0, kMissPredictedColumn)] =
+        kBasicBlockCount2;
+  }
+
   BlockGraph block_graph_;
   ImageLayout layout_;
   BlockGraph::Block* block1_;
   BlockGraph::Block* block2_;
   BlockGraph::Block* block3_;
+  BlockGraph::Block* block_code_;
 };
 
 }  // namespace
@@ -181,6 +244,76 @@ TEST_F(ApplicationProfileTest, BuildApplicationProfile) {
 
   EXPECT_EQ(app.empty_profile_.get(), profile3);
   EXPECT_EQ(1.0, app.empty_profile_->percentile());
+}
+
+TEST_F(ApplicationProfileTest, ComputeSubGraphProfile) {
+  // Build global profile.
+  TestAplicationProfile app(&layout_);
+  IndexedFrequencyMap frequencies;
+  ASSERT_NO_FATAL_FAILURE(PopulateLayout());
+  ASSERT_NO_FATAL_FAILURE(PopulateSubgraphFrequencies(&frequencies));
+  ASSERT_TRUE(app.ImportFrequencies(frequencies));
+  ASSERT_TRUE(app.ComputeGlobalProfile());
+
+  // Decompose to subgraph.
+  BasicBlockSubGraph subgraph;
+  BasicBlockDecomposer decomposer(block_code_, &subgraph);
+  ASSERT_TRUE(decomposer.Decompose());
+
+  // Build subgraph profile.
+  scoped_ptr<SubGraphProfile> subgraph_profile;
+  ASSERT_NO_FATAL_FAILURE(
+      app.ComputeSubGraphProfile(&subgraph, &subgraph_profile));
+
+  // Retrieve Basic Blocks.
+  ASSERT_EQ(1U,  subgraph.block_descriptions().size());
+  const BasicBlockSubGraph::BasicBlockOrdering& original_order =
+      subgraph.block_descriptions().front().basic_block_order;
+  ASSERT_EQ(3U, original_order.size());
+  BasicBlockSubGraph::BasicBlockOrdering::const_iterator it =
+      original_order.begin();
+  BasicCodeBlock* bb0 = BasicCodeBlock::Cast(*it);
+  ++it;
+  BasicCodeBlock* bb1 = BasicCodeBlock::Cast(*it);
+  ++it;
+  BasicCodeBlock* bb2 = BasicCodeBlock::Cast(*it);
+
+  ASSERT_NE(reinterpret_cast<BasicCodeBlock*>(NULL), bb0);
+  ASSERT_NE(reinterpret_cast<BasicCodeBlock*>(NULL), bb1);
+  ASSERT_NE(reinterpret_cast<BasicCodeBlock*>(NULL), bb2);
+
+  ASSERT_EQ(kBasicBlockOffset0, bb0->offset());
+  ASSERT_EQ(kBasicBlockOffset1, bb1->offset());
+  ASSERT_EQ(kBasicBlockOffset2, bb2->offset());
+
+  // Retrieve basic block profiles.
+  const BasicBlockProfile* profile0 =
+      subgraph_profile->GetBasicBlockProfile(bb0);
+  const BasicBlockProfile* profile1 =
+      subgraph_profile->GetBasicBlockProfile(bb1);
+  const BasicBlockProfile* profile2 =
+      subgraph_profile->GetBasicBlockProfile(bb2);
+
+  ASSERT_NE(reinterpret_cast<const BasicBlockProfile*>(NULL), profile0);
+  ASSERT_NE(reinterpret_cast<const BasicBlockProfile*>(NULL), profile1);
+  ASSERT_NE(reinterpret_cast<const BasicBlockProfile*>(NULL), profile2);
+
+  // Validate basic block profiles.
+  EXPECT_EQ(100, profile0->count());
+  EXPECT_EQ(80, profile1->count());
+  EXPECT_EQ(20, profile2->count());
+
+  EXPECT_EQ(.20, profile0->GetMispredictedRatio());
+  EXPECT_EQ(0, profile1->GetMispredictedRatio());
+  EXPECT_EQ(0, profile2->GetMispredictedRatio());
+
+  EXPECT_EQ(0, profile0->GetSuccessorCount(bb0));
+  EXPECT_EQ(80, profile0->GetSuccessorCount(bb1));
+  EXPECT_EQ(20, profile0->GetSuccessorCount(bb2));
+
+  EXPECT_EQ(0, profile0->GetSuccessorRatio(bb0));
+  EXPECT_EQ(.80, profile0->GetSuccessorRatio(bb1));
+  EXPECT_EQ(.20, profile0->GetSuccessorRatio(bb2));
 }
 
 }  // namespace optimize

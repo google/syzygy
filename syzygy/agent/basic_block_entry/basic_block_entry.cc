@@ -272,7 +272,7 @@ struct BBEntryFrequency {
 struct BranchFrequency {
   uint32 frequency;
   uint32 branch_taken;
-  uint32 miss_predicted;
+  uint32 mispredicted;
 };
 
 // An entry in the basic block id buffer.
@@ -589,12 +589,12 @@ void BasicBlockEntry::ThreadState::Enter(
     uint8& state = predictor_data_[offset];
     if (taken) {
       if (state < 2)
-        previous.miss_predicted = IncrementAndSaturate(previous.miss_predicted);
+        previous.mispredicted = IncrementAndSaturate(previous.mispredicted);
       if (state < 3)
         ++state;
     } else {
       if (state > 1)
-        previous.miss_predicted = IncrementAndSaturate(previous.miss_predicted);
+        previous.mispredicted = IncrementAndSaturate(previous.mispredicted);
       if (state != 0)
         --state;
     }

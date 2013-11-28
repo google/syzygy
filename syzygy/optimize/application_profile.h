@@ -32,12 +32,17 @@
 #ifndef SYZYGY_OPTIMIZE_APPLICATION_PROFILE_H_
 #define SYZYGY_OPTIMIZE_APPLICATION_PROFILE_H_
 
-#include "syzygy/block_graph/basic_block.h"
+#include <map>
 
+#include "syzygy/block_graph/basic_block.h"
+#include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/grinder/basic_block_util.h"
 #include "syzygy/pe/image_layout.h"
 
 namespace optimize {
+
+// Forward declaration.
+class SubGraphProfile;
 
 // This class holds profile information for a block_graph.
 class ApplicationProfile {
@@ -72,6 +77,12 @@ class ApplicationProfile {
   // @note BlockProfile.percentile() and GetGlobalTemperature() aren't valid
   //     before this function is called.
   bool ComputeGlobalProfile();
+
+  // Compute profile information for basic blocks of a subgraph.
+  // @param subgraph subgraph for which to calculate profiler information.
+  // @param profile receives the profile information.
+  void ComputeSubGraphProfile(const BasicBlockSubGraph* subgraph,
+                              scoped_ptr<SubGraphProfile>* profile);
 
   // Import the frequency information of an application.
   // @param frequencies the branches frequencies.
@@ -136,6 +147,78 @@ class ApplicationProfile::BlockProfile {
   // The rank of this block's temperature as compared to all blocks in the block
   // graph. The value is between 0 and 1.
   double percentile_;
+};
+
+// This class contains profile information for a subgraph.
+class SubGraphProfile {
+ public:
+  // Forward declaration.
+  class BasicBlockProfile;
+
+  typedef block_graph::BasicCodeBlock BasicCodeBlock;
+  typedef grinder::basic_block_util::EntryCountType EntryCountType;
+  typedef std::map<const BasicCodeBlock*, BasicBlockProfile>
+      BasicBlockProfileMap;
+
+  // Retrieve the profile for a given basic block.
+  // @param block the basic block to find profile information.
+  // @returns the profile of the basic block or singleton empty profile when
+  //     there is no information available.
+  const BasicBlockProfile* GetBasicBlockProfile(
+      const BasicCodeBlock* block) const;
+
+ private:
+  // Allow ApplicationProfile to create instances of this class.
+  friend class ApplicationProfile;
+
+  SubGraphProfile() { }
+
+  // Map basic blocks to their profile.
+  BasicBlockProfileMap basic_blocks_;
+
+  // An empty profile used for all basic blocks never executed.
+  scoped_ptr<BasicBlockProfile> empty_profile_;
+};
+
+// This class contains profile information for a basic-block.
+class SubGraphProfile::BasicBlockProfile {
+ public:
+  typedef block_graph::BasicCodeBlock BasicCodeBlock;
+  typedef std::map<const BasicCodeBlock*, EntryCountType> SuccessorsCountMap;
+
+  BasicBlockProfile() : count_(0), mispredicted_(0) {
+  }
+
+  // Returns the entry count of a basic block.
+  // @returns the basic block entry count.
+  EntryCountType count() const { return count_; }
+
+  // Returns the ratio of misprediction to jumps to successors.
+  // @returns the basic block entry count ratio.
+  double GetMispredictedRatio() const;
+
+  // Returns the number of times a given successor was taken from this basic
+  // block.
+  // @param successor the successor to retrieve the corresponding count.
+  // @returns the arc count between this block and the successor.
+  EntryCountType GetSuccessorCount(const BasicCodeBlock* successor) const;
+
+  // Returns the ratio of branch taken from the basic block to |successor|.
+  // @returns the successors ratio for @successor.
+  double GetSuccessorRatio(const BasicCodeBlock* successor) const;
+
+ private:
+  // Allow ApplicationProfile to modify private fields.
+  friend class ApplicationProfile;
+
+  // The entry count of the basic block.
+  EntryCountType count_;
+
+  // The count of mispredictions to jumps to successors.
+  EntryCountType mispredicted_;
+
+  // Maps successors to the taken count.
+  SuccessorsCountMap successors_;
 };
 
 }  // namespace optimize

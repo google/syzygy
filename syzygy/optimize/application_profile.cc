@@ -24,14 +24,20 @@ namespace optimize {
 namespace {
 
 using block_graph::BlockGraph;
+using block_graph::BasicBlockSubGraph;
 using grinder::basic_block_util::IndexedFrequencyMap;
 using grinder::basic_block_util::IndexedFrequencyOffset;
 
 typedef ApplicationProfile::BlockProfile BlockProfile;
+typedef BasicBlockSubGraph::BasicBlockOrdering BasicBlockOrdering;
+typedef BasicBlockSubGraph::BasicCodeBlock BasicCodeBlock;
+typedef BasicBlockSubGraph::BlockDescriptionList BlockDescriptionList;
+typedef BasicBlockSubGraph::BasicBlock::Successors Successors;
 typedef BlockGraph::Offset Offset;
 typedef core::RelativeAddress RelativeAddress;
 typedef grinder::basic_block_util::EntryCountType EntryCountType;
 typedef pe::ImageLayout ImageLayout;
+typedef SubGraphProfile::BasicBlockProfile BasicBlockProfile;
 
 const size_t kEntryCountColumn = 0;
 const size_t kBranchTakenColumn = 1;
@@ -54,8 +60,8 @@ struct BlockProfileCompare {
 // Retrieve a frequency in the IndexedFrequencyMap for |rva + offset, column|.
 bool GetFrequencyByOffset(const IndexedFrequencyMap& frequencies,
                           const RelativeAddress& base_rva,
-                          size_t column,
                           Offset offset,
+                          size_t column,
                           EntryCountType* entry_count) {
   DCHECK_LE(0, offset);
   DCHECK_NE(reinterpret_cast<EntryCountType*>(NULL), entry_count);
@@ -128,7 +134,7 @@ bool ApplicationProfile::ComputeGlobalProfile() {
 
     // Retrieve the execution count of this function.
     EntryCountType entry_count = 0;
-    valid = GetFrequencyByOffset(frequencies_, addr, kEntryCountColumn, 0,
+    valid = GetFrequencyByOffset(frequencies_, addr, 0, kEntryCountColumn,
                                  &entry_count);
 
     // Function is never executed.
@@ -188,6 +194,99 @@ bool ApplicationProfile::ImportFrequencies(
   // TODO(etienneb): Support importing multiple sets.
   frequencies_ = frequencies;
   return true;
+}
+
+void ApplicationProfile::ComputeSubGraphProfile(
+    const BasicBlockSubGraph* subgraph,
+    scoped_ptr<SubGraphProfile>* profile) {
+  DCHECK_NE(reinterpret_cast<const BasicBlockSubGraph*>(NULL), subgraph);
+  DCHECK_NE(reinterpret_cast<scoped_ptr<SubGraphProfile>*>(NULL), profile);
+
+  // Create the resulting subgraph profile.
+  profile->reset(new SubGraphProfile());
+
+  // Retrieve the original block.
+  const BlockGraph::Block* block = subgraph->original_block();
+  DCHECK_NE(reinterpret_cast<const BlockGraph::Block*>(NULL), block);
+
+  // Get the current block address.
+  RelativeAddress addr;
+  bool valid = GetAddressOfBlock(block, *image_layout_, &addr);
+  DCHECK(valid);
+
+  const BlockDescriptionList& descriptions = subgraph->block_descriptions();
+  BlockDescriptionList::const_iterator descr_iter = descriptions.begin();
+  for (; descr_iter != descriptions.end(); ++descr_iter) {
+    const BasicBlockOrdering& original_order = descr_iter->basic_block_order;
+    BasicBlockOrdering::const_iterator order = original_order.begin();
+    for (; order != original_order.end(); ++order) {
+      // Get the basic block.
+      const BasicCodeBlock* bb = BasicCodeBlock::Cast(*order);
+      if (bb == NULL)
+        continue;
+
+      // Retrieve basic block information.
+      Offset offset = bb->offset();
+      EntryCountType count = 0;
+      EntryCountType taken = 0;
+      EntryCountType mispredicted = 0;
+      GetFrequencyByOffset(frequencies_, addr, offset, kEntryCountColumn,
+                           &count);
+      GetFrequencyByOffset(frequencies_, addr, offset, kBranchTakenColumn,
+                           &taken);
+      GetFrequencyByOffset(frequencies_, addr, offset, kMissPredColumn,
+                           &mispredicted);
+
+      DCHECK_GE(count, taken);
+      EntryCountType untaken = (count - taken);
+
+      // Fill the basic block profile with the information.
+      BasicBlockProfile& bb_profile = (*profile)->basic_blocks_[bb];
+      bb_profile.count_ = count;
+      bb_profile.mispredicted_ = mispredicted;
+
+      // Fill successors information.
+      BasicBlockOrdering::const_iterator next_order = order;
+      ++next_order;
+      const Successors& successors = bb->successors();
+      Successors::const_iterator succ = successors.begin();
+      for (; succ != successors.end(); ++succ) {
+        const BasicCodeBlock* next_bb =
+            BasicCodeBlock::Cast(succ->reference().basic_block());
+        bool is_untaken = (next_order != original_order.end() &&
+                           BasicCodeBlock::Cast(*next_order) == next_bb);
+        bb_profile.successors_[next_bb] = (is_untaken ? untaken : taken);
+      }
+    }
+  }
+}
+
+const BasicBlockProfile* SubGraphProfile::GetBasicBlockProfile(
+    const BasicCodeBlock* block) const {
+  DCHECK_NE(reinterpret_cast<const BasicCodeBlock*>(NULL), block);
+  BasicBlockProfileMap::const_iterator look = basic_blocks_.find(block);
+  if (look == basic_blocks_.end())
+    empty_profile_.get();
+  return &look->second;
+}
+
+double SubGraphProfile::BasicBlockProfile::GetMispredictedRatio() const {
+  return ((double)mispredicted_) / count_;
+}
+
+EntryCountType SubGraphProfile::BasicBlockProfile::GetSuccessorCount(
+    const BasicCodeBlock* successor) const {
+  DCHECK_NE(reinterpret_cast<const BasicCodeBlock*>(NULL), successor);
+  SuccessorsCountMap::const_iterator look = successors_.find(successor);
+  if (look != successors_.end())
+    return look->second;
+  return 0;
+}
+
+double SubGraphProfile::BasicBlockProfile::GetSuccessorRatio(
+    const BasicCodeBlock* successor) const {
+  DCHECK_NE(reinterpret_cast<const BasicCodeBlock*>(NULL), successor);
+  return ((double)GetSuccessorCount(successor)) / count_;
 }
 
 }  // namespace optimize
