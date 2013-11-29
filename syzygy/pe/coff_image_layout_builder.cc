@@ -118,6 +118,32 @@ bool GetCoffRelocationType(BlockGraph::ReferenceType ref_type,
   }
 }
 
+// Write a reference value at the specified location. Write the full value
+// for non-relocation references, or the additional offset only for
+// relocation references.
+//
+// @tparam ValueType the type of data to write.
+// @param ref the reference to write.
+// @param block_offset the offset within @p block to alter.
+// @param block the block to alter.
+template <typename ValueType>
+bool WriteReferenceValue(BlockGraph::Reference ref,
+                         BlockGraph::Offset block_offset,
+                         BlockGraph::Block* block) {
+  DCHECK_EQ(sizeof(ValueType), ref.size());
+  TypedBlock<ValueType> value;
+  if (!value.Init(block_offset, block)) {
+    LOG(ERROR) << "Unable to cast reference.";
+    return false;
+  }
+  if ((ref.type() & BlockGraph::RELOC_REF_BIT) != 0) {
+    *value = ref.offset() - ref.base();
+  } else {
+    *value = ref.offset();
+  }
+  return true;
+}
+
 // For each relocation reference in @p block, add a COFF relocation to the
 // specified vector.
 //
@@ -146,7 +172,7 @@ bool AddRelocs(const BlockGraph::Block& block,
 
     SymbolMap::const_iterator symbol_it =
         symbol_map.find(std::make_pair(it->second.referenced(),
-                                       it->second.offset()));
+                                       it->second.base()));
     if (symbol_it == symbol_map.end()) {
       LOG(ERROR) << "Missing COFF symbol for reference within a section block; "
                  << "cannot translate to relocation.";
@@ -283,7 +309,7 @@ bool CoffImageLayoutBuilder::LayoutSectionBlocks(
         // symbols at offset zero, rather than section definition symbols.
         DCHECK_LT(0, symbols[i].SectionNumber);
         std::pair<BlockGraph::Block*, BlockGraph::Offset> ref_pair =
-          std::make_pair(it->second.referenced(), it->second.offset());
+          std::make_pair(it->second.referenced(), it->second.base());
         symbol_map.insert(std::make_pair(ref_pair, i)).first->second = i;
 
         // Skip any other references for this symbol or its auxiliary
@@ -345,31 +371,43 @@ bool CoffImageLayoutBuilder::LayoutSectionBlocks(
     for (; block_it != block_end; ++block_it) {
       BlockGraph::Block* block = *block_it;
       DCHECK(block != NULL);
-      DCHECK((block->attributes() &
+      DCHECK(block->type() == BlockGraph::CODE_BLOCK ||
+             (block->attributes() &
               (BlockGraph::SECTION_CONTRIB | BlockGraph::COFF_BSS)) != 0);
 
-      // Fix non-relocation references (for debug sections).
+      // Fix references.
       BlockGraph::Block::ReferenceMap::const_iterator ref_it =
           block->references().begin();
       for (; ref_it != block->references().end(); ++ref_it) {
         // Section blocks should only have relocations and function-relative
         // file pointers, represented as section offsets, thanks to
         // function-level linking.
-        if ((ref_it->second.type() & BlockGraph::RELOC_REF_BIT) != 0)
-          continue;
-        if (ref_it->second.type() != BlockGraph::SECTION_OFFSET_REF) {
-            LOG(ERROR) << "Unexpected reference type " << ref_it->second.type()
+        BlockGraph::Reference ref(ref_it->second);
+        if ((ref.type() & BlockGraph::RELOC_REF_BIT) == 0 &&
+            ref.type() != BlockGraph::SECTION_OFFSET_REF) {
+            LOG(ERROR) << "Unexpected reference type " << ref.type()
                        << " in section " << section_index << ".";
             return false;
         }
 
-        DCHECK_EQ(4u, ref_it->second.size());
-        TypedBlock<uint32> value;
-        if (!value.Init(ref_it->first, block)) {
-          LOG(ERROR) << "Unable to cast reference.";
-          return false;
+        switch (ref.size()) {
+          case sizeof(uint32):
+            if (!WriteReferenceValue<uint32>(ref, ref_it->first, block))
+              return false;
+            break;
+          case sizeof(uint16):
+            if (!WriteReferenceValue<uint16>(ref, ref_it->first, block))
+              return false;
+            break;
+          case sizeof(uint8):
+            // TODO(chrisha): This is really a special 7-bit relocation; we do
+            // not touch these, for now.
+            break;
+          default:
+            LOG(ERROR) << "Unsupported relocation value size ("
+                       << ref.size() << ").";
+            return false;
         }
-        *value = ref_it->second.offset();
       }
 
       // Lay out and collect relocations.

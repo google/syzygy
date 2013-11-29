@@ -83,7 +83,7 @@ bool GetRelocationTypeAndSize(const IMAGE_RELOCATION& reloc,
       return true;
     case IMAGE_REL_I386_SECREL7:
       *ref_type = BlockGraph::RELOC_SECTION_OFFSET_REF;
-      // TODO(lenh): This is actually a 7-bit offset;
+      // TODO(chrisha): This is actually a 7-bit offset;
       // BlockGraph::Reference only represents byte sizes. We pass
       // as a 1-byte reference as there are no actual 8-bit
       // references in COFF files.
@@ -99,6 +99,26 @@ bool GetRelocationTypeAndSize(const IMAGE_RELOCATION& reloc,
       LOG(WARNING) << "Unexpected COFF relocation type.";
       return false;
   }
+}
+
+// Retrieve the relocation encoded value at the relocated location.
+//
+// @tparam ValueType the type of data to read.
+// @param source the source block.
+// @param src_offset the offset of the relocated location.
+// @param extra_offset where to place the additional offset read.
+// @returns true on success, or false on failure.
+template <typename ValueType>
+bool ReadRelocationValue(Block* source,
+                         BlockGraph::Offset src_offset,
+                         BlockGraph::Offset* extra_offset) {
+  ConstTypedBlock<ValueType> value;
+  if (!value.Init(src_offset, source)) {
+    LOG(ERROR) << "Unable to read relocation location value.";
+    return false;
+  }
+  *extra_offset = *value;
+  return true;
 }
 
 // Parse a CodeView debug symbol subsection, adding references and
@@ -883,8 +903,30 @@ bool CoffDecomposer::CreateReference(FileOffsetAddress src_addr,
   DCHECK(source != NULL);
   DCHECK_GE(src_offset, 0);
 
+  // Read additional offset for relocations.
+  BlockGraph::Offset extra_offset = 0;
+  if ((ref_type & BlockGraph::RELOC_REF_BIT) != 0) {
+    switch (ref_size) {
+      case sizeof(uint32):
+        if (!ReadRelocationValue<uint32>(source, src_offset, &extra_offset))
+          return false;
+        break;
+      case sizeof(uint16):
+        if (!ReadRelocationValue<uint16>(source, src_offset, &extra_offset))
+          return false;
+        break;
+      case sizeof(uint8):
+        // TODO(chrisha): This is really a special 7-bit relocation; we do
+        // not touch these, for now.
+        break;
+      default:
+        LOG(ERROR) << "Unsupported relocation value size (" << ref_size << ").";
+        return false;
+    }
+  }
+
   // Find an existing reference, or insert a new one.
-  Reference ref(ref_type, ref_size, target, offset, offset);
+  Reference ref(ref_type, ref_size, target, offset + extra_offset, offset);
   Block::ReferenceMap::const_iterator ref_it =
       source->references().find(src_offset);
   if (ref_it == source->references().end()) {
@@ -1004,7 +1046,7 @@ bool CoffDecomposer::SectionOffsetToBlockOffset(size_t section_index,
   DCHECK(image_ != NULL);
   DCHECK_NE(BlockGraph::kInvalidSectionId, section_index);
   DCHECK_LT(section_index, image_file_.file_header()->NumberOfSections);
-  DCHECK_LT(section_offset,
+  DCHECK_LE(section_offset,
             image_file_.section_header(section_index)->SizeOfRawData);
   DCHECK(block != NULL);
   DCHECK(offset != NULL);
@@ -1016,7 +1058,7 @@ bool CoffDecomposer::SectionOffsetToBlockOffset(size_t section_index,
     return false;
   }
   DCHECK(it->second != NULL);
-  DCHECK_LT(section_offset, it->second->size());
+  DCHECK_LE(section_offset, it->second->size());
 
   *block = it->second;
   *offset = section_offset;
