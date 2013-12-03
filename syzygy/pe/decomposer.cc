@@ -1180,6 +1180,15 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
     }
 
     enum SymTagEnum sym_tag = static_cast<enum SymTagEnum>(temp_sym_tag);
+
+#if defined(_MSC_VER) && (_MSC_VER >= 1700)
+    // Since VS 2012 there's some new symbols exposed by DIA which are not
+    // handled at the moment.
+    // TODO(sebmarchand): Handle those symbols.
+    if (sym_tag == SymTagInlineSite)
+      continue;
+#endif
+
     BlockGraph::LabelAttributes label_attr = SymTagToLabelAttributes(sym_tag);
 
     // TODO(rogerm): Add a flag to include/exclude the symbol types that are
