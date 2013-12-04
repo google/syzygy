@@ -15,13 +15,13 @@
 #include "syzygy/optimize/optimize_app.h"
 
 #include "syzygy/block_graph/block_graph.h"
-#include "syzygy/block_graph/transforms/chained_basic_block_transforms.h"
 #include "syzygy/block_graph/transforms/fuzzing_transform.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/grinder/basic_block_util.h"
 #include "syzygy/optimize/application_profile.h"
 #include "syzygy/optimize/transforms/block_alignment_transform.h"
+#include "syzygy/optimize/transforms/chained_subgraph_transforms.h"
 #include "syzygy/optimize/transforms/inlining_transform.h"
 #include "syzygy/pe/pe_relinker.h"
 #include "syzygy/pe/pe_transform_policy.h"
@@ -30,12 +30,12 @@ namespace optimize {
 
 namespace {
 
-using block_graph::transforms::ChainedBasicBlockTransforms;
 using block_graph::transforms::FuzzingTransform;
 using common::IndexedFrequencyData;
 using grinder::basic_block_util::IndexedFrequencyMap;
 using grinder::basic_block_util::LoadBranchStatisticsFromFile;
 using optimize::transforms::BlockAlignmentTransform;
+using optimize::transforms::ChainedSubgraphTransforms;
 using optimize::transforms::InliningTransform;
 
 const char kUsageFormatStr[] =
@@ -135,7 +135,7 @@ int OptimizeApp::Run() {
   }
 
   // Construct a chain of basic block transforms.
-  ChainedBasicBlockTransforms chains;
+  ChainedSubgraphTransforms chains(&profile);
 
   // Declare transforms we may apply.
   scoped_ptr<InliningTransform> inlining_transform;
@@ -144,14 +144,14 @@ int OptimizeApp::Run() {
 
   // If inlining is enabled, add it to the chain.
   if (inlining_) {
-    inlining_transform.reset(new InliningTransform(&profile));
-    CHECK(chains.AppendTransform(inlining_transform.get()));
+    inlining_transform.reset(new InliningTransform());
+    chains.AppendTransform(inlining_transform.get());
   }
 
   // If block alignment is enabled, add it to the chain.
   if (block_alignment_) {
     block_alignment_transform.reset(new BlockAlignmentTransform());
-    CHECK(chains.AppendTransform(block_alignment_transform.get()));
+    chains.AppendTransform(block_alignment_transform.get());
   }
 
   // Append the chain to the relinker.
@@ -161,7 +161,7 @@ int OptimizeApp::Run() {
   // If fuzzing is enabled, add it to the chain.
   if (fuzz_) {
     fuzzing_transform.reset(new block_graph::transforms::FuzzingTransform);
-    CHECK(relinker.AppendTransform(fuzzing_transform.get()));
+    relinker.AppendTransform(fuzzing_transform.get());
   }
 
   // Perform the actual relink.

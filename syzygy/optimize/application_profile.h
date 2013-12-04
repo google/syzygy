@@ -160,6 +160,9 @@ class SubGraphProfile {
   typedef std::map<const BasicCodeBlock*, BasicBlockProfile>
       BasicBlockProfileMap;
 
+  // Constructor
+  SubGraphProfile() { }
+
   // Retrieve the profile for a given basic block.
   // @param block the basic block to find profile information.
   // @returns the profile of the basic block or singleton empty profile when
@@ -168,10 +171,8 @@ class SubGraphProfile {
       const BasicCodeBlock* block) const;
 
  private:
-  // Allow ApplicationProfile to create instances of this class.
+  // Allow ApplicationProfile to create and modify instances of this class.
   friend class ApplicationProfile;
-
-  SubGraphProfile() { }
 
   // Map basic blocks to their profile.
   BasicBlockProfileMap basic_blocks_;

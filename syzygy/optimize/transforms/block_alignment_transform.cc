@@ -24,16 +24,17 @@ namespace {
   using block_graph::BasicCodeBlock;
 }  // namespace
 
-const char BlockAlignmentTransform::kTransformName[] =
-    "BlockAlignmentTransform";
-
 bool BlockAlignmentTransform::TransformBasicBlockSubGraph(
       const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
-      BasicBlockSubGraph* subgraph) {
+      BasicBlockSubGraph* subgraph,
+      ApplicationProfile* profile,
+      SubGraphProfile* subgraph_profile) {
   DCHECK_NE(reinterpret_cast<TransformPolicyInterface*>(NULL), policy);
   DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
   DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), subgraph);
+  DCHECK_NE(reinterpret_cast<ApplicationProfile*>(NULL), profile);
+  DCHECK_NE(reinterpret_cast<SubGraphProfile*>(NULL), subgraph_profile);
 
   // Iterates through each basic block.
   BasicBlockSubGraph::BBCollection::iterator bb_iter =

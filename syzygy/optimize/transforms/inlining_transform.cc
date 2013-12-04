@@ -400,20 +400,17 @@ bool DecomposeToBasicBlock(const BlockGraph::Block* block,
 
 }  // namespace
 
-const char InliningTransform::kTransformName[] = "InlineBasicBlockTransform";
-
-InliningTransform::InliningTransform(ApplicationProfile* profile)
-    : profile_(profile) {
-  DCHECK_NE(reinterpret_cast<ApplicationProfile*>(NULL), profile);
-}
-
 bool InliningTransform::TransformBasicBlockSubGraph(
     const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
-    BasicBlockSubGraph* subgraph) {
+    BasicBlockSubGraph* subgraph,
+    ApplicationProfile* profile,
+    SubGraphProfile* subgraph_profile) {
   DCHECK_NE(reinterpret_cast<TransformPolicyInterface*>(NULL), policy);
   DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
   DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), subgraph);
+  DCHECK_NE(reinterpret_cast<ApplicationProfile*>(NULL), profile);
+  DCHECK_NE(reinterpret_cast<SubGraphProfile*>(NULL), subgraph_profile);
 
   const BlockGraph::Block* caller = subgraph->original_block();
   DCHECK_NE(reinterpret_cast<const BlockGraph::Block*>(NULL), caller);

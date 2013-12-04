@@ -27,8 +27,11 @@
         'application_profile.h',
         'transforms/block_alignment_transform.cc',
         'transforms/block_alignment_transform.h',
+        'transforms/chained_subgraph_transforms.cc',
+        'transforms/chained_subgraph_transforms.h',
         'transforms/inlining_transform.cc',
         'transforms/inlining_transform.h',
+        'transforms/subgraph_transform.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
@@ -58,6 +61,7 @@
         'optimize_app_unittest.cc',
         'optimize_unittests_main.cc',
         'transforms/block_alignment_transform_unittest.cc',
+        'transforms/chained_subgraph_transforms_unittest.cc',
         'transforms/inlining_transform_unittest.cc',
       ],
       'dependencies': [

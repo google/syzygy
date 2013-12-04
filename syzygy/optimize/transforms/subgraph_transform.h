@@ -12,43 +12,45 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This class implements the functions alignment transformation.
 
-#ifndef SYZYGY_OPTIMIZE_TRANSFORMS_BLOCK_ALIGNMENT_TRANSFORM_H_
-#define SYZYGY_OPTIMIZE_TRANSFORMS_BLOCK_ALIGNMENT_TRANSFORM_H_
+#ifndef SYZYGY_OPTIMIZE_TRANSFORMS_SUBGRAPH_TRANSFORM_H_
+#define SYZYGY_OPTIMIZE_TRANSFORMS_SUBGRAPH_TRANSFORM_H_
 
-#include "syzygy/block_graph/filterable.h"
+#include "syzygy/block_graph/basic_block_subgraph.h"
+#include "syzygy/block_graph/block_graph.h"
 #include "syzygy/block_graph/transform_policy.h"
 #include "syzygy/optimize/application_profile.h"
-#include "syzygy/optimize/transforms/subgraph_transform.h"
 
 namespace optimize {
 namespace transforms {
 
-class BlockAlignmentTransform : public SubGraphTransformInterface {
+// A SubGraphTransformInterface is a pure virtual base class defining
+// the basic-block transform API augmented with profiling information.
+class SubGraphTransformInterface {
  public:
-  typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
   typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
   typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
 
-  // Constructor.
-  BlockAlignmentTransform() { }
+  virtual ~SubGraphTransformInterface() { }
 
-  // @name SubGraphTransformInterface implementation.
-  // @{
+  // Applies this transform to the provided block.
+  //
+  // @param policy The policy object restricting how the transform is applied.
+  // @param block_graph the block-graph of which the basic block subgraph
+  //     is a part.
+  // @param basic_block_subgraph the basic block subgraph to be transformed.
+  // @param subgraph_profile the profile information of the subgraph.
+  // @returns true on success, false otherwise.
   virtual bool TransformBasicBlockSubGraph(
       const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
       BasicBlockSubGraph* basic_block_subgraph,
       ApplicationProfile* profile,
-      SubGraphProfile* subgraph_profile) OVERRIDE;
-  // @}
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(BlockAlignmentTransform);
+      SubGraphProfile* subgraph_profile) = 0;
 };
 
 }  // namespace transforms
 }  // namespace optimize
 
-#endif  // SYZYGY_OPTIMIZE_TRANSFORMS_BLOCK_ALIGNMENT_TRANSFORM_H_
+#endif  // SYZYGY_OPTIMIZE_TRANSFORMS_SUBGRAPH_TRANSFORM_H_

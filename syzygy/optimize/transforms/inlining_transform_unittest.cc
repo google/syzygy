@@ -42,10 +42,10 @@ using block_graph::Immediate;
 using block_graph::Instruction;
 using block_graph::Operand;
 using block_graph::Successor;
+using pe::ImageLayout;
 using testing::ElementsAreArray;
 
 typedef block_graph::BasicBlockSubGraph::BasicCodeBlock BasicCodeBlock;
-typedef pe::ImageLayout ImageLayout;
 
 // This enum is used to drive the contents of the callee.
 enum CalleeKind {
@@ -124,11 +124,6 @@ const uint8 kStackCst[] = { 0x6A, 0x02, 0x58, 0xC3 };
 
 class TestInliningTransform : public InliningTransform {
  public:
-  explicit TestInliningTransform(ApplicationProfile* profile)
-      : InliningTransform(profile) {
-  }
-
-  using InliningTransform::profile_;
   using InliningTransform::subgraph_cache_;
 };
 
@@ -174,6 +169,7 @@ class InliningTransformTest : public testing::Test {
   BasicBlockSubGraph callee_subgraph_;
   ImageLayout image_;
   ApplicationProfile profile_;
+  SubGraphProfile subgraph_profile_;
 };
 
 void InliningTransformTest::AddBlockFromBuffer(const uint8* data,
@@ -277,9 +273,10 @@ void InliningTransformTest::ApplyTransformOnCaller() {
   ASSERT_TRUE(decomposer.Decompose());
 
   // Apply inlining transform.
-  InliningTransform tx(&profile_);
+  InliningTransform tx;
   ASSERT_TRUE(
-      tx.TransformBasicBlockSubGraph(&policy_, &block_graph_, &subgraph));
+      tx.TransformBasicBlockSubGraph(&policy_, &block_graph_, &subgraph,
+                                     &profile_, &subgraph_profile_));
 
   // Rebuild block.
   BlockBuilder builder(&block_graph_);
@@ -290,14 +287,8 @@ void InliningTransformTest::ApplyTransformOnCaller() {
 
 }  // namespace
 
-TEST_F(InliningTransformTest, NameAccessor) {
-  TestInliningTransform tx(&profile_);
-  EXPECT_STREQ("InlineBasicBlockTransform", tx.name());
-  EXPECT_EQ(&profile_, tx.profile_);
-}
-
 TEST_F(InliningTransformTest, SubgraphCache) {
-  TestInliningTransform tx(&profile_);
+  TestInliningTransform tx;
 
   // Create a valid inlining candidate.
   ASSERT_NO_FATAL_FAILURE(
@@ -314,7 +305,8 @@ TEST_F(InliningTransformTest, SubgraphCache) {
 
   // Apply inlining transform.
   ASSERT_TRUE(
-      tx.TransformBasicBlockSubGraph(&policy_, &block_graph_, &subgraph));
+      tx.TransformBasicBlockSubGraph(&policy_, &block_graph_, &subgraph,
+                                     &profile_, &subgraph_profile_));
 
   // Expect the subgraph to be cached.
   EXPECT_EQ(1U, tx.subgraph_cache_.size());

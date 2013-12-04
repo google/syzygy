@@ -27,16 +27,13 @@
 
 #include "syzygy/block_graph/filterable.h"
 #include "syzygy/block_graph/transform_policy.h"
-#include "syzygy/block_graph/transforms/iterative_transform.h"
-#include "syzygy/block_graph/transforms/named_transform.h"
 #include "syzygy/optimize/application_profile.h"
+#include "syzygy/optimize/transforms/subgraph_transform.h"
 
 namespace optimize {
 namespace transforms {
 
-class InliningTransform
-    : public block_graph::transforms::NamedBasicBlockSubGraphTransformImpl<
-          InliningTransform> {
+class InliningTransform : public SubGraphTransformInterface {
  public:
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
   typedef block_graph::BlockGraph BlockGraph;
@@ -44,23 +41,19 @@ class InliningTransform
   typedef std::map<BlockGraph::Block*, BasicBlockSubGraph> SubGraphCache;
 
   // Constructor.
-  // @param profile Application profile information.
-  explicit InliningTransform(ApplicationProfile* profile);
+  InliningTransform() { }
 
-  // @name BasicBlockSubGraphTransformInterface implementation.
+  // @name SubGraphTransformInterface implementation.
   // @{
   virtual bool TransformBasicBlockSubGraph(
       const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
-      BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
+      BasicBlockSubGraph* subgraph,
+      ApplicationProfile* profile,
+      SubGraphProfile* subgraph_profile) OVERRIDE;
   // @}
 
-  // The transform name.
-  static const char kTransformName[];
-
  protected:
-  ApplicationProfile* profile_;
-
   // A cache of decomposed subgraphs.
   SubGraphCache subgraph_cache_;
 

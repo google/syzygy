@@ -28,14 +28,20 @@ namespace {
 
 using block_graph::BasicBlockDecomposer;
 using block_graph::BlockBuilder;
+using block_graph::BlockGraph;
+using block_graph::BasicBlockSubGraph;
+using optimize::ApplicationProfile;
+using optimize::SubGraphProfile;
+using pe::ImageLayout;
 
 // Dummy code body.
 const uint8 kCodeBody1[] = { 0x74, 0x02, 0x33, 0xC0, 0xC3 };
-const uint8 kCodeBody2[] = { 0x0B, 0xC0, 0x75, 0xFC, 0xC3  };
+const uint8 kCodeBody2[] = { 0x0B, 0xC0, 0x75, 0xFC, 0xC3 };
 
 class BlockAlignmentTransformTest : public testing::Test {
  public:
-  BlockAlignmentTransformTest() : code1_(NULL), code2_(NULL) {
+  BlockAlignmentTransformTest()
+      : code1_(NULL), code2_(NULL), image_(&block_graph_), profile_(&image_) {
   }
 
   virtual void SetUp() {
@@ -60,6 +66,9 @@ class BlockAlignmentTransformTest : public testing::Test {
   BlockGraph::Block* code1_;
   BlockGraph::Block* code2_;
   BlockAlignmentTransform tx_;
+  ImageLayout image_;
+  ApplicationProfile profile_;
+  SubGraphProfile subgraph_profile_;
 };
 
 void BlockAlignmentTransformTest::ApplyTransform(BlockGraph::Block** block) {
@@ -70,7 +79,8 @@ void BlockAlignmentTransformTest::ApplyTransform(BlockGraph::Block** block) {
 
   // Apply block alignment transform.
   ASSERT_TRUE(
-      tx_.TransformBasicBlockSubGraph(&policy_, &block_graph_, &subgraph));
+      tx_.TransformBasicBlockSubGraph(&policy_, &block_graph_, &subgraph,
+                                      &profile_, &subgraph_profile_));
 
   // Rebuild block.
   BlockBuilder builder(&block_graph_);
@@ -80,12 +90,6 @@ void BlockAlignmentTransformTest::ApplyTransform(BlockGraph::Block** block) {
 }
 
 }  // namespace
-
-
-TEST_F(BlockAlignmentTransformTest, NameAccessor) {
-  BlockAlignmentTransform tx;
-  EXPECT_STREQ("BlockAlignmentTransform", tx.name());
-}
 
 TEST_F(BlockAlignmentTransformTest, AlignmentTest) {
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), code1_);
