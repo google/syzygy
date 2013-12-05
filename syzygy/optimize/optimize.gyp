@@ -31,6 +31,8 @@
         'transforms/chained_subgraph_transforms.h',
         'transforms/inlining_transform.cc',
         'transforms/inlining_transform.h',
+        'transforms/peephole_transform.cc',
+        'transforms/peephole_transform.h',
         'transforms/subgraph_transform.h',
       ],
       'dependencies': [
@@ -63,6 +65,7 @@
         'transforms/block_alignment_transform_unittest.cc',
         'transforms/chained_subgraph_transforms_unittest.cc',
         'transforms/inlining_transform_unittest.cc',
+        'transforms/peephole_transform_unittest.cc',
       ],
       'dependencies': [
         'optimize_lib',
