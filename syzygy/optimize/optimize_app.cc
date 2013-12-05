@@ -24,6 +24,7 @@
 #include "syzygy/optimize/transforms/block_alignment_transform.h"
 #include "syzygy/optimize/transforms/chained_subgraph_transforms.h"
 #include "syzygy/optimize/transforms/inlining_transform.h"
+#include "syzygy/optimize/transforms/peephole_transform.h"
 #include "syzygy/pe/pe_relinker.h"
 #include "syzygy/pe/pe_transform_policy.h"
 
@@ -39,6 +40,7 @@ using optimize::transforms::BasicBlockReorderingTransform;
 using optimize::transforms::BlockAlignmentTransform;
 using optimize::transforms::ChainedSubgraphTransforms;
 using optimize::transforms::InliningTransform;
+using optimize::transforms::PeepholeTransform;
 
 const char kUsageFormatStr[] =
     "Usage: %ls [options]\n"
@@ -53,6 +55,13 @@ const char kUsageFormatStr[] =
     "    --output-pdb=<path>   Output path for the rewritten PDB file.\n"
     "                          Default is inferred from output-image.\n"
     "    --overwrite           Allow output files to be overwritten.\n"
+    "\n"
+    "  Optimization Options:\n"
+    "    --all                 Enable all optimizations.\n"
+    "    --basic-block-reorder Enable basic block reodering.\n"
+    "    --block-alignment     Enable block realignment.\n"
+    "    --inlining            Enable function inlining.\n"
+    "    --peephole            Enable peephole optimization.\n"
     "\n"
     "  Testing Options:\n"
     "    --fuzz                Fuzz the binary.\n"
@@ -71,11 +80,20 @@ bool OptimizeApp::ParseCommandLine(const CommandLine* cmd_line) {
   output_pdb_path_ = cmd_line->GetSwitchValuePath("output-pdb");
   branch_file_path_ = AbsolutePath(cmd_line->GetSwitchValuePath("branch-file"));
 
-  overwrite_ = cmd_line->HasSwitch("overwrite");
-  inlining_ = cmd_line->HasSwitch("inlining");
+  basic_block_reorder_ = cmd_line->HasSwitch("basic-block-reorder");
   block_alignment_ = cmd_line->HasSwitch("block-alignment");
-  basic_block_reordering_ = cmd_line->HasSwitch("basic-block-reordering");
   fuzz_ = cmd_line->HasSwitch("fuzz");
+  inlining_ = cmd_line->HasSwitch("inlining");
+  peephole_ = cmd_line->HasSwitch("peephole");
+  overwrite_ = cmd_line->HasSwitch("overwrite");
+
+  // Enable all optimization transforms.
+  if (cmd_line->HasSwitch("all")) {
+    basic_block_reorder_ = true;
+    block_alignment_ = true;
+    inlining_ = true;
+    peephole_ = true;
+  }
 
   // The --input-image argument is required.
   if (input_image_path_.empty())
@@ -141,14 +159,28 @@ int OptimizeApp::Run() {
   ChainedSubgraphTransforms chains(&profile);
 
   // Declare transforms we may apply.
-  scoped_ptr<InliningTransform> inlining_transform;
+  scoped_ptr<BasicBlockReorderingTransform> basic_block_reordering_transform;
   scoped_ptr<BlockAlignmentTransform> block_alignment_transform;
   scoped_ptr<FuzzingTransform> fuzzing_transform;
+  scoped_ptr<InliningTransform> inlining_transform;
+  scoped_ptr<PeepholeTransform> peephole_transform;
+
+  // If block block reordering is enabled, add it to the chain.
+  if (peephole_) {
+    peephole_transform.reset(new PeepholeTransform());
+    chains.AppendTransform(peephole_transform.get());
+  }
 
   // If inlining is enabled, add it to the chain.
   if (inlining_) {
     inlining_transform.reset(new InliningTransform());
     chains.AppendTransform(inlining_transform.get());
+  }
+
+  // If block block reordering is enabled, add it to the chain.
+  if (basic_block_reorder_) {
+    basic_block_reordering_transform.reset(new BasicBlockReorderingTransform());
+    chains.AppendTransform(block_alignment_transform.get());
   }
 
   // If block alignment is enabled, add it to the chain.
@@ -161,7 +193,7 @@ int OptimizeApp::Run() {
   if (!relinker.AppendTransform(&chains))
     return false;
 
-  // If fuzzing is enabled, add it to the chain.
+  // If fuzzing is enabled, add it to the relinker.
   if (fuzz_) {
     fuzzing_transform.reset(new block_graph::transforms::FuzzingTransform);
     relinker.AppendTransform(fuzzing_transform.get());

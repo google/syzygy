@@ -34,8 +34,7 @@ class BasicBlockReorderingTransformTest : public testing::Test {
  public:
   BasicBlockReorderingTransformTest()
       : image_(&block_graph_),
-        profile_(&image_),
-        tx_(&profile_) {
+        profile_(&image_) {
   }
 
   void ApplyTransform(BlockGraph::Block** block);

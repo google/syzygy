@@ -24,11 +24,6 @@ namespace {
   using block_graph::BasicCodeBlock;
 }  // namespace
 
-BasicBlockReorderingTransform::BasicBlockReorderingTransform(
-    ApplicationProfile* profile) : profile_(profile) {
-  DCHECK_NE(reinterpret_cast<ApplicationProfile*>(NULL), profile);
-}
-
 bool BasicBlockReorderingTransform::TransformBasicBlockSubGraph(
     const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
@@ -38,7 +33,6 @@ bool BasicBlockReorderingTransform::TransformBasicBlockSubGraph(
   DCHECK_NE(reinterpret_cast<TransformPolicyInterface*>(NULL), policy);
   DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
   DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), subgraph);
-  DCHECK_NE(reinterpret_cast<ApplicationProfile*>(NULL), profile_);
   DCHECK_NE(reinterpret_cast<ApplicationProfile*>(NULL), profile);
   DCHECK_NE(reinterpret_cast<SubGraphProfile*>(NULL), subgraph_profile);
 
@@ -46,7 +40,7 @@ bool BasicBlockReorderingTransform::TransformBasicBlockSubGraph(
   const BlockGraph::Block* block = subgraph->original_block();
   DCHECK_NE(reinterpret_cast<const BlockGraph::Block*>(NULL), block);
   const ApplicationProfile::BlockProfile* block_profile =
-      profile_->GetBlockProfile(block);
+      profile->GetBlockProfile(block);
   if (block_profile == NULL || block_profile->count() == 0)
     return true;
 

@@ -31,11 +31,12 @@ class OptimizeApp : public common::AppImplBase {
  public:
   OptimizeApp()
       : AppImplBase("Optimize"),
-        overwrite_(false),
-        inlining_(false),
+        basic_block_reorder_(false),
         block_alignment_(false),
-        basic_block_reordering_(false),
-        fuzz_(false) {
+        fuzz_(false),
+        inlining_(false),
+        overwrite_(false),
+        peephole_(false) {
   }
 
   // @name Implementation of the AppImplBase interface.
@@ -59,11 +60,12 @@ class OptimizeApp : public common::AppImplBase {
   base::FilePath output_image_path_;
   base::FilePath output_pdb_path_;
   base::FilePath branch_file_path_;
-  bool overwrite_;
-  bool inlining_;
   bool block_alignment_;
-  bool basic_block_reordering_;
+  bool basic_block_reorder_;
   bool fuzz_;
+  bool inlining_;
+  bool peephole_;
+  bool overwrite_;
   // @}
 
  private:

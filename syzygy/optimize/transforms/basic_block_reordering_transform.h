@@ -39,8 +39,7 @@ namespace transforms {
 class BasicBlockReorderingTransform : SubGraphTransformInterface {
  public:
   // Constructor.
-  // @param profile Application profile information.
-  explicit BasicBlockReorderingTransform(ApplicationProfile* profile);
+  BasicBlockReorderingTransform() { }
 
   // @name SubGraphTransformInterface implementation.
   // @{
@@ -51,12 +50,6 @@ class BasicBlockReorderingTransform : SubGraphTransformInterface {
       ApplicationProfile* profile,
       SubGraphProfile* subgraph_profile) OVERRIDE;
   // @}
-
-  // The transform name.
-  static const char kTransformName[];
-
- protected:
-  ApplicationProfile* profile_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BasicBlockReorderingTransform);

@@ -36,11 +36,12 @@ class TestOptimizeApp : public OptimizeApp {
   using OptimizeApp::output_image_path_;
   using OptimizeApp::output_pdb_path_;
   using OptimizeApp::branch_file_path_;
-  using OptimizeApp::overwrite_;
+  using OptimizeApp::basic_block_reorder_;
+  using OptimizeApp::block_alignment_;
   using OptimizeApp::fuzz_;
   using OptimizeApp::inlining_;
-  using OptimizeApp::block_alignment_;
-  using OptimizeApp::basic_block_reordering_;
+  using OptimizeApp::peephole_;
+  using OptimizeApp::overwrite_;
 };
 
 typedef common::Application<TestOptimizeApp> TestApp;
@@ -51,8 +52,7 @@ class OptimizeAppTest : public testing::PELibUnitTest {
 
   OptimizeAppTest()
       : cmd_line_(base::FilePath(L"optimize.exe")),
-        test_impl_(test_app_.implementation()),
-        overwrite_(false) {
+        test_impl_(test_app_.implementation()) {
   }
 
   void SetUp() {
@@ -107,7 +107,6 @@ class OptimizeAppTest : public testing::PELibUnitTest {
   base::FilePath output_image_path_;
   base::FilePath output_pdb_path_;
   base::FilePath branch_file_path_;
-  bool overwrite_;
   // @}
 
   // @name Expected final values of input parameters.
@@ -155,7 +154,8 @@ TEST_F(OptimizeAppTest, ParseMinimalCommandLineWithBranchFile) {
   EXPECT_FALSE(test_impl_.overwrite_);
   EXPECT_FALSE(test_impl_.inlining_);
   EXPECT_FALSE(test_impl_.block_alignment_);
-  EXPECT_FALSE(test_impl_.basic_block_reordering_);
+  EXPECT_FALSE(test_impl_.basic_block_reorder_);
+  EXPECT_FALSE(test_impl_.peephole_);
   EXPECT_FALSE(test_impl_.fuzz_);
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
@@ -188,7 +188,8 @@ TEST_F(OptimizeAppTest, ParseFullCommandLineWithInputAndOutputPdb) {
   cmd_line_.AppendSwitch("overwrite");
   cmd_line_.AppendSwitch("inlining");
   cmd_line_.AppendSwitch("block-alignment");
-  cmd_line_.AppendSwitch("basic-block-reordering");
+  cmd_line_.AppendSwitch("basic-block-reorder");
+  cmd_line_.AppendSwitch("peephole");
   cmd_line_.AppendSwitch("fuzz");
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
@@ -199,8 +200,33 @@ TEST_F(OptimizeAppTest, ParseFullCommandLineWithInputAndOutputPdb) {
   EXPECT_TRUE(test_impl_.overwrite_);
   EXPECT_TRUE(test_impl_.inlining_);
   EXPECT_TRUE(test_impl_.block_alignment_);
-  EXPECT_TRUE(test_impl_.basic_block_reordering_);
+  EXPECT_TRUE(test_impl_.basic_block_reorder_);
+  EXPECT_TRUE(test_impl_.peephole_);
   EXPECT_TRUE(test_impl_.fuzz_);
+
+  EXPECT_TRUE(test_impl_.SetUp());
+}
+
+TEST_F(OptimizeAppTest, ParseAllCommandLineWithInputAndOutputPdb) {
+  cmd_line_.AppendSwitchPath("input-image", input_image_path_);
+  cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
+  cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
+  cmd_line_.AppendSwitch("overwrite");
+  cmd_line_.AppendSwitch("all");
+
+  EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
+  EXPECT_EQ(abs_input_image_path_, test_impl_.input_image_path_);
+  EXPECT_EQ(abs_input_pdb_path_, test_impl_.input_pdb_path_);
+  EXPECT_EQ(output_image_path_, test_impl_.output_image_path_);
+  EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
+  EXPECT_TRUE(test_impl_.overwrite_);
+  EXPECT_TRUE(test_impl_.inlining_);
+  EXPECT_TRUE(test_impl_.block_alignment_);
+  EXPECT_TRUE(test_impl_.basic_block_reorder_);
+  EXPECT_TRUE(test_impl_.block_alignment_);
+  EXPECT_TRUE(test_impl_.peephole_);
+  EXPECT_FALSE(test_impl_.fuzz_);
 
   EXPECT_TRUE(test_impl_.SetUp());
 }
