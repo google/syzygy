@@ -47,6 +47,7 @@
 //     common to get the information on registers defined or used by an
 //     instruction, or the memory operand read and written.
 #include "syzygy/block_graph/analysis/liveness_analysis_internal.h"
+#include "syzygy/optimize/transforms/peephole_transform.h"
 
 namespace optimize {
 namespace transforms {
@@ -69,6 +70,8 @@ using block_graph::analysis::LivenessAnalysis;
 
 typedef ApplicationProfile::BlockProfile BlockProfile;
 typedef Instruction::BasicBlockReferenceMap BasicBlockReferenceMap;
+typedef BasicBlockSubGraph::BBCollection BBCollection;
+typedef BasicBlock::Instructions Instructions;
 
 enum MatchKind {
   kInvalidMatch,
@@ -77,6 +80,17 @@ enum MatchKind {
   kDirectTrampolineMatch,
   kIndirectTrampolineMatch,
 };
+
+// Threshold in bytes to consider a block as a candidate for inlining. This size
+// must be big enough to don't miss good candidates, but small to avoid the
+// overhead of decomposition and simplification of huge block.
+const size_t kCodeSizeThreshold = 25;
+
+// Threshold in bytes to inline a callee in a hot block.
+const size_t kHotCodeSizeThreshold = 15;
+
+// Threshold in bytes to inline a callee in a cold block.
+const size_t kColdCodeSizeThreshold = 1;
 
 // These patterns are often produced by the MSVC compiler. They're common enough
 // that the inlining transformation matches them by pattern rather than
@@ -191,7 +205,7 @@ bool MatchTrivialBody(const BasicBlockSubGraph& subgraph,
   size_t stack_depth = 0;
 
   // Iterates through each instruction.
-  BasicBlock::Instructions::iterator inst_iter = bb->instructions().begin();
+  Instructions::iterator inst_iter = bb->instructions().begin();
   for (; inst_iter != bb->instructions().end(); ++inst_iter) {
     const Instruction& instr = *inst_iter;
     const _DInst& repr = instr.representation();
@@ -330,15 +344,14 @@ bool InlineTrivialBody(MatchKind kind,
                        size_t return_constant,
                        const BasicBlockReference& reference,
                        const BasicCodeBlock* body,
-                       BasicBlock::Instructions::iterator target,
-                       BasicBlock::Instructions* instructions) {
-  DCHECK_NE(reinterpret_cast<BasicBlock::Instructions*>(NULL), instructions);
+                       Instructions::iterator target,
+                       Instructions* instructions) {
+  DCHECK_NE(reinterpret_cast<Instructions*>(NULL), instructions);
 
-  BasicBlock::Instructions new_body;
+  Instructions new_body;
 
   // Iterates through each instruction.
-  BasicBlock::Instructions::const_iterator inst_iter =
-      body->instructions().begin();
+  Instructions::const_iterator inst_iter = body->instructions().begin();
   for (; inst_iter != body->instructions().end(); ++inst_iter) {
     const Instruction& instr = *inst_iter;
     const _DInst& repr = instr.representation();
@@ -396,6 +409,28 @@ bool DecomposeToBasicBlock(const BlockGraph::Block* block,
     return false;
 
   return true;
+}
+
+size_t EstimateSubgraphSize(BasicBlockSubGraph* subgraph) {
+  DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), subgraph);
+  const size_t kMaxBranchSize = 5;
+  size_t size = 0;
+  BBCollection& basic_blocks = subgraph->basic_blocks();
+  BBCollection::iterator it = basic_blocks.begin();
+  for (; it != basic_blocks.end(); ++it) {
+    BasicCodeBlock* bb = BasicCodeBlock::Cast(*it);
+    BasicBlock::Instructions::iterator inst_iter = bb->instructions().begin();
+
+    // Sum of instructions size.
+    for (; inst_iter != bb->instructions().end(); ++inst_iter)
+      size += inst_iter->size();
+
+    // Sum of successors size.
+    if (!bb->successors().empty())
+      size += kMaxBranchSize;
+  }
+
+  return size;
 }
 
 }  // namespace
@@ -457,36 +492,55 @@ bool InliningTransform::TransformBasicBlockSubGraph(
         continue;
       }
 
-      // For a small callee, try to replace callee instructions in-place.
-      // Add one byte to take into account the return instruction.
-      if (callee->size() <= instr.size() + 1) {
-        BasicBlockSubGraph* callee_subgraph;
-        size_t return_constant = 0;
-        BasicCodeBlock* body = NULL;
-        BasicBlockReference target;
-        MatchKind match_kind = kInvalidMatch;
+      // Keep only potential candidates.
+      if (callee->size() > kCodeSizeThreshold) {
+        continue;
+      }
 
-        // Look in the subgraph cache for an already decomposed subgraph.
-        SubGraphCache::iterator look = subgraph_cache_.find(callee);
-        if (look != subgraph_cache_.end()) {
-          callee_subgraph = &look->second;
-        } else {
-          // Not in cache, decompose it.
-          callee_subgraph = &subgraph_cache_[callee];
-          if (!DecomposeToBasicBlock(callee, callee_subgraph)) {
-            subgraph_cache_.erase(callee);
-            continue;
-          }
-        }
+      BasicBlockSubGraph* callee_subgraph;
+      size_t return_constant = 0;
+      BasicCodeBlock* body = NULL;
+      BasicBlockReference target;
+      MatchKind match_kind = kInvalidMatch;
 
-        if (MatchTrivialBody(*callee_subgraph, &match_kind, &return_constant,
-                             &target, &body) &&
-            InlineTrivialBody(match_kind, return_constant, target, body,
-                              call_iter, &bb->instructions())) {
-          // Inlining successful, remove call-site.
-          bb->instructions().erase(call_iter);
+      // Look in the subgraph cache for an already decomposed subgraph.
+      SubGraphCache::iterator look = subgraph_cache_.find(callee);
+      if (look != subgraph_cache_.end()) {
+        callee_subgraph = &look->second;
+      } else {
+        // Not in cache, decompose it.
+        callee_subgraph = &subgraph_cache_[callee];
+        if (!DecomposeToBasicBlock(callee, callee_subgraph)) {
+          subgraph_cache_.erase(callee);
           continue;
         }
+
+        // Simplify the subgraph. There is no guarantee that the callee has been
+        // simplified by the peephole transform. Running one pass should take
+        // care of the most frequent patterns.
+        PeepholeTransform::SimplifySubgraph(callee_subgraph);
+      }
+
+      // Heuristic to determine whether to inline or not the callee subgraph.
+      bool candidate_for_inlining = false;
+      size_t subgraph_size = EstimateSubgraphSize(callee_subgraph);
+
+      // For a small callee, try to replace callee instructions in-place.
+      // This kind of inlining is always a win.
+      if (subgraph_size < caller->size() + kColdCodeSizeThreshold)
+        candidate_for_inlining = true;
+
+      // TODO(etienneb): Add more rules based on profile data.
+
+      if (!candidate_for_inlining)
+        continue;
+
+      if (MatchTrivialBody(*callee_subgraph, &match_kind, &return_constant,
+                            &target, &body) &&
+          InlineTrivialBody(match_kind, return_constant, target, body,
+                            call_iter, &bb->instructions())) {
+        // Inlining successful, remove call-site.
+        bb->instructions().erase(call_iter);
       }
     }
   }

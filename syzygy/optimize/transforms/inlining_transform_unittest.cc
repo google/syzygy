@@ -71,6 +71,13 @@ const uint8 kCodeRet[] = { 0xC3 };
 // _asm ret
 const uint8 kCodeEmpty[] = { 0x55, 0x8B, 0xEC, 0x5D, 0xC3 };
 
+// _asm push ebp
+// _asm mov ebp, esp
+// _asm pop ebp
+// _asm xor eax, eax
+// _asm ret
+const uint8 kCodeOptimizeRet0[] = { 0x55, 0x8B, 0xEC, 0x5D, 0x33, 0xC0, 0xC3 };
+
 // _asm ret8
 const uint8 kCodeRetWithOffset[] = { 0xC2, 0x08, 0x00 };
 
@@ -78,6 +85,7 @@ const uint8 kCodeRetWithOffset[] = { 0xC2, 0x08, 0x00 };
 const uint8 kCodeLeaEsp8[] = { 0x8D, 0x64, 0x24, 0x08, 0xC3 };
 
 // _asm xor eax, eax
+// _asm ret
 const uint8 kCodeRet0[] = { 0x33, 0xC0, 0xC3 };
 
 // _asm xor eax, eax
@@ -431,8 +439,8 @@ TEST_F(InliningTransformTest, DontInlineNoReturn) {
 }
 
 TEST_F(InliningTransformTest, DontInlineData) {
-    BlockGraph::Block* data_ =
-        block_graph_.AddBlock(BlockGraph::DATA_BLOCK, sizeof(kCodeRet0), "d1");
+  BlockGraph::Block* data_ =
+      block_graph_.AddBlock(BlockGraph::DATA_BLOCK, sizeof(kCodeRet0), "d1");
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), data_);
   data_->SetData(kCodeRet0, sizeof(kCodeRet0));
   ASSERT_NO_FATAL_FAILURE(CreateCallSiteToBlock(data_));
@@ -559,6 +567,16 @@ TEST_F(InliningTransformTest, InlineConstantOnStack) {
   ASSERT_NO_FATAL_FAILURE(ApplyTransformOnCaller());
 
   EXPECT_THAT(kStackCst, ElementsAreArray(caller_->data(), caller_->size()));
+}
+
+TEST_F(InliningTransformTest, InlineOptimizedRet0) {
+  ASSERT_NO_FATAL_FAILURE(
+      AddBlockFromBuffer(kCodeOptimizeRet0, sizeof(kCodeOptimizeRet0),
+                         &callee_));
+  ASSERT_NO_FATAL_FAILURE(CreateCallSiteToBlock(callee_));
+  ASSERT_NO_FATAL_FAILURE(ApplyTransformOnCaller());
+
+  EXPECT_THAT(kCodeRet0, ElementsAreArray(caller_->data(), caller_->size()));
 }
 
 }  // namespace transforms
