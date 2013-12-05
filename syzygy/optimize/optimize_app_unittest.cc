@@ -40,6 +40,7 @@ class TestOptimizeApp : public OptimizeApp {
   using OptimizeApp::fuzz_;
   using OptimizeApp::inlining_;
   using OptimizeApp::block_alignment_;
+  using OptimizeApp::basic_block_reordering_;
 };
 
 typedef common::Application<TestOptimizeApp> TestApp;
@@ -154,6 +155,7 @@ TEST_F(OptimizeAppTest, ParseMinimalCommandLineWithBranchFile) {
   EXPECT_FALSE(test_impl_.overwrite_);
   EXPECT_FALSE(test_impl_.inlining_);
   EXPECT_FALSE(test_impl_.block_alignment_);
+  EXPECT_FALSE(test_impl_.basic_block_reordering_);
   EXPECT_FALSE(test_impl_.fuzz_);
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
@@ -186,6 +188,7 @@ TEST_F(OptimizeAppTest, ParseFullCommandLineWithInputAndOutputPdb) {
   cmd_line_.AppendSwitch("overwrite");
   cmd_line_.AppendSwitch("inlining");
   cmd_line_.AppendSwitch("block-alignment");
+  cmd_line_.AppendSwitch("basic-block-reordering");
   cmd_line_.AppendSwitch("fuzz");
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
@@ -196,6 +199,7 @@ TEST_F(OptimizeAppTest, ParseFullCommandLineWithInputAndOutputPdb) {
   EXPECT_TRUE(test_impl_.overwrite_);
   EXPECT_TRUE(test_impl_.inlining_);
   EXPECT_TRUE(test_impl_.block_alignment_);
+  EXPECT_TRUE(test_impl_.basic_block_reordering_);
   EXPECT_TRUE(test_impl_.fuzz_);
 
   EXPECT_TRUE(test_impl_.SetUp());

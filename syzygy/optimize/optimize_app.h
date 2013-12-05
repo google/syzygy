@@ -34,6 +34,7 @@ class OptimizeApp : public common::AppImplBase {
         overwrite_(false),
         inlining_(false),
         block_alignment_(false),
+        basic_block_reordering_(false),
         fuzz_(false) {
   }
 
@@ -61,6 +62,7 @@ class OptimizeApp : public common::AppImplBase {
   bool overwrite_;
   bool inlining_;
   bool block_alignment_;
+  bool basic_block_reordering_;
   bool fuzz_;
   // @}
 

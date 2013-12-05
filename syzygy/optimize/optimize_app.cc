@@ -20,6 +20,7 @@
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/grinder/basic_block_util.h"
 #include "syzygy/optimize/application_profile.h"
+#include "syzygy/optimize/transforms/basic_block_reordering_transform.h"
 #include "syzygy/optimize/transforms/block_alignment_transform.h"
 #include "syzygy/optimize/transforms/chained_subgraph_transforms.h"
 #include "syzygy/optimize/transforms/inlining_transform.h"
@@ -34,6 +35,7 @@ using block_graph::transforms::FuzzingTransform;
 using common::IndexedFrequencyData;
 using grinder::basic_block_util::IndexedFrequencyMap;
 using grinder::basic_block_util::LoadBranchStatisticsFromFile;
+using optimize::transforms::BasicBlockReorderingTransform;
 using optimize::transforms::BlockAlignmentTransform;
 using optimize::transforms::ChainedSubgraphTransforms;
 using optimize::transforms::InliningTransform;
@@ -72,6 +74,7 @@ bool OptimizeApp::ParseCommandLine(const CommandLine* cmd_line) {
   overwrite_ = cmd_line->HasSwitch("overwrite");
   inlining_ = cmd_line->HasSwitch("inlining");
   block_alignment_ = cmd_line->HasSwitch("block-alignment");
+  basic_block_reordering_ = cmd_line->HasSwitch("basic-block-reordering");
   fuzz_ = cmd_line->HasSwitch("fuzz");
 
   // The --input-image argument is required.
