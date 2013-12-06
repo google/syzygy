@@ -180,7 +180,7 @@ int OptimizeApp::Run() {
   // If block block reordering is enabled, add it to the chain.
   if (basic_block_reorder_) {
     basic_block_reordering_transform.reset(new BasicBlockReorderingTransform());
-    chains.AppendTransform(block_alignment_transform.get());
+    chains.AppendTransform(basic_block_reordering_transform.get());
   }
 
   // If block alignment is enabled, add it to the chain.

@@ -36,7 +36,7 @@ namespace transforms {
   typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
 
 // This transformation uses the Pettis algorithm to reorder basic blocks.
-class BasicBlockReorderingTransform : SubGraphTransformInterface {
+class BasicBlockReorderingTransform : public SubGraphTransformInterface {
  public:
   // Constructor.
   BasicBlockReorderingTransform() { }
