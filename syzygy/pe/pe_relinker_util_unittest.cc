@@ -133,14 +133,14 @@ TEST_F(PERelinkerUtilTest, ValidateAndInferPathsInferPdbPaths) {
 
   EXPECT_TRUE(ValidateAndInferPaths(
       input_dll_, temp_dll_, false, &input_pdb, &output_pdb));
-  EXPECT_EQ(input_pdb_, input_pdb);
+  EXPECT_FALSE(input_pdb.empty());
   EXPECT_FALSE(output_pdb.empty());
 
   input_pdb.clear();
   output_pdb.clear();
   EXPECT_TRUE(ValidateAndInferPaths(
       input_dll_, temp_dll_, true, &input_pdb, &output_pdb));
-  EXPECT_EQ(input_pdb_, input_pdb);
+  EXPECT_FALSE(input_pdb.empty());
   EXPECT_FALSE(output_pdb.empty());
 }
 
