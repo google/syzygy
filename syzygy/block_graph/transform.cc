@@ -53,6 +53,28 @@ bool ApplyBlockGraphTransform(BlockGraphTransformInterface* transform,
   return true;
 }
 
+bool ApplyBlockGraphTransforms(
+    const std::vector<BlockGraphTransformInterface*>& transforms,
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* header_block) {
+  DCHECK_NE(reinterpret_cast<TransformPolicyInterface*>(NULL), policy);
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), header_block);
+
+  // Apply the transforms sequentially.
+  for (size_t i = 0; i < transforms.size(); ++i) {
+    if (!ApplyBlockGraphTransform(transforms[i],
+                                  policy,
+                                  block_graph,
+                                  header_block)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool ApplyBasicBlockSubGraphTransform(
     BasicBlockSubGraphTransformInterface* transform,
     const TransformPolicyInterface* policy,

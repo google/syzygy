@@ -22,9 +22,8 @@
 #include "base/utf_string_conversions.h"
 #include "base/json/json_reader.h"
 #include "base/strings/string_split.h"
-#include "syzygy/core/file_util.h"
 #include "syzygy/pe/decomposer.h"
-#include "syzygy/pe/find.h"
+#include "syzygy/pe/pe_relinker_util.h"
 #include "syzygy/pehacker/operation.h"
 #include "syzygy/pehacker/variables.h"
 #include "syzygy/pehacker/operations/add_imports_operation.h"
@@ -32,6 +31,8 @@
 namespace pehacker {
 
 namespace {
+
+using block_graph::BlockGraph;
 
 static const char kUsageFormatStr[] = "Usage: %ls [options]\n"
     "  Required Options:\n"
@@ -75,6 +76,21 @@ bool GetFilePath(bool optional,
   *path = base::FilePath(base::UTF8ToWide(s)).NormalizePathSeparators();
   VLOG(1) << "Parsed \"" << name << "\" as \"" << path->value() << "\".";
   return true;
+}
+
+void RemovePaddingBlocks(BlockGraph* block_graph) {
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  BlockGraph::BlockMap::iterator it = block_graph->blocks_mutable().begin();
+  while (it != block_graph->blocks_mutable().end()) {
+    BlockGraph::BlockMap::iterator it_next = it;
+    ++it_next;
+
+    BlockGraph::Block* block = &it->second;
+    if (block->attributes() & BlockGraph::PADDING_BLOCK)
+      block_graph->RemoveBlock(block);
+
+    it = it_next;
+  }
 }
 
 }  // namespace
@@ -322,8 +338,8 @@ bool PEHackerApp::ProcessTarget(bool dry_run, base::DictionaryValue* target) {
   }
 
   // Validate and infer module-related paths.
-  if (!ValidateAndInferPaths(
-          input_module, output_module, &input_pdb, &output_pdb)) {
+  if (!pe::ValidateAndInferPaths(
+          input_module, output_module, overwrite_, &input_pdb, &output_pdb)) {
     return false;
   }
 
@@ -410,99 +426,6 @@ bool PEHackerApp::ProcessOperation(bool dry_run,
   return true;
 }
 
-// TODO(chrisha): Lift this to a utility function? Something similar is done
-//     in PERelinker.
-bool PEHackerApp::ValidateAndInferPaths(
-    const base::FilePath& input_module,
-    const base::FilePath& output_module,
-    base::FilePath* input_pdb,
-    base::FilePath* output_pdb) {
-  DCHECK(!input_module.empty());
-  DCHECK(!output_module.empty());
-  DCHECK_NE(reinterpret_cast<base::FilePath*>(NULL), input_pdb);
-  DCHECK_NE(reinterpret_cast<base::FilePath*>(NULL), output_pdb);
-
-  if (!file_util::PathExists(input_module)) {
-    LOG(ERROR) << "Input module not found: " << input_module.value();
-    return false;
-  }
-
-  if (!overwrite_ && file_util::PathExists(output_module)) {
-    LOG(ERROR) << "Output module exists: " << output_module.value();
-    LOG(ERROR) << "Specify --overwrite to ignore this error.";
-    return false;
-  }
-
-  // If no input PDB was specified then search for it.
-  if (input_pdb->empty()) {
-    LOG(INFO) << "Input PDB not specified, searching for it.";
-    if (!pe::FindPdbForModule(input_module, input_pdb) ||
-        input_pdb->empty()) {
-      LOG(ERROR) << "Unable to find PDB file for module: "
-                 << input_module.value();
-      return NULL;
-    }
-  }
-
-  if (!file_util::PathExists(*input_pdb)) {
-    LOG(ERROR) << "Input PDB not found: " << input_pdb->value();
-    return false;
-  }
-
-  // If no output PDB path is specified, infer one.
-  if (output_pdb->empty()) {
-    // If the input and output DLLs have the same basename, default to writing
-    // using the same PDB basename, but alongside the new module.
-    if (input_module.BaseName() == output_module.BaseName()) {
-      *output_pdb = output_module.DirName().Append(input_module.BaseName());
-    } else {
-      // Otherwise, default to using the output basename with a PDB extension
-      // added to it.
-      *output_pdb = output_module.AddExtension(L"pdb");
-    }
-
-    LOG(INFO) << "Using default output PDB path: " << output_pdb->value();
-  }
-
-  if (!overwrite_ && file_util::PathExists(*output_pdb)) {
-    LOG(ERROR) << "Output PDB exists: " << output_pdb->value();
-    LOG(ERROR) << "Specify --overwrite to ignore this error.";
-    return false;
-  }
-
-  // Perform some extra checking to make sure that writes aren't going to
-  // collide. This prevents us from overwriting the input, effectively
-  // preventing in-place transforms. This is not fool-proof in the face of
-  // weird junctions but it will catch common errors.
-
-  core::FilePathCompareResult result =
-      core::CompareFilePaths(input_module, output_module);
-  if (result == core::kEquivalentFilePaths) {
-    LOG(ERROR) << "Input and output module paths are equivalent.";
-    LOG(ERROR) << "Input module path: " << input_module.value();
-    LOG(ERROR) << "Output module path: " << output_module.value();
-    return false;
-  }
-
-  result = core::CompareFilePaths(*input_pdb, *output_pdb);
-  if (result == core::kEquivalentFilePaths) {
-    LOG(ERROR) << "Input and output PDB paths are equivalent.";
-    LOG(ERROR) << "Input PDB path: " << input_pdb->value();
-    LOG(ERROR) << "Output PDB path: " << output_pdb->value();
-    return false;
-  }
-
-  result = core::CompareFilePaths(output_module, *output_pdb);
-  if (result == core::kEquivalentFilePaths) {
-    LOG(ERROR) << "Output module and PDB paths are equivalent.";
-    LOG(ERROR) << "Output module path: " << output_module.value();
-    LOG(ERROR) << "Output PDB path: " << output_pdb->value();
-    return false;
-  }
-
-  return true;
-}
-
 PEHackerApp::ImageInfo* PEHackerApp::GetImageInfo(
     const base::FilePath& input_module,
     const base::FilePath& output_module,
@@ -543,6 +466,9 @@ PEHackerApp::ImageInfo* PEHackerApp::GetImageInfo(
       BlockGraph::RelativeAddress(0));
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL),
             image_info->header_block);
+
+  // Remove padding blocks. No need to carry these through the pipeline.
+  RemovePaddingBlocks(&image_info->block_graph);
 
   // Decomposition was successful. Add it to the map, transfer the image info to
   // the scoped array and return it.

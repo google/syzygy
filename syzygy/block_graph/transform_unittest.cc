@@ -70,9 +70,9 @@ class ApplyBlockGraphTransformTest : public testing::Test {
   BlockGraph::Block* header_block_;
 };
 
-class MockBlockGraphTransform : public BlockGraphTransformInterface {
+class LenientMockBlockGraphTransform : public BlockGraphTransformInterface {
  public:
-  virtual ~MockBlockGraphTransform() { }
+  virtual ~LenientMockBlockGraphTransform() { }
 
   virtual const char* name() const { return "MockBlockGraphTransform"; }
 
@@ -88,6 +88,8 @@ class MockBlockGraphTransform : public BlockGraphTransformInterface {
     return true;
   }
 };
+typedef testing::StrictMock<LenientMockBlockGraphTransform>
+    MockBlockGraphTransform;
 
 class ApplyBasicBlockSubGraphTransformTest : public testing::Test {
  public:
@@ -171,6 +173,40 @@ TEST_F(ApplyBlockGraphTransformTest, DeletingHeaderFails) {
                                         &policy_,
                                         &block_graph_,
                                         header_block_));
+}
+
+TEST_F(ApplyBlockGraphTransformTest, VectorTransformSucceeds) {
+  MockBlockGraphTransform tx1, tx2, tx3;
+  std::vector<BlockGraphTransformInterface*> txs;
+  txs.push_back(&tx1);
+  txs.push_back(&tx2);
+  txs.push_back(&tx3);
+
+  EXPECT_CALL(tx1, TransformBlockGraph(&policy_, &block_graph_, header_block_))
+      .WillOnce(Return(true));
+  EXPECT_CALL(tx2, TransformBlockGraph(&policy_, &block_graph_, header_block_))
+      .WillOnce(Return(true));
+  EXPECT_CALL(tx3, TransformBlockGraph(&policy_, &block_graph_, header_block_))
+      .WillOnce(Return(true));
+
+  EXPECT_TRUE(ApplyBlockGraphTransforms(
+      txs, &policy_, &block_graph_, header_block_));
+}
+
+TEST_F(ApplyBlockGraphTransformTest, VectorTransformFails) {
+  MockBlockGraphTransform tx1, tx2, tx3;
+  std::vector<BlockGraphTransformInterface*> txs;
+  txs.push_back(&tx1);
+  txs.push_back(&tx2);
+  txs.push_back(&tx3);
+
+  EXPECT_CALL(tx1, TransformBlockGraph(&policy_, &block_graph_, header_block_))
+      .WillOnce(Return(true));
+  EXPECT_CALL(tx2, TransformBlockGraph(&policy_, &block_graph_, header_block_))
+      .WillOnce(Return(false));
+
+  EXPECT_FALSE(ApplyBlockGraphTransforms(
+      txs, &policy_, &block_graph_, header_block_));
 }
 
 TEST_F(ApplyBasicBlockSubGraphTransformTest, TransformFails) {

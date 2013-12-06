@@ -145,17 +145,22 @@ bool CoffRelinker::Relink() {
     return false;
   }
 
+  if (!ApplyUserTransforms())
+    return false;
+
   // We apply the extra prepare headers transform. This ensures that the
   // header block is properly sized to receive layout information
   // post-ordering.
   std::vector<Transform*> post_transforms;
   pe::transforms::CoffPrepareHeadersTransform prep_headers_tx;
   post_transforms.push_back(&prep_headers_tx);
-  if (!ApplyTransforms(post_transforms))
+  if (!block_graph::ApplyBlockGraphTransforms(
+           post_transforms, transform_policy_, &block_graph_, headers_block_)) {
     return false;
+  }
 
   OrderedBlockGraph ordered_graph(&block_graph_);
-  if (!ApplyOrderers(std::vector<Orderer*>(), &ordered_graph))
+  if (!ApplyUserOrderers(&ordered_graph))
     return false;
 
   // Lay it out.

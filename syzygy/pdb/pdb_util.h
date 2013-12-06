@@ -193,8 +193,7 @@ bool ReadStringTable(PdbStream* stream,
 bool LoadNamedStreamFromPdbFile(
     const base::StringPiece& stream_name,
     PdbFile* pdb_file,
-    scoped_refptr<PdbStream>* stream
-    );
+    scoped_refptr<PdbStream>* stream);
 
 }  // namespace pdb
 

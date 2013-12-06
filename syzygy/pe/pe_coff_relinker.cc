@@ -28,58 +28,6 @@ using block_graph::OrderedBlockGraph;
 using block_graph::TransformPolicyInterface;
 using core::RelativeAddress;
 
-// Apply transforms to the specified block graph.
-//
-// @param transforms the transforms to apply.
-// @param policy The policy object restricting how the transform is applied.
-// @param block_graph the block graph to transform.
-// @param headers_block the headers block in @p block_graph.
-// @returns true on success, or false on failure.
-bool ApplyTransformsToBlockGraph(const std::vector<Transform*>& transforms,
-                                 const TransformPolicyInterface* policy,
-                                 BlockGraph* block_graph,
-                                 BlockGraph::Block* headers_block) {
-  DCHECK(policy != NULL);
-  DCHECK(block_graph != NULL);
-  DCHECK(headers_block != NULL);
-
-  for (size_t i = 0; i < transforms.size(); ++i) {
-    LOG(INFO) << "Applying transform: " << transforms[i]->name() << ".";
-    if (!ApplyBlockGraphTransform(
-        transforms[i], policy, block_graph, headers_block)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-// Apply orderers to the specified block graph.
-//
-// @param orderers the orderers to apply.
-// @param ordered_graph the ordered block graph to order or reorder.
-// @param headers_block the headers block in @p block_graph.
-// @returns true on success, or false on failure.
-bool ApplyOrderersToBlockGraph(const std::vector<Orderer*>& orderers,
-                               OrderedBlockGraph* ordered_graph,
-                               BlockGraph::Block* headers_block) {
-  DCHECK(ordered_graph != NULL);
-  DCHECK(headers_block != NULL);
-
-  for (size_t i = 0; i < orderers.size(); ++i) {
-    Orderer* orderer = orderers[i];
-    DCHECK(orderer != NULL);
-
-    LOG(INFO) << "Applying orderer: " << orderer->name();
-    if (!orderer->OrderBlockGraph(ordered_graph, headers_block)) {
-      LOG(ERROR) << "Orderer failed: " << orderer->name() << ".";
-      return false;
-    }
-  }
-
-  return true;
-}
-
 }  // namespace
 
 PECoffRelinker::PECoffRelinker(const TransformPolicyInterface* transform_policy)
@@ -114,22 +62,16 @@ bool PECoffRelinker::AppendOrderers(const std::vector<Orderer*>& orderers) {
   return true;
 }
 
-bool PECoffRelinker::ApplyTransforms(
-    const std::vector<Transform*>& post_transforms) {
+bool PECoffRelinker::ApplyUserTransforms() {
   LOG(INFO) << "Transforming block graph.";
-  if (!ApplyTransformsToBlockGraph(
-      transforms_, transform_policy_, &block_graph_, headers_block_)) {
-    return false;
-  }
-  if (!ApplyTransformsToBlockGraph(
-      post_transforms, transform_policy_, &block_graph_, headers_block_)) {
+  if (!block_graph::ApplyBlockGraphTransforms(
+           transforms_, transform_policy_, &block_graph_, headers_block_)) {
     return false;
   }
   return true;
 }
 
-bool PECoffRelinker::ApplyOrderers(const std::vector<Orderer*>& post_orderers,
-                                   OrderedBlockGraph* ordered_graph) {
+bool PECoffRelinker::ApplyUserOrderers(OrderedBlockGraph* ordered_graph) {
   LOG(INFO) << "Ordering block graph.";
 
   if (orderers_.empty()) {
@@ -142,12 +84,11 @@ bool PECoffRelinker::ApplyOrderers(const std::vector<Orderer*>& post_orderers,
     }
   } else {
     // Supplied orderers.
-    if (!ApplyOrderersToBlockGraph(orderers_, ordered_graph, headers_block_))
+    if (!block_graph::ApplyBlockGraphOrderers(
+             orderers_, ordered_graph, headers_block_)) {
       return false;
+    }
   }
-
-  if (!ApplyOrderersToBlockGraph(post_orderers, ordered_graph, headers_block_))
-    return false;
 
   return true;
 }

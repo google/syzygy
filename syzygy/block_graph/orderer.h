@@ -41,6 +41,16 @@ class BlockGraphOrdererInterface {
                                BlockGraph::Block* header_block) = 0;
 };
 
+// Applies a vector of BlockGraphOrderers.
+// @param orderers The vector of orderers.
+// @param ordered_block_graph The block graph to order.
+// @param header_block The header block of the block graph to transform.
+// @returns true on success, false otherwise.
+bool ApplyBlockGraphOrderers(
+    const std::vector<BlockGraphOrdererInterface*>& orderers,
+    OrderedBlockGraph* ordered_block_graph,
+    BlockGraph::Block* header_block);
+
 }  // namespace block_graph
 
 #endif  // SYZYGY_BLOCK_GRAPH_ORDERER_H_

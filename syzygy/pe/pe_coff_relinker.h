@@ -120,23 +120,15 @@ class PECoffRelinker : public RelinkerInterface {
   // @param transform_policy The policy that dictates how to apply transforms.
   explicit PECoffRelinker(const TransformPolicyInterface* transform_policy);
 
-  // Apply user-supplied transforms to the block graph, followed by the
-  // specified extra transforms, if any.
-  //
-  // @param post_transforms extra transforms to apply to the block graph
-  //     after the user-supplied transforms.
+  // Apply user-supplied transforms to the block graph
   // @returns true on success, or false on failure.
-  bool ApplyTransforms(const std::vector<Transform*>& post_transforms);
+  bool ApplyUserTransforms();
 
   // Apply user-supplied orderers to the specified ordered block graph, or
-  // the default original orderer if none has been added, followed by the
-  // specified extra orderers, if any.
-  //
-  // @param post_orderers extra orderers to apply to the block graph.
+  // the default original orderer if none has been added.
   // @param ordered_graph the ordered block graph to order or reorder.
   // @returns true on success, or false on failure.
-  bool ApplyOrderers(const std::vector<Orderer*>& post_orderers,
-                     OrderedBlockGraph* ordered_graph);
+  bool ApplyUserOrderers(OrderedBlockGraph* ordered_graph);
 
   // The policy that dictates how to apply transforms.
   const TransformPolicyInterface* transform_policy_;

@@ -102,8 +102,9 @@ namespace pe {
 class PERelinker : public PECoffRelinker {
  public:
   // Constructor.
-  // @param transform_policy The policy that dictates how to apply transforms.
-  explicit PERelinker(const PETransformPolicy* transform_policy);
+  // @param pe_transform_policy The policy that dictates how to apply
+  //     transforms.
+  explicit PERelinker(const PETransformPolicy* pe_transform_policy);
 
   // @see RelinkerInterface::image_format()
   virtual ImageFormat image_format() const OVERRIDE { return PE_IMAGE; }
@@ -193,6 +194,9 @@ class PERelinker : public PECoffRelinker {
   // @}
 
  protected:
+  // The transform policy used by this relinker.
+  const PETransformPolicy* pe_transform_policy_;
+
   base::FilePath input_pdb_path_;
   base::FilePath output_pdb_path_;
 

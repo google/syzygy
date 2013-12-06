@@ -49,15 +49,30 @@ class BlockGraphTransformInterface {
 // been satisfied; namely, that the header block has not been deleted from the
 // block graph.
 //
-// @param transform the transform to apply.
+// @param transform The transform to apply.
 // @param policy The policy object restricting how the transform is applied.
-// @param block_graph the block graph to transform.
-// @param header_block the header block from block_graph.
+// @param block_graph The block graph to transform.
+// @param header_block The header block from block_graph.
 // @returns true on success, false otherwise.
 bool ApplyBlockGraphTransform(BlockGraphTransformInterface* transform,
                               const TransformPolicyInterface* policy,
                               BlockGraph* block_graph,
                               BlockGraph::Block* header_block);
+
+// This applies the provided BlockGraphTransforms in series and checks that
+// the invariant has been satisfied; namely, that the header block has not been
+// deleted from the block graph.
+//
+// @param transforms The transforms to apply.
+// @param policy The policy object restricting how the transform is applied.
+// @param block_graph The block graph to transform.
+// @param header_block The header block from block_graph.
+// @returns true on success, false otherwise.
+bool ApplyBlockGraphTransforms(
+    const std::vector<BlockGraphTransformInterface*>& transforms,
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* header_block);
 
 // A BasicBlockSubGraphTransform is a pure virtual base class defining the
 // basic-block transform API.

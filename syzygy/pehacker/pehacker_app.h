@@ -120,20 +120,6 @@ class PEHackerApp : public common::AppImplBase {
                         ImageInfo* image_info);
   // @}
 
-  // Validates input and output module paths, and infers/validates input and
-  // output PDB paths. Logs an error on failure.
-  // @param input_module The path to the input module.
-  // @param output_module The path to the output module.
-  // @param input_pdb The path to the input PDB. This may be empty, in which
-  //     case it will be automatically determined.
-  // @param output_pdb The path to the output PDB. This may be empty, in
-  //     which case it will be automatically determined.
-  // @returns true on success, false otherwise.
-  bool ValidateAndInferPaths(const base::FilePath& input_module,
-                             const base::FilePath& output_module,
-                             base::FilePath* input_pdb,
-                             base::FilePath* output_pdb);
-
   // Looks up the already decomposed image, or loads and decomposes it for the
   // first time.
   // @param input_module The path to the input module.

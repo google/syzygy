@@ -36,6 +36,13 @@ class PdbMutatorInterface {
   virtual bool MutatePdb(PdbFile* pdb_file) = 0;
 };
 
+// Applies a vector of PDB mutators to the given file. Logs an error on failure.
+// @param pdb_mutators The PDB mutators to be applied.
+// @param pdb_file The PDB file to be modified.
+// @returns true on success, false otherwise.
+bool ApplyPdbMutators(const std::vector<PdbMutatorInterface*>& pdb_mutators,
+                      PdbFile* pdb_file);
+
 }  // namespace pdb
 
 #endif  // SYZYGY_PDB_PDB_MUTATOR_H_

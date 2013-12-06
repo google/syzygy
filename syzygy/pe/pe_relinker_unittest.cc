@@ -186,20 +186,6 @@ TEST_F(PERelinkerTest, AppendPdbMutators) {
   EXPECT_EQ(expected, relinker.pdb_mutators_);
 }
 
-TEST_F(PERelinkerTest, InitFailsOnUnspecifiedInput) {
-  TestPERelinker relinker(&policy_);
-
-  relinker.set_output_path(temp_dll_);
-  EXPECT_FALSE(relinker.Init());
-}
-
-TEST_F(PERelinkerTest, InitFailsOnUnspecifiedOutput) {
-  TestPERelinker relinker(&policy_);
-
-  relinker.set_input_path(input_dll_);
-  EXPECT_FALSE(relinker.Init());
-}
-
 TEST_F(PERelinkerTest, InitFailsOnNonexistentInput) {
   TestPERelinker relinker(&policy_);
 
