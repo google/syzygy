@@ -1,0 +1,13 @@
+{
+  "targets": [
+    {
+      "input_module": "$(input_module)",
+      "output_module": "$(output_module)",
+      "operations": [
+        {
+          "type": "none",
+        },
+      ],
+    },
+  ],
+}

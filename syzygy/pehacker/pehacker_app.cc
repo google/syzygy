@@ -22,7 +22,11 @@
 #include "base/utf_string_conversions.h"
 #include "base/json/json_reader.h"
 #include "base/strings/string_split.h"
+#include "syzygy/block_graph/orderers/original_orderer.h"
+#include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_writer.h"
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/pe_relinker_util.h"
 #include "syzygy/pehacker/operation.h"
 #include "syzygy/pehacker/variables.h"
@@ -304,12 +308,6 @@ bool PEHackerApp::ProcessTargets(bool dry_run, base::ListValue* targets) {
       return false;
   }
 
-  if (!dry_run) {
-    // TODO(chrisha): Finalize any transformed modules and write them to disk.
-    LOG(ERROR) << "Module finalization not implemented.";
-    return false;
-  }
-
   return true;
 }
 
@@ -416,11 +414,15 @@ bool PEHackerApp::ProcessOperation(bool dry_run,
   }
 
   // If not in a dry-run then apply the operation.
-  if (!dry_run && !operation_impl->Apply(&policy_,
-                                         &image_info->block_graph,
-                                         image_info->header_block)) {
-    LOG(ERROR) << "Failed to apply \"" << operation_impl->name() << "\".";
-    return false;
+  if (!dry_run) {
+    LOG(INFO) << "Applying operation \"" << type << "\" to \""
+              << image_info->input_module.value() << "\".";
+    if (!operation_impl->Apply(&policy_,
+                               &image_info->block_graph,
+                               image_info->header_block)) {
+      LOG(ERROR) << "Failed to apply \"" << operation_impl->name() << "\".";
+      return false;
+    }
   }
 
   return true;
@@ -468,7 +470,12 @@ PEHackerApp::ImageInfo* PEHackerApp::GetImageInfo(
             image_info->header_block);
 
   // Remove padding blocks. No need to carry these through the pipeline.
+  VLOG(1) << "Removing padding blocks.";
   RemovePaddingBlocks(&image_info->block_graph);
+
+  // Get the input range to use in generating OMAP information. This is required
+  // when finalizing the PDB.
+  pe::GetOmapRange(image_layout.sections, &image_info->input_omap_range);
 
   // Decomposition was successful. Add it to the map, transfer the image info to
   // the scoped array and return it.
@@ -478,8 +485,95 @@ PEHackerApp::ImageInfo* PEHackerApp::GetImageInfo(
 }
 
 bool PEHackerApp::WriteImages() {
-  LOG(ERROR) << "Writing image not yet implemented.";
-  return false;
+  ImageInfoMap::iterator it = image_info_map_.begin();
+  for (; it != image_info_map_.end(); ++it) {
+    ImageInfo* image_info = it->second;
+
+    LOG(INFO) << "Finalizing and writing image \""
+              << image_info->output_module.value() << "\".";
+
+    // Create a GUID for the output PDB.
+    GUID pdb_guid = {};
+    if (FAILED(::CoCreateGuid(&pdb_guid))) {
+      LOG(ERROR) << "Failed to create new GUID for output PDB.";
+      return false;
+    }
+
+    // Finalize the block-graph.
+    VLOG(1) << "Finalizing the block-graph.";
+    if (!pe::FinalizeBlockGraph(image_info->input_module,
+                                image_info->output_module,
+                                pdb_guid,
+                                true,
+                                &policy_,
+                                &image_info->block_graph,
+                                image_info->header_block)) {
+      return false;
+    }
+
+    // Build the ordered block-graph.
+    block_graph::OrderedBlockGraph ordered_block_graph(
+        &image_info->block_graph);
+    block_graph::orderers::OriginalOrderer orderer;
+    VLOG(1) << "Ordering the block-graph.";
+    if (!orderer.OrderBlockGraph(&ordered_block_graph,
+                                 image_info->header_block)) {
+      return false;
+    }
+
+    // Finalize the ordered block-graph.
+    VLOG(1) << "Finalizing the ordered block-graph.";
+    if (!pe::FinalizeOrderedBlockGraph(&ordered_block_graph,
+                                       image_info->header_block)) {
+      return false;
+    }
+
+    // Build the image layout.
+    pe::ImageLayout image_layout(&image_info->block_graph);
+    VLOG(1) << "Building the image layout.";
+    if (!pe::BuildImageLayout(0, 1, ordered_block_graph,
+                              image_info->header_block, &image_layout)) {
+      return false;
+    }
+
+    // Write the image.
+    pe::PEFileWriter pe_writer(image_layout);
+    VLOG(1) << "Writing image to disk.";
+    if (!pe_writer.WriteImage(image_info->output_module))
+      return false;
+
+    LOG(INFO) << "Finalizing and writing PDB file \""
+              << image_info->output_pdb.value() << "\".";
+
+    // Parse the original PDB.
+    pdb::PdbFile pdb_file;
+    pdb::PdbReader pdb_reader;
+    VLOG(1) << "Reading original PDB.";
+    if (!pdb_reader.Read(image_info->input_pdb, &pdb_file))
+      return false;
+
+    // Finalize the PDB to reflect the transformed image.
+    VLOG(1) << "Finalizing PDB.";
+    if (!pe::FinalizePdbFile(image_info->input_module,
+                             image_info->output_module,
+                             image_info->input_omap_range,
+                             image_layout,
+                             pdb_guid,
+                             false,
+                             false,
+                             false,
+                             &pdb_file)) {
+      return false;
+    }
+
+    // Write the PDB.
+    pdb::PdbWriter pdb_writer;
+    VLOG(1) << "Writing transformed PDB.";
+    if (!pdb_writer.Write(image_info->output_pdb, pdb_file))
+      return false;
+  }
+
+  return true;
 }
 
 }  // namespace pehacker

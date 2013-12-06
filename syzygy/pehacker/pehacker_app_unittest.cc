@@ -44,6 +44,8 @@ static wchar_t kConfigGoodDefaultValue[] =
     L"syzygy/pehacker/test_data/config-good-default-value.txt";
 static wchar_t kConfigGoodNestedVariables[] =
     L"syzygy/pehacker/test_data/config-good-nested-variables.txt";
+static wchar_t kConfigGoodNop[] =
+    L"syzygy/pehacker/test_data/config-good-nop.txt";
 
 class TestPEHackerApp : public PEHackerApp {
  public:
@@ -297,13 +299,20 @@ TEST_F(PEHackerAppTest, ConfigurationLoadsNestedVariables) {
   ASSERT_TRUE(test_impl_.LoadAndValidateConfigurationFile());
 }
 
-TEST_F(PEHackerAppTest, Run) {
-  config_file_ = testing::GetSrcRelativePath(kConfigGoodMinimal);
+TEST_F(PEHackerAppTest, RunNop) {
+  base::FilePath input_module = testing::GetOutputRelativePath(
+      testing::kTestDllName);
+  base::FilePath output_module = temp_dir_.Append(testing::kTestDllName);
+
+  config_file_ = testing::GetSrcRelativePath(kConfigGoodNop);
   cmd_line_.AppendSwitchPath("config-file", config_file_);
+  cmd_line_.AppendSwitchPath("Dinput_module", input_module);
+  cmd_line_.AppendSwitchPath("Doutput_module", output_module);
   ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
 
-  // None of the operations are implemented yet, so this will always fail.
-  ASSERT_EQ(1, test_impl_.Run());
+  EXPECT_EQ(0, test_impl_.Run());
+  EXPECT_TRUE(file_util::PathExists(output_module));
+  EXPECT_NO_FATAL_FAILURE(CheckTestDll(output_module));
 }
 
 }  // namespace pehacker

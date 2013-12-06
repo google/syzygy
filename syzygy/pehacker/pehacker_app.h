@@ -26,6 +26,7 @@
 #include "base/memory/scoped_vector.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/application.h"
+#include "syzygy/pe/image_source_map.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_transform_policy.h"
 
@@ -70,6 +71,7 @@ class PEHackerApp : public common::AppImplBase {
     pe::PEFile pe_file;
     BlockGraph block_graph;
     BlockGraph::Block* header_block;
+    pe::RelativeAddressRange input_omap_range;
   };
 
   typedef std::map<ImageId, ImageInfo*> ImageInfoMap;
