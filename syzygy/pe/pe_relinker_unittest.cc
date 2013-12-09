@@ -150,11 +150,11 @@ TEST_F(PERelinkerTest, Properties) {
   relinker.set_strip_strings(false);
   EXPECT_FALSE(relinker.strip_strings());
 
-  EXPECT_FALSE(relinker.use_new_decomposer());
-  relinker.set_use_new_decomposer(true);
-  EXPECT_TRUE(relinker.use_new_decomposer());
-  relinker.set_use_new_decomposer(false);
-  EXPECT_FALSE(relinker.use_new_decomposer());
+  EXPECT_FALSE(relinker.use_old_decomposer());
+  relinker.set_use_old_decomposer(true);
+  EXPECT_TRUE(relinker.use_old_decomposer());
+  relinker.set_use_old_decomposer(false);
+  EXPECT_FALSE(relinker.use_old_decomposer());
 
   EXPECT_EQ(0u, relinker.padding());
   relinker.set_padding(10);
@@ -339,7 +339,7 @@ TEST_F(PERelinkerTest, IdentityRelinkNewDecomposer) {
 
   relinker.set_input_path(input_dll_);
   relinker.set_output_path(temp_dll_);
-  relinker.set_use_new_decomposer(true);
+  relinker.set_use_old_decomposer(true);
 
   // We let the relinker infer the PDB output. The mechanism should cause it
   // to produce a PDB file in the temporary directory with the same basename

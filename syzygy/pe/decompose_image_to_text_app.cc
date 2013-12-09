@@ -41,8 +41,8 @@ const char kUsageFormatStr[] =
   "  --basic-blocks\n"
   "    Breaks each function down to basic blocks and dumps it at that level.\n"
   "  --image=<image file>\n"
-  "  --new-decomposer\n"
-  "    Use the new decomposer.\n";
+  "  --old-decomposer\n"
+  "    Use the old decomposer.\n";
 
 using block_graph::BlockGraph;
 using block_graph::BasicBlock;
@@ -99,7 +99,7 @@ void HexDump(const uint8* data, size_t size, FILE* out) {
 DecomposeImageToTextApp::DecomposeImageToTextApp()
     : common::AppImplBase("Image To Text Decomposer"),
       dump_basic_blocks_(false),
-      use_new_decomposer_(false),
+      use_old_decomposer_(false),
       num_refs_(0) {
 }
 
@@ -124,7 +124,7 @@ bool DecomposeImageToTextApp::ParseCommandLine(
 
   dump_basic_blocks_ = cmd_line->HasSwitch("basic-blocks");
 
-  use_new_decomposer_ = cmd_line->HasSwitch("new-decomposer");
+  use_old_decomposer_ = cmd_line->HasSwitch("old-decomposer");
 
   return true;
 }
@@ -372,9 +372,9 @@ bool DecomposeImageToTextApp::DumpImageToText(
   BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
 
- if (use_new_decomposer_) {
-    LOG(INFO) << "Using new decomposer for decomposition.";
-    NewDecomposer decomposer(image_file);
+ if (use_old_decomposer_) {
+    LOG(INFO) << "Using old decomposer for decomposition.";
+    Decomposer decomposer(image_file);
     if (!decomposer.Decompose(&image_layout)) {
       LOG(ERROR) << "Unable to decompose image \""
           << image_path.value() << "\".";
@@ -382,7 +382,7 @@ bool DecomposeImageToTextApp::DumpImageToText(
     }
   } else {
     // And decompose it to an ImageLayout.
-    Decomposer decomposer(image_file);
+    NewDecomposer decomposer(image_file);
     if (!decomposer.Decompose(&image_layout)) {
       LOG(ERROR) << "Unable to decompose image \""
           << image_path.value() << "\".";

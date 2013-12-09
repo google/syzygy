@@ -76,8 +76,8 @@ class DecomposeImageToTextApp : public common::AppImplBase {
   // True if we're to dump basic block information.
   bool dump_basic_blocks_;
 
-  // True if we want to use the new decomposer.
-  bool use_new_decomposer_;
+  // True if we want to use the old decomposer.
+  bool use_old_decomposer_;
 
   // Number of references we've encountered.
   size_t num_refs_;

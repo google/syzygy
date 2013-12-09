@@ -52,7 +52,7 @@ class TestRelinkApp : public RelinkApp {
   using RelinkApp::output_metadata_;
   using RelinkApp::overwrite_;
   using RelinkApp::fuzz_;
-  using RelinkApp::new_decomposer_;
+  using RelinkApp::old_decomposer_;
 };
 
 typedef common::Application<TestRelinkApp> TestApp;
@@ -240,7 +240,7 @@ TEST_F(RelinkAppTest, ParseMinimalCommandLineWithOrderFile) {
   EXPECT_TRUE(test_impl_.output_metadata_);
   EXPECT_FALSE(test_impl_.overwrite_);
   EXPECT_FALSE(test_impl_.fuzz_);
-  EXPECT_FALSE(test_impl_.new_decomposer_);
+  EXPECT_FALSE(test_impl_.old_decomposer_);
 
   EXPECT_FALSE(test_impl_.SetUp());
 }
@@ -258,7 +258,7 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithOrderFile) {
   cmd_line_.AppendSwitch("no-metadata");
   cmd_line_.AppendSwitch("overwrite");
   cmd_line_.AppendSwitch("fuzz");
-  cmd_line_.AppendSwitch("new-decomposer");
+  cmd_line_.AppendSwitch("old-decomposer");
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
   EXPECT_TRUE(test_impl_.input_image_path_.empty());
@@ -275,7 +275,7 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithOrderFile) {
   EXPECT_FALSE(test_impl_.output_metadata_);
   EXPECT_TRUE(test_impl_.overwrite_);
   EXPECT_TRUE(test_impl_.fuzz_);
-  EXPECT_TRUE(test_impl_.new_decomposer_);
+  EXPECT_TRUE(test_impl_.old_decomposer_);
 
   // The order file doesn't actually exist, so setup should fail to infer the
   // input dll.
@@ -298,7 +298,7 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithInputSeedAndMetadata) {
   cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitch("overwrite");
   cmd_line_.AppendSwitch("fuzz");
-  cmd_line_.AppendSwitch("new-decomposer");
+  cmd_line_.AppendSwitch("old-decomposer");
 
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
   EXPECT_EQ(abs_input_image_path_, test_impl_.input_image_path_);
@@ -315,7 +315,7 @@ TEST_F(RelinkAppTest, ParseFullCommandLineWithInputSeedAndMetadata) {
   EXPECT_TRUE(test_impl_.output_metadata_);
   EXPECT_TRUE(test_impl_.overwrite_);
   EXPECT_TRUE(test_impl_.fuzz_);
-  EXPECT_TRUE(test_impl_.new_decomposer_);
+  EXPECT_TRUE(test_impl_.old_decomposer_);
 
   // SetUp() has nothing else to infer so it should succeed.
   EXPECT_TRUE(test_impl_.SetUp());

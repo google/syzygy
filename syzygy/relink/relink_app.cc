@@ -45,7 +45,6 @@ const char kUsageFormatStr[] =
     "                          output binary.\n"
     "    --input-pdb=<path>    The PDB file associated with the input DLL.\n"
     "                          Default is inferred from input-image.\n"
-    "    --new-decomposer      Use the new decomposer.\n"
     "    --no-augment-pdb      Indicates that the relinker should not augment\n"
     "                          the PDB with roundtrip decomposition info.\n"
     "    --no-metadata         Prevents the relinker from adding metadata\n"
@@ -53,6 +52,7 @@ const char kUsageFormatStr[] =
     "    --no-strip-strings    Causes strings to be output in the augmented\n"
     "                          PDB stream. The default is to omit these to\n"
     "                          make smaller PDBs.\n"
+    "    --old-decomposer      Use the old decomposer.\n"
     "    --order-file=<path>   Reorder based on a JSON ordering file.\n"
     "    --output-pdb=<path>   Output path for the rewritten PDB file.\n"
     "                          Default is inferred from output-image.\n"
@@ -131,7 +131,7 @@ bool RelinkApp::ParseCommandLine(const CommandLine* cmd_line) {
   basic_blocks_ = cmd_line->HasSwitch("basic-blocks");
   exclude_bb_padding_ = cmd_line->HasSwitch("exclude-bb-padding");
   fuzz_ = cmd_line->HasSwitch("fuzz");
-  new_decomposer_ = cmd_line->HasSwitch("new-decomposer");
+  old_decomposer_ = cmd_line->HasSwitch("old-decomposer");
 
   // The --output-image argument is required.
   if (output_image_path_.empty()) {
@@ -211,7 +211,7 @@ int RelinkApp::Run() {
   relinker.set_augment_pdb(!no_augment_pdb_);
   relinker.set_compress_pdb(compress_pdb_);
   relinker.set_strip_strings(!no_strip_strings_);
-  relinker.set_use_new_decomposer(new_decomposer_);
+  relinker.set_use_old_decomposer(old_decomposer_);
 
   // Initialize the relinker. This does the decomposition, etc.
   if (!relinker.Init()) {

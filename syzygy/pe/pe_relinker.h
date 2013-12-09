@@ -117,7 +117,7 @@ class PERelinker : public PECoffRelinker {
   bool augment_pdb() const { return augment_pdb_; }
   bool compress_pdb() const { return compress_pdb_; }
   bool strip_strings() const { return strip_strings_; }
-  bool use_new_decomposer() const { return use_new_decomposer_; }
+  bool use_old_decomposer() const { return use_old_decomposer_; }
   size_t padding() const { return padding_; }
   size_t code_alignment() const { return code_alignment_; }
   // @}
@@ -142,8 +142,8 @@ class PERelinker : public PECoffRelinker {
   void set_strip_strings(bool strip_strings) {
     strip_strings_ = strip_strings;
   }
-  void set_use_new_decomposer(bool use_new_decomposer) {
-    use_new_decomposer_ = use_new_decomposer;
+  void set_use_old_decomposer(bool use_old_decomposer) {
+    use_old_decomposer_ = use_old_decomposer;
   }
   void set_padding(size_t padding) {
     padding_ = padding;
@@ -211,8 +211,8 @@ class PERelinker : public PECoffRelinker {
   // If true, strings associated with a block-graph will not be serialized into
   // the PDB. Defaults to false.
   bool strip_strings_;
-  // If true we will use the new decomposer. Defaults to false.
-  bool use_new_decomposer_;
+  // If true we will use the old decomposer. Defaults to false.
+  bool use_old_decomposer_;
   // Indicates the amount of padding to be added between blocks. Zero is the
   // default value and indicates no padding will be added.
   size_t padding_;

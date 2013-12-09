@@ -34,7 +34,7 @@ class TestBranchInstrumenter : public BranchInstrumenter {
   using BranchInstrumenter::output_image_path_;
   using BranchInstrumenter::output_pdb_path_;
   using BranchInstrumenter::allow_overwrite_;
-  using BranchInstrumenter::new_decomposer_;
+  using BranchInstrumenter::old_decomposer_;
   using BranchInstrumenter::no_augment_pdb_;
   using BranchInstrumenter::no_strip_strings_;
   using BranchInstrumenter::debug_friendly_;
@@ -130,7 +130,7 @@ TEST_F(BranchInstrumenterTest, ParseMinimalBranch) {
   EXPECT_EQ(std::string(TestBranchInstrumenter::kAgentDllBasicBlockEntry),
             instrumenter_.agent_dll_);
   EXPECT_FALSE(instrumenter_.allow_overwrite_);
-  EXPECT_FALSE(instrumenter_.new_decomposer_);
+  EXPECT_FALSE(instrumenter_.old_decomposer_);
   EXPECT_FALSE(instrumenter_.no_augment_pdb_);
   EXPECT_FALSE(instrumenter_.no_strip_strings_);
   EXPECT_FALSE(instrumenter_.debug_friendly_);
@@ -145,7 +145,7 @@ TEST_F(BranchInstrumenterTest, ParseFullBranch) {
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
   cmd_line_.AppendSwitch("debug-friendly");
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
-  cmd_line_.AppendSwitch("new-decomposer");
+  cmd_line_.AppendSwitch("old-decomposer");
   cmd_line_.AppendSwitch("no-augment-pdb");
   cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
@@ -161,7 +161,7 @@ TEST_F(BranchInstrumenterTest, ParseFullBranch) {
   EXPECT_EQ(output_pdb_path_, instrumenter_.output_pdb_path_);
   EXPECT_EQ(std::string("foo.dll"), instrumenter_.agent_dll_);
   EXPECT_TRUE(instrumenter_.allow_overwrite_);
-  EXPECT_TRUE(instrumenter_.new_decomposer_);
+  EXPECT_TRUE(instrumenter_.old_decomposer_);
   EXPECT_TRUE(instrumenter_.no_augment_pdb_);
   EXPECT_TRUE(instrumenter_.no_strip_strings_);
   EXPECT_TRUE(instrumenter_.debug_friendly_);
