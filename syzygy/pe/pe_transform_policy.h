@@ -55,6 +55,9 @@ class PETransformPolicy : public block_graph::TransformPolicyInterface {
   static bool CodeBlockAttributesAreBasicBlockSafe(
       const BlockGraph::Block* code_block,
       bool allow_inline_assembly);
+  // Checks that a block contains private symbols. These are required for
+  // basic block disassembly.
+  static bool CodeBlockHasPrivateSymbols(const BlockGraph::Block* code_block);
   // Checks that the code-data layout of the block is consistent. Assumes that
   // the block attributes have already been checked and are valid.
   static bool CodeBlockLayoutIsClConsistent(

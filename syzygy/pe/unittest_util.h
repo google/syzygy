@@ -22,6 +22,8 @@
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/unittest_util.h"
+#include "syzygy/pe/image_layout.h"
+#include "syzygy/pe/pe_file.h"
 
 namespace testing {
 
@@ -97,6 +99,11 @@ void TwiddlePdbGuidAndPath(block_graph::BlockGraph::Block* dos_header_block);
 
 class PELibUnitTest : public testing::ApplicationTestBase {
  public:
+  // Decomposes test_dll, populating the given PE file and image layout.
+  static void DecomposeTestDll(bool use_old_decomposer,
+                               pe::PEFile* pe_file,
+                               pe::ImageLayout* image_layout);
+
   // Performs a series of assertions on the test DLL's integrity.
   static void CheckTestDll(const base::FilePath& path);
 

@@ -172,6 +172,7 @@
         'unittest_util.cc',
       ],
       'dependencies': [
+        'pe_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/common/common.gyp:common_unittest_utils',

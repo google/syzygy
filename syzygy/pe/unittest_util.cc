@@ -30,6 +30,9 @@
 #include "gtest/gtest.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/new_decomposer.h"
 #include "syzygy/pe/pe_data.h"
 
 namespace testing {
@@ -305,6 +308,24 @@ void PELibUnitTest::LoadTestDll(const base::FilePath& path,
     LOG(ERROR) << "LoadLibrary failed: " << com::LogWe(error);
   }
   ASSERT_TRUE(module != NULL);
+}
+
+void PELibUnitTest::DecomposeTestDll(bool use_old_decomposer,
+                                     pe::PEFile* pe_file,
+                                     pe::ImageLayout* image_layout) {
+  ASSERT_TRUE(pe_file != NULL);
+  ASSERT_TRUE(image_layout != NULL);
+
+  base::FilePath test_dll = GetOutputRelativePath(kTestDllName);
+  ASSERT_TRUE(pe_file->Init(test_dll));
+
+  if (use_old_decomposer) {
+    pe::Decomposer decomposer(*pe_file);
+    ASSERT_TRUE(decomposer.Decompose(image_layout));
+  } else {
+    pe::NewDecomposer decomposer(*pe_file);
+    ASSERT_TRUE(decomposer.Decompose(image_layout));
+  }
 }
 
 void PELibUnitTest::CheckTestDll(const base::FilePath& path) {

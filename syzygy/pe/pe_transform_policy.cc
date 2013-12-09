@@ -175,6 +175,8 @@ bool PETransformPolicy::CodeBlockIsSafeToBasicBlockDecompose(
 
   if (!CodeBlockAttributesAreBasicBlockSafe(code_block, allow_inline_assembly_))
     return false;
+  if (!CodeBlockHasPrivateSymbols(code_block))
+    return false;
   if (!CodeBlockLayoutIsClConsistent(code_block))
     return false;
   if (!CodeBlockReferencesAreClConsistent(code_block))
@@ -183,6 +185,16 @@ bool PETransformPolicy::CodeBlockIsSafeToBasicBlockDecompose(
     return false;
 
   return true;
+}
+
+bool PETransformPolicy::CodeBlockHasPrivateSymbols(
+    const BlockGraph::Block* code_block) {
+  BlockGraph::Block::LabelMap::const_iterator it = code_block->labels().begin();
+  for (; it != code_block->labels().end(); ++it) {
+    if (it->second.attributes() & ~BlockGraph::PUBLIC_SYMBOL_LABEL)
+      return true;
+  }
+  return false;
 }
 
 bool PETransformPolicy::CodeBlockAttributesAreBasicBlockSafe(
