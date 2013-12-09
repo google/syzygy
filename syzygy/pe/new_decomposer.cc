@@ -1468,20 +1468,23 @@ bool NewDecomposer::VisitLinkerSymbol(VisitLinkerSymbolContext* context,
   }
 
   RelativeAddress end = rva + coffgroup->cb;
-  DCHECK_LT(context->current_group_start, end);
+  DCHECK_LE(context->current_group_start, end);
 
-  // Create a block for this bracketed COFF group.
-  Block* block = CreateBlock(
-      BlockGraph::DATA_BLOCK,
-      context->current_group_start,
-      end - context->current_group_start,
-      base::StringPrintf("Bracketed COFF group: %s", prefix.c_str()));
-  if (block == NULL) {
-    LOG(ERROR) << "Failed to create bracketed COFF group \""
-               << prefix << "\".";
-    return false;
+  // If the COFF group is not empty, then create a block corresponding to it.
+  if (context->current_group_start != end) {
+    // Create a block for this bracketed COFF group.
+    Block* block = CreateBlock(
+        BlockGraph::DATA_BLOCK,
+        context->current_group_start,
+        end - context->current_group_start,
+        base::StringPrintf("Bracketed COFF group: %s", prefix.c_str()));
+    if (block == NULL) {
+      LOG(ERROR) << "Failed to create bracketed COFF group \""
+                 << prefix << "\".";
+      return false;
+    }
+    block->set_attribute(BlockGraph::COFF_GROUP);
   }
-  block->set_attribute(BlockGraph::COFF_GROUP);
 
   // Indicate that this block is closed and we're looking for another opening
   // bracket symbol.
