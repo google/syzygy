@@ -57,6 +57,10 @@
     {
       'target_name': 'common',
       'type': 'static_library',
+      'defines': [
+        # This is required for ATL to use XP-safe versions of its functions.
+        '_USING_V110_SDK71_',
+      ],
       'dependencies': [
         'initializing_coclass',
         '<(DEPTH)/base/base.gyp:base',
