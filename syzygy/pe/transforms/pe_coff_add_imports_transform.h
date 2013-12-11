@@ -97,7 +97,9 @@ class ImportedModule {
   // @returns true if the module was added, false otherwise.
   bool ModuleWasAdded() const { return added_; }
 
-  // Add a symbol to be imported, returning its index.
+  // Add a symbol to be imported, returning its index. If the symbol already
+  // exists this will return the existing index rather than adding it a second
+  // time.
   //
   // @param symbol_name the symbol to be added.
   // @param mode the transform mode.
@@ -107,15 +109,15 @@ class ImportedModule {
                    TransformMode mode);
 
   // @returns the number of symbols that are to be imported from this module.
-  size_t size() const { return symbols_.size(); }
+  size_t size() const { return symbols_by_index_.size(); }
 
   // Retrieve the name of a symbol to import.
   //
   // @param index the index of the symbol to fetch.
   // @returns the name of the symbol.
   const std::string& GetSymbolName(size_t index) const {
-    DCHECK_GT(symbols_.size(), index);
-    return symbols_[index].name;
+    DCHECK_GT(symbols_by_index_.size(), index);
+    return symbols_by_index_[index]->name;
   }
 
   // Retrieve the transform mode of a symbol to import.
@@ -123,8 +125,8 @@ class ImportedModule {
   // @param index the index of the symbol to query.
   // @returns the mode of the symbol.
   TransformMode GetSymbolMode(size_t index) const {
-    DCHECK_GT(symbols_.size(), index);
-    return symbols_[index].mode;
+    DCHECK_GT(symbols_by_index_.size(), index);
+    return symbols_by_index_[index]->mode;
   }
 
   // After a successful transform, retrieve whether the specified symbol is
@@ -135,8 +137,8 @@ class ImportedModule {
   // @param index the index of the symbol to query.
   // @returns true if the symbol @p index has an import entry.
   bool SymbolIsImported(size_t index) const {
-    DCHECK_GT(symbols_.size(), index);
-    return symbols_[index].import_index != kInvalidImportIndex;
+    DCHECK_GT(symbols_by_index_.size(), index);
+    return symbols_by_index_[index]->import_index != kInvalidImportIndex;
   }
 
   // After a successful transform, retrieve whether the specified symbol was
@@ -147,8 +149,8 @@ class ImportedModule {
   // @param index the index of the symbol to fetch.
   // @returns true if the symbol was added, false otherwise.
   bool SymbolWasAdded(size_t index) const {
-    DCHECK_GT(symbols_.size(), index);
-    return symbols_[index].added;
+    DCHECK_GT(symbols_by_index_.size(), index);
+    return symbols_by_index_[index]->added;
   }
 
   // After a successful transform, retrieve the index of the symbol
@@ -160,8 +162,8 @@ class ImportedModule {
   //     dependent on the underlying import table representation, but is
   //     guaranteed to be distinct for distinct symbols.
   size_t GetSymbolImportIndex(size_t index) const {
-    DCHECK_GT(symbols_.size(), index);
-    return symbols_[index].import_index;
+    DCHECK_GT(symbols_by_index_.size(), index);
+    return symbols_by_index_[index]->import_index;
   }
 
   // After a successful transform, retrieve an absolute reference to the
@@ -203,6 +205,9 @@ class ImportedModule {
   struct Symbol {
     // The name of the symbol to import.
     std::string name;
+    // The ID of this symbol wrt to this imported module. This is an index into
+    // symbols_by_index_.
+    size_t symbol_index;
     // The index of the imported symbol in the symbol or import table. This
     // is left as kInvalidImportIndex if this symbol's mode is kFindOnly and
     // the import does not exist.
@@ -216,7 +221,15 @@ class ImportedModule {
     // Whether the import symbol reference is to a pointer (true), or
     // directly to the object or function (false).
     bool is_ptr;
+
+    // A comparison functor. This compares symbols by their names, ensuring
+    // uniqueness.
+    bool operator<(const Symbol& other) const {
+      return name < other.name;
+    }
   };
+
+  typedef std::set<Symbol> SymbolSet;
 
   // The name of the module to be imported.
   std::string name_;
@@ -224,8 +237,12 @@ class ImportedModule {
   // A version time stamp associated with the module.
   uint32 date_;
 
-  // The list of symbols to be imported from this module.
-  std::vector<Symbol> symbols_;
+  // The symbols to be imported, sorted by name. This ensures that symbols are
+  // stored uniquely.
+  SymbolSet symbols_by_name_;
+
+  // A mapping from symbol indices to symbol objects.
+  std::vector<Symbol*> symbols_by_index_;
 
   // Set to true if this module was added or found by the transform.
   bool imported_;

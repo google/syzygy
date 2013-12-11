@@ -31,6 +31,18 @@ class TestPECoffAddImportsTransform : public PECoffAddImportsTransform {
 
 }  // namespace
 
+TEST(ImportedModuleTest, UniqueSymbol) {
+  ImportedModule module("foo");
+
+  size_t i1 = module.AddSymbol("bar", ImportedModule::kFindOnly);
+  EXPECT_EQ(ImportedModule::kFindOnly, module.GetSymbolMode(i1));
+
+  // The mode should be 'bumped', but the symbol index should be the same.
+  size_t i2 = module.AddSymbol("bar", ImportedModule::kAlwaysImport);
+  EXPECT_EQ(ImportedModule::kAlwaysImport, module.GetSymbolMode(i1));
+  EXPECT_EQ(i1, i2);
+}
+
 TEST(ImportedModuleTest, BeforeTransform) {
   ImportedModule module("foo");
   EXPECT_EQ("foo", module.name());
