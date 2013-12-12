@@ -577,4 +577,58 @@ bool GuessFileType(const base::FilePath& path, FileType* file_type) {
   return true;
 }
 
+void RedirectReferences(const ReferenceMap& redirects) {
+  std::set<BlockGraph::Block*> visited_referred;
+  std::set<BlockGraph::Block*> visited_referrer;
+
+  // Iterate over the original destinations. We'll redirect their referrers.
+  ReferenceMap::const_iterator dst_block_it = redirects.begin();
+  for (; dst_block_it != redirects.end(); ++dst_block_it) {
+    // Process each referred block only once. We keep track of already visited
+    // blocks because a block may occur multiple times in |redirects|.
+    BlockGraph::Block* referred = dst_block_it->first.first;
+    bool already_visited = !visited_referred.insert(referred).second;
+    if (already_visited)
+      continue;
+
+    // Iterate over all their referrers.
+    BlockGraph::Block::ReferrerSet referrers = referred->referrers();
+    BlockGraph::Block::ReferrerSet::iterator referrer_it = referrers.begin();
+    for (; referrer_it != referrers.end(); ++referrer_it) {
+      // Don't redirect references from PE parsed blocks. This actually ends up
+      // redirecting the IAT entries as well in the worst case.
+      BlockGraph::Block* referrer = referrer_it->first;
+      if (referrer->attributes() & BlockGraph::PE_PARSED)
+        continue;
+
+      // Process each referrer block only once.
+      already_visited = !visited_referrer.insert(referrer).second;
+      if (already_visited)
+        continue;
+
+      // Iterate over all references originating from the referring block.
+      BlockGraph::Block::ReferenceMap::const_iterator reference_it =
+          referrer->references().begin();
+      for (; reference_it != referrer->references().end(); ++reference_it) {
+        // Look for an original destination to be redirected.
+        const BlockGraph::Reference& ref(reference_it->second);
+        ReferenceDest dest(std::make_pair(ref.referenced(), ref.offset()));
+        ReferenceMap::const_iterator it(redirects.find(dest));
+        if (it == redirects.end())
+          continue;
+
+        // Perform the redirection, preserving the gap between the base and the
+        // offset.
+        BlockGraph::Offset delta = ref.base() - ref.offset();
+        BlockGraph::Reference new_reference(ref.type(),
+                                            ref.size(),
+                                            it->second.first,
+                                            it->second.second,
+                                            it->second.second + delta);
+        referrer->SetReference(reference_it->first, new_reference);
+      }
+    }
+  }
+}
+
 }  // namespace pe

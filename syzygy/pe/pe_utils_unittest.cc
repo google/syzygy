@@ -537,4 +537,68 @@ TEST_F(PEUtilsTest, GuessFileType) {
   EXPECT_EQ(kCoffFileType, file_type);
 }
 
+TEST_F(PEUtilsTest, RedirectReferences) {
+  BlockGraph::Block* b1 = block_graph_.AddBlock(
+      BlockGraph::CODE_BLOCK, 12, "b1");
+  BlockGraph::Block* b2 = block_graph_.AddBlock(
+      BlockGraph::CODE_BLOCK, 4, "b2");
+  BlockGraph::Block* b3 = block_graph_.AddBlock(
+      BlockGraph::CODE_BLOCK, 4, "b3");
+  BlockGraph::Block* b4 = block_graph_.AddBlock(
+      BlockGraph::CODE_BLOCK, 4, "b4");
+
+  // Set up a little block-graph.
+  // - b1 points to b2, b3 and b4. It acts as a fake PE structure.
+  // - b2 points to block b3.
+  // - Nothing points to b4.
+
+  b1->set_attribute(BlockGraph::PE_PARSED);
+  b1->SetReference(0, BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
+                                            4, b2, 0, 0));
+  b1->SetReference(4, BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
+                                            4, b3, 0, 0));
+  b1->SetReference(8, BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
+                                            4,  b4, 0, 0));
+
+  b2->SetReference(0, BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
+                                            4, b3, 0, 0));
+
+  ASSERT_EQ(0u, b1->referrers().size());
+  ASSERT_EQ(1u, b2->referrers().size());
+  ASSERT_EQ(2u, b3->referrers().size());
+  ASSERT_EQ(1u, b4->referrers().size());
+  ASSERT_EQ(3u, b1->references().size());
+  ASSERT_EQ(1u, b2->references().size());
+  ASSERT_EQ(0u, b3->references().size());
+  ASSERT_EQ(0u, b4->references().size());
+
+  // Set up a redirection from b4:0 to b2:0. Nothing except the PE block b1
+  // references b4, so this shouldn't change anything.
+  ReferenceMap redirects1;
+  redirects1[ReferenceDest(b4, 0)] = ReferenceDest(b2, 0);
+  RedirectReferences(redirects1);
+  EXPECT_EQ(0u, b1->referrers().size());
+  EXPECT_EQ(1u, b2->referrers().size());
+  EXPECT_EQ(2u, b3->referrers().size());
+  EXPECT_EQ(1u, b4->referrers().size());
+  EXPECT_EQ(3u, b1->references().size());
+  EXPECT_EQ(1u, b2->references().size());
+  EXPECT_EQ(0u, b3->references().size());
+  EXPECT_EQ(0u, b4->references().size());
+
+  // Set up a redirection from b3:0 to b4:0. This shouldn't affect the
+  // references in b1, but should modify the reference in b2.
+  ReferenceMap redirects2;
+  redirects2[ReferenceDest(b3, 0)] = ReferenceDest(b4, 0);
+  RedirectReferences(redirects2);
+  EXPECT_EQ(0u, b1->referrers().size());
+  EXPECT_EQ(1u, b2->referrers().size());
+  EXPECT_EQ(1u, b3->referrers().size());
+  EXPECT_EQ(2u, b4->referrers().size());
+  EXPECT_EQ(3u, b1->references().size());
+  EXPECT_EQ(1u, b2->references().size());
+  EXPECT_EQ(0u, b3->references().size());
+  EXPECT_EQ(0u, b4->references().size());
+}
+
 }  // namespace pe

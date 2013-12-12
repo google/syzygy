@@ -208,6 +208,20 @@ enum FileType {
 // @returns true on success, false on failure.
 bool GuessFileType(const base::FilePath& path, FileType* file_type);
 
+// Types used by the redirection primitive.
+typedef std::pair<block_graph::BlockGraph::Block*,
+                  block_graph::BlockGraph::Offset> ReferenceDest;
+typedef std::map<ReferenceDest, ReferenceDest> ReferenceMap;
+
+// Redirect references in a block-graph, except for references originating from
+// PE structures. Any non-PE-structure block in src_blocks will have its
+// references examined. Any reference found as a key in @p redirects will be
+// remapped to its corresponding value.
+// @param src The original referred destination that is to be redirected.
+// @param dst The redirected destination to be referred to.
+// @param redirects A map of original to redirected destinations.
+void RedirectReferences(const ReferenceMap& redirects);
+
 }  // namespace pe
 
 #include "syzygy/pe/pe_utils_impl.h"

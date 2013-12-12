@@ -275,52 +275,6 @@ void InjectAsanHook(BasicBlockAssembler* bb_asm,
   }
 }
 
-typedef std::pair<BlockGraph::Block*, BlockGraph::Offset> ReferenceDest;
-typedef std::map<ReferenceDest, ReferenceDest> ReferenceMap;
-typedef std::set<BlockGraph::Block*> BlockSet;
-
-// For every block referencing @p dst_blocks, redirects any reference "ref" in
-// @p redirects to @p redirects[ref].
-void RedirectReferences(const BlockSet& dst_blocks,
-                        const ReferenceMap& redirects) {
-  // For each block referenced by any source reference.
-  BlockSet::const_iterator dst_block_it = dst_blocks.begin();
-  for (; dst_block_it != dst_blocks.end(); ++dst_block_it) {
-    // Iterate over all their referrers.
-    BlockGraph::Block* referred_block = *dst_block_it;
-    BlockGraph::Block::ReferrerSet referrers = referred_block->referrers();
-    BlockGraph::Block::ReferrerSet::iterator referrer_it = referrers.begin();
-    for (; referrer_it != referrers.end(); ++referrer_it) {
-      BlockGraph::Block* referrer = referrer_it->first;
-
-      // Don't redirect references from PE parsed blocks. This actually ends up
-      // redirecting the IAT entries as well in the worst case.
-      if (referrer->attributes() & BlockGraph::PE_PARSED)
-        continue;
-
-      // And redirect any references that happen to match a source reference.
-      BlockGraph::Block::ReferenceMap::const_iterator reference_it =
-          referrer->references().begin();
-
-      for (; reference_it != referrer->references().end(); ++reference_it) {
-        const BlockGraph::Reference& ref(reference_it->second);
-        ReferenceDest dest(std::make_pair(ref.referenced(), ref.offset()));
-
-        ReferenceMap::const_iterator it(redirects.find(dest));
-        if (it != redirects.end()) {
-          BlockGraph::Reference new_reference(ref.type(),
-                                              ref.size(),
-                                              it->second.first,
-                                              it->second.second,
-                                              0);
-
-          referrer->SetReference(reference_it->first, new_reference);
-        }
-      }
-    }
-  }
-}
-
 // Get the name of an asan check access function for an @p access_mode access.
 // @param info The memory access information, e.g. the size on a load/store,
 //     the instruction opcode and the kind of access.
@@ -952,10 +906,8 @@ bool AsanTransform::PostBlockGraphIteration(
     return false;
   }
 
-  // Keeps track of all the blocks referenced by the original references.
-  BlockSet dst_blocks;
   // Stores the reference mapping we want to rewrite.
-  ReferenceMap reference_redirect_map;
+  pe::ReferenceMap reference_redirect_map;
 
   iter = kernel32_redirects.begin();
   for (; iter != kernel32_redirects.end(); ++iter) {
@@ -976,14 +928,14 @@ bool AsanTransform::PostBlockGraphIteration(
       return false;
     }
 
-    // Add the destination block to the set of referred blocks.
-    dst_blocks.insert(src.referenced());
+    // Record the reference mapping.
     reference_redirect_map.insert(
-        std::make_pair(ReferenceDest(src.referenced(), src.offset()),
-                       ReferenceDest(dst.referenced(), dst.offset())));
+        std::make_pair(pe::ReferenceDest(src.referenced(), src.offset()),
+                       pe::ReferenceDest(dst.referenced(), dst.offset())));
   }
 
-  RedirectReferences(dst_blocks, reference_redirect_map);
+  // Redirect the references.
+  pe::RedirectReferences(reference_redirect_map);
 
   if (use_interceptors_) {
     FunctionInterceptionSet interception_set;
