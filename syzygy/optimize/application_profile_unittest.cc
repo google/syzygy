@@ -316,4 +316,14 @@ TEST_F(ApplicationProfileTest, ComputeSubGraphProfile) {
   EXPECT_EQ(.20, profile0->GetSuccessorRatio(bb2));
 }
 
+TEST_F(ApplicationProfileTest, RetrieveEmptySubGraphProfile) {
+  BasicBlockSubGraph subgraph;
+  SubGraphProfile profile;
+  BasicCodeBlock* bb = subgraph.AddBasicCodeBlock("bb");
+  const BasicBlockProfile* bb_profile = profile.GetBasicBlockProfile(bb);
+
+  EXPECT_NE(reinterpret_cast<const BasicBlockProfile*>(NULL), bb_profile);
+  EXPECT_EQ(0U, bb_profile->count());
+}
+
 }  // namespace optimize

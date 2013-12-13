@@ -92,6 +92,8 @@ class ApplicationProfile {
   bool ImportFrequencies(const IndexedFrequencyMap& frequencies);
 
  protected:
+  // These are protected so that they can be accessed by unittests.
+
   // Frequency information for the whole block graph (includes basic block
   // information).
   IndexedFrequencyMap frequencies_;
@@ -161,7 +163,7 @@ class SubGraphProfile {
       BasicBlockProfileMap;
 
   // Constructor
-  SubGraphProfile() { }
+  SubGraphProfile();
 
   // Retrieve the profile for a given basic block.
   // @param block the basic block to find profile information.
@@ -170,7 +172,9 @@ class SubGraphProfile {
   const BasicBlockProfile* GetBasicBlockProfile(
       const BasicCodeBlock* block) const;
 
- private:
+ protected:
+  // These are protected so that they can be accessed by unittests.
+
   // Allow ApplicationProfile to create and modify instances of this class.
   friend class ApplicationProfile;
 
@@ -208,7 +212,9 @@ class SubGraphProfile::BasicBlockProfile {
   // @returns the successors ratio for @successor.
   double GetSuccessorRatio(const BasicCodeBlock* successor) const;
 
- private:
+ protected:
+  // These are protected so that they can be accessed by unittests.
+
   // Allow ApplicationProfile to modify private fields.
   friend class ApplicationProfile;
 

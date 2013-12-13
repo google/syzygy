@@ -20,8 +20,8 @@ namespace optimize {
 namespace transforms {
 
 namespace {
-  using block_graph::BasicBlock;
-  using block_graph::BasicCodeBlock;
+using block_graph::BasicBlock;
+using block_graph::BasicCodeBlock;
 }  // namespace
 
 bool BlockAlignmentTransform::TransformBasicBlockSubGraph(

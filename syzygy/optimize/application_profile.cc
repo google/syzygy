@@ -261,12 +261,18 @@ void ApplicationProfile::ComputeSubGraphProfile(
   }
 }
 
+SubGraphProfile::SubGraphProfile() {
+  empty_profile_.reset(new BasicBlockProfile());
+}
+
 const BasicBlockProfile* SubGraphProfile::GetBasicBlockProfile(
     const BasicCodeBlock* block) const {
   DCHECK_NE(reinterpret_cast<const BasicCodeBlock*>(NULL), block);
+  DCHECK_NE(reinterpret_cast<const BasicBlockProfile*>(NULL),
+            empty_profile_.get());
   BasicBlockProfileMap::const_iterator look = basic_blocks_.find(block);
   if (look == basic_blocks_.end())
-    empty_profile_.get();
+    return empty_profile_.get();
   return &look->second;
 }
 

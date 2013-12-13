@@ -26,18 +26,22 @@
 
 #include "syzygy/block_graph/filterable.h"
 #include "syzygy/block_graph/transform_policy.h"
+#include "syzygy/block_graph/analysis/control_flow_analysis.h"
 #include "syzygy/optimize/application_profile.h"
 #include "syzygy/optimize/transforms/subgraph_transform.h"
 
 namespace optimize {
 namespace transforms {
-  typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
-  typedef block_graph::BlockGraph BlockGraph;
-  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
 
 // This transformation uses the Pettis algorithm to reorder basic blocks.
 class BasicBlockReorderingTransform : public SubGraphTransformInterface {
  public:
+  typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
+  typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
+  typedef block_graph::analysis::ControlFlowAnalysis::BasicBlockOrdering
+      BasicBlockOrdering;
+
   // Constructor.
   BasicBlockReorderingTransform() { }
 
@@ -49,6 +53,21 @@ class BasicBlockReorderingTransform : public SubGraphTransformInterface {
       BasicBlockSubGraph* subgraph,
       ApplicationProfile* profile,
       SubGraphProfile* subgraph_profile) OVERRIDE;
+  // @}
+
+ protected:
+  // Exposed for unittesting.
+  // @{
+  static bool FlattenStructuralTreeToAnOrder(
+      const BasicBlockSubGraph* subgraph,
+      const SubGraphProfile* subgraph_profile,
+      BasicBlockOrdering* order);
+
+  static uint64 EvaluateCost(const BasicBlockOrdering& order,
+                             const SubGraphProfile& profile);
+
+  static void CommitOrdering(const BasicBlockOrdering& order,
+                             BasicBlockSubGraph::BasicBlockOrdering* target);
   // @}
 
  private:

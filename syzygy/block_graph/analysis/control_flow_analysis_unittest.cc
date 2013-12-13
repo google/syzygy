@@ -66,15 +66,15 @@ std::ostream& operator <<(std::ostream& stream,
       stream << "Repeat(" << tree->entry_node() << ")";
       break;
     }
-   case ControlFlowAnalysis::StructuralNode::kWhileNode: {
+    case ControlFlowAnalysis::StructuralNode::kWhileNode: {
       stream << "While(" << tree->entry_node() << ")";
       break;
     }
-   case ControlFlowAnalysis::StructuralNode::kLoopNode: {
+    case ControlFlowAnalysis::StructuralNode::kLoopNode: {
       stream << "Loop(" << tree->entry_node() << ")";
       break;
     }
-   default: {
+    default: {
       stream << "ERROR(" << tree->entry_node() << ")";
       break;
     }
@@ -164,7 +164,7 @@ void ControlFlowAnalysisTest::MakeIf(
   DCHECK_NE(reinterpret_cast<BasicCodeBlock*>(NULL), true_stm);
   DCHECK_NE(reinterpret_cast<BasicCodeBlock*>(NULL), false_stm);
 
-  Successor::Condition condition =Successor::kConditionAbove;
+  Successor::Condition condition = Successor::kConditionAbove;
   AddSuccessorBetween(condition, root, true_stm);
   AddSuccessorBetween(Successor::InvertCondition(condition), root, false_stm);
 }

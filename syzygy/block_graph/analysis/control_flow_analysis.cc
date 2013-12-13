@@ -495,7 +495,7 @@ void DumpStructuralTreeToString(const StructuralNode* tree,
   DCHECK_NE(reinterpret_cast<const StructuralNode* >(NULL), tree);
   DCHECK_NE(reinterpret_cast<std::stringstream*>(NULL), out);
 
-  std::string indent_string(4*indent, ' ');
+  std::string indent_string(4 * indent, ' ');
 
   switch (tree->kind()) {
     case StructuralNode::kBaseNode: {
@@ -643,7 +643,7 @@ bool ControlFlowAnalysis::BuildStructuralTree(
   BasicBlockOrdering order;
   FlattenBasicBlocksInPostOrder(subgraph->basic_blocks(), &order);
 
-  // Create an base StructuralNode for each basic block.
+  // Create a base StructuralNode for each basic block.
   BasicBlocksRemap basic_block_map;
   BasicBlockOrdering::iterator it = order.begin();
   for (; it != order.end(); ++it) {
@@ -680,6 +680,7 @@ bool ControlFlowAnalysis::BuildStructuralTree(
   stop_node.reset(new StructuralNode(StructuralNode::kStopNode));
 
   const BlockDescriptionList& descriptions = subgraph->block_descriptions();
+  DCHECK(!descriptions.empty());
   BlockDescriptionList::const_iterator description = descriptions.begin();
   for (; description != descriptions.end(); ++description) {
     CHECK(!description->basic_block_order.empty());
