@@ -14,11 +14,10 @@
 
 #include "syzygy/pehacker/operations/add_imports_operation.h"
 
-#include "base/json/json_reader.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/pe_transform_policy.h"
+#include "syzygy/pehacker/unittest_util.h"
 
 namespace pehacker {
 namespace operations {
@@ -58,36 +57,7 @@ class TestAddImportsOperation : public AddImportsOperation {
   using AddImportsOperation::imported_module_map_;
 };
 
-class AddImportsOperationTest : public testing::Test {
- public:
-  AddImportsOperationTest() : previous_log_level_(0) {
-  }
-
-  void SetUp() {
-    // Silence logging.
-    previous_log_level_ = logging::GetMinLogLevel();
-    logging::SetMinLogLevel(logging::LOG_FATAL);
-  }
-
-  void TearDown() {
-    // Restore logging to its previous level.
-    logging::SetMinLogLevel(previous_log_level_);
-    previous_log_level_ = 0;
-  }
-
-  void InitConfig() {
-    scoped_ptr<base::Value> value(base::JSONReader::Read(
-        kSimpleConfig, base::JSON_ALLOW_TRAILING_COMMAS));
-    ASSERT_TRUE(value.get() != NULL);
-    base::DictionaryValue* dict = NULL;
-    ASSERT_TRUE(value->GetAsDictionary(&dict));
-    config_.reset(dict);
-    value.release();
-  }
-
-  int previous_log_level_;
-  scoped_ptr<base::DictionaryValue> config_;
-};
+typedef testing::OperationTest AddImportsOperationTest;
 
 }  // namespace
 
@@ -98,7 +68,7 @@ TEST_F(AddImportsOperationTest, Name) {
 
 TEST_F(AddImportsOperationTest, Init) {
   TestAddImportsOperation op;
-  ASSERT_NO_FATAL_FAILURE(InitConfig());
+  ASSERT_NO_FATAL_FAILURE(InitConfig(kSimpleConfig));
   pe::PETransformPolicy policy;
   EXPECT_TRUE(op.Init(&policy, config_.get()));
 
@@ -119,7 +89,7 @@ TEST_F(AddImportsOperationTest, Init) {
 
 TEST_F(AddImportsOperationTest, RunFails) {
   TestAddImportsOperation op;
-  ASSERT_NO_FATAL_FAILURE(InitConfig());
+  ASSERT_NO_FATAL_FAILURE(InitConfig(kSimpleConfig));
   pe::PETransformPolicy policy;
   ASSERT_TRUE(op.Init(&policy, config_.get()));
 
@@ -136,7 +106,7 @@ TEST_F(AddImportsOperationTest, RunFails) {
 
 TEST_F(AddImportsOperationTest, RunSucceeds) {
   TestAddImportsOperation op;
-  ASSERT_NO_FATAL_FAILURE(InitConfig());
+  ASSERT_NO_FATAL_FAILURE(InitConfig(kSimpleConfig));
   pe::PETransformPolicy policy;
   ASSERT_TRUE(op.Init(&policy, config_.get()));
 

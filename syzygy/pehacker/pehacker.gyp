@@ -28,6 +28,8 @@
         'variables.h',
         'operations/add_imports_operation.cc',
         'operations/add_imports_operation.h',
+        'operations/redirect_imports_operation.cc',
+        'operations/redirect_imports_operation.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
@@ -54,6 +56,22 @@
       ],
     },
     {
+      'target_name': 'pehacker_unittest_utils',
+      'type': 'static_library',
+      'sources': [
+        'unittest_util.cc',
+        'unittest_util.h',
+      ],
+      'dependencies': [
+        '<(src)/base/base.gyp:base',
+        '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/pdb/pdb.gyp:pdb_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
+      ],
+    },
+    {
       'target_name': 'pehacker_unittests',
       'type': 'executable',
       'sources': [
@@ -61,9 +79,11 @@
         'pehacker_unittests_main.cc',
         'variables_unittest.cc',
         'operations/add_imports_operation_unittest.cc',
+        'operations/redirect_imports_operation_unittest.cc',
       ],
       'dependencies': [
         'pehacker_lib',
+        'pehacker_unittest_utils',
         '<(src)/base/base.gyp:base',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',

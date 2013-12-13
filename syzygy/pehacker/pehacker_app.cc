@@ -31,6 +31,7 @@
 #include "syzygy/pehacker/operation.h"
 #include "syzygy/pehacker/variables.h"
 #include "syzygy/pehacker/operations/add_imports_operation.h"
+#include "syzygy/pehacker/operations/redirect_imports_operation.h"
 
 namespace pehacker {
 
@@ -400,6 +401,8 @@ bool PEHackerApp::ProcessOperation(bool dry_run,
     return true;
   } else if (type == "add_imports") {
     operation_impl.reset(new operations::AddImportsOperation());
+  } else if (type == "redirect_imports") {
+    operation_impl.reset(new operations::RedirectImportsOperation());
   } else {
     LOG(ERROR) << "Unrecognized operation type \"" << type << "\".";
     return false;

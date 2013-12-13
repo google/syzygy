@@ -183,6 +183,7 @@ bool AddImportsOperation::Apply(const TransformPolicyInterface* policy,
 
   // We pass our call through the unittesting seam so that we don't have to
   // actually run the transform on a decomposed image in our tests.
+  VLOG(1) << "Applying \"" << add_imports_tx_.name() << "\" transform.";
   if (!ApplyTransform(&add_imports_tx_,
                       policy,
                       block_graph,

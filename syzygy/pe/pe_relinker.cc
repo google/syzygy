@@ -238,12 +238,15 @@ bool PERelinker::Relink() {
   }
 
   // Write the PDB file.
+  LOG(INFO) << "Writing the PDB.";
   pdb::PdbWriter pdb_writer;
   if (!pdb_writer.Write(output_pdb_path_, pdb_file)) {
     LOG(ERROR) << "Failed to write PDB file \"" << output_pdb_path_.value()
                << "\".";
     return false;
   }
+
+  LOG(INFO) << "PE relinker finished.";
 
   return true;
 }

@@ -196,8 +196,8 @@ another import entry.
       {
         # Redirects all uses of foo.dll:foo to bar.dll:3. Both imports must
         # exist at the time of this operation.
-        'from': { 'module_name': 'foo.dll', 'function_name': 'foo' },
-        'to': { 'module_name': 'bar.dll', 'ordinal': 3 },
+        'src': { 'module_name': 'foo.dll', 'function_name': 'foo' },
+        'dst': { 'module_name': 'bar.dll', 'ordinal': 3 },
       },
       {
         # Another redirect...
