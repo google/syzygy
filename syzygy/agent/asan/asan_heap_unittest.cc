@@ -405,6 +405,14 @@ TEST_F(HeapTest, Walk) {
   ASSERT_TRUE(proxy_.Walk(&entry));
 }
 
+TEST_F(HeapTest, UseHeap) {
+  TestHeapProxy heap_proxy;
+  HANDLE heap_handle = ::GetProcessHeap();
+  heap_proxy.UseHeap(heap_handle);
+  ASSERT_EQ(heap_handle, heap_proxy.heap());
+  ASSERT_TRUE(heap_proxy.Destroy());
+}
+
 TEST_F(HeapTest, SetQueryInformation) {
   ULONG compat_flag = -1;
   unsigned long ret = 0;

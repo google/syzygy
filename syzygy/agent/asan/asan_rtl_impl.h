@@ -37,6 +37,8 @@ void TearDownRtl();
 // Exposes the Asan Rtl functions.
 extern "C" {
 
+HANDLE WINAPI asan_GetProcessHeap();
+
 HANDLE WINAPI asan_HeapCreate(DWORD options,
                               SIZE_T initial_size,
                               SIZE_T maximum_size);

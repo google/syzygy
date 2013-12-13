@@ -18,6 +18,7 @@
 #include "base/callback.h"
 #include "base/logging.h"
 #include "base/debug/alias.h"
+#include "base/memory/scoped_ptr.h"
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/asan_shadow.h"
@@ -31,6 +32,7 @@ using agent::asan::AsanRuntime;
 using agent::asan::HeapProxy;
 
 HANDLE process_heap = NULL;
+scoped_ptr<HeapProxy> asan_process_heap;
 
 // The asan runtime manager.
 AsanRuntime* asan_runtime = NULL;
@@ -48,10 +50,24 @@ namespace asan {
 void SetUpRtl(AsanRuntime* runtime) {
   DCHECK(runtime != NULL);
   asan_runtime = runtime;
-  process_heap = GetProcessHeap();
+  process_heap = ::GetProcessHeap();
+
+  asan_process_heap.reset(new HeapProxy());
+  asan_process_heap->UseHeap(process_heap);
+  asan_runtime->AddHeap(asan_process_heap.get());
 }
 
 void TearDownRtl() {
+  DCHECK_NE(reinterpret_cast<HANDLE>(NULL), process_heap);
+  DCHECK_NE(reinterpret_cast<HeapProxy*>(NULL), asan_process_heap);
+  asan_runtime->RemoveHeap(asan_process_heap.get());
+
+  if (!asan_process_heap->Destroy()) {
+    LOG(ERROR) << "Unable to destroy the process heap.";
+    return;
+  }
+
+  asan_process_heap.reset(NULL);
   process_heap = NULL;
 }
 
@@ -581,6 +597,13 @@ void TestStructure(const T* structure, HeapProxy::AccessMode access_mode) {
 }  // namespace
 
 extern "C" {
+
+HANDLE WINAPI asan_GetProcessHeap() {
+  DCHECK_NE(reinterpret_cast<HeapProxy*>(NULL), asan_process_heap.get());
+  DCHECK_NE(reinterpret_cast<HANDLE>(NULL), asan_process_heap->heap());
+  DCHECK_EQ(process_heap, asan_process_heap->heap());
+  return HeapProxy::ToHandle(asan_process_heap.get());
+}
 
 HANDLE WINAPI asan_HeapCreate(DWORD options,
                               SIZE_T initial_size,

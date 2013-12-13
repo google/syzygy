@@ -49,6 +49,7 @@ const size_t kAllocSize = 13;
 
 // Shorthand for discussing all the asan runtime functions.
 #define ASAN_RTL_FUNCTIONS(F)  \
+    F(WINAPI, HANDLE, GetProcessHeap, ())  \
     F(WINAPI, HANDLE, HeapCreate,  \
       (DWORD options, SIZE_T initial_size, SIZE_T maximum_size))  \
     F(WINAPI, BOOL, HeapDestroy,  \
@@ -462,6 +463,15 @@ void ExpectSpecialMemoryErrorIsDetected(bool expected,
 }
 
 }  // namespace
+
+TEST_F(AsanRtlTest, GetProcessHeap) {
+  HANDLE asan_heap_handle = GetProcessHeapFunction();
+  EXPECT_NE(INVALID_HANDLE_VALUE, asan_heap_handle);
+  HeapProxy* proxy = HeapProxy::FromHandle(asan_heap_handle);
+  EXPECT_NE(reinterpret_cast<HeapProxy*>(NULL), proxy);
+  EXPECT_FALSE(proxy->owns_heap());
+  EXPECT_EQ(::GetProcessHeap(), proxy->heap());
+}
 
 TEST_F(AsanRtlTest, AsanCheckGoodAccess) {
   check_access_fn =

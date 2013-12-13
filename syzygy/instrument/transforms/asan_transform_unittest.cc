@@ -667,6 +667,7 @@ bool EnumKernel32InterceptedFunctionsImports(const PEImage &image,
 
   StringVector* modules = reinterpret_cast<StringVector*>(cookie);
   static const char* kInterceptedFunctions[] = {
+    "GetProcessHeap",
     "ReadFile",
     "WriteFile",
   };

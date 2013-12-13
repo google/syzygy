@@ -16,6 +16,7 @@
 
 #include <algorithm>
 
+#include "base/float_util.h"
 #include "base/logging.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
@@ -89,7 +90,7 @@ bool MemoryRangeIsAccessible(uint8* mem, size_t len) {
 }  // namespace
 
 StackCaptureCache* HeapProxy::stack_cache_ = NULL;
-double HeapProxy::cpu_cycles_per_us_ = 0.0;
+double HeapProxy::cpu_cycles_per_us_ = std::numeric_limits<double>::quiet_NaN();
 // The default quarantine size for a new Heap.
 size_t HeapProxy::default_quarantine_max_size_ = kDefaultQuarantineMaxSize;
 size_t HeapProxy::trailer_padding_size_ = kDefaultTrailerPaddingSize;
@@ -106,7 +107,8 @@ HeapProxy::HeapProxy()
       head_(NULL),
       tail_(NULL),
       quarantine_size_(0),
-      quarantine_max_size_(0) {
+      quarantine_max_size_(0),
+      owns_heap_(false) {
 }
 
 HeapProxy::~HeapProxy() {
@@ -144,9 +146,17 @@ bool HeapProxy::Create(DWORD options,
   if (heap_new == NULL)
     return false;
 
+  owns_heap_ = true;
   heap_ = heap_new;
 
   return true;
+}
+
+void HeapProxy::UseHeap(HANDLE underlying_heap) {
+  DCHECK(heap_ == NULL);
+  SetQuarantineMaxSize(default_quarantine_max_size_);
+  heap_ = underlying_heap;
+  owns_heap_ = false;
 }
 
 bool HeapProxy::Destroy() {
@@ -155,7 +165,7 @@ bool HeapProxy::Destroy() {
   // Flush the quarantine.
   SetQuarantineMaxSize(0);
 
-  if (!::HeapDestroy(heap_))
+  if (owns_heap_ && !::HeapDestroy(heap_))
     return false;
 
   heap_ = NULL;
@@ -281,12 +291,12 @@ void* HeapProxy::ReAlloc(DWORD flags, void* mem, size_t bytes) {
 
 bool HeapProxy::Free(DWORD flags, void* mem) {
   DCHECK(heap_ != NULL);
-  BlockHeader* block = UserPointerToBlockHeader(mem);
-  // The standard allows to call free on a null pointer. ToBlock returns null if
-  // the given pointer is null so we return true here.
-  if (block == NULL)
+
+  // The standard allows to call free on a null pointer.
+  if (mem == NULL)
     return true;
 
+  BlockHeader* block = UserPointerToBlockHeader(mem);
   DCHECK(BlockHeaderToUserPointer(block) == mem);
 
   // Capture the current stack.
@@ -978,7 +988,7 @@ uint64 HeapProxy::GetTimeSinceFree(const BlockHeader* header) {
   // On x86/64, as long as cpu_cycles_per_us_ is 64-bit aligned, the write is
   // atomic, which means we don't care about multiple writers since it's not an
   // update based on the previous value.
-  if (cpu_cycles_per_us_ == 0.0)
+  if (!base::IsFinite(cpu_cycles_per_us_))
     cpu_cycles_per_us_ = GetCpuCyclesPerUs();
   DCHECK_NE(0.0, cpu_cycles_per_us_);
 

@@ -111,6 +111,20 @@ class HeapProxy {
                         unsigned long* return_length);
   // @}
 
+  // Return the handle to the underlying heap.
+  HANDLE heap() { return heap_; }
+
+  // indicates if we own the underlying heap.
+  bool owns_heap() { return owns_heap_; }
+
+  // Initialize this instance with a given heap handle.
+  // @param underlying_heap The underlying heap we should delegate to.
+  // @returns true on success, false otherwise.
+  // @note The caller keeps the ownership of the heap and is responsible for
+  //     releasing it. (@p underlying_heap should have a lifetime exceeding
+  //     this).
+  void UseHeap(HANDLE underlying_heap);
+
   // Get information about a bad access.
   // @param bad_access_info Will receive the information about this access.
   // @returns true if the address belongs to a memory block, false otherwise.
@@ -396,6 +410,9 @@ class HeapProxy {
 
   // The underlying heap we delegate to.
   HANDLE heap_;
+
+  // Indicates if we own the underlying heap.
+  bool owns_heap_;
 
   // A repository of unique stack captures recorded on alloc and free.
   // @note This variable is declared as static to improve the stack cache

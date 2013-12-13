@@ -449,6 +449,12 @@ DWORD FuncWithOffsetOutOfImage(int x, int y) {
   return kArray[x][y + kBigNum];
 }
 
+// Disable the intrinsic versions of the intercepted functions. We need to do
+// this because we expect these functions to be explicitly called so we don't
+// want the intrinsic form to be used.
+#pragma function(memcmp, memcpy, memset)  // NOLINT
+#pragma function(strcat, strcmp, strcpy, strlen)  // NOLINT
+
 // This function should use all the CRT intercepted functions, it's used to make
 // sure that these functions are really intercepted.
 // @note The logic of this function doesn't really make sense, it's only purpose

@@ -820,6 +820,7 @@ bool AsanTransform::PostBlockGraphIteration(
     std::pair<size_t, size_t> override_indexes;
   };
   static const Kernel32ImportRedirect kKernel32HeapRedirects[] = {
+    { "GetProcessHeap" },
     { "HeapCreate" },
     { "HeapDestroy" },
     { "HeapAlloc" },

@@ -50,6 +50,8 @@ typedef grinder::CoverageData::SourceFileCoverageData SourceFileCoverageData;
 typedef grinder::CoverageData::SourceFileCoverageDataMap
     SourceFileCoverageDataMap;
 
+typedef void (WINAPI *AsanSetCallBack)(AsanErrorCallBack);
+
 enum AccessMode {
   ASAN_READ_ACCESS = agent::asan::HeapProxy::ASAN_READ_ACCESS,
   ASAN_WRITE_ACCESS = agent::asan::HeapProxy::ASAN_WRITE_ACCESS,
@@ -73,20 +75,23 @@ void AsanSafeCallback(agent::asan::AsanErrorInfo* info) {
   last_asan_error = *info;
 }
 
+void AsanSafeCallbackWithException(agent::asan::AsanErrorInfo* info) {
+  AsanSafeCallback(info);
+  ::RaiseException(EXCEPTION_ARRAY_BOUNDS_EXCEEDED, 0, 0, NULL);
+}
+
 void ResetAsanErrors() {
   asan_error_count = 0;
 }
 
-void SetAsanCallBack() {
-  typedef void (WINAPI *AsanSetCallBack)(AsanErrorCallBack);
-
+void SetAsanDefaultCallBack(AsanErrorCallBack callback) {
   HMODULE asan_module = GetModuleHandle(L"syzyasan_rtl.dll");
   DCHECK(asan_module != NULL);
   AsanSetCallBack set_callback = reinterpret_cast<AsanSetCallBack>(
       ::GetProcAddress(asan_module, "asan_SetCallBack"));
   DCHECK(set_callback != NULL);
 
-  set_callback(AsanSafeCallback);
+  set_callback(callback);
 };
 
 class TestingProfileGrinder : public grinder::grinders::ProfileGrinder {
@@ -223,7 +228,8 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
   }
 
   void AsanErrorCheckTestDll() {
-    ASSERT_NO_FATAL_FAILURE(SetAsanCallBack());
+    ASSERT_NO_FATAL_FAILURE(SetAsanDefaultCallBack(
+        AsanSafeCallbackWithException));
 
     AsanErrorCheck(testing::kAsanRead8BufferOverflowTestId,
         HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1);
@@ -281,6 +287,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
   }
 
   void AsanErrorCheckInterceptedFunctions() {
+    ASSERT_NO_FATAL_FAILURE(SetAsanDefaultCallBack(AsanSafeCallback));
     AsanErrorCheck(testing::kAsanMemsetOverflow, HEAP_BUFFER_OVERFLOW,
         ASAN_WRITE_ACCESS, 1);
     AsanErrorCheck(testing::kAsanMemsetUnderflow, HEAP_BUFFER_UNDERFLOW,
