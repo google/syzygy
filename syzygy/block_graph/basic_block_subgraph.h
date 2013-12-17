@@ -170,6 +170,9 @@ class BasicBlockSubGraph {
 
   // Our block ID allocator.
   BlockId next_block_id_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(BasicBlockSubGraph);
 };
 
 }  // namespace block_graph

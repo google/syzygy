@@ -38,7 +38,8 @@ class InliningTransform : public SubGraphTransformInterface {
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
   typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
-  typedef std::map<BlockGraph::Block*, BasicBlockSubGraph> SubGraphCache;
+  typedef scoped_ptr<BasicBlockSubGraph> ScopedSubgraph;
+  typedef std::map<BlockGraph::Block*, ScopedSubgraph> SubGraphCache;
 
   // Constructor.
   InliningTransform() { }

@@ -506,10 +506,16 @@ bool InliningTransform::TransformBasicBlockSubGraph(
       // Look in the subgraph cache for an already decomposed subgraph.
       SubGraphCache::iterator look = subgraph_cache_.find(callee);
       if (look != subgraph_cache_.end()) {
-        callee_subgraph = &look->second;
+        callee_subgraph = look->second.get();
+        DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), callee_subgraph);
       } else {
-        // Not in cache, decompose it.
-        callee_subgraph = &subgraph_cache_[callee];
+        // Not in cache, create a new subgraph.
+        ScopedSubgraph& scoped = subgraph_cache_[callee];
+        scoped.reset(new BasicBlockSubGraph());
+        callee_subgraph = scoped.get();
+        DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), callee_subgraph);
+
+        // Decompose it.
         if (!DecomposeToBasicBlock(callee, callee_subgraph)) {
           subgraph_cache_.erase(callee);
           continue;

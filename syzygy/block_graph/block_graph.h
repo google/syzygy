@@ -345,6 +345,8 @@ class BlockGraph {
 
   // A string table used to intern strings.
   core::StringTable string_table_;
+
+  DISALLOW_COPY_AND_ASSIGN(BlockGraph);
 };
 
 // The BlockGraph maintains a list of sections, and each block belongs
