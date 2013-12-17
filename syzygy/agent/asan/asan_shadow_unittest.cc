@@ -110,26 +110,46 @@ TEST(ShadowTest, GetNullTerminatedArraySize) {
   Shadow::Poison(aligned_test_array, aligned_array_length,
       Shadow::kHeapNonAccessibleByteMask);
 
-  size_t sizes_to_test[] = { 4, 7, 11, 15, 21, 87 };
+  size_t sizes_to_test[] = { 4, 7, 12, 15, 21, 87, 88 };
 
   for (size_t i = 0; i < arraysize(sizes_to_test); ++i) {
     Shadow::Unpoison(aligned_test_array, sizes_to_test[i]);
-    aligned_test_array[sizes_to_test[i] - 1] = 0;
     size_t size = 0;
-    EXPECT_TRUE(Shadow::GetNullTerminatedArraySize(aligned_test_array,
-                                                   &size,
-                                                   0U));
+
+    // Put a null byte at the end of the array and call the
+    // GetNullTerminatedArraySize function with a 1-byte template argument. This
+    // simulates the use of this function for a null terminated string.
+    aligned_test_array[sizes_to_test[i] - 1] = 0;
+    EXPECT_TRUE(Shadow::GetNullTerminatedArraySize<uint8>(aligned_test_array,
+                                                          0U,
+                                                          &size));
     EXPECT_EQ(sizes_to_test[i], size);
+
+    if (sizes_to_test[i] % sizeof(uint16) == 0) {
+      // Call the GetNullTerminatedArraySize with a 2-byte template argument.
+      // As there is only one null byte at the end of the array we expect the
+      // function to return false.
+      EXPECT_FALSE(Shadow::GetNullTerminatedArraySize<uint16>(
+          aligned_test_array, 0U, &size));
+      EXPECT_EQ(sizes_to_test[i], size);
+      // Put a second null byte at the end of the array and call the function
+      // again, this time we expect the function to succeed.
+      aligned_test_array[sizes_to_test[i] - sizeof(uint16)] = 0;
+      EXPECT_TRUE(Shadow::GetNullTerminatedArraySize<uint16>(
+          aligned_test_array, 0U, &size));
+      EXPECT_EQ(sizes_to_test[i], size);
+      aligned_test_array[sizes_to_test[i] - sizeof(uint16)] = kMarkerValue;
+    }
     aligned_test_array[sizes_to_test[i] - 1] = kMarkerValue;
 
     aligned_test_array[sizes_to_test[i]] = kMarkerValue;
-    EXPECT_FALSE(Shadow::GetNullTerminatedArraySize(aligned_test_array,
-                                                    &size,
-                                                    0U));
+    EXPECT_FALSE(Shadow::GetNullTerminatedArraySize<uint8>(aligned_test_array,
+                                                           0U,
+                                                           &size));
     EXPECT_EQ(sizes_to_test[i], size);
-    EXPECT_TRUE(Shadow::GetNullTerminatedArraySize(aligned_test_array,
-                                                   &size,
-                                                   sizes_to_test[i]));
+    EXPECT_TRUE(Shadow::GetNullTerminatedArraySize<uint8>(aligned_test_array,
+                                                          sizes_to_test[i],
+                                                          &size));
 
     Shadow::Poison(aligned_test_array, common::AlignUp(sizes_to_test[i],
        Shadow::kShadowGranularity), Shadow::kHeapNonAccessibleByteMask);

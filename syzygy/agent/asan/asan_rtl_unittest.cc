@@ -87,6 +87,7 @@ const size_t kAllocSize = 13;
     F(_cdecl, size_t, strcspn, (const char* str1, const char* str2))  \
     F(_cdecl, size_t, strlen, (const char* str))  \
     F(_cdecl, const char*, strrchr, (const char* str, int character))  \
+    F(_cdecl, const wchar_t*, wcsrchr, (const wchar_t* str, int character))  \
     F(_cdecl, int, strcmp, (const char* str1, const char* str2))  \
     F(_cdecl, const char*, strpbrk, (const char* str1, const char* str2))  \
     F(_cdecl, const char*, strstr, (const char* str1, const char* str2))  \
@@ -1188,6 +1189,41 @@ TEST_F(AsanRtlTest, AsanCheckStrrchr) {
   str[str_len] = 'a';
   str[str_len + 1] = 0;
   EXPECT_EQ(strrchr(str.get(), 'c'), strrchrFunction(str.get(), 'c'));
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  ResetLog();
+}
+
+TEST_F(AsanRtlTest, AsanCheckWcsrchr) {
+  const wchar_t* wstr_value = L"test_wcsrchr";
+  ScopedASanAlloc<wchar_t> wstr(this, wcslen(wstr_value) + 1);
+  ASSERT_TRUE(wstr != NULL);
+  wcscpy(wstr.get(), wstr_value);
+
+  SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
+  memory_error_detected = false;
+
+  EXPECT_EQ(wcsrchr(wstr.get(), L'c'), wcsrchrFunction(wstr.get(), L'c'));
+  EXPECT_FALSE(memory_error_detected);
+  EXPECT_EQ(wcsrchr(wstr.get(), 'z'), wcsrchrFunction(wstr.get(), 'z'));
+  EXPECT_FALSE(memory_error_detected);
+
+  // wstr[-1] points to the block header, we need to make sure that it doesn't
+  // contain the value \0.
+  uint8 last_block_header_byte = wstr[-1];
+  wstr[-1] = L'a';
+  EXPECT_EQ(wcsrchr(wstr.get() - 1, L'c'),
+            wcsrchrFunction(wstr.get() - 1, L'c'));
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  wstr[-1] = last_block_header_byte;
+  ResetLog();
+
+  memory_error_detected = false;
+  size_t str_len = wcslen(wstr_value);
+  wstr[str_len] = L'a';
+  wstr[str_len + 1] = 0;
+  EXPECT_EQ(wcsrchr(wstr.get(), L'c'), wcsrchrFunction(wstr.get(), L'c'));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   ResetLog();

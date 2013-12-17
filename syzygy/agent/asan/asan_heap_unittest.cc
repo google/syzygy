@@ -804,12 +804,30 @@ TEST_F(HeapTest, GetNullTerminatedArraySize) {
     ASSERT_TRUE(mem != NULL);
     strcpy(static_cast<char*>(mem), test_strings[i]);
     size_t size = 0;
-    EXPECT_TRUE(Shadow::GetNullTerminatedArraySize(mem, &size, 0U));
+    EXPECT_TRUE(Shadow::GetNullTerminatedArraySize<char>(mem, 0U, &size));
     EXPECT_EQ(string_size, size - 1);
     mem[string_size] = 'a';
     mem[string_size + 1] = 0;
-    EXPECT_FALSE(Shadow::GetNullTerminatedArraySize(mem, &size, 0U));
+    EXPECT_FALSE(Shadow::GetNullTerminatedArraySize<char>(mem, 0U, &size));
     EXPECT_EQ(string_size, size - 1);
+    ASSERT_TRUE(proxy_.Free(0, mem));
+  }
+
+  const wchar_t* test_wstrings[] = { L"", L"abc", L"abcde", L"abcdefghijklmn" };
+
+  for (size_t i = 0; i < arraysize(test_wstrings); ++i) {
+    size_t string_size = wcslen(test_wstrings[i]);
+    wchar_t* mem = reinterpret_cast<wchar_t*>(
+        proxy_.Alloc(0, (string_size + 1) * sizeof(wchar_t)));
+    ASSERT_TRUE(mem != NULL);
+    wcscpy(static_cast<wchar_t*>(mem), test_wstrings[i]);
+    size_t size = 0;
+    EXPECT_TRUE(Shadow::GetNullTerminatedArraySize<wchar_t>(mem, 0U, &size));
+    EXPECT_EQ((string_size + 1) * sizeof(wchar_t) - 1, size - 1);
+    mem[string_size] = L'a';
+    mem[string_size + 1] = 0;
+    EXPECT_FALSE(Shadow::GetNullTerminatedArraySize<wchar_t>(mem, 0U, &size));
+    EXPECT_EQ((string_size + 1) * sizeof(wchar_t) - 1, size - 1);
     ASSERT_TRUE(proxy_.Free(0, mem));
   }
 }

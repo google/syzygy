@@ -841,14 +841,13 @@ const void* __cdecl asan_memchr(const unsigned char* ptr,
   return memchr(ptr, value, num);
 }
 
-size_t __cdecl asan_strcspn(const char* str1,
-                            const char* str2) {
+size_t __cdecl asan_strcspn(const char* str1, const char* str2) {
   size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str1, &size, 0U)) {
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str1, 0U, &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
                     HeapProxy::ASAN_READ_ACCESS);
   }
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str2, &size, 0U)) {
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str2, 0U, &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
                     HeapProxy::ASAN_READ_ACCESS);
   }
@@ -857,7 +856,7 @@ size_t __cdecl asan_strcspn(const char* str1,
 
 size_t __cdecl asan_strlen(const char* str) {
   size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str, &size, 0U)) {
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str, 0U, &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str) + size,
                     HeapProxy::ASAN_READ_ACCESS);
     return strlen(str);
@@ -867,20 +866,31 @@ size_t __cdecl asan_strlen(const char* str) {
 
 const char* __cdecl asan_strrchr(const char* str, int character) {
   size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str, &size, 0U)) {
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str, 0U, &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str) + size,
                     HeapProxy::ASAN_READ_ACCESS);
   }
   return strrchr(str, character);
 }
 
+const wchar_t* asan_wcsrchr(const wchar_t* str, wchar_t character) {
+  size_t size = 0;
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize<wchar_t>(str,
+                                                                0U,
+                                                                &size)) {
+    ReportBadAccess(reinterpret_cast<const uint8*>(str) + size,
+                    HeapProxy::ASAN_READ_ACCESS);
+  }
+  return wcsrchr(str, character);
+}
+
 int __cdecl asan_strcmp(const char* str1, const char* str2) {
   size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str1, &size, 0U)) {
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str1, 0U, &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
                     HeapProxy::ASAN_READ_ACCESS);
   }
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str2, &size, 0U)) {
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str2, 0U, &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
                     HeapProxy::ASAN_READ_ACCESS);
   }
@@ -889,11 +899,11 @@ int __cdecl asan_strcmp(const char* str1, const char* str2) {
 
 const char* __cdecl asan_strpbrk(const char* str1, const char* str2) {
   size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str1, &size, 0U)) {
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str1, 0U, &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
                     HeapProxy::ASAN_READ_ACCESS);
   }
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str2, &size, 0U)) {
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str2, 0U, &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
                     HeapProxy::ASAN_READ_ACCESS);
   }
@@ -902,11 +912,11 @@ const char* __cdecl asan_strpbrk(const char* str1, const char* str2) {
 
 const char* __cdecl asan_strstr(const char* str1, const char* str2) {
   size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str1, &size, 0U)) {
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str1, 0U, &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
                     HeapProxy::ASAN_READ_ACCESS);
   }
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str2, &size, 0U)) {
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str2, 0U, &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
                     HeapProxy::ASAN_READ_ACCESS);
   }
@@ -915,11 +925,11 @@ const char* __cdecl asan_strstr(const char* str1, const char* str2) {
 
 size_t __cdecl asan_strspn(const char* str1, const char* str2) {
   size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str1, &size, 0U)) {
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str1, 0U, &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
                     HeapProxy::ASAN_READ_ACCESS);
   }
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize(str2, &size, 0U)) {
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str2, 0U, &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
                     HeapProxy::ASAN_READ_ACCESS);
   }
@@ -929,9 +939,9 @@ size_t __cdecl asan_strspn(const char* str1, const char* str2) {
 char* __cdecl asan_strncpy(char* destination, const char* source, size_t num) {
   if (num != 0U) {
     size_t src_size = 0;
-    if (!agent::asan::Shadow::GetNullTerminatedArraySize(source,
-                                                         &src_size,
-                                                         num) &&
+    if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(source,
+                                                               num,
+                                                               &src_size) &&
         src_size <= num) {
       ReportBadAccess(reinterpret_cast<const uint8*>(source) + src_size,
                       HeapProxy::ASAN_READ_ACCESS);
@@ -948,17 +958,17 @@ char* __cdecl asan_strncpy(char* destination, const char* source, size_t num) {
 char* __cdecl asan_strncat(char* destination, const char* source, size_t num) {
   if (num != 0U) {
     size_t src_size = 0;
-    if (!agent::asan::Shadow::GetNullTerminatedArraySize(source,
-                                                         &src_size,
-                                                         num) &&
+    if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(source,
+                                                               num,
+                                                               &src_size) &&
         src_size <= num) {
       ReportBadAccess(reinterpret_cast<const uint8*>(source) + src_size,
                       HeapProxy::ASAN_READ_ACCESS);
     }
     size_t dst_size = 0;
-    if (!agent::asan::Shadow::GetNullTerminatedArraySize(destination,
-                                                         &dst_size,
-                                                         0U)) {
+    if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(destination,
+                                                               0U,
+                                                               &dst_size)) {
       ReportBadAccess(reinterpret_cast<const uint8*>(destination) + dst_size,
                       HeapProxy::ASAN_WRITE_ACCESS);
     } else {

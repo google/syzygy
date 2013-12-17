@@ -31,6 +31,7 @@
         'asan_runtime.h',
         'asan_shadow.cc',
         'asan_shadow.h',
+        'asan_shadow_impl.h',
         'nested_heap.cc',
         'nested_heap.h',
         'stack_capture.cc',

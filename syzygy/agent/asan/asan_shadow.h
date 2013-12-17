@@ -19,6 +19,7 @@
 #include <string>
 
 #include "base/basictypes.h"
+#include "base/logging.h"
 
 namespace agent {
 namespace asan {
@@ -26,9 +27,9 @@ namespace asan {
 // An all-static class that manages the ASAN shadow memory.
 class Shadow {
  public:
-   // The granularity of the shadow memory.
-   static const size_t kShadowGranularityLog = 3;
-   static const size_t kShadowGranularity = 1 << kShadowGranularityLog;
+  // The granularity of the shadow memory.
+  static const size_t kShadowGranularityLog = 3;
+  static const size_t kShadowGranularity = 1 << kShadowGranularityLog;
 
   // Set up the shadow memory.
   static void SetUp();
@@ -89,20 +90,24 @@ class Shadow {
   //     information.
   static void AppendShadowArrayText(const void* addr, std::string* output);
 
-  // Returns true iff the array starting at @p addr is null terminated within a
-  // contiguous accessible region of memory. When returning true the length of
-  // the null-terminated array (including the trailing zero) will be returned
-  // via @p size. When returning false the offset of the invalid access will be
-  // returned via @p size.
+  // Returns true iff the array starting at @p addr is terminated with
+  // sizeof(@p type) null bytes within a contiguous accessible region of memory.
+  // When returning true the length of the null-terminated array (including the
+  // trailings zero) will be returned via @p size. When returning false the
+  // offset of the invalid access will be returned via @p size.
+  // @tparam type The type of the null terminated value, this determines the
+  //     numbers of null bytes that we want to have at the end of the array.
   // @param addr The starting address of the array that we want to check.
-  // @param size Will receive the size of the null terminated array or the
-  //     offset of the invalid access.
-  // @param max_size The maximum length to check. Ignored if set to zero.
+  // @param max_size The maximum length to check (in bytes). Ignored if set to
+  //     zero.
+  // @param size Will receive the size (in bytes) of the array terminated with
+  //     sizeof(type) bytes or the offset of the invalid access.
   // @returns true iff the array starting at @p addr is null terminated within a
   //     contiguous accessible region of memory, false otherwise.
+  template<typename type>
   static bool GetNullTerminatedArraySize(const void* addr,
-                                         size_t* size,
-                                         size_t max_size);
+                                         size_t max_size,
+                                         size_t* size);
 
   // Clones a shadow memory range from one location to another.
   // @pre src_pointer mod 8 == 0.
@@ -133,6 +138,9 @@ class Shadow {
   static const size_t kShadowSize = 1 << (31 - kShadowGranularityLog);
   static uint8 shadow_[kShadowSize];
 };
+
+// Bring in the implementation of the templated functions.
+#include "syzygy/agent/asan/asan_shadow_impl.h"
 
 }  // namespace asan
 }  // namespace agent

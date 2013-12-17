@@ -110,6 +110,8 @@ size_t __cdecl asan_strlen(const char* str);
 const char* __cdecl asan_strrchr(const char* str,
                                  int character);
 
+const wchar_t* asan_wcsrchr(const wchar_t* str, wchar_t character);
+
 int __cdecl asan_strcmp(const char* str1,
                         const char* str2);
 
