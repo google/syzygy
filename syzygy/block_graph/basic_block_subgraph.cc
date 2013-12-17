@@ -360,7 +360,7 @@ bool BasicBlockSubGraph::ToString(std::string* buf) const {
     if (bb == NULL)
       continue;
 
-    out << "bb" << bb->offset() << ":" << std::endl;
+    out << "bb" << bb->id() << ":" << std::endl;
 
     // Output instructions.
     BasicCodeBlock::Instructions::const_iterator it =
@@ -381,7 +381,7 @@ bool BasicBlockSubGraph::ToString(std::string* buf) const {
     for (; succ != bb->successors().end(); ++succ) {
       if (succ->reference().basic_block()) {
         out << succ->ToString()
-            << " bb" << succ->reference().basic_block()->offset()
+            << " bb" << succ->reference().basic_block()->id()
             << "  ";
       } else if (succ->reference().block()) {
         out << succ->ToString()
