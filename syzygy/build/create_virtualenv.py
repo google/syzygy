@@ -69,6 +69,9 @@ def _CreateVirtualEnv(base_dir):
 
     dll_path = os.path.join(os.path.dirname(sys.executable), 'pywintypes26.dll')
     shutil.copy(dll_path, script_dir)
+
+    dll_path = os.path.join(os.path.dirname(sys.executable), 'pythoncom26.dll')
+    shutil.copy(dll_path, script_dir)
   except Exception:
     _LOGGER.exception('Unable to copy python DLL')
     raise VirtualEnvCreationError('Unable to copy python DLL')
