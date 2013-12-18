@@ -89,7 +89,9 @@ TEST_F(RandomOrderGeneratorTest, ReorderData) {
       if (name == ".tls" || name == ".rsrc") {
         EXPECT_EQ(1U, order_.sections[i].blocks.size());
       } else {
-        ExpectDifferentOrder(section, order_.sections[i].blocks);
+        // In VS2013 the .reloc section may contain only one block.
+        if (order_.sections[i].blocks.size() > 1)
+          ExpectDifferentOrder(section, order_.sections[i].blocks);
       }
     } else {
       ExpectSameOrder(section, order_.sections[i].blocks);
