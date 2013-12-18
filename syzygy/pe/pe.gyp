@@ -76,6 +76,7 @@
         'coff_relinker.h',
         'coff_transform_policy.cc',
         'coff_transform_policy.h',
+        'cvinfo_ext.h',
         'dia_browser.cc',
         'dia_browser.h',
         'dia_util.cc',

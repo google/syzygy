@@ -15,12 +15,12 @@
 #include "syzygy/experimental/pdb_dumper/pdb_module_info_stream_dumper.h"
 
 #include "syzygy/common/align.h"
-#include "syzygy/experimental/pdb_dumper/cvinfo_ext.h"
 #include "syzygy/experimental/pdb_dumper/pdb_dump_util.h"
 #include "syzygy/experimental/pdb_dumper/pdb_symbol_record_dumper.h"
 #include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_stream.h"
 #include "syzygy/pdb/pdb_symbol_record.h"
+#include "syzygy/pe/cvinfo_ext.h"
 
 namespace pdb {
 

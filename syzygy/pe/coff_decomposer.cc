@@ -18,8 +18,8 @@
 #include "base/strings/string_split.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/common/align.h"
+#include "syzygy/pe/cvinfo_ext.h"
 #include "syzygy/pe/pe_utils.h"
-#include "third_party/cci/files/cvinfo.h"
 
 namespace pe {
 
@@ -230,12 +230,8 @@ bool ParseDebugSymbols(size_t start, size_t size, Block* block) {
       case cci::S_UDT:
         break;
 
-      // These correspond to S_COMPILE3 and S_MSTOOLENV_V3, but they aren't
-      // defined in the version of cvinfo that we are using.
-      // TODO(chrisha): Move cvinfo_ext.h out of experimental so that we can
-      //     refer to these newly defined symbol types.
-      case 0x113C:
-      case 0x113D:
+      case cci::S_COMPILE3:
+      case cci::S_MSTOOLENV_V3:
         break;
 
       // These are unknown symbol types, but currently seen. From inspection

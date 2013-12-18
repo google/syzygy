@@ -16,11 +16,11 @@
 
 #include "base/stringprintf.h"
 #include "syzygy/common/align.h"
-#include "syzygy/experimental/pdb_dumper/cvinfo_ext.h"
 #include "syzygy/experimental/pdb_dumper/pdb_dump_util.h"
 #include "syzygy/experimental/pdb_dumper/pdb_leaf.h"
 #include "syzygy/pdb/pdb_stream.h"
 #include "syzygy/pdb/pdb_util.h"
+#include "syzygy/pe/cvinfo_ext.h"
 
 namespace pdb {
 

@@ -14,8 +14,8 @@
 //
 // This header is an extension to the cvinfo.h file from the CCI project.
 
-#ifndef SYZYGY_EXPERIMENTAL_PDB_DUMPER_CVINFO_EXT_H_
-#define SYZYGY_EXPERIMENTAL_PDB_DUMPER_CVINFO_EXT_H_
+#ifndef SYZYGY_PE_CVINFO_EXT_H_
+#define SYZYGY_PE_CVINFO_EXT_H_
 
 #include <windows.h>
 
@@ -510,4 +510,4 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(CompileSym2, 23);
 
 #pragma pack(pop)
 
-#endif  // SYZYGY_EXPERIMENTAL_PDB_DUMPER_CVINFO_EXT_H_
+#endif  // SYZYGY_PE_CVINFO_EXT_H_

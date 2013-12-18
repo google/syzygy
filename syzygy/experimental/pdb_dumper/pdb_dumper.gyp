@@ -21,7 +21,6 @@
       'target_name': 'pdb_dumper_lib',
       'type': 'static_library',
       'sources': [
-        'cvinfo_ext.h',
         'pdb_dump.cc',
         'pdb_dump.h',
         'pdb_dump_util.cc',
@@ -39,6 +38,7 @@
         '<(src)/base/base.gyp:base',
         '<(src)/sawbuck/common/common.gyp:common',
         '<(src)/syzygy/pdb/pdb.gyp:pdb_lib',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
         '<(src)/syzygy/common/common.gyp:syzygy_version',
       ],
     },
