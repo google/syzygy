@@ -1185,7 +1185,7 @@ bool Decomposer::CreateLabelsForFunction(IDiaSymbol* function,
     // Since VS 2012 there's some new symbols exposed by DIA which are not
     // handled at the moment.
     // TODO(sebmarchand): Handle those symbols.
-    if (sym_tag == SymTagInlineSite)
+    if (sym_tag == SymTagInlineSite || sym_tag == SymTagCallee)
       continue;
 #endif
 

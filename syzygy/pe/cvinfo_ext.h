@@ -29,6 +29,12 @@ namespace Microsoft_Cci_Pdb {
 const uint16 S_COMPILE3 = 0x113C;
 const uint16 S_MSTOOLENV_V3 = 0x113D;
 
+// Since VS2013 it seems that the compiler isn't emitting the same value as
+// those in cvinfo.h for the S_GPROC32 and S_LPROC32 types, the following 2
+// values should be used instead.
+const uint16 S_LPROC32_VS2013 = 0x1146;
+const uint16 S_GPROC32_VS2013 = 0x1147;
+
 }  // namespace Microsoft_Cci_Pdb
 
 // This macro allow the easy construction of switch statements over the symbol
@@ -140,7 +146,9 @@ const uint16 S_MSTOOLENV_V3 = 0x113D;
     decl(S_FRAMECOOKIE, FrameCookie) \
     decl(S_DISCARDED, DiscardedSym) \
     decl(S_COMPILE3, CompileSym2) \
-    decl(S_MSTOOLENV_V3, Unknown)
+    decl(S_MSTOOLENV_V3, Unknown) \
+    decl(S_LPROC32_VS2013, ProcSym32) \
+    decl(S_GPROC32_VS2013, ProcSym32)
 
 // This macro allows the easy construction of switch statements over the
 // numeric leaves types.

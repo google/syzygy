@@ -47,14 +47,13 @@ const char kRelocsBlockName[] = "<relocs>";
 
 const size_t kDebugSubsectionAlignment = 4;
 
-// Retrieve the relocation type and size for the specified COFF
-// relocation.
+// Retrieve the relocation type and size for the specified COFF relocation.
 //
 // @param reloc the relocation.
 // @param ref_type where to store the resulting reference type.
 // @param ref_size where to store the resulting reference size.
-// @returns true on success, or false if the information cannot be
-//     determined for the specified relocation.
+// @returns true on success, or false if the information cannot be determined
+//     for the specified relocation.
 bool GetRelocationTypeAndSize(const IMAGE_RELOCATION& reloc,
                               ReferenceType* ref_type,
                               BlockGraph::Size* ref_size) {
@@ -84,9 +83,8 @@ bool GetRelocationTypeAndSize(const IMAGE_RELOCATION& reloc,
     case IMAGE_REL_I386_SECREL7:
       *ref_type = BlockGraph::RELOC_SECTION_OFFSET_REF;
       // TODO(chrisha): This is actually a 7-bit offset;
-      // BlockGraph::Reference only represents byte sizes. We pass
-      // as a 1-byte reference as there are no actual 8-bit
-      // references in COFF files.
+      // BlockGraph::Reference only represents byte sizes. We pass as a 1-byte
+      // reference as there are no actual 8-bit references in COFF files.
       *ref_size = 1;
       return true;
     case IMAGE_REL_I386_REL32:
@@ -94,8 +92,8 @@ bool GetRelocationTypeAndSize(const IMAGE_RELOCATION& reloc,
       *ref_size = sizeof(uint32);
       return true;
     default:
-      // Ignore other types; they are either explicitly mentioned as
-      // unsupported in the specifications, or for managed code.
+      // Ignore other types; they are either explicitly mentioned as unsupported
+      // in the specifications, or for managed code.
       LOG(WARNING) << "Unexpected COFF relocation type.";
       return false;
   }
@@ -121,19 +119,19 @@ bool ReadRelocationValue(Block* source,
   return true;
 }
 
-// Parse a CodeView debug symbol subsection, adding references and
-// attributes as needed to @p block.
+// Parse a CodeView debug symbol subsection, adding references and attributes as
+// needed to @p block.
 //
-// @param start the offset to the beginning of the contents (excluding type
-//     and length) of the subsection inside @p block.
+// @param start the offset to the beginning of the contents (excluding type and
+//     length) of the subsection inside @p block.
 // @param size the size of the subsection.
 // @param block the debug section block.
 // @returns true on success, or false on failure.
 bool ParseDebugSymbols(size_t start, size_t size, Block* block) {
   DCHECK(block != NULL);
 
-  // We assume that functions do not nest, hence dependent debug symbols
-  // should all refer to the last function symbol, whose block is stored in
+  // We assume that functions do not nest, hence dependent debug symbols should
+  // all refer to the last function symbol, whose block is stored in
   // current_func.
   size_t section_index = block->section();
   Block* current_func = NULL;
@@ -149,7 +147,9 @@ bool ParseDebugSymbols(size_t start, size_t size, Block* block) {
 
     switch (dsym->rectyp) {
       case cci::S_GPROC32:
-      case cci::S_LPROC32: {
+      case cci::S_LPROC32:
+      case cci::S_GPROC32_VS2013:
+      case cci::S_LPROC32_VS2013: {
         ConstTypedBlock<cci::ProcSym32> proc;
         if (!proc.Init(cursor, block)) {
           LOG(ERROR) << "Unable to read debug procedure (" << dsym->rectyp
@@ -171,8 +171,8 @@ bool ParseDebugSymbols(size_t start, size_t size, Block* block) {
         }
         current_func = reloc_ref.referenced();
 
-        // These are function-relative offsets; we can use section offsets
-        // as we assume function-level linking.
+        // These are function-relative offsets; we can use section offsets as we
+        // assume function-level linking.
         if (!block->SetReference(cursor + offsetof(cci::ProcSym32, dbgStart),
                                  Reference(BlockGraph::SECTION_OFFSET_REF,
                                            sizeof(proc->dbgStart),
@@ -256,11 +256,11 @@ bool ParseDebugSymbols(size_t start, size_t size, Block* block) {
   return true;
 }
 
-// Parse a CodeView debug line number subsection, adding references as
-// needed to @p block.
+// Parse a CodeView debug line number subsection, adding references as needed
+// to @p block.
 //
-// @param start the offset to the beginning of the contents (excluding type
-//     and length) of the subsection inside @p block.
+// @param start the offset to the beginning of the contents (excluding type and
+//     length) of the subsection inside @p block.
 // @param size the size of the subsection.
 // @param block the debug section block.
 // @returns true on success, or false on failure.
@@ -278,8 +278,8 @@ bool ParseDebugLines(size_t start, size_t size, Block* block) {
     return false;
   }
 
-  // Get the existing relocation reference that points to the function
-  // block these lines are for.
+  // Get the existing relocation reference that points to the function block
+  // these lines are for.
   Reference reloc_ref;
   if (!block->GetReference(cursor + offsetof(cci::CV_LineSection, off),
                            &reloc_ref)) {
@@ -312,8 +312,8 @@ bool ParseDebugLines(size_t start, size_t size, Block* block) {
   DCHECK_GE(lines.ElementCount(), line_file->count);
 
   for (size_t i = 0; i < line_file->count; ++i) {
-    // This should be a function-relative offset; we can use a section
-    // offset as we assume function-level linking.
+    // This should be a function-relative offset; we can use a section offset as
+    // we assume function-level linking.
     Reference ref(BlockGraph::SECTION_OFFSET_REF, sizeof(lines[i].offset),
                   func, lines[i].offset, lines[i].offset);
     if (!block->SetReference(cursor + offsetof(cci::CV_Line, offset), ref)) {
@@ -328,8 +328,7 @@ bool ParseDebugLines(size_t start, size_t size, Block* block) {
   return true;
 }
 
-// Parse all CodeView debug subsections in the specified debug section
-// block.
+// Parse all CodeView debug subsections in the specified debug section block.
 //
 // @param block the debug section block.
 // @returns true on success, or false on failure.
@@ -470,8 +469,8 @@ bool CoffDecomposer::CreateBlocksAndReferencesFromHeaders() {
     return false;
   }
 
-  // Create a reference for the section and relocation pointers in
-  // each section header.
+  // Create a reference for the section and relocation pointers in each section
+  // header.
   FileOffsetAddress section_headers_start(
       sizeof(*file_header) + file_header->SizeOfOptionalHeader);
   size_t num_sections = image_file_.file_header()->NumberOfSections;
@@ -533,8 +532,8 @@ bool CoffDecomposer::CreateBlocksAndReferencesFromSymbolAndStringTables() {
   for (size_t i = 0; i < num_symbols; i += 1 + symbol->NumberOfAuxSymbols) {
     symbol = image_file_.symbol(i);
 
-    // Ignore external symbols (no references to blocks) and other
-    // kinds of non-reference symbols.
+    // Ignore external symbols (no references to blocks) and other kinds of
+    // non-reference symbols.
     if (symbol->SectionNumber <= 0)
       continue;
 
@@ -561,8 +560,8 @@ bool CoffDecomposer::CreateBlocksAndReferencesFromSymbolAndStringTables() {
       return false;
     }
 
-    // Section definitions for associative COMDAT sections require an
-    // additional section reference within the auxiliary symbol.
+    // Section definitions for associative COMDAT sections require an additional
+    // section reference within the auxiliary symbol.
     if (symbol->StorageClass == IMAGE_SYM_CLASS_STATIC &&
         symbol->Type >> 4 != IMAGE_SYM_DTYPE_FUNCTION &&
         symbol->NumberOfAuxSymbols == 1) {
