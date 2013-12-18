@@ -759,9 +759,14 @@ bool MergeContext::GenerateBlockLayout(const BasicBlockOrdering& order) {
             ComputeRequiredSuccessorSize(info, start_offset, successor);
         start_offset += new_size;
 
+        // Keep the biggest offset used by this jump. A jump may temporarily
+        // appear shorter when the start offset of this basic block has moved
+        // but the offset of the target basic block still needs to be updated
+        // within this iteration.
+        new_size = std::max(successor.size, new_size);
+
         // Check whether we're expanding this successor.
         if (new_size != successor.size) {
-          DCHECK_LT(successor.size, new_size);
           successor.size = new_size;
           expanded_successor = true;
         }

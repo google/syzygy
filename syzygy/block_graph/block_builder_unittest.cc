@@ -44,6 +44,31 @@ const uint8 kNop3[3] = { 0x66, 0x66, 0x90 };
 const uint8 kNop7[7] = { 0x0F, 0x1F, 0x80, 0x00, 0x00, 0x00, 0x00 };
 const uint8 kNop9[9] = { 0x66, 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
+// The BlockInfo describes the minimal information needed to represent a single
+// basic block within a fake flow-graph. An array of BlockInfos represents the
+// full flow-graph. Fields |succ1| and |succ2| are indexes within the array.
+struct BlockInfo {
+  uint8 size;
+  uint8 succ1;
+  uint8 succ2;
+};
+
+const uint8 kNoSucc = -1;
+
+// The following flow-graph was produced by fuzzing. It produced a corner case
+// when computing basic block layout.
+const BlockInfo kFixPointBasicBlockLayoutCode[] = {
+    {18, 5, 6}, {26, 2, 7}, {10, 13, 14}, {10, 4, 35}, {17, 36, 37},
+    {12, 1, kNoSucc}, {8, 1, kNoSucc}, {5, 2, 8}, {28, 9, 11}, {2, 10, 12},
+    {10, 2, kNoSucc}, {3, 9, kNoSucc}, {3, 10, kNoSucc}, {3, 3, kNoSucc},
+    {21, 15, kNoSucc}, {9, 16, 25}, {9, 17, 26}, {9, 18, 27}, {11, 28, 29},
+    {3, 20, 30}, {24, 21, 31}, {11, 22, 32}, {11, 33, 34}, {12, 15, 24},
+    {3, 3, kNoSucc}, {7, 16, kNoSucc}, {7, 17, kNoSucc}, {7, 18, kNoSucc},
+    {7, 19, kNoSucc}, {13, 19, kNoSucc}, {7, 20, kNoSucc}, {7, 21, kNoSucc},
+    {7, 22, kNoSucc}, {2, 23, kNoSucc}, {10, 23, kNoSucc}, {7, 4, kNoSucc},
+    {13, kNoSucc, kNoSucc}, {21, kNoSucc, kNoSucc}
+};
+
 class BlockBuilderTest : public testing::BasicBlockTest {
  public:
   static Instruction* AddInstruction(BasicCodeBlock* bb,
@@ -65,7 +90,7 @@ class BlockBuilderTest : public testing::BasicBlockTest {
     BasicCodeBlock* bb = subgraph_.AddBasicCodeBlock(name);
     EXPECT_TRUE(bb != NULL);
     for (size_t i = 0; i < len; ++i)
-        bb->instructions().push_back(nop);
+      bb->instructions().push_back(nop);
     return bb;
   }
 
@@ -74,7 +99,7 @@ class BlockBuilderTest : public testing::BasicBlockTest {
     BasicCodeBlock* bb1 = CreateCodeBB("bb1", size1);
     BasicCodeBlock* bb2 = CreateCodeBB("bb2", size2);
     BasicCodeBlock* bb3 = CreateCodeBB("bb3", size3);
-    BasicCodeBlock* bb4 = CreateCodeBB("bb3", size4);
+    BasicCodeBlock* bb4 = CreateCodeBB("bb4", size4);
 
     // BB1 has BB4 and BB2 as successors.
     bb1->successors().push_back(
@@ -113,6 +138,66 @@ class BlockBuilderTest : public testing::BasicBlockTest {
     EXPECT_TRUE(new_block != NULL);
     return new_block;
   }
+
+  // For a given array of BlockInfos, this function produces a fake subgraph and
+  // uses the block builder to produce a block.
+  Block* CreateLayoutFromInfo(const BlockInfo* info, size_t info_length) {
+    std::vector<BasicCodeBlock*> basicblocks;
+    basicblocks.resize(info_length);
+
+    // Create basic blocks.
+    for (size_t i = 0; i < info_length; ++i)
+      basicblocks[i] = CreateCodeBB("bb", info[i].size);
+
+    // Add edges between blocks (successors).
+     for (size_t i = 0; i < info_length; ++i) {
+      size_t succ1 = info[i].succ1;
+      size_t succ2 = info[i].succ2;
+
+      if (succ1 == kNoSucc) {
+        // No successor.
+        continue;
+      } else if (succ2 == kNoSucc) {
+        // One successor.
+        basicblocks[i]->successors().push_back(
+            Successor(Successor::kConditionTrue,
+                      BasicBlockReference(BlockGraph::RELATIVE_REF,
+                                          4,
+                                          basicblocks[succ1]),
+                      0));
+      } else {
+        // Two successors.
+        basicblocks[i]->successors().push_back(
+            Successor(Successor::kConditionEqual,
+                      BasicBlockReference(BlockGraph::RELATIVE_REF,
+                                          4,
+                                          basicblocks[succ1]),
+                      0));
+        basicblocks[i]->successors().push_back(
+            Successor(Successor::kConditionNotEqual,
+                      BasicBlockReference(BlockGraph::RELATIVE_REF,
+                                          4,
+                                          basicblocks[succ2]),
+                      0));
+      }
+    }
+
+    // Create block description.
+    BasicBlockSubGraph::BlockDescription* d1 = subgraph_.AddBlockDescription(
+        "new_block", "new_compiland", BlockGraph::CODE_BLOCK, 0, 1, 0);
+    for (size_t i = 0; i < info_length; ++i)
+      d1->basic_block_order.push_back(basicblocks[i]);
+
+    // Build block.
+    BlockBuilder builder(&block_graph_);
+    EXPECT_TRUE(builder.Merge(&subgraph_));
+    EXPECT_EQ(1, builder.new_blocks().size());
+
+    Block* new_block = builder.new_blocks()[0];
+    EXPECT_TRUE(new_block != NULL);
+    return new_block;
+  }
+
 };
 
 }  // namespace
@@ -380,6 +465,19 @@ TEST_F(BlockBuilderTest, ShortLayout) {
                      Reference(BlockGraph::PC_RELATIVE_REF,
                                1, new_block, 0, 0)));
   EXPECT_EQ(expected_refs, new_block->references());
+}
+
+TEST_F(BlockBuilderTest, ComplexFixPointBasicBlockLayout) {
+  // This test validates a corner case of the basic block layout algorithm. The
+  // fake flow-graph |kFixPointBasicBlockLayoutCode| produces a case where the
+  // estimated size of a successor was temporarily shrinking and causing a
+  // DCHECK to fail.
+  size_t info_length = arraysize(kFixPointBasicBlockLayoutCode);
+  Block* new_block = CreateLayoutFromInfo(kFixPointBasicBlockLayoutCode,
+                                          info_length);
+  ASSERT_TRUE(new_block != NULL);
+
+  EXPECT_EQ(575, new_block->size());
 }
 
 TEST_F(BlockBuilderTest, OutofReachBranchLayout) {
