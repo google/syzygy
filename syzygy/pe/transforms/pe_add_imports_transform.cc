@@ -588,6 +588,7 @@ bool FindOrAddImportedSymbol(bool find_only,
 // |found| to true, and return a reference to it via |ref|.
 bool FindDelayLoadSymbol(const base::StringPiece& symbol_name,
                          const ImageDelayLoadDescriptor& idld,
+                         size_t module_index,
                          bool* found,
                          size_t* index,
                          BlockGraph::Reference* ref) {
@@ -600,8 +601,8 @@ bool FindDelayLoadSymbol(const base::StringPiece& symbol_name,
 
   ImageThunkData32 addresses;
   ImageThunkData32 names;
-  if (!idld.Dereference(idld->ImportAddressTableRVA, &addresses) ||
-      !idld.Dereference(idld->ImportNameTableRVA, &names)) {
+  if (!idld.Dereference(idld[module_index].ImportAddressTableRVA, &addresses) ||
+      !idld.Dereference(idld[module_index].ImportNameTableRVA, &names)) {
     LOG(ERROR) << "Failed to dereference IAT/INT for delay-load library.";
     return false;
   }
@@ -893,8 +894,8 @@ bool PEAddImportsTransform::FindDelayLoadImports(
       bool found = false;
       size_t index = kInvalidIndex;
       BlockGraph::Reference ref;
-      if (!FindDelayLoadSymbol(module->GetSymbolName(j), idld, &found,
-                               &index, &ref)) {
+      if (!FindDelayLoadSymbol(module->GetSymbolName(j), idld, module_index,
+                               &found, &index, &ref)) {
         return false;
       }
       if (!found)
