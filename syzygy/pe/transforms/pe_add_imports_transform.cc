@@ -129,6 +129,7 @@ struct StringStruct {
 };
 
 typedef BlockGraph::Offset Offset;
+typedef TypedBlock<IMAGE_DELAYLOAD_DESCRIPTOR> ImageDelayLoadDescriptor;
 typedef TypedBlock<IMAGE_DOS_HEADER> DosHeader;
 typedef TypedBlock<IMAGE_IMPORT_BY_NAME> ImageImportByName;
 typedef TypedBlock<IMAGE_IMPORT_DESCRIPTOR> ImageImportDescriptor;
@@ -139,26 +140,26 @@ typedef TypedBlock<StringStruct> String;
 namespace {
 
 const size_t kPtrSize = sizeof(core::RelativeAddress);
+const size_t kInvalidIndex = static_cast<size_t>(-1);
 
 // Looks up the given data directory and checks that it points to valid data.
 // If it doesn't exist and find_only is false, it will allocate a block with
 // the given name and size.
 bool FindOrAddDataDirectory(bool find_only,
                             size_t directory_index,
-                            const char* block_name,
+                            const base::StringPiece& block_name,
                             size_t block_size,
                             BlockGraph* block_graph,
                             BlockGraph::Block* nt_headers_block,
-                            bool* exists) {
-  DCHECK(block_name != NULL);
+                            BlockGraph::Block** directory_block) {
   DCHECK_LT(directory_index,
             static_cast<size_t>(IMAGE_NUMBEROF_DIRECTORY_ENTRIES));
   DCHECK_GT(block_size, 0u);
-  DCHECK(block_graph != NULL);
-  DCHECK(nt_headers_block != NULL);
-  DCHECK(exists != NULL);
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), nt_headers_block);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block**>(NULL), directory_block);
 
-  *exists = false;
+  *directory_block = NULL;
 
   NtHeaders nt_headers;
   if (!nt_headers.Init(0, nt_headers_block)) {
@@ -169,9 +170,13 @@ bool FindOrAddDataDirectory(bool find_only,
   IMAGE_DATA_DIRECTORY* data_directory =
       nt_headers->OptionalHeader.DataDirectory + directory_index;
 
+  BlockGraph::Offset offset = nt_headers.OffsetOf(
+      data_directory->VirtualAddress);
+  BlockGraph::Reference ref;
+
   // No entry? Then make a zero initialized block that is stored in .rdata,
   // where all of these structures live.
-  if (!nt_headers.HasReference(data_directory->VirtualAddress)) {
+  if (!nt_headers_block->GetReference(offset, &ref)) {
     // We don't need to create the entry if we're exploring only.
     if (find_only)
       return true;
@@ -199,10 +204,36 @@ bool FindOrAddDataDirectory(bool find_only,
                             block,
                             0, 0);
     data_directory->Size = block_size;
+
+    *directory_block = block;
+  } else {
+    // If the directory already exists, return it.
+    if (ref.offset() != 0) {
+      LOG(ERROR) << "Existing \"" << block_name << "\" directory is not its "
+                 << "own block.";
+      return false;
+    }
+    *directory_block = ref.referenced();
   }
 
-  *exists = true;
   return true;
+}
+
+bool ModuleNameMatches(const base::StringPiece& module_name,
+                       const String& dll_name) {
+  size_t max_len = dll_name.ElementCount();
+  if (max_len < module_name.size())
+    return false;
+  return base::strncasecmp(dll_name->string, module_name.data(), max_len) == 0;
+}
+
+bool SymbolNameMatches(const base::StringPiece& symbol_name,
+                       const ImageImportByName& iibn) {
+  size_t max_len = iibn.block()->data_size() - iibn.offset() -
+      offsetof(IMAGE_IMPORT_BY_NAME, Name);
+  if (max_len < symbol_name.size())
+    return false;
+  return ::strncmp(iibn->Name, symbol_name.data(), max_len) == 0;
 }
 
 // Finds or creates an Image Import Descriptor block for the given library.
@@ -246,8 +277,7 @@ bool FindOrAddImageImportDescriptor(bool find_only,
       return false;
     }
 
-    size_t max_len = dll_name.ElementCount();
-    if (base::strncasecmp(dll_name->string, module_name, max_len) == 0) {
+    if (ModuleNameMatches(module_name, dll_name)) {
       // This should never fail, but we sanity check it nonetheless.
       bool result = iid->Init(iida.OffsetOf(iida[iida_index]), iida.block());
       DCHECK(result);
@@ -353,6 +383,47 @@ bool FindOrAddImageImportDescriptor(bool find_only,
   return true;
 }
 
+// Searches for the delay-load library with the given module name. Returns true
+// on success, false otherwise. If found, returns the index. If not found
+// sets the index to kInvalidIndex.
+bool FindDelayLoadImportDescriptor(const base::StringPiece& module_name,
+                                   const ImageDelayLoadDescriptor& idld,
+                                   size_t* index) {
+  DCHECK_NE(reinterpret_cast<size_t*>(NULL), index);
+
+  *index = kInvalidIndex;
+
+  for (size_t i = 0; i < idld.ElementCount(); ++i) {
+    bool zero_data = idld[i].DllNameRVA == 0;
+    bool has_ref = idld.HasReference(idld[i].DllNameRVA);
+
+    // Keep an eye out for null termination of the array.
+    if (zero_data && !has_ref)
+      return true;
+
+    // If the data is not zero then we expect there to be a reference.
+    if (!zero_data && !has_ref) {
+      LOG(ERROR) << "Expected DllNameRVA reference at index " << i
+                 << " of IMAGE_DELAYLOAD_DESCRIPTOR array.";
+      return false;
+    }
+
+    String dll_name;
+    if (!idld.Dereference(idld[i].DllNameRVA, &dll_name)) {
+      LOG(ERROR) << "Failed to dereference DllNameRVA at index " << i
+                 << " of IMAGE_DELAYLOAD_DESCRIPTOR array.";
+      return false;
+    }
+
+    if (ModuleNameMatches(module_name, dll_name)) {
+      *index = i;
+      return true;
+    }
+  }
+
+  return true;
+}
+
 // Finds or adds an imported symbol to the given module (represented by its
 // import descriptor). Returns true on success, false otherwise. On success
 // returns a reference to the module's IAT entry. New entries are always added
@@ -413,10 +484,7 @@ bool FindOrAddImportedSymbol(bool find_only,
 
     // Check to see if this symbol matches that of the current image import
     // by name.
-    size_t max_len = iibn.block()->data_size() - iibn.offset() -
-        offsetof(IMAGE_IMPORT_BY_NAME, Name);
-    const char* import_name = reinterpret_cast<const char*>(iibn->Name);
-    if (::strncmp(import_name, symbol_name, max_len) == 0) {
+    if (SymbolNameMatches(symbol_name, iibn)) {
       *iat_index = i;
       return true;
     }
@@ -515,6 +583,76 @@ bool FindOrAddImportedSymbol(bool find_only,
   return true;
 }
 
+// Looks for the given symbol in the given delay-loaded library descriptor.
+// Returns true on success, false otherwise. If the symbol was found sets
+// |found| to true, and return a reference to it via |ref|.
+bool FindDelayLoadSymbol(const base::StringPiece& symbol_name,
+                         const ImageDelayLoadDescriptor& idld,
+                         bool* found,
+                         size_t* index,
+                         BlockGraph::Reference* ref) {
+  DCHECK_NE(reinterpret_cast<bool*>(NULL), found);
+  DCHECK_NE(reinterpret_cast<size_t*>(NULL), index);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Reference*>(NULL), ref);
+
+  *found = false;
+  *index = kInvalidIndex;
+
+  ImageThunkData32 addresses;
+  ImageThunkData32 names;
+  if (!idld.Dereference(idld->ImportAddressTableRVA, &addresses) ||
+      !idld.Dereference(idld->ImportNameTableRVA, &names)) {
+    LOG(ERROR) << "Failed to dereference IAT/INT for delay-load library.";
+    return false;
+  }
+
+  size_t count = std::min(addresses.ElementCount(), names.ElementCount());
+  for (size_t i = 0; i < count; ++i) {
+    // Keep an eye out for zero-terminating IAT entries.
+    bool zero_data = addresses[i].u1.AddressOfData == 0;
+    bool has_ref = addresses.HasReference(addresses[i].u1.AddressOfData);
+    if (zero_data && !has_ref)
+      break;
+    if (!zero_data && !has_ref) {
+      LOG(ERROR) << "Expected reference at offset " << i
+                 << " of delay-load IAT.";
+      return false;
+    }
+
+    // Keep an eye out for zero-terminating INT entries.
+    zero_data = names[i].u1.AddressOfData == 0;
+    has_ref = names.HasReference(names[i].u1.AddressOfData);
+    if (zero_data && !has_ref)
+      break;
+    if (!zero_data && !has_ref) {
+      LOG(ERROR) << "Expected reference at offset " << i
+                 << " of delay-load INT.";
+      return false;
+    }
+
+    ImageImportByName iibn;
+    if (!names.Dereference(names[i].u1.AddressOfData, &iibn)) {
+      LOG(ERROR) << "Failed to dereference name of entry " << i
+                 << " of delay-load INT.";
+      return false;
+    }
+
+    if (SymbolNameMatches(symbol_name, iibn)) {
+      Offset offset = addresses.OffsetOf(addresses->u1.Function);
+      *ref = BlockGraph::Reference(BlockGraph::ABSOLUTE_REF,
+                                   BlockGraph::Reference::kMaximumSize,
+                                   addresses.block(),
+                                   offset,
+                                   offset);
+      *found = true;
+      *index = i;
+      return true;
+    }
+  }
+
+  return true;
+}
+
 }  // namespace
 
 const char PEAddImportsTransform::kTransformName[] = "PEAddImportsTransform";
@@ -532,17 +670,6 @@ bool PEAddImportsTransform::TransformBlockGraph(
   DCHECK(block_graph != NULL);
   DCHECK(dos_header_block != NULL);
 
-  // Before doing anything, let's determine if we're on a strictly exploratory
-  // mission. We don't want to add anything if all modules/symbols are
-  // 'find only'.
-  bool find_only = true;
-  for (size_t i = 0; i < imported_modules_.size(); ++i) {
-    if (imported_modules_[i]->mode() != ImportedModule::kFindOnly) {
-      find_only = false;
-      break;
-    }
-  }
-
   modules_added_ = 0;
   symbols_added_ = 0;
 
@@ -554,86 +681,76 @@ bool PEAddImportsTransform::TransformBlockGraph(
     return false;
   }
 
-  // Get the block containing the image import directory. In general it's not
-  // safe to keep around a pointer into a TypedBlock, but we won't be resizing
-  // or reallocating the data within nt_headers so this is safe.
-  bool import_directory_exists = false;
+  // Find delay load imports. This is read-only, searching for existing
+  // imports but not injecting new ones.
+  if (!FindDelayLoadImports(block_graph, nt_headers.block()))
+    return false;
+
+  // Before processing regular imports, let's determine if we're on a strictly
+  // exploratory mission. We don't want to add anything if all unresolved
+  // modules/symbols are 'find only'.
+  bool find_only = true;
+  for (size_t i = 0; i < imported_modules_.size(); ++i) {
+    for (size_t j = 0; j < imported_modules_[i]->size(); ++j) {
+      // If the symbol is resolved, we don't care about it. We don't want to
+      // unnecessarily add PE import structures if we're not creating any
+      // imports.
+      if (imported_modules_[i]->SymbolIsImported(j))
+        continue;
+      if (imported_modules_[i]->GetSymbolMode(j) != ImportedModule::kFindOnly) {
+        find_only = false;
+        break;
+      }
+    }
+  }
+
+  // Find normal imports. If the symbol is imported as both a delay-load and
+  // a regular import, then this will overwrite it. Thus, regular imports will
+  // be preferred. However, if the symbol was resolved as a delay-load import
+  // then this will not cause it to also be added as a regular import.
+  if (!FindOrAddImports(find_only, block_graph, nt_headers.block()))
+    return false;
+
+  return true;
+}
+
+bool PEAddImportsTransform::FindOrAddImports(
+    bool find_only,
+    BlockGraph* block_graph,
+    BlockGraph::Block* nt_headers_block) {
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), nt_headers_block);
+
+  NtHeaders nt_headers;
+  CHECK(nt_headers.Init(0, nt_headers_block));
+
+  // Get the import data directory.
+  image_import_descriptor_block_ = NULL;
   if (!FindOrAddDataDirectory(find_only,
                               IMAGE_DIRECTORY_ENTRY_IMPORT,
                               "Image Import Descriptor Array",
                               sizeof(IMAGE_IMPORT_DESCRIPTOR),
                               block_graph,
                               nt_headers.block(),
-                              &import_directory_exists)) {
-    LOG(ERROR) << "Failed to create Image Import Descriptor Array.";
+                              &image_import_descriptor_block_)) {
     return false;
   }
+  if (image_import_descriptor_block_ == NULL)
+    return find_only;
 
-  // If we're on a find only mission and no import data directory exists then
-  // there are *no* imports and we can quit early.
-  if (find_only && !import_directory_exists)
-    return true;
-
-  // Look up the import directory.
-  DCHECK(import_directory_exists);
-  IMAGE_DATA_DIRECTORY* import_directory =
-      nt_headers->OptionalHeader.DataDirectory + IMAGE_DIRECTORY_ENTRY_IMPORT;
-  DCHECK(nt_headers.HasReference(import_directory->VirtualAddress));
-
-  ImageImportDescriptor image_import_descriptor;
-  if (!nt_headers.Dereference(import_directory->VirtualAddress,
-                              &image_import_descriptor)) {
-    // This could happen if the image import descriptor array is empty, and
-    // terminated by a *partial* null entry. However, we've not yet seen that.
-    LOG(ERROR) << "Failed to dereference Image Import Descriptor Array.";
-    return false;
-  }
-
-  // We expect the image import descriptor to have been parsed as its own block,
-  // so the reference needs to be to offset 0.
-  if (image_import_descriptor.offset() != 0) {
-    LOG(ERROR) << "Unexpected offset on Image Import Descriptor.";
-    return false;
-  }
-
-  image_import_descriptor_block_ = image_import_descriptor.block();
-
-  // Similarly, get the block containing the IAT.
-  bool iat_directory_exists = false;
+  // Similarly, get the import address table.
+  import_address_table_block_ = NULL;
   if (!FindOrAddDataDirectory(find_only,
                               IMAGE_DIRECTORY_ENTRY_IAT,
                               "Import Address Table",
                               kPtrSize,
                               block_graph,
                               nt_headers.block(),
-                              &iat_directory_exists)) {
-    LOG(ERROR) << "Failed to create Import Address Table.";
+                              &import_address_table_block_)) {
     return false;
   }
-
-  // If we're on a find only mission and no import data directory exists then
-  // there are *no* imports and we can quit early.
-  if (find_only && !iat_directory_exists)
-    return true;
-
-  // Look up the IAT directory.
-  DCHECK(iat_directory_exists);
-  IMAGE_DATA_DIRECTORY* iat_directory =
-      nt_headers->OptionalHeader.DataDirectory + IMAGE_DIRECTORY_ENTRY_IAT;
-  DCHECK(nt_headers.HasReference(iat_directory->VirtualAddress));
-  TypedBlock<RelativeAddress> iat;
-  if (!nt_headers.Dereference(iat_directory->VirtualAddress, &iat)) {
-    LOG(ERROR) << "Failed to dereference Import Address Table.";
-    return false;
-  }
-
-  // We expect the import address table to have been parsed as its own block,
-  // so the reference needs to be to offset 0.
-  if (iat.offset() != 0) {
-    LOG(ERROR) << "Unexpected offset on Image Address Table";
-    return false;
-  }
-  import_address_table_block_ = iat.block();
+  if (import_address_table_block_ == NULL)
+    return find_only;
 
   // Handle each library individually.
   for (size_t i = 0; i < imported_modules_.size(); ++i) {
@@ -668,13 +785,32 @@ bool PEAddImportsTransform::TransformBlockGraph(
     UpdateModule(true, module_added, module);
     modules_added_ += module_added;
 
+    // Update the version date/time stamp if requested.
+    if (module->date() != ImportedModule::kInvalidDate)
+      iid->TimeDateStamp = module->date();
+
+    // Get a pointer to the import thunks.
+    ImageThunkData32 thunks;
+    if (!iid.Dereference(iid->FirstThunk, &thunks)) {
+      LOG(ERROR) << "Unable to dereference IMAGE_THUNK_DATA32.";
+      return false;
+    }
+
     for (size_t j = 0; j < module->size(); ++j) {
+      bool symbol_find_only =
+          module->GetSymbolMode(j) == ImportedModule::kFindOnly;
+
+      // If the symbol was already resolved as a delay-load import, then
+      // don't allow it to also be added as a normal import.
+      if (module->SymbolIsImported(j))
+        symbol_find_only = true;
+
       // Now, for each symbol get the offset of the IAT entry. This will create
       // the entry (and all accompanying structures) if necessary.
       size_t symbol_iat_index = ImportedModule::kInvalidImportIndex;
       bool symbol_added = false;
       if (!FindOrAddImportedSymbol(
-              module->GetSymbolMode(j) == ImportedModule::kFindOnly,
+              symbol_find_only,
               module->GetSymbolName(j).c_str(),
               iid,
               block_graph,
@@ -685,40 +821,94 @@ bool PEAddImportsTransform::TransformBlockGraph(
         return false;
       }
       symbols_added_ += symbol_added;
-      UpdateModuleSymbolIndex(j, symbol_iat_index, symbol_added, module);
-    }
 
-    // Build references.
-    ImageThunkData32 thunks;
-    if (!iid.Dereference(iid->FirstThunk, &thunks)) {
-      LOG(ERROR) << "Unable to dereference IMAGE_THUNK_DATA32.";
-      return false;
-    }
+      if (symbol_iat_index != ImportedModule::kInvalidImportIndex) {
+        Offset offset =
+            thunks.OffsetOf(thunks[symbol_iat_index].u1.AddressOfData);
+        BlockGraph::Reference ref(BlockGraph::ABSOLUTE_REF, kPtrSize,
+                                  thunks.block(), offset, offset);
 
-    for (size_t j = 0; j < module->size(); ++j) {
-      size_t symbol_iat_index = module->GetSymbolImportIndex(j);
-      if (symbol_iat_index == ImportedModule::kInvalidImportIndex)
-        continue;
-      if (symbol_iat_index >= thunks.ElementCount()) {
-        LOG(ERROR) << "Invalid symbol_index for IAT.";
-        return false;
+        UpdateModuleSymbolIndex(j, symbol_iat_index, symbol_added, module);
+        UpdateModuleSymbolReference(j, ref, true, module);
       }
-
-      Offset offset =
-          thunks.OffsetOf(thunks[symbol_iat_index].u1.AddressOfData);
-      BlockGraph::Reference ref(BlockGraph::ABSOLUTE_REF, kPtrSize,
-                                thunks.block(), offset, offset);
-      UpdateModuleSymbolReference(j, ref, true, module);
     }
-
-    // Update the version date/time stamp if requested.
-    if (module->date() != ImportedModule::kInvalidDate)
-      iid->TimeDateStamp = module->date();
   }
 
   // Update the data directory sizes.
-  import_directory->Size = image_import_descriptor_block_->size();
-  iat_directory->Size = import_address_table_block_->size();
+  nt_headers->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size =
+      image_import_descriptor_block_->size();
+  nt_headers->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT].Size =
+      import_address_table_block_->size();
+
+  return true;
+}
+
+bool PEAddImportsTransform::FindDelayLoadImports(
+    BlockGraph* block_graph, BlockGraph::Block* nt_headers_block) {
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), nt_headers_block);
+
+  NtHeaders nt_headers;
+  CHECK(nt_headers.Init(0, nt_headers_block));
+
+  // Get the delay-load import data directory.
+  image_delayload_descriptor_block_ = NULL;
+  if (!FindOrAddDataDirectory(true,
+                              IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT,
+                              "Image Delay Load Descriptor Array",
+                              sizeof(IMAGE_DELAYLOAD_DESCRIPTOR),
+                              block_graph,
+                              nt_headers.block(),
+                              &image_delayload_descriptor_block_)) {
+    return false;
+  }
+  if (image_delayload_descriptor_block_ == NULL)
+    return true;
+
+  ImageDelayLoadDescriptor idld;
+  if (!idld.Init(0, image_delayload_descriptor_block_)) {
+    LOG(ERROR) << "Unable to cast IMAGE_DELAYLOAD_DESCRIPTOR.";
+    return false;
+  }
+
+  for (size_t i = 0; i < imported_modules_.size(); ++i) {
+    ImportedModule* module = imported_modules_[i];
+
+     // Look for a descriptor corresponding to this module.
+    size_t module_index = kInvalidIndex;
+    if (!FindDelayLoadImportDescriptor(module->name(), idld, &module_index))
+      return false;
+    if (module_index == kInvalidIndex)
+      continue;
+
+    UpdateModule(true, false, module);
+
+    // Iterate over the symbols.
+    for (size_t j = 0; j < module->size(); ++j) {
+      // Don't process symbols that are already imported.
+      if (module->SymbolIsImported(j))
+        continue;
+
+      // Look for a matching symbol.
+      bool found = false;
+      size_t index = kInvalidIndex;
+      BlockGraph::Reference ref;
+      if (!FindDelayLoadSymbol(module->GetSymbolName(j), idld, &found,
+                               &index, &ref)) {
+        return false;
+      }
+      if (!found)
+        continue;
+
+      // Update the various metadata associated with this symbol.
+      // TODO(chrisha): Currently the import index must be unique. This ensures
+      //     uniqueness for delay-load imports by setting the MSB, and combining
+      //     the module index with the symbol index.
+      size_t import_index = (1 << 31) | (i << 16) | index;
+      UpdateModuleSymbolIndex(j, import_index, false, module);
+      UpdateModuleSymbolReference(j, ref, true, module);
+    }
+  }
 
   return true;
 }

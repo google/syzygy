@@ -158,7 +158,7 @@ class TypedBlockImpl {
   // @param offset the offset into the block to search.
   // @returns true if a reference exists, false otherwise.
   bool HasReferenceAt(Offset offset) const {
-    return GetReference(offset, 0, NULL);
+    return GetReferenceAt(offset, 0, NULL);
   }
 
   // Determines if a reference with the given size exists at the given offset.
@@ -166,7 +166,7 @@ class TypedBlockImpl {
   // @param offset the offset into the block to search.
   // @returns true if a reference exists, false otherwise.
   bool HasReferenceAt(Offset offset, size_t reference_size) const {
-    return GetReference(offset, reference_size, NULL);
+    return GetReferenceAt(offset, reference_size, NULL);
   }
 
   // Determines if a reference exists for the given value. For this to return
@@ -179,7 +179,7 @@ class TypedBlockImpl {
   template <typename TIn>
   bool HasReference(const TIn& value) const {
     Offset offset = OffsetOf(value);
-    return GetReference(offset, sizeof(TIn), NULL);
+    return GetReferenceAt(offset, sizeof(TIn), NULL);
   }
 
   // Follows a direct reference at a given @p offset in the enclosed structure.
@@ -278,6 +278,54 @@ class TypedBlockImpl {
     return offs;
   }
 
+  // Determines if there exists a reference at the given @p offset into the
+  // block. If @p ref is non-null, populates the reference if a valid one is
+  // found.
+  //
+  // @param offset the offset into the block.
+  // @param ref the reference to populate. May be NULL.
+  // @returns true if there exists a valid reference, false otherwise.
+  bool GetReferenceAt(Offset offset,
+                      Reference* ref) const {
+    return GetReferenceAt(offset, 0, ref);
+  }
+
+  // Determines if there exists a reference with the size of @tp TIn at
+  // the location of @p value.
+  //
+  // @tparam TIn the type of the input @p value.
+  // @param value The value whose location is to be used for dereferencing.
+  //     This must lie entirely within the block.
+  // @param ref the reference to populate. May be NULL.
+  // @returns true if the dereference was successful, false otherwise.
+  template <typename TIn>
+  bool GetReference(const TIn& value, Reference* ref) const {
+    Offset offset = OffsetOf(value);
+    return GetReferenceAt(offset, sizeof(TIn), ref);
+  }
+
+  // Determines if there exists a reference of given @p reference_size at the
+  // given @p offset into the block. If @p ref is non-null, populates the
+  // reference if a valid one is found.
+  //
+  // @param offset the offset into the block.
+  // @param reference_size the expected size of the reference. If this is 0, a
+  //     reference of any size is accepted.
+  // @param ref the reference to populate. May be NULL.
+  // @returns true if there exists a valid reference, false otherwise.
+  bool GetReferenceAt(Offset offset,
+                      size_t reference_size,
+                      Reference* ref) const {
+    Reference reference;
+    if (!block_->GetReference(offset, &reference))
+      return false;
+    if (reference_size != 0 && reference.size() != reference_size)
+      return false;
+    if (ref != NULL)
+      *ref = reference;
+    return true;
+  }
+
  protected:
   // Determines whether the byte range starting at @p offset and extending for
   // @p size bytes is in the data covered by the block.
@@ -303,28 +351,6 @@ class TypedBlockImpl {
     // const correct!
     return reinterpret_cast<T*>(
         internal::GetBlockData(block_) + offset_) + elem;
-  }
-
-  // Determines if there exists a reference of given @p reference_size at the
-  // given @p offset into the block. If @p ref is non-null, populates the
-  // reference if a valid one is found.
-  //
-  // @param offset the offset into the block.
-  // @param reference_size the expected size of the reference. If this is 0, a
-  //     reference of any size is accepted.
-  // @param ref the reference to populate. May be NULL.
-  // @returns true if there exists a valid reference, false otherwise.
-  bool GetReference(Offset offset,
-                    size_t reference_size,
-                    Reference* ref) const {
-    Reference reference;
-    if (!block_->GetReference(offset, &reference))
-      return false;
-    if (reference_size != 0 && reference.size() != reference_size)
-      return false;
-    if (ref != NULL)
-      *ref = reference;
-    return true;
   }
 
   // Attempts to follow a reference of given @p size at the given @p offset
@@ -353,7 +379,7 @@ class TypedBlockImpl {
 
     // Ensure that there is a valid reference at the pointer offset.
     Reference ref;
-    if (!GetReference(offset, reference_size, &ref))
+    if (!GetReferenceAt(offset, reference_size, &ref))
       return false;
 
     // Bail if the reference is indirect.

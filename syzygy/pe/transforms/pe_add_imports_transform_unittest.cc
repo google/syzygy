@@ -112,6 +112,34 @@ TEST_F(PEAddImportsTransformTest, AddImportsExisting) {
   EXPECT_NO_FATAL_FAILURE(TestSymbols(module));
 }
 
+TEST_F(PEAddImportsTransformTest, AddImportsExistingDelayLoad) {
+  ImportedModule module("ole32.dll");
+  size_t co_create_guid = module.AddSymbol("CoCreateGuid",
+                                           ImportedModule::kFindOnly);
+  EXPECT_EQ("CoCreateGuid", module.GetSymbolName(co_create_guid));
+  EXPECT_EQ(ImportedModule::kFindOnly, module.mode());
+  EXPECT_EQ(ImportedModule::kFindOnly,
+            module.GetSymbolMode(co_create_guid));
+
+  PEAddImportsTransform transform;
+  transform.AddModule(&module);
+  EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &transform, &policy_, &block_graph_, dos_header_block_));
+  EXPECT_EQ(0u, transform.modules_added());
+  EXPECT_EQ(0u, transform.symbols_added());
+
+  EXPECT_TRUE(module.ModuleIsImported());
+  EXPECT_TRUE(module.SymbolIsImported(co_create_guid));
+
+  EXPECT_FALSE(module.ModuleWasAdded());
+  EXPECT_FALSE(module.SymbolWasAdded(co_create_guid));
+
+  EXPECT_NE(ImportedModule::kInvalidImportIndex,
+            module.GetSymbolImportIndex(co_create_guid));
+
+  EXPECT_NO_FATAL_FAILURE(TestSymbols(module));
+}
+
 TEST_F(PEAddImportsTransformTest, AddImportsNewSymbol) {
   ImportedModule module("export_dll.dll");
   size_t function1 = module.AddSymbol("function1",

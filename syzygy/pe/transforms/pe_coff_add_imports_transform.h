@@ -211,6 +211,8 @@ class ImportedModule {
     // The index of the imported symbol in the symbol or import table. This
     // is left as kInvalidImportIndex if this symbol's mode is kFindOnly and
     // the import does not exist.
+    // TODO(chrisha): Get rid of this... it isn't meaningful outside of the
+    //     transform and can be replaced by a simple bool 'imported'.
     size_t import_index;
     // The transform mode for this symbol.
     TransformMode mode;

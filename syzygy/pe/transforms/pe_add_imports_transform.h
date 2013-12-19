@@ -95,9 +95,20 @@ class PEAddImportsTransform
   static const char kTransformName[];
 
  protected:
-  // We cache the blocks containing the IDT and IAT.
+  // Processes normal imports. If |find_only| is false then this will add the
+  // appropriate PE structures and inject missing imports.
+  bool FindOrAddImports(bool find_only,
+                        BlockGraph* block_graph,
+                        BlockGraph::Block* nt_headers_block);
+  // Processes delay-load imports. This only searches for existing ones, and
+  // currently does not add any new delay-load imports or related PE structures.
+  bool FindDelayLoadImports(BlockGraph* block_graph,
+                            BlockGraph::Block* nt_headers_block);
+
+  // We cache various blocks for easier unittesting.
   BlockGraph::Block* image_import_descriptor_block_;
   BlockGraph::Block* import_address_table_block_;
+  BlockGraph::Block* image_delayload_descriptor_block_;
 };
 
 }  // namespace transforms
