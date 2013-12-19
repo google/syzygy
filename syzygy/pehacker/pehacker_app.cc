@@ -25,7 +25,7 @@
 #include "syzygy/block_graph/orderers/original_orderer.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_writer.h"
-#include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/new_decomposer.h"
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/pe_relinker_util.h"
 #include "syzygy/pehacker/operation.h"
@@ -460,7 +460,7 @@ PEHackerApp::ImageInfo* PEHackerApp::GetImageInfo(
 
   // Decompose the image.
   pe::ImageLayout image_layout(&image_info->block_graph);
-  pe::Decomposer decomposer(image_info->pe_file);
+  pe::NewDecomposer decomposer(image_info->pe_file);
   if (!decomposer.Decompose(&image_layout)) {
     LOG(ERROR) << "Failed to decompose image: " << input_module.value();
     return NULL;
