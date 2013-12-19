@@ -324,6 +324,7 @@ TEST_F(PEFileParserTest, ParseImportDir) {
   EXPECT_THAT(import_names, ContainerEq(expected));
 
   // The number of expected symbols imported from kernel32.dll.
+#if _MSC_VER == 1600  // MSVS 2010.
 #if defined(NDEBUG)
   // VC++ 2010 Release Build.
   static size_t kNumKernel32Symbols = 68;
@@ -331,7 +332,15 @@ TEST_F(PEFileParserTest, ParseImportDir) {
   // VC++ 2010 Debug/Coverage build.
   static size_t kNumKernel32Symbols = 70;
 #endif
-
+#elif _MSC_VER == 1800  // MSVS 2013.
+#if defined(NDEBUG)
+  // VC++ 2013 Release Build.
+  static size_t kNumKernel32Symbols = 63;
+#else
+  // VC++ 2013 Debug/Coverage build.
+  static size_t kNumKernel32Symbols = 64;
+#endif
+#endif
   // The number of expected symbols imported from export_dll.dll.
   static const size_t kNumExportDllSymbols = 3;
 

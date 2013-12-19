@@ -26,9 +26,9 @@ namespace pe {
 using base::win::ScopedBstr;
 using base::win::ScopedComPtr;
 
-#if _MSC_VER == 1600
+#if _MSC_VER == 1600  // MSVS 2010.
 const wchar_t kDiaDllName[] = L"msdia100.dll";
-#elif _MSC_VER == 1800
+#elif _MSC_VER == 1800  // MSVS 2013.
 const wchar_t kDiaDllName[] = L"msdia120.dll";
 #else
 #error Cannot determine DIA DLL name.
