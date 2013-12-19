@@ -67,6 +67,9 @@
             # This corresponds to the /PROFILE flag, which enables the
             # resulting binaries to be instrumented by vsinstr.exe.
             'Profile': 'true',
+            # Ensure that the checksum present in the header of the binaries is
+            # set.
+            'SetChecksum': 'true',
           },
         },
       },
@@ -90,6 +93,9 @@
               'VCLinkerTool': {
                 # 0: Inherit, 1: Enabled, 2-4: For PGO.
                 'LinkTimeCodeGeneration': '1',
+                # Ensure that the checksum present in the header of the binaries
+                # is set.
+                'SetChecksum': 'true',
               },
             },
           }],

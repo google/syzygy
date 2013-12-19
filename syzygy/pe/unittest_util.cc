@@ -297,7 +297,7 @@ void PELibUnitTest::LoadTestDll(const base::FilePath& path,
                               NULL,
                               &loaded_image,
                               FALSE,
-                              FALSE);
+                              TRUE);
   EXPECT_EQ(ERROR_SUCCESS, ::GetLastError());
   ASSERT_TRUE(success);
   EXPECT_TRUE(::UnMapAndLoad(&loaded_image));

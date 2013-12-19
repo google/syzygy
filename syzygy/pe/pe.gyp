@@ -297,6 +297,9 @@
               # which jumps to the function proper. This gets in the way of
               # disassembly.
               'LinkIncremental': '1',
+              # Ensure that the checksum present in the header of the binaries
+              # is set.
+              'SetChecksum': 'true',
             },
             'VCCLCompilerTool': {
               'BasicRuntimeChecks': '0',
