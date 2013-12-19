@@ -93,7 +93,8 @@ class ReorderAppTest : public testing::PELibUnitTest {
     InitStreams(stdin_path_, stdout_path_, stderr_path_);
 
     // Initialize the (potential) input and output path values.
-    abs_input_image_path_ = testing::GetExeRelativePath(testing::kTestDllName);
+    abs_input_image_path_ = testing::GetExeTestDataRelativePath(
+        testing::kTestDllName);
     input_image_path_ = testing::GetRelativePath(abs_input_image_path_);
 
     abs_instrumented_image_path_ = testing::GetExeTestDataRelativePath(
