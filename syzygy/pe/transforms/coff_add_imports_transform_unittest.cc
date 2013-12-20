@@ -164,11 +164,6 @@ TEST_F(CoffAddImportsTransformTest, AddImportsExisting) {
   EXPECT_FALSE(module.SymbolWasAdded(function1));
   EXPECT_FALSE(module.SymbolWasAdded(function3));
 
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function1));
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function3));
-
   EXPECT_NO_FATAL_FAILURE(TestSymbols(module));
 }
 
@@ -198,13 +193,6 @@ TEST_F(CoffAddImportsTransformTest, AddImportsNewSymbol) {
   EXPECT_FALSE(module.SymbolWasAdded(function3));
   EXPECT_TRUE(module.SymbolWasAdded(function4));
 
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function1));
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function3));
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function4));
-
   EXPECT_NO_FATAL_FAILURE(TestSymbols(module));
 }
 
@@ -229,11 +217,6 @@ TEST_F(CoffAddImportsTransformTest, FindImportsExisting) {
   EXPECT_FALSE(module.ModuleWasAdded());
   EXPECT_FALSE(module.SymbolWasAdded(function1));
   EXPECT_FALSE(module.SymbolWasAdded(function3));
-
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function1));
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function3));
 }
 
 TEST_F(CoffAddImportsTransformTest, FindImportsNewSymbol) {
@@ -261,13 +244,6 @@ TEST_F(CoffAddImportsTransformTest, FindImportsNewSymbol) {
   EXPECT_FALSE(module.SymbolWasAdded(function1));
   EXPECT_FALSE(module.SymbolWasAdded(function3));
   EXPECT_FALSE(module.SymbolWasAdded(function4));
-
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function1));
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function3));
-  EXPECT_EQ(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function4));
 }
 
 }  // namespace transforms

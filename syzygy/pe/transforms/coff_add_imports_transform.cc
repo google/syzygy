@@ -31,6 +31,8 @@ using block_graph::BlockGraph;
 using block_graph::ConstTypedBlock;
 using block_graph::TypedBlock;
 
+const size_t kInvalidIndex = static_cast<size_t>(-1);
+
 // Read symbols from the symbol table into a map from names to symbol
 // indexes.
 //
@@ -175,29 +177,37 @@ bool CoffAddImportsTransform::FindAndCollectSymbolsFromModule(
   DCHECK(string_len_to_add != NULL);
 
   for (size_t i = 0; i < module->size(); ++i) {
-    size_t symbol_import_index = ImportedModule::kInvalidImportIndex;
+    size_t symbol_import_index = kInvalidIndex;
+    bool symbol_imported = false;
     bool symbol_added = false;
 
     std::string name(module->GetSymbolName(i));
     NameMap::const_iterator it = known_names.find(name);
     if (it != known_names.end()) {
+      // This symbol is already defined. Simply grab its 'index' which we can
+      // use to draw a reference to it later.
       symbol_import_index = it->second;
-    } else {
-      if (module->GetSymbolMode(i) == ImportedModule::kAlwaysImport) {
-        size_t new_index = file_header->NumberOfSymbols + names_to_add->size();
-        if (!names_to_add->insert(std::make_pair(name, new_index)).second) {
-          LOG(ERROR) << "Duplicate entry \"" << name
-                     << "\" in requested imported module.";
-          return false;
-        }
-        symbol_import_index = new_index;
-        symbol_added = true;
-        *string_len_to_add += name.size() + 1;
+      symbol_imported = true;
+    } else if (module->GetSymbolMode(i) == ImportedModule::kAlwaysImport) {
+      // The symbol is not defined, but requested to be. Create it.
+      size_t new_index = file_header->NumberOfSymbols + names_to_add->size();
+      if (!names_to_add->insert(std::make_pair(name, new_index)).second) {
+        LOG(ERROR) << "Duplicate entry \"" << name
+                    << "\" in requested imported module.";
+        return false;
       }
+      symbol_import_index = new_index;
+      symbol_imported = true;
+      symbol_added = true;
+      *string_len_to_add += name.size() + 1;
     }
 
-    UpdateModuleSymbolIndex(i, symbol_import_index, symbol_added, module);
+    UpdateModuleSymbolInfo(i, symbol_imported, symbol_added, module);
     symbols_added_ += symbol_added;
+    if (symbol_imported) {
+      module_symbol_index_map_.insert(
+          std::make_pair(std::make_pair(module, i), symbol_import_index));
+    }
   }
 
   // All modules are considered imported in a COFF file, and none is ever
@@ -211,9 +221,12 @@ void CoffAddImportsTransform::UpdateModuleReferences(
     BlockGraph::Block* symbols_block,
     ImportedModule* module) {
   for (size_t i = 0; i < module->size(); ++i) {
-    size_t import_index = module->GetSymbolImportIndex(i);
-    if (import_index == ImportedModule::kInvalidImportIndex)
+    ModuleSymbolIndexMap::const_iterator index_it =
+        module_symbol_index_map_.find(std::make_pair(module, i));
+    if (index_it == module_symbol_index_map_.end())
       continue;
+    size_t import_index = index_it->second;
+    DCHECK_NE(kInvalidIndex, import_index);
     BlockGraph::Offset offset = import_index * sizeof(IMAGE_SYMBOL);
     BlockGraph::Reference ref(BlockGraph::RELOC_ABSOLUTE_REF, sizeof(uint32),
                               symbols_block, offset, offset);

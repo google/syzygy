@@ -37,9 +37,6 @@ class ImportedModule {
   // updated.
   static const uint32 kInvalidDate = -1;
 
-  // Used to indicate that a symbol has not been imported.
-  static const size_t kInvalidImportIndex = -1;
-
   // The modes in which the transform will treat a symbol.
   enum TransformMode {
     // Will search for the imported symbol and explicitly add an import entry
@@ -138,7 +135,7 @@ class ImportedModule {
   // @returns true if the symbol @p index has an import entry.
   bool SymbolIsImported(size_t index) const {
     DCHECK_GT(symbols_by_index_.size(), index);
-    return symbols_by_index_[index]->import_index != kInvalidImportIndex;
+    return symbols_by_index_[index]->imported;
   }
 
   // After a successful transform, retrieve whether the specified symbol was
@@ -151,19 +148,6 @@ class ImportedModule {
   bool SymbolWasAdded(size_t index) const {
     DCHECK_GT(symbols_by_index_.size(), index);
     return symbols_by_index_[index]->added;
-  }
-
-  // After a successful transform, retrieve the index of the symbol
-  // entry. If the symbol mode is kFindOnly and the symbol was not found,
-  // the default index kInvalidImportIndex is returned.
-  //
-  // @param index the index of the symbol to query.
-  // @returns the index of the symbol entry, the meaning of which is
-  //     dependent on the underlying import table representation, but is
-  //     guaranteed to be distinct for distinct symbols.
-  size_t GetSymbolImportIndex(size_t index) const {
-    DCHECK_GT(symbols_by_index_.size(), index);
-    return symbols_by_index_[index]->import_index;
   }
 
   // After a successful transform, retrieve an absolute reference to the
@@ -208,14 +192,10 @@ class ImportedModule {
     // The ID of this symbol wrt to this imported module. This is an index into
     // symbols_by_index_.
     size_t symbol_index;
-    // The index of the imported symbol in the symbol or import table. This
-    // is left as kInvalidImportIndex if this symbol's mode is kFindOnly and
-    // the import does not exist.
-    // TODO(chrisha): Get rid of this... it isn't meaningful outside of the
-    //     transform and can be replaced by a simple bool 'imported'.
-    size_t import_index;
     // The transform mode for this symbol.
     TransformMode mode;
+    // If this is true then the symbol is imported.
+    bool imported;
     // If this is true then the symbol was added by the transform.
     bool added;
     // The reference to the imported symbol.
@@ -293,15 +273,15 @@ class PECoffAddImportsTransform {
                            bool added,
                            ImportedModule* imported_module);
 
-  // Update the import index of the specified symbol.
+  // Update the metadata associated with the imported symbol.
   //
   // @param index the index of the symbol to update.
-  // @param import_index the import index to associate with the symbol.
+  // @param imported whether or not the symbol is imported.
   // @param added whether an entry was added for this symbol.
   // @param imported_module the module to update.
-  static void UpdateModuleSymbolIndex(
+  static void UpdateModuleSymbolInfo(
       size_t index,
-      size_t import_index,
+      bool imported,
       bool added,
       ImportedModule* imported_module);
 

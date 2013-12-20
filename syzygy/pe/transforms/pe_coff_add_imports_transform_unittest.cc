@@ -25,7 +25,7 @@ using block_graph::BlockGraph;
 class TestPECoffAddImportsTransform : public PECoffAddImportsTransform {
  public:
   using PECoffAddImportsTransform::UpdateModule;
-  using PECoffAddImportsTransform::UpdateModuleSymbolIndex;
+  using PECoffAddImportsTransform::UpdateModuleSymbolInfo;
   using PECoffAddImportsTransform::UpdateModuleSymbolReference;
 };
 
@@ -93,9 +93,8 @@ TEST(ImportedModuleTest, AfterTransform) {
   EXPECT_TRUE(module.ModuleIsImported());
   EXPECT_TRUE(module.ModuleWasAdded());
 
-  TestPECoffAddImportsTransform::UpdateModuleSymbolIndex(bar1, 42,
-                                                         true, &module);
-  EXPECT_EQ(42, module.GetSymbolImportIndex(bar1));
+  TestPECoffAddImportsTransform::UpdateModuleSymbolInfo(bar1, true,
+                                                        true, &module);
   EXPECT_TRUE(module.SymbolIsImported(bar1));
   EXPECT_TRUE(module.SymbolWasAdded(bar1));
 

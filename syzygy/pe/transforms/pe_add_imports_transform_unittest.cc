@@ -104,11 +104,6 @@ TEST_F(PEAddImportsTransformTest, AddImportsExisting) {
   EXPECT_FALSE(module.SymbolWasAdded(function1));
   EXPECT_FALSE(module.SymbolWasAdded(function3));
 
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function1));
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function3));
-
   EXPECT_NO_FATAL_FAILURE(TestSymbols(module));
 }
 
@@ -133,9 +128,6 @@ TEST_F(PEAddImportsTransformTest, AddImportsExistingDelayLoad) {
 
   EXPECT_FALSE(module.ModuleWasAdded());
   EXPECT_FALSE(module.SymbolWasAdded(co_create_guid));
-
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(co_create_guid));
 
   EXPECT_NO_FATAL_FAILURE(TestSymbols(module));
 }
@@ -176,13 +168,6 @@ TEST_F(PEAddImportsTransformTest, AddImportsNewSymbol) {
   EXPECT_FALSE(module.SymbolWasAdded(function3));
   EXPECT_TRUE(module.SymbolWasAdded(function4));
 
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function1));
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function3));
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function4));
-
   EXPECT_NO_FATAL_FAILURE(TestSymbols(module));
 
   // TODO(chrisha): Write the image and try to load it!
@@ -219,11 +204,6 @@ TEST_F(PEAddImportsTransformTest, AddImportsNewModule) {
   EXPECT_TRUE(module.SymbolWasAdded(indirect_penter));
   EXPECT_TRUE(module.SymbolWasAdded(indirect_penter_dllmain));
 
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(indirect_penter));
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(indirect_penter_dllmain));
-
   EXPECT_NO_FATAL_FAILURE(TestSymbols(module));
 
   // TODO(chrisha): Write the image and try to load it!
@@ -255,11 +235,6 @@ TEST_F(PEAddImportsTransformTest, FindImportsExisting) {
   EXPECT_FALSE(module.ModuleWasAdded());
   EXPECT_FALSE(module.SymbolWasAdded(function1));
   EXPECT_FALSE(module.SymbolWasAdded(function3));
-
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function1));
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function3));
 }
 
 TEST_F(PEAddImportsTransformTest, FindImportsNewSymbol) {
@@ -294,13 +269,6 @@ TEST_F(PEAddImportsTransformTest, FindImportsNewSymbol) {
   EXPECT_FALSE(module.SymbolWasAdded(function1));
   EXPECT_FALSE(module.SymbolWasAdded(function3));
   EXPECT_FALSE(module.SymbolWasAdded(function4));
-
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function1));
-  EXPECT_NE(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function3));
-  EXPECT_EQ(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(function4));
 }
 
 TEST_F(PEAddImportsTransformTest, FindImportsNewModule) {
@@ -333,11 +301,6 @@ TEST_F(PEAddImportsTransformTest, FindImportsNewModule) {
   EXPECT_FALSE(module.ModuleWasAdded());
   EXPECT_FALSE(module.SymbolWasAdded(indirect_penter));
   EXPECT_FALSE(module.SymbolWasAdded(indirect_penter_dllmain));
-
-  EXPECT_EQ(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(indirect_penter));
-  EXPECT_EQ(ImportedModule::kInvalidImportIndex,
-            module.GetSymbolImportIndex(indirect_penter_dllmain));
 }
 
 }  // namespace transforms

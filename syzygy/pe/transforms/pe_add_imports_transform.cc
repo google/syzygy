@@ -442,7 +442,7 @@ bool FindOrAddImportedSymbol(bool find_only,
   DCHECK(iat_index != NULL);
   DCHECK(added != NULL);
 
-  *iat_index = ImportedModule::kInvalidImportIndex;
+  *iat_index = kInvalidIndex;
   *added = false;
 
   TypedBlock<IMAGE_IMPORT_BY_NAME*> hna, iat;
@@ -808,7 +808,7 @@ bool PEAddImportsTransform::FindOrAddImports(
 
       // Now, for each symbol get the offset of the IAT entry. This will create
       // the entry (and all accompanying structures) if necessary.
-      size_t symbol_iat_index = ImportedModule::kInvalidImportIndex;
+      size_t symbol_iat_index = kInvalidIndex;
       bool symbol_added = false;
       if (!FindOrAddImportedSymbol(
               symbol_find_only,
@@ -823,13 +823,13 @@ bool PEAddImportsTransform::FindOrAddImports(
       }
       symbols_added_ += symbol_added;
 
-      if (symbol_iat_index != ImportedModule::kInvalidImportIndex) {
+      if (symbol_iat_index != kInvalidIndex) {
         Offset offset =
             thunks.OffsetOf(thunks[symbol_iat_index].u1.AddressOfData);
         BlockGraph::Reference ref(BlockGraph::ABSOLUTE_REF, kPtrSize,
                                   thunks.block(), offset, offset);
 
-        UpdateModuleSymbolIndex(j, symbol_iat_index, symbol_added, module);
+        UpdateModuleSymbolInfo(j, true, symbol_added, module);
         UpdateModuleSymbolReference(j, ref, true, module);
       }
     }
@@ -905,8 +905,7 @@ bool PEAddImportsTransform::FindDelayLoadImports(
       // TODO(chrisha): Currently the import index must be unique. This ensures
       //     uniqueness for delay-load imports by setting the MSB, and combining
       //     the module index with the symbol index.
-      size_t import_index = (1 << 31) | (i << 16) | index;
-      UpdateModuleSymbolIndex(j, import_index, false, module);
+      UpdateModuleSymbolInfo(j, true, false, module);
       UpdateModuleSymbolReference(j, ref, true, module);
     }
   }

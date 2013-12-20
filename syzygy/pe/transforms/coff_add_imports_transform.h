@@ -109,6 +109,10 @@ class CoffAddImportsTransform
   void UpdateModuleReferences(BlockGraph::Block* symbols_block,
                               ImportedModule* module);
 
+  typedef std::pair<ImportedModule*, size_t> ModuleSymbol;
+  typedef std::map<ModuleSymbol, size_t> ModuleSymbolIndexMap;
+  ModuleSymbolIndexMap module_symbol_index_map_;
+
   DISALLOW_COPY_AND_ASSIGN(CoffAddImportsTransform);
 };
 

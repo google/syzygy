@@ -23,7 +23,6 @@ size_t ImportedModule::AddSymbol(const base::StringPiece& symbol_name,
                                  TransformMode mode) {
   Symbol symbol = { symbol_name.as_string(),
                     symbols_by_index_.size(),
-                    kInvalidImportIndex,
                     mode };
   std::pair<SymbolSet::iterator, bool> result = symbols_by_name_.insert(symbol);
 
@@ -62,7 +61,7 @@ bool ImportedModule::GetSymbolReference(size_t index,
   DCHECK(is_ptr != NULL);
 
   Symbol* symbol = symbols_by_index_[index];
-  if (symbol->import_index == kInvalidImportIndex)
+  if (!symbol->imported)
     return false;
 
   *ref = symbol->ref;
@@ -78,15 +77,15 @@ void PECoffAddImportsTransform::UpdateModule(bool imported,
   imported_module->added_ = added;
 }
 
-void PECoffAddImportsTransform::UpdateModuleSymbolIndex(
+void PECoffAddImportsTransform::UpdateModuleSymbolInfo(
     size_t index,
-    size_t import_index,
+    bool imported,
     bool added,
     ImportedModule* imported_module) {
   DCHECK(imported_module != NULL);
   DCHECK_GT(imported_module->symbols_by_index_.size(), index);
   ImportedModule::Symbol* symbol = imported_module->symbols_by_index_[index];
-  symbol->import_index = import_index;
+  symbol->imported = imported;
   symbol->added = added;
 }
 
