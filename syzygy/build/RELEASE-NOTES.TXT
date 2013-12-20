@@ -1,6 +1,12 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.6.0
+
+[r1957] Full VS2013 support.
+[r1955] PEHacker is now fully functional. First release.
+[r1934] Switched to using new decomposer.
+
 Version 0.7.5.0
 
 [r1906] Various fixes for VS2013 support.

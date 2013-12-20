@@ -57,6 +57,10 @@ instrument.exe
 pdbfind.exe
   A utility for locating the PDB file that is matched to a given PE file.
 
+pehacker.exe
+  A utility for applying various transforms to a PE file via a text
+  configuration file.
+
 relink.exe
   Relinks a PE file after applying specified transformations. Combined with
   output from grinder and reorder this is used to apply optimizations to a
