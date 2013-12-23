@@ -369,7 +369,21 @@ bool BasicBlockSubGraph::ToString(std::string* buf) const {
       std::string instruction_string;
       if (!it->ToString(&instruction_string))
         return false;
-      out << "  " << instruction_string << std::endl;
+      out << "  " << instruction_string;
+
+      // Output references.
+      const Instruction::BasicBlockReferenceMap& references = it->references();
+      Instruction::BasicBlockReferenceMap::const_iterator reference_it =
+          references.begin();
+      for (; reference_it != references.end(); ++reference_it) {
+        const BasicBlockReference& reference = reference_it->second;
+        if (reference.block() != NULL)
+          out << "  block(" << reference.block()->name() << ")";
+        if (reference.basic_block() != NULL)
+          out << "  basic_block(" << reference.basic_block()->id() << ")";
+      }
+
+      out << std::endl;
     }
 
     // Output successors.
