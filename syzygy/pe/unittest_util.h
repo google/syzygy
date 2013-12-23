@@ -21,7 +21,11 @@
 #include "base/files/file_path.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/block_graph.h"
+#include "syzygy/block_graph/orderer.h"
+#include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/common/unittest_util.h"
+#include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/coff_file.h"
 #include "syzygy/pe/image_layout.h"
 #include "syzygy/pe/pe_file.h"
 
@@ -109,6 +113,36 @@ class PELibUnitTest : public testing::ApplicationTestBase {
 
   // Loads the test DLL and returns its module handle.
   static void LoadTestDll(const base::FilePath& path, ScopedHMODULE* module);
+};
+
+class CoffUnitTest : public testing::PELibUnitTest {
+ public:
+  CoffUnitTest() : image_layout_(&block_graph_) {
+  }
+
+  virtual void SetUp();
+
+  // Decompose test_dll.coff_obj.
+  void DecomposeOriginal();
+
+  // Reorder and lay out test_dll.coff_obj into a new object file, located
+  // at new_test_dll_obj_path_.
+  void LayoutAndWriteNew(block_graph::BlockGraphOrdererInterface* orderer);
+
+  // Writes and redecomposes the COFF file, and ensures that all symbols have
+  // made it through the process.
+  void TestRoundTrip();
+
+  base::FilePath test_dll_obj_path_;
+  base::FilePath new_test_dll_obj_path_;
+  base::FilePath temp_dir_path_;
+
+  // Original image details.
+  testing::DummyTransformPolicy policy_;
+  pe::CoffFile image_file_;
+  block_graph::BlockGraph block_graph_;
+  pe::ImageLayout image_layout_;
+  block_graph::BlockGraph::Block* headers_block_;
 };
 
 }  // namespace testing

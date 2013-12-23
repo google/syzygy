@@ -30,7 +30,12 @@
 #include "gtest/gtest.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/block_graph/orderers/original_orderer.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/coff_decomposer.h"
+#include "syzygy/pe/coff_file.h"
+#include "syzygy/pe/coff_file_writer.h"
+#include "syzygy/pe/coff_image_layout_builder.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/new_decomposer.h"
 #include "syzygy/pe/pe_data.h"
@@ -40,7 +45,10 @@ namespace testing {
 namespace {
 
 using block_graph::BlockGraph;
+using block_graph::ConstTypedBlock;
+using block_graph::OrderedBlockGraph;
 using block_graph::TypedBlock;
+using core::RelativeAddress;
 using pe::CvInfoPdb70;
 
 typedef TypedBlock<CvInfoPdb70> CvInfoPdb;
@@ -332,6 +340,60 @@ void PELibUnitTest::CheckTestDll(const base::FilePath& path) {
   ScopedHMODULE module;
   LoadTestDll(path, &module);
   CheckLoadedTestDll(module);
+}
+
+void CoffUnitTest::SetUp() {
+  testing::PELibUnitTest::SetUp();
+
+  test_dll_obj_path_ =
+      testing::GetExeTestDataRelativePath(testing::kTestDllCoffObjName);
+  ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir_path_));
+  new_test_dll_obj_path_ = temp_dir_path_.Append(L"test_dll.obj");
+
+  ASSERT_NO_FATAL_FAILURE(DecomposeOriginal());
+}
+
+void CoffUnitTest::DecomposeOriginal() {
+  ASSERT_TRUE(image_file_.Init(test_dll_obj_path_));
+  pe::CoffDecomposer decomposer(image_file_);
+  ASSERT_TRUE(decomposer.Decompose(&image_layout_));
+
+  headers_block_ = image_layout_.blocks.GetBlockByAddress(RelativeAddress(0));
+  ASSERT_TRUE(headers_block_ != NULL);
+}
+
+void CoffUnitTest::LayoutAndWriteNew(
+  block_graph::BlockGraphOrdererInterface* orderer) {
+  ASSERT_TRUE(orderer != NULL);
+
+  // Cast headers block.
+  ConstTypedBlock<IMAGE_FILE_HEADER> file_header;
+  ASSERT_TRUE(file_header.Init(0, headers_block_));
+
+  // Reorder using the specified ordering.
+  OrderedBlockGraph ordered_graph(&block_graph_);
+  ASSERT_TRUE(orderer->OrderBlockGraph(&ordered_graph, headers_block_));
+
+  // Wipe references from headers, so we can remove relocation blocks
+  // during laying out.
+  ASSERT_TRUE(headers_block_->RemoveAllReferences());
+
+  // Lay out new image.
+  pe::ImageLayout new_image_layout(&block_graph_);
+  pe::CoffImageLayoutBuilder layout_builder(&new_image_layout);
+  ASSERT_TRUE(layout_builder.LayoutImage(ordered_graph));
+
+  // Write temporary image file.
+  pe::CoffFileWriter writer(&new_image_layout);
+  ASSERT_TRUE(writer.WriteImage(new_test_dll_obj_path_));
+}
+
+void CoffUnitTest::TestRoundTrip() {
+  // Rewrite file and parse new symbol table.
+  block_graph::orderers::OriginalOrderer orig_orderer;
+  ASSERT_NO_FATAL_FAILURE(LayoutAndWriteNew(&orig_orderer));
+  pe::CoffFile image_file;
+  ASSERT_TRUE(image_file.Init(new_test_dll_obj_path_));
 }
 
 }  // namespace testing
