@@ -31,11 +31,9 @@ namespace {
 
 using core::Register;
 typedef BasicBlockSubGraph::BBCollection BBCollection;
-typedef block_graph::BasicBlockSubGraph::BasicBlock BasicBlock;
-typedef block_graph::BasicBlockSubGraph::BasicBlock::Instructions Instructions;
-typedef block_graph::BasicBlockSubGraph::BasicBlock::Successors Successors;
-typedef block_graph::BasicBlockSubGraph::BasicCodeBlock BasicCodeBlock;
-typedef block_graph::Instruction::Representation Representation;
+typedef BasicBlock::Instructions Instructions;
+typedef BasicBlock::Successors Successors;
+typedef Instruction::Representation Representation;
 typedef ControlFlowAnalysis::BasicBlockOrdering BasicBlockOrdering;
 typedef LivenessAnalysis::State State;
 typedef LivenessAnalysis::State::RegisterMask RegisterMask;
@@ -118,10 +116,11 @@ void LivenessAnalysis::GetStateAtExitOf(const BasicBlock* bb,
     StateHelper::Union(successor_state, state);
 
     // Merge liveness information from the implicit instruction in successor.
-    if (StateHelper::GetUsesOf(*succ, &successor_state))
+    if (StateHelper::GetUsesOf(*succ, &successor_state)) {
       StateHelper::Union(successor_state, state);
-    else
+    } else {
       StateHelper::SetAll(state);
+    }
   }
 }
 
@@ -152,10 +151,11 @@ void LivenessAnalysis::PropagateBackward(const Instruction& instr,
   // Add 'uses' of instruction to current state, or assume all alive when 'uses'
   // information is not available.
   State uses;
-  if (StateHelper::GetUsesOf(instr, &uses))
+  if (StateHelper::GetUsesOf(instr, &uses)) {
     StateHelper::Union(uses, state);
-  else
+  } else {
     StateHelper::SetAll(state);
+  }
 }
 
 void LivenessAnalysis::Analyze(const BasicBlockSubGraph* subgraph) {
@@ -491,6 +491,29 @@ bool LivenessAnalysis::StateHelper::GetDefsOf(
     case I_CDQ:
       Set(RegisterToRegisterMask(R_EAX), state);
       return true;
+    case I_MUL:
+    case I_IMUL:
+      if (repr.ops[1].type == O_NONE) {
+        // Destination is implicit.
+        switch (repr.ops[0].size) {
+        case 8:
+          Set(RegisterToRegisterMask(R_AX), state);
+          return true;
+        case 16:
+          Set(RegisterToRegisterMask(R_AX), state);
+          Set(RegisterToRegisterMask(R_DX), state);
+          return true;
+        case 32:
+          Set(RegisterToRegisterMask(R_EAX), state);
+          Set(RegisterToRegisterMask(R_EDX), state);
+          return true;
+        }
+      } else {
+        // Destination is explicit.
+        DCHECK_EQ(repr.opcode, I_IMUL);
+        StateDefOperand(repr.ops[0], state);
+      }
+      return false;
     default:
       return false;
   }
@@ -636,6 +659,29 @@ bool LivenessAnalysis::StateHelper::GetUsesOf(
       return true;
     case I_CDQ:
       Set(RegisterToRegisterMask(R_EAX), state);
+      return true;
+    case I_MUL:
+    case I_IMUL:
+      StateUseOperand(instr, repr.ops[0], state);
+      StateUseOperand(instr, repr.ops[1], state);
+      StateUseOperand(instr, repr.ops[2], state);
+
+      if (repr.ops[1].type == O_NONE) {
+        // The second operand is implicit.
+        switch (repr.ops[0].size) {
+          case 8:
+            Set(RegisterToRegisterMask(R_AL), state);
+            break;
+          case 16:
+            Set(RegisterToRegisterMask(R_AX), state);
+            break;
+          case 32:
+            Set(RegisterToRegisterMask(R_EAX), state);
+            break;
+          default:
+            return false;
+        }
+      }
       return true;
     default:
       return false;

@@ -826,6 +826,103 @@ TEST_F(LivenessAnalysisTest, ArithmeticFlagsInstructions) {
   EXPECT_TRUE(CheckCarryFlagInstruction(true, true));
 }
 
+TEST_F(LivenessAnalysisTest, MultiplicationInstructions) {
+  // _asm mul ecx
+  static const uint8 kMul32[] = { 0xF7, 0xE1 };
+  AnalyzeSingleInstructionFromBuffer(kMul32);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(core::edx));
+
+  // _asm mul cx
+  static const uint8 kMul16[] = { 0x66, 0xF7, 0xE1 };
+  AnalyzeSingleInstructionFromBuffer(kMul16);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(core::edx));
+
+  // _asm mul cl
+  static const uint8 kMul8[] = { 0xF6, 0xE1 };
+  AnalyzeSingleInstructionFromBuffer(kMul8);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_FALSE(is_live(core::ah));
+
+  // _asm mul ah
+  static const uint8 kMul16High[] = { 0xF6, 0xE4 };
+  AnalyzeSingleInstructionFromBuffer(kMul16High);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_FALSE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_TRUE(is_live(core::ah));
+
+  // _asm imul ecx
+  static const uint8 kIMul32[] = { 0xF7, 0xE9 };
+  AnalyzeSingleInstructionFromBuffer(kIMul32);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(core::edx));
+
+  // _asm imul cx
+  static const uint8 kIMul16[] = { 0xF7, 0xE9 };
+  AnalyzeSingleInstructionFromBuffer(kIMul16);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(core::edx));
+
+  // _asm imul cl
+  static const uint8 kIMul8[] = { 0xF6, 0xE9 };
+  AnalyzeSingleInstructionFromBuffer(kIMul8);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_FALSE(is_live(core::ch));
+
+  // _asm imul ah
+  static const uint8 kIMul16High[] = { 0xF6, 0xEC };
+  AnalyzeSingleInstructionFromBuffer(kIMul16High);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_FALSE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_TRUE(is_live(core::ah));
+
+  // _asm imul eax, 3
+  static const uint8 kIMul32ByCst[] = { 0x6B, 0xC0, 0x03 };
+  AnalyzeSingleInstructionFromBuffer(kIMul32ByCst);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_FALSE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(core::edx));
+
+  // _asm imul ecx, 3
+  static const uint8 kIMul32EcxByCst[] = { 0x6B, 0xC9, 0x03 };
+  AnalyzeSingleInstructionFromBuffer(kIMul32EcxByCst);
+  EXPECT_FALSE(are_arithmetic_flags_live());
+  EXPECT_FALSE(are_arithmetic_flags_live());
+  EXPECT_FALSE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(core::edx));
+}
+
 TEST_F(LivenessAnalysisTest, ConversionInstructions) {
   static const uint8 kCdq[] = { 0x99 };
   AnalyzeSingleInstructionFromBuffer(kCdq);
