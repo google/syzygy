@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/experimental/compare/block_hash.h"
+#include "syzygy/block_graph/block_hash.h"
 
-namespace experimental {
+namespace block_graph {
 
 using base::MD5Context;
 using base::MD5Final;
@@ -109,4 +109,4 @@ void BlockHash::Hash(const BlockGraph::Block* block) {
   MD5Final(&md5_digest, &md5_context);
 }
 
-}  // namespace experimental
+}  // namespace block_graph

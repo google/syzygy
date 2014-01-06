@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SYZYGY_EXPERIMENTAL_COMPARE_COMPARABLE_H_
-#define SYZYGY_EXPERIMENTAL_COMPARE_COMPARABLE_H_
+#ifndef SYZYGY_COMMON_COMPARABLE_H_
+#define SYZYGY_COMMON_COMPARABLE_H_
 
-namespace experimental {
+namespace common {
 
 // A 'mixin' class for endowing any class with comparison operators,
 // provided it implements a 3-way compare function with signature
@@ -47,6 +47,6 @@ template<typename T> class Comparable {
   }
 };
 
-}  // namespace experimental
+}  // namespace common
 
-#endif  // SYZYGY_EXPERIMENTAL_COMPARE_COMPARABLE_H_
+#endif  // SYZYGY_COMMON_COMPARABLE_H_

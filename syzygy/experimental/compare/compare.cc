@@ -74,9 +74,9 @@
 
 #include "base/logging.h"
 #include "base/md5.h"
+#include "syzygy/block_graph/block_hash.h"
+#include "syzygy/common/comparable.h"
 #include "syzygy/experimental/compare/block_compare.h"
-#include "syzygy/experimental/compare/block_hash.h"
-#include "syzygy/experimental/compare/comparable.h"
 
 namespace experimental {
 
@@ -120,7 +120,7 @@ struct BlockMetadata {
   size_t feature_index[kFeatureCount];
 
   // The first feature stores hash-values for each block.
-  BlockHash block_hash;
+  block_graph::BlockHash block_hash;
 
   // The second feature uses the block name. This is stored explicitly with the
   // block. However, some decorated names contain explicit image addresses in
@@ -132,7 +132,7 @@ struct BlockMetadata {
 // The virtual base-class for a block feature.
 class BlockFeature {
  public:
-  BlockFeature(size_t id)
+  explicit BlockFeature(size_t id)
       : id_(id) {
     DCHECK_GT(static_cast<size_t>(kFeatureCount), id);
   }
@@ -389,7 +389,7 @@ class FeatureIndex {
   // This is used as a sort functor for BlockInfos.
   class BlockInfoSortFunctor {
    public:
-    BlockInfoSortFunctor(const BlockFeature& block_feature)
+    explicit BlockInfoSortFunctor(const BlockFeature& block_feature)
         : block_feature(block_feature) {
     }
 

@@ -12,21 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SYZYGY_EXPERIMENTAL_COMPARE_BLOCK_HASH_H_
-#define SYZYGY_EXPERIMENTAL_COMPARE_BLOCK_HASH_H_
+#ifndef SYZYGY_BLOCK_GRAPH_BLOCK_HASH_H_
+#define SYZYGY_BLOCK_GRAPH_BLOCK_HASH_H_
 
 #include "base/md5.h"
 #include "syzygy/block_graph/block_graph.h"
-#include "syzygy/experimental/compare/comparable.h"
+#include "syzygy/common/comparable.h"
 
-namespace experimental {
+namespace block_graph {
 
 using block_graph::BlockGraph;
 
 // Represents a hash of the content of a block. Internally we store an 128-bit
 // MD5 digest, but this endows it with comparison operators. We explicitly
 // provide copy and assignment operators to make this STL container compatible.
-struct BlockHash : public Comparable<BlockHash> {
+struct BlockHash : public common::Comparable<BlockHash> {
  public:
   BlockHash() {
   }
@@ -51,6 +51,6 @@ struct BlockHash : public Comparable<BlockHash> {
   base::MD5Digest md5_digest;
 };
 
-}  // namespace experimental
+}  // namespace block_graph
 
-#endif  // SYZYGY_EXPERIMENTAL_COMPARE_BLOCK_HASH_H_
+#endif  // SYZYGY_BLOCK_GRAPH_BLOCK_HASH_H_

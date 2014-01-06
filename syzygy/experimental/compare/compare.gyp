@@ -23,9 +23,6 @@
       'sources': [
         'block_compare.cc',
         'block_compare.h',
-        'block_hash.cc',
-        'block_hash.h',
-        'comparable.h',
         'compare.cc',
         'compare.h',
         'compare.rc',
