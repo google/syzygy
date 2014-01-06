@@ -598,6 +598,14 @@ bool LivenessAnalysis::StateHelper::GetUsesOf(
     case I_OR:
     case I_SBB:
     case I_SAR:
+    case I_SHL:
+    case I_SHR:
+    case I_SUB:
+    case I_TEST:
+    case I_XOR:
+      StateUseOperand(instr, repr.ops[0], state);
+      StateUseOperand(instr, repr.ops[1], state);
+      return true;
     case I_SETA:
     case I_SETAE:
     case I_SETB:
@@ -614,13 +622,6 @@ bool LivenessAnalysis::StateHelper::GetUsesOf(
     case I_SETP:
     case I_SETS:
     case I_SETZ:
-    case I_SHL:
-    case I_SHR:
-    case I_SUB:
-    case I_TEST:
-    case I_XOR:
-      StateUseOperand(instr, repr.ops[0], state);
-      StateUseOperand(instr, repr.ops[1], state);
       return true;
     case I_LEA:
     case I_MOV:
@@ -652,6 +653,7 @@ bool LivenessAnalysis::StateHelper::GetUsesOf(
       return true;
     case I_LEAVE:
       Set(RegisterToRegisterMask(R_EBP), state);
+      Set(RegisterToRegisterMask(R_ESP), state);
       return true;
     case I_MOVS:
       Set(RegisterToRegisterMask(R_ESI), state);
