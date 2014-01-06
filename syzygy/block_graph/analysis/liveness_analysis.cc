@@ -488,8 +488,12 @@ bool LivenessAnalysis::StateHelper::GetDefsOf(
     case I_STOS:
       Set(RegisterToRegisterMask(R_EDI), state);
       return true;
+    case I_CWD:
+      Set(RegisterToRegisterMask(R_EAX), state);
+      return true;
     case I_CDQ:
       Set(RegisterToRegisterMask(R_EAX), state);
+      Set(RegisterToRegisterMask(R_EDX), state);
       return true;
     case I_MUL:
     case I_IMUL:
@@ -656,6 +660,9 @@ bool LivenessAnalysis::StateHelper::GetUsesOf(
     case I_STOS:
       Set(RegisterToRegisterMask(R_EAX), state);
       Set(RegisterToRegisterMask(R_EDI), state);
+      return true;
+    case I_CWD:
+      Set(RegisterToRegisterMask(R_AX), state);
       return true;
     case I_CDQ:
       Set(RegisterToRegisterMask(R_EAX), state);

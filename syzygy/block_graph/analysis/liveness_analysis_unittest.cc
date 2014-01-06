@@ -65,9 +65,18 @@ class LivenessAnalysisTest : public testing::Test {
  public:
   LivenessAnalysisTest();
 
+  inline bool is_def(const core::Register& reg) const {
+    return defs_.IsLive(reg);
+  }
+
+  inline bool is_use(const core::Register& reg) const {
+    return uses_.IsLive(reg);
+  }
+
   inline bool is_live(const core::Register& reg) const {
     return state_.IsLive(reg);
   }
+
   inline bool are_arithmetic_flags_live() const {
     return state_.AreArithmeticFlagsLive();
   }
@@ -77,6 +86,9 @@ class LivenessAnalysisTest : public testing::Test {
   void DefineAllRegisters();
   void AnalyzeInstructionsWithoutReset();
   void AnalyzeInstructions();
+
+  template<size_t N>
+  void UpdateDefsUsesFromBuffer(const uint8 (& data)[N]);
 
   template<size_t N>
   void AnalyzeSingleInstructionFromBuffer(const uint8 (& data)[N]);
@@ -94,6 +106,8 @@ class LivenessAnalysisTest : public testing::Test {
   BasicBlockAssembler asm_;
   LivenessAnalysis liveness_;
   LivenessAnalysis::State state_;
+  LivenessAnalysis::State defs_;
+  LivenessAnalysis::State uses_;
 };
 
 LivenessAnalysisTest::LivenessAnalysisTest()
@@ -104,6 +118,22 @@ LivenessAnalysisTest::LivenessAnalysisTest()
       liveness_(),
       state_() {
   test_block_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 10, "test block");
+}
+
+template<size_t N>
+void LivenessAnalysisTest::UpdateDefsUsesFromBuffer(const uint8 (& data)[N]) {
+  // Decode an instruction.
+  DCHECK_GT(core::AssemblerImpl::kMaxInstructionLength, N);
+
+  block_graph::Instruction temp;
+  ASSERT_TRUE(block_graph::Instruction::FromBuffer(&data[0], N, &temp));
+
+  // Expect to decode the entire buffer.
+  ASSERT_TRUE(temp.size() == N);
+
+  // Analyze the defs/uses of this instruction.
+  StateHelper::GetDefsOf(temp, &defs_);
+  StateHelper::GetUsesOf(temp, &uses_);
 }
 
 template<size_t N>
@@ -164,6 +194,9 @@ void LivenessAnalysisTest::AnalyzeSingleInstructionFromBuffer(
   AddInstructionFromBuffer(data);
   DefineAllRegisters();
   AnalyzeInstructions();
+
+  // Retrieve defs/uses of this instruction.
+  UpdateDefsUsesFromBuffer(data);
 }
 
 bool LivenessAnalysisTest::CheckCarryFlagInstruction(
@@ -929,6 +962,20 @@ TEST_F(LivenessAnalysisTest, ConversionInstructions) {
   EXPECT_TRUE(is_live(core::eax));
   EXPECT_FALSE(is_live(core::edx));
   EXPECT_FALSE(are_arithmetic_flags_live());
+  EXPECT_TRUE(is_def(core::eax));
+  EXPECT_TRUE(is_def(core::edx));
+  EXPECT_TRUE(is_use(core::eax));
+  EXPECT_FALSE(is_use(core::edx));
+
+  static const uint8 kCwd[] = { 0x66, 0x99 };
+  AnalyzeSingleInstructionFromBuffer(kCwd);
+  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_FALSE(are_arithmetic_flags_live());
+  EXPECT_TRUE(is_def(core::eax));
+  EXPECT_FALSE(is_def(core::edx));
+  EXPECT_TRUE(is_use(core::eax));
+  EXPECT_FALSE(is_use(core::edx));
 }
 
 TEST_F(LivenessAnalysisTest, EpilogueInstructions) {
