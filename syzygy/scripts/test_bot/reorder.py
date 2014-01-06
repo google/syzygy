@@ -212,6 +212,7 @@ class ReorderTest(object):
         '--output-pdb=%s' % new_pdb,
         '--padding=%s' % self._padding,
         '--fuzz',
+        '--verbose=1',
         '--no-augment-pdb',
         ]
     if self._reorder_basic_blocks:
@@ -330,24 +331,23 @@ class ReorderTest(object):
       A pair of integers denoting the number of passed and failed tests,
       respectively.
     """
-    # Establish the baseline results. If the candidate control run does't
-    # pass all the tests, we re-run it to see if it subsequently passes.
-    # If it passes in any of the attempts, we use the passing results as
-    # the baseline. If it fails each attempt, but each attempt fails the
-    # same way, then we use that result set as the baseline. Otherwise,
-    # we abort because the test is too flaky.
+    # Establish the baseline results by running the test multiple times.
+    # If the candidate control run does not consistently pass all the
+    # tests, we abandon this test run as flaky.
     control_results = None
-    saved_results = None
     for attempt in xrange(1, max_attempts + 1):
       _LOGGER.info('run=%s; attempt=%s/%s; Launching test app ...',
                    0, attempt, max_attempts)
-      control_results = self.RunTestApp(0, 'unmodified')
-      if all(result == 'OK' for result in control_results.itervalues()):
-        break
-      if saved_results is not None and control_results != saved_results:
-        _LOGGER.error('Received two different sets of failing results!')
+      results = self.RunTestApp(0, 'unmodified')
+      if not all(result == 'OK' for result in results.itervalues()):
+        _LOGGER.error('Running the unmodified test binaries failed!')
         return 0, 0
-      saved_results = control_results
+      if control_results is None:
+        control_results = results
+      elif results != control_results:
+        _LOGGER.error(
+            'Inconsistent "successful" results from the unmodified binaries!')
+        return 0, 0
     _LOGGER.info('Established baseline results.')
 
     # Run the reorder test num_iterations times. For each iteration, make up
@@ -500,6 +500,8 @@ def GetSummaryLine(title, passed, failed):
     passed: The number of iterations that passed.
     failed: The number of iterations that failed.
   """
+  if passed == 0 and failed == 0:
+    return '%s aborted!' % title
   return '%s (%s passed, %s failed)' % (title, passed, failed)
 
 
@@ -530,4 +532,4 @@ def main():
 
 
 if __name__ == '__main__':
-  main()
+  sys.exit(main())
