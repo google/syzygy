@@ -48,9 +48,16 @@ const uint8 kPrologEpilog[] = { 0x55, 0x8B, 0xEC, 0x5D, 0x33, 0xC0, 0xC3 };
 const uint8 kTwicePrologEpilog[] =
     { 0x55, 0x8B, 0xEC, 0x5D, 0x55, 0x8B, 0xEC, 0x5D, 0x33, 0xC0, 0xC3 };
 
+// _asm ret
+const uint8 kRet[] = { 0xC3 };
+
 // _asm xor eax, eax
 // _asm ret
 const uint8 kRet0[] = { 0x33, 0xC0, 0xC3 };
+
+// _asm mov ecx, ecx
+// _asm ret
+const uint8 kMovIdentity[] = { 0x8B, 0xC9, 0xC3 };
 
 enum TransformKind {
   ktransformBlock,
@@ -136,6 +143,14 @@ TEST_F(PeepholeTransformTest, SimplifyEmptyPrologEpilogTwice) {
                      kTwicePrologEpilog,
                      sizeof(kTwicePrologEpilog)));
   EXPECT_THAT(kRet0, ElementsAreArray(block_->data(), block_->size()));
+}
+
+TEST_F(PeepholeTransformTest, SimplifyIdentityMov) {
+  ASSERT_NO_FATAL_FAILURE(
+      TransformBlock(ktransformBlock,
+                     kMovIdentity,
+                     sizeof(kMovIdentity)));
+  EXPECT_THAT(kRet, ElementsAreArray(block_->data(), block_->size()));
 }
 
 }  // namespace transforms

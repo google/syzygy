@@ -54,9 +54,9 @@ bool MatchThreeInstructions(const Instructions& instructions,
 
 // Validate that a given instruction has opcode |opcode| and |reg| as its
 // register operand.
-bool MatchInstruction1(const Instruction& instr,
-                       _InstructionType opcode,
-                       _RegisterType reg) {
+bool MatchInstructionReg(const Instruction& instr,
+                         _InstructionType opcode,
+                         _RegisterType reg) {
   const _DInst& repr = instr.representation();
   if (repr.opcode == opcode &&
       repr.ops[0].type == O_REG &&
@@ -69,16 +69,39 @@ bool MatchInstruction1(const Instruction& instr,
 
 // Validate that a given instruction has opcode |opcode| and both |reg1| and
 // |reg2| as its register operands.
-bool MatchInstruction2(const Instruction& instr,
-                       _InstructionType opcode,
-                       _RegisterType reg1,
-                       _RegisterType reg2) {
+bool MatchInstructionRegReg(const Instruction& instr,
+                            _InstructionType opcode,
+                            _RegisterType reg1,
+                            _RegisterType reg2) {
   const _DInst& repr = instr.representation();
   if (repr.opcode == opcode &&
       repr.ops[0].type == O_REG &&
       repr.ops[0].index == reg1 &&
       repr.ops[1].type == O_REG &&
       repr.ops[1].index == reg2) {
+    return true;
+  }
+
+  return false;
+}
+
+// Validate that a given instruction has opcode |opcode| and both |reg1| and
+// |reg2| are register operands.
+// @param instr the instruction to match.
+// @param opcode the expected opcode.
+// @param reg1 receives the first register.
+// @param reg2 receives the second register.
+// @returns true on a successful match, false otherwise.
+bool MatchInstructionRegReg(const Instruction& instr,
+                            _InstructionType opcode,
+                            _RegisterType* reg1,
+                            _RegisterType* reg2) {
+  const _DInst& repr = instr.representation();
+  if (repr.opcode == opcode &&
+      repr.ops[0].type == O_REG &&
+      repr.ops[1].type == O_REG) {
+    *reg1 = static_cast<_RegisterType>(repr.ops[0].index);
+    *reg2 = static_cast<_RegisterType>(repr.ops[1].index);
     return true;
   }
 
@@ -95,12 +118,31 @@ bool SimplifyEmptyPrologEpilog(Instructions* instructions,
   Instruction* instr3 = NULL;
   if (MatchThreeInstructions(*instructions, *where, &instr1,
           &instr2, &instr3) &&
-      MatchInstruction1(*instr1, I_PUSH, R_EBP) &&
-      MatchInstruction2(*instr2, I_MOV, R_EBP, R_ESP) &&
-      MatchInstruction1(*instr3, I_POP, R_EBP)) {
+      MatchInstructionReg(*instr1, I_PUSH, R_EBP) &&
+      MatchInstructionRegReg(*instr2, I_MOV, R_EBP, R_ESP) &&
+      MatchInstructionReg(*instr3, I_POP, R_EBP)) {
     // Remove the three matched instructions.
     for (int i = 0; i < 3; ++i)
       *where = instructions->erase(*where);
+    return true;
+  }
+
+  return false;
+}
+
+// Remove identity pattern like: mov eax, eax.
+bool SimplifyIdentityMov(Instructions* instructions,
+                         Instructions::iterator* where) {
+  DCHECK_NE(reinterpret_cast<Instructions*>(NULL), instructions);
+  DCHECK_NE(reinterpret_cast<Instructions::iterator*>(NULL), where);
+
+  const Instruction& instr = **where;
+  _RegisterType reg1 = _RegisterType();
+  _RegisterType reg2 = _RegisterType();
+  if (MatchInstructionRegReg(instr, I_MOV, &reg1, &reg2) &&
+      reg1 == reg2) {
+    // Remove the matched instruction.
+    *where = instructions->erase(*where);
     return true;
   }
 
@@ -120,7 +162,8 @@ bool SimplifyBasicBlock(BasicBlock* basic_block) {
   // Match and rewrite based on patterns.
   BasicBlock::Instructions::iterator inst_iter = bb->instructions().begin();
   while (inst_iter != bb->instructions().end()) {
-    if (SimplifyEmptyPrologEpilog(&bb->instructions(), &inst_iter)) {
+    if (SimplifyEmptyPrologEpilog(&bb->instructions(), &inst_iter) ||
+        SimplifyIdentityMov(&bb->instructions(), &inst_iter)) {
       changed = true;
       continue;
     }
