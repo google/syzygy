@@ -153,5 +153,55 @@ TEST_F(PeepholeTransformTest, SimplifyIdentityMov) {
   EXPECT_THAT(kRet, ElementsAreArray(block_->data(), block_->size()));
 }
 
+TEST_F(PeepholeTransformTest, RemoveDeadCodeSubgraph) {
+  // _asm mov eax, 4
+  // _asm cmp eax, edx
+  // _asm cmp edx, 0
+  // _asm inc edx
+  // _asm xor edx, edx
+  // _asm cmp edx, 0
+  // _asm ret
+  const uint8 kSource[] = { 0xB8, 0x04, 0x00, 0x00, 0x00, 0x3B, 0xC2, 0x83,
+      0xFA, 0x00, 0x42, 0x33, 0xD2, 0x83, 0xFA, 0x00, 0xC3 };
+
+  // _asm mov eax, 4
+  // _asm xor edx, edx
+  // _asm cmp edx, 0
+  // _asm ret
+  const uint8 kResult[] = { 0xB8, 0x04, 0x00, 0x00, 0x00, 0x33, 0xD2, 0x83,
+      0xFA, 0x00, 0xC3 };
+
+  ASSERT_NO_FATAL_FAILURE(
+      TransformBlock(ktransformBlock, kSource, sizeof(kSource)));
+  EXPECT_THAT(kResult, ElementsAreArray(block_->data(), block_->size()));
+}
+
+TEST_F(PeepholeTransformTest, RemoveDeadCodeSubgraphWithStackManipulation) {
+  // _asm push 1
+  // _asm pop ecx
+  // _asm xor ecx, ecx
+  // _asm ret
+  const uint8 kSource[] = { 0x6A, 0x01, 0x59, 0x33, 0xC9, 0xC3 };
+
+  ASSERT_NO_FATAL_FAILURE(
+      TransformBlock(ktransformBlock, kSource, sizeof(kSource)));
+
+  // This code is not simplified. There is some stack manipulation.
+  EXPECT_THAT(kSource, ElementsAreArray(block_->data(), block_->size()));
+}
+
+TEST_F(PeepholeTransformTest, RemoveDeadCodeSubgraphWith8BitRegister) {
+  // _asm inc al
+  // _asm xor eax, eax
+  // _asm ret
+  const uint8 kSource[] = { 0xFE, 0xC0, 0x33, 0xC0, 0xC3 };
+
+  ASSERT_NO_FATAL_FAILURE(
+      TransformBlock(ktransformBlock, kSource, sizeof(kSource)));
+
+  // This code is not simplified. There is a 8-bit register.
+  EXPECT_THAT(kSource, ElementsAreArray(block_->data(), block_->size()));
+}
+
 }  // namespace transforms
 }  // namespace optimize

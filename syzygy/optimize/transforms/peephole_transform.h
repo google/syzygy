@@ -57,6 +57,12 @@ class PeepholeTransform : public SubGraphTransformInterface {
   // @returns true if the subgraph has been simplified, false otherwise.
   static bool SimplifySubgraph(BasicBlockSubGraph* subgraph);
 
+  // Remove dead instruction in the contents of a subgraph. The dead code
+  // elimination is applied once.
+  // @param subgraph the subgraph to simplify.
+  // @returns true if the subgraph has been simplified, false otherwise.
+  static bool RemoveDeadCodeSubgraph(BasicBlockSubGraph* subgraph);
+
  private:
   DISALLOW_COPY_AND_ASSIGN(PeepholeTransform);
 };
