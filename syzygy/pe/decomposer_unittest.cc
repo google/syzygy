@@ -421,7 +421,7 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   expected_attrib_counts[BlockGraph::PE_PARSED] = 93;
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 665;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 140;
-  expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 8;
+  expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 9;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 14;
   expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 1;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 22;
