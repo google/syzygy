@@ -53,6 +53,10 @@ enum CalleeKind {
   // Block DirectTrampoline
   //   dummy: jmp target
   kDirectTrampoline,
+  // Block DirectTrampoline
+  //   dummy: push eax
+  //          jmp target
+  kDirectTrampolineWithInstruction,
   // Block IndirectTrampoline
   //   dummy: jmp [target]
   kIndirectTrampoline,
@@ -223,6 +227,15 @@ void InliningTransformTest::CreateCalleeBlock(CalleeKind kind,
       assembler.jmp(Immediate(code));
       break;
     case kDirectTrampoline: {
+      Successor successor(
+          Successor::kConditionTrue,
+          BasicBlockReference(BlockGraph::PC_RELATIVE_REF, 4, target, 0, 0),
+          4);
+      code->successors().push_back(successor);
+      break;
+    }
+    case kDirectTrampolineWithInstruction: {
+      assembler.push(core::eax);
       Successor successor(
           Successor::kConditionTrue,
           BasicBlockReference(BlockGraph::PC_RELATIVE_REF, 4, target, 0, 0),
@@ -536,6 +549,27 @@ TEST_F(InliningTransformTest, InlineTrampolineToCode) {
   ASSERT_EQ(1U, callee_->references().size());
   BlockGraph::Reference reference = callee_->references().begin()->second;
   EXPECT_EQ(dummy, reference.referenced());
+}
+
+TEST_F(InliningTransformTest, InlineTrampolineWithInstruction) {
+  BlockGraph::Block* dummy = NULL;
+  ASSERT_NO_FATAL_FAILURE(
+      AddBlockFromBuffer(kCodeRet42, sizeof(kCodeRet42), &dummy));
+  ASSERT_NO_FATAL_FAILURE(
+      AddBlockFromBuffer(kCodeRet, sizeof(kCodeRet), &callee_));
+  ASSERT_NO_FATAL_FAILURE(
+      CreateCalleeBlock(kDirectTrampolineWithInstruction, dummy, &callee_));
+  ASSERT_NO_FATAL_FAILURE(CreateCallSiteToBlock(callee_));
+  ASSERT_NO_FATAL_FAILURE(ApplyTransformOnCaller());
+
+  // Validate that the reference from caller is to dummy.
+  ASSERT_EQ(1U, caller_->references().size());
+  BlockGraph::Reference reference = caller_->references().begin()->second;
+  EXPECT_EQ(dummy, reference.referenced());
+
+  // The first instruction must be a push %eax.
+  uint8 kPushEaxOpcode = 0x50;
+  EXPECT_EQ(kPushEaxOpcode, caller_->data()[0]);
 }
 
 TEST_F(InliningTransformTest, DontInlineTrampolineToData) {

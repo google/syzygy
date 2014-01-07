@@ -367,7 +367,7 @@ bool InlineTrivialBody(MatchKind kind,
   }
 
   // Replacing the return or the tail-call instruction.
-  BasicBlockAssembler assembler(target, instructions);
+  BasicBlockAssembler assembler(new_body.end(), &new_body);
   switch (kind) {
     case kReturnMatch:
       break;
