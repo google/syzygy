@@ -454,6 +454,10 @@ bool InliningTransform::TransformBasicBlockSubGraph(
   if (!policy->BlockIsSafeToBasicBlockDecompose(caller))
     return true;
 
+  // The current block will be rebuilt and erased from the block graph. To avoid
+  // dangling pointers, the block is removed from the decomposed cache.
+  subgraph_cache_.erase(caller->id());
+
   // Iterates through each basic block.
   BasicBlockSubGraph::BBCollection::iterator bb_iter =
       subgraph->basic_blocks().begin();
@@ -504,20 +508,20 @@ bool InliningTransform::TransformBasicBlockSubGraph(
       MatchKind match_kind = kInvalidMatch;
 
       // Look in the subgraph cache for an already decomposed subgraph.
-      SubGraphCache::iterator look = subgraph_cache_.find(callee);
+      SubGraphCache::iterator look = subgraph_cache_.find(callee->id());
       if (look != subgraph_cache_.end()) {
         callee_subgraph = look->second.get();
         DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), callee_subgraph);
       } else {
         // Not in cache, create a new subgraph.
-        ScopedSubgraph& scoped = subgraph_cache_[callee];
+        ScopedSubgraph& scoped = subgraph_cache_[callee->id()];
         scoped.reset(new BasicBlockSubGraph());
         callee_subgraph = scoped.get();
         DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), callee_subgraph);
 
         // Decompose it.
         if (!DecomposeToBasicBlock(callee, callee_subgraph)) {
-          subgraph_cache_.erase(callee);
+          subgraph_cache_.erase(callee->id());
           continue;
         }
 
