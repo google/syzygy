@@ -857,4 +857,37 @@ size_t AsanWriteFileUseAfterFree() {
   return bytes_written;
 }
 
+size_t AsanWcsrchrOverflow() {
+  const wchar_t* wstr_value = L"abc1";
+  wchar_t* wstr = new wchar_t[wcslen(wstr_value) + 1];
+  wcscpy(wstr, wstr_value);
+
+  size_t wstr_len = wcslen(wstr);
+  wstr[wstr_len] = L'a';
+
+  wchar_t* result = wcsrchr(wstr, L'c');
+  delete[] wstr;
+  return reinterpret_cast<size_t>(result);
+}
+
+size_t AsanWcsrchrUnderflow() {
+  const wchar_t* wstr_value = L"abc1";
+  wchar_t* wstr = new wchar_t[wcslen(wstr_value) + 1];
+  wcscpy(wstr, wstr_value);
+
+  wchar_t* result = wcsrchr(wstr - 1, L'c');
+  delete[] wstr;
+  return reinterpret_cast<size_t>(result);
+}
+
+size_t AsanWcsrchrUseAfterFree() {
+  const wchar_t* wstr_value = L"abc1";
+  wchar_t* wstr = new wchar_t[wcslen(wstr_value) + 1];
+  wcscpy(wstr, wstr_value);
+
+  delete[] wstr;
+  wchar_t* result = wcsrchr(wstr, L'c');
+  return reinterpret_cast<size_t>(result);
+}
+
 }  // namespace testing

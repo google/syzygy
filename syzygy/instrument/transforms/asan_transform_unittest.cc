@@ -833,6 +833,7 @@ TEST_F(AsanTransformTest, ImportsAreRedirected) {
   expected.insert("asan_strspn");
   expected.insert("asan_strncpy");
   expected.insert("asan_strncat");
+  expected.insert("asan_wcsrchr");
 
   EXPECT_EQ(expected, imports);
 }

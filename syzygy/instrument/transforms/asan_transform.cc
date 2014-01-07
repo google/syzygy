@@ -953,6 +953,7 @@ bool AsanTransform::PostBlockGraphIteration(
     interception_set.insert("strspn");
     interception_set.insert("strncpy");
     interception_set.insert("strncat");
+    interception_set.insert("wcsrchr");
     InterceptFunctions(&module_asan,
                        policy,
                        block_graph,

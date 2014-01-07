@@ -31,10 +31,10 @@ const size_t kPointerSize = BlockGraph::Reference::kMaximumSize;
 
 // test_dll.coff_obj-specific constants. Adjust to match current code in
 // test_dll.cc.
-const size_t kNumTextSections = 25;
+const size_t kNumTextSections = 26;
 const size_t kNumDataSections = 2;
 const size_t kNumRDataSections = 14;  // Includes .rdata$r sections.
-const size_t kNumDebugSections = 27;  // Includes .debug$S and .debug$T.
+const size_t kNumDebugSections = 28;  // Includes .debug$S and .debug$T.
 const size_t kNumBssSections = 1;
 
 const size_t kNumFunctions = 14;

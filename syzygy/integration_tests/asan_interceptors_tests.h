@@ -231,6 +231,12 @@ size_t AsanStrrchrUnderflow();
 
 size_t AsanStrrchrUseAfterFree();
 
+size_t AsanWcsrchrOverflow();
+
+size_t AsanWcsrchrUnderflow();
+
+size_t AsanWcsrchrUseAfterFree();
+
 size_t AsanStrcmpSrc1Overflow();
 
 size_t AsanStrcmpSrc1Underflow();

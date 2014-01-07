@@ -401,6 +401,53 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
   }
 }
 
+
+
+// Disable the intrinsic versions of the intercepted functions. We need to do
+// this because we expect these functions to be explicitly called so we don't
+// want the intrinsic form to be used.
+#pragma function(memcmp, memcpy, memset)  // NOLINT
+#pragma function(strcat, strcmp, strcpy, strlen)  // NOLINT
+
+// This function should use all the CRT intercepted functions, it's used to make
+// sure that these functions are really intercepted.
+// @note The logic of this function doesn't really make sense, it's only purpose
+//      is to make sure that there's a reference to the intercepted function in
+//      this DLL, this function shouldn't be called.
+size_t intercepted_functions() {
+  const size_t kArraySize = 64;
+  char buffer[kArraySize];
+  char buffer2[kArraySize];
+  wchar_t buffer_wide[kArraySize];
+
+  // mem* functions.
+  ::memset(buffer, 0xAA, kArraySize * sizeof(char));
+  ::memset(buffer_wide, 0xAA, kArraySize * sizeof(wchar_t));
+  ::memchr(buffer, 0xFF, kArraySize * sizeof(char));
+  ::memmove(buffer + kArraySize / 2, buffer, kArraySize / 4);
+  ::memcpy(buffer2, buffer, kArraySize * sizeof(char));
+
+  // str* functions.
+  buffer[kArraySize - 1] = 0;
+  buffer2[kArraySize - 1] = 0;
+  size_t string_size = ::strlen(buffer);
+  ::strcspn(buffer, "test");
+  ::strrchr(buffer, 0);
+  ::strcmp(buffer, buffer2);
+  ::strpbrk(buffer, "test");
+  ::strstr(buffer, buffer2);
+  ::strspn(buffer, "test");
+  ::strncpy(buffer2, buffer, string_size);
+  buffer2[2] = 0;
+  ::strncat(buffer2, buffer, string_size / 4);
+
+  // wcs* functions.
+  buffer_wide[kArraySize - 1] = 0;
+  ::wcsrchr(buffer_wide, L'a');
+
+  return 0;
+}
+
 void used_operation() {
   function1();
   function2();
@@ -411,6 +458,7 @@ void used_operation() {
 void unused_operation() {
   char dummy[512];
   TestExport(sizeof(dummy), dummy);
+  intercepted_functions();
 }
 
 class Used {
@@ -447,43 +495,4 @@ DWORD FuncWithOffsetOutOfImage(int x, int y) {
   static const int kArray[4][256] = {};
   static const int kBigNum = 0xB0000000;
   return kArray[x][y + kBigNum];
-}
-
-// Disable the intrinsic versions of the intercepted functions. We need to do
-// this because we expect these functions to be explicitly called so we don't
-// want the intrinsic form to be used.
-#pragma function(memcmp, memcpy, memset)  // NOLINT
-#pragma function(strcat, strcmp, strcpy, strlen)  // NOLINT
-
-// This function should use all the CRT intercepted functions, it's used to make
-// sure that these functions are really intercepted.
-// @note The logic of this function doesn't really make sense, it's only purpose
-//      is to make sure that there's a reference to the intercepted function in
-//      this DLL, this function shouldn't be called.
-size_t intercepted_functions() {
-  const size_t kArraySize = 64;
-  char buffer[kArraySize];
-  char buffer2[kArraySize];
-
-  // mem* functions.
-  memset(buffer, 0xAA, kArraySize * sizeof(char));
-  memchr(buffer, 0xFF, kArraySize * sizeof(char));
-  memmove(buffer + kArraySize / 2, buffer, kArraySize / 4);
-  memcpy(buffer2, buffer, kArraySize * sizeof(char));
-
-  // str* functions.
-  buffer[kArraySize - 1] = 0;
-  buffer2[kArraySize - 1] = 0;
-  size_t string_size = strlen(buffer);
-  strcspn(buffer, "test");
-  strrchr(buffer, 0);
-  strcmp(buffer, buffer2);
-  strpbrk(buffer, "test");
-  strstr(buffer, buffer2);
-  strspn(buffer, "test");
-  strncpy(buffer2, buffer, string_size);
-  buffer2[2] = 0;
-  strncat(buffer2, buffer, string_size / 4);
-
-  return 0;
 }

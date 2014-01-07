@@ -345,6 +345,12 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
         ASAN_READ_ACCESS, 1);
     AsanErrorCheck(testing::kAsanStrrchrUseAfterFree, USE_AFTER_FREE,
         ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanWcsrchrOverflow, HEAP_BUFFER_OVERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanWcsrchrUnderflow, HEAP_BUFFER_UNDERFLOW,
+        ASAN_READ_ACCESS, 1);
+    AsanErrorCheck(testing::kAsanWcsrchrUseAfterFree, USE_AFTER_FREE,
+        ASAN_READ_ACCESS, 1);
     AsanErrorCheck(testing::kAsanStrcmpSrc1Overflow, HEAP_BUFFER_OVERFLOW,
         ASAN_READ_ACCESS, 1);
     AsanErrorCheck(testing::kAsanStrcmpSrc1Underflow, HEAP_BUFFER_UNDERFLOW,

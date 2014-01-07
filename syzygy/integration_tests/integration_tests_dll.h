@@ -1,4 +1,4 @@
-// Copyright 2013 Google Inc. All Rights Reserved.
+  // Copyright 2013 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -98,6 +98,9 @@ namespace testing {
     decl(kAsanStrrchrOverflow, testing::AsanStrrchrOverflow)  \
     decl(kAsanStrrchrUnderflow, testing::AsanStrrchrUnderflow)  \
     decl(kAsanStrrchrUseAfterFree, testing::AsanStrrchrUseAfterFree)  \
+    decl(kAsanWcsrchrOverflow, testing::AsanWcsrchrOverflow)  \
+    decl(kAsanWcsrchrUnderflow, testing::AsanWcsrchrUnderflow)  \
+    decl(kAsanWcsrchrUseAfterFree, testing::AsanWcsrchrUseAfterFree)  \
     decl(kAsanStrcmpSrc1Overflow, testing::AsanStrcmpSrc1Overflow)  \
     decl(kAsanStrcmpSrc1Underflow, testing::AsanStrcmpSrc1Underflow)  \
     decl(kAsanStrcmpSrc1UseAfterFree, testing::AsanStrcmpSrc1UseAfterFree)  \
