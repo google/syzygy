@@ -546,8 +546,8 @@ TEST_F(InliningTransformTest, InlineTrampolineToCode) {
   ASSERT_NO_FATAL_FAILURE(ApplyTransformOnCaller());
 
   // Validate that the reference from caller is to dummy.
-  ASSERT_EQ(1U, callee_->references().size());
-  BlockGraph::Reference reference = callee_->references().begin()->second;
+  ASSERT_EQ(1U, caller_->references().size());
+  BlockGraph::Reference reference = caller_->references().begin()->second;
   EXPECT_EQ(dummy, reference.referenced());
 }
 
@@ -572,7 +572,7 @@ TEST_F(InliningTransformTest, InlineTrampolineWithInstruction) {
   EXPECT_EQ(kPushEaxOpcode, caller_->data()[0]);
 }
 
-TEST_F(InliningTransformTest, DontInlineTrampolineToData) {
+TEST_F(InliningTransformTest, InlineTrampolineToData) {
   BlockGraph::Block* dummy =
         block_graph_.AddBlock(BlockGraph::DATA_BLOCK, sizeof(kCodeRet0), "d1");
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), dummy);
@@ -584,9 +584,9 @@ TEST_F(InliningTransformTest, DontInlineTrampolineToData) {
   ASSERT_NO_FATAL_FAILURE(CreateCallSiteToBlock(callee_));
   ASSERT_NO_FATAL_FAILURE(ApplyTransformOnCaller());
 
-  // Validate that the reference from caller is still to callee.
-  ASSERT_EQ(1U, callee_->references().size());
-  BlockGraph::Reference reference = callee_->references().begin()->second;
+  // Validate that the reference from caller is to dummy.
+  ASSERT_EQ(1U, caller_->references().size());
+  BlockGraph::Reference reference = caller_->references().begin()->second;
   EXPECT_EQ(dummy, reference.referenced());
 }
 
@@ -599,8 +599,8 @@ TEST_F(InliningTransformTest, InlineIndirectTrampoline) {
   ASSERT_NO_FATAL_FAILURE(ApplyTransformOnCaller());
 
   // Validate that the reference from caller is to |data_|.
-  ASSERT_EQ(1U, callee_->references().size());
-  BlockGraph::Reference reference = callee_->references().begin()->second;
+  ASSERT_EQ(1U, caller_->references().size());
+  BlockGraph::Reference reference = caller_->references().begin()->second;
   EXPECT_EQ(data_, reference.referenced());
 }
 
