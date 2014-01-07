@@ -45,7 +45,8 @@ using block_graph::Successor;
 using pe::ImageLayout;
 using testing::ElementsAreArray;
 
-typedef block_graph::BasicBlockSubGraph::BasicCodeBlock BasicCodeBlock;
+typedef BasicBlockSubGraph::BasicCodeBlock BasicCodeBlock;
+typedef BlockGraph::Offset Offset;
 
 // This enum is used to drive the contents of the callee.
 enum CalleeKind {
@@ -197,6 +198,11 @@ void InliningTransformTest::CreateCalleeBlock(CalleeKind kind,
   DCHECK_NE(reinterpret_cast<BlockGraph::Block**>(NULL), callee);
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), *callee);
 
+  // If the block is labeled, preserve the label.
+  // TODO(etienneb): Get rid of this when we fix label/symbol handling properly.
+  BlockGraph::Label label;
+  (*callee)->GetLabel(Offset(0), &label);
+
   // Decompose to subgraph.
   BasicBlockSubGraph subgraph;
   BasicBlockDecomposer decomposer(*callee, &subgraph);
@@ -236,6 +242,10 @@ void InliningTransformTest::CreateCalleeBlock(CalleeKind kind,
   ASSERT_TRUE(builder.Merge(&subgraph));
   CHECK_EQ(1u, builder.new_blocks().size());
   *callee = *builder.new_blocks().begin();
+
+  // Restore the label.
+  if (label.IsValid())
+    (*callee)->SetLabel(Offset(0), label);
 };
 
 void InliningTransformTest::CreateCallSiteToBlock(BlockGraph::Block* callee) {
