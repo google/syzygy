@@ -533,7 +533,8 @@ bool InliningTransform::TransformBasicBlockSubGraph(
 
       // For a small callee, try to replace callee instructions in-place.
       // This kind of inlining is always a win.
-      if (subgraph_size < caller->size() + kColdCodeSizeThreshold)
+      size_t callsite_size = instr.size();
+      if (subgraph_size <= callsite_size + kColdCodeSizeThreshold)
         candidate_for_inlining = true;
 
       // TODO(etienneb): Add more rules based on profile data.
