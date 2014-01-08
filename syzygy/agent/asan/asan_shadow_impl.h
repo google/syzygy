@@ -40,7 +40,7 @@ bool Shadow::GetNullTerminatedArraySize(const void* addr,
 
     uint8 max_index = shadow ? shadow : kShadowGranularity;
     DCHECK_EQ(0U, max_index % sizeof(type));
-    max_index /=  sizeof(type);
+    max_index /= sizeof(type);
     while (max_index-- > 0) {
       (*size) += sizeof(type);
       if (*size == max_size || *addr_value == 0)

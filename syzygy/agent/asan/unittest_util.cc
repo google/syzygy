@@ -25,6 +25,14 @@
 
 namespace testing {
 
+// Define the function pointers.
+#define DEFINE_FUNCTION_PTR_VARIABLE(convention, ret, name, args)  \
+    name##FunctionPtr TestAsanRtl::name##Function;
+
+  ASAN_RTL_FUNCTIONS(DEFINE_FUNCTION_PTR_VARIABLE)
+
+#undef DEFINE_FUNCTION_PTR_VARIABLE
+
 TestWithAsanLogger::TestWithAsanLogger()
     : log_service_instance_(&log_service_), log_contents_read_(false) {
 }

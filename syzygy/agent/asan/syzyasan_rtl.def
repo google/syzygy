@@ -96,13 +96,13 @@ EXPORTS
   asan_strcspn
   asan_strlen
   asan_strrchr
+  asan_wcsrchr
   asan_strcmp
   asan_strpbrk
   asan_strstr
   asan_strspn
   asan_strncpy
   asan_strncat
-  asan_wcsrchr
 
   ; Other interceptor functions.
   asan_ReadFile

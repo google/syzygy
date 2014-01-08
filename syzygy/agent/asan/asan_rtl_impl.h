@@ -100,29 +100,26 @@ void* __cdecl asan_memset(unsigned char* ptr,
                           size_t num);
 
 const void* __cdecl asan_memchr(const unsigned char* ptr,
-                                int value, size_t num);
+                                int value,
+                                size_t num);
 
-size_t __cdecl asan_strcspn(const char* str1,
-                            const char* str2);
+size_t __cdecl asan_strcspn(const char* str1, const char* str2);
 
 size_t __cdecl asan_strlen(const char* str);
 
-const char* __cdecl asan_strrchr(const char* str,
-                                 int character);
+const char* __cdecl asan_strrchr(const char* str, int character);
 
 const wchar_t* asan_wcsrchr(const wchar_t* str, wchar_t character);
 
-int __cdecl asan_strcmp(const char* str1,
-                        const char* str2);
+int __cdecl asan_strcmp(const char* str1, const char* str2);
 
-const char* __cdecl asan_strpbrk(const char* str1,
-                                 const char* str2);
+const char* __cdecl asan_strpbrk(const char* str1, const char* str2);
 
-const char* __cdecl asan_strstr(const char* str1,
-                                const char* str2);
+const char* __cdecl asan_strstr(const char* str1, const char* str2);
 
-size_t __cdecl asan_strspn(const char* str1,
-                           const char* str2);
+const wchar_t* __cdecl asan_wcsstr(const wchar_t* str1, const wchar_t* str2);
+
+size_t __cdecl asan_strspn(const char* str1, const char* str2);
 
 char* __cdecl asan_strncpy(char* destination,
                            const char* source,

@@ -20,6 +20,7 @@
 #include "base/debug/alias.h"
 #include "base/memory/scoped_ptr.h"
 #include "syzygy/agent/asan/asan_heap.h"
+#include "syzygy/agent/asan/asan_rtl_utils.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 #include "syzygy/agent/asan/stack_capture.h"
@@ -30,6 +31,8 @@ namespace {
 using agent::asan::AsanErrorInfo;
 using agent::asan::AsanRuntime;
 using agent::asan::HeapProxy;
+using agent::asan::Shadow;
+using agent::asan::TestStructure;
 
 HANDLE process_heap = NULL;
 scoped_ptr<HeapProxy> asan_process_heap;
@@ -55,6 +58,9 @@ void SetUpRtl(AsanRuntime* runtime) {
   asan_process_heap.reset(new HeapProxy());
   asan_process_heap->UseHeap(process_heap);
   asan_runtime->AddHeap(asan_process_heap.get());
+
+  // Set the instance used by the helper functions.
+  SetAsanRuntimeInstance(runtime);
 }
 
 void TearDownRtl() {
@@ -71,89 +77,6 @@ void TearDownRtl() {
   process_heap = NULL;
 }
 
-// Contents of the registers before calling the ASAN memory check function.
-#pragma pack(push, 1)
-struct AsanContext {
-  DWORD original_edi;
-  DWORD original_esi;
-  DWORD original_ebp;
-  DWORD original_esp;
-  DWORD original_ebx;
-  DWORD original_edx;
-  DWORD original_ecx;
-  DWORD original_eax;
-  DWORD original_eflags;
-  DWORD original_eip;
-};
-#pragma pack(pop)
-
-// Report a bad access to the memory.
-// @param location The memory address of the access.
-// @param access_mode The mode of the access.
-// @param access_size The size of the access.
-// @param asan_context The context of the access.
-void ReportBadMemoryAccess(void* location,
-                           HeapProxy::AccessMode access_mode,
-                           size_t access_size,
-                           struct AsanContext* asan_context) {
-  // Capture the context and restore the value of the register as before calling
-  // the asan hook.
-
-  // Save the last error value so this function will be able to restore it.
-  agent::common::ScopedLastErrorKeeper scoped_last_error_keeper;
-
-  // We keep a structure with all the useful information about this bad access
-  // on the stack.
-  AsanErrorInfo bad_access_info = {};
-
-  // We need to call ::RtlCaptureContext if we want SegSS and SegCS to be
-  // properly set.
-  ::RtlCaptureContext(&bad_access_info.context);
-  bad_access_info.context.ContextFlags = CONTEXT_INTEGER | CONTEXT_CONTROL;
-
-  // Restore the original value of the registers.
-  bad_access_info.context.Eip = asan_context->original_eip;
-  bad_access_info.context.Eax = asan_context->original_eax;
-  bad_access_info.context.Ecx = asan_context->original_ecx;
-  bad_access_info.context.Edx = asan_context->original_edx;
-  bad_access_info.context.Ebx = asan_context->original_ebx;
-  bad_access_info.context.Ebp = asan_context->original_ebp;
-  bad_access_info.context.Esp = asan_context->original_esp;
-  bad_access_info.context.Esi = asan_context->original_esi;
-  bad_access_info.context.Edi = asan_context->original_edi;
-  bad_access_info.context.EFlags = asan_context->original_eflags;
-
-  StackCapture stack;
-  stack.InitFromStack();
-  // We need to compute a relative stack id so that for the same stack trace
-  // we'll get the same value every time even if the modules are loaded at a
-  // different base address.
-  stack.set_stack_id(stack.ComputeRelativeStackId());
-
-  // Check if we can ignore this error.
-  if (asan_runtime->ShouldIgnoreError(stack.stack_id()))
-    return;
-
-  bad_access_info.crash_stack_id = stack.stack_id();
-  bad_access_info.location = location;
-  bad_access_info.access_mode = access_mode;
-  bad_access_info.access_size = access_size;
-  bad_access_info.alloc_stack_size = 0U;
-  bad_access_info.alloc_tid = 0U;
-  bad_access_info.error_type = HeapProxy::UNKNOWN_BAD_ACCESS;
-  bad_access_info.free_stack_size = 0U;
-  bad_access_info.free_tid = 0U;
-  bad_access_info.microseconds_since_free = 0U;
-
-  // Make sure this structure is not optimized out.
-  base::debug::Alias(&bad_access_info);
-
-  asan_runtime->GetBadAccessInformation(&bad_access_info);
-
-  // Report this error.
-  asan_runtime->OnError(&bad_access_info);
-}
-
 // Check if the memory location is accessible and report an error on bad memory
 // accesses.
 // @param location The memory address of the access.
@@ -163,8 +86,8 @@ void ReportBadMemoryAccess(void* location,
 void CheckMemoryAccess(void* location,
                        HeapProxy::AccessMode access_mode,
                        size_t access_size,
-                       AsanContext* context) {
-  if (!agent::asan::Shadow::IsAccessible(location))
+                       const AsanContext& context) {
+  if (!Shadow::IsAccessible(location))
     ReportBadMemoryAccess(location, access_mode, access_size, context);
 }
 
@@ -182,7 +105,7 @@ void CheckStringsMemoryAccesses(
     uint8* dst, HeapProxy::AccessMode dst_access_mode,
     uint8* src, HeapProxy::AccessMode src_access_mode,
     uint32 length, size_t access_size, int32 increment, bool compare,
-    AsanContext* context) {
+    const AsanContext& context) {
   int32 offset = 0;
 
   for (uint32 i = 0; i < length; ++i) {
@@ -268,7 +191,7 @@ void CheckStringsMemoryAccesses(
     __asm push edx  \
     __asm sar edx, 3  \
     __asm js report_failure  \
-    __asm movzx edx, BYTE PTR[edx + agent::asan::Shadow::shadow_]  \
+    __asm movzx edx, BYTE PTR[edx + Shadow::shadow_]  \
     __asm cmp dl, 0  \
     __asm jnz check_access_slow  \
     __asm add esp, 4
@@ -398,9 +321,9 @@ enum AccessMode {
 // @}
 
 // The slow path rely on the fact that the shadow memory non accessible byte
-// mask have its upper bit set to 1..
+// mask have its upper bit set to 1.
 COMPILE_ASSERT(
-    (agent::asan::Shadow::kHeapNonAccessibleByteMask & (1 << 7)) != 0,
+    (Shadow::kHeapNonAccessibleByteMask & (1 << 7)) != 0,
         asan_shadow_mask_upper_bit_is_0);
 
 ASAN_CHECK_FUNCTION(1, read_access, AsanReadAccess)
@@ -525,76 +448,6 @@ ASAN_CHECK_STRINGS(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 2, 0)
 ASAN_CHECK_STRINGS(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 1, 0)
 
 #undef ASAN_CHECK_STRINGS
-
-namespace {
-
-void ContextToAsanContext(const CONTEXT& context,
-                          agent::asan::AsanContext* asan_context) {
-  DCHECK(asan_context != NULL);
-  asan_context->original_eax = context.Eax;
-  asan_context->original_ebp = context.Ebp;
-  asan_context->original_ebx = context.Ebx;
-  asan_context->original_ecx = context.Ecx;
-  asan_context->original_edi = context.Edi;
-  asan_context->original_edx = context.Edx;
-  asan_context->original_eflags = context.EFlags;
-  asan_context->original_eip = context.Eip;
-  asan_context->original_esi = context.Esi;
-  asan_context->original_esp = context.Esp;
-}
-
-// Report an invalid access to @p location.
-// @param location The memory address of the access.
-// @param access_mode The mode of the access.
-void ReportBadAccess(const uint8* location, HeapProxy::AccessMode access_mode) {
-  agent::asan::AsanContext asan_context = {};
-  CONTEXT context = {};
-  ::RtlCaptureContext(&context);
-  ContextToAsanContext(context, &asan_context);
-  ReportBadMemoryAccess(const_cast<uint8*>(location),
-                        access_mode,
-                        1U,
-                        &asan_context);
-}
-
-// Test that a memory range is accessible. Report an error if it's not.
-// @param memory The pointer to the beginning of the memory range that we want
-//     to check.
-// @param size The size of the memory range that we want to check.
-// @param access_mode The access mode.
-void TestMemoryRange(const uint8* memory,
-                     size_t size,
-                     HeapProxy::AccessMode access_mode) {
-  if (size == 0U)
-    return;
-  // TODO(sebmarchand): This approach is pretty limited because it only check
-  //     if the first and the last elements are accessible. Once we have the
-  //     plumbing in place we should benchmark a check that looks at each
-  //     address to be touched (via the shadow memory, 8 bytes at a time).
-  if (!agent::asan::Shadow::IsAccessible(memory) ||
-      !agent::asan::Shadow::IsAccessible(memory + size - 1)) {
-    const uint8* location = NULL;
-    if (!agent::asan::Shadow::IsAccessible(memory))
-      location = memory;
-    else
-      location = memory + size - 1;
-    ReportBadAccess(location, access_mode);
-  }
-}
-
-// Helper function to test if the memory range of a given structure is
-// accessible.
-// @tparam T the type of the structure to be tested.
-// @param structure A pointer to this structure.
-// @param access mode The access mode.
-template <typename T>
-void TestStructure(const T* structure, HeapProxy::AccessMode access_mode) {
-  TestMemoryRange(reinterpret_cast<const uint8*>(structure),
-                  sizeof(T),
-                  access_mode);
-}
-
-}  // namespace
 
 extern "C" {
 
@@ -813,177 +666,11 @@ void WINAPI asan_SetCallBack(AsanErrorCallBack callback) {
   asan_runtime->SetErrorCallBack(base::Bind(callback));
 }
 
-void* __cdecl asan_memcpy(unsigned char* destination,
-                          const unsigned char* source,
-                          size_t num) {
-  TestMemoryRange(source, num, HeapProxy::ASAN_READ_ACCESS);
-  TestMemoryRange(destination, num, HeapProxy::ASAN_WRITE_ACCESS);
-  return memcpy(destination, source, num);
-}
-
-void* __cdecl asan_memmove(unsigned char* destination,
-                           const unsigned char* source,
-                           size_t num) {
-  TestMemoryRange(source, num, HeapProxy::ASAN_READ_ACCESS);
-  TestMemoryRange(destination, num, HeapProxy::ASAN_WRITE_ACCESS);
-  return memmove(destination, source, num);
-}
-
-void* __cdecl asan_memset(unsigned char* ptr, int value, size_t num) {
-  TestMemoryRange(ptr, num, HeapProxy::ASAN_WRITE_ACCESS);
-  return memset(ptr, value, num);
-}
-
-const void* __cdecl asan_memchr(const unsigned char* ptr,
-                                int value,
-                                size_t num) {
-  TestMemoryRange(ptr, num, HeapProxy::ASAN_READ_ACCESS);
-  return memchr(ptr, value, num);
-}
-
-size_t __cdecl asan_strcspn(const char* str1, const char* str2) {
-  size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str1, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str2, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  return strcspn(str1, str2);
-}
-
-size_t __cdecl asan_strlen(const char* str) {
-  size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-    return strlen(str);
-  }
-  return size - 1;
-}
-
-const char* __cdecl asan_strrchr(const char* str, int character) {
-  size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  return strrchr(str, character);
-}
-
-const wchar_t* asan_wcsrchr(const wchar_t* str, wchar_t character) {
-  size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<wchar_t>(str,
-                                                                0U,
-                                                                &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  return wcsrchr(str, character);
-}
-
-int __cdecl asan_strcmp(const char* str1, const char* str2) {
-  size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str1, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str2, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  return strcmp(str1, str2);
-}
-
-const char* __cdecl asan_strpbrk(const char* str1, const char* str2) {
-  size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str1, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str2, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  return strpbrk(str1, str2);
-}
-
-const char* __cdecl asan_strstr(const char* str1, const char* str2) {
-  size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str1, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str2, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  return strstr(str1, str2);
-}
-
-size_t __cdecl asan_strspn(const char* str1, const char* str2) {
-  size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str1, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str2, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  return strspn(str1, str2);
-}
-
-char* __cdecl asan_strncpy(char* destination, const char* source, size_t num) {
-  if (num != 0U) {
-    size_t src_size = 0;
-    if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(source,
-                                                               num,
-                                                               &src_size) &&
-        src_size <= num) {
-      ReportBadAccess(reinterpret_cast<const uint8*>(source) + src_size,
-                      HeapProxy::ASAN_READ_ACCESS);
-    }
-    // We can't use the GetNullTerminatedArraySize function here, as destination
-    // might not be null terminated.
-    TestMemoryRange(reinterpret_cast<const uint8*>(destination),
-                    num,
-                    HeapProxy::ASAN_WRITE_ACCESS);
-  }
-  return strncpy(destination, source, num);
-}
-
-char* __cdecl asan_strncat(char* destination, const char* source, size_t num) {
-  if (num != 0U) {
-    size_t src_size = 0;
-    if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(source,
-                                                               num,
-                                                               &src_size) &&
-        src_size <= num) {
-      ReportBadAccess(reinterpret_cast<const uint8*>(source) + src_size,
-                      HeapProxy::ASAN_READ_ACCESS);
-    }
-    size_t dst_size = 0;
-    if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(destination,
-                                                               0U,
-                                                               &dst_size)) {
-      ReportBadAccess(reinterpret_cast<const uint8*>(destination) + dst_size,
-                      HeapProxy::ASAN_WRITE_ACCESS);
-    } else {
-      // Test if we can append the source to the destination.
-      TestMemoryRange(reinterpret_cast<const uint8*>(destination + dst_size),
-                      std::min(num, src_size),
-                      HeapProxy::ASAN_WRITE_ACCESS);
-    }
-  }
-  return strncat(destination, source, num);
-}
-
 void asan_SetInterceptorCallback(InterceptorTailCallback callback) {
   interceptor_tail_callback = callback;
 }
+
+// TODO(sebmarchand): Move the system call interceptors to their own files.
 
 BOOL WINAPI asan_ReadFile(HANDLE file_handle,
                           LPVOID buffer,
