@@ -1,6 +1,13 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.7.0
+
+[r1979] Created swapimport.exe utility.
+[r1978] SyzyASAN - Fix for improperly intercepted CRT functions with custom
+        calling conventions in LTCG builds.
+[r1969] SyzyASAN - Wide character CRT string function interceptors.
+
 Version 0.7.6.0
 
 [r1957] Full VS2013 support.
