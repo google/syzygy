@@ -1115,6 +1115,7 @@ BlockGraph::Reference MergeContext::ResolveReference(
                                  info.start_offset);
   } else {
     DCHECK_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK, ref.referred_type());
+    DCHECK_NE(ref.block(), original_block_);
 
     return BlockGraph::Reference(type,
                                  size,

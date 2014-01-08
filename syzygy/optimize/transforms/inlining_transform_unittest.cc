@@ -623,5 +623,19 @@ TEST_F(InliningTransformTest, InlineOptimizedRet0) {
   EXPECT_THAT(kCodeRet0, ElementsAreArray(caller_->data(), caller_->size()));
 }
 
+TEST_F(InliningTransformTest, InlineTrampolineToCaller) {
+  ASSERT_NO_FATAL_FAILURE(
+      AddBlockFromBuffer(kCodeRet, sizeof(kCodeRet), &callee_));
+  ASSERT_NO_FATAL_FAILURE(
+      CreateCalleeBlock(kDirectTrampoline, caller_, &callee_));
+  ASSERT_NO_FATAL_FAILURE(CreateCallSiteToBlock(callee_));
+  ASSERT_NO_FATAL_FAILURE(ApplyTransformOnCaller());
+
+  // Validate that the reference from caller is valid, and branch to caller.
+  ASSERT_EQ(1U, caller_->references().size());
+  BlockGraph::Reference reference = caller_->references().begin()->second;
+  EXPECT_EQ(caller_, reference.referenced());
+}
+
 }  // namespace transforms
 }  // namespace optimize

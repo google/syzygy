@@ -72,6 +72,7 @@ typedef ApplicationProfile::BlockProfile BlockProfile;
 typedef Instruction::BasicBlockReferenceMap BasicBlockReferenceMap;
 typedef BasicBlockSubGraph::BBCollection BBCollection;
 typedef BasicBlock::Instructions Instructions;
+typedef BlockGraph::Offset Offset;
 
 enum MatchKind {
   kInvalidMatch,
@@ -332,8 +333,60 @@ bool MatchTrivialBody(const BasicBlockSubGraph& subgraph,
   return true;
 }
 
+// Replace block references to the current block by basic block references.
+// @param subgraph The caller subgraph.
+// @param instructions Instructions copied into the caller.
+bool RewriteLocalReferences(BasicBlockSubGraph* subgraph,
+                            Instructions* instructions) {
+  DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), subgraph);
+  DCHECK_NE(reinterpret_cast<const BlockGraph::Block*>(NULL),
+            subgraph->original_block());
+  DCHECK_NE(reinterpret_cast<Instructions*>(NULL), instructions);
+
+  Instructions::iterator instr = instructions->begin();
+  for (; instr != instructions->end(); ++instr) {
+    const BasicBlockReferenceMap& references = instr->references();
+    BasicBlockReferenceMap::const_iterator ref = references.begin();
+    while (ref != references.end()) {
+      Offset offset = ref->first;
+      const BasicBlockReference& reference = ref->second;
+
+      // Move to the next reference, the current one is updated below.
+      ++ref;
+
+      if (reference.referred_type() !=
+              BasicBlockReference::REFERRED_TYPE_BLOCK ||
+          reference.block() != subgraph->original_block()) {
+        continue;
+      }
+
+      // Find the basic block targeted by the reference.
+      BasicBlock* target = NULL;
+      BBCollection& basic_blocks = subgraph->basic_blocks();
+      BBCollection::iterator bb = basic_blocks.begin();
+      for (; bb != basic_blocks.end(); ++bb) {
+        if ((*bb)->offset() == reference.offset()) {
+          DCHECK_EQ(reinterpret_cast<BasicBlock*>(NULL), target);
+          target = *bb;
+        }
+      }
+
+      DCHECK_NE(reinterpret_cast<BasicBlock*>(NULL), target);
+
+      // Replace the current block reference with a basic block reference.
+      instr->SetReference(
+          offset,
+          BasicBlockReference(reference.reference_type(),
+                              reference.size(),
+                              target));
+    }
+  }
+  return true;
+}
+
 // Copy the body of the callee at a call-site in the caller.
 // @param kind The kind of inlining to perform.
+// @param subgraph The caller subgraph.
 // @param return_constant The number of bytes to pop from the stack.
 // @param reference The reference to the continuation.
 // @param body The trivial body to be inlined.
@@ -341,6 +394,7 @@ bool MatchTrivialBody(const BasicBlockSubGraph& subgraph,
 // @param instructions The caller body that receives a copy of the callee body.
 // @returns true on success, false otherwise.
 bool InlineTrivialBody(MatchKind kind,
+                       BasicBlockSubGraph* subgraph,
                        size_t return_constant,
                        const BasicBlockReference& reference,
                        const BasicCodeBlock* body,
@@ -391,6 +445,10 @@ bool InlineTrivialBody(MatchKind kind,
     default:
       NOTREACHED();
   }
+
+  // Replace block references to the caller block by basic block references.
+  if (!RewriteLocalReferences(subgraph, &new_body))
+    return false;
 
   // Insert the inlined instructions at the call-site.
   instructions->splice(target, new_body);
@@ -497,9 +555,8 @@ bool InliningTransform::TransformBasicBlockSubGraph(
       }
 
       // Keep only potential candidates.
-      if (callee->size() > kCodeSizeThreshold) {
+      if (callee->size() > kCodeSizeThreshold)
         continue;
-      }
 
       BasicBlockSubGraph* callee_subgraph;
       size_t return_constant = 0;
@@ -548,7 +605,7 @@ bool InliningTransform::TransformBasicBlockSubGraph(
 
       if (MatchTrivialBody(*callee_subgraph, &match_kind, &return_constant,
                             &target, &body) &&
-          InlineTrivialBody(match_kind, return_constant, target, body,
+          InlineTrivialBody(match_kind, subgraph, return_constant, target, body,
                             call_iter, &bb->instructions())) {
         // Inlining successful, remove call-site.
         bb->instructions().erase(call_iter);
