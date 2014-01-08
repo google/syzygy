@@ -84,6 +84,11 @@ sampler.exe:
 simulate.exe
   Simulates OS page faults by playing back a call_trace_client data file.
 
+swapimport.exe
+  Makes a named import library the first one in the import directory by
+  swapping it if necessary. This operates on a raw PE file, with no need for
+  symbols.
+
 wsdump.exe
   Dumps the working set associated with a running process. The output is in
   JSON format.

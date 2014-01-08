@@ -45,6 +45,7 @@
       '<(PRODUCT_DIR)/run_in_snapshot_xp.exe',
       '<(PRODUCT_DIR)/sampler.exe',
       '<(PRODUCT_DIR)/simulate.exe',
+      '<(PRODUCT_DIR)/swapimport.exe',
       '<(PRODUCT_DIR)/wsdump.exe',
       '<(PRODUCT_DIR)/zap_timestamp.exe',
 
@@ -87,6 +88,7 @@
       '<(PRODUCT_DIR)/run_in_snapshot_xp.exe.pdb',
       '<(PRODUCT_DIR)/sampler.exe.pdb',
       '<(PRODUCT_DIR)/simulate.exe.pdb',
+      '<(PRODUCT_DIR)/swapimport.exe.pdb',
       '<(PRODUCT_DIR)/wsdump.exe.pdb',
       '<(PRODUCT_DIR)/zap_timestamp.exe.pdb',
 

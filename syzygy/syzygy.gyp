@@ -60,6 +60,7 @@
         'scripts/graph/graph.gyp:*',
         'simulate/simulate.gyp:*',
         'snapshot/snapshot.gyp:*',
+        'swapimport/swapimport.gyp:*',
         'test_data/test_data.gyp:*',
         'testing/testing.gyp:*',
         'trace/agent_logger/agent_logger.gyp:*',
