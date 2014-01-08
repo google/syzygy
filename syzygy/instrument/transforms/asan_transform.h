@@ -29,6 +29,7 @@
 #include "syzygy/block_graph/analysis/memory_access_analysis.h"
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
+#include "syzygy/instrument/transforms/asan_interceptor_filter.h"
 #include "syzygy/pe/transforms/pe_add_imports_transform.h"
 
 namespace instrument {
@@ -222,7 +223,6 @@ class AsanTransform
   };
 
   typedef pe::transforms::ImportedModule ImportedModule;
-  typedef std::set<std::string> FunctionInterceptionSet;
   typedef std::map<std::string,
                    FunctionInterceptionInfo> FunctionInterceptionInfoMap;
 
@@ -235,13 +235,13 @@ class AsanTransform
   // @param block_graph The block-graph to modify.
   // @param header_block The block containing the module's DOS header of this
   //     block-graph.
-  // @param functions_set The list of the function that we want to intercept.
+  // @param filter The filter defining the functions to intercept.
   // @returns true on success, false on error.
   bool InterceptFunctions(ImportedModule* import_module,
                           const TransformPolicyInterface* policy,
                           BlockGraph* block_graph,
                           BlockGraph::Block* header_block,
-                          const FunctionInterceptionSet& functions_set);
+                          ASanInterceptorFilter* filter);
 
   // Name of the asan_rtl DLL we import. Defaults to "syzyasan_rtl.dll".
   std::string asan_dll_name_;

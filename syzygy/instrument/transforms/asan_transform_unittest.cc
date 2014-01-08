@@ -53,7 +53,8 @@ typedef AsanBasicBlockTransform::MemoryAccessMode AsanMemoryAccessMode;
 typedef AsanBasicBlockTransform::AsanHookMap HookMap;
 typedef AsanBasicBlockTransform::AsanHookMapEntryKey HookMapEntryKey;
 
-// A derived class to expose protected members for unit-testing.
+// Derived classes to expose protected members for unit-testing.
+
 class TestAsanBasicBlockTransform : public AsanBasicBlockTransform {
  public:
   using AsanBasicBlockTransform::InstrumentBasicBlock;
@@ -63,10 +64,13 @@ class TestAsanBasicBlockTransform : public AsanBasicBlockTransform {
   }
 };
 
-// A derived class to expose protected members for unit-testing.
+class TestASanInterceptorFilter : public ASanInterceptorFilter {
+ public:
+  using ASanInterceptorFilter::AddBlockToHashMap;
+};
+
 class TestAsanTransform : public AsanTransform {
  public:
-  using AsanTransform::FunctionInterceptionSet;
   using AsanTransform::InterceptFunctions;
 };
 
@@ -917,13 +921,13 @@ TEST_F(AsanTransformTest, InterceptFunctions) {
   size_t num_blocks_pre_transform = block_graph_.blocks().size();
   size_t num_sections_pre_transform = block_graph_.sections().size();
   // Intercept the calls to b1.
-  TestAsanTransform::FunctionInterceptionSet function_set;
-  function_set.insert("testAsan_b1");
+  TestASanInterceptorFilter filter;
+  filter.AddBlockToHashMap(b1);
   EXPECT_TRUE(asan_transform_.InterceptFunctions(&import_module,
                                                  &policy_,
                                                  &block_graph_,
                                                  dos_header_block_,
-                                                 function_set));
+                                                 &filter));
 
   // The block graph should have grown by 3 blocks:
   //     - the Import Address Table (IAT),

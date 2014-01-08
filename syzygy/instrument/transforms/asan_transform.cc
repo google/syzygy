@@ -939,26 +939,13 @@ bool AsanTransform::PostBlockGraphIteration(
   pe::RedirectReferences(reference_redirect_map);
 
   if (use_interceptors_) {
-    FunctionInterceptionSet interception_set;
-    interception_set.insert("memchr");
-    interception_set.insert("memcpy");
-    interception_set.insert("memmove");
-    interception_set.insert("memset");
-    interception_set.insert("strcspn");
-    interception_set.insert("strlen");
-    interception_set.insert("strrchr");
-    interception_set.insert("strcmp");
-    interception_set.insert("strpbrk");
-    interception_set.insert("strstr");
-    interception_set.insert("strspn");
-    interception_set.insert("strncpy");
-    interception_set.insert("strncat");
-    interception_set.insert("wcsrchr");
+    ASanInterceptorFilter filter;
+    filter.InitializeCRTFunctionHashes();
     InterceptFunctions(&module_asan,
                        policy,
                        block_graph,
                        header_block,
-                       interception_set);
+                       &filter);
   }
 
   return true;
@@ -969,10 +956,12 @@ bool AsanTransform::InterceptFunctions(
     const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* header_block,
-    const FunctionInterceptionSet& functions_set) {
-  DCHECK(import_module != NULL);
-  DCHECK(block_graph != NULL);
-  DCHECK(header_block != NULL);
+    ASanInterceptorFilter* filter) {
+  DCHECK_NE(reinterpret_cast<ImportedModule*>(NULL), import_module);
+  DCHECK_NE(reinterpret_cast<const TransformPolicyInterface*>(NULL), policy);
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), header_block);
+  DCHECK_NE(reinterpret_cast<ASanInterceptorFilter*>(NULL), filter);
 
   // The map containing the information about the functions that we want to
   // intercept.
@@ -984,7 +973,7 @@ bool AsanTransform::InterceptFunctions(
   block_graph::BlockGraph::BlockMap::iterator iter_blocks =
       block_graph->blocks_mutable().begin();
   for (; iter_blocks != block_graph->blocks_mutable().end(); ++iter_blocks) {
-    if (functions_set.find(iter_blocks->second.name()) == functions_set.end())
+    if (!filter->ShouldIntercept(&iter_blocks->second))
       continue;
 
     // Generate the name of the hook for this function and add it to the image.
