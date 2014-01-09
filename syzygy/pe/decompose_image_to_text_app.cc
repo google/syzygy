@@ -18,6 +18,7 @@
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/new_decomposer.h"
 #include "syzygy/pe/pe_file.h"
+#include "syzygy/pe/pe_transform_policy.h"
 
 #include "distorm.h"  // NOLINT
 
@@ -28,6 +29,7 @@ using core::RelativeAddress;
 using pe::Decomposer;
 using pe::ImageLayout;
 using pe::PEFile;
+using pe::PETransformPolicy;
 
 namespace {
 
@@ -306,10 +308,11 @@ void DecomposeImageToTextApp::DumpBlockToText(
             block->size(),
             block->name().c_str());
 
+  pe::PETransformPolicy policy;
+
   // Attempt basic block decomposition if BB-dumping is requested.
   // Note that on success we return early from here.
-  if (dump_basic_blocks_ &&
-      block->type() == BlockGraph::CODE_BLOCK) {
+  if (dump_basic_blocks_ && policy.BlockIsSafeToBasicBlockDecompose(block)) {
     BasicBlockSubGraph subgraph;
     BasicBlockDecomposer decomposer(block, &subgraph);
 
