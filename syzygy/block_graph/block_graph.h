@@ -212,6 +212,8 @@ class BlockGraph {
     SECTION_OFFSET_REF,
 
     // Relocation reference types.
+    // TODO(chrisha): Do we need a separate bit, and different ABS and REL
+    //     reference types for COFF files?
     RELOC_REF_BIT = 1u << 3,
     RELOC_PC_RELATIVE_REF = PC_RELATIVE_REF | RELOC_REF_BIT,
     RELOC_ABSOLUTE_REF = ABSOLUTE_REF | RELOC_REF_BIT,
