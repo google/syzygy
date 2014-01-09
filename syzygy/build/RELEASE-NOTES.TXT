@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.7.1
+
+[r1983] Small fix to decompose_image_to_text which was causing failed official
+        builder tests.
+
 Version 0.7.7.0
 
 [r1979] Created swapimport.exe utility.
