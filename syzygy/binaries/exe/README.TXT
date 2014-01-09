@@ -1,8 +1,8 @@
 Syzygy Post-Link Transformation Toolchain
 =========================================
 
-Date:     2013/11/19
-Version:  0.7.5.0 (1908)
+Date:     2014/01/09
+Version:  0.7.7.1 (1984)
 
 The Syzygy project consists of a suite of tools for the instrumentation of
 PE binaries. The various instrumentation modes allow for computing code
@@ -57,6 +57,10 @@ instrument.exe
 pdbfind.exe
   A utility for locating the PDB file that is matched to a given PE file.
 
+pehacker.exe
+  A utility for applying various transforms to a PE file via a text
+  configuration file.
+
 relink.exe
   Relinks a PE file after applying specified transformations. Combined with
   output from grinder and reorder this is used to apply optimizations to a
@@ -79,6 +83,11 @@ sampler.exe:
 
 simulate.exe
   Simulates OS page faults by playing back a call_trace_client data file.
+
+swapimport.exe
+  Makes a named import library the first one in the import directory by
+  swapping it if necessary. This operates on a raw PE file, with no need for
+  symbols.
 
 wsdump.exe
   Dumps the working set associated with a running process. The output is in
