@@ -61,8 +61,8 @@ class AsanRtlTest : public testing::TestAsanRtl {
 };
 
 void AsanRtlTest::AllocMemoryBuffers(int32 length, int32 element_size) {
-  ASSERT_NE(NULL, memory_src_);
-  ASSERT_NE(NULL, memory_dst_);
+  ASSERT_EQ(reinterpret_cast<void*>(NULL), memory_src_);
+  ASSERT_EQ(reinterpret_cast<void*>(NULL), memory_dst_);
   ASSERT_EQ(0, memory_length_);
   ASSERT_EQ(0, memory_size_);
 
@@ -82,8 +82,8 @@ void AsanRtlTest::AllocMemoryBuffers(int32 length, int32 element_size) {
 }
 
 void AsanRtlTest::FreeMemoryBuffers() {
-  ASSERT_NE(NULL, memory_src_);
-  ASSERT_NE(NULL, memory_dst_);
+  ASSERT_NE(reinterpret_cast<void*>(NULL), memory_src_);
+  ASSERT_NE(reinterpret_cast<void*>(NULL), memory_dst_);
 
   ASSERT_TRUE(HeapFreeFunction(heap_, 0, memory_src_));
   ASSERT_TRUE(HeapFreeFunction(heap_, 0, memory_dst_));
