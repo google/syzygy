@@ -42,7 +42,7 @@ struct AverageBlockCall {
   // seen, NOT the number of times it was seen called in aggregate.
   size_t call_count;
   // This is only meaningful if call_count == 1.
-  uint32_t process_group_id;
+  uint32 process_group_id;
 
   double AverageOrder() const {
     DCHECK_LT(0U, call_count);

@@ -14,11 +14,8 @@
 
 #include "syzygy/pe/decomposer.h"
 
-#include <set>
-
-#include "base/file_util.h"
-#include "base/path_service.h"
 #include "base/string_util.h"
+#include "base/strings/string_split.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/block_graph_serializer.h"
@@ -28,21 +25,19 @@
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_reader.h"
-#include "syzygy/pdb/pdb_stream.h"
 #include "syzygy/pdb/pdb_util.h"
-#include "syzygy/pdb/pdb_writer.h"
 #include "syzygy/pe/pe_relinker.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
 
 namespace pe {
 
+namespace {
+
 using block_graph::BlockGraph;
 using block_graph::ConstTypedBlock;
 using core::RelativeAddress;
 using testing::ContainerEq;
-
-namespace {
 
 const size_t kPointerSize = BlockGraph::Reference::kMaximumSize;
 
@@ -50,7 +45,7 @@ static const BlockGraph::BlockAttributes kGapOrPadding =
     BlockGraph::GAP_BLOCK | BlockGraph::PADDING_BLOCK;
 
 // Exposes the protected methods for testing.
-class TestDecomposer: public Decomposer {
+class TestDecomposer : public Decomposer {
  public:
   explicit TestDecomposer(const PEFile& image_file)
       : Decomposer(image_file) {
@@ -58,7 +53,7 @@ class TestDecomposer: public Decomposer {
 
   // Expose as public for testing.
   using Decomposer::LoadBlockGraphFromPdbStream;
-  using Decomposer::GetBlockGraphStreamFromPdb;
+  using Decomposer::LoadBlockGraphFromPdb;
 };
 
 class DecomposerTest : public testing::PELibUnitTest {
@@ -76,19 +71,34 @@ class DecomposerTest : public testing::PELibUnitTest {
 
 }  // namespace
 
+TEST_F(DecomposerTest, MutatorsAndAccessors) {
+  base::FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
+  base::FilePath pdb_path(
+      testing::GetExeRelativePath(testing::kTestDllPdbName));
+
+  PEFile image_file;
+  ASSERT_TRUE(image_file.Init(image_path));
+
+  Decomposer decomposer(image_file);
+  EXPECT_TRUE(decomposer.pdb_path().empty());
+
+  decomposer.set_pdb_path(pdb_path);
+  EXPECT_EQ(pdb_path, decomposer.pdb_path());
+}
+
 TEST_F(DecomposerTest, Decompose) {
   base::FilePath image_path(testing::GetExeRelativePath(testing::kTestDllName));
   PEFile image_file;
 
   ASSERT_TRUE(image_file.Init(image_path));
 
-  // Decompose the test image and look at the result.
+  // Decompose the test image.
   Decomposer decomposer(image_file);
   EXPECT_TRUE(decomposer.pdb_path().empty());
 
   BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
-  ASSERT_TRUE(decomposer.Decompose(&image_layout));
+  EXPECT_TRUE(decomposer.Decompose(&image_layout));
   EXPECT_FALSE(decomposer.pdb_path().empty());
 
   // Retrieve and validate the DOS header.
@@ -103,15 +113,14 @@ TEST_F(DecomposerTest, Decompose) {
   ASSERT_TRUE(nt_headers_block != NULL);
   ASSERT_TRUE(IsValidNtHeadersBlock(nt_headers_block));
 
-  // There should be some blocks in the graph and in the layout.
-  EXPECT_NE(0U, block_graph.blocks().size());
-  EXPECT_NE(0U, image_layout.blocks.address_space_impl().size());
+  // There should be some blocks in the graph and in the layout, and the same
+  // number in the block-graph and image layout.
+  EXPECT_LT(0u, block_graph.blocks().size());
+  EXPECT_LT(0u, image_layout.blocks.size());
+  EXPECT_EQ(block_graph.blocks().size(), image_layout.blocks.size());
 
-  // All the blocks in the graph should be represented in the address space.
-  EXPECT_EQ(block_graph.blocks().size(),
-            image_layout.blocks.address_space_impl().size());
-
-  ASSERT_EQ(6, image_layout.sections.size());
+  EXPECT_EQ(6u, block_graph.sections().size());
+  EXPECT_EQ(6u, image_layout.sections.size());
 
   EXPECT_EQ(".text", image_layout.sections[0].name);
   EXPECT_NE(0U, image_layout.sections[0].addr.value());
@@ -295,6 +304,45 @@ TEST_F(DecomposerTest, Decompose) {
 #endif
   EXPECT_THAT(block_type_counts, ContainerEq(expected_block_type_counts));
 
+  // Every byte of each section must be accounted for by all of the non-header
+  // blocks.
+  size_t section_blocks = 0;
+  for (size_t i = 0; i < image_layout.sections.size(); ++i) {
+    BlockGraph::AddressSpace::RangeMapConstIterPair it_pair =
+        image_layout.blocks.GetIntersectingBlocks(
+            image_layout.sections[i].addr,
+            image_layout.sections[i].size);
+
+    // Make sure the first iterator is dereferenceable.
+    ASSERT_TRUE(it_pair.first != image_layout.blocks.end());
+
+    // The first and last iterators should not be the same.
+    EXPECT_TRUE(it_pair.first != it_pair.second);
+
+    // The first iterator should start at the beginning of the section.
+    EXPECT_EQ(image_layout.sections[i].addr, it_pair.first->first.start());
+
+    // Ensure the blocks are contiguous, and count the number of blocks as we
+    // go.
+    BlockGraph::AddressSpace::RangeMapConstIter it_old = it_pair.first;
+    BlockGraph::AddressSpace::RangeMapConstIter it_cur = it_pair.first;
+    ++it_cur;
+    ++section_blocks;
+    while (it_cur != it_pair.second) {
+      EXPECT_EQ(it_old->first.end(), it_cur->first.start());
+      it_old = it_cur;
+      ++it_cur;
+      ++section_blocks;
+    }
+
+    // Make sure the last block perfectly covers the section.
+    EXPECT_EQ(image_layout.sections[i].addr + image_layout.sections[i].size,
+              it_old->first.end());
+  }
+
+  // All of the blocks should have been covered, save the 2 header blocks.
+  EXPECT_EQ(section_blocks + 2, image_layout.blocks.size());
+
   // Make sure that all bracketed COFF groups have been parsed. There are 8
   // of them that we currently know of:
   // .CRT$XCA -> .CRT$XCZ: C initializers
@@ -351,7 +399,6 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
 
   typedef std::map<BlockGraph::BlockAttributeEnum, size_t> AttribCountMap;
   AttribCountMap attrib_counts;
-
   {
     typedef std::map<std::string, const BlockGraph::Block**> TestBlockMap;
 
@@ -398,47 +445,45 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
     }
   }
 
+  ASSERT_TRUE(dll_main_block != NULL);
+  ASSERT_TRUE(func_with_inl_asm_block != NULL);
+  ASSERT_TRUE(strchr_block != NULL);
+  ASSERT_TRUE(imp_load_block != NULL);
+  ASSERT_TRUE(no_private_symbols_block != NULL);
+
   // Check the attribute counts.
   AttribCountMap expected_attrib_counts;
+
 #if _MSC_VER == 1600  // MSVS 2010.
 #ifndef NDEBUG
   // Debug build.
-  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 8;
+  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 7;
   expected_attrib_counts[BlockGraph::PE_PARSED] = 95;
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 727;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 15;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 142;
-  expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 9;
-  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 1;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 24;
-  expected_attrib_counts[BlockGraph::DISASSEMBLED_PAST_END] = 7;
   expected_attrib_counts[BlockGraph::THUNK] = 6;
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
 #else
 #ifndef OFFICIAL_BUILD
   // Release build.
-  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 8;
+  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 7;
   expected_attrib_counts[BlockGraph::PE_PARSED] = 93;
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 668;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 140;
-  expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 9;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 14;
-  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 1;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 22;
-  expected_attrib_counts[BlockGraph::DISASSEMBLED_PAST_END] = 7;
   expected_attrib_counts[BlockGraph::THUNK] = 6;
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
 #else
   // Official build.
-  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 8;
+  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 7;
   expected_attrib_counts[BlockGraph::PE_PARSED] = 93;
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 667;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 141;
-  expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 8;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 14;
-  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 1;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 22;
-  expected_attrib_counts[BlockGraph::DISASSEMBLED_PAST_END] = 7;
   expected_attrib_counts[BlockGraph::THUNK] = 6;
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
 #endif
@@ -446,42 +491,33 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
 #elif _MSC_VER == 1800  // MSVS 2013.
 #ifndef NDEBUG
   // Debug build.
-  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 9;
+  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 8;
   expected_attrib_counts[BlockGraph::PE_PARSED] = 89;
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 1153;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 14;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 136;
-  expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 6;
-  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 1;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 26;
-  expected_attrib_counts[BlockGraph::DISASSEMBLED_PAST_END] = 11;
   expected_attrib_counts[BlockGraph::THUNK] = 7;
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
 #else
 #ifndef OFFICIAL_BUILD
   // Release build.
-  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 9;
+  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 8;
   expected_attrib_counts[BlockGraph::PE_PARSED] = 88;
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 1105;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 135;
-  expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 5;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 13;
-  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 1;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 24;
-  expected_attrib_counts[BlockGraph::DISASSEMBLED_PAST_END] = 11;
   expected_attrib_counts[BlockGraph::THUNK] = 7;
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
 #else
   // Official build.
-  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 9;
+  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 8;
   expected_attrib_counts[BlockGraph::PE_PARSED] = 88;
   expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 1104;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 136;
-  expected_attrib_counts[BlockGraph::INCOMPLETE_DISASSEMBLY] = 6;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 13;
-  expected_attrib_counts[BlockGraph::ERRORED_DISASSEMBLY] = 1;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 24;
-  expected_attrib_counts[BlockGraph::DISASSEMBLED_PAST_END] = 11;
   expected_attrib_counts[BlockGraph::THUNK] = 7;
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
 #endif
@@ -493,58 +529,56 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   ASSERT_FALSE(test_string_block == NULL);
   EXPECT_LE(64u, test_string_block->alignment());
 
-  // The block with no private symbols should be marked as ERRORED_DISASSEMBLY,
-  // and only have a single public symbol label.
+  // The block with no private symbols should only have a single public symbol
+  // label.
   ASSERT_FALSE(no_private_symbols_block == NULL);
-  EXPECT_TRUE(no_private_symbols_block->attributes() &
-      BlockGraph::ERRORED_DISASSEMBLY);
   EXPECT_EQ(1u, no_private_symbols_block->labels().size());
   BlockGraph::Block::LabelMap::const_iterator label_it =
       no_private_symbols_block->labels().begin();
   EXPECT_EQ(0, label_it->first);
   EXPECT_EQ(BlockGraph::PUBLIC_SYMBOL_LABEL, label_it->second.attributes());
 
-  // The __imp_load__ block should be a thunk.
-  ASSERT_FALSE(imp_load_block == NULL);
-  EXPECT_NE(0UL, imp_load_block->attributes() & BlockGraph::THUNK);
+  // The imp_load block should be a thunk.
+  ASSERT_NE(0UL, imp_load_block->attributes() & BlockGraph::THUNK);
+
+  // DllMain has a jump table so it should have pointer alignment.
+  ASSERT_EQ(kPointerSize, dll_main_block->alignment());
 
   // Validate that the FunctionWithInlineAssembly block has the appropriate
   // attributes.
-  ASSERT_FALSE(func_with_inl_asm_block == NULL);
   ASSERT_TRUE(func_with_inl_asm_block->attributes() &
       BlockGraph::HAS_INLINE_ASSEMBLY);
 
   // Validate that the strchr block has the appropriate attributes.
-  ASSERT_FALSE(strchr_block == NULL);
   ASSERT_TRUE(strchr_block->attributes() &
       BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER);
 
 #if _MSC_VER == 1600  // MSVS 2010.
 #ifdef OFFICIAL_BUILD
-  static const size_t kDllMainLabelCount = 41;
+  static const size_t kDllMainLabelCount = 42;
   static const size_t kCallSiteLabelCount = 26;
 #else
-  static const size_t kDllMainLabelCount = 31;
+  static const size_t kDllMainLabelCount = 32;
   static const size_t kCallSiteLabelCount = 10;
 #endif
 #elif _MSC_VER == 1800  // MSVS 2013.
 #ifdef OFFICIAL_BUILD
-  static const size_t kDllMainLabelCount = 43;
+  static const size_t kDllMainLabelCount = 44;
   static const size_t kCallSiteLabelCount = 26;
 #else
 #ifndef NDEBUG
   // Debug build.
-  static const size_t kDllMainLabelCount = 31;
+  static const size_t kDllMainLabelCount = 32;
   static const size_t kCallSiteLabelCount = 10;
 #else
   // Release build.
-  static const size_t kDllMainLabelCount = 32;
+  static const size_t kDllMainLabelCount = 33;
   static const size_t kCallSiteLabelCount = 10;
 #endif
 #endif
 #endif
 
-  // Validate compiland name.
+  // Validate compiland names.
   EXPECT_TRUE(EndsWith(dll_main_block->compiland_name(),
                        "\\test_dll.obj",
                        true));
@@ -556,11 +590,7 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
                        true));
 
   // Validate that the DllMain block has the expected population of labels.
-  ASSERT_FALSE(dll_main_block == NULL);
   EXPECT_EQ(kDllMainLabelCount, dll_main_block->labels().size());
-
-  // DllMain has a jump table so it should have pointer alignment.
-  ASSERT_EQ(kPointerSize, dll_main_block->alignment());
 
   std::map<BlockGraph::LabelAttributes, size_t> label_attr_counts;
   {
@@ -582,6 +612,7 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   EXPECT_EQ(3, label_attr_counts[BlockGraph::JUMP_TABLE_LABEL]);
   EXPECT_EQ(2, label_attr_counts[BlockGraph::CASE_TABLE_LABEL]);
   EXPECT_EQ(1, label_attr_counts[BlockGraph::DEBUG_START_LABEL]);
+  EXPECT_EQ(1, label_attr_counts[BlockGraph::DEBUG_END_LABEL]);
 }
 
 TEST_F(DecomposerTest, DecomposeTestDllMSVS2013) {
@@ -645,26 +676,35 @@ class DecomposerAfterRelinkTest : public DecomposerTest {
     ASSERT_TRUE(relinker_.Relink());
   }
 
+  // Given a decomposed image this checks its NT headers against those
+  // contained in the transformed image stored in the relinker.
   void ReconcileNtHeaders(ImageLayout* image_layout) {
     DCHECK(image_layout != NULL);
 
+    // Get the NT headers block associated with the in-memory representation of
+    // the relinked image.
     BlockGraph::Block* nt1 = NULL;
     ASSERT_NO_FATAL_FAILURE(GetNtHeadersBlock(relinker_.headers_block(), &nt1));
     ASSERT_TRUE(nt1 != NULL);
 
+    // Get the NT headers block associated with the decomposition just performed
+    // on the relinked image.
     BlockGraph::Block* dos_header_block =
-      image_layout->blocks.GetBlockByAddress(core::RelativeAddress(0));
+        image_layout->blocks.GetBlockByAddress(core::RelativeAddress(0));
     ASSERT_TRUE(dos_header_block != NULL);
     BlockGraph::Block* nt2 = NULL;
     ASSERT_NO_FATAL_FAILURE(GetNtHeadersBlock(dos_header_block, &nt2));
     ASSERT_TRUE(nt2 != NULL);
 
     // The NT headers don't compare equal because things like the timestamp and
-    // checksum are filled out post transform.
+    // checksum are filled out post-transform. We copy the old NT headers into
+    // the new image so that we can do a simple comparison afterwards.
     ASSERT_EQ(nt1->data_size(), nt2->data_size());
     nt1->SetData(nt2->data(), nt2->data_size());
   }
 
+  // Used to ensure that round-trip decomposition works (where the image is not
+  // decomposed, but rather deserialized from the PDB).
   void LoadRedecompositionData(bool compressed) {
     ASSERT_NO_FATAL_FAILURE(Relink(compressed));
 
@@ -713,14 +753,13 @@ TEST_F(DecomposerAfterRelinkTest, FailToLoadBlockGraphWithInvalidVersion) {
   // Get the block-graph stream from the PDB and change the version of it.
 
   // Get the stream.
-  PEFile image_file;
-  ASSERT_TRUE(image_file.Init(relinked_dll_));
-  TestDecomposer decomposer(image_file);
   pdb::PdbFile pdb_file;
   pdb::PdbReader pdb_reader;
   pdb_reader.Read(relinked_pdb_, &pdb_file);
-  scoped_refptr<pdb::PdbStream> block_graph_stream =
-      decomposer.GetBlockGraphStreamFromPdb(&pdb_file);
+  scoped_refptr<pdb::PdbStream> block_graph_stream;
+  EXPECT_TRUE(pdb::LoadNamedStreamFromPdbFile(pdb::kSyzygyBlockGraphStreamName,
+                                              &pdb_file,
+                                              &block_graph_stream));
 
   // Create a copy of the stream. We need to do this to have a stream that we
   // can modify.
@@ -737,10 +776,12 @@ TEST_F(DecomposerAfterRelinkTest, FailToLoadBlockGraphWithInvalidVersion) {
 
   BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
+
   // We've invalided the version previously so this test should fail.
-  ASSERT_FALSE(decomposer.LoadBlockGraphFromPdbStream(image_file,
-                                                      block_graph_stream.get(),
-                                                      &image_layout));
+  PEFile image_file;
+  ASSERT_TRUE(image_file.Init(relinked_dll_));
+  ASSERT_FALSE(TestDecomposer::LoadBlockGraphFromPdbStream(
+      image_file, block_graph_stream.get(), &image_layout));
 }
 
 }  // namespace pe

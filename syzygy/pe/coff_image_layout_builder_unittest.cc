@@ -28,7 +28,7 @@
 #include "syzygy/pe/coff_decomposer.h"
 #include "syzygy/pe/coff_file.h"
 #include "syzygy/pe/coff_file_writer.h"
-#include "syzygy/pe/new_decomposer.h"
+#include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_utils.h"
 #include "syzygy/pe/unittest_util.h"
 #include "syzygy/testing/toolchain.h"
@@ -411,7 +411,7 @@ TEST_F(CoffImageLayoutBuilderTest, RedecomposePE) {
   PEFile pe_file;
   ASSERT_TRUE(pe_file.Init(new_test_dll_path_));
 
-  NewDecomposer pe_decomposer(pe_file);
+  Decomposer pe_decomposer(pe_file);
   block_graph::BlockGraph pe_block_graph;
   pe::ImageLayout pe_image_layout(&pe_block_graph);
   ASSERT_TRUE(pe_decomposer.Decompose(&pe_image_layout));
@@ -449,7 +449,7 @@ TEST_F(CoffImageLayoutBuilderTest, RedecomposePERandom) {
   PEFile pe_file;
   ASSERT_TRUE(pe_file.Init(new_test_dll_path_));
 
-  NewDecomposer pe_decomposer(pe_file);
+  Decomposer pe_decomposer(pe_file);
   block_graph::BlockGraph pe_block_graph;
   pe::ImageLayout pe_image_layout(&pe_block_graph);
   ASSERT_TRUE(pe_decomposer.Decompose(&pe_image_layout));

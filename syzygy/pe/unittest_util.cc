@@ -37,7 +37,7 @@
 #include "syzygy/pe/coff_file_writer.h"
 #include "syzygy/pe/coff_image_layout_builder.h"
 #include "syzygy/pe/decomposer.h"
-#include "syzygy/pe/new_decomposer.h"
+#include "syzygy/pe/old_decomposer.h"
 #include "syzygy/pe/pe_data.h"
 
 namespace testing {
@@ -328,10 +328,10 @@ void PELibUnitTest::DecomposeTestDll(bool use_old_decomposer,
   ASSERT_TRUE(pe_file->Init(test_dll));
 
   if (use_old_decomposer) {
-    pe::Decomposer decomposer(*pe_file);
+    pe::OldDecomposer decomposer(*pe_file);
     ASSERT_TRUE(decomposer.Decompose(image_layout));
   } else {
-    pe::NewDecomposer decomposer(*pe_file);
+    pe::Decomposer decomposer(*pe_file);
     ASSERT_TRUE(decomposer.Decompose(image_layout));
   }
 }

@@ -16,7 +16,7 @@
 
 #include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/pe/decomposer.h"
-#include "syzygy/pe/new_decomposer.h"
+#include "syzygy/pe/old_decomposer.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_transform_policy.h"
 
@@ -377,7 +377,7 @@ bool DecomposeImageToTextApp::DumpImageToText(
 
  if (use_old_decomposer_) {
     LOG(INFO) << "Using old decomposer for decomposition.";
-    Decomposer decomposer(image_file);
+    OldDecomposer decomposer(image_file);
     if (!decomposer.Decompose(&image_layout)) {
       LOG(ERROR) << "Unable to decompose image \""
           << image_path.value() << "\".";
@@ -385,7 +385,7 @@ bool DecomposeImageToTextApp::DumpImageToText(
     }
   } else {
     // And decompose it to an ImageLayout.
-    NewDecomposer decomposer(image_file);
+    Decomposer decomposer(image_file);
     if (!decomposer.Decompose(&image_layout)) {
       LOG(ERROR) << "Unable to decompose image \""
           << image_path.value() << "\".";

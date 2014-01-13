@@ -22,7 +22,7 @@
 #include "syzygy/pdb/pdb_writer.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/metadata.h"
-#include "syzygy/pe/new_decomposer.h"
+#include "syzygy/pe/old_decomposer.h"
 #include "syzygy/pe/pdb_info.h"
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/pe_relinker_util.h"
@@ -64,14 +64,14 @@ bool Decompose(bool use_old_decomposer,
   // Decompose the input image.
   if (use_old_decomposer) {
     LOG(INFO) << "Using old decomposer for decomposition.";
-    Decomposer decomposer(pe_file);
+    OldDecomposer decomposer(pe_file);
     decomposer.set_pdb_path(pdb_path);
     if (!decomposer.Decompose(&orig_image_layout)) {
       LOG(ERROR) << "Unable to decompose module: " << pe_file.path().value();
       return false;
     }
   } else {
-    NewDecomposer decomposer(pe_file);
+    Decomposer decomposer(pe_file);
     decomposer.set_pdb_path(pdb_path);
     if (!decomposer.Decompose(&orig_image_layout)) {
       LOG(ERROR) << "Unable to decompose module: " << pe_file.path().value();

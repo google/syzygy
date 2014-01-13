@@ -113,12 +113,12 @@ class LinearOrderGenerator : public Reorderer::OrderGenerator {
 
 struct LinearOrderGenerator::BlockCall {
   const BlockGraph::Block* block;
-  uint32_t process_id;
-  uint32_t thread_id;
+  uint32 process_id;
+  uint32 thread_id;
   UniqueTime time;
 
-  BlockCall(const BlockGraph::Block* block, uint32_t process_id,
-            uint32_t thread_id, const UniqueTime& time)
+  BlockCall(const BlockGraph::Block* block, uint32 process_id,
+            uint32 thread_id, const UniqueTime& time)
       : block(block), process_id(process_id), thread_id(thread_id),
         time(time) {
   }
