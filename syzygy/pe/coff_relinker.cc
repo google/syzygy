@@ -19,6 +19,7 @@
 #include "syzygy/pe/coff_file_writer.h"
 #include "syzygy/pe/coff_image_layout_builder.h"
 #include "syzygy/pe/pe_utils.h"
+#include "syzygy/pe/transforms/coff_convert_legacy_code_references_transform.h"
 #include "syzygy/pe/transforms/coff_prepare_headers_transform.h"
 
 namespace pe {
@@ -151,8 +152,13 @@ bool CoffRelinker::Relink() {
   // We apply the extra prepare headers transform. This ensures that the
   // header block is properly sized to receive layout information
   // post-ordering.
-  std::vector<Transform*> post_transforms;
+  //
+  // TODO(chrisha): Remove CoffConvertLegacyCodeReferencesTransform when the
+  //     basic block assembler is made fully COFF-compatible.
+  pe::transforms::CoffConvertLegacyCodeReferencesTransform fix_refs_tx;
   pe::transforms::CoffPrepareHeadersTransform prep_headers_tx;
+  std::vector<Transform*> post_transforms;
+  post_transforms.push_back(&fix_refs_tx);
   post_transforms.push_back(&prep_headers_tx);
   if (!block_graph::ApplyBlockGraphTransforms(
            post_transforms, transform_policy_, &block_graph_, headers_block_)) {
