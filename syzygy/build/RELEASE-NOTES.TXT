@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.7.2
+
+[r1989] Fix to reorderer to make it use the same decomposer as the relinker.
+
 Version 0.7.7.1
 
 [r1983] Small fix to decompose_image_to_text which was causing failed official
