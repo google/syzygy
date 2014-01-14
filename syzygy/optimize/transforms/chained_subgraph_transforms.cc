@@ -66,6 +66,8 @@ void FlattenCallgraphPostOrder(BlockGraph* block_graph, BlockOrdering* order) {
       block = stack.top();
 
       // Put unvisited referrers on the stack.
+      typedef std::map<BlockGraph::BlockId, BlockGraph::Block*> OrderedBlockMap;
+      OrderedBlockMap missing;
       bool missing_referrers = false;
       if (block->type() == BlockGraph::CODE_BLOCK) {
         const ReferrerSet& referrers = block->referrers();
@@ -73,11 +75,16 @@ void FlattenCallgraphPostOrder(BlockGraph* block_graph, BlockOrdering* order) {
         for (; referrer != referrers.end(); ++referrer) {
           BlockGraph::Block* from = referrer->first;
           if (visiting.insert(from).second) {
-            stack.push(from);
+            missing.insert(std::make_pair(from->id(), from));
             missing_referrers = true;
           }
         }
       }
+
+      // Push missing referrers into the stack, ordered by block id.
+      OrderedBlockMap::iterator referrer = missing.begin();
+      for (; referrer != missing.end(); ++referrer)
+        stack.push(referrer->second);
 
       // When there are no missing referrers, this block is fully visited and
       // can be pushed in the ordering (post-order).
