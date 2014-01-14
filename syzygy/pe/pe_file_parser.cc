@@ -466,81 +466,86 @@ BlockGraph::Block* PEFileParser::ParseExportDir(
     return NULL;
   }
 
-  // All the references in the export directory should point back into
-  // the export directory, sanity check this.
-  DCHECK_EQ(export_dir_block, address_space_->GetContainingBlock(
-      RelativeAddress(export_dir->AddressOfFunctions),
-      sizeof(RelativeAddress)));
-  DCHECK_EQ(export_dir_block, address_space_->GetContainingBlock(
-      RelativeAddress(export_dir->AddressOfNames),
-      sizeof(RelativeAddress)));
-  DCHECK_EQ(export_dir_block, address_space_->GetContainingBlock(
-      RelativeAddress(export_dir->AddressOfNameOrdinals),
-      sizeof(RelativeAddress)));
-
-  // Add the export directory references.
   if (!AddRelative(export_dir, &export_dir->Name)) {
     LOG(ERROR) << "Unable to add export functions reference.";
     return NULL;
   }
 
-  if (!AddRelative(export_dir, &export_dir->AddressOfFunctions)) {
-    LOG(ERROR) << "Unable to add export functions reference.";
-    return NULL;
-  }
+  // All the references in the export directory should point back into
+  // the export directory, unless they are NULL (empty).
 
-  if (!AddRelative(export_dir, &export_dir->AddressOfNames)) {
-    LOG(ERROR) << "Unable to add export address of names reference.";
-    return NULL;
-  }
-
-  if (!AddRelative(export_dir, &export_dir->AddressOfNameOrdinals)) {
-    LOG(ERROR) << "Unable to add export address of ordinals reference.";
-    return NULL;
-  }
-
-  PEFileStructPtr<DWORD> function;
-  if (!function.Set(export_dir_block,
-                    RelativeAddress(export_dir->AddressOfFunctions))) {
-    LOG(ERROR) << "Unable to parse export function table.";
-    return NULL;
-  }
-
-  for (size_t i = 0; i < export_dir->NumberOfFunctions; ++i) {
-    // TODO(siggi): This could be labeled with the exported function's
-    //    name, if one is available.
-    if (!AddRelative(function, function.ptr())) {
-      LOG(ERROR) << "Unable to add reference to exported function.";
-      return NULL;
-    }
-
-    if (!function.Next()) {
-      LOG(ERROR) << "Unable to parse export function table.";
-      return NULL;
-    }
-  }
-
-  // Add references to the export function names.
-  PEFileStructPtr<DWORD> name;
-  if (!name.Set(export_dir_block,
-                RelativeAddress(export_dir->AddressOfNames))) {
-    LOG(ERROR) << "Unable to parse export name table.";
-  }
-
-  for (size_t i = 0; i < export_dir->NumberOfNames; ++i) {
-    // All the names in the export directory should point back into
-    // the export directory, sanity check this.
+  if (export_dir->AddressOfFunctions != 0) {
     DCHECK_EQ(export_dir_block, address_space_->GetContainingBlock(
-        RelativeAddress(*name.ptr()),
+        RelativeAddress(export_dir->AddressOfFunctions),
         sizeof(RelativeAddress)));
-
-    if (!AddRelative(name, name.ptr())) {
-      LOG(ERROR) << "Unable to add reference to export function name.";
+    if (!AddRelative(export_dir, &export_dir->AddressOfFunctions)) {
+      LOG(ERROR) << "Unable to add export functions reference.";
       return NULL;
     }
 
-    if (!name.Next()) {
+    PEFileStructPtr<DWORD> function;
+    if (!function.Set(export_dir_block,
+                      RelativeAddress(export_dir->AddressOfFunctions))) {
       LOG(ERROR) << "Unable to parse export function table.";
+      return NULL;
+    }
+
+    for (size_t i = 0; i < export_dir->NumberOfFunctions; ++i) {
+      // TODO(siggi): This could be labeled with the exported function's
+      //    name, if one is available.
+      if (!AddRelative(function, function.ptr())) {
+        LOG(ERROR) << "Unable to add reference to exported function.";
+        return NULL;
+      }
+
+      if (!function.Next()) {
+        LOG(ERROR) << "Unable to parse export function table.";
+        return NULL;
+      }
+    }
+  }
+
+  if (export_dir->AddressOfNames != 0) {
+    DCHECK_EQ(export_dir_block, address_space_->GetContainingBlock(
+        RelativeAddress(export_dir->AddressOfNames),
+        sizeof(RelativeAddress)));
+    if (!AddRelative(export_dir, &export_dir->AddressOfNames)) {
+      LOG(ERROR) << "Unable to add export address of names reference.";
+      return NULL;
+    }
+
+    // Add references to the export function names.
+    PEFileStructPtr<DWORD> name;
+    if (!name.Set(export_dir_block,
+                  RelativeAddress(export_dir->AddressOfNames))) {
+      LOG(ERROR) << "Unable to parse export name table.";
+    }
+
+    for (size_t i = 0; i < export_dir->NumberOfNames; ++i) {
+      // All the names in the export directory should point back into
+      // the export directory, sanity check this.
+      DCHECK_EQ(export_dir_block, address_space_->GetContainingBlock(
+          RelativeAddress(*name.ptr()),
+          sizeof(RelativeAddress)));
+
+      if (!AddRelative(name, name.ptr())) {
+        LOG(ERROR) << "Unable to add reference to export function name.";
+        return NULL;
+      }
+
+      if (!name.Next()) {
+        LOG(ERROR) << "Unable to parse export function table.";
+        return NULL;
+      }
+    }
+  }
+
+  if (export_dir->AddressOfNameOrdinals != 0) {
+    DCHECK_EQ(export_dir_block, address_space_->GetContainingBlock(
+        RelativeAddress(export_dir->AddressOfNameOrdinals),
+        sizeof(RelativeAddress)));
+    if (!AddRelative(export_dir, &export_dir->AddressOfNameOrdinals)) {
+      LOG(ERROR) << "Unable to add export address of ordinals reference.";
       return NULL;
     }
   }

@@ -249,6 +249,25 @@ TEST_F(PEFileParserTest, ParseExportDir) {
   ASSERT_TRUE(ExportIsReferenced("function3"));
 }
 
+TEST_F(PEFileParserTest, ParseEmptyExportDir) {
+  base::FilePath no_exports_dll_path = testing::GetOutputRelativePath(
+      testing::kNoExportsDllName);
+  pe::PEFile no_exports_dll_image;
+  ASSERT_TRUE(no_exports_dll_image.Init(no_exports_dll_path));
+  TestPEFileParser parser(no_exports_dll_image,
+                          &address_space_, add_reference_);
+
+  PEFileParser::PEHeader header;
+  EXPECT_TRUE(parser.ParseImageHeader(&header));
+
+  const IMAGE_NT_HEADERS* nt_headers =
+      reinterpret_cast<const IMAGE_NT_HEADERS*>(header.nt_headers->data());
+
+  const IMAGE_DATA_DIRECTORY& dir =
+      nt_headers->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+  EXPECT_TRUE(parser.ParseExportDir(dir) != NULL);
+}
+
 TEST_F(PEFileParserTest, ParseImportDir) {
   TestPEFileParser parser(image_file_, &address_space_, add_reference_);
   parser.set_on_import_thunk(on_import_thunk_);

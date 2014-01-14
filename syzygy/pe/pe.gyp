@@ -226,6 +226,7 @@
         'serialization_unittest.cc',
       ],
       'dependencies': [
+        'no_exports_dll',
         'pe_app_lib',
         'pe_lib',
         'pe_unittest_utils',
@@ -322,6 +323,16 @@
           },
         },
       },
+    },
+    {
+      # This target generates no_exports_dll.dll, which contains an empty export
+      # data directory.
+      'target_name': 'no_exports_dll',
+      'type': 'loadable_module',
+      'sources': [
+        'no_exports_dll.cc',
+        'no_exports_dll.def',
+      ],
     },
     {
       # This target generates the test_dll object files in different

@@ -36,6 +36,10 @@ namespace testing {
 extern const wchar_t kTestDllName[];
 extern const wchar_t kTestDllPdbName[];
 
+// Name of the DLL containing an empty exports directory.
+extern const wchar_t kNoExportsDllName[];
+extern const wchar_t kNoExportsDllPdbName[];
+
 // Name of the test DLL object files and the PDB files where their type
 // information has been emitted, relative to the test_data directory.
 // The two object files are guaranteed to be in the specified format.
