@@ -35,6 +35,7 @@ class OptimizeApp : public common::AppImplBase {
         block_alignment_(false),
         fuzz_(false),
         inlining_(false),
+        allow_inline_assembly_(false),
         overwrite_(false),
         peephole_(false) {
   }
@@ -64,6 +65,7 @@ class OptimizeApp : public common::AppImplBase {
   bool basic_block_reorder_;
   bool fuzz_;
   bool inlining_;
+  bool allow_inline_assembly_;
   bool peephole_;
   bool overwrite_;
   // @}

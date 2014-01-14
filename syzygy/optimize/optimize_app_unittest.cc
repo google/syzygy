@@ -40,6 +40,7 @@ class TestOptimizeApp : public OptimizeApp {
   using OptimizeApp::block_alignment_;
   using OptimizeApp::fuzz_;
   using OptimizeApp::inlining_;
+  using OptimizeApp::allow_inline_assembly_;
   using OptimizeApp::peephole_;
   using OptimizeApp::overwrite_;
 };
@@ -153,6 +154,7 @@ TEST_F(OptimizeAppTest, ParseMinimalCommandLineWithBranchFile) {
   cmd_line_.AppendSwitchPath("output-image", output_image_path_);
   EXPECT_FALSE(test_impl_.overwrite_);
   EXPECT_FALSE(test_impl_.inlining_);
+  EXPECT_FALSE(test_impl_.allow_inline_assembly_);
   EXPECT_FALSE(test_impl_.block_alignment_);
   EXPECT_FALSE(test_impl_.basic_block_reorder_);
   EXPECT_FALSE(test_impl_.peephole_);
@@ -187,6 +189,7 @@ TEST_F(OptimizeAppTest, ParseFullCommandLineWithInputAndOutputPdb) {
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
   cmd_line_.AppendSwitch("overwrite");
   cmd_line_.AppendSwitch("inlining");
+  cmd_line_.AppendSwitch("allow-inline-assembly");
   cmd_line_.AppendSwitch("block-alignment");
   cmd_line_.AppendSwitch("basic-block-reorder");
   cmd_line_.AppendSwitch("peephole");
@@ -199,6 +202,7 @@ TEST_F(OptimizeAppTest, ParseFullCommandLineWithInputAndOutputPdb) {
   EXPECT_EQ(output_pdb_path_, test_impl_.output_pdb_path_);
   EXPECT_TRUE(test_impl_.overwrite_);
   EXPECT_TRUE(test_impl_.inlining_);
+  EXPECT_TRUE(test_impl_.allow_inline_assembly_);
   EXPECT_TRUE(test_impl_.block_alignment_);
   EXPECT_TRUE(test_impl_.basic_block_reorder_);
   EXPECT_TRUE(test_impl_.peephole_);

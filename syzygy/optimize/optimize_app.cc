@@ -58,6 +58,9 @@ const char kUsageFormatStr[] =
     "\n"
     "  Optimization Options:\n"
     "    --all                 Enable all optimizations.\n"
+    "    --allow-inline-assembly\n"
+    "                          Enable the decomposition of inline assembly\n"
+    "                          blocks.\n"
     "    --basic-block-reorder Enable basic block reodering.\n"
     "    --block-alignment     Enable block realignment.\n"
     "    --inlining            Enable function inlining.\n"
@@ -84,6 +87,7 @@ bool OptimizeApp::ParseCommandLine(const CommandLine* cmd_line) {
   block_alignment_ = cmd_line->HasSwitch("block-alignment");
   fuzz_ = cmd_line->HasSwitch("fuzz");
   inlining_ = cmd_line->HasSwitch("inlining");
+  allow_inline_assembly_ = cmd_line->HasSwitch("allow-inline-assembly");
   peephole_ = cmd_line->HasSwitch("peephole");
   overwrite_ = cmd_line->HasSwitch("overwrite");
 
@@ -114,6 +118,7 @@ bool OptimizeApp::SetUp() {
 
 int OptimizeApp::Run() {
   pe::PETransformPolicy policy;
+  policy.set_allow_inline_assembly(allow_inline_assembly_);
   pe::PERelinker relinker(&policy);
   relinker.set_input_path(input_image_path_);
   relinker.set_input_pdb_path(input_pdb_path_);
