@@ -73,6 +73,7 @@ typedef Instruction::BasicBlockReferenceMap BasicBlockReferenceMap;
 typedef BasicBlockSubGraph::BBCollection BBCollection;
 typedef BasicBlock::Instructions Instructions;
 typedef BlockGraph::Offset Offset;
+typedef scoped_ptr<BasicBlockSubGraph> ScopedSubgraph;
 
 enum MatchKind {
   kInvalidMatch,
@@ -92,6 +93,9 @@ const size_t kHotCodeSizeThreshold = 15;
 
 // Threshold in bytes to inline a callee in a cold block.
 const size_t kColdCodeSizeThreshold = 1;
+
+// A size huge enough to never be an inlining candidate.
+const size_t kHugeBlockSize = 0xFFFFFFFF;
 
 // These patterns are often produced by the MSVC compiler. They're common enough
 // that the inlining transformation matches them by pattern rather than
@@ -469,6 +473,26 @@ bool DecomposeToBasicBlock(const BlockGraph::Block* block,
   return true;
 }
 
+bool DecomposeCalleeBlock(const BlockGraph::Block* callee,
+                          ScopedSubgraph* callee_subgraph) {
+  DCHECK_NE(reinterpret_cast<const BlockGraph::Block*>(NULL), callee);
+  DCHECK_NE(reinterpret_cast<ScopedSubgraph*>(NULL), callee_subgraph);
+
+  // Create a new subgraph.
+  callee_subgraph->reset(new BasicBlockSubGraph());
+
+  // Decompose it.
+  if (!DecomposeToBasicBlock(callee, callee_subgraph->get()))
+    return false;
+
+  // Simplify the subgraph. There is no guarantee that the callee has been
+  // simplified by the peephole transform. Running one pass should take
+  // care of the most frequent patterns.
+  PeepholeTransform::SimplifySubgraph(callee_subgraph->get());
+
+  return true;
+}
+
 size_t EstimateSubgraphSize(BasicBlockSubGraph* subgraph) {
   DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), subgraph);
   const size_t kMaxBranchSize = 5;
@@ -558,39 +582,34 @@ bool InliningTransform::TransformBasicBlockSubGraph(
       if (callee->size() > kCodeSizeThreshold)
         continue;
 
-      BasicBlockSubGraph* callee_subgraph;
+      size_t subgraph_size = 0;
+      ScopedSubgraph callee_subgraph;
       size_t return_constant = 0;
       BasicCodeBlock* body = NULL;
       BasicBlockReference target;
       MatchKind match_kind = kInvalidMatch;
 
-      // Look in the subgraph cache for an already decomposed subgraph.
+      // Look in the subgraph cache for an already decomposed subgraph size for
+      // an optimized version of the callee block.
       SubGraphCache::iterator look = subgraph_cache_.find(callee->id());
       if (look != subgraph_cache_.end()) {
-        callee_subgraph = look->second.get();
-        DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), callee_subgraph);
+        subgraph_size = look->second;
       } else {
-        // Not in cache, create a new subgraph.
-        ScopedSubgraph& scoped = subgraph_cache_[callee->id()];
-        scoped.reset(new BasicBlockSubGraph());
-        callee_subgraph = scoped.get();
-        DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), callee_subgraph);
+        // Decompose it. This cannot fail because
+        // BlockIsSafeToBasicBlockDecompose is performed before.
+        CHECK(DecomposeCalleeBlock(callee, &callee_subgraph));
 
-        // Decompose it.
-        if (!DecomposeToBasicBlock(callee, callee_subgraph)) {
-          subgraph_cache_.erase(callee->id());
-          continue;
-        }
+        // Heuristic to determine the callee size after inlining.
+        DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL),
+                  callee_subgraph.get());
+        subgraph_size = EstimateSubgraphSize(callee_subgraph.get());
 
-        // Simplify the subgraph. There is no guarantee that the callee has been
-        // simplified by the peephole transform. Running one pass should take
-        // care of the most frequent patterns.
-        PeepholeTransform::SimplifySubgraph(callee_subgraph);
+        // Cache the resulting size.
+        subgraph_cache_[callee->id()] = subgraph_size;
       }
 
       // Heuristic to determine whether to inline or not the callee subgraph.
       bool candidate_for_inlining = false;
-      size_t subgraph_size = EstimateSubgraphSize(callee_subgraph);
 
       // For a small callee, try to replace callee instructions in-place.
       // This kind of inlining is always a win.
@@ -603,12 +622,20 @@ bool InliningTransform::TransformBasicBlockSubGraph(
       if (!candidate_for_inlining)
         continue;
 
+      // If not already decomposed (cached), decompose it.
+      if (callee_subgraph.get() == NULL) {
+        CHECK(DecomposeCalleeBlock(callee, &callee_subgraph));
+      }
+
       if (MatchTrivialBody(*callee_subgraph, &match_kind, &return_constant,
                             &target, &body) &&
           InlineTrivialBody(match_kind, subgraph, return_constant, target, body,
                             call_iter, &bb->instructions())) {
         // Inlining successful, remove call-site.
         bb->instructions().erase(call_iter);
+      } else {
+        // Inlining was unsuccessful, avoid any further inlining of this block.
+        subgraph_cache_[callee->id()] = kHugeBlockSize;
       }
     }
   }
