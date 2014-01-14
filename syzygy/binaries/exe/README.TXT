@@ -1,8 +1,8 @@
 Syzygy Post-Link Transformation Toolchain
 =========================================
 
-Date:     2014/01/09
-Version:  0.7.7.1 (1984)
+Date:     2014/01/14
+Version:  0.7.7.2 (1991)
 
 The Syzygy project consists of a suite of tools for the instrumentation of
 PE binaries. The various instrumentation modes allow for computing code
