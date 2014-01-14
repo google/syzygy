@@ -30,6 +30,7 @@ using block_graph::BasicBlockDecomposer;
 using block_graph::BasicBlockSubGraph;
 using block_graph::BlockBuilder;
 using block_graph::BlockGraph;
+using block_graph::BlockVector;
 typedef BlockGraph::Block::ReferrerSet ReferrerSet;
 typedef std::list<BlockGraph::Block*> BlockOrdering;
 
@@ -158,6 +159,12 @@ bool ChainedSubgraphTransforms::TransformBlockGraph(
     BlockBuilder builder(block_graph);
     if (!builder.Merge(&subgraph))
       return false;
+
+    // TODO(etienneb): This is needed until the labels refactoring.
+    const BlockVector& blocks = builder.new_blocks();
+    BlockVector::const_iterator new_block = blocks.begin();
+    for (; new_block != blocks.end(); ++new_block)
+      (*new_block)->set_attribute(BlockGraph::BUILT_BY_SYZYGY);
   }
 
   return true;
