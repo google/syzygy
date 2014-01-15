@@ -14,6 +14,8 @@
 
 #include "syzygy/agent/asan/asan_crt_interceptors.h"
 
+#include <algorithm>
+
 #include "base/logging.h"
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_rtl_utils.h"

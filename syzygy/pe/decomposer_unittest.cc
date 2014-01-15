@@ -238,7 +238,7 @@ TEST_F(DecomposerTest, Decompose) {
 #ifndef NDEBUG
   // Debug build.
   expected_section_counts[-1] = 2;
-  expected_section_counts[0] = 314;
+  expected_section_counts[0] = 323;
   expected_section_counts[1] = 747;
   expected_section_counts[2] = 91;
   expected_section_counts[3] = 1;
@@ -248,8 +248,8 @@ TEST_F(DecomposerTest, Decompose) {
 #ifndef OFFICIAL_BUILD
   // Release build.
   expected_section_counts[-1] = 2;
-  expected_section_counts[0] = 296;
-  expected_section_counts[1] = 723;
+  expected_section_counts[0] = 298;
+  expected_section_counts[1] = 724;
   expected_section_counts[2] = 85;
   expected_section_counts[3] = 1;
   expected_section_counts[4] = 1;
@@ -257,8 +257,8 @@ TEST_F(DecomposerTest, Decompose) {
 #else
   // Official build.
   expected_section_counts[-1] = 2;
-  expected_section_counts[0] = 295;
-  expected_section_counts[1] = 723;
+  expected_section_counts[0] = 297;
+  expected_section_counts[1] = 724;
   expected_section_counts[2] = 85;
   expected_section_counts[3] = 1;
   expected_section_counts[4] = 1;
@@ -288,17 +288,17 @@ TEST_F(DecomposerTest, Decompose) {
 #elif _MSC_VER == 1800  // MSVS 2013.
 #ifndef NDEBUG
   // Debug build.
-  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 314;
+  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 323;
   expected_block_type_counts[BlockGraph::DATA_BLOCK] = 843;
 #else
 #ifndef OFFICIAL_BUILD
   // Release build.
-  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 296;
-  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 813;
+  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 298;
+  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 814;
 #else
   // Official build.
-  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 295;
-  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 813;
+  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 297;
+  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 814;
 #endif
 #endif
 #endif
@@ -491,10 +491,10 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
 #elif _MSC_VER == 1800  // MSVS 2013.
 #ifndef NDEBUG
   // Debug build.
-  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 8;
+  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 10;
   expected_attrib_counts[BlockGraph::PE_PARSED] = 89;
-  expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 1153;
-  expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 14;
+  expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 1162;
+  expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 15;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 136;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 26;
   expected_attrib_counts[BlockGraph::THUNK] = 7;
@@ -504,7 +504,7 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   // Release build.
   expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 8;
   expected_attrib_counts[BlockGraph::PE_PARSED] = 88;
-  expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 1105;
+  expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 1108;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 135;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 13;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 24;
@@ -514,7 +514,7 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   // Official build.
   expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 8;
   expected_attrib_counts[BlockGraph::PE_PARSED] = 88;
-  expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 1104;
+  expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 1107;
   expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 136;
   expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 13;
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 24;

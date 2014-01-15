@@ -32,7 +32,6 @@ void ASanInterceptorFilter::InitializeCRTFunctionHashes() {
   function_hash_map_["strspn"].insert("79b6a33a1b03b482be14afff061d7c68");
   function_hash_map_["strncpy"].insert("aed1dd2372364f66f4d126eefb073070");
   function_hash_map_["strncat"].insert("9cc9e9a57cdd695606caf6cbf532d88e");
-  function_hash_map_["wcsrchr"].insert("e049d7b7cb421013b2151b2070302def");
 
   // Hashes specific to MSVS 2010.
   function_hash_map_["memcpy"].insert("da1805f40d6e92f6ac497c66ac969e61");
@@ -41,6 +40,7 @@ void ASanInterceptorFilter::InitializeCRTFunctionHashes() {
   function_hash_map_["strrchr"].insert("f849347be44ddb17a4fc3c64b90f8cca");
   function_hash_map_["strcmp"].insert("865502e059de8a9dc6cee8ef05b1a586");
   function_hash_map_["strstr"].insert("cdfbaae199dcc8272681c021fab9d664");
+  function_hash_map_["wcsrchr"].insert("e049d7b7cb421013b2151b2070302def");
 
   // Hashes specific to MSVS 2013.
   function_hash_map_["memcpy"].insert("270406ea8a9e931f2c0db8a7f0b5d698");
@@ -49,6 +49,7 @@ void ASanInterceptorFilter::InitializeCRTFunctionHashes() {
   function_hash_map_["strrchr"].insert("17575b2dc3a7fd3b277d0cd798f507df");
   function_hash_map_["strcmp"].insert("3de87a84bf545bd485f846c1b9456bcb");
   function_hash_map_["strstr"].insert("1926bd8c94118f97819d604ec5afee30");
+  function_hash_map_["wcsrchr"].insert("86cb28d7c68ae6f62c694f2e3239b725");
 }
 
 bool ASanInterceptorFilter::ShouldIntercept(const BlockGraph::Block* block) {
