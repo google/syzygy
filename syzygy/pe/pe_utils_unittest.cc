@@ -44,6 +44,7 @@ class PEUtilsTest : public testing::Test {
   }
 
   virtual void SetUp() {
+    block_graph_.set_image_format(BlockGraph::PE_IMAGE);
     // Create the NT headers block.
     ASSERT_NO_FATAL_FAILURE(CreateNtHeadersBlock());
     // And the DOS header block.

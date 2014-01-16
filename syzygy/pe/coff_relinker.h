@@ -71,7 +71,9 @@ class CoffRelinker : public PECoffRelinker {
   explicit CoffRelinker(const CoffTransformPolicy* transform_policy);
 
   // @see RelinkerInterface::image_format()
-  virtual ImageFormat image_format() const OVERRIDE { return COFF_IMAGE; }
+  virtual ImageFormat image_format() const OVERRIDE {
+    return BlockGraph::COFF_IMAGE;
+  }
 
   // Read and decompose the main input image, treated as a COFF file.
   //

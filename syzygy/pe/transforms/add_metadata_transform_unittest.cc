@@ -38,7 +38,10 @@ class AddMetadataTransformTest : public testing::PELibUnitTest {
         metadata_block_(NULL) {
   }
 
-  void SetUp() {
+  virtual void SetUp() OVERRIDE {
+    testing::PELibUnitTest::SetUp();
+
+    block_graph_.set_image_format(BlockGraph::PE_IMAGE);
     header_block_ = block_graph_.AddBlock(BlockGraph::DATA_BLOCK,
                                           10,
                                           "Header");

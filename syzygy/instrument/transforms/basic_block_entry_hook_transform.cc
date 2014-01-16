@@ -138,9 +138,10 @@ bool BasicBlockEntryHookTransform::PreBlockGraphIteration(
     const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* header_block) {
-  DCHECK(policy != NULL);
-  DCHECK(block_graph != NULL);
-  DCHECK(header_block != NULL);
+  DCHECK_NE(reinterpret_cast<TransformPolicyInterface*>(NULL), policy);
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), header_block);
+  DCHECK_EQ(BlockGraph::PE_IMAGE, block_graph->image_format());
 
   // Setup basic block entry and the frequency data hooks.
   if (!SetupEntryHooks(policy,

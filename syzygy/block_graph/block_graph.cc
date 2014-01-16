@@ -26,6 +26,14 @@ namespace {
 COMPILE_ASSERT(BlockGraph::BLOCK_ATTRIBUTES_MAX_BIT < 32,
                too_many_block_attributes);
 
+// A list of printable names corresponding to image formats. This need to be
+// kept in sync with the BlockGraph::ImageFormat enum!
+const char* kImageFormat[] = {
+  "UNKNOWN_FORMAT", "PE_FORMAT", "COFF_FORMAT",
+};
+COMPILE_ASSERT(arraysize(kImageFormat) == BlockGraph::IMAGE_FORMAT_MAX,
+               kIamgeFormat_not_in_sync);
+
 // A list of printable names corresponding to block types. This needs to
 // be kept in sync with the BlockGraph::BlockType enum!
 const char* kBlockType[] = {
@@ -172,6 +180,12 @@ const char* BlockAttributeToString(BlockGraph::BlockAttributeEnum attr) {
 
 }  // namespace
 
+const char* BlockGraph::ImageFormatToString(ImageFormat format) {
+  DCHECK_LE(BlockGraph::PE_IMAGE, format);
+  DCHECK_GT(BlockGraph::IMAGE_FORMAT_MAX, format);
+  return kImageFormat[format];
+}
+
 std::string BlockGraph::BlockAttributesToString(BlockAttributes attrs) {
   BlockAttributes attr = 1;
   std::string s;
@@ -214,7 +228,8 @@ const BlockGraph::SectionId BlockGraph::kInvalidSectionId = -1;
 
 BlockGraph::BlockGraph()
     : next_section_id_(0),
-      next_block_id_(0) {
+      next_block_id_(0),
+      image_format_(UNKNOWN_IMAGE_FORMAT) {
 }
 
 BlockGraph::~BlockGraph() {

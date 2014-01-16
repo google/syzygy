@@ -36,7 +36,9 @@ class PEAddImportsTransformTest : public testing::PELibUnitTest {
         dos_header_block_(NULL) {
   }
 
-  virtual void SetUp() {
+  virtual void SetUp() OVERRIDE {
+    testing::PELibUnitTest::SetUp();
+
     base::FilePath image_path(
         testing::GetExeRelativePath(testing::kTestDllName));
 

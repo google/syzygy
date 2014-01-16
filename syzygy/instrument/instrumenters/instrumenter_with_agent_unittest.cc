@@ -71,7 +71,7 @@ class TestInstrumenterWithAgent : public InstrumenterWithAgent {
   }
 
   // For the purposes of testing, our instrumenter supports all image formats.
-  virtual bool ImageFormatIsSupported(pe::ImageFormat image_format) OVERRIDE {
+  virtual bool ImageFormatIsSupported(ImageFormat image_format) OVERRIDE {
     return true;
   }
 

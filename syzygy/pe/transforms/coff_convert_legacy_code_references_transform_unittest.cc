@@ -29,6 +29,7 @@ using block_graph::BlockGraph;
 TEST(CoffConvertLegacyCodeReferencesTransformTest, Succeeds) {
   testing::DummyTransformPolicy policy;
   BlockGraph bg;
+  bg.set_image_format(BlockGraph::COFF_IMAGE);
   BlockGraph::Block* b0 = bg.AddBlock(BlockGraph::DATA_BLOCK, 10, "b0");
   BlockGraph::Block* b1 = bg.AddBlock(BlockGraph::CODE_BLOCK, 10, "b1");
   BlockGraph::Block* b2 = bg.AddBlock(BlockGraph::CODE_BLOCK, 10, "b2");

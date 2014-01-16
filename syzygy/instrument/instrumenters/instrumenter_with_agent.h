@@ -32,8 +32,11 @@ namespace instrumenters {
 
 class InstrumenterWithAgent : public InstrumenterInterface {
  public:
+  typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::BlockGraph::ImageFormat ImageFormat;
+
   InstrumenterWithAgent()
-      : image_format_(pe::PE_IMAGE),
+      : image_format_(BlockGraph::PE_IMAGE),
         allow_overwrite_(false),
         debug_friendly_(false),
         no_augment_pdb_(false),
@@ -60,7 +63,7 @@ class InstrumenterWithAgent : public InstrumenterInterface {
   // Virtual method that determines whether or not the input object file
   // format is supported by the instrumenter. The default implementation
   // supports PE files, and does not support COFF files.
-  virtual bool ImageFormatIsSupported(pe::ImageFormat image_format);
+  virtual bool ImageFormatIsSupported(ImageFormat image_format);
 
   // Virtual method that does the actual instrumentation for a given agent.
   // This function is meant to be called by the Instrument function.
@@ -98,7 +101,7 @@ class InstrumenterWithAgent : public InstrumenterInterface {
   std::string agent_dll_;
 
   // The type of image file we are transforming.
-  pe::ImageFormat image_format_;
+  ImageFormat image_format_;
 
   // @name Command-line parameters.
   // @{

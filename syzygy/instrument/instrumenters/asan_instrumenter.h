@@ -39,7 +39,7 @@ class AsanInstrumenter : public InstrumenterWithAgent {
 
   // @name InstrumenterWithAgent overrides.
   // @{
-  virtual bool ImageFormatIsSupported(pe::ImageFormat image_format) OVERRIDE;
+  virtual bool ImageFormatIsSupported(ImageFormat image_format) OVERRIDE;
   virtual bool InstrumentImpl() OVERRIDE;
   virtual const char* InstrumentationMode() OVERRIDE { return "asan"; }
   virtual bool ParseAdditionalCommandLineArguments(

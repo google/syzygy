@@ -24,7 +24,10 @@ namespace instrumenters {
 
 namespace {
 
-bool GetImageFormat(const base::FilePath& path, pe::ImageFormat* image_format) {
+using block_graph::BlockGraph;
+
+bool GetImageFormat(const base::FilePath& path,
+                    BlockGraph::ImageFormat* image_format) {
   DCHECK(image_format != NULL);
 
   // Determine the type of the input.
@@ -36,12 +39,12 @@ bool GetImageFormat(const base::FilePath& path, pe::ImageFormat* image_format) {
   }
 
   if (file_type == pe::kCoffFileType) {
-    *image_format = pe::COFF_IMAGE;
+    *image_format = BlockGraph::COFF_IMAGE;
     return true;
   }
 
   if (file_type == pe::kPeFileType) {
-    *image_format = pe::PE_IMAGE;
+    *image_format = BlockGraph::PE_IMAGE;
     return true;
   }
 
@@ -147,36 +150,36 @@ bool InstrumenterWithAgent::Instrument() {
 }
 
 bool InstrumenterWithAgent::ImageFormatIsSupported(
-    pe::ImageFormat image_format) {
+    BlockGraph::ImageFormat image_format) {
   // By default we only support PE images.
-  if (image_format == pe::PE_IMAGE)
+  if (image_format == BlockGraph::PE_IMAGE)
     return true;
   return false;
 }
 
 pe::PETransformPolicy* InstrumenterWithAgent::GetPETransformPolicy() {
-  DCHECK_EQ(pe::PE_IMAGE, image_format_);
+  DCHECK_EQ(BlockGraph::PE_IMAGE, image_format_);
   DCHECK(policy_object_.get() == NULL);
   policy_object_.reset(new pe::PETransformPolicy());
   return static_cast<pe::PETransformPolicy*>(policy_object_.get());
 }
 
 pe::CoffTransformPolicy* InstrumenterWithAgent::GetCoffTransformPolicy() {
-  DCHECK_EQ(pe::COFF_IMAGE, image_format_);
+  DCHECK_EQ(BlockGraph::COFF_IMAGE, image_format_);
   DCHECK(policy_object_.get() == NULL);
   policy_object_.reset(new pe::CoffTransformPolicy());
   return static_cast<pe::CoffTransformPolicy*>(policy_object_.get());
 }
 
 pe::PERelinker* InstrumenterWithAgent::GetPERelinker() {
-  DCHECK_EQ(pe::PE_IMAGE, image_format_);
+  DCHECK_EQ(BlockGraph::PE_IMAGE, image_format_);
   DCHECK(relinker_object_.get() == NULL);
   relinker_object_.reset(new pe::PERelinker(GetPETransformPolicy()));
   return static_cast<pe::PERelinker*>(relinker_object_.get());
 }
 
 pe::CoffRelinker* InstrumenterWithAgent::GetCoffRelinker() {
-  DCHECK_EQ(pe::COFF_IMAGE, image_format_);
+  DCHECK_EQ(BlockGraph::COFF_IMAGE, image_format_);
   relinker_object_.reset(new pe::CoffRelinker(GetCoffTransformPolicy()));
   return static_cast<pe::CoffRelinker*>(relinker_object_.get());
 }
@@ -195,16 +198,16 @@ bool InstrumenterWithAgent::CreateRelinker() {
   }
 
   // Create and setup an image format specific relinker.
-  if (image_format_ == pe::COFF_IMAGE) {
+  if (image_format_ == BlockGraph::COFF_IMAGE) {
     pe::CoffRelinker* relinker = GetCoffRelinker();
-    DCHECK(relinker != NULL);
+    DCHECK_NE(reinterpret_cast<pe::CoffRelinker*>(NULL), relinker);
     relinker_ = relinker;
     relinker->set_input_path(input_image_path_);
     relinker->set_output_path(output_image_path_);
     relinker->set_allow_overwrite(allow_overwrite_);
   } else {
     pe::PERelinker* relinker = GetPERelinker();
-    DCHECK(relinker != NULL);
+    DCHECK_NE(reinterpret_cast<pe::PERelinker*>(NULL), relinker);
     relinker_ = relinker;
     relinker->set_input_path(input_image_path_);
     relinker->set_input_pdb_path(input_pdb_path_);
@@ -215,6 +218,8 @@ bool InstrumenterWithAgent::CreateRelinker() {
     relinker->set_use_old_decomposer(old_decomposer_);
     relinker->set_strip_strings(!no_strip_strings_);
   }
+
+  DCHECK_EQ(image_format_, relinker_->image_format());
 
   return true;
 }

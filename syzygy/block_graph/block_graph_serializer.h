@@ -208,7 +208,8 @@ class BlockGraphSerializer {
   // pieces, and saving each of these using the following functions.
   bool SaveBlockGraphProperties(const BlockGraph& block_graph,
                                 OutArchive* out_archive) const;
-  bool LoadBlockGraphProperties(BlockGraph* block_graph,
+  bool LoadBlockGraphProperties(uint32 version,
+                                BlockGraph* block_graph,
                                 InArchive* in_archive) const;
 
   bool SaveBlocks(const BlockGraph& block_graph, OutArchive* out_archive) const;

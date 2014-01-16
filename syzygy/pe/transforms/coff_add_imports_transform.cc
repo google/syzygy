@@ -63,9 +63,10 @@ bool CoffAddImportsTransform::TransformBlockGraph(
     const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* headers_block) {
-  DCHECK(policy != NULL);
-  DCHECK(block_graph != NULL);
-  DCHECK(headers_block != NULL);
+  DCHECK_NE(reinterpret_cast<TransformPolicyInterface*>(NULL), policy);
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), headers_block);
+  DCHECK_EQ(BlockGraph::COFF_IMAGE, block_graph->image_format());
 
   // Get file header.
   TypedBlock<IMAGE_FILE_HEADER> file_header;

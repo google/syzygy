@@ -32,9 +32,10 @@ bool PEPrepareHeadersTransform::TransformBlockGraph(
     const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* dos_header_block) {
-  DCHECK(policy != NULL);
-  DCHECK(block_graph != NULL);
-  DCHECK(dos_header_block != NULL);
+  DCHECK_NE(reinterpret_cast<TransformPolicyInterface*>(NULL), policy);
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), dos_header_block);
+  DCHECK_EQ(BlockGraph::PE_IMAGE, block_graph->image_format());
 
   DosHeader dos_header;
   NtHeaders nt_headers;

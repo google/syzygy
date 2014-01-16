@@ -30,10 +30,11 @@ AsanInstrumenter::AsanInstrumenter()
   agent_dll_ = kAgentDllAsan;
 }
 
-bool AsanInstrumenter::ImageFormatIsSupported(
-    pe::ImageFormat image_format) {
-  if (image_format == pe::PE_IMAGE || image_format == pe::COFF_IMAGE)
+bool AsanInstrumenter::ImageFormatIsSupported(ImageFormat image_format) {
+  if (image_format == BlockGraph::PE_IMAGE ||
+      image_format == BlockGraph::COFF_IMAGE) {
     return true;
+  }
   return false;
 }
 

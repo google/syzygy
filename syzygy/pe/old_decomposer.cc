@@ -794,6 +794,11 @@ OldDecomposer::OldDecomposer(const PEFile& image_file)
 }
 
 bool OldDecomposer::Decompose(ImageLayout* image_layout) {
+  DCHECK_NE(reinterpret_cast<ImageLayout*>(NULL), image_layout);
+
+  // Set the image format.
+  image_layout->blocks.graph()->set_image_format(BlockGraph::PE_IMAGE);
+
   // We start by finding the PDB path.
   if (!FindAndValidatePdbPath())
     return false;

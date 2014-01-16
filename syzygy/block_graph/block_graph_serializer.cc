@@ -23,12 +23,17 @@ namespace {
 using core::InArchive;
 using core::OutArchive;
 
-// This needs to be incremented any time a any non-backwards compatible change
+// This needs to be incremented any time a non-backwards compatible change
 // is made to the serialization format.
 // TODO(chrisha): Enforce this via a unittest. Check in a version of a
 //     simple block-graph, and ensure it deserializes to the same in-memory
 //     representation.
-static const uint32 kSerializedBlockGraphVersion = 2;
+// Version 3: Added image_format_ block-graph property.
+static const uint32 kSerializedBlockGraphVersion = 3;
+
+// Some constants for use in dealing with backwards compatibility.
+static const uint32 kMinSupportedSerializedBlockGraphVersion = 2;
+static const uint32 kImageFormatPropertyBlockGraphVersion = 3;
 
 // Potentially saves a string, depending on whether or not OMIT_STRINGS is
 // enabled.
@@ -121,11 +126,10 @@ bool BlockGraphSerializer::Load(BlockGraph* block_graph,
     return false;
   }
 
-  // Here's is where we could dispatch to different load functions for
-  // backwards compatibility with previous versions. For now, we simply bail.
-  if (version != kSerializedBlockGraphVersion) {
-    LOG(ERROR) << "Unable to load block graph with version " << version
-               << " (expected " << kSerializedBlockGraphVersion << ").";
+  // We are backwards compatible back to version 2, for now.
+  if (version < kMinSupportedSerializedBlockGraphVersion ||
+      version > kSerializedBlockGraphVersion) {
+    LOG(ERROR) << "Unable to load block graph with version " << version << ".";
     return false;
   }
 
@@ -147,7 +151,7 @@ bool BlockGraphSerializer::Load(BlockGraph* block_graph,
 
   // This function takes care of outputting a meaningful log message on
   // failure.
-  if (!LoadBlockGraphProperties(block_graph, in_archive))
+  if (!LoadBlockGraphProperties(version, block_graph, in_archive))
     return false;
 
   // Load the blocks, except for their references.
@@ -172,7 +176,8 @@ bool BlockGraphSerializer::SaveBlockGraphProperties(
 
   if (!out_archive->Save(block_graph.next_section_id_) ||
       !out_archive->Save(block_graph.sections_) ||
-      !out_archive->Save(block_graph.next_block_id_)) {
+      !out_archive->Save(block_graph.next_block_id_) ||
+      !out_archive->Save(static_cast<uint8>(block_graph.image_format_))) {
     LOG(ERROR) << "Unable to save block graph properties.";
     return false;
   }
@@ -181,7 +186,7 @@ bool BlockGraphSerializer::SaveBlockGraphProperties(
 }
 
 bool BlockGraphSerializer::LoadBlockGraphProperties(
-    BlockGraph* block_graph, InArchive* in_archive) const {
+    uint32 version, BlockGraph* block_graph, InArchive* in_archive) const {
   DCHECK(block_graph != NULL);
   DCHECK(in_archive != NULL);
 
@@ -196,6 +201,22 @@ bool BlockGraphSerializer::LoadBlockGraphProperties(
     LOG(ERROR) << "Unable to load block graph properties.";
     return false;
   }
+
+  // Read the image format property. This is not present in all versions of the
+  // block-graph.
+  uint8 image_format = 0;
+  if (version >= kImageFormatPropertyBlockGraphVersion) {
+    if (!in_archive->Load(&image_format)) {
+      LOG(ERROR) << "Unable to load block graph image format.";
+      return false;
+    }
+  } else {
+    // We default to the PE format, as COFF images were not previously
+    // supported.
+    image_format = BlockGraph::PE_IMAGE;
+  }
+  block_graph->image_format_ = static_cast<BlockGraph::ImageFormat>(
+      image_format);
 
   return true;
 }

@@ -72,6 +72,7 @@ class EntryThunkTransformTest : public testing::Test {
   virtual void SetUp() {
     // TODO(siggi): We have a lot of code that does this sort of thing, maybe
     //     it should be concentrated in a test fixture in pe someplace.
+    bg_.set_image_format(BlockGraph::PE_IMAGE);
     // Create the DOS/NT headers.
     dos_header_block_ = bg_.AddBlock(BlockGraph::DATA_BLOCK,
                                      sizeof(IMAGE_DOS_HEADER),

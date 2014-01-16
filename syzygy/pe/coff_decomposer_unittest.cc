@@ -65,6 +65,8 @@ TEST_F(CoffDecomposerTest, Decompose) {
   ImageLayout image_layout(&block_graph);
   ASSERT_TRUE(decomposer.Decompose(&image_layout));
 
+  EXPECT_EQ(BlockGraph::COFF_IMAGE, block_graph.image_format());
+
   // Retrieve the COFF file header.
   BlockGraph::Block* file_header_block =
       image_layout.blocks.GetBlockByAddress(RelativeAddress(0));

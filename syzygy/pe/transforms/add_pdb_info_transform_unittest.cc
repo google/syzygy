@@ -38,6 +38,7 @@ class AddPdbInfoTransformTest : public testing::PELibUnitTest {
   AddPdbInfoTransformTest()
       : image_layout_(&block_graph_),
         dos_header_block_(NULL) {
+    block_graph_.set_image_format(BlockGraph::PE_IMAGE);
   }
 
   testing::DummyTransformPolicy policy_;

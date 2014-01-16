@@ -873,6 +873,9 @@ bool Decomposer::Decompose(ImageLayout* image_layout) {
   DCHECK_EQ(reinterpret_cast<ImageLayout*>(NULL), image_layout_);
   DCHECK_EQ(reinterpret_cast<BlockGraph::AddressSpace*>(NULL), image_);
 
+  // Set the image format.
+  image_layout->blocks.graph()->set_image_format(BlockGraph::PE_IMAGE);
+
   // We start by finding the PDB path.
   if (!FindAndValidatePdbPath())
     return false;

@@ -391,14 +391,17 @@ CoffDecomposer::CoffDecomposer(const CoffFile& image_file)
 }
 
 bool CoffDecomposer::Decompose(ImageLayout* image_layout) {
-  DCHECK(image_layout != NULL);
+  DCHECK_NE(reinterpret_cast<ImageLayout*>(NULL), image_layout);
 
   // Internal temporaries.
-  DCHECK(image_layout_ == NULL);
-  DCHECK(image_ == NULL);
+  DCHECK_EQ(reinterpret_cast<ImageLayout*>(NULL), image_layout_);
+  DCHECK_EQ(reinterpret_cast<BlockGraph::AddressSpace*>(NULL),image_);
   AutoReset<ImageLayout*> auto_reset_image_layout(&image_layout_, image_layout);
   AutoReset<BlockGraph::AddressSpace*> auto_reset_image(&image_,
                                                         &image_layout->blocks);
+
+  // Set the image format.
+  image_layout->blocks.graph()->set_image_format(BlockGraph::COFF_IMAGE);
 
   // Copy the image headers to the layout.
   CopySectionHeadersToImageLayout(

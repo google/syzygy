@@ -129,6 +129,20 @@ class BlockGraph {
 
   static const SectionId kInvalidSectionId;
 
+  // The types of image formats that we can currently represent in a
+  // BlockGraph.
+  enum ImageFormat {
+    UNKNOWN_IMAGE_FORMAT,
+    PE_IMAGE,
+    COFF_IMAGE,
+
+    // This must always be the last entry, and kImageFormat must be kept in
+    // sync with this enum.
+    IMAGE_FORMAT_MAX
+  };
+
+  static const char* ImageFormatToString(ImageFormat format);
+
   // Assign distinct bit IDs to each attribute constant.
   enum BlockAttributeIdEnum {
 #define DECLARE_ENUM_BIT(name) name##_BIT,
@@ -326,6 +340,14 @@ class BlockGraph {
   // @returns the string table of this BlockGraph.
   core::StringTable& string_table() { return string_table_; }
 
+  // Sets the image format.
+  // @param image_format The format of the image.
+  void set_image_format(ImageFormat image_format) {
+    image_format_ = image_format;
+  }
+  // @returns the image format.
+  ImageFormat image_format() const { return image_format_; }
+
  private:
   // Give BlockGraphSerializer access to our innards for serialization.
   friend BlockGraphSerializer;
@@ -347,6 +369,10 @@ class BlockGraph {
 
   // A string table used to intern strings.
   core::StringTable string_table_;
+
+  // The format of the image represented by this block graph. Defaults to
+  // UNKNOWN_IMAGE_FORMAT. Usually initialized by the appropriate decomposer.
+  ImageFormat image_format_;
 
   DISALLOW_COPY_AND_ASSIGN(BlockGraph);
 };

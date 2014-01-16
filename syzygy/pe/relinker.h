@@ -26,15 +26,11 @@
 
 namespace pe {
 
-enum ImageFormat {
-  PE_IMAGE,
-  COFF_IMAGE
-};
-
 // Interface for full file-to-file transformations of PE or COFF files.
 class RelinkerInterface {
  public:
   typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::BlockGraph::ImageFormat ImageFormat;
   typedef block_graph::BlockGraphOrdererInterface Orderer;
   typedef block_graph::BlockGraphTransformInterface Transform;
   typedef pdb::PdbMutatorInterface PdbMutator;

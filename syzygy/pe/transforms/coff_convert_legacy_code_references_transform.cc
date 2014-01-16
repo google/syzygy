@@ -56,6 +56,7 @@ bool CoffConvertLegacyCodeReferencesTransform::TransformBlockGraph(
     BlockGraph::Block* /* headers_block */) {
   DCHECK_NE(reinterpret_cast<TransformPolicyInterface*>(NULL), policy);
   DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_EQ(BlockGraph::COFF_IMAGE, block_graph->image_format());
 
   BlockGraph::BlockMap::iterator it = block_graph->blocks_mutable().begin();
   for (; it != block_graph->blocks_mutable().end(); ++it) {

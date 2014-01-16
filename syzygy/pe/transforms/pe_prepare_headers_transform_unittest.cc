@@ -39,6 +39,7 @@ class PEPrepareHeadersTransformTest : public testing::Test {
   }
 
   virtual void SetUp() {
+    block_graph_.set_image_format(BlockGraph::PE_IMAGE);
     block_graph_.AddSection(kCodeSectionName, kCodeCharacteristics);
     block_graph_.AddSection(kReadOnlyDataSectionName,
                              kReadOnlyDataCharacteristics);

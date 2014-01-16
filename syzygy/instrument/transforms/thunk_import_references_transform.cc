@@ -77,10 +77,11 @@ bool ThunkImportReferencesTransform::TransformBlockGraph(
     const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* header_block) {
-  DCHECK(policy != NULL);
-  DCHECK(block_graph != NULL);
-  DCHECK(header_block != NULL);
-  DCHECK(thunk_section_ == NULL);
+  DCHECK_NE(reinterpret_cast<TransformPolicyInterface*>(NULL), policy);
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), header_block);
+  DCHECK_EQ(BlockGraph::PE_IMAGE, block_graph->image_format());
+  DCHECK_EQ(reinterpret_cast<BlockGraph::Section*>(NULL), thunk_section_);
 
   // We always exclude our own agent DLL from instrumentation.
   modules_to_exclude_.insert(instrument_dll_name_);

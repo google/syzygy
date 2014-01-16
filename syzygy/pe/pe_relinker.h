@@ -107,7 +107,9 @@ class PERelinker : public PECoffRelinker {
   explicit PERelinker(const PETransformPolicy* pe_transform_policy);
 
   // @see RelinkerInterface::image_format()
-  virtual ImageFormat image_format() const OVERRIDE { return PE_IMAGE; }
+  virtual ImageFormat image_format() const OVERRIDE {
+    return BlockGraph::PE_IMAGE;
+  }
 
   // @name Accessors.
   // @{

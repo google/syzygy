@@ -101,6 +101,8 @@ TEST_F(DecomposerTest, Decompose) {
   EXPECT_TRUE(decomposer.Decompose(&image_layout));
   EXPECT_FALSE(decomposer.pdb_path().empty());
 
+  EXPECT_EQ(BlockGraph::PE_IMAGE, block_graph.image_format());
+
   // Retrieve and validate the DOS header.
   BlockGraph::Block* dos_header_block =
       image_layout.blocks.GetBlockByAddress(RelativeAddress(0));

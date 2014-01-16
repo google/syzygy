@@ -185,9 +185,10 @@ bool EntryCallTransform::PreBlockGraphIteration(
     const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* header_block) {
-  DCHECK_NE(static_cast<TransformPolicyInterface*>(NULL), policy);
-  DCHECK_NE(static_cast<BlockGraph*>(NULL), block_graph);
-  DCHECK_NE(static_cast<BlockGraph::Block*>(NULL), header_block);
+  DCHECK_NE(reinterpret_cast<TransformPolicyInterface*>(NULL), policy);
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), header_block);
+  DCHECK_EQ(BlockGraph::PE_IMAGE, block_graph->image_format());
 
   if (!GetEntryPoints(header_block))
     return false;

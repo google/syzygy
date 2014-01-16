@@ -40,7 +40,9 @@ class TestPECoffRelinker : public PECoffRelinker {
   using PECoffRelinker::transforms_;
   using PECoffRelinker::orderers_;
 
-  virtual ImageFormat image_format() const OVERRIDE { return PE_IMAGE; }
+  virtual ImageFormat image_format() const OVERRIDE {
+    return BlockGraph::PE_IMAGE;
+  }
 
   virtual bool Init() OVERRIDE { return true; }
   virtual bool Relink() OVERRIDE { return true; }

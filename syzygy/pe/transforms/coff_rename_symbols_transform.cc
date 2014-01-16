@@ -112,7 +112,11 @@ void CoffRenameSymbolsTransform::AddSymbolMapping(const base::StringPiece& from,
 bool CoffRenameSymbolsTransform::TransformBlockGraph(
     const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
-    BlockGraph::Block* headers_block) {
+    BlockGraph::Block* /* headers_block */) {
+  DCHECK_NE(reinterpret_cast<TransformPolicyInterface*>(NULL), policy);
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_EQ(BlockGraph::COFF_IMAGE, block_graph->image_format());
+
   BlockGraph::Block* symbols_block;
   BlockGraph::Block* strings_block;
   if (!FindCoffSpecialBlocks(block_graph,

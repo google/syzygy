@@ -124,7 +124,7 @@ class CoffUnitTest : public testing::PELibUnitTest {
   CoffUnitTest() : image_layout_(&block_graph_) {
   }
 
-  virtual void SetUp();
+  virtual void SetUp() OVERRIDE;
 
   // Decompose test_dll.coff_obj.
   void DecomposeOriginal();
