@@ -19,6 +19,7 @@
 
 #include <windows.h>  // NOLINT
 #include <dbghelp.h>
+#include <psapi.h>
 
 #include "base/bind.h"
 #include "base/string_util.h"
@@ -26,6 +27,7 @@
 #include "base/win/scoped_handle.h"
 #include "sawbuck/common/com_utils.h"
 #include "syzygy/common/dbghelp_util.h"
+#include "syzygy/pe/find.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
 
 namespace trace {
@@ -201,6 +203,31 @@ bool AgentLogger::AppendTrace(HANDLE process,
   ::SymSetOptions(SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME | SYMOPT_LOAD_LINES);
   if (!::common::SymInitialize(process, NULL, true))
     return false;
+
+  // Try to find the PDB of the running process, if it's found its path will be
+  // appended to the current symbol search path. It is necessary because the
+  // default search path doesn't include the directory of the caller by default.
+  // TODO(sebmarchand): Also append the path of the PDBs of the modules loaded
+  //     by the running process.
+  WCHAR temp_path[MAX_PATH];
+  if (::GetModuleFileNameEx(process, NULL, temp_path, MAX_PATH) != 0) {
+    base::FilePath module_path(temp_path);
+    base::FilePath temp_pdb_path;
+    if (pe::FindPdbForModule(module_path, &temp_pdb_path)) {
+      char current_search_path[1024];
+      if (!::SymGetSearchPath(process, current_search_path,
+          arraysize(current_search_path))) {
+        LOG(ERROR) << "Unable to get the current symbol search path.";
+        return false;
+      }
+      std::string new_pdb_search_path = std::string(current_search_path) + ";" +
+          temp_pdb_path.DirName().AsUTF8Unsafe();
+      if (!::SymSetSearchPath(process, new_pdb_search_path.c_str())) {
+        LOG(ERROR) << "Unable to set the symbol search path.";
+        return false;
+      }
+    }
+  }
 
   // Append each line of the trace to the message string.
   for (size_t i = 0; i < trace_length; ++i) {
