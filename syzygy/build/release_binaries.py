@@ -14,6 +14,7 @@
 """A utility script to prepare a binary release."""
 
 import cStringIO
+import glob
 import json
 import logging
 import optparse
@@ -43,6 +44,9 @@ _SYZYGY_OFFICIAL = 'Syzygy Official'
 
 _SYZYGY_ARCHIVE_URL = ('http://syzygy-archive.commondatastorage.googleapis.com/'
     'builds/official/%(revision)d')
+
+
+_EXECUTABLE_EXTENSIONS = ['bat', 'py', 'exe', 'sh']
 
 
 def _Shell(*cmd, **kw):
@@ -177,6 +181,29 @@ def main():
   _Shell('git', 'add', '-u', _BINARIES_DIR)
   # Add new files.
   _Shell('git', 'add', _BINARIES_DIR)
+
+  # Set the executable bit for any files that require it. Recursively
+  # walk the binaries dir and match files by extension.
+  _LOGGER.info('Setting executable permissions.')
+  dirs = [_BINARIES_DIR]
+  while dirs:
+    d = dirs.pop(0)
+
+    # Iterate through paths in the directory.
+    for p in glob.iglob(os.path.join(d, '*')):
+      # Push directories for future exploration.
+      if os.path.isdir(p):
+        dirs.append(p)
+        continue
+
+      # Filter out non-executable extensions.
+      ext = os.path.splitext(p)[1][1:]
+      if ext not in _EXECUTABLE_EXTENSIONS:
+        continue
+
+      # Set the executable bit for executables. This is required to keep
+      # Cygwin integration happy.
+      _Shell('git', 'update-index', '--chmod=+x', p)
 
   # Now commit and upload the new binaries.
   message = 'Checking in version %d release binaries.' % revision
