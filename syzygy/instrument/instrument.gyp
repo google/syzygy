@@ -44,6 +44,8 @@
         'transforms/add_indexed_frequency_data_transform.h',
         'transforms/asan_interceptor_filter.cc',
         'transforms/asan_interceptor_filter.h',
+        'transforms/asan_intercepts.cc',
+        'transforms/asan_intercepts.h',
         'transforms/asan_transform.cc',
         'transforms/asan_transform.h',
         'transforms/basic_block_entry_hook_transform.cc',
