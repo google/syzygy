@@ -30,6 +30,7 @@
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
 #include "syzygy/instrument/transforms/asan_interceptor_filter.h"
+#include "syzygy/instrument/transforms/asan_intercepts.h"
 #include "syzygy/pe/transforms/pe_add_imports_transform.h"
 
 namespace instrument {
@@ -210,38 +211,16 @@ class AsanTransform
   static const char kAsanHookStubName[];
 
  protected:
-  // A structure containing the information that we need to intercept a
-  // function.
-  struct FunctionInterceptionInfo {
-    // The function's block.
-    BlockGraph::Block* function_block;
-    // The index for the Asan hook for this function.
-    size_t asan_symbol_index;
-
-    FunctionInterceptionInfo() : function_block(NULL), asan_symbol_index(~0U) {
-    }
-  };
-
-  typedef pe::transforms::ImportedModule ImportedModule;
-  typedef std::map<std::string,
-                   FunctionInterceptionInfo> FunctionInterceptionInfoMap;
-
-  // Intercept the calls to the functions for which we want to check the
-  // arguments (i.e. the CRT functions written in assembly) and thunk them. The
-  // thunk will defer the call to the original function to its instrumented
-  // version in asan_rtl.
-  // @param import_module The module for which the imports should be added.
-  // @param policy The policy object restricting how the transform is applied.
-  // @param block_graph The block-graph to modify.
-  // @param header_block The block containing the module's DOS header of this
-  //     block-graph.
-  // @param filter The filter defining the functions to intercept.
-  // @returns true on success, false on error.
-  bool InterceptFunctions(ImportedModule* import_module,
-                          const TransformPolicyInterface* policy,
-                          BlockGraph* block_graph,
-                          BlockGraph::Block* header_block,
-                          ASanInterceptorFilter* filter);
+  // @name PE-specific methods.
+  // @{
+  // Invoked when instrumenting a PE image. Intercepts all relevant import
+  // and statically linked functions found in the image. The intercepts to be
+  // used are exposed for unittesting.
+  bool PeInterceptFunctions(const AsanIntercept* intercepts,
+                            const TransformPolicyInterface* policy,
+                            BlockGraph* block_graph,
+                            BlockGraph::Block* header_block);
+  // @}
 
   // Name of the asan_rtl DLL we import. Defaults to "syzyasan_rtl.dll".
   std::string asan_dll_name_;

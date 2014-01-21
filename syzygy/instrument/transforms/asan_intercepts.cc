@@ -21,36 +21,55 @@
 namespace instrument {
 namespace transforms {
 
-// The following hashes are the same for both VS2010 and VS2013.
-const MD5Hash kHashes_memchr[] = {{"3549cc2f365403c679287c34325b8925"}, NULL};
-const MD5Hash kHashes_strcspn[] = {{"c2e8480d30ceeeb2e9e39b545c82c98c"}, NULL};
-const MD5Hash kHashes_strlen[] = {{"20e07f6e772c47e6cbfc13db5eafa757"}, NULL};
-const MD5Hash kHashes_strpbrk[] = {{"9af2e6d499d25ad4628c58a25dbcde1e"}, NULL};
-const MD5Hash kHashes_strspn[] = {{"79b6a33a1b03b482be14afff061d7c68"}, NULL};
-const MD5Hash kHashes_strncpy[] = {{"aed1dd2372364f66f4d126eefb073070"}, NULL};
-const MD5Hash kHashes_strncat[] = {{"9cc9e9a57cdd695606caf6cbf532d88e"}, NULL};
-
+const MD5Hash kHashes_memchr[] = {
+    {"3549cc2f365403c679287c34325b8925"},  // VS2010 and VS2013.
+    {""} };
+const MD5Hash kHashes_strcspn[] = {
+    {"c2e8480d30ceeeb2e9e39b545c82c98c"},  // VS2010 and VS2013.
+    {""} };
+const MD5Hash kHashes_strlen[] = {
+    {"20e07f6e772c47e6cbfc13db5eafa757"},  // VS2010 and VS2013.
+    {""} };
+const MD5Hash kHashes_strpbrk[] = {
+    {"9af2e6d499d25ad4628c58a25dbcde1e"},  // VS2010 and VS2013.
+    {""} };
+const MD5Hash kHashes_strspn[] = {
+    {"79b6a33a1b03b482be14afff061d7c68"},  // VS2010 and VS2013.
+    {""} };
+const MD5Hash kHashes_strncpy[] = {
+    {"aed1dd2372364f66f4d126eefb073070"},  // VS2010 and VS2013.
+    {""} };
+const MD5Hash kHashes_strncat[] = {
+    {"9cc9e9a57cdd695606caf6cbf532d88e"},  // VS2010 and VS2013.
+    {""} };
 const MD5Hash kHashes_memcpy[] = {
-    {"da1805f40d6e92f6ac497c66ac969e61"},    // VS2010.
-    {"270406ea8a9e931f2c0db8a7f0b5d698"} };  // VS2013.
+    {"da1805f40d6e92f6ac497c66ac969e61"},  // VS2010.
+    {"270406ea8a9e931f2c0db8a7f0b5d698"},  // VS2013.
+    {""} };
 const MD5Hash kHashes_memmove[] = {
-    {"da1805f40d6e92f6ac497c66ac969e61"},    // VS2010.
-    {"270406ea8a9e931f2c0db8a7f0b5d698"} };  // VS2013.
+    {"da1805f40d6e92f6ac497c66ac969e61"},  // VS2010.
+    {"270406ea8a9e931f2c0db8a7f0b5d698"},  // VS2013.
+    {""} };
 const MD5Hash kHashes_memset[] = {
-    {"5fcb11b79692c753845cf26dfa42e74c"},    // VS2010.
-    {"4900d834c35bb195ab8af6f91d648d6d"} };  // VS2013.
+    {"5fcb11b79692c753845cf26dfa42e74c"},  // VS2010.
+    {"4900d834c35bb195ab8af6f91d648d6d"},  // VS2013.
+    {""} };
 const MD5Hash kHashes_strrchr[] = {
-    {"f849347be44ddb17a4fc3c64b90f8cca"},    // VS2010.
-    {"17575b2dc3a7fd3b277d0cd798f507df"} };  // VS2013.
+    {"f849347be44ddb17a4fc3c64b90f8cca"},  // VS2010.
+    {"17575b2dc3a7fd3b277d0cd798f507df"},  // VS2013.
+    {""} };
 const MD5Hash kHashes_strcmp[] = {
-    {"865502e059de8a9dc6cee8ef05b1a586"},    // VS2010.
-    {"3de87a84bf545bd485f846c1b9456bcb"} };  // VS2013.
+    {"865502e059de8a9dc6cee8ef05b1a586"},  // VS2010.
+    {"3de87a84bf545bd485f846c1b9456bcb"},  // VS2013.
+    {""} };
 const MD5Hash kHashes_strstr[] = {
-    {"cdfbaae199dcc8272681c021fab9d664"} };  // VS2010.
+    {"cdfbaae199dcc8272681c021fab9d664"},  // VS2010.
+    {"1926bd8c94118f97819d604ec5afee30"},  // VS2013.
+    {""} };
 const MD5Hash kHashes_wcsrchr[] = {
-    {"e049d7b7cb421013b2151b2070302def"},    // VS2010.
-    {"86cb28d7c68ae6f62c694f2e3239b725"} };  // VS2013.
-
+    {"e049d7b7cb421013b2151b2070302def"},  // VS2010.
+    {"86cb28d7c68ae6f62c694f2e3239b725"},  // VS2013.
+    {""} };
 
 // List of module names.
 const char kKernel32[] = "kernel32.dll";
@@ -59,6 +78,7 @@ const char kKernel32[] = "kernel32.dll";
 // array.
 const AsanIntercept kAsanIntercepts[] = {
   // Heap related kernel32 functions.
+  { "GetProcessHeap", "_GetProcessHeap@0", kKernel32, NULL, false },
   { "HeapCreate", "_HeapCreate@12", kKernel32, NULL, false },
   { "HeapDestroy", "_HeapDestroy@4", kKernel32, NULL, false },
   { "HeapAlloc",  "_HeapAlloc@12", kKernel32, NULL, false },

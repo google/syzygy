@@ -26,6 +26,7 @@
 #include "base/win/pe_image.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
+#include "syzygy/block_graph/block_hash.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/instrument/transforms/unittest_util.h"
@@ -64,14 +65,16 @@ class TestAsanBasicBlockTransform : public AsanBasicBlockTransform {
   }
 };
 
-class TestASanInterceptorFilter : public ASanInterceptorFilter {
+class TestAsanInterceptorFilter : public AsanInterceptorFilter {
  public:
-  using ASanInterceptorFilter::AddBlockToHashMap;
+  using AsanInterceptorFilter::AddBlockToHashMap;
 };
 
 class TestAsanTransform : public AsanTransform {
  public:
-  using AsanTransform::InterceptFunctions;
+  using AsanTransform::use_interceptors_;
+  using AsanTransform::use_liveness_analysis_;
+  using AsanTransform::PeInterceptFunctions;
 };
 
 class AsanTransformTest : public testing::TestDllTransformTest {
@@ -81,6 +84,25 @@ class AsanTransformTest : public testing::TestDllTransformTest {
     bb_asm_.reset(new block_graph::BasicBlockAssembler(
         basic_block_->instructions().begin(),
         &basic_block_->instructions()));
+  }
+
+  void ApplyTransformToTestDll() {
+    base::FilePath input_path = ::testing::GetOutputRelativePath(
+        testing::kTestDllName);
+
+    base::FilePath temp_dir;
+    CreateTemporaryDir(&temp_dir);
+    relinked_test_dll_ = temp_dir.Append(testing::kTestDllName);
+
+    pe::PERelinker relinker(&policy_);
+    relinker.set_input_path(input_path);
+    relinker.set_output_path(relinked_test_dll_);
+
+    asan_transform_.use_interceptors_ = true;
+    asan_transform_.use_liveness_analysis_ = true;
+    relinker.AppendTransform(&asan_transform_);
+    ASSERT_TRUE(relinker.Init());
+    ASSERT_TRUE(relinker.Relink());
   }
 
   void AddHookRef(const std::string& hook_name,
@@ -188,13 +210,13 @@ class AsanTransformTest : public testing::TestDllTransformTest {
   // @}
 
  protected:
-  base::ScopedTempDir temp_dir_;
   TestAsanTransform asan_transform_;
   HookMap hooks_check_access_ref_;
   std::map<HookMapEntryKey, BlockGraph::Block*> hooks_check_access_;
   BasicBlockSubGraph subgraph_;
   BasicCodeBlock* basic_block_;
   scoped_ptr<block_graph::BasicBlockAssembler> bb_asm_;
+  base::FilePath relinked_test_dll_;
 };
 
 const BasicBlock::Size AsanTransformTest::kDataSize = 32;
@@ -248,6 +270,7 @@ TEST_F(AsanTransformTest, SetRemoveRedundantChecksFlag) {
 TEST_F(AsanTransformTest, ApplyAsanTransform) {
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
 
+  asan_transform_.use_interceptors_ = true;
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
       &asan_transform_, &policy_, &block_graph_, dos_header_block_));
 
@@ -637,6 +660,14 @@ typedef std::set<std::string> StringSet;
 typedef std::set<void*> FunctionsIATAddressSet;
 typedef std::vector<std::string> StringVector;
 
+void Intersect(const StringSet& ss1, const StringSet& ss2, StringSet* ss3) {
+  ASSERT_TRUE(ss3 != NULL);
+  ss3->clear();
+  std::set_intersection(ss1.begin(), ss1.end(),
+                        ss2.begin(), ss2.end(),
+                        std::inserter(*ss3, ss3->begin()));
+}
+
 const char kAsanRtlDll[] = "syzyasan_rtl.dll";
 
 bool EnumKernel32HeapImports(const PEImage &image,
@@ -737,12 +768,11 @@ bool GetAsanHooksIATEntries(const PEImage &image,
 }  // namespace
 
 TEST_F(AsanTransformTest, ImportsAreRedirected) {
-  base::FilePath asan_instrumented_dll = testing::GetExeTestDataRelativePath(
-      testing::kAsanInstrumentedTestDllName);
+  ASSERT_NO_FATAL_FAILURE(ApplyTransformToTestDll());
 
   // Load the transformed module without resolving its dependencies.
   base::NativeLibrary lib =
-      ::LoadLibraryEx(asan_instrumented_dll.value().c_str(),
+      ::LoadLibraryEx(relinked_test_dll_.value().c_str(),
                       NULL,
                       DONT_RESOLVE_DLL_REFERENCES);
   ASSERT_TRUE(lib != NULL);
@@ -774,6 +804,15 @@ TEST_F(AsanTransformTest, ImportsAreRedirected) {
     asan_import.append(intercepted_functions_imports[i]);
     expected.insert(asan_import);
   }
+
+  // Imports that should be redirected should all have matching asan imports.
+  StringSet results;
+  Intersect(imports, expected, &results);
+  EXPECT_EQ(results, expected);
+
+  // Some instrumentation functions (but not necessarily all of them) should be
+  // found.
+  expected.clear();
   expected.insert("asan_check_1_byte_read_access");
   expected.insert("asan_check_2_byte_read_access");
   expected.insert("asan_check_4_byte_read_access");
@@ -824,6 +863,12 @@ TEST_F(AsanTransformTest, ImportsAreRedirected) {
   expected.insert("asan_check_1_byte_movs_access");
   expected.insert("asan_check_1_byte_stos_access");
 
+  // We expect all of the instrumentation functions to have been added.
+  Intersect(imports, expected, &results);
+  EXPECT_EQ(results, expected);
+
+  // We expect some of these statically linked CRT functions to be redirected.
+  expected.clear();
   expected.insert("asan_memcpy");
   expected.insert("asan_memmove");
   expected.insert("asan_memset");
@@ -838,17 +883,16 @@ TEST_F(AsanTransformTest, ImportsAreRedirected) {
   expected.insert("asan_strncpy");
   expected.insert("asan_strncat");
   expected.insert("asan_wcsrchr");
-
-  EXPECT_EQ(expected, imports);
+  Intersect(imports, expected, &results);
+  EXPECT_FALSE(results.empty());
 }
 
 TEST_F(AsanTransformTest, AsanHooksAreStubbed) {
-  base::FilePath asan_instrumented_dll = testing::GetExeTestDataRelativePath(
-      testing::kAsanInstrumentedTestDllName);
+  ASSERT_NO_FATAL_FAILURE(ApplyTransformToTestDll());
 
   // Load the transformed module without resolving its dependencies.
   base::NativeLibrary lib =
-      ::LoadLibraryEx(asan_instrumented_dll.value().c_str(),
+      ::LoadLibraryEx(relinked_test_dll_.value().c_str(),
                       NULL,
                       DONT_RESOLVE_DLL_REFERENCES);
   ASSERT_TRUE(lib != NULL);
@@ -888,7 +932,7 @@ TEST_F(AsanTransformTest, AsanHooksAreStubbed) {
   }
 }
 
-TEST_F(AsanTransformTest, InterceptFunctions) {
+TEST_F(AsanTransformTest, PeInterceptFunctions) {
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
 
   BlockGraph::Block* b1 =
@@ -916,18 +960,26 @@ TEST_F(AsanTransformTest, InterceptFunctions) {
 
   EXPECT_EQ(2U, b1->referrers().size());
 
-  pe::transforms::ImportedModule import_module("foo.dll");
-
   size_t num_blocks_pre_transform = block_graph_.blocks().size();
   size_t num_sections_pre_transform = block_graph_.sections().size();
-  // Intercept the calls to b1.
-  TestASanInterceptorFilter filter;
-  filter.AddBlockToHashMap(b1);
-  EXPECT_TRUE(asan_transform_.InterceptFunctions(&import_module,
-                                                 &policy_,
-                                                 &block_graph_,
-                                                 dos_header_block_,
-                                                 &filter));
+
+  // Get the block hash.
+  block_graph::BlockHash b1_hash(b1);
+  std::string b1_hash_str = base::MD5DigestToBase16(b1_hash.md5_digest);
+  MD5Hash b1_hashes[2] = {};
+  strncpy(b1_hashes[0].hash, b1_hash_str.c_str(), sizeof(b1_hashes[0].hash));
+
+  AsanIntercept b1_intercepts[] = {
+    { "testAsan_b1", "_testAsan_b1", "foo.dll", b1_hashes, true },
+    { NULL },
+  };
+
+  // Intercept all calls to b1.
+  asan_transform_.use_interceptors_ = true;
+  EXPECT_TRUE(asan_transform_.PeInterceptFunctions(b1_intercepts,
+                                                   &policy_,
+                                                   &block_graph_,
+                                                   dos_header_block_));
 
   // The block graph should have grown by 3 blocks:
   //     - the Import Address Table (IAT),

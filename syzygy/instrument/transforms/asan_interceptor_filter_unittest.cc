@@ -28,10 +28,10 @@ namespace {
 using block_graph::BlockGraph;
 
 // A derived class to expose protected members for unit-testing.
-class TestASanInterceptorFilter : public ASanInterceptorFilter {
+class TestAsanInterceptorFilter : public AsanInterceptorFilter {
  public:
-  using ASanInterceptorFilter::AddBlockToHashMap;
-  using ASanInterceptorFilter::function_hash_map_;
+  using AsanInterceptorFilter::AddBlockToHashMap;
+  using AsanInterceptorFilter::function_hash_map_;
 };
 
 }  // namespace
@@ -46,9 +46,9 @@ TEST(InterceptorFilterTest, IsFiltered) {
   EXPECT_NE(reinterpret_cast<uint8*>(NULL), block->ResizeData(kBlockSize));
   ::memset(block->GetMutableData(), 0xAB, kBlockSize);
 
-  TestASanInterceptorFilter filter;
+  TestAsanInterceptorFilter filter;
   EXPECT_TRUE(filter.function_hash_map_.empty());
-  filter.InitializeCRTFunctionHashes();
+  filter.InitializeContentHashes(kAsanIntercepts, true);
   // Only check that the CRT functions hashes have been loaded into the map, the
   // integration tests takes care of ensuring that those functions are really
   // intercepted.

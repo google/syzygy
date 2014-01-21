@@ -20,11 +20,13 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/memory/ref_counted.h"
+#include "base/memory/scoped_vector.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/block_builder.h"
 #include "syzygy/block_graph/block_util.h"
 #include "syzygy/common/defs.h"
+#include "syzygy/instrument/transforms/asan_intercepts.h"
 #include "syzygy/pe/pe_utils.h"
 #include "third_party/distorm/files/include/mnemonics.h"
 #include "third_party/distorm/files/src/x86defs.h"
@@ -64,6 +66,15 @@ typedef std::vector<AsanBasicBlockTransform::AsanHookMapEntryKey>
     AccessHookParamVector;
 typedef TypedBlock<IMAGE_IMPORT_DESCRIPTOR> ImageImportDescriptor;
 typedef TypedBlock<StringStruct> String;
+
+// The timestamp 1 corresponds to Thursday, 01 Jan 1970 00:00:01 GMT. Setting
+// the timestamp of the image import descriptor to this value allows us to
+// temporarily bind the library until the loader finishes loading this module.
+// As the value is far in the past this means that the entries in the IAT for
+// this module will all be replaced by pointers into the actual library.
+// We need to bind the IAT for our module to make sure the stub is used until
+// the sandbox lets the loader finish patching the IAT entries.
+static const size_t kDateInThePast = 1;
 
 // Returns true iff opcode should be instrumented.
 bool ShouldInstrumentOpcode(uint16 opcode) {
@@ -466,6 +477,237 @@ bool CreateHooksStub(BlockGraph* block_graph,
   return true;
 }
 
+typedef std::map<std::string, size_t> ImportNameIndexMap;
+
+bool PeFindImportsToIntercept(bool use_interceptors,
+                              const AsanIntercept* intercepts,
+                              const TransformPolicyInterface* policy,
+                              BlockGraph* block_graph,
+                              BlockGraph::Block* header_block,
+                              ScopedVector<ImportedModule>* imported_modules,
+                              ImportNameIndexMap* import_name_index_map,
+                              ImportedModule* asan_rtl) {
+  DCHECK_NE(reinterpret_cast<AsanIntercept*>(NULL), intercepts);
+  DCHECK_NE(reinterpret_cast<TransformPolicyInterface*>(NULL), policy);
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), header_block);
+  DCHECK_NE(reinterpret_cast<ScopedVector<ImportedModule>*>(NULL),
+            imported_modules);
+  DCHECK_NE(reinterpret_cast<ImportNameIndexMap*>(NULL), import_name_index_map);
+  DCHECK_NE(reinterpret_cast<ImportedModule*>(NULL), asan_rtl);
+
+  // Process all of the import intercepts.
+  PEAddImportsTransform find_imports;
+  ImportedModule* current_module = NULL;
+  const char* current_module_name = NULL;
+  const AsanIntercept* intercept = intercepts;
+  for (; intercept->undecorated_name != NULL; ++intercept) {
+    // Create a new module to house these imports.
+    if (intercept->module != current_module_name) {
+      current_module_name = intercept->module;
+      current_module = NULL;
+      if (current_module_name) {
+        current_module = new ImportedModule(current_module_name);
+        imported_modules->push_back(current_module);
+        find_imports.AddModule(current_module);
+      }
+    }
+
+    // If no module name is specified then this interception is not an import
+    // interception.
+    if (current_module_name == NULL)
+      continue;
+
+    // Don't process optional intercepts unless asked to.
+    if (!use_interceptors && intercept->optional)
+      continue;
+
+    current_module->AddSymbol(intercept->undecorated_name,
+                              ImportedModule::kFindOnly);
+  }
+
+  // Query the imports to see which ones are present.
+  if (!find_imports.TransformBlockGraph(
+          policy, block_graph, header_block)) {
+    LOG(ERROR) << "Unable to find imports for redirection.";
+    return false;
+  }
+
+  // Add ASAN imports for those functions found in the import tables. These will
+  // later be redirected.
+  for (size_t i = 0; i < imported_modules->size(); ++i) {
+    ImportedModule* module = (*imported_modules)[i];
+    for (size_t j = 0; j < module->size(); ++j) {
+      if (!module->SymbolIsImported(j))
+        continue;
+
+      // The function should not already be imported. If it is then the
+      // intercepts data contains duplicates.
+      const std::string& function_name = module->GetSymbolName(j);
+      DCHECK(import_name_index_map->find(function_name) ==
+                 import_name_index_map->end());
+
+      std::string asan_function_name = kUndecoratedAsanInterceptPrefix;
+      asan_function_name += function_name;
+      size_t index = asan_rtl->AddSymbol(asan_function_name,
+                                         ImportedModule::kAlwaysImport);
+      import_name_index_map->insert(std::make_pair(function_name, index));
+    }
+  }
+
+  return true;
+}
+
+void PeFindStaticallyLinkedFunctionsToIntercept(
+    bool use_interceptors,
+    const AsanIntercept* intercepts,
+    BlockGraph* block_graph,
+    std::vector<BlockGraph::Block*>* static_blocks,
+    ImportNameIndexMap* import_name_index_map,
+    ImportedModule* asan_rtl) {
+  DCHECK_NE(reinterpret_cast<AsanIntercept*>(NULL), intercepts);
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_NE(reinterpret_cast<std::vector<BlockGraph::Block*>*>(NULL),
+            static_blocks);
+  DCHECK_NE(reinterpret_cast<ImportNameIndexMap*>(NULL), import_name_index_map);
+  DCHECK_NE(reinterpret_cast<ImportedModule*>(NULL), asan_rtl);
+
+  // Populate the filter with known hashes.
+  AsanInterceptorFilter filter;
+  filter.InitializeContentHashes(intercepts, use_interceptors);
+  if (filter.empty())
+    return;
+
+  // Discover statically linked functions that need to be intercepted.
+  BlockGraph::BlockMap::iterator block_it =
+      block_graph->blocks_mutable().begin();
+  for (; block_it != block_graph->blocks_mutable().end(); ++block_it) {
+    BlockGraph::Block* block = &block_it->second;
+    if (!filter.ShouldIntercept(block))
+      continue;
+    static_blocks->push_back(block);
+
+    // Don't add an import entry for names that have already been processed.
+    if (import_name_index_map->find(block->name()) !=
+            import_name_index_map->end()) {
+      continue;
+    }
+
+    std::string name = kUndecoratedAsanInterceptPrefix;
+    name += block->name();
+    size_t index = asan_rtl->AddSymbol(name,
+                                      ImportedModule::kAlwaysImport);
+    import_name_index_map->insert(std::make_pair(block->name(), index));
+  }
+}
+
+void PeGetRedirectsForInterceptedImports(
+    const ScopedVector<ImportedModule>& imported_modules,
+    const ImportNameIndexMap& import_name_index_map,
+    const ImportedModule& asan_rtl,
+    pe::ReferenceMap* reference_redirect_map) {
+  DCHECK_NE(reinterpret_cast<pe::ReferenceMap*>(NULL), reference_redirect_map);
+
+  // Register redirections related to the original.
+  for (size_t i = 0, k = 0; i < imported_modules.size(); ++i) {
+    const ImportedModule* module = imported_modules[i];
+    for (size_t j = 0; j < module->size(); ++j) {
+      if (!module->SymbolIsImported(j))
+        continue;
+
+      // Get a reference to the original import.
+      BlockGraph::Reference src;
+      CHECK(module->GetSymbolReference(j, &src));
+
+      // Get a reference to the newly created import.
+      const std::string& name = module->GetSymbolName(j);
+      ImportNameIndexMap::const_iterator import_it =
+          import_name_index_map.find(name);
+      DCHECK(import_it != import_name_index_map.end());
+      BlockGraph::Reference dst;
+      CHECK(asan_rtl.GetSymbolReference(import_it->second, &dst));
+
+      // Record the reference mapping.
+      reference_redirect_map->insert(
+          std::make_pair(pe::ReferenceDest(src.referenced(), src.offset()),
+                         pe::ReferenceDest(dst.referenced(), dst.offset())));
+    }
+  }
+}
+
+bool PeGetRedirectsForStaticallyLinkedFunctions(
+    const std::vector<BlockGraph::Block*>& static_blocks,
+    const ImportNameIndexMap& import_name_index_map,
+    const ImportedModule& asan_rtl,
+    BlockGraph* block_graph,
+    pe::ReferenceMap* reference_redirect_map) {
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_NE(reinterpret_cast<pe::ReferenceMap*>(NULL), reference_redirect_map);
+
+  BlockGraph::Section* thunk_section = block_graph->FindOrAddSection(
+      common::kThunkSectionName, pe::kCodeCharacteristics);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Section*>(NULL), thunk_section);
+
+  typedef std::map<std::string, BlockGraph::Block*> ThunkMap;
+  ThunkMap thunk_map;
+  for (size_t i = 0; i < static_blocks.size(); ++i) {
+    BlockGraph::Block* block = static_blocks[i];
+
+    ThunkMap::iterator thunk_it = thunk_map.find(block->name());
+    if (thunk_it == thunk_map.end()) {
+      // Generate the name of the thunk for this function.
+      std::string thunk_name = kUndecoratedAsanInterceptPrefix;
+      thunk_name += block->name();
+      thunk_name += "_thunk";
+
+      // Get a reference to the newly created import.
+      ImportNameIndexMap::const_iterator import_it =
+          import_name_index_map.find(block->name());
+      DCHECK(import_it != import_name_index_map.end());
+      BlockGraph::Reference import_ref;
+      CHECK(asan_rtl.GetSymbolReference(import_it->second, &import_ref));
+
+      // Generate a basic code block for this thunk.
+      BasicBlockSubGraph bbsg;
+      BasicBlockSubGraph::BlockDescription* block_desc =
+          bbsg.AddBlockDescription(thunk_name,
+                                   thunk_section->name(),
+                                   BlockGraph::CODE_BLOCK,
+                                   thunk_section->id(),
+                                   1,
+                                   0);
+
+      BasicCodeBlock* bb = bbsg.AddBasicCodeBlock(thunk_name);
+      block_desc->basic_block_order.push_back(bb);
+      BasicBlockAssembler assm(bb->instructions().begin(),
+                               &bb->instructions());
+      assm.jmp(Operand(Displacement(import_ref.referenced(),
+                                    import_ref.offset())));
+
+      // Condense into a block.
+      BlockBuilder block_builder(block_graph);
+      if (!block_builder.Merge(&bbsg)) {
+        LOG(ERROR) << "Failed to build thunk block \"" << thunk_name << "\".";
+        return false;
+      }
+
+      // Exactly one new block should have been created.
+      DCHECK_EQ(1u, block_builder.new_blocks().size());
+      BlockGraph::Block* thunk = block_builder.new_blocks().front();
+      thunk_it = thunk_map.insert(std::make_pair(block->name(), thunk)).first;
+    }
+    DCHECK(thunk_it != thunk_map.end());
+
+    // Register a redirection of references, from the original block to the
+    // newly created thunk.
+    reference_redirect_map->insert(std::make_pair(
+        pe::ReferenceDest(block, 0),
+        pe::ReferenceDest(thunk_it->second, 0)));
+  }
+
+  return true;
+}
+
 }  // namespace
 
 const char AsanBasicBlockTransform::kTransformName[] =
@@ -704,7 +946,7 @@ bool AsanTransform::PreBlockGraphIteration(
   default_stub_map[AsanBasicBlockTransform::kRepnzAccess] = instr_hook;
 
   // Add an import entry for the ASAN runtime.
-  ImportedModule import_module(asan_dll_name_);
+  ImportedModule import_module(asan_dll_name_, kDateInThePast);
 
   // Import the hooks for the read/write accesses.
   for (int access_size = 1; access_size <= 32; access_size *= 2) {
@@ -811,267 +1053,94 @@ bool AsanTransform::PostBlockGraphIteration(
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
-  // This function redirects the heap-related kernel32 imports to point to a set
-  // of "override" imports in the ASAN runtime.
-
-  static const size_t kInvalidIndex = -1;
-
-  static const char* kKernel32RedirectionPrefix = "asan_";
-  struct Kernel32ImportRedirect {
-    const char* import_name;
-    std::pair<size_t, size_t> override_indexes;
-  };
-  static const Kernel32ImportRedirect kKernel32HeapRedirects[] = {
-    { "GetProcessHeap" },
-    { "HeapCreate" },
-    { "HeapDestroy" },
-    { "HeapAlloc" },
-    { "HeapReAlloc" },
-    { "HeapFree" },
-    { "HeapSize" },
-    { "HeapValidate" },
-    { "HeapCompact" },
-    { "HeapLock" },
-    { "HeapUnlock" },
-    { "HeapWalk" },
-    { "HeapSetInformation" },
-    { "HeapQueryInformation" },
-  };
-  static const Kernel32ImportRedirect kKernel32FunctionRedirects[] = {
-    { "ReadFile" },
-    { "WriteFile" },
-  };
-
-  // TODO(sebmarchand): Use the RedirectImport transform when it's ready.
-  std::vector<Kernel32ImportRedirect> kernel32_redirects;
-  for (size_t i = 0; i < arraysize(kKernel32HeapRedirects); ++i)
-    kernel32_redirects.push_back(kKernel32HeapRedirects[i]);
-
-  if (use_interceptors_) {
-    for (size_t i = 0; i < arraysize(kKernel32FunctionRedirects); ++i)
-      kernel32_redirects.push_back(kKernel32FunctionRedirects[i]);
-  }
-
-  // Initialize the module info for querying kernel32 imports.
-  ImportedModule module_kernel32("kernel32.dll");
-  std::vector<Kernel32ImportRedirect>::iterator iter =
-      kernel32_redirects.begin();
-  for (; iter != kernel32_redirects.end(); ++iter) {
-    size_t kernel32_index =
-        module_kernel32.AddSymbol(iter->import_name,
-                                  ImportedModule::kFindOnly);
-    iter->override_indexes = std::make_pair(kernel32_index, kInvalidIndex);
-  }
-
-  // Query the kernel32 imports.
-  PEAddImportsTransform find_kernel_imports;
-  find_kernel_imports.AddModule(&module_kernel32);
-  if (!find_kernel_imports.TransformBlockGraph(
-          policy, block_graph, header_block)) {
-    LOG(ERROR) << "Unable to find kernel32 imports for redirection.";
+  // For now, we only support PE files.
+  if (!PeInterceptFunctions(kAsanIntercepts, policy, block_graph, header_block))
     return false;
-  }
-
-  // The timestamp 1 corresponds to Thursday, 01 Jan 1970 00:00:01 GMT. Setting
-  // the timestamp of the image import descriptor to this value allows us to
-  // temporarily bind the library until the loader finishes loading this module.
-  // As the value is far in the past this means that the entries in the IAT for
-  // this module will all be replaced by pointers into the actual library.
-  // We need to bind the IAT for our module to make sure the stub is used until
-  // the sandbox lets the loader finish patching the IAT entries.
-  static const size_t kDateInThePast = 1;
-
-  // Add ASAN imports for those kernel32 functions we found. These will later
-  // be redirected.
-  ImportedModule module_asan(asan_dll_name_, kDateInThePast);
-  iter = kernel32_redirects.begin();
-  for (; iter != kernel32_redirects.end(); ++iter) {
-    size_t kernel32_index = iter->override_indexes.first;
-    if (module_kernel32.SymbolIsImported(kernel32_index)) {
-      size_t asan_index = module_asan.AddSymbol(
-          base::StringPrintf("%s%s",
-                             kKernel32RedirectionPrefix,
-                             iter->import_name),
-          ImportedModule::kAlwaysImport);
-      DCHECK_EQ(kInvalidIndex, iter->override_indexes.second);
-      iter->override_indexes.second = asan_index;
-    }
-  }
-
-  // Another transform can safely be run without invalidating the results
-  // stored in module_kernel32, as additions to the IAT will strictly be
-  // performed at the end.
-  PEAddImportsTransform add_imports_transform;
-  add_imports_transform.AddModule(&module_asan);
-  if (!add_imports_transform.TransformBlockGraph(
-          policy, block_graph, header_block)) {
-    LOG(ERROR) << "Unable to add imports for import redirection.";
-    return false;
-  }
-
-  // Stores the reference mapping we want to rewrite.
-  pe::ReferenceMap reference_redirect_map;
-
-  iter = kernel32_redirects.begin();
-  for (; iter != kernel32_redirects.end(); ++iter) {
-    // Symbols that aren't imported don't need to be redirected.
-    size_t kernel32_index = iter->override_indexes.first;
-    size_t asan_index = iter->override_indexes.second;
-    if (!module_kernel32.SymbolIsImported(kernel32_index)) {
-      DCHECK_EQ(kInvalidIndex, asan_index);
-      continue;
-    }
-
-    DCHECK_NE(kInvalidIndex, asan_index);
-    BlockGraph::Reference src;
-    BlockGraph::Reference dst;
-    if (!module_kernel32.GetSymbolReference(kernel32_index, &src) ||
-        !module_asan.GetSymbolReference(asan_index, &dst)) {
-       NOTREACHED() << "Unable to get references after a successful transform.";
-      return false;
-    }
-
-    // Record the reference mapping.
-    reference_redirect_map.insert(
-        std::make_pair(pe::ReferenceDest(src.referenced(), src.offset()),
-                       pe::ReferenceDest(dst.referenced(), dst.offset())));
-  }
-
-  // Redirect the references.
-  pe::RedirectReferences(reference_redirect_map);
-
-  if (use_interceptors_) {
-    ASanInterceptorFilter filter;
-    filter.InitializeCRTFunctionHashes();
-    InterceptFunctions(&module_asan,
-                       policy,
-                       block_graph,
-                       header_block,
-                       &filter);
-  }
 
   return true;
 }
 
-bool AsanTransform::InterceptFunctions(
-    ImportedModule* import_module,
+bool AsanTransform::PeInterceptFunctions(
+    const AsanIntercept* intercepts,
     const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
-    BlockGraph::Block* header_block,
-    ASanInterceptorFilter* filter) {
-  DCHECK_NE(reinterpret_cast<ImportedModule*>(NULL), import_module);
-  DCHECK_NE(reinterpret_cast<const TransformPolicyInterface*>(NULL), policy);
-  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
-  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), header_block);
-  DCHECK_NE(reinterpret_cast<ASanInterceptorFilter*>(NULL), filter);
+    BlockGraph::Block* header_block) {
+  DCHECK(policy != NULL);
+  DCHECK(block_graph != NULL);
+  DCHECK(header_block != NULL);
+  DCHECK_EQ(BlockGraph::PE_IMAGE, block_graph->image_format());
 
-  // The map containing the information about the functions that we want to
-  // intercept.
-  FunctionInterceptionInfoMap function_redirection_info_map;
+  // This is used to keep track of the index of imports to the ASAN RTL.
+  ImportNameIndexMap import_name_index_map;
 
-  // Find the blocks that we want to intercept. This is O(N log(M)), with N
-  // being the number of blocks in the image and M the number of functions that
-  // we want to intercept.
-  block_graph::BlockGraph::BlockMap::iterator iter_blocks =
-      block_graph->blocks_mutable().begin();
-  for (; iter_blocks != block_graph->blocks_mutable().end(); ++iter_blocks) {
-    if (!filter->ShouldIntercept(&iter_blocks->second))
-      continue;
+  // Keeps track of all imported modules with imports that we intercept.
+  ScopedVector<ImportedModule> imported_modules;
 
-    // Generate the name of the hook for this function and add it to the image.
-    std::string hook_name = base::StringPrintf("asan_%s",
-        iter_blocks->second.name().c_str());
-    size_t symbol_index =
-        import_module->AddSymbol(hook_name, ImportedModule::kAlwaysImport);
+  ImportedModule asan_rtl(asan_dll_name_, kDateInThePast);
 
-    // Save the information about this block.
-    function_redirection_info_map[
-        iter_blocks->second.name()].asan_symbol_index = symbol_index;
-    function_redirection_info_map[iter_blocks->second.name()].function_block =
-        &iter_blocks->second;
+  // Determines what PE imports need to be intercepted, adding them to
+  // |asan_rtl| and |import_name_index_map|.
+  if (!PeFindImportsToIntercept(use_interceptors_,
+                                intercepts,
+                                policy,
+                                block_graph,
+                                header_block,
+                                &imported_modules,
+                                &import_name_index_map,
+                                &asan_rtl)) {
+    return false;
   }
 
-  // Transforms the block-graph.
+  // Keep track of how many import redirections are to be performed. This allows
+  // a minor optimization later on when there are none to be performed.
+  size_t import_redirection_count = asan_rtl.size();
+
+  // Find statically linked function blocks to intercept, adding them to
+  // |asan_rtl| and |import_name_index_map|.
+  std::vector<BlockGraph::Block*> static_blocks;
+  PeFindStaticallyLinkedFunctionsToIntercept(use_interceptors_,
+                                             intercepts,
+                                             block_graph,
+                                             &static_blocks,
+                                             &import_name_index_map,
+                                             &asan_rtl);
+
+  // If no imports were found at all, then there are no redirections to perform.
+  if (asan_rtl.size() == 0)
+    return true;
+
+  // Add the ASAN RTL imports to the image.
   PEAddImportsTransform add_imports_transform;
-  add_imports_transform.AddModule(import_module);
+  add_imports_transform.AddModule(&asan_rtl);
   if (!add_imports_transform.TransformBlockGraph(
           policy, block_graph, header_block)) {
-    LOG(ERROR) << "Unable to add imports for Asan instrumentation DLL.";
+    LOG(ERROR) << "Unable to add imports for redirection.";
     return false;
   }
 
-  // Find or create the section we put our thunks in.
-  BlockGraph::Section* thunk_section = block_graph->FindOrAddSection(
-      common::kThunkSectionName, pe::kCodeCharacteristics);
+  // This keeps track of reference redirections that need to be performed.
+  pe::ReferenceMap reference_redirect_map;
 
-  if (thunk_section == NULL) {
-    LOG(ERROR) << "Unable to find or create " << common::kThunkSectionName
-               << " section.";
-    return false;
+  if (import_redirection_count > 0) {
+    PeGetRedirectsForInterceptedImports(imported_modules,
+                                        import_name_index_map,
+                                        asan_rtl,
+                                        &reference_redirect_map);
   }
 
-  // For every function that we want to intercept we create a thunk that'll
-  // verify the parameters and call the original function.
-  FunctionInterceptionInfoMap::iterator iter_redirection_info =
-      function_redirection_info_map.begin();
-  for (; iter_redirection_info != function_redirection_info_map.end();
-       ++iter_redirection_info) {
-    DCHECK(iter_redirection_info->second.function_block != NULL);
-    DCHECK_NE(~0U, iter_redirection_info->second.asan_symbol_index);
-    BlockGraph::Reference import_reference;
-    if (!import_module->GetSymbolReference(
-            iter_redirection_info->second.asan_symbol_index,
-            &import_reference)) {
-      LOG(ERROR) << "Unable to get import reference for Asan.";
+  // Adds redirect information for any intercepted statically linked functions.
+  if (!static_blocks.empty()) {
+    if (!PeGetRedirectsForStaticallyLinkedFunctions(static_blocks,
+                                                    import_name_index_map,
+                                                    asan_rtl,
+                                                    block_graph,
+                                                    &reference_redirect_map)) {
       return false;
     }
-
-    // Generate the name of the thunk for this function.
-    std::string thunk_name = base::StringPrintf("asan_%s_thunk",
-        iter_redirection_info->first.data());
-
-    // Generate a basic code block for this thunk.
-    BasicBlockSubGraph bbsg;
-    BasicBlockSubGraph::BlockDescription* block_desc = bbsg.AddBlockDescription(
-        thunk_name,
-        thunk_section->name(),
-        BlockGraph::CODE_BLOCK,
-        thunk_section->id(),
-        1,
-        0);
-    BasicCodeBlock* bb = bbsg.AddBasicCodeBlock(thunk_name);
-    block_desc->basic_block_order.push_back(bb);
-    BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
-    assm.jmp(Operand(Displacement(import_reference.referenced(),
-                                  import_reference.offset())));
-
-    // Condense into a block.
-    BlockBuilder block_builder(block_graph);
-    if (!block_builder.Merge(&bbsg)) {
-      LOG(ERROR) << "Failed to build thunk block.";
-      return false;
-    }
-
-    // Exactly one new block should have been created.
-    DCHECK_EQ(1u, block_builder.new_blocks().size());
-    BlockGraph::Block* thunk = block_builder.new_blocks().front();
-
-    // Transfer the references to the original block to the thunk.
-    if (!iter_redirection_info->second.function_block->TransferReferrers(0,
-            thunk, BlockGraph::Block::kSkipInternalReferences)) {
-      LOG(ERROR) << "Failed to redirect the reference during the interception "
-                 << "of a function.";
-      return false;
-    }
-
-    // Temporarily make the interceptor imports point to their original
-    // function. These references will be ... has been loaded. This is necessary
-    // so that Chrome sandbox code (which runs under the loader lock before all
-    // imports have been resolved) doesn't crash.
-    import_reference.referenced()->SetReference(import_reference.offset(),
-        BlockGraph::Reference(BlockGraph::ABSOLUTE_REF, 4,
-            iter_redirection_info->second.function_block, 0, 0));
   }
+
+  // Finally, redirect all references to intercepted functions.
+  pe::RedirectReferences(reference_redirect_map);
 
   return true;
 }

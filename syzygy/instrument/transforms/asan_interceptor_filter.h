@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Declaration of the ASanInterceptorFilter class.
+// Declaration of the AsanInterceptorFilter class.
 #ifndef SYZYGY_INSTRUMENT_TRANSFORMS_ASAN_INTERCEPTOR_FILTER_H_
 #define SYZYGY_INSTRUMENT_TRANSFORMS_ASAN_INTERCEPTOR_FILTER_H_
 
@@ -21,30 +21,39 @@
 #include <string>
 
 #include "syzygy/block_graph/block_graph.h"
+#include "syzygy/instrument/transforms/asan_intercepts.h"
 
 namespace instrument {
 namespace transforms {
 
 // This class defines a filter for the functions that should be intercepted by
-// the ASan transform. The list of the functions to intercept is stored in a map
+// the Asan transform. The list of the functions to intercept is stored in a map
 // associating the function name to one or several hashes of the expected block
 // contents.
 //
 // It's not sufficient to only filter the function by its name because some
 // linker optimizations can result in a function being stubbed by a block with
 // the same name but with a different calling convention.
-class ASanInterceptorFilter {
+class AsanInterceptorFilter {
  public:
-  virtual ~ASanInterceptorFilter() { }
+  virtual ~AsanInterceptorFilter() { }
 
-  // Loads the hashes of the intercepted CRT functions into the map.
-  void InitializeCRTFunctionHashes();
+  // Loads the hashes of the intercepted functions into the map.
+  // @param intercepts a NULL terminated array of intercept descriptors to be
+  //     parsed.
+  // @param parse_optional_intercepts If true then functions marked as optional
+  //     intercepts will be parsed. Otherwise, only mandatory intercepts will
+  //     be parsed.
+  void InitializeContentHashes(const AsanIntercept* intercepts,
+                               bool parse_optional_intercepts);
 
   // Indicates if a block should be intercepted.
   // @param block The block for which we want to know if it should be
   //     intercepted.
   // @returns true if the block should be intercepted, false otherwise.
   bool ShouldIntercept(const block_graph::BlockGraph::Block* block);
+
+  bool empty() const { return function_hash_map_.empty(); }
 
  protected:
   typedef std::set<std::string> HashSet;
