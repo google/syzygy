@@ -55,9 +55,9 @@
 #include "base/basictypes.h"
 #include "base/callback.h"
 #include "base/files/file_path.h"
-#include "base/win/sampling_profiler.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/common/application.h"
+#include "syzygy/sampler/sampling_profiler.h"
 #include "syzygy/trace/common/clock.h"
 #include "syzygy/trace/service/process_info.h"
 
@@ -84,8 +84,8 @@ class SampledModuleCache {
   // Constructor.
   // @param log2_bucket_size The number of bits in the bucket size to be used
   //     by the sampling profiler. This must be in the range 2-31, for bucket
-  //     sizes of 4 bytes to 2 gigabytes. See base/win/sampling_profiler.h
-  //     for more details.
+  //     sizes of 4 bytes to 2 gigabytes. See sampling_profiler.h for more
+  //     details.
   explicit SampledModuleCache(size_t log2_bucket_size);
 
   // Destructor.
@@ -193,8 +193,8 @@ class SampledModuleCache::Process {
   // @param module_handle The handle to the module to be added.
   // @param log2_bucket_size The number of bits in the bucket size to be used
   //     by the sampling profiler. This must be in the range 2-31, for bucket
-  //     sizes of 4 bytes to 2 gigabytes. See base/win/sampling_profiler.h
-  //     for more details.
+  //     sizes of 4 bytes to 2 gigabytes. See sampling_profiler.h for more
+  //     details.
   // @param status The status of the profiled module. This will only be set on
   //     success.
   // @param module A pointer to the added module. This will only be non-NULL on
@@ -246,9 +246,9 @@ class SampledModuleCache::Process {
 };
 
 // A Module tracks a module (belonging to a Process) that is currently
-// being profiled by an instance of a base::win::SamplingProfiler. Modules are
-// polled so there is no guarantee that a tracked module is still loaded, nor
-// if its parent process is still running.
+// being profiled by an instance of a SamplingProfiler. Modules are polled so
+// there is no guarantee that a tracked module is still loaded, nor if its
+// parent process is still running.
 class SampledModuleCache::Module {
  public:
   // Constructor.
@@ -256,8 +256,8 @@ class SampledModuleCache::Module {
   // @param module The handle to the module to be profiled.
   // @param log2_bucket_size The number of bits in the bucket size to be used
   //     by the sampling profiler. This must be in the range 2-31, for bucket
-  //     sizes of 4 bytes to 2 gigabytes. See base/win/sampling_profiler.h
-  //     for more details.
+  //     sizes of 4 bytes to 2 gigabytes. See sampling_profiler.h for more
+  //     details.
   Module(Process* process, HMODULE module, size_t log2_bucket_size);
 
   // @name Accessors.
@@ -274,8 +274,8 @@ class SampledModuleCache::Module {
   size_t log2_bucket_size() const { return log2_bucket_size_; }
   uint64 profiling_start_time() const { return profiling_start_time_; }
   uint64 profiling_stop_time() const { return profiling_stop_time_; }
-  base::win::SamplingProfiler& profiler() { return profiler_; }
-  const base::win::SamplingProfiler& profiler() const { return profiler_; }
+  SamplingProfiler& profiler() { return profiler_; }
+  const SamplingProfiler& profiler() const { return profiler_; }
   // @}
 
  protected:
@@ -335,7 +335,7 @@ class SampledModuleCache::Module {
   uint64 profiling_stop_time_;
 
   // The sampling profiler instance that is profiling this module.
-  base::win::SamplingProfiler profiler_;
+  SamplingProfiler profiler_;
 
   // This is used for cleaning up no longer loaded modules using a mark and
   // sweep technique.

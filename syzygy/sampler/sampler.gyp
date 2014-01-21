@@ -25,6 +25,8 @@
         'sampler_app.h',
         'sampled_module_cache.cc',
         'sampled_module_cache.h',
+        'sampling_profiler.cc',
+        'sampling_profiler.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
@@ -68,6 +70,7 @@
       'sources': [
         'sampled_module_cache_unittest.cc',
         'sampler_app_unittest.cc',
+        'sampling_profiler_unittest.cc',
         'sampler_unittests_main.cc',
       ],
       'dependencies': [

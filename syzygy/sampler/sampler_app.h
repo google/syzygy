@@ -28,9 +28,8 @@
 namespace sampler {
 
 // The application class that takes care of running a profiling sampler. This
-// works by polling running processes and attaching a
-// base::win::SamplingProfiler instance to every module of interest. The output
-// is then shuttled to trace data files.
+// works by polling running processes and attaching a SamplingProfiler instance
+// to every module of interest. The output is then shuttled to trace data files.
 class SamplerApp : public common::AppImplBase {
  public:
   SamplerApp();

@@ -201,8 +201,7 @@ bool SetSamplingInterval(base::TimeDelta* sampling_interval) {
 
   if (!use_system_default) {
     // Set the sampling interval.
-    if (!base::win::SamplingProfiler::SetSamplingInterval(
-            *sampling_interval)) {
+    if (!SamplingProfiler::SetSamplingInterval(*sampling_interval)) {
       LOG(ERROR) << "SetSamplingInterval failed.";
       return false;
     }
@@ -210,8 +209,7 @@ bool SetSamplingInterval(base::TimeDelta* sampling_interval) {
 
   // Get the actual sampling interval.
   base::TimeDelta actual_sampling_interval;
-  if (!base::win::SamplingProfiler::GetSamplingInterval(
-          &actual_sampling_interval)) {
+  if (!SamplingProfiler::GetSamplingInterval(&actual_sampling_interval)) {
     LOG(ERROR) << "GetSamplingInterval failed.";
     return false;
   }
