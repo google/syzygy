@@ -108,15 +108,10 @@ const AsanIntercept kAsanIntercepts[] = {
   { "memcpy", "_memcpy", NULL, kHashes_memcpy, true },
   { "memmove", "_memmove", NULL, kHashes_memmove, true },
   { "memset", "_memset", NULL, kHashes_memset, true },
-  { "strcspn", "_strcspn", NULL, kHashes_strcspn, true },
   { "strlen", "_strlen", NULL, kHashes_strlen, true },
-  { "strpbrk", "_strpbrk", NULL, kHashes_strpbrk, true },
-  { "strspn", "_strspn", NULL, kHashes_strspn, true },
   { "strncpy", "_strncpy", NULL, kHashes_strncpy, true },
   { "strncat", "_strncat", NULL, kHashes_strncat, true },
   { "strrchr", "_strrchr", NULL, kHashes_strrchr, true },
-  { "strcmp", "_strcmp", NULL, kHashes_strcmp, true },
-  { "strstr", "_strstr", NULL, kHashes_strstr, true },
   { "wcsrchr", "_wcsrchr", NULL, kHashes_wcsrchr, true },
 
   // Terminating entry.

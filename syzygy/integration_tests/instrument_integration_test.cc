@@ -216,7 +216,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
               InvokeTestDllFunction(testing::kArrayComputation2TestId));
   }
 
-  void AsanErrorCheck(testing::EndToEndTestId test, BadAccessKind kind,
+  bool AsanErrorCheck(testing::EndToEndTestId test, BadAccessKind kind,
       AccessMode mode, size_t size) {
 
     ResetAsanErrors();
@@ -225,213 +225,162 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     EXPECT_EQ(kind, last_asan_error.error_type);
     EXPECT_EQ(mode, last_asan_error.access_mode);
     EXPECT_EQ(size, last_asan_error.access_size);
+
+    if (asan_error_count == 0 ||
+        last_asan_error.error_type != kind ||
+        last_asan_error.access_mode != mode ||
+        last_asan_error.access_size != size) {
+      return false;
+    }
+
+    return true;
   }
 
   void AsanErrorCheckTestDll() {
     ASSERT_NO_FATAL_FAILURE(SetAsanDefaultCallBack(
         AsanSafeCallbackWithException));
 
-    AsanErrorCheck(testing::kAsanRead8BufferOverflowTestId,
-        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanRead16BufferOverflowTestId,
-        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 2);
-    AsanErrorCheck(testing::kAsanRead32BufferOverflowTestId,
-        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 4);
-    AsanErrorCheck(testing::kAsanRead64BufferOverflowTestId,
-        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 8);
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead8BufferOverflowTestId,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead16BufferOverflowTestId,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 2));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead32BufferOverflowTestId,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 4));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead64BufferOverflowTestId,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 8));
 
-    AsanErrorCheck(testing::kAsanRead8BufferUnderflowTestId,
-        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanRead16BufferUnderflowTestId,
-        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 2);
-    AsanErrorCheck(testing::kAsanRead32BufferUnderflowTestId,
-        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 4);
-    AsanErrorCheck(testing::kAsanRead64BufferUnderflowTestId,
-        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 8);
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead8BufferUnderflowTestId,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead16BufferUnderflowTestId,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 2));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead32BufferUnderflowTestId,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 4));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead64BufferUnderflowTestId,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 8));
 
-    AsanErrorCheck(testing::kAsanWrite8BufferOverflowTestId,
-        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanWrite16BufferOverflowTestId,
-        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 2);
-    AsanErrorCheck(testing::kAsanWrite32BufferOverflowTestId,
-        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 4);
-    AsanErrorCheck(testing::kAsanWrite64BufferOverflowTestId,
-        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 8);
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite8BufferOverflowTestId,
+        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite16BufferOverflowTestId,
+        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 2));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite32BufferOverflowTestId,
+        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 4));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite64BufferOverflowTestId,
+        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 8));
 
-    AsanErrorCheck(testing::kAsanWrite8BufferUnderflowTestId,
-        HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanWrite16BufferUnderflowTestId,
-        HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 2);
-    AsanErrorCheck(testing::kAsanWrite32BufferUnderflowTestId,
-        HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 4);
-    AsanErrorCheck(testing::kAsanWrite64BufferUnderflowTestId,
-        HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 8);
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite8BufferUnderflowTestId,
+        HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite16BufferUnderflowTestId,
+        HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 2));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite32BufferUnderflowTestId,
+        HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 4));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite64BufferUnderflowTestId,
+        HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 8));
 
-    AsanErrorCheck(testing::kAsanRead8UseAfterFreeTestId, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanRead16UseAfterFreeTestId, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 2);
-    AsanErrorCheck(testing::kAsanRead32UseAfterFreeTestId, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 4);
-    AsanErrorCheck(testing::kAsanRead64UseAfterFreeTestId, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 8);
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead8UseAfterFreeTestId,
+        USE_AFTER_FREE, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead16UseAfterFreeTestId,
+        USE_AFTER_FREE, ASAN_READ_ACCESS, 2));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead32UseAfterFreeTestId,
+        USE_AFTER_FREE, ASAN_READ_ACCESS, 4));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead64UseAfterFreeTestId,
+        USE_AFTER_FREE, ASAN_READ_ACCESS, 8));
 
-    AsanErrorCheck(testing::kAsanWrite8UseAfterFreeTestId, USE_AFTER_FREE,
-        ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanWrite16UseAfterFreeTestId, USE_AFTER_FREE,
-        ASAN_WRITE_ACCESS, 2);
-    AsanErrorCheck(testing::kAsanWrite32UseAfterFreeTestId, USE_AFTER_FREE,
-        ASAN_WRITE_ACCESS, 4);
-    AsanErrorCheck(testing::kAsanWrite64UseAfterFreeTestId, USE_AFTER_FREE,
-        ASAN_WRITE_ACCESS, 8);
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite8UseAfterFreeTestId,
+        USE_AFTER_FREE, ASAN_WRITE_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite16UseAfterFreeTestId,
+        USE_AFTER_FREE, ASAN_WRITE_ACCESS, 2));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite32UseAfterFreeTestId,
+        USE_AFTER_FREE, ASAN_WRITE_ACCESS, 4));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite64UseAfterFreeTestId,
+        USE_AFTER_FREE, ASAN_WRITE_ACCESS, 8));
   }
 
   void AsanErrorCheckInterceptedFunctions() {
     ASSERT_NO_FATAL_FAILURE(SetAsanDefaultCallBack(AsanSafeCallback));
-    AsanErrorCheck(testing::kAsanMemsetOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanMemsetUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanMemsetUseAfterFree, USE_AFTER_FREE,
-        ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanMemchrOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanMemchrUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanMemchrUseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanMemmoveReadOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanMemmoveReadUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanMemmoveUseAfterFree, USE_AFTER_FREE,
-        ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanMemmoveWriteOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanMemmoveWriteUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanMemcpyReadOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanMemcpyReadUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanMemcpyUseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanMemcpyWriteOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanMemcpyWriteUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_WRITE_ACCESS, 1);
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemsetOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemsetUnderflow,
+        HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemsetUseAfterFree,
+        USE_AFTER_FREE, ASAN_WRITE_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemchrOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemchrUnderflow,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemchrUseAfterFree,
+        USE_AFTER_FREE, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemmoveReadOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemmoveReadUnderflow,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemmoveUseAfterFree,
+        USE_AFTER_FREE, ASAN_WRITE_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemmoveWriteOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemmoveWriteUnderflow,
+        HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemcpyReadOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemcpyReadUnderflow,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemcpyUseAfterFree,
+        USE_AFTER_FREE, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemcpyWriteOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemcpyWriteUnderflow,
+        HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 1));
 
-    AsanErrorCheck(testing::kAsanStrcspnKeysOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrcspnKeysUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrcspnKeysUseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrcspnSrcOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrcspnSrcUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrcspnSrcUseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrlenOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrlenUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrlenUseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrrchrOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrrchrUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrrchrUseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanWcsrchrOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanWcsrchrUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanWcsrchrUseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrcmpSrc1Overflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrcmpSrc1Underflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrcmpSrc1UseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrcmpSrc2Overflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrcmpSrc2Underflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrcmpSrc2UseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrpbrkKeysOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrpbrkKeysUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrpbrkKeysUseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrpbrkSrcOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrpbrkSrcUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrpbrkSrcUseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrstrSrc1Overflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrstrSrc1Underflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrstrSrc1UseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrstrSrc2Overflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrstrSrc2Underflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrstrSrc2UseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrspnKeysOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrspnKeysUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrspnKeysUseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrspnSrcOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrspnSrcUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrspnSrcUseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrncpySrcOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrncpySrcUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrncpySrcUseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrncpyDstOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrncpyDstUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrncpyDstUseAfterFree, USE_AFTER_FREE,
-        ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrncatSuffixOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrncatSuffixUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrncatSuffixUseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrncatDstOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrncatDstUnderflow, HEAP_BUFFER_UNDERFLOW,
-        ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanStrncatDstUseAfterFree, USE_AFTER_FREE,
-        ASAN_WRITE_ACCESS, 1);
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrlenOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrlenUnderflow,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrlenUseAfterFree,
+        USE_AFTER_FREE, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrrchrOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrrchrUnderflow,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrrchrUseAfterFree,
+        USE_AFTER_FREE, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWcsrchrOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWcsrchrUnderflow,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWcsrchrUseAfterFree,
+        USE_AFTER_FREE, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrncpySrcOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrncpySrcUnderflow,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrncpySrcUseAfterFree,
+        USE_AFTER_FREE, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrncpyDstOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrncpyDstUnderflow,
+        HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrncpyDstUseAfterFree,
+        USE_AFTER_FREE, ASAN_WRITE_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrncatSuffixOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrncatSuffixUnderflow,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrncatSuffixUseAfterFree,
+        USE_AFTER_FREE, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrncatDstOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrncatDstUnderflow,
+        HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrncatDstUseAfterFree,
+        USE_AFTER_FREE, ASAN_WRITE_ACCESS, 1));
 
-    AsanErrorCheck(testing::kAsanReadFileOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanReadFileUseAfterFree, USE_AFTER_FREE,
-        ASAN_WRITE_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanWriteFileOverflow, HEAP_BUFFER_OVERFLOW,
-        ASAN_READ_ACCESS, 1);
-    AsanErrorCheck(testing::kAsanWriteFileUseAfterFree, USE_AFTER_FREE,
-        ASAN_READ_ACCESS, 1);
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanReadFileOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanReadFileUseAfterFree,
+        USE_AFTER_FREE, ASAN_WRITE_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWriteFileOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWriteFileUseAfterFree,
+        USE_AFTER_FREE, ASAN_READ_ACCESS, 1));
   }
 
   void BBEntryInvokeTestDll() {

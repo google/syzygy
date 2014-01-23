@@ -867,24 +867,31 @@ TEST_F(AsanTransformTest, ImportsAreRedirected) {
   Intersect(imports, expected, &results);
   EXPECT_EQ(results, expected);
 
-  // We expect some of these statically linked CRT functions to be redirected.
+  // We expect all of these statically linked CRT functions to be redirected.
   expected.clear();
   expected.insert("asan_memcpy");
   expected.insert("asan_memmove");
   expected.insert("asan_memset");
   expected.insert("asan_memchr");
-  expected.insert("asan_strcspn");
   expected.insert("asan_strlen");
   expected.insert("asan_strrchr");
-  expected.insert("asan_strcmp");
-  expected.insert("asan_strpbrk");
-  expected.insert("asan_strstr");
-  expected.insert("asan_strspn");
   expected.insert("asan_strncpy");
   expected.insert("asan_strncat");
   expected.insert("asan_wcsrchr");
   Intersect(imports, expected, &results);
   EXPECT_FALSE(results.empty());
+  EXPECT_EQ(results, expected);
+
+  // The implementation of the interceptors for these functions isn't available
+  // so we don't expect them to be redirected.
+  StringSet not_expected;
+  not_expected.insert("asan_strcmp");
+  not_expected.insert("asan_strcspn");
+  not_expected.insert("asan_strspn");
+  not_expected.insert("asan_strstr");
+  not_expected.insert("asan_strpbrk");
+  Intersect(imports, not_expected, &results);
+  EXPECT_TRUE(results.empty());
 }
 
 TEST_F(AsanTransformTest, AsanHooksAreStubbed) {

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "syzygy/agent/asan/asan_crt_interceptors.h"
+
 #include <windows.h>
 
 #include "base/bind.h"
@@ -75,7 +77,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemchr) {
   const size_t kAllocSize = 13;
   ScopedASanAlloc<uint8> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
-  ::memset(mem.get(), 0, kAllocSize);
+  memset(mem.get(), 0, kAllocSize);
   mem[4] = 0xAA;
   memory_error_detected = false;
 
@@ -186,21 +188,29 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemcpy) {
   ResetLog();
 }
 
-TEST_F(CrtInterceptorsTest, AsanCheckStrcspn) {
+TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrcspn) {
+  // TODO(sebmarchand): Reactivate this unittest once the implementation of
+  //     this interceptor has been fixed.
   const char* str_value = "abc1";
-  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1);
+  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
   ASSERT_TRUE(str.get() != NULL);
-  ::strcpy(str.get(), str_value);
 
+  const char* str_value_2 = "abc";
+  ScopedASanAlloc<char> str2(this, ::strlen(str_value_2) + 1, str_value_2);
+  ASSERT_TRUE(str2.get() != NULL);
+
+  // This should contain at least one value present in |str| but none present
+  // in |str2|.
   const char* keys_value = "12";
-  ScopedASanAlloc<char> keys(this, ::strlen(keys_value) + 1);
+  EXPECT_NE(::strlen(str_value), ::strcspn(str_value, keys_value));
+  EXPECT_EQ(::strlen(str_value_2), ::strcspn(str_value_2, keys_value));
+  ScopedASanAlloc<char> keys(this, ::strlen(keys_value) + 1, keys_value);
   ASSERT_TRUE(keys.get() != NULL);
-  ::strcpy(keys.get(), keys_value);
 
   SetCallBackFunction(&AsanErrorCallback);
   memory_error_detected = false;
 
-  EXPECT_EQ(strcspn(str.get(), keys.get()),
+  EXPECT_EQ(::strcspn(str.get(), keys.get()),
             strcspnFunction(str.get(), keys.get()));
   EXPECT_FALSE(memory_error_detected);
 
@@ -208,29 +218,65 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrcspn) {
   // contain the value \0.
   uint8 last_block_header_byte = str[-1];
   str[-1] = 'a';
-  EXPECT_EQ(strcspn(str.get() - 1, keys.get()),
+  EXPECT_EQ(::strcspn(str.get() - 1, keys.get()),
             strcspnFunction(str.get() - 1, keys.get()));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
   str[-1] = last_block_header_byte;
   ResetLog();
 
+  // The key set should be null terminated, otherwise an overflow should be
+  // detected.
   memory_error_detected = false;
   size_t keys_len = ::strlen(keys.get());
   keys[keys_len] = 'a';
-  keys[keys_len + 1] = 0;
-  EXPECT_EQ(strcspn(str.get(), keys.get()),
+  EXPECT_EQ(::strcspn(str.get(), keys.get()),
             strcspnFunction(str.get(), keys.get()));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  keys[keys_len] = 0;
   ResetLog();
+
+  // The implementation allows a non null terminated input string if it contains
+  // at least one of the keys, otherwise it'll overflow.
+
+  memory_error_detected = false;
+  size_t str_len = ::strlen(str.get());
+  str[str_len] = 'a';
+  EXPECT_EQ(::strcspn(str.get(), keys.get()),
+            strcspnFunction(str.get(), keys.get()));
+  EXPECT_FALSE(memory_error_detected);
+  str[str_len] = 0;
+  ResetLog();
+
+  memory_error_detected = false;
+  size_t str2_len = ::strlen(str2.get());
+  str2[str2_len] = 'a';
+  EXPECT_EQ(::strcspn(str2.get(), keys.get()),
+            strcspnFunction(str2.get(), keys.get()));
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  str2[str2_len] = 0;
+  ResetLog();
+}
+
+TEST_F(CrtInterceptorsTest, DISABLED_AsanStrcspnImpl) {
+  // TODO(sebmarchand): Reactivate this unittest once the implementation of
+  //     this interceptor has been fixed.
+  EXPECT_EQ(5, asan_strcspn("abcde", "fgh"));
+  EXPECT_EQ(5, asan_strcspn("abcde", ""));
+  EXPECT_EQ(0, asan_strcspn("abcde", "abcde"));
+  EXPECT_EQ(0U, asan_strcspn("abcde", "edcba"));
+  EXPECT_EQ(3, asan_strcspn("abcde", "ed"));
+  EXPECT_EQ(2, asan_strcspn("abcde", "c"));
+  EXPECT_EQ(0U, asan_strcspn("", ""));
+  EXPECT_EQ(0U, asan_strcspn("", "abcde"));
 }
 
 TEST_F(CrtInterceptorsTest, AsanCheckStrlen) {
   const char* str_value = "test_strlen";
-  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1);
+  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
   ASSERT_TRUE(str != NULL);
-  ::strcpy(str.get(), str_value);
 
   SetCallBackFunction(&AsanErrorCallback);
   memory_error_detected = false;
@@ -251,7 +297,6 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrlen) {
   memory_error_detected = false;
   size_t str_len = ::strlen(str.get());
   str[str_len] = 'a';
-  str[str_len + 1] = 0;
   EXPECT_EQ(::strlen(str.get()), strlenFunction(str.get()));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
@@ -260,9 +305,8 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrlen) {
 
 TEST_F(CrtInterceptorsTest, AsanCheckStrrchr) {
   const char* str_value = "test_strrchr";
-  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1);
+  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
   ASSERT_TRUE(str != NULL);
-  ::strcpy(str.get(), str_value);
 
   SetCallBackFunction(&AsanErrorCallback);
   memory_error_detected = false;
@@ -285,16 +329,16 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrrchr) {
   memory_error_detected = false;
   size_t str_len = ::strlen(str.get());
   str[str_len] = 'a';
-  str[str_len + 1] = 0;
   EXPECT_EQ(::strrchr(str.get(), 'c'), strrchrFunction(str.get(), 'c'));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  str[str_len] = 0;
   ResetLog();
 }
 
 TEST_F(CrtInterceptorsTest, AsanCheckWcsrchr) {
   const wchar_t* wstr_value = L"test_wcsrchr";
-  ScopedASanAlloc<wchar_t> wstr(this, wcslen(wstr_value) + 1);
+  ScopedASanAlloc<wchar_t> wstr(this, ::wcslen(wstr_value) + 1);
   ASSERT_TRUE(wstr != NULL);
   wcscpy(wstr.get(), wstr_value);
 
@@ -320,23 +364,23 @@ TEST_F(CrtInterceptorsTest, AsanCheckWcsrchr) {
   memory_error_detected = false;
   size_t str_len = ::wcslen(wstr_value);
   wstr[str_len] = L'a';
-  wstr[str_len + 1] = 0;
   EXPECT_EQ(::wcsrchr(wstr.get(), L'c'), wcsrchrFunction(wstr.get(), L'c'));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  wstr[str_len] = 0;
   ResetLog();
 }
 
-TEST_F(CrtInterceptorsTest, AsanCheckStrcmp) {
+TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrcmp) {
+  // TODO(sebmarchand): Reactivate this unittest once the implementation of
+  //     this interceptor has been fixed.
   const char* str_value = "test_strcmp";
-  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1);
+  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
   ASSERT_TRUE(str.get() != NULL);
-  ::strcpy(str.get(), str_value);
 
   const char* keys_value = "strcmp";
-  ScopedASanAlloc<char> keys(this, ::strlen(keys_value) + 1);
-  ASSERT_TRUE(keys != NULL);
-  ::strcpy(keys.get(), keys_value);
+  ScopedASanAlloc<char> keys(this, ::strlen(keys_value) + 1, keys_value);
+  ASSERT_TRUE(keys.get() != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
   memory_error_detected = false;
@@ -359,24 +403,32 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrcmp) {
   memory_error_detected = false;
   size_t keys_len = ::strlen(keys.get());
   keys[keys_len] = 'a';
-  keys[keys_len + 1] = 0;
   EXPECT_EQ(::strcmp(str.get(), keys.get()),
             strcmpFunction(str.get(), keys.get()));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  keys[keys_len] = 0;
   ResetLog();
 }
 
-TEST_F(CrtInterceptorsTest, AsanCheckStrpbrk) {
-  const char* str_value = "test_strpbrk";
-  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1);
-  ASSERT_TRUE(str != NULL);
-  ::strcpy(str.get(), str_value);
+TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrpbrk) {
+  // TODO(sebmarchand): Reactivate this unittest once the implementation of
+  //     this interceptor has been fixed.
+  const char* str_value = "abc1";
+  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
+  ASSERT_TRUE(str.get() != NULL);
 
-  const char* keys_value = "strpbrk";
-  ScopedASanAlloc<char> keys(this, ::strlen(keys_value) + 1);
-  ASSERT_TRUE(keys != NULL);
-  ::strcpy(keys.get(), keys_value);
+  const char* str_value_2 = "abc";
+  ScopedASanAlloc<char> str2(this, ::strlen(str_value_2) + 1, str_value_2);
+  ASSERT_TRUE(str2.get() != NULL);
+
+  // This should contain at least one value present in |str| but none present
+  // in |str2|.
+  const char* keys_value = "12";
+  EXPECT_NE(::strlen(str_value), ::strcspn(str_value, keys_value));
+  EXPECT_EQ(::strlen(str_value_2), ::strcspn(str_value_2, keys_value));
+  ScopedASanAlloc<char> keys(this, ::strlen(keys_value) + 1, keys_value);
+  ASSERT_TRUE(keys.get() != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
   memory_error_detected = false;
@@ -399,24 +451,61 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrpbrk) {
   memory_error_detected = false;
   size_t keys_len = ::strlen(keys.get());
   keys[keys_len] = 'a';
-  keys[keys_len + 1] = 0;
   EXPECT_EQ(::strpbrk(str.get(), keys.get()),
             strpbrkFunction(str.get(), keys.get()));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  keys[keys_len] = 0;
+  ResetLog();
+
+  // The implementation allows a non null terminated input string if it contains
+  // at least one of the keys, otherwise it'll overflow.
+
+  memory_error_detected = false;
+  size_t str_len = ::strlen(str.get());
+  str[str_len] = 'a';
+  EXPECT_EQ(::strpbrk(str.get(), keys.get()),
+            strpbrkFunction(str.get(), keys.get()));
+  EXPECT_FALSE(memory_error_detected);
+  str[str_len] = 0;
+  ResetLog();
+
+  memory_error_detected = false;
+  size_t str2_len = ::strlen(str2.get());
+  str2[str2_len] = 'a';
+  EXPECT_EQ(::strpbrk(str2.get(), keys.get()),
+            strpbrkFunction(str2.get(), keys.get()));
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  str2[str2_len] = 0;
   ResetLog();
 }
 
-TEST_F(CrtInterceptorsTest, AsanCheckStrstr) {
+TEST_F(CrtInterceptorsTest, DISABLED_AsanStrpbrkImpl) {
+  // TODO(sebmarchand): Reactivate this unittest once the implementation of
+  //     this interceptor has been fixed.
+  const char* abcde = "abcde";
+  const char* empty_string = "";
+  EXPECT_EQ(strpbrk(abcde, abcde), asan_strpbrk(abcde, abcde));
+  EXPECT_EQ(strpbrk(abcde, "fgh"), asan_strpbrk(abcde, "fgh"));
+  EXPECT_EQ(strpbrk(abcde, ""), asan_strpbrk(abcde, ""));
+  EXPECT_EQ(strpbrk(abcde, "edcba"), asan_strpbrk(abcde, "edcba"));
+  EXPECT_EQ(strpbrk(abcde, "ed"), asan_strpbrk(abcde, "ed"));
+  EXPECT_EQ(strpbrk(abcde, "c"), asan_strpbrk(abcde, "c"));
+  EXPECT_EQ(strpbrk(empty_string, ""), asan_strpbrk(empty_string, ""));
+  EXPECT_EQ(strpbrk(empty_string, abcde), asan_strpbrk(empty_string, abcde));
+}
+
+TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrstr) {
+  // TODO(sebmarchand): Reactivate this unittest once the implementation of
+  //     this interceptor has been fixed.
   const char* str_value = "test_strstr";
-  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1);
+  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
   ASSERT_TRUE(str != NULL);
-  ::strcpy(str.get(), str_value);
 
   const char* keys_value = "strstr";
-  ScopedASanAlloc<char> keys(this, ::strlen(keys_value) + 1);
-  ASSERT_TRUE(keys != NULL);
-  ::strcpy(keys.get(), keys_value);
+  ScopedASanAlloc<char> keys(this, ::strlen(keys_value) + 1, keys_value);
+  ASSERT_TRUE(keys.get() != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
   memory_error_detected = false;
@@ -439,24 +528,31 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrstr) {
   memory_error_detected = false;
   size_t keys_len = ::strlen(keys.get());
   keys[keys_len] = 'a';
-  keys[keys_len + 1] = 0;
   EXPECT_EQ(::strstr(str.get(), keys.get()),
             strstrFunction(str.get(), keys.get()));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  keys[keys_len] = 0;
   ResetLog();
 }
 
-TEST_F(CrtInterceptorsTest, AsanCheckStrspn) {
-  const char* str_value = "test_strspn";
-  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1);
-  ASSERT_TRUE(str != NULL);
-  ::strcpy(str.get(), str_value);
+TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrspn) {
+  // TODO(sebmarchand): Reactivate this unittest once the implementation of
+  //     this interceptor has been fixed.
+  const char* str_value = "123_abc";
+  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
+  ASSERT_TRUE(str.get() != NULL);
 
-  const char* keys_value = "strspn";
-  ScopedASanAlloc<char> keys(this, ::strlen(keys_value) + 1);
-  ASSERT_TRUE(keys != NULL);
-  ::strcpy(keys.get(), keys_value);
+  const char* keys_value = "123";
+  EXPECT_EQ(::strlen(keys_value), ::strspn(str_value, keys_value));
+  ScopedASanAlloc<char> keys(this, ::strlen(keys_value) + 1, keys_value);
+  ASSERT_TRUE(keys.get() != NULL);
+
+  // The second test string should only contains values present in the keys.
+  const char* str_value_2 = "12321";
+  ScopedASanAlloc<char> str2(this, ::strlen(str_value_2) + 1, str_value_2);
+  EXPECT_EQ(::strlen(str_value_2), ::strspn(str_value_2, keys_value));
+  ASSERT_TRUE(str2.get() != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
   memory_error_detected = false;
@@ -479,24 +575,61 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrspn) {
   memory_error_detected = false;
   size_t keys_len = ::strlen(keys.get());
   keys[keys_len] = 'a';
-  keys[keys_len + 1] = 0;
   EXPECT_EQ(::strspn(str.get(), keys.get()),
             strspnFunction(str.get(), keys.get()));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  keys[keys_len] = 0;
   ResetLog();
+
+  // The implementation allows a non null terminated input string if it doesn't
+  // start with a value contained in the keys, otherwise it'll overflow.
+
+  memory_error_detected = false;
+  size_t str_len = ::strlen(str.get());
+  str[str_len] = 'a';
+  EXPECT_EQ(::strspn(str.get(), keys.get()),
+            strspnFunction(str.get(), keys.get()));
+  EXPECT_FALSE(memory_error_detected);
+  str[str_len] = 0;
+  ResetLog();
+
+  memory_error_detected = false;
+  size_t str2_len = ::strlen(str2.get());
+  str2[str2_len] = keys[0];
+  EXPECT_EQ(::strspn(str2.get(), keys.get()),
+            strspnFunction(str2.get(), keys.get()));
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  str2[str2_len] = 0;
+  ResetLog();
+}
+
+TEST_F(CrtInterceptorsTest, DISABLED_AsanStrspnImpl) {
+  // TODO(sebmarchand): Reactivate this unittest once the implementation of
+  //     this interceptor has been fixed.
+  EXPECT_EQ(5, asan_strspn("abcde", "abcde"));
+  EXPECT_EQ(5, asan_strspn("abcde", "edcba"));
+  EXPECT_EQ(0U, asan_strspn("abcde", ""));
+  EXPECT_EQ(2, asan_strspn("abcde", "ab"));
+  EXPECT_EQ(4, asan_strspn("abccde", "abc"));
+  EXPECT_EQ(2, asan_strspn("abcde", "fghab"));
+  EXPECT_EQ(3, asan_strspn("abcde", "fagbhc"));
+  EXPECT_EQ(1, asan_strspn("abcde", "aaa"));
+  EXPECT_EQ(0U, asan_strspn("abcde", "fgh"));
+  EXPECT_EQ(0U, asan_strspn("", ""));
+  EXPECT_EQ(0U, asan_strspn("", "abcde"));
 }
 
 TEST_F(CrtInterceptorsTest, AsanCheckStrncpy) {
   const char* str_value = "test_strncpy";
-  ScopedASanAlloc<char> source(this, ::strlen(str_value) + 1);
+  ScopedASanAlloc<char> source(this, ::strlen(str_value) + 1, str_value);
   ASSERT_TRUE(source != NULL);
-  ::strcpy(source.get(), str_value);
 
   const char* long_str_value = "test_strncpy_long_source";
-  ScopedASanAlloc<char> long_source(this, ::strlen(long_str_value) + 1);
+  ScopedASanAlloc<char> long_source(this, ::strlen(long_str_value) + 1,
+      long_str_value);
   ASSERT_TRUE(long_source.get() != NULL);
-  ::strcpy(long_source.get(), long_str_value);
 
   ScopedASanAlloc<char> destination(this, ::strlen(str_value) + 1);
   ASSERT_TRUE(destination != NULL);
@@ -558,13 +691,13 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncpy) {
   // Test an overflow on the source.
   size_t source_len = ::strlen(source.get());
   source[source_len] = 'a';
-  source[source_len + 1] = 0;
   memory_error_detected = false;
   EXPECT_EQ(destination.get(), strncpyFunction(destination.get(),
                                                source.get(),
                                                ::strlen(source.get()) + 1));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  source[source_len] = 0;
   ResetLog();
 
   memory_error_detected = false;
@@ -581,14 +714,12 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
   char buffer[64];
 
   ScopedASanAlloc<char> mem(this,
-      ::strlen(prefix_value) + ::strlen(suffix_value) + 1);
+      ::strlen(prefix_value) + ::strlen(suffix_value) + 1, prefix_value);
   ASSERT_TRUE(mem != NULL);
-  ::strcpy(mem.get(), prefix_value);
   ::strcpy(buffer, prefix_value);
 
-  ScopedASanAlloc<char> suffix(this, ::strlen(suffix_value) + 1);
+  ScopedASanAlloc<char> suffix(this, ::strlen(suffix_value) + 1, suffix_value);
   ASSERT_TRUE(mem.get() != NULL);
-  ::strcpy(suffix.get(), suffix_value);
 
   SetCallBackFunction(&AsanErrorCallback);
   memory_error_detected = false;
@@ -620,7 +751,8 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
   ::strcpy(mem.get(), prefix_value);
   ::strcpy(buffer, prefix_value);
   EXPECT_EQ(mem.get() - 1,
-      strncatFunction(mem.get() - 1, suffix.get(), ::strlen(suffix_value)));
+            strncatFunction(mem.get() - 1, suffix.get(),
+                            ::strlen(suffix_value)));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
   EXPECT_STRCASEEQ(
@@ -631,7 +763,6 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
   // Test an overflow on the suffix.
   size_t suffix_len = ::strlen(suffix.get());
   suffix[suffix_len] = 'a';
-  suffix[suffix_len + 1] = 0;
   memory_error_detected = false;
   ::strcpy(mem.get(), prefix_value);
   ::strcpy(buffer, prefix_value);
@@ -641,8 +772,8 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   EXPECT_STRCASEEQ(
       ::strncat(buffer, suffix.get(), ::strlen(suffix.get())), mem.get());
-  ResetLog();
   suffix[suffix_len] = 0;
+  ResetLog();
 
   // Test an overflow on the destination.
   memory_error_detected = false;
@@ -650,15 +781,15 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
   ::strcpy(buffer, prefix_value);
   size_t prefix_len = ::strlen(prefix_value);
   mem[prefix_len] = 'a';
-  mem[prefix_len + 1] = 0;
   buffer[prefix_len] = 'a';
-  buffer[prefix_len + 1] = 0;
   EXPECT_EQ(mem.get(),
       strncatFunction(mem.get(), suffix.get(), ::strlen(suffix.get())));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   EXPECT_STRCASEEQ(
       ::strncat(buffer, suffix.get(), ::strlen(suffix.get())), mem.get());
+  mem[prefix_len] = 0;
+  buffer[prefix_len] = 0;
   ResetLog();
 }
 

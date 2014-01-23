@@ -245,6 +245,12 @@ class ScopedASanAlloc : public scoped_ptr<T, ASanDeleteHelper> {
     Allocate(asan_rtl, size);
   }
 
+  ScopedASanAlloc(TestAsanRtl* asan_rtl, size_t size, const T* value)
+      : scoped_ptr(NULL, ASanDeleteHelper(asan_rtl)) {
+    Allocate(asan_rtl, size);
+    ::memcpy(get(), value, size * sizeof(T));
+  }
+
   template <typename T2>
   T2* GetAs() {
     return reinterpret_cast<T2*>(get());
@@ -254,7 +260,7 @@ class ScopedASanAlloc : public scoped_ptr<T, ASanDeleteHelper> {
     ASSERT_TRUE(asan_rtl != NULL);
     reset(reinterpret_cast<T*>(
         asan_rtl->HeapAllocFunction(asan_rtl->heap(), 0, size * sizeof(T))));
-    memset(get(), 0, size * sizeof(T));
+    ::memset(get(), 0, size * sizeof(T));
   }
 
   T operator[](int i) const {

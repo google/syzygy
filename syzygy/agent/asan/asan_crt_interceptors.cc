@@ -60,16 +60,10 @@ const void* __cdecl asan_memchr(const unsigned char* ptr,
 }
 
 size_t __cdecl asan_strcspn(const char* str1, const char* str2) {
-  size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str1, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str2, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  return ::strcspn(str1, str2);
+  // TODO(sebmarchand): Provide an implementation that guarantees the same
+  //     behavior as the original function.
+  NOTIMPLEMENTED();
+  return 0;
 }
 
 size_t __cdecl asan_strlen(const char* str) {
@@ -88,7 +82,7 @@ const char* __cdecl asan_strrchr(const char* str, int character) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str) + size,
                     HeapProxy::ASAN_READ_ACCESS);
   }
-  return strrchr(str, character);
+  return ::strrchr(str, character);
 }
 
 const wchar_t* asan_wcsrchr(const wchar_t* str, wchar_t character) {
@@ -103,55 +97,31 @@ const wchar_t* asan_wcsrchr(const wchar_t* str, wchar_t character) {
 }
 
 int __cdecl asan_strcmp(const char* str1, const char* str2) {
-  size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str1, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str2, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  return ::strcmp(str1, str2);
+  // TODO(sebmarchand): Provide an implementation that guarantees the same
+  //     behavior as the original function.
+  NOTIMPLEMENTED();
+  return 0;
 }
 
 const char* __cdecl asan_strpbrk(const char* str1, const char* str2) {
-  size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str1, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str2, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  return ::strpbrk(str1, str2);
+  // TODO(sebmarchand): Provide an implementation that guarantees the same
+  //     behavior as the original function.
+  NOTIMPLEMENTED();
+  return NULL;
 }
 
 const char* __cdecl asan_strstr(const char* str1, const char* str2) {
-  size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str1, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str2, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  return ::strstr(str1, str2);
+  // TODO(sebmarchand): Provide an implementation that guarantees the same
+  //     behavior as the original function.
+  NOTIMPLEMENTED();
+  return NULL;
 }
 
 size_t __cdecl asan_strspn(const char* str1, const char* str2) {
-  size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str1, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str1) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str2, 0U, &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str2) + size,
-                    HeapProxy::ASAN_READ_ACCESS);
-  }
-  return ::strspn(str1, str2);
+  // TODO(sebmarchand): Provide an implementation that guarantees the same
+  //     behavior as the original function.
+  NOTIMPLEMENTED();
+  return 0;
 }
 
 char* __cdecl asan_strncpy(char* destination, const char* source, size_t num) {
