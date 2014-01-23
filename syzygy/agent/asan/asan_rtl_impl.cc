@@ -40,11 +40,6 @@ scoped_ptr<HeapProxy> asan_process_heap;
 // The asan runtime manager.
 AsanRuntime* asan_runtime = NULL;
 
-// A callback that will be used in the functions interceptors once the call
-// to the intercepted function has been done. This is for testing purposes
-// only.
-InterceptorTailCallback interceptor_tail_callback = NULL;
-
 }  // namespace
 
 namespace agent {
@@ -664,108 +659,6 @@ BOOL WINAPI asan_HeapQueryInformation(
 void WINAPI asan_SetCallBack(AsanErrorCallBack callback) {
   DCHECK(asan_runtime != NULL);
   asan_runtime->SetErrorCallBack(base::Bind(callback));
-}
-
-void asan_SetInterceptorCallback(InterceptorTailCallback callback) {
-  interceptor_tail_callback = callback;
-}
-
-// TODO(sebmarchand): Move the system call interceptors to their own files.
-
-BOOL WINAPI asan_ReadFile(HANDLE file_handle,
-                          LPVOID buffer,
-                          DWORD bytes_to_read,
-                          LPDWORD bytes_read,
-                          LPOVERLAPPED overlapped) {
-  // TODO(sebmarchand): Add more checks for the asynchronous calls to this
-  //     function. More details about the asynchronous calls to ReadFile are
-  //     available here: http://support.microsoft.com/kb/156932.
-
-  // Ensures that the input values are accessible.
-
-  TestMemoryRange(reinterpret_cast<uint8*>(buffer),
-                  bytes_to_read,
-                  HeapProxy::ASAN_WRITE_ACCESS);
-
-  if (bytes_read != NULL)
-    TestStructure<DWORD>(bytes_read, HeapProxy::ASAN_WRITE_ACCESS);
-
-  if (overlapped != NULL)
-    TestStructure<OVERLAPPED>(overlapped, HeapProxy::ASAN_READ_ACCESS);
-
-  BOOL ret = ::ReadFile(file_handle,
-                        buffer,
-                        bytes_to_read,
-                        bytes_read,
-                        overlapped);
-
-  // Run the interceptor callback if it has been set.
-  if (interceptor_tail_callback != NULL)
-    (*interceptor_tail_callback)();
-
-  if (ret == FALSE)
-    return ret;
-
-  // Even if the overlapped pointer wasn't NULL it might become invalid after
-  // the call to ReadFile, and so we can't test that this structure is
-  // accessible.
-
-  DCHECK_EQ(TRUE, ret);
-  CHECK(bytes_read == NULL || *bytes_read <= bytes_to_read);
-  TestMemoryRange(reinterpret_cast<uint8*>(buffer),
-                  bytes_to_read,
-                  HeapProxy::ASAN_WRITE_ACCESS);
-
-  if (bytes_read != NULL)
-    TestStructure<DWORD>(bytes_read, HeapProxy::ASAN_WRITE_ACCESS);
-
-  return ret;
-}
-
-BOOL WINAPI asan_WriteFile(HANDLE file_handle,
-                           LPCVOID buffer,
-                           DWORD bytes_to_write,
-                           LPDWORD bytes_written,
-                           LPOVERLAPPED overlapped) {
-  // Ensures that the input values are accessible.
-
-  TestMemoryRange(reinterpret_cast<const uint8*>(buffer),
-                  bytes_to_write,
-                  HeapProxy::ASAN_READ_ACCESS);
-
-  if (bytes_written != NULL)
-    TestStructure<DWORD>(bytes_written, HeapProxy::ASAN_WRITE_ACCESS);
-
-  if (overlapped != NULL)
-    TestStructure<OVERLAPPED>(overlapped, HeapProxy::ASAN_READ_ACCESS);
-
-  BOOL ret = ::WriteFile(file_handle,
-                         buffer,
-                         bytes_to_write,
-                         bytes_written,
-                         overlapped);
-
-  // Run the interceptor callback if it has been set.
-  if (interceptor_tail_callback != NULL)
-    (*interceptor_tail_callback)();
-
-  if (ret == FALSE)
-    return ret;
-
-  // Even if the overlapped pointer wasn't NULL it might become invalid after
-  // the call to WriteFile, and so we can't test that this structure is
-  // accessible.
-
-  DCHECK_EQ(TRUE, ret);
-  CHECK(bytes_written == NULL || *bytes_written <= bytes_to_write);
-  TestMemoryRange(reinterpret_cast<const uint8*>(buffer),
-                  bytes_to_write,
-                  HeapProxy::ASAN_READ_ACCESS);
-
-  if (bytes_written != NULL)
-    TestStructure<DWORD>(bytes_written, HeapProxy::ASAN_WRITE_ACCESS);
-
-  return ret;
 }
 
 }  // extern "C"
