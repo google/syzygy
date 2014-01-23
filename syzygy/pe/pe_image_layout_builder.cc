@@ -378,8 +378,8 @@ bool PEImageLayoutBuilder::CreateRelocsSection() {
   BlockGraph::Block* relocs_block = reloc_data.block();
   CHECK_EQ(0, reloc_data.offset());
 
-  // Iterate over all blocks in the address space, in the
-  // order of increasing addresses.
+  // Iterate over all blocks in the address space, in the order of increasing
+  // addresses.
   BlockGraph::AddressSpace::RangeMap::const_iterator it(
       image_layout_->blocks.address_space_impl().ranges().begin());
   BlockGraph::AddressSpace::RangeMap::const_iterator end(

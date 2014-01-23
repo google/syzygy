@@ -179,26 +179,25 @@ TEST_F(PEImageLayoutBuilderTest, PadTestDll) {
     const ImageLayout::SectionInfo& old_section = image_layout_.sections[i];
     const ImageLayout::SectionInfo& new_section = layout.sections[i];
 
-    // All sections (except for .relocs, the last one) should only have grown
-    // in size.
+    // All sections (except for .reloc, the last one) should only have grown
+    // in size. As each of the non-reloc sections may now spread across more
+    // pages than before, the .reloc section itself may have grown (it contains
+    // a structure per page of the image). But, due to the fact that the MS
+    // linker generally creates an overly large .reloc section, it may also have
+    // stayed the same size or gotten smaller.
     if (i + 1 < image_layout_.sections.size()) {
       // We expect the section to have increased in size by at least 100
       // in between each and every block.
       size_t added_bytes =
-        100 * ((*obg_section_it)->ordered_blocks().size() - 1);
+          100 * ((*obg_section_it)->ordered_blocks().size() - 1);
       EXPECT_GE(new_section.size, old_section.size + added_bytes);
       EXPECT_GE(new_section.data_size, old_section.data_size);
-
-      // Keep track of the total number of new bytes that should be making it
-      // to disk.
-      expected_file_size_increase += new_section.data_size -
-          old_section.data_size;
-    } else {
-      // Relocs can only have gotten smaller or stayed the same size.
-      EXPECT_LE(new_section.data_size, old_section.data_size);
-      expected_file_size_increase -= old_section.data_size -
-          new_section.data_size;
     }
+
+    // Keep track of the total number of new bytes that should be making it
+    // to disk.
+    expected_file_size_increase += new_section.data_size -
+        old_section.data_size;
 
     ++obg_section_it;
   }
