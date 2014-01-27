@@ -20,7 +20,7 @@
 #include <windows.h>
 
 #include "base/logging.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 
 namespace trace {
 namespace client {
@@ -44,7 +44,8 @@ bool CreateRpcBinding(const base::StringPiece16& protocol,
       NULL,  // Options.
       &string_binding);
   if (status != RPC_S_OK) {
-    LOG(ERROR) << "Can't compose RPC binding: " << com::LogWe(status) << ".";
+    LOG(ERROR) << "Can't compose RPC binding: " << ::common::LogWe(status)
+               << ".";
     return false;
   }
 
@@ -54,7 +55,8 @@ bool CreateRpcBinding(const base::StringPiece16& protocol,
   ignore_result(::RpcStringFree(&string_binding));
 
   if (status != RPC_S_OK) {
-    LOG(ERROR) << "Can't create RPC binding: " << com::LogWe(status) << ".";
+    LOG(ERROR) << "Can't create RPC binding: " << ::common::LogWe(status)
+               << ".";
     return false;
   }
 

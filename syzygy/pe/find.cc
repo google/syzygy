@@ -23,7 +23,7 @@
 #include "base/logging.h"
 #include "base/utf_string_conversions.h"
 #include "base/strings/string_split.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/common/dbghelp_util.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/pdb_info.h"
@@ -145,7 +145,7 @@ bool FindFile(const base::FilePath& file_path,
                                      callback_context);
   if (::SymCleanup(handle) == FALSE) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "SymCleanup failed: " << com::LogWe(error);
+    LOG(ERROR) << "SymCleanup failed: " << common::LogWe(error);
     return false;
   }
   if (!result) {
@@ -156,7 +156,7 @@ bool FindFile(const base::FilePath& file_path,
       return true;
 
     LOG(ERROR) << "SymFindFileInPath(\"" << file_path.value() << "\") failed: "
-               << com::LogWe(error);
+               << common::LogWe(error);
     return false;
   }
 

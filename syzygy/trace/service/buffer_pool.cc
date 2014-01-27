@@ -19,7 +19,7 @@
 #include "syzygy/trace/service/buffer_pool.h"
 
 #include "base/logging.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 
 namespace trace {
 namespace service {
@@ -47,7 +47,8 @@ bool BufferPool::Init(Session* session,
       ::CreateFileMapping(NULL, NULL, PAGE_READWRITE, 0, mapping_size, NULL));
   if (!new_handle.IsValid()) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to allocate buffer: " << com::LogWe(error) << ".";
+    LOG(ERROR) << "Failed to allocate buffer: " << ::common::LogWe(error)
+               << ".";
     return false;
   }
 

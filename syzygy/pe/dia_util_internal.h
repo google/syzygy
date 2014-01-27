@@ -21,7 +21,7 @@
 #include "base/logging.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 
 namespace pe {
 
@@ -40,7 +40,7 @@ bool LoadDiaDebugStream(IDiaEnumDebugStreamData* stream, std::vector<T>* list) {
   LONG count = 0;
   HRESULT hr = E_FAIL;
   if (FAILED(hr = stream->get_Count(&count))) {
-    LOG(ERROR) << "Failed to get stream count: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failed to get stream count: " << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -50,7 +50,7 @@ bool LoadDiaDebugStream(IDiaEnumDebugStreamData* stream, std::vector<T>* list) {
   hr = stream->Next(count, 0, &bytes_read, NULL, &count_read);
   if (FAILED(hr)) {
     LOG(ERROR) << "Unable to get debug stream length: "
-               << com::LogHr(hr) << ".";
+               << common::LogHr(hr) << ".";
     return false;
   }
   DCHECK_EQ(count * sizeof(T), bytes_read);
@@ -63,7 +63,7 @@ bool LoadDiaDebugStream(IDiaEnumDebugStreamData* stream, std::vector<T>* list) {
                     reinterpret_cast<BYTE*>(&list->at(0)),
                     &count_read);
   if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to read debug stream: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Unable to read debug stream: " << common::LogHr(hr) << ".";
     return false;
   }
   DCHECK_EQ(count * sizeof(T), bytes_read);

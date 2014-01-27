@@ -18,7 +18,7 @@
 
 #include "base/logging.h"
 #include "base/win/pe_image.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/common/path_util.h"
 #include "syzygy/trace/client/rpc_session.h"
 
@@ -124,7 +124,8 @@ bool LogModule(HMODULE module,
   if (::GetMappedFileName(::GetCurrentProcess(), module,
                           module_name, arraysize(module_name)) == 0) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to get module name: " << com::LogWe(error) << ".";
+    LOG(ERROR) << "Failed to get module name: " << ::common::LogWe(error)
+               << ".";
     return false;
   }
   base::FilePath device_path(module_name);

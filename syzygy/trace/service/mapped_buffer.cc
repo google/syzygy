@@ -14,8 +14,8 @@
 
 #include "syzygy/trace/service/mapped_buffer.h"
 
-#include "sawbuck/common/com_utils.h"
 #include "syzygy/common/align.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/trace/service/buffer_pool.h"
 
 namespace trace {
@@ -51,7 +51,7 @@ bool MappedBuffer::Map() {
 
   if (base_ == NULL) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed mapping buffer: " << com::LogWe(error) << ".";
+    LOG(ERROR) << "Failed mapping buffer: " << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -72,7 +72,7 @@ bool MappedBuffer::Unmap() {
 
   if (base_ && !::UnmapViewOfFile(base_)) {
     DWORD error = ::GetLastError();
-    LOG(WARNING) << "Failed to unmap buffer: " << com::LogWe(error) << ".";
+    LOG(WARNING) << "Failed to unmap buffer: " << ::common::LogWe(error) << ".";
     return false;
   }
   base_ = NULL;

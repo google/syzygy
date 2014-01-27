@@ -25,8 +25,8 @@
 #include "base/callback.h"
 #include "base/string_util.h"
 #include "base/memory/scoped_ptr.h"
-#include "sawbuck/common/com_utils.h"
 #include "syzygy/common/align.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/service/buffer_consumer.h"
 #include "syzygy/trace/service/session.h"
@@ -97,7 +97,7 @@ bool Service::OpenServiceEvent() {
   service_event_.Set(::CreateEvent(NULL, TRUE, FALSE, event_name.c_str()));
   if (!service_event_.IsValid()) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to create event: " << com::LogWe(error) << ".";
+    LOG(ERROR) << "Failed to create event: " << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -113,7 +113,7 @@ bool Service::AcquireServiceMutex() {
   base::win::ScopedHandle mutex(::CreateMutex(NULL, FALSE, mutex_name.c_str()));
   if (!mutex.IsValid()) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to create mutex: " << com::LogWe(error) << ".";
+    LOG(ERROR) << "Failed to create mutex: " << ::common::LogWe(error) << ".";
     return false;
   }
   const DWORD kOneSecondInMs = 1000;
@@ -134,7 +134,8 @@ bool Service::AcquireServiceMutex() {
 
     default: {
       DWORD error = ::GetLastError();
-      LOG(ERROR) << "Failed to acquire mutex: " << com::LogWe(error) << ".";
+      LOG(ERROR) << "Failed to acquire mutex: " << ::common::LogWe(error)
+                 << ".";
       break;
     }
   }
@@ -174,7 +175,8 @@ bool Service::InitializeRpc()  {
       reinterpret_cast<RPC_WSTR>(&endpoint[0]),
       NULL /* Security descriptor. */);
   if (status != RPC_S_OK && status != RPC_S_DUPLICATE_ENDPOINT) {
-    LOG(ERROR) << "Failed to init RPC protocol: " << com::LogWe(status) << ".";
+    LOG(ERROR) << "Failed to init RPC protocol: " << ::common::LogWe(status)
+               << ".";
     return false;
   }
 
@@ -184,7 +186,7 @@ bool Service::InitializeRpc()  {
       CallTraceService_CallTrace_v1_0_s_ifspec, NULL, NULL);
   if (status != RPC_S_OK) {
     LOG(ERROR) << "Failed to register CallTrace RPC interface: "
-               << com::LogWe(status) << ".";
+               << ::common::LogWe(status) << ".";
     return false;
   }
 
@@ -194,7 +196,7 @@ bool Service::InitializeRpc()  {
       CallTraceService_CallTraceControl_v1_0_s_ifspec, NULL, NULL);
   if (status != RPC_S_OK) {
     LOG(ERROR) << "Failed to register CallTraceControl RPC interface: "
-               << com::LogWe(status) << ".";
+               << ::common::LogWe(status) << ".";
     return false;
   }
 
@@ -220,8 +222,10 @@ bool Service::RunRPC(bool non_blocking) {
       RPC_C_LISTEN_MAX_CALLS_DEFAULT,
       TRUE);
 
-  if (status != RPC_S_OK)
-    LOG(ERROR) << "Failed to run RPC server: " << com::LogWe(status) << ".";
+  if (status != RPC_S_OK) {
+    LOG(ERROR) << "Failed to run RPC server: " << ::common::LogWe(status)
+               << ".";
+  }
 
   if (status == RPC_S_OK) {
     // Signal that the service is up and running.
@@ -238,7 +242,7 @@ bool Service::RunRPC(bool non_blocking) {
         VLOG(1) << "Call-trace service has finished accepting requests.";
       } else {
         LOG(ERROR) << "Failed to wait on RPC server: "
-                   << com::LogWe(status) << ".";
+                   << ::common::LogWe(status) << ".";
       }
     }
   }
@@ -266,7 +270,7 @@ void Service::StopRpc() {
     RPC_STATUS status = ::RpcMgmtStopServerListening(NULL);
     if (status != RPC_S_OK) {
       LOG(ERROR) << "Failed to stop the RPC server: "
-                 << com::LogWe(status) << ".";
+                 << ::common::LogWe(status) << ".";
     }
     rpc_is_running_ = false;
   }
@@ -285,7 +289,7 @@ void Service::CleanupRpc() {
     status = ::RpcMgmtWaitServerListen();
     if (status != RPC_S_OK && status != RPC_S_NOT_LISTENING) {
       LOG(ERROR) << "Failed wait for RPC server shutdown: "
-                 << com::LogWe(status) << ".";
+                 << ::common::LogWe(status) << ".";
     }
     rpc_is_non_blocking_ = false;
   }
@@ -296,7 +300,7 @@ void Service::CleanupRpc() {
     status = ::RpcServerUnregisterIf(NULL, NULL, FALSE);
     if (status != RPC_S_OK) {
       LOG(ERROR) << "Failed to unregister RPC interfaces: "
-                 << com::LogWe(status) << ".";
+                 << ::common::LogWe(status) << ".";
     }
     rpc_is_initialized_ = false;
   }
@@ -412,7 +416,7 @@ bool Service::CreateSession(handle_t binding,
   RPC_STATUS status = RpcServerInqCallAttributes(binding, &attribs);
   if (status != RPC_S_OK) {
     LOG(ERROR) << "Failed to query RPC call attributes: "
-               << com::LogWe(status) << ".";
+               << ::common::LogWe(status) << ".";
     return false;
   }
 

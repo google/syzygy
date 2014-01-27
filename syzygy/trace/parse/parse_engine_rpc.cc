@@ -18,8 +18,8 @@
 
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "sawbuck/common/com_utils.h"
 #include "syzygy/common/align.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/trace/parse/parse_utils.h"
 
 using common::AlignUp;
@@ -40,7 +40,7 @@ bool ParseEngineRpc::IsRecognizedTraceFile(
   if (!trace_file.get()) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Unable to open '" << trace_file_path.value() << "': "
-               << com::LogWe(error) << ".";
+               << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -90,7 +90,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
   if (!trace_file.get()) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Unable to open '" << trace_file_path.value() << "': "
-               << com::LogWe(error) << ".";
+               << ::common::LogWe(error) << ".";
     return false;
   }
 

@@ -17,8 +17,8 @@
 #include <psapi.h>
 
 #include "base/stringprintf.h"
-#include "sawbuck/common/com_utils.h"
 #include "syzygy/common/align.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/common/path_util.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/trace/common/clock.h"
@@ -43,7 +43,7 @@ bool GetModulePath(HANDLE process, HMODULE module, base::FilePath* path) {
                                           filename.size());
     if (length == 0) {
       DWORD error = ::GetLastError();
-      LOG(ERROR) << "GetModuleFileNameExW failed: " << com::LogWe(error);
+      LOG(ERROR) << "GetModuleFileNameExW failed: " << common::LogWe(error);
       return false;
     }
 
@@ -102,7 +102,7 @@ bool SampledModuleCache::AddModule(HANDLE process,
         temp_handle == INVALID_HANDLE_VALUE) {
       DWORD error = ::GetLastError();
       LOG(ERROR) << "Failed to duplicate handle to process " << pid << ": "
-                 << com::LogWe(error);
+                 << common::LogWe(error);
       return false;
     }
 
@@ -303,7 +303,7 @@ bool SampledModuleCache::Module::Init() {
       LOG(ERROR) << "ReadProcessMemory failed for module at address "
                  << base::StringPrintf("0x%08X", module_)
                  << " of process " << process_->pid() << ": "
-                 << com::LogWe(error);
+                 << common::LogWe(error);
       return false;
     }
     if (bytes_read == 0) {

@@ -15,7 +15,6 @@
 #include "syzygy/pe/unittest_util.h"
 
 #include <imagehlp.h>
-
 #include <functional>
 
 #include "base/command_line.h"
@@ -28,9 +27,9 @@
 #include "base/win/pe_image.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "sawbuck/common/com_utils.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/block_graph/orderers/original_orderer.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/coff_decomposer.h"
 #include "syzygy/pe/coff_file.h"
@@ -316,7 +315,7 @@ void PELibUnitTest::LoadTestDll(const base::FilePath& path,
   module->Reset(::LoadLibrary(path.value().c_str()));
   if (*module == NULL) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "LoadLibrary failed: " << com::LogWe(error);
+    LOG(ERROR) << "LoadLibrary failed: " << common::LogWe(error);
   }
   ASSERT_TRUE(module != NULL);
 }

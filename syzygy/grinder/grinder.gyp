@@ -50,7 +50,6 @@
         'grinders/sample_grinder.h',
       ],
       'dependencies': [
-        '<(src)/sawbuck/common/common.gyp:common',
         '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/pe/pe.gyp:dia_sdk',

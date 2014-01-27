@@ -42,6 +42,7 @@
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
       ],
     },

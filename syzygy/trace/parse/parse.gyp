@@ -45,7 +45,6 @@
         'parse_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
-        '<(src)/sawbuck/common/common.gyp:common',
         '<(src)/syzygy/common/common.gyp:common_lib',
       ],
       'libraries': [
@@ -79,9 +78,9 @@
         'parse_unittest_utils',
         '<(src)/base/base.gyp:base',
         '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
-        '<(src)/sawbuck/common/common.gyp:common',
         # TODO(siggi,rogerm): Remove these "backward" dependencies.
         '<(src)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
+        '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
         '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',

@@ -171,7 +171,8 @@ bool RunApp(const CommandLine& command_line,
 
   // If we get here then an error has occurred (since the timeout is infinite).
   DWORD error = ::GetLastError();
-  LOG(ERROR) << "Error waiting for shutdown event " << com::LogWe(error) << ".";
+  LOG(ERROR) << "Error waiting for shutdown event " << ::common::LogWe(error)
+             << ".";
   return false;
 }
 
@@ -382,7 +383,7 @@ bool LoggerApp::Start() {
   if (!SetConsoleCtrlHandler(&OnConsoleCtrl, TRUE)) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to register shutdown handler: "
-               << com::LogWe(error) << ".";
+               << ::common::LogWe(error) << ".";
     return false;
   }
 

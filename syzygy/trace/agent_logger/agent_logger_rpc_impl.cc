@@ -22,7 +22,7 @@
 
 #include "base/process.h"
 #include "base/win/scoped_handle.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/trace/agent_logger/agent_logger.h"
 #include "syzygy/trace/rpc/logger_rpc.h"
 
@@ -43,7 +43,7 @@ bool GetClientInfo(handle_t binding, ProcessId* pid, ScopedHandle* handle) {
   RPC_STATUS status = RpcServerInqCallAttributes(binding, &attribs);
   if (status != RPC_S_OK) {
     LOG(ERROR) << "Failed to query RPC call attributes: "
-               << com::LogWe(status) << ".";
+               << ::common::LogWe(status) << ".";
     return false;
   }
 
@@ -56,8 +56,8 @@ bool GetClientInfo(handle_t binding, ProcessId* pid, ScopedHandle* handle) {
   handle->Set(::OpenProcess(kFlags, FALSE, the_pid));
   if (!handle->IsValid()) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to open PID=" << the_pid << ": " << com::LogWe(error)
-               << ".";
+    LOG(ERROR) << "Failed to open PID=" << the_pid << ": "
+               << ::common::LogWe(error) << ".";
     return false;
   }
 

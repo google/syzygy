@@ -249,7 +249,7 @@ bool GetRunningProcessIds(PidVector* pids) {
     BOOL result = ::EnumProcesses(&((*pids)[0]), bytes_avail, &bytes_used);
     if (!result) {
       DWORD error = ::GetLastError();
-      LOG(ERROR) << "EnumProcess failed: " << com::LogWe(error);
+      LOG(ERROR) << "EnumProcess failed: " << common::LogWe(error);
       return false;
     }
 
@@ -290,7 +290,7 @@ bool GetProcessHandle(DWORD pid, HANDLE* process) {
     return true;
 
   // Getting here means we were unable to open a handle to the process.
-  LOG(ERROR) << "OpenProcess failed: " << com::LogWe(error);
+  LOG(ERROR) << "OpenProcess failed: " << common::LogWe(error);
   return false;
 }
 
@@ -319,7 +319,7 @@ bool GetProcessModules(HANDLE process, HmoduleVector* modules) {
         return true;
       }
 
-      LOG(ERROR) << "EnumProcessModules failed: " << com::LogWe(error);
+      LOG(ERROR) << "EnumProcessModules failed: " << common::LogWe(error);
       return false;
     }
 
@@ -360,7 +360,7 @@ bool GetModuleSignature(HANDLE process,
   if (!::ReadProcessMemory(process, module, buffer, sizeof(buffer),
                            &bytes_read)) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "ReadProcessMemory failed: " << com::LogWe(error);
+    LOG(ERROR) << "ReadProcessMemory failed: " << common::LogWe(error);
     return false;
   }
   if (bytes_read != sizeof(buffer)) {
@@ -639,7 +639,7 @@ int SamplerApp::Run() {
     if (console_ctrl_owner_ == NULL) {
       if (!::SetConsoleCtrlHandler(&OnConsoleCtrl, TRUE)) {
         DWORD error = ::GetLastError();
-        LOG(ERROR) << "SetConsoleCtrlHandler failed: " << com::LogWe(error);
+        LOG(ERROR) << "SetConsoleCtrlHandler failed: " << common::LogWe(error);
         return false;
       }
       console_ctrl_owner_ = this;
@@ -654,7 +654,7 @@ int SamplerApp::Run() {
     if (console_ctrl_owner_ == this) {
       if (!::SetConsoleCtrlHandler(&OnConsoleCtrl, FALSE)) {
         DWORD error = ::GetLastError();
-        LOG(ERROR) << "SetConsoleCtrlHandler failed: " << com::LogWe(error);
+        LOG(ERROR) << "SetConsoleCtrlHandler failed: " << common::LogWe(error);
         return false;
       }
       console_ctrl_owner_ = NULL;

@@ -197,7 +197,7 @@ bool InitializeDia(const PEFile& image_file,
   HRESULT hr = (*dia_session)->get_globalScope(global);
   if (hr != S_OK) {
     LOG(ERROR) << "Failed to get the DIA global scope: "
-               << com::LogHr(hr) << ".";
+               << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -269,7 +269,7 @@ bool IsBuiltBySupportedCompiler(IDiaSymbol* compiland) {
     ScopedBstr compiland_name;
     if (compiland->get_name(compiland_name.Receive()) == S_OK) {
       VLOG(1) << "Compiland has no compiland details: "
-              << com::ToString(compiland_name);
+              << common::ToString(compiland_name);
     }
     return false;
   }
@@ -561,7 +561,7 @@ bool GetDataSymbolSize(IDiaSymbol* symbol, size_t* length) {
   if (hr == S_FALSE)
     return true;
   if (hr != S_OK) {
-    LOG(ERROR) << "Failed to get type symbol: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failed to get type symbol: " << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -569,7 +569,7 @@ bool GetDataSymbolSize(IDiaSymbol* symbol, size_t* length) {
   hr = type->get_length(&ull_length);
   if (hr != S_OK) {
     LOG(ERROR) << "Failed to retrieve type length properties: "
-               << com::LogHr(hr) << ".";
+               << common::LogHr(hr) << ".";
     return false;
   }
   DCHECK_LE(ull_length, 0xFFFFFFFF);
@@ -1193,7 +1193,7 @@ bool Decomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
       break;
     if (hr != S_OK) {
       LOG(ERROR) << "Failed to get DIA section contribution: "
-                 << com::LogHr(hr) << ".";
+                 << common::LogHr(hr) << ".";
       return false;
     }
     // We actually end up seeing S_OK and fetched == 0 when the enumeration
@@ -1214,7 +1214,7 @@ bool Decomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
         (hr = section_contrib->get_compiland(compiland.Receive())) != S_OK ||
         (hr = compiland->get_name(bstr_compiland_name.Receive())) != S_OK) {
       LOG(ERROR) << "Failed to get section contribution properties: "
-                 << com::LogHr(hr) << ".";
+                 << common::LogHr(hr) << ".";
       return false;
     }
 
@@ -1519,8 +1519,8 @@ DiaBrowser::BrowserDirective Decomposer::OnPushFunctionOrThunkSymbol(
       FAILED(hr = symbol->get_relativeVirtualAddress(&rva)) ||
       FAILED(hr = symbol->get_length(&length)) ||
       FAILED(hr = symbol->get_name(name_bstr.Receive()))) {
-    LOG(ERROR) << "Failed to get function/thunk properties: " << com::LogHr(hr)
-               << ".";
+    LOG(ERROR) << "Failed to get function/thunk properties: "
+               << common::LogHr(hr) << ".";
     return DiaBrowser::kBrowserAbort;
   }
 
@@ -1654,7 +1654,7 @@ DiaBrowser::BrowserDirective Decomposer::OnDataSymbol(
   if (FAILED(hr = symbol->get_locationType(&location_type)) ||
       FAILED(hr = symbol->get_relativeVirtualAddress(&rva)) ||
       FAILED(hr = symbol->get_name(name_bstr.Receive()))) {
-    LOG(ERROR) << "Failed to get data properties: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failed to get data properties: " << common::LogHr(hr) << ".";
     return DiaBrowser::kBrowserAbort;
   }
 
@@ -1758,8 +1758,8 @@ DiaBrowser::BrowserDirective Decomposer::OnPublicSymbol(
   ScopedBstr name_bstr;
   if (FAILED(hr = symbol->get_relativeVirtualAddress(&rva)) ||
       FAILED(hr = symbol->get_name(name_bstr.Receive()))) {
-    LOG(ERROR) << "Failed to get public symbol properties: " << com::LogHr(hr)
-               << ".";
+    LOG(ERROR) << "Failed to get public symbol properties: "
+               << common::LogHr(hr) << ".";
     return DiaBrowser::kBrowserAbort;
   }
 
@@ -1798,7 +1798,7 @@ DiaBrowser::BrowserDirective Decomposer::OnLabelSymbol(
   ScopedBstr name_bstr;
   if (FAILED(hr = symbol->get_relativeVirtualAddress(&rva)) ||
       FAILED(hr = symbol->get_name(name_bstr.Receive()))) {
-    LOG(ERROR) << "Failed to get label symbol properties: " << com::LogHr(hr)
+    LOG(ERROR) << "Failed to get label symbol properties: " << common::LogHr(hr)
                << ".";
     return DiaBrowser::kBrowserAbort;
   }
@@ -1844,7 +1844,7 @@ DiaBrowser::BrowserDirective Decomposer::OnScopeSymbol(
   HRESULT hr = E_FAIL;
   DWORD rva = 0;
   if (FAILED(hr = symbol->get_relativeVirtualAddress(&rva))) {
-    LOG(ERROR) << "Failed to get scope symbol properties: " << com::LogHr(hr)
+    LOG(ERROR) << "Failed to get scope symbol properties: " << common::LogHr(hr)
                << ".";
     return DiaBrowser::kBrowserAbort;
   }
@@ -1895,7 +1895,7 @@ DiaBrowser::BrowserDirective Decomposer::OnCallSiteSymbol(
   DWORD rva = 0;
   if (FAILED(hr = symbol->get_relativeVirtualAddress(&rva))) {
     LOG(ERROR) << "Failed to get call site symbol properties: "
-               << com::LogHr(hr) << ".";
+               << common::LogHr(hr) << ".";
     return DiaBrowser::kBrowserAbort;
   }
 

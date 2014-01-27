@@ -36,9 +36,9 @@
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
-        '<(src)/sawbuck/common/common.gyp:common',
         '<(src)/syzygy/pdb/pdb.gyp:pdb_lib',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/common/common.gyp:syzygy_version',
       ],
     },

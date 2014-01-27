@@ -17,7 +17,7 @@
 #include <windows.h>
 
 #include "base/logging.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 
 namespace common {
 
@@ -49,7 +49,7 @@ bool ConvertDevicePathToDrivePath(const base::FilePath& device_path,
     DWORD device_length = ::QueryDosDevice(drive, device, arraysize(device));
     if (device_length == 0) {
       DWORD error = ::GetLastError();
-      LOG(WARNING) << "QueryDosDevice failed: " << com::LogWe(error);
+      LOG(WARNING) << "QueryDosDevice failed: " << common::LogWe(error);
     } else {
       // The string that QueryDosDevice writes is terminated with 2 nulls.
       DCHECK_GT(device_length, 2u);

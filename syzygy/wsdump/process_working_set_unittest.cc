@@ -23,7 +23,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_handle.h"
 #include "gtest/gtest.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/core/address_space.h"
 
 namespace wsdump {

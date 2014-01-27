@@ -21,7 +21,7 @@
 #include "base/utf_string_conversions.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/core/address_space.h"
 
 namespace grinder {
@@ -42,13 +42,13 @@ bool GetDiaSessionForPdb(const base::FilePath& pdb_path,
 
   HRESULT hr = source->loadDataFromPdb(pdb_path.value().c_str());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failure in loadDataFromPdb: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failure in loadDataFromPdb: " << common::LogHr(hr) << ".";
     return false;
   }
 
   hr = source->openSession(session);
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failure in openSession: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failure in openSession: " << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -63,12 +63,13 @@ bool DisableOmapTranslation(IDiaSession* session) {
   HRESULT hr = session->QueryInterface(IID_IDiaAddressMap,
                                        addr_map.ReceiveVoid());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failure in QueryInterface: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failure in QueryInterface: " << common::LogHr(hr) << ".";
     return false;
   }
   hr = addr_map->put_addressMapEnabled(FALSE);
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failure in put_addressMapEnabled: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failure in put_addressMapEnabled: " << common::LogHr(hr)
+               << ".";
     return false;
   }
 
@@ -91,23 +92,23 @@ const std::string* GetSourceFileName(DWORD source_file_id,
   ScopedComPtr<IDiaSourceFile> source_file;
   HRESULT hr = line_number->get_sourceFile(source_file.Receive());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failure in get_sourceFile: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failure in get_sourceFile: " << common::LogHr(hr) << ".";
     return NULL;
   }
 
   ScopedBstr source_file_path_bstr;
   hr = source_file->get_fileName(source_file_path_bstr.Receive());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failure in get_fileName: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failure in get_fileName: " << common::LogHr(hr) << ".";
     return NULL;
   }
 
   std::string source_file_path;
-  if (!WideToUTF8(com::ToString(source_file_path_bstr),
+  if (!WideToUTF8(common::ToString(source_file_path_bstr),
                   source_file_path_bstr.Length(),
                   &source_file_path)) {
     LOG(ERROR) << "WideToUTF8 failed for path \""
-               << com::ToString(source_file_path_bstr) << "\".";
+               << common::ToString(source_file_path_bstr) << "\".";
     return NULL;
   }
 
@@ -134,7 +135,7 @@ bool LineInfo::Init(const base::FilePath& pdb_path) {
   ScopedComPtr<IDiaDataSource> source;
   HRESULT hr = source.CreateInstance(CLSID_DiaSource);
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to create DiaSource: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failed to create DiaSource: " << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -150,7 +151,7 @@ bool LineInfo::Init(const base::FilePath& pdb_path) {
   ScopedComPtr<IDiaEnumLineNumbers> line_number_enum;
   hr = session->findLinesByRVA(0, 0xFFFFFF, line_number_enum.Receive());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failure in findLinesByRVA: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failure in findLinesByRVA: " << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -163,7 +164,7 @@ bool LineInfo::Init(const base::FilePath& pdb_path) {
   LONG line_number_count = 0;
   hr = line_number_enum->get_Count(&line_number_count);
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failure in get_Count: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failure in get_Count: " << common::LogHr(hr) << ".";
     return false;
   }
   source_lines_.reserve(line_number_count);
@@ -182,7 +183,7 @@ bool LineInfo::Init(const base::FilePath& pdb_path) {
     DWORD source_file_id = 0;
     hr = line_number->get_sourceFileId(&source_file_id);
     if (FAILED(hr)) {
-      LOG(ERROR) << "Failure in get_sourceFileId: " << com::LogHr(hr) << ".";
+      LOG(ERROR) << "Failure in get_sourceFileId: " << common::LogHr(hr) << ".";
       return false;
     }
 

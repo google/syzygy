@@ -23,8 +23,8 @@
 
 #include "base/logging.h"
 #include "base/string_util.h"
-#include "sawbuck/common/com_utils.h"
 #include "syzygy/common/align.h"
+#include "syzygy/common/com_utils.h"
 
 // From advapi32.dll, but including ntsecapi.h causes conflicting declarations.
 extern "C" ULONG NTAPI LsaNtStatusToWinError(__in NTSTATUS status);
@@ -48,8 +48,8 @@ bool GetPBI(uint32 pid, HANDLE handle, PROCESS_BASIC_INFORMATION* pbi) {
   HMODULE ntdll = GetModuleHandle(L"ntdll.dll");
   if (ntdll == NULL) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to get ntdll.dll module handle: " << com::LogWe(error)
-               << ".";
+    LOG(ERROR) << "Failed to get ntdll.dll module handle: "
+               << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -59,14 +59,15 @@ bool GetPBI(uint32 pid, HANDLE handle, PROCESS_BASIC_INFORMATION* pbi) {
   if (query_func == NULL) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to get NtQueryInformationProcess proc address: "
-               << com::LogWe(error) << ".";
+               << ::common::LogWe(error) << ".";
     return false;
   }
 
   NTSTATUS status = query_func(handle, 0, pbi, sizeof(*pbi), NULL);
   if (status != 0) {
     LOG(ERROR) << "Failed to query process information for PID=" << pid
-               << ": " << com::LogWe(::LsaNtStatusToWinError(status)) << ".";
+               << ": " << ::common::LogWe(::LsaNtStatusToWinError(status))
+               << ".";
     return false;
   }
 
@@ -110,8 +111,8 @@ bool ReadEnvironmentString(HANDLE handle,
     if (!::ReadProcessMemory(handle, remote_cursor, buffer, bytes_to_read,
                              &bytes_read)) {
       DWORD error = ::GetLastError();
-      LOG(ERROR) << "Failed to read environment string: " << com::LogWe(error)
-                 << ".";
+      LOG(ERROR) << "Failed to read environment string: "
+                 << ::common::LogWe(error) << ".";
       return false;
     }
     DCHECK_LT(0u, bytes_read);
@@ -176,7 +177,7 @@ bool GetProcessStrings(uint32 pid,
                            &user_proc_params, sizeof(user_proc_params), NULL)) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to read process parameter pointer for PID=" << pid
-               << " " << com::LogWe(error) << ".";
+               << " " << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -189,7 +190,7 @@ bool GetProcessStrings(uint32 pid,
                            &string_value[0], sizeof(string_value), NULL)) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to read the process parameters for PID=" << pid
-               << ": " << com::LogWe(error) << ".";
+               << ": " << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -201,7 +202,7 @@ bool GetProcessStrings(uint32 pid,
                            string_value[0].Length, NULL)) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to read the exe path for PID=" << pid
-               << ": " << com::LogWe(error) << ".";
+               << ": " << ::common::LogWe(error) << ".";
     return false;
   }
   *exe_path = base::FilePath(temp_exe_path);
@@ -213,7 +214,7 @@ bool GetProcessStrings(uint32 pid,
                            string_value[1].Length, NULL)) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to read the command line for PID=" << pid
-               << ": " << com::LogWe(error) << ".";
+               << ": " << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -227,7 +228,7 @@ bool GetProcessStrings(uint32 pid,
                            NULL)) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to read environment variable string for PID=" << pid
-               << ": " << com::LogWe(error) << ".";
+               << ": " << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -252,7 +253,7 @@ bool GetProcessNtHeaders(
   if (!::EnumProcessModules(handle, &module, sizeof(module), &dummy)) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to get module handle for PID=" << pid
-               << ": " << com::LogWe(error) << ".";
+               << ": " << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -261,7 +262,7 @@ bool GetProcessNtHeaders(
   if (!::GetModuleInformation(handle, module, &info, sizeof(info))) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to get module info for PID=" << pid
-               << ": " << com::LogWe(error) << ".";
+               << ": " << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -277,7 +278,7 @@ bool GetProcessNtHeaders(
       bytes_read != bytes_to_read) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to read DOS header for PID=" << pid
-               << " " << com::LogWe(error) << ".";
+               << " " << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -290,7 +291,7 @@ bool GetProcessNtHeaders(
       bytes_read != bytes_to_read) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to read NT headers for PID=" << pid
-               << " " << com::LogWe(error) << ".";
+               << " " << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -347,7 +348,7 @@ bool ProcessInfo::Initialize(uint32 pid) {
 
   if (!process_handle.IsValid()) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to open PID=" << pid << " " << com::LogWe(error)
+    LOG(ERROR) << "Failed to open PID=" << pid << " " << ::common::LogWe(error)
                << ".";
     Reset();
     return false;
@@ -370,7 +371,7 @@ bool ProcessInfo::Initialize(uint32 pid) {
       reinterpret_cast<OSVERSIONINFO*>(&os_version_info))) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to get OS version information: "
-               << com::LogWe(error) << ".";
+               << ::common::LogWe(error) << ".";
     Reset();
     return false;
   }
@@ -379,7 +380,7 @@ bool ProcessInfo::Initialize(uint32 pid) {
   if (!::GlobalMemoryStatusEx(&memory_status)) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to get global memory status: "
-               << com::LogWe(error) << ".";
+               << ::common::LogWe(error) << ".";
     Reset();
     return false;
   }

@@ -27,10 +27,10 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
-#include "sawbuck/common/com_utils.h"
 #include "sawbuck/sym_util/types.h"
 #include "syzygy/block_graph/block_util.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/core/disassembler_util.h"
 #include "syzygy/core/zstream.h"
 #include "syzygy/pdb/omap.h"
@@ -208,7 +208,7 @@ bool GetTypeInfo(IDiaSymbol* symbol, size_t* length) {
   if (hr == S_FALSE)
     return true;
   if (hr != S_OK) {
-    LOG(ERROR) << "Failed to get type symbol: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failed to get type symbol: " << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -216,7 +216,7 @@ bool GetTypeInfo(IDiaSymbol* symbol, size_t* length) {
   hr = type->get_length(&ull_length);
   if (hr != S_OK) {
     LOG(ERROR) << "Failed to retrieve type length properties: "
-               << com::LogHr(hr) << ".";
+               << common::LogHr(hr) << ".";
     return false;
   }
   *length = ull_length;
@@ -490,7 +490,7 @@ bool IsBuiltBySupportedCompiler(IDiaSymbol* compiland) {
     ScopedBstr compiland_name;
     if (compiland->get_name(compiland_name.Receive()) == S_OK) {
       VLOG(1) << "Compiland has no compiland details: "
-              << com::ToString(compiland_name);
+              << common::ToString(compiland_name);
     }
     return false;
   }
@@ -836,7 +836,7 @@ bool OldDecomposer::Decompose(ImageLayout* image_layout) {
       image_file_.nt_headers()->OptionalHeader.ImageBase);
   if (hr != S_OK) {
     LOG(ERROR) << "Failed to set the DIA load address: "
-               << com::LogHr(hr) << ".";
+               << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -844,7 +844,7 @@ bool OldDecomposer::Decompose(ImageLayout* image_layout) {
   hr = dia_session->get_globalScope(global.Receive());
   if (hr != S_OK) {
     LOG(ERROR) << "Failed to get the DIA global scope: "
-               << com::LogHr(hr) << ".";
+               << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -1012,7 +1012,7 @@ bool OldDecomposer::ProcessFunctionSymbols(IDiaSymbol* global) {
                                     dia_enum_symbols.Receive());
   if (hr != S_OK) {
     LOG(ERROR) << "Failed to get the DIA function enumerator: "
-               << com::LogHr(hr) << ".";
+               << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -1027,7 +1027,8 @@ bool OldDecomposer::ProcessFunctionSymbols(IDiaSymbol* global) {
     ULONG fetched = 0;
     hr = dia_enum_symbols->Next(1, function.Receive(), &fetched);
     if (hr != S_OK) {
-      LOG(ERROR) << "Failed to enumerate functions: " << com::LogHr(hr) << ".";
+      LOG(ERROR) << "Failed to enumerate functions: " << common::LogHr(hr)
+                 << ".";
       return false;
     }
     if (fetched == 0)
@@ -1049,7 +1050,7 @@ bool OldDecomposer::ProcessFunctionOrThunkSymbol(IDiaSymbol* function) {
   HRESULT hr = E_FAIL;
   if (FAILED(hr = function->get_locationType(&location_type))) {
     LOG(ERROR) << "Failed to retrieve function address type: "
-               << com::LogHr(hr) << ".";
+               << common::LogHr(hr) << ".";
     return false;
   }
   if (location_type != LocIsStatic) {
@@ -1064,7 +1065,7 @@ bool OldDecomposer::ProcessFunctionOrThunkSymbol(IDiaSymbol* function) {
       (hr = function->get_length(&length)) != S_OK ||
       (hr = function->get_name(name.Receive())) != S_OK) {
     LOG(ERROR) << "Failed to retrieve function information: "
-               << com::LogHr(hr) << ".";
+               << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -1157,7 +1158,7 @@ bool OldDecomposer::CreateLabelsForFunction(IDiaSymbol* function,
                                       dia_enum_symbols.Receive());
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to get the DIA label enumerator: "
-               << com::LogHr(hr) << ".";
+               << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -1167,7 +1168,7 @@ bool OldDecomposer::CreateLabelsForFunction(IDiaSymbol* function,
     hr = dia_enum_symbols->Next(1, symbol.Receive(), &fetched);
     if (FAILED(hr)) {
       LOG(ERROR) << "Failed to enumerate the DIA symbol: "
-                 << com::LogHr(hr) << ".";
+                 << common::LogHr(hr) << ".";
       return false;
     }
     if (hr != S_OK || fetched == 0)
@@ -1324,7 +1325,7 @@ bool OldDecomposer::ProcessThunkSymbols(IDiaSymbol* globals) {
                                      enum_compilands.Receive());
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to retrieve compiland enumerator: "
-               << com::LogHr(hr) << ".";
+               << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -1334,7 +1335,7 @@ bool OldDecomposer::ProcessThunkSymbols(IDiaSymbol* globals) {
     hr = enum_compilands->Next(1, compiland.Receive(), &fetched);
     if (FAILED(hr)) {
       LOG(ERROR) << "Failed to enumerate compiland enumerator: "
-                 << com::LogHr(hr) << ".";
+                 << common::LogHr(hr) << ".";
       return false;
     }
     if (hr != S_OK || fetched == 0)
@@ -1347,7 +1348,7 @@ bool OldDecomposer::ProcessThunkSymbols(IDiaSymbol* globals) {
                                  enum_thunks.Receive());
     if (FAILED(hr)) {
       LOG(ERROR) << "Failed to retrieve thunk enumerator: "
-                 << com::LogHr(hr) << ".";
+                 << common::LogHr(hr) << ".";
       return false;
     }
 
@@ -1356,7 +1357,7 @@ bool OldDecomposer::ProcessThunkSymbols(IDiaSymbol* globals) {
       hr = enum_thunks->Next(1, thunk.Receive(), &fetched);
       if (FAILED(hr)) {
         LOG(ERROR) << "Failed to enumerate thunk enumerator: "
-                   << com::LogHr(hr) << ".";
+                   << common::LogHr(hr) << ".";
         return false;
       }
       if (hr != S_OK || fetched == 0)
@@ -1380,7 +1381,7 @@ bool OldDecomposer::CreateGlobalLabels(IDiaSymbol* globals) {
                                      enum_compilands.Receive());
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to retrieve compiland enumerator: "
-               << com::LogHr(hr) << ".";
+               << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -1390,7 +1391,7 @@ bool OldDecomposer::CreateGlobalLabels(IDiaSymbol* globals) {
     hr = enum_compilands->Next(1, compiland.Receive(), &fetched);
     if (FAILED(hr)) {
       LOG(ERROR) << "Failed to enumerate compiland enumerator: "
-                 << com::LogHr(hr) << ".";
+                 << common::LogHr(hr) << ".";
       return false;
     }
     if (hr != S_OK || fetched == 0)
@@ -1403,7 +1404,7 @@ bool OldDecomposer::CreateGlobalLabels(IDiaSymbol* globals) {
                                  enum_labels.Receive());
     if (FAILED(hr)) {
       LOG(ERROR) << "Failed to retrieve label enumerator: "
-                 << com::LogHr(hr) << ".";
+                 << common::LogHr(hr) << ".";
       return false;
     }
 
@@ -1412,7 +1413,7 @@ bool OldDecomposer::CreateGlobalLabels(IDiaSymbol* globals) {
       hr = enum_labels->Next(1, label.Receive(), &fetched);
       if (FAILED(hr)) {
         LOG(ERROR) << "Failed to enumerate label enumerator: "
-                   << com::LogHr(hr) << ".";
+                   << common::LogHr(hr) << ".";
         return false;
       }
       if (hr != S_OK || fetched == 0)
@@ -1680,7 +1681,7 @@ bool OldDecomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
     HRESULT hr = section_contribs->Next(1, section_contrib.Receive(), &fetched);
     if (hr != S_OK) {
       LOG(ERROR) << "Failed to get DIA section contribution: "
-                 << com::LogHr(hr) << ".";
+                 << common::LogHr(hr) << ".";
       return false;
     }
     if (fetched == 0)
@@ -1700,7 +1701,7 @@ bool OldDecomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
         (hr = section_contrib->get_compiland(compiland.Receive())) != S_OK ||
         (hr = compiland->get_name(bstr_name.Receive())) != S_OK) {
       LOG(ERROR) << "Failed to get section contribution properties: "
-                 << com::LogHr(hr) << ".";
+                 << common::LogHr(hr) << ".";
       return false;
     }
 
@@ -1764,7 +1765,7 @@ DiaBrowser::BrowserDirective OldDecomposer::OnDataSymbol(
   if (FAILED(hr = data->get_locationType(&location_type)) ||
       FAILED(hr = data->get_relativeVirtualAddress(&rva)) ||
       FAILED(hr = data->get_name(name_bstr.Receive()))) {
-    LOG(ERROR) << "Failed to get data properties: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failed to get data properties: " << common::LogHr(hr) << ".";
     return DiaBrowser::kBrowserAbort;
   }
 

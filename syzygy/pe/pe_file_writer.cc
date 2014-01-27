@@ -22,7 +22,7 @@
 #include "base/logging.h"
 #include "base/win/scoped_handle.h"
 #include "sawbuck/common/buffer_parser.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/pe/pe_utils.h"
 
 namespace pe {
@@ -185,7 +185,7 @@ bool PEFileWriter::UpdateFileChecksum(const base::FilePath& path) {
 
   if (nt_headers == NULL) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "CheckSumMappedFile failed: " << com::LogWe(error);
+    LOG(ERROR) << "CheckSumMappedFile failed: " << common::LogWe(error);
   }
 
   // On success, we write the checksum back to the file header.

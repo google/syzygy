@@ -16,7 +16,7 @@
 
 #include "base/file_util.h"
 #include "base/win/scoped_handle.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 
 namespace core {
 
@@ -50,14 +50,14 @@ FileInformationResult GetFileInformation(
       return kFileNotFound;
 
     LOG(ERROR) << "Unable to open \"" << path.value() << "\": "
-               << com::LogWe(error);
+               << common::LogWe(error);
     return kFailure;
   }
 
   if (!::GetFileInformationByHandle(handle->Get(), file_info)) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "GetFileInformationByHandle failed for \"" << path.value()
-               << "\": " << com::LogWe(error);
+               << "\": " << common::LogWe(error);
     return kFailure;
   }
 

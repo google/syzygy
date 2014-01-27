@@ -23,7 +23,7 @@
 #include "base/utf_string_conversions.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_com_initializer.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/pe/dia_util.h"
 #include "syzygy/pe/find.h"
 
@@ -275,7 +275,7 @@ bool FilterCompiler::CrawlSymbols() {
     HRESULT hr = session->get_globalScope(global.Receive());
     if (FAILED(hr)) {
       LOG(ERROR) << "Failed to get the DIA global scope: "
-                 << com::LogHr(hr) << ".";
+                 << common::LogHr(hr) << ".";
       return false;
     }
 
@@ -368,7 +368,7 @@ bool FilterCompiler::MatchRulesBySymbolName(const RulePointers& rules,
   std::string name;
   if (!WideToUTF8(name_bstr, name_bstr.Length(), &name)) {
     LOG(ERROR) << "Failed to convert symbol name to UTF8: "
-               << com::ToString(name_bstr);
+               << common::ToString(name_bstr);
     return false;
   }
 

@@ -15,7 +15,7 @@
 #include "syzygy/trace/common/service_util.h"
 
 #include "base/file_util.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 
 namespace trace {
 namespace common {
@@ -31,7 +31,8 @@ bool AcquireMutex(const base::StringPiece16& mutex_name,
   base::win::ScopedHandle tmp_mutex(::CreateMutex(NULL, FALSE, name_ptr));
   if (!tmp_mutex.IsValid()) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to create named mutex: " << com::LogWe(error) << ".";
+    LOG(ERROR) << "Failed to create named mutex: " << ::common::LogWe(error)
+               << ".";
     return false;
   }
   const DWORD kOneSecondInMs = 1000;
@@ -52,7 +53,8 @@ bool AcquireMutex(const base::StringPiece16& mutex_name,
 
     default: {
       DWORD error = ::GetLastError();
-      LOG(ERROR) << "Failed to acquire mutex: " << com::LogWe(error) << ".";
+      LOG(ERROR) << "Failed to acquire mutex: " << ::common::LogWe(error)
+                 << ".";
       break;
     }
   }
@@ -91,7 +93,7 @@ bool ScopedConsoleCtrlHandler::Init(PHANDLER_ROUTINE handler) {
   if (!::SetConsoleCtrlHandler(handler, TRUE)) {
     DWORD err = ::GetLastError();
     LOG(ERROR) << "Failed to register console control handler: "
-                << com::LogWe(err) << ".";
+               << ::common::LogWe(err) << ".";
     return false;
   }
 

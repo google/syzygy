@@ -55,7 +55,7 @@
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
-        '<(src)/sawbuck/common/common.gyp:common',
+        '<(src)/syzygy/common/common.gyp:common_lib',
       ],
     },
     {

@@ -19,7 +19,7 @@
 #include "base/logging.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 
 namespace pe {
 
@@ -60,8 +60,8 @@ bool CreateDiaSource(IDiaDataSource** created_source) {
   }
 
   LOG(ERROR) << "Failed to create DiaDataSource.";
-  LOG(ERROR) << "  CreateInstance failed with: " << com::LogHr(hr1);
-  LOG(ERROR) << "  NoRegCoCreate failed with: " << com::LogHr(hr2);
+  LOG(ERROR) << "  CreateInstance failed with: " << common::LogHr(hr1);
+  LOG(ERROR) << "  NoRegCoCreate failed with: " << common::LogHr(hr2);
 
   return false;
 }
@@ -84,7 +84,7 @@ bool CreateDiaSession(const base::FilePath& file,
 
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to load DIA data for \"" << file.value() << "\": "
-               << com::LogHr(hr) << ".";
+               << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -92,7 +92,7 @@ bool CreateDiaSession(const base::FilePath& file,
   hr = dia_source->openSession(session.Receive());
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to open DIA session for \"" << file.value() << "\" : "
-               << com::LogHr(hr) << ".";
+               << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -114,7 +114,7 @@ SearchResult FindDiaTable(const IID& iid,
   HRESULT hr = dia_session->getEnumTables(enum_tables.Receive());
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to get DIA table enumerator: "
-               << com::LogHr(hr) << ".";
+               << common::LogHr(hr) << ".";
     return kSearchErrored;
   }
 
@@ -125,7 +125,7 @@ SearchResult FindDiaTable(const IID& iid,
     hr = enum_tables->Next(1, table.Receive(), &fetched);
     if (FAILED(hr)) {
       LOG(ERROR) << "Failed to get DIA table: "
-                 << com::LogHr(hr) << ".";
+                 << common::LogHr(hr) << ".";
       return kSearchErrored;
     }
     if (fetched == 0)
@@ -152,7 +152,7 @@ SearchResult FindDiaDebugStream(const wchar_t* name,
   HRESULT hr = E_FAIL;
   ScopedComPtr<IDiaEnumDebugStreams> debug_streams;
   if (FAILED(hr = dia_session->getEnumDebugStreams(debug_streams.Receive()))) {
-    LOG(ERROR) << "Unable to get debug streams: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Unable to get debug streams: " << common::LogHr(hr) << ".";
     return kSearchErrored;
   }
 
@@ -163,7 +163,7 @@ SearchResult FindDiaDebugStream(const wchar_t* name,
     HRESULT hr = debug_streams->Next(1, debug_stream.Receive(), &count);
     if (FAILED(hr) || (hr != S_FALSE && count != 1)) {
       LOG(ERROR) << "Unable to load debug stream: "
-                 << com::LogHr(hr) << ".";
+                 << common::LogHr(hr) << ".";
       return kSearchErrored;
     } else if (hr == S_FALSE) {
       // No more records.
@@ -173,12 +173,12 @@ SearchResult FindDiaDebugStream(const wchar_t* name,
     ScopedBstr stream_name;
     if (FAILED(hr = debug_stream->get_name(stream_name.Receive()))) {
       LOG(ERROR) << "Unable to get debug stream name: "
-                 << com::LogHr(hr) << ".";
+                 << common::LogHr(hr) << ".";
       return kSearchErrored;
     }
 
     // Found the stream?
-    if (wcscmp(com::ToString(stream_name), name) == 0) {
+    if (wcscmp(common::ToString(stream_name), name) == 0) {
       *dia_debug_stream = debug_stream.Detach();
       return kSearchSucceeded;
     }
@@ -194,7 +194,7 @@ bool GetSymTag(IDiaSymbol* symbol, enum SymTagEnum* sym_tag) {
   *sym_tag = SymTagNull;
   HRESULT hr = symbol->get_symTag(&tmp_tag);
   if (hr != S_OK) {
-    LOG(ERROR) << "Error getting sym tag: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Error getting sym tag: " << common::LogHr(hr) << ".";
     return false;
   }
   *sym_tag = static_cast<enum SymTagEnum>(tmp_tag);
@@ -237,7 +237,7 @@ bool ChildVisitor::VisitChildrenImpl() {
                                      nsNone,
                                      children.Receive());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to get children: " << com::LogHr(hr);
+    LOG(ERROR) << "Unable to get children: " << common::LogHr(hr);
     return false;
   }
 
@@ -254,7 +254,7 @@ bool ChildVisitor::EnumerateChildren(IDiaEnumSymbols* children) {
     if (FAILED(hr)) {
       DCHECK_EQ(0U, fetched);
       DCHECK(child == NULL);
-      LOG(ERROR) << "Unable to iterate children: " << com::LogHr(hr);
+      LOG(ERROR) << "Unable to iterate children: " << common::LogHr(hr);
       return false;
     }
     if (hr == S_FALSE)
@@ -285,7 +285,7 @@ bool CompilandVisitor::VisitAllCompilands(
   base::win::ScopedComPtr<IDiaSymbol> global;
   HRESULT hr = session_->get_globalScope(global.Receive());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to get global scope: " << com::LogHr(hr);
+    LOG(ERROR) << "Unable to get global scope: " << common::LogHr(hr);
     return false;
   }
 
@@ -330,7 +330,7 @@ bool LineVisitor::EnumerateCompilandSource(IDiaSymbol* compiland,
     if (FAILED(hr)) {
       DCHECK_EQ(0U, fetched);
       DCHECK(line_number == NULL);
-      LOG(ERROR) << "Unable to iterate line numbers: " << com::LogHr(hr);
+      LOG(ERROR) << "Unable to iterate line numbers: " << common::LogHr(hr);
       return false;
     }
     if (hr == S_FALSE)
@@ -358,7 +358,7 @@ bool LineVisitor::EnumerateCompilandSources(IDiaSymbol* compiland,
     if (FAILED(hr)) {
       DCHECK_EQ(0U, fetched);
       DCHECK(source_file == NULL);
-      LOG(ERROR) << "Unable to iterate source files: " << com::LogHr(hr);
+      LOG(ERROR) << "Unable to iterate source files: " << common::LogHr(hr);
       return false;
     }
     if (hr == S_FALSE)
@@ -386,7 +386,7 @@ bool LineVisitor::VisitLinesImpl() {
                                   nsNone,
                                   source_files.Receive());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to get source files: " << com::LogHr(hr);
+    LOG(ERROR) << "Unable to get source files: " << common::LogHr(hr);
     return false;
   }
 

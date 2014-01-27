@@ -38,7 +38,7 @@
       'dependencies': [
         'etw_control_lib',
         '<(src)/base/base.gyp:base',
-        '<(src)/sawbuck/common/common.gyp:common',
+        '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
       ],
     },

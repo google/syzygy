@@ -21,7 +21,7 @@
 #include "base/debug/trace_event_win.h"
 #include "base/files/file_path.h"
 #include "base/win/event_trace_controller.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
 using base::win::EtwTraceController;
@@ -241,7 +241,7 @@ static StartSessionResult StartSession(const wchar_t* session_name,
   }
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to start call trace session: "
-        << com::LogHr(hr) << ".";
+        << ::common::LogHr(hr) << ".";
     return kError;
   }
 
@@ -261,7 +261,7 @@ static bool DumpSessionStatus(const wchar_t* session_name) {
   }
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to query '" << session_name << "' session: "
-        << com::LogHr(hr) << ".";
+        << ::common::LogHr(hr) << ".";
     return false;
   }
 
@@ -278,7 +278,7 @@ static bool StopSession(const wchar_t* session_name,
   HRESULT hr = EtwTraceController::Stop(session_name, props);
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to stop '" << session_name << "' session: "
-        << com::LogHr(hr) << ".";
+        << ::common::LogHr(hr) << ".";
     return false;
   }
 
@@ -296,7 +296,7 @@ static bool FlushAndStopSession(const wchar_t* session_name,
   HRESULT hr = EtwTraceController::Query(session_name, &props);
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to query '" << session_name << "' session: "
-        << com::LogHr(hr) << ".";
+        << ::common::LogHr(hr) << ".";
     return false;
   }
 
@@ -306,7 +306,7 @@ static bool FlushAndStopSession(const wchar_t* session_name,
   hr = EtwTraceController::Flush(session_name, &props);
   if (FAILED(hr)) {
     LOG(ERROR) << "Failed to flush '" << session_name << "' session: "
-        << com::LogHr(hr) << ".";
+        << ::common::LogHr(hr) << ".";
     return false;
   }
 
@@ -377,7 +377,7 @@ bool StartCallTraceImpl() {
                               session_handle);
     if (err != ERROR_SUCCESS) {
       LOG(ERROR) << "Failed to enable call trace batch logging: "
-          << com::LogWe(err) << ".";
+          << ::common::LogWe(err) << ".";
       return false;
     }
   }
@@ -417,8 +417,8 @@ bool StartCallTraceImpl() {
                                 &base::debug::kChromeTraceProviderName,
                                 session_handle);
       if (err != ERROR_SUCCESS) {
-        LOG(ERROR) << "Failed to enable Chrome logging: " << com::LogWe(err)
-            << ".";
+        LOG(ERROR) << "Failed to enable Chrome logging: "
+                   << ::common::LogWe(err) << ".";
         return false;
       }
     }

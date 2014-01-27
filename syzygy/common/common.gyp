@@ -83,6 +83,8 @@
         'assertions.h',
         'buffer_writer.cc',
         'buffer_writer.h',
+        'com_utils.cc',
+        'com_utils.h',
         'comparable.h',
         'dbghelp_util.cc',
         'dbghelp_util.h',
@@ -99,7 +101,6 @@
       ],
       'dependencies': [
         'syzygy_version',
-        '<(src)/sawbuck/common/common.gyp:common',
       ],
       # This target exports a hard dependency because it exposes
       # files that from syzygy_version that are included from compiles.
@@ -124,6 +125,7 @@
         'align_unittest.cc',
         'application_unittest.cc',
         'buffer_writer_unittest.cc',
+        'com_utils_unittest.cc',
         'common_unittests_main.cc',
         'comparable_unittest.cc',
         'path_util_unittest.cc',

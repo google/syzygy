@@ -16,7 +16,7 @@
 
 #include "base/win/scoped_handle.h"
 #include "gtest/gtest.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/core/file_util.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"

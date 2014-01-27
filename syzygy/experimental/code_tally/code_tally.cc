@@ -26,13 +26,13 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/win/pe_image.h"
-#include "base/win/scoped_com_initializer.h"
 #include "base/win/scoped_bstr.h"
-#include "sawbuck/common/com_utils.h"
+#include "base/win/scoped_com_initializer.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/core/address_space.h"
 #include "syzygy/core/json_file_writer.h"
-#include "syzygy/pe/find.h"
 #include "syzygy/pe/dia_util.h"
+#include "syzygy/pe/find.h"
 
 namespace {
 
@@ -89,8 +89,8 @@ bool GetImageSignature(const base::FilePath& image_name,
 
 }  // namespace
 
-CodeTally::CodeTally(const base::FilePath& image_file) :
-    image_file_(image_file) {
+CodeTally::CodeTally(const base::FilePath& image_file)
+    : image_file_(image_file) {
 }
 
 bool CodeTally::TallyLines(const base::FilePath& pdb_file) {
@@ -125,18 +125,18 @@ bool CodeTally::TallyLines(const base::FilePath& pdb_file) {
   base::win::ScopedComPtr<IDiaDataSource> data_source;
   HRESULT hr = data_source.CreateInstance(CLSID_DiaSource);
   if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to create DIA source: " << com::LogHr(hr);
+    LOG(ERROR) << "Unable to create DIA source: " << common::LogHr(hr);
     return false;
   }
   hr = data_source->loadDataFromPdb(found_pdb.value().c_str());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to load PDB: " << com::LogHr(hr);
+    LOG(ERROR) << "Unable to load PDB: " << common::LogHr(hr);
     return false;
   }
 
   hr = data_source->openSession(session_.Receive());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to open session: " << com::LogHr(hr);
+    LOG(ERROR) << "Unable to open session: " << common::LogHr(hr);
     return false;
   }
 
@@ -361,7 +361,7 @@ bool CodeTally::OnCompilandPassTwo(IDiaSymbol* compiland) {
   base::win::ScopedBstr compiland_name;
   HRESULT hr = compiland->get_name(compiland_name.Receive());
   ObjectFileInfo* object_file =
-      FindOrCreateObjectFileInfo(com::ToString(compiland_name));
+      FindOrCreateObjectFileInfo(common::ToString(compiland_name));
 
   pe::ChildVisitor function_visitor(compiland, SymTagFunction);
   if (!function_visitor.VisitChildren(
@@ -387,13 +387,13 @@ bool CodeTally::OnLinePassOne(IDiaLineNumber* line_number) {
   DWORD rva = 0;
   HRESULT hr = line_number->get_relativeVirtualAddress(&rva);
   if (hr != S_OK) {
-    LOG(ERROR) << "Failed to get line number RVA: " << com::LogHr(hr);
+    LOG(ERROR) << "Failed to get line number RVA: " << common::LogHr(hr);
     return false;
   }
   DWORD length = 0;
   hr = line_number->get_length(&length);
   if (hr != S_OK) {
-    LOG(ERROR) << "Failed to get line number length: " << com::LogHr(hr);
+    LOG(ERROR) << "Failed to get line number length: " << common::LogHr(hr);
     return false;
   }
 
@@ -410,36 +410,36 @@ bool CodeTally::OnFunction(ObjectFileInfo* object_file, IDiaSymbol* function) {
   DWORD rva = 0;
   HRESULT hr = function->get_relativeVirtualAddress(&rva);
   if (hr != S_OK) {
-    LOG(ERROR) << "Failed to get function RVA: " << com::LogHr(hr);
+    LOG(ERROR) << "Failed to get function RVA: " << common::LogHr(hr);
     return false;
   }
 
   ULONGLONG length = 0;
   hr = function->get_length(&length);
   if (hr != S_OK || length > MAXINT) {
-    LOG(ERROR) << "Failed to get function length: " << com::LogHr(hr);
+    LOG(ERROR) << "Failed to get function length: " << common::LogHr(hr);
     return false;
   }
 
   base::win::ScopedBstr name;
   hr = function->get_name(name.Receive());
   if (hr != S_OK) {
-    LOG(ERROR) << "Failed to get function name: " << com::LogHr(hr);
+    LOG(ERROR) << "Failed to get function name: " << common::LogHr(hr);
     return false;
   }
 
   FunctionRange range(rva, static_cast<size_t>(length));
   if (!object_file->functions.Insert(range,
-                                     FunctionInfo(com::ToString(name)))) {
+                                     FunctionInfo(common::ToString(name)))) {
     FunctionInfoAddressSpace::iterator it =
         object_file->functions.FindContaining(range);
     if (it == object_file->functions.end()) {
       LOG(ERROR) << "Overlapping function info for '"
-                 << com::ToString(name) << "'";
+                 << common::ToString(name) << "'";
       return false;
     } else if (it->first != range) {
       LOG(ERROR) << "Function '"
-                 << com::ToString(name) << "' partially overlaps function '"
+                 << common::ToString(name) << "' partially overlaps function '"
                  << it->second.name << "' in object file '"
                  << object_file->file_name << "'";
       return false;
@@ -453,7 +453,7 @@ bool CodeTally::OnFunction(ObjectFileInfo* object_file, IDiaSymbol* function) {
       //    and report the contribution for each distinct function as 1/Nth of
       //    the total sum of contributions.
       LOG(INFO) << "Overlapping functions '"
-                << com::ToString(name) << "' and '"
+                << common::ToString(name) << "' and '"
                 << it->second.name << "' in object file '"
                 << object_file->file_name << "'";
     }
@@ -470,35 +470,36 @@ bool CodeTally::OnLinePassTwo(ObjectFileInfo* object_file,
   DWORD rva = 0;
   HRESULT hr = line_number->get_relativeVirtualAddress(&rva);
   if (hr != S_OK) {
-    LOG(ERROR) << "Failed to get RVA for line: " << com::LogHr(hr);
+    LOG(ERROR) << "Failed to get RVA for line: " << common::LogHr(hr);
     return false;
   }
 
   DWORD length = 0;
   hr = line_number->get_length(&length);
   if (hr != S_OK) {
-    LOG(ERROR) << "Failed to get length for line: " << com::LogHr(hr);
+    LOG(ERROR) << "Failed to get length for line: " << common::LogHr(hr);
     return false;
   }
 
   base::win::ScopedComPtr<IDiaSourceFile> source_file;
   hr = line_number->get_sourceFile(source_file.Receive());
   if (hr != S_OK) {
-    LOG(ERROR) << "Failed to get source file for line: " << com::LogHr(hr);
+    LOG(ERROR) << "Failed to get source file for line: " << common::LogHr(hr);
     return false;
   }
 
   base::win::ScopedBstr source_name;
   hr = source_file->get_fileName(source_name.Receive());
   if (hr != S_OK) {
-    LOG(ERROR) << "Failed to get source file name for line: " << com::LogHr(hr);
+    LOG(ERROR) << "Failed to get source file name for line: "
+               << common::LogHr(hr);
     return false;
   }
 
   DWORD line = 0;
   hr = line_number->get_lineNumber(&line);
   if (hr != S_OK) {
-    LOG(ERROR) << "Failed to get line number: " << com::LogHr(hr);
+    LOG(ERROR) << "Failed to get line number: " << common::LogHr(hr);
     return false;
   }
 
@@ -508,14 +509,14 @@ bool CodeTally::OnLinePassTwo(ObjectFileInfo* object_file,
   if (it == object_file->functions.end()) {
     LOG(ERROR) << "Line info outside function in object file '"
                << object_file->file_name << "' source file '"
-               << com::ToString(source_name) << "' at line: " << line;
+               << common::ToString(source_name) << "' at line: " << line;
     return true;
   }
 
   FunctionInfo::LineData line_data = {};
 
   line_data.source_file =
-      FindOrCreateSourceFileInfo(com::ToString(source_name));
+      FindOrCreateSourceFileInfo(common::ToString(source_name));
   DCHECK(line_data.source_file != NULL);
 
   line_data.offset = rva - it->first.start();

@@ -17,7 +17,7 @@
 #include <dbghelp.h>
 
 #include "base/logging.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 
 namespace common {
 
@@ -38,7 +38,7 @@ bool SymInitialize(HANDLE process,
     if (error == 0xC0000004)
       continue;
 
-    LOG(ERROR) << "SymInitialize failed: " << com::LogWe(error);
+    LOG(ERROR) << "SymInitialize failed: " << common::LogWe(error);
     return false;
   }
 

@@ -15,7 +15,7 @@
 // A utility class to manage the RPC session and the associated memory mappings.
 #include "syzygy/trace/client/rpc_session.h"
 
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/call_trace_rpc.h"
@@ -58,7 +58,7 @@ bool RpcSession::MapSegmentBuffer(TraceFileSegment* segment) {
       if (base_ptr == NULL) {
         DWORD error = ::GetLastError();
         LOG(ERROR) << "Failed to map view of shared memory: "
-                   << com::LogWe(error) << ".";
+                   << ::common::LogWe(error) << ".";
         ignore_result(::CloseHandle(mem_handle));
         shared_memory_handles_.erase(mem_handle);
         return false;
@@ -201,12 +201,14 @@ void RpcSession::FreeSharedMemory() {
     DCHECK(it->second != NULL);
     if (::UnmapViewOfFile(it->second) == 0) {
       DWORD error = ::GetLastError();
-      LOG(WARNING) << "Failed to unmap memory handle: " << com::LogWe(error);
+      LOG(WARNING) << "Failed to unmap memory handle: "
+                   << ::common::LogWe(error);
     }
 
     if (::CloseHandle(it->first) == 0) {
       DWORD error = ::GetLastError();
-      LOG(WARNING) << "Failed to close memory handle: " << com::LogWe(error);
+      LOG(WARNING) << "Failed to close memory handle: "
+                   << ::common::LogWe(error);
     }
   }
 

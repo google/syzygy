@@ -88,9 +88,9 @@
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/memory/scoped_ptr.h"
-#include "sawbuck/common/com_utils.h"
 #include "syzygy/agent/common/process_utils.h"
 #include "syzygy/agent/common/scoped_last_error_keeper.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/common/logging.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -304,7 +304,7 @@ HMODULE GetModuleForAddr(const void* addr) {
   // Lookup up the allocation in which addr is located.
   if (::VirtualQuery(addr, &mem_info, sizeof(mem_info)) == 0) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "VirtualQuery failed: " << com::LogWe(error) << ".";
+    LOG(ERROR) << "VirtualQuery failed: " << ::common::LogWe(error) << ".";
     return NULL;
   }
 

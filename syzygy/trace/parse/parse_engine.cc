@@ -21,7 +21,7 @@
 
 #include "base/logging.h"
 #include "sawbuck/common/buffer_parser.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/trace/parse/parser.h"
 
 namespace trace {

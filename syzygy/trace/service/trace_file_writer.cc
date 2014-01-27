@@ -17,9 +17,9 @@
 #include <time.h>
 
 #include "base/stringprintf.h"
-#include "sawbuck/common/com_utils.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/buffer_writer.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/common/path_util.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
@@ -45,7 +45,7 @@ bool OpenTraceFile(const base::FilePath& file_path,
   if (!new_file_handle.IsValid()) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to open '" << file_path.value()
-               << "' for writing: " << com::LogWe(error) << ".";
+               << "' for writing: " << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -59,7 +59,7 @@ bool GetBlockSize(const base::FilePath& path, size_t* block_size) {
 
   if (!::GetVolumePathName(path.value().c_str(), volume, arraysize(volume))) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to get volume path name: " << com::LogWe(error)
+    LOG(ERROR) << "Failed to get volume path name: " << ::common::LogWe(error)
                << ".";
     return false;
   }
@@ -72,7 +72,8 @@ bool GetBlockSize(const base::FilePath& path, size_t* block_size) {
   if (!::GetDiskFreeSpace(volume, &sectors_per_cluster, &bytes_per_sector,
                           &free_clusters, &total_clusters)) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to get volume info: " << com::LogWe(error) << ".";
+    LOG(ERROR) << "Failed to get volume info: " << ::common::LogWe(error)
+               << ".";
     return false;
   }
 
@@ -184,7 +185,7 @@ bool TraceFileWriter::WriteHeader(const ProcessInfo& process_info) {
   if (!::WriteFile(handle_.Get(), &buffer[0], buffer.size(), &bytes_written,
                    NULL) || bytes_written != buffer.size() ) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed writing trace file header: " << com::LogWe(error)
+    LOG(ERROR) << "Failed writing trace file header: " << ::common::LogWe(error)
                << ".";
     return false;
   }
@@ -247,7 +248,7 @@ bool TraceFileWriter::WriteRecord(const void* data, size_t length) {
       bytes_written != bytes_to_write) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed writing to '" << path_.value()
-               << "': " << com::LogWe(error) << ".";
+               << "': " << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -257,7 +258,7 @@ bool TraceFileWriter::WriteRecord(const void* data, size_t length) {
 bool TraceFileWriter::Close() {
   if (::CloseHandle(handle_.Take()) == 0) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "CloseHandle failed: " << com::LogWe(error) << ".";
+    LOG(ERROR) << "CloseHandle failed: " << ::common::LogWe(error) << ".";
     return false;
   }
   return true;

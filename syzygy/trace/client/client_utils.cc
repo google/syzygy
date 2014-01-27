@@ -26,7 +26,7 @@
 #include "base/utf_string_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/win/pe_image.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/common/path_util.h"
 #include "syzygy/core/file_util.h"
 #include "syzygy/trace/client/rpc_session.h"
@@ -274,7 +274,7 @@ bool GetModuleBaseAddress(void* address_in_module, void** module_base) {
   MEMORY_BASIC_INFORMATION mem_info = {};
   if (::VirtualQuery(address_in_module, &mem_info, sizeof(mem_info)) == 0) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "VirtualQuery failed: " << com::LogWe(error) << ".";
+    LOG(ERROR) << "VirtualQuery failed: " << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -296,7 +296,7 @@ bool GetModulePath(void* module_base, base::FilePath* module_path) {
   if (::GetMappedFileName(::GetCurrentProcess(), module_base, buffer,
                           arraysize(buffer)) == 0) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "GetMappedFileName failed: " << com::LogWe(error) << ".";
+    LOG(ERROR) << "GetMappedFileName failed: " << ::common::LogWe(error) << ".";
     return false;
   }
 

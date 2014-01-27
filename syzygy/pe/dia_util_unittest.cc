@@ -202,7 +202,7 @@ class DiaUtilVisitorTest : public DiaUtilTest {
     EXPECT_TRUE(IsSymTag(function, SymTagFunction));
     ScopedBstr name;
     EXPECT_EQ(S_OK, function->get_name(name.Receive()));
-    names->push_back(com::ToString(name));
+    names->push_back(common::ToString(name));
     return true;
   }
 
@@ -210,7 +210,7 @@ class DiaUtilVisitorTest : public DiaUtilTest {
     EXPECT_TRUE(IsSymTag(compiland, SymTagCompiland));
     ScopedBstr name;
     EXPECT_EQ(S_OK, compiland->get_name(name.Receive()));
-    names->push_back(com::ToString(name));
+    names->push_back(common::ToString(name));
     return true;
   }
 
@@ -220,7 +220,7 @@ class DiaUtilVisitorTest : public DiaUtilTest {
     EXPECT_TRUE(IsSymTag(compiland, SymTagCompiland));
     ScopedBstr name;
     EXPECT_EQ(S_OK, compiland->get_name(name.Receive()));
-    if (testing::Value(com::ToString(name), IsSameFile(compiland_path))) {
+    if (testing::Value(common::ToString(name), IsSameFile(compiland_path))) {
       *compiland_out = compiland;
       return false;
     }
@@ -230,6 +230,9 @@ class DiaUtilVisitorTest : public DiaUtilTest {
   typedef std::set<std::pair<DWORD, DWORD>> LineSet;
   typedef std::map<std::wstring, LineSet, FilePathLess> LineMap;
   bool OnLine(LineMap* line_map, IDiaLineNumber* line) {
+    DCHECK_NE(reinterpret_cast<LineMap*>(NULL), line_map);
+    DCHECK_NE(reinterpret_cast<IDiaLineNumber*>(NULL), line);
+
     ScopedComPtr<IDiaSourceFile> source_file;
     EXPECT_HRESULT_SUCCEEDED(line->get_sourceFile(source_file.Receive()));
 
@@ -247,7 +250,7 @@ class DiaUtilVisitorTest : public DiaUtilTest {
     // This doesn't necessarily have to hold, but so far it seems to do so.
     EXPECT_EQ(line_number, line_number_end);
 
-    (*line_map)[com::ToString(source_name)].insert(
+    (*line_map)[common::ToString(source_name)].insert(
         std::make_pair(line_number, line_number_end));
 
     return true;

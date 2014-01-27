@@ -20,7 +20,7 @@
 #include "base/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/scoped_bstr.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/pe/find.h"
 
 namespace grinder {
@@ -172,7 +172,7 @@ bool ProfileGrinder::GetSessionForModule(const ModuleInformation* module,
     HRESULT hr = source.CreateInstance(CLSID_DiaSource);
     if (FAILED(hr)) {
       LOG(ERROR) << "Failed to create DiaSource: "
-                 << com::LogHr(hr) << ".";
+                 << common::LogHr(hr) << ".";
       return false;
     }
 
@@ -202,7 +202,7 @@ bool ProfileGrinder::GetSessionForModule(const ModuleInformation* module,
     if (SUCCEEDED(hr)) {
         hr = source->openSession(new_session.Receive());
         if (FAILED(hr))
-          LOG(ERROR) << "Failure in openSession: " << com::LogHr(hr) << ".";
+          LOG(ERROR) << "Failure in openSession: " << common::LogHr(hr) << ".";
     } else {
       DCHECK(FAILED(hr));
 
@@ -217,11 +217,11 @@ bool ProfileGrinder::GetSessionForModule(const ModuleInformation* module,
       if (SUCCEEDED(hr)) {
         hr = source->openSession(new_session.Receive());
         if (FAILED(hr))
-          LOG(ERROR) << "Failure in openSession: " << com::LogHr(hr) << ".";
+          LOG(ERROR) << "Failure in openSession: " << common::LogHr(hr) << ".";
       } else {
         LOG(WARNING) << "Failure in loadDataFromPdb('"
                      << module_path.value().c_str() << "'): "
-                     << com::LogHr(hr) << ".";
+                     << common::LogHr(hr) << ".";
       }
     }
 
@@ -339,7 +339,7 @@ bool ProfileGrinder::GetFunctionForCaller(const CallerLocation& caller,
   HRESULT hr = function_sym->get_relativeVirtualAddress(&rva);
   if (FAILED(hr)) {
     LOG(ERROR) << "Failure in get_relativeVirtualAddress: "
-               << com::LogHr(hr) << ".";
+               << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -349,7 +349,7 @@ bool ProfileGrinder::GetFunctionForCaller(const CallerLocation& caller,
   ULONGLONG length = 0;
   hr = function_sym->get_length(&length);
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failure in get_length: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failure in get_length: " << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -359,7 +359,7 @@ bool ProfileGrinder::GetFunctionForCaller(const CallerLocation& caller,
 
     hr = session->findLinesByRVA(caller.rva(), length, enum_lines.Receive());
     if (FAILED(hr)) {
-      LOG(ERROR) << "Failure in findLinesByRVA: " << com::LogHr(hr) << ".";
+      LOG(ERROR) << "Failure in findLinesByRVA: " << common::LogHr(hr) << ".";
       return false;
     }
 
@@ -368,14 +368,14 @@ bool ProfileGrinder::GetFunctionForCaller(const CallerLocation& caller,
     hr = enum_lines->Next(1, line.Receive(), &fetched);
     if (FAILED(hr)) {
       LOG(ERROR) << "Failure in IDiaLineNumber::Next: "
-                 << com::LogHr(hr) << ".";
+                 << common::LogHr(hr) << ".";
       return false;
     }
 
     if (fetched == 1) {
       hr = line->get_lineNumber(&line_number);
       if (FAILED(hr)) {
-        LOG(ERROR) << "Failure in get_lineNumber: " << com::LogHr(hr) << ".";
+        LOG(ERROR) << "Failure in get_lineNumber: " << common::LogHr(hr) << ".";
         return false;
       }
     } else if (fetched != 0) {
@@ -441,16 +441,16 @@ bool ProfileGrinder::GetInfoForFunction(const FunctionLocation& function,
   ScopedBstr function_name_bstr;
   HRESULT hr = function_sym->get_name(function_name_bstr.Receive());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failure in get_name: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failure in get_name: " << common::LogHr(hr) << ".";
     return false;
   }
 
-  *function_name = com::ToString(function_name_bstr);
+  *function_name = common::ToString(function_name_bstr);
 
   ULONGLONG length = 0;
   hr = function_sym->get_length(&length);
   if (FAILED(hr)) {
-    LOG(ERROR) << "Failure in get_length: " << com::LogHr(hr) << ".";
+    LOG(ERROR) << "Failure in get_length: " << common::LogHr(hr) << ".";
     return false;
   }
 
@@ -463,7 +463,7 @@ bool ProfileGrinder::GetInfoForFunction(const FunctionLocation& function,
                                  length,
                                  enum_lines.Receive());
     if (FAILED(hr)) {
-      LOG(ERROR) << "Failure in findLinesByRVA: " << com::LogHr(hr) << ".";
+      LOG(ERROR) << "Failure in findLinesByRVA: " << common::LogHr(hr) << ".";
       return false;
     }
 
@@ -472,30 +472,30 @@ bool ProfileGrinder::GetInfoForFunction(const FunctionLocation& function,
     hr = enum_lines->Next(1, line.Receive(), &fetched);
     if (FAILED(hr)) {
       LOG(ERROR) << "Failure in IDialineNumber::Next: "
-                 << com::LogHr(hr) << ".";
+                 << common::LogHr(hr) << ".";
       return false;
     }
     if (fetched == 1) {
       hr = line->get_lineNumber(&line_number);
       if (FAILED(hr)) {
-        LOG(ERROR) << "Failure in get_lineNumber: " << com::LogHr(hr) << ".";
+        LOG(ERROR) << "Failure in get_lineNumber: " << common::LogHr(hr) << ".";
         return false;
       }
       ScopedComPtr<IDiaSourceFile> source_file;
       hr = line->get_sourceFile(source_file.Receive());
       if (FAILED(hr)) {
-        LOG(ERROR) << "Failure in get_sourceFile: " << com::LogHr(hr) << ".";
+        LOG(ERROR) << "Failure in get_sourceFile: " << common::LogHr(hr) << ".";
         return false;
       }
       hr = source_file->get_fileName(file_name_bstr.Receive());
       if (FAILED(hr)) {
-        LOG(ERROR) << "Failure in get_fileName: " << com::LogHr(hr) << ".";
+        LOG(ERROR) << "Failure in get_fileName: " << common::LogHr(hr) << ".";
         return false;
       }
     }
   }
 
-  *file_name = com::ToString(file_name_bstr);
+  *file_name = common::ToString(file_name_bstr);
   *line = line_number;
   return true;
 }

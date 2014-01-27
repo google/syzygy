@@ -21,7 +21,7 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_handle.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/core/address_space.h"
 
 namespace wsdump {
@@ -56,7 +56,7 @@ bool ProcessWorkingSet::Initialize(DWORD process_id) {
         ::OpenProcess(kProcessPermissions, FALSE, process_id));
   if (!process.IsValid()) {
     DWORD err = ::GetLastError();
-    LOG(ERROR) << "OpenProcess failed: " << com::LogWe(err);
+    LOG(ERROR) << "OpenProcess failed: " << common::LogWe(err);
     return false;
   }
 
@@ -138,7 +138,7 @@ bool ProcessWorkingSet::CaptureWorkingSet(HANDLE process,
   PROCESS_MEMORY_COUNTERS counters = {};
   if (!::GetProcessMemoryInfo(process, &counters, sizeof(counters))) {
     DWORD err = ::GetLastError();
-    LOG(ERROR) << "Unable to get process memory info: " << com::LogWe(err);
+    LOG(ERROR) << "Unable to get process memory info: " << common::LogWe(err);
     return false;
   }
 
@@ -193,14 +193,14 @@ bool ProcessWorkingSet::CaptureModules(DWORD process_id,
       ::CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, process_id));
   if (!snap.IsValid()) {
     DWORD err = ::GetLastError();
-    LOG(ERROR) << "CreateToolhelp32Snapshot failed: " << com::LogWe(err);
+    LOG(ERROR) << "CreateToolhelp32Snapshot failed: " << common::LogWe(err);
     return false;
   }
 
   MODULEENTRY32 module = { sizeof(module) };
   if (!::Module32First(snap.Get(), &module)) {
     DWORD err = ::GetLastError();
-    LOG(ERROR) << "Module32First failed: " << com::LogWe(err);
+    LOG(ERROR) << "Module32First failed: " << common::LogWe(err);
     return false;
   }
 
@@ -215,7 +215,7 @@ bool ProcessWorkingSet::CaptureModules(DWORD process_id,
 
   DWORD err = ::GetLastError();
   if (err != ERROR_NO_MORE_FILES) {
-    LOG(ERROR) << "Module32Next failed: " << com::LogWe(err);
+    LOG(ERROR) << "Module32Next failed: " << common::LogWe(err);
     return false;
   }
 

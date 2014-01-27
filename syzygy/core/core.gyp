@@ -53,7 +53,7 @@
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
-        '<(src)/sawbuck/common/common.gyp:common',
+        '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/third_party/distorm/distorm.gyp:distorm',
         '<(src)/third_party/zlib/zlib.gyp:zlib',
       ],

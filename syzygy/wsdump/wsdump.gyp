@@ -39,7 +39,7 @@
         'wsdump_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/testing/gtest.gyp:gtest',
-        '<(src)/sawbuck/common/common.gyp:common',
+        '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/third_party/pcre/pcre.gyp:pcre_lib',
       ],
     },
@@ -53,7 +53,7 @@
       'dependencies': [
         'wsdump_lib',
         '<(src)/base/base.gyp:base',
-        '<(src)/sawbuck/common/common.gyp:common',
+        '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/common/common.gyp:syzygy_version',
         '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/third_party/pcre/pcre.gyp:pcre_lib',

@@ -25,7 +25,7 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/win/scoped_handle.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/common/dbghelp_util.h"
 #include "syzygy/pe/find.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
@@ -121,7 +121,8 @@ BOOL CALLBACK ReadProcessMemoryProc64(HANDLE process,
     return TRUE;
 
   // Nope, it was a real error.
-  LOG(ERROR) << "Failed to read process memory: " << com::LogWe(error) << ".";
+  LOG(ERROR) << "Failed to read process memory: " << ::common::LogWe(error)
+             << ".";
   return FALSE;
 }
 
@@ -250,7 +251,7 @@ bool AgentLogger::AppendTrace(HANDLE process,
 
   if (!::SymCleanup(process)) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "SymCleanup failed: " << com::LogWe(error) << ".";
+    LOG(ERROR) << "SymCleanup failed: " << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -320,7 +321,7 @@ bool AgentLogger::CaptureRemoteTrace(HANDLE process,
 
   if (!::SymCleanup(process)) {
     DWORD error = ::GetLastError();
-    LOG(ERROR) << "SymCleanup failed: " << com::LogWe(error) << ".";
+    LOG(ERROR) << "SymCleanup failed: " << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -398,7 +399,8 @@ bool AgentLogger::SaveMiniDump(HANDLE process,
       // Windows error. even though it is returned via ::GetLastError().
       // http://msdn.microsoft.com/en-us/library/windows/desktop/ms680360.aspx
       HRESULT error = ::GetLastError();
-      LOG(ERROR) << "::MiniDumpWriteDump failed: " << com::LogHr(error) << ".";
+      LOG(ERROR) << "::MiniDumpWriteDump failed: " << ::common::LogHr(error)
+                 << ".";
       return false;
     }
 
@@ -416,7 +418,7 @@ bool AgentLogger::SaveMiniDump(HANDLE process,
   } else {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to move dump file to final location "
-               << com::LogWe(error) << ".";
+               << ::common::LogWe(error) << ".";
     return false;
   }
 
@@ -439,7 +441,8 @@ bool AgentLogger::InitRpc() {
       reinterpret_cast<RPC_WSTR>(&endpoint[0]),
       NULL /* Security descriptor. */);
   if (status != RPC_S_OK && status != RPC_S_DUPLICATE_ENDPOINT) {
-    LOG(ERROR) << "Failed to init RPC protocol: " << com::LogWe(status) << ".";
+    LOG(ERROR) << "Failed to init RPC protocol: " << ::common::LogWe(status)
+               << ".";
     return false;
   }
 
@@ -449,7 +452,7 @@ bool AgentLogger::InitRpc() {
       LoggerService_Logger_v1_0_s_ifspec, NULL, NULL);
   if (status != RPC_S_OK) {
     LOG(ERROR) << "Failed to register RPC interface: "
-               << com::LogWe(status) << ".";
+               << ::common::LogWe(status) << ".";
     return false;
   }
 
@@ -459,7 +462,7 @@ bool AgentLogger::InitRpc() {
       LoggerService_LoggerControl_v1_0_s_ifspec, NULL, NULL);
   if (status != RPC_S_OK) {
     LOG(ERROR) << "Failed to register RPC interface: "
-               << com::LogWe(status) << ".";
+               << ::common::LogWe(status) << ".";
     return false;
   }
 
@@ -479,7 +482,8 @@ bool AgentLogger::StartRpc() {
       TRUE);
 
   if (status != RPC_S_OK) {
-    LOG(ERROR) << "Failed to run RPC server: " << com::LogWe(status) << ".";
+    LOG(ERROR) << "Failed to run RPC server: " << ::common::LogWe(status)
+               << ".";
     ignore_result(FinishRpc());
     return false;
   }
@@ -503,7 +507,7 @@ bool AgentLogger::StopRpc() {
   RPC_STATUS status = ::RpcMgmtStopServerListening(NULL);
   if (status != RPC_S_OK) {
     LOG(ERROR) << "Failed to stop the RPC server: "
-                << com::LogWe(status) << ".";
+                << ::common::LogWe(status) << ".";
     return false;
   }
 
@@ -522,7 +526,7 @@ bool AgentLogger::FinishRpc() {
   status = RpcMgmtWaitServerListen();
   if (status != RPC_S_OK) {
     LOG(ERROR) << "Failed to wait for RPC server shutdown: "
-                << com::LogWe(status) << ".";
+                << ::common::LogWe(status) << ".";
     error = true;
   }
 
@@ -530,7 +534,7 @@ bool AgentLogger::FinishRpc() {
       LoggerService_Logger_v1_0_s_ifspec, NULL, FALSE);
   if (status != RPC_S_OK) {
     LOG(ERROR) << "Failed to unregister the AgentLogger RPC interface: "
-                << com::LogWe(status) << ".";
+                << ::common::LogWe(status) << ".";
     error = true;
   }
 
@@ -538,7 +542,7 @@ bool AgentLogger::FinishRpc() {
       LoggerService_LoggerControl_v1_0_s_ifspec, NULL, FALSE);
   if (status != RPC_S_OK) {
     LOG(ERROR) << "Failed to unregister AgentLogger Control RPC interface: "
-                << com::LogWe(status) << ".";
+                << ::common::LogWe(status) << ".";
     error = true;
   }
 

@@ -29,9 +29,9 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/memory/scoped_ptr.h"
-#include "sawbuck/common/com_utils.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/buffer_writer.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/common/path_util.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/service/mapped_buffer.h"
@@ -317,7 +317,7 @@ bool Session::CopyBufferHandleToClient(HANDLE client_process_handle,
                          DUPLICATE_SAME_ACCESS)) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to copy shared memory handle into client process: "
-               << com::LogWe(error) << ".";
+               << ::common::LogWe(error) << ".";
     return false;
   }
 

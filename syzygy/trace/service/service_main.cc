@@ -28,7 +28,7 @@
 #include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/threading/thread.h"
-#include "sawbuck/common/com_utils.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/trace/common/service_util.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
@@ -230,7 +230,7 @@ bool RunService(const CommandLine* cmd_line,
     if (!SetConsoleCtrlHandler(&OnConsoleCtrl, TRUE)) {
       DWORD error = ::GetLastError();
       LOG(ERROR) << "Failed to register shutdown handler: "
-                 << com::LogWe(error) << ".";
+                 << ::common::LogWe(error) << ".";
       return false;
     }
 
