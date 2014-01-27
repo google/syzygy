@@ -132,7 +132,6 @@
       'dependencies': [
         'dia_sdk',
         '<(src)/base/base.gyp:base',
-        '<(src)/sawbuck/common/common.gyp:common',
         '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
         '<(src)/syzygy/block_graph/orderers/block_graph_orderers.gyp:'
             'block_graph_orderers_lib',

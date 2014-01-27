@@ -21,13 +21,14 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/win/scoped_handle.h"
-#include "sawbuck/common/buffer_parser.h"
+#include "syzygy/common/buffer_parser.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/pe/pe_utils.h"
 
 namespace pe {
 
 using block_graph::BlockGraph;
+using common::BinaryBufferParser;
 using core::AbsoluteAddress;
 using core::FileOffsetAddress;
 using core::RelativeAddress;

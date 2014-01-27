@@ -17,11 +17,13 @@
 #include "syzygy/trace/parse/parser.h"
 
 #include "base/logging.h"
-#include "sawbuck/common/buffer_parser.h"
+#include "syzygy/common/buffer_parser.h"
 #include "syzygy/trace/parse/parse_engine_rpc.h"
 
 namespace trace {
 namespace parser {
+
+using ::common::BinaryBufferParser;
 
 Parser::Parser() : active_parse_engine_(NULL) {
 }

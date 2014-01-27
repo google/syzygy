@@ -15,12 +15,14 @@
 #include "syzygy/trace/parse/parse_utils.h"
 
 #include "base/logging.h"
-#include "sawbuck/common/buffer_parser.h"
+#include "syzygy/common/buffer_parser.h"
 
 namespace trace {
 namespace parser {
 
 namespace {
+
+using ::common::BinaryBufferReader;
 
 bool ParseString(BinaryBufferReader* reader, std::wstring* output) {
   DCHECK(reader != NULL);

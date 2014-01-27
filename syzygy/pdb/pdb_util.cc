@@ -17,7 +17,6 @@
 #include <string>
 
 #include "base/stringprintf.h"
-#include "sawbuck/common/buffer_parser.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_writer.h"

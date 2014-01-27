@@ -81,6 +81,8 @@
         'application.h',
         'application_impl.h',
         'assertions.h',
+        'buffer_parser.cc',
+        'buffer_parser.h',
         'buffer_writer.cc',
         'buffer_writer.h',
         'com_utils.cc',
@@ -124,6 +126,7 @@
       'sources': [
         'align_unittest.cc',
         'application_unittest.cc',
+        'buffer_parser_unittest.cc',
         'buffer_writer_unittest.cc',
         'com_utils_unittest.cc',
         'common_unittests_main.cc',

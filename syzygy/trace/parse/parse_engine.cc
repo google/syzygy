@@ -20,12 +20,14 @@
 #include <evntrace.h>
 
 #include "base/logging.h"
-#include "sawbuck/common/buffer_parser.h"
+#include "syzygy/common/buffer_parser.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/trace/parse/parser.h"
 
 namespace trace {
 namespace parser {
+
+using ::common::BinaryBufferReader;
 
 ParseEngine::ParseEngine(const char* name, bool fail_on_module_conflict)
     : event_handler_(NULL),
