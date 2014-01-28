@@ -59,15 +59,19 @@ class SwapImportAppTest : public testing::PELibUnitTest {
 
     input_image_ = testing::GetOutputRelativePath(testing::kTestDllName);
     output_image_ = temp_dir_.Append(testing::kTestDllName);
+
+    input_image_64_ = testing::GetOutputRelativePath(testing::kTestDllName64);
+    output_image_64_ = temp_dir_.Append(testing::kTestDllName64);
   }
 
+  template <class PEFileType>
   void ValidateFirstImport(const base::FilePath& image,
                            const char* import_name) {
-    pe::PEFile pe_file;
+    PEFileType pe_file;
     ASSERT_TRUE(pe_file.Init(image));
 
     // Get the absolute address of the first import entry.
-    pe::PEFile::AbsoluteAddress iid_addr(
+    PEFileType::AbsoluteAddress iid_addr(
         pe_file.nt_headers()->OptionalHeader.ImageBase +
             pe_file.nt_headers()->OptionalHeader.DataDirectory[
                 IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress);
@@ -77,7 +81,7 @@ class SwapImportAppTest : public testing::PELibUnitTest {
     ASSERT_TRUE(pe_file.ReadImage(iid_addr, &iid, sizeof(iid)));
 
     // Read the name of the import entry.
-    pe::PEFile::AbsoluteAddress name_addr(
+    PEFileType::AbsoluteAddress name_addr(
         pe_file.nt_headers()->OptionalHeader.ImageBase + iid.Name);
     std::string name;
     ASSERT_TRUE(pe_file.ReadImageString(name_addr, &name));
@@ -85,10 +89,17 @@ class SwapImportAppTest : public testing::PELibUnitTest {
   }
 
   void ValidateImportsSwapped() {
-    ASSERT_NO_FATAL_FAILURE(ValidateFirstImport(input_image_,
-                                                "export_dll.dll"));
-    ASSERT_NO_FATAL_FAILURE(ValidateFirstImport(output_image_,
-                                                "kernel32.dll"));
+    ASSERT_NO_FATAL_FAILURE(ValidateFirstImport<pe::PEFile>(input_image_,
+                                                            "export_dll.dll"));
+    ASSERT_NO_FATAL_FAILURE(ValidateFirstImport<pe::PEFile>(output_image_,
+                                                            "kernel32.dll"));
+  }
+
+  void ValidateImportsSwapped64() {
+    ASSERT_NO_FATAL_FAILURE(ValidateFirstImport<pe::PEFile64>(input_image_64_,
+                                                              "user32.dll"));
+    ASSERT_NO_FATAL_FAILURE(ValidateFirstImport<pe::PEFile64>(output_image_64_,
+                                                              "kernel32.dll"));
   }
 
   // Points the application at the fixture's command-line and IO streams.
@@ -117,6 +128,8 @@ class SwapImportAppTest : public testing::PELibUnitTest {
   CommandLine cmd_line_;
   base::FilePath input_image_;
   base::FilePath output_image_;
+  base::FilePath input_image_64_;
+  base::FilePath output_image_64_;
 };
 
 }  // namespace
@@ -211,6 +224,36 @@ TEST_F(SwapImportAppTest, RunSucceedsOverwrite) {
   EXPECT_EQ(0, test_impl_.Run());
 
   ASSERT_NO_FATAL_FAILURE(ValidateImportsSwapped());
+}
+
+TEST_F(SwapImportAppTest, RunSucceeds64) {
+  cmd_line_.AppendSwitch("x64");
+  cmd_line_.AppendSwitchPath("input-image", input_image_64_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_64_);
+  cmd_line_.AppendArg("kernel32.dll");
+  ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
+  EXPECT_EQ(0, test_impl_.Run());
+
+  ASSERT_NO_FATAL_FAILURE(ValidateImportsSwapped64());
+}
+
+TEST_F(SwapImportAppTest, Run64On32BitBinaryFails) {
+  cmd_line_.AppendSwitch("x64");
+  cmd_line_.AppendSwitchPath("input-image", input_image_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_);
+  cmd_line_.AppendArg("kernel32.dll");
+  ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
+  EXPECT_NE(0, test_impl_.Run());
+  EXPECT_FALSE(file_util::PathExists(output_image_));
+}
+
+TEST_F(SwapImportAppTest, Run32On64BitBinaryFails) {
+  cmd_line_.AppendSwitchPath("input-image", input_image_64_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_64_);
+  cmd_line_.AppendArg("kernel32.dll");
+  ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
+  EXPECT_NE(0, test_impl_.Run());
+  EXPECT_FALSE(file_util::PathExists(output_image_64_));
 }
 
 }  // namespace swapimport

@@ -20,11 +20,9 @@
 #include "base/files/file_path.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pe/pe_data.h"
+#include "syzygy/pe/pe_file.h"
 
 namespace pe {
-
-// Forward declaration.
-class PEFile;
 
 // This class is analogous to CvInfoPdb70, but with a FilePath instead of a
 // char*. It contains functionality for loading the debug information directly

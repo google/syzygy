@@ -34,6 +34,8 @@ static const char kUsageFormatStr[] = "Usage: %ls [options] IMPORT\n"
     "    --output-image=PATH   Path where the output image will be written.\n"
     "                          The generated image will still be paired to\n"
     "                          the original PDB file.\n"
+    "    --x64                 Decompose a 64-bit binary rather than a\n"
+    "                          32-bit one.\n"
     "  Options:\n"
     "    --overwrite           Allow output files to be overwritten.\n"
     "    --verbose             Log verbosely.\n"
@@ -50,6 +52,8 @@ bool SwapImportApp::ParseCommandLine(const CommandLine* cmd_line) {
   if (cmd_line->HasSwitch("verbose")) {
     logging::SetMinLogLevel(logging::LOG_VERBOSE);
     VLOG(1) << "Parsed --verbose switch.";
+  } else {
+    logging::SetMinLogLevel(logging::LOG_ERROR);
   }
 
   input_image_ = cmd_line->GetSwitchValuePath("input-image");
@@ -65,9 +69,8 @@ bool SwapImportApp::ParseCommandLine(const CommandLine* cmd_line) {
   }
 
   overwrite_ = cmd_line->HasSwitch("overwrite");
-  if (overwrite_) {
+  if (overwrite_)
     VLOG(1) << "Parsed --overwrite switch.";
-  }
 
   CommandLine::StringVector args = cmd_line->GetArgs();
   if (args.size() != 1) {
@@ -76,38 +79,21 @@ bool SwapImportApp::ParseCommandLine(const CommandLine* cmd_line) {
   }
   import_name_ = base::WideToUTF8(args[0]);
 
+  x64_ = cmd_line->HasSwitch("x64");
+  if (x64_)
+    VLOG(1) << "Parsed --x64 switch.";
+
   return true;
 }
 
-int SwapImportApp::Run() {
-  // Check the input.
-  if (!file_util::PathExists(input_image_)) {
-    LOG(ERROR) << "Path does not exist: " << input_image_.value();
-    return 1;
-  }
-
-  // Check the output unless we're overwriting.
-  if (!overwrite_) {
-    if (file_util::PathExists(output_image_)) {
-      LOG(ERROR) << "Output path exists: " << output_image_.value();
-      LOG(ERROR) << "Did you mean to specify --overwrite?";
-      return 1;
-    }
-
-    core::FilePathCompareResult result = core::CompareFilePaths(
-        input_image_, output_image_);
-    if (result == core::kEquivalentFilePaths) {
-      LOG(ERROR) << "Output image path equivalent to input image path.";
-      return 1;
-    }
-  }
-
+template <typename PEFileType>
+int SwapImportApp::SwapImports() {
   // Parse the input file as a PE image.
-  pe::PEFile pe_file;
+  PEFileType pe_file;
   if (!pe_file.Init(input_image_)) {
     LOG(ERROR) << "Failed to parse image as a PE file: "
                << input_image_.value();
-    return 1;
+      return 1;
   }
 
   // Read the entire input into memory.
@@ -220,6 +206,36 @@ int SwapImportApp::Run() {
   }
 
   return 0;
+}
+
+int SwapImportApp::Run() {
+  // Check the input.
+  if (!file_util::PathExists(input_image_)) {
+    LOG(ERROR) << "Path does not exist: " << input_image_.value();
+    return 1;
+  }
+
+  // Check the output unless we're overwriting.
+  if (!overwrite_) {
+    if (file_util::PathExists(output_image_)) {
+      LOG(ERROR) << "Output path exists: " << output_image_.value();
+      LOG(ERROR) << "Did you mean to specify --overwrite?";
+      return 1;
+    }
+
+    core::FilePathCompareResult result = core::CompareFilePaths(
+        input_image_, output_image_);
+    if (result == core::kEquivalentFilePaths) {
+      LOG(ERROR) << "Output image path equivalent to input image path.";
+      return 1;
+    }
+  }
+
+  if (x64_) {
+    return SwapImports<pe::PEFile64>();
+  } else {
+    return SwapImports<pe::PEFile>();
+  }
 }
 
 bool SwapImportApp::Usage(const CommandLine* cmd_line,

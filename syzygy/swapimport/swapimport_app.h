@@ -47,11 +47,17 @@ class SwapImportApp : public common::AppImplBase {
              const base::StringPiece& message) const;
   // @}
 
+  // @name Implementation of import swapping.
+  // @{
+  template <typename PEFileType> int SwapImports();
+  // @}
+
   std::string import_name_;
   base::FilePath input_image_;
   base::FilePath output_image_;
   bool overwrite_;
   bool verbose_;
+  bool x64_;
 };
 
 }  // namespace swapimport

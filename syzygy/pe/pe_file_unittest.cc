@@ -46,10 +46,17 @@ class PEFileTest: public testing::PELibUnitTest {
     test_dll_ = base::LoadNativeLibrary(test_dll, &error);
 
     ASSERT_TRUE(image_file_.Init(test_dll));
+
+    base::FilePath test_dll_64 =
+        testing::GetExeRelativePath(testing::kTestDllName64);
+    test_dll_64_ = base::LoadNativeLibrary(test_dll_64, &error);
+
+    ASSERT_TRUE(image_file_64_.Init(test_dll_64));
   }
 
   virtual void TearDown() OVERRIDE {
     base::UnloadNativeLibrary(test_dll_);
+    base::UnloadNativeLibrary(test_dll_64_);
     Super::TearDown();
   }
 
@@ -75,7 +82,9 @@ class PEFileTest: public testing::PELibUnitTest {
 
  protected:
   pe::PEFile image_file_;
+  pe::PEFile64 image_file_64_;
   base::NativeLibrary test_dll_;
+  base::NativeLibrary test_dll_64_;
 };
 
 // Functor for comparing import infos.
@@ -360,6 +369,26 @@ TEST_F(PEFileTest, DecodeImports) {
               PEFile::ImportInfo(2, 0, "kExportedData"))));
     }
   }
+}
+
+TEST_F(PEFileTest, DecodeImportsX64) {
+  PEFile64::ImportDllVector imports;
+  ASSERT_TRUE(image_file_64_.DecodeImports(&imports));
+
+  // Validate the read imports section.
+  // The test image imports at least kernel32 and user32.
+  ASSERT_LE(2U, imports.size());
+
+  int expected_imports = 0;
+  for (size_t i = 0; i < imports.size(); ++i) {
+    PEFile64::ImportDll& dll = imports[i];
+    if (base::strcasecmp("kernel32.dll", dll.name.c_str()) == 0 ||
+        base::strcasecmp("user32.dll", dll.name.c_str()) == 0) {
+      expected_imports++;
+    }
+  }
+
+  EXPECT_EQ(2, expected_imports);
 }
 
 TEST_F(PEFileTest, GetSectionIndexByRelativeAddress) {

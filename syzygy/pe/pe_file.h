@@ -22,6 +22,8 @@
 #include <string>
 #include <vector>
 
+#include "base/file_util.h"
+#include "base/logging.h"
 #include "base/files/file_path.h"
 #include "sawbuck/sym_util/types.h"
 #include "syzygy/core/address.h"
@@ -72,7 +74,8 @@ struct PEAddressSpaceTraits {
 // A raw, sparse, representation of a PE file. It offers a view of the
 // contents of the file as would be mapped into memory, if the program
 // were loaded.
-class PEFile : public PECoffFile<PEAddressSpaceTraits> {
+template <typename ImageNtHeaders, DWORD MagicValidation>
+class PEFileBase : public PECoffFile<PEAddressSpaceTraits> {
  public:
   struct Signature;
 
@@ -110,13 +113,13 @@ class PEFile : public PECoffFile<PEAddressSpaceTraits> {
   using PECoffFile<PEAddressSpaceTraits>::GetSectionIndex;
   using PECoffFile<PEAddressSpaceTraits>::GetSectionHeader;
 
-  // Construct a PEFile object not yet bound to any file.
-  PEFile();
+  // Construct a PEFileBase object not yet bound to any file.
+  PEFileBase() : dos_header_(NULL), nt_headers_(NULL) {}
 
-  // Destroy this PEFile object, invalidating all pointers obtained
+  // Destroy this PEFileBase object, invalidating all pointers obtained
   // through GetImageData(), or headers returned by corresponding
   // accessor methods.
-  ~PEFile();
+  ~PEFileBase() {}
 
   // Read in the image file at @p path, making its data
   // available. A PE file reader may only read a single file.
@@ -225,14 +228,10 @@ class PEFile : public PECoffFile<PEAddressSpaceTraits> {
   const IMAGE_SECTION_HEADER* GetSectionHeader(const char* name) const;
 
   // @returns a pointer to the DOS header structure of this PE file.
-  const IMAGE_DOS_HEADER* dos_header() const {
-    return dos_header_;
-  }
+  const IMAGE_DOS_HEADER* dos_header() const;
 
   // @returns a pointer to the NT headers structure of this PE file.
-  const IMAGE_NT_HEADERS* nt_headers() const {
-    return nt_headers_;
-  }
+  const ImageNtHeaders* nt_headers() const;
 
   // Subtract the preferred loading address of this PE file from the
   // specified displacement.
@@ -240,9 +239,7 @@ class PEFile : public PECoffFile<PEAddressSpaceTraits> {
   // @param abs_disp the value to translate.
   // @returns the new offset, relative to the preferred loading
   // address.
-  uint32 PEFile::AbsToRelDisplacement(uint32 abs_disp) const {
-    return abs_disp - nt_headers_->OptionalHeader.ImageBase;
-  }
+  size_t AbsToRelDisplacement(size_t abs_disp) const;
 
  private:
   // Read all NT headers, including common COFF headers. Insert
@@ -253,15 +250,16 @@ class PEFile : public PECoffFile<PEAddressSpaceTraits> {
   bool ReadHeaders(FILE* file);
 
   const IMAGE_DOS_HEADER* dos_header_;
-  const IMAGE_NT_HEADERS* nt_headers_;
+  const ImageNtHeaders* nt_headers_;
 
-  DISALLOW_COPY_AND_ASSIGN(PEFile);
+  DISALLOW_COPY_AND_ASSIGN(PEFileBase);
 };
 
 // A parsed PE file signature; a signature describes some module. It
 // offers access to the exploded components of the PE signature,
 // comparison, and serialization.
-struct PEFile::Signature {
+template<class ImageNtHeaders, DWORD MagicValidation>
+struct PEFileBase<ImageNtHeaders, MagicValidation>::Signature {
   // Construct a default all-zero signature.
   Signature() : module_size(0), module_time_date_stamp(0), module_checksum(0) {
   }
@@ -322,9 +320,7 @@ struct PEFile::Signature {
   // @param signature the signature to compare to.
   // @returns true if the signatures are equal, false otherwise.
   // @note We need an equality operator for serialization unittests.
-  bool operator==(const Signature& signature) const {
-    return path == signature.path && IsConsistent(signature);
-  }
+  bool operator==(const Signature& signature) const;
 
   // Serialize this signature to @p out_archive.
   //
@@ -341,7 +337,8 @@ struct PEFile::Signature {
 };
 
 // A structure exposing information about a single export.
-struct PEFile::ExportInfo {
+template<class ImageNtHeaders, DWORD MagicValidation>
+struct PEFileBase<ImageNtHeaders, MagicValidation>::ExportInfo {
   // The address of the exported function.
   RelativeAddress function;
 
@@ -356,7 +353,8 @@ struct PEFile::ExportInfo {
 };
 
 // A structure exposing information about a single import.
-struct PEFile::ImportInfo {
+template<class ImageNtHeaders, DWORD MagicValidation>
+struct PEFileBase<ImageNtHeaders, MagicValidation>::ImportInfo {
   // Construct an ImportInfo structure from its components.
   //
   // @param h the ordinal hint.
@@ -412,7 +410,8 @@ struct PEFile::ImportInfo {
 };
 
 // A structure holding information about all imports from a given DLL.
-struct PEFile::ImportDll {
+template<class ImageNtHeaders, DWORD MagicValidation>
+struct PEFileBase<ImageNtHeaders, MagicValidation>::ImportDll {
   // Construct a default empty ImportDll structure.
   ImportDll() {
     memset(&desc, 0, sizeof(desc));
@@ -430,6 +429,14 @@ struct PEFile::ImportDll {
   ImportInfoVector functions;
 };
 
+typedef PEFileBase<IMAGE_NT_HEADERS32, IMAGE_NT_OPTIONAL_HDR32_MAGIC> PEFile;
+
+// Please note that 64-bit PE File support is only currently tested for
+// manipulation of imports.
+typedef PEFileBase<IMAGE_NT_HEADERS64, IMAGE_NT_OPTIONAL_HDR64_MAGIC> PEFile64;
+
 }  // namespace pe
+
+#include "syzygy/pe/pe_file_impl.h"
 
 #endif  // SYZYGY_PE_PE_FILE_H_

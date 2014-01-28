@@ -31,10 +31,12 @@
 
 namespace testing {
 
-// Name of the test DLL and PDB. These exist in the output directory, and again
-// in the test_data directory.
+// Name of the test DLLs and PDBs. These exist in the output directory, and
+// again in the test_data directory.
 extern const wchar_t kTestDllName[];
 extern const wchar_t kTestDllPdbName[];
+extern const wchar_t kTestDllName64[];
+extern const wchar_t kTestDllPdbName64[];
 
 // Name of the DLL containing an empty exports directory.
 extern const wchar_t kNoExportsDllName[];

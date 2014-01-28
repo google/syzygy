@@ -18,11 +18,11 @@
 #include "base/files/file_path.h"
 #include "syzygy/block_graph/block_graph_serializer.h"
 #include "syzygy/core/serialization.h"
+#include "syzygy/pe/pe_file.h"
 
 namespace pe {
 
 // Forward declarations.
-class PEFile;
 struct ImageLayout;
 
 // Serializes the decomposition of a PE file, as represented by a BlockGraph

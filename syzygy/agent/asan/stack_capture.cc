@@ -86,6 +86,10 @@ StackCapture::StackId StackCapture::ComputeRelativeStackId() {
 
   StackId stack_id = 0;
   for (size_t i = 0; i < num_frames_; ++i) {
+    // NULL stack frames may be returned from ::CaptureStackBackTrace.
+    // This has been observed on Windows 8.
+    if (frames_[i] == NULL)
+      continue;
     HMODULE module = base::GetModuleFromAddress(frames_[i]);
     if (module == NULL || module == asan_handle)
       continue;

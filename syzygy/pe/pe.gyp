@@ -109,7 +109,7 @@
         'pe_coff_relinker.h',
         'pe_data.h',
         'pe_file.h',
-        'pe_file.cc',
+        'pe_file_impl.h',
         'pe_file_parser.cc',
         'pe_file_parser.h',
         'pe_file_writer.cc',
@@ -320,6 +320,66 @@
               'Profile': 'true',
             },
           },
+        },
+      },
+    },
+    {
+      'target_name': 'test_dll_x64',
+      'type': 'loadable_module',
+      'sources': [
+        'test_dll_x64.cc',
+        'test_dll_x64.def',
+        'test_dll_x64.rc',
+      ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          # We delay load ole32 purely to test delay load PE parsing.
+          'DelayLoadDLLs': [
+            'ole32.dll',
+          ],
+          'IgnoreDefaultLibraryNames': [
+            'libcmtd.lib',
+          ],
+        },
+      },
+      # We more or less want this to always be a release-style executable
+      # to facilitate instrumentation.
+      # We have to do this per configuration, as base.gypi specifies
+      # this per-config, which binds tighter than the defaults above.
+      'configurations': {
+        'Debug_Base': {
+          'msvs_settings': {
+            'VCLinkerTool': {
+              # This corresponds to /INCREMENTAL:NO. With incremental linking
+              # enabled, every function resolves to a location in a jump table
+              # which jumps to the function proper. This gets in the way of
+              # disassembly.
+              'LinkIncremental': '1',
+              # Ensure that the checksum present in the header of the binaries
+              # is set.
+              'SetChecksum': 'true',
+            },
+            'VCCLCompilerTool': {
+              'BasicRuntimeChecks': '0',
+              # ASAN needs the application to be linked with the release static
+              # runtime library. Otherwise, memory allocation functions are
+              # wrapped and hide memory bugs like overflow/underflow.
+              'RuntimeLibrary':  '0', # 0 = /MT (nondebug static)
+            },
+          },
+        },
+        'Common_Base': {
+          'msvs_settings': {
+            'VCLinkerTool': {
+              # This corresponds to /PROFILE, which ensures that the
+              # PDB file contains a FIXUP stream.
+              # TODO(chrisha): Move this to base.gypi so everything links
+              #     with this flag.
+              'Profile': 'true',
+            },
+          },
+          'msvs_target_platform': 'x64',
+          'msvs_configuration_platform': 'x64',
         },
       },
     },
