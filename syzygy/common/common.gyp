@@ -107,6 +107,10 @@
       # This target exports a hard dependency because it exposes
       # files that from syzygy_version that are included from compiles.
       'hard_dependency': 1,
+      'defines': [
+        # This is required for ATL to use XP-safe versions of its functions.
+        '_USING_V110_SDK71_',
+      ],
     },
     {
       'target_name': 'common_unittest_utils',
