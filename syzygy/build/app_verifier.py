@@ -44,6 +44,8 @@ _DISABLED_CHECKS = {
 # A list of per-test Application Verifier exceptions.
 _EXCEPTIONS = {
   'basic_block_entry_unittests.exe': [
+    # This leak occurs due to a leaky global variable in ScopedHandle.
+    ('Error', 'Leak', 2304, '.*::BasicBlockEntryTest::UnloadDll'),
     # This leak occurs due to a leaky global lock in ScopedHandle.
     ('Error', 'Locks', 513, '.*::BasicBlockEntryTest::UnloadDll'),
     # This is a known (semi-intentional) leak of the TLS index and the last
@@ -51,6 +53,8 @@ _EXCEPTIONS = {
     ('Error', 'TLS', 848, '.*::BasicBlockEntryTest::UnloadDll'),
   ],
   'coverage_unittests.exe': [
+    # This leak occurs due to a leaky global variable in ScopedHandle.
+    ('Error', 'Leak', 2304, '.*::CoverageClientTest::UnloadDll'),
     # This leak occurs only in Debug, which leaks a thread local variable
     # used to check thread restrictions.
     ('Error', 'TLS', 848, '.*::CoverageClientTest::UnloadDll'),
@@ -66,11 +70,15 @@ _EXCEPTIONS = {
     ('Error', 'TLS', 848, '.*::PELibUnitTest::CheckTestDll'),
   ],
   'parse_unittests.exe': [
+    # This leak occurs due to a leaky global variable in ScopedHandle.
+    ('Error', 'Leak', 2304, '.*::ParseEngineRpcTest::UnloadCallTraceDll'),
     # This leak occurs only in Debug, which leaks a thread local variable
     # used to check thread restrictions.
     ('Error', 'TLS', 848, '.*::ParseEngineRpcTest::UnloadCallTraceDll'),
   ],
   'profile_unittests.exe': [
+    # This leak occurs due to a leaky global variable in ScopedHandle.
+    ('Error', 'Leak', 2304, '.*::ProfilerTest::UnloadDll'),
     # This leak occurs due to a leaky global lock in ScopedHandle.
     ('Error', 'Locks', 513, 'agent::profiler::.*::ProfilerTest::UnloadDll'),
     # This leak occurs only in Debug, which leaks a thread local variable
