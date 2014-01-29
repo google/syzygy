@@ -250,6 +250,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       break;
 
     case DLL_PROCESS_DETACH:
+      CommandLine::Reset();
       DCHECK(at_exit != NULL);
       delete at_exit;
       at_exit = NULL;

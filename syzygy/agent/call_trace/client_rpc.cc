@@ -69,6 +69,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
   BOOL ret = Client::Instance()->DllMain(instance, reason, reserved);
 
   if (reason == DLL_PROCESS_DETACH) {
+    CommandLine::Reset();
     DCHECK(at_exit != NULL);
     delete at_exit;
     at_exit = NULL;
