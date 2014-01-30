@@ -537,18 +537,18 @@ void SampleGrinder::OnSampleData(base::Time Time,
   // Filter based on the image of interest, if provided.
   if (!image_path_.empty()) {
     if (image_signature_.module_size != module_info->module_size ||
-        image_signature_.module_checksum != module_info->image_checksum ||
+        image_signature_.module_checksum != module_info->module_checksum ||
         image_signature_.module_time_date_stamp !=
-            module_info->time_date_stamp) {
+            module_info->module_time_date_stamp) {
       LOG(INFO) << "Skipping sample data for module \""
-                << module_info->image_file_name << "\".";
+                << module_info->path << "\".";
       return;
     }
   }
 
   // Get the summary data associated with this module.
   ModuleData* module_data = GetModuleData(
-      base::FilePath(module_info->image_file_name), data);
+      base::FilePath(module_info->path), data);
 
   LOG(INFO) << "Aggregating sample info for module \""
             << module_data->module_path.value() << "\".";

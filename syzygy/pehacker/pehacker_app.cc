@@ -505,7 +505,7 @@ bool PEHackerApp::WriteImages() {
     // Finalize the block-graph.
     VLOG(1) << "Finalizing the block-graph.";
     if (!pe::FinalizeBlockGraph(image_info->input_module,
-                                image_info->output_module,
+                                image_info->output_pdb,
                                 pdb_guid,
                                 true,
                                 &policy_,

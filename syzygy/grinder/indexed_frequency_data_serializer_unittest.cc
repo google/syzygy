@@ -64,11 +64,11 @@ class IndexedFrequencyDataSerializerTest : public testing::PELibUnitTest {
 
   void InitModuleInfo(ModuleInformation* module_info) {
     ASSERT_TRUE(module_info != NULL);
-    module_info->image_file_name = kImageFileName;
-    module_info->base_address = kBaseAddress;
+    module_info->path = kImageFileName;
+    module_info->base_address.set_value(kBaseAddress);
     module_info->module_size = kModuleSize;
-    module_info->image_checksum = kImageChecksum;
-    module_info->time_date_stamp = kTimeDateStamp;
+    module_info->module_checksum = kImageChecksum;
+    module_info->module_time_date_stamp = kTimeDateStamp;
   }
  protected:
   base::ScopedTempDir temp_dir_;

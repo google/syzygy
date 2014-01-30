@@ -222,11 +222,13 @@ const DWORD ParseEngineUnitTest::kProcessId = 0xAAAAAAAA;
 
 const DWORD ParseEngineUnitTest::kThreadId = 0xBBBBBBBB;
 
-const ModuleInformation ParseEngineUnitTest::kExeInfo = {
-    0x11111111, 0x22222222, 0x33333333, 0x44444444, L"file_name.exe" };
+const ModuleInformation ParseEngineUnitTest::kExeInfo(
+    L"file_name.exe", pe::PEFile::AbsoluteAddress(0x11111111), 0x22222222,
+    0x33333333, 0x44444444);
 
-const ModuleInformation ParseEngineUnitTest::kDllInfo = {
-    0x55555555, 0x66666666, 0x77777777, 0x88888888, L"file_name.dll" };
+const ModuleInformation ParseEngineUnitTest::kDllInfo(
+    L"file_name.dll", pe::PEFile::AbsoluteAddress(0x55555555), 0x66666666,
+    0x77777777, 0x88888888);
 
 const TraceModuleData ParseEngineUnitTest::kModuleData = {
     reinterpret_cast<ModuleAddr>(0x99999999),
@@ -299,39 +301,40 @@ TEST_F(ParseEngineUnitTest, ModuleInfo) {
   fail_on_module_conflict_ = true;
 
   // Search for unknown process.
-  module_info = GetModuleInformation(kProcessId + 1, kExeInfo.base_address);
+  module_info = GetModuleInformation(
+      kProcessId + 1, kExeInfo.base_address.value());
   ASSERT_TRUE(module_info == NULL);
 
   // Search before exe start address
   const int kBeforeOffset = -1;
-  module_info = GetModuleInformation(kProcessId,
-                                     kExeInfo.base_address + kBeforeOffset);
+  module_info = GetModuleInformation(
+      kProcessId, kExeInfo.base_address.value() + kBeforeOffset);
   ASSERT_TRUE(module_info == NULL);
 
   // Search after exe end address.
   const size_t kAfterOffset = kExeInfo.module_size;
-  module_info = GetModuleInformation(kProcessId,
-                                     kExeInfo.base_address + kAfterOffset);
+  module_info = GetModuleInformation(
+      kProcessId, kExeInfo.base_address.value() + kAfterOffset);
   ASSERT_TRUE(module_info == NULL);
 
   // Get exe module by start address.
   const size_t kStartOffset = 0;
-  module_info = GetModuleInformation(kProcessId,
-                                     kExeInfo.base_address + kStartOffset);
+  module_info = GetModuleInformation(
+      kProcessId, kExeInfo.base_address.value() + kStartOffset);
   ASSERT_TRUE(module_info != NULL);
   ASSERT_TRUE(*module_info == kExeInfo);
 
   // Get exe module by address somewhere in the middle.
   const size_t kMiddleOffset = kExeInfo.module_size / 2;
-  module_info = GetModuleInformation(kProcessId,
-                                     kExeInfo.base_address + kMiddleOffset);
+  module_info = GetModuleInformation(
+      kProcessId, kExeInfo.base_address.value() + kMiddleOffset);
   ASSERT_TRUE(module_info != NULL);
   ASSERT_TRUE(*module_info == kExeInfo);
 
   // Get exe module by address at the end.
   const size_t kEndOffset = kExeInfo.module_size - 1;
-  module_info = GetModuleInformation(kProcessId,
-                                     kExeInfo.base_address + kEndOffset);
+  module_info = GetModuleInformation(
+      kProcessId, kExeInfo.base_address.value() + kEndOffset);
   ASSERT_TRUE(module_info != NULL);
   ASSERT_TRUE(*module_info == kExeInfo);
 
@@ -346,25 +349,27 @@ TEST_F(ParseEngineUnitTest, ModuleInfo) {
   // Get dll module by address somewhere in the middle, then remove it and
   // see that it's STILL found by that address.
   const size_t kDllOffset = kDllInfo.module_size / 2;
-  module_info = GetModuleInformation(kProcessId,
-                                     kDllInfo.base_address + kDllOffset);
+  module_info = GetModuleInformation(
+      kProcessId, kDllInfo.base_address.value() + kDllOffset);
   ASSERT_TRUE(module_info != NULL);
   ASSERT_TRUE(*module_info == kDllInfo);
   ASSERT_TRUE(RemoveModuleInformation(kProcessId, kDllInfo));
   ASSERT_EQ(2, processes_[kProcessId].size());
-  module_info = GetModuleInformation(kProcessId,
-                                     kDllInfo.base_address + kDllOffset);
+  module_info = GetModuleInformation(
+      kProcessId, kDllInfo.base_address.value() + kDllOffset);
   ASSERT_TRUE(module_info != NULL);
   ASSERT_TRUE(*module_info == kDllInfo);
 
   // Add conflicting module information and see that the old module is gone.
-  ModuleInformation new_dll_info = kDllInfo;
+  ModuleInformation new_dll_info(kDllInfo);
   new_dll_info.base_address += 4;
   ASSERT_TRUE(AddModuleInformation(kProcessId, new_dll_info));
   ASSERT_EQ(2, processes_[kProcessId].size());
-  module_info = GetModuleInformation(kProcessId, kDllInfo.base_address);
+  module_info = GetModuleInformation(
+      kProcessId, kDllInfo.base_address.value());
   ASSERT_TRUE(module_info == NULL);
-  module_info = GetModuleInformation(kProcessId, new_dll_info.base_address);
+  module_info = GetModuleInformation(
+      kProcessId, new_dll_info.base_address.value());
   ASSERT_TRUE(module_info != NULL);
   ASSERT_TRUE(*module_info == new_dll_info);
 }

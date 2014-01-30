@@ -174,23 +174,16 @@ bool ReadFrequencyData(const base::DictionaryValue* dict_value,
     return false;
   }
 
-  // Convert the signature into a ModuleInformation struct.
-  const pe::PEFile::Signature& signature = metadata.module_signature();
-  ModuleInformation module_information;
-  module_information.base_address = signature.base_address.value();
-  module_information.image_checksum = signature.module_checksum;
-  module_information.image_file_name = signature.path;
-  module_information.module_size = signature.module_size;
-  module_information.time_date_stamp = signature.module_time_date_stamp;
-
   // Insert a new IndexedFrequencyMap record for this module.
+  const ModuleInformation& module_information = metadata.module_signature();
   std::pair<ModuleIndexedFrequencyMap::iterator, bool> result =
       module_frequency_map->insert(std::make_pair(
           module_information, IndexedFrequencyInformation()));
 
   // Validate that we really did insert a new module into the map.
   if (!result.second) {
-    LOG(ERROR) << "Found duplicate entries for " << signature.path << ".";
+    LOG(ERROR) << "Found duplicate entries for " << module_information.path
+               << ".";
     return false;
   }
 

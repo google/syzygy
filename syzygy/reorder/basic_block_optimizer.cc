@@ -42,7 +42,6 @@ using grinder::basic_block_util::EntryCountType;
 using grinder::basic_block_util::IndexedFrequencyInformation;
 using grinder::basic_block_util::IndexedFrequencyOffset;
 using grinder::basic_block_util::IndexedFrequencyMap;
-using grinder::basic_block_util::InitModuleInfo;
 using grinder::basic_block_util::ModuleInformation;
 using grinder::basic_block_util::RelativeAddress;
 using grinder::basic_block_util::RelativeAddressRange;

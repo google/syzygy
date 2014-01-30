@@ -87,11 +87,11 @@ class TestGrinder : public GrinderInterface {
 
 void PopulateModuleInformation(ModuleInformation* module_info) {
   ASSERT_TRUE(module_info != NULL);
-  module_info->base_address = 0xDEADBEEF;
-  module_info->image_checksum = 0xCAFEBABE;
-  module_info->image_file_name = L"image_file_name";
+  module_info->base_address.set_value(0xDEADBEEF);
+  module_info->module_checksum = 0xCAFEBABE;
+  module_info->path = L"image_file_name";
   module_info->module_size = 0x12345678;
-  module_info->time_date_stamp = 0x87654321;
+  module_info->module_time_date_stamp = 0x87654321;
 }
 
 }  // namespace
@@ -100,7 +100,7 @@ TEST(GrinderBasicBlockUtilTest, ModuleIdentityComparator) {
   ModuleInformation a;
   PopulateModuleInformation(&a);
 
-  ModuleInformation b = a;
+  ModuleInformation b(a);
   ModuleIdentityComparator comp;
   // The two should compare equal.
   EXPECT_FALSE(comp(a, b));
@@ -108,7 +108,7 @@ TEST(GrinderBasicBlockUtilTest, ModuleIdentityComparator) {
 
   // Jiggle b's base address and checksum.
   b.base_address -= 10;
-  b.image_checksum += 100;
+  b.module_checksum += 100;
   // The two should still compare equal.
   EXPECT_FALSE(comp(a, b));
   EXPECT_FALSE(comp(b, a));
@@ -119,29 +119,14 @@ TEST(GrinderBasicBlockUtilTest, ModuleIdentityComparator) {
   EXPECT_TRUE(comp(b, a));
 
   b = a;
-  b.time_date_stamp += 1;
+  b.module_time_date_stamp += 1;
   EXPECT_TRUE(comp(a, b));
   EXPECT_FALSE(comp(b, a));
 
   b = a;
-  b.image_file_name = L"foo";
+  b.path = L"foo";
   EXPECT_FALSE(comp(a, b));
   EXPECT_TRUE(comp(b, a));
-}
-
-TEST(GrinderBasicBlockUtilTest, InitModuleInfo) {
-  // Create a prototype module info structure.
-  ModuleInformation orig_module_info;
-  EXPECT_NO_FATAL_FAILURE(PopulateModuleInformation(&orig_module_info));
-
-  // Initialize a signature matching the prototype.
-  pe::PEFile::Signature signature(orig_module_info);
-
-  // Extract the module information from the signature. It should match the
-  // prototype.
-  ModuleInformation new_module_info;
-  InitModuleInfo(signature, &new_module_info);
-  EXPECT_EQ(orig_module_info, new_module_info);
 }
 
 TEST(GrinderBasicBlockUtilTest, FindEntryCountVector) {
@@ -170,7 +155,7 @@ TEST(GrinderBasicBlockUtilTest, FindEntryCountVector) {
   EXPECT_EQ(count_map_1, count_map);
 
   // Insert a second matching module and search again. This should fail.
-  module_info.image_file_name = L"Some other file name";
+  module_info.path = L"Some other file name";
   const IndexedFrequencyInformation* count_map_2 =
       &module_count_map[module_info];
   ASSERT_NE(count_map_1, count_map_2);

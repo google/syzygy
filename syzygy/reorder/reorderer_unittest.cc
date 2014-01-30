@@ -169,8 +169,9 @@ TestReorderer::TestReorderer(const base::FilePath& module_path,
 
 const DWORD kProcessId = 0xAAAAAAAA;
 const DWORD kThreadId = 0xBBBBBBBB;
-const sym_util::ModuleInformation kExeInfo = {
-    0x11111111, 0x22222222, 0x33333333, 0x44444444, L"file_name.exe" };
+const pe::ModuleInformation kExeInfo(
+    L"file_name.exe", pe::PEFile::AbsoluteAddress(0x11111111), 0x22222222,
+    0x33333333, 0x44444444);
 
 bool TestParseEngine::ConsumeAllEvents() {
   // Add dummy module information for some running process.
@@ -181,24 +182,18 @@ bool TestParseEngine::ConsumeAllEvents() {
   base::Time time = base::Time::Now();
   event_handler_->OnProcessStarted(time, kProcessId, NULL);
 
-  sym_util::ModuleInformation dll_info = {};
-  const PEFile::Signature& sig = reorderer_->instr_signature();
-  dll_info.base_address = sig.base_address.value();
-  dll_info.image_checksum = sig.module_checksum;
-  dll_info.image_file_name = sig.path;
-  dll_info.module_size = sig.module_size;
-  dll_info.time_date_stamp = sig.module_time_date_stamp;
+  const pe::ModuleInformation& dll_info = reorderer_->instr_signature();
 
   TraceModuleData dll_data = {};
   dll_data.module_base_addr =
-      reinterpret_cast<ModuleAddr>(dll_info.base_address);
+      reinterpret_cast<ModuleAddr>(dll_info.base_address.value());
   dll_data.module_base_size = dll_info.module_size;
   dll_data.module_exe[0] = 0;
-  dll_data.module_checksum = dll_info.image_checksum;
-  dll_data.module_time_date_stamp = dll_info.time_date_stamp;
+  dll_data.module_checksum = dll_info.module_checksum;
+  dll_data.module_time_date_stamp = dll_info.module_time_date_stamp;
   wcscpy_s(dll_data.module_name,
-           sizeof(dll_data.module_name),
-           sig.path.c_str());
+           arraysize(dll_data.module_name),
+           dll_info.path.c_str());
 
   // Simulate the process and thread attaching to the DLL. This adds the DLL
   // to the list of modules.
@@ -252,7 +247,7 @@ bool TestParseEngine::ConsumeAllEvents() {
                                          rva);
 
       // Convert this to an absolute address using the base address from above.
-      uint64 abs = sig.base_address.value() + rva.value();
+      uint64 abs = dll_info.base_address.value() + rva.value();
       void* block_pointer = reinterpret_cast<void*>(abs);
 
       event_data.calls[j].function = block_pointer;
@@ -273,7 +268,7 @@ bool TestParseEngine::ConsumeAllEvents() {
                                        rva);
 
     // Convert this to an absolute address using the base address from above.
-    uint64 abs = sig.base_address.value() + rva.value();
+    uint64 abs = dll_info.base_address.value() + rva.value();
     void* block_pointer = reinterpret_cast<void*>(abs);
 
     TraceEnterEventData event_data = {};

@@ -25,7 +25,6 @@
 #include <vector>
 
 #include "base/files/file_path.h"
-#include "sawbuck/sym_util/types.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
 #include "syzygy/core/serialization.h"

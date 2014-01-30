@@ -36,12 +36,12 @@ bool ModuleIdentityComparator::operator()(
   if (lhs.module_size > rhs.module_size)
     return false;
 
-  if (lhs.time_date_stamp < rhs.time_date_stamp)
+  if (lhs.module_time_date_stamp < rhs.module_time_date_stamp)
     return true;
-  if (lhs.time_date_stamp > rhs.time_date_stamp)
+  if (lhs.module_time_date_stamp > rhs.module_time_date_stamp)
     return false;
 
-  return lhs.image_file_name < rhs.image_file_name;
+  return lhs.path < rhs.path;
 }
 
 bool operator==(const IndexedFrequencyInformation& lhs,
@@ -50,16 +50,6 @@ bool operator==(const IndexedFrequencyInformation& lhs,
       lhs.num_columns == rhs.num_columns &&
       lhs.data_type == rhs.data_type &&
       lhs.frequency_map == rhs.frequency_map;
-}
-
-void InitModuleInfo(const pe::PEFile::Signature& signature,
-                    ModuleInformation* module_info) {
-  DCHECK(module_info != NULL);
-  module_info->base_address = signature.base_address.value();
-  module_info->image_checksum = signature.module_checksum;
-  module_info->image_file_name = signature.path;
-  module_info->module_size = signature.module_size;
-  module_info->time_date_stamp = signature.module_time_date_stamp;
 }
 
 bool FindIndexedFrequencyInfo(
@@ -202,7 +192,7 @@ bool LoadPdbInfo(PdbInfoMap* pdb_info_cache,
 
   // Find the PDB file for the module.
   base::FilePath pdb_path;
-  base::FilePath module_path(module_info.image_file_name);
+  base::FilePath module_path(module_info.path);
   if (!pe::FindPdbForModule(module_path, &pdb_path) || pdb_path.empty()) {
     LOG(ERROR) << "Failed to find PDB for module: " << module_path.value();
     return false;

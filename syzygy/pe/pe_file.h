@@ -25,7 +25,6 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/files/file_path.h"
-#include "sawbuck/sym_util/types.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
 #include "syzygy/core/serialization.h"
@@ -261,19 +260,35 @@ class PEFileBase : public PECoffFile<PEAddressSpaceTraits> {
 template<class ImageNtHeaders, DWORD MagicValidation>
 struct PEFileBase<ImageNtHeaders, MagicValidation>::Signature {
   // Construct a default all-zero signature.
-  Signature() : module_size(0), module_time_date_stamp(0), module_checksum(0) {
+  Signature() : module_size(0), module_checksum(0), module_time_date_stamp(0) {
   }
 
-  // Construct a signature from the specified module information.
-  //
-  // @param module_info the module information from which to extract
-  // signature data.
-  explicit Signature(const sym_util::ModuleInformation& module_info)
-      : path(module_info.image_file_name),
-        base_address(module_info.base_address),
-        module_size(module_info.module_size),
-        module_time_date_stamp(module_info.time_date_stamp),
-        module_checksum(module_info.image_checksum) {
+  // Constructor with full initializer list.
+  // @param path The path to the module.
+  // @param base_address The base address of the module.
+  // @param module_size The size of the module.
+  // @param module_checksum The checksum of the module.
+  // @param module_time_date_stamp The time-date stamp of the module.
+  Signature(const base::StringPiece16& path,
+            AbsoluteAddress base_address,
+            size_t module_size,
+            uint32 module_checksum,
+            uint32 module_time_date_stamp)
+    : path(path.begin(), path.end()),
+      base_address(base_address),
+      module_size(module_size),
+      module_checksum(module_checksum),
+      module_time_date_stamp(module_time_date_stamp) {
+  }
+
+  // Copy constructor.
+  // @param rhs Object to copy.
+  explicit Signature(const Signature& rhs)
+      : path(rhs.path),
+        base_address(rhs.base_address),
+        module_size(rhs.module_size),
+        module_checksum(rhs.module_checksum),
+        module_time_date_stamp(rhs.module_time_date_stamp) {
   }
 
   // The original module path, kept for convenience. This should
@@ -283,7 +298,8 @@ struct PEFileBase<ImageNtHeaders, MagicValidation>::Signature {
   //     path is used.
   std::wstring path;
 
-  // The four signature components.
+  // The four signature components. The order of these fields is the same as
+  // Sawbuck's ModuleInformation, and TraceModuleData, for consistency.
   // @{
   // The preferred loading address of the module.
   AbsoluteAddress base_address;
@@ -291,11 +307,11 @@ struct PEFileBase<ImageNtHeaders, MagicValidation>::Signature {
   // The on-disk size in bytes of the module file.
   size_t module_size;
 
-  // The on-disk modification time of the module file.
-  uint32 module_time_date_stamp;
-
   // A 32-bit checksum of the module file.
   uint32 module_checksum;
+
+  // The on-disk modification time of the module file.
+  uint32 module_time_date_stamp;
   // @}
 
   // Compare the specified signature with this one. Signatures are
@@ -435,6 +451,9 @@ typedef PEFileBase<IMAGE_NT_HEADERS32, IMAGE_NT_OPTIONAL_HDR32_MAGIC> PEFile;
 // manipulation of imports.
 typedef PEFileBase<IMAGE_NT_HEADERS64, IMAGE_NT_OPTIONAL_HDR64_MAGIC> PEFile64;
 
+// We alias the PE file signature to ModuleInformation, which is used to track
+// modules in traces.
+typedef PEFile::Signature ModuleInformation;
 }  // namespace pe
 
 #include "syzygy/pe/pe_file_impl.h"

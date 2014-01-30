@@ -310,12 +310,12 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
     // process info.
     ASSERT_TRUE(module_info != NULL);
     ASSERT_EQ(process_info.executable_path,
-              base::FilePath(module_info->image_file_name));
-    ASSERT_EQ(process_info.exe_base_address, module_info->base_address);
+              base::FilePath(module_info->path));
+    ASSERT_EQ(process_info.exe_base_address, module_info->base_address.value());
     ASSERT_EQ(process_info.exe_image_size, module_info->module_size);
-    ASSERT_EQ(process_info.exe_checksum, module_info->image_checksum);
+    ASSERT_EQ(process_info.exe_checksum, module_info->module_checksum);
     ASSERT_EQ(process_info.exe_time_date_stamp,
-              module_info->time_date_stamp);
+              module_info->module_time_date_stamp);
 
     // And extract the results.
     entered_addresses_.clear();

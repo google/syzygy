@@ -99,7 +99,7 @@ class ProfileGrinder : public GrinderInterface {
  protected:
   Parser* parser_;
 
-  typedef sym_util::ModuleInformation ModuleInformation;
+  typedef pe::ModuleInformation ModuleInformation;
 
   // Forward declarations.
   struct PartData;
@@ -236,7 +236,7 @@ class ProfileGrinder::CodeLocation {
   // @p symbol_offset.
   void Set(uint32 process_id, uint32 symbol_id, size_t symbol_offset);
   // Set to a module/rva location with @p module and @p rva.
-  void Set(const sym_util::ModuleInformation* module, RVA rva);
+  void Set(const pe::ModuleInformation* module, RVA rva);
 
   // Returns true iff the code location is valid.
   bool IsValid() { return is_symbol_ || (rva_ != 0 && module_ != NULL); }
@@ -254,7 +254,7 @@ class ProfileGrinder::CodeLocation {
   size_t symbol_offset() const { return symbol_offset_; }
 
   // @name Only valid when is_symbol() == false.
-  const sym_util::ModuleInformation* module() const { return module_; }
+  const pe::ModuleInformation* module() const { return module_; }
   RVA rva() const { return rva_; }
   // @}
 
@@ -274,7 +274,7 @@ class ProfileGrinder::CodeLocation {
  private:
   union {
     uint32 process_id_;
-    const sym_util::ModuleInformation* module_;
+    const pe::ModuleInformation* module_;
   };
   union {
     RVA rva_;

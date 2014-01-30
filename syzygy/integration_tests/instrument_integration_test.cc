@@ -650,7 +650,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     TestingProfileGrinder::ModuleInformationSet::const_iterator mod_it;
     std::vector<std::wstring> module_names;
     for (mod_it = modules.begin(); mod_it != modules.end(); ++mod_it) {
-      base::FilePath image_name(mod_it->image_file_name);
+      base::FilePath image_name(mod_it->path);
       module_names.push_back(image_name.BaseName().value());
     }
 

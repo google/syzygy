@@ -204,19 +204,21 @@ bool Playback::ValidateInstrumentedModuleAndParseSignature(
 bool Playback::MatchesInstrumentedModuleSignature(
     const ModuleInformation& module_info) const {
   // On Windows XP gathered traces, only the module size is non-zero.
-  if (module_info.image_checksum == 0 && module_info.time_date_stamp == 0) {
+  if (module_info.module_checksum == 0 &&
+      module_info.module_time_date_stamp == 0) {
     // If the size matches, then check that the names fit.
     if (instr_signature_.module_size != module_info.module_size)
       return false;
 
     base::FilePath base_name = instrumented_path_.BaseName();
-    return (module_info.image_file_name.rfind(base_name.value()) !=
+    return (module_info.path.rfind(base_name.value()) !=
         std::wstring::npos);
   } else {
     // On Vista and greater, we can check the full module signature.
-    return (instr_signature_.module_checksum == module_info.image_checksum &&
+    return (instr_signature_.module_checksum == module_info.module_checksum &&
         instr_signature_.module_size == module_info.module_size &&
-        instr_signature_.module_time_date_stamp == module_info.time_date_stamp);
+        instr_signature_.module_time_date_stamp ==
+            module_info.module_time_date_stamp);
   }
 }
 
@@ -251,7 +253,7 @@ const Playback::BlockGraph::Block* Playback::FindFunctionBlock(
   // Convert the address to an RVA. We can only instrument 32-bit DLLs, so we're
   // sure that the following address conversion is safe.
   core::RelativeAddress rva(
-      static_cast<uint32>(abs_address - module_info->base_address));
+      static_cast<uint32>(abs_address - module_info->base_address.value()));
 
   // Convert the address from one in the instrumented module to one in the
   // original module using the OMAP data.
@@ -266,7 +268,7 @@ const Playback::BlockGraph::Block* Playback::FindFunctionBlock(
   }
   if (block->type() != BlockGraph::CODE_BLOCK) {
     LOG(ERROR) << rva << " maps to a non-code block (" << block->name()
-               << " in " << module_info->image_file_name << ").";
+               << " in " << module_info->path << ").";
     *error = true;
     return NULL;
   }

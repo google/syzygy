@@ -157,16 +157,9 @@ TEST_F(PlaybackTest, FindFunctionBlock) {
   // Get the instrumented module's signature. We need this so we can inject
   // modules into the parse engine.
   pe::PEFile pe_file;
-  pe::PEFile::Signature pe_sig;
+  trace::parser::ModuleInformation module_info;
   ASSERT_TRUE(pe_file.Init(instrumented_path_));
-  pe_file.GetSignature(&pe_sig);
-
-  trace::parser::ModuleInformation module_info = {};
-  module_info.base_address = pe_sig.base_address.value();
-  module_info.module_size = pe_sig.module_size;
-  module_info.image_checksum = pe_sig.module_checksum;
-  module_info.time_date_stamp = pe_sig.module_time_date_stamp;
-  module_info.image_file_name = input_dll_.path().value();
+  pe_file.GetSignature(&module_info);
 
   const DWORD kPid = 0x1234;
 
@@ -176,18 +169,18 @@ TEST_F(PlaybackTest, FindFunctionBlock) {
   ASSERT_TRUE(text != NULL);
   ASSERT_TRUE(data != NULL);
   FuncAddr text_addr = reinterpret_cast<FuncAddr>(
-      module_info.base_address + text->VirtualAddress);
+      module_info.base_address.value() + text->VirtualAddress);
   FuncAddr data_addr = reinterpret_cast<FuncAddr>(
-      module_info.base_address + data->VirtualAddress);
+      module_info.base_address.value() + data->VirtualAddress);
 
-  trace::parser::ModuleInformation other_module_info = {};
-  other_module_info.base_address = 0x3F000000;
+  trace::parser::ModuleInformation other_module_info;
+  other_module_info.base_address.set_value(0x3F000000);
   other_module_info.module_size = 0x00010000;
-  other_module_info.image_checksum = 0xF000BA55;
-  other_module_info.time_date_stamp = 0xDEADBEEF;
-  other_module_info.image_file_name = L"other_module.dll";
+  other_module_info.module_checksum = 0xF000BA55;
+  other_module_info.module_time_date_stamp = 0xDEADBEEF;
+  other_module_info.path = L"other_module.dll";
   FuncAddr other_text_addr = reinterpret_cast<FuncAddr>(
-      other_module_info.base_address + 0x1000);
+      other_module_info.base_address.value() + 0x1000);
 
   ASSERT_TRUE(parser_->active_parse_engine()->AddModuleInformation(
       kPid, module_info));

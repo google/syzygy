@@ -83,11 +83,11 @@ bool ParseEngine::AddModuleInformation(DWORD process_id,
 
   // This happens in Windows XP ETW traces for some reason. They contain
   // conflicting information, so we ignore them.
-  if (module_info.image_file_name.empty())
+  if (module_info.path.empty())
     return true;
 
   ModuleSpace& module_space = processes_[process_id];
-  AbsoluteAddress64 addr(module_info.base_address);
+  AbsoluteAddress64 addr(module_info.base_address.value());
   ModuleSpace::Range range(addr, module_info.module_size);
 
   AnnotatedModuleInformation new_module_info(module_info);
@@ -103,11 +103,12 @@ bool ParseEngine::AddModuleInformation(DWORD process_id,
   // matches except the path. For a little bit of extra sanity checking we
   // also check the basename of the paths.
   if (module_info.base_address == iter->second.base_address &&
-      module_info.image_checksum == iter->second.image_checksum &&
+      module_info.module_checksum == iter->second.module_checksum &&
       module_info.module_size == iter->second.module_size &&
-      module_info.time_date_stamp == iter->second.time_date_stamp) {
-    base::FilePath path1(module_info.image_file_name);
-    base::FilePath path2(iter->second.image_file_name);
+      module_info.module_time_date_stamp ==
+          iter->second.module_time_date_stamp) {
+    base::FilePath path1(module_info.path);
+    base::FilePath path2(iter->second.path);
     if (path1.BaseName() == path2.BaseName()) {
       return true;
     }
@@ -124,10 +125,10 @@ bool ParseEngine::AddModuleInformation(DWORD process_id,
   }
 
   LOG(ERROR) << "Conflicting module info for pid=" << process_id << ": "
-             << module_info.image_file_name
+             << module_info.path
              << " (base=0x" << module_info.base_address
              << ", size=" << module_info.module_size << ") and "
-             << iter->second.image_file_name
+             << iter->second.path
              << " (base=0x" << iter->second.base_address
              << ", size=" << iter->second.module_size << ").";
 
@@ -142,11 +143,11 @@ bool ParseEngine::RemoveModuleInformation(
 
   // This happens in Windows XP traces for some reason. They contain conflicing
   // information, so we ignore them.
-  if (module_info.image_file_name.empty())
+  if (module_info.path.empty())
     return true;
 
   ModuleSpace& module_space = processes_[process_id];
-  AbsoluteAddress64 addr(module_info.base_address);
+  AbsoluteAddress64 addr(module_info.base_address.value());
   ModuleSpace::Range range(addr, module_info.module_size);
   ModuleSpace::RangeMapIter it = module_space.FindFirstIntersection(range);
   if (it == module_space.end()) {
@@ -156,7 +157,7 @@ bool ParseEngine::RemoveModuleInformation(
   }
   if (it->first != range) {
     LOG(ERROR) << "Trying to remove module with mismatching range: "
-               << module_info.image_file_name
+               << module_info.path
                << " (base=0x" << module_info.base_address
                << ", size=" << module_info.module_size << ").";
     if (fail_on_module_conflict_)
@@ -502,16 +503,16 @@ bool ParseEngine::DispatchSampleDataEvent(EVENT_TRACE* event) {
 
 namespace {
 
-ModuleInformation ModuleTraceDataToModuleInformation(
-    const TraceModuleData& module_data) {
-  ModuleInformation module_info = {};
-  module_info.base_address =
-      reinterpret_cast<uint32>(module_data.module_base_addr);
-  module_info.module_size = module_data.module_base_size;
-  module_info.image_file_name = module_data.module_name;
-  module_info.image_checksum = module_data.module_checksum;
-  module_info.time_date_stamp = module_data.module_time_date_stamp;
-  return module_info;
+void ModuleTraceDataToModuleInformation(
+    const TraceModuleData& module_data,
+    ModuleInformation* module_info) {
+  DCHECK_NE(reinterpret_cast<ModuleInformation*>(NULL), module_info);
+  module_info->base_address.set_value(
+      reinterpret_cast<uint32>(module_data.module_base_addr));
+  module_info->module_size = module_data.module_base_size;
+  module_info->path = module_data.module_name;
+  module_info->module_checksum = module_data.module_checksum;
+  module_info->module_time_date_stamp = module_data.module_time_date_stamp;
 }
 
 }  // namespace
@@ -544,29 +545,36 @@ bool ParseEngine::DispatchModuleEvent(EVENT_TRACE* event,
   DWORD thread_id = event->Header.ThreadId;
 
   switch (type) {
-    case TRACE_PROCESS_ATTACH_EVENT:
-      AddModuleInformation(process_id,
-                           ModuleTraceDataToModuleInformation(*data));
+    case TRACE_PROCESS_ATTACH_EVENT: {
+      ModuleInformation module_info;
+      ModuleTraceDataToModuleInformation(*data, &module_info);
+      AddModuleInformation(process_id, module_info);
       event_handler_->OnProcessAttach(time, process_id, thread_id, data);
       break;
+    }
 
-    case TRACE_PROCESS_DETACH_EVENT:
+    case TRACE_PROCESS_DETACH_EVENT: {
       event_handler_->OnProcessDetach(time, process_id, thread_id, data);
-      RemoveModuleInformation(process_id,
-                              ModuleTraceDataToModuleInformation(*data));
+      ModuleInformation module_info;
+      ModuleTraceDataToModuleInformation(*data, &module_info);
+      RemoveModuleInformation(process_id, module_info);
       break;
+    }
 
-    case TRACE_THREAD_ATTACH_EVENT:
+    case TRACE_THREAD_ATTACH_EVENT: {
       event_handler_->OnThreadAttach(time, process_id, thread_id, data);
       break;
+    }
 
-    case TRACE_THREAD_DETACH_EVENT:
+    case TRACE_THREAD_DETACH_EVENT: {
       event_handler_->OnThreadDetach(time, process_id, thread_id, data);
       break;
+    }
 
-    default:
+    default: {
       LOG(ERROR) << "Unexpected module event type " << type << ".";
       return false;
+    }
   }
 
   return true;

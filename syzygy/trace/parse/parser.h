@@ -23,27 +23,22 @@
 #include "base/time.h"
 #include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
-#include "sawbuck/sym_util/types.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
+#include "syzygy/pe/pe_file.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
 namespace trace {
 namespace parser {
 
-typedef sym_util::ModuleInformation ModuleInformation;
+typedef pe::ModuleInformation ModuleInformation;
 typedef uint64 AbsoluteAddress64;
 typedef uint64 Size64;
 
-// This struct extends the sym_util::ModuleInformation structure to be possibly
+// This struct extends the pe::ModuleInformation structure to be possibly
 // annotated as dirty.
 struct AnnotatedModuleInformation : public ModuleInformation {
-  AnnotatedModuleInformation() : is_dirty(false) {
-    base_address = 0;
-    module_size = 0;
-    image_checksum = 0;
-    time_date_stamp = 0;
-  }
+  AnnotatedModuleInformation() : ModuleInformation(), is_dirty(false) { }
 
   explicit AnnotatedModuleInformation(const ModuleInformation& module_info)
       : ModuleInformation(module_info),

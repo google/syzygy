@@ -98,14 +98,14 @@ void IndexedFrequencyDataGrinder::OnIndexedFrequency(
       FindOrCreateInstrumentedModule(module_info);
   if (instrumented_module == NULL) {
     LOG(ERROR) << "Failed to find instrumented module "
-               << module_info->image_file_name;
+               << module_info->path;
     event_handler_errored_ = true;
     return;
   }
 
   if (data->num_entries != instrumented_module->block_ranges.size()) {
     LOG(ERROR) << "Unexpected data size for instrumented module "
-               << module_info->image_file_name;
+               << module_info->path;
     event_handler_errored_ = true;
     return;
   }
@@ -188,7 +188,7 @@ IndexedFrequencyDataGrinder::FindOrCreateInstrumentedModule(
     return &it->second;
 
   // Get the original file's metadata.
-  base::FilePath module_path(module_info->image_file_name);
+  base::FilePath module_path(module_info->path);
   pe::PEFile instrumented_module;
   if (!instrumented_module.Init(module_path)) {
     LOG(ERROR) << "Unable to locate instrumented module: "
@@ -219,9 +219,7 @@ IndexedFrequencyDataGrinder::FindOrCreateInstrumentedModule(
   // We've located all the information we need, create and initialize the
   // record.
   InstrumentedModuleInformation& info = instrumented_modules_[*module_info];
-  basic_block_util::InitModuleInfo(metadata.module_signature(),
-                                   &info.original_module);
-
+  info.original_module = metadata.module_signature();
   info.block_ranges.swap(block_ranges);
 
   return &info;

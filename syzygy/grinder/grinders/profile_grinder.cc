@@ -30,7 +30,7 @@ using base::win::ScopedBstr;
 using base::win::ScopedComPtr;
 using trace::parser::AbsoluteAddress64;
 using trace::parser::ParseEventHandler;
-using sym_util::ModuleInformation;
+using pe::ModuleInformation;
 
 namespace {
 
@@ -44,17 +44,17 @@ bool ModuleInformationKeyLess(const ModuleInformation& a,
   if (a.module_size < b.module_size)
     return true;
 
-  if (a.image_checksum > b.image_checksum)
+  if (a.module_checksum > b.module_checksum)
     return false;
-  if (a.image_checksum < b.image_checksum)
+  if (a.module_checksum < b.module_checksum)
     return true;
 
-  if (a.time_date_stamp > b.time_date_stamp)
+  if (a.module_time_date_stamp > b.module_time_date_stamp)
     return false;
-  if (a.time_date_stamp < b.time_date_stamp)
+  if (a.module_time_date_stamp < b.module_time_date_stamp)
     return true;
 
-  return a.image_file_name < b.image_file_name;
+  return a.path < b.path;
 }
 
 }  // namespace
@@ -72,7 +72,7 @@ void ProfileGrinder::CodeLocation::Set(
 }
 
 void ProfileGrinder::CodeLocation::Set(
-    const sym_util::ModuleInformation* module, RVA rva) {
+    const pe::ModuleInformation* module, RVA rva) {
   is_symbol_ = false;
   module_ = module;
   rva_ = rva;
@@ -176,16 +176,8 @@ bool ProfileGrinder::GetSessionForModule(const ModuleInformation* module,
       return false;
     }
 
-    pe::PEFile::Signature signature;
-    signature.path = module->image_file_name;
-    signature.base_address = core::AbsoluteAddress(
-        static_cast<uint32>(module->base_address));
-    signature.module_size = module->module_size;
-    signature.module_time_date_stamp = module->time_date_stamp;
-    signature.module_checksum = module->image_checksum;
-
     base::FilePath module_path;
-    if (!pe::FindModuleBySignature(signature, &module_path) ||
+    if (!pe::FindModuleBySignature(*module, &module_path) ||
         module_path.empty()) {
       LOG(ERROR) << "Unable to find module matching signature.";
       return false;
@@ -331,7 +323,7 @@ bool ProfileGrinder::GetFunctionForCaller(const CallerLocation& caller,
                               caller.rva(),
                               function_sym.Receive())) {
     LOG(ERROR) << "No symbol info available for function in module '"
-               << caller.module()->image_file_name << "'";
+               << caller.module()->path << "'";
   }
 
   // Get the RVA of the function.
@@ -434,7 +426,7 @@ bool ProfileGrinder::GetInfoForFunction(const FunctionLocation& function,
                               function.rva(),
                               function_sym.Receive())) {
     LOG(ERROR) << "No symbol info available for function in module '"
-               << function.module()->image_file_name << "'";
+               << function.module()->path << "'";
     return false;
   }
 
@@ -551,7 +543,7 @@ bool ProfileGrinder::ResolveCallersForPart(PartData* part) {
       //     sufficient module information that we can resolve calls from
       //     system and dependent modules.
       LOG(WARNING) << "Found no info for module: '"
-                   << edge.caller.module()->image_file_name << "'.";
+                   << edge.caller.module()->path << "'.";
     }
   }
 
@@ -767,7 +759,7 @@ void ProfileGrinder::ConvertToModuleRVA(uint32 process_id,
   }
   DCHECK(it != modules_.end());
 
-  rva->Set(&(*it), static_cast<RVA>(addr - module->base_address));
+  rva->Set(&(*it), static_cast<RVA>(addr - module->base_address.value()));
 }
 
 }  // namespace grinders

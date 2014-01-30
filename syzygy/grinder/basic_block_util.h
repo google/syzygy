@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "base/files/file_path.h"
-#include "sawbuck/sym_util/types.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/grinder/line_info.h"
 #include "syzygy/pe/pe_file.h"
@@ -37,7 +36,7 @@ typedef core::AddressRange<RelativeAddress, size_t> RelativeAddressRange;
 typedef std::vector<RelativeAddressRange> RelativeAddressRangeVector;
 
 // Module information.
-typedef sym_util::ModuleInformation ModuleInformation;
+typedef pe::ModuleInformation ModuleInformation;
 
 // Compares module information on identity properties alone.
 struct ModuleIdentityComparator {
@@ -94,11 +93,6 @@ struct PdbInfo {
 typedef std::map<ModuleInformation,
                  PdbInfo,
                  ModuleIdentityComparator> PdbInfoMap;
-
-// A helper function to populate a ModuleInformation structure from a PE
-// signature.
-void InitModuleInfo(const pe::PEFile::Signature& signature,
-                    ModuleInformation* module_info);
 
 bool FindIndexedFrequencyInfo(
     const pe::PEFile::Signature& signature,

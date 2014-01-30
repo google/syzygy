@@ -88,7 +88,7 @@ bool CoverageGrinder::Grind() {
   for (; it != pdb_info_cache_.end(); ++it) {
     if (!coverage_data_.Add(it->second.line_info)) {
       LOG(ERROR) << "Failed to aggregate line information from PDB: "
-                 << it->first.image_file_name;
+                 << it->first.path;
       return false;
     }
   }

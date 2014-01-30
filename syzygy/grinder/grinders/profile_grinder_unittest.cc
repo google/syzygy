@@ -159,7 +159,7 @@ TEST_F(ProfileGrinderTest, CodeLocation) {
   EXPECT_TRUE(loc2 != loc1);
   EXPECT_TRUE(loc2 < loc1);
 
-  const sym_util::ModuleInformation kModuleInfo;
+  const pe::ModuleInformation kModuleInfo;
   const RVA kRva = 0x10945;
   // Change them both to module/rva, and test for equality.
   loc1.Set(&kModuleInfo, kRva);

@@ -146,11 +146,11 @@ class IndexedFrequencyDataGrinderTest : public testing::PELibUnitTest {
 
   void InitModuleInfo(InstrumentedModuleInformation* module_info) {
     ASSERT_TRUE(module_info != NULL);
-    module_info->original_module.image_file_name = kImageFileName;
+    module_info->original_module.path = kImageFileName;
     module_info->original_module.base_address = kBaseAddress;
     module_info->original_module.module_size = kModuleSize;
-    module_info->original_module.image_checksum = kImageChecksum;
-    module_info->original_module.time_date_stamp = kTimeDateStamp;
+    module_info->original_module.module_checksum = kImageChecksum;
+    module_info->original_module.module_time_date_stamp = kTimeDateStamp;
 
     for (size_t i = 0; i < kNumBasicBlocks; ++i) {
       using grinder::basic_block_util::RelativeAddress;
@@ -180,8 +180,8 @@ class IndexedFrequencyDataGrinderTest : public testing::PELibUnitTest {
     (*data)->module_base_addr =
         reinterpret_cast<ModuleAddr>(module_info.base_address);
     (*data)->module_base_size = module_info.module_size;
-    (*data)->module_checksum = module_info.image_checksum;
-    (*data)->module_time_date_stamp = module_info.time_date_stamp;
+    (*data)->module_checksum = module_info.module_checksum;
+    (*data)->module_time_date_stamp = module_info.module_time_date_stamp;
     (*data)->num_entries = kNumBasicBlocks;
     (*data)->num_columns = kNumColumns;
     (*data)->data_type = common::IndexedFrequencyData::BRANCH;

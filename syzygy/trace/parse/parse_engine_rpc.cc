@@ -159,12 +159,12 @@ bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
   // Add the executable's module information to the process map. This is in
   // case the executable itself is instrumented, so that trace events will map
   // to a module in the process map.
-  ModuleInformation module_info = {};
-  module_info.base_address = file_header->module_base_address;
-  module_info.image_file_name = module_path;
+  ModuleInformation module_info;
+  module_info.base_address.set_value(file_header->module_base_address);
+  module_info.path = module_path;
   module_info.module_size = file_header->module_size;
-  module_info.image_checksum = file_header->module_checksum;
-  module_info.time_date_stamp = file_header->module_time_date_stamp;
+  module_info.module_checksum = file_header->module_checksum;
+  module_info.module_time_date_stamp = file_header->module_time_date_stamp;
   AddModuleInformation(file_header->process_id, module_info);
 
   // Notify the event handler that a process has started.
