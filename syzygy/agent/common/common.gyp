@@ -33,7 +33,6 @@
         'thread_state.h',
       ],
       'dependencies': [
-        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/pe/pe.gyp:test_dll',
         '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',

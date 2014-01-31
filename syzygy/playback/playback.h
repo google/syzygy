@@ -29,7 +29,6 @@
 #include <windows.h>
 
 #include "base/win/event_trace_consumer.h"
-#include "sawbuck/log_lib/kernel_log_consumer.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pe/decomposer.h"

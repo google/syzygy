@@ -39,7 +39,6 @@
         'transforms/basic_block_layout_transform.h',
       ],
       'dependencies': [
-        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/grinder/grinder.gyp:grinder_lib',

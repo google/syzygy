@@ -43,7 +43,6 @@
       'dependencies': [
         'rpc_client_lib',
         '<(src)/base/base.gyp:base',
-        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/trace/common/common.gyp:trace_unittest_utils',

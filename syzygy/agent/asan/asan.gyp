@@ -61,7 +61,6 @@
       ],
       'dependencies': [
         'syzyasan_rtl_lib',
-        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/common/common.gyp:syzygy_version',

@@ -30,7 +30,6 @@
         'simulator.h',
       ],
       'dependencies': [
-        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/pdb/pdb.gyp:pdb_lib',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',

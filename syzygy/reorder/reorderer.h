@@ -29,7 +29,6 @@
 #include <vector>
 
 #include "base/win/event_trace_consumer.h"
-#include "sawbuck/log_lib/kernel_log_consumer.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/image_layout.h"
 #include "syzygy/playback/playback.h"

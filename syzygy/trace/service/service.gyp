@@ -43,7 +43,6 @@
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
-        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
         '<(src)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
       ],
@@ -63,7 +62,6 @@
         'call_trace_service_exe',
         'rpc_service_lib',
         '<(src)/base/base.gyp:base',
-        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',
         '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
@@ -85,7 +83,6 @@
       'dependencies': [
         'rpc_service_lib',
         '<(src)/base/base.gyp:base',
-        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
       ],

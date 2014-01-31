@@ -30,7 +30,6 @@
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
-        '<(src)/sawbuck/log_lib/log_lib.gyp:log_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
         '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
