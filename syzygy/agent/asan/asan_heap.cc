@@ -17,6 +17,7 @@
 #include <algorithm>
 
 #include "base/float_util.h"
+#include "base/hash.h"
 #include "base/logging.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
@@ -85,6 +86,19 @@ bool MemoryRangeIsAccessible(uint8* mem, size_t len) {
       return false;
   }
   return true;
+}
+
+// Combine the bits of a uint32 into the number of bits used to store the
+// block checksum.
+// @param val The value to combined with the checksum.
+// @param checksum A pointer to the checksum to update.
+void CombineUInt32IntoBlockChecksum(uint32 val, uint32* checksum) {
+  DCHECK_NE(reinterpret_cast<uint32*>(NULL), checksum);
+  while (val != 0) {
+    *checksum ^= val;
+    val >>= HeapProxy::kChecksumBits;
+  }
+  *checksum &= ((1 << HeapProxy::kChecksumBits) - 1);
 }
 
 }  // namespace
@@ -157,6 +171,45 @@ void HeapProxy::UseHeap(HANDLE underlying_heap) {
   SetQuarantineMaxSize(default_quarantine_max_size_);
   heap_ = underlying_heap;
   owns_heap_ = false;
+}
+
+void HeapProxy::SetBlockChecksum(BlockHeader* block_header,
+                                 const BlockTrailer* block_trailer) {
+  DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), block_header);
+  DCHECK_NE(reinterpret_cast<const BlockTrailer*>(NULL), block_trailer);
+
+  block_header->checksum = 0;
+  uint32 block_checksum = 0;
+
+  if (block_header->state == ALLOCATED) {
+    // If the block is allocated then we don't want to include the content of
+    // the block in the checksum, we just use the header and trailer.
+    const uint8* header_begin = BlockHeaderToAsanPointer(block_header);
+    const uint8* header_end = BlockHeaderToUserPointer(block_header);
+    uint32 header_checksum =
+        base::SuperFastHash(reinterpret_cast<const char*>(header_begin),
+                            header_end - header_begin);
+    size_t trailer_size =
+        common::AlignUp(sizeof(BlockTrailer) + trailer_padding_size_,
+                        Shadow::kShadowGranularity);
+    uint32 trailer_checksum =
+        base::SuperFastHash(reinterpret_cast<const char*>(block_trailer),
+        trailer_size);
+    CombineUInt32IntoBlockChecksum(header_checksum ^ trailer_checksum,
+                                   &block_checksum);
+  } else if (block_header->state == QUARANTINED) {
+    // If the block is quarantined then we also include the content of the block
+    // in the calculation.
+    uint32 checksum =
+        base::SuperFastHash(reinterpret_cast<char*>(block_header),
+                            GetAllocSize(block_header->block_size,
+                                         1 << block_header->alignment_log));
+    CombineUInt32IntoBlockChecksum(checksum, &block_checksum);
+  } else {
+    NOTREACHED();
+  }
+
+  block_header->checksum = block_checksum;
 }
 
 bool HeapProxy::Destroy() {
@@ -265,6 +318,8 @@ void* HeapProxy::InitializeAsanBlock(uint8* asan_pointer,
                  trailer_size,
                  Shadow::kHeapRightRedzone);
 
+  SetBlockChecksum(block_header, block_trailer);
+
   return block_alloc;
 }
 
@@ -322,7 +377,6 @@ void HeapProxy::MarkBlockAsQuarantined(void* asan_pointer,
 
 bool HeapProxy::MarkBlockAsQuarantined(BlockHeader* block_header,
                                        const StackCapture& stack) {
-
   if (block_header->state != ALLOCATED) {
     // We're not supposed to see another kind of block here, the FREED state
     // is only applied to block after invalidating their magic number and freed
@@ -344,6 +398,8 @@ bool HeapProxy::MarkBlockAsQuarantined(BlockHeader* block_header,
   // to debug a crash report/dump on access to a quarantined block.
   uint8* mem = BlockHeaderToUserPointer(block_header);
   Shadow::MarkAsFreed(mem, block_header->block_size);
+
+  SetBlockChecksum(block_header, trailer);
 
   return true;
 }

@@ -49,6 +49,7 @@ class TestHeapProxy : public HeapProxy {
   using HeapProxy::BlockHeaderToAsanPointer;
   using HeapProxy::BlockHeaderToBlockTrailer;
   using HeapProxy::BlockHeaderToUserPointer;
+  using HeapProxy::SetBlockChecksum;
   using HeapProxy::FindBlockContainingAddress;
   using HeapProxy::FindContainingBlock;
   using HeapProxy::FindContainingFreedBlock;
@@ -364,6 +365,60 @@ TEST_F(HeapTest, AllocZeroBytes) {
   ASSERT_NE(mem1, mem2);
   ASSERT_TRUE(proxy_.Free(0, mem1));
   ASSERT_TRUE(proxy_.Free(0, mem2));
+}
+
+TEST_F(HeapTest, CalculateBlockChecksum) {
+  const size_t kAllocSize = 100;
+  proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
+  LPVOID mem = proxy_.Alloc(0, kAllocSize);
+  ASSERT_TRUE(mem != NULL);
+  ::memset(reinterpret_cast<uint8*>(mem), 0, kAllocSize);
+
+  TestHeapProxy::BlockHeader* header = TestHeapProxy::UserPointerToBlockHeader(
+      mem);
+  TestHeapProxy::BlockTrailer* trailer =
+      TestHeapProxy::BlockHeaderToBlockTrailer(header);
+
+  size_t original_checksum = header->checksum;
+
+  TestHeapProxy::SetBlockChecksum(header, trailer);
+  EXPECT_EQ(header->checksum, original_checksum);
+
+  // Altering the data of the block shouldn't affect the checksum.
+  reinterpret_cast<uint8*>(mem)[0]++;
+  TestHeapProxy::SetBlockChecksum(header, trailer);
+  EXPECT_EQ(header->checksum, original_checksum);
+  reinterpret_cast<uint8*>(mem)[0]--;
+
+  // Changing one value in the header should change the checksum.
+  header->block_size++;
+  TestHeapProxy::SetBlockChecksum(header, trailer);
+  EXPECT_NE(header->checksum, original_checksum);
+  header->block_size--;
+  TestHeapProxy::SetBlockChecksum(header, trailer);
+  EXPECT_EQ(header->checksum, original_checksum);
+
+  // Same thing in the trailer.
+  trailer->alloc_tid++;
+  TestHeapProxy::SetBlockChecksum(header, trailer);
+  EXPECT_NE(header->checksum, original_checksum);
+  trailer->alloc_tid--;
+  TestHeapProxy::SetBlockChecksum(header, trailer);
+  EXPECT_EQ(header->checksum, original_checksum);
+
+  // Freeing the block will update the checksum but it's not guaranteed that
+  // it'll have a different value (in the case of a collision).
+  ASSERT_TRUE(proxy_.Free(0, mem));
+  TestHeapProxy::SetBlockChecksum(header, trailer);
+  original_checksum = header->checksum;
+
+  // Altering the data should now affect the checksum.
+  reinterpret_cast<uint8*>(mem)[0]++;
+  TestHeapProxy::SetBlockChecksum(header, trailer);
+  EXPECT_NE(header->checksum, original_checksum);
+  reinterpret_cast<uint8*>(mem)[0]--;
+  TestHeapProxy::SetBlockChecksum(header, trailer);
+  EXPECT_EQ(header->checksum, original_checksum);
 }
 
 TEST_F(HeapTest, Size) {

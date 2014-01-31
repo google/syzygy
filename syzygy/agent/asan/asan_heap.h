@@ -78,6 +78,9 @@ class HeapProxy {
   // Exposed for testing.
   static const size_t kSleepTimeForApproximatingCPUFrequency = 100;
 
+  // The number of bits used to store the block checksum.
+  static const size_t kChecksumBits = 12;
+
   HeapProxy();
   ~HeapProxy();
 
@@ -256,10 +259,12 @@ class HeapProxy {
 
   // Every allocated block starts with a BlockHeader...
   struct BlockHeader {
-    size_t magic_number : 24;
-    BlockState state : 4;
+    size_t magic_number : 16;
     size_t alignment_log : 4;
-    size_t block_size;
+    size_t checksum : kChecksumBits;
+    size_t block_size : 30;
+    // This is implicitly a BlockState value.
+    size_t state : 2;
     const StackCapture* alloc_stack;
     const StackCapture* free_stack;
   };
@@ -281,6 +286,14 @@ class HeapProxy {
 
   // Magic number to identify the beginning of a block header.
   static const size_t kBlockHeaderSignature = 0xCA80;
+
+  // Sets the checksum of a block. If the block is allocated then only the
+  // header and trailer are used to calculate the checksum, otherwise the data
+  // is also used.
+  // @param block_header The header of the block.
+  // @param block_trailer The trailer of the block.
+  static void SetBlockChecksum(BlockHeader* block_header,
+                               const BlockTrailer* block_trailer);
 
   // Mark a block as quarantined. This will red-zone the user data, and save the
   // deallocation stack trace and other metadata.
