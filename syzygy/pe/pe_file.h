@@ -283,7 +283,7 @@ struct PEFileBase<ImageNtHeaders, MagicValidation>::Signature {
 
   // Copy constructor.
   // @param rhs Object to copy.
-  explicit Signature(const Signature& rhs)
+  Signature(const Signature& rhs)
       : path(rhs.path),
         base_address(rhs.base_address),
         module_size(rhs.module_size),
