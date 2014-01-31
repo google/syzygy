@@ -29,6 +29,7 @@
 #include "syzygy/pe/transforms/add_metadata_transform.h"
 #include "syzygy/pe/transforms/add_pdb_info_transform.h"
 #include "syzygy/pe/transforms/pe_prepare_headers_transform.h"
+#include "syzygy/pe/transforms/pe_remove_empty_sections_transform.h"
 
 namespace pe {
 
@@ -415,11 +416,13 @@ bool FinalizeBlockGraph(const base::FilePath& input_module,
   pe::transforms::AddMetadataTransform add_metadata_tx(input_module);
   pe::transforms::AddPdbInfoTransform add_pdb_info_tx(output_pdb, 1,
                                                       pdb_guid);
+  pe::transforms::PERemoveEmptySectionsTransform remove_empty_sections;
   pe::transforms::PEPrepareHeadersTransform prep_headers_tx;
 
   if (add_metadata)
     post_transforms.push_back(&add_metadata_tx);
   post_transforms.push_back(&add_pdb_info_tx);
+  post_transforms.push_back(&remove_empty_sections);
   post_transforms.push_back(&prep_headers_tx);
 
   if (!block_graph::ApplyBlockGraphTransforms(post_transforms,

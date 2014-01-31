@@ -27,14 +27,14 @@
 //   OrderedBlockGraph ordered(some_block_graph);
 //
 //   // Ensure that .rsrc and .reloc are the last two sections.
-//   ordered.PlaceAtTail(some_block_graph->GetSectionByName(".rsrc"));
-//   ordered.PlaceAtTail(some_block_graph->GetSectionByName(".reloc"));
+//   ordered.PlaceAtTail(some_block_graph->FindSection(".rsrc"));
+//   ordered.PlaceAtTail(some_block_graph->FindSection(".reloc"));
 //
 //   // Make sure that .text comes first.
-//   ordered.PlaceAtHead(some_block_graph->GetSectionByName(".text"));
+//   ordered.PlaceAtHead(some_block_graph->FindSection(".text"));
 //
 //   // Sort the text blocks according to some functor.
-//   ordered.Sort(some_block_graph->GetSectionByName(".text"),
+//   ordered.Sort(some_block_graph->FindSection(".text"),
 //                some_sort_functor);
 //
 //   ... etc ...
