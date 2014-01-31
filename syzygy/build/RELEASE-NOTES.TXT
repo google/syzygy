@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.8.0
+
+[r2012] Now officially building with VS2013.
+[r2010] swapimport.exe now works with 64-bit binaries.
+
 Version 0.7.7.2
 
 [r1989] Fix to reorderer to make it use the same decomposer as the relinker.
