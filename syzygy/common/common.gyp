@@ -46,17 +46,17 @@
         {
           'action_name': 'make_version_gen',
           'inputs': [
-            'version.gen.template',
-            '<(src)/sawbuck/tools/template_replace.py',
-            '<(src)/syzygy/VERSION',
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
+            '<(src)/syzygy/build/template_replace.py',
+            '<(src)/syzygy/VERSION',
+            'version.gen.template',
           ],
           'outputs': [
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/version.gen',
           ],
           'action': [
             '<(python_exe)',
-            '<(src)/sawbuck/tools/template_replace.py',
+            '<(src)/syzygy/build/template_replace.py',
             '--input', 'version.gen.template',
             '--output', '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/version.gen',
             '<(src)/syzygy/VERSION',

@@ -192,18 +192,18 @@
         {
           'action_name': 'make_readme_txt',
           'inputs': [
-            '<(src)/sawbuck/tools/template_replace.py',
-            '<(src)/syzygy/build/README.TXT.template',
-            '<(src)/syzygy/VERSION',
-            '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/build/timestamp.gen',
+            '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
+            '<(src)/syzygy/build/README.TXT.template',
+            '<(src)/syzygy/build/template_replace.py',
+            '<(src)/syzygy/VERSION',
           ],
           'outputs': [
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/build/README.TXT',
           ],
           'action': [
             '<(python_exe)',
-            '<(src)/sawbuck/tools/template_replace.py',
+            '<(src)/syzygy/build/template_replace.py',
             '--input',
             '<(src)/syzygy/build/README.TXT.template',
             '--output',

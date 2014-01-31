@@ -57,7 +57,7 @@
         {
           'action_name': 'make_version_wxi',
           'inputs': [
-            '<(src)/sawbuck/tools/template_replace.py',
+            '<(src)/syzygy/build/template_replace.py',
             '<(src)/syzygy/VERSION',
             'version.wxi.template',
           ],
@@ -66,7 +66,7 @@
           ],
           'action': [
             '<(python_exe)',
-            '<(src)/sawbuck/tools/template_replace.py',
+            '<(src)/syzygy/build/template_replace.py',
             '--input', 'version.wxi.template',
             '--output', '<(INTERMEDIATE_DIR)/version.wxi',
             '<(src)/syzygy/VERSION',
