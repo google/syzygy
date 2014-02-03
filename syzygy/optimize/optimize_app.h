@@ -37,7 +37,8 @@ class OptimizeApp : public common::AppImplBase {
         inlining_(false),
         allow_inline_assembly_(false),
         overwrite_(false),
-        peephole_(false) {
+        peephole_(false),
+        unreachable_block_(false) {
   }
 
   // @name Implementation of the AppImplBase interface.
@@ -67,6 +68,7 @@ class OptimizeApp : public common::AppImplBase {
   bool inlining_;
   bool allow_inline_assembly_;
   bool peephole_;
+  bool unreachable_block_;
   bool overwrite_;
   // @}
 

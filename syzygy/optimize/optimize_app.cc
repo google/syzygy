@@ -25,6 +25,7 @@
 #include "syzygy/optimize/transforms/chained_subgraph_transforms.h"
 #include "syzygy/optimize/transforms/inlining_transform.h"
 #include "syzygy/optimize/transforms/peephole_transform.h"
+#include "syzygy/optimize/transforms/unreachable_block_transform.h"
 #include "syzygy/pe/pe_relinker.h"
 #include "syzygy/pe/pe_transform_policy.h"
 
@@ -41,6 +42,7 @@ using optimize::transforms::BlockAlignmentTransform;
 using optimize::transforms::ChainedSubgraphTransforms;
 using optimize::transforms::InliningTransform;
 using optimize::transforms::PeepholeTransform;
+using optimize::transforms::UnreachableBlockTransform;
 
 const char kUsageFormatStr[] =
     "Usage: %ls [options]\n"
@@ -65,6 +67,7 @@ const char kUsageFormatStr[] =
     "    --block-alignment     Enable block realignment.\n"
     "    --inlining            Enable function inlining.\n"
     "    --peephole            Enable peephole optimization.\n"
+    "    --unreachable-block   Enable unreachable block optimization.\n"
     "\n"
     "  Testing Options:\n"
     "    --fuzz                Fuzz the binary.\n"
@@ -89,6 +92,7 @@ bool OptimizeApp::ParseCommandLine(const CommandLine* cmd_line) {
   inlining_ = cmd_line->HasSwitch("inlining");
   allow_inline_assembly_ = cmd_line->HasSwitch("allow-inline-assembly");
   peephole_ = cmd_line->HasSwitch("peephole");
+  unreachable_block_ = cmd_line->HasSwitch("unreachable-block");
   overwrite_ = cmd_line->HasSwitch("overwrite");
 
   // Enable all optimization transforms.
@@ -97,6 +101,7 @@ bool OptimizeApp::ParseCommandLine(const CommandLine* cmd_line) {
     block_alignment_ = true;
     inlining_ = true;
     peephole_ = true;
+    unreachable_block_ = true;
   }
 
   // The --input-image argument is required.
@@ -169,6 +174,7 @@ int OptimizeApp::Run() {
   scoped_ptr<FuzzingTransform> fuzzing_transform;
   scoped_ptr<InliningTransform> inlining_transform;
   scoped_ptr<PeepholeTransform> peephole_transform;
+  scoped_ptr<UnreachableBlockTransform> unreachable_block_transform;
 
   // If block block reordering is enabled, add it to the chain.
   if (peephole_) {
@@ -197,6 +203,12 @@ int OptimizeApp::Run() {
   // Append the chain to the relinker.
   if (!relinker.AppendTransform(&chains))
     return false;
+
+  // If unreachable-block is enabled, add it to the relinker.
+  if (unreachable_block_) {
+    unreachable_block_transform.reset(new UnreachableBlockTransform());
+    relinker.AppendTransform(unreachable_block_transform.get());
+  }
 
   // If fuzzing is enabled, add it to the relinker.
   if (fuzz_) {

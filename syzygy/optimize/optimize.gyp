@@ -36,6 +36,8 @@
         'transforms/peephole_transform.cc',
         'transforms/peephole_transform.h',
         'transforms/subgraph_transform.h',
+        'transforms/unreachable_block_transform.cc',
+        'transforms/unreachable_block_transform.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
@@ -68,6 +70,7 @@
         'transforms/chained_subgraph_transforms_unittest.cc',
         'transforms/inlining_transform_unittest.cc',
         'transforms/peephole_transform_unittest.cc',
+        'transforms/unreachable_block_transform_unittest.cc',
       ],
       'dependencies': [
         'optimize_lib',
