@@ -367,7 +367,7 @@ bool DumpCompileSymFlags(FILE* out,
                    flags.fNoDbgInfo);
   DumpIndentedText(out, indent_level + 1, "LTCG             : %d\n",
                    flags.fLTCG);
-  DumpIndentedText(out, indent_level + 1, "No data aling    : %d\n",
+  DumpIndentedText(out, indent_level + 1, "No data align    : %d\n",
                    flags.fNoDataAlign);
   DumpIndentedText(out, indent_level + 1, "Managed present  : %d\n",
                    flags.fManagedPresent);
@@ -687,6 +687,48 @@ bool DumpDiscardedSym(FILE* out,
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
+
+bool DumpMSToolEnvV3(FILE* out,
+                     PdbStream* stream,
+                     uint16 len,
+                     uint8 indent_level) {
+  MSToolEnvV3 environment;
+
+  // Read the structure header.
+  size_t to_read = offsetof(MSToolEnvV3, key_values);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&environment, to_read, &bytes_read) ||
+      bytes_read != to_read ||
+      environment.leading_zero != 0) {
+    LOG(ERROR) << "Unable to read symbol record.";
+    return false;
+  }
+
+  DumpIndentedText(out, indent_level, "Tool Environment (V3):\n");
+
+  // Read an array of key-value pairs of string until key is empty.
+  // The remaining padding must be ignored.
+  std::string key;
+  std::string value;
+  while (true) {
+    if (!ReadString(stream, &key)) {
+      LOG(ERROR) << "Invalid MS Tool format.";
+      return false;
+    }
+
+    if (key.empty())
+      return true;
+
+    if (!ReadString(stream, &value)) {
+      LOG(ERROR) << "Invalid MS Tool format.";
+      return false;
+    }
+
+    DumpIndentedText(out, indent_level + 1, "%s: %s\n",
+                     key.c_str(), value.c_str());
+  }
+}
+
 
 // Hexdump the data of the undeciphered symbol records.
 bool DumpUnknown(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {

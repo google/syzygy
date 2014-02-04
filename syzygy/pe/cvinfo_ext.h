@@ -146,7 +146,7 @@ const uint16 S_GPROC32_VS2013 = 0x1147;
     decl(S_FRAMECOOKIE, FrameCookie) \
     decl(S_DISCARDED, DiscardedSym) \
     decl(S_COMPILE3, CompileSym2) \
-    decl(S_MSTOOLENV_V3, Unknown) \
+    decl(S_MSTOOLENV_V3, MSToolEnvV3) \
     decl(S_LPROC32_VS2013, ProcSym32) \
     decl(S_GPROC32_VS2013, ProcSym32)
 
@@ -515,6 +515,16 @@ struct CompileSym2 {
   char verSt[1];
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(CompileSym2, 23);
+
+// This is a new compiland details symbol type seen in MSVS 2010 and later.
+struct MSToolEnvV3 {
+  // uint16 reclen;  // Record length.
+  // uint16 rectyp;  // S_MSTOOLENV_V3.
+  char leading_zero;
+  // An array of key-value pairs, encoded as null terminated strings.
+  char key_values[1];
+};
+COMPILE_ASSERT_IS_POD_OF_SIZE(MSToolEnvV3, 2);
 
 #pragma pack(pop)
 
