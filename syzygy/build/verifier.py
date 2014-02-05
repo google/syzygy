@@ -180,7 +180,7 @@ class AppverifierTestRunner:
     '''Removes all verifier settings for image_name.
 
     Arguments:
-      image_name: base name of thee image, e.g. "sawbuck.exe"
+      image_name: base name of thee image, e.g. "relink.exe"
     '''
     # Reset the settings for our image
     try:
@@ -210,7 +210,7 @@ class AppverifierTestRunner:
     '''Deletes all app verifier logs for image_name.
 
     Arguments:
-      image_name: base name of thee image, e.g. "sawbuck.exe"
+      image_name: base name of thee image, e.g. "relink.exe"
     '''
     logs = self.manager.Logs(image_name)
     if logs:

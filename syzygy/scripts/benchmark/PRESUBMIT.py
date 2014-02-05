@@ -26,7 +26,7 @@ import sys
 
 def CheckChange(input_api, output_api, dummy_committing):
   # Make sure that etw and etw_db are in our path.
-  sys.path.append('../../../sawbuck/py/etw')
+  sys.path.append('../../../third_party/sawbuck/py/etw')
   sys.path.append('../../py/etw_db')
 
   # We only check Python files in this tree. The others are checked by the

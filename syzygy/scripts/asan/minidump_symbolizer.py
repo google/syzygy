@@ -33,7 +33,7 @@ _GET_ALLOC_STACK_COMMAND = "dps @@(&bad_access_info.alloc_stack) "  \
 _GET_FREE_STACK_COMMAND = "dps @@(&bad_access_info.free_stack) "  \
                           "l@@(bad_access_info.free_stack_size);"
 _ERROR_HELP_URL = "You can go to \
-https://code.google.com/p/sawbuck/wiki/SyzyASanBug to get more information \
+https://code.google.com/p/syzygy/wiki/SyzyASanBug to get more information \
 about how to treat this bug."
 
 

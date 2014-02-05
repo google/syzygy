@@ -474,7 +474,7 @@ bool NormalizeSymbolRecordStream(PdbByteStream* stream) {
     // The size of the symbol record, plus its uint16 length, must be a multiple
     // of 4. Each symbol record consists of the length followed by a symbol
     // type (also a short), so the size needs to be at least of length 2.
-    // See http://code.google.com/p/sawbuck/wiki/PdbFileFormat for a discussion
+    // See http://code.google.com/p/syzygy/wiki/PdbFileFormat for a discussion
     // of the format of this stream.
     DCHECK_LE(2u, *size);
     DCHECK_EQ(0u, ((*size + sizeof(*size)) % 4));

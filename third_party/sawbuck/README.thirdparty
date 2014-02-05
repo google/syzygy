@@ -1,0 +1,12 @@
+URL: http://code.google.com/p/sawbuck/
+Version: 2
+License: Apache License
+License File: LICENSE.TXT
+
+Description:
+This directory contains parts of Sawbuck, a utility for viewing logs produced
+by Event Tracing for Windows, specifically for applications built on
+Chromium base.
+
+Local Modifications:
+None

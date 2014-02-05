@@ -27,7 +27,7 @@ import sys
 # must be ordered, so if module X depends on module Y, Y's setup file
 # must precede X's.
 _SETUP_FILES=[
-  '../sawbuck/py/etw/setup.py',
+  '../third_party/sawbuck/py/etw/setup.py',
   'py/etw_db/setup.py',
   'scripts/benchmark/setup.py',
   'scripts/graph/setup.py',

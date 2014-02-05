@@ -121,7 +121,7 @@
       'type': 'none',
       'dependencies': [
         'benchmark',
-        '<(src)/sawbuck/py/etw/etw.gyp:etw',
+        '<(src)/third_party/sawbuck/py/etw/etw.gyp:etw',
         '<(src)/syzygy/py/etw_db/etw_db.gyp:etw_db',
         '<(src)/syzygy/scripts/scripts.gyp:setuptools',
       ],

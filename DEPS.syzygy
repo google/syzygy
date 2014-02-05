@@ -20,6 +20,7 @@ vars = {
   "gmock_revision": "453",
   "gtest_revision": "664",
   "gyp_revision": "1845",
+  "py_etw_revision": "559",
 
   "chrome_base": "http://src.chromium.org/svn/trunk",
 
@@ -59,6 +60,11 @@ deps = {
   "src/third_party/dromaeo/files":
     Var("chrome_base") + "/src/chrome/test/data/dromaeo@" +
         Var("chrome_revision"),
+
+  # Used by our various ETW processing scripts.
+  "src/third_party/sawbuck/py/etw":
+    "http://sawbuck.googlecode.com/svn/trunk/sawbuck/py/etw@" +
+        Var("py_etw_revision"),
 
   # A pinned version of Python to use with our scripts.
   # TODO(chrisha): Upgrade to Python 2.7.6, like the rest of Chromium.

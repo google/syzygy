@@ -31,10 +31,10 @@ namespace service {
 
 // This class retrieves and encapsulates the process related information
 // captured within a trace file. This needs to be a superset of
-// sawbuck::sym_util::ModuleInfo, which contains the minimum amount of
-// information necessary for uniquely identifying a PE file, and the PDB file
-// referring to it. This is necessary to allow us to match events up to modules
-// when parsing call trace logs.
+// pe::PEFile::Signature, which contains the minimum amount of information
+// necessary for uniquely identifying a PE file, and the PDB file referring to
+// it. This is necessary to allow us to match events up to modules when parsing
+// call trace logs.
 //
 // Usage:
 //

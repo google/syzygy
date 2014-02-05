@@ -157,7 +157,7 @@ class PdbStream : public base::RefCounted<PdbStream> {
 // TODO(chrisha): For now, this inherits from common::BufferWriter, but a far
 //     cleaner approach would be to hoist a basic WritableStreamInterface, and
 //     make BufferWriter accept a pointer to said interface. The same thing
-//     could be done to the sawbuck BufferParser/BufferReader and PdbStream
+//     could be done to the common::BufferParser/BufferReader and PdbStream
 //     hierarchy.
 class WritablePdbStream : public base::RefCounted<WritablePdbStream>,
                           public common::BufferWriter {
