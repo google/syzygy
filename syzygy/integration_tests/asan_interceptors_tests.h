@@ -24,12 +24,67 @@ namespace testing {
 // Disable the intrinsic version of the intercepted function.
 #pragma function(memset, memcpy, strlen, strcmp)
 
+// Helper function to make sure that a memory read access didn't get
+// instrumented.
+// @tparam type The type of the value to be read.
+// @param location The location where to read from.
+// @returns the value at |location|
+template<typename type>
+type NonInterceptedRead(type* location) {
+  // The try-except statement prevents the function from being instrumented.
+  __try {
+    return *location;
+  } __except(EXCEPTION_CONTINUE_SEARCH) {
+    // Nothing to do here.
+  }
+  return static_cast<type>(0);
+}
+
+// Helper function to do non instrumented reads from an array.
+// @tparam type The type of the values to be read.
+// @param src The array where to read from.
+// @param size The size of the array.
+// @param dst The destination array.
+template<typename type>
+void NonInterceptedReads(type* src, size_t size, type* dst) {
+  for (size_t i = 0; i < size; ++i)
+    *dst++ = NonInterceptedRead(src + i);
+}
+
+// Helper function to make sure that a memory write access didn't get
+// instrumented.
+// @tparam type The type of the value to be written.
+// @param location The location where to write to.
+// @param val The value to write.
+template<typename type>
+void NonInterceptedWrite(type* location, type val) {
+  // The try-except statement prevents the function from being instrumented.
+  __try {
+    *location = val;
+  } __except(EXCEPTION_CONTINUE_SEARCH) {
+    // Nothing to do here.
+  }
+}
+
+// Helper function to do non instrumented writes from an array.
+// @tparam type The type of the values to be written.
+// @param src The array where to read from.
+// @param size The size of the array.
+// @param dst The address where to write to.
+template<typename type>
+void NonInterceptedWrites(type* src, size_t size, type* dst) {
+  for (size_t i = 0; i < size; ++i)
+    NonInterceptedWrite(dst++, src[i]);
+}
+
 template<typename type>
 static type AsanMemsetOverflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
-  memset(ptr, 0xFF, kArraySize * sizeof(type) + 1);
+  type first_trailer_val = NonInterceptedRead(ptr + kArraySize);
+  ::memset(ptr, 0xFF, kArraySize * sizeof(type) + 1);
   type result = ptr[0];
+  NonInterceptedWrite(ptr + kArraySize, first_trailer_val);
   delete[] ptr;
   return result;
 }
@@ -38,8 +93,10 @@ template<typename type>
 static type AsanMemsetUnderflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
-  memset(reinterpret_cast<uint8*>(ptr) - 1, 0xFF, kArraySize * sizeof(type));
+  type last_header_val = NonInterceptedRead(ptr - 1);
+  ::memset(reinterpret_cast<uint8*>(ptr) - 1, 0xFF, kArraySize * sizeof(type));
   type result = ptr[0];
+  NonInterceptedWrite(ptr - 1, last_header_val);
   delete[] ptr;
   return result;
 }
@@ -50,7 +107,7 @@ static type AsanMemsetUseAfterFree() {
   type* ptr = new type[kArraySize];
   type result = ptr[0];
   delete[] ptr;
-  memset(reinterpret_cast<uint8*>(ptr), 0xFF, kArraySize * sizeof(type));
+  ::memset(reinterpret_cast<uint8*>(ptr), 0xFF, kArraySize * sizeof(type));
   return result;
 }
 
@@ -58,8 +115,8 @@ template<typename type>
 static type AsanMemchrOverflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
-  memset(ptr, 0xAA, kArraySize * sizeof(type));
-  memchr(ptr, 0xFF, kArraySize * sizeof(type) + 1);
+  ::memset(ptr, 0xAA, kArraySize * sizeof(type));
+  ::memchr(ptr, 0xFF, kArraySize * sizeof(type) + 1);
   type result = ptr[0];
   delete[] ptr;
   return result;
@@ -69,8 +126,8 @@ template<typename type>
 static type AsanMemchrUnderflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
-  memset(ptr, 0xAA, kArraySize * sizeof(type));
-  memchr(reinterpret_cast<uint8*>(ptr) - 1, 0xFF, kArraySize * sizeof(type));
+  ::memset(ptr, 0xAA, kArraySize * sizeof(type));
+  ::memchr(reinterpret_cast<uint8*>(ptr) - 1, 0xFF, kArraySize * sizeof(type));
   type result = ptr[0];
   delete[] ptr;
   return result;
@@ -80,10 +137,10 @@ template<typename type>
 static type AsanMemchrUseAfterFree() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
-  memset(ptr, 0xAA, kArraySize * sizeof(type));
+  ::memset(ptr, 0xAA, kArraySize * sizeof(type));
   type result = ptr[0];
   delete[] ptr;
-  memchr(ptr, 0xFF, kArraySize * sizeof(type));
+  ::memchr(ptr, 0xFF, kArraySize * sizeof(type));
   return result;
 }
 
@@ -91,9 +148,11 @@ template<typename type>
 static type AsanMemmoveWriteOverflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
-  memset(ptr, 0xAA, kArraySize * sizeof(type));
-  memmove(reinterpret_cast<uint8*>(ptr) + 1, ptr, kArraySize * sizeof(type));
+  type first_trailer_val = NonInterceptedRead(ptr + kArraySize);
+  ::memset(ptr, 0xAA, kArraySize * sizeof(type));
+  ::memmove(reinterpret_cast<uint8*>(ptr) + 1, ptr, kArraySize * sizeof(type));
   type result = ptr[0];
+  NonInterceptedWrite(ptr + kArraySize, first_trailer_val);
   delete[] ptr;
   return result;
 }
@@ -102,9 +161,11 @@ template<typename type>
 static type AsanMemmoveWriteUnderflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
-  memset(ptr, 0xAA, kArraySize * sizeof(type));
-  memmove(reinterpret_cast<uint8*>(ptr) - 1, ptr, kArraySize * sizeof(type));
+  type last_header_val = NonInterceptedRead(ptr - 1);
+  ::memset(ptr, 0xAA, kArraySize * sizeof(type));
+  ::memmove(reinterpret_cast<uint8*>(ptr) - 1, ptr, kArraySize * sizeof(type));
   type result = ptr[0];
+  NonInterceptedWrite(ptr - 1, last_header_val);
   delete[] ptr;
   return result;
 }
@@ -113,8 +174,8 @@ template<typename type>
 static type AsanMemmoveReadOverflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
-  memset(ptr, 0xAA, kArraySize * sizeof(type));
-  memmove(ptr, reinterpret_cast<uint8*>(ptr) + 1, kArraySize * sizeof(type));
+  ::memset(ptr, 0xAA, kArraySize * sizeof(type));
+  ::memmove(ptr, reinterpret_cast<uint8*>(ptr) + 1, kArraySize * sizeof(type));
   type result = ptr[0];
   delete[] ptr;
   return result;
@@ -124,8 +185,8 @@ template<typename type>
 static type AsanMemmoveReadUnderflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
-  memset(ptr, 0xAA, kArraySize * sizeof(type));
-  memmove(ptr, reinterpret_cast<uint8*>(ptr) - 1, kArraySize * sizeof(type));
+  ::memset(ptr, 0xAA, kArraySize * sizeof(type));
+  ::memmove(ptr, reinterpret_cast<uint8*>(ptr) - 1, kArraySize * sizeof(type));
   type result = ptr[0];
   delete[] ptr;
   return result;
@@ -135,10 +196,10 @@ template<typename type>
 static type AsanMemmoveUseAfterFree() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
-  memset(ptr, 0xAA, kArraySize * sizeof(type));
+  ::memset(ptr, 0xAA, kArraySize * sizeof(type));
   type result = ptr[0];
   delete[] ptr;
-  memmove(ptr, ptr, kArraySize * sizeof(type));
+  ::memmove(ptr, ptr, kArraySize * sizeof(type));
   return result;
 }
 
@@ -147,9 +208,11 @@ static type AsanMemcpyWriteOverflow() {
   const size_t kArraySize = 10;
   type* src = new type[kArraySize];
   type* dst = new type[kArraySize];
-  memset(src, 0xAA, kArraySize * sizeof(type));
-  memcpy(reinterpret_cast<uint8*>(dst) + 1, src, kArraySize * sizeof(type));
+  type first_trailer_val = NonInterceptedRead(dst + kArraySize);
+  ::memset(src, 0xAA, kArraySize * sizeof(type));
+  ::memcpy(reinterpret_cast<uint8*>(dst) + 1, src, kArraySize * sizeof(type));
   type result = src[0];
+  NonInterceptedWrite(dst + kArraySize, first_trailer_val);
   delete[] src;
   delete[] dst;
   return result;
@@ -160,9 +223,11 @@ static type AsanMemcpyWriteUnderflow() {
   const size_t kArraySize = 10;
   type* src = new type[kArraySize];
   type* dst = new type[kArraySize];
-  memset(src, 0xAA, kArraySize * sizeof(type));
-  memcpy(reinterpret_cast<uint8*>(dst) - 1, src, kArraySize * sizeof(type));
+  type last_header_val = NonInterceptedRead(dst - 1);
+  ::memset(src, 0xAA, kArraySize * sizeof(type));
+  ::memcpy(reinterpret_cast<uint8*>(dst) - 1, src, kArraySize * sizeof(type));
   type result = src[0];
+  NonInterceptedWrite(dst - 1, last_header_val);
   delete[] src;
   delete[] dst;
   return result;
@@ -173,8 +238,8 @@ static type AsanMemcpyReadOverflow() {
   const size_t kArraySize = 10;
   type* src = new type[kArraySize];
   type* dst = new type[kArraySize];
-  memset(src, 0xAA, kArraySize * sizeof(type));
-  memcpy(dst, reinterpret_cast<uint8*>(src) + 1, kArraySize * sizeof(type));
+  ::memset(src, 0xAA, kArraySize * sizeof(type));
+  ::memcpy(dst, reinterpret_cast<uint8*>(src) + 1, kArraySize * sizeof(type));
   type result = src[0];
   delete[] src;
   delete[] dst;
@@ -186,8 +251,8 @@ static type AsanMemcpyReadUnderflow() {
   const size_t kArraySize = 10;
   type* src = new type[kArraySize];
   type* dst = new type[kArraySize];
-  memset(src, 0xAA, kArraySize * sizeof(type));
-  memcpy(dst, reinterpret_cast<uint8*>(src) - 1, kArraySize * sizeof(type));
+  ::memset(src, 0xAA, kArraySize * sizeof(type));
+  ::memcpy(dst, reinterpret_cast<uint8*>(src) - 1, kArraySize * sizeof(type));
   type result = src[0];
   delete[] src;
   delete[] dst;
@@ -199,10 +264,10 @@ static type AsanMemcpyUseAfterFree() {
   const size_t kArraySize = 10;
   type* src = new type[kArraySize];
   type* dst = new type[kArraySize];
-  memset(src, 0xAA, kArraySize * sizeof(type));
+  ::memset(src, 0xAA, kArraySize * sizeof(type));
   type result = src[0];
   delete[] src;
-  memcpy(dst, src, kArraySize * sizeof(type));
+  ::memcpy(dst, src, kArraySize * sizeof(type));
   delete[] dst;
   return result;
 }

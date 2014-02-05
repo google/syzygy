@@ -65,11 +65,13 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemset) {
   ResetLog();
 
   memory_error_detected = false;
+  uint8 first_block_trailer_byte = mem[kAllocSize];
   EXPECT_EQ(mem.get(), memsetFunction(mem.get(), 0xCC, kAllocSize + 1));
   for (size_t i = 0; i < kAllocSize + 1; ++i)
     EXPECT_EQ(0xCC, mem[i]);
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  mem[kAllocSize] = first_block_trailer_byte;
   ResetLog();
 }
 
@@ -670,12 +672,15 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncpy) {
 
   // Test an overflow on the destination.
   memory_error_detected = false;
+  std::vector<uint8> original_data(::strlen(long_str_value));
+  memcpy(&original_data[0], destination.get(), ::strlen(long_str_value));
   EXPECT_EQ(destination.get(),
             strncpyFunction(destination.get(),
                             long_source.get(),
                             ::strlen(long_str_value)));
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  memcpy(destination.get(), &original_data[0], ::strlen(long_str_value));
   ResetLog();
 
   // Another overflow on the destination.
@@ -762,7 +767,9 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
 
   // Test an overflow on the suffix.
   size_t suffix_len = ::strlen(suffix.get());
+  char first_trailer_byte = suffix[suffix_len + 1];
   suffix[suffix_len] = 'a';
+  suffix[suffix_len + 1] = 0;
   memory_error_detected = false;
   ::strcpy(mem.get(), prefix_value);
   ::strcpy(buffer, prefix_value);
@@ -773,6 +780,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
   EXPECT_STRCASEEQ(
       ::strncat(buffer, suffix.get(), ::strlen(suffix.get())), mem.get());
   suffix[suffix_len] = 0;
+  suffix[suffix_len + 1] = first_trailer_byte;
   ResetLog();
 
   // Test an overflow on the destination.
@@ -780,8 +788,12 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
   ::strcpy(mem.get(), prefix_value);
   ::strcpy(buffer, prefix_value);
   size_t prefix_len = ::strlen(prefix_value);
+  first_trailer_byte = mem[prefix_len + 1];
   mem[prefix_len] = 'a';
+  mem[prefix_len + 1] = 0;
+  char buffer_first_trailer_byte = buffer[prefix_len + 1];
   buffer[prefix_len] = 'a';
+  buffer[prefix_len + 1] = 0;
   EXPECT_EQ(mem.get(),
       strncatFunction(mem.get(), suffix.get(), ::strlen(suffix.get())));
   EXPECT_TRUE(memory_error_detected);
@@ -789,7 +801,9 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
   EXPECT_STRCASEEQ(
       ::strncat(buffer, suffix.get(), ::strlen(suffix.get())), mem.get());
   mem[prefix_len] = 0;
+  mem[prefix_len + 1] = first_trailer_byte;
   buffer[prefix_len] = 0;
+  buffer[prefix_len + 1] = buffer_first_trailer_byte;
   ResetLog();
 }
 

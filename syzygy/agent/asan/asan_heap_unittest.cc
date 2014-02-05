@@ -381,43 +381,43 @@ TEST_F(HeapTest, CalculateBlockChecksum) {
 
   size_t original_checksum = header->checksum;
 
-  TestHeapProxy::SetBlockChecksum(header, trailer);
+  TestHeapProxy::SetBlockChecksum(header);
   EXPECT_EQ(header->checksum, original_checksum);
 
   // Altering the data of the block shouldn't affect the checksum.
   reinterpret_cast<uint8*>(mem)[0]++;
-  TestHeapProxy::SetBlockChecksum(header, trailer);
+  TestHeapProxy::SetBlockChecksum(header);
   EXPECT_EQ(header->checksum, original_checksum);
   reinterpret_cast<uint8*>(mem)[0]--;
 
   // Changing one value in the header should change the checksum.
   header->block_size++;
-  TestHeapProxy::SetBlockChecksum(header, trailer);
+  TestHeapProxy::SetBlockChecksum(header);
   EXPECT_NE(header->checksum, original_checksum);
   header->block_size--;
-  TestHeapProxy::SetBlockChecksum(header, trailer);
+  TestHeapProxy::SetBlockChecksum(header);
   EXPECT_EQ(header->checksum, original_checksum);
 
   // Same thing in the trailer.
   trailer->alloc_tid++;
-  TestHeapProxy::SetBlockChecksum(header, trailer);
+  TestHeapProxy::SetBlockChecksum(header);
   EXPECT_NE(header->checksum, original_checksum);
   trailer->alloc_tid--;
-  TestHeapProxy::SetBlockChecksum(header, trailer);
+  TestHeapProxy::SetBlockChecksum(header);
   EXPECT_EQ(header->checksum, original_checksum);
 
   // Freeing the block will update the checksum but it's not guaranteed that
   // it'll have a different value (in the case of a collision).
   ASSERT_TRUE(proxy_.Free(0, mem));
-  TestHeapProxy::SetBlockChecksum(header, trailer);
+  TestHeapProxy::SetBlockChecksum(header);
   original_checksum = header->checksum;
 
   // Altering the data should now affect the checksum.
   reinterpret_cast<uint8*>(mem)[0]++;
-  TestHeapProxy::SetBlockChecksum(header, trailer);
+  TestHeapProxy::SetBlockChecksum(header);
   EXPECT_NE(header->checksum, original_checksum);
   reinterpret_cast<uint8*>(mem)[0]--;
-  TestHeapProxy::SetBlockChecksum(header, trailer);
+  TestHeapProxy::SetBlockChecksum(header);
   EXPECT_EQ(header->checksum, original_checksum);
 }
 
@@ -861,9 +861,12 @@ TEST_F(HeapTest, GetNullTerminatedArraySize) {
     size_t size = 0;
     EXPECT_TRUE(Shadow::GetNullTerminatedArraySize<char>(mem, 0U, &size));
     EXPECT_EQ(string_size, size - 1);
+    char last_char = mem[string_size + 1];
     mem[string_size] = 'a';
     mem[string_size + 1] = 0;
     EXPECT_FALSE(Shadow::GetNullTerminatedArraySize<char>(mem, 0U, &size));
+    mem[string_size] = 0;
+    mem[string_size + 1] = last_char;
     EXPECT_EQ(string_size, size - 1);
     ASSERT_TRUE(proxy_.Free(0, mem));
   }
@@ -879,9 +882,12 @@ TEST_F(HeapTest, GetNullTerminatedArraySize) {
     size_t size = 0;
     EXPECT_TRUE(Shadow::GetNullTerminatedArraySize<wchar_t>(mem, 0U, &size));
     EXPECT_EQ((string_size + 1) * sizeof(wchar_t) - 1, size - 1);
+    wchar_t last_char = mem[string_size + 1];
     mem[string_size] = L'a';
     mem[string_size + 1] = 0;
     EXPECT_FALSE(Shadow::GetNullTerminatedArraySize<wchar_t>(mem, 0U, &size));
+    mem[string_size] = 0;
+    mem[string_size + 1] = last_char;
     EXPECT_EQ((string_size + 1) * sizeof(wchar_t) - 1, size - 1);
     ASSERT_TRUE(proxy_.Free(0, mem));
   }
@@ -1328,6 +1334,8 @@ TEST_F(HeapTest, GetBadAccessInformationNestedBlock) {
   for (size_t i = 0; i < outer_block->free_stack->num_frames(); ++i)
     EXPECT_EQ(outer_block->free_stack->frames()[i], error_info.free_stack[i]);
 }
+
+// TODO(sebmarchand): Add some tests to detect the corrupted blocks.
 
 }  // namespace asan
 }  // namespace agent

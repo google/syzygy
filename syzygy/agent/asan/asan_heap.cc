@@ -112,9 +112,10 @@ const char* HeapProxy::kHeapUseAfterFree = "heap-use-after-free";
 const char* HeapProxy::kHeapBufferUnderFlow = "heap-buffer-underflow";
 const char* HeapProxy::kHeapBufferOverFlow = "heap-buffer-overflow";
 const char* HeapProxy::kAttemptingDoubleFree = "attempting double-free";
-const char* HeapProxy::kInvalidAddress = "invalid address";
-const char* HeapProxy::kWildAccess = "wild access";
+const char* HeapProxy::kInvalidAddress = "invalid-address";
+const char* HeapProxy::kWildAccess = "wild-access";
 const char* HeapProxy::kHeapUnknownError = "heap-unknown-error";
+const char* HeapProxy::kHeapCorruptedBlock = "corrupted-block";
 
 HeapProxy::HeapProxy()
     : heap_(NULL),
@@ -173,10 +174,8 @@ void HeapProxy::UseHeap(HANDLE underlying_heap) {
   owns_heap_ = false;
 }
 
-void HeapProxy::SetBlockChecksum(BlockHeader* block_header,
-                                 const BlockTrailer* block_trailer) {
+void HeapProxy::SetBlockChecksum(BlockHeader* block_header) {
   DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), block_header);
-  DCHECK_NE(reinterpret_cast<const BlockTrailer*>(NULL), block_trailer);
 
   block_header->checksum = 0;
   uint32 block_checksum = 0;
@@ -189,12 +188,14 @@ void HeapProxy::SetBlockChecksum(BlockHeader* block_header,
     uint32 header_checksum =
         base::SuperFastHash(reinterpret_cast<const char*>(header_begin),
                             header_end - header_begin);
-    size_t trailer_size =
-        common::AlignUp(sizeof(BlockTrailer) + trailer_padding_size_,
-                        Shadow::kShadowGranularity);
+    const uint8* block_end = header_end + block_header->block_size;
+    const uint8* trailer_end = reinterpret_cast<const uint8*>(
+        common::AlignUp(reinterpret_cast<const size_t>(block_end) +
+            sizeof(BlockTrailer) + trailer_padding_size_,
+                Shadow::kShadowGranularity));
     uint32 trailer_checksum =
-        base::SuperFastHash(reinterpret_cast<const char*>(block_trailer),
-        trailer_size);
+        base::SuperFastHash(reinterpret_cast<const char*>(block_end),
+        trailer_end - block_end);
     CombineUInt32IntoBlockChecksum(header_checksum ^ trailer_checksum,
                                    &block_checksum);
   } else if (block_header->state == QUARANTINED) {
@@ -318,7 +319,7 @@ void* HeapProxy::InitializeAsanBlock(uint8* asan_pointer,
                  trailer_size,
                  Shadow::kHeapRightRedzone);
 
-  SetBlockChecksum(block_header, block_trailer);
+  SetBlockChecksum(block_header);
 
   return block_alloc;
 }
@@ -345,7 +346,13 @@ void* HeapProxy::ReAlloc(DWORD flags, void* mem, size_t bytes) {
 }
 
 bool HeapProxy::Free(DWORD flags, void* mem) {
-  DCHECK(heap_ != NULL);
+  BadAccessKind access_kind = UNKNOWN_BAD_ACCESS;
+  return Free(flags, mem, &access_kind);
+}
+
+bool HeapProxy::Free(DWORD flags, void* mem, BadAccessKind* error_type) {
+  DCHECK_NE(reinterpret_cast<HANDLE>(NULL), heap_);
+  DCHECK_NE(reinterpret_cast<BadAccessKind*>(NULL), error_type);
 
   // The standard allows to call free on a null pointer.
   if (mem == NULL)
@@ -354,13 +361,20 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
   BlockHeader* block = UserPointerToBlockHeader(mem);
   DCHECK(BlockHeaderToUserPointer(block) == mem);
 
+  if (!VerifyChecksum(block)) {
+    *error_type = CORRUPTED_BLOCK;
+    return false;
+  }
+
   // Capture the current stack.
   StackCapture stack;
   stack.InitFromStack();
 
   // Mark the block as quarantined.
-  if (!MarkBlockAsQuarantined(block, stack))
+  if (!MarkBlockAsQuarantined(block, stack)) {
+    *error_type = DOUBLE_FREE;
     return false;
+  }
 
   QuarantineBlock(block);
 
@@ -399,7 +413,7 @@ bool HeapProxy::MarkBlockAsQuarantined(BlockHeader* block_header,
   uint8* mem = BlockHeaderToUserPointer(block_header);
   Shadow::MarkAsFreed(mem, block_header->block_size);
 
-  SetBlockChecksum(block_header, trailer);
+  SetBlockChecksum(block_header);
 
   return true;
 }
@@ -893,7 +907,8 @@ bool HeapProxy::GetBadAccessInformation(AsanErrorInfo* bad_access_info) {
   BlockTrailer* trailer = BlockHeaderToBlockTrailer(header);
   DCHECK(trailer != NULL);
 
-  if (bad_access_info->error_type != DOUBLE_FREE) {
+  if (bad_access_info->error_type != DOUBLE_FREE &&
+      bad_access_info->error_type != CORRUPTED_BLOCK) {
     bad_access_info->error_type = GetBadAccessKind(bad_access_info->location,
                                                    header);
   }
@@ -969,6 +984,7 @@ void HeapProxy::GetAddressInformation(BlockHeader* header,
     case WILD_ACCESS:
     case DOUBLE_FREE:
     case UNKNOWN_BAD_ACCESS:
+    case CORRUPTED_BLOCK:
       return;
     default:
       NOTREACHED() << "Error trying to dump address information.";
@@ -1014,6 +1030,8 @@ const char* HeapProxy::AccessTypeToStr(BadAccessKind bad_access_kind) {
       return kAttemptingDoubleFree;
     case UNKNOWN_BAD_ACCESS:
       return kHeapUnknownError;
+    case CORRUPTED_BLOCK:
+      return kHeapCorruptedBlock;
     default:
       NOTREACHED() << "Unexpected bad access kind.";
       return NULL;
@@ -1078,6 +1096,14 @@ void HeapProxy::GetUserExtent(const void* asan_pointer,
 
   DCHECK_NE(reinterpret_cast<void*>(NULL), block_header);
   *size = block_header->block_size;
+}
+
+bool HeapProxy::VerifyChecksum(BlockHeader* header) {
+  size_t old_checksum = header->checksum;
+  SetBlockChecksum(header);
+  if (old_checksum != header->checksum)
+    return false;
+  return true;
 }
 
 }  // namespace asan

@@ -56,6 +56,7 @@ class HeapProxy {
     UNKNOWN_BAD_ACCESS,
     WILD_ACCESS,
     INVALID_ADDRESS,
+    CORRUPTED_BLOCK,
 
     // This enum should end with bad access types that are relative to heap
     // blocks.
@@ -73,6 +74,7 @@ class HeapProxy {
   static const char* kInvalidAddress;
   static const char* kWildAccess;
   static const char* kHeapUnknownError;
+  static const char* kHeapCorruptedBlock;
 
   // The sleep time (in milliseconds) used to approximate the CPU frequency.
   // Exposed for testing.
@@ -113,6 +115,15 @@ class HeapProxy {
                         size_t info_length,
                         unsigned long* return_length);
   // @}
+
+  // Overload version of the Free function which take an additional argument to
+  // indicate the bad access type if the input block's can't be freed.
+  // @param flags The heap free options.
+  // @param mem The memory block to be freed.
+  // @param error_type Will receive the error type if the memory block can't be
+  //     freed.
+  // @returns true on success, false on failure.
+  bool Free(DWORD flags, void* mem, BadAccessKind* error_type);
 
   // Return the handle to the underlying heap.
   HANDLE heap() { return heap_; }
@@ -291,9 +302,7 @@ class HeapProxy {
   // header and trailer are used to calculate the checksum, otherwise the data
   // is also used.
   // @param block_header The header of the block.
-  // @param block_trailer The trailer of the block.
-  static void SetBlockChecksum(BlockHeader* block_header,
-                               const BlockTrailer* block_trailer);
+  static void SetBlockChecksum(BlockHeader* block_header);
 
   // Mark a block as quarantined. This will red-zone the user data, and save the
   // deallocation stack trace and other metadata.
@@ -390,6 +399,12 @@ class HeapProxy {
   //     freed block.
   // @returns a pointer to this memory block in case of success, NULL otherwise.
   static BlockHeader* FindContainingFreedBlock(BlockHeader* inner_block);
+
+  // Verify that the checksum of a given block has the expected value.
+  // @param header The header of the block to check.
+  // @returns true if the checksum is the expected one, false otherwise.
+  // @note This function rewrites the checksum present in the header.
+  static bool VerifyChecksum(BlockHeader* header);
 
   // Quarantines @p block and trims the quarantine if it has grown too big.
   // @param block The block to quarantine.

@@ -25,12 +25,12 @@ namespace {
 // Allocates and fills 2 strings. This is used to test the string interceptors.
 void Alloc2TestStrings(char** str1, char** str2) {
   const char* str_value = "abc12";
-  *str1 = new char[strlen(str_value) + 1];
-  strcpy(*str1, str_value);
+  *str1 = new char[::strlen(str_value) + 1];
+  ::strcpy(*str1, str_value);
 
   const char* keys_value = "12";
-  *str2 = new char[strlen(keys_value) + 1];
-  strcpy(*str2, keys_value);
+  *str2 = new char[::strlen(keys_value) + 1];
+  ::strcpy(*str2, keys_value);
 }
 
 // Create a temporary filename.
@@ -63,7 +63,7 @@ HANDLE InitTemporaryFile(const std::wstring& filename,
   if (temp_file_ptr == NULL)
     return 0;
 
-  ::fwrite(test_string, sizeof(char), strlen(test_string), temp_file_ptr);
+  ::fwrite(test_string, sizeof(char), ::strlen(test_string), temp_file_ptr);
 
   ::fclose(temp_file_ptr);
 
@@ -81,10 +81,10 @@ size_t AsanStrcspnKeysOverflow() {
   char* keys = NULL;
   Alloc2TestStrings(&str, &keys);
 
-  size_t keys_len = strlen(keys);
+  size_t keys_len = ::strlen(keys);
   keys[keys_len] = 'a';
 
-  size_t result = strcspn(str, keys);
+  size_t result = ::strcspn(str, keys);
   delete[] str;
   delete[] keys;
   return result;
@@ -95,7 +95,7 @@ size_t AsanStrcspnKeysUnderflow() {
   char* keys = NULL;
   Alloc2TestStrings(&str, &keys);
 
-  size_t result = strcspn(str, keys - 1);
+  size_t result = ::strcspn(str, keys - 1);
   delete[] str;
   delete[] keys;
   return result;
@@ -107,7 +107,7 @@ size_t AsanStrcspnKeysUseAfterFree() {
   Alloc2TestStrings(&str, &keys);
 
   delete[] keys;
-  size_t result = strcspn(str, keys);
+  size_t result = ::strcspn(str, keys);
   delete[] str;
   return result;
 }
@@ -117,10 +117,10 @@ size_t AsanStrcspnSrcOverflow() {
   char* keys = NULL;
   Alloc2TestStrings(&str, &keys);
 
-  size_t str_len = strlen(str);
+  size_t str_len = ::strlen(str);
   str[str_len] = 'a';
 
-  size_t result = strcspn(str, keys);
+  size_t result = ::strcspn(str, keys);
   delete[] str;
   delete[] keys;
   return result;
@@ -131,7 +131,7 @@ size_t AsanStrcspnSrcUnderflow() {
   char* keys = NULL;
   Alloc2TestStrings(&str, &keys);
 
-  size_t result = strcspn(str - 1, keys);
+  size_t result = ::strcspn(str - 1, keys);
   delete[] str;
   delete[] keys;
   return result;
@@ -143,74 +143,74 @@ size_t AsanStrcspnSrcUseAfterFree() {
   Alloc2TestStrings(&str, &keys);
 
   delete[] str;
-  size_t result = strcspn(str, keys);
+  size_t result = ::strcspn(str, keys);
   delete[] keys;
   return result;
 }
 
 size_t AsanStrlenOverflow() {
   const char* str_value = "abc1";
-  char* str = new char[strlen(str_value) + 1];
-  strcpy(str, str_value);
+  char* str = new char[::strlen(str_value) + 1];
+  ::strcpy(str, str_value);
 
-  size_t str_len = strlen(str);
+  size_t str_len = ::strlen(str);
   str[str_len] = 'a';
 
-  size_t result = strlen(str);
+  size_t result = ::strlen(str);
   delete[] str;
   return result;
 }
 
 size_t AsanStrlenUnderflow() {
   const char* str_value = "abc1";
-  char* str = new char[strlen(str_value) + 1];
-  strcpy(str, str_value);
+  char* str = new char[::strlen(str_value) + 1];
+  ::strcpy(str, str_value);
 
-  size_t result = strlen(str - 1);
+  size_t result = ::strlen(str - 1);
   delete[] str;
   return result;
 }
 
 size_t AsanStrlenUseAfterFree() {
   const char* str_value = "abc1";
-  char* str = new char[strlen(str_value) + 1];
-  strcpy(str, str_value);
+  char* str = new char[::strlen(str_value) + 1];
+  ::strcpy(str, str_value);
 
   delete[] str;
-  size_t result = strlen(str);
+  size_t result = ::strlen(str);
   return result;
 }
 
 size_t AsanStrrchrOverflow() {
   const char* str_value = "abc1";
-  char* str = new char[strlen(str_value) + 1];
-  strcpy(str, str_value);
+  char* str = new char[::strlen(str_value) + 1];
+  ::strcpy(str, str_value);
 
-  size_t str_len = strlen(str);
+  size_t str_len = ::strlen(str);
   str[str_len] = 'a';
 
-  char* result = strrchr(str, 'c');
+  char* result = ::strrchr(str, 'c');
   delete[] str;
   return reinterpret_cast<size_t>(result);
 }
 
 size_t AsanStrrchrUnderflow() {
   const char* str_value = "abc1";
-  char* str = new char[strlen(str_value) + 1];
-  strcpy(str, str_value);
+  char* str = new char[::strlen(str_value) + 1];
+  ::strcpy(str, str_value);
 
-  char* result = strrchr(str - 1, 'c');
+  char* result = ::strrchr(str - 1, 'c');
   delete[] str;
   return reinterpret_cast<size_t>(result);
 }
 
 size_t AsanStrrchrUseAfterFree() {
   const char* str_value = "abc1";
-  char* str = new char[strlen(str_value) + 1];
-  strcpy(str, str_value);
+  char* str = new char[::strlen(str_value) + 1];
+  ::strcpy(str, str_value);
 
   delete[] str;
-  char* result = strrchr(str, 'c');
+  char* result = ::strrchr(str, 'c');
   return reinterpret_cast<size_t>(result);
 }
 
@@ -219,10 +219,10 @@ size_t AsanStrcmpSrc1Overflow() {
   char* str2 = NULL;
   Alloc2TestStrings(&str1, &str2);
 
-  size_t str1_len = strlen(str1);
+  size_t str1_len = ::strlen(str1);
   str1[str1_len] = 'a';
 
-  size_t result = strcmp(str1, str2);
+  size_t result = ::strcmp(str1, str2);
   delete[] str1;
   delete[] str2;
   return result;
@@ -233,7 +233,7 @@ size_t AsanStrcmpSrc1Underflow() {
   char* str2 = NULL;
   Alloc2TestStrings(&str1, &str2);
 
-  size_t result = strcmp(str1 - 1, str2);
+  size_t result = ::strcmp(str1 - 1, str2);
   delete[] str1;
   delete[] str2;
   return result;
@@ -245,7 +245,7 @@ size_t AsanStrcmpSrc1UseAfterFree() {
   Alloc2TestStrings(&str1, &str2);
 
   delete[] str1;
-  size_t result = strcmp(str1, str2);
+  size_t result = ::strcmp(str1, str2);
   delete[] str2;
   return result;
 }
@@ -255,10 +255,10 @@ size_t AsanStrcmpSrc2Overflow() {
   char* str2 = NULL;
   Alloc2TestStrings(&str1, &str2);
 
-  size_t str1_len = strlen(str1);
+  size_t str1_len = ::strlen(str1);
   str1[str1_len] = 'a';
 
-  size_t result = strcmp(str1, str2);
+  size_t result = ::strcmp(str1, str2);
   delete[] str1;
   delete[] str2;
   return result;
@@ -269,7 +269,7 @@ size_t AsanStrcmpSrc2Underflow() {
   char* str2 = NULL;
   Alloc2TestStrings(&str1, &str2);
 
-  size_t result = strcmp(str1 - 1, str2);
+  size_t result = ::strcmp(str1 - 1, str2);
   delete[] str1;
   delete[] str2;
   return result;
@@ -281,7 +281,7 @@ size_t AsanStrcmpSrc2UseAfterFree() {
   Alloc2TestStrings(&str1, &str2);
 
   delete[] str2;
-  size_t result = strcmp(str1, str2);
+  size_t result = ::strcmp(str1, str2);
   delete[] str1;
   return result;
 }
@@ -291,10 +291,10 @@ size_t AsanStrpbrkKeysOverflow() {
   char* keys = NULL;
   Alloc2TestStrings(&str, &keys);
 
-  size_t keys_len = strlen(keys);
+  size_t keys_len = ::strlen(keys);
   keys[keys_len] = 'a';
 
-  char* result = strpbrk(str, keys);
+  char* result = ::strpbrk(str, keys);
   delete[] str;
   delete[] keys;
   return reinterpret_cast<size_t>(result);
@@ -305,7 +305,7 @@ size_t AsanStrpbrkKeysUnderflow() {
   char* keys = NULL;
   Alloc2TestStrings(&str, &keys);
 
-  char* result = strpbrk(str, keys - 1);
+  char* result = ::strpbrk(str, keys - 1);
   delete[] str;
   delete[] keys;
   return reinterpret_cast<size_t>(result);
@@ -317,7 +317,7 @@ size_t AsanStrpbrkKeysUseAfterFree() {
   Alloc2TestStrings(&str, &keys);
 
   delete[] keys;
-  char* result = strpbrk(str, keys);
+  char* result = ::strpbrk(str, keys);
   delete[] str;
   return reinterpret_cast<size_t>(result);
 }
@@ -327,10 +327,10 @@ size_t AsanStrpbrkSrcOverflow() {
   char* keys = NULL;
   Alloc2TestStrings(&str, &keys);
 
-  size_t str_len = strlen(str);
+  size_t str_len = ::strlen(str);
   str[str_len] = 'a';
 
-  char* result = strpbrk(str, keys);
+  char* result = ::strpbrk(str, keys);
   delete[] str;
   delete[] keys;
   return reinterpret_cast<size_t>(result);
@@ -341,7 +341,7 @@ size_t AsanStrpbrkSrcUnderflow() {
   char* keys = NULL;
   Alloc2TestStrings(&str, &keys);
 
-  char* result = strpbrk(str - 1, keys);
+  char* result = ::strpbrk(str - 1, keys);
   delete[] str;
   delete[] keys;
   return reinterpret_cast<size_t>(result);
@@ -353,7 +353,7 @@ size_t AsanStrpbrkSrcUseAfterFree() {
   Alloc2TestStrings(&str, &keys);
 
   delete[] str;
-  char* result = strpbrk(str, keys);
+  char* result = ::strpbrk(str, keys);
   delete[] keys;
   return reinterpret_cast<size_t>(result);
 }
@@ -363,10 +363,10 @@ size_t AsanStrstrSrc1Overflow() {
   char* str2 = NULL;
   Alloc2TestStrings(&str1, &str2);
 
-  size_t str1_len = strlen(str1);
+  size_t str1_len = ::strlen(str1);
   str1[str1_len] = 'a';
 
-  char* result = strstr(str1, str2);
+  char* result = ::strstr(str1, str2);
   delete[] str1;
   delete[] str2;
   return reinterpret_cast<size_t>(result);
@@ -377,7 +377,7 @@ size_t AsanStrstrSrc1Underflow() {
   char* str2 = NULL;
   Alloc2TestStrings(&str1, &str2);
 
-  char* result = strstr(str1 - 1, str2);
+  char* result = ::strstr(str1 - 1, str2);
   delete[] str1;
   delete[] str2;
   return reinterpret_cast<size_t>(result);
@@ -389,7 +389,7 @@ size_t AsanStrstrSrc1UseAfterFree() {
   Alloc2TestStrings(&str1, &str2);
 
   delete[] str1;
-  char* result = strstr(str1, str2);
+  char* result = ::strstr(str1, str2);
   delete[] str2;
   return reinterpret_cast<size_t>(result);
 }
@@ -399,10 +399,10 @@ size_t AsanStrstrSrc2Overflow() {
   char* str2 = NULL;
   Alloc2TestStrings(&str1, &str2);
 
-  size_t str1_len = strlen(str1);
+  size_t str1_len = ::strlen(str1);
   str1[str1_len] = 'a';
 
-  char* result = strstr(str1, str2);
+  char* result = ::strstr(str1, str2);
   delete[] str1;
   delete[] str2;
   return reinterpret_cast<size_t>(result);
@@ -413,7 +413,7 @@ size_t AsanStrstrSrc2Underflow() {
   char* str2 = NULL;
   Alloc2TestStrings(&str1, &str2);
 
-  char* result = strstr(str1 - 1, str2);
+  char* result = ::strstr(str1 - 1, str2);
   delete[] str1;
   delete[] str2;
   return reinterpret_cast<size_t>(result);
@@ -425,7 +425,7 @@ size_t AsanStrstrSrc2UseAfterFree() {
   Alloc2TestStrings(&str1, &str2);
 
   delete[] str2;
-  char* result = strstr(str1, str2);
+  char* result = ::strstr(str1, str2);
   delete[] str1;
   return reinterpret_cast<size_t>(result);
 }
@@ -435,10 +435,10 @@ size_t AsanStrspnKeysOverflow() {
   char* keys = NULL;
   Alloc2TestStrings(&str, &keys);
 
-  size_t keys_len = strlen(keys);
+  size_t keys_len = ::strlen(keys);
   keys[keys_len] = 'a';
 
-  size_t result = strspn(str, keys);
+  size_t result = ::strspn(str, keys);
   delete[] str;
   delete[] keys;
   return result;
@@ -449,7 +449,7 @@ size_t AsanStrspnKeysUnderflow() {
   char* keys = NULL;
   Alloc2TestStrings(&str, &keys);
 
-  size_t result = strspn(str, keys - 1);
+  size_t result = ::strspn(str, keys - 1);
   delete[] str;
   delete[] keys;
   return result;
@@ -461,7 +461,7 @@ size_t AsanStrspnKeysUseAfterFree() {
   Alloc2TestStrings(&str, &keys);
 
   delete[] keys;
-  size_t result = strspn(str, keys);
+  size_t result = ::strspn(str, keys);
   delete[] str;
   return result;
 }
@@ -471,10 +471,10 @@ size_t AsanStrspnSrcOverflow() {
   char* keys = NULL;
   Alloc2TestStrings(&str, &keys);
 
-  size_t str_len = strlen(str);
+  size_t str_len = ::strlen(str);
   str[str_len] = 'a';
 
-  size_t result = strspn(str, keys);
+  size_t result = ::strspn(str, keys);
   delete[] str;
   delete[] keys;
   return result;
@@ -485,7 +485,7 @@ size_t AsanStrspnSrcUnderflow() {
   char* keys = NULL;
   Alloc2TestStrings(&str, &keys);
 
-  size_t result = strspn(str - 1, keys);
+  size_t result = ::strspn(str - 1, keys);
   delete[] str;
   delete[] keys;
   return result;
@@ -497,22 +497,22 @@ size_t AsanStrspnSrcUseAfterFree() {
   Alloc2TestStrings(&str, &keys);
 
   delete[] str;
-  size_t result = strspn(str, keys);
+  size_t result = ::strspn(str, keys);
   delete[] keys;
   return result;
 }
 
 size_t AsanStrncpySrcOverflow() {
   const char* str_value = "test_strncpy";
-  char* src = new char[strlen(str_value) + 1];
-  strcpy(src, str_value);
+  char* src = new char[::strlen(str_value) + 1];
+  ::strcpy(src, str_value);
 
-  char* destination = new char[strlen(str_value) + 2];
+  char* destination = new char[::strlen(str_value) + 2];
 
-  size_t source_len = strlen(src);
+  size_t source_len = ::strlen(src);
   src[source_len] = 'a';
 
-  char* result = strncpy(destination, src, source_len + 2);
+  char* result = ::strncpy(destination, src, source_len + 2);
 
   delete[] src;
   delete[] destination;
@@ -521,12 +521,12 @@ size_t AsanStrncpySrcOverflow() {
 
 size_t AsanStrncpySrcUnderflow() {
   const char* str_value = "test_strncpy";
-  char* src = new char[strlen(str_value) + 1];
-  strcpy(src, str_value);
+  char* src = new char[::strlen(str_value) + 1];
+  ::strcpy(src, str_value);
 
-  char* destination = new char[strlen(str_value) + 1];
+  char* destination = new char[::strlen(str_value) + 1];
 
-  char* result = strncpy(destination, src - 1, strlen(str_value) + 1);
+  char* result = ::strncpy(destination, src - 1, ::strlen(str_value) + 1);
 
   delete[] src;
   delete[] destination;
@@ -535,13 +535,13 @@ size_t AsanStrncpySrcUnderflow() {
 
 size_t AsanStrncpySrcUseAfterFree() {
   const char* str_value = "test_strncpy";
-  char* src = new char[strlen(str_value) + 1];
-  strcpy(src, str_value);
+  char* src = new char[::strlen(str_value) + 1];
+  ::strcpy(src, str_value);
 
-  char* destination = new char[strlen(str_value) + 1];
+  char* destination = new char[::strlen(str_value) + 1];
 
   delete[] src;
-  char* result = strncpy(destination, src, strlen(str_value) + 1);
+  char* result = ::strncpy(destination, src, ::strlen(str_value) + 1);
 
   delete[] destination;
   return reinterpret_cast<size_t>(result);
@@ -551,12 +551,16 @@ size_t AsanStrncpyDstOverflow() {
   const char* str_value = "test_strncpy";
 
   const char* long_str_value = "test_strncpy_long_source";
-  char* long_source = new char[strlen(long_str_value) + 1];
-  strcpy(long_source, long_str_value);
+  char* long_source = new char[::strlen(long_str_value) + 1];
+  ::strcpy(long_source, long_str_value);
 
-  char* destination = new char[strlen(str_value) + 1];
-
-  char* result = strncpy(destination, long_source, strlen(long_str_value));
+  char* destination = new char[::strlen(str_value) + 1];
+  std::string original_data;
+  original_data.resize(::strlen(long_str_value));
+  NonInterceptedReads(destination, ::strlen(long_str_value), &original_data[0]);
+  char* result = ::strncpy(destination, long_source, ::strlen(long_str_value));
+  NonInterceptedWrites(&original_data[0], ::strlen(long_str_value),
+      destination);
 
   delete[] long_source;
   delete[] destination;
@@ -565,12 +569,14 @@ size_t AsanStrncpyDstOverflow() {
 
 size_t AsanStrncpyDstUnderflow() {
   const char* str_value = "test_strncpy";
-  char* src = new char[strlen(str_value) + 1];
-  strcpy(src, str_value);
+  char* src = new char[::strlen(str_value) + 1];
+  ::strcpy(src, str_value);
 
-  char* destination = new char[strlen(str_value) + 1];
+  char* destination = new char[::strlen(str_value) + 1];
 
-  char* result = strncpy(destination - 1, src, strlen(str_value) + 1);
+  char last_header_val = NonInterceptedRead(destination - 1);
+  char* result = ::strncpy(destination - 1, src, ::strlen(str_value) + 1);
+  NonInterceptedWrite(destination - 1, last_header_val);
 
   delete[] src;
   delete[] destination;
@@ -579,13 +585,13 @@ size_t AsanStrncpyDstUnderflow() {
 
 size_t AsanStrncpyDstUseAfterFree() {
   const char* str_value = "test_strncpy";
-  char* src = new char[strlen(str_value) + 1];
-  strcpy(src, str_value);
+  char* src = new char[::strlen(str_value) + 1];
+  ::strcpy(src, str_value);
 
-  char* destination = new char[strlen(str_value) + 1];
+  char* destination = new char[::strlen(str_value) + 1];
 
   delete[] destination;
-  char* result = strncpy(destination, src, strlen(str_value) + 1);
+  char* result = ::strncpy(destination, src, ::strlen(str_value) + 1);
 
   delete[] src;
   return reinterpret_cast<size_t>(result);
@@ -594,17 +600,20 @@ size_t AsanStrncpyDstUseAfterFree() {
 size_t AsanStrncatSuffixOverflow() {
   const char* prefix_value = "test_";
   const char* suffix_value = "strncat";
+  size_t suffix_len = ::strlen(suffix_value);
 
-  char* mem = new char[strlen(prefix_value) + strlen(suffix_value) + 2];
-  strcpy(mem, prefix_value);
+  char* mem = new char[::strlen(prefix_value) + suffix_len + 2];
+  ::strcpy(mem, prefix_value);
 
-  char* suffix = new char[strlen(suffix_value) + 1];
-  strcpy(suffix, suffix_value);
+  char* suffix = new char[suffix_len + 1];
+  ::strcpy(suffix, suffix_value);
 
-  size_t suffix_len = strlen(suffix);
+  char first_trailer_val = NonInterceptedRead(&suffix[suffix_len + 1]);
   suffix[suffix_len] = 'a';
-
-  char* result = strncat(mem, suffix, suffix_len + 2);
+  NonInterceptedWrite(&suffix[suffix_len + 1], static_cast<char>(0));
+  char* result = ::strncat(mem, suffix, suffix_len + 2);
+  NonInterceptedWrite(&suffix[suffix_len + 1], first_trailer_val);
+  suffix[suffix_len] = 0;
 
   delete[] suffix;
   delete[] mem;
@@ -615,13 +624,13 @@ size_t AsanStrncatSuffixUnderflow() {
   const char* prefix_value = "test_";
   const char* suffix_value = "strncat";
 
-  char* mem = new char[strlen(prefix_value) + strlen(suffix_value) + 1];
-  strcpy(mem, prefix_value);
+  char* mem = new char[::strlen(prefix_value) + ::strlen(suffix_value) + 1];
+  ::strcpy(mem, prefix_value);
 
-  char* suffix = new char[strlen(suffix_value) + 1];
-  strcpy(suffix, suffix_value);
+  char* suffix = new char[::strlen(suffix_value) + 1];
+  ::strcpy(suffix, suffix_value);
 
-  char* result = strncat(mem, suffix - 1, strlen(suffix));
+  char* result = ::strncat(mem, suffix - 1, ::strlen(suffix));
 
   delete[] suffix;
   delete[] mem;
@@ -632,14 +641,14 @@ size_t AsanStrncatSuffixUseAfterFree() {
   const char* prefix_value = "test_";
   const char* suffix_value = "strncat";
 
-  char* mem = new char[strlen(prefix_value) + strlen(suffix_value) + 1];
-  strcpy(mem, prefix_value);
+  char* mem = new char[::strlen(prefix_value) + ::strlen(suffix_value) + 1];
+  ::strcpy(mem, prefix_value);
 
-  char* suffix = new char[strlen(suffix_value) + 1];
-  strcpy(suffix, suffix_value);
+  char* suffix = new char[::strlen(suffix_value) + 1];
+  ::strcpy(suffix, suffix_value);
 
   delete[] suffix;
-  char* result = strncat(mem, suffix, strlen(suffix_value));
+  char* result = ::strncat(mem, suffix, ::strlen(suffix_value));
 
   delete[] mem;
   return reinterpret_cast<size_t>(result);
@@ -649,18 +658,17 @@ size_t AsanStrncatDstOverflow() {
   const char* prefix_value = "test_";
   const char* suffix_value = "strncat";
 
-  char* mem = new char[strlen(prefix_value) + strlen(suffix_value) + 1];
-  strcpy(mem, prefix_value);
+  size_t mem_size = ::strlen(prefix_value) + ::strlen(suffix_value);
+  // Create an array that won't have enough room for the terminating null
+  // character.
+  char* mem = new char[mem_size];
+  ::strcpy(mem, prefix_value);
 
-  char* suffix = new char[strlen(suffix_value) + 1];
-  strcpy(suffix, suffix_value);
+  std::string original_data;
+  char first_trailer_val = NonInterceptedRead(&mem[mem_size]);
+  char* result = ::strncat(mem, suffix_value, ::strlen(suffix_value) + 1);
+  NonInterceptedWrite(&mem[mem_size], first_trailer_val);
 
-  size_t prefix_len = strlen(prefix_value);
-  mem[prefix_len] = 'a';
-
-  char* result = strncat(mem, suffix, strlen(suffix));
-
-  delete[] suffix;
   delete[] mem;
   return reinterpret_cast<size_t>(result);
 }
@@ -669,13 +677,15 @@ size_t AsanStrncatDstUnderflow() {
   const char* prefix_value = "test_";
   const char* suffix_value = "strncat";
 
-  char* mem = new char[strlen(prefix_value) + strlen(suffix_value) + 1];
-  strcpy(mem, prefix_value);
+  char* mem = new char[::strlen(prefix_value) + ::strlen(suffix_value) + 1];
+  ::strcpy(mem, prefix_value);
 
-  char* suffix = new char[strlen(suffix_value) + 1];
-  strcpy(suffix, suffix_value);
+  char* suffix = new char[::strlen(suffix_value) + 1];
+  ::strcpy(suffix, suffix_value);
 
-  char* result = strncat(mem - 1, suffix, strlen(suffix));
+  char last_header_val = NonInterceptedRead(mem - 1);
+  char* result = ::strncat(mem - 1, suffix, ::strlen(suffix));
+  NonInterceptedWrite(mem - 1, last_header_val);
 
   delete[] suffix;
   delete[] mem;
@@ -686,14 +696,14 @@ size_t AsanStrncatDstUseAfterFree() {
   const char* prefix_value = "test_";
   const char* suffix_value = "strncat";
 
-  char* mem = new char[strlen(prefix_value) + strlen(suffix_value) + 1];
-  strcpy(mem, prefix_value);
+  char* mem = new char[::strlen(prefix_value) + ::strlen(suffix_value) + 1];
+  ::strcpy(mem, prefix_value);
 
-  char* suffix = new char[strlen(suffix_value) + 1];
-  strcpy(suffix, suffix_value);
+  char* suffix = new char[::strlen(suffix_value) + 1];
+  ::strcpy(suffix, suffix_value);
 
   delete[] mem;
-  char* result = strncat(mem, suffix, strlen(suffix));
+  char* result = ::strncat(mem, suffix, ::strlen(suffix));
 
   delete[] suffix;
   return reinterpret_cast<size_t>(result);
@@ -706,7 +716,7 @@ size_t AsanReadFileOverflow() {
     return false;
 
   const char* kTestString = "Test of asan_ReadFile: Overflow";
-  const size_t kTestStringLength = strlen(kTestString);
+  const size_t kTestStringLength = ::strlen(kTestString);
 
   HANDLE file_handle = InitTemporaryFile(temp_filename, kTestString);
 
@@ -745,7 +755,7 @@ size_t AsanReadFileUseAfterFree() {
     return false;
 
   const char* kTestString = "Test of asan_ReadFile: use-after-free";
-  const size_t kTestStringLength = strlen(kTestString);
+  const size_t kTestStringLength = ::strlen(kTestString) + 1;
 
   HANDLE file_handle = InitTemporaryFile(temp_filename, kTestString);
 
@@ -785,7 +795,7 @@ size_t AsanWriteFileOverflow() {
     return false;
 
   const char* kTestString = "Test of asan_WriteFile: overflow";
-  const size_t kTestStringLength = strlen(kTestString);
+  const size_t kTestStringLength = ::strlen(kTestString) + 1;
 
   HANDLE file_handle = InitTemporaryFile(temp_filename, "");
 
@@ -793,7 +803,7 @@ size_t AsanWriteFileOverflow() {
     return 0;
 
   char* alloc = new char[kTestStringLength];
-  strcpy(alloc, kTestString);
+  ::strcpy(alloc, kTestString);
 
   // Do an overflow on the input buffer. It should be detected by the ASan
   // interceptor of WriteFile.
@@ -824,7 +834,7 @@ size_t AsanWriteFileUseAfterFree() {
     return false;
 
   const char* kTestString = "Test of asan_WriteFile: use-after-free";
-  const size_t kTestStringLength = strlen(kTestString);
+  const size_t kTestStringLength = ::strlen(kTestString) + 1;
 
   HANDLE file_handle = InitTemporaryFile(temp_filename, "");
 
@@ -832,7 +842,7 @@ size_t AsanWriteFileUseAfterFree() {
     return 0;
 
   char* alloc = new char[kTestStringLength];
-  strcpy(alloc, kTestString);
+  ::strcpy(alloc, kTestString);
 
   delete[] alloc;
 
