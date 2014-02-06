@@ -617,6 +617,22 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   EXPECT_EQ(1, label_attr_counts[BlockGraph::DEBUG_END_LABEL]);
 }
 
+TEST_F(DecomposerTest, DecomposeTestDllMSVS2010) {
+  base::FilePath dll_path = testing::GetSrcRelativePath(
+      L"syzygy\\pe\\test_data\\test_dll_vs2010.dll");
+  base::FilePath pdb_path = testing::GetSrcRelativePath(
+      L"syzygy\\pe\\test_data\\test_dll_vs2010.dll.pdb");
+
+  PEFile pe_file;
+  ASSERT_TRUE(pe_file.Init(dll_path));
+
+  Decomposer decomposer(pe_file);
+  BlockGraph block_graph;
+  ImageLayout image_layout(&block_graph);
+  decomposer.set_pdb_path(pdb_path);
+  ASSERT_TRUE(decomposer.Decompose(&image_layout));
+}
+
 TEST_F(DecomposerTest, DecomposeTestDllMSVS2013) {
   base::FilePath dll_path = testing::GetSrcRelativePath(
       L"syzygy\\pe\\test_data\\test_dll_vs2013.dll");
