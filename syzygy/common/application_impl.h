@@ -41,9 +41,11 @@ int Application<Impl, kInitLogging>::Run() {
   if (!InitializeLogging())
     return 1;
 
-  LOG(INFO) << "Syzygy " << implementation_.name()
-            << " Version " << kSyzygyVersion.GetVersionString() << ".";
-  LOG(INFO) << "Copyright (c) Google Inc. All rights reserved.";
+  if (!command_line_->HasSwitch("no-logo")) {
+    LOG(INFO) << "Syzygy " << implementation_.name()
+        << " Version " << kSyzygyVersion.GetVersionString() << ".";
+    LOG(INFO) << "Copyright (c) Google Inc. All rights reserved.";
+  }
 
   base::win::ScopedCOMInitializer com_initializer;
   if (!com_initializer.succeeded())
