@@ -162,8 +162,13 @@ bool CoffRenameSymbolsTransform::TransformBlockGraph(
     const std::string& dst = mappings_[i].second;
     SymbolIndexMap::const_iterator src_it = symbol_index_map.find(src);
     if (src_it == symbol_index_map.end()) {
-      LOG(ERROR) << "Unable to find source symbol \"" << src << "\".";
-      return false;
+      if (symbols_must_exist_) {
+        LOG(ERROR) << "Unable to find source symbol \"" << src << "\".";
+        return false;
+      }
+
+      // Input symbols aren't forced to exist, so continue on to the next one.
+      continue;
     }
 
     SymbolIndexMap::const_iterator dst_it = symbol_index_map.find(dst);

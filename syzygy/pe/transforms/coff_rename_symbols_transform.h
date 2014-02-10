@@ -37,8 +37,9 @@ class CoffRenameSymbolsTransform
   typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
 
   // Construct an empty CoffRenameSymbolsTransform; initially, no symbol is
-  // set to be renamed.
-  CoffRenameSymbolsTransform() {}
+  // set to be renamed. By default, the input symbol of any specified mapping
+  // must exist, otherwise the transform will fail.
+  CoffRenameSymbolsTransform() : symbols_must_exist_(true) {}
 
   // Add the specified mapping to be applied.
   // @param from the symbol to rename.
@@ -60,9 +61,18 @@ class CoffRenameSymbolsTransform
   // The name of this transform.
   static const char kTransformName[];
 
+  // @name Accessors and mutators.
+  // @{
+  bool symbols_must_exist() const { return symbols_must_exist_; }
+  void set_symbols_must_exist(bool symbols_must_exist) {
+    symbols_must_exist_ = symbols_must_exist;
+  }
+  // @}
+
  protected:
   typedef std::vector<std::pair<std::string, std::string>> SymbolMap;
   SymbolMap mappings_;
+  bool symbols_must_exist_;
 
   DISALLOW_COPY_AND_ASSIGN(CoffRenameSymbolsTransform);
 };

@@ -16,6 +16,7 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/block_hash.h"
 #include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/coff_decomposer.h"
@@ -48,6 +49,71 @@ const char kFoo[] = "foo";  // Does not exist, less than 8 characters.
 
 }  // namespace
 
+std::ostream& operator<<(std::ostream& os,
+                         const block_graph::BlockHash& hash) {
+  os << "BlockHash(" << hash.md5_digest.a << ")";
+  return os;
+}
+
+TEST_F(CoffRenameSymbolsTransformTest, ApplyMissingSymbolFails) {
+  TestCoffRenameSymbolsTransform tx;
+  EXPECT_TRUE(tx.mappings_.empty());
+
+  TestCoffRenameSymbolsTransform::SymbolMap expected_mappings;
+  expected_mappings.push_back(std::make_pair(kFunction4Name, kFunction1Name));
+
+  tx.AddSymbolMapping(kFunction4Name, kFunction1Name);
+  EXPECT_THAT(tx.mappings_, testing::ContainerEq(expected_mappings));
+
+  BlockGraph::Block* symbols_block;
+  BlockGraph::Block* strings_block;
+  ASSERT_TRUE(FindCoffSpecialBlocks(
+      &block_graph_, NULL, &symbols_block, &strings_block));
+  block_graph::BlockHash symbols_hash_before(symbols_block);
+  block_graph::BlockHash strings_hash_before(strings_block);
+
+  EXPECT_TRUE(tx.symbols_must_exist());
+  EXPECT_FALSE(tx.TransformBlockGraph(&policy_, &block_graph_, headers_block_));
+
+  // The block contents should not have changed.
+  block_graph::BlockHash symbols_hash_after(symbols_block);
+  block_graph::BlockHash strings_hash_after(strings_block);
+  EXPECT_EQ(symbols_hash_before, symbols_hash_after);
+  EXPECT_EQ(strings_hash_before, strings_hash_after);
+
+  ASSERT_NO_FATAL_FAILURE(TestRoundTrip());
+}
+
+TEST_F(CoffRenameSymbolsTransformTest, ApplyMissingSymbolSucceeds) {
+  TestCoffRenameSymbolsTransform tx;
+  EXPECT_TRUE(tx.mappings_.empty());
+
+  TestCoffRenameSymbolsTransform::SymbolMap expected_mappings;
+  expected_mappings.push_back(std::make_pair(kFunction4Name, kFunction1Name));
+
+  tx.AddSymbolMapping(kFunction4Name, kFunction1Name);
+  EXPECT_THAT(tx.mappings_, testing::ContainerEq(expected_mappings));
+
+  BlockGraph::Block* symbols_block;
+  BlockGraph::Block* strings_block;
+  ASSERT_TRUE(FindCoffSpecialBlocks(
+      &block_graph_, NULL, &symbols_block, &strings_block));
+  block_graph::BlockHash symbols_hash_before(symbols_block);
+  block_graph::BlockHash strings_hash_before(strings_block);
+
+  tx.set_symbols_must_exist(false);
+  EXPECT_FALSE(tx.symbols_must_exist());
+  EXPECT_TRUE(tx.TransformBlockGraph(&policy_, &block_graph_, headers_block_));
+
+  // The block contents should not have changed.
+  block_graph::BlockHash symbols_hash_after(symbols_block);
+  block_graph::BlockHash strings_hash_after(strings_block);
+  EXPECT_EQ(symbols_hash_before, symbols_hash_after);
+  EXPECT_EQ(strings_hash_before, strings_hash_after);
+
+  ASSERT_NO_FATAL_FAILURE(TestRoundTrip());
+}
+
 TEST_F(CoffRenameSymbolsTransformTest, ApplyExistingSymbols) {
   TestCoffRenameSymbolsTransform tx;
   EXPECT_TRUE(tx.mappings_.empty());
@@ -65,6 +131,7 @@ TEST_F(CoffRenameSymbolsTransformTest, ApplyExistingSymbols) {
   size_t symbols_before = symbols_block->size();
   size_t strings_before = strings_block->size();
 
+  EXPECT_TRUE(tx.symbols_must_exist());
   EXPECT_TRUE(tx.TransformBlockGraph(&policy_, &block_graph_, headers_block_));
 
   EXPECT_EQ(symbols_before, symbols_block->size());
@@ -90,6 +157,7 @@ TEST_F(CoffRenameSymbolsTransformTest, ApplyNewSymbolLong) {
   size_t symbols_before = symbols_block->size();
   size_t strings_before = strings_block->size();
 
+  EXPECT_TRUE(tx.symbols_must_exist());
   EXPECT_TRUE(tx.TransformBlockGraph(&policy_, &block_graph_, headers_block_));
 
   // Expect only one symbol to have been created, and a corresponding string.
@@ -117,6 +185,7 @@ TEST_F(CoffRenameSymbolsTransformTest, ApplyNewSymbolShort) {
   size_t symbols_before = symbols_block->size();
   size_t strings_before = strings_block->size();
 
+  EXPECT_TRUE(tx.symbols_must_exist());
   EXPECT_TRUE(tx.TransformBlockGraph(&policy_, &block_graph_, headers_block_));
 
   // Expect only one symbol to have been created, but no new string.
