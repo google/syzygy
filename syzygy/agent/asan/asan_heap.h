@@ -125,6 +125,12 @@ class HeapProxy {
   // @returns true on success, false on failure.
   bool Free(DWORD flags, void* mem, BadAccessKind* error_type);
 
+  // Free a corrupted memory block. This clears its metadata (including the
+  // shadow memory) and calls ::HeapFree on it.
+  // @param user_pointer The user pointer for the block to be freed.
+  // @returns true on success, false otherwise.
+  bool FreeCorruptedBlock(void* user_pointer);
+
   // Return the handle to the underlying heap.
   HANDLE heap() { return heap_; }
 
@@ -314,10 +320,8 @@ class HeapProxy {
 
   // Clean up the metadata of an ASan block.
   // @param block_header The header of the block.
-  // @param block_header The trailer of the block.
   // @note This leaves the memory red-zoned.
-  static void ReleaseASanBlock(BlockHeader* block_header,
-                               BlockTrailer* block_trailer);
+  static void ReleaseAsanBlock(BlockHeader* block_header);
 
   // Returns the block header for a user pointer.
   // @param user_pointer The user pointer for which we want the block header
@@ -413,6 +417,12 @@ class HeapProxy {
   // If the quarantine size is over quarantine_max_size_, trim it down until
   // it's below the limit.
   void TrimQuarantine();
+
+  // Cleanup a block's metadata and free it.
+  // @param block_header The block header.
+  // @param alloc_size The underlying allocation size for this block.
+  // @returns true on success, false otherwise.
+  bool CleanUpAndFreeAsanBlock(BlockHeader* block_header, size_t alloc_size);
 
   // Arbitrarily keep 16 megabytes of quarantine per heap by default.
   static const size_t kDefaultQuarantineMaxSize = 16 * 1024 * 1024;

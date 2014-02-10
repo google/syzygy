@@ -363,6 +363,9 @@ bool HeapProxy::Free(DWORD flags, void* mem, BadAccessKind* error_type) {
 
   if (!VerifyChecksum(block)) {
     *error_type = CORRUPTED_BLOCK;
+    // Reset the free stack pointer to NULL, if the block is corrupted then that
+    // could mean that this pointer has been invalidated.
+    block->free_stack = NULL;
     return false;
   }
 
@@ -510,13 +513,9 @@ void HeapProxy::TrimQuarantine() {
       DCHECK_GE(quarantine_size_, alloc_size);
       quarantine_size_ -= alloc_size;
     }
-
-    // Clean up the block's metadata. We do this outside of the heap lock to
-    // reduce contention.
-    ReleaseASanBlock(free_block, trailer);
-
-    Shadow::Unpoison(free_block, alloc_size);
-    ::HeapFree(heap_, 0, free_block);
+    // Clean up the block's metadata and free it. We do this outside of the heap
+    // lock to reduce contention.
+    CHECK(CleanUpAndFreeAsanBlock(free_block, alloc_size));
   }
 }
 
@@ -528,13 +527,11 @@ void HeapProxy::DestroyAsanBlock(void* asan_pointer) {
   BlockTrailer* block_trailer = BlockHeaderToBlockTrailer(block_header);
   DCHECK_NE(reinterpret_cast<void*>(NULL), block_trailer);
 
-  ReleaseASanBlock(block_header, block_trailer);
+  ReleaseAsanBlock(block_header);
 }
 
-void HeapProxy::ReleaseASanBlock(BlockHeader* block_header,
-                                 BlockTrailer* block_trailer) {
+void HeapProxy::ReleaseAsanBlock(BlockHeader* block_header) {
   DCHECK_NE(reinterpret_cast<void*>(NULL), block_header);
-  DCHECK_NE(reinterpret_cast<void*>(NULL), block_trailer);
 
   // Return pointers to the stacks for reference counting purposes.
   if (block_header->alloc_stack != NULL) {
@@ -547,6 +544,26 @@ void HeapProxy::ReleaseASanBlock(BlockHeader* block_header,
   }
 
   block_header->state = FREED;
+}
+
+bool HeapProxy::FreeCorruptedBlock(void* user_pointer) {
+  // We can't use UserPointerToBlockHeader because the magic number of the
+  // header might be invalid.
+  BlockHeader* header = reinterpret_cast<BlockHeader*>(user_pointer) - 1;
+  // Set the alloc and free pointers to NULL as they might be invalid.
+  header->alloc_stack = NULL;
+  header->free_stack = NULL;
+  // Calculate the allocation size via the shadow as the header might be
+  // corrupted.
+  size_t alloc_size = Shadow::GetAllocSize(reinterpret_cast<uint8*>(header));
+  return CleanUpAndFreeAsanBlock(header, alloc_size);
+}
+
+bool HeapProxy::CleanUpAndFreeAsanBlock(BlockHeader* block_header,
+                                        size_t alloc_size) {
+  ReleaseAsanBlock(block_header);
+  Shadow::Unpoison(block_header, alloc_size);
+  return ::HeapFree(heap_, 0, block_header) == TRUE;
 }
 
 void HeapProxy::CloneObject(const void* src_asan_pointer,

@@ -1335,7 +1335,18 @@ TEST_F(HeapTest, GetBadAccessInformationNestedBlock) {
     EXPECT_EQ(outer_block->free_stack->frames()[i], error_info.free_stack[i]);
 }
 
-// TODO(sebmarchand): Add some tests to detect the corrupted blocks.
+TEST_F(HeapTest, GetAllocSizeViaShadow) {
+  const size_t kAllocSize = 100;
+  LPVOID mem = proxy_.Alloc(0, kAllocSize);
+  ASSERT_TRUE(mem != NULL);
+  ASSERT_EQ(kAllocSize, proxy_.Size(0, mem));
+  size_t real_alloc_size = TestHeapProxy::GetAllocSize(kAllocSize);
+  uint8* header_begin = TestHeapProxy::UserPointerToAsanPointer(mem);
+  for (size_t i = real_alloc_size - 1; i < real_alloc_size; ++i) {
+    ASSERT_EQ(real_alloc_size, Shadow::GetAllocSize(header_begin + i));
+  }
+  ASSERT_TRUE(proxy_.Free(0, mem));
+}
 
 }  // namespace asan
 }  // namespace agent

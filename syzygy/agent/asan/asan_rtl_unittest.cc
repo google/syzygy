@@ -424,6 +424,16 @@ TEST_F(AsanRtlTest, AsanCheckInvalidAccess) {
   EXPECT_TRUE(LogContains(HeapProxy::kInvalidAddress));
 }
 
+TEST_F(AsanRtlTest, AsanCheckCorruptedBlock) {
+  void* mem = HeapAllocFunction(heap_, 0, kAllocSize);
+  SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
+  reinterpret_cast<uint8*>(mem)[-1]--;
+  EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem));
+  EXPECT_TRUE(memory_error_detected);
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapCorruptedBlock));
+  EXPECT_TRUE(LogContains("previously allocated here"));
+}
+
 TEST_F(AsanRtlTest, AsanSingleSpecial1byteInstructionCheckGoodAccess) {
   static const char* function_names[] = {
       "asan_check_1_byte_movs_access",

@@ -175,5 +175,27 @@ void Shadow::AppendShadowMemoryText(const void* addr, std::string* output) {
       kHeapFreedByte >> 4, kHeapFreedByte & 15);
 }
 
+size_t Shadow::GetAllocSize(const uint8* mem) {
+  size_t alloc_size = 0;
+  const uint8* mem_begin = mem;
+
+  // Look for the beginning of the memory block.
+  while (GetShadowMarkerForAddress(mem_begin) != kHeapLeftRedzone ||
+      GetShadowMarkerForAddress(mem_begin - kShadowGranularity) ==
+          kHeapLeftRedzone) {
+    mem_begin -= kShadowGranularity;
+  }
+
+  // Look for the heap right redzone.
+  while (GetShadowMarkerForAddress(mem) != kHeapRightRedzone)
+    mem += kShadowGranularity;
+
+  // Find the end of the block.
+  while (GetShadowMarkerForAddress(mem) == kHeapRightRedzone)
+    mem += kShadowGranularity;
+
+  return mem - mem_begin;
+}
+
 }  // namespace asan
 }  // namespace agent

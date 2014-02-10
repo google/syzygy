@@ -120,6 +120,14 @@ class Shadow {
                                void* dst_pointer,
                                size_t size);
 
+  // Calculate the allocation size of a block by using the shadow memory.
+  // @param mem A pointer inside the memory block for which we want to calculate
+  //     the underlying allocation size.
+  // @returns The underlying allocation size.
+  // @note This function doesn't work for nested blocks.
+  // TODO(sebmarchand): Add support for nested blocks.
+  static size_t GetAllocSize(const uint8* mem);
+
  protected:
   // Reset the shadow memory.
   static void Reset();

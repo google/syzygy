@@ -63,6 +63,7 @@ enum BadAccessKind {
   USE_AFTER_FREE = agent::asan::HeapProxy::USE_AFTER_FREE,
   HEAP_BUFFER_OVERFLOW = agent::asan::HeapProxy::HEAP_BUFFER_OVERFLOW,
   HEAP_BUFFER_UNDERFLOW = agent::asan::HeapProxy::HEAP_BUFFER_UNDERFLOW,
+  CORRUPTED_BLOCK = agent::asan::HeapProxy::CORRUPTED_BLOCK,
 };
 
 // Contains the number of ASAN errors reported with our callback.
@@ -381,6 +382,9 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
         HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanWriteFileUseAfterFree,
         USE_AFTER_FREE, ASAN_READ_ACCESS, 1));
+
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanAsanCorruptedBlock,
+        CORRUPTED_BLOCK, ASAN_UNKNOWN_ACCESS, 0));
   }
 
   void BBEntryInvokeTestDll() {

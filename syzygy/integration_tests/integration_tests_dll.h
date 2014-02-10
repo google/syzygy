@@ -142,6 +142,7 @@ namespace testing {
     decl(kAsanReadFileUseAfterFree, testing::AsanReadFileUseAfterFree)  \
     decl(kAsanWriteFileOverflow, testing::AsanWriteFileOverflow)  \
     decl(kAsanWriteFileUseAfterFree, testing::AsanWriteFileUseAfterFree)  \
+    decl(kAsanAsanCorruptedBlock, testing::AsanCorruptedBlock)  \
     decl(kBBEntryCallOnce, BBEntryCallOnce)  \
     decl(kBBEntryCallTree, BBEntryCallTree)  \
     decl(kBBEntryCallRecursive, BBEntryCallRecursive)  \

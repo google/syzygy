@@ -382,6 +382,8 @@ size_t AsanWriteFileOverflow();
 
 size_t AsanWriteFileUseAfterFree();
 
+size_t AsanCorruptedBlock();
+
 }  // namespace testing
 
 #endif  // SYZYGY_INTEGRATION_TESTS_ASAN_INTERCEPTORS_TESTS_H_
