@@ -30,7 +30,7 @@ namespace grinder {
 //
 // NOTE: This does not handle 'partial' line coverage right now. It is possible
 //     for only some of the code bytes associated with a line to have been
-//     visited. We need finer grained bookkeeping to accomodate this (the
+//     visited. We need finer grained bookkeeping to accommodate this (the
 //     LCOV file format can handle it just fine). The MSVC tools do not seem to
 //     make a distinction between partially and fully covered lines.
 //

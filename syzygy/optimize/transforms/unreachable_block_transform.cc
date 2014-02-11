@@ -21,8 +21,118 @@ namespace transforms {
 
 namespace {
 
+// Forward declaration.
+struct SubTreeInformation;
+
 using block_graph::BlockGraph;
 typedef BlockGraph::Block::ReferenceMap ReferenceMap;
+typedef std::set<const BlockGraph::Block*> ReachableSet;
+typedef std::stack<const BlockGraph::Block*> ReachableStack;
+typedef std::map<const BlockGraph::Block*, SubTreeInformation> RecursiveSizeMap;
+
+struct SubTreeInformation {
+  size_t size;
+  size_t count;
+};
+
+// This function computes the number and the total size of the reachable blocks
+// from the given root |block|.
+void ComputeSubTreeInformation(const BlockGraph::Block* block,
+                               const BlockGraph::BlockMap& blocks,
+                               const ReachableSet& reachable,
+                               SubTreeInformation* subtree,
+                               ReachableSet* visited) {
+  DCHECK_NE(reinterpret_cast<SubTreeInformation*>(NULL), subtree);
+  DCHECK_NE(reinterpret_cast<ReachableSet*>(NULL), visited);
+
+  // Avoid repeatedly visiting the same block within a sub-tree. Even if a block
+  // is reachable via multiple paths, it contributes only once to the size of
+  // the sub-tree.
+  if (!visited->insert(block).second)
+    return;
+
+  // Add the size of the current block.
+  subtree->size += block->size();
+  subtree->count += 1;
+
+  // Sum the size of each sub-tree by following references.
+  const ReferenceMap& references = block->references();
+  ReferenceMap::const_iterator reference = references.begin();
+  for (; reference != references.end(); ++reference) {
+    const BlockGraph::Block* reference_block = reference->second.referenced();
+    if (reachable.find(reference_block) != reachable.end())
+      continue;
+    ComputeSubTreeInformation(
+        reference_block, blocks, reachable, subtree, visited);
+  }
+}
+
+bool DumpUnreachableCallgraph(const base::FilePath& path,
+                              const BlockGraph::BlockMap& blocks,
+                              const ReachableSet& reachable) {
+
+  // A cache of computed sizes.
+  RecursiveSizeMap subtrees;
+
+  // Dump a cachegrind file.
+  file_util::ScopedFILE file(file_util::OpenFile(path, "wb+"));
+  if (!file.get()) {
+    LOG(ERROR) << "Could not create file.";
+    return false;
+  }
+
+  ::fprintf(file.get(), "events: Size Count\n");
+
+  BlockGraph::BlockMap::const_iterator block_iter = blocks.begin();
+  for (block_iter = blocks.begin(); block_iter != blocks.end(); ++block_iter) {
+    const BlockGraph::Block* block = &block_iter->second;
+    if (reachable.find(block) != reachable.end())
+      continue;
+
+    ::fprintf(file.get(), "ob=%s\n", block->compiland_name().c_str());
+    ::fprintf(file.get(), "fn=%s\n", block->name().c_str());
+    ::fprintf(file.get(), "%u %u %u\n", block->id(), block->size(), 1);
+
+    ReachableSet subtree_visited;
+    subtree_visited.insert(block);
+
+    const ReferenceMap& references = block->references();
+    ReferenceMap::const_iterator reference = references.begin();
+    for (; reference != references.end(); ++reference) {
+      const BlockGraph::Block* reference_block = reference->second.referenced();
+      if (reachable.find(reference_block) != reachable.end())
+        continue;
+      if (subtree_visited.find(reference_block) != subtree_visited.end())
+        continue;
+
+      SubTreeInformation subtree = {0, 0};
+      RecursiveSizeMap::iterator look = subtrees.find(reference_block);
+      if (look != subtrees.end()) {
+        subtree = look->second;
+      } else {
+        ComputeSubTreeInformation(reference_block,
+                                  blocks,
+                                  reachable,
+                                  &subtree,
+                                  &subtree_visited);
+        subtrees[reference_block] = subtree;
+      }
+
+      ::fprintf(file.get(), "cob=%s\n",
+                reference_block->compiland_name().c_str());
+      ::fprintf(file.get(), "cfn=%s\n",
+                reference_block->name().c_str());
+      ::fprintf(file.get(), "calls=%u %u\n", 1, reference_block->size());
+      ::fprintf(file.get(), "%u %u %u\n",
+                block->id(),
+                subtree.size,
+                subtree.count);
+    }
+    ::fprintf(file.get(), "\n");
+  }
+
+  return true;
+}
 
 }  // namespace
 
@@ -34,8 +144,8 @@ bool UnreachableBlockTransform::TransformBlockGraph(
     BlockGraph* block_graph,
     BlockGraph::Block* header_block) {
 
-  std::set<const BlockGraph::Block*> reachable;
-  std::stack<const BlockGraph::Block*> working;
+  ReachableSet reachable;
+  ReachableStack working;
 
   // Mark roots as reachable.
   reachable.insert(header_block);
@@ -64,6 +174,10 @@ bool UnreachableBlockTransform::TransformBlockGraph(
         working.push(reference_block);
     }
   }
+
+  // Dump a cachegrind graph of unreachable blocks.
+  if (!unreachable_graph_path_.empty())
+    DumpUnreachableCallgraph(unreachable_graph_path_, blocks, reachable);
 
   // Remove references of unreachable blocks. This pass is needed because blocks
   // with references cannot be removed.

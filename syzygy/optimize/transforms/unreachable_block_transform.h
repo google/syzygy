@@ -56,7 +56,16 @@ class UnreachableBlockTransform
   // The transform name.
   static const char kTransformName[];
 
+  // Set the path to dump the unreachable graph.
+  // @param path the path to the graph to generate.
+  void set_unreachable_graph_path(const base::FilePath& path) {
+    unreachable_graph_path_ = path;
+  }
+
  private:
+  // The path to dump a cachegrind file of the unreachable blocks.
+  base::FilePath unreachable_graph_path_;
+
   DISALLOW_COPY_AND_ASSIGN(UnreachableBlockTransform);
 };
 

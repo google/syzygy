@@ -62,6 +62,7 @@ class OptimizeApp : public common::AppImplBase {
   base::FilePath output_image_path_;
   base::FilePath output_pdb_path_;
   base::FilePath branch_file_path_;
+  base::FilePath unreachable_graph_path_;
   bool block_alignment_;
   bool basic_block_reorder_;
   bool fuzz_;

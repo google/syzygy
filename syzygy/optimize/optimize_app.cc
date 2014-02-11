@@ -69,6 +69,10 @@ const char kUsageFormatStr[] =
     "    --peephole            Enable peephole optimization.\n"
     "    --unreachable-block   Enable unreachable block optimization.\n"
     "\n"
+    "  Unreachable block options:\n"
+    "    --dump-unreachable-graph=<path>\n"
+    "                          Dump the unreachable graph.\n"
+    "\n"
     "  Testing Options:\n"
     "    --fuzz                Fuzz the binary.\n"
     "\n";
@@ -103,6 +107,9 @@ bool OptimizeApp::ParseCommandLine(const CommandLine* cmd_line) {
     peephole_ = true;
     unreachable_block_ = true;
   }
+
+  unreachable_graph_path_ =
+      AbsolutePath(cmd_line->GetSwitchValuePath("dump-unreachable-graph"));
 
   // The --input-image argument is required.
   if (input_image_path_.empty())
@@ -207,6 +214,8 @@ int OptimizeApp::Run() {
   // If unreachable-block is enabled, add it to the relinker.
   if (unreachable_block_) {
     unreachable_block_transform.reset(new UnreachableBlockTransform());
+    unreachable_block_transform->set_unreachable_graph_path(
+        unreachable_graph_path_);
     relinker.AppendTransform(unreachable_block_transform.get());
   }
 

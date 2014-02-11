@@ -36,6 +36,7 @@ class TestOptimizeApp : public OptimizeApp {
   using OptimizeApp::output_image_path_;
   using OptimizeApp::output_pdb_path_;
   using OptimizeApp::branch_file_path_;
+  using OptimizeApp::unreachable_graph_path_;
   using OptimizeApp::basic_block_reorder_;
   using OptimizeApp::block_alignment_;
   using OptimizeApp::fuzz_;
@@ -78,6 +79,7 @@ class OptimizeAppTest : public testing::PELibUnitTest {
     output_image_path_ = temp_dir_.Append(input_image_path_.BaseName());
     output_pdb_path_ = temp_dir_.Append(input_pdb_path_.BaseName());
     branch_file_path_ = temp_dir_.Append(L"branch.json");
+    unreachable_graph_path_ = temp_dir_.Append(L"unreachable.callgrind");
 
     // Point the application at the test's command-line and IO streams.
     test_app_.set_command_line(&cmd_line_);
@@ -108,6 +110,7 @@ class OptimizeAppTest : public testing::PELibUnitTest {
   base::FilePath output_image_path_;
   base::FilePath output_pdb_path_;
   base::FilePath branch_file_path_;
+  base::FilePath unreachable_graph_path_;
   // @}
 
   // @name Expected final values of input parameters.
@@ -231,6 +234,22 @@ TEST_F(OptimizeAppTest, ParseAllCommandLineWithInputAndOutputPdb) {
   EXPECT_TRUE(test_impl_.block_alignment_);
   EXPECT_TRUE(test_impl_.peephole_);
   EXPECT_FALSE(test_impl_.fuzz_);
+
+  EXPECT_TRUE(test_impl_.SetUp());
+}
+
+TEST_F(OptimizeAppTest, ParseCommandLineWithUnreachableGraph) {
+  cmd_line_.AppendSwitchPath("input-image", input_image_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
+  cmd_line_.AppendSwitch("unreachable-block");
+  cmd_line_.AppendSwitchPath("dump-unreachable-graph", unreachable_graph_path_);
+  cmd_line_.AppendSwitch("overwrite");
+
+  EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
+  EXPECT_FALSE(test_impl_.input_image_path_.empty());
+  EXPECT_EQ(output_image_path_, test_impl_.output_image_path_);
+  EXPECT_EQ(unreachable_graph_path_, test_impl_.unreachable_graph_path_);
+  EXPECT_TRUE(test_impl_.overwrite_);
 
   EXPECT_TRUE(test_impl_.SetUp());
 }

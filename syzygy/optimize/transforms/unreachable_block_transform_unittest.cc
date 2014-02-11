@@ -14,6 +14,7 @@
 
 #include "syzygy/optimize/transforms/unreachable_block_transform.h"
 
+#include "base/files/scoped_temp_dir.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/block_graph.h"
@@ -89,7 +90,7 @@ TEST_F(UnreachableBlockTransformTest, UnusedBlockFromCode1) {
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), code2_);
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), code3_);
 
-  // Apply the unreachable transform .
+  // Apply the unreachable transform.
   EXPECT_TRUE(tx_.TransformBlockGraph(&policy_, &block_graph_, code1_));
 
   // Validates that code1_ and code2_ are still present and code3_ has been
@@ -130,6 +131,30 @@ TEST_F(UnreachableBlockTransformTest, UsedPEParsedBlock) {
   EXPECT_EQ(code2_, block_graph_.GetBlockById(code2_id_));
   EXPECT_EQ(code3_, block_graph_.GetBlockById(code3_id_));
 }
+
+TEST_F(UnreachableBlockTransformTest, UnreachableGraphProduced) {
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), code1_);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), code2_);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), code3_);
+
+  // Set the target path to dump the unreachable graph.
+  base::ScopedTempDir temp_dir;
+  EXPECT_TRUE(temp_dir.CreateUniqueTempDir());
+  base::FilePath temp_path = temp_dir.path().Append(L"deadcode.cachegrind");
+  tx_.set_unreachable_graph_path(temp_path);
+
+  // Apply the unreachable transform.
+  EXPECT_TRUE(tx_.TransformBlockGraph(&policy_, &block_graph_, code1_));
+
+  // Read the contents of the produced file.
+  std::string contents;
+  file_util::ReadFileToString(temp_path, &contents);
+
+  // Validate the output.
+  const char expected[] = "events: Size Count\nob=\nfn=code3\n3 5 1\n\n";
+  EXPECT_STREQ(expected, contents.c_str());
+}
+
 
 }  // namespace transforms
 }  // namespace optimize
