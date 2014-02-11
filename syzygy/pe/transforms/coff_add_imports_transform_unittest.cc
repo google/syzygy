@@ -28,6 +28,11 @@ namespace {
 
 class CoffAddImportsTransformTest : public testing::CoffUnitTest {
  public:
+  virtual void SetUp() OVERRIDE {
+    testing::CoffUnitTest::SetUp();
+    ASSERT_NO_FATAL_FAILURE(DecomposeOriginal());
+  }
+
   // Check that symbols in @p module have been assigned a reference, and that
   // they pass through a round-trip writing and decomposition.
   void TestSymbols(const ImportedModule& module) {

@@ -354,8 +354,6 @@ void CoffUnitTest::SetUp() {
       testing::GetExeTestDataRelativePath(testing::kTestDllCoffObjName);
   ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir_path_));
   new_test_dll_obj_path_ = temp_dir_path_.Append(L"test_dll.obj");
-
-  ASSERT_NO_FATAL_FAILURE(DecomposeOriginal());
 }
 
 void CoffUnitTest::DecomposeOriginal() {

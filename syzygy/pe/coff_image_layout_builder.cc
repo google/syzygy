@@ -48,6 +48,7 @@
 #include "base/string_util.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/common/align.h"
+#include "syzygy/pe/coff_utils.h"
 #include "syzygy/pe/pe_utils.h"
 
 namespace pe {

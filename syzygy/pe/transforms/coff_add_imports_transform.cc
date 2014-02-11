@@ -21,7 +21,6 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "syzygy/common/align.h"
-#include "syzygy/pe/pe_utils.h"
 
 namespace pe {
 namespace transforms {
@@ -30,29 +29,6 @@ namespace {
 using block_graph::BlockGraph;
 using block_graph::ConstTypedBlock;
 using block_graph::TypedBlock;
-
-const size_t kInvalidIndex = static_cast<size_t>(-1);
-
-// Read symbols from the symbol table into a map from names to symbol
-// indexes.
-//
-// @param symbols the symbol table.
-// @param strings the string table.
-// @param known_names map to which symbols are to be added.
-void ReadExistingSymbols(const TypedBlock<IMAGE_SYMBOL>& symbols,
-                         const TypedBlock<char>& strings,
-                         CoffAddImportsTransform::NameMap* known_names) {
-  size_t num_symbols = symbols.ElementCount();
-  for (size_t i = 0; i < num_symbols; i += 1 + symbols[i].NumberOfAuxSymbols) {
-    IMAGE_SYMBOL* symbol = &symbols[i];
-    std::string name;
-    if (symbol->N.Name.Short != 0)
-      name = std::string(reinterpret_cast<const char*>(&symbol->N.ShortName));
-    else
-      name = std::string(&strings[symbol->N.Name.Long]);
-    known_names->insert(std::make_pair(name, i));
-  }
-}
 
 }  // namespace
 
@@ -101,11 +77,14 @@ bool CoffAddImportsTransform::TransformBlockGraph(
   }
 
   // Read existing symbols.
-  NameMap known_names;
-  ReadExistingSymbols(symbols, strings, &known_names);
+  CoffSymbolNameOffsetMap known_names;
+  if (!BuildCoffSymbolNameOffsetMap(symbols_block, strings_block,
+                                    &known_names)) {
+    return false;
+  }
 
   // Handle symbols from each library.
-  NameMap names_to_add;
+  CoffSymbolNameOffsetMap names_to_add;
   size_t string_len_to_add = 0;
   for (size_t i = 0; i < imported_modules_.size(); ++i) {
     if (!FindAndCollectSymbolsFromModule(file_header, known_names,
@@ -134,7 +113,7 @@ bool CoffAddImportsTransform::TransformBlockGraph(
       return false;
     }
 
-    NameMap::iterator to_add_it = names_to_add.begin();
+    CoffSymbolNameOffsetMap::iterator to_add_it = names_to_add.begin();
     for (; to_add_it != names_to_add.end(); ++to_add_it) {
       DCHECK_GT(strings_block->size(), string_cursor);
       std::memcpy(&strings[string_cursor], to_add_it->first.c_str(),
@@ -169,25 +148,25 @@ bool CoffAddImportsTransform::TransformBlockGraph(
 
 bool CoffAddImportsTransform::FindAndCollectSymbolsFromModule(
     const TypedBlock<IMAGE_FILE_HEADER>& file_header,
-    const NameMap& known_names,
+    const CoffSymbolNameOffsetMap& known_names,
     ImportedModule* module,
-    NameMap* names_to_add,
+    CoffSymbolNameOffsetMap* names_to_add,
     size_t* string_len_to_add) {
   DCHECK(module != NULL);
   DCHECK(names_to_add != NULL);
   DCHECK(string_len_to_add != NULL);
 
   for (size_t i = 0; i < module->size(); ++i) {
-    size_t symbol_import_index = kInvalidIndex;
+    BlockGraph::Offset symbol_import_offset = kInvalidCoffSymbol;
     bool symbol_imported = false;
     bool symbol_added = false;
 
     std::string name(module->GetSymbolName(i));
-    NameMap::const_iterator it = known_names.find(name);
+    CoffSymbolNameOffsetMap::const_iterator it = known_names.find(name);
     if (it != known_names.end()) {
-      // This symbol is already defined. Simply grab its 'index' which we can
+      // This symbol is already defined. Simply grab its offset which we can
       // use to draw a reference to it later.
-      symbol_import_index = it->second;
+      symbol_import_offset = it->second;
       symbol_imported = true;
     } else if (module->GetSymbolMode(i) == ImportedModule::kAlwaysImport) {
       // The symbol is not defined, but requested to be. Create it.
@@ -197,7 +176,7 @@ bool CoffAddImportsTransform::FindAndCollectSymbolsFromModule(
                     << "\" in requested imported module.";
         return false;
       }
-      symbol_import_index = new_index;
+      symbol_import_offset = new_index * sizeof(IMAGE_SYMBOL);
       symbol_imported = true;
       symbol_added = true;
       *string_len_to_add += name.size() + 1;
@@ -206,8 +185,8 @@ bool CoffAddImportsTransform::FindAndCollectSymbolsFromModule(
     UpdateModuleSymbolInfo(i, symbol_imported, symbol_added, module);
     symbols_added_ += symbol_added;
     if (symbol_imported) {
-      module_symbol_index_map_.insert(
-          std::make_pair(std::make_pair(module, i), symbol_import_index));
+      module_symbol_offset_map_.insert(
+          std::make_pair(std::make_pair(module, i), symbol_import_offset));
     }
   }
 
@@ -222,15 +201,14 @@ void CoffAddImportsTransform::UpdateModuleReferences(
     BlockGraph::Block* symbols_block,
     ImportedModule* module) {
   for (size_t i = 0; i < module->size(); ++i) {
-    ModuleSymbolIndexMap::const_iterator index_it =
-        module_symbol_index_map_.find(std::make_pair(module, i));
-    if (index_it == module_symbol_index_map_.end())
+    ModuleSymbolOffsetMap::const_iterator offset_it =
+        module_symbol_offset_map_.find(std::make_pair(module, i));
+    if (offset_it == module_symbol_offset_map_.end())
       continue;
-    size_t import_index = index_it->second;
-    DCHECK_NE(kInvalidIndex, import_index);
-    BlockGraph::Offset offset = import_index * sizeof(IMAGE_SYMBOL);
+    BlockGraph::Offset import_offset = offset_it->second;
+    DCHECK_NE(kInvalidCoffSymbol, import_offset);
     BlockGraph::Reference ref(BlockGraph::RELOC_ABSOLUTE_REF, sizeof(uint32),
-                              symbols_block, offset, offset);
+                              symbols_block, import_offset, import_offset);
     UpdateModuleSymbolReference(i, ref, false, module);
   }
 }

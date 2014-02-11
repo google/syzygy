@@ -17,8 +17,9 @@
 #include <string>
 #include <vector>
 
+#include "base/bind.h"
 #include "syzygy/block_graph/typed_block.h"
-#include "syzygy/pe/pe_utils.h"
+#include "syzygy/pe/coff_utils.h"
 
 namespace pe {
 namespace transforms {
@@ -29,20 +30,20 @@ using block_graph::BlockGraph;
 using block_graph::TypedBlock;
 
 void AddSymbol(const base::StringPiece& symbol_name,
-               size_t template_index,
+               BlockGraph::Offset template_offset,
                BlockGraph::Block* symbols_block,
                BlockGraph::Block* strings_block,
-               size_t* symbol_index) {
+               BlockGraph::Offset* symbol_offset) {
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), symbols_block);
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), strings_block);
-  DCHECK_NE(reinterpret_cast<size_t*>(NULL), symbol_index);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Offset*>(NULL), symbol_offset);
 
   TypedBlock<IMAGE_SYMBOL> symbols;
   CHECK(symbols.Init(0, symbols_block));
   size_t symbol_count = symbols.ElementCount();
-  size_t symbol_offset = sizeof(IMAGE_SYMBOL) * symbol_count;
-  symbols_block->InsertData(symbol_offset, sizeof(IMAGE_SYMBOL), true);
-  *symbol_index = symbol_count;
+  *symbol_offset = sizeof(IMAGE_SYMBOL) * symbol_count;
+  symbols_block->InsertData(*symbol_offset, sizeof(IMAGE_SYMBOL), true);
+  size_t template_index = template_offset / sizeof(IMAGE_SYMBOL);
   IMAGE_SYMBOL* orig = &symbols[template_index];
   IMAGE_SYMBOL* symbol = &symbols[symbol_count];
 
@@ -126,42 +127,18 @@ bool CoffRenameSymbolsTransform::TransformBlockGraph(
     return false;
   }
 
-  TypedBlock<IMAGE_SYMBOL> symbols;
-  if (!symbols.Init(0, symbols_block)) {
-    LOG(ERROR) << "Unable to cast symbol table.";
+  CoffSymbolNameOffsetMap symbol_offset_map;
+  if (!BuildCoffSymbolNameOffsetMap(symbols_block, strings_block,
+                                    &symbol_offset_map)) {
     return false;
-  }
-
-  block_graph::TypedBlock<char> strings;
-  if (!strings.Init(0, strings_block)) {
-    LOG(ERROR) << "Unable to cast string table.";
-    return false;
-  }
-
-  typedef std::map<std::string, size_t> SymbolIndexMap;
-  SymbolIndexMap symbol_index_map;
-
-  strings_block->ResizeData(strings_block->size());
-
-  // Process all of the symbols and maintain a map of their indexes.
-  size_t num_symbols = symbols.ElementCount();
-  for (size_t i = 0; i < num_symbols; i += 1 + symbols[i].NumberOfAuxSymbols) {
-    IMAGE_SYMBOL* symbol = &symbols[i];
-    std::string name;
-    if (symbol->N.Name.Short != 0) {
-      name = std::string(reinterpret_cast<const char*>(&symbol->N.ShortName));
-    } else {
-      name = std::string(&strings[symbol->N.Name.Long]);
-    }
-
-    symbol_index_map[name] = i;
   }
 
   for (size_t i = 0; i < mappings_.size(); ++i) {
     const std::string& src = mappings_[i].first;
     const std::string& dst = mappings_[i].second;
-    SymbolIndexMap::const_iterator src_it = symbol_index_map.find(src);
-    if (src_it == symbol_index_map.end()) {
+    CoffSymbolNameOffsetMap::const_iterator src_it =
+        symbol_offset_map.find(src);
+    if (src_it == symbol_offset_map.end()) {
       if (symbols_must_exist_) {
         LOG(ERROR) << "Unable to find source symbol \"" << src << "\".";
         return false;
@@ -171,18 +148,28 @@ bool CoffRenameSymbolsTransform::TransformBlockGraph(
       continue;
     }
 
-    SymbolIndexMap::const_iterator dst_it = symbol_index_map.find(dst);
-    size_t symbol_index = 0;
-    if (dst_it != symbol_index_map.end()) {
-      symbol_index = dst_it->second;
-    } else {
-      // If the symbol does not exist, then append it to the strings block.
-      AddSymbol(dst, src_it->second, symbols_block, strings_block,
-                &symbol_index);
+    if (src_it->second == kDuplicateCoffSymbol) {
+      LOG(ERROR) << "The source symbol \"" << src << "\" is ambiguous.";
+      return false;
     }
 
-    BlockGraph::Offset src_offset = src_it->second * sizeof(IMAGE_SYMBOL);
-    BlockGraph::Offset dst_offset = symbol_index * sizeof(IMAGE_SYMBOL);
+    CoffSymbolNameOffsetMap::const_iterator dst_it =
+        symbol_offset_map.find(dst);
+    BlockGraph::Offset dst_offset = 0;
+    if (dst_it != symbol_offset_map.end()) {
+      dst_offset = dst_it->second;
+    } else {
+      if (dst_it->second == kDuplicateCoffSymbol) {
+        LOG(ERROR) << "The destination symbol \"" << dst << "\" is ambiguous.";
+        return false;
+      }
+
+      // If the symbol does not exist, then append it to the strings block.
+      AddSymbol(dst, src_it->second, symbols_block, strings_block,
+                &dst_offset);
+    }
+
+    BlockGraph::Offset src_offset = src_it->second;
     TransferReferrers(src_offset, dst_offset, symbols_block);
   }
 

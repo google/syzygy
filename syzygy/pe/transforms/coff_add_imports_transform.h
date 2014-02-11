@@ -45,6 +45,7 @@
 
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
+#include "syzygy/pe/coff_utils.h"
 #include "syzygy/pe/transforms/pe_coff_add_imports_transform.h"
 
 namespace pe {
@@ -59,9 +60,6 @@ class CoffAddImportsTransform
     : public NamedBlockGraphTransformImpl<CoffAddImportsTransform>,
       public PECoffAddImportsTransform {
  public:
-  // A map from symbol names to indexes in the symbol table.
-  typedef std::map<std::string, size_t> NameMap;
-
   // Construct an empty CoffAddImportsTransform, that imports nothing
   // initially.
   CoffAddImportsTransform() {}
@@ -97,9 +95,9 @@ class CoffAddImportsTransform
   // @returns true on success, false on failure
   bool FindAndCollectSymbolsFromModule(
       const block_graph::TypedBlock<IMAGE_FILE_HEADER>& file_header,
-      const NameMap& known_names,
+      const CoffSymbolNameOffsetMap& known_names,
       ImportedModule* module,
-      NameMap* names_to_add,
+      CoffSymbolNameOffsetMap* names_to_add,
       size_t* string_len_to_add);
 
   // Update all references in @p module.
@@ -110,8 +108,8 @@ class CoffAddImportsTransform
                               ImportedModule* module);
 
   typedef std::pair<ImportedModule*, size_t> ModuleSymbol;
-  typedef std::map<ModuleSymbol, size_t> ModuleSymbolIndexMap;
-  ModuleSymbolIndexMap module_symbol_index_map_;
+  typedef std::map<ModuleSymbol, BlockGraph::Offset> ModuleSymbolOffsetMap;
+  ModuleSymbolOffsetMap module_symbol_offset_map_;
 
   DISALLOW_COPY_AND_ASSIGN(CoffAddImportsTransform);
 };

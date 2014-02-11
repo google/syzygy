@@ -491,38 +491,6 @@ bool HasImportEntry(block_graph::BlockGraph::Block* header_block,
   return true;
 }
 
-bool FindCoffSpecialBlocks(BlockGraph* block_graph,
-                           BlockGraph::Block** headers_block,
-                           BlockGraph::Block** symbols_block,
-                           BlockGraph::Block** strings_block) {
-  DCHECK(block_graph != NULL);
-
-  bool headers_block_found = false;
-  bool symbols_block_found = false;
-  bool strings_block_found = false;
-
-  // Walk through all the blocks once to find all the special blocks.
-  BlockGraph::BlockMap& blocks = block_graph->blocks_mutable();
-  BlockGraph::BlockMap::iterator it = blocks.begin();
-  for (; it != blocks.end(); ++it) {
-    if ((it->second.attributes() & BlockGraph::COFF_HEADERS) != 0) {
-      if (headers_block != NULL)
-        *headers_block = &it->second;
-      headers_block_found = true;
-    } else if ((it->second.attributes() & BlockGraph::COFF_SYMBOL_TABLE) != 0) {
-      if (symbols_block != NULL)
-        *symbols_block = &it->second;
-      symbols_block_found = true;
-    } else if ((it->second.attributes() & BlockGraph::COFF_STRING_TABLE) != 0) {
-      if (strings_block != NULL)
-        *strings_block = &it->second;
-      strings_block_found = true;
-    }
-  }
-
-  return headers_block_found && symbols_block_found && strings_block_found;
-}
-
 bool GuessFileType(const base::FilePath& path, FileType* file_type) {
   DCHECK(!path.empty());
   DCHECK(file_type != NULL);

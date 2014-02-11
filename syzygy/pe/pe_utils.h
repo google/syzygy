@@ -177,21 +177,6 @@ bool HasImportEntry(block_graph::BlockGraph::Block* header_block,
                     bool* has_import_entry);
 // @}
 
-// Retrieve the blocks containing the headers, symbol and strings tables
-// from the block graph. Each of @p headers_block, @p symbols_block and
-// @p strings_block may be NULL if the corresponding block needs not be
-// retrieved.
-//
-// @param block_graph the graph to extract blocks from.
-// @param headers_block where to store the headers block.
-// @param symbols_block where to store the symbol table block.
-// @param strings_block where to store the string table block.
-// @returns true if all three blocks are found, false otherwise.
-bool FindCoffSpecialBlocks(block_graph::BlockGraph* block_graph,
-                           block_graph::BlockGraph::Block** headers_block,
-                           block_graph::BlockGraph::Block** symbols_block,
-                           block_graph::BlockGraph::Block** strings_block);
-
 // A list of known file types.
 enum FileType {
   kUnknownFileType,

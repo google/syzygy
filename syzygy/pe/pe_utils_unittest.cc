@@ -435,58 +435,6 @@ TEST_F(PEUtilsTest, HasImportEntry) {
   EXPECT_FALSE(has_import);
 }
 
-TEST_F(PEUtilsTest, FindCoffSpecialBlocks) {
-  BlockGraph::Block* actual_headers_block = NULL;
-  BlockGraph::Block* actual_symbols_block = NULL;
-  BlockGraph::Block* actual_strings_block = NULL;
-
-  BlockGraph::Block* headers_block =
-      block_graph_.AddBlock(
-          BlockGraph::DATA_BLOCK,
-          sizeof(IMAGE_FILE_HEADER) + 12 * sizeof(IMAGE_SECTION_HEADER),
-          "COFF Headers");
-  ASSERT_TRUE(headers_block != NULL);
-  headers_block->set_attribute(BlockGraph::COFF_HEADERS);
-
-  // FindCoffSpecialBlocks() should fail even if we don't request the other
-  // special blocks.
-  EXPECT_FALSE(FindCoffSpecialBlocks(&block_graph_,
-                                     &actual_headers_block,
-                                     &actual_symbols_block,
-                                     &actual_strings_block));
-  EXPECT_FALSE(FindCoffSpecialBlocks(&block_graph_,
-                                     &actual_headers_block, NULL, NULL));
-
-  BlockGraph::Block* symbols_block =
-      block_graph_.AddBlock(BlockGraph::DATA_BLOCK,
-                            30 * sizeof(IMAGE_SYMBOL),
-                            "COFF Symbol Table");
-  ASSERT_TRUE(symbols_block != NULL);
-  symbols_block->set_attribute(BlockGraph::COFF_SYMBOL_TABLE);
-
-  EXPECT_FALSE(FindCoffSpecialBlocks(&block_graph_,
-                                     &actual_headers_block,
-                                     &actual_symbols_block,
-                                     &actual_strings_block));
-  EXPECT_FALSE(FindCoffSpecialBlocks(&block_graph_,
-                                     &actual_headers_block,
-                                     &actual_symbols_block,
-                                     NULL));
-
-  BlockGraph::Block* strings_block =
-      block_graph_.AddBlock(BlockGraph::DATA_BLOCK, 242, "COFF String Table");
-  ASSERT_TRUE(strings_block != NULL);
-  strings_block->set_attribute(BlockGraph::COFF_STRING_TABLE);
-
-  EXPECT_TRUE(FindCoffSpecialBlocks(&block_graph_,
-                                    &actual_headers_block,
-                                    &actual_symbols_block,
-                                    &actual_strings_block));
-  EXPECT_EQ(headers_block, actual_headers_block);
-  EXPECT_EQ(symbols_block, actual_symbols_block);
-  EXPECT_EQ(strings_block, actual_strings_block);
-}
-
 TEST_F(PEUtilsTest, GuessFileType) {
   base::FilePath fake(L"C:\\this\\path\\should\\not\\exist-at.all");
   base::FilePath dir = testing::GetExeRelativePath(L"test_data");
