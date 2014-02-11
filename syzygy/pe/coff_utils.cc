@@ -122,7 +122,7 @@ bool GetCoffSymbolName(const BlockGraph::Block* symbols_block,
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), symbols_block);
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), strings_block);
   DCHECK_LE(0, symbol_offset);
-  DCHECK_GT(symbols_block->data_size(), symbol_offset + sizeof(IMAGE_SYMBOL));
+  DCHECK_GE(symbols_block->data_size(), symbol_offset + sizeof(IMAGE_SYMBOL));
   DCHECK_NE(reinterpret_cast<base::StringPiece*>(NULL), name);
 
   // Cast to a raw symbol.
