@@ -157,13 +157,13 @@ bool CoffRenameSymbolsTransform::TransformBlockGraph(
         symbol_offset_map.find(dst);
     BlockGraph::Offset dst_offset = 0;
     if (dst_it != symbol_offset_map.end()) {
-      dst_offset = dst_it->second;
-    } else {
       if (dst_it->second == kDuplicateCoffSymbol) {
         LOG(ERROR) << "The destination symbol \"" << dst << "\" is ambiguous.";
         return false;
       }
 
+      dst_offset = dst_it->second;
+    } else {
       // If the symbol does not exist, then append it to the strings block.
       AddSymbol(dst, src_it->second, symbols_block, strings_block,
                 &dst_offset);
