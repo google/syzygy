@@ -16,6 +16,7 @@
 minidump.
 """
 
+from collections import namedtuple
 import optparse
 import os
 import re
@@ -26,28 +27,32 @@ import sys
 _SENTINEL = 'ENDENDEND'
 _DEFAULT_CDB_PATH = \
     r'c:\Program Files (x86)\Debugging Tools for Windows (x86)\cdb.exe'
-_BAD_ACCESS_INFO_FRAME = "asan_rtl!agent::asan::ReportBadMemoryAccess"
-_GET_BAD_ACCESS_INFO_COMMAND = "dt bad_access_info"
-_GET_ALLOC_STACK_COMMAND = "dps @@(&bad_access_info.alloc_stack) "  \
-                           "l@@(bad_access_info.alloc_stack_size);"
-_GET_FREE_STACK_COMMAND = "dps @@(&bad_access_info.free_stack) "  \
-                          "l@@(bad_access_info.free_stack_size);"
+_BAD_ACCESS_INFO_FRAME = "asan_rtl!agent::asan::AsanRuntime::OnError"
+_GET_BAD_ACCESS_INFO_COMMAND = "dt error_info"
+_GET_ALLOC_STACK_COMMAND = "dps @@(&error_info->alloc_stack) "  \
+                           "l@@(error_info->alloc_stack_size);"
+_GET_FREE_STACK_COMMAND = "dps @@(&error_info->free_stack) "  \
+                          "l@@(error_info->free_stack_size);"
 _ERROR_HELP_URL = "You can go to \
 https://code.google.com/p/syzygy/wiki/SyzyASanBug to get more information \
 about how to treat this bug."
+
+
+ASanReport = namedtuple("ASanReport", "bad_access_info crash_stack alloc_stack "
+                        "free_stack")
 
 
 _STACK_FRAME_RE = re.compile("""
     ^
     (?P<args>([0-9A-F]+\ +)+)
     (?:
-      (?P<module>[^ ]+)!(?P<location>.*) |
+      (?P<module>[^ ]+)(!(?P<location>.*))? |
       (?P<address>0x[0-9a-f]+)
     )
     $
     """, re.VERBOSE | re.IGNORECASE)
 
-_CHROME_RE = re.compile('(chrome_[0-9A-F]+)', re.VERBOSE | re.IGNORECASE)
+_CHROME_RE = re.compile('(chrome[_0-9A-F]+)', re.VERBOSE | re.IGNORECASE)
 
 
 def _Command(debugger, command):
@@ -60,7 +65,6 @@ def _Command(debugger, command):
     if _SENTINEL in line:
       break
     lines.append(line)
-
   return lines
 
 
@@ -82,7 +86,10 @@ def NormalizeStackTrace(stack_trace):
       output_trace.append(address)
     else:
       module = NormalizeChromeSymbol(module)
-      location = NormalizeChromeSymbol(location)
+      if location:
+        location = NormalizeChromeSymbol(location)
+      else:
+        location = "unknown"
       frame = '%s!%s' % (module, location)
       output_trace.append(frame)
 
@@ -99,7 +106,7 @@ def ProcessMinidump(minidump_filename, cdb_path, pdb_path):
   if pdb_path is not None:
     _Command(debugger, '.sympath %s' % pdb_path)
     _Command(debugger, '.reload /fi chrome.dll')
-    _Command(debugger, '.reload /fi asan_rtl.dll')
+    _Command(debugger, '.reload /fi syzyasan_rtl.dll')
     _Command(debugger, '.symfix')
 
   # Enable the line number informations.
@@ -139,16 +146,25 @@ def ProcessMinidump(minidump_filename, cdb_path, pdb_path):
   debugger.stdin.write('q\n')
   debugger.wait()
 
+  report = ASanReport(bad_access_info = bad_access_info,
+                      crash_stack = crash_stack,
+                      alloc_stack = alloc_stack,
+                      free_stack = free_stack)
+
+  return report
+
+
+def PrintASanReport(report):
   # Print the crash report.
   print 'Bad access information:'
-  for line in bad_access_info: print line
+  for line in report.bad_access_info: print line
   print '\nCrash stack:'
-  for line in crash_stack: print line
+  for line in report.crash_stack: print line
   print '\nAllocation stack:'
-  for line in alloc_stack: print line
-  if len(free_stack) != 0:
+  for line in report.alloc_stack: print line
+  if len(report.free_stack) != 0:
     print '\nFree stack:'
-    for line in free_stack: print line
+    for line in report.free_stack: print line
   print '\n', _ERROR_HELP_URL
 
   return
@@ -191,7 +207,8 @@ def main():
 
   opts = _ParseArguments()
 
-  ProcessMinidump(opts.minidump, opts.cdb_path, opts.pdb_path)
+  report = ProcessMinidump(opts.minidump, opts.cdb_path, opts.pdb_path)
+  PrintASanReport(report)
 
   return 0
 
