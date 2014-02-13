@@ -150,25 +150,25 @@ TEST_F(CoffUtilsTest, GetCoffSymbolName) {
 TEST_F(CoffUtilsTest, FindCoffSymbolInvalid) {
   ASSERT_NO_FATAL_FAILURE(DecomposeOriginal());
 
-  BlockGraph::Offset offset = 0;
-  EXPECT_TRUE(FindCoffSymbol("_foo_bar_baz", &block_graph_, &offset));
-  EXPECT_EQ(kInvalidCoffSymbol, offset);
+  CoffSymbolOffsets offsets;
+  EXPECT_TRUE(FindCoffSymbol("_foo_bar_baz", &block_graph_, &offsets));
+  EXPECT_TRUE(offsets.empty());
 }
 
 TEST_F(CoffUtilsTest, FindCoffSymbolDuplicate) {
   ASSERT_NO_FATAL_FAILURE(DecomposeOriginal());
 
-  BlockGraph::Offset offset = 0;
-  EXPECT_TRUE(FindCoffSymbol(kDebugS, &block_graph_, &offset));
-  EXPECT_EQ(kDuplicateCoffSymbol, offset);
+  CoffSymbolOffsets offsets;
+  EXPECT_TRUE(FindCoffSymbol(kDebugS, &block_graph_, &offsets));
+  EXPECT_LT(1u, offsets.size());
 }
 
-TEST_F(CoffUtilsTest, FindCoffSymbolSucceeds) {
+TEST_F(CoffUtilsTest, FindCoffSymbolUnique) {
   ASSERT_NO_FATAL_FAILURE(DecomposeOriginal());
 
-  BlockGraph::Offset offset = kInvalidCoffSymbol;
-  EXPECT_TRUE(FindCoffSymbol(kFunction2, &block_graph_, &offset));
-  EXPECT_LE(0, offset);
+  CoffSymbolOffsets offsets;
+  EXPECT_TRUE(FindCoffSymbol(kFunction2, &block_graph_, &offsets));
+  EXPECT_EQ(1u, offsets.size());
 }
 
 TEST_F(CoffUtilsTest, BuildCoffSymbolNameOffsetMap) {
@@ -176,15 +176,18 @@ TEST_F(CoffUtilsTest, BuildCoffSymbolNameOffsetMap) {
 
   CoffSymbolNameOffsetMap map;
   EXPECT_TRUE(BuildCoffSymbolNameOffsetMap(&block_graph_, &map));
-
   EXPECT_FALSE(map.empty());
-  CoffSymbolNameOffsetMap::const_iterator it = map.find(kFunction2);
+
+  CoffSymbolNameOffsetMap::const_iterator it = map.find("_foo_bar_baz");
+  EXPECT_TRUE(it == map.end());
+
+  it = map.find(kFunction2);
   ASSERT_TRUE(it != map.end());
-  EXPECT_LE(0, it->second);
+  EXPECT_FALSE(it->second.empty());
 
   it = map.find(kDebugS);
   ASSERT_TRUE(it != map.end());
-  EXPECT_EQ(kDuplicateCoffSymbol, it->second);
+  EXPECT_LT(1u, it->second.size());
 }
 
 }  // namespace pe

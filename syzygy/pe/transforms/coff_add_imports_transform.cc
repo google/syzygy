@@ -30,6 +30,8 @@ using block_graph::BlockGraph;
 using block_graph::ConstTypedBlock;
 using block_graph::TypedBlock;
 
+static const BlockGraph::Offset kInvalidCoffSymbol = -1;
+
 }  // namespace
 
 const char CoffAddImportsTransform::kTransformName[] =
@@ -95,8 +97,10 @@ bool CoffAddImportsTransform::TransformBlockGraph(
 
   // Add symbols if necessary.
   if (names_to_add.size() > 0) {
+    size_t old_symbols_block_size = symbols_block->size();
+
     // Update symbol and string blocks.
-    symbols_block->InsertData(symbols_block->size(),
+    symbols_block->InsertData(old_symbols_block_size,
                               names_to_add.size() * sizeof(IMAGE_SYMBOL),
                               true);
     symbols_block->ResizeData(symbols_block->size());
@@ -116,9 +120,15 @@ bool CoffAddImportsTransform::TransformBlockGraph(
     CoffSymbolNameOffsetMap::iterator to_add_it = names_to_add.begin();
     for (; to_add_it != names_to_add.end(); ++to_add_it) {
       DCHECK_GT(strings_block->size(), string_cursor);
+      DCHECK_EQ(1u, to_add_it->second.size());
+
+      BlockGraph::Offset offset = *to_add_it->second.begin();
+      DCHECK_LE(old_symbols_block_size, static_cast<size_t>(offset));
+      size_t index = offset / sizeof(IMAGE_SYMBOL);
+
       std::memcpy(&strings[string_cursor], to_add_it->first.c_str(),
                   to_add_it->first.size() + 1);
-      IMAGE_SYMBOL* symbol = &symbols[to_add_it->second];
+      IMAGE_SYMBOL* symbol = &symbols[index];
       symbol->N.Name.Short = 0;
       symbol->N.Name.Long = string_cursor;
       symbol->Type = IMAGE_SYM_DTYPE_FUNCTION << 4;
@@ -165,21 +175,29 @@ bool CoffAddImportsTransform::FindAndCollectSymbolsFromModule(
     CoffSymbolNameOffsetMap::const_iterator it = known_names.find(name);
     if (it != known_names.end()) {
       // This symbol is already defined. Simply grab its offset which we can
-      // use to draw a reference to it later.
-      symbol_import_offset = it->second;
+      // use to draw a reference to it later. We grab the offset of its first
+      // definition if it is multiply defined.
+      symbol_import_offset = *it->second.begin();
       symbol_imported = true;
     } else if (module->GetSymbolMode(i) == ImportedModule::kAlwaysImport) {
       // The symbol is not defined, but requested to be. Create it.
       size_t new_index = file_header->NumberOfSymbols + names_to_add->size();
-      if (!names_to_add->insert(std::make_pair(name, new_index)).second) {
-        LOG(ERROR) << "Duplicate entry \"" << name
-                    << "\" in requested imported module.";
-        return false;
-      }
       symbol_import_offset = new_index * sizeof(IMAGE_SYMBOL);
+      CoffSymbolNameOffsetMap::iterator add_it =
+          names_to_add->insert(std::make_pair(name, CoffSymbolOffsets())).first;
+
+      if (add_it->second.empty()) {
+        // When adding the symbol for the first time ensure to reserve room in
+        // the string table.
+        add_it->second.insert(symbol_import_offset);
+        *string_len_to_add += name.size() + 1;
+      } else {
+        // If this symbols is already to be added then reuse its offset.
+        symbol_import_offset = *add_it->second.begin();
+      }
+
       symbol_imported = true;
       symbol_added = true;
-      *string_len_to_add += name.size() + 1;
     }
 
     UpdateModuleSymbolInfo(i, symbol_imported, symbol_added, module);

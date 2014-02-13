@@ -26,33 +26,21 @@ using block_graph::TypedBlock;
 
 // This is used by FindCoffSymbol as a callback function with VisitCoffSymbols.
 bool VisitCoffSymbol(const base::StringPiece& symbol_name,
-                     BlockGraph::Offset* out_symbol_offset,
+                     CoffSymbolOffsets* symbol_offsets,
                      BlockGraph::Block* symbols_block,
                      BlockGraph::Block* strings_block,
                      BlockGraph::Offset symbol_offset) {
-  DCHECK_NE(reinterpret_cast<BlockGraph::Offset*>(NULL), out_symbol_offset);
+  DCHECK_NE(reinterpret_cast<CoffSymbolOffsets*>(NULL), symbol_offsets);
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), symbols_block);
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), strings_block);
 
-  // We can abort the rest of the search in this case.
-  if (*out_symbol_offset == kDuplicateCoffSymbol)
-    return true;
-
-  // Look for matching names.
+  // Record the offset for matching names.
   base::StringPiece name;
   if (!GetCoffSymbolName(symbols_block, strings_block, symbol_offset, &name))
     return false;
   if (name != symbol_name)
     return true;
-
-  if (*out_symbol_offset == kInvalidCoffSymbol) {
-    // This is the first time we've encountered this symbol name.
-    *out_symbol_offset = symbol_offset;
-  } else {
-    // We've already encountered this symbol name.
-    *out_symbol_offset = kDuplicateCoffSymbol;
-  }
-
+  symbol_offsets->insert(symbol_offset);
   return true;
 }
 
@@ -69,13 +57,10 @@ bool AddSymbolToNameOffsetMap(CoffSymbolNameOffsetMap* map,
     return false;
 
   std::string name2 = name.as_string();
-  CoffSymbolNameOffsetMap::iterator it = map->find(name2);
-  if (it != map->end()) {
-    it->second = kDuplicateCoffSymbol;
-    return true;
-  }
-
-  CHECK(map->insert(std::make_pair(name2, symbol_offset)).second);
+  CoffSymbolNameOffsetMap::iterator it = map->insert(
+      std::make_pair(name2, CoffSymbolOffsets())).first;
+  DCHECK(it != map->end());
+  it->second.insert(symbol_offset);
   return true;
 }
 
@@ -216,14 +201,14 @@ bool VisitCoffSymbols(const VisitCoffSymbolCallback& callback,
 bool FindCoffSymbol(const base::StringPiece& symbol_name,
                     BlockGraph::Block* symbols_block,
                     BlockGraph::Block* strings_block,
-                    BlockGraph::Offset* symbol_offset) {
+                    CoffSymbolOffsets* symbol_offsets) {
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), symbols_block);
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), strings_block);
-  DCHECK_NE(reinterpret_cast<BlockGraph::Offset*>(NULL), symbol_offset);
+  DCHECK_NE(reinterpret_cast<CoffSymbolOffsets*>(NULL), symbol_offsets);
 
-  *symbol_offset = kInvalidCoffSymbol;
+  symbol_offsets->clear();
   VisitCoffSymbolCallback callback = base::Bind(
-      &VisitCoffSymbol, symbol_name, symbol_offset);
+      &VisitCoffSymbol, symbol_name, symbol_offsets);
   if (!VisitCoffSymbols(callback, symbols_block, strings_block))
     return false;
   return true;
@@ -231,9 +216,9 @@ bool FindCoffSymbol(const base::StringPiece& symbol_name,
 
 bool FindCoffSymbol(const base::StringPiece& symbol_name,
                     BlockGraph* block_graph,
-                    BlockGraph::Offset* symbol_offset) {
+                    CoffSymbolOffsets* symbol_offsets) {
   DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
-  DCHECK_NE(reinterpret_cast<BlockGraph::Offset*>(NULL), symbol_offset);
+  DCHECK_NE(reinterpret_cast<CoffSymbolOffsets*>(NULL), symbol_offsets);
 
   BlockGraph::Block* symbols_block = NULL;
   BlockGraph::Block* strings_block = NULL;
@@ -243,7 +228,7 @@ bool FindCoffSymbol(const base::StringPiece& symbol_name,
   }
 
   if (!FindCoffSymbol(symbol_name, symbols_block, strings_block,
-                      symbol_offset)) {
+                      symbol_offsets)) {
     return false;
   }
 

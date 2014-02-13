@@ -78,9 +78,7 @@ bool VisitCoffSymbols(const VisitCoffSymbolCallback& callback,
                       block_graph::BlockGraph* block_graph);
 // @}
 
-// Special values returned by FindCoffSymbol.
-static const block_graph::BlockGraph::Offset kInvalidCoffSymbol = -1;
-static const block_graph::BlockGraph::Offset kDuplicateCoffSymbol = -2;
+typedef std::set<block_graph::BlockGraph::Offset> CoffSymbolOffsets;
 
 // @{
 // Searches for a COFF symbol by name and returns its offset if found.
@@ -88,23 +86,21 @@ static const block_graph::BlockGraph::Offset kDuplicateCoffSymbol = -2;
 // @param symbols_block is the block containing the symbols.
 // @param strings_block is the block containing the strings.
 // @param block_graph is the block-graph containing a decomposed COFF image.
-// @param symbol_offset will be set with the offset of the symbol. If it is not
-//     uniquely found then this will be set to kInvalidSymbol or
-//     kDuplicateSymbol.
+// @param symbol_offsets will be populated with the offsets of the corresponding
+//     symbols. If no symbol is found this will be empty.
 // @returns true on completion, false on error.
 bool FindCoffSymbol(const base::StringPiece& symbol_name,
                     block_graph::BlockGraph::Block* symbols_block,
                     block_graph::BlockGraph::Block* strings_block,
-                    block_graph::BlockGraph::Offset* symbol_offset);
+                    CoffSymbolOffsets* symbol_offsets);
 bool FindCoffSymbol(const base::StringPiece& symbol_name,
                     block_graph::BlockGraph* block_graph,
-                    block_graph::BlockGraph::Offset* symbol_offset);
+                    CoffSymbolOffsets* symbol_offsets);
 // @}
 
-// Used for mapping COFF symbols from their name to their offset in the
+// Used for mapping COFF symbols from their name to their offset(s) in the
 // symbol block.
-typedef std::map<std::string, block_graph::BlockGraph::Offset>
-    CoffSymbolNameOffsetMap;
+typedef std::map<std::string, CoffSymbolOffsets> CoffSymbolNameOffsetMap;
 
 // @{
 // Builds a map of COFF symbols by name, mapped to their offset in the symbols

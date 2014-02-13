@@ -53,6 +53,7 @@ class CoffAddImportsTransformTest : public testing::CoffUnitTest {
 const char kFunction1Name[] = "__imp_?function1@@YAHXZ";
 const char kFunction3Name[] = "?function3@@YAHXZ";
 const char kFunction4Name[] = "?function4@@YAHXZ";
+const char kMemcpy[] = "_memset";  // Multiply defined.
 
 }  // namespace
 
@@ -110,7 +111,7 @@ TEST_F(CoffAddImportsTransformTest, AddImportsNewSymbol) {
   EXPECT_NO_FATAL_FAILURE(TestSymbols(module));
 }
 
-TEST_F(CoffAddImportsTransformTest, FindImportsExisting) {
+TEST_F(CoffAddImportsTransformTest, FindImportsExistingMultiple) {
   ImportedModule module("export_dll.dll");
   size_t function1 = module.AddSymbol(kFunction1Name,
                                       ImportedModule::kFindOnly);

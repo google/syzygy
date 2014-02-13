@@ -147,30 +147,32 @@ bool CoffRenameSymbolsTransform::TransformBlockGraph(
       // Input symbols aren't forced to exist, so continue on to the next one.
       continue;
     }
+    DCHECK(!src_it->second.empty());
 
-    if (src_it->second == kDuplicateCoffSymbol) {
-      LOG(ERROR) << "The source symbol \"" << src << "\" is ambiguous.";
-      return false;
-    }
-
+    // Find the destination offset.
     CoffSymbolNameOffsetMap::const_iterator dst_it =
         symbol_offset_map.find(dst);
     BlockGraph::Offset dst_offset = 0;
     if (dst_it != symbol_offset_map.end()) {
-      if (dst_it->second == kDuplicateCoffSymbol) {
-        LOG(ERROR) << "The destination symbol \"" << dst << "\" is ambiguous.";
-        return false;
-      }
-
-      dst_offset = dst_it->second;
+      // If the destination is multiply defined we simply take the first one.
+      DCHECK(!dst_it->second.empty());
+      dst_offset = *dst_it->second.begin();
     } else {
       // If the symbol does not exist, then append it to the strings block.
-      AddSymbol(dst, src_it->second, symbols_block, strings_block,
+      // Use the first symbol as canonical for the purpose of symbol metadata.
+      BlockGraph::Offset src_offset = *src_it->second.begin();
+      AddSymbol(dst, src_offset, symbols_block, strings_block,
                 &dst_offset);
     }
 
-    BlockGraph::Offset src_offset = src_it->second;
-    TransferReferrers(src_offset, dst_offset, symbols_block);
+    // Iterate over all source symbols with this name and transfer references
+    // from them to the destination symbol.
+    const CoffSymbolOffsets& src_offsets = src_it->second;
+    CoffSymbolOffsets::const_iterator src_offset_it = src_offsets.begin();
+    for (; src_offset_it != src_offsets.end(); ++src_offset_it) {
+      BlockGraph::Offset src_offset = *src_offset_it;
+      TransferReferrers(src_offset, dst_offset, symbols_block);
+    }
   }
 
   return true;
