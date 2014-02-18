@@ -96,6 +96,16 @@ block_graph::BasicDataBlock* BasicBlockSubGraph::AddBasicDataBlock(
   return new_data_block.release();
 }
 
+block_graph::BasicEndBlock* BasicBlockSubGraph::AddBasicEndBlock() {
+  BlockId id = next_block_id_++;
+  scoped_ptr<BasicEndBlock> new_end_block(
+      new BasicEndBlock(this, id));
+  bool inserted = basic_blocks_.insert(new_end_block.get()).second;
+  DCHECK(inserted);
+
+  return new_end_block.release();
+}
+
 void BasicBlockSubGraph::Remove(BasicBlock* bb) {
   DCHECK(basic_blocks_.find(bb) != basic_blocks_.end());
 

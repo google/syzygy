@@ -122,6 +122,12 @@ class BasicBlockSubGraph {
                                     Size size,
                                     const uint8* data);
 
+  // Adds a basic end block to the sub-graph. This basic block is a zero sized
+  // placeholder block that is simply for carrying labels and references
+  // beyond the end of a block.
+  // @returns a pointer to the newly allocated basic end block
+  BasicEndBlock* AddBasicEndBlock();
+
   // Remove a basic block from the subgraph.
   // @param bb The basic block to remove.
   // @pre @p bb must be in the graph.

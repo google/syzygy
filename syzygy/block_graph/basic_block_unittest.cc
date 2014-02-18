@@ -41,13 +41,17 @@ class BasicBlockTest: public testing::Test {
       : basic_code_block_(NULL),
         basic_data_block_(NULL),
         macro_block_(NULL) {
-     macro_block_ = block_graph_.AddBlock(
-         kMacroBlockType, kBlockSize, kBlockName);
-     basic_code_block_ = subgraph_.AddBasicCodeBlock(kBlockName);
-     basic_data_block_ =
-         subgraph_.AddBasicDataBlock(kBlockName, kBlockSize, kBlockData);
-     basic_data_block_->set_label(BlockGraph::Label(
-         "data", BlockGraph::DATA_LABEL | BlockGraph::CASE_TABLE_LABEL));
+    macro_block_ = block_graph_.AddBlock(
+        kMacroBlockType, kBlockSize, kBlockName);
+    basic_code_block_ = subgraph_.AddBasicCodeBlock(kBlockName);
+    basic_data_block_ =
+        subgraph_.AddBasicDataBlock(kBlockName, kBlockSize, kBlockData);
+    basic_data_block_->set_label(BlockGraph::Label(
+        "data", BlockGraph::DATA_LABEL | BlockGraph::CASE_TABLE_LABEL));
+    basic_end_block_ =
+        subgraph_.AddBasicEndBlock();
+    basic_end_block_->set_label(BlockGraph::Label(
+        "end", BlockGraph::DEBUG_END_LABEL));
   }
 
   // Convert @p opcode to a branch type.
@@ -144,6 +148,7 @@ class BasicBlockTest: public testing::Test {
   BasicBlockSubGraph subgraph_;
   BasicCodeBlock* basic_code_block_;
   BasicDataBlock* basic_data_block_;
+  BasicEndBlock* basic_end_block_;
   BlockGraph::Block* macro_block_;
 };
 
@@ -193,6 +198,8 @@ TEST_F(BasicBlockTest, Cast) {
   EXPECT_EQ(NULL, BasicCodeBlock::Cast(const_bb_ptr));
   EXPECT_EQ(NULL, BasicDataBlock::Cast(bb_ptr));
   EXPECT_EQ(NULL, BasicDataBlock::Cast(const_bb_ptr));
+  EXPECT_EQ(NULL, BasicEndBlock::Cast(bb_ptr));
+  EXPECT_EQ(NULL, BasicEndBlock::Cast(const_bb_ptr));
 
   // Cast an underlying basic code block.
   bb_ptr = basic_code_block_;
@@ -201,6 +208,8 @@ TEST_F(BasicBlockTest, Cast) {
   EXPECT_EQ(basic_code_block_, BasicCodeBlock::Cast(const_bb_ptr));
   EXPECT_EQ(NULL, BasicDataBlock::Cast(bb_ptr));
   EXPECT_EQ(NULL, BasicDataBlock::Cast(const_bb_ptr));
+  EXPECT_EQ(NULL, BasicEndBlock::Cast(bb_ptr));
+  EXPECT_EQ(NULL, BasicEndBlock::Cast(const_bb_ptr));
 
   // Should gracefully handle NULL.
   bb_ptr = basic_data_block_;
@@ -209,6 +218,17 @@ TEST_F(BasicBlockTest, Cast) {
   EXPECT_EQ(NULL, BasicCodeBlock::Cast(const_bb_ptr));
   EXPECT_EQ(basic_data_block_, BasicDataBlock::Cast(bb_ptr));
   EXPECT_EQ(basic_data_block_, BasicDataBlock::Cast(const_bb_ptr));
+  EXPECT_EQ(NULL, BasicEndBlock::Cast(bb_ptr));
+  EXPECT_EQ(NULL, BasicEndBlock::Cast(const_bb_ptr));
+
+  bb_ptr = basic_end_block_;
+  const_bb_ptr = basic_end_block_;
+  EXPECT_EQ(NULL, BasicCodeBlock::Cast(bb_ptr));
+  EXPECT_EQ(NULL, BasicCodeBlock::Cast(bb_ptr));
+  EXPECT_EQ(NULL, BasicDataBlock::Cast(bb_ptr));
+  EXPECT_EQ(NULL, BasicDataBlock::Cast(const_bb_ptr));
+  EXPECT_EQ(basic_end_block_, BasicEndBlock::Cast(bb_ptr));
+  EXPECT_EQ(basic_end_block_, BasicEndBlock::Cast(const_bb_ptr));
 }
 
 TEST_F(BasicBlockTest, BasicCodeBlockAccessors) {
@@ -237,6 +257,16 @@ TEST_F(BasicBlockTest, BasicDataBlockAccessors) {
       kTestRange(core::RelativeAddress(0xF00D), 13);
   basic_data_block_->set_source_range(kTestRange);
   EXPECT_EQ(kTestRange, basic_data_block_->source_range());
+}
+
+TEST_F(BasicBlockTest, BasicEndBlockAccessors) {
+  EXPECT_EQ(BasicBlock::BASIC_END_BLOCK, basic_end_block_->type());
+  EXPECT_EQ("<end>", basic_end_block_->name());
+  EXPECT_TRUE(basic_end_block_->references().empty());
+  EXPECT_TRUE(basic_end_block_->referrers().empty());
+  EXPECT_TRUE(basic_end_block_->has_label());
+  EXPECT_TRUE(basic_end_block_->label().has_attributes(
+      BlockGraph::DEBUG_END_LABEL));
 }
 
 TEST_F(BasicBlockTest, GetInstructionSize) {

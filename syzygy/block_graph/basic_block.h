@@ -528,6 +528,7 @@ class BasicBlock {
   enum BasicBlockType {
     BASIC_CODE_BLOCK,
     BASIC_DATA_BLOCK,
+    BASIC_END_BLOCK,
 
     // This must be last.
     BASIC_BLOCK_TYPE_MAX
@@ -692,7 +693,6 @@ class BasicCodeBlock : public BasicBlock {
   // If there are two successors, they must have complementary conditions.
   Successors successors_;
 
- private:
   DISALLOW_COPY_AND_ASSIGN(BasicCodeBlock);
 };
 
@@ -764,8 +764,55 @@ class BasicDataBlock : public BasicBlock {
   // from the original block.
   BasicBlockReferenceMap references_;
 
- private:
   DISALLOW_COPY_AND_ASSIGN(BasicDataBlock);
+};
+
+// A basic end block acts as placeholder block representing beyond the end of
+// a block. It acts as a concrete object that allows references and labels to
+// be drawn beyond the end of a block, as is often the case with symbol
+// information.
+class BasicEndBlock : public BasicBlock {
+ public:
+  // Down-cast from basic block to basic end block.
+  static BasicEndBlock* Cast(BasicBlock* basic_block);
+  static const BasicEndBlock* Cast(const BasicBlock* basic_block);
+
+  // Accessors and mutators.
+  // @{
+  // An end block always has no size, as it contributes no data to the block.
+  // It is simply a placeholder for references and labels.
+  Size size() const { return 0; }
+  const BasicBlockReferenceMap& references() const { return references_; }
+  BasicBlockReferenceMap& references() { return references_; }
+
+  const BlockGraph::Label& label() const { return label_; }
+  void set_label(const BlockGraph::Label& label) { label_ = label; }
+  bool has_label() const { return label_.IsValid(); }
+  // @}
+
+  // Add a reference @p ref to this basic block.
+  bool SetReference(const BasicBlockReference& ref);
+
+  // Returns true iff this basic block is a valid block.
+  virtual bool IsValid() const OVERRIDE;
+
+ private:
+  // BasicBlockSubGraph has a factory for this type.
+  friend class BasicBlockSubGraph;
+
+  // Initialize a basic data or padding block.
+  // @param subgraph The subgraph to which belongs this basic block.
+  // @param id The unique identifier representing this block.
+  // @note This is protected so that basic-blocks may only be created via the
+  //     subgraph factory.
+  BasicEndBlock(BasicBlockSubGraph* subgraph,
+                BlockId id);
+
+  // The map of references (if any) that this block makes to other basic blocks
+  // from the original block.
+  BasicBlockReferenceMap references_;
+
+  DISALLOW_COPY_AND_ASSIGN(BasicEndBlock);
 };
 
 // Less-than comparator. Useful to keep ordered set stable.

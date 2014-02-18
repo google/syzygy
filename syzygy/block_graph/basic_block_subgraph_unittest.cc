@@ -62,41 +62,55 @@ TEST(BasicBlockSubGraphTest, AddBasicBlock) {
 
   // Add a basic data block.
   BasicDataBlock* bb1 = subgraph.AddBasicDataBlock("bb1", kDataSize, kData);
-  EXPECT_EQ(0U, bb1->id());
   ASSERT_FALSE(bb1 == NULL);
-  ASSERT_EQ(bb1, BasicDataBlock::Cast(bb1));
-  ASSERT_TRUE(BasicCodeBlock::Cast(bb1) == NULL);
+  EXPECT_EQ(0U, bb1->id());
   EXPECT_EQ("bb1", bb1->name());
   EXPECT_EQ(BasicBlock::BASIC_DATA_BLOCK, bb1->type());
   EXPECT_EQ(kDataSize, bb1->size());
   EXPECT_EQ(kData, bb1->data());
   EXPECT_EQ(BasicBlock::kNoOffset, bb1->offset());
+  EXPECT_TRUE(BasicCodeBlock::Cast(bb1) == NULL);
+  EXPECT_EQ(bb1, BasicDataBlock::Cast(bb1));
+  EXPECT_TRUE(BasicEndBlock::Cast(bb1) == NULL);
 
   // Add one that overlaps.
   BasicDataBlock* bb2 =
       subgraph.AddBasicDataBlock("bb2", kDataSize / 2, kData + kDataSize / 2);
+  ASSERT_FALSE(bb2 == NULL);
   EXPECT_EQ(1U, bb2->id());
-  ASSERT_FALSE(bb1 == NULL);
-  ASSERT_EQ(bb2, BasicDataBlock::Cast(bb2));
-  ASSERT_TRUE(BasicCodeBlock::Cast(bb2) == NULL);
   EXPECT_EQ("bb2", bb2->name());
   EXPECT_EQ(BasicBlock::BASIC_DATA_BLOCK, bb2->type());
   EXPECT_EQ(kDataSize / 2, bb2->size());
   EXPECT_EQ(kData + kDataSize / 2, bb2->data());
   EXPECT_EQ(BasicBlock::kNoOffset, bb2->offset());
+  EXPECT_TRUE(BasicCodeBlock::Cast(bb2) == NULL);
+  EXPECT_EQ(bb2, BasicDataBlock::Cast(bb2));
+  EXPECT_TRUE(BasicEndBlock::Cast(bb2) == NULL);
 
   // Add a code block.
   BasicCodeBlock* bb3 = subgraph.AddBasicCodeBlock("bb3");
-  EXPECT_EQ(2U, bb3->id());
   ASSERT_FALSE(bb3 == NULL);
-  ASSERT_EQ(bb3, BasicCodeBlock::Cast(bb3));
+  EXPECT_EQ(2U, bb3->id());
   EXPECT_EQ("bb3", bb3->name());
-  ASSERT_TRUE(BasicDataBlock::Cast(bb3) == NULL);
+  EXPECT_EQ(bb3, BasicCodeBlock::Cast(bb3));
+  EXPECT_TRUE(BasicDataBlock::Cast(bb3) == NULL);
+  EXPECT_TRUE(BasicEndBlock::Cast(bb3) == NULL);
 
-  // And they were not the same basic-block.
-  ASSERT_NE(bb1, bb2);
-  ASSERT_NE(implicit_cast<BasicBlock*>(bb1), bb3);
-  ASSERT_NE(implicit_cast<BasicBlock*>(bb2), bb3);
+  // Add an end block.
+  BasicEndBlock* bb4 = subgraph.AddBasicEndBlock();
+  ASSERT_FALSE(bb4 == NULL);
+  EXPECT_EQ(3u, bb4->id());
+  EXPECT_EQ(0u, bb4->size());
+  EXPECT_TRUE(BasicCodeBlock::Cast(bb4) == NULL);
+  EXPECT_TRUE(BasicDataBlock::Cast(bb4) == NULL);
+  ASSERT_EQ(bb4, BasicEndBlock::Cast(bb4));
+
+  // And they are not the same basic-block.
+  EXPECT_NE(implicit_cast<BasicBlock*>(bb1), implicit_cast<BasicBlock*>(bb2));
+  EXPECT_NE(implicit_cast<BasicBlock*>(bb1), implicit_cast<BasicBlock*>(bb3));
+  EXPECT_NE(implicit_cast<BasicBlock*>(bb1), implicit_cast<BasicBlock*>(bb4));
+  EXPECT_NE(implicit_cast<BasicBlock*>(bb2), implicit_cast<BasicBlock*>(bb3));
+  EXPECT_NE(implicit_cast<BasicBlock*>(bb2), implicit_cast<BasicBlock*>(bb4));
 
   // Check BBCollection ordering.
   const BasicBlockSubGraph::BBCollection& blocks = subgraph.basic_blocks();

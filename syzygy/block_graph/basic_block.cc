@@ -81,10 +81,13 @@ namespace {
 const char* kBasicBlockType[] = {
   "BASIC_CODE_BLOCK",
   "BASIC_DATA_BLOCK",
+  "BASIC_END_BLOCK",
 };
 
 COMPILE_ASSERT(arraysize(kBasicBlockType) == BasicBlock::BASIC_BLOCK_TYPE_MAX,
                kBasicBlockType_not_in_sync);
+
+const char kEnd[] = "<end>";
 
 bool IsUnconditionalBranch(const Instruction& inst) {
   return META_GET_FC(inst.representation().meta) == FC_UNC_BRANCH;
@@ -807,11 +810,39 @@ const BasicDataBlock* BasicDataBlock::Cast(const BasicBlock* basic_block) {
 
 bool BasicDataBlock::SetReference(
     Offset offset, const BasicBlockReference& ref) {
-  DCHECK_NE(BasicBlock::BASIC_CODE_BLOCK, type_);
   return UpdateBasicBlockReferenceMap(this->size(), &references_, offset, ref);
 }
 
 bool BasicDataBlock::IsValid() const {
+  return true;
+}
+
+BasicEndBlock::BasicEndBlock(BasicBlockSubGraph* subgraph,
+                             BlockId id)
+    : BasicBlock(subgraph, kEnd, id, BasicBlock::BASIC_END_BLOCK) {
+}
+
+BasicEndBlock* BasicEndBlock::Cast(BasicBlock* basic_block) {
+  if (basic_block == NULL)
+    return NULL;
+  if (basic_block->type() == BasicBlock::BASIC_END_BLOCK)
+    return static_cast<BasicEndBlock*>(basic_block);
+  return NULL;
+}
+
+const BasicEndBlock* BasicEndBlock::Cast(const BasicBlock* basic_block) {
+  if (basic_block == NULL)
+    return NULL;
+  if (basic_block->type() == BasicBlock::BASIC_END_BLOCK)
+    return static_cast<const BasicEndBlock*>(basic_block);
+  return NULL;
+}
+
+bool BasicEndBlock::SetReference(const BasicBlockReference& ref) {
+  return UpdateBasicBlockReferenceMap(this->size(), &references_, 0, ref);
+}
+
+bool BasicEndBlock::IsValid() const {
   return true;
 }
 
