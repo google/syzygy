@@ -94,12 +94,20 @@ class BlockBuilderTest : public testing::BasicBlockTest {
     return bb;
   }
 
-  Block* CreateLayout(size_t size1, size_t size2, size_t size3, size_t size4) {
+  Block* CreateLayout(size_t size1,
+                      size_t size2,
+                      size_t size3,
+                      size_t size4,
+                      bool multi_end_block) {
     // Generate a set of puzzle blocks.
     BasicCodeBlock* bb1 = CreateCodeBB("bb1", size1);
     BasicCodeBlock* bb2 = CreateCodeBB("bb2", size2);
     BasicCodeBlock* bb3 = CreateCodeBB("bb3", size3);
     BasicCodeBlock* bb4 = CreateCodeBB("bb4", size4);
+    BasicEndBlock* bb5 = subgraph_.AddBasicEndBlock();
+    BasicEndBlock* bb6 = NULL;
+    if (multi_end_block)
+      bb6 = subgraph_.AddBasicEndBlock();
 
     // BB1 has BB4 and BB2 as successors.
     bb1->successors().push_back(
@@ -123,12 +131,20 @@ class BlockBuilderTest : public testing::BasicBlockTest {
                   BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb4),
                   0));
 
+    // BB5 and BB6 both carry labels.
+    bb5->set_label(BlockGraph::Label("bb5", BlockGraph::CODE_LABEL));
+    if (multi_end_block)
+      bb6->set_label(BlockGraph::Label("bb6", BlockGraph::DEBUG_END_LABEL));
+
     BasicBlockSubGraph::BlockDescription* d1 = subgraph_.AddBlockDescription(
         "new_block", "new_compiland", BlockGraph::CODE_BLOCK, 0, 1, 0);
     d1->basic_block_order.push_back(bb1);
     d1->basic_block_order.push_back(bb2);
     d1->basic_block_order.push_back(bb3);
     d1->basic_block_order.push_back(bb4);
+    d1->basic_block_order.push_back(bb5);
+    if (multi_end_block)
+      d1->basic_block_order.push_back(bb6);
 
     BlockBuilder builder(&block_graph_);
     EXPECT_TRUE(builder.Merge(&subgraph_));
@@ -136,6 +152,19 @@ class BlockBuilderTest : public testing::BasicBlockTest {
 
     Block* new_block = builder.new_blocks()[0];
     EXPECT_TRUE(new_block != NULL);
+
+    // We expect there to be a label beyond the end of the block.
+    BlockGraph::Label expected_label;
+    if (multi_end_block) {
+      expected_label = BlockGraph::Label(
+          "bb5, bb6", BlockGraph::CODE_LABEL | BlockGraph::DEBUG_END_LABEL);
+    } else {
+      expected_label = BlockGraph::Label("bb5", BlockGraph::CODE_LABEL);
+    }
+    BlockGraph::Label label;
+    EXPECT_TRUE(new_block->GetLabel(new_block->size(), &label));
+    EXPECT_EQ(expected_label, label);
+
     return new_block;
   }
 
@@ -442,6 +471,22 @@ TEST_F(BlockBuilderTest, Merge) {
   EXPECT_EQ(0x90, new_block->data()[35]);
 }
 
+TEST_F(BlockBuilderTest, FailsForInvalidEndBlockPlacement) {
+  BasicCodeBlock* bb1 = CreateCodeBB("bb1", 10);
+  BasicEndBlock* bb2 = subgraph_.AddBasicEndBlock();
+
+  bb2->set_label(BlockGraph::Label("bb2", BlockGraph::CODE_LABEL));
+
+  // Place the end block in an invalid location in the basic block order.
+  BasicBlockSubGraph::BlockDescription* d1 = subgraph_.AddBlockDescription(
+      "new_block", "new_compiland", BlockGraph::CODE_BLOCK, 0, 1, 0);
+  d1->basic_block_order.push_back(bb2);
+  d1->basic_block_order.push_back(bb1);
+
+  BlockBuilder builder(&block_graph_);
+  EXPECT_FALSE(builder.Merge(&subgraph_));
+}
+
 TEST_F(BlockBuilderTest, ShortLayout) {
   // This is the block structure we construct. If either of BB1 or BB2's
   // successors is manifested too long, they will both have to grow.
@@ -451,7 +496,7 @@ TEST_F(BlockBuilderTest, ShortLayout) {
   // 126  jmp BB1  (-128 bytes).
   // 128  [BB3] 63 bytes.
   // 191  [BB4] 1 byte.
-  Block* new_block = CreateLayout(62, 62, 63, 1);
+  Block* new_block = CreateLayout(62, 62, 63, 1, true);
   ASSERT_TRUE(new_block != NULL);
 
   EXPECT_EQ(192, new_block->size());
@@ -482,7 +527,7 @@ TEST_F(BlockBuilderTest, ComplexFixPointBasicBlockLayout) {
 
 TEST_F(BlockBuilderTest, OutofReachBranchLayout) {
   // 54 + 72 + 2 = 128 - the BB1->BB4 branch is just out of reach.
-  Block* new_block = CreateLayout(62, 54, 72, 1);
+  Block* new_block = CreateLayout(62, 54, 72, 1, false);
   ASSERT_TRUE(new_block != NULL);
 
   size_t expected_size = 62 +
@@ -513,7 +558,7 @@ TEST_F(BlockBuilderTest, OutofReachBranchLayout) {
 
 TEST_F(BlockBuilderTest, OutofReachJmpLayout) {
   // 0 - (62 + 2 + 63 + 2) = -129, the jump from BB2->BB1 is just out of reach.
-  Block* new_block = CreateLayout(62, 63, 55, 1);
+  Block* new_block = CreateLayout(62, 63, 55, 1, false);
   ASSERT_TRUE(new_block != NULL);
 
   size_t expected_size = 62 +

@@ -74,6 +74,8 @@ const uint8 kNop9[9] = { 0x66, 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 };
 const uint8* kNops[] = { NULL, kNop1, kNop2, kNop3, kNop4, kNop5, kNop6,
     kNop7, kNop8, kNop9 };
 
+const size_t kInvalidSize = -1;
+
 // Updates the tag info map for the given taggable object.
 void UpdateTagInfoMap(const TagSet& tag_set,
                       TaggedObjectType type,
@@ -87,6 +89,55 @@ void UpdateTagInfoMap(const TagSet& tag_set,
   TagSet::const_iterator tag_it = tag_set.begin();
   for (; tag_it != tag_set.end(); ++tag_it)
     (*tag_info_map)[*tag_it].push_back(tag_info);
+}
+
+// Checks that any BasicEndBlocks are at the end of their associated
+// basic-block order.
+bool EndBlocksAreWellPlaced(BasicBlockSubGraph* subgraph) {
+  DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), subgraph);
+
+  BasicBlockSubGraph::BlockDescriptionList::iterator bd_it =
+      subgraph->block_descriptions().begin();
+  for (; bd_it != subgraph->block_descriptions().end(); ++bd_it) {
+    BasicBlockSubGraph::BasicBlockOrdering& bbs = bd_it->basic_block_order;
+    BasicBlockSubGraph::BasicBlockOrdering::iterator bb_it = bbs.begin();
+    BasicBlockSubGraph::BasicBlockOrdering::iterator bb_it_end = bbs.end();
+    bool end_block_seen = false;
+    for (; bb_it != bb_it_end; ++bb_it) {
+      if ((*bb_it)->type() == BasicBlock::BASIC_END_BLOCK) {
+        end_block_seen = true;
+      } else {
+        // If we've already seen a basic end block and now we've encountered
+        // a basic block of another type then the BB order is invalid.
+        if (end_block_seen) {
+          LOG(ERROR) << "Basic-block order has end-block in invalid location!";
+          return false;
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+// Adds a new label to a block, or merges a label with an existing one. This is
+// used because labels may collide when creating a new block, as BasicEndBlocks
+// have zero size.
+void AddOrMergeLabel(BlockGraph::Offset offset,
+                     const BlockGraph::Label& label,
+                     BlockGraph::Block* block) {
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), block);
+
+  BlockGraph::Label previous_label;
+  if (block->GetLabel(offset, &previous_label)) {
+    std::string new_name = previous_label.name() + ", " + label.name();
+    BlockGraph::LabelAttributes new_attr = previous_label.attributes() |
+        label.attributes();
+    CHECK(block->RemoveLabel(offset));
+    CHECK(block->SetLabel(offset, new_name, new_attr));
+  } else {
+    CHECK(block->SetLabel(offset, label));
+  }
 }
 
 // A utility class to package up the context in which new blocks are generated.
@@ -352,8 +403,9 @@ bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
 
   // Copy the successor label, if any, to where it belongs.
   if (info.successor_label.IsValid()) {
-    info.block->SetLabel(info.start_offset + info.basic_block_size,
-                         info.successor_label);
+    AddOrMergeLabel(info.start_offset + info.basic_block_size,
+                    info.successor_label,
+                    info.block);
   }
 
   Offset successor_start = info.start_offset + info.basic_block_size;
@@ -510,7 +562,7 @@ bool MergeContext::CopyInstructions(
 
     // Preserve the label on the instruction, if any.
     if (instruction.has_label())
-      new_block->SetLabel(offset, instruction.label());
+      AddOrMergeLabel(offset, instruction.label(), new_block);
 
     // Record the source range.
     CopySourceRange(instruction.source_range(),
@@ -583,6 +635,8 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
     info.basic_block = bb;
     info.block = new_block;
     info.start_offset = 0;
+    info.basic_block_size = kInvalidSize;
+
     const BasicCodeBlock* code_block = BasicCodeBlock::Cast(bb);
     if (code_block != NULL)
       info.basic_block_size = code_block->GetInstructionSize();
@@ -590,6 +644,13 @@ bool MergeContext::InitializeBlockLayout(const BasicBlockOrdering& order,
     const BasicDataBlock* data_block = BasicDataBlock::Cast(bb);
     if (data_block != NULL)
       info.basic_block_size = data_block->size();
+
+    const BasicEndBlock* end_block = BasicEndBlock::Cast(bb);
+    if (end_block != NULL)
+      info.basic_block_size = end_block->size();
+
+    // The size must have been set.
+    DCHECK_NE(kInvalidSize, info.basic_block_size);
 
     for (size_t i = 0; i < arraysize(info.successors); ++i) {
       info.successors[i].condition = Successor::kInvalidCondition;
@@ -881,7 +942,7 @@ bool MergeContext::PopulateBlock(const BasicBlockOrdering& order) {
     if (data_block != NULL) {
       // If the basic-block is labeled, copy the label.
       if (data_block->has_label())
-        info.block->SetLabel(info.start_offset, data_block->label());
+        AddOrMergeLabel(info.start_offset, data_block->label(), info.block);
 
       // Copy its data.
       if (!CopyData(data_block, info.start_offset, info.block)) {
@@ -907,6 +968,17 @@ bool MergeContext::PopulateBlock(const BasicBlockOrdering& order) {
         return false;
       }
     }
+
+    const BasicEndBlock* end_block = BasicEndBlock::Cast(bb);
+    if (end_block != NULL) {
+      // If the end block is labeled, copy the label.
+      if (end_block->has_label())
+        AddOrMergeLabel(info.start_offset, end_block->label(), info.block);
+    }
+
+    // We must have handled the basic block as at least one of the fundamental
+    // types.
+    DCHECK(code_block != NULL || data_block != NULL || end_block != NULL);
   }
 
   return true;
@@ -1137,6 +1209,11 @@ BlockBuilder::BlockBuilder(BlockGraph* bg) : block_graph_(bg) {
 
 bool BlockBuilder::Merge(BasicBlockSubGraph* subgraph) {
   DCHECK_NE(reinterpret_cast<BasicBlockSubGraph*>(NULL), subgraph);
+
+  // Before starting the layout ensure any BasicEndBlocks are at the end of/
+  // their respective basic-block orderings.
+  if (!EndBlocksAreWellPlaced(subgraph))
+    return false;
 
   MergeContext context(block_graph_,
                        subgraph->original_block(),
