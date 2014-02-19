@@ -390,19 +390,31 @@ TEST_F(HeapTest, CalculateBlockChecksum) {
   EXPECT_EQ(header->checksum, original_checksum);
   reinterpret_cast<uint8*>(mem)[0]--;
 
+  const size_t kMaxIterations = 10;
+  size_t iteration = 0;
+
   // Changing one value in the header should change the checksum.
-  header->block_size++;
-  TestHeapProxy::SetBlockChecksum(header);
+  size_t original_size = header->block_size;
+  do {
+    header->block_size++;
+    TestHeapProxy::SetBlockChecksum(header);
+  } while (header->checksum == original_checksum &&
+           iteration++ < kMaxIterations);
   EXPECT_NE(header->checksum, original_checksum);
-  header->block_size--;
+  header->block_size = original_size;
   TestHeapProxy::SetBlockChecksum(header);
   EXPECT_EQ(header->checksum, original_checksum);
 
   // Same thing in the trailer.
-  trailer->alloc_tid++;
-  TestHeapProxy::SetBlockChecksum(header);
+  iteration = 0;
+  DWORD original_tid = trailer->alloc_tid;
+  do {
+    trailer->alloc_tid++;
+    TestHeapProxy::SetBlockChecksum(header);
+  } while (header->checksum == original_checksum &&
+           iteration++ < kMaxIterations);
   EXPECT_NE(header->checksum, original_checksum);
-  trailer->alloc_tid--;
+  trailer->alloc_tid = original_tid;
   TestHeapProxy::SetBlockChecksum(header);
   EXPECT_EQ(header->checksum, original_checksum);
 
@@ -413,10 +425,15 @@ TEST_F(HeapTest, CalculateBlockChecksum) {
   original_checksum = header->checksum;
 
   // Altering the data should now affect the checksum.
-  reinterpret_cast<uint8*>(mem)[0]++;
-  TestHeapProxy::SetBlockChecksum(header);
+  iteration = 0;
+  uint8 original_data = reinterpret_cast<uint8*>(mem)[0];
+  do {
+    reinterpret_cast<uint8*>(mem)[0]++;
+    TestHeapProxy::SetBlockChecksum(header);
+  } while (header->checksum == original_checksum &&
+           iteration++ < kMaxIterations);
   EXPECT_NE(header->checksum, original_checksum);
-  reinterpret_cast<uint8*>(mem)[0]--;
+  reinterpret_cast<uint8*>(mem)[0] = original_data;
   TestHeapProxy::SetBlockChecksum(header);
   EXPECT_EQ(header->checksum, original_checksum);
 }
