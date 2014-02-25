@@ -41,6 +41,7 @@ class BasicBlockSubGraph {
   typedef block_graph::BasicBlock BasicBlock;
   typedef block_graph::BasicCodeBlock BasicCodeBlock;
   typedef block_graph::BasicDataBlock BasicDataBlock;
+  typedef block_graph::BasicEndBlock BasicEndBlock;
   typedef BasicBlock::BasicBlockType BasicBlockType;
   typedef std::list<BasicBlock*> BasicBlockOrdering;
   typedef block_graph::BlockGraph BlockGraph;

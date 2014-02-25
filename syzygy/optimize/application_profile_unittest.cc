@@ -32,6 +32,7 @@ using testing::ContainerEq;
 
 typedef ApplicationProfile::BlockProfile BlockProfile;
 typedef BasicBlockSubGraph::BasicCodeBlock BasicCodeBlock;
+typedef BasicBlockSubGraph::BasicEndBlock BasicEndBlock;
 typedef BlockGraph::Offset Offset;
 typedef SubGraphProfile::BasicBlockProfile BasicBlockProfile;
 typedef core::RelativeAddress RelativeAddress;
@@ -269,7 +270,7 @@ TEST_F(ApplicationProfileTest, ComputeSubGraphProfile) {
   ASSERT_EQ(1U,  subgraph.block_descriptions().size());
   const BasicBlockSubGraph::BasicBlockOrdering& original_order =
       subgraph.block_descriptions().front().basic_block_order;
-  ASSERT_EQ(3U, original_order.size());
+  ASSERT_EQ(4U, original_order.size());
   BasicBlockSubGraph::BasicBlockOrdering::const_iterator it =
       original_order.begin();
   BasicCodeBlock* bb0 = BasicCodeBlock::Cast(*it);
@@ -277,14 +278,18 @@ TEST_F(ApplicationProfileTest, ComputeSubGraphProfile) {
   BasicCodeBlock* bb1 = BasicCodeBlock::Cast(*it);
   ++it;
   BasicCodeBlock* bb2 = BasicCodeBlock::Cast(*it);
+  ++it;
+  BasicEndBlock* bb3 = BasicEndBlock::Cast(*it);
 
   ASSERT_NE(reinterpret_cast<BasicCodeBlock*>(NULL), bb0);
   ASSERT_NE(reinterpret_cast<BasicCodeBlock*>(NULL), bb1);
   ASSERT_NE(reinterpret_cast<BasicCodeBlock*>(NULL), bb2);
+  ASSERT_NE(reinterpret_cast<BasicEndBlock*>(NULL), bb3);
 
   ASSERT_EQ(kBasicBlockOffset0, bb0->offset());
   ASSERT_EQ(kBasicBlockOffset1, bb1->offset());
   ASSERT_EQ(kBasicBlockOffset2, bb2->offset());
+  ASSERT_EQ(block_code_->size(), bb3->offset());
 
   // Retrieve basic block profiles.
   const BasicBlockProfile* profile0 =

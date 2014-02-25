@@ -212,8 +212,8 @@ void InliningTransformTest::CreateCalleeBlock(CalleeKind kind,
   BasicBlockDecomposer decomposer(*callee, &subgraph);
   ASSERT_TRUE(decomposer.Decompose());
 
-  // Retrieve the single basic block.
-  ASSERT_EQ(1U, subgraph.basic_blocks().size());
+  // Retrieve the single basic code block.
+  ASSERT_EQ(2U, subgraph.basic_blocks().size());
   BasicCodeBlock* code = BasicCodeBlock::Cast(*subgraph.basic_blocks().begin());
   DCHECK_NE(reinterpret_cast<BasicCodeBlock*>(NULL), code);
 
@@ -270,8 +270,8 @@ void InliningTransformTest::CreateCallSiteToBlock(BlockGraph::Block* callee) {
   BasicBlockDecomposer decomposer(caller_, &subgraph);
   ASSERT_TRUE(decomposer.Decompose());
 
-  // Retrieve the single basic block.
-  ASSERT_EQ(1U, subgraph.basic_blocks().size());
+  // Retrieve the single basic code block.
+  ASSERT_EQ(2U, subgraph.basic_blocks().size());
   BasicCodeBlock* code = BasicCodeBlock::Cast(*subgraph.basic_blocks().begin());
   DCHECK_NE(reinterpret_cast<BasicCodeBlock*>(NULL), code);
 

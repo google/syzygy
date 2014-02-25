@@ -35,6 +35,7 @@ using block_graph::ConstBlockVector;
 using block_graph::BasicBlock;
 using block_graph::BasicCodeBlock;
 using block_graph::BasicDataBlock;
+using block_graph::BasicEndBlock;
 using block_graph::BasicBlockDecomposer;
 using block_graph::BasicBlockSubGraph;
 using block_graph::Successor;
@@ -326,6 +327,11 @@ bool BasicBlockOptimizer::BasicBlockOrderer::GetBasicBlockOrderings(
       else
         cold_basic_blocks->push_back(data_bb->offset());
     }
+
+    // If it's an end basic-block we simply ignore it.
+    const BasicEndBlock* end_bb = BasicEndBlock::Cast(bb);
+
+    DCHECK(code_bb != NULL || data_bb != NULL || end_bb != NULL);
   }
 
   // TODO(rogerm): If we find that we haven't perturbed the basic-block
@@ -333,7 +339,7 @@ bool BasicBlockOptimizer::BasicBlockOrderer::GetBasicBlockOrderings(
   //     be copied/moved as is.
 
   DCHECK_EQ(subgraph_.basic_blocks().size(),
-            warm_basic_blocks->size() + cold_basic_blocks->size());
+            warm_basic_blocks->size() + cold_basic_blocks->size() + 1);
   return true;
 }
 
@@ -708,11 +714,11 @@ bool BasicBlockOptimizer::OptimizeBlock(
   //     * If there are cold basic-blocks returned then there are also
   //       warm basic-blocks returned.
   //     * Either both returned sets are empty or the sum of the warm and
-  //       cold basic-blocks equals the total number of basic-blocks in
-  //       subgraph.
+  //       cold basic-blocks and an end-block equals the total number of
+  //       basic-blocks in the subgraph.
   DCHECK(cold_basic_blocks.empty() || !warm_basic_blocks.empty());
   DCHECK((warm_basic_blocks.empty() && cold_basic_blocks.empty()) ||
-         (warm_basic_blocks.size() + cold_basic_blocks.size() ==
+         (warm_basic_blocks.size() + cold_basic_blocks.size() + 1 ==
               subgraph.basic_blocks().size()));
 
   // We know the function was called at least once. Some part of it should

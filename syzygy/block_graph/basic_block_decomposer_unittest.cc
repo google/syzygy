@@ -164,7 +164,7 @@ struct BasicBlockOffsetComparator {
 };
 
 void ValidateHasInlineAssemblyBlock5677(const BasicBlockSubGraph& bbsg) {
-  ASSERT_EQ(3u, bbsg.basic_blocks().size());
+  ASSERT_EQ(4u, bbsg.basic_blocks().size());
 
   // Get the basic blocks sorted by their original offsets.
   std::vector<const BasicBlock*> bbs(bbsg.basic_blocks().begin(),
@@ -235,6 +235,8 @@ void ValidateHasInlineAssemblyBlock5677(const BasicBlockSubGraph& bbsg) {
   EXPECT_EQ(4u, bcb2->instructions().size());
   EXPECT_EQ(9u, bcb2->GetInstructionSize());
   EXPECT_EQ(0u, bcb2->successors().size());
+
+  EXPECT_EQ(BasicBlock::BASIC_END_BLOCK, bbs[3]->type());
 }
 
 }  // namespace
@@ -268,6 +270,8 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
             CountBasicBlocks(subgraph_, BasicBlock::BASIC_CODE_BLOCK));
   ASSERT_EQ(kNumDataBasicBlocks,
             CountBasicBlocks(subgraph_, BasicBlock::BASIC_DATA_BLOCK));
+  ASSERT_EQ(kNumEndBasicBlocks,
+            CountBasicBlocks(subgraph_, BasicBlock::BASIC_END_BLOCK));
   ASSERT_EQ(kNumCodePaddingBasicBlocks,
             CountPaddingBasicBlocks(subgraph_, BasicBlock::BASIC_CODE_BLOCK));
   ASSERT_EQ(kNumDataPaddingBasicBlocks,
@@ -405,6 +409,8 @@ TEST_F(BasicBlockDecomposerTest, Decompose) {
   ASSERT_EQ(256, bb9->size());
   ASSERT_EQ(0u, bb9->references().size());
   ASSERT_EQ(4u, bbs_[9]->alignment());
+
+  ASSERT_EQ(BasicBlock::BASIC_END_BLOCK, bbs_[10]->type());
 
   // Validate all source ranges.
   core::RelativeAddress next_addr(start_addr_);

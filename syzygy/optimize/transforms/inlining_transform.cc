@@ -199,8 +199,8 @@ bool MatchTrivialBody(const BasicBlockSubGraph& subgraph,
   // Assume no match.
   *kind = kInvalidMatch;
 
-  // Trivial body only has one basic block.
-  if (subgraph.basic_blocks().size() != 1)
+  // Trivial body only has one code basic block, and one end block.
+  if (subgraph.basic_blocks().size() != 2)
     return false;
   BasicCodeBlock* bb = BasicCodeBlock::Cast(*subgraph.basic_blocks().begin());
   if (bb == NULL)
@@ -500,7 +500,12 @@ size_t EstimateSubgraphSize(BasicBlockSubGraph* subgraph) {
   BBCollection& basic_blocks = subgraph->basic_blocks();
   BBCollection::iterator it = basic_blocks.begin();
   for (; it != basic_blocks.end(); ++it) {
+    // End blocks contribute nothing to the total size.
+    if ((*it)->type() == BasicBlock::BASIC_END_BLOCK)
+      continue;
+
     BasicCodeBlock* bb = BasicCodeBlock::Cast(*it);
+    DCHECK_NE(reinterpret_cast<BasicCodeBlock*>(NULL), bb);
     BasicBlock::Instructions::iterator inst_iter = bb->instructions().begin();
 
     // Sum of instructions size.
@@ -628,7 +633,7 @@ bool InliningTransform::TransformBasicBlockSubGraph(
       }
 
       if (MatchTrivialBody(*callee_subgraph, &match_kind, &return_constant,
-                            &target, &body) &&
+                           &target, &body) &&
           InlineTrivialBody(match_kind, subgraph, return_constant, target, body,
                             call_iter, &bb->instructions())) {
         // Inlining successful, remove call-site.

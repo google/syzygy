@@ -207,6 +207,7 @@ bool LoadBlockSpec(const pe::ImageLayout& image,
   }
 
   // Read in the basic_block offsets.
+  bool seen_end_block = false;
   if (rva_list != NULL && !rva_list->empty()) {
     block_spec->basic_block_offsets.reserve(rva_list->GetSize());
     for (size_t i = 0; i < rva_list->GetSize(); ++i) {
@@ -218,9 +219,20 @@ bool LoadBlockSpec(const pe::ImageLayout& image,
         return false;
       }
       if (offset < 0 ||
-          static_cast<BlockGraph::Size>(offset) >= block->size()) {
+          static_cast<BlockGraph::Size>(offset) > block->size()) {
         LOG(ERROR) << "Offset " << offset << " falls outside block range [0-"
-                   << (block->size() - 1) << "] for " << block->name();
+                   << block->size() << "] for " << block->name();
+        return false;
+      }
+
+      // The basic-end block must be last in the block specification. The
+      // block builder will catch this error but we can meaningfully catch this
+      // earlier and avoid a lot of computation for nothing.
+      if (static_cast<BlockGraph::Size>(offset) == block->size()) {
+        seen_end_block = true;
+      } else if (seen_end_block) {
+        LOG(ERROR) << "Encountered basic-end block that is not last in the "
+                   << "specified ordering.";
         return false;
       }
       block_spec->basic_block_offsets.push_back(offset);

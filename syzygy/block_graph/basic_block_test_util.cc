@@ -223,11 +223,11 @@ void BasicBlockTest::InitBasicBlockSubGraphWithLabelPastEnd() {
   ASSERT_TRUE(subgraph_.IsValid());
 
   ASSERT_EQ(1u, subgraph_.block_descriptions().size());
-  ASSERT_EQ(1u, subgraph_.basic_blocks().size());
+  ASSERT_EQ(2u, subgraph_.basic_blocks().size());
 
   BasicBlockSubGraph::BlockDescriptionList::const_iterator bd_it =
       subgraph_.block_descriptions().begin();
-  ASSERT_EQ(1u, bd_it->basic_block_order.size());
+  ASSERT_EQ(2u, bd_it->basic_block_order.size());
 
   BasicBlockSubGraph::BBCollection::const_iterator bb_it =
       subgraph_.basic_blocks().begin();
@@ -243,9 +243,18 @@ void BasicBlockTest::InitBasicBlockSubGraphWithLabelPastEnd() {
   ASSERT_EQ(BlockGraph::CODE_LABEL | BlockGraph::DEBUG_START_LABEL,
             bcb->instructions().begin()->label().attributes());
 
-  // TODO(chrisha): When we properly support labels past the end of a block
-  //     (they currently disappear as they pass through BB decomposition and
-  //     rehydration), ensure that it is where it should be.
+  ++bb_it;
+  bb = *bb_it;
+  const block_graph::BasicEndBlock* beb =
+      block_graph::BasicEndBlock::Cast(bb);
+  ASSERT_TRUE(beb != NULL);
+
+  BlockGraph::Label expected_label("debug-end", BlockGraph::DEBUG_END_LABEL);
+  ASSERT_TRUE(beb->has_label());
+  ASSERT_EQ(expected_label, beb->label());
+
+  ++bb_it;
+  ASSERT_TRUE(bb_it == subgraph_.basic_blocks().end());
 }
 
 }  // namespace testing

@@ -597,6 +597,11 @@ bool BasicBlockDecomposer::Disassemble() {
   // Split the basic blocks at branch targets.
   SplitCodeBlocksAtBranchTargets();
 
+  // At this point we have basic blocks for all code and data. Now create a
+  // basic-block to represent the end of the block. This will potentially carry
+  // labels and references beyond the end of the block.
+  CHECK(InsertBasicBlockRange(block_->size(), 0, BasicBlock::BASIC_END_BLOCK));
+
   // By this point, we should have basic blocks for all visited code.
   CheckAllJumpTargetsStartABasicCodeBlock();
 
@@ -655,11 +660,14 @@ void BasicBlockDecomposer::CheckHasCompleteBasicBlockCoverage() const {
     CHECK_EQ(it->first.start(), next_start);
     CHECK_EQ(it->first.start(), it->second->offset());
 
+    size_t size = it->first.size();
+
     BasicDataBlock* data_block = BasicDataBlock::Cast(it->second);
     if (data_block != NULL) {
       // Data block's size should match the address segment exactly.
-      CHECK_EQ(it->first.size(), data_block->size());
+      CHECK_EQ(size, data_block->size());
     }
+
     BasicCodeBlock* code_block = BasicCodeBlock::Cast(it->second);
     if (code_block != NULL) {
       // Code blocks may be short the trailing successor instruction.
@@ -669,9 +677,19 @@ void BasicBlockDecomposer::CheckHasCompleteBasicBlockCoverage() const {
       for (; succ_it != code_block->successors().end(); ++succ_it)
         block_size += succ_it->instruction_size();
 
-      CHECK_GE(it->first.size(), block_size);
+      CHECK_GE(size, block_size);
     }
-    next_start += it->first.size();
+
+    BasicEndBlock* end_block = BasicEndBlock::Cast(it->second);
+    if (end_block != NULL) {
+      CHECK_EQ(0u, end_block->size());
+      size = 0;
+    }
+
+    // The basic-block must have parsed as one of the fundamental types.
+    CHECK(data_block != NULL || code_block != NULL || end_block != NULL);
+
+    next_start += size;
   }
 
   // At this point, if there were no gaps, next start will be the same as the
@@ -834,7 +852,6 @@ bool BasicBlockDecomposer::InsertBasicBlockRange(Offset offset,
                                                  size_t size,
                                                  BasicBlockType type) {
   DCHECK_LE(0, offset);
-  DCHECK_LT(0U, size);
   DCHECK_LE(offset + size, block_->size());
   DCHECK(type == BasicBlock::BASIC_CODE_BLOCK || current_instructions_.empty());
   DCHECK(type == BasicBlock::BASIC_CODE_BLOCK || current_successors_.empty());
@@ -844,7 +861,8 @@ bool BasicBlockDecomposer::InsertBasicBlockRange(Offset offset,
   // block to carry the label(s).
   BlockGraph::Label label;
   std::string basic_block_name;
-  if (block_->GetLabel(offset, &label)) {
+  bool have_label = block_->GetLabel(offset, &label);
+  if (have_label) {
     basic_block_name = label.ToString();
   } else {
     basic_block_name =
@@ -864,6 +882,8 @@ bool BasicBlockDecomposer::InsertBasicBlockRange(Offset offset,
   }
 
   if (type == BasicBlock::BASIC_CODE_BLOCK) {
+    DCHECK_LT(0u, size);
+
     // Create the code block.
     BasicCodeBlock* code_block = subgraph_->AddBasicCodeBlock(basic_block_name);
     if (code_block == NULL)
@@ -874,8 +894,8 @@ bool BasicBlockDecomposer::InsertBasicBlockRange(Offset offset,
     code_block->set_offset(offset);
     code_block->instructions().swap(current_instructions_);
     code_block->successors().swap(current_successors_);
-  } else {
-    DCHECK(type == BasicBlock::BASIC_DATA_BLOCK);
+  } else if (type == BasicBlock::BASIC_DATA_BLOCK) {
+    DCHECK_LT(0u, size);
 
     // Create the data block.
     BasicDataBlock* data_block = subgraph_->AddBasicDataBlock(
@@ -892,7 +912,27 @@ bool BasicBlockDecomposer::InsertBasicBlockRange(Offset offset,
     // unreachable code (for example, INT3 or NOP instructions following a call
     // to a non-returning function).
     data_block->set_offset(offset);
-    data_block->set_label(label);
+    if (have_label)
+      data_block->set_label(label);
+  } else {
+    DCHECK_EQ(0u, size);
+    DCHECK_EQ(BasicBlock::BASIC_END_BLOCK, type);
+
+    // Create the end block.
+    BasicEndBlock* end_block = subgraph_->AddBasicEndBlock();
+    if (end_block == NULL)
+      return false;
+
+    // We insert the basic end block with a size of 1, as the address space
+    // does not support empty blocks. However, the block itself has no length.
+    // This is only for internal book-keeping, and does not affect the
+    // BasicBlockSubGraph representation.
+    CHECK(original_address_space_.Insert(Range(offset, 1), end_block));
+
+    // Set the offset and any labels.
+    end_block->set_offset(offset);
+    if (have_label)
+      end_block->set_label(label);
   }
 
   return true;

@@ -65,7 +65,7 @@ void CheckBlockIsAThunk(BlockGraph::Block* block) {
   BasicBlockDecomposer bb_decomposer(block, &subgraph);
   ASSERT_TRUE(bb_decomposer.Decompose());
 
-  ASSERT_EQ(1, subgraph.basic_blocks().size());
+  ASSERT_EQ(2u, subgraph.basic_blocks().size());
   const BasicCodeBlock* bb = BasicCodeBlock::Cast(
       *subgraph.basic_blocks().begin());
   ASSERT_TRUE(bb != NULL);
@@ -81,6 +81,9 @@ void CheckBlockIsAThunk(BlockGraph::Block* block) {
   // Instruction 2 should call the jump table counter hook.
   ++inst_iter;
   EXPECT_EQ(I_CALL, inst_iter->representation().opcode);
+
+  EXPECT_EQ(BasicBlock::BASIC_END_BLOCK,
+            (*subgraph.basic_blocks().rbegin())->type());
 }
 
 }  // namespace

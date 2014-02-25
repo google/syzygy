@@ -605,7 +605,7 @@ TEST_F(BlockBuilderTest, MergeAssemblesSourceRangesCorrectly) {
   ASSERT_EQ(expected_source_ranges, new_block->source_ranges());
 }
 
-TEST_F(BlockBuilderTest, LabelsPastEndAreDropped) {
+TEST_F(BlockBuilderTest, LabelsPastEndAreNotDropped) {
   ASSERT_NO_FATAL_FAILURE(InitBasicBlockSubGraphWithLabelPastEnd());
 
   BlockBuilder builder(&block_graph_);
@@ -614,14 +614,20 @@ TEST_F(BlockBuilderTest, LabelsPastEndAreDropped) {
   ASSERT_EQ(1u, builder.new_blocks().size());
 
   BlockGraph::Block* new_block = builder.new_blocks()[0];
-  ASSERT_EQ(1u, new_block->labels().size());
-  ASSERT_EQ(0, new_block->labels().begin()->first);
-  ASSERT_EQ(BlockGraph::CODE_LABEL | BlockGraph::DEBUG_START_LABEL,
-            new_block->labels().begin()->second.attributes());
+  ASSERT_EQ(2u, new_block->labels().size());
 
-  // TODO(chrisha): When we properly handle labels of this type, ensure that
-  //     they make it through the block building process. For now we simply
-  //     ensure that it *doesn't* exist.
+  BlockGraph::Block::LabelMap::const_iterator label_it =
+      new_block->labels().begin();
+
+  ASSERT_EQ(0, label_it->first);
+  ASSERT_EQ(BlockGraph::CODE_LABEL | BlockGraph::DEBUG_START_LABEL,
+            label_it->second.attributes());
+
+  ++label_it;
+  ASSERT_EQ(static_cast<BlockGraph::Offset>(new_block->size()),
+            label_it->first);
+  ASSERT_EQ(BlockGraph::DEBUG_END_LABEL,
+            label_it->second.attributes());
 }
 
 }  // namespace block_graph

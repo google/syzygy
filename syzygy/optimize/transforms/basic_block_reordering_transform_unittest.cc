@@ -238,7 +238,7 @@ void BasicBlockReorderingTransformTest::ApplyTransform(
 //   - rebuilds the block.
 //
 // The |bb_profiles| is an array of |bb_profiles_length| profiles which maps
-// one to one to the basic blocks in the decomposed basic block.
+// one to one to the basic code blocks in the decomposed basic block.
 // The parameter |block| receives the rebuilt block.
 void BasicBlockReorderingTransformTest::ApplyTransform(
     BlockGraph::Block** block,
@@ -251,7 +251,6 @@ void BasicBlockReorderingTransformTest::ApplyTransform(
 
   // Apply the requested basic block profiles.
   if (bb_profiles != NULL) {
-
     // Retrieve the original ordering of this subgraph.
     BasicBlockSubGraph::BlockDescriptionList& descriptions =
         subgraph.block_descriptions();
@@ -259,13 +258,14 @@ void BasicBlockReorderingTransformTest::ApplyTransform(
     BasicBlockSubGraph::BasicBlockOrdering& order =
         descriptions.begin()->basic_block_order;
 
-    DCHECK_EQ(subgraph.basic_blocks().size(), bb_profiles_length);
-    DCHECK_EQ(order.size(), bb_profiles_length);
+    // There's no profile for the trailing end-block.
+    DCHECK_EQ(subgraph.basic_blocks().size(), bb_profiles_length + 1);
+    DCHECK_EQ(order.size(), bb_profiles_length + 1);
 
     // Commit the basic block profiles in the subgraph profile.
     size_t i = 0;
     BasicBlockSubGraph::BasicBlockOrdering::iterator bb = order.begin();
-    for (; bb != order.end(); ++bb) {
+    for (; i < bb_profiles_length && bb != order.end(); ++i, ++bb) {
       BasicCodeBlock* code = BasicCodeBlock::Cast(*bb);
       DCHECK_NE(reinterpret_cast<BasicCodeBlock*>(NULL), code);
 
@@ -297,7 +297,6 @@ void BasicBlockReorderingTransformTest::ApplyTransform(
       }
 
       subgraph_profile_.basic_blocks_[code] = bb_profiles[i];
-      ++i;
     }
   }
 
@@ -375,8 +374,8 @@ TEST_F(BasicBlockReorderingTransformTest, CommitOrdering) {
   order.push_back(b2_);
 
   // Commit the requested order.
-  ASSERT_NO_FATAL_FAILURE(
-      TestBasicBlockReorderingTransform::CommitOrdering(order, &target));
+  ASSERT_NO_FATAL_FAILURE(TestBasicBlockReorderingTransform::CommitOrdering(
+      order, NULL, &target));
 
   EXPECT_EQ(5U, target.size());
   EXPECT_THAT(target, ElementsAre(b1_, b5_, b4_, b3_, b2_));

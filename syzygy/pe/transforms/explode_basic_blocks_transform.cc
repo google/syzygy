@@ -74,11 +74,18 @@ bool ExplodeBasicBlockSubGraphTransform::TransformBasicBlockSubGraph(
   // Remove any extant block descriptions.
   subgraph->block_descriptions().clear();
 
-  // Generate a new block description for each basic-block in the subgraph.
+  // Generate a new block description for each basic-block in the subgraph,
+  // skipping basic-end blocks.
   BasicBlockSubGraph::BBCollection::iterator it =
       subgraph->basic_blocks().begin();
   for (; it != subgraph->basic_blocks().end(); ++it) {
     BasicBlock* bb = *it;
+
+    // Skip end blocks. They don't have any actual content, so we can safely
+    // ignore them.
+    if (bb->type() == BasicBlock::BASIC_END_BLOCK)
+      continue;
+
     BlockGraph::BlockType type = BlockGraph::CODE_BLOCK;
     BlockGraph::BlockAttributes attributes = 0;
     GetTypeAndAttributes(subgraph->original_block(), *bb, &type, &attributes);
@@ -86,10 +93,11 @@ bool ExplodeBasicBlockSubGraphTransform::TransformBasicBlockSubGraph(
     if (exclude_padding_ && (attributes & BlockGraph::PADDING_BLOCK) != 0)
       continue;
 
-    if (type == BlockGraph::CODE_BLOCK)
+    if (type == BlockGraph::CODE_BLOCK) {
       ++output_code_blocks_;
-    else
+    } else {
       ++output_data_blocks_;
+    }
 
     BasicBlockSubGraph::BlockDescription* desc = subgraph->AddBlockDescription(
         bb->name(),

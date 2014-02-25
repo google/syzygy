@@ -24,6 +24,7 @@ namespace {
 
 using block_graph::BasicBlock;
 using block_graph::BasicCodeBlock;
+using block_graph::BasicEndBlock;
 using block_graph::BasicBlockSubGraph;
 using block_graph::Successor;
 using block_graph::analysis::ControlFlowAnalysis;
@@ -168,6 +169,7 @@ uint64 BasicBlockReorderingTransform::EvaluateCost(
 
 void BasicBlockReorderingTransform::CommitOrdering(
     const BasicBlockOrdering& order,
+    BasicEndBlock* basic_end_block,
     BasicBlockSubGraph::BasicBlockOrdering* target) {
   DCHECK_NE(reinterpret_cast<BasicBlockSubGraph::BasicBlockOrdering*>(NULL),
             target);
@@ -183,6 +185,9 @@ void BasicBlockReorderingTransform::CommitOrdering(
     CHECK(placed.insert(bb).second);
     target->push_back(bb);
   }
+
+  if (basic_end_block != NULL)
+    target->push_back(basic_end_block);
 
   CHECK_EQ(previous_size, target->size());
 }
@@ -212,8 +217,8 @@ bool BasicBlockReorderingTransform::TransformBasicBlockSubGraph(
   BasicBlockSubGraph::BBCollection::iterator bb_iter =
       subgraph->basic_blocks().begin();
   for (; bb_iter != subgraph->basic_blocks().end(); ++bb_iter) {
-    BasicCodeBlock* bb = BasicCodeBlock::Cast(*bb_iter);
-    if (bb == NULL)
+    BasicBlock* bb = *bb_iter;
+    if (bb->type() == BlockGraph::DATA_BLOCK)
       return true;
   }
 
@@ -225,11 +230,31 @@ bool BasicBlockReorderingTransform::TransformBasicBlockSubGraph(
 
   // Retrieve the original ordering of this subgraph.
   BasicBlockOrdering original_order;
+  BasicBlockSubGraph::BasicBlockOrdering end_blocks;
   BasicBlockSubGraph::BasicBlockOrdering& original_order_list =
       descriptions.begin()->basic_block_order;
   BasicBlockSubGraph::BasicBlockOrdering::const_iterator order_it =
       original_order_list.begin();
+  BasicEndBlock* end_block = NULL;
   for (; order_it != original_order_list.end(); ++order_it) {
+    // Keep track of the end block, if there is one.
+    if ((*order_it)->type() == BasicBlock::BASIC_END_BLOCK) {
+      BasicEndBlock* ebb = BasicEndBlock::Cast(*order_it);
+      DCHECK_NE(reinterpret_cast<BasicEndBlock*>(NULL), ebb);
+
+      // We currently only support a single 'end' block per BlockDescription,
+      // and it must be the last basic block. However, there is no reason for
+      // this to be the case. We may need support for the more general case when
+      // handling more complicated function inlining scenarios.
+      // TODO(chrisha): Add support for multiple arbitrarily placed end blocks.
+      if (end_block != NULL) {
+        LOG(ERROR) << "Encountered multiple end blocks.";
+        return false;
+      }
+      end_block = ebb;
+      continue;
+    }
+
     BasicCodeBlock* bb = BasicCodeBlock::Cast(*order_it);
     DCHECK_NE(reinterpret_cast<BasicCodeBlock*>(NULL), bb);
     original_order.push_back(bb);
@@ -250,7 +275,7 @@ bool BasicBlockReorderingTransform::TransformBasicBlockSubGraph(
 
     // If the new basic block layout is better than the previous one, commit it.
     if (flatten_cost < original_cost)
-      CommitOrdering(flatten_order, &original_order_list);
+      CommitOrdering(flatten_order, end_block, &original_order_list);
   }
 
   return true;

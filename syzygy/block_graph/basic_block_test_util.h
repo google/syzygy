@@ -72,10 +72,11 @@ class BasicBlockTest : public ::testing::Test {
   // The number and type of basic blocks.
   static const size_t kNumCodeBasicBlocks = 8;
   static const size_t kNumDataBasicBlocks = 2;
+  static const size_t kNumEndBasicBlocks = 1;
   static const size_t kNumCodePaddingBasicBlocks = 2;
   static const size_t kNumDataPaddingBasicBlocks = 0;
   static const size_t kNumBasicBlocks =
-      kNumCodeBasicBlocks + kNumDataBasicBlocks;
+      kNumCodeBasicBlocks + kNumDataBasicBlocks + kNumEndBasicBlocks;
 
   BasicBlockTest();
 
