@@ -15,6 +15,8 @@
 #include "syzygy/pe/coff_decomposer.h"
 
 #include "gtest/gtest.h"
+#include "syzygy/block_graph/basic_block_decomposer.h"
+#include "syzygy/block_graph/block_builder.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
@@ -248,6 +250,93 @@ TEST_F(CoffDecomposerTest, FunctionsAndLabels) {
             label_attr_counts[BlockGraph::JUMP_TABLE_LABEL]);
   EXPECT_EQ(kNumCaseLabelsInDllMain,
             label_attr_counts[BlockGraph::CASE_TABLE_LABEL]);
+}
+
+// NOTE: This test ensures that COFF parsed blocks interact well with the basic
+// block decomposer and the block builder. This is really a test of those two
+// pieces of code, but due to the necessity of first decomposing the COFF file
+// the tests can't reside in block_graph_unittests. Consider this more of an
+// integration test.
+TEST_F(CoffDecomposerTest, RoundTripBasicBlockTest) {
+  // Decompose the test image and look at the result.
+  CoffDecomposer decomposer(image_file_);
+  BlockGraph block_graph;
+  ImageLayout image_layout(&block_graph);
+  ASSERT_TRUE(decomposer.Decompose(&image_layout));
+
+  size_t last_block_id = block_graph.blocks().rbegin()->first;
+  BlockGraph::BlockMap::iterator block_it;
+  BlockGraph::BlockMap::iterator next_block_it =
+      block_graph.blocks_mutable().begin();
+  while (true) {
+    block_it = next_block_it;
+    if (block_it == block_graph.blocks_mutable().end())
+      break;
+    ++next_block_it;
+
+    BlockGraph::Block* old_block = &block_it->second;
+    if (old_block->type() != BlockGraph::CODE_BLOCK)
+      continue;
+
+    // We stop iterating when we've hit the rebuilt version of the first block.
+    // This works because the BlockGraph guarantees monotically increasing
+    // IDs, thus all rebuilt blocks will have IDs greater than all original
+    // blocks.
+    if (old_block->id() > last_block_id)
+      break;
+
+    // Decomposition should work.
+    block_graph::BasicBlockSubGraph bbsg;
+    block_graph::BasicBlockDecomposer bbdecomp(old_block, &bbsg);
+    ASSERT_TRUE(bbdecomp.Decompose());
+
+    size_t old_reference_count = old_block->references().size();
+    size_t old_referrer_count = old_block->referrers().size();
+    size_t old_label_count = old_block->labels().size();
+    size_t old_size = old_block->size();
+
+    // Grab a copy of the pertinent structures of the old block.
+    // This aids debugging.
+    BlockGraph::Block::ReferenceMap old_references =
+        old_block->references();
+    BlockGraph::Block::ReferrerSet old_referrers =
+        old_block->referrers();
+    BlockGraph::Block::LabelMap old_labels =
+        old_block->labels();
+
+    // Rebuilding a block should work.
+    block_graph::BlockBuilder builder(&block_graph);
+    ASSERT_TRUE(builder.Merge(&bbsg));
+    EXPECT_EQ(1u, builder.new_blocks().size());
+    BlockGraph::Block* new_block = builder.new_blocks()[0];
+
+    // Throw away any PC relative self-references. These aren't produced
+    // by the decomposer, but *are* produced by the block builder.
+    BlockGraph::Block::ReferenceMap::const_iterator ref_it;
+    BlockGraph::Block::ReferenceMap::const_iterator next_ref_it =
+        new_block->references().begin();
+    while (true) {
+      ref_it = next_ref_it;
+      if (ref_it == new_block->references().end())
+        break;
+      ++next_ref_it;
+
+      if (ref_it->second.type() == BlockGraph::PC_RELATIVE_REF &&
+          ref_it->second.referenced() == new_block) {
+        new_block->RemoveReference(ref_it->first);
+      }
+    }
+
+    size_t new_reference_count = new_block->references().size();
+    size_t new_referrer_count = new_block->referrers().size();
+    size_t new_label_count = new_block->labels().size();
+    size_t new_size = new_block->size();
+
+    EXPECT_EQ(old_reference_count, new_reference_count);
+    EXPECT_EQ(old_referrer_count, new_referrer_count);
+    EXPECT_EQ(old_label_count, new_label_count);
+    EXPECT_EQ(old_size, new_size);
+  }
 }
 
 }  // namespace pe

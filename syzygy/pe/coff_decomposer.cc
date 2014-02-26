@@ -832,7 +832,7 @@ bool CoffDecomposer::CreateLabelsFromSymbols() {
     // pointers, thus they coincide exactly with a reference. Case
     // tables are simple arrays of integer values, thus do not
     // coincide with a reference.
-    BlockGraph::LabelAttributes attrs = 0;
+    BlockGraph::LabelAttributes attrs = BlockGraph::DATA_LABEL;
     if (block->references().find(offset) != block->references().end()) {
       attrs |= BlockGraph::JUMP_TABLE_LABEL;
     } else {

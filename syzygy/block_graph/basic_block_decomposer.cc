@@ -290,7 +290,7 @@ bool BasicBlockDecomposer::FindBasicBlock(Offset offset,
   DCHECK(basic_block != NULL);
   DCHECK(range != NULL);
   DCHECK(subgraph_->original_block() != NULL);
-  DCHECK_GT(subgraph_->original_block()->size(), static_cast<size_t>(offset));
+  DCHECK_GE(subgraph_->original_block()->size(), static_cast<size_t>(offset));
 
   RangeMapConstIter bb_iter =
       original_address_space_.FindFirstIntersection(Range(offset, 1));
@@ -306,7 +306,7 @@ bool BasicBlockDecomposer::FindBasicBlock(Offset offset,
 BasicBlock* BasicBlockDecomposer::GetBasicBlockAt(Offset offset) const {
   DCHECK_LE(0, offset);
   DCHECK(subgraph_->original_block() != NULL);
-  DCHECK_GT(subgraph_->original_block()->size(), static_cast<size_t>(offset));
+  DCHECK_GE(subgraph_->original_block()->size(), static_cast<size_t>(offset));
 
   BasicBlock* bb = NULL;
   Range range;
@@ -331,7 +331,7 @@ void BasicBlockDecomposer::InitJumpTargets(Offset code_end_offset) {
     DCHECK(found);
     DCHECK_EQ(block_, ref.referenced());
     DCHECK_LE(0, ref.base());
-    DCHECK_LT(static_cast<size_t>(ref.base()), block_->size());
+    DCHECK_LE(static_cast<size_t>(ref.base()), block_->size());
 
     // Ignore references to the data portion of the block.
     if (ref.base() >= code_end_offset)

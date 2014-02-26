@@ -1021,7 +1021,6 @@ void MergeContext::UpdateReferrers(const BasicBlock* bb) const {
     BlockGraph::Reference old_ref;
     bool found = referring_block->GetReference(referrer.offset(), &old_ref);
     DCHECK(found);
-    DCHECK_EQ(BlockGraph::Reference::kMaximumSize, old_ref.size());
 
     // The base of the reference is directed to the corresponding BB's
     // start address in the new block.
