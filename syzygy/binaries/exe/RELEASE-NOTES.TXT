@@ -1,6 +1,14 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.9.0
+
+[r2029] Add --no-logo flag to Syzygy tool command line parsing to allow for
+        fully silent execution.
+[r2025] SyzyASan - Add a checksum to ASan's blocks and use it to prevent heap
+        corruption.
+[r2023] Add dumping of MSToolEnv to pdb_dumper.
+
 Version 0.7.8.0
 
 [r2012] Now officially building with VS2013.
