@@ -132,6 +132,7 @@
         '<(src)/syzygy/pdb/pdb.gyp:pdb_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:test_dll',
+        '<(src)/syzygy/pe/pe.gyp:test_dll_obj',
       ],
     },
   ],

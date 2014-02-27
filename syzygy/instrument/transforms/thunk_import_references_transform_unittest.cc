@@ -97,7 +97,7 @@ TEST_F(ThunkImportReferencesTransformTest, LookupImportLocations) {
   // This should enumerate all imports.
   ASSERT_TRUE(
       TestThunkImportReferencesTransform::LookupImportLocations(
-          ModuleNameSet(), dos_header_block_, &all_import_locations));
+          ModuleNameSet(), header_block_, &all_import_locations));
 
   // Check that we found all the functions imported from export_dll.dll.
   std::set<std::string> export_dll_imports;
@@ -122,7 +122,7 @@ TEST_F(ThunkImportReferencesTransformTest, LookupDelayImportLocations) {
   // This should enumerate all delay imports.
   ASSERT_TRUE(
       TestThunkImportReferencesTransform::LookupDelayImportLocations(
-          ModuleNameSet(), dos_header_block_, &all_import_locations));
+          ModuleNameSet(), header_block_, &all_import_locations));
 
   // There should be precisely one ole32.dll import.
   ASSERT_EQ(1, all_import_locations.size());
@@ -160,7 +160,7 @@ TEST_F(ThunkImportReferencesTransformTest, TestInstrumentation) {
 
   // Run the transform.
   ASSERT_TRUE(ApplyBlockGraphTransform(
-      &transform, &policy_, &block_graph_, dos_header_block_));
+      &transform, policy_, &block_graph_, header_block_));
 
   // Check that we now have a thunks section.
   BlockGraph::Section* thunks_section =
@@ -175,9 +175,9 @@ TEST_F(ThunkImportReferencesTransformTest, TestInstrumentation) {
   // kernel32.dll imports, and that only thunks reference other imports.
   ImportAddressLocationNameMap all_import_locations;
   ASSERT_TRUE(TestThunkImportReferencesTransform::LookupImportLocations(
-      ModuleNameSet(), dos_header_block_, &all_import_locations));
+      ModuleNameSet(), header_block_, &all_import_locations));
   ASSERT_TRUE(TestThunkImportReferencesTransform::LookupDelayImportLocations(
-      ModuleNameSet(), dos_header_block_, &all_import_locations));
+      ModuleNameSet(), header_block_, &all_import_locations));
 
   // Retrieve the import blocks.
   BlockSet import_blocks;

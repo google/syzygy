@@ -19,6 +19,7 @@
 
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/coff_transform_policy.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_transform_policy.h"
 #include "syzygy/pe/unittest_util.h"
@@ -30,21 +31,32 @@ class TestDllTransformTest : public testing::PELibUnitTest {
  public:
   TestDllTransformTest();
 
-  // Decomposes the test_dll into block_graph_ and sets dos_header_block_.
-  // Typically, you would call inside an ASSERT_NO_FATAL_FAILURE clause.
+  // Decomposes the test_dll.dll into block_graph_, sets header_block_ and
+  // policy_. Typically, you would call inside an ASSERT_NO_FATAL_FAILURE
+  // clause.
   void DecomposeTestDll();
 
-  // The policy object restricting how the transform is applied.
-  pe::PETransformPolicy policy_;
+  // Decomposes the test_dll,obj into block_graph_, sets header_block_ and
+  // policy_. Typically, you would call inside an ASSERT_NO_FATAL_FAILURE
+  // clause.
+  void DecomposeTestDllObj();
+
+  // The policy objects restricting how the transform is applied.
+  pe::PETransformPolicy pe_policy_;
+  pe::CoffTransformPolicy coff_policy_;
+  block_graph::TransformPolicyInterface *policy_;
 
   // The PEFile instance referring to test_dll.
   pe::PEFile pe_file_;
 
-  // The block graph for test_dll.
+  // The CoffFile instance referring to test_dll.obj.
+  pe::CoffFile coff_file_;
+
+  // The block graph for test_dll.dll or test_dll.obj.
   block_graph::BlockGraph block_graph_;
 
-  // The DOS header block for test_dll.
-  block_graph::BlockGraph::Block* dos_header_block_;
+  // The header block for test_dll.dll or test_dll.obj.
+  block_graph::BlockGraph::Block* header_block_;
 };
 
 }  // namespace testing

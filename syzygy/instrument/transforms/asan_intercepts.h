@@ -85,9 +85,10 @@ extern const AsanIntercept kAsanIntercepts[];
 extern const char kUndecoratedAsanInterceptPrefix[];
 extern const char kDecoratedAsanInterceptPrefix[];
 
-// The prefix that is applied to symbols that represent an indirect (via
-// dynamic import) reference to a function.
-extern const char kImportPrefix[];
+// The prefix that is applied to decorated symbol names that represent an
+// indirect (via dynamic import) reference to a function. The .lib file
+// associated with a DLL takes care of defining these.
+extern const char kDecoratedImportPrefix[];
 
 }  // namespace transforms
 }  // namespace instrument

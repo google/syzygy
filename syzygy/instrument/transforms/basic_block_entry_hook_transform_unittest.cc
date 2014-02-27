@@ -96,7 +96,7 @@ void BasicBlockEntryHookTransformTest::CheckBasicBlockInstrumentation(
 
     // Blocks which are not bb-decomposable should be thunked. While there may
     // be some internal referrers, the only external referrers should be thunks.
-    if (!policy_.BlockIsSafeToBasicBlockDecompose(&block)) {
+    if (!policy_->BlockIsSafeToBasicBlockDecompose(&block)) {
       size_t num_external_thunks = 0;
       BlockGraph::Block::ReferrerSet::const_iterator ref_iter =
           block.referrers().begin();
@@ -198,7 +198,7 @@ TEST_F(BasicBlockEntryHookTransformTest, ApplyAgentInstrumentation) {
   // Apply the transform.
   tx_.set_src_ranges_for_thunks(true);
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &tx_, &policy_, &block_graph_, dos_header_block_));
+      &tx_, policy_, &block_graph_, header_block_));
   ASSERT_TRUE(tx_.frequency_data_block() != NULL);
   ASSERT_TRUE(tx_.thunk_section_ != NULL);
   ASSERT_TRUE(tx_.bb_entry_hook_ref_.IsValid());

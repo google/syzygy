@@ -102,7 +102,7 @@ void BranchHookTransformTest::CheckBasicBlockInstrumentation() {
       continue;
 
     // Skip non-decomposable blocks.
-    if (!policy_.BlockIsSafeToBasicBlockDecompose(&block))
+    if (!policy_->BlockIsSafeToBasicBlockDecompose(&block))
       continue;
 
     // Decompose the block to basic-blocks.
@@ -222,7 +222,7 @@ TEST_F(BranchHookTransformTest, ApplyAgentInstrumentation) {
 
   // Apply the transform.
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &tx_, &policy_, &block_graph_, dos_header_block_));
+      &tx_, policy_, &block_graph_, header_block_));
   ASSERT_TRUE(tx_.frequency_data_block() != NULL);
   ASSERT_TRUE(tx_.enter_hook_ref_.IsValid());
   ASSERT_TRUE(tx_.exit_hook_ref_.IsValid());
@@ -261,7 +261,7 @@ TEST_F(BranchHookTransformTest, ApplyBufferedAgentInstrumentation) {
 
   // Apply the transform.
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &tx_, &policy_, &block_graph_, dos_header_block_));
+      &tx_, policy_, &block_graph_, header_block_));
   ASSERT_FALSE(tx_.function_enter_hook_ref_.IsValid());
   ASSERT_TRUE(tx_.enter_hook_ref_.IsValid());
 
@@ -280,7 +280,7 @@ TEST_F(BranchHookTransformTest, ApplySlotAgentInstrumentation) {
 
   // Apply the transform.
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &tx_, &policy_, &block_graph_, dos_header_block_));
+      &tx_, policy_, &block_graph_, header_block_));
   ASSERT_TRUE(tx_.function_enter_hook_ref_.IsValid());
   ASSERT_TRUE(tx_.enter_hook_ref_.IsValid());
 
@@ -299,7 +299,7 @@ TEST_F(BranchHookTransformTest, ApplySlotBufferedAgentInstrumentation) {
 
   // Apply the transform.
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &tx_, &policy_, &block_graph_, dos_header_block_));
+      &tx_, policy_, &block_graph_, header_block_));
   ASSERT_TRUE(tx_.function_enter_hook_ref_.IsValid());
   ASSERT_TRUE(tx_.enter_hook_ref_.IsValid());
 

@@ -46,7 +46,7 @@ class CoverageInstrumentationTransformTest
 TEST_F(CoverageInstrumentationTransformTest, Apply) {
   CoverageInstrumentationTransform tx;
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &tx, &policy_, &block_graph_, dos_header_block_));
+      &tx, policy_, &block_graph_, header_block_));
 
   BlockGraph::Block* frequency_data_block = tx.frequency_data_block();
 

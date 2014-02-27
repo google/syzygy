@@ -28,6 +28,9 @@
 #include "syzygy/common/defs.h"
 #include "syzygy/instrument/transforms/asan_intercepts.h"
 #include "syzygy/pe/pe_utils.h"
+#include "syzygy/pe/transforms/coff_add_imports_transform.h"
+#include "syzygy/pe/transforms/coff_rename_symbols_transform.h"
+#include "syzygy/pe/transforms/pe_add_imports_transform.h"
 #include "third_party/distorm/files/include/mnemonics.h"
 #include "third_party/distorm/files/src/x86defs.h"
 
@@ -52,6 +55,8 @@ using block_graph::Value;
 using block_graph::analysis::LivenessAnalysis;
 using block_graph::analysis::MemoryAccessAnalysis;
 using core::Register32;
+using pe::transforms::CoffAddImportsTransform;
+using pe::transforms::ImportedModule;
 using pe::transforms::PEAddImportsTransform;
 
 // A simple struct that can be used to let us access strings using TypedBlock.
@@ -59,7 +64,6 @@ struct StringStruct {
   const char string[1];
 };
 
-typedef pe::transforms::ImportedModule ImportedModule;
 typedef AsanBasicBlockTransform::MemoryAccessMode AsanMemoryAccessMode;
 typedef AsanBasicBlockTransform::AsanHookMap HookMap;
 typedef std::vector<AsanBasicBlockTransform::AsanHookMapEntryKey>
@@ -268,21 +272,33 @@ void InjectAsanHook(BasicBlockAssembler* bb_asm,
                     const AsanBasicBlockTransform::MemoryAccessInfo& info,
                     const Operand& op,
                     BlockGraph::Reference* hook,
-                    const LivenessAnalysis::State& state) {
+                    const LivenessAnalysis::State& state,
+                    BlockGraph::ImageFormat image_format) {
   DCHECK(hook != NULL);
 
   // Determine which kind of probe to inject.
+  //   - The standard load/store probe assume the address is in EDX.
+  //     It restore the original version of EDX and cleanup the stack.
+  //   - The special instruction probe take addresses directly in registers.
+  //     The probe doesn't have any effects on stack, registers and flags.
   if (info.mode == AsanBasicBlockTransform::kReadAccess ||
       info.mode == AsanBasicBlockTransform::kWriteAccess) {
-    // The standard load/store probe assume the address is in EDX.
-    // It restore the original version of EDX and cleanup the stack.
+    // Load/store probe.
     bb_asm->push(core::edx);
     bb_asm->lea(core::edx, op);
-    bb_asm->call(Operand(Displacement(hook->referenced(), hook->offset())));
+  }
+
+  // Call the hook.
+  Displacement displ(hook->referenced(), hook->offset());
+  if (image_format == BlockGraph::PE_IMAGE) {
+    // In PE images the hooks are brought in as imports, so they are indirect
+    // references.
+    bb_asm->call(Operand(displ));
   } else {
-    // The special instruction probe take addresses directly in registers.
-    // The probe doesn't have any effects on stack, registers and flags.
-    bb_asm->call(Operand(Displacement(hook->referenced(), hook->offset())));
+    DCHECK_EQ(BlockGraph::COFF_IMAGE, image_format);
+    // In COFF images the hooks are brought in as symbols, so they are direct
+    // references.
+    bb_asm->call(displ);
   }
 }
 
@@ -290,7 +306,8 @@ void InjectAsanHook(BasicBlockAssembler* bb_asm,
 // @param info The memory access information, e.g. the size on a load/store,
 //     the instruction opcode and the kind of access.
 std::string GetAsanCheckAccessFunctionName(
-    AsanBasicBlockTransform::MemoryAccessInfo info) {
+    AsanBasicBlockTransform::MemoryAccessInfo info,
+    BlockGraph::ImageFormat image_format) {
   DCHECK(info.mode != AsanBasicBlockTransform::kNoAccess);
   DCHECK_NE(0U, info.size);
   DCHECK(info.mode == AsanBasicBlockTransform::kReadAccess ||
@@ -313,14 +330,48 @@ std::string GetAsanCheckAccessFunctionName(
   else
     access_mode_str = reinterpret_cast<char*>(GET_MNEMONIC_NAME(info.opcode));
 
+  // For COFF images we use the decorated function name, which contains a
+  // leading underscore.
   std::string function_name =
-      base::StringPrintf("asan_check%s_%d_byte_%s_access%s",
-                          rep_str,
-                          info.size,
-                          access_mode_str,
-                          info.save_flags ? "" : "_no_flags");
+      base::StringPrintf("%sasan_check%s_%d_byte_%s_access%s",
+                         image_format == BlockGraph::PE_IMAGE ? "" : "_",
+                         rep_str,
+                         info.size,
+                         access_mode_str,
+                         info.save_flags ? "" : "_no_flags");
   StringToLowerASCII(&function_name);
   return function_name;
+}
+
+// Add imports from the specified module to the block graph, altering the
+// contents of its header/special blocks.
+// @param policy the policy object restricting how the transform is applied.
+// @param block_graph the block graph to modify.
+// @param header_block the header block of @p block_graph.
+// @param module the module to import, with its symbols.
+// @returns true on success, or false on failure.
+bool AddImportsFromModule(const TransformPolicyInterface* policy,
+                          BlockGraph* block_graph,
+                          BlockGraph::Block* header_block,
+                          ImportedModule* module) {
+  if (block_graph->image_format() == BlockGraph::PE_IMAGE) {
+    PEAddImportsTransform transform;
+    transform.AddModule(module);
+    if (!ApplyBlockGraphTransform(&transform, policy,
+                                  block_graph, header_block)) {
+      return false;
+    }
+  } else {
+    DCHECK_EQ(BlockGraph::COFF_IMAGE, block_graph->image_format());
+    CoffAddImportsTransform transform;
+    transform.AddModule(module);
+    if (!ApplyBlockGraphTransform(&transform, policy,
+                                  block_graph, header_block)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 // Add the imports for the asan check access hooks to the block-graph.
@@ -348,29 +399,25 @@ bool AddAsanCheckAccessHooks(
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
-  // Add the hooks to the import module.
-
   typedef std::map<AsanBasicBlockTransform::AsanHookMapEntryKey, size_t>
       HooksParamsToIdxMap;
   HooksParamsToIdxMap hooks_params_to_idx;
 
+  // Add the hooks to the import module.
   AccessHookParamVector::const_iterator iter_params = hook_param_vector.begin();
   for (; iter_params != hook_param_vector.end(); ++iter_params) {
     size_t symbol_idx = import_module->AddSymbol(
-        GetAsanCheckAccessFunctionName(*iter_params),
+        GetAsanCheckAccessFunctionName(*iter_params,
+                                       block_graph->image_format()),
         ImportedModule::kAlwaysImport);
     hooks_params_to_idx[*iter_params] = symbol_idx;
   }
 
   DCHECK_EQ(hooks_params_to_idx.size(), hook_param_vector.size());
 
-  // Transforms the block-graph.
-
-  PEAddImportsTransform add_imports_transform;
-  add_imports_transform.AddModule(import_module);
-
-  if (!add_imports_transform.TransformBlockGraph(
-          policy, block_graph, header_block)) {
+  // Add the imports. This takes care of invoking the appropriate format
+  // specific transform.
+  if (!AddImportsFromModule(policy, block_graph, header_block, import_module)) {
     LOG(ERROR) << "Unable to add imports for Asan instrumentation DLL.";
     return false;
   }
@@ -387,25 +434,31 @@ bool AddAsanCheckAccessHooks(
     HookMap& hook_map = *check_access_hook_map;
     hook_map[iter_hooks->first] = import_reference;
 
-    // In a Chrome sandboxed process the NtMapViewOfSection function is
-    // intercepted by the sandbox agent. This causes execution in the executable
-    // before imports have been resolved, as the ntdll patch invokes into the
-    // executable while resolving imports. As the Asan instrumentation directly
-    // refers to the IAT entries we need to temporarily stub these function
-    // until the Asan imports are resolved. To do this we need to make the IAT
-    // entries for those functions point to a temporarily block and we need to
-    // mark the image import descriptor for this DLL as bound.
-    AsanBasicBlockTransform::AsanDefaultHookMap::const_iterator stub_reference =
-        default_stub_map.find(iter_hooks->first.mode);
-    if (stub_reference == default_stub_map.end()) {
-       LOG(ERROR) << "Could not find the default hook for "
-                  << GetAsanCheckAccessFunctionName(iter_hooks->first)
-                  << ".";
-      return false;
-    }
+    // We only need dummy implementation stubs for PE images, as the hooks are
+    // imported. COFF instrumented images contain the hooks directly.
+    if (block_graph->image_format() == BlockGraph::PE_IMAGE) {
+      // In a Chrome sandboxed process the NtMapViewOfSection function is
+      // intercepted by the sandbox agent. This causes execution in the
+      // executable before imports have been resolved, as the ntdll patch
+      // invokes into the executable while resolving imports. As the Asan
+      // instrumentation directly refers to the IAT entries we need to
+      // temporarily stub these function until the Asan imports are resolved. To
+      // do this we need to make the IAT entries for those functions point to a
+      // temporarily block and we need to mark the image import descriptor for
+      // this DLL as bound.
+      AsanBasicBlockTransform::AsanDefaultHookMap::const_iterator
+          stub_reference = default_stub_map.find(iter_hooks->first.mode);
+      if (stub_reference == default_stub_map.end()) {
+         LOG(ERROR) << "Could not find the default hook for "
+                    << GetAsanCheckAccessFunctionName(iter_hooks->first,
+                                                      BlockGraph::PE_IMAGE)
+                    << ".";
+        return false;
+      }
 
-    import_reference.referenced()->SetReference(import_reference.offset(),
-                                                stub_reference->second);
+      import_reference.referenced()->SetReference(import_reference.offset(),
+                                                  stub_reference->second);
+    }
   }
 
   return true;
@@ -714,7 +767,9 @@ const char AsanBasicBlockTransform::kTransformName[] =
     "SyzyAsanBasicBlockTransform";
 
 bool AsanBasicBlockTransform::InstrumentBasicBlock(
-    BasicCodeBlock* basic_block, StackAccessMode stack_mode) {
+    BasicCodeBlock* basic_block,
+    StackAccessMode stack_mode,
+    BlockGraph::ImageFormat image_format) {
   DCHECK(basic_block != NULL);
 
   // Pre-compute liveness information for each instruction.
@@ -843,12 +898,13 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
     // Insert hook for standard instructions.
     AsanHookMap::iterator hook = check_access_hooks_->find(info);
     if (hook == check_access_hooks_->end()) {
-      LOG(ERROR) << "Invalid access : " << GetAsanCheckAccessFunctionName(info);
+      LOG(ERROR) << "Invalid access : "
+                 << GetAsanCheckAccessFunctionName(info, image_format);
       return false;
     }
 
     // Instrument this instruction.
-    InjectAsanHook(&bb_asm, info, operand, &hook->second, state);
+    InjectAsanHook(&bb_asm, info, operand, &hook->second, state, image_format);
   }
 
   DCHECK(iter_state == states.end());
@@ -883,8 +939,10 @@ bool AsanBasicBlockTransform::TransformBasicBlockSubGraph(
       subgraph->basic_blocks().begin();
   for (; it != subgraph->basic_blocks().end(); ++it) {
     BasicCodeBlock* bb = BasicCodeBlock::Cast(*it);
-    if (bb != NULL && !InstrumentBasicBlock(bb, stack_mode))
+    if (bb != NULL &&
+        !InstrumentBasicBlock(bb, stack_mode, block_graph->image_format())) {
       return false;
+    }
   }
   return true;
 }
@@ -911,7 +969,8 @@ bool AsanTransform::PreBlockGraphIteration(
   DCHECK_NE(reinterpret_cast<TransformPolicyInterface*>(NULL), policy);
   DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), header_block);
-  DCHECK_EQ(BlockGraph::PE_IMAGE, block_graph->image_format());
+  DCHECK(block_graph->image_format() == BlockGraph::PE_IMAGE ||
+         block_graph->image_format() == BlockGraph::COFF_IMAGE);
 
   // Ensure that this image has not already been instrumented.
   if (block_graph->FindSection(common::kThunkSectionName)) {
@@ -922,28 +981,32 @@ bool AsanTransform::PreBlockGraphIteration(
   AccessHookParamVector access_hook_param_vec;
   AsanBasicBlockTransform::AsanDefaultHookMap default_stub_map;
 
-  // Create the hook stub for read/write instructions.
-  BlockGraph::Reference read_write_hook;
-  if (!CreateHooksStub(block_graph, kAsanHookStubName,
-                       AsanBasicBlockTransform::kReadAccess,
-                       &read_write_hook)) {
-    return false;
-  }
+  // We only need to add stubs for PE images. COFF images use direct references,
+  // and the linker takes care of dragging in the appropriate code for us.
+  if (block_graph->image_format() == BlockGraph::PE_IMAGE) {
+    // Create the hook stub for read/write instructions.
+    BlockGraph::Reference read_write_hook;
+    if (!CreateHooksStub(block_graph, kAsanHookStubName,
+                         AsanBasicBlockTransform::kReadAccess,
+                         &read_write_hook)) {
+      return false;
+    }
 
-  // Create the hook stub for strings instructions.
-  BlockGraph::Reference instr_hook;
-  if (!CreateHooksStub(block_graph, kAsanHookStubName,
-                       AsanBasicBlockTransform::kInstrAccess,
-                       &instr_hook)) {
-    return false;
-  }
+    // Create the hook stub for strings instructions.
+    BlockGraph::Reference instr_hook;
+    if (!CreateHooksStub(block_graph, kAsanHookStubName,
+                         AsanBasicBlockTransform::kInstrAccess,
+                         &instr_hook)) {
+      return false;
+    }
 
-  // Map each memory access kind to an appropriate stub.
-  default_stub_map[AsanBasicBlockTransform::kReadAccess] = read_write_hook;
-  default_stub_map[AsanBasicBlockTransform::kWriteAccess] = read_write_hook;
-  default_stub_map[AsanBasicBlockTransform::kInstrAccess] = instr_hook;
-  default_stub_map[AsanBasicBlockTransform::kRepzAccess] = instr_hook;
-  default_stub_map[AsanBasicBlockTransform::kRepnzAccess] = instr_hook;
+    // Map each memory access kind to an appropriate stub.
+    default_stub_map[AsanBasicBlockTransform::kReadAccess] = read_write_hook;
+    default_stub_map[AsanBasicBlockTransform::kWriteAccess] = read_write_hook;
+    default_stub_map[AsanBasicBlockTransform::kInstrAccess] = instr_hook;
+    default_stub_map[AsanBasicBlockTransform::kRepzAccess] = instr_hook;
+    default_stub_map[AsanBasicBlockTransform::kRepnzAccess] = instr_hook;
+  }
 
   // Add an import entry for the ASAN runtime.
   ImportedModule import_module(asan_dll_name_, kDateInThePast);
@@ -1053,9 +1116,18 @@ bool AsanTransform::PostBlockGraphIteration(
   DCHECK(block_graph != NULL);
   DCHECK(header_block != NULL);
 
-  // For now, we only support PE files.
-  if (!PeInterceptFunctions(kAsanIntercepts, policy, block_graph, header_block))
-    return false;
+  if (block_graph->image_format() == BlockGraph::PE_IMAGE) {
+    if (!PeInterceptFunctions(kAsanIntercepts, policy, block_graph,
+                              header_block)) {
+      return false;
+    }
+  } else {
+    DCHECK_EQ(BlockGraph::COFF_IMAGE, block_graph->image_format());
+    if (!CoffInterceptFunctions(kAsanIntercepts, policy, block_graph,
+                                header_block)) {
+      return false;
+    }
+  }
 
   return true;
 }
@@ -1065,9 +1137,10 @@ bool AsanTransform::PeInterceptFunctions(
     const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BlockGraph::Block* header_block) {
-  DCHECK(policy != NULL);
-  DCHECK(block_graph != NULL);
-  DCHECK(header_block != NULL);
+  DCHECK_NE(reinterpret_cast<AsanIntercept*>(NULL), intercepts);
+  DCHECK_NE(reinterpret_cast<TransformPolicyInterface*>(NULL), policy);
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), header_block);
   DCHECK_EQ(BlockGraph::PE_IMAGE, block_graph->image_format());
 
   // This is used to keep track of the index of imports to the ASAN RTL.
@@ -1141,6 +1214,59 @@ bool AsanTransform::PeInterceptFunctions(
 
   // Finally, redirect all references to intercepted functions.
   pe::RedirectReferences(reference_redirect_map);
+
+  return true;
+}
+
+bool AsanTransform::CoffInterceptFunctions(
+    const AsanIntercept* intercepts,
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* header_block) {
+  DCHECK_NE(reinterpret_cast<AsanIntercept*>(NULL), intercepts);
+  DCHECK_NE(reinterpret_cast<TransformPolicyInterface*>(NULL), policy);
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), header_block);
+
+  // Populate a COFF symbol rename transform for each function to be
+  // intercepted. We simply try to rename all possible symbols that may exist
+  // and allow the transform to ignore any that aren't present.
+  pe::transforms::CoffRenameSymbolsTransform rename_tx;
+  rename_tx.set_symbols_must_exist(false);
+  const AsanIntercept* intercept = intercepts;
+  for (; intercept->undecorated_name != NULL; ++intercept) {
+    // Skip disabled optional functions.
+    if (!use_interceptors_ && intercept->optional)
+      continue;
+
+    DCHECK_NE(reinterpret_cast<const char*>(NULL), intercept->decorated_name);
+
+    // Build the name of the imported version of this symbol.
+    std::string imp_name(kDecoratedImportPrefix);
+    imp_name += intercept->decorated_name;
+
+    // Build the name of the ASAN instrumented version of this symbol.
+    std::string asan_name(kDecoratedAsanInterceptPrefix);
+    asan_name += intercept->decorated_name;
+
+    // Build the name of the ASAN instrumented imported version of this symbol.
+    std::string imp_asan_name(kDecoratedImportPrefix);
+    imp_asan_name += asan_name;
+
+    // Build symbol rename mappings for the direct and indirect versions of the
+    // function.
+    rename_tx.AddSymbolMapping(intercept->decorated_name, asan_name);
+    rename_tx.AddSymbolMapping(imp_name, imp_asan_name);
+  }
+
+  // Apply the rename transform.
+  if (!block_graph::ApplyBlockGraphTransform(&rename_tx,
+                                             policy,
+                                             block_graph,
+                                             header_block)) {
+    LOG(ERROR) << "Failed to apply COFF symbol rename transform.";
+    return false;
+  }
 
   return true;
 }

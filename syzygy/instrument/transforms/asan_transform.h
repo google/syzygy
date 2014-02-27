@@ -31,7 +31,6 @@
 #include "syzygy/block_graph/transforms/named_transform.h"
 #include "syzygy/instrument/transforms/asan_interceptor_filter.h"
 #include "syzygy/instrument/transforms/asan_intercepts.h"
-#include "syzygy/pe/transforms/pe_add_imports_transform.h"
 
 namespace instrument {
 namespace transforms {
@@ -75,9 +74,9 @@ class AsanBasicBlockTransform
   typedef std::map<MemoryAccessMode, BlockGraph::Reference> AsanDefaultHookMap;
 
   // Constructor.
-  // @param hooks_read_access a reference to the read access check import entry.
-  // @param hooks_write_access a reference to the write access check import
-  //     entry.
+  // @param check_access_hooks References to the various check access functions.
+  //     The hooks are assumed to be direct references for COFF images, and
+  //     indirect references for PE images.
   explicit AsanBasicBlockTransform(AsanHookMap* check_access_hooks) :
       check_access_hooks_(check_access_hooks),
       debug_friendly_(false),
@@ -120,9 +119,12 @@ class AsanBasicBlockTransform
   //     standard calling convention, unless specified by this parameter.
   //     (note: Unsafe blocks may be produced with the compiler flag
   //     frame-pointer-omission).
+  // @param image_format The format of the image being instrumented. The details
+  //     of how we invoke the hooks vary depending on this.
   // @returns true on success, false otherwise.
   bool InstrumentBasicBlock(block_graph::BasicCodeBlock* basic_block,
-                            StackAccessMode stack_mode);
+                            StackAccessMode stack_mode,
+                            BlockGraph::ImageFormat image_format);
 
  private:
   // Liveness analysis and liveness information for this subgraph.
@@ -220,6 +222,17 @@ class AsanTransform
                             const TransformPolicyInterface* policy,
                             BlockGraph* block_graph,
                             BlockGraph::Block* header_block);
+  // @}
+
+  // @name COFF-specific methods.
+  // @{
+  // Invoked when instrumenting a COFF image. Intercepts all relevant functions
+  // via symbol renaming, redirecting to ASAN instrumented versions. The
+  // intercepts to be used are exposed for unittesting.
+  bool CoffInterceptFunctions(const AsanIntercept* intercepts,
+                              const TransformPolicyInterface* policy,
+                              BlockGraph* block_graph,
+                              BlockGraph::Block* header_block);
   // @}
 
   // Name of the asan_rtl DLL we import. Defaults to "syzyasan_rtl.dll".

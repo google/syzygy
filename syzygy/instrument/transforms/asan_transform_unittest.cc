@@ -24,12 +24,17 @@
 #include "base/stringprintf.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/win/pe_image.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/block_hash.h"
+#include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/instrument/transforms/asan_intercepts.h"
 #include "syzygy/instrument/transforms/unittest_util.h"
+#include "syzygy/pe/coff_relinker.h"
+#include "syzygy/pe/coff_utils.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_relinker.h"
@@ -50,6 +55,7 @@ using block_graph::BlockGraph;
 using block_graph::Instruction;
 using block_graph::RelativeAddressFilter;
 using core::RelativeAddress;
+using testing::ContainerEq;
 typedef AsanBasicBlockTransform::MemoryAccessMode AsanMemoryAccessMode;
 typedef AsanBasicBlockTransform::AsanHookMap HookMap;
 typedef AsanBasicBlockTransform::AsanHookMapEntryKey HookMapEntryKey;
@@ -74,6 +80,7 @@ class TestAsanTransform : public AsanTransform {
  public:
   using AsanTransform::use_interceptors_;
   using AsanTransform::use_liveness_analysis_;
+  using AsanTransform::CoffInterceptFunctions;
   using AsanTransform::PeInterceptFunctions;
 };
 
@@ -92,11 +99,11 @@ class AsanTransformTest : public testing::TestDllTransformTest {
 
     base::FilePath temp_dir;
     CreateTemporaryDir(&temp_dir);
-    relinked_test_dll_ = temp_dir.Append(testing::kTestDllName);
+    relinked_path_ = temp_dir.Append(testing::kTestDllName);
 
-    pe::PERelinker relinker(&policy_);
+    pe::PERelinker relinker(&pe_policy_);
     relinker.set_input_path(input_path);
-    relinker.set_output_path(relinked_test_dll_);
+    relinker.set_output_path(relinked_path_);
 
     asan_transform_.use_interceptors_ = true;
     asan_transform_.use_liveness_analysis_ = true;
@@ -216,7 +223,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
   BasicBlockSubGraph subgraph_;
   BasicCodeBlock* basic_block_;
   scoped_ptr<block_graph::BasicBlockAssembler> bb_asm_;
-  base::FilePath relinked_test_dll_;
+  base::FilePath relinked_path_;
 };
 
 const BasicBlock::Size AsanTransformTest::kDataSize = 32;
@@ -267,20 +274,23 @@ TEST_F(AsanTransformTest, SetRemoveRedundantChecksFlag) {
   EXPECT_FALSE(bb_transform.remove_redundant_checks());
 }
 
-TEST_F(AsanTransformTest, ApplyAsanTransform) {
+TEST_F(AsanTransformTest, ApplyAsanTransformPE) {
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
 
   asan_transform_.use_interceptors_ = true;
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &asan_transform_, &policy_, &block_graph_, dos_header_block_));
-
-  // TODO(sebmarchand): Ensure that each memory access is instrumented by
-  // decomposing each block of the new block-graph into basic blocks and walk
-  // through their instructions. For now it's not possible due to an issue with
-  // the labels in the new block-graph.
+      &asan_transform_, policy_, &block_graph_, header_block_));
 }
 
-TEST_F(AsanTransformTest, InjectAsanHooks) {
+TEST_F(AsanTransformTest, ApplyAsanTransformCoff) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDllObj());
+
+  asan_transform_.use_interceptors_ = true;
+  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &asan_transform_, policy_, &block_graph_, header_block_));
+}
+
+TEST_F(AsanTransformTest, InjectAsanHooksPe) {
   // Add a read access to the memory.
   bb_asm_->mov(core::eax, block_graph::Operand(core::ebx));
   // Add a write access to the memory.
@@ -296,7 +306,9 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-      basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+      basic_block_,
+      AsanBasicBlockTransform::kSafeStackAccess,
+      BlockGraph::PE_IMAGE));
 
   // Ensure that the basic block is instrumented.
 
@@ -310,40 +322,41 @@ TEST_F(AsanTransformTest, InjectAsanHooks) {
       basic_block_->instructions().begin();
 
   Instruction::SourceRange empty_source_range;
-  ASSERT_TRUE(empty_source_range != source_range);
+  ASSERT_NE(empty_source_range, source_range);
 
   // First we check if the first memory access is instrumented as a 4 byte read
   // access. We also validate that the instrumentation has not had source range
   // information added.
   ASSERT_EQ(empty_source_range, iter_inst->source_range());
-  ASSERT_TRUE((iter_inst++)->representation().opcode == I_PUSH);
+  ASSERT_EQ(I_PUSH, (iter_inst++)->representation().opcode);
   ASSERT_EQ(empty_source_range, iter_inst->source_range());
-  ASSERT_TRUE((iter_inst++)->representation().opcode == I_LEA);
+  ASSERT_EQ(I_LEA, (iter_inst++)->representation().opcode);
   ASSERT_EQ(empty_source_range, iter_inst->source_range());
   ASSERT_EQ(iter_inst->references().size(), 1);
   HookMapEntryKey check_4_byte_read_key =
       { AsanBasicBlockTransform::kReadAccess, 4, 0, true };
-  ASSERT_TRUE(iter_inst->references().begin()->second.block()
-      == hooks_check_access_[check_4_byte_read_key]);
-  ASSERT_TRUE((iter_inst++)->representation().opcode == I_CALL);
-  ASSERT_TRUE((iter_inst++)->representation().opcode == I_MOV);
+  ASSERT_EQ(hooks_check_access_[check_4_byte_read_key],
+      iter_inst->references().begin()->second.block());
+  ASSERT_EQ(O_DISP, iter_inst->representation().ops[0].type);
+  ASSERT_EQ(I_CALL, (iter_inst++)->representation().opcode);
+  ASSERT_EQ(I_MOV, (iter_inst++)->representation().opcode);
 
   // Then we check if the second memory access is well instrumented as a 4 byte
   // write access.
-  ASSERT_TRUE((iter_inst++)->representation().opcode == I_PUSH);
-  ASSERT_TRUE((iter_inst++)->representation().opcode == I_LEA);
+  ASSERT_EQ(I_PUSH, (iter_inst++)->representation().opcode);
+  ASSERT_EQ(I_LEA, (iter_inst++)->representation().opcode);
   ASSERT_EQ(iter_inst->references().size(), 1);
   HookMapEntryKey check_4_byte_write_key =
       { AsanBasicBlockTransform::kWriteAccess, 4, 0, true };
-  ASSERT_TRUE(iter_inst->references().begin()->second.block()
-      == hooks_check_access_[check_4_byte_write_key]);
-  ASSERT_TRUE((iter_inst++)->representation().opcode == I_CALL);
-  ASSERT_TRUE((iter_inst++)->representation().opcode == I_MOV);
+  ASSERT_EQ(hooks_check_access_[check_4_byte_write_key],
+      iter_inst->references().begin()->second.block());
+  ASSERT_EQ(I_CALL, (iter_inst++)->representation().opcode);
+  ASSERT_EQ(I_MOV, (iter_inst++)->representation().opcode);
 
   ASSERT_TRUE(iter_inst == basic_block_->instructions().end());
 }
 
-TEST_F(AsanTransformTest, InjectAsanHooksWithSourceRange) {
+TEST_F(AsanTransformTest, InjectAsanHooksWithSourceRangePe) {
   // Add a read access to the memory.
   bb_asm_->mov(core::eax, block_graph::Operand(core::ebx));
 
@@ -362,7 +375,9 @@ TEST_F(AsanTransformTest, InjectAsanHooksWithSourceRange) {
   bb_transform.set_debug_friendly(true);
 
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-        basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+        basic_block_,
+        AsanBasicBlockTransform::kSafeStackAccess,
+        BlockGraph::PE_IMAGE));
 
   // Ensure this basic block is instrumented.
   uint32 after_instructions_count = basic_block_->instructions().size();
@@ -376,10 +391,76 @@ TEST_F(AsanTransformTest, InjectAsanHooksWithSourceRange) {
     EXPECT_EQ(source_range, iter_inst->source_range());
 }
 
+TEST_F(AsanTransformTest, InjectAsanHooksCoff) {
+  // Add a read access to the memory.
+  bb_asm_->mov(core::eax, block_graph::Operand(core::ebx));
+  // Add a write access to the memory.
+  bb_asm_->mov(block_graph::Operand(core::ecx), core::edx);
+
+  // Add source ranges to the instruction.
+  block_graph::Instruction& i1 = *basic_block_->instructions().begin();
+  Instruction::SourceRange source_range =
+      Instruction::SourceRange(RelativeAddress(1000), i1.size());
+  i1.set_source_range(source_range);
+
+  // Instrument this basic block.
+  InitHooksRefs();
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
+      basic_block_,
+      AsanBasicBlockTransform::kSafeStackAccess,
+      BlockGraph::COFF_IMAGE));
+
+  // Ensure that the basic block is instrumented.
+
+  // We had 2 instructions initially, and for each of them we add 3
+  // instructions, so we expect to have 2 + 3 * 2 = 8 instructions.
+  ASSERT_EQ(basic_block_->instructions().size(), 8);
+
+  // Walk through the instructions to ensure that the Asan hooks have been
+  // injected.
+  BasicBlock::Instructions::const_iterator iter_inst =
+      basic_block_->instructions().begin();
+
+  Instruction::SourceRange empty_source_range;
+  ASSERT_NE(empty_source_range, source_range);
+
+  // First we check if the first memory access is instrumented as a 4 byte read
+  // access. We also validate that the instrumentation has not had source range
+  // information added.
+  ASSERT_EQ(empty_source_range, iter_inst->source_range());
+  ASSERT_EQ(I_PUSH, (iter_inst++)->representation().opcode);
+  ASSERT_EQ(empty_source_range, iter_inst->source_range());
+  ASSERT_EQ(I_LEA, (iter_inst++)->representation().opcode);
+  ASSERT_EQ(empty_source_range, iter_inst->source_range());
+  ASSERT_EQ(iter_inst->references().size(), 1);
+  HookMapEntryKey check_4_byte_read_key =
+      { AsanBasicBlockTransform::kReadAccess, 4, 0, true };
+  ASSERT_EQ(hooks_check_access_[check_4_byte_read_key],
+      iter_inst->references().begin()->second.block());
+  ASSERT_EQ(O_PC, iter_inst->representation().ops[0].type);
+  ASSERT_EQ(I_CALL, (iter_inst++)->representation().opcode);
+  ASSERT_EQ(I_MOV, (iter_inst++)->representation().opcode);
+
+  // Then we check if the second memory access is well instrumented as a 4 byte
+  // write access.
+  ASSERT_EQ(I_PUSH, (iter_inst++)->representation().opcode);
+  ASSERT_EQ(I_LEA, (iter_inst++)->representation().opcode);
+  ASSERT_EQ(iter_inst->references().size(), 1);
+  HookMapEntryKey check_4_byte_write_key =
+      { AsanBasicBlockTransform::kWriteAccess, 4, 0, true };
+  ASSERT_EQ(hooks_check_access_[check_4_byte_write_key],
+      iter_inst->references().begin()->second.block());
+  ASSERT_EQ(I_CALL, (iter_inst++)->representation().opcode);
+  ASSERT_EQ(I_MOV, (iter_inst++)->representation().opcode);
+
+  ASSERT_TRUE(iter_inst == basic_block_->instructions().end());
+}
+
 TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
   uint32 instrumentable_instructions = 0;
 
-  // Generate a bunch of instrumentable and non instrumentable instructions.
+  // Generate a bunch of instrumentable and non-instrumentable instructions.
   bb_asm_->mov(core::eax, block_graph::Operand(core::ebx));
   instrumentable_instructions++;
   bb_asm_->mov(block_graph::Operand(core::ecx), core::edx);
@@ -400,7 +481,9 @@ TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-      basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+      basic_block_,
+      AsanBasicBlockTransform::kSafeStackAccess,
+      BlockGraph::PE_IMAGE));
   ASSERT_EQ(basic_block_->instructions().size(), expected_instructions_count);
 }
 
@@ -427,7 +510,9 @@ TEST_F(AsanTransformTest, InstrumentAndRemoveRedundantChecks) {
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   bb_transform.set_remove_redundant_checks(true);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-      basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+      basic_block_,
+      AsanBasicBlockTransform::kSafeStackAccess,
+      BlockGraph::PE_IMAGE));
   ASSERT_EQ(basic_block_->instructions().size(), expected_instructions_count);
 }
 
@@ -465,7 +550,9 @@ TEST_F(AsanTransformTest, NonInstrumentableStackBasedInstructions) {
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-        basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+        basic_block_,
+        AsanBasicBlockTransform::kSafeStackAccess,
+        BlockGraph::PE_IMAGE));
 
   // Non-instrumentable instructions implies no change.
   EXPECT_EQ(expected_basic_block_size, basic_block_->instructions().size());
@@ -484,7 +571,9 @@ TEST_F(AsanTransformTest, InstrumentableStackBasedUnsafeInstructions) {
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-        basic_block_, AsanBasicBlockTransform::kUnsafeStackAccess));
+        basic_block_,
+        AsanBasicBlockTransform::kUnsafeStackAccess,
+        BlockGraph::PE_IMAGE));
 
   // This instruction should have been instrumented, and we must observe
   // a increase in size.
@@ -508,7 +597,8 @@ TEST_F(AsanTransformTest, NonInstrumentableSegmentBasedInstructions) {
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
         basic_block_,
-        AsanBasicBlockTransform::kSafeStackAccess));
+        AsanBasicBlockTransform::kSafeStackAccess,
+        BlockGraph::PE_IMAGE));
 
   // Non-instrumentable instructions implies no change.
   EXPECT_EQ(expected_basic_block_size, basic_block_->instructions().size());
@@ -537,7 +627,9 @@ TEST_F(AsanTransformTest, FilteredInstructionsNotInstrumented) {
 
   // Instrument this basic block.
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-        basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+        basic_block_,
+        AsanBasicBlockTransform::kSafeStackAccess,
+        BlockGraph::PE_IMAGE));
 
   // Ensure that the basic block is instrumented, but only the second
   // instruction.
@@ -602,7 +694,9 @@ TEST_F(AsanTransformTest, InstrumentableStringInstructions) {
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-        basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+        basic_block_,
+        AsanBasicBlockTransform::kSafeStackAccess,
+        BlockGraph::PE_IMAGE));
 
   // Each instrumentable instructions implies 1 new instructions.
   uint32 expected_basic_block_size = count_instructions + basic_block_size;
@@ -644,7 +738,9 @@ TEST_F(AsanTransformTest, InstrumentableRepzStringInstructions) {
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
   ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
-        basic_block_, AsanBasicBlockTransform::kSafeStackAccess));
+        basic_block_,
+        AsanBasicBlockTransform::kSafeStackAccess,
+        BlockGraph::PE_IMAGE));
 
   // Each instrumentable instructions implies 1 new instructions.
   uint32 expected_basic_block_size = count_instructions + basic_block_size;
@@ -767,12 +863,12 @@ bool GetAsanHooksIATEntries(const PEImage &image,
 
 }  // namespace
 
-TEST_F(AsanTransformTest, ImportsAreRedirected) {
+TEST_F(AsanTransformTest, ImportsAreRedirectedPe) {
   ASSERT_NO_FATAL_FAILURE(ApplyTransformToTestDll());
 
   // Load the transformed module without resolving its dependencies.
   base::NativeLibrary lib =
-      ::LoadLibraryEx(relinked_test_dll_.value().c_str(),
+      ::LoadLibraryEx(relinked_path_.value().c_str(),
                       NULL,
                       DONT_RESOLVE_DLL_REFERENCES);
   ASSERT_TRUE(lib != NULL);
@@ -894,12 +990,205 @@ TEST_F(AsanTransformTest, ImportsAreRedirected) {
   EXPECT_TRUE(results.empty());
 }
 
+namespace {
+
+// Counts the number of references to the given COFF symbol.
+size_t CountCoffSymbolReferences(const BlockGraph::Block* symbols_block,
+                                 const pe::CoffSymbolNameOffsetMap& symbol_map,
+                                 const base::StringPiece& name) {
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), symbols_block);
+
+  pe::CoffSymbolNameOffsetMap::const_iterator symbol_it =
+      symbol_map.find(name.as_string());
+  if (symbol_it == symbol_map.end())
+    return 0;
+
+  size_t ref_count = 0;
+  const pe::CoffSymbolOffsets& offsets = symbol_it->second;
+  BlockGraph::Block::ReferrerSet::const_iterator ref_it =
+      symbols_block->referrers().begin();
+  for (; ref_it != symbols_block->referrers().end(); ++ref_it) {
+    BlockGraph::Reference ref;
+    CHECK(ref_it->first->GetReference(ref_it->second, &ref));
+    if (offsets.count(ref.offset()) > 0)
+      ++ref_count;
+  }
+
+  return ref_count;
+}
+
+}  // namespace
+
+TEST_F(AsanTransformTest, ImportsAreRedirectedCoff) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDllObj());
+
+  // TODO(chrisha): Modify this to use CoffTransformPolicy once it is
+  //     working as intended.
+  testing::DummyTransformPolicy dummy_policy;
+  asan_transform_.use_interceptors_ = true;
+  asan_transform_.use_liveness_analysis_ = true;
+  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &asan_transform_, &dummy_policy, &block_graph_, header_block_));
+
+  BlockGraph::Block* symbols_block = NULL;
+  BlockGraph::Block* strings_block = NULL;
+  ASSERT_TRUE(pe::FindCoffSpecialBlocks(
+      &block_graph_, NULL, &symbols_block, &strings_block));
+  pe::CoffSymbolNameOffsetMap symbol_map;
+  ASSERT_TRUE(pe::BuildCoffSymbolNameOffsetMap(
+      symbols_block, strings_block, &symbol_map));
+
+  // Convert the symbol map to a set of symbol names.
+  StringSet symbols;
+  pe::CoffSymbolNameOffsetMap::const_iterator map_it = symbol_map.begin();
+  for (; map_it != symbol_map.end(); ++map_it)
+    symbols.insert(map_it->first);
+
+  // We expected the following check-access functions to have been
+  // added.
+  StringSet expected;
+  expected.insert("_asan_check_1_byte_read_access");
+  expected.insert("_asan_check_2_byte_read_access");
+  expected.insert("_asan_check_4_byte_read_access");
+  expected.insert("_asan_check_8_byte_read_access");
+  expected.insert("_asan_check_10_byte_read_access");
+  expected.insert("_asan_check_16_byte_read_access");
+  expected.insert("_asan_check_32_byte_read_access");
+  expected.insert("_asan_check_1_byte_write_access");
+  expected.insert("_asan_check_2_byte_write_access");
+  expected.insert("_asan_check_4_byte_write_access");
+  expected.insert("_asan_check_8_byte_write_access");
+  expected.insert("_asan_check_10_byte_write_access");
+  expected.insert("_asan_check_16_byte_write_access");
+  expected.insert("_asan_check_32_byte_write_access");
+
+  expected.insert("_asan_check_1_byte_read_access_no_flags");
+  expected.insert("_asan_check_2_byte_read_access_no_flags");
+  expected.insert("_asan_check_4_byte_read_access_no_flags");
+  expected.insert("_asan_check_8_byte_read_access_no_flags");
+  expected.insert("_asan_check_10_byte_read_access_no_flags");
+  expected.insert("_asan_check_16_byte_read_access_no_flags");
+  expected.insert("_asan_check_32_byte_read_access_no_flags");
+  expected.insert("_asan_check_1_byte_write_access_no_flags");
+  expected.insert("_asan_check_2_byte_write_access_no_flags");
+  expected.insert("_asan_check_4_byte_write_access_no_flags");
+  expected.insert("_asan_check_8_byte_write_access_no_flags");
+  expected.insert("_asan_check_10_byte_write_access_no_flags");
+  expected.insert("_asan_check_16_byte_write_access_no_flags");
+  expected.insert("_asan_check_32_byte_write_access_no_flags");
+
+  expected.insert("_asan_check_repz_4_byte_cmps_access");
+  expected.insert("_asan_check_repz_4_byte_movs_access");
+  expected.insert("_asan_check_repz_4_byte_stos_access");
+  expected.insert("_asan_check_repz_2_byte_cmps_access");
+  expected.insert("_asan_check_repz_2_byte_movs_access");
+  expected.insert("_asan_check_repz_2_byte_stos_access");
+  expected.insert("_asan_check_repz_1_byte_cmps_access");
+  expected.insert("_asan_check_repz_1_byte_movs_access");
+  expected.insert("_asan_check_repz_1_byte_stos_access");
+
+  expected.insert("_asan_check_4_byte_cmps_access");
+  expected.insert("_asan_check_4_byte_movs_access");
+  expected.insert("_asan_check_4_byte_stos_access");
+  expected.insert("_asan_check_2_byte_cmps_access");
+  expected.insert("_asan_check_2_byte_movs_access");
+  expected.insert("_asan_check_2_byte_stos_access");
+  expected.insert("_asan_check_1_byte_cmps_access");
+  expected.insert("_asan_check_1_byte_movs_access");
+  expected.insert("_asan_check_1_byte_stos_access");
+
+  StringSet results;
+  Intersect(symbols, expected, &results);
+  EXPECT_THAT(results, ContainerEq(expected));
+
+  // Expect at least some of the ASAN instrumentation symbols to be referenced.
+  size_t instrumentation_references = 0;
+  StringSet::const_iterator str_it = expected.begin();
+  for (; str_it != expected.end(); ++str_it) {
+    instrumentation_references += CountCoffSymbolReferences(
+          symbols_block, symbol_map, *str_it);
+  }
+  EXPECT_LT(0u, instrumentation_references);
+
+  // Expect any intercepted symbols to have no references to them if they
+  // are present, and expect an equivalent ASAN instrumented symbol to exist
+  // and be referenced.
+  const AsanIntercept* intercept = kAsanIntercepts;
+  for (; intercept->undecorated_name != NULL; ++intercept) {
+    std::string name(intercept->decorated_name);
+
+    // Build the name of the imported version of this symbol.
+    std::string imp_name(kDecoratedImportPrefix);
+    imp_name += name;
+
+    // Build the name of the ASAN instrumented version of this symbol.
+    std::string asan_name(kDecoratedAsanInterceptPrefix);
+    asan_name += name;
+
+    // Build the name of the ASAN instrumented imported version of this symbol.
+    std::string imp_asan_name(kDecoratedImportPrefix);
+    imp_asan_name += name;
+
+    bool has_name = symbols.count(name) > 0;
+    bool has_imp_name = symbols.count(imp_name) > 0;
+    bool has_asan_name = symbols.count(asan_name) > 0;
+    bool has_imp_asan_name = symbols.count(imp_asan_name) > 0;
+
+    size_t name_refs = 0;
+    if (has_name) {
+      name_refs = CountCoffSymbolReferences(
+          symbols_block, symbol_map, name);
+    }
+
+    size_t imp_name_refs = 0;
+    if (has_imp_name) {
+      imp_name_refs = CountCoffSymbolReferences(
+          symbols_block, symbol_map, imp_name);
+    }
+
+    size_t asan_name_refs = 0;
+    if (has_asan_name) {
+      asan_name_refs = CountCoffSymbolReferences(
+          symbols_block, symbol_map, asan_name);
+    }
+
+    size_t imp_asan_name_refs = 0;
+    if (has_imp_asan_name) {
+      imp_asan_name_refs = CountCoffSymbolReferences(
+          symbols_block, symbol_map, imp_asan_name);
+    }
+
+    // If the original symbol is present we expect the ASAN version to be
+    // present as well. The converse it not necessarily true, as the symbol
+    // can be reused in place by the transform in some cases. We also expect
+    // them to have no references (having been redirected to the ASAN
+    // equivalents).
+    if (has_name) {
+      EXPECT_TRUE(has_asan_name);
+      EXPECT_EQ(0u, name_refs);
+    }
+    if (has_imp_name) {
+      EXPECT_TRUE(has_imp_asan_name);
+      EXPECT_EQ(0u, imp_name_refs);
+    }
+
+    // If the ASAN versions of the symbols are present we expect them to
+    // have references.
+    if (has_asan_name) {
+      EXPECT_LT(0u, asan_name_refs);
+    }
+    if (has_imp_asan_name) {
+      EXPECT_LT(0u, imp_asan_name_refs);
+    }
+  }
+}
+
 TEST_F(AsanTransformTest, AsanHooksAreStubbed) {
   ASSERT_NO_FATAL_FAILURE(ApplyTransformToTestDll());
 
   // Load the transformed module without resolving its dependencies.
   base::NativeLibrary lib =
-      ::LoadLibraryEx(relinked_test_dll_.value().c_str(),
+      ::LoadLibraryEx(relinked_path_.value().c_str(),
                       NULL,
                       DONT_RESOLVE_DLL_REFERENCES);
   ASSERT_TRUE(lib != NULL);
@@ -984,9 +1273,9 @@ TEST_F(AsanTransformTest, PeInterceptFunctions) {
   // Intercept all calls to b1.
   asan_transform_.use_interceptors_ = true;
   EXPECT_TRUE(asan_transform_.PeInterceptFunctions(b1_intercepts,
-                                                   &policy_,
+                                                   policy_,
                                                    &block_graph_,
-                                                   dos_header_block_));
+                                                   header_block_));
 
   // The block graph should have grown by 3 blocks:
   //     - the Import Address Table (IAT),
@@ -1014,6 +1303,32 @@ TEST_F(AsanTransformTest, PeInterceptFunctions) {
 
   // Only the entry in the IAT should refer to b1.
   EXPECT_EQ(1U, b1->referrers().size());
+}
+
+TEST_F(AsanTransformTest, CoffInterceptFunctions) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDllObj());
+
+  size_t num_blocks_pre_transform = block_graph_.blocks().size();
+  size_t num_sections_pre_transform = block_graph_.sections().size();
+
+  AsanIntercept intercepts[] = {
+    { "function2", "?function2@@YAHXZ", "", NULL, true },
+    { NULL },
+  };
+
+  // Intercept all calls to b1.
+  asan_transform_.use_interceptors_ = true;
+  EXPECT_TRUE(asan_transform_.CoffInterceptFunctions(intercepts,
+                                                     policy_,
+                                                     &block_graph_,
+                                                     header_block_));
+
+  // The block graph should not have grown at all, as no thunks are necessary
+  // in the COFF instrumentation mode.
+  EXPECT_EQ(num_blocks_pre_transform, block_graph_.blocks().size());
+
+  // No sections should have been added.
+  EXPECT_EQ(num_sections_pre_transform, block_graph_.sections().size());
 }
 
 }  // namespace transforms

@@ -94,7 +94,7 @@ TEST_F(JumpTableCaseCountTransformTest, Apply) {
   // Apply the transform.
   TestJumpTableCaseCountTransform tx;
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &tx, &policy_, &block_graph_, dos_header_block_));
+      &tx, policy_, &block_graph_, header_block_));
   ASSERT_TRUE(tx.frequency_data_block() != NULL);
   ASSERT_TRUE(tx.thunk_section() != NULL);
   ASSERT_TRUE(tx.jump_table_case_counter_hook_ref() != NULL);

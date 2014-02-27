@@ -120,7 +120,7 @@ const AsanIntercept kAsanIntercepts[] = {
 
 const char kUndecoratedAsanInterceptPrefix[] = "asan_";
 const char kDecoratedAsanInterceptPrefix[] = "_asan";
-const char kImportPrefix[] = "__imp_";
+const char kDecoratedImportPrefix[] = "__imp_";
 
 }  // namespace transforms
 }  // namespace instrument

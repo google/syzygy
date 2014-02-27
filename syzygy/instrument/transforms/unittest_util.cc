@@ -16,11 +16,15 @@
 
 #include "syzygy/instrument/transforms/unittest_util.h"
 
+#include "syzygy/pe/coff_decomposer.h"
+#include "syzygy/pe/coff_utils.h"
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/pe_utils.h"
 
 namespace testing {
 
-TestDllTransformTest::TestDllTransformTest() : dos_header_block_(NULL) {
+TestDllTransformTest::TestDllTransformTest()
+    : policy_(NULL), header_block_(NULL) {
 }
 
 void TestDllTransformTest::DecomposeTestDll() {
@@ -33,9 +37,28 @@ void TestDllTransformTest::DecomposeTestDll() {
   pe::Decomposer decomposer(pe_file_);
   ASSERT_TRUE(decomposer.Decompose(&layout));
 
-  dos_header_block_ = layout.blocks.GetBlockByAddress(
+  header_block_ = layout.blocks.GetBlockByAddress(
       core::RelativeAddress(0));
-  ASSERT_TRUE(dos_header_block_ != NULL);
+  ASSERT_TRUE(header_block_ != NULL);
+
+  policy_ = &pe_policy_;
 }
 
-}  // namespace
+void TestDllTransformTest::DecomposeTestDllObj() {
+  base::FilePath test_dll_obj_path = ::testing::GetExeTestDataRelativePath(
+      testing::kTestDllCoffObjName);
+
+  ASSERT_TRUE(coff_file_.Init(test_dll_obj_path));
+
+  pe::ImageLayout layout(&block_graph_);
+  pe::CoffDecomposer decomposer(coff_file_);
+  ASSERT_TRUE(decomposer.Decompose(&layout));
+
+  ASSERT_TRUE(pe::FindCoffSpecialBlocks(
+      &block_graph_, &header_block_, NULL, NULL));
+  ASSERT_TRUE(header_block_ != NULL);
+
+  policy_ = &coff_policy_;
+}
+
+}  // namespace testing

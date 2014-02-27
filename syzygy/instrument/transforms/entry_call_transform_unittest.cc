@@ -205,7 +205,7 @@ TEST_F(EntryCallTransformTest, TransformCreatesThunkSection) {
 
   // Run the transform.
   ASSERT_TRUE(ApplyBlockGraphTransform(
-      &transform, &policy_, &block_graph_, dos_header_block_));
+      &transform, policy_, &block_graph_, header_block_));
 
   // Check that the thunks section now exists.
   ASSERT_NE(static_cast<BlockGraph::Section*>(NULL),

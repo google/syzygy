@@ -57,7 +57,7 @@ void AddFrequencyDataTransformTest::Apply(size_t num_entries,
   AddIndexedFrequencyDataTransform tx(kAgentId, "Test", kAgentVersion,
       data_type, sizeof(common::IndexedFrequencyData));
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &tx, &policy_, &block_graph_, dos_header_block_));
+      &tx, policy_, &block_graph_, header_block_));
 
   BlockGraph::Block* frequency_data_block = tx.frequency_data_block();
 
