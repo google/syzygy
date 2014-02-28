@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.10.0
+
+[r2049] SyzyASAN - Fix to quarantine to prevent flushing it when overly large
+        blocks are inserted. Also modifies eviction policy to be random.
+
 Version 0.7.9.0
 
 [r2029] Add --no-logo flag to Syzygy tool command line parsing to allow for
