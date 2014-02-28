@@ -156,17 +156,32 @@ class HeapProxy {
   static HeapProxy* FromListEntry(LIST_ENTRY* list_entry);
   // @}
 
-  // Set the default max size of the quarantine of a heap proxy.
-  // @param quarantine_size The maximum size of the quarantine list, in
-  //     bytes.
+  // Set the default max size of the quarantine of a heap proxy.  This value is
+  // used when constructing a new heap proxy. This will cap the current
+  // default_quarantine_max_block_size, so be sure to set the value after.
+  // @param default_quarantine_max_size The maximum size of the quarantine list,
+  //     in bytes.
   static void set_default_quarantine_max_size(
-      size_t default_quarantine_max_size) {
-    default_quarantine_max_size_ = default_quarantine_max_size;
-  }
+      size_t default_quarantine_max_size);
 
-  // Get the default max size of the quarantine of a heap proxy.
+  // @returns the default max size of the quarantine of a heap proxy.
   static size_t default_quarantine_max_size() {
     return default_quarantine_max_size_;
+  }
+
+  // Set the default max size of a block to be accepted in the quarantine of a
+  // heap proxy. This valus is used when constructing a new heap proxy. The
+  // value that is set will be capped by the currently active
+  // default_quarantine_max_size, so set that value first!
+  // @param default_quarantine_max_block_size The maximum size of a block that
+  //     will be accepted into the quarantine of a heap proxy, in bytes.
+  static void set_default_quarantine_max_block_size(
+      size_t default_quarantine_max_block_size);
+
+  // @returns the default max size of a block to be accepted in the quarantine
+  //     of a heap proxy.
+  static size_t default_quarantine_max_block_size() {
+    return default_quarantine_max_block_size_;
   }
 
   // Set the max size of the quarantine of a heap proxy. If the current size of
@@ -174,11 +189,27 @@ class HeapProxy {
   // removed from the quarantine.
   // @param quarantine_size The maximum size of the quarantine list, in
   //     bytes.
+  // @note This function acquires lock_.
   void SetQuarantineMaxSize(size_t quarantine_max_size);
 
   // Get the max size of the quarantine of a heap proxy.
   size_t quarantine_max_size() {
     return quarantine_max_size_;
+  }
+
+  // Sets the maximum size of blocks to be accepted in the quarantine. Does not
+  // removed blocks exceeding this size, but will prevent future ones from being
+  // accepted.
+  // @param quarantine_max_block_size The maximum size of a block that will be
+  //     accepted into the quarantine. This will be capped at
+  //     quarantine_max_size.
+  // @note This function acquires lock_.
+  void SetQuarantineMaxBlockSize(size_t quarantine_max_block_size);
+
+  // Returns the current max size of a block that will be accepted into the
+  // quarantine.
+  size_t quarantine_max_block_size() {
+    return quarantine_max_block_size_;
   }
 
   // Set the trailer padding size.
@@ -424,8 +455,15 @@ class HeapProxy {
   // @returns true on success, false otherwise.
   bool CleanUpAndFreeAsanBlock(BlockHeader* block_header, size_t alloc_size);
 
+  // The sharding factor of the quarantine. This is used to give us linear
+  // access for random removal and insertion of elements into the quarantine.
+  static const size_t kQuarantineShards = 128;
+
   // Arbitrarily keep 16 megabytes of quarantine per heap by default.
   static const size_t kDefaultQuarantineMaxSize = 16 * 1024 * 1024;
+
+  // The maximum relative size of a block that will be accepted in quarantine.
+  static const size_t kDefaultQuarantineMaxBlockSize = 4 * 1024 * 1024;
 
   // By default we use no additional padding between heap blocks, beyond the
   // header and footer.
@@ -436,8 +474,9 @@ class HeapProxy {
   static const size_t kDefaultAllocGranularity = 8;
   static const uint16 kDefaultAllocGranularityLog = 3;
 
-  // Default max size of blocks in quarantine (in bytes).
+  // Default max size of a quarantine, and any block within it (in bytes).
   static size_t default_quarantine_max_size_;
+  static size_t default_quarantine_max_block_size_;
 
   // The size of the padding that we append to every block (in bytes). Defaults
   // to zero.
@@ -460,17 +499,21 @@ class HeapProxy {
   // Protects concurrent access to HeapProxy internals.
   base::Lock lock_;
 
-  // Points to the head of the quarantine queue.
-  BlockHeader* head_;  // Under lock_.
+  // Points to the heads of the multiple quarantine queues.
+  BlockHeader* heads_[kQuarantineShards];  // Under lock_.
 
-  // Points to the tail of the quarantine queue.
-  BlockHeader* tail_;  // Under lock_.
+  // Points to the tails of the multiple quarantine queues.
+  BlockHeader* tails_[kQuarantineShards];  // Under lock_.
 
   // Total size of blocks in quarantine.
   size_t quarantine_size_;  // Under lock_.
 
   // Max size of blocks in quarantine.
   size_t quarantine_max_size_;  // Under lock_.
+
+  // Max size of any single block in the quarantine.
+  // TODO(chrisha): Expose this to make it configurable!
+  size_t quarantine_max_block_size_;  // Under lock_.
 
   // The entry linking to us.
   LIST_ENTRY list_entry_;

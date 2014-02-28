@@ -105,8 +105,10 @@ void CombineUInt32IntoBlockChecksum(uint32 val, uint32* checksum) {
 
 StackCaptureCache* HeapProxy::stack_cache_ = NULL;
 double HeapProxy::cpu_cycles_per_us_ = std::numeric_limits<double>::quiet_NaN();
-// The default quarantine size for a new Heap.
+// The default quarantine and block size for a new Heap.
 size_t HeapProxy::default_quarantine_max_size_ = kDefaultQuarantineMaxSize;
+size_t HeapProxy::default_quarantine_max_block_size_ =
+    kDefaultQuarantineMaxBlockSize;
 size_t HeapProxy::trailer_padding_size_ = kDefaultTrailerPaddingSize;
 const char* HeapProxy::kHeapUseAfterFree = "heap-use-after-free";
 const char* HeapProxy::kHeapBufferUnderFlow = "heap-buffer-underflow";
@@ -119,11 +121,12 @@ const char* HeapProxy::kHeapCorruptedBlock = "corrupted-block";
 
 HeapProxy::HeapProxy()
     : heap_(NULL),
-      head_(NULL),
-      tail_(NULL),
       quarantine_size_(0),
       quarantine_max_size_(0),
+      quarantine_max_block_size_(0),
       owns_heap_(false) {
+  ::memset(heads_, 0, sizeof(heads_));
+  ::memset(tails_, 0, sizeof(tails_));
 }
 
 HeapProxy::~HeapProxy() {
@@ -136,6 +139,7 @@ HeapProxy::~HeapProxy() {
 void HeapProxy::Init(StackCaptureCache* cache) {
   DCHECK(cache != NULL);
   default_quarantine_max_size_ = kDefaultQuarantineMaxSize;
+  default_quarantine_max_block_size_ = kDefaultQuarantineMaxBlockSize;
   trailer_padding_size_ = kDefaultTrailerPaddingSize;
   stack_cache_ = cache;
 }
@@ -156,6 +160,7 @@ bool HeapProxy::Create(DWORD options,
   DCHECK(heap_ == NULL);
 
   SetQuarantineMaxSize(default_quarantine_max_size_);
+  SetQuarantineMaxBlockSize(default_quarantine_max_block_size_);
 
   HANDLE heap_new = ::HeapCreate(options, initial_size, maximum_size);
   if (heap_new == NULL)
@@ -170,6 +175,7 @@ bool HeapProxy::Create(DWORD options,
 void HeapProxy::UseHeap(HANDLE underlying_heap) {
   DCHECK(heap_ == NULL);
   SetQuarantineMaxSize(default_quarantine_max_size_);
+  SetQuarantineMaxBlockSize(default_quarantine_max_block_size_);
   heap_ = underlying_heap;
   owns_heap_ = false;
 }
@@ -416,6 +422,8 @@ bool HeapProxy::MarkBlockAsQuarantined(BlockHeader* block_header,
   uint8* mem = BlockHeaderToUserPointer(block_header);
   Shadow::MarkAsFreed(mem, block_header->block_size);
 
+  // TODO(chrisha): Poison the memory by XORing it?
+
   SetBlockChecksum(block_header);
 
   return true;
@@ -478,9 +486,29 @@ void HeapProxy::SetQuarantineMaxSize(size_t quarantine_max_size) {
   {
     base::AutoLock lock(lock_);
     quarantine_max_size_ = quarantine_max_size;
+
+    // This also acts as a cap on the maximum size of a block that can enter the
+    // quarantine.
+    quarantine_max_block_size_ = std::min(quarantine_max_block_size_,
+                                          quarantine_max_size_);
   }
 
   TrimQuarantine();
+}
+
+void HeapProxy::SetQuarantineMaxBlockSize(size_t quarantine_max_block_size) {
+  {
+    base::AutoLock lock(lock_);
+
+    // Use the current max quarantine size as a cap.
+    quarantine_max_block_size_ = std::min(quarantine_max_block_size,
+                                          quarantine_max_size_);
+
+    // TODO(chrisha): Clean up existing blocks that exceed that size? This will
+    //     require an entirely new TrimQuarantine function. Since this is never
+    //     changed at runtime except in our unittests, this is not clearly
+    //     useful.
+  }
 }
 
 void HeapProxy::TrimQuarantine() {
@@ -489,6 +517,12 @@ void HeapProxy::TrimQuarantine() {
     BlockTrailer* trailer = NULL;
     size_t alloc_size = 0;
 
+    // Randomly choose a quarantine shard from which to remove an element.
+    // TODO(chrisha): Do we want this to be truly random, or hashed off of the
+    //      block address and/or contents itself? Do we want to expose multiple
+    //      eviction strategies?
+    size_t i = rand() % kQuarantineShards;
+
     // This code runs under a critical lock. Try to keep as much work out of
     // this scope as possible!
     {
@@ -496,16 +530,23 @@ void HeapProxy::TrimQuarantine() {
       if (quarantine_size_ <= quarantine_max_size_)
         return;
 
-      DCHECK(head_ != NULL);
-      DCHECK(tail_ != NULL);
+      // Make sure we haven't chosen an empty shard.
+      while (heads_[i] == NULL) {
+        ++i;
+        if (i == kQuarantineShards)
+          i = 0;
+      }
 
-      free_block = head_;
+      DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), heads_[i]);
+      DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), tails_[i]);
+
+      free_block = heads_[i];
       trailer = BlockHeaderToBlockTrailer(free_block);
-      DCHECK(trailer != NULL);
+      DCHECK_NE(reinterpret_cast<BlockTrailer*>(NULL), trailer);
 
-      head_ = trailer->next_free_block;
-      if (head_ == NULL)
-        tail_ = NULL;
+      heads_[i] = trailer->next_free_block;
+      if (heads_[i] == NULL)
+        tails_[i] = NULL;
 
       alloc_size = GetAllocSize(free_block->block_size,
                                 kDefaultAllocGranularity);
@@ -563,6 +604,9 @@ bool HeapProxy::CleanUpAndFreeAsanBlock(BlockHeader* block_header,
                                         size_t alloc_size) {
   ReleaseAsanBlock(block_header);
   Shadow::Unpoison(block_header, alloc_size);
+
+  // TODO(chrisha): Fill the block with garbage?
+
   return ::HeapFree(heap_, 0, block_header) == TRUE;
 }
 
@@ -595,17 +639,30 @@ void HeapProxy::QuarantineBlock(BlockHeader* block) {
   size_t alloc_size = GetAllocSize(block->block_size,
                                    kDefaultAllocGranularity);
 
+  // If the block is bigger than the quarantine then it will immediately be
+  // trimmed and it will simply cause the quarantine to empty itself. So as not
+  // to dominate the quarantine with overly large blocks we also limit blocks to
+  // an (optional) maximum size.
+  if (alloc_size > quarantine_max_block_size_ ||
+      alloc_size > quarantine_max_size_) {
+    CHECK(CleanUpAndFreeAsanBlock(block, alloc_size));
+    return;
+  }
+
+  // Randomly choose a quarantine shard to receive the block.
+  size_t i = rand() % kQuarantineShards;
+
   {
     base::AutoLock lock(lock_);
 
     quarantine_size_ += alloc_size;
-    if (tail_ != NULL) {
-      BlockHeaderToBlockTrailer(tail_)->next_free_block = block;
+    if (tails_[i] != NULL) {
+      BlockHeaderToBlockTrailer(tails_[i])->next_free_block = block;
     } else {
-      DCHECK(head_ == NULL);
-      head_ = block;
+      DCHECK_EQ(reinterpret_cast<BlockHeader*>(NULL), heads_[i]);
+      heads_[i] = block;
     }
-    tail_ = block;
+    tails_[i] = block;
   }
 
   TrimQuarantine();
@@ -1063,6 +1120,25 @@ LIST_ENTRY* HeapProxy::ToListEntry(HeapProxy* proxy) {
 HeapProxy* HeapProxy::FromListEntry(LIST_ENTRY* list_entry) {
   DCHECK(list_entry != NULL);
   return CONTAINING_RECORD(list_entry, HeapProxy, list_entry_);
+}
+
+void HeapProxy::set_default_quarantine_max_size(
+      size_t default_quarantine_max_size) {
+  default_quarantine_max_size_ = default_quarantine_max_size;
+
+  // If we change the quarantine size be sure to trim the corresponding maximum
+  // block size.
+  default_quarantine_max_block_size_ = std::min(
+      default_quarantine_max_block_size_,
+      default_quarantine_max_size_);
+}
+
+void HeapProxy::set_default_quarantine_max_block_size(
+    size_t default_quarantine_max_block_size) {
+  // Cap this with the default maximum quarantine size itself.
+  default_quarantine_max_block_size_ = std::min(
+      default_quarantine_max_block_size,
+      default_quarantine_max_size_);
 }
 
 uint64 HeapProxy::GetTimeSinceFree(const BlockHeader* header) {

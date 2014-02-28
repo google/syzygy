@@ -60,6 +60,7 @@ class TestHeapProxy : public HeapProxy {
   using HeapProxy::UserPointerToBlockHeader;
   using HeapProxy::UserPointerToAsanPointer;
   using HeapProxy::kDefaultAllocGranularityLog;
+  using HeapProxy::quarantine_size_;
 
   TestHeapProxy() { }
 
@@ -117,18 +118,38 @@ class TestHeapProxy : public HeapProxy {
   // Determines if the address @p mem corresponds to a block in quarantine.
   bool InQuarantine(const void* mem) {
     base::AutoLock lock(lock_);
-    BlockHeader* current_block = head_;
-    while (current_block != NULL) {
-      void* block_alloc = static_cast<void*>(
-          BlockHeaderToUserPointer(current_block));
-      EXPECT_TRUE(block_alloc != NULL);
-      if (block_alloc == mem) {
-        EXPECT_TRUE(current_block->state == QUARANTINED);
-        return true;
+
+    // Search through all of the shards.
+    for (size_t i = 0; i < kQuarantineShards; ++i) {
+      // Search through all blocks in each shard.
+      BlockHeader* current_block = heads_[i];
+      while (current_block != NULL) {
+        void* block_alloc = static_cast<void*>(
+            BlockHeaderToUserPointer(current_block));
+        EXPECT_TRUE(block_alloc != NULL);
+        if (block_alloc == mem) {
+          EXPECT_TRUE(current_block->state == QUARANTINED);
+          return true;
+        }
+        current_block =
+            BlockHeaderToBlockTrailer(current_block)->next_free_block;
       }
-      current_block = BlockHeaderToBlockTrailer(current_block)->next_free_block;
     }
+
     return false;
+  }
+
+  // This is a convoluted way of clearing the quarantine. This is necessary to
+  // impose determinism for some unittests, as quarantine eviction is random.
+  void PurgeQuarantine() {
+    size_t max_size = quarantine_max_size();
+    size_t max_block_size = quarantine_max_block_size();
+
+    SetQuarantineMaxSize(1);
+    EXPECT_EQ(0u, quarantine_size_);
+
+    SetQuarantineMaxSize(max_size);
+    SetQuarantineMaxBlockSize(max_block_size);
   }
 };
 
@@ -195,6 +216,31 @@ class HeapTest : public testing::TestWithAsanLogger {
 
 }  // namespace
 
+TEST_F(HeapTest, SetDefaultQuarantineSizeCapsMaxBlockSize) {
+  size_t max_size = proxy_.default_quarantine_max_size();
+  size_t max_block_size = proxy_.default_quarantine_max_block_size();
+
+  proxy_.set_default_quarantine_max_size(100);
+  proxy_.set_default_quarantine_max_block_size(50);
+  EXPECT_EQ(100u, proxy_.default_quarantine_max_size());
+  EXPECT_EQ(50u, proxy_.default_quarantine_max_block_size());
+
+  proxy_.set_default_quarantine_max_size(25);
+  EXPECT_EQ(25u, proxy_.default_quarantine_max_size());
+  EXPECT_EQ(25u, proxy_.default_quarantine_max_block_size());
+
+  proxy_.set_default_quarantine_max_block_size(50);
+  EXPECT_EQ(25u, proxy_.default_quarantine_max_size());
+  EXPECT_EQ(25u, proxy_.default_quarantine_max_block_size());
+
+  // Return the defaults to their true defaults for the remaining tests. This
+  // prevents this unittest from having side effects.
+  proxy_.set_default_quarantine_max_size(max_size);
+  proxy_.set_default_quarantine_max_block_size(max_block_size);
+  EXPECT_EQ(max_size, proxy_.default_quarantine_max_size());
+  EXPECT_EQ(max_block_size, proxy_.default_quarantine_max_block_size());
+}
+
 TEST_F(HeapTest, ToFromHandle) {
   HANDLE handle = HeapProxy::ToHandle(&proxy_);
   ASSERT_TRUE(handle != NULL);
@@ -210,15 +256,31 @@ TEST_F(HeapTest, SetQuarantineMaxSize) {
   ASSERT_EQ(quarantine_size, proxy_.quarantine_max_size());
 }
 
+TEST_F(HeapTest, SetQuarantineSizeCapsMaxBlockSize) {
+  proxy_.SetQuarantineMaxSize(100);
+  proxy_.SetQuarantineMaxBlockSize(50);
+  EXPECT_EQ(100u, proxy_.quarantine_max_size());
+  EXPECT_EQ(50u, proxy_.quarantine_max_block_size());
+
+  proxy_.SetQuarantineMaxSize(25);
+  EXPECT_EQ(25u, proxy_.quarantine_max_size());
+  EXPECT_EQ(25u, proxy_.quarantine_max_block_size());
+
+  proxy_.SetQuarantineMaxBlockSize(50);
+  EXPECT_EQ(25u, proxy_.quarantine_max_size());
+  EXPECT_EQ(25u, proxy_.quarantine_max_block_size());
+}
+
 TEST_F(HeapTest, PopOnSetQuarantineMaxSize) {
   const size_t kAllocSize = 100;
   const size_t real_alloc_size = TestHeapProxy::GetAllocSize(kAllocSize);
   LPVOID mem = proxy_.Alloc(0, kAllocSize);
   ASSERT_FALSE(proxy_.InQuarantine(mem));
+
   proxy_.SetQuarantineMaxSize(real_alloc_size);
   ASSERT_TRUE(proxy_.Free(0, mem));
-  // The quarantine is just large enough to keep this block.
   ASSERT_TRUE(proxy_.InQuarantine(mem));
+
   // We resize the quarantine to a smaller size, the block should pop out.
   proxy_.SetQuarantineMaxSize(real_alloc_size - 1);
   ASSERT_FALSE(proxy_.InQuarantine(mem));
@@ -230,20 +292,53 @@ TEST_F(HeapTest, Quarantine) {
   const size_t number_of_allocs = 16;
   proxy_.SetQuarantineMaxSize(real_alloc_size * number_of_allocs);
 
-  LPVOID mem = proxy_.Alloc(0, kAllocSize);
-  ASSERT_TRUE(mem != NULL);
-  ASSERT_TRUE(proxy_.Free(0, mem));
-  // Allocate a bunch of blocks until the first one is pushed out of the
+  // Allocate a bunch of blocks until exactly one is removed from the
   // quarantine.
-  for (size_t i = 0; i < number_of_allocs; ++i) {
-    ASSERT_TRUE(proxy_.InQuarantine(mem));
-    LPVOID mem2 = proxy_.Alloc(0, kAllocSize);
-    ASSERT_TRUE(mem2 != NULL);
-    ASSERT_TRUE(proxy_.Free(0, mem2));
-    ASSERT_TRUE(proxy_.InQuarantine(mem2));
+  std::vector<LPVOID> blocks;
+  for (size_t i = 0; i < number_of_allocs + 1; ++i) {
+    LPVOID mem = proxy_.Alloc(0, kAllocSize);
+    ASSERT_TRUE(mem != NULL);
+    ASSERT_TRUE(proxy_.Free(0, mem));
+    blocks.push_back(mem);
+    if (i < number_of_allocs) {
+      ASSERT_TRUE(proxy_.InQuarantine(mem));
+    }
   }
 
-  ASSERT_FALSE(proxy_.InQuarantine(mem));
+  size_t blocks_in_quarantine = 0;
+  for (size_t i = 0; i < blocks.size(); ++i) {
+    if (proxy_.InQuarantine(blocks[i]))
+      ++blocks_in_quarantine;
+  }
+  EXPECT_EQ(number_of_allocs, blocks_in_quarantine);
+}
+
+TEST_F(HeapTest, QuarantineLargeBlock) {
+  proxy_.SetQuarantineMaxSize(100);
+  proxy_.SetQuarantineMaxBlockSize(100);
+
+  // A block larger than the quarantine should not make it in.
+  LPVOID mem1 = proxy_.Alloc(0, 200);
+  ASSERT_TRUE(mem1 != NULL);
+  EXPECT_TRUE(proxy_.Free(0, mem1));
+  EXPECT_FALSE(proxy_.InQuarantine(mem1));
+  EXPECT_EQ(0u, proxy_.quarantine_size_);
+
+  // A big block should make it because our current max block size allows it.
+  LPVOID mem2 = proxy_.Alloc(0, 25);
+  ASSERT_TRUE(mem2 != NULL);
+  EXPECT_TRUE(proxy_.Free(0, mem2));
+  EXPECT_TRUE(proxy_.InQuarantine(mem2));
+
+  proxy_.SetQuarantineMaxBlockSize(20);
+
+  // A second big block should not make it in since we changed the block size.
+  // However, the other block should remain in the quarantine.
+  LPVOID mem3 = proxy_.Alloc(0, 25);
+  ASSERT_TRUE(mem3 != NULL);
+  EXPECT_TRUE(proxy_.Free(0, mem3));
+  EXPECT_TRUE(proxy_.InQuarantine(mem2));
+  EXPECT_FALSE(proxy_.InQuarantine(mem3));
 }
 
 TEST_F(HeapTest, UnpoisonsQuarantine) {
@@ -352,6 +447,10 @@ TEST_F(HeapTest, AllocsAccessibility) {
     ASSERT_NO_FATAL_FAILURE(VerifyFreedAccess(mem, size));
     ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(new_mem, size * 2));
 
+    // Purge the quarantine entirely. This is the only way to guarantee that
+    // this block will enter it.
+    proxy_.PurgeQuarantine();
+
     ASSERT_TRUE(proxy_.Free(0, new_mem));
     ASSERT_NO_FATAL_FAILURE(VerifyFreedAccess(new_mem, size * 2));
   }
@@ -369,7 +468,8 @@ TEST_F(HeapTest, AllocZeroBytes) {
 
 TEST_F(HeapTest, CalculateBlockChecksum) {
   const size_t kAllocSize = 100;
-  proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
+  size_t real_alloc_size = TestHeapProxy::GetAllocSize(kAllocSize);
+  proxy_.SetQuarantineMaxSize(real_alloc_size);
   LPVOID mem = proxy_.Alloc(0, kAllocSize);
   ASSERT_TRUE(mem != NULL);
   ::memset(reinterpret_cast<uint8*>(mem), 0, kAllocSize);
