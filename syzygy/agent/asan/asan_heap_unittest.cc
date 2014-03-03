@@ -16,6 +16,7 @@
 
 #include <algorithm>
 
+#include "base/bind.h"
 #include "base/bits.h"
 #include "base/rand_util.h"
 #include "base/sha1.h"
@@ -167,6 +168,10 @@ class HeapTest : public testing::TestWithAsanLogger {
     logger_.set_instance_id(instance_id());
     logger_.Init();
     ASSERT_TRUE(proxy_.Create(0, 0, 0));
+
+    // Set the error callback that the proxy will use.
+    proxy_.SetHeapErrorCallback(
+        base::Bind(&HeapTest::OnHeapError, base::Unretained(this)));
   }
 
   virtual void TearDown() OVERRIDE {
@@ -205,6 +210,10 @@ class HeapTest : public testing::TestWithAsanLogger {
     base::RandBytes(alloc, size);
   }
 
+  void OnHeapError(AsanErrorInfo* error) {
+    errors_.push_back(*error);
+  }
+
  protected:
   // Arbitrary constant for all size limit.
   static const size_t kMaxAllocSize = 134584;
@@ -212,6 +221,9 @@ class HeapTest : public testing::TestWithAsanLogger {
   AsanLogger logger_;
   StackCaptureCache stack_cache_;
   TestHeapProxy proxy_;
+
+  // Info about the last errors reported.
+  std::vector<AsanErrorInfo> errors_;
 };
 
 }  // namespace
@@ -411,7 +423,12 @@ TEST_F(HeapTest, DoubleFree) {
   ASSERT_TRUE(mem != NULL);
   ASSERT_TRUE(proxy_.Free(0, mem));
   ASSERT_TRUE(proxy_.IsQuarantined(proxy_.UserPointerToBlockHeader(mem)));
+
+  ASSERT_TRUE(errors_.empty());
   ASSERT_FALSE(proxy_.Free(0, mem));
+  ASSERT_EQ(1u, errors_.size());
+  ASSERT_EQ(HeapProxy::DOUBLE_FREE, errors_[0].error_type);
+  ASSERT_EQ(mem, errors_[0].location);
 }
 
 TEST_F(HeapTest, AllocsAccessibility) {

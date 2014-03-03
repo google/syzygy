@@ -352,13 +352,7 @@ void* HeapProxy::ReAlloc(DWORD flags, void* mem, size_t bytes) {
 }
 
 bool HeapProxy::Free(DWORD flags, void* mem) {
-  BadAccessKind access_kind = UNKNOWN_BAD_ACCESS;
-  return Free(flags, mem, &access_kind);
-}
-
-bool HeapProxy::Free(DWORD flags, void* mem, BadAccessKind* error_type) {
   DCHECK_NE(reinterpret_cast<HANDLE>(NULL), heap_);
-  DCHECK_NE(reinterpret_cast<BadAccessKind*>(NULL), error_type);
 
   // The standard allows to call free on a null pointer.
   if (mem == NULL)
@@ -368,11 +362,20 @@ bool HeapProxy::Free(DWORD flags, void* mem, BadAccessKind* error_type) {
   DCHECK(BlockHeaderToUserPointer(block) == mem);
 
   if (!VerifyChecksum(block)) {
-    *error_type = CORRUPTED_BLOCK;
-    // Reset the free stack pointer to NULL, if the block is corrupted then that
-    // could mean that this pointer has been invalidated.
+    // Reset the free stack pointer to NULL, as the pointer may not be valid.
+    // TODO(chrisha|sebmarchand): Find a way to preserve this information and
+    //     safeguard against its use. Maybe use a slow StackCache delete path
+    //     that walks the entire thing looking for the pointer in question in
+    //     order to validate it?
     block->free_stack = NULL;
-    return false;
+
+    // Report the error.
+    ReportHeapError(mem, CORRUPTED_BLOCK);
+
+    // Try to clean up the block anyways.
+    if (!FreeCorruptedBlock(mem))
+      return false;
+    return true;
   }
 
   // Capture the current stack.
@@ -381,7 +384,7 @@ bool HeapProxy::Free(DWORD flags, void* mem, BadAccessKind* error_type) {
 
   // Mark the block as quarantined.
   if (!MarkBlockAsQuarantined(block, stack)) {
-    *error_type = DOUBLE_FREE;
+    ReportHeapError(mem, DOUBLE_FREE);
     return false;
   }
 
@@ -597,7 +600,9 @@ bool HeapProxy::FreeCorruptedBlock(void* user_pointer) {
   // Calculate the allocation size via the shadow as the header might be
   // corrupted.
   size_t alloc_size = Shadow::GetAllocSize(reinterpret_cast<uint8*>(header));
-  return CleanUpAndFreeAsanBlock(header, alloc_size);
+  if (!CleanUpAndFreeAsanBlock(header, alloc_size))
+    return false;
+  return true;
 }
 
 bool HeapProxy::CleanUpAndFreeAsanBlock(BlockHeader* block_header,
@@ -608,6 +613,25 @@ bool HeapProxy::CleanUpAndFreeAsanBlock(BlockHeader* block_header,
   // TODO(chrisha): Fill the block with garbage?
 
   return ::HeapFree(heap_, 0, block_header) == TRUE;
+}
+
+void HeapProxy::ReportHeapError(void* address, BadAccessKind kind) {
+  DCHECK_NE(reinterpret_cast<void*>(NULL), address);
+
+  // Collect information about the error.
+  AsanErrorInfo error_info = {};
+  ::RtlCaptureContext(&error_info.context);
+  error_info.access_mode = HeapProxy::ASAN_UNKNOWN_ACCESS;
+  error_info.location = address;
+  error_info.error_type = kind;
+  GetBadAccessInformation(&error_info);
+  agent::asan::StackCapture stack;
+  stack.InitFromStack();
+  error_info.crash_stack_id = stack.ComputeRelativeStackId();
+
+  // We expect a callback to be set.
+  DCHECK(!heap_error_callback_.is_null());
+  heap_error_callback_.Run(&error_info);
 }
 
 void HeapProxy::CloneObject(const void* src_asan_pointer,

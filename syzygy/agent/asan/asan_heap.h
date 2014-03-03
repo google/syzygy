@@ -20,6 +20,7 @@
 
 #include <windows.h>  // NOLINT
 
+#include "base/callback.h"
 #include "base/logging.h"
 #include "base/string_piece.h"
 #include "base/debug/stack_trace.h"
@@ -39,6 +40,16 @@ struct AsanErrorInfo;
 // each allocation and maintains a quarantine list of freed blocks.
 class HeapProxy {
  public:
+  // This callback allows the heap to report heap consistency problems that it
+  // encounters during its operation. This is usually plumbed into the ASAN
+  // runtime so that the errors may be appropriately reported.
+  // TODO(chrisha|sebmarchand): Add a mechanism to walk the entire heap and get
+  //     additional information on other potentially corrupted blocks.
+  // |asan_error_info| contains information about the primary heap error that
+  //     was encountered. It is guaranteed to be on the stack.
+  typedef base::Callback<void(AsanErrorInfo* asan_error_info)>
+      HeapErrorCallback;
+
   // The different memory access modes that we can encounter.
   enum AccessMode {
     ASAN_READ_ACCESS,
@@ -116,21 +127,6 @@ class HeapProxy {
                         unsigned long* return_length);
   // @}
 
-  // Overload version of the Free function which take an additional argument to
-  // indicate the bad access type if the input block's can't be freed.
-  // @param flags The heap free options.
-  // @param mem The memory block to be freed.
-  // @param error_type Will receive the error type if the memory block can't be
-  //     freed.
-  // @returns true on success, false on failure.
-  bool Free(DWORD flags, void* mem, BadAccessKind* error_type);
-
-  // Free a corrupted memory block. This clears its metadata (including the
-  // shadow memory) and calls ::HeapFree on it.
-  // @param user_pointer The user pointer for the block to be freed.
-  // @returns true on success, false otherwise.
-  bool FreeCorruptedBlock(void* user_pointer);
-
   // Return the handle to the underlying heap.
   HANDLE heap() { return heap_; }
 
@@ -144,6 +140,18 @@ class HeapProxy {
   //     releasing it. (@p underlying_heap should have a lifetime exceeding
   //     this).
   void UseHeap(HANDLE underlying_heap);
+
+  // Sets the callback that this heap will invoke when heap corruption is
+  // encountered.
+  // @param heap_error_callback The callback to be invoked when heap
+  //     corruption is encountered.
+  void SetHeapErrorCallback(
+      HeapErrorCallback heap_error_callback) {
+    heap_error_callback_ = heap_error_callback;
+  }
+  void ClearHeapErrorCallback() {
+    heap_error_callback_.Reset();
+  }
 
   // Get information about a bad access.
   // @param bad_access_info Will receive the information about this access.
@@ -449,11 +457,26 @@ class HeapProxy {
   // it's below the limit.
   void TrimQuarantine();
 
+  // Free a corrupted memory block. This clears its metadata (including the
+  // shadow memory) and calls ::HeapFree on it.
+  // @param user_pointer The user pointer for the block to be freed.
+  // @returns true on success, false otherwise.
+  bool FreeCorruptedBlock(void* user_pointer);
+
   // Cleanup a block's metadata and free it.
   // @param block_header The block header.
   // @param alloc_size The underlying allocation size for this block.
   // @returns true on success, false otherwise.
   bool CleanUpAndFreeAsanBlock(BlockHeader* block_header, size_t alloc_size);
+
+  // Reports a heap error via the heap error callback. This is for originating
+  // errors that are detected while performing operations on the heap metadata.
+  // Read/write errors are detected outside of the HeapProxy, and query the heap
+  // for information about the error itself.
+  // @param address The address that was being accessed/manipulating when the
+  //     error was detected.
+  // @param kind The type of error encountered.
+  void ReportHeapError(void* address, BadAccessKind kind);
 
   // The sharding factor of the quarantine. This is used to give us linear
   // access for random removal and insertion of elements into the quarantine.
@@ -517,6 +540,12 @@ class HeapProxy {
 
   // The entry linking to us.
   LIST_ENTRY list_entry_;
+
+  // The callback this heap uses to expose internal state errors. These are
+  // caused by uninstrumented code (system libraries, etc), thus aren't caught
+  // at their source. Catching their side effect as early as possible allows the
+  // recovery of some useful debugging information.
+  HeapErrorCallback heap_error_callback_;
 };
 
 }  // namespace asan

@@ -687,15 +687,31 @@ void AsanRuntime::set_flags(const AsanFlags* flags) {
 }
 
 void AsanRuntime::AddHeap(HeapProxy* heap) {
-  base::AutoLock lock(heap_proxy_dlist_lock_);
-  InsertTailList(&heap_proxy_dlist_, HeapProxy::ToListEntry(heap));
+  DCHECK_NE(reinterpret_cast<HeapProxy*>(NULL), heap);
+
+  // Configure the proxy to notify us on heap corruption.
+  heap->SetHeapErrorCallback(
+      base::Bind(&AsanRuntime::OnError,
+                 base::Unretained(this)));
+
+  {
+    base::AutoLock lock(heap_proxy_dlist_lock_);
+    InsertTailList(&heap_proxy_dlist_, HeapProxy::ToListEntry(heap));
+  }
 }
 
 void AsanRuntime::RemoveHeap(HeapProxy* heap) {
-  base::AutoLock lock(heap_proxy_dlist_lock_);
-  DCHECK(HeapListContainsEntry(&heap_proxy_dlist_,
-                               HeapProxy::ToListEntry(heap)));
-  RemoveEntryList(HeapProxy::ToListEntry(heap));
+  DCHECK_NE(reinterpret_cast<HeapProxy*>(NULL), heap);
+
+  // Clear the callback so that the heap no longer notifies us of errors.
+  heap->ClearHeapErrorCallback();
+
+  {
+    base::AutoLock lock(heap_proxy_dlist_lock_);
+    DCHECK(HeapListContainsEntry(&heap_proxy_dlist_,
+                                 HeapProxy::ToListEntry(heap)));
+    RemoveEntryList(HeapProxy::ToListEntry(heap));
+  }
 }
 
 void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {

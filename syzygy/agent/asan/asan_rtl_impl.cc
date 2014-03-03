@@ -525,22 +525,8 @@ BOOL WINAPI asan_HeapFree(HANDLE heap,
   if (!proxy)
     return FALSE;
 
-  HeapProxy::BadAccessKind error_type = HeapProxy::UNKNOWN_BAD_ACCESS;
-  if (!proxy->Free(flags, mem, &error_type)) {
-    AsanErrorInfo error_info = {};
-    ::RtlCaptureContext(&error_info.context);
-    error_info.access_mode = HeapProxy::ASAN_UNKNOWN_ACCESS;
-    error_info.location = mem;
-    error_info.error_type = error_type;
-    proxy->GetBadAccessInformation(&error_info);
-    agent::asan::StackCapture stack;
-    stack.InitFromStack();
-    error_info.crash_stack_id = stack.ComputeRelativeStackId();
-    asan_runtime->OnError(&error_info);
-    if (error_type == HeapProxy::CORRUPTED_BLOCK)
-      return proxy->FreeCorruptedBlock(mem);
+  if (!proxy->Free(flags, mem))
     return false;
-  }
 
   return true;
 }

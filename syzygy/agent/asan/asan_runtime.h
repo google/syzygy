@@ -61,7 +61,7 @@ struct AsanErrorInfo {
   // The access size.
   size_t access_size;
   // The information about the shadow memory for this address, this would be
-  // something like: "0x12345678 is located 8 bytes inside of 10-bytes region
+  // something like: "0x12345678 is located 8 bytes inside of a 10-byte region
   // [0x12345670,0x1234567A)."
   char shadow_info[128];
   // A textual description of the shadow memory around |location|.
