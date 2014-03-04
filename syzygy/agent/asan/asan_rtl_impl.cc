@@ -61,12 +61,16 @@ void SetUpRtl(AsanRuntime* runtime) {
 void TearDownRtl() {
   DCHECK_NE(reinterpret_cast<HANDLE>(NULL), process_heap);
   DCHECK_NE(reinterpret_cast<HeapProxy*>(NULL), asan_process_heap);
-  asan_runtime->RemoveHeap(asan_process_heap.get());
 
   if (!asan_process_heap->Destroy()) {
     LOG(ERROR) << "Unable to destroy the process heap.";
     return;
   }
+
+  // This needs to happen after the heap is destroyed so that the error handling
+  // callback is still available to report any errors encountered while cleaning
+  // up the quarantine.
+  asan_runtime->RemoveHeap(asan_process_heap.get());
 
   asan_process_heap.reset(NULL);
   process_heap = NULL;
