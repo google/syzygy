@@ -703,15 +703,15 @@ void AsanRuntime::AddHeap(HeapProxy* heap) {
 void AsanRuntime::RemoveHeap(HeapProxy* heap) {
   DCHECK_NE(reinterpret_cast<HeapProxy*>(NULL), heap);
 
-  // Clear the callback so that the heap no longer notifies us of errors.
-  heap->ClearHeapErrorCallback();
-
   {
     base::AutoLock lock(heap_proxy_dlist_lock_);
     DCHECK(HeapListContainsEntry(&heap_proxy_dlist_,
                                  HeapProxy::ToListEntry(heap)));
     RemoveEntryList(HeapProxy::ToListEntry(heap));
   }
+
+  // Clear the callback so that the heap no longer notifies us of errors.
+  heap->ClearHeapErrorCallback();
 }
 
 void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {

@@ -68,6 +68,7 @@ class HeapProxy {
     WILD_ACCESS,
     INVALID_ADDRESS,
     CORRUPTED_BLOCK,
+    CORRUPTED_HEAP,
 
     // This enum should end with bad access types that are relative to heap
     // blocks.
@@ -86,6 +87,7 @@ class HeapProxy {
   static const char* kWildAccess;
   static const char* kHeapUnknownError;
   static const char* kHeapCorruptedBlock;
+  static const char* kCorruptedHeap;
 
   // The sleep time (in milliseconds) used to approximate the CPU frequency.
   // Exposed for testing.
@@ -164,7 +166,7 @@ class HeapProxy {
   static HeapProxy* FromListEntry(LIST_ENTRY* list_entry);
   // @}
 
-  // Set the default max size of the quarantine of a heap proxy.  This value is
+  // Set the default max size of the quarantine of a heap proxy. This value is
   // used when constructing a new heap proxy. This will cap the current
   // default_quarantine_max_block_size, so be sure to set the value after.
   // @param default_quarantine_max_size The maximum size of the quarantine list,
@@ -178,7 +180,7 @@ class HeapProxy {
   }
 
   // Set the default max size of a block to be accepted in the quarantine of a
-  // heap proxy. This valus is used when constructing a new heap proxy. The
+  // heap proxy. This value is used when constructing a new heap proxy. The
   // value that is set will be capped by the currently active
   // default_quarantine_max_size, so set that value first!
   // @param default_quarantine_max_block_size The maximum size of a block that
@@ -454,14 +456,20 @@ class HeapProxy {
   void QuarantineBlock(BlockHeader* block);
 
   // If the quarantine size is over quarantine_max_size_, trim it down until
-  // it's below the limit.
-  void TrimQuarantine();
+  // it's below the limit. Can potentially cause heap errors to be reported if
+  // the underlying book-keeping detects problems.
+  // @returns true on success, false otherwise.
+  bool TrimQuarantine();
 
   // Free a corrupted memory block. This clears its metadata (including the
   // shadow memory) and calls ::HeapFree on it.
+  // @param header The ASan block header for the block to be freed.
   // @param user_pointer The user pointer for the block to be freed.
+  // @param alloc_size If non-NULL will be populated with the allocation size as
+  //     calculated by looking at the shadow memory.
   // @returns true on success, false otherwise.
-  bool FreeCorruptedBlock(void* user_pointer);
+  bool FreeCorruptedBlock(BlockHeader* header, size_t* alloc_size);
+  bool FreeCorruptedBlock(void* user_pointer, size_t* alloc_size);
 
   // Cleanup a block's metadata and free it.
   // @param block_header The block header.

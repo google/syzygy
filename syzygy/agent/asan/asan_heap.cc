@@ -118,6 +118,7 @@ const char* HeapProxy::kInvalidAddress = "invalid-address";
 const char* HeapProxy::kWildAccess = "wild-access";
 const char* HeapProxy::kHeapUnknownError = "heap-unknown-error";
 const char* HeapProxy::kHeapCorruptedBlock = "corrupted-block";
+const char* HeapProxy::kCorruptedHeap = "corrupted-heap";
 
 HeapProxy::HeapProxy()
     : heap_(NULL),
@@ -206,12 +207,24 @@ void HeapProxy::SetBlockChecksum(BlockHeader* block_header) {
                                    &block_checksum);
   } else if (block_header->state == QUARANTINED) {
     // If the block is quarantined then we also include the content of the block
-    // in the calculation.
-    uint32 checksum =
-        base::SuperFastHash(reinterpret_cast<char*>(block_header),
-                            GetAllocSize(block_header->block_size,
-                                         1 << block_header->alignment_log));
-    CombineUInt32IntoBlockChecksum(checksum, &block_checksum);
+    // in the calculation. We ignore the pointer to the next free block as it is
+    // modified when entering and exiting the quarantine.
+    // TODO(chrisha): Remove the next free block pointer from the block trailer
+    //     and store it out of band in the quarantine itself. This will make us
+    //     more resistant to heap corruption.
+    BlockTrailer* block_trailer = BlockHeaderToBlockTrailer(block_header);
+    char* begin1 = reinterpret_cast<char*>(block_header);
+    char* end = begin1 + GetAllocSize(block_header->block_size,
+                                      1 << block_header->alignment_log);
+    size_t length1 = reinterpret_cast<char*>(&block_trailer->next_free_block) -
+        begin1;
+    char* begin2 = reinterpret_cast<char*>(block_trailer + 1);
+    size_t length2 = end - begin2;
+
+    uint32 checksum1 = base::SuperFastHash(begin1, length1);
+    uint32 checksum2 = base::SuperFastHash(begin2, length2);
+
+    CombineUInt32IntoBlockChecksum(checksum1 ^ checksum2, &block_checksum);
   } else {
     NOTREACHED();
   }
@@ -362,18 +375,15 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
   DCHECK(BlockHeaderToUserPointer(block) == mem);
 
   if (!VerifyChecksum(block)) {
-    // Reset the free stack pointer to NULL, as the pointer may not be valid.
-    // TODO(chrisha|sebmarchand): Find a way to preserve this information and
-    //     safeguard against its use. Maybe use a slow StackCache delete path
-    //     that walks the entire thing looking for the pointer in question in
-    //     order to validate it?
+    // The free stack hasn't yet been set, but may have been filled with junk.
+    // Reset it.
     block->free_stack = NULL;
 
     // Report the error.
     ReportHeapError(mem, CORRUPTED_BLOCK);
 
     // Try to clean up the block anyways.
-    if (!FreeCorruptedBlock(mem))
+    if (!FreeCorruptedBlock(mem, NULL))
       return false;
     return true;
   }
@@ -470,6 +480,10 @@ bool HeapProxy::SetInformation(HEAP_INFORMATION_CLASS info_class,
                                void* info,
                                size_t info_length) {
   DCHECK(heap_ != NULL);
+  // We don't allow the HeapEnableTerminationOnCorruption flag to be set, as we
+  // prefer to catch and report these ourselves.
+  if (info_class = ::HeapEnableTerminationOnCorruption)
+    return true;
   return ::HeapSetInformation(heap_, info_class, info, info_length) == TRUE;
 }
 
@@ -514,11 +528,13 @@ void HeapProxy::SetQuarantineMaxBlockSize(size_t quarantine_max_block_size) {
   }
 }
 
-void HeapProxy::TrimQuarantine() {
+bool HeapProxy::TrimQuarantine() {
+  size_t size_of_block_just_freed = 0;
+  bool success = true;
+
   while (true) {
     BlockHeader* free_block = NULL;
     BlockTrailer* trailer = NULL;
-    size_t alloc_size = 0;
 
     // Randomly choose a quarantine shard from which to remove an element.
     // TODO(chrisha): Do we want this to be truly random, or hashed off of the
@@ -530,8 +546,15 @@ void HeapProxy::TrimQuarantine() {
     // this scope as possible!
     {
       base::AutoLock lock(lock_);
+
+      // We subtract this here under the lock because we actually calculate the
+      // size of the block outside of the lock when we validate the checksum.
+      DCHECK_GE(quarantine_size_, size_of_block_just_freed);
+      quarantine_size_ -= size_of_block_just_freed;
+
+      // Stop when the quarantine is back down to a reasonable size.
       if (quarantine_size_ <= quarantine_max_size_)
-        return;
+        return success;
 
       // Make sure we haven't chosen an empty shard.
       while (heads_[i] == NULL) {
@@ -550,17 +573,27 @@ void HeapProxy::TrimQuarantine() {
       heads_[i] = trailer->next_free_block;
       if (heads_[i] == NULL)
         tails_[i] = NULL;
+    }
 
+    // Check if the block has been stomped while it's in the quarantine. If it
+    // has we take great pains to delete it carefully, and also report an error.
+    // Otherwise, we trust the data in the header and take the fast path.
+    size_t alloc_size = 0;
+    if (!VerifyChecksum(free_block)) {
+      ReportHeapError(free_block, CORRUPTED_BLOCK);
+      if (!FreeCorruptedBlock(free_block, &alloc_size))
+        success = false;
+    } else {
       alloc_size = GetAllocSize(free_block->block_size,
                                 kDefaultAllocGranularity);
-
-      DCHECK_GE(quarantine_size_, alloc_size);
-      quarantine_size_ -= alloc_size;
+      if (!CleanUpAndFreeAsanBlock(free_block, alloc_size))
+        success = false;
     }
-    // Clean up the block's metadata and free it. We do this outside of the heap
-    // lock to reduce contention.
-    CHECK(CleanUpAndFreeAsanBlock(free_block, alloc_size));
+
+    size_of_block_just_freed = alloc_size;
   }
+
+  return success;
 }
 
 void HeapProxy::DestroyAsanBlock(void* asan_pointer) {
@@ -590,17 +623,32 @@ void HeapProxy::ReleaseAsanBlock(BlockHeader* block_header) {
   block_header->state = FREED;
 }
 
-bool HeapProxy::FreeCorruptedBlock(void* user_pointer) {
-  // We can't use UserPointerToBlockHeader because the magic number of the
-  // header might be invalid.
-  BlockHeader* header = reinterpret_cast<BlockHeader*>(user_pointer) - 1;
+bool HeapProxy::FreeCorruptedBlock(BlockHeader* header, size_t* alloc_size) {
+  DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), header);
+
+  // TODO(chrisha): Is there a better way to do this? We should be able to do an
+  //     exhaustive check of the stack cache to check for validity.
   // Set the alloc and free pointers to NULL as they might be invalid.
   header->alloc_stack = NULL;
   header->free_stack = NULL;
+
   // Calculate the allocation size via the shadow as the header might be
   // corrupted.
-  size_t alloc_size = Shadow::GetAllocSize(reinterpret_cast<uint8*>(header));
-  if (!CleanUpAndFreeAsanBlock(header, alloc_size))
+  size_t size = Shadow::GetAllocSize(reinterpret_cast<uint8*>(header));
+  if (alloc_size != NULL)
+    *alloc_size = size;
+  if (!CleanUpAndFreeAsanBlock(header, size))
+    return false;
+  return true;
+}
+
+bool HeapProxy::FreeCorruptedBlock(void* user_pointer, size_t* alloc_size) {
+  DCHECK_NE(reinterpret_cast<void*>(NULL), user_pointer);
+
+  // We can't use UserPointerToBlockHeader because the magic number of the
+  // header might be invalid.
+  BlockHeader* header = reinterpret_cast<BlockHeader*>(user_pointer) - 1;
+  if (!FreeCorruptedBlock(header, alloc_size))
     return false;
   return true;
 }
@@ -612,7 +660,12 @@ bool HeapProxy::CleanUpAndFreeAsanBlock(BlockHeader* block_header,
 
   // TODO(chrisha): Fill the block with garbage?
 
-  return ::HeapFree(heap_, 0, block_header) == TRUE;
+  if (::HeapFree(heap_, 0, block_header) != TRUE) {
+    ReportHeapError(block_header, CORRUPTED_HEAP);
+    return false;
+  }
+
+  return true;
 }
 
 void HeapProxy::ReportHeapError(void* address, BadAccessKind kind) {
@@ -669,7 +722,9 @@ void HeapProxy::QuarantineBlock(BlockHeader* block) {
   // an (optional) maximum size.
   if (alloc_size > quarantine_max_block_size_ ||
       alloc_size > quarantine_max_size_) {
-    CHECK(CleanUpAndFreeAsanBlock(block, alloc_size));
+    // Don't worry if CleanUpAndFreeAsanBlock fails as it will report a heap
+    // error in this case.
+    CleanUpAndFreeAsanBlock(block, alloc_size);
     return;
   }
 
@@ -1130,6 +1185,8 @@ const char* HeapProxy::AccessTypeToStr(BadAccessKind bad_access_kind) {
       return kHeapUnknownError;
     case CORRUPTED_BLOCK:
       return kHeapCorruptedBlock;
+    case CORRUPTED_HEAP:
+      return kCorruptedHeap;
     default:
       NOTREACHED() << "Unexpected bad access kind.";
       return NULL;

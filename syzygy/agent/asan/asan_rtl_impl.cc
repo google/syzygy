@@ -475,12 +475,14 @@ BOOL WINAPI asan_HeapDestroy(HANDLE heap) {
   if (!proxy)
     return FALSE;
 
+  // Clean up the heap before removing it, so that it remains attached to our
+  // callback in the event of any heap errors.
+  bool success = proxy->Destroy();
   asan_runtime->RemoveHeap(proxy);
+  delete proxy;
 
-  if (proxy->Destroy()) {
-    delete proxy;
+  if (success)
     return TRUE;
-  }
 
   return FALSE;
 }

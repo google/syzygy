@@ -900,12 +900,28 @@ size_t AsanWcsrchrUseAfterFree() {
   return reinterpret_cast<size_t>(result);
 }
 
+// TODO(chrisha|sebmarchand): These should be in a separate file, as they
+// aren't really interceptor tests.
+
 size_t AsanCorruptedBlock() {
   size_t* mem = new size_t[10];
   size_t original_value = NonInterceptedRead(&mem[-1]);
   NonInterceptedWrite(&mem[-1], original_value + 1);
   size_t ret = mem[0];
   delete[] mem;
+  return ret;
+}
+
+size_t AsanCorruptedBlockInQuarantine() {
+  size_t* mem = new size_t[10];
+  size_t ret = mem[0];
+  delete[] mem;
+
+  // We modify the block after deletion so that it will cause an error to be
+  // fired when the block is trimmed from the quarantine.
+  size_t original_value = NonInterceptedRead(&mem[0]);
+  NonInterceptedWrite(&mem[0], original_value + 1);
+
   return ret;
 }
 

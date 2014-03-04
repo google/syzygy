@@ -431,6 +431,64 @@ TEST_F(HeapTest, DoubleFree) {
   ASSERT_EQ(mem, errors_[0].location);
 }
 
+static const size_t kChecksumRepeatCount = 10;
+
+TEST_F(HeapTest, CorruptAsEntersQuarantine) {
+  // This can fail because of a checksum collision. However, we run it a
+  // handful of times to keep the chances as small as possible.
+  for (size_t i = 0; i < kChecksumRepeatCount; ++i) {
+    const size_t kAllocSize = 100;
+    proxy_.SetQuarantineMaxSize(0);
+    proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
+    LPVOID mem = proxy_.Alloc(0, kAllocSize);
+    ASSERT_TRUE(mem != NULL);
+    reinterpret_cast<int*>(mem)[-1] = rand();
+    ASSERT_TRUE(proxy_.Free(0, mem));
+
+    // Try again for all but the last attempt if this appears to have failed.
+    if (errors_.empty() && i + 1 < kChecksumRepeatCount)
+      continue;
+
+    ASSERT_EQ(1u, errors_.size());
+    ASSERT_EQ(HeapProxy::CORRUPTED_BLOCK, errors_[0].error_type);
+    ASSERT_EQ(mem, errors_[0].location);
+
+    break;
+  }
+}
+
+TEST_F(HeapTest, CorruptAsExitsQuarantine) {
+  const size_t kAllocSize = 100;
+
+  // This can fail because of a checksum collision. However, we run it a
+  // handful of times to keep the chances as small as possible.
+  for (size_t i = 0; i < kChecksumRepeatCount; ++i) {
+    proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
+    LPVOID mem = proxy_.Alloc(0, kAllocSize);
+    ASSERT_TRUE(mem != NULL);
+    ASSERT_TRUE(proxy_.Free(0, mem));
+    ASSERT_TRUE(errors_.empty());
+
+    // Change some of the block content and then force the quarantine to be
+    // trimmed. The block hash should be invalid and it should cause an error to
+    // be fired.
+    reinterpret_cast<int32*>(mem)[0] = rand();
+    proxy_.SetQuarantineMaxSize(0);
+
+    // Try again for all but the last attempt if this appears to have failed.
+    if (errors_.empty() && i + 1 < kChecksumRepeatCount)
+      continue;
+
+    ASSERT_EQ(1u, errors_.size());
+    ASSERT_EQ(HeapProxy::CORRUPTED_BLOCK, errors_[0].error_type);
+    ASSERT_EQ(
+        reinterpret_cast<TestHeapProxy::BlockHeader*>(mem) - 1,
+        reinterpret_cast<TestHeapProxy::BlockHeader*>(errors_[0].location));
+
+    break;
+  }
+}
+
 TEST_F(HeapTest, AllocsAccessibility) {
   // Ensure that the quarantine is large enough to keep the allocated blocks in
   // this test.
