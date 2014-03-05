@@ -41,6 +41,7 @@ class TestAsanInstrumenter : public AsanInstrumenter {
   using AsanInstrumenter::debug_friendly_;
   using AsanInstrumenter::use_liveness_analysis_;
   using AsanInstrumenter::remove_redundant_checks_;
+  using AsanInstrumenter::instrumentation_rate_;
   using AsanInstrumenter::kAgentDllAsan;
   using AsanInstrumenter::InstrumentImpl;
   using InstrumenterWithAgent::CreateRelinker;
@@ -153,6 +154,7 @@ TEST_F(AsanInstrumenterTest, ParseMinimalAsan) {
   EXPECT_TRUE(instrumenter_.use_interceptors_);
   EXPECT_TRUE(instrumenter_.use_liveness_analysis_);
   EXPECT_TRUE(instrumenter_.remove_redundant_checks_);
+  EXPECT_EQ(1.0, instrumenter_.instrumentation_rate_);
 }
 
 TEST_F(AsanInstrumenterTest, ParseFullAsan) {
@@ -169,6 +171,7 @@ TEST_F(AsanInstrumenterTest, ParseFullAsan) {
   cmd_line_.AppendSwitch("overwrite");
   cmd_line_.AppendSwitch("no-liveness-analysis");
   cmd_line_.AppendSwitch("no-redundancy-analysis");
+  cmd_line_.AppendSwitchASCII("instrumentation-rate", "0.5");
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
 
@@ -186,6 +189,7 @@ TEST_F(AsanInstrumenterTest, ParseFullAsan) {
   EXPECT_FALSE(instrumenter_.use_interceptors_);
   EXPECT_FALSE(instrumenter_.use_liveness_analysis_);
   EXPECT_FALSE(instrumenter_.remove_redundant_checks_);
+  EXPECT_EQ(0.5, instrumenter_.instrumentation_rate_);
 }
 
 TEST_F(AsanInstrumenterTest, InstrumentImpl) {
@@ -219,6 +223,14 @@ TEST_F(AsanInstrumenterTest, SucceedsWithValidFilter) {
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
   EXPECT_TRUE(instrumenter_.CreateRelinker());
   EXPECT_TRUE(instrumenter_.InstrumentImpl());
+}
+
+TEST_F(AsanInstrumenterTest, FailsWithInvalidInstrumentationRate) {
+  cmd_line_.AppendSwitchPath("input-image", input_image_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_image_path_);
+  cmd_line_.AppendSwitchASCII("instrumentation-rate", "forty.three");
+
+  EXPECT_FALSE(instrumenter_.ParseCommandLine(&cmd_line_));
 }
 
 }  // namespace instrumenters

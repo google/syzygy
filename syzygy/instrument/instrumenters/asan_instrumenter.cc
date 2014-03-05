@@ -26,7 +26,8 @@ const char AsanInstrumenter::kAgentDllAsan[] = "syzyasan_rtl.dll";
 AsanInstrumenter::AsanInstrumenter()
     : use_interceptors_(true),
       remove_redundant_checks_(true),
-      use_liveness_analysis_(true) {
+      use_liveness_analysis_(true),
+      instrumentation_rate_(1.0) {
   agent_dll_ = kAgentDllAsan;
 }
 
@@ -60,6 +61,7 @@ bool AsanInstrumenter::InstrumentImpl() {
   asan_transform_->set_use_interceptors(use_interceptors_);
   asan_transform_->set_use_liveness_analysis(use_liveness_analysis_);
   asan_transform_->set_remove_redundant_checks(remove_redundant_checks_);
+  asan_transform_->set_instrumentation_rate(instrumentation_rate_);
 
   // Set up the filter if one was provided.
   if (filter.get()) {
@@ -85,6 +87,19 @@ bool AsanInstrumenter::ParseAdditionalCommandLineArguments(
   use_liveness_analysis_ = !command_line->HasSwitch("no-liveness-analysis");
   remove_redundant_checks_ = !command_line->HasSwitch("no-redundancy-analysis");
   use_interceptors_ = !command_line->HasSwitch("no-interceptors");
+
+  // Parse the instrumentation rate if one has been provided.
+  static const char kInstrumentationRate[] = "instrumentation-rate";
+  if (command_line->HasSwitch(kInstrumentationRate)) {
+    std::string s = command_line->GetSwitchValueASCII(kInstrumentationRate);
+    double d = 0;
+    if (!base::StringToDouble(s, &d)) {
+      LOG(ERROR) << "Failed to parse floating point value: " << s;
+      return false;
+    }
+    // Cap the rate to the range of valid values [0, 1].
+    instrumentation_rate_ = std::max(0.0, std::min(1.0, d));
+  }
 
   return true;
 }

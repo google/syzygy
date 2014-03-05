@@ -274,6 +274,25 @@ TEST_F(AsanTransformTest, SetRemoveRedundantChecksFlag) {
   EXPECT_FALSE(bb_transform.remove_redundant_checks());
 }
 
+TEST_F(AsanTransformTest, SetInstrumentationRate) {
+  EXPECT_EQ(1.0, asan_transform_.instrumentation_rate());
+  asan_transform_.set_instrumentation_rate(1.2);
+  EXPECT_EQ(1.0, asan_transform_.instrumentation_rate());
+  asan_transform_.set_instrumentation_rate(-0.2);
+  EXPECT_EQ(0.0, asan_transform_.instrumentation_rate());
+  asan_transform_.set_instrumentation_rate(0.5);
+  EXPECT_EQ(0.5, asan_transform_.instrumentation_rate());;
+
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  EXPECT_EQ(1.0, bb_transform.instrumentation_rate());
+  bb_transform.set_instrumentation_rate(1.2);
+  EXPECT_EQ(1.0, bb_transform.instrumentation_rate());
+  bb_transform.set_instrumentation_rate(-0.2);
+  EXPECT_EQ(0.0, bb_transform.instrumentation_rate());
+  bb_transform.set_instrumentation_rate(0.5);
+  EXPECT_EQ(0.5, bb_transform.instrumentation_rate());
+}
+
 TEST_F(AsanTransformTest, ApplyAsanTransformPE) {
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
 
@@ -1329,6 +1348,68 @@ TEST_F(AsanTransformTest, CoffInterceptFunctions) {
 
   // No sections should have been added.
   EXPECT_EQ(num_sections_pre_transform, block_graph_.sections().size());
+}
+
+namespace {
+
+void GetImageSizeSubsampledInstrumentation(double rate, size_t* size) {
+  ASSERT_LE(0.0, rate);
+  ASSERT_GE(1.0, rate);
+  ASSERT_TRUE(size != NULL);
+
+  base::FilePath test_dll_path = ::testing::GetOutputRelativePath(
+      testing::kTestDllName);
+
+  pe::PEFile pe_file;
+  ASSERT_TRUE(pe_file.Init(test_dll_path));
+
+  BlockGraph block_graph;
+  pe::ImageLayout layout(&block_graph);
+  pe::Decomposer decomposer(pe_file);
+  ASSERT_TRUE(decomposer.Decompose(&layout));
+
+  BlockGraph::Block* header_block = layout.blocks.GetBlockByAddress(
+      core::RelativeAddress(0));
+  ASSERT_TRUE(header_block != NULL);
+
+  AsanTransform tx;
+  tx.set_instrumentation_rate(rate);
+
+  pe::PETransformPolicy policy;
+  ASSERT_TRUE(tx.TransformBlockGraph(&policy, &block_graph, header_block));
+
+  *size = 0;
+  BlockGraph::BlockMap::const_iterator block_it = block_graph.blocks().begin();
+  for (; block_it != block_graph.blocks().end(); ++block_it) {
+    *size += block_it->second.size();
+  }
+}
+
+}  // namespace
+
+TEST_F(AsanTransformTest, SubsampledInstrumentationTestDll) {
+  size_t rate0 = 0;
+  ASSERT_NO_FATAL_FAILURE(GetImageSizeSubsampledInstrumentation(0.0, &rate0));
+
+  size_t rate50 = 0;
+  ASSERT_NO_FATAL_FAILURE(GetImageSizeSubsampledInstrumentation(0.5, &rate50));
+
+  size_t rate100 = 0;
+  ASSERT_NO_FATAL_FAILURE(GetImageSizeSubsampledInstrumentation(1.0, &rate100));
+
+  size_t size100 = rate100 - rate0;
+  size_t size50 = rate50 - rate0;
+
+  // This could theoretically fail, but that would imply an extremely bad
+  // implementation of the underlying random number generator. There are about
+  // 1850 instructions being instrumented. Since this is effectively a fair
+  // coin toss we expect a standard deviation of 0.5 * sqrt(1850) = 22
+  // instructions. A 10% margin is 185 / 22 = 8.4 standard deviations. For
+  // |z| > 8.4, the p-value is 4.5e-17, or 17 nines of confidence. That should
+  // keep any flake largely at bay. Thus, if this fails it's pretty much certain
+  // the implementation is at fault.
+  EXPECT_LE(40 * size100 / 100, size50);
+  EXPECT_GE(60 * size100 / 100, size50);
 }
 
 }  // namespace transforms

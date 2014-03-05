@@ -81,11 +81,12 @@ class AsanBasicBlockTransform
       check_access_hooks_(check_access_hooks),
       debug_friendly_(false),
       use_liveness_analysis_(false),
-      remove_redundant_checks_(false) {
+      remove_redundant_checks_(false),
+      instrumentation_rate_(1.0) {
     DCHECK(check_access_hooks != NULL);
   }
 
-  // @name Accessors.
+  // @name Accessors and mutators.
   // @{
   bool debug_friendly() const { return debug_friendly_; }
   void set_debug_friendly(bool flag) { debug_friendly_ = flag; }
@@ -100,6 +101,9 @@ class AsanBasicBlockTransform
     remove_redundant_checks_ = remove_redundant_checks;
   }
 
+  // The instrumentation rate must be in the range [0, 1], inclusive.
+  double instrumentation_rate() const { return instrumentation_rate_; }
+  void set_instrumentation_rate(double instrumentation_rate);
   // @}
 
   // The transform name.
@@ -146,6 +150,10 @@ class AsanBasicBlockTransform
   // memory checks added by this transform.
   bool remove_redundant_checks_;
 
+  // Controls the rate at which reads/writes are instrumented. This is
+  // implemented using random sampling.
+  double instrumentation_rate_;
+
   DISALLOW_COPY_AND_ASSIGN(AsanBasicBlockTransform);
 };
 
@@ -174,7 +182,7 @@ class AsanTransform
                                BlockGraph::Block* header_block);
   // @}
 
-  // @name Accessors.
+  // @name Accessors and mutators.
   // @{
   void set_instrument_dll_name(const base::StringPiece& instrument_dll_name) {
     instrument_dll_name.CopyToString(&asan_dll_name_);
@@ -201,6 +209,9 @@ class AsanTransform
     remove_redundant_checks_ = remove_redundant_checks;
   }
 
+  // The instrumentation rate must be in the range [0, 1], inclusive.
+  double instrumentation_rate() const { return instrumentation_rate_; }
+  void set_instrumentation_rate(double instrumentation_rate);
   // @}
 
   // The name of the DLL that is imported by default.
@@ -250,6 +261,10 @@ class AsanTransform
 
   // Set iff we should use the functions interceptors.
   bool use_interceptors_;
+
+  // Controls the rate at which reads/writes are instrumented. This is
+  // implemented using random sampling.
+  double instrumentation_rate_;
 
   // References to the different asan check access import entries. Valid after
   // successful PreBlockGraphIteration.

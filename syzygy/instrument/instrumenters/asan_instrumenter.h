@@ -52,6 +52,7 @@ class AsanInstrumenter : public InstrumenterWithAgent {
   bool use_interceptors_;
   bool remove_redundant_checks_;
   bool use_liveness_analysis_;
+  double instrumentation_rate_;
   // @}
 
   // The transform for this agent.

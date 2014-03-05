@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "base/logging.h"
+#include "base/rand_util.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/memory/ref_counted.h"
@@ -770,7 +771,10 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
     BasicCodeBlock* basic_block,
     StackAccessMode stack_mode,
     BlockGraph::ImageFormat image_format) {
-  DCHECK(basic_block != NULL);
+  DCHECK_NE(reinterpret_cast<BasicCodeBlock*>(NULL), basic_block);
+
+  if (instrumentation_rate_ == 0.0)
+    return true;
 
   // Pre-compute liveness information for each instruction.
   std::list<LivenessAnalysis::State> states;
@@ -875,9 +879,15 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
     if (segment == R_FS || segment == R_GS)
       continue;
 
-    // Finally, don't instrument any filtered instructions.
+    // Don't instrument any filtered instructions.
     if (IsFiltered(*iter_inst))
       continue;
+
+    // Randomly sample to effect partial instrumentation.
+    if (instrumentation_rate_ < 1.0 &&
+        base::RandDouble() >= instrumentation_rate_) {
+      continue;
+    }
 
     // Create a BasicBlockAssembler to insert new instruction.
     BasicBlockAssembler bb_asm(iter_inst, &basic_block->instructions());
@@ -910,6 +920,12 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
   DCHECK(iter_state == states.end());
 
   return true;
+}
+
+void AsanBasicBlockTransform::set_instrumentation_rate(
+    double instrumentation_rate) {
+  // Set the instrumentation rate, capping it between 0 and 1.
+  instrumentation_rate_ = std::max(0.0, std::min(1.0, instrumentation_rate));
 }
 
 bool AsanBasicBlockTransform::TransformBasicBlockSubGraph(
@@ -959,7 +975,13 @@ AsanTransform::AsanTransform()
       use_liveness_analysis_(false),
       remove_redundant_checks_(false),
       use_interceptors_(false),
+      instrumentation_rate_(1.0),
       check_access_hooks_ref_() {
+}
+
+void AsanTransform::set_instrumentation_rate(double instrumentation_rate) {
+  // Set the instrumentation rate, capping it between 0 and 1.
+  instrumentation_rate_ = std::max(0.0, std::min(1.0, instrumentation_rate));
 }
 
 bool AsanTransform::PreBlockGraphIteration(
@@ -1099,6 +1121,7 @@ bool AsanTransform::OnBlock(const TransformPolicyInterface* policy,
   transform.set_use_liveness_analysis(use_liveness_analysis());
   transform.set_remove_redundant_checks(remove_redundant_checks());
   transform.set_filter(filter());
+  transform.set_instrumentation_rate(instrumentation_rate_);
 
   if (!ApplyBasicBlockSubGraphTransform(
           &transform, policy, block_graph, block, NULL)) {
