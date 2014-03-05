@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.12.0
+
+[-----] First build with VS2013.
+[r2059] Add instrumentation subsampling support to ASan instrumenter.
+
 Version 0.7.11.0
 
 [r2056] SyzyASAN - Block checksums now validated as they exit the quarantine.
