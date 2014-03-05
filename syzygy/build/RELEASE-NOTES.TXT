@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.11.0
+
+[r2056] SyzyASAN - Block checksums now validated as they exit the quarantine.
+
 Version 0.7.10.0
 
 [r2049] SyzyASAN - Fix to quarantine to prevent flushing it when overly large
