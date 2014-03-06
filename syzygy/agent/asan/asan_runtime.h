@@ -27,6 +27,7 @@
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/stack_capture.h"
 #include "syzygy/agent/common/dlist.h"
+#include "syzygy/common/asan_parameters.h"
 
 namespace agent {
 namespace asan {
@@ -109,9 +110,6 @@ class AsanRuntime {
     DCHECK(stack_cache_.get() != NULL);
     return stack_cache_.get();
   }
-  static const wchar_t* SyzyAsanDll() {
-    return kSyzyAsanDll;
-  }
   // @}
 
   // Initialize asan runtime library.
@@ -143,102 +141,26 @@ class AsanRuntime {
 
   // Returns true if we should ignore the given @p stack_id, false
   // otherwise.
-  bool ShouldIgnoreError(size_t stack_id) const {
+  bool ShouldIgnoreError(common::AsanStackId stack_id) const {
     // TODO(sebmarchand): Keep a list of the stack ids that have already been
     //     reported so we can avoid reporting the same error multiple times.
-    return flags_.ignored_stack_ids.find(stack_id) !=
-        flags_.ignored_stack_ids.end();
+    return params_.ignored_stack_ids_set.find(stack_id) !=
+        params_.ignored_stack_ids_set.end();
   }
 
   // Get information about a bad access.
   // @param bad_access_info Will receive the information about this access.
   void GetBadAccessInformation(AsanErrorInfo* error_info);
 
-  // The name of the environment variable holding the experiment opt-in coin
-  // toss value.
-  static const char kSyzygyAsanCoinTossEnvVar[];
-
   // The name of the environment variable containing the command-line.
   static const char kSyzygyAsanOptionsEnvVar[];
 
  protected:
-  // A structure to track the values of the flags.
-  struct AsanFlags {
-    AsanFlags()
-        : quarantine_size(0U),
-          reporting_period(0U),
-          bottom_frames_to_skip(0U),
-          max_num_frames(0U),
-          trailer_padding_size(0U),
-          exit_on_failure(false),
-          minidump_on_failure(false),
-          log_as_text(true),
-          opted_in(false),
-          coin_toss(0) {
-    }
-
-    // The default size of the quarantine of the HeapProxy, in bytes.
-    size_t quarantine_size;
-
-    // The number of allocations between reports of the stack trace cache
-    // compression ratio.
-    size_t reporting_period;
-
-    // The number of bottom frames to skip on a stack trace.
-    size_t bottom_frames_to_skip;
-
-    // The max number of frames for a stack trace.
-    size_t max_num_frames;
-
-    // The size of the padding added to every memory block trailer.
-    size_t trailer_padding_size;
-
-    // The stack ids we ignore.
-    StackIdSet ignored_stack_ids;
-
-    // If true, we should generate a minidump whenever an error is detected.
-    // Defaults to false.
-    bool minidump_on_failure;
-
-    // If we should stop the logger (and the running program) after reporting
-    // an error. Defaults to false.
-    bool exit_on_failure;
-
-    // If true, we should generate a textual log describing any errors.
-    // Defaults to true;
-    bool log_as_text;
-
-    // Experiment configuration.
-    bool opted_in;
-    uint64 coin_toss;
-  };
-
-  // @name Flag strings.
-  // @{
-  static const char kBottomFramesToSkip[];
-  static const char kCompressionReportingPeriod[];
-  static const char kExitOnFailure[];
-  static const char kIgnoredStackIds[];
-  static const char kMaxNumberOfFrames[];
-  static const char kMiniDumpOnFailure[];
-  static const char kNoLogAsText[];
-  static const char kQuarantineSize[];
-  static const wchar_t kSyzyAsanDll[];
-  static const char kTrailerPaddingSize[];
-  // @}
-
-  // @name Accessors.
-  // @{
-  const AsanFlags* const flags() { return &flags_; }
-  // @}
-
-  // @name Mutators.
-  // @{
-  void set_flags(const AsanFlags* flags);
-  // @}
+  // The runtime parameters. These are accessible for unittesting.
+  common::InflatedAsanParameters params_;
 
   // Propagate the values of the flags to the target modules.
-  void PropagateFlagsValues() const;
+  void PropagateParams() const;
 
  private:
   // Set up the logger.
@@ -253,9 +175,6 @@ class AsanRuntime {
   // Tear down the stack cache.
   void TearDownStackCache();
 
-  // Parse and set the flags from the wide string @p str.
-  bool ParseFlagsFromString(std::wstring str);
-
   // The shared logger instance that will be used by all heap proxies.
   scoped_ptr<AsanLogger> logger_;
 
@@ -264,9 +183,6 @@ class AsanRuntime {
 
   // The asan error callback functor.
   AsanOnErrorCallBack asan_error_callback_;
-
-  // The values of the flags.
-  AsanFlags flags_;
 
   // The heap proxies list lock.
   base::Lock heap_proxy_dlist_lock_;

@@ -28,6 +28,7 @@
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 #include "syzygy/common/align.h"
+#include "syzygy/common/asan_parameters.h"
 #include "syzygy/trace/common/clock.h"
 
 namespace agent {
@@ -106,10 +107,10 @@ void CombineUInt32IntoBlockChecksum(uint32 val, uint32* checksum) {
 StackCaptureCache* HeapProxy::stack_cache_ = NULL;
 double HeapProxy::cpu_cycles_per_us_ = std::numeric_limits<double>::quiet_NaN();
 // The default quarantine and block size for a new Heap.
-size_t HeapProxy::default_quarantine_max_size_ = kDefaultQuarantineMaxSize;
+size_t HeapProxy::default_quarantine_max_size_ = common::kDefaultQuarantineSize;
 size_t HeapProxy::default_quarantine_max_block_size_ =
-    kDefaultQuarantineMaxBlockSize;
-size_t HeapProxy::trailer_padding_size_ = kDefaultTrailerPaddingSize;
+    common::kDefaultQuarantineBlockSize;
+size_t HeapProxy::trailer_padding_size_ = common::kDefaultTrailerPaddingSize;
 const char* HeapProxy::kHeapUseAfterFree = "heap-use-after-free";
 const char* HeapProxy::kHeapBufferUnderFlow = "heap-buffer-underflow";
 const char* HeapProxy::kHeapBufferOverFlow = "heap-buffer-overflow";
@@ -139,9 +140,9 @@ HeapProxy::~HeapProxy() {
 
 void HeapProxy::Init(StackCaptureCache* cache) {
   DCHECK(cache != NULL);
-  default_quarantine_max_size_ = kDefaultQuarantineMaxSize;
-  default_quarantine_max_block_size_ = kDefaultQuarantineMaxBlockSize;
-  trailer_padding_size_ = kDefaultTrailerPaddingSize;
+  default_quarantine_max_size_ = common::kDefaultQuarantineSize;
+  default_quarantine_max_block_size_ = common::kDefaultQuarantineBlockSize;
+  trailer_padding_size_ = common::kDefaultTrailerPaddingSize;
   stack_cache_ = cache;
 }
 

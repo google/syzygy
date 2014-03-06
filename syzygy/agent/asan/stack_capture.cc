@@ -18,6 +18,7 @@
 
 #include "base/logging.h"
 #include "base/process_util.h"
+#include "syzygy/common/asan_parameters.h"
 
 // http://blogs.msdn.com/oldnewthing/archive/2004/10/25/247180.aspx
 extern "C" IMAGE_DOS_HEADER __ImageBase;
@@ -34,7 +35,8 @@ uint32 ComputeStackTraceHash(void** stack_trace, uint8 stack_depth) {
 }
 
 // The number of bottom frames to skip per stack trace.
-size_t StackCapture::bottom_frames_to_skip_ = kDefaultBottomFramesToSkip_;
+size_t StackCapture::bottom_frames_to_skip_ =
+    common::kDefaultBottomFramesToSkip;
 
 size_t StackCapture::GetSize(size_t max_num_frames) {
   DCHECK_LT(0u, max_num_frames);
@@ -65,7 +67,7 @@ void StackCapture::RemoveRef() {
 }
 
 void StackCapture::Init() {
-  bottom_frames_to_skip_ = kDefaultBottomFramesToSkip_;
+  bottom_frames_to_skip_ = common::kDefaultBottomFramesToSkip;
 }
 
 void StackCapture::InitFromBuffer(StackId stack_id,

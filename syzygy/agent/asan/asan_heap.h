@@ -490,16 +490,6 @@ class HeapProxy {
   // access for random removal and insertion of elements into the quarantine.
   static const size_t kQuarantineShards = 128;
 
-  // Arbitrarily keep 16 megabytes of quarantine per heap by default.
-  static const size_t kDefaultQuarantineMaxSize = 16 * 1024 * 1024;
-
-  // The maximum relative size of a block that will be accepted in quarantine.
-  static const size_t kDefaultQuarantineMaxBlockSize = 4 * 1024 * 1024;
-
-  // By default we use no additional padding between heap blocks, beyond the
-  // header and footer.
-  static const size_t kDefaultTrailerPaddingSize = 0;
-
   // The default alloc granularity. The Windows heap is 8-byte granular, so
   // there's no gain in a lower allocation granularity.
   static const size_t kDefaultAllocGranularity = 8;

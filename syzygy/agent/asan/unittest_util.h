@@ -29,6 +29,9 @@ namespace testing {
 
 using agent::asan::AsanErrorInfo;
 
+// The default name of the runtime library DLL.
+extern const wchar_t kSyzyAsanRtlDll[];
+
 // A unittest fixture that ensures that an ASAN logger instance is up and
 // running for the duration of the test. Output is captured to a file so that
 // its contents can be read after the test if necessary.

@@ -21,6 +21,7 @@
 #include <windows.h>
 
 #include "base/logging.h"
+#include "syzygy/common/asan_parameters.h"
 
 namespace agent {
 namespace asan {
@@ -45,6 +46,8 @@ class StackCapture {
   // This corresponds to the the type used by ::CaptureStackBackTrace's hash
   // for a stack-trace.
   typedef ULONG StackId;
+  COMPILE_ASSERT(sizeof(StackId) == sizeof(common::AsanStackId),
+                 stack_id_type_mismatch);
 
   StackCapture()
       : ref_count_(0), stack_id_(0), num_frames_(0),
@@ -171,9 +174,6 @@ class StackCapture {
   StackId ComputeRelativeStackId();
 
  protected:
-  // Don't skip any frames by default.
-  static const size_t kDefaultBottomFramesToSkip_ = 0;
-
   // The number of bottom frames to skip on the stack traces.
   static size_t bottom_frames_to_skip_;
 

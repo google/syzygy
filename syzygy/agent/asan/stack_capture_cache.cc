@@ -38,7 +38,7 @@ StackCapture** GetFirstFrameAsLink(StackCapture* stack_capture) {
 }  // namespace
 
 size_t StackCaptureCache::compression_reporting_period_ =
-    StackCaptureCache::kDefaultCompressionReportingPeriod;
+    common::kDefaultReportingPeriod;
 
 StackCaptureCache::CachePage::~CachePage() {
   // It's our parent StackCaptureCache's responsibility to clean up the linked
@@ -113,7 +113,7 @@ StackCaptureCache::~StackCaptureCache() {
 }
 
 void StackCaptureCache::Init() {
-  compression_reporting_period_ = kDefaultCompressionReportingPeriod;
+  compression_reporting_period_ = common::kDefaultReportingPeriod;
 }
 
 const StackCapture* StackCaptureCache::SaveStackTrace(

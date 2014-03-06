@@ -25,6 +25,8 @@
 
 namespace testing {
 
+const wchar_t kSyzyAsanRtlDll[] = L"syzyasan_rtl.dll";
+
 // Define the function pointers.
 #define DEFINE_FUNCTION_PTR_VARIABLE(convention, ret, name, args)  \
     name##FunctionPtr TestAsanRtl::name##Function;
@@ -48,7 +50,7 @@ void TestWithAsanLogger::SetUp() {
   scoped_ptr<base::Environment> env(base::Environment::Create());
   env->GetVar(kSyzygyRpcInstanceIdEnvVar, &instance_id);
   instance_id.append(base::StringPrintf(";%ls,%u",
-                                        agent::asan::AsanRuntime::SyzyAsanDll(),
+                                        kSyzyAsanRtlDll,
                                         ::GetCurrentProcessId()));
   env->SetVar(kSyzygyRpcInstanceIdEnvVar, instance_id);
 

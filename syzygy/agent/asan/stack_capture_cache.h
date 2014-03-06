@@ -19,6 +19,7 @@
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 #include "syzygy/agent/asan/stack_capture.h"
+#include "syzygy/common/asan_parameters.h"
 
 namespace agent {
 namespace asan {
@@ -71,7 +72,7 @@ class StackCaptureCache {
 
   // @returns the default compression reporting period value.
   static size_t GetDefaultCompressionReportingPeriod() {
-    return kDefaultCompressionReportingPeriod;
+    return common::kDefaultReportingPeriod;
   }
 
   // Sets a new (global) compression reporting period value. Note that this
@@ -178,10 +179,6 @@ class StackCaptureCache {
   // frames_dead (on behalf of ReturnStackCapture).
   // @param stack_capture The stack capture to be linked into reclaimed_.
   void AddStackCaptureToReclaimedList(StackCapture* stack_capture);
-
-  // The default number of iterations between each compression ratio report.
-  // Zero (0) means do not report.
-  static const size_t kDefaultCompressionReportingPeriod = 0;
 
   // The default number of known stacks sets that we keep.
   static const size_t kKnownStacksSharding = 16;
