@@ -22,7 +22,6 @@
 #include "syzygy/pdb/pdb_writer.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/metadata.h"
-#include "syzygy/pe/old_decomposer.h"
 #include "syzygy/pe/pdb_info.h"
 #include "syzygy/pe/pe_file_writer.h"
 #include "syzygy/pe/pe_relinker_util.h"
@@ -48,8 +47,7 @@ using pdb::PdbStream;
 using pdb::WritablePdbStream;
 
 // Decomposes the module enclosed by the given PE file.
-bool Decompose(bool use_old_decomposer,
-               const PEFile& pe_file,
+bool Decompose(const PEFile& pe_file,
                const base::FilePath& pdb_path,
                ImageLayout* image_layout,
                BlockGraph::Block** dos_header_block) {
@@ -62,21 +60,11 @@ bool Decompose(bool use_old_decomposer,
   ImageLayout orig_image_layout(block_graph);
 
   // Decompose the input image.
-  if (use_old_decomposer) {
-    LOG(INFO) << "Using old decomposer for decomposition.";
-    OldDecomposer decomposer(pe_file);
-    decomposer.set_pdb_path(pdb_path);
-    if (!decomposer.Decompose(&orig_image_layout)) {
-      LOG(ERROR) << "Unable to decompose module: " << pe_file.path().value();
-      return false;
-    }
-  } else {
-    Decomposer decomposer(pe_file);
-    decomposer.set_pdb_path(pdb_path);
-    if (!decomposer.Decompose(&orig_image_layout)) {
-      LOG(ERROR) << "Unable to decompose module: " << pe_file.path().value();
-      return false;
-    }
+  Decomposer decomposer(pe_file);
+  decomposer.set_pdb_path(pdb_path);
+  if (!decomposer.Decompose(&orig_image_layout)) {
+    LOG(ERROR) << "Unable to decompose module: " << pe_file.path().value();
+    return false;
   }
 
   // Make a copy of the image layout without padding. We don't want to carry
@@ -119,7 +107,7 @@ PERelinker::PERelinker(const PETransformPolicy* pe_transform_policy)
     : PECoffRelinker(pe_transform_policy),
       pe_transform_policy_(pe_transform_policy),
       add_metadata_(true), augment_pdb_(true),
-      compress_pdb_(false), strip_strings_(false), use_old_decomposer_(false),
+      compress_pdb_(false), strip_strings_(false),
       padding_(0), code_alignment_(1), output_guid_(GUID_NULL) {
   DCHECK(pe_transform_policy != NULL);
 }
@@ -165,8 +153,8 @@ bool PERelinker::Init() {
   }
 
   // Decompose the image.
-  if (!Decompose(use_old_decomposer_, input_pe_file_, input_pdb_path_,
-                 &input_image_layout_, &headers_block_)) {
+  if (!Decompose(input_pe_file_, input_pdb_path_, &input_image_layout_,
+                 &headers_block_)) {
     return false;
   }
 

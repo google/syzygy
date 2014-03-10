@@ -62,7 +62,6 @@ class TestInstrumenterWithAgent : public InstrumenterWithAgent {
   using InstrumenterWithAgent::output_image_path_;
   using InstrumenterWithAgent::output_pdb_path_;
   using InstrumenterWithAgent::allow_overwrite_;
-  using InstrumenterWithAgent::old_decomposer_;
   using InstrumenterWithAgent::no_augment_pdb_;
   using InstrumenterWithAgent::no_strip_strings_;
 
@@ -199,7 +198,6 @@ TEST_F(InstrumenterWithAgentTest, ParseInputImages) {
   EXPECT_EQ(output_pe_image_path_, instrumenter.output_image_path_);
 
   EXPECT_FALSE(instrumenter.allow_overwrite_);
-  EXPECT_FALSE(instrumenter.old_decomposer_);
   EXPECT_FALSE(instrumenter.no_augment_pdb_);
   EXPECT_FALSE(instrumenter.no_strip_strings_);
 }

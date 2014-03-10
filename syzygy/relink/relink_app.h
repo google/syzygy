@@ -40,8 +40,7 @@ class RelinkApp : public common::AppImplBase {
         overwrite_(false),
         basic_blocks_(false),
         exclude_bb_padding_(false),
-        fuzz_(false),
-        old_decomposer_(false) {
+        fuzz_(false) {
   }
 
   // @name Implementation of the AppImplBase interface.
@@ -76,7 +75,6 @@ class RelinkApp : public common::AppImplBase {
   bool basic_blocks_;
   bool exclude_bb_padding_;
   bool fuzz_;
-  bool old_decomposer_;
   // @}
 
  private:

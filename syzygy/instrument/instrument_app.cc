@@ -77,7 +77,6 @@ static const char kUsageFormatStr[] =
     "                            the strings when augmenting the PDB. They\n"
     "                            are stripped by default to keep PDB sizes\n"
     "                            down.\n"
-    "    --old-decomposer        Use the old decomposer.\n"
     "    --output-pdb=<path>     The PDB for the instrumented DLL. If not\n"
     "                            provided will attempt to generate one.\n"
     "    --overwrite             Allow output files to be overwritten.\n"

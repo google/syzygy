@@ -32,7 +32,6 @@ class TestEntryCallInstrumenter : public EntryCallInstrumenter {
   using EntryCallInstrumenter::output_image_path_;
   using EntryCallInstrumenter::output_pdb_path_;
   using EntryCallInstrumenter::allow_overwrite_;
-  using EntryCallInstrumenter::old_decomposer_;
   using EntryCallInstrumenter::no_augment_pdb_;
   using EntryCallInstrumenter::no_strip_strings_;
   using EntryCallInstrumenter::thunk_imports_;
@@ -122,7 +121,6 @@ TEST_F(EntryCallInstrumenterTest, ParseMinimalCallTrace) {
   EXPECT_EQ(abs_input_image_path_, instrumenter_->input_image_path_);
   EXPECT_EQ(output_image_path_, instrumenter_->output_image_path_);
   EXPECT_FALSE(instrumenter_->allow_overwrite_);
-  EXPECT_FALSE(instrumenter_->old_decomposer_);
   EXPECT_FALSE(instrumenter_->no_augment_pdb_);
   EXPECT_FALSE(instrumenter_->no_strip_strings_);
   EXPECT_FALSE(instrumenter_->debug_friendly_);
@@ -136,7 +134,6 @@ TEST_F(EntryCallInstrumenterTest, ParseFullCallTrace) {
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
   cmd_line_.AppendSwitch("debug-friendly");
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
-  cmd_line_.AppendSwitch("old-decomposer");
   cmd_line_.AppendSwitch("no-augment-pdb");
   cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
@@ -151,7 +148,6 @@ TEST_F(EntryCallInstrumenterTest, ParseFullCallTrace) {
   EXPECT_EQ(output_pdb_path_, instrumenter_->output_pdb_path_);
   EXPECT_EQ(std::string("foo.dll"), instrumenter_->agent_dll_);
   EXPECT_TRUE(instrumenter_->allow_overwrite_);
-  EXPECT_TRUE(instrumenter_->old_decomposer_);
   EXPECT_TRUE(instrumenter_->no_augment_pdb_);
   EXPECT_TRUE(instrumenter_->no_strip_strings_);
   EXPECT_TRUE(instrumenter_->debug_friendly_);
@@ -171,7 +167,6 @@ TEST_F(EntryCallInstrumenterTest, ParseMinimalProfile) {
             instrumenter_->agent_dll_);
 
   EXPECT_FALSE(instrumenter_->allow_overwrite_);
-  EXPECT_FALSE(instrumenter_->old_decomposer_);
   EXPECT_FALSE(instrumenter_->no_augment_pdb_);
   EXPECT_FALSE(instrumenter_->no_strip_strings_);
   EXPECT_FALSE(instrumenter_->debug_friendly_);
@@ -184,7 +179,6 @@ TEST_F(EntryCallInstrumenterTest, ParseFullProfile) {
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
   cmd_line_.AppendSwitch("debug-friendly");
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
-  cmd_line_.AppendSwitch("old-decomposer");
   cmd_line_.AppendSwitch("no-augment-pdb");
   cmd_line_.AppendSwitch("no-strip-strings");
   cmd_line_.AppendSwitchPath("output-pdb", output_pdb_path_);
@@ -199,7 +193,6 @@ TEST_F(EntryCallInstrumenterTest, ParseFullProfile) {
   EXPECT_EQ(output_pdb_path_, instrumenter_->output_pdb_path_);
   EXPECT_EQ(std::string("foo.dll"), instrumenter_->agent_dll_);
   EXPECT_TRUE(instrumenter_->allow_overwrite_);
-  EXPECT_TRUE(instrumenter_->old_decomposer_);
   EXPECT_TRUE(instrumenter_->no_augment_pdb_);
   EXPECT_TRUE(instrumenter_->no_strip_strings_);
   EXPECT_TRUE(instrumenter_->debug_friendly_);

@@ -34,7 +34,6 @@ class TestAsanInstrumenter : public AsanInstrumenter {
   using AsanInstrumenter::output_image_path_;
   using AsanInstrumenter::output_pdb_path_;
   using AsanInstrumenter::allow_overwrite_;
-  using AsanInstrumenter::old_decomposer_;
   using AsanInstrumenter::no_augment_pdb_;
   using AsanInstrumenter::no_strip_strings_;
   using AsanInstrumenter::filter_path_;
@@ -149,7 +148,6 @@ TEST_F(AsanInstrumenterTest, ParseMinimalAsan) {
   EXPECT_EQ(std::string(TestAsanInstrumenter::kAgentDllAsan),
             instrumenter_.agent_dll_);
   EXPECT_FALSE(instrumenter_.allow_overwrite_);
-  EXPECT_FALSE(instrumenter_.old_decomposer_);
   EXPECT_FALSE(instrumenter_.no_augment_pdb_);
   EXPECT_FALSE(instrumenter_.no_strip_strings_);
   EXPECT_FALSE(instrumenter_.debug_friendly_);
@@ -166,7 +164,6 @@ TEST_F(AsanInstrumenterTest, ParseFullAsan) {
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
   cmd_line_.AppendSwitch("debug-friendly");
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
-  cmd_line_.AppendSwitch("old-decomposer");
   cmd_line_.AppendSwitch("no-augment-pdb");
   cmd_line_.AppendSwitch("no-interceptors");
   cmd_line_.AppendSwitch("no-strip-strings");
@@ -187,7 +184,6 @@ TEST_F(AsanInstrumenterTest, ParseFullAsan) {
   EXPECT_EQ(test_dll_filter_path_, instrumenter_.filter_path_);
   EXPECT_EQ(std::string("foo.dll"), instrumenter_.agent_dll_);
   EXPECT_TRUE(instrumenter_.allow_overwrite_);
-  EXPECT_TRUE(instrumenter_.old_decomposer_);
   EXPECT_TRUE(instrumenter_.no_augment_pdb_);
   EXPECT_TRUE(instrumenter_.no_strip_strings_);
   EXPECT_TRUE(instrumenter_.debug_friendly_);

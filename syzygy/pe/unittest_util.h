@@ -110,8 +110,7 @@ void TwiddlePdbGuidAndPath(block_graph::BlockGraph::Block* dos_header_block);
 class PELibUnitTest : public testing::ApplicationTestBase {
  public:
   // Decomposes test_dll, populating the given PE file and image layout.
-  static void DecomposeTestDll(bool use_old_decomposer,
-                               pe::PEFile* pe_file,
+  static void DecomposeTestDll(pe::PEFile* pe_file,
                                pe::ImageLayout* image_layout);
 
   // Performs a series of assertions on the test DLL's integrity.

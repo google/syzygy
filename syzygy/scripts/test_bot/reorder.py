@@ -62,7 +62,7 @@ class ReorderTest(object):
 
   def __init__(self, reorder_tool, input_bin, input_pdb,
                test_program=None, test_arguments=None, padding=None,
-               reorder_basic_blocks=False, use_old_decomposer=True):
+               reorder_basic_blocks=False):
     """Initializes an instance of the reorder test.
 
     Args:
@@ -93,7 +93,6 @@ class ReorderTest(object):
     self._test_arguments = test_arguments or []
     self._padding = padding or 0
     self._reorder_basic_blocks = reorder_basic_blocks
-    self._use_old_decomposer = use_old_decomposer
 
   def _ParseResultLine(self, line, run_id):
     """Parse a line of output from the test app.
@@ -217,16 +216,12 @@ class ReorderTest(object):
         ]
     if self._reorder_basic_blocks:
       command.append('--basic-blocks')
-    if self._use_old_decomposer:
-      command.append('--new-decomposer')
     _LOGGER.info(
         'run=%s; Rewriting %s', run_id, os.path.basename(self._input_bin))
     _LOGGER.info('run=%s; Using random seed = %s', run_id, seed)
     _LOGGER.info('run=%s; Using padding length = %s', run_id, self._padding)
     _LOGGER.info(
         'run=%s; Reorder basic blocks = %s', run_id, self._reorder_basic_blocks)
-    _LOGGER.info(
-        'run=%s; Use old decomposer = %s', run_id, self._use_old_decomposer)
 
     with WorkingDirectory(os.path.dirname(self._reorder_tool)):
       proc = subprocess.Popen(
@@ -404,9 +399,6 @@ def AddCommandLineOptions(option_parser):
       '--reorder-input-pdb', metavar='PDB',
       help='Path to correspoinding PDB file for EXE_OR_DLL')
   group.add_option(
-      '--reorder-use-legacy-decomposer', action='store_true', default=False,
-      help='Use the legacy decomposer instead of the new decomposer.')
-  group.add_option(
       '--reorder-test-program', metavar='EXE',
       help='Path to test executable to run, if different from EXE_OR_DLL')
   group.add_option(
@@ -521,8 +513,7 @@ def main():
       test_program=options.reorder_test_program,
       test_arguments=reorder_test_args,
       padding=options.reorder_padding,
-      reorder_basic_blocks=options.reorder_basic_blocks,
-      use_old_decomposer=options.reorder_use_legacy_decomposer)
+      reorder_basic_blocks=options.reorder_basic_blocks)
   passed, failed = test.Run(
       seed=options.reorder_seed,
       num_iterations=options.reorder_num_iterations,

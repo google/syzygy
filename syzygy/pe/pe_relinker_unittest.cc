@@ -150,12 +150,6 @@ TEST_F(PERelinkerTest, Properties) {
   relinker.set_strip_strings(false);
   EXPECT_FALSE(relinker.strip_strings());
 
-  EXPECT_FALSE(relinker.use_old_decomposer());
-  relinker.set_use_old_decomposer(true);
-  EXPECT_TRUE(relinker.use_old_decomposer());
-  relinker.set_use_old_decomposer(false);
-  EXPECT_FALSE(relinker.use_old_decomposer());
-
   EXPECT_EQ(0u, relinker.padding());
   relinker.set_padding(10);
   EXPECT_EQ(10u, relinker.padding());
@@ -294,52 +288,6 @@ TEST_F(PERelinkerTest, IdentityRelink) {
 
   relinker.set_input_path(input_dll_);
   relinker.set_output_path(temp_dll_);
-
-  // We let the relinker infer the PDB output. The mechanism should cause it
-  // to produce a PDB file in the temporary directory with the same basename
-  // as the input PDB.
-  EXPECT_TRUE(relinker.Init());
-  EXPECT_TRUE(relinker.Relink());
-  EXPECT_EQ(temp_pdb_, relinker.output_pdb_path());
-
-  EXPECT_TRUE(file_util::PathExists(relinker.output_path()));
-  EXPECT_TRUE(file_util::PathExists(relinker.output_pdb_path()));
-
-  ASSERT_NO_FATAL_FAILURE(CheckTestDll(relinker.output_path()));
-
-  PEFile orig_pe_file;
-  PEFile::Signature orig_pe_sig;
-  ASSERT_TRUE(orig_pe_file.Init(input_dll_));
-  orig_pe_file.GetSignature(&orig_pe_sig);
-
-  // Ensure that the produced binary contains a metadata section. This
-  // confirms that the AddMetadataTransform has run.
-  PEFile new_pe_file;
-  ASSERT_TRUE(new_pe_file.Init(temp_dll_));
-  ASSERT_NE(kInvalidSection,
-            new_pe_file.GetSectionIndex(common::kSyzygyMetadataSectionName));
-  Metadata metadata;
-  ASSERT_TRUE(metadata.LoadFromPE(new_pe_file));
-  EXPECT_TRUE(metadata.IsConsistent(orig_pe_sig));
-
-  // Ensure that the PDB file can be found from the module. This confirms that
-  // the AddPdbInfoTransform has run.
-
-  PdbInfo pdb_info;
-  ASSERT_TRUE(pdb_info.Init(relinker.output_path()));
-  EXPECT_EQ(pdb_info.pdb_file_name(), relinker.output_pdb_path());
-
-  base::FilePath pdb_path;
-  ASSERT_TRUE(FindPdbForModule(relinker.output_path(), &pdb_path));
-  EXPECT_EQ(pdb_path, relinker.output_pdb_path());
-}
-
-TEST_F(PERelinkerTest, IdentityRelinkNewDecomposer) {
-  TestPERelinker relinker(&policy_);
-
-  relinker.set_input_path(input_dll_);
-  relinker.set_output_path(temp_dll_);
-  relinker.set_use_old_decomposer(true);
 
   // We let the relinker infer the PDB output. The mechanism should cause it
   // to produce a PDB file in the temporary directory with the same basename

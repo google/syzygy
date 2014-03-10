@@ -16,7 +16,6 @@
 
 #include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/pe/decomposer.h"
-#include "syzygy/pe/old_decomposer.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_transform_policy.h"
 
@@ -42,9 +41,7 @@ const char kUsageFormatStr[] =
   "Available options\n"
   "  --basic-blocks\n"
   "    Breaks each function down to basic blocks and dumps it at that level.\n"
-  "  --image=<image file>\n"
-  "  --old-decomposer\n"
-  "    Use the old decomposer.\n";
+  "  --image=<image file>\n";
 
 using block_graph::BlockGraph;
 using block_graph::BasicBlock;
@@ -101,7 +98,6 @@ void HexDump(const uint8* data, size_t size, FILE* out) {
 DecomposeImageToTextApp::DecomposeImageToTextApp()
     : common::AppImplBase("Image To Text Decomposer"),
       dump_basic_blocks_(false),
-      use_old_decomposer_(false),
       num_refs_(0) {
 }
 
@@ -125,8 +121,6 @@ bool DecomposeImageToTextApp::ParseCommandLine(
   }
 
   dump_basic_blocks_ = cmd_line->HasSwitch("basic-blocks");
-
-  use_old_decomposer_ = cmd_line->HasSwitch("old-decomposer");
 
   return true;
 }
@@ -375,22 +369,12 @@ bool DecomposeImageToTextApp::DumpImageToText(
   BlockGraph block_graph;
   ImageLayout image_layout(&block_graph);
 
- if (use_old_decomposer_) {
-    LOG(INFO) << "Using old decomposer for decomposition.";
-    OldDecomposer decomposer(image_file);
-    if (!decomposer.Decompose(&image_layout)) {
-      LOG(ERROR) << "Unable to decompose image \""
-          << image_path.value() << "\".";
-      return false;
-    }
-  } else {
-    // And decompose it to an ImageLayout.
-    Decomposer decomposer(image_file);
-    if (!decomposer.Decompose(&image_layout)) {
-      LOG(ERROR) << "Unable to decompose image \""
-          << image_path.value() << "\".";
-      return false;
-    }
+  // And decompose it to an ImageLayout.
+  Decomposer decomposer(image_file);
+  if (!decomposer.Decompose(&image_layout)) {
+    LOG(ERROR) << "Unable to decompose image \""
+        << image_path.value() << "\".";
+    return false;
   }
 
   num_refs_ = 0;

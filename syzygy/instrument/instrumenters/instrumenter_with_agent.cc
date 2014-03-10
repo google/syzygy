@@ -93,7 +93,6 @@ bool InstrumenterWithAgent::ParseCommandLine(const CommandLine* command_line) {
       command_line->GetSwitchValuePath("output-pdb"));
   allow_overwrite_ = command_line->HasSwitch("overwrite");
   debug_friendly_ = command_line->HasSwitch("debug-friendly");
-  old_decomposer_ = command_line->HasSwitch("old-decomposer");
   no_augment_pdb_ = command_line->HasSwitch("no-augment-pdb");
   no_strip_strings_ = command_line->HasSwitch("no-strip-strings");
 
@@ -215,7 +214,6 @@ bool InstrumenterWithAgent::CreateRelinker() {
     relinker->set_output_pdb_path(output_pdb_path_);
     relinker->set_allow_overwrite(allow_overwrite_);
     relinker->set_augment_pdb(!no_augment_pdb_);
-    relinker->set_use_old_decomposer(old_decomposer_);
     relinker->set_strip_strings(!no_strip_strings_);
   }
 

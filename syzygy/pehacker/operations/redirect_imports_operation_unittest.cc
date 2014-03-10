@@ -286,7 +286,7 @@ TEST_F(RedirectImportsOperationTest, SucceedsOnTestDll) {
   BlockGraph block_graph;
   pe::ImageLayout image_layout(&block_graph);
   pe::PEFile pe_file;
-  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll(false, &pe_file, &image_layout));
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll(&pe_file, &image_layout));
   BlockGraph::Block* header = image_layout.blocks.GetBlockByAddress(
       core::RelativeAddress(0));
 
