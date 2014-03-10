@@ -291,9 +291,6 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   SetUpStackCache();
   HeapProxy::Init(stack_cache_.get());
 
-  // TODO(chrisha): Initialize ASan parameters from those that have been
-  //     injected into the instrumented module at the time of instrumentation.
-
   // Parse and propagate any flags set via the environment variable. This logs
   // failure for us.
   if (!common::ParseAsanParameters(flags_command_line, &params_))

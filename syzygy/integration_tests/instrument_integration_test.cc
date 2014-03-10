@@ -16,6 +16,7 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/files/file_path.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_rtl_impl.h"
 #include "syzygy/agent/asan/asan_runtime.h"
@@ -93,6 +94,20 @@ void SetAsanDefaultCallBack(AsanErrorCallBack callback) {
   DCHECK(set_callback != NULL);
 
   set_callback(callback);
+};
+
+agent::asan::AsanRuntime* GetActiveAsanRuntime() {
+  HMODULE asan_module = GetModuleHandle(L"syzyasan_rtl.dll");
+  DCHECK(asan_module != NULL);
+
+  typedef agent::asan::AsanRuntime* (WINAPI *AsanGetActiveRuntimePtr)();
+  AsanGetActiveRuntimePtr asan_get_active_runtime =
+      reinterpret_cast<AsanGetActiveRuntimePtr>(
+      ::GetProcAddress(asan_module, "asan_GetActiveRuntime"));
+  DCHECK_NE(reinterpret_cast<AsanGetActiveRuntimePtr>(NULL),
+            asan_get_active_runtime);
+
+  return (*asan_get_active_runtime)();
 };
 
 class TestingProfileGrinder : public grinder::grinders::ProfileGrinder {
@@ -764,6 +779,45 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoFunctionInterceptors) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanEndToEndWithRtlOptions) {
+  cmd_line_.AppendSwitchASCII(
+      "asan-rtl-options",
+      "--quarantine_size=20000000 --quarantine_block_size=1000000");
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+
+  // Get the active runtime and validate its parameters.
+  agent::asan::AsanRuntime* runtime = GetActiveAsanRuntime();
+  ASSERT_TRUE(runtime != NULL);
+  ASSERT_EQ(20000000u, runtime->params().quarantine_size);
+  ASSERT_EQ(1000000u, runtime->params().quarantine_block_size);
+}
+
+TEST_F(InstrumentAppIntegrationTest,
+       AsanEndToEndWithRtlOptionsOverrideWithEnvironment) {
+  base::Environment* env = base::Environment::Create();
+  ASSERT_TRUE(env != NULL);
+  env->SetVar("SYZYGY_ASAN_OPTIONS",
+              "--quarantine_block_size=800000 --ignored_stack_ids=0x1");
+
+  cmd_line_.AppendSwitchASCII(
+      "asan-rtl-options",
+      "--quarantine_size=20000000 --quarantine_block_size=1000000 "
+      "--ignored_stack_ids=0x2");
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+
+  // Get the active runtime and validate its parameters.
+  agent::asan::AsanRuntime* runtime = GetActiveAsanRuntime();
+  ASSERT_TRUE(runtime != NULL);
+  ASSERT_EQ(20000000u, runtime->params().quarantine_size);
+  ASSERT_EQ(800000u, runtime->params().quarantine_block_size);
+  ASSERT_THAT(runtime->params().ignored_stack_ids_set,
+              testing::ElementsAre(0x1, 0x2));
 }
 
 TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {

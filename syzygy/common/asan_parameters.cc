@@ -14,6 +14,8 @@
 
 #include "syzygy/common/asan_parameters.h"
 
+#include <windows.h>
+
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/string_number_conversions.h"
@@ -95,8 +97,10 @@ bool ReadIgnoredStackIdsFromCommandLine(const CommandLine& cmd_line,
 
 }  // namespace
 
-// The current version of the ASAN parameters structure.
-const uint32 kAsanParametersVersion = 0;
+// SYZYgy Asan Runtime Options.
+const char kAsanParametersSectionName[] = ".syzyaro";
+const uint32 kAsanParametersSectionCharacteristics =
+    IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ;
 
 // Default values of HeapProxy parameters
 const uint32 kDefaultQuarantineSize = 16 * 1024 * 1024;

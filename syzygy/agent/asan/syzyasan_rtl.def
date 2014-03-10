@@ -110,6 +110,7 @@ EXPORTS
 
   ; Functions exposed for testing purposes.
   asan_SetInterceptorCallback
+  asan_GetActiveRuntime
 
   ; Functions for the nested heaps.
   asan_PoisonMemoryRange

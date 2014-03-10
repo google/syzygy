@@ -155,10 +155,11 @@ class AsanRuntime {
   // The name of the environment variable containing the command-line.
   static const char kSyzygyAsanOptionsEnvVar[];
 
- protected:
-  // The runtime parameters. These are accessible for unittesting.
-  common::InflatedAsanParameters params_;
+  // Accessors for runtime parameters.
+  common::InflatedAsanParameters& params() { return params_; }
+  const common::InflatedAsanParameters& params() const { return params_; }
 
+ protected:
   // Propagate the values of the flags to the target modules.
   void PropagateParams() const;
 
@@ -189,6 +190,9 @@ class AsanRuntime {
 
   // The heap proxies list.
   LIST_ENTRY heap_proxy_dlist_;  // Under heap_proxy_dlist_lock.
+
+  // The runtime parameters.
+  common::InflatedAsanParameters params_;
 
   DISALLOW_COPY_AND_ASSIGN(AsanRuntime);
 };

@@ -80,8 +80,10 @@ class TestAsanTransform : public AsanTransform {
  public:
   using AsanTransform::use_interceptors_;
   using AsanTransform::use_liveness_analysis_;
+  using AsanTransform::asan_parameters_block_;
   using AsanTransform::CoffInterceptFunctions;
   using AsanTransform::PeInterceptFunctions;
+  using AsanTransform::PeInjectAsanParameters;
 };
 
 class AsanTransformTest : public testing::TestDllTransformTest {
@@ -291,6 +293,18 @@ TEST_F(AsanTransformTest, SetInstrumentationRate) {
   EXPECT_EQ(0.0, bb_transform.instrumentation_rate());
   bb_transform.set_instrumentation_rate(0.5);
   EXPECT_EQ(0.5, bb_transform.instrumentation_rate());
+}
+
+TEST_F(AsanTransformTest, SetAsanParameters) {
+  common::InflatedAsanParameters iparams;
+  common::InflatedAsanParameters* null = NULL;
+  common::InflatedAsanParameters* params = &iparams;
+
+  EXPECT_EQ(null, asan_transform_.asan_parameters());
+  asan_transform_.set_asan_parameters(params);
+  EXPECT_EQ(params, asan_transform_.asan_parameters());
+  asan_transform_.set_asan_parameters(NULL);
+  EXPECT_EQ(null, asan_transform_.asan_parameters());
 }
 
 TEST_F(AsanTransformTest, ApplyAsanTransformPE) {
@@ -1410,6 +1424,60 @@ TEST_F(AsanTransformTest, SubsampledInstrumentationTestDll) {
   // the implementation is at fault.
   EXPECT_LE(40 * size100 / 100, size50);
   EXPECT_GE(60 * size100 / 100, size50);
+}
+
+TEST_F(AsanTransformTest, PeInjectAsanParametersNoStackIds) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
+
+  common::InflatedAsanParameters params;
+  asan_transform_.set_asan_parameters(&params);
+  EXPECT_TRUE(asan_transform_.PeInjectAsanParameters(
+      policy_, &block_graph_, header_block_));
+
+  // There should be a block containing parameters with the appropriate size.
+  ASSERT_TRUE(asan_transform_.asan_parameters_block_ != NULL);
+  EXPECT_EQ(sizeof(common::AsanParameters),
+            asan_transform_.asan_parameters_block_->size());
+
+  // The block should contain no references.
+  EXPECT_TRUE(asan_transform_.asan_parameters_block_->references().empty());
+
+  // The block should not be referred to at all.
+  EXPECT_TRUE(asan_transform_.asan_parameters_block_->referrers().empty());
+}
+
+TEST_F(AsanTransformTest, PeInjectAsanParametersStackIds) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
+
+  common::InflatedAsanParameters params;
+  params.ignored_stack_ids_set.insert(0xDEADBEEF);
+
+  asan_transform_.set_asan_parameters(&params);
+  EXPECT_TRUE(asan_transform_.PeInjectAsanParameters(
+      policy_, &block_graph_, header_block_));
+
+  // There should be a block containing parameters with the appropriate size.
+  ASSERT_TRUE(asan_transform_.asan_parameters_block_ != NULL);
+  EXPECT_EQ(sizeof(common::AsanParameters) + 2 * sizeof(common::AsanStackId),
+            asan_transform_.asan_parameters_block_->size());
+
+  // The block should contain one reference to itself, from and to the
+  // appropriate place.
+  EXPECT_EQ(1u, asan_transform_.asan_parameters_block_->references().size());
+  BlockGraph::Reference ignored_stack_ids_ref(
+      BlockGraph::ABSOLUTE_REF,
+      BlockGraph::Reference::kMaximumSize,
+      asan_transform_.asan_parameters_block_,
+      sizeof(common::AsanParameters),
+      sizeof(common::AsanParameters));
+  BlockGraph::Block::ReferenceMap::const_iterator ignored_stack_ids_ref_it =
+      asan_transform_.asan_parameters_block_->references().begin();
+  EXPECT_EQ(offsetof(common::AsanParameters, ignored_stack_ids),
+            ignored_stack_ids_ref_it->first);
+  EXPECT_EQ(ignored_stack_ids_ref, ignored_stack_ids_ref_it->second);
+
+  // The block should only be referred to by itself.
+  EXPECT_EQ(1u, asan_transform_.asan_parameters_block_->referrers().size());
 }
 
 }  // namespace transforms

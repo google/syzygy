@@ -26,6 +26,7 @@
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/block_builder.h"
 #include "syzygy/block_graph/block_util.h"
+#include "syzygy/block_graph/typed_block.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/instrument/transforms/asan_intercepts.h"
 #include "syzygy/pe/pe_utils.h"
@@ -976,7 +977,9 @@ AsanTransform::AsanTransform()
       remove_redundant_checks_(false),
       use_interceptors_(false),
       instrumentation_rate_(1.0),
-      check_access_hooks_ref_() {
+      asan_parameters_(NULL),
+      check_access_hooks_ref_(),
+      asan_parameters_block_(NULL) {
 }
 
 void AsanTransform::set_instrumentation_rate(double instrumentation_rate) {
@@ -1144,6 +1147,9 @@ bool AsanTransform::PostBlockGraphIteration(
                               header_block)) {
       return false;
     }
+
+    if (!PeInjectAsanParameters(policy, block_graph, header_block))
+      return false;
   } else {
     DCHECK_EQ(BlockGraph::COFF_IMAGE, block_graph->image_format());
     if (!CoffInterceptFunctions(kAsanIntercepts, policy, block_graph,
@@ -1237,6 +1243,55 @@ bool AsanTransform::PeInterceptFunctions(
 
   // Finally, redirect all references to intercepted functions.
   pe::RedirectReferences(reference_redirect_map);
+
+  return true;
+}
+
+bool AsanTransform::PeInjectAsanParameters(
+    const TransformPolicyInterface* policy,
+    BlockGraph* block_graph,
+    BlockGraph::Block* header_block) {
+  DCHECK_NE(reinterpret_cast<TransformPolicyInterface*>(NULL), policy);
+  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), header_block);
+  DCHECK_EQ(BlockGraph::PE_IMAGE, block_graph->image_format());
+
+  // If there are no parameters then do nothing.
+  if (asan_parameters_ == NULL)
+    return true;
+
+  // Serialize the parameters into a new block.
+  common::FlatAsanParameters fparams(*asan_parameters_);
+  BlockGraph::Block* params_block = block_graph->AddBlock(
+      BlockGraph::DATA_BLOCK, fparams.data().size(), "AsanParameters");
+  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), params_block);
+  params_block->CopyData(fparams.data().size(), fparams.data().data());
+
+  // Wire up any references that are required.
+  COMPILE_ASSERT(0 == common::kAsanParametersVersion,
+                 pointers_in_the_params_must_be_linked_up_here);
+  block_graph::TypedBlock<common::AsanParameters> params;
+  CHECK(params.Init(0, params_block));
+  if (fparams->ignored_stack_ids != NULL) {
+    size_t offset = reinterpret_cast<const uint8*>(fparams->ignored_stack_ids) -
+        reinterpret_cast<const uint8*>(&fparams.params());
+    CHECK(params.SetReference(BlockGraph::ABSOLUTE_REF,
+                              params->ignored_stack_ids,
+                              params_block,
+                              offset,
+                              offset));
+  }
+
+  // Create an appropriately named section and put the parameters there. The
+  // RTL looks for this named section to find the parameters.
+  BlockGraph::Section* section = block_graph->FindOrAddSection(
+      common::kAsanParametersSectionName,
+      common::kAsanParametersSectionCharacteristics);
+  DCHECK_NE(reinterpret_cast<BlockGraph::Section*>(NULL), section);
+  params_block->set_section(section->id());
+
+  // Remember the block containing the parameters. This is a unittesting seam.
+  asan_parameters_block_ = params_block;
 
   return true;
 }

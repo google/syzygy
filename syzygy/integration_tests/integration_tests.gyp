@@ -36,6 +36,7 @@
         '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(src)/syzygy/trace/common/common.gyp:trace_unittest_utils',
         '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
+        '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
       ],
       'msvs_settings': {

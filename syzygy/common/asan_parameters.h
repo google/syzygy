@@ -104,6 +104,21 @@ struct AsanParameters {
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 40);
 
+// The current version of the ASAN parameters structure. This must be updated
+// if any changes are made to the above structure! This is defined in the header
+// file to allow compile time assertions against this version number.
+const uint32 kAsanParametersVersion = 0u;
+
+// The name of the section that will be injected into an instrumented image,
+// and contain the AsanParameters structure. ASAN can't use your typical entry
+// hook because the entry hook is called after the RTL has initialized itself.
+// Instead the RTL scans through libraries in its memory and looks for a
+// telltale section containing parameters. The first set of parameters it
+// encounters are used. After that it may override some of them with environment
+// variable configuration.
+extern const char kAsanParametersSectionName[];
+extern const uint32 kAsanParametersSectionCharacteristics;
+
 #pragma pack(pop)
 
 // An inflated version of AsanParameters for dynamically parsing into. This can
@@ -146,9 +161,6 @@ class FlatAsanParameters {
  private:
   DISALLOW_COPY_AND_ASSIGN(FlatAsanParameters);
 };
-
-// The current version of the ASAN parameters structure.
-extern const uint32 kAsanParametersVersion;
 
 // Default values of HeapProxy parameters
 extern const uint32 kDefaultQuarantineSize;

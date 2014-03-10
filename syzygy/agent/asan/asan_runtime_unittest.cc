@@ -38,7 +38,6 @@ using agent::asan::HeapProxy;
 class TestAsanRuntime : public AsanRuntime {
  public:
   using AsanRuntime::PropagateParams;
-  using AsanRuntime::params_;
 };
 
 class TestHeapProxy : public HeapProxy {
@@ -193,7 +192,7 @@ TEST_F(AsanRuntimeTest, SetExitOnFailure) {
 
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
-  EXPECT_TRUE(asan_runtime_.params_.exit_on_failure);
+  EXPECT_TRUE(asan_runtime_.params().exit_on_failure);
 }
 
 TEST_F(AsanRuntimeTest, ExitOnFailure) {
@@ -202,7 +201,7 @@ TEST_F(AsanRuntimeTest, ExitOnFailure) {
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
 
-  EXPECT_TRUE(asan_runtime_.params_.exit_on_failure);
+  EXPECT_TRUE(asan_runtime_.params().exit_on_failure);
   AsanErrorInfo bad_access_info = {};
   RtlCaptureContext(&bad_access_info.context);
 
@@ -223,7 +222,7 @@ TEST_F(AsanRuntimeTest, IgnoredStackIds) {
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
 
-  EXPECT_THAT(asan_runtime_.params_.ignored_stack_ids_set,
+  EXPECT_THAT(asan_runtime_.params().ignored_stack_ids_set,
               testing::ElementsAre(0x1, 0x7E577E57, 0xCAFEBABE, 0xFFFFFFFF));
 }
 
@@ -231,7 +230,7 @@ TEST_F(AsanRuntimeTest, PropagateParams) {
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
 
-  common::InflatedAsanParameters& params = asan_runtime_.params_;
+  common::InflatedAsanParameters& params = asan_runtime_.params();
   params.quarantine_size =
       HeapProxy::default_quarantine_max_size() - 1;
   ASSERT_LT(0U, params.quarantine_size);

@@ -19,6 +19,7 @@
 #include <string>
 
 #include "base/command_line.h"
+#include "syzygy/common/asan_parameters.h"
 #include "syzygy/instrument/instrumenters/instrumenter_with_agent.h"
 #include "syzygy/instrument/transforms/asan_transform.h"
 #include "syzygy/pe/image_filter.h"
@@ -53,7 +54,11 @@ class AsanInstrumenter : public InstrumenterWithAgent {
   bool remove_redundant_checks_;
   bool use_liveness_analysis_;
   double instrumentation_rate_;
+  bool asan_rtl_options_;
   // @}
+
+  // Valid if asan_rtl_options_ is true.
+  common::InflatedAsanParameters asan_params_;
 
   // The transform for this agent.
   scoped_ptr<instrument::transforms::AsanTransform> asan_transform_;

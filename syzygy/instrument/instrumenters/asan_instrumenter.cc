@@ -27,7 +27,8 @@ AsanInstrumenter::AsanInstrumenter()
     : use_interceptors_(true),
       remove_redundant_checks_(true),
       use_liveness_analysis_(true),
-      instrumentation_rate_(1.0) {
+      instrumentation_rate_(1.0),
+      asan_rtl_options_(false) {
   agent_dll_ = kAgentDllAsan;
 }
 
@@ -74,6 +75,10 @@ bool AsanInstrumenter::InstrumentImpl() {
   // the source range of corresponding instrumented instructions.
   asan_transform_->set_debug_friendly(debug_friendly_);
 
+  // If RTL options were provided then pass them to the transform.
+  if (asan_rtl_options_)
+    asan_transform_->set_asan_parameters(&asan_params_);
+
   if (!relinker_->AppendTransform(asan_transform_.get()))
     return false;
 
@@ -99,6 +104,15 @@ bool AsanInstrumenter::ParseAdditionalCommandLineArguments(
     }
     // Cap the rate to the range of valid values [0, 1].
     instrumentation_rate_ = std::max(0.0, std::min(1.0, d));
+  }
+
+  // Parse ASAN RTL options if present.
+  static const char kAsanRtlOptions[] = "asan-rtl-options";
+  if (asan_rtl_options_ = command_line->HasSwitch(kAsanRtlOptions)) {
+    std::wstring options = command_line->GetSwitchValueNative(kAsanRtlOptions);
+    common::SetDefaultAsanParameters(&asan_params_);
+    if (!common::ParseAsanParameters(options, &asan_params_))
+      return false;
   }
 
   return true;
