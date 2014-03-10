@@ -72,7 +72,11 @@ void ApplicationTestBase::TearDown() {
 
   DirList::const_iterator iter;
   for (iter = temp_dirs_.begin(); iter != temp_dirs_.end(); ++iter) {
-    EXPECT_TRUE(file_util::Delete(*iter, true));
+    bool success = file_util::Delete(*iter, true);
+    // VS2013 holds open handles to any PDB file that has been loaded while
+    // the debugger is active. This often prevents our unittests from
+    // cleaning up after themselves.
+    EXPECT_TRUE(success || ::IsDebuggerPresent());
   }
 
   Super::TearDown();
