@@ -38,7 +38,7 @@
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
           'action': [
-            '<(python_exe)', '<(src)/syzygy/build/lastchange.py'
+            '<(python_exe)', '<(src)/syzygy/build/lastchange.py',
             '-s', '<(src)/syzygy',
             '-o', '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
