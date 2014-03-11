@@ -29,7 +29,7 @@
         {
           'action_name': 'make_lastchange_gen',
           'inputs': [
-            '<(src)/build/util/lastchange.py'
+            '<(src)/syzygy/build/lastchange.py',
           ],
           # We include a fake output target to ensure that this command
           # is always run as part of any build.
@@ -38,7 +38,7 @@
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
           'action': [
-            '<(python_exe)', '<(src)/build/util/lastchange.py',
+            '<(python_exe)', '<(src)/syzygy/build/lastchange.py'
             '-s', '<(src)/syzygy',
             '-o', '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
           ],
