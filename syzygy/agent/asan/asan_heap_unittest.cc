@@ -938,6 +938,8 @@ TEST_F(HeapTest, GetBadAccessKind) {
   ASSERT_TRUE(proxy_.IsUseAfterAccess(mem, header));
 }
 
+// Disable optimizations to preserve the specified order of operations.
+#pragma optimize("", off)
 TEST_F(HeapTest, GetTimeSinceFree) {
   const size_t kAllocSize = 100;
   const size_t kSleepTime = 25;
@@ -967,6 +969,7 @@ TEST_F(HeapTest, GetTimeSinceFree) {
 
   ASSERT_GE(time_delta_us, time_since_free);
 }
+#pragma optimize("", on)
 
 TEST_F(HeapTest, CaptureTID) {
   const size_t kAllocSize = 13;
