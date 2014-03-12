@@ -49,7 +49,7 @@
             '<(SHARED_INTERMEDIATE_DIR)/pcre_chartables.c', 
           ],
           'action': [
-            '"<(PRODUCT_DIR)/dftables_exe.exe"',
+            '<(PRODUCT_DIR)/dftables_exe.exe',
             '<(SHARED_INTERMEDIATE_DIR)/pcre_chartables.c', 
           ],
         },
