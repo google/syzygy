@@ -87,80 +87,106 @@ class TestWithAsanLogger : public testing::Test {
 
 // Shorthand for discussing all the asan runtime functions.
 #define ASAN_RTL_FUNCTIONS(F)  \
-    F(WINAPI, HANDLE, GetProcessHeap, ())  \
+    F(WINAPI, HANDLE, GetProcessHeap, (), ())  \
     F(WINAPI, HANDLE, HeapCreate,  \
-      (DWORD options, SIZE_T initial_size, SIZE_T maximum_size))  \
+      (DWORD options, SIZE_T initial_size, SIZE_T maximum_size),  \
+      (options, initial_size, maximum_size))  \
     F(WINAPI, BOOL, HeapDestroy,  \
-      (HANDLE heap))  \
+      (HANDLE heap), (heap))  \
     F(WINAPI, LPVOID, HeapAlloc,  \
-      (HANDLE heap, DWORD flags, SIZE_T bytes))  \
+      (HANDLE heap, DWORD flags, SIZE_T bytes), (heap, flags, bytes))  \
     F(WINAPI, LPVOID, HeapReAlloc,  \
-      (HANDLE heap, DWORD flags, LPVOID mem, SIZE_T bytes))  \
+      (HANDLE heap, DWORD flags, LPVOID mem, SIZE_T bytes),  \
+      (heap, flags, mem, bytes))  \
     F(WINAPI, BOOL, HeapFree,  \
-      (HANDLE heap, DWORD flags, LPVOID mem))  \
+      (HANDLE heap, DWORD flags, LPVOID mem), (heap, flags, mem))  \
     F(WINAPI, SIZE_T, HeapSize,  \
-      (HANDLE heap, DWORD flags, LPCVOID mem))  \
+      (HANDLE heap, DWORD flags, LPCVOID mem), (heap, flags, mem))  \
     F(WINAPI, BOOL, HeapValidate,  \
-      (HANDLE heap, DWORD flags, LPCVOID mem))  \
+      (HANDLE heap, DWORD flags, LPCVOID mem), (heap, flags, mem))  \
     F(WINAPI, SIZE_T, HeapCompact,  \
-      (HANDLE heap, DWORD flags))  \
-    F(WINAPI, BOOL, HeapLock, (HANDLE heap))  \
-    F(WINAPI, BOOL, HeapUnlock, (HANDLE heap))  \
+      (HANDLE heap, DWORD flags), (heap, flags))  \
+    F(WINAPI, BOOL, HeapLock, (HANDLE heap), (heap))  \
+    F(WINAPI, BOOL, HeapUnlock, (HANDLE heap), (heap))  \
     F(WINAPI, BOOL, HeapWalk,  \
-      (HANDLE heap, LPPROCESS_HEAP_ENTRY entry))  \
+      (HANDLE heap, LPPROCESS_HEAP_ENTRY entry), (heap, entry))  \
     F(WINAPI, BOOL, HeapSetInformation,  \
       (HANDLE heap, HEAP_INFORMATION_CLASS info_class,  \
-       PVOID info, SIZE_T info_length))  \
+       PVOID info, SIZE_T info_length),  \
+      (heap, info_class, info, info_length))  \
     F(WINAPI, BOOL, HeapQueryInformation,  \
       (HANDLE heap, HEAP_INFORMATION_CLASS info_class,  \
-       PVOID info, SIZE_T info_length, PSIZE_T return_length))  \
+       PVOID info, SIZE_T info_length, PSIZE_T return_length),  \
+      (heap, info_class, info, info_length, return_length))  \
     F(WINAPI, void, SetCallBack,  \
-      (void (*callback)(AsanErrorInfo* error_info)))  \
+      (void (*callback)(AsanErrorInfo* error_info)),  \
+      (callback))  \
     F(_cdecl, void*, memcpy,  \
-      (void* destination, const void* source,  size_t num))  \
+      (void* destination, const void* source,  size_t num),  \
+      (destination, source, num))  \
     F(_cdecl, void*, memmove,  \
-      (void* destination, const void* source, size_t num))  \
-    F(_cdecl, void*, memset, (void* ptr, int value, size_t num))  \
-    F(_cdecl, const void*, memchr, (const void* ptr, int value, size_t num))  \
-    F(_cdecl, size_t, strcspn, (const char* str1, const char* str2))  \
-    F(_cdecl, size_t, strlen, (const char* str))  \
-    F(_cdecl, const char*, strrchr, (const char* str, int character))  \
-    F(_cdecl, const wchar_t*, wcsrchr, (const wchar_t* str, int character))  \
-    F(_cdecl, int, strcmp, (const char* str1, const char* str2))  \
-    F(_cdecl, const char*, strpbrk, (const char* str1, const char* str2))  \
-    F(_cdecl, const char*, strstr, (const char* str1, const char* str2))  \
-    F(_cdecl, size_t, strspn, (const char* str1, const char* str2))  \
+      (void* destination, const void* source, size_t num),  \
+      (destination, source, num))  \
+    F(_cdecl, void*, memset, (void* ptr, int value, size_t num),  \
+      (ptr, value, num))  \
+    F(_cdecl, const void*, memchr, (const void* ptr, int value, size_t num),  \
+      (ptr, value, num))  \
+    F(_cdecl, size_t, strcspn, (const char* str1, const char* str2),  \
+      (str1, str2))  \
+    F(_cdecl, size_t, strlen, (const char* str), (str))  \
+    F(_cdecl, const char*, strrchr, (const char* str, int character),  \
+      (str, character))  \
+    F(_cdecl, const wchar_t*, wcsrchr, (const wchar_t* str, int character),  \
+      (str, character))  \
+    F(_cdecl, int, strcmp, (const char* str1, const char* str2),  \
+      (str1, str2))  \
+    F(_cdecl, const char*, strpbrk, (const char* str1, const char* str2),  \
+      (str1, str2))  \
+    F(_cdecl, const char*, strstr, (const char* str1, const char* str2),  \
+      (str1, str2))  \
+    F(_cdecl, size_t, strspn, (const char* str1, const char* str2),  \
+      (str1, str2))  \
     F(_cdecl, char*, strncpy,  \
-      (char* destination, const char* source, size_t num))  \
+      (char* destination, const char* source, size_t num),  \
+      (destination, source, num))  \
     F(_cdecl, char*, strncat,  \
-      (char* destination, const char* source, size_t num))  \
-    F(_cdecl, void, PoisonMemoryRange, (const void* address, size_t size))  \
-    F(_cdecl, void, UnpoisonMemoryRange, (const void* address, size_t size))  \
+      (char* destination, const char* source, size_t num),  \
+      (destination, source, num))  \
+    F(_cdecl, void, PoisonMemoryRange, (const void* address, size_t size),  \
+      (address, size))  \
+    F(_cdecl, void, UnpoisonMemoryRange, (const void* address, size_t size),  \
+      (address, size))  \
     F(_cdecl, void, GetAsanObjectSize,  \
-      (size_t user_object_size, size_t alignment))  \
+      (size_t user_object_size, size_t alignment),  \
+      (user_object_size, alignment))  \
     F(_cdecl, void, InitializeObject,  \
-      (void* asan_pointer, size_t user_object_size, size_t alignment))  \
+      (void* asan_pointer, size_t user_object_size, size_t alignment),  \
+      (asan_pointer, user_object_size, alignment))  \
     F(_cdecl, void, GetUserExtent,  \
-      (const void* asan_pointer, void** user_pointer, size_t* size))  \
+      (const void* asan_pointer, void** user_pointer, size_t* size),  \
+      (asan_pointer, user_pointer, size))  \
     F(_cdecl, void, GetAsanExtent,  \
-      (const void* user_pointer, void** asan_pointer, size_t* size))  \
-    F(_cdecl, void, QuarantineObject, (void* asan_pointer))  \
-    F(_cdecl, void, DestroyObject, (void* asan_pointer))  \
+      (const void* user_pointer, void** asan_pointer, size_t* size),  \
+      (user_pointer, asan_pointer, size))  \
+    F(_cdecl, void, QuarantineObject, (void* asan_pointer), (asan_pointer))  \
+    F(_cdecl, void, DestroyObject, (void* asan_pointer), (asan_pointer))  \
     F(_cdecl, void, CloneObject,  \
-      (const void* src_asan_pointer, const void* dst_asan_pointer))  \
+      (const void* src_asan_pointer, const void* dst_asan_pointer),  \
+      (src_asan_pointer, dst_asan_pointer))  \
     F(WINAPI, BOOL, ReadFile,  \
       (HANDLE file_handle, LPVOID buffer, DWORD bytes_to_read,  \
-       LPDWORD bytes_read, LPOVERLAPPED overlapped))  \
+       LPDWORD bytes_read, LPOVERLAPPED overlapped),  \
+      (file_handle, buffer, bytes_to_read, bytes_read, overlapped))  \
     F(WINAPI, BOOL, WriteFile,  \
       (HANDLE file_handle, LPCVOID buffer, DWORD bytes_to_write,  \
-       LPDWORD bytes_written, LPOVERLAPPED overlapped))  \
-    F(_cdecl, void, SetInterceptorCallback, (void (*callback)()))
+       LPDWORD bytes_written, LPOVERLAPPED overlapped),  \
+      (file_handle, buffer, bytes_to_write, bytes_written, overlapped))  \
+    F(_cdecl, void, SetInterceptorCallback, (void (*callback)()), (callback))
 
-#define DECLARE_ASAN_FUNCTION_PTR(convention, ret, name, args) \
+// Declare pointer types for the intercepted functions.
+#define DECLARE_ASAN_FUNCTION_PTR(convention, ret, name, args, argnames) \
   typedef ret (convention* name##FunctionPtr)args;
-
 ASAN_RTL_FUNCTIONS(DECLARE_ASAN_FUNCTION_PTR)
-
 #undef DECLARE_ASAN_FUNCTION_PTR
 
 class TestAsanRtl : public testing::TestWithAsanLogger {
@@ -178,7 +204,7 @@ class TestAsanRtl : public testing::TestWithAsanLogger {
     ASSERT_TRUE(asan_rtl_ != NULL);
 
     // Load all the functions and assert that we find them.
-#define LOAD_ASAN_FUNCTION(convention, ret, name, args)  \
+#define LOAD_ASAN_FUNCTION(convention, ret, name, args, argnames)  \
     name##Function = reinterpret_cast<name##FunctionPtr>(  \
         ::GetProcAddress(asan_rtl_, "asan_" #name));  \
     ASSERT_TRUE(name##Function != NULL);
@@ -207,12 +233,10 @@ class TestAsanRtl : public testing::TestWithAsanLogger {
 
   HANDLE heap() { return heap_; }
 
-  // Declare the function pointers.
-#define DECLARE_FUNCTION_PTR_VARIABLE(convention, ret, name, args)  \
-    static name##FunctionPtr TestAsanRtl::name##Function;
-
+  // Declare pointers to intercepted functions.
+#define DECLARE_FUNCTION_PTR_VARIABLE(convention, ret, name, args, argnames)  \
+    static name##FunctionPtr name##Function;
   ASAN_RTL_FUNCTIONS(DECLARE_FUNCTION_PTR_VARIABLE)
-
 #undef DECLARE_FUNCTION_PTR_VARIABLE
 
  protected:

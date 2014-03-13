@@ -29,14 +29,37 @@ using testing::ScopedASanAlloc;
 
 typedef testing::TestAsanRtl CrtInterceptorsTest;
 
-// A flag used in asan callback to ensure that a memory error has been detected.
-bool memory_error_detected = false;
 // An arbitrary size for the buffer we allocate in the different unittests.
 const size_t kAllocSize = 13;
 
 void AsanErrorCallback(AsanErrorInfo* error_info) {
-  memory_error_detected = true;
+  // Our tests should clean up after themselves and not leave any blocks
+  // corrupted.
+  ASSERT_NE(HeapProxy::CORRUPTED_BLOCK, error_info->error_type);
+
+  // Raise an exception to prevent the intercepted function from corrupting
+  // the block. If this error is not handled then this will cause the unittest
+  // to fail.
+  ::RaiseException(EXCEPTION_ARRAY_BOUNDS_EXCEEDED, 0, 0, 0);
 }
+
+// Define versions of all of the functions that expect an error to be thrown by
+// the AsanErrorCallback, and in turn raise an exception if the underlying
+// function didn't fail.
+#define DEFINE_FAILING_FUNCTION(convention, ret, name, args, argnames)  \
+  bool name##FunctionFailed args {  \
+    __try {  \
+      testing::TestAsanRtl::name##Function argnames;  \
+    } __except(::GetExceptionCode() == EXCEPTION_ARRAY_BOUNDS_EXCEEDED) {  \
+      return true;  \
+    }  \
+    return false;  \
+  }  \
+  void name##FunctionFailing args {  \
+    ASSERT_TRUE(name##FunctionFailed argnames);  \
+  }
+ASAN_RTL_FUNCTIONS(DEFINE_FAILING_FUNCTION)
+#undef DEFINE_FAILING_FUNCTION
 
 }  // namespace
 
@@ -44,34 +67,17 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemset) {
   const size_t kAllocSize = 13;
   ScopedASanAlloc<uint8> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
-  memory_error_detected = false;
-
   SetCallBackFunction(&AsanErrorCallback);
   EXPECT_EQ(mem.get(), memsetFunction(mem.GetAs<void*>(), 0xAA, kAllocSize));
-  EXPECT_FALSE(memory_error_detected);
   for (size_t i = 0; i < kAllocSize; ++i)
     EXPECT_EQ(0xAA, mem[i]);
 
-  // mem[-1] points to the block header, we need to make sure that it doesn't
-  // contain the value we're looking for.
-  uint8 last_block_header_byte = mem[-1];
-  mem[-1] = 0;
-  EXPECT_EQ(mem.get() - 1, memsetFunction(mem.get() - 1, 0xBB, kAllocSize));
-  EXPECT_TRUE(memory_error_detected);
-  for (size_t i = 0; i < kAllocSize; ++i)
-    EXPECT_EQ(0xBB, mem[i - 1]);
+  memsetFunctionFailing(mem.get() - 1, 0xBB, kAllocSize);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  mem[-1] = last_block_header_byte;
   ResetLog();
 
-  memory_error_detected = false;
-  uint8 first_block_trailer_byte = mem[kAllocSize];
-  EXPECT_EQ(mem.get(), memsetFunction(mem.get(), 0xCC, kAllocSize + 1));
-  for (size_t i = 0; i < kAllocSize + 1; ++i)
-    EXPECT_EQ(0xCC, mem[i]);
-  EXPECT_TRUE(memory_error_detected);
+  memsetFunctionFailing(mem.get(), 0xCC, kAllocSize + 1);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
-  mem[kAllocSize] = first_block_trailer_byte;
   ResetLog();
 }
 
@@ -81,26 +87,16 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemchr) {
   ASSERT_TRUE(mem.get() != NULL);
   memset(mem.get(), 0, kAllocSize);
   mem[4] = 0xAA;
-  memory_error_detected = false;
 
   SetCallBackFunction(&AsanErrorCallback);
   EXPECT_EQ(mem.get() + 4, memchrFunction(mem.get(), mem[4], kAllocSize));
   EXPECT_EQ(NULL, memchrFunction(mem.get(), mem[4] + 1, kAllocSize));
-  EXPECT_FALSE(memory_error_detected);
 
-  // mem[-1] points to the block header, we need to make sure that it doesn't
-  // contain the value we're looking for.
-  uint8 last_block_header_byte = mem[-1];
-  mem[-1] = 0;
-  EXPECT_EQ(mem.get() + 4, memchrFunction(mem.get() - 1, mem[4], kAllocSize));
-  EXPECT_TRUE(memory_error_detected);
+  memchrFunctionFailing(mem.get() - 1, mem[4], kAllocSize);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  mem[-1] = last_block_header_byte;
   ResetLog();
 
-  memory_error_detected = false;
-  EXPECT_EQ(mem.get() + 4, memchrFunction(mem.get() + 1, mem[4], kAllocSize));
-  EXPECT_TRUE(memory_error_detected);
+  memchrFunctionFailing(mem.get() + 1, mem[4], kAllocSize);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   ResetLog();
 }
@@ -109,7 +105,6 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemmove) {
   const size_t kAllocSize = 13;
   ScopedASanAlloc<uint8> mem_src(this, kAllocSize);
   ASSERT_TRUE(mem_src.get() != NULL);
-  memory_error_detected = false;
   // Fill the array with value going from 0 to kAllocSize;
   for (size_t i = 0; i < kAllocSize; ++i)
     mem_src[i] = i;
@@ -118,34 +113,17 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemmove) {
   // Shift all the value from one index to the right.
   EXPECT_EQ(mem_src.get() + 1,
             memmoveFunction(mem_src.get() + 1, mem_src.get(), kAllocSize - 1));
-  EXPECT_FALSE(memory_error_detected);
   EXPECT_EQ(0, mem_src[0]);
   for (size_t i = 1; i < kAllocSize; ++i)
     EXPECT_EQ(i - 1, mem_src[i]);
 
   // Re-shift them to the left.
-  EXPECT_EQ(mem_src.get(),
-            memmoveFunction(mem_src.get(), mem_src.get() + 1, kAllocSize));
-  EXPECT_TRUE(memory_error_detected);
-  for (size_t i = 0; i < kAllocSize - 1; ++i)
-    EXPECT_EQ(i, mem_src[i]);
+  memmoveFunctionFailing(mem_src.get(), mem_src.get() + 1, kAllocSize);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   ResetLog();
 
-  memory_error_detected = false;
-  // Shift them to the left one more time.
-
-  // mem_src[-1] points to the block header, we need to make sure that it
-  // doesn't contain the value we're looking for.
-  uint8 last_block_header_byte = mem_src[-1];
-  mem_src[-1] = 0;
-  EXPECT_EQ(mem_src.get() - 1,
-            memmoveFunction(mem_src.get() - 1, mem_src.get(), kAllocSize));
-  EXPECT_TRUE(memory_error_detected);
-  for (int i = -1; i < static_cast<int>(kAllocSize) - 2; ++i)
-    EXPECT_EQ(i + 1, mem_src[i]);
+  memmoveFunctionFailing(mem_src.get() - 1, mem_src.get(), kAllocSize);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  mem_src[-1] = last_block_header_byte;
   ResetLog();
 }
 
@@ -155,7 +133,6 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemcpy) {
   ASSERT_TRUE(mem_src.get() != NULL);
   ScopedASanAlloc<uint8> mem_dst(this, kAllocSize);
   ASSERT_TRUE(mem_dst.get() != NULL);
-  memory_error_detected = false;
   // Fill the array with value going from 0 to kAllocSize;
   for (size_t i = 0; i < kAllocSize; ++i) {
     mem_src[i] = i;
@@ -165,28 +142,15 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemcpy) {
   SetCallBackFunction(&AsanErrorCallback);
   EXPECT_EQ(mem_dst.get(),
             memcpyFunction(mem_dst.get(), mem_src.get(), kAllocSize));
-  EXPECT_FALSE(memory_error_detected);
   for (size_t i = 0; i < kAllocSize; ++i)
     EXPECT_EQ(mem_dst[i], mem_src[i]);
 
-  EXPECT_EQ(mem_dst.get(),
-            memcpyFunction(mem_dst.get(), mem_src.get(), kAllocSize + 1));
-  EXPECT_TRUE(memory_error_detected);
-  for (size_t i = 0; i < kAllocSize + 1; ++i)
-    EXPECT_EQ(mem_dst[i], mem_src[i]);
+  memcpyFunctionFailing(mem_dst.get(), mem_src.get(), kAllocSize + 1);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   ResetLog();
 
-  memory_error_detected = false;
-  uint8 last_block_header_byte = mem_dst[-1];
-  mem_dst[-1] = 0;
-  EXPECT_EQ(mem_dst.get(),
-            memcpyFunction(mem_dst.get(), mem_src.get() - 1, kAllocSize));
-  EXPECT_TRUE(memory_error_detected);
-  for (int i = -1; i < static_cast<int>(kAllocSize) - 1; ++i)
-    EXPECT_EQ(mem_dst[i + 1], mem_src[i]);
+  memcpyFunctionFailing(mem_dst.get(), mem_src.get() - 1, kAllocSize);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  mem_dst[-1] = last_block_header_byte;
   ResetLog();
 }
 
@@ -210,31 +174,23 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrcspn) {
   ASSERT_TRUE(keys.get() != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
-  memory_error_detected = false;
-
   EXPECT_EQ(::strcspn(str.get(), keys.get()),
             strcspnFunction(str.get(), keys.get()));
-  EXPECT_FALSE(memory_error_detected);
 
   // str[-1] points to the block header, we need to make sure that it doesn't
   // contain the value \0.
   uint8 last_block_header_byte = str[-1];
   str[-1] = 'a';
-  EXPECT_EQ(::strcspn(str.get() - 1, keys.get()),
-            strcspnFunction(str.get() - 1, keys.get()));
-  EXPECT_TRUE(memory_error_detected);
+  strcspnFunctionFailing(str.get() - 1, keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
   str[-1] = last_block_header_byte;
   ResetLog();
 
   // The key set should be null terminated, otherwise an overflow should be
   // detected.
-  memory_error_detected = false;
   size_t keys_len = ::strlen(keys.get());
   keys[keys_len] = 'a';
-  EXPECT_EQ(::strcspn(str.get(), keys.get()),
-            strcspnFunction(str.get(), keys.get()));
-  EXPECT_TRUE(memory_error_detected);
+  strcspnFunctionFailing(str.get(), keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   keys[keys_len] = 0;
   ResetLog();
@@ -242,21 +198,16 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrcspn) {
   // The implementation allows a non null terminated input string if it contains
   // at least one of the keys, otherwise it'll overflow.
 
-  memory_error_detected = false;
   size_t str_len = ::strlen(str.get());
   str[str_len] = 'a';
   EXPECT_EQ(::strcspn(str.get(), keys.get()),
             strcspnFunction(str.get(), keys.get()));
-  EXPECT_FALSE(memory_error_detected);
   str[str_len] = 0;
   ResetLog();
 
-  memory_error_detected = false;
   size_t str2_len = ::strlen(str2.get());
   str2[str2_len] = 'a';
-  EXPECT_EQ(::strcspn(str2.get(), keys.get()),
-            strcspnFunction(str2.get(), keys.get()));
-  EXPECT_TRUE(memory_error_detected);
+  strcspnFunctionFailing(str2.get(), keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   str2[str2_len] = 0;
   ResetLog();
@@ -281,26 +232,15 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrlen) {
   ASSERT_TRUE(str != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
-  memory_error_detected = false;
-
   EXPECT_EQ(::strlen(str.get()), strlenFunction(str.get()));
-  EXPECT_FALSE(memory_error_detected);
 
-  // str[-1] points to the block header, we need to make sure that it doesn't
-  // contain the value \0.
-  uint8 last_block_header_byte = str[-1];
-  str[-1] = 'a';
-  EXPECT_EQ(::strlen(str.get() - 1), strlenFunction(str.get() - 1));
-  EXPECT_TRUE(memory_error_detected);
+  strlenFunctionFailing(str.get() - 1);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  str[-1] = last_block_header_byte;
   ResetLog();
 
-  memory_error_detected = false;
   size_t str_len = ::strlen(str.get());
   str[str_len] = 'a';
-  EXPECT_EQ(::strlen(str.get()), strlenFunction(str.get()));
-  EXPECT_TRUE(memory_error_detected);
+  strlenFunctionFailing(str.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   ResetLog();
 }
@@ -311,30 +251,17 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrrchr) {
   ASSERT_TRUE(str != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
-  memory_error_detected = false;
-
   EXPECT_EQ(::strrchr(str.get(), 'c'), strrchrFunction(str.get(), 'c'));
-  EXPECT_FALSE(memory_error_detected);
   EXPECT_EQ(::strrchr(str.get(), 'z'), strrchrFunction(str.get(), 'z'));
-  EXPECT_FALSE(memory_error_detected);
 
-  // str[-1] points to the block header, we need to make sure that it doesn't
-  // contain the value \0.
-  uint8 last_block_header_byte = str[-1];
-  str[-1] = 'a';
-  EXPECT_EQ(::strrchr(str.get() - 1, 'c'), strrchrFunction(str.get() - 1, 'c'));
-  EXPECT_TRUE(memory_error_detected);
+  strrchrFunctionFailing(str.get() - 1, 'c');
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  str[-1] = last_block_header_byte;
   ResetLog();
 
-  memory_error_detected = false;
   size_t str_len = ::strlen(str.get());
   str[str_len] = 'a';
-  EXPECT_EQ(::strrchr(str.get(), 'c'), strrchrFunction(str.get(), 'c'));
-  EXPECT_TRUE(memory_error_detected);
+  strrchrFunctionFailing(str.get(), 'c');
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
-  str[str_len] = 0;
   ResetLog();
 }
 
@@ -345,31 +272,17 @@ TEST_F(CrtInterceptorsTest, AsanCheckWcsrchr) {
   wcscpy(wstr.get(), wstr_value);
 
   SetCallBackFunction(&AsanErrorCallback);
-  memory_error_detected = false;
-
   EXPECT_EQ(::wcsrchr(wstr.get(), L'c'), wcsrchrFunction(wstr.get(), L'c'));
-  EXPECT_FALSE(memory_error_detected);
   EXPECT_EQ(::wcsrchr(wstr.get(), 'z'), wcsrchrFunction(wstr.get(), 'z'));
-  EXPECT_FALSE(memory_error_detected);
 
-  // wstr[-1] points to the block header, we need to make sure that it doesn't
-  // contain the value \0.
-  uint8 last_block_header_byte = wstr[-1];
-  wstr[-1] = L'a';
-  EXPECT_EQ(::wcsrchr(wstr.get() - 1, L'c'),
-            wcsrchrFunction(wstr.get() - 1, L'c'));
-  EXPECT_TRUE(memory_error_detected);
+  wcsrchrFunctionFailing(wstr.get() - 1, L'c');
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  wstr[-1] = last_block_header_byte;
   ResetLog();
 
-  memory_error_detected = false;
   size_t str_len = ::wcslen(wstr_value);
   wstr[str_len] = L'a';
-  EXPECT_EQ(::wcsrchr(wstr.get(), L'c'), wcsrchrFunction(wstr.get(), L'c'));
-  EXPECT_TRUE(memory_error_detected);
+  wcsrchrFunctionFailing(wstr.get(), L'c');
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
-  wstr[str_len] = 0;
   ResetLog();
 }
 
@@ -385,29 +298,21 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrcmp) {
   ASSERT_TRUE(keys.get() != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
-  memory_error_detected = false;
-
   EXPECT_EQ(::strcmp(str.get(), keys.get()),
             strcmpFunction(str.get(), keys.get()));
-  EXPECT_FALSE(memory_error_detected);
 
   // str[-1] points to the block header, we need to make sure that it doesn't
   // contain the value \0.
   uint8 last_block_header_byte = str[-1];
   str[-1] = 'a';
-  EXPECT_EQ(::strcmp(str.get() - 1, keys.get()),
-            strcmpFunction(str.get() - 1, keys.get()));
-  EXPECT_TRUE(memory_error_detected);
+  strcmpFunctionFailing(str.get() - 1, keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
   str[-1] = last_block_header_byte;
   ResetLog();
 
-  memory_error_detected = false;
   size_t keys_len = ::strlen(keys.get());
   keys[keys_len] = 'a';
-  EXPECT_EQ(::strcmp(str.get(), keys.get()),
-            strcmpFunction(str.get(), keys.get()));
-  EXPECT_TRUE(memory_error_detected);
+  strcmpFunctionFailing(str.get(), keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   keys[keys_len] = 0;
   ResetLog();
@@ -433,29 +338,21 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrpbrk) {
   ASSERT_TRUE(keys.get() != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
-  memory_error_detected = false;
-
   EXPECT_EQ(::strpbrk(str.get(), keys.get()),
             strpbrkFunction(str.get(), keys.get()));
-  EXPECT_FALSE(memory_error_detected);
 
   // str[-1] points to the block header, we need to make sure that it doesn't
   // contain the value \0.
   uint8 last_block_header_byte = str[-1];
   str[-1] = 'a';
-  EXPECT_EQ(::strpbrk(str.get() - 1, keys.get()),
-            strpbrkFunction(str.get() - 1, keys.get()));
-  EXPECT_TRUE(memory_error_detected);
+  strpbrkFunctionFailing(str.get() - 1, keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
   str[-1] = last_block_header_byte;
   ResetLog();
 
-  memory_error_detected = false;
   size_t keys_len = ::strlen(keys.get());
   keys[keys_len] = 'a';
-  EXPECT_EQ(::strpbrk(str.get(), keys.get()),
-            strpbrkFunction(str.get(), keys.get()));
-  EXPECT_TRUE(memory_error_detected);
+  strpbrkFunctionFailing(str.get(), keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   keys[keys_len] = 0;
   ResetLog();
@@ -463,21 +360,16 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrpbrk) {
   // The implementation allows a non null terminated input string if it contains
   // at least one of the keys, otherwise it'll overflow.
 
-  memory_error_detected = false;
   size_t str_len = ::strlen(str.get());
   str[str_len] = 'a';
   EXPECT_EQ(::strpbrk(str.get(), keys.get()),
             strpbrkFunction(str.get(), keys.get()));
-  EXPECT_FALSE(memory_error_detected);
   str[str_len] = 0;
   ResetLog();
 
-  memory_error_detected = false;
   size_t str2_len = ::strlen(str2.get());
   str2[str2_len] = 'a';
-  EXPECT_EQ(::strpbrk(str2.get(), keys.get()),
-            strpbrkFunction(str2.get(), keys.get()));
-  EXPECT_TRUE(memory_error_detected);
+  strpbrkFunctionFailing(str2.get(), keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   str2[str2_len] = 0;
   ResetLog();
@@ -510,29 +402,21 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrstr) {
   ASSERT_TRUE(keys.get() != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
-  memory_error_detected = false;
-
   EXPECT_EQ(::strstr(str.get(), keys.get()),
             strstrFunction(str.get(), keys.get()));
-  EXPECT_FALSE(memory_error_detected);
 
   // str[-1] points to the block header, we need to make sure that it doesn't
   // contain the value \0.
   uint8 last_block_header_byte = str[-1];
   str[-1] = 'a';
-  EXPECT_EQ(::strstr(str.get() - 1, keys.get()),
-            strstrFunction(str.get() - 1, keys.get()));
-  EXPECT_TRUE(memory_error_detected);
+  strstrFunctionFailing(str.get() - 1, keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
   str[-1] = last_block_header_byte;
   ResetLog();
 
-  memory_error_detected = false;
   size_t keys_len = ::strlen(keys.get());
   keys[keys_len] = 'a';
-  EXPECT_EQ(::strstr(str.get(), keys.get()),
-            strstrFunction(str.get(), keys.get()));
-  EXPECT_TRUE(memory_error_detected);
+  strstrFunctionFailing(str.get(), keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   keys[keys_len] = 0;
   ResetLog();
@@ -557,29 +441,21 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrspn) {
   ASSERT_TRUE(str2.get() != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
-  memory_error_detected = false;
-
   EXPECT_EQ(::strspn(str.get(), keys.get()),
             strspnFunction(str.get(), keys.get()));
-  EXPECT_FALSE(memory_error_detected);
 
   // str[-1] points to the block header, we need to make sure that it doesn't
   // contain the value \0.
   uint8 last_block_header_byte = str[-1];
   str[-1] = 'a';
-  EXPECT_EQ(::strspn(str.get() - 1, keys.get()),
-            strspnFunction(str.get() - 1, keys.get()));
-  EXPECT_TRUE(memory_error_detected);
+  strspnFunctionFailing(str.get() - 1, keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
   str[-1] = last_block_header_byte;
   ResetLog();
 
-  memory_error_detected = false;
   size_t keys_len = ::strlen(keys.get());
   keys[keys_len] = 'a';
-  EXPECT_EQ(::strspn(str.get(), keys.get()),
-            strspnFunction(str.get(), keys.get()));
-  EXPECT_TRUE(memory_error_detected);
+  strspnFunctionFailing(str.get(), keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   keys[keys_len] = 0;
   ResetLog();
@@ -587,21 +463,16 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrspn) {
   // The implementation allows a non null terminated input string if it doesn't
   // start with a value contained in the keys, otherwise it'll overflow.
 
-  memory_error_detected = false;
   size_t str_len = ::strlen(str.get());
   str[str_len] = 'a';
   EXPECT_EQ(::strspn(str.get(), keys.get()),
             strspnFunction(str.get(), keys.get()));
-  EXPECT_FALSE(memory_error_detected);
   str[str_len] = 0;
   ResetLog();
 
-  memory_error_detected = false;
   size_t str2_len = ::strlen(str2.get());
   str2[str2_len] = keys[0];
-  EXPECT_EQ(::strspn(str2.get(), keys.get()),
-            strspnFunction(str2.get(), keys.get()));
-  EXPECT_TRUE(memory_error_detected);
+  strspnFunctionFailing(str2.get(), keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   str2[str2_len] = 0;
   ResetLog();
@@ -637,79 +508,49 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncpy) {
   ASSERT_TRUE(destination != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
-  memory_error_detected = false;
-
   EXPECT_EQ(destination.get(),
             strncpyFunction(destination.get(),
                             source.get(),
                             ::strlen(str_value)));
-  EXPECT_FALSE(memory_error_detected);
 
   // Test an underflow on the source.
-  uint8 last_block_header_byte = source[-1];
-  source[-1] = 'a';
-  EXPECT_EQ(destination.get(),
-            strncpyFunction(destination.get(),
-                            source.get() - 1,
-                            ::strlen(str_value)));
-  EXPECT_TRUE(memory_error_detected);
+  strncpyFunctionFailing(destination.get(),
+                         source.get() - 1,
+                         ::strlen(str_value));
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  source[-1] = last_block_header_byte;
   ResetLog();
 
   // Test an underflow on the destination.
-  memory_error_detected = false;
-  last_block_header_byte = destination[-1];
-  destination[-1] = 'a';
-  EXPECT_EQ(destination.get() - 1,
-            strncpyFunction(destination.get() - 1,
-                            source.get(),
-                            ::strlen(str_value)));
-  EXPECT_TRUE(memory_error_detected);
+  strncpyFunctionFailing(destination.get() - 1,
+                         source.get(),
+                         ::strlen(str_value));
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  destination[-1] = last_block_header_byte;
   ResetLog();
 
   // Test an overflow on the destination.
-  memory_error_detected = false;
   std::vector<uint8> original_data(::strlen(long_str_value));
   memcpy(&original_data[0], destination.get(), ::strlen(long_str_value));
-  EXPECT_EQ(destination.get(),
-            strncpyFunction(destination.get(),
-                            long_source.get(),
-                            ::strlen(long_str_value)));
-  EXPECT_TRUE(memory_error_detected);
+  strncpyFunctionFailing(destination.get(),
+                         long_source.get(),
+                         ::strlen(long_str_value));
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
-  memcpy(destination.get(), &original_data[0], ::strlen(long_str_value));
   ResetLog();
 
   // Another overflow on the destination.
-  memory_error_detected = false;
-  EXPECT_EQ(destination,
-            strncpyFunction(destination.get(),
-                            source.get(),
-                            ::strlen(str_value) + 2));
-  EXPECT_TRUE(memory_error_detected);
+  strncpyFunctionFailing(destination.get(),
+                         source.get(),
+                         ::strlen(str_value) + 2);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   ResetLog();
 
   // Test an overflow on the source.
   size_t source_len = ::strlen(source.get());
   source[source_len] = 'a';
-  memory_error_detected = false;
-  EXPECT_EQ(destination.get(), strncpyFunction(destination.get(),
-                                               source.get(),
-                                               ::strlen(source.get()) + 1));
-  EXPECT_TRUE(memory_error_detected);
+  strncpyFunctionFailing(destination.get(),
+                         source.get(),
+                         ::strlen(source.get()) + 1);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   source[source_len] = 0;
-  ResetLog();
-
-  memory_error_detected = false;
-  EXPECT_EQ(destination.get(), strncpyFunction(destination.get(),
-                                               source.get(),
-                                               ::strlen(source.get())));
-  EXPECT_FALSE(memory_error_detected);
   ResetLog();
 }
 
@@ -727,11 +568,8 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
   ASSERT_TRUE(mem.get() != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
-  memory_error_detected = false;
-
   EXPECT_EQ(mem.get(),
       strncatFunction(mem.get(), suffix.get(), ::strlen(suffix_value)));
-  EXPECT_FALSE(memory_error_detected);
   EXPECT_STRCASEEQ(
       ::strncat(buffer, suffix.get(), ::strlen(suffix_value)), mem.get());
 
@@ -740,28 +578,18 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
   suffix[-1] = 'a';
   ::strcpy(mem.get(), prefix_value);
   ::strcpy(buffer, prefix_value);
-  EXPECT_EQ(mem.get(),
-      strncatFunction(mem.get(), suffix.get() - 1, ::strlen(suffix_value)));
-  EXPECT_TRUE(memory_error_detected);
+  strncatFunctionFailing(mem.get(), suffix.get() - 1, ::strlen(suffix_value));
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  EXPECT_STRCASEEQ(
-      ::strncat(buffer, suffix.get() - 1, ::strlen(suffix_value)), mem.get());
   suffix[-1] = last_block_header_byte;
   ResetLog();
 
   // Test an underflow on the destination.
-  memory_error_detected = false;
   last_block_header_byte = mem[-1];
   mem[-1] = 'a';
   ::strcpy(mem.get(), prefix_value);
   ::strcpy(buffer, prefix_value);
-  EXPECT_EQ(mem.get() - 1,
-            strncatFunction(mem.get() - 1, suffix.get(),
-                            ::strlen(suffix_value)));
-  EXPECT_TRUE(memory_error_detected);
+  strncatFunctionFailing(mem.get() - 1, suffix.get(), ::strlen(suffix_value));
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  EXPECT_STRCASEEQ(
-      ::strncat(buffer, suffix.get(), ::strlen(suffix_value)), mem.get());
   mem[-1] = last_block_header_byte;
   ResetLog();
 
@@ -770,21 +598,15 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
   char first_trailer_byte = suffix[suffix_len + 1];
   suffix[suffix_len] = 'a';
   suffix[suffix_len + 1] = 0;
-  memory_error_detected = false;
   ::strcpy(mem.get(), prefix_value);
   ::strcpy(buffer, prefix_value);
-  EXPECT_EQ(mem.get(),
-      strncatFunction(mem.get(), suffix.get(), ::strlen(suffix.get()) + 1));
-  EXPECT_TRUE(memory_error_detected);
+  strncatFunctionFailing(mem.get(), suffix.get(), ::strlen(suffix.get()) + 1);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
-  EXPECT_STRCASEEQ(
-      ::strncat(buffer, suffix.get(), ::strlen(suffix.get())), mem.get());
   suffix[suffix_len] = 0;
   suffix[suffix_len + 1] = first_trailer_byte;
   ResetLog();
 
   // Test an overflow on the destination.
-  memory_error_detected = false;
   ::strcpy(mem.get(), prefix_value);
   ::strcpy(buffer, prefix_value);
   size_t prefix_len = ::strlen(prefix_value);
@@ -794,12 +616,8 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
   char buffer_first_trailer_byte = buffer[prefix_len + 1];
   buffer[prefix_len] = 'a';
   buffer[prefix_len + 1] = 0;
-  EXPECT_EQ(mem.get(),
-      strncatFunction(mem.get(), suffix.get(), ::strlen(suffix.get())));
-  EXPECT_TRUE(memory_error_detected);
+  strncatFunctionFailing(mem.get(), suffix.get(), ::strlen(suffix.get()));
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
-  EXPECT_STRCASEEQ(
-      ::strncat(buffer, suffix.get(), ::strlen(suffix.get())), mem.get());
   mem[prefix_len] = 0;
   mem[prefix_len + 1] = first_trailer_byte;
   buffer[prefix_len] = 0;

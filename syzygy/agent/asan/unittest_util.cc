@@ -28,7 +28,7 @@ namespace testing {
 const wchar_t kSyzyAsanRtlDll[] = L"syzyasan_rtl.dll";
 
 // Define the function pointers.
-#define DEFINE_FUNCTION_PTR_VARIABLE(convention, ret, name, args)  \
+#define DEFINE_FUNCTION_PTR_VARIABLE(convention, ret, name, args, argnames)  \
     name##FunctionPtr TestAsanRtl::name##Function;
 
   ASAN_RTL_FUNCTIONS(DEFINE_FUNCTION_PTR_VARIABLE)
