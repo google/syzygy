@@ -331,6 +331,9 @@
         'test_dll_x64.def',
         'test_dll_x64.rc',
       ],
+      'dependencies': [
+        '<(src)/syzygy/common/common.gyp:syzygy_version',
+      ],
       'msvs_settings': {
         'VCLinkerTool': {
           # We delay load ole32 purely to test delay load PE parsing.
