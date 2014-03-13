@@ -57,7 +57,6 @@
           '<(PRODUCT_DIR)/run_in_snapshot_xp.exe',
           '<(PRODUCT_DIR)/run_in_snapshot_x64.exe',
           '<(PRODUCT_DIR)/syzyasan_rtl.dll',
-          '<(PRODUCT_DIR)/virtualenv.exe',
           '<(PRODUCT_DIR)/wsdump.exe',
         ],
         'setup_file': 'setup.py',
