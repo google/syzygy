@@ -28,7 +28,7 @@
 #include <string>
 #include <vector>
 #include "base/cancelable_callback.h"
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/thread.h"
@@ -108,7 +108,7 @@ class ViewerWindow
   virtual void SetCapture(bool capture);
 
   // Consumes the logs in paths.
-  void ImportLogFiles(const std::vector<FilePath>& paths);
+  void ImportLogFiles(const std::vector<base::FilePath>& paths);
 
  private:
   LRESULT OnImport(WORD code, LPARAM lparam, HWND wnd, BOOL& handled);

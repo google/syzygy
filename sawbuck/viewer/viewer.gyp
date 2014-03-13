@@ -61,7 +61,7 @@
       },
     },
     {
-      'target_name': 'viewer',
+      'target_name': 'viewer_lib',
       'type': 'static_library',
       'sources': [
         'const_config.h',
@@ -111,7 +111,8 @@
       ],
     },
     {
-      'target_name': 'Sawbuck',
+      'target_name': 'sawbuck_exe',
+      'product_name': 'Sawbuck',
       'type': 'executable',
       'sources': [
         'resource.h',
@@ -123,7 +124,7 @@
       'dependencies': [
         'copy_dlls',
         'sawbuck_version',
-        'viewer',
+        'viewer_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/base/base.gyp:base_i18n',
         '<(DEPTH)/third_party/icu/icu.gyp:icudata',
@@ -159,7 +160,7 @@
       ],
       'dependencies': [
         'copy_dlls',
-        'viewer',
+        'viewer_lib',
         '<(DEPTH)/base/base.gyp:base',
         '<(DEPTH)/base/base.gyp:base_i18n',
         '<(DEPTH)/testing/gmock.gyp:gmock',

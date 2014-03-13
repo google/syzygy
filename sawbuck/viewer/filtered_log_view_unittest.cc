@@ -14,6 +14,7 @@
 #include "sawbuck/viewer/filtered_log_view.h"
 
 #include "base/message_loop.h"
+#include "base/run_loop.h"
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 #include "sawbuck/viewer/mock_log_view_interfaces.h"
@@ -50,9 +51,15 @@ class FilteredLogViewTest: public testing::Test {
     EXPECT_CALL(mock_view_, Unregister(kRegCookie)).Times(1);
   }
 
+  void RunMessageLoopToIdle() {
+    base::RunLoop run_loop;
+
+    run_loop.RunUntilIdle();
+  }
+
  protected:
   std::vector<Filter> filters_;
-  MessageLoop message_loop_;
+  base::MessageLoop message_loop_;
   StrictMock<testing::MockILogView> mock_view_;
   StrictMock<testing::MockILogViewEvents> mock_view_events_;
 };
@@ -89,7 +96,7 @@ TEST_F(FilteredLogViewTest, DestroyWithTaskPending) {
   }
 
   // We hope not to crash here.
-  message_loop_.RunAllPending();
+  RunMessageLoopToIdle();
 
   ExpectCreation(1000);
 
@@ -102,7 +109,7 @@ TEST_F(FilteredLogViewTest, DestroyWithTaskPending) {
   }
 
   // We hope not to crash here.
-  message_loop_.RunAllPending();
+  RunMessageLoopToIdle();
 }
 
 TEST_F(FilteredLogViewTest, IdentityFilter) {
@@ -125,7 +132,7 @@ TEST_F(FilteredLogViewTest, IdentityFilter) {
   EXPECT_CALL(mock_view_, GetMessage(_))
       .WillRepeatedly(Return("foo"));
 
-  message_loop_.RunAllPending();
+  RunMessageLoopToIdle();
 
   EXPECT_EQ(kNumRows, filtered.GetNumRows());
 
@@ -149,7 +156,7 @@ TEST_F(FilteredLogViewTest, Filtering) {
       .WillRepeatedly(Return("I'm Included but also Excluded"));
 
   // Run the identity filter to start with.
-  message_loop_.RunAllPending();
+  RunMessageLoopToIdle();
   EXPECT_EQ(kNumRows, filtered.GetNumRows());
 
   // Define some filters.
@@ -167,7 +174,7 @@ TEST_F(FilteredLogViewTest, Filtering) {
   EXPECT_EQ(0, filtered.GetNumRows());
 
   // Run the filter.
-  message_loop_.RunAllPending();
+  RunMessageLoopToIdle();
   ASSERT_EQ(0, filtered.GetNumRows());
 
   // Also include some:
@@ -176,7 +183,7 @@ TEST_F(FilteredLogViewTest, Filtering) {
   EXPECT_EQ(0, filtered.GetNumRows());
 
   // Run the filter.
-  message_loop_.RunAllPending();
+  RunMessageLoopToIdle();
   ASSERT_EQ(2, filtered.GetNumRows());
 
   EXPECT_STREQ("I'm Included", filtered.GetMessage(0).c_str());
@@ -189,7 +196,7 @@ TEST_F(FilteredLogViewTest, Filtering) {
   EXPECT_EQ(0, filtered.GetNumRows());
 
   // Run the filter.
-  message_loop_.RunAllPending();
+  RunMessageLoopToIdle();
   ASSERT_EQ(1, filtered.GetNumRows());
   EXPECT_STREQ("I'm Included", filtered.GetMessage(0).c_str());
 

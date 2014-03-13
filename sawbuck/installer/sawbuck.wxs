@@ -169,24 +169,10 @@ limitations under the License.
           <?define LogProviderGUID = '{7FE69228-633E-4f06-80C1-527FEA23E3A7}'?>
           <?include chrome_log_provider.wxi?>
 
-          <!-- Chrome Frame -->
-          <?define LogProviderName = 'Chrome Frame'?>
-          <?define LogProviderGUID = '{0562BFC3-2550-45b4-BD8E-A310583D3A6F}'?>
-          <?include chrome_log_provider.wxi?>
-
-          <!-- Sawbuck, we default to ERROR level only for -->
+          <!-- Sawbuck, we default to ERROR level only for our own logs. -->
           <?define LogProviderDefaultLevel = '1'?>
           <?define LogProviderName = 'Sawbuck'?>
           <?define LogProviderGUID = '{C43B1318-C63D-465b-BCF4-7A89A369F8ED}'?>
-          <?include chrome_log_provider.wxi?>
-
-          <!-- CEEE -->
-          <?define LogProviderName = 'CEEE Broker'?>
-          <?define LogProviderGUID = '{6E3D6168-1DD2-4edb-A183-584C2C66E96D}'?>
-          <?include chrome_log_provider.wxi?>
-          <!-- CEEE Broker -->
-          <?define LogProviderName = 'CEEE'?>
-          <?define LogProviderGUID = '{73213C1A-C369-4740-A75C-FA849E6CE540}'?>
           <?include chrome_log_provider.wxi?>
 
           <!-- Chrome Setup -->

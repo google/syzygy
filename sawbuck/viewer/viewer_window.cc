@@ -158,7 +158,7 @@ void ImportLogConsumer::ProcessEvent(PEVENT_TRACE event) {
 
 }  // namespace
 
-void ViewerWindow::ImportLogFiles(const std::vector<FilePath>& paths) {
+void ViewerWindow::ImportLogFiles(const std::vector<base::FilePath>& paths) {
   UISetText(0, L"Importing");
   UIUpdateStatusBar();
 
@@ -170,9 +170,9 @@ void ViewerWindow::ImportLogFiles(const std::vector<FilePath>& paths) {
 
     if (FAILED(hr)) {
       std::wstring msg =
-          StringPrintf(L"Failed to open log file \"%ls\", error 0x%08X",
-                       paths[i].value().c_str(),
-                       hr);
+          base::StringPrintf(L"Failed to open log file \"%ls\", error 0x%08X",
+                             paths[i].value().c_str(),
+                             hr);
 
       ::MessageBox(m_hWnd, msg.c_str(), L"Error Importing Logs", MB_OK);
       return;
@@ -190,8 +190,7 @@ void ViewerWindow::ImportLogFiles(const std::vector<FilePath>& paths) {
   HRESULT hr = import_consumer.Consume();
   if (FAILED(hr)) {
     std::wstring msg =
-        StringPrintf(L"Import failed with error 0x%08X",
-                     hr);
+        base::StringPrintf(L"Import failed with error 0x%08X", hr);
     ::MessageBox(m_hWnd, msg.c_str(), L"Error Importing Logs", MB_OK);
   }
 
@@ -226,7 +225,7 @@ LRESULT ViewerWindow::OnImport(
   CMultiFileDialog dialog(NULL, NULL, 0, kLogFileFilter, m_hWnd);
 
   if (dialog.DoModal() == IDOK) {
-    std::vector<FilePath> paths;
+    std::vector<base::FilePath> paths;
 
     std::wstring path;
     int len = dialog.GetFirstPathName(NULL, 0);
@@ -236,7 +235,7 @@ LRESULT ViewerWindow::OnImport(
     DCHECK(len != 0);
 
     do {
-      paths.push_back(FilePath(path));
+      paths.push_back(base::FilePath(path));
 
       len = dialog.GetNextPathName(NULL, 0);
       if (len != 0) {
@@ -282,7 +281,8 @@ static bool TestAndOfferToStopSession(HWND parent,
   HRESULT hr = base::win::EtwTraceController::Query(session_name, &props);
   if (SUCCEEDED(hr)) {
     std::wstring str;
-    str = StringPrintf(L"The log trace session \"%ls\" is already in use. "
+    str = base::StringPrintf(
+        L"The log trace session \"%ls\" is already in use. "
         L"You may have another copy of Sawbuck running already, or some other "
         L"application may be using the session, or (shudder) Sawbuck may have "
         L"crashed previously.\n"
@@ -298,8 +298,8 @@ static bool TestAndOfferToStopSession(HWND parent,
       // User pressed OK, attempt to stop the session.
       hr = base::win::EtwTraceController::Stop(session_name, &props);
       if (FAILED(hr)) {
-        str = StringPrintf(L"Failed to stop trace session \"%ls\".",
-                           session_name);
+        str = base::StringPrintf(L"Failed to stop trace session \"%ls\".",
+                                 session_name);
         ::MessageBox(parent, str.c_str(), L"Error", MB_OK);
         return false;
       }
@@ -503,13 +503,13 @@ void ViewerWindow::AddTraceEventToLog(const char* type,
   msg.time_stamp = trace_message.time;
 
   // The message will be of form "{BEGIN|END|INSTANT}(<name>, 0x<id>): <extra>"
-  msg.message = StringPrintf("%s(%*s, 0x%08X): %*s",
-                             type,
-                             trace_message.name_len,
-                             trace_message.name,
-                             trace_message.id,
-                             trace_message.extra_len,
-                             trace_message.extra);
+  msg.message = base::StringPrintf("%s(%*s, 0x%08X): %*s",
+                                   type,
+                                   trace_message.name_len,
+                                   trace_message.name,
+                                   trace_message.id,
+                                   trace_message.extra_len,
+                                   trace_message.extra);
 
   for (size_t i = 0; i < trace_message.trace_depth; ++i)
     msg.trace.push_back(trace_message.traces[i]);
@@ -815,20 +815,20 @@ void ViewerWindow::InitSymbolPath() {
   std::string nt_symbol_path;
   if (!env.get() || !env->GetVar("_NT_SYMBOL_PATH", &nt_symbol_path)) {
     // We have no symbol path, make one up!
-    FilePath temp_dir;
+    base::FilePath temp_dir;
     if (!PathService::Get(base::DIR_TEMP, &temp_dir))
       return;
 
-    FilePath sym_dir(temp_dir.Append(L"symbols"));
+    base::FilePath sym_dir(temp_dir.Append(L"symbols"));
     if (!file_util::CreateDirectory(sym_dir))
       return;
 
     symbol_path_ =
-        StringPrintf(L"SRV*%ls*%ls;SRV*%ls*%ls",
-                     sym_dir.value().c_str(),
-                     kMicrosoftSymSrv,
-                     sym_dir.value().c_str(),
-                     kChromeSymSrv);
+        base::StringPrintf(L"SRV*%ls*%ls;SRV*%ls*%ls",
+                           sym_dir.value().c_str(),
+                           kMicrosoftSymSrv,
+                           sym_dir.value().c_str(),
+                           kChromeSymSrv);
 
     // Write the newly fabricated path to our preferences.
     Preferences pref;

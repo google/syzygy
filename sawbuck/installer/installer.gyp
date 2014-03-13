@@ -20,7 +20,8 @@
   },
   'targets': [
     {
-      'target_name': 'sawbuck',
+      'target_name': 'sawbuck_msi',
+      'project_name': 'Sawbuck.msi',
       'type': 'none',
       'sources': [
         'license.rtf',
@@ -28,7 +29,7 @@
         'version.wxi.template',
       ],
       'dependencies': [
-        '../viewer/viewer.gyp:Sawbuck',
+        '../viewer/viewer.gyp:sawbuck_exe',
       ],
       'msvs_cygwin_shell': 0,
       'actions': [
@@ -62,7 +63,7 @@
           ],
           'action': [
             '<(candle_exe)',
-            '-I<(INTERMEDIATE_DIR)',
+            '-I<(INTERMEDIATE_DIR)\.',
             'sawbuck.wxs',
             '-out',
             '<@(_outputs)',

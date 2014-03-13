@@ -21,7 +21,6 @@
       'target_name': 'build_all',
       'type': 'none',
       'dependencies': [
-        '<(DEPTH)/base/base.gyp:*',
         'common/common.gyp:*',
         'installer/installer.gyp:*',
         'log_lib/log_lib.gyp:*',
@@ -68,7 +67,7 @@
           'action': [
             '<(DEPTH)/third_party/python_26/python',
             'tools/run_unittests.py',
-            '--exe-dir=<(PRODUCT_DIR)',
+            '--exe-dir=<(PRODUCT_DIR)\.',
             '--success-file=<(success_file)',
             # SymSrv.dll abandons a critical section on
             # unlock on 32 bit systems

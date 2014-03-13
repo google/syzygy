@@ -125,7 +125,10 @@ bool ProviderConfiguration::ReadSettings() {
                                0,
                                0,
                                KEY_WRITE);
-  if (err != ERROR_SUCCESS) {
+  if (err == ERROR_FILE_NOT_FOUND) {
+    // No settings initialized at all, the caller is pre-set to defaults.
+    return true;
+  } else if (err != ERROR_SUCCESS) {
     LOG(ERROR) << "Error reading provider log levels: " << err;
 
     return false;
@@ -139,7 +142,10 @@ bool ProviderConfiguration::ReadSettings() {
 
     CRegKey settings_key;
     err = settings_key.Open(levels_key, provider_name, KEY_READ);
-    if (err != ERROR_SUCCESS) {
+    if (err == ERROR_FILE_NOT_FOUND) {
+      // No settings key for this provider, keep moving.
+      continue;
+    } else if (err != ERROR_SUCCESS) {
       LOG(ERROR) << "Error reading log level for provider " <<
           settings_[i].provider_name << ", error: " << err;
       continue;
@@ -148,7 +154,8 @@ bool ProviderConfiguration::ReadSettings() {
     DWORD log_level = 0;
     err = settings_key.QueryDWORDValue(config::kProviderLevelValue, log_level);
     if (err == ERROR_SUCCESS)
-      settings_[i].log_level = static_cast<base::win::EtwEventLevel>(log_level);
+      settings_[i].log_level =
+          static_cast<base::win::EtwEventLevel>(log_level);
 
     DWORD enable_flags = 0;
     err = settings_key.QueryDWORDValue(config::kProviderEnableFlagsValue,

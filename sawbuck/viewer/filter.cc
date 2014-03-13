@@ -43,7 +43,7 @@ Filter::Filter(Column column, Relation relation, Action action,
 }
 
 
-Filter::Filter(const DictionaryValue* const serialized) : match_re_("") {
+Filter::Filter(const base::DictionaryValue* const serialized) : match_re_("") {
   is_valid_ = Deserialize(serialized);
   BuildRegExp();
 }
@@ -134,8 +134,8 @@ bool Filter::ValueMatchesString(const std::string& check_string) const {
   return matches;
 }
 
-DictionaryValue* Filter::Serialize() const {
-  scoped_ptr<DictionaryValue> filter_dict(new DictionaryValue());
+base::DictionaryValue* Filter::Serialize() const {
+  scoped_ptr<base::DictionaryValue> filter_dict(new base::DictionaryValue());
   filter_dict->SetInteger("column", column_);
   filter_dict->SetInteger("relation", relation_);
   filter_dict->SetInteger("action", action_);
@@ -143,7 +143,7 @@ DictionaryValue* Filter::Serialize() const {
   return filter_dict.release();
 }
 
-bool Filter::Deserialize(const DictionaryValue* const serialized) {
+bool Filter::Deserialize(const base::DictionaryValue* const serialized) {
   // I wish I could make this data-driven. The static_casts needed because of
   // the use of enums makes this hard.
   if (!serialized->GetStringASCII("value", &value_)) {
@@ -185,12 +185,13 @@ bool Filter::Deserialize(const DictionaryValue* const serialized) {
 std::vector<Filter> Filter::DeserializeFilters(const std::string& stored) {
   std::vector<Filter> filters;
 
-  scoped_ptr<ListValue> filter_list_value;
+  scoped_ptr<base::ListValue> filter_list_value;
 
   if (!stored.empty()) {
     scoped_ptr<Value> parsed_value(base::JSONReader::Read(stored, true));
     if (parsed_value.get() && parsed_value->IsType(Value::TYPE_LIST)) {
-      filter_list_value.reset(static_cast<ListValue*>(parsed_value.release()));
+      filter_list_value.reset(
+          static_cast<base::ListValue*>(parsed_value.release()));
     } else {
       LOG(ERROR) << "Failed to parse filter list: " << stored;
     }
@@ -218,14 +219,17 @@ std::vector<Filter> Filter::DeserializeFilters(const std::string& stored) {
 std::string Filter::SerializeFilters(const std::vector<Filter>& filters) {
   scoped_ptr<ListValue> filters_list(SerializeFiltersToListValue(filters));
   std::string serialized_string;
-  base::JSONWriter::Write(filters_list.get(), true, &serialized_string);
+  base::JSONWriter::WriteWithOptions(
+      filters_list.get(),
+      base::JSONWriter::OPTIONS_PRETTY_PRINT,
+      &serialized_string);
   return serialized_string;
 }
 
 // static
-ListValue* Filter::SerializeFiltersToListValue(
+base::ListValue* Filter::SerializeFiltersToListValue(
     const std::vector<Filter>& filters) {
-  scoped_ptr<ListValue> filters_list(new ListValue);
+  scoped_ptr<base::ListValue> filters_list(new base::ListValue);
   std::vector<Filter>::const_iterator iter(filters.begin());
   for (; iter != filters.end(); ++iter) {
     filters_list->Append(iter->Serialize());

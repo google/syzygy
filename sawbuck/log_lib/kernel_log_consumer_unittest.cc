@@ -15,8 +15,8 @@
 
 #include <vector>
 #include <tlhelp32.h>
-#include "base/file_path.h"
 #include "base/path_service.h"
+#include "base/files/file_path.h"
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 #include "sawbuck/log_lib/kernel_log_unittest_data.h"
@@ -59,7 +59,7 @@ class KernelLogConsumerTest: public testing::Test {
   }
 
   virtual void SetUp() {
-    FilePath src_root;
+    base::FilePath src_root;
     ASSERT_TRUE(PathService::Get(base::DIR_SOURCE_ROOT, &src_root));
     image_data_dir_ = src_root.AppendASCII("sawbuck\\log_lib\\test_data");
 
@@ -130,7 +130,7 @@ class KernelLogConsumerTest: public testing::Test {
   }
 
   void Consume(const wchar_t* file_name) {
-    FilePath file_path = image_data_dir_.Append(file_name);
+    base::FilePath file_path = image_data_dir_.Append(file_name);
 
     // We don't want to sniff the artificially created
     // test logs for their bitness, as that restricts
@@ -149,7 +149,7 @@ class KernelLogConsumerTest: public testing::Test {
   StrictMock<MockKernelModuleEvents> module_events_;
   StrictMock<MockKernelProcessEvents> process_events_;
   KernelLogConsumer consumer_;
-  FilePath image_data_dir_;
+  base::FilePath image_data_dir_;
   ModuleInfoList modules_;
 };
 

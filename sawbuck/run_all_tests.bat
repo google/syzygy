@@ -16,6 +16,6 @@ rem = """
 set PYTHON="%~p0..\third_party\python_26\python.exe"
 set SCRIPT="%~p0..\sawbuck\tools\run_all_tests.py"
 set SOLUTION="%~p0Sawbuck.sln"
-set PROJECT="%~p0run_unittests.vcproj"
+set PROJECT="run_unittests"
 
-%PYTHON% %SCRIPT% --solution="%SOLUTION%" --project="%PROJECT%" %* 
+%PYTHON% %SCRIPT% --solution="%SOLUTION%" --project="%PROJECT%" %*

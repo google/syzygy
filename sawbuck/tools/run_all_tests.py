@@ -16,34 +16,17 @@
 It exits with non-zero exit status on error.
 '''
 #!python
+from build_project import BuildProjectConfig
 import os.path
 import optparse
 import sys
-import win32com.client
+
 
 
 _SCRIPT_DIR = os.path.dirname(__file__)
 _SAWBUCK_SOLUTION = os.path.abspath(
     os.path.join(_SCRIPT_DIR, '../sawbuck.sln'))
-_TEST_PROJECT = os.path.abspath(
-    os.path.join(_SCRIPT_DIR, '../run_unittests.vcproj'))
-
-
-def BuildProjectConfig(builder, config, project):
-  '''Builds a given project in a given configuration.
-
-  Args:
-    builder: a Visual Studio SolutionBuild object.
-    config: the name of the configuration to build, f.ex. "Release".
-    project: the path of a solution to build, relative to the builder's
-        solution directory.
-
-  Returns: the number of errors during the build.
-  '''
-  print 'Building project "%s" in "%s" configuration' % (project, config)
-  builder.BuildProject(config, project, True)
-
-  return builder.LastBuildInfo
+_TEST_PROJECT = 'run_unittests'
 
 
 def GetOptionParser():
@@ -69,34 +52,11 @@ def Main():
   if args:
     parser.error('This script takes no arguments')
 
-  solution = win32com.client.GetObject(os.path.abspath(options.solution))
-  builder = solution.SolutionBuild
+  BuildProjectConfig(os.path.abspath(options.solution),
+                     options.project,
+                     ['Debug', 'Release'])
 
-  # Force the output window to show and give it focus.
-  autohides = None
-  try:
-    dte = solution.DTE
-    dte.MainWindow.Visible = True
-    output = dte.Windows['Output']
-    autohides = output.AutoHides
-    output.AutoHides = False
-    output.SetFocus()
-  except:
-    pass
-
-  project = os.path.abspath(options.project)
-  errors = BuildProjectConfig(builder, 'Debug', project)
-  if errors == 0:
-    errors = BuildProjectConfig(builder, 'Release', project)
-
-  # Restore the output window autohide status.
-  if autohides != None:
-    try:
-      output.AutoHides = autohides
-    except:
-      pass
-
-  return errors
+  return 0
 
 
 if __name__ == "__main__":

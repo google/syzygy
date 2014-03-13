@@ -20,10 +20,10 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_path.h"
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/path_service.h"
+#include "base/files/file_path.h"
 #include "base/win/event_trace_controller.h"
 #include "base/win/event_trace_provider.h"
 #include "sawbuck/log_lib/kernel_log_unittest_data.h"
@@ -57,16 +57,16 @@ class MakeTestData: public testing::Test {
   }
 
   void StartFileSession(const wchar_t* file_name) {
-    FilePath source_root;
+    base::FilePath source_root;
     CHECK(PathService::Get(base::DIR_SOURCE_ROOT, &source_root));
 
     // Create the destination directory if it doesn't exist already.
-    FilePath dest_dir(source_root.Append(L"sawbuck\\log_lib\\test_data"));
+    base::FilePath dest_dir(source_root.Append(L"sawbuck\\log_lib\\test_data"));
     ASSERT_TRUE(file_util::CreateDirectory(dest_dir));
 
     // Construct the file path and delete any
     // previously existing file at that path.
-    FilePath dest_file(dest_dir.Append(file_name));
+    base::FilePath dest_file(dest_dir.Append(file_name));
     file_util::Delete(dest_file, false);
 
     // Start a new file session.

@@ -227,7 +227,7 @@ void FilterDialog::OnFilterSave(UINT notify_code, int id, CWindow window) {
     file_path.resize(MAX_PATH);
     if (SUCCEEDED(dialog.GetFilePath(&file_path[0], MAX_PATH - 1))) {
       std::string filter_string = Filter::SerializeFilters(filters_);
-      if (file_util::WriteFile(file_path,
+      if (file_util::WriteFile(base::FilePath(file_path),
                                &filter_string[0],
                                filter_string.size()) == -1) {
         LOG(ERROR) << "Failed to save filter file to:" << file_path;
@@ -250,7 +250,8 @@ void FilterDialog::OnFilterLoad(UINT notify_code, int id, CWindow window) {
     file_path.resize(MAX_PATH);
     if (SUCCEEDED(dialog.GetFilePath(&file_path[0], MAX_PATH - 1))) {
       std::string file_contents;
-      if (file_util::ReadFileToString(FilePath(file_path), &file_contents)) {
+      if (file_util::ReadFileToString(base::FilePath(file_path),
+                                      &file_contents)) {
         filters_ = Filter::DeserializeFilters(file_contents);
         PopulateFilterList();
       } else {
