@@ -938,8 +938,6 @@ TEST_F(HeapTest, GetBadAccessKind) {
   ASSERT_TRUE(proxy_.IsUseAfterAccess(mem, header));
 }
 
-// Disable optimizations to preserve the specified order of operations.
-#pragma optimize("", off)
 TEST_F(HeapTest, GetTimeSinceFree) {
   const size_t kAllocSize = 100;
   const size_t kSleepTime = 25;
@@ -951,7 +949,7 @@ TEST_F(HeapTest, GetTimeSinceFree) {
       const_cast<TestHeapProxy::BlockHeader*>(
           proxy_.UserPointerToBlockHeader(mem));
 
-  base::TimeTicks time_before_free = base::TimeTicks::HighResNow();
+  uint64 ticks_before_free = trace::common::GetTsc();
   ASSERT_EQ(0U, proxy_.GetTimeSinceFree(header));
   ASSERT_TRUE(proxy_.Free(0, mem));
   ASSERT_TRUE(proxy_.IsQuarantined(header));
@@ -959,9 +957,12 @@ TEST_F(HeapTest, GetTimeSinceFree) {
   uint64 time_since_free = proxy_.GetTimeSinceFree(header);
   ASSERT_NE(0U, time_since_free);
 
-  base::TimeDelta time_delta = base::TimeTicks::HighResNow() - time_before_free;
-  ASSERT_GT(time_delta.ToInternalValue(), 0U);
-  uint64 time_delta_us = static_cast<uint64>(time_delta.ToInternalValue());
+  uint64 ticks_delta = trace::common::GetTsc() - ticks_before_free;
+  ASSERT_GT(ticks_delta, 0U);
+  // We calculate the time in microseconds the same way that GetTimeSinceFree
+  // does, to ensure that we are using the same clock and the same estimate of
+  // its frequency.
+  uint64 time_delta_us = ticks_delta / proxy_.cpu_cycles_per_us();
   trace::common::ClockInfo clock_info = {};
   trace::common::GetClockInfo(&clock_info);
   if (clock_info.tsc_info.frequency == 0)
@@ -969,7 +970,6 @@ TEST_F(HeapTest, GetTimeSinceFree) {
 
   ASSERT_GE(time_delta_us, time_since_free);
 }
-#pragma optimize("", on)
 
 TEST_F(HeapTest, CaptureTID) {
   const size_t kAllocSize = 13;

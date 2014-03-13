@@ -233,6 +233,10 @@ class HeapProxy {
     return trailer_padding_size_;
   }
 
+  // Returns the number of CPU cycles per microsecond on the current machine.
+  // Exposed for testing.
+  static double cpu_cycles_per_us();
+
   // Static initialization of HeapProxy context.
   // @param cache The stack capture cache shared by the HeapProxy.
   static void Init(StackCaptureCache* cache);

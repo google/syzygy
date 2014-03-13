@@ -1223,6 +1223,12 @@ void HeapProxy::set_default_quarantine_max_block_size(
       default_quarantine_max_size_);
 }
 
+double HeapProxy::cpu_cycles_per_us() {
+  if (!base::IsFinite(cpu_cycles_per_us_))
+    cpu_cycles_per_us_ = GetCpuCyclesPerUs();
+  return cpu_cycles_per_us_;
+}
+
 uint64 HeapProxy::GetTimeSinceFree(const BlockHeader* header) {
   DCHECK(header != NULL);
 
@@ -1237,11 +1243,9 @@ uint64 HeapProxy::GetTimeSinceFree(const BlockHeader* header) {
   // On x86/64, as long as cpu_cycles_per_us_ is 64-bit aligned, the write is
   // atomic, which means we don't care about multiple writers since it's not an
   // update based on the previous value.
-  if (!base::IsFinite(cpu_cycles_per_us_))
-    cpu_cycles_per_us_ = GetCpuCyclesPerUs();
-  DCHECK_NE(0.0, cpu_cycles_per_us_);
+  DCHECK_NE(0.0, cpu_cycles_per_us());
 
-  return cycles_since_free / cpu_cycles_per_us_;
+  return cycles_since_free / cpu_cycles_per_us();
 }
 
 void HeapProxy::GetAsanExtent(const void* user_pointer,
