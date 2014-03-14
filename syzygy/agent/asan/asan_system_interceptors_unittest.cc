@@ -25,11 +25,14 @@ namespace {
 
 using testing::ScopedASanAlloc;
 
-// A flag used in asan callback to ensure that a memory error has been detected.
-bool memory_error_detected = false;
-
 void AsanErrorCallbackWithoutComparingContext(AsanErrorInfo* error_info) {
-  memory_error_detected = true;
+  // All of our unittests should be cleaning up after themselves and not causing
+  // any heap corruption.
+  ASSERT_NE(HeapProxy::CORRUPTED_BLOCK, error_info->error_type);
+
+  // Raise an exception indicating that an error was encountered. If this isn't
+  // caught and handled by the test then the unittest will fail.
+  ::RaiseException(EXCEPTION_ARRAY_BOUNDS_EXCEEDED, 0, 0, 0);
 }
 
 // Helps to test the asan_ReadFile function.
@@ -41,7 +44,6 @@ class AsanRtlReadFileTest : public testing::TestAsanRtl {
   }
 
   void SetUp() OVERRIDE {
-    memory_error_detected = false;
     Super::SetUp();
     SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
     ASSERT_NO_FATAL_FAILURE(CreateTempFile());
@@ -86,7 +88,6 @@ TEST_F(AsanRtlReadFileTest, AsanReadFile) {
                                NULL));
   EXPECT_EQ(kTestStringLength, bytes_read);
   EXPECT_STREQ(kTestString, alloc.get());
-  EXPECT_FALSE(memory_error_detected);
 }
 
 TEST_F(AsanRtlReadFileTest, AsanReadFileWithOverlapped) {
@@ -106,7 +107,6 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileWithOverlapped) {
                                &overlapped));
   EXPECT_EQ(kTestStringLength - kOffset, bytes_read);
   EXPECT_STREQ(kTestString + kOffset, alloc.get());
-  EXPECT_FALSE(memory_error_detected);
 }
 
 TEST_F(AsanRtlReadFileTest, AsanReadFileOverflow) {
@@ -114,35 +114,30 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileOverflow) {
   // we don't pass an OVERLAPPED structure to the function.
   DWORD bytes_read = 0;
   ScopedASanAlloc<char> alloc(this, kTestStringLength);
-  EXPECT_TRUE(ReadFileFunction(temp_file_handle_.Get(),
-                               alloc.get(),
-                               kTestStringLength + 1,
-                               &bytes_read,
-                               NULL));
-  EXPECT_EQ(kTestStringLength, bytes_read);
-  EXPECT_EQ(0U, ::strncmp(kTestString, alloc.get(), bytes_read));
-  EXPECT_TRUE(memory_error_detected);
+  ReadFileFunctionFailing(temp_file_handle_.Get(),
+                          alloc.get(),
+                          kTestStringLength + 1,
+                          &bytes_read,
+                          NULL);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
 }
 
 TEST_F(AsanRtlReadFileTest, AsanReadFileUAFOnOverlapped) {
   ScopedASanAlloc<char> alloc(this, kTestStringLength);
-  // Test an use-after-free on the overlapped structure.
+  // Test a use-after-free on the overlapped structure.
   ScopedASanAlloc<OVERLAPPED> overlapped(this, sizeof(OVERLAPPED));
+
   // Start the read from the middle of the test string.
   const size_t kOffset = kTestStringLength / 2;
   overlapped->Offset = kOffset;
   DWORD bytes_read = 0;
   OVERLAPPED* overlapped_ptr = overlapped.get();
   overlapped.reset(NULL);
-  EXPECT_TRUE(ReadFileFunction(temp_file_handle_.Get(),
-                               alloc.get(),
-                               kTestStringLength,
-                               &bytes_read,
-                               overlapped_ptr));
-  EXPECT_EQ(kTestStringLength - kOffset, bytes_read);
-  EXPECT_STREQ(kTestString + kOffset, alloc.get());
-  EXPECT_TRUE(memory_error_detected);
+  ReadFileFunctionFailing(temp_file_handle_.Get(),
+                          alloc.get(),
+                          kTestStringLength,
+                          &bytes_read,
+                          overlapped_ptr);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
 }
 
@@ -152,14 +147,11 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileUseAfterFree) {
   ScopedASanAlloc<char> alloc(this, kTestStringLength);
   char* alloc_ptr = alloc.get();
   alloc.reset(NULL);
-  EXPECT_TRUE(ReadFileFunction(temp_file_handle_.Get(),
-                               alloc_ptr,
-                               kTestStringLength + 1,
-                               &bytes_read,
-                               NULL));
-  EXPECT_EQ(kTestStringLength, bytes_read);
-  EXPECT_STREQ(kTestString, alloc_ptr);
-  EXPECT_TRUE(memory_error_detected);
+  ReadFileFunctionFailing(temp_file_handle_.Get(),
+                          alloc_ptr,
+                          kTestStringLength + 1,
+                          &bytes_read,
+                          NULL);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
 }
 
@@ -191,15 +183,13 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileUAFAfterInternalCall) {
   // callback once the internal call to ReadFile returns, and result in freeing
   // the buffer.
   DWORD bytes_read = 0;
-  EXPECT_TRUE(ReadFileFunction(temp_file_handle_.Get(),
-                               alloc.get(),
-                               kTestStringLength,
-                               &bytes_read,
-                               NULL));
-
+  ReadFileFunctionFailing(temp_file_handle_.Get(),
+                          alloc.get(),
+                          kTestStringLength,
+                          &bytes_read,
+                          NULL);
   EXPECT_EQ(kTestStringLength, bytes_read);
   EXPECT_STREQ(kTestString, alloc_ptr);
-  EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
 
   SetInterceptorCallbackFunction(NULL);
@@ -217,7 +207,6 @@ class AsanRtlWriteFileTest : public testing::TestAsanRtl {
   }
 
   void SetUp() OVERRIDE {
-    memory_error_detected = false;
     Super::SetUp();
 
     temp_file_handle_.Set(::CreateFile(temp_file_.path().value().c_str(),
@@ -277,7 +266,6 @@ TEST_F(AsanRtlWriteFileTest, AsanWriteFile) {
                                 &bytes_written,
                                 NULL));
   EXPECT_EQ(kTestStringLength, bytes_written);
-  EXPECT_FALSE(memory_error_detected);
   std::string file_content;
   EXPECT_TRUE(ReadFileContent(&file_content, 0));
   EXPECT_STREQ(kTestString, file_content.c_str());
@@ -299,7 +287,6 @@ TEST_F(AsanRtlWriteFileTest, AsanWriteFileWithOverlapped) {
                                 &bytes_written,
                                 &overlapped));
   EXPECT_EQ(kTestStringLength - kOffset, bytes_written);
-  EXPECT_FALSE(memory_error_detected);
   std::string file_content;
   EXPECT_TRUE(ReadFileContent(&file_content, kOffset));
   EXPECT_STREQ(kTestString + kOffset, file_content.c_str());
@@ -311,17 +298,13 @@ TEST_F(AsanRtlWriteFileTest, AsanWriteFileOverflow) {
   DWORD bytes_written = 0;
   ScopedASanAlloc<char> alloc(this, kTestStringLength);
   strcpy(alloc.get(), kTestString);
-  EXPECT_TRUE(WriteFileFunction(temp_file_handle_.Get(),
-                                alloc.get(),
-                                kTestStringLength + 1,
-                                &bytes_written,
-                                NULL));
-  EXPECT_EQ(kTestStringLength + 1, bytes_written);
-  EXPECT_TRUE(memory_error_detected);
+  WriteFileFunctionFailing(temp_file_handle_.Get(),
+                           alloc.get(),
+                           kTestStringLength + 1,
+                           &bytes_written,
+                           NULL);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   std::string file_content;
-  EXPECT_TRUE(ReadFileContent(&file_content, 0));
-  EXPECT_STREQ(kTestString, file_content.c_str());
 }
 
 TEST_F(AsanRtlWriteFileTest, AsanWriteFileUAFOnOverlapped) {
@@ -333,17 +316,12 @@ TEST_F(AsanRtlWriteFileTest, AsanWriteFileUAFOnOverlapped) {
   DWORD bytes_written = 0;
   OVERLAPPED* overlapped_ptr = overlapped.get();
   overlapped.reset(NULL);
-  EXPECT_TRUE(WriteFileFunction(temp_file_handle_.Get(),
-                                kTestString + kOffset,
-                                kTestStringLength - kOffset,
-                                &bytes_written,
-                                overlapped_ptr));
-  EXPECT_EQ(kTestStringLength - kOffset, bytes_written);
-  EXPECT_TRUE(memory_error_detected);
+  WriteFileFunctionFailing(temp_file_handle_.Get(),
+                           kTestString + kOffset,
+                           kTestStringLength - kOffset,
+                           &bytes_written,
+                           overlapped_ptr);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
-  std::string file_content;
-  EXPECT_TRUE(ReadFileContent(&file_content, kOffset));
-  EXPECT_STREQ(kTestString + kOffset, file_content.c_str());
 }
 
 TEST_F(AsanRtlWriteFileTest, AsanWriteFileUseAfterFree) {
@@ -353,17 +331,12 @@ TEST_F(AsanRtlWriteFileTest, AsanWriteFileUseAfterFree) {
   strcpy(alloc.get(), kTestString);
   char* alloc_ptr = alloc.get();
   alloc.reset(NULL);
-  EXPECT_TRUE(WriteFileFunction(temp_file_handle_.Get(),
-                                alloc_ptr,
-                                kTestStringLength,
-                                &bytes_written,
-                                NULL));
-  EXPECT_EQ(kTestStringLength, bytes_written);
-  EXPECT_TRUE(memory_error_detected);
+  WriteFileFunctionFailing(temp_file_handle_.Get(),
+                           alloc_ptr,
+                           kTestStringLength,
+                           &bytes_written,
+                           NULL);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
-  std::string file_content;
-  EXPECT_TRUE(ReadFileContent(&file_content, 0));
-  EXPECT_STREQ(kTestString, file_content.c_str());
 }
 
 namespace {
@@ -394,15 +367,12 @@ TEST_F(AsanRtlWriteFileTest, AsanWriteFileUAFAfterInternalCall) {
   // callback once the internal call to WriteFile returns, and result in freeing
   // the buffer.
   DWORD bytes_written = 0;
-  EXPECT_TRUE(WriteFileFunction(temp_file_handle_.Get(),
-                                alloc.get(),
-                                kTestStringLength,
-                                &bytes_written,
-                                NULL));
-
+  WriteFileFunctionFailing(temp_file_handle_.Get(),
+                           alloc.get(),
+                           kTestStringLength,
+                           &bytes_written,
+                           NULL);
   EXPECT_EQ(kTestStringLength, bytes_written);
-
-  EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
 
   std::string file_content;

@@ -239,6 +239,14 @@ class TestAsanRtl : public testing::TestWithAsanLogger {
   ASAN_RTL_FUNCTIONS(DECLARE_FUNCTION_PTR_VARIABLE)
 #undef DECLARE_FUNCTION_PTR_VARIABLE
 
+  // Define versions of all of the functions that expect an error to be thrown
+  // by the AsanErrorCallback, and in turn raise an exception if the underlying
+  // function didn't fail.
+#define DECLARE_FAILING_FUNCTION(convention, ret, name, args, argnames)  \
+    static void name##FunctionFailing args;
+  ASAN_RTL_FUNCTIONS(DECLARE_FAILING_FUNCTION)
+#undef DECLARE_FAILING_FUNCTION
+
  protected:
   // The ASAN runtime module to test.
   HMODULE asan_rtl_;

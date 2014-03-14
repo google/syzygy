@@ -43,24 +43,6 @@ void AsanErrorCallback(AsanErrorInfo* error_info) {
   ::RaiseException(EXCEPTION_ARRAY_BOUNDS_EXCEEDED, 0, 0, 0);
 }
 
-// Define versions of all of the functions that expect an error to be thrown by
-// the AsanErrorCallback, and in turn raise an exception if the underlying
-// function didn't fail.
-#define DEFINE_FAILING_FUNCTION(convention, ret, name, args, argnames)  \
-  bool name##FunctionFailed args {  \
-    __try {  \
-      testing::TestAsanRtl::name##Function argnames;  \
-    } __except(::GetExceptionCode() == EXCEPTION_ARRAY_BOUNDS_EXCEEDED) {  \
-      return true;  \
-    }  \
-    return false;  \
-  }  \
-  void name##FunctionFailing args {  \
-    ASSERT_TRUE(name##FunctionFailed argnames);  \
-  }
-ASAN_RTL_FUNCTIONS(DEFINE_FAILING_FUNCTION)
-#undef DEFINE_FAILING_FUNCTION
-
 }  // namespace
 
 TEST_F(CrtInterceptorsTest, AsanCheckMemset) {

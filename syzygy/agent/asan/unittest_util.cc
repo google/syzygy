@@ -30,10 +30,26 @@ const wchar_t kSyzyAsanRtlDll[] = L"syzyasan_rtl.dll";
 // Define the function pointers.
 #define DEFINE_FUNCTION_PTR_VARIABLE(convention, ret, name, args, argnames)  \
     name##FunctionPtr TestAsanRtl::name##Function;
-
-  ASAN_RTL_FUNCTIONS(DEFINE_FUNCTION_PTR_VARIABLE)
-
+ASAN_RTL_FUNCTIONS(DEFINE_FUNCTION_PTR_VARIABLE)
 #undef DEFINE_FUNCTION_PTR_VARIABLE
+
+// Define versions of all of the functions that expect an error to be thrown by
+// the AsanErrorCallback, and in turn raise an exception if the underlying
+// function didn't fail.
+#define DEFINE_FAILING_FUNCTION(convention, ret, name, args, argnames)  \
+  bool name##FunctionFailed args {  \
+    __try {  \
+      testing::TestAsanRtl::name##Function argnames;  \
+    } __except(::GetExceptionCode() == EXCEPTION_ARRAY_BOUNDS_EXCEEDED) {  \
+      return true;  \
+    }  \
+    return false;  \
+  }  \
+  void testing::TestAsanRtl::name##FunctionFailing args {  \
+    ASSERT_TRUE(name##FunctionFailed argnames);  \
+  }
+ASAN_RTL_FUNCTIONS(DEFINE_FAILING_FUNCTION)
+#undef DEFINE_FAILING_FUNCTION
 
 TestWithAsanLogger::TestWithAsanLogger()
     : log_service_instance_(&log_service_), log_contents_read_(false) {
