@@ -181,14 +181,14 @@ class CoffImageLayoutBuilderTest : public testing::PELibUnitTest {
 
     args.push_back(L"/OUT:" + new_test_dll_path_.value());
     args.push_back(L"/IMPLIB:" +
-                   temp_dir_path_.Append(L"test_dll.lib").value());
+                   temp_dir_path_.Append(L"test_dll.dll.lib").value());
     args.push_back(L"/PDB:" +
                    temp_dir_path_.Append(L"test_dll.dll.pdb").value());
 
     args.push_back(L"/LIBPATH:" +
                    testing::GetExeTestDataRelativePath(L".").value());
     args.push_back(L"ole32.lib");
-    args.push_back(L"export_dll.lib");
+    args.push_back(L"export_dll.dll.lib");
     args.push_back(L"test_dll_no_private_symbols.lib");
 
     base::FilePath def_path(

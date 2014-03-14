@@ -142,12 +142,10 @@
           'variables': {
             'conditions': [
               ['"<(GENERATOR)"=="ninja" or "<(GENERATOR)"=="msvs-ninja"', {
-                # TODO(etienneb): The naming convention must be keep as is
-                #     for official packaging of SyzyASan.
                 'syzyasan_rtl_lib': '<(PRODUCT_DIR)/syzyasan_rtl.dll.lib',
               }],
               ['"<(GENERATOR)"=="msvs"', {
-                'syzyasan_rtl_lib': '<(PRODUCT_DIR)/lib/syzyasan_rtl.lib',
+                'syzyasan_rtl_lib': '<(PRODUCT_DIR)/lib/syzyasan_rtl.dll.lib',
               }],
             ],
           },

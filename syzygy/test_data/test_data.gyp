@@ -62,7 +62,7 @@
             ['"<(GENERATOR)"=="msvs"', {
               'files': [
                 '<(PRODUCT_DIR)/obj/test_dll/test_dll_label_test_func.obj',
-                '<(PRODUCT_DIR)/lib/export_dll.lib',
+                '<(PRODUCT_DIR)/lib/export_dll.dll.lib',
                 '<(PRODUCT_DIR)/lib/test_dll_no_private_symbols.lib',
               ],
             }],

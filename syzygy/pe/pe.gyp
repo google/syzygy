@@ -282,6 +282,8 @@
           'IgnoreDefaultLibraryNames': [
             'libcmtd.lib',
           ],
+          # Force MSVS to produce the same output name as Ninja.
+          'ImportLibrary': '$(OutDir)lib\$(TargetFileName).lib'
         },
       },
       # We more or less want this to always be a release-style executable
@@ -453,6 +455,12 @@
         'export_dll.cc',
         'export_dll.def',
       ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          # Force MSVS to produce the same output name as Ninja.
+          'ImportLibrary': '$(OutDir)lib\$(TargetFileName).lib'
+        },
+      },
     },
     {
       'target_name': 'decompose_image_to_text',

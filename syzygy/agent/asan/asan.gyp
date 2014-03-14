@@ -108,6 +108,8 @@
           # This module should delay load nothing.
           'DelayLoadDLLs=': [
           ],
+          # Force MSVS to produce the same output name as Ninja.
+          'ImportLibrary': '$(OutDir)lib\$(TargetFileName).lib'
         },
       },
     },
