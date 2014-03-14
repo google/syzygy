@@ -28,6 +28,15 @@
     # the relative depth of a pure git repository and an SVN repository
     # is different.
     'src': '<(DEPTH)',
+
+    'conditions': [
+      ['"<(GENERATOR)"=="ninja" or "<(GENERATOR)"=="msvs-ninja"', {
+        'output_dir_prefix': 'out',
+      }],
+      ['"<(GENERATOR)"=="msvs"', {
+        'output_dir_prefix': 'build',
+      }],
+    ],
   },
   'target_defaults': {
     'include_dirs': [
@@ -54,6 +63,7 @@
         'defines': [
           # This global define is in addition to _DEBUG.
           '_COVERAGE_BUILD',
+          '_BUILD_OUTPUT_DIR="<(output_dir_prefix)/Coverage"',
           # Turn off iterator debugging for coverage, as it slows down
           # all iterator-related operations without improving coverage.
           '_HAS_ITERATOR_DEBUGGING=0',
@@ -74,6 +84,9 @@
         },
       },
       'Release': {
+        'defines': [
+          '_BUILD_OUTPUT_DIR="<(output_dir_prefix)/Release"',
+        ],
         'conditions': [
           # We up the level of optimizations for official builds.
           ['OS=="win" and official_build==1', {
@@ -103,6 +116,11 @@
       },
       'Coverage': {
         'inherit_from': ['Common_Base', 'x86_Base', 'Coverage_Base'],
+      },
+      'Debug': {
+        'defines': [
+          '_BUILD_OUTPUT_DIR="<(output_dir_prefix)/Debug"',
+         ],
       },
       'conditions': [
         ['OS=="win"', {

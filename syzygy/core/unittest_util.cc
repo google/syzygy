@@ -32,26 +32,9 @@ base::FilePath GetExeRelativePath(const wchar_t* rel_path) {
 }
 
 base::FilePath GetOutputRelativePath(const wchar_t* rel_path) {
-#if defined(_DEBUG)
-  // TODO(chrisha): Expose $(ProjectDir) and $(OutputDir) via defines in the
-  //     project gyp file.
-  #if defined(_COVERAGE_BUILD)
-    static const wchar_t kOutputDir[] = L"Coverage";
-  #else
-    static const wchar_t kOutputDir[] = L"Debug";
-  #endif
-#else
-#if defined(NDEBUG)
-  static const wchar_t kOutputDir[] = L"Release";
-#else
-#error Unknown build profile.
-#endif
-#endif
-
   base::FilePath src_dir;
   PathService::Get(base::DIR_SOURCE_ROOT, &src_dir);
-  src_dir = src_dir.Append(L"build");
-  src_dir = src_dir.Append(kOutputDir);
+  src_dir = src_dir.AppendASCII(_BUILD_OUTPUT_DIR);
   return src_dir.Append(rel_path);
 }
 
