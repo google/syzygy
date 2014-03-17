@@ -1901,9 +1901,12 @@ DiaBrowser::BrowserDirective Decomposer::OnCallSiteSymbol(
 
   RelativeAddress addr(rva);
   if (!InRange(addr, current_address_, current_block_->size())) {
-    LOG(ERROR) << "Call site falls outside of current block \""
-               << current_block_->name() << "\".";
-    return DiaBrowser::kBrowserAbort;
+    // We see this happen under some build configurations (notably debug
+    // component builds of Chrome). As long as the label falls entirely
+    // outside of the block it is harmless and can be safely ignored.
+    VLOG(1) << "Call site falls outside of current block \""
+            << current_block_->name() << "\".";
+    return DiaBrowser::kBrowserContinue;
   }
 
   Offset offset = addr - current_address_;

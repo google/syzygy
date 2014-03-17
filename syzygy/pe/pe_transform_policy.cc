@@ -247,8 +247,9 @@ bool PETransformPolicy::CodeBlockLayoutIsClConsistent(
   //     putting this in place.
 
   // Iterate over all labels in reverse order, looking at the labels. We want
-  // to make sure there are no invalid labels, and that all data labels come
-  // after all code labels.
+  // to make sure there are no invalid labels, and that all data labels are
+  // at the tail end of the block (no non-data label may come after a data
+  // label).
   BlockGraph::Block::LabelMap::const_reverse_iterator it =
       code_block->labels().rbegin();
   bool saw_non_data_label = false;
