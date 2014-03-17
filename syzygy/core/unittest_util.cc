@@ -34,7 +34,8 @@ base::FilePath GetExeRelativePath(const wchar_t* rel_path) {
 base::FilePath GetOutputRelativePath(const wchar_t* rel_path) {
   base::FilePath src_dir;
   PathService::Get(base::DIR_SOURCE_ROOT, &src_dir);
-  src_dir = src_dir.AppendASCII(_BUILD_OUTPUT_DIR);
+  // Append the output path configured by the build system.
+  src_dir = src_dir.AppendASCII(BUILD_OUTPUT_DIR);
   return src_dir.Append(rel_path);
 }
 

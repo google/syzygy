@@ -63,7 +63,7 @@
         'defines': [
           # This global define is in addition to _DEBUG.
           '_COVERAGE_BUILD',
-          '_BUILD_OUTPUT_DIR="<(output_dir_prefix)/Coverage"',
+          'BUILD_OUTPUT_DIR="<(output_dir_prefix)/Coverage"',
           # Turn off iterator debugging for coverage, as it slows down
           # all iterator-related operations without improving coverage.
           '_HAS_ITERATOR_DEBUGGING=0',
@@ -85,7 +85,7 @@
       },
       'Release': {
         'defines': [
-          '_BUILD_OUTPUT_DIR="<(output_dir_prefix)/Release"',
+          'BUILD_OUTPUT_DIR="<(output_dir_prefix)/Release"',
         ],
         'conditions': [
           # We up the level of optimizations for official builds.
@@ -119,7 +119,7 @@
       },
       'Debug': {
         'defines': [
-          '_BUILD_OUTPUT_DIR="<(output_dir_prefix)/Debug"',
+          'BUILD_OUTPUT_DIR="<(output_dir_prefix)/Debug"',
          ],
       },
       'conditions': [
