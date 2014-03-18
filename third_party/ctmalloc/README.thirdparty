@@ -1,0 +1,12 @@
+Name: ctmalloc
+Short Name: ctmalloc
+Version: 0.0.2
+Revision: (n/a)
+License: BSD
+
+Description:
+This contains a pre-release version of the ctmalloc Partition Allocator
+library.
+
+Local changes have been applied to make it compile for Windows OS, and to expose
+various hooks for ASAN instrumentation purposes.
