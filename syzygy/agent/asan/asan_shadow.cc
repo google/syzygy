@@ -14,9 +14,21 @@
 #include "syzygy/agent/asan/asan_shadow.h"
 
 #include "base/stringprintf.h"
+#include "syzygy/common/align.h"
 
 namespace agent {
 namespace asan {
+
+namespace {
+
+// The first 64k of the memory are not addressable.
+const size_t kAddressLowerBound = 0x10000;
+
+// The upper bound of the addressable memory.
+const size_t kAddressUpperBound =
+    Shadow::kShadowSize << Shadow::kShadowGranularityLog;
+
+}  // namespace
 
 uint8 Shadow::shadow_[kShadowSize];
 
@@ -24,14 +36,14 @@ void Shadow::SetUp() {
   // Poison the shadow memory.
   Poison(shadow_, kShadowSize, kAsanMemoryByte);
   // Poison the first 64k of the memory as they're not addressable.
-  Poison(0, 0x10000, kInvalidAddress);
+  Poison(0, kAddressLowerBound, kInvalidAddress);
 }
 
 void Shadow::TearDown() {
   // Unpoison the shadow memory.
   Unpoison(shadow_, kShadowSize);
   // Unpoison the first 64k of the memory.
-  Unpoison(0, 0x10000);
+  Unpoison(0, kAddressLowerBound);
 }
 
 void Shadow::Reset() {
@@ -175,26 +187,67 @@ void Shadow::AppendShadowMemoryText(const void* addr, std::string* output) {
       kHeapFreedByte >> 4, kHeapFreedByte & 15);
 }
 
-size_t Shadow::GetAllocSize(const uint8* mem) {
-  size_t alloc_size = 0;
-  const uint8* mem_begin = mem;
 
-  // Look for the beginning of the memory block.
-  while (GetShadowMarkerForAddress(mem_begin) != kHeapLeftRedzone ||
-      GetShadowMarkerForAddress(mem_begin - kShadowGranularity) ==
-          kHeapLeftRedzone) {
-    mem_begin -= kShadowGranularity;
+const uint8* Shadow::FindBlockBeginning(const uint8* mem) {
+  mem = reinterpret_cast<uint8*>(common::AlignDown(
+      reinterpret_cast<size_t>(mem), kShadowGranularity));
+  // Start by checking if |mem| points inside a block.
+  if (GetShadowMarkerForAddress(mem) != kHeapLeftRedzone &&
+      GetShadowMarkerForAddress(mem) != kHeapRightRedzone) {
+    do {
+      mem -= kShadowGranularity;
+    } while (GetShadowMarkerForAddress(mem) != kHeapLeftRedzone &&
+             GetShadowMarkerForAddress(mem) != kHeapRightRedzone &&
+             mem > reinterpret_cast<uint8*>(kAddressLowerBound));
+    // If the shadow marker for |mem| corresponds to a right redzone then this
+    // means that its original value was pointing after a block.
+    if (GetShadowMarkerForAddress(mem) == kHeapRightRedzone ||
+        mem <= reinterpret_cast<uint8*>(kAddressLowerBound)) {
+      return NULL;
+    }
   }
 
+  // Look for the beginning of the memory block.
+  while (GetShadowMarkerForAddress(mem) != kHeapLeftRedzone ||
+      GetShadowMarkerForAddress(mem - kShadowGranularity) == kHeapLeftRedzone &&
+      mem > reinterpret_cast<uint8*>(kAddressLowerBound)) {
+    mem -= kShadowGranularity;
+  }
+  if (mem <= reinterpret_cast<uint8*>(kAddressLowerBound))
+    return NULL;
+
+  return mem;
+}
+
+size_t Shadow::GetAllocSize(const uint8* mem) {
+  size_t alloc_size = 0;
+  const uint8* aligned_mem = reinterpret_cast<uint8*>(common::AlignDown(
+      reinterpret_cast<size_t>(mem), kShadowGranularity));
+  size_t alignment_offset = mem - aligned_mem;
+  const uint8* mem_begin = FindBlockBeginning(mem);
+
+  if (mem_begin == NULL)
+    return 0;
+
   // Look for the heap right redzone.
-  while (GetShadowMarkerForAddress(mem) != kHeapRightRedzone)
+  while (GetShadowMarkerForAddress(mem) != kHeapRightRedzone &&
+         mem < reinterpret_cast<uint8*>(kAddressUpperBound)) {
     mem += kShadowGranularity;
+  }
+
+  if (mem >= reinterpret_cast<uint8*>(kAddressUpperBound))
+    return 0;
 
   // Find the end of the block.
-  while (GetShadowMarkerForAddress(mem) == kHeapRightRedzone)
+  while (GetShadowMarkerForAddress(mem) == kHeapRightRedzone  &&
+         mem < reinterpret_cast<uint8*>(kAddressUpperBound)) {
     mem += kShadowGranularity;
+  }
 
-  return mem - mem_begin;
+  if (mem >= reinterpret_cast<uint8*>(kAddressUpperBound))
+    return 0;
+
+  return mem - mem_begin - alignment_offset;
 }
 
 }  // namespace asan

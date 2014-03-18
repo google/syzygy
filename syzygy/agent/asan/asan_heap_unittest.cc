@@ -1537,9 +1537,25 @@ TEST_F(HeapTest, GetAllocSizeViaShadow) {
   ASSERT_EQ(kAllocSize, proxy_.Size(0, mem));
   size_t real_alloc_size = TestHeapProxy::GetAllocSize(kAllocSize);
   uint8* header_begin = TestHeapProxy::UserPointerToAsanPointer(mem);
-  for (size_t i = real_alloc_size - 1; i < real_alloc_size; ++i) {
-    ASSERT_EQ(real_alloc_size, Shadow::GetAllocSize(header_begin + i));
+  for (size_t i = 0; i < real_alloc_size; ++i) {
+    EXPECT_EQ(real_alloc_size, Shadow::GetAllocSize(header_begin + i));
   }
+  ASSERT_TRUE(proxy_.Free(0, mem));
+}
+
+TEST_F(HeapTest, FindBlockBeginningViaShadow) {
+  const size_t kAllocSize = 100;
+  LPVOID mem = proxy_.Alloc(0, kAllocSize);
+  ASSERT_TRUE(mem != NULL);
+
+  size_t real_alloc_size = TestHeapProxy::GetAllocSize(kAllocSize);
+  uint8* header_begin = TestHeapProxy::UserPointerToAsanPointer(mem);
+  for (size_t i = 0; i < real_alloc_size; ++i) {
+    EXPECT_EQ(header_begin, Shadow::FindBlockBeginning(header_begin + i));
+  }
+  EXPECT_EQ(NULL, Shadow::FindBlockBeginning(header_begin - 1));
+  EXPECT_EQ(NULL,
+            Shadow::FindBlockBeginning(header_begin + real_alloc_size + 1));
   ASSERT_TRUE(proxy_.Free(0, mem));
 }
 

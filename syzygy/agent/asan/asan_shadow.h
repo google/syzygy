@@ -31,6 +31,10 @@ class Shadow {
   static const size_t kShadowGranularityLog = 3;
   static const size_t kShadowGranularity = 1 << kShadowGranularityLog;
 
+  // One shadow byte for every 8 bytes in a 2G address space.
+  // @note: This is dependent on the process NOT being large address aware.
+  static const size_t kShadowSize = 1 << (31 - kShadowGranularityLog);
+
   // Set up the shadow memory.
   static void SetUp();
 
@@ -123,10 +127,19 @@ class Shadow {
   // Calculate the allocation size of a block by using the shadow memory.
   // @param mem A pointer inside the memory block for which we want to calculate
   //     the underlying allocation size.
-  // @returns The underlying allocation size.
+  // @returns The underlying allocation size or 0 if it can't find a valid block
+  //     at this address.
   // @note This function doesn't work for nested blocks.
   // TODO(sebmarchand): Add support for nested blocks.
   static size_t GetAllocSize(const uint8* mem);
+
+  // Look in the shadow memory for the beginning of a block containing a given
+  // address.
+  // @param A pointer inside the memory block for which we want its beginning.
+  // @returns The beginning of the block on success, false otherwise.
+  // @note This function doesn't work for nested blocks.
+  // TODO(sebmarchand): Add support for nested blocks.
+  static const uint8* FindBlockBeginning(const uint8* mem);
 
  protected:
   // Reset the shadow memory.
@@ -141,9 +154,7 @@ class Shadow {
                                    std::string* output,
                                    size_t bug_index);
 
-  // One shadow byte for every 8 bytes in a 2G address space. By default Chrome
-  // is not large address aware, so we shouldn't be using the high memory.
-  static const size_t kShadowSize = 1 << (31 - kShadowGranularityLog);
+  // The shadow memory.
   static uint8 shadow_[kShadowSize];
 };
 
