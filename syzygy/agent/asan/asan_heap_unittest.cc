@@ -185,8 +185,7 @@ class HeapTest : public testing::TestWithAsanLogger {
   void VerifyAllocAccess(void* alloc, size_t size) {
     uint8* mem = reinterpret_cast<uint8*>(alloc);
     ASSERT_FALSE(Shadow::IsAccessible(mem - 1));
-    ASSERT_EQ(Shadow::GetShadowMarkerForAddress(mem - 1),
-              Shadow::kHeapLeftRedzone);
+    ASSERT_TRUE(Shadow::IsLeftRedzone(mem - 1));
     for (size_t i = 0; i < size; ++i)
       ASSERT_TRUE(Shadow::IsAccessible(mem + i));
     ASSERT_FALSE(Shadow::IsAccessible(mem + size));
@@ -196,8 +195,7 @@ class HeapTest : public testing::TestWithAsanLogger {
   void VerifyFreedAccess(void* alloc, size_t size) {
     uint8* mem = reinterpret_cast<uint8*>(alloc);
     ASSERT_FALSE(Shadow::IsAccessible(mem - 1));
-    ASSERT_EQ(Shadow::GetShadowMarkerForAddress(mem - 1),
-              Shadow::kHeapLeftRedzone);
+    ASSERT_TRUE(Shadow::IsLeftRedzone(mem - 1));
     for (size_t i = 0; i < size; ++i) {
       ASSERT_FALSE(Shadow::IsAccessible(mem + i));
       ASSERT_EQ(Shadow::GetShadowMarkerForAddress(mem + i),
@@ -1224,7 +1222,7 @@ struct FakeAsanBlock {
   }
 
   // Ensures that this block has a valid block header.
-  bool TestBlockHeader() {
+  bool TestBlockMetadata() {
     if (!is_initialized)
       return false;
 
@@ -1240,6 +1238,27 @@ struct FakeAsanBlock {
     EXPECT_EQ(alloc_alignment_log, block_header->alignment_log);
     EXPECT_TRUE(block_header->alloc_stack != NULL);
     EXPECT_TRUE(proxy->IsAllocated(block_header));
+    for (const uint8* pos = buffer_align_begin;
+         pos < reinterpret_cast<const uint8*>(block_header);
+         ++pos) {
+      EXPECT_EQ(Shadow::kHeapLeftRedzone,
+                Shadow::GetShadowMarkerForAddress(pos));
+    }
+    for (const uint8* pos = reinterpret_cast<const uint8*>(block_header);
+         pos < user_ptr;
+         ++pos) {
+      EXPECT_EQ(Shadow::kHeapBlockHeaderByte,
+                Shadow::GetShadowMarkerForAddress(pos));
+    }
+    const uint8* aligned_trailer_begin = reinterpret_cast<const uint8*>(
+        common::AlignUp(reinterpret_cast<size_t>(user_ptr) + user_alloc_size,
+                        Shadow::kShadowGranularity));
+    for (const uint8* pos = aligned_trailer_begin;
+         pos < buffer_align_begin + asan_alloc_size;
+         ++pos) {
+      EXPECT_EQ(Shadow::kHeapRightRedzone,
+                Shadow::GetShadowMarkerForAddress(pos));
+    }
 
     void* tmp_user_pointer = NULL;
     size_t tmp_user_size = 0;
@@ -1338,7 +1357,7 @@ TEST_F(HeapTest, InitializeAsanBlock) {
     FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
     const size_t kAllocSize = 100;
     EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
-    EXPECT_TRUE(fake_block.TestBlockHeader());
+    EXPECT_TRUE(fake_block.TestBlockMetadata());
   }
 }
 
@@ -1349,7 +1368,7 @@ TEST_F(HeapTest, MarkBlockAsQuarantined) {
     FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
     const size_t kAllocSize = 100;
     EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
-    EXPECT_TRUE(fake_block.TestBlockHeader());
+    EXPECT_TRUE(fake_block.TestBlockMetadata());
     EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
   }
 }
@@ -1361,7 +1380,7 @@ TEST_F(HeapTest, DestroyAsanBlock) {
     FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
     const size_t kAllocSize = 100;
     EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
-    EXPECT_TRUE(fake_block.TestBlockHeader());
+    EXPECT_TRUE(fake_block.TestBlockMetadata());
     EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
 
     TestHeapProxy::BlockHeader* block_header = proxy_.UserPointerToBlockHeader(
@@ -1400,7 +1419,7 @@ TEST_F(HeapTest, CloneBlock) {
     FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
     const size_t kAllocSize = 100;
     EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
-    EXPECT_TRUE(fake_block.TestBlockHeader());
+    EXPECT_TRUE(fake_block.TestBlockMetadata());
     // Fill the block with a non zero value.
     memset(fake_block.user_ptr, 0xEE, kAllocSize);
     EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());

@@ -315,8 +315,12 @@ void* HeapProxy::InitializeAsanBlock(uint8* asan_pointer,
   }
 
   // Poison the block header.
-  size_t trailer_size = asan_size - user_size - header_size;
-  Shadow::Poison(asan_pointer, header_size, Shadow::kHeapLeftRedzone);
+  Shadow::Poison(asan_pointer,
+                 header_size - sizeof(BlockHeader),
+                 Shadow::kHeapLeftRedzone);
+  Shadow::Poison(block_header,
+                 sizeof(BlockHeader),
+                 Shadow::kHeapBlockHeaderByte);
 
   // Initialize the block fields.
   block_header->magic_number = kBlockHeaderSignature;
@@ -335,6 +339,7 @@ void* HeapProxy::InitializeAsanBlock(uint8* asan_pointer,
   DCHECK(MemoryRangeIsAccessible(block_alloc, user_size));
 
   // Poison the block trailer.
+  size_t trailer_size = asan_size - user_size - header_size;
   Shadow::Poison(block_alloc + user_size,
                  trailer_size,
                  Shadow::kHeapRightRedzone);
@@ -905,12 +910,11 @@ HeapProxy::BlockHeader* HeapProxy::FindBlockContainingAddress(uint8* addr) {
   //    neither, we have heap corruption.
 
   // This corresponds to the first case.
-  if (Shadow::GetShadowMarkerForAddress(reinterpret_cast<void*>(addr)) !=
-      Shadow::kHeapLeftRedzone) {
+  if (!Shadow::IsLeftRedzone(addr)) {
     while (addr >= kAddressLowerLimit) {
       addr -= Shadow::kShadowGranularity;
       if (Shadow::GetShadowMarkerForAddress(reinterpret_cast<void*>(addr)) ==
-          Shadow::kHeapLeftRedzone) {
+          Shadow::kHeapBlockHeaderByte) {
         BlockHeader* header = reinterpret_cast<BlockHeader*>(addr -
             (sizeof(BlockHeader) - Shadow::kShadowGranularity));
         if (header->magic_number != kBlockHeaderSignature)
@@ -935,7 +939,7 @@ HeapProxy::BlockHeader* HeapProxy::FindBlockContainingAddress(uint8* addr) {
   BlockHeader* left_header = NULL;
   size_t left_block_size = 0;
   while (Shadow::GetShadowMarkerForAddress(left_bound) ==
-      Shadow::kHeapLeftRedzone) {
+      Shadow::kHeapBlockHeaderByte) {
     BlockHeader* temp_header = reinterpret_cast<BlockHeader*>(left_bound);
     if (temp_header->magic_number == kBlockHeaderSignature) {
       left_header = temp_header;
@@ -950,8 +954,7 @@ HeapProxy::BlockHeader* HeapProxy::FindBlockContainingAddress(uint8* addr) {
   uint8* right_bound = reinterpret_cast<uint8*>(addr);
   BlockHeader* right_header = NULL;
   size_t right_block_size = 0;
-  while (Shadow::GetShadowMarkerForAddress(right_bound +
-      Shadow::kShadowGranularity) == Shadow::kHeapLeftRedzone) {
+  while (Shadow::IsLeftRedzone(right_bound + Shadow::kShadowGranularity)) {
     right_bound += Shadow::kShadowGranularity;
     BlockHeader* temp_header = reinterpret_cast<BlockHeader*>(right_bound);
     if (temp_header->magic_number == kBlockHeaderSignature) {
@@ -1032,7 +1035,7 @@ HeapProxy::BlockHeader* HeapProxy::FindContainingBlock(
   while (addr >= reinterpret_cast<size_t>(kAddressLowerLimit)) {
     // Only look at the addresses tagged as the redzone of a block.
     if (Shadow::GetShadowMarkerForAddress(reinterpret_cast<void*>(addr)) ==
-        Shadow::kHeapLeftRedzone) {
+        Shadow::kHeapBlockHeaderByte) {
       BlockHeader* temp_header = reinterpret_cast<BlockHeader*>(addr);
       if (temp_header->magic_number == kBlockHeaderSignature) {
         size_t block_size = GetAllocSize(temp_header->block_size,

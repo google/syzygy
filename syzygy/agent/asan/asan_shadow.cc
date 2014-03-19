@@ -118,6 +118,11 @@ Shadow::ShadowMarker Shadow::GetShadowMarkerForAddress(const void* addr) {
   return static_cast<ShadowMarker>(shadow_[index]);
 }
 
+bool Shadow::IsLeftRedzone(const void* addr) {
+  Shadow::ShadowMarker marker = Shadow::GetShadowMarkerForAddress(addr);
+  return marker == kHeapLeftRedzone || marker == kHeapBlockHeaderByte;
+}
+
 void Shadow::CloneShadowRange(const void* src_pointer,
                               void* dst_pointer,
                               size_t size) {
@@ -179,10 +184,20 @@ void Shadow::AppendShadowMemoryText(const void* addr, std::string* output) {
       kHeapAddressableByte >> 4, kHeapAddressableByte & 15);
   base::StringAppendF(output,
     "  Partially addressable: 01 02 03 04 05 06 07\n");
+  base::StringAppendF(output, "  ASan memory byte:     %x%x\n",
+      kAsanMemoryByte >> 4, kAsanMemoryByte & 15);
+  base::StringAppendF(output, "  Invalid address:     %x%x\n",
+      kInvalidAddress >> 4, kInvalidAddress & 15);
+  base::StringAppendF(output, "  User redzone:     %x%x\n",
+      kUserRedzone >> 4, kUserRedzone & 15);
+  base::StringAppendF(output, "  Block header redzone:     %x%x\n",
+      kHeapBlockHeaderByte >> 4, kHeapBlockHeaderByte & 15);
   base::StringAppendF(output, "  Heap left redzone:     %x%x\n",
       kHeapLeftRedzone >> 4, kHeapLeftRedzone & 15);
   base::StringAppendF(output, "  Heap righ redzone:     %x%x\n",
       kHeapRightRedzone >> 4, kHeapRightRedzone & 15);
+  base::StringAppendF(output, "  ASan reserved byte:     %x%x\n",
+      kAsanReservedByte >> 4, kAsanReservedByte & 15);
   base::StringAppendF(output, "  Freed Heap region:     %x%x\n",
       kHeapFreedByte >> 4, kHeapFreedByte & 15);
 }
@@ -192,24 +207,23 @@ const uint8* Shadow::FindBlockBeginning(const uint8* mem) {
   mem = reinterpret_cast<uint8*>(common::AlignDown(
       reinterpret_cast<size_t>(mem), kShadowGranularity));
   // Start by checking if |mem| points inside a block.
-  if (GetShadowMarkerForAddress(mem) != kHeapLeftRedzone &&
-      GetShadowMarkerForAddress(mem) != kHeapRightRedzone) {
+  if (!IsLeftRedzone(mem) &&
+      GetShadowMarkerForAddress(mem) != Shadow::kHeapRightRedzone) {
     do {
       mem -= kShadowGranularity;
-    } while (GetShadowMarkerForAddress(mem) != kHeapLeftRedzone &&
-             GetShadowMarkerForAddress(mem) != kHeapRightRedzone &&
+    } while (!IsLeftRedzone(mem) &&
+             GetShadowMarkerForAddress(mem) != Shadow::kHeapRightRedzone &&
              mem > reinterpret_cast<uint8*>(kAddressLowerBound));
     // If the shadow marker for |mem| corresponds to a right redzone then this
     // means that its original value was pointing after a block.
-    if (GetShadowMarkerForAddress(mem) == kHeapRightRedzone ||
+    if (GetShadowMarkerForAddress(mem) == Shadow::kHeapRightRedzone ||
         mem <= reinterpret_cast<uint8*>(kAddressLowerBound)) {
       return NULL;
     }
   }
 
   // Look for the beginning of the memory block.
-  while (GetShadowMarkerForAddress(mem) != kHeapLeftRedzone ||
-      GetShadowMarkerForAddress(mem - kShadowGranularity) == kHeapLeftRedzone &&
+  while (!IsLeftRedzone(mem) || IsLeftRedzone(mem - kShadowGranularity) &&
       mem > reinterpret_cast<uint8*>(kAddressLowerBound)) {
     mem -= kShadowGranularity;
   }
@@ -230,7 +244,7 @@ size_t Shadow::GetAllocSize(const uint8* mem) {
     return 0;
 
   // Look for the heap right redzone.
-  while (GetShadowMarkerForAddress(mem) != kHeapRightRedzone &&
+  while (GetShadowMarkerForAddress(mem) != Shadow::kHeapRightRedzone &&
          mem < reinterpret_cast<uint8*>(kAddressUpperBound)) {
     mem += kShadowGranularity;
   }
@@ -239,7 +253,7 @@ size_t Shadow::GetAllocSize(const uint8* mem) {
     return 0;
 
   // Find the end of the block.
-  while (GetShadowMarkerForAddress(mem) == kHeapRightRedzone  &&
+  while (GetShadowMarkerForAddress(mem) == Shadow::kHeapRightRedzone &&
          mem < reinterpret_cast<uint8*>(kAddressUpperBound)) {
     mem += kShadowGranularity;
   }

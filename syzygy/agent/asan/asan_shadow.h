@@ -48,8 +48,10 @@ class Shadow {
     kAsanMemoryByte = 0xf1,
     kInvalidAddress = 0xf2,
     kUserRedzone = 0xf3,
+    kHeapBlockHeaderByte = 0xf4,
     kHeapLeftRedzone = 0xfa,
     kHeapRightRedzone = 0xfb,
+    kAsanReservedByte = 0xfc,
     kHeapFreedByte = 0xfd,
   };
 
@@ -140,6 +142,12 @@ class Shadow {
   // @note This function doesn't work for nested blocks.
   // TODO(sebmarchand): Add support for nested blocks.
   static const uint8* FindBlockBeginning(const uint8* mem);
+
+  // Checks if an address belongs to the left redzone of a block.
+  // @param addr The address that we want to check.
+  // @returns true if |addr| corresponds to a byte in the left redzone of a
+  //     block, false otherwise.
+  static bool IsLeftRedzone(const void* addr);
 
  protected:
   // Reset the shadow memory.
