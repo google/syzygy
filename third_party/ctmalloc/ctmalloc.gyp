@@ -21,6 +21,8 @@
       'target_name': 'ctmalloc_lib',
       'type': 'static_library',
       'sources': [
+        'wtf/AsanHooks.cpp',
+        'wtf/AsanHooks.h',
         'wtf/Assertions.h',
         'wtf/Atomics.h',
         'wtf/BitwiseOperations.h',

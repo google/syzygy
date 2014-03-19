@@ -31,6 +31,7 @@
 #include "config.h"
 #include "wtf/PageAllocator.h"
 
+#include "wtf/AsanHooks.h"
 #include "wtf/Assertions.h"
 #include "wtf/ProcessID.h"
 #include "wtf/SpinLock.h"
@@ -180,7 +181,7 @@ static void* getRandomPageBase()
     return reinterpret_cast<void*>(random);
 }
 
-void* allocPages(void* addr, size_t len, size_t align)
+void* allocPagesImpl(void* addr, size_t len, size_t align)
 {
     ASSERT(len >= kPageAllocationGranularity);
     ASSERT(!(len & kPageAllocationGranularityOffsetMask));
@@ -242,10 +243,22 @@ void* allocPages(void* addr, size_t len, size_t align)
     return 0;
 }
 
+void* allocPages(void* addr, size_t len, size_t align)
+{
+  void* ret = allocPagesImpl(addr, len, align);
+  if (!ret)
+      return ret;
+  if (gAsanMemoryReservedCallback)
+      gAsanMemoryReservedCallback(ret, len);
+  return ret;
+}
+
 void freePages(void* addr, size_t len)
 {
     ASSERT(!(reinterpret_cast<uintptr_t>(addr) & kPageAllocationGranularityOffsetMask));
     ASSERT(!(len & kPageAllocationGranularityOffsetMask));
+    if (addr != 0 && len > 0 && gAsanMemoryReleasedCallback)
+        gAsanMemoryReleasedCallback(addr, len);
 #if OS(POSIX)
     int ret = munmap(addr, len);
     RELEASE_ASSERT(!ret);
