@@ -21,6 +21,8 @@
       'target_name': 'syzyasan_rtl_lib',
       'type': 'static_library',
       'sources': [
+        'asan_crash_handler.cc',
+        'asan_crash_handler.h',
         'asan_crt_interceptors.cc',
         'asan_crt_interceptors.h',
         'asan_heap.cc',
@@ -114,9 +116,30 @@
       },
     },
     {
+      'target_name': 'asan_crash_handler_harness',
+      'type': 'executable',
+      'sources': [
+        'asan_crash_handler_harness.cc',
+      ],
+      'dependencies': [
+        'syzyasan_rtl_lib',
+        'syzyasan_rtl',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
+        '<(src)/syzygy/trace/agent_logger/agent_logger.gyp:agent_logger_lib',
+       ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          # Disable support for large address spaces.
+          'LargeAddressAware': 1,
+        },
+      },
+    },
+    {
       'target_name': 'syzyasan_rtl_unittests',
       'type': 'executable',
       'sources': [
+        'asan_crash_handler_unittest.cc',
         'asan_crt_interceptors_unittest.cc',
         'asan_heap_unittest.cc',
         'asan_logger_unittest.cc',
@@ -134,6 +157,7 @@
         'unittest_util.h',
       ],
       'dependencies': [
+        'asan_crash_handler_harness',
         'syzyasan_rtl_lib',
         'syzyasan_rtl',
         '<(src)/base/base.gyp:base',
