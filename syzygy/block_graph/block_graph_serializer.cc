@@ -29,7 +29,8 @@ using core::OutArchive;
 //     simple block-graph, and ensure it deserializes to the same in-memory
 //     representation.
 // Version 3: Added image_format_ block-graph property.
-static const uint32 kSerializedBlockGraphVersion = 3;
+// Version 4: Deprecated old decomposer attributes.
+static const uint32 kSerializedBlockGraphVersion = 4;
 
 // Some constants for use in dealing with backwards compatibility.
 static const uint32 kMinSupportedSerializedBlockGraphVersion = 2;

@@ -217,14 +217,6 @@ TEST_F(PETransformPolicyTest,
 }
 
 TEST_F(PETransformPolicyTest,
-       CodeBlockAttributesAreBasicBlockSafeDisassembledPastEnd) {
-  ASSERT_NO_FATAL_FAILURE(TestAttributes(
-      BlockGraph::DISASSEMBLED_PAST_END, false, false));
-  ASSERT_NO_FATAL_FAILURE(TestAttributes(
-      BlockGraph::DISASSEMBLED_PAST_END, true, false));
-}
-
-TEST_F(PETransformPolicyTest,
        CodeBlockAttributesAreBasicBlockSafeBuiltBySyzygy) {
   ASSERT_NO_FATAL_FAILURE(TestAttributes(
       BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER | BlockGraph::BUILT_BY_SYZYGY,

@@ -14,9 +14,6 @@
 //
 // Declares the decomposer, which decomposes a PE file into an ImageLayout and
 // its corresponding BlockGraph.
-//
-// TODO(chrisha): Once the old decomposer has been removed, clean up unused
-//     block attributes.
 
 #ifndef SYZYGY_PE_DECOMPOSER_H_
 #define SYZYGY_PE_DECOMPOSER_H_

@@ -215,11 +215,7 @@ bool PETransformPolicy::CodeBlockAttributesAreBasicBlockSafe(
       BlockGraph::PADDING_BLOCK |
       BlockGraph::HAS_INLINE_ASSEMBLY |
       BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER |
-      // TODO(chrisha): Remove this once we've moved to the new decomposer!
-      BlockGraph::ERRORED_DISASSEMBLY |
-      BlockGraph::HAS_EXCEPTION_HANDLING |
-      // TODO(chrisha): Remove this once we've moved to the new decomposer!
-      BlockGraph::DISASSEMBLED_PAST_END;
+      BlockGraph::HAS_EXCEPTION_HANDLING;
 
   BlockGraph::BlockAttributes invalid_attributes = kDefaultInvalidAttributes;
   if (allow_inline_assembly)
