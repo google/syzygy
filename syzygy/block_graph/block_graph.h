@@ -71,17 +71,14 @@ class BlockGraphSerializer;
     F(BUILT_BY_SYZYGY) \
     /* Deprecated: used by old decomposer. */ \
     F(RESERVED_ATTRIBUTE1) \
-    /* This is set for blocks whose disassembly was unable to finish due to */ \
-    /* an error. This block has violated assumptions that we make or */ \
-    /* conventions that we have observed the compiler to use. It is not safe */\
-    /* for basic block disassembly. */ \
-    F(ERRORED_DISASSEMBLY) \
+    /* Deprecated: used by old decomposer. */ \
+    F(RESERVED_ATTRIBUTE2) \
     /* This is set for functions that have exception handling enabled. */ \
     /* Without delving far deeper into the specifics, it is unsafe to basic */ \
     /* block decompose these blocks. */ \
     F(HAS_EXCEPTION_HANDLING) \
     /* Deprecated: used by old decomposer. */ \
-    F(RESERVED_ATTRIBUTE2) \
+    F(RESERVED_ATTRIBUTE3) \
     /* This is set for blocks that have a thunk symbol pointing to them. */ \
     /* Typically thunk blocks are compiler or linker-generated, such as */ \
     /* e.g. import thunks, delay load import thunks, etc. */ \

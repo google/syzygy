@@ -201,14 +201,6 @@ TEST_F(PETransformPolicyTest,
 }
 
 TEST_F(PETransformPolicyTest,
-       CodeBlockAttributesAreBasicBlockSafeErroredDisassembly) {
-  ASSERT_NO_FATAL_FAILURE(TestAttributes(
-      BlockGraph::ERRORED_DISASSEMBLY, false, false));
-  ASSERT_NO_FATAL_FAILURE(TestAttributes(
-      BlockGraph::ERRORED_DISASSEMBLY, true, false));
-}
-
-TEST_F(PETransformPolicyTest,
        CodeBlockAttributesAreBasicBlockSafeExceptionHandling) {
   ASSERT_NO_FATAL_FAILURE(TestAttributes(
       BlockGraph::HAS_EXCEPTION_HANDLING, false, false));

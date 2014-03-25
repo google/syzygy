@@ -1482,7 +1482,6 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
 
   // Set some attributes that should trivially propagate to the merged block.
   block2->set_attribute(BlockGraph::PE_PARSED);
-  block3->set_attribute(BlockGraph::ERRORED_DISASSEMBLY);
 
   // Set an attribute that only propagates because it is present in both blocks.
   block2->set_attribute(BlockGraph::GAP_BLOCK);
@@ -1540,8 +1539,7 @@ TEST(BlockGraphAddressSpaceTest, MergeIntersectingBlocks) {
   EXPECT_THAT(block1->references(), testing::ContainerEq(expected_refs));
 
   // Expect the attributes to have been propagated properly.
-  EXPECT_EQ(BlockGraph::PE_PARSED | BlockGraph::ERRORED_DISASSEMBLY |
-                BlockGraph::GAP_BLOCK,
+  EXPECT_EQ(BlockGraph::PE_PARSED | BlockGraph::GAP_BLOCK,
             merged->attributes());
 
   // We expect that the block graph and the address space have the same size,

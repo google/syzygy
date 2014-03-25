@@ -151,21 +151,8 @@ bool BasicBlockDecomposer::Decompose() {
   DCHECK(original_address_space_.empty());
   subgraph_->set_original_block(block_);
 
-  // We cache the fact that disassembly failed, and don't do it again.
-  // TODO(chrisha): Once policy is in place, cache policy results. Then make
-  //     this decomposer fail hard (CHECK) rather than returning false. Finally,
-  //     remove this caching.
-  if (block_->attributes() & BlockGraph::ERRORED_DISASSEMBLY)
-    return false;
-
-  if (!Disassemble()) {
-    // We are knowingly casting away const status here. This uglyness shall go
-    // away post policy-refactor, but I don't want to needlessly change the
-    // BB decomposer API in the meantime.
-    // TODO(chrisha): Get rid of this heinous breach of const correctness!
-    const_cast<Block*>(block_)->set_attribute(BlockGraph::ERRORED_DISASSEMBLY);
-    return false;
-  }
+  bool disassembled = Disassemble();
+  CHECK(disassembled);
 
   // Don't bother with the following bookkeeping work if the results aren't
   // being looked at.
