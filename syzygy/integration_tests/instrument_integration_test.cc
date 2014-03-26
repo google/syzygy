@@ -16,6 +16,7 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/files/file_path.h"
+#include "base/win/pe_image.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_rtl_impl.h"
@@ -109,6 +110,35 @@ agent::asan::AsanRuntime* GetActiveAsanRuntime() {
 
   return (*asan_get_active_runtime)();
 };
+
+// Filters non-continuable exceptions in the given module.
+int FilterExceptionsInModule(HMODULE module,
+                             unsigned int code,
+                             struct _EXCEPTION_POINTERS* ep) {
+  // Do a basic sanity check on the input parameters.
+  if (module == NULL ||
+      code != EXCEPTION_NONCONTINUABLE_EXCEPTION ||
+      ep == NULL ||
+      ep->ContextRecord == NULL ||
+      ep->ExceptionRecord == NULL) {
+    return EXCEPTION_CONTINUE_SEARCH;
+  }
+
+  // Get the module extents in memory.
+  base::win::PEImage image(module);
+  uint8* module_start = reinterpret_cast<uint8*>(module);
+  uint8* module_end = module_start +
+      image.GetNTHeaders()->OptionalHeader.SizeOfImage;
+
+  // Filter exceptions where the return address originates from within the
+  // instrumented module.
+  uint8** ebp = reinterpret_cast<uint8**>(ep->ContextRecord->Ebp);
+  uint8* ret = ebp[1];
+  if (ret >= module_start && ret < module_end)
+    return EXCEPTION_EXECUTE_HANDLER;
+
+  return EXCEPTION_CONTINUE_SEARCH;
+}
 
 class TestingProfileGrinder : public grinder::grinders::ProfileGrinder {
  public:
@@ -267,6 +297,24 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     return true;
   }
 
+  bool FilteredAsanErrorCheck(testing::EndToEndTestId test,
+                              BadAccessKind kind,
+                              AccessMode mode,
+                              size_t size,
+                              size_t max_tries,
+                              bool unload) {
+    __try {
+      return AsanErrorCheck(test, kind, mode, size, max_tries, unload);
+    } __except (FilterExceptionsInModule(module_,
+                                         GetExceptionCode(),
+                                         GetExceptionInformation())) {
+      // If the exception is of the expected type and originates from the
+      // instrumented module, then we indicate that no ASAN error was
+      // detected.
+      return false;
+    }
+  }
+
   void AsanErrorCheckTestDll() {
     ASSERT_NO_FATAL_FAILURE(SetAsanDefaultCallBack(
         AsanSafeCallbackWithException));
@@ -324,6 +372,45 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
         USE_AFTER_FREE, ASAN_WRITE_ACCESS, 4, 1, false));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite64UseAfterFreeTestId,
         USE_AFTER_FREE, ASAN_WRITE_ACCESS, 8, 1, false));
+  }
+
+  void AsanErrorCheckSampledAllocations() {
+    // This assumes we have a 50% allocation sampling rate.
+    ASSERT_NO_FATAL_FAILURE(SetAsanDefaultCallBack(
+        AsanSafeCallbackWithException));
+
+    // Run ASAN tests over and over again until we've done enough of them. We
+    // only check the read operations as the writes may actually cause
+    // corruption if not caught.
+    size_t good = 0;
+    size_t test = 0;
+    while (test < 1000) {
+      good += FilteredAsanErrorCheck(testing::kAsanRead8BufferOverflowTestId,
+          HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1, 1, false) ? 1 : 0;
+      good += FilteredAsanErrorCheck(testing::kAsanRead16BufferOverflowTestId,
+          HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 2, 1, false) ? 1 : 0;
+      good += FilteredAsanErrorCheck(testing::kAsanRead32BufferOverflowTestId,
+          HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 4, 1, false) ? 1 : 0;
+      good += FilteredAsanErrorCheck(testing::kAsanRead64BufferOverflowTestId,
+          HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 8, 1, false) ? 1 : 0;
+      test += 4;
+
+      good += FilteredAsanErrorCheck(testing::kAsanRead8BufferUnderflowTestId,
+          HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1, 1, false) ? 1 : 0;
+      good += FilteredAsanErrorCheck(testing::kAsanRead16BufferUnderflowTestId,
+          HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 2, 1, false) ? 1 : 0;
+      good += FilteredAsanErrorCheck(testing::kAsanRead32BufferUnderflowTestId,
+          HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 4, 1, false) ? 1 : 0;
+      good += FilteredAsanErrorCheck(testing::kAsanRead64BufferUnderflowTestId,
+          HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 8, 1, false) ? 1 : 0;
+      test += 4;
+    }
+
+    // We expect half of the bugs to have been found, as the allocations are
+    // subsampled. With 1000 allocations this gives us 10 nines of confidence
+    // that the detection rate will be within 50 +/- 10%.
+    EXPECT_LE(4 * test / 10, good);
+    EXPECT_GE(6 * test / 10, good);
   }
 
   void AsanErrorCheckInterceptedFunctions() {
@@ -825,6 +912,14 @@ TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckInterceptedFunctions());
+}
+
+TEST_F(InstrumentAppIntegrationTest, SampledAllocationsAsanEndToEnd) {
+  cmd_line_.AppendSwitchASCII("asan-rtl-options",
+                              "--allocation_guard_rate=0.5");
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckSampledAllocations());
 }
 
 TEST_F(InstrumentAppIntegrationTest, BBEntryEndToEnd) {

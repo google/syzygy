@@ -71,6 +71,7 @@ TEST(AsanParametersTest, SetDefaultAsanParameters) {
   EXPECT_EQ(kDefaultLogAsText,
             static_cast<bool>(aparams.log_as_text));
   EXPECT_EQ(0u, aparams.reserved1);
+  EXPECT_EQ(kDefaultAllocationGuardRate, aparams.allocation_guard_rate);
 }
 
 TEST(AsanParametersTest, InflateAsanParametersStackIdsPastEnd) {
@@ -216,6 +217,7 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
       L"--exit_on_failure "
       L"--minidump_on_failure "
       L"--no_log_as_text "
+      L"--allocation_guard_rate=0.6 "
       L"--ignored_as_it_doesnt_exist";
 
   InflatedAsanParameters iparams;
@@ -234,6 +236,7 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
   EXPECT_EQ(true, static_cast<bool>(iparams.exit_on_failure));
   EXPECT_EQ(false, static_cast<bool>(iparams.log_as_text));
   EXPECT_EQ(0u, iparams.reserved1);
+  EXPECT_EQ(0.6f, iparams.allocation_guard_rate);
   EXPECT_THAT(iparams.ignored_stack_ids_set,
               testing::ElementsAre(0x1, 0xBAADF00D, 0xCAFEBABE, 0xDEADBEEF));
 }

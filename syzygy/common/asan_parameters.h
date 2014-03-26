@@ -97,17 +97,22 @@ struct AsanParameters {
     };
   };
 
+  // HeapProxy: The rate at which allocations are instrumented with header and
+  // footer guards. This happens for each allocation via a runtime cointoss.
+  // A value in the range 0.0 to 1.0, inclusive.
+  float allocation_guard_rate;
+
   // Add new parameters here!
 
   // When laid out in memory the ignored_stack_ids are present here as a NULL
   // terminated vector.
 };
-COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 40);
+COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 44);
 
 // The current version of the ASAN parameters structure. This must be updated
 // if any changes are made to the above structure! This is defined in the header
 // file to allow compile time assertions against this version number.
-const uint32 kAsanParametersVersion = 0u;
+const uint32 kAsanParametersVersion = 1u;
 
 // The name of the section that will be injected into an instrumented image,
 // and contain the AsanParameters structure. ASAN can't use your typical entry
@@ -166,6 +171,7 @@ class FlatAsanParameters {
 extern const uint32 kDefaultQuarantineSize;
 extern const uint32 kDefaultQuarantineBlockSize;
 extern const uint32 kDefaultTrailerPaddingSize;
+extern const float kDefaultAllocationGuardRate;
 // Default values of StackCaptureCache parameters.
 extern const uint32 kDefaultReportingPeriod;
 extern const uint32 kDefaultMaxNumFrames;
@@ -181,6 +187,7 @@ extern const bool kDefaultLogAsText;
 extern const char kParamQuarantineSize[];
 extern const char kParamQuarantineBlockSize[];
 extern const char kParamTrailerPaddingSize[];
+extern const char kParamAllocationGuardRate[];
 // String names of StackCaptureCache parameters.
 extern const char kParamReportingPeriod[];
 extern const char kParamBottomFramesToSkip[];

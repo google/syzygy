@@ -1268,7 +1268,7 @@ bool AsanTransform::PeInjectAsanParameters(
   params_block->CopyData(fparams.data().size(), fparams.data().data());
 
   // Wire up any references that are required.
-  COMPILE_ASSERT(0 == common::kAsanParametersVersion,
+  COMPILE_ASSERT(1 == common::kAsanParametersVersion,
                  pointers_in_the_params_must_be_linked_up_here);
   block_graph::TypedBlock<common::AsanParameters> params;
   CHECK(params.Init(0, params_block));

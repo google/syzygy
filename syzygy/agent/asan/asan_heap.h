@@ -78,7 +78,7 @@ class HeapProxy {
     DOUBLE_FREE
   };
 
-  // The different types of error we can encounter.
+  // The different types of errors we can encounter.
   static const char* kHeapUseAfterFree;
   static const char* kHeapBufferUnderFlow;
   static const char* kHeapBufferOverFlow;
@@ -232,6 +232,18 @@ class HeapProxy {
   static size_t trailer_padding_size() {
     return trailer_padding_size_;
   }
+
+  // Sets the allocation guard rate.
+  // @param allocation_guard_rate The allocation guard rate, as a value between
+  //     0 and 1, inclusive.
+  static void set_allocation_guard_rate(float allocation_guard_rate) {
+    DCHECK_LE(0.0f, allocation_guard_rate);
+    DCHECK_GE(1.0f, allocation_guard_rate);
+    allocation_guard_rate_ = allocation_guard_rate;
+  }
+
+  // @returns the allocation guard rate.
+  static float allocation_guard_rate() { return allocation_guard_rate_; }
 
   // Returns the number of CPU cycles per microsecond on the current machine.
   // Exposed for testing.
@@ -506,6 +518,10 @@ class HeapProxy {
   // The size of the padding that we append to every block (in bytes). Defaults
   // to zero.
   static size_t trailer_padding_size_;
+
+  // The rate at which allocations are intercepted and augmented with
+  // headers/footers.
+  static float allocation_guard_rate_;
 
   // The number of CPU cycles per microsecond on the current machine.
   static double cpu_cycles_per_us_;

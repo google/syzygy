@@ -70,7 +70,7 @@ bool TryInvalidAccessToLocation(InvalidAccessType access_type, type* location) {
     }
     // This should never happen.
     ::RaiseException(EXCEPTION_NONCONTINUABLE_EXCEPTION, 0, 0, NULL);
-  } __except (GetExceptionCode() ==  EXCEPTION_ARRAY_BOUNDS_EXCEEDED ?
+  } __except (GetExceptionCode() == EXCEPTION_ARRAY_BOUNDS_EXCEEDED ?
       EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
     return true;
   }

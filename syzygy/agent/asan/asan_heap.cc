@@ -19,6 +19,7 @@
 #include "base/float_util.h"
 #include "base/hash.h"
 #include "base/logging.h"
+#include "base/rand_util.h"
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/time.h"
@@ -105,12 +106,15 @@ void CombineUInt32IntoBlockChecksum(uint32 val, uint32* checksum) {
 }  // namespace
 
 StackCaptureCache* HeapProxy::stack_cache_ = NULL;
-double HeapProxy::cpu_cycles_per_us_ = std::numeric_limits<double>::quiet_NaN();
+double HeapProxy::cpu_cycles_per_us_ =
+    std::numeric_limits<double>::quiet_NaN();
 // The default quarantine and block size for a new Heap.
-size_t HeapProxy::default_quarantine_max_size_ = common::kDefaultQuarantineSize;
+size_t HeapProxy::default_quarantine_max_size_ =
+    common::kDefaultQuarantineSize;
 size_t HeapProxy::default_quarantine_max_block_size_ =
     common::kDefaultQuarantineBlockSize;
 size_t HeapProxy::trailer_padding_size_ = common::kDefaultTrailerPaddingSize;
+float HeapProxy::allocation_guard_rate_ = common::kDefaultAllocationGuardRate;
 const char* HeapProxy::kHeapUseAfterFree = "heap-use-after-free";
 const char* HeapProxy::kHeapBufferUnderFlow = "heap-buffer-underflow";
 const char* HeapProxy::kHeapBufferOverFlow = "heap-buffer-overflow";
@@ -249,6 +253,13 @@ bool HeapProxy::Destroy() {
 void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
   DCHECK(heap_ != NULL);
 
+  // Some allocations can pass through without instrumentation.
+  if (allocation_guard_rate() < 1.0 &&
+      base::RandDouble() >= allocation_guard_rate()) {
+    void* alloc = ::HeapAlloc(heap_, flags, bytes);
+    return alloc;
+  }
+
   size_t alloc_size = GetAllocSize(bytes, kDefaultAllocGranularity);
 
   // GetAllocSize can return a smaller value if the alloc size is incorrect
@@ -322,6 +333,10 @@ void* HeapProxy::InitializeAsanBlock(uint8* asan_pointer,
                  sizeof(BlockHeader),
                  Shadow::kHeapBlockHeaderByte);
 
+  // TODO(chrisha): Determine if we can poison the header that the Windows
+  //     heap itself prepends to the allocation. This can also be used as a
+  //     method to determine if an address has ASAN guards or not, in O(1).
+
   // Initialize the block fields.
   block_header->magic_number = kBlockHeaderSignature;
   block_header->block_size = user_size;
@@ -377,9 +392,21 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
   if (mem == NULL)
     return true;
 
+  // This does a simple shift and check of the shadow memory looking for the
+  // beginning of a header. If none is found it returns NULL.
   BlockHeader* block = UserPointerToBlockHeader(mem);
-  DCHECK(BlockHeaderToUserPointer(block) == mem);
+  if (block == NULL) {
+    // TODO(chrisha): Handle invalid allocation addresses. Currently we can't
+    //     tell these apart from unguarded allocations.
 
+    // Assume that this block was allocated without guards. The cast is
+    // necessary for this to work on Windows XP systems.
+    if (static_cast<BOOLEAN>(::HeapFree(heap_, 0, mem)) != TRUE)
+      return false;
+    return true;
+  }
+
+  DCHECK(BlockHeaderToUserPointer(block) == mem);
   if (!VerifyChecksum(block)) {
     // The free stack hasn't yet been set, but may have been filled with junk.
     // Reset it.
@@ -452,14 +479,18 @@ size_t HeapProxy::Size(DWORD flags, const void* mem) {
   DCHECK(heap_ != NULL);
   BlockHeader* block = UserPointerToBlockHeader(mem);
   if (block == NULL)
-    return -1;
-
+    return ::HeapSize(heap_, flags, mem);
+  // TODO(chrisha): Handle invalid allocation addresses.
   return block->block_size;
 }
 
 bool HeapProxy::Validate(DWORD flags, const void* mem) {
   DCHECK(heap_ != NULL);
-  return ::HeapValidate(heap_, flags, UserPointerToBlockHeader(mem)) == TRUE;
+  const void* address = UserPointerToBlockHeader(mem);
+  if (address == NULL)
+    address = mem;
+  // TODO(chrisha): Handle invalid allocation addresses.
+  return ::HeapValidate(heap_, flags, address) == TRUE;
 }
 
 size_t HeapProxy::Compact(DWORD flags) {
@@ -666,8 +697,8 @@ bool HeapProxy::CleanUpAndFreeAsanBlock(BlockHeader* block_header,
 
   // TODO(chrisha): Fill the block with garbage?
 
-  // According to the MSDN documentation about HeapFree the return value need to
-  // be cast to BOOLEAN in order to support Windows XP:
+  // According to the MSDN documentation about HeapFree the return value needs
+  // to be cast to BOOLEAN in order to support Windows XP:
   //     Prior to Windows Vista, HeapFree has a bug: only the low byte of the
   //     return value is correctly indicative of the result.  This is because
   //     the implementation returns type BOOLEAN (BYTE) despite the prototype
@@ -776,8 +807,11 @@ HeapProxy::BlockHeader* HeapProxy::UserPointerToBlockHeader(
 
   const uint8* mem = static_cast<const uint8*>(user_pointer);
   const BlockHeader* header = reinterpret_cast<const BlockHeader*>(mem) - 1;
-  if (header->magic_number != kBlockHeaderSignature)
+
+  if (Shadow::GetShadowMarkerForAddress(header) !=
+      Shadow::kHeapBlockHeaderByte) {
     return NULL;
+  }
 
   return const_cast<BlockHeader*>(header);
 }

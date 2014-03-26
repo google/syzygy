@@ -34,34 +34,59 @@ enum FlagResult {
   kFlagError
 };
 
-// Try to update the value of a size_t variable from a command-line.
-// @param cmd_line The command line who might contain a given parameter.
-// @param param_name The parameter that we want to read.
-// @param value Will receive the value of the parameter if it's present.
-// @returns kFlagNotPresent if the flag was not present and left at its default;
-//     kFlagSet if the flag was present, valid and modified; or
-//     kFlagError if the flag was present but invalid. Logs an error on
-//     failure, and an info message on successful parsing.
-FlagResult UpdateUint32FromCommandLine(const CommandLine& cmd_line,
-                                       const std::string& param_name,
-                                       uint32* value) {
-  DCHECK_NE(reinterpret_cast<uint32*>(NULL), value);
+// Templated utility class for parsing parameter values from a command-line.
+// @tparam Converter Defines the types and parsing.
+template<typename Parser>
+struct UpdateValueFromCommandLine {
+  // Try to update the value of a variable from a command-line.
+  // @param cmd_line The command line who might contain a given parameter.
+  // @param param_name The parameter that we want to read.
+  // @param value Will receive the value of the parameter if it's present.
+  // @returns kFlagNotPresent if the flag was not present and left at its
+  //     default; kFlagSet if the flag was present, valid and modified; or
+  //     kFlagError if the flag was present but invalid. Logs an error on
+  //     failure, and an info message on successful parsing.
+  static FlagResult Do(const CommandLine& cmd_line,
+                       const std::string& param_name,
+                       typename Parser::ValueType* value) {
+    DCHECK_NE(reinterpret_cast<Parser::ValueType*>(NULL), value);
 
-  if (!cmd_line.HasSwitch(param_name))
-    return kFlagNotPresent;
+    if (!cmd_line.HasSwitch(param_name))
+      return kFlagNotPresent;
 
-  std::string value_str = cmd_line.GetSwitchValueASCII(param_name);
-  size_t new_value = 0;
-  if (!base::StringToSizeT(value_str, &new_value)) {
-    LOG(ERROR) << "Failed to parse \"" << param_name << "\" value of \""
-               << value_str << "\".";
-    return kFlagError;
+    std::string value_str = cmd_line.GetSwitchValueASCII(param_name);
+    Parser::IntermediateType new_value = 0;
+    if (!Parser::Convert(value_str, &new_value)) {
+      LOG(ERROR) << "Failed to parse \"" << param_name << "\" value of \""
+                 << value_str << "\".";
+      return kFlagError;
+    }
+
+    *value = new_value;
+    VLOG(1) << "Set \"" << param_name << "\" to " << *value << ".";
+    return kFlagSet;
   }
+};
 
-  *value = new_value;
-  VLOG(1) << "Set \"" << param_name << "\" to " << *value << ".";
-  return kFlagSet;
-}
+// Parses a uint32 value from a string provided on the command-line.
+struct Uint32Parser {
+  typedef size_t IntermediateType;
+  typedef uint32 ValueType;
+  static bool Convert(const std::string& value_str, IntermediateType* value) {
+    return base::StringToSizeT(value_str, value);
+  }
+};
+typedef UpdateValueFromCommandLine<Uint32Parser> UpdateUint32FromCommandLine;
+
+// Parses a float value from a string provided on the command-line.
+struct FloatParser {
+  typedef double IntermediateType;
+  typedef float ValueType;
+  static bool Convert(const std::string& value_str, IntermediateType* value) {
+    return base::StringToDouble(value_str, value);
+  }
+};
+typedef UpdateValueFromCommandLine<FloatParser> UpdateFloatFromCommandLine;
 
 // Try to update the value of an array of ignored stack ids from a command-line.
 // We expect the values to be in hexadecimal format and separated by a
@@ -106,6 +131,7 @@ const uint32 kAsanParametersSectionCharacteristics =
 const uint32 kDefaultQuarantineSize = 16 * 1024 * 1024;
 const uint32 kDefaultQuarantineBlockSize = 4 * 1024 * 1024;
 const uint32 kDefaultTrailerPaddingSize = 0;
+const float kDefaultAllocationGuardRate = 1.0;
 
 // Default values of StackCaptureCache parameters.
 const uint32 kDefaultReportingPeriod = 0;
@@ -128,6 +154,7 @@ const bool kDefaultLogAsText = true;
 const char kParamQuarantineSize[] = "quarantine_size";
 const char kParamQuarantineBlockSize[] = "quarantine_block_size";
 const char kParamTrailerPaddingSize[] = "trailer_padding_size";
+extern const char kParamAllocationGuardRate[] = "allocation_guard_rate";
 
 // String names of StackCaptureCache parameters.
 const char kParamReportingPeriod[] = "compression_reporting_period";
@@ -205,12 +232,13 @@ void SetDefaultAsanParameters(AsanParameters* asan_parameters) {
   asan_parameters->minidump_on_failure = kDefaultMiniDumpOnFailure;
   asan_parameters->exit_on_failure = kDefaultExitOnFailure;
   asan_parameters->log_as_text = kDefaultLogAsText;
+  asan_parameters->allocation_guard_rate = kDefaultAllocationGuardRate;
 }
 
 bool InflateAsanParameters(const AsanParameters* pod_params,
                            InflatedAsanParameters* inflated_params) {
   // This must be kept up to date with AsanParameters as it evolves.
-  static const size_t kSizeOfAsanParametersByVersion[] = { 40 };
+  static const size_t kSizeOfAsanParametersByVersion[] = { 40, 44 };
   COMPILE_ASSERT(arraysize(kSizeOfAsanParametersByVersion) ==
                      kAsanParametersVersion + 1,
                  kSizeOfAsanParametersByVersion_out_of_date);
@@ -275,36 +303,43 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
   CommandLine cmd_line = CommandLine::FromString(str);
 
   // Parse the quarantine size flag.
-  if (UpdateUint32FromCommandLine(cmd_line, kParamQuarantineSize,
+  if (UpdateUint32FromCommandLine::Do(cmd_line, kParamQuarantineSize,
           &asan_parameters->quarantine_size) == kFlagError) {
     return false;
   }
 
-  if (UpdateUint32FromCommandLine(cmd_line, kParamQuarantineBlockSize,
+  // Parse the quarantine block size.
+  if (UpdateUint32FromCommandLine::Do(cmd_line, kParamQuarantineBlockSize,
           &asan_parameters->quarantine_block_size) == kFlagError) {
     return false;
   }
 
   // Parse the trailer padding size flag.
-  if (UpdateUint32FromCommandLine(cmd_line, kParamTrailerPaddingSize,
+  if (UpdateUint32FromCommandLine::Do(cmd_line, kParamTrailerPaddingSize,
           &asan_parameters->trailer_padding_size) == kFlagError) {
     return false;
   }
 
+  // Parse the allocation guard rate.
+  if (UpdateFloatFromCommandLine::Do(cmd_line, kParamAllocationGuardRate,
+          &asan_parameters->allocation_guard_rate) == kFlagError) {
+    return false;
+  }
+
   // Parse the reporting period flag.
-  if (UpdateUint32FromCommandLine(cmd_line, kParamReportingPeriod,
+  if (UpdateUint32FromCommandLine::Do(cmd_line, kParamReportingPeriod,
           &asan_parameters->reporting_period) == kFlagError) {
     return false;
   }
 
   // Parse the bottom frames to skip flag.
-  if (UpdateUint32FromCommandLine(cmd_line, kParamBottomFramesToSkip,
+  if (UpdateUint32FromCommandLine::Do(cmd_line, kParamBottomFramesToSkip,
           &asan_parameters->bottom_frames_to_skip) == kFlagError) {
     return false;
   }
 
   // Parse the max number of frames flag.
-  if (UpdateUint32FromCommandLine(cmd_line, kParamMaxNumFrames,
+  if (UpdateUint32FromCommandLine::Do(cmd_line, kParamMaxNumFrames,
           &asan_parameters->max_num_frames) == kFlagError) {
     return false;
   }

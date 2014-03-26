@@ -458,12 +458,14 @@ bool AsanRuntime::GetAsanFlagsEnvVar(std::wstring* env_var_wstr) {
 void AsanRuntime::PropagateParams() const {
   // This function has to be kept in sync with the AsanParameters struct. These
   // checks will ensure that this is the case.
-  COMPILE_ASSERT(sizeof(common::AsanParameters) == 40,
+  COMPILE_ASSERT(sizeof(common::AsanParameters) == 44,
                  must_update_propagate_params);
-  DCHECK_EQ(0u, common::kAsanParametersVersion);
+  COMPILE_ASSERT(common::kAsanParametersVersion == 1,
+                 must_update_parameters_version);
 
   // Push the configured parameter values to the appropriate endpoints.
   HeapProxy::set_default_quarantine_max_size(params_.quarantine_size);
+  HeapProxy::set_allocation_guard_rate(params_.allocation_guard_rate);
   StackCaptureCache::set_compression_reporting_period(params_.reporting_period);
   StackCapture::set_bottom_frames_to_skip(params_.bottom_frames_to_skip);
   stack_cache_->set_max_num_frames(params_.max_num_frames);
