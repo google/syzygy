@@ -22,6 +22,7 @@
 
 #include "base/process.h"
 #include "base/win/scoped_handle.h"
+#include "base/win/windows_version.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/trace/agent_logger/agent_logger.h"
 #include "syzygy/trace/rpc/logger_rpc.h"
@@ -37,18 +38,25 @@ bool GetClientInfo(handle_t binding, ProcessId* pid, ScopedHandle* handle) {
   DCHECK(pid != NULL);
   DCHECK(handle != NULL);
 
-  // Get the RPC call attributes.
-  static const int kVersion = 2;
-  RPC_CALL_ATTRIBUTES_V2 attribs = { kVersion, RPC_QUERY_CLIENT_PID };
-  RPC_STATUS status = RpcServerInqCallAttributes(binding, &attribs);
+  ProcessId the_pid = 0;
+  RPC_STATUS status = 0;
+  // RPC_CALL_ATTRIBUTES_V2 isn't available before Windows Vista.
+  if (base::win::GetVersion() >= base::win::VERSION_VISTA) {
+    // Get the RPC call attributes.
+    static const int kVersion = 2;
+    RPC_CALL_ATTRIBUTES_V2 attribs = { kVersion, RPC_QUERY_CLIENT_PID };
+    status = RpcServerInqCallAttributes(binding, &attribs);
+    the_pid = reinterpret_cast<ProcessId>(attribs.ClientPID);
+  } else {
+    status = I_RpcBindingInqLocalClientPID(binding,
+        reinterpret_cast<unsigned long*>(&the_pid));
+  }
+
   if (status != RPC_S_OK) {
     LOG(ERROR) << "Failed to query RPC call attributes: "
                << ::common::LogWe(status) << ".";
     return false;
   }
-
-  // Extract the process id.
-  ProcessId the_pid = reinterpret_cast<ProcessId>(attribs.ClientPID);
 
   // Open and return the handle to the process.
   static const DWORD kFlags =
