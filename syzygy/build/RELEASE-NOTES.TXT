@@ -1,6 +1,13 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.13.0
+
+[-----] Fixed some XP compatibility issues.
+[r2094] Cast the return value of HeapFree to a boolean before checking it.
+[r2064] Plumb runtime ASAN parameters through instrumentation to the runtime
+        library.
+
 Version 0.7.12.0
 
 [-----] First build with VS2013.
