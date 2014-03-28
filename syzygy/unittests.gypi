@@ -95,6 +95,9 @@
       # Simulator tests.
       '<(src)/syzygy/simulate/simulate.gyp:simulate_unittests',
 
+      # Swap Import tests.
+      '<(src)/syzygy/swapimport/swapimport.gyp:swapimport_unittests',
+
       # Trace tests.
       '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib_unittests',
       '<(src)/syzygy/trace/common/common.gyp:trace_common_unittests',
