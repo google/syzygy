@@ -153,9 +153,13 @@ bool PECoffFile<AddressSpaceTraits>::ReadSections(FILE* file) {
     if (addr == AddressSpaceTraits::invalid_address())
       continue;
 
+    // Empty sections are ignored at this level of the parsing.
+    size_t section_size = AddressSpaceTraits::GetSectionSize(*hdr);
+    if (section_size == 0)
+      continue;
+
     // Insert the range for the new section.
-    ImageAddressSpace::Range section_range(
-        addr, AddressSpaceTraits::GetSectionSize(*hdr));
+    ImageAddressSpace::Range section_range(addr, section_size);
     ImageAddressSpace::RangeMap::iterator it;
     if (!image_data_.Insert(section_range, SectionInfo(), &it)) {
       LOG(ERROR) << "Unable to insert range for section " << hdr->Name << ".";

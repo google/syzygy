@@ -223,6 +223,7 @@ bool ParseDebugSymbols(size_t start, size_t size, Block* block) {
       case cci::S_GTHREAD32:
       case cci::S_LABEL32:
       case cci::S_LDATA32:
+      case cci::S_LTHREAD32:
       case cci::S_OBJNAME:
       case cci::S_REGISTER:
       case cci::S_REGREL32:
@@ -236,12 +237,19 @@ bool ParseDebugSymbols(size_t start, size_t size, Block* block) {
 
       // These are unknown symbol types, but currently seen. From inspection
       // they don't appear to contain references that need to be parsed.
-      // TODO(chrisha): Figure out what these symbols are.
+      // TODO(chrisha): Figure out what these symbols are. Many of them appear
+      //     to have been added only as of VS2013.
       case 0x113E:
       case 0x1141:
       case 0x1142:
       case 0x1143:
       case 0x1144:
+      case 0x1145:
+      case 0x114D:
+      case 0x114E:
+      case 0x1153:
+      case 0x115A:
+        break;
 
       default:
         LOG(ERROR) << "Unsupported debug symbol type 0x"
@@ -369,9 +377,15 @@ bool ParseDebugSubsections(Block* block) {
       case cci::DEBUG_S_FILECHKSMS:
       case cci::DEBUG_S_FRAMEDATA:
         break;
+
+      // This is a new debug symbol type as of VS2013.
+      // TODO(chrisha): Figure out the contents of this subsection type.
+      case 0xF6:
+        break;
+
       default:
-        LOG(ERROR) << "Unsupported debug subsection type " << *type
-                   << " at offset " << cursor
+        LOG(ERROR) << "Unsupported debug subsection type " << std::hex << *type
+                   << std::dec << " at offset " << cursor
                    << " in .debug$S section " << section_index << ".";
         return false;
     }
@@ -874,10 +888,12 @@ Block* CoffDecomposer::CreateBlock(BlockType type,
   }
 
   // Mark the source range from whence this block originates.
-  bool pushed = block->source_ranges().Push(
-      Block::DataRange(0, size),
-      Block::SourceRange(block_addr, size));
-  DCHECK(pushed);
+  if (size > 0) {
+    bool pushed = block->source_ranges().Push(
+        Block::DataRange(0, size),
+        Block::SourceRange(block_addr, size));
+    DCHECK(pushed);
+  }
 
   const uint8* data = image_file_.GetImageData(addr, size);
   if (data != NULL)
