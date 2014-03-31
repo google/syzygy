@@ -19,6 +19,7 @@ import json
 import logging
 import optparse
 import os
+import re
 import shutil
 import subprocess
 import urllib
@@ -43,10 +44,15 @@ _SYZYGY_OFFICIAL = 'Syzygy Official'
 
 
 _SYZYGY_ARCHIVE_URL = ('http://syzygy-archive.commondatastorage.googleapis.com/'
-    'builds/official/%(revision)d')
+    'builds/official/%(revision)s')
 
 
 _EXECUTABLE_EXTENSIONS = ['bat', 'py', 'exe', 'sh']
+
+
+# This matches an integer (an SVN revision number) or a SHA1 value (a GIT hash).
+# The buildbot exclusively uses lowercase GIT hashes.
+_REVISION_RE = re.compile('^(?:\d+|[a-f0-9]{40})$')
 
 
 def _Shell(*cmd, **kw):
@@ -76,7 +82,7 @@ def _QueryWaterfall(path):
 
 
 def _GetLastOfficialBuildRevision():
-  """Query the Syzygy waterfall to get the SVN revision associated with the
+  """Query the Syzygy waterfall to get the revision associated with the
   last successful official build.
   """
   # First make sure the builder doesn't have any pending builds and is idle.
@@ -92,14 +98,14 @@ def _GetLastOfficialBuildRevision():
       urllib.quote(_SYZYGY_OFFICIAL))
   if 'successful' not in build['text']:
     raise RuntimeError('Last official build failed.')
-  return int(build['sourceStamp']['revision'])
+  return build['sourceStamp']['revision']
 
 
 def main():
   option_parser = optparse.OptionParser()
   option_parser.add_option(
-      '--revision', type="int",
-      help='The SVN revision associated with the release build. '
+      '--revision', type="string",
+      help='The SVN revision or GIT hash associated with the release build. '
            'If omitted, the SVN revision of the last successful official '
            'build will be used.')
   options, args = option_parser.parse_args()
@@ -109,12 +115,17 @@ def main():
   # Enable info logging.
   logging.basicConfig(level=logging.INFO)
 
-  # Get the SVN revision associated with the archived binaries to use.
+  # Get the revision associated with the archived binaries to use.
   if options.revision is not None:
     revision = options.revision
+
+    # Ensure that we've specified a valid SVN revision or GIT hash.
+    if not _REVISION_RE.match(revision):
+      option_parser.error('Must specify a valid SVN or GIT revision.')
+
   else:
     revision = _GetLastOfficialBuildRevision()
-    _LOGGER.info('Using official build at revision %d.' % revision)
+    _LOGGER.info('Using official build at revision %s.' % revision)
 
   # And build the corresponding archive URL.
   archive_url = _SYZYGY_ARCHIVE_URL % { 'revision': revision }
@@ -206,7 +217,7 @@ def main():
       _Shell('git', 'update-index', '--chmod=+x', p)
 
   # Now commit and upload the new binaries.
-  message = 'Checking in version %d release binaries.' % revision
+  message = 'Checking in revision %s release binaries.' % revision
   _Shell('git', 'commit', '-m', message)
   _Shell('git', 'cl', 'upload', '-t', message)
 
