@@ -1640,9 +1640,11 @@ TEST_F(HeapTest, AsanPointerToBlockHeaderViaShadow) {
   const size_t kAllocSize = 100;
   LPVOID mem = proxy_.Alloc(0, kAllocSize);
   ASSERT_TRUE(mem != NULL);
-  EXPECT_EQ(TestHeapProxy::AsanPointerToBlockHeader(mem),
+  uint8* asan_pointer = TestHeapProxy::UserPointerToAsanPointer(mem);
+  EXPECT_NE(reinterpret_cast<uint8*>(NULL), asan_pointer);
+  EXPECT_EQ(TestHeapProxy::AsanPointerToBlockHeader(asan_pointer),
       reinterpret_cast<const void*>(Shadow::AsanPointerToBlockHeader(
-          reinterpret_cast<const uint8*>(mem))));
+          asan_pointer)));
   EXPECT_TRUE(proxy_.Free(0, mem));
 }
 
