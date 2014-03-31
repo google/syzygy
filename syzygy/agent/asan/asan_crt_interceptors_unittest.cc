@@ -159,13 +159,8 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrcspn) {
   EXPECT_EQ(::strcspn(str.get(), keys.get()),
             strcspnFunction(str.get(), keys.get()));
 
-  // str[-1] points to the block header, we need to make sure that it doesn't
-  // contain the value \0.
-  uint8 last_block_header_byte = str[-1];
-  str[-1] = 'a';
   strcspnFunctionFailing(str.get() - 1, keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  str[-1] = last_block_header_byte;
   ResetLog();
 
   // The key set should be null terminated, otherwise an overflow should be
@@ -283,13 +278,8 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrcmp) {
   EXPECT_EQ(::strcmp(str.get(), keys.get()),
             strcmpFunction(str.get(), keys.get()));
 
-  // str[-1] points to the block header, we need to make sure that it doesn't
-  // contain the value \0.
-  uint8 last_block_header_byte = str[-1];
-  str[-1] = 'a';
   strcmpFunctionFailing(str.get() - 1, keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  str[-1] = last_block_header_byte;
   ResetLog();
 
   size_t keys_len = ::strlen(keys.get());
@@ -323,13 +313,8 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrpbrk) {
   EXPECT_EQ(::strpbrk(str.get(), keys.get()),
             strpbrkFunction(str.get(), keys.get()));
 
-  // str[-1] points to the block header, we need to make sure that it doesn't
-  // contain the value \0.
-  uint8 last_block_header_byte = str[-1];
-  str[-1] = 'a';
   strpbrkFunctionFailing(str.get() - 1, keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  str[-1] = last_block_header_byte;
   ResetLog();
 
   size_t keys_len = ::strlen(keys.get());
@@ -387,13 +372,8 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrstr) {
   EXPECT_EQ(::strstr(str.get(), keys.get()),
             strstrFunction(str.get(), keys.get()));
 
-  // str[-1] points to the block header, we need to make sure that it doesn't
-  // contain the value \0.
-  uint8 last_block_header_byte = str[-1];
-  str[-1] = 'a';
   strstrFunctionFailing(str.get() - 1, keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  str[-1] = last_block_header_byte;
   ResetLog();
 
   size_t keys_len = ::strlen(keys.get());
@@ -426,13 +406,8 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrspn) {
   EXPECT_EQ(::strspn(str.get(), keys.get()),
             strspnFunction(str.get(), keys.get()));
 
-  // str[-1] points to the block header, we need to make sure that it doesn't
-  // contain the value \0.
-  uint8 last_block_header_byte = str[-1];
-  str[-1] = 'a';
   strspnFunctionFailing(str.get() - 1, keys.get());
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  str[-1] = last_block_header_byte;
   ResetLog();
 
   size_t keys_len = ::strlen(keys.get());
@@ -556,54 +531,39 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
       ::strncat(buffer, suffix.get(), ::strlen(suffix_value)), mem.get());
 
   // Test an underflow on the suffix.
-  uint8 last_block_header_byte = suffix[-1];
-  suffix[-1] = 'a';
   ::strcpy(mem.get(), prefix_value);
   ::strcpy(buffer, prefix_value);
   strncatFunctionFailing(mem.get(), suffix.get() - 1, ::strlen(suffix_value));
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  suffix[-1] = last_block_header_byte;
   ResetLog();
 
   // Test an underflow on the destination.
-  last_block_header_byte = mem[-1];
-  mem[-1] = 'a';
   ::strcpy(mem.get(), prefix_value);
   ::strcpy(buffer, prefix_value);
   strncatFunctionFailing(mem.get() - 1, suffix.get(), ::strlen(suffix_value));
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
-  mem[-1] = last_block_header_byte;
   ResetLog();
 
   // Test an overflow on the suffix.
   size_t suffix_len = ::strlen(suffix.get());
-  char first_trailer_byte = suffix[suffix_len + 1];
   suffix[suffix_len] = 'a';
-  suffix[suffix_len + 1] = 0;
   ::strcpy(mem.get(), prefix_value);
   ::strcpy(buffer, prefix_value);
   strncatFunctionFailing(mem.get(), suffix.get(), ::strlen(suffix.get()) + 1);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   suffix[suffix_len] = 0;
-  suffix[suffix_len + 1] = first_trailer_byte;
   ResetLog();
 
   // Test an overflow on the destination.
   ::strcpy(mem.get(), prefix_value);
   ::strcpy(buffer, prefix_value);
   size_t prefix_len = ::strlen(prefix_value);
-  first_trailer_byte = mem[prefix_len + 1];
   mem[prefix_len] = 'a';
-  mem[prefix_len + 1] = 0;
-  char buffer_first_trailer_byte = buffer[prefix_len + 1];
   buffer[prefix_len] = 'a';
-  buffer[prefix_len + 1] = 0;
   strncatFunctionFailing(mem.get(), suffix.get(), ::strlen(suffix.get()));
   EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
   mem[prefix_len] = 0;
-  mem[prefix_len + 1] = first_trailer_byte;
   buffer[prefix_len] = 0;
-  buffer[prefix_len + 1] = buffer_first_trailer_byte;
   ResetLog();
 }
 
