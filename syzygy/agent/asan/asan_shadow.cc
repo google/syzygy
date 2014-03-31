@@ -202,7 +202,6 @@ void Shadow::AppendShadowMemoryText(const void* addr, std::string* output) {
       kHeapFreedByte >> 4, kHeapFreedByte & 15);
 }
 
-
 const uint8* Shadow::FindBlockBeginning(const uint8* mem) {
   mem = reinterpret_cast<uint8*>(common::AlignDown(
       reinterpret_cast<size_t>(mem), kShadowGranularity));
@@ -262,6 +261,49 @@ size_t Shadow::GetAllocSize(const uint8* mem) {
     return 0;
 
   return mem - mem_begin - alignment_offset;
+}
+
+const uint8* Shadow::AsanPointerToBlockHeader(const uint8* asan_pointer) {
+  if (!IsLeftRedzone(asan_pointer))
+    return NULL;
+  while (GetShadowMarkerForAddress(asan_pointer) != kHeapBlockHeaderByte)
+    asan_pointer += kShadowGranularity;
+  return asan_pointer;
+}
+
+ShadowWalker::ShadowWalker(const uint8* lower_bound, const uint8* upper_bound)
+    : lower_bound_(lower_bound), upper_bound_(upper_bound) {
+  DCHECK_GE(reinterpret_cast<size_t>(lower_bound), kAddressLowerBound);
+  DCHECK_LT(reinterpret_cast<size_t>(lower_bound), kAddressUpperBound);
+  Reset();
+}
+
+void ShadowWalker::Reset() {
+  next_block_ = lower_bound_;
+  // Look for the first block.
+  while (!Shadow::IsLeftRedzone(next_block_) && next_block_ < upper_bound_)
+    next_block_ += Shadow::kShadowGranularity;
+}
+
+void ShadowWalker::Advance() {
+  DCHECK_LT(next_block_, upper_bound_);
+  // Skip the current block left zone.
+  while (Shadow::IsLeftRedzone(next_block_) && next_block_ < upper_bound_)
+    next_block_ += Shadow::kShadowGranularity;
+  // Look for the next block.
+  while (!Shadow::IsLeftRedzone(next_block_) && next_block_ < upper_bound_)
+    next_block_ += Shadow::kShadowGranularity;
+}
+
+bool ShadowWalker::Next(const uint8** block_begin) {
+  DCHECK_NE(reinterpret_cast<const uint8**>(NULL), block_begin);
+  *block_begin = next_block_;
+  // |upper_bound_| or |next_block_| might have a different alignment, so
+  // |next_block_| might be superior to |upper_bound_|.
+  if (next_block_ >= upper_bound_)
+    return false;
+  Advance();
+  return true;
 }
 
 }  // namespace asan

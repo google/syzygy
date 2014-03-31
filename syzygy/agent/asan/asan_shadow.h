@@ -143,6 +143,13 @@ class Shadow {
   // TODO(sebmarchand): Add support for nested blocks.
   static const uint8* FindBlockBeginning(const uint8* mem);
 
+  // Returns the block header for an ASan pointer.
+  // @param asan_pointer The ASan pointer for which we want the block header
+  //     pointer.
+  // @returns A pointer to the block header of @p asan_pointer on success, NULL
+  //     otherwise.
+  static const uint8* AsanPointerToBlockHeader(const uint8* asan_pointer);
+
   // Checks if an address belongs to the left redzone of a block.
   // @param addr The address that we want to check.
   // @returns true if |addr| corresponds to a byte in the left redzone of a
@@ -164,6 +171,44 @@ class Shadow {
 
   // The shadow memory.
   static uint8 shadow_[kShadowSize];
+};
+
+// A helper class to walk over the blocks contained in a given memory region.
+// This uses only the metadata present in the shadow to identify the blocks.
+class ShadowWalker {
+ public:
+  // Constructor.
+  // @param lower_bound The lower bound of the region that this walker should
+  //     cover in the actual memory.
+  // @param upper_bound The upper bound of the region that this walker should
+  //     cover in the actual memory.
+  ShadowWalker(const uint8* lower_bound, const uint8* upper_bound);
+
+  // Return the next block in this memory region.
+  // @param block_begin Will receive the pointer to the next block in the region
+  //     of interest. This will point to the beginning of a block, which may not
+  //     necessarily be the block header depending on alignment requirements.
+  //     This will be set to something >= @p upper_bound_ when the function
+  //     returns false.
+  // @return true if a block was found, false otherwise.
+  bool Next(const uint8** block_begin);
+
+  // Reset the walker to its initial state.
+  void Reset();
+
+ private:
+  // Move |next_block_| to the next block.
+  void Advance();
+
+  // The bounds of the memory region for this walker.
+  const uint8* lower_bound_;
+  const uint8* upper_bound_;
+
+  // The next block in the shadow, this will point to |upper_bound_| if there's
+  // no next block.
+  const uint8* next_block_;
+
+  DISALLOW_COPY_AND_ASSIGN(ShadowWalker);
 };
 
 // Bring in the implementation of the templated functions.

@@ -1636,5 +1636,74 @@ TEST_F(HeapTest, SubsampledAllocationGuards) {
   EXPECT_GT(6 * kAllocationCount / 10, guarded_allocations);
 }
 
+TEST_F(HeapTest, AsanPointerToBlockHeaderViaShadow) {
+  const size_t kAllocSize = 100;
+  LPVOID mem = proxy_.Alloc(0, kAllocSize);
+  ASSERT_TRUE(mem != NULL);
+  EXPECT_EQ(TestHeapProxy::AsanPointerToBlockHeader(mem),
+      reinterpret_cast<const void*>(Shadow::AsanPointerToBlockHeader(
+          reinterpret_cast<const uint8*>(mem))));
+  EXPECT_TRUE(proxy_.Free(0, mem));
+}
+
+TEST_F(HeapTest, WalkBlocksWithShadowWalker) {
+  const size_t kAllocSize = 100;
+  size_t real_alloc_size = TestHeapProxy::GetAllocSize(kAllocSize);
+
+  // In this test we'll manually initialize 3 blocks inside a heap allocation,
+  // ensuring that the blocks are all in the same heap slab.
+
+  const size_t kNumberOfBlocks = 3;
+  size_t outer_block_size = kNumberOfBlocks * real_alloc_size;
+
+  // The outer block that will contain the 3 blocks.
+  scoped_ptr<uint8> outer_block(new uint8[outer_block_size]);
+
+  // The user pointers to the nested blocks.
+  uint8* user_pointers[kNumberOfBlocks];
+
+  StackCapture stack;
+  stack.InitFromStack();
+
+  // Initialize the blocks with random data.
+  for (size_t i = 0; i < kNumberOfBlocks; ++i) {
+    user_pointers[i] = reinterpret_cast<uint8*>(
+        TestHeapProxy::InitializeAsanBlock(
+            outer_block.get() + i * real_alloc_size,
+        kAllocSize,
+        real_alloc_size,
+        Shadow::kShadowGranularityLog,
+        stack));
+    base::RandBytes(user_pointers[i], kAllocSize);
+  }
+
+  ShadowWalker walker(outer_block.get(), outer_block.get() + outer_block_size);
+
+  const uint8* walker_block = NULL;
+  for (size_t i = 0; i < kNumberOfBlocks; ++i) {
+    EXPECT_TRUE(walker.Next(&walker_block));
+    EXPECT_EQ(TestHeapProxy::UserPointerToAsanPointer(user_pointers[i]),
+              walker_block);
+    EXPECT_EQ(TestHeapProxy::UserPointerToBlockHeader(user_pointers[i]),
+         reinterpret_cast<const TestHeapProxy::BlockHeader*>(
+             Shadow::AsanPointerToBlockHeader(walker_block)));
+  }
+
+  EXPECT_FALSE(walker.Next(&walker_block));
+
+  walker.Reset();
+  EXPECT_TRUE(walker.Next(&walker_block));
+  EXPECT_EQ(TestHeapProxy::UserPointerToAsanPointer(user_pointers[0]),
+            walker_block);
+  EXPECT_EQ(TestHeapProxy::UserPointerToBlockHeader(user_pointers[0]),
+      reinterpret_cast<const TestHeapProxy::BlockHeader*>(
+          Shadow::AsanPointerToBlockHeader(walker_block)));
+
+  // Clear the shadow memory. As those blocks have been manually initialized
+  // they can't go into the quarantine and we need to clean their metadata
+  // manually.
+  Shadow::Unpoison(outer_block.get(), outer_block_size);
+}
+
 }  // namespace asan
 }  // namespace agent
