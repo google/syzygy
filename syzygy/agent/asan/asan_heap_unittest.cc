@@ -60,6 +60,7 @@ class TestHeapProxy : public HeapProxy {
   using HeapProxy::InitializeAsanBlock;
   using HeapProxy::UserPointerToBlockHeader;
   using HeapProxy::UserPointerToAsanPointer;
+  using HeapProxy::kBlockHeaderSignature;
   using HeapProxy::kDefaultAllocGranularityLog;
   using HeapProxy::quarantine_size_;
 
@@ -487,6 +488,57 @@ TEST_F(HeapTest, CorruptAsExitsQuarantine) {
         reinterpret_cast<TestHeapProxy::BlockHeader*>(errors_[0].location));
 
     break;
+  }
+}
+
+TEST_F(HeapTest, IsBlockCorruptedInvalidMagicNumber) {
+  const size_t kAllocSize = 100;
+  proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
+  proxy_.SetQuarantineMaxBlockSize(TestHeapProxy::GetAllocSize(kAllocSize));
+  LPVOID mem = proxy_.Alloc(0, kAllocSize);
+  ASSERT_TRUE(mem != NULL);
+  TestHeapProxy::BlockHeader* header =
+      TestHeapProxy::UserPointerToBlockHeader(mem);
+  ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), header);
+
+  header->magic_number = ~TestHeapProxy::kBlockHeaderSignature;
+  EXPECT_TRUE(proxy_.IsBlockCorrupted(reinterpret_cast<uint8*>(header)));
+  header->magic_number = TestHeapProxy::kBlockHeaderSignature;
+  EXPECT_FALSE(proxy_.IsBlockCorrupted(reinterpret_cast<uint8*>(header)));
+
+  ASSERT_TRUE(proxy_.Free(0, mem));
+}
+
+TEST_F(HeapTest, IsBlockCorruptedInvalidChecksum) {
+  const size_t kAllocSize = 100;
+
+  // This can fail because of a checksum collision. However, we run it a
+  // handful of times to keep the chances as small as possible.
+  for (size_t i = 0; i < kChecksumRepeatCount; ++i) {
+    proxy_.SetQuarantineMaxSize(0);
+    proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
+    proxy_.SetQuarantineMaxBlockSize(TestHeapProxy::GetAllocSize(kAllocSize));
+    LPVOID mem = proxy_.Alloc(0, kAllocSize);
+    ASSERT_TRUE(mem != NULL);
+    ASSERT_TRUE(proxy_.Free(0, mem));
+
+    TestHeapProxy::BlockHeader* header =
+        TestHeapProxy::UserPointerToBlockHeader(mem);
+    ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), header);
+
+    // Change some of the block content and verify that the block is now being
+    // seen as corrupted.
+    size_t original_checksum = header->checksum;
+    reinterpret_cast<int32*>(mem)[0] = rand();
+
+    // Try again for all but the last attempt if this appears to have failed.
+    if (!proxy_.IsBlockCorrupted(reinterpret_cast<uint8*>(header)) &&
+        i + 1 < kChecksumRepeatCount) {
+      continue;
+    }
+    header->checksum = original_checksum;
+
+    ASSERT_TRUE(proxy_.IsBlockCorrupted(reinterpret_cast<uint8*>(header)));
   }
 }
 

@@ -41,29 +41,6 @@ typedef StackCapture::StackId StackId;
 // The first 64kB of the memory are not addressable.
 const uint8* kAddressLowerLimit = reinterpret_cast<uint8*>(0x10000);
 
-// Utility class which implements an auto lock for a HeapProxy.
-class HeapLocker {
- public:
-  explicit HeapLocker(HeapProxy* const heap) : heap_(heap) {
-    DCHECK(heap != NULL);
-    if (!heap->Lock()) {
-      LOG(ERROR) << "Unable to lock the heap.";
-    }
-  }
-
-  ~HeapLocker() {
-    DCHECK(heap_ != NULL);
-    if (!heap_->Unlock()) {
-      LOG(ERROR) << "Unable to lock the heap.";
-    }
-  }
-
- private:
-  HeapProxy* const heap_;
-
-  DISALLOW_COPY_AND_ASSIGN(HeapLocker);
-};
-
 // Returns the number of CPU cycles per microsecond.
 double GetCpuCyclesPerUs() {
   trace::common::TimerInfo tsc_info = {};
@@ -1329,6 +1306,30 @@ bool HeapProxy::VerifyChecksum(BlockHeader* header) {
   if (old_checksum != header->checksum)
     return false;
   return true;
+}
+
+bool HeapProxy::IsBlockCorrupted(const uint8* block_header) {
+  const BlockHeader* header = reinterpret_cast<const BlockHeader*>(
+      Shadow::AsanPointerToBlockHeader(const_cast<uint8*>(block_header)));
+  if (header->magic_number != kBlockHeaderSignature ||
+      !VerifyChecksum(const_cast<BlockHeader*>(header))) {
+    return true;
+  }
+  return false;
+}
+
+HeapLocker::HeapLocker(HeapProxy* const heap) : heap_(heap) {
+  DCHECK(heap != NULL);
+  if (!heap->Lock()) {
+    LOG(ERROR) << "Unable to lock the heap.";
+  }
+}
+
+HeapLocker::~HeapLocker() {
+  DCHECK(heap_ != NULL);
+  if (!heap_->Unlock()) {
+    LOG(ERROR) << "Unable to unlock the heap.";
+  }
 }
 
 }  // namespace asan

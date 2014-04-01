@@ -40,10 +40,6 @@ class TestAsanRuntime : public AsanRuntime {
   using AsanRuntime::PropagateParams;
 };
 
-class TestHeapProxy : public HeapProxy {
- public:
-};
-
 class AsanRuntimeTest : public testing::TestWithAsanLogger {
  public:
   typedef testing::TestWithAsanLogger Super;
@@ -252,6 +248,30 @@ TEST_F(AsanRuntimeTest, PropagateParams) {
             StackCapture::bottom_frames_to_skip());
   ASSERT_EQ(params.max_num_frames,
             asan_runtime_.stack_cache()->max_num_frames());
+}
+
+TEST_F(AsanRuntimeTest, AddAndRemoveHeaps) {
+  ASSERT_NO_FATAL_FAILURE(
+      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
+
+  HeapProxy heap_1;
+  HeapProxy heap_2;
+  asan_runtime_.AddHeap(&heap_1);
+  asan_runtime_.AddHeap(&heap_2);
+
+  AsanRuntime::HeapVector heaps;
+  asan_runtime_.GetHeaps(&heaps);
+  EXPECT_EQ(2, heaps.size());
+
+  asan_runtime_.RemoveHeap(&heap_1);
+  asan_runtime_.GetHeaps(&heaps);
+  EXPECT_EQ(1, heaps.size());
+
+  asan_runtime_.RemoveHeap(&heap_2);
+  asan_runtime_.GetHeaps(&heaps);
+  EXPECT_EQ(0U, heaps.size());
+
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 
 }  // namespace asan

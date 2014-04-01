@@ -506,6 +506,27 @@ void AsanRuntime::RemoveHeap(HeapProxy* heap) {
   heap->ClearHeapErrorCallback();
 }
 
+void AsanRuntime::GetHeaps(HeapVector* heap_vector) {
+  DCHECK_NE(reinterpret_cast<std::vector<HeapProxy*>*>(NULL), heap_vector);
+
+  heap_vector->clear();
+
+  base::AutoLock lock(heap_proxy_dlist_lock_);
+
+  if (IsListEmpty(&heap_proxy_dlist_))
+    return;
+
+  LIST_ENTRY* current = heap_proxy_dlist_.Flink;
+  while (current != NULL) {
+    LIST_ENTRY* next_item = NULL;
+    if (current->Flink != &heap_proxy_dlist_) {
+      next_item = current->Flink;
+    }
+    heap_vector->push_back(HeapProxy::FromListEntry(current));
+    current = next_item;
+  }
+}
+
 void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
   base::AutoLock lock(heap_proxy_dlist_lock_);
 

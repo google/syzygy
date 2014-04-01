@@ -94,6 +94,8 @@ class AsanRuntime {
  public:
   typedef std::set<StackCapture::StackId> StackIdSet;
 
+  typedef std::vector<HeapProxy*> HeapVector;
+
   // The type of callback used by the OnError function.
   typedef base::Callback<void(AsanErrorInfo*)> AsanOnErrorCallBack;
 
@@ -158,6 +160,10 @@ class AsanRuntime {
   // Accessors for runtime parameters.
   common::InflatedAsanParameters& params() { return params_; }
   const common::InflatedAsanParameters& params() const { return params_; }
+
+  // Fill a vector with all the active heaps.
+  // @param heap_vector Will receive the active heaps.
+  void GetHeaps(HeapVector* heap_vector);
 
  protected:
   // Propagate the values of the flags to the target modules.

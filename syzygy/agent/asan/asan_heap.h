@@ -105,56 +105,6 @@ class HeapProxy {
   static HeapProxy* FromHandle(HANDLE heap);
   // @}
 
-  // @name Heap interface.
-  // @{
-  bool Create(DWORD options,
-              size_t initial_size,
-              size_t maximum_size);
-  bool Destroy();
-  void* Alloc(DWORD flags, size_t bytes);
-  void* ReAlloc(DWORD flags, void* mem, size_t bytes);
-  bool Free(DWORD flags, void* mem);
-  size_t Size(DWORD flags, const void* mem);
-  bool Validate(DWORD flags, const void* mem);
-  size_t Compact(DWORD flags);
-  bool Lock();
-  bool Unlock();
-  bool Walk(PROCESS_HEAP_ENTRY* entry);
-  bool SetInformation(HEAP_INFORMATION_CLASS info_class,
-                      void* info,
-                      size_t info_length);
-  bool QueryInformation(HEAP_INFORMATION_CLASS info_class,
-                        void* info,
-                        size_t info_length,
-                        unsigned long* return_length);
-  // @}
-
-  // Return the handle to the underlying heap.
-  HANDLE heap() { return heap_; }
-
-  // indicates if we own the underlying heap.
-  bool owns_heap() { return owns_heap_; }
-
-  // Initialize this instance with a given heap handle.
-  // @param underlying_heap The underlying heap we should delegate to.
-  // @returns true on success, false otherwise.
-  // @note The caller keeps the ownership of the heap and is responsible for
-  //     releasing it. (@p underlying_heap should have a lifetime exceeding
-  //     this).
-  void UseHeap(HANDLE underlying_heap);
-
-  // Sets the callback that this heap will invoke when heap corruption is
-  // encountered.
-  // @param heap_error_callback The callback to be invoked when heap
-  //     corruption is encountered.
-  void SetHeapErrorCallback(
-      HeapErrorCallback heap_error_callback) {
-    heap_error_callback_ = heap_error_callback;
-  }
-  void ClearHeapErrorCallback() {
-    heap_error_callback_.Reset();
-  }
-
   // Get information about a bad access.
   // @param bad_access_info Will receive the information about this access.
   // @returns true if the address belongs to a memory block, false otherwise.
@@ -323,6 +273,62 @@ class HeapProxy {
   // @param dst_asan_pointer The pointer to the ASan destination block.
   static void CloneObject(const void* src_asan_pointer,
                           void* dst_asan_pointer);
+
+  // Check if a block is corrupted. This check the block's metadata and its
+  // checksum.
+  // @param block_header A pointer to the block header of the block.
+  // @returns true if the block is corrupted, false otherwise.
+  static bool IsBlockCorrupted(const uint8* block_header);
+
+  // @name Heap interface.
+  // @{
+  bool Create(DWORD options,
+              size_t initial_size,
+              size_t maximum_size);
+  bool Destroy();
+  void* Alloc(DWORD flags, size_t bytes);
+  void* ReAlloc(DWORD flags, void* mem, size_t bytes);
+  bool Free(DWORD flags, void* mem);
+  size_t Size(DWORD flags, const void* mem);
+  bool Validate(DWORD flags, const void* mem);
+  size_t Compact(DWORD flags);
+  bool Lock();
+  bool Unlock();
+  bool Walk(PROCESS_HEAP_ENTRY* entry);
+  bool SetInformation(HEAP_INFORMATION_CLASS info_class,
+                      void* info,
+                      size_t info_length);
+  bool QueryInformation(HEAP_INFORMATION_CLASS info_class,
+                        void* info,
+                        size_t info_length,
+                        unsigned long* return_length);
+  // @}
+
+  // Return the handle to the underlying heap.
+  HANDLE heap() { return heap_; }
+
+  // indicates if we own the underlying heap.
+  bool owns_heap() { return owns_heap_; }
+
+  // Initialize this instance with a given heap handle.
+  // @param underlying_heap The underlying heap we should delegate to.
+  // @returns true on success, false otherwise.
+  // @note The caller keeps the ownership of the heap and is responsible for
+  //     releasing it. (@p underlying_heap should have a lifetime exceeding
+  //     this).
+  void UseHeap(HANDLE underlying_heap);
+
+  // Sets the callback that this heap will invoke when heap corruption is
+  // encountered.
+  // @param heap_error_callback The callback to be invoked when heap
+  //     corruption is encountered.
+  void SetHeapErrorCallback(
+      HeapErrorCallback heap_error_callback) {
+    heap_error_callback_ = heap_error_callback;
+  }
+  void ClearHeapErrorCallback() {
+    heap_error_callback_.Reset();
+  }
 
  protected:
   enum BlockState {
@@ -564,6 +570,20 @@ class HeapProxy {
   // at their source. Catching their side effect as early as possible allows the
   // recovery of some useful debugging information.
   HeapErrorCallback heap_error_callback_;
+};
+
+// Utility class which implements an auto lock for a HeapProxy.
+// TODO(sebmarchand): Move this to an asan_heap_util.[h|cc] set of files.
+class HeapLocker {
+ public:
+  explicit HeapLocker(HeapProxy* const heap);
+
+  ~HeapLocker();
+
+ private:
+  HeapProxy* const heap_;
+
+  DISALLOW_COPY_AND_ASSIGN(HeapLocker);
 };
 
 }  // namespace asan
