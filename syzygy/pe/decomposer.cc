@@ -1076,6 +1076,10 @@ bool Decomposer::DecomposeImpl() {
     if (!CreateBlocksFromSectionContribs(dia_session.get()))
       return false;
 
+    VLOG(1) << "Finding cold blocks.";
+    if (!FindColdBlocksFromCompilands(dia_session.get()))
+      return false;
+
     // Flesh out the rest of the image with gap blocks.
     VLOG(1) << "Creating gap blocks.";
     if (!CreateGapBlocks())
@@ -1276,6 +1280,127 @@ bool Decomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
     block->set_attribute(BlockGraph::SECTION_CONTRIB);
     if (!is_built_by_supported_compiler)
       block->set_attribute(BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER);
+  }
+
+  return true;
+}
+
+bool Decomposer::FindColdBlocksFromCompilands(IDiaSession* session) {
+  // Detect hot/cold code separation. Some blocks are outside the function
+  // address range and must be handled as separate blocks. When building
+  // with PGO, the compiler can split functions into "hot" and "cold" blocks,
+  // and move the "cold" blocks out to separate pages, so the function can be
+  // noncontiguous.
+  ScopedComPtr<IDiaSymbol> global;
+  if (session->get_globalScope(global.Receive()) != S_OK) {
+    LOG(ERROR) << "Cannot get global symbol.";
+    return false;
+  }
+
+  // Find compilands within the global scope.
+  ScopedComPtr<IDiaEnumSymbols> compilands;
+  HRESULT status =
+      global->findChildren(SymTagCompiland, NULL, 0, compilands.Receive());
+  if (status != S_OK) {
+    LOG(ERROR) << "Finding compilands failed on the global symbol: "
+               << common::LogHr(status) << ".";
+    return false;
+  }
+
+  // For each compiland, process its lexical blocks.
+  while (true) {
+    ULONG count = 0;
+    ScopedComPtr<IDiaSymbol> compiland;
+    if (compilands->Next(1, compiland.Receive(), &count) != S_OK ||
+        count != 1) {
+      break;
+    }
+
+    ScopedComPtr<IDiaEnumSymbols> compiland_blocks;
+    status = compiland->findChildren(SymTagBlock,
+                                     NULL,
+                                     0,
+                                     compiland_blocks.Receive());
+    if (status != S_OK) {
+      LOG(ERROR) << "Finding blocks failed on compiland: "
+                 << common::LogHr(status) << ".";
+      return false;
+    }
+
+    LONG blocks_count = 0;
+    if (compiland_blocks->get_Count(&blocks_count) != S_OK) {
+      LOG(ERROR) << "Failed to get compiland blocks enumeration length.";
+      return false;
+    }
+
+    for (LONG block_index = 0; block_index < blocks_count; ++block_index) {
+      ScopedComPtr<IDiaSymbol> compiland_block;
+      ULONG fetched = 0;
+
+      status = compiland_blocks->Next(1, compiland_block.Receive(), &fetched);
+      if (status == S_FALSE && fetched == 0)
+        break;
+      if (status != S_OK) {
+          LOG(ERROR) << "Failed to get function block: "
+                     << common::LogHr(status) << ".";
+        return false;
+      }
+      if (fetched == 0)
+        break;
+
+      ScopedComPtr<IDiaSymbol> parent;
+      DWORD parent_tag = 0;
+      if (compiland_block->get_lexicalParent(parent.Receive()) != S_OK ||
+          parent->get_symTag(&parent_tag) != S_OK) {
+        LOG(ERROR) << "Cannot retrieve block parent.";
+        return false;
+      }
+
+      // Only consider function block.
+      if (parent_tag != SymTagFunction)
+        continue;
+
+      // Get relative adresses.
+      DWORD func_rva, block_rva;
+      ULONGLONG func_length;
+      if (compiland_block->get_relativeVirtualAddress(&block_rva) != S_OK ||
+          parent->get_relativeVirtualAddress(&func_rva) != S_OK ||
+          parent->get_length(&func_length) != S_OK) {
+        LOG(ERROR) << "Cannot retrieve parent address range.";
+        return false;
+      }
+
+      // Retrieve the function block.
+      Block* func_block = image_->GetBlockByAddress(RelativeAddress(func_rva));
+      if (func_block == NULL) {
+        LOG(ERROR) << "Cannot retrieve parent block.";
+        return false;
+      }
+
+      // Skip blocks within the range of its parent.
+      if (block_rva >= func_rva && block_rva <= func_rva + func_length)
+        continue;
+
+      // A cold block is detected and needs special handling.
+      Block* cold_block = image_->GetBlockByAddress(RelativeAddress(block_rva));
+      if (cold_block == NULL) {
+        LOG(ERROR) << "Cannot retrieve parent block.";
+        return false;
+      }
+
+      RelativeAddress cold_block_addr;
+      if (!image_->GetAddressOf(cold_block, &cold_block_addr)) {
+        LOG(ERROR) << "Cannot retrieve cold block address.";
+        return false;
+      }
+
+      // Add cold_block as a child of the function block.
+      cold_blocks_[func_block][cold_block_addr] = cold_block;
+
+      // Set the parent relation for blocks belonging to the function block.
+      cold_blocks_parent_[func_block] = func_block;
+      cold_blocks_parent_[cold_block] = func_block;
+    }
   }
 
   return true;
@@ -1808,9 +1933,48 @@ DiaBrowser::BrowserDirective Decomposer::OnLabelSymbol(
   Block* block = current_block_;
   RelativeAddress block_addr(current_address_);
   if (block != NULL) {
-    if (!InRangeIncl(addr, current_address_, current_block_->size())) {
+    // Try to find the block in the cold blocks. The cold blocks aren't in the
+    // same address space as the original function.
+    if (!InRangeIncl(addr, block_addr, block->size())) {
+
+      // Determine the function block containing this block.
+      ColdBlocksParent::iterator function_block =
+          cold_blocks_parent_.find(block);
+      if (function_block != cold_blocks_parent_.end())
+        block = function_block->second;
+
+      // Retrieve the first cold block related to that function before |addr|.
+      ColdBlocksMap::iterator cold_blocks_it = cold_blocks_.find(block);
+      if (cold_blocks_it != cold_blocks_.end()) {
+        ColdBlocks& cold_blocks = cold_blocks_it->second;
+        if (!cold_blocks.empty()) {
+          // Find the block containing the address |addr|. When |addr| is not
+          // the same as the block address, the iterator points to the next
+          // block.
+          ColdBlocks::iterator cold_block_it = cold_blocks.lower_bound(addr);
+          if (cold_block_it == cold_blocks.end() ||
+              cold_block_it->second->addr() != addr) {
+            cold_block_it--;
+          }
+
+          // Check whether the address falls into this cold block.
+          DCHECK(cold_block_it != cold_blocks.end());
+          Block* cold_block = cold_block_it->second;
+          if (InRangeIncl(addr, cold_block->addr(), cold_block->size()))
+            block = cold_block;
+        }
+      }
+
+      // Update the block address according to the cold block found.
+      if (!image_->GetAddressOf(block, &block_addr)) {
+        LOG(ERROR) << "Cannot retrieve cold block address.";
+        return DiaBrowser::kBrowserAbort;
+      }
+    }
+
+    if (!InRangeIncl(addr, block_addr, block->size())) {
       LOG(ERROR) << "Label falls outside of current block \""
-                 << current_block_->name() << "\".";
+                 << block->name() << "\".";
       return DiaBrowser::kBrowserAbort;
     }
   } else {
