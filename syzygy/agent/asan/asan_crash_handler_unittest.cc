@@ -38,6 +38,12 @@ class TestAsanCrashHandler : public AsanCrashHandler {
   using AsanCrashHandler::disabled_thread_ids_;
 };
 
+class AsanCrashHandlerTest : public testing::Test {
+  virtual void TearDown() OVERRIDE {
+    TestAsanCrashHandler::on_exception_callback_.Reset();
+  }
+};
+
 void RunHarnessTest(const base::StringPiece& test_name) {
   base::FilePath harness =
       testing::GetOutputRelativePath(kAsanCrashHandlerHarness);
@@ -62,7 +68,7 @@ void OnException(bool* called, struct _EXCEPTION_POINTERS** exception) {
 
 }  // namespace
 
-TEST(AsanCrashHandlerTest, EnableAndDisableFilter) {
+TEST_F(AsanCrashHandlerTest, EnableAndDisableFilter) {
   EXPECT_EQ(0u, TestAsanCrashHandler::disabled_thread_ids_.size());
   AsanCrashHandler::DisableForCurrentThread();
   EXPECT_EQ(1u, TestAsanCrashHandler::disabled_thread_ids_.size());
@@ -70,7 +76,7 @@ TEST(AsanCrashHandlerTest, EnableAndDisableFilter) {
   EXPECT_EQ(0u, TestAsanCrashHandler::disabled_thread_ids_.size());
 }
 
-TEST(AsanCrashHandlerTest, SetOnExceptionCallback) {
+TEST_F(AsanCrashHandlerTest, SetOnExceptionCallback) {
   EXPECT_TRUE(TestAsanCrashHandler::on_exception_callback_.is_null());
 
   bool called = false;
@@ -82,11 +88,11 @@ TEST(AsanCrashHandlerTest, SetOnExceptionCallback) {
   EXPECT_TRUE(called);
 }
 
-TEST(AsanCrashHandlerTest, FilterEnabled) {
+TEST_F(AsanCrashHandlerTest, FilterEnabled) {
   EXPECT_NO_FATAL_FAILURE(RunHarnessTest("FilterEnabled"));
 }
 
-TEST(AsanCrashHandlerTest, FilterDisabled) {
+TEST_F(AsanCrashHandlerTest, FilterDisabled) {
   EXPECT_NO_FATAL_FAILURE(RunHarnessTest("FilterDisabled"));
 }
 
