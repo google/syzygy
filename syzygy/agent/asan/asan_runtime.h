@@ -34,6 +34,47 @@ namespace asan {
 
 class AsanLogger;
 
+// Store the information about a corrupted block.
+struct AsanCorruptedBlockInfo {
+  // The address of the header for this block.
+  void* header;
+  // The user size of the block.
+  size_t user_size : 30;
+  // This is implicitly a HeapProxy::BlockState value.
+  size_t state : 2;
+  // The ID of the allocation thread.
+  DWORD alloc_tid;
+  // The ID of the free thread.
+  DWORD free_tid;
+  // Indicates if the block is corrupted.
+  bool corrupted;
+  // The allocation stack trace.
+  void* alloc_stack[agent::asan::StackCapture::kMaxNumFrames];
+  // The free stack trace.
+  void* free_stack[agent::asan::StackCapture::kMaxNumFrames];
+  // The size of the allocation stack trace.
+  uint8 alloc_stack_size;
+  // The size of the free stack trace.
+  uint8 free_stack_size;
+};
+
+// Store the information about a corrupted heap slab.
+struct AsanCorruptedSlabInfo {
+  // The beginning address of the slab.
+  void* address;
+  // The length of the slab.
+  size_t length;
+  // The number of blocks in the slab.
+  size_t block_count;
+  // The number of entries in the |block_info| array.
+  size_t block_info_count;
+  // The information about the blocks in the slab. This may include one or more
+  // of the corrupted blocks and/or the valid blocks surrounding them; at the
+  // very least it will contain the first corrupted block in the range. The real
+  // length of this array will be stored in |block_info_count|.
+  AsanCorruptedBlockInfo block_info[1];
+};
+
 // Store the information about a bad memory access.
 struct AsanErrorInfo {
   // The address where the bad access happened.
@@ -70,6 +111,13 @@ struct AsanErrorInfo {
   // The time since the memory block containing this address has been freed.
   // This would be equal to zero if the block is still allocated.
   uint64 microseconds_since_free;
+  // Indicates if the heap is corrupted.
+  bool heap_is_corrupted;
+  // The number of entries in the |slab_info| structure.
+  size_t slab_info_count;
+  // The information about the corrupted memory slabs. The real length of this
+  // array will be stored in |slab_info_count|.
+  AsanCorruptedSlabInfo slab_info[1];
 };
 
 // An Asan Runtime manager.
