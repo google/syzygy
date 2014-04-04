@@ -111,6 +111,12 @@ class StackCaptureCache {
   // safe.
   void LogStatistics();
 
+  // Checks if a StackCapture pointer seems to be valid. This only ensure that
+  // it point into a CachePage.
+  // @param stack_capture The pointer that we want to check.
+  // @returns true if the pointer is valid, false otherwise.
+  bool StackCapturePointerIsValid(const StackCapture* stack_capture);
+
  protected:
   // The container type in which we store the cached stacks. This enforces
   // uniqueness based on their hash value, nothing more.
@@ -255,6 +261,12 @@ class StackCaptureCache::CachePage {
 
   // @returns the number of bytes left in this page.
   size_t bytes_left() const { return kDataSize - bytes_used_; }
+
+  // @returns a pointer to the beginning of the stack captures.
+  uint8* data() { return data_; }
+
+  // @returns the size of the data.
+  size_t data_size() { return kDataSize; }
 
  protected:
   // The parent StackCaptureCache is responsible for cleaning up the linked list

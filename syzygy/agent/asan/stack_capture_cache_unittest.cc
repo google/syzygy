@@ -39,6 +39,11 @@ class TestStackCaptureCache : public StackCaptureCache {
     base::AutoLock auto_lock(stats_lock_);
     GetStatisticsUnlocked(s);
   }
+
+  CachePage* current_page() { return current_page_; }
+
+ private:
+  using StackCaptureCache::current_page_;
 };
 
 class StackCaptureCacheTest : public testing::Test {
@@ -325,6 +330,37 @@ TEST_F(StackCaptureCacheTest, CachePagesArePoisoned) {
   EXPECT_FALSE(Shadow::IsAccessible(cache_page_ptr));
   page.reset(NULL);
   EXPECT_TRUE(Shadow::IsAccessible(cache_page_ptr));
+}
+
+TEST_F(StackCaptureCacheTest, StackCapturePointerIsValid) {
+  AsanLogger logger;
+  TestStackCaptureCache cache(&logger);
+
+  // Capture and save a stack trace.
+  ULONG stack_id = 0;
+  void* frames[StackCapture::kMaxNumFrames] = { 0 };
+  size_t num_frames = ::CaptureStackBackTrace(
+      0, StackCapture::kMaxNumFrames, frames, &stack_id);
+  const StackCapture* s1 = cache.SaveStackTrace(stack_id, frames, num_frames);
+  ASSERT_TRUE(s1 != NULL);
+
+  // This pointer should be valid.
+  EXPECT_TRUE(cache.StackCapturePointerIsValid(s1));
+
+  // An address after the current page should be invalid.
+  const StackCapture* invalid_stack_capture_1 =
+      reinterpret_cast<const StackCapture*>(cache.current_page()->data() +
+          cache.current_page()->data_size());
+  EXPECT_FALSE(cache.StackCapturePointerIsValid(invalid_stack_capture_1));
+
+  // An address before the current page should be invalid.
+  const StackCapture* invalid_stack_capture_2 =
+      reinterpret_cast<const StackCapture*>(cache.current_page()->data() - 1);
+  EXPECT_FALSE(cache.StackCapturePointerIsValid(invalid_stack_capture_2));
+
+  // A null pointer should be invalid.
+  EXPECT_FALSE(cache.StackCapturePointerIsValid(
+      reinterpret_cast<const StackCapture*>(NULL)));
 }
 
 }  // namespace asan

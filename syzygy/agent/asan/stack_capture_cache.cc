@@ -249,6 +249,22 @@ void StackCaptureCache::ReleaseStackTrace(const StackCapture* stack_capture) {
   }
 }
 
+bool StackCaptureCache::StackCapturePointerIsValid(
+    const StackCapture* stack_capture) {
+  base::AutoLock lock(current_page_lock_);
+  const uint8* stack_capture_addr =
+      reinterpret_cast<const uint8*>(stack_capture);
+  CachePage* page = current_page_;
+  while (page != NULL) {
+    if (stack_capture_addr >= page->data() &&
+        stack_capture_addr < (page->data() + page->data_size())) {
+      return true;
+    }
+    page = page->next_page_;
+  }
+  return false;
+}
+
 void StackCaptureCache::LogStatistics()  {
   Statistics statistics = {};
 

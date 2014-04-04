@@ -640,11 +640,11 @@ void HeapProxy::ReleaseAsanBlock(BlockHeader* block_header) {
 bool HeapProxy::FreeCorruptedBlock(BlockHeader* header, size_t* alloc_size) {
   DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), header);
 
-  // TODO(chrisha): Is there a better way to do this? We should be able to do an
-  //     exhaustive check of the stack cache to check for validity.
-  // Set the alloc and free pointers to NULL as they might be invalid.
-  header->alloc_stack = NULL;
-  header->free_stack = NULL;
+  // Set the invalid stack captures to NULL.
+  if (!stack_cache_->StackCapturePointerIsValid(header->alloc_stack))
+    header->alloc_stack = NULL;
+  if (!stack_cache_->StackCapturePointerIsValid(header->free_stack))
+    header->free_stack = NULL;
 
   // Calculate the allocation size via the shadow as the header might be
   // corrupted.
@@ -1088,6 +1088,15 @@ bool HeapProxy::GetBadAccessInformation(AsanErrorInfo* bad_access_info) {
       bad_access_info->error_type != CORRUPTED_BLOCK) {
     bad_access_info->error_type = GetBadAccessKind(bad_access_info->location,
                                                    header);
+  }
+
+  // Makes sure that we don't try to use an invalid stack capture pointer.
+  if (bad_access_info->error_type == CORRUPTED_BLOCK) {
+    // Set the invalid stack captures to NULL.
+    if (!stack_cache_->StackCapturePointerIsValid(header->alloc_stack))
+      header->alloc_stack = NULL;
+    if (!stack_cache_->StackCapturePointerIsValid(header->free_stack))
+      header->free_stack = NULL;
   }
 
   // Checks if there's a containing block in the case of a use after free on a
