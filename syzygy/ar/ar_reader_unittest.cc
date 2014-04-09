@@ -52,11 +52,11 @@ TEST_F(ArReaderTest, InitAndBuildFileIndex) {
   EXPECT_TRUE(reader.files_inverse().empty());
 
   // Check some of the symbols for accuracy.
-  ArReader::SymbolIndexMap symbols;
+  SymbolIndexMap symbols;
   symbols.insert(std::make_pair(std::string("_MOZ_Z_crc32"), 12));
-  ArReader::SymbolIndexMap::const_iterator sym_it = symbols.begin();
+  SymbolIndexMap::const_iterator sym_it = symbols.begin();
   for (; sym_it != symbols.end(); ++sym_it) {
-    ArReader::SymbolIndexMap::const_iterator sym_it2 = reader.symbols().find(
+    SymbolIndexMap::const_iterator sym_it2 = reader.symbols().find(
         sym_it->first);
     ASSERT_TRUE(sym_it2 != reader.symbols().end());
     EXPECT_EQ(*sym_it, *sym_it2);

@@ -24,7 +24,6 @@ namespace ar {
 
 namespace {
 
-typedef ArReader::SymbolIndexMap SymbolIndexMap;
 typedef ArReader::FileOffsetVector FileOffsetVector;
 
 // Calculates that length of a space terminated string with a maximum size.
@@ -235,7 +234,7 @@ bool ArReader::Init(const base::FilePath& ar_path) {
     return false;
   }
   if (!ParseSecondarySymbolTable(length_, data.data(), data.size(),
-                                  &symbols_, &offsets_)) {
+                                 &symbols_, &offsets_)) {
     LOG(ERROR) << "Failed to parse secondary symbol table.";
     return false;
   }

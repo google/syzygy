@@ -20,12 +20,4 @@ const size_t kArFileAlignment = 2;
 const char kArGlobalMagic[8] = { '!', '<', 'a', 'r', 'c', 'h', '>', '\n' };
 const char kArFileMagic[2] = { 0x60, 0x0A };
 
-// Swaps endianness.
-uint32 SwapEndianness(uint32 value) {
-  return (value & 0x000000FF) << 24 |
-         (value & 0x0000FF00) << 8 |
-         (value & 0x00FF0000) >> 8 |
-         (value & 0xFF000000) >> 24;
-}
-
 }  // namespace ar

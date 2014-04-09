@@ -33,6 +33,10 @@ extern const char kArFileMagic[2];
 // The buffer object used for reading and writing files to an archive.
 typedef std::vector<uint8> DataBuffer;
 
+// Maps symbols by their name to the index of the archived file containing
+// them.
+typedef std::map<std::string, uint32> SymbolIndexMap;
+
 // The global file header.
 struct ArGlobalHeader {
   char magic[8];

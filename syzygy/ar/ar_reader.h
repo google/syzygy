@@ -83,9 +83,6 @@ namespace ar {
 // expose the parsed symbol information in any meaningful way.
 class ArReader {
  public:
-  // Maps symbols by their name to the index of the archived file containing
-  // them.
-  typedef std::map<std::string, uint32> SymbolIndexMap;
   // Stores the offsets of each file object, by their index.
   typedef std::vector<uint32> FileOffsetVector;
   // Maps sorted object filenames to their index in the archive.

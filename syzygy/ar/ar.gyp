@@ -25,6 +25,8 @@
         'ar_common.h',
         'ar_reader.cc',
         'ar_reader.h',
+        'ar_writer.cc',
+        'ar_writer.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
@@ -37,6 +39,7 @@
       'sources': [
         'ar_reader_unittest.cc',
         'ar_unittests_main.cc',
+        'ar_writer_unittest.cc',
       ],
       'dependencies': [
         'ar_lib',
