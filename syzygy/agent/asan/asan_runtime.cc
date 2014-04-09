@@ -341,7 +341,8 @@ void AsanRuntime::OnError(AsanErrorInfo* error_info) {
       base::StringAppendF(&output,
                           "%s of size %d at 0x%08X\n",
                           access_mode_str,
-                          error_info->access_size);
+                          error_info->access_size,
+                          error_info->location);
     }
 
     // Log the failure and stack.
