@@ -34,8 +34,8 @@ namespace asan {
 
 class AsanLogger;
 
-// Store the information about a corrupted block.
-struct AsanCorruptedBlockInfo {
+// Store the information about a corrupt block.
+struct AsanBlockInfo {
   // The address of the header for this block.
   void* header;
   // The user size of the block.
@@ -46,8 +46,8 @@ struct AsanCorruptedBlockInfo {
   DWORD alloc_tid;
   // The ID of the free thread.
   DWORD free_tid;
-  // Indicates if the block is corrupted.
-  bool corrupted;
+  // Indicates if the block is corrupt.
+  bool corrupt;
   // The allocation stack trace.
   void* alloc_stack[agent::asan::StackCapture::kMaxNumFrames];
   // The free stack trace.
@@ -58,21 +58,20 @@ struct AsanCorruptedBlockInfo {
   uint8 free_stack_size;
 };
 
-// Store the information about a corrupted heap slab.
-struct AsanCorruptedSlabInfo {
-  // The beginning address of the slab.
+struct AsanCorruptBlockRange {
+  // The beginning address of the range.
   void* address;
-  // The length of the slab.
+  // The length of the range.
   size_t length;
-  // The number of blocks in the slab.
+  // The number of blocks in this range.
   size_t block_count;
-  // The number of entries in the |block_info| array.
+  // The number of blocks in the |block_info| array.
   size_t block_info_count;
-  // The information about the blocks in the slab. This may include one or more
-  // of the corrupted blocks and/or the valid blocks surrounding them; at the
-  // very least it will contain the first corrupted block in the range. The real
+  // The information about the blocks in this range. This may include one or
+  // more of the corrupt blocks and/or the valid blocks surrounding them; at the
+  // very least it will contain the first corrupt block in the range. The real
   // length of this array will be stored in |block_info_count|.
-  AsanCorruptedBlockInfo block_info[1];
+  AsanBlockInfo* block_info;
 };
 
 // Store the information about a bad memory access.
@@ -111,13 +110,13 @@ struct AsanErrorInfo {
   // The time since the memory block containing this address has been freed.
   // This would be equal to zero if the block is still allocated.
   uint64 microseconds_since_free;
-  // Indicates if the heap is corrupted.
-  bool heap_is_corrupted;
-  // The number of entries in the |slab_info| structure.
-  size_t slab_info_count;
-  // The information about the corrupted memory slabs. The real length of this
-  // array will be stored in |slab_info_count|.
-  AsanCorruptedSlabInfo slab_info[1];
+  // Indicates if the heap is corrupt.
+  bool heap_is_corrupt;
+  // The number of entries in the |corrupt_ranges| structure.
+  size_t corrupt_range_count;
+  // The information about the corrupt ranges of memory. The real length of this
+  // array will be stored in |corrupt_range_count|.
+  AsanCorruptBlockRange* corrupt_ranges;
 };
 
 // An Asan Runtime manager.
