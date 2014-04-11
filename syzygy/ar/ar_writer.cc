@@ -54,16 +54,14 @@ bool ExtractSymbols(uint32 file_index,
   const IMAGE_FILE_HEADER* file_header = NULL;
   if (!reader.Read(&file_header))
     return false;
-  if (file_header->Machine == 0 || file_header->Machine == 0xFFFF) {
-    LOG(ERROR) << "Unsupported anonymous object file: "
-               << header.name;
-    return false;
-  }
+
+  // Object files should never contain an optional header.
   if (file_header->SizeOfOptionalHeader != 0) {
     LOG(ERROR) << "Unrecognized object file: " << header.name;
     return false;
   }
 
+  // If there are no symbols then there's no work to be done.
   if (file_header->NumberOfSymbols == 0)
     return true;
 

@@ -55,12 +55,15 @@ bool ArTransform::Transform() {
 
   // Iterate over the files in the archive.
   ArWriter writer;
-  while (reader.HasNext()) {
+  for (size_t i = 0; i < reader.offsets().size(); ++i) {
     // Extract the next file.
     ParsedArFileHeader header;
     scoped_ptr<DataBuffer> buffer(new DataBuffer());
     if (!reader.ExtractNext(&header, buffer.get()))
       return false;
+
+    LOG(INFO) << "Processing file " << (i + 1) << " of "
+              << reader.offsets().size() << ": " << header.name;
 
     // Apply the transform to this file.
     bool remove = false;
