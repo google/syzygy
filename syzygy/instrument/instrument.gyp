@@ -24,6 +24,8 @@
         'instrument_app.cc',
         'instrument_app.h',
         'instrumenter.h',
+        'instrumenters/archive_instrumenter.cc',
+        'instrumenters/archive_instrumenter.h',
         'instrumenters/asan_instrumenter.cc',
         'instrumenters/asan_instrumenter.h',
         'instrumenters/branch_instrumenter.cc',
@@ -103,6 +105,7 @@
       'sources': [
         'instrument_app_unittest.cc',
         'instrument_unittests_main.cc',
+        'instrumenters/archive_instrumenter_unittest.cc',
         'instrumenters/asan_instrumenter_unittest.cc',
         'instrumenters/bbentry_instrumenter_unittest.cc',
         'instrumenters/branch_instrumenter_unittest.cc',

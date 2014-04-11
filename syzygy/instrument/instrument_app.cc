@@ -22,6 +22,7 @@
 
 #include "base/string_util.h"
 #include "base/stringprintf.h"
+#include "syzygy/instrument/instrumenters/archive_instrumenter.h"
 #include "syzygy/instrument/instrumenters/asan_instrumenter.h"
 #include "syzygy/instrument/instrumenters/bbentry_instrumenter.h"
 #include "syzygy/instrument/instrumenters/branch_instrumenter.h"
@@ -115,6 +116,13 @@ static const char kUsageFormatStr[] =
     "    --instrument-imports    Also instrument calls to imports.\n"
     "\n";
 
+// Currently only ASAN supports COFF/LIB instrumentation. As other
+// instrumenters add COFF support they need to be added with a similar
+// mechanism.
+InstrumenterInterface* AsanInstrumenterFactory() {
+  return new instrumenters::AsanInstrumenter();
+}
+
 }  // namespace
 
 void InstrumentApp::ParseDeprecatedMode(const CommandLine* cmd_line) {
@@ -158,7 +166,10 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
   } else {
     std::string mode = cmd_line->GetSwitchValueASCII("mode");
     if (LowerCaseEqualsASCII(mode, "asan")) {
-      instrumenter_.reset(new instrumenters::AsanInstrumenter());
+      // We wrap the ASAN instrumenter in an ArchiveInstrumenter adapter so
+      // that it can transparently handle .lib files.
+      instrumenter_.reset(new instrumenters::ArchiveInstrumenter(
+          &AsanInstrumenterFactory));
     } else if (LowerCaseEqualsASCII(mode, "bbentry")) {
       instrumenter_.reset(new instrumenters::BasicBlockEntryInstrumenter());
     } else if (LowerCaseEqualsASCII(mode, "branch")) {
