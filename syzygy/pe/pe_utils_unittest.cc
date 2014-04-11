@@ -18,6 +18,7 @@
 #include "base/strings/string_split.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/ar/unittest_util.h"
 #include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/pe_file.h"
@@ -450,6 +451,7 @@ TEST_F(PEUtilsTest, GuessFileType) {
       testing::kTestDllPdbName);
   base::FilePath null_machine_coff = testing::GetSrcRelativePath(
       testing::kMachineTypeNullCoffName);
+  base::FilePath archive = testing::GetSrcRelativePath(testing::kArchiveFile);
 
   // Doesn't exist.
   FileType file_type = kUnknownFileType;
@@ -484,6 +486,10 @@ TEST_F(PEUtilsTest, GuessFileType) {
   file_type = kUnknownFileType;
   EXPECT_TRUE(GuessFileType(null_machine_coff, &file_type));
   EXPECT_EQ(kCoffFileType, file_type);
+
+  file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(archive, &file_type));
+  EXPECT_EQ(kArchiveFileType, file_type);
 }
 
 TEST_F(PEUtilsTest, RedirectReferences) {

@@ -25,6 +25,8 @@
         'ar_common.h',
         'ar_reader.cc',
         'ar_reader.h',
+        'ar_transform.cc',
+        'ar_transform.h',
         'ar_writer.cc',
         'ar_writer.h',
       ],
@@ -34,15 +36,25 @@
       ],
     },
     {
+      'target_name': 'ar_unittest_utils',
+      'type': 'static_library',
+      'sources': [
+        'unittest_util.cc',
+        'unittest_util.h',
+      ],
+    },
+    {
       'target_name': 'ar_unittests',
       'type': 'executable',
       'sources': [
         'ar_reader_unittest.cc',
+        'ar_transform_unittest.cc',
         'ar_unittests_main.cc',
         'ar_writer_unittest.cc',
       ],
       'dependencies': [
         'ar_lib',
+        'ar_unittest_utils',
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',

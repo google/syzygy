@@ -517,6 +517,7 @@ bool GuessFileType(const base::FilePath& path, FileType* file_type) {
   // - Itanium COFF files begin with 0x00 0x02.
   // - PDB files begin with a long string "Microsoft ...". We check the first
   //   4 bytes and call it quits there.
+  // - Archive (.lib) files begin with !<arch>, and we check the first 4 bytes.
 
   uint8 magic[4] = {};
   if (fread(&magic, sizeof(magic[0]), arraysize(magic), file.get()) !=
@@ -540,6 +541,9 @@ bool GuessFileType(const base::FilePath& path, FileType* file_type) {
   } else if (magic[0] == 'M' && magic[1] == 'i' && magic[2] == 'c' &&
              magic[3] == 'r') {
     *file_type = kPdbFileType;
+  } else if (magic[0] == '!' && magic[1] == '<' && magic[2] == 'a' &&
+             magic[3] == 'r') {
+    *file_type = kArchiveFileType;
   }
 
   return true;

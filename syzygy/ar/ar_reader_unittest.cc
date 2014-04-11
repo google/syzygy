@@ -16,19 +16,18 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/ar/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
 
 namespace ar {
 
 namespace {
 
-const wchar_t kLibraryFile[] = L"syzygy\\ar\\test_data\\zlib.lib";
-
 // Test fixture.
 class ArReaderTest : public testing::Test {
  public:
   virtual void SetUp() OVERRIDE {
-    lib_path_ = testing::GetSrcRelativePath(kLibraryFile);
+    lib_path_ = testing::GetSrcRelativePath(testing::kArchiveFile);
   }
 
   base::FilePath lib_path_;
@@ -46,8 +45,8 @@ TEST_F(ArReaderTest, InitAndBuildFileIndex) {
 
   EXPECT_TRUE(reader.Init(lib_path_));
   EXPECT_EQ(lib_path_, reader.path());
-  EXPECT_EQ(86u, reader.symbols().size());
-  EXPECT_EQ(15u, reader.offsets().size());
+  EXPECT_EQ(testing::kArchiveSymbolCount, reader.symbols().size());
+  EXPECT_EQ(testing::kArchiveFileCount, reader.offsets().size());
   EXPECT_TRUE(reader.files().empty());
   EXPECT_TRUE(reader.files_inverse().empty());
 
@@ -65,8 +64,8 @@ TEST_F(ArReaderTest, InitAndBuildFileIndex) {
   // Build the filename map.
   EXPECT_TRUE(reader.BuildFileIndex());
   EXPECT_EQ(lib_path_, reader.path());
-  EXPECT_EQ(86u, reader.symbols().size());
-  EXPECT_EQ(15u, reader.offsets().size());
+  EXPECT_EQ(testing::kArchiveSymbolCount, reader.symbols().size());
+  EXPECT_EQ(testing::kArchiveFileCount, reader.offsets().size());
   EXPECT_EQ(15u, reader.files().size());
   EXPECT_EQ(15u, reader.files_inverse().size());
 

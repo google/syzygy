@@ -69,6 +69,7 @@
             'block_graph_analysis_lib',
         '<(src)/syzygy/block_graph/transforms/block_graph_transforms.gyp:'
             'block_graph_transforms_lib',
+        '<(src)/syzygy/ar/ar.gyp:ar_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_lib',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
@@ -128,6 +129,7 @@
         '<(src)/base/base.gyp:base',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/syzygy/ar/ar.gyp:ar_unittest_utils',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/pdb/pdb.gyp:pdb_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',

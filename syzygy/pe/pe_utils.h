@@ -183,6 +183,7 @@ enum FileType {
   kPdbFileType,
   kCoffFileType,
   kPeFileType,
+  kArchiveFileType,
 };
 
 // Guesses the type of the given file. This does not do extensive validation.

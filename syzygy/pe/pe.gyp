@@ -246,6 +246,7 @@
         'test_dll',
         'test_dll_obj',
         '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/ar/ar.gyp:ar_unittest_utils',
         '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_unittest_lib',
         '<(src)/syzygy/block_graph/orderers/block_graph_orderers.gyp:'
             'block_graph_orderers_lib',
