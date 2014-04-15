@@ -95,13 +95,13 @@ class AsanTransformTest : public testing::TestDllTransformTest {
         &basic_block_->instructions()));
   }
 
-  void ApplyTransformToTestDll() {
+  void ApplyTransformToIntegrationTestDll() {
     base::FilePath input_path = ::testing::GetOutputRelativePath(
-        testing::kTestDllName);
+        testing::kIntegrationTestsDllName);
 
     base::FilePath temp_dir;
     CreateTemporaryDir(&temp_dir);
-    relinked_path_ = temp_dir.Append(testing::kTestDllName);
+    relinked_path_ = temp_dir.Append(testing::kIntegrationTestsDllName);
 
     pe::PERelinker relinker(&pe_policy_);
     relinker.set_input_path(input_path);
@@ -897,7 +897,7 @@ bool GetAsanHooksIATEntries(const PEImage &image,
 }  // namespace
 
 TEST_F(AsanTransformTest, ImportsAreRedirectedPe) {
-  ASSERT_NO_FATAL_FAILURE(ApplyTransformToTestDll());
+  ASSERT_NO_FATAL_FAILURE(ApplyTransformToIntegrationTestDll());
 
   // Load the transformed module without resolving its dependencies.
   base::NativeLibrary lib =
@@ -1217,7 +1217,7 @@ TEST_F(AsanTransformTest, ImportsAreRedirectedCoff) {
 }
 
 TEST_F(AsanTransformTest, AsanHooksAreStubbed) {
-  ASSERT_NO_FATAL_FAILURE(ApplyTransformToTestDll());
+  ASSERT_NO_FATAL_FAILURE(ApplyTransformToIntegrationTestDll());
 
   // Load the transformed module without resolving its dependencies.
   base::NativeLibrary lib =

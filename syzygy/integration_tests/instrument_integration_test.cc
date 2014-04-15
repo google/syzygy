@@ -189,7 +189,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 
     // Initialize the (potential) input and output path values.
     base::FilePath abs_input_dll_path_ =
-        testing::GetExeRelativePath(L"integration_tests_dll.dll");
+        testing::GetExeRelativePath(testing::kIntegrationTestsDllName);
     input_dll_path_ = testing::GetRelativePath(abs_input_dll_path_);
     output_dll_path_ = temp_dir_.Append(input_dll_path_.BaseName());
 
@@ -784,7 +784,8 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
       module_names.push_back(image_name.BaseName().value());
     }
 
-    EXPECT_TRUE(ContainsString(module_names, L"integration_tests_dll.dll"));
+    EXPECT_TRUE(ContainsString(module_names,
+                               testing::kIntegrationTestsDllName));
     // If imports are thunked, we expect to find a module entry for the export
     // DLL - otherwise it shouldn't be in there at all.
     if (thunk_imports) {

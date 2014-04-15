@@ -134,6 +134,8 @@
         '<(src)/testing/gtest.gyp:gtest',
         '<(src)/syzygy/ar/ar.gyp:ar_unittest_utils',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/integration_tests/integration_tests.gyp:'
+            'integration_tests_dll',
         '<(src)/syzygy/pdb/pdb.gyp:pdb_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:test_dll',
