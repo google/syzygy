@@ -19,6 +19,8 @@
 
 #include <windows.h>  // NOLINT
 
+#include "syzygy/integration_tests/asan_check_tests.h"
+
 namespace testing {
 
 // Disable the intrinsic version of the intercepted function.
@@ -82,11 +84,11 @@ static type AsanMemsetOverflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
   type first_trailer_val = NonInterceptedRead(ptr + kArraySize);
-  ::memset(ptr, 0xFF, kArraySize * sizeof(type) + 1);
-  type result = ptr[0];
+  TryInvalidCall3(&::memset, static_cast<void*>(ptr), 0xFF,
+      kArraySize * sizeof(type) + 1);
   NonInterceptedWrite(ptr + kArraySize, first_trailer_val);
   delete[] ptr;
-  return result;
+  return 0;
 }
 
 template<typename type>
@@ -94,21 +96,22 @@ static type AsanMemsetUnderflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
   type last_header_val = NonInterceptedRead(ptr - 1);
-  ::memset(reinterpret_cast<uint8*>(ptr) - 1, 0xFF, kArraySize * sizeof(type));
-  type result = ptr[0];
+  uint8* underflow_address = reinterpret_cast<uint8*>(ptr) - 1;
+  TryInvalidCall3(&::memset, static_cast<void*>(underflow_address), 0xFF,
+      kArraySize * sizeof(type));
   NonInterceptedWrite(ptr - 1, last_header_val);
   delete[] ptr;
-  return result;
+  return 0;
 }
 
 template<typename type>
 static type AsanMemsetUseAfterFree() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
-  type result = ptr[0];
   delete[] ptr;
-  ::memset(reinterpret_cast<uint8*>(ptr), 0xFF, kArraySize * sizeof(type));
-  return result;
+  TryInvalidCall3(&::memset, static_cast<void*>(ptr), 0xFF,
+      kArraySize * sizeof(type));
+  return 0;
 }
 
 template<typename type>
@@ -116,10 +119,12 @@ static type AsanMemchrOverflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
   ::memset(ptr, 0xAA, kArraySize * sizeof(type));
-  ::memchr(ptr, 0xFF, kArraySize * sizeof(type) + 1);
-  type result = ptr[0];
+  TryInvalidCall3(static_cast<void* (*)(void*, int, size_t)>(&::memchr),
+                  static_cast<void*>(ptr),
+                  0xFF,
+                  kArraySize * sizeof(type) + 1);
   delete[] ptr;
-  return result;
+  return 0;
 }
 
 template<typename type>
@@ -127,10 +132,13 @@ static type AsanMemchrUnderflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
   ::memset(ptr, 0xAA, kArraySize * sizeof(type));
-  ::memchr(reinterpret_cast<uint8*>(ptr) - 1, 0xFF, kArraySize * sizeof(type));
-  type result = ptr[0];
+  uint8* underflow_address = reinterpret_cast<uint8*>(ptr) - 1;
+  TryInvalidCall3(static_cast<void* (*)(void*, int, size_t)>(&::memchr),
+                  static_cast<void*>(underflow_address),
+                  0xFF,
+                  kArraySize * sizeof(type));
   delete[] ptr;
-  return result;
+  return 0;
 }
 
 template<typename type>
@@ -138,10 +146,11 @@ static type AsanMemchrUseAfterFree() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
   ::memset(ptr, 0xAA, kArraySize * sizeof(type));
-  type result = ptr[0];
   delete[] ptr;
-  ::memchr(ptr, 0xFF, kArraySize * sizeof(type));
-  return result;
+  TryInvalidCall3(static_cast<void* (*)(void*, int, size_t)>(&::memchr),
+                  static_cast<void*>(ptr), 0xFF,
+                  kArraySize * sizeof(type));
+  return 0;
 }
 
 template<typename type>
@@ -150,11 +159,14 @@ static type AsanMemmoveWriteOverflow() {
   type* ptr = new type[kArraySize];
   type first_trailer_val = NonInterceptedRead(ptr + kArraySize);
   ::memset(ptr, 0xAA, kArraySize * sizeof(type));
-  ::memmove(reinterpret_cast<uint8*>(ptr) + 1, ptr, kArraySize * sizeof(type));
-  type result = ptr[0];
+  uint8* dst = reinterpret_cast<uint8*>(ptr) + 1;
+  TryInvalidCall3(&::memmove,
+                  static_cast<void*>(dst),
+                  static_cast<const void*>(ptr),
+                  kArraySize * sizeof(type));
   NonInterceptedWrite(ptr + kArraySize, first_trailer_val);
   delete[] ptr;
-  return result;
+  return 0;
 }
 
 template<typename type>
@@ -163,11 +175,14 @@ static type AsanMemmoveWriteUnderflow() {
   type* ptr = new type[kArraySize];
   type last_header_val = NonInterceptedRead(ptr - 1);
   ::memset(ptr, 0xAA, kArraySize * sizeof(type));
-  ::memmove(reinterpret_cast<uint8*>(ptr) - 1, ptr, kArraySize * sizeof(type));
-  type result = ptr[0];
+  uint8* underflow_address = reinterpret_cast<uint8*>(ptr) - 1;
+  TryInvalidCall3(&::memmove,
+                  static_cast<void*>(underflow_address),
+                  static_cast<const void*>(ptr),
+                  kArraySize * sizeof(type));
   NonInterceptedWrite(ptr - 1, last_header_val);
   delete[] ptr;
-  return result;
+  return 0;
 }
 
 template<typename type>
@@ -175,10 +190,13 @@ static type AsanMemmoveReadOverflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
   ::memset(ptr, 0xAA, kArraySize * sizeof(type));
-  ::memmove(ptr, reinterpret_cast<uint8*>(ptr) + 1, kArraySize * sizeof(type));
-  type result = ptr[0];
+  uint8* src = reinterpret_cast<uint8*>(ptr) + 1;
+  TryInvalidCall3(&::memmove,
+                  static_cast<void*>(ptr),
+                  static_cast<const void*>(src),
+                  kArraySize * sizeof(type));
   delete[] ptr;
-  return result;
+  return 0;
 }
 
 template<typename type>
@@ -186,10 +204,13 @@ static type AsanMemmoveReadUnderflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
   ::memset(ptr, 0xAA, kArraySize * sizeof(type));
-  ::memmove(ptr, reinterpret_cast<uint8*>(ptr) - 1, kArraySize * sizeof(type));
-  type result = ptr[0];
+  uint8* underflow_address = reinterpret_cast<uint8*>(ptr) - 1;
+  TryInvalidCall3(&memmove,
+                  static_cast<void*>(ptr),
+                  static_cast<const void*>(underflow_address),
+                  kArraySize * sizeof(type));
   delete[] ptr;
-  return result;
+  return 0;
 }
 
 template<typename type>
@@ -197,10 +218,12 @@ static type AsanMemmoveUseAfterFree() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
   ::memset(ptr, 0xAA, kArraySize * sizeof(type));
-  type result = ptr[0];
   delete[] ptr;
-  ::memmove(ptr, ptr, kArraySize * sizeof(type));
-  return result;
+  TryInvalidCall3(&::memmove,
+                  static_cast<void*>(ptr),
+                  static_cast<const void*>(ptr),
+                  kArraySize * sizeof(type));
+  return 0;
 }
 
 template<typename type>
@@ -210,12 +233,15 @@ static type AsanMemcpyWriteOverflow() {
   type* dst = new type[kArraySize];
   type first_trailer_val = NonInterceptedRead(dst + kArraySize);
   ::memset(src, 0xAA, kArraySize * sizeof(type));
-  ::memcpy(reinterpret_cast<uint8*>(dst) + 1, src, kArraySize * sizeof(type));
-  type result = src[0];
+  uint8* overflow_dst = reinterpret_cast<uint8*>(dst) + 1;
+  TryInvalidCall3(&::memcpy,
+                  static_cast<void*>(overflow_dst),
+                  static_cast<const void*>(src),
+                  kArraySize * sizeof(type));
   NonInterceptedWrite(dst + kArraySize, first_trailer_val);
   delete[] src;
   delete[] dst;
-  return result;
+  return 0;
 }
 
 template<typename type>
@@ -225,12 +251,15 @@ static type AsanMemcpyWriteUnderflow() {
   type* dst = new type[kArraySize];
   type last_header_val = NonInterceptedRead(dst - 1);
   ::memset(src, 0xAA, kArraySize * sizeof(type));
-  ::memcpy(reinterpret_cast<uint8*>(dst) - 1, src, kArraySize * sizeof(type));
-  type result = src[0];
+  uint8* underflow_dst = reinterpret_cast<uint8*>(dst) - 1;
+  TryInvalidCall3(&::memcpy,
+                  static_cast<void*>(underflow_dst),
+                  static_cast<const void*>(src),
+                  kArraySize * sizeof(type));
   NonInterceptedWrite(dst - 1, last_header_val);
   delete[] src;
   delete[] dst;
-  return result;
+  return 0;
 }
 
 template<typename type>
@@ -239,11 +268,14 @@ static type AsanMemcpyReadOverflow() {
   type* src = new type[kArraySize];
   type* dst = new type[kArraySize];
   ::memset(src, 0xAA, kArraySize * sizeof(type));
-  ::memcpy(dst, reinterpret_cast<uint8*>(src) + 1, kArraySize * sizeof(type));
-  type result = src[0];
+  uint8* overflow_src = reinterpret_cast<uint8*>(src) + 1;
+  TryInvalidCall3(&::memcpy,
+                  static_cast<void*>(dst),
+                  static_cast<const void*>(overflow_src),
+                  kArraySize * sizeof(type));
   delete[] src;
   delete[] dst;
-  return result;
+  return 0;
 }
 
 template<typename type>
@@ -252,11 +284,14 @@ static type AsanMemcpyReadUnderflow() {
   type* src = new type[kArraySize];
   type* dst = new type[kArraySize];
   ::memset(src, 0xAA, kArraySize * sizeof(type));
-  ::memcpy(dst, reinterpret_cast<uint8*>(src) - 1, kArraySize * sizeof(type));
-  type result = src[0];
+  uint8* underflow_src = reinterpret_cast<uint8*>(src) - 1;
+  TryInvalidCall3(&::memcpy,
+                  static_cast<void*>(dst),
+                  static_cast<const void*>(underflow_src),
+                  kArraySize * sizeof(type));
   delete[] src;
   delete[] dst;
-  return result;
+  return 0;
 }
 
 template<typename type>
@@ -265,11 +300,13 @@ static type AsanMemcpyUseAfterFree() {
   type* src = new type[kArraySize];
   type* dst = new type[kArraySize];
   ::memset(src, 0xAA, kArraySize * sizeof(type));
-  type result = src[0];
   delete[] src;
-  ::memcpy(dst, src, kArraySize * sizeof(type));
+  TryInvalidCall3(&::memcpy,
+                  static_cast<void*>(dst),
+                  static_cast<const void*>(src),
+                  kArraySize * sizeof(type));
   delete[] dst;
-  return result;
+  return 0;
 }
 
 size_t AsanStrcspnKeysOverflow();

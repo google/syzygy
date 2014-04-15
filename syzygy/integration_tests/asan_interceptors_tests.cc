@@ -84,10 +84,12 @@ size_t AsanStrcspnKeysOverflow() {
   size_t keys_len = ::strlen(keys);
   keys[keys_len] = 'a';
 
-  size_t result = ::strcspn(str, keys);
+  TryInvalidCall2(&::strcspn,
+                  static_cast<const char*>(str),
+                  static_cast<const char*>(keys));
   delete[] str;
   delete[] keys;
-  return result;
+  return 0;
 }
 
 size_t AsanStrcspnKeysUnderflow() {
@@ -95,10 +97,12 @@ size_t AsanStrcspnKeysUnderflow() {
   char* keys = NULL;
   Alloc2TestStrings(&str, &keys);
 
-  size_t result = ::strcspn(str, keys - 1);
+  TryInvalidCall2(&::strcspn,
+                  static_cast<const char*>(str),
+                  static_cast<const char*>(keys - 1));
   delete[] str;
   delete[] keys;
-  return result;
+  return 0;
 }
 
 size_t AsanStrcspnKeysUseAfterFree() {
@@ -107,9 +111,11 @@ size_t AsanStrcspnKeysUseAfterFree() {
   Alloc2TestStrings(&str, &keys);
 
   delete[] keys;
-  size_t result = ::strcspn(str, keys);
+  TryInvalidCall2(&::strcspn,
+                  static_cast<const char*>(str),
+                  static_cast<const char*>(keys));
   delete[] str;
-  return result;
+  return 0;
 }
 
 size_t AsanStrcspnSrcOverflow() {
@@ -120,10 +126,12 @@ size_t AsanStrcspnSrcOverflow() {
   size_t str_len = ::strlen(str);
   str[str_len] = 'a';
 
-  size_t result = ::strcspn(str, keys);
+  TryInvalidCall2(&::strcspn,
+                  static_cast<const char*>(str),
+                  static_cast<const char*>(keys));
   delete[] str;
   delete[] keys;
-  return result;
+  return 0;
 }
 
 size_t AsanStrcspnSrcUnderflow() {
@@ -131,10 +139,12 @@ size_t AsanStrcspnSrcUnderflow() {
   char* keys = NULL;
   Alloc2TestStrings(&str, &keys);
 
-  size_t result = ::strcspn(str - 1, keys);
+  TryInvalidCall2(&::strcspn,
+                  static_cast<const char*>(str - 1),
+                  static_cast<const char*>(keys));
   delete[] str;
   delete[] keys;
-  return result;
+  return 0;
 }
 
 size_t AsanStrcspnSrcUseAfterFree() {
@@ -143,9 +153,11 @@ size_t AsanStrcspnSrcUseAfterFree() {
   Alloc2TestStrings(&str, &keys);
 
   delete[] str;
-  size_t result = ::strcspn(str, keys);
+  TryInvalidCall2(&::strcspn,
+                  static_cast<const char*>(str),
+                  static_cast<const char*>(keys));
   delete[] keys;
-  return result;
+  return 0;
 }
 
 size_t AsanStrlenOverflow() {
@@ -156,9 +168,9 @@ size_t AsanStrlenOverflow() {
   size_t str_len = ::strlen(str);
   str[str_len] = 'a';
 
-  size_t result = ::strlen(str);
+  TryInvalidCall1(&::strlen, static_cast<const char*>(str));
   delete[] str;
-  return result;
+  return 0;
 }
 
 size_t AsanStrlenUnderflow() {
@@ -166,9 +178,9 @@ size_t AsanStrlenUnderflow() {
   char* str = new char[::strlen(str_value) + 1];
   ::strcpy(str, str_value);
 
-  size_t result = ::strlen(str - 1);
+  TryInvalidCall1(&::strlen, static_cast<const char*>(str - 1));
   delete[] str;
-  return result;
+  return ::strlen(str_value);
 }
 
 size_t AsanStrlenUseAfterFree() {
@@ -177,8 +189,8 @@ size_t AsanStrlenUseAfterFree() {
   ::strcpy(str, str_value);
 
   delete[] str;
-  size_t result = ::strlen(str);
-  return result;
+  TryInvalidCall1(&::strlen, static_cast<const char*>(str));
+  return 0;
 }
 
 size_t AsanStrrchrOverflow() {
@@ -189,9 +201,11 @@ size_t AsanStrrchrOverflow() {
   size_t str_len = ::strlen(str);
   str[str_len] = 'a';
 
-  char* result = ::strrchr(str, 'c');
+  TryInvalidCall2(static_cast<char* (*)(char*, int)>(&::strrchr),
+                  static_cast<char*>(str),
+                  static_cast<int>('c'));
   delete[] str;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrrchrUnderflow() {
@@ -199,9 +213,11 @@ size_t AsanStrrchrUnderflow() {
   char* str = new char[::strlen(str_value) + 1];
   ::strcpy(str, str_value);
 
-  char* result = ::strrchr(str - 1, 'c');
+  TryInvalidCall2(static_cast<char* (*)(char*, int)>(&::strrchr),
+                  static_cast<char*>(str - 1),
+                  static_cast<int>('c'));
   delete[] str;
-  return reinterpret_cast<size_t>(result);
+  return ::strlen(str_value);
 }
 
 size_t AsanStrrchrUseAfterFree() {
@@ -210,8 +226,10 @@ size_t AsanStrrchrUseAfterFree() {
   ::strcpy(str, str_value);
 
   delete[] str;
-  char* result = ::strrchr(str, 'c');
-  return reinterpret_cast<size_t>(result);
+  TryInvalidCall2(static_cast<char* (*)(char*, int)>(&::strrchr),
+                  static_cast<char*>(str),
+                  static_cast<int>('c'));
+  return 0;
 }
 
 size_t AsanStrcmpSrc1Overflow() {
@@ -222,10 +240,12 @@ size_t AsanStrcmpSrc1Overflow() {
   size_t str1_len = ::strlen(str1);
   str1[str1_len] = 'a';
 
-  size_t result = ::strcmp(str1, str2);
+  TryInvalidCall2(&::strcmp,
+                  static_cast<const char*>(str1),
+                  static_cast<const char*>(str2));
   delete[] str1;
   delete[] str2;
-  return result;
+  return 0;
 }
 
 size_t AsanStrcmpSrc1Underflow() {
@@ -233,10 +253,12 @@ size_t AsanStrcmpSrc1Underflow() {
   char* str2 = NULL;
   Alloc2TestStrings(&str1, &str2);
 
-  size_t result = ::strcmp(str1 - 1, str2);
+  TryInvalidCall2(&::strcmp,
+                  static_cast<const char*>(str1 - 1),
+                  static_cast<const char*>(str2));
   delete[] str1;
   delete[] str2;
-  return result;
+  return 0;
 }
 
 size_t AsanStrcmpSrc1UseAfterFree() {
@@ -245,9 +267,11 @@ size_t AsanStrcmpSrc1UseAfterFree() {
   Alloc2TestStrings(&str1, &str2);
 
   delete[] str1;
-  size_t result = ::strcmp(str1, str2);
+  TryInvalidCall2(&::strcmp,
+                  static_cast<const char*>(str1),
+                  static_cast<const char*>(str2));
   delete[] str2;
-  return result;
+  return 0;
 }
 
 size_t AsanStrcmpSrc2Overflow() {
@@ -258,10 +282,12 @@ size_t AsanStrcmpSrc2Overflow() {
   size_t str1_len = ::strlen(str1);
   str1[str1_len] = 'a';
 
-  size_t result = ::strcmp(str1, str2);
+  TryInvalidCall2(&::strcmp,
+                  static_cast<const char*>(str1),
+                  static_cast<const char*>(str2));
   delete[] str1;
   delete[] str2;
-  return result;
+  return 0;
 }
 
 size_t AsanStrcmpSrc2Underflow() {
@@ -269,10 +295,12 @@ size_t AsanStrcmpSrc2Underflow() {
   char* str2 = NULL;
   Alloc2TestStrings(&str1, &str2);
 
-  size_t result = ::strcmp(str1 - 1, str2);
+  TryInvalidCall2(&::strcmp,
+                  static_cast<const char*>(str1 - 1),
+                  static_cast<const char*>(str2));
   delete[] str1;
   delete[] str2;
-  return result;
+  return 0;
 }
 
 size_t AsanStrcmpSrc2UseAfterFree() {
@@ -281,9 +309,11 @@ size_t AsanStrcmpSrc2UseAfterFree() {
   Alloc2TestStrings(&str1, &str2);
 
   delete[] str2;
-  size_t result = ::strcmp(str1, str2);
+  TryInvalidCall2(&::strcmp,
+                  static_cast<const char*>(str1),
+                  static_cast<const char*>(str2));
   delete[] str1;
-  return result;
+  return 0;
 }
 
 size_t AsanStrpbrkKeysOverflow() {
@@ -294,10 +324,12 @@ size_t AsanStrpbrkKeysOverflow() {
   size_t keys_len = ::strlen(keys);
   keys[keys_len] = 'a';
 
-  char* result = ::strpbrk(str, keys);
+  TryInvalidCall2(static_cast<char* (*)(char*, const char*)>(&::strpbrk),
+                  static_cast<char*>(str),
+                  static_cast<const char*>(keys));
   delete[] str;
   delete[] keys;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrpbrkKeysUnderflow() {
@@ -305,10 +337,12 @@ size_t AsanStrpbrkKeysUnderflow() {
   char* keys = NULL;
   Alloc2TestStrings(&str, &keys);
 
-  char* result = ::strpbrk(str, keys - 1);
+  TryInvalidCall2(static_cast<char* (*)(char*, const char*)>(&::strpbrk),
+                  static_cast<char*>(str),
+                  static_cast<const char*>(keys - 1));
   delete[] str;
   delete[] keys;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrpbrkKeysUseAfterFree() {
@@ -317,9 +351,11 @@ size_t AsanStrpbrkKeysUseAfterFree() {
   Alloc2TestStrings(&str, &keys);
 
   delete[] keys;
-  char* result = ::strpbrk(str, keys);
+  TryInvalidCall2(static_cast<char* (*)(char*, const char*)>(&::strpbrk),
+                  static_cast<char*>(str),
+                  static_cast<const char*>(keys));
   delete[] str;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrpbrkSrcOverflow() {
@@ -330,10 +366,12 @@ size_t AsanStrpbrkSrcOverflow() {
   size_t str_len = ::strlen(str);
   str[str_len] = 'a';
 
-  char* result = ::strpbrk(str, keys);
+  TryInvalidCall2(static_cast<char* (*)(char*, const char*)>(&::strpbrk),
+                  static_cast<char*>(str),
+                  static_cast<const char*>(keys));
   delete[] str;
   delete[] keys;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrpbrkSrcUnderflow() {
@@ -341,10 +379,12 @@ size_t AsanStrpbrkSrcUnderflow() {
   char* keys = NULL;
   Alloc2TestStrings(&str, &keys);
 
-  char* result = ::strpbrk(str - 1, keys);
+  TryInvalidCall2(static_cast<char* (*)(char*, const char*)>(&::strpbrk),
+                  static_cast<char*>(str - 1),
+                  static_cast<const char*>(keys));
   delete[] str;
   delete[] keys;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrpbrkSrcUseAfterFree() {
@@ -353,9 +393,11 @@ size_t AsanStrpbrkSrcUseAfterFree() {
   Alloc2TestStrings(&str, &keys);
 
   delete[] str;
-  char* result = ::strpbrk(str, keys);
+  TryInvalidCall2(static_cast<char* (*)(char*, const char*)>(&::strpbrk),
+                  static_cast<char*>(str),
+                  static_cast<const char*>(keys));
   delete[] keys;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrstrSrc1Overflow() {
@@ -366,10 +408,12 @@ size_t AsanStrstrSrc1Overflow() {
   size_t str1_len = ::strlen(str1);
   str1[str1_len] = 'a';
 
-  char* result = ::strstr(str1, str2);
+  TryInvalidCall2(static_cast<char* (*)(char*, const char*)>(&::strstr),
+                  static_cast<char*>(str1),
+                  static_cast<const char*>(str2));
   delete[] str1;
   delete[] str2;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrstrSrc1Underflow() {
@@ -377,10 +421,12 @@ size_t AsanStrstrSrc1Underflow() {
   char* str2 = NULL;
   Alloc2TestStrings(&str1, &str2);
 
-  char* result = ::strstr(str1 - 1, str2);
+  TryInvalidCall2(static_cast<char* (*)(char*, const char*)>(&::strstr),
+                  static_cast<char*>(str1 - 1),
+                  static_cast<const char*>(str2));
   delete[] str1;
   delete[] str2;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrstrSrc1UseAfterFree() {
@@ -389,9 +435,11 @@ size_t AsanStrstrSrc1UseAfterFree() {
   Alloc2TestStrings(&str1, &str2);
 
   delete[] str1;
-  char* result = ::strstr(str1, str2);
+  TryInvalidCall2(static_cast<char* (*)(char*, const char*)>(&::strstr),
+                  static_cast<char*>(str1),
+                  static_cast<const char*>(str2));
   delete[] str2;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrstrSrc2Overflow() {
@@ -402,10 +450,12 @@ size_t AsanStrstrSrc2Overflow() {
   size_t str1_len = ::strlen(str1);
   str1[str1_len] = 'a';
 
-  char* result = ::strstr(str1, str2);
+  TryInvalidCall2(static_cast<char* (*)(char*, const char*)>(&::strstr),
+                  static_cast<char*>(str1),
+                  static_cast<const char*>(str2));
   delete[] str1;
   delete[] str2;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrstrSrc2Underflow() {
@@ -413,10 +463,12 @@ size_t AsanStrstrSrc2Underflow() {
   char* str2 = NULL;
   Alloc2TestStrings(&str1, &str2);
 
-  char* result = ::strstr(str1 - 1, str2);
+  TryInvalidCall2(static_cast<char* (*)(char*, const char*)>(&::strstr),
+                  static_cast<char*>(str1 - 1),
+                  static_cast<const char*>(str2));
   delete[] str1;
   delete[] str2;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrstrSrc2UseAfterFree() {
@@ -425,9 +477,11 @@ size_t AsanStrstrSrc2UseAfterFree() {
   Alloc2TestStrings(&str1, &str2);
 
   delete[] str2;
-  char* result = ::strstr(str1, str2);
+  TryInvalidCall2(static_cast<char* (*)(char*, const char*)>(&::strstr),
+                  static_cast<char*>(str1),
+                  static_cast<const char*>(str2));
   delete[] str1;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrspnKeysOverflow() {
@@ -438,10 +492,12 @@ size_t AsanStrspnKeysOverflow() {
   size_t keys_len = ::strlen(keys);
   keys[keys_len] = 'a';
 
-  size_t result = ::strspn(str, keys);
+  TryInvalidCall2(&::strspn,
+                  static_cast<const char*>(str),
+                  static_cast<const char*>(keys));
   delete[] str;
   delete[] keys;
-  return result;
+  return 0;
 }
 
 size_t AsanStrspnKeysUnderflow() {
@@ -449,10 +505,12 @@ size_t AsanStrspnKeysUnderflow() {
   char* keys = NULL;
   Alloc2TestStrings(&str, &keys);
 
-  size_t result = ::strspn(str, keys - 1);
+  TryInvalidCall2(&::strspn,
+                  static_cast<const char*>(str),
+                  static_cast<const char*>(keys - 1));
   delete[] str;
   delete[] keys;
-  return result;
+  return 0;
 }
 
 size_t AsanStrspnKeysUseAfterFree() {
@@ -461,9 +519,11 @@ size_t AsanStrspnKeysUseAfterFree() {
   Alloc2TestStrings(&str, &keys);
 
   delete[] keys;
-  size_t result = ::strspn(str, keys);
+  TryInvalidCall2(&::strspn,
+                  static_cast<const char*>(str),
+                  static_cast<const char*>(keys));
   delete[] str;
-  return result;
+  return 0;
 }
 
 size_t AsanStrspnSrcOverflow() {
@@ -474,10 +534,12 @@ size_t AsanStrspnSrcOverflow() {
   size_t str_len = ::strlen(str);
   str[str_len] = 'a';
 
-  size_t result = ::strspn(str, keys);
+  TryInvalidCall2(&::strspn,
+                  static_cast<const char*>(str),
+                  static_cast<const char*>(keys));
   delete[] str;
   delete[] keys;
-  return result;
+  return 0;
 }
 
 size_t AsanStrspnSrcUnderflow() {
@@ -488,7 +550,7 @@ size_t AsanStrspnSrcUnderflow() {
   size_t result = ::strspn(str - 1, keys);
   delete[] str;
   delete[] keys;
-  return result;
+  return 0;
 }
 
 size_t AsanStrspnSrcUseAfterFree() {
@@ -497,9 +559,11 @@ size_t AsanStrspnSrcUseAfterFree() {
   Alloc2TestStrings(&str, &keys);
 
   delete[] str;
-  size_t result = ::strspn(str, keys);
+  TryInvalidCall2(&::strspn,
+                  static_cast<const char*>(str),
+                  static_cast<const char*>(keys));
   delete[] keys;
-  return result;
+  return 0;
 }
 
 size_t AsanStrncpySrcOverflow() {
@@ -512,11 +576,13 @@ size_t AsanStrncpySrcOverflow() {
   size_t source_len = ::strlen(src);
   src[source_len] = 'a';
 
-  char* result = ::strncpy(destination, src, source_len + 2);
-
+  TryInvalidCall3(&::strncpy,
+                  static_cast<char*>(destination),
+                  static_cast<const char*>(src),
+                  source_len + 2);
   delete[] src;
   delete[] destination;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrncpySrcUnderflow() {
@@ -526,11 +592,14 @@ size_t AsanStrncpySrcUnderflow() {
 
   char* destination = new char[::strlen(str_value) + 1];
 
-  char* result = ::strncpy(destination, src - 1, ::strlen(str_value) + 1);
+  TryInvalidCall3(&::strncpy,
+                  static_cast<char*>(destination),
+                  static_cast<const char*>(src - 1),
+                  ::strlen(str_value) + 1);
 
   delete[] src;
   delete[] destination;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrncpySrcUseAfterFree() {
@@ -541,10 +610,13 @@ size_t AsanStrncpySrcUseAfterFree() {
   char* destination = new char[::strlen(str_value) + 1];
 
   delete[] src;
-  char* result = ::strncpy(destination, src, ::strlen(str_value) + 1);
+  TryInvalidCall3(&::strncpy,
+                  static_cast<char*>(destination),
+                  static_cast<const char*>(src),
+                  ::strlen(str_value) + 1);
 
   delete[] destination;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrncpyDstOverflow() {
@@ -558,13 +630,16 @@ size_t AsanStrncpyDstOverflow() {
   std::string original_data;
   original_data.resize(::strlen(long_str_value));
   NonInterceptedReads(destination, ::strlen(long_str_value), &original_data[0]);
-  char* result = ::strncpy(destination, long_source, ::strlen(long_str_value));
+  TryInvalidCall3(&::strncpy,
+                  static_cast<char*>(destination),
+                  static_cast<const char*>(long_source),
+                  ::strlen(long_str_value));
   NonInterceptedWrites(&original_data[0], ::strlen(long_str_value),
       destination);
 
   delete[] long_source;
   delete[] destination;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrncpyDstUnderflow() {
@@ -575,12 +650,15 @@ size_t AsanStrncpyDstUnderflow() {
   char* destination = new char[::strlen(str_value) + 1];
 
   char last_header_val = NonInterceptedRead(destination - 1);
-  char* result = ::strncpy(destination - 1, src, ::strlen(str_value) + 1);
+  TryInvalidCall3(&::strncpy,
+                  static_cast<char*>(destination - 1),
+                  static_cast<const char*>(src),
+                  ::strlen(str_value) + 1);
   NonInterceptedWrite(destination - 1, last_header_val);
 
   delete[] src;
   delete[] destination;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrncpyDstUseAfterFree() {
@@ -591,10 +669,13 @@ size_t AsanStrncpyDstUseAfterFree() {
   char* destination = new char[::strlen(str_value) + 1];
 
   delete[] destination;
-  char* result = ::strncpy(destination, src, ::strlen(str_value) + 1);
+  TryInvalidCall3(&::strncpy,
+                  static_cast<char*>(destination),
+                  static_cast<const char*>(src),
+                  ::strlen(str_value) + 1);
 
   delete[] src;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrncatSuffixOverflow() {
@@ -610,14 +691,15 @@ size_t AsanStrncatSuffixOverflow() {
 
   char first_trailer_val = NonInterceptedRead(&suffix[suffix_len + 1]);
   suffix[suffix_len] = 'a';
-  NonInterceptedWrite(&suffix[suffix_len + 1], static_cast<char>(0));
-  char* result = ::strncat(mem, suffix, suffix_len + 2);
-  NonInterceptedWrite(&suffix[suffix_len + 1], first_trailer_val);
+  bool ret = TryInvalidCall3(&::strncat,
+                             mem,
+                             static_cast<const char*>(suffix),
+                             suffix_len + 2);
   suffix[suffix_len] = 0;
 
   delete[] suffix;
   delete[] mem;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrncatSuffixUnderflow() {
@@ -630,11 +712,14 @@ size_t AsanStrncatSuffixUnderflow() {
   char* suffix = new char[::strlen(suffix_value) + 1];
   ::strcpy(suffix, suffix_value);
 
-  char* result = ::strncat(mem, suffix - 1, ::strlen(suffix));
+  bool ret = TryInvalidCall3(&::strncat,
+                             mem,
+                             static_cast<const char*>(suffix - 1),
+                             ::strlen(suffix));
 
   delete[] suffix;
   delete[] mem;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrncatSuffixUseAfterFree() {
@@ -648,10 +733,13 @@ size_t AsanStrncatSuffixUseAfterFree() {
   ::strcpy(suffix, suffix_value);
 
   delete[] suffix;
-  char* result = ::strncat(mem, suffix, ::strlen(suffix_value));
+  bool ret = TryInvalidCall3(&::strncat,
+                             mem,
+                             static_cast<const char*>(suffix),
+                             ::strlen(suffix_value));
 
   delete[] mem;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrncatDstOverflow() {
@@ -666,11 +754,14 @@ size_t AsanStrncatDstOverflow() {
 
   std::string original_data;
   char first_trailer_val = NonInterceptedRead(&mem[mem_size]);
-  char* result = ::strncat(mem, suffix_value, ::strlen(suffix_value) + 1);
+  bool ret = TryInvalidCall3(&::strncat,
+                             mem,
+                             static_cast<const char*>(suffix_value),
+                             ::strlen(suffix_value) + 1);
   NonInterceptedWrite(&mem[mem_size], first_trailer_val);
 
   delete[] mem;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrncatDstUnderflow() {
@@ -684,12 +775,15 @@ size_t AsanStrncatDstUnderflow() {
   ::strcpy(suffix, suffix_value);
 
   char last_header_val = NonInterceptedRead(mem - 1);
-  char* result = ::strncat(mem - 1, suffix, ::strlen(suffix));
+  bool ret = TryInvalidCall3(&::strncat,
+                             mem - 1,
+                             static_cast<const char*>(suffix),
+                             ::strlen(suffix));
   NonInterceptedWrite(mem - 1, last_header_val);
 
   delete[] suffix;
   delete[] mem;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanStrncatDstUseAfterFree() {
@@ -703,10 +797,13 @@ size_t AsanStrncatDstUseAfterFree() {
   ::strcpy(suffix, suffix_value);
 
   delete[] mem;
-  char* result = ::strncat(mem, suffix, ::strlen(suffix));
+  bool ret = TryInvalidCall3(&::strncat,
+                             mem,
+                             static_cast<const char*>(suffix),
+                             ::strlen(suffix));
 
   delete[] suffix;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanReadFileOverflow() {
@@ -725,17 +822,16 @@ size_t AsanReadFileOverflow() {
 
   char* alloc = new char[kTestStringLength];
   memset(alloc, 0, kTestStringLength);
-
   // Do an overflow on the destination buffer. It should be detected by the
   // ASan interceptor of ReadFile.
   DWORD bytes_read = 0;
-  if (!::ReadFile(file_handle,
-                  alloc,
-                  kTestStringLength + 1,
-                  &bytes_read,
-                  NULL)) {
-    return 0;
-  }
+
+  TryInvalidStdCall5(&::ReadFile,
+                     file_handle,
+                     static_cast<LPVOID>(alloc),
+                     static_cast<DWORD>(kTestStringLength + 1),
+                     static_cast<LPDWORD>(&bytes_read),
+                     reinterpret_cast<LPOVERLAPPED>(NULL));
 
   delete[] alloc;
 
@@ -769,15 +865,12 @@ size_t AsanReadFileUseAfterFree() {
 
   DWORD bytes_read = 0;
 
-  // Do an use-after-free on the destination buffer. It should be detected by
-  // the ASan interceptor of ReadFile.
-  if (!::ReadFile(file_handle,
-                  alloc,
-                  kTestStringLength,
-                  &bytes_read,
-                  NULL)) {
-    return 0;
-  }
+  TryInvalidStdCall5(&::ReadFile,
+                     file_handle,
+                     static_cast<LPVOID>(alloc),
+                     static_cast<DWORD>(kTestStringLength),
+                     static_cast<LPDWORD>(&bytes_read),
+                     reinterpret_cast<LPOVERLAPPED>(NULL));
 
   if (!::CloseHandle(file_handle))
     return 0;
@@ -808,13 +901,12 @@ size_t AsanWriteFileOverflow() {
   // Do an overflow on the input buffer. It should be detected by the ASan
   // interceptor of WriteFile.
   DWORD bytes_written = 0;
-  if (!::WriteFile(file_handle,
-                   alloc,
-                   kTestStringLength + 1,
-                   &bytes_written,
-                   NULL)) {
-    return 0;
-  }
+  TryInvalidStdCall5(&::WriteFile,
+                     file_handle,
+                     static_cast<LPCVOID>(alloc),
+                     static_cast<DWORD>(kTestStringLength + 1),
+                     static_cast<LPDWORD>(&bytes_written),
+                     reinterpret_cast<LPOVERLAPPED>(NULL));
 
   delete[] alloc;
 
@@ -850,13 +942,12 @@ size_t AsanWriteFileUseAfterFree() {
 
   // Do a use-after-free on the input buffer. It should be detected by the ASan
   // interceptor of WriteFile.
-  if (!::WriteFile(file_handle,
-                   alloc,
-                   kTestStringLength,
-                   &bytes_written,
-                   NULL)) {
-    return 0;
-  }
+  TryInvalidStdCall5(&::WriteFile,
+                     file_handle,
+                     static_cast<LPCVOID>(alloc),
+                     static_cast<DWORD>(kTestStringLength),
+                     static_cast<LPDWORD>(&bytes_written),
+                     reinterpret_cast<LPOVERLAPPED>(NULL));
 
   if (!::CloseHandle(file_handle))
     return 0;
@@ -874,10 +965,11 @@ size_t AsanWcsrchrOverflow() {
 
   size_t wstr_len = wcslen(wstr);
   wstr[wstr_len] = L'a';
-
-  wchar_t* result = wcsrchr(wstr, L'c');
+  TryInvalidCall2(static_cast<wchar_t* (*)(wchar_t*, wchar_t)>(&::wcsrchr),
+                  static_cast<wchar_t*>(wstr),
+                  L'c');
   delete[] wstr;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanWcsrchrUnderflow() {
@@ -885,9 +977,11 @@ size_t AsanWcsrchrUnderflow() {
   wchar_t* wstr = new wchar_t[wcslen(wstr_value) + 1];
   wcscpy(wstr, wstr_value);
 
-  wchar_t* result = wcsrchr(wstr - 1, L'c');
+  TryInvalidCall2(static_cast<wchar_t* (*)(wchar_t*, wchar_t)>(&::wcsrchr),
+                  static_cast<wchar_t*>(wstr - 1),
+                  L'c');
   delete[] wstr;
-  return reinterpret_cast<size_t>(result);
+  return 0;
 }
 
 size_t AsanWcsrchrUseAfterFree() {
@@ -896,8 +990,10 @@ size_t AsanWcsrchrUseAfterFree() {
   wcscpy(wstr, wstr_value);
 
   delete[] wstr;
-  wchar_t* result = wcsrchr(wstr, L'c');
-  return reinterpret_cast<size_t>(result);
+  TryInvalidCall2(static_cast<wchar_t* (*)(wchar_t*, wchar_t)>(&::wcsrchr),
+                  static_cast<wchar_t*>(wstr),
+                  L'c');
+  return 0;
 }
 
 // TODO(chrisha|sebmarchand): These should be in a separate file, as they

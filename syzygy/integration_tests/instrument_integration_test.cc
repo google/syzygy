@@ -73,14 +73,20 @@ int asan_error_count;
 // Contains the last ASAN error reported.
 agent::asan::AsanErrorInfo last_asan_error;
 
-void AsanSafeCallback(agent::asan::AsanErrorInfo* info) {
+void AsanCallback(agent::asan::AsanErrorInfo* info) {
   asan_error_count++;
   last_asan_error = *info;
-}
-
-void AsanSafeCallbackWithException(agent::asan::AsanErrorInfo* info) {
-  AsanSafeCallback(info);
-  ::RaiseException(EXCEPTION_ARRAY_BOUNDS_EXCEEDED, 0, 0, NULL);
+  // We want to prevent write errors from corrupting the underlying block hence
+  // we stop the flow of execution by raising an exception. The faulty calls are
+  // themselves wrapped in try/catch statements, and continue executing
+  // afterwards. Thus, they clean up after themselves.
+  //
+  // In the case of block corruption we elect to allow the code to continue
+  // executing so that the normal code path is taken. If we raise an exception
+  // this actually prevents the AsanHeap cleanup code from continuing, and we
+  // leak memory.
+  if (info->error_type != CORRUPTED_BLOCK)
+    ::RaiseException(EXCEPTION_ARRAY_BOUNDS_EXCEEDED, 0, 0, NULL);
 }
 
 void ResetAsanErrors() {
@@ -269,6 +275,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
                       size_t max_tries,
                       bool unload) {
     ResetAsanErrors();
+    EXPECT_NO_FATAL_FAILURE(SetAsanDefaultCallBack(AsanCallback));
 
     for (size_t i = 0; i < max_tries; ++i) {
       InvokeTestDllFunction(test);
@@ -316,9 +323,6 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
   }
 
   void AsanErrorCheckTestDll() {
-    ASSERT_NO_FATAL_FAILURE(SetAsanDefaultCallBack(
-        AsanSafeCallbackWithException));
-
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead8BufferOverflowTestId,
         HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1, 1, false));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead16BufferOverflowTestId,
@@ -376,8 +380,6 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 
   void AsanErrorCheckSampledAllocations() {
     // This assumes we have a 50% allocation sampling rate.
-    ASSERT_NO_FATAL_FAILURE(SetAsanDefaultCallBack(
-        AsanSafeCallbackWithException));
 
     // Run ASAN tests over and over again until we've done enough of them. We
     // only check the read operations as the writes may actually cause
@@ -414,7 +416,6 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
   }
 
   void AsanErrorCheckInterceptedFunctions() {
-    ASSERT_NO_FATAL_FAILURE(SetAsanDefaultCallBack(AsanSafeCallback));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemsetOverflow,
         HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 1, 1, false));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemsetUnderflow,
@@ -431,8 +432,11 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
         HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1, 1, false));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemmoveReadUnderflow,
         HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1, 1, false));
+    // In this test both buffers passed to memmove have been freed, but as the
+    // interceptor starts by checking the source buffer this use after free is
+    // seen as an invalid read access.
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemmoveUseAfterFree,
-        USE_AFTER_FREE, ASAN_WRITE_ACCESS, 1, 1, false));
+        USE_AFTER_FREE, ASAN_READ_ACCESS, 1, 1, false));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemmoveWriteOverflow,
         HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 1, 1, false));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanMemmoveWriteUnderflow,
