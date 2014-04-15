@@ -133,4 +133,15 @@ TEST_F(ArReaderTest, InitAndBuildFileIndex) {
   EXPECT_TRUE(reader.HasNext());
 }
 
+TEST_F(ArReaderTest, NoFilenameTable) {
+  base::FilePath lib = testing::GetSrcRelativePath(
+      testing::kWeakSymbolArchiveFile);
+  ArReader reader;
+  EXPECT_TRUE(reader.Init(lib));
+  EXPECT_TRUE(reader.BuildFileIndex());
+  EXPECT_EQ(testing::kWeakSymbolArchiveSymbolCount, reader.symbols().size());
+  EXPECT_EQ(testing::kWeakSymbolArchiveFileCount, reader.offsets().size());
+  EXPECT_EQ(testing::kWeakSymbolArchiveFileCount, reader.files().size());
+}
+
 }  // namespace ar

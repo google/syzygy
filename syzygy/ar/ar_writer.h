@@ -81,6 +81,11 @@ class ArWriter {
   // The collection of symbols exported from the various object files.
   SymbolIndexMap symbols_;
 
+  // The collection of weak symbols currently exported from the various object
+  // files. These have to be tracked separately as they can be overridden by
+  // later object files.
+  SymbolIndexMap weak_symbols_;
+
  private:
   DISALLOW_COPY_AND_ASSIGN(ArWriter);
 };

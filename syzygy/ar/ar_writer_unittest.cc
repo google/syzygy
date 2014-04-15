@@ -15,14 +15,19 @@
 #include "syzygy/ar/ar_writer.h"
 
 #include "base/file_util.h"
+#include "base/memory/scoped_vector.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/ar/ar_reader.h"
+#include "syzygy/ar/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
 
 namespace ar {
 
 namespace {
 
+// A selection of files from zlib.lib, and the number of symbols that should be
+// found in each of them when added to an ArWriter.
 const wchar_t* kObjectFiles[] = {
     L"syzygy\\ar\\test_data\\adler32.obj",
     L"syzygy\\ar\\test_data\\compress.obj" };
@@ -153,6 +158,31 @@ TEST_F(ArWriterTest, TestArWriterRoundTripDuplicateSymbols) {
     ParsedArFileHeader header;
     EXPECT_TRUE(reader.ExtractNext(&header, NULL));
   }
+}
+
+TEST_F(ArWriterTest, TestArWriterRoundTripWeakSymbols) {
+  base::FilePath lib1 = testing::GetSrcRelativePath(
+      testing::kWeakSymbolArchiveFile);
+  ArReader reader1;
+  ASSERT_TRUE(reader1.Init(lib1));
+
+  base::FilePath lib2 = temp_dir_.Append(L"weak.lib");
+  ArWriter writer;
+  ScopedVector<DataBuffer> buffers;
+  while (reader1.HasNext()) {
+    ParsedArFileHeader header;
+    scoped_ptr<DataBuffer> contents(new DataBuffer);
+    ASSERT_TRUE(reader1.ExtractNext(&header, contents.get()));
+    EXPECT_TRUE(writer.AddFile(header.name, header.timestamp, header.mode,
+                               contents.get()));
+    buffers.push_back(contents.release());
+  }
+  EXPECT_THAT(writer.symbols(), testing::ContainerEq(reader1.symbols()));
+  EXPECT_TRUE(writer.Write(lib2));
+
+  ArReader reader2;
+  EXPECT_TRUE(reader2.Init(lib2));
+  EXPECT_THAT(reader2.symbols(), testing::ContainerEq(reader1.symbols()));
 }
 
 }  // namespace ar

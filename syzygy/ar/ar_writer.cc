@@ -39,6 +39,109 @@ typedef ArWriter::FileVector FileVector;
 // Contains a list of file offsets at which each file starts in the archive.
 typedef std::vector<uint32> FileOffsets;
 
+// Determines if a symbol should be added to the symbol table. The rules as to
+// what symbols should be exported has been derived by observation of inputs
+// and outputs to lib.exe, guided by available documentation.
+bool ShouldAddSymbolToTable(const IMAGE_SYMBOL& symbol, bool* is_weak) {
+  DCHECK_NE(reinterpret_cast<bool*>(NULL), is_weak);
+
+  *is_weak = false;
+
+  switch (symbol.StorageClass) {
+    case IMAGE_SYM_CLASS_EXTERNAL: {
+      if (symbol.SectionNumber == 0 && symbol.Type == 0 && symbol.Value > 0) {
+        *is_weak = true;
+        return true;
+      }
+      if ((symbol.SectionNumber == -1 || symbol.SectionNumber > 0) &&
+          symbol.NumberOfAuxSymbols == 0) {
+        return true;
+      }
+      break;
+    }
+
+    case IMAGE_SYM_CLASS_WEAK_EXTERNAL: {
+      if (symbol.SectionNumber == 0 && symbol.Type == 0 &&
+          symbol.NumberOfAuxSymbols == 1) {
+        *is_weak = true;
+        return true;
+      }
+      break;
+    }
+
+    default:
+      break;
+  }
+
+  return false;
+}
+
+// Updates the symbol table. Returns true if the symbol was a duplicate entry,
+// false otherwise. Updates the symbol table with the following logic:
+//
+// - The first non-weak definition of a symbol wins.
+// - The first weak definition of a symbol with no non-weak definitions wins.
+bool UpdateSymbolTable(uint32 file_index,
+                       const base::StringPiece& name,
+                       bool is_weak,
+                       SymbolIndexMap* symbols,
+                       SymbolIndexMap* weak_symbols) {
+  SymbolIndexMap::value_type value = std::make_pair(name.as_string(),
+                                                    file_index);
+  SymbolIndexMap::iterator it = symbols->find(value.first);
+  SymbolIndexMap::iterator weak_it = weak_symbols->find(value.first);
+
+  if (is_weak) {
+    // Case 1: Weak symbol appears, nothing with same name in table.
+    //         Symbol should be added to table.
+    if (it == symbols->end()) {
+      DCHECK(weak_it == weak_symbols->end());
+      CHECK(symbols->insert(value).second);
+      CHECK(weak_symbols->insert(value).second);
+      return false;
+    }
+
+    // Case 2: Weak symbol appears, weak symbol already in table.
+    //         Symbol should be ignored, marked as duplicate.
+    if (weak_it != weak_symbols->end()) {
+      DCHECK(it != symbols->end());
+      DCHECK(*it == *weak_it);
+      return true;
+    }
+
+    // Case 3: Weak symbol appears, non-weak symbol already in table.
+    //         Symbol should be ignored, marked as duplicate.
+    DCHECK(it != symbols->end());
+    DCHECK(weak_it == weak_symbols->end());
+    return true;
+  }
+  DCHECK(!is_weak);
+
+  // Case 4: Non-weak symbol appears, nothing with same name in table.
+  //         Symbol should be added to table.
+  if (it == symbols->end()) {
+    DCHECK(weak_it == weak_symbols->end());
+    CHECK(symbols->insert(value).second);
+    return false;
+  }
+
+  // Case 5: Non-weak symbol appears, weak symbol already in table.
+  //         Symbol should replace weak symbol, marked as duplicate.
+  if (weak_it != weak_symbols->end()) {
+    DCHECK(it != symbols->end());
+    DCHECK(*it == *weak_it);
+    it->second = file_index;
+    weak_symbols->erase(weak_it);
+    return true;
+  }
+
+  // Case 6: Non-weak symbol appears, non-weak symbol already in table.
+  //         Symbol should be ignored, marked as duplicate.
+  DCHECK(it != symbols->end());
+  DCHECK(weak_it == weak_symbols->end());
+  return true;
+}
+
 // Extracts exported symbol names from the given COFF object file, adding them
 // to |symbols|. Returns true on success, false otherwise. This contains some
 // code that is similar to what is found in CoffImage or CoffDecomposer, but
@@ -46,8 +149,10 @@ typedef std::vector<uint32> FileOffsets;
 bool ExtractSymbols(uint32 file_index,
                     const ParsedArFileHeader& header,
                     const DataBuffer& file_contents,
-                    SymbolIndexMap* symbols) {
+                    SymbolIndexMap* symbols,
+                    SymbolIndexMap* weak_symbols) {
   DCHECK_NE(reinterpret_cast<SymbolIndexMap*>(NULL), symbols);
+  DCHECK_NE(reinterpret_cast<SymbolIndexMap*>(NULL), weak_symbols);
 
   common::BinaryBufferReader reader(file_contents.data(),
                                     file_contents.size());
@@ -85,11 +190,10 @@ bool ExtractSymbols(uint32 file_index,
       return false;
     }
 
-    // Only external symbols with actual content in the object file matter.
-    if (symbol->StorageClass != IMAGE_SYM_CLASS_EXTERNAL ||
-        symbol->SectionNumber == 0) {
+    // Filter out symbols that don't belong in the symbol table.
+    bool is_weak = false;
+    if (!ShouldAddSymbolToTable(*symbol, &is_weak))
       continue;
-    }
 
     // Get the symbol name.
     base::StringPiece name;
@@ -114,10 +218,10 @@ bool ExtractSymbols(uint32 file_index,
       name = base::StringPiece(s, len);
     }
 
-    if (!symbols->insert(std::make_pair(name.as_string(),
-                                        file_index)).second) {
+    // Update the symbol tables with this symbol, keeping track of whether or
+    // not this was a duplicate symbol name.
+    if (UpdateSymbolTable(file_index, name, is_weak, symbols, weak_symbols))
       ++duplicate_symbols;
-    }
   }
 
   if (duplicate_symbols) {
@@ -344,13 +448,18 @@ bool ArWriter::AddFile(const base::StringPiece& filename,
   header.mode = mode;
   header.size = contents->size();
 
-  // Try to parse the symbols from the file.
+  // Try to parse the symbols from the file. We keep a copy of the
+  // symbol tables so as not to corrupt them if the operation fails.
   SymbolIndexMap symbols = symbols_;
-  if (!ExtractSymbols(files_.size(), header, *contents, &symbols))
+  SymbolIndexMap weak_symbols = weak_symbols_;
+  if (!ExtractSymbols(files_.size(), header, *contents, &symbols,
+                      &weak_symbols)) {
     return false;
+  }
 
   // If all goes well then commit the file to the archive.
   std::swap(symbols_, symbols);
+  std::swap(weak_symbols_, weak_symbols);
   files_.push_back(std::make_pair(header, contents));
   return true;
 }

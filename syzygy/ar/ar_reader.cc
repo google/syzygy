@@ -124,6 +124,7 @@ bool ParseSecondarySymbolTable(
   size_t file_count = offsets[-1];
   if (length < (file_count + 2) * sizeof(uint32)) {
     LOG(ERROR) << "Secondary symbol table file offsets are truncated.";
+    return false;
   }
 
   size_t symbol_count = offsets[file_count];
@@ -134,7 +135,7 @@ bool ParseSecondarySymbolTable(
   const uint16* indices_end = indices + symbol_count;
   const char* names = reinterpret_cast<const char*>(indices + symbol_count);
   const char* names_end = reinterpret_cast<const char*>(data + length);
-  if (names >= names_end) {
+  if (names > names_end) {
     LOG(ERROR) << "Secondary symbol table indices are truncated.";
     return false;
   }
@@ -239,19 +240,23 @@ bool ArReader::Init(const base::FilePath& ar_path) {
     return false;
   }
 
-  // Expect a filename table.
-  if (!ReadNextFile(&header, &data)) {
-    LOG(ERROR) << "Failed to read filename table.";
-    return false;
-  }
-  if (header.name != "//") {
-    LOG(ERROR) << "Did not find filename table in archive.";
-    return false;
-  }
-  std::swap(data, filenames_);
-
-  // Remember where the remaining files begin.
+  // Remember where we are. The object files may start at this location, or we
+  // may encounter an optional filename table.
   start_of_object_files_ = offset_;
+
+  if (!ReadNextFile(&header, &data)) {
+    LOG(ERROR) << "Failed to read filename table or first archive member.";
+    return false;
+  }
+  if (header.name == "//") {
+    std::swap(data, filenames_);
+    start_of_object_files_ = offset_;
+  } else {
+    // If there was no filename table then seek to the beginning of the object
+    // files.
+    if (!SeekStart())
+      return false;
+  }
 
   return true;
 }
