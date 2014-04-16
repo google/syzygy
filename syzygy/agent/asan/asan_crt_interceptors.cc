@@ -96,6 +96,21 @@ const wchar_t* asan_wcsrchr(const wchar_t* str, wchar_t character) {
   return ::wcsrchr(str, character);
 }
 
+const wchar_t* asan_wcschr(const wchar_t* str, wchar_t character) {
+  const wchar_t* s = str;
+  while (agent::asan::Shadow::IsAccessible(s) && *s != character && *s != NULL)
+    s++;
+  if (!agent::asan::Shadow::IsAccessible(s)) {
+    ReportBadAccess(reinterpret_cast<const uint8*>(s),
+                    HeapProxy::ASAN_READ_ACCESS);
+    return ::wcschr(str, character);
+
+  }
+  if (*s == NULL)
+    return NULL;
+  return s;
+}
+
 int __cdecl asan_strcmp(const char* str1, const char* str2) {
   // TODO(sebmarchand): Provide an implementation that guarantees the same
   //     behavior as the original function.

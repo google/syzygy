@@ -996,6 +996,44 @@ size_t AsanWcsrchrUseAfterFree() {
   return 0;
 }
 
+size_t AsanWcschrOverflow() {
+  const wchar_t* wstr_value = L"abc1";
+  wchar_t* wstr = new wchar_t[wcslen(wstr_value) + 1];
+  wcscpy(wstr, wstr_value);
+
+  size_t wstr_len = wcslen(wstr);
+  wstr[wstr_len] = L'a';
+
+  TryInvalidCall2(static_cast<wchar_t* (*)(wchar_t*, wchar_t)>(&::wcschr),
+                  static_cast<wchar_t*>(wstr),
+                  L'd');
+  delete[] wstr;
+  return 0;
+}
+
+size_t AsanWcschrUnderflow() {
+  const wchar_t* wstr_value = L"abc1";
+  wchar_t* wstr = new wchar_t[wcslen(wstr_value) + 1];
+  wcscpy(wstr, wstr_value);
+  TryInvalidCall2(static_cast<wchar_t* (*)(wchar_t*, wchar_t)>(&::wcschr),
+                  static_cast<wchar_t*>(wstr - 1),
+                  L'c');
+  delete[] wstr;
+  return 0;
+}
+
+size_t AsanWcschrUseAfterFree() {
+  const wchar_t* wstr_value = L"abc1";
+  wchar_t* wstr = new wchar_t[wcslen(wstr_value) + 1];
+  wcscpy(wstr, wstr_value);
+
+  delete[] wstr;
+  TryInvalidCall2(static_cast<wchar_t* (*)(wchar_t*, wchar_t)>(&::wcschr),
+                  static_cast<wchar_t*>(wstr),
+                  L'c');
+  return 0;
+}
+
 // TODO(chrisha|sebmarchand): These should be in a separate file, as they
 // aren't really interceptor tests.
 

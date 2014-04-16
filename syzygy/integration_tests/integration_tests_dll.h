@@ -101,6 +101,9 @@ namespace testing {
     decl(kAsanWcsrchrOverflow, testing::AsanWcsrchrOverflow)  \
     decl(kAsanWcsrchrUnderflow, testing::AsanWcsrchrUnderflow)  \
     decl(kAsanWcsrchrUseAfterFree, testing::AsanWcsrchrUseAfterFree)  \
+    decl(kAsanWcschrOverflow, testing::AsanWcschrOverflow)  \
+    decl(kAsanWcschrUnderflow, testing::AsanWcschrUnderflow)  \
+    decl(kAsanWcschrUseAfterFree, testing::AsanWcschrUseAfterFree)  \
     decl(kAsanStrcmpSrc1Overflow, testing::AsanStrcmpSrc1Overflow)  \
     decl(kAsanStrcmpSrc1Underflow, testing::AsanStrcmpSrc1Underflow)  \
     decl(kAsanStrcmpSrc1UseAfterFree, testing::AsanStrcmpSrc1UseAfterFree)  \

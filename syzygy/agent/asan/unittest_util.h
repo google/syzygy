@@ -138,6 +138,8 @@ class TestWithAsanLogger : public testing::Test {
       (str, character))  \
     F(_cdecl, const wchar_t*, wcsrchr, (const wchar_t* str, int character),  \
       (str, character))  \
+    F(_cdecl, const wchar_t*, wcschr, (const wchar_t* str, int character),  \
+      (str, character))  \
     F(_cdecl, int, strcmp, (const char* str1, const char* str2),  \
       (str1, str2))  \
     F(_cdecl, const char*, strpbrk, (const char* str1, const char* str2),  \

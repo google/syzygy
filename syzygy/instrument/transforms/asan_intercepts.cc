@@ -70,6 +70,10 @@ const MD5Hash kHashes_wcsrchr[] = {
     {"e049d7b7cb421013b2151b2070302def"},  // VS2010.
     {"86cb28d7c68ae6f62c694f2e3239b725"},  // VS2013.
     {""} };
+const MD5Hash kHashes_wcschr[] = {
+    {"f1f7d1a3c28ea37e4d297bce5bc095bd"},  // VS2010 and VS2013: Debug.
+    {"e1d33ebe81f646a5b6941fbc3bad43b1"},  // VS2010 and VS2013: Release.
+    {""} };
 
 // List of module names.
 const char kKernel32[] = "kernel32.dll";
@@ -113,6 +117,7 @@ const AsanIntercept kAsanIntercepts[] = {
   { "strncat", "_strncat", NULL, kHashes_strncat, true },
   { "strrchr", "_strrchr", NULL, kHashes_strrchr, true },
   { "wcsrchr", "_wcsrchr", NULL, kHashes_wcsrchr, true },
+  { "wcschr", "_wcschr", NULL, kHashes_wcschr, true },
 
   // Terminating entry.
   { NULL, NULL, NULL, NULL, false },

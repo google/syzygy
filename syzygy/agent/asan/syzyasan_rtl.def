@@ -97,6 +97,7 @@ EXPORTS
   asan_strlen
   asan_strrchr
   asan_wcsrchr
+  asan_wcschr
   asan_strcmp
   asan_strpbrk
   asan_strstr

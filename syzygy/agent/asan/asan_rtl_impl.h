@@ -87,48 +87,6 @@ BOOL WINAPI asan_HeapQueryInformation(
 typedef void (*AsanErrorCallBack)(agent::asan::AsanErrorInfo*);
 void WINAPI asan_SetCallBack(AsanErrorCallBack callback);
 
-void* __cdecl asan_memcpy(unsigned char* destination,
-                          const unsigned char* source,
-                          size_t num);
-
-void* __cdecl asan_memmove(unsigned char* destination,
-                           const unsigned char* source,
-                           size_t num);
-
-void* __cdecl asan_memset(unsigned char* ptr,
-                          int value,
-                          size_t num);
-
-const void* __cdecl asan_memchr(const unsigned char* ptr,
-                                int value,
-                                size_t num);
-
-size_t __cdecl asan_strcspn(const char* str1, const char* str2);
-
-size_t __cdecl asan_strlen(const char* str);
-
-const char* __cdecl asan_strrchr(const char* str, int character);
-
-const wchar_t* asan_wcsrchr(const wchar_t* str, wchar_t character);
-
-int __cdecl asan_strcmp(const char* str1, const char* str2);
-
-const char* __cdecl asan_strpbrk(const char* str1, const char* str2);
-
-const char* __cdecl asan_strstr(const char* str1, const char* str2);
-
-const wchar_t* __cdecl asan_wcsstr(const wchar_t* str1, const wchar_t* str2);
-
-size_t __cdecl asan_strspn(const char* str1, const char* str2);
-
-char* __cdecl asan_strncpy(char* destination,
-                           const char* source,
-                           size_t num);
-
-char* __cdecl asan_strncat(char* destination,
-                           const char* source,
-                           size_t num);
-
 }  // extern "C"
 
 #endif  // SYZYGY_AGENT_ASAN_ASAN_RTL_IMPL_H_

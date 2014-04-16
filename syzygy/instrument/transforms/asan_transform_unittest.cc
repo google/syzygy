@@ -1007,6 +1007,7 @@ TEST_F(AsanTransformTest, ImportsAreRedirectedPe) {
   expected.insert("asan_strncpy");
   expected.insert("asan_strncat");
   expected.insert("asan_wcsrchr");
+  expected.insert("asan_wcschr");
   Intersect(imports, expected, &results);
   EXPECT_FALSE(results.empty());
   EXPECT_EQ(results, expected);
