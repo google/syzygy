@@ -172,6 +172,8 @@ const wchar_t testing::kMachineTypeNullCoffName[] =
     L"syzygy\\pe\\test_data\\machine_type_null.obj";
 const wchar_t testing::kResources32Name[] =
     L"syzygy\\pe\\test_data\\resources32.obj";
+const wchar_t testing::kCodeView2Name[] =
+    L"syzygy\\pe\\test_data\\codeview2.obj";
 
 const wchar_t kAsanInstrumentedTestDllName[] =
     L"asan_instrumented_test_dll.dll";

@@ -122,13 +122,18 @@ bool ReadRelocationValue(Block* source,
 // Parse a CodeView debug symbol subsection, adding references and attributes as
 // needed to @p block.
 //
+// @param version The CodeView version to use in parsing the symbol stream.
 // @param start the offset to the beginning of the contents (excluding type and
 //     length) of the subsection inside @p block.
 // @param size the size of the subsection.
 // @param block the debug section block.
 // @returns true on success, or false on failure.
-bool ParseDebugSymbols(size_t start, size_t size, Block* block) {
-  DCHECK(block != NULL);
+bool ParseDebugSymbols(
+    cci::CV_SIGNATURE version, size_t start, size_t size, Block* block) {
+  DCHECK(version == cci::C11 || version == cci::C13);
+  DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
+  DCHECK_GT(block->data_size(), start);
+  DCHECK_GE(block->data_size(), start + size);
 
   // We assume that functions do not nest, hence dependent debug symbols should
   // all refer to the last function symbol, whose block is stored in
@@ -235,6 +240,11 @@ bool ParseDebugSymbols(size_t start, size_t size, Block* block) {
       case cci::S_MSTOOLENV_V3:
         break;
 
+      // CodeView2 symbols that we can safely ignore.
+      case cci::S_OBJNAME_CV2:
+      case cci::S_COMPILE2_ST:
+        break;
+
       // These are unknown symbol types, but currently seen. From inspection
       // they don't appear to contain references that need to be parsed.
       // TODO(chrisha): Figure out what these symbols are. Many of them appear
@@ -336,11 +346,11 @@ bool ParseDebugLines(size_t start, size_t size, Block* block) {
   return true;
 }
 
-// Parse all CodeView debug subsections in the specified debug section block.
+// Parse all CodeView4 debug subsections in the specified debug section block.
 //
 // @param block the debug section block.
 // @returns true on success, or false on failure.
-bool ParseDebugSubsections(Block* block) {
+bool ParseDebugSubsections4(Block* block) {
   DCHECK(block != NULL);
 
   size_t section_index = block->section();
@@ -366,7 +376,7 @@ bool ParseDebugSubsections(Block* block) {
     // are ignored.
     switch (*type & ~cci::DEBUG_S_IGNORE) {
       case cci::DEBUG_S_SYMBOLS:
-        if (!ParseDebugSymbols(cursor, *size, block))
+        if (!ParseDebugSymbols(cci::C13, cursor, *size, block))
           return false;
         break;
       case cci::DEBUG_S_LINES:
@@ -391,6 +401,23 @@ bool ParseDebugSubsections(Block* block) {
     }
     cursor += common::AlignUp(*size, sizeof(kDebugSubsectionAlignment));
   }
+  return true;
+}
+
+// Parse all CodeView2 debug subsections in the specified debug section block.
+// This is simply a raw stream of code view symbols, like a CodeView4
+// DEBUG_S_SYMBOLS subsection.
+//
+// @param block the debug section block.
+// @returns true on success, or false on failure.
+bool ParseDebugSubsections2(Block* block) {
+  DCHECK(block != NULL);
+
+  size_t section_index = block->section();
+  size_t cursor = sizeof(uint32);
+  if (!ParseDebugSymbols(cci::C11, cursor, block->size() - cursor, block))
+    return false;
+
   return true;
 }
 
@@ -556,14 +583,19 @@ bool CoffDecomposer::CreateBlocksAndReferencesFromSymbolAndStringTables() {
 
     FileOffsetAddress start(symbols_start + i * sizeof(*symbol));
 
-    FileOffsetAddress value_addr(start + offsetof(IMAGE_SYMBOL, Value));
-    if (!CreateSymbolOffsetReference(
-            value_addr,
-            BlockGraph::SECTION_OFFSET_REF,
-            sizeof(symbol->Value),
-            symbol,
-            symbol->Value)) {
-      return false;
+    // Symbols with section storage class simply provide the characteristics
+    // of the section in the symbol value. Other symbols store an actual offset
+    // into a section in the value field.
+    if (symbol->StorageClass != IMAGE_SYM_CLASS_SECTION) {
+      FileOffsetAddress value_addr(start + offsetof(IMAGE_SYMBOL, Value));
+      if (!CreateSymbolOffsetReference(
+              value_addr,
+              BlockGraph::SECTION_OFFSET_REF,
+              sizeof(symbol->Value),
+              symbol,
+              symbol->Value)) {
+        return false;
+      }
     }
 
     FileOffsetAddress section_addr(
@@ -751,15 +783,27 @@ bool CoffDecomposer::CreateReferencesFromDebugInfo() {
                  << section_index << ".";
       return false;
     }
-    if (*magic != cci::C13) {
-      LOG(ERROR) << "Unsupported CV version " << *magic
-                 << " in .debug$S section " << section_index << ".";
-      return false;
-    }
 
     // Parse subsections.
-    if (!ParseDebugSubsections(block))
-      return false;
+    switch (*magic) {
+      case cci::C11: {
+        if (!ParseDebugSubsections2(block))
+          return false;
+        break;
+      }
+
+      case cci::C13: {
+        if (!ParseDebugSubsections4(block))
+          return false;
+        break;
+      }
+
+      default: {
+        LOG(ERROR) << "Unsupported CV version " << *magic
+                   << " in .debug$S section " << section_index << ".";
+        return false;
+      }
+    }
   }
   return true;
 }

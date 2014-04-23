@@ -25,6 +25,19 @@
 
 namespace Microsoft_Cci_Pdb {
 
+// CodeView2 symbols. These are superseded in CodeView4 symbol streams.
+// Taken from the Visual C++ 5.0 Symbolic Debug Information Specification.
+const uint16 S_COMPILE_CV2 = 0x0001;  // Compile flags symbol.
+const uint16 S_SSEARCH = 0x0005;  // Start search.
+const uint16 S_SKIP = 0x0007;  // Skip - Reserve symbol space.
+const uint16 S_CVRESERVE = 0x0008;  // Reserved for CodeView internal use.
+const uint16 S_OBJNAME_CV2 = 0x0009;  // Name of object file.
+const uint16 S_ENDARG = 0x000A;  // End of arguments in function symbols.
+const uint16 S_COBOLUDT_CV2 = 0x000B;  // Microfocus COBOL user-defined type.
+const uint16 S_MANYREG_CV2 = 0x000C;  // Many register symbol.
+const uint16 S_RETURN = 0x000D;  // Function return description.
+const uint16 S_ENTRYTHIS = 0x000E;  // Description of this pointer at entry.
+
 // Symbols that are not in the enum in the cv_info file.
 const uint16 S_COMPILE3 = 0x113C;
 const uint16 S_MSTOOLENV_V3 = 0x113D;
@@ -42,6 +55,16 @@ const uint16 S_GPROC32_VS2013 = 0x1147;
 // type of the symbol and the second one is the type of structure used to
 // represent this symbol.
 #define SYM_TYPE_CASE_TABLE(decl) \
+    decl(S_COMPILE_CV2, CompileSymCV2) \
+    decl(S_SSEARCH, SearchSym) \
+    decl(S_SKIP, Unknown) \
+    decl(S_CVRESERVE, Unknown) \
+    decl(S_OBJNAME_CV2, ObjNameSym) \
+    decl(S_ENDARG, EndArgSym) \
+    decl(S_COBOLUDT_CV2, UdtSym) \
+    decl(S_MANYREG_CV2, ManyRegSym) \
+    decl(S_RETURN, ReturnSym) \
+    decl(S_ENTRYTHIS, EntryThisSym) \
     decl(S_END, Unknown) \
     decl(S_OEM, OemSymbol) \
     decl(S_REGISTER_ST, Unknown) \
@@ -525,6 +548,50 @@ struct MSToolEnvV3 {
   char key_values[1];
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(MSToolEnvV3, 2);
+
+// Length prefixed string.
+struct LPString {
+  uint8 length;
+  uint8 string[1];
+};
+COMPILE_ASSERT_IS_POD_OF_SIZE(LPString, 2);
+
+// Symbols seen in CodeView2 symbol streams.
+struct CompileSymCV2 {
+  // Machine type. See CV_CPU_TYPE_e enum.
+  uint8 machine;
+  union {
+    // Raw flags.
+    uint8 flags[3];
+    // Parsed flags.
+    struct {
+      // Language index. See CV_CFL_LANG.
+      uint8 language : 8;
+      uint8 pcode_present : 1;
+      // 0: ???
+      // 1: ANSI C floating point rules.
+      // 2-3: Reserved.
+      uint8 float_precision : 2;
+      // 0: Hardware processor.
+      // 1: Emulator.
+      // 2: Altmath.
+      // 3: Reserved.
+      uint8 float_package : 2;
+      // 0: Near.
+      // 1: Far.
+      // 2: Huge.
+      // 3-7: Reserved.
+      uint8 ambient_data : 3;
+      uint8 ambient_code : 3;
+      // Compiled for 32-bit addresses.
+      uint8 mode32 : 1;
+      uint8 reserved : 4;
+    };
+  };
+  // Length-prefixed version string.
+  LPString version;
+};
+COMPILE_ASSERT_IS_POD_OF_SIZE(CompileSymCV2, 6);
 
 #pragma pack(pop)
 

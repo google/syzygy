@@ -729,7 +729,6 @@ bool DumpMSToolEnvV3(FILE* out,
   }
 }
 
-
 // Hexdump the data of the undeciphered symbol records.
 bool DumpUnknown(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {
   if (len == 0)
@@ -738,6 +737,43 @@ bool DumpUnknown(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {
   DumpIndentedText(out, indent_level + 1, "Length: %d\n", len);
   DumpIndentedText(out, indent_level + 1, "Data:\n");
   return DumpUnknownBlock(out, stream, len, indent_level + 2);
+}
+
+// TODO(chrisha|sebmarchand): Implement these! These are simple stubs so that
+//     this compiles cleanly.
+bool DumpCompileSymCV2(FILE* out,
+                       PdbStream* stream,
+                       uint16 len,
+                       uint8 indent_level) {
+  return DumpUnknown(out, stream, len, indent_level);
+}
+
+bool DumpSearchSym(FILE* out,
+                   PdbStream* stream,
+                   uint16 len,
+                   uint8 indent_level) {
+  return DumpUnknown(out, stream, len, indent_level);
+}
+
+bool DumpEndArgSym(FILE* out,
+                   PdbStream* stream,
+                   uint16 len,
+                   uint8 indent_level) {
+  return DumpUnknown(out, stream, len, indent_level);
+}
+
+bool DumpReturnSym(FILE* out,
+                   PdbStream* stream,
+                   uint16 len,
+                   uint8 indent_level) {
+  return DumpUnknown(out, stream, len, indent_level);
+}
+
+bool DumpEntryThisSym(FILE* out,
+                      PdbStream* stream,
+                      uint16 len,
+                      uint8 indent_level) {
+  return DumpUnknown(out, stream, len, indent_level);
 }
 
 }  //  namespace

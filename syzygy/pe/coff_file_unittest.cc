@@ -192,4 +192,10 @@ TEST_F(CoffFileTest, HaveFunctionAndLabels) {
   ASSERT_LT(0u, num_labels);
 }
 
+TEST(SimpleCoffFileTest, InitCodeView2Symbols) {
+  base::FilePath path = testing::GetSrcRelativePath(testing::kCodeView2Name);
+  CoffFile file;
+  EXPECT_TRUE(file.Init(path));
+}
+
 }  // namespace pe

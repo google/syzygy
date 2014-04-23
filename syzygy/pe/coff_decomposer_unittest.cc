@@ -339,4 +339,15 @@ TEST_F(CoffDecomposerTest, RoundTripBasicBlockTest) {
   }
 }
 
+TEST(SimpleCoffDecomposerTest, DecomposeCodeView2Symbols) {
+  base::FilePath path = testing::GetSrcRelativePath(testing::kCodeView2Name);
+  CoffFile file;
+  ASSERT_TRUE(file.Init(path));
+  CoffDecomposer decomposer(file);
+  BlockGraph block_graph;
+  ImageLayout image_layout(&block_graph);
+  EXPECT_TRUE(decomposer.Decompose(&image_layout));
+  EXPECT_EQ(BlockGraph::COFF_IMAGE, block_graph.image_format());
+}
+
 }  // namespace pe
