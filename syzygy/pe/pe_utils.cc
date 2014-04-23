@@ -491,6 +491,63 @@ bool HasImportEntry(block_graph::BlockGraph::Block* header_block,
   return true;
 }
 
+namespace {
+
+// A struct for storing magic signatures for a given file type.
+struct FileMagic {
+  FileType file_type;
+  size_t magic_size;
+  const uint8* magic;
+};
+
+// Macros for defining magic signatures for files.
+#define DEFINE_BINARY_MAGIC(type, bin)  \
+    { type, arraysize(bin), bin }
+#define DEFINE_STRING_MAGIC(type, str)  \
+    { type, arraysize(str) - 1, str }  // Ignores the trailing NUL.
+
+// Magic signatures used by various file types.
+// Archive (.lib) files begin with a simple string.
+const uint8 kArchiveFileMagic[] = "!<arch>";
+// Machine independent COFF files begin with 0x00 0x00, and then two bytes
+// that aren't 0xFF 0xFF. LTCG object files (unsupported) are followed by
+// 0xFF 0xFF.
+const uint8 kCoffFileMagic1[] = { 0x00, 0x00, 0xFF, 0xFF };
+const uint8 kCoffFileMagic2[] = { 0x00, 0x00 };
+// X86 COFF files begin with 0x4c 0x01.
+const uint8 kCoffFileMagic3[] = { 0x4C, 0x01 };
+const uint8 kPdbFileMagic[] = "Microsoft C/C++ MSF ";
+// PE files all contain DOS stubs, and the first two bytes of 16-bit DOS
+// exectuables are always "MZ".
+const uint8 kPeFileMagic[] = "MZ";
+// This is a dummy resource file entry that also reads as an invalid 16-bit
+// resource. This allows MS tools to distinguish between 16-bit and 32-bit
+// resources. We only care about 32-bit resources, and this is sufficient for
+// us to distinguish between a resource file and a COFF object file.
+const uint8 kResourceFileMagic[] = {
+    0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00,
+    0xFF, 0xFF, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+// Simple magic signatures for files.
+const FileMagic kFileMagics[] = {
+  DEFINE_BINARY_MAGIC(kResourceFileType, kResourceFileMagic),
+  DEFINE_STRING_MAGIC(kPdbFileType, kPdbFileMagic),
+  DEFINE_STRING_MAGIC(kArchiveFileType, kArchiveFileMagic),
+  // This effectively emulates a more complicated if-then-else expression,
+  // by mapping some COFF files to an unknown file type.
+  DEFINE_BINARY_MAGIC(kUnknownFileType, kCoffFileMagic1),
+  DEFINE_BINARY_MAGIC(kCoffFileType, kCoffFileMagic2),
+  DEFINE_BINARY_MAGIC(kCoffFileType, kCoffFileMagic3),
+  DEFINE_STRING_MAGIC(kPeFileType, kPeFileMagic),
+};
+
+#undef DEFINE_BINARY_MAGIC
+#undef DEFINE_STRING_MAGIC
+
+}  // namespace
+
 bool GuessFileType(const base::FilePath& path, FileType* file_type) {
   DCHECK(!path.empty());
   DCHECK(file_type != NULL);
@@ -502,50 +559,59 @@ bool GuessFileType(const base::FilePath& path, FileType* file_type) {
     return false;
   }
 
+  size_t file_size = 0;
+  {
+    int64 temp_file_size = 0;
+    if (!file_util::GetFileSize(path, &temp_file_size)) {
+      LOG(ERROR) << "Unable to get file size: " << path.value();
+      return false;
+    }
+    DCHECK_LE(0, temp_file_size);
+    file_size = static_cast<size_t>(temp_file_size);
+  }
+
+  // No point trying to identify an empty file.
+  if (file_size == 0)
+    return true;
+
   file_util::ScopedFILE file(file_util::OpenFile(path, "rb"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Unable to open file for reading: " << path.value();
     return false;
   }
 
-  // - PE files all contain DOS stubs, and the first two bytes of 16-bit DOS
-  //   exectuables are always "MZ" (0x4d 0x5a)
-  // - Machine independent COFF files begin with 0x00 0x00, and then two bytes
-  //   that aren't 0xFF 0xFF. LTCG object files are followed by 0xFF 0xFF.
-  // - X86 COFF files begin with 0x4c 0x01.
-  // - X64 COFF files begin with 0x64 0x86.
-  // - Itanium COFF files begin with 0x00 0x02.
-  // - PDB files begin with a long string "Microsoft ...". We check the first
-  //   4 bytes and call it quits there.
-  // - Archive (.lib) files begin with !<arch>, and we check the first 4 bytes.
+  // Check all of the magic signatures.
+  std::vector<uint8> magic;
+  for (size_t i = 0; i < arraysize(kFileMagics); ++i) {
+    const FileMagic& file_magic = kFileMagics[i];
 
-  uint8 magic[4] = {};
-  if (fread(&magic, sizeof(magic[0]), arraysize(magic), file.get()) !=
-          arraysize(magic)) {
-    LOG(ERROR) << "Failed to read first 2 bytes from file: "
-               << path.value();
-    return false;
+    // Try to read sufficient data for the current signature, bounded by the
+    // available data in the file.
+    if (magic.size() < file_size && magic.size() < file_magic.magic_size) {
+      size_t old_size = magic.size();
+      size_t new_size = std::min(file_size, file_magic.magic_size);
+      DCHECK_LT(old_size, new_size);
+      magic.resize(new_size);
+      size_t missing = new_size - old_size;
+      size_t read = ::fread(magic.data() + old_size, 1, missing, file.get());
+      if (read != missing) {
+        LOG(ERROR) << "Failed to read magic bytes from file: " << path.value();
+        return false;
+      }
+    }
+
+    // There is insufficient data to compare with this signature.
+    if (magic.size() < file_magic.magic_size)
+      continue;
+
+    // If the signature matches then we can return the recognized type.
+    if (::memcmp(magic.data(), file_magic.magic, file_magic.magic_size) == 0) {
+      *file_type = file_magic.file_type;
+      return true;
+    }
   }
 
-  if (magic[0] == 'M' && magic[1] == 'Z') {
-    *file_type = kPeFileType;
-  } else if (magic[0] == 0x4C && magic[1] == 0x01) {
-    // We don't care about other COFF file machine types for now.
-    *file_type = kCoffFileType;
-  } else if (magic[0] == 0x00 && magic[1] == 0x00) {
-    // This is a machine independent COFF file (doesn't contain machine code,
-    // but only symbol tables). We check that it is not full of LTCG
-    // intermediate code, as we don't support that file format.
-    if (magic[2] != 0xFF || magic[3] != 0xFF)
-      *file_type = kCoffFileType;
-  } else if (magic[0] == 'M' && magic[1] == 'i' && magic[2] == 'c' &&
-             magic[3] == 'r') {
-    *file_type = kPdbFileType;
-  } else if (magic[0] == '!' && magic[1] == '<' && magic[2] == 'a' &&
-             magic[3] == 'r') {
-    *file_type = kArchiveFileType;
-  }
-
+  DCHECK_EQ(kUnknownFileType, *file_type);
   return true;
 }
 

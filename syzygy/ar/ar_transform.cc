@@ -49,6 +49,7 @@ bool ArTransform::Transform() {
   ArReader reader;
   if (!reader.Init(input_archive_))
     return false;
+  LOG(INFO) << "Read " << reader.symbols().size() << " symbols.";
 
   // This collection of buffers must outlive the ArWriter below.
   ScopedVector<DataBuffer> buffers;
@@ -85,6 +86,7 @@ bool ArTransform::Transform() {
 
   if (!writer.Write(output_archive_))
     return false;
+  LOG(INFO) << "Wrote " << writer.symbols().size() << " symbols.";
 
   return true;
 }

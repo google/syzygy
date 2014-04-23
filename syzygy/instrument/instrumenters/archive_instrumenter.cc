@@ -111,6 +111,8 @@ bool ArchiveInstrumenter::InstrumentArchive() {
     return false;
   }
 
+  LOG(INFO) << "Instrumenting archive: " << input_image_.value();
+
   // Configure and run an archive transform.
   ar::OnDiskArTransformAdapter::TransformFileOnDiskCallback callback =
       base::Bind(&ArchiveInstrumenter::InstrumentFile, base::Unretained(this));
@@ -136,7 +138,20 @@ bool ArchiveInstrumenter::InstrumentFile(const base::FilePath& input_path,
   // We don't want to delete the file from the archive.
   *remove = false;
 
-  // TODO(chrisha): Allow filtering of unsupported COFF object types?
+  // Filter anything that isn't a known and recognized COFF file.
+  pe::FileType file_type = pe::kUnknownFileType;
+  if (!pe::GuessFileType(input_path, &file_type)) {
+    LOG(ERROR) << "Unable to determine file type.";
+    return false;
+  }
+  if (file_type != pe::kCoffFileType) {
+    LOG(INFO) << "Not processing non-object file.";
+    if (!file_util::CopyFile(input_path, output_path)) {
+      LOG(ERROR) << "Unable to write output file: " << output_path.value();
+      return false;
+    }
+    return true;
+  }
 
   // Create the command-line for the child instrumenter.
   CommandLine command_line(*command_line_.get());

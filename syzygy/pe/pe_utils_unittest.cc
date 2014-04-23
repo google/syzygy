@@ -451,6 +451,8 @@ TEST_F(PEUtilsTest, GuessFileType) {
       testing::kTestDllPdbName);
   base::FilePath null_machine_coff = testing::GetSrcRelativePath(
       testing::kMachineTypeNullCoffName);
+  base::FilePath resources32 = testing::GetSrcRelativePath(
+      testing::kResources32Name);
   base::FilePath archive = testing::GetSrcRelativePath(testing::kArchiveFile);
 
   // Doesn't exist.
@@ -486,6 +488,10 @@ TEST_F(PEUtilsTest, GuessFileType) {
   file_type = kUnknownFileType;
   EXPECT_TRUE(GuessFileType(null_machine_coff, &file_type));
   EXPECT_EQ(kCoffFileType, file_type);
+
+  file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(resources32, &file_type));
+  EXPECT_EQ(kResourceFileType, file_type);
 
   file_type = kUnknownFileType;
   EXPECT_TRUE(GuessFileType(archive, &file_type));
