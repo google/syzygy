@@ -67,14 +67,20 @@ enum FileType {
   kPeFileType,
   kArchiveFileType,
   kResourceFileType,
+  kImportDefinitionFileType,
 };
 
+// @{
 // Guesses the type of the given file. This does not do extensive validation.
 // There may be false positives, but there will be no false negatives.
 // @param path The path of the file whose type is to be determined.
+// @param contents The contents of the file.
+// @param length The length of the file contents.
 // @param file_type Will be populated with the type of the file.
 // @returns true on success, false on failure. On success sets @p file_type.
 bool GuessFileType(const base::FilePath& path, FileType* file_type);
+bool GuessFileType(const uint8* contents, size_t length, FileType* file_type);
+// @}
 
 }  // namespace core
 

@@ -17,6 +17,7 @@
 #include "base/file_util.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/common/com_utils.h"
+#include "syzygy/core/serialization.h"
 
 namespace core {
 
@@ -131,8 +132,11 @@ struct FileMagic {
 // Archive (.lib) files begin with a simple string.
 const uint8 kArchiveFileMagic[] = "!<arch>";
 // Machine independent COFF files begin with 0x00 0x00, and then two bytes
-// that aren't 0xFF 0xFF. LTCG object files (unsupported) are followed by
-// 0xFF 0xFF.
+// that aren't 0xFF 0xFF. Anonymous object files (unsupported) are followed by
+// 0xFF 0xFF, and then two bytes containing type information.
+// - Export definitions are type 0x00 0x00.
+// - Object files containing LTCG intermediate code appear to be type 0x01 0x00.
+const uint8 kCoffFileMagic0[] = { 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00 };
 const uint8 kCoffFileMagic1[] = { 0x00, 0x00, 0xFF, 0xFF };
 const uint8 kCoffFileMagic2[] = { 0x00, 0x00 };
 // X86 COFF files begin with 0x4c 0x01.
@@ -158,6 +162,7 @@ const FileMagic kFileMagics[] = {
   DEFINE_STRING_MAGIC(kArchiveFileType, kArchiveFileMagic),
   // This effectively emulates a more complicated if-then-else expression,
   // by mapping some COFF files to an unknown file type.
+  DEFINE_BINARY_MAGIC(kImportDefinitionFileType, kCoffFileMagic0),
   DEFINE_BINARY_MAGIC(kUnknownFileType, kCoffFileMagic1),
   DEFINE_BINARY_MAGIC(kCoffFileType, kCoffFileMagic2),
   DEFINE_BINARY_MAGIC(kCoffFileType, kCoffFileMagic3),
@@ -166,6 +171,50 @@ const FileMagic kFileMagics[] = {
 
 #undef DEFINE_BINARY_MAGIC
 #undef DEFINE_STRING_MAGIC
+
+bool GuessFileTypeImpl(size_t length, InStream* stream, FileType* file_type) {
+  DCHECK_NE(reinterpret_cast<InStream*>(NULL), stream);
+  DCHECK_NE(reinterpret_cast<FileType*>(NULL), file_type);
+
+  *file_type = kUnknownFileType;
+
+  // No point trying to identify an empty file.
+  if (length == 0)
+    return true;
+
+  // Check all of the magic signatures.
+  std::vector<uint8> magic;
+  for (size_t i = 0; i < arraysize(kFileMagics); ++i) {
+    const FileMagic& file_magic = kFileMagics[i];
+
+    // Try to read sufficient data for the current signature, bounded by the
+    // available data in the file.
+    if (magic.size() < length && magic.size() < file_magic.magic_size) {
+      size_t old_size = magic.size();
+      size_t new_size = std::min(length, file_magic.magic_size);
+      DCHECK_LT(old_size, new_size);
+      magic.resize(new_size);
+      size_t missing = new_size - old_size;
+      if (!stream->Read(missing, magic.data() + old_size)) {
+        LOG(ERROR) << "Failed to read magic bytes from stream.";
+        return false;
+      }
+    }
+
+    // There is insufficient data to compare with this signature.
+    if (magic.size() < file_magic.magic_size)
+      continue;
+
+    // If the signature matches then we can return the recognized type.
+    if (::memcmp(magic.data(), file_magic.magic, file_magic.magic_size) == 0) {
+      *file_type = file_magic.file_type;
+      return true;
+    }
+  }
+
+  DCHECK_EQ(kUnknownFileType, *file_type);
+  return true;
+}
 
 }  // namespace
 
@@ -201,38 +250,21 @@ bool GuessFileType(const base::FilePath& path, FileType* file_type) {
     return false;
   }
 
-  // Check all of the magic signatures.
-  std::vector<uint8> magic;
-  for (size_t i = 0; i < arraysize(kFileMagics); ++i) {
-    const FileMagic& file_magic = kFileMagics[i];
+  FileInStream stream(file.get());
+  if (!GuessFileTypeImpl(file_size, &stream, file_type))
+    return false;
 
-    // Try to read sufficient data for the current signature, bounded by the
-    // available data in the file.
-    if (magic.size() < file_size && magic.size() < file_magic.magic_size) {
-      size_t old_size = magic.size();
-      size_t new_size = std::min(file_size, file_magic.magic_size);
-      DCHECK_LT(old_size, new_size);
-      magic.resize(new_size);
-      size_t missing = new_size - old_size;
-      size_t read = ::fread(magic.data() + old_size, 1, missing, file.get());
-      if (read != missing) {
-        LOG(ERROR) << "Failed to read magic bytes from file: " << path.value();
-        return false;
-      }
-    }
+  return true;
+}
 
-    // There is insufficient data to compare with this signature.
-    if (magic.size() < file_magic.magic_size)
-      continue;
+bool GuessFileType(const uint8* contents, size_t length, FileType* file_type) {
+  DCHECK_NE(reinterpret_cast<uint8*>(NULL), contents);
+  DCHECK_NE(reinterpret_cast<FileType*>(NULL), file_type);
 
-    // If the signature matches then we can return the recognized type.
-    if (::memcmp(magic.data(), file_magic.magic, file_magic.magic_size) == 0) {
-      *file_type = file_magic.file_type;
-      return true;
-    }
-  }
+  ByteInStream<const uint8*> stream(contents, contents + length);
+  if (!GuessFileTypeImpl(length, &stream, file_type))
+    return false;
 
-  DCHECK_EQ(kUnknownFileType, *file_type);
   return true;
 }
 

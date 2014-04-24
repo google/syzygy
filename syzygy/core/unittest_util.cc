@@ -23,6 +23,8 @@ const wchar_t kExampleArchiveName[] =
     L"syzygy\\core\\test_data\\archive.lib";
 const wchar_t kExampleCoff[] =
     L"syzygy\\core\\test_data\\coff.obj";
+const wchar_t kExampleCoffImportDefinition[] =
+    L"syzygy\\core\\test_data\\import_definition.obj";
 const wchar_t kExampleCoffLtcgName[] =
     L"syzygy\\core\\test_data\\coff_ltcg.obj";
 const wchar_t kExampleCoffMachineTypeNullName[] =

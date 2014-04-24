@@ -129,6 +129,22 @@ TEST_F(CompareFilePathsTest, BothExistEquivalentPath) {
                              alternate_existing_path_));
 }
 
+TEST(GuessFileTypeTest, GuessFromInMemoryBuffer) {
+  // Read a file into memory.
+  base::FilePath path = testing::GetSrcRelativePath(
+      testing::kExampleCoffImportDefinition);
+  int64 file_size = 0;
+  ASSERT_TRUE(file_util::GetFileSize(path, &file_size));
+  size_t length = static_cast<size_t>(file_size);
+  std::vector<uint8> buffer(length);
+  ASSERT_TRUE(file_util::ReadFile(
+      path, reinterpret_cast<char*>(buffer.data()), buffer.size()));
+
+  FileType file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(buffer.data(), buffer.size(), &file_type));
+  EXPECT_EQ(kImportDefinitionFileType, file_type);
+}
+
 TEST(GuessFileTypeTest, IdentifiesAllTypes) {
   base::FilePath fake(L"C:\\this\\path\\should\\not\\exist-at.all");
   base::FilePath dir = testing::GetSrcRelativePath(L"syzygy\\core\\test_data");
@@ -144,6 +160,8 @@ TEST(GuessFileTypeTest, IdentifiesAllTypes) {
       testing::kExampleResources32Name);
   base::FilePath archive = testing::GetSrcRelativePath(
       testing::kExampleArchiveName);
+  base::FilePath import_def = testing::GetSrcRelativePath(
+      testing::kExampleCoffImportDefinition);
 
   // Doesn't exist.
   FileType file_type = kUnknownFileType;
@@ -186,6 +204,10 @@ TEST(GuessFileTypeTest, IdentifiesAllTypes) {
   file_type = kUnknownFileType;
   EXPECT_TRUE(GuessFileType(archive, &file_type));
   EXPECT_EQ(kArchiveFileType, file_type);
+
+  file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(import_def, &file_type));
+  EXPECT_EQ(kImportDefinitionFileType, file_type);
 }
 
 }  // namespace core

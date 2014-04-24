@@ -29,6 +29,7 @@ namespace testing {
 // GetSrcRelativePath.
 extern const wchar_t kExampleArchiveName[];
 extern const wchar_t kExampleCoff[];
+extern const wchar_t kExampleCoffImportDefinition[];
 extern const wchar_t kExampleCoffLtcgName[];
 extern const wchar_t kExampleCoffMachineTypeNullName[];
 extern const wchar_t kExamplePdbName[];
