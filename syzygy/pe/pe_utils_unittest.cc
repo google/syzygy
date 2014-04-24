@@ -14,11 +14,9 @@
 
 #include "syzygy/pe/pe_utils.h"
 
-#include "base/path_service.h"
 #include "base/strings/string_split.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/ar/unittest_util.h"
 #include "syzygy/block_graph/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/pe_file.h"
@@ -434,68 +432,6 @@ TEST_F(PEUtilsTest, HasImportEntry) {
   EXPECT_TRUE(has_import);
   EXPECT_TRUE(HasImportEntry(dos_header_block_, "bar.dll", &has_import));
   EXPECT_FALSE(has_import);
-}
-
-TEST_F(PEUtilsTest, GuessFileType) {
-  base::FilePath fake(L"C:\\this\\path\\should\\not\\exist-at.all");
-  base::FilePath dir = testing::GetExeRelativePath(L"test_data");
-  base::FilePath pe_dll = testing::GetOutputRelativePath(
-      testing::kTestDllName);
-  base::FilePath coff_obj = testing::GetExeTestDataRelativePath(
-      testing::kTestDllCoffObjName);
-  base::FilePath ltcg_obj = testing::GetExeTestDataRelativePath(
-      testing::kTestDllLtcgObjName);
-  base::FilePath pe_exe;
-  ASSERT_TRUE(PathService::Get(base::FILE_EXE, &pe_exe));
-  base::FilePath pdb = testing::GetOutputRelativePath(
-      testing::kTestDllPdbName);
-  base::FilePath null_machine_coff = testing::GetSrcRelativePath(
-      testing::kMachineTypeNullCoffName);
-  base::FilePath resources32 = testing::GetSrcRelativePath(
-      testing::kResources32Name);
-  base::FilePath archive = testing::GetSrcRelativePath(testing::kArchiveFile);
-
-  // Doesn't exist.
-  FileType file_type = kUnknownFileType;
-  EXPECT_FALSE(GuessFileType(fake, &file_type));
-  EXPECT_EQ(kUnknownFileType, file_type);
-
-  // Can't be opened for reading.
-  file_type = kUnknownFileType;
-  EXPECT_FALSE(GuessFileType(dir, &file_type));
-  EXPECT_EQ(kUnknownFileType, file_type);
-
-  file_type = kUnknownFileType;
-  EXPECT_TRUE(GuessFileType(pe_dll, &file_type));
-  EXPECT_EQ(kPeFileType, file_type);
-
-  file_type = kUnknownFileType;
-  EXPECT_TRUE(GuessFileType(coff_obj, &file_type));
-  EXPECT_EQ(kCoffFileType, file_type);
-
-  file_type = kUnknownFileType;
-  EXPECT_TRUE(GuessFileType(ltcg_obj, &file_type));
-  EXPECT_EQ(kUnknownFileType, file_type);
-
-  file_type = kUnknownFileType;
-  EXPECT_TRUE(GuessFileType(pe_exe, &file_type));
-  EXPECT_EQ(kPeFileType, file_type);
-
-  file_type = kUnknownFileType;
-  EXPECT_TRUE(GuessFileType(pdb, &file_type));
-  EXPECT_EQ(kPdbFileType, file_type);
-
-  file_type = kUnknownFileType;
-  EXPECT_TRUE(GuessFileType(null_machine_coff, &file_type));
-  EXPECT_EQ(kCoffFileType, file_type);
-
-  file_type = kUnknownFileType;
-  EXPECT_TRUE(GuessFileType(resources32, &file_type));
-  EXPECT_EQ(kResourceFileType, file_type);
-
-  file_type = kUnknownFileType;
-  EXPECT_TRUE(GuessFileType(archive, &file_type));
-  EXPECT_EQ(kArchiveFileType, file_type);
 }
 
 TEST_F(PEUtilsTest, RedirectReferences) {

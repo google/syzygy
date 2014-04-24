@@ -22,7 +22,7 @@
 #include "base/bind.h"
 #include "base/file_util.h"
 #include "syzygy/ar/ar_transform.h"
-#include "syzygy/pe/pe_utils.h"
+#include "syzygy/core/file_util.h"
 
 namespace instrument {
 namespace instrumenters {
@@ -78,11 +78,11 @@ bool ArchiveInstrumenter::ProcessingArchive() const {
   if (!file_util::PathExists(input_image_))
     return false;
 
-  pe::FileType file_type = pe::kUnknownFileType;
-  if (!pe::GuessFileType(input_image_, &file_type))
+  core::FileType file_type = core::kUnknownFileType;
+  if (!core::GuessFileType(input_image_, &file_type))
     return false;
 
-  if (file_type == pe::kArchiveFileType)
+  if (file_type == core::kArchiveFileType)
     return true;
 
   return false;
@@ -139,12 +139,12 @@ bool ArchiveInstrumenter::InstrumentFile(const base::FilePath& input_path,
   *remove = false;
 
   // Filter anything that isn't a known and recognized COFF file.
-  pe::FileType file_type = pe::kUnknownFileType;
-  if (!pe::GuessFileType(input_path, &file_type)) {
+  core::FileType file_type = core::kUnknownFileType;
+  if (!core::GuessFileType(input_path, &file_type)) {
     LOG(ERROR) << "Unable to determine file type.";
     return false;
   }
-  if (file_type != pe::kCoffFileType) {
+  if (file_type != core::kCoffFileType) {
     LOG(INFO) << "Not processing non-object file.";
     if (!file_util::CopyFile(input_path, output_path)) {
       LOG(ERROR) << "Unable to write output file: " << output_path.value();

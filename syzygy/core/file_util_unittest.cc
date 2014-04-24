@@ -129,4 +129,63 @@ TEST_F(CompareFilePathsTest, BothExistEquivalentPath) {
                              alternate_existing_path_));
 }
 
+TEST(GuessFileTypeTest, IdentifiesAllTypes) {
+  base::FilePath fake(L"C:\\this\\path\\should\\not\\exist-at.all");
+  base::FilePath dir = testing::GetSrcRelativePath(L"syzygy\\core\\test_data");
+  base::FilePath pe_dll = testing::GetSrcRelativePath(testing::kExamplePeDll);
+  base::FilePath coff_obj = testing::GetSrcRelativePath(testing::kExampleCoff);
+  base::FilePath ltcg_obj = testing::GetSrcRelativePath(
+      testing::kExampleCoffLtcgName);
+  base::FilePath pe_exe = testing::GetSrcRelativePath(testing::kExamplePeExe);
+  base::FilePath pdb = testing::GetSrcRelativePath(testing::kExamplePdbName);
+  base::FilePath null_machine_coff = testing::GetSrcRelativePath(
+      testing::kExampleCoffMachineTypeNullName);
+  base::FilePath resources32 = testing::GetSrcRelativePath(
+      testing::kExampleResources32Name);
+  base::FilePath archive = testing::GetSrcRelativePath(
+      testing::kExampleArchiveName);
+
+  // Doesn't exist.
+  FileType file_type = kUnknownFileType;
+  EXPECT_FALSE(GuessFileType(fake, &file_type));
+  EXPECT_EQ(kUnknownFileType, file_type);
+
+  // Can't be opened for reading.
+  file_type = kUnknownFileType;
+  EXPECT_FALSE(GuessFileType(dir, &file_type));
+  EXPECT_EQ(kUnknownFileType, file_type);
+
+  file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(pe_dll, &file_type));
+  EXPECT_EQ(kPeFileType, file_type);
+
+  file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(coff_obj, &file_type));
+  EXPECT_EQ(kCoffFileType, file_type);
+
+  file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(ltcg_obj, &file_type));
+  EXPECT_EQ(kUnknownFileType, file_type);
+
+  file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(pe_exe, &file_type));
+  EXPECT_EQ(kPeFileType, file_type);
+
+  file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(pdb, &file_type));
+  EXPECT_EQ(kPdbFileType, file_type);
+
+  file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(null_machine_coff, &file_type));
+  EXPECT_EQ(kCoffFileType, file_type);
+
+  file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(resources32, &file_type));
+  EXPECT_EQ(kResourceFileType, file_type);
+
+  file_type = kUnknownFileType;
+  EXPECT_TRUE(GuessFileType(archive, &file_type));
+  EXPECT_EQ(kArchiveFileType, file_type);
+}
+
 }  // namespace core

@@ -19,6 +19,23 @@
 
 namespace testing {
 
+const wchar_t kExampleArchiveName[] =
+    L"syzygy\\core\\test_data\\archive.lib";
+const wchar_t kExampleCoff[] =
+    L"syzygy\\core\\test_data\\coff.obj";
+const wchar_t kExampleCoffLtcgName[] =
+    L"syzygy\\core\\test_data\\coff_ltcg.obj";
+const wchar_t kExampleCoffMachineTypeNullName[] =
+    L"syzygy\\core\\test_data\\machine_type_null.obj";
+const wchar_t kExamplePdbName[] =
+    L"syzygy\\core\\test_data\\foo.pdb";
+const wchar_t kExamplePeDll[] =
+    L"syzygy\\core\\test_data\\foo.dll";
+const wchar_t kExamplePeExe[] =
+    L"syzygy\\core\\test_data\\foo.exe";
+const wchar_t kExampleResources32Name[] =
+    L"syzygy\\core\\test_data\\resources32.obj";
+
 base::FilePath GetSrcRelativePath(const wchar_t* rel_path) {
   base::FilePath src_dir;
   PathService::Get(base::DIR_SOURCE_ROOT, &src_dir);

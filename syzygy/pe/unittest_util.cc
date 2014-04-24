@@ -168,10 +168,6 @@ const wchar_t testing::kTestDllLtcgObjName[] = L"test_dll.ltcg_obj";
 const wchar_t testing::kTestDllCoffObjPdbName[] = L"test_dll.coff_obj.pdb";
 const wchar_t testing::kTestDllLtcgObjPdbName[] = L"test_dll.ltcg_obj.pdb";
 
-const wchar_t testing::kMachineTypeNullCoffName[] =
-    L"syzygy\\pe\\test_data\\machine_type_null.obj";
-const wchar_t testing::kResources32Name[] =
-    L"syzygy\\pe\\test_data\\resources32.obj";
 const wchar_t testing::kCodeView2Name[] =
     L"syzygy\\pe\\test_data\\codeview2.obj";
 

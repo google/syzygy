@@ -177,24 +177,6 @@ bool HasImportEntry(block_graph::BlockGraph::Block* header_block,
                     bool* has_import_entry);
 // @}
 
-// A list of known file types.
-enum FileType {
-  kUnknownFileType,
-  kPdbFileType,
-  kCoffFileType,
-  kPeFileType,
-  kArchiveFileType,
-  kResourceFileType,
-};
-
-// Guesses the type of the given file. This does not do extensive validation.
-// There may be false positives, but there will be no false negatives.
-// @param path The path of the file whose type is to be determined. This must
-//     not be empty.
-// @param file_type Will be populated with the type of the file.
-// @returns true on success, false on failure.
-bool GuessFileType(const base::FilePath& path, FileType* file_type);
-
 // Types used by the redirection primitive.
 typedef std::pair<block_graph::BlockGraph::Block*,
                   block_graph::BlockGraph::Offset> ReferenceDest;

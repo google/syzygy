@@ -17,7 +17,7 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "syzygy/common/application.h"
-#include "syzygy/pe/pe_utils.h"
+#include "syzygy/core/file_util.h"
 
 namespace instrument {
 namespace instrumenters {
@@ -31,19 +31,19 @@ bool GetImageFormat(const base::FilePath& path,
   DCHECK(image_format != NULL);
 
   // Determine the type of the input.
-  pe::FileType file_type = pe::kUnknownFileType;
-  if (!pe::GuessFileType(path, &file_type)) {
+  core::FileType file_type = core::kUnknownFileType;
+  if (!core::GuessFileType(path, &file_type)) {
     LOG(ERROR) << "Failed to determine file type of \""
                << path.value() << "\".";
     return false;
   }
 
-  if (file_type == pe::kCoffFileType) {
+  if (file_type == core::kCoffFileType) {
     *image_format = BlockGraph::COFF_IMAGE;
     return true;
   }
 
-  if (file_type == pe::kPeFileType) {
+  if (file_type == core::kPeFileType) {
     *image_format = BlockGraph::PE_IMAGE;
     return true;
   }

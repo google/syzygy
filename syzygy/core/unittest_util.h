@@ -24,6 +24,18 @@
 
 namespace testing {
 
+// Examples of the various file types that GuessFileType recognizes. These live
+// in syzygy\core\test_data, thus should be referred to using
+// GetSrcRelativePath.
+extern const wchar_t kExampleArchiveName[];
+extern const wchar_t kExampleCoff[];
+extern const wchar_t kExampleCoffLtcgName[];
+extern const wchar_t kExampleCoffMachineTypeNullName[];
+extern const wchar_t kExamplePdbName[];
+extern const wchar_t kExamplePeDll[];
+extern const wchar_t kExamplePeExe[];
+extern const wchar_t kExampleResources32Name[];
+
 // A simple utility class for creating and cleaning up a temporary file.
 class ScopedTempFile {
  public:
