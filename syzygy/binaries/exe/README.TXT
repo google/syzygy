@@ -1,8 +1,8 @@
 Syzygy Post-Link Transformation Toolchain
 =========================================
 
-Date:     2014/04/23
-Version:  0.7.14.0 (2124)
+Date:     2014/04/25
+Version:  0.7.11.1 (2133)
 
 The Syzygy project consists of a suite of tools for the instrumentation of
 PE binaries. The various instrumentation modes allow for computing code
@@ -168,7 +168,7 @@ nested_heap.h
 Lib files
 ---------
 
-syzyasan_rtl.dll.lib
+syzyasan_rtl.lib
   Library file for importing the SyzyASAN runtime.
 
 USAGE
