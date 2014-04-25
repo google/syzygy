@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.11.1
+
+[r2131] Fix to chrome_utils.py script that copies Chrome installations during
+        instrumentation. Was causing errors on M36 builders.
+
 Version 0.7.11.0
 
 [r2056] SyzyASAN - Block checksums now validated as they exit the quarantine.
