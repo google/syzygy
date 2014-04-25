@@ -15,7 +15,9 @@
 #include <windows.h>
 
 #include "gtest/gtest.h"
+#include "syzygy/agent/asan/asan_heap_checker.h"
 #include "syzygy/agent/asan/asan_rtl_impl.h"
+#include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/unittest_util.h"
 
 namespace agent {
@@ -23,6 +25,9 @@ namespace asan {
 
 namespace {
 
+typedef ScopedVector<AsanBlockInfo> AsanBlockInfoVector;
+typedef std::pair<AsanCorruptBlockRange, AsanBlockInfoVector> CorruptRangeInfo;
+typedef std::vector<CorruptRangeInfo> CorruptRangeVector;
 using testing::ScopedASanAlloc;
 
 // The access check function invoked by the below.
@@ -39,6 +44,9 @@ HeapProxy::BadAccessKind expected_error_type = HeapProxy::UNKNOWN_BAD_ACCESS;
 bool direction_flag_forward = true;
 // An arbitrary size for the buffer we allocate in the different unittests.
 const size_t kAllocSize = 13;
+// The information about the last error.
+AsanErrorInfo last_error_info = {};
+CorruptRangeVector last_corrupt_ranges;
 
 class AsanRtlTest : public testing::TestAsanRtl {
  public:
@@ -48,6 +56,7 @@ class AsanRtlTest : public testing::TestAsanRtl {
   void SetUp() OVERRIDE {
     testing::TestAsanRtl::SetUp();
     memory_error_detected = false;
+    last_corrupt_ranges.clear();
   }
  protected:
   void AllocMemoryBuffers(int32 length, int32 element_size);
@@ -245,6 +254,7 @@ void CheckSpecialAccessAndCompareContexts(void* dst, void* src, int len) {
 void AsanErrorCallbackImpl(AsanErrorInfo* error_info, bool compare_context) {
   // TODO(sebmarchand): Stash the error info in a fixture-static variable and
   // assert on specific conditions after the fact.
+  EXPECT_NE(reinterpret_cast<AsanErrorInfo*>(NULL), error_info);
   EXPECT_NE(HeapProxy::UNKNOWN_BAD_ACCESS, error_info->error_type);
 
   EXPECT_EQ(expected_error_type, error_info->error_type);
@@ -269,6 +279,36 @@ void AsanErrorCallbackImpl(AsanErrorInfo* error_info, bool compare_context) {
   }
 
   memory_error_detected = true;
+  last_error_info = *error_info;
+
+  // Copy the corrupt range's information.
+  if (error_info->heap_is_corrupt) {
+    EXPECT_GE(1U, error_info->corrupt_range_count);
+    for (size_t i = 0; i < error_info->corrupt_range_count; ++i) {
+      last_corrupt_ranges.push_back(CorruptRangeInfo());
+      CorruptRangeInfo* range_info = &last_corrupt_ranges.back();
+      range_info->first = error_info->corrupt_ranges[i];
+      AsanBlockInfoVector* block_infos = &range_info->second;
+      for (size_t j = 0; j < range_info->first.block_info_count; ++j) {
+        AsanBlockInfo* block_info =
+            new AsanBlockInfo(range_info->first.block_info[j]);
+        for (size_t k = 0;
+             k < range_info->first.block_info[j].alloc_stack_size;
+             ++k) {
+          block_info->alloc_stack[k] =
+              range_info->first.block_info[j].alloc_stack[k];
+        }
+        for (size_t k = 0;
+             k < range_info->first.block_info[j].free_stack_size;
+             ++k) {
+          block_info->free_stack[k] =
+              range_info->first.block_info[j].free_stack[k];
+        }
+        block_infos->push_back(block_info);
+      }
+    }
+  }
+
   if (compare_context) {
     EXPECT_NE(reinterpret_cast<CONTEXT*>(NULL), context_before_hook);
     ExpectEqualContexts(*context_before_hook,
@@ -278,6 +318,7 @@ void AsanErrorCallbackImpl(AsanErrorInfo* error_info, bool compare_context) {
 }
 
 void AsanErrorCallback(AsanErrorInfo* error_info) {
+  EXPECT_NE(reinterpret_cast<CONTEXT*>(NULL), context_before_hook);
   AsanErrorCallbackImpl(error_info, true);
 }
 
@@ -430,7 +471,7 @@ TEST_F(AsanRtlTest, AsanCheckInvalidAccess) {
   EXPECT_TRUE(LogContains(HeapProxy::kInvalidAddress));
 }
 
-TEST_F(AsanRtlTest, AsanCheckCorruptedBlock) {
+TEST_F(AsanRtlTest, AsanCheckCorruptBlock) {
   void* mem = HeapAllocFunction(heap_, 0, kAllocSize);
   SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
   reinterpret_cast<uint8*>(mem)[-1]--;
@@ -439,6 +480,69 @@ TEST_F(AsanRtlTest, AsanCheckCorruptedBlock) {
   EXPECT_TRUE(memory_error_detected);
   EXPECT_TRUE(LogContains(HeapProxy::kHeapCorruptedBlock));
   EXPECT_TRUE(LogContains("previously allocated here"));
+}
+
+TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
+  check_access_fn =
+      ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
+  ASSERT_TRUE(check_access_fn != NULL);
+
+  agent::asan::AsanRuntime* runtime = GetActiveRuntimeFunction();
+  runtime->params().check_heap_on_failure = true;
+
+  ScopedASanAlloc<uint8> mem(this, kAllocSize);
+  ASSERT_TRUE(mem.get() != NULL);
+
+  SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
+  const size_t kMaxIterations = 10;
+  // This can fail because of a checksum collision. However, we run it a handful
+  // of times to keep the chances as small as possible.
+  for (size_t i = 0; i < kMaxIterations; ++i) {
+    mem[kAllocSize]++;
+    AssertMemoryErrorIsDetected(mem.get() + kAllocSize,
+                                HeapProxy::HEAP_BUFFER_OVERFLOW);
+    EXPECT_TRUE(LogContains("previously allocated here"));
+    EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+
+    if (!last_error_info.heap_is_corrupt && i + 1 < kMaxIterations)
+      continue;
+
+    EXPECT_TRUE(last_error_info.heap_is_corrupt);
+
+    size_t block_size = 0;
+    void* block_begin = NULL;
+
+    // We can't use the shadow functions here as they'll refer to the instance
+    // of the shadow memory which has been statically linked, but the shadow
+    // annotations for this block are in the shadow instance which has been
+    // instantiated while dynamically loading the runtime library.
+    GetAsanExtentFunction(mem.GetAs<void*>(), &block_begin, &block_size);
+    EXPECT_NE(reinterpret_cast<void*>(NULL), block_begin);
+
+    EXPECT_EQ(1, last_error_info.corrupt_range_count);
+    EXPECT_EQ(1, last_corrupt_ranges.size());
+    AsanCorruptBlockRange* corrupt_range = &last_corrupt_ranges[0].first;
+    AsanBlockInfoVector* blocks_info = &last_corrupt_ranges[0].second;
+
+    EXPECT_EQ(1, blocks_info->size());
+    EXPECT_TRUE((*blocks_info)[0]->corrupt);
+    EXPECT_EQ(kAllocSize, (*blocks_info)[0]->user_size);
+    EXPECT_EQ(block_begin, (*blocks_info)[0]->header);
+    EXPECT_NE(0U, (*blocks_info)[0]->alloc_stack_size);
+    for (size_t j = 0; j < (*blocks_info)[0]->alloc_stack_size; ++j) {
+      EXPECT_NE(reinterpret_cast<void*>(NULL),
+                (*blocks_info)[0]->alloc_stack[j]);
+    }
+    EXPECT_EQ(0U, (*blocks_info)[0]->free_stack_size);
+
+    // An error should be triggered when we free this block.
+    memory_error_detected = false;
+    expected_error_type = HeapProxy::CORRUPTED_BLOCK;
+    mem.reset(NULL);
+    EXPECT_TRUE(memory_error_detected);
+
+    break;
+  }
 }
 
 TEST_F(AsanRtlTest, AsanSingleSpecial1byteInstructionCheckGoodAccess) {

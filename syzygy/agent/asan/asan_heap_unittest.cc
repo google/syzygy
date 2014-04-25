@@ -491,7 +491,7 @@ TEST_F(HeapTest, CorruptAsExitsQuarantine) {
   }
 }
 
-TEST_F(HeapTest, IsBlockCorruptedInvalidMagicNumber) {
+TEST_F(HeapTest, IsBlockCorruptInvalidMagicNumber) {
   const size_t kAllocSize = 100;
   proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
   proxy_.SetQuarantineMaxBlockSize(TestHeapProxy::GetAllocSize(kAllocSize));
@@ -502,14 +502,14 @@ TEST_F(HeapTest, IsBlockCorruptedInvalidMagicNumber) {
   ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), header);
 
   header->magic_number = ~TestHeapProxy::kBlockHeaderSignature;
-  EXPECT_TRUE(proxy_.IsBlockCorrupted(reinterpret_cast<uint8*>(header)));
+  EXPECT_TRUE(proxy_.IsBlockCorrupt(reinterpret_cast<uint8*>(header)));
   header->magic_number = TestHeapProxy::kBlockHeaderSignature;
-  EXPECT_FALSE(proxy_.IsBlockCorrupted(reinterpret_cast<uint8*>(header)));
+  EXPECT_FALSE(proxy_.IsBlockCorrupt(reinterpret_cast<uint8*>(header)));
 
   ASSERT_TRUE(proxy_.Free(0, mem));
 }
 
-TEST_F(HeapTest, IsBlockCorruptedInvalidChecksum) {
+TEST_F(HeapTest, IsBlockCorruptInvalidChecksum) {
   const size_t kAllocSize = 100;
 
   // This can fail because of a checksum collision. However, we run it a
@@ -527,18 +527,18 @@ TEST_F(HeapTest, IsBlockCorruptedInvalidChecksum) {
     ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), header);
 
     // Change some of the block content and verify that the block is now being
-    // seen as corrupted.
+    // seen as corrupt.
     size_t original_checksum = header->checksum;
     reinterpret_cast<int32*>(mem)[0] = rand();
 
     // Try again for all but the last attempt if this appears to have failed.
-    if (!proxy_.IsBlockCorrupted(reinterpret_cast<uint8*>(header)) &&
+    if (!proxy_.IsBlockCorrupt(reinterpret_cast<uint8*>(header)) &&
         i + 1 < kChecksumRepeatCount) {
       continue;
     }
     header->checksum = original_checksum;
 
-    ASSERT_TRUE(proxy_.IsBlockCorrupted(reinterpret_cast<uint8*>(header)));
+    ASSERT_TRUE(proxy_.IsBlockCorrupt(reinterpret_cast<uint8*>(header)));
   }
 }
 

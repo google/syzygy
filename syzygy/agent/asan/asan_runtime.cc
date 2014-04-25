@@ -23,6 +23,7 @@
 #include "base/strings/sys_string_conversions.h"
 #include "base/win/pe_image.h"
 #include "base/win/wrapped_window_proc.h"
+#include "syzygy/agent/asan/asan_heap_checker.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
@@ -326,6 +327,47 @@ void AsanRuntime::TearDown() {
 void AsanRuntime::OnError(AsanErrorInfo* error_info) {
   DCHECK(error_info != NULL);
 
+  if (params_.check_heap_on_failure) {
+    // Check if the heap is corrupt.
+    HeapChecker heap_checker(this);
+    HeapChecker::CorruptRangesVector corrupt_ranges;
+    error_info->heap_is_corrupt = heap_checker.IsHeapCorrupt(&corrupt_ranges);
+
+    // If the heap is corrupt then push the info about the corrupt slabs onto
+    // the stack. This is necessary if we want to get this information into the
+    // minidump.
+    if (error_info->heap_is_corrupt) {
+      // Allocate space for the corrupt slabs on the stack.
+      error_info->corrupt_ranges = reinterpret_cast<AsanCorruptBlockRange*>(
+          alloca(corrupt_ranges.size() * sizeof(AsanCorruptBlockRange)));
+      error_info->corrupt_range_count = corrupt_ranges.size();
+
+      for (size_t i = 0; i < corrupt_ranges.size(); ++i) {
+        // Copy the information about the corrupt range.
+        error_info->corrupt_ranges[i] = *corrupt_ranges[i];
+        // Allocate space for the first block of this range on the stack.
+        // TODO(sebmarchand): Report more blocks if necessary.
+        error_info->corrupt_ranges[i].block_info =
+            reinterpret_cast<AsanBlockInfo*>(alloca(sizeof(AsanBlockInfo)));
+        error_info->corrupt_ranges[i].block_info_count = 1;
+        AsanBlockInfo* block_info =
+            &error_info->corrupt_ranges[i].block_info[0];
+
+        // Use a shadow walker to find the first corrupt block in this range and
+        // copy its metadata to the stack.
+        ShadowWalker shadow_walker(
+            reinterpret_cast<const uint8*>(corrupt_ranges[i]->address),
+            reinterpret_cast<const uint8*>(corrupt_ranges[i]->address) +
+                corrupt_ranges[i]->length);
+        const uint8* block = NULL;
+        CHECK(shadow_walker.Next(&block));
+        block_info->header = Shadow::AsanPointerToBlockHeader(block);
+        HeapProxy::GetBlockInfo(block_info);
+        DCHECK(block_info->corrupt);
+      }
+    }
+  }
+
   const char* bug_descr =
       HeapProxy::AccessTypeToStr(error_info->error_type);
   if (logger_->log_as_text()) {
@@ -541,7 +583,6 @@ void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
       Shadow::kInvalidAddress) {
     error_info->error_type = HeapProxy::INVALID_ADDRESS;
   } else {
-    // TODO(sebmarchand): Add some code to check if the heap is corrupted.
     HeapProxy::GetBadAccessInformation(error_info);
   }
 }

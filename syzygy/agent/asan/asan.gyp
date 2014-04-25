@@ -27,6 +27,8 @@
         'asan_crt_interceptors.h',
         'asan_heap.cc',
         'asan_heap.h',
+        'asan_heap_checker.cc',
+        'asan_heap_checker.h',
         'asan_logger.cc',
         'asan_logger.h',
         'asan_rtl_impl.cc',
@@ -141,6 +143,7 @@
       'sources': [
         'asan_crash_handler_unittest.cc',
         'asan_crt_interceptors_unittest.cc',
+        'asan_heap_checker_unittest.cc',
         'asan_heap_unittest.cc',
         'asan_logger_unittest.cc',
         'asan_runtime_unittest.cc',

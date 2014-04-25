@@ -1,0 +1,106 @@
+// Copyright 2014 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "syzygy/agent/asan/asan_heap_checker.h"
+
+#include "syzygy/agent/asan/asan_heap.h"
+#include "syzygy/agent/asan/asan_shadow.h"
+
+namespace agent {
+namespace asan {
+
+namespace {
+
+typedef AsanRuntime::HeapVector HeapVector;
+typedef HeapProxy::HeapSlabVector HeapSlabVector;
+
+}
+
+HeapChecker::HeapChecker(AsanRuntime* runtime) : runtime_(runtime) {
+  DCHECK_NE(reinterpret_cast<AsanRuntime*>(NULL), runtime);
+}
+
+bool HeapChecker::IsHeapCorrupt(CorruptRangesVector* corrupt_ranges) {
+  DCHECK_NE(reinterpret_cast<CorruptRangesVector*>(NULL), corrupt_ranges);
+
+  corrupt_ranges->clear();
+
+  HeapVector heaps_vec;
+  runtime_->GetHeaps(&heaps_vec);
+  HeapVector::iterator iter_heap = heaps_vec.begin();
+
+  // Iterates over the heaps and checks their slabs.
+  for (; iter_heap != heaps_vec.end(); ++iter_heap) {
+    HeapLocker heap_locker(*iter_heap);
+    HeapSlabVector heap_slabs;
+    (*iter_heap)->GetHeapSlabs(&heap_slabs);
+
+    // Iterates over the slabs to see if one of them is corrupt.
+    HeapSlabVector::const_iterator iter_slab = heap_slabs.begin();
+    for (; iter_slab != heap_slabs.end(); ++iter_slab) {
+      GetCorruptRangesInSlab(iter_slab->address,
+                             iter_slab->length,
+                             corrupt_ranges);
+    }
+  }
+  return !corrupt_ranges->empty();
+}
+
+void HeapChecker::GetCorruptRangesInSlab(const uint8* lower_bound,
+                                         size_t length,
+                                         CorruptRangesVector* corrupt_ranges) {
+  DCHECK_NE(reinterpret_cast<const uint8*>(NULL), lower_bound);
+  DCHECK_NE(0U, length);
+  DCHECK_NE(reinterpret_cast<CorruptRangesVector*>(NULL), corrupt_ranges);
+
+  ShadowWalker shadow_walker(lower_bound, lower_bound + length);
+
+  AsanCorruptBlockRange* current_corrupt_range = NULL;
+
+  // Iterates over the blocks.
+  const uint8* current_block = NULL;
+  while (shadow_walker.Next(&current_block)) {
+    const uint8* block_header = Shadow::AsanPointerToBlockHeader(current_block);
+    bool current_block_is_corrupt = HeapProxy::IsBlockCorrupt(block_header);
+    // If the current block is corrupt and |current_corrupt_range| is NULL
+    // then this means that the current block is at the beginning of a corrupt
+    // range.
+    if (current_block_is_corrupt && current_corrupt_range == NULL) {
+      current_corrupt_range = new AsanCorruptBlockRange();
+      current_corrupt_range->address = current_block;
+      current_corrupt_range->length = 0;
+      current_corrupt_range->block_count = 0;
+      current_corrupt_range->block_info = NULL;
+      current_corrupt_range->block_info_count = 0;
+      corrupt_ranges->push_back(current_corrupt_range);
+    } else if (!current_block_is_corrupt && current_corrupt_range != NULL) {
+      current_corrupt_range = NULL;
+    }
+
+    if (current_block_is_corrupt) {
+      // If the current block is corrupted then we need to update the size of
+      // the current range.
+      DCHECK_NE(reinterpret_cast<AsanCorruptBlockRange*>(NULL),
+                current_corrupt_range);
+      current_corrupt_range->block_count++;
+      const uint8* current_block_end = current_block +
+          Shadow::GetAllocSize(current_block);
+      current_corrupt_range->length = current_block_end -
+          reinterpret_cast<const uint8*>(current_corrupt_range->address);
+    }
+  }
+}
+
+}  // namespace asan
+}  // namespace agent

@@ -26,6 +26,7 @@
 #include "base/debug/alias.h"
 #include "base/debug/stack_trace.h"
 #include "base/strings/sys_string_conversions.h"
+#include "syzygy/agent/asan/asan_heap_checker.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 #include "syzygy/common/align.h"
@@ -78,6 +79,21 @@ void CombineUInt32IntoBlockChecksum(uint32 val, uint32* checksum) {
     val >>= HeapProxy::kChecksumBits;
   }
   *checksum &= ((1 << HeapProxy::kChecksumBits) - 1);
+}
+
+// Copy a stack capture object into an array.
+// @param stack_capture The stack capture that we want to copy.
+// @param dst Will receive the stack frames.
+// @param dst_size Will receive the number of frames that has been copied.
+void CopyStackCaptureToArray(const StackCapture* stack_capture,
+                             void* dst, uint8* dst_size) {
+  DCHECK_NE(reinterpret_cast<const StackCapture*>(NULL), stack_capture);
+  DCHECK_NE(reinterpret_cast<void*>(NULL), dst);
+  DCHECK_NE(reinterpret_cast<uint8*>(NULL), dst_size);
+  memcpy(dst,
+         stack_capture->frames(),
+         stack_capture->num_frames() * sizeof(void*));
+  *dst_size = stack_capture->num_frames();
 }
 
 }  // namespace
@@ -647,7 +663,7 @@ bool HeapProxy::FreeCorruptedBlock(BlockHeader* header, size_t* alloc_size) {
     header->free_stack = NULL;
 
   // Calculate the allocation size via the shadow as the header might be
-  // corrupted.
+  // corrupt.
   size_t size = Shadow::GetAllocSize(reinterpret_cast<uint8*>(header));
   if (alloc_size != NULL)
     *alloc_size = size;
@@ -923,9 +939,9 @@ HeapProxy::BlockHeader* HeapProxy::FindBlockContainingAddress(uint8* addr) {
   //    shadow to the left and to the right until we find a block header, or
   //    until we get out of the shadow. We'll get 2 pointers to the bounds of
   //    the left redzone, at least one of them will point to a block header, if
-  //    not then the heap is corrupted. If exactly one of them points to a
-  //    header then it's our block header, if it doesn't encapsulate |addr| then
-  //    the heap is corrupted. If both of them point to a block header then the
+  //    not then the heap is corrupt. If exactly one of them points to a header
+  //    then it's our block header, if it doesn't encapsulate |addr| then the
+  //    heap is corrupt. If both of them point to a block header then the
   //    address will fall in the header of exactly one of them. If both or
   //    neither, we have heap corruption.
 
@@ -992,7 +1008,7 @@ HeapProxy::BlockHeader* HeapProxy::FindBlockContainingAddress(uint8* addr) {
   if (left_header != NULL && right_header == NULL) {
     if (original_addr >= reinterpret_cast<uint8*>(left_header) +
         left_block_size) {
-      // TODO(sebmarchand): Report that the heap is corrupted.
+      // TODO(sebmarchand): Report that the heap is corrupt.
       return NULL;
     }
     return left_header;
@@ -1002,7 +1018,7 @@ HeapProxy::BlockHeader* HeapProxy::FindBlockContainingAddress(uint8* addr) {
     if (original_addr < BlockHeaderToAsanPointer(right_header) ||
         original_addr >= BlockHeaderToAsanPointer(right_header) +
         right_block_size) {
-      // TODO(sebmarchand): Report that the heap is corrupted.
+      // TODO(sebmarchand): Report that the heap is corrupt.
       return NULL;
     }
     return right_header;
@@ -1023,7 +1039,7 @@ HeapProxy::BlockHeader* HeapProxy::FindBlockContainingAddress(uint8* addr) {
       BlockHeaderToAsanPointer(left_header));
   if (original_addr < left_block_left_bound ||
       original_addr >= left_block_left_bound + left_block_size) {
-    // TODO(sebmarchand): Report that the heap is corrupted.
+    // TODO(sebmarchand): Report that the heap is corrupt.
     return NULL;
   }
 
@@ -1112,10 +1128,9 @@ bool HeapProxy::GetBadAccessInformation(AsanErrorInfo* bad_access_info) {
     bad_access_info->microseconds_since_free = GetTimeSinceFree(header);
 
     DCHECK(header->alloc_stack != NULL);
-    memcpy(bad_access_info->alloc_stack,
-           header->alloc_stack->frames(),
-           header->alloc_stack->num_frames() * sizeof(void*));
-    bad_access_info->alloc_stack_size = header->alloc_stack->num_frames();
+    CopyStackCaptureToArray(header->alloc_stack,
+                            bad_access_info->alloc_stack,
+                            &bad_access_info->alloc_stack_size);
     bad_access_info->alloc_tid = trailer->alloc_tid;
 
     if (header->state != ALLOCATED) {
@@ -1126,10 +1141,9 @@ bool HeapProxy::GetBadAccessInformation(AsanErrorInfo* bad_access_info) {
         free_stack = containing_block->free_stack;
         free_stack_trailer = BlockHeaderToBlockTrailer(containing_block);
       }
-      memcpy(bad_access_info->free_stack,
-             free_stack->frames(),
-             free_stack->num_frames() * sizeof(void*));
-      bad_access_info->free_stack_size = free_stack->num_frames();
+      CopyStackCaptureToArray(header->free_stack,
+                              bad_access_info->free_stack,
+                              &bad_access_info->free_stack_size);
       bad_access_info->free_tid = free_stack_trailer->free_tid;
     }
     GetAddressInformation(header, bad_access_info);
@@ -1312,12 +1326,31 @@ void HeapProxy::GetUserExtent(const void* asan_pointer,
 bool HeapProxy::VerifyChecksum(BlockHeader* header) {
   size_t old_checksum = header->checksum;
   SetBlockChecksum(header);
-  if (old_checksum != header->checksum)
+  if (old_checksum != header->checksum) {
+    header->checksum = old_checksum;
     return false;
+  }
   return true;
 }
 
-bool HeapProxy::IsBlockCorrupted(const uint8* block_header) {
+void HeapProxy::GetHeapSlabs(HeapSlabVector* heap_slabs) {
+  DCHECK_NE(reinterpret_cast<HeapSlabVector*>(NULL), heap_slabs);
+
+  heap_slabs->clear();
+
+  PROCESS_HEAP_ENTRY entry = {};
+  while (::HeapWalk(heap_, &entry) != FALSE) {
+    if (entry.wFlags & PROCESS_HEAP_REGION) {
+      HeapSlab slab = {};
+      slab.address = reinterpret_cast<const uint8*>(entry.Region.lpFirstBlock);
+      slab.length = reinterpret_cast<uint8*>(entry.Region.lpLastBlock) -
+          slab.address;
+      heap_slabs->push_back(slab);
+    }
+  }
+}
+
+bool HeapProxy::IsBlockCorrupt(const uint8* block_header) {
   const BlockHeader* header = reinterpret_cast<const BlockHeader*>(
       Shadow::AsanPointerToBlockHeader(const_cast<uint8*>(block_header)));
   if (header->magic_number != kBlockHeaderSignature ||
@@ -1325,6 +1358,40 @@ bool HeapProxy::IsBlockCorrupted(const uint8* block_header) {
     return true;
   }
   return false;
+}
+
+void HeapProxy::GetBlockInfo(AsanBlockInfo* block_info) {
+  DCHECK_NE(reinterpret_cast<AsanBlockInfo*>(NULL), block_info);
+  const BlockHeader* header =
+      reinterpret_cast<const BlockHeader*>(block_info->header);
+
+  block_info->alloc_stack_size = 0;
+  block_info->free_stack_size = 0;
+  block_info->corrupt = IsBlockCorrupt(
+      reinterpret_cast<const uint8*>(block_info->header));
+
+  // Copy the alloc and free stack traces if they're valid.
+  if (stack_cache_->StackCapturePointerIsValid(header->alloc_stack)) {
+    CopyStackCaptureToArray(header->alloc_stack,
+                            block_info->alloc_stack,
+                            &block_info->alloc_stack_size);
+  }
+  if (header->state != ALLOCATED &&
+      stack_cache_->StackCapturePointerIsValid(header->free_stack)) {
+    CopyStackCaptureToArray(header->free_stack,
+                            block_info->free_stack,
+                            &block_info->free_stack_size);
+  }
+
+  // Only check the trailer if the block isn't marked as corrupt.
+  if (!block_info->corrupt) {
+    BlockTrailer* trailer = BlockHeaderToBlockTrailer(header);
+    block_info->alloc_tid = trailer->alloc_tid;
+    block_info->free_tid = trailer->free_tid;
+  }
+
+  block_info->state = header->state;
+  block_info->user_size = header->block_size;
 }
 
 HeapLocker::HeapLocker(HeapProxy* const heap) : heap_(heap) {

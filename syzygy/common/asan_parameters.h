@@ -90,10 +90,13 @@ struct AsanParameters {
       // AsanLogger: If true, we should generate a textual log describing any
       // errors.
       unsigned log_as_text : 1;
+      // AsanRuntime: If true, we should check if the heap is corrupt on
+      // failure.
+      unsigned check_heap_on_failure : 1;
 
       // Add new flags here!
 
-      unsigned reserved1 : 29;
+      unsigned reserved1 : 28;
     };
   };
 
@@ -179,6 +182,7 @@ extern const uint32 kDefaultMaxNumFrames;
 extern const uint32 kDefaultBottomFramesToSkip;
 // Default values of AsanRuntime parameters.
 extern const bool kDefaultExitOnFailure;
+extern const bool kDefaultCheckHeapOnFailure;
 // Default values of AsanLogger parameters.
 extern const bool kDefaultMiniDumpOnFailure;
 extern const bool kDefaultLogAsText;

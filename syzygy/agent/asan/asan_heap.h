@@ -35,6 +35,14 @@ namespace asan {
 class StackCapture;
 class StackCaptureCache;
 struct AsanErrorInfo;
+struct AsanBlockInfo;
+
+// Defines a heap slab, which represents a contiguous range of memory containing
+// one or more allocations made by a single allocator.
+struct HeapSlab {
+  const uint8* address;
+  size_t length;
+};
 
 // Makes like a Win32 heap manager heap, but adds a redzone before and after
 // each allocation and maintains a quarantine list of freed blocks.
@@ -44,11 +52,14 @@ class HeapProxy {
   // encounters during its operation. This is usually plumbed into the ASAN
   // runtime so that the errors may be appropriately reported.
   // TODO(chrisha|sebmarchand): Add a mechanism to walk the entire heap and get
-  //     additional information on other potentially corrupted blocks.
+  //     additional information on other potentially corrupt blocks.
   // |asan_error_info| contains information about the primary heap error that
   //     was encountered. It is guaranteed to be on the stack.
   typedef base::Callback<void(AsanErrorInfo* asan_error_info)>
       HeapErrorCallback;
+
+  // A vector of heap slabs.
+  typedef std::vector<HeapSlab> HeapSlabVector;
 
   // The different memory access modes that we can encounter.
   enum AccessMode {
@@ -274,11 +285,15 @@ class HeapProxy {
   static void CloneObject(const void* src_asan_pointer,
                           void* dst_asan_pointer);
 
-  // Check if a block is corrupted. This check the block's metadata and its
+  // Check if a block is corrupt. This check the block's metadata and its
   // checksum.
   // @param block_header A pointer to the block header of the block.
-  // @returns true if the block is corrupted, false otherwise.
-  static bool IsBlockCorrupted(const uint8* block_header);
+  // @returns true if the block is corrupt, false otherwise.
+  static bool IsBlockCorrupt(const uint8* block_header);
+
+  // Retrieves a block's metadata.
+  // @param block_info Will receive the block's metadata.
+  static void GetBlockInfo(AsanBlockInfo* block_info);
 
   // @name Heap interface.
   // @{
@@ -329,6 +344,10 @@ class HeapProxy {
   void ClearHeapErrorCallback() {
     heap_error_callback_.Reset();
   }
+
+  // Retrieves the slabs of all the active heaps.
+  // @param heap_slabs Will receive the information about the heap slabs.
+  void GetHeapSlabs(HeapSlabVector* heap_slabs);
 
  protected:
   enum BlockState {

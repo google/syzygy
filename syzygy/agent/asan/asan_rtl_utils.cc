@@ -19,6 +19,7 @@
 #include "base/logging.h"
 #include "base/debug/alias.h"
 #include "base/memory/scoped_ptr.h"
+#include "syzygy/agent/asan/asan_heap_checker.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 #include "syzygy/agent/asan/stack_capture.h"
@@ -90,6 +91,8 @@ void ReportBadMemoryAccess(void* location,
   bad_access_info.free_stack_size = 0U;
   bad_access_info.free_tid = 0U;
   bad_access_info.microseconds_since_free = 0U;
+  bad_access_info.corrupt_ranges = NULL;
+  bad_access_info.corrupt_range_count = 0;
 
   // Make sure this structure is not optimized out.
   base::debug::Alias(&bad_access_info);

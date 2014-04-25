@@ -37,7 +37,7 @@ class AsanLogger;
 // Store the information about a corrupt block.
 struct AsanBlockInfo {
   // The address of the header for this block.
-  void* header;
+  const void* header;
   // The user size of the block.
   size_t user_size : 30;
   // This is implicitly a HeapProxy::BlockState value.
@@ -60,7 +60,7 @@ struct AsanBlockInfo {
 
 struct AsanCorruptBlockRange {
   // The beginning address of the range.
-  void* address;
+  const void* address;
   // The length of the range.
   size_t length;
   // The number of blocks in this range.
