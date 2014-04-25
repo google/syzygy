@@ -36,11 +36,12 @@ def RmTree(directory):
   Subprocess(['cmd', '/c', 'rmdir', '/s', '/q', directory])
 
 
+# These directories are relative to the root of the Chrome installation.
 _EXPECTED_DIRS = [ 'locales', 'servers', 'extensions' ]
 
 
 def _PruneDirs(dirs):
-  """Removes all unwanted directories from dirs, in place."""
+  """Removes all unwanted directories from |dirs|, in place."""
   for unwanted in (d for d in dirs if d.lower() not in _EXPECTED_DIRS):
     dirs.remove(unwanted)
 
@@ -69,17 +70,28 @@ def CopyChromeFiles(src_dir, tgt_dir):
   if os.path.isdir(tgt_dir):
     RmTree(tgt_dir)
   os.makedirs(tgt_dir)
+
   for root_dir, sub_dirs, file_list in os.walk(src_dir):
-    _PruneDirs(sub_dirs)
+    # Prune the top-level directories that we don't want to copy or descend
+    # into. os.walk refers to the pruned directory list if we change it in
+    # place, so doesn't actually descend into them.
+    if src_dir == root_dir:
+      _PruneDirs(sub_dirs)
+
+    # Create the sub-directories at the target destination.
     for dir_name in sub_dirs:
-      sub_dir = os.path.join(tgt_dir, dir_name)
-      _LOGGER.info('Creating "%s".', os.path.relpath(sub_dir, tgt_dir))
-      os.mkdir(sub_dir)
+      src = os.path.join(root_dir, dir_name)
+      rel_path = os.path.relpath(src, src_dir)
+      tgt = os.path.join(tgt_dir, rel_path)
+      _LOGGER.info('Creating directory "%s".', rel_path)
+      os.mkdir(tgt)
+
+    # Copy files over to the target destination.
     for file_name in _FilesToCopy(file_list):
       src = os.path.join(root_dir, file_name)
       rel_path = os.path.relpath(src, src_dir)
       tgt = os.path.join(tgt_dir, rel_path)
-      _LOGGER.info('Copying "%s".', rel_path)
+      _LOGGER.info('Copying file "%s".', rel_path)
       try:
         shutil.copy2(src, tgt)
       except IOError:
@@ -88,4 +100,4 @@ def CopyChromeFiles(src_dir, tgt_dir):
         # exclusively by the build process).  Let's assume that all the files we
         # want will copy correctly, ignore the exception, and hope for the best
         # on the other side.
-        _LOGGER.warn('Skipped "%s".', rel_path)
+        _LOGGER.warn('Skipped file "%s".', rel_path)
