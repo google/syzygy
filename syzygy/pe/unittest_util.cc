@@ -170,6 +170,8 @@ const wchar_t testing::kTestDllLtcgObjPdbName[] = L"test_dll.ltcg_obj.pdb";
 
 const wchar_t testing::kCodeView2Name[] =
     L"syzygy\\pe\\test_data\\codeview2.obj";
+const wchar_t testing::kEmptyStringTableCoffName[] =
+    L"syzygy\\pe\\test_data\\empty_string_table.obj";
 
 const wchar_t kAsanInstrumentedTestDllName[] =
     L"asan_instrumented_test_dll.dll";

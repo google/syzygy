@@ -114,12 +114,13 @@ bool CoffFile::ReadNonSections(FILE* file) {
     LOG(ERROR) << "Unable to read string table size.";
     return false;
   }
-  ImageAddressSpace::Range strings_range(strings_start, strings_size);
-  if (!InsertRangeReadAt(file, strings_start, strings_size, strings_range))
-    return false;
+  if (strings_size > 0) {
+    ImageAddressSpace::Range strings_range(strings_start, strings_size);
+    if (!InsertRangeReadAt(file, strings_start, strings_size, strings_range))
+      return false;
 
-  // Get the pointer to our internal data range.
-  CHECK(GetImageData(strings_start, strings_size, &strings_));
+    CHECK(GetImageData(strings_start, strings_size, &strings_));
+  }
   strings_offset_ = strings_start;
   strings_size_ = strings_size;
 

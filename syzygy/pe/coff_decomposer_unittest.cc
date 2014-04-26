@@ -350,4 +350,16 @@ TEST(SimpleCoffDecomposerTest, DecomposeCodeView2Symbols) {
   EXPECT_EQ(BlockGraph::COFF_IMAGE, block_graph.image_format());
 }
 
+TEST(SimpleCoffDecomposerTest, DecomposeEmptyStringTable) {
+  base::FilePath path = testing::GetSrcRelativePath(
+      testing::kEmptyStringTableCoffName);
+  pe::CoffFile coff_file;
+  ASSERT_TRUE(coff_file.Init(path));
+  CoffDecomposer decomposer(coff_file);
+  BlockGraph block_graph;
+  ImageLayout image_layout(&block_graph);
+  EXPECT_TRUE(decomposer.Decompose(&image_layout));
+  EXPECT_EQ(BlockGraph::COFF_IMAGE, block_graph.image_format());
+}
+
 }  // namespace pe

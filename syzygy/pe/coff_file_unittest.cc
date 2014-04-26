@@ -198,4 +198,11 @@ TEST(SimpleCoffFileTest, InitCodeView2Symbols) {
   EXPECT_TRUE(file.Init(path));
 }
 
+TEST(SimpleCoffFileTest, InitEmptyStringTable) {
+  base::FilePath path = testing::GetSrcRelativePath(
+      testing::kEmptyStringTableCoffName);
+  CoffFile file;
+  EXPECT_TRUE(file.Init(path));
+}
+
 }  // namespace pe
