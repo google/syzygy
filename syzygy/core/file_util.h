@@ -63,11 +63,17 @@ FilePathCompareResult CompareFilePaths(const base::FilePath& path1,
 enum FileType {
   kUnknownFileType,
   kPdbFileType,
+  // X86 COFF files.
   kCoffFileType,
+  // X86 PE files.
   kPeFileType,
   kArchiveFileType,
   kResourceFileType,
   kImportDefinitionFileType,
+  // Intermediate code object files.
+  kAnonymousCoffFileType,
+  // X86-64 COFF files.
+  kCoff64FileType,
 };
 
 // @{

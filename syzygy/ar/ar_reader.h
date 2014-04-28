@@ -66,6 +66,15 @@
 // Their true full path names are available at offset <some-number> in the "//"
 // extended path name stream. These have been observed to be in strictly
 // increasing order, with the filenames themselves in no particular order.
+//
+// It is worth noting that the file offset table in the "/" file need not be in
+// order of increasing offset, although it usually is. If it isn't, then the
+// actual order of the files in the archive should be ignored, and the order
+// implied by the offset table used when navigating. This is the order that
+// reflects the way symbols have been added to the symbol table. This is mostly
+// important when reading files from one archive and writing them into another;
+// to maintain proper symbol information we must ensure we iterate over the
+// files in the order they are specified in the offset table.
 
 #ifndef SYZYGY_AR_AR_READER_H_
 #define SYZYGY_AR_AR_READER_H_
@@ -85,8 +94,11 @@ class ArReader {
  public:
   // Stores the offsets of each file object, by their index.
   typedef std::vector<uint32> FileOffsetVector;
-  // Maps sorted object filenames to their index in the archive.
-  typedef std::map<std::string, size_t> FileNameMap;
+  // Stores the inverse of a FileOffsetVector.
+  typedef std::map<uint32, size_t> OffsetIndexMap;
+  // Maps sorted object filenames to their index in the archive. This is a
+  // multimap as multiple files may exist with the same name.
+  typedef std::set<std::pair<std::string, size_t>> FileNameMap;
   // Stores filenames indexed by the file number.
   typedef std::vector<std::string> FileNameVector;
 
@@ -128,15 +140,15 @@ class ArReader {
   //     BuildFileIndex.
   const FileNameMap& files_inverse() const { return files_inverse_; }
 
-  // Seeks to the beginning of the archived files. Allows repeated iteration.
-  // @returns true on success, false otherwise.
-  bool SeekStart();
+  // Seeks the start of the given file.
+  // @param index The index of the file to seek to.
+  bool SeekIndex(size_t index);
 
   // @returns true if there is a next file in the archive to extract.
   bool HasNext() const;
 
-  // Extracts the next file to a buffer, and advances the cursor to
-  // the next file in the archive.
+  // Extracts the next file to a buffer, and advances the cursor to the
+  // following file in the archive.
   // @param header The header to be populated.
   // @param data The buffer to be populated. May be NULL, in which case
   //     only the header will be filled in.
@@ -156,7 +168,7 @@ class ArReader {
  protected:
   // Reads the next file from the archive, advancing the cursor. Returns true
   // on success, false otherwise. Does not translate the internal name to an
-  // external filename.
+  // external filename. Doesn't update 'index_'.
   bool ReadNextFile(ParsedArFileHeader* header, DataBuffer* data);
 
   // Translates an archive internal filename to the full extended filename.
@@ -169,12 +181,14 @@ class ArReader {
 
   // Data regarding the archive.
   uint64 length_;
-  uint64 offset_;
+  uint64 offset_;  // The cursor in the archive's byte stream.
+  size_t index_;  // The index of the archive member the cursor points at.
   uint64 start_of_object_files_;
 
   // Parsed header information.
   SymbolIndexMap symbols_;
   FileOffsetVector offsets_;
+  OffsetIndexMap offsets_inverse_;
   // The raw file names, concatenated into a single buffer.
   DataBuffer filenames_;
   // Maps filenames to their indices in the archive. This is populated by

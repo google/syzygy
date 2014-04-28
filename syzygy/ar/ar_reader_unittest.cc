@@ -30,6 +30,13 @@ class ArReaderTest : public testing::Test {
     lib_path_ = testing::GetSrcRelativePath(testing::kArchiveFile);
   }
 
+  void InverseIsCorrect(const ArReader& reader) {
+    ArReader::FileNameMap::const_iterator file_it =
+        reader.files_inverse().begin();
+    for (; file_it != reader.files_inverse().end(); ++file_it)
+      EXPECT_EQ(file_it->first, reader.files()[file_it->second]);
+  }
+
   base::FilePath lib_path_;
 };
 
@@ -70,12 +77,7 @@ TEST_F(ArReaderTest, InitAndBuildFileIndex) {
   EXPECT_EQ(15u, reader.files_inverse().size());
 
   // Double check the filename map inverts properly.
-  for (size_t i = 0; i < reader.files().size(); ++i) {
-    ArReader::FileNameMap::const_iterator it = reader.files_inverse().find(
-        reader.files()[i]);
-    ASSERT_TRUE(it != reader.files_inverse().end());
-    EXPECT_EQ(i, it->second);
-  }
+  EXPECT_NO_FATAL_FAILURE(InverseIsCorrect(reader));
 
   typedef std::pair<std::string, uint64> FileInfo;
   typedef std::vector<FileInfo> FileInfos;
@@ -142,6 +144,21 @@ TEST_F(ArReaderTest, NoFilenameTable) {
   EXPECT_EQ(testing::kWeakSymbolArchiveSymbolCount, reader.symbols().size());
   EXPECT_EQ(testing::kWeakSymbolArchiveFileCount, reader.offsets().size());
   EXPECT_EQ(testing::kWeakSymbolArchiveFileCount, reader.files().size());
+}
+
+TEST_F(ArReaderTest, DuplicateFileNames) {
+  base::FilePath lib = testing::GetSrcRelativePath(
+      testing::kDuplicatesArchiveFile);
+  ArReader reader;
+  EXPECT_TRUE(reader.Init(lib));
+  EXPECT_TRUE(reader.BuildFileIndex());
+  EXPECT_EQ(reader.files().size(), reader.files_inverse().size());
+  EXPECT_NO_FATAL_FAILURE(InverseIsCorrect(reader));
+
+  std::set<std::string> unique_files;
+  for (size_t i = 0; i < reader.files().size(); ++i)
+    unique_files.insert(reader.files()[i]);
+  EXPECT_LT(unique_files.size(), reader.files().size());
 }
 
 }  // namespace ar

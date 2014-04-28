@@ -141,6 +141,8 @@ const uint8 kCoffFileMagic1[] = { 0x00, 0x00, 0xFF, 0xFF };
 const uint8 kCoffFileMagic2[] = { 0x00, 0x00 };
 // X86 COFF files begin with 0x4c 0x01.
 const uint8 kCoffFileMagic3[] = { 0x4C, 0x01 };
+// X86-64 COFF files begin with 0x64 0x86.
+const uint8 kCoffFileMagic4[] = { 0x64, 0x86 };
 const uint8 kPdbFileMagic[] = "Microsoft C/C++ MSF ";
 // PE files all contain DOS stubs, and the first two bytes of 16-bit DOS
 // exectuables are always "MZ".
@@ -163,9 +165,10 @@ const FileMagic kFileMagics[] = {
   // This effectively emulates a more complicated if-then-else expression,
   // by mapping some COFF files to an unknown file type.
   DEFINE_BINARY_MAGIC(kImportDefinitionFileType, kCoffFileMagic0),
-  DEFINE_BINARY_MAGIC(kUnknownFileType, kCoffFileMagic1),
+  DEFINE_BINARY_MAGIC(kAnonymousCoffFileType, kCoffFileMagic1),
   DEFINE_BINARY_MAGIC(kCoffFileType, kCoffFileMagic2),
   DEFINE_BINARY_MAGIC(kCoffFileType, kCoffFileMagic3),
+  DEFINE_BINARY_MAGIC(kCoff64FileType, kCoffFileMagic4),
   DEFINE_STRING_MAGIC(kPeFileType, kPeFileMagic),
 };
 

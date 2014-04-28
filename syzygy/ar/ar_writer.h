@@ -18,7 +18,7 @@
 #ifndef SYZYGY_AR_AR_WRITER_H_
 #define SYZYGY_AR_AR_WRITER_H_
 
-#include <map>
+#include <set>
 
 #include "base/files/file_path.h"
 #include "base/memory/scoped_vector.h"
@@ -65,14 +65,14 @@ class ArWriter {
   bool Write(const base::FilePath& path);
 
  protected:
-  typedef std::map<std::string, size_t> FileIndexMap;
+  typedef std::set<std::pair<std::string, size_t>> FileIndexMap;
   typedef ScopedVector<DataBuffer> ScopedDataBuffers;
 
   // Contains a collection of object files and the names with which they
   // will be committed to the archive.
   FileVector files_;
 
-  // A map of filenames to their indices in |files_|.
+  // A multimap of filenames to their indices in |files_|.
   FileIndexMap file_index_map_;
 
   // Any files whose contents have been read by the writer are stored here.

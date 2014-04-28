@@ -55,6 +55,9 @@ const size_t kWeakSymbolArchiveFileCount = 2u;
 // The number of symbols in the weak symbol library.
 const size_t kWeakSymbolArchiveSymbolCount = 2u;
 
+// An archive containing multiple files stored with the same name.
+extern const wchar_t kDuplicatesArchiveFile[];
+
 }  // namespace testing
 
 #endif  // SYZYGY_AR_UNITTEST_UTIL_H_

@@ -181,7 +181,7 @@ bool ParseSecondarySymbolTable(
 }  // namespace
 
 ArReader::ArReader()
-    : length_(0), offset_(0), start_of_object_files_(0) {
+    : length_(0), offset_(0), index_(0), start_of_object_files_(0) {
 }
 
 bool ArReader::Init(const base::FilePath& ar_path) {
@@ -251,12 +251,15 @@ bool ArReader::Init(const base::FilePath& ar_path) {
   if (header.name == "//") {
     std::swap(data, filenames_);
     start_of_object_files_ = offset_;
-  } else {
-    // If there was no filename table then seek to the beginning of the object
-    // files.
-    if (!SeekStart())
-      return false;
   }
+
+  // Create an inverse of the offsets_ vector.
+  for (size_t i = 0; i < offsets_.size(); ++i)
+    CHECK(offsets_inverse_.insert(std::make_pair(offsets_[i], i)).second);
+
+  // Make sure we're at the beginning of the first file in the archive.
+  if (!SeekIndex(0))
+    return false;
 
   return true;
 }
@@ -265,66 +268,84 @@ bool ArReader::BuildFileIndex() {
   DCHECK(files_.empty());
   DCHECK(files_inverse_.empty());
 
-  if (!SeekStart())
+  size_t old_index = index_;
+
+  if (!SeekIndex(0))
     return false;
 
   files_.reserve(offsets_.size());
 
-  size_t index = 0;
   while (HasNext()) {
+    size_t index = index_;
+
     // Read the file and get its translated name.
-    uint32 file_offset = static_cast<uint32>(offset_);
     ParsedArFileHeader header;
-    if (!ReadNextFile(&header, NULL))
-      return false;
-    std::string filename;
-    if (!TranslateFilename(header.name, &filename))
+    if (!ExtractNext(&header, NULL))
       return false;
 
-    // Store or validate the file offset.
-    if (index >= offsets_.size() || offsets_[index] != file_offset) {
-      LOG(ERROR) << "Encoded file offsets do not match archive contents.";
-      return false;
-    }
-
-    files_.push_back(filename);
-    if (!files_inverse_.insert(std::make_pair(filename, index)).second) {
-      LOG(ERROR) << "Object \"" << header.name
-                 << "\" has a duplicate file name: " << filename;
-      return false;
-    }
-
-    ++index;
+    files_.push_back(header.name);
+    CHECK(files_inverse_.insert(std::make_pair(header.name, index)).second);
   }
 
-  if (!SeekStart())
+  if (!SeekIndex(old_index))
     return false;
 
   return true;
 }
 
-bool ArReader::SeekStart() {
-  if (offset_ != start_of_object_files_ &&
-      ::fseek(file_.get(), start_of_object_files_, SEEK_SET) != 0) {
-    LOG(ERROR) << "Failed to seek to beginning of archive files.";
+bool ArReader::SeekIndex(size_t index) {
+  if (index >= offsets_.size())
+    return false;
+
+  size_t offset = offsets_[index];
+  if (offset_ == offset)
+    return true;
+
+  if (::fseek(file_.get(), offset, SEEK_SET) != 0) {
+    LOG(ERROR) << "Failed to seek to archive file " << index
+               << " at offset " << offset << ".";
     return false;
   }
-  offset_ = start_of_object_files_;
+  offset_ = offset;
+  index_ = index;
 
   return true;
 }
 
 bool ArReader::HasNext() const {
-  if (offset_ < length_)
+  if (index_ < offsets_.size())
     return true;
   return false;
 }
 
 bool ArReader::ExtractNext(ParsedArFileHeader* header,
                            DataBuffer* data) {
+  DCHECK_LT(index_, offsets_.size());
   DCHECK_NE(reinterpret_cast<ParsedArFileHeader*>(NULL), header);
+
+  // If all has gone well then the cursor should have been left at the
+  // beginning of a valid archive file, or the end of the file.
+  if (offset_ < length_) {
+    OffsetIndexMap::const_iterator index_it = offsets_inverse_.find(offset_);
+    if (index_it == offsets_inverse_.end()) {
+      LOG(ERROR) << "Encoded file offsets do not match archive contents.";
+      return false;
+    }
+  }
+
+  // Seek to the beginning of the next archive file if we're not already there.
+  if (offset_ != offsets_[index_]) {
+    if (::fseek(file_.get(), offsets_[index_], SEEK_SET) != 0) {
+      LOG(ERROR) << "Failed to seek to file " << index_ << ".";
+      return false;
+    }
+    offset_ = offsets_[index_];
+  }
+  DCHECK_LT(offset_, length_);
+
   if (!ReadNextFile(header, data))
     return false;
+  ++index_;
 
   // Store the actual filename in the header.
   std::string filename;
@@ -349,6 +370,7 @@ bool ArReader::Extract(size_t index,
     return false;
   }
   offset_ = offsets_[index];
+  index_ = index;
 
   if (!ExtractNext(header, data))
     return false;
@@ -406,7 +428,7 @@ bool ArReader::TranslateFilename(const std::string& internal_name,
     return false;
   }
 
-  // If there is no leasing slash then the name is directly encoded in the
+  // If there is no leading slash then the name is directly encoded in the
   // header.
   if (internal_name[0] != '/') {
     if (internal_name.back() != '/') {

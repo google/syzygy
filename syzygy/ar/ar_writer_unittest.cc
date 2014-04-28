@@ -122,6 +122,17 @@ TEST_F(ArWriterTest, AddInvalidObjectFileFails) {
   EXPECT_TRUE(writer_.symbols().empty());
 }
 
+TEST_F(ArWriterTest, AddRepeatedFiles) {
+  EXPECT_EQ(0u, writer_.files().size());
+  EXPECT_EQ(0u, writer_.symbols().size());
+  EXPECT_TRUE(writer_.AddFile(object_files_[0]));
+  EXPECT_EQ(1u, writer_.files().size());
+  EXPECT_EQ(kSymbolCounts[0], writer_.symbols().size());
+  EXPECT_TRUE(writer_.AddFile(object_files_[0]));
+  EXPECT_EQ(2u, writer_.files().size());
+  EXPECT_EQ(kSymbolCounts[0], writer_.symbols().size());
+}
+
 TEST_F(ArWriterTest, TestArWriterRoundTrip) {
   EXPECT_NO_FATAL_FAILURE(AddObjectFiles());
 
@@ -175,6 +186,32 @@ TEST_F(ArWriterTest, TestArWriterRoundTripWeakSymbols) {
     ASSERT_TRUE(reader1.ExtractNext(&header, contents.get()));
     EXPECT_TRUE(writer.AddFile(header.name, header.timestamp, header.mode,
                                contents.get()));
+    buffers.push_back(contents.release());
+  }
+  EXPECT_THAT(writer.symbols(), testing::ContainerEq(reader1.symbols()));
+  EXPECT_TRUE(writer.Write(lib2));
+
+  ArReader reader2;
+  EXPECT_TRUE(reader2.Init(lib2));
+  EXPECT_THAT(reader2.symbols(), testing::ContainerEq(reader1.symbols()));
+}
+
+TEST_F(ArWriterTest, TestArWriterRoundTripRepeatedFileNames) {
+  base::FilePath lib1 = testing::GetSrcRelativePath(
+      testing::kDuplicatesArchiveFile);
+  ArReader reader1;
+  ASSERT_TRUE(reader1.Init(lib1));
+
+  base::FilePath lib2 = temp_dir_.Append(L"duplicates.lib");
+  ArWriter writer;
+  ScopedVector<DataBuffer> buffers;
+  while (reader1.HasNext()) {
+    ParsedArFileHeader header;
+    scoped_ptr<DataBuffer> contents(new DataBuffer);
+    ASSERT_TRUE(reader1.ExtractNext(&header, contents.get()));
+    EXPECT_TRUE(writer.AddFile(header.name, header.timestamp, header.mode,
+                               contents.get()));
+
     buffers.push_back(contents.release());
   }
   EXPECT_THAT(writer.symbols(), testing::ContainerEq(reader1.symbols()));

@@ -183,7 +183,7 @@ TEST(GuessFileTypeTest, IdentifiesAllTypes) {
 
   file_type = kUnknownFileType;
   EXPECT_TRUE(GuessFileType(ltcg_obj, &file_type));
-  EXPECT_EQ(kUnknownFileType, file_type);
+  EXPECT_EQ(kAnonymousCoffFileType, file_type);
 
   file_type = kUnknownFileType;
   EXPECT_TRUE(GuessFileType(pe_exe, &file_type));

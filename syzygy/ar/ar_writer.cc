@@ -29,6 +29,7 @@
 #include "syzygy/common/align.h"
 #include "syzygy/common/buffer_parser.h"
 #include "syzygy/common/buffer_writer.h"
+#include "syzygy/core/file_util.h"
 
 namespace ar {
 
@@ -146,11 +147,11 @@ bool UpdateSymbolTable(uint32 file_index,
 // to |symbols|. Returns true on success, false otherwise. This contains some
 // code that is similar to what is found in CoffImage or CoffDecomposer, but
 // using those classes is a little overkill for our purposes.
-bool ExtractSymbols(uint32 file_index,
-                    const ParsedArFileHeader& header,
-                    const DataBuffer& file_contents,
-                    SymbolIndexMap* symbols,
-                    SymbolIndexMap* weak_symbols) {
+bool ExtractSymbolsCoff(uint32 file_index,
+                        const ParsedArFileHeader& header,
+                        const DataBuffer& file_contents,
+                        SymbolIndexMap* symbols,
+                        SymbolIndexMap* weak_symbols) {
   DCHECK_NE(reinterpret_cast<SymbolIndexMap*>(NULL), symbols);
   DCHECK_NE(reinterpret_cast<SymbolIndexMap*>(NULL), weak_symbols);
 
@@ -227,6 +228,105 @@ bool ExtractSymbols(uint32 file_index,
   if (duplicate_symbols) {
     LOG(INFO) << "Ignored " << duplicate_symbols
               << " duplicate symbols in object file: " << header.name;
+  }
+
+  return true;
+}
+
+// Extracts the symbol name from the given COFF import definition, adding it to
+// |symbols|. Returns true on success, false otherwise.
+bool ExtractSymbolsImportDef(uint32 file_index,
+                             const ParsedArFileHeader& header,
+                             const DataBuffer& file_contents,
+                             SymbolIndexMap* symbols,
+                             SymbolIndexMap* weak_symbols) {
+  DCHECK_NE(reinterpret_cast<SymbolIndexMap*>(NULL), symbols);
+  DCHECK_NE(reinterpret_cast<SymbolIndexMap*>(NULL), weak_symbols);
+
+  common::BinaryBufferReader reader(file_contents.data(),
+                                    file_contents.size());
+  const IMPORT_OBJECT_HEADER* import = NULL;
+  if (!reader.Read(&import))
+    return false;
+
+  const char* name = NULL;
+  size_t size = 0;
+  if (!reader.ReadString(&name, &size))
+    return false;
+
+  std::string imp_name("__imp_");
+  imp_name += name;
+
+  bool is_duplicate = false;
+  if (UpdateSymbolTable(file_index, name, false, symbols, weak_symbols))
+    is_duplicate = true;
+  if (UpdateSymbolTable(file_index, imp_name, false, symbols, weak_symbols))
+    is_duplicate = true;
+
+  if (is_duplicate) {
+    LOG(INFO) << "Ignored duplicate symbol \"" << name
+              << "\" from import definition file: " << header.name;
+  }
+
+  return true;
+}
+
+// Extracts symbols from the given file. If the file is not of a recognized
+// type, then this does nothing.
+bool ExtractSymbols(uint32 file_index,
+                    const ParsedArFileHeader& header,
+                    const DataBuffer& file_contents,
+                    SymbolIndexMap* symbols,
+                    SymbolIndexMap* weak_symbols) {
+  core::FileType file_type = core::kUnknownFileType;
+  if (!core::GuessFileType(file_contents.data(), file_contents.size(),
+                           &file_type)) {
+    LOG(ERROR) << "Unable to determine file type: " << header.name;
+    return false;
+  }
+
+  switch (file_type) {
+    case core::kCoffFileType:
+    case core::kCoff64FileType: {
+      if (!ExtractSymbolsCoff(file_index, header, file_contents, symbols,
+                              weak_symbols)) {
+        return false;
+      }
+      break;
+    }
+
+    case core::kImportDefinitionFileType: {
+      if (!ExtractSymbolsImportDef(file_index, header, file_contents, symbols,
+                                   weak_symbols)) {
+        return false;
+      }
+      break;
+    }
+
+    // Files that we recognize but don't have to process.
+    case core::kResourceFileType: {
+      break;
+    }
+
+    // We don't know how to process anonymous COFF files, so can't extract
+    // symbol information.
+    case core::kAnonymousCoffFileType: {
+      LOG(ERROR) << "Unable to extract symbols from anonymous COFF object: "
+                 << header.name;
+      return false;
+    }
+
+    case core::kUnknownFileType: {
+      LOG(ERROR) << "Unable to add file of unknown type to archive: "
+                 << header.name;
+      return false;
+    }
+
+    default: {
+      LOG(ERROR) << "Unable to add file of invalid type to archive: "
+                 << header.name;
+      return false;
+    }
   }
 
   return true;
@@ -430,15 +530,17 @@ bool ArWriter::AddFile(const base::StringPiece& filename,
                        const DataBuffer* contents) {
   DCHECK_NE(reinterpret_cast<DataBuffer*>(NULL), contents);
 
+  if (contents->size() == 0) {
+    LOG(ERROR) << "Unable to add empty file to archive: " << filename;
+    return false;
+  }
+
   // Try to insert the file into the map. If this fails then there's a
   // collision.
   std::string name = filename.as_string();
   std::pair<FileIndexMap::const_iterator, bool> result =
       file_index_map_.insert(std::make_pair(name, files_.size()));
-  if (!result.second) {
-    LOG(ERROR) << "Unable to insert duplicate file: " << name;
-    return false;
-  }
+  CHECK(result.second);
   DCHECK_EQ(files_.size(), result.first->second);
 
   // Build the file header.
