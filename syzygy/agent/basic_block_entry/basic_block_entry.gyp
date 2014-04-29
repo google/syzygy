@@ -19,7 +19,8 @@
   'targets': [
     {
       'target_name': 'basic_block_entry_client',
-      'type': 'shared_library',
+      'type': 'loadable_module',
+      'includes': ['../agent.gypi'],
       'sources': [
         'basic_block_entry.cc',
         'basic_block_entry.def',

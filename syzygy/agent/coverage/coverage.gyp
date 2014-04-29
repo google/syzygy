@@ -19,7 +19,8 @@
   'targets': [
     {
       'target_name': 'coverage_client',
-      'type': 'shared_library',
+      'type': 'loadable_module',
+      'includes': ['../agent.gypi'],
       'sources': [
         'coverage.cc',
         'coverage.def',

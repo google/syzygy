@@ -19,7 +19,8 @@
   'targets': [
     {
       'target_name': 'call_trace_client',
-      'type': 'shared_library',
+      'type': 'loadable_module',
+      'includes': ['../agent.gypi'],
       'sources': [
         'client_rpc.cc',
         'client_rpc.def',

@@ -28,6 +28,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/win/pe_image.h"
 #include "base/win/scoped_handle.h"
+#include "syzygy/agent/common/agent.h"
 #include "syzygy/agent/common/dlist.h"
 #include "syzygy/agent/common/process_utils.h"
 #include "syzygy/agent/common/scoped_last_error_keeper.h"
@@ -235,6 +236,8 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
 
   // Our AtExit manager required by base.
   static base::AtExitManager* at_exit = NULL;
+
+  agent::common::InitializeCrt();
 
   switch (reason) {
     case DLL_PROCESS_ATTACH:

@@ -21,6 +21,8 @@
       'target_name': 'agent_common_lib',
       'type': 'static_library',
       'sources': [
+        'agent.cc',
+        'agent.h',
         'dlist.cc',
         'dlist.h',
         'dll_notifications.cc',

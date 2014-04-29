@@ -23,6 +23,7 @@
 #include "base/win/pe_image.h"
 #include "syzygy/agent/asan/asan_rtl_impl.h"
 #include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/agent/common/agent.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/common/logging.h"
 
@@ -237,6 +238,8 @@ void TearDownAsanRuntime() {
 extern "C" {
 
 BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
+  agent::common::InitializeCrt();
+
   switch (reason) {
     case DLL_PROCESS_ATTACH:
       // Create the At-Exit manager.

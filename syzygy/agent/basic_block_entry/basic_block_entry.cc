@@ -88,6 +88,7 @@
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "base/memory/scoped_ptr.h"
+#include "syzygy/agent/common/agent.h"
 #include "syzygy/agent/common/process_utils.h"
 #include "syzygy/agent/common/scoped_last_error_keeper.h"
 #include "syzygy/common/com_utils.h"
@@ -219,6 +220,8 @@ BBPROBE_REDIRECT_CALL(_indirect_penter_exemain, ExeMainEntryHook, 4)
 BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
   // Our AtExit manager required by base.
   static base::AtExitManager* at_exit = NULL;
+
+  agent::common::InitializeCrt();
 
   switch (reason) {
     case DLL_PROCESS_ATTACH:

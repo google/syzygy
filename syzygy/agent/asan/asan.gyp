@@ -58,6 +58,7 @@
     {
       'target_name': 'syzyasan_rtl',
       'type': 'loadable_module',
+      'includes': ['../agent.gypi'],
       'sources': [
         'syzyasan_rtl.cc',
         'syzyasan_rtl.def',

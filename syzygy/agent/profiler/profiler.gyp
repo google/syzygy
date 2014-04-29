@@ -30,6 +30,7 @@
     {
       'target_name': 'profile_client',
       'type': 'loadable_module',
+      'includes': ['../agent.gypi'],
       'sources': [
         'profiler.cc',
         'profiler.def',
