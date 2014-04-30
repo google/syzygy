@@ -139,12 +139,13 @@ class ReorderTest(object):
     pdb_path = os.path.join(dir_path, os.path.basename(self._input_pdb))
     return dir_path, bin_path, pdb_path
 
-  def _GetExpandedArgs(self, run_id, seed):
+  def _GetExpandedArgs(self, bin_dir, run_id, seed):
     """Expand any placeholders in the test arguments.
 
-    Currently we support the run_id and the seed, via an adhoc substition.
+    Currently we support bin_dir, run_id and seed, via an adhoc substition.
 
     Args:
+      bin_dir: The directory containing the instrumented binary.
       run_id: An identifier denoting the current iteration
       seed: The value denoting the seed for the random reordering
 
@@ -152,7 +153,9 @@ class ReorderTest(object):
       A new list of arguments, with placeholders expanded as appropriate.
     """
     return [
-        arg.replace('{iter}', '%03d' % run_id).replace('{seed}', '%s' % seed)
+        arg.replace('{bin_dir}', '%s' % bin_dir) \
+            .replace('{iter}', '%03d' % run_id) \
+            .replace('{seed}', '%s' % seed)
         for arg in self._test_arguments]
 
   def RunTestApp(self, run_id, seed):
@@ -171,10 +174,12 @@ class ReorderTest(object):
       A dictionary mapping test names to result strings.
     """
     results = {}
+    bin_dir = os.path.dirname(self._input_bin)
     test_dir, test_name = os.path.split(self._test_program)
     _LOGGER.info('run=%s; Running %s ...', run_id, test_name)
     with WorkingDirectory(test_dir):
-      command = [self._test_program] + self._GetExpandedArgs(run_id, seed)
+      command = [self._test_program] + self._GetExpandedArgs(
+          bin_dir, run_id, seed)
       proc = subprocess.Popen(command, stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT)
       while True:
@@ -266,7 +271,7 @@ class ReorderTest(object):
 
   @staticmethod
   def CompareResults(run_id, orig_results, new_results):
-    """Compare the pre and post results in for each test in result_map.
+    """Compare the pre and post results for each test in result_map.
 
     Args:
       orig_results: a dictionary of test names -> result strings
@@ -288,8 +293,7 @@ class ReorderTest(object):
       # new result but not the original result, which would be odd.
       merged_results.setdefault(test, [None, None])[1] = result
 
-    # if either result set is empty, then there's a problem
-    was_successful = True if (orig_results and new_results) else False
+    was_successful = True
 
     # We go through all the results mostly so we can log the
     # output.  Otherwise, we could have just done an equality
@@ -319,7 +323,7 @@ class ReorderTest(object):
           application if the results do not match the initial control
           result set.
       revert_binaries: If True (the default) the original values will be
-          restored after running the test app, otherwise, the reorered
+          restored after running the test app, otherwise, the reordered
           binaries will be left in place of the originals.
 
     Returns:

@@ -77,8 +77,8 @@ def _FindProfileWindow(profile_dir):
 def ShutDown(profile_dir, timeout_ms=win32event.INFINITE):
   """Shuts down the Chrome instance running in profile_dir.
 
-  Sends WM_ENDSESSION to all top-level windows on the same thread
-  as the message window, which roughly approximates user logoff.
+  Uses taskkill.exe to shut down the running Chrome instance attached to the
+  given profile directory.
 
   Args:
     profile_dir: the profile directory of the Chrome instance you want
@@ -111,7 +111,10 @@ def ShutDown(profile_dir, timeout_ms=win32event.INFINITE):
   # Loop around to periodically retry to close Chrome.
   while True:
     _LOGGER.info('Killing Chrome with PID=%d.', process_id)
-    subprocess.call(['taskkill.exe', '/PID', str(process_id)])
+
+    with open(os.devnull, 'w') as f:
+      subprocess.call(['taskkill.exe', '/PID', str(process_id)],
+                      stdout=f, stderr=f)
 
     # Wait for the process to exit and get its exit status.
     curr_timeout_ms = 2000
