@@ -354,12 +354,14 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
   }
 
   // Parse the other (boolean) flags.
-  asan_parameters->minidump_on_failure =
-      cmd_line.HasSwitch(kParamMiniDumpOnFailure);
-  asan_parameters->exit_on_failure = cmd_line.HasSwitch(kParamExitOnFailure);
-  asan_parameters->log_as_text = !cmd_line.HasSwitch(kParamNoLogAsText);
-  asan_parameters->check_heap_on_failure =
-      cmd_line.HasSwitch(kParamCheckHeapOnFailure);
+  if (cmd_line.HasSwitch(kParamMiniDumpOnFailure))
+    asan_parameters->minidump_on_failure = true;
+  if (cmd_line.HasSwitch(kParamExitOnFailure))
+    asan_parameters->exit_on_failure = true;
+  if (cmd_line.HasSwitch(kParamNoLogAsText))
+    asan_parameters->log_as_text = false;
+  if (cmd_line.HasSwitch(kParamCheckHeapOnFailure))
+    asan_parameters->check_heap_on_failure = true;
 
   return true;
 }

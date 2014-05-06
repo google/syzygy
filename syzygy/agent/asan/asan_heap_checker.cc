@@ -15,6 +15,7 @@
 #include "syzygy/agent/asan/asan_heap_checker.h"
 
 #include "syzygy/agent/asan/asan_heap.h"
+#include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/asan_shadow.h"
 
 namespace agent {

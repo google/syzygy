@@ -429,6 +429,12 @@ size_t AsanCorruptedBlock();
 
 size_t AsanCorruptedBlockInQuarantine();
 
+// Non-ASAN errors that are meant to be caught by the heap checker after
+// an exception is caught by the unfiltered exception handler.
+size_t AsanInvalidAccessWithCorruptAllocatedBlockHeader();
+size_t AsanInvalidAccessWithCorruptAllocatedBlockTrailer();
+size_t AsanInvalidAccessWithCorruptFreedBlock();
+
 }  // namespace testing
 
 #endif  // SYZYGY_INTEGRATION_TESTS_ASAN_INTERCEPTORS_TESTS_H_

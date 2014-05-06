@@ -155,7 +155,13 @@ namespace testing {
     decl(kCoverage2, testing::coverage_func2)  \
     decl(kCoverage3, testing::coverage_func3)  \
     decl(kProfileCallExport, testing::CallExportedFunction)  \
-    decl(kProfileGetMyRVA, testing::GetMyRVA)
+    decl(kProfileGetMyRVA, testing::GetMyRVA)  \
+    decl(kAsanInvalidAccessWithCorruptAllocatedBlockHeader,  \
+         testing::AsanInvalidAccessWithCorruptAllocatedBlockHeader)  \
+    decl(kAsanInvalidAccessWithCorruptAllocatedBlockTrailer,  \
+         testing::AsanInvalidAccessWithCorruptAllocatedBlockTrailer)  \
+    decl(kAsanInvalidAccessWithCorruptFreedBlock,  \
+         testing::AsanInvalidAccessWithCorruptFreedBlock)
 
 // This enumeration contains an unique id for each end to end test. It is used
 // to perform an indirect call through the DLL entry point 'EndToEndTest'.

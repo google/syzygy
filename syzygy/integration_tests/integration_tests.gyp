@@ -126,5 +126,26 @@
         },
       },
     },
+    {
+      'target_name': 'integration_tests_harness',
+      'type': 'executable',
+      'sources': [
+        'integration_tests_harness.cc',
+      ],
+      'dependencies': [
+        'integration_tests_dll',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+      ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          # ASAN agent is compiled without large address spaces to allow a
+          # memory optimization on the shadow memory. Agents should run in both
+          # modes, thus in the long term, we should remove this.
+          # Disable support for large address spaces.
+          'LargeAddressAware': 1,
+        },
+      },
+    },
   ],
 }

@@ -16,6 +16,7 @@
 #include "base/string_util.h"
 #include "base/stringprintf.h"
 #include "base/files/file_path.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/win/pe_image.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -33,6 +34,7 @@
 #include "syzygy/integration_tests/integration_tests_dll.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/trace/agent_logger/agent_logger.h"
 #include "syzygy/trace/common/unittest_util.h"
 
 namespace integration_tests {
@@ -52,6 +54,98 @@ typedef grinder::CoverageData::SourceFileCoverageData SourceFileCoverageData;
 typedef grinder::CoverageData::SourceFileCoverageDataMap
     SourceFileCoverageDataMap;
 
+// A convenience class for controlling an out of process agent_logger instance,
+// and getting the contents of its log file. Not thread safe.
+struct ScopedAgentLogger {
+  ScopedAgentLogger() : handle_(NULL), nul_(NULL) {
+    agent_logger_ = testing::GetOutputRelativePath(
+        L"agent_logger.exe");
+    instance_id_ = base::StringPrintf("integra%08X", ::GetCurrentProcessId());
+  }
+
+  ~ScopedAgentLogger() {
+    // Clean up the temp directory if we created one.
+    if (!temp_dir_.empty())
+      file_util::Delete(temp_dir_, true);
+
+    if (nul_) {
+      ::CloseHandle(nul_);
+      nul_ = NULL;
+    }
+  }
+
+  void RunAction(const char* action, base::ProcessHandle* handle) {
+    DCHECK_NE(reinterpret_cast<const char*>(NULL), action);
+    DCHECK_NE(reinterpret_cast<base::ProcessHandle*>(NULL), handle);
+
+    CommandLine cmd_line(agent_logger_);
+    cmd_line.AppendSwitchASCII("instance-id", instance_id_);
+    cmd_line.AppendSwitchPath("minidump-dir", temp_dir_);
+    cmd_line.AppendSwitchPath("output-file", log_file_);
+    cmd_line.AppendArg(action);
+    base::LaunchOptions options;
+    options.stderr_handle = nul_;
+    options.stdin_handle = nul_;
+    options.stdout_handle = nul_;
+    CHECK(base::LaunchProcess(cmd_line, options, handle));
+  }
+
+  void Start() {
+    DCHECK(!handle_);
+
+    if (nul_ == NULL) {
+      nul_ = CreateFile(L"NUL", GENERIC_READ | GENERIC_WRITE, 0, NULL,
+                        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+      CHECK(nul_);
+    }
+
+    CHECK(file_util::CreateNewTempDirectory(L"agent_logger", &temp_dir_));
+    log_file_ = temp_dir_.Append(L"integration_test.log");
+
+    std::wstring start_event_name(L"syzygy-logger-started-");
+    start_event_name += base::ASCIIToWide(instance_id_);
+    base::win::ScopedHandle start_event(
+        ::CreateEvent(NULL, FALSE, FALSE, start_event_name.c_str()));
+
+    RunAction("start", &handle_);
+
+    ::WaitForSingleObject(start_event.Get(), INFINITE);
+  }
+
+  void Stop() {
+    DCHECK(handle_);
+
+    base::ProcessHandle handle = NULL;
+    RunAction("stop", &handle);
+    int exit_code = 0;
+    CHECK(base::WaitForExitCode(handle, &exit_code));
+    CHECK(base::WaitForExitCode(handle_, &exit_code));
+    handle_ = NULL;
+
+    // Read the contents of the log file.
+    if (file_util::PathExists(log_file_))
+      CHECK(file_util::ReadFileToString(log_file_, &log_contents_));
+  }
+
+  bool LogContains(const base::StringPiece& s) {
+    return log_contents_.find(s.as_string()) != std::string::npos;
+  }
+
+  // Initialized at construction.
+  base::FilePath agent_logger_;
+  std::string instance_id_;
+
+  // Modified by Start and Stop.
+  base::FilePath temp_dir_;
+  base::FilePath log_file_;
+  base::ProcessHandle handle_;
+  HANDLE nul_;
+
+  // Modified by Stop.
+  std::string log_contents_;
+};
+
+
 typedef void (WINAPI *AsanSetCallBack)(AsanErrorCallBack);
 
 enum AccessMode {
@@ -66,6 +160,7 @@ enum BadAccessKind {
   HEAP_BUFFER_OVERFLOW = agent::asan::HeapProxy::HEAP_BUFFER_OVERFLOW,
   HEAP_BUFFER_UNDERFLOW = agent::asan::HeapProxy::HEAP_BUFFER_UNDERFLOW,
   CORRUPTED_BLOCK = agent::asan::HeapProxy::CORRUPTED_BLOCK,
+  CORRUPTED_HEAP = agent::asan::HeapProxy::CORRUPTED_HEAP,
 };
 
 // Contains the number of ASAN errors reported with our callback.
@@ -181,7 +276,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     logging::SetMinLogLevel(logging::LOG_FATAL);
 
     // Setup the IO streams.
-    CreateTemporaryDir(&temp_dir_);
+    this->CreateTemporaryDir(&temp_dir_);
     stdin_path_ = temp_dir_.Append(L"NUL");
     stdout_path_ = temp_dir_.Append(L"stdout.txt");
     stderr_path_ = temp_dir_.Append(L"stderr.txt");
@@ -206,7 +301,6 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     // We need to release the module handle before Super::TearDown, otherwise
     // the library file cannot be deleted.
     module_.Release();
-
     Super::TearDown();
   }
 
@@ -258,6 +352,50 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 
     // Invoke it, and returns its value.
     return func(test);
+  }
+
+  int RunOutOfProcessFunction(testing::EndToEndTestId test,
+                              bool expect_exception) {
+    base::FilePath harness = testing::GetOutputRelativePath(
+        L"integration_tests_harness.exe");
+    CommandLine cmd_line(harness);
+    cmd_line.AppendSwitchASCII("test", base::StringPrintf("%d", test));
+    cmd_line.AppendSwitchPath("dll", output_dll_path_);
+    if (expect_exception)
+      cmd_line.AppendSwitch("expect-exception");
+
+    base::LaunchOptions options;
+    base::ProcessHandle handle;
+    EXPECT_TRUE(base::LaunchProcess(cmd_line, options, &handle));
+
+    int exit_code = 0;
+    EXPECT_TRUE(base::WaitForExitCode(handle, &exit_code));
+
+    EXPECT_EQ(0u, exit_code);
+    return exit_code;
+  }
+
+  bool OutOfProcessAsanErrorCheck(testing::EndToEndTestId test,
+                                  bool expect_exception,
+                                  const base::StringPiece& log_message) {
+    ScopedAgentLogger logger;
+    logger.Start();
+
+    static const char kSyzygyRpcInstanceId[] = "SYZYGY_RPC_INSTANCE_ID";
+    base::Environment* env = base::Environment::Create();
+    CHECK(env != NULL);
+    env->SetVar(kSyzygyRpcInstanceId, logger.instance_id_);
+    RunOutOfProcessFunction(test, expect_exception);
+    logger.Stop();
+    env->UnSetVar(kSyzygyRpcInstanceId);
+
+    if (log_message.empty())
+      return true;
+
+    if (!logger.LogContains(log_message))
+      return false;
+
+    return true;
   }
 
   void EndToEndCheckTestDll() {
@@ -322,7 +460,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     }
   }
 
-  void AsanErrorCheckTestDll() {
+  void AsanErrorCheckTestDll(bool heap_checker) {
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead8BufferOverflowTestId,
         HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1, 1, false));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead16BufferOverflowTestId,
@@ -376,6 +514,25 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
         USE_AFTER_FREE, ASAN_WRITE_ACCESS, 4, 1, false));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite64UseAfterFreeTestId,
         USE_AFTER_FREE, ASAN_WRITE_ACCESS, 8, 1, false));
+
+    // These check our ability to diagnose and report heap corruption when
+    // non-ASAN generated exceptions are raised. Such bugs will show up as
+    // CORRUPTED_HEAP errors with unknown access type, and zero size. Since
+    // they use an unfiltered exception mechanism they can't be tested in
+    // process. Instead we go to great lengths to test them out of process,
+    // using an agent_logger to monitor them.
+    static const char kEnabled[] = "SyzyASAN error: corrupted-heap ";
+    static const char kDisabled[] = "Heap checker disabled";
+    const char* pattern = heap_checker ? kEnabled : kDisabled;
+    EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+        testing::kAsanInvalidAccessWithCorruptAllocatedBlockHeader,
+        true, pattern));
+    EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+        testing::kAsanInvalidAccessWithCorruptAllocatedBlockTrailer,
+        true, pattern));
+    EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+        testing::kAsanInvalidAccessWithCorruptFreedBlock,
+        true, pattern));
   }
 
   void AsanErrorCheckSampledAllocations() {
@@ -855,37 +1012,38 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(false));
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
   cmd_line_.AppendSwitch("no-liveness-analysis");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(false));
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoRedundancyAnalysis) {
   cmd_line_.AppendSwitch("no-redundancy-analysis");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(false));
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoFunctionInterceptors) {
   cmd_line_.AppendSwitch("no-interceptors");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(false));
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndWithRtlOptions) {
   cmd_line_.AppendSwitchASCII(
       "asan-rtl-options",
-      "--quarantine_size=20000000 --quarantine_block_size=1000000");
+      "--quarantine_size=20000000 --quarantine_block_size=1000000 "
+      "--check_heap_on_failure");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(true));
 
   // Get the active runtime and validate its parameters.
   agent::asan::AsanRuntime* runtime = GetActiveAsanRuntime();
@@ -896,18 +1054,19 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndWithRtlOptions) {
 
 TEST_F(InstrumentAppIntegrationTest,
        AsanEndToEndWithRtlOptionsOverrideWithEnvironment) {
+  static const char kSyzygyAsanOptions[] = "SYZYGY_ASAN_OPTIONS";
   base::Environment* env = base::Environment::Create();
   ASSERT_TRUE(env != NULL);
-  env->SetVar("SYZYGY_ASAN_OPTIONS",
-              "--quarantine_block_size=800000 --ignored_stack_ids=0x1");
-
+  env->SetVar(kSyzygyAsanOptions,
+              "--quarantine_block_size=800000 --ignored_stack_ids=0x1 "
+              "--check_heap_on_failure");
   cmd_line_.AppendSwitchASCII(
       "asan-rtl-options",
       "--quarantine_size=20000000 --quarantine_block_size=1000000 "
       "--ignored_stack_ids=0x2");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(true));
 
   // Get the active runtime and validate its parameters.
   agent::asan::AsanRuntime* runtime = GetActiveAsanRuntime();
@@ -916,12 +1075,14 @@ TEST_F(InstrumentAppIntegrationTest,
   ASSERT_EQ(800000u, runtime->params().quarantine_block_size);
   ASSERT_THAT(runtime->params().ignored_stack_ids_set,
               testing::ElementsAre(0x1, 0x2));
+
+  env->UnSetVar(kSyzygyAsanOptions);
 }
 
 TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(false));
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckInterceptedFunctions());
 }
 

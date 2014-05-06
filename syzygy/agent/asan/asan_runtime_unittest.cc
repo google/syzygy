@@ -139,6 +139,8 @@ TEST_F(AsanRuntimeTest, SetDefaultQuarantineMaxSize) {
   ASSERT_TRUE(heap_proxy.Create(0, 0, 0));
   EXPECT_EQ(quarantine_max_size, heap_proxy.quarantine_max_size());
   ASSERT_TRUE(heap_proxy.Destroy());
+
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 
 TEST_F(AsanRuntimeTest, SetCompressionReportingPeriod) {
@@ -153,9 +155,9 @@ TEST_F(AsanRuntimeTest, SetCompressionReportingPeriod) {
 
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
-
   // Ensure that the compression reporting period has been modified.
   EXPECT_EQ(new_period, StackCaptureCache::compression_reporting_period());
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 
 TEST_F(AsanRuntimeTest, SetBottomFramesToSkip) {
@@ -166,8 +168,8 @@ TEST_F(AsanRuntimeTest, SetBottomFramesToSkip) {
 
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
-
   EXPECT_EQ(frames_to_skip, StackCapture::bottom_frames_to_skip());
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 
 TEST_F(AsanRuntimeTest, SetTrailerPaddingSize) {
@@ -179,8 +181,8 @@ TEST_F(AsanRuntimeTest, SetTrailerPaddingSize) {
 
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
-
   EXPECT_EQ(trailer_padding_size, HeapProxy::trailer_padding_size());
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 
 TEST_F(AsanRuntimeTest, SetExitOnFailure) {
@@ -189,6 +191,7 @@ TEST_F(AsanRuntimeTest, SetExitOnFailure) {
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
   EXPECT_TRUE(asan_runtime_.params().exit_on_failure);
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 
 TEST_F(AsanRuntimeTest, ExitOnFailure) {
@@ -208,6 +211,8 @@ TEST_F(AsanRuntimeTest, ExitOnFailure) {
   DeleteTempFileAndDirectory();
   EXPECT_EXIT(asan_runtime_.OnError(&bad_access_info),
               ::testing::ExitedWithCode(EXIT_FAILURE), "");
+
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 
 TEST_F(AsanRuntimeTest, IgnoredStackIds) {
@@ -220,6 +225,7 @@ TEST_F(AsanRuntimeTest, IgnoredStackIds) {
 
   EXPECT_THAT(asan_runtime_.params().ignored_stack_ids_set,
               testing::ElementsAre(0x1, 0x7E577E57, 0xCAFEBABE, 0xFFFFFFFF));
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 
 TEST_F(AsanRuntimeTest, PropagateParams) {
@@ -248,6 +254,8 @@ TEST_F(AsanRuntimeTest, PropagateParams) {
             StackCapture::bottom_frames_to_skip());
   ASSERT_EQ(params.max_num_frames,
             asan_runtime_.stack_cache()->max_num_frames());
+
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 
 TEST_F(AsanRuntimeTest, AddAndRemoveHeaps) {

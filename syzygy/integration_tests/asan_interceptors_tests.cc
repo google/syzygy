@@ -1059,4 +1059,44 @@ size_t AsanCorruptedBlockInQuarantine() {
   return ret;
 }
 
+size_t AsanInvalidAccessWithCorruptAllocatedBlockHeader() {
+  size_t* mem = new size_t[10];
+  size_t ret = mem[0];
+
+  // Modify the block header.
+  size_t original_value = NonInterceptedRead(mem - 1);
+  NonInterceptedWrite(mem - 1, original_value + 1);
+
+  // Raise an exception.
+  ::RaiseException(EXCEPTION_ARRAY_BOUNDS_EXCEEDED, 0, 0, NULL);
+  return ret;
+}
+
+size_t AsanInvalidAccessWithCorruptAllocatedBlockTrailer() {
+  size_t* mem = new size_t[10];
+  size_t ret = mem[0];
+
+  // Modify the block trailer.
+  size_t original_value = NonInterceptedRead(mem + 10);
+  NonInterceptedWrite(mem + 10, original_value + 1);
+
+  // Raise an exception.
+  ::RaiseException(EXCEPTION_ARRAY_BOUNDS_EXCEEDED, 0, 0, NULL);
+  return ret;
+}
+
+size_t AsanInvalidAccessWithCorruptFreedBlock() {
+  size_t* mem = new size_t[10];
+  size_t ret = mem[0];
+  delete[] mem;
+
+  // Modify the block contents.
+  size_t original_value = NonInterceptedRead(mem + 1);
+  NonInterceptedWrite(mem + 1, original_value + 1);
+
+  // Raise an exception.
+  ::RaiseException(EXCEPTION_ARRAY_BOUNDS_EXCEEDED, 0, 0, NULL);
+  return ret;
+}
+
 }  // namespace testing

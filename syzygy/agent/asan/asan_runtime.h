@@ -25,6 +25,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/asan_heap.h"
+#include "syzygy/agent/asan/asan_heap_checker.h"
 #include "syzygy/agent/asan/stack_capture.h"
 #include "syzygy/agent/common/dlist.h"
 #include "syzygy/common/asan_parameters.h"
@@ -32,47 +33,8 @@
 namespace agent {
 namespace asan {
 
+// Forward declarations.
 class AsanLogger;
-
-// Store the information about a corrupt block.
-struct AsanBlockInfo {
-  // The address of the header for this block.
-  const void* header;
-  // The user size of the block.
-  size_t user_size : 30;
-  // This is implicitly a HeapProxy::BlockState value.
-  size_t state : 2;
-  // The ID of the allocation thread.
-  DWORD alloc_tid;
-  // The ID of the free thread.
-  DWORD free_tid;
-  // Indicates if the block is corrupt.
-  bool corrupt;
-  // The allocation stack trace.
-  void* alloc_stack[agent::asan::StackCapture::kMaxNumFrames];
-  // The free stack trace.
-  void* free_stack[agent::asan::StackCapture::kMaxNumFrames];
-  // The size of the allocation stack trace.
-  uint8 alloc_stack_size;
-  // The size of the free stack trace.
-  uint8 free_stack_size;
-};
-
-struct AsanCorruptBlockRange {
-  // The beginning address of the range.
-  const void* address;
-  // The length of the range.
-  size_t length;
-  // The number of blocks in this range.
-  size_t block_count;
-  // The number of blocks in the |block_info| array.
-  size_t block_info_count;
-  // The information about the blocks in this range. This may include one or
-  // more of the corrupt blocks and/or the valid blocks surrounding them; at the
-  // very least it will contain the first corrupt block in the range. The real
-  // length of this array will be stored in |block_info_count|.
-  AsanBlockInfo* block_info;
-};
 
 // Store the information about a bad memory access.
 struct AsanErrorInfo {
@@ -112,10 +74,15 @@ struct AsanErrorInfo {
   uint64 microseconds_since_free;
   // Indicates if the heap is corrupt.
   bool heap_is_corrupt;
-  // The number of entries in the |corrupt_ranges| structure.
+  // The number of corrupt ranges encountered.
   size_t corrupt_range_count;
+  // The number of corrupt blocks encountered.
+  size_t corrupt_block_count;
+  // The number of corrupt ranges reported in |corrupt_ranges|.
+  size_t corrupt_ranges_reported;
   // The information about the corrupt ranges of memory. The real length of this
-  // array will be stored in |corrupt_range_count|.
+  // array will be stored in |corrupt_ranges_reported|. This will be NULL if
+  // |corrupt_ranges_reported| is zero.
   AsanCorruptBlockRange* corrupt_ranges;
 };
 
@@ -216,6 +183,27 @@ class AsanRuntime {
   // Propagate the values of the flags to the target modules.
   void PropagateParams() const;
 
+  // @returns the space required to write the provided corrupt heap info.
+  // @param corrupt_ranges The corrupt range info.
+  size_t CalculateCorruptHeapInfoSize(
+      const HeapChecker::CorruptRangesVector& corrupt_ranges);
+
+  // Writes corrupt heap information to the provided buffer. This will write
+  // as much of the information as possible in the space provided.
+  // @param corrupt_ranges The corrupt range info.
+  // @param buffer_size The size of the buffer to be written to. May be zero.
+  // @param buffer The location where data will be written. May be null.
+  // @param error_info The written heap metadata will be wired up to the
+  //     provided error_info.
+  void WriteCorruptHeapInfo(
+      const HeapChecker::CorruptRangesVector& corrupt_ranges,
+      size_t buffer_size,
+      void* buffer,
+      AsanErrorInfo* error_info);
+
+  // Logs information about an ASAN error.
+  void LogAsanErrorInfo(AsanErrorInfo* error_info);
+
  private:
   // Set up the logger.
   void SetUpLogger();
@@ -228,6 +216,20 @@ class AsanRuntime {
 
   // Tear down the stack cache.
   void TearDownStackCache();
+
+  // The unhandled exception filter registered by this runtime. This is used
+  // to catch unhandled exceptions so we can augment them with information
+  // about the corrupt heap.
+  static LONG WINAPI UnhandledExceptionFilter(
+      struct _EXCEPTION_POINTERS* exception);
+
+  // @name Static variables related to unhandled exception filtering (UEF).
+  // @{
+  static base::Lock lock_;  // Lock for all runtimes.
+  static AsanRuntime* runtime_;  // Singleton. Under lock_.
+  static LPTOP_LEVEL_EXCEPTION_FILTER previous_uef_;  // Under lock_.
+  static bool uef_installed_;  // Under lock_;
+  // @}
 
   // The shared logger instance that will be used by all heap proxies.
   scoped_ptr<AsanLogger> logger_;
