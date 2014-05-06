@@ -145,7 +145,7 @@ const uint32 kDefaultMaxNumFrames = 62;
 
 // Default values of AsanRuntime parameters.
 const bool kDefaultExitOnFailure = false;
-const bool kDefaultCheckHeapOnFailure = false;
+const bool kDefaultCheckHeapOnFailure = true;
 
 // Default values of AsanLogger parameters.
 const bool kDefaultMiniDumpOnFailure = false;
@@ -167,7 +167,7 @@ const char kParamMaxNumFrames[] = "max_num_frames";
 // String names of AsanRuntime parameters.
 const char kParamIgnoredStackIds[] = "ignored_stack_ids";
 const char kParamExitOnFailure[] = "exit_on_failure";
-const char kParamCheckHeapOnFailure[] = "check_heap_on_failure";
+const char kParamNoCheckHeapOnFailure[] = "no_check_heap_on_failure";
 
 // String names of AsanLogger parameters.
 const char kParamMiniDumpOnFailure[] = "minidump_on_failure";
@@ -360,8 +360,8 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
     asan_parameters->exit_on_failure = true;
   if (cmd_line.HasSwitch(kParamNoLogAsText))
     asan_parameters->log_as_text = false;
-  if (cmd_line.HasSwitch(kParamCheckHeapOnFailure))
-    asan_parameters->check_heap_on_failure = true;
+  if (cmd_line.HasSwitch(kParamNoCheckHeapOnFailure))
+    asan_parameters->check_heap_on_failure = false;
 
   return true;
 }

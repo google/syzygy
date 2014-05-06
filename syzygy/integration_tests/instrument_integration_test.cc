@@ -1012,38 +1012,38 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(false));
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(true));
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
   cmd_line_.AppendSwitch("no-liveness-analysis");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(false));
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(true));
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoRedundancyAnalysis) {
   cmd_line_.AppendSwitch("no-redundancy-analysis");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(false));
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(true));
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoFunctionInterceptors) {
   cmd_line_.AppendSwitch("no-interceptors");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(false));
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(true));
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndWithRtlOptions) {
   cmd_line_.AppendSwitchASCII(
       "asan-rtl-options",
       "--quarantine_size=20000000 --quarantine_block_size=1000000 "
-      "--check_heap_on_failure");
+      "--no_check_heap_on_failure");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(true));
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(false));
 
   // Get the active runtime and validate its parameters.
   agent::asan::AsanRuntime* runtime = GetActiveAsanRuntime();
@@ -1059,14 +1059,14 @@ TEST_F(InstrumentAppIntegrationTest,
   ASSERT_TRUE(env != NULL);
   env->SetVar(kSyzygyAsanOptions,
               "--quarantine_block_size=800000 --ignored_stack_ids=0x1 "
-              "--check_heap_on_failure");
+              "--no_check_heap_on_failure");
   cmd_line_.AppendSwitchASCII(
       "asan-rtl-options",
       "--quarantine_size=20000000 --quarantine_block_size=1000000 "
       "--ignored_stack_ids=0x2");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(true));
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(false));
 
   // Get the active runtime and validate its parameters.
   agent::asan::AsanRuntime* runtime = GetActiveAsanRuntime();
@@ -1082,7 +1082,7 @@ TEST_F(InstrumentAppIntegrationTest,
 TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(false));
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(true));
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckInterceptedFunctions());
 }
 

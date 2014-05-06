@@ -219,7 +219,7 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
       L"--max_num_frames=27 "
       L"--ignored_stack_ids=0X1;0xDEADBEEF;0xBAADF00D;CAFEBABE "
       L"--exit_on_failure "
-      L"--check_heap_on_failure "
+      L"--no_check_heap_on_failure "
       L"--minidump_on_failure "
       L"--no_log_as_text "
       L"--allocation_guard_rate=0.6 "
@@ -239,7 +239,7 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
   EXPECT_EQ(256, iparams.quarantine_block_size);
   EXPECT_EQ(true, static_cast<bool>(iparams.minidump_on_failure));
   EXPECT_EQ(true, static_cast<bool>(iparams.exit_on_failure));
-  EXPECT_EQ(true, static_cast<bool>(iparams.check_heap_on_failure));
+  EXPECT_EQ(false, static_cast<bool>(iparams.check_heap_on_failure));
   EXPECT_EQ(false, static_cast<bool>(iparams.log_as_text));
   EXPECT_EQ(0u, iparams.reserved1);
   EXPECT_EQ(0.6f, iparams.allocation_guard_rate);
