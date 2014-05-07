@@ -356,7 +356,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 
   int RunOutOfProcessFunction(testing::EndToEndTestId test,
                               bool expect_exception) {
-    base::FilePath harness = testing::GetOutputRelativePath(
+    base::FilePath harness = testing::GetExeRelativePath(
         L"integration_tests_harness.exe");
     CommandLine cmd_line(harness);
     cmd_line.AppendSwitchASCII("test", base::StringPrintf("%d", test));
@@ -381,13 +381,35 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     ScopedAgentLogger logger;
     logger.Start();
 
-    static const char kSyzygyRpcInstanceId[] = "SYZYGY_RPC_INSTANCE_ID";
     base::Environment* env = base::Environment::Create();
     CHECK(env != NULL);
-    env->SetVar(kSyzygyRpcInstanceId, logger.instance_id_);
+
+    // Update the instance ID environment variable to specifically aim the
+    // ASAN RTL to the agent logger we are running. We have to be careful not
+    // to influence other RPC settings so as not to break coverage support.
+    base::FilePath agent = testing::GetExeRelativePath(L"syzyasan_rtl.dll");
+    std::string instance_id = base::WideToUTF8(agent.value());
+    instance_id.append(",");
+    instance_id.append(logger.instance_id_);
+    bool had_instance_id = false;
+    std::string orig_instance_id;
+    had_instance_id = env->GetVar(kSyzygyRpcInstanceIdEnvVar,
+                                  &orig_instance_id);
+    if (had_instance_id) {
+      instance_id.append(";");
+      instance_id.append(orig_instance_id);
+    }
+    env->SetVar(kSyzygyRpcInstanceIdEnvVar, instance_id);
+
     RunOutOfProcessFunction(test, expect_exception);
     logger.Stop();
-    env->UnSetVar(kSyzygyRpcInstanceId);
+
+    // Restore the instance ID variable to its original state.
+    if (had_instance_id) {
+      env->SetVar(kSyzygyRpcInstanceIdEnvVar, orig_instance_id);
+    } else {
+      env->UnSetVar(kSyzygyRpcInstanceIdEnvVar);
+    }
 
     if (log_message.empty())
       return true;

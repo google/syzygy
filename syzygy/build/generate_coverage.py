@@ -35,6 +35,7 @@ _DLLS_TO_INSTRUMENT = [
 
 # The list of file patterns to copy to the staging/coverage area.
 _FILE_PATTERNS_TO_COPY = [
+    '*_harness.exe',
     '*_tests.exe',
     '*_unittests.exe',
     '*.dll',

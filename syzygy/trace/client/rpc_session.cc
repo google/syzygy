@@ -21,6 +21,9 @@
 #include "syzygy/trace/rpc/call_trace_rpc.h"
 #include "syzygy/trace/rpc/rpc_helpers.h"
 
+// http://blogs.msdn.com/oldnewthing/archive/2004/10/25/247180.aspx
+extern "C" IMAGE_DOS_HEADER __ImageBase;
+
 namespace trace {
 namespace client {
 
@@ -103,7 +106,14 @@ bool RpcSession::CreateSession(TraceFileSegment* segment) {
                              &flags_).succeeded();
 
   if (!succeeded) {
+    // We often have multiple agents running simultaneously in unittests,
+    // especially under coverage builds. Detailed logging of which agent was
+    // trying to connect where helps enormously when tracking down problems.
+    base::FilePath module_path;
+    CHECK(GetModulePath(&__ImageBase, &module_path));
     LOG(ERROR) << "Failed to create call trace session!";
+    LOG(ERROR) << "  instance_id = \"" << instance_id_ << "\"";
+    LOG(ERROR) << "  module = \"" << module_path.value() << "\"";
     is_disabled_ = true;
     return false;
   }
