@@ -15,6 +15,7 @@
 {
   'variables': {
     'chromium_code': 1,
+    'system_interceptors_output_base_name': 'asan_system_interceptors',
   },
   'targets': [
     {
@@ -48,6 +49,7 @@
         'stack_capture_cache.h',
       ],
       'dependencies': [
+        'system_interceptors_generator',
         '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
         '<(src)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
         '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
@@ -58,8 +60,8 @@
       'type': 'loadable_module',
       'includes': ['../agent.gypi'],
       'sources': [
+        '<(system_interceptors_output_base_name).def.gen',
         'syzyasan_rtl.cc',
-        'syzyasan_rtl.def',
         'syzyasan_rtl.rc',
       ],
       'dependencies': [
@@ -81,6 +83,9 @@
           'msvs_settings': {
             'VCLinkerTool': {
               'AdditionalDependencies=': [],
+              'ModuleDefinitionFile': [
+                '<(system_interceptors_output_base_name).def.gen'
+              ],
             },
           },
         },
@@ -115,6 +120,43 @@
           'ImportLibrary': '$(OutDir)lib\$(TargetFileName).lib'
         },
       },
+    },
+    {
+      'target_name': 'system_interceptors_generator',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'sources': [
+        'asan_system_interceptor_parser.py',
+      ],
+      'actions': [
+        {
+          'action_name': 'generate_syzyasan_system_interceptors',
+          'inputs': [
+            'asan_system_interceptors_filter.csv',
+            'syzyasan_rtl.def',
+            # The 'windows_sdk_path' variable is set in common.gypi. By default
+            # it points to the version 8 of the SDK in third_party/, as this
+            # folder isn't present in the syzygy checkout this falls back to
+            # using the system installation of Windows SDK 8.0.
+            '<(windows_sdk_path)/Include/um/fileapi.h',
+          ],
+          'outputs': [
+            '<(system_interceptors_output_base_name)_impl.h.gen',
+            '<(system_interceptors_output_base_name)_instrumentation_filter'
+                '.h.gen',
+            '<(system_interceptors_output_base_name).def.gen',
+          ],
+          'action': [
+            '<(python_exe)',
+            'asan_system_interceptor_parser.py',
+            '--output-base=<(system_interceptors_output_base_name)',
+            '--filter=asan_system_interceptors_filter.csv',
+            '--overwrite',
+            '--def-file=syzyasan_rtl.def',
+            '<(windows_sdk_path)/Include/um/fileapi.h',
+          ],
+        },
+      ],
     },
     {
       'target_name': 'syzyasan_rtl_unittests',

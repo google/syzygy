@@ -27,18 +27,6 @@ extern "C" {
 typedef void (*InterceptorTailCallback)(void);
 void asan_SetInterceptorTailCallback(InterceptorTailCallback callback);
 
-BOOL WINAPI asan_ReadFile(HANDLE file_handle,
-                          LPVOID buffer,
-                          DWORD bytes_to_read,
-                          LPDWORD bytes_read,
-                          LPOVERLAPPED overlapped);
-
-BOOL WINAPI asan_WriteFile(HANDLE file_handle,
-                           LPCVOID buffer,
-                           DWORD bytes_to_write,
-                           LPDWORD bytes_written,
-                           LPOVERLAPPED overlapped);
-
 }  // extern "C"
 
 #endif  // SYZYGY_AGENT_ASAN_ASAN_SYSTEM_INTERCEPTORS_H_

@@ -98,9 +98,9 @@ const AsanIntercept kAsanIntercepts[] = {
   { "HeapQueryInformation", "_HeapQueryInformation@20", kKernel32, NULL,
     false },
 
-  // File related kernel32 functions.
-  { "ReadFile", "_ReadFile@20", kKernel32, NULL, true },
-  { "WriteFile", "_WriteFile@20", kKernel32, NULL, true },
+// Bring in the list of system interceptors that have been automatically
+// generated.
+#include "syzygy/agent/asan/asan_system_interceptors_instrumentation_filter.gen"
 
   // C-runtime functions. For Chrome these are always statically linked, but
   // they *could* be imported from one of several different versions of the
