@@ -1,18 +1,40 @@
 Syzygy Release Notes
 ====================
 
-Version 0.7.11.1
+Version 0.7.15.0
 
-[r2131] Fix to chrome_utils.py script that copies Chrome installations during
-        instrumentation. Was causing errors on M36 builders.
+[r2142] SyzyASAN - Addition of a heap validation code to error processing and
+        reporting.
+[r2138] Fix to allow VS2013 produced Syzygy agents to run with VS2013 produced
+        instrumented binaries.
+
+Version 0.7.14.0
+
+[r2115] Adds native .lib support to the toolchain.
+[r2120] SyzyASan - Implements the interceptor for wcschr.
+
+Version 0.7.13.0
+
+[-----] SyzyASan - Fixed some XP compatibility issues.
+[r2095] SyzyASan - Add support for runtime subsampling of SyzyASan allocation
+        guards.
+[r2094] SyzyASan - Cast the return value of HeapFree to a boolean before
+        checking it.
+[r2064] SyzyASan - Plumb runtime ASan parameters through instrumentation to the
+        runtime library.
+
+Version 0.7.12.0
+
+[-----] First build with VS2013.
+[r2059] SyzyASan - Add instrumentation subsampling support to ASan instrumenter.
 
 Version 0.7.11.0
 
-[r2056] SyzyASAN - Block checksums now validated as they exit the quarantine.
+[r2056] SyzyASan - Block checksums now validated as they exit the quarantine.
 
 Version 0.7.10.0
 
-[r2049] SyzyASAN - Fix to quarantine to prevent flushing it when overly large
+[r2049] SyzyASan - Fix to quarantine to prevent flushing it when overly large
         blocks are inserted. Also modifies eviction policy to be random.
 
 Version 0.7.9.0
@@ -40,9 +62,9 @@ Version 0.7.7.1
 Version 0.7.7.0
 
 [r1979] Created swapimport.exe utility.
-[r1978] SyzyASAN - Fix for improperly intercepted CRT functions with custom
+[r1978] SyzyASan - Fix for improperly intercepted CRT functions with custom
         calling conventions in LTCG builds.
-[r1969] SyzyASAN - Wide character CRT string function interceptors.
+[r1969] SyzyASan - Wide character CRT string function interceptors.
 
 Version 0.7.6.0
 
@@ -57,7 +79,7 @@ Version 0.7.5.0
 Version 0.7.4.1
 
 [r1893] Fix the failures on the decomposer unittests for the official build.
-[r1892] SyzyASan - Add the header and the lib file of syzyasan_rtl.dll to the
+[r1892] SyzyASan - Add the header and the lib file of SyzyASan_rtl.dll to the
         released binaries.
 
 Version 0.7.4.0
@@ -83,12 +105,12 @@ Version 0.7.1.0
 
 Version 0.7.0.1
 
-[-----] Build infrastructure changes to support renamed ASAN RTL.
+[-----] Build infrastructure changes to support renamed ASan RTL.
 
 Version 0.7.0.0
 
 [r1807] SyzyASan - Reduce the contention in StackCaptureCache.
-[r1791] SyzyASan - Rename asan_rtl.dll to syzyasan_rtl.dll
+[r1791] SyzyASan - Rename asan_rtl.dll to SyzyASan_rtl.dll
 [r1787] Add branch events buffering to the instrumenter.
 
 Version 0.2.29.1
@@ -98,7 +120,7 @@ Version 0.2.29.1
 
 Version 0.2.29.0
 
-[r1759] SyzyASan - Add ASAN RTL support for a quarantine size/trailer padding
+[r1759] SyzyASan - Add ASan RTL support for a quarantine size/trailer padding
         size experiment.
 [r1758] SyzyASan - Use the CRT interceptors by default.
 [r1750] SyzyASan - Adds a parameter to the command line to specify the blocks
@@ -193,7 +215,7 @@ Version 0.2.16.0
 
 Version 0.2.15.0
 
-[r1359] Elide ASAN hooks for (unhandled) stack addresses.
+[r1359] Elide ASan hooks for (unhandled) stack addresses.
 [r1330] Thunk entry points to blocks which are not basic-block decomposable.
 [r1344] Add client DLL symbol information to the release.
 

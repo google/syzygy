@@ -125,7 +125,7 @@ def main():
 
   else:
     revision = _GetLastOfficialBuildRevision()
-    _LOGGER.info('Using official build at revision %s.' % revision)
+    _LOGGER.info('Using official build at revision %s.' % revision[0:12])
 
   # And build the corresponding archive URL.
   archive_url = _SYZYGY_ARCHIVE_URL % { 'revision': revision }
@@ -217,7 +217,7 @@ def main():
       _Shell('git', 'update-index', '--chmod=+x', p)
 
   # Now commit and upload the new binaries.
-  message = 'Checking in revision %s release binaries.' % revision
+  message = 'Checking in revision %s release binaries.' % revision[0:12]
   _Shell('git', 'commit', '-m', message)
   _Shell('git', 'cl', 'upload', '-t', message)
 
