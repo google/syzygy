@@ -1,9 +1,14 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.16.0
+
+[r2151] SyzyASan - Fixes to the heap validation code.
+[r2148] Add a script for installing Syzygy binaries directly from the archives.
+
 Version 0.7.15.0
 
-[r2142] SyzyASAN - Addition of a heap validation code to error processing and
+[r2142] SyzyASan - Addition of a heap validation code to error processing and
         reporting.
 [r2138] Fix to allow VS2013 produced Syzygy agents to run with VS2013 produced
         instrumented binaries.
