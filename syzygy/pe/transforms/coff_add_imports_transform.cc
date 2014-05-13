@@ -72,12 +72,6 @@ bool CoffAddImportsTransform::TransformBlockGraph(
   }
   DCHECK_EQ(file_header->NumberOfSymbols, symbols.ElementCount());
 
-  TypedBlock<char> strings;
-  if (!strings.Init(0, strings_block)) {
-    LOG(ERROR) << "Unable to cast string table.";
-    return false;
-  }
-
   // Read existing symbols.
   CoffSymbolNameOffsetMap known_names;
   if (!BuildCoffSymbolNameOffsetMap(symbols_block, strings_block,
@@ -112,10 +106,6 @@ bool CoffAddImportsTransform::TransformBlockGraph(
     size_t string_cursor = strings_block->size();
     strings_block->InsertData(string_cursor, string_len_to_add, true);
     strings_block->ResizeData(strings_block->size());
-    if (!strings.Init(0, strings_block)) {
-      LOG(ERROR) << "Unable to cast string table.";
-      return false;
-    }
 
     CoffSymbolNameOffsetMap::iterator to_add_it = names_to_add.begin();
     for (; to_add_it != names_to_add.end(); ++to_add_it) {
@@ -126,8 +116,8 @@ bool CoffAddImportsTransform::TransformBlockGraph(
       DCHECK_LE(old_symbols_block_size, static_cast<size_t>(offset));
       size_t index = offset / sizeof(IMAGE_SYMBOL);
 
-      std::memcpy(&strings[string_cursor], to_add_it->first.c_str(),
-                  to_add_it->first.size() + 1);
+      std::memcpy(strings_block->GetMutableData() + string_cursor,
+                  to_add_it->first.c_str(), to_add_it->first.size() + 1);
       IMAGE_SYMBOL* symbol = &symbols[index];
       symbol->N.Name.Short = 0;
       symbol->N.Name.Long = string_cursor;

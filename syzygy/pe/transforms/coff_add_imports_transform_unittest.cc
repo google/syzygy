@@ -30,7 +30,6 @@ class CoffAddImportsTransformTest : public testing::CoffUnitTest {
  public:
   virtual void SetUp() OVERRIDE {
     testing::CoffUnitTest::SetUp();
-    ASSERT_NO_FATAL_FAILURE(DecomposeOriginal());
   }
 
   // Check that symbols in @p module have been assigned a reference, and that
@@ -58,6 +57,7 @@ const char kMemcpy[] = "_memset";  // Multiply defined.
 }  // namespace
 
 TEST_F(CoffAddImportsTransformTest, AddImportsExisting) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeOriginal());
   ImportedModule module("export_dll.dll");
   size_t function1 = module.AddSymbol(kFunction1Name,
                                       ImportedModule::kAlwaysImport);
@@ -83,6 +83,7 @@ TEST_F(CoffAddImportsTransformTest, AddImportsExisting) {
 }
 
 TEST_F(CoffAddImportsTransformTest, AddImportsNewSymbol) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeOriginal());
   ImportedModule module("export_dll.dll");
   size_t function1 = module.AddSymbol(kFunction1Name,
                                       ImportedModule::kAlwaysImport);
@@ -112,6 +113,7 @@ TEST_F(CoffAddImportsTransformTest, AddImportsNewSymbol) {
 }
 
 TEST_F(CoffAddImportsTransformTest, FindImportsExistingMultiple) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeOriginal());
   ImportedModule module("export_dll.dll");
   size_t function1 = module.AddSymbol(kFunction1Name,
                                       ImportedModule::kFindOnly);
@@ -135,6 +137,7 @@ TEST_F(CoffAddImportsTransformTest, FindImportsExistingMultiple) {
 }
 
 TEST_F(CoffAddImportsTransformTest, FindImportsNewSymbol) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeOriginal());
   ImportedModule module("export_dll.dll");
   size_t function1 = module.AddSymbol(kFunction1Name,
                                       ImportedModule::kFindOnly);
@@ -160,6 +163,30 @@ TEST_F(CoffAddImportsTransformTest, FindImportsNewSymbol) {
   EXPECT_FALSE(module.SymbolWasAdded(function3));
   EXPECT_FALSE(module.SymbolWasAdded(function4));
 }
+
+TEST_F(CoffAddImportsTransformTest, EmptyStringTable) {
+  // Override with a different module.
+  test_dll_obj_path_ = testing::GetSrcRelativePath(
+      testing::kEmptyStringTableCoffName);
+  ASSERT_NO_FATAL_FAILURE(DecomposeOriginal());
+  ImportedModule module("export_dll.dll");
+  size_t function1 = module.AddSymbol(kFunction1Name,
+                                      ImportedModule::kAlwaysImport);
+
+  CoffAddImportsTransform transform;
+  transform.AddModule(&module);
+  EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &transform, &policy_, &block_graph_, headers_block_));
+  EXPECT_EQ(0u, transform.modules_added());
+  EXPECT_EQ(1u, transform.symbols_added());
+
+  EXPECT_TRUE(module.ModuleIsImported());
+  EXPECT_TRUE(module.SymbolIsImported(function1));
+
+  EXPECT_FALSE(module.ModuleWasAdded());
+  EXPECT_TRUE(module.SymbolWasAdded(function1));
+}
+
 
 }  // namespace transforms
 }  // namespace pe
