@@ -345,10 +345,6 @@ class HeapProxy {
     heap_error_callback_.Reset();
   }
 
-  // Retrieves the slabs of all the active heaps.
-  // @param heap_slabs Will receive the information about the heap slabs.
-  void GetHeapSlabs(HeapSlabVector* heap_slabs);
-
  protected:
   enum BlockState {
     ALLOCATED,

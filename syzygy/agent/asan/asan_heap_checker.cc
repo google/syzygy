@@ -37,24 +37,14 @@ bool HeapChecker::IsHeapCorrupt(CorruptRangesVector* corrupt_ranges) {
 
   corrupt_ranges->clear();
 
-  HeapVector heaps_vec;
-  runtime_->GetHeaps(&heaps_vec);
-  HeapVector::iterator iter_heap = heaps_vec.begin();
+  // Walk over all of the addressable memory to find the corrupt blocks.
+  // TODO(sebmarchand): Iterates over the heap slabs once we have switched to
+  //     a new memory allocator.
+  GetCorruptRangesInSlab(
+      reinterpret_cast<const uint8*>(Shadow::kAddressLowerBound),
+      Shadow::kAddressUpperBound - Shadow::kAddressLowerBound - 1,
+      corrupt_ranges);
 
-  // Iterates over the heaps and checks their slabs.
-  for (; iter_heap != heaps_vec.end(); ++iter_heap) {
-    HeapLocker heap_locker(*iter_heap);
-    HeapSlabVector heap_slabs;
-    (*iter_heap)->GetHeapSlabs(&heap_slabs);
-
-    // Iterates over the slabs to see if one of them is corrupt.
-    HeapSlabVector::const_iterator iter_slab = heap_slabs.begin();
-    for (; iter_slab != heap_slabs.end(); ++iter_slab) {
-      GetCorruptRangesInSlab(iter_slab->address,
-                             iter_slab->length,
-                             corrupt_ranges);
-    }
-  }
   return !corrupt_ranges->empty();
 }
 

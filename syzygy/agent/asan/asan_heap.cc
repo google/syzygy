@@ -1333,23 +1333,6 @@ bool HeapProxy::VerifyChecksum(BlockHeader* header) {
   return true;
 }
 
-void HeapProxy::GetHeapSlabs(HeapSlabVector* heap_slabs) {
-  DCHECK_NE(reinterpret_cast<HeapSlabVector*>(NULL), heap_slabs);
-
-  heap_slabs->clear();
-
-  PROCESS_HEAP_ENTRY entry = {};
-  while (::HeapWalk(heap_, &entry) != FALSE) {
-    if (entry.wFlags & PROCESS_HEAP_REGION) {
-      HeapSlab slab = {};
-      slab.address = reinterpret_cast<const uint8*>(entry.Region.lpFirstBlock);
-      slab.length = reinterpret_cast<uint8*>(entry.Region.lpLastBlock) -
-          slab.address;
-      heap_slabs->push_back(slab);
-    }
-  }
-}
-
 bool HeapProxy::IsBlockCorrupt(const uint8* block_header) {
   const BlockHeader* header = reinterpret_cast<const BlockHeader*>(
       Shadow::AsanPointerToBlockHeader(const_cast<uint8*>(block_header)));

@@ -19,16 +19,6 @@
 namespace agent {
 namespace asan {
 
-namespace {
-
-// The first 64k of the memory are not addressable.
-const size_t kAddressLowerBound = 0x10000;
-
-// The upper bound of the addressable memory.
-const size_t kAddressUpperBound =
-    Shadow::kShadowSize << Shadow::kShadowGranularityLog;
-
-}  // namespace
 
 uint8 Shadow::shadow_[kShadowSize];
 
@@ -273,25 +263,25 @@ const uint8* Shadow::AsanPointerToBlockHeader(const uint8* asan_pointer) {
 
 ShadowWalker::ShadowWalker(const uint8* lower_bound, const uint8* upper_bound)
     : lower_bound_(lower_bound), upper_bound_(upper_bound) {
-  DCHECK_GE(reinterpret_cast<size_t>(lower_bound), kAddressLowerBound);
-  DCHECK_LT(reinterpret_cast<size_t>(lower_bound), kAddressUpperBound);
+  DCHECK_GE(reinterpret_cast<size_t>(lower_bound), Shadow::kAddressLowerBound);
+  DCHECK_LT(reinterpret_cast<size_t>(lower_bound), Shadow::kAddressUpperBound);
   Reset();
 }
 
 void ShadowWalker::Reset() {
   next_block_ = lower_bound_;
   // Look for the first block.
-  while (!Shadow::IsLeftRedzone(next_block_) && next_block_ < upper_bound_)
+  while (next_block_ < upper_bound_ && !Shadow::IsLeftRedzone(next_block_))
     next_block_ += Shadow::kShadowGranularity;
 }
 
 void ShadowWalker::Advance() {
   DCHECK_LT(next_block_, upper_bound_);
   // Skip the current block left zone.
-  while (Shadow::IsLeftRedzone(next_block_) && next_block_ < upper_bound_)
+  while (next_block_ < upper_bound_ && Shadow::IsLeftRedzone(next_block_))
     next_block_ += Shadow::kShadowGranularity;
   // Look for the next block.
-  while (!Shadow::IsLeftRedzone(next_block_) && next_block_ < upper_bound_)
+  while (next_block_ < upper_bound_ && !Shadow::IsLeftRedzone(next_block_))
     next_block_ += Shadow::kShadowGranularity;
 }
 

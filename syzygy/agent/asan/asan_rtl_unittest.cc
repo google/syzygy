@@ -488,6 +488,7 @@ TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
   ASSERT_TRUE(check_access_fn != NULL);
 
   agent::asan::AsanRuntime* runtime = GetActiveRuntimeFunction();
+  ASSERT_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime);
   runtime->params().check_heap_on_failure = true;
 
   ScopedASanAlloc<uint8> mem(this, kAllocSize);

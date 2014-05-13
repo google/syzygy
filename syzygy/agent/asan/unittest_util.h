@@ -218,6 +218,11 @@ class TestAsanRtl : public testing::TestWithAsanLogger {
 
     heap_ = HeapCreateFunction(0, 0, 0);
     ASSERT_TRUE(heap_ != NULL);
+
+    agent::asan::AsanRuntime* runtime = GetActiveRuntimeFunction();
+    ASSERT_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime);
+    // Disable the heap checking as this really slows down the unittests.
+    runtime->params().check_heap_on_failure = false;
   }
 
   void TearDown() OVERRIDE {

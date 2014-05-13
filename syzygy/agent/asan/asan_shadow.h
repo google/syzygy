@@ -31,9 +31,15 @@ class Shadow {
   static const size_t kShadowGranularityLog = 3;
   static const size_t kShadowGranularity = 1 << kShadowGranularityLog;
 
+  // The first 64k of the memory are not addressable.
+  static const size_t kAddressLowerBound = 0x10000;
+
   // One shadow byte for every 8 bytes in a 2G address space.
   // @note: This is dependent on the process NOT being large address aware.
   static const size_t kShadowSize = 1 << (31 - kShadowGranularityLog);
+
+  // The upper bound of the addressable memory.
+  static const size_t kAddressUpperBound = kShadowSize << kShadowGranularityLog;
 
   // Set up the shadow memory.
   static void SetUp();

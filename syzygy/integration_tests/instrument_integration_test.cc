@@ -482,7 +482,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     }
   }
 
-  void AsanErrorCheckTestDll(bool heap_checker) {
+  void AsanErrorCheckTestDll() {
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead8BufferOverflowTestId,
         HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1, 1, false));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead16BufferOverflowTestId,
@@ -536,25 +536,25 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
         USE_AFTER_FREE, ASAN_WRITE_ACCESS, 4, 1, false));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite64UseAfterFreeTestId,
         USE_AFTER_FREE, ASAN_WRITE_ACCESS, 8, 1, false));
+  }
 
+  void AsanErrorCheckCorruptHeap() {
     // These check our ability to diagnose and report heap corruption when
     // non-ASAN generated exceptions are raised. Such bugs will show up as
     // CORRUPTED_HEAP errors with unknown access type, and zero size. Since
     // they use an unfiltered exception mechanism they can't be tested in
     // process. Instead we go to great lengths to test them out of process,
     // using an agent_logger to monitor them.
-    static const char kEnabled[] = "SyzyASAN error: corrupted-heap ";
-    static const char kDisabled[] = "Heap checker disabled";
-    const char* pattern = heap_checker ? kEnabled : kDisabled;
+    static const char kPattern[] = "SyzyASAN error: corrupted-heap ";
     EXPECT_TRUE(OutOfProcessAsanErrorCheck(
         testing::kAsanInvalidAccessWithCorruptAllocatedBlockHeader,
-        true, pattern));
+        true, kPattern));
     EXPECT_TRUE(OutOfProcessAsanErrorCheck(
         testing::kAsanInvalidAccessWithCorruptAllocatedBlockTrailer,
-        true, pattern));
+        true, kPattern));
     EXPECT_TRUE(OutOfProcessAsanErrorCheck(
         testing::kAsanInvalidAccessWithCorruptFreedBlock,
-        true, pattern));
+        true, kPattern));
   }
 
   void AsanErrorCheckSampledAllocations() {
@@ -1032,30 +1032,42 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 }  // namespace
 
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEnd) {
+  // Disable the heap checking as this is implies touching all the shadow bytes
+  // and this make those tests really slow.
+  cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(true));
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
+  // Disable the heap checking as this is implies touching all the shadow bytes
+  // and this make those tests really slow.
+  cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
   cmd_line_.AppendSwitch("no-liveness-analysis");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(true));
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoRedundancyAnalysis) {
+  // Disable the heap checking as this is implies touching all the shadow bytes
+  // and this make those tests really slow.
+  cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
   cmd_line_.AppendSwitch("no-redundancy-analysis");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(true));
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoFunctionInterceptors) {
+  // Disable the heap checking as this is implies touching all the shadow bytes
+  // and this make those tests really slow.
+  cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
   cmd_line_.AppendSwitch("no-interceptors");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(true));
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndWithRtlOptions) {
@@ -1065,7 +1077,7 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndWithRtlOptions) {
       "--no_check_heap_on_failure");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(false));
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 
   // Get the active runtime and validate its parameters.
   agent::asan::AsanRuntime* runtime = GetActiveAsanRuntime();
@@ -1088,7 +1100,7 @@ TEST_F(InstrumentAppIntegrationTest,
       "--ignored_stack_ids=0x2");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(false));
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 
   // Get the active runtime and validate its parameters.
   agent::asan::AsanRuntime* runtime = GetActiveAsanRuntime();
@@ -1102,15 +1114,25 @@ TEST_F(InstrumentAppIntegrationTest,
 }
 
 TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
+  // Disable the heap checking as this is implies touching all the shadow bytes
+  // and this make those tests really slow.
+  cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll(true));
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckInterceptedFunctions());
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanCheckCorruptHeap) {
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckCorruptHeap());
 }
 
 TEST_F(InstrumentAppIntegrationTest, SampledAllocationsAsanEndToEnd) {
   cmd_line_.AppendSwitchASCII("asan-rtl-options",
-                              "--allocation_guard_rate=0.5");
+                              "--allocation_guard_rate=0.5 "
+                              "--no_check_heap_on_failure");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckSampledAllocations());

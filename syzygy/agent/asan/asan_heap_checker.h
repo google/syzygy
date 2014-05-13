@@ -86,6 +86,10 @@ class HeapChecker {
   // @returns true if the heap is corrupt, false otherwise.
   bool IsHeapCorrupt(CorruptRangesVector* corrupt_ranges);
 
+  // TODO(sebmarchand): Add a testing seam that controls the range of memory
+  //     that is walked by HeapChecker to keep unittest times to something
+  //     reasonable.
+
  private:
   // Get the information about the corrupt ranges in a heap slab.
   // @param lower_bound The lower bound for this slab.
