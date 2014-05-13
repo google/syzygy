@@ -1306,18 +1306,35 @@ bool AsanTransform::CoffInterceptFunctions(
   DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), header_block);
 
+  // Extract the existing symbols.
+  pe::CoffSymbolNameOffsetMap symbol_map;
+  BlockGraph::Block* symbols_block = NULL;
+  BlockGraph::Block* strings_block = NULL;
+  if (!pe::FindCoffSpecialBlocks(block_graph, NULL, &symbols_block,
+                                 &strings_block)) {
+    LOG(ERROR) << "Unable to find COFF header blocks.";
+    return false;
+  }
+  if (!pe::BuildCoffSymbolNameOffsetMap(block_graph, &symbol_map)) {
+    LOG(ERROR) << "Unable to build symbol map.";
+    return false;
+  }
+
   // Populate a COFF symbol rename transform for each function to be
   // intercepted. We simply try to rename all possible symbols that may exist
   // and allow the transform to ignore any that aren't present.
   pe::transforms::CoffRenameSymbolsTransform rename_tx;
   rename_tx.set_symbols_must_exist(false);
   const AsanIntercept* intercept = intercepts;
+  bool defines_asan_functions = false;
   for (; intercept->undecorated_name != NULL; ++intercept) {
     // Skip disabled optional functions.
     if (!use_interceptors_ && intercept->optional)
       continue;
 
-    DCHECK_NE(reinterpret_cast<const char*>(NULL), intercept->decorated_name);
+    // Skip functions for which we have no decorated name.
+    if (intercept->decorated_name == NULL)
+      continue;
 
     // Build the name of the imported version of this symbol.
     std::string imp_name(kDecoratedImportPrefix);
@@ -1335,7 +1352,22 @@ bool AsanTransform::CoffInterceptFunctions(
     // function.
     rename_tx.AddSymbolMapping(intercept->decorated_name, asan_name);
     rename_tx.AddSymbolMapping(imp_name, imp_asan_name);
+
+    // We use the add imports transform to try to find names for the ASAN
+    // implementation. If these already exist in the object file then our
+    // instrumentation will fail.
+    const std::string* names[] = { &asan_name, &imp_asan_name };
+    for (size_t i = 0; i < arraysize(names); ++i) {
+      if (symbol_map.count(*names[i])) {
+        LOG(ERROR) << "Object file being instrumented defines ASAN function \""
+                   << asan_name << "\".";
+        defines_asan_functions = true;
+      }
+    }
   }
+
+  if (defines_asan_functions)
+    return false;
 
   // Apply the rename transform.
   if (!block_graph::ApplyBlockGraphTransform(&rename_tx,

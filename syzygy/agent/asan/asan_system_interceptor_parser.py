@@ -24,8 +24,8 @@ python asan_system_interceptor_parser.py input_header.h --output-file=$(OutName)
     interceptors.
 - $(OutName)_instrumentation_filter.h.gen : This will contain a list of
    AsanInterceptor entries, e.g:
-    { "foo", "NOT_SET", NULL, "foo.dll", true },
-    { "bar", "NOT_SET", NULL, "bar.dll", true },
+    { "foo", NULL, NULL, "foo.dll", true },
+    { "bar", NULL, NULL, "bar.dll", true },
 - $(OutName).def.gen : This will contain a copy of the input DEF file followed
     by the list of the new interceptors
 
@@ -198,7 +198,7 @@ _LOGGER = logging.getLogger(__name__)
 #     - function_name: Name of the function.
 #     - module_name: Name of the module containing this function.
 instrumentation_filter_entry_template = Template("""
-{ "${function_name}", "NOT SET", "${module_name}", NULL, true },
+{ "${function_name}", NULL, "${module_name}", NULL, true },
 """)
 
 

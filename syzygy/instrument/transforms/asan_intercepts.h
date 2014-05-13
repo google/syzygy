@@ -55,7 +55,8 @@ struct AsanIntercept {
   // the transform.
   const char* undecorated_name;
   // The fully decorated name of the function. This is required for the COFF
-  // version of the transform.
+  // version of the transform. If unknown then this may be NULL, in which case
+  // this intercept will not be implemented for COFF instrumentation.
   const char* decorated_name;
 
   // The module the function. This only needs to be specified if the function

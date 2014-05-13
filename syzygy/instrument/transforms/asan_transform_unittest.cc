@@ -1149,6 +1149,9 @@ TEST_F(AsanTransformTest, ImportsAreRedirectedCoff) {
   // and be referenced.
   const AsanIntercept* intercept = kAsanIntercepts;
   for (; intercept->undecorated_name != NULL; ++intercept) {
+    if (intercept->decorated_name == NULL)
+      continue;
+
     std::string name(intercept->decorated_name);
 
     // Build the name of the imported version of this symbol.

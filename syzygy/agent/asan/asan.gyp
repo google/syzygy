@@ -15,7 +15,8 @@
 {
   'variables': {
     'chromium_code': 1,
-    'system_interceptors_output_base_name': 'asan_system_interceptors',
+    'system_interceptors_output_base_name': '<(SHARED_INTERMEDIATE_DIR)/'
+        'syzygy/agent/asan/asan_system_interceptors',
   },
   'targets': [
     {
