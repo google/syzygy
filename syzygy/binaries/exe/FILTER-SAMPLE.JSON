@@ -1,0 +1,21 @@
+// This is a JSON encoded binary filter, a serialized instance of
+// pe::ImageFilter.
+{
+  // This is the signature of the module to which this
+  // filter applies.
+  "signature": {
+    "path": "C:\\some\\path\\foo.dll",
+    "base_address": "0x10000000",
+    "checksum": "0x1A034A9F",
+    "size": 217088,
+    "time_date_stamp": "0x513F7977"
+  },
+  // This is the filtered address space, consisting of
+  // a list of [relative virtual address, length] tuples.
+  "filter": [
+    [
+      "0x000011D0",
+      1360
+    ]
+  ]
+}

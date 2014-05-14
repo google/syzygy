@@ -1,0 +1,30 @@
+# This is a filter description file. It can be compiled by genfilter.exe to
+# produce a corresponding JSON-encoded binary filter for a given image.
+#
+# Blank lines are ignored, as is anything in comments.
+#
+# This file consists of a collection of rules, each of which will map to certain
+# regions of the image that will be added or removed from the final filter. The
+# rules will be processed in the order they are specified in this file.
+#
+# The filter starts off as being empty.
+#
+# Filter rules are specified in the format:
+#
+#   [+ or -][rule type]:[rule description]
+
+# The following rule matches the function 'DllMain', adding the bytes
+# corresponding to it to the filter.
++function:DllMain
+
+# This rule matches all destructors adding them to the filter. Note that the
+# rule description can be a Perl-compatible regular expression. They will be
+# matched against undecorated function names, fully namespace qualified.
++function:.*::~.*
+
+# This rule matches one specific destructor and removes it from the filter. The
+# result is that no destructors will be instrumented, except for this one.
+-function:Foo::~Foo
+
+# This rule matches a decorated public symbol name, adding it to the filter.
++public_symbol:?function1@.*
