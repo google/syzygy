@@ -582,6 +582,7 @@ void AsanRuntime::WriteCorruptHeapInfo(
       cursor);
   cursor += range_count * sizeof(AsanCorruptBlockRange);
   error_info->corrupt_range_count = corrupt_ranges.size();
+  error_info->corrupt_ranges_reported = range_count;
 
   // Allocate space for the corrupt block metadata.
   size_t block_count = (buffer_end - cursor) / sizeof(AsanBlockInfo);
