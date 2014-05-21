@@ -218,6 +218,7 @@ bool ParseDebugSymbols(
         break;
       }
 
+      case cci::S_ANNOTATION:
       case cci::S_BLOCK32:
       case cci::S_BPREL32:
       case cci::S_CALLSITEINFO:
@@ -225,15 +226,18 @@ bool ParseDebugSymbols(
       case cci::S_END:
       case cci::S_FRAMECOOKIE:
       case cci::S_GDATA32:
+      case cci::S_GDATA32_ST:
       case cci::S_GTHREAD32:
       case cci::S_LABEL32:
       case cci::S_LDATA32:
+      case cci::S_LDATA32_ST:
       case cci::S_LTHREAD32:
       case cci::S_OBJNAME:
       case cci::S_REGISTER:
       case cci::S_REGREL32:
       case cci::S_THUNK32:
       case cci::S_UDT:
+      case cci::S_UDT_ST:
         break;
 
       case cci::S_COMPILE3:
@@ -241,8 +245,9 @@ bool ParseDebugSymbols(
         break;
 
       // CodeView2 symbols that we can safely ignore.
-      case cci::S_OBJNAME_CV2:
+      case cci::S_COMPILE_CV2:
       case cci::S_COMPILE2_ST:
+      case cci::S_OBJNAME_CV2:
         break;
 
       // These are unknown symbol types, but currently seen. From inspection

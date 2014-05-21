@@ -54,6 +54,9 @@ const uint16 S_GPROC32_VS2013 = 0x1147;
 // type enum. It define the case table, the first parameter of each entry is the
 // type of the symbol and the second one is the type of structure used to
 // represent this symbol.
+// NOTE: All _ST suffixed symbols are identical to those symbols without the _ST
+//       suffix. However, the trailing string they contain is encoded as uint16
+//       length prefixed string, versus a zero-terminated string.
 #define SYM_TYPE_CASE_TABLE(decl) \
     decl(S_COMPILE_CV2, CompileSymCV2) \
     decl(S_SSEARCH, SearchSym) \
@@ -69,13 +72,13 @@ const uint16 S_GPROC32_VS2013 = 0x1147;
     decl(S_OEM, OemSymbol) \
     decl(S_REGISTER_ST, Unknown) \
     decl(S_CONSTANT_ST, Unknown) \
-    decl(S_UDT_ST, Unknown) \
+    decl(S_UDT_ST, UdtSym) \
     decl(S_COBOLUDT_ST, Unknown) \
     decl(S_MANYREG_ST, Unknown) \
-    decl(S_BPREL32_ST, Unknown) \
-    decl(S_LDATA32_ST, Unknown) \
-    decl(S_GDATA32_ST, Unknown) \
-    decl(S_PUB32_ST, Unknown) \
+    decl(S_BPREL32_ST, BpRelSym32) \
+    decl(S_LDATA32_ST, DatasSym32) \
+    decl(S_GDATA32_ST, DatasSym32) \
+    decl(S_PUB32_ST, DatasSym32) \
     decl(S_LPROC32_ST, ProcSym32) \
     decl(S_GPROC32_ST, ProcSym32) \
     decl(S_VFTABLE32, VpathSym32) \
