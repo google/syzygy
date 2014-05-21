@@ -58,6 +58,9 @@ const size_t kWeakSymbolArchiveSymbolCount = 2u;
 // An archive containing multiple files stored with the same name.
 extern const wchar_t kDuplicatesArchiveFile[];
 
+// An archive containing empty/deleted file indices in the symbol table.
+extern const wchar_t kEmptyFilesArchiveFile[];
+
 }  // namespace testing
 
 #endif  // SYZYGY_AR_UNITTEST_UTIL_H_

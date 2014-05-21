@@ -23,4 +23,7 @@ const wchar_t kWeakSymbolArchiveFile[] = L"syzygy\\ar\\test_data\\weak.lib";
 const wchar_t kDuplicatesArchiveFile[] =
     L"syzygy\\ar\\test_data\\duplicates.lib";
 
+const wchar_t kEmptyFilesArchiveFile[] =
+    L"syzygy\\ar\\test_data\\empty_files.lib";
+
 }  // namespace testing

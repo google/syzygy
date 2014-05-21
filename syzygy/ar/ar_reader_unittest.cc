@@ -161,4 +161,14 @@ TEST_F(ArReaderTest, DuplicateFileNames) {
   EXPECT_LT(unique_files.size(), reader.files().size());
 }
 
+TEST_F(ArReaderTest, EmptyFiles) {
+  base::FilePath lib = testing::GetSrcRelativePath(
+      testing::kEmptyFilesArchiveFile);
+  ArReader reader;
+  EXPECT_TRUE(reader.Init(lib));
+  EXPECT_EQ(1u, reader.offsets().size());
+  EXPECT_TRUE(reader.BuildFileIndex());
+  EXPECT_EQ(1u, reader.files().size());
+}
+
 }  // namespace ar

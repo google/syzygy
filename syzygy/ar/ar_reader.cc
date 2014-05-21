@@ -140,13 +140,28 @@ bool ParseSecondarySymbolTable(
     return false;
   }
 
-  // Read and validate the file offsets.
-  *file_offsets = FileOffsetVector(offsets, offsets + file_count);
+  // Read and validate the file offsets. It is possible for this table to be
+  // larger than necessary, and invalid or deleted files are represented with a
+  // zero offset. We track these, and also build a map to a reduced set of file
+  // indices.
+  typedef std::map<size_t, size_t> FileIndexMap;
+  FileIndexMap file_index_map;
+  file_offsets->resize(0);
+  file_offsets->reserve(file_count);
   for (size_t i = 0; i < file_count; ++i) {
+    // Skip invalid/deleted files.
+    if (offsets[i] == 0)
+      continue;
+
     if (offsets[i] >= file_size) {
       LOG(ERROR) << "Invalid symbol offset encountered in archive.";
       return false;
     }
+
+    // File indices are 1-indexed in the archive, but we use 0-indexing.
+    size_t reduced_file_index = file_index_map.size();
+    file_index_map.insert(std::make_pair(i, reduced_file_index));
+    file_offsets->push_back(offsets[i]);
   }
 
   // Read the file indices for each symbol.
@@ -168,11 +183,20 @@ bool ParseSecondarySymbolTable(
       return false;
     }
 
-    // File indices are 1-indexed in the archive, but we use 0-indexing.
-    if (!symbols->insert(std::make_pair(name, file_index - 1)).second) {
-      LOG(WARNING) << "Duplicate symbol encountered in archive.";
+    // Use the raw file index to find the reduced file index, using
+    // 0-indexing.
+    FileIndexMap::const_iterator index_it = file_index_map.find(
+        file_index - 1);
+    if (index_it == file_index_map.end()) {
+      LOG(ERROR) << "Encountered a symbol referring to an invalid file index.";
       return false;
     }
+    file_index = index_it->second;
+
+    // Insert the symbol. We log a warning if there's a duplicate symbol, but
+    // this is not strictly illegal.
+    if (!symbols->insert(std::make_pair(name, file_index)).second)
+      LOG(WARNING) << "Duplicate symbol encountered in archive.";
   }
 
   return true;
