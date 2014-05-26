@@ -25,6 +25,7 @@
 #include "base/string_piece.h"
 #include "base/debug/stack_trace.h"
 #include "base/synchronization/lock.h"
+#include "syzygy/agent/asan/asan_shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/agent/common/dlist.h"
 
@@ -529,8 +530,10 @@ class HeapProxy {
 
   // The default alloc granularity. The Windows heap is 8-byte granular, so
   // there's no gain in a lower allocation granularity.
-  static const size_t kDefaultAllocGranularity = 8;
-  static const uint16 kDefaultAllocGranularityLog = 3;
+  static const size_t kDefaultAllocGranularity =
+      Shadow::kShadowGranularity;
+  static const uint16 kDefaultAllocGranularityLog =
+      Shadow::kShadowGranularityLog;
 
   // Default max size of a quarantine, and any block within it (in bytes).
   static size_t default_quarantine_max_size_;
