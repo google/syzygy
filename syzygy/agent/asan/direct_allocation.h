@@ -25,6 +25,9 @@
 #ifndef SYZYGY_AGENT_ASAN_DIRECT_ALLOCATION_H_
 #define SYZYGY_AGENT_ASAN_DIRECT_ALLOCATION_H_
 
+#include <map>
+#include <set>
+
 #include "syzygy/agent/asan/asan_shadow.h"
 
 namespace agent {
@@ -243,6 +246,49 @@ class DirectAllocation {
 
  private:
   DISALLOW_COPY_AND_ASSIGN(DirectAllocation);
+};
+
+// A small 'heap' for making and keeping track of large allocations that are
+// made directly with the OS.
+class DirectAllocationHeap {
+ public:
+  // Constructor.
+  DirectAllocationHeap() { }
+
+  // Destructor. Cleans up outstanding allocations.
+  ~DirectAllocationHeap();
+
+  // Performs a direct allocation. Will automatically reserve an entire
+  // page of left and right redzone.
+  // @param alignment The alignment of the body of the allocation.
+  // @param size The size of the allocation.
+  // @return NULL on failure, or a pointer to the allocation on success.
+  DirectAllocation* Allocate(size_t alignment,
+                             size_t size);
+
+  // Looks up the allocation containing the given address.
+  // @param address The address to be looked up.
+  // @return NULL on failure, or a pointer to the allocation on success.
+  DirectAllocation* Lookup(void* address);
+
+  // Frees the given allocation.
+  // @param allocation The allocation to be freed. Must have been previously
+  //     returned by this heap.
+  // @return true on success, false otherwise.
+  bool Free(DirectAllocation* allocation);
+
+ protected:
+  // Allocations, sorted by the underlying object itself.
+  typedef std::set<DirectAllocation*> AllocationSet;
+  AllocationSet allocation_set_;
+
+  // A map of all active allocations, sorted by address. These are inserted
+  // when the allocation is made, and removed when it is freed.
+  typedef std::map<void*, DirectAllocation*> AllocationMap;
+  AllocationMap allocation_map_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(DirectAllocationHeap);
 };
 
 }  // namespace asan

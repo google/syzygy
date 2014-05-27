@@ -19,6 +19,7 @@
 #include <algorithm>
 
 #include "base/logging.h"
+#include "base/memory/scoped_ptr.h"
 #include "syzygy/common/align.h"
 
 namespace agent {
@@ -411,6 +412,73 @@ bool DirectAllocation::QuarantineDiscardContents() {
 bool DirectAllocation::Free() {
   if (!ToNoPages())
     return false;
+  return true;
+}
+
+DirectAllocationHeap::~DirectAllocationHeap() {
+  AllocationSet::iterator it = allocation_set_.begin();
+  for (; it != allocation_set_.end(); ++it)
+    delete (*it);
+}
+
+DirectAllocation* DirectAllocationHeap::Allocate(size_t alignment,
+                                                 size_t size) {
+  DCHECK_LT(0u, alignment);
+  DCHECK_LT(0u, size);
+
+  scoped_ptr<DirectAllocation> allocation(new DirectAllocation());
+  allocation->set_left_guard_page(true);
+  allocation->set_right_guard_page(true);
+  allocation->set_alignment(alignment);
+  allocation->set_size(size);
+  if (!allocation->Allocate())
+    return NULL;
+
+  DirectAllocation* a = allocation.release();
+  allocation_map_.insert(std::make_pair(a->GetLeftRedZone(), a));
+  allocation_set_.insert(a);
+
+  return a;
+}
+
+DirectAllocation* DirectAllocationHeap::Lookup(void* address) {
+  if (allocation_map_.empty())
+    return NULL;
+
+  // Find the first element past the element of interest.
+  AllocationMap::iterator it = allocation_map_.upper_bound(address);
+  if (it == allocation_map_.begin())
+    return NULL;
+  --it;  // This is valid because we're not the first element in the map.
+  DCHECK(it != allocation_map_.end());
+
+  // If the end of the allocation falls before the address of interest then
+  // this heap does not own the address.
+  uint8* end = reinterpret_cast<uint8*>(it->second->GetRightRedZone());
+  end += it->second->right_redzone_size();
+  if (end <= address)
+    return NULL;
+
+  return it->second;
+}
+
+bool DirectAllocationHeap::Free(DirectAllocation* allocation) {
+  DCHECK_NE(reinterpret_cast<DirectAllocation*>(NULL), allocation);
+
+  // Find the allocation in the set and the map, expecting an exact
+  // match.
+  AllocationSet::iterator it_set = allocation_set_.find(allocation);
+  DCHECK(it_set != allocation_set_.end());
+
+  AllocationMap::iterator it_map = allocation_map_.find(
+      allocation->GetLeftRedZone());
+  DCHECK(it_map != allocation_map_.end());
+  DCHECK_EQ(allocation, it_map->second);
+
+  allocation_set_.erase(it_set);
+  allocation_map_.erase(it_map);
+  delete allocation;
+
   return true;
 }
 

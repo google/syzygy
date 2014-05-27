@@ -451,5 +451,68 @@ TEST(DirectAllocationTest, AsanUseBothGuards) {
   EXPECT_NO_FATAL_FAILURE(TestAsanUse(&da));
 }
 
+namespace {
+
+class TestDirectAllocationHeap : public DirectAllocationHeap {
+ public:
+  using DirectAllocationHeap::allocation_set_;
+  using DirectAllocationHeap::allocation_map_;
+};
+
+}  // namespace
+
+TEST(DirectAllocationHeapTest, EndToEnd) {
+  TestDirectAllocationHeap dah;
+  EXPECT_EQ(0u, dah.allocation_set_.size());
+  EXPECT_EQ(0u, dah.allocation_map_.size());
+
+  DirectAllocation* da1 = dah.Allocate(8, 4096);
+  EXPECT_TRUE(da1 != NULL);
+  EXPECT_EQ(DirectAllocation::kAllocatedPages, da1->memory_state());
+  EXPECT_EQ(DirectAllocation::kGuardPagesProtected, da1->protection_state());
+  EXPECT_TRUE(da1->left_guard_page());
+  EXPECT_TRUE(da1->right_guard_page());
+  EXPECT_TRUE(da1->GetAllocation() != NULL);
+  EXPECT_EQ(4096, da1->size());
+  EXPECT_EQ(1u, dah.allocation_set_.size());
+  EXPECT_EQ(1u, dah.allocation_map_.size());
+
+  EXPECT_EQ(da1, dah.Lookup(da1->GetLeftRedZone()));
+  EXPECT_EQ(da1, dah.Lookup(da1->GetAllocation()));
+  EXPECT_EQ(da1, dah.Lookup(da1->GetRightRedZone()));
+
+  uint8* before = reinterpret_cast<uint8*>(da1->GetLeftRedZone()) - 1;
+  uint8* after = reinterpret_cast<uint8*>(da1->GetRightRedZone()) +
+      da1->right_redzone_size();
+  EXPECT_TRUE(dah.Lookup(before) == NULL);
+  EXPECT_TRUE(dah.Lookup(after) == NULL);
+
+  DirectAllocation* da2 = dah.Allocate(8, 1024 * 1024);
+  EXPECT_TRUE(da2 != NULL);
+  EXPECT_EQ(DirectAllocation::kAllocatedPages, da2->memory_state());
+  EXPECT_EQ(DirectAllocation::kGuardPagesProtected, da2->protection_state());
+  EXPECT_TRUE(da2->left_guard_page());
+  EXPECT_TRUE(da2->right_guard_page());
+  EXPECT_TRUE(da2->GetAllocation() != NULL);
+  EXPECT_EQ(1024 * 1024, da2->size());
+  EXPECT_EQ(2u, dah.allocation_set_.size());
+  EXPECT_EQ(2u, dah.allocation_map_.size());
+
+  EXPECT_EQ(da2, dah.Lookup(da2->GetLeftRedZone()));
+  EXPECT_EQ(da2, dah.Lookup(da2->GetAllocation()));
+  EXPECT_EQ(da2, dah.Lookup(da2->GetRightRedZone()));
+
+  // Quarantine the block. It should be freed just fine.
+  ASSERT_TRUE(da1->QuarantineDiscardContents());
+  EXPECT_TRUE(dah.Free(da1));
+  EXPECT_EQ(1u, dah.allocation_set_.size());
+  EXPECT_EQ(1u, dah.allocation_map_.size());
+
+  // Free this block while it's still live.
+  EXPECT_TRUE(dah.Free(da2));
+  EXPECT_EQ(0u, dah.allocation_set_.size());
+  EXPECT_EQ(0u, dah.allocation_map_.size());
+}
+
 }  // namespace asan
 }  // namespace agent
