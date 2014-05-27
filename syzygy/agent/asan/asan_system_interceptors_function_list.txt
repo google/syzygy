@@ -1,0 +1,60 @@
+# Defines the function that we want to intercept. Each entry in this file should
+# have the following format:
+#
+#     MODULE: {module_name}
+#     {return_type}
+#     {calling_convention}
+#     {function_name} (
+#       {SAL_annotated_arguments}
+#     );
+#
+# TODO(sebmarchand): All of this could easily be moved to a JSON file, this will
+#     allow us to easily add support for a new function even if it isn't SAL
+#     annotated and it'll allow us to add more information for every function
+#     (e.g. the decorated name of the function).
+
+MODULE: kernel32.dll
+BOOL
+WINAPI
+ReadFile(
+    _In_ HANDLE hFile,
+    _Out_writes_bytes_to_opt_(nNumberOfBytesToRead, *lpNumberOfBytesRead)
+        __out_data_source(FILE) LPVOID lpBuffer,
+    _In_ DWORD nNumberOfBytesToRead,
+    _Out_opt_ LPDWORD lpNumberOfBytesRead,
+    _Inout_opt_ LPOVERLAPPED lpOverlapped
+    );
+
+MODULE: kernel32.dll
+BOOL
+WINAPI
+ReadFileEx(
+    _In_ HANDLE hFile,
+    _Out_writes_bytes_opt_(nNumberOfBytesToRead)
+        __out_data_source(FILE) LPVOID lpBuffer,
+    _In_ DWORD nNumberOfBytesToRead,
+    _Inout_ LPOVERLAPPED lpOverlapped,
+    _In_opt_ LPOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine
+    );
+
+MODULE: kernel32.dll
+BOOL
+WINAPI
+WriteFile(
+    _In_ HANDLE hFile,
+    _In_reads_bytes_opt_(nNumberOfBytesToWrite) LPCVOID lpBuffer,
+    _In_ DWORD nNumberOfBytesToWrite,
+    _Out_opt_ LPDWORD lpNumberOfBytesWritten,
+    _Inout_opt_ LPOVERLAPPED lpOverlapped
+    );
+
+MODULE: kernel32.dll
+BOOL
+WINAPI
+WriteFileEx(
+    _In_ HANDLE hFile,
+    _In_reads_bytes_opt_(nNumberOfBytesToWrite) LPCVOID lpBuffer,
+    _In_ DWORD nNumberOfBytesToWrite,
+    _Inout_ LPOVERLAPPED lpOverlapped,
+    _In_opt_ LPOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine
+    );

@@ -137,11 +137,7 @@
           'inputs': [
             'asan_system_interceptors_filter.csv',
             'syzyasan_rtl.def',
-            # The 'windows_sdk_path' variable is set in common.gypi. By default
-            # it points to the version 8 of the SDK in third_party/, as this
-            # folder isn't present in the syzygy checkout this falls back to
-            # using the system installation of Windows SDK 8.0.
-            '<(windows_sdk_path)/Include/um/fileapi.h',
+            'asan_system_interceptors_function_list.txt',
           ],
           'outputs': [
             '<(system_interceptors_output_base_name)_impl.h.gen',
@@ -153,10 +149,9 @@
             '<(python_exe)',
             'asan_system_interceptor_parser.py',
             '--output-base=<(system_interceptors_output_base_name)',
-            '--filter=asan_system_interceptors_filter.csv',
             '--overwrite',
             '--def-file=syzyasan_rtl.def',
-            '<(windows_sdk_path)/Include/um/fileapi.h',
+            'asan_system_interceptors_function_list.txt',
           ],
         },
       ],

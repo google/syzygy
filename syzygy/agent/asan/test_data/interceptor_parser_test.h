@@ -1,3 +1,4 @@
+MODULE: foo.dll
 VOID
 WINAPI
 valid_function1(
@@ -5,6 +6,7 @@ valid_function1(
     type2 param2,
     type3 param3
     );
+MODULE: foo.dll
 BOOL
 WINAPI
 valid_function2(
@@ -13,6 +15,7 @@ valid_function2(
          __out_data_source(FILE) LPVOID lpBuffer,
     _Inout_opt_ type3 param3,
     );
+MODULE: foo.dll
 int
 WINAPI
 valid_function3(void foo);

@@ -17,7 +17,7 @@ functions declared in a header file using SAL annotations.
 
 Here's how this script should be used:
 python asan_system_interceptor_parser.py input_header.h --output-file=$(OutName)
-    --overwrite --filter=filter.csv --def-file=$(DefFile)
+    --overwrite --def-file=$(DefFile)
 
 3 files will be produced:
 - $(OutName)_impl.h.gen : This will contain the implementation of the new
@@ -30,7 +30,7 @@ python asan_system_interceptor_parser.py input_header.h --output-file=$(OutName)
     by the list of the new interceptors
 
 As an example, for a definition like this:
-WINBASEAPI
+MODULE: kernel32.dll
 BOOL
 WINAPI
 WriteFile(
@@ -91,7 +91,6 @@ BOOL WINAPI asan_WriteFile(
 }
 """
 
-import csv
 import logging
 import optparse
 import os
@@ -100,18 +99,22 @@ import sys
 from string import Template
 
 # Matches a function declaration of this type:
+# MODULE: MODULE_NAME
 # RETURN_TYPE
 # WINAPI
 # FUNCTION_NAME(
 #     ...
 #     );
 _FUNCTION_MATCH_RE = re.compile(r"""
-    (?P<ret>\w+)\s+            # Match the return type of the function.
-    WINAPI\s+                  # Match the 'WINAPI' keyword.
-    (?P<name>\w+)\s*\(         # Match the function name.
-      (?P<params>[^;]+)\)\s*;  # Match the functions parameters, terminated by
-                               # ');'. This field can contain embedded
-                               # parenthesis.
+    MODULE\:\s*(?P<module_name>(\w+\.\w+))\s+
+                                # Match the name of the module implementing the
+                                # function.
+    (?P<ret>\w+)\s+             # Match the return type of the function.
+    (?P<conv>WINAPI|__cdecl)\s+ # Match the calling convention keyword.
+    (?P<name>\w+)\s*\(          # Match the function name.
+      (?P<params>[^;]+)\)\s*;   # Match the functions parameters, terminated by
+                                # ');'. This field can contain embedded
+                                # parenthesis.
     """, re.VERBOSE | re.IGNORECASE | re.MULTILINE)
 
 
@@ -206,6 +209,7 @@ instrumentation_filter_entry_template = Template("""
 #
 # Here's the description of the different identifiers in this template:
 #     - ret_type: Return type of the function.
+#     - calling_convention: The calling convention of the function.
 #     - function_name: Name of the function.
 #     - function_arguments: Function's arguments, with their types.
 #     - buffer_to_check: Name of the buffer that should be check.
@@ -218,7 +222,7 @@ instrumentation_filter_entry_template = Template("""
 #     - param_checks_postcall: Optional parameter check done after the call to
 #         the intercepted function.
 interceptor_template = Template("""
-${ret_type} WINAPI \
+${ret_type} ${calling_convention} \
 asan_${function_name}(${function_arguments}) {
   if (${buffer_to_check} != NULL) {
     TestMemoryRange(reinterpret_cast<const uint8*>(${buffer_to_check}),
@@ -265,7 +269,7 @@ class ASanSystemInterceptorGenerator(object):
   ensure that the output files get correctly closed.
   """
 
-  def __init__(self, output_base, def_file, filter, overwrite=False):
+  def __init__(self, output_base, def_file, overwrite=False):
     # Creates the output files:
     #     - output_base + '_impl.gen' : This file will contain the
     #           implementation of the interceptors.
@@ -295,11 +299,6 @@ class ASanSystemInterceptorGenerator(object):
     with open(def_file, 'r') as f:
       self._def_file.write(f.read())
 
-    # Load the filter.
-    self._filter = {}
-    for row in csv.DictReader(open(filter), skipinitialspace=True):
-      self._filter[row['function']] = row['module']
-
     # List of the intercepted functions.
     self._intercepted_functions = set()
 
@@ -318,7 +317,8 @@ class ASanSystemInterceptorGenerator(object):
     self._def_file.close()
 
   def GenerateFunctionInterceptor(self, function_name, return_type,
-                                  function_arguments):
+                                  function_arguments, calling_convention,
+                                  module_name):
     """Generate the interceptor for a given function if necessary.
 
     Args:
@@ -329,11 +329,9 @@ class ASanSystemInterceptorGenerator(object):
           (e.g. "int foo, bool bar"). It can contain newline characters.
     """
 
-    if not function_name in self._filter:
-      return
-
     # Prevent repeatedly intercepting the same function.
     if (function_name, function_arguments) in self._intercepted_functions:
+      _LOGGER.error('Trying to intercept the same function twice !')
       return
 
     # Check if the function should be intercepted. If at least one of its
@@ -354,8 +352,10 @@ class ASanSystemInterceptorGenerator(object):
     self._intercepted_functions.add((function_name, function_arguments))
 
     _LOGGER.debug('Function to intercept:')
+    _LOGGER.debug('  Function calling convention : %s' % calling_convention)
     _LOGGER.debug('  Function name : %s' % function_name)
     _LOGGER.debug('  Function type : %s' % return_type)
+    _LOGGER.debug('  Function module : %s' % module_name)
     _LOGGER.debug('  Function args : ')
 
     param_checks_precall = ''
@@ -392,6 +392,7 @@ class ASanSystemInterceptorGenerator(object):
     # Write the function's implementation in the appropriate file.
     self._output_impl_file.write(interceptor_template.substitute(
         ret_type=return_type,
+        calling_convention=calling_convention,
         function_name=function_name,
         function_arguments=function_arguments,
         buffer_to_check=m_buffer_size_arg.group('var_name'),
@@ -405,7 +406,7 @@ class ASanSystemInterceptorGenerator(object):
     self._output_instrumentation_filter_file.write(
         instrumentation_filter_entry_template.substitute(
             function_name=function_name,
-            module_name=self._filter[function_name]))
+            module_name=module_name))
 
     # Add the new interceptor to the DEF file.
     self._def_file.write('asan_' + function_name + '\n')
@@ -426,7 +427,8 @@ class ASanSystemInterceptorGenerator(object):
 
       for m_iter in _FUNCTION_MATCH_RE.finditer(f_content):
         callback(m_iter.group('name'), m_iter.group('ret'),
-                 m_iter.group('params'))
+                 m_iter.group('params'), m_iter.group('conv'),
+                 m_iter.group('module_name'))
 
 
 _USAGE = """\
@@ -443,13 +445,6 @@ def ParseOptions(args, parser):
                     action='store_const',
                     const=logging.DEBUG,
                     help='Enable verbose logging.')
-  parser.add_option('--filter', help='The filter containing the list of '
-                    'functions for which an interceptor should be produced. It '
-                    'should be a CSV file with two columns, the first one '
-                    'being called \'function\' and the second one being called '
-                    '\'module\', they should respectively contain the function '
-                    'name and the module containing it (e.g. \'ReadFile, '
-                    'kernel32.dll\').')
   parser.add_option('--def-file', help='The def file that should be '
                     'augmented. This file won\'t be modified, instead a new '
                     'one will be created and will be filled with the content '
@@ -470,15 +465,18 @@ def main(args):
   if not opts.output_base:
     parser.error('You must specify an output base filename.')
 
-  if not opts.filter:
-    parser.error('You must specify a filter.')
-
   if not opts.def_file:
     parser.error('You must specify a DEF file to update.')
 
+  # The first argument might be the current script name, remove it and make sure
+  # that there's at least one input file.
+  if __file__ in input_files:
+    input_files.remove(__file__)
+  if not len(input_files):
+    parser.error('You must specify at least one input file.')
+
   with ASanSystemInterceptorGenerator(opts.output_base,
                                       opts.def_file,
-                                      opts.filter,
                                       opts.overwrite) as generator:
     generator.VisitFunctionsInFiles(input_files,
                                     generator.GenerateFunctionInterceptor)

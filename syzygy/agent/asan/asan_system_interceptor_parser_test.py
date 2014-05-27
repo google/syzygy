@@ -33,12 +33,10 @@ class TestInterceptorParser(unittest.TestCase):
     self.output_base = tempfile.NamedTemporaryFile(delete=False,
                                                    dir=self.temp_dir)
     self.def_file = tempfile.NamedTemporaryFile(delete=False, dir=self.temp_dir)
-    self.filter = tempfile.NamedTemporaryFile(delete=False, dir=self.temp_dir)
     self.output_base.close()
     self.def_file.close()
-    self.filter.close()
     self.generator = asan_parser.ASanSystemInterceptorGenerator(
-        self.output_base.name, self.def_file.name, self.filter.name)
+        self.output_base.name, self.def_file.name)
 
 
   def tearDown(self):
@@ -49,6 +47,7 @@ class TestInterceptorParser(unittest.TestCase):
   def testFunctionMatchRegex(self):
     # Test against a regular function definition.
     valid_function1 =  \
+        'MODULE: foo.dll\n'  \
         'VOID\n'  \
         'WINAPI\n'  \
         'function1('  \
@@ -63,6 +62,7 @@ class TestInterceptorParser(unittest.TestCase):
 
     # Test against a function definition including some complex annotations.
     valid_function2 =  \
+        'MODULE: foo.dll\n'  \
         'BOOL\n'  \
         'WINAPI\n'  \
         'function2('  \
@@ -78,6 +78,7 @@ class TestInterceptorParser(unittest.TestCase):
 
     # Test against a simple function definition.
     valid_function3 =  \
+        'MODULE: foo.dll\n'  \
         'int\n'  \
         'WINAPI\n'  \
         'function3(void foo);\n'
@@ -233,11 +234,9 @@ class TestInterceptorParser(unittest.TestCase):
 
   def testParseFunctionsInFile(self):
     intercepted_functions = []
-    self.generator._filter['valid_function1'] = 'module.dll'
-    self.generator._filter['valid_function2'] = 'module.dll'
-    self.generator._filter['valid_function3'] = 'module.dll'
 
-    def VisitorCallback(function_name, return_type, function_params):
+    def VisitorCallback(function_name, return_type, function_params,
+          calling_convention, module_name):
       intercepted_functions.append(function_name)
 
     self.generator.VisitFunctionsInFiles(
@@ -271,36 +270,34 @@ class TestInterceptorParser(unittest.TestCase):
       with tempfile.NamedTemporaryFile(dir=temp_dir.path) as output_base:
         args = ['--output-base', output_base.name,
                 '--def-file', 'test_data\\interceptor_parser_test.def',
-                '--filter', 'test_data\\interceptor_parser_filter_test.csv',
                 'test_data\\interceptor_parser_test.h']
         asan_parser.main(args)
 
 
   def testGenerateFunctionInterceptor(self):
     self.generator._intercepted_functions.clear()
-    self.generator._filter['intercepted_function'] = 'module.dll'
     self.generator.GenerateFunctionInterceptor('intercepted_function', 'void',
-        '_In_reads_bytes_opt_(count) int foo')
+        '_In_reads_bytes_opt_(count) int foo', 'WINAPI', 'foo.dll')
     self.assertTrue(('intercepted_function',
                      '_In_reads_bytes_opt_(count) int foo')  \
         in self.generator._intercepted_functions)
     self.assertEqual(1, len(self.generator._intercepted_functions))
 
     self.generator.GenerateFunctionInterceptor('intercepted_function', 'void',
-        '_In_reads_bytes_opt_(count) int foo')
+        '_In_reads_bytes_opt_(count) int foo', 'WINAPI', 'foo.dll')
     # Verify that we don't intercept several time a function with the same
     # signature.
     self.assertEqual(1, len(self.generator._intercepted_functions))
 
     self.generator.GenerateFunctionInterceptor('intercepted_function', 'void',
-        '_In_reads_bytes_opt_(count) int foo, _In_ bar')
+        '_In_reads_bytes_opt_(count) int foo, _In_ bar', 'WINAPI', 'foo.dll')
     self.assertTrue(('intercepted_function',
                      '_In_reads_bytes_opt_(count) int foo, _In_ bar') \
         in self.generator._intercepted_functions)
     self.assertEqual(2, len(self.generator._intercepted_functions))
 
     self.generator.GenerateFunctionInterceptor('non_intercepted_function',
-        'void', '_In_ int foo')
+        'void', '_In_ int foo', 'WINAPI', 'foo.dll')
     self.assertFalse('non_intercepted_function' in
         self.generator._intercepted_functions)
     self.assertEqual(2, len(self.generator._intercepted_functions))
