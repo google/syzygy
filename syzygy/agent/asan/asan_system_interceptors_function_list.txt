@@ -58,3 +58,42 @@ WriteFileEx(
     _Inout_ LPOVERLAPPED lpOverlapped,
     _In_opt_ LPOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine
     );
+
+MODULE: kernel32.dll
+long
+WINAPI
+InterlockedCompareExchange(
+    _Inout_ long volatile* Destination,
+    _In_ long Exchange,
+    _In_ long Comperand
+    );
+
+MODULE: kernel32.dll
+long
+WINAPI
+InterlockedIncrement(
+    _Inout_ long* lpAddend
+    );
+
+MODULE: kernel32.dll
+long
+WINAPI
+InterlockedDecrement(
+    _Inout_ long* lpAddend
+    );
+
+MODULE: kernel32.dll
+long
+WINAPI
+InterlockedExchange(
+    _Inout_ _Interlocked_operand_ long volatile* Target,
+    _In_ long Value
+    );
+
+MODULE: kernel32.dll
+long
+WINAPI
+InterlockedExchangeAdd(
+    _Inout_ _Interlocked_operand_ long volatile* Addend,
+    _In_ long Value
+    );

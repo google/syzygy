@@ -151,6 +151,7 @@ class TestInterceptorParser(unittest.TestCase):
     self.assertEqual(None, valid_test_1_match.group('SAL_tag_args'))
     self.assertEqual('HANDLE', valid_test_1_match.group('var_type'))
     self.assertEqual('hFile', valid_test_1_match.group('var_name'))
+    self.assertEqual(None, valid_test_1_match.group('var_keyword'))
 
     valid_test_2 =  \
         '_In_reads_bytes_opt_(nNumberOfBytesToWrite) LPCVOID lpBuffer'
@@ -162,6 +163,7 @@ class TestInterceptorParser(unittest.TestCase):
                     valid_test_2_match.group('SAL_tag_args'))
     self.assertEqual('LPCVOID', valid_test_2_match.group('var_type'))
     self.assertEqual('lpBuffer', valid_test_2_match.group('var_name'))
+    self.assertEqual(None, valid_test_2_match.group('var_keyword'))
 
     valid_test_3 =  \
         '_Out_writes_to_opt_(nBufferLength, return + 1) LPWSTR lpBuffer'
@@ -172,16 +174,18 @@ class TestInterceptorParser(unittest.TestCase):
                      valid_test_3_match.group('SAL_tag_args'))
     self.assertEqual('LPWSTR', valid_test_3_match.group('var_type'))
     self.assertEqual('lpBuffer', valid_test_3_match.group('var_name'))
+    self.assertEqual(None, valid_test_3_match.group('var_keyword'))
 
-    valid_test_2 =  \
+    valid_test_4 =  \
         '_Out_writes_bytes_opt_(nNumber) __out_data_source(FILE) LPVOID lpBuf'
-    valid_test_2_match = asan_parser._ARG_TOKENS_RE.search(valid_test_2)
-    self.assertTrue(valid_test_2_match != None)
+    valid_test_4_match = asan_parser._ARG_TOKENS_RE.search(valid_test_4)
+    self.assertTrue(valid_test_4_match != None)
     self.assertEqual('_Out_writes_bytes_opt_',  \
-                     valid_test_2_match.group('SAL_tag'))
-    self.assertEqual('nNumber', valid_test_2_match.group('SAL_tag_args'))
-    self.assertEqual('LPVOID', valid_test_2_match.group('var_type'))
-    self.assertEqual('lpBuf', valid_test_2_match.group('var_name'))
+                     valid_test_4_match.group('SAL_tag'))
+    self.assertEqual('nNumber', valid_test_4_match.group('SAL_tag_args'))
+    self.assertEqual('LPVOID', valid_test_4_match.group('var_type'))
+    self.assertEqual('lpBuf', valid_test_4_match.group('var_name'))
+    self.assertEqual(None, valid_test_4_match.group('var_keyword'))
 
     valid_test_5 = '_Out_writes_to_opt_(cchBufferLength, *lpcchReturnLength)'  \
         ' _Post_ _NullNull_terminated_ LPWCH lpszVolumePathNames'
@@ -193,6 +197,7 @@ class TestInterceptorParser(unittest.TestCase):
     self.assertEqual('LPWCH', valid_test_5_match.group('var_type'))
     self.assertEqual('lpszVolumePathNames',  \
                      valid_test_5_match.group('var_name'))
+    self.assertEqual(None, valid_test_5_match.group('var_keyword'))
 
     valid_test_6 = '_In_ FILE_SEGMENT_ELEMENT aSegmentArray[]'
     valid_test_6_match = asan_parser._ARG_TOKENS_RE.search(valid_test_6)
@@ -202,6 +207,7 @@ class TestInterceptorParser(unittest.TestCase):
     self.assertEqual('FILE_SEGMENT_ELEMENT',  \
                      valid_test_6_match.group('var_type'))
     self.assertEqual('aSegmentArray', valid_test_6_match.group('var_name'))
+    self.assertEqual(None, valid_test_6_match.group('var_keyword'))
 
     valid_test_7 = '_In_reads_bytes_opt_(PropertyBufferSize) CONST PBYTE '  \
                        'PropertyBuffer'
@@ -214,6 +220,16 @@ class TestInterceptorParser(unittest.TestCase):
     self.assertEqual('CONST PBYTE',  \
                      valid_test_7_match.group('var_type'))
     self.assertEqual('PropertyBuffer', valid_test_7_match.group('var_name'))
+    self.assertEqual(None, valid_test_7_match.group('var_keyword'))
+
+    valid_test_8 = '_Inout_ uint64 volatile* Destination'
+    valid_test_8_match = asan_parser._ARG_TOKENS_RE.search(valid_test_8)
+    self.assertTrue(valid_test_8_match != None)
+    self.assertEqual('_Inout_',  valid_test_8_match.group('SAL_tag'))
+    self.assertEqual(None, valid_test_8_match.group('SAL_tag_args'))
+    self.assertEqual('uint64 volatile*', valid_test_8_match.group('var_type'))
+    self.assertEqual('Destination', valid_test_8_match.group('var_name'))
+    self.assertEqual('volatile', valid_test_8_match.group('var_keyword'))
 
     # Test against a non-annotated argument.
     invalid_test_1 = 'HANDLE hFile'
@@ -294,12 +310,6 @@ class TestInterceptorParser(unittest.TestCase):
     self.assertTrue(('intercepted_function',
                      '_In_reads_bytes_opt_(count) int foo, _In_ bar') \
         in self.generator._intercepted_functions)
-    self.assertEqual(2, len(self.generator._intercepted_functions))
-
-    self.generator.GenerateFunctionInterceptor('non_intercepted_function',
-        'void', '_In_ int foo', 'WINAPI', 'foo.dll')
-    self.assertFalse('non_intercepted_function' in
-        self.generator._intercepted_functions)
     self.assertEqual(2, len(self.generator._intercepted_functions))
 
   # TODO(sebmarchand): Add more tests.

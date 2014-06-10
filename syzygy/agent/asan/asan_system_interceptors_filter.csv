@@ -1,5 +1,0 @@
-module, function
-kernel32.dll, ReadFile
-kernel32.dll, ReadFileEx
-kernel32.dll, WriteFile
-kernel32.dll, WriteFileEx

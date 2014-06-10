@@ -14,6 +14,8 @@
 
 #include "syzygy/agent/asan/asan_system_interceptors.h"
 
+#include <intrin.h>
+
 #include <algorithm>
 
 #include "base/logging.h"

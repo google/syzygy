@@ -129,6 +129,7 @@ _FUNCTION_MATCH_RE = re.compile(r"""
 #           _NullNull_terminated_ LPWCH lpszVolumePathNames
 #     - _In_ FILE_SEGMENT_ELEMENT aSegmentArray[]
 #     - _In_reads_bytes_opt_(PropertyBufferSize) CONST PBYTE PropertyBuffer
+#     - _Inout_ _Interlocked_operand_ LONG volatile *Addend
 #
 # Here's a description of the different groups in this regex:
 #     - SAL_tag corresponds to the SAL tag of the argument.
@@ -144,6 +145,8 @@ _FUNCTION_MATCH_RE = re.compile(r"""
 #     - SAL_tag_args: nBufferLength, return + 1
 #     - var_type: LPWSTR
 #     - var_name: lpBuffer
+#     - var_keyword corresponds to the potential keyword qualifier accompanying
+#       the variable type (e.g. 'volatile')
 #
 # See http://msdn.microsoft.com/en-us/library/hh916382.aspx for a complete list
 # of the possible annotations.
@@ -159,8 +162,11 @@ _ARG_TOKENS_RE = re.compile(r"""
                                       # with at least one underscore, like:
                                       #     - _Post_ _NullNull_terminated_
                                       #     - __out_data_source(FILE)
-    (?P<var_type>(((CONST|FAR)\s*)?[a-zA-Z][a-zA-Z_]+))
+    (?P<var_type>(((CONST|FAR)\s*)?[a-zA-Z][a-zA-Z_0-9]+)
                                       # Match the type of the argument.
+    (\s+(?P<var_keyword>volatile|const))?(\*)?(\s+\*)?)
+                                      # Match the optional keyword of the
+                                      # argument.
     (\*)?\s+(\*\s*)?(?P<var_name>\w+)(\[\])?
                                       # Match the name of the argument.
     """, re.VERBOSE | re.IGNORECASE | re.MULTILINE)
@@ -212,9 +218,7 @@ instrumentation_filter_entry_template = Template("""
 #     - calling_convention: The calling convention of the function.
 #     - function_name: Name of the function.
 #     - function_arguments: Function's arguments, with their types.
-#     - buffer_to_check: Name of the buffer that should be check.
-#     - buffer_size: Size of the buffer that should be checked.
-#     - access_type: Access type to the buffer.
+#     - buffer_check: Optional check on the buffer passed to the function.
 #     - function_param_names: String containing the name of the arguments to
 #         pass to the intercepted function.
 #     - param_checks_precall: Optional parameter check done before the call to
@@ -224,11 +228,7 @@ instrumentation_filter_entry_template = Template("""
 interceptor_template = Template("""
 ${ret_type} ${calling_convention} \
 asan_${function_name}(${function_arguments}) {
-  if (${buffer_to_check} != NULL) {
-    TestMemoryRange(reinterpret_cast<const uint8*>(${buffer_to_check}),
-                    ${buffer_size},
-                    HeapProxy::ASAN_${access_type}_ACCESS);
-  }
+  ${buffer_check}
   ${param_checks_precall}
 
   ${ret_type} ret = ::${function_name}(${function_param_names});
@@ -237,11 +237,7 @@ asan_${function_name}(${function_arguments}) {
     (*interceptor_tail_callback)();
 
   ${param_checks_postcall}
-  if (${buffer_to_check} != NULL) {
-    TestMemoryRange(reinterpret_cast<const uint8*>(${buffer_to_check}),
-                    ${buffer_size},
-                    HeapProxy::ASAN_${access_type}_ACCESS);
-  }
+  ${buffer_check}
 
   return ret;
 }
@@ -252,12 +248,21 @@ asan_${function_name}(${function_arguments}) {
 #
 # Here's the description of the different identifiers in this template:
 #     - param_to_check: The parameter to check.
+#     - param_size: Size of the variable that should be checked.
 #     - access_type: The access type to the parameter.
+#     - param_keyword: The optional keyword qualifier accompanying the variable
+#       type (e.g. 'volatile').
+#
+# We need to do a double cast on the parameter to check to convert it to the
+# expected type (via a reinterpret_cast) and to lose the optional keyword
+# qualifier (via a const_cast).
 param_checks_template = Template("""
   if (${param_to_check} != NULL) {
-    TestMemoryRange(reinterpret_cast<const uint8*>(${param_to_check}),
-                    sizeof(*${param_to_check}),
-                    HeapProxy::ASAN_${access_type}_ACCESS);
+    TestMemoryRange(
+        const_cast<const uint8*>(
+            reinterpret_cast<const uint8 ${param_keyword}*>(${param_to_check})),
+        ${param_size},
+        HeapProxy::ASAN_${access_type}_ACCESS);
   }
 """)
 
@@ -326,7 +331,7 @@ class ASanSystemInterceptorGenerator(object):
           generated.
       return_type: The return type of the function.
       function_arguments: A string representing the functions arguments
-          (e.g. "int foo, bool bar"). It can contain newline characters.
+          (e.g. 'int foo, bool bar'). It can contain newline characters.
     """
 
     # Prevent repeatedly intercepting the same function.
@@ -339,13 +344,10 @@ class ASanSystemInterceptorGenerator(object):
     # should be intercepted.
     m_buffer_size_arg = None
     for m_iter in _ARG_TOKENS_RE.finditer(function_arguments):
-      if m_iter.group("SAL_tag") in _TAGS_TO_INTERCEPT:
+      if m_iter.group('SAL_tag') in _TAGS_TO_INTERCEPT:
         # Keep a reference to the argument of interest.
         m_buffer_size_arg = m_iter
         break
-
-    if m_buffer_size_arg is None:
-      return
 
     # TODO(sebmarchand): Only check the argument type (instead of the raw
     #     string).
@@ -372,9 +374,14 @@ class ASanSystemInterceptorGenerator(object):
       # Check if this argument should be checked prior to a call to the
       # intercepted function.
       if m_iter.group('SAL_tag') in _TAGS_TO_CHECK_PRECALL:
+        param_keyword = ''
+        if m_iter.group('var_keyword'):
+          param_keyword = m_iter.group('var_keyword')
         param_check_str = param_checks_template.substitute(
             param_to_check=m_iter.group('var_name'),
-            access_type='READ' if 'In' in m_iter.group('SAL_tag') else 'WRITE')
+            param_size='sizeof(*%s)' % m_iter.group('var_name'),
+            access_type='READ' if 'In' in m_iter.group('SAL_tag') else 'WRITE',
+            param_keyword=param_keyword)
         param_checks_precall += param_check_str
         # Check if it should also be checked once the function returns.
         if m_iter.group('SAL_tag') in _TAGS_TO_CHECK_POSTCALL:
@@ -382,12 +389,24 @@ class ASanSystemInterceptorGenerator(object):
 
       _LOGGER.debug('    %s' %  \
           ''.join(m_iter.group().replace('\n', ' ').split()))
-      _LOGGER.debug('      SAL tag: %s' % m_iter.group("SAL_tag"))
+      _LOGGER.debug('      SAL tag: %s' % m_iter.group('SAL_tag'))
       _LOGGER.debug('      SAL tag arguments: %s' %  \
-          m_iter.group("SAL_tag_args"))
-      _LOGGER.debug('      variable type: %s' % m_iter.group("var_type"))
-      _LOGGER.debug('      variable name: %s' % m_iter.group("var_name"))
+          m_iter.group('SAL_tag_args'))
+      _LOGGER.debug('      variable type: %s' % m_iter.group('var_type'))
+      _LOGGER.debug('      variable name: %s' % m_iter.group('var_name'))
+      _LOGGER.debug('      variable keyword: %s' % m_iter.group('var_keyword'))
     _LOGGER.debug('\n')
+
+    buffer_check = ''
+    if m_buffer_size_arg:
+      param_keyword = ''
+      if m_buffer_size_arg.group('var_keyword'):
+        param_keyword = m_buffer_size_arg.group('var_keyword')
+      buffer_check = param_checks_template.substitute(
+          param_to_check=m_buffer_size_arg.group('var_name'),
+          param_size=m_buffer_size_arg.group('SAL_tag_args').split(',')[0],
+          access_type=_TAGS_TO_INTERCEPT[m_buffer_size_arg.group('SAL_tag')],
+          param_keyword=param_keyword)
 
     # Write the function's implementation in the appropriate file.
     self._output_impl_file.write(interceptor_template.substitute(
@@ -395,12 +414,10 @@ class ASanSystemInterceptorGenerator(object):
         calling_convention=calling_convention,
         function_name=function_name,
         function_arguments=function_arguments,
-        buffer_to_check=m_buffer_size_arg.group('var_name'),
-        buffer_size=m_buffer_size_arg.group('SAL_tag_args').split(',')[0],
-        access_type=_TAGS_TO_INTERCEPT[m_buffer_size_arg.group("SAL_tag")],
         function_param_names=function_param_names,
         param_checks_precall=param_checks_precall,
-        param_checks_postcall=param_checks_postcall))
+        param_checks_postcall=param_checks_postcall,
+        buffer_check=buffer_check))
 
     # Write the entry into the instrumentation filter file.
     self._output_instrumentation_filter_file.write(
