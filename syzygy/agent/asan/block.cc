@@ -160,6 +160,70 @@ DWORD AccessViolationFilter(EXCEPTION_POINTERS* e) {
   return EXCEPTION_CONTINUE_SEARCH;
 }
 
+bool BlockInfoFromMemoryImpl(const void* const_raw_block,
+                             BlockInfo* block_info) {
+  DCHECK_NE(static_cast<void*>(NULL), const_raw_block);
+  DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
+
+  void* raw_block = const_cast<void*>(const_raw_block);
+
+  // The raw_block header must be minimally aligned and begin with the expected
+  // magic.
+  if (!IsAligned(reinterpret_cast<uint32>(raw_block), kShadowRatio))
+    return false;
+  BlockHeader* header = reinterpret_cast<BlockHeader*>(raw_block);
+  if (header->magic != kBlockHeaderMagic)
+    return false;
+
+  // Parse the header padding if present.
+  uint32 header_padding_size = 0;
+  if (header->has_header_padding) {
+    uint8* padding = reinterpret_cast<uint8*>(header + 1);
+    uint32* head = reinterpret_cast<uint32*>(padding);
+    header_padding_size = *head;
+    if (!IsAligned(header_padding_size, kShadowRatio))
+      return false;
+    uint32* tail = reinterpret_cast<uint32*>(
+        padding + header_padding_size - sizeof(uint32));
+    if (*head != *tail)
+      return false;
+  }
+
+  // Parse the body.
+  uint8* body = reinterpret_cast<uint8*>(header + 1) + header_padding_size;
+
+  // Parse the trailer padding.
+  uint32 trailer_padding_size = (kShadowRatio / 2) -
+      (header->body_size % (kShadowRatio / 2));
+  if (header->has_excess_trailer_padding) {
+    uint32* head = reinterpret_cast<uint32*>(body + header->body_size);
+    if ((*head % (kShadowRatio / 2)) != trailer_padding_size)
+      return false;
+    trailer_padding_size = *head;
+  }
+
+  // Parse the trailer. The end of it must be 8 aligned.
+  BlockTrailer* trailer = reinterpret_cast<BlockTrailer*>(
+      body + header->body_size + trailer_padding_size);
+  if (!IsAligned(reinterpret_cast<uint32>(trailer + 1), kShadowRatio))
+    return false;
+
+  block_info->block = reinterpret_cast<uint8*>(raw_block);
+  block_info->block_size = reinterpret_cast<uint8*>(trailer + 1)
+      - reinterpret_cast<uint8*>(header);
+  block_info->header = header;
+  block_info->header_padding_size = header_padding_size;
+  block_info->header_padding = block_info->block + sizeof(BlockHeader);
+  block_info->body = body;
+  block_info->body_size = header->body_size;
+  block_info->trailer_padding_size = trailer_padding_size;
+  block_info->trailer_padding = body + header->body_size;
+  block_info->trailer = trailer;
+
+  IdentifyWholePages(block_info);
+  return true;
+}
+
 BlockHeader* BlockGetHeaderFromBodyImpl(const void* const_body) {
   DCHECK_NE(static_cast<void*>(NULL), const_body);
 
@@ -296,65 +360,19 @@ void BlockInitialize(const BlockLayout& layout,
   InitializeBlockTrailer(block_info);
 }
 
-bool BlockInfoFromMemory(void* raw_block, BlockInfo* block_info) {
+bool BlockInfoFromMemory(const void* raw_block, BlockInfo* block_info) {
   DCHECK_NE(static_cast<void*>(NULL), raw_block);
   DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
 
-  // The raw_block header must be minimally aligned and begin with the expected
-  // magic.
-  if (!IsAligned(reinterpret_cast<uint32>(raw_block), kShadowRatio))
+  __try {
+    // As little code as possible is inside the body of the __try so that
+    // our code coverage can instrument it.
+    bool result = BlockInfoFromMemoryImpl(raw_block, block_info);
+    return result;
+  } __except (AccessViolationFilter(GetExceptionInformation())) {  // NOLINT
+    // The block is either corrupt, or the pages are protected.
     return false;
-  BlockHeader* header = reinterpret_cast<BlockHeader*>(raw_block);
-  if (header->magic != kBlockHeaderMagic)
-    return false;
-
-  // Parse the header padding if present.
-  uint32 header_padding_size = 0;
-  if (header->has_header_padding) {
-    uint8* padding = reinterpret_cast<uint8*>(header + 1);
-    uint32* head = reinterpret_cast<uint32*>(padding);
-    header_padding_size = *head;
-    if (!IsAligned(header_padding_size, kShadowRatio))
-      return false;
-    uint32* tail = reinterpret_cast<uint32*>(
-        padding + header_padding_size - sizeof(uint32));
-    if (*head != *tail)
-      return false;
   }
-
-  // Parse the body.
-  uint8* body = reinterpret_cast<uint8*>(header + 1) + header_padding_size;
-
-  // Parse the trailer padding.
-  uint32 trailer_padding_size = (kShadowRatio / 2) -
-      (header->body_size % (kShadowRatio / 2));
-  if (header->has_excess_trailer_padding) {
-    uint32* head = reinterpret_cast<uint32*>(body + header->body_size);
-    if ((*head % (kShadowRatio / 2)) != trailer_padding_size)
-      return false;
-    trailer_padding_size = *head;
-  }
-
-  // Parse the trailer. The end of it must be 8 aligned.
-  BlockTrailer* trailer = reinterpret_cast<BlockTrailer*>(
-      body + header->body_size + trailer_padding_size);
-  if (!IsAligned(reinterpret_cast<uint32>(trailer + 1), kShadowRatio))
-    return false;
-
-  block_info->block = reinterpret_cast<uint8*>(raw_block);
-  block_info->block_size = reinterpret_cast<uint8*>(trailer + 1)
-      - reinterpret_cast<uint8*>(header);
-  block_info->header = header;
-  block_info->header_padding_size = header_padding_size;
-  block_info->header_padding = block_info->block + sizeof(BlockHeader);
-  block_info->body = body;
-  block_info->body_size = header->body_size;
-  block_info->trailer_padding_size = trailer_padding_size;
-  block_info->trailer_padding = body + header->body_size;
-  block_info->trailer = trailer;
-
-  IdentifyWholePages(block_info);
-  return true;
 }
 
 BlockHeader* BlockGetHeaderFromBody(const void* body) {

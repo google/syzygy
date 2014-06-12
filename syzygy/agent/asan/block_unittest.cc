@@ -120,6 +120,10 @@ bool operator==(const BlockLayout& bl1, const BlockLayout& bl2) {
   return ::memcmp(&bl1, &bl2, sizeof(BlockLayout)) == 0;
 }
 
+bool operator==(const BlockInfo& bi1, const BlockInfo& bi2) {
+  return ::memcmp(&bi1, &bi2, sizeof(BlockInfo)) == 0;
+}
+
 TEST(BlockTest, BlockPlanLayout) {
   BlockLayout layout = {};
 
@@ -202,7 +206,7 @@ TEST(BlockTest, GetHeaderFromBody) {
   info.header->has_header_padding = 1;
   EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == NULL);
 
-  // First try navigating a block without header padding.
+  // Now navigate a block with header padding.
   BlockInitialize(layout2, data, &info);
   // This should succeed as expected.
   EXPECT_EQ(info.header, BlockGetHeaderFromBody(info.body));
@@ -243,6 +247,66 @@ TEST(BlockTest, GetHeaderFromBodyProtectedMemory) {
 
   BlockProtectRedzones(block_info);
   EXPECT_TRUE(BlockGetHeaderFromBody(block_info.body) == NULL);
+
+  ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
+}
+
+TEST(BlockTest, BlockInfoFromMemory) {
+  // Plan two layouts, one with header padding and another without.
+  BlockLayout layout1 = {};
+  BlockLayout layout2 = {};
+  BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout1);
+  BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 32, 0, &layout2);
+
+  uint8* data = new uint8[layout2.block_size];
+
+  // First recover a block without header padding.
+  BlockInfo info = {};
+  BlockInitialize(layout1, data, &info);
+  BlockInfo info_recovered = {};
+  EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
+  EXPECT_EQ(info, info_recovered);
+  // Failed bacause its not aligned.
+  EXPECT_FALSE(BlockInfoFromMemory(info.block + 1, &info_recovered));
+  // Failed because the magic is invalid.
+  ++info.header->magic;
+  EXPECT_FALSE(BlockInfoFromMemory(info.block, &info_recovered));
+  --info.header->magic;
+  // This fails because the header indicates there's padding yet there is
+  // none.
+  info.header->has_header_padding = 1;
+  EXPECT_FALSE(BlockInfoFromMemory(info.block, &info_recovered));
+
+  // Now recover a block with header padding.
+  BlockInitialize(layout2, data, &info);
+  EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
+  EXPECT_EQ(info, info_recovered);
+  // Failed because the magic is invalid.
+  ++info.header->magic;
+  EXPECT_FALSE(BlockInfoFromMemory(info.block, &info_recovered));
+  --info.header->magic;
+  // Failed because the header padding lengths don't match.
+  uint32* head = reinterpret_cast<uint32*>(info.header_padding);
+  uint32* tail = head + (info.header_padding_size / sizeof(uint32)) - 1;
+  ++(*tail);
+  EXPECT_FALSE(BlockInfoFromMemory(info.block, &info_recovered));
+  --(*tail);
+
+  delete[] data;
+}
+
+TEST(BlockTest, BlockInfoFromMemoryProtectedMemory) {
+  BlockLayout layout = {};
+  BlockPlanLayout(4096, 4096, 4096, 4096, 4096, &layout);
+  void* alloc = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
+                               PAGE_READWRITE);
+  ASSERT_TRUE(alloc != NULL);
+  BlockInfo block_info = {};
+  BlockInitialize(layout, alloc, &block_info);
+
+  BlockProtectRedzones(block_info);
+  BlockInfo recovered_info = {};
+  EXPECT_FALSE(BlockInfoFromMemory(block_info.block, &recovered_info));
 
   ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
 }

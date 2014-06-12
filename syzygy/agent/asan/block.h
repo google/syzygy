@@ -270,13 +270,15 @@ void BlockInitialize(const BlockLayout& layout,
                      BlockInfo* block_info);
 
 // Given a pointer to a block examines memory and extracts the block layout.
+// This protects against invalid memory accesses that may occur as a result of
+// block corruption, or the block pages being protected; in case of error,
+// this will return false.
 // TODO(chrisha): Create an equivalent function for parsing a block layout
 //     from the shadow memory contents.
 // @param raw_block A pointer to the beginning of the block.
 // @param block_info The description of the block to be populated.
 // @returns true if a valid block was encountered at the provided location,
 //     false otherwise.
-// @note The pages containing the block must be readable.
 bool BlockInfoFromMemory(const void* raw_block, BlockInfo* block_info);
 
 // Given a block body, finds the header. To find any other part of the
