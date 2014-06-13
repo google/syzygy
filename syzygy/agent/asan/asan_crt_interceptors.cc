@@ -19,7 +19,7 @@
 #include "base/logging.h"
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_rtl_utils.h"
-#include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/agent/asan/shadow.h"
 
 namespace {
 

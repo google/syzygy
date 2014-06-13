@@ -20,7 +20,7 @@
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_rtl_impl.h"
 #include "syzygy/agent/asan/asan_runtime.h"
-#include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/unittest_util.h"
 #include "syzygy/common/align.h"
 
@@ -81,8 +81,7 @@ TEST_F(NestedHeapTest, IntegrationTest) {
   const size_t kAllocSize = 100;
   const uint8 kMagicValue = 0x9C;
 
-  for (size_t alignment = Shadow::kShadowGranularity;
-       alignment <= kMaxAlignment;
+  for (size_t alignment = kShadowRatio; alignment <= kMaxAlignment;
        alignment *= 2) {
     uint8* aligned_buffer = reinterpret_cast<uint8*>(
         common::AlignUp(reinterpret_cast<size_t>(buffer), alignment));

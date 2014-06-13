@@ -28,7 +28,7 @@
 #include "base/strings/sys_string_conversions.h"
 #include "syzygy/agent/asan/asan_heap_checker.h"
 #include "syzygy/agent/asan/asan_runtime.h"
-#include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/agent/asan/shadow.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/asan_parameters.h"
 #include "syzygy/trace/common/clock.h"
@@ -197,7 +197,7 @@ void HeapProxy::SetBlockChecksum(BlockHeader* block_header) {
     const uint8* trailer_end = reinterpret_cast<const uint8*>(
         common::AlignUp(reinterpret_cast<const size_t>(block_end) +
             sizeof(BlockTrailer) + trailer_padding_size_,
-                Shadow::kShadowGranularity));
+                kShadowRatio));
     uint32 trailer_checksum =
         base::SuperFastHash(reinterpret_cast<const char*>(block_end),
         trailer_end - block_end);
@@ -301,8 +301,8 @@ void* HeapProxy::InitializeAsanBlock(uint8* asan_pointer,
   // Padding (optional): Some padding to align the size of the whole structure
   //     to the block alignment. This zone is poisoned.
 
-  if (alloc_granularity_log < Shadow::kShadowGranularityLog)
-    alloc_granularity_log = Shadow::kShadowGranularityLog;
+  if (alloc_granularity_log < kShadowRatioLog)
+    alloc_granularity_log = kShadowRatioLog;
 
   size_t header_size = common::AlignUp(sizeof(BlockHeader),
                                        1 << alloc_granularity_log);
@@ -790,7 +790,7 @@ size_t HeapProxy::GetAllocSize(size_t bytes, size_t alignment) {
   bytes += std::max(sizeof(BlockHeader), alignment);
   bytes += sizeof(BlockTrailer);
   bytes += trailer_padding_size_;
-  return common::AlignUp(bytes, Shadow::kShadowGranularity);
+  return common::AlignUp(bytes, kShadowRatio);
 }
 
 HeapProxy::BlockHeader* HeapProxy::UserPointerToBlockHeader(
@@ -891,11 +891,12 @@ HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const void* addr,
   if (header->state == QUARANTINED) {
     bad_access_kind = USE_AFTER_FREE;
   } else {
-    if (addr < (BlockHeaderToUserPointer(header)))
+    if (addr < (BlockHeaderToUserPointer(header))) {
       bad_access_kind = HEAP_BUFFER_UNDERFLOW;
-    else if (addr >= (BlockHeaderToUserPointer(header) + header->block_size))
+    } else if (addr >= (BlockHeaderToUserPointer(header) +
+        header->block_size)) {
       bad_access_kind = HEAP_BUFFER_OVERFLOW;
-    else if (Shadow::GetShadowMarkerForAddress(addr) ==
+    } else if (Shadow::GetShadowMarkerForAddress(addr) ==
         Shadow::kHeapFreedByte) {
       // This is a use after free on a block managed by a nested heap.
       bad_access_kind = USE_AFTER_FREE;
@@ -910,7 +911,7 @@ HeapProxy::BlockHeader* HeapProxy::FindBlockContainingAddress(uint8* addr) {
   uint8* original_addr = addr;
   addr = reinterpret_cast<uint8*>(
       common::AlignDown(reinterpret_cast<size_t>(addr),
-      Shadow::kShadowGranularity));
+      kShadowRatio));
 
   // Here's what the memory will look like for a block nested into another one:
   //          +-----------------------------+--------------+---------------+
@@ -948,11 +949,11 @@ HeapProxy::BlockHeader* HeapProxy::FindBlockContainingAddress(uint8* addr) {
   // This corresponds to the first case.
   if (!Shadow::IsLeftRedzone(addr)) {
     while (addr >= kAddressLowerLimit) {
-      addr -= Shadow::kShadowGranularity;
+      addr -= kShadowRatio;
       if (Shadow::GetShadowMarkerForAddress(reinterpret_cast<void*>(addr)) ==
           Shadow::kHeapBlockHeaderByte) {
         BlockHeader* header = reinterpret_cast<BlockHeader*>(addr -
-            (sizeof(BlockHeader) - Shadow::kShadowGranularity));
+            (sizeof(BlockHeader) - kShadowRatio));
         if (header->magic_number != kBlockHeaderSignature)
           continue;
         size_t block_size = GetAllocSize(header->block_size,
@@ -983,15 +984,15 @@ HeapProxy::BlockHeader* HeapProxy::FindBlockContainingAddress(uint8* addr) {
                                      1 << left_header->alignment_log);
       break;
     }
-    left_bound -= Shadow::kShadowGranularity;
+    left_bound -= kShadowRatio;
   }
 
   // Look for the right bound.
   uint8* right_bound = reinterpret_cast<uint8*>(addr);
   BlockHeader* right_header = NULL;
   size_t right_block_size = 0;
-  while (Shadow::IsLeftRedzone(right_bound + Shadow::kShadowGranularity)) {
-    right_bound += Shadow::kShadowGranularity;
+  while (Shadow::IsLeftRedzone(right_bound + kShadowRatio)) {
+    right_bound += kShadowRatio;
     BlockHeader* temp_header = reinterpret_cast<BlockHeader*>(right_bound);
     if (temp_header->magic_number == kBlockHeaderSignature) {
       right_header = temp_header;
@@ -1064,8 +1065,7 @@ HeapProxy::BlockHeader* HeapProxy::FindContainingBlock(
   DCHECK_EQ(kBlockHeaderSignature, inner_block->magic_number);
 
   size_t addr = reinterpret_cast<size_t>(inner_block);
-  addr = common::AlignDown(addr - Shadow::kShadowGranularity,
-                           Shadow::kShadowGranularity);
+  addr = common::AlignDown(addr - kShadowRatio, kShadowRatio);
 
   // Try to find a block header containing this block.
   while (addr >= reinterpret_cast<size_t>(kAddressLowerLimit)) {
@@ -1083,7 +1083,7 @@ HeapProxy::BlockHeader* HeapProxy::FindContainingBlock(
         }
       }
     }
-    addr -= Shadow::kShadowGranularity;
+    addr -= kShadowRatio;
   }
 
   return NULL;

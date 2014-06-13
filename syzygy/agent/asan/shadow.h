@@ -13,13 +13,14 @@
 // limitations under the License.
 //
 // Implements an all-static class that manages shadow memory for ASAN.
-#ifndef SYZYGY_AGENT_ASAN_ASAN_SHADOW_H_
-#define SYZYGY_AGENT_ASAN_ASAN_SHADOW_H_
+#ifndef SYZYGY_AGENT_ASAN_SHADOW_H_
+#define SYZYGY_AGENT_ASAN_SHADOW_H_
 
 #include <string>
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "syzygy/agent/asan/constants.h"
 
 namespace agent {
 namespace asan {
@@ -27,19 +28,15 @@ namespace asan {
 // An all-static class that manages the ASAN shadow memory.
 class Shadow {
  public:
-  // The granularity of the shadow memory.
-  static const size_t kShadowGranularityLog = 3;
-  static const size_t kShadowGranularity = 1 << kShadowGranularityLog;
-
   // The first 64k of the memory are not addressable.
   static const size_t kAddressLowerBound = 0x10000;
 
-  // One shadow byte for every 8 bytes in a 2G address space.
-  // @note: This is dependent on the process NOT being large address aware.
-  static const size_t kShadowSize = 1 << (31 - kShadowGranularityLog);
+  // One shadow byte for per group of kShadowRatio bytes in a 2G address space.
+  // NOTE: This is dependent on the process NOT being large address aware.
+  static const size_t kShadowSize = 1 << (31 - kShadowRatioLog);
 
   // The upper bound of the addressable memory.
-  static const size_t kAddressUpperBound = kShadowSize << kShadowGranularityLog;
+  static const size_t kAddressUpperBound = kShadowSize << kShadowRatioLog;
 
   // Set up the shadow memory.
   static void SetUp();
@@ -218,9 +215,9 @@ class ShadowWalker {
 };
 
 // Bring in the implementation of the templated functions.
-#include "syzygy/agent/asan/asan_shadow_impl.h"
+#include "syzygy/agent/asan/shadow_impl.h"
 
 }  // namespace asan
 }  // namespace agent
 
-#endif  // SYZYGY_AGENT_ASAN_ASAN_SHADOW_H_
+#endif  // SYZYGY_AGENT_ASAN_SHADOW_H_

@@ -21,7 +21,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "syzygy/agent/asan/asan_heap_checker.h"
 #include "syzygy/agent/asan/asan_runtime.h"
-#include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture.h"
 #include "syzygy/agent/common/scoped_last_error_keeper.h"
 

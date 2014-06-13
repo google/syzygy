@@ -19,7 +19,7 @@
 #include "base/rand_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_runtime.h"
-#include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
 

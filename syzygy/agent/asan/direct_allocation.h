@@ -28,7 +28,8 @@
 #include <map>
 #include <set>
 
-#include "syzygy/agent/asan/asan_shadow.h"
+#include "base/logging.h"
+#include "syzygy/agent/asan/constants.h"
 
 namespace agent {
 namespace asan {
@@ -36,7 +37,7 @@ namespace asan {
 class DirectAllocation {
  public:
   // The default allocation alignment matches that used by the shadow.
-  static const size_t kDefaultAlignment = Shadow::kShadowGranularity;
+  static const size_t kDefaultAlignment = kShadowRatio;
 
   // Describes the justification of the allocated memory within the larger
   // spread of pages that were returned by the OS.

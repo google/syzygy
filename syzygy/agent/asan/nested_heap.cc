@@ -15,7 +15,8 @@
 
 #include "base/bits.h"
 #include "syzygy/agent/asan/asan_heap.h"
-#include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/agent/asan/constants.h"
+#include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture.h"
 #include "syzygy/common/align.h"
 
@@ -30,7 +31,7 @@ using agent::asan::StackCapture;
 void asan_PoisonMemoryRange(const void* address, size_t size) {
   DCHECK(address != NULL);
   DCHECK(common::IsAligned(reinterpret_cast<uint8>(address) + size,
-                           Shadow::kShadowGranularity));
+                           agent::asan::kShadowRatio));
 
   Shadow::Poison(address, size, Shadow::kUserRedzone);
 }
@@ -38,8 +39,8 @@ void asan_PoisonMemoryRange(const void* address, size_t size) {
 void asan_UnpoisonMemoryRange(const void* address, size_t size) {
   DCHECK(address != NULL);
   DCHECK(common::IsAligned(reinterpret_cast<uint8>(address),
-                           Shadow::kShadowGranularity));
-  DCHECK(common::IsAligned(size, Shadow::kShadowGranularity));
+                           agent::asan::kShadowRatio));
+  DCHECK(common::IsAligned(size, agent::asan::kShadowRatio));
 
   Shadow::Unpoison(address, size);
 }

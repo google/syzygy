@@ -14,8 +14,6 @@
 
 #include "syzygy/agent/asan/block.h"
 
-#include <windows.h>
-
 #include <algorithm>
 
 #include "base/hash.h"
@@ -44,13 +42,6 @@ DECLARE_GET_MAX_BITFIELD_VALUE_FUNCTION(BlockHeader, body_size);
 #undef DECLARE_GET_MAX_BITFIELD_VALUE_FUNCTION
 
 const size_t kMaxBlockHeaderBodySize = GetMaxValueBlockHeader_body_size();
-
-// Gets the page size from the OS.
-size_t GetPageSize() {
-  SYSTEM_INFO system_info = {};
-  ::GetSystemInfo(&system_info);
-  return system_info.dwPageSize;
-}
 
 // Identifies whole pages in the given block_info.
 // TODO(chrisha): This will be useful when walking through blocks using the
@@ -258,8 +249,6 @@ BlockHeader* BlockGetHeaderFromBodyImpl(const void* const_body) {
 }
 
 }  // namespace
-
-const size_t kPageSize = GetPageSize();
 
 void BlockPlanLayout(size_t chunk_size,
                      size_t alignment,

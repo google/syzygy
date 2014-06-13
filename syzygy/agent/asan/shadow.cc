@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/agent/asan/shadow.h"
 
 #include "base/stringprintf.h"
 #include "syzygy/common/align.h"
@@ -194,12 +194,12 @@ void Shadow::AppendShadowMemoryText(const void* addr, std::string* output) {
 
 const uint8* Shadow::FindBlockBeginning(const uint8* mem) {
   mem = reinterpret_cast<uint8*>(common::AlignDown(
-      reinterpret_cast<size_t>(mem), kShadowGranularity));
+      reinterpret_cast<size_t>(mem), kShadowRatio));
   // Start by checking if |mem| points inside a block.
   if (!IsLeftRedzone(mem) &&
       GetShadowMarkerForAddress(mem) != Shadow::kHeapRightRedzone) {
     do {
-      mem -= kShadowGranularity;
+      mem -= kShadowRatio;
     } while (!IsLeftRedzone(mem) &&
              GetShadowMarkerForAddress(mem) != Shadow::kHeapRightRedzone &&
              mem > reinterpret_cast<uint8*>(kAddressLowerBound));
@@ -212,9 +212,9 @@ const uint8* Shadow::FindBlockBeginning(const uint8* mem) {
   }
 
   // Look for the beginning of the memory block.
-  while (!IsLeftRedzone(mem) || IsLeftRedzone(mem - kShadowGranularity) &&
+  while (!IsLeftRedzone(mem) || IsLeftRedzone(mem - kShadowRatio) &&
       mem > reinterpret_cast<uint8*>(kAddressLowerBound)) {
-    mem -= kShadowGranularity;
+    mem -= kShadowRatio;
   }
   if (mem <= reinterpret_cast<uint8*>(kAddressLowerBound))
     return NULL;
@@ -225,7 +225,7 @@ const uint8* Shadow::FindBlockBeginning(const uint8* mem) {
 size_t Shadow::GetAllocSize(const uint8* mem) {
   size_t alloc_size = 0;
   const uint8* aligned_mem = reinterpret_cast<uint8*>(common::AlignDown(
-      reinterpret_cast<size_t>(mem), kShadowGranularity));
+      reinterpret_cast<size_t>(mem), kShadowRatio));
   size_t alignment_offset = mem - aligned_mem;
   const uint8* mem_begin = FindBlockBeginning(mem);
 
@@ -235,7 +235,7 @@ size_t Shadow::GetAllocSize(const uint8* mem) {
   // Look for the heap right redzone.
   while (GetShadowMarkerForAddress(mem) != Shadow::kHeapRightRedzone &&
          mem < reinterpret_cast<uint8*>(kAddressUpperBound)) {
-    mem += kShadowGranularity;
+    mem += kShadowRatio;
   }
 
   if (mem >= reinterpret_cast<uint8*>(kAddressUpperBound))
@@ -244,7 +244,7 @@ size_t Shadow::GetAllocSize(const uint8* mem) {
   // Find the end of the block.
   while (GetShadowMarkerForAddress(mem) == Shadow::kHeapRightRedzone &&
          mem < reinterpret_cast<uint8*>(kAddressUpperBound)) {
-    mem += kShadowGranularity;
+    mem += kShadowRatio;
   }
 
   if (mem >= reinterpret_cast<uint8*>(kAddressUpperBound))
@@ -257,7 +257,7 @@ const uint8* Shadow::AsanPointerToBlockHeader(const uint8* asan_pointer) {
   if (!IsLeftRedzone(asan_pointer))
     return NULL;
   while (GetShadowMarkerForAddress(asan_pointer) != kHeapBlockHeaderByte)
-    asan_pointer += kShadowGranularity;
+    asan_pointer += kShadowRatio;
   return asan_pointer;
 }
 
@@ -272,17 +272,17 @@ void ShadowWalker::Reset() {
   next_block_ = lower_bound_;
   // Look for the first block.
   while (next_block_ < upper_bound_ && !Shadow::IsLeftRedzone(next_block_))
-    next_block_ += Shadow::kShadowGranularity;
+    next_block_ += kShadowRatio;
 }
 
 void ShadowWalker::Advance() {
   DCHECK_LT(next_block_, upper_bound_);
   // Skip the current block left zone.
   while (next_block_ < upper_bound_ && Shadow::IsLeftRedzone(next_block_))
-    next_block_ += Shadow::kShadowGranularity;
+    next_block_ += kShadowRatio;
   // Look for the next block.
   while (next_block_ < upper_bound_ && !Shadow::IsLeftRedzone(next_block_))
-    next_block_ += Shadow::kShadowGranularity;
+    next_block_ += kShadowRatio;
 }
 
 bool ShadowWalker::Next(const uint8** block_begin) {

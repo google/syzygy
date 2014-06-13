@@ -16,7 +16,7 @@
 
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_runtime.h"
-#include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/agent/asan/shadow.h"
 
 namespace agent {
 namespace asan {

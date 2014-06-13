@@ -62,8 +62,7 @@ class HeapCheckerTest : public testing::Test {
 
 TEST_F(HeapCheckerTest, IsHeapCorruptInvalidChecksum) {
   const size_t kAllocSize = 100;
-  size_t real_alloc_size = HeapProxy::GetAllocSize(kAllocSize,
-      Shadow::kShadowGranularity);
+  size_t real_alloc_size = HeapProxy::GetAllocSize(kAllocSize, kShadowRatio);
 
   // Ensures that the block will fit in the quarantine.
   proxy_.SetQuarantineMaxSize(real_alloc_size);
@@ -158,7 +157,7 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
   // release and debug.
   const size_t kNumberOfBlocks = 4;
   size_t real_alloc_size = HeapProxy::GetAllocSize(kAllocSize,
-      Shadow::kShadowGranularity);
+      kShadowRatio);
 
   // Ensures that the blocks will fit in the quarantine.
   proxy_.SetQuarantineMaxSize(real_alloc_size * kNumberOfBlocks);

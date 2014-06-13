@@ -13,10 +13,10 @@
 // limitations under the License.
 //
 // Contains the implementation details of the templated functions of ASAN's
-// shadow memory. See 'asan_shadow.h' for more information. This file is not
-// meant to be included directly, but is brought in by asan_shadow.h.
-#ifndef SYZYGY_AGENT_ASAN_ASAN_SHADOW_IMPL_H_
-#define SYZYGY_AGENT_ASAN_ASAN_SHADOW_IMPL_H_
+// shadow memory. See 'shadow.h' for more information. This file is not
+// meant to be included directly, but is brought in by shadow.h.
+#ifndef SYZYGY_AGENT_ASAN_SHADOW_IMPL_H_
+#define SYZYGY_AGENT_ASAN_SHADOW_IMPL_H_
 
 template<typename type>
 bool Shadow::GetNullTerminatedArraySize(const void* addr,
@@ -38,7 +38,7 @@ bool Shadow::GetNullTerminatedArraySize(const void* addr,
     if ((shadow & kHeapNonAccessibleByteMask) != 0)
       return false;
 
-    uint8 max_index = shadow ? shadow : kShadowGranularity;
+    uint8 max_index = shadow ? shadow : kShadowRatio;
     DCHECK_EQ(0U, max_index % sizeof(type));
     max_index /= sizeof(type);
     while (max_index-- > 0) {
@@ -53,4 +53,4 @@ bool Shadow::GetNullTerminatedArraySize(const void* addr,
   }
 }
 
-#endif  // SYZYGY_AGENT_ASAN_ASAN_SHADOW_IMPL_H_
+#endif  // SYZYGY_AGENT_ASAN_SHADOW_IMPL_H_

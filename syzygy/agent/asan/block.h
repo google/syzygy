@@ -86,6 +86,7 @@
 #define SYZYGY_AGENT_ASAN_BLOCK_H_
 
 #include "base/basictypes.h"
+#include "syzygy/agent/asan/constants.h"
 
 namespace agent {
 namespace asan {
@@ -93,12 +94,6 @@ namespace asan {
 // Forward declarations.
 class StackCapture;
 struct BlockLayout;
-
-// TODO(chrisha): Move these somewhere central.
-// The ratio of shadow memory to actual memory.
-static const size_t kShadowRatio = 8;
-// The size of a page on the OS. This is statically initialized.
-extern const size_t kPageSize;
 
 // Various constants for identifying the beginnings of regions of memory.
 static const uint16 kBlockHeaderMagic = 0xCA80;

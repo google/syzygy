@@ -22,7 +22,7 @@
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_rtl_utils.h"
 #include "syzygy/agent/asan/asan_runtime.h"
-#include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture.h"
 #include "syzygy/agent/common/scoped_last_error_keeper.h"
 

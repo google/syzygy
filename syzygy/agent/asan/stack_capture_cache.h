@@ -17,7 +17,7 @@
 
 #include "base/hash_tables.h"
 #include "base/synchronization/lock.h"
-#include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture.h"
 #include "syzygy/common/asan_parameters.h"
 

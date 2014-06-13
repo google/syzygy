@@ -23,7 +23,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_runtime.h"
-#include "syzygy/agent/asan/asan_shadow.h"
+#include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/unittest_util.h"
 #include "syzygy/common/align.h"
 #include "syzygy/trace/common/clock.h"
@@ -786,7 +786,7 @@ class NestedBlocksTest : public HeapTest {
                                                 kBlock1Alignment);
 
     aligned_buffer_ = reinterpret_cast<uint8*>(common::AlignUp(
-        reinterpret_cast<size_t>(buffer_), Shadow::kShadowGranularity));
+        reinterpret_cast<size_t>(buffer_), kShadowRatio));
 
     ASSERT_GT(kBufferSize - (aligned_buffer_ - buffer_), block_1_size_);
 
@@ -1235,7 +1235,7 @@ struct FakeAsanBlock {
                                   alloc_alignment));
     EXPECT_TRUE(common::IsAligned(
         reinterpret_cast<size_t>(buffer_align_begin) + asan_alloc_size,
-        Shadow::kShadowGranularity));
+        kShadowRatio));
     EXPECT_TRUE(proxy->UserPointerToAsanPointer(user_ptr) ==
         buffer_align_begin);
     EXPECT_TRUE(proxy->AsanPointerToUserPointer(buffer_align_begin) ==
@@ -1307,7 +1307,7 @@ struct FakeAsanBlock {
     }
     const uint8* aligned_trailer_begin = reinterpret_cast<const uint8*>(
         common::AlignUp(reinterpret_cast<size_t>(user_ptr) + user_alloc_size,
-                        Shadow::kShadowGranularity));
+                        kShadowRatio));
     for (const uint8* pos = aligned_trailer_begin;
          pos < buffer_align_begin + asan_alloc_size;
          ++pos) {
@@ -1406,7 +1406,7 @@ struct FakeAsanBlock {
 }  // namespace
 
 TEST_F(HeapTest, InitializeAsanBlock) {
-  for (size_t alloc_alignment_log = Shadow::kShadowGranularityLog;
+  for (size_t alloc_alignment_log = kShadowRatioLog;
        alloc_alignment_log <= FakeAsanBlock::kMaxAlignmentLog;
        ++alloc_alignment_log) {
     FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
@@ -1417,7 +1417,7 @@ TEST_F(HeapTest, InitializeAsanBlock) {
 }
 
 TEST_F(HeapTest, MarkBlockAsQuarantined) {
-  for (size_t alloc_alignment_log = Shadow::kShadowGranularityLog;
+  for (size_t alloc_alignment_log = kShadowRatioLog;
        alloc_alignment_log <= FakeAsanBlock::kMaxAlignmentLog;
        ++alloc_alignment_log) {
     FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
@@ -1429,7 +1429,7 @@ TEST_F(HeapTest, MarkBlockAsQuarantined) {
 }
 
 TEST_F(HeapTest, DestroyAsanBlock) {
-  for (size_t alloc_alignment_log = Shadow::kShadowGranularityLog;
+  for (size_t alloc_alignment_log = kShadowRatioLog;
        alloc_alignment_log <= FakeAsanBlock::kMaxAlignmentLog;
        ++alloc_alignment_log) {
     FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
@@ -1467,7 +1467,7 @@ TEST_F(HeapTest, DestroyAsanBlock) {
 }
 
 TEST_F(HeapTest, CloneBlock) {
-  for (size_t alloc_alignment_log = Shadow::kShadowGranularityLog;
+  for (size_t alloc_alignment_log = kShadowRatioLog;
        alloc_alignment_log <= FakeAsanBlock::kMaxAlignmentLog;
        ++alloc_alignment_log) {
     // Create a fake block and mark it as quarantined.
@@ -1518,7 +1518,7 @@ TEST_F(HeapTest, CloneBlock) {
 }
 
 TEST_F(HeapTest, GetBadAccessInformation) {
-  FakeAsanBlock fake_block(&proxy_, Shadow::kShadowGranularityLog);
+  FakeAsanBlock fake_block(&proxy_, kShadowRatioLog);
   const size_t kAllocSize = 100;
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
 
@@ -1542,7 +1542,7 @@ TEST_F(HeapTest, GetBadAccessInformationNestedBlock) {
   // inside it, then we mark the outer block as quarantined and we test a bad
   // access inside the inner block.
 
-  FakeAsanBlock fake_block(&proxy_, Shadow::kShadowGranularityLog);
+  FakeAsanBlock fake_block(&proxy_, kShadowRatioLog);
   const size_t kInnerBlockAllocSize = 100;
 
   // Allocates the outer block.
@@ -1556,7 +1556,7 @@ TEST_F(HeapTest, GetBadAccessInformationNestedBlock) {
       reinterpret_cast<uint8*>(fake_block.user_ptr),
                                kInnerBlockAllocSize,
                                outer_block_size,
-                               Shadow::kShadowGranularityLog,
+                               kShadowRatioLog,
                                stack);
 
   ASSERT_NE(reinterpret_cast<void*>(NULL), inner_block_data);
@@ -1726,7 +1726,7 @@ TEST_F(HeapTest, WalkBlocksWithShadowWalker) {
             outer_block.get() + i * real_alloc_size,
         kAllocSize,
         real_alloc_size,
-        Shadow::kShadowGranularityLog,
+        kShadowRatioLog,
         stack));
     base::RandBytes(user_pointers[i], kAllocSize);
   }
