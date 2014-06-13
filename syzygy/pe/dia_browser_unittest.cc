@@ -405,13 +405,8 @@ TEST_F(DiaBrowserTest, AllDataSymbolsExplored) {
   dia_browser.AddPattern(Seq(Star(SymTagNull), SymTagData),
                          on_full_match_);
 
-#if _MSC_VER == 1600  // MSVS 2010.
-  EXPECT_CALL(*this, OnFullMatch(_, _, _)).Times(2883).
-      WillRepeatedly(Return(DiaBrowser::kBrowserContinue));
-#elif _MSC_VER == 1800  // MSVS 2013.
   EXPECT_CALL(*this, OnFullMatch(_, _, _)).Times(2896).
       WillRepeatedly(Return(DiaBrowser::kBrowserContinue));
-#endif
   dia_browser.Browse(global_.get());
 }
 
@@ -422,13 +417,8 @@ TEST_F(DiaBrowserTest, AllDataSymbolsExploredWithPopCallbacks) {
   dia_browser.AddPattern(Seq(Star(SymTagNull), SymTagData),
                          on_full_match_, on_full_match_);
 
-#if _MSC_VER == 1600  // MSVS 2010.
-  EXPECT_CALL(*this, OnFullMatch(_, _, _)).Times(2 * 2883).
-      WillRepeatedly(Return(DiaBrowser::kBrowserContinue));
-#elif _MSC_VER == 1800  // MSVS 2013.
   EXPECT_CALL(*this, OnFullMatch(_, _, _)).Times(2 * 2896).
       WillRepeatedly(Return(DiaBrowser::kBrowserContinue));
-#endif
   dia_browser.Browse(global_.get());
 }
 

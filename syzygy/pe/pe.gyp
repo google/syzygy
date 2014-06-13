@@ -16,14 +16,7 @@
   'variables': {
     'chromium_code': 1,
     'dia_sdk_dir': '$(VSInstallDir)/DIA SDK',
-    'conditions': [
-      ['MSVS_VERSION=="2010"', {
-        'dia_sdk_dll': 'msdia100.dll',
-      }],
-      ['MSVS_VERSION=="2013"', {
-        'dia_sdk_dll': 'msdia120.dll',
-      }],
-    ],
+    'dia_sdk_dll': 'msdia120.dll',
   },
   'targets': [
     {

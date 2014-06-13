@@ -205,38 +205,6 @@ TEST_F(DecomposerTest, Decompose) {
   }
 
   SectionCountMap expected_section_counts;
-#if _MSC_VER == 1600  // MSVS 2010.
-#ifndef NDEBUG
-  // Debug build.
-  expected_section_counts[-1] = 2;
-  expected_section_counts[0] = 309;
-  expected_section_counts[1] = 329;
-  expected_section_counts[2] = 88;
-  expected_section_counts[3] = 1;
-  expected_section_counts[4] = 1;
-  expected_section_counts[5] = 1;
-#else
-#ifndef OFFICIAL_BUILD
-  // Release build.
-  expected_section_counts[-1] = 2;
-  expected_section_counts[0] = 282;
-  expected_section_counts[1] = 304;
-  expected_section_counts[2] = 81;
-  expected_section_counts[3] = 1;
-  expected_section_counts[4] = 1;
-  expected_section_counts[5] = 1;
-#else
-  // Official build.
-  expected_section_counts[-1] = 2;
-  expected_section_counts[0] = 281;
-  expected_section_counts[1] = 304;
-  expected_section_counts[2] = 81;
-  expected_section_counts[3] = 1;
-  expected_section_counts[4] = 1;
-  expected_section_counts[5] = 1;
-#endif
-#endif
-#elif _MSC_VER == 1800  // MSVS 2013.
 #ifndef NDEBUG
   // Debug build.
   expected_section_counts[-1] = 2;
@@ -267,27 +235,9 @@ TEST_F(DecomposerTest, Decompose) {
   expected_section_counts[5] = 1;
 #endif
 #endif
-#endif
   EXPECT_THAT(section_counts, ContainerEq(expected_section_counts));
 
   BlockTypeCountMap expected_block_type_counts;
-#if _MSC_VER == 1600  // MSVS 2010.
-#ifndef NDEBUG
-  // Debug build.
-  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 309;
-  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 422;
-#else
-#ifndef OFFICIAL_BUILD
-  // Release build.
-  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 282;
-  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 390;
-#else
-  // Official build.
-  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 281;
-  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 390;
-#endif
-#endif
-#elif _MSC_VER == 1800  // MSVS 2013.
 #ifndef NDEBUG
   // Debug build.
   expected_block_type_counts[BlockGraph::CODE_BLOCK] = 323;
@@ -301,7 +251,6 @@ TEST_F(DecomposerTest, Decompose) {
   // Official build.
   expected_block_type_counts[BlockGraph::CODE_BLOCK] = 297;
   expected_block_type_counts[BlockGraph::DATA_BLOCK] = 814;
-#endif
 #endif
 #endif
   EXPECT_THAT(block_type_counts, ContainerEq(expected_block_type_counts));
@@ -408,11 +357,7 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
     test_blocks.insert(std::make_pair("DllMain", &dll_main_block));
     test_blocks.insert(std::make_pair("FunctionWithInlineAssembly",
                                       &func_with_inl_asm_block));
-#if _MSC_VER == 1600  // MSVS 2010.
-    test_blocks.insert(std::make_pair("found_bx", &strchr_block));
-#elif _MSC_VER == 1800  // MSVS 2013.
     test_blocks.insert(std::make_pair("strchr", &strchr_block));
-#endif
     test_blocks.insert(std::make_pair("__imp_load_CoCreateGuid",
                                       &imp_load_block));
     test_blocks.insert(std::make_pair("TestFunctionWithNoPrivateSymbols",
@@ -456,41 +401,6 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   // Check the attribute counts.
   AttribCountMap expected_attrib_counts;
 
-#if _MSC_VER == 1600  // MSVS 2010.
-#ifndef NDEBUG
-  // Debug build.
-  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 7;
-  expected_attrib_counts[BlockGraph::PE_PARSED] = 95;
-  expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 727;
-  expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 15;
-  expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 142;
-  expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 24;
-  expected_attrib_counts[BlockGraph::THUNK] = 6;
-  expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
-#else
-#ifndef OFFICIAL_BUILD
-  // Release build.
-  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 7;
-  expected_attrib_counts[BlockGraph::PE_PARSED] = 93;
-  expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 668;
-  expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 140;
-  expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 14;
-  expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 22;
-  expected_attrib_counts[BlockGraph::THUNK] = 6;
-  expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
-#else
-  // Official build.
-  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 7;
-  expected_attrib_counts[BlockGraph::PE_PARSED] = 93;
-  expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 667;
-  expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 141;
-  expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 14;
-  expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 22;
-  expected_attrib_counts[BlockGraph::THUNK] = 6;
-  expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
-#endif
-#endif
-#elif _MSC_VER == 1800  // MSVS 2013.
 #ifndef NDEBUG
   // Debug build.
   expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 10;
@@ -524,7 +434,6 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
 #endif
 #endif
-#endif
   EXPECT_THAT(attrib_counts, ContainerEq(expected_attrib_counts));
 
   // The kTestString block should have alignment >= 64.
@@ -555,15 +464,6 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   ASSERT_TRUE(strchr_block->attributes() &
       BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER);
 
-#if _MSC_VER == 1600  // MSVS 2010.
-#ifdef OFFICIAL_BUILD
-  static const size_t kDllMainLabelCount = 42;
-  static const size_t kCallSiteLabelCount = 26;
-#else
-  static const size_t kDllMainLabelCount = 32;
-  static const size_t kCallSiteLabelCount = 10;
-#endif
-#elif _MSC_VER == 1800  // MSVS 2013.
 #ifdef OFFICIAL_BUILD
   static const size_t kDllMainLabelCount = 44;
   static const size_t kCallSiteLabelCount = 26;
@@ -576,7 +476,6 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   // Release build.
   static const size_t kDllMainLabelCount = 33;
   static const size_t kCallSiteLabelCount = 10;
-#endif
 #endif
 #endif
 
