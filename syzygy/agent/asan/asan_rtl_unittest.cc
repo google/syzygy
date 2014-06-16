@@ -475,10 +475,10 @@ TEST_F(AsanRtlTest, AsanCheckCorruptBlock) {
   void* mem = HeapAllocFunction(heap_, 0, kAllocSize);
   SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
   reinterpret_cast<uint8*>(mem)[-1]--;
-  expected_error_type = HeapProxy::CORRUPTED_BLOCK;
+  expected_error_type = HeapProxy::CORRUPT_BLOCK;
   EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem));
   EXPECT_TRUE(memory_error_detected);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapCorruptedBlock));
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapCorruptBlock));
   EXPECT_TRUE(LogContains("previously allocated here"));
 }
 
@@ -538,7 +538,7 @@ TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
 
     // An error should be triggered when we free this block.
     memory_error_detected = false;
-    expected_error_type = HeapProxy::CORRUPTED_BLOCK;
+    expected_error_type = HeapProxy::CORRUPT_BLOCK;
     mem.reset(NULL);
     EXPECT_TRUE(memory_error_detected);
 

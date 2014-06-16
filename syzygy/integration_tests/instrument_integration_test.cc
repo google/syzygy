@@ -159,8 +159,8 @@ enum BadAccessKind {
   USE_AFTER_FREE = agent::asan::HeapProxy::USE_AFTER_FREE,
   HEAP_BUFFER_OVERFLOW = agent::asan::HeapProxy::HEAP_BUFFER_OVERFLOW,
   HEAP_BUFFER_UNDERFLOW = agent::asan::HeapProxy::HEAP_BUFFER_UNDERFLOW,
-  CORRUPTED_BLOCK = agent::asan::HeapProxy::CORRUPTED_BLOCK,
-  CORRUPTED_HEAP = agent::asan::HeapProxy::CORRUPTED_HEAP,
+  CORRUPT_BLOCK = agent::asan::HeapProxy::CORRUPT_BLOCK,
+  CORRUPT_HEAP = agent::asan::HeapProxy::CORRUPT_HEAP,
 };
 
 // Contains the number of ASAN errors reported with our callback.
@@ -180,7 +180,7 @@ void AsanCallback(agent::asan::AsanErrorInfo* info) {
   // executing so that the normal code path is taken. If we raise an exception
   // this actually prevents the AsanHeap cleanup code from continuing, and we
   // leak memory.
-  if (info->error_type != CORRUPTED_BLOCK)
+  if (info->error_type != CORRUPT_BLOCK)
     ::RaiseException(EXCEPTION_ARRAY_BOUNDS_EXCEEDED, 0, 0, NULL);
 }
 
@@ -541,11 +541,11 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
   void AsanErrorCheckCorruptHeap() {
     // These check our ability to diagnose and report heap corruption when
     // non-ASAN generated exceptions are raised. Such bugs will show up as
-    // CORRUPTED_HEAP errors with unknown access type, and zero size. Since
-    // they use an unfiltered exception mechanism they can't be tested in
-    // process. Instead we go to great lengths to test them out of process,
-    // using an agent_logger to monitor them.
-    static const char kPattern[] = "SyzyASAN error: corrupted-heap ";
+    // CORRUPT_HEAP errors with unknown access type, and zero size. Since they
+    // use an unfiltered exception mechanism they can't be tested in process.
+    // Instead we go to great lengths to test them out of process, using an
+    // agent_logger to monitor them.
+    static const char kPattern[] = "SyzyASAN error: corrupt-heap ";
     EXPECT_TRUE(OutOfProcessAsanErrorCheck(
         testing::kAsanInvalidAccessWithCorruptAllocatedBlockHeader,
         true, kPattern));
@@ -689,13 +689,13 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanWriteFileUseAfterFree,
         USE_AFTER_FREE, ASAN_READ_ACCESS, 1, 1, false));
 
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanAsanCorruptedBlock,
-        CORRUPTED_BLOCK, ASAN_UNKNOWN_ACCESS, 0, 10, false));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanCorruptBlock,
+        CORRUPT_BLOCK, ASAN_UNKNOWN_ACCESS, 0, 10, false));
 
     // We need to force the module to unload so that the quarantine gets
     // cleaned up and fires off the error we're looking for.
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanAsanCorruptedBlockInQuarantine,
-        CORRUPTED_BLOCK, ASAN_UNKNOWN_ACCESS, 0, 10, true));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanCorruptBlockInQuarantine,
+        CORRUPT_BLOCK, ASAN_UNKNOWN_ACCESS, 0, 10, true));
   }
 
   void BBEntryInvokeTestDll() {

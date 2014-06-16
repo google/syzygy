@@ -28,7 +28,7 @@ using testing::ScopedASanAlloc;
 void AsanErrorCallbackWithoutComparingContext(AsanErrorInfo* error_info) {
   // All of our unittests should be cleaning up after themselves and not causing
   // any heap corruption.
-  ASSERT_NE(HeapProxy::CORRUPTED_BLOCK, error_info->error_type);
+  ASSERT_NE(HeapProxy::CORRUPT_BLOCK, error_info->error_type);
 
   // Raise an exception indicating that an error was encountered. If this isn't
   // caught and handled by the test then the unittest will fail.

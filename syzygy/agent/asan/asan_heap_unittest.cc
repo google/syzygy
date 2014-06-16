@@ -452,7 +452,7 @@ TEST_F(HeapTest, CorruptAsEntersQuarantine) {
       continue;
 
     ASSERT_EQ(1u, errors_.size());
-    ASSERT_EQ(HeapProxy::CORRUPTED_BLOCK, errors_[0].error_type);
+    ASSERT_EQ(HeapProxy::CORRUPT_BLOCK, errors_[0].error_type);
     ASSERT_EQ(mem, errors_[0].location);
 
     break;
@@ -482,7 +482,7 @@ TEST_F(HeapTest, CorruptAsExitsQuarantine) {
       continue;
 
     ASSERT_EQ(1u, errors_.size());
-    ASSERT_EQ(HeapProxy::CORRUPTED_BLOCK, errors_[0].error_type);
+    ASSERT_EQ(HeapProxy::CORRUPT_BLOCK, errors_[0].error_type);
     ASSERT_EQ(
         reinterpret_cast<TestHeapProxy::BlockHeader*>(mem) - 1,
         reinterpret_cast<TestHeapProxy::BlockHeader*>(errors_[0].location));

@@ -79,8 +79,8 @@ class HeapProxy {
     UNKNOWN_BAD_ACCESS,
     WILD_ACCESS,
     INVALID_ADDRESS,
-    CORRUPTED_BLOCK,
-    CORRUPTED_HEAP,
+    CORRUPT_BLOCK,
+    CORRUPT_HEAP,
 
     // This enum should end with bad access types that are relative to heap
     // blocks.
@@ -98,8 +98,8 @@ class HeapProxy {
   static const char* kInvalidAddress;
   static const char* kWildAccess;
   static const char* kHeapUnknownError;
-  static const char* kHeapCorruptedBlock;
-  static const char* kCorruptedHeap;
+  static const char* kHeapCorruptBlock;
+  static const char* kCorruptHeap;
 
   // The sleep time (in milliseconds) used to approximate the CPU frequency.
   // Exposed for testing.
@@ -499,15 +499,15 @@ class HeapProxy {
   // @returns true on success, false otherwise.
   bool TrimQuarantine();
 
-  // Free a corrupted memory block. This clears its metadata (including the
-  // shadow memory) and calls ::HeapFree on it.
+  // Free a corrupt memory block. This clears its metadata (including the shadow
+  // memory) and calls ::HeapFree on it.
   // @param header The ASan block header for the block to be freed.
   // @param user_pointer The user pointer for the block to be freed.
   // @param alloc_size If non-NULL will be populated with the allocation size as
   //     calculated by looking at the shadow memory.
   // @returns true on success, false otherwise.
-  bool FreeCorruptedBlock(BlockHeader* header, size_t* alloc_size);
-  bool FreeCorruptedBlock(void* user_pointer, size_t* alloc_size);
+  bool FreeCorruptBlock(BlockHeader* header, size_t* alloc_size);
+  bool FreeCorruptBlock(void* user_pointer, size_t* alloc_size);
 
   // Cleanup a block's metadata and free it.
   // @param block_header The block header.

@@ -115,8 +115,8 @@ const char* HeapProxy::kAttemptingDoubleFree = "attempting double-free";
 const char* HeapProxy::kInvalidAddress = "invalid-address";
 const char* HeapProxy::kWildAccess = "wild-access";
 const char* HeapProxy::kHeapUnknownError = "heap-unknown-error";
-const char* HeapProxy::kHeapCorruptedBlock = "corrupted-block";
-const char* HeapProxy::kCorruptedHeap = "corrupted-heap";
+const char* HeapProxy::kHeapCorruptBlock = "corrupt-block";
+const char* HeapProxy::kCorruptHeap = "corrupt-heap";
 
 HeapProxy::HeapProxy()
     : heap_(NULL),
@@ -406,10 +406,10 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
     block->free_stack = NULL;
 
     // Report the error.
-    ReportHeapError(mem, CORRUPTED_BLOCK);
+    ReportHeapError(mem, CORRUPT_BLOCK);
 
     // Try to clean up the block anyways.
-    if (!FreeCorruptedBlock(mem, NULL))
+    if (!FreeCorruptBlock(mem, NULL))
       return false;
     return true;
   }
@@ -610,8 +610,8 @@ bool HeapProxy::TrimQuarantine() {
     // Otherwise, we trust the data in the header and take the fast path.
     size_t alloc_size = 0;
     if (!VerifyChecksum(free_block)) {
-      ReportHeapError(free_block, CORRUPTED_BLOCK);
-      if (!FreeCorruptedBlock(free_block, &alloc_size))
+      ReportHeapError(free_block, CORRUPT_BLOCK);
+      if (!FreeCorruptBlock(free_block, &alloc_size))
         success = false;
     } else {
       alloc_size = GetAllocSize(free_block->block_size,
@@ -653,7 +653,7 @@ void HeapProxy::ReleaseAsanBlock(BlockHeader* block_header) {
   block_header->state = FREED;
 }
 
-bool HeapProxy::FreeCorruptedBlock(BlockHeader* header, size_t* alloc_size) {
+bool HeapProxy::FreeCorruptBlock(BlockHeader* header, size_t* alloc_size) {
   DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), header);
 
   // Set the invalid stack captures to NULL.
@@ -672,13 +672,13 @@ bool HeapProxy::FreeCorruptedBlock(BlockHeader* header, size_t* alloc_size) {
   return true;
 }
 
-bool HeapProxy::FreeCorruptedBlock(void* user_pointer, size_t* alloc_size) {
+bool HeapProxy::FreeCorruptBlock(void* user_pointer, size_t* alloc_size) {
   DCHECK_NE(reinterpret_cast<void*>(NULL), user_pointer);
 
   // We can't use UserPointerToBlockHeader because the magic number of the
   // header might be invalid.
   BlockHeader* header = reinterpret_cast<BlockHeader*>(user_pointer) - 1;
-  if (!FreeCorruptedBlock(header, alloc_size))
+  if (!FreeCorruptBlock(header, alloc_size))
     return false;
   return true;
 }
@@ -700,7 +700,7 @@ bool HeapProxy::CleanUpAndFreeAsanBlock(BlockHeader* block_header,
   //     If you care about the return value of HeapFree, and you need to support
   //     XP and 2003, cast the return value to BOOLEAN before checking it.
   if (static_cast<BOOLEAN>(::HeapFree(heap_, 0, block_header)) != TRUE) {
-    ReportHeapError(block_header, CORRUPTED_HEAP);
+    ReportHeapError(block_header, CORRUPT_HEAP);
     return false;
   }
 
@@ -1101,13 +1101,13 @@ bool HeapProxy::GetBadAccessInformation(AsanErrorInfo* bad_access_info) {
   DCHECK(trailer != NULL);
 
   if (bad_access_info->error_type != DOUBLE_FREE &&
-      bad_access_info->error_type != CORRUPTED_BLOCK) {
+      bad_access_info->error_type != CORRUPT_BLOCK) {
     bad_access_info->error_type = GetBadAccessKind(bad_access_info->location,
                                                    header);
   }
 
   // Makes sure that we don't try to use an invalid stack capture pointer.
-  if (bad_access_info->error_type == CORRUPTED_BLOCK) {
+  if (bad_access_info->error_type == CORRUPT_BLOCK) {
     // Set the invalid stack captures to NULL.
     if (!stack_cache_->StackCapturePointerIsValid(header->alloc_stack))
       header->alloc_stack = NULL;
@@ -1184,7 +1184,7 @@ void HeapProxy::GetAddressInformation(BlockHeader* header,
     case WILD_ACCESS:
     case DOUBLE_FREE:
     case UNKNOWN_BAD_ACCESS:
-    case CORRUPTED_BLOCK:
+    case CORRUPT_BLOCK:
       return;
     default:
       NOTREACHED() << "Error trying to dump address information.";
@@ -1230,10 +1230,10 @@ const char* HeapProxy::AccessTypeToStr(BadAccessKind bad_access_kind) {
       return kAttemptingDoubleFree;
     case UNKNOWN_BAD_ACCESS:
       return kHeapUnknownError;
-    case CORRUPTED_BLOCK:
-      return kHeapCorruptedBlock;
-    case CORRUPTED_HEAP:
-      return kCorruptedHeap;
+    case CORRUPT_BLOCK:
+      return kHeapCorruptBlock;
+    case CORRUPT_HEAP:
+      return kCorruptHeap;
     default:
       NOTREACHED() << "Unexpected bad access kind.";
       return NULL;

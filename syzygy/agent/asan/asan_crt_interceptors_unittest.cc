@@ -34,8 +34,8 @@ const size_t kAllocSize = 13;
 
 void AsanErrorCallback(AsanErrorInfo* error_info) {
   // Our tests should clean up after themselves and not leave any blocks
-  // corrupted.
-  ASSERT_NE(HeapProxy::CORRUPTED_BLOCK, error_info->error_type);
+  // corrupt.
+  ASSERT_NE(HeapProxy::CORRUPT_BLOCK, error_info->error_type);
 
   // Raise an exception to prevent the intercepted function from corrupting
   // the block. If this error is not handled then this will cause the unittest

@@ -80,8 +80,8 @@ void HeapChecker::GetCorruptRangesInSlab(const uint8* lower_bound,
     }
 
     if (current_block_is_corrupt) {
-      // If the current block is corrupted then we need to update the size of
-      // the current range.
+      // If the current block is corrupt then we need to update the size of the
+      // current range.
       DCHECK_NE(reinterpret_cast<AsanCorruptBlockRange*>(NULL),
                 current_corrupt_range);
       current_corrupt_range->block_count++;

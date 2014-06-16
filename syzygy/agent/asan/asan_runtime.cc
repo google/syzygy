@@ -775,7 +775,7 @@ LONG WINAPI AsanRuntime::UnhandledExceptionFilter(
     AsanErrorInfo error_info = {};
     error_info.location = exception->ExceptionRecord->ExceptionAddress;
     error_info.context = *exception->ContextRecord;
-    error_info.error_type = HeapProxy::CORRUPTED_HEAP;
+    error_info.error_type = HeapProxy::CORRUPT_HEAP;
     error_info.access_mode = HeapProxy::ASAN_UNKNOWN_ACCESS;
 
     // Check for heap corruption. If we find it we take over the exception

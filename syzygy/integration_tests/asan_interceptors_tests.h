@@ -425,9 +425,9 @@ size_t AsanWriteFileOverflow();
 
 size_t AsanWriteFileUseAfterFree();
 
-size_t AsanCorruptedBlock();
+size_t AsanCorruptBlock();
 
-size_t AsanCorruptedBlockInQuarantine();
+size_t AsanCorruptBlockInQuarantine();
 
 // Non-ASAN errors that are meant to be caught by the heap checker after
 // an exception is caught by the unfiltered exception handler.

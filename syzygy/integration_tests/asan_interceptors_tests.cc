@@ -1037,7 +1037,7 @@ size_t AsanWcschrUseAfterFree() {
 // TODO(chrisha|sebmarchand): These should be in a separate file, as they
 // aren't really interceptor tests.
 
-size_t AsanCorruptedBlock() {
+size_t AsanCorruptBlock() {
   size_t* mem = new size_t[10];
   size_t original_value = NonInterceptedRead(&mem[-1]);
   NonInterceptedWrite(&mem[-1], original_value + 1);
@@ -1046,7 +1046,7 @@ size_t AsanCorruptedBlock() {
   return ret;
 }
 
-size_t AsanCorruptedBlockInQuarantine() {
+size_t AsanCorruptBlockInQuarantine() {
   size_t* mem = new size_t[10];
   size_t ret = mem[0];
   delete[] mem;

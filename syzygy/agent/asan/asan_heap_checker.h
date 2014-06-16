@@ -70,7 +70,7 @@ struct AsanCorruptBlockRange {
   AsanBlockInfo* block_info;
 };
 
-// A class to analyze the heap and to check if it's corrupted.
+// A class to analyze the heap and to check if it's corrupt.
 class HeapChecker {
  public:
   typedef ScopedVector<AsanCorruptBlockRange> CorruptRangesVector;
