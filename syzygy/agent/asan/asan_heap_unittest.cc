@@ -1302,8 +1302,7 @@ struct FakeAsanBlock {
     for (const uint8* pos = reinterpret_cast<const uint8*>(block_header);
          pos < user_ptr;
          ++pos) {
-      EXPECT_EQ(Shadow::kHeapBlockHeaderByte,
-                Shadow::GetShadowMarkerForAddress(pos));
+      EXPECT_TRUE(Shadow::IsBlockStartByte(pos));
     }
     const uint8* aligned_trailer_begin = reinterpret_cast<const uint8*>(
         common::AlignUp(reinterpret_cast<size_t>(user_ptr) + user_alloc_size,

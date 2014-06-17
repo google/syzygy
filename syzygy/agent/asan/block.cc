@@ -43,42 +43,6 @@ DECLARE_GET_MAX_BITFIELD_VALUE_FUNCTION(BlockHeader, body_size);
 
 const size_t kMaxBlockHeaderBodySize = GetMaxValueBlockHeader_body_size();
 
-// Identifies whole pages in the given block_info.
-// TODO(chrisha): This will be useful when walking through blocks using the
-//     shadow memory. Expose this somewhere!
-void IdentifyWholePages(BlockInfo* block_info) {
-  DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
-
-  if (block_info->block_size < kPageSize)
-    return;
-
-  uint32 alloc_start = reinterpret_cast<uint32>(block_info->block);
-  uint32 alloc_end = alloc_start + block_info->block_size;
-  alloc_start = common::AlignUp(alloc_start, kPageSize);
-  alloc_end = common::AlignDown(alloc_end, kPageSize);
-  if (alloc_start >= alloc_end)
-    return;
-
-  block_info->block_pages = reinterpret_cast<uint8*>(alloc_start);
-  block_info->block_pages_size = alloc_end - alloc_start;
-
-  uint32 left_redzone_end = reinterpret_cast<uint32>(block_info->body);
-  uint32 right_redzone_start = left_redzone_end + block_info->body_size;
-  left_redzone_end = common::AlignDown(left_redzone_end, kPageSize);
-  right_redzone_start = common::AlignUp(right_redzone_start, kPageSize);
-
-  if (alloc_start < left_redzone_end) {
-    block_info->left_redzone_pages = reinterpret_cast<uint8*>(alloc_start);
-    block_info->left_redzone_pages_size = left_redzone_end - alloc_start;
-  }
-
-  if (right_redzone_start < alloc_end) {
-    block_info->right_redzone_pages =
-        reinterpret_cast<uint8*>(right_redzone_start);
-    block_info->right_redzone_pages_size = alloc_end - right_redzone_start;
-  }
-}
-
 void InitializeBlockHeader(BlockInfo* block_info) {
   DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
   DCHECK_NE(static_cast<BlockHeader*>(NULL), block_info->header);
@@ -211,7 +175,7 @@ bool BlockInfoFromMemoryImpl(const void* const_raw_block,
   block_info->trailer_padding = body + header->body_size;
   block_info->trailer = trailer;
 
-  IdentifyWholePages(block_info);
+  BlockIdentifyWholePages(block_info);
   return true;
 }
 
@@ -339,7 +303,7 @@ void BlockInitialize(const BlockLayout& layout,
   // If the block information is being returned to the user then determine
   // the extents of whole pages within it.
   if (block_info != &local_block_info)
-    IdentifyWholePages(block_info);
+    BlockIdentifyWholePages(block_info);
 
   // Initialize the various portions of the memory. The body is not initialized
   // as this is an unnecessary performance hit.
@@ -472,6 +436,40 @@ void BlockProtectAll(const BlockInfo& block_info) {
                                block_info.block_pages_size,
                                PAGE_NOACCESS, &old_protection);
   DCHECK_NE(0u, ret);
+}
+
+// Identifies whole pages in the given block_info.
+void BlockIdentifyWholePages(BlockInfo* block_info) {
+  DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
+
+  if (block_info->block_size < kPageSize)
+    return;
+
+  uint32 alloc_start = reinterpret_cast<uint32>(block_info->block);
+  uint32 alloc_end = alloc_start + block_info->block_size;
+  alloc_start = common::AlignUp(alloc_start, kPageSize);
+  alloc_end = common::AlignDown(alloc_end, kPageSize);
+  if (alloc_start >= alloc_end)
+    return;
+
+  block_info->block_pages = reinterpret_cast<uint8*>(alloc_start);
+  block_info->block_pages_size = alloc_end - alloc_start;
+
+  uint32 left_redzone_end = reinterpret_cast<uint32>(block_info->body);
+  uint32 right_redzone_start = left_redzone_end + block_info->body_size;
+  left_redzone_end = common::AlignDown(left_redzone_end, kPageSize);
+  right_redzone_start = common::AlignUp(right_redzone_start, kPageSize);
+
+  if (alloc_start < left_redzone_end) {
+    block_info->left_redzone_pages = reinterpret_cast<uint8*>(alloc_start);
+    block_info->left_redzone_pages_size = left_redzone_end - alloc_start;
+  }
+
+  if (right_redzone_start < alloc_end) {
+    block_info->right_redzone_pages =
+        reinterpret_cast<uint8*>(right_redzone_start);
+    block_info->right_redzone_pages_size = alloc_end - right_redzone_start;
+  }
 }
 
 }  // namespace asan

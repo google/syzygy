@@ -243,6 +243,7 @@ class HeapProxy {
   // Initialize an ASan block. This will red-zone the header and trailer, green
   // zone the user data, and save the allocation stack trace and other metadata.
   // @param asan_pointer The ASan block to initialize.
+  // NOTE: This is for the old block layout, which is still used.
   // @param user_size The user size for this block.
   // @param asan_size The total size of this block.
   // @param alloc_granularity_log The allocation granularity for this block.

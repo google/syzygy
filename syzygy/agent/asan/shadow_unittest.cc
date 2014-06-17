@@ -157,5 +157,104 @@ TEST(ShadowTest, GetNullTerminatedArraySize) {
   Shadow::Unpoison(aligned_test_array, aligned_array_length);
 }
 
+TEST(ShadowTest, PoisonAllocatedBlock) {
+  BlockLayout layout = {};
+  BlockPlanLayout(kShadowRatio, kShadowRatio, 15, 22, 0, &layout);
+
+  uint8* data = new uint8[layout.block_size];
+  BlockInfo info = {};
+  BlockInitialize(layout, data, &info);
+
+  Shadow::PoisonAllocatedBlock(info);
+  EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 0 * 8),
+            Shadow::kHeapBlockStartByte0 | 7);
+  EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 1 * 8),
+            Shadow::kHeapLeftRedzone);
+  EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 2 * 8),
+            Shadow::kHeapLeftRedzone);
+  EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 3 * 8),
+            0);
+  EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 4 * 8),
+            7);
+  EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 5 * 8),
+            Shadow::kHeapRightRedzone);
+  EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 6 * 8),
+            Shadow::kHeapRightRedzone);
+  EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 7 * 8),
+            Shadow::kHeapBlockEndByte);
+  Shadow::Unpoison(info.block, info.block_size);
+
+  delete [] data;
+}
+
+namespace {
+
+void TestBlockInfoFromShadow(const BlockLayout& outer,
+                             const BlockLayout& nested) {
+  ASSERT_LE(nested.block_size, outer.body_size);
+
+  uint8* data = new uint8[outer.block_size];
+
+  // Try recovering the block from every position within it when no nested
+  // block exists.
+  BlockInfo info = {};
+  BlockInitialize(outer, data, &info);
+  Shadow::PoisonAllocatedBlock(info);
+  BlockInfo info_recovered = {};
+  for (size_t i = 0; i < info.block_size; ++i) {
+    EXPECT_TRUE(Shadow::BlockInfoFromShadow(info.block + i, &info_recovered));
+    EXPECT_EQ(0, ::memcmp(&info, &info_recovered, sizeof(info)));
+  }
+
+  // Place a nested block and try the recovery from every position again.
+  size_t padding = common::AlignDown(info.body_size - nested.block_size,
+                                     kShadowRatio * 2);
+  uint8* nested_begin = info.body + padding / 2;
+  uint8* nested_end = nested_begin + nested.block_size;
+  BlockInfo nested_info = {};
+  BlockInitialize(nested, nested_begin, &nested_info);
+  Shadow::PoisonAllocatedBlock(nested_info);
+  for (size_t i = 0; i < info.block_size; ++i) {
+    uint8* pos = info.block + i;
+    EXPECT_TRUE(Shadow::BlockInfoFromShadow(pos, &info_recovered));
+
+    if (pos >= nested_begin && pos < nested_end) {
+      EXPECT_EQ(0, ::memcmp(&nested_info, &info_recovered,
+                            sizeof(nested_info)));
+    } else {
+      EXPECT_EQ(0, ::memcmp(&info, &info_recovered, sizeof(info)));
+    }
+  }
+  Shadow::Unpoison(info.block, info.block_size);
+
+  delete [] data;
+}
+
+}  // namespace
+
+TEST(ShadowTest, BlockInfoFromShadow) {
+  // This is a simple layout that will be nested inside of another block.
+  BlockLayout layout0 = {};
+  BlockPlanLayout(kShadowRatio, kShadowRatio, 6, 0, 0, &layout0);
+
+  // Plan two layouts, one with padding and another with none. The first has
+  // exactly enough space for the nested block, while the second has room to
+  // spare.
+  BlockLayout layout1 = {};
+  BlockLayout layout2 = {};
+  BlockPlanLayout(kShadowRatio, kShadowRatio,
+                  common::AlignUp(layout0.block_size, kShadowRatio) + 4, 0, 0,
+                  &layout1);
+  ASSERT_EQ(0u, layout1.header_padding_size);
+  ASSERT_EQ(0u, layout1.trailer_padding_size);
+  BlockPlanLayout(kShadowRatio, kShadowRatio,
+                  layout0.block_size + 2 * kShadowRatio, 32, 13, &layout2);
+  ASSERT_LT(0u, layout2.header_padding_size);
+  ASSERT_LT(0u, layout2.trailer_padding_size);
+
+  EXPECT_NO_FATAL_FAILURE(TestBlockInfoFromShadow(layout1, layout0));
+  EXPECT_NO_FATAL_FAILURE(TestBlockInfoFromShadow(layout2, layout0));
+}
+
 }  // namespace asan
 }  // namespace agent

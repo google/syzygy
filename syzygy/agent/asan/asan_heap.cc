@@ -28,6 +28,7 @@
 #include "base/strings/sys_string_conversions.h"
 #include "syzygy/agent/asan/asan_heap_checker.h"
 #include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/asan_parameters.h"
@@ -324,7 +325,7 @@ void* HeapProxy::InitializeAsanBlock(uint8* asan_pointer,
                  Shadow::kHeapLeftRedzone);
   Shadow::Poison(block_header,
                  sizeof(BlockHeader),
-                 Shadow::kHeapBlockHeaderByte);
+                 Shadow::kHeapBlockStartByte0);
 
   // TODO(chrisha): Determine if we can poison the header that the Windows
   //     heap itself prepends to the allocation. This can also be used as a
@@ -801,10 +802,8 @@ HeapProxy::BlockHeader* HeapProxy::UserPointerToBlockHeader(
   const uint8* mem = static_cast<const uint8*>(user_pointer);
   const BlockHeader* header = reinterpret_cast<const BlockHeader*>(mem) - 1;
 
-  if (Shadow::GetShadowMarkerForAddress(header) !=
-      Shadow::kHeapBlockHeaderByte) {
+  if (!Shadow::IsBlockStartByte(header))
     return NULL;
-  }
 
   return const_cast<BlockHeader*>(header);
 }
@@ -950,8 +949,7 @@ HeapProxy::BlockHeader* HeapProxy::FindBlockContainingAddress(uint8* addr) {
   if (!Shadow::IsLeftRedzone(addr)) {
     while (addr >= kAddressLowerLimit) {
       addr -= kShadowRatio;
-      if (Shadow::GetShadowMarkerForAddress(reinterpret_cast<void*>(addr)) ==
-          Shadow::kHeapBlockHeaderByte) {
+      if (Shadow::IsBlockStartByte(addr)) {
         BlockHeader* header = reinterpret_cast<BlockHeader*>(addr -
             (sizeof(BlockHeader) - kShadowRatio));
         if (header->magic_number != kBlockHeaderSignature)
@@ -975,8 +973,7 @@ HeapProxy::BlockHeader* HeapProxy::FindBlockContainingAddress(uint8* addr) {
   uint8* left_bound = reinterpret_cast<uint8*>(addr);
   BlockHeader* left_header = NULL;
   size_t left_block_size = 0;
-  while (Shadow::GetShadowMarkerForAddress(left_bound) ==
-      Shadow::kHeapBlockHeaderByte) {
+  while (Shadow::IsBlockStartByte(left_bound)) {
     BlockHeader* temp_header = reinterpret_cast<BlockHeader*>(left_bound);
     if (temp_header->magic_number == kBlockHeaderSignature) {
       left_header = temp_header;
@@ -1070,8 +1067,7 @@ HeapProxy::BlockHeader* HeapProxy::FindContainingBlock(
   // Try to find a block header containing this block.
   while (addr >= reinterpret_cast<size_t>(kAddressLowerLimit)) {
     // Only look at the addresses tagged as the redzone of a block.
-    if (Shadow::GetShadowMarkerForAddress(reinterpret_cast<void*>(addr)) ==
-        Shadow::kHeapBlockHeaderByte) {
+    if (Shadow::IsBlockStartByte(reinterpret_cast<void*>(addr))) {
       BlockHeader* temp_header = reinterpret_cast<BlockHeader*>(addr);
       if (temp_header->magic_number == kBlockHeaderSignature) {
         size_t block_size = GetAllocSize(temp_header->block_size,

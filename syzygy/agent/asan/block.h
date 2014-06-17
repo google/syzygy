@@ -330,6 +330,8 @@ void BlockProtectRedzones(const BlockInfo& block_info);
 void BlockProtectAll(const BlockInfo& block_info);
 // @}
 
+// TODO(chrisha): Hide these details in an implementation header file.
+
 // A structure describing the layout of a block. This is largely implementation
 // detail, but exposed for unittesting. As far as the user is concerned this is
 // an opaque blob.
@@ -348,6 +350,13 @@ struct BlockLayout {
   size_t trailer_padding_size;
   size_t trailer_size;
 };
+
+// Identifies whole pages that are spanned by the redzones and body of the
+// given block. Directly sets the various *_pages* fields in @p block_info.
+// @param block_info The block information to be inspected and modified.
+// @note This is exposed as a convience function, but it is not meant to be
+//     directly called by the user.
+void BlockIdentifyWholePages(BlockInfo* block_info);
 
 }  // namespace asan
 }  // namespace agent

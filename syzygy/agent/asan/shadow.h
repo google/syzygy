@@ -20,6 +20,7 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/constants.h"
 
 namespace agent {
@@ -46,15 +47,62 @@ class Shadow {
 
   // The different markers we use to mark the shadow memory.
   enum ShadowMarker {
+    // This is either a range of bytes that we know nothing about, or is an
+    // allocated byte that is explicitly accessible.
     kHeapAddressableByte = 0x00,
-    kHeapNonAccessibleByteMask = 0xf0,
+
+    // Values 0x01 through 0x07 indicate that a range of bytes is partially
+    // accessible, and partially inaccessible.
+
+    // Any byte that has this mask set indicates a completely inaccessible
+    // range of bytes. The remaining bits encode additional metadata about why
+    // the bytes are inaccessible.
+    kHeapNonAccessibleByteMask = 0xe0,
+
+    // Any marker starting with 0xe8 marks the beginning of a block. The
+    // trailing 3 bits of the marker are used to encode additional metadata
+    // about the block itself. This is necessary to allow full introspection
+    // of blocks via the shadow.
+    kHeapBlockStartByte0 = 0xe8,
+    kHeapBlockStartByte1 = 0xe9,
+    kHeapBlockStartByte2 = 0xea,
+    kHeapBlockStartByte3 = 0xeb,
+    kHeapBlockStartByte4 = 0xec,
+    kHeapBlockStartByte5 = 0xed,
+    kHeapBlockStartByte6 = 0xee,
+    kHeapBlockStartByte7 = 0xef,
+
+    // The data in this block maps to internal memory structures.
     kAsanMemoryByte = 0xf1,
+
+    // The address covered by this byte are simply invalid and unable to be
+    // accessed by user code.
     kInvalidAddress = 0xf2,
+
+    // The bytes are part of a block that has been allocated by the
+    // instrumented code, but subsequently redzoned via the runtime API.
     kUserRedzone = 0xf3,
-    kHeapBlockHeaderByte = 0xf4,
+
+    // This marker marks the end of a block in memory, and is part of a right
+    // redzone.
+    kHeapBlockEndByte = 0xf4,
+
+    // The bytes are part of a left redzone (block header padding).
+    // This is the same value as used by ASan itself.
     kHeapLeftRedzone = 0xfa,
+
+    // The bytes are part of a right redzone (block trailer and padding).
+    // This is the same value as used by ASan itself.
     kHeapRightRedzone = 0xfb,
+
+    // These bytes are part of memory that is destined to be used by the
+    // heap, has been reserved from the OS, but not yet handed out to the
+    // code under test.
     kAsanReservedByte = 0xfc,
+
+    // The bytes are part of the body of a block that has been allocated and
+    // subsequently freed by instrumented code.
+    // This is the same value as used by ASan itself.
     kHeapFreedByte = 0xfd,
   };
 
@@ -153,11 +201,45 @@ class Shadow {
   //     otherwise.
   static const uint8* AsanPointerToBlockHeader(const uint8* asan_pointer);
 
-  // Checks if an address belongs to the left redzone of a block.
+  // Determines if the given marker is a header byte marker (there are
+  // multiple distinct header byte markers).
+  // @param marker The marker to inspect.
+  // @return true if the marker corresponds to a header marker.
+  static bool IsBlockStartByteMarker(uint8 marker);
+
+  // Checks if an address belongs to the header of a block.
+  // @param addr The address that we want to check.
+  // @returns true if |addr| corresponds to a byte in the header of a
+  //     block, false otherwise.
+  static bool IsBlockStartByte(const void* addr);
+
+  // Checks if an address belongs to the left redzone of a block (including
+  // the block header).
   // @param addr The address that we want to check.
   // @returns true if |addr| corresponds to a byte in the left redzone of a
   //     block, false otherwise.
   static bool IsLeftRedzone(const void* addr);
+
+  // Checks if an address belongs to the right redzone of a block (including
+  // the block trailer).
+  // @param addr The address that we want to check.
+  // @returns true if |addr| corresponds to a byte in the right redzone of a
+  //     block, false otherwise.
+  static bool IsRightRedzone(const void* addr);
+
+  // Poisons memory for an freshly allocated block. Does not read anything from
+  // the block itself.
+  // @param info Info about the block layout.
+  static void PoisonAllocatedBlock(const BlockInfo& info);
+
+  // Inspects shadow memory to determine the layout of a block in memory.
+  // Does not rely on any block content itself, strictly reading from the
+  // shadow memory. In the case of nested blocks this will always return
+  // the innermost containing block.
+  // @param addr An address in the block to be inspected.
+  // @param info The block information to be populated.
+  // @returns true on success, false otherwise.
+  static bool BlockInfoFromShadow(const void* addr, BlockInfo* info);
 
  protected:
   // Reset the shadow memory.

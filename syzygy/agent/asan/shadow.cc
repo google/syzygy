@@ -108,9 +108,156 @@ Shadow::ShadowMarker Shadow::GetShadowMarkerForAddress(const void* addr) {
   return static_cast<ShadowMarker>(shadow_[index]);
 }
 
+bool Shadow::IsBlockStartByteMarker(uint8 marker) {
+  return marker >= kHeapBlockStartByte0 && marker <= kHeapBlockStartByte7;
+}
+
+bool Shadow::IsBlockStartByte(const void* addr) {
+  Shadow::ShadowMarker marker = Shadow::GetShadowMarkerForAddress(addr);
+  if (IsBlockStartByteMarker(marker))
+    return true;
+  return false;
+}
+
 bool Shadow::IsLeftRedzone(const void* addr) {
   Shadow::ShadowMarker marker = Shadow::GetShadowMarkerForAddress(addr);
-  return marker == kHeapLeftRedzone || marker == kHeapBlockHeaderByte;
+  if (marker == kHeapLeftRedzone || IsBlockStartByteMarker(marker))
+    return true;
+  return false;
+}
+
+bool Shadow::IsRightRedzone(const void* addr) {
+  Shadow::ShadowMarker marker = Shadow::GetShadowMarkerForAddress(addr);
+  if (marker == kHeapRightRedzone || marker == kHeapBlockEndByte)
+    return true;
+  return false;
+}
+
+void Shadow::PoisonAllocatedBlock(const BlockInfo& info) {
+  COMPILE_ASSERT((sizeof(BlockHeader) % kShadowRatio) == 0, bad_header_size);
+
+  // Translate the block address to an offset. Sanity check a whole bunch
+  // of things that we require to be true for the shadow to have 100%
+  // fidelity.
+  uintptr_t index = reinterpret_cast<uintptr_t>(info.block);
+  DCHECK(common::IsAligned(index, kShadowRatio));
+  DCHECK(common::IsAligned(info.header_padding_size, kShadowRatio));
+  DCHECK(common::IsAligned(info.block_size, kShadowRatio));
+  index /= kShadowRatio;
+
+  // Determine the distribution of bytes in the shadow.
+  size_t left_redzone_bytes = (info.body - info.block) / kShadowRatio;
+  size_t body_bytes = (info.body_size + kShadowRatio - 1) / kShadowRatio;
+  size_t block_bytes = info.block_size / kShadowRatio;
+  size_t right_redzone_bytes = block_bytes - left_redzone_bytes - body_bytes;
+
+  // Determine the marker byte for the header. This encodes the length of the
+  // body of the allocation modulo the shadow ratio, so that the exact length
+  // can be inferred from inspecting the shadow memory.
+  uint8 body_size_mod = info.body_size % kShadowRatio;
+  uint8 header_marker = Shadow::kHeapBlockStartByte0 | body_size_mod;
+
+  // Poison the header and left redzone.
+  uint8* cursor = shadow_ + index;
+  ::memset(cursor, header_marker, 1);
+  ::memset(cursor + 1, kHeapLeftRedzone, left_redzone_bytes - 1);
+  cursor += left_redzone_bytes;
+  cursor += body_bytes;
+
+  // Poison the right redzone and the trailer.
+  if (body_size_mod > 0)
+    cursor[-1] = body_size_mod;
+  ::memset(cursor, kHeapRightRedzone, right_redzone_bytes - 1);
+  ::memset(cursor + right_redzone_bytes - 1, kHeapBlockEndByte, 1);
+}
+
+bool Shadow::BlockInfoFromShadow(const void* addr, BlockInfo* info) {
+  DCHECK_NE(static_cast<void*>(NULL), addr);
+  DCHECK_NE(static_cast<BlockInfo*>(NULL), info);
+
+  static const size_t kLowerBound = kAddressLowerBound / kShadowRatio;
+
+  // Convert the address to an offset in the shadow memory.
+  size_t left = reinterpret_cast<uintptr_t>(addr) / kShadowRatio;
+  size_t right = left;
+
+  // Scan left until we find a header. We support nested blocks by looking
+  // for a header that is balanced with respect to trailers.
+  int nesting_depth = 0;
+  if (shadow_[left] == kHeapBlockEndByte)
+    --nesting_depth;
+  while (true) {
+    if (IsBlockStartByteMarker(shadow_[left])) {
+      if (nesting_depth == 0)
+        break;
+      --nesting_depth;
+    } else if (shadow_[left] == kHeapBlockEndByte) {
+      ++nesting_depth;
+    }
+    if (left <= kLowerBound)
+      return false;
+    --left;
+  }
+  if (nesting_depth != 0 && !IsBlockStartByteMarker(shadow_[left]))
+    return false;
+
+  // Scan right until we find a (balanced) trailer.
+  DCHECK_EQ(0, nesting_depth);
+  if (IsBlockStartByteMarker(shadow_[right]))
+    --nesting_depth;
+  while (true) {
+    if (shadow_[right] == kHeapBlockEndByte) {
+      if (nesting_depth == 0)
+        break;
+      --nesting_depth;
+    } else if (IsBlockStartByteMarker(shadow_[right])) {
+      ++nesting_depth;
+    }
+    if (right + 1 == kShadowSize)
+      return false;
+    ++right;
+  }
+  if (nesting_depth != 0 && shadow_[right] != kHeapBlockEndByte)
+    return false;
+  ++right;
+
+  // Set up the block, header and trailer pointers.
+  info->block = reinterpret_cast<uint8*>(left * kShadowRatio);
+  info->block_size = (right - left) * kShadowRatio;
+  info->header = reinterpret_cast<BlockHeader*>(info->block);
+  info->header_padding = info->block + sizeof(BlockHeader);
+  info->trailer = reinterpret_cast<BlockTrailer*>(
+      info->block + info->block_size) - 1;
+
+  // Get the length of the body modulo the shadow ratio.
+  size_t body_size_mod = shadow_[left] % kShadowRatio;
+
+  // Find the beginning of the body (end of the left redzone).
+  ++left;
+  while (left < right && shadow_[left] == kHeapLeftRedzone)
+    ++left;
+
+  // Find the beginning of the right redzone (end of the body).
+  --right;
+  while (right > left && shadow_[right - 1] == kHeapRightRedzone)
+    --right;
+
+  // Fill out the body and padding sizes.
+  info->body = reinterpret_cast<uint8*>(left * kShadowRatio);
+  info->body_size = (right - left) * kShadowRatio;
+  if (body_size_mod > 0) {
+    DCHECK_LE(8u, info->body_size);
+    info->body_size = info->body_size - kShadowRatio + body_size_mod;
+  }
+  info->header_padding_size = info->body - info->header_padding;
+  info->trailer_padding = info->body + info->body_size;
+  info->trailer_padding_size =
+      reinterpret_cast<uint8*>(info->trailer) - info->trailer_padding;
+
+  // Fill out page information.
+  BlockIdentifyWholePages(info);
+
+  return true;
 }
 
 void Shadow::CloneShadowRange(const void* src_pointer,
@@ -168,44 +315,42 @@ void Shadow::AppendShadowArrayText(const void* addr, std::string* output) {
 void Shadow::AppendShadowMemoryText(const void* addr, std::string* output) {
   base::StringAppendF(output, "Shadow bytes around the buggy address:\n");
   AppendShadowArrayText(addr, output);
-  base::StringAppendF(output,
-      "Shadow byte legend (one shadow byte represents 8 application bytes):\n");
-  base::StringAppendF(output, "  Addressable:           %x%x\n",
-      kHeapAddressableByte >> 4, kHeapAddressableByte & 15);
-  base::StringAppendF(output,
-    "  Partially addressable: 01 02 03 04 05 06 07\n");
-  base::StringAppendF(output, "  ASan memory byte:     %x%x\n",
-      kAsanMemoryByte >> 4, kAsanMemoryByte & 15);
-  base::StringAppendF(output, "  Invalid address:     %x%x\n",
-      kInvalidAddress >> 4, kInvalidAddress & 15);
-  base::StringAppendF(output, "  User redzone:     %x%x\n",
-      kUserRedzone >> 4, kUserRedzone & 15);
-  base::StringAppendF(output, "  Block header redzone:     %x%x\n",
-      kHeapBlockHeaderByte >> 4, kHeapBlockHeaderByte & 15);
-  base::StringAppendF(output, "  Heap left redzone:     %x%x\n",
-      kHeapLeftRedzone >> 4, kHeapLeftRedzone & 15);
-  base::StringAppendF(output, "  Heap righ redzone:     %x%x\n",
-      kHeapRightRedzone >> 4, kHeapRightRedzone & 15);
-  base::StringAppendF(output, "  ASan reserved byte:     %x%x\n",
-      kAsanReservedByte >> 4, kAsanReservedByte & 15);
-  base::StringAppendF(output, "  Freed Heap region:     %x%x\n",
-      kHeapFreedByte >> 4, kHeapFreedByte & 15);
+  base::StringAppendF(output, "Shadow byte legend (one shadow byte represents "
+                              "8 application bytes):\n");
+  base::StringAppendF(output, "  Addressable:           00\n");
+  base::StringAppendF(output, "  Partially addressable: 01 - 07\n");
+  base::StringAppendF(output, "  Block start redzone:   %02x - %02x\n",
+                      kHeapBlockStartByte0, kHeapBlockStartByte7);
+  base::StringAppendF(output, "  ASan memory byte:      %02x\n",
+                      kAsanMemoryByte);
+  base::StringAppendF(output, "  Invalid address:       %02x\n",
+                      kInvalidAddress);
+  base::StringAppendF(output, "  User redzone:          %02x\n",
+                      kUserRedzone);
+  base::StringAppendF(output, "  Block end redzone:     %02x\n",
+                      kHeapBlockEndByte);
+  base::StringAppendF(output, "  Heap left redzone:     %02x\n",
+                      kHeapLeftRedzone);
+  base::StringAppendF(output, "  Heap right redzone:    %02x\n",
+                      kHeapRightRedzone);
+  base::StringAppendF(output, "  ASan reserved byte:    %02x\n",
+                      kAsanReservedByte);
+  base::StringAppendF(output, "  Freed Heap region:     %02x\n",
+                      kHeapFreedByte);
 }
 
 const uint8* Shadow::FindBlockBeginning(const uint8* mem) {
   mem = reinterpret_cast<uint8*>(common::AlignDown(
       reinterpret_cast<size_t>(mem), kShadowRatio));
   // Start by checking if |mem| points inside a block.
-  if (!IsLeftRedzone(mem) &&
-      GetShadowMarkerForAddress(mem) != Shadow::kHeapRightRedzone) {
+  if (!IsLeftRedzone(mem) && !IsRightRedzone(mem)) {
     do {
       mem -= kShadowRatio;
-    } while (!IsLeftRedzone(mem) &&
-             GetShadowMarkerForAddress(mem) != Shadow::kHeapRightRedzone &&
+    } while (!IsLeftRedzone(mem) && !IsRightRedzone(mem) &&
              mem > reinterpret_cast<uint8*>(kAddressLowerBound));
     // If the shadow marker for |mem| corresponds to a right redzone then this
     // means that its original value was pointing after a block.
-    if (GetShadowMarkerForAddress(mem) == Shadow::kHeapRightRedzone ||
+    if (IsRightRedzone(mem) ||
         mem <= reinterpret_cast<uint8*>(kAddressLowerBound)) {
       return NULL;
     }
@@ -233,7 +378,7 @@ size_t Shadow::GetAllocSize(const uint8* mem) {
     return 0;
 
   // Look for the heap right redzone.
-  while (GetShadowMarkerForAddress(mem) != Shadow::kHeapRightRedzone &&
+  while (!IsRightRedzone(mem) &&
          mem < reinterpret_cast<uint8*>(kAddressUpperBound)) {
     mem += kShadowRatio;
   }
@@ -242,7 +387,7 @@ size_t Shadow::GetAllocSize(const uint8* mem) {
     return 0;
 
   // Find the end of the block.
-  while (GetShadowMarkerForAddress(mem) == Shadow::kHeapRightRedzone &&
+  while (IsRightRedzone(mem) &&
          mem < reinterpret_cast<uint8*>(kAddressUpperBound)) {
     mem += kShadowRatio;
   }
@@ -256,7 +401,7 @@ size_t Shadow::GetAllocSize(const uint8* mem) {
 const uint8* Shadow::AsanPointerToBlockHeader(const uint8* asan_pointer) {
   if (!IsLeftRedzone(asan_pointer))
     return NULL;
-  while (GetShadowMarkerForAddress(asan_pointer) != kHeapBlockHeaderByte)
+  while (!IsBlockStartByte(asan_pointer))
     asan_pointer += kShadowRatio;
   return asan_pointer;
 }
