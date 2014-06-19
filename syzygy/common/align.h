@@ -21,28 +21,48 @@
 
 namespace common {
 
-// @returns true iff @p value is a power of two.
+// @tparam T Any type.
+// @param value The value to test.
+// @param pointer The pointer to test.
+// @returns true iff @p value or @p pointer is a (positive) power of two.
 bool IsPowerOfTwo(size_t value);
+template<typename T> bool IsPowerOfTwo(const T* pointer);
 
-// @param value the value to round up.
+// @tparam T Any type.
+// @param value The value to round up.
+// @param pointer The pointer to round up.
 // @param alignment the alignment boundary to round @p value up to.
 // @pre alignment != 0.
-// @returns @p value rounded up to the nearest higher multiple of @p alignment.
+// @returns @p value or @p pointer rounded up to the nearest higher multiple of
+//     @p alignment.
 size_t AlignUp(size_t value, size_t alignment);
+template<typename T> T* AlignUp(T* pointer, size_t alignment);
+template<typename T> const T* AlignUp(const T* pointer, size_t alignment);
 
-// @param value the value to round up.
-// @param alignment the alignment boundary to round @p value up to.
+// @tparam T Any type.
+// @param value The value to round up.
+// @param pointer The pointer to round down.
+// @param alignment The alignment boundary to round @p value up to.
 // @pre alignment != 0.
-// @returns @p value rounded down to the nearest lower multiple of @p alignment.
+// @returns @p value or @p pointer rounded down to the nearest lower multiple of
+//     @p alignment.
 size_t AlignDown(size_t value, size_t alignment);
+template<typename T> T* AlignDown(T* pointer, size_t alignment);
+template<typename T> const T* AlignDown(const T* pointer, size_t alignment);
 
-// @param value the value to test.
-// @param alignment the alignment boundary to test.
+// @tparam T Any type.
+// @param value The value to test.
+// @param pointer The pointer to test.
+// @param alignment The alignment boundary to test.
 // @pre alignment != 0.
 // @returns true iff value is an even multiple of alignment.
 bool IsAligned(size_t value, size_t alignment);
+template<typename T> bool IsAligned(const T* pointer, size_t alignment);
 
-// @returns true iff @p value is a power of two.
+// @tparam T Any type.
+// @param value An integer value to test.
+// @param pointer The pointer to test.
+// @returns true iff @p value  or @p value is a power of two.
 bool IsPowerOfTwo64(uint64 value);
 
 // @param value the value to round up.
@@ -64,5 +84,8 @@ uint64 AlignDown64(uint64 value, uint64 alignment);
 bool IsAligned64(uint64 value, uint64 alignment);
 
 }  // namespace common
+
+// Brings in the implementations of the templated functions.
+#include "syzygy/common/align_impl.h"
 
 #endif  // SYZYGY_COMMON_ALIGN_H_

@@ -25,6 +25,8 @@ TEST(AlignTest, IsPowerOfTwo) {
   EXPECT_TRUE(IsPowerOfTwo(4));
   EXPECT_TRUE(IsPowerOfTwo(0x80000000));
   EXPECT_FALSE(IsPowerOfTwo(0x80000001U));
+  EXPECT_TRUE(IsPowerOfTwo(reinterpret_cast<uint16*>(0x40000000U)));
+  EXPECT_FALSE(IsPowerOfTwo(reinterpret_cast<uint16*>(0x40000001U)));
 }
 
 TEST(AlignTest, AlignUp) {
@@ -38,6 +40,9 @@ TEST(AlignTest, AlignUp) {
   EXPECT_EQ(0x8000000, AlignUp(3, 0x8000000));
   EXPECT_EQ(0x8000000, AlignUp(0x8000000, 0x8000000));
 
+  EXPECT_EQ(reinterpret_cast<void*>(0x40000000U),
+            AlignUp(reinterpret_cast<void*>(0x40000000U), 4));
+
   // And non-power of two alignments.
   EXPECT_EQ(0, AlignUp(0, 3));
   EXPECT_EQ(3, AlignUp(1, 3));
@@ -47,6 +52,9 @@ TEST(AlignTest, AlignUp) {
 
   EXPECT_EQ(0, AlignUp(0, 0x8000123));
   EXPECT_EQ(0x8000123, AlignUp(3, 0x8000123));
+
+  EXPECT_EQ(reinterpret_cast<void*>(0x40000008U),
+            AlignUp(reinterpret_cast<void*>(0x40000001U), 8));
 }
 
 TEST(AlignTest, AlignDown) {
@@ -60,6 +68,9 @@ TEST(AlignTest, AlignDown) {
   EXPECT_EQ(0x8000000, AlignDown(0x8000000, 0x8000000));
   EXPECT_EQ(0x8000000, AlignDown(0x8000003, 0x8000000));
 
+  EXPECT_EQ(reinterpret_cast<int32*>(0x40000000U),
+            AlignUp(reinterpret_cast<int32*>(0x40000000U), 4));
+
   // And non-power of two alignments.
   EXPECT_EQ(0, AlignDown(0, 3));
   EXPECT_EQ(0, AlignDown(1, 3));
@@ -71,6 +82,9 @@ TEST(AlignTest, AlignDown) {
   EXPECT_EQ(0, AlignDown(1234, 0x8000123));
   EXPECT_EQ(0x8000123, AlignDown(0x8000123, 0x8000123));
   EXPECT_EQ(0x8000123, AlignDown(0x8000124, 0x8000123));
+
+  EXPECT_EQ(reinterpret_cast<int32*>(0x40000010U),
+            AlignUp(reinterpret_cast<int32*>(0x40000001U), 16));
 }
 
 TEST(AlignTest, IsAligned) {
@@ -83,6 +97,8 @@ TEST(AlignTest, IsAligned) {
 
   EXPECT_TRUE(IsAligned(0x8000000, 0x8000000));
   EXPECT_FALSE(IsAligned(0x8000003, 0x8000000));
+
+  EXPECT_TRUE(IsAligned(reinterpret_cast<const char*>(0x40000000U), 4));
 
   // And non-power of two alignments.
   EXPECT_TRUE(IsAligned(0, 3));
@@ -97,6 +113,8 @@ TEST(AlignTest, IsAligned) {
   EXPECT_FALSE(IsAligned(1234, 0x8000123));
   EXPECT_TRUE(IsAligned(0x8000123, 0x8000123));
   EXPECT_FALSE(IsAligned(0x8000124, 0x8000123));
+
+  EXPECT_FALSE(IsAligned(reinterpret_cast<const char*>(0x40000001U), 4));
 }
 
 TEST(AlignTest, IsPowerOfTwo64) {

@@ -77,6 +77,7 @@
       'sources': [
         'align.cc',
         'align.h',
+        'align_impl.h',
         'application.cc',
         'application.h',
         'application_impl.h',
