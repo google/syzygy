@@ -655,6 +655,8 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
         HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1, 1, false));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanWcschrUseAfterFree,
         USE_AFTER_FREE, ASAN_READ_ACCESS, 1, 1, false));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWcsstrKeysOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1, 1, false));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrncpySrcOverflow,
         HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1, 1, false));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrncpySrcUnderflow,

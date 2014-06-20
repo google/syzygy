@@ -484,6 +484,26 @@ size_t AsanStrstrSrc2UseAfterFree() {
   return 0;
 }
 
+size_t AsanWcsstrKeysOverflow() {
+  const wchar_t* wstr_value = L"test_wcsstr";
+  wchar_t* wstr_1 = new wchar_t[::wcslen(wstr_value) + 1];
+  ::wcscpy(wstr_1, wstr_value);
+
+  const wchar_t* wstr_keys = L"wcsstr";
+  wchar_t* wstr_2 = new wchar_t[::wcslen(wstr_keys) + 1];
+  ::wcscpy(wstr_2, wstr_keys);
+
+  wstr_2[::wcslen(wstr_keys)] = L'a';
+  TryInvalidCall2(
+      static_cast<wchar_t* (*)(wchar_t*, const wchar_t*)>(&::wcsstr),
+      static_cast<wchar_t*>(wstr_1),
+      static_cast<const wchar_t*>(wstr_2));
+  wstr_2[::wcslen(wstr_keys)] = 0;
+  delete[] wstr_1;
+  delete[] wstr_2;
+  return 0;
+}
+
 size_t AsanStrspnKeysOverflow() {
   char* str = NULL;
   char* keys = NULL;
@@ -960,10 +980,10 @@ size_t AsanWriteFileUseAfterFree() {
 
 size_t AsanWcsrchrOverflow() {
   const wchar_t* wstr_value = L"abc1";
-  wchar_t* wstr = new wchar_t[wcslen(wstr_value) + 1];
-  wcscpy(wstr, wstr_value);
+  wchar_t* wstr = new wchar_t[::wcslen(wstr_value) + 1];
+  ::wcscpy(wstr, wstr_value);
 
-  size_t wstr_len = wcslen(wstr);
+  size_t wstr_len = ::wcslen(wstr);
   wstr[wstr_len] = L'a';
   TryInvalidCall2(static_cast<wchar_t* (*)(wchar_t*, wchar_t)>(&::wcsrchr),
                   static_cast<wchar_t*>(wstr),
@@ -974,8 +994,8 @@ size_t AsanWcsrchrOverflow() {
 
 size_t AsanWcsrchrUnderflow() {
   const wchar_t* wstr_value = L"abc1";
-  wchar_t* wstr = new wchar_t[wcslen(wstr_value) + 1];
-  wcscpy(wstr, wstr_value);
+  wchar_t* wstr = new wchar_t[::wcslen(wstr_value) + 1];
+  ::wcscpy(wstr, wstr_value);
 
   TryInvalidCall2(static_cast<wchar_t* (*)(wchar_t*, wchar_t)>(&::wcsrchr),
                   static_cast<wchar_t*>(wstr - 1),
@@ -986,8 +1006,8 @@ size_t AsanWcsrchrUnderflow() {
 
 size_t AsanWcsrchrUseAfterFree() {
   const wchar_t* wstr_value = L"abc1";
-  wchar_t* wstr = new wchar_t[wcslen(wstr_value) + 1];
-  wcscpy(wstr, wstr_value);
+  wchar_t* wstr = new wchar_t[::wcslen(wstr_value) + 1];
+  ::wcscpy(wstr, wstr_value);
 
   delete[] wstr;
   TryInvalidCall2(static_cast<wchar_t* (*)(wchar_t*, wchar_t)>(&::wcsrchr),
@@ -998,10 +1018,10 @@ size_t AsanWcsrchrUseAfterFree() {
 
 size_t AsanWcschrOverflow() {
   const wchar_t* wstr_value = L"abc1";
-  wchar_t* wstr = new wchar_t[wcslen(wstr_value) + 1];
-  wcscpy(wstr, wstr_value);
+  wchar_t* wstr = new wchar_t[::wcslen(wstr_value) + 1];
+  ::wcscpy(wstr, wstr_value);
 
-  size_t wstr_len = wcslen(wstr);
+  size_t wstr_len = ::wcslen(wstr);
   wstr[wstr_len] = L'a';
 
   TryInvalidCall2(static_cast<wchar_t* (*)(wchar_t*, wchar_t)>(&::wcschr),
@@ -1013,8 +1033,8 @@ size_t AsanWcschrOverflow() {
 
 size_t AsanWcschrUnderflow() {
   const wchar_t* wstr_value = L"abc1";
-  wchar_t* wstr = new wchar_t[wcslen(wstr_value) + 1];
-  wcscpy(wstr, wstr_value);
+  wchar_t* wstr = new wchar_t[::wcslen(wstr_value) + 1];
+  ::wcscpy(wstr, wstr_value);
   TryInvalidCall2(static_cast<wchar_t* (*)(wchar_t*, wchar_t)>(&::wcschr),
                   static_cast<wchar_t*>(wstr - 1),
                   L'c');
@@ -1024,8 +1044,8 @@ size_t AsanWcschrUnderflow() {
 
 size_t AsanWcschrUseAfterFree() {
   const wchar_t* wstr_value = L"abc1";
-  wchar_t* wstr = new wchar_t[wcslen(wstr_value) + 1];
-  wcscpy(wstr, wstr_value);
+  wchar_t* wstr = new wchar_t[::wcslen(wstr_value) + 1];
+  ::wcscpy(wstr, wstr_value);
 
   delete[] wstr;
   TryInvalidCall2(static_cast<wchar_t* (*)(wchar_t*, wchar_t)>(&::wcschr),

@@ -96,6 +96,22 @@ const wchar_t* asan_wcsrchr(const wchar_t* str, wchar_t character) {
   return ::wcsrchr(str, character);
 }
 
+const wchar_t* asan_wcsstr(const wchar_t* str, const wchar_t* keys) {
+  size_t size = 0;
+  if (!agent::asan::Shadow::GetNullTerminatedArraySize<wchar_t>(keys,
+                                                                0U,
+                                                                &size)) {
+    ReportBadAccess(reinterpret_cast<const uint8*>(keys) + size,
+                    HeapProxy::ASAN_READ_ACCESS);
+  }
+  const wchar_t* ret = ::wcsstr(str, keys);
+  if (!agent::asan::Shadow::IsAccessible(ret)) {
+    ReportBadAccess(reinterpret_cast<const uint8*>(ret),
+                    HeapProxy::ASAN_READ_ACCESS);
+  }
+  return ret;
+}
+
 const wchar_t* asan_wcschr(const wchar_t* str, wchar_t character) {
   const wchar_t* s = str;
   while (agent::asan::Shadow::IsAccessible(s) && *s != character && *s != NULL)

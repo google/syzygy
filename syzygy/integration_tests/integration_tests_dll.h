@@ -122,6 +122,7 @@ namespace testing {
     decl(kAsanStrstrSrc2Overflow, testing::AsanStrstrSrc2Overflow)  \
     decl(kAsanStrstrSrc2Underflow, testing::AsanStrstrSrc2Underflow)  \
     decl(kAsanStrstrSrc2UseAfterFree, testing::AsanStrstrSrc2UseAfterFree)  \
+    decl(kAsanWcsstrKeysOverflow, testing::AsanWcsstrKeysOverflow)  \
     decl(kAsanStrspnKeysOverflow, testing::AsanStrspnKeysOverflow)  \
     decl(kAsanStrspnKeysUnderflow, testing::AsanStrspnKeysUnderflow)  \
     decl(kAsanStrspnKeysUseAfterFree, testing::AsanStrspnKeysUseAfterFree)  \

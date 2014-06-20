@@ -381,6 +381,8 @@ size_t AsanStrstrSrc2Underflow();
 
 size_t AsanStrstrSrc2UseAfterFree();
 
+size_t AsanWcsstrKeysOverflow();
+
 size_t AsanStrspnKeysOverflow();
 
 size_t AsanStrspnKeysUnderflow();

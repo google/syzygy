@@ -49,6 +49,8 @@ const char* __cdecl asan_strpbrk(const char* str1, const char* str2);
 
 const char* __cdecl asan_strstr(const char* str1, const char* str2);
 
+const wchar_t* asan_wcsstr(const wchar_t* str, const wchar_t* keys);
+
 size_t __cdecl asan_strspn(const char* str1, const char* str2);
 
 char* __cdecl asan_strncpy(char* destination, const char* source, size_t num);

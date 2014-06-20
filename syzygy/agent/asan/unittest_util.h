@@ -146,6 +146,8 @@ class TestWithAsanLogger : public testing::Test {
       (str1, str2))  \
     F(_cdecl, const char*, strstr, (const char* str1, const char* str2),  \
       (str1, str2))  \
+    F(_cdecl, const wchar_t*, wcsstr, (const wchar_t* str1,  \
+      const wchar_t* str2), (str1, str2))  \
     F(_cdecl, size_t, strspn, (const char* str1, const char* str2),  \
       (str1, str2))  \
     F(_cdecl, char*, strncpy,  \

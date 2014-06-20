@@ -405,6 +405,27 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrstr) {
   ResetLog();
 }
 
+TEST_F(CrtInterceptorsTest, AsanCheckWcsstr) {
+  const wchar_t* str_value = L"test_wcsstr";
+  ScopedASanAlloc<wchar_t> str(this, ::wcslen(str_value) + 1, str_value);
+  ASSERT_TRUE(str != NULL);
+
+  const wchar_t* keys_value = L"wcsstr";
+  ScopedASanAlloc<wchar_t> keys(this, ::wcslen(keys_value) + 1, keys_value);
+  ASSERT_TRUE(keys.get() != NULL);
+
+  EXPECT_EQ(::wcsstr(str.get(), keys.get()),
+            wcsstrFunction(str.get(), keys.get()));
+
+  SetCallBackFunction(&AsanErrorCallback);
+  keys[::wcslen(keys_value)] = L'a';
+  wcsstrFunctionFailing(str.get(), keys.get());
+  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  keys[::wcslen(keys_value)] = 0;
+
+  ResetLog();
+}
+
 TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrspn) {
   // TODO(sebmarchand): Reactivate this unittest once the implementation of
   //     this interceptor has been fixed.

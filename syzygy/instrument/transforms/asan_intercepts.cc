@@ -71,8 +71,11 @@ const MD5Hash kHashes_wcsrchr[] = {
     {"86cb28d7c68ae6f62c694f2e3239b725"},  // VS2013.
     {""} };
 const MD5Hash kHashes_wcschr[] = {
-    {"f1f7d1a3c28ea37e4d297bce5bc095bd"},  // VS2010 and VS2013: Debug.
-    {"e1d33ebe81f646a5b6941fbc3bad43b1"},  // VS2010 and VS2013: Release.
+    {"e1d33ebe81f646a5b6941fbc3bad43b1"},  // VS2010.
+    {"4b3cb8aead9ba1128988938c5c8b82e3"},  // VS2013.
+    {""} };
+const MD5Hash kHashes_wcsstr[] = {
+    {"714b318fa42fe38b53e7c6b5aacc0000"},  // VS2013.
     {""} };
 
 // List of module names.
@@ -118,6 +121,7 @@ const AsanIntercept kAsanIntercepts[] = {
   { "strrchr", "_strrchr", NULL, kHashes_strrchr, true },
   { "wcsrchr", "_wcsrchr", NULL, kHashes_wcsrchr, true },
   { "wcschr", "_wcschr", NULL, kHashes_wcschr, true },
+  { "wcsstr", "_wcsstr", NULL, kHashes_wcsstr, true },
 
   // Terminating entry.
   { NULL, NULL, NULL, NULL, false },
