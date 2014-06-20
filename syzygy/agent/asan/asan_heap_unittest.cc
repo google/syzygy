@@ -1587,7 +1587,7 @@ TEST_F(HeapTest, GetBadAccessInformationNestedBlock) {
 
   // Mark the outer block as quarantined, we should detect a use after free
   // when trying to access the data of the inner block, and the free stack
-  // should be the one of the outer block.
+  // should be the one of the inner block.
   EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
   EXPECT_FALSE(proxy_.IsAllocated(outer_block));
   EXPECT_NE(reinterpret_cast<void*>(NULL), outer_block->free_stack);
@@ -1598,9 +1598,9 @@ TEST_F(HeapTest, GetBadAccessInformationNestedBlock) {
   EXPECT_EQ(HeapProxy::USE_AFTER_FREE, error_info.error_type);
   EXPECT_NE(reinterpret_cast<void*>(NULL), error_info.free_stack);
 
-  EXPECT_EQ(outer_block->free_stack->num_frames(), error_info.free_stack_size);
-  for (size_t i = 0; i < outer_block->free_stack->num_frames(); ++i)
-    EXPECT_EQ(outer_block->free_stack->frames()[i], error_info.free_stack[i]);
+  EXPECT_EQ(inner_block->free_stack->num_frames(), error_info.free_stack_size);
+  for (size_t i = 0; i < inner_block->free_stack->num_frames(); ++i)
+    EXPECT_EQ(inner_block->free_stack->frames()[i], error_info.free_stack[i]);
 }
 
 TEST_F(HeapTest, GetAllocSizeViaShadow) {

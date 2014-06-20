@@ -104,7 +104,7 @@ static const uint8 kBlockTrailerPaddingByte = 0xC3;
 
 // The number of bits in the checksum field. This is parameterized so that
 // it can be referred to by the checksumming code.
-static const size_t kBlockHeaderChecksumBits = 14;
+static const size_t kBlockHeaderChecksumBits = 13;
 
 // The state of an ASan block. These are in the order that reflects the typical
 // lifespan of an allocation.
@@ -132,6 +132,8 @@ struct BlockHeader {
     // The checksum of the entire block. The semantics of this vary with the
     // block state.
     unsigned checksum : kBlockHeaderChecksumBits;
+    // If this bit is set then the block is a nested block.
+    unsigned is_nested : 1;
     // If this bit is positive then header padding is present. The size of the
     // header padding is encoded in the padding itself.
     unsigned has_header_padding : 1;
@@ -252,7 +254,7 @@ void BlockPlanLayout(size_t chunk_size,
 // checksum. Initializes the block to the ALLOCATED_BLOCK state, setting
 // |alloc_ticks| and |alloc_tid|. Sets |alloc_stack| to NULL; the caller should
 // set this stack upon return so as to minimize the number of useless frames on
-// the stack.
+// the stack. Does not set the checksum.
 // @param layout The layout to be respected.
 // @param allocation The allocation to be filled in. This must be of
 //     |layout.block_size| in size, and be aligned with
@@ -330,35 +332,9 @@ void BlockProtectRedzones(const BlockInfo& block_info);
 void BlockProtectAll(const BlockInfo& block_info);
 // @}
 
-// TODO(chrisha): Hide these details in an implementation header file.
-
-// A structure describing the layout of a block. This is largely implementation
-// detail, but exposed for unittesting. As far as the user is concerned this is
-// an opaque blob.
-struct BlockLayout {
-  // The alignment of the entire block.
-  size_t block_alignment;
-  // The size of the entire block (the rest of the fields summed).
-  size_t block_size;
-
-  // Left redzone.
-  size_t header_size;
-  size_t header_padding_size;
-  // Body.
-  size_t body_size;
-  // Right redzone.
-  size_t trailer_padding_size;
-  size_t trailer_size;
-};
-
-// Identifies whole pages that are spanned by the redzones and body of the
-// given block. Directly sets the various *_pages* fields in @p block_info.
-// @param block_info The block information to be inspected and modified.
-// @note This is exposed as a convience function, but it is not meant to be
-//     directly called by the user.
-void BlockIdentifyWholePages(BlockInfo* block_info);
-
 }  // namespace asan
 }  // namespace agent
+
+#include "syzygy/agent/asan/block_impl.h"
 
 #endif  // SYZYGY_AGENT_ASAN_BLOCK_H_

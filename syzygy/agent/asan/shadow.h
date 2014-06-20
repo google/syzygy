@@ -13,6 +13,57 @@
 // limitations under the License.
 //
 // Implements an all-static class that manages shadow memory for ASAN.
+//
+// The layout of a block is fully encoded in shadow memory, allowing for
+// recovery of the block simply by inspecting the shadow memory. This is
+// accomplished as follows:
+//
+// - Blocks are always a multiple of kShadowRatio in size and alignment.
+// - Each group of kShadowRatio contiguous bytes is represented by a single
+//   marker in the shadow.
+// - The first marker of a block is a single block start marker, and the last
+//   is a single block end marker. This uniquely identifies the beginning
+//   and end of a block simply by scanning and looking for balanced markers.
+// - The left and right redzones are uniquely identified by distinct markers.
+// - The location of the header and trailer of a block are always at the
+//   extremes, thus knowing the locations of the start and end markers
+//   uniquely identifies their positions.
+// - The left redzone markers uniquely encodes the length of the header padding
+//   as it must also be a multiple of kShadowRatio in length.
+// - The right redzone implies the length of the body of the allocation and
+//   the trailer padding modulo kShadowRatio. The remaining bits are encoded
+//   directly in the block start marker.
+// - Nested blocks and regular blocks use differing block start/end markers.
+//   This allows navigation through allocation hierarchies to terminate
+//   without necessitating a scan through the entire shadow memory.
+//
+// A typical block will look something like the following in shadow memory:
+//
+//   00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
+//   E7 FA FA FA 00 00 00 00 00 00 FB FB FB FB FB F4
+//   |  \______/ \_______________/ \____________/ |
+//   |     :             |                :       +-- Block end.
+//   |     :             |                + - - - - - Right redzone.
+//   |     :             +--------------------------- Body of allocation.
+//   |     +- - - - - - - - - - - - - - - - - - - - - Left redzone.
+//   +----------------------------------------------- Block start.
+//
+// - Both the end marker and the start marker indicate the block
+//   is not nested. Together they indicate the total length of the
+//   block is 128 bytes.
+// - The start marker indicates that the body length is 7 % 8.
+// - The header padding indicates that the 16 byte header is followed
+//   by a further 16 bytes of padding.
+// - The 6 body markers indicate an allocation size of 41..48 bytes.
+//   Combined with the start marker bits the allocation size can be
+//   inferred as being 47 bytes, with the last byte contributing to
+//   the trailer padding.
+// - The 5 right redzone markers indicate that the 20 byte trailer is
+//   preceded by at least 28 trailer padding bytes. The additional
+//   padding from the body means that there are in total 29 trailer
+//   padding bytes.
+// - 16(header) + 16(pad) + 47(body) + 29(pad) + 20(trailer) = 128
+
 #ifndef SYZYGY_AGENT_ASAN_SHADOW_H_
 #define SYZYGY_AGENT_ASAN_SHADOW_H_
 
@@ -53,24 +104,42 @@ class Shadow {
 
     // Values 0x01 through 0x07 indicate that a range of bytes is partially
     // accessible, and partially inaccessible.
+    kHeapPartiallyAddressableByte1 = 0x01,
+    kHeapPartiallyAddressableByte2 = 0x02,
+    kHeapPartiallyAddressableByte3 = 0x03,
+    kHeapPartiallyAddressableByte4 = 0x04,
+    kHeapPartiallyAddressableByte5 = 0x05,
+    kHeapPartiallyAddressableByte6 = 0x06,
+    kHeapPartiallyAddressableByte7 = 0x07,
 
     // Any byte that has this mask set indicates a completely inaccessible
     // range of bytes. The remaining bits encode additional metadata about why
     // the bytes are inaccessible.
     kHeapNonAccessibleByteMask = 0xe0,
 
-    // Any marker starting with 0xe8 marks the beginning of a block. The
-    // trailing 3 bits of the marker are used to encode additional metadata
+    // Any marker starting with 0xe0 marks the beginning of a block. The
+    // trailing 4 bits of the marker are used to encode additional metadata
     // about the block itself. This is necessary to allow full introspection
     // of blocks via the shadow.
-    kHeapBlockStartByte0 = 0xe8,
-    kHeapBlockStartByte1 = 0xe9,
-    kHeapBlockStartByte2 = 0xea,
-    kHeapBlockStartByte3 = 0xeb,
-    kHeapBlockStartByte4 = 0xec,
-    kHeapBlockStartByte5 = 0xed,
-    kHeapBlockStartByte6 = 0xee,
-    kHeapBlockStartByte7 = 0xef,
+    kHeapBlockStartByte0 = 0xe0,
+    kHeapBlockStartByte1 = 0xe1,
+    kHeapBlockStartByte2 = 0xe2,
+    kHeapBlockStartByte3 = 0xe3,
+    kHeapBlockStartByte4 = 0xe4,
+    kHeapBlockStartByte5 = 0xe5,
+    kHeapBlockStartByte6 = 0xe6,
+    kHeapBlockStartByte7 = 0xe7,
+    kHeapNestedBlockStartByte0 = 0xe8,
+    kHeapNestedBlockStartByte1 = 0xe9,
+    kHeapNestedBlockStartByte2 = 0xea,
+    kHeapNestedBlockStartByte3 = 0xeb,
+    kHeapNestedBlockStartByte4 = 0xec,
+    kHeapNestedBlockStartByte5 = 0xed,
+    kHeapNestedBlockStartByte6 = 0xee,
+    kHeapNestedBlockStartByte7 = 0xef,
+    // Masks for extracting additional information from block start markers.
+    kHeapBlockStartByteNestedMask = 0x08,
+    kHeapBlockStartByteSizeMask = 0x07,
 
     // The data in this block maps to internal memory structures.
     kAsanMemoryByte = 0xf1,
@@ -86,6 +155,9 @@ class Shadow {
     // This marker marks the end of a block in memory, and is part of a right
     // redzone.
     kHeapBlockEndByte = 0xf4,
+    kHeapNestedBlockEndByte = 0xf5,
+    // Mask for extracting additional information from block end markers.
+    kHeapBlockEndByteNestedMask = 0x1,
 
     // The bytes are part of a left redzone (block header padding).
     // This is the same value as used by ASan itself.
@@ -105,6 +177,12 @@ class Shadow {
     // This is the same value as used by ASan itself.
     kHeapFreedByte = 0xfd,
   };
+  COMPILE_ASSERT(kHeapBlockStartByte0 < kHeapNestedBlockStartByte7,
+                 start_bytes_must_be_well_ordered);
+  COMPILE_ASSERT(kHeapNestedBlockStartByte7 - kHeapBlockStartByte0 == 0xf,
+                 start_bytes_must_be_contiguous);
+  COMPILE_ASSERT((kHeapBlockStartByte0 ^ kHeapNestedBlockStartByte7) == 0xf,
+                 start_bytes_must_have_a_simple_bitmask);
 
   // Poisons @p size bytes starting at @p addr with @p shadow_val value.
   // @pre addr + size mod 8 == 0.
@@ -119,7 +197,10 @@ class Shadow {
   // @param size The size of the memory to unpoison.
   static void Unpoison(const void* addr, size_t size);
 
-  // Mark @p size bytes starting at @p addr as freed.
+  // Mark @p size bytes starting at @p addr as freed. This will preserve
+  // nested block headers/trailers/redzones, but mark all contents as freed.
+  // It is expected that the states of all nested blocks have already been
+  // marked as freed prior to possibly freeing the parent block.
   // @param addr The starting address.
   // @param size The size of the memory to mark as freed.
   static void MarkAsFreed(const void* addr, size_t size);
@@ -220,6 +301,18 @@ class Shadow {
   //     block, false otherwise.
   static bool IsLeftRedzone(const void* addr);
 
+  // Determines if the given marker is an end byte marker (there are
+  // multiple distinct end byte markers).
+  // @param marker The marker to inspect.
+  // @return true if the marker corresponds to a header marker.
+  static bool IsBlockEndByteMarker(uint8 marker);
+
+  // Checks if an address belongs to the end of a block.
+  // @param addr The address that we want to check.
+  // @returns true if |addr| corresponds to a byte in the end of a
+  //     block, false otherwise.
+  static bool IsBlockEndByte(const void* addr);
+
   // Checks if an address belongs to the right redzone of a block (including
   // the block trailer).
   // @param addr The address that we want to check.
@@ -227,10 +320,13 @@ class Shadow {
   //     block, false otherwise.
   static bool IsRightRedzone(const void* addr);
 
-  // Poisons memory for an freshly allocated block. Does not read anything from
-  // the block itself.
+  // Poisons memory for an freshly allocated block.
   // @param info Info about the block layout.
+  // @note The block must be readable.
   static void PoisonAllocatedBlock(const BlockInfo& info);
+
+  // Determines if the block is nested simply by inspecting shadow memory.
+  static bool BlockIsNested(const BlockInfo& info);
 
   // Inspects shadow memory to determine the layout of a block in memory.
   // Does not rely on any block content itself, strictly reading from the
@@ -240,6 +336,13 @@ class Shadow {
   // @param info The block information to be populated.
   // @returns true on success, false otherwise.
   static bool BlockInfoFromShadow(const void* addr, BlockInfo* info);
+
+  // Inspects shadow memory to find the block containing a nested block.
+  // @param nested Information about the nested block.
+  // @param info The block information to be populated.
+  // @returns true on success, false otherwise.
+  static bool ParentBlockInfoFromShadow(
+      const BlockInfo& nested, BlockInfo* info);
 
  protected:
   // Reset the shadow memory.
@@ -253,6 +356,38 @@ class Shadow {
                                    uintptr_t index,
                                    std::string* output,
                                    size_t bug_index);
+
+  // Scans to the left of the provided cursor, looking for the presence of a
+  // block start marker that brackets the cursor.
+  // @param initial_nesting_depth If zero then this will return the inner
+  //     most block containing the cursor. If 1 then this will find the start of
+  //     the block containing that block, and so on.
+  // @param cursor The position in shadow memory from which to start the scan.
+  // @param location Will be set to the location of the start marker, if found.
+  // @returns true on success, false otherwise.
+  static bool ScanLeftForBracketingBlockStart(
+      size_t initial_nesting_depth, size_t cursor, size_t* location);
+
+  // Scans to the right of the provided cursor, looking for the presence of a
+  // block end marker that brackets the cursor.
+  // @param initial_nesting_depth If zero then this will return the inner
+  //     most block containing the cursor. If 1 then this will find the end of
+  //     the block containing that block, and so on.
+  // @param cursor The position in shadow memory from which to start the scan.
+  // @param location Will be set to the location of the end marker, if found.
+  // @returns true on success, false otherwise.
+  static bool ScanRightForBracketingBlockEnd(
+      size_t initial_nesting_depth, size_t cursor, size_t* location);
+
+  // Inspects shadow memory to determine the layout of a block in memory.
+  // @param initial_nesting_depth If zero then this will return the inner
+  //     most block containing the cursor. If 1 then this will find the end of
+  //     the block containing that block, and so on.
+  // @param addr An address in the block to be inspected.
+  // @param info The block information to be populated.
+  // @returns true on success, false otherwise.
+  static bool BlockInfoFromShadowImpl(
+      size_t initial_nesting_depth, const void* addr, BlockInfo* info);
 
   // The shadow memory.
   static uint8 shadow_[kShadowSize];
@@ -294,6 +429,53 @@ class ShadowWalker {
   const uint8* next_block_;
 
   DISALLOW_COPY_AND_ASSIGN(ShadowWalker);
+};
+
+// NOTE: This will replace the old shadow walker when the new block style is
+//     fully integrated with the heap.
+class NewShadowWalker {
+ public:
+  // Constructor.
+  // @param recursive If true then this will recursively descend into nested
+  //     blocks. Otherwise it will only return the outermost blocks in the
+  //     provided region.
+  // @param lower_bound The lower bound of the region that this walker should
+  //     cover in the actual memory.
+  // @param upper_bound The upper bound of the region that this walker should
+  //     cover in the actual memory.
+  NewShadowWalker(bool recursive,
+                  const void* lower_bound,
+                  const void* upper_bound);
+
+  // Return the next block in this memory region.
+  // @param info The block information to be populated.
+  // @return true if a block was found, false otherwise.
+  bool Next(BlockInfo* info);
+
+  // Reset the walker to its initial state.
+  void Reset();
+
+  // @returns the nesting depth of the last returned block. If no blocks have
+  //     been walked then this returns -1.
+  int nesting_depth() const { return nesting_depth_; }
+
+ private:
+  // Indicates whether or not the walker will descend recursively into nested
+  // blocks.
+  bool recursive_;
+
+  // The bounds of the memory region for this walker.
+  const uint8* lower_bound_;
+  const uint8* upper_bound_;
+
+  // The cursor of the shadow walker. This points to upper_bound_ when
+  // the walk is terminated.
+  const uint8* cursor_;
+
+  // The current nesting depth. Starts at -1.
+  int nesting_depth_;
+
+  DISALLOW_COPY_AND_ASSIGN(NewShadowWalker);
 };
 
 // Bring in the implementation of the templated functions.

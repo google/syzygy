@@ -126,7 +126,7 @@ TEST(AsanRtlUtilsTest, TestMemoryRange) {
   // Poison the second half of the buffer.
   Shadow::Poison(test_buffer.get() + kTestBufferSize / 2,
                  kTestBufferSize / 2,
-                 Shadow::kHeapNonAccessibleByteMask);
+                 Shadow::kUserRedzone);
 
   // Test the first half of the buffer, no error should be detected.
   TestMemoryRange(test_buffer.get(), kTestBufferSize / 2, access_mode);
@@ -153,7 +153,7 @@ TEST(AsanRtlUtilsTest, TestStructure) {
 
   Shadow::Poison(test_struct.get(),
                  sizeof(double),
-                 Shadow::kHeapNonAccessibleByteMask);
+                 Shadow::kUserRedzone);
 
   TestStructure(test_struct.get(), access_mode);
   EXPECT_TRUE(memory_error_detected);

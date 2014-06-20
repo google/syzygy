@@ -41,6 +41,7 @@
         'asan_system_interceptors.h',
         'block.cc',
         'block.h',
+        'block_impl.h',
         'constants.cc',
         'constants.h',
         'direct_allocation.cc',

@@ -27,6 +27,8 @@ namespace {
 class TestShadow : public Shadow {
  public:
   using Shadow::Reset;
+  using Shadow::ScanLeftForBracketingBlockStart;
+  using Shadow::ScanRightForBracketingBlockEnd;
   using Shadow::kShadowSize;
   using Shadow::shadow_;
 };
@@ -157,6 +159,50 @@ TEST(ShadowTest, GetNullTerminatedArraySize) {
   Shadow::Unpoison(aligned_test_array, aligned_array_length);
 }
 
+TEST(ShadowTest, MarkAsFreed) {
+  BlockLayout l0 = {}, l1 = {};
+  BlockPlanLayout(kShadowRatio, kShadowRatio, 16, 30, 30, &l1);
+  BlockPlanLayout(kShadowRatio, kShadowRatio, l1.block_size + 2 * kShadowRatio,
+                  30, 30, &l0);
+
+  uint8* data = new uint8[l0.block_size];
+
+  uint8* d0 = data;
+  BlockInfo i0 = {};
+  BlockInitialize(l0, d0, &i0);
+  Shadow::PoisonAllocatedBlock(i0);
+
+  uint8* d1 = i0.body + kShadowRatio;
+  BlockInfo i1 = {};
+  BlockInitialize(l1, d1, &i1);
+  i1.header->is_nested = true;
+  Shadow::PoisonAllocatedBlock(i1);
+
+  Shadow::MarkAsFreed(i0.body, i0.body_size);
+  for (uint8* p = i0.block; p < i0.block + i0.block_size; ++p) {
+    if (p >= i0.block && p < i0.body) {
+      EXPECT_TRUE(Shadow::IsLeftRedzone(p));
+    } else if (p >= i0.body && p < i0.trailer_padding) {
+      if (p >= i1.block && p < i1.body) {
+        EXPECT_TRUE(Shadow::IsLeftRedzone(p));
+      } else if (p >= i1.body && p < i1.trailer_padding) {
+        EXPECT_EQ(Shadow::kHeapFreedByte,
+                  Shadow::GetShadowMarkerForAddress(p));
+      } else if (p >= i1.trailer_padding && p < i1.block + i1.block_size) {
+        EXPECT_TRUE(Shadow::IsRightRedzone(p));
+      } else {
+        EXPECT_EQ(Shadow::kHeapFreedByte,
+                  Shadow::GetShadowMarkerForAddress(p));
+      }
+    } else if (p >= i0.trailer_padding && p < i0.block + i0.block_size) {
+      EXPECT_TRUE(Shadow::IsRightRedzone(p));
+    }
+  }
+
+  Shadow::Unpoison(data, l0.block_size);
+  delete [] data;
+}
+
 TEST(ShadowTest, PoisonAllocatedBlock) {
   BlockLayout layout = {};
   BlockPlanLayout(kShadowRatio, kShadowRatio, 15, 22, 0, &layout);
@@ -187,6 +233,70 @@ TEST(ShadowTest, PoisonAllocatedBlock) {
   delete [] data;
 }
 
+TEST(ShadowTest, ScanLeftAndRight) {
+  size_t offset = Shadow::kShadowSize / 2;
+  size_t l = 0;
+  TestShadow::shadow_[offset + 0] = Shadow::kHeapBlockStartByte0;
+  TestShadow::shadow_[offset + 1] = Shadow::kHeapNestedBlockStartByte0;
+  TestShadow::shadow_[offset + 2] = Shadow::kHeapAddressableByte;
+  TestShadow::shadow_[offset + 3] = Shadow::kHeapNestedBlockEndByte;
+  TestShadow::shadow_[offset + 4] = Shadow::kHeapBlockEndByte;
+
+  EXPECT_TRUE(TestShadow::ScanLeftForBracketingBlockStart(0, offset + 0, &l));
+  EXPECT_EQ(offset, l);
+  EXPECT_TRUE(TestShadow::ScanLeftForBracketingBlockStart(0, offset + 1, &l));
+  EXPECT_EQ(offset + 1, l);
+  EXPECT_TRUE(TestShadow::ScanLeftForBracketingBlockStart(0, offset + 2, &l));
+  EXPECT_EQ(offset + 1, l);
+  EXPECT_TRUE(TestShadow::ScanLeftForBracketingBlockStart(0, offset + 3, &l));
+  EXPECT_EQ(offset + 1, l);
+  EXPECT_TRUE(TestShadow::ScanLeftForBracketingBlockStart(0, offset + 4, &l));
+  EXPECT_EQ(offset, l);
+
+  EXPECT_FALSE(TestShadow::ScanLeftForBracketingBlockStart(1, offset + 0, &l));
+  EXPECT_TRUE(TestShadow::ScanLeftForBracketingBlockStart(1, offset + 1, &l));
+  EXPECT_EQ(offset, l);
+  EXPECT_TRUE(TestShadow::ScanLeftForBracketingBlockStart(1, offset + 2, &l));
+  EXPECT_EQ(offset, l);
+  EXPECT_TRUE(TestShadow::ScanLeftForBracketingBlockStart(1, offset + 3, &l));
+  EXPECT_EQ(offset, l);
+  EXPECT_FALSE(TestShadow::ScanLeftForBracketingBlockStart(1, offset + 4, &l));
+
+  EXPECT_FALSE(TestShadow::ScanLeftForBracketingBlockStart(2, offset + 0, &l));
+  EXPECT_FALSE(TestShadow::ScanLeftForBracketingBlockStart(2, offset + 1, &l));
+  EXPECT_FALSE(TestShadow::ScanLeftForBracketingBlockStart(2, offset + 2, &l));
+  EXPECT_FALSE(TestShadow::ScanLeftForBracketingBlockStart(2, offset + 3, &l));
+  EXPECT_FALSE(TestShadow::ScanLeftForBracketingBlockStart(2, offset + 4, &l));
+
+  EXPECT_TRUE(TestShadow::ScanRightForBracketingBlockEnd(0, offset + 0, &l));
+  EXPECT_EQ(offset + 4, l);
+  EXPECT_TRUE(TestShadow::ScanRightForBracketingBlockEnd(0, offset + 1, &l));
+  EXPECT_EQ(offset + 3, l);
+  EXPECT_TRUE(TestShadow::ScanRightForBracketingBlockEnd(0, offset + 2, &l));
+  EXPECT_EQ(offset + 3, l);
+  EXPECT_TRUE(TestShadow::ScanRightForBracketingBlockEnd(0, offset + 3, &l));
+  EXPECT_EQ(offset + 3, l);
+  EXPECT_TRUE(TestShadow::ScanRightForBracketingBlockEnd(0, offset + 4, &l));
+  EXPECT_EQ(offset + 4, l);
+
+  EXPECT_FALSE(TestShadow::ScanRightForBracketingBlockEnd(1, offset + 0, &l));
+  EXPECT_TRUE(TestShadow::ScanRightForBracketingBlockEnd(1, offset + 1, &l));
+  EXPECT_EQ(offset + 4, l);
+  EXPECT_TRUE(TestShadow::ScanRightForBracketingBlockEnd(1, offset + 2, &l));
+  EXPECT_EQ(offset + 4, l);
+  EXPECT_TRUE(TestShadow::ScanRightForBracketingBlockEnd(1, offset + 3, &l));
+  EXPECT_EQ(offset + 4, l);
+  EXPECT_FALSE(TestShadow::ScanRightForBracketingBlockEnd(1, offset + 4, &l));
+
+  EXPECT_FALSE(TestShadow::ScanRightForBracketingBlockEnd(2, offset + 0, &l));
+  EXPECT_FALSE(TestShadow::ScanRightForBracketingBlockEnd(2, offset + 1, &l));
+  EXPECT_FALSE(TestShadow::ScanRightForBracketingBlockEnd(2, offset + 2, &l));
+  EXPECT_FALSE(TestShadow::ScanRightForBracketingBlockEnd(2, offset + 3, &l));
+  EXPECT_FALSE(TestShadow::ScanRightForBracketingBlockEnd(2, offset + 4, &l));
+
+  ::memset(TestShadow::shadow_ + offset, 0, 5);
+}
+
 namespace {
 
 void TestBlockInfoFromShadow(const BlockLayout& outer,
@@ -196,7 +306,7 @@ void TestBlockInfoFromShadow(const BlockLayout& outer,
   uint8* data = new uint8[outer.block_size];
 
   // Try recovering the block from every position within it when no nested
-  // block exists.
+  // block exists. Expect finding a nested block to fail.
   BlockInfo info = {};
   BlockInitialize(outer, data, &info);
   Shadow::PoisonAllocatedBlock(info);
@@ -204,6 +314,10 @@ void TestBlockInfoFromShadow(const BlockLayout& outer,
   for (size_t i = 0; i < info.block_size; ++i) {
     EXPECT_TRUE(Shadow::BlockInfoFromShadow(info.block + i, &info_recovered));
     EXPECT_EQ(0, ::memcmp(&info, &info_recovered, sizeof(info)));
+
+    // This block should have no parent block as its not nested.
+    EXPECT_FALSE(Shadow::ParentBlockInfoFromShadow(
+        info, &info_recovered));
   }
 
   // Place a nested block and try the recovery from every position again.
@@ -213,16 +327,24 @@ void TestBlockInfoFromShadow(const BlockLayout& outer,
   uint8* nested_end = nested_begin + nested.block_size;
   BlockInfo nested_info = {};
   BlockInitialize(nested, nested_begin, &nested_info);
+  nested_info.header->is_nested = true;
   Shadow::PoisonAllocatedBlock(nested_info);
   for (size_t i = 0; i < info.block_size; ++i) {
     uint8* pos = info.block + i;
     EXPECT_TRUE(Shadow::BlockInfoFromShadow(pos, &info_recovered));
 
+    BlockInfo parent_info = {};
+    bool found_parent = Shadow::ParentBlockInfoFromShadow(
+        info_recovered, &parent_info);
+
     if (pos >= nested_begin && pos < nested_end) {
       EXPECT_EQ(0, ::memcmp(&nested_info, &info_recovered,
                             sizeof(nested_info)));
+      EXPECT_TRUE(found_parent);
+      EXPECT_EQ(0, ::memcmp(&info, &parent_info, sizeof(info)));
     } else {
       EXPECT_EQ(0, ::memcmp(&info, &info_recovered, sizeof(info)));
+      EXPECT_FALSE(found_parent);
     }
   }
   Shadow::Unpoison(info.block, info.block_size);
@@ -254,6 +376,159 @@ TEST(ShadowTest, BlockInfoFromShadow) {
 
   EXPECT_NO_FATAL_FAILURE(TestBlockInfoFromShadow(layout1, layout0));
   EXPECT_NO_FATAL_FAILURE(TestBlockInfoFromShadow(layout2, layout0));
+}
+
+TEST(NewShadowWalkerTest, WalksNonNestedBlocks) {
+  BlockLayout l = {};
+  BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &l);
+
+  size_t data_size = l.block_size * 3 + kShadowRatio;
+  uint8* data = new uint8[data_size];
+  uint8* data0 = data;
+  uint8* data1 = data0 + l.block_size + kShadowRatio;
+  uint8* data2 = data1 + l.block_size;
+
+  BlockInfo i0 = {}, i1 = {}, i2 = {};
+  BlockInitialize(l, data0, &i0);
+  BlockInitialize(l, data1, &i1);
+  BlockInitialize(l, data2, &i2);
+
+  Shadow::PoisonAllocatedBlock(i0);
+  Shadow::PoisonAllocatedBlock(i1);
+  Shadow::PoisonAllocatedBlock(i2);
+
+  i2.header->state = QUARANTINED_BLOCK;
+  Shadow::MarkAsFreed(i2.body, i2.body_size);
+
+  // Do a non-recursive walk through the shadow.
+  BlockInfo i = {};
+  NewShadowWalker w0(false, data, data + data_size);
+  EXPECT_EQ(-1, w0.nesting_depth());
+  EXPECT_TRUE(w0.Next(&i));
+  EXPECT_EQ(0, w0.nesting_depth());
+  EXPECT_TRUE(w0.Next(&i));
+  EXPECT_EQ(0, w0.nesting_depth());
+  EXPECT_TRUE(w0.Next(&i));
+  EXPECT_EQ(0, w0.nesting_depth());
+  EXPECT_FALSE(w0.Next(&i));
+  EXPECT_EQ(-1, w0.nesting_depth());
+
+  // Walk recursively through the shadow and expect the same results.
+  NewShadowWalker w1(true, data, data + data_size);
+  EXPECT_EQ(-1, w1.nesting_depth());
+  EXPECT_TRUE(w1.Next(&i));
+  EXPECT_EQ(0, w1.nesting_depth());
+  EXPECT_EQ(0, ::memcmp(&i, &i0, sizeof(i)));
+  EXPECT_TRUE(w1.Next(&i));
+  EXPECT_EQ(0, w1.nesting_depth());
+  EXPECT_EQ(0, ::memcmp(&i, &i1, sizeof(i)));
+  EXPECT_TRUE(w1.Next(&i));
+  EXPECT_EQ(0, w1.nesting_depth());
+  EXPECT_EQ(0, ::memcmp(&i, &i2, sizeof(i)));
+  EXPECT_FALSE(w1.Next(&i));
+  EXPECT_EQ(-1, w1.nesting_depth());
+
+  Shadow::Unpoison(data, data_size);
+  delete [] data;
+}
+
+TEST(NewShadowWalkerTest, WalksNestedBlocks) {
+  BlockLayout b0 = {}, b1 = {}, b2 = {}, b00 = {}, b01 = {}, b10 = {},
+      b100 = {};
+  BlockPlanLayout(kShadowRatio, kShadowRatio, 15, 30, 30, &b00);
+  BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &b01);
+  BlockPlanLayout(kShadowRatio, kShadowRatio,
+                  b00.block_size + b01.block_size + kShadowRatio, 0, 0, &b0);
+  BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &b100);
+  BlockPlanLayout(kShadowRatio, kShadowRatio, b100.block_size, 0, 0, &b10);
+  BlockPlanLayout(kShadowRatio, kShadowRatio, b10.block_size, 0, 0, &b1);
+  BlockPlanLayout(kShadowRatio, kShadowRatio, 100, 0, 0, &b2);
+
+  size_t data_size = b0.block_size + b1.block_size + kShadowRatio +
+      b2.block_size;
+  uint8* data = new uint8[data_size];
+
+  // Initialize the depth 0 blocks.
+  uint8* d0 = data;
+  uint8* d1 = d0 + b0.block_size;
+  uint8* d2 = d1 + b1.block_size + kShadowRatio;
+  BlockInfo i0 = {}, i1 = {}, i2 = {};
+  BlockInitialize(b0, d0, &i0);
+  BlockInitialize(b1, d1, &i1);
+  BlockInitialize(b2, d2, &i2);
+  Shadow::PoisonAllocatedBlock(i0);
+  Shadow::PoisonAllocatedBlock(i1);
+  Shadow::PoisonAllocatedBlock(i2);
+
+  // Initialize depth 1 blocks.
+  uint8* d00 = i0.body;
+  uint8* d01 = d00 + b00.block_size + kShadowRatio;
+  uint8* d10 = i1.body;
+  BlockInfo i00 = {}, i01 = {}, i10 = {};
+  BlockInitialize(b00, d00, &i00);
+  BlockInitialize(b01, d01, &i01);
+  BlockInitialize(b10, d10, &i10);
+  i00.header->is_nested = true;
+  i01.header->is_nested = true;
+  i10.header->is_nested = true;
+  Shadow::PoisonAllocatedBlock(i00);
+  Shadow::PoisonAllocatedBlock(i01);
+  Shadow::PoisonAllocatedBlock(i10);
+
+  // Initialize depth 2 blocks.
+  uint8* d100 = i10.body;
+  BlockInfo i100 = {};
+  BlockInitialize(b100, d100, &i100);
+  i100.header->is_nested = true;
+  Shadow::PoisonAllocatedBlock(i100);
+  i100.header->state = QUARANTINED_BLOCK;
+  Shadow::MarkAsFreed(i100.body, i100.body_size);
+
+  // Do a non-recursive walk through the shadow.
+  BlockInfo i = {};
+  NewShadowWalker w0(false, data, data + data_size);
+  EXPECT_EQ(-1, w0.nesting_depth());
+  EXPECT_TRUE(w0.Next(&i));
+  EXPECT_EQ(0, w0.nesting_depth());
+  EXPECT_EQ(0, ::memcmp(&i, &i0, sizeof(i)));
+  EXPECT_TRUE(w0.Next(&i));
+  EXPECT_EQ(0, w0.nesting_depth());
+  EXPECT_EQ(0, ::memcmp(&i, &i1, sizeof(i)));
+  EXPECT_TRUE(w0.Next(&i));
+  EXPECT_EQ(0, w0.nesting_depth());
+  EXPECT_EQ(0, ::memcmp(&i, &i2, sizeof(i)));
+  EXPECT_FALSE(w0.Next(&i));
+  EXPECT_EQ(-1, w0.nesting_depth());
+
+  // Walk recursively through the shadow.
+  NewShadowWalker w1(true, data, data + data_size);
+  EXPECT_EQ(-1, w1.nesting_depth());
+  EXPECT_TRUE(w1.Next(&i));
+  EXPECT_EQ(0, w1.nesting_depth());
+  EXPECT_EQ(0, ::memcmp(&i, &i0, sizeof(i)));
+  EXPECT_TRUE(w1.Next(&i));
+  EXPECT_EQ(1, w1.nesting_depth());
+  EXPECT_EQ(0, ::memcmp(&i, &i00, sizeof(i)));
+  EXPECT_TRUE(w1.Next(&i));
+  EXPECT_EQ(1, w1.nesting_depth());
+  EXPECT_EQ(0, ::memcmp(&i, &i01, sizeof(i)));
+  EXPECT_TRUE(w1.Next(&i));
+  EXPECT_EQ(0, w1.nesting_depth());
+  EXPECT_EQ(0, ::memcmp(&i, &i1, sizeof(i)));
+  EXPECT_TRUE(w1.Next(&i));
+  EXPECT_EQ(1, w1.nesting_depth());
+  EXPECT_EQ(0, ::memcmp(&i, &i10, sizeof(i)));
+  EXPECT_TRUE(w1.Next(&i));
+  EXPECT_EQ(2, w1.nesting_depth());
+  EXPECT_EQ(0, ::memcmp(&i, &i100, sizeof(i)));
+  EXPECT_TRUE(w1.Next(&i));
+  EXPECT_EQ(0, w1.nesting_depth());
+  EXPECT_EQ(0, ::memcmp(&i, &i2, sizeof(i)));
+  EXPECT_FALSE(w1.Next(&i));
+  EXPECT_EQ(-1, w1.nesting_depth());
+
+  Shadow::Unpoison(data, data_size);
+  delete [] data;
 }
 
 }  // namespace asan

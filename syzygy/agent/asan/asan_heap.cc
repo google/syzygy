@@ -1133,6 +1133,8 @@ bool HeapProxy::GetBadAccessInformation(AsanErrorInfo* bad_access_info) {
       const StackCapture* free_stack = header->free_stack;
       BlockTrailer* free_stack_trailer = trailer;
       // Use the free metadata of the containing block if there's one.
+      // TODO(chrisha): This should report all of the nested stack information
+      //     from innermost to outermost. For now, innermost is best.
       if (containing_block != NULL) {
         free_stack = containing_block->free_stack;
         free_stack_trailer = BlockHeaderToBlockTrailer(containing_block);

@@ -319,8 +319,8 @@ enum AccessMode {
 };
 // @}
 
-// The slow path rely on the fact that the shadow memory non accessible byte
-// mask have its upper bit set to 1.
+// The slow path relies on the fact that the shadow memory non accessible byte
+// mask has its upper bit set to 1.
 COMPILE_ASSERT(
     (Shadow::kHeapNonAccessibleByteMask & (1 << 7)) != 0,
         asan_shadow_mask_upper_bit_is_0);
