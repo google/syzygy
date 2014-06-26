@@ -46,6 +46,7 @@
         'constants.h',
         'direct_allocation.cc',
         'direct_allocation.h',
+        'heap.h',
         'nested_heap.cc',
         'nested_heap.h',
         'shadow.cc',
@@ -55,6 +56,8 @@
         'stack_capture.h',
         'stack_capture_cache.cc',
         'stack_capture_cache.h',
+        'heaps/win_heap.cc',
+        'heaps/win_heap.h',
       ],
       'dependencies': [
         'system_interceptors_generator',
@@ -183,6 +186,7 @@
         'stack_capture_cache_unittest.cc',
         'unittest_util.cc',
         'unittest_util.h',
+        'heaps/win_heap_unittest.cc',
       ],
       'dependencies': [
         'syzyasan_rtl_lib',
