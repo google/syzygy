@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.7.17.0
+
+[r2171] SyzyASan - Implements the interceptor of wcsstr.
+[r2162] SyzyASan - Intercept the kernel32!Interlocked* functions.
+
 Version 0.7.16.0
 
 [r2151] SyzyASan - Fixes to the heap validation code.
