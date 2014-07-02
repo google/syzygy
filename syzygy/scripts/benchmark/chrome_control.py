@@ -38,10 +38,12 @@ STARTUP_NEW_TAB_PAGE = 'new-tab-page'
 STARTUP_HOMEPAGE = 'homepage'
 STARTUP_MULTIPAGE = 'multipage'
 STARTUP_RESTORE_SESSION = 'restore-session'
+STARTUP_DEBUGGING_MODE = 'debugging-mode'
 ALL_STARTUP_TYPES = (STARTUP_NEW_TAB_PAGE,
                      STARTUP_HOMEPAGE,
                      STARTUP_MULTIPAGE,
-                     STARTUP_RESTORE_SESSION)
+                     STARTUP_RESTORE_SESSION,
+                     STARTUP_DEBUGGING_MODE)
 DEFAULT_STARTUP_TYPE = STARTUP_NEW_TAB_PAGE
 
 
@@ -327,6 +329,7 @@ _STARTUP_CONFIG_FUNCS = {
   STARTUP_HOMEPAGE : _ConfigureStartupHomepage,
   STARTUP_MULTIPAGE : _ConfigureStartupMultipage,
   STARTUP_RESTORE_SESSION: _ConfigureStartupRestoreSession,
+  STARTUP_DEBUGGING_MODE: _ConfigureStartupNewTabPage,
 }
 
 

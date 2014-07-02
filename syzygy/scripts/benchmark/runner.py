@@ -30,6 +30,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib2
 import win32api
 import _winreg
 
@@ -46,6 +47,13 @@ import etw
 import etw_db
 import win32com.shell.shell as shell
 import win32com.shell.shellcon as shellcon
+
+_SELF_DIR = os.path.abspath(os.path.dirname(__file__))
+_SYZYGY_THIRD_PARTY_DIR = os.path.join(_SELF_DIR, '..', '..', '..',
+                                       'third_party')
+_WEBSOCKET_DIR = os.path.join(_SYZYGY_THIRD_PARTY_DIR, 'websocket-client')
+sys.path.insert(0, _WEBSOCKET_DIR)
+import websocket
 
 
 # The Windows prefetch directory, this is possibly only valid on Windows XP.
@@ -212,8 +220,10 @@ class ChromeRunner(object):
       startup_type: The type of session startup to use. This must be one of
           the following values in ALL_STARTUP_TYPES.values()
       url_list: The list/tuple of URLs to open on startup, or None. This may
-          only be empty (or None) if the startup_type is STARUP_NEW_TAB_PAGE, or
-          _DROMAEO, otherwise, at least one URL must be in the list.
+          only be empty (or None) if the startup_type is STARTUP_NEW_TAB_PAGE,
+          or _DROMAEO, otherwise, at least one URL must be in the list. If the
+          startup_type is STARTUP_DEBUGGING_MODE then there should be only one
+          URL in the list.
     """
     _LOGGER.info('Configuring startup: %s, %s', startup_type, url_list)
     if not startup_type in ALL_STARTUP_TYPES:
@@ -228,7 +238,10 @@ class ChromeRunner(object):
       if url_list:
         raise ValueError('A url list is not supported for dromaeo mode.')
       url_list = self._InitDromaeoMode()
-
+    if (startup_type == chrome_control.STARTUP_DEBUGGING_MODE and not url_list
+        or len(url_list) != 1):
+      raise ValueError('There should be only one url in the url list in '
+          'debugging mode.')
     # Save the configuration.
     self._startup_type = startup_type
     self._startup_urls = [] if url_list is None else url_list
@@ -427,6 +440,8 @@ class ChromeRunner(object):
       print self._http_server.FormatResultsAsText()
       self._http_server.Reset()
     else:
+      if self._startup_type == chrome_control.STARTUP_DEBUGGING_MODE:
+        self._AccessUrlViaDebugApi()
       # Give our Chrome instance some time to settle.
       time.sleep(20)
 
@@ -463,6 +478,9 @@ class ChromeRunner(object):
                 '--noerrdialogs']
     if extra_arguments:
       cmd_line.extend(extra_arguments)
+
+    if self._startup_type == chrome_control.STARTUP_DEBUGGING_MODE:
+      cmd_line.extend(['--remote-debugging-port=9221'])
 
     _LOGGER.info('Launching command line [%s].', cmd_line)
     return subprocess.Popen(cmd_line)
@@ -519,6 +537,40 @@ class ChromeRunner(object):
       time.sleep(1)
 
     raise RunnerError('Timeout waiting for Chrome.')
+
+  def _AccessUrlViaDebugApi(self):
+    """Access an url via the debug API.
+
+    Raises:
+      RunnerError if Chrome hasn't been started in debug mode or if there's no
+          websocket to connect to.
+    """
+    # Retrieve the available websockets.
+    res = json.load(urllib2.urlopen('http://localhost:9221/json'))
+    if not res:
+      raise RunnerError('Chrome doesn\'t seem to be started in debug mode.')
+
+    # Search for the first available tab.
+    conn = None
+    for e in res:
+      if e['type'] == 'page':
+        ws_url = e['webSocketDebuggerUrl']
+        # Connect to the tab.
+        conn = websocket.create_connection(ws_url)
+        break
+
+    if not conn:
+      raise RunnerError("Unable to find a websocket to connect to.")
+
+    nav_cmd = {
+      'id': 1,
+      'method': 'Page.navigate',
+      'params': {
+        'url': '%s' % self._startup_urls[0]
+      }
+    }
+
+    conn.send(json.dumps(nav_cmd))
 
 
 class ChromeFrameRunner(ChromeRunner):
