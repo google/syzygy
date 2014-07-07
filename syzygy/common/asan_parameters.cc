@@ -146,6 +146,7 @@ const uint32 kDefaultMaxNumFrames = 62;
 // Default values of AsanRuntime parameters.
 const bool kDefaultExitOnFailure = false;
 const bool kDefaultCheckHeapOnFailure = true;
+const bool kDefaultDisableBreakpadReporting = false;
 
 // Default values of AsanLogger parameters.
 const bool kDefaultMiniDumpOnFailure = false;
@@ -168,6 +169,7 @@ const char kParamMaxNumFrames[] = "max_num_frames";
 const char kParamIgnoredStackIds[] = "ignored_stack_ids";
 const char kParamExitOnFailure[] = "exit_on_failure";
 const char kParamNoCheckHeapOnFailure[] = "no_check_heap_on_failure";
+const char kParamDisableBreakpadReporting[]  = "disable_breakpad";
 
 // String names of AsanLogger parameters.
 const char kParamMiniDumpOnFailure[] = "minidump_on_failure";
@@ -235,6 +237,8 @@ void SetDefaultAsanParameters(AsanParameters* asan_parameters) {
   asan_parameters->exit_on_failure = kDefaultExitOnFailure;
   asan_parameters->check_heap_on_failure = kDefaultCheckHeapOnFailure;
   asan_parameters->log_as_text = kDefaultLogAsText;
+  asan_parameters->disable_breakpad_reporting =
+      kDefaultDisableBreakpadReporting;
   asan_parameters->allocation_guard_rate = kDefaultAllocationGuardRate;
 }
 
@@ -362,6 +366,8 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
     asan_parameters->log_as_text = false;
   if (cmd_line.HasSwitch(kParamNoCheckHeapOnFailure))
     asan_parameters->check_heap_on_failure = false;
+  if (cmd_line.HasSwitch(kParamDisableBreakpadReporting))
+    asan_parameters->disable_breakpad_reporting = true;
 
   return true;
 }

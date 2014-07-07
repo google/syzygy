@@ -386,7 +386,8 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // Register the error reporting callback to use if/when an ASan error is
   // detected. If we're able to resolve a breakpad error reporting function
   // then use that; otherwise, fall back to the default error handler.
-  if (GetBreakpadFunctions(&breakpad_functions)) {
+  if (!params_.disable_breakpad_reporting &&
+      GetBreakpadFunctions(&breakpad_functions)) {
     logger_->Write("SyzyASAN: Using Breakpad for error reporting.");
     SetErrorCallBack(base::Bind(&BreakpadErrorHandler, breakpad_functions));
   } else {

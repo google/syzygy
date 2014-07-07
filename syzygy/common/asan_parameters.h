@@ -93,10 +93,13 @@ struct AsanParameters {
       // AsanRuntime: If true, we should check if the heap is corrupt on
       // failure.
       unsigned check_heap_on_failure : 1;
+      // AsanRuntime: If true, we won't try to report the crashes via breakpad
+      // on failure.
+      unsigned disable_breakpad_reporting : 1;
 
       // Add new flags here!
 
-      unsigned reserved1 : 28;
+      unsigned reserved1 : 27;
     };
   };
 
@@ -183,6 +186,7 @@ extern const uint32 kDefaultBottomFramesToSkip;
 // Default values of AsanRuntime parameters.
 extern const bool kDefaultExitOnFailure;
 extern const bool kDefaultCheckHeapOnFailure;
+extern const bool kDefaultDisableBreakpadReporting;
 // Default values of AsanLogger parameters.
 extern const bool kDefaultMiniDumpOnFailure;
 extern const bool kDefaultLogAsText;
@@ -200,6 +204,7 @@ extern const char kParamMaxNumFrames[];
 // String names of AsanRuntime parameters.
 extern const char kParamIgnoredStackIds[];
 extern const char kParamExitOnFailure[];
+extern const char kParamDisableBreakpadReporting[];
 // String names of AsanLogger parameters.
 extern const char kParamMiniDumpOnFailure[];
 extern const char kParamLogAsText[];

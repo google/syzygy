@@ -188,6 +188,15 @@ TEST_F(AsanRuntimeTest, SetTrailerPaddingSize) {
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 
+TEST_F(AsanRuntimeTest, SetDisableBreakpad) {
+  current_command_line_.AppendSwitch(common::kParamDisableBreakpadReporting);
+
+  ASSERT_NO_FATAL_FAILURE(
+      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
+  EXPECT_TRUE(asan_runtime_.params().disable_breakpad_reporting);
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
+}
+
 TEST_F(AsanRuntimeTest, SetExitOnFailure) {
   current_command_line_.AppendSwitch(common::kParamExitOnFailure);
 
