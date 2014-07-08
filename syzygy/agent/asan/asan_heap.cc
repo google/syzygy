@@ -1365,6 +1365,8 @@ void HeapProxy::GetBlockInfo(AsanBlockInfo* block_info) {
   }
 
   // Only check the trailer if the block isn't marked as corrupt.
+  DCHECK_EQ(0U, block_info->alloc_tid);
+  DCHECK_EQ(0U, block_info->free_tid);
   if (!block_info->corrupt) {
     BlockTrailer* trailer = BlockHeaderToBlockTrailer(header);
     block_info->alloc_tid = trailer->alloc_tid;

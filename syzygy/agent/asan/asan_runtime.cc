@@ -555,6 +555,8 @@ void AsanRuntime::WriteCorruptHeapInfo(
          (buffer_size != 0 && buffer != NULL));
   DCHECK_NE(reinterpret_cast<AsanErrorInfo*>(NULL), error_info);
 
+  ::memset(buffer, 0, buffer_size);
+
   error_info->heap_is_corrupt = false;
   error_info->corrupt_range_count = 0;
   error_info->corrupt_block_count = 0;
