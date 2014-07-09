@@ -513,7 +513,7 @@ bool HeapProxy::SetInformation(HEAP_INFORMATION_CLASS info_class,
   DCHECK(heap_ != NULL);
   // We don't allow the HeapEnableTerminationOnCorruption flag to be set, as we
   // prefer to catch and report these ourselves.
-  if (info_class = ::HeapEnableTerminationOnCorruption)
+  if (info_class == ::HeapEnableTerminationOnCorruption)
     return true;
   return ::HeapSetInformation(heap_, info_class, info, info_length) == TRUE;
 }

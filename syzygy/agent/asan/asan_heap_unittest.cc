@@ -718,7 +718,7 @@ TEST_F(HeapTest, SetQueryInformation) {
   unsigned long ret = 0;
   // Get the current value of the compat flag.
   ASSERT_TRUE(
-      proxy_.QueryInformation(HeapCompatibilityInformation,
+      proxy_.QueryInformation(::HeapCompatibilityInformation,
                               &compat_flag, sizeof(compat_flag), &ret));
   ASSERT_EQ(sizeof(compat_flag), ret);
   ASSERT_NE(~0U, compat_flag);
@@ -733,8 +733,16 @@ TEST_F(HeapTest, SetQueryInformation) {
 
   compat_flag = 2;
   ASSERT_TRUE(
-      proxy_.SetInformation(HeapCompatibilityInformation,
+      proxy_.SetInformation(::HeapCompatibilityInformation,
                             &compat_flag, sizeof(compat_flag)));
+
+  // Ensure that the compatibility information has been correctly set.
+  size_t compat_flag_val = 0;
+  ASSERT_TRUE(
+      proxy_.QueryInformation(::HeapCompatibilityInformation,
+                              &compat_flag_val, sizeof(compat_flag_val), &ret));
+  ASSERT_EQ(sizeof(compat_flag), ret);
+  ASSERT_EQ(compat_flag, compat_flag_val);
 }
 
 namespace {
