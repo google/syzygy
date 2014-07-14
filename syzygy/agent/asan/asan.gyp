@@ -51,6 +51,7 @@
         'nested_heap.h',
         'page_allocator.h',
         'page_allocator_impl.h',
+        'quarantine.h',
         'shadow.cc',
         'shadow.h',
         'shadow_impl.h',
@@ -60,6 +61,10 @@
         'stack_capture_cache.h',
         'heaps/win_heap.cc',
         'heaps/win_heap.h',
+        'quarantines/sharded_quarantine.h',
+        'quarantines/sharded_quarantine_impl.h',
+        'quarantines/size_limited_quarantine.h',
+        'quarantines/size_limited_quarantine_impl.h',
       ],
       'dependencies': [
         'system_interceptors_generator',
@@ -190,6 +195,8 @@
         'unittest_util.cc',
         'unittest_util.h',
         'heaps/win_heap_unittest.cc',
+        'quarantines/sharded_quarantine_unittest.cc',
+        'quarantines/size_limited_quarantine_unittest.cc',
       ],
       'dependencies': [
         'syzyasan_rtl_lib',
