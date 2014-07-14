@@ -417,6 +417,8 @@ TEST_F(CrtInterceptorsTest, AsanCheckWcsstr) {
   EXPECT_EQ(::wcsstr(str.get(), keys.get()),
             wcsstrFunction(str.get(), keys.get()));
 
+  EXPECT_EQ(NULL, wcsstrFunction(str.get(), L"abcd"));
+
   SetCallBackFunction(&AsanErrorCallback);
   keys[::wcslen(keys_value)] = L'a';
   wcsstrFunctionFailing(str.get(), keys.get());

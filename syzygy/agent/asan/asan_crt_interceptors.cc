@@ -105,7 +105,7 @@ const wchar_t* asan_wcsstr(const wchar_t* str, const wchar_t* keys) {
                     HeapProxy::ASAN_READ_ACCESS);
   }
   const wchar_t* ret = ::wcsstr(str, keys);
-  if (!agent::asan::Shadow::IsAccessible(ret)) {
+  if (ret != NULL && !agent::asan::Shadow::IsAccessible(ret)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(ret),
                     HeapProxy::ASAN_READ_ACCESS);
   }
