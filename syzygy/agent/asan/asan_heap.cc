@@ -28,7 +28,6 @@
 #include "base/strings/sys_string_conversions.h"
 #include "syzygy/agent/asan/asan_heap_checker.h"
 #include "syzygy/agent/asan/asan_runtime.h"
-#include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/asan_parameters.h"
@@ -121,12 +120,7 @@ const char* HeapProxy::kCorruptHeap = "corrupt-heap";
 
 HeapProxy::HeapProxy()
     : heap_(NULL),
-      quarantine_size_(0),
-      quarantine_max_size_(0),
-      quarantine_max_block_size_(0),
       owns_heap_(false) {
-  ::memset(heads_, 0, sizeof(heads_));
-  ::memset(tails_, 0, sizeof(tails_));
 }
 
 HeapProxy::~HeapProxy() {
@@ -533,97 +527,60 @@ bool HeapProxy::QueryInformation(HEAP_INFORMATION_CLASS info_class,
 void HeapProxy::SetQuarantineMaxSize(size_t quarantine_max_size) {
   {
     base::AutoLock lock(lock_);
-    quarantine_max_size_ = quarantine_max_size;
-
-    // This also acts as a cap on the maximum size of a block that can enter the
-    // quarantine.
-    quarantine_max_block_size_ = std::min(quarantine_max_block_size_,
-                                          quarantine_max_size_);
+    quarantine_.set_max_quarantine_size(quarantine_max_size);
   }
 
-  TrimQuarantine();
+  // Trim the quarantine to the new maximum size if it's not zero, empty it
+  // otherwise.
+  if (quarantine_max_size != 0) {
+    TrimQuarantine();
+  } else {
+    AsanShardedQuarantine::ObjectVector objects_vec;
+    quarantine_.Empty(&objects_vec);
+    AsanShardedQuarantine::ObjectVector::iterator iter = objects_vec.begin();
+    for (; iter != objects_vec.end(); ++iter)
+      CHECK(FreeQuarantinedBlock(*iter));
+  }
 }
 
 void HeapProxy::SetQuarantineMaxBlockSize(size_t quarantine_max_block_size) {
-  {
-    base::AutoLock lock(lock_);
+  base::AutoLock lock(lock_);
+  quarantine_.set_max_object_size(quarantine_max_block_size);
 
-    // Use the current max quarantine size as a cap.
-    quarantine_max_block_size_ = std::min(quarantine_max_block_size,
-                                          quarantine_max_size_);
-
-    // TODO(chrisha): Clean up existing blocks that exceed that size? This will
-    //     require an entirely new TrimQuarantine function. Since this is never
-    //     changed at runtime except in our unittests, this is not clearly
-    //     useful.
-  }
+  // TODO(chrisha): Clean up existing blocks that exceed that size? This will
+  //     require an entirely new TrimQuarantine function. Since this is never
+  //     changed at runtime except in our unittests, this is not clearly
+  //     useful.
 }
 
 bool HeapProxy::TrimQuarantine() {
   size_t size_of_block_just_freed = 0;
   bool success = true;
+  BlockHeader* free_block = NULL;
 
-  while (true) {
-    BlockHeader* free_block = NULL;
-    BlockTrailer* trailer = NULL;
+  while (quarantine_.Pop(&free_block))
+    success = success && FreeQuarantinedBlock(free_block);
 
-    // Randomly choose a quarantine shard from which to remove an element.
-    // TODO(chrisha): Do we want this to be truly random, or hashed off of the
-    //      block address and/or contents itself? Do we want to expose multiple
-    //      eviction strategies?
-    size_t i = rand() % kQuarantineShards;
+  return success;
+}
 
-    // This code runs under a critical lock. Try to keep as much work out of
-    // this scope as possible!
-    {
-      base::AutoLock lock(lock_);
+bool HeapProxy::FreeQuarantinedBlock(BlockHeader* block) {
+  DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), block);
+  bool success = true;
 
-      // We subtract this here under the lock because we actually calculate the
-      // size of the block outside of the lock when we validate the checksum.
-      DCHECK_GE(quarantine_size_, size_of_block_just_freed);
-      quarantine_size_ -= size_of_block_just_freed;
-
-      // Stop when the quarantine is back down to a reasonable size.
-      if (quarantine_size_ <= quarantine_max_size_)
-        return success;
-
-      // Make sure we haven't chosen an empty shard.
-      while (heads_[i] == NULL) {
-        ++i;
-        if (i == kQuarantineShards)
-          i = 0;
-      }
-
-      DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), heads_[i]);
-      DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), tails_[i]);
-
-      free_block = heads_[i];
-      trailer = BlockHeaderToBlockTrailer(free_block);
-      DCHECK_NE(reinterpret_cast<BlockTrailer*>(NULL), trailer);
-
-      heads_[i] = trailer->next_free_block;
-      if (heads_[i] == NULL)
-        tails_[i] = NULL;
-    }
-
-    // Check if the block has been stomped while it's in the quarantine. If it
-    // has we take great pains to delete it carefully, and also report an error.
-    // Otherwise, we trust the data in the header and take the fast path.
-    size_t alloc_size = 0;
-    if (!VerifyChecksum(free_block)) {
-      ReportHeapError(free_block, CORRUPT_BLOCK);
-      if (!FreeCorruptBlock(free_block, &alloc_size))
-        success = false;
-    } else {
-      alloc_size = GetAllocSize(free_block->block_size,
-                                kDefaultAllocGranularity);
-      if (!CleanUpAndFreeAsanBlock(free_block, alloc_size))
-        success = false;
-    }
-
-    size_of_block_just_freed = alloc_size;
+  // Check if the block has been stomped while it's in the quarantine. If it
+  // has we take great pains to delete it carefully, and also report an error.
+  // Otherwise, we trust the data in the header and take the fast path.
+  size_t alloc_size = 0;
+  if (!VerifyChecksum(block)) {
+    ReportHeapError(block, CORRUPT_BLOCK);
+    if (!FreeCorruptBlock(block, &alloc_size))
+      success = false;
+  } else {
+    alloc_size = GetAllocSize(block->block_size, kDefaultAllocGranularity);
+    if (!CleanUpAndFreeAsanBlock(block, alloc_size))
+      success = false;
   }
-
   return success;
 }
 
@@ -752,38 +709,14 @@ void HeapProxy::CloneObject(const void* src_asan_pointer,
 void HeapProxy::QuarantineBlock(BlockHeader* block) {
   DCHECK(block != NULL);
 
-  DCHECK(BlockHeaderToBlockTrailer(block)->next_free_block == NULL);
-  size_t alloc_size = GetAllocSize(block->block_size,
-                                   kDefaultAllocGranularity);
-
-  // If the block is bigger than the quarantine then it will immediately be
-  // trimmed and it will simply cause the quarantine to empty itself. So as not
-  // to dominate the quarantine with overly large blocks we also limit blocks to
-  // an (optional) maximum size.
-  if (alloc_size > quarantine_max_block_size_ ||
-      alloc_size > quarantine_max_size_) {
+  if (!quarantine_.Push(block)) {
     // Don't worry if CleanUpAndFreeAsanBlock fails as it will report a heap
     // error in this case.
+    size_t alloc_size = GetAllocSize(block->block_size,
+                                     kDefaultAllocGranularity);
     CleanUpAndFreeAsanBlock(block, alloc_size);
     return;
   }
-
-  // Randomly choose a quarantine shard to receive the block.
-  size_t i = rand() % kQuarantineShards;
-
-  {
-    base::AutoLock lock(lock_);
-
-    quarantine_size_ += alloc_size;
-    if (tails_[i] != NULL) {
-      BlockHeaderToBlockTrailer(tails_[i])->next_free_block = block;
-    } else {
-      DCHECK_EQ(reinterpret_cast<BlockHeader*>(NULL), heads_[i]);
-      heads_[i] = block;
-    }
-    tails_[i] = block;
-  }
-
   TrimQuarantine();
 }
 

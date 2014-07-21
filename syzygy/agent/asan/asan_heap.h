@@ -27,6 +27,7 @@
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
+#include "syzygy/agent/asan/quarantines/sharded_quarantine.h"
 #include "syzygy/agent/common/dlist.h"
 
 namespace agent {
@@ -166,7 +167,7 @@ class HeapProxy {
 
   // Get the max size of the quarantine of a heap proxy.
   size_t quarantine_max_size() {
-    return quarantine_max_size_;
+    return quarantine_.max_quarantine_size();
   }
 
   // Sets the maximum size of blocks to be accepted in the quarantine. Does not
@@ -181,7 +182,7 @@ class HeapProxy {
   // Returns the current max size of a block that will be accepted into the
   // quarantine.
   size_t quarantine_max_block_size() {
-    return quarantine_max_block_size_;
+    return quarantine_.max_object_size();
   }
 
   // Set the trailer padding size.
@@ -381,6 +382,30 @@ class HeapProxy {
   #pragma pack(pop)
   COMPILE_ASSERT(sizeof(BlockTrailer) == 20, asan_block_trailer_too_big);
 
+  // A functor that retrieves the total size of an ASan allocation.
+  struct GetTotalBlockSizeFunctor {
+    size_t operator()(BlockHeader* header) {
+      return GetAllocSize(header->block_size, kShadowRatio);
+    }
+  };
+
+  // A functor for generating the hash of a block. This simply combine the
+  // checksum of a block and its address.
+  // TODO(sebmarchand): Provide a more robust hash, this will be easier to do
+  //     with the new block structure.
+  struct GetBlockHashFunctor {
+    size_t operator()(BlockHeader* header) {
+      return header->checksum + reinterpret_cast<size_t>(header);
+    }
+  };
+
+  // Defines the type of quarantine that we'll use.
+  typedef quarantines::ShardedQuarantine<HeapProxy::BlockHeader*,
+                                         GetTotalBlockSizeFunctor,
+                                         GetBlockHashFunctor,
+                                         kQuarantineDefaultShardingFactor>
+      AsanShardedQuarantine;
+
   // Magic number to identify the beginning of a block header.
   static const size_t kBlockHeaderSignature = 0xCA80;
 
@@ -500,6 +525,12 @@ class HeapProxy {
   // @returns true on success, false otherwise.
   bool TrimQuarantine();
 
+  // Free a block that has been popped from the quarantine. This reports an heap
+  // error if the block has been corrupt while in the quarantine.
+  // @param block The block to be freed.
+  // @returns true if the block has been successfully freed, false otherwise.
+  bool FreeQuarantinedBlock(BlockHeader* block);
+
   // Free a corrupt memory block. This clears its metadata (including the shadow
   // memory) and calls ::HeapFree on it.
   // @param header The ASan block header for the block to be freed.
@@ -524,10 +555,6 @@ class HeapProxy {
   //     error was detected.
   // @param kind The type of error encountered.
   void ReportHeapError(void* address, BadAccessKind kind);
-
-  // The sharding factor of the quarantine. This is used to give us linear
-  // access for random removal and insertion of elements into the quarantine.
-  static const size_t kQuarantineShards = 128;
 
   // The default alloc granularity.
   static const size_t kDefaultAllocGranularity = kShadowRatio;
@@ -562,22 +589,6 @@ class HeapProxy {
   // Protects concurrent access to HeapProxy internals.
   base::Lock lock_;
 
-  // Points to the heads of the multiple quarantine queues.
-  BlockHeader* heads_[kQuarantineShards];  // Under lock_.
-
-  // Points to the tails of the multiple quarantine queues.
-  BlockHeader* tails_[kQuarantineShards];  // Under lock_.
-
-  // Total size of blocks in quarantine.
-  size_t quarantine_size_;  // Under lock_.
-
-  // Max size of blocks in quarantine.
-  size_t quarantine_max_size_;  // Under lock_.
-
-  // Max size of any single block in the quarantine.
-  // TODO(chrisha): Expose this to make it configurable!
-  size_t quarantine_max_block_size_;  // Under lock_.
-
   // The entry linking to us.
   LIST_ENTRY list_entry_;
 
@@ -586,6 +597,9 @@ class HeapProxy {
   // at their source. Catching their side effect as early as possible allows the
   // recovery of some useful debugging information.
   HeapErrorCallback heap_error_callback_;
+
+  // The quarantine that will be used by this heap.
+  AsanShardedQuarantine quarantine_;
 };
 
 // Utility class which implements an auto lock for a HeapProxy.

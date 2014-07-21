@@ -28,6 +28,10 @@ static const size_t kShadowRatio = (1 << kShadowRatioLog);
 // The size of a page on the OS.
 extern const size_t kPageSize;
 
+// The default sharding factor of the quarantine. This is used to give us linear
+// access for random removal and insertion of elements into the quarantine.
+static const size_t kQuarantineDefaultShardingFactor = 128;
+
 }  // namespace asan
 }  // namespace agent
 

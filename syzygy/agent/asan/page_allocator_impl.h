@@ -382,7 +382,7 @@ bool PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
     return false;
 
   uint8* prev = page + page_size_ - sizeof(void*);
-  end_object_ = common::AlignDown(prev, kObjectSize);
+  end_object_ = ::common::AlignDown(prev, kObjectSize);
 
   // Keep a pointer to the previous page, and set up the next object pointer.
   *reinterpret_cast<uint8**>(prev) = current_page_;

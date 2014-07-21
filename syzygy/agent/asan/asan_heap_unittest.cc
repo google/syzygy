@@ -43,28 +43,44 @@ class TestShadow : public Shadow {
 // A derived class to expose protected members for unit-testing.
 class TestHeapProxy : public HeapProxy {
  public:
-  using HeapProxy::BlockHeader;
-  using HeapProxy::BlockTrailer;
-  using HeapProxy::AsanPointerToUserPointer;
   using HeapProxy::AsanPointerToBlockHeader;
+  using HeapProxy::AsanPointerToUserPointer;
+  using HeapProxy::AsanShardedQuarantine;
+  using HeapProxy::BlockHeader;
   using HeapProxy::BlockHeaderToAsanPointer;
   using HeapProxy::BlockHeaderToBlockTrailer;
   using HeapProxy::BlockHeaderToUserPointer;
-  using HeapProxy::SetBlockChecksum;
+  using HeapProxy::BlockTrailer;
   using HeapProxy::FindBlockContainingAddress;
   using HeapProxy::FindContainingBlock;
   using HeapProxy::FindContainingFreedBlock;
   using HeapProxy::GetAllocSize;
   using HeapProxy::GetBadAccessKind;
+  using HeapProxy::GetBlockHashFunctor;
   using HeapProxy::GetTimeSinceFree;
+  using HeapProxy::GetTotalBlockSizeFunctor;
   using HeapProxy::InitializeAsanBlock;
+  using HeapProxy::SetBlockChecksum;
   using HeapProxy::UserPointerToBlockHeader;
   using HeapProxy::UserPointerToAsanPointer;
   using HeapProxy::kBlockHeaderSignature;
   using HeapProxy::kDefaultAllocGranularityLog;
-  using HeapProxy::quarantine_size_;
+  using HeapProxy::quarantine_;
 
   TestHeapProxy() { }
+
+  // A derived class to expose protected members for unit-testing. This has to
+  // be nested into this one because AsanShardedQuarantine accesses some
+  // protected fields of HeapProxy.
+  //
+  // This class should only expose some members or expose new functions, no new
+  // member should be added.
+  class TestQuarantine : public AsanShardedQuarantine {
+   public:
+    using AsanShardedQuarantine::Node;
+    using AsanShardedQuarantine::kShardingFactor;
+    using AsanShardedQuarantine::heads_;
+  };
 
   // Calculates the underlying allocation size for an allocation of @p bytes.
   // This assume a granularity of @p kDefaultAllocGranularity bytes.
@@ -119,22 +135,28 @@ class TestHeapProxy : public HeapProxy {
 
   // Determines if the address @p mem corresponds to a block in quarantine.
   bool InQuarantine(const void* mem) {
+    // As we'll cast an AsanShardedQuarantine directly into a TestQuarantine
+    // there shouldn't be any new field defined by this class, this should only
+    // act as an interface allowing to access some private fields.
+    COMPILE_ASSERT(
+        sizeof(TestQuarantine) == sizeof(TestHeapProxy::AsanShardedQuarantine),
+        test_quarantine_is_not_an_interface);
     base::AutoLock lock(lock_);
-
+    TestQuarantine* test_quarantine =
+        reinterpret_cast<TestQuarantine*>(&quarantine_);
     // Search through all of the shards.
-    for (size_t i = 0; i < kQuarantineShards; ++i) {
+    for (size_t i = 0; i < test_quarantine->kShardingFactor; ++i) {
       // Search through all blocks in each shard.
-      BlockHeader* current_block = heads_[i];
-      while (current_block != NULL) {
+      TestQuarantine::Node* current_node = test_quarantine->heads_[i];
+      while (current_node != NULL) {
         void* block_alloc = static_cast<void*>(
-            BlockHeaderToUserPointer(current_block));
+            BlockHeaderToUserPointer(current_node->object));
         EXPECT_TRUE(block_alloc != NULL);
         if (block_alloc == mem) {
-          EXPECT_TRUE(current_block->state == QUARANTINED);
+          EXPECT_TRUE(current_node->object->state == QUARANTINED);
           return true;
         }
-        current_block =
-            BlockHeaderToBlockTrailer(current_block)->next_free_block;
+        current_node = current_node->next;
       }
     }
 
@@ -148,7 +170,7 @@ class TestHeapProxy : public HeapProxy {
     size_t max_block_size = quarantine_max_block_size();
 
     SetQuarantineMaxSize(1);
-    EXPECT_EQ(0u, quarantine_size_);
+    EXPECT_EQ(0u, quarantine_.size());
 
     SetQuarantineMaxSize(max_size);
     SetQuarantineMaxBlockSize(max_block_size);
@@ -275,14 +297,6 @@ TEST_F(HeapTest, SetQuarantineSizeCapsMaxBlockSize) {
   proxy_.SetQuarantineMaxBlockSize(50);
   EXPECT_EQ(100u, proxy_.quarantine_max_size());
   EXPECT_EQ(50u, proxy_.quarantine_max_block_size());
-
-  proxy_.SetQuarantineMaxSize(25);
-  EXPECT_EQ(25u, proxy_.quarantine_max_size());
-  EXPECT_EQ(25u, proxy_.quarantine_max_block_size());
-
-  proxy_.SetQuarantineMaxBlockSize(50);
-  EXPECT_EQ(25u, proxy_.quarantine_max_size());
-  EXPECT_EQ(25u, proxy_.quarantine_max_block_size());
 }
 
 TEST_F(HeapTest, PopOnSetQuarantineMaxSize) {
@@ -336,7 +350,7 @@ TEST_F(HeapTest, QuarantineLargeBlock) {
   ASSERT_TRUE(mem1 != NULL);
   EXPECT_TRUE(proxy_.Free(0, mem1));
   EXPECT_FALSE(proxy_.InQuarantine(mem1));
-  EXPECT_EQ(0u, proxy_.quarantine_size_);
+  EXPECT_EQ(0u, proxy_.quarantine_.size());
 
   // A big block should make it because our current max block size allows it.
   LPVOID mem2 = proxy_.Alloc(0, 25);
