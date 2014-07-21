@@ -17,6 +17,7 @@
 #include "windows.h"
 
 #include "base/debug/alias.h"
+#include "base/memory/scoped_ptr.h"
 #include "gtest/gtest.h"
 
 namespace agent {
@@ -152,8 +153,16 @@ TEST(BlockTest, EndToEnd) {
   BlockLayout layout = {};
   BlockInfo block_info = {};
 
-  BlockPlanLayout(8, 8, 61, 0, 0, &layout);
+  BlockPlanLayout(8, 8, 4, 0, 0, &layout);
   void* block_data = ::malloc(layout.block_size);
+  ASSERT_TRUE(block_data != NULL);
+  BlockInitialize(layout, block_data, &block_info);
+  EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
+  ::free(block_data);
+  block_data = NULL;
+
+  BlockPlanLayout(8, 8, 61, 0, 0, &layout);
+  block_data = ::malloc(layout.block_size);
   ASSERT_TRUE(block_data != NULL);
   BlockInitialize(layout, block_data, &block_info);
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
@@ -258,11 +267,11 @@ TEST(BlockTest, BlockInfoFromMemory) {
   BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout1);
   BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 32, 0, &layout2);
 
-  uint8* data = new uint8[layout2.block_size];
+  scoped_ptr<uint8> data(new uint8[layout2.block_size]);
 
   // First recover a block without header padding.
   BlockInfo info = {};
-  BlockInitialize(layout1, data, &info);
+  BlockInitialize(layout1, data.get(), &info);
   BlockInfo info_recovered = {};
   EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
   EXPECT_EQ(info, info_recovered);
@@ -278,7 +287,7 @@ TEST(BlockTest, BlockInfoFromMemory) {
   EXPECT_FALSE(BlockInfoFromMemory(info.block, &info_recovered));
 
   // Now recover a block with header padding.
-  BlockInitialize(layout2, data, &info);
+  BlockInitialize(layout2, data.get(), &info);
   EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
   EXPECT_EQ(info, info_recovered);
   // Failed because the magic is invalid.
@@ -292,7 +301,17 @@ TEST(BlockTest, BlockInfoFromMemory) {
   EXPECT_FALSE(BlockInfoFromMemory(info.block, &info_recovered));
   --(*tail);
 
-  delete[] data;
+  // Finally ensure that we can recover information about blocks of various
+  // sizes.
+  for (size_t block_size = 0; block_size < kShadowRatio * 2; ++block_size) {
+    BlockLayout layout = {};
+    BlockPlanLayout(kShadowRatio, kShadowRatio, block_size, 0, 0, &layout);
+    data.reset(new uint8[layout.block_size]);
+    BlockInitialize(layout, data.get(), &info);
+    EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
+    EXPECT_EQ(info.body_size, info_recovered.body_size);
+    EXPECT_EQ(info, info_recovered);
+  }
 }
 
 TEST(BlockTest, BlockInfoFromMemoryProtectedMemory) {

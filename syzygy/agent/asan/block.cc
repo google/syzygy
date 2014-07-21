@@ -148,8 +148,11 @@ bool BlockInfoFromMemoryImpl(const void* const_raw_block,
   uint8* body = reinterpret_cast<uint8*>(header + 1) + header_padding_size;
 
   // Parse the trailer padding.
-  uint32 trailer_padding_size = (kShadowRatio / 2) -
-      (header->body_size % (kShadowRatio / 2));
+  uint32 trailer_padding_size = 0;
+  if ((header->body_size % kShadowRatio) != (kShadowRatio / 2)) {
+    trailer_padding_size = (kShadowRatio / 2) -
+        (header->body_size % (kShadowRatio / 2));
+  }
   if (header->has_excess_trailer_padding) {
     uint32* head = reinterpret_cast<uint32*>(body + header->body_size);
     if ((*head % (kShadowRatio / 2)) != trailer_padding_size)
