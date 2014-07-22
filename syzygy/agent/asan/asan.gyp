@@ -150,7 +150,6 @@
         {
           'action_name': 'generate_syzyasan_system_interceptors',
           'inputs': [
-            'asan_system_interceptors_filter.csv',
             'syzyasan_rtl.def',
             'asan_system_interceptors_function_list.txt',
           ],
