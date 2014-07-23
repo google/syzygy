@@ -46,6 +46,8 @@ size_t asan_GetAsanObjectSize(size_t user_object_size, size_t alignment);
 // @param asan_pointer The ASan block to initialize.
 // @param user_object_size The user object size.
 // @param alignment The user object alignment.
+// @note The block is assumed to be nested in an outer block that has been
+//     allocated by the SyzyASan heap.
 void asan_InitializeObject(void* asan_pointer,
                            size_t user_object_size,
                            size_t alignment);

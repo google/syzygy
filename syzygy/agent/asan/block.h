@@ -225,6 +225,9 @@ struct BlockInfo {
   size_t left_redzone_pages_size;
   uint8* right_redzone_pages;
   size_t right_redzone_pages_size;
+
+  // Indicates if the block is nested.
+  bool is_nested;
 };
 
 // Plans the layout of a block given allocation requirements. The layout will
@@ -259,11 +262,13 @@ void BlockPlanLayout(size_t chunk_size,
 // @param allocation The allocation to be filled in. This must be of
 //     |layout.block_size| in size, and be aligned with
 //     |layout.block_alignment|.
+// @param is_nested Indicates if the block is nested.
 // @param block_info Will be filled in with pointers to the various portions
 //     of the block. May be NULL.
 // @note The pages containing the block must be writable and readable.
 void BlockInitialize(const BlockLayout& layout,
                      void* allocation,
+                     bool is_nested,
                      BlockInfo* block_info);
 
 // Given a pointer to a block examines memory and extracts the block layout.

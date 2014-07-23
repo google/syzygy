@@ -169,13 +169,12 @@ TEST(ShadowTest, MarkAsFreed) {
 
   uint8* d0 = data;
   BlockInfo i0 = {};
-  BlockInitialize(l0, d0, &i0);
+  BlockInitialize(l0, d0, false, &i0);
   Shadow::PoisonAllocatedBlock(i0);
 
   uint8* d1 = i0.body + kShadowRatio;
   BlockInfo i1 = {};
-  BlockInitialize(l1, d1, &i1);
-  i1.header->is_nested = true;
+  BlockInitialize(l1, d1, true, &i1);
   Shadow::PoisonAllocatedBlock(i1);
 
   Shadow::MarkAsFreed(i0.body, i0.body_size);
@@ -209,7 +208,7 @@ TEST(ShadowTest, PoisonAllocatedBlock) {
 
   uint8* data = new uint8[layout.block_size];
   BlockInfo info = {};
-  BlockInitialize(layout, data, &info);
+  BlockInitialize(layout, data, false, &info);
 
   Shadow::PoisonAllocatedBlock(info);
   EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 0 * 8),
@@ -308,7 +307,7 @@ void TestBlockInfoFromShadow(const BlockLayout& outer,
   // Try recovering the block from every position within it when no nested
   // block exists. Expect finding a nested block to fail.
   BlockInfo info = {};
-  BlockInitialize(outer, data, &info);
+  BlockInitialize(outer, data, false, &info);
   Shadow::PoisonAllocatedBlock(info);
   BlockInfo info_recovered = {};
   for (size_t i = 0; i < info.block_size; ++i) {
@@ -326,7 +325,7 @@ void TestBlockInfoFromShadow(const BlockLayout& outer,
   uint8* nested_begin = info.body + padding / 2;
   uint8* nested_end = nested_begin + nested.block_size;
   BlockInfo nested_info = {};
-  BlockInitialize(nested, nested_begin, &nested_info);
+  BlockInitialize(nested, nested_begin, true, &nested_info);
   nested_info.header->is_nested = true;
   Shadow::PoisonAllocatedBlock(nested_info);
   for (size_t i = 0; i < info.block_size; ++i) {
@@ -389,9 +388,9 @@ TEST(NewShadowWalkerTest, WalksNonNestedBlocks) {
   uint8* data2 = data1 + l.block_size;
 
   BlockInfo i0 = {}, i1 = {}, i2 = {};
-  BlockInitialize(l, data0, &i0);
-  BlockInitialize(l, data1, &i1);
-  BlockInitialize(l, data2, &i2);
+  BlockInitialize(l, data0, false, &i0);
+  BlockInitialize(l, data1, false, &i1);
+  BlockInitialize(l, data2, false, &i2);
 
   Shadow::PoisonAllocatedBlock(i0);
   Shadow::PoisonAllocatedBlock(i1);
@@ -453,9 +452,9 @@ TEST(NewShadowWalkerTest, WalksNestedBlocks) {
   uint8* d1 = d0 + b0.block_size;
   uint8* d2 = d1 + b1.block_size + kShadowRatio;
   BlockInfo i0 = {}, i1 = {}, i2 = {};
-  BlockInitialize(b0, d0, &i0);
-  BlockInitialize(b1, d1, &i1);
-  BlockInitialize(b2, d2, &i2);
+  BlockInitialize(b0, d0, false, &i0);
+  BlockInitialize(b1, d1, false, &i1);
+  BlockInitialize(b2, d2, false, &i2);
   Shadow::PoisonAllocatedBlock(i0);
   Shadow::PoisonAllocatedBlock(i1);
   Shadow::PoisonAllocatedBlock(i2);
@@ -465,12 +464,9 @@ TEST(NewShadowWalkerTest, WalksNestedBlocks) {
   uint8* d01 = d00 + b00.block_size + kShadowRatio;
   uint8* d10 = i1.body;
   BlockInfo i00 = {}, i01 = {}, i10 = {};
-  BlockInitialize(b00, d00, &i00);
-  BlockInitialize(b01, d01, &i01);
-  BlockInitialize(b10, d10, &i10);
-  i00.header->is_nested = true;
-  i01.header->is_nested = true;
-  i10.header->is_nested = true;
+  BlockInitialize(b00, d00, true, &i00);
+  BlockInitialize(b01, d01, true, &i01);
+  BlockInitialize(b10, d10, true, &i10);
   Shadow::PoisonAllocatedBlock(i00);
   Shadow::PoisonAllocatedBlock(i01);
   Shadow::PoisonAllocatedBlock(i10);
@@ -478,8 +474,7 @@ TEST(NewShadowWalkerTest, WalksNestedBlocks) {
   // Initialize depth 2 blocks.
   uint8* d100 = i10.body;
   BlockInfo i100 = {};
-  BlockInitialize(b100, d100, &i100);
-  i100.header->is_nested = true;
+  BlockInitialize(b100, d100, true, &i100);
   Shadow::PoisonAllocatedBlock(i100);
   i100.header->state = QUARANTINED_BLOCK;
   Shadow::MarkAsFreed(i100.body, i100.body_size);

@@ -70,6 +70,10 @@ void IsValidBlockImpl(const BlockInfo& block, bool just_initialized) {
     EXPECT_EQ(ALLOCATED_BLOCK, block.header->state);
   }
 
+  // By default we assume the blocks to not be nested.
+  EXPECT_FALSE(block.header->is_nested);
+  EXPECT_EQ(block.header->is_nested, block.is_nested);
+
   // Check the header padding.
   if (block.header->has_header_padding) {
     EXPECT_LE(kShadowRatio, block.header_padding_size);
@@ -156,7 +160,7 @@ TEST(BlockTest, EndToEnd) {
   BlockPlanLayout(8, 8, 4, 0, 0, &layout);
   void* block_data = ::malloc(layout.block_size);
   ASSERT_TRUE(block_data != NULL);
-  BlockInitialize(layout, block_data, &block_info);
+  BlockInitialize(layout, block_data, false, &block_info);
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
   ::free(block_data);
   block_data = NULL;
@@ -164,7 +168,7 @@ TEST(BlockTest, EndToEnd) {
   BlockPlanLayout(8, 8, 61, 0, 0, &layout);
   block_data = ::malloc(layout.block_size);
   ASSERT_TRUE(block_data != NULL);
-  BlockInitialize(layout, block_data, &block_info);
+  BlockInitialize(layout, block_data, false, &block_info);
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
   ::free(block_data);
   block_data = NULL;
@@ -172,7 +176,7 @@ TEST(BlockTest, EndToEnd) {
   BlockPlanLayout(8, 8, 60, 32, 32, &layout);
   block_data = ::malloc(layout.block_size);
   ASSERT_TRUE(block_data != NULL);
-  BlockInitialize(layout, block_data, &block_info);
+  BlockInitialize(layout, block_data, false, &block_info);
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
   ::free(block_data);
   block_data = NULL;
@@ -182,7 +186,7 @@ TEST(BlockTest, EndToEnd) {
   block_data = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
                               PAGE_READWRITE);
   ASSERT_TRUE(block_data != NULL);
-  BlockInitialize(layout, block_data, &block_info);
+  BlockInitialize(layout, block_data, false, &block_info);
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
   ASSERT_EQ(TRUE, ::VirtualFree(block_data, 0, MEM_RELEASE));
   block_data = NULL;
@@ -199,7 +203,7 @@ TEST(BlockTest, GetHeaderFromBody) {
 
   // First try navigating a block without header padding.
   BlockInfo info = {};
-  BlockInitialize(layout1, data, &info);
+  BlockInitialize(layout1, data, false, &info);
   // This should succeed as expected.
   EXPECT_EQ(info.header, BlockGetHeaderFromBody(info.body));
   // This fails because of invalid alignment.
@@ -216,7 +220,7 @@ TEST(BlockTest, GetHeaderFromBody) {
   EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == NULL);
 
   // Now navigate a block with header padding.
-  BlockInitialize(layout2, data, &info);
+  BlockInitialize(layout2, data, false, &info);
   // This should succeed as expected.
   EXPECT_EQ(info.header, BlockGetHeaderFromBody(info.body));
   // This fails because of invalid alignment.
@@ -252,7 +256,7 @@ TEST(BlockTest, GetHeaderFromBodyProtectedMemory) {
                                PAGE_READWRITE);
   ASSERT_TRUE(alloc != NULL);
   BlockInfo block_info = {};
-  BlockInitialize(layout, alloc, &block_info);
+  BlockInitialize(layout, alloc, false, &block_info);
 
   BlockProtectRedzones(block_info);
   EXPECT_TRUE(BlockGetHeaderFromBody(block_info.body) == NULL);
@@ -271,11 +275,11 @@ TEST(BlockTest, BlockInfoFromMemory) {
 
   // First recover a block without header padding.
   BlockInfo info = {};
-  BlockInitialize(layout1, data.get(), &info);
+  BlockInitialize(layout1, data.get(), false, &info);
   BlockInfo info_recovered = {};
   EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
   EXPECT_EQ(info, info_recovered);
-  // Failed bacause its not aligned.
+  // Failed because its not aligned.
   EXPECT_FALSE(BlockInfoFromMemory(info.block + 1, &info_recovered));
   // Failed because the magic is invalid.
   ++info.header->magic;
@@ -287,7 +291,7 @@ TEST(BlockTest, BlockInfoFromMemory) {
   EXPECT_FALSE(BlockInfoFromMemory(info.block, &info_recovered));
 
   // Now recover a block with header padding.
-  BlockInitialize(layout2, data.get(), &info);
+  BlockInitialize(layout2, data.get(), false, &info);
   EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
   EXPECT_EQ(info, info_recovered);
   // Failed because the magic is invalid.
@@ -307,7 +311,7 @@ TEST(BlockTest, BlockInfoFromMemory) {
     BlockLayout layout = {};
     BlockPlanLayout(kShadowRatio, kShadowRatio, block_size, 0, 0, &layout);
     data.reset(new uint8[layout.block_size]);
-    BlockInitialize(layout, data.get(), &info);
+    BlockInitialize(layout, data.get(), false, &info);
     EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
     EXPECT_EQ(info.body_size, info_recovered.body_size);
     EXPECT_EQ(info, info_recovered);
@@ -321,7 +325,7 @@ TEST(BlockTest, BlockInfoFromMemoryProtectedMemory) {
                                PAGE_READWRITE);
   ASSERT_TRUE(alloc != NULL);
   BlockInfo block_info = {};
-  BlockInitialize(layout, alloc, &block_info);
+  BlockInitialize(layout, alloc, false, &block_info);
 
   BlockProtectRedzones(block_info);
   BlockInfo recovered_info = {};
@@ -330,12 +334,27 @@ TEST(BlockTest, BlockInfoFromMemoryProtectedMemory) {
   ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
 }
 
+TEST(BlockTest, BlockInfoFromMemoryForNestedBlock) {
+  BlockLayout layout = {};
+  BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout);
+
+  scoped_ptr<uint8> data(new uint8[layout.block_size]);
+  BlockInfo block_info = {};
+  BlockInitialize(layout, data.get(), true, &block_info);
+
+  BlockInfo recovered_info = {};
+  EXPECT_TRUE(BlockInfoFromMemory(block_info.block, &recovered_info));
+
+  EXPECT_TRUE(recovered_info.is_nested);
+  EXPECT_TRUE(recovered_info.header->is_nested);
+}
+
 TEST(BlockTest, ChecksumWorksForAllStates) {
   BlockLayout layout = {};
   BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout);
   uint8* data = new uint8[layout.block_size];
   BlockInfo info = {};
-  BlockInitialize(layout, data, &info);
+  BlockInitialize(layout, data, false, &info);
   while (true) {
     BlockCalculateChecksum(info);
     ++info.header->state;
@@ -502,7 +521,7 @@ TEST(BlockTest, ChecksumDetectsTampering) {
           ASSERT_GT(kAllocSize, layout.block_size);
 
           BlockInfo block_info = {};
-          BlockInitialize(layout, alloc, &block_info);
+          BlockInitialize(layout, alloc, false, &block_info);
 
           // Test that the checksum detects tampering as expected in each block
           // state.
@@ -705,7 +724,7 @@ void TestAllProtectionTransitions(size_t chunk_size,
                                PAGE_READWRITE);
   ASSERT_TRUE(alloc != NULL);
   BlockInfo block_info = {};
-  BlockInitialize(layout, alloc, &block_info);
+  BlockInitialize(layout, alloc, false, &block_info);
 
   // By default the protections should be disabled for a fresh allocation.
   EXPECT_NO_FATAL_FAILURE(TestAccessUnderProtection(block_info,

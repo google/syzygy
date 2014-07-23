@@ -501,6 +501,10 @@ bool Shadow::BlockInfoFromShadowImpl(
   // Fill out page information.
   BlockIdentifyWholePages(info);
 
+  // Check if the block is nested.
+  info->header->is_nested = BlockIsNested(*info);
+  info->is_nested = info->header->is_nested;
+
   return true;
 }
 

@@ -48,6 +48,7 @@ void InitializeBlockHeader(BlockInfo* block_info) {
   DCHECK_NE(static_cast<BlockHeader*>(NULL), block_info->header);
   ::memset(block_info->header, 0, sizeof(BlockHeader));
   block_info->header->magic = kBlockHeaderMagic;
+  block_info->header->is_nested = block_info->is_nested;
   block_info->header->has_header_padding = block_info->header_padding_size > 0;
   block_info->header->has_excess_trailer_padding =
       block_info->trailer_padding_size > sizeof(uint32);
@@ -177,6 +178,7 @@ bool BlockInfoFromMemoryImpl(const void* const_raw_block,
   block_info->trailer_padding_size = trailer_padding_size;
   block_info->trailer_padding = body + header->body_size;
   block_info->trailer = trailer;
+  block_info->is_nested = header->is_nested;
 
   BlockIdentifyWholePages(block_info);
   return true;
@@ -272,6 +274,7 @@ void BlockPlanLayout(size_t chunk_size,
 
 void BlockInitialize(const BlockLayout& layout,
                      void* allocation,
+                     bool is_nested,
                      BlockInfo* block_info) {
   DCHECK_NE(static_cast<void*>(NULL), allocation);
   DCHECK(IsAligned(reinterpret_cast<uint32>(allocation),
@@ -302,6 +305,9 @@ void BlockInitialize(const BlockLayout& layout,
   cursor += layout.trailer_padding_size;
   block_info->trailer_padding_size = layout.trailer_padding_size;
   block_info->trailer = reinterpret_cast<BlockTrailer*>(cursor);
+
+  // Indicates if the block is nested.
+  block_info->is_nested = is_nested;
 
   // If the block information is being returned to the user then determine
   // the extents of whole pages within it.
