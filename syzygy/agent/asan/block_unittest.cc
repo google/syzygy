@@ -72,7 +72,7 @@ void IsValidBlockImpl(const BlockInfo& block, bool just_initialized) {
 
   // By default we assume the blocks to not be nested.
   EXPECT_FALSE(block.header->is_nested);
-  EXPECT_EQ(block.header->is_nested, block.is_nested);
+  EXPECT_EQ(static_cast<bool>(block.header->is_nested), block.is_nested);
 
   // Check the header padding.
   if (block.header->has_header_padding) {
