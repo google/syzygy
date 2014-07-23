@@ -25,6 +25,7 @@
 #include "base/string_piece.h"
 #include "base/debug/stack_trace.h"
 #include "base/synchronization/lock.h"
+#include "syzygy/agent/asan/block_utils.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/agent/asan/quarantines/sharded_quarantine.h"
@@ -105,9 +106,6 @@ class HeapProxy {
   // The sleep time (in milliseconds) used to approximate the CPU frequency.
   // Exposed for testing.
   static const size_t kSleepTimeForApproximatingCPUFrequency = 100;
-
-  // The number of bits used to store the block checksum.
-  static const size_t kChecksumBits = 12;
 
   HeapProxy();
   ~HeapProxy();
@@ -208,10 +206,6 @@ class HeapProxy {
   // @returns the allocation guard rate.
   static float allocation_guard_rate() { return allocation_guard_rate_; }
 
-  // Returns the number of CPU cycles per microsecond on the current machine.
-  // Exposed for testing.
-  static double cpu_cycles_per_us();
-
   // Static initialization of HeapProxy context.
   // @param cache The stack capture cache shared by the HeapProxy.
   static void Init(StackCaptureCache* cache);
@@ -223,37 +217,18 @@ class HeapProxy {
   // @p bytes, with an alignment of @p alignment bytes.
   static size_t GetAllocSize(size_t bytes, size_t alignment);
 
-  // Returns the location and size of the ASan block wrapping a given user
-  // pointer.
-  // @param user_pointer The user pointer for this ASan block.
-  // @param asan_pointer Receives the ASan pointer.
-  // @param size Receives the size of this ASan block.
-  static void GetAsanExtent(const void* user_pointer,
-                            void** asan_pointer,
-                            size_t* size);
-
-  // Given a pointer to an ASan wrapped allocation, returns the location and
-  // size of the user data contained within.
-  // @param asan_pointer The pointer to the ASan block.
-  // @param user_pointer Receives the user pointer.
-  // @param size Receives the size of the user part of this block.
-  static void GetUserExtent(const void* asan_pointer,
-                            void** user_pointer,
-                            size_t* size);
-
   // Initialize an ASan block. This will red-zone the header and trailer, green
   // zone the user data, and save the allocation stack trace and other metadata.
   // @param asan_pointer The ASan block to initialize.
-  // NOTE: This is for the old block layout, which is still used.
   // @param user_size The user size for this block.
-  // @param asan_size The total size of this block.
   // @param alloc_granularity_log The allocation granularity for this block.
+  // @param is_nested Indicates if the block is nested.
   // @param stack The allocation stack capture for this block.
   // @returns The user pointer for this block on success, NULL otherwise.
   static void* InitializeAsanBlock(uint8* asan_pointer,
                                    size_t user_size,
-                                   size_t asan_size,
                                    size_t alloc_granularity_log,
+                                   bool is_nested,
                                    const StackCapture& stack);
 
   // Mark the given block as freed, but still residing in memory. This will
@@ -295,8 +270,8 @@ class HeapProxy {
   static bool IsBlockCorrupt(const uint8* block_header);
 
   // Retrieves a block's metadata.
-  // @param block_info Will receive the block's metadata.
-  static void GetBlockInfo(AsanBlockInfo* block_info);
+  // @param asan_block_info Will receive the block's metadata.
+  static void GetBlockInfo(AsanBlockInfo* asan_block_info);
 
   // @name Heap interface.
   // @{
@@ -349,71 +324,12 @@ class HeapProxy {
   }
 
  protected:
-  enum BlockState {
-    ALLOCATED,
-    FREED,
-    QUARANTINED,
-  };
-
-  // Every allocated block starts with a BlockHeader...
-  struct BlockHeader {
-    size_t magic_number : 16;
-    size_t alignment_log : 4;
-    size_t checksum : kChecksumBits;
-    size_t block_size : 30;
-    // This is implicitly a BlockState value.
-    size_t state : 2;
-    const StackCapture* alloc_stack;
-    const StackCapture* free_stack;
-  };
-  COMPILE_ASSERT((sizeof(BlockHeader) & 7) == 0,
-                 asan_block_header_not_multiple_of_8_bytes);
-  COMPILE_ASSERT(sizeof(BlockHeader) == 16, asan_block_header_too_big);
-
-  // ... and ends with a BlockTrailer.
-  #pragma pack(push, 4)
-  struct BlockTrailer {
-    DWORD alloc_tid;
-    uint64 free_timestamp;
-    DWORD free_tid;
-    // Free blocks are linked together.
-    BlockHeader* next_free_block;
-  };
-  #pragma pack(pop)
-  COMPILE_ASSERT(sizeof(BlockTrailer) == 20, asan_block_trailer_too_big);
-
-  // A functor that retrieves the total size of an ASan allocation.
-  struct GetTotalBlockSizeFunctor {
-    size_t operator()(BlockHeader* header) {
-      return GetAllocSize(header->block_size, kShadowRatio);
-    }
-  };
-
-  // A functor for generating the hash of a block. This simply combine the
-  // checksum of a block and its address.
-  // TODO(sebmarchand): Provide a more robust hash, this will be easier to do
-  //     with the new block structure.
-  struct GetBlockHashFunctor {
-    size_t operator()(BlockHeader* header) {
-      return header->checksum + reinterpret_cast<size_t>(header);
-    }
-  };
-
   // Defines the type of quarantine that we'll use.
-  typedef quarantines::ShardedQuarantine<HeapProxy::BlockHeader*,
+  typedef quarantines::ShardedQuarantine<BlockHeader*,
                                          GetTotalBlockSizeFunctor,
                                          GetBlockHashFunctor,
                                          kQuarantineDefaultShardingFactor>
       AsanShardedQuarantine;
-
-  // Magic number to identify the beginning of a block header.
-  static const size_t kBlockHeaderSignature = 0xCA80;
-
-  // Sets the checksum of a block. If the block is allocated then only the
-  // header and trailer are used to calculate the checksum, otherwise the data
-  // is also used.
-  // @param block_header The header of the block.
-  static void SetBlockChecksum(BlockHeader* block_header);
 
   // Mark a block as quarantined. This will red-zone the user data, and save the
   // deallocation stack trace and other metadata.
@@ -428,96 +344,26 @@ class HeapProxy {
   // @note This leaves the memory red-zoned.
   static void ReleaseAsanBlock(BlockHeader* block_header);
 
-  // Returns the block header for a user pointer.
-  // @param user_pointer The user pointer for which we want the block header
-  //     pointer.
-  // @returns A pointer to the block header of @p user_pointer on success, NULL
-  //    otherwise.
-  static BlockHeader* UserPointerToBlockHeader(const void* user_pointer);
-
-  // Returns the ASan pointer for a user pointer. This should be equal to the
-  // block pointer for the blocks allocated by this proxy.
-  // @param user_pointer The user pointer for which we want the ASan pointer.
-  // @returns A pointer to the ASan pointer of @p user_pointer on success, NULL
-  //    otherwise.
-  static uint8* UserPointerToAsanPointer(const void* user_pointer);
-
-  // Returns the block header for an ASan pointer.
-  // @param asan_pointer The ASan pointer for which we want the block header
-  //     pointer.
-  // @returns A pointer to the block header of @p asan_pointer on success, NULL
-  //     otherwise.
-  static BlockHeader* AsanPointerToBlockHeader(void* asan_pointer);
-
-  // Returns the user pointer for an ASan pointer.
-  // @param asan_pointer The ASan pointer for which we want the user pointer.
-  // @returns A pointer to the user pointer of @p asan_pointer on success, NULL
-  //    otherwise.
-  static uint8* AsanPointerToUserPointer(void* asan_pointer);
-
-  // Returns the ASan pointer for a block header.
-  // @param header The block header pointer for which we want the ASan pointer.
-  // @returns A pointer to the ASan pointer of @p header.
-  static uint8* BlockHeaderToAsanPointer(const BlockHeader* header);
-
-  // Returns the user pointer for a block header.
-  // @param header The block header pointer for which we want the user pointer.
-  // @returns A pointer to the user pointer of @p header.
-  static uint8* BlockHeaderToUserPointer(BlockHeader* header);
-
-  // Returns the block trailer for a block header.
-  // @param block The block header pointer for which we want the block trailer
-  //     pointer.
-  // @returns A pointer to the block trailer of @p header.
-  // @note This function doesn't validate its return value, it just checks that
-  //     the given block header is valid and returns a pointer to the location
-  //     where the trailer should be.
-  static BlockTrailer* BlockHeaderToBlockTrailer(const BlockHeader* header);
-
-  // Returns the time since the block @p header was freed (in microseconds).
+  // Returns the time since the block @p header was freed (in milliseconds).
   // @param header The block for which we want the time since free.
-  static uint64 GetTimeSinceFree(const BlockHeader* header);
+  static uint32 GetTimeSinceFree(const BlockHeader* header);
 
   // Give the type of a bad heap access corresponding to an address.
   // @param addr The address causing a bad heap access.
   // @param header The header of the block containing this address.
   // @returns The type of the bad heap access corresponding to this address.
-  static BadAccessKind GetBadAccessKind(const void* addr, BlockHeader* header);
+  static BadAccessKind GetBadAccessKind(const void* addr,
+                                        const BlockHeader* header);
 
   // Get the information about an address relative to a block.
   // @param header The header of the block containing this address.
   // @param bad_access_info Will receive the information about this address.
-  static void GetAddressInformation(BlockHeader* header,
+  static void GetAddressInformation(const BlockHeader* header,
                                     AsanErrorInfo* bad_access_info);
-
-  // Find the memory block containing @p addr.
-  // @param addr The address for which we want to find the containing block.
-  // @note |addr| may be in the header or trailer of the block, not strictly
-  //     within its data.
-  // @returns a pointer to this memory block in case of success, NULL otherwise.
-  static BlockHeader* FindBlockContainingAddress(uint8* addr);
-
-  // Find the memory block containing the block @p inner_block.
-  // @param inner_block The block for which we want to find the containing
-  //     block.
-  // @returns a pointer to this memory block in case of success, NULL otherwise.
-  static BlockHeader* FindContainingBlock(BlockHeader* inner_block);
-
-  // Find the freed memory block containing the block @p inner_block.
-  // @param inner_block The block for which we want to find the containing
-  //     freed block.
-  // @returns a pointer to this memory block in case of success, NULL otherwise.
-  static BlockHeader* FindContainingFreedBlock(BlockHeader* inner_block);
-
-  // Verify that the checksum of a given block has the expected value.
-  // @param header The header of the block to check.
-  // @returns true if the checksum is the expected one, false otherwise.
-  // @note This function rewrites the checksum present in the header.
-  static bool VerifyChecksum(BlockHeader* header);
 
   // Quarantines @p block and trims the quarantine if it has grown too big.
   // @param block The block to quarantine.
-  void QuarantineBlock(BlockHeader* block);
+  void QuarantineBlock(const BlockInfo& block);
 
   // If the quarantine size is over quarantine_max_size_, trim it down until
   // it's below the limit. Can potentially cause heap errors to be reported if
@@ -571,9 +417,6 @@ class HeapProxy {
   // The rate at which allocations are intercepted and augmented with
   // headers/footers.
   static float allocation_guard_rate_;
-
-  // The number of CPU cycles per microsecond on the current machine.
-  static double cpu_cycles_per_us_;
 
   // The underlying heap we delegate to.
   HANDLE heap_;

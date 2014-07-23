@@ -293,6 +293,7 @@ void BlockInitialize(const BlockLayout& layout,
   uint8* cursor = reinterpret_cast<uint8*>(allocation);
   block_info->block = reinterpret_cast<uint8*>(cursor);
   block_info->block_size = layout.block_size;
+  block_info->is_nested = is_nested;
   block_info->header = reinterpret_cast<BlockHeader*>(cursor);
   cursor += sizeof(BlockHeader);
   block_info->header_padding = cursor;

@@ -308,73 +308,12 @@ void Shadow::AppendShadowMemoryText(const void* addr, std::string* output) {
                       kHeapFreedByte);
 }
 
-const uint8* Shadow::FindBlockBeginning(const uint8* mem) {
-  mem = reinterpret_cast<uint8*>(common::AlignDown(
-      reinterpret_cast<size_t>(mem), kShadowRatio));
-  // Start by checking if |mem| points inside a block.
-  if (!IsLeftRedzone(mem) && !IsRightRedzone(mem)) {
-    do {
-      mem -= kShadowRatio;
-    } while (!IsLeftRedzone(mem) && !IsRightRedzone(mem) &&
-             mem > reinterpret_cast<uint8*>(kAddressLowerBound));
-    // If the shadow marker for |mem| corresponds to a right redzone then this
-    // means that its original value was pointing after a block.
-    if (IsRightRedzone(mem) ||
-        mem <= reinterpret_cast<uint8*>(kAddressLowerBound)) {
-      return NULL;
-    }
-  }
-
-  // Look for the beginning of the memory block.
-  while (!IsLeftRedzone(mem) || IsLeftRedzone(mem - kShadowRatio) &&
-      mem > reinterpret_cast<uint8*>(kAddressLowerBound)) {
-    mem -= kShadowRatio;
-  }
-  if (mem <= reinterpret_cast<uint8*>(kAddressLowerBound))
-    return NULL;
-
-  return mem;
-}
-
 size_t Shadow::GetAllocSize(const uint8* mem) {
-  size_t alloc_size = 0;
-  const uint8* aligned_mem = reinterpret_cast<uint8*>(common::AlignDown(
-      reinterpret_cast<size_t>(mem), kShadowRatio));
-  size_t alignment_offset = mem - aligned_mem;
-  const uint8* mem_begin = FindBlockBeginning(mem);
-
-  if (mem_begin == NULL)
+  BlockInfo block_info = {};
+  if (!Shadow::BlockInfoFromShadow(mem, &block_info))
     return 0;
-
-  // Look for the heap right redzone.
-  while (!IsRightRedzone(mem) &&
-         mem < reinterpret_cast<uint8*>(kAddressUpperBound)) {
-    mem += kShadowRatio;
-  }
-
-  if (mem >= reinterpret_cast<uint8*>(kAddressUpperBound))
-    return 0;
-
-  // Find the end of the block.
-  while (IsRightRedzone(mem) &&
-         mem < reinterpret_cast<uint8*>(kAddressUpperBound)) {
-    mem += kShadowRatio;
-  }
-
-  if (mem >= reinterpret_cast<uint8*>(kAddressUpperBound))
-    return 0;
-
-  return mem - mem_begin - alignment_offset;
+  return block_info.block_size;
 }
-
-const uint8* Shadow::AsanPointerToBlockHeader(const uint8* asan_pointer) {
-  if (!IsLeftRedzone(asan_pointer))
-    return NULL;
-  while (!IsBlockStartByte(asan_pointer))
-    asan_pointer += kShadowRatio;
-  return asan_pointer;
-}
-
 
 bool Shadow::ScanLeftForBracketingBlockStart(
     size_t initial_nesting_depth, size_t cursor, size_t* location) {
@@ -508,42 +447,7 @@ bool Shadow::BlockInfoFromShadowImpl(
   return true;
 }
 
-ShadowWalker::ShadowWalker(const uint8* lower_bound, const uint8* upper_bound)
-    : lower_bound_(lower_bound), upper_bound_(upper_bound) {
-  DCHECK_GE(reinterpret_cast<size_t>(lower_bound), Shadow::kAddressLowerBound);
-  DCHECK_LT(reinterpret_cast<size_t>(upper_bound), Shadow::kAddressUpperBound);
-  Reset();
-}
-
-void ShadowWalker::Reset() {
-  next_block_ = lower_bound_;
-  // Look for the first block.
-  while (next_block_ < upper_bound_ && !Shadow::IsLeftRedzone(next_block_))
-    next_block_ += kShadowRatio;
-}
-
-void ShadowWalker::Advance() {
-  DCHECK_LT(next_block_, upper_bound_);
-  // Skip the current block left zone.
-  while (next_block_ < upper_bound_ && Shadow::IsLeftRedzone(next_block_))
-    next_block_ += kShadowRatio;
-  // Look for the next block.
-  while (next_block_ < upper_bound_ && !Shadow::IsLeftRedzone(next_block_))
-    next_block_ += kShadowRatio;
-}
-
-bool ShadowWalker::Next(const uint8** block_begin) {
-  DCHECK_NE(reinterpret_cast<const uint8**>(NULL), block_begin);
-  *block_begin = next_block_;
-  // |upper_bound_| or |next_block_| might have a different alignment, so
-  // |next_block_| might be superior to |upper_bound_|.
-  if (next_block_ >= upper_bound_)
-    return false;
-  Advance();
-  return true;
-}
-
-NewShadowWalker::NewShadowWalker(
+ShadowWalker::ShadowWalker(
     bool recursive, const void* lower_bound, const void* upper_bound)
     : recursive_(recursive), lower_bound_(0), upper_bound_(0), cursor_(0),
       nesting_depth_(0) {
@@ -558,7 +462,7 @@ NewShadowWalker::NewShadowWalker(
   Reset();
 }
 
-void NewShadowWalker::Reset() {
+void ShadowWalker::Reset() {
   // Walk to the beginning of the first non-nested block, or to the end
   // of the range, whichever comes first.
   nesting_depth_ = -1;
@@ -572,7 +476,7 @@ void NewShadowWalker::Reset() {
   }
 }
 
-bool NewShadowWalker::Next(BlockInfo* info) {
+bool ShadowWalker::Next(BlockInfo* info) {
   DCHECK_NE(static_cast<BlockInfo*>(NULL), info);
 
   // Iterate until a reportable block is encountered, or the slab is exhausted.

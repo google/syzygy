@@ -42,6 +42,7 @@
         'block.cc',
         'block.h',
         'block_impl.h',
+        'block_utils.h',
         'constants.cc',
         'constants.h',
         'direct_allocation.cc',

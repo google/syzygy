@@ -55,21 +55,20 @@ void HeapChecker::GetCorruptRangesInSlab(const uint8* lower_bound,
   DCHECK_NE(0U, length);
   DCHECK_NE(reinterpret_cast<CorruptRangesVector*>(NULL), corrupt_ranges);
 
-  ShadowWalker shadow_walker(lower_bound, lower_bound + length);
+  ShadowWalker shadow_walker(false, lower_bound, lower_bound + length);
 
   AsanCorruptBlockRange* current_corrupt_range = NULL;
 
   // Iterates over the blocks.
-  const uint8* current_block = NULL;
-  while (shadow_walker.Next(&current_block)) {
-    const uint8* block_header = Shadow::AsanPointerToBlockHeader(current_block);
-    bool current_block_is_corrupt = HeapProxy::IsBlockCorrupt(block_header);
+  BlockInfo block_info = {};
+  while (shadow_walker.Next(&block_info)) {
+    bool current_block_is_corrupt = HeapProxy::IsBlockCorrupt(block_info.block);
     // If the current block is corrupt and |current_corrupt_range| is NULL
     // then this means that the current block is at the beginning of a corrupt
     // range.
     if (current_block_is_corrupt && current_corrupt_range == NULL) {
       current_corrupt_range = new AsanCorruptBlockRange();
-      current_corrupt_range->address = current_block;
+      current_corrupt_range->address = block_info.block;
       current_corrupt_range->length = 0;
       current_corrupt_range->block_count = 0;
       current_corrupt_range->block_info = NULL;
@@ -85,8 +84,7 @@ void HeapChecker::GetCorruptRangesInSlab(const uint8* lower_bound,
       DCHECK_NE(reinterpret_cast<AsanCorruptBlockRange*>(NULL),
                 current_corrupt_range);
       current_corrupt_range->block_count++;
-      const uint8* current_block_end = current_block +
-          Shadow::GetAllocSize(current_block);
+      const uint8* current_block_end = block_info.block + block_info.block_size;
       current_corrupt_range->length = current_block_end -
           reinterpret_cast<const uint8*>(current_corrupt_range->address);
     }

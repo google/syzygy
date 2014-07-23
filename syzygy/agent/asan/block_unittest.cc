@@ -61,6 +61,7 @@ void IsValidBlockImpl(const BlockInfo& block, bool just_initialized) {
 
   // Check the header.
   EXPECT_EQ(kBlockHeaderMagic, block.header->magic);
+  EXPECT_FALSE(block.header->is_nested);
   EXPECT_LT(0u, block.header->body_size);
   EXPECT_EQ(block.header->body_size, block.body_size);
   if (just_initialized) {
@@ -104,7 +105,6 @@ void IsValidBlockImpl(const BlockInfo& block, bool just_initialized) {
   // Check the trailer.
   EXPECT_NE(0u, block.trailer->alloc_tid);
   EXPECT_GE(::GetTickCount(), block.trailer->alloc_ticks);
-  EXPECT_TRUE(block.trailer->next == NULL);
   if (just_initialized) {
     EXPECT_EQ(0u, block.trailer->free_tid);
     EXPECT_EQ(0u, block.trailer->free_ticks);

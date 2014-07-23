@@ -15,6 +15,7 @@
 
 #include "base/bits.h"
 #include "syzygy/agent/asan/asan_heap.h"
+#include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/constants.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture.h"
@@ -57,7 +58,11 @@ void asan_GetUserExtent(const void* asan_pointer,
   DCHECK(user_pointer != NULL);
   DCHECK(size != NULL);
 
-  return HeapProxy::GetUserExtent(asan_pointer, user_pointer, size);
+  agent::asan::BlockInfo block_info = {};
+  if (agent::asan::Shadow::BlockInfoFromShadow(asan_pointer, &block_info)) {
+    *user_pointer = block_info.body;
+    *size = block_info.body_size;
+  }
 }
 
 void asan_GetAsanExtent(const void* user_pointer,
@@ -67,7 +72,15 @@ void asan_GetAsanExtent(const void* user_pointer,
   DCHECK(asan_pointer != NULL);
   DCHECK(size != NULL);
 
-  HeapProxy::GetAsanExtent(user_pointer, asan_pointer, size);
+  agent::asan::BlockHeader* header =
+      agent::asan::BlockGetHeaderFromBody(user_pointer);
+  if (header != NULL) {
+    agent::asan::BlockInfo block_info = {};
+    if (agent::asan::Shadow::BlockInfoFromShadow(header, &block_info)) {
+      *asan_pointer = block_info.block;
+      *size = block_info.block_size;
+    }
+  }
 }
 
 void asan_InitializeObject(void* asan_pointer,
@@ -82,9 +95,8 @@ void asan_InitializeObject(void* asan_pointer,
 
   HeapProxy::InitializeAsanBlock(reinterpret_cast<uint8*>(asan_pointer),
                                  user_object_size,
-                                 HeapProxy::GetAllocSize(user_object_size,
-                                                         alignment),
                                  alignment_log,
+                                 true,
                                  stack);
 }
 

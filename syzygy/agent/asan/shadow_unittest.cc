@@ -377,7 +377,7 @@ TEST(ShadowTest, BlockInfoFromShadow) {
   EXPECT_NO_FATAL_FAILURE(TestBlockInfoFromShadow(layout2, layout0));
 }
 
-TEST(NewShadowWalkerTest, WalksNonNestedBlocks) {
+TEST(ShadowWalkerTest, WalksNonNestedBlocks) {
   BlockLayout l = {};
   BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &l);
 
@@ -401,7 +401,7 @@ TEST(NewShadowWalkerTest, WalksNonNestedBlocks) {
 
   // Do a non-recursive walk through the shadow.
   BlockInfo i = {};
-  NewShadowWalker w0(false, data, data + data_size);
+  ShadowWalker w0(false, data, data + data_size);
   EXPECT_EQ(-1, w0.nesting_depth());
   EXPECT_TRUE(w0.Next(&i));
   EXPECT_EQ(0, w0.nesting_depth());
@@ -413,7 +413,7 @@ TEST(NewShadowWalkerTest, WalksNonNestedBlocks) {
   EXPECT_EQ(-1, w0.nesting_depth());
 
   // Walk recursively through the shadow and expect the same results.
-  NewShadowWalker w1(true, data, data + data_size);
+  ShadowWalker w1(true, data, data + data_size);
   EXPECT_EQ(-1, w1.nesting_depth());
   EXPECT_TRUE(w1.Next(&i));
   EXPECT_EQ(0, w1.nesting_depth());
@@ -431,7 +431,7 @@ TEST(NewShadowWalkerTest, WalksNonNestedBlocks) {
   delete [] data;
 }
 
-TEST(NewShadowWalkerTest, WalksNestedBlocks) {
+TEST(ShadowWalkerTest, WalksNestedBlocks) {
   BlockLayout b0 = {}, b1 = {}, b2 = {}, b00 = {}, b01 = {}, b10 = {},
       b100 = {};
   BlockPlanLayout(kShadowRatio, kShadowRatio, 15, 30, 30, &b00);
@@ -481,7 +481,7 @@ TEST(NewShadowWalkerTest, WalksNestedBlocks) {
 
   // Do a non-recursive walk through the shadow.
   BlockInfo i = {};
-  NewShadowWalker w0(false, data, data + data_size);
+  ShadowWalker w0(false, data, data + data_size);
   EXPECT_EQ(-1, w0.nesting_depth());
   EXPECT_TRUE(w0.Next(&i));
   EXPECT_EQ(0, w0.nesting_depth());
@@ -496,7 +496,7 @@ TEST(NewShadowWalkerTest, WalksNestedBlocks) {
   EXPECT_EQ(-1, w0.nesting_depth());
 
   // Walk recursively through the shadow.
-  NewShadowWalker w1(true, data, data + data_size);
+  ShadowWalker w1(true, data, data + data_size);
   EXPECT_EQ(-1, w1.nesting_depth());
   EXPECT_TRUE(w1.Next(&i));
   EXPECT_EQ(0, w1.nesting_depth());

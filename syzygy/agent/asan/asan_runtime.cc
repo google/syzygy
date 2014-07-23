@@ -25,6 +25,7 @@
 #include "base/win/wrapped_window_proc.h"
 #include "syzygy/agent/asan/asan_heap_checker.h"
 #include "syzygy/agent/asan/asan_logger.h"
+#include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/trace/client/client_utils.h"
@@ -600,7 +601,7 @@ void AsanRuntime::WriteCorruptHeapInfo(
 
     // Allocate space for the first block of this range on the stack.
     // TODO(sebmarchand): Report more blocks if necessary.
-    AsanBlockInfo* block_info = block_infos;
+    AsanBlockInfo* asan_block_info = block_infos;
     error_info->corrupt_ranges[i].block_info = block_infos;
     error_info->corrupt_ranges[i].block_info_count = 1;
     ++block_infos;
@@ -608,14 +609,15 @@ void AsanRuntime::WriteCorruptHeapInfo(
     // Use a shadow walker to find the first corrupt block in this range and
     // copy its metadata.
     ShadowWalker shadow_walker(
+        false,
         reinterpret_cast<const uint8*>(corrupt_ranges[i]->address),
         reinterpret_cast<const uint8*>(corrupt_ranges[i]->address) +
             corrupt_ranges[i]->length);
-    const uint8* block = NULL;
-    CHECK(shadow_walker.Next(&block));
-    block_info->header = Shadow::AsanPointerToBlockHeader(block);
-    HeapProxy::GetBlockInfo(block_info);
-    DCHECK(block_info->corrupt);
+    BlockInfo block_info = {};
+    CHECK(shadow_walker.Next(&block_info));
+    asan_block_info->header = block_info.header;
+    HeapProxy::GetBlockInfo(asan_block_info);
+    DCHECK(asan_block_info->corrupt);
   }
 
   return;

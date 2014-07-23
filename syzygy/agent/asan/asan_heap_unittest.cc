@@ -43,27 +43,11 @@ class TestShadow : public Shadow {
 // A derived class to expose protected members for unit-testing.
 class TestHeapProxy : public HeapProxy {
  public:
-  using HeapProxy::AsanPointerToBlockHeader;
-  using HeapProxy::AsanPointerToUserPointer;
   using HeapProxy::AsanShardedQuarantine;
-  using HeapProxy::BlockHeader;
-  using HeapProxy::BlockHeaderToAsanPointer;
-  using HeapProxy::BlockHeaderToBlockTrailer;
-  using HeapProxy::BlockHeaderToUserPointer;
-  using HeapProxy::BlockTrailer;
-  using HeapProxy::FindBlockContainingAddress;
-  using HeapProxy::FindContainingBlock;
-  using HeapProxy::FindContainingFreedBlock;
   using HeapProxy::GetAllocSize;
   using HeapProxy::GetBadAccessKind;
-  using HeapProxy::GetBlockHashFunctor;
   using HeapProxy::GetTimeSinceFree;
-  using HeapProxy::GetTotalBlockSizeFunctor;
   using HeapProxy::InitializeAsanBlock;
-  using HeapProxy::SetBlockChecksum;
-  using HeapProxy::UserPointerToBlockHeader;
-  using HeapProxy::UserPointerToAsanPointer;
-  using HeapProxy::kBlockHeaderSignature;
   using HeapProxy::kDefaultAllocGranularityLog;
   using HeapProxy::quarantine_;
 
@@ -106,17 +90,17 @@ class TestHeapProxy : public HeapProxy {
 
   bool IsAllocated(BlockHeader* header) {
     EXPECT_TRUE(header != NULL);
-    return header->state == ALLOCATED;
+    return header->state == ALLOCATED_BLOCK;
   }
 
   bool IsQuarantined(BlockHeader* header) {
     EXPECT_TRUE(header != NULL);
-    return header->state == QUARANTINED;
+    return header->state == QUARANTINED_BLOCK;
   }
 
   bool IsFreed(BlockHeader* header) {
     EXPECT_TRUE(header != NULL);
-    return header->state == FREED;
+    return header->state == FREED_BLOCK;
   }
 
   static void MarkBlockHeaderAsQuarantined(BlockHeader* header) {
@@ -124,13 +108,13 @@ class TestHeapProxy : public HeapProxy {
     StackCapture stack;
     stack.InitFromStack();
     header->free_stack = stack_cache_->SaveStackTrace(stack);
-    header->state = QUARANTINED;
+    header->state = QUARANTINED_BLOCK;
   }
 
   static void MarkBlockHeaderAsAllocated(BlockHeader* header) {
     EXPECT_TRUE(header != NULL);
     header->free_stack = NULL;
-    header->state = ALLOCATED;
+    header->state = ALLOCATED_BLOCK;
   }
 
   // Determines if the address @p mem corresponds to a block in quarantine.
@@ -149,11 +133,10 @@ class TestHeapProxy : public HeapProxy {
       // Search through all blocks in each shard.
       TestQuarantine::Node* current_node = test_quarantine->heads_[i];
       while (current_node != NULL) {
-        void* block_alloc = static_cast<void*>(
-            BlockHeaderToUserPointer(current_node->object));
-        EXPECT_TRUE(block_alloc != NULL);
-        if (block_alloc == mem) {
-          EXPECT_TRUE(current_node->object->state == QUARANTINED);
+        BlockInfo block_info = {};
+        EXPECT_TRUE(BlockInfoFromMemory(current_node->object, &block_info));
+        if (block_info.body == mem) {
+          EXPECT_TRUE(current_node->object->state == QUARANTINED_BLOCK);
           return true;
         }
         current_node = current_node->next;
@@ -382,8 +365,7 @@ TEST_F(HeapTest, UnpoisonsQuarantine) {
   ASSERT_TRUE(proxy_.InQuarantine(mem));
 
   // Assert that the shadow memory has been correctly poisoned.
-  intptr_t mem_start = reinterpret_cast<intptr_t>(
-      proxy_.UserPointerToBlockHeader(mem));
+  intptr_t mem_start = reinterpret_cast<intptr_t>(BlockGetHeaderFromBody(mem));
   ASSERT_EQ(0, (mem_start & 7) );
   size_t shadow_start = mem_start >> 3;
   size_t shadow_alloc_size = real_alloc_size >> 3;
@@ -438,7 +420,7 @@ TEST_F(HeapTest, DoubleFree) {
   LPVOID mem = proxy_.Alloc(0, kAllocSize);
   ASSERT_TRUE(mem != NULL);
   ASSERT_TRUE(proxy_.Free(0, mem));
-  ASSERT_TRUE(proxy_.IsQuarantined(proxy_.UserPointerToBlockHeader(mem)));
+  ASSERT_TRUE(proxy_.IsQuarantined(BlockGetHeaderFromBody(mem)));
 
   ASSERT_TRUE(errors_.empty());
   ASSERT_FALSE(proxy_.Free(0, mem));
@@ -498,8 +480,8 @@ TEST_F(HeapTest, CorruptAsExitsQuarantine) {
     ASSERT_EQ(1u, errors_.size());
     ASSERT_EQ(HeapProxy::CORRUPT_BLOCK, errors_[0].error_type);
     ASSERT_EQ(
-        reinterpret_cast<TestHeapProxy::BlockHeader*>(mem) - 1,
-        reinterpret_cast<TestHeapProxy::BlockHeader*>(errors_[0].location));
+        reinterpret_cast<BlockHeader*>(mem) - 1,
+        reinterpret_cast<BlockHeader*>(errors_[0].location));
 
     break;
   }
@@ -511,13 +493,12 @@ TEST_F(HeapTest, IsBlockCorruptInvalidMagicNumber) {
   proxy_.SetQuarantineMaxBlockSize(TestHeapProxy::GetAllocSize(kAllocSize));
   LPVOID mem = proxy_.Alloc(0, kAllocSize);
   ASSERT_TRUE(mem != NULL);
-  TestHeapProxy::BlockHeader* header =
-      TestHeapProxy::UserPointerToBlockHeader(mem);
-  ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), header);
+  BlockHeader* header = BlockGetHeaderFromBody(mem);
+  ASSERT_NE(reinterpret_cast<BlockHeader*>(NULL), header);
 
-  header->magic_number = ~TestHeapProxy::kBlockHeaderSignature;
+  header->magic = ~kBlockHeaderMagic;
   EXPECT_TRUE(proxy_.IsBlockCorrupt(reinterpret_cast<uint8*>(header)));
-  header->magic_number = TestHeapProxy::kBlockHeaderSignature;
+  header->magic = kBlockHeaderMagic;
   EXPECT_FALSE(proxy_.IsBlockCorrupt(reinterpret_cast<uint8*>(header)));
 
   ASSERT_TRUE(proxy_.Free(0, mem));
@@ -536,9 +517,8 @@ TEST_F(HeapTest, IsBlockCorruptInvalidChecksum) {
     ASSERT_TRUE(mem != NULL);
     ASSERT_TRUE(proxy_.Free(0, mem));
 
-    TestHeapProxy::BlockHeader* header =
-        TestHeapProxy::UserPointerToBlockHeader(mem);
-    ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), header);
+    BlockHeader* header = BlockGetHeaderFromBody(mem);
+    ASSERT_NE(reinterpret_cast<BlockHeader*>(NULL), header);
 
     // Change some of the block content and verify that the block is now being
     // seen as corrupt.
@@ -606,78 +586,6 @@ TEST_F(HeapTest, AllocZeroBytes) {
   ASSERT_NE(mem1, mem2);
   ASSERT_TRUE(proxy_.Free(0, mem1));
   ASSERT_TRUE(proxy_.Free(0, mem2));
-}
-
-TEST_F(HeapTest, CalculateBlockChecksum) {
-  const size_t kAllocSize = 100;
-  size_t real_alloc_size = TestHeapProxy::GetAllocSize(kAllocSize);
-  proxy_.SetQuarantineMaxSize(real_alloc_size);
-  LPVOID mem = proxy_.Alloc(0, kAllocSize);
-  ASSERT_TRUE(mem != NULL);
-  ::memset(reinterpret_cast<uint8*>(mem), 0, kAllocSize);
-
-  TestHeapProxy::BlockHeader* header = TestHeapProxy::UserPointerToBlockHeader(
-      mem);
-  TestHeapProxy::BlockTrailer* trailer =
-      TestHeapProxy::BlockHeaderToBlockTrailer(header);
-
-  size_t original_checksum = header->checksum;
-
-  TestHeapProxy::SetBlockChecksum(header);
-  EXPECT_EQ(header->checksum, original_checksum);
-
-  // Altering the data of the block shouldn't affect the checksum.
-  reinterpret_cast<uint8*>(mem)[0]++;
-  TestHeapProxy::SetBlockChecksum(header);
-  EXPECT_EQ(header->checksum, original_checksum);
-  reinterpret_cast<uint8*>(mem)[0]--;
-
-  const size_t kMaxIterations = 10;
-  size_t iteration = 0;
-
-  // Changing one value in the header should change the checksum.
-  size_t original_size = header->block_size;
-  do {
-    header->block_size++;
-    TestHeapProxy::SetBlockChecksum(header);
-  } while (header->checksum == original_checksum &&
-           iteration++ < kMaxIterations);
-  EXPECT_NE(header->checksum, original_checksum);
-  header->block_size = original_size;
-  TestHeapProxy::SetBlockChecksum(header);
-  EXPECT_EQ(header->checksum, original_checksum);
-
-  // Same thing in the trailer.
-  iteration = 0;
-  DWORD original_tid = trailer->alloc_tid;
-  do {
-    trailer->alloc_tid++;
-    TestHeapProxy::SetBlockChecksum(header);
-  } while (header->checksum == original_checksum &&
-           iteration++ < kMaxIterations);
-  EXPECT_NE(header->checksum, original_checksum);
-  trailer->alloc_tid = original_tid;
-  TestHeapProxy::SetBlockChecksum(header);
-  EXPECT_EQ(header->checksum, original_checksum);
-
-  // Freeing the block will update the checksum but it's not guaranteed that
-  // it'll have a different value (in the case of a collision).
-  ASSERT_TRUE(proxy_.Free(0, mem));
-  TestHeapProxy::SetBlockChecksum(header);
-  original_checksum = header->checksum;
-
-  // Altering the data should now affect the checksum.
-  iteration = 0;
-  uint8 original_data = reinterpret_cast<uint8*>(mem)[0];
-  do {
-    reinterpret_cast<uint8*>(mem)[0]++;
-    TestHeapProxy::SetBlockChecksum(header);
-  } while (header->checksum == original_checksum &&
-           iteration++ < kMaxIterations);
-  EXPECT_NE(header->checksum, original_checksum);
-  reinterpret_cast<uint8*>(mem)[0] = original_data;
-  TestHeapProxy::SetBlockChecksum(header);
-  EXPECT_EQ(header->checksum, original_checksum);
 }
 
 TEST_F(HeapTest, Size) {
@@ -819,12 +727,13 @@ class NestedBlocksTest : public HeapTest {
     data_block_1_ = reinterpret_cast<uint8*>(HeapProxy::InitializeAsanBlock(
         aligned_buffer_,
         block_2_size_ + kAlignMaxGap,
-        block_1_size_,
         base::bits::Log2Floor(kBlock1Alignment),
+        false,
         stack));
     ASSERT_NE(reinterpret_cast<uint8*>(NULL), data_block_1_);
-    block_1_ = TestHeapProxy::UserPointerToBlockHeader(data_block_1_);
-    ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), block_1_);
+    block_1_ = BlockGetHeaderFromBody(data_block_1_);
+    ASSERT_NE(reinterpret_cast<BlockHeader*>(NULL), block_1_);
+    ASSERT_TRUE(BlockInfoFromMemory(block_1_, &block_info_1_));
 
     size_t data_block_1_aligned = common::AlignUp(reinterpret_cast<size_t>(
         data_block_1_), kBlock2Alignment);
@@ -832,34 +741,37 @@ class NestedBlocksTest : public HeapTest {
     data_block_2_ = reinterpret_cast<uint8*>(HeapProxy::InitializeAsanBlock(
         reinterpret_cast<uint8*>(data_block_1_aligned),
         inner_blocks_size_ * 2 + kGapSize,
-        block_2_size_,
         base::bits::Log2Floor(kBlock2Alignment),
+        true,
         stack));
     ASSERT_NE(reinterpret_cast<uint8*>(NULL), data_block_2_);
-    block_2_ = TestHeapProxy::UserPointerToBlockHeader(data_block_2_);
-    ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), block_2_);
+    block_2_ = BlockGetHeaderFromBody(data_block_2_);
+    ASSERT_NE(reinterpret_cast<BlockHeader*>(NULL), block_2_);
+    ASSERT_TRUE(BlockInfoFromMemory(block_2_, &block_info_2_));
 
     // Initialize block 3.
     data_block_3_ = reinterpret_cast<uint8*>(HeapProxy::InitializeAsanBlock(
         reinterpret_cast<uint8*>(data_block_2_),
         kInternalAllocSize,
-        inner_blocks_size_,
         base::bits::Log2Floor(kInnerBlockAlignment),
+        true,
         stack));
     ASSERT_NE(reinterpret_cast<uint8*>(NULL), data_block_3_);
-    block_3_ = TestHeapProxy::UserPointerToBlockHeader(data_block_3_);
-    ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), block_3_);
+    block_3_ = BlockGetHeaderFromBody(data_block_3_);
+    ASSERT_NE(reinterpret_cast<BlockHeader*>(NULL), block_3_);
+    ASSERT_TRUE(BlockInfoFromMemory(block_3_, &block_info_3_));
 
     // Initialize block 4.
     data_block_4_ = reinterpret_cast<uint8*>(HeapProxy::InitializeAsanBlock(
         reinterpret_cast<uint8*>(data_block_2_) + inner_blocks_size_,
         kInternalAllocSize,
-        inner_blocks_size_,
         base::bits::Log2Floor(kInnerBlockAlignment),
+        true,
         stack));
     ASSERT_NE(reinterpret_cast<uint8*>(NULL), data_block_4_);
-    block_4_ = TestHeapProxy::UserPointerToBlockHeader(data_block_4_);
-    ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), block_4_);
+    block_4_ = BlockGetHeaderFromBody(data_block_4_);
+    ASSERT_NE(reinterpret_cast<BlockHeader*>(NULL), block_4_);
+    ASSERT_TRUE(BlockInfoFromMemory(block_4_, &block_info_4_));
   }
 
  protected:
@@ -882,117 +794,18 @@ class NestedBlocksTest : public HeapTest {
   size_t block_2_size_;
   size_t inner_blocks_size_;
 
-  TestHeapProxy::BlockHeader* block_1_;
-  TestHeapProxy::BlockHeader* block_2_;
-  TestHeapProxy::BlockHeader* block_3_;
-  TestHeapProxy::BlockHeader* block_4_;
+  BlockHeader* block_1_;
+  BlockHeader* block_2_;
+  BlockHeader* block_3_;
+  BlockHeader* block_4_;
+
+  BlockInfo block_info_1_;
+  BlockInfo block_info_2_;
+  BlockInfo block_info_3_;
+  BlockInfo block_info_4_;
 };
 
 }  // namespace
-
-TEST_F(NestedBlocksTest, FindBlockContainingAddress) {
-  // Test with an address before block 1.
-  EXPECT_EQ(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL),
-      proxy_.FindBlockContainingAddress(
-          proxy_.BlockHeaderToAsanPointer(block_1_) - 1));
-
-  // Test with an address in the block header of block 1.
-  EXPECT_EQ(block_1_, proxy_.FindBlockContainingAddress(data_block_1_ - 1));
-
-  // Test with an address in the gap section before the header of block 2.
-  EXPECT_EQ(block_1_, proxy_.FindBlockContainingAddress(
-      proxy_.BlockHeaderToAsanPointer(block_2_) - 1));
-
-  // Test with an address in the block header of block 2.
-  EXPECT_EQ(block_2_, proxy_.FindBlockContainingAddress(data_block_2_ - 1));
-
-  // Test with an address in the block header of block 3.
-  EXPECT_EQ(block_3_, proxy_.FindBlockContainingAddress(data_block_3_ - 1));
-
-  // Test the first byte of the data of block 2, it corresponds to the block
-  // header of block 3.
-  EXPECT_EQ(block_3_, proxy_.FindBlockContainingAddress(data_block_2_));
-
-  // Test the first byte of the data of block 3.
-  EXPECT_EQ(block_3_, proxy_.FindBlockContainingAddress(data_block_3_));
-
-  // Test with an address in the block trailer 3.
-  EXPECT_EQ(block_3_, proxy_.FindBlockContainingAddress(
-      reinterpret_cast<uint8*>(proxy_.BlockHeaderToBlockTrailer(block_3_))));
-
-  // Test with an address in the block header of block 4.
-  EXPECT_EQ(block_4_, proxy_.FindBlockContainingAddress(data_block_4_ - 1));
-
-  // Test the first byte of the data of block 4.
-  EXPECT_EQ(block_4_, proxy_.FindBlockContainingAddress(data_block_4_));
-
-  // Test with an address in the block trailer 4.
-  EXPECT_EQ(block_4_, proxy_.FindBlockContainingAddress(
-      reinterpret_cast<uint8*>(proxy_.BlockHeaderToBlockTrailer(block_4_))));
-
-  // Test with an address in the gap section after block 4.
-  EXPECT_EQ(block_2_, proxy_.FindBlockContainingAddress(data_block_2_ +
-      inner_blocks_size_ * 2));
-
-  // Test with an address in the block trailer 2.
-  EXPECT_EQ(block_2_, proxy_.FindBlockContainingAddress(
-      reinterpret_cast<uint8*>(proxy_.BlockHeaderToBlockTrailer(block_2_))));
-
-  // Test with an address in the block trailer 1.
-  EXPECT_EQ(block_1_, proxy_.FindBlockContainingAddress(
-      reinterpret_cast<uint8*>(proxy_.BlockHeaderToBlockTrailer(block_1_))));
-
-  // Test with an address after the block trailer 1.
-  EXPECT_EQ(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL),
-      proxy_.FindBlockContainingAddress(reinterpret_cast<uint8*>(block_1_)
-          + block_1_size_));
-}
-
-TEST_F(NestedBlocksTest, FindContainingBlock) {
-  ASSERT_EQ(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL),
-            TestHeapProxy::FindContainingBlock(block_1_));
-  ASSERT_EQ(block_1_, TestHeapProxy::FindContainingBlock(block_2_));
-  ASSERT_EQ(block_2_, TestHeapProxy::FindContainingBlock(block_3_));
-  ASSERT_EQ(block_2_, TestHeapProxy::FindContainingBlock(block_4_));
-}
-
-TEST_F(NestedBlocksTest, FindContainingFreedBlock) {
-  ASSERT_EQ(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL),
-            TestHeapProxy::FindContainingFreedBlock(block_1_));
-  ASSERT_EQ(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL),
-            TestHeapProxy::FindContainingFreedBlock(block_2_));
-  ASSERT_EQ(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL),
-            TestHeapProxy::FindContainingFreedBlock(block_3_));
-  ASSERT_EQ(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL),
-            TestHeapProxy::FindContainingFreedBlock(block_4_));
-
-  // Mark the block 2 as quarantined and makes sure that it is found as the
-  // containing block of block 3 and 4.
-
-  proxy_.MarkBlockHeaderAsQuarantined(block_2_);
-
-  EXPECT_EQ(block_2_, TestHeapProxy::FindContainingFreedBlock(block_3_));
-  EXPECT_EQ(block_2_, TestHeapProxy::FindContainingFreedBlock(block_4_));
-
-  proxy_.MarkBlockHeaderAsQuarantined(block_3_);
-  EXPECT_EQ(block_2_, TestHeapProxy::FindContainingFreedBlock(block_4_));
-
-  proxy_.MarkBlockHeaderAsAllocated(block_2_);
-  proxy_.MarkBlockHeaderAsAllocated(block_3_);
-
-  // Mark the block 1 as quarantined and makes sure that it is found as the
-  // containing block of block 2, 3 and 4.
-
-  proxy_.MarkBlockHeaderAsQuarantined(block_1_);
-
-  EXPECT_EQ(block_1_, TestHeapProxy::FindContainingFreedBlock(block_2_));
-  EXPECT_EQ(block_1_, TestHeapProxy::FindContainingFreedBlock(block_3_));
-  EXPECT_EQ(block_1_, TestHeapProxy::FindContainingFreedBlock(block_4_));
-
-  proxy_.MarkBlockHeaderAsQuarantined(block_3_);
-  EXPECT_EQ(block_1_, TestHeapProxy::FindContainingFreedBlock(block_2_));
-  EXPECT_EQ(block_1_, TestHeapProxy::FindContainingFreedBlock(block_4_));
-}
 
 TEST_F(HeapTest, GetBadAccessKind) {
   const size_t kAllocSize = 100;
@@ -1001,9 +814,7 @@ TEST_F(HeapTest, GetBadAccessKind) {
   proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
   uint8* mem = static_cast<uint8*>(proxy_.Alloc(0, kAllocSize));
   ASSERT_FALSE(mem == NULL);
-  TestHeapProxy::BlockHeader* header =
-      const_cast<TestHeapProxy::BlockHeader*>(
-          proxy_.UserPointerToBlockHeader(mem));
+  BlockHeader* header = BlockGetHeaderFromBody(mem);
   uint8* heap_underflow_address = mem - 1;
   uint8* heap_overflow_address = mem + kAllocSize * sizeof(uint8);
   ASSERT_TRUE(proxy_.IsUnderflowAccess(heap_underflow_address, header));
@@ -1020,30 +831,20 @@ TEST_F(HeapTest, GetTimeSinceFree) {
   // Ensure that the quarantine is large enough to keep this block.
   proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
   uint8* mem = static_cast<uint8*>(proxy_.Alloc(0, kAllocSize));
-  TestHeapProxy::BlockHeader* header =
-      const_cast<TestHeapProxy::BlockHeader*>(
-          proxy_.UserPointerToBlockHeader(mem));
+  BlockHeader* header = BlockGetHeaderFromBody(mem);;
 
-  uint64 ticks_before_free = trace::common::GetTsc();
+  uint32 ticks_before_free = ::GetTickCount();
   ASSERT_EQ(0U, proxy_.GetTimeSinceFree(header));
   ASSERT_TRUE(proxy_.Free(0, mem));
   ASSERT_TRUE(proxy_.IsQuarantined(header));
   ::Sleep(kSleepTime);
-  uint64 time_since_free = proxy_.GetTimeSinceFree(header);
+  uint32 time_since_free = proxy_.GetTimeSinceFree(header);
   ASSERT_NE(0U, time_since_free);
 
-  uint64 ticks_delta = trace::common::GetTsc() - ticks_before_free;
+  uint32 ticks_delta = ::GetTickCount() - ticks_before_free;
   ASSERT_GT(ticks_delta, 0U);
-  // We calculate the time in microseconds the same way that GetTimeSinceFree
-  // does, to ensure that we are using the same clock and the same estimate of
-  // its frequency.
-  uint64 time_delta_us = ticks_delta / proxy_.cpu_cycles_per_us();
-  trace::common::ClockInfo clock_info = {};
-  trace::common::GetClockInfo(&clock_info);
-  if (clock_info.tsc_info.frequency == 0)
-    time_delta_us += HeapProxy::kSleepTimeForApproximatingCPUFrequency;
 
-  ASSERT_GE(time_delta_us, time_since_free);
+  ASSERT_GE(ticks_delta, time_since_free);
 }
 
 TEST_F(HeapTest, CaptureTID) {
@@ -1052,19 +853,16 @@ TEST_F(HeapTest, CaptureTID) {
   proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
   uint8* mem = static_cast<uint8*>(proxy_.Alloc(0, kAllocSize));
   ASSERT_TRUE(proxy_.Free(0, mem));
-  ASSERT_TRUE(proxy_.IsQuarantined(proxy_.UserPointerToBlockHeader(mem)));
+  ASSERT_TRUE(proxy_.IsQuarantined(BlockGetHeaderFromBody(mem)));
 
-  TestHeapProxy::BlockHeader* header =
-      const_cast<TestHeapProxy::BlockHeader*>(
-          proxy_.UserPointerToBlockHeader(mem));
+  BlockHeader* header = BlockGetHeaderFromBody(mem);
   ASSERT_TRUE(header != NULL);
-  TestHeapProxy::BlockTrailer* trailer =
-      const_cast<TestHeapProxy::BlockTrailer*>(
-          proxy_.BlockHeaderToBlockTrailer(header));
-  ASSERT_TRUE(trailer != NULL);
+  BlockInfo block_info = {};
+  EXPECT_TRUE(BlockInfoFromMemory(header, &block_info));
+  ASSERT_TRUE(block_info.trailer != NULL);
 
-  ASSERT_EQ(trailer->alloc_tid, ::GetCurrentThreadId());
-  ASSERT_EQ(trailer->free_tid, ::GetCurrentThreadId());
+  ASSERT_EQ(block_info.trailer->alloc_tid, ::GetCurrentThreadId());
+  ASSERT_EQ(block_info.trailer->free_tid, ::GetCurrentThreadId());
 }
 
 TEST_F(HeapTest, QuarantineDoesntAlterBlockContents) {
@@ -1080,9 +878,7 @@ TEST_F(HeapTest, QuarantineDoesntAlterBlockContents) {
                       kAllocSize,
                       sha1_before);
 
-  TestHeapProxy::BlockHeader* header =
-      const_cast<TestHeapProxy::BlockHeader*>(
-          proxy_.UserPointerToBlockHeader(mem));
+  BlockHeader* header = BlockGetHeaderFromBody(mem);
 
   ASSERT_TRUE(proxy_.Free(0, mem));
   ASSERT_TRUE(proxy_.IsQuarantined(header));
@@ -1103,9 +899,7 @@ TEST_F(HeapTest, InternalStructureArePoisoned) {
   // Ensure that the quarantine is large enough to keep this block.
   proxy_.SetQuarantineMaxSize(TestHeapProxy::GetAllocSize(kAllocSize));
   uint8* mem = static_cast<uint8*>(proxy_.Alloc(0, kAllocSize));
-  TestHeapProxy::BlockHeader* header =
-      const_cast<TestHeapProxy::BlockHeader*>(
-          proxy_.UserPointerToBlockHeader(mem));
+  BlockHeader* header = BlockGetHeaderFromBody(mem);
 
   ASSERT_TRUE(header != NULL);
   const void* alloc_stack_cache_addr =
@@ -1183,7 +977,7 @@ TEST_F(HeapTest, SetTrailerPaddingSize) {
     ASSERT_TRUE(mem != NULL);
 
     size_t offset = kAllocSize;
-    for (; offset < augmented_alloc_size - sizeof(TestHeapProxy::BlockHeader);
+    for (; offset < augmented_alloc_size - sizeof(BlockHeader);
          ++offset) {
       EXPECT_FALSE(Shadow::IsAccessible(
           reinterpret_cast<const uint8*>(mem) + offset));
@@ -1249,22 +1043,24 @@ struct FakeAsanBlock {
     // Initialize the ASan block.
     user_ptr = proxy->InitializeAsanBlock(buffer_align_begin,
                                           alloc_size,
-                                          asan_alloc_size,
                                           alloc_alignment_log,
+                                          false,
                                           stack);
-    EXPECT_TRUE(user_ptr != NULL);
+    EXPECT_NE(reinterpret_cast<void*>(NULL), user_ptr);
+    BlockHeader* header = BlockGetHeaderFromBody(user_ptr);
+    EXPECT_NE(reinterpret_cast<BlockHeader*>(NULL), header);
+    BlockInfo block_info = {};
+    EXPECT_TRUE(BlockInfoFromMemory(header, &block_info));
     EXPECT_TRUE(common::IsAligned(reinterpret_cast<size_t>(user_ptr),
                                   alloc_alignment));
     EXPECT_TRUE(common::IsAligned(
         reinterpret_cast<size_t>(buffer_align_begin) + asan_alloc_size,
         kShadowRatio));
-    EXPECT_TRUE(proxy->UserPointerToAsanPointer(user_ptr) ==
-        buffer_align_begin);
-    EXPECT_TRUE(proxy->AsanPointerToUserPointer(buffer_align_begin) ==
-        user_ptr);
+    EXPECT_EQ(buffer_align_begin, block_info.block);
+    EXPECT_EQ(user_ptr, block_info.body);
 
     void* expected_user_ptr = reinterpret_cast<void*>(
-        buffer_align_begin + std::max(sizeof(TestHeapProxy::BlockHeader),
+        buffer_align_begin + std::max(sizeof(BlockHeader),
                                       alloc_alignment));
     EXPECT_TRUE(user_ptr == expected_user_ptr);
 
@@ -1303,60 +1099,28 @@ struct FakeAsanBlock {
     if (!is_initialized)
       return false;
 
-    // Ensure that the block header is valid. UserPointerToBlockHeader takes
+    // Ensure that the block header is valid. BlockGetHeaderFromBody takes
     // care of checking the magic number in the signature of the block.
-    TestHeapProxy::BlockHeader* block_header = proxy->UserPointerToBlockHeader(
-        user_ptr);
+    BlockHeader* block_header = BlockGetHeaderFromBody(user_ptr);
     EXPECT_TRUE(block_header != NULL);
-    TestHeapProxy::BlockTrailer* block_trailer =
-        TestHeapProxy::BlockHeaderToBlockTrailer(block_header);
-    EXPECT_EQ(::GetCurrentThreadId(), block_trailer->alloc_tid);
-    EXPECT_EQ(user_alloc_size, block_header->block_size);
-    EXPECT_EQ(alloc_alignment_log, block_header->alignment_log);
+    BlockInfo block_info = {};
+    EXPECT_TRUE(BlockInfoFromMemory(block_header, &block_info));
+    EXPECT_EQ(::GetCurrentThreadId(), block_info.trailer->alloc_tid);
+    EXPECT_EQ(user_alloc_size, block_header->body_size);
     EXPECT_TRUE(block_header->alloc_stack != NULL);
     EXPECT_TRUE(proxy->IsAllocated(block_header));
-    for (const uint8* pos = buffer_align_begin;
-         pos < reinterpret_cast<const uint8*>(block_header);
-         ++pos) {
-      EXPECT_EQ(Shadow::kHeapLeftRedzone,
-                Shadow::GetShadowMarkerForAddress(pos));
-    }
-    for (const uint8* pos = reinterpret_cast<const uint8*>(block_header);
-         pos < user_ptr;
-         ++pos) {
-      EXPECT_TRUE(Shadow::IsBlockStartByte(pos));
-    }
+    const uint8* cursor = buffer_align_begin;
+    EXPECT_TRUE(Shadow::IsBlockStartByte(cursor++));
+    for (; cursor < user_ptr; ++cursor)
+      EXPECT_TRUE(Shadow::IsLeftRedzone(cursor));
     const uint8* aligned_trailer_begin = reinterpret_cast<const uint8*>(
         common::AlignUp(reinterpret_cast<size_t>(user_ptr) + user_alloc_size,
                         kShadowRatio));
     for (const uint8* pos = aligned_trailer_begin;
          pos < buffer_align_begin + asan_alloc_size;
          ++pos) {
-      EXPECT_EQ(Shadow::kHeapRightRedzone,
-                Shadow::GetShadowMarkerForAddress(pos));
+      EXPECT_TRUE(Shadow::IsRightRedzone(pos));
     }
-
-    void* tmp_user_pointer = NULL;
-    size_t tmp_user_size = 0;
-    HeapProxy::GetUserExtent(buffer_align_begin,
-                             &tmp_user_pointer,
-                             &tmp_user_size);
-    EXPECT_TRUE(tmp_user_pointer == user_ptr);
-    EXPECT_EQ(user_alloc_size, tmp_user_size);
-
-    void* tmp_asan_pointer = NULL;
-    HeapProxy::GetAsanExtent(user_ptr,
-                             &tmp_asan_pointer,
-                             &tmp_user_size);
-    EXPECT_TRUE(tmp_asan_pointer == buffer_align_begin);
-    EXPECT_EQ(asan_alloc_size, tmp_user_size);
-
-    // Test the various accessors.
-    EXPECT_TRUE(proxy->BlockHeaderToUserPointer(block_header) == user_ptr);
-    EXPECT_TRUE(proxy->BlockHeaderToAsanPointer(block_header) ==
-        buffer_align_begin);
-    EXPECT_TRUE(proxy->AsanPointerToBlockHeader(buffer_align_begin) ==
-        block_header);
 
     return true;
   }
@@ -1366,13 +1130,13 @@ struct FakeAsanBlock {
     if (!is_initialized)
       return false;
 
-    TestHeapProxy::BlockHeader* block_header = proxy->UserPointerToBlockHeader(
-        user_ptr);
-    TestHeapProxy::BlockTrailer* block_trailer =
-        proxy->BlockHeaderToBlockTrailer(block_header);
+    BlockHeader* block_header = BlockGetHeaderFromBody(user_ptr);
+    EXPECT_NE(reinterpret_cast<BlockHeader*>(NULL), block_header);
+    BlockInfo block_info = {};
+    BlockInfoFromMemory(block_header, &block_info);
     EXPECT_TRUE(block_header->free_stack == NULL);
-    EXPECT_TRUE(block_trailer != NULL);
-    EXPECT_EQ(0U, block_trailer->free_tid);
+    EXPECT_TRUE(block_info.trailer != NULL);
+    EXPECT_EQ(0U, block_info.trailer->free_tid);
 
     StackCapture stack;
     stack.InitFromStack();
@@ -1380,7 +1144,7 @@ struct FakeAsanBlock {
     proxy->MarkBlockAsQuarantined(buffer_align_begin, stack);
     EXPECT_TRUE(block_header->free_stack != NULL);
     EXPECT_TRUE(proxy->IsQuarantined(block_header));
-    EXPECT_EQ(::GetCurrentThreadId(), block_trailer->free_tid);
+    EXPECT_EQ(::GetCurrentThreadId(), block_info.trailer->free_tid);
 
     size_t i = 0;
     // Ensure that the buffer header is accessible and correctly tagged.
@@ -1459,10 +1223,8 @@ TEST_F(HeapTest, DestroyAsanBlock) {
     EXPECT_TRUE(fake_block.TestBlockMetadata());
     EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
 
-    TestHeapProxy::BlockHeader* block_header = proxy_.UserPointerToBlockHeader(
-        fake_block.user_ptr);
-    TestHeapProxy::BlockTrailer* block_trailer =
-        proxy_.BlockHeaderToBlockTrailer(block_header);
+    BlockHeader* block_header = BlockGetHeaderFromBody(fake_block.user_ptr);
+    EXPECT_NE(reinterpret_cast<BlockHeader*>(NULL), block_header);
     StackCapture* alloc_stack = const_cast<StackCapture*>(
         block_header->alloc_stack);
     StackCapture* free_stack = const_cast<StackCapture*>(
@@ -1503,8 +1265,7 @@ TEST_F(HeapTest, CloneBlock) {
     size_t asan_alloc_size = fake_block.asan_alloc_size;
 
     // Get the current count of the alloc and free stack traces.
-    TestHeapProxy::BlockHeader* block_header = proxy_.UserPointerToBlockHeader(
-        fake_block.user_ptr);
+    BlockHeader* block_header = BlockGetHeaderFromBody(fake_block.user_ptr);
     StackCapture* alloc_stack = const_cast<StackCapture*>(
         block_header->alloc_stack);
     StackCapture* free_stack = const_cast<StackCapture*>(
@@ -1576,18 +1337,16 @@ TEST_F(HeapTest, GetBadAccessInformationNestedBlock) {
   void* inner_block_data = proxy_.InitializeAsanBlock(
       reinterpret_cast<uint8*>(fake_block.user_ptr),
                                kInnerBlockAllocSize,
-                               outer_block_size,
                                kShadowRatioLog,
+                               true,
                                stack);
 
   ASSERT_NE(reinterpret_cast<void*>(NULL), inner_block_data);
 
-  TestHeapProxy::BlockHeader* inner_block =
-      TestHeapProxy::UserPointerToBlockHeader(inner_block_data);
-  ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), inner_block);
-  TestHeapProxy::BlockHeader* outer_block =
-      TestHeapProxy::UserPointerToBlockHeader(fake_block.user_ptr);
-  ASSERT_NE(reinterpret_cast<TestHeapProxy::BlockHeader*>(NULL), outer_block);
+  BlockHeader* inner_block = BlockGetHeaderFromBody(inner_block_data);
+  ASSERT_NE(reinterpret_cast<BlockHeader*>(NULL), inner_block);
+  BlockHeader* outer_block = BlockGetHeaderFromBody(fake_block.user_ptr);
+  ASSERT_NE(reinterpret_cast<BlockHeader*>(NULL), outer_block);
 
   AsanErrorInfo error_info = {};
 
@@ -1631,26 +1390,10 @@ TEST_F(HeapTest, GetAllocSizeViaShadow) {
   ASSERT_TRUE(mem != NULL);
   ASSERT_EQ(kAllocSize, proxy_.Size(0, mem));
   size_t real_alloc_size = TestHeapProxy::GetAllocSize(kAllocSize);
-  uint8* header_begin = TestHeapProxy::UserPointerToAsanPointer(mem);
+  uint8* header_begin = reinterpret_cast<uint8*>(BlockGetHeaderFromBody(mem));
   for (size_t i = 0; i < real_alloc_size; ++i) {
     EXPECT_EQ(real_alloc_size, Shadow::GetAllocSize(header_begin + i));
   }
-  ASSERT_TRUE(proxy_.Free(0, mem));
-}
-
-TEST_F(HeapTest, FindBlockBeginningViaShadow) {
-  const size_t kAllocSize = 100;
-  LPVOID mem = proxy_.Alloc(0, kAllocSize);
-  ASSERT_TRUE(mem != NULL);
-
-  size_t real_alloc_size = TestHeapProxy::GetAllocSize(kAllocSize);
-  uint8* header_begin = TestHeapProxy::UserPointerToAsanPointer(mem);
-  for (size_t i = 0; i < real_alloc_size; ++i) {
-    EXPECT_EQ(header_begin, Shadow::FindBlockBeginning(header_begin + i));
-  }
-  EXPECT_EQ(NULL, Shadow::FindBlockBeginning(header_begin - 1));
-  EXPECT_EQ(NULL,
-            Shadow::FindBlockBeginning(header_begin + real_alloc_size + 1));
   ASSERT_TRUE(proxy_.Free(0, mem));
 }
 
@@ -1671,8 +1414,7 @@ TEST_F(HeapTest, SubsampledAllocationGuards) {
     EXPECT_TRUE(alloc != NULL);
 
     // Determine if the allocation has guards or not.
-    TestHeapProxy::BlockHeader* header =
-        proxy_.UserPointerToBlockHeader(alloc);
+    BlockHeader* header = BlockGetHeaderFromBody(alloc);
     if (header == NULL) {
       ++unguarded_allocations;
     } else {
@@ -1709,18 +1451,6 @@ TEST_F(HeapTest, SubsampledAllocationGuards) {
   EXPECT_GT(6 * kAllocationCount / 10, guarded_allocations);
 }
 
-TEST_F(HeapTest, AsanPointerToBlockHeaderViaShadow) {
-  const size_t kAllocSize = 100;
-  LPVOID mem = proxy_.Alloc(0, kAllocSize);
-  ASSERT_TRUE(mem != NULL);
-  uint8* asan_pointer = TestHeapProxy::UserPointerToAsanPointer(mem);
-  EXPECT_NE(reinterpret_cast<uint8*>(NULL), asan_pointer);
-  EXPECT_EQ(TestHeapProxy::AsanPointerToBlockHeader(asan_pointer),
-      reinterpret_cast<const void*>(Shadow::AsanPointerToBlockHeader(
-          asan_pointer)));
-  EXPECT_TRUE(proxy_.Free(0, mem));
-}
-
 TEST_F(HeapTest, WalkBlocksWithShadowWalker) {
   const size_t kAllocSize = 100;
   size_t real_alloc_size = TestHeapProxy::GetAllocSize(kAllocSize);
@@ -1746,33 +1476,26 @@ TEST_F(HeapTest, WalkBlocksWithShadowWalker) {
         TestHeapProxy::InitializeAsanBlock(
             outer_block.get() + i * real_alloc_size,
         kAllocSize,
-        real_alloc_size,
         kShadowRatioLog,
+        false,
         stack));
     base::RandBytes(user_pointers[i], kAllocSize);
   }
 
-  ShadowWalker walker(outer_block.get(), outer_block.get() + outer_block_size);
+  ShadowWalker walker(false, outer_block.get(),
+                      outer_block.get() + outer_block_size);
 
-  const uint8* walker_block = NULL;
+  BlockInfo block_info = {};
   for (size_t i = 0; i < kNumberOfBlocks; ++i) {
-    EXPECT_TRUE(walker.Next(&walker_block));
-    EXPECT_EQ(TestHeapProxy::UserPointerToAsanPointer(user_pointers[i]),
-              walker_block);
-    EXPECT_EQ(TestHeapProxy::UserPointerToBlockHeader(user_pointers[i]),
-         reinterpret_cast<const TestHeapProxy::BlockHeader*>(
-             Shadow::AsanPointerToBlockHeader(walker_block)));
+    EXPECT_TRUE(walker.Next(&block_info));
+    EXPECT_EQ(BlockGetHeaderFromBody(user_pointers[i]), block_info.header);
   }
 
-  EXPECT_FALSE(walker.Next(&walker_block));
+  EXPECT_FALSE(walker.Next(&block_info));
 
   walker.Reset();
-  EXPECT_TRUE(walker.Next(&walker_block));
-  EXPECT_EQ(TestHeapProxy::UserPointerToAsanPointer(user_pointers[0]),
-            walker_block);
-  EXPECT_EQ(TestHeapProxy::UserPointerToBlockHeader(user_pointers[0]),
-      reinterpret_cast<const TestHeapProxy::BlockHeader*>(
-          Shadow::AsanPointerToBlockHeader(walker_block)));
+  EXPECT_TRUE(walker.Next(&block_info));
+  EXPECT_EQ(BlockGetHeaderFromBody(user_pointers[0]), block_info.header);
 
   // Clear the shadow memory. As those blocks have been manually initialized
   // they can't go into the quarantine and we need to clean their metadata

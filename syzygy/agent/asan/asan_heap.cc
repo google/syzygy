@@ -42,23 +42,6 @@ typedef StackCapture::StackId StackId;
 // The first 64kB of the memory are not addressable.
 const uint8* kAddressLowerLimit = reinterpret_cast<uint8*>(0x10000);
 
-// Returns the number of CPU cycles per microsecond.
-double GetCpuCyclesPerUs() {
-  trace::common::TimerInfo tsc_info = {};
-  trace::common::GetTscTimerInfo(&tsc_info);
-
-  if (tsc_info.frequency != 0) {
-    return (tsc_info.frequency /
-        static_cast<double>(base::Time::kMicrosecondsPerSecond));
-  } else {
-    uint64 cycle_start = trace::common::GetTsc();
-    ::Sleep(HeapProxy::kSleepTimeForApproximatingCPUFrequency);
-    return (trace::common::GetTsc() - cycle_start) /
-        (HeapProxy::kSleepTimeForApproximatingCPUFrequency *
-             static_cast<double>(base::Time::kMicrosecondsPerSecond));
-  }
-}
-
 // Verify that the memory range [mem, mem + len[ is accessible.
 bool MemoryRangeIsAccessible(uint8* mem, size_t len) {
   for (size_t i = 0; i < len; ++i) {
@@ -66,19 +49,6 @@ bool MemoryRangeIsAccessible(uint8* mem, size_t len) {
       return false;
   }
   return true;
-}
-
-// Combine the bits of a uint32 into the number of bits used to store the
-// block checksum.
-// @param val The value to combined with the checksum.
-// @param checksum A pointer to the checksum to update.
-void CombineUInt32IntoBlockChecksum(uint32 val, uint32* checksum) {
-  DCHECK_NE(reinterpret_cast<uint32*>(NULL), checksum);
-  while (val != 0) {
-    *checksum ^= val;
-    val >>= HeapProxy::kChecksumBits;
-  }
-  *checksum &= ((1 << HeapProxy::kChecksumBits) - 1);
 }
 
 // Copy a stack capture object into an array.
@@ -99,8 +69,6 @@ void CopyStackCaptureToArray(const StackCapture* stack_capture,
 }  // namespace
 
 StackCaptureCache* HeapProxy::stack_cache_ = NULL;
-double HeapProxy::cpu_cycles_per_us_ =
-    std::numeric_limits<double>::quiet_NaN();
 // The default quarantine and block size for a new Heap.
 size_t HeapProxy::default_quarantine_max_size_ =
     common::kDefaultQuarantineSize;
@@ -174,57 +142,6 @@ void HeapProxy::UseHeap(HANDLE underlying_heap) {
   owns_heap_ = false;
 }
 
-void HeapProxy::SetBlockChecksum(BlockHeader* block_header) {
-  DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), block_header);
-
-  block_header->checksum = 0;
-  uint32 block_checksum = 0;
-
-  if (block_header->state == ALLOCATED) {
-    // If the block is allocated then we don't want to include the content of
-    // the block in the checksum, we just use the header and trailer.
-    const uint8* header_begin = BlockHeaderToAsanPointer(block_header);
-    const uint8* header_end = BlockHeaderToUserPointer(block_header);
-    uint32 header_checksum =
-        base::SuperFastHash(reinterpret_cast<const char*>(header_begin),
-                            header_end - header_begin);
-    const uint8* block_end = header_end + block_header->block_size;
-    const uint8* trailer_end = reinterpret_cast<const uint8*>(
-        common::AlignUp(reinterpret_cast<const size_t>(block_end) +
-            sizeof(BlockTrailer) + trailer_padding_size_,
-                kShadowRatio));
-    uint32 trailer_checksum =
-        base::SuperFastHash(reinterpret_cast<const char*>(block_end),
-        trailer_end - block_end);
-    CombineUInt32IntoBlockChecksum(header_checksum ^ trailer_checksum,
-                                   &block_checksum);
-  } else if (block_header->state == QUARANTINED) {
-    // If the block is quarantined then we also include the content of the block
-    // in the calculation. We ignore the pointer to the next free block as it is
-    // modified when entering and exiting the quarantine.
-    // TODO(chrisha): Remove the next free block pointer from the block trailer
-    //     and store it out of band in the quarantine itself. This will make us
-    //     more resistant to heap corruption.
-    BlockTrailer* block_trailer = BlockHeaderToBlockTrailer(block_header);
-    char* begin1 = reinterpret_cast<char*>(block_header);
-    char* end = begin1 + GetAllocSize(block_header->block_size,
-                                      1 << block_header->alignment_log);
-    size_t length1 = reinterpret_cast<char*>(&block_trailer->next_free_block) -
-        begin1;
-    char* begin2 = reinterpret_cast<char*>(block_trailer + 1);
-    size_t length2 = end - begin2;
-
-    uint32 checksum1 = base::SuperFastHash(begin1, length1);
-    uint32 checksum2 = base::SuperFastHash(begin2, length2);
-
-    CombineUInt32IntoBlockChecksum(checksum1 ^ checksum2, &block_checksum);
-  } else {
-    NOTREACHED();
-  }
-
-  block_header->checksum = block_checksum;
-}
-
 bool HeapProxy::Destroy() {
   DCHECK(heap_ != NULL);
 
@@ -265,91 +182,38 @@ void* HeapProxy::Alloc(DWORD flags, size_t bytes) {
 
   return InitializeAsanBlock(block_mem,
                              bytes,
-                             alloc_size,
                              kDefaultAllocGranularityLog,
+                             false,
                              stack);
 }
 
 void* HeapProxy::InitializeAsanBlock(uint8* asan_pointer,
                                      size_t user_size,
-                                     size_t asan_size,
                                      size_t alloc_granularity_log,
+                                     bool is_nested,
                                      const StackCapture& stack) {
   if (asan_pointer == NULL)
     return NULL;
 
-  // Here's the layout of an ASan block:
-  //
-  // +----------------------+--------------+-------+---------------+---------+
-  // | Block Header Padding | Block Header | Block | Block Trailer | Padding |
-  // +----------------------+--------------+-------+---------------+---------+
-  //
-  // Block Header padding (optional): This is only present when the block has an
-  //     alignment bigger than the size of the BlockHeader structure. In this
-  //     case the size of the padding will be stored at the beginning of this
-  //     zone. This zone is poisoned.
-  // Block Header: A structure containing some of the metadata about this block.
-  //     This zone is poisoned.
-  // Block: The user space. This zone isn't poisoned.
-  // Block Trailer: A structure containing some of the metadata about this
-  //     block. This zone is poisoned.
-  // Padding (optional): Some padding to align the size of the whole structure
-  //     to the block alignment. This zone is poisoned.
+  BlockLayout layout = {};
+  BlockPlanLayout(1 << alloc_granularity_log,
+                  1 << alloc_granularity_log,
+                  user_size,
+                  1 << alloc_granularity_log,
+                  trailer_padding_size_ + sizeof(BlockTrailer),
+                  &layout);
 
-  if (alloc_granularity_log < kShadowRatioLog)
-    alloc_granularity_log = kShadowRatioLog;
+  BlockInfo block_info = {};
+  BlockInitialize(layout, asan_pointer, is_nested, &block_info);
 
-  size_t header_size = common::AlignUp(sizeof(BlockHeader),
-                                       1 << alloc_granularity_log);
+  Shadow::PoisonAllocatedBlock(block_info);
 
-  BlockHeader* block_header = reinterpret_cast<BlockHeader*>(
-      asan_pointer + header_size - sizeof(BlockHeader));
+  block_info.header->alloc_stack = stack_cache_->SaveStackTrace(stack);
+  block_info.header->free_stack = NULL;
 
-  // Check if we need the block header padding size at the beginning of the
-  // block.
-  if (header_size > sizeof(BlockHeader)) {
-    size_t padding_size = header_size - sizeof(BlockHeader);
-    DCHECK_GE(padding_size, sizeof(padding_size));
-    *(reinterpret_cast<size_t*>(asan_pointer)) = padding_size;
-  }
+  BlockSetChecksum(block_info);
 
-  // Poison the block header.
-  Shadow::Poison(asan_pointer,
-                 header_size - sizeof(BlockHeader),
-                 Shadow::kHeapLeftRedzone);
-  Shadow::Poison(block_header,
-                 sizeof(BlockHeader),
-                 Shadow::kHeapBlockStartByte0);
-
-  // TODO(chrisha): Determine if we can poison the header that the Windows
-  //     heap itself prepends to the allocation. This can also be used as a
-  //     method to determine if an address has ASAN guards or not, in O(1).
-
-  // Initialize the block fields.
-  block_header->magic_number = kBlockHeaderSignature;
-  block_header->block_size = user_size;
-  block_header->state = ALLOCATED;
-  block_header->alloc_stack = stack_cache_->SaveStackTrace(stack);
-  block_header->free_stack = NULL;
-  block_header->alignment_log = alloc_granularity_log;
-
-  BlockTrailer* block_trailer = BlockHeaderToBlockTrailer(block_header);
-  block_trailer->free_tid = 0;
-  block_trailer->next_free_block = NULL;
-  block_trailer->alloc_tid = ::GetCurrentThreadId();
-
-  uint8* block_alloc = BlockHeaderToUserPointer(block_header);
-  DCHECK(MemoryRangeIsAccessible(block_alloc, user_size));
-
-  // Poison the block trailer.
-  size_t trailer_size = asan_size - user_size - header_size;
-  Shadow::Poison(block_alloc + user_size,
-                 trailer_size,
-                 Shadow::kHeapRightRedzone);
-
-  SetBlockChecksum(block_header);
-
-  return block_alloc;
+  return block_info.body;
 }
 
 void* HeapProxy::ReAlloc(DWORD flags, void* mem, size_t bytes) {
@@ -380,10 +244,9 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
   if (mem == NULL)
     return true;
 
-  // This does a simple shift and check of the shadow memory looking for the
-  // beginning of a header. If none is found it returns NULL.
-  BlockHeader* block = UserPointerToBlockHeader(mem);
-  if (block == NULL) {
+  BlockHeader* header = BlockGetHeaderFromBody(mem);
+  BlockInfo block_info = {};
+  if (header == NULL || !Shadow::BlockInfoFromShadow(header, &block_info)) {
     // TODO(chrisha): Handle invalid allocation addresses. Currently we can't
     //     tell these apart from unguarded allocations.
 
@@ -394,11 +257,10 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
     return true;
   }
 
-  DCHECK(BlockHeaderToUserPointer(block) == mem);
-  if (!VerifyChecksum(block)) {
+  if (!BlockChecksumIsValid(block_info)) {
     // The free stack hasn't yet been set, but may have been filled with junk.
     // Reset it.
-    block->free_stack = NULL;
+    block_info.header->free_stack = NULL;
 
     // Report the error.
     ReportHeapError(mem, CORRUPT_BLOCK);
@@ -414,12 +276,12 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
   stack.InitFromStack();
 
   // Mark the block as quarantined.
-  if (!MarkBlockAsQuarantined(block, stack)) {
+  if (!MarkBlockAsQuarantined(block_info.header, stack)) {
     ReportHeapError(mem, DOUBLE_FREE);
     return false;
   }
 
-  QuarantineBlock(block);
+  QuarantineBlock(block_info);
 
   return true;
 }
@@ -427,54 +289,56 @@ bool HeapProxy::Free(DWORD flags, void* mem) {
 void HeapProxy::MarkBlockAsQuarantined(void* asan_pointer,
                                        const StackCapture& stack) {
   DCHECK_NE(reinterpret_cast<void*>(NULL), asan_pointer);
-  BlockHeader* block_header = AsanPointerToBlockHeader(asan_pointer);
+  BlockInfo block_info = {};
+  Shadow::BlockInfoFromShadow(asan_pointer, &block_info);
+  BlockHeader* block_header = block_info.header;
 
   MarkBlockAsQuarantined(block_header, stack);
 }
 
 bool HeapProxy::MarkBlockAsQuarantined(BlockHeader* block_header,
                                        const StackCapture& stack) {
-  if (block_header->state != ALLOCATED) {
-    // We're not supposed to see another kind of block here, the FREED state
-    // is only applied to block after invalidating their magic number and freed
-    // them.
-    DCHECK(block_header->state == QUARANTINED);
+  if (block_header->state != ALLOCATED_BLOCK) {
+    // We're not supposed to see another kind of block here, the FREED_BLOCK
+    // state is only applied to block after invalidating their magic number and
+    // freed them.
+    DCHECK(block_header->state == QUARANTINED_BLOCK);
     return false;
   }
 
+  BlockInfo block_info = {};
+  Shadow::BlockInfoFromShadow(block_header, &block_info);
+
   block_header->free_stack = stack_cache_->SaveStackTrace(stack);
+  block_info.trailer->free_ticks = ::GetTickCount();
+  block_info.trailer->free_tid = ::GetCurrentThreadId();
 
-  BlockTrailer* trailer = BlockHeaderToBlockTrailer(block_header);
-  trailer->free_timestamp = trace::common::GetTsc();
-  trailer->free_tid = ::GetCurrentThreadId();
-
-  block_header->state = QUARANTINED;
+  block_header->state = QUARANTINED_BLOCK;
 
   // Poison the released alloc (marked as freed) and quarantine the block.
   // Note that the original data is left intact. This may make it easier
   // to debug a crash report/dump on access to a quarantined block.
-  uint8* mem = BlockHeaderToUserPointer(block_header);
-  Shadow::MarkAsFreed(mem, block_header->block_size);
+  Shadow::MarkAsFreed(block_info.body, block_info.body_size);
 
   // TODO(chrisha): Poison the memory by XORing it?
 
-  SetBlockChecksum(block_header);
+  BlockSetChecksum(block_info);
 
   return true;
 }
 
 size_t HeapProxy::Size(DWORD flags, const void* mem) {
   DCHECK(heap_ != NULL);
-  BlockHeader* block = UserPointerToBlockHeader(mem);
+  BlockHeader* block = BlockGetHeaderFromBody(mem);
   if (block == NULL)
     return ::HeapSize(heap_, flags, mem);
   // TODO(chrisha): Handle invalid allocation addresses.
-  return block->block_size;
+  return block->body_size;
 }
 
 bool HeapProxy::Validate(DWORD flags, const void* mem) {
   DCHECK(heap_ != NULL);
-  const void* address = UserPointerToBlockHeader(mem);
+  const void* address = BlockGetHeaderFromBody(mem);
   if (address == NULL)
     address = mem;
   // TODO(chrisha): Handle invalid allocation addresses.
@@ -572,12 +436,14 @@ bool HeapProxy::FreeQuarantinedBlock(BlockHeader* block) {
   // has we take great pains to delete it carefully, and also report an error.
   // Otherwise, we trust the data in the header and take the fast path.
   size_t alloc_size = 0;
-  if (!VerifyChecksum(block)) {
+  BlockInfo block_info = {};
+  Shadow::BlockInfoFromShadow(block, &block_info);
+  if (!BlockChecksumIsValid(block_info)) {
     ReportHeapError(block, CORRUPT_BLOCK);
     if (!FreeCorruptBlock(block, &alloc_size))
       success = false;
   } else {
-    alloc_size = GetAllocSize(block->block_size, kDefaultAllocGranularity);
+    alloc_size = block_info.block_size;
     if (!CleanUpAndFreeAsanBlock(block, alloc_size))
       success = false;
   }
@@ -586,13 +452,7 @@ bool HeapProxy::FreeQuarantinedBlock(BlockHeader* block) {
 
 void HeapProxy::DestroyAsanBlock(void* asan_pointer) {
   DCHECK_NE(reinterpret_cast<void*>(NULL), asan_pointer);
-
-  BlockHeader* block_header = AsanPointerToBlockHeader(asan_pointer);
-  DCHECK_NE(reinterpret_cast<void*>(NULL), block_header);
-  BlockTrailer* block_trailer = BlockHeaderToBlockTrailer(block_header);
-  DCHECK_NE(reinterpret_cast<void*>(NULL), block_trailer);
-
-  ReleaseAsanBlock(block_header);
+  ReleaseAsanBlock(reinterpret_cast<BlockHeader*>(asan_pointer));
 }
 
 void HeapProxy::ReleaseAsanBlock(BlockHeader* block_header) {
@@ -608,7 +468,7 @@ void HeapProxy::ReleaseAsanBlock(BlockHeader* block_header) {
     block_header->free_stack = NULL;
   }
 
-  block_header->state = FREED;
+  block_header->state = FREED_BLOCK;
 }
 
 bool HeapProxy::FreeCorruptBlock(BlockHeader* header, size_t* alloc_size) {
@@ -633,7 +493,7 @@ bool HeapProxy::FreeCorruptBlock(BlockHeader* header, size_t* alloc_size) {
 bool HeapProxy::FreeCorruptBlock(void* user_pointer, size_t* alloc_size) {
   DCHECK_NE(reinterpret_cast<void*>(NULL), user_pointer);
 
-  // We can't use UserPointerToBlockHeader because the magic number of the
+  // We can't use BlockGetHeaderFromBody because the magic number of the
   // header might be invalid.
   BlockHeader* header = reinterpret_cast<BlockHeader*>(user_pointer) - 1;
   if (!FreeCorruptBlock(header, alloc_size))
@@ -689,8 +549,8 @@ void HeapProxy::CloneObject(const void* src_asan_pointer,
   DCHECK_NE(reinterpret_cast<void*>(NULL), src_asan_pointer);
   DCHECK_NE(reinterpret_cast<void*>(NULL), dst_asan_pointer);
 
-  BlockHeader* block_header = AsanPointerToBlockHeader(
-      const_cast<void*>(src_asan_pointer));
+  const BlockHeader* block_header =
+      reinterpret_cast<const BlockHeader*>(src_asan_pointer);
   DCHECK_NE(reinterpret_cast<void*>(NULL), block_header);
 
   DCHECK_NE(reinterpret_cast<StackCapture*>(NULL), block_header->alloc_stack);
@@ -698,135 +558,51 @@ void HeapProxy::CloneObject(const void* src_asan_pointer,
   if (block_header->free_stack != NULL)
     const_cast<StackCapture*>(block_header->free_stack)->AddRef();
 
-  size_t alloc_size = GetAllocSize(block_header->block_size,
-                                   1 << block_header->alignment_log);
+  BlockInfo block_info = {};
+  Shadow::BlockInfoFromShadow(block_header, &block_info);
 
-  memcpy(dst_asan_pointer, src_asan_pointer, alloc_size);
+  memcpy(dst_asan_pointer, src_asan_pointer, block_info.block_size);
 
-  Shadow::CloneShadowRange(src_asan_pointer, dst_asan_pointer, alloc_size);
+  Shadow::CloneShadowRange(src_asan_pointer, dst_asan_pointer,
+      block_info.block_size);
 }
 
-void HeapProxy::QuarantineBlock(BlockHeader* block) {
-  DCHECK(block != NULL);
-
-  if (!quarantine_.Push(block)) {
+void HeapProxy::QuarantineBlock(const BlockInfo& block) {
+  if (!quarantine_.Push(block.header)) {
     // Don't worry if CleanUpAndFreeAsanBlock fails as it will report a heap
     // error in this case.
-    size_t alloc_size = GetAllocSize(block->block_size,
-                                     kDefaultAllocGranularity);
-    CleanUpAndFreeAsanBlock(block, alloc_size);
+    CleanUpAndFreeAsanBlock(block.header, block.block_size);
     return;
   }
   TrimQuarantine();
 }
 
 size_t HeapProxy::GetAllocSize(size_t bytes, size_t alignment) {
-  bytes += std::max(sizeof(BlockHeader), alignment);
-  bytes += sizeof(BlockTrailer);
-  bytes += trailer_padding_size_;
-  return common::AlignUp(bytes, kShadowRatio);
+  BlockLayout layout = {};
+  BlockPlanLayout(alignment,
+                  alignment,
+                  bytes,
+                  alignment,
+                  trailer_padding_size_ + sizeof(BlockTrailer),
+                  &layout);
+  return layout.block_size;
 }
 
-HeapProxy::BlockHeader* HeapProxy::UserPointerToBlockHeader(
-    const void* user_pointer) {
-  if (user_pointer == NULL)
-    return NULL;
-
-  const uint8* mem = static_cast<const uint8*>(user_pointer);
-  const BlockHeader* header = reinterpret_cast<const BlockHeader*>(mem) - 1;
-
-  if (!Shadow::IsBlockStartByte(header))
-    return NULL;
-
-  return const_cast<BlockHeader*>(header);
-}
-
-HeapProxy::BlockHeader* HeapProxy::AsanPointerToBlockHeader(
-    void* asan_pointer) {
-  DCHECK_NE(reinterpret_cast<void*>(NULL), asan_pointer);
-
-  void* user_pointer = AsanPointerToUserPointer(asan_pointer);
-  DCHECK_NE(reinterpret_cast<void*>(NULL), user_pointer);
-
-  return UserPointerToBlockHeader(user_pointer);
-}
-
-uint8* HeapProxy::AsanPointerToUserPointer(void* asan_pointer) {
-  if (asan_pointer == NULL)
-    return NULL;
-
-  // Check if the ASan pointer is also pointing to the block header.
-  BlockHeader* header = reinterpret_cast<BlockHeader*>(asan_pointer);
-  if (header->magic_number == kBlockHeaderSignature)
-    return BlockHeaderToUserPointer(const_cast<BlockHeader*>(header));
-
-  // There's an offset between the ASan pointer and the block header, use it to
-  // get the user pointer.
-  size_t offset = *(reinterpret_cast<const size_t*>(asan_pointer));
-  header = reinterpret_cast<BlockHeader*>(
-      reinterpret_cast<uint8*>(asan_pointer) + offset);
-
-  // No need to check the signature of the header here, this is already done in
-  // BlockHeaderToUserPointer.
-  return BlockHeaderToUserPointer(header);
-}
-
-uint8* HeapProxy::BlockHeaderToAsanPointer(const BlockHeader* header) {
-  DCHECK(header != NULL);
-  DCHECK_EQ(kBlockHeaderSignature, header->magic_number);
-
-  return reinterpret_cast<uint8*>(
-      common::AlignDown(reinterpret_cast<size_t>(header),
-                        1 << header->alignment_log));
-}
-
-uint8* HeapProxy::UserPointerToAsanPointer(const void* user_pointer) {
-  if (user_pointer == NULL)
-    return NULL;
-
-  const BlockHeader* header =
-      reinterpret_cast<const BlockHeader*>(user_pointer) - 1;
-
-  return BlockHeaderToAsanPointer(header);
-}
-
-HeapProxy::BlockTrailer* HeapProxy::BlockHeaderToBlockTrailer(
-    const BlockHeader* header) {
-  DCHECK(header != NULL);
-  DCHECK_EQ(kBlockHeaderSignature, header->magic_number);
-  // We want the block trailers to be 4 byte aligned after the end of a block.
-  const size_t kBlockTrailerAlignment = 4;
-
-  uint8* mem = reinterpret_cast<uint8*>(const_cast<BlockHeader*>(header));
-  size_t aligned_size =
-      common::AlignUp(sizeof(BlockHeader) + header->block_size,
-                      kBlockTrailerAlignment);
-
-  return reinterpret_cast<BlockTrailer*>(mem + aligned_size);
-}
-
-uint8* HeapProxy::BlockHeaderToUserPointer(BlockHeader* header) {
-  DCHECK(header != NULL);
-  DCHECK_EQ(kBlockHeaderSignature, header->magic_number);
-  DCHECK(header->state == ALLOCATED || header->state == QUARANTINED);
-
-  return reinterpret_cast<uint8*>(header + 1);
-}
-
-HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const void* addr,
-                                                     BlockHeader* header) {
+HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(
+    const void* addr, const BlockHeader* header) {
   DCHECK(addr != NULL);
   DCHECK(header != NULL);
 
   BadAccessKind bad_access_kind = UNKNOWN_BAD_ACCESS;
 
-  if (header->state == QUARANTINED) {
+  if (header->state == QUARANTINED_BLOCK) {
     bad_access_kind = USE_AFTER_FREE;
   } else {
-    if (addr < (BlockHeaderToUserPointer(header))) {
+    BlockInfo block_info = {};
+    Shadow::BlockInfoFromShadow(header, &block_info);
+    if (addr < block_info.body) {
       bad_access_kind = HEAP_BUFFER_UNDERFLOW;
-    } else if (addr >= (BlockHeaderToUserPointer(header) +
-        header->block_size)) {
+    } else if (addr >= (block_info.body + block_info.body_size)) {
       bad_access_kind = HEAP_BUFFER_OVERFLOW;
     } else if (Shadow::GetShadowMarkerForAddress(addr) ==
         Shadow::kHeapFreedByte) {
@@ -837,254 +613,73 @@ HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(const void* addr,
   return bad_access_kind;
 }
 
-HeapProxy::BlockHeader* HeapProxy::FindBlockContainingAddress(uint8* addr) {
-  DCHECK(addr != NULL);
-
-  uint8* original_addr = addr;
-  addr = reinterpret_cast<uint8*>(
-      common::AlignDown(reinterpret_cast<size_t>(addr),
-      kShadowRatio));
-
-  // Here's what the memory will look like for a block nested into another one:
-  //          +-----------------------------+--------------+---------------+
-  // Shadow:  |        Left redzone         |              | Right redzone |
-  //          +------+---------------+------+--------------+-------+-------+
-  // Memory:  |      | BH_2 Padding  | BH_2 | Data Block 2 | BT_2  |       |
-  //          | BH_1 +---------------+------+--------------+-------+ BT_1  |
-  //          |      |                 Data Block 1                |       |
-  //          +------+---------------------------------------------+-------+
-  // Legend:
-  //   - BH_X: Block header of the block X.
-  //   - BT_X: Block trailer of the block X.
-  //
-  // In this example block 2 has an alignment different from block 1, hence the
-  // padding in front of its header.
-  //
-  // There can be several scenarios:
-  //
-  // 1) |addr| doesn't point to an address corresponding to a left redzone in
-  //    the shadow. In this case we should walk the shadow until we find the
-  //    header of a block containing |addr|.
-  //
-  // 2) |addr| points to the left redzone of the blocks, this can be due to
-  //    several types of bad accesses: a underflow on block 1, a underflow on
-  //    block 2 or a use after free on block 1. In this case we need to scan the
-  //    shadow to the left and to the right until we find a block header, or
-  //    until we get out of the shadow. We'll get 2 pointers to the bounds of
-  //    the left redzone, at least one of them will point to a block header, if
-  //    not then the heap is corrupt. If exactly one of them points to a header
-  //    then it's our block header, if it doesn't encapsulate |addr| then the
-  //    heap is corrupt. If both of them point to a block header then the
-  //    address will fall in the header of exactly one of them. If both or
-  //    neither, we have heap corruption.
-
-  // This corresponds to the first case.
-  if (!Shadow::IsLeftRedzone(addr)) {
-    while (addr >= kAddressLowerLimit) {
-      addr -= kShadowRatio;
-      if (Shadow::IsBlockStartByte(addr)) {
-        BlockHeader* header = reinterpret_cast<BlockHeader*>(addr -
-            (sizeof(BlockHeader) - kShadowRatio));
-        if (header->magic_number != kBlockHeaderSignature)
-          continue;
-        size_t block_size = GetAllocSize(header->block_size,
-                                         1 << header->alignment_log);
-        uint8* asan_ptr = BlockHeaderToAsanPointer(header);
-        if (reinterpret_cast<uint8*>(original_addr) < asan_ptr + block_size)
-          return header;
-      }
-    }
-
-    // This address doesn't belong to any block.
-    return NULL;
-  }
-
-  // The bad access occurred in a left redzone, this corresponds to the second
-  // case.
-
-  // Starts by looking for the left bound.
-  uint8* left_bound = reinterpret_cast<uint8*>(addr);
-  BlockHeader* left_header = NULL;
-  size_t left_block_size = 0;
-  while (Shadow::IsBlockStartByte(left_bound)) {
-    BlockHeader* temp_header = reinterpret_cast<BlockHeader*>(left_bound);
-    if (temp_header->magic_number == kBlockHeaderSignature) {
-      left_header = temp_header;
-      left_block_size = GetAllocSize(left_header->block_size,
-                                     1 << left_header->alignment_log);
-      break;
-    }
-    left_bound -= kShadowRatio;
-  }
-
-  // Look for the right bound.
-  uint8* right_bound = reinterpret_cast<uint8*>(addr);
-  BlockHeader* right_header = NULL;
-  size_t right_block_size = 0;
-  while (Shadow::IsLeftRedzone(right_bound + kShadowRatio)) {
-    right_bound += kShadowRatio;
-    BlockHeader* temp_header = reinterpret_cast<BlockHeader*>(right_bound);
-    if (temp_header->magic_number == kBlockHeaderSignature) {
-      right_header = temp_header;
-      right_block_size = GetAllocSize(right_header->block_size,
-                                      1 << right_header->alignment_log);
-      break;
-    }
-  }
-
-  CHECK(left_header != NULL || right_header != NULL);
-
-  // If only one of the bounds corresponds to a block header then we return it.
-
-  if (left_header != NULL && right_header == NULL) {
-    if (original_addr >= reinterpret_cast<uint8*>(left_header) +
-        left_block_size) {
-      // TODO(sebmarchand): Report that the heap is corrupt.
-      return NULL;
-    }
-    return left_header;
-  }
-
-  if (right_header != NULL && left_header == NULL) {
-    if (original_addr < BlockHeaderToAsanPointer(right_header) ||
-        original_addr >= BlockHeaderToAsanPointer(right_header) +
-        right_block_size) {
-      // TODO(sebmarchand): Report that the heap is corrupt.
-      return NULL;
-    }
-    return right_header;
-  }
-
-  DCHECK(left_header != NULL && right_header != NULL);
-
-  // Otherwise we start by looking if |addr| is contained in the rightmost
-  // block.
-  uint8* right_block_left_bound = reinterpret_cast<uint8*>(
-      BlockHeaderToAsanPointer(right_header));
-  if (original_addr >= right_block_left_bound &&
-      original_addr < right_block_left_bound + right_block_size) {
-    return right_header;
-  }
-
-  uint8* left_block_left_bound = reinterpret_cast<uint8*>(
-      BlockHeaderToAsanPointer(left_header));
-  if (original_addr < left_block_left_bound ||
-      original_addr >= left_block_left_bound + left_block_size) {
-    // TODO(sebmarchand): Report that the heap is corrupt.
-    return NULL;
-  }
-
-  return left_header;
-}
-
-HeapProxy::BlockHeader* HeapProxy::FindContainingFreedBlock(
-    BlockHeader* inner_block) {
-  DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), inner_block);
-  BlockHeader* containing_block = NULL;
-  do {
-    containing_block = FindContainingBlock(inner_block);
-    inner_block = containing_block;
-  } while (containing_block != NULL &&
-           containing_block->state != QUARANTINED);
-  return containing_block;
-}
-
-HeapProxy::BlockHeader* HeapProxy::FindContainingBlock(
-    BlockHeader* inner_block) {
-  DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), inner_block);
-  DCHECK_EQ(kBlockHeaderSignature, inner_block->magic_number);
-
-  size_t addr = reinterpret_cast<size_t>(inner_block);
-  addr = common::AlignDown(addr - kShadowRatio, kShadowRatio);
-
-  // Try to find a block header containing this block.
-  while (addr >= reinterpret_cast<size_t>(kAddressLowerLimit)) {
-    // Only look at the addresses tagged as the redzone of a block.
-    if (Shadow::IsBlockStartByte(reinterpret_cast<void*>(addr))) {
-      BlockHeader* temp_header = reinterpret_cast<BlockHeader*>(addr);
-      if (temp_header->magic_number == kBlockHeaderSignature) {
-        size_t block_size = GetAllocSize(temp_header->block_size,
-                                    1 << temp_header->alignment_log);
-        // Makes sure that the inner block is contained in this block.
-        if (reinterpret_cast<size_t>(inner_block) <
-            reinterpret_cast<size_t>(temp_header) + block_size) {
-          return temp_header;
-        }
-      }
-    }
-    addr -= kShadowRatio;
-  }
-
-  return NULL;
-}
-
 bool HeapProxy::GetBadAccessInformation(AsanErrorInfo* bad_access_info) {
   DCHECK(bad_access_info != NULL);
-  BlockHeader* header = FindBlockContainingAddress(
-      reinterpret_cast<uint8*>(bad_access_info->location));
-
-  if (header == NULL)
+  BlockInfo block_info = {};
+  if (!Shadow::BlockInfoFromShadow(bad_access_info->location, &block_info))
     return false;
-
-  BlockTrailer* trailer = BlockHeaderToBlockTrailer(header);
-  DCHECK(trailer != NULL);
 
   if (bad_access_info->error_type != DOUBLE_FREE &&
       bad_access_info->error_type != CORRUPT_BLOCK) {
     bad_access_info->error_type = GetBadAccessKind(bad_access_info->location,
-                                                   header);
+                                                   block_info.header);
   }
 
   // Makes sure that we don't try to use an invalid stack capture pointer.
   if (bad_access_info->error_type == CORRUPT_BLOCK) {
     // Set the invalid stack captures to NULL.
-    if (!stack_cache_->StackCapturePointerIsValid(header->alloc_stack))
-      header->alloc_stack = NULL;
-    if (!stack_cache_->StackCapturePointerIsValid(header->free_stack))
-      header->free_stack = NULL;
+    if (!stack_cache_->StackCapturePointerIsValid(
+        block_info.header->alloc_stack)) {
+      block_info.header->alloc_stack = NULL;
+    }
+    if (!stack_cache_->StackCapturePointerIsValid(
+        block_info.header->free_stack)) {
+      block_info.header->free_stack = NULL;
+    }
   }
 
   // Checks if there's a containing block in the case of a use after free on a
   // block owned by a nested heap.
-  BlockHeader* containing_block = NULL;
+  BlockInfo containing_block = {};
   if (bad_access_info->error_type == USE_AFTER_FREE &&
-      header->state != QUARANTINED) {
-    containing_block = FindContainingFreedBlock(header);
+      block_info.header->state != QUARANTINED_BLOCK) {
+     Shadow::ParentBlockInfoFromShadow(block_info, &containing_block);
   }
 
   // Get the bad access description if we've been able to determine its kind.
   if (bad_access_info->error_type != UNKNOWN_BAD_ACCESS) {
-    bad_access_info->microseconds_since_free = GetTimeSinceFree(header);
+    bad_access_info->microseconds_since_free =
+        GetTimeSinceFree(block_info.header);
 
-    DCHECK(header->alloc_stack != NULL);
-    CopyStackCaptureToArray(header->alloc_stack,
+    DCHECK(block_info.header->alloc_stack != NULL);
+    CopyStackCaptureToArray(block_info.header->alloc_stack,
                             bad_access_info->alloc_stack,
                             &bad_access_info->alloc_stack_size);
-    bad_access_info->alloc_tid = trailer->alloc_tid;
+    bad_access_info->alloc_tid = block_info.trailer->alloc_tid;
 
-    if (header->state != ALLOCATED) {
-      const StackCapture* free_stack = header->free_stack;
-      BlockTrailer* free_stack_trailer = trailer;
+    if (block_info.header->state != ALLOCATED_BLOCK) {
+      const StackCapture* free_stack = block_info.header->free_stack;
+      BlockTrailer* free_stack_trailer = block_info.trailer;
       // Use the free metadata of the containing block if there's one.
       // TODO(chrisha): This should report all of the nested stack information
       //     from innermost to outermost. For now, innermost is best.
-      if (containing_block != NULL) {
-        free_stack = containing_block->free_stack;
-        free_stack_trailer = BlockHeaderToBlockTrailer(containing_block);
+      if (containing_block.block != NULL) {
+        free_stack = containing_block.header->free_stack;
+        free_stack_trailer = containing_block.trailer;
       }
-      CopyStackCaptureToArray(header->free_stack,
+      CopyStackCaptureToArray(block_info.header->free_stack,
                               bad_access_info->free_stack,
                               &bad_access_info->free_stack_size);
       bad_access_info->free_tid = free_stack_trailer->free_tid;
     }
-    GetAddressInformation(header, bad_access_info);
+    GetAddressInformation(block_info.header, bad_access_info);
     return true;
   }
 
   return false;
 }
 
-void HeapProxy::GetAddressInformation(BlockHeader* header,
+void HeapProxy::GetAddressInformation(const BlockHeader* header,
                                       AsanErrorInfo* bad_access_info) {
   DCHECK(header != NULL);
   DCHECK(bad_access_info != NULL);
@@ -1093,23 +688,25 @@ void HeapProxy::GetAddressInformation(BlockHeader* header,
   DCHECK(bad_access_info != NULL);
   DCHECK(bad_access_info->location != NULL);
 
-  uint8* block_alloc = BlockHeaderToUserPointer(header);
+  BlockInfo block_info = {};
+  Shadow::BlockInfoFromShadow(header, &block_info);
+
   int offset = 0;
   char* offset_relativity = "";
   switch (bad_access_info->error_type) {
     case HEAP_BUFFER_OVERFLOW:
       offset = static_cast<const uint8*>(bad_access_info->location)
-          - block_alloc - header->block_size;
+          - block_info.body - block_info.body_size;
       offset_relativity = "beyond";
       break;
     case HEAP_BUFFER_UNDERFLOW:
-      offset = block_alloc -
+      offset = block_info.body -
           static_cast<const uint8*>(bad_access_info->location);
       offset_relativity = "before";
       break;
     case USE_AFTER_FREE:
       offset = static_cast<const uint8*>(bad_access_info->location)
-          - block_alloc;
+          - block_info.body;
       offset_relativity = "inside";
       break;
     case WILD_ACCESS:
@@ -1128,9 +725,9 @@ void HeapProxy::GetAddressInformation(BlockHeader* header,
       bad_access_info->location,
       offset,
       offset_relativity,
-      header->block_size,
-      block_alloc,
-      block_alloc + header->block_size);
+      block_info.body_size,
+      block_info.body,
+      block_info.body + block_info.body_size);
 
   std::string shadow_memory;
   Shadow::AppendShadowArrayText(bad_access_info->location, &shadow_memory);
@@ -1200,114 +797,66 @@ void HeapProxy::set_default_quarantine_max_block_size(
       default_quarantine_max_size_);
 }
 
-double HeapProxy::cpu_cycles_per_us() {
-  if (!base::IsFinite(cpu_cycles_per_us_))
-    cpu_cycles_per_us_ = GetCpuCyclesPerUs();
-  return cpu_cycles_per_us_;
-}
-
-uint64 HeapProxy::GetTimeSinceFree(const BlockHeader* header) {
+uint32 HeapProxy::GetTimeSinceFree(const BlockHeader* header) {
   DCHECK(header != NULL);
 
-  if (header->state == ALLOCATED)
+  if (header->state == ALLOCATED_BLOCK)
     return 0;
 
-  BlockTrailer* trailer = BlockHeaderToBlockTrailer(header);
-  DCHECK(trailer != NULL);
+  BlockInfo block_info = {};
+  Shadow::BlockInfoFromShadow(header, &block_info);
+  DCHECK(block_info.trailer != NULL);
 
-  uint64 cycles_since_free = trace::common::GetTsc() - trailer->free_timestamp;
+  uint32 time_since_free = ::GetTickCount() - block_info.trailer->free_ticks;
 
-  // On x86/64, as long as cpu_cycles_per_us_ is 64-bit aligned, the write is
-  // atomic, which means we don't care about multiple writers since it's not an
-  // update based on the previous value.
-  DCHECK_NE(0.0, cpu_cycles_per_us());
-
-  return cycles_since_free / cpu_cycles_per_us();
-}
-
-void HeapProxy::GetAsanExtent(const void* user_pointer,
-                              void** asan_pointer,
-                              size_t* size) {
-  DCHECK_NE(reinterpret_cast<void*>(NULL), user_pointer);
-  DCHECK_NE(reinterpret_cast<void*>(NULL), asan_pointer);
-  DCHECK_NE(reinterpret_cast<void*>(NULL), size);
-
-  *asan_pointer = UserPointerToAsanPointer(user_pointer);
-  BlockHeader* block_header = UserPointerToBlockHeader(user_pointer);
-
-  DCHECK_NE(reinterpret_cast<void*>(NULL), block_header);
-  *size = GetAllocSize(block_header->block_size,
-                       1 << block_header->alignment_log);
-}
-
-void HeapProxy::GetUserExtent(const void* asan_pointer,
-                              void** user_pointer,
-                              size_t* size) {
-  DCHECK_NE(reinterpret_cast<void*>(NULL), asan_pointer);
-  DCHECK_NE(reinterpret_cast<void*>(NULL), user_pointer);
-  DCHECK_NE(reinterpret_cast<void*>(NULL), size);
-
-  *user_pointer = AsanPointerToUserPointer(const_cast<void*>(asan_pointer));
-  BlockHeader* block_header = UserPointerToBlockHeader(*user_pointer);
-
-  DCHECK_NE(reinterpret_cast<void*>(NULL), block_header);
-  *size = block_header->block_size;
-}
-
-bool HeapProxy::VerifyChecksum(BlockHeader* header) {
-  size_t old_checksum = header->checksum;
-  SetBlockChecksum(header);
-  if (old_checksum != header->checksum) {
-    header->checksum = old_checksum;
-    return false;
-  }
-  return true;
+  return time_since_free;
 }
 
 bool HeapProxy::IsBlockCorrupt(const uint8* block_header) {
-  const BlockHeader* header = reinterpret_cast<const BlockHeader*>(
-      Shadow::AsanPointerToBlockHeader(const_cast<uint8*>(block_header)));
-  if (header->magic_number != kBlockHeaderSignature ||
-      !VerifyChecksum(const_cast<BlockHeader*>(header))) {
+  BlockInfo block_info = {};
+  if (!Shadow::BlockInfoFromShadow(block_header, &block_info) ||
+      block_info.header->magic != kBlockHeaderMagic ||
+      !BlockChecksumIsValid(block_info)) {
     return true;
   }
   return false;
 }
 
-void HeapProxy::GetBlockInfo(AsanBlockInfo* block_info) {
-  DCHECK_NE(reinterpret_cast<AsanBlockInfo*>(NULL), block_info);
+void HeapProxy::GetBlockInfo(AsanBlockInfo* asan_block_info) {
+  DCHECK_NE(reinterpret_cast<AsanBlockInfo*>(NULL), asan_block_info);
   const BlockHeader* header =
-      reinterpret_cast<const BlockHeader*>(block_info->header);
+      reinterpret_cast<const BlockHeader*>(asan_block_info->header);
 
-  block_info->alloc_stack_size = 0;
-  block_info->free_stack_size = 0;
-  block_info->corrupt = IsBlockCorrupt(
-      reinterpret_cast<const uint8*>(block_info->header));
+  asan_block_info->alloc_stack_size = 0;
+  asan_block_info->free_stack_size = 0;
+  asan_block_info->corrupt = IsBlockCorrupt(
+      reinterpret_cast<const uint8*>(asan_block_info->header));
 
   // Copy the alloc and free stack traces if they're valid.
   if (stack_cache_->StackCapturePointerIsValid(header->alloc_stack)) {
     CopyStackCaptureToArray(header->alloc_stack,
-                            block_info->alloc_stack,
-                            &block_info->alloc_stack_size);
+                            asan_block_info->alloc_stack,
+                            &asan_block_info->alloc_stack_size);
   }
-  if (header->state != ALLOCATED &&
+  if (header->state != ALLOCATED_BLOCK &&
       stack_cache_->StackCapturePointerIsValid(header->free_stack)) {
     CopyStackCaptureToArray(header->free_stack,
-                            block_info->free_stack,
-                            &block_info->free_stack_size);
+                            asan_block_info->free_stack,
+                            &asan_block_info->free_stack_size);
   }
 
   // Only check the trailer if the block isn't marked as corrupt.
-  DCHECK_EQ(0U, block_info->alloc_tid);
-  DCHECK_EQ(0U, block_info->free_tid);
-  if (!block_info->corrupt) {
-    BlockTrailer* trailer = BlockHeaderToBlockTrailer(header);
-    block_info->alloc_tid = trailer->alloc_tid;
-    block_info->free_tid = trailer->free_tid;
+  DCHECK_EQ(0U, asan_block_info->alloc_tid);
+  DCHECK_EQ(0U, asan_block_info->free_tid);
+  if (!asan_block_info->corrupt) {
+    BlockInfo block_info = {};
+    Shadow::BlockInfoFromShadow(asan_block_info->header, &block_info);
+    asan_block_info->alloc_tid = block_info.trailer->alloc_tid;
+    asan_block_info->free_tid = block_info.trailer->free_tid;
   }
 
-  block_info->state = header->state;
-  block_info->user_size = header->block_size;
+  asan_block_info->state = header->state;
+  asan_block_info->user_size = header->body_size;
 }
 
 HeapLocker::HeapLocker(HeapProxy* const heap) : heap_(heap) {

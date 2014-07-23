@@ -267,21 +267,6 @@ class Shadow {
   // TODO(sebmarchand): Add support for nested blocks.
   static size_t GetAllocSize(const uint8* mem);
 
-  // Look in the shadow memory for the beginning of a block containing a given
-  // address.
-  // @param A pointer inside the memory block for which we want its beginning.
-  // @returns The beginning of the block on success, false otherwise.
-  // @note This function doesn't work for nested blocks.
-  // TODO(sebmarchand): Add support for nested blocks.
-  static const uint8* FindBlockBeginning(const uint8* mem);
-
-  // Returns the block header for an ASan pointer.
-  // @param asan_pointer The ASan pointer for which we want the block header
-  //     pointer.
-  // @returns A pointer to the block header of @p asan_pointer on success, NULL
-  //     otherwise.
-  static const uint8* AsanPointerToBlockHeader(const uint8* asan_pointer);
-
   // Determines if the given marker is a header byte marker (there are
   // multiple distinct header byte markers).
   // @param marker The marker to inspect.
@@ -398,44 +383,6 @@ class Shadow {
 class ShadowWalker {
  public:
   // Constructor.
-  // @param lower_bound The lower bound of the region that this walker should
-  //     cover in the actual memory.
-  // @param upper_bound The upper bound of the region that this walker should
-  //     cover in the actual memory.
-  ShadowWalker(const uint8* lower_bound, const uint8* upper_bound);
-
-  // Return the next block in this memory region.
-  // @param block_begin Will receive the pointer to the next block in the region
-  //     of interest. This will point to the beginning of a block, which may not
-  //     necessarily be the block header depending on alignment requirements.
-  //     This will be set to something >= @p upper_bound_ when the function
-  //     returns false.
-  // @return true if a block was found, false otherwise.
-  bool Next(const uint8** block_begin);
-
-  // Reset the walker to its initial state.
-  void Reset();
-
- private:
-  // Move |next_block_| to the next block.
-  void Advance();
-
-  // The bounds of the memory region for this walker.
-  const uint8* lower_bound_;
-  const uint8* upper_bound_;
-
-  // The next block in the shadow, this will point to |upper_bound_| if there's
-  // no next block.
-  const uint8* next_block_;
-
-  DISALLOW_COPY_AND_ASSIGN(ShadowWalker);
-};
-
-// NOTE: This will replace the old shadow walker when the new block style is
-//     fully integrated with the heap.
-class NewShadowWalker {
- public:
-  // Constructor.
   // @param recursive If true then this will recursively descend into nested
   //     blocks. Otherwise it will only return the outermost blocks in the
   //     provided region.
@@ -443,7 +390,7 @@ class NewShadowWalker {
   //     cover in the actual memory.
   // @param upper_bound The upper bound of the region that this walker should
   //     cover in the actual memory.
-  NewShadowWalker(bool recursive,
+  ShadowWalker(bool recursive,
                   const void* lower_bound,
                   const void* upper_bound);
 
@@ -475,7 +422,7 @@ class NewShadowWalker {
   // The current nesting depth. Starts at -1.
   int nesting_depth_;
 
-  DISALLOW_COPY_AND_ASSIGN(NewShadowWalker);
+  DISALLOW_COPY_AND_ASSIGN(ShadowWalker);
 };
 
 // Bring in the implementation of the templated functions.

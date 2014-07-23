@@ -179,11 +179,12 @@ struct BlockTrailer {
   uint32 alloc_ticks;
   // The time at which the block was freed (zero if not yet freed).
   uint32 free_ticks;
-  // A pointer that is used for stringing together freed blocks.
-  // TODO(chrisha): Lift this out, as its wasteful. A minority of blocks are
-  //     in the freed state at any given moment in time. This could then be
-  //     reused as 'user data', for example the heap ID.
-  BlockHeader* next;
+  // A reserved field that will be used to store 'user data', for example the
+  // heap ID.
+  // TODO(sebmarchand): Lift this out if it appears to be useless, we keep this
+  //     here temporarily because there's some expectation on the size of
+  //     BlockTrailer in the layout functions.
+  size_t reserved;
 };
 #pragma pack(pop)
 COMPILE_ASSERT((sizeof(BlockTrailer) % kShadowRatio) == (kShadowRatio / 2),

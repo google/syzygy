@@ -26,16 +26,6 @@ namespace asan {
 
 namespace {
 
-// A derived class to expose protected members for unit-testing.
-class TestHeapProxy : public HeapProxy {
- public:
-  using HeapProxy::BlockHeader;
-  using HeapProxy::BlockTrailer;
-  using HeapProxy::SetBlockChecksum;
-  using HeapProxy::UserPointerToAsanPointer;
-  using HeapProxy::UserPointerToBlockHeader;
-};
-
 class HeapCheckerTest : public testing::Test {
  public:
   HeapCheckerTest() {
@@ -78,17 +68,18 @@ TEST_F(HeapCheckerTest, IsHeapCorruptInvalidChecksum) {
 
   // Free the block and corrupt its data.
   ASSERT_TRUE(proxy_.Free(0, block));
-  TestHeapProxy::BlockHeader* header =
-      TestHeapProxy::UserPointerToBlockHeader(block);
+  BlockHeader* header = BlockGetHeaderFromBody(block);
   size_t header_checksum = header->checksum;
 
   // Corrupt the data in such a way that we can guarantee no hash collision.
   const size_t kMaxIterations = 10;
   size_t iteration = 0;
   uint8 original_value = reinterpret_cast<uint8*>(block)[0];
+  BlockInfo block_info = {};
+  EXPECT_TRUE(BlockInfoFromMemory(header, &block_info));
   do {
     reinterpret_cast<uint8*>(block)[0]++;
-    TestHeapProxy::SetBlockChecksum(header);
+    BlockSetChecksum(block_info);
   } while (header->checksum == header_checksum && iteration++ < kMaxIterations);
 
   // Restore the checksum to make sure that the corruption gets detected.
@@ -100,12 +91,12 @@ TEST_F(HeapCheckerTest, IsHeapCorruptInvalidChecksum) {
 
   EXPECT_EQ(1, range_info->block_count);
   ShadowWalker shadow_walker(
+      false,
       reinterpret_cast<const uint8*>(range_info->address),
       reinterpret_cast<const uint8*>(range_info->address) + range_info->length);
-  const uint8* block_header = NULL;
-  EXPECT_TRUE(shadow_walker.Next(&block_header));
-  EXPECT_EQ(reinterpret_cast<const uint8*>(header), block_header);
-  EXPECT_FALSE(shadow_walker.Next(&block_header));
+  EXPECT_TRUE(shadow_walker.Next(&block_info));
+  EXPECT_EQ(header, block_info.header);
+  EXPECT_FALSE(shadow_walker.Next(&block_info));
 
   header->checksum = header_checksum;
   reinterpret_cast<uint8*>(block)[0] = original_value;
@@ -124,23 +115,23 @@ TEST_F(HeapCheckerTest, IsHeapCorruptInvalidMagicNumber) {
 
   // Corrupt the header of the block and ensure that the heap corruption gets
   // detected.
-  TestHeapProxy::BlockHeader* header =
-      TestHeapProxy::UserPointerToBlockHeader(block);
-  header->magic_number = ~header->magic_number;
+  BlockHeader* header = BlockGetHeaderFromBody(block);
+  header->magic = ~header->magic;
   EXPECT_TRUE(heap_checker.IsHeapCorrupt(&corrupt_ranges));
   ASSERT_EQ(1, corrupt_ranges.size());
   AsanCorruptBlockRange* range_info = *corrupt_ranges.begin();
 
   EXPECT_EQ(1, range_info->block_count);
   ShadowWalker shadow_walker(
+      false,
       reinterpret_cast<const uint8*>(range_info->address),
       reinterpret_cast<const uint8*>(range_info->address) + range_info->length);
-  const uint8* block_header = NULL;
-  EXPECT_TRUE(shadow_walker.Next(&block_header));
-  EXPECT_EQ(reinterpret_cast<const uint8*>(header), block_header);
-  EXPECT_FALSE(shadow_walker.Next(&block_header));
+  BlockInfo block_info = {};
+  EXPECT_TRUE(shadow_walker.Next(&block_info));
+  EXPECT_EQ(header, block_info.header);
+  EXPECT_FALSE(shadow_walker.Next(&block_info));
 
-  header->magic_number = ~header->magic_number;
+  header->magic = ~header->magic;
   EXPECT_FALSE(heap_checker.IsHeapCorrupt(&corrupt_ranges));
 
   ASSERT_TRUE(proxy_.Free(0, block));
@@ -164,9 +155,11 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
   proxy_.SetQuarantineMaxBlockSize(real_alloc_size * kNumberOfBlocks);
 
   LPVOID blocks[kNumberOfBlocks];
+  BlockHeader* block_headers[kNumberOfBlocks];
   for (size_t i = 0; i < kNumberOfBlocks; ++i) {
     blocks[i] = proxy_.Alloc(0, kAllocSize);
     ASSERT_TRUE(blocks[i] != NULL);
+    block_headers[i] = BlockGetHeaderFromBody(blocks[i]);
     base::RandBytes(blocks[i], kAllocSize);
   }
 
@@ -175,10 +168,9 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
   EXPECT_FALSE(heap_checker.IsHeapCorrupt(&corrupt_ranges));
 
   // Corrupt the header of the first two blocks and of the last one.
-  TestHeapProxy::UserPointerToBlockHeader(blocks[0])->magic_number++;
-  TestHeapProxy::UserPointerToBlockHeader(blocks[1])->magic_number++;
-  TestHeapProxy::UserPointerToBlockHeader(
-      blocks[kNumberOfBlocks - 1])->magic_number++;
+  block_headers[0]->magic++;
+  block_headers[1]->magic++;
+  block_headers[kNumberOfBlocks - 1]->magic++;
 
   EXPECT_TRUE(heap_checker.IsHeapCorrupt(&corrupt_ranges));
 
@@ -187,33 +179,34 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
 
   EXPECT_EQ(2, corrupt_ranges.size());
 
+  BlockInfo block_info = {};
   ShadowWalker shadow_walker_1(
+      false,
       reinterpret_cast<const uint8*>(corrupt_ranges[0]->address),
       reinterpret_cast<const uint8*>(corrupt_ranges[0]->address) +
           corrupt_ranges[0]->length);
-  const uint8* block_header = NULL;
-  EXPECT_TRUE(shadow_walker_1.Next(&block_header));
-  EXPECT_EQ(reinterpret_cast<const TestHeapProxy::BlockHeader*>(block_header),
-            TestHeapProxy::UserPointerToBlockHeader(blocks[0]));
-  EXPECT_TRUE(shadow_walker_1.Next(&block_header));
-  EXPECT_EQ(reinterpret_cast<const TestHeapProxy::BlockHeader*>(block_header),
-            TestHeapProxy::UserPointerToBlockHeader(blocks[1]));
-  EXPECT_FALSE(shadow_walker_1.Next(&block_header));
+  EXPECT_TRUE(shadow_walker_1.Next(&block_info));
+  EXPECT_EQ(reinterpret_cast<const BlockHeader*>(block_info.header),
+            block_headers[0]);
+  EXPECT_TRUE(shadow_walker_1.Next(&block_info));
+  EXPECT_EQ(reinterpret_cast<const BlockHeader*>(block_info.header),
+            block_headers[1]);
+  EXPECT_FALSE(shadow_walker_1.Next(&block_info));
 
   ShadowWalker shadow_walker_2(
+      false,
       reinterpret_cast<const uint8*>(corrupt_ranges[1]->address),
       reinterpret_cast<const uint8*>(corrupt_ranges[1]->address) +
           corrupt_ranges[1]->length);
-  EXPECT_TRUE(shadow_walker_2.Next(&block_header));
-  EXPECT_EQ(reinterpret_cast<const TestHeapProxy::BlockHeader*>(block_header),
-      TestHeapProxy::UserPointerToBlockHeader(blocks[kNumberOfBlocks - 1]));
-  EXPECT_FALSE(shadow_walker_2.Next(&block_header));
+  EXPECT_TRUE(shadow_walker_2.Next(&block_info));
+  EXPECT_EQ(reinterpret_cast<const BlockHeader*>(block_info.header),
+            block_headers[kNumberOfBlocks - 1]);
+  EXPECT_FALSE(shadow_walker_2.Next(&block_info));
 
   // Restore the checksum of the blocks.
-  TestHeapProxy::UserPointerToBlockHeader(blocks[0])->magic_number--;
-  TestHeapProxy::UserPointerToBlockHeader(blocks[1])->magic_number--;
-  TestHeapProxy::UserPointerToBlockHeader(
-      blocks[kNumberOfBlocks - 1])->magic_number--;
+  block_headers[0]->magic--;
+  block_headers[1]->magic--;
+  block_headers[kNumberOfBlocks - 1]->magic--;
 
   for (size_t i = 0; i < kNumberOfBlocks; ++i)
     ASSERT_TRUE(proxy_.Free(0, blocks[i]));

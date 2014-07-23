@@ -496,10 +496,20 @@ TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
 
   SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
   const size_t kMaxIterations = 10;
+
+  // Retrieves the information about this block.
+  BlockHeader* header = BlockGetHeaderFromBody(mem.get());
+  BlockInfo block_info = {};
+  EXPECT_TRUE(BlockInfoFromMemory(header, &block_info));
+
+  // We'll update a non essential value of the block trailer to corrupt it.
+  uint8* mem_in_trailer = reinterpret_cast<uint8*>(
+      &block_info.trailer->alloc_tid);
+
   // This can fail because of a checksum collision. However, we run it a handful
   // of times to keep the chances as small as possible.
   for (size_t i = 0; i < kMaxIterations; ++i) {
-    mem[kAllocSize]++;
+    (*mem_in_trailer)++;
     AssertMemoryErrorIsDetected(mem.get() + kAllocSize,
                                 HeapProxy::HEAP_BUFFER_OVERFLOW);
     EXPECT_TRUE(LogContains("previously allocated here"));
