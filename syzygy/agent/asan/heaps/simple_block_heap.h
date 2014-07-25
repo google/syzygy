@@ -52,9 +52,12 @@ class SimpleBlockHeap : public BlockHeapInterface {
   virtual bool FreeBlock(const BlockInfo& block_info);
   // @}
 
- private:
+ protected:
   // The underlying raw heap.
   HeapInterface* heap_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(SimpleBlockHeap);
 };
 
 }  // namespace asan
