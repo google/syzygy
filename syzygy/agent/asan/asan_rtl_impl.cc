@@ -83,7 +83,7 @@ void TearDownRtl() {
 // @param access_size The size of the access.
 // @param context The registers context of the access.
 void CheckMemoryAccess(void* location,
-                       HeapProxy::AccessMode access_mode,
+                       AccessMode access_mode,
                        size_t access_size,
                        const AsanContext& context) {
   if (!Shadow::IsAccessible(location))
@@ -101,19 +101,19 @@ void CheckMemoryAccess(void* location,
 // @param compare Flag to activate shortcut of the execution on difference.
 // @param context The registers context of the access.
 void CheckStringsMemoryAccesses(
-    uint8* dst, HeapProxy::AccessMode dst_access_mode,
-    uint8* src, HeapProxy::AccessMode src_access_mode,
+    uint8* dst, AccessMode dst_access_mode,
+    uint8* src, AccessMode src_access_mode,
     uint32 length, size_t access_size, int32 increment, bool compare,
     const AsanContext& context) {
   int32 offset = 0;
 
   for (uint32 i = 0; i < length; ++i) {
     // Check next memory location at src[offset].
-    if (src_access_mode != HeapProxy::ASAN_UNKNOWN_ACCESS)
+    if (src_access_mode != agent::asan::ASAN_UNKNOWN_ACCESS)
       CheckMemoryAccess(&src[offset], src_access_mode, access_size, context);
 
     // Check next memory location at dst[offset].
-    if (dst_access_mode != HeapProxy::ASAN_UNKNOWN_ACCESS)
+    if (dst_access_mode != agent::asan::ASAN_UNKNOWN_ACCESS)
       CheckMemoryAccess(&dst[offset], dst_access_mode, access_size, context);
 
     // For CMPS instructions, we shortcut the execution of prefix REPZ when
@@ -313,9 +313,9 @@ void CheckStringsMemoryAccesses(
 // Redefine some enums to make them accessible in the inlined assembly.
 // @{
 enum AccessMode {
-  AsanReadAccess = HeapProxy::ASAN_READ_ACCESS,
-  AsanWriteAccess = HeapProxy::ASAN_WRITE_ACCESS,
-  AsanUnknownAccess = HeapProxy::ASAN_UNKNOWN_ACCESS,
+  AsanReadAccess = agent::asan::ASAN_READ_ACCESS,
+  AsanWriteAccess = agent::asan::ASAN_WRITE_ACCESS,
+  AsanUnknownAccess = agent::asan::ASAN_UNKNOWN_ACCESS,
 };
 // @}
 

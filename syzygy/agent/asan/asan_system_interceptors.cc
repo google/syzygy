@@ -20,6 +20,7 @@
 
 #include "base/logging.h"
 #include "syzygy/agent/asan/asan_rtl_utils.h"
+#include "syzygy/agent/asan/error_info.h"
 
 namespace {
 

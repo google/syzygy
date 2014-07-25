@@ -79,7 +79,7 @@ TEST(AsanRtlUtilsTest, ReportBadMemoryAccess) {
   TestAsanRuntime runtime;
   SetAsanRuntimeInstance(&runtime);
   void* bad_location = reinterpret_cast<void*>(0xBAD0ADD5);
-  HeapProxy::AccessMode access_mode = HeapProxy::ASAN_READ_ACCESS;
+  AccessMode access_mode = ASAN_READ_ACCESS;
   size_t access_size = 4;
   AsanContext asan_context = {};
   base::RandBytes(reinterpret_cast<void*>(&asan_context), sizeof(asan_context));
@@ -105,7 +105,7 @@ TEST(AsanRtlUtilsTest, ReportBadAccess) {
   TestAsanRuntime runtime;
   SetAsanRuntimeInstance(&runtime);
   uint8* bad_location = reinterpret_cast<uint8*>(0xBAD0ADD5);
-  HeapProxy::AccessMode access_mode = HeapProxy::ASAN_READ_ACCESS;
+  AccessMode access_mode = ASAN_READ_ACCESS;
   ReportBadAccess(bad_location, access_mode);
 
   EXPECT_TRUE(memory_error_detected);
@@ -116,7 +116,7 @@ TEST(AsanRtlUtilsTest, ReportBadAccess) {
 TEST(AsanRtlUtilsTest, TestMemoryRange) {
   TestAsanRuntime runtime;
   SetAsanRuntimeInstance(&runtime);
-  HeapProxy::AccessMode access_mode = HeapProxy::ASAN_READ_ACCESS;
+  AccessMode access_mode = ASAN_READ_ACCESS;
   const size_t kTestBufferSize = 64;
   scoped_ptr<uint8> test_buffer(new uint8[kTestBufferSize]);
 
@@ -145,7 +145,7 @@ TEST(AsanRtlUtilsTest, TestMemoryRange) {
 TEST(AsanRtlUtilsTest, TestStructure) {
   TestAsanRuntime runtime;
   SetAsanRuntimeInstance(&runtime);
-  HeapProxy::AccessMode access_mode = HeapProxy::ASAN_READ_ACCESS;
+  AccessMode access_mode = ASAN_READ_ACCESS;
   scoped_ptr<double> test_struct(new double);
 
   TestStructure(test_struct.get(), access_mode);

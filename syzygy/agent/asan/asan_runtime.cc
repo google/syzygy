@@ -187,7 +187,7 @@ void SetCrashKeys(const BreakpadFunctions& breakpad_functions,
 
   SetCrashKeyValuePair(breakpad_functions,
                        "asan-error-type",
-                       HeapProxy::AccessTypeToStr(error_info->error_type));
+                       ErrorInfoAccessTypeToStr(error_info->error_type));
 
   if (error_info->shadow_info[0] != '\0') {
     SetCrashKeyValuePair(breakpad_functions,
@@ -616,7 +616,7 @@ void AsanRuntime::WriteCorruptHeapInfo(
     BlockInfo block_info = {};
     CHECK(shadow_walker.Next(&block_info));
     asan_block_info->header = block_info.header;
-    HeapProxy::GetBlockInfo(asan_block_info);
+    ErrorInfoGetAsanBlockInfo(stack_cache_.get(), asan_block_info);
     DCHECK(asan_block_info->corrupt);
   }
 
@@ -626,15 +626,14 @@ void AsanRuntime::WriteCorruptHeapInfo(
 void AsanRuntime::LogAsanErrorInfo(AsanErrorInfo* error_info) {
   DCHECK_NE(reinterpret_cast<AsanErrorInfo*>(NULL), error_info);
 
-  const char* bug_descr =
-      HeapProxy::AccessTypeToStr(error_info->error_type);
+  const char* bug_descr = ErrorInfoAccessTypeToStr(error_info->error_type);
   if (logger_->log_as_text()) {
     std::string output(base::StringPrintf(
         "SyzyASAN error: %s on address 0x%08X (stack_id=0x%08X)\n",
         bug_descr, error_info->location, error_info->crash_stack_id));
-    if (error_info->access_mode != HeapProxy::ASAN_UNKNOWN_ACCESS) {
+    if (error_info->access_mode != agent::asan::ASAN_UNKNOWN_ACCESS) {
       const char* access_mode_str = NULL;
-      if (error_info->access_mode == HeapProxy::ASAN_READ_ACCESS)
+      if (error_info->access_mode == agent::asan::ASAN_READ_ACCESS)
         access_mode_str = "READ";
       else
         access_mode_str = "WRITE";
@@ -659,7 +658,7 @@ void AsanRuntime::LogAsanErrorInfo(AsanErrorInfo* error_info) {
                                    error_info->alloc_stack,
                                    error_info->alloc_stack_size);
     }
-    if (error_info->error_type >= HeapProxy::USE_AFTER_FREE) {
+    if (error_info->error_type >= USE_AFTER_FREE) {
       std::string shadow_text;
       Shadow::AppendShadowMemoryText(error_info->location, &shadow_text);
       logger_->Write(shadow_text);
@@ -744,12 +743,12 @@ void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
   if ((reinterpret_cast<size_t>(error_info->location) & (1 << 31)) != 0 ||
       Shadow::GetShadowMarkerForAddress(error_info->location)
           == Shadow::kAsanMemoryByte) {
-      error_info->error_type = HeapProxy::WILD_ACCESS;
+      error_info->error_type = WILD_ACCESS;
   } else if (Shadow::GetShadowMarkerForAddress(error_info->location) ==
       Shadow::kInvalidAddress) {
-    error_info->error_type = HeapProxy::INVALID_ADDRESS;
+    error_info->error_type = INVALID_ADDRESS;
   } else {
-    HeapProxy::GetBadAccessInformation(error_info);
+    ErrorInfoGetBadAccessInformation(stack_cache_.get(), error_info);
   }
 }
 
@@ -780,8 +779,8 @@ LONG WINAPI AsanRuntime::UnhandledExceptionFilter(
     AsanErrorInfo error_info = {};
     error_info.location = exception->ExceptionRecord->ExceptionAddress;
     error_info.context = *exception->ContextRecord;
-    error_info.error_type = HeapProxy::CORRUPT_HEAP;
-    error_info.access_mode = HeapProxy::ASAN_UNKNOWN_ACCESS;
+    error_info.error_type = CORRUPT_HEAP;
+    error_info.access_mode = ASAN_UNKNOWN_ACCESS;
 
     // Check for heap corruption. If we find it we take over the exception
     // and add additional metadata to the reporting.

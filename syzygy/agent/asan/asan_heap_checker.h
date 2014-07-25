@@ -21,6 +21,7 @@
 
 #include "base/logging.h"
 #include "base/memory/scoped_vector.h"
+#include "syzygy/agent/asan/error_info.h"
 #include "syzygy/agent/asan/stack_capture.h"
 
 namespace agent {
@@ -28,47 +29,6 @@ namespace asan {
 
 // Forward declaration.
 class AsanRuntime;
-
-// Store the information about a corrupt block.
-struct AsanBlockInfo {
-  // The address of the header for this block.
-  const void* header;
-  // The user size of the block.
-  size_t user_size : 30;
-  // This is implicitly a HeapProxy::BlockState value.
-  size_t state : 2;
-  // The ID of the allocation thread.
-  DWORD alloc_tid;
-  // The ID of the free thread.
-  DWORD free_tid;
-  // True iff the block is corrupt.
-  bool corrupt;
-  // The allocation stack trace.
-  void* alloc_stack[agent::asan::StackCapture::kMaxNumFrames];
-  // The free stack trace.
-  void* free_stack[agent::asan::StackCapture::kMaxNumFrames];
-  // The size of the allocation stack trace.
-  uint8 alloc_stack_size;
-  // The size of the free stack trace.
-  uint8 free_stack_size;
-};
-
-struct AsanCorruptBlockRange {
-  // The beginning address of the range.
-  const void* address;
-  // The length of the range.
-  size_t length;
-  // The number of blocks in this range.
-  size_t block_count;
-  // The number of blocks in the |block_info| array.
-  size_t block_info_count;
-  // The information about the blocks in this range. This may include one or
-  // more of the corrupt blocks and/or the valid blocks surrounding them; at the
-  // very least it will contain the first corrupt block in the range. The real
-  // length of this array will be stored in |block_info_count|. The array itself
-  // is allocated on the stack so that it gets shipped with minidumps.
-  AsanBlockInfo* block_info;
-};
 
 // A class to analyze the heap and to check if it's corrupt.
 class HeapChecker {

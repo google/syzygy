@@ -35,7 +35,7 @@ const size_t kAllocSize = 13;
 void AsanErrorCallback(AsanErrorInfo* error_info) {
   // Our tests should clean up after themselves and not leave any blocks
   // corrupt.
-  ASSERT_NE(HeapProxy::CORRUPT_BLOCK, error_info->error_type);
+  ASSERT_NE(CORRUPT_BLOCK, error_info->error_type);
 
   // Raise an exception to prevent the intercepted function from corrupting
   // the block. If this error is not handled then this will cause the unittest
@@ -55,11 +55,11 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemset) {
     EXPECT_EQ(0xAA, mem[i]);
 
   memsetFunctionFailing(mem.get() - 1, 0xBB, kAllocSize);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
   ResetLog();
 
   memsetFunctionFailing(mem.get(), 0xCC, kAllocSize + 1);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   ResetLog();
 }
 
@@ -67,7 +67,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemchr) {
   const size_t kAllocSize = 13;
   ScopedASanAlloc<uint8> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
-  memset(mem.get(), 0, kAllocSize);
+  ::memset(mem.get(), 0, kAllocSize);
   mem[4] = 0xAA;
 
   SetCallBackFunction(&AsanErrorCallback);
@@ -75,11 +75,11 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemchr) {
   EXPECT_EQ(NULL, memchrFunction(mem.get(), mem[4] + 1, kAllocSize));
 
   memchrFunctionFailing(mem.get() - 1, mem[4], kAllocSize);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
   ResetLog();
 
   memchrFunctionFailing(mem.get() + 1, mem[4], kAllocSize);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   ResetLog();
 }
 
@@ -101,11 +101,11 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemmove) {
 
   // Re-shift them to the left.
   memmoveFunctionFailing(mem_src.get(), mem_src.get() + 1, kAllocSize);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   ResetLog();
 
   memmoveFunctionFailing(mem_src.get() - 1, mem_src.get(), kAllocSize);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
   ResetLog();
 }
 
@@ -128,11 +128,11 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemcpy) {
     EXPECT_EQ(mem_dst[i], mem_src[i]);
 
   memcpyFunctionFailing(mem_dst.get(), mem_src.get(), kAllocSize + 1);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   ResetLog();
 
   memcpyFunctionFailing(mem_dst.get(), mem_src.get() - 1, kAllocSize);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
   ResetLog();
 }
 
@@ -160,7 +160,7 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrcspn) {
             strcspnFunction(str.get(), keys.get()));
 
   strcspnFunctionFailing(str.get() - 1, keys.get());
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
   ResetLog();
 
   // The key set should be null terminated, otherwise an overflow should be
@@ -168,7 +168,7 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrcspn) {
   size_t keys_len = ::strlen(keys.get());
   keys[keys_len] = 'a';
   strcspnFunctionFailing(str.get(), keys.get());
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   keys[keys_len] = 0;
   ResetLog();
 
@@ -185,7 +185,7 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrcspn) {
   size_t str2_len = ::strlen(str2.get());
   str2[str2_len] = 'a';
   strcspnFunctionFailing(str2.get(), keys.get());
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   str2[str2_len] = 0;
   ResetLog();
 }
@@ -212,13 +212,13 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrlen) {
   EXPECT_EQ(::strlen(str.get()), strlenFunction(str.get()));
 
   strlenFunctionFailing(str.get() - 1);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
   ResetLog();
 
   size_t str_len = ::strlen(str.get());
   str[str_len] = 'a';
   strlenFunctionFailing(str.get());
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   ResetLog();
 }
 
@@ -232,13 +232,13 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrrchr) {
   EXPECT_EQ(::strrchr(str.get(), 'z'), strrchrFunction(str.get(), 'z'));
 
   strrchrFunctionFailing(str.get() - 1, 'c');
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
   ResetLog();
 
   size_t str_len = ::strlen(str.get());
   str[str_len] = 'a';
   strrchrFunctionFailing(str.get(), 'c');
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   ResetLog();
 }
 
@@ -253,13 +253,13 @@ TEST_F(CrtInterceptorsTest, AsanCheckWcsrchr) {
   EXPECT_EQ(::wcsrchr(wstr.get(), 'z'), wcsrchrFunction(wstr.get(), 'z'));
 
   wcsrchrFunctionFailing(wstr.get() - 1, L'c');
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
   ResetLog();
 
   size_t str_len = ::wcslen(wstr_value);
   wstr[str_len] = L'a';
   wcsrchrFunctionFailing(wstr.get(), L'c');
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   ResetLog();
 }
 
@@ -274,13 +274,13 @@ TEST_F(CrtInterceptorsTest, AsanCheckWcschr) {
   EXPECT_EQ(::wcschr(wstr.get(), 'z'), wcschrFunction(wstr.get(), 'z'));
 
   wcschrFunctionFailing(wstr.get() - 1, L'c');
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
   ResetLog();
 
   size_t str_len = ::wcslen(wstr_value);
   wstr[str_len] = L'a';
   wcschrFunctionFailing(wstr.get(), L'z');
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   ResetLog();
 }
 
@@ -300,13 +300,13 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrcmp) {
             strcmpFunction(str.get(), keys.get()));
 
   strcmpFunctionFailing(str.get() - 1, keys.get());
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
   ResetLog();
 
   size_t keys_len = ::strlen(keys.get());
   keys[keys_len] = 'a';
   strcmpFunctionFailing(str.get(), keys.get());
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   keys[keys_len] = 0;
   ResetLog();
 }
@@ -335,13 +335,13 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrpbrk) {
             strpbrkFunction(str.get(), keys.get()));
 
   strpbrkFunctionFailing(str.get() - 1, keys.get());
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
   ResetLog();
 
   size_t keys_len = ::strlen(keys.get());
   keys[keys_len] = 'a';
   strpbrkFunctionFailing(str.get(), keys.get());
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   keys[keys_len] = 0;
   ResetLog();
 
@@ -358,7 +358,7 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrpbrk) {
   size_t str2_len = ::strlen(str2.get());
   str2[str2_len] = 'a';
   strpbrkFunctionFailing(str2.get(), keys.get());
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   str2[str2_len] = 0;
   ResetLog();
 }
@@ -394,13 +394,13 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrstr) {
             strstrFunction(str.get(), keys.get()));
 
   strstrFunctionFailing(str.get() - 1, keys.get());
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
   ResetLog();
 
   size_t keys_len = ::strlen(keys.get());
   keys[keys_len] = 'a';
   strstrFunctionFailing(str.get(), keys.get());
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   keys[keys_len] = 0;
   ResetLog();
 }
@@ -422,7 +422,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckWcsstr) {
   SetCallBackFunction(&AsanErrorCallback);
   keys[::wcslen(keys_value)] = L'a';
   wcsstrFunctionFailing(str.get(), keys.get());
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   keys[::wcslen(keys_value)] = 0;
 
   ResetLog();
@@ -451,13 +451,13 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrspn) {
             strspnFunction(str.get(), keys.get()));
 
   strspnFunctionFailing(str.get() - 1, keys.get());
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
   ResetLog();
 
   size_t keys_len = ::strlen(keys.get());
   keys[keys_len] = 'a';
   strspnFunctionFailing(str.get(), keys.get());
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   keys[keys_len] = 0;
   ResetLog();
 
@@ -474,7 +474,7 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrspn) {
   size_t str2_len = ::strlen(str2.get());
   str2[str2_len] = keys[0];
   strspnFunctionFailing(str2.get(), keys.get());
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   str2[str2_len] = 0;
   ResetLog();
 }
@@ -518,14 +518,14 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncpy) {
   strncpyFunctionFailing(destination.get(),
                          source.get() - 1,
                          ::strlen(str_value));
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
   ResetLog();
 
   // Test an underflow on the destination.
   strncpyFunctionFailing(destination.get() - 1,
                          source.get(),
                          ::strlen(str_value));
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
   ResetLog();
 
   // Test an overflow on the destination.
@@ -534,14 +534,14 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncpy) {
   strncpyFunctionFailing(destination.get(),
                          long_source.get(),
                          ::strlen(long_str_value));
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   ResetLog();
 
   // Another overflow on the destination.
   strncpyFunctionFailing(destination.get(),
                          source.get(),
                          ::strlen(str_value) + 2);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   ResetLog();
 
   // Test an overflow on the source.
@@ -550,7 +550,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncpy) {
   strncpyFunctionFailing(destination.get(),
                          source.get(),
                          ::strlen(source.get()) + 1);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   source[source_len] = 0;
   ResetLog();
 }
@@ -578,14 +578,14 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
   ::strcpy(mem.get(), prefix_value);
   ::strcpy(buffer, prefix_value);
   strncatFunctionFailing(mem.get(), suffix.get() - 1, ::strlen(suffix_value));
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
   ResetLog();
 
   // Test an underflow on the destination.
   ::strcpy(mem.get(), prefix_value);
   ::strcpy(buffer, prefix_value);
   strncatFunctionFailing(mem.get() - 1, suffix.get(), ::strlen(suffix_value));
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
   ResetLog();
 
   // Test an overflow on the suffix.
@@ -594,7 +594,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
   ::strcpy(mem.get(), prefix_value);
   ::strcpy(buffer, prefix_value);
   strncatFunctionFailing(mem.get(), suffix.get(), ::strlen(suffix.get()) + 1);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   suffix[suffix_len] = 0;
   ResetLog();
 
@@ -605,7 +605,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
   mem[prefix_len] = 'a';
   buffer[prefix_len] = 'a';
   strncatFunctionFailing(mem.get(), suffix.get(), ::strlen(suffix.get()));
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   mem[prefix_len] = 0;
   buffer[prefix_len] = 0;
   ResetLog();

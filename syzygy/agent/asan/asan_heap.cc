@@ -51,21 +51,6 @@ bool MemoryRangeIsAccessible(uint8* mem, size_t len) {
   return true;
 }
 
-// Copy a stack capture object into an array.
-// @param stack_capture The stack capture that we want to copy.
-// @param dst Will receive the stack frames.
-// @param dst_size Will receive the number of frames that has been copied.
-void CopyStackCaptureToArray(const StackCapture* stack_capture,
-                             void* dst, uint8* dst_size) {
-  DCHECK_NE(reinterpret_cast<const StackCapture*>(NULL), stack_capture);
-  DCHECK_NE(reinterpret_cast<void*>(NULL), dst);
-  DCHECK_NE(reinterpret_cast<uint8*>(NULL), dst_size);
-  memcpy(dst,
-         stack_capture->frames(),
-         stack_capture->num_frames() * sizeof(void*));
-  *dst_size = stack_capture->num_frames();
-}
-
 }  // namespace
 
 StackCaptureCache* HeapProxy::stack_cache_ = NULL;
@@ -76,15 +61,6 @@ size_t HeapProxy::default_quarantine_max_block_size_ =
     common::kDefaultQuarantineBlockSize;
 size_t HeapProxy::trailer_padding_size_ = common::kDefaultTrailerPaddingSize;
 float HeapProxy::allocation_guard_rate_ = common::kDefaultAllocationGuardRate;
-const char* HeapProxy::kHeapUseAfterFree = "heap-use-after-free";
-const char* HeapProxy::kHeapBufferUnderFlow = "heap-buffer-underflow";
-const char* HeapProxy::kHeapBufferOverFlow = "heap-buffer-overflow";
-const char* HeapProxy::kAttemptingDoubleFree = "attempting double-free";
-const char* HeapProxy::kInvalidAddress = "invalid-address";
-const char* HeapProxy::kWildAccess = "wild-access";
-const char* HeapProxy::kHeapUnknownError = "heap-unknown-error";
-const char* HeapProxy::kHeapCorruptBlock = "corrupt-block";
-const char* HeapProxy::kCorruptHeap = "corrupt-heap";
 
 HeapProxy::HeapProxy()
     : heap_(NULL),
@@ -531,10 +507,10 @@ void HeapProxy::ReportHeapError(void* address, BadAccessKind kind) {
   // Collect information about the error.
   AsanErrorInfo error_info = {};
   ::RtlCaptureContext(&error_info.context);
-  error_info.access_mode = HeapProxy::ASAN_UNKNOWN_ACCESS;
+  error_info.access_mode = agent::asan::ASAN_UNKNOWN_ACCESS;
   error_info.location = address;
   error_info.error_type = kind;
-  GetBadAccessInformation(&error_info);
+  ErrorInfoGetBadAccessInformation(stack_cache_, &error_info);
   agent::asan::StackCapture stack;
   stack.InitFromStack();
   error_info.crash_stack_id = stack.ComputeRelativeStackId();
@@ -588,186 +564,6 @@ size_t HeapProxy::GetAllocSize(size_t bytes, size_t alignment) {
   return layout.block_size;
 }
 
-HeapProxy::BadAccessKind HeapProxy::GetBadAccessKind(
-    const void* addr, const BlockHeader* header) {
-  DCHECK(addr != NULL);
-  DCHECK(header != NULL);
-
-  BadAccessKind bad_access_kind = UNKNOWN_BAD_ACCESS;
-
-  if (header->state == QUARANTINED_BLOCK) {
-    bad_access_kind = USE_AFTER_FREE;
-  } else {
-    BlockInfo block_info = {};
-    Shadow::BlockInfoFromShadow(header, &block_info);
-    if (addr < block_info.body) {
-      bad_access_kind = HEAP_BUFFER_UNDERFLOW;
-    } else if (addr >= (block_info.body + block_info.body_size)) {
-      bad_access_kind = HEAP_BUFFER_OVERFLOW;
-    } else if (Shadow::GetShadowMarkerForAddress(addr) ==
-        Shadow::kHeapFreedByte) {
-      // This is a use after free on a block managed by a nested heap.
-      bad_access_kind = USE_AFTER_FREE;
-    }
-  }
-  return bad_access_kind;
-}
-
-bool HeapProxy::GetBadAccessInformation(AsanErrorInfo* bad_access_info) {
-  DCHECK(bad_access_info != NULL);
-  BlockInfo block_info = {};
-  if (!Shadow::BlockInfoFromShadow(bad_access_info->location, &block_info))
-    return false;
-
-  if (bad_access_info->error_type != DOUBLE_FREE &&
-      bad_access_info->error_type != CORRUPT_BLOCK) {
-    bad_access_info->error_type = GetBadAccessKind(bad_access_info->location,
-                                                   block_info.header);
-  }
-
-  // Makes sure that we don't try to use an invalid stack capture pointer.
-  if (bad_access_info->error_type == CORRUPT_BLOCK) {
-    // Set the invalid stack captures to NULL.
-    if (!stack_cache_->StackCapturePointerIsValid(
-        block_info.header->alloc_stack)) {
-      block_info.header->alloc_stack = NULL;
-    }
-    if (!stack_cache_->StackCapturePointerIsValid(
-        block_info.header->free_stack)) {
-      block_info.header->free_stack = NULL;
-    }
-  }
-
-  // Checks if there's a containing block in the case of a use after free on a
-  // block owned by a nested heap.
-  BlockInfo containing_block = {};
-  if (bad_access_info->error_type == USE_AFTER_FREE &&
-      block_info.header->state != QUARANTINED_BLOCK) {
-     Shadow::ParentBlockInfoFromShadow(block_info, &containing_block);
-  }
-
-  // Get the bad access description if we've been able to determine its kind.
-  if (bad_access_info->error_type != UNKNOWN_BAD_ACCESS) {
-    bad_access_info->microseconds_since_free =
-        GetTimeSinceFree(block_info.header);
-
-    DCHECK(block_info.header->alloc_stack != NULL);
-    CopyStackCaptureToArray(block_info.header->alloc_stack,
-                            bad_access_info->alloc_stack,
-                            &bad_access_info->alloc_stack_size);
-    bad_access_info->alloc_tid = block_info.trailer->alloc_tid;
-
-    if (block_info.header->state != ALLOCATED_BLOCK) {
-      const StackCapture* free_stack = block_info.header->free_stack;
-      BlockTrailer* free_stack_trailer = block_info.trailer;
-      // Use the free metadata of the containing block if there's one.
-      // TODO(chrisha): This should report all of the nested stack information
-      //     from innermost to outermost. For now, innermost is best.
-      if (containing_block.block != NULL) {
-        free_stack = containing_block.header->free_stack;
-        free_stack_trailer = containing_block.trailer;
-      }
-      CopyStackCaptureToArray(block_info.header->free_stack,
-                              bad_access_info->free_stack,
-                              &bad_access_info->free_stack_size);
-      bad_access_info->free_tid = free_stack_trailer->free_tid;
-    }
-    GetAddressInformation(block_info.header, bad_access_info);
-    return true;
-  }
-
-  return false;
-}
-
-void HeapProxy::GetAddressInformation(const BlockHeader* header,
-                                      AsanErrorInfo* bad_access_info) {
-  DCHECK(header != NULL);
-  DCHECK(bad_access_info != NULL);
-
-  DCHECK(header != NULL);
-  DCHECK(bad_access_info != NULL);
-  DCHECK(bad_access_info->location != NULL);
-
-  BlockInfo block_info = {};
-  Shadow::BlockInfoFromShadow(header, &block_info);
-
-  int offset = 0;
-  char* offset_relativity = "";
-  switch (bad_access_info->error_type) {
-    case HEAP_BUFFER_OVERFLOW:
-      offset = static_cast<const uint8*>(bad_access_info->location)
-          - block_info.body - block_info.body_size;
-      offset_relativity = "beyond";
-      break;
-    case HEAP_BUFFER_UNDERFLOW:
-      offset = block_info.body -
-          static_cast<const uint8*>(bad_access_info->location);
-      offset_relativity = "before";
-      break;
-    case USE_AFTER_FREE:
-      offset = static_cast<const uint8*>(bad_access_info->location)
-          - block_info.body;
-      offset_relativity = "inside";
-      break;
-    case WILD_ACCESS:
-    case DOUBLE_FREE:
-    case UNKNOWN_BAD_ACCESS:
-    case CORRUPT_BLOCK:
-      return;
-    default:
-      NOTREACHED() << "Error trying to dump address information.";
-  }
-
-  size_t shadow_info_bytes = base::snprintf(
-      bad_access_info->shadow_info,
-      arraysize(bad_access_info->shadow_info) - 1,
-      "%08X is %d bytes %s %d-byte block [%08X,%08X)\n",
-      bad_access_info->location,
-      offset,
-      offset_relativity,
-      block_info.body_size,
-      block_info.body,
-      block_info.body + block_info.body_size);
-
-  std::string shadow_memory;
-  Shadow::AppendShadowArrayText(bad_access_info->location, &shadow_memory);
-  size_t shadow_mem_bytes = base::snprintf(
-      bad_access_info->shadow_memory,
-      arraysize(bad_access_info->shadow_memory) - 1,
-      "%s",
-      shadow_memory.c_str());
-
-  // Ensure that we had enough space to store the full shadow information.
-  DCHECK_LE(shadow_info_bytes, arraysize(bad_access_info->shadow_info) - 1);
-  DCHECK_LE(shadow_mem_bytes, arraysize(bad_access_info->shadow_memory) - 1);
-}
-
-const char* HeapProxy::AccessTypeToStr(BadAccessKind bad_access_kind) {
-  switch (bad_access_kind) {
-    case USE_AFTER_FREE:
-      return kHeapUseAfterFree;
-    case HEAP_BUFFER_UNDERFLOW:
-      return kHeapBufferUnderFlow;
-    case HEAP_BUFFER_OVERFLOW:
-      return kHeapBufferOverFlow;
-    case WILD_ACCESS:
-      return kWildAccess;
-    case INVALID_ADDRESS:
-      return kInvalidAddress;
-    case DOUBLE_FREE:
-      return kAttemptingDoubleFree;
-    case UNKNOWN_BAD_ACCESS:
-      return kHeapUnknownError;
-    case CORRUPT_BLOCK:
-      return kHeapCorruptBlock;
-    case CORRUPT_HEAP:
-      return kCorruptHeap;
-    default:
-      NOTREACHED() << "Unexpected bad access kind.";
-      return NULL;
-  }
-}
-
 LIST_ENTRY* HeapProxy::ToListEntry(HeapProxy* proxy) {
   DCHECK(proxy != NULL);
   return &proxy->list_entry_;
@@ -795,68 +591,6 @@ void HeapProxy::set_default_quarantine_max_block_size(
   default_quarantine_max_block_size_ = std::min(
       default_quarantine_max_block_size,
       default_quarantine_max_size_);
-}
-
-uint32 HeapProxy::GetTimeSinceFree(const BlockHeader* header) {
-  DCHECK(header != NULL);
-
-  if (header->state == ALLOCATED_BLOCK)
-    return 0;
-
-  BlockInfo block_info = {};
-  Shadow::BlockInfoFromShadow(header, &block_info);
-  DCHECK(block_info.trailer != NULL);
-
-  uint32 time_since_free = ::GetTickCount() - block_info.trailer->free_ticks;
-
-  return time_since_free;
-}
-
-bool HeapProxy::IsBlockCorrupt(const uint8* block_header) {
-  BlockInfo block_info = {};
-  if (!Shadow::BlockInfoFromShadow(block_header, &block_info) ||
-      block_info.header->magic != kBlockHeaderMagic ||
-      !BlockChecksumIsValid(block_info)) {
-    return true;
-  }
-  return false;
-}
-
-void HeapProxy::GetBlockInfo(AsanBlockInfo* asan_block_info) {
-  DCHECK_NE(reinterpret_cast<AsanBlockInfo*>(NULL), asan_block_info);
-  const BlockHeader* header =
-      reinterpret_cast<const BlockHeader*>(asan_block_info->header);
-
-  asan_block_info->alloc_stack_size = 0;
-  asan_block_info->free_stack_size = 0;
-  asan_block_info->corrupt = IsBlockCorrupt(
-      reinterpret_cast<const uint8*>(asan_block_info->header));
-
-  // Copy the alloc and free stack traces if they're valid.
-  if (stack_cache_->StackCapturePointerIsValid(header->alloc_stack)) {
-    CopyStackCaptureToArray(header->alloc_stack,
-                            asan_block_info->alloc_stack,
-                            &asan_block_info->alloc_stack_size);
-  }
-  if (header->state != ALLOCATED_BLOCK &&
-      stack_cache_->StackCapturePointerIsValid(header->free_stack)) {
-    CopyStackCaptureToArray(header->free_stack,
-                            asan_block_info->free_stack,
-                            &asan_block_info->free_stack_size);
-  }
-
-  // Only check the trailer if the block isn't marked as corrupt.
-  DCHECK_EQ(0U, asan_block_info->alloc_tid);
-  DCHECK_EQ(0U, asan_block_info->free_tid);
-  if (!asan_block_info->corrupt) {
-    BlockInfo block_info = {};
-    Shadow::BlockInfoFromShadow(asan_block_info->header, &block_info);
-    asan_block_info->alloc_tid = block_info.trailer->alloc_tid;
-    asan_block_info->free_tid = block_info.trailer->free_tid;
-  }
-
-  asan_block_info->state = header->state;
-  asan_block_info->user_size = header->body_size;
 }
 
 HeapLocker::HeapLocker(HeapProxy* const heap) : heap_(heap) {

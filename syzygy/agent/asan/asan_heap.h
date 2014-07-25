@@ -26,6 +26,7 @@
 #include "base/debug/stack_trace.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/block_utils.h"
+#include "syzygy/agent/asan/error_info.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/agent/asan/quarantines/sharded_quarantine.h"
@@ -64,45 +65,6 @@ class HeapProxy {
   // A vector of heap slabs.
   typedef std::vector<HeapSlab> HeapSlabVector;
 
-  // The different memory access modes that we can encounter.
-  enum AccessMode {
-    ASAN_READ_ACCESS,
-    ASAN_WRITE_ACCESS,
-    ASAN_UNKNOWN_ACCESS
-  };
-
-  // Enumeration of the different kinds of bad heap accesses that we can
-  // encounter.
-  enum BadAccessKind {
-    // This enum should start with bad access type that are not relative to a
-    // heap block.
-    // @note The ordering is important because those labels are used in
-    //     numeric inequalities.
-    UNKNOWN_BAD_ACCESS,
-    WILD_ACCESS,
-    INVALID_ADDRESS,
-    CORRUPT_BLOCK,
-    CORRUPT_HEAP,
-
-    // This enum should end with bad access types that are relative to heap
-    // blocks.
-    USE_AFTER_FREE,
-    HEAP_BUFFER_OVERFLOW,
-    HEAP_BUFFER_UNDERFLOW,
-    DOUBLE_FREE
-  };
-
-  // The different types of errors we can encounter.
-  static const char* kHeapUseAfterFree;
-  static const char* kHeapBufferUnderFlow;
-  static const char* kHeapBufferOverFlow;
-  static const char* kAttemptingDoubleFree;
-  static const char* kInvalidAddress;
-  static const char* kWildAccess;
-  static const char* kHeapUnknownError;
-  static const char* kHeapCorruptBlock;
-  static const char* kCorruptHeap;
-
   // The sleep time (in milliseconds) used to approximate the CPU frequency.
   // Exposed for testing.
   static const size_t kSleepTimeForApproximatingCPUFrequency = 100;
@@ -115,11 +77,6 @@ class HeapProxy {
   static HANDLE ToHandle(HeapProxy* proxy);
   static HeapProxy* FromHandle(HANDLE heap);
   // @}
-
-  // Get information about a bad access.
-  // @param bad_access_info Will receive the information about this access.
-  // @returns true if the address belongs to a memory block, false otherwise.
-  static bool GetBadAccessInformation(AsanErrorInfo* bad_access_info);
 
   // @name Cast to/from HANDLE.
   // @{
@@ -210,9 +167,6 @@ class HeapProxy {
   // @param cache The stack capture cache shared by the HeapProxy.
   static void Init(StackCaptureCache* cache);
 
-  // Returns a string describing a bad access kind.
-  static const char* AccessTypeToStr(BadAccessKind bad_access_kind);
-
   // Calculates the underlying allocation size for a requested allocation of
   // @p bytes, with an alignment of @p alignment bytes.
   static size_t GetAllocSize(size_t bytes, size_t alignment);
@@ -262,16 +216,6 @@ class HeapProxy {
   // @param dst_asan_pointer The pointer to the ASan destination block.
   static void CloneObject(const void* src_asan_pointer,
                           void* dst_asan_pointer);
-
-  // Check if a block is corrupt. This check the block's metadata and its
-  // checksum.
-  // @param block_header A pointer to the block header of the block.
-  // @returns true if the block is corrupt, false otherwise.
-  static bool IsBlockCorrupt(const uint8* block_header);
-
-  // Retrieves a block's metadata.
-  // @param asan_block_info Will receive the block's metadata.
-  static void GetBlockInfo(AsanBlockInfo* asan_block_info);
 
   // @name Heap interface.
   // @{
@@ -343,23 +287,6 @@ class HeapProxy {
   // @param block_header The header of the block.
   // @note This leaves the memory red-zoned.
   static void ReleaseAsanBlock(BlockHeader* block_header);
-
-  // Returns the time since the block @p header was freed (in milliseconds).
-  // @param header The block for which we want the time since free.
-  static uint32 GetTimeSinceFree(const BlockHeader* header);
-
-  // Give the type of a bad heap access corresponding to an address.
-  // @param addr The address causing a bad heap access.
-  // @param header The header of the block containing this address.
-  // @returns The type of the bad heap access corresponding to this address.
-  static BadAccessKind GetBadAccessKind(const void* addr,
-                                        const BlockHeader* header);
-
-  // Get the information about an address relative to a block.
-  // @param header The header of the block containing this address.
-  // @param bad_access_info Will receive the information about this address.
-  static void GetAddressInformation(const BlockHeader* header,
-                                    AsanErrorInfo* bad_access_info);
 
   // Quarantines @p block and trims the quarantine if it has grown too big.
   // @param block The block to quarantine.

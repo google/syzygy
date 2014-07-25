@@ -16,6 +16,7 @@
 
 #include "base/bind.h"
 #include "gtest/gtest.h"
+#include "syzygy/agent/asan/error_info.h"
 #include "syzygy/agent/asan/unittest_util.h"
 
 namespace agent {
@@ -28,7 +29,7 @@ using testing::ScopedASanAlloc;
 void AsanErrorCallbackWithoutComparingContext(AsanErrorInfo* error_info) {
   // All of our unittests should be cleaning up after themselves and not causing
   // any heap corruption.
-  ASSERT_NE(HeapProxy::CORRUPT_BLOCK, error_info->error_type);
+  ASSERT_NE(CORRUPT_BLOCK, error_info->error_type);
 
   // Raise an exception indicating that an error was encountered. If this isn't
   // caught and handled by the test then the unittest will fail.
@@ -119,7 +120,7 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileOverflow) {
                           kTestStringLength + 1,
                           &bytes_read,
                           NULL);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
 }
 
 TEST_F(AsanRtlReadFileTest, AsanReadFileUAFOnOverlapped) {
@@ -138,7 +139,7 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileUAFOnOverlapped) {
                           kTestStringLength,
                           &bytes_read,
                           overlapped_ptr);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
+  EXPECT_TRUE(LogContains(kHeapUseAfterFree));
 }
 
 TEST_F(AsanRtlReadFileTest, AsanReadFileUseAfterFree) {
@@ -152,7 +153,7 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileUseAfterFree) {
                           kTestStringLength + 1,
                           &bytes_read,
                           NULL);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
+  EXPECT_TRUE(LogContains(kHeapUseAfterFree));
 }
 
 namespace {
@@ -171,7 +172,7 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileUAFAfterInternalCall) {
   // This test makes sure that use-after-free errors on the input buffer given
   // to the ReadFile function are correctly detected.
   ScopedASanAlloc<char> alloc(this, kTestStringLength);
-  memset(alloc.get(), 0, kTestStringLength);
+  ::memset(alloc.get(), 0, kTestStringLength);
   char* alloc_ptr = alloc.get();
   readfile_callback_data = &alloc;
 
@@ -190,7 +191,7 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileUAFAfterInternalCall) {
                           NULL);
   EXPECT_EQ(kTestStringLength, bytes_read);
   EXPECT_STREQ(kTestString, alloc_ptr);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
+  EXPECT_TRUE(LogContains(kHeapUseAfterFree));
 
   SetInterceptorCallbackFunction(NULL);
 }
@@ -303,7 +304,7 @@ TEST_F(AsanRtlWriteFileTest, AsanWriteFileOverflow) {
                            kTestStringLength + 1,
                            &bytes_written,
                            NULL);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
   std::string file_content;
 }
 
@@ -321,7 +322,7 @@ TEST_F(AsanRtlWriteFileTest, AsanWriteFileUAFOnOverlapped) {
                            kTestStringLength - kOffset,
                            &bytes_written,
                            overlapped_ptr);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
+  EXPECT_TRUE(LogContains(kHeapUseAfterFree));
 }
 
 TEST_F(AsanRtlWriteFileTest, AsanWriteFileUseAfterFree) {
@@ -336,7 +337,7 @@ TEST_F(AsanRtlWriteFileTest, AsanWriteFileUseAfterFree) {
                            kTestStringLength,
                            &bytes_written,
                            NULL);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
+  EXPECT_TRUE(LogContains(kHeapUseAfterFree));
 }
 
 namespace {
@@ -373,7 +374,7 @@ TEST_F(AsanRtlWriteFileTest, AsanWriteFileUAFAfterInternalCall) {
                            &bytes_written,
                            NULL);
   EXPECT_EQ(kTestStringLength, bytes_written);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
+  EXPECT_TRUE(LogContains(kHeapUseAfterFree));
 
   std::string file_content;
   EXPECT_TRUE(ReadFileContent(&file_content, 0));

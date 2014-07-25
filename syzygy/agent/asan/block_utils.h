@@ -47,6 +47,13 @@ struct GetBlockHashFunctor {
   }
 };
 
+// Checks if a block is corrupt. This checks the block's metadata and its
+// checksum.
+// @param block_header A pointer to the block header of the block.
+// @returns true if the block is corrupt, false otherwise.
+// @note The pages containing the block redzones must be readable.
+bool IsBlockCorrupt(const uint8* block_header);
+
 }  // namespace asan
 }  // namespace agent
 

@@ -39,7 +39,7 @@ bool memory_error_detected = false;
 CONTEXT* context_before_hook = NULL;
 // This will be used in the asan callback to ensure that we detect the right
 // error.
-HeapProxy::BadAccessKind expected_error_type = HeapProxy::UNKNOWN_BAD_ACCESS;
+BadAccessKind expected_error_type = UNKNOWN_BAD_ACCESS;
 // A flag to override the direction flag on special instruction checker.
 bool direction_flag_forward = true;
 // An arbitrary size for the buffer we allocate in the different unittests.
@@ -86,8 +86,8 @@ void AsanRtlTest::AllocMemoryBuffers(int32 length, int32 element_size) {
   ASSERT_TRUE(memory_dst_ != NULL);
 
   // Initialize memory.
-  memset(memory_src_, 0, memory_size_);
-  memset(memory_dst_, 0, memory_size_);
+  ::memset(memory_src_, 0, memory_size_);
+  ::memset(memory_dst_, 0, memory_size_);
 }
 
 void AsanRtlTest::FreeMemoryBuffers() {
@@ -255,15 +255,15 @@ void AsanErrorCallbackImpl(AsanErrorInfo* error_info, bool compare_context) {
   // TODO(sebmarchand): Stash the error info in a fixture-static variable and
   // assert on specific conditions after the fact.
   EXPECT_NE(reinterpret_cast<AsanErrorInfo*>(NULL), error_info);
-  EXPECT_NE(HeapProxy::UNKNOWN_BAD_ACCESS, error_info->error_type);
+  EXPECT_NE(UNKNOWN_BAD_ACCESS, error_info->error_type);
 
   EXPECT_EQ(expected_error_type, error_info->error_type);
-  if (error_info->error_type >= HeapProxy::USE_AFTER_FREE) {
+  if (error_info->error_type >= USE_AFTER_FREE) {
     // We should at least have the stack trace of the allocation of this block.
     EXPECT_GT(error_info->alloc_stack_size, 0U);
     EXPECT_NE(0U, error_info->alloc_tid);
-    if (error_info->error_type == HeapProxy::USE_AFTER_FREE ||
-        error_info->error_type == HeapProxy::DOUBLE_FREE) {
+    if (error_info->error_type == USE_AFTER_FREE ||
+        error_info->error_type == DOUBLE_FREE) {
       EXPECT_GT(error_info->free_stack_size, 0U);
       EXPECT_NE(0U, error_info->free_tid);
     } else {
@@ -272,9 +272,9 @@ void AsanErrorCallbackImpl(AsanErrorInfo* error_info, bool compare_context) {
     }
   }
 
-  if (error_info->error_type == HeapProxy::HEAP_BUFFER_OVERFLOW) {
+  if (error_info->error_type == HEAP_BUFFER_OVERFLOW) {
     EXPECT_TRUE(strstr(error_info->shadow_info, "beyond") != NULL);
-  } else if (error_info->error_type == HeapProxy::HEAP_BUFFER_UNDERFLOW) {
+  } else if (error_info->error_type == HEAP_BUFFER_UNDERFLOW) {
     EXPECT_TRUE(strstr(error_info->shadow_info, "before") != NULL);
   }
 
@@ -327,7 +327,7 @@ void AsanErrorCallbackWithoutComparingContext(AsanErrorInfo* error_info) {
 }
 
 void AssertMemoryErrorIsDetected(void* ptr,
-                                 HeapProxy::BadAccessKind bad_access_type) {
+                                 BadAccessKind bad_access_type) {
   expected_error_type = bad_access_type;
   memory_error_detected = false;
   CheckAccessAndCompareContexts(ptr);
@@ -336,7 +336,7 @@ void AssertMemoryErrorIsDetected(void* ptr,
 
 void ExpectSpecialMemoryErrorIsDetected(bool expected,
     void* dst, void* src, int32 length,
-    HeapProxy::BadAccessKind bad_access_type) {
+    BadAccessKind bad_access_type) {
   DCHECK(dst != NULL);
   DCHECK(src != NULL);
   ASSERT_TRUE(check_access_fn != NULL);
@@ -374,9 +374,9 @@ TEST_F(AsanRtlTest, AsanCheckGoodAccess) {
   ScopedASanAlloc<uint8> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
 
-  for (size_t i = 0; i < kAllocSize; ++i) {
+  for (size_t i = 0; i < kAllocSize; ++i)
     ASSERT_NO_FATAL_FAILURE(CheckAccessAndCompareContexts(mem.get() + i));
-  }
+
 }
 
 TEST_F(AsanRtlTest, AsanCheckHeapBufferOverflow) {
@@ -389,9 +389,9 @@ TEST_F(AsanRtlTest, AsanCheckHeapBufferOverflow) {
 
   SetCallBackFunction(&AsanErrorCallback);
   AssertMemoryErrorIsDetected(mem.get() + kAllocSize,
-                              HeapProxy::HEAP_BUFFER_OVERFLOW);
+                              HEAP_BUFFER_OVERFLOW);
   EXPECT_TRUE(LogContains("previously allocated here"));
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
 }
 
 TEST_F(AsanRtlTest, AsanCheckHeapBufferUnderflow) {
@@ -404,9 +404,9 @@ TEST_F(AsanRtlTest, AsanCheckHeapBufferUnderflow) {
   ASSERT_TRUE(mem.get() != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
-  AssertMemoryErrorIsDetected(mem.get() - 1, HeapProxy::HEAP_BUFFER_UNDERFLOW);
+  AssertMemoryErrorIsDetected(mem.get() - 1, HEAP_BUFFER_UNDERFLOW);
   EXPECT_TRUE(LogContains("previously allocated here"));
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferUnderFlow));
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
 }
 
 TEST_F(AsanRtlTest, AsanCheckUseAfterFree) {
@@ -421,10 +421,10 @@ TEST_F(AsanRtlTest, AsanCheckUseAfterFree) {
   SetCallBackFunction(&AsanErrorCallback);
   uint8* mem_ptr = mem.get();
   mem.reset(NULL);
-  AssertMemoryErrorIsDetected(mem_ptr, HeapProxy::USE_AFTER_FREE);
+  AssertMemoryErrorIsDetected(mem_ptr, USE_AFTER_FREE);
   EXPECT_TRUE(LogContains("previously allocated here"));
   EXPECT_TRUE(LogContains("freed here"));
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapUseAfterFree));
+  EXPECT_TRUE(LogContains(kHeapUseAfterFree));
 }
 
 TEST_F(AsanRtlTest, AsanCheckDoubleFree) {
@@ -440,11 +440,11 @@ TEST_F(AsanRtlTest, AsanCheckDoubleFree) {
     mem_ptr = mem.get();
   }
 
-  expected_error_type = HeapProxy::DOUBLE_FREE;
+  expected_error_type = DOUBLE_FREE;
   SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
   EXPECT_FALSE(HeapFreeFunction(heap_, 0, mem_ptr));
   EXPECT_TRUE(memory_error_detected);
-  EXPECT_TRUE(LogContains(HeapProxy::kAttemptingDoubleFree));
+  EXPECT_TRUE(LogContains(kAttemptingDoubleFree));
   EXPECT_TRUE(LogContains("previously allocated here"));
   EXPECT_TRUE(LogContains("freed here"));
 }
@@ -455,9 +455,8 @@ TEST_F(AsanRtlTest, AsanCheckWildAccess) {
   ASSERT_TRUE(check_access_fn != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
-  AssertMemoryErrorIsDetected(reinterpret_cast<void*>(0x80000000),
-                              HeapProxy::WILD_ACCESS);
-  EXPECT_TRUE(LogContains(HeapProxy::kWildAccess));
+  AssertMemoryErrorIsDetected(reinterpret_cast<void*>(0x80000000), WILD_ACCESS);
+  EXPECT_TRUE(LogContains(kWildAccess));
 }
 
 TEST_F(AsanRtlTest, AsanCheckInvalidAccess) {
@@ -467,18 +466,18 @@ TEST_F(AsanRtlTest, AsanCheckInvalidAccess) {
 
   SetCallBackFunction(&AsanErrorCallback);
   AssertMemoryErrorIsDetected(reinterpret_cast<void*>(0x00000000),
-                              HeapProxy::INVALID_ADDRESS);
-  EXPECT_TRUE(LogContains(HeapProxy::kInvalidAddress));
+                              INVALID_ADDRESS);
+  EXPECT_TRUE(LogContains(kInvalidAddress));
 }
 
 TEST_F(AsanRtlTest, AsanCheckCorruptBlock) {
   void* mem = HeapAllocFunction(heap_, 0, kAllocSize);
   SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
   reinterpret_cast<uint8*>(mem)[-1]--;
-  expected_error_type = HeapProxy::CORRUPT_BLOCK;
+  expected_error_type = CORRUPT_BLOCK;
   EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem));
   EXPECT_TRUE(memory_error_detected);
-  EXPECT_TRUE(LogContains(HeapProxy::kHeapCorruptBlock));
+  EXPECT_TRUE(LogContains(kHeapCorruptBlock));
   EXPECT_TRUE(LogContains("previously allocated here"));
 }
 
@@ -511,9 +510,9 @@ TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
   for (size_t i = 0; i < kMaxIterations; ++i) {
     (*mem_in_trailer)++;
     AssertMemoryErrorIsDetected(mem.get() + kAllocSize,
-                                HeapProxy::HEAP_BUFFER_OVERFLOW);
+                                HEAP_BUFFER_OVERFLOW);
     EXPECT_TRUE(LogContains("previously allocated here"));
-    EXPECT_TRUE(LogContains(HeapProxy::kHeapBufferOverFlow));
+    EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
 
     if (!last_error_info.heap_is_corrupt && i + 1 < kMaxIterations)
       continue;
@@ -548,7 +547,7 @@ TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
 
     // An error should be triggered when we free this block.
     memory_error_detected = false;
-    expected_error_type = HeapProxy::CORRUPT_BLOCK;
+    expected_error_type = CORRUPT_BLOCK;
     mem.reset(NULL);
     EXPECT_TRUE(memory_error_detected);
 
@@ -579,7 +578,7 @@ TEST_F(AsanRtlTest, AsanSingleSpecial1byteInstructionCheckGoodAccess) {
 
     for (int32 i = 0; i < memory_length_; ++i)
       ExpectSpecialMemoryErrorIsDetected(false, &dst[i], &src[i], 0xDEADDEAD,
-                                         HeapProxy::UNKNOWN_BAD_ACCESS);
+                                         UNKNOWN_BAD_ACCESS);
   }
 
   FreeMemoryBuffers();
@@ -608,7 +607,7 @@ TEST_F(AsanRtlTest, AsanSingleSpecial2byteInstructionCheckGoodAccess) {
 
     for (int32 i = 0; i < memory_length_; ++i)
       ExpectSpecialMemoryErrorIsDetected(false, &dst[i], &src[i], 0xDEADDEAD,
-                                         HeapProxy::UNKNOWN_BAD_ACCESS);
+                                         UNKNOWN_BAD_ACCESS);
   }
 
   FreeMemoryBuffers();
@@ -637,7 +636,7 @@ TEST_F(AsanRtlTest, AsanSingleSpecial4byteInstructionCheckGoodAccess) {
 
     for (int32 i = 0; i < memory_length_; ++i)
       ExpectSpecialMemoryErrorIsDetected(false, &dst[i], &src[i], 0xDEADDEAD,
-                                         HeapProxy::UNKNOWN_BAD_ACCESS);
+                                         UNKNOWN_BAD_ACCESS);
   }
 
   FreeMemoryBuffers();
@@ -668,14 +667,14 @@ TEST_F(AsanRtlTest, AsanSingleSpecialInstructionCheckBadAccess) {
     ASSERT_TRUE(check_access_fn != NULL);
 
     ExpectSpecialMemoryErrorIsDetected(true, &dst[0], &src[-1], 0xDEADDEAD,
-                                       HeapProxy::HEAP_BUFFER_UNDERFLOW);
+                                       HEAP_BUFFER_UNDERFLOW);
     ExpectSpecialMemoryErrorIsDetected(true, &dst[-1], &src[0], 0xDEADDEAD,
-                                       HeapProxy::HEAP_BUFFER_UNDERFLOW);
+                                       HEAP_BUFFER_UNDERFLOW);
 
     ExpectSpecialMemoryErrorIsDetected(true, &dst[0], &src[memory_length_],
-        0xDEADDEAD, HeapProxy::HEAP_BUFFER_OVERFLOW);
+        0xDEADDEAD, HEAP_BUFFER_OVERFLOW);
     ExpectSpecialMemoryErrorIsDetected(true, &dst[memory_length_], &src[0],
-        0xDEADDEAD, HeapProxy::HEAP_BUFFER_OVERFLOW);
+        0xDEADDEAD, HEAP_BUFFER_OVERFLOW);
   }
 
   FreeMemoryBuffers();
@@ -703,14 +702,14 @@ TEST_F(AsanRtlTest, AsanSingleStoInstructionCheckBadAccess) {
     ASSERT_TRUE(check_access_fn != NULL);
 
     ExpectSpecialMemoryErrorIsDetected(false, &dst[0], &src[-1], 0xDEAD,
-        HeapProxy::HEAP_BUFFER_UNDERFLOW);
+        HEAP_BUFFER_UNDERFLOW);
     ExpectSpecialMemoryErrorIsDetected(true, &dst[-1], &src[0], 0xDEAD,
-        HeapProxy::HEAP_BUFFER_UNDERFLOW);
+        HEAP_BUFFER_UNDERFLOW);
 
     ExpectSpecialMemoryErrorIsDetected(false, &dst[0], &src[memory_length_],
-        0xDEADDEAD, HeapProxy::HEAP_BUFFER_OVERFLOW);
+        0xDEADDEAD, HEAP_BUFFER_OVERFLOW);
     ExpectSpecialMemoryErrorIsDetected(true, &dst[memory_length_], &src[0],
-        0xDEADDEAD, HeapProxy::HEAP_BUFFER_OVERFLOW);
+        0xDEADDEAD, HEAP_BUFFER_OVERFLOW);
   }
 
   FreeMemoryBuffers();
@@ -738,7 +737,7 @@ TEST_F(AsanRtlTest, AsanPrefixedSpecialInstructionCheckGoodAccess) {
     ASSERT_TRUE(check_access_fn != NULL);
 
     ExpectSpecialMemoryErrorIsDetected(false, &dst[0], &src[0], memory_length_,
-                                       HeapProxy::UNKNOWN_BAD_ACCESS);
+                                       UNKNOWN_BAD_ACCESS);
   }
 
   FreeMemoryBuffers();
@@ -766,11 +765,11 @@ TEST_F(AsanRtlTest, AsanPrefixedSpecialInstructionCheckBadAccess) {
     ASSERT_TRUE(check_access_fn != NULL);
 
     ExpectSpecialMemoryErrorIsDetected(true, &dst[0], &src[0],
-        memory_length_ + 1, HeapProxy::HEAP_BUFFER_OVERFLOW);
+        memory_length_ + 1, HEAP_BUFFER_OVERFLOW);
     ExpectSpecialMemoryErrorIsDetected(true, &dst[-1], &src[-1],
-        memory_length_, HeapProxy::HEAP_BUFFER_UNDERFLOW);
+        memory_length_, HEAP_BUFFER_UNDERFLOW);
     ExpectSpecialMemoryErrorIsDetected(true, &dst[-1], &src[0],
-        memory_length_, HeapProxy::HEAP_BUFFER_UNDERFLOW);
+        memory_length_, HEAP_BUFFER_UNDERFLOW);
   }
 
   FreeMemoryBuffers();
@@ -802,7 +801,7 @@ TEST_F(AsanRtlTest, AsanDirectionSpecialInstructionCheckGoodAccess) {
 
     ExpectSpecialMemoryErrorIsDetected(false, &dst[memory_length_ - 1],
         &src[memory_length_ - 1], memory_length_,
-        HeapProxy::UNKNOWN_BAD_ACCESS);
+        UNKNOWN_BAD_ACCESS);
   }
 
   // Reset direction flag to forward.
@@ -840,7 +839,7 @@ TEST_F(AsanRtlTest, AsanSpecialInstructionCheckZeroAccess) {
 
     // A prefixed instruction with a count of zero do not have side effects.
     ExpectSpecialMemoryErrorIsDetected(false, &dst[-1], &src[-1], 0,
-                                       HeapProxy::UNKNOWN_BAD_ACCESS);
+                                       UNKNOWN_BAD_ACCESS);
   }
 
   FreeMemoryBuffers();
@@ -871,7 +870,7 @@ TEST_F(AsanRtlTest, AsanSpecialInstructionCheckShortcutAccess) {
 
     // Compare instruction stop their execution when values differ.
     ExpectSpecialMemoryErrorIsDetected(false, &dst[0], &src[0],
-        memory_length_ + 1, HeapProxy::UNKNOWN_BAD_ACCESS);
+        memory_length_ + 1, UNKNOWN_BAD_ACCESS);
   }
 
   FreeMemoryBuffers();

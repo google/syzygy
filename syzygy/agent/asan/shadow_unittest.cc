@@ -45,9 +45,8 @@ TEST(ShadowTest, PoisonUnpoisonAccess) {
         reinterpret_cast<const uint8*>(base::RandInt(65536, 10*1024*1024) * 8);
     const uint8* start_addr = end_addr - size;
 
-    for (size_t i = 0; i < size; ++i) {
+    for (size_t i = 0; i < size; ++i)
       EXPECT_TRUE(Shadow::IsAccessible(start_addr + i));
-    }
 
     Shadow::Poison(start_addr, size, Shadow::kHeapNonAccessibleByteMask);
     for (size_t i = 0; i < size; ++i)
@@ -59,9 +58,8 @@ TEST(ShadowTest, PoisonUnpoisonAccess) {
                                                 kShadowRatio);
     const uint8* aligned_start_addr = end_addr - aligned_size;
     Shadow::Unpoison(aligned_start_addr, aligned_size);
-    for (size_t i = 0; i < size; ++i) {
+    for (size_t i = 0; i < size; ++i)
       EXPECT_TRUE(Shadow::IsAccessible(start_addr + i));
-    }
   }
 }
 
@@ -80,19 +78,18 @@ TEST(ShadowTest, SetUpAndTearDown) {
   const size_t non_addressable_memory_end = (0x10000 >> 3);
 
   Shadow::SetUp();
-  for (size_t i = shadow_start; i < shadow_end; i += kLookupInterval) {
+  for (size_t i = shadow_start; i < shadow_end; i += kLookupInterval)
     ASSERT_EQ(Shadow::kAsanMemoryByte, TestShadow::shadow_[i]);
-  }
-  for (size_t i = 0; i < non_addressable_memory_end; i += kLookupInterval) {
+
+  for (size_t i = 0; i < non_addressable_memory_end; i += kLookupInterval)
     ASSERT_EQ(Shadow::kInvalidAddress, TestShadow::shadow_[i]);
-  }
+
   Shadow::TearDown();
-  for (size_t i = shadow_start; i < shadow_end; i += kLookupInterval) {
+  for (size_t i = shadow_start; i < shadow_end; i += kLookupInterval)
     ASSERT_EQ(Shadow::kHeapAddressableByte, TestShadow::shadow_[i]);
-  }
-  for (size_t i = 0; i < non_addressable_memory_end; i += kLookupInterval) {
+
+  for (size_t i = 0; i < non_addressable_memory_end; i += kLookupInterval)
     ASSERT_EQ(Shadow::kHeapAddressableByte, TestShadow::shadow_[i]);
-  }
 }
 
 TEST(ShadowTest, GetNullTerminatedArraySize) {

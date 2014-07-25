@@ -21,9 +21,17 @@
 #include "base/stringprintf.h"
 #include "base/utf_string_conversions.h"
 #include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/agent/asan/block.h"
+#include "syzygy/agent/asan/shadow.h"
+#include "syzygy/agent/asan/stack_capture.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
 namespace testing {
+
+using agent::asan::BlockHeader;
+using agent::asan::BlockInfo;
+using agent::asan::Shadow;
+using agent::asan::StackCapture;
 
 const wchar_t kSyzyAsanRtlDll[] = L"syzyasan_rtl.dll";
 
@@ -109,6 +117,163 @@ void TestWithAsanLogger::ResetLog() {
   log_service_.set_destination(log_file.get());
   log_file_.reset(log_file.release());
   log_contents_read_ = false;
+}
+
+FakeAsanBlock::FakeAsanBlock(HeapProxy* proxy, size_t alloc_alignment_log)
+    : proxy(proxy), is_initialized(false),
+      alloc_alignment_log(alloc_alignment_log),
+      alloc_alignment(1 << alloc_alignment_log), user_ptr(NULL) {
+  // Align the beginning of the buffer to the current granularity. Ensure that
+  // there's room to store magic bytes in front of this block.
+  buffer_align_begin = reinterpret_cast<uint8*>(common::AlignUp(
+      reinterpret_cast<size_t>(buffer)+1, alloc_alignment));
+}
+
+FakeAsanBlock::~FakeAsanBlock() {
+  Shadow::Unpoison(buffer_align_begin, asan_alloc_size);
+  ::memset(buffer, 0, sizeof(buffer));
+}
+
+bool FakeAsanBlock::InitializeBlock(size_t alloc_size) {
+  user_alloc_size = alloc_size;
+  asan_alloc_size = proxy->GetAllocSize(alloc_size,
+    alloc_alignment);
+
+  // Calculate the size of the zone of the buffer that we use to ensure that
+  // we don't corrupt the heap.
+  buffer_header_size = buffer_align_begin - buffer;
+  buffer_trailer_size = kBufferSize - buffer_header_size -
+    asan_alloc_size;
+  EXPECT_GT(kBufferSize, asan_alloc_size + buffer_header_size);
+
+  // Initialize the buffer header and trailer.
+  ::memset(buffer, kBufferHeaderValue, buffer_header_size);
+  ::memset(buffer_align_begin + asan_alloc_size,
+    kBufferTrailerValue,
+    buffer_trailer_size);
+
+  StackCapture stack;
+  stack.InitFromStack();
+  // Initialize the ASan block.
+  user_ptr = proxy->InitializeAsanBlock(buffer_align_begin,
+    alloc_size,
+    alloc_alignment_log,
+    false,
+    stack);
+  EXPECT_NE(reinterpret_cast<void*>(NULL), user_ptr);
+  BlockHeader* header = agent::asan::BlockGetHeaderFromBody(user_ptr);
+  EXPECT_NE(reinterpret_cast<BlockHeader*>(NULL), header);
+  BlockInfo block_info = {};
+  EXPECT_TRUE(BlockInfoFromMemory(header, &block_info));
+  EXPECT_TRUE(common::IsAligned(reinterpret_cast<size_t>(user_ptr),
+    alloc_alignment));
+  EXPECT_TRUE(common::IsAligned(
+      reinterpret_cast<size_t>(buffer_align_begin)+asan_alloc_size,
+      agent::asan::kShadowRatio));
+  EXPECT_EQ(buffer_align_begin, block_info.block);
+  EXPECT_EQ(user_ptr, block_info.body);
+
+  void* expected_user_ptr = reinterpret_cast<void*>(
+    buffer_align_begin + std::max(sizeof(BlockHeader),
+    alloc_alignment));
+  EXPECT_TRUE(user_ptr == expected_user_ptr);
+
+  size_t i = 0;
+  // Ensure that the buffer header is accessible and correctly tagged.
+  for (; i < buffer_header_size; ++i) {
+    EXPECT_EQ(kBufferHeaderValue, buffer[i]);
+    EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
+  }
+  size_t user_block_offset = reinterpret_cast<uint8*>(user_ptr)-buffer;
+  // Ensure that the block header isn't accessible.
+  for (; i < user_block_offset; ++i)
+    EXPECT_FALSE(Shadow::IsAccessible(buffer + i));
+
+  // Ensure that the user block is accessible.
+  size_t block_trailer_offset = i + alloc_size;
+  for (; i < block_trailer_offset; ++i)
+    EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
+
+  // Ensure that the block trailer isn't accessible.
+  for (; i < buffer_header_size + asan_alloc_size; ++i)
+    EXPECT_FALSE(Shadow::IsAccessible(buffer + i));
+
+  // Ensure that the buffer trailer is accessible and correctly tagged.
+  for (; i < kBufferSize; ++i) {
+    EXPECT_EQ(kBufferTrailerValue, buffer[i]);
+    EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
+  }
+
+  is_initialized = true;
+  return true;
+}
+
+bool FakeAsanBlock::TestBlockMetadata() {
+  if (!is_initialized)
+    return false;
+
+  // Ensure that the block header is valid. BlockGetHeaderFromBody takes
+  // care of checking the magic number in the signature of the block.
+  BlockHeader* block_header = agent::asan::BlockGetHeaderFromBody(user_ptr);
+  EXPECT_TRUE(block_header != NULL);
+  BlockInfo block_info = {};
+  EXPECT_TRUE(BlockInfoFromMemory(block_header, &block_info));
+  EXPECT_EQ(::GetCurrentThreadId(), block_info.trailer->alloc_tid);
+  EXPECT_EQ(user_alloc_size, block_header->body_size);
+  EXPECT_TRUE(block_header->alloc_stack != NULL);
+  EXPECT_EQ(agent::asan::ALLOCATED_BLOCK, block_header->state);
+  const uint8* cursor = buffer_align_begin;
+  EXPECT_TRUE(Shadow::IsBlockStartByte(cursor++));
+  for (; cursor < user_ptr; ++cursor)
+    EXPECT_TRUE(Shadow::IsLeftRedzone(cursor));
+  const uint8* aligned_trailer_begin = reinterpret_cast<const uint8*>(
+      common::AlignUp(reinterpret_cast<size_t>(user_ptr)+user_alloc_size,
+      agent::asan::kShadowRatio));
+  for (const uint8* pos = aligned_trailer_begin;
+       pos < buffer_align_begin + asan_alloc_size;
+       ++pos) {
+    EXPECT_TRUE(Shadow::IsRightRedzone(pos));
+  }
+
+  return true;
+}
+
+bool FakeAsanBlock::MarkBlockAsQuarantined() {
+  if (!is_initialized)
+    return false;
+
+  BlockHeader* block_header = agent::asan::BlockGetHeaderFromBody(user_ptr);
+  EXPECT_NE(reinterpret_cast<BlockHeader*>(NULL), block_header);
+  BlockInfo block_info = {};
+  BlockInfoFromMemory(block_header, &block_info);
+  EXPECT_TRUE(block_header->free_stack == NULL);
+  EXPECT_TRUE(block_info.trailer != NULL);
+  EXPECT_EQ(0U, block_info.trailer->free_tid);
+
+  StackCapture stack;
+  stack.InitFromStack();
+  // Mark the block as quarantined.
+  proxy->MarkBlockAsQuarantined(buffer_align_begin, stack);
+  EXPECT_TRUE(block_header->free_stack != NULL);
+  EXPECT_EQ(agent::asan::QUARANTINED_BLOCK, block_header->state);
+  EXPECT_EQ(::GetCurrentThreadId(), block_info.trailer->free_tid);
+
+  size_t i = 0;
+  // Ensure that the buffer header is accessible and correctly tagged.
+  for (; i < buffer_header_size; ++i) {
+    EXPECT_EQ(kBufferHeaderValue, buffer[i]);
+    EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
+  }
+  // Ensure that the whole block isn't accessible.
+  for (; i < buffer_header_size + asan_alloc_size; ++i)
+    EXPECT_FALSE(Shadow::IsAccessible(buffer + i));
+
+  // Ensure that the buffer trailer is accessible and correctly tagged.
+  for (; i < kBufferSize; ++i) {
+    EXPECT_EQ(kBufferTrailerValue, buffer[i]);
+    EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
+  }
+  return true;
 }
 
 }  // namespace testing

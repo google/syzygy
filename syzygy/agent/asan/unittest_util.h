@@ -20,6 +20,7 @@
 #include "base/files/scoped_temp_dir.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_heap.h"
+#include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/trace/agent_logger/agent_logger.h"
@@ -28,6 +29,7 @@
 namespace testing {
 
 using agent::asan::AsanErrorInfo;
+using agent::asan::HeapProxy;
 
 // The default name of the runtime library DLL.
 extern const wchar_t kSyzyAsanRtlDll[];
@@ -317,6 +319,84 @@ class ScopedASanAlloc : public scoped_ptr<T, ASanDeleteHelper> {
     CHECK(get() != NULL);
     return get()[i];
   }
+};
+
+// A unittest fixture that initializes an ASan heap that can be used in the
+// unittests.
+class TestWithAsanHeap : public testing::Test {
+ public:
+  TestWithAsanHeap() : stack_cache_(&logger_) {
+  }
+
+  virtual void SetUp() OVERRIDE {
+    testing::Test::SetUp();
+    HeapProxy::Init(&stack_cache_);
+    agent::asan::Shadow::SetUp();
+    logger_.Init();
+    ASSERT_TRUE(proxy_.Create(0, 0, 0));
+  }
+
+  virtual void TearDown() OVERRIDE {
+    ASSERT_TRUE(proxy_.Destroy());
+    agent::asan::Shadow::TearDown();
+    testing::Test::TearDown();
+  }
+
+ protected:
+  agent::asan::AsanLogger logger_;
+  agent::asan::StackCaptureCache stack_cache_;
+  HeapProxy proxy_;
+};
+
+// A unittest fixture to test the bookkeeping functions.
+struct FakeAsanBlock {
+  static const size_t kMaxAlignmentLog = 13;
+  static const size_t kMaxAlignment = 1 << kMaxAlignmentLog;
+  // If we want to test the alignments up to 4096 we need a buffer of at least
+  // 3 * 4096 bytes:
+  // +--- 0 <= size < 4096 bytes---+---4096 bytes---+--4096 bytes--+
+  // ^buffer                       ^aligned_buffer  ^user_pointer
+  static const size_t kBufferSize = 3 * kMaxAlignment;
+  static const uint8 kBufferHeaderValue = 0xAE;
+  static const uint8 kBufferTrailerValue = 0xEA;
+
+  FakeAsanBlock(HeapProxy* proxy, size_t alloc_alignment_log);
+
+  ~FakeAsanBlock();
+
+  // Initialize an ASan block in the buffer.
+  // @param alloc_size The user size of the ASan block.
+  // @returns true on success, false otherwise.
+  bool InitializeBlock(size_t alloc_size);
+
+  // Ensures that this block has a valid block header.
+  bool TestBlockMetadata();
+
+  // Mark the current ASan block as quarantined.
+  bool MarkBlockAsQuarantined();
+
+  // The buffer we use internally.
+  uint8 buffer[kBufferSize];
+
+  // The heap proxy we delegate to.
+  HeapProxy* proxy;
+
+  // The alignment of the current allocation.
+  size_t alloc_alignment;
+  size_t alloc_alignment_log;
+
+  // The sizes of the different sub-structures in the buffer.
+  size_t asan_alloc_size;
+  size_t user_alloc_size;
+  size_t buffer_header_size;
+  size_t buffer_trailer_size;
+
+  // The pointers to the different sub-structures in the buffer.
+  uint8* buffer_align_begin;
+  void* user_ptr;
+
+  // Indicate if the buffer has been initialized.
+  bool is_initialized;
 };
 
 }  // namespace testing

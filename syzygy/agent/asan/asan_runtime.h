@@ -36,56 +36,6 @@ namespace asan {
 // Forward declarations.
 class AsanLogger;
 
-// Store the information about a bad memory access.
-struct AsanErrorInfo {
-  // The address where the bad access happened.
-  void* location;
-  // The context prior to the crash.
-  CONTEXT context;
-  // The allocation stack trace.
-  void* alloc_stack[agent::asan::StackCapture::kMaxNumFrames];
-  // The size of the allocation stack trace.
-  uint8 alloc_stack_size;
-  // The ID of the allocation thread.
-  DWORD alloc_tid;
-  // The free stack trace.
-  void* free_stack[agent::asan::StackCapture::kMaxNumFrames];
-  // The size of the free stack trace.
-  uint8 free_stack_size;
-  // The ID of the free thread.
-  DWORD free_tid;
-  // The ID of the crash stack, this is needed to be able to blacklist some
-  // known bugs.
-  StackCapture::StackId crash_stack_id;
-  // The error type.
-  HeapProxy::BadAccessKind error_type;
-  // The access mode.
-  HeapProxy::AccessMode access_mode;
-  // The access size.
-  size_t access_size;
-  // The information about the shadow memory for this address, this would be
-  // something like: "0x12345678 is located 8 bytes inside of a 10-byte region
-  // [0x12345670,0x1234567A)."
-  char shadow_info[128];
-  // A textual description of the shadow memory around |location|.
-  char shadow_memory[512];
-  // The time since the memory block containing this address has been freed.
-  // This would be equal to zero if the block is still allocated.
-  uint64 microseconds_since_free;
-  // Indicates if the heap is corrupt.
-  bool heap_is_corrupt;
-  // The number of corrupt ranges encountered.
-  size_t corrupt_range_count;
-  // The number of corrupt blocks encountered.
-  size_t corrupt_block_count;
-  // The number of corrupt ranges reported in |corrupt_ranges|.
-  size_t corrupt_ranges_reported;
-  // The information about the corrupt ranges of memory. The real length of this
-  // array will be stored in |corrupt_ranges_reported|. This will be NULL if
-  // |corrupt_ranges_reported| is zero.
-  AsanCorruptBlockRange* corrupt_ranges;
-};
-
 // An Asan Runtime manager.
 // This class takes care of initializing the different modules (stack cache,
 // logger...) and provide the functions to report an error.
@@ -228,7 +178,7 @@ class AsanRuntime {
   static base::Lock lock_;  // Lock for all runtimes.
   static AsanRuntime* runtime_;  // Singleton. Under lock_.
   static LPTOP_LEVEL_EXCEPTION_FILTER previous_uef_;  // Under lock_.
-  static bool uef_installed_;  // Under lock_;
+  static bool uef_installed_;  // Under lock_.
   // @}
 
   // The shared logger instance that will be used by all heap proxies.

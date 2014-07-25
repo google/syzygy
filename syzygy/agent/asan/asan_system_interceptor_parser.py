@@ -52,19 +52,19 @@ BOOL WINAPI asan_WriteFile(
   if (lpBuffer != NULL) {
     TestMemoryRange(reinterpret_cast<const uint8*>(lpBuffer),
                     nNumberOfBytesToWrite,
-                    HeapProxy::ASAN_READ_ACCESS);
+                    agent::asan::ASAN_READ_ACCESS);
   }
 
   if (lpNumberOfBytesWritten != NULL) {
     TestMemoryRange(reinterpret_cast<const uint8*>(lpNumberOfBytesWritten),
                     sizeof(*lpNumberOfBytesWritten),
-                    HeapProxy::ASAN_WRITE_ACCESS);
+                    agent::asan::ASAN_WRITE_ACCESS);
   }
 
   if (lpOverlapped != NULL) {
     TestMemoryRange(reinterpret_cast<const uint8*>(lpOverlapped),
                     sizeof(*lpOverlapped),
-                    HeapProxy::ASAN_READ_ACCESS);
+                    agent::asan::ASAN_READ_ACCESS);
   }
 
 
@@ -78,13 +78,13 @@ BOOL WINAPI asan_WriteFile(
   if (lpNumberOfBytesWritten != NULL) {
     TestMemoryRange(reinterpret_cast<const uint8*>(lpNumberOfBytesWritten),
                     sizeof(*lpNumberOfBytesWritten),
-                    HeapProxy::ASAN_WRITE_ACCESS);
+                    agent::asan::ASAN_WRITE_ACCESS);
   }
 
   if (lpBuffer != NULL) {
     TestMemoryRange(reinterpret_cast<const uint8*>(lpBuffer),
                     nNumberOfBytesToWrite,
-                    HeapProxy::ASAN_READ_ACCESS);
+                    agent::asan::ASAN_READ_ACCESS);
   }
 
   return ret;
@@ -262,7 +262,7 @@ param_checks_template = Template("""
         const_cast<const uint8*>(
             reinterpret_cast<const uint8 ${param_keyword}*>(${param_to_check})),
         ${param_size},
-        HeapProxy::ASAN_${access_type}_ACCESS);
+        agent::asan::ASAN_${access_type}_ACCESS);
   }
 """)
 

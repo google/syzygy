@@ -112,7 +112,7 @@ TEST_F(NestedHeapTest, IntegrationTest) {
     asan_GetUserExtent(aligned_buffer, &user_pointer, &tmp_size);
     EXPECT_NE(reinterpret_cast<void*>(NULL), user_pointer);
     EXPECT_EQ(kAllocSize, tmp_size);
-    memset(user_pointer, kMagicValue, kAllocSize);
+    ::memset(user_pointer, kMagicValue, kAllocSize);
 
     void* asan_pointer = NULL;
     asan_GetAsanExtent(user_pointer, &asan_pointer, &tmp_size);
@@ -124,9 +124,9 @@ TEST_F(NestedHeapTest, IntegrationTest) {
     asan_GetUserExtent(aligned_buffer_copy, &user_pointer_copy, &tmp_size);
     EXPECT_NE(reinterpret_cast<void*>(NULL), user_pointer_copy);
 
-    for (size_t i = 0; i < kAllocSize; ++i) {
+    for (size_t i = 0; i < kAllocSize; ++i)
       EXPECT_EQ(kMagicValue, reinterpret_cast<uint8*>(user_pointer_copy)[i]);
-    }
+
     size_t header_size = reinterpret_cast<uint8*>(user_pointer_copy)
         - aligned_buffer_copy;
     EXPECT_TRUE(MemoryRangeIsPoisoned(aligned_buffer_copy, header_size));

@@ -40,7 +40,7 @@ void SetAsanRuntimeInstance(AsanRuntime* runtime) {
 }
 
 void ReportBadMemoryAccess(void* location,
-                           HeapProxy::AccessMode access_mode,
+                           AccessMode access_mode,
                            size_t access_size,
                            const AsanContext& asan_context) {
   // Capture the context and restore the value of the register as before calling
@@ -87,10 +87,10 @@ void ReportBadMemoryAccess(void* location,
   bad_access_info.access_size = access_size;
   bad_access_info.alloc_stack_size = 0U;
   bad_access_info.alloc_tid = 0U;
-  bad_access_info.error_type = HeapProxy::UNKNOWN_BAD_ACCESS;
+  bad_access_info.error_type = UNKNOWN_BAD_ACCESS;
   bad_access_info.free_stack_size = 0U;
   bad_access_info.free_tid = 0U;
-  bad_access_info.microseconds_since_free = 0U;
+  bad_access_info.milliseconds_since_free = 0U;
   bad_access_info.corrupt_ranges = NULL;
   bad_access_info.corrupt_range_count = 0;
 
@@ -121,7 +121,7 @@ void ContextToAsanContext(const CONTEXT& context, AsanContext* asan_context) {
   asan_context->original_esp = context.Esp;
 }
 
-void ReportBadAccess(const uint8* location, HeapProxy::AccessMode access_mode) {
+void ReportBadAccess(const uint8* location, AccessMode access_mode) {
   AsanContext asan_context = {};
   CONTEXT context = {};
   ::RtlCaptureContext(&context);
@@ -134,7 +134,7 @@ void ReportBadAccess(const uint8* location, HeapProxy::AccessMode access_mode) {
 
 void TestMemoryRange(const uint8* memory,
                      size_t size,
-                     HeapProxy::AccessMode access_mode) {
+                     AccessMode access_mode) {
   if (size == 0U)
     return;
   // TODO(sebmarchand): This approach is pretty limited because it only checks

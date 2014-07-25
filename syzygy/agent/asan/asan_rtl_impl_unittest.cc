@@ -75,7 +75,7 @@ TEST_F(AsanRtlImplTest, Alloc) {
   for (size_t size = 10; size < kMaxAllocSize; size = size * 5 + 123) {
     void* mem = asan_HeapAlloc(heap_, 0, size);
     ASSERT_TRUE(mem != NULL);
-    memset(mem, '\0', size);
+    ::memset(mem, '\0', size);
 
     size_t new_size = size;
     while (new_size == size)

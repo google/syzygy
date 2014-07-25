@@ -149,18 +149,18 @@ struct ScopedAgentLogger {
 typedef void (WINAPI *AsanSetCallBack)(AsanErrorCallBack);
 
 enum AccessMode {
-  ASAN_READ_ACCESS = agent::asan::HeapProxy::ASAN_READ_ACCESS,
-  ASAN_WRITE_ACCESS = agent::asan::HeapProxy::ASAN_WRITE_ACCESS,
-  ASAN_UNKNOWN_ACCESS = agent::asan::HeapProxy::ASAN_UNKNOWN_ACCESS,
+  ASAN_READ_ACCESS = agent::asan::ASAN_READ_ACCESS,
+  ASAN_WRITE_ACCESS = agent::asan::ASAN_WRITE_ACCESS,
+  ASAN_UNKNOWN_ACCESS = agent::asan::ASAN_UNKNOWN_ACCESS,
 };
 
 enum BadAccessKind {
-  UNKNOWN_BAD_ACCESS = agent::asan::HeapProxy::UNKNOWN_BAD_ACCESS,
-  USE_AFTER_FREE = agent::asan::HeapProxy::USE_AFTER_FREE,
-  HEAP_BUFFER_OVERFLOW = agent::asan::HeapProxy::HEAP_BUFFER_OVERFLOW,
-  HEAP_BUFFER_UNDERFLOW = agent::asan::HeapProxy::HEAP_BUFFER_UNDERFLOW,
-  CORRUPT_BLOCK = agent::asan::HeapProxy::CORRUPT_BLOCK,
-  CORRUPT_HEAP = agent::asan::HeapProxy::CORRUPT_HEAP,
+  UNKNOWN_BAD_ACCESS = agent::asan::UNKNOWN_BAD_ACCESS,
+  USE_AFTER_FREE = agent::asan::USE_AFTER_FREE,
+  HEAP_BUFFER_OVERFLOW = agent::asan::HEAP_BUFFER_OVERFLOW,
+  HEAP_BUFFER_UNDERFLOW = agent::asan::HEAP_BUFFER_UNDERFLOW,
+  CORRUPT_BLOCK = agent::asan::CORRUPT_BLOCK,
+  CORRUPT_HEAP = agent::asan::CORRUPT_HEAP,
 };
 
 // Contains the number of ASAN errors reported with our callback.

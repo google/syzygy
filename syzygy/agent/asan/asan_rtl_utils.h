@@ -19,6 +19,7 @@
 #include <windows.h>
 
 #include "syzygy/agent/asan/asan_heap.h"
+#include "syzygy/agent/asan/error_info.h"
 
 namespace agent {
 namespace asan {
@@ -59,14 +60,14 @@ void ContextToAsanContext(const CONTEXT& context, AsanContext* asan_context);
 // @param access_size The size of the access.
 // @param asan_context The context of the access.
 void ReportBadMemoryAccess(void* location,
-                           HeapProxy::AccessMode access_mode,
+                           AccessMode access_mode,
                            size_t access_size,
                            const AsanContext& asan_context);
 
 // Report an invalid access to @p location.
 // @param location The memory address of the access.
 // @param access_mode The mode of the access.
-void ReportBadAccess(const uint8* location, HeapProxy::AccessMode access_mode);
+void ReportBadAccess(const uint8* location, AccessMode access_mode);
 
 // Test that a memory range is accessible. Report an error if it's not.
 // @param memory The pointer to the beginning of the memory range that we want
@@ -75,7 +76,7 @@ void ReportBadAccess(const uint8* location, HeapProxy::AccessMode access_mode);
 // @param access_mode The access mode.
 void TestMemoryRange(const uint8* memory,
                      size_t size,
-                     HeapProxy::AccessMode access_mode);
+                     AccessMode access_mode);
 
 // Helper function to test if the memory range of a given structure is
 // accessible.
@@ -83,7 +84,7 @@ void TestMemoryRange(const uint8* memory,
 // @param structure A pointer to this structure.
 // @param access mode The access mode.
 template <typename T>
-void TestStructure(const T* structure, HeapProxy::AccessMode access_mode) {
+void TestStructure(const T* structure, AccessMode access_mode) {
   TestMemoryRange(reinterpret_cast<const uint8*>(structure),
                   sizeof(T),
                   access_mode);
