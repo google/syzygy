@@ -51,6 +51,7 @@
         'error_info.cc',
         'error_info.h',
         'heap.h',
+        'heap_manager.h',
         'nested_heap.cc',
         'nested_heap.h',
         'page_allocator.h',

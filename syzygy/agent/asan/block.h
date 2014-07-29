@@ -241,7 +241,7 @@ struct BlockInfo {
 //     2, and >= kShadowRatio.
 // @param alignment The minimum alignment that the body of the allocation must
 //     respect. This must be a power of two and satisfy
-//     kShadowSize <= |alignment| <= |chunk_size|.
+//     kShadowRatio <= |alignment| <= |chunk_size|.
 // @param size The size of the body of the allocation. Can be 0.
 // @param min_left_redzone_size The minimum size of the left redzone.
 // @param min_right_redzone_size The minimum size of the right redzone.
