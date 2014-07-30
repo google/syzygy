@@ -15,6 +15,7 @@
 #include "syzygy/agent/asan/heaps/large_block_heap.h"
 
 #include "gtest/gtest.h"
+#include "syzygy/agent/asan/unittest_util.h"
 
 namespace agent {
 namespace asan {
@@ -31,17 +32,26 @@ struct BlockInfoLessThan {
 
 typedef std::set<BlockInfo, BlockInfoLessThan> BlockInfoSet;
 
+testing::NullMemoryNotifier null_notifier;
+
+// A LargeBlockHeap that uses a null memory notifier.
+class TestLargeBlockHeap : public LargeBlockHeap {
+ public:
+  TestLargeBlockHeap() : LargeBlockHeap(&null_notifier) {
+  }
+};
+
 }  // namespace
 
 TEST(LargeBlockHeapTest, EndToEnd) {
-  LargeBlockHeap h;
+  TestLargeBlockHeap h;
   EXPECT_EQ(0u, h.size());
 
   BlockLayout layout = {};
   BlockInfo block = {};
 
-  // Allocate and free a zero-sized allocation. This should succeed
-  // by definition.
+  // Allocate and free a zero-sized allocation. This should succeed by
+  // definition.
   void* alloc = h.AllocateBlock(0, 0, 0, &layout);
   EXPECT_EQ(1u, h.size());
   BlockInitialize(layout, alloc, false, &block);
@@ -67,6 +77,36 @@ TEST(LargeBlockHeapTest, EndToEnd) {
   for (; it != blocks.end(); ++it)
     EXPECT_TRUE(h.FreeBlock(*it));
   EXPECT_EQ(0u, h.size());
+}
+
+TEST(LargeBlockHeapTest, ZeroSizedAllocationsHaveDistinctAddresses) {
+  TestLargeBlockHeap h;
+
+  void* a1 = h.Allocate(0);
+  EXPECT_TRUE(a1 != NULL);
+  void* a2 = h.Allocate(0);
+  EXPECT_TRUE(a2 != NULL);
+  EXPECT_NE(a1, a2);
+  h.Free(a1);
+  h.Free(a2);
+
+  BlockLayout layout = {};
+
+  BlockInfo b1 = {};
+  a1 = h.AllocateBlock(0, 0, 0, &layout);
+  EXPECT_TRUE(a1 != NULL);
+  BlockInitialize(layout, a1, false, &b1);
+
+  BlockInfo b2 = {};
+  a2 = h.AllocateBlock(0, 0, 0, &layout);
+  EXPECT_TRUE(a2 != NULL);
+  BlockInitialize(layout, a2, false, &b2);
+
+  EXPECT_NE(a1, a2);
+  EXPECT_NE(b1.block, b2.block);
+
+  h.FreeBlock(b1);
+  h.FreeBlock(b2);
 }
 
 }  // namespace heaps

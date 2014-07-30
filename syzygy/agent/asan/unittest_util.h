@@ -22,6 +22,7 @@
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/agent/asan/memory_notifier.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/trace/agent_logger/agent_logger.h"
 #include "syzygy/trace/agent_logger/agent_logger_rpc_impl.h"
@@ -397,6 +398,27 @@ struct FakeAsanBlock {
 
   // Indicate if the buffer has been initialized.
   bool is_initialized;
+};
+
+// A null memory notifier. Useful when testing objects that have a memory
+// notifier dependency.
+class NullMemoryNotifier : public agent::asan::MemoryNotifierInterface {
+ public:
+  // Constructor.
+  NullMemoryNotifier() { }
+
+  // Virtual destructor.
+  virtual ~NullMemoryNotifier() { }
+
+  // @name MemoryNotifierInterface implementation.
+  // @{
+  virtual void NotifyInternalUse(const void* address, size_t size) { }
+  virtual void NotifyFutureHeapUse(const void* address, size_t size) { }
+  virtual void NotifyReturnedToOS(const void* address, size_t size) { }
+  // @}
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(NullMemoryNotifier);
 };
 
 }  // namespace testing

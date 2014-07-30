@@ -28,6 +28,9 @@ namespace memory_notifiers {
 // notify the runtime of their own memory use.
 class ShadowMemoryNotifier : public MemoryNotifierInterface {
  public:
+  // Constructor.
+  ShadowMemoryNotifier() { }
+
   // Virtual destructor.
   virtual ~ShadowMemoryNotifier() { }
 
@@ -37,6 +40,9 @@ class ShadowMemoryNotifier : public MemoryNotifierInterface {
   virtual void NotifyFutureHeapUse(const void* address, size_t size);
   virtual void NotifyReturnedToOS(const void* address, size_t size);
   // @}
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ShadowMemoryNotifier);
 };
 
 }  // namespace memory_notifiers

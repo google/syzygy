@@ -16,26 +16,33 @@
 
 #include <windows.h>
 
+#include <algorithm>
+
 #include "base/logging.h"
+#include "syzygy/common/align.h"
 
 namespace agent {
 namespace asan {
 
-LargeBlockHeap::LargeBlockHeap() {
-}
-
-LargeBlockHeap::~LargeBlockHeap() {
+LargeBlockHeap::LargeBlockHeap(MemoryNotifierInterface* memory_notifier)
+    : allocs_(MemoryNotifierAllocator<void*>(memory_notifier)) {
 }
 
 HeapInterface::HeapType LargeBlockHeap::GetHeapType() const {
-  return kTransparentHeap;
+  // This heap doesn't carve allocations out of a large reserved chunk of
+  // memory. Rather, it fills each allocation directly from the OS. There is
+  // no advantage to first marking such allocations as 'kAsanReserved' prior
+  // to remarking them as redzoned/allocated. Thus we indicate that we are an
+  // opaque heap, which assumes allocations are served from 'green' memory.
+  return kOpaqueHeap;
 }
 
 void* LargeBlockHeap::Allocate(size_t bytes) {
-  if (bytes == 0)
-    return NULL;
-
-  void* alloc = ::VirtualAlloc(NULL, bytes, MEM_COMMIT, PAGE_READWRITE);
+  // Always allocate some memory so as to guarantee that zero-sized
+  // allocations get an actual distinct address each time.
+  size_t size = std::max(bytes, 1u);
+  size = common::AlignUp(size, kPageSize);
+  void* alloc = ::VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE);
 
   if (alloc != NULL) {
     common::AutoRecursiveLock lock(lock_);

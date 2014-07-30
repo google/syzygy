@@ -30,6 +30,7 @@
 #include <unordered_set>
 
 #include "syzygy/agent/asan/heap.h"
+#include "syzygy/agent/asan/memory_notifier.h"
 #include "syzygy/common/recursive_lock.h"
 
 namespace agent {
@@ -38,10 +39,10 @@ namespace asan {
 class LargeBlockHeap : public BlockHeapInterface {
  public:
   // Constructor.
-  LargeBlockHeap();
+  explicit LargeBlockHeap(MemoryNotifierInterface* memory_notifier);
 
   // Virtual destructor.
-  virtual ~LargeBlockHeap();
+  virtual ~LargeBlockHeap() { }
 
   // @name HeapInterface implementation.
   // @{
@@ -68,9 +69,11 @@ class LargeBlockHeap : public BlockHeapInterface {
   // The collection of allocations that has been made through this allocator.
   // It is expected that a small number of allocations will be made, so keeping
   // track of these explicitly is fine for now.
-  // TODO(chrisha): Use a custom allocator that reports and redzones the data
-  //     allocated by the AllocationSet.
-  typedef std::unordered_set<void*> AllocationSet;
+  typedef std::unordered_set<
+      void*,
+      std::hash<void*>,
+      std::equal_to<void*>,
+      MemoryNotifierAllocator<void*>> AllocationSet;
   AllocationSet allocs_;  // Under lock_.
 
   // The global lock for this allocator.
