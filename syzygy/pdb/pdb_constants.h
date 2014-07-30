@@ -40,6 +40,19 @@ const uint32 kPdbStringTableVersion = 1;
 // The index of the Tpi (Type info) stream.
 const size_t kTpiStream = 2;
 
+// The version we've observed for the Tpi stream.
+const uint32 kTpiStreamVersion = 0x0131CA0B;
+
+// The index of the first user-defined type.
+// Indexes in range 0x0-0xFFF are reserved.
+// See http://www.openwatcom.org/ftp/devel/docs/CodeView.pdf, section 5.
+const uint32 kTpiStreamFirstUserTypeIndex = 0x1000;
+
+// The values we've observed for the hash key and hash buckets fields in the
+// header of an empty Tpi stream. See the pdb::TypeInfoHashHeader struct.
+const uint32 kTpiStreamEmptyHashKey = 0x4;
+const uint32 kTpiStreamEmptyHashBuckets = 0x8003;
+
 // The index of the Dbi info stream.
 const size_t kDbiStream = 3;
 
