@@ -102,8 +102,8 @@ TEST_F(NestedHeapTest, IntegrationTest) {
     EXPECT_TRUE(MemoryRangeIsAccessible(aligned_buffer, real_buffer_size));
 
     size_t asan_size = asan_GetAsanObjectSize(kAllocSize, alignment);
-    ASSERT_GT(real_buffer_size, asan_size);
-    ASSERT_GT(real_buffer_copy_size, asan_size);
+    ASSERT_GE(real_buffer_size, asan_size);
+    ASSERT_GE(real_buffer_copy_size, asan_size);
 
     asan_InitializeObject(aligned_buffer, kAllocSize, alignment);
 
