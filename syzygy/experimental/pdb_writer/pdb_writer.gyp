@@ -21,6 +21,8 @@
       'target_name': 'pdb_writer_lib',
       'type': 'static_library',
       'sources': [
+        'pdb_section_header_stream_writer.cc',
+        'pdb_section_header_stream_writer.h',
         'pdb_string_table_writer.cc',
         'pdb_string_table_writer.h',
       ],
@@ -28,6 +30,7 @@
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/pdb/pdb.gyp:pdb_lib',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
       ],
     },
     {
