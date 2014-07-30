@@ -258,11 +258,25 @@ TEST(PdbBitSetTest, WriteEmptyBitSet) {
 
   scoped_refptr<PdbByteStream> reader(new PdbByteStream());
   scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
-  EXPECT_TRUE(bs.Write(writer.get()));
+  EXPECT_TRUE(bs.Write(writer.get(), true));
+  EXPECT_EQ(sizeof(kData), reader->length());
 
   std::vector<uint32> data;
   EXPECT_TRUE(reader->Read(&data, arraysize(kData)));
   EXPECT_THAT(data, testing::ElementsAreArray(kData));
+}
+
+TEST(PdbBitSetTest, WriteEmptyBitSetWithoutSize) {
+  const uint32 kData[] = { 0 };
+  scoped_refptr<PdbStream> stream(new TestPdbStream(kData));
+  PdbBitSet bs;
+  EXPECT_TRUE(bs.Read(stream.get()));
+
+  scoped_refptr<PdbByteStream> reader(new PdbByteStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  EXPECT_TRUE(bs.Write(writer.get(), false));
+
+  EXPECT_EQ(0, reader->length());
 }
 
 TEST(PdbBitSetTest, WriteBitSet) {
@@ -273,12 +287,29 @@ TEST(PdbBitSetTest, WriteBitSet) {
 
   scoped_refptr<PdbByteStream> reader(new PdbByteStream());
   scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
-  EXPECT_TRUE(bs.Write(writer.get()));
+  EXPECT_TRUE(bs.Write(writer.get(), true));
   EXPECT_EQ(sizeof(kData), reader->length());
 
   std::vector<uint32> data;
   EXPECT_TRUE(reader->Read(&data, arraysize(kData)));
   EXPECT_THAT(data, testing::ElementsAreArray(kData));
+}
+
+TEST(PdbBitSetTest, WriteBitSetWithoutSize) {
+  const uint32 kInputData[] = { 2, (1 << 0) | (1 << 5) | (1 << 13), (1 << 5) };
+  const uint32 kExpectedData[] = { (1 << 0) | (1 << 5) | (1 << 13), (1 << 5) };
+  scoped_refptr<PdbStream> stream(new TestPdbStream(kInputData));
+  PdbBitSet bs;
+  EXPECT_TRUE(bs.Read(stream.get()));
+
+  scoped_refptr<PdbByteStream> reader(new PdbByteStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  EXPECT_TRUE(bs.Write(writer.get(), false));
+  EXPECT_EQ(sizeof(kExpectedData), reader->length());
+
+  std::vector<uint32> data;
+  EXPECT_TRUE(reader->Read(&data, arraysize(kExpectedData)));
+  EXPECT_THAT(data, testing::ElementsAreArray(kExpectedData));
 }
 
 TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetTestDll) {
@@ -591,7 +622,7 @@ TEST(ReadHeaderInfoStreamTest, ReadStreamWithNameStreamMap) {
   present.Set(0);
   present.Set(1);
   present.Set(2);
-  ASSERT_TRUE(present.Write(writer));
+  ASSERT_TRUE(present.Write(writer, true));
 
   ASSERT_TRUE(writer->Write(static_cast<uint32>(0)));  // second bitset.
 

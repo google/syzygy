@@ -206,9 +206,9 @@ bool PdbBitSet::Read(PdbStream* stream) {
   return true;
 }
 
-bool PdbBitSet::Write(WritablePdbStream* stream) {
+bool PdbBitSet::Write(WritablePdbStream* stream, bool with_size) {
   DCHECK(stream != NULL);
-  if (!stream->Write(static_cast<uint32>(bits_.size()))) {
+  if (with_size && !stream->Write(static_cast<uint32>(bits_.size()))) {
     LOG(ERROR) << "Failed to write bitset size.";
     return false;
   }
@@ -654,7 +654,7 @@ bool WriteHeaderInfoStream(const PdbInfoHeader70& pdb_header,
   }
 
   // Write the 'used' bitset.
-  if (!used.Write(pdb_stream)) {
+  if (!used.Write(pdb_stream, true)) {
     LOG(ERROR) << "Failed to write 'used' bitset.";
     return false;
   }
@@ -662,7 +662,7 @@ bool WriteHeaderInfoStream(const PdbInfoHeader70& pdb_header,
   // The 'deleted' bitset is always empty.
   PdbBitSet deleted;
   DCHECK(deleted.IsEmpty());
-  if (!deleted.Write(pdb_stream)) {
+  if (!deleted.Write(pdb_stream, true)) {
     LOG(ERROR) << "Failed to write 'deleted' bitset.";
     return false;
   }

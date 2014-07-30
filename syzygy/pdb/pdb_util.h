@@ -46,7 +46,9 @@ class PdbBitSet {
   bool Read(PdbStream* stream);
 
   // Writes a bit set to the given stream at its current cursor position.
-  bool Write(WritablePdbStream* stream);
+  // @param with_size if true, the bit set is preceded by its size.
+  // @returns true on success, false otherwise.
+  bool Write(WritablePdbStream* stream, bool with_size);
 
   // Resizes the given bit set. Will be the next multiple of 32 in size.
   // @param bits the minimum number of bits to hold.
