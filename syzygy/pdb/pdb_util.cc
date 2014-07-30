@@ -118,36 +118,6 @@ size_t GetNamedStreamsHashTableSize(size_t entries) {
   }
 }
 
-// Calculates the hash value associated with a stream name, as used by the
-// named streams hash table. This is required for interoperability with
-// dbghelp and srcsrv tools.
-uint16 NamedStreamsHash(const base::StringPiece& name) {
-  size_t length = name.size();
-  const char* data = name.data();
-
-  uint32 hash = 0;
-  while (length >= 4) {
-    hash ^= *reinterpret_cast<const uint32*>(data);
-    data += 4;
-    length -= 4;
-  }
-
-  if (length >= 2) {
-    hash ^= *reinterpret_cast<const uint16*>(data);
-    data += 2;
-    length -= 2;
-  }
-
-  if (length >= 1)
-    hash ^= *data;
-
-  hash |= 0x20202020;
-  hash ^= hash >> 11;
-  hash ^= hash >> 16;
-
-  return hash & 0xFFFF;
-}
-
 // Sets the bit at the given index, with collision semantics. Returns the index
 // of the bit that was set. Note that there must be at least one bit that is not
 // already set, otherwise this will loop forever.
@@ -257,6 +227,33 @@ bool PdbBitSet::IsSet(size_t bit) const {
 
 bool PdbBitSet::IsEmpty() const {
   return bits_.empty();
+}
+
+uint16 HashString(const base::StringPiece& string) {
+  size_t length = string.size();
+  const char* data = string.data();
+
+  uint32 hash = 0;
+  while (length >= 4) {
+    hash ^= *reinterpret_cast<const uint32*>(data);
+    data += 4;
+    length -= 4;
+  }
+
+  if (length >= 2) {
+    hash ^= *reinterpret_cast<const uint16*>(data);
+    data += 2;
+    length -= 2;
+  }
+
+  if (length >= 1)
+    hash ^= *data;
+
+  hash |= 0x20202020;
+  hash ^= hash >> 11;
+  hash ^= hash >> 16;
+
+  return hash & 0xFFFF;
 }
 
 bool ReadString(PdbStream* stream, std::string* out) {
@@ -621,7 +618,7 @@ bool WriteHeaderInfoStream(const PdbInfoHeader70& pdb_header,
   uint32 string_length = 0;
   NameStreamMap::const_iterator name_it = name_stream_map.begin();
   for (; name_it != name_stream_map.end(); ++name_it) {
-    uint16 hash = NamedStreamsHash(name_it->first);
+    uint16 hash = HashString(name_it->first);
     size_t bucket = hash % table_size;
     bucket = SetNamedStreamsHashTableBit(bucket, table_size, &used);
     name_infos.push_back(NamedStreamInfo(name_it, 0, bucket));

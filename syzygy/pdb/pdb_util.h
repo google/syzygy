@@ -78,6 +78,13 @@ class PdbBitSet {
   std::vector<uint32> bits_;
 };
 
+// Calculates the hash value associated with a string, as used by hash tables
+// found in PDB files. This is required for interoperability with dbghelp and
+// srcsrv tools.
+// @param string the string to hash.
+// @returns the hashed string.
+uint16 HashString(const base::StringPiece& string);
+
 // Get the DbiDbgHeader offset within the Dbi info stream. For some reason,
 // the EC info data comes before the Dbi debug header despite that the Dbi
 // debug header size comes before the EC info size in the Dbi header struct.

@@ -312,6 +312,13 @@ TEST(PdbBitSetTest, WriteBitSetWithoutSize) {
   EXPECT_THAT(data, testing::ElementsAreArray(kExpectedData));
 }
 
+TEST_F(PdbUtilTest, HashString) {
+  EXPECT_EQ(1024, HashString(""));
+  EXPECT_EQ(20527, HashString("___onexitend"));
+  EXPECT_EQ(24736, HashString("__imp____getmainargs"));
+  EXPECT_EQ(61647, HashString("___security_cookie"));
+}
+
 TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetTestDll) {
   // Test the test_dll.dll.pdb doesn't have Omap information.
   PdbReader reader;
