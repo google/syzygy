@@ -24,6 +24,7 @@
         '<(src)/syzygy/experimental/code_tally/code_tally.gyp:*',
         '<(src)/syzygy/experimental/compare/compare.gyp:*',
         '<(src)/syzygy/experimental/pdb_dumper/pdb_dumper.gyp:*',
+        '<(src)/syzygy/experimental/pdb_writer/pdb_writer.gyp:*',
         '<(src)/syzygy/experimental/timed_decomposer/timed_decomposer.gyp:*',
       ],
     },

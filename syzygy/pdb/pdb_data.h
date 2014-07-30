@@ -185,6 +185,21 @@ struct DbiSectionMapItem {
 // exactly 20 bytes in size.
 COMPILE_ASSERT_IS_POD_OF_SIZE(DbiSectionMapItem, 20);
 
+// Header of the string table found in the name stream and in the EC info header
+// of the debug info stream.
+struct StringTableHeader {
+  // The signature, which is |kPdbStringTableSignature|.
+  uint32 signature;
+
+  // The version, which is |kPdbStringTableVersion|.
+  uint32 version;
+
+  // The size of the concatenated null-terminated strings that follow,
+  // in bytes.
+  uint32 size;
+};
+COMPILE_ASSERT_IS_POD_OF_SIZE(StringTableHeader, 12);
+
 // Multi-Stream Format (MSF) Header
 // See http://code.google.com/p/pdbparser/wiki/MSF_Format
 struct PdbHeader {

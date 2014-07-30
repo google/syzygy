@@ -31,11 +31,11 @@ const uint32 kPdbCurrentVersion = 20000404;
 // stream.
 const uint32 kPdbDbiSectionContribsSignature = 0xF12EBA2D;
 
-// The signature we've observed for the name tables of the Pdb.
-const uint32 kPdbNameTableSignature = 0xEFFEEFFE;
+// The signature we've observed for the string tables of the Pdb.
+const uint32 kPdbStringTableSignature = 0xEFFEEFFE;
 
-// The version we've observed for the name tables of the Pdb.
-const uint32 kPdbNameTableVersion = 1;
+// The version we've observed for the string tables of the Pdb.
+const uint32 kPdbStringTableVersion = 1;
 
 // The index of the Tpi (Type info) stream.
 const size_t kTpiStream = 2;

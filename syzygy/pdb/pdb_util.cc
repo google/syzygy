@@ -703,12 +703,12 @@ bool ReadStringTable(PdbStream* stream,
     return false;
   }
 
-  if (string_table_signature != kPdbNameTableSignature ||
-      string_table_version != kPdbNameTableVersion) {
+  if (string_table_signature != kPdbStringTableSignature ||
+      string_table_version != kPdbStringTableVersion) {
     LOG(ERROR) << "Unexpected " << table_name << " header. Expected "
                << "signature/version "
-               << base::StringPrintf("0x%08X", kPdbNameTableSignature) << "/"
-               << kPdbNameTableVersion << ", read "
+               << base::StringPrintf("0x%08X", kPdbStringTableSignature) << "/"
+               << kPdbStringTableVersion << ", read "
                << base::StringPrintf("0x%08X", string_table_signature) << "/"
                << string_table_version << ".";
     return false;
