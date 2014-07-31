@@ -16,8 +16,8 @@
 #include "sawbuck/viewer/preferences.h"
 
 #include "base/logging.h"
-#include "base/string_piece.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/string_piece.h"
+#include "base/strings/utf_string_conversions.h"
 #include "sawbuck/viewer/const_config.h"
 
 Preferences::Preferences() {
@@ -34,7 +34,7 @@ bool Preferences::WriteStringValue(const wchar_t* name,
 
 bool Preferences::WriteStringValue(const wchar_t* name,
                                    const std::string& value) {
-  return WriteStringValue(name, UTF8ToWide(value));
+  return WriteStringValue(name, base::UTF8ToWide(value));
 }
 
 bool Preferences::ReadStringValue(const wchar_t* name,
@@ -68,13 +68,13 @@ bool Preferences::ReadStringValue(const wchar_t* name,
   std::wstring temp_default;
 
   if (default_value != NULL)
-    temp_default = UTF8ToWide(default_value);
+    temp_default = base::UTF8ToWide(default_value);
 
   bool result = ReadStringValue(name, &temp_output,
       default_value == NULL ? NULL : temp_default.c_str());
 
   if (result)
-    *value = WideToUTF8(temp_output);
+    *value = base::WideToUTF8(temp_output);
 
   return result;
 }

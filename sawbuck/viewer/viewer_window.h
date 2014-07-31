@@ -193,7 +193,7 @@ class ViewerWindow
 
   // The message loop we're instantiated on, used to signal
   // back to the main thread from workers.
-  MessageLoop* ui_loop_;
+  base::MessageLoop* ui_loop_;
 
   typedef std::map<int, ILogViewEvents*> EventSinkMap;
   EventSinkMap event_sinks_;

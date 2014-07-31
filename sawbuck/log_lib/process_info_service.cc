@@ -15,8 +15,8 @@
 // Symbol information service implementation.
 #include "sawbuck/log_lib/process_info_service.h"
 
-#include "base/string_util.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 
 bool IProcessInfoService::ProcessInfo::operator == (
     const ProcessInfo& other) const {
@@ -103,7 +103,7 @@ void ProcessInfoService::OnProcessStarted(const base::Time& time,
         STILL_ACTIVE,
       };
     if (process_info.command_line.empty()) {
-      to_insert.command_line_ = UTF8ToWide(process_info.image_name);
+      to_insert.command_line_ = base::UTF8ToWide(process_info.image_name);
     } else {
       to_insert.command_line_ = process_info.command_line;
     }
@@ -152,7 +152,7 @@ void ProcessInfoService::OnProcessEnded(const base::Time& time,
         exit_status,
       };
     if (process_info.command_line.empty()) {
-      to_insert.command_line_ = UTF8ToWide(process_info.image_name);
+      to_insert.command_line_ = base::UTF8ToWide(process_info.image_name);
     } else {
       to_insert.command_line_ = process_info.command_line;
     }

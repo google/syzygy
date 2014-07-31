@@ -13,7 +13,6 @@
 // limitations under the License.
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/message_loop.h"
 #include "gtest/gtest.h"
 #include "sawbuck/viewer/viewer_module.h"
 

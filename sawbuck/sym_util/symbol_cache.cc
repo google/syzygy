@@ -13,7 +13,7 @@
 // limitations under the License.
 #include "sawbuck/sym_util/symbol_cache.h"
 
-#include "base/string_util.h"
+#include "base/strings/string_util.h"
 #include <dbghelp.h>
 
 namespace {

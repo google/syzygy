@@ -19,11 +19,11 @@
 #include <atlframe.h>
 #include <wmistr.h>
 #include <evntrace.h>
-#include "base/i18n/time_formatting.h"
 #include "base/logging.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
+#include "base/i18n/time_formatting.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "pcrecpp.h"  // NOLINT
 #include "sawbuck/log_lib/process_info_service.h"
 #include "sawbuck/viewer/const_config.h"
@@ -172,7 +172,7 @@ LogListView::LogListView(CUpdateUIBase* update_ui)
     : log_view_(NULL), event_cookie_(0),
       update_ui_(update_ui), stack_trace_view_(NULL),
       process_info_service_(NULL) {
-  ui_loop_ = MessageLoop::current();
+  ui_loop_ = base::MessageLoop::current();
 
   context_menu_bar_.LoadMenu(IDR_LIST_VIEW_CONTEXT_MENU);
   context_menu_ = context_menu_bar_.GetSubMenu(0);
@@ -269,8 +269,8 @@ LRESULT LogListView::OnGetDispInfo(NMHDR* pnmh) {
                           static_cast<LogViewFormatter::Column>(col),
                           &temp_text);
 
-  item_text_ = UTF8ToWide(temp_text);
-  TrimWhitespace(item_text_, TRIM_TRAILING, &item_text_);
+  item_text_ = base::UTF8ToWide(temp_text);
+  base::TrimWhitespace(item_text_, base::TRIM_TRAILING, &item_text_);
 
   if (info->item.mask & LVIF_TEXT)
     info->item.pszText = const_cast<LPWSTR>(item_text_.c_str());
@@ -570,7 +570,7 @@ void LogListView::OnResetBaseTime(UINT code, int id, CWindow window) {
 }
 
 void LogListView::LogViewNewItems() {
-  DCHECK_EQ(ui_loop_, MessageLoop::current());
+  DCHECK_EQ(ui_loop_, base::MessageLoop::current());
 
   if (IsWindow()) {
     // Check if last item was previously visible...
@@ -587,7 +587,7 @@ void LogListView::LogViewNewItems() {
 }
 
 void LogListView::LogViewCleared() {
-  DCHECK_EQ(ui_loop_, MessageLoop::current());
+  DCHECK_EQ(ui_loop_, base::MessageLoop::current());
   DeleteAllItems();
 }
 

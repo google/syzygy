@@ -17,8 +17,8 @@
 
 #include <atlbase.h>
 #include <atlframe.h>
-#include "base/string_util.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "pcrecpp.h"  // NOLINT
 #include "sawbuck/viewer/filtered_log_view.h"
 #include "sawbuck/viewer/filter_dialog.h"

@@ -19,8 +19,8 @@
 #include <atldlgs.h>
 
 #include "base/file_util.h"
-#include "base/string_util.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "pcrecpp.h"  // NOLINT
 #include "sawbuck/viewer/const_config.h"
 #include "sawbuck/viewer/log_list_view.h"
@@ -129,7 +129,7 @@ void FilterDialog::PopulateFilterList() {
     filter_list_view_.AddItem(item, 0, FilterDialog::kColumns[iter->column()]);
     filter_list_view_.AddItem(item, 1,
                               FilterDialog::kRelations[iter->relation()]);
-    filter_list_view_.AddItem(item, 2, UTF8ToWide(iter->value()).c_str());
+    filter_list_view_.AddItem(item, 2, base::UTF8ToWide(iter->value()).c_str());
     filter_list_view_.AddItem(item, 3, FilterDialog::kActions[iter->action()]);
   }
 }
@@ -227,9 +227,9 @@ void FilterDialog::OnFilterSave(UINT notify_code, int id, CWindow window) {
     file_path.resize(MAX_PATH);
     if (SUCCEEDED(dialog.GetFilePath(&file_path[0], MAX_PATH - 1))) {
       std::string filter_string = Filter::SerializeFilters(filters_);
-      if (file_util::WriteFile(base::FilePath(file_path),
-                               &filter_string[0],
-                               filter_string.size()) == -1) {
+      if (base::WriteFile(base::FilePath(file_path),
+                          &filter_string[0],
+                          filter_string.size()) == -1) {
         LOG(ERROR) << "Failed to save filter file to:" << file_path;
         ::MessageBox(m_hWnd, L"Failed to save filter file.",
                      L"File save error.", MB_OK | MB_ICONWARNING);
@@ -250,8 +250,7 @@ void FilterDialog::OnFilterLoad(UINT notify_code, int id, CWindow window) {
     file_path.resize(MAX_PATH);
     if (SUCCEEDED(dialog.GetFilePath(&file_path[0], MAX_PATH - 1))) {
       std::string file_contents;
-      if (file_util::ReadFileToString(base::FilePath(file_path),
-                                      &file_contents)) {
+      if (base::ReadFileToString(base::FilePath(file_path), &file_contents)) {
         filters_ = Filter::DeserializeFilters(file_contents);
         PopulateFilterList();
       } else {

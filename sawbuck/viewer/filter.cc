@@ -16,14 +16,14 @@
 
 #include "sawbuck/viewer/filter.h"
 
+#include "base/logging.h"
 #include "base/values.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
-#include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/string_number_conversions.h"
-#include "base/string_util.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "sawbuck/viewer/log_list_view.h"
 
 using base::IntToString;
@@ -38,7 +38,7 @@ Filter::Filter(Column column, Relation relation, Action action,
       match_re_("") {
   DCHECK(column < NUM_COLUMNS && relation < NUM_RELATIONS &&
          action < NUM_ACTIONS && value != NULL);
-  value_ = WideToUTF8(value);
+  value_ = base::WideToUTF8(value);
   BuildRegExp();
 }
 
@@ -188,8 +188,8 @@ std::vector<Filter> Filter::DeserializeFilters(const std::string& stored) {
   scoped_ptr<base::ListValue> filter_list_value;
 
   if (!stored.empty()) {
-    scoped_ptr<Value> parsed_value(base::JSONReader::Read(stored, true));
-    if (parsed_value.get() && parsed_value->IsType(Value::TYPE_LIST)) {
+    scoped_ptr<base::Value> parsed_value(base::JSONReader::Read(stored, true));
+    if (parsed_value.get() && parsed_value->IsType(base::Value::TYPE_LIST)) {
       filter_list_value.reset(
           static_cast<base::ListValue*>(parsed_value.release()));
     } else {
@@ -198,10 +198,10 @@ std::vector<Filter> Filter::DeserializeFilters(const std::string& stored) {
   }
 
   if (filter_list_value.get() && filter_list_value->GetSize() > 0) {
-    ListValue::const_iterator filter_iter(filter_list_value->begin());
+    base::ListValue::const_iterator filter_iter(filter_list_value->begin());
     for (; filter_iter != filter_list_value->end(); ++filter_iter) {
-      if ((*filter_iter)->IsType(Value::TYPE_DICTIONARY)) {
-        Filter filter(static_cast<DictionaryValue*>(*filter_iter));
+      if ((*filter_iter)->IsType(base::Value::TYPE_DICTIONARY)) {
+        Filter filter(static_cast<base::DictionaryValue*>(*filter_iter));
         if (filter.IsValid()) {
           filters.push_back(filter);
         }
@@ -217,7 +217,8 @@ std::vector<Filter> Filter::DeserializeFilters(const std::string& stored) {
 
 // static
 std::string Filter::SerializeFilters(const std::vector<Filter>& filters) {
-  scoped_ptr<ListValue> filters_list(SerializeFiltersToListValue(filters));
+  scoped_ptr<base::ListValue> filters_list(
+      SerializeFiltersToListValue(filters));
   std::string serialized_string;
   base::JSONWriter::WriteWithOptions(
       filters_list.get(),

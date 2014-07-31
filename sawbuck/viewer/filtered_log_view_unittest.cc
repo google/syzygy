@@ -13,8 +13,8 @@
 // limitations under the License.
 #include "sawbuck/viewer/filtered_log_view.h"
 
-#include "base/message_loop.h"
 #include "base/run_loop.h"
+#include "base/message_loop/message_loop.h"
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 #include "sawbuck/viewer/mock_log_view_interfaces.h"

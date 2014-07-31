@@ -1,5 +1,5 @@
 #!python
-# Copyright 2009 Google Inc.
+# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,9 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-'''
-Utilities to automate running tests under app verifier.
-'''
+"""Utilities to automate running tests under app verifier."""
+
 import os
 import os.path
 import re
@@ -44,7 +43,7 @@ TRACE_RE_ = re.compile('(?P<module>\w+)'  # Module
 LIBID_AppVerifier = '{DAB52BCB-6990-464A-AC61-F60C8EF60E24}'
 try:
   VerifierLib = gencache.EnsureModule(LIBID_AppVerifier, 0, 1, 0)
-except:
+except:  # pylint: disable=W0702
   VerifierLib = None
 
 
@@ -92,6 +91,7 @@ class VerifierSaxHandler(xml.sax.handler.ContentHandler):
   implementation.
   '''
   def __init__(self):
+    xml.sax.handler.ContentHandler.__init__(self)
     self.log_entry = None
     self.stack = []
     self.element = None
@@ -139,8 +139,11 @@ class AppverifierTestRunner:
       "Handles",
       "Heaps",
       "InputOutput",
+      "Leak",
       "Locks",
       "Memory",
+      "SRWLock",
+      "Threadpool",
       "TLS",
 
       # Misc group
@@ -169,7 +172,7 @@ class AppverifierTestRunner:
       for stop in check.Stops:
         stop.ErrorReporting = error_reporting
         stop.ErrorFlags = error_flags
-    except:
+    except:  # pylint: disable=W0702
       # Accessing or enumerating Stops fails for some checks.
       print 'Exception setting options for check', check.Name
 
@@ -177,26 +180,29 @@ class AppverifierTestRunner:
     '''Removes all verifier settings for image_name.
 
     Arguments:
-      image_name: base name of thee image, e.g. "sawbuck.exe"
+      image_name: base name of thee image, e.g. "relink.exe"
     '''
     # Reset the settings for our image
     try:
       self.manager.Images.Remove(image_name)
-    except:
+    except:  # pylint: disable=W0702
       # this fails if verifier had no settings for the image
       pass
 
-  def SetImageDefaults(self, image_name):
+  def SetImageDefaults(self, image_name, disabled_checks=[]):
     '''Configures a default set of tests for image_name
 
       Arguments:
         image_name: the basename of a test, e.g. 'common_unittest.exe'
+        disabled_checks: A list of checks to disable, by top level category
+            name.
     '''
     self.ResetImage(image_name)
 
     image = self.manager.Images.Add(image_name)
     for check in image.Checks:
-      if check.Name in self.default_checks_:
+      if (check.Name in self.default_checks_ and
+          check.Name not in disabled_checks):
         check.Enabled = True
         self.SetStopBreaks(check)
 
@@ -204,14 +210,15 @@ class AppverifierTestRunner:
     '''Deletes all app verifier logs for image_name.
 
     Arguments:
-      image_name: base name of thee image, e.g. "sawbuck.exe"
+      image_name: base name of thee image, e.g. "relink.exe"
     '''
     logs = self.manager.Logs(image_name)
     if logs:
       while logs.Count:
         logs.Remove(0)
 
-  def ProcessLog(self, log_path):
+  @staticmethod
+  def _ProcessLog(log_path):
     '''Process the verifier log at log_path.
 
       Arguments:
@@ -220,11 +227,12 @@ class AppverifierTestRunner:
       Returns: a list of the log entries in the log.
     '''
     handler = VerifierSaxHandler()
-    doc = xml.sax.parse(open(log_path, 'rb'), handler)
+    xml.sax.parse(open(log_path, 'rb'), handler)
 
     return handler.log_entries
 
-  def SaveLog(self, log):
+  @staticmethod
+  def _SaveLog(log):
     '''Saves log to an XML file and returns the path to the file.
 
       Arguments:
@@ -236,7 +244,7 @@ class AppverifierTestRunner:
     os.close(fd)
     try:
       log.SaveAsXML(path, '')
-    except:
+    except:  # pylint: disable=W0702
       os.remove(path)
       return None
 
@@ -256,9 +264,9 @@ class AppverifierTestRunner:
 
     errors = []
     for log in logs:
-      path = self.SaveLog(log)
+      path = self._SaveLog(log)
       if path:
-        errors.extend(self.ProcessLog(path))
+        errors.extend(self._ProcessLog(path))
         os.remove(path)
 
     return errors
@@ -281,14 +289,14 @@ class AppverifierTestRunner:
     self.ClearImageLogs(test_name)
 
     # run the test.
-    exit = subprocess.call(test_path)
+    exit_code = subprocess.call(test_path)
 
     # Clear the verifier settings for the image.
     self.ResetImage(test_name)
 
     # And process the logs.
     errors = self.ProcessLogs(test_name)
-    return (exit, errors)
+    return (exit_code, errors)
 
   def DumpImages_(self):
     for image in self.manager.Images:
@@ -321,7 +329,7 @@ def HasAppVerifier():
 def Main():
   '''Runs all tests on command line under verifier with stops disabled.'''
   for test in sys.argv[1:]:
-    (exit_code, errors) = RunTestWithVerifier(test)
+    (dummy_exit_code, errors) = RunTestWithVerifier(test)
     for error in errors:
       print error
 

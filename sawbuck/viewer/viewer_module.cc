@@ -19,10 +19,10 @@
 #include "base/i18n/icu_util.h"
 #include "base/logging.h"
 #include "base/logging_win.h"
-#include "base/message_loop.h"
-#include "base/message_pump.h"
-#include "base/message_pump_win.h"
 #include "base/run_loop.h"
+#include "base/message_loop/message_loop.h"
+#include "base/message_loop/message_pump.h"
+#include "base/message_loop/message_pump_win.h"
 #include "sawbuck/viewer/viewer_window.h"
 
 #include <initguid.h>  // NOLINT
@@ -53,23 +53,23 @@ SawbuckAppModule g_sawbuck_app_module;
 // Window events, which is how we get this ... well ... abomination.
 class HybridMessageLoopObserver
     : public CMessageLoop,
-      public base::MessageLoop::Dispatcher,
+      public base::MessagePumpDispatcher,
       public base::MessageLoop::TaskObserver {
  public:
   HybridMessageLoopObserver() : idle_scheduled_(false) {
   }
 
-  // @name base::MessageLoop::Dispatcher implementation.
+  // @name base::MessagePumpDispatcher implementation.
   // Implemented to hook in WTL PreTranslateMessage.
   // @{
-  virtual bool Dispatch(const base::NativeEvent& event);
+  virtual uint32_t Dispatch(const base::NativeEvent& event) OVERRIDE;
   // @}
 
   // @name base::MessageLoop::TaskObserver implementation.
   // Implemented to keep a task out for WTL idle processing.
   // @{
-  virtual void WillProcessTask(const base::PendingTask& pending_task);
-  virtual void DidProcessTask(const base::PendingTask& pending_task);
+  virtual void WillProcessTask(const base::PendingTask& pending_task) OVERRIDE;
+  virtual void DidProcessTask(const base::PendingTask& pending_task) OVERRIDE;
   // @}
 
  private:
@@ -79,22 +79,11 @@ class HybridMessageLoopObserver
   bool idle_scheduled_;
 };
 
-bool HybridMessageLoopObserver::Dispatch(const base::NativeEvent& event) {
-  if (event.message == WM_QUIT)
-    return false;
-
+uint32_t HybridMessageLoopObserver::Dispatch(const base::NativeEvent& event) {
   // Make sure menus, toolbars and such are updated after event is handled.
   MaybeScheduleIdleTask();
 
-  // We need a mutable, local copy of the event.
-  MSG msg = event;
-  // WTL PreTranslateMessage handles accelerators, tabbing and such.
-  if (!PreTranslateMessage(&msg)) {
-    ::TranslateMessage(&msg);
-    ::DispatchMessage(&msg);
-  }
-
-  return true;
+  return POST_DISPATCH_PERFORM_DEFAULT;
 }
 
 void HybridMessageLoopObserver::WillProcessTask(
@@ -115,7 +104,7 @@ void HybridMessageLoopObserver::MaybeScheduleIdleTask() {
     return;
 
   idle_scheduled_ = true;
-  MessageLoop::current()->PostNonNestableTask(
+  base::MessageLoop::current()->PostNonNestableTask(
       FROM_HERE, base::Bind(&HybridMessageLoopObserver::OnIdleTask,
                             base::Unretained(this)));
 }
@@ -136,14 +125,12 @@ int APIENTRY wWinMain(HINSTANCE instance,
   base::AtExitManager at_exit;
 
   // Initialize ICU.
-  CHECK(icu_util::Initialize());
+  CHECK(base::i18n::InitializeICU());
 
   // Init logging to no file logging.
-  logging::InitLogging(NULL,
-                       logging::LOG_NONE,
-                       logging::DONT_LOCK_LOG_FILE,
-                       logging::DELETE_OLD_LOG_FILE,
-                       logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
+  logging::LoggingSettings settings;
+  settings.logging_dest = logging::LOG_NONE;
+  logging::InitLogging(settings);
   logging::LogEventProvider::Initialize(kSawbuckLogProvider);
 
   ::OleInitialize(NULL);

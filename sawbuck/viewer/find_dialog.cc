@@ -17,8 +17,8 @@
 
 #include <richedit.h>
 
-#include "base/string_util.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/win/scoped_bstr.h"
 
 FindDialog::FindDialog(const FindParameters& defaults) : params_(defaults) {
@@ -36,7 +36,7 @@ LRESULT FindDialog::OnInitDialog(CWindow focus_window, LPARAM init_param) {
   CWindow text_wnd(GetDlgItem(IDC_FIND_TEXT));
   text_wnd.SetFocus();
   if (!params_.expression_.empty()) {
-    text_wnd.SetWindowText(UTF8ToWide(params_.expression_).c_str());
+    text_wnd.SetWindowText(base::UTF8ToWide(params_.expression_).c_str());
     text_wnd.SendMessage(EM_SETSEL, 0, -1);
   }
   return FALSE;
@@ -50,7 +50,7 @@ LRESULT FindDialog::OnFind(UINT notify_code, int id, CWindow window) {
     params_.match_case_ = (IsDlgButtonChecked(IDC_MATCH_CASE) == BST_CHECKED);
     params_.direction_down_ = (IsDlgButtonChecked(IDC_DIRECTION_DOWN) ==
                                BST_CHECKED);
-    WideToUTF8(text, text.Length(), &params_.expression_);
+    base::WideToUTF8(text, text.Length(), &params_.expression_);
     EndDialog(IDOK);
   } else {
     text_wnd.SetFocus();

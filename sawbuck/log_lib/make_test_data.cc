@@ -62,12 +62,12 @@ class MakeTestData: public testing::Test {
 
     // Create the destination directory if it doesn't exist already.
     base::FilePath dest_dir(source_root.Append(L"sawbuck\\log_lib\\test_data"));
-    ASSERT_TRUE(file_util::CreateDirectory(dest_dir));
+    ASSERT_TRUE(base::CreateDirectory(dest_dir));
 
     // Construct the file path and delete any
     // previously existing file at that path.
     base::FilePath dest_file(dest_dir.Append(file_name));
-    file_util::Delete(dest_file, false);
+    base::DeleteFile(dest_file, false);
 
     // Start a new file session.
     ASSERT_HRESULT_SUCCEEDED(

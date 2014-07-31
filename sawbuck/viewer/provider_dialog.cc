@@ -19,7 +19,7 @@
 #include <wmistr.h>  // NOLINT. wmistr must precede evntrace.h.
 #include <evntrace.h>
 #include "base/logging.h"
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 
 namespace {
 

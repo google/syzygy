@@ -68,6 +68,7 @@
 /third_party/icu/
 /third_party/libevent/
 /third_party/libjpeg/
+/third_party/libxml/
 /third_party/modp_b64/
 /third_party/nss/
 /third_party/platformsdk_win7/

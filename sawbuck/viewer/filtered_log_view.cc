@@ -202,6 +202,6 @@ void FilteredLogView::PostFilteringTask() {
   if (task_.IsCancelled()) {
     task_.Reset(base::Bind(&FilteredLogView::FilterChunk,
                            base::Unretained(this)));
-    MessageLoop::current()->PostTask(FROM_HERE, task_.callback());
+    base::MessageLoop::current()->PostTask(FROM_HERE, task_.callback());
   }
 }

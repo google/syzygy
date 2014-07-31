@@ -23,7 +23,7 @@
 #include <atlmisc.h>
 #include <string>
 #include <vector>
-#include "base/message_loop.h"
+#include "base/message_loop/message_loop.h"
 #include "sawbuck/viewer/find_dialog.h"
 #include "sawbuck/viewer/list_view_base.h"
 #include "sawbuck/viewer/resource.h"
@@ -226,7 +226,7 @@ class LogListView
   FindParameters find_params_;
 
   // Asserting on correct threading.
-  MessageLoop* ui_loop_;
+  base::MessageLoop* ui_loop_;
 
   // Our context menu.
   CMenu context_menu_bar_;

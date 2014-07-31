@@ -23,7 +23,7 @@ using testing::StrictMock;
 
 class ViewerWindowTest : public testing::Test {
  protected:
-  MessageLoop message_loop_;
+  base::MessageLoop message_loop_;
 };
 
 TEST_F(ViewerWindowTest, ClearAll) {

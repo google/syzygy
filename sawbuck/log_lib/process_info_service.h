@@ -41,7 +41,9 @@ class IProcessInfoService {
 };
 
 // Fwd.
+namespace base {
 class MessageLoop;
+}  // namespace base
 
 // The process info service class sinks process events from a kernel log
 // parser, and stores away the process information for later retrieval.

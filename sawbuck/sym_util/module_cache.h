@@ -16,7 +16,7 @@
 #ifndef SAWBUCK_SYM_UTIL_MODULE_CACHE_H_
 #define SAWBUCK_SYM_UTIL_MODULE_CACHE_H_
 
-#include "base/time.h"
+#include "base/time/time.h"
 #include <map>
 #include <set>
 #include <string>
@@ -99,7 +99,7 @@ class ModuleCache {
       else if (pid_ == o.pid_)
         return time_ < o.time_;
       return false;
-    };
+    }
 
     bool operator == (const ModuleStateKey& o) const {
       return pid_ == o.pid_ && time_ == o.time_;

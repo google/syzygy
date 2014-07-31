@@ -15,7 +15,7 @@
 
 #include <cguid.h>
 #include "base/logging_win.h"
-#include "base/time.h"
+#include "base/time/time.h"
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 #include <initguid.h>  // NOLINT - must be last.

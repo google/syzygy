@@ -21,9 +21,9 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/path_service.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/win/event_trace_consumer.h"
 #include "sawbuck/viewer/const_config.h"
 #include "sawbuck/viewer/preferences.h"
@@ -89,7 +89,7 @@ ViewerWindow::ViewerWindow()
        update_status_task_pending_(false),
        log_consumer_thread_("Event log consumer"),
        kernel_consumer_thread_("Kernel log consumer") {
-  ui_loop_ = MessageLoop::current();
+  ui_loop_ = base::MessageLoop::current();
   DCHECK(ui_loop_ != NULL);
 
   symbol_lookup_worker_.Start();
@@ -467,7 +467,7 @@ void ViewerWindow::OnStatusUpdate(const wchar_t* status) {
 }
 
 void ViewerWindow::UpdateStatus() {
-  DCHECK_EQ(MessageLoop::current(), ui_loop_);
+  DCHECK_EQ(base::MessageLoop::current(), ui_loop_);
 
   std::wstring status;
   {
@@ -531,7 +531,7 @@ void ViewerWindow::ScheduleNewItemsNotification() {
 }
 
 void ViewerWindow::NotifyLogViewNewItems() {
-  DCHECK_EQ(ui_loop_, MessageLoop::current());
+  DCHECK_EQ(ui_loop_, base::MessageLoop::current());
   {
     base::AutoLock lock(list_lock_);
 
@@ -546,7 +546,7 @@ void ViewerWindow::NotifyLogViewNewItems() {
 }
 
 void ViewerWindow::NotifyLogViewCleared() {
-  DCHECK_EQ(ui_loop_, MessageLoop::current());
+  DCHECK_EQ(ui_loop_, base::MessageLoop::current());
   EventSinkMap::iterator it(event_sinks_.begin());
   for (; it != event_sinks_.end(); ++it) {
     it->second->LogViewCleared();
@@ -820,7 +820,7 @@ void ViewerWindow::InitSymbolPath() {
       return;
 
     base::FilePath sym_dir(temp_dir.Append(L"symbols"));
-    if (!file_util::CreateDirectory(sym_dir))
+    if (!base::CreateDirectory(sym_dir))
       return;
 
     symbol_path_ =
@@ -834,6 +834,6 @@ void ViewerWindow::InitSymbolPath() {
     Preferences pref;
     pref.WriteStringValue(config::kSymPathValue, symbol_path_);
   } else {
-    symbol_path_ = UTF8ToWide(nt_symbol_path);
+    symbol_path_ = base::UTF8ToWide(nt_symbol_path);
   }
 }

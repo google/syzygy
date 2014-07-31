@@ -16,9 +16,9 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/logging.h"
-#include "base/stringprintf.h"
-#include "base/string_piece.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/string_piece.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/win/event_trace_consumer.h"
 #include "sawbuck/log_lib/kernel_log_consumer.h"
 #include "sawbuck/log_lib/log_consumer.h"
@@ -249,9 +249,12 @@ std::wostream& operator<< (std::wostream& str,
   str << L" },  // SubAuthority\n";
   str << L"  },  // user_sid\n";
 
-  str << L"  \"" << UTF8ToWide(process.image_name) << L"\",  // image_name\n"
-      << L"  L\"" << process.command_line << L"\",  // command_line\n"
-      << L"},\n";
+  str << L"  \"" << base::UTF8ToWide(process.image_name)
+      << L"\", // image_name\n";
+
+  str << L"  L\"" << process.command_line << L"\",  // command_line\n";
+
+  str << L"},\n";
 
   return str;
 }

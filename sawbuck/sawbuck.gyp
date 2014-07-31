@@ -71,8 +71,8 @@
             '--success-file=<(success_file)',
             # SymSrv.dll abandons a critical section on
             # unlock on 32 bit systems
-            '--exception="dbghelp!SymCleanup,Locks,0x201"',
-            '--exception="dbghelp!SymCleanup,Locks,0x211"',
+            '--exception="dbghelp!SymCleanup,Locks,513"',
+            '--exception="dbghelp!SymCleanup,Leak,2304"',
             '<@(unittest_targets)',
           ],
         },

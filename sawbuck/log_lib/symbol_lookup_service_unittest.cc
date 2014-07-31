@@ -18,7 +18,7 @@
 #include <vector>
 #include <tlhelp32.h>
 #include "base/bind.h"
-#include "base/message_loop.h"
+#include "base/message_loop/message_loop.h"
 #include "base/threading/thread.h"
 #include "base/win/pe_image.h"
 #include "base/win/scoped_handle.h"
@@ -30,8 +30,8 @@ void Foo() {
   NOTREACHED() << "This function is only here for an address to resolve";
 }
 
-void QuitMessageLoop(MessageLoop* loop) {
-  loop->PostTask(FROM_HERE, MessageLoop::QuitClosure());
+void QuitMessageLoop(base::MessageLoop* loop) {
+  loop->PostTask(FROM_HERE, base::MessageLoop::QuitClosure());
 }
 
 class SymbolLookupServiceTest: public testing::Test {
@@ -79,7 +79,7 @@ class SymbolLookupServiceTest: public testing::Test {
     // Chase the symbol lookups on the background thread
     // by posting a quit message to this message loop.
     background_thread_.message_loop()->PostTask(FROM_HERE,
-        base::Bind(QuitMessageLoop, MessageLoop::current()));
+        base::Bind(QuitMessageLoop, base::MessageLoop::current()));
 
     // And run our loop.
     message_loop_.Run();
@@ -87,7 +87,7 @@ class SymbolLookupServiceTest: public testing::Test {
   void FooResolved(sym_util::ProcessId pid, base::Time time,
       sym_util::Address add, SymbolLookupService::Handle handle,
       const sym_util::Symbol& symbol) {
-    EXPECT_EQ(&message_loop_, MessageLoop::current());
+    EXPECT_EQ(&message_loop_, base::MessageLoop::current());
     EXPECT_PRED_FORMAT2(testing::IsSubstring, L"Foo", symbol.name);
 
     resolved_.push_back(handle);
@@ -96,7 +96,7 @@ class SymbolLookupServiceTest: public testing::Test {
   void FooNotResolved(sym_util::ProcessId pid, base::Time time,
       sym_util::Address add, SymbolLookupService::Handle handle,
       const sym_util::Symbol& symbol) {
-    EXPECT_EQ(&message_loop_, MessageLoop::current());
+    EXPECT_EQ(&message_loop_, base::MessageLoop::current());
     EXPECT_STREQ(L"", symbol.name.c_str());
 
     resolved_.push_back(handle);
@@ -105,7 +105,7 @@ class SymbolLookupServiceTest: public testing::Test {
  protected:
   std::vector<SymbolLookupService::Handle> resolved_;
 
-  MessageLoop message_loop_;
+  base::MessageLoop message_loop_;
   base::Thread background_thread_;
   SymbolLookupService service_;
 };

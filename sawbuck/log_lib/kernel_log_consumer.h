@@ -17,7 +17,7 @@
 #define SAWBUCK_LOG_LIB_KERNEL_LOG_CONSUMER_H_
 
 #include <string>
-#include "base/time.h"
+#include "base/time/time.h"
 #include "base/win/event_trace_consumer.h"
 #include "sawbuck/sym_util/types.h"
 

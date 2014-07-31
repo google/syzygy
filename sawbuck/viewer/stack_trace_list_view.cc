@@ -17,7 +17,7 @@
 
 #include <atlframe.h>
 #include "base/bind.h"
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "sawbuck/viewer/const_config.h"
 
 namespace {

@@ -16,7 +16,7 @@
 #ifndef SAWBUCK_LOG_LIB_LOG_CONSUMER_H_
 #define SAWBUCK_LOG_LIB_LOG_CONSUMER_H_
 
-#include "base/time.h"
+#include "base/time/time.h"
 #include "base/win/event_trace_consumer.h"
 
 struct LogMessageBase {

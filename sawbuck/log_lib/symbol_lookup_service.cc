@@ -18,7 +18,7 @@
 #include <algorithm>
 
 #include "base/bind.h"
-#include "base/message_loop.h"
+#include "base/message_loop/message_loop.h"
 
 SymbolLookupService::SymbolLookupService() : background_thread_(NULL),
     foreground_thread_(base::MessageLoop::current()), next_request_id_(0),

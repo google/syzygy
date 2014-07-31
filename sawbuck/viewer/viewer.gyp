@@ -139,7 +139,7 @@
           'Profile': 'true',
         },
         'VCManifestTool': {
-          'AdditionalManifestFiles': '$(ProjectDir)\\sawbuck.exe.manifest',
+          'AdditionalManifestFiles': ['$(ProjectDir)\\sawbuck.exe.manifest'],
         },
       },
     },
