@@ -18,6 +18,7 @@
 
 namespace agent {
 namespace asan {
+namespace heaps {
 
 SimpleBlockHeap::SimpleBlockHeap(HeapInterface* heap) : heap_(heap) {
   DCHECK_NE(static_cast<HeapInterface*>(NULL), heap);
@@ -76,5 +77,6 @@ bool SimpleBlockHeap::FreeBlock(const BlockInfo& block_info) {
   return true;
 }
 
+}  // namespace heaps
 }  // namespace asan
 }  // namespace agent

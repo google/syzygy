@@ -35,6 +35,7 @@
 
 namespace agent {
 namespace asan {
+namespace heaps {
 
 class LargeBlockHeap : public BlockHeapInterface {
  public:
@@ -84,6 +85,7 @@ class LargeBlockHeap : public BlockHeapInterface {
   DISALLOW_COPY_AND_ASSIGN(LargeBlockHeap);
 };
 
+}  // namespace heaps
 }  // namespace asan
 }  // namespace agent
 

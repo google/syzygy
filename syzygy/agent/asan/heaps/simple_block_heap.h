@@ -23,6 +23,7 @@
 
 namespace agent {
 namespace asan {
+namespace heaps {
 
 // A block heap that wraps a raw heap.
 class SimpleBlockHeap : public BlockHeapInterface {
@@ -61,6 +62,7 @@ class SimpleBlockHeap : public BlockHeapInterface {
   DISALLOW_COPY_AND_ASSIGN(SimpleBlockHeap);
 };
 
+}  // namespace heaps
 }  // namespace asan
 }  // namespace agent
 

@@ -23,6 +23,7 @@
 
 namespace agent {
 namespace asan {
+namespace heaps {
 
 LargeBlockHeap::LargeBlockHeap(MemoryNotifierInterface* memory_notifier)
     : allocs_(MemoryNotifierAllocator<void*>(memory_notifier)) {
@@ -97,5 +98,6 @@ bool LargeBlockHeap::FreeBlock(const BlockInfo& block_info) {
   return Free(block_info.block);
 }
 
+}  // namespace heaps
 }  // namespace asan
 }  // namespace agent
