@@ -20,9 +20,13 @@ namespace agent {
 namespace asan {
 namespace heaps {
 
+TEST(WinHeapTest, FeaturesAreValid) {
+  WinHeap h;
+  EXPECT_EQ(0u, h.GetHeapFeatures());
+}
+
 TEST(WinHeapTest, HeapTest) {
   WinHeap h;
-  EXPECT_EQ(HeapInterface::kOpaqueHeap, h.GetHeapType());
 
   // Allocate and free a zero-sized allocation. This should succeed
   // by definition.

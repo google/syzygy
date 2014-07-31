@@ -36,9 +36,10 @@ class SimpleBlockHeap : public BlockHeapInterface {
 
   // @name HeapInterface implementation.
   // @{
-  virtual HeapType GetHeapType() const;
+  virtual uint32 GetHeapFeatures() const;
   virtual void* Allocate(size_t bytes);
   virtual bool Free(void* alloc);
+  virtual bool IsAllocated(void* alloc);
   virtual void Lock();
   virtual void Unlock();
   // @}

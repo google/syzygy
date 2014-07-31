@@ -37,22 +37,25 @@ namespace asan {
 // by BlockHeap implementations.
 class HeapInterface {
  public:
-  // The fundamental type of the heap.
-  enum HeapType {
-    // An opaque heap has a hidden implementation and does not notify
-    // the shadow memory of reserved or internally used memory.
-    kOpaqueHeap,
-    // A transparent heap notifies the shadow directly, allowing for better
-    // redzoning coverage and implicit quarantining.
-    kTransparentHeap,
+  // A bitset of features supported by this heap.
+  enum HeapFeatures {
+    // If this is set then the heap reports reserved memory via the
+    // MemoryNotifierInterface. This implies that allocations will come
+    // from regions of memory that have been previously redzoned, and
+    // guides the heap manager in maintaining consistent shadow memory.
+    kHeapReportsReservations = 1 << 0,
+
+    // If this bit is set then the heap is able to determine if a given
+    // address is part of an active allocation owned by the heap, via the
+    // 'IsAllocated' function.
+    kHeapSupportsIsAllocated = 1 << 1,
   };
 
   // Virtual destructor.
   virtual ~HeapInterface() { }
 
-  // @returns the heap type. This guides behaviour of the shadow memory when
-  //     allocating and freeing memory through this heap.
-  virtual HeapType GetHeapType() const = 0;
+  // @returns the heap features.
+  virtual uint32 GetHeapFeatures() const = 0;
 
   // Allocates memory from the heap. It is valid to request an allocation
   // of size zero, in which case any return address is valid. If @p bytes
@@ -68,6 +71,14 @@ class HeapInterface {
   // @param alloc The address of the allocation.
   // @returns true on success, false otherwise.
   virtual bool Free(void* alloc) = 0;
+
+  // Determines if the heap owns the given allocation.
+  // @param alloc An address.
+  // @returns true if @p alloc is an address previously returned by a call
+  //     to 'Allocate', and not yet returned via 'Free'.
+  // @note This will always return false unless the heap has the
+  //     kHeapSupportsIsAllocated feature.
+  virtual bool IsAllocated(void* alloc) = 0;
 
   // Locks the heap. All other calls to the heap will be blocked until
   // a corresponding call to Unlock.

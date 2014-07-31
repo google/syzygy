@@ -43,6 +43,11 @@ class TestLargeBlockHeap : public LargeBlockHeap {
 
 }  // namespace
 
+TEST(LargeBlockHeapTest, FeaturesAreValid) {
+  TestLargeBlockHeap h;
+  EXPECT_EQ(HeapInterface::kHeapSupportsIsAllocated, h.GetHeapFeatures());
+}
+
 TEST(LargeBlockHeapTest, EndToEnd) {
   TestLargeBlockHeap h;
   EXPECT_EQ(0u, h.size());
@@ -107,6 +112,20 @@ TEST(LargeBlockHeapTest, ZeroSizedAllocationsHaveDistinctAddresses) {
 
   h.FreeBlock(b1);
   h.FreeBlock(b2);
+}
+
+TEST(LargeBlockHeapTest, IsAllocated) {
+  TestLargeBlockHeap h;
+
+  EXPECT_FALSE(h.IsAllocated(NULL));
+
+  void* a = h.Allocate(100);
+  EXPECT_TRUE(h.IsAllocated(a));
+  EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) - 1));
+  EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) + 1));
+
+  h.Free(a);
+  EXPECT_FALSE(h.IsAllocated(a));
 }
 
 }  // namespace heaps

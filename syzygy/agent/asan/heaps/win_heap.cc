@@ -33,8 +33,9 @@ WinHeap::~WinHeap() {
   ::HeapDestroy(heap_);
 }
 
-WinHeap::HeapType WinHeap::GetHeapType() const {
-  return kOpaqueHeap;
+uint32 WinHeap::GetHeapFeatures() const {
+  // This heap doesn't support any advanced features.
+  return 0;
 }
 
 void* WinHeap::Allocate(size_t bytes) {
@@ -48,6 +49,10 @@ bool WinHeap::Free(void* alloc) {
   if (::HeapFree(heap_, 0, alloc) != TRUE)
     return false;
   return true;
+}
+
+bool WinHeap::IsAllocated(void* alloc) {
+  return false;
 }
 
 void WinHeap::Lock() {

@@ -26,8 +26,8 @@ SimpleBlockHeap::SimpleBlockHeap(HeapInterface* heap) : heap_(heap) {
 SimpleBlockHeap::~SimpleBlockHeap() {
 }
 
-HeapInterface::HeapType SimpleBlockHeap::GetHeapType() const {
-  return heap_->GetHeapType();
+uint32 SimpleBlockHeap::GetHeapFeatures() const {
+  return heap_->GetHeapFeatures();
 }
 
 void* SimpleBlockHeap::Allocate(size_t bytes) {
@@ -36,6 +36,10 @@ void* SimpleBlockHeap::Allocate(size_t bytes) {
 
 bool SimpleBlockHeap::Free(void* alloc) {
   return heap_->Free(alloc);
+}
+
+bool SimpleBlockHeap::IsAllocated(void* alloc) {
+  return heap_->IsAllocated(alloc);
 }
 
 void SimpleBlockHeap::Lock() {

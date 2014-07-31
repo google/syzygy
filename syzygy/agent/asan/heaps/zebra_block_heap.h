@@ -52,9 +52,10 @@ class ZebraBlockHeap : public BlockHeapInterface {
 
   // @name HeapInterface functions.
   // @{
-  virtual HeapType GetHeapType() const;
+  virtual uint32 GetHeapFeatures() const;
   virtual void* Allocate(size_t bytes);
   virtual bool Free(void* alloc);
+  virtual bool IsAllocated(void* alloc);
   virtual void Lock();
   virtual void Unlock();
   // @}
@@ -69,15 +70,18 @@ class ZebraBlockHeap : public BlockHeapInterface {
   // @}
 
  protected:
+  const size_t kInvalidStripeIndex = -1;
+
   // Gives the starting address of a stripe.
   // @param index The 0-based index of the stripe.
   // @returns the starting address of the stripe.
   void* GetStripeAddress(const size_t index);
 
-  // Gives the index of the stripe containing "address".
+  // Gives the index of the stripe containing "address", but only if the
+  // if the address agrees with the allocated object in that stripe.
   // @param address An address which belongs to some stripe.
-  // @returns The 0-based index of the stripe that contains the address.
-  // @note address can be any address inside the stripe.
+  // @returns The index of the stripe that allocated the address, or
+  //     kInvalidStripe otherwise.
   size_t GetStripeIndex(const void* address);
 
   // Total number of stripes (odd and even).

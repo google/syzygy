@@ -50,6 +50,13 @@ class TestZebraBlockHeap : public ZebraBlockHeap {
 
 }  // namespace
 
+TEST(ZebraBlockHeapTest, FeaturesAreValid) {
+  TestZebraBlockHeap h;
+  EXPECT_EQ(HeapInterface::kHeapReportsReservations |
+                HeapInterface::kHeapReportsReservations,
+            h.GetHeapFeatures());
+}
+
 TEST(ZebraBlockHeapTest, AllocateEmptyBlock) {
   TestZebraBlockHeap h;
   BlockLayout layout = {};
@@ -344,6 +351,20 @@ TEST(ZebraBlockHeapTest, AllocateBlockCornerCases) {
       }
     }
   }
+}
+
+TEST(ZebraBlockHeapTest, IsAllocated) {
+  TestZebraBlockHeap h;
+
+  EXPECT_FALSE(h.IsAllocated(NULL));
+
+  void* a = h.Allocate(100);
+  EXPECT_TRUE(h.IsAllocated(a));
+  EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) - 1));
+  EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) + 1));
+
+  h.Free(a);
+  EXPECT_FALSE(h.IsAllocated(a));
 }
 
 }  // namespace heaps

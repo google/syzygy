@@ -48,8 +48,8 @@ ZebraBlockHeap::~ZebraBlockHeap() {
   CHECK_NE(FALSE, ::VirtualFree(heap_address_, 0, MEM_RELEASE));
 }
 
-ZebraBlockHeap::HeapType ZebraBlockHeap::GetHeapType() const {
-  return kTransparentHeap;
+uint32 ZebraBlockHeap::GetHeapFeatures() const {
+  return kHeapReportsReservations | kHeapReportsReservations;
 }
 
 void* ZebraBlockHeap::Allocate(size_t bytes) {
@@ -79,21 +79,24 @@ bool ZebraBlockHeap::Free(void* alloc) {
     return true;
 
   size_t stripe_index = GetStripeIndex(alloc);
-
-  // Address inside an "odd" (protected) page.
-  if (stripe_index & 1)
-    return false;
-  if (stripe_index >= stripe_count_)
+  if (stripe_index == kInvalidStripeIndex)
     return false;
 
   common::AutoRecursiveLock lock(lock_);
 
-  // The address must match the one returned to the caller by Allocate.
-  if (alloc != allocated_address_[stripe_index])
-    return false;
-
   allocated_address_[stripe_index] = NULL;
   free_stripes_.push(stripe_index);
+
+  return true;
+}
+
+bool ZebraBlockHeap::IsAllocated(void* alloc) {
+  if (alloc == NULL)
+    return false;
+
+  size_t stripe_index = GetStripeIndex(alloc);
+  if (stripe_index == kInvalidStripeIndex)
+    return false;
 
   return true;
 }
@@ -165,7 +168,22 @@ void* ZebraBlockHeap::GetStripeAddress(const size_t index) {
 size_t ZebraBlockHeap::GetStripeIndex(const void* address) {
   DCHECK_NE(reinterpret_cast<const uint8*>(NULL), address);
   DCHECK_GE(reinterpret_cast<const uint8*>(address), heap_address_);
-  return (reinterpret_cast<const uint8*>(address)-heap_address_) / kPageSize;
+  size_t stripe_index =
+      (reinterpret_cast<const uint8*>(address)-heap_address_) / kPageSize;
+
+  // Address inside an "odd" (protected) page.
+  if (stripe_index & 1)
+    return kInvalidStripeIndex;
+  if (stripe_index >= stripe_count_)
+    return kInvalidStripeIndex;
+
+  common::AutoRecursiveLock lock(lock_);
+
+  // The address must match the one returned to the caller by Allocate.
+  if (address != allocated_address_[stripe_index])
+    return kInvalidStripeIndex;
+
+  return stripe_index;
 }
 
 }  // namespace heaps

@@ -34,6 +34,12 @@ typedef std::set<BlockInfo, BlockInfoLessThan> BlockInfoSet;
 
 }  // namespace
 
+TEST(SimpleBlockHeapTest, FeaturesAreValid) {
+  WinHeap win_heap;
+  SimpleBlockHeap h(&win_heap);
+  EXPECT_EQ(win_heap.GetHeapFeatures(), h.GetHeapFeatures());
+}
+
 TEST(SimpleBlockHeapTest, EndToEnd) {
   WinHeap win_heap;
   SimpleBlockHeap h(&win_heap);
@@ -59,6 +65,20 @@ TEST(SimpleBlockHeapTest, EndToEnd) {
   BlockInfoSet::const_iterator it = blocks.begin();
   for (; it != blocks.end(); ++it)
     EXPECT_TRUE(h.FreeBlock(*it));
+}
+
+TEST(SimpleBlockHeap, IsAllocated) {
+  WinHeap win_heap;
+  SimpleBlockHeap h(&win_heap);
+
+  EXPECT_FALSE(h.IsAllocated(NULL));
+
+  // This heap doesn't support 'IsAllocated', so it should always return false.
+  void* a = h.Allocate(100);
+  EXPECT_FALSE(h.IsAllocated(a));
+
+  h.Free(a);
+  EXPECT_FALSE(h.IsAllocated(a));
 }
 
 }  // namespace heaps

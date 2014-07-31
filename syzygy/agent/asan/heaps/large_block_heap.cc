@@ -28,13 +28,8 @@ LargeBlockHeap::LargeBlockHeap(MemoryNotifierInterface* memory_notifier)
     : allocs_(MemoryNotifierAllocator<void*>(memory_notifier)) {
 }
 
-HeapInterface::HeapType LargeBlockHeap::GetHeapType() const {
-  // This heap doesn't carve allocations out of a large reserved chunk of
-  // memory. Rather, it fills each allocation directly from the OS. There is
-  // no advantage to first marking such allocations as 'kAsanReserved' prior
-  // to remarking them as redzoned/allocated. Thus we indicate that we are an
-  // opaque heap, which assumes allocations are served from 'green' memory.
-  return kOpaqueHeap;
+uint32 LargeBlockHeap::GetHeapFeatures() const {
+  return kHeapSupportsIsAllocated;
 }
 
 void* LargeBlockHeap::Allocate(size_t bytes) {
@@ -63,6 +58,15 @@ bool LargeBlockHeap::Free(void* alloc) {
   }
 
   ::VirtualFree(alloc, 0, MEM_RELEASE);
+  return true;
+}
+
+bool LargeBlockHeap::IsAllocated(void* alloc) {
+  common::AutoRecursiveLock lock(lock_);
+  AllocationSet::iterator it = allocs_.find(alloc);
+  if (it == allocs_.end())
+    return false;
+
   return true;
 }
 
