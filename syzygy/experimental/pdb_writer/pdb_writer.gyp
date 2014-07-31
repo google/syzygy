@@ -21,6 +21,8 @@
       'target_name': 'pdb_writer_lib',
       'type': 'static_library',
       'sources': [
+        'pdb_debug_info_stream_writer.cc',
+        'pdb_debug_info_stream_writer.h',
         'pdb_header_stream_writer.cc',
         'pdb_header_stream_writer.h',
         'pdb_section_header_stream_writer.cc',

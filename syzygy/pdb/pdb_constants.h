@@ -56,6 +56,9 @@ const uint32 kTpiStreamEmptyHashBuckets = 0x8003;
 // The index of the Dbi info stream.
 const size_t kDbiStream = 3;
 
+// The version we've observed for the Dbi stream.
+const uint32 kDbiStreamVersion = 0x01310977;
+
 // This is the magic value found at the start of all MSF v7.00 files.
 const size_t kPdbHeaderMagicStringSize = 32;
 extern const uint8 kPdbHeaderMagicString[kPdbHeaderMagicStringSize];
