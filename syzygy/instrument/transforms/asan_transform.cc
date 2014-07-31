@@ -188,13 +188,13 @@ bool DecodeMemoryAccess(const Instruction& instr,
   info->size = repr.ops[mem_op_id].size / 8;
 
   // Determine the kind of access (read/write/instr/repz).
-  if (FLAG_GET_PREFIX(repr.flags) & FLAG_REPNZ)
+  if (FLAG_GET_PREFIX(repr.flags) & FLAG_REPNZ) {
     info->mode = AsanBasicBlockTransform::kRepnzAccess;
-  else if (FLAG_GET_PREFIX(repr.flags) & FLAG_REP)
+  } else if (FLAG_GET_PREFIX(repr.flags) & FLAG_REP) {
     info->mode = AsanBasicBlockTransform::kRepzAccess;
-  else if (IsSpecialInstruction(instr.opcode()))
+  } else if (IsSpecialInstruction(instr.opcode())) {
     info->mode = AsanBasicBlockTransform::kInstrAccess;
-  else if ((repr.flags & FLAG_DST_WR) && mem_op_id == 0) {
+  } else if ((repr.flags & FLAG_DST_WR) && mem_op_id == 0) {
     // The first operand is written to.
     info->mode = AsanBasicBlockTransform::kWriteAccess;
   } else {
@@ -1268,7 +1268,7 @@ bool AsanTransform::PeInjectAsanParameters(
   params_block->CopyData(fparams.data().size(), fparams.data().data());
 
   // Wire up any references that are required.
-  COMPILE_ASSERT(1 == common::kAsanParametersVersion,
+  COMPILE_ASSERT(2 == common::kAsanParametersVersion,
                  pointers_in_the_params_must_be_linked_up_here);
   block_graph::TypedBlock<common::AsanParameters> params;
   CHECK(params.Init(0, params_block));

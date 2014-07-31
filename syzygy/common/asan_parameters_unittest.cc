@@ -76,6 +76,7 @@ TEST(AsanParametersTest, SetDefaultAsanParameters) {
             static_cast<bool>(aparams.disable_breakpad_reporting));
   EXPECT_EQ(0u, aparams.reserved1);
   EXPECT_EQ(kDefaultAllocationGuardRate, aparams.allocation_guard_rate);
+  EXPECT_EQ(kDefaultZebraBlockHeapSize, aparams.zebra_block_heap_size);
 }
 
 TEST(AsanParametersTest, InflateAsanParametersStackIdsPastEnd) {
@@ -211,6 +212,7 @@ TEST(AsanParametersTest, ParseAsanParametersMinimal) {
             static_cast<bool>(iparams.check_heap_on_failure));
   EXPECT_EQ(0u, iparams.reserved1);
   EXPECT_TRUE(iparams.ignored_stack_ids_set.empty());
+  EXPECT_EQ(kDefaultZebraBlockHeapSize, iparams.zebra_block_heap_size);
 }
 
 TEST(AsanParametersTest, ParseAsanParametersMaximal) {
@@ -228,7 +230,8 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
       L"--no_log_as_text "
       L"--disable_breakpad "
       L"--allocation_guard_rate=0.6 "
-      L"--ignored_as_it_doesnt_exist";
+      L"--ignored_as_it_doesnt_exist "
+      L"--zebra_block_heap_size=8388608";
 
   InflatedAsanParameters iparams;
   SetDefaultAsanParameters(&iparams);
@@ -251,6 +254,7 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
   EXPECT_EQ(0.6f, iparams.allocation_guard_rate);
   EXPECT_THAT(iparams.ignored_stack_ids_set,
               testing::ElementsAre(0x1, 0xBAADF00D, 0xCAFEBABE, 0xDEADBEEF));
+  EXPECT_EQ(8388608, iparams.zebra_block_heap_size);
 }
 
 }  // namespace common

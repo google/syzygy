@@ -152,6 +152,9 @@ const bool kDefaultDisableBreakpadReporting = false;
 const bool kDefaultMiniDumpOnFailure = false;
 const bool kDefaultLogAsText = true;
 
+// Default values of ZebraBlockHeap parameters.
+const uint32 kDefaultZebraBlockHeapSize = 16 * 1024 * 1024;
+
 // String names of HeapProxy parameters.
 const char kParamQuarantineSize[] = "quarantine_size";
 const char kParamQuarantineBlockSize[] = "quarantine_block_size";
@@ -174,6 +177,9 @@ const char kParamDisableBreakpadReporting[]  = "disable_breakpad";
 // String names of AsanLogger parameters.
 const char kParamMiniDumpOnFailure[] = "minidump_on_failure";
 const char kParamNoLogAsText[] = "no_log_as_text";
+
+// String names of ZebraBlockHeap parameters.
+const char kParamZebraBlockHeapSize[] = "zebra_block_heap_size";
 
 InflatedAsanParameters::InflatedAsanParameters() {
   // Clear the AsanParameters portion of ourselves.
@@ -240,12 +246,13 @@ void SetDefaultAsanParameters(AsanParameters* asan_parameters) {
   asan_parameters->disable_breakpad_reporting =
       kDefaultDisableBreakpadReporting;
   asan_parameters->allocation_guard_rate = kDefaultAllocationGuardRate;
+  asan_parameters->zebra_block_heap_size = kDefaultZebraBlockHeapSize;
 }
 
 bool InflateAsanParameters(const AsanParameters* pod_params,
                            InflatedAsanParameters* inflated_params) {
   // This must be kept up to date with AsanParameters as it evolves.
-  static const size_t kSizeOfAsanParametersByVersion[] = { 40, 44 };
+  static const size_t kSizeOfAsanParametersByVersion[] = { 40, 44, 48 };
   COMPILE_ASSERT(arraysize(kSizeOfAsanParametersByVersion) ==
                      kAsanParametersVersion + 1,
                  kSizeOfAsanParametersByVersion_out_of_date);
@@ -354,6 +361,12 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
   // Parse the ignored stack ids.
   if (!ReadIgnoredStackIdsFromCommandLine(cmd_line, kParamIgnoredStackIds,
            &asan_parameters->ignored_stack_ids_set)) {
+    return false;
+  }
+
+  // Parse the zebra block heap size flags.
+  if (UpdateUint32FromCommandLine::Do(cmd_line, kParamZebraBlockHeapSize,
+          &asan_parameters->zebra_block_heap_size) == kFlagError) {
     return false;
   }
 
