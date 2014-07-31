@@ -20,7 +20,7 @@ vars = {
   "gmock_revision": "453",
   "gtest_revision": "664",
   "googleurl_revision": "183",
-  "gyp_revision": "1719",
+  "gyp_revision": "1872",
 
   "chrome_base": "http://src.chromium.org/svn/trunk",
 }
@@ -50,9 +50,6 @@ deps = {
   "src/third_party/icu":
     Var("chrome_base") + "/deps/third_party/icu46@" +
         Var("chrome_revision"),
-  "src/third_party/sqlite":
-    Var("chrome_base") + "/src/third_party/sqlite@" +
-        Var("chrome_revision"),
   "src/third_party/modp_b64":
     Var("chrome_base") + "/src/third_party/modp_b64@" +
         Var("chrome_revision"),
@@ -78,9 +75,6 @@ deps = {
     Var("chrome_base") + "/deps/third_party/psyco_win32@" +
         Var("chrome_revision"),
 
-  "src/third_party/googleappengine":
-    "http://googleappengine.googlecode.com/svn/trunk/python@241",
-
   "src/build":
     Var("chrome_base") + "/src/build@" + Var("chrome_revision"),
   "src/tools/win":
@@ -93,9 +87,12 @@ deps = {
   "src/testing/gtest":
     "http://googletest.googlecode.com/svn/trunk@" + Var("gtest_revision"),
 
+  # This brings in GYP.
   "src/tools/gyp":
     "http://gyp.googlecode.com/svn/trunk@" + Var("gyp_revision"),
 
+  # This brings in code coverage tools, like croc. This is required for our
+  # coverage generation.
   "src/tools/code_coverage":
     Var("chrome_base") + "/src/tools/code_coverage@" + Var("chrome_revision"),
 
@@ -126,13 +123,5 @@ hooks = [
     "action": ["python",
                "src/build/gyp_chromium",
                "src/sawdust/sawdust.gyp"],
-  },
-  {
-    # A change to a .gyp, .gypi, or to GYP itself should run the generator.
-    "pattern": ".",
-    "action": ["python",
-               "src/build/gyp_chromium",
-               "--include=src/syzygy/syzygy.gypi",
-               "src/syzygy/build/all.gyp"],
   },
 ]

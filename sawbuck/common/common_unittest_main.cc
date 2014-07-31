@@ -20,7 +20,7 @@
 #include "gtest/gtest.h"
 
 // We're testing ATL code that requires a module object.
-class ObligatoryModule: public CAtlDllModuleT<ObligatoryModule> {
+class ObligatoryModule: public CAtlModuleT<ObligatoryModule> {
 };
 
 ObligatoryModule g_obligatory_atl_module;
