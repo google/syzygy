@@ -31,6 +31,7 @@
 #ifndef WTF_PageAllocator_h
 #define WTF_PageAllocator_h
 
+#include "wtf/AsanHooks.h"
 #include "wtf/Assertions.h"
 #include "wtf/CPU.h"
 #include "wtf/WTFExport.h"
@@ -63,11 +64,18 @@ static const size_t kSystemPageBaseMask = ~kSystemPageOffsetMask;
 // If addr is null, then a suitable and randomized address will be chosen
 // automatically.
 // This call will return null if the allocation cannot be satisfied.
-WTF_EXPORT void* allocPages(void* addr, size_t len, size_t align);
+WTF_EXPORT void* allocPages(
+    const AsanCallbacks& callbacks,
+    void* addr,
+    size_t len,
+    size_t align);
 
 // Free one or more pages.
 // addr and len must match a previous call to allocPages().
-WTF_EXPORT void freePages(void* addr, size_t len);
+WTF_EXPORT void freePages(
+    const AsanCallbacks& callbacks,
+    void* addr,
+    size_t len);
 
 // Mark one or more system pages as being inaccessible.
 // Subsequently accessing any address in the range will fault, and the

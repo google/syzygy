@@ -267,7 +267,7 @@ static void partitionAllocBaseShutdown(PartitionRootBase* root)
     }
     ASSERT(numSuperPages == root->totalSizeOfSuperPages / kSuperPageSize);
     for (size_t i = 0; i < numSuperPages; ++i)
-        freePages(superPages[i], kSuperPageSize);
+        freePages(root->callbacks, superPages[i], kSuperPageSize);
 }
 
 bool partitionAllocShutdown(PartitionRoot* root)
@@ -316,7 +316,8 @@ static ALWAYS_INLINE void* partitionAllocPartitionPages(PartitionRootBase* root,
     root->totalSizeOfSuperPages += kSuperPageSize;
     RELEASE_ASSERT(root->totalSizeOfSuperPages <= kMaxPartitionSize);
     char* requestedAddress = root->nextSuperPage;
-    char* superPage = reinterpret_cast<char*>(allocPages(requestedAddress, kSuperPageSize, kSuperPageSize));
+    char* superPage = reinterpret_cast<char*>(allocPages(
+        root->callbacks, requestedAddress, kSuperPageSize, kSuperPageSize));
 //printf("super page %p\n", superPage);
     // TODO: handle allocation failure here with PartitionAllocReturnNull.
     RELEASE_ASSERT(superPage);
@@ -550,7 +551,8 @@ static ALWAYS_INLINE void* partitionDirectMap(PartitionRootBase* root, int flags
     // MADV_WILLNEED on POSIX).
     // TODO: these pages will be zero-filled. Consider internalizing an
     // allocZeroed() API so we can avoid a memset() entirely in this case.
-    char* ptr = reinterpret_cast<char*>(allocPages(0, mapSize, kSuperPageSize));
+    char* ptr = reinterpret_cast<char*>(allocPages(
+        root->callbacks, 0, mapSize, kSuperPageSize));
 //printf("big chunk %p\n", ptr);
     if (!ptr) {
         if (flags & PartitionAllocReturnNull)
@@ -586,7 +588,8 @@ static ALWAYS_INLINE void* partitionDirectMap(PartitionRootBase* root, int flags
     return ret;
 }
 
-static ALWAYS_INLINE void partitionDirectUnmap(PartitionPage* page)
+static ALWAYS_INLINE void partitionDirectUnmap(
+    PartitionRootBase* root, PartitionPage* page)
 {
     size_t unmapSize = page->bucket->slotSize;
     // Add on the size of the trailing guard page and preceeding partition
@@ -600,7 +603,7 @@ static ALWAYS_INLINE void partitionDirectUnmap(PartitionPage* page)
     // allocation address.
     ptr -= kPartitionPageSize;
 
-    freePages(ptr, unmapSize);
+    freePages(root->callbacks, ptr, unmapSize);
 }
 
 void* partitionAllocSlowPath(PartitionRootBase* root, int flags, size_t size, PartitionBucket* bucket)
@@ -713,7 +716,7 @@ static ALWAYS_INLINE void partitionRegisterEmptyPage(PartitionPage* page)
     root->globalEmptyPageRingIndex = currentIndex;
 }
 
-void partitionFreeSlowPath(PartitionPage* page)
+void partitionFreeSlowPath(PartitionRootBase* root, PartitionPage* page)
 {
     PartitionBucket* bucket = page->bucket;
     ASSERT(page != &PartitionRootGeneric::gSeedPage);
@@ -721,7 +724,7 @@ void partitionFreeSlowPath(PartitionPage* page)
     if (LIKELY(page->numAllocatedSlots == 0)) {
         // Page became fully unused.
         if (UNLIKELY(!bucket->numSystemPagesPerSlotSpan)) {
-            partitionDirectUnmap(page);
+            partitionDirectUnmap(root, page);
             return;
         }
         // If it's the current page, attempt to change it. We'd prefer to leave
@@ -755,7 +758,7 @@ void partitionFreeSlowPath(PartitionPage* page)
         // Special case: for a partition page with just a single slot, it may
         // now be empty and we want to run it through the empty logic.
         if (UNLIKELY(page->numAllocatedSlots == 0))
-            partitionFreeSlowPath(page);
+            partitionFreeSlowPath(root, page);
     }
 }
 

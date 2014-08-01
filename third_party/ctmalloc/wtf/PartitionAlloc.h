@@ -96,6 +96,7 @@
 // - Better checking for wild pointers in free().
 // - Better freelist masking function to guarantee fault on 32-bit.
 
+#include "wtf/AsanHooks.h"
 #include "wtf/Assertions.h"
 #include "wtf/BitwiseOperations.h"
 #include "wtf/ByteSwap.h"
@@ -272,6 +273,9 @@ struct WTF_EXPORT PartitionRootBase {
     static bool gInitialized;
     static PartitionPage gSeedPage;
     static PartitionBucket gPagedBucket;
+
+    // Callbacks that have been added for ASAN integration.
+    AsanCallbacks callbacks;
 };
 
 // Never instantiate a PartitionRoot directly, instead use PartitionAlloc.
@@ -306,7 +310,7 @@ WTF_EXPORT void partitionAllocGenericInit(PartitionRootGeneric*);
 WTF_EXPORT bool partitionAllocGenericShutdown(PartitionRootGeneric*);
 
 WTF_EXPORT NEVER_INLINE void* partitionAllocSlowPath(PartitionRootBase*, int, size_t, PartitionBucket*);
-WTF_EXPORT NEVER_INLINE void partitionFreeSlowPath(PartitionPage*);
+WTF_EXPORT NEVER_INLINE void partitionFreeSlowPath(PartitionRootBase*, PartitionPage*);
 WTF_EXPORT NEVER_INLINE void* partitionReallocGeneric(PartitionRootGeneric*, void*, size_t);
 
 ALWAYS_INLINE PartitionFreelistEntry* partitionFreelistMask(PartitionFreelistEntry* ptr)
@@ -464,7 +468,8 @@ ALWAYS_INLINE void* partitionAlloc(PartitionRoot* root, size_t size)
 #endif // defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
 }
 
-ALWAYS_INLINE void partitionFreeWithPage(void* ptr, PartitionPage* page)
+ALWAYS_INLINE void partitionFreeWithPage(
+    PartitionRootBase* root, void* ptr, PartitionPage* page)
 {
     // If these asserts fire, you probably corrupted memory.
 #ifndef NDEBUG
@@ -484,10 +489,10 @@ ALWAYS_INLINE void partitionFreeWithPage(void* ptr, PartitionPage* page)
     page->freelistHead = entry;
     --page->numAllocatedSlots;
     if (UNLIKELY(page->numAllocatedSlots <= 0))
-        partitionFreeSlowPath(page);
+        partitionFreeSlowPath(root, page);
 }
 
-ALWAYS_INLINE void partitionFree(void* ptr)
+ALWAYS_INLINE void partitionFree(PartitionRootBase* root, void* ptr)
 {
 #if defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
     free(ptr);
@@ -495,7 +500,7 @@ ALWAYS_INLINE void partitionFree(void* ptr)
     ptr = partitionCookieFreePointerAdjust(ptr);
     ASSERT(partitionPointerIsValid(ptr));
     PartitionPage* page = partitionPointerToPage(ptr);
-    partitionFreeWithPage(ptr, page);
+    partitionFreeWithPage(root, ptr, page);
 #endif
 }
 
@@ -548,7 +553,7 @@ ALWAYS_INLINE void partitionFreeGeneric(PartitionRootGeneric* root, void* ptr)
     ASSERT(partitionPointerIsValid(ptr));
     PartitionPage* page = partitionPointerToPage(ptr);
     spinLockLock(&root->lock);
-    partitionFreeWithPage(ptr, page);
+    partitionFreeWithPage(root, ptr, page);
     spinLockUnlock(&root->lock);
 #endif
 }

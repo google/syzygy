@@ -19,7 +19,6 @@
 
 namespace WTF {
 
-AsanMemoryReservedCallback gAsanMemoryReservedCallback = 0;
-AsanMemoryReleasedCallback gAsanMemoryReleasedCallback = 0;
+const AsanCallbacks gNullAsanCallbacks = { };
 
 }  // namespace WTF

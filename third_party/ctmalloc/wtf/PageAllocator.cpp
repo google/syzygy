@@ -206,7 +206,7 @@ void* allocPagesImpl(void* addr, size_t len, size_t align)
 
     // Annoying. Unmap and map a larger range to be sure to succeed on the
     // second, slower attempt.
-    freePages(ret, len);
+    freePages(gNullAsanCallbacks, ret, len);
 
     size_t tryLen = len + (align - kPageAllocationGranularity);
     RELEASE_ASSERT(tryLen > len);
@@ -229,13 +229,13 @@ void* allocPagesImpl(void* addr, size_t len, size_t align)
         // On Windows, you can't trim an existing mapping so we unmap and remap
         // a subset. We used to do for all platforms, but OSX 10.8 has a
         // broken mmap() that ignores address hints for valid, unused addresses.
-        freePages(ret, tryLen);
+        freePages(gNullAsanCallbacks, ret, tryLen);
         ret = systemAllocPages(addr, len);
         if (ret == addr || !ret)
             return ret;
 
         // Unlikely race / collision. Do the simple thing and just start again.
-        freePages(ret, len);
+        freePages(gNullAsanCallbacks, ret, len);
         addr = getRandomPageBase();
         addr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(addr) & alignBaseMask);
     }
@@ -243,22 +243,27 @@ void* allocPagesImpl(void* addr, size_t len, size_t align)
     return 0;
 }
 
-void* allocPages(void* addr, size_t len, size_t align)
+void* allocPages(const AsanCallbacks& callbacks,
+                 void* addr,
+                 size_t len,
+                 size_t align)
 {
   void* ret = allocPagesImpl(addr, len, align);
   if (!ret)
       return ret;
-  if (gAsanMemoryReservedCallback)
-      gAsanMemoryReservedCallback(ret, len);
+  if (ret && len > 0 && callbacks.reserved_callback)
+    callbacks.reserved_callback(callbacks.user_data, ret, len);
   return ret;
 }
 
-void freePages(void* addr, size_t len)
+void freePages(const AsanCallbacks& callbacks,
+               void* addr,
+               size_t len)
 {
     ASSERT(!(reinterpret_cast<uintptr_t>(addr) & kPageAllocationGranularityOffsetMask));
     ASSERT(!(len & kPageAllocationGranularityOffsetMask));
-    if (addr != 0 && len > 0 && gAsanMemoryReleasedCallback)
-        gAsanMemoryReleasedCallback(addr, len);
+    if (addr != 0 && len > 0 && callbacks.released_callback)
+        (callbacks.released_callback)(callbacks.user_data, addr, len);
 #if OS(POSIX)
     int ret = munmap(addr, len);
     RELEASE_ASSERT(!ret);

@@ -40,11 +40,11 @@
         'wtf/WTFExport.h',
       ],
       'include_dirs': [
-        '.',
+        '<(src)/third_party/ctmalloc',
       ],
       'all_dependent_settings': {
         'include_dirs': [
-          '.',
+          '<(src)/third_party/ctmalloc',
         ],
       },
     },

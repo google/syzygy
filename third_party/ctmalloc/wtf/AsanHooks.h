@@ -20,27 +20,36 @@
 
 namespace WTF {
 
-// This is called by the underlying allocator to indicate that a region of
-// memory has been bulk reserved from the operating system, yet is reserved
-// for use by the allocator. The ASAN instrumentation will redzone this memory.
-// As memory is doled out by the allocator the ASAN instrumentation can then
-// green zone it, and subsequently redzone it when it is returned (freed) to
-// the allocator.
+// A generic callback that indicates a state change for a range of memory.
+// @param user_data Custom user data for use by the callback. This comes from
+//     the enclosed PartitionRootBase of the allocator.
 // @param addr The starting address of the reserved memory.
 // @param length The size of the reservation.
-typedef void (*AsanMemoryReservedCallback)(void* addr, size_t length);
+typedef void (*AsanMemoryStateChangeCallback)(
+    void* user_data, void* addr, size_t length);
 
-// This is called by the underlying allocator to indicate that a region of
-// memory has been returned to the operating system. This region of memory is
-// then potentially accessible by other things running in the process. The ASAN
-// instrumentation will consequently greenzone the memory.
-// @param addr The starting address of the released memory.
-// @param length The size of the released memory.
-typedef void (*AsanMemoryReleasedCallback)(void* addr, size_t length);
 
-// Static callbacks.
-extern AsanMemoryReservedCallback gAsanMemoryReservedCallback;
-extern AsanMemoryReleasedCallback gAsanMemoryReleasedCallback;
+struct AsanCallbacks {
+  // This is called by the underlying allocator to indicate that a region of
+  // memory has been bulk reserved from the operating system, yet is reserved
+  // for use by the allocator. The ASAN instrumentation will redzone this
+  // memory. As memory is doled out by the allocator the ASAN instrumentation
+  // can then green zone it, and subsequently redzone it when it is returned
+  // (freed) to the allocator.
+  AsanMemoryStateChangeCallback reserved_callback;
+
+  // This is called by the underlying allocator to indicate that a region of
+  // memory has been returned to the operating system. This region of memory is
+  // then potentially accessible by other things running in the process. The
+  // ASAN instrumentation will consequently greenzone the memory.
+  AsanMemoryStateChangeCallback released_callback;
+
+  // The user data that will be passed to the callback.
+  void* user_data;
+};
+
+// A null set of callbacks to be used by default.
+extern const AsanCallbacks gNullAsanCallbacks;
 
 }  // namespace WTF
 
