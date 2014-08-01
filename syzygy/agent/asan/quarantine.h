@@ -67,7 +67,7 @@ class QuarantineInterface {
 
   // The number of objects currently in the quarantine.
   // @returns the number of objects in the quarantine.
-  virtual size_t GetCount() const = 0;
+  virtual size_t GetCount() = 0;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(QuarantineInterface);

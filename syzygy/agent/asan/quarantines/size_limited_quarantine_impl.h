@@ -63,7 +63,7 @@ void SizeLimitedQuarantineImpl<OT, SFT>::Empty(
 }
 
 template<typename OT, typename SFT>
-size_t SizeLimitedQuarantineImpl<OT, SFT>::GetCount() const {
+size_t SizeLimitedQuarantineImpl<OT, SFT>::GetCount() {
   return count_;
 }
 

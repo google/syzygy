@@ -101,7 +101,7 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
   virtual bool Push(const Object& object);
   virtual bool Pop(Object* object);
   virtual void Empty(ObjectVector* objects);
-  virtual size_t GetCount() const;
+  virtual size_t GetCount();
   // @}
 
  protected:
