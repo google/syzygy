@@ -87,7 +87,7 @@ TEST(SizeLimitedQuarantineTest, ConstructorsSettersAndGetters) {
   EXPECT_EQ(0u, q.max_object_size());
   EXPECT_EQ(0u, q.max_quarantine_size());
   EXPECT_EQ(0u, q.size());
-  EXPECT_EQ(0u, q.count());
+  EXPECT_EQ(0u, q.GetCount());
 
   q.set_max_object_size(100);
   EXPECT_EQ(100u, q.max_object_size());
@@ -100,7 +100,7 @@ TEST(SizeLimitedQuarantineTest, NoSizeLimit) {
   TestQuarantine q;
   for (size_t i = 0; i < 1000; ++i) {
     q.Push(DummyObject(i * 1000));
-    EXPECT_EQ(i + 1, q.count());
+    EXPECT_EQ(i + 1, q.GetCount());
   }
 }
 
@@ -110,10 +110,10 @@ TEST(SizeLimitedQuarantineTest, MaxObjectSizeEnforced) {
   for (size_t i = 1; i < 20; ++i) {
     if (i <= 10) {
       EXPECT_TRUE(q.Push(DummyObject(i)));
-      EXPECT_EQ(i, q.count());
+      EXPECT_EQ(i, q.GetCount());
     } else {
       EXPECT_FALSE(q.Push(DummyObject(i)));
-      EXPECT_EQ(10u, q.count());
+      EXPECT_EQ(10u, q.GetCount());
     }
   }
 }
@@ -126,23 +126,23 @@ TEST(SizeLimitedQuarantineTest, InvariantEnforced) {
 
   EXPECT_TRUE(q.Push(o));
   EXPECT_EQ(10u, q.size());
-  EXPECT_EQ(1u, q.count());
+  EXPECT_EQ(1u, q.GetCount());
 
   EXPECT_FALSE(q.Pop(&o));
   EXPECT_EQ(10u, q.size());
-  EXPECT_EQ(1u, q.count());
+  EXPECT_EQ(1u, q.GetCount());
 
   EXPECT_TRUE(q.Push(o));
   EXPECT_EQ(20u, q.size());
-  EXPECT_EQ(2u, q.count());
+  EXPECT_EQ(2u, q.GetCount());
 
   EXPECT_TRUE(q.Pop(&o));
   EXPECT_EQ(10u, q.size());
-  EXPECT_EQ(1u, q.count());
+  EXPECT_EQ(1u, q.GetCount());
 
   EXPECT_FALSE(q.Pop(&o));
   EXPECT_EQ(10u, q.size());
-  EXPECT_EQ(1u, q.count());
+  EXPECT_EQ(1u, q.GetCount());
 }
 
 TEST(SizeLimitedQuarantineTest, EmptyWorks) {
@@ -153,7 +153,7 @@ TEST(SizeLimitedQuarantineTest, EmptyWorks) {
   EXPECT_TRUE(q.Push(o));
   EXPECT_TRUE(q.Push(o));
   EXPECT_EQ(30u, q.size());
-  EXPECT_EQ(3u, q.count());
+  EXPECT_EQ(3u, q.GetCount());
 
   DummyObjectVector os;
   q.Empty(&os);

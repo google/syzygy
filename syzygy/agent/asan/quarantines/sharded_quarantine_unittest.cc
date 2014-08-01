@@ -124,34 +124,34 @@ TEST(ShardedQuarantineTest, StressTest) {
     DummyObject d(size);
 
     size_t old_size = q.size();
-    size_t old_count = q.count();
+    size_t old_count = q.GetCount();
     if (size > q.max_object_size()) {
       EXPECT_FALSE(q.Push(d));
       EXPECT_EQ(old_size, q.size());
-      EXPECT_EQ(old_count, q.count());
+      EXPECT_EQ(old_count, q.GetCount());
     } else {
       EXPECT_TRUE(q.Push(d));
       EXPECT_EQ(old_size + size, q.size());
-      EXPECT_EQ(old_count + 1, q.count());
+      EXPECT_EQ(old_count + 1, q.GetCount());
     }
 
     DummyObject popped;
     while (q.size() > q.max_quarantine_size()) {
       old_size = q.size();
-      old_count = q.count();
+      old_count = q.GetCount();
       EXPECT_TRUE(q.Pop(&popped));
       EXPECT_EQ(old_size - popped.size, q.size());
-      EXPECT_EQ(old_count - 1, q.count());
+      EXPECT_EQ(old_count - 1, q.GetCount());
     }
     EXPECT_FALSE(q.Pop(&popped));
   }
 
   size_t old_size = q.size();
-  size_t old_count = q.count();
+  size_t old_count = q.GetCount();
   TestShardedQuarantine::ObjectVector os;
   q.Empty(&os);
   EXPECT_EQ(0u, q.size());
-  EXPECT_EQ(0u, q.count());
+  EXPECT_EQ(0u, q.GetCount());
   EXPECT_EQ(old_count, os.size());
   size_t emptied_size = 0;
   for (size_t i = 0; i < os.size(); ++i)

@@ -30,23 +30,41 @@ namespace quarantines {
 // than another given threshold.
 //
 // Provides implementations of QuarantineInterface Push/Pop/Empty methods.
-//
 // Expects the derived class to provide implementations for a few methods:
 //
 //   bool PushImpl(const ObjectType& object);
 //   void PopImpl(ObjectType* object);
 //   void EmptyImpl(ObjectVector* object);
 //
+// Calculates the sizes of objects using the provided SizeFunctor. This
+// must satisfy the following interface:
+//
+// struct SizeFunctor {
+//   size_t operator()(const ObjectType& object);
+// };
+//
 // @tparam ObjectType The type of object stored in the quarantine.
-// @tparam SizeFunctorType T
+// @tparam SizeFunctorType The size functor that will be used to extract
+//     a size from an object.
 template<typename ObjectType, typename SizeFunctorType>
-class SizeLimitedQuarantineImpl
-    : public QuarantineInterface<ObjectType, SizeFunctorType> {
+class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
  public:
+  typedef SizeFunctorType SizeFunctor;
+
   // Constructor. Initializes all sizes to zero so the quarantine will
   // block all objects from entering initially.
   SizeLimitedQuarantineImpl()
-      : max_object_size_(0), max_quarantine_size_(0), size_(0), count_(0) {
+      : max_object_size_(0), max_quarantine_size_(0), size_(0), count_(0),
+        size_functor_() {
+  }
+
+  // Constructor. Initializes all sizes to zero so the quarantine will
+  // block all objects from entering initially.
+  // @param size_functor The size functor to be used. This will be copied
+  //     into the classes member size functor.
+  explicit SizeLimitedQuarantineImpl(const SizeFunctor& size_functor)
+      : max_object_size_(0), max_quarantine_size_(0), size_(0), count_(0),
+        size_functor_(size_functor) {
   }
 
   // Virtual destructor.
@@ -78,14 +96,12 @@ class SizeLimitedQuarantineImpl
   // @returns the current size of the quarantine.
   size_t size() const { return size_; }
 
-  // @returns the number of elements in the quarantine.
-  size_t count() const { return count_; }
-
   // @name QuarantineInterface implementation.
   // @{
   virtual bool Push(const Object& object);
   virtual bool Pop(Object* object);
   virtual void Empty(ObjectVector* objects);
+  virtual size_t GetCount() const;
   // @}
 
  protected:
@@ -105,6 +121,9 @@ class SizeLimitedQuarantineImpl
 
   // The number of elements in the quarantine.
   size_t count_;
+
+  // The size functor.
+  SizeFunctor size_functor_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(SizeLimitedQuarantineImpl);

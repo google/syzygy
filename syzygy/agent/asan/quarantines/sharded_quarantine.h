@@ -31,7 +31,7 @@ namespace quarantines {
 //
 // @tparam ObjectType The type of object being stored in the cache.
 // @tparam SizeFunctorType A functor for extracting the size associated with
-//     and object.
+//     an object.
 // @tparam HashFunctorType A functor for calculating a hash value associated
 //     with an object. This does need to be deterministic. A single instance
 //     of this will be maintained per instance, so it can use internal state;

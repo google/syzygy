@@ -26,29 +26,20 @@ namespace agent {
 namespace asan {
 
 // The interface that quarantines must satisfy. They store literal copies of
-// objects of type |ObjectType|, incurring a cost as calculated by the size
-// functor |SizeFunctor|. SizeFunctor should satisfy one of the following
-// signatures:
-//
-// struct SizeFunctor {
-//   size_t operator()(const ObjectType& object);
-//   size_t operator()(ObjectType object);
-// };
-//
-// Quarantines act as dumb containers of metadata. The only piece of
-// information that is relevant to them is the size associated with an
-// object in the quarantine.
+// objects of type |ObjectType|.
 //
 // Placing objects in the quarantine and removing them from it are factored
 // out as two separate steps. Thus it is possible for a quarantine invariant
 // to be invalidated by a call to 'Push', which won't be restored until
 // sufficient calls to 'Pop' have been made.
-template<typename ObjectType, typename SizeFunctorType>
+//
+// This has been templated on the object type to allow easier unittesting.
+//
+// @tparam ObjectType The type of object stored by the quarantine.
+template<typename ObjectType>
 class QuarantineInterface {
  public:
   typedef ObjectType Object;
-  typedef SizeFunctorType SizeFunctor;
-
   typedef std::vector<Object> ObjectVector;
 
   // Constructor.
@@ -74,9 +65,18 @@ class QuarantineInterface {
   // vector. This routine must be thread-safe.
   virtual void Empty(ObjectVector* objects) = 0;
 
+  // The number of objects currently in the quarantine.
+  // @returns the number of objects in the quarantine.
+  virtual size_t GetCount() const = 0;
+
  private:
   DISALLOW_COPY_AND_ASSIGN(QuarantineInterface);
 };
+
+// Quarantines in ASAN are typically storing blocks, represented by the address
+// of their allocation.
+struct BlockHeader;  // Forward declaration.
+typedef QuarantineInterface<BlockHeader*> BlockQuarantineInterface;
 
 }  // namespace asan
 }  // namespace agent

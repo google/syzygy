@@ -62,6 +62,11 @@ void SizeLimitedQuarantineImpl<OT, SFT>::Empty(
   count_ = 0;
 }
 
+template<typename OT, typename SFT>
+size_t SizeLimitedQuarantineImpl<OT, SFT>::GetCount() const {
+  return count_;
+}
+
 }  // namespace quarantines
 }  // namespace asan
 }  // namespace agent
