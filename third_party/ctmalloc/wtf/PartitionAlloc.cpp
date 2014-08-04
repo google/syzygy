@@ -33,7 +33,7 @@
 
 #include <string.h>
 
-//#ifndef NDEBUG
+//#ifndef CTMALLOC_NDEBUG
 #include <stdio.h>
 //#endif
 
@@ -796,7 +796,7 @@ void* partitionReallocGeneric(PartitionRootGeneric* root, void* ptr, size_t newS
 #endif
 }
 
-#ifndef NDEBUG
+#ifndef CTMALLOC_NDEBUG
 
 void partitionDumpStats(const PartitionRoot& root)
 {
@@ -850,7 +850,7 @@ void partitionDumpStats(const PartitionRoot& root)
     fflush(stdout);
 }
 
-#endif // !NDEBUG
+#endif // !CTMALLOC_NDEBUG
 
 } // namespace WTF
 

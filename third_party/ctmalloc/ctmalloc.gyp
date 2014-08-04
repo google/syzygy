@@ -39,10 +39,18 @@
         'wtf/SpinLock.h',
         'wtf/WTFExport.h',
       ],
+      'defines': [
+        'CTMALLOC_NDEBUG',
+      ],
       'include_dirs': [
         '<(src)/third_party/ctmalloc',
       ],
       'all_dependent_settings': {
+        'defines': [
+          # We disable debug features of the CTMalloc heap as they are redundant
+          # given SyzyASan's extensive debug features.
+          'CTMALLOC_NDEBUG',
+        ],
         'include_dirs': [
           '<(src)/third_party/ctmalloc',
         ],

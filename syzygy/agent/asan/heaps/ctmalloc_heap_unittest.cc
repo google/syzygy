@@ -34,12 +34,14 @@ TEST(CtMallocHeapTest, HeapTest) {
   // Allocate and free a zero-sized allocation. This should succeed
   // by definition.
   void* alloc = h.Allocate(0);
+  EXPECT_EQ(0u, reinterpret_cast<uintptr_t>(alloc) % kShadowRatio);
   EXPECT_TRUE(h.Free(alloc));
 
   // Make a bunch of different sized allocations.
   std::set<void*> allocs;
   for (size_t i = 1; i < 1024 * 1024; i <<= 1) {
     void* alloc = h.Allocate(i);
+    EXPECT_EQ(0u, reinterpret_cast<uintptr_t>(alloc) % kShadowRatio);
     allocs.insert(alloc);
   }
 
@@ -70,6 +72,7 @@ TEST(CtMallocHeapTest, IsAllocated) {
   EXPECT_FALSE(h.IsAllocated(NULL));
 
   void* a = h.Allocate(100);
+  EXPECT_EQ(0u, reinterpret_cast<uintptr_t>(a) % kShadowRatio);
   EXPECT_FALSE(h.IsAllocated(a));
   EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) - 1));
   EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) + 1));

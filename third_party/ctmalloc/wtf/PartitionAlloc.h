@@ -110,7 +110,7 @@
 #include <stdlib.h>
 #endif
 
-#ifndef NDEBUG
+#ifndef CTMALLOC_NDEBUG
 #include <string.h>
 #endif
 
@@ -189,7 +189,7 @@ static const size_t kBitsPerSizet = sizeof(void*) * CHAR_BIT;
 // Constants for the memory reclaim logic.
 static const size_t kMaxFreeableSpans = 16;
 
-#ifndef NDEBUG
+#ifndef CTMALLOC_NDEBUG
 // These two byte values match tcmalloc.
 static const unsigned char kUninitializedByte = 0xAB;
 static const unsigned char kFreedByte = 0xCD;
@@ -333,7 +333,7 @@ ALWAYS_INLINE PartitionFreelistEntry* partitionFreelistMask(PartitionFreelistEnt
 
 ALWAYS_INLINE size_t partitionCookieSizeAdjustAdd(size_t size)
 {
-#ifndef NDEBUG
+#ifndef CTMALLOC_NDEBUG
     // Add space for cookies, checking for integer overflow.
     ASSERT(size + (2 * sizeof(uintptr_t)) > size);
     size += 2 * sizeof(uintptr_t);
@@ -343,7 +343,7 @@ ALWAYS_INLINE size_t partitionCookieSizeAdjustAdd(size_t size)
 
 ALWAYS_INLINE size_t partitionCookieSizeAdjustSubtract(size_t size)
 {
-#ifndef NDEBUG
+#ifndef CTMALLOC_NDEBUG
     // Remove space for cookies.
     ASSERT(size >= 2 * sizeof(uintptr_t));
     size -= 2 * sizeof(uintptr_t);
@@ -353,7 +353,7 @@ ALWAYS_INLINE size_t partitionCookieSizeAdjustSubtract(size_t size)
 
 ALWAYS_INLINE void* partitionCookieFreePointerAdjust(void* ptr)
 {
-#ifndef NDEBUG
+#ifndef CTMALLOC_NDEBUG
     // The value given to the application is actually just after the cookie.
     ptr = static_cast<uintptr_t*>(ptr) - 1;
 #endif
@@ -435,7 +435,7 @@ ALWAYS_INLINE void* partitionBucketAlloc(PartitionRootBase* root, int flags, siz
     } else {
         ret = partitionAllocSlowPath(root, flags, size, bucket);
     }
-#ifndef NDEBUG
+#ifndef CTMALLOC_NDEBUG
     if (!ret)
         return 0;
     // Fill the uninitialized pattern. and write the cookies.
@@ -472,7 +472,7 @@ ALWAYS_INLINE void partitionFreeWithPage(
     PartitionRootBase* root, void* ptr, PartitionPage* page)
 {
     // If these asserts fire, you probably corrupted memory.
-#ifndef NDEBUG
+#ifndef CTMALLOC_NDEBUG
     size_t bucketSize = page->bucket->slotSize;
     void* ptrEnd = static_cast<char*>(ptr) + bucketSize;
     ASSERT(*(static_cast<uintptr_t*>(ptr)) == kCookieValue);
