@@ -200,6 +200,17 @@ struct StringTableHeader {
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(StringTableHeader, 12);
 
+// Header of a symbol record from the symbol record stream.
+struct SymbolRecordHeader {
+  // Length of the symbol record in bytes, without this field. The length
+  // including this field is always a multiple of 4.
+  uint16 length;
+
+  // Type of the symbol record. If must be a value from Microsoft_Cci_Pdb::SYM.
+  uint16 type;
+};
+COMPILE_ASSERT_IS_POD_OF_SIZE(SymbolRecordHeader, 4);
+
 // Multi-Stream Format (MSF) Header
 // See http://code.google.com/p/pdbparser/wiki/MSF_Format
 struct PdbHeader {
