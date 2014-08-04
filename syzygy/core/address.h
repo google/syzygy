@@ -18,6 +18,7 @@
 #include <iosfwd>
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "syzygy/common/align.h"
 #include "syzygy/core/serialization.h"
 
 namespace core {
@@ -116,22 +117,11 @@ template <AddressType type> class AddressImpl {
     return (value_ % alignment) == 0;
   }
 
-  // Determines the address alignment by counting the trailing zeros. If the
-  // value of the address is 0 then we return the maximum alignment for a 32-bit
-  // address (0x80000000).
+  // Determines the address alignment. If the value of the address is 0 then we
+  // return the maximum alignment for a 32-bit address (0x80000000).
+  // @returns the alignment of the address.
   uint32 GetAlignment() const {
-    uint32 value_copy = value_;
-    uint8 trailing_zeros = 0;
-
-    // Sets the trailing zeros to one and set the other bits to zero.
-    // This is inspired from the code on this page:
-    // http://graphics.stanford.edu/~seander/bithacks.html#ZerosOnRightLinear
-    value_copy = (value_copy ^ (value_copy - 1)) >> 1;
-
-    for (; value_copy > 0; trailing_zeros++)
-      value_copy >>= 1;
-
-    return (1 << trailing_zeros);
+    return common::GetAlignment(value_);
   }
 
   // For serialization.

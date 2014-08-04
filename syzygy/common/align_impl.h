@@ -47,6 +47,10 @@ template<typename T> bool IsAligned(const T* pointer, size_t alignment) {
   return IsAligned(reinterpret_cast<uintptr_t>(pointer), alignment);
 }
 
+template<typename T> size_t GetAlignment(const T* pointer) {
+  return GetAlignment(reinterpret_cast<uintptr_t>(pointer));
+}
+
 }  // namespace common
 
 #endif  // SYZYGY_COMMON_ALIGN_IMPL_H_

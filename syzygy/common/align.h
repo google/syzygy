@@ -59,6 +59,15 @@ template<typename T> const T* AlignDown(const T* pointer, size_t alignment);
 bool IsAligned(size_t value, size_t alignment);
 template<typename T> bool IsAligned(const T* pointer, size_t alignment);
 
+// Determines the address alignment. If @p value or @p pointer is 0, the
+// maximum alignment for a 32-bit value is returned (0x80000000).
+// @tparam T Any type.
+// @param value The value for which to get the alignment.
+// @param pointer The pointer for which to get the alignment.
+// @returns the power of 2 on which @p value or @p pointer is aligned.
+size_t GetAlignment(size_t value);
+template<typename T> size_t GetAlignment(const T* pointer);
+
 // @tparam T Any type.
 // @param value An integer value to test.
 // @param pointer The pointer to test.
@@ -82,6 +91,12 @@ uint64 AlignDown64(uint64 value, uint64 alignment);
 // @pre alignment != 0.
 // @returns true iff value is an even multiple of alignment.
 bool IsAligned64(uint64 value, uint64 alignment);
+
+// Determines the address alignment. If @p value or @p pointer is 0, the
+// maximum alignment for a 64-bit value is returned (1 << 63).
+// @param value The value for which to get the alignment.
+// @returns the power of 2 on which @p value is aligned.
+uint64 GetAlignment64(uint64 value);
 
 }  // namespace common
 

@@ -117,6 +117,25 @@ TEST(AlignTest, IsAligned) {
   EXPECT_FALSE(IsAligned(reinterpret_cast<const char*>(0x40000001U), 4));
 }
 
+TEST(AlignTest, GetAlignment) {
+  const size_t max_alignment = 0x80000000;
+
+  EXPECT_EQ(max_alignment, GetAlignment(0));
+
+  // Try power of 2 values.
+  for (uint32 i = 1; i < max_alignment; i <<= 1)
+    EXPECT_EQ(i, GetAlignment(i));
+
+  EXPECT_EQ(max_alignment, GetAlignment(max_alignment));
+
+  // Try non-power of 2 values.
+  EXPECT_EQ(16, GetAlignment(0x3210));
+  EXPECT_EQ(8, GetAlignment(0xFFF8));
+  EXPECT_EQ(4, GetAlignment(0xF0F4));
+  EXPECT_EQ(2, GetAlignment(0xF122));
+  EXPECT_EQ(1, GetAlignment(0xF123));
+}
+
 TEST(AlignTest, IsPowerOfTwo64) {
   EXPECT_FALSE(IsPowerOfTwo64(0));
   EXPECT_TRUE(IsPowerOfTwo64(1));
@@ -225,6 +244,26 @@ TEST(AlignTest, IsAligned64) {
   EXPECT_TRUE(IsAligned64(0x1000000001ULL, 1));
   EXPECT_FALSE(IsAligned64(0xCCCCCCCCABCDABCDULL, 16));
   EXPECT_TRUE(IsAligned64(0xCCCCCCCCABCDABC0ULL, 16));
+}
+
+TEST(AlignTest, GetAlignment64) {
+  const uint64 max_alignment = 1ULL << 63;
+
+  EXPECT_EQ(max_alignment, GetAlignment64(0));
+
+  // Try power of 2 values.
+  for (uint64 i = 1; i < max_alignment; i <<= 1)
+    EXPECT_EQ(i, GetAlignment64(i));
+
+  EXPECT_EQ(max_alignment, GetAlignment64(max_alignment));
+
+  // Try non-power of 2 values.
+  EXPECT_EQ(0x800000000, GetAlignment64(0x1111111800000000));
+  EXPECT_EQ(16, GetAlignment64(0x1111111176543210));
+  EXPECT_EQ(8, GetAlignment64(0x11111111FFFFFFF8));
+  EXPECT_EQ(4, GetAlignment64(0x11111111BCDEF0F4));
+  EXPECT_EQ(2, GetAlignment64(0x11111111AAAAF122));
+  EXPECT_EQ(1, GetAlignment64(0x111111111212F123));
 }
 
 }  // namespace common
