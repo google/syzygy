@@ -70,8 +70,7 @@ CtMallocHeap::~CtMallocHeap() {
 }
 
 uint32 CtMallocHeap::GetHeapFeatures() const {
-  // TODO(chrisha): Add IsAllocated support.
-  return kHeapReportsReservations;
+  return kHeapReportsReservations | kHeapSupportsIsAllocated;
 }
 
 void* CtMallocHeap::Allocate(size_t bytes) {
@@ -87,8 +86,9 @@ bool CtMallocHeap::Free(void* alloc) {
 }
 
 bool CtMallocHeap::IsAllocated(void* alloc) {
-  // TODO(chrisha): Add IsAllocated support.
-  return false;
+  if (!WTF::partitionIsAllocatedGeneric(allocator_.root(), alloc, -1))
+    return false;
+  return true;
 }
 
 void CtMallocHeap::Lock() {

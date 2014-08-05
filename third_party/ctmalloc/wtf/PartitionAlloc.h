@@ -372,18 +372,30 @@ ALWAYS_INLINE char* partitionSuperPageToMetadataArea(char* ptr)
     return reinterpret_cast<char*>(pointerAsUint + kSystemPageSize);
 }
 
-ALWAYS_INLINE PartitionPage* partitionPointerToPageNoAlignmentCheck(void* ptr)
+ALWAYS_INLINE PartitionPage* partitionPointerToPageNoChecks(void* ptr)
 {
     uintptr_t pointerAsUint = reinterpret_cast<uintptr_t>(ptr);
     char* superPagePtr = reinterpret_cast<char*>(pointerAsUint & kSuperPageBaseMask);
     uintptr_t partitionPageIndex = (pointerAsUint & kSuperPageOffsetMask) >> kPartitionPageShift;
+
     // Index 0 is invalid because it is the metadata area and the last index is invalid because it is a guard page.
-    ASSERT(partitionPageIndex);
-    ASSERT(partitionPageIndex < kNumPartitionPagesPerSuperPage - 1);
+    if (partitionPageIndex == 0 ||
+        partitionPageIndex >= kNumPartitionPagesPerSuperPage - 1) {
+      return NULL;
+    }
+
     PartitionPage* page = reinterpret_cast<PartitionPage*>(partitionSuperPageToMetadataArea(superPagePtr) + (partitionPageIndex << kPageMetadataShift));
     // Many partition pages can share the same page object. Adjust for that.
     size_t delta = page->pageOffset << kPageMetadataShift;
     page = reinterpret_cast<PartitionPage*>(reinterpret_cast<char*>(page) - delta);
+
+    return page;
+}
+
+ALWAYS_INLINE PartitionPage* partitionPointerToPageNoAlignmentCheck(void* ptr)
+{
+    PartitionPage* page = partitionPointerToPageNoChecks(ptr);
+    ASSERT(page);
     return page;
 }
 
@@ -500,7 +512,7 @@ ALWAYS_INLINE void partitionFreeWithPage(
     // without memory aliasing occurring.
     entry->next = partitionFreelistMask(0);
     if (page->freelistTail != 0) {
-      page->freelistTail->next = entry;
+      page->freelistTail->next = partitionFreelistMask(entry);
     } else {
       page->freelistHead = entry;
     }
@@ -579,6 +591,58 @@ ALWAYS_INLINE void partitionFreeGeneric(PartitionRootGeneric* root, void* ptr)
     partitionFreeWithPage(root, ptr, page);
     spinLockUnlock(&root->lock);
 #endif
+}
+
+// Determines if the given address |ptr| is part of an allocation made from the
+// provided |root|. If |size| is -1 then simply checks if |ptr| was
+// allocated by this allocator; otherwise, validates that the allocation was
+// made with the given |size|.
+ALWAYS_INLINE bool partitionIsAllocatedGeneric(
+    PartitionRootGeneric* root, void* ptr, size_t size) {
+  ASSERT(root->initialized);
+  if (!ptr)
+    return false;
+
+  // Track the allocation back to the page that owns it and validate that
+  // its an expected address that could be served by the page.
+  ptr = partitionCookieFreePointerAdjust(ptr);
+  PartitionPage* page = partitionPointerToPageNoChecks(ptr);
+  if (page == NULL)
+    return false;
+  CHECK(page->bucket);
+  uintptr_t page_offset = reinterpret_cast<uintptr_t>(ptr) -
+      reinterpret_cast<uintptr_t>(partitionPageToPointer(page));
+  if ((page_offset % page->bucket->slotSize) != 0)
+    return false;
+
+  // Now track it back to the partition root and ensure it actually belongs
+  // to this partition.
+  PartitionRootBase* root_base = partitionPageToRoot(page);
+  if (root_base->invertedSelf != ~reinterpret_cast<uintptr_t>(root_base))
+    return false;
+  if (root != root_base)
+    return false;
+
+  // If a size was provided then validate that the allocation was made
+  // with the expected size.
+  if (size != -1) {
+    size = partitionCookieSizeAdjustAdd(size);
+    PartitionBucket* bucket = partitionGenericSizeToBucket(root, size);
+    if (bucket->slotSize != page->bucket->slotSize)
+      return false;
+  }
+
+  // Ensure that the pointer is not in the free list.
+  spinLockLock(&root->lock);
+  PartitionFreelistEntry* entry = page->freelistHead;
+  while (entry) {
+    if (entry == ptr)
+      return false;
+    entry = partitionFreelistMask(entry->next);
+  }
+  spinLockUnlock(&root->lock);
+
+  return true;
 }
 
 // N (or more accurately, N - sizeof(void*)) represents the largest size in

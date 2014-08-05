@@ -24,7 +24,9 @@ namespace heaps {
 TEST(CtMallocHeapTest, FeaturesAreValid) {
   testing::NullMemoryNotifier n;
   CtMallocHeap h(&n);
-  EXPECT_EQ(CtMallocHeap::kHeapReportsReservations, h.GetHeapFeatures());
+  EXPECT_EQ(CtMallocHeap::kHeapReportsReservations |
+                CtMallocHeap::kHeapSupportsIsAllocated,
+            h.GetHeapFeatures());
 }
 
 TEST(CtMallocHeapTest, HeapTest) {
@@ -73,7 +75,7 @@ TEST(CtMallocHeapTest, IsAllocated) {
 
   void* a = h.Allocate(100);
   EXPECT_EQ(0u, reinterpret_cast<uintptr_t>(a) % kShadowRatio);
-  EXPECT_FALSE(h.IsAllocated(a));
+  EXPECT_TRUE(h.IsAllocated(a));
   EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) - 1));
   EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) + 1));
 
