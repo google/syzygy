@@ -33,6 +33,8 @@
         'pdb_type_info_stream_writer.h',
         'symbol.cc',
         'symbol.h',
+        'symbols/image_symbol.cc',
+        'symbols/image_symbol.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
