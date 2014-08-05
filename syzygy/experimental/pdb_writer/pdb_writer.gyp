@@ -29,6 +29,8 @@
         'pdb_section_header_stream_writer.h',
         'pdb_string_table_writer.cc',
         'pdb_string_table_writer.h',
+        'pdb_symbol_record_writer.cc',
+        'pdb_symbol_record_writer.h',
         'pdb_type_info_stream_writer.cc',
         'pdb_type_info_stream_writer.h',
         'symbol.cc',

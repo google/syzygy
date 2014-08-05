@@ -11,14 +11,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Declares a common interface for all types of symbols found in a PDB file
+// and provides partial implementations of it.
 
 #ifndef SYZYGY_EXPERIMENTAL_PDB_WRITER_SYMBOL_H_
 #define SYZYGY_EXPERIMENTAL_PDB_WRITER_SYMBOL_H_
 
 #include <windows.h>
+#include <vector>
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
+#include "base/memory/scoped_ptr.h"
 #include "third_party/cci/Files/CvInfo.h"
 
 namespace pdb {
@@ -75,6 +80,8 @@ class TypedSymbolImpl : public SymbolBaseImpl {
   // The symbol type.
    Microsoft_Cci_Pdb::SYM type_;
 };
+
+typedef std::vector<scoped_ptr<Symbol>> SymbolVector;
 
 }  // namespace pdb
 
