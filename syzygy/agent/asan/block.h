@@ -87,6 +87,7 @@
 
 #include "base/basictypes.h"
 #include "syzygy/agent/asan/constants.h"
+#include "syzygy/agent/asan/heap_manager.h"
 
 namespace agent {
 namespace asan {
@@ -179,12 +180,8 @@ struct BlockTrailer {
   uint32 alloc_ticks;
   // The time at which the block was freed (zero if not yet freed).
   uint32 free_ticks;
-  // A reserved field that will be used to store 'user data', for example the
-  // heap ID.
-  // TODO(sebmarchand): Lift this out if it appears to be useless, we keep this
-  //     here temporarily because there's some expectation on the size of
-  //     BlockTrailer in the layout functions.
-  size_t reserved;
+  // The ID of the heap that allocated the block.
+  uint32 heap_id;
 };
 #pragma pack(pop)
 COMPILE_ASSERT((sizeof(BlockTrailer) % kShadowRatio) == (kShadowRatio / 2),

@@ -266,7 +266,7 @@ void ErrorInfoGetAsanBlockInfo(StackCaptureCache* stack_cache,
   asan_block_info->alloc_stack_size = 0;
   asan_block_info->free_stack_size = 0;
   asan_block_info->corrupt = IsBlockCorrupt(
-      reinterpret_cast<const uint8*>(asan_block_info->header));
+      reinterpret_cast<const uint8*>(asan_block_info->header), NULL);
 
   // Copy the alloc and free stack traces if they're valid.
   if (stack_cache->StackCapturePointerIsValid(header->alloc_stack)) {

@@ -46,7 +46,17 @@ void* WinHeap::Allocate(size_t bytes) {
 
 bool WinHeap::Free(void* alloc) {
   DCHECK_NE(static_cast<HANDLE>(NULL), heap_);
-  if (::HeapFree(heap_, 0, alloc) != TRUE)
+
+  // According to the MSDN documentation about HeapFree the return value needs
+  // to be cast to BOOLEAN in order to support Windows XP:
+  //     Prior to Windows Vista, HeapFree has a bug: only the low byte of the
+  //     return value is correctly indicative of the result.  This is because
+  //     the implementation returns type BOOLEAN (BYTE) despite the prototype
+  //     declaring it as returning BOOL (int).
+  //
+  //     If you care about the return value of HeapFree, and you need to support
+  //     XP and 2003, cast the return value to BOOLEAN before checking it.
+  if (static_cast<BOOLEAN>(::HeapFree(heap_, 0, alloc)) != TRUE)
     return false;
   return true;
 }

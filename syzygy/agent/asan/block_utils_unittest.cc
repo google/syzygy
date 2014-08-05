@@ -41,9 +41,9 @@ TEST_F(BlockUtilTest, IsBlockCorruptInvalidMagicNumber) {
   ASSERT_NE(reinterpret_cast<BlockHeader*>(NULL), header);
 
   header->magic = ~kBlockHeaderMagic;
-  EXPECT_TRUE(IsBlockCorrupt(reinterpret_cast<uint8*>(header)));
+  EXPECT_TRUE(IsBlockCorrupt(reinterpret_cast<uint8*>(header), NULL));
   header->magic = kBlockHeaderMagic;
-  EXPECT_FALSE(IsBlockCorrupt(reinterpret_cast<uint8*>(header)));
+  EXPECT_FALSE(IsBlockCorrupt(reinterpret_cast<uint8*>(header), NULL));
 
   ASSERT_TRUE(proxy_.Free(0, mem));
 }
@@ -74,14 +74,14 @@ TEST_F(BlockUtilTest, IsBlockCorruptInvalidChecksum) {
     reinterpret_cast<int32*>(mem)[0] = rand();
 
     // Try again for all but the last attempt if this appears to have failed.
-    if (!IsBlockCorrupt(reinterpret_cast<uint8*>(header)) &&
+    if (!IsBlockCorrupt(reinterpret_cast<uint8*>(header), NULL) &&
         i + 1 < kChecksumRepeatCount) {
       continue;
     }
 
-    ASSERT_TRUE(IsBlockCorrupt(reinterpret_cast<uint8*>(header)));
+    ASSERT_TRUE(IsBlockCorrupt(reinterpret_cast<uint8*>(header), NULL));
     reinterpret_cast<int32*>(mem)[0] = original_value;
-    ASSERT_FALSE(IsBlockCorrupt(reinterpret_cast<uint8*>(header)));
+    ASSERT_FALSE(IsBlockCorrupt(reinterpret_cast<uint8*>(header), NULL));
     break;
   }
 }

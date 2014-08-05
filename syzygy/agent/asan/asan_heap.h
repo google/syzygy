@@ -298,7 +298,7 @@ class HeapProxy {
   // @returns true on success, false otherwise.
   bool TrimQuarantine();
 
-  // Free a block that has been popped from the quarantine. This reports an heap
+  // Free a block that has been popped from the quarantine. This reports a heap
   // error if the block has been corrupt while in the quarantine.
   // @param block The block to be freed.
   // @returns true if the block has been successfully freed, false otherwise.

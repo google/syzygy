@@ -99,10 +99,10 @@ class AsanRuntime {
   // returns true on success, false otherwise.
   static bool GetAsanFlagsEnvVar(std::wstring* env_var_wstr);
 
-  // Add an heap proxy to the heap proxies list.
+  // Add a heap proxy to the heap proxies list.
   void AddHeap(HeapProxy* heap);
 
-  // Remove an heap proxy from the heap proxies list.
+  // Remove a heap proxy from the heap proxies list.
   void RemoveHeap(HeapProxy* heap);
 
   // Returns true if we should ignore the given @p stack_id, false

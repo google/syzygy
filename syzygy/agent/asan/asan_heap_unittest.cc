@@ -325,14 +325,12 @@ TEST_F(HeapTest, UnpoisonsQuarantine) {
   for (size_t i = shadow_start; i < shadow_start + shadow_alloc_size; ++i)
     ASSERT_NE(TestShadow::kHeapAddressableByte, TestShadow::shadow_[i]);
 
-
   // Flush the quarantine.
   proxy_.SetQuarantineMaxSize(0);
 
   // Assert that the quarantine has been correctly unpoisoned.
   for (size_t i = shadow_start; i < shadow_start + shadow_alloc_size; ++i)
     ASSERT_EQ(TestShadow::kHeapAddressableByte, TestShadow::shadow_[i]);
-
 }
 
 TEST_F(HeapTest, Realloc) {
@@ -960,12 +958,6 @@ TEST_F(HeapTest, CloneBlock) {
               fake_block_2.buffer_align_begin + i));
     }
   }
-}
-
-TEST_F(HeapTest, ErrorInfoGetBadAccessInformation) {
-}
-
-TEST_F(HeapTest, GetBadAccessInformationNestedBlock) {
 }
 
 TEST_F(HeapTest, GetAllocSizeViaShadow) {

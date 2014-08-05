@@ -62,7 +62,7 @@ void HeapChecker::GetCorruptRangesInSlab(const uint8* lower_bound,
   // Iterates over the blocks.
   BlockInfo block_info = {};
   while (shadow_walker.Next(&block_info)) {
-    bool current_block_is_corrupt = IsBlockCorrupt(block_info.block);
+    bool current_block_is_corrupt = IsBlockCorrupt(block_info.block, NULL);
     // If the current block is corrupt and |current_corrupt_range| is NULL
     // then this means that the current block is at the beginning of a corrupt
     // range.
