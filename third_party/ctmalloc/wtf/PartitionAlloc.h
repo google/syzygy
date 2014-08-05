@@ -229,6 +229,9 @@ struct PartitionFreelistEntry {
 // exists) will be pulled from the free list on to the active list.
 struct PartitionPage {
     PartitionFreelistEntry* freelistHead;
+#ifdef CTMALLOC_LRU_FREELIST
+    PartitionFreelistEntry* freelistTail;
+#endif
     PartitionPage* nextPage;
     PartitionBucket* bucket;
     int16_t numAllocatedSlots; // Deliberately signed, -1 for free page, -n for full pages.
@@ -430,6 +433,10 @@ ALWAYS_INLINE void* partitionBucketAlloc(PartitionRootBase* root, int flags, siz
         ASSERT(partitionPointerIsValid(ret));
         PartitionFreelistEntry* newHead = partitionFreelistMask(static_cast<PartitionFreelistEntry*>(ret)->next);
         page->freelistHead = newHead;
+#ifdef CTMALLOC_LRU_FREELIST
+        if (page->freelistHead == 0)
+          page->freelistTail = 0;
+#endif
         ASSERT(!ret || partitionPointerIsValid(ret));
         page->numAllocatedSlots++;
     } else {
@@ -485,8 +492,24 @@ ALWAYS_INLINE void partitionFreeWithPage(
     RELEASE_ASSERT(ptr != freelistHead); // Catches an immediate double free.
     ASSERT(!freelistHead || ptr != partitionFreelistMask(freelistHead->next)); // Look for double free one level deeper in debug.
     PartitionFreelistEntry* entry = static_cast<PartitionFreelistEntry*>(ptr);
-    entry->next = partitionFreelistMask(freelistHead);
-    page->freelistHead = entry;
+
+#ifdef CTMALLOC_LRU_FREELIST
+    // Attach the freed block to the tail of the freelist, ensuring we reuse
+    // memory in an LRU fashion. This reduces cache efficiency but maximizes
+    // time between reuse in SyzyASan, increasing our chances of finding bugs
+    // without memory aliasing occurring.
+    entry->next = partitionFreelistMask(0);
+    if (page->freelistTail != 0) {
+      page->freelistTail->next = entry;
+    } else {
+      page->freelistHead = entry;
+    }
+    page->freelistTail = entry;
+#else
+  // Attach to the head of the MRU freelist.
+  entry->next = partitionFreelistMask(page->freelistHead);
+  page->freelistHead = entry;
+#endif
     --page->numAllocatedSlots;
     if (UNLIKELY(page->numAllocatedSlots <= 0))
         partitionFreeSlowPath(root, page);

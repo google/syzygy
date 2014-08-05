@@ -396,6 +396,9 @@ static ALWAYS_INLINE void partitionPageReset(PartitionPage* page, PartitionBucke
     page->nextPage = 0;
     // NULLing the freelist is not strictly necessary but it makes an ASSERT in partitionPageFillFreelist simpler.
     page->freelistHead = 0;
+#ifdef CTMALLOC_LRU_FREELIST
+    page->freelistTail = 0;
+#endif
     page->pageOffset = 0;
     page->freeCacheIndex = -1;
     size_t numPartitionPages = partitionBucketPartitionPages(bucket);
@@ -419,6 +422,9 @@ static ALWAYS_INLINE char* partitionPageAllocAndFillFreelist(PartitionPage* page
     ASSERT(numSlots + page->numAllocatedSlots == partitionBucketSlots(bucket));
     // Similarly, make explicitly sure that the freelist is empty.
     ASSERT(!page->freelistHead);
+#ifdef CTMALLOC_LRU_FREELIST
+    ASSERT(!page->freelistTail);
+#endif
     ASSERT(page->numAllocatedSlots >= 0);
 
     size_t size = bucket->slotSize;
@@ -464,8 +470,14 @@ static ALWAYS_INLINE char* partitionPageAllocAndFillFreelist(PartitionPage* page
             entry = nextEntry;
         }
         entry->next = partitionFreelistMask(0);
+#ifdef CTMALLOC_LRU_FREELIST
+        page->freelistTail = entry;
+#endif
     } else {
         page->freelistHead = 0;
+#ifdef CTMALLOC_LRU_FREELIST
+        page->freelistTail = 0;
+#endif
     }
     return returnObject;
 }
@@ -572,6 +584,9 @@ static ALWAYS_INLINE void* partitionDirectMap(PartitionRootBase* root, int flags
     PartitionPage* page = partitionPointerToPageNoAlignmentCheck(ret);
     PartitionBucket* bucket = reinterpret_cast<PartitionBucket*>(reinterpret_cast<char*>(page) + kPageMetadataSize);
     page->freelistHead = 0;
+#ifdef CTMALLOC_LRU_FREELIST
+    page->freelistTail = 0;
+#endif
     page->nextPage = 0;
     page->bucket = bucket;
     page->numAllocatedSlots = 1;
@@ -634,6 +649,10 @@ void* partitionAllocSlowPath(PartitionRootBase* root, int flags, size_t size, Pa
         if (LIKELY(newPage->freelistHead != 0)) {
             PartitionFreelistEntry* ret = newPage->freelistHead;
             newPage->freelistHead = partitionFreelistMask(ret->next);
+#ifdef CTMALLOC_LRU_FREELIST
+            if (newPage->freelistHead == 0)
+              newPage->freelistTail = 0;
+#endif
             newPage->numAllocatedSlots++;
             return ret;
         }
@@ -646,6 +665,9 @@ void* partitionAllocSlowPath(PartitionRootBase* root, int flags, size_t size, Pa
     if (LIKELY(newPage != 0)) {
         ASSERT(newPage != &PartitionRootGeneric::gSeedPage);
         ASSERT(!newPage->freelistHead);
+#ifdef CTMALLOC_LRU_FREELIST
+        ASSERT(!newPage->freelistTail);
+#endif
         ASSERT(!newPage->numAllocatedSlots);
         ASSERT(!newPage->numUnprovisionedSlots);
         ASSERT(newPage->freeCacheIndex == -1);
@@ -666,6 +688,9 @@ void* partitionAllocSlowPath(PartitionRootBase* root, int flags, size_t size, Pa
 static ALWAYS_INLINE void partitionFreePage(PartitionPage* page)
 {
     ASSERT(page->freelistHead);
+#ifdef CTMALLOC_LRU_FREELIST
+    ASSERT(page->freelistTail);
+#endif
     ASSERT(!page->numAllocatedSlots);
     partitionUnusePage(page);
     // We actually leave the freed page in the active list. We'll sweep it on
@@ -674,6 +699,9 @@ static ALWAYS_INLINE void partitionFreePage(PartitionPage* page)
     // which is critical in keeping the page metadata structure down to 32
     // bytes in size.
     page->freelistHead = 0;
+#ifdef CTMALLOC_LRU_FREELIST
+    page->freelistTail = 0;
+#endif
     page->numUnprovisionedSlots = 0;
 }
 
