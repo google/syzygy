@@ -25,7 +25,7 @@
 #include "syzygy/experimental/pdb_writer/symbol.h"
 
 namespace pdb {
-namespace symbol {
+namespace symbols {
 
 // Represents a symbol that associates a name and a type with a location in an
 // image.
@@ -66,7 +66,7 @@ class ImageSymbol : public TypedSymbolImpl {
   std::string name_;
 };
 
-}  // namespace symbol
+}  // namespace symbols
 }  // namespace pdb
 
 #endif  // SYZYGY_EXPERIMENTAL_PDB_WRITER_SYMBOLS_IMAGE_SYMBOL_H_

@@ -211,6 +211,55 @@ struct SymbolRecordHeader {
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(SymbolRecordHeader, 4);
 
+// Header of the public stream.
+// This comes from observations made on multiple PDB files.
+struct PublicStreamHeader {
+  // The offset of the sorted table of public symbols, in bytes and relative
+  // to the |unknown| field of this header.
+  uint32 sorted_symbols_offset;
+
+  // The size of the sorted table of public symbols, in bytes.
+  // This is equal to 4 times the number of public symbols.
+  uint32 sorted_symbols_size;
+
+  // These fields are always equal to zero.
+  uint32 zero_0;
+  uint32 zero_1;
+  uint32 zero_2;
+  uint32 zero_3;
+
+  // Padding field, which can have any value.
+  uint32 padding;
+
+  // An unknown field that is always equal to -1.
+  uint32 unknown;
+
+  // The signature of the stream, which is equal to |kPublicStreamSignature|.
+  uint32 signature;
+
+  // The size of the table of public symbol offsets.
+  // This is equal to 8 times the number of public symbols.
+  uint32 offset_table_size;
+
+  // The size of the hash table of public symbols, in bytes. This includes
+  // a 512-byte bitset with a 1 in used buckets followed by an array identifying
+  // a representative of each bucket.
+  uint32 hash_table_size;
+};
+COMPILE_ASSERT_IS_POD_OF_SIZE(PublicStreamHeader, 44);
+
+// Structure found in the public stream to define the offset of a public symbol
+// in the symbol record stream. This comes from observations made on multiple
+// PDB files.
+struct PublicStreamSymbolOffset {
+  // Offset of the symbol in the symbol record stream.
+  uint32 offset;
+
+  // An unknown field that is always equal to 1.
+  uint32 unknown;
+};
+COMPILE_ASSERT_IS_POD_OF_SIZE(PublicStreamSymbolOffset, 8);
+
 // Multi-Stream Format (MSF) Header
 // See http://code.google.com/p/pdbparser/wiki/MSF_Format
 struct PdbHeader {

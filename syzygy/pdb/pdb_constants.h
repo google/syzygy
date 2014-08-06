@@ -59,6 +59,9 @@ const size_t kDbiStream = 3;
 // The version we've observed for the Dbi stream.
 const uint32 kDbiStreamVersion = 0x01310977;
 
+// The signature we've observed in the header of the public stream.
+const uint32 kPublicStreamSignature = 0xF12F091A;
+
 // This is the magic value found at the start of all MSF v7.00 files.
 const size_t kPdbHeaderMagicStringSize = 32;
 extern const uint8 kPdbHeaderMagicString[kPdbHeaderMagicStringSize];

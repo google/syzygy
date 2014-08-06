@@ -18,7 +18,7 @@
 #include "syzygy/pdb/pdb_stream.h"
 
 namespace pdb {
-namespace symbol {
+namespace symbols {
 
 namespace {
 
@@ -59,5 +59,5 @@ bool ImageSymbol::WritePayload(WritablePdbStream* stream) const {
   return true;
 }
 
-}  // namespace symbol
+}  // namespace symbols
 }  // namespace pdb
