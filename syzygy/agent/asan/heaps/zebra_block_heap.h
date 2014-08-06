@@ -27,6 +27,8 @@
 #include "base/logging.h"
 #include "syzygy/agent/asan/constants.h"
 #include "syzygy/agent/asan/heap.h"
+#include "syzygy/agent/asan/memory_notifier.h"
+#include "syzygy/agent/asan/quarantine.h"
 #include "syzygy/common/recursive_lock.h"
 
 namespace agent {
@@ -36,13 +38,27 @@ namespace heaps {
 // A zebra-stripe heap allocates a (maximum) predefined amount of memory
 // and serves allocation requests with size less than or equal to the system
 // page size.
-// It divides the memory pages into "even" and "odd" types (like zebra-stripes).
+// It divides the memory into 'slabs'; each slab consist of an "even" page
+// followed by an "odd" page (like zebra-stripes).
+//
+//                             +-----------slab 1----------+
+// +-------------+-------------+-------------+-------------+------------- - -+
+// |even 4k page | odd 4k page |even 4k page | odd 4k page |             ... |
+// +-------------+-------------+-------------+-------------+------------- - -+
+// +-----------slab 0----------+                           +---slab 2---- - -+
 //
 // All the allocations are done in the even pages, just before the "odd" pages.
 // The "odd" pages can be protected againt read/write which gives a basic
 // mechanism for detecting buffer overflows.
-class ZebraBlockHeap : public BlockHeapInterface {
+class ZebraBlockHeap : public BlockHeapInterface,
+                       public BlockQuarantineInterface {
  public:
+  // The size of a 2-page slab (2 * kPageSize).
+  static const size_t kSlabSize;
+
+  // The default ratio of the memory used by the quarantine.
+  static const float kDefaultQuarantineRatio;
+
   // Constructor.
   // @param heap_size The amount of memory reserved by the heap in bytes.
   explicit ZebraBlockHeap(size_t heap_size);
@@ -69,23 +85,50 @@ class ZebraBlockHeap : public BlockHeapInterface {
   virtual bool FreeBlock(const BlockInfo& block_info);
   // @}
 
+  // @name BlockQuarantineInterface functions.
+  // @{
+  virtual bool Push(BlockHeader* const &object);
+  virtual bool Pop(BlockHeader** object);
+  virtual void Empty(std::vector<BlockHeader*>* objects);
+  virtual size_t GetCount();
+  // @}
+
+  // Get the ratio of the memory used by the quarantine.
+  float quarantine_ratio() const { return quarantine_ratio_; }
+
+  // Set the ratio of the memory used by the quarantine.
+  void set_quarantine_ratio(float quarantine_ratio);
+
  protected:
-  const size_t kInvalidStripeIndex = -1;
+  // Checks if the quarantine invariant is satisfied.
+  // @returns true if the quarantine invariant is satisfied, false otherwise.
+  bool QuarantineInvariantIsSatisfied();
 
-  // Gives the starting address of a stripe.
-  // @param index The 0-based index of the stripe.
-  // @returns the starting address of the stripe.
-  void* GetStripeAddress(const size_t index);
+  // Gives the 0-based index of the slab containing address.
+  // @param address address.
+  // @returns The 0-based index of the slab containing 'address', or
+  //          kInvalid index if the address is not valid.
+  size_t GetSlabIndex(void* address);
 
-  // Gives the index of the stripe containing "address", but only if the
-  // if the address agrees with the allocated object in that stripe.
-  // @param address An address which belongs to some stripe.
-  // @returns The index of the stripe that allocated the address, or
-  //     kInvalidStripe otherwise.
-  size_t GetStripeIndex(const void* address);
+  // Gives the addres of the given slab.
+  // @param index 0-based index of the slab.
+  // @returns The address of the slab, or NULL if the index is invalid.
+  uint8* GetSlabAddress(size_t index);
 
-  // Total number of stripes (odd and even).
-  size_t stripe_count_;
+  static const size_t kInvalidSlabIndex = -1;
+
+  // The set of possible states of the memory addresses.
+  enum SlabState {
+    kFreeSlab,
+    kAllocatedSlab,
+    kQuarantinedSlab
+  };
+
+  // Describes the slab state.
+  struct SlabInfo {
+    SlabState state;
+    uint8* allocated_address;
+  };
 
   // Heap memory address.
   uint8* heap_address_;
@@ -93,17 +136,27 @@ class ZebraBlockHeap : public BlockHeapInterface {
   // The heap size in bytes.
   size_t heap_size_;
 
+  // The number of slabs.
+  size_t slab_count_;
+
   // The maximum number of allocations this heap can handle.
   size_t max_number_of_allocations_;
 
-  // Holds the indices of free (even) stripes.
-  // Freed allocations are pushed to the queue, while new allocations are
-  // taken from the *front* of the queue, so as to maximize the time a free
-  // page is freed.
-  std::queue<size_t> free_stripes_;
+  // The ratio [0 .. 1] of the memory used by the quarantine. Under lock_.
+  float quarantine_ratio_;
 
-  // Maps the stripe index to the single allocated address inside the stripe.
-  std::vector<void*> allocated_address_;
+  typedef std::queue<size_t> SlabIndexQueue;
+
+  // Holds the indices of free slabs. Under lock_.
+  SlabIndexQueue free_slabs_;
+
+  // Holds the indices of the quarantined slabs. Under lock_.
+  SlabIndexQueue quarantine_;
+
+  typedef std::vector<SlabInfo> SlabInfoVector;
+
+  // Holds the information related to slabs. Under lock_.
+  SlabInfoVector slab_info_;
 
   // The global lock for this allocator.
   common::RecursiveLock lock_;

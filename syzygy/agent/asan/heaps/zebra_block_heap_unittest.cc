@@ -33,6 +33,7 @@ using common::AlignUp;
 class TestZebraBlockHeap : public ZebraBlockHeap {
  public:
   using ZebraBlockHeap::max_number_of_allocations_;
+  using ZebraBlockHeap::QuarantineInvariantIsSatisfied;
 
   static const size_t kInitialHeapSize = 8 * (1 << 20);
 
@@ -41,10 +42,11 @@ class TestZebraBlockHeap : public ZebraBlockHeap {
 
   // Allows to know if the heap has reached its maximum capacity.
   // @note The heap can handle a fixed number of allocations.
-  // @returns true is the heap is full (no more allocations allowed),
+  // @returns true if the heap is full (no more allocations allowed),
   // false otherwise.
-  bool IsFull() {
-    return free_stripes_.empty();
+  bool IsHeapFull() {
+    // No free slabs and no quarantined memory available.
+    return free_slabs_.empty();
   }
 };
 
@@ -52,7 +54,7 @@ class TestZebraBlockHeap : public ZebraBlockHeap {
 
 TEST(ZebraBlockHeapTest, FeaturesAreValid) {
   TestZebraBlockHeap h;
-  EXPECT_EQ(HeapInterface::kHeapReportsReservations |
+  EXPECT_EQ(HeapInterface::kHeapSupportsIsAllocated |
                 HeapInterface::kHeapReportsReservations,
             h.GetHeapFeatures());
 }
@@ -317,7 +319,7 @@ TEST(ZebraBlockHeapTest, AllocateBlockCornerCases) {
         size_t trailer_size = kSizes[k];
 
         // Check if there is capacity to do the allocation.
-        EXPECT_FALSE(h.IsFull());
+        EXPECT_FALSE(h.IsHeapFull());
 
         void* alloc = h.AllocateBlock(body_size,
                                       header_size,
@@ -365,6 +367,43 @@ TEST(ZebraBlockHeapTest, IsAllocated) {
 
   h.Free(a);
   EXPECT_FALSE(h.IsAllocated(a));
+}
+
+TEST(ZebraBlockHeapTest, PushPopInvariant) {
+  TestZebraBlockHeap h;
+  BlockLayout layout = {};
+  BlockInfo block = {};
+
+  // Fill the heap.
+  std::vector<BlockInfo> blocks;
+  for (size_t i = 0; i < h.max_number_of_allocations_; i++) {
+    void* alloc = h.AllocateBlock(0xFF, 0, 0, &layout);
+    EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+    EXPECT_TRUE(IsAligned(alloc, kShadowRatio));
+    BlockInitialize(layout, alloc, false, &block);
+    blocks.push_back(block);
+    EXPECT_TRUE(h.Push(block.header));
+  }
+
+  for (size_t i = 0; i < h.max_number_of_allocations_; i++) {
+    BlockHeader* dummy;
+    bool old_invariant = h.QuarantineInvariantIsSatisfied();
+    if (h.Pop(&dummy)) {
+      EXPECT_FALSE(old_invariant);
+    } else {
+      EXPECT_TRUE(old_invariant);
+      EXPECT_TRUE(h.QuarantineInvariantIsSatisfied());
+      break;
+    }
+  }
+
+  // Clear the quarantine.
+  std::vector<BlockHeader*> objects;
+  h.Empty(&objects);
+
+  // Blocks can be freed now.
+  for (size_t i = 0; i < blocks.size(); i++)
+    EXPECT_TRUE(h.FreeBlock(blocks[i]));
 }
 
 }  // namespace heaps

@@ -22,25 +22,34 @@ namespace agent {
 namespace asan {
 namespace heaps {
 
-ZebraBlockHeap::ZebraBlockHeap(size_t heap_size) : heap_size_(heap_size) {
+const size_t ZebraBlockHeap::kSlabSize = 2 * kPageSize;
+const float ZebraBlockHeap::kDefaultQuarantineRatio = 0.25f;
+
+ZebraBlockHeap::ZebraBlockHeap(size_t heap_size) {
+  // Makes the heap_size a multiple of kSlabSize to avoid incomplete slabs
+  // at the end of the reserved memory.
+  heap_size_ = common::AlignUp(heap_size, kSlabSize);
+
   heap_address_ = reinterpret_cast<uint8*>(
-      ::VirtualAlloc(NULL, heap_size_,
-                     MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE));
+      ::VirtualAlloc(NULL,
+                     heap_size_,
+                     MEM_RESERVE | MEM_COMMIT,
+                     PAGE_READWRITE));
 
   CHECK_NE(reinterpret_cast<uint8*>(NULL), heap_address_);
-
-  // Assumes base_address is page_size aligned.
   DCHECK(common::IsAligned(heap_address_, kPageSize));
 
-  stripe_count_ = heap_size_ / kPageSize;
-  allocated_address_.resize(stripe_count_, NULL);
+  slab_count_ = heap_size_ / kSlabSize;
+  slab_info_.resize(slab_count_);
 
-  // Ensures that every "even" page has a reserved "odd" page after.
-  // If the last page is "even" it is discarded.
-  for (size_t i = 0; i + 1 < stripe_count_; i += 2)
-    free_stripes_.push(i);
+  for (size_t i = 0; i < slab_count_; ++i) {
+    slab_info_[i].allocated_address = NULL;
+    slab_info_[i].state = kFreeSlab;
+    free_slabs_.push(i);
+  }
 
-  max_number_of_allocations_ = free_stripes_.size();
+  max_number_of_allocations_ = slab_count_;
+  quarantine_ratio_ = kDefaultQuarantineRatio;
 }
 
 ZebraBlockHeap::~ZebraBlockHeap() {
@@ -49,56 +58,64 @@ ZebraBlockHeap::~ZebraBlockHeap() {
 }
 
 uint32 ZebraBlockHeap::GetHeapFeatures() const {
-  return kHeapReportsReservations | kHeapReportsReservations;
+  return kHeapSupportsIsAllocated | kHeapReportsReservations;
 }
 
 void* ZebraBlockHeap::Allocate(size_t bytes) {
   if (bytes == 0 || bytes > kPageSize)
     return NULL;
-
   common::AutoRecursiveLock lock(lock_);
-
-  if (free_stripes_.empty())
+  if (free_slabs_.empty())
     return NULL;
-  size_t stripe_index = free_stripes_.front();
-  free_stripes_.pop();
 
-  uint8* page_address = reinterpret_cast<uint8*>(
-      GetStripeAddress(stripe_index));
+  size_t slab_index = free_slabs_.front();
+  DCHECK_NE(kInvalidSlabIndex, slab_index);
+  free_slabs_.pop();
+  uint8* slab_address = GetSlabAddress(slab_index);
+  DCHECK_NE(reinterpret_cast<uint8*>(NULL), slab_address);
 
-  // Use the memory at the end of the page.
-  uint8* alloc = page_address + kPageSize - bytes;
+  // Use the memory at the end of the even page.
+  uint8* alloc = slab_address + kPageSize - bytes;
   alloc = common::AlignDown(alloc, kShadowRatio);
 
-  allocated_address_[stripe_index] = alloc;
+  slab_info_[slab_index].state = kAllocatedSlab;
+  slab_info_[slab_index].allocated_address = alloc;
   return alloc;
 }
 
 bool ZebraBlockHeap::Free(void* alloc) {
   if (alloc == NULL)
     return true;
-
-  size_t stripe_index = GetStripeIndex(alloc);
-  if (stripe_index == kInvalidStripeIndex)
+  common::AutoRecursiveLock lock(lock_);
+  size_t slab_index = GetSlabIndex(alloc);
+  if (slab_index == kInvalidSlabIndex)
+    return false;
+  if (slab_info_[slab_index].allocated_address != alloc)
     return false;
 
-  common::AutoRecursiveLock lock(lock_);
+  // Memory must be released from the quarantine before calling Free.
+  DCHECK_NE(kQuarantinedSlab, slab_info_[slab_index].state);
 
-  allocated_address_[stripe_index] = NULL;
-  free_stripes_.push(stripe_index);
+  if (slab_info_[slab_index].state == kFreeSlab)
+    return false;
 
+  // Make the slab available for allocations.
+  slab_info_[slab_index].state = kFreeSlab;
+  slab_info_[slab_index].allocated_address = NULL;
+  free_slabs_.push(slab_index);
   return true;
 }
 
 bool ZebraBlockHeap::IsAllocated(void* alloc) {
   if (alloc == NULL)
     return false;
-
-  size_t stripe_index = GetStripeIndex(alloc);
-  if (stripe_index == kInvalidStripeIndex)
+  common::AutoRecursiveLock lock(lock_);
+  size_t slab_index = GetSlabIndex(alloc);
+  if (slab_index == kInvalidSlabIndex)
     return false;
-
-  return true;
+  if (slab_info_[slab_index].allocated_address != alloc)
+    return false;
+  return (slab_info_[slab_index].state != kFreeSlab);
 }
 
 void ZebraBlockHeap::Lock() {
@@ -114,7 +131,6 @@ void* ZebraBlockHeap::AllocateBlock(size_t size,
                                     size_t min_right_redzone_size,
                                     BlockLayout* layout) {
   DCHECK_NE(static_cast<BlockLayout*>(NULL), layout);
-
   // Abort if the redzones do not fit in a page. Even if the allocation
   // is possible it will lead to a non-standard block layout.
   if (min_left_redzone_size + size > kPageSize)
@@ -130,15 +146,13 @@ void* ZebraBlockHeap::AllocateBlock(size_t size,
                   std::max(kPageSize, min_right_redzone_size),
                   layout);
 
-  if (layout->block_size != 2 * kPageSize)
+  if (layout->block_size != kSlabSize)
     return NULL;
-
   size_t right_redzone_size = layout->trailer_size +
       layout->trailer_padding_size;
   // Part of the body lies inside an "odd" page.
   if (right_redzone_size < kPageSize)
     return NULL;
-
   // There should be less than kShadowRatio bytes between the body end
   // and the "odd" page.
   if (right_redzone_size - kPageSize >= kShadowRatio)
@@ -154,36 +168,94 @@ void* ZebraBlockHeap::AllocateBlock(size_t size,
 
 bool ZebraBlockHeap::FreeBlock(const BlockInfo& block_info) {
   DCHECK_NE(static_cast<uint8*>(NULL), block_info.block);
-
   if (!Free(block_info.block))
     return false;
-
   return true;
 }
 
-void* ZebraBlockHeap::GetStripeAddress(const size_t index) {
-  return heap_address_ + (kPageSize * index);
+bool ZebraBlockHeap::Push(BlockHeader* const &object) {
+  common::AutoRecursiveLock lock(lock_);
+  size_t slab_index = GetSlabIndex(reinterpret_cast<void*>(object));
+  if (slab_index == kInvalidSlabIndex)
+    return false;
+  if (slab_info_[slab_index].state != kAllocatedSlab)
+    return false;
+  if (slab_info_[slab_index].allocated_address !=
+      reinterpret_cast<void*>(object)) {
+    return false;
+  }
+
+  quarantine_.push(slab_index);
+  slab_info_[slab_index].state = kQuarantinedSlab;
+  return true;
 }
 
-size_t ZebraBlockHeap::GetStripeIndex(const void* address) {
-  DCHECK_NE(reinterpret_cast<const uint8*>(NULL), address);
-  DCHECK_GE(reinterpret_cast<const uint8*>(address), heap_address_);
-  size_t stripe_index =
-      (reinterpret_cast<const uint8*>(address)-heap_address_) / kPageSize;
-
-  // Address inside an "odd" (protected) page.
-  if (stripe_index & 1)
-    return kInvalidStripeIndex;
-  if (stripe_index >= stripe_count_)
-    return kInvalidStripeIndex;
-
+bool ZebraBlockHeap::Pop(BlockHeader** block) {
   common::AutoRecursiveLock lock(lock_);
 
-  // The address must match the one returned to the caller by Allocate.
-  if (address != allocated_address_[stripe_index])
-    return kInvalidStripeIndex;
+  if (QuarantineInvariantIsSatisfied())
+    return false;
 
-  return stripe_index;
+  size_t slab_index = quarantine_.front();
+  DCHECK_NE(kInvalidSlabIndex, slab_index);
+  quarantine_.pop();
+
+  void* alloc = slab_info_[slab_index].allocated_address;
+  DCHECK_NE(static_cast<void*>(NULL), alloc);
+  *block = reinterpret_cast<BlockHeader*>(alloc);
+
+  DCHECK_EQ(kQuarantinedSlab, slab_info_[slab_index].state);
+  slab_info_[slab_index].state = kAllocatedSlab;
+  return true;
+}
+
+void ZebraBlockHeap::Empty(ObjectVector* objects) {
+  common::AutoRecursiveLock lock(lock_);
+  BlockHeader* object = NULL;
+  while (!quarantine_.empty()) {
+    size_t slab_index = quarantine_.front();
+    DCHECK_NE(kInvalidSlabIndex, slab_index);
+    quarantine_.pop();
+
+    object = reinterpret_cast<BlockHeader*>(
+        slab_info_[slab_index].allocated_address);
+
+    DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), object);
+
+    // Do not free the slab, only release it from the quarantine.
+    slab_info_[slab_index].state = kAllocatedSlab;
+    objects->push_back(object);
+  }
+}
+
+size_t ZebraBlockHeap::GetCount() {
+  common::AutoRecursiveLock lock(lock_);
+  return quarantine_.size();
+}
+
+void ZebraBlockHeap::set_quarantine_ratio(float quarantine_ratio) {
+  DCHECK_LE(0, quarantine_ratio);
+  DCHECK_GE(1, quarantine_ratio);
+  common::AutoRecursiveLock lock(lock_);
+  quarantine_ratio_ = quarantine_ratio;
+}
+
+bool ZebraBlockHeap::QuarantineInvariantIsSatisfied() {
+  return quarantine_.empty() ||
+         (quarantine_.size() / static_cast<float>(slab_count_) <=
+             quarantine_ratio_);
+}
+
+uint8* ZebraBlockHeap::GetSlabAddress(size_t index) {
+  if (index >= slab_count_)
+    return NULL;
+  return heap_address_ + index * kSlabSize;
+}
+
+size_t ZebraBlockHeap::GetSlabIndex(void* address) {
+  if (address < heap_address_ || address >= heap_address_ + heap_size_)
+    return kInvalidSlabIndex;
+  return (reinterpret_cast<uint8*>(address) - heap_address_) / kSlabSize;
 }
 
 }  // namespace heaps
