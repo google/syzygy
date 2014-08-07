@@ -18,6 +18,7 @@
 #ifndef SYZYGY_AGENT_ASAN_ERROR_INFO_H_
 #define SYZYGY_AGENT_ASAN_ERROR_INFO_H_
 
+#include "base/callback.h"
 #include "syzygy/agent/asan/stack_capture.h"
 
 namespace agent {
@@ -158,6 +159,15 @@ struct AsanErrorInfo {
   // |corrupt_ranges_reported| is zero.
   AsanCorruptBlockRange* corrupt_ranges;
 };
+
+// This callback allows a heap manager to report heap consistency problems that
+// it encounters during its operation. This is usually plumbed into the ASan
+// runtime so that the errors may be appropriately reported.
+//
+// |asan_error_info| contains information about the primary heap error that
+// was encountered. It is guaranteed to be on the stack.
+typedef base::Callback<void(AsanErrorInfo* asan_error_info)>
+    HeapErrorCallback;
 
 // Returns a string describing a bad access kind.
 // @param bad_access_kind The bad access kind for which we want a textual

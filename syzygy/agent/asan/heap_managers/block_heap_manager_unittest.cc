@@ -14,11 +14,12 @@
 
 #include "syzygy/agent/asan/heap_managers/block_heap_manager.h"
 
+#include "base/bind.h"
 #include "base/compiler_specific.h"
 #include "base/rand_util.h"
 #include "base/sha1.h"
 #include "gtest/gtest.h"
-#include "syzygy/agent/asan/asan_logger.h"
+#include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/heap.h"
 #include "syzygy/agent/asan/unittest_util.h"
 
@@ -33,8 +34,10 @@ typedef BlockHeapManager::HeapId HeapId;
 // A derived class to expose protected members for unit-testing.
 class TestBlockHeapManager : public BlockHeapManager {
  public:
-  using BlockHeapManager::ShardedBlockQuarantine;
   using BlockHeapManager::HeapQuarantineMap;
+  using BlockHeapManager::SetHeapErrorCallback;
+  using BlockHeapManager::ShardedBlockQuarantine;
+  using BlockHeapManager::TrimQuarantine;
   using BlockHeapManager::heaps_;
 
   // A derived class to expose protected members for unit-testing. This has to
@@ -51,8 +54,8 @@ class TestBlockHeapManager : public BlockHeapManager {
   };
 
   // Constructor.
-  explicit TestBlockHeapManager(AsanLogger* logger)
-      : BlockHeapManager(logger) {
+  explicit TestBlockHeapManager(AsanRuntime* runtime)
+      : BlockHeapManager(runtime) {
   }
 
   // Returns the quarantine associated with a heap.
@@ -115,6 +118,17 @@ class ScopedHeap {
     return heap_manager_->Free(heap_id_, mem);
   }
 
+  // Flush the quarantine of this heap.
+  void FlushQuarantine() {
+    TestBlockHeapManager::ShardedBlockQuarantine* quarantine =  GetQuarantine();
+    EXPECT_NE(static_cast<TestBlockHeapManager::ShardedBlockQuarantine*>(NULL),
+              quarantine);
+    size_t original_size = quarantine->max_quarantine_size();
+    quarantine->set_max_quarantine_size(0);
+    heap_manager_->TrimQuarantine(quarantine);
+    quarantine->set_max_quarantine_size(original_size);
+  }
+
   // Returns the underlying heap ID.
   HeapId Id() { return heap_id_; }
 
@@ -161,7 +175,23 @@ class BlockHeapManagerTest : public testing::Test {
  public:
   typedef TestBlockHeapManager::ShardedBlockQuarantine ShardedBlockQuarantine;
 
-  BlockHeapManagerTest() : heap_manager_(&logger_) {
+  BlockHeapManagerTest() : heap_manager_(&runtime_) {
+  }
+
+  virtual void SetUp() OVERRIDE {
+    runtime_.SetUp(L"");
+
+    // Set the error callback that the manager will use.
+    heap_manager_.SetHeapErrorCallback(
+        base::Bind(&BlockHeapManagerTest::OnHeapError, base::Unretained(this)));
+  }
+
+  virtual void TearDown() OVERRIDE {
+    runtime_.TearDown();
+  }
+
+  void OnHeapError(AsanErrorInfo* error) {
+    errors_.push_back(*error);
   }
 
   // Calculates the ASan size for an allocation of @p user_size bytes.
@@ -204,8 +234,11 @@ class BlockHeapManagerTest : public testing::Test {
   // The heap manager used in those tests.
   TestBlockHeapManager heap_manager_;
 
-  // The logger used by the heap manager.
-  AsanLogger logger_;
+  // The runtime used by the heap manager.
+  AsanRuntime runtime_;
+
+  // Info about the last errors reported.
+  std::vector<AsanErrorInfo> errors_;
 };
 
 }  // namespace
@@ -354,8 +387,7 @@ TEST_F(BlockHeapManagerTest, UnpoisonsQuarantine) {
     ASSERT_NE(TestShadow::kHeapAddressableByte, TestShadow::shadow_[i]);
 
   // Flush the quarantine.
-  parameters.quarantine_size = 0;
-  heap_manager_.set_parameters(parameters);
+  heap.FlushQuarantine();
 
   // Assert that the quarantine has been correctly unpoisoned.
   for (size_t i = shadow_start; i < shadow_start + shadow_alloc_size; ++i)
@@ -549,6 +581,166 @@ TEST_F(BlockHeapManagerTest, BlockChecksumUpdatedWhenEnterQuarantine) {
   heap.Free(mem);
   EXPECT_TRUE(BlockChecksumIsValid(block_info));
   ASSERT_TRUE(heap.InQuarantine(mem));
+}
+
+static const size_t kChecksumRepeatCount = 10;
+
+TEST_F(BlockHeapManagerTest, CorruptAsEntersQuarantine) {
+  const size_t kAllocSize = 100;
+  common::AsanParameters parameters = heap_manager_.parameters();
+  parameters.quarantine_size = GetAllocSize(kAllocSize);
+  heap_manager_.set_parameters(parameters);
+
+  ScopedHeap heap(&heap_manager_);
+  // This can fail because of a checksum collision. However, we run it a
+  // handful of times to keep the chances as small as possible.
+  for (size_t i = 0; i < kChecksumRepeatCount; ++i) {
+    heap.FlushQuarantine();
+    void* mem = heap.Allocate(kAllocSize);
+    ASSERT_NE(static_cast<void*>(NULL), mem);
+    reinterpret_cast<int*>(mem)[-1] = rand();
+    EXPECT_TRUE(heap.Free(mem));
+
+    // Try again for all but the last attempt if this appears to have failed.
+    if (errors_.empty() && i + 1 < kChecksumRepeatCount)
+      continue;
+
+    ASSERT_EQ(1u, errors_.size());
+    ASSERT_EQ(CORRUPT_BLOCK, errors_[0].error_type);
+    ASSERT_EQ(mem, errors_[0].location);
+
+    break;
+  }
+}
+
+TEST_F(BlockHeapManagerTest, CorruptAsExitsQuarantine) {
+  const size_t kAllocSize = 100;
+  common::AsanParameters parameters = heap_manager_.parameters();
+  parameters.quarantine_size = GetAllocSize(kAllocSize);
+  heap_manager_.set_parameters(parameters);
+
+  ScopedHeap heap(&heap_manager_);
+  // This can fail because of a checksum collision. However, we run it a
+  // handful of times to keep the chances as small as possible.
+  for (size_t i = 0; i < kChecksumRepeatCount; ++i) {
+    heap.FlushQuarantine();
+    void* mem = heap.Allocate(kAllocSize);
+    ASSERT_NE(static_cast<void*>(NULL), mem);
+    EXPECT_TRUE(heap.Free(mem));
+    EXPECT_TRUE(errors_.empty());
+
+    // Change some of the block content and then flush the quarantine. The block
+    // hash should be invalid and it should cause an error to be fired.
+    reinterpret_cast<int32*>(mem)[0] = rand();
+    heap.FlushQuarantine();
+
+    // Try again for all but the last attempt if this appears to have failed.
+    if (errors_.empty() && i + 1 < kChecksumRepeatCount)
+      continue;
+
+    EXPECT_EQ(1u, errors_.size());
+    EXPECT_EQ(CORRUPT_BLOCK, errors_[0].error_type);
+    EXPECT_EQ(
+        reinterpret_cast<BlockHeader*>(mem) - 1,
+        reinterpret_cast<BlockHeader*>(errors_[0].location));
+
+    break;
+  }
+}
+
+TEST_F(BlockHeapManagerTest, CorruptAsExitsQuarantineOnHeapDestroy) {
+  const size_t kAllocSize = 100;
+  common::AsanParameters parameters = heap_manager_.parameters();
+  parameters.quarantine_size = GetAllocSize(kAllocSize);
+  heap_manager_.set_parameters(parameters);
+
+  // This can fail because of a checksum collision. However, we run it a
+  // handful of times to keep the chances as small as possible.
+  for (size_t i = 0; i < kChecksumRepeatCount; ++i) {
+    void* mem = NULL;
+    {
+      ScopedHeap heap(&heap_manager_);
+      heap.FlushQuarantine();
+      mem = heap.Allocate(kAllocSize);
+      ASSERT_NE(static_cast<void*>(NULL), mem);
+      EXPECT_TRUE(heap.Free(mem));
+      EXPECT_TRUE(errors_.empty());
+
+      // Change some of the block content to invalidate the block's hash.
+      reinterpret_cast<int32*>(mem)[0] = rand();
+    }
+
+    // The destructor of |heap| should be called and all the quarantined blocks
+    // belonging to this heap should be freed, which should trigger an error as
+    // the block is now corrupt.
+
+    // Try again for all but the last attempt if this appears to have failed.
+    if (errors_.empty() && i + 1 < kChecksumRepeatCount)
+      continue;
+
+    EXPECT_EQ(1u, errors_.size());
+    EXPECT_EQ(CORRUPT_BLOCK, errors_[0].error_type);
+    EXPECT_EQ(reinterpret_cast<BlockHeader*>(mem) - 1,
+              reinterpret_cast<BlockHeader*>(errors_[0].location));
+
+    break;
+  }
+}
+
+TEST_F(BlockHeapManagerTest, CorruptHeapOnTrimQuarantine) {
+  const size_t kAllocSize = 100;
+  common::AsanParameters parameters = heap_manager_.parameters();
+  parameters.quarantine_size = GetAllocSize(kAllocSize);
+  heap_manager_.set_parameters(parameters);
+
+  // This can fail because of a checksum collision. However, we run it a
+  // handful of times to keep the chances as small as possible.
+  for (size_t i = 0; i < kChecksumRepeatCount; ++i) {
+    void* mem = NULL;
+    {
+      ScopedHeap heap(&heap_manager_);
+      heap.FlushQuarantine();
+      mem = heap.Allocate(kAllocSize);
+      ASSERT_NE(static_cast<void*>(NULL), mem);
+      EXPECT_TRUE(heap.Free(mem));
+      EXPECT_TRUE(errors_.empty());
+
+      // Change some of the block content to invalidate the block's hash.
+      reinterpret_cast<int32*>(mem)[0] = rand();
+    }
+
+    // The destructor of |heap| should be called and all the quarantined blocks
+    // belonging to this heap should be freed, which should trigger an error as
+    // the block is now corrupt.
+
+    // Try again for all but the last attempt if this appears to have failed.
+    if (errors_.empty() && i + 1 < kChecksumRepeatCount)
+      continue;
+
+    EXPECT_EQ(1u, errors_.size());
+    EXPECT_EQ(CORRUPT_BLOCK, errors_[0].error_type);
+    EXPECT_EQ(reinterpret_cast<BlockHeader*>(mem) - 1,
+              reinterpret_cast<BlockHeader*>(errors_[0].location));
+
+    break;
+  }
+}
+
+TEST_F(BlockHeapManagerTest, DoubleFree) {
+  const size_t kAllocSize = 100;
+  common::AsanParameters parameters = heap_manager_.parameters();
+  parameters.quarantine_size = GetAllocSize(kAllocSize);
+  heap_manager_.set_parameters(parameters);
+
+  ScopedHeap heap(&heap_manager_);
+  void* mem = heap.Allocate(kAllocSize);
+  ASSERT_NE(static_cast<void*>(NULL), mem);
+  EXPECT_TRUE(heap.Free(mem));
+  EXPECT_FALSE(heap.Free(mem));
+
+  EXPECT_EQ(1u, errors_.size());
+  EXPECT_EQ(DOUBLE_FREE, errors_[0].error_type);
+  EXPECT_EQ(mem, errors_[0].location);
 }
 
 }  // namespace heap_managers

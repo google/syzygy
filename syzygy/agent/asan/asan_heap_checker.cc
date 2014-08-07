@@ -21,13 +21,6 @@
 namespace agent {
 namespace asan {
 
-namespace {
-
-typedef AsanRuntime::HeapVector HeapVector;
-typedef HeapProxy::HeapSlabVector HeapSlabVector;
-
-}
-
 HeapChecker::HeapChecker(AsanRuntime* runtime) : runtime_(runtime) {
   DCHECK_NE(reinterpret_cast<AsanRuntime*>(NULL), runtime);
 }

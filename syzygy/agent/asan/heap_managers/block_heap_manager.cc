@@ -14,6 +14,8 @@
 
 #include "syzygy/agent/asan/heap_managers/block_heap_manager.h"
 
+#include "base/bind.h"
+#include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/heaps/simple_block_heap.h"
 #include "syzygy/agent/asan/heaps/win_heap.h"
@@ -29,9 +31,14 @@ typedef HeapManagerInterface::HeapId HeapId;
 
 }  // namespace
 
-BlockHeapManager::BlockHeapManager(AsanLogger* logger)
-    : stack_cache_(logger) {
+BlockHeapManager::BlockHeapManager(AsanRuntime* runtime)
+    : runtime_(runtime) {
+  DCHECK_NE(static_cast<AsanRuntime*>(NULL), runtime);
   SetDefaultAsanParameters(&parameters_);
+  // TODO(sebmarchand): Set this callback directly from AsanRuntime::Setup once
+  //     everything has been plugged together.
+  SetHeapErrorCallback(base::Bind(&AsanRuntime::OnError,
+                                  base::Unretained(runtime_)));
   PropagateParameters();
 }
 
@@ -92,7 +99,7 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
   // greatest number of stack frames.
   StackCapture stack;
   stack.InitFromStack();
-  block.header->alloc_stack = stack_cache_.SaveStackTrace(stack);
+  block.header->alloc_stack = runtime_->stack_cache()->SaveStackTrace(stack);
   block.header->free_stack = NULL;
 
   block.trailer->heap_id = heap_id;
@@ -106,16 +113,19 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
 bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   DCHECK_NE(static_cast<HeapId>(NULL), heap_id);
 
-  BlockHeader* header = BlockGetHeaderFromBody(alloc);
   BlockHeapInterface* heap = reinterpret_cast<BlockHeapInterface*>(heap_id);
-  if (header == NULL) {
-    // TODO(sebmarchand): Report a heap error.
-    return false;
+  BlockInfo block_info = {};
+
+  if (IsBlockCorrupt(reinterpret_cast<uint8*>(alloc), &block_info)) {
+    // The free stack hasn't yet been set, but may have been filled with junk.
+    // Reset it.
+    block_info.header->free_stack = NULL;
+    ReportHeapError(alloc, CORRUPT_BLOCK);
+    return FreeCorruptBlock(&block_info);
   }
 
-  BlockInfo block_info = {};
-  if (IsBlockCorrupt(reinterpret_cast<uint8*>(header), &block_info)) {
-    // TODO(sebmarchand): Report that the block is corrupt.
+  if (block_info.header->state == QUARANTINED_BLOCK) {
+    ReportHeapError(alloc, DOUBLE_FREE);
     return false;
   }
 
@@ -133,14 +143,15 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
     quarantine = iter_heap->second;
   }
 
-  if (quarantine->Push(header)) {
+  if (quarantine->Push(block_info.header)) {
     StackCapture stack;
     stack.InitFromStack();
-    header->free_stack = stack_cache_.SaveStackTrace(stack);
+    block_info.header->free_stack =
+        runtime_->stack_cache()->SaveStackTrace(stack);
     block_info.trailer->free_ticks = ::GetTickCount();
     block_info.trailer->free_tid = ::GetCurrentThreadId();
 
-    header->state = QUARANTINED_BLOCK;
+    block_info.header->state = QUARANTINED_BLOCK;
 
     // Poison the released alloc (marked as freed) and quarantine the block.
     // Note that the original data is left intact. This may make it easier
@@ -149,7 +160,7 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
     BlockSetChecksum(block_info);
     TrimQuarantine(quarantine);
   } else {
-    return FreeBlock(header);
+    return FreePristineBlock(&block_info);
   }
 
   return true;
@@ -218,16 +229,15 @@ bool BlockHeapManager::DestroyHeapUnlocked(BlockHeapInterface* heap,
       blocks_vec.begin();
 
   for (; iter_block != blocks_vec.end(); ++iter_block) {
-    // TODO(sebmarchand): Report that the block is corrupt if this call
-    //     returns false.
     BlockInfo block_info = {};
-    if (!Shadow::BlockInfoFromShadow(*iter_block, &block_info)) {
-      // TODO(sebmarchand): Report that the heap is corrupt.
-      return false;
-    }
+    // If we can't retrieve the block information from the shadow then it means
+    // that something went terribly wrong and that the shadow has been
+    // corrupted, there's nothing we can do in this case.
+    CHECK(Shadow::BlockInfoFromShadow(*iter_block, &block_info));
     if (reinterpret_cast<BlockHeapInterface*>(block_info.trailer->heap_id) ==
         heap) {
-      FreeBlock(*iter_block);
+      if (!FreePotentiallyCorruptBlock(&block_info))
+        return false;
     } else {
       blocks_to_reinsert.push_back(*iter_block);
     }
@@ -248,54 +258,108 @@ bool BlockHeapManager::DestroyHeapUnlocked(BlockHeapInterface* heap,
 
 void BlockHeapManager::TrimQuarantine(ShardedBlockQuarantine* quarantine) {
   DCHECK_NE(reinterpret_cast<ShardedBlockQuarantine*>(NULL), quarantine);
+
+  ShardedBlockQuarantine::ObjectVector blocks_to_free;
+
   // Trim the quarantine to the new maximum size if it's not zero, empty it
   // otherwise.
   if (quarantine->max_quarantine_size() != 0) {
     BlockHeader* block_to_free = NULL;
-    while (quarantine->Pop(&block_to_free)) {
-      DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), block_to_free);
-      FreeBlock(block_to_free);
-    }
+    while (quarantine->Pop(&block_to_free))
+      blocks_to_free.push_back(block_to_free);
   } else {
     // Flush the quarantine of this heap.
-    ShardedBlockQuarantine::ObjectVector blocks_vec;
-    quarantine->Empty(&blocks_vec);
-    ShardedBlockQuarantine::ObjectVector::iterator iter_block =
-        blocks_vec.begin();
-    for (; iter_block != blocks_vec.end(); ++iter_block) {
-      // TODO(sebmarchand): Report that the block is corrupt if this call
-      //     return false.
-      FreeBlock(*iter_block);
-    }
+    quarantine->Empty(&blocks_to_free);
+  }
+
+  ShardedBlockQuarantine::ObjectVector::iterator iter_block =
+      blocks_to_free.begin();
+  for (; iter_block != blocks_to_free.end(); ++iter_block) {
+    DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), *iter_block);
+    BlockInfo block_info = {};
+    CHECK(Shadow::BlockInfoFromShadow(*iter_block, &block_info));
+    CHECK(FreePotentiallyCorruptBlock(&block_info));
   }
 }
 
-bool BlockHeapManager::FreeBlock(BlockHeader* header) {
-  DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), header);
-  BlockInfo block_info = {};
-  if (!BlockInfoFromMemory(header, &block_info))
-    return false;
+bool BlockHeapManager::FreePotentiallyCorruptBlock(BlockInfo* block_info) {
+  DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
+  if (block_info->header->magic != kBlockHeaderMagic ||
+      !BlockChecksumIsValid(*block_info)) {
+    ReportHeapError(block_info->block, CORRUPT_BLOCK);
+    return FreeCorruptBlock(block_info);
+  } else {
+    return FreePristineBlock(block_info);
+  }
+}
+
+bool BlockHeapManager::FreeCorruptBlock(BlockInfo* block_info) {
+  DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
+  ClearCorruptBlockMetadata(block_info);
+  return FreePristineBlock(block_info);
+}
+
+bool BlockHeapManager::FreePristineBlock(BlockInfo* block_info) {
+  DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
 
   BlockHeapInterface* heap = reinterpret_cast<BlockHeapInterface*>(
-      block_info.trailer->heap_id);
+      block_info->trailer->heap_id);
 
-  if (heap == NULL)
+  if (heap == NULL) {
+    // TODO(sebmarchand): Iterates over the heaps to find the one owning this
+    //     block. This is currently useless as we're using the WinHeap which
+    //     doesn't have the kHeapSupportsIsAllocated feature.
     return false;
+  }
 
   // Return pointers to the stacks for reference counting purposes.
-  if (block_info.header->alloc_stack != NULL) {
-    stack_cache_.ReleaseStackTrace(block_info.header->alloc_stack);
-    block_info.header->alloc_stack = NULL;
+  if (block_info->header->alloc_stack != NULL) {
+    runtime_->stack_cache()->ReleaseStackTrace(block_info->header->alloc_stack);
+    block_info->header->alloc_stack = NULL;
   }
-  if (block_info.header->free_stack != NULL) {
-    stack_cache_.ReleaseStackTrace(block_info.header->free_stack);
-    block_info.header->free_stack = NULL;
+  if (block_info->header->free_stack != NULL) {
+    runtime_->stack_cache()->ReleaseStackTrace(block_info->header->free_stack);
+    block_info->header->free_stack = NULL;
   }
 
-  block_info.header->state = FREED_BLOCK;
+  block_info->header->state = FREED_BLOCK;
 
-  Shadow::Unpoison(header, block_info.block_size);
-  return heap->FreeBlock(block_info);
+  Shadow::Unpoison(block_info->header, block_info->block_size);
+  return heap->FreeBlock(*block_info);
+}
+
+void BlockHeapManager::ClearCorruptBlockMetadata(BlockInfo* block_info) {
+  DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
+  DCHECK_NE(static_cast<BlockHeader*>(NULL), block_info->header);
+
+  // Set the invalid stack captures to NULL.
+  if (!runtime_->stack_cache()->StackCapturePointerIsValid(
+      block_info->header->alloc_stack)) {
+    block_info->header->alloc_stack = NULL;
+  }
+  if (!runtime_->stack_cache()->StackCapturePointerIsValid(
+      block_info->header->free_stack)) {
+    block_info->header->free_stack = NULL;
+  }
+}
+
+void BlockHeapManager::ReportHeapError(void* address, BadAccessKind kind) {
+  DCHECK_NE(reinterpret_cast<void*>(NULL), address);
+
+  // Collect information about the error.
+  AsanErrorInfo error_info = {};
+  ::RtlCaptureContext(&error_info.context);
+  error_info.access_mode = agent::asan::ASAN_UNKNOWN_ACCESS;
+  error_info.location = address;
+  error_info.error_type = kind;
+  ErrorInfoGetBadAccessInformation(runtime_->stack_cache(), &error_info);
+  agent::asan::StackCapture stack;
+  stack.InitFromStack();
+  error_info.crash_stack_id = stack.ComputeRelativeStackId();
+
+  // We expect a callback to be set.
+  DCHECK(!heap_error_callback_.is_null());
+  heap_error_callback_.Run(&error_info);
 }
 
 }  // namespace heap_managers

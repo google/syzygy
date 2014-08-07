@@ -20,7 +20,6 @@
 
 #include <windows.h>  // NOLINT
 
-#include "base/callback.h"
 #include "base/logging.h"
 #include "base/string_piece.h"
 #include "base/debug/stack_trace.h"
@@ -38,8 +37,6 @@ namespace asan {
 // Forward declaration.
 class StackCapture;
 class StackCaptureCache;
-struct AsanErrorInfo;
-struct AsanBlockInfo;
 
 // Defines a heap slab, which represents a contiguous range of memory containing
 // one or more allocations made by a single allocator.
@@ -52,19 +49,6 @@ struct HeapSlab {
 // each allocation and maintains a quarantine list of freed blocks.
 class HeapProxy {
  public:
-  // This callback allows the heap to report heap consistency problems that it
-  // encounters during its operation. This is usually plumbed into the ASAN
-  // runtime so that the errors may be appropriately reported.
-  // TODO(chrisha|sebmarchand): Add a mechanism to walk the entire heap and get
-  //     additional information on other potentially corrupt blocks.
-  // |asan_error_info| contains information about the primary heap error that
-  //     was encountered. It is guaranteed to be on the stack.
-  typedef base::Callback<void(AsanErrorInfo* asan_error_info)>
-      HeapErrorCallback;
-
-  // A vector of heap slabs.
-  typedef std::vector<HeapSlab> HeapSlabVector;
-
   // The sleep time (in milliseconds) used to approximate the CPU frequency.
   // Exposed for testing.
   static const size_t kSleepTimeForApproximatingCPUFrequency = 100;

@@ -24,6 +24,7 @@
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "syzygy/agent/asan/block_utils.h"
+#include "syzygy/agent/asan/error_info.h"
 #include "syzygy/agent/asan/heap.h"
 #include "syzygy/agent/asan/heap_manager.h"
 #include "syzygy/agent/asan/quarantine.h"
@@ -33,6 +34,10 @@
 
 namespace agent {
 namespace asan {
+
+// Forward declarations.
+class AsanRuntime;
+
 namespace heap_managers {
 
 // A block heap manager is an implementation of a heap manager that allocates
@@ -50,14 +55,12 @@ namespace heap_managers {
 //
 // TODO(sebmarchand): Plug in other heaps, like the zebra heap and the large
 //     block heap.
-// TODO(sebmarchand): Bring in the HeapErrorCallback mechanism as declared
-//     in HeapProxy and use it to report the heap related errors.
 // TODO(sebmarchand): Add page protection support.
 class BlockHeapManager : public HeapManagerInterface {
  public:
   // Constructor.
-  // @param logger The logger that will be used to report the errors.
-  explicit BlockHeapManager(AsanLogger* logger);
+  // @param runtime The runtime instance to use.
+  explicit BlockHeapManager(AsanRuntime* runtime);
 
   // Destructor.
   virtual ~BlockHeapManager();
@@ -120,16 +123,54 @@ class BlockHeapManager : public HeapManagerInterface {
   // @param quarantine The quarantine to trim.
   void TrimQuarantine(ShardedBlockQuarantine* quarantine);
 
+  // Free a block that might be corrupt. If the block is corrupt first reports
+  // an error before safely releasing the block.
+  // @param block_info The information about this block.
+  // @returns true if the block has been successfully freed, false otherwise.
+  bool FreePotentiallyCorruptBlock(BlockInfo* block_info);
+
+  // Free a corrupt block. This takes care of cleaning its metadata before
+  // trying to free it.
+  // @param block_info The information about this block.
+  // @returns true if the block has been successfully freed, false otherwise.
+  bool FreeCorruptBlock(BlockInfo* block_info);
+
   // Free an allocated block. This should be called when a block is removed from
   // the quarantine or directly freed. This takes care of updating the shadow
   // memory and releasing the resources acquired by this block (like its stack
-  // traces).
-  // @param header The header of this block.
+  // traces). The block should either not be corrupt or cleaned from its unsafe
+  // metadata.
+  // @param block_info The information about this block.
   // @returns true on success, false otherwise.
-  bool FreeBlock(BlockHeader* header);
+  bool FreePristineBlock(BlockInfo* block_info);
 
-  // A repository of unique stack captures recorded on alloc and free.
-  StackCaptureCache stack_cache_;
+  // Clears the metadata of a corrupt block. After calling this function the
+  // block can safely be passed to FreeBlock.
+  // @param block_info The information about this block.
+  void ClearCorruptBlockMetadata(BlockInfo* block_info);
+
+  // Sets the callback that this heap will invoke when heap corruption is
+  // encountered.
+  // @param heap_error_callback The callback to be invoked when heap
+  //     corruption is encountered.
+  void SetHeapErrorCallback(HeapErrorCallback heap_error_callback) {
+    heap_error_callback_ = heap_error_callback;
+  }
+
+  // Reports a heap error via the heap error callback. This is for originating
+  // errors that are detected while performing operations on a heap metadata.
+  // Read/write errors are detected outside of the manager, and query the heap
+  // for information about the error itself.
+  // @param address The address that was being accessed/manipulating when the
+  //     error was detected.
+  // @param kind The type of error encountered.
+  void ReportHeapError(void* address, BadAccessKind kind);
+
+  // The runtime instance to use to report the errors.
+  // TODO(sebmarchand): We don't really need to know about the runtime instance,
+  //     remove this and use the SetHeapErrorCallback once this has been plugged
+  //     into AsanRuntime.
+  AsanRuntime* runtime_;
 
   // Protects concurrent access to the heap manager internals.
   base::Lock lock_;
@@ -145,6 +186,12 @@ class BlockHeapManager : public HeapManagerInterface {
 
   // The parameters of this heap manager.
   common::AsanParameters parameters_;
+
+  // The callback this manager uses to expose internal state errors. These are
+  // caused by uninstrumented code (system libraries, etc), thus aren't caught
+  // at their source. Catching their side effect as early as possible allows the
+  // recovery of some useful debugging information.
+  HeapErrorCallback heap_error_callback_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BlockHeapManager);
