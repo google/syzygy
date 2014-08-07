@@ -174,9 +174,9 @@
             'asan_system_interceptors_function_list.txt',
           ],
           'outputs': [
-            '<(system_interceptors_output_base_name)_impl.h.gen',
+            '<(system_interceptors_output_base_name)_impl.gen',
             '<(system_interceptors_output_base_name)_instrumentation_filter'
-                '.h.gen',
+                '.gen',
             '<(system_interceptors_output_base_name).def.gen',
           ],
           'action': [
