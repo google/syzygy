@@ -35,6 +35,8 @@
         'pdb_symbol_record_writer.h',
         'pdb_type_info_stream_writer.cc',
         'pdb_type_info_stream_writer.h',
+        'simple_pdb_builder.cc',
+        'simple_pdb_builder.h',
         'symbol.cc',
         'symbol.h',
         'symbols/image_symbol.cc',
