@@ -54,6 +54,7 @@
         'heap_manager.h',
         'nested_heap.cc',
         'nested_heap.h',
+        'memory_interceptors.cc',
         'memory_notifier.h',
         'memory_notifier_impl.h',
         'page_allocator.h',
