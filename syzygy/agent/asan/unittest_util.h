@@ -15,9 +15,12 @@
 #ifndef SYZYGY_AGENT_ASAN_UNITTEST_UTIL_H_
 #define SYZYGY_AGENT_ASAN_UNITTEST_UTIL_H_
 
+#include <string>
+
 #include "base/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/strings/string_piece.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_logger.h"
@@ -78,7 +81,7 @@ class TestWithAsanLogger : public testing::Test {
   base::FilePath log_file_path_;
 
   // The open file handle, if any to which the logger instance will write.
-  base::ScopedFILE log_file_;
+  file_util::ScopedFILE log_file_;
 
   // A temporary directory into which the log file will be written.
   base::ScopedTempDir temp_dir_;
@@ -420,6 +423,28 @@ class NullMemoryNotifier : public agent::asan::MemoryNotifierInterface {
  private:
   DISALLOW_COPY_AND_ASSIGN(NullMemoryNotifier);
 };
+
+// A mock memory notifier. Useful when testing objects that have a memory
+// notifier dependency.
+class MockMemoryNotifier : public agent::asan::MemoryNotifierInterface {
+ public:
+  // Constructor.
+  MockMemoryNotifier() { }
+
+  // Virtual destructor.
+  virtual ~MockMemoryNotifier() { }
+
+  // @name MemoryNotifierInterface implementation.
+  // @{
+  MOCK_METHOD2(NotifyInternalUse, void(const void*, size_t));
+  MOCK_METHOD2(NotifyFutureHeapUse, void(const void*, size_t));
+  MOCK_METHOD2(NotifyReturnedToOS, void(const void*, size_t));
+  // @}
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(MockMemoryNotifier);
+};
+
 
 }  // namespace testing
 

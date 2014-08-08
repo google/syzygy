@@ -21,6 +21,7 @@
 
 #include <windows.h>
 
+#include <list>
 #include <queue>
 #include <vector>
 
@@ -38,18 +39,32 @@ namespace heaps {
 // A zebra-stripe heap allocates a (maximum) predefined amount of memory
 // and serves allocation requests with size less than or equal to the system
 // page size.
-// It divides the memory into 'slabs'; each slab consist of an "even" page
-// followed by an "odd" page (like zebra-stripes).
+// It divides the memory into 'slabs'; each slab consist of an 'even' page
+// followed by an 'odd' page (like zebra-stripes).
 //
-//                             +-----------slab 1----------+
+//                             |-----------slab 1----------|
 // +-------------+-------------+-------------+-------------+------------- - -+
 // |even 4k page | odd 4k page |even 4k page | odd 4k page |             ... |
 // +-------------+-------------+-------------+-------------+------------- - -+
-// +-----------slab 0----------+                           +---slab 2---- - -+
+// |-----------slab 0----------|                           |---slab 2---- - -|
 //
-// All the allocations are done in the even pages, just before the "odd" pages.
-// The "odd" pages can be protected againt read/write which gives a basic
+// All the allocations are done in the even pages, just before the odd pages.
+// The odd pages can be protected againt read/write which gives a basic
 // mechanism for detecting buffer overflows.
+//
+// A block allocation starts with the block header and ends with the block
+// trailer. The body is completely contained in the even page and pushed to the
+// right, but since the body must be kShadowRatio-aligned there could be a
+// small gap between the body and the odd page which is covered by the trailer
+// padding. Both paddings fill the rest of the pages.
+//
+//          |-header-padding-|      |-------trailer-padding------|
+// +--------+----------------+------+--+-------------------------+---------+
+// |         even 4k page              |          odd 4k page              |
+// +--------+----------------+------+--+-------------------------+---------+
+// |-header-|                |-body-|                            |-trailer-|
+//
+// Calling Free on a quarantined address is an invalid operation.
 class ZebraBlockHeap : public BlockHeapInterface,
                        public BlockQuarantineInterface {
  public:
@@ -61,7 +76,10 @@ class ZebraBlockHeap : public BlockHeapInterface,
 
   // Constructor.
   // @param heap_size The amount of memory reserved by the heap in bytes.
-  explicit ZebraBlockHeap(size_t heap_size);
+  // @param memory_notifier The MemoryNotifierInterface used to report
+  //     allocation information.
+  explicit ZebraBlockHeap(size_t heap_size,
+                          MemoryNotifierInterface* memory_notifier);
 
   // Virtual destructor. Frees all the allocated memory.
   virtual ~ZebraBlockHeap();
@@ -104,10 +122,10 @@ class ZebraBlockHeap : public BlockHeapInterface,
   // @returns true if the quarantine invariant is satisfied, false otherwise.
   bool QuarantineInvariantIsSatisfied();
 
-  // Gives the 0-based index of the slab containing address.
+  // Gives the 0-based index of the slab containing 'address'.
   // @param address address.
   // @returns The 0-based index of the slab containing 'address', or
-  //          kInvalid index if the address is not valid.
+  //     kInvalidSlab index if the address is not valid.
   size_t GetSlabIndex(void* address);
 
   // Gives the addres of the given slab.
@@ -115,9 +133,10 @@ class ZebraBlockHeap : public BlockHeapInterface,
   // @returns The address of the slab, or NULL if the index is invalid.
   uint8* GetSlabAddress(size_t index);
 
+  // Defines an invalid slab index.
   static const size_t kInvalidSlabIndex = -1;
 
-  // The set of possible states of the memory addresses.
+  // The set of possible states of the slabs.
   enum SlabState {
     kFreeSlab,
     kAllocatedSlab,
@@ -136,7 +155,7 @@ class ZebraBlockHeap : public BlockHeapInterface,
   // The heap size in bytes.
   size_t heap_size_;
 
-  // The number of slabs.
+  // The total number of slabs.
   size_t slab_count_;
 
   // The maximum number of allocations this heap can handle.
@@ -145,7 +164,8 @@ class ZebraBlockHeap : public BlockHeapInterface,
   // The ratio [0 .. 1] of the memory used by the quarantine. Under lock_.
   float quarantine_ratio_;
 
-  typedef std::queue<size_t> SlabIndexQueue;
+  typedef std::queue<size_t,
+      std::list<size_t, MemoryNotifierAllocator<size_t>>> SlabIndexQueue;
 
   // Holds the indices of free slabs. Under lock_.
   SlabIndexQueue free_slabs_;
@@ -153,10 +173,15 @@ class ZebraBlockHeap : public BlockHeapInterface,
   // Holds the indices of the quarantined slabs. Under lock_.
   SlabIndexQueue quarantine_;
 
-  typedef std::vector<SlabInfo> SlabInfoVector;
+  typedef std::vector<SlabInfo,
+                      MemoryNotifierAllocator<SlabInfo>> SlabInfoVector;
 
   // Holds the information related to slabs. Under lock_.
   SlabInfoVector slab_info_;
+
+  // The interface that will be notified of internal memory use. Has its own
+  // locking.
+  MemoryNotifierInterface* memory_notifier_;
 
   // The global lock for this allocator.
   common::RecursiveLock lock_;

@@ -25,16 +25,25 @@ namespace heaps {
 const size_t ZebraBlockHeap::kSlabSize = 2 * kPageSize;
 const float ZebraBlockHeap::kDefaultQuarantineRatio = 0.25f;
 
-ZebraBlockHeap::ZebraBlockHeap(size_t heap_size) {
+ZebraBlockHeap::ZebraBlockHeap(size_t heap_size,
+                               MemoryNotifierInterface* memory_notifier)
+    : free_slabs_(MemoryNotifierAllocator<size_t>(memory_notifier)),
+      quarantine_(MemoryNotifierAllocator<size_t>(memory_notifier)),
+      slab_info_(MemoryNotifierAllocator<SlabInfo>(memory_notifier)) {
+  DCHECK_NE(reinterpret_cast<MemoryNotifierInterface*>(NULL), memory_notifier);
   // Makes the heap_size a multiple of kSlabSize to avoid incomplete slabs
   // at the end of the reserved memory.
   heap_size_ = common::AlignUp(heap_size, kSlabSize);
+
+  memory_notifier_ = memory_notifier;
 
   heap_address_ = reinterpret_cast<uint8*>(
       ::VirtualAlloc(NULL,
                      heap_size_,
                      MEM_RESERVE | MEM_COMMIT,
                      PAGE_READWRITE));
+
+  memory_notifier_->NotifyFutureHeapUse(heap_address_, heap_size_);
 
   CHECK_NE(reinterpret_cast<uint8*>(NULL), heap_address_);
   DCHECK(common::IsAligned(heap_address_, kPageSize));
@@ -55,6 +64,7 @@ ZebraBlockHeap::ZebraBlockHeap(size_t heap_size) {
 ZebraBlockHeap::~ZebraBlockHeap() {
   DCHECK_NE(reinterpret_cast<uint8*>(NULL), heap_address_);
   CHECK_NE(FALSE, ::VirtualFree(heap_address_, 0, MEM_RELEASE));
+  memory_notifier_->NotifyReturnedToOS(heap_address_, heap_size_);
 }
 
 uint32 ZebraBlockHeap::GetHeapFeatures() const {
@@ -74,7 +84,7 @@ void* ZebraBlockHeap::Allocate(size_t bytes) {
   uint8* slab_address = GetSlabAddress(slab_index);
   DCHECK_NE(reinterpret_cast<uint8*>(NULL), slab_address);
 
-  // Use the memory at the end of the even page.
+  // Push the allocation to the end of the even page.
   uint8* alloc = slab_address + kPageSize - bytes;
   alloc = common::AlignDown(alloc, kShadowRatio);
 

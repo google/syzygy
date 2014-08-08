@@ -15,10 +15,15 @@
 #include "syzygy/agent/asan/heaps/zebra_block_heap.h"
 
 #include <algorithm>
+#include <set>
+#include <utility>
 #include <vector>
 
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/agent/asan/unittest_util.h"
 #include "syzygy/common/align.h"
+
 
 namespace agent {
 namespace asan {
@@ -30,22 +35,36 @@ using common::IsAligned;
 using common::AlignDown;
 using common::AlignUp;
 
+using ::testing::_;
+using ::testing::Gt;
+using ::testing::NotNull;
+using ::testing::AtLeast;
+
+testing::NullMemoryNotifier null_notifier;
+
 class TestZebraBlockHeap : public ZebraBlockHeap {
  public:
   using ZebraBlockHeap::max_number_of_allocations_;
   using ZebraBlockHeap::QuarantineInvariantIsSatisfied;
+  using ZebraBlockHeap::heap_address_;
 
   static const size_t kInitialHeapSize = 8 * (1 << 20);
 
-  // Creates a test heap with 8 MB initial (and maximum) memory.
-  TestZebraBlockHeap() : ZebraBlockHeap(kInitialHeapSize) { }
+  // Creates a test heap with 8 MB initial (and maximum) memory using the
+  // default memory notifier.
+  TestZebraBlockHeap() : ZebraBlockHeap(kInitialHeapSize,
+                                        &null_notifier) { }
 
-  // Allows to know if the heap has reached its maximum capacity.
-  // @note The heap can handle a fixed number of allocations.
+  // Creates a test heap with 8 MB initial (and maximum) memory using a custom
+  // memory notifier.
+  explicit TestZebraBlockHeap(MemoryNotifierInterface* memory_notifier)
+      : ZebraBlockHeap(kInitialHeapSize, memory_notifier) { }
+
+  // Allows to know if the heap can handle more allocations.
   // @returns true if the heap is full (no more allocations allowed),
   // false otherwise.
   bool IsHeapFull() {
-    // No free slabs and no quarantined memory available.
+    // No free slabs.
     return free_slabs_.empty();
   }
 };
@@ -404,6 +423,29 @@ TEST(ZebraBlockHeapTest, PushPopInvariant) {
   // Blocks can be freed now.
   for (size_t i = 0; i < blocks.size(); i++)
     EXPECT_TRUE(h.FreeBlock(blocks[i]));
+}
+
+TEST(ZebraBlockHeapTest, MemoryNotifierIsCalled) {
+  testing::MockMemoryNotifier mock_notifier;
+
+  // Should be called by ZebraBlockHeap internal data structures.
+  EXPECT_CALL(mock_notifier,
+      NotifyInternalUse(NotNull(), Gt(0u)))
+      .Times(AtLeast(1));
+
+  // Should be called exactly once when reserving the initial memory.
+  EXPECT_CALL(mock_notifier,
+      NotifyFutureHeapUse(NotNull(), Gt(0u)))
+      .Times(1);
+
+  // Should be called in the ZebraBlockHeap destructor and in the internal
+  // structures.
+  EXPECT_CALL(mock_notifier,
+      NotifyReturnedToOS(NotNull(), Gt(0u)))
+      .Times(AtLeast(2));
+
+  TestZebraBlockHeap h(&mock_notifier);
+  h.Allocate(10);
 }
 
 }  // namespace heaps
