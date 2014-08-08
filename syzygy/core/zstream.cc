@@ -29,16 +29,12 @@ static const size_t kZStreamBufferSize = 4096;
 
 }  // namespace
 
-// Functor that takes care of cleaning up a zstream object that was initialized
-// with deflateInit.
-struct ZOutStream::z_stream_s_close {
-  inline void operator()(z_stream_s* zstream) const {
-    if (zstream != NULL) {
-      deflateEnd(zstream);
-      delete zstream;
-    }
+void ZOutStream::z_stream_s_close::operator()(z_stream_s* zstream) const {
+  if (zstream != NULL) {
+    deflateEnd(zstream);
+    delete zstream;
   }
-};
+}
 
 ZOutStream::ZOutStream(OutStream* out_stream)
     : out_stream_(out_stream), buffer_(kZStreamBufferSize, 0) {
@@ -146,16 +142,12 @@ bool ZOutStream::FlushBuffer() {
   return true;
 }
 
-// Functor that takes care of cleaning up a zstream object that was initialized
-// with inflateInit.
-struct ZInStream::z_stream_s_close {
-  inline void operator()(z_stream_s* zstream) const {
-    if (zstream != NULL) {
-      inflateEnd(zstream);
-      delete zstream;
-    }
+void ZInStream::z_stream_s_close::operator()(z_stream_s* zstream) const {
+  if (zstream != NULL) {
+    inflateEnd(zstream);
+    delete zstream;
   }
-};
+}
 
 ZInStream::ZInStream(InStream* in_stream)
     : in_stream_(in_stream), buffer_(kZStreamBufferSize, 0) {

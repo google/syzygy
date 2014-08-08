@@ -190,7 +190,7 @@ class DiaBrowser::PatternBuilder {
         push_callback_(push_callback),
         pop_callback_(pop_callback),
         pb0_(new PatternBuilder()),
-        pb1_(NULL) {
+        pb1_() {
     DCHECK(!push_callback.is_null());
     DCHECK(pb.type_ != kPatternNone);
     pb0_->CopyFrom(pb);

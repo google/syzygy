@@ -24,9 +24,9 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_util.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/files/file_path.h"
 #include "syzygy/experimental/pdb_dumper/pdb_dump_util.h"
 #include "syzygy/experimental/pdb_dumper/pdb_module_info_stream_dumper.h"
@@ -59,8 +59,8 @@ bool WriteStreamToPath(PdbStream* pdb_stream,
                        const base::FilePath& output_file_name) {
   // Open the file for output.
   base::FilePath output_path(output_file_name);
-  file_util::ScopedFILE output_file(
-      file_util::OpenFile(output_file_name, "wb"));
+  base::ScopedFILE output_file(
+      base::OpenFile(output_file_name, "wb"));
   if (output_file.get() == NULL) {
     LOG(ERROR) << "Unable to open \"" << output_file_name.value()
                << "\" for output.";
@@ -139,12 +139,12 @@ bool ExplodeStreams(const base::FilePath& input_pdb_path,
 
   NameStreamMap::const_iterator it(name_streams.begin());
   for (; it != name_streams.end(); ++it) {
-    std::wstring suffix = UTF8ToWide(it->first);
+    std::wstring suffix = base::UTF8ToWide(it->first);
     std::replace(suffix.begin(), suffix.end(), L'/', L'-');
     stream_suffixes[it->second] = suffix;
   }
 
-  if (!file_util::CreateDirectory(output_dir_path)) {
+  if (!base::CreateDirectory(output_dir_path)) {
     LOG(ERROR) << "Unable to create output directory '"
                << output_dir_path.value() << "'.";
     return false;

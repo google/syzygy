@@ -17,8 +17,8 @@
 #include "base/bind.h"
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "base/stringprintf.h"
 #include "base/memory/scoped_vector.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/ar/ar_reader.h"
 #include "syzygy/ar/ar_writer.h"
 
@@ -32,7 +32,7 @@ struct FileDeleter {
   }
 
   ~FileDeleter() {
-    if (!file_util::Delete(path_, false))
+    if (!base::DeleteFile(path_, false))
       LOG(WARNING) << "Unable to delete file: " << path_.value();
   }
 
@@ -100,7 +100,7 @@ OnDiskArTransformAdapter::OnDiskArTransformAdapter(
 }
 
 OnDiskArTransformAdapter::~OnDiskArTransformAdapter() {
-  if (!file_util::Delete(temp_dir_, true)) {
+  if (!base::DeleteFile(temp_dir_, true)) {
     LOG(WARNING) << "Unable to delete temporary directory: "
                  << temp_dir_.value();
   }
@@ -110,7 +110,7 @@ bool OnDiskArTransformAdapter::Transform(ParsedArFileHeader* header,
                                          DataBuffer* contents,
                                          bool* remove) {
   if (temp_dir_.empty()) {
-    if (!file_util::CreateNewTempDirectory(L"OnDiskArTransformAdapter",
+    if (!base::CreateNewTempDirectory(L"OnDiskArTransformAdapter",
                                            &temp_dir_)) {
       LOG(ERROR) << "Unable to create temporary directory.";
       return false;
@@ -128,9 +128,9 @@ bool OnDiskArTransformAdapter::Transform(ParsedArFileHeader* header,
   FileDeleter input_deleter(input_path);
   FileDeleter output_deleter(output_path);
 
-  if (file_util::WriteFile(input_path,
-                           reinterpret_cast<const char*>(contents->data()),
-                           contents->size()) !=
+  if (base::WriteFile(input_path,
+                      reinterpret_cast<const char*>(contents->data()),
+                      contents->size()) !=
           static_cast<int>(contents->size())) {
     LOG(ERROR) << "Unable to write file: " << input_path.value();
     return false;
@@ -146,19 +146,19 @@ bool OnDiskArTransformAdapter::Transform(ParsedArFileHeader* header,
 
   // GetFileSize and ReadFile will both fail in this case, but we can provide
   // a more meaningful error message by first doing this check.
-  if (!file_util::PathExists(output_path)) {
+  if (!base::PathExists(output_path)) {
     LOG(ERROR) << "File does not exist: " << output_path.value();
     return false;
   }
 
   // Read the transformed file from disk.
   int64 size = 0;
-  if (!file_util::GetFileSize(output_path, &size)) {
+  if (!base::GetFileSize(output_path, &size)) {
     LOG(ERROR) << "Unable to read size of file: " << output_path.value();
     return false;
   }
   contents->resize(size);
-  if (file_util::ReadFile(output_path,
+  if (base::ReadFile(output_path,
                            reinterpret_cast<char*>(contents->data()),
                            contents->size()) !=
           static_cast<int>(contents->size())) {

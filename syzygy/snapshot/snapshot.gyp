@@ -74,7 +74,7 @@
         'run_in_snapshot.cc'
       ],
       'dependencies': [
-        '<(src)/base/base.gyp:base_nacl_win64',
+        '<(src)/base/base.gyp:base_win64',
       ],
       'libraries': [
         'vssapi.lib',

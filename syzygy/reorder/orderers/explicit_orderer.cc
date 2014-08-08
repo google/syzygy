@@ -17,7 +17,7 @@
 #include <algorithm>
 #include <vector>
 
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 
 namespace reorder {
 namespace orderers {

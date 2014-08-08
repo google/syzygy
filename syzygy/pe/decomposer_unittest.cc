@@ -14,8 +14,8 @@
 
 #include "syzygy/pe/decomposer.h"
 
-#include "base/string_util.h"
 #include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/block_graph_serializer.h"

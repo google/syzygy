@@ -34,7 +34,7 @@ class OperationTest : public testing::PELibUnitTest {
   void InitConfig(const char* config);
 
   // Returns the configuration dictionary.
-  const DictionaryValue* config() const { return config_.get(); }
+  const base::DictionaryValue* config() const { return config_.get(); }
 
  protected:
   int previous_log_level_;

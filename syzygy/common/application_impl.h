@@ -66,19 +66,18 @@ int Application<Impl, kInitLogging>::Run() {
 
 template <typename Impl, AppLoggingFlag kInitLogging>
 bool Application<Impl, kInitLogging>::InitializeLogging() {
+  logging::LoggingSettings settings;
+  settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
+  settings.lock_log = logging::DONT_LOCK_LOG_FILE;
+  settings.delete_old = logging::APPEND_TO_OLD_LOG_FILE;
   if ((kInitLogging == INIT_LOGGING_YES) &&
-      !logging::InitLogging(
-          L"",
-          logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
-          logging::DONT_LOCK_LOG_FILE,
-          logging::APPEND_TO_OLD_LOG_FILE,
-          logging::ENABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS)) {
+      !logging::InitLogging(settings)) {
     return false;
   }
 
   if (command_line_->HasSwitch("verbose")) {
     std::string value_str(command_line_->GetSwitchValueASCII("verbose"));
-    TrimWhitespace(value_str, TRIM_ALL, &value_str);
+    base::TrimWhitespace(value_str, base::TRIM_ALL, &value_str);
     int value = 1;
     if (!base::StringToInt(value_str, &value))
       value = 1;

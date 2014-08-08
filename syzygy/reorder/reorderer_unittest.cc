@@ -529,7 +529,7 @@ TEST(OrderTest, SerializeToJsonRoundTrip) {
 
   // Serialize the order.
   base::FilePath temp_file;
-  ASSERT_TRUE(file_util::CreateTemporaryFile(&temp_file));
+  ASSERT_TRUE(base::CreateTemporaryFile(&temp_file));
   EXPECT_TRUE(order.SerializeToJSON(pe_file, temp_file, true));
 
   // Get the original module from the file.
@@ -545,7 +545,7 @@ TEST(OrderTest, SerializeToJsonRoundTrip) {
   // Expect them to be the same.
   EXPECT_TRUE(OrdersAreEqual(order, order2));
 
-  EXPECT_TRUE(file_util::Delete(temp_file, false));
+  EXPECT_TRUE(base::DeleteFile(temp_file, false));
 }
 
 }  // namespace reorder

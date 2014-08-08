@@ -20,7 +20,7 @@
 #define SYZYGY_EXPERIMENTAL_CODE_TALLY_CODE_TALLY_APP_H_
 
 #include "base/command_line.h"
-#include "base/string_piece.h"
+#include "base/strings/string_piece.h"
 #include "base/files/file_path.h"
 #include "syzygy/common/application.h"
 #include "syzygy/experimental/code_tally/code_tally.h"

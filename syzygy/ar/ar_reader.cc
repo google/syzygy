@@ -212,13 +212,13 @@ bool ArReader::Init(const base::FilePath& ar_path) {
   DCHECK(path_.empty());
 
   path_ = ar_path;
-  file_.reset(file_util::OpenFile(path_, "rb"));
+  file_.reset(base::OpenFile(path_, "rb"));
   if (file_.get() == NULL) {
     LOG(ERROR) << "Failed to open file for reading: " << path_.value();
     return false;
   }
 
-  if (!file_util::GetFileSize(path_, reinterpret_cast<int64*>(&length_))) {
+  if (!base::GetFileSize(path_, reinterpret_cast<int64*>(&length_))) {
     LOG(ERROR) << "Unable to get the archive file size.";
     return false;
   }

@@ -144,8 +144,8 @@ TEST_F(PEImageLayoutBuilderTest, RewriteTestDll) {
   // We expect our image to be no bigger. In fact, we are generally smaller as
   // we trim some cruft from the .relocs section.
   int64 orig_size, rewritten_size;
-  ASSERT_TRUE(file_util::GetFileSize(image_path_, &orig_size));
-  ASSERT_TRUE(file_util::GetFileSize(temp_file_, &rewritten_size));
+  ASSERT_TRUE(base::GetFileSize(image_path_, &orig_size));
+  ASSERT_TRUE(base::GetFileSize(temp_file_, &rewritten_size));
   EXPECT_LE(rewritten_size, orig_size);
 }
 
@@ -203,8 +203,8 @@ TEST_F(PEImageLayoutBuilderTest, PadTestDll) {
   }
 
   int64 orig_size, rewritten_size;
-  ASSERT_TRUE(file_util::GetFileSize(image_path_, &orig_size));
-  ASSERT_TRUE(file_util::GetFileSize(temp_file_, &rewritten_size));
+  ASSERT_TRUE(base::GetFileSize(image_path_, &orig_size));
+  ASSERT_TRUE(base::GetFileSize(temp_file_, &rewritten_size));
   EXPECT_GE(rewritten_size, orig_size + expected_file_size_increase);
 }
 

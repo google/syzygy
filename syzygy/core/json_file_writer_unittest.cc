@@ -16,8 +16,8 @@
 
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "base/utf_string_conversions.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/strings/utf_string_conversions.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -53,8 +53,8 @@ class JSONFileWriterTest: public testing::Test {
     }
 
     base::FilePath path;
-    file_.reset(file_util::CreateAndOpenTemporaryFileInDir(temp_dir_->path(),
-                                                           &path));
+    file_.reset(base::CreateAndOpenTemporaryFileInDir(temp_dir_->path(),
+                                                      &path));
   }
 
   // Returns the contents of the file, leaving the cursor at the end of the
@@ -94,8 +94,8 @@ class JSONFileWriterTest: public testing::Test {
       bool pretty_print) {
     // Use a new file each time.
     base::FilePath path;
-    file_.reset(file_util::CreateAndOpenTemporaryFileInDir(temp_dir_->path(),
-                                                           &path));
+    file_.reset(base::CreateAndOpenTemporaryFileInDir(temp_dir_->path(),
+                                                      &path));
 
     TestJSONFileWriter json_file(file(), pretty_print);
     ASSERT_NO_FATAL_FAILURE(GeneratorFunc(&json_file));
@@ -110,7 +110,7 @@ class JSONFileWriterTest: public testing::Test {
   // This is static so that a single temp directory is made for all of the
   // unittests, rather than one per instance.
   static scoped_ptr<base::ScopedTempDir> temp_dir_;
-  file_util::ScopedFILE file_;
+  base::ScopedFILE file_;
 };
 
 scoped_ptr<base::ScopedTempDir> JSONFileWriterTest::temp_dir_;
@@ -149,7 +149,7 @@ class LiteralConvert<const char*> {
 template <>
 class LiteralConvert<const wchar_t*> {
  public:
-  LiteralConvert(const char* str) : str_(UTF8ToWide(str)) {  // NOLINT
+  LiteralConvert(const char* str) : str_(base::UTF8ToWide(str)) {  // NOLINT
   }
 
   const wchar_t* str() { return str_.c_str(); }
@@ -161,7 +161,7 @@ class LiteralConvert<const wchar_t*> {
 template <>
 class LiteralConvert<std::wstring> {
  public:
-  LiteralConvert(const char* str) : str_(UTF8ToWide(str)) {  // NOLINT
+  LiteralConvert(const char* str) : str_(base::UTF8ToWide(str)) {  // NOLINT
   }
 
   const std::wstring& str() { return str_; }

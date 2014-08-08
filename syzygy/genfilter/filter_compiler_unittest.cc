@@ -59,17 +59,17 @@ class FilterCompilerTest : public testing::PELibUnitTest {
   }
 
   virtual void TearDown() OVERRIDE {
-    ASSERT_TRUE(file_util::Delete(temp_dir_, true));
+    ASSERT_TRUE(base::DeleteFile(temp_dir_, true));
     Super::TearDown();
   }
 
   void CreateFilterDescriptionFile(const base::StringPiece& line) {
-    file_util::ScopedFILE file(file_util::OpenFile(filter_txt_, "wb"));
+    base::ScopedFILE file(base::OpenFile(filter_txt_, "wb"));
     ::fprintf(file.get(), "%.*s\n", line.length(), line.data());
   }
 
   void CreateFilterDescriptionFile() {
-    file_util::ScopedFILE file(file_util::OpenFile(filter_txt_, "wb"));
+    base::ScopedFILE file(base::OpenFile(filter_txt_, "wb"));
     ::fprintf(file.get(), "# This is a comment.\n");
     ::fprintf(file.get(), "\n");
     ::fprintf(file.get(), "+function:DllMain  # Another comment.\n");

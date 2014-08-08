@@ -41,11 +41,11 @@ extern const wchar_t kExampleResources32Name[];
 class ScopedTempFile {
  public:
   ScopedTempFile() {
-    file_util::CreateTemporaryFile(&path_);
+    base::CreateTemporaryFile(&path_);
   }
 
   ~ScopedTempFile() {
-    file_util::Delete(path_, false);
+    base::DeleteFile(path_, false);
   }
 
   const base::FilePath& path() const { return path_; }
@@ -78,7 +78,7 @@ template<class Data> bool TestSerialization(const Data& data) {
   // Ensure the two elements are the same after a roundtrip through the
   // serialization engine.
   return (data == data_copy);
-};
+}
 
 // Same as above, but serializes to the given file, which has to be opened
 // in read-write mode.
@@ -101,7 +101,7 @@ template<class Data> bool TestSerialization(const Data& data, FILE* file) {
   // Ensure the two elements are the same after a roundtrip through the
   // serialization engine.
   return (data == data_copy);
-};
+}
 
 // Converts a relative path to absolute using the src directory as base.
 //

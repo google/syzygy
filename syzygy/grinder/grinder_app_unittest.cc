@@ -98,7 +98,7 @@ TEST_F(GrinderAppTest, ParseCommandLineTraceFiles) {
   cmd_line_.AppendSwitchASCII("mode", "profile");
   for (size_t i = 0; i < 10; ++i) {
     base::FilePath temp_file;
-    ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &temp_file));
+    ASSERT_TRUE(base::CreateTemporaryFileInDir(temp_dir_, &temp_file));
     cmd_line_.AppendArgPath(temp_file);
     temp_files.push_back(temp_file);
   }
@@ -124,16 +124,16 @@ TEST_F(GrinderAppTest, BasicBlockEntryEndToEnd) {
       testing::kBBEntryTraceFiles[0]));
 
   base::FilePath output_file;
-  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));
-  ASSERT_TRUE(file_util::Delete(output_file, false));
+  ASSERT_TRUE(base::CreateTemporaryFileInDir(temp_dir_, &output_file));
+  ASSERT_TRUE(base::DeleteFile(output_file, false));
   cmd_line_.AppendSwitchPath("output-file", output_file);
 
-  ASSERT_TRUE(!file_util::PathExists(output_file));
+  ASSERT_TRUE(!base::PathExists(output_file));
 
   EXPECT_EQ(0, app_.Run());
 
   // Verify that the output file was created.
-  EXPECT_TRUE(file_util::PathExists(output_file));
+  EXPECT_TRUE(base::PathExists(output_file));
 }
 
 TEST_F(GrinderAppTest, ProfileEndToEnd) {
@@ -142,16 +142,16 @@ TEST_F(GrinderAppTest, ProfileEndToEnd) {
       testing::kProfileTraceFiles[0]));
 
   base::FilePath output_file;
-  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));
-  ASSERT_TRUE(file_util::Delete(output_file, false));
+  ASSERT_TRUE(base::CreateTemporaryFileInDir(temp_dir_, &output_file));
+  ASSERT_TRUE(base::DeleteFile(output_file, false));
   cmd_line_.AppendSwitchPath("output-file", output_file);
 
-  ASSERT_TRUE(!file_util::PathExists(output_file));
+  ASSERT_TRUE(!base::PathExists(output_file));
 
   EXPECT_EQ(0, app_.Run());
 
   // Verify that the output file was created.
-  EXPECT_TRUE(file_util::PathExists(output_file));
+  EXPECT_TRUE(base::PathExists(output_file));
 }
 
 TEST_F(GrinderAppTest, CoverageEndToEnd) {
@@ -160,23 +160,23 @@ TEST_F(GrinderAppTest, CoverageEndToEnd) {
       testing::kCoverageTraceFiles[0]));
 
   base::FilePath output_file;
-  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));
-  ASSERT_TRUE(file_util::Delete(output_file, false));
+  ASSERT_TRUE(base::CreateTemporaryFileInDir(temp_dir_, &output_file));
+  ASSERT_TRUE(base::DeleteFile(output_file, false));
   cmd_line_.AppendSwitchPath("output-file", output_file);
   cmd_line_.AppendSwitchASCII("output-format", "lcov");
 
-  ASSERT_TRUE(!file_util::PathExists(output_file));
+  ASSERT_TRUE(!base::PathExists(output_file));
 
   EXPECT_EQ(0, app_.Run());
 
   // Verify that the output file was created.
-  EXPECT_TRUE(file_util::PathExists(output_file));
+  EXPECT_TRUE(base::PathExists(output_file));
 }
 
 TEST_F(GrinderAppTest, SampleEndToEnd) {
   base::FilePath trace_file = temp_dir_.Append(L"sampler.bin");
   ASSERT_NO_FATAL_FAILURE(testing::WriteDummySamplerTraceFile(trace_file));
-  ASSERT_TRUE(file_util::PathExists(trace_file));
+  ASSERT_TRUE(base::PathExists(trace_file));
 
   cmd_line_.AppendSwitchASCII("mode", "sample");
   cmd_line_.AppendSwitchPath(
@@ -184,16 +184,16 @@ TEST_F(GrinderAppTest, SampleEndToEnd) {
   cmd_line_.AppendArgPath(trace_file);
 
   base::FilePath output_file;
-  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &output_file));
-  ASSERT_TRUE(file_util::Delete(output_file, false));
+  ASSERT_TRUE(base::CreateTemporaryFileInDir(temp_dir_, &output_file));
+  ASSERT_TRUE(base::DeleteFile(output_file, false));
   cmd_line_.AppendSwitchPath("output-file", output_file);
 
-  ASSERT_TRUE(!file_util::PathExists(output_file));
+  ASSERT_TRUE(!base::PathExists(output_file));
 
   EXPECT_EQ(0, app_.Run());
 
   // Verify that the output file was created.
-  EXPECT_TRUE(file_util::PathExists(output_file));
+  EXPECT_TRUE(base::PathExists(output_file));
 }
 
 }  // namespace grinder

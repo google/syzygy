@@ -19,9 +19,9 @@
 
 #include <objbase.h>
 
-#include "base/string_number_conversions.h"
-#include "base/stringprintf.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/grinder/basic_block_util.h"
 #include "syzygy/grinder/indexed_frequency_data_serializer.h"
 #include "syzygy/pe/find.h"

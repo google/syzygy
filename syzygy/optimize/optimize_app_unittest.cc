@@ -14,7 +14,7 @@
 
 #include "syzygy/optimize/optimize_app.h"
 
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/unittest_util.h"

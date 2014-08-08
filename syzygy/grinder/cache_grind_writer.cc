@@ -15,13 +15,13 @@
 #include "syzygy/grinder/cache_grind_writer.h"
 
 #include "base/file_util.h"
-#include "base/string_util.h"
+#include "base/strings/string_util.h"
 
 namespace grinder {
 
 bool WriteCacheGrindCoverageFile(const CoverageData& coverage,
                                  const base::FilePath& path) {
-  file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
+  base::ScopedFILE file(base::OpenFile(path, "wb"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Failed to open file for writing: " << path.value();
     return false;
@@ -53,7 +53,7 @@ bool WriteCacheGrindCoverageFile(const CoverageData& coverage, FILE* file) {
     // Output the path, being sure to use forward slashes instead of
     // back slashes.
     std::string path = source_it->first;
-    if (!::ReplaceChars(path, "\\", "/", &path))
+    if (!base::ReplaceChars(path, "\\", "/", &path))
       return false;
     if (::fprintf(file, "fl=%s\n", path.c_str()) < 0)
       return false;

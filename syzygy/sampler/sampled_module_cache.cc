@@ -16,7 +16,7 @@
 
 #include <psapi.h>
 
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/common/path_util.h"

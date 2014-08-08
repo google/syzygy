@@ -26,7 +26,7 @@
 #include "base/environment.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/win/pe_image.h"
 #include "syzygy/agent/common/agent.h"
 #include "syzygy/agent/common/process_utils.h"

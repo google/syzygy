@@ -17,7 +17,7 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_util.h"
-#include "base/string_util.h"
+#include "base/strings/string_util.h"
 #include "syzygy/core/json_file_writer.h"
 #include "syzygy/pe/pe_file.h"
 
@@ -90,12 +90,12 @@ int CodeTallyApp::Run() {
   FILE* output_file = stdout;
 
   // If an output file is specified, make sure we close it on exit.
-  file_util::ScopedFILE scoped_file;
+  base::ScopedFILE scoped_file;
 
   // Open the output file, if one is provided. This is done early so as to fail
   // fast on problems with the output file or path.
   if (!output_file_.empty()) {
-    scoped_file.reset(file_util::OpenFile(output_file_, "w"));
+    scoped_file.reset(base::OpenFile(output_file_, "w"));
 
     if (!scoped_file.get()) {
       LOG(ERROR) << "Unable to open output file '"

@@ -15,7 +15,7 @@
 #include "syzygy/pe/pe_relinker_util.h"
 
 #include "base/file_util.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/common/defs.h"
@@ -58,7 +58,7 @@ class PERelinkerUtilTest : public testing::PELibUnitTest {
   }
 
   void CreateFile(const base::FilePath& file) {
-    file_util::ScopedFILE f(file_util::OpenFile(file, "wb"));
+    base::ScopedFILE f(base::OpenFile(file, "wb"));
   }
 
   void DecomposeTestDll() {
@@ -108,7 +108,7 @@ class PERelinkerUtilTest : public testing::PELibUnitTest {
 
       ASSERT_EQ(pdb_guid, pdb_info->signature);
 
-      std::wstring pdb_file_name =  base::UTF8ToWide(pdb_info->pdb_file_name);
+      std::wstring pdb_file_name = base::UTF8ToWide(pdb_info->pdb_file_name);
       ASSERT_EQ(pdb_path.value(), pdb_file_name);
     }
   }
@@ -296,7 +296,7 @@ TEST_F(PERelinkerUtilTest, GetOmapRangeAndFinalizePdb) {
   GetOmapRange(image_layout_.sections, &omap_range);
   EXPECT_FALSE(omap_range.IsEmpty());
 
-  ASSERT_TRUE(file_util::CopyFileW(input_dll_, temp_dll_));
+  ASSERT_TRUE(base::CopyFile(input_dll_, temp_dll_));
 
   pdb::PdbFile pdb_file;
   pdb::PdbReader pdb_reader;

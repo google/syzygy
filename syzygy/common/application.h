@@ -47,9 +47,9 @@
 //     TEST(FixtureName, TestName) {
 //       using common::Application;
 //
-//       file_util::ScopedFILE in(file_util::OpenFile("NUL", "r"));
-//       file_util::ScopedFILE out(file_util::OpenFile("NUL", "w"));
-//       file_util::ScopedFILE err(file_util::OpenFile("NUL", "w"));
+//       base::ScopedFILE in(base::OpenFile("NUL", "r"));
+//       base::ScopedFILE out(base::OpenFile("NUL", "w"));
+//       base::ScopedFILE err(base::OpenFile("NUL", "w"));
 //       ASSERT_TRUE(in.get() != NULL);
 //       ASSERT_TRUE(out.get() != NULL);
 //       ASSERT_TRUE(err.get() != NULL);
@@ -74,8 +74,8 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/logging.h"
-#include "base/string_number_conversions.h"
-#include "base/string_util.h"
+#include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
 #include "syzygy/common/com_utils.h"
 
 namespace common {

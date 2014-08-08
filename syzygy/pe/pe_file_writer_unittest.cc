@@ -75,7 +75,7 @@ TEST_F(PEFileWriterTest, UpdateFileChecksum) {
   EXPECT_FALSE(PEFileWriter::UpdateFileChecksum(executable));
 
   // Verify that the function fails for non-image files.
-  file_util::ScopedFILE file(file_util::OpenFile(executable, "wb"));
+  base::ScopedFILE file(base::OpenFile(executable, "wb"));
   // Grow the file to 16K.
   ASSERT_EQ(0, fseek(file.get(), 16 * 1024, SEEK_SET));
   file.reset();
@@ -84,7 +84,7 @@ TEST_F(PEFileWriterTest, UpdateFileChecksum) {
   // Make a copy of our test DLL and check that we work on that.
   base::FilePath input_path(testing::GetExeRelativePath(testing::kTestDllName));
   base::FilePath image_path(temp_dir.Append(testing::kTestDllName));
-  EXPECT_TRUE(file_util::CopyFile(input_path, image_path));
+  EXPECT_TRUE(base::CopyFile(input_path, image_path));
   EXPECT_TRUE(PEFileWriter::UpdateFileChecksum(image_path));
 }
 

@@ -16,7 +16,7 @@
 #include "syzygy/core/disassembler.h"
 
 #include "base/logging.h"
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/core/disassembler_util.h"
 
 namespace core {

@@ -93,11 +93,12 @@ int main(int argc, char** argv) {
   base::AtExitManager at_exit;
   CommandLine::Init(argc, argv);
 
-  if (!logging::InitLogging(L"", logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
-      logging::DONT_LOCK_LOG_FILE, logging::APPEND_TO_OLD_LOG_FILE,
-      logging::ENABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS)) {
+  logging::LoggingSettings settings;
+  settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
+  settings.lock_log = logging::DONT_LOCK_LOG_FILE;
+  settings.delete_old = logging::APPEND_TO_OLD_LOG_FILE;
+  if (!logging::InitLogging(settings))
     return 1;
-  }
 
   Options options;
   if (!ParseOptions(&options))

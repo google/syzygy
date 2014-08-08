@@ -17,9 +17,9 @@
 #include <string>
 #include <utility>
 
-#include "base/stringprintf.h"
 #include "base/files/file_path.h"
 #include "base/json/json_reader.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/core/json_file_writer.h"
 #include "syzygy/pdb/pdb_reader.h"
@@ -283,7 +283,7 @@ bool IndexedFrequencyDataSerializer::SaveAsJson(
     const ModuleIndexedFrequencyMap& frequency_map,
     const base::FilePath& path) {
   DCHECK(!path.empty());
-  file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
+  base::ScopedFILE file(base::OpenFile(path, "wb"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Failed to open " << path.value() << " for reading.";
     return false;
@@ -304,7 +304,7 @@ bool IndexedFrequencyDataSerializer::LoadFromJson(
   DCHECK(!path.empty());
 
   std::string json_string;
-  if (!file_util::ReadFileToString(path, &json_string)) {
+  if (!base::ReadFileToString(path, &json_string)) {
     LOG(ERROR) << "Failed to read '" << path.value() << "'.";
     return false;
   }

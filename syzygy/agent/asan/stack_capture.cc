@@ -17,7 +17,7 @@
 #include <algorithm>
 
 #include "base/logging.h"
-#include "base/process_util.h"
+#include "base/process/memory.h"
 #include "syzygy/common/asan_parameters.h"
 
 // http://blogs.msdn.com/oldnewthing/archive/2004/10/25/247180.aspx

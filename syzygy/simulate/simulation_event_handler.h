@@ -17,7 +17,7 @@
 #ifndef SYZYGY_SIMULATE_SIMULATION_EVENT_HANDLER_H_
 #define SYZYGY_SIMULATE_SIMULATION_EVENT_HANDLER_H_
 
-#include "base/time.h"
+#include "base/time/time.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 

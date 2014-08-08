@@ -66,7 +66,7 @@
 
 #include <algorithm>
 
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/core/assembler.h"
 #include "syzygy/core/disassembler_util.h"
 

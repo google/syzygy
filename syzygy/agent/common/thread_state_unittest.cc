@@ -88,7 +88,7 @@ class ThreadStateTest : public testing::Test {
  public:
   ThreadStateTest()
       : worker_thread_("test"),
-        manager_(NULL),
+        manager_(),
         thread_states_(0) {
   }
 
@@ -145,7 +145,7 @@ class ThreadStateTest : public testing::Test {
       base::Closure task,
       base::WaitableEvent* event) {
     ASSERT_TRUE(event != NULL);
-    ASSERT_EQ(MessageLoop::current(), worker_thread_.message_loop());
+    ASSERT_EQ(base::MessageLoop::current(), worker_thread_.message_loop());
     task.Run();
     event->Signal();
   }

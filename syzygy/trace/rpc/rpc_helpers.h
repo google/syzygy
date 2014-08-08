@@ -20,7 +20,7 @@
 #include <rpc.h>
 #include <wtypes.h>
 
-#include "base/string_piece.h"
+#include "base/strings/string_piece.h"
 
 // TODO(rogerm): Is there directly usable stuff in base/callback.h that
 //     might make this simpler/cleaner?

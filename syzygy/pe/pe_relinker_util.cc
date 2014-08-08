@@ -319,12 +319,12 @@ bool ValidateAndInferPaths(
   DCHECK_NE(reinterpret_cast<base::FilePath*>(NULL), input_pdb);
   DCHECK_NE(reinterpret_cast<base::FilePath*>(NULL), output_pdb);
 
-  if (!file_util::PathExists(input_module)) {
+  if (!base::PathExists(input_module)) {
     LOG(ERROR) << "Input module not found: " << input_module.value();
     return false;
   }
 
-  if (!allow_overwrite && file_util::PathExists(output_module)) {
+  if (!allow_overwrite && base::PathExists(output_module)) {
     LOG(ERROR) << "Output module exists: " << output_module.value();
     LOG(ERROR) << "Specify --overwrite to ignore this error.";
     return false;
@@ -341,7 +341,7 @@ bool ValidateAndInferPaths(
     }
   }
 
-  if (!file_util::PathExists(*input_pdb)) {
+  if (!base::PathExists(*input_pdb)) {
     LOG(ERROR) << "Input PDB not found: " << input_pdb->value();
     return false;
   }
@@ -361,7 +361,7 @@ bool ValidateAndInferPaths(
     LOG(INFO) << "Using default output PDB path: " << output_pdb->value();
   }
 
-  if (!allow_overwrite && file_util::PathExists(*output_pdb)) {
+  if (!allow_overwrite && base::PathExists(*output_pdb)) {
     LOG(ERROR) << "Output PDB exists: " << output_pdb->value();
     LOG(ERROR) << "Specify --overwrite to ignore this error.";
     return false;

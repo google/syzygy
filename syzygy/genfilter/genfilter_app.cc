@@ -15,8 +15,8 @@
 #include "syzygy/genfilter/genfilter_app.h"
 
 #include "base/file_util.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/genfilter/filter_compiler.h"
 #include "syzygy/pe/image_filter.h"
 
@@ -94,10 +94,10 @@ bool OutputFilter(bool pretty_print,
   // Open the output file. If none was specified we default to default_file.
   std::wstring dest(L"stdout");
   FILE* file = default_file;
-  file_util::ScopedFILE scoped_file;
+  base::ScopedFILE scoped_file;
   if (!path.empty()) {
     dest = base::StringPrintf(L"\"%ls\"", path.value().c_str());
-    scoped_file.reset(file_util::OpenFile(path, "wb"));
+    scoped_file.reset(base::OpenFile(path, "wb"));
     file = scoped_file.get();
     if (file == NULL) {
       LOG(ERROR) << "Unable to open for writing: " << path.value();
@@ -197,7 +197,7 @@ int GenFilterApp::Run() {
   // Double check the output doesn't already exist early on, so we can prevent
   // doing work if it does.
   if (!output_file_.empty() &&
-      file_util::PathExists(output_file_) &&
+      base::PathExists(output_file_) &&
       !overwrite_) {
     LOG(ERROR) << "Output file \"" << output_file_.value()
                << "\" already exists.";

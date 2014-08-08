@@ -20,8 +20,8 @@
 #include <algorithm>
 #include <iostream>
 
-#include "base/string_util.h"
-#include "base/stringprintf.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/instrument/instrumenters/archive_instrumenter.h"
 #include "syzygy/instrument/instrumenters/asan_instrumenter.h"
 #include "syzygy/instrument/instrumenters/bbentry_instrumenter.h"

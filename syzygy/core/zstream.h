@@ -17,6 +17,7 @@
 #ifndef SYZYGY_CORE_ZSTREAM_H_
 #define SYZYGY_CORE_ZSTREAM_H_
 
+#include "base/memory/scoped_ptr.h"
 #include "syzygy/core/serialization.h"
 
 // Forward declaration.
@@ -71,11 +72,15 @@ class ZOutStream : public OutStream {
   // @}
 
  private:
-  struct z_stream_s_close;
+  // Functor that takes care of cleaning up a zstream object that was
+  // initialized with deflateInit.
+  struct z_stream_s_close {
+    inline void operator()(z_stream_s* zstream) const;
+  };
 
   bool FlushBuffer();
 
-  scoped_ptr_malloc<z_stream_s, z_stream_s_close> zstream_;
+  scoped_ptr<z_stream_s, z_stream_s_close> zstream_;
   OutStream* out_stream_;
   std::vector<uint8> buffer_;
 };
@@ -101,9 +106,13 @@ class ZInStream : public InStream {
       size_t length, Byte* bytes, size_t* bytes_read) OVERRIDE;
 
  private:
-  struct z_stream_s_close;
+  // Functor that takes care of cleaning up a zstream object that was
+  // initialized with inflateInit.
+  struct z_stream_s_close {
+    inline void operator()(z_stream_s* zstream) const;
+  };
 
-  scoped_ptr_malloc<z_stream_s, z_stream_s_close> zstream_;
+  scoped_ptr<z_stream_s, z_stream_s_close> zstream_;
   InStream* in_stream_;
   std::vector<uint8> buffer_;
 };

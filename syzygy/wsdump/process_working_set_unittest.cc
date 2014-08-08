@@ -19,8 +19,8 @@
 #include <vector>
 
 #include "base/at_exit.h"
-#include "base/string_util.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/strings/string_util.h"
 #include "base/win/scoped_handle.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/com_utils.h"

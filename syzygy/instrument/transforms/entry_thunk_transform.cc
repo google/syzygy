@@ -15,7 +15,7 @@
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
 
 #include "base/logging.h"
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/block_graph/block_builder.h"
 #include "syzygy/block_graph/block_util.h"
 #include "syzygy/common/defs.h"

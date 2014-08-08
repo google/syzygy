@@ -19,8 +19,8 @@
 #include <limits>
 
 #include "base/logging.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/block_graph/block_builder.h"
 #include "syzygy/block_graph/block_util.h"
 #include "syzygy/common/defs.h"

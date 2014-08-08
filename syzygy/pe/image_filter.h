@@ -74,7 +74,7 @@ struct ImageFilter {
   // @param path The path of the file to be read.
   // @returns true on success, false otherwise.
   // @note Logs on error.
-  bool LoadFromJSON(const DictionaryValue& dict);
+  bool LoadFromJSON(const base::DictionaryValue& dict);
   bool LoadFromJSON(FILE* file);
   bool LoadFromJSON(const base::FilePath& path);
 };

@@ -14,7 +14,7 @@
 
 #include "syzygy/grinder/grinders/sample_grinder.h"
 
-#include "base/string_util.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -146,7 +146,7 @@ class SampleGrinderTest : public testing::PELibUnitTest {
       TestSampleGrinder::NameHeatMap::const_iterator it =
           g.name_heat_map_.begin();
       for (; it != g.name_heat_map_.end(); ++it) {
-        base::FilePath path(UTF8ToWide(*it->first));
+        base::FilePath path(base::UTF8ToWide(*it->first));
         if (path.BaseName().value() == L"test_dll_label_test_func.obj")
           compiland_seen = true;
         if (*it->first == "_LabelTestFunc")
@@ -172,7 +172,7 @@ class SampleGrinderTest : public testing::PELibUnitTest {
       // Get the path to the source file where all of the heat should land.
       base::FilePath source_file_path =
           testing::GetSrcRelativePath(kTestDllLabelTestFuncAsm);
-      std::string source_file = WideToUTF8(source_file_path.value());
+      std::string source_file = base::WideToUTF8(source_file_path.value());
 
       // All of the heat is in the first 4-byte bucket of the LabelTestFunc.
       // Thus, it will be spread evenly across the source ranges in those 4
@@ -210,14 +210,14 @@ class SampleGrinderTest : public testing::PELibUnitTest {
 
     // Produce the output.
     base::FilePath csv_path = temp_dir_.Append(L"output.csv");
-    file_util::ScopedFILE csv_file(file_util::OpenFile(csv_path, "wb"));
+    base::ScopedFILE csv_file(base::OpenFile(csv_path, "wb"));
     ASSERT_TRUE(csv_file.get() != NULL);
     ASSERT_TRUE(g.OutputData(csv_file.get()));
     csv_file.reset();
 
     // Ensure output was produced.
     int64 file_size = 0;
-    ASSERT_TRUE(file_util::GetFileSize(csv_path, &file_size));
+    ASSERT_TRUE(base::GetFileSize(csv_path, &file_size));
     ASSERT_LT(0u, file_size);
   }
 

@@ -16,8 +16,8 @@
 #define SYZYGY_AGENT_ASAN_UNITTEST_UTIL_H_
 
 #include "base/file_util.h"
-#include "base/string_piece.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/strings/string_piece.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_logger.h"
@@ -78,7 +78,7 @@ class TestWithAsanLogger : public testing::Test {
   base::FilePath log_file_path_;
 
   // The open file handle, if any to which the logger instance will write.
-  file_util::ScopedFILE log_file_;
+  base::ScopedFILE log_file_;
 
   // A temporary directory into which the log file will be written.
   base::ScopedTempDir temp_dir_;

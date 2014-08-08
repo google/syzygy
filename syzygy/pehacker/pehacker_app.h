@@ -19,11 +19,11 @@
 #define SYZYGY_PEHACKER_PEHACKER_APP_H_
 
 #include "base/command_line.h"
-#include "base/string_piece.h"
-#include "base/time.h"
 #include "base/values.h"
 #include "base/files/file_path.h"
 #include "base/memory/scoped_vector.h"
+#include "base/strings/string_piece.h"
+#include "base/time/time.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/application.h"
 #include "syzygy/pe/image_source_map.h"

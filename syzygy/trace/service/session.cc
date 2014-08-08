@@ -26,9 +26,9 @@
 
 #include "base/command_line.h"
 #include "base/logging.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/buffer_writer.h"
 #include "syzygy/common/com_utils.h"

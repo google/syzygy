@@ -15,7 +15,7 @@
 #include "syzygy/trace/service/session_trace_file_writer_factory.h"
 
 #include "base/file_util.h"
-#include "base/message_loop.h"
+#include "base/message_loop/message_loop.h"
 #include "syzygy/trace/service/session_trace_file_writer.h"
 
 namespace trace {
@@ -31,7 +31,7 @@ SessionTraceFileWriterFactory::SessionTraceFileWriterFactory(
 bool SessionTraceFileWriterFactory::SetTraceFileDirectory(
     const base::FilePath& path) {
   DCHECK(!path.empty());
-  if (!file_util::CreateDirectory(path)) {
+  if (!base::CreateDirectory(path)) {
     LOG(ERROR) << "Failed to create trace file directory '" << path.value()
                << "'.";
     return false;

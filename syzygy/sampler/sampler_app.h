@@ -20,8 +20,8 @@
 
 #include <set>
 
-#include "base/time.h"
 #include "base/files/file_path.h"
+#include "base/time/time.h"
 #include "syzygy/common/application.h"
 #include "syzygy/sampler/sampled_module_cache.h"
 

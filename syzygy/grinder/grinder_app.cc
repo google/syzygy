@@ -16,8 +16,8 @@
 
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/grinder/grinders/coverage_grinder.h"
 #include "syzygy/grinder/grinders/indexed_frequency_data_grinder.h"
 #include "syzygy/grinder/grinders/profile_grinder.h"
@@ -168,9 +168,9 @@ int GrinderApp::Run() {
   // Open the output file. We do this early so as to fail before processing
   // the logs if the output is not able to be opened.
   FILE* output = out();
-  file_util::ScopedFILE auto_close;
+  base::ScopedFILE auto_close;
   if (!output_file_.empty()) {
-    output = file_util::OpenFile(output_file_, "w");
+    output = base::OpenFile(output_file_, "w");
     if (output == NULL) {
       LOG(ERROR) << "Unable to create output file \'"
                  << output_file_.value() << "'";

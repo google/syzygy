@@ -13,10 +13,11 @@
 // limitations under the License.
 
 #include "syzygy/pe/pe_file.h"
+
 #include "base/native_library.h"
 #include "base/path_service.h"
-#include "base/string_util.h"
 #include "base/files/file_path.h"
+#include "base/strings/string_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -42,7 +43,7 @@ class PEFileTest: public testing::PELibUnitTest {
 
     base::FilePath test_dll =
         testing::GetExeRelativePath(testing::kTestDllName);
-    std::string error;
+    base::NativeLibraryLoadError error;
     test_dll_ = base::LoadNativeLibrary(test_dll, &error);
 
     ASSERT_TRUE(image_file_.Init(test_dll));

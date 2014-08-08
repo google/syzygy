@@ -21,7 +21,7 @@
 
 #include <iterator>
 
-// Forward declare base::Time, defined in "base/time.h".
+// Forward declare base::Time, defined in "base/time/time.h".
 namespace base {
 class Time;
 }  // namespace base

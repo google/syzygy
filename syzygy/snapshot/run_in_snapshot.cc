@@ -26,8 +26,8 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/logging.h"
-#include "base/process_util.h"
-#include "base/utf_string_conversions.h"
+#include "base/process/launch.h"
+#include "base/strings/utf_string_conversions.h"
 
 const char kHelp[] =
   "Available options:\n"

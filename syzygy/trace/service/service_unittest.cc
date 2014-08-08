@@ -20,12 +20,14 @@
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/file_util.h"
-#include "base/process_util.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
+#include "base/files/file_enumerator.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/process/kill.h"
+#include "base/process/launch.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/align.h"
@@ -93,7 +95,7 @@ class CallTraceServiceTest : public testing::Test {
       : consumer_thread_("profiler-test-consumer-thread"),
         consumer_thread_has_started_(
             consumer_thread_.StartWithOptions(
-                base::Thread::Options(MessageLoop::TYPE_IO, 0))),
+                base::Thread::Options(base::MessageLoop::TYPE_IO, 0))),
         session_trace_file_writer_factory_(consumer_thread_.message_loop()),
         call_trace_service_(&session_trace_file_writer_factory_),
         rpc_service_instance_manager_(&call_trace_service_),
@@ -123,7 +125,7 @@ class CallTraceServiceTest : public testing::Test {
     std::string env_var;
     env->GetVar(::kSyzygyRpcInstanceIdEnvVar, &env_var);
     env_var.insert(0, ";");
-    env_var.insert(0, ::WideToUTF8(instance_id_));
+    env_var.insert(0, base::WideToUTF8(instance_id_));
     ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar, env_var));
   }
 
@@ -281,14 +283,14 @@ class CallTraceServiceTest : public testing::Test {
   }
 
   void ReadTraceFile(std::string* contents) {
-    file_util::FileEnumerator enumerator(temp_dir_.path(),
-                                         false,
-                                         file_util::FileEnumerator::FILES,
-                                         L"trace-*.bin");
+    base::FileEnumerator enumerator(temp_dir_.path(),
+                                    false,
+                                    base::FileEnumerator::FILES,
+                                    L"trace-*.bin");
     base::FilePath trace_file_name(enumerator.Next());
     ASSERT_FALSE(trace_file_name.empty());
     ASSERT_TRUE(enumerator.Next().empty());
-    ASSERT_TRUE(file_util::ReadFileToString(trace_file_name, contents));
+    ASSERT_TRUE(base::ReadFileToString(trace_file_name, contents));
   }
 
   void ValidateTraceFileHeader(const TraceFileHeader& header) {

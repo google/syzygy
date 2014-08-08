@@ -22,9 +22,9 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_util.h"
-#include "base/string_number_conversions.h"
-#include "base/string_util.h"
-#include "base/time.h"
+#include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
+#include "base/time/time.h"
 #include "base/files/file_path.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/pe/decomposer.h"
@@ -51,7 +51,7 @@ const char kUsageFormatStr[] =
 bool WriteCsvFile(const base::FilePath& path,
                   const std::vector<double>& samples) {
   LOG(INFO) << "Writing samples information to '" << path.value() << "'.";
-  file_util::ScopedFILE out_file(file_util::OpenFile(path, "wb"));
+  base::ScopedFILE out_file(base::OpenFile(path, "wb"));
   if (out_file.get() == NULL) {
     LOG(ERROR) << "Failed to open " << path.value() << " for writing.";
     return false;

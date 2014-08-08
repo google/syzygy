@@ -50,7 +50,7 @@ TEST(CacheGrindWriterTest, Write) {
   EXPECT_TRUE(WriteCacheGrindCoverageFile(coverage_data, temp.path()) );
 
   std::string actual_contents;
-  EXPECT_TRUE(file_util::ReadFileToString(temp.path(), &actual_contents));
+  EXPECT_TRUE(base::ReadFileToString(temp.path(), &actual_contents));
 
   std::string expected_contents =
       "positions: line\n"

@@ -29,7 +29,7 @@
 
 #include "base/basictypes.h"
 #include "base/callback.h"
-#include "base/string_piece.h"
+#include "base/strings/string_piece.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"

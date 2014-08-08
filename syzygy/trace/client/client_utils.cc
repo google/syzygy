@@ -22,9 +22,9 @@
 #include "base/environment.h"
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "base/string_number_conversions.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/win/pe_image.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/common/path_util.h"
@@ -100,7 +100,7 @@ bool GetModuleValueFromEnvVar(const char* env_var_name,
       // This is a default value specified without a path.
       score = 1;
     } else if (path_value.size() == 2) {
-      base::FilePath path(UTF8ToWide(path_value[0]));
+      base::FilePath path(base::UTF8ToWide(path_value[0]));
 
       // Ignore improperly formatted paths.
       if (path.empty())
@@ -352,7 +352,7 @@ bool InitializeRpcSession(RpcSession* rpc_session, TraceFileSegment* segment) {
   DCHECK(rpc_session != NULL);
 
   std::string id = trace::client::GetInstanceIdForThisModule();
-  rpc_session->set_instance_id(UTF8ToWide(id));
+  rpc_session->set_instance_id(base::UTF8ToWide(id));
   if (rpc_session->CreateSession(segment))
     return true;
 

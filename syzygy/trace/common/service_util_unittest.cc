@@ -15,7 +15,7 @@
 #include "syzygy/trace/common/service_util.h"
 
 #include "base/bind.h"
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/threading/thread.h"
 #include "gtest/gtest.h"

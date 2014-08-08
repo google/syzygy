@@ -23,8 +23,8 @@
 
 #include <vector>
 
-#include "base/string_piece.h"
 #include "base/files/file_path.h"
+#include "base/strings/string_piece.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/application.h"
 #include "syzygy/core/address_space.h"

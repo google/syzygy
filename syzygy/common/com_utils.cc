@@ -19,7 +19,7 @@
 #include <atlbase.h>
 #include <shlwapi.h>
 
-#include "base/string_util.h"
+#include "base/strings/string_util.h"
 
 namespace common {
 
@@ -33,7 +33,7 @@ std::ostream& operator<<(std::ostream& os, const LogHr& hr) {
   DWORD message_length = ::FormatMessageA(kFlags, 0, hr.hr_, 0, error_text,
                                           arraysize(error_text), NULL);
   std::string error(error_text);
-  TrimString(error, kWhitespaceASCII, &error);
+  base::TrimWhitespaceASCII(error, base::TRIM_ALL, &error);
 
   return os << "[hr=0x" << std::hex << hr.hr_ << ", msg=" << error << "]";
 }
@@ -48,7 +48,7 @@ std::ostream& operator<<(std::ostream& os, const LogWe& we) {
   DWORD message_length = ::FormatMessageA(kFlags, 0, we.we_, 0, error_text,
                                           arraysize(error_text), NULL);
   std::string error(error_text);
-  TrimString(error, kWhitespaceASCII, &error);
+  base::TrimWhitespaceASCII(error, base::TRIM_ALL, &error);
 
   return os << "[we=" << we.we_ << ", msg=" << error << "]";
 }

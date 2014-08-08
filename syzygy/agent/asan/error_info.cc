@@ -14,7 +14,7 @@
 
 #include "syzygy/agent/asan/error_info.h"
 
-#include "base/string_util.h"
+#include "base/strings/string_util.h"
 #include "syzygy/agent/asan/block_utils.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"

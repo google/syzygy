@@ -16,8 +16,9 @@
 
 #include "base/bind.h"
 #include "base/path_service.h"
-#include "base/stringprintf.h"
+#include "base/files/file_enumerator.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/strings/stringprintf.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/threading/thread.h"
 #include "base/win/pe_image.h"
@@ -439,7 +440,7 @@ TEST_F(SamplerAppTest, SampleSelfPidWhitelist) {
   impl_.WaitUntilStartProfiling();
 
   // We expect the output directory to exist by now.
-  EXPECT_TRUE(file_util::PathExists(output_dir));
+  EXPECT_TRUE(base::PathExists(output_dir));
 
   // Stop the profiler.
   impl_.set_running(false);
@@ -456,15 +457,15 @@ TEST_F(SamplerAppTest, SampleSelfPidWhitelist) {
   //     number of samplers seen by the profiler is doomed to be flaky.
 
   // Ensure that profiler output was produced.
-  file_util::FileEnumerator fe(output_dir,
-                               false,
-                               file_util::FileEnumerator::FILES,
-                               L"*.*");
+  base::FileEnumerator fe(output_dir,
+                          false,
+                          base::FileEnumerator::FILES,
+                          L"*.*");
   base::FilePath dmp_path = fe.Next();
   EXPECT_FALSE(dmp_path.empty());
 
   int64 dmp_size = 0;
-  EXPECT_TRUE(file_util::GetFileSize(dmp_path, &dmp_size));
+  EXPECT_TRUE(base::GetFileSize(dmp_path, &dmp_size));
   EXPECT_LT(0, dmp_size);
 
   // We expect no other output to have been produced.

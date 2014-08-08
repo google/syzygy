@@ -17,9 +17,9 @@
 #ifndef SYZYGY_TRACE_COMMON_UNITTEST_UTIL_H_
 #define SYZYGY_TRACE_COMMON_UNITTEST_UTIL_H_
 
-#include "base/process_util.h"
-#include "base/string_piece.h"
 #include "base/files/file_path.h"
+#include "base/process/launch.h"
+#include "base/strings/string_piece.h"
 #include "gtest/gtest.h"
 #include "syzygy/trace/service/trace_file_writer.h"
 

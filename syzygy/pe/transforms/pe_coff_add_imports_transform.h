@@ -24,7 +24,7 @@
 #ifndef SYZYGY_PE_TRANSFORMS_PE_COFF_ADD_IMPORTS_TRANSFORM_H_
 #define SYZYGY_PE_TRANSFORMS_PE_COFF_ADD_IMPORTS_TRANSFORM_H_
 
-#include "base/string_piece.h"
+#include "base/strings/string_piece.h"
 #include "syzygy/block_graph/block_graph.h"
 
 namespace pe {

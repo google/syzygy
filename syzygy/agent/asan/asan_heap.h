@@ -21,8 +21,8 @@
 #include <windows.h>  // NOLINT
 
 #include "base/logging.h"
-#include "base/string_piece.h"
 #include "base/debug/stack_trace.h"
+#include "base/strings/string_piece.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/block_utils.h"
 #include "syzygy/agent/asan/error_info.h"

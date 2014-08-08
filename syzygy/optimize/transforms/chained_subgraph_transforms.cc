@@ -16,6 +16,8 @@
 
 #include "syzygy/optimize/transforms/chained_subgraph_transforms.h"
 
+#include <stack>
+
 #include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/block_graph/block_builder.h"
 #include "syzygy/block_graph/block_util.h"

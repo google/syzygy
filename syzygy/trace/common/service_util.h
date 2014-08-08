@@ -18,8 +18,8 @@
 #define SYZYGY_TRACE_COMMON_SERVICE_UTIL_H_
 
 #include "base/command_line.h"
-#include "base/string_piece.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/strings/string_piece.h"
 #include "base/win/scoped_handle.h"
 
 namespace trace {

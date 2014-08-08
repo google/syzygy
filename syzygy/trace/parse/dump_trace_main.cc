@@ -414,14 +414,12 @@ int main(int argc, const char** argv) {
   base::AtExitManager at_exit_manager;
   CommandLine::Init(argc, argv);
 
-  if (!logging::InitLogging(
-          L"",
-          logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
-          logging::DONT_LOCK_LOG_FILE,
-          logging::APPEND_TO_OLD_LOG_FILE,
-          logging::ENABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS)) {
+  logging::LoggingSettings settings;
+  settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
+  settings.lock_log = logging::DONT_LOCK_LOG_FILE;
+  settings.delete_old = logging::APPEND_TO_OLD_LOG_FILE;
+  if (!logging::InitLogging(settings))
     return 1;
-  }
 
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   CHECK(cmd_line != NULL);
@@ -440,9 +438,9 @@ int main(int argc, const char** argv) {
   }
 
   base::FilePath out_file_path(cmd_line->GetSwitchValuePath("out"));
-  file_util::ScopedFILE out_file;
+  base::ScopedFILE out_file;
   if (!out_file_path.empty()) {
-    out_file.reset(file_util::OpenFile(out_file_path, "w"));
+    out_file.reset(base::OpenFile(out_file_path, "w"));
     if (out_file.get() == NULL) {
       LOG(ERROR) << "Failed to open output file: '" << out_file_path.value()
                  << "'.";

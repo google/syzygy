@@ -29,6 +29,10 @@
     # is different.
     'src': '<(DEPTH)',
 
+    # Remove the base/build dependency on the existence of a chrome/VERSION
+    # file.
+    'test_isolation_mode': 'noop',
+
     'conditions': [
       ['"<(GENERATOR)"=="ninja" or "<(GENERATOR)"=="msvs-ninja"', {
         'output_dir_prefix': 'out',
@@ -51,6 +55,14 @@
       'VCLinkerTool': {
         # Enable support for large address spaces.
         'LargeAddressAware': 2,
+        # Default to using more sane PDB filenames. Otherwise, both foo.exe and
+        # foo.dll will generate foo.pdb. This ensures that instead we see
+        # foo.exe.pdb and foo.dll.pdb.
+        'ProgramDatabaseFile': '$(TargetPath).pdb',
+        # common.gypi overrides VCLinkerTool::LargeAddressAware via an
+        # addition option. We unset this so that we can control our own
+        # settings.
+        'AdditionalOptions!': [ '/largeaddressaware' ],
       },
     },
     'configurations': {

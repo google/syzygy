@@ -20,9 +20,9 @@
 #include <vector>
 
 #include "base/scoped_native_library.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/win/pe_image.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"

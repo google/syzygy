@@ -15,11 +15,11 @@
 #include "syzygy/reorder/reorderer.h"
 
 #include "base/file_util.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "base/json/json_reader.h"
 #include "base/json/string_escape.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/common/syzygy_version.h"
@@ -501,7 +501,7 @@ void Reorderer::OnBatchFunctionEntry(base::Time time,
 bool Reorderer::Order::SerializeToJSON(const PEFile& pe,
                                        const base::FilePath &path,
                                        bool pretty_print) const {
-  file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
+  base::ScopedFILE file(base::OpenFile(path, "wb"));
   if (file.get() == NULL)
     return false;
   core::JSONFileWriter json_file(file.get(), pretty_print);
@@ -564,7 +564,7 @@ bool Reorderer::Order::LoadFromJSON(const PEFile& pe,
                                     const ImageLayout& image,
                                     const base::FilePath& path) {
   std::string file_string;
-  if (!file_util::ReadFileToString(path, &file_string)) {
+  if (!base::ReadFileToString(path, &file_string)) {
     LOG(ERROR) << "Unable to read order file to string";
     return false;
   }
@@ -630,7 +630,7 @@ bool Reorderer::Order::LoadFromJSON(const PEFile& pe,
 bool Reorderer::Order::GetOriginalModulePath(const base::FilePath& path,
                                              base::FilePath* module) {
   std::string file_string;
-  if (!file_util::ReadFileToString(path, &file_string)) {
+  if (!base::ReadFileToString(path, &file_string)) {
     LOG(ERROR) << "Unable to read order file to string.";
     return false;
   }

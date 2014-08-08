@@ -16,6 +16,8 @@
 
 #include "syzygy/optimize/transforms/unreachable_block_transform.h"
 
+#include <stack>
+
 namespace optimize {
 namespace transforms {
 
@@ -75,7 +77,7 @@ bool DumpUnreachableCallgraph(const base::FilePath& path,
   RecursiveSizeMap subtrees;
 
   // Dump a cachegrind file.
-  file_util::ScopedFILE file(file_util::OpenFile(path, "wb+"));
+  base::ScopedFILE file(base::OpenFile(path, "wb+"));
   if (!file.get()) {
     LOG(ERROR) << "Could not create file.";
     return false;

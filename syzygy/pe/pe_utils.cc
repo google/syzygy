@@ -14,8 +14,8 @@
 
 #include "syzygy/pe/pe_utils.h"
 
-#include "base/string_util.h"
 #include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/pe/dos_stub.h"
 

@@ -16,10 +16,10 @@
 #define SYZYGY_REORDER_REORDER_APP_H_
 
 #include "base/command_line.h"
-#include "base/string_piece.h"
-#include "base/time.h"
 #include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/strings/string_piece.h"
+#include "base/time/time.h"
 #include "syzygy/common/application.h"
 #include "syzygy/pe/image_layout.h"
 #include "syzygy/pe/pe_file.h"

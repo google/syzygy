@@ -21,12 +21,12 @@
 #include "base/environment.h"
 #include "base/file_util.h"
 #include "base/path_service.h"
-#include "base/process_util.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/process/launch.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/align.h"
@@ -169,14 +169,14 @@ TEST_F(LoggerAppTest, ParseDefaultMiniDumpDir) {
 
 TEST_F(LoggerAppTest, ParseMiniDumpDir) {
   base::FilePath new_mini_dump_dir(temp_dir_.Append(L"mini_dumps"));
-  ASSERT_FALSE(file_util::DirectoryExists(new_mini_dump_dir));
+  ASSERT_FALSE(base::DirectoryExists(new_mini_dump_dir));
 
   cmd_line_.AppendSwitchPath(TestLoggerApp::kMiniDumpDir, new_mini_dump_dir);
   cmd_line_.AppendArg("start");
   ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
 
   EXPECT_EQ(new_mini_dump_dir, test_impl_.mini_dump_dir_);
-  EXPECT_TRUE(file_util::DirectoryExists(new_mini_dump_dir));
+  EXPECT_TRUE(base::DirectoryExists(new_mini_dump_dir));
 }
 
 TEST_F(LoggerAppTest, ParseBasicStart) {

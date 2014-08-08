@@ -18,9 +18,9 @@
 
 #include "base/bind.h"
 #include "base/file_util.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_com_initializer.h"
 #include "syzygy/common/com_utils.h"
@@ -131,7 +131,7 @@ bool FilterCompiler::AddRule(ModificationType modification_type,
 }
 
 bool FilterCompiler::ParseFilterDescriptionFile(const base::FilePath& path) {
-  file_util::ScopedFILE file(file_util::OpenFile(path, "rb"));
+  base::ScopedFILE file(base::OpenFile(path, "rb"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Unable to open \"" << path.value() << "\" for reading.";
     return false;
@@ -140,7 +140,7 @@ bool FilterCompiler::ParseFilterDescriptionFile(const base::FilePath& path) {
   static const RE kRuleRegex("^([+-])\\s*([a-zA-Z_]+)\\s*:\\s*(.+)$");
 
   // Convert the path to ASCII.
-  std::string path_utf8 = WideToUTF8(path.value());
+  std::string path_utf8 = base::WideToUTF8(path.value());
 
   // Process the file one line at a time.
   std::string line;
@@ -153,7 +153,7 @@ bool FilterCompiler::ParseFilterDescriptionFile(const base::FilePath& path) {
       return false;
     }
     TrimComment(&line);
-    TrimWhitespace(line, TRIM_ALL, &line);
+    base::TrimWhitespace(line, base::TRIM_ALL, &line);
 
     // Skip empty lines.
     if (line.empty())
@@ -366,7 +366,7 @@ bool FilterCompiler::MatchRulesBySymbolName(const RulePointers& rules,
 
   // Convert the name to ASCII.
   std::string name;
-  if (!WideToUTF8(name_bstr, name_bstr.Length(), &name)) {
+  if (!base::WideToUTF8(name_bstr, name_bstr.Length(), &name)) {
     LOG(ERROR) << "Failed to convert symbol name to UTF8: "
                << common::ToString(name_bstr);
     return false;

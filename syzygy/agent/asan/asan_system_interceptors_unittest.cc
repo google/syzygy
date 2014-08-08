@@ -52,9 +52,9 @@ class AsanRtlReadFileTest : public testing::TestAsanRtl {
 
   void CreateTempFile() {
     ASSERT_EQ(kTestStringLength,
-              file_util::WriteFile(temp_file_.path(),
-                                   kTestString,
-                                   kTestStringLength));
+              base::WriteFile(temp_file_.path(),
+                              kTestString,
+                              kTestStringLength));
 
     temp_file_handle_.Set(::CreateFile(temp_file_.path().value().c_str(),
         GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));

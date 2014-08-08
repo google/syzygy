@@ -21,7 +21,7 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/string_number_conversions.h"
+#include "base/strings/string_number_conversions.h"
 #include "syzygy/simulate/heat_map_simulation.h"
 #include "syzygy/simulate/page_fault_simulation.h"
 #include "syzygy/simulate/simulator.h"
@@ -66,11 +66,12 @@ int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;
   CommandLine::Init(argc, argv);
 
-  if (!logging::InitLogging(L"", logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
-      logging::DONT_LOCK_LOG_FILE, logging::APPEND_TO_OLD_LOG_FILE,
-      logging::ENABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS)) {
+  logging::LoggingSettings settings;
+  settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
+  settings.lock_log = logging::DONT_LOCK_LOG_FILE;
+  settings.delete_old = logging::APPEND_TO_OLD_LOG_FILE;
+  if (!logging::InitLogging(settings))
     return 1;
-  }
 
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   DCHECK(cmd_line != NULL);
@@ -164,12 +165,12 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  file_util::ScopedFILE output_file;
+  base::ScopedFILE output_file;
   FILE* output = NULL;
   if (output_file_path.empty()) {
     output = stdout;
   } else {
-    output_file.reset(file_util::OpenFile(output_file_path, "w"));
+    output_file.reset(base::OpenFile(output_file_path, "w"));
     output = output_file.get();
 
     if (output == NULL) {

@@ -13,9 +13,11 @@
 // limitations under the License.
 
 #include "base/environment.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
+#include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
+#include "base/process/kill.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/pe_image.h"
 #include "gmock/gmock.h"
@@ -66,7 +68,7 @@ struct ScopedAgentLogger {
   ~ScopedAgentLogger() {
     // Clean up the temp directory if we created one.
     if (!temp_dir_.empty())
-      file_util::Delete(temp_dir_, true);
+      base::DeleteFile(temp_dir_, true);
 
     if (nul_) {
       ::CloseHandle(nul_);
@@ -99,7 +101,7 @@ struct ScopedAgentLogger {
       CHECK(nul_);
     }
 
-    CHECK(file_util::CreateNewTempDirectory(L"agent_logger", &temp_dir_));
+    CHECK(base::CreateNewTempDirectory(L"agent_logger", &temp_dir_));
     log_file_ = temp_dir_.Append(L"integration_test.log");
 
     std::wstring start_event_name(L"syzygy-logger-started-");
@@ -123,8 +125,8 @@ struct ScopedAgentLogger {
     handle_ = NULL;
 
     // Read the contents of the log file.
-    if (file_util::PathExists(log_file_))
-      CHECK(file_util::ReadFileToString(log_file_, &log_contents_));
+    if (base::PathExists(log_file_))
+      CHECK(base::ReadFileToString(log_file_, &log_contents_));
   }
 
   bool LogContains(const base::StringPiece& s) {
@@ -725,9 +727,9 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     DCHECK(parser != NULL);
 
     // Queue up the trace file(s) we engendered.
-    file_util::FileEnumerator enumerator(traces_dir_,
-                                         false,
-                                         file_util::FileEnumerator::FILES);
+    base::FileEnumerator enumerator(traces_dir_,
+                                    false,
+                                    base::FileEnumerator::FILES);
     while (true) {
       base::FilePath trace_file = enumerator.Next();
       if (trace_file.empty())

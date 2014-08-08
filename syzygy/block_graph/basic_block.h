@@ -24,7 +24,7 @@
 #ifndef SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_H_
 #define SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_H_
 
-#include "base/string_piece.h"
+#include "base/strings/string_piece.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/block_graph/tags.h"
 #include "syzygy/common/align.h"
@@ -462,7 +462,7 @@ class Successor {
   BasicBlockReference reference() const { return reference_; }
   void set_reference(const BasicBlockReference& reference) {
     reference_ = reference;
-  };
+  }
 
   SourceRange source_range() const { return source_range_; }
   void set_source_range(const SourceRange& source_range) {

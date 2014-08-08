@@ -56,11 +56,11 @@ const wchar_t kInvalidDataPdbTypeInfoStreamPath[] =
 
 scoped_refptr<pdb::PdbFileStream> GetStreamFromFile(base::FilePath file_path) {
   int64 file_size = 0;
-  file_util::GetFileSize(file_path, &file_size);
+  base::GetFileSize(file_path, &file_size);
   size_t pages[] = {0};
 
   scoped_refptr<pdb::RefCountedFILE> file = new pdb::RefCountedFILE(
-      file_util::OpenFile(file_path, "rb"));
+      base::OpenFile(file_path, "rb"));
   scoped_refptr<pdb::PdbFileStream> stream(
     new pdb::PdbFileStream(file, file_size, pages, file_size));
 

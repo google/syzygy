@@ -20,8 +20,8 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_util.h"
-#include "base/string_util.h"
-#include "base/time.h"
+#include "base/strings/string_util.h"
+#include "base/time/time.h"
 #include "base/files/file_path.h"
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/serialization.h"
@@ -63,7 +63,7 @@ bool LoadDecomposition(const base::FilePath& file_path,
   DCHECK(block_graph != NULL);
   DCHECK(image_layout != NULL);
 
-  file_util::ScopedFILE from_file(file_util::OpenFile(file_path, "rb"));
+  base::ScopedFILE from_file(base::OpenFile(file_path, "rb"));
   if (from_file.get() == NULL) {
     LOG(ERROR) << "Unable to open \"" << file_path.value() << "\" for reading.";
     return false;
@@ -170,11 +170,12 @@ int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;
   CommandLine::Init(argc, argv);
 
-  if (!logging::InitLogging(L"", logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
-      logging::DONT_LOCK_LOG_FILE, logging::APPEND_TO_OLD_LOG_FILE,
-      logging::ENABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS)) {
+  logging::LoggingSettings settings;
+  settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
+  settings.lock_log = logging::DONT_LOCK_LOG_FILE;
+  settings.delete_old = logging::APPEND_TO_OLD_LOG_FILE;
+  if (!logging::InitLogging(settings))
     return 1;
-  }
 
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   DCHECK(cmd_line != NULL);

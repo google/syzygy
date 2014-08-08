@@ -193,7 +193,7 @@ TEST_F(PERelinkerTest, InitFailsOnDisallowedOverwrite) {
 
   // Copy the image in case the test actually does overwrite the input; this
   // way we don't accidentally turf our test data.
-  file_util::CopyFile(input_dll_, temp_dll_);
+  base::CopyFile(input_dll_, temp_dll_);
 
   relinker.set_input_path(temp_dll_);
   relinker.set_output_path(temp_dll_);
@@ -296,8 +296,8 @@ TEST_F(PERelinkerTest, IdentityRelink) {
   EXPECT_TRUE(relinker.Relink());
   EXPECT_EQ(temp_pdb_, relinker.output_pdb_path());
 
-  EXPECT_TRUE(file_util::PathExists(relinker.output_path()));
-  EXPECT_TRUE(file_util::PathExists(relinker.output_pdb_path()));
+  EXPECT_TRUE(base::PathExists(relinker.output_path()));
+  EXPECT_TRUE(base::PathExists(relinker.output_pdb_path()));
 
   ASSERT_NO_FATAL_FAILURE(CheckTestDll(relinker.output_path()));
 

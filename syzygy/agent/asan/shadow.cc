@@ -13,7 +13,7 @@
 // limitations under the License.
 #include "syzygy/agent/asan/shadow.h"
 
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
 
 namespace agent {

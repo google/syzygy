@@ -98,7 +98,7 @@ bool FindPEFile(const Metadata& metadata, PEFile* pe_file) {
   base::FilePath metadata_path(metadata.module_signature().path);
   LOG(INFO) << "Attempting to use metadata path in deserialization: "
             << metadata_path.value();
-  if (!file_util::PathExists(metadata_path) || !pe_file->Init(metadata_path)) {
+  if (!base::PathExists(metadata_path) || !pe_file->Init(metadata_path)) {
     LOG(WARNING) << "Unable to read module:" << metadata_path.value();
   } else {
     if (MetadataMatchesPEFile(metadata, *pe_file))
@@ -106,7 +106,7 @@ bool FindPEFile(const Metadata& metadata, PEFile* pe_file) {
 
     // Append the directory to the search path if it exists.
     base::FilePath dir = metadata_path.DirName();
-    if (file_util::DirectoryExists(dir))
+    if (base::DirectoryExists(dir))
       search_path.append(metadata_path.DirName().value());
 
     LOG(WARNING) << "Metadata signature does not match metadata module: "

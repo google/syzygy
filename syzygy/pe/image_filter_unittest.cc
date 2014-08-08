@@ -108,8 +108,8 @@ TEST_F(ImageFilterTest, SaveToAndLoadFromJSON) {
   EXPECT_TRUE(f1.SaveToJSON(false, ugly_json_path));
 
   std::string pretty_json, ugly_json;
-  file_util::ReadFileToString(pretty_json_path, &pretty_json);
-  file_util::ReadFileToString(ugly_json_path, &ugly_json);
+  base::ReadFileToString(pretty_json_path, &pretty_json);
+  base::ReadFileToString(ugly_json_path, &ugly_json);
   EXPECT_LT(ugly_json.size(), pretty_json.size());
 
   ImageFilter f2;

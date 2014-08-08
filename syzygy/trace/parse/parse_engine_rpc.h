@@ -17,8 +17,8 @@
 #ifndef SYZYGY_TRACE_PARSE_PARSE_ENGINE_RPC_H_
 #define SYZYGY_TRACE_PARSE_PARSE_ENGINE_RPC_H_
 
-#include "base/time.h"
 #include "base/files/file_path.h"
+#include "base/time/time.h"
 #include "syzygy/trace/parse/parse_engine.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 

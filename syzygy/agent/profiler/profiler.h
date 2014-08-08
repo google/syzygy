@@ -28,7 +28,6 @@
 #include <winnt.h>
 #include <vector>
 
-#include "base/hash_tables.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/thread_local.h"
 #include "syzygy/agent/common/dll_notifications.h"

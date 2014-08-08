@@ -18,9 +18,9 @@
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/logging.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/sys_string_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/win/pe_image.h"
 #include "base/win/wrapped_window_proc.h"
 #include "syzygy/agent/asan/asan_heap_checker.h"
@@ -169,8 +169,8 @@ void SetCrashKeyValuePair(const BreakpadFunctions& breakpad_functions,
   }
 
   if (breakpad_functions.set_crash_key_value_impl_ptr != NULL) {
-    std::wstring wkey = UTF8ToWide(key);
-    std::wstring wvalue = UTF8ToWide(value);
+    std::wstring wkey = base::UTF8ToWide(key);
+    std::wstring wvalue = base::UTF8ToWide(value);
     breakpad_functions.set_crash_key_value_impl_ptr(wkey.c_str(),
                                                     wvalue.c_str());
     return;
@@ -342,7 +342,7 @@ LPTOP_LEVEL_EXCEPTION_FILTER AsanRuntime::previous_uef_ = NULL;
 bool AsanRuntime::uef_installed_ = false;
 
 AsanRuntime::AsanRuntime()
-    : logger_(NULL), stack_cache_(NULL), asan_error_callback_(),
+    : logger_(), stack_cache_(), asan_error_callback_(),
       heap_proxy_dlist_lock_(), heap_proxy_dlist_() {
   common::SetDefaultAsanParameters(&params_);
 }
@@ -476,7 +476,7 @@ void AsanRuntime::SetUpLogger() {
 
   // Initialize the client.
   client->set_instance_id(
-      UTF8ToWide(trace::client::GetInstanceIdForThisModule()));
+      base::UTF8ToWide(trace::client::GetInstanceIdForThisModule()));
   client->Init();
 
   // Register the client singleton instance.

@@ -16,7 +16,7 @@
 #include <algorithm>
 #include <string>
 
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_writer.h"

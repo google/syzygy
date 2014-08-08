@@ -19,9 +19,9 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_util.h"
-#include "base/string_util.h"
-#include "base/time.h"
 #include "base/files/file_path.h"
+#include "base/strings/string_util.h"
+#include "base/time/time.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
@@ -142,7 +142,7 @@ int DecomposeApp::Run() {
 bool DecomposeApp::SaveDecomposedImage(
     const pe::PEFile& pe_file, const pe::ImageLayout& image_layout,
     const base::FilePath& output_path) const {
-  file_util::ScopedFILE out_file(file_util::OpenFile(output_path, "wb"));
+  base::ScopedFILE out_file(base::OpenFile(output_path, "wb"));
   core::FileOutStream out_stream(out_file.get());
   core::NativeBinaryOutArchive out_archive(&out_stream);
 
@@ -176,7 +176,7 @@ bool DecomposeApp::LoadDecomposedImage(const base::FilePath& file_path) const {
   pe::PEFile pe_file;
   BlockGraph block_graph;
 
-  file_util::ScopedFILE in_file(file_util::OpenFile(file_path, "rb"));
+  base::ScopedFILE in_file(base::OpenFile(file_path, "rb"));
   core::FileInStream in_stream(in_file.get());
   core::NativeBinaryInArchive in_archive(&in_stream);
 

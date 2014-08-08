@@ -177,7 +177,7 @@ class ArReader {
 
   // The file that is being read.
   base::FilePath path_;
-  file_util::ScopedFILE file_;
+  base::ScopedFILE file_;
 
   // Data regarding the archive.
   uint64 length_;

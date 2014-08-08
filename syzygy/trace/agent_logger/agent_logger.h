@@ -20,9 +20,9 @@
 
 #include "base/callback.h"
 #include "base/file_util.h"
-#include "base/message_loop.h"
-#include "base/process.h"
-#include "base/string_piece.h"
+#include "base/message_loop/message_loop.h"
+#include "base/process/process.h"
+#include "base/strings/string_piece.h"
 #include "base/threading/platform_thread.h"
 #include "syzygy/trace/common/service.h"
 #include "syzygy/trace/rpc/logger_rpc.h"

@@ -17,7 +17,7 @@
 #include <cstring>
 
 #include "base/command_line.h"
-#include "base/process_util.h"
+#include "base/process/launch.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"

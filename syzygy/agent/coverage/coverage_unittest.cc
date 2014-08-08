@@ -17,6 +17,7 @@
 #include "syzygy/agent/coverage/coverage.h"
 
 #include "base/file_util.h"
+#include "base/files/file_enumerator.h"
 #include "base/files/scoped_temp_dir.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -111,9 +112,9 @@ class CoverageClientTest : public testing::Test {
     ASSERT_TRUE(parser.Init(&handler_));
 
     // Queue up the trace file(s) we engendered.
-    file_util::FileEnumerator enumerator(temp_dir_.path(),
-                                         false,
-                                         file_util::FileEnumerator::FILES);
+    base::FileEnumerator enumerator(temp_dir_.path(),
+                                    false,
+                                    base::FileEnumerator::FILES);
     size_t num_files = 0;
     while (true) {
       base::FilePath trace_file = enumerator.Next();

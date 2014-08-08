@@ -36,7 +36,7 @@ ParseEngineRpc::~ParseEngineRpc() {
 
 bool ParseEngineRpc::IsRecognizedTraceFile(
     const base::FilePath& trace_file_path) {
-  file_util::ScopedFILE trace_file(file_util::OpenFile(trace_file_path, "rb"));
+  base::ScopedFILE trace_file(base::OpenFile(trace_file_path, "rb"));
   if (!trace_file.get()) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Unable to open '" << trace_file_path.value() << "': "
@@ -86,7 +86,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
 
   LOG(INFO) << "Processing '" << trace_file_path.BaseName().value() << "'.";
 
-  file_util::ScopedFILE trace_file(file_util::OpenFile(trace_file_path, "rb"));
+  base::ScopedFILE trace_file(base::OpenFile(trace_file_path, "rb"));
   if (!trace_file.get()) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Unable to open '" << trace_file_path.value() << "': "
@@ -176,7 +176,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
   // Consume the body of the trace file.
   uint64 next_segment = AlignUp64(file_header->header_size,
                                   file_header->block_size);
-  scoped_ptr_malloc<uint8> buffer;
+  scoped_ptr<uint8> buffer;
   size_t buffer_size = 0;
   while (true) {
     if (::_fseeki64(trace_file.get(), next_segment, SEEK_SET) != 0) {

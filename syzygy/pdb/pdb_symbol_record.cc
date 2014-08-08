@@ -16,7 +16,7 @@
 
 #include <string>
 
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_util.h"

@@ -227,7 +227,7 @@ bool GuessFileType(const base::FilePath& path, FileType* file_type) {
 
   *file_type = kUnknownFileType;
 
-  if (!file_util::PathExists(path)) {
+  if (!base::PathExists(path)) {
     LOG(ERROR) << "File does not exist: " << path.value();
     return false;
   }
@@ -235,7 +235,7 @@ bool GuessFileType(const base::FilePath& path, FileType* file_type) {
   size_t file_size = 0;
   {
     int64 temp_file_size = 0;
-    if (!file_util::GetFileSize(path, &temp_file_size)) {
+    if (!base::GetFileSize(path, &temp_file_size)) {
       LOG(ERROR) << "Unable to get file size: " << path.value();
       return false;
     }
@@ -247,7 +247,7 @@ bool GuessFileType(const base::FilePath& path, FileType* file_type) {
   if (file_size == 0)
     return true;
 
-  file_util::ScopedFILE file(file_util::OpenFile(path, "rb"));
+  base::ScopedFILE file(base::OpenFile(path, "rb"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Unable to open file for reading: " << path.value();
     return false;

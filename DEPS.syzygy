@@ -16,10 +16,10 @@
 # this build configuration.
 
 vars = {
-  "chrome_revision": "202420",
+  "chrome_revision": "271365",
   "gmock_revision": "453",
   "gtest_revision": "664",
-  "gyp_revision": "1872",
+  "gyp_revision": "1919",
   "py_etw_revision": "559",
 
   "chrome_base": "http://src.chromium.org/svn/trunk",
@@ -27,7 +27,7 @@ vars = {
   # Paths to installed utilities used in hooks. These need to use
   # Windows style paths.
   "python_path": "src\\third_party\\python_26\\python.exe",
-  "gyp_path": "src\\tools\\gyp\\gyp_main.py",
+  "gyp_path": "src\\syzygy\\build\\gyp_main.py",
 }
 
 deps = {
@@ -38,9 +38,9 @@ deps = {
   # Dependencies required to to build base.
   "src/third_party/icu":
     Var("chrome_base") + "/deps/third_party/icu46@" +
-          Var("chrome_revision"),
-  "src/third_party/jemalloc":
-    Var("chrome_base") + "/src/third_party/jemalloc@" +
+        Var("chrome_revision"),
+  "src/third_party/libxml":
+    Var("chrome_base") + "/src/third_party/libxml@" +
         Var("chrome_revision"),
   "src/third_party/modp_b64":
     Var("chrome_base") + "/src/third_party/modp_b64@" +
@@ -106,8 +106,10 @@ hooks = [
     # A change to a .gyp, .gypi, or to GYP itself should run the generator.
     "pattern": ".",
     "action": [Var("python_path"),
-               "src/build/gyp_chromium",
+               Var("gyp_path"),
+               "--include=src/build/common.gypi",
                "--include=src/syzygy/syzygy.gypi",
+               "--no-circular-check",
                "src/syzygy/build/all.gyp"],
   },
 ]

@@ -70,8 +70,8 @@ class ZapTimestampTest : public testing::Test {
 
   void CopyTestData(const base::FilePath& pe_path,
                     const base::FilePath& pdb_path) {
-    ASSERT_TRUE(file_util::CopyFile(pe_path, temp_pe_path_));
-    ASSERT_TRUE(file_util::CopyFile(pdb_path, temp_pdb_path_));
+    ASSERT_TRUE(base::CopyFile(pe_path, temp_pe_path_));
+    ASSERT_TRUE(base::CopyFile(pdb_path, temp_pdb_path_));
   }
 
   void CopyTestData(size_t index) {
@@ -103,7 +103,7 @@ TEST_F(ZapTimestampTest, InitFailsForMismatchedPeAndPdb) {
 
 TEST_F(ZapTimestampTest, InitFailsWithMissingPdb) {
   ASSERT_NO_FATAL_FAILURE(CopyTestData(0));
-  ASSERT_TRUE(file_util::Delete(temp_pdb_path_, false));
+  ASSERT_TRUE(base::DeleteFile(temp_pdb_path_, false));
   ZapTimestamp zap;
   EXPECT_FALSE(zap.Init(temp_pe_path_));
 }
@@ -132,8 +132,8 @@ TEST_F(ZapTimestampTest, IsIdempotent) {
   // Make a copy of the singly zapped files.
   base::FilePath pe_path_0 = temp_dir_.path().Append(L"test_dll_0.dll");
   base::FilePath pdb_path_0 = temp_dir_.path().Append(L"test_dll_0.pdb");
-  ASSERT_TRUE(file_util::CopyFile(temp_pe_path_, pe_path_0));
-  ASSERT_TRUE(file_util::CopyFile(temp_pdb_path_, pdb_path_0));
+  ASSERT_TRUE(base::CopyFile(temp_pe_path_, pe_path_0));
+  ASSERT_TRUE(base::CopyFile(temp_pdb_path_, pdb_path_0));
 
   // Zap them again.
   ZapTimestamp zap1;
@@ -142,8 +142,8 @@ TEST_F(ZapTimestampTest, IsIdempotent) {
   EXPECT_TRUE(zap1.Zap(true, true));
 
   // The singly and doubly zapped files should be the same.
-  EXPECT_TRUE(file_util::ContentsEqual(temp_pe_path_, pe_path_0));
-  EXPECT_TRUE(file_util::ContentsEqual(temp_pdb_path_, pdb_path_0));
+  EXPECT_TRUE(base::ContentsEqual(temp_pe_path_, pe_path_0));
+  EXPECT_TRUE(base::ContentsEqual(temp_pdb_path_, pdb_path_0));
 }
 
 TEST_F(ZapTimestampTest, Succeeds) {
@@ -157,8 +157,8 @@ TEST_F(ZapTimestampTest, Succeeds) {
   // Rename and move the PE and PDB file.
   base::FilePath pe_path_0 = temp_dir_.path().Append(L"test_dll_0.dll");
   base::FilePath pdb_path_0 = temp_dir_.path().Append(L"test_dll_0.pdb");
-  ASSERT_TRUE(file_util::Move(temp_pe_path_, pe_path_0));
-  ASSERT_TRUE(file_util::Move(temp_pdb_path_, pdb_path_0));
+  ASSERT_TRUE(base::Move(temp_pe_path_, pe_path_0));
+  ASSERT_TRUE(base::Move(temp_pdb_path_, pdb_path_0));
 
   // Zap the second set of the PE and PDB files.
   ASSERT_NO_FATAL_FAILURE(CopyTestData(1));
@@ -169,8 +169,8 @@ TEST_F(ZapTimestampTest, Succeeds) {
   // Rename and move the PE and PDB file.
   base::FilePath pe_path_1 = temp_dir_.path().Append(L"test_dll_1.dll");
   base::FilePath pdb_path_1 = temp_dir_.path().Append(L"test_dll_1.pdb");
-  ASSERT_TRUE(file_util::Move(temp_pe_path_, pe_path_1));
-  ASSERT_TRUE(file_util::Move(temp_pdb_path_, pdb_path_1));
+  ASSERT_TRUE(base::Move(temp_pe_path_, pe_path_1));
+  ASSERT_TRUE(base::Move(temp_pdb_path_, pdb_path_1));
 
   // Zap the third set of the PE and PDB files.
   ASSERT_NO_FATAL_FAILURE(CopyTestData(2));
@@ -179,10 +179,10 @@ TEST_F(ZapTimestampTest, Succeeds) {
   EXPECT_TRUE(zap2.Zap(true, true));
 
   // The sets of zapped files should match.
-  EXPECT_TRUE(file_util::ContentsEqual(temp_pe_path_, pe_path_0));
-  EXPECT_TRUE(file_util::ContentsEqual(temp_pe_path_, pe_path_1));
-  EXPECT_TRUE(file_util::ContentsEqual(temp_pdb_path_, pdb_path_0));
-  EXPECT_TRUE(file_util::ContentsEqual(temp_pdb_path_, pdb_path_1));
+  EXPECT_TRUE(base::ContentsEqual(temp_pe_path_, pe_path_0));
+  EXPECT_TRUE(base::ContentsEqual(temp_pe_path_, pe_path_1));
+  EXPECT_TRUE(base::ContentsEqual(temp_pdb_path_, pdb_path_0));
+  EXPECT_TRUE(base::ContentsEqual(temp_pdb_path_, pdb_path_1));
 }
 
 }  // namespace zap_timestamp

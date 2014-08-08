@@ -108,7 +108,7 @@ TEST_F(CoffRelinkerTest, InitFailsOnDisallowedOverwrite) {
 
   // Copy the image in case the test actually does overwrite the input; this
   // way we don't accidentally turf our test data.
-  file_util::CopyFile(test_dll_obj_path_, new_test_dll_obj_path_);
+  base::CopyFile(test_dll_obj_path_, new_test_dll_obj_path_);
 
   relinker.set_input_path(new_test_dll_obj_path_);
   relinker.set_output_path(new_test_dll_obj_path_);
@@ -191,7 +191,7 @@ TEST_F(CoffRelinkerTest, IdentityRelink) {
   EXPECT_TRUE(relinker.Init());
   EXPECT_TRUE(relinker.Relink());
 
-  EXPECT_TRUE(file_util::PathExists(relinker.output_path()));
+  EXPECT_TRUE(base::PathExists(relinker.output_path()));
 
   // We assume the contents of the file are what they should be;
   // CoffImageLayoutBuilder has more unit tests that check the specifics of

@@ -16,7 +16,7 @@
 
 #include <string.h>
 #include "base/logging.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "syzygy/pe/pe_file.h"
 
 namespace pe {
@@ -31,10 +31,10 @@ bool PdbInfo::Init(const CvInfoPdb70& cv_info_pdb) {
 
   // Convert the UTF-8 filename to a FilePath.
   std::wstring pdb_path;
-  if (!UTF8ToWide(cv_info_pdb.pdb_file_name,
-                  ::strlen(cv_info_pdb.pdb_file_name),
-                  &pdb_path)) {
-    LOG(ERROR) << "UTF8ToWide failed.";
+  if (!base::UTF8ToWide(cv_info_pdb.pdb_file_name,
+                        ::strlen(cv_info_pdb.pdb_file_name),
+                        &pdb_path)) {
+    LOG(ERROR) << "base::UTF8ToWide failed.";
     return false;
   }
   pdb_file_name_ = base::FilePath(pdb_path);

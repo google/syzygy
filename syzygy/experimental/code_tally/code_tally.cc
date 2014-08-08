@@ -23,8 +23,8 @@
 
 #include "base/bind.h"
 #include "base/logging.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/win/pe_image.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_com_initializer.h"

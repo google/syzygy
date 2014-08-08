@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 
-#include "base/time.h"
+#include "base/time/time.h"
 #include "syzygy/common/assertions.h"
 
 namespace ar {

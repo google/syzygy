@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "syzygy/common/syzygy_version.h"
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 
 namespace common {
 

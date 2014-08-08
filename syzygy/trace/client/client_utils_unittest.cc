@@ -15,8 +15,8 @@
 #include "syzygy/trace/client/client_utils.h"
 
 #include "base/environment.h"
-#include "base/utf_string_conversions.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/strings/utf_string_conversions.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/file_util.h"
 #include "syzygy/core/unittest_util.h"
@@ -133,7 +133,7 @@ TEST(GetInstanceIdForThisModuleTest, WorksAsExpected) {
   scoped_ptr<base::Environment> env;
   env.reset(base::Environment::Create());
   ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar,
-                          ::WideToUTF8(env_var)));
+                          base::WideToUTF8(env_var)));
 
   EXPECT_EQ(std::string("1"), GetInstanceIdForThisModule());
 }
@@ -183,7 +183,7 @@ TEST(IsRpcSessionMandatoryThisModuleTest, WorksAsExpected) {
   scoped_ptr<base::Environment> env;
   env.reset(base::Environment::Create());
   ASSERT_TRUE(env->SetVar(::kSyzygyRpcSessionMandatoryEnvVar,
-                          ::WideToUTF8(env_var)));
+                          base::WideToUTF8(env_var)));
 
   EXPECT_TRUE(IsRpcSessionMandatoryForThisModule());
 }
@@ -198,14 +198,14 @@ TEST(InitializeRpcSessionTest, FailureSessionNotMandatory) {
   std::wstring env_var(self_path.value());
   env_var.append(L",0");
   ASSERT_TRUE(env->SetVar(::kSyzygyRpcSessionMandatoryEnvVar,
-                          ::WideToUTF8(env_var)));
+                          base::WideToUTF8(env_var)));
 
   env_var = self_path.value();
   std::wstring id(L"dummy-id");
   env_var.append(L",");
   env_var.append(id);
   ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar,
-                          ::WideToUTF8(env_var)));
+                          base::WideToUTF8(env_var)));
 
   RpcSession session;
   TraceFileSegment segment;

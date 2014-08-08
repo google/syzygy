@@ -40,14 +40,14 @@ class ArWriterTest : public testing::Test {
     for (size_t i = 0; i < arraysize(kObjectFiles); ++i)
       object_files_.push_back(testing::GetSrcRelativePath(kObjectFiles[i]));
 
-    ASSERT_TRUE(file_util::CreateNewTempDirectory(L"ArWriterTest",
+    ASSERT_TRUE(base::CreateNewTempDirectory(L"ArWriterTest",
                                                   &temp_dir_));
 
     lib_path_ = temp_dir_.Append(L"foo.lib");
   }
 
   virtual void TearDown() OVERRIDE {
-    ASSERT_TRUE(file_util::Delete(temp_dir_, true));
+    ASSERT_TRUE(base::DeleteFile(temp_dir_, true));
   }
 
   void AddObjectFiles() {
@@ -68,9 +68,9 @@ class ArWriterTest : public testing::Test {
     // Add the same object file again but with a different name. This should
     // cause duplicate symbols to be encountered, but it should't be a problem.
     int64 size = 0;
-    ASSERT_TRUE(file_util::GetFileSize(object_files_[0], &size));
+    ASSERT_TRUE(base::GetFileSize(object_files_[0], &size));
     contents_.resize(size);
-    ASSERT_TRUE(file_util::ReadFile(object_files_[0],
+    ASSERT_TRUE(base::ReadFile(object_files_[0],
                                     reinterpret_cast<char*>(contents_.data()),
                                     contents_.size()));
     EXPECT_TRUE(writer_.AddFile("foo.obj", base::Time::Now(), 0, &contents_));
@@ -104,8 +104,8 @@ TEST_F(ArWriterTest, AddEmptyFileFails) {
   EXPECT_TRUE(writer_.symbols().empty());
 
   base::FilePath empty_file = temp_dir_.Append(L"empty.obj");
-  ASSERT_EQ(0, file_util::WriteFile(empty_file, NULL, 0));
-  ASSERT_TRUE(file_util::PathExists(empty_file));
+  ASSERT_EQ(0, base::WriteFile(empty_file, NULL, 0));
+  ASSERT_TRUE(base::PathExists(empty_file));
   EXPECT_FALSE(writer_.AddFile(empty_file));
   EXPECT_TRUE(writer_.files().empty());
   EXPECT_TRUE(writer_.symbols().empty());
@@ -115,8 +115,8 @@ TEST_F(ArWriterTest, AddInvalidObjectFileFails) {
   static const char kContent[] = "hey there";
   base::FilePath dummy_file = temp_dir_.Append(L"dummy.obj");
   ASSERT_EQ(arraysize(kContent),
-            file_util::WriteFile(dummy_file, kContent, arraysize(kContent)));
-  ASSERT_TRUE(file_util::PathExists(dummy_file));
+            base::WriteFile(dummy_file, kContent, arraysize(kContent)));
+  ASSERT_TRUE(base::PathExists(dummy_file));
   EXPECT_FALSE(writer_.AddFile(dummy_file));
   EXPECT_TRUE(writer_.files().empty());
   EXPECT_TRUE(writer_.symbols().empty());
@@ -137,7 +137,7 @@ TEST_F(ArWriterTest, TestArWriterRoundTrip) {
   EXPECT_NO_FATAL_FAILURE(AddObjectFiles());
 
   EXPECT_TRUE(writer_.Write(lib_path_));
-  EXPECT_TRUE(file_util::PathExists(lib_path_));
+  EXPECT_TRUE(base::PathExists(lib_path_));
 
   // Read the file to validate it.
   ArReader reader;
@@ -157,7 +157,7 @@ TEST_F(ArWriterTest, TestArWriterRoundTripDuplicateSymbols) {
   EXPECT_NO_FATAL_FAILURE(AddDuplicateObjectFile());
 
   EXPECT_TRUE(writer_.Write(lib_path_));
-  EXPECT_TRUE(file_util::PathExists(lib_path_));
+  EXPECT_TRUE(base::PathExists(lib_path_));
 
   // Read the file to validate it.
   ArReader reader;

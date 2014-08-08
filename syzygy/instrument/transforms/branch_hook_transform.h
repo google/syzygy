@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-#include "base/string_piece.h"
+#include "base/strings/string_piece.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/iterate.h"
 #include "syzygy/block_graph/transforms/iterative_transform.h"

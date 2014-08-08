@@ -14,7 +14,7 @@
 
 #include "syzygy/relink/relink_app.h"
 
-#include "base/string_number_conversions.h"
+#include "base/strings/string_number_conversions.h"
 #include "syzygy/block_graph/orderers/original_orderer.h"
 #include "syzygy/block_graph/orderers/random_orderer.h"
 #include "syzygy/block_graph/transforms/fuzzing_transform.h"

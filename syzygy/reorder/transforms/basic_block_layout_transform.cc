@@ -14,7 +14,7 @@
 
 #include "syzygy/reorder/transforms/basic_block_layout_transform.h"
 
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 
 namespace reorder {
 namespace transforms {

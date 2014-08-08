@@ -183,13 +183,13 @@ TEST(GrinderBasicBlockUtilTest, LoadBranchStatisticsFromFileFailed) {
   // Validate invalid file format is reported.
   base::FilePath empty_file;
   ASSERT_TRUE(
-      file_util::CreateTemporaryFileInDir(temp_dir.path(), &empty_file));
+      base::CreateTemporaryFileInDir(temp_dir.path(), &empty_file));
   EXPECT_FALSE(
       LoadBranchStatisticsFromFile(empty_file, signature, &frequencies));
 
   // Serialize to a file without any module.
   base::FilePath temp_file;
-  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir.path(), &temp_file));
+  ASSERT_TRUE(base::CreateTemporaryFileInDir(temp_dir.path(), &temp_file));
   ModuleIndexedFrequencyMap modules;
   IndexedFrequencyDataSerializer serializer;
   ASSERT_TRUE(serializer.SaveAsJson(modules, temp_file));
@@ -220,7 +220,7 @@ TEST(GrinderBasicBlockUtilTest, LoadBranchStatisticsFromFile) {
 
   // Serialize to a file.
   base::FilePath temp_file;
-  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir.path(), &temp_file));
+  ASSERT_TRUE(base::CreateTemporaryFileInDir(temp_dir.path(), &temp_file));
   IndexedFrequencyDataSerializer serializer;
   ASSERT_TRUE(serializer.SaveAsJson(modules, temp_file));
 

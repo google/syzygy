@@ -44,13 +44,13 @@ class LenientArTransformTest : public testing::Test {
 
   virtual void SetUp() OVERRIDE {
     input_archive_ = testing::GetSrcRelativePath(testing::kArchiveFile);
-    ASSERT_TRUE(file_util::CreateNewTempDirectory(L"ArTransformTest",
+    ASSERT_TRUE(base::CreateNewTempDirectory(L"ArTransformTest",
                                                   &temp_dir_));
     output_archive_ = temp_dir_.Append(L"output.lib");
   }
 
   virtual void TearDown() OVERRIDE {
-    ASSERT_TRUE(file_util::Delete(temp_dir_, true));
+    ASSERT_TRUE(base::DeleteFile(temp_dir_, true));
   }
 
   MOCK_METHOD3(InMemoryCallback, bool(ParsedArFileHeader*,
@@ -81,7 +81,7 @@ class LenientArTransformTest : public testing::Test {
                               const base::FilePath& output_path,
                               ParsedArFileHeader* header,
                               bool* remove) {
-    if (!file_util::CopyFileW(input_path, output_path))
+    if (!base::CopyFile(input_path, output_path))
       return false;
     return true;
   }
@@ -117,7 +117,7 @@ TEST_F(ArTransformTest, TransformFailsInMemoryCallbackFails) {
       .Times(1).WillOnce(Return(false));
 
   EXPECT_FALSE(tx.Transform());
-  EXPECT_FALSE(file_util::PathExists(output_archive_));
+  EXPECT_FALSE(base::PathExists(output_archive_));
 }
 
 TEST_F(ArTransformTest, TransformIdentityInMemory) {
@@ -130,7 +130,7 @@ TEST_F(ArTransformTest, TransformIdentityInMemory) {
       .Times(testing::kArchiveFileCount).WillRepeatedly(Return(true));
 
   EXPECT_TRUE(tx.Transform());
-  EXPECT_TRUE(file_util::PathExists(output_archive_));
+  EXPECT_TRUE(base::PathExists(output_archive_));
 
   ArReader reader;
   EXPECT_TRUE(reader.Init(output_archive_));
@@ -147,7 +147,7 @@ TEST_F(ArTransformTest, TransformFailsOnDiskCallbackFails) {
       .Times(1).WillRepeatedly(Return(true));
 
   EXPECT_FALSE(tx.Transform());
-  EXPECT_FALSE(file_util::PathExists(output_archive_));
+  EXPECT_FALSE(base::PathExists(output_archive_));
 }
 
 TEST_F(ArTransformTest, TransformIdentityOnDiskFailsNoOutputFile) {
@@ -160,7 +160,7 @@ TEST_F(ArTransformTest, TransformIdentityOnDiskFailsNoOutputFile) {
       .Times(1).WillOnce(Return(true));
 
   EXPECT_FALSE(tx.Transform());
-  EXPECT_FALSE(file_util::PathExists(output_archive_));
+  EXPECT_FALSE(base::PathExists(output_archive_));
 }
 
 TEST_F(ArTransformTest, TransformIdentityOnDisk) {
@@ -174,7 +174,7 @@ TEST_F(ArTransformTest, TransformIdentityOnDisk) {
       .WillRepeatedly(Invoke(this, &ArTransformTest::OnDiskCallbackCopyFile));
 
   EXPECT_TRUE(tx.Transform());
-  EXPECT_TRUE(file_util::PathExists(output_archive_));
+  EXPECT_TRUE(base::PathExists(output_archive_));
 
   ArReader reader;
   EXPECT_TRUE(reader.Init(output_archive_));
@@ -195,7 +195,7 @@ TEST_F(ArTransformTest, TransformIdentityOnDiskEraseFile) {
       .WillRepeatedly(Invoke(this, &ArTransformTest::OnDiskCallbackCopyFile));
 
   EXPECT_TRUE(tx.Transform());
-  EXPECT_TRUE(file_util::PathExists(output_archive_));
+  EXPECT_TRUE(base::PathExists(output_archive_));
 
   ArReader reader;
   EXPECT_TRUE(reader.Init(output_archive_));

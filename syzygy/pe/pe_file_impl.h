@@ -22,7 +22,7 @@ bool PEFileBase<ImageNtHeaders, MagicValidation>::Init(
     const base::FilePath& path) {
   PECoffFile::Init(path);
 
-  FILE* file = file_util::OpenFile(path, "rb");
+  FILE* file = base::OpenFile(path, "rb");
   if (file == NULL) {
     LOG(ERROR) << "Failed to open file " << path.value() << ".";
     return false;
@@ -32,7 +32,7 @@ bool PEFileBase<ImageNtHeaders, MagicValidation>::Init(
   if (success)
     success = ReadSections(file);
 
-  file_util::CloseFile(file);
+  base::CloseFile(file);
 
   return success;
 }

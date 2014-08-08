@@ -26,7 +26,7 @@
 #include <set>
 #include <string>
 
-#include "base/string_piece.h"
+#include "base/strings/string_piece.h"
 #include "syzygy/block_graph/iterate.h"
 #include "syzygy/block_graph/transforms/iterative_transform.h"
 #include "syzygy/pe/transforms/pe_add_imports_transform.h"

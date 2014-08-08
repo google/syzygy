@@ -20,12 +20,13 @@
 #include "base/bind_helpers.h"
 #include "base/environment.h"
 #include "base/file_util.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
+#include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_runtime.h"
@@ -72,7 +73,7 @@ TEST_F(AsanLoggerTest, EndToEnd) {
 
   {
     // Setup a log file destination.
-    file_util::ScopedFILE destination(file_util::OpenFile(temp_path_, "wb"));
+    base::ScopedFILE destination(base::OpenFile(temp_path_, "wb"));
 
     // Start up the logging service.
     trace::agent_logger::AgentLogger server;
@@ -104,11 +105,11 @@ TEST_F(AsanLoggerTest, EndToEnd) {
 
   // Inspect the log file contents.
   std::string content;
-  ASSERT_TRUE(file_util::ReadFileToString(temp_path_, &content));
+  ASSERT_TRUE(base::ReadFileToString(temp_path_, &content));
   ASSERT_THAT(content, testing::EndsWith(kMessage));
 
   // We should have exactly one minidump in the temp directory.
-  using file_util::FileEnumerator;
+  using base::FileEnumerator;
   FileEnumerator fe(temp_dir_.path(), false, FileEnumerator::FILES, L"*.dmp");
   base::FilePath minidump(fe.Next());
   EXPECT_FALSE(minidump.empty());
@@ -119,7 +120,7 @@ TEST_F(AsanLoggerTest, EndToEnd) {
 
 TEST_F(AsanLoggerTest, Stop) {
   // Setup a log file destination.
-  file_util::ScopedFILE destination(file_util::OpenFile(temp_path_, "wb"));
+  base::ScopedFILE destination(base::OpenFile(temp_path_, "wb"));
 
   // Start up the logging service.
   trace::agent_logger::AgentLogger server;

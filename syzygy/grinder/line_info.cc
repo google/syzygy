@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <limits>
 
-#include "base/utf_string_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
 #include "syzygy/common/com_utils.h"
@@ -104,10 +104,10 @@ const std::string* GetSourceFileName(DWORD source_file_id,
   }
 
   std::string source_file_path;
-  if (!WideToUTF8(common::ToString(source_file_path_bstr),
-                  source_file_path_bstr.Length(),
-                  &source_file_path)) {
-    LOG(ERROR) << "WideToUTF8 failed for path \""
+  if (!base::WideToUTF8(common::ToString(source_file_path_bstr),
+                        source_file_path_bstr.Length(),
+                        &source_file_path)) {
+    LOG(ERROR) << "base::WideToUTF8 failed for path \""
                << common::ToString(source_file_path_bstr) << "\".";
     return NULL;
   }

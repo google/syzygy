@@ -16,7 +16,7 @@
 
 #include <windows.h>
 
-#include "base/string_piece.h"
+#include "base/strings/string_piece.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/pe/pe_utils.h"
 

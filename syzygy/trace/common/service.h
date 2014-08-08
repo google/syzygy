@@ -20,7 +20,7 @@
 #define SYZYGY_TRACE_COMMON_SERVICE_H_
 
 #include "base/callback.h"
-#include "base/string_piece.h"
+#include "base/strings/string_piece.h"
 #include "base/threading/platform_thread.h"
 
 namespace trace {

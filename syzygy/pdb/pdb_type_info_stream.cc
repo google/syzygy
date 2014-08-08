@@ -14,7 +14,7 @@
 
 #include "syzygy/pdb/pdb_type_info_stream.h"
 
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
 #include "syzygy/pdb/pdb_stream.h"
 #include "syzygy/pdb/pdb_util.h"

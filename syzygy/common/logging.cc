@@ -24,10 +24,9 @@ const GUID kSyzygyEtwLogProvider = { 0x8fd3f6b0, 0x591, 0x40a3,
     { 0x85, 0xcd, 0x30, 0x5c, 0x77, 0x51, 0xe5, 0xef } };
 
 void InitLoggingForDll(const wchar_t* client_name) {
-  logging::InitLogging(
-      client_name, logging::LOG_NONE, logging::LOCK_LOG_FILE,
-      logging::APPEND_TO_OLD_LOG_FILE,
-      logging::ENABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
+  logging::LoggingSettings settings;
+  settings.logging_dest = logging::LOG_NONE;
+  logging::InitLogging(settings);
   logging::LogEventProvider::Initialize(common::kSyzygyEtwLogProvider);
 }
 

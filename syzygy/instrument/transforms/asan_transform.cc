@@ -18,10 +18,10 @@
 
 #include "base/logging.h"
 #include "base/rand_util.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_vector.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/block_builder.h"

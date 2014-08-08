@@ -15,7 +15,7 @@
 #include "syzygy/core/disassembler_util.h"
 
 #include "base/logging.h"
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "mnemonics.h"  // NOLINT
 
 namespace core {

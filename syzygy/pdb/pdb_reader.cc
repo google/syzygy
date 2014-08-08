@@ -15,7 +15,7 @@
 #include "syzygy/pdb/pdb_reader.h"
 
 #include "base/logging.h"
-#include "base/string_util.h"
+#include "base/strings/string_util.h"
 #include "syzygy/pdb/pdb_file_stream.h"
 
 namespace pdb {
@@ -54,7 +54,7 @@ bool PdbReader::Read(const base::FilePath& pdb_path, PdbFile* pdb_file) {
   pdb_file->Clear();
 
   scoped_refptr<RefCountedFILE> file(new RefCountedFILE(
-      file_util::OpenFile(pdb_path, "rb")));
+      base::OpenFile(pdb_path, "rb")));
   if (!file->file()) {
     LOG(ERROR) << "Unable to open '" << pdb_path.value() << "'.";
     return false;

@@ -40,7 +40,7 @@ using basic_block_util::ModuleIndexedFrequencyMap;
 using basic_block_util::IsValidFrequencySize;
 using basic_block_util::ModuleInformation;
 using common::kSyzygyVersion;
-using file_util::CreateAndOpenTemporaryFileInDir;
+using base::CreateAndOpenTemporaryFileInDir;
 
 const wchar_t kImageFileName[] = L"foo.dll";
 const uint32 kBaseAddress = 0xDEADBEEF;
@@ -116,7 +116,7 @@ class IndexedFrequencyDataGrinderTest : public testing::PELibUnitTest {
 
     // Grind and output the data to a JSON file.
     base::FilePath temp_path;
-    file_util::ScopedFILE json_file(
+    base::ScopedFILE json_file(
         CreateAndOpenTemporaryFileInDir(temp_dir_.path(), &temp_path));
     ASSERT_TRUE(json_file.get() != NULL);
     ASSERT_TRUE(grinder.Grind());

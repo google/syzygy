@@ -27,6 +27,8 @@ namespace simulate {
 
 namespace {
 
+using base::DictionaryValue;
+using base::Value;
 using block_graph::BlockGraph;
 
 class PageFaultSimulatorTest : public testing::PELibUnitTest {
@@ -371,8 +373,8 @@ TEST_F(PageFaultSimulatorTest, JSONSucceeds) {
 
   // Output JSON data to a file.
   base::FilePath path;
-  file_util::ScopedFILE temp_file;
-  temp_file.reset(file_util::CreateAndOpenTemporaryFileInDir(
+  base::ScopedFILE temp_file;
+  temp_file.reset(base::CreateAndOpenTemporaryFileInDir(
       temp_dir_, &path));
 
   ASSERT_TRUE(temp_file.get() != NULL);
@@ -381,7 +383,7 @@ TEST_F(PageFaultSimulatorTest, JSONSucceeds) {
 
   // Read the JSON file we just wrote.
   std::string file_string;
-  ASSERT_TRUE(file_util::ReadFileToString(path, &file_string));
+  ASSERT_TRUE(base::ReadFileToString(path, &file_string));
 
   scoped_ptr<Value> value(base::JSONReader::Read(file_string));
   ASSERT_TRUE(value.get() != NULL);

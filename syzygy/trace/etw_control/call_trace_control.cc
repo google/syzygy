@@ -17,9 +17,9 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/logging.h"
-#include "base/string_number_conversions.h"
 #include "base/debug/trace_event_win.h"
 #include "base/files/file_path.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/win/event_trace_controller.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -51,11 +51,12 @@ struct CallTraceOptions {
 // Initializes the command-line and logging for functions called via rundll32.
 static void Init() {
   CommandLine::Init(0, NULL);
-  logging::InitLogging(L"",
-      logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
-      logging::DONT_LOCK_LOG_FILE,
-      logging::APPEND_TO_OLD_LOG_FILE,
-      logging::ENABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
+
+  logging::LoggingSettings settings;
+  settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
+  settings.lock_log = logging::DONT_LOCK_LOG_FILE;
+  settings.delete_old = logging::APPEND_TO_OLD_LOG_FILE;
+  logging::InitLogging(settings);
 }
 
 // Parses command-line options for StartCallTrace.

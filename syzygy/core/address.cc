@@ -14,7 +14,7 @@
 #include "syzygy/core/address.h"
 
 #include <iostream>
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 
 namespace core {
 

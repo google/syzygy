@@ -16,9 +16,9 @@
 
 #include "pcrecpp.h"  // NOLINT
 #include "base/bind.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
 #include "base/strings/string_split.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
 #include "syzygy/core/zstream.h"
@@ -915,7 +915,7 @@ bool Decomposer::FindAndValidatePdbPath() {
   }
   DCHECK(!pdb_path_.empty());
 
-  if (!file_util::PathExists(pdb_path_)) {
+  if (!base::PathExists(pdb_path_)) {
     LOG(ERROR) << "Path not found: " << pdb_path_.value();
     return false;
   }
@@ -1235,8 +1235,8 @@ bool Decomposer::CreateBlocksFromSectionContribs(IDiaSession* session) {
       continue;
 
     std::string compiland_name;
-    if (!WideToUTF8(bstr_compiland_name, bstr_compiland_name.Length(),
-                    &compiland_name)) {
+    if (!base::WideToUTF8(bstr_compiland_name, bstr_compiland_name.Length(),
+                          &compiland_name)) {
       LOG(ERROR) << "Failed to convert compiland name to UTF8.";
       return false;
     }
@@ -1662,7 +1662,7 @@ DiaBrowser::BrowserDirective Decomposer::OnPushFunctionOrThunkSymbol(
   DCHECK(InRange(addr, block_addr, block->size()));
 
   std::string name;
-  if (!WideToUTF8(name_bstr, name_bstr.Length(), &name)) {
+  if (!base::WideToUTF8(name_bstr, name_bstr.Length(), &name)) {
     LOG(ERROR) << "Failed to convert function/thunk name to UTF8.";
     return DiaBrowser::kBrowserAbort;
   }
@@ -1811,7 +1811,7 @@ DiaBrowser::BrowserDirective Decomposer::OnDataSymbol(
   }
 
   std::string name;
-  if (!WideToUTF8(name_bstr, name_bstr.Length(), &name)) {
+  if (!base::WideToUTF8(name_bstr, name_bstr.Length(), &name)) {
     LOG(ERROR) << "Failed to convert label name to UTF8.";
     return DiaBrowser::kBrowserAbort;
   }
@@ -1896,7 +1896,7 @@ DiaBrowser::BrowserDirective Decomposer::OnPublicSymbol(
   DCHECK(InRange(addr, block_addr, block->size()));
 
   std::string name;
-  WideToUTF8(name_bstr, name_bstr.Length(), &name);
+  base::WideToUTF8(name_bstr, name_bstr.Length(), &name);
 
   // Public symbol names are mangled. Remove leading '_' as per
   // http://msdn.microsoft.com/en-us/library/00kh39zz(v=vs.80).aspx
@@ -1990,7 +1990,7 @@ DiaBrowser::BrowserDirective Decomposer::OnLabelSymbol(
   }
 
   std::string name;
-  WideToUTF8(name_bstr, name_bstr.Length(), &name);
+  base::WideToUTF8(name_bstr, name_bstr.Length(), &name);
 
   Offset offset = addr - block_addr;
   if (!AddLabelToBlock(offset, name, BlockGraph::CODE_LABEL, block))
@@ -2246,11 +2246,12 @@ bool Decomposer::CreateSectionGapBlocks(const IMAGE_SECTION_HEADER* header,
     }
 
     // Create the interstitial gap block.
-    if (block_end < next->first.start())
+    if (block_end < next->first.start()) {
       if (!CreateGapBlock(
           block_type, block_end, next->first.start() - block_end)) {
         return false;
       }
+    }
   }
 
   return true;

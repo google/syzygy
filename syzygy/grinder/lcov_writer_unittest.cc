@@ -50,7 +50,7 @@ TEST(LcovWriterTest, Write) {
   EXPECT_TRUE(WriteLcovCoverageFile(coverage_data, temp.path()) );
 
   std::string actual_contents;
-  EXPECT_TRUE(file_util::ReadFileToString(temp.path(), &actual_contents));
+  EXPECT_TRUE(base::ReadFileToString(temp.path(), &actual_contents));
 
   std::string expected_contents =
       "SF:foo.cc\n"

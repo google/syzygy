@@ -30,7 +30,7 @@ namespace trace {
 namespace service {
 
 SessionTraceFileWriter::SessionTraceFileWriter(
-    MessageLoop* message_loop, const base::FilePath& trace_directory)
+    base::MessageLoop* message_loop, const base::FilePath& trace_directory)
     : message_loop_(message_loop),
       trace_file_path_(trace_directory) {
   DCHECK(message_loop != NULL);
@@ -40,7 +40,7 @@ SessionTraceFileWriter::SessionTraceFileWriter(
 bool SessionTraceFileWriter::Open(Session* session) {
   DCHECK(session != NULL);
 
-  if (!file_util::CreateDirectory(trace_file_path_)) {
+  if (!base::CreateDirectory(trace_file_path_)) {
     LOG(ERROR) << "Failed to create trace directory: '"
                << trace_file_path_.value() << "'.";
     return false;
@@ -88,7 +88,7 @@ void SessionTraceFileWriter::WriteBuffer(Session* session, Buffer* buffer) {
   DCHECK(buffer != NULL);
   DCHECK_EQ(session, buffer->session);
   DCHECK_EQ(Buffer::kPendingWrite, buffer->state);
-  DCHECK_EQ(MessageLoop::current(), message_loop_);
+  DCHECK_EQ(base::MessageLoop::current(), message_loop_);
 
   MappedBuffer mapped_buffer(buffer);
   if (!mapped_buffer.Map())

@@ -110,7 +110,7 @@ class BasicBlockDecomposerTest : public testing::BasicBlockTest {
  public:
   void InitBlockGraphFromSerializedFile(const wchar_t* src_relative_path) {
     base::FilePath path = testing::GetSrcRelativePath(src_relative_path);
-    file_util::ScopedFILE file(file_util::OpenFile(path, "rb"));
+    base::ScopedFILE file(base::OpenFile(path, "rb"));
     ASSERT_TRUE(file.get() != NULL);
     core::FileInStream is(file.get());
     core::InArchive ia(&is);

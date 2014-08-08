@@ -20,10 +20,10 @@
 
 #include "base/basictypes.h"
 #include "base/command_line.h"
-#include "base/string_piece.h"
-#include "base/string_util.h"
-#include "base/time.h"
 #include "base/files/file_path.h"
+#include "base/strings/string_piece.h"
+#include "base/strings/string_util.h"
+#include "base/time/time.h"
 #include "syzygy/common/application.h"
 
 namespace trace {

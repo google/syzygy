@@ -17,9 +17,10 @@
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/file_util.h"
-#include "base/stringprintf.h"
+#include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/strings/stringprintf.h"
 #include "base/threading/thread.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -94,7 +95,7 @@ class LoggerTest : public testing::Test {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     log_file_path_ = temp_dir_.path().AppendASCII("log.txt");
     ASSERT_TRUE(!log_file_path_.empty());
-    log_file_.reset(file_util::OpenFile(log_file_path_, "wb"));
+    log_file_.reset(base::OpenFile(log_file_path_, "wb"));
     ASSERT_TRUE(log_file_.get() != NULL);
 
     // Setup the instance ID.
@@ -102,7 +103,7 @@ class LoggerTest : public testing::Test {
 
     // Start the IO thread.
     ASSERT_TRUE(io_thread_.StartWithOptions(
-        base::Thread::Options(MessageLoop::TYPE_IO, 0)));
+        base::Thread::Options(base::MessageLoop::TYPE_IO, 0)));
 
     // Setup a logger to use.
     logger_.set_instance_id(instance_id_);
@@ -162,7 +163,7 @@ class LoggerTest : public testing::Test {
 
   base::ScopedTempDir temp_dir_;
   base::FilePath log_file_path_;
-  file_util::ScopedFILE log_file_;
+  base::ScopedFILE log_file_;
   std::wstring instance_id_;
   base::Thread io_thread_;
   TestLogger logger_;
@@ -251,7 +252,7 @@ TEST_F(LoggerTest, Write) {
 
   // Read in the log contents.
   std::string contents;
-  ASSERT_TRUE(file_util::ReadFileToString(log_file_path_, &contents));
+  ASSERT_TRUE(base::ReadFileToString(log_file_path_, &contents));
 
   // Build the expected contents (append a newline to line2)
   std::string expected_contents(kLine1);
@@ -285,7 +286,7 @@ TEST_F(LoggerTest, RpcWrite) {
 
   // Read in the log contents.
   std::string contents;
-  ASSERT_TRUE(file_util::ReadFileToString(log_file_path_, &contents));
+  ASSERT_TRUE(base::ReadFileToString(log_file_path_, &contents));
 
   // Build the expected contents (append a newline to line2)
   std::string expected_contents(kLine1);
@@ -328,7 +329,7 @@ TEST_F(LoggerTest, RpcWriteWithStack) {
 
   // Read in the log contents.
   std::string text;
-  ASSERT_TRUE(file_util::ReadFileToString(log_file_path_, &text));
+  ASSERT_TRUE(base::ReadFileToString(log_file_path_, &text));
 
   // Validate that we see the expected function chain.
   size_t line_1 = text.find(kLine1, 0);
@@ -359,7 +360,7 @@ TEST_F(LoggerTest, RpcWriteWithContext) {
 
   // Read in the log contents.
   std::string text;
-  ASSERT_TRUE(file_util::ReadFileToString(log_file_path_, &text));
+  ASSERT_TRUE(base::ReadFileToString(log_file_path_, &text));
 
   // Validate that we see the expected function chain.
   size_t line_2 = text.find(kLine2, 0);
@@ -385,7 +386,7 @@ TEST_F(LoggerTest, RpcGenerateMiniDump) {
   EXPECT_NO_FATAL_FAILURE(WaitForLoggerToFinish());
 
   // We should have exactly one mini-dump in the temp directory.
-  using file_util::FileEnumerator;
+  using base::FileEnumerator;
   FileEnumerator fe(temp_dir_.path(), false, FileEnumerator::FILES, L"*.dmp");
   base::FilePath mini_dump(fe.Next());
   EXPECT_FALSE(mini_dump.empty());

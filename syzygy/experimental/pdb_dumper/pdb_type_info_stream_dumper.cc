@@ -14,7 +14,7 @@
 
 #include "syzygy/experimental/pdb_dumper/pdb_type_info_stream_dumper.h"
 
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
 #include "syzygy/experimental/pdb_dumper/pdb_dump_util.h"
 #include "syzygy/experimental/pdb_dumper/pdb_leaf.h"

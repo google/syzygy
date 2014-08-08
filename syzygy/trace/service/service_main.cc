@@ -20,13 +20,14 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/path_service.h"
-#include "base/process_util.h"
-#include "base/string_number_conversions.h"
-#include "base/string_piece.h"
-#include "base/string_util.h"
-#include "base/utf_string_conversions.h"
 #include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/process/kill.h"
+#include "base/process/launch.h"
+#include "base/strings/string_number_conversions.h"
+#include "base/strings/string_piece.h"
+#include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/trace/common/service_util.h"
@@ -127,7 +128,7 @@ bool RunApp(const CommandLine& command_line,
   DCHECK(exit_code != NULL);
   scoped_ptr<base::Environment> env(base::Environment::Create());
   CHECK(env != NULL);
-  env->SetVar(kSyzygyRpcInstanceIdEnvVar, WideToUTF8(instance_id));
+  env->SetVar(kSyzygyRpcInstanceIdEnvVar, base::WideToUTF8(instance_id));
 
   LOG(INFO) << "Launching '" << command_line.GetProgram().value() << "'.";
   VLOG(1) << "Command Line: " << command_line.GetCommandLineString();
@@ -159,12 +160,12 @@ bool RunService(const CommandLine* cmd_line,
 
   base::Thread writer_thread("trace-file-writer");
   if (!writer_thread.StartWithOptions(
-          base::Thread::Options(MessageLoop::TYPE_IO, 0))) {
+          base::Thread::Options(base::MessageLoop::TYPE_IO, 0))) {
     LOG(ERROR) << "Failed to start call trace service writer thread.";
     return 1;
   }
 
-  MessageLoop* message_loop = writer_thread.message_loop();
+  base::MessageLoop* message_loop = writer_thread.message_loop();
   SessionTraceFileWriterFactory session_trace_file_writer_factory(message_loop);
   Service call_trace_service(&session_trace_file_writer_factory);
   RpcServiceInstanceManager rpc_instance(&call_trace_service);
@@ -339,14 +340,13 @@ extern "C" int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;
   CommandLine::Init(argc, argv);
   const int kVlogLevelVerbose = -2;
-  if (!logging::InitLogging(
-          L"",
-          logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
-          logging::DONT_LOCK_LOG_FILE,
-          logging::APPEND_TO_OLD_LOG_FILE,
-          logging::ENABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS)) {
+
+  logging::LoggingSettings settings;
+  settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
+  settings.lock_log = logging::DONT_LOCK_LOG_FILE;
+  settings.delete_old = logging::APPEND_TO_OLD_LOG_FILE;
+  if (!logging::InitLogging(settings))
     return 1;
-  }
 
   // TODO(rogerm): Turn on ETW logging as well.
 

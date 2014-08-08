@@ -75,7 +75,7 @@ bool ArchiveInstrumenter::ProcessingArchive() const {
   if (input_image_.empty() || output_image_.empty())
     return false;
 
-  if (!file_util::PathExists(input_image_))
+  if (!base::PathExists(input_image_))
     return false;
 
   core::FileType file_type = core::kUnknownFileType;
@@ -106,7 +106,7 @@ bool ArchiveInstrumenter::InstrumentPassthrough() {
 
 bool ArchiveInstrumenter::InstrumentArchive() {
   // Ensure we're not accidentally going to be overwriting the output.
-  if (!overwrite_ && file_util::PathExists(output_image_)) {
+  if (!overwrite_ && base::PathExists(output_image_)) {
     LOG(ERROR) << "Output path exists. Did you want to specify --overwrite?";
     return false;
   }
@@ -146,7 +146,7 @@ bool ArchiveInstrumenter::InstrumentFile(const base::FilePath& input_path,
   }
   if (file_type != core::kCoffFileType) {
     LOG(INFO) << "Not processing non-object file.";
-    if (!file_util::CopyFile(input_path, output_path)) {
+    if (!base::CopyFile(input_path, output_path)) {
       LOG(ERROR) << "Unable to write output file: " << output_path.value();
       return false;
     }

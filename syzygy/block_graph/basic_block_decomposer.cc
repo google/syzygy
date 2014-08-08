@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "base/logging.h"
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"

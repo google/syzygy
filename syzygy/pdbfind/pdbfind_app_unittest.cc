@@ -15,9 +15,9 @@
 #include "syzygy/pdbfind/pdbfind_app.h"
 
 #include "base/file_util.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -129,10 +129,11 @@ TEST_F(PdbFindAppTest, Succeeds) {
   // to disk.
   TearDownStreams();
   std::string actual_stdout;
-  ASSERT_TRUE(file_util::ReadFileToString(stdout_path_, &actual_stdout));
-  TrimWhitespaceASCII(actual_stdout, TRIM_TRAILING, &actual_stdout);
-  base::FilePath actual_pdb_path(ASCIIToWide(actual_stdout));
-  EXPECT_TRUE(file_util::PathExists(actual_pdb_path));
+  ASSERT_TRUE(base::ReadFileToString(stdout_path_, &actual_stdout));
+  base::TrimWhitespaceASCII(actual_stdout, base::TRIM_TRAILING,
+                            &actual_stdout);
+  base::FilePath actual_pdb_path(base::ASCIIToWide(actual_stdout));
+  EXPECT_TRUE(base::PathExists(actual_pdb_path));
 
 #ifdef _COVERAGE_BUILD
   // In the coverage build the module is actually copied to a temporary

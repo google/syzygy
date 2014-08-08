@@ -17,8 +17,8 @@
 
 #include "base/atomicops.h"
 #include "base/basictypes.h"
-#include "base/string_piece.h"
 #include "base/memory/ref_counted.h"
+#include "base/strings/string_piece.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/core/address_space.h"
 

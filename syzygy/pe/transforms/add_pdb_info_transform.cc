@@ -15,9 +15,9 @@
 #include "syzygy/pe/transforms/add_pdb_info_transform.h"
 
 #include "base/file_util.h"
-#include "base/string_util.h"
-#include "base/time.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
+#include "base/time/time.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/pe/pe_data.h"
 #include "syzygy/pe/transforms/add_debug_directory_entry_transform.h"
@@ -66,8 +66,8 @@ bool AddPdbInfoTransform::TransformBlockGraph(
 
   // Get the path to the PDB in UTF8.
   std::string new_pdb_path;
-  if (!WideToUTF8(pdb_path_.value().c_str(), pdb_path_.value().size(),
-                  &new_pdb_path)) {
+  if (!base::WideToUTF8(pdb_path_.value().c_str(), pdb_path_.value().size(),
+                        &new_pdb_path)) {
     LOG(ERROR) << "Unable to convert PDB path to UTF8.";
     return false;
   }

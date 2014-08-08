@@ -14,7 +14,7 @@
 
 #include "syzygy/block_graph/ordered_block_graph.h"
 
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 

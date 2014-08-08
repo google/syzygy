@@ -218,7 +218,7 @@ PdbWriter::~PdbWriter() {
 }
 
 bool PdbWriter::Write(const base::FilePath& pdb_path, const PdbFile& pdb_file) {
-  file_.reset(file_util::OpenFile(pdb_path, "wb"));
+  file_.reset(base::OpenFile(pdb_path, "wb"));
   if (!file_.get()) {
     LOG(ERROR) << "Failed to create '" << pdb_path.value() << "'.";
     return false;

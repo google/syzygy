@@ -16,9 +16,10 @@
 
 #include "base/command_line.h"
 #include "base/environment.h"
-#include "base/process_util.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
+#include "base/process/kill.h"
+#include "base/process/launch.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/buffer_writer.h"
@@ -50,7 +51,7 @@ void CallTraceService::Start(const base::FilePath& trace_dir) {
   options.start_hidden = true;
 
   std::wstring event_name;
-  ::GetSyzygyCallTraceRpcEventName(UTF8ToUTF16(instance_id_),
+  ::GetSyzygyCallTraceRpcEventName(base::UTF8ToUTF16(instance_id_),
                                    &event_name);
   base::win::ScopedHandle event(
       ::CreateEvent(NULL, TRUE, FALSE, event_name.c_str()));

@@ -19,7 +19,7 @@
 #ifndef SYZYGY_INSTRUMENT_TRANSFORMS_ADD_INDEXED_FREQUENCY_DATA_TRANSFORM_H_
 #define SYZYGY_INSTRUMENT_TRANSFORMS_ADD_INDEXED_FREQUENCY_DATA_TRANSFORM_H_
 
-#include "base/string_piece.h"
+#include "base/strings/string_piece.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/core/address_space.h"

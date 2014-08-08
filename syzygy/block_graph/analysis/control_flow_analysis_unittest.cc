@@ -17,7 +17,7 @@
 #include "syzygy/block_graph/analysis/control_flow_analysis.h"
 
 #include "base/bind.h"
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 

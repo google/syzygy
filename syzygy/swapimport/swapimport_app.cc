@@ -18,8 +18,8 @@
 #include "syzygy/swapimport/swapimport_app.h"
 
 #include "base/file_util.h"
-#include "base/string_util.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "syzygy/core/file_util.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_file_writer.h"
@@ -99,12 +99,12 @@ int SwapImportApp::SwapImports() {
   // Read the entire input into memory.
   VLOG(1) << "Reading \"" << input_image_.value() << "\" into memory.";
   int64 image_size = 0;
-  if (!file_util::GetFileSize(input_image_, &image_size)) {
+  if (!base::GetFileSize(input_image_, &image_size)) {
     LOG(ERROR) << "Failed to get image size: " << input_image_.value();
     return 1;
   }
   std::vector<unsigned char> image(image_size, 0);
-  if (!file_util::ReadFile(input_image_,
+  if (!base::ReadFile(input_image_,
                            reinterpret_cast<char*>(image.data()),
                            image_size)) {
     LOG(ERROR) << "Failed to read image to memory: " << input_image_.value();
@@ -185,7 +185,7 @@ int SwapImportApp::SwapImports() {
 
   // Write the actual output.
   LOG(INFO) << "Writing output to \"" << output_image_.value() << "\".";
-  file_util::ScopedFILE output(file_util::OpenFile(output_image_, "wb"));
+  base::ScopedFILE output(base::OpenFile(output_image_, "wb"));
   if (output.get() == NULL) {
     LOG(ERROR) << "Failed to open \"" << output_image_.value() << "\" for "
                << "writing.";
@@ -210,14 +210,14 @@ int SwapImportApp::SwapImports() {
 
 int SwapImportApp::Run() {
   // Check the input.
-  if (!file_util::PathExists(input_image_)) {
+  if (!base::PathExists(input_image_)) {
     LOG(ERROR) << "Path does not exist: " << input_image_.value();
     return 1;
   }
 
   // Check the output unless we're overwriting.
   if (!overwrite_) {
-    if (file_util::PathExists(output_image_)) {
+    if (base::PathExists(output_image_)) {
       LOG(ERROR) << "Output path exists: " << output_image_.value();
       LOG(ERROR) << "Did you mean to specify --overwrite?";
       return 1;

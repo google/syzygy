@@ -54,7 +54,7 @@ class PdbWriter {
                    uint32 page_count);
 
   // The current file handle open for writing.
-  file_util::ScopedFILE file_;
+  base::ScopedFILE file_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(PdbWriter);

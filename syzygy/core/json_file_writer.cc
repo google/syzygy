@@ -21,15 +21,17 @@
 #include <stdarg.h>
 
 #include "base/logging.h"
-#include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "base/json/json_writer.h"
 #include "base/json/string_escape.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/strings/utf_string_conversions.h"
 
 namespace core {
 
 namespace {
+
+using base::Value;
 
 static const char kNewline[] = "\n";
 static const char kIndent[] = "  ";
@@ -54,7 +56,7 @@ struct JSONFileWriter::Helper {
     if (!json_file_writer->AlignForValueOrKey())
       return false;
 
-    std::string formatted_key = base::GetDoubleQuotedJson(key.as_string());
+    std::string formatted_key = base::GetQuotedJSONString(key.as_string());
     if (!json_file_writer->Printf("%s:", formatted_key.c_str()))
       return false;
 
@@ -128,7 +130,7 @@ bool JSONFileWriter::OutputComment(const base::StringPiece& comment) {
 
 bool JSONFileWriter::OutputComment(const base::StringPiece16& comment) {
   std::string utf8;
-  if (!WideToUTF8(comment.data(), comment.length(), &utf8))
+  if (!base::WideToUTF8(comment.data(), comment.length(), &utf8))
     return false;
   return OutputComment(utf8);
 }
@@ -173,7 +175,7 @@ bool JSONFileWriter::OutputTrailingComment(const base::StringPiece& comment) {
 
 bool JSONFileWriter::OutputTrailingComment(const base::StringPiece16& comment) {
   std::string utf8;
-  if (!WideToUTF8(comment.data(), comment.length(), &utf8))
+  if (!base::WideToUTF8(comment.data(), comment.length(), &utf8))
     return false;
   return OutputTrailingComment(utf8);
 }
@@ -192,14 +194,14 @@ bool JSONFileWriter::PrintDouble(double value) {
 }
 
 bool JSONFileWriter::PrintString(const base::StringPiece& value) {
-  return Printf("%s", base::GetDoubleQuotedJson(value.as_string()).c_str());
+  return Printf("%s", base::GetQuotedJSONString(value.as_string()).c_str());
 }
 
 bool JSONFileWriter::PrintNull(int value_unused) {
   return Printf("%s", kNull);
 }
 
-bool JSONFileWriter::PrintValue(const base::Value* value) {
+bool JSONFileWriter::PrintValue(const Value* value) {
   DCHECK(value != NULL);
 
   switch (value->GetType()) {
@@ -310,7 +312,7 @@ bool JSONFileWriter::OutputString(const base::StringPiece& value) {
 
 bool JSONFileWriter::OutputString(const base::StringPiece16& value) {
   std::string utf8;
-  if (!WideToUTF8(value.data(), value.length(), &utf8))
+  if (!base::WideToUTF8(value.data(), value.length(), &utf8))
     return false;
   return OutputString(utf8);
 }

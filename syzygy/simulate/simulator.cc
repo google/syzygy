@@ -24,7 +24,7 @@ Simulator::Simulator(const base::FilePath& module_path,
       instrumented_path_(instrumented_path),
       trace_files_(trace_files),
       simulation_(simulation),
-      parser_(NULL),
+      parser_(),
       pe_file_(),
       image_layout_(&block_graph_) {
   DCHECK(simulation_ != NULL);

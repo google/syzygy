@@ -14,7 +14,7 @@
 
 #include "syzygy/block_graph/block_graph_serializer.h"
 
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 
 namespace block_graph {
 

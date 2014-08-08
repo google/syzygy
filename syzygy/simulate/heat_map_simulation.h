@@ -20,7 +20,7 @@
 
 #include <map>
 
-#include "base/string_piece.h"
+#include "base/strings/string_piece.h"
 #include "syzygy/core/json_file_writer.h"
 #include "syzygy/simulate/simulation_event_handler.h"
 #include "syzygy/trace/parse/parser.h"

@@ -16,8 +16,8 @@
 
 #include "base/native_library.h"
 #include "base/path_service.h"
-#include "base/string_util.h"
 #include "base/files/file_path.h"
+#include "base/strings/string_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -38,7 +38,7 @@ class TestPECoffFile : public PECoffFile<AddressSpaceTraits> {
   bool Init(const base::FilePath& path, bool has_pe_headers) {
     PECoffFile::Init(path);
 
-    FILE* file = file_util::OpenFile(path, "rb");
+    FILE* file = base::OpenFile(path, "rb");
     if (file == NULL) {
       LOG(ERROR) << "Failed to open file " << path.value() << ".";
       return false;
@@ -61,7 +61,7 @@ class TestPECoffFile : public PECoffFile<AddressSpaceTraits> {
     if (success)
       success = ReadSections(file);
 
-    file_util::CloseFile(file);
+    base::CloseFile(file);
 
     return success;
   }

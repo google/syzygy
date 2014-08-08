@@ -73,16 +73,15 @@ class ProfileGrinderTest : public testing::PELibUnitTest {
     EXPECT_TRUE(grinder.Grind());
 
     testing::ScopedTempFile output_path;
-    file_util::ScopedFILE output_file(
-        file_util::OpenFile(output_path.path(), "wb"));
+    base::ScopedFILE output_file(base::OpenFile(output_path.path(), "wb"));
     ASSERT_TRUE(output_file.get() != NULL);
 
     EXPECT_TRUE(grinder.OutputData(output_file.get()));
     output_file.reset();
 
     int64 cache_grind_file_size = 0;
-    ASSERT_TRUE(file_util::GetFileSize(output_path.path(),
-                                       &cache_grind_file_size));
+    ASSERT_TRUE(base::GetFileSize(output_path.path(),
+                                  &cache_grind_file_size));
     EXPECT_LT(0u, cache_grind_file_size);
   }
 

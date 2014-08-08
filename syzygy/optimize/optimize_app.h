@@ -19,9 +19,9 @@
 #define SYZYGY_OPTIMIZE_OPTIMIZE_APP_H_
 
 #include "base/command_line.h"
-#include "base/string_piece.h"
-#include "base/time.h"
 #include "base/files/file_path.h"
+#include "base/strings/string_piece.h"
+#include "base/time/time.h"
 #include "syzygy/common/application.h"
 
 namespace optimize {

@@ -47,10 +47,10 @@ class CompareFilePathsTest : public testing::Test {
     another_existing_path_ =
         testing::GetSrcRelativePath(L"syzygy\\core\\file_util.cc");
 
-    ASSERT_TRUE(file_util::PathExists(existing_path_));
-    ASSERT_TRUE(file_util::PathExists(alternate_existing_path_));
+    ASSERT_TRUE(base::PathExists(existing_path_));
+    ASSERT_TRUE(base::PathExists(alternate_existing_path_));
     ASSERT_NE(existing_path_, alternate_existing_path_);
-    ASSERT_TRUE(file_util::PathExists(another_existing_path_));
+    ASSERT_TRUE(base::PathExists(another_existing_path_));
 
     nonexisting_path_ = temp_dir_->path().Append(L"does\\not\\exist.txt");
     alternate_nonexisting_path_ = temp_dir_->path().Append(
@@ -58,10 +58,10 @@ class CompareFilePathsTest : public testing::Test {
     another_nonexisting_path_ = temp_dir_->path().Append(
         L"nonexisting.txt");
 
-    ASSERT_FALSE(file_util::PathExists(nonexisting_path_));
-    ASSERT_FALSE(file_util::PathExists(alternate_nonexisting_path_));
+    ASSERT_FALSE(base::PathExists(nonexisting_path_));
+    ASSERT_FALSE(base::PathExists(alternate_nonexisting_path_));
     ASSERT_NE(nonexisting_path_, alternate_nonexisting_path_);
-    ASSERT_FALSE(file_util::PathExists(another_nonexisting_path_));
+    ASSERT_FALSE(base::PathExists(another_nonexisting_path_));
   }
 
   base::FilePath existing_path_;
@@ -134,10 +134,10 @@ TEST(GuessFileTypeTest, GuessFromInMemoryBuffer) {
   base::FilePath path = testing::GetSrcRelativePath(
       testing::kExampleCoffImportDefinition);
   int64 file_size = 0;
-  ASSERT_TRUE(file_util::GetFileSize(path, &file_size));
+  ASSERT_TRUE(base::GetFileSize(path, &file_size));
   size_t length = static_cast<size_t>(file_size);
   std::vector<uint8> buffer(length);
-  ASSERT_TRUE(file_util::ReadFile(
+  ASSERT_TRUE(base::ReadFile(
       path, reinterpret_cast<char*>(buffer.data()), buffer.size()));
 
   FileType file_type = kUnknownFileType;

@@ -20,9 +20,10 @@
 
 #include "base/bind.h"
 #include "base/file_util.h"
-#include "base/message_loop.h"
 #include "base/scoped_native_library.h"
+#include "base/files/file_enumerator.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/message_loop/message_loop.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread.h"
 #include "gmock/gmock.h"
@@ -77,7 +78,6 @@ namespace {
 
 using agent::common::GetProcessModules;
 using agent::common::ModuleVector;
-using file_util::FileEnumerator;
 using testing::_;
 using testing::AllOf;
 using testing::Return;
@@ -210,9 +210,9 @@ class ProfilerTest : public testing::Test {
     ASSERT_TRUE(parser.Init(&handler_));
 
     // Queue up the trace file(s) we engendered.
-    file_util::FileEnumerator enumerator(temp_dir_.path(),
-                                         false,
-                                         FileEnumerator::FILES);
+    base::FileEnumerator enumerator(temp_dir_.path(),
+                                    false,
+                                    base::FileEnumerator::FILES);
     size_t num_files = 0;
     while (true) {
       base::FilePath trace_file = enumerator.Next();
@@ -720,7 +720,7 @@ void WINAPI TlsAction(PVOID h, DWORD reason, PVOID reserved) {
   // will generate a TLS callback. If we pass these through, flakiness will
   // result, so we pass only through calls on from base::Thread, which
   // we identify by the presence of a message loop.
-  if (MessageLoop::current() != NULL)
+  if (base::MessageLoop::current() != NULL)
     InvokeFunctionAThunk();
 }
 

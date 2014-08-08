@@ -18,9 +18,9 @@
 
 #include "base/bind.h"
 #include "base/file_util.h"
-#include "base/stringprintf.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/buffer_writer.h"
 #include "syzygy/pe/pe_file.h"
@@ -403,8 +403,10 @@ bool InspectProcessModules(DWORD pid,
   DCHECK(cache != NULL);
 
   base::win::ScopedHandle handle;
-  if (!GetProcessHandle(pid, handle.Receive()))
+  HANDLE temp_handle;
+  if (!GetProcessHandle(pid, &temp_handle))
     return false;
+  handle.Set(temp_handle);
 
   // GetProcessHandle can succeed but return no handle. In this case the
   // process has since exited.
@@ -667,11 +669,11 @@ int SamplerApp::Run() {
 int SamplerApp::RunImpl() {
   // Ensure the output directory exists.
   if (!output_dir_.empty()) {
-    if (!file_util::PathExists(output_dir_)) {
+    if (!base::PathExists(output_dir_)) {
       LOG(INFO) << "Creating output directory \"" << output_dir_.value()
                 << "\".";
     }
-    if (!file_util::CreateDirectory(output_dir_)) {
+    if (!base::CreateDirectory(output_dir_)) {
       LOG(ERROR) << "Failed to create output directory \""
                  << output_dir_.value() << "\".";
       return false;
@@ -807,7 +809,7 @@ bool SamplerApp::ParsePids(const std::string& pids) {
 
   for (size_t i = 0; i < split.size(); ++i) {
     std::string s;
-    ::TrimWhitespace(split[i], TRIM_ALL, &s);
+    base::TrimWhitespace(split[i], base::TRIM_ALL, &s);
 
     // Skip empty strings.
     if (s.empty())

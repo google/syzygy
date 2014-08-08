@@ -23,10 +23,11 @@
 #include "base/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
+#include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/memory/scoped_vector.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/threading/simple_thread.h"
 #include "base/win/event_trace_consumer.h"
 #include "base/win/event_trace_controller.h"
@@ -249,9 +250,9 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
 
   bool FindTraceFile(base::FilePath* trace_file_path) {
     DCHECK(trace_file_path != NULL);
-    file_util::FileEnumerator enumerator(temp_dir_, false,
-                                         file_util::FileEnumerator::FILES,
-                                         L"trace-*.bin");
+    base::FileEnumerator enumerator(temp_dir_, false,
+                                    base::FileEnumerator::FILES,
+                                    L"trace-*.bin");
     *trace_file_path = enumerator.Next();
     return !trace_file_path->empty() && enumerator.Next().empty();
   }

@@ -186,7 +186,7 @@ TEST_F(SwapImportAppTest, RunFailsInputAndOutputSame) {
 }
 
 TEST_F(SwapImportAppTest, RunFailsOutputExists) {
-  file_util::WriteFile(output_image_, "a", 1);
+  base::WriteFile(output_image_, "a", 1);
 
   cmd_line_.AppendSwitchPath("input-image", input_image_);
   cmd_line_.AppendSwitchPath("output-image", output_image_);
@@ -214,7 +214,7 @@ TEST_F(SwapImportAppTest, RunSucceeds) {
 }
 
 TEST_F(SwapImportAppTest, RunSucceedsOverwrite) {
-  file_util::WriteFile(output_image_, "a", 1);
+  base::WriteFile(output_image_, "a", 1);
 
   cmd_line_.AppendSwitchPath("input-image", input_image_);
   cmd_line_.AppendSwitchPath("output-image", output_image_);
@@ -244,7 +244,7 @@ TEST_F(SwapImportAppTest, Run64On32BitBinaryFails) {
   cmd_line_.AppendArg("kernel32.dll");
   ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
   EXPECT_NE(0, test_impl_.Run());
-  EXPECT_FALSE(file_util::PathExists(output_image_));
+  EXPECT_FALSE(base::PathExists(output_image_));
 }
 
 TEST_F(SwapImportAppTest, Run32On64BitBinaryFails) {
@@ -253,7 +253,7 @@ TEST_F(SwapImportAppTest, Run32On64BitBinaryFails) {
   cmd_line_.AppendArg("kernel32.dll");
   ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
   EXPECT_NE(0, test_impl_.Run());
-  EXPECT_FALSE(file_util::PathExists(output_image_64_));
+  EXPECT_FALSE(base::PathExists(output_image_64_));
 }
 
 }  // namespace swapimport

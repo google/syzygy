@@ -22,7 +22,7 @@
 #include <string>
 #include <utility>
 
-#include "base/string_piece.h"
+#include "base/strings/string_piece.h"
 #include "syzygy/block_graph/filterable.h"
 #include "syzygy/block_graph/iterate.h"
 #include "syzygy/block_graph/analysis/liveness_analysis.h"

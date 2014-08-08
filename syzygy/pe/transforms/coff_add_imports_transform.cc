@@ -17,9 +17,9 @@
 #include <windows.h>
 #include <map>
 
-#include "base/string_piece.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
+#include "base/strings/string_piece.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
 
 namespace pe {

@@ -20,7 +20,7 @@
 
 #include <map>
 
-#include "base/string_piece.h"
+#include "base/strings/string_piece.h"
 #include "syzygy/pdb/pdb_stream.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pdb/mutators/named_mutator.h"

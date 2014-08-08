@@ -37,8 +37,8 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/md5.h"
-#include "base/stringprintf.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_constants.h"
@@ -307,7 +307,7 @@ bool UpdateFileInPlace(const base::FilePath& path,
                        const PatchAddressSpace& updates) {
   LOG(INFO) << "Patching file: " << path.value();
 
-  file_util::ScopedFILE file(file_util::OpenFile(path, "rb+"));
+  base::ScopedFILE file(base::OpenFile(path, "rb+"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Unable to open file for updating: " << path.value();
     return false;
@@ -369,7 +369,7 @@ scoped_refptr<PdbStream> GetWritablePdbStream(size_t index,
 }
 
 void OutputSummaryStats(base::FilePath& path) {
-  file_util::ScopedFILE file(file_util::OpenFile(path, "rb"));
+  base::ScopedFILE file(base::OpenFile(path, "rb"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Unable to open file for reading: " << path.value();
     return;
@@ -565,8 +565,8 @@ bool ZapTimestamp::Zap(bool modify_pe, bool modify_pdb) {
 bool ZapTimestamp::ValidatePeAndPdbFiles() {
   LOG(INFO) << "Analyzing PE file: " << pe_path_.value();
 
-  if (!file_util::PathExists(pe_path_) ||
-      file_util::DirectoryExists(pe_path_)) {
+  if (!base::PathExists(pe_path_) ||
+      base::DirectoryExists(pe_path_)) {
     LOG(ERROR) << "PE file not found: " << pe_path_.value();
     return false;
   }
@@ -586,10 +586,10 @@ bool ZapTimestamp::ValidatePeAndPdbFiles() {
       LOG(ERROR) << "PDB file not found for PE file: " << pe_path_.value();
       return false;
     }
-    DCHECK(file_util::PathExists(pdb_path_));
+    DCHECK(base::PathExists(pdb_path_));
   } else {
-    if (!file_util::PathExists(pdb_path_) ||
-        file_util::DirectoryExists(pdb_path_)) {
+    if (!base::PathExists(pdb_path_) ||
+        base::DirectoryExists(pdb_path_)) {
       LOG(ERROR) << "PDB file not found: " << pdb_path_.value();
     }
   }
@@ -742,7 +742,7 @@ bool ZapTimestamp::MarkPeFileRanges() {
 bool ZapTimestamp::CalculatePdbGuid() {
   LOG(INFO) << "Calculating PDB GUID from PE file contents.";
 
-  file_util::ScopedFILE pe_file(file_util::OpenFile(pe_path_, "rb"));
+  base::ScopedFILE pe_file(base::OpenFile(pe_path_, "rb"));
   if (pe_file.get() == NULL) {
     LOG(ERROR) << "Failed to open PE file for reading: " << pe_path_.value();
     return false;
@@ -916,7 +916,8 @@ bool ZapTimestamp::WritePdbFile() {
   // Copy over top of the original file.
   LOG(INFO) << "Temporary PDB file replacing old PDB: "
             << pdb_path_.value();
-  if (!file_util::ReplaceFileW(temp_path, pdb_path_)) {
+  base::File::Error error;
+  if (!base::ReplaceFileW(temp_path, pdb_path_, &error)) {
     LOG(ERROR) << "Unable to replace PDB file.";
     return false;
   }

@@ -25,9 +25,9 @@ void ApplicationTestBase::InitStreams(const base::FilePath& in_path,
   ASSERT_FALSE(out_path.empty());
   ASSERT_FALSE(err_path.empty());
 
-  in_.reset(file_util::OpenFile(in_path, "r"));
-  out_.reset(file_util::OpenFile(out_path, "w"));
-  err_.reset(file_util::OpenFile(err_path, "w"));
+  in_.reset(base::OpenFile(in_path, "r"));
+  out_.reset(base::OpenFile(out_path, "w"));
+  err_.reset(base::OpenFile(err_path, "w"));
 
   ASSERT_TRUE(in_.get() != NULL);
   ASSERT_TRUE(out_.get() != NULL);
@@ -72,7 +72,7 @@ void ApplicationTestBase::TearDown() {
 
   DirList::const_iterator iter;
   for (iter = temp_dirs_.begin(); iter != temp_dirs_.end(); ++iter) {
-    bool success = file_util::Delete(*iter, true);
+    bool success = base::DeleteFile(*iter, true);
     // VS2013 holds open handles to any PDB file that has been loaded while
     // the debugger is active. This often prevents our unittests from
     // cleaning up after themselves.
@@ -99,7 +99,7 @@ bool ApplicationTestBase::HandleLogMessage(int severity, const char* file,
   return true;
 }
 
-void ApplicationTestBase::TearDownStream(file_util::ScopedFILE* stream) {
+void ApplicationTestBase::TearDownStream(base::ScopedFILE* stream) {
   ASSERT_TRUE(stream != NULL);
   if (stream->get() == NULL)
     return;
@@ -107,12 +107,12 @@ void ApplicationTestBase::TearDownStream(file_util::ScopedFILE* stream) {
   stream->reset();
 }
 
-FILE* ApplicationTestBase::GetOrInitFile(file_util::ScopedFILE* f,
+FILE* ApplicationTestBase::GetOrInitFile(base::ScopedFILE* f,
                                          const char* mode) {
   DCHECK(f != NULL);
   DCHECK(mode != NULL);
   if (f->get() == NULL)
-    f->reset(file_util::OpenFile(base::FilePath(L"NUL"), mode));
+    f->reset(base::OpenFile(base::FilePath(L"NUL"), mode));
   return f->get();
 }
 

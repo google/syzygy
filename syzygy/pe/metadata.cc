@@ -17,11 +17,11 @@
 #include <time.h>
 
 #include "base/command_line.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
 #include "base/values.h"
 #include "base/json/json_reader.h"
 #include "base/json/string_escape.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/defs.h"
 #include "syzygy/core/json_file_writer.h"
@@ -29,6 +29,7 @@
 
 namespace pe {
 
+using base::DictionaryValue;
 using block_graph::BlockGraph;
 using core::RelativeAddress;
 
@@ -106,8 +107,8 @@ bool OutputPEFileSignature(const PEFile::Signature& signature,
   DCHECK(json_file != NULL);
 
   std::string path;
-  WideToUTF8(signature.path.c_str(), signature.path.size(), &path);
-  path = base::GetDoubleQuotedJson(path);
+  base::WideToUTF8(signature.path.c_str(), signature.path.size(), &path);
+  path = base::GetQuotedJSONString(path);
 
   std::string time_stamp(
       base::StringPrintf("0x%llX", signature.module_time_date_stamp));
@@ -174,7 +175,7 @@ bool LoadPEFileSignature(const DictionaryValue& dictionary,
     return false;
   }
 
-  UTF8ToWide(path.c_str(), path.size(), &signature->path);
+  base::UTF8ToWide(path.c_str(), path.size(), &signature->path);
   signature->base_address = PEFile::AbsoluteAddress(base_address);
   signature->module_size = module_size;
 
@@ -203,7 +204,7 @@ bool Metadata::Init(const PEFile::Signature& module_signature) {
   // Populate the command line string.
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   DCHECK(cmd_line != NULL);
-  if (!WideToUTF8(cmd_line->GetCommandLineString().c_str(),
+  if (!base::WideToUTF8(cmd_line->GetCommandLineString().c_str(),
                   cmd_line->GetCommandLineString().size(),
                   &command_line_)) {
     LOG(ERROR) << "Unable to convert command-line to UTF8.";
@@ -279,9 +280,9 @@ bool Metadata::SaveToBlock(BlockGraph::Block* block) const {
   // Output some of the information in duplicate, in a human-readable form, so
   // that we can easily grep for this stuff in the actual binaries.
   std::string path;
-  if (!WideToUTF8(module_signature_.path.c_str(),
-                  module_signature_.path.size(),
-                  &path)) {
+  if (!base::WideToUTF8(module_signature_.path.c_str(),
+                        module_signature_.path.size(),
+                        &path)) {
     LOG(ERROR) << "Unable to convert module path to UTF8.";
     return false;
   }

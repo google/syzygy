@@ -23,8 +23,8 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
-#include "base/string_util.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/strings/string_util.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"

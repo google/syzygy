@@ -14,7 +14,7 @@
 
 #include "syzygy/pe/pe_coff_image_layout_builder.h"
 
-#include "base/string_util.h"
+#include "base/strings/string_util.h"
 #include "syzygy/common/align.h"
 #include "syzygy/pe/pe_utils.h"
 

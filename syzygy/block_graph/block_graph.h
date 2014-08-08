@@ -32,7 +32,7 @@
 
 #include "base/basictypes.h"
 #include "base/file_util.h"
-#include "base/string_piece.h"
+#include "base/strings/string_piece.h"
 #include "syzygy/common/align.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"

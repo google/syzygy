@@ -190,7 +190,7 @@ bool CoffRelinker::CheckPaths() {
     return false;
   }
 
-  if (!file_util::PathExists(input_path_)) {
+  if (!base::PathExists(input_path_)) {
     LOG(ERROR) << "Input file not found: " << input_path_.value() << ".";
     return false;
   }
@@ -198,7 +198,7 @@ bool CoffRelinker::CheckPaths() {
   // Ensure we aren't about to overwrite anything we don't want to. We do this
   // early on so that we abort before decomposition, transformation, etc.
   if (!allow_overwrite_) {
-    if (file_util::PathExists(output_path_)) {
+    if (base::PathExists(output_path_)) {
       LOG(ERROR) << "Output file already exists: "
                  << output_path_.value() << ".";
       return false;

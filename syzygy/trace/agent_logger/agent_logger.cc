@@ -22,8 +22,8 @@
 #include <psapi.h>
 
 #include "base/bind.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/common/dbghelp_util.h"
@@ -368,7 +368,7 @@ bool AgentLogger::SaveMiniDump(HANDLE process,
   // Create a temporary file to which to write the minidump. We'll rename it
   // to something recognizable when we're finished writing to it.
   base::FilePath temp_file_path;
-  if (!file_util::CreateTemporaryFileInDir(minidump_dir_, &temp_file_path)) {
+  if (!base::CreateTemporaryFileInDir(minidump_dir_, &temp_file_path)) {
     LOG(ERROR) << "Could not create mini dump file in "
                << minidump_dir_.value();
     return false;
@@ -412,7 +412,7 @@ bool AgentLogger::SaveMiniDump(HANDLE process,
       base::StringPrintf(L"minidump-%08u-%08u-%08u.dmp",
                          pid, tid, ::GetTickCount()));
   base::FilePath final_path = minidump_dir_.Append(final_name);
-  if (file_util::Move(temp_file_path, final_path)) {
+  if (base::Move(temp_file_path, final_path)) {
     LOG(INFO) << "A minidump has been written to \"" << final_path.value()
               << "\".";
   } else {

@@ -15,7 +15,7 @@
 #include "syzygy/instrument/instrument_app.h"
 
 #include "base/environment.h"
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/unittest_util.h"

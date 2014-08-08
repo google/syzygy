@@ -75,7 +75,7 @@ TEST_F(TraceFileWriterTest, OpenSucceeds) {
   EXPECT_EQ(trace_path, w.path());
   EXPECT_TRUE(w.handle_.IsValid());
   EXPECT_LT(0u, w.block_size());
-  EXPECT_TRUE(file_util::PathExists(trace_path));
+  EXPECT_TRUE(base::PathExists(trace_path));
 }
 
 TEST_F(TraceFileWriterTest, CloseSucceeds) {
@@ -83,7 +83,7 @@ TEST_F(TraceFileWriterTest, CloseSucceeds) {
   ASSERT_TRUE(w.Open(trace_path));
 
   EXPECT_TRUE(w.Close());
-  EXPECT_TRUE(file_util::PathExists(trace_path));
+  EXPECT_TRUE(base::PathExists(trace_path));
 }
 
 TEST_F(TraceFileWriterTest, WriteHeader) {
@@ -95,10 +95,10 @@ TEST_F(TraceFileWriterTest, WriteHeader) {
   EXPECT_TRUE(w.WriteHeader(pi));
 
   ASSERT_TRUE(w.Close());
-  EXPECT_TRUE(file_util::PathExists(trace_path));
+  EXPECT_TRUE(base::PathExists(trace_path));
 
   int64 trace_file_size = 0;
-  ASSERT_TRUE(file_util::GetFileSize(trace_path, &trace_file_size));
+  ASSERT_TRUE(base::GetFileSize(trace_path, &trace_file_size));
   EXPECT_LT(0, trace_file_size);
   EXPECT_EQ(0, trace_file_size % w.block_size());
 }
@@ -172,10 +172,10 @@ TEST_F(TraceFileWriterTest, WriteRecordSucceeds) {
   EXPECT_TRUE(w.WriteRecord(data.data(), data.size()));
 
   ASSERT_TRUE(w.Close());
-  EXPECT_TRUE(file_util::PathExists(trace_path));
+  EXPECT_TRUE(base::PathExists(trace_path));
 
   int64 trace_file_size = 0;
-  ASSERT_TRUE(file_util::GetFileSize(trace_path, &trace_file_size));
+  ASSERT_TRUE(base::GetFileSize(trace_path, &trace_file_size));
   EXPECT_LT(0, trace_file_size);
   EXPECT_EQ(0, trace_file_size % w.block_size());
 }

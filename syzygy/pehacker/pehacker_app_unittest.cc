@@ -14,7 +14,7 @@
 
 #include "syzygy/pehacker/pehacker_app.h"
 
-#include "base/utf_string_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -311,7 +311,7 @@ TEST_F(PEHackerAppTest, RunNop) {
   ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
 
   EXPECT_EQ(0, test_impl_.Run());
-  EXPECT_TRUE(file_util::PathExists(output_module));
+  EXPECT_TRUE(base::PathExists(output_module));
   EXPECT_NO_FATAL_FAILURE(CheckTestDll(output_module));
 }
 

@@ -37,7 +37,7 @@ CoffFile::~CoffFile() {
 bool CoffFile::Init(const base::FilePath& path) {
   PECoffFile::Init(path);
 
-  file_util::ScopedFILE file(file_util::OpenFile(path, "rb"));
+  base::ScopedFILE file(base::OpenFile(path, "rb"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Failed to open file " << path.value() << ".";
     return false;

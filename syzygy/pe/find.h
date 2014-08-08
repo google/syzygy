@@ -18,8 +18,8 @@
 #ifndef SYZYGY_PE_FIND_H_
 #define SYZYGY_PE_FIND_H_
 
-#include "base/string_piece.h"
 #include "base/files/file_path.h"
+#include "base/strings/string_piece.h"
 #include "syzygy/pe/pe_file.h"
 
 namespace pe {

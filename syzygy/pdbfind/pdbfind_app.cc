@@ -68,7 +68,7 @@ bool PdbFindApp::ParseCommandLine(const CommandLine* cmd_line) {
 }
 
 int PdbFindApp::Run() {
-  if (!file_util::PathExists(input_image_path_)) {
+  if (!base::PathExists(input_image_path_)) {
     LOG(ERROR) << "File not found: " << input_image_path_.value();
     return kError;
   }

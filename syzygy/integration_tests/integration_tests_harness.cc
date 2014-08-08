@@ -88,7 +88,7 @@ bool ParseCommandLine(CommandLine* cmd_line) {
     LOG(ERROR) << "Must specify --dll.";
     return false;
   }
-  if (!file_util::PathExists(dll)) {
+  if (!base::PathExists(dll)) {
     LOG(ERROR) << "File does not exist: " << dll.value();
     return false;
   }
@@ -135,11 +135,11 @@ int main(int argc, char** argv) {
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
 
   // Initialize logging.
-  logging::InitLogging(NULL,
-                       logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
-                       logging::DONT_LOCK_LOG_FILE,
-                       logging::APPEND_TO_OLD_LOG_FILE,
-                       logging::ENABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
+  logging::LoggingSettings settings;
+  settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
+  settings.lock_log = logging::DONT_LOCK_LOG_FILE;
+  settings.delete_old = logging::APPEND_TO_OLD_LOG_FILE;
+  logging::InitLogging(settings);
   logging::SetMinLogLevel(logging::LOG_ERROR);
   if (cmd_line->HasSwitch("verbose"))
     logging::SetMinLogLevel(logging::LOG_VERBOSE);

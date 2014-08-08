@@ -18,6 +18,7 @@
 #include "syzygy/common/application.h"
 
 #include "base/file_util.h"
+#include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 
 namespace common {
@@ -60,10 +61,10 @@ bool AppImplBase::AppendMatchingPaths(const base::FilePath& pattern,
 
   // Whether the pattern is an existing file or not, we expand it as a glob.
   // If it's a file, it'll match itself and nothing else.
-  file_util::FileEnumerator files(AbsolutePath(pattern.DirName()),
-                                  false,
-                                  file_util::FileEnumerator::FILES,
-                                  pattern.BaseName().value());
+  base::FileEnumerator files(AbsolutePath(pattern.DirName()),
+                             false,
+                             base::FileEnumerator::FILES,
+                             pattern.BaseName().value());
   while (true) {
     base::FilePath file = files.Next();
     if (file.empty())

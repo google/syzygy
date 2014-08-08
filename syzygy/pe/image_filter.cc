@@ -17,12 +17,16 @@
 #include <errno.h>
 
 #include "base/file_util.h"
-#include "base/stringprintf.h"
 #include "base/json/json_reader.h"
+#include "base/strings/stringprintf.h"
 
 namespace pe {
 
 namespace {
+
+using base::DictionaryValue;
+using base::ListValue;
+using base::Value;
 
 // Keys used by the JSON serialization.
 const char kBaseAddress[] = "base_address";
@@ -302,7 +306,7 @@ bool ImageFilter::SaveToJSON(bool pretty_print, FILE* file) const {
 
 bool ImageFilter::SaveToJSON(bool pretty_print,
                              const base::FilePath& path) const {
-  file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
+  base::ScopedFILE file(base::OpenFile(path, "wb"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Unable to open file for writing: " << path.value();
     return false;
@@ -382,7 +386,7 @@ bool ImageFilter::LoadFromJSON(FILE* file) {
 }
 
 bool ImageFilter::LoadFromJSON(const base::FilePath& path) {
-  file_util::ScopedFILE file(file_util::OpenFile(path, "rb"));
+  base::ScopedFILE file(base::OpenFile(path, "rb"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Unable to open file for reading: " << path.value();
     return false;

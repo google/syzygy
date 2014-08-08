@@ -108,9 +108,9 @@
 
 #include "syzygy/pe/transforms/pe_add_imports_transform.h"
 
-#include "base/string_piece.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
+#include "base/strings/string_piece.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/common/align.h"
 #include "syzygy/pe/pe_utils.h"

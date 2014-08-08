@@ -15,7 +15,6 @@
 #ifndef SYZYGY_AGENT_ASAN_STACK_CAPTURE_CACHE_H_
 #define SYZYGY_AGENT_ASAN_STACK_CAPTURE_CACHE_H_
 
-#include "base/hash_tables.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture.h"

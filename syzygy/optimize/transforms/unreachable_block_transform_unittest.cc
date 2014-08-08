@@ -148,7 +148,7 @@ TEST_F(UnreachableBlockTransformTest, UnreachableGraphProduced) {
 
   // Read the contents of the produced file.
   std::string contents;
-  file_util::ReadFileToString(temp_path, &contents);
+  base::ReadFileToString(temp_path, &contents);
 
   // Validate the output.
   const char expected[] = "events: Size Count\nob=\nfn=code3\n3 5 1\n\n";

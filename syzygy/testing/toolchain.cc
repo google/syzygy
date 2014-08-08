@@ -15,8 +15,8 @@
 #include "syzygy/testing/toolchain.h"
 
 #include "base/environment.h"
-#include "base/string_util.h"
 #include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "gtest/gtest.h"
 

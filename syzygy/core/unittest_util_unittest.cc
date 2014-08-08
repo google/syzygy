@@ -40,7 +40,7 @@ TEST(CoreUnittestUtils, GetRelativePath) {
   EXPECT_EQ(kRelPath3From1, GetRelativePath(kPath3, kPath1));
 
   base::FilePath sub_dir;
-  ASSERT_TRUE(file_util::GetCurrentDirectory(&sub_dir));
+  ASSERT_TRUE(base::GetCurrentDirectory(&sub_dir));
   EXPECT_EQ(base::FilePath(L"blah"), GetRelativePath(sub_dir.Append(L"blah")));
 }
 

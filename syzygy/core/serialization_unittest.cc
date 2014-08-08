@@ -52,17 +52,17 @@ struct Foo {
 class SerializationTest : public testing::Test {
  public:
   virtual void SetUp() {
-    ASSERT_TRUE(file_util::CreateNewTempDirectory(L"", &temp_dir_));
+    ASSERT_TRUE(base::CreateNewTempDirectory(L"", &temp_dir_));
   }
 
   virtual void TearDown() {
-    file_util::Delete(temp_dir_, true);
+    base::DeleteFile(temp_dir_, true);
   }
 
   template<typename Data> bool TestRoundTrip(const Data& data) {
     base::FilePath path;
-    file_util::ScopedFILE file;
-    file.reset(file_util::CreateAndOpenTemporaryFileInDir(temp_dir_, &path));
+    base::ScopedFILE file;
+    file.reset(base::CreateAndOpenTemporaryFileInDir(temp_dir_, &path));
     EXPECT_TRUE(file.get() != NULL);
     EXPECT_FALSE(path.empty());
 
@@ -111,8 +111,8 @@ TEST_F(SerializationTest, IteratorInStream) {
 
 TEST_F(SerializationTest, FileOutStream) {
   base::FilePath path;
-  file_util::ScopedFILE file;
-  file.reset(file_util::CreateAndOpenTemporaryFileInDir(temp_dir(), &path));
+  base::ScopedFILE file;
+  file.reset(base::CreateAndOpenTemporaryFileInDir(temp_dir(), &path));
   EXPECT_TRUE(file.get() != NULL);
   EXPECT_FALSE(path.empty());
 
@@ -124,7 +124,7 @@ TEST_F(SerializationTest, FileOutStream) {
 
   // Load the data from the file and ensure it matches the original data.
   file.reset();
-  file.reset(file_util::OpenFile(path, "rb"));
+  file.reset(base::OpenFile(path, "rb"));
   Byte buffer[sizeof(kTestData)];
   EXPECT_EQ(sizeof(kTestData), fread(buffer, 1, sizeof(kTestData),
                                      file.get()));
@@ -133,8 +133,8 @@ TEST_F(SerializationTest, FileOutStream) {
 
 TEST_F(SerializationTest, FileInStream) {
   base::FilePath path;
-  file_util::ScopedFILE file;
-  file.reset(file_util::CreateAndOpenTemporaryFileInDir(temp_dir(), &path));
+  base::ScopedFILE file;
+  file.reset(base::CreateAndOpenTemporaryFileInDir(temp_dir(), &path));
   EXPECT_TRUE(file.get() != NULL);
   EXPECT_FALSE(path.empty());
 
@@ -142,7 +142,7 @@ TEST_F(SerializationTest, FileInStream) {
   EXPECT_EQ(sizeof(kTestData), fwrite(kTestData, 1, sizeof(kTestData),
                                       file.get()));
   file.reset();
-  file.reset(file_util::OpenFile(path, "rb"));
+  file.reset(base::OpenFile(path, "rb"));
 
   FileInStream in_stream(file.get());
   Byte buffer[sizeof(kTestData)];

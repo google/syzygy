@@ -22,7 +22,7 @@
 #include <winternl.h>
 
 #include "base/logging.h"
-#include "base/string_util.h"
+#include "base/strings/string_util.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/com_utils.h"
 

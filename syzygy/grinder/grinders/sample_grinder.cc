@@ -14,8 +14,8 @@
 
 #include "syzygy/grinder/grinders/sample_grinder.h"
 
-#include "base/string_util.h"
-#include "base/stringprintf.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/align.h"

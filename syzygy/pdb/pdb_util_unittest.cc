@@ -18,10 +18,10 @@
 
 #include "base/command_line.h"
 #include "base/path_service.h"
-#include "base/process_util.h"
 #include "base/scoped_native_library.h"
-#include "base/utf_string_conversions.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/process/launch.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/win/pe_image.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -432,7 +432,7 @@ TEST_F(PdbUtilTest, PdbHeaderMatchesImageDebugDirectory) {
   EXPECT_TRUE(pdb_file.GetStream(kPdbHeaderInfoStream)->Read(&header, 1));
   EXPECT_EQ(header.version, kPdbCurrentVersion);
 
-  std::string error;
+  base::NativeLibraryLoadError error;
   base::NativeLibrary test_dll =
       base::LoadNativeLibrary(
           testing::GetSrcRelativePath(testing::kTestDllFilePath),
@@ -792,7 +792,7 @@ TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
       testing::GetSrcRelativePath(testing::kPdbStrPath);
 
   // Create the argument specifying the PDB path.
-  std::string pdb_arg = ::WideToUTF8(temp_pdb_file_path_.value());
+  std::string pdb_arg = base::WideToUTF8(temp_pdb_file_path_.value());
   pdb_arg.insert(0, "-p:");
 
   // First test: try to read a non-existing stream. Should produce no output.
@@ -823,12 +823,12 @@ TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
   // we should then be able to read the stream using our mechanisms.
   {
     base::FilePath bar_txt = temp_dir_.path().Append(L"bar.txt");
-    file_util::ScopedFILE bar_file(file_util::OpenFile(
+    base::ScopedFILE bar_file(base::OpenFile(
         bar_txt, "wb"));
     fprintf(bar_file.get(), "bar");
     bar_file.reset();
 
-    std::string bar_arg = WideToUTF8(bar_txt.value());
+    std::string bar_arg = base::WideToUTF8(bar_txt.value());
     bar_arg.insert(0, "-i:");
 
     CommandLine cmd(pdbstr_path);

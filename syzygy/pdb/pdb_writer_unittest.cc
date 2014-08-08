@@ -16,9 +16,9 @@
 
 #include "base/command_line.h"
 #include "base/file_util.h"
-#include "base/process_util.h"
-#include "base/utf_string_conversions.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/process/launch.h"
+#include "base/strings/utf_string_conversions.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -40,7 +40,7 @@ uint32 GetNumPages(uint32 num_bytes) {
 class TestPdbWriter : public PdbWriter {
  public:
   TestPdbWriter() {
-    file_.reset(file_util::CreateAndOpenTemporaryFile(&path_));
+    file_.reset(base::CreateAndOpenTemporaryFile(&path_));
     EXPECT_TRUE(file_.get() != NULL);
   }
 
@@ -49,10 +49,10 @@ class TestPdbWriter : public PdbWriter {
       fclose(file_.get());
       file_.reset();
     }
-    file_util::Delete(path_, false);
+    base::DeleteFile(path_, false);
   }
 
-  file_util::ScopedFILE& file() { return file_; }
+  base::ScopedFILE& file() { return file_; }
 
   using PdbWriter::AppendStream;
   using PdbWriter::WriteHeader;
@@ -134,7 +134,7 @@ TEST(PdbWriterTest, AppendStream) {
   TestPdbWriter writer;
 
   testing::ScopedTempFile temp_file;
-  writer.file().reset(file_util::OpenFile(temp_file.path(), "wb"));
+  writer.file().reset(base::OpenFile(temp_file.path(), "wb"));
   ASSERT_TRUE(writer.file().get() != NULL);
 
   scoped_refptr<PdbStream> stream(
@@ -164,7 +164,7 @@ TEST(PdbWriterTest, AppendStream) {
 
   std::vector<uint8> contents(6 * kPdbPageSize);
   ASSERT_EQ(contents.size(),
-            file_util::ReadFile(temp_file.path(),
+            base::ReadFile(temp_file.path(),
                                 reinterpret_cast<char*>(contents.data()),
                                 contents.size()));
 
@@ -175,7 +175,7 @@ TEST(PdbWriterTest, WriteHeader) {
   TestPdbWriter writer;
 
   testing::ScopedTempFile temp_file;
-  writer.file().reset(file_util::OpenFile(temp_file.path(), "wb"));
+  writer.file().reset(base::OpenFile(temp_file.path(), "wb"));
   ASSERT_TRUE(writer.file().get() != NULL);
 
   std::vector<uint32> root_directory_pages(kPdbMaxDirPages + 10, 1);
@@ -202,9 +202,9 @@ TEST(PdbWriterTest, WriteHeader) {
 
   std::vector<uint8> contents(sizeof(PdbHeader));
   ASSERT_EQ(contents.size(),
-            file_util::ReadFile(temp_file.path(),
-                                reinterpret_cast<char*>(contents.data()),
-                                contents.size()));
+            base::ReadFile(temp_file.path(),
+                           reinterpret_cast<char*>(contents.data()),
+                           contents.size()));
 
   EXPECT_THAT(contents, ::testing::ContainerEq(expected_contents));
 }
@@ -242,7 +242,7 @@ TEST(PdbWriterTest, PdbStrCompatible) {
   // requires a second page. We manually add data to it until we get to that
   // point.
   int64 test_dll_pdb_length = 0;
-  ASSERT_TRUE(file_util::GetFileSize(test_dll_pdb, &test_dll_pdb_length));
+  ASSERT_TRUE(base::GetFileSize(test_dll_pdb, &test_dll_pdb_length));
   while (test_dll_pdb_length < 9 * 1024 * 1024) {
     file.AppendStream(new TestPdbStream(1024 * 1024, file.StreamCount()));
     test_dll_pdb_length += 1024 * 1024;
@@ -260,7 +260,7 @@ TEST(PdbWriterTest, PdbStrCompatible) {
   scoped_refptr<TestPdbStream> new_stream(
       new TestPdbStream(1024 * 1024, 0xff));
   {
-    file_util::ScopedFILE stream_file(file_util::OpenFile(
+    base::ScopedFILE stream_file(base::OpenFile(
         stream_path, "wb"));
     ASSERT_TRUE(stream_file.get() != NULL);
     ASSERT_EQ(new_stream->data().size(),
@@ -275,9 +275,9 @@ TEST(PdbWriterTest, PdbStrCompatible) {
       testing::GetSrcRelativePath(testing::kPdbStrPath);
 
   // Create the arguments to pdbstr.
-  std::string pdb_arg = ::WideToUTF8(pdb_path.value());
+  std::string pdb_arg = base::WideToUTF8(pdb_path.value());
   pdb_arg.insert(0, "-p:");
-  std::string stream_arg = ::WideToUTF8(stream_path.value());
+  std::string stream_arg = base::WideToUTF8(stream_path.value());
   stream_arg.insert(0, "-i:");
 
   // Add a new stream to the PDB in place. This should produce no output.

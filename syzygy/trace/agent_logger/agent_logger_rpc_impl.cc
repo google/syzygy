@@ -20,7 +20,7 @@
 #include <windows.h>
 #include <winnt.h>
 
-#include "base/process.h"
+#include "base/process/process.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/windows_version.h"
 #include "syzygy/common/com_utils.h"

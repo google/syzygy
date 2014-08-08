@@ -21,12 +21,13 @@
 #include "base/environment.h"
 #include "base/file_util.h"
 #include "base/path_service.h"
-#include "base/process.h"
-#include "base/process_util.h"
 #include "base/rand_util.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
+#include "base/process/kill.h"
+#include "base/process/launch.h"
+#include "base/process/process.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/trace/agent_logger/agent_logger.h"
 #include "syzygy/trace/agent_logger/agent_logger_rpc_impl.h"
@@ -131,7 +132,7 @@ bool RunApp(const CommandLine& command_line,
   DCHECK(exit_code != NULL);
   scoped_ptr<base::Environment> env(base::Environment::Create());
   CHECK(env != NULL);
-  env->SetVar(kSyzygyRpcInstanceIdEnvVar, WideToUTF8(instance_id));
+  env->SetVar(kSyzygyRpcInstanceIdEnvVar, base::WideToUTF8(instance_id));
 
   LOG(INFO) << "Launching '" << command_line.GetProgram().value() << "'.";
   VLOG(1) << "Command Line: " << command_line.GetCommandLineString();
@@ -253,8 +254,8 @@ bool LoggerApp::ParseCommandLine(const CommandLine* command_line) {
     if (mini_dump_dir_.empty())
       return Usage(command_line, "The minidump-dir parameter is invalid.");
 
-    if (!file_util::DirectoryExists(mini_dump_dir_) &&
-        !file_util::CreateDirectory(mini_dump_dir_)) {
+    if (!base::DirectoryExists(mini_dump_dir_) &&
+        !base::CreateDirectory(mini_dump_dir_)) {
       LOG(ERROR) << "Failed to create minidump-dir "
                  << mini_dump_dir_.value();
     }
@@ -351,7 +352,7 @@ bool LoggerApp::Start() {
   // Get the log file output_file.
   FILE* output_file = NULL;
   bool must_close_output_file = false;
-  file_util::ScopedFILE auto_close;
+  base::ScopedFILE auto_close;
   if (!OpenOutputFile(&output_file, &must_close_output_file)) {
     LOG(ERROR) << "Unable to open '" << output_file_path_.value() << "'.";
     return false;
@@ -551,7 +552,7 @@ bool LoggerApp::OpenOutputFile(FILE** output_file, bool* must_close) {
     mode = "ab";
 
   // Create a new file, which the caller is responsible for closing.
-  *output_file = file_util::OpenFile(output_file_path_, mode);
+  *output_file = base::OpenFile(output_file_path_, mode);
   if (*output_file == NULL)
     return false;
 

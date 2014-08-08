@@ -99,7 +99,7 @@ class ApplicationTest : public testing::ApplicationTestBase {
 };
 
 bool CreateEmptyFile(const base::FilePath& path) {
-  file_util::ScopedFILE f(file_util::OpenFile(path, "wb"));
+  base::ScopedFILE f(base::OpenFile(path, "wb"));
   if (f.get() == NULL)
     return false;
   return true;
@@ -171,7 +171,7 @@ TEST_F(ApplicationTest, MockAppFailsRun) {
 TEST_F(ApplicationTest, AbsolutePath) {
   AppImplBase& app_impl = test_app_.implementation();
   base::FilePath current_dir;
-  ASSERT_TRUE(file_util::GetCurrentDirectory(&current_dir));
+  ASSERT_TRUE(base::GetCurrentDirectory(&current_dir));
 
   const base::FilePath kRelativePath(L"foo\\bar\\file.txt");
   const base::FilePath kAbsolutePath(current_dir.Append(kRelativePath));

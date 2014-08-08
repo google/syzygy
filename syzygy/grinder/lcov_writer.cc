@@ -20,7 +20,7 @@ namespace grinder {
 
 bool WriteLcovCoverageFile(const CoverageData& coverage,
                            const base::FilePath& path) {
-  file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
+  base::ScopedFILE file(base::OpenFile(path, "wb"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Failed to open file for writing: " << path.value();
     return false;

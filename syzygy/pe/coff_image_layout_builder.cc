@@ -45,7 +45,7 @@
 #include <vector>
 
 #include "base/auto_reset.h"
-#include "base/string_util.h"
+#include "base/strings/string_util.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/common/align.h"
 #include "syzygy/pe/coff_utils.h"

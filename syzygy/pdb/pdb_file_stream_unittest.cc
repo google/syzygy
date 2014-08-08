@@ -44,7 +44,7 @@ class TestPdbFileStream : public PdbFileStream {
 class PdbFileStreamTest : public testing::Test {
  public:
   virtual void SetUp() {
-    file_ = new RefCountedFILE(file_util::OpenFile(testing::GetSrcRelativePath(
+    file_ = new RefCountedFILE(base::OpenFile(testing::GetSrcRelativePath(
         testing::kTestPdbFilePath), "rb"));
     ASSERT_TRUE(file_.get() != NULL);
   }

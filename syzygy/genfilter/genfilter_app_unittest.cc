@@ -14,7 +14,7 @@
 
 #include "syzygy/genfilter/genfilter_app.h"
 
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/image_filter.h"
@@ -70,7 +70,7 @@ class GenFilterAppTest : public testing::PELibUnitTest {
 
   // Creates an empty file at the given path.
   void MakeFile(const base::FilePath& path) {
-    file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
+    base::ScopedFILE file(base::OpenFile(path, "wb"));
     ASSERT_TRUE(file.get() != NULL);
   }
 
@@ -159,7 +159,7 @@ TEST_F(GenFilterAppTest, ParseCommandLineExplicitInputFiles) {
   cmd_line_.AppendSwitchASCII("action", "union");
   for (size_t i = 0; i < 10; ++i) {
     base::FilePath temp_file;
-    ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir_, &temp_file));
+    ASSERT_TRUE(base::CreateTemporaryFileInDir(temp_dir_, &temp_file));
     cmd_line_.AppendArgPath(temp_file);
     temp_files.push_back(temp_file);
   }
@@ -174,7 +174,7 @@ TEST_F(GenFilterAppTest, ParseCommandLineInputFilesGlob) {
   for (size_t i = 0; i < 10; ++i) {
     base::FilePath path =
         temp_dir_.Append(base::StringPrintf(L"filter-%d.json", i));
-    file_util::ScopedFILE file(file_util::OpenFile(path, "wb"));
+    base::ScopedFILE file(base::OpenFile(path, "wb"));
     temp_files.push_back(path);
   }
   cmd_line_.AppendArgPath(temp_dir_.Append(L"*.json"));
@@ -268,7 +268,7 @@ TEST_F(GenFilterAppTest, InvertDoesNotOverwriteExistingOutput) {
   cmd_line_.AppendArgPath(filter_paths_[0]);
   cmd_line_.AppendSwitchPath("output-file", output_file_);
 
-  file_util::CopyFileW(filter_paths_[0], output_file_);
+  base::CopyFile(filter_paths_[0], output_file_);
 
   ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
   ASSERT_EQ(1, impl_.Run());
@@ -283,7 +283,7 @@ TEST_F(GenFilterAppTest, InvertOverwriteExistingOutputWorks) {
   cmd_line_.AppendSwitchPath("output-file", output_file_);
   cmd_line_.AppendSwitch("overwrite");
 
-  file_util::CopyFileW(filter_paths_[0], output_file_);
+  base::CopyFile(filter_paths_[0], output_file_);
 
   ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
   ASSERT_EQ(0, impl_.Run());
@@ -299,7 +299,7 @@ TEST_F(GenFilterAppTest, InvertSucceeds) {
   ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
   ASSERT_EQ(0, impl_.Run());
 
-  ASSERT_TRUE(file_util::PathExists(output_file_));
+  ASSERT_TRUE(base::PathExists(output_file_));
   pe::ImageFilter f;
   ASSERT_TRUE(f.LoadFromJSON(output_file_));
 
@@ -318,7 +318,7 @@ TEST_F(GenFilterAppTest, IntersectSucceeds) {
   ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
   ASSERT_EQ(0, impl_.Run());
 
-  ASSERT_TRUE(file_util::PathExists(output_file_));
+  ASSERT_TRUE(base::PathExists(output_file_));
   pe::ImageFilter f;
   ASSERT_TRUE(f.LoadFromJSON(output_file_));
 
@@ -337,7 +337,7 @@ TEST_F(GenFilterAppTest, SubtractSucceeds) {
   ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
   ASSERT_EQ(0, impl_.Run());
 
-  ASSERT_TRUE(file_util::PathExists(output_file_));
+  ASSERT_TRUE(base::PathExists(output_file_));
   pe::ImageFilter f;
   ASSERT_TRUE(f.LoadFromJSON(output_file_));
 
@@ -356,7 +356,7 @@ TEST_F(GenFilterAppTest, UnionSucceeds) {
   ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
   ASSERT_EQ(0, impl_.Run());
 
-  ASSERT_TRUE(file_util::PathExists(output_file_));
+  ASSERT_TRUE(base::PathExists(output_file_));
   pe::ImageFilter f;
   ASSERT_TRUE(f.LoadFromJSON(output_file_));
 
@@ -403,7 +403,7 @@ TEST_F(GenFilterAppTest, UnionFailsMismatchedFilters) {
 TEST_F(GenFilterAppTest, CompileFailsInvalidInput) {
   base::FilePath filter_txt = temp_dir_.Append(L"badfilter.txt");
   {
-    file_util::ScopedFILE file(file_util::OpenFile(filter_txt, "wb"));
+    base::ScopedFILE file(base::OpenFile(filter_txt, "wb"));
     ::fprintf(file.get(), "This is a badly formatted filter file.");
   }
 
@@ -420,7 +420,7 @@ TEST_F(GenFilterAppTest, CompileFailsInvalidInput) {
 TEST_F(GenFilterAppTest, CompileSucceeds) {
   base::FilePath filter_txt = temp_dir_.Append(L"goodfilter.txt");
   {
-    file_util::ScopedFILE file(file_util::OpenFile(filter_txt, "wb"));
+    base::ScopedFILE file(base::OpenFile(filter_txt, "wb"));
     ::fprintf(file.get(), "# A commend.\n");
     ::fprintf(file.get(), "+function:DllMain\n");
   }
@@ -434,7 +434,7 @@ TEST_F(GenFilterAppTest, CompileSucceeds) {
   ASSERT_TRUE(impl_.ParseCommandLine(&cmd_line_));
   ASSERT_EQ(0, impl_.Run());
 
-  ASSERT_TRUE(file_util::PathExists(output_file_));
+  ASSERT_TRUE(base::PathExists(output_file_));
   pe::ImageFilter f;
   ASSERT_TRUE(f.LoadFromJSON(output_file_));
 }

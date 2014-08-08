@@ -21,8 +21,8 @@
 #include "base/environment.h"
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "base/utf_string_conversions.h"
 #include "base/strings/string_split.h"
+#include "base/strings/utf_string_conversions.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/common/dbghelp_util.h"
 #include "syzygy/pdb/pdb_util.h"
@@ -50,10 +50,10 @@ bool GetEnvVar(const char* name, std::wstring* value) {
   if (!env->GetVar(name, &var))
     return true;
 
-  if (!UTF8ToWide(var.c_str(),
+  if (!base::UTF8ToWide(var.c_str(),
                   var.size(),
                   value)) {
-    LOG(ERROR) << "UTF8ToWide(\"" << var << "\" failed.";
+    LOG(ERROR) << "base::UTF8ToWide(\"" << var << "\" failed.";
     return false;
   }
 
@@ -124,7 +124,7 @@ bool FindFile(const base::FilePath& file_path,
   // Augment the search paths with the directory of file_path and the
   // current working directory.
   std::wstring paths;
-  if (file_util::PathExists(dir)) {
+  if (base::PathExists(dir)) {
     paths.append(dir.value());
     paths.push_back(L';');
   }

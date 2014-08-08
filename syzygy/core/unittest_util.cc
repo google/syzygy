@@ -111,7 +111,7 @@ base::FilePath GetRelativePath(const base::FilePath& abs_path,
 
 base::FilePath GetRelativePath(const base::FilePath& abs_path) {
   base::FilePath cur_dir;
-  file_util::GetCurrentDirectory(&cur_dir);
+  base::GetCurrentDirectory(&cur_dir);
   return GetRelativePath(abs_path, cur_dir);
 }
 

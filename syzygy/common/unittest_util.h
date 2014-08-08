@@ -67,7 +67,7 @@ class ApplicationTestBase : public testing::Test {
 
   // Creates a temporary directory, which is cleaned up after the test runs.
   void CreateTemporaryDir(base::FilePath* temp_dir) {
-    ASSERT_TRUE(file_util::CreateNewTempDirectory(L"", temp_dir));
+    ASSERT_TRUE(base::CreateNewTempDirectory(L"", temp_dir));
     temp_dirs_.push_back(*temp_dir);
   }
 
@@ -95,11 +95,11 @@ class ApplicationTestBase : public testing::Test {
       size_t message_start, const std::string& str);
 
   // Tears down the given stream.
-  static void TearDownStream(file_util::ScopedFILE* stream);
+  static void TearDownStream(base::ScopedFILE* stream);
 
   // Helper to initialize a given stream to refer to the NUL device on first
   // use if it hasn't already been associated with a file.
-  static FILE* GetOrInitFile(file_util::ScopedFILE* f, const char* mode);
+  static FILE* GetOrInitFile(base::ScopedFILE* f, const char* mode);
 
   // List of temporary directories created during this test invocation.
   typedef std::vector<const base::FilePath> DirList;
@@ -110,9 +110,9 @@ class ApplicationTestBase : public testing::Test {
   // By default they are routed to the NUL device (on first uninitialized use).
   //
   // @{
-  mutable file_util::ScopedFILE in_;
-  mutable file_util::ScopedFILE out_;
-  mutable file_util::ScopedFILE err_;
+  mutable base::ScopedFILE in_;
+  mutable base::ScopedFILE out_;
+  mutable base::ScopedFILE err_;
   // @}
 
   // The logging level saved during SetUp. We restore this on TearDown.

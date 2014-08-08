@@ -19,8 +19,8 @@
 #include "base/command_line.h"
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "base/process_util.h"
-#include "base/utf_string_conversions.h"
+#include "base/process/process_iterator.h"
+#include "base/strings/utf_string_conversions.h"
 #include "pcrecpp.h"  // NOLINT
 #include "syzygy/core/json_file_writer.h"
 #include "syzygy/wsdump/process_working_set.h"
@@ -63,7 +63,7 @@ bool RegexpProcessFilter::Initialize(const std::string& regexpr) {
 }
 
 bool RegexpProcessFilter::Includes(const base::ProcessEntry& entry) const {
-  return expr_.PartialMatch(WideToUTF8(entry.exe_file()));
+  return expr_.PartialMatch(base::WideToUTF8(entry.exe_file()));
 }
 
 const char kUsage[] =
@@ -179,11 +179,12 @@ int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;
   CommandLine::Init(argc, argv);
 
-  if (!logging::InitLogging(L"", logging::LOG_ONLY_TO_SYSTEM_DEBUG_LOG,
-      logging::DONT_LOCK_LOG_FILE, logging::APPEND_TO_OLD_LOG_FILE,
-      logging::ENABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS)) {
+  logging::LoggingSettings settings;
+  settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
+  settings.lock_log = logging::DONT_LOCK_LOG_FILE;
+  settings.delete_old = logging::APPEND_TO_OLD_LOG_FILE;
+  if (!logging::InitLogging(settings))
     return 1;
-  }
 
   CommandLine* cmd_line = CommandLine::ForCurrentProcess();
   DCHECK(cmd_line != NULL);

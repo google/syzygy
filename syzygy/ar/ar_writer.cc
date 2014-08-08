@@ -22,9 +22,9 @@
 
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "base/stringprintf.h"
 #include "base/sys_byteorder.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/buffer_parser.h"
@@ -567,7 +567,7 @@ bool ArWriter::AddFile(const base::StringPiece& filename,
 }
 
 bool ArWriter::AddFile(const base::FilePath& path) {
-  std::string name = WideToUTF8(path.value());
+  std::string name = base::WideToUTF8(path.value());
 
   // Get the mode of the file.
   struct _stat stat;
@@ -581,7 +581,7 @@ bool ArWriter::AddFile(const base::FilePath& path) {
   }
 
   scoped_ptr<DataBuffer> buffer(new DataBuffer(stat.st_size));
-  int read = file_util::ReadFile(
+  int read = base::ReadFile(
       path,
       reinterpret_cast<char*>(buffer->data()),
       static_cast<int>(stat.st_size));
@@ -637,7 +637,7 @@ bool ArWriter::Write(const base::FilePath& path) {
   }
 
   // Open the file and write the global header.
-  file_util::ScopedFILE file(file_util::OpenFile(path, "w+b"));
+  base::ScopedFILE file(base::OpenFile(path, "w+b"));
   if (file.get() == NULL) {
     LOG(ERROR) << "Unable to open file for writing: " << path.value();
     return false;

@@ -17,9 +17,9 @@
 #include "base/bind.h"
 #include "base/native_library.h"
 #include "base/path_service.h"
-#include "base/string_util.h"
 #include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/strings/string_util.h"
 #include "base/win/pe_image.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -117,7 +117,7 @@ class PEFileParserTest: public testing::PELibUnitTest {
   // in the image.
   bool ExportIsReferenced(const char* function_name_or_ordinal) {
     if (loaded_image_ == NULL) {
-      std::string error;
+      base::NativeLibraryLoadError error;
       loaded_image_ = base::LoadNativeLibrary(
           testing::GetExeRelativePath(testing::kTestDllName), &error);
     }
@@ -238,7 +238,7 @@ TEST_F(PEFileParserTest, ParseExportDir) {
       nt_headers->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
   EXPECT_TRUE(parser.ParseExportDir(dir) != NULL);
 
-  std::string error;
+  base::NativeLibraryLoadError error;
   loaded_image_ = base::LoadNativeLibrary(
       testing::GetExeRelativePath(testing::kTestDllName), &error);
   ASSERT_TRUE(loaded_image_ != NULL);

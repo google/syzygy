@@ -18,10 +18,10 @@
 #include "syzygy/pehacker/pehacker_app.h"
 
 #include "base/file_util.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
 #include "base/json/json_reader.h"
 #include "base/strings/string_split.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "syzygy/block_graph/orderers/original_orderer.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_writer.h"
@@ -221,7 +221,7 @@ bool PEHackerApp::ParseConfigFile() {
 
   VLOG(1) << "Reading configuration file from disk.";
   std::string json;
-  if (!file_util::ReadFileToString(config_file_, &json)) {
+  if (!base::ReadFileToString(config_file_, &json)) {
     LOG(ERROR) << "Unable to read configuration file \""
                << config_file_.value() << "\".";
     return false;

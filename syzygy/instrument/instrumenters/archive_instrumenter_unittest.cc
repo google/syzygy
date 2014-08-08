@@ -54,7 +54,7 @@ class IdentityInstrumenter : public InstrumenterInterface {
 
   virtual bool Instrument() OVERRIDE {
     ++instrument_count;
-    file_util::CopyFile(input_image_, output_image_);
+    base::CopyFile(input_image_, output_image_);
     return true;
   }
 
@@ -119,7 +119,7 @@ TEST_F(ArchiveInstrumenterTest, PassthroughForNonArchive) {
   EXPECT_EQ(1u, output_images.size());
   EXPECT_EQ(test_dll_dll_, *input_images.begin());
   EXPECT_EQ(output_image_, *output_images.begin());
-  EXPECT_TRUE(file_util::PathExists(output_image_));
+  EXPECT_TRUE(base::PathExists(output_image_));
 }
 
 TEST_F(ArchiveInstrumenterTest, IteratesOverArchiveFiles) {
@@ -135,7 +135,7 @@ TEST_F(ArchiveInstrumenterTest, IteratesOverArchiveFiles) {
   EXPECT_EQ(testing::kArchiveFileCount, output_images.size());
   EXPECT_EQ(0u, input_images.count(zlib_lib_));
   EXPECT_EQ(0u, output_images.count(output_image_));
-  EXPECT_TRUE(file_util::PathExists(output_image_));
+  EXPECT_TRUE(base::PathExists(output_image_));
 }
 
 TEST_F(ArchiveInstrumenterTest, AsanInstrumentArchive) {
@@ -144,7 +144,7 @@ TEST_F(ArchiveInstrumenterTest, AsanInstrumentArchive) {
 
   EXPECT_TRUE(inst.ParseCommandLine(command_line_.get()));
   EXPECT_TRUE(inst.Instrument());
-  EXPECT_TRUE(file_util::PathExists(output_image_));
+  EXPECT_TRUE(base::PathExists(output_image_));
 }
 
 }  // namespace instrumenters

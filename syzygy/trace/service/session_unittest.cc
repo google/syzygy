@@ -19,10 +19,10 @@
 #include "base/callback.h"
 #include "base/environment.h"
 #include "base/file_util.h"
-#include "base/stringprintf.h"
-#include "base/utf_string_conversions.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread.h"
 #include "gtest/gtest.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -39,7 +39,7 @@ namespace {
 class TestSessionTraceFileWriter : public SessionTraceFileWriter {
  public:
   explicit TestSessionTraceFileWriter(
-      MessageLoop* message_loop, const base::FilePath& trace_directory)
+      base::MessageLoop* message_loop, const base::FilePath& trace_directory)
       : SessionTraceFileWriter(message_loop, trace_directory),
         num_buffers_to_recycle_(0) {
     base::subtle::Barrier_AtomicIncrement(&num_instances_, 1);
@@ -122,7 +122,7 @@ volatile base::subtle::Atomic32 TestSessionTraceFileWriter::num_instances_ = 0;
 
 class TestSessionTraceFileWriterFactory : public SessionTraceFileWriterFactory {
  public:
-  explicit TestSessionTraceFileWriterFactory(MessageLoop* message_loop)
+  explicit TestSessionTraceFileWriterFactory(base::MessageLoop* message_loop)
       : SessionTraceFileWriterFactory(message_loop) {
   }
 
@@ -295,7 +295,7 @@ class SessionTest : public ::testing::Test {
       : consumer_thread_("session-test-consumer-thread"),
         consumer_thread_has_started_(
             consumer_thread_.StartWithOptions(
-                base::Thread::Options(MessageLoop::TYPE_IO, 0))),
+                base::Thread::Options(base::MessageLoop::TYPE_IO, 0))),
         session_trace_file_writer_factory_(consumer_thread_.message_loop()),
         call_trace_service_(&session_trace_file_writer_factory_),
         rpc_service_instance_manager_(&call_trace_service_),
@@ -322,7 +322,7 @@ class SessionTest : public ::testing::Test {
     // We give the service instance a "unique" id so that it does not interfere
     // with any other instances or tests that might be concurrently active.
     std::string instance_id(base::StringPrintf("%d", ::GetCurrentProcessId()));
-    call_trace_service_.set_instance_id(::UTF8ToWide(instance_id));
+    call_trace_service_.set_instance_id(base::UTF8ToWide(instance_id));
 
     // The instance id needs to be in the environment to be picked up by the
     // client library. We prefix the existing environment variable, if any.

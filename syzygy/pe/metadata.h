@@ -21,8 +21,8 @@
 #ifndef SYZYGY_PE_METADATA_H_
 #define SYZYGY_PE_METADATA_H_
 
-#include "base/time.h"
 #include "base/values.h"
+#include "base/time/time.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/serialization.h"
@@ -57,7 +57,7 @@ class Metadata {
 
   // Functions for serialization to and from JSON.
   bool SaveToJSON(core::JSONFileWriter* json_file) const;
-  bool LoadFromJSON(const DictionaryValue& metadata);
+  bool LoadFromJSON(const base::DictionaryValue& metadata);
 
   // Functions for serialization to and from a block.
   bool SaveToBlock(BlockGraph::Block* block) const;

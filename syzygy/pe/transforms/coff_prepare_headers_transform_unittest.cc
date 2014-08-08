@@ -14,7 +14,7 @@
 
 #include "syzygy/pe/transforms/coff_prepare_headers_transform.h"
 
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/block_graph/unittest_util.h"

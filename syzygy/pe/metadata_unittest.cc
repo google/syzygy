@@ -25,6 +25,9 @@ namespace pe {
 
 typedef PEFile::AbsoluteAddress AbsoluteAddress;
 
+using base::DictionaryValue;
+using base::Value;
+
 namespace {
 
 void InitMetadata(Metadata* metadata) {
@@ -51,7 +54,7 @@ void InitMetadata(Metadata* metadata) {
 
 bool TestJSONSerialization(bool pretty_print) {
   base::FilePath temp_file_path;
-  FILE* temp_file = file_util::CreateAndOpenTemporaryFile(&temp_file_path);
+  FILE* temp_file = base::CreateAndOpenTemporaryFile(&temp_file_path);
   if (temp_file == NULL)
     return false;
 
@@ -68,7 +71,7 @@ bool TestJSONSerialization(bool pretty_print) {
   std::string file_string;
   if (success)
     EXPECT_TRUE(success =
-        file_util::ReadFileToString(temp_file_path, &file_string));
+        base::ReadFileToString(temp_file_path, &file_string));
 
   // Parse the JSON, extracting the root dictionary.
   scoped_ptr<Value> value;
@@ -93,7 +96,7 @@ bool TestJSONSerialization(bool pretty_print) {
     EXPECT_TRUE(success = (metadata1 == metadata2));
 
   // Always delete the temporary file.
-  if (!file_util::Delete(temp_file_path, false))
+  if (!base::DeleteFile(temp_file_path, false))
     success = false;
 
   return success;
