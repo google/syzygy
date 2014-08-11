@@ -25,6 +25,7 @@
 #include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/agent/asan/error_info.h"
 #include "syzygy/agent/asan/memory_notifier.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/trace/agent_logger/agent_logger.h"
@@ -445,6 +446,82 @@ class MockMemoryNotifier : public agent::asan::MemoryNotifierInterface {
   DISALLOW_COPY_AND_ASSIGN(MockMemoryNotifier);
 };
 
+// Check whether the sections of 2 context are equals.
+// @param c1 The first context to check.
+// @param c2 The second context to check.
+// @param flags The sections to compare.
+void ExpectEqualContexts(const CONTEXT& c1, const CONTEXT& c2, DWORD flags);
+
+typedef ScopedVector<agent::asan::AsanBlockInfo> AsanBlockInfoVector;
+typedef std::pair<agent::asan::AsanCorruptBlockRange, AsanBlockInfoVector>
+    CorruptRangeInfo;
+typedef std::vector<CorruptRangeInfo> CorruptRangeVector;
+
+// A helper for testing SyzyASAN memory accessor instrumentation functions.
+class MemoryAccessorTester {
+ public:
+  typedef agent::asan::BadAccessKind BadAccessKind;
+
+  MemoryAccessorTester();
+  ~MemoryAccessorTester();
+
+  void CheckAccessAndCompareContexts(void* ptr);
+  void AssertMemoryErrorIsDetected(void* ptr, BadAccessKind bad_access_type);
+  void ExpectSpecialMemoryErrorIsDetected(
+      bool expected, void* dst, void* src, int32 length,
+      BadAccessKind bad_access_type);
+
+  static void AsanErrorCallback(AsanErrorInfo* error_info);
+  static void AsanErrorCallbackWithoutComparingContext(
+      AsanErrorInfo* error_info);
+
+  void set_expected_error_type(BadAccessKind expected) {
+    expected_error_type_ = expected;
+  }
+  bool memory_error_detected() const { return memory_error_detected_; }
+  void set_memory_error_detected(bool memory_error_detected) {
+    memory_error_detected_ = memory_error_detected;
+  }
+
+  const AsanErrorInfo& last_error_info() const { return last_error_info_; }
+  const CorruptRangeVector& last_corrupt_ranges() const {
+    return last_corrupt_ranges_;
+  }
+
+  // The access check function invoked by the below.
+  static FARPROC check_access_fn;
+  // A flag to override the direction flag on special instruction checker.
+  static bool direction_flag_forward;
+  // An arbitrary size for the buffer we allocate in the different unittests.
+  static const size_t kAllocSize = 13;
+
+ private:
+  void CheckAccessAndCaptureContexts(
+      CONTEXT* before, CONTEXT* after, void* location);
+  void CheckSpecialAccess(CONTEXT* before, CONTEXT* after,
+                                 void* dst, void* src, int len);
+  void CheckSpecialAccessAndCompareContexts(
+      void* dst, void* src, int len);
+
+  void AsanErrorCallbackImpl(AsanErrorInfo* error_info, bool compare_context);
+
+  // This will be used in the asan callback to ensure that we detect the right
+  // error.
+  BadAccessKind expected_error_type_;
+  // A flag used in asan callback to ensure that a memory error has been
+  // detected.
+  bool memory_error_detected_;
+
+  // A pointer to a context to ensure that we're able to restore the context
+  // when an asan error is found.
+  CONTEXT* context_before_hook_;
+  // The information about the last error.
+  AsanErrorInfo last_error_info_;
+  CorruptRangeVector last_corrupt_ranges_;
+
+  // There shall be only one!
+  static MemoryAccessorTester* instance_;
+};
 
 }  // namespace testing
 
