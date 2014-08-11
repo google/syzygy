@@ -79,6 +79,7 @@ _EXCEPTIONS = {
   'profile_unittests.exe': [
     # This leak occurs due to a leaky global variable in ScopedHandle.
     ('Error', 'Leak', 2304, '.*::ProfilerTest::UnloadDll'),
+    ('Error', 'Leak', 2305, '.*::ProfilerTest::UnloadDll'),
     # This leak occurs due to a leaky global lock in ScopedHandle.
     ('Error', 'Locks', 513, 'agent::profiler::.*::ProfilerTest::UnloadDll'),
     # This leak occurs only in Debug, which leaks a thread local variable
