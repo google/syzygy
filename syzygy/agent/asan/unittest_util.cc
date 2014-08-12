@@ -35,8 +35,13 @@ using agent::asan::StackCapture;
 
 const wchar_t kSyzyAsanRtlDll[] = L"syzyasan_rtl.dll";
 
-FARPROC MemoryAccessorTester::check_access_fn = NULL;
-bool MemoryAccessorTester::direction_flag_forward = true;
+namespace {
+
+FARPROC check_access_fn = NULL;
+bool direction_flag_forward = true;
+
+}  // namespace
+
 MemoryAccessorTester* MemoryAccessorTester::instance_ = NULL;
 
 // Define the function pointers.
@@ -280,6 +285,8 @@ bool FakeAsanBlock::MarkBlockAsQuarantined() {
   return true;
 }
 
+namespace {
+
 #define RTL_CAPTURE_CONTEXT(context, expected_eip) {  \
   /* Save caller save registers. */  \
   __asm push eax  \
@@ -305,37 +312,41 @@ bool FakeAsanBlock::MarkBlockAsQuarantined() {
   __asm pop eax  \
 }
 
-void ExpectEqualContexts(const CONTEXT& c1, const CONTEXT& c2, DWORD flags) {
-  if ((flags & CONTEXT_SEGMENTS) == CONTEXT_SEGMENTS) {
-    EXPECT_EQ(c1.SegGs, c2.SegGs);
-    EXPECT_EQ(c1.SegFs, c2.SegFs);
-    EXPECT_EQ(c1.SegEs, c2.SegEs);
-    EXPECT_EQ(c1.SegDs, c2.SegDs);
-  }
+// Check whether 2 contexts are equal.
+// @param c1 The first context to check.
+// @param c2 The second context to check.
+void ExpectEqualContexts(const CONTEXT& c1, const CONTEXT& c2) {
+  // Segment registers.
+  EXPECT_EQ(static_cast<WORD>(c1.SegGs), static_cast<WORD>(c2.SegGs));
+  EXPECT_EQ(static_cast<WORD>(c1.SegFs), static_cast<WORD>(c2.SegFs));
+  EXPECT_EQ(static_cast<WORD>(c1.SegEs), static_cast<WORD>(c2.SegEs));
+  EXPECT_EQ(static_cast<WORD>(c1.SegDs), static_cast<WORD>(c2.SegDs));
 
-  if ((flags & CONTEXT_INTEGER) == CONTEXT_INTEGER) {
-    EXPECT_EQ(c1.Edi, c2.Edi);
-    EXPECT_EQ(c1.Esi, c2.Esi);
-    EXPECT_EQ(c1.Ebx, c2.Ebx);
-    EXPECT_EQ(c1.Edx, c2.Edx);
-    EXPECT_EQ(c1.Ecx, c2.Ecx);
-    EXPECT_EQ(c1.Eax, c2.Eax);
-  }
+  // General registers.
+  EXPECT_EQ(c1.Edi, c2.Edi);
+  EXPECT_EQ(c1.Esi, c2.Esi);
+  EXPECT_EQ(c1.Ebx, c2.Ebx);
+  EXPECT_EQ(c1.Edx, c2.Edx);
+  EXPECT_EQ(c1.Ecx, c2.Ecx);
+  EXPECT_EQ(c1.Eax, c2.Eax);
 
-  if ((flags & CONTEXT_CONTROL) == CONTEXT_CONTROL) {
-    EXPECT_EQ(c1.Ebp, c2.Ebp);
-    EXPECT_EQ(c1.Eip, c2.Eip);
-    EXPECT_EQ(c1.SegCs, c2.SegCs);
-    EXPECT_EQ(c1.EFlags, c2.EFlags);
-    EXPECT_EQ(c1.Esp, c2.Esp);
-    EXPECT_EQ(c1.SegSs, c2.SegSs);
-  }
+  // "Control" registers.
+  EXPECT_EQ(c1.Ebp, c2.Ebp);
+  EXPECT_EQ(c1.Eip, c2.Eip);
+  EXPECT_EQ(static_cast<WORD>(c1.SegCs), static_cast<WORD>(c2.SegCs));
+  EXPECT_EQ(c1.EFlags, c2.EFlags);
+  EXPECT_EQ(c1.Esp, c2.Esp);
+  EXPECT_EQ(static_cast<WORD>(c1.SegSs), static_cast<WORD>(c2.SegSs));
 }
+
+}  // namespace
 
 MemoryAccessorTester::MemoryAccessorTester()
     : expected_error_type_(agent::asan::UNKNOWN_BAD_ACCESS),
       memory_error_detected_(false) {
   EXPECT_EQ(static_cast<MemoryAccessorTester*>(NULL), instance_);
+
+  Initialize();
   instance_ = this;
 }
 
@@ -344,7 +355,16 @@ MemoryAccessorTester::~MemoryAccessorTester() {
   instance_ = NULL;
 }
 
-void MemoryAccessorTester::CheckAccessAndCaptureContexts(
+void MemoryAccessorTester::Initialize() {
+  ::memset(&context_before_hook_, 0xCD, sizeof(context_before_hook_));
+  ::memset(&context_after_hook_, 0xCE, sizeof(context_after_hook_));
+  ::memset(&error_context_, 0xCF, sizeof(error_context_));
+  ::memset(&last_error_info_, 0, sizeof(last_error_info_));
+}
+
+namespace {
+
+void CheckAccessAndCaptureContexts(
     CONTEXT* before, CONTEXT* after, void* location) {
   __asm {
     pushad
@@ -375,20 +395,25 @@ void MemoryAccessorTester::CheckAccessAndCaptureContexts(
   }
 }
 
-void MemoryAccessorTester::CheckAccessAndCompareContexts(void* ptr) {
-  CONTEXT before = {};
-  CONTEXT after = {};
+}  // namespace
 
-  context_before_hook_ = &before;
-  CheckAccessAndCaptureContexts(&before, &after, ptr);
+void MemoryAccessorTester::CheckAccessAndCompareContexts(
+    FARPROC access_fn, void* ptr) {
+  check_access_fn = access_fn;
+  CheckAccessAndCaptureContexts(
+      &context_before_hook_, &context_after_hook_, ptr);
 
-  ExpectEqualContexts(before, after, CONTEXT_FULL);
+  ExpectEqualContexts(context_before_hook_, context_after_hook_);
+  if (memory_error_detected_)
+    ExpectEqualContexts(context_before_hook_, error_context_);
 
-  context_before_hook_ = NULL;
+  check_access_fn = NULL;
 }
 
-void MemoryAccessorTester::CheckSpecialAccess(CONTEXT* before, CONTEXT* after,
-                                              void* dst, void* src, int len) {
+namespace {
+
+void CheckSpecialAccess(CONTEXT* before, CONTEXT* after,
+                        void* dst, void* src, int len) {
   __asm {
     pushad
     pushfd
@@ -423,22 +448,25 @@ void MemoryAccessorTester::CheckSpecialAccess(CONTEXT* before, CONTEXT* after,
   }
 }
 
+}  // namespace
+
 void MemoryAccessorTester::CheckSpecialAccessAndCompareContexts(
+    FARPROC access_fn, StringOperationDirection direction,
     void* dst, void* src, int len) {
-  CONTEXT before = {};
-  CONTEXT after = {};
+  direction_flag_forward = (direction == DIRECTION_FORWARD);
+  check_access_fn = access_fn;
 
-  context_before_hook_ = &before;
+  CheckSpecialAccess(
+      &context_before_hook_, &context_after_hook_, dst, src, len);
 
-  CheckSpecialAccess(&before, &after, dst, src, len);
+  ExpectEqualContexts(context_before_hook_, context_after_hook_);
+  if (memory_error_detected_)
+    ExpectEqualContexts(context_before_hook_, error_context_);
 
-  ExpectEqualContexts(before, after, CONTEXT_FULL);
-
-  context_before_hook_ = NULL;
+  check_access_fn = NULL;
 }
 
-void MemoryAccessorTester::AsanErrorCallbackImpl(
-    AsanErrorInfo* error_info, bool compare_context) {
+void MemoryAccessorTester::AsanErrorCallbackImpl(AsanErrorInfo* error_info) {
   // TODO(sebmarchand): Stash the error info in a fixture-static variable and
   // assert on specific conditions after the fact.
   EXPECT_NE(reinterpret_cast<AsanErrorInfo*>(NULL), error_info);
@@ -496,41 +524,31 @@ void MemoryAccessorTester::AsanErrorCallbackImpl(
     }
   }
 
-  if (compare_context) {
-    EXPECT_NE(reinterpret_cast<CONTEXT*>(NULL), context_before_hook_);
-    ExpectEqualContexts(*context_before_hook_,
-                        error_info->context,
-                        CONTEXT_INTEGER | CONTEXT_CONTROL);
-  }
+  error_context_ = error_info->context;
 }
 
 void MemoryAccessorTester::AsanErrorCallback(AsanErrorInfo* error_info) {
   ASSERT_NE(reinterpret_cast<MemoryAccessorTester*>(NULL), instance_);
 
-  EXPECT_NE(reinterpret_cast<CONTEXT*>(NULL), instance_->context_before_hook_);
-  instance_->AsanErrorCallbackImpl(error_info, true);
-}
-
-void MemoryAccessorTester::AsanErrorCallbackWithoutComparingContext(
-    AsanErrorInfo* error_info) {
-  ASSERT_NE(reinterpret_cast<MemoryAccessorTester*>(NULL), instance_);
-  instance_->AsanErrorCallbackImpl(error_info, false);
+  instance_->AsanErrorCallbackImpl(error_info);
 }
 
 void MemoryAccessorTester::AssertMemoryErrorIsDetected(
-    void* ptr, BadAccessKind bad_access_type) {
+  FARPROC access_fn, void* ptr, BadAccessKind bad_access_type) {
   expected_error_type_ = bad_access_type;
   memory_error_detected_ = false;
-  CheckAccessAndCompareContexts(ptr);
+  CheckAccessAndCompareContexts(access_fn, ptr);
   ASSERT_TRUE(memory_error_detected_);
 }
 
 void MemoryAccessorTester::ExpectSpecialMemoryErrorIsDetected(
-    bool expected, void* dst, void* src, int32 length,
+    FARPROC access_fn, StringOperationDirection direction,
+    bool expect_error, void* dst, void* src, int32 length,
     BadAccessKind bad_access_type) {
   DCHECK(dst != NULL);
   DCHECK(src != NULL);
-  ASSERT_TRUE(check_access_fn != NULL);
+  ASSERT_TRUE(check_access_fn == NULL);
+
   expected_error_type_ = bad_access_type;
 
   // Setup the callback to detect invalid accesses.
@@ -538,9 +556,11 @@ void MemoryAccessorTester::ExpectSpecialMemoryErrorIsDetected(
 
   // Perform memory accesses inside the range.
   ASSERT_NO_FATAL_FAILURE(
-      CheckSpecialAccessAndCompareContexts(dst, src, length));
+      CheckSpecialAccessAndCompareContexts(
+          access_fn, direction, dst, src, length));
 
-  EXPECT_EQ(expected, memory_error_detected_);
+  EXPECT_EQ(expect_error, memory_error_detected_);
+  check_access_fn = NULL;
 }
 
 }  // namespace testing

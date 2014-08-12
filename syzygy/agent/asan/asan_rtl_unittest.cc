@@ -26,9 +26,11 @@ namespace asan {
 namespace {
 
 using testing::AsanBlockInfoVector;
-using testing::ExpectEqualContexts;
 using testing::MemoryAccessorTester;
 using testing::ScopedASanAlloc;
+
+// An arbitrary size for the buffer we allocate in the different unittests.
+const size_t kAllocSize = 13;
 
 class AsanRtlTest : public testing::TestAsanRtl {
  public:
@@ -37,6 +39,9 @@ class AsanRtlTest : public testing::TestAsanRtl {
 
   void SetUp() OVERRIDE {
     testing::TestAsanRtl::SetUp();
+
+    // Setup the callback to detect invalid accesses.
+    SetCallBackFunction(&MemoryAccessorTester::AsanErrorCallback);
   }
  protected:
   void AllocMemoryBuffers(int32 length, int32 element_size);
@@ -95,83 +100,76 @@ TEST_F(AsanRtlTest, GetProcessHeap) {
 }
 
 TEST_F(AsanRtlTest, AsanCheckGoodAccess) {
-  MemoryAccessorTester::check_access_fn =
+  FARPROC check_access_fn =
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
-  ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
+  ASSERT_TRUE(check_access_fn != NULL);
 
   // Run through access checking an allocation that's larger than our
   // block size (8), but not a multiple thereof to exercise all paths
   // in the access check function (save for the failure path).
-  ScopedASanAlloc<uint8> mem(this, MemoryAccessorTester::kAllocSize);
+  ScopedASanAlloc<uint8> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
 
   MemoryAccessorTester tester;
-  for (size_t i = 0; i < MemoryAccessorTester::kAllocSize; ++i) {
+  for (size_t i = 0; i < kAllocSize; ++i) {
     ASSERT_NO_FATAL_FAILURE(
-        tester.CheckAccessAndCompareContexts(mem.get() + i));
+        tester.CheckAccessAndCompareContexts(check_access_fn, mem.get() + i));
   }
 }
 
 TEST_F(AsanRtlTest, AsanCheckHeapBufferOverflow) {
-  MemoryAccessorTester::check_access_fn =
+  FARPROC check_access_fn =
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
-  ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
+  ASSERT_TRUE(check_access_fn != NULL);
 
-  ScopedASanAlloc<uint8> mem(this, MemoryAccessorTester::kAllocSize);
+  ScopedASanAlloc<uint8> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
-
-  SetCallBackFunction(&MemoryAccessorTester::AsanErrorCallback);
 
   MemoryAccessorTester tester;
   tester.AssertMemoryErrorIsDetected(
-      mem.get() + MemoryAccessorTester::kAllocSize, HEAP_BUFFER_OVERFLOW);
+      check_access_fn, mem.get() + kAllocSize, HEAP_BUFFER_OVERFLOW);
   EXPECT_TRUE(LogContains("previously allocated here"));
   EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
 }
 
 TEST_F(AsanRtlTest, AsanCheckHeapBufferUnderflow) {
-  MemoryAccessorTester::check_access_fn =
+  FARPROC check_access_fn =
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
-  ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
+  ASSERT_TRUE(check_access_fn != NULL);
 
-  const size_t kAllocSize = 13;
   ScopedASanAlloc<uint8> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
 
-  SetCallBackFunction(&MemoryAccessorTester::AsanErrorCallback);
   MemoryAccessorTester tester;
   tester.AssertMemoryErrorIsDetected(
-      mem.get() - 1, HEAP_BUFFER_UNDERFLOW);
+      check_access_fn, mem.get() - 1, HEAP_BUFFER_UNDERFLOW);
   EXPECT_TRUE(LogContains("previously allocated here"));
   EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
 }
 
 TEST_F(AsanRtlTest, AsanCheckUseAfterFree) {
-  MemoryAccessorTester::check_access_fn =
+  FARPROC check_access_fn =
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
-  ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
+  ASSERT_TRUE(check_access_fn != NULL);
 
-  const size_t kAllocSize = 13;
   ScopedASanAlloc<uint8> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
 
-  SetCallBackFunction(&MemoryAccessorTester::AsanErrorCallback);
   uint8* mem_ptr = mem.get();
   mem.reset(NULL);
 
   MemoryAccessorTester tester;
-  tester.AssertMemoryErrorIsDetected(mem_ptr, USE_AFTER_FREE);
+  tester.AssertMemoryErrorIsDetected(check_access_fn, mem_ptr, USE_AFTER_FREE);
   EXPECT_TRUE(LogContains("previously allocated here"));
   EXPECT_TRUE(LogContains("freed here"));
   EXPECT_TRUE(LogContains(kHeapUseAfterFree));
 }
 
 TEST_F(AsanRtlTest, AsanCheckDoubleFree) {
-  MemoryAccessorTester::check_access_fn =
+  FARPROC check_access_fn =
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
-  ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
+  ASSERT_TRUE(check_access_fn != NULL);
 
-  const size_t kAllocSize = 13;
   uint8* mem_ptr = NULL;
   {
     ScopedASanAlloc<uint8> mem(this, kAllocSize);
@@ -181,8 +179,6 @@ TEST_F(AsanRtlTest, AsanCheckDoubleFree) {
 
   MemoryAccessorTester tester;
   tester.set_expected_error_type(DOUBLE_FREE);
-  SetCallBackFunction(
-      &MemoryAccessorTester::AsanErrorCallbackWithoutComparingContext);
   EXPECT_FALSE(HeapFreeFunction(heap_, 0, mem_ptr));
   EXPECT_TRUE(tester.memory_error_detected());
   EXPECT_TRUE(LogContains(kAttemptingDoubleFree));
@@ -191,34 +187,29 @@ TEST_F(AsanRtlTest, AsanCheckDoubleFree) {
 }
 
 TEST_F(AsanRtlTest, AsanCheckWildAccess) {
-  MemoryAccessorTester::check_access_fn =
+  FARPROC check_access_fn =
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
-  ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
-
-  SetCallBackFunction(&MemoryAccessorTester::AsanErrorCallback);
+  ASSERT_TRUE(check_access_fn != NULL);
 
   MemoryAccessorTester tester;
   tester.AssertMemoryErrorIsDetected(
-      reinterpret_cast<void*>(0x80000000), WILD_ACCESS);
+      check_access_fn, reinterpret_cast<void*>(0x80000000), WILD_ACCESS);
   EXPECT_TRUE(LogContains(kWildAccess));
 }
 
 TEST_F(AsanRtlTest, AsanCheckInvalidAccess) {
-  MemoryAccessorTester::check_access_fn =
+  FARPROC check_access_fn =
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
-  ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
+  ASSERT_TRUE(check_access_fn != NULL);
 
-  SetCallBackFunction(&MemoryAccessorTester::AsanErrorCallback);
   MemoryAccessorTester tester;
   tester.AssertMemoryErrorIsDetected(
-      reinterpret_cast<void*>(0x00000000), INVALID_ADDRESS);
+      check_access_fn, reinterpret_cast<void*>(0x00000000), INVALID_ADDRESS);
   EXPECT_TRUE(LogContains(kInvalidAddress));
 }
 
 TEST_F(AsanRtlTest, AsanCheckCorruptBlock) {
-  void* mem = HeapAllocFunction(heap_, 0, MemoryAccessorTester::kAllocSize);
-  SetCallBackFunction(
-      &MemoryAccessorTester::AsanErrorCallbackWithoutComparingContext);
+  void* mem = HeapAllocFunction(heap_, 0, kAllocSize);
   reinterpret_cast<uint8*>(mem)[-1]--;
   MemoryAccessorTester tester;
   tester.set_expected_error_type(CORRUPT_BLOCK);
@@ -229,19 +220,17 @@ TEST_F(AsanRtlTest, AsanCheckCorruptBlock) {
 }
 
 TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
-  MemoryAccessorTester::check_access_fn =
+  FARPROC check_access_fn =
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
-  ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
+  ASSERT_TRUE(check_access_fn != NULL);
 
   agent::asan::AsanRuntime* runtime = GetActiveRuntimeFunction();
   ASSERT_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime);
   runtime->params().check_heap_on_failure = true;
 
-  ScopedASanAlloc<uint8> mem(this, MemoryAccessorTester::kAllocSize);
+  ScopedASanAlloc<uint8> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
 
-  SetCallBackFunction(
-      &MemoryAccessorTester::AsanErrorCallbackWithoutComparingContext);
   const size_t kMaxIterations = 10;
 
   // Retrieves the information about this block.
@@ -259,7 +248,7 @@ TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
     (*mem_in_trailer)++;
     MemoryAccessorTester tester;
     tester.AssertMemoryErrorIsDetected(
-        mem.get() + MemoryAccessorTester::kAllocSize, HEAP_BUFFER_OVERFLOW);
+        check_access_fn, mem.get() + kAllocSize, HEAP_BUFFER_OVERFLOW);
     EXPECT_TRUE(LogContains("previously allocated here"));
     EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
 
@@ -288,7 +277,7 @@ TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
 
     EXPECT_EQ(1, blocks_info->size());
     EXPECT_TRUE((*blocks_info)[0]->corrupt);
-    EXPECT_EQ(MemoryAccessorTester::kAllocSize, (*blocks_info)[0]->user_size);
+    EXPECT_EQ(kAllocSize, (*blocks_info)[0]->user_size);
     EXPECT_EQ(block_begin, (*blocks_info)[0]->header);
     EXPECT_NE(0U, (*blocks_info)[0]->alloc_stack_size);
     for (size_t j = 0; j < (*blocks_info)[0]->alloc_stack_size; ++j) {
@@ -314,24 +303,23 @@ TEST_F(AsanRtlTest, AsanSingleSpecial1byteInstructionCheckGoodAccess) {
       "asan_check_1_byte_stos_access"
   };
 
-  // Setup the callback to detect invalid accesses.
-  SetCallBackFunction(&MemoryAccessorTester::AsanErrorCallback);
-
   // Allocate memory space.
-  AllocMemoryBuffers(MemoryAccessorTester::kAllocSize, sizeof(uint8));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint8));
   uint8* src = reinterpret_cast<uint8*>(memory_src_);
   uint8* dst = reinterpret_cast<uint8*>(memory_dst_);
 
   // Validate memory accesses.
   for (int32 function = 0; function < arraysize(function_names); ++function) {
-    MemoryAccessorTester::check_access_fn =
+    FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
-    ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
+    ASSERT_TRUE(check_access_fn != NULL);
 
     for (int32 i = 0; i < memory_length_; ++i) {
       MemoryAccessorTester tester;
       tester.ExpectSpecialMemoryErrorIsDetected(
-          false, &dst[i], &src[i], 0xDEADDEAD, UNKNOWN_BAD_ACCESS);
+        check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
+        false, &dst[i], &src[i], 0xDEADDEAD,
+        UNKNOWN_BAD_ACCESS);
     }
   }
 
@@ -345,23 +333,21 @@ TEST_F(AsanRtlTest, AsanSingleSpecial2byteInstructionCheckGoodAccess) {
       "asan_check_2_byte_stos_access"
   };
 
-  // Setup the callback to detect invalid accesses.
-  SetCallBackFunction(&MemoryAccessorTester::AsanErrorCallback);
-
   // Allocate memory space.
-  AllocMemoryBuffers(MemoryAccessorTester::kAllocSize, sizeof(uint16));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint16));
   uint16* src = reinterpret_cast<uint16*>(memory_src_);
   uint16* dst = reinterpret_cast<uint16*>(memory_dst_);
 
   // Validate memory accesses.
   for (int32 function = 0; function < arraysize(function_names); ++function) {
-    MemoryAccessorTester::check_access_fn =
+    FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
-    ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
+    ASSERT_TRUE(check_access_fn != NULL);
 
     for (int32 i = 0; i < memory_length_; ++i) {
       MemoryAccessorTester tester;
       tester.ExpectSpecialMemoryErrorIsDetected(
+          check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
           false, &dst[i], &src[i], 0xDEADDEAD, UNKNOWN_BAD_ACCESS);
     }
   }
@@ -376,23 +362,21 @@ TEST_F(AsanRtlTest, AsanSingleSpecial4byteInstructionCheckGoodAccess) {
       "asan_check_4_byte_stos_access"
   };
 
-  // Setup the callback to detect invalid accesses.
-  SetCallBackFunction(&MemoryAccessorTester::AsanErrorCallback);
-
   // Allocate memory space.
-  AllocMemoryBuffers(MemoryAccessorTester::kAllocSize, sizeof(uint32));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
   uint32* src = reinterpret_cast<uint32*>(memory_src_);
   uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
 
   // Validate memory accesses.
   for (int32 function = 0; function < arraysize(function_names); ++function) {
-    MemoryAccessorTester::check_access_fn =
+    FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
-    ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
+    ASSERT_TRUE(check_access_fn != NULL);
 
     for (int32 i = 0; i < memory_length_; ++i) {
       MemoryAccessorTester tester;
       tester.ExpectSpecialMemoryErrorIsDetected(
+          check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
           false, &dst[i], &src[i], 0xDEADDEAD, UNKNOWN_BAD_ACCESS);
     }
   }
@@ -410,29 +394,30 @@ TEST_F(AsanRtlTest, AsanSingleSpecialInstructionCheckBadAccess) {
       "asan_check_4_byte_cmps_access"
   };
 
-  // Setup the callback to detect invalid accesses.
-  SetCallBackFunction(&MemoryAccessorTester::AsanErrorCallback);
-
   // Allocate memory space.
-  AllocMemoryBuffers(MemoryAccessorTester::kAllocSize, sizeof(uint32));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
   uint32* src = reinterpret_cast<uint32*>(memory_src_);
   uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
 
   // Validate memory accesses.
   for (int32 function = 0; function < arraysize(function_names); ++function) {
-    MemoryAccessorTester::check_access_fn =
+    FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
-    ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
+    ASSERT_TRUE(check_access_fn != NULL);
 
     MemoryAccessorTester tester;
     tester.ExpectSpecialMemoryErrorIsDetected(
+        check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
         true, &dst[0], &src[-1], 0xDEADDEAD, HEAP_BUFFER_UNDERFLOW);
     tester.ExpectSpecialMemoryErrorIsDetected(
+        check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
         true, &dst[-1], &src[0], 0xDEADDEAD, HEAP_BUFFER_UNDERFLOW);
 
     tester.ExpectSpecialMemoryErrorIsDetected(
+        check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
         true, &dst[0], &src[memory_length_], 0xDEADDEAD, HEAP_BUFFER_OVERFLOW);
     tester.ExpectSpecialMemoryErrorIsDetected(
+        check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
         true, &dst[memory_length_], &src[0], 0xDEADDEAD, HEAP_BUFFER_OVERFLOW);
   }
 
@@ -446,29 +431,30 @@ TEST_F(AsanRtlTest, AsanSingleStoInstructionCheckBadAccess) {
       "asan_check_4_byte_stos_access"
   };
 
-  // Setup the callback to detect invalid accesses.
-  SetCallBackFunction(&MemoryAccessorTester::AsanErrorCallback);
-
   // Allocate memory space.
-  AllocMemoryBuffers(MemoryAccessorTester::kAllocSize, sizeof(uint32));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
   uint32* src = reinterpret_cast<uint32*>(memory_src_);
   uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
 
   // Validate memory accesses.
   for (int32 function = 0; function < arraysize(function_names); ++function) {
-    MemoryAccessorTester::check_access_fn =
+    FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
-    ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
+    ASSERT_TRUE(check_access_fn != NULL);
 
     MemoryAccessorTester tester;
     tester.ExpectSpecialMemoryErrorIsDetected(
+        check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
         false, &dst[0], &src[-1], 0xDEAD, HEAP_BUFFER_UNDERFLOW);
     tester.ExpectSpecialMemoryErrorIsDetected(
+        check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
         true, &dst[-1], &src[0], 0xDEAD, HEAP_BUFFER_UNDERFLOW);
 
     tester.ExpectSpecialMemoryErrorIsDetected(
+        check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
         false, &dst[0], &src[memory_length_], 0xDEADDEAD, HEAP_BUFFER_OVERFLOW);
     tester.ExpectSpecialMemoryErrorIsDetected(
+        check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
         true, &dst[memory_length_], &src[0], 0xDEADDEAD, HEAP_BUFFER_OVERFLOW);
   }
 
@@ -482,22 +468,20 @@ TEST_F(AsanRtlTest, AsanPrefixedSpecialInstructionCheckGoodAccess) {
       "asan_check_repz_4_byte_stos_access"
   };
 
-  // Setup the callback to detect invalid accesses.
-  SetCallBackFunction(&MemoryAccessorTester::AsanErrorCallback);
-
   // Allocate memory space.
-  AllocMemoryBuffers(MemoryAccessorTester::kAllocSize, sizeof(uint32));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
   uint32* src = reinterpret_cast<uint32*>(memory_src_);
   uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
 
   // Validate memory accesses.
   for (int32 function = 0; function < arraysize(function_names); ++function) {
-    MemoryAccessorTester::check_access_fn =
+    FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
-    ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
+    ASSERT_TRUE(check_access_fn != NULL);
 
     MemoryAccessorTester tester;
     tester.ExpectSpecialMemoryErrorIsDetected(
+        check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
         false, &dst[0], &src[0], memory_length_, UNKNOWN_BAD_ACCESS);
   }
 
@@ -511,26 +495,26 @@ TEST_F(AsanRtlTest, AsanPrefixedSpecialInstructionCheckBadAccess) {
       "asan_check_repz_4_byte_stos_access"
   };
 
-  // Setup the callback to detect invalid accesses.
-  SetCallBackFunction(&MemoryAccessorTester::AsanErrorCallback);
-
   // Allocate memory space.
-  AllocMemoryBuffers(MemoryAccessorTester::kAllocSize, sizeof(uint32));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
   uint32* src = reinterpret_cast<uint32*>(memory_src_);
   uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
 
   // Validate memory accesses.
   for (int32 function = 0; function < arraysize(function_names); ++function) {
-    MemoryAccessorTester::check_access_fn =
+    FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
-    ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
+    ASSERT_TRUE(check_access_fn != NULL);
 
     MemoryAccessorTester tester;
     tester.ExpectSpecialMemoryErrorIsDetected(
+        check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
         true, &dst[0], &src[0], memory_length_ + 1, HEAP_BUFFER_OVERFLOW);
     tester.ExpectSpecialMemoryErrorIsDetected(
+        check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
         true, &dst[-1], &src[-1], memory_length_, HEAP_BUFFER_UNDERFLOW);
     tester.ExpectSpecialMemoryErrorIsDetected(
+        check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
         true, &dst[-1], &src[0], memory_length_, HEAP_BUFFER_UNDERFLOW);
   }
 
@@ -544,32 +528,24 @@ TEST_F(AsanRtlTest, AsanDirectionSpecialInstructionCheckGoodAccess) {
       "asan_check_repz_4_byte_stos_access"
   };
 
-  // Setup the callback to detect invalid accesses.
-  SetCallBackFunction(&MemoryAccessorTester::AsanErrorCallback);
-
-  // Force direction flag to backward.
-  MemoryAccessorTester::direction_flag_forward = false;
-
   // Allocate memory space.
-  AllocMemoryBuffers(MemoryAccessorTester::kAllocSize, sizeof(uint32));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
   uint32* src = reinterpret_cast<uint32*>(memory_src_);
   uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
 
   // Validate memory accesses.
   for (int32 function = 0; function < arraysize(function_names); ++function) {
-    MemoryAccessorTester::check_access_fn =
+    FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
-    ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
+    ASSERT_TRUE(check_access_fn != NULL);
 
     MemoryAccessorTester tester;
     tester.ExpectSpecialMemoryErrorIsDetected(
+        check_access_fn, MemoryAccessorTester::DIRECTION_BACKWARD,
         false, &dst[memory_length_ - 1],
         &src[memory_length_ - 1], memory_length_,
         UNKNOWN_BAD_ACCESS);
   }
-
-  // Reset direction flag to forward.
-  MemoryAccessorTester::direction_flag_forward = true;
 
   FreeMemoryBuffers();
 }
@@ -587,23 +563,21 @@ TEST_F(AsanRtlTest, AsanSpecialInstructionCheckZeroAccess) {
       "asan_check_repz_4_byte_stos_access"
   };
 
-  // Setup the callback to detect invalid accesses.
-  SetCallBackFunction(&MemoryAccessorTester::AsanErrorCallback);
-
   // Allocate memory space.
-  AllocMemoryBuffers(MemoryAccessorTester::kAllocSize, sizeof(uint32));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
   uint32* src = reinterpret_cast<uint32*>(memory_src_);
   uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
 
   // Validate memory accesses.
   for (int32 function = 0; function < arraysize(function_names); ++function) {
-    MemoryAccessorTester::check_access_fn =
+    FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
-    ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
+    ASSERT_TRUE(check_access_fn != NULL);
 
     // A prefixed instruction with a count of zero do not have side effects.
     MemoryAccessorTester tester;
     tester.ExpectSpecialMemoryErrorIsDetected(
+        check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
         false, &dst[-1], &src[-1], 0, UNKNOWN_BAD_ACCESS);
   }
 
@@ -617,11 +591,8 @@ TEST_F(AsanRtlTest, AsanSpecialInstructionCheckShortcutAccess) {
       "asan_check_repz_4_byte_cmps_access",
   };
 
-  // Setup the callback to detect invalid accesses.
-  SetCallBackFunction(&MemoryAccessorTester::AsanErrorCallback);
-
   // Allocate memory space.
-  AllocMemoryBuffers(MemoryAccessorTester::kAllocSize, sizeof(uint32));
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
   uint32* src = reinterpret_cast<uint32*>(memory_src_);
   uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
 
@@ -629,13 +600,14 @@ TEST_F(AsanRtlTest, AsanSpecialInstructionCheckShortcutAccess) {
 
   // Validate memory accesses.
   for (int32 function = 0; function < arraysize(function_names); ++function) {
-    MemoryAccessorTester::check_access_fn =
+    FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
-    ASSERT_TRUE(MemoryAccessorTester::check_access_fn != NULL);
+    ASSERT_TRUE(check_access_fn != NULL);
 
     // Compare instruction stop their execution when values differ.
     MemoryAccessorTester tester;
     tester.ExpectSpecialMemoryErrorIsDetected(
+        check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
         false, &dst[0], &src[0], memory_length_ + 1, UNKNOWN_BAD_ACCESS);
   }
 

@@ -446,12 +446,6 @@ class MockMemoryNotifier : public agent::asan::MemoryNotifierInterface {
   DISALLOW_COPY_AND_ASSIGN(MockMemoryNotifier);
 };
 
-// Check whether the sections of 2 context are equals.
-// @param c1 The first context to check.
-// @param c2 The second context to check.
-// @param flags The sections to compare.
-void ExpectEqualContexts(const CONTEXT& c1, const CONTEXT& c2, DWORD flags);
-
 typedef ScopedVector<agent::asan::AsanBlockInfo> AsanBlockInfoVector;
 typedef std::pair<agent::asan::AsanCorruptBlockRange, AsanBlockInfoVector>
     CorruptRangeInfo;
@@ -465,15 +459,33 @@ class MemoryAccessorTester {
   MemoryAccessorTester();
   ~MemoryAccessorTester();
 
-  void CheckAccessAndCompareContexts(void* ptr);
-  void AssertMemoryErrorIsDetected(void* ptr, BadAccessKind bad_access_type);
+  // Checks that @p access_fn doesn't raise exceptions on access checking
+  // @p ptr, and that @p access_fn doesn't modify any registers or flags
+  // when executed.
+  void CheckAccessAndCompareContexts(FARPROC access_fn, void* ptr);
+
+  // Checks that @p access_fn generates @p bad_access_type on checking @p ptr.
+  void AssertMemoryErrorIsDetected(
+      FARPROC access_fn, void* ptr, BadAccessKind bad_access_type);
+
+  enum StringOperationDirection {
+    DIRECTION_FORWARD,
+    DIRECTION_BACKWARD
+  };
+  // Checks that @p access_fn doesn't raise exceptions on access checking
+  // for a given @p direction, @p src, @p dst and @p len.
+  void CheckSpecialAccessAndCompareContexts(
+      FARPROC access_fn, StringOperationDirection direction,
+      void* dst, void* src, int len);
+
+  // Checks that @p access_fn generates @p bad_access_type on access checking
+  // for a given @p direction, @p src, @p dst and @p len.
   void ExpectSpecialMemoryErrorIsDetected(
-      bool expected, void* dst, void* src, int32 length,
+      FARPROC access_fn, StringOperationDirection direction,
+      bool expect_error, void* dst, void* src, int32 length,
       BadAccessKind bad_access_type);
 
   static void AsanErrorCallback(AsanErrorInfo* error_info);
-  static void AsanErrorCallbackWithoutComparingContext(
-      AsanErrorInfo* error_info);
 
   void set_expected_error_type(BadAccessKind expected) {
     expected_error_type_ = expected;
@@ -488,22 +500,9 @@ class MemoryAccessorTester {
     return last_corrupt_ranges_;
   }
 
-  // The access check function invoked by the below.
-  static FARPROC check_access_fn;
-  // A flag to override the direction flag on special instruction checker.
-  static bool direction_flag_forward;
-  // An arbitrary size for the buffer we allocate in the different unittests.
-  static const size_t kAllocSize = 13;
-
  private:
-  void CheckAccessAndCaptureContexts(
-      CONTEXT* before, CONTEXT* after, void* location);
-  void CheckSpecialAccess(CONTEXT* before, CONTEXT* after,
-                                 void* dst, void* src, int len);
-  void CheckSpecialAccessAndCompareContexts(
-      void* dst, void* src, int len);
-
-  void AsanErrorCallbackImpl(AsanErrorInfo* error_info, bool compare_context);
+  void Initialize();
+  void AsanErrorCallbackImpl(AsanErrorInfo* error_info);
 
   // This will be used in the asan callback to ensure that we detect the right
   // error.
@@ -512,9 +511,12 @@ class MemoryAccessorTester {
   // detected.
   bool memory_error_detected_;
 
-  // A pointer to a context to ensure that we're able to restore the context
-  // when an asan error is found.
-  CONTEXT* context_before_hook_;
+  // The pre- and post-invocation contexts.
+  CONTEXT context_before_hook_;
+  CONTEXT context_after_hook_;
+  // Context captured on error.
+  CONTEXT error_context_;
+
   // The information about the last error.
   AsanErrorInfo last_error_info_;
   CorruptRangeVector last_corrupt_ranges_;

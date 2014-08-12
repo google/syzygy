@@ -1,4 +1,4 @@
-// Copyright 2012 Google Inc. All Rights Reserved.
+// Copyright 2014 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include "syzygy/agent/asan/memory_interceptors.h"
 
 #include "base/logging.h"
 #include "syzygy/agent/asan/asan_rtl_utils.h"
@@ -270,37 +271,13 @@ COMPILE_ASSERT(
     (Shadow::kHeapNonAccessibleByteMask & (1 << 7)) != 0,
         asan_shadow_mask_upper_bit_is_0);
 
-ASAN_CHECK_FUNCTION(1, read_access, AsanReadAccess)
-ASAN_CHECK_FUNCTION(2, read_access, AsanReadAccess)
-ASAN_CHECK_FUNCTION(4, read_access, AsanReadAccess)
-ASAN_CHECK_FUNCTION(8, read_access, AsanReadAccess)
-ASAN_CHECK_FUNCTION(10, read_access, AsanReadAccess)
-ASAN_CHECK_FUNCTION(16, read_access, AsanReadAccess)
-ASAN_CHECK_FUNCTION(32, read_access, AsanReadAccess)
-ASAN_CHECK_FUNCTION(1, write_access, AsanWriteAccess)
-ASAN_CHECK_FUNCTION(2, write_access, AsanWriteAccess)
-ASAN_CHECK_FUNCTION(4, write_access, AsanWriteAccess)
-ASAN_CHECK_FUNCTION(8, write_access, AsanWriteAccess)
-ASAN_CHECK_FUNCTION(10, write_access, AsanWriteAccess)
-ASAN_CHECK_FUNCTION(16, write_access, AsanWriteAccess)
-ASAN_CHECK_FUNCTION(32, write_access, AsanWriteAccess)
+// Generate the flag-saving memory access intercept functions.
+ASAN_MEM_INTERCEPT_FUNCTIONS(ASAN_CHECK_FUNCTION)
 
 #undef ASAN_CHECK_FUNCTION
 
-ASAN_CHECK_FUNCTION_NO_FLAGS(1, read_access, AsanReadAccess)
-ASAN_CHECK_FUNCTION_NO_FLAGS(2, read_access, AsanReadAccess)
-ASAN_CHECK_FUNCTION_NO_FLAGS(4, read_access, AsanReadAccess)
-ASAN_CHECK_FUNCTION_NO_FLAGS(8, read_access, AsanReadAccess)
-ASAN_CHECK_FUNCTION_NO_FLAGS(10, read_access, AsanReadAccess)
-ASAN_CHECK_FUNCTION_NO_FLAGS(16, read_access, AsanReadAccess)
-ASAN_CHECK_FUNCTION_NO_FLAGS(32, read_access, AsanReadAccess)
-ASAN_CHECK_FUNCTION_NO_FLAGS(1, write_access, AsanWriteAccess)
-ASAN_CHECK_FUNCTION_NO_FLAGS(2, write_access, AsanWriteAccess)
-ASAN_CHECK_FUNCTION_NO_FLAGS(4, write_access, AsanWriteAccess)
-ASAN_CHECK_FUNCTION_NO_FLAGS(8, write_access, AsanWriteAccess)
-ASAN_CHECK_FUNCTION_NO_FLAGS(10, write_access, AsanWriteAccess)
-ASAN_CHECK_FUNCTION_NO_FLAGS(16, write_access, AsanWriteAccess)
-ASAN_CHECK_FUNCTION_NO_FLAGS(32, write_access, AsanWriteAccess)
+// Generate the non-flag saving memory access intercept functions.
+ASAN_MEM_INTERCEPT_FUNCTIONS(ASAN_CHECK_FUNCTION_NO_FLAGS)
 
 #undef ASAN_CHECK_FUNCTION_NO_FLAGS
 #undef ASAN_SAVE_EFLAGS
@@ -370,25 +347,7 @@ ASAN_CHECK_FUNCTION_NO_FLAGS(32, write_access, AsanWriteAccess)
     }  \
   }
 
-ASAN_CHECK_STRINGS(cmps, _repz_, ecx, AsanReadAccess, AsanReadAccess, 4, 1)
-ASAN_CHECK_STRINGS(cmps, _repz_, ecx, AsanReadAccess, AsanReadAccess, 2, 1)
-ASAN_CHECK_STRINGS(cmps, _repz_, ecx, AsanReadAccess, AsanReadAccess, 1, 1)
-ASAN_CHECK_STRINGS(cmps, _, 1, AsanReadAccess, AsanReadAccess, 4, 1)
-ASAN_CHECK_STRINGS(cmps, _, 1, AsanReadAccess, AsanReadAccess, 2, 1)
-ASAN_CHECK_STRINGS(cmps, _, 1, AsanReadAccess, AsanReadAccess, 1, 1)
-
-ASAN_CHECK_STRINGS(movs, _repz_, ecx, AsanWriteAccess, AsanReadAccess, 4, 0)
-ASAN_CHECK_STRINGS(movs, _repz_, ecx, AsanWriteAccess, AsanReadAccess, 2, 0)
-ASAN_CHECK_STRINGS(movs, _repz_, ecx, AsanWriteAccess, AsanReadAccess, 1, 0)
-ASAN_CHECK_STRINGS(movs, _, 1, AsanWriteAccess, AsanReadAccess, 4, 0)
-ASAN_CHECK_STRINGS(movs, _, 1, AsanWriteAccess, AsanReadAccess, 2, 0)
-ASAN_CHECK_STRINGS(movs, _, 1, AsanWriteAccess, AsanReadAccess, 1, 0)
-
-ASAN_CHECK_STRINGS(stos, _repz_, ecx, AsanWriteAccess, AsanUnknownAccess, 4, 0)
-ASAN_CHECK_STRINGS(stos, _repz_, ecx, AsanWriteAccess, AsanUnknownAccess, 2, 0)
-ASAN_CHECK_STRINGS(stos, _repz_, ecx, AsanWriteAccess, AsanUnknownAccess, 1, 0)
-ASAN_CHECK_STRINGS(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 4, 0)
-ASAN_CHECK_STRINGS(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 2, 0)
-ASAN_CHECK_STRINGS(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 1, 0)
+// Generate the string instruction intercept functions.
+ASAN_STRING_INTERCEPT_FUNCTIONS(ASAN_CHECK_STRINGS)
 
 #undef ASAN_CHECK_STRINGS
