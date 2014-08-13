@@ -67,6 +67,9 @@ class TestWithAsanLogger : public testing::Test {
   // Reset the log contents.
   void ResetLog();
 
+  // Appends @p instance to the RPC logger instance environment variable.
+  void AppendToLoggerEnv(const std::string &instance);
+
  private:
   // The log service instance.
   trace::agent_logger::AgentLogger log_service_;
@@ -90,6 +93,9 @@ class TestWithAsanLogger : public testing::Test {
   // The contents of the log. These are read by calling LogContains.
   bool log_contents_read_;
   std::string log_contents_;
+
+  // Value of the logger instance environment variable before SetUp.
+  std::string old_logger_env_;
 };
 
 // Shorthand for discussing all the asan runtime functions.

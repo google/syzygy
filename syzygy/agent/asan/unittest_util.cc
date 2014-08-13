@@ -78,14 +78,14 @@ void TestWithAsanLogger::SetUp() {
   CHECK(base::CreateTemporaryFileInDir(temp_dir_.path(), &log_file_path_));
   log_file_.reset(base::OpenFile(log_file_path_, "wb"));
 
-  // Configure the environment (to pass the instance id to the agent DLL).
-  std::string instance_id;
+  // Save the environment we found.
   scoped_ptr<base::Environment> env(base::Environment::Create());
-  env->GetVar(kSyzygyRpcInstanceIdEnvVar, &instance_id);
-  instance_id.append(base::StringPrintf(";%ls,%u",
-                                        kSyzyAsanRtlDll,
-                                        ::GetCurrentProcessId()));
-  env->SetVar(kSyzygyRpcInstanceIdEnvVar, instance_id);
+  env->GetVar(kSyzygyRpcInstanceIdEnvVar, &old_logger_env_);
+
+  // Configure the environment (to pass the instance id to the agent DLL).
+  AppendToLoggerEnv(base::StringPrintf("%ls,%u",
+                                       kSyzyAsanRtlDll,
+                                       ::GetCurrentProcessId()));
 
   // Configure and start the log service.
   instance_id_ = base::UintToString16(::GetCurrentProcessId());
@@ -103,6 +103,10 @@ void TestWithAsanLogger::TearDown() {
   log_service_.Join();
   log_file_.reset(NULL);
   LogContains("");
+
+  // Restore the environment variable as we found it.
+  scoped_ptr<base::Environment> env(base::Environment::Create());
+  env->SetVar(kSyzygyRpcInstanceIdEnvVar, old_logger_env_);
 }
 
 bool TestWithAsanLogger::LogContains(const base::StringPiece& message) {
@@ -128,6 +132,17 @@ void TestWithAsanLogger::ResetLog() {
   log_contents_read_ = false;
 }
 
+void TestWithAsanLogger::AppendToLoggerEnv(const std::string &instance) {
+  std::string instance_id;
+  scoped_ptr<base::Environment> env(base::Environment::Create());
+  env->GetVar(kSyzygyRpcInstanceIdEnvVar, &instance_id);
+
+  instance_id.append(";");
+  instance_id.append(instance);
+
+  env->SetVar(kSyzygyRpcInstanceIdEnvVar, instance_id);
+}
+
 FakeAsanBlock::FakeAsanBlock(HeapProxy* proxy, size_t alloc_alignment_log)
     : proxy(proxy), is_initialized(false),
       alloc_alignment_log(alloc_alignment_log),
@@ -151,31 +166,30 @@ bool FakeAsanBlock::InitializeBlock(size_t alloc_size) {
   // Calculate the size of the zone of the buffer that we use to ensure that
   // we don't corrupt the heap.
   buffer_header_size = buffer_align_begin - buffer;
-  buffer_trailer_size = kBufferSize - buffer_header_size -
-    asan_alloc_size;
+  buffer_trailer_size = kBufferSize - buffer_header_size - asan_alloc_size;
   EXPECT_GT(kBufferSize, asan_alloc_size + buffer_header_size);
 
   // Initialize the buffer header and trailer.
   ::memset(buffer, kBufferHeaderValue, buffer_header_size);
   ::memset(buffer_align_begin + asan_alloc_size,
-    kBufferTrailerValue,
-    buffer_trailer_size);
+           kBufferTrailerValue,
+           buffer_trailer_size);
 
   StackCapture stack;
   stack.InitFromStack();
   // Initialize the ASan block.
   user_ptr = proxy->InitializeAsanBlock(buffer_align_begin,
-    alloc_size,
-    alloc_alignment_log,
-    false,
-    stack);
+                                        alloc_size,
+                                        alloc_alignment_log,
+                                        false,
+                                        stack);
   EXPECT_NE(reinterpret_cast<void*>(NULL), user_ptr);
   BlockHeader* header = agent::asan::BlockGetHeaderFromBody(user_ptr);
   EXPECT_NE(reinterpret_cast<BlockHeader*>(NULL), header);
   BlockInfo block_info = {};
   EXPECT_TRUE(BlockInfoFromMemory(header, &block_info));
   EXPECT_TRUE(common::IsAligned(reinterpret_cast<size_t>(user_ptr),
-    alloc_alignment));
+                                alloc_alignment));
   EXPECT_TRUE(common::IsAligned(
       reinterpret_cast<size_t>(buffer_align_begin)+asan_alloc_size,
       agent::asan::kShadowRatio));
@@ -183,8 +197,8 @@ bool FakeAsanBlock::InitializeBlock(size_t alloc_size) {
   EXPECT_EQ(user_ptr, block_info.body);
 
   void* expected_user_ptr = reinterpret_cast<void*>(
-    buffer_align_begin + std::max(sizeof(BlockHeader),
-    alloc_alignment));
+      buffer_align_begin + std::max(sizeof(BlockHeader),
+      alloc_alignment));
   EXPECT_TRUE(user_ptr == expected_user_ptr);
 
   size_t i = 0;
@@ -399,7 +413,10 @@ void CheckAccessAndCaptureContexts(
 
 void MemoryAccessorTester::CheckAccessAndCompareContexts(
     FARPROC access_fn, void* ptr) {
+  memory_error_detected_ = false;
+
   check_access_fn = access_fn;
+
   CheckAccessAndCaptureContexts(
       &context_before_hook_, &context_after_hook_, ptr);
 
@@ -453,6 +470,8 @@ void CheckSpecialAccess(CONTEXT* before, CONTEXT* after,
 void MemoryAccessorTester::CheckSpecialAccessAndCompareContexts(
     FARPROC access_fn, StringOperationDirection direction,
     void* dst, void* src, int len) {
+  memory_error_detected_ = false;
+
   direction_flag_forward = (direction == DIRECTION_FORWARD);
   check_access_fn = access_fn;
 
@@ -536,7 +555,6 @@ void MemoryAccessorTester::AsanErrorCallback(AsanErrorInfo* error_info) {
 void MemoryAccessorTester::AssertMemoryErrorIsDetected(
   FARPROC access_fn, void* ptr, BadAccessKind bad_access_type) {
   expected_error_type_ = bad_access_type;
-  memory_error_detected_ = false;
   CheckAccessAndCompareContexts(access_fn, ptr);
   ASSERT_TRUE(memory_error_detected_);
 }
@@ -550,9 +568,6 @@ void MemoryAccessorTester::ExpectSpecialMemoryErrorIsDetected(
   ASSERT_TRUE(check_access_fn == NULL);
 
   expected_error_type_ = bad_access_type;
-
-  // Setup the callback to detect invalid accesses.
-  memory_error_detected_ = false;
 
   // Perform memory accesses inside the range.
   ASSERT_NO_FATAL_FAILURE(
