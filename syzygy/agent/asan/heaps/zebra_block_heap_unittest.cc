@@ -65,7 +65,7 @@ class TestZebraBlockHeap : public ZebraBlockHeap {
   // false otherwise.
   bool IsHeapFull() {
     // No free slabs.
-    return free_slabs_.empty();
+    return free_slabs_->empty();
   }
 };
 

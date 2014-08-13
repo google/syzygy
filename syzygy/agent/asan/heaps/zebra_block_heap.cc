@@ -27,9 +27,7 @@ const float ZebraBlockHeap::kDefaultQuarantineRatio = 0.25f;
 
 ZebraBlockHeap::ZebraBlockHeap(size_t heap_size,
                                MemoryNotifierInterface* memory_notifier)
-    : free_slabs_(MemoryNotifierAllocator<size_t>(memory_notifier)),
-      quarantine_(MemoryNotifierAllocator<size_t>(memory_notifier)),
-      slab_info_(MemoryNotifierAllocator<SlabInfo>(memory_notifier)) {
+    : slab_info_(MemoryNotifierAllocator<SlabInfo>(memory_notifier)) {
   DCHECK_NE(reinterpret_cast<MemoryNotifierInterface*>(NULL), memory_notifier);
   // Makes the heap_size a multiple of kSlabSize to avoid incomplete slabs
   // at the end of the reserved memory.
@@ -51,10 +49,16 @@ ZebraBlockHeap::ZebraBlockHeap(size_t heap_size,
   slab_count_ = heap_size_ / kSlabSize;
   slab_info_.resize(slab_count_);
 
+  free_slabs_ = new SlabIndexQueue(slab_count_, memory_notifier_);
+  memory_notifier_->NotifyInternalUse(free_slabs_, sizeof(SlabIndexQueue));
+
+  quarantine_ = new SlabIndexQueue(slab_count_, memory_notifier_);
+  memory_notifier_->NotifyInternalUse(quarantine_, sizeof(SlabIndexQueue));
+
   for (size_t i = 0; i < slab_count_; ++i) {
     slab_info_[i].allocated_address = NULL;
     slab_info_[i].state = kFreeSlab;
-    free_slabs_.push(i);
+    free_slabs_->push(i);
   }
 
   max_number_of_allocations_ = slab_count_;
@@ -65,6 +69,12 @@ ZebraBlockHeap::~ZebraBlockHeap() {
   DCHECK_NE(reinterpret_cast<uint8*>(NULL), heap_address_);
   CHECK_NE(FALSE, ::VirtualFree(heap_address_, 0, MEM_RELEASE));
   memory_notifier_->NotifyReturnedToOS(heap_address_, heap_size_);
+
+  delete free_slabs_;
+  memory_notifier_->NotifyReturnedToOS(free_slabs_, sizeof(SlabIndexQueue));
+
+  delete quarantine_;
+  memory_notifier_->NotifyReturnedToOS(quarantine_, sizeof(SlabIndexQueue));
 }
 
 uint32 ZebraBlockHeap::GetHeapFeatures() const {
@@ -75,12 +85,13 @@ void* ZebraBlockHeap::Allocate(size_t bytes) {
   if (bytes == 0 || bytes > kPageSize)
     return NULL;
   common::AutoRecursiveLock lock(lock_);
-  if (free_slabs_.empty())
+  DCHECK_NE(reinterpret_cast<SlabIndexQueue*>(NULL), free_slabs_);
+  if (free_slabs_->empty())
     return NULL;
 
-  size_t slab_index = free_slabs_.front();
+  size_t slab_index = free_slabs_->front();
   DCHECK_NE(kInvalidSlabIndex, slab_index);
-  free_slabs_.pop();
+  free_slabs_->pop();
   uint8* slab_address = GetSlabAddress(slab_index);
   DCHECK_NE(reinterpret_cast<uint8*>(NULL), slab_address);
 
@@ -96,6 +107,7 @@ void* ZebraBlockHeap::Allocate(size_t bytes) {
 bool ZebraBlockHeap::Free(void* alloc) {
   if (alloc == NULL)
     return true;
+  DCHECK_NE(reinterpret_cast<SlabIndexQueue*>(NULL), free_slabs_);
   common::AutoRecursiveLock lock(lock_);
   size_t slab_index = GetSlabIndex(alloc);
   if (slab_index == kInvalidSlabIndex)
@@ -112,7 +124,7 @@ bool ZebraBlockHeap::Free(void* alloc) {
   // Make the slab available for allocations.
   slab_info_[slab_index].state = kFreeSlab;
   slab_info_[slab_index].allocated_address = NULL;
-  free_slabs_.push(slab_index);
+  free_slabs_->push(slab_index);
   return true;
 }
 
@@ -195,7 +207,8 @@ bool ZebraBlockHeap::Push(BlockHeader* const &object) {
     return false;
   }
 
-  quarantine_.push(slab_index);
+  DCHECK_NE(reinterpret_cast<SlabIndexQueue*>(NULL), quarantine_);
+  quarantine_->push(slab_index);
   slab_info_[slab_index].state = kQuarantinedSlab;
   return true;
 }
@@ -203,12 +216,15 @@ bool ZebraBlockHeap::Push(BlockHeader* const &object) {
 bool ZebraBlockHeap::Pop(BlockHeader** block) {
   common::AutoRecursiveLock lock(lock_);
 
+  DCHECK_NE(reinterpret_cast<SlabIndexQueue*>(NULL), quarantine_);
+  DCHECK_NE(reinterpret_cast<SlabIndexQueue*>(NULL), free_slabs_);
+
   if (QuarantineInvariantIsSatisfied())
     return false;
 
-  size_t slab_index = quarantine_.front();
+  size_t slab_index = quarantine_->front();
   DCHECK_NE(kInvalidSlabIndex, slab_index);
-  quarantine_.pop();
+  quarantine_->pop();
 
   void* alloc = slab_info_[slab_index].allocated_address;
   DCHECK_NE(static_cast<void*>(NULL), alloc);
@@ -222,10 +238,10 @@ bool ZebraBlockHeap::Pop(BlockHeader** block) {
 void ZebraBlockHeap::Empty(ObjectVector* objects) {
   common::AutoRecursiveLock lock(lock_);
   BlockHeader* object = NULL;
-  while (!quarantine_.empty()) {
-    size_t slab_index = quarantine_.front();
+  while (!quarantine_->empty()) {
+    size_t slab_index = quarantine_->front();
     DCHECK_NE(kInvalidSlabIndex, slab_index);
-    quarantine_.pop();
+    quarantine_->pop();
 
     object = reinterpret_cast<BlockHeader*>(
         slab_info_[slab_index].allocated_address);
@@ -240,7 +256,8 @@ void ZebraBlockHeap::Empty(ObjectVector* objects) {
 
 size_t ZebraBlockHeap::GetCount() {
   common::AutoRecursiveLock lock(lock_);
-  return quarantine_.size();
+  DCHECK_NE(reinterpret_cast<SlabIndexQueue*>(NULL), quarantine_);
+  return quarantine_->size();
 }
 
 void ZebraBlockHeap::set_quarantine_ratio(float quarantine_ratio) {
@@ -251,8 +268,8 @@ void ZebraBlockHeap::set_quarantine_ratio(float quarantine_ratio) {
 }
 
 bool ZebraBlockHeap::QuarantineInvariantIsSatisfied() {
-  return quarantine_.empty() ||
-         (quarantine_.size() / static_cast<float>(slab_count_) <=
+  return quarantine_->empty() ||
+         (quarantine_->size() / static_cast<float>(slab_count_) <=
              quarantine_ratio_);
 }
 

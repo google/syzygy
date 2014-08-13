@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "base/logging.h"
+#include "syzygy/agent/asan/circular_queue.h"
 #include "syzygy/agent/asan/constants.h"
 #include "syzygy/agent/asan/heap.h"
 #include "syzygy/agent/asan/memory_notifier.h"
@@ -78,8 +79,8 @@ class ZebraBlockHeap : public BlockHeapInterface,
   // @param heap_size The amount of memory reserved by the heap in bytes.
   // @param memory_notifier The MemoryNotifierInterface used to report
   //     allocation information.
-  explicit ZebraBlockHeap(size_t heap_size,
-                          MemoryNotifierInterface* memory_notifier);
+  ZebraBlockHeap(size_t heap_size,
+                 MemoryNotifierInterface* memory_notifier);
 
   // Virtual destructor. Frees all the allocated memory.
   virtual ~ZebraBlockHeap();
@@ -164,14 +165,13 @@ class ZebraBlockHeap : public BlockHeapInterface,
   // The ratio [0 .. 1] of the memory used by the quarantine. Under lock_.
   float quarantine_ratio_;
 
-  typedef std::queue<size_t,
-      std::list<size_t, MemoryNotifierAllocator<size_t>>> SlabIndexQueue;
+  typedef CircularQueue<size_t, MemoryNotifierAllocator<size_t>> SlabIndexQueue;
 
   // Holds the indices of free slabs. Under lock_.
-  SlabIndexQueue free_slabs_;
+  SlabIndexQueue* free_slabs_;
 
   // Holds the indices of the quarantined slabs. Under lock_.
-  SlabIndexQueue quarantine_;
+  SlabIndexQueue* quarantine_;
 
   typedef std::vector<SlabInfo,
                       MemoryNotifierAllocator<SlabInfo>> SlabInfoVector;
