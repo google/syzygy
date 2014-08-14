@@ -60,7 +60,7 @@ class HeapManagerInterface {
   //     This must be a value that was previously returned by a call to
   //     'Allocate'.
   // @returns the size of the block on success, 0 otherwise.
-  virtual size_t Size(HeapId heap, void* alloc) = 0;
+  virtual size_t Size(HeapId heap, const void* alloc) = 0;
 
   // Locks a heap.
   // @param heap The ID of the heap that should be locked.

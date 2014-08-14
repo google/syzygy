@@ -166,7 +166,7 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   return true;
 }
 
-size_t BlockHeapManager::Size(HeapId heap_id, void* alloc) {
+size_t BlockHeapManager::Size(HeapId heap_id, const void* alloc) {
   DCHECK_NE(static_cast<HeapId>(NULL), heap_id);
   BlockHeader* header = BlockGetHeaderFromBody(alloc);
   if (header == NULL)

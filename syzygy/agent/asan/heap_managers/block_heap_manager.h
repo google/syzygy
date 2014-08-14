@@ -71,7 +71,7 @@ class BlockHeapManager : public HeapManagerInterface {
   virtual bool DestroyHeap(HeapId heap_id);
   virtual void* Allocate(HeapId heap_id, size_t bytes);
   virtual bool Free(HeapId heap_id, void* alloc);
-  virtual size_t Size(HeapId heap_id, void* alloc);
+  virtual size_t Size(HeapId heap_id, const void* alloc);
   virtual void Lock(HeapId heap_id);
   virtual void Unlock(HeapId heap_id);
   // @}

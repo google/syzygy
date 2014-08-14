@@ -76,7 +76,7 @@ class TestShadow : public Shadow {
 };
 
 // A utility class for manipulating a heap. This automatically delete the heap
-// its content in the destructor and provides some utility functions.
+// and its content in the destructor and provides some utility functions.
 class ScopedHeap {
  public:
   typedef TestBlockHeapManager::TestQuarantine TestQuarantine;
