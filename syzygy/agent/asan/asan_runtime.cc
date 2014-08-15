@@ -14,6 +14,9 @@
 
 #include "syzygy/agent/asan/asan_runtime.h"
 
+#include <algorithm>
+#include <vector>
+
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/environment.h"
@@ -520,9 +523,9 @@ bool AsanRuntime::GetAsanFlagsEnvVar(std::wstring* env_var_wstr) {
 void AsanRuntime::PropagateParams() const {
   // This function has to be kept in sync with the AsanParameters struct. These
   // checks will ensure that this is the case.
-  COMPILE_ASSERT(sizeof(common::AsanParameters) == 48,
+  COMPILE_ASSERT(sizeof(common::AsanParameters) == 52,
                  must_update_propagate_params);
-  COMPILE_ASSERT(common::kAsanParametersVersion == 2,
+  COMPILE_ASSERT(common::kAsanParametersVersion == 3,
                  must_update_parameters_version);
 
   // Push the configured parameter values to the appropriate endpoints.
@@ -540,7 +543,10 @@ void AsanRuntime::PropagateParams() const {
   logger_->set_minidump_on_failure(params_.minidump_on_failure);
 
   // TODO(peterssen|sebmarchand|chrisha): Pass the zebra_block_heap_size to
-  // the BlockHeapManager when it's defined.
+  //     the BlockHeapManager when it's defined.
+  // TODO(peterssen|sebmarchand|chrisha): Pass the
+  //     zebra_block_heap_quarantine_ratio to the BlockHeapManager when it's
+  //     defined.
 }
 
 size_t AsanRuntime::CalculateCorruptHeapInfoSize(
@@ -787,7 +793,7 @@ LONG WINAPI AsanRuntime::UnhandledExceptionFilter(
 
     // Check for heap corruption. If we find it we take over the exception
     // and add additional metadata to the reporting.
-    if (!runtime_->params_.check_heap_on_failure){
+    if (!runtime_->params_.check_heap_on_failure) {
       // This message is required in order to unittest this properly.
       runtime_->logger_->Write(
           "SyzyASAN: Heap checker disabled, ignoring unhandled exception.");

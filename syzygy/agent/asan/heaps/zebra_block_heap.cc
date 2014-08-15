@@ -17,13 +17,13 @@
 #include <algorithm>
 
 #include "syzygy/common/align.h"
+#include "syzygy/common/asan_parameters.h"
 
 namespace agent {
 namespace asan {
 namespace heaps {
 
 const size_t ZebraBlockHeap::kSlabSize = 2 * kPageSize;
-const float ZebraBlockHeap::kDefaultQuarantineRatio = 0.25f;
 
 ZebraBlockHeap::ZebraBlockHeap(size_t heap_size,
                                MemoryNotifierInterface* memory_notifier)
@@ -62,7 +62,7 @@ ZebraBlockHeap::ZebraBlockHeap(size_t heap_size,
   }
 
   max_number_of_allocations_ = slab_count_;
-  quarantine_ratio_ = kDefaultQuarantineRatio;
+  set_quarantine_ratio(common::kDefaultZebraBlockHeapQuarantineRatio);
 }
 
 ZebraBlockHeap::~ZebraBlockHeap() {

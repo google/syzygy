@@ -72,9 +72,6 @@ class ZebraBlockHeap : public BlockHeapInterface,
   // The size of a 2-page slab (2 * kPageSize).
   static const size_t kSlabSize;
 
-  // The default ratio of the memory used by the quarantine.
-  static const float kDefaultQuarantineRatio;
-
   // Constructor.
   // @param heap_size The amount of memory reserved by the heap in bytes.
   // @param memory_notifier The MemoryNotifierInterface used to report

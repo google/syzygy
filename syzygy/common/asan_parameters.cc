@@ -16,6 +16,8 @@
 
 #include <windows.h>
 
+#include <algorithm>
+
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
@@ -154,6 +156,7 @@ const bool kDefaultLogAsText = true;
 
 // Default values of ZebraBlockHeap parameters.
 const uint32 kDefaultZebraBlockHeapSize = 16 * 1024 * 1024;
+const float kDefaultZebraBlockHeapQuarantineRatio = 0.25f;
 
 // String names of HeapProxy parameters.
 const char kParamQuarantineSize[] = "quarantine_size";
@@ -180,6 +183,8 @@ const char kParamNoLogAsText[] = "no_log_as_text";
 
 // String names of ZebraBlockHeap parameters.
 const char kParamZebraBlockHeapSize[] = "zebra_block_heap_size";
+const char kParamZebraBlockHeapQuarantineRatio[] =
+    "zebra_block_heap_quarantine_ratio";
 
 InflatedAsanParameters::InflatedAsanParameters() {
   // Clear the AsanParameters portion of ourselves.
@@ -247,12 +252,14 @@ void SetDefaultAsanParameters(AsanParameters* asan_parameters) {
       kDefaultDisableBreakpadReporting;
   asan_parameters->allocation_guard_rate = kDefaultAllocationGuardRate;
   asan_parameters->zebra_block_heap_size = kDefaultZebraBlockHeapSize;
+  asan_parameters->zebra_block_heap_quarantine_ratio =
+      kDefaultZebraBlockHeapQuarantineRatio;
 }
 
 bool InflateAsanParameters(const AsanParameters* pod_params,
                            InflatedAsanParameters* inflated_params) {
   // This must be kept up to date with AsanParameters as it evolves.
-  static const size_t kSizeOfAsanParametersByVersion[] = { 40, 44, 48 };
+  static const size_t kSizeOfAsanParametersByVersion[] = { 40, 44, 48, 52 };
   COMPILE_ASSERT(arraysize(kSizeOfAsanParametersByVersion) ==
                      kAsanParametersVersion + 1,
                  kSizeOfAsanParametersByVersion_out_of_date);
@@ -364,9 +371,16 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
     return false;
   }
 
-  // Parse the zebra block heap size flags.
+  // Parse the zebra block heap size flag.
   if (UpdateUint32FromCommandLine::Do(cmd_line, kParamZebraBlockHeapSize,
           &asan_parameters->zebra_block_heap_size) == kFlagError) {
+    return false;
+  }
+
+  // Parse the zebra block heap quarantine ratio flag.
+  if (UpdateFloatFromCommandLine::Do(cmd_line,
+          kParamZebraBlockHeapQuarantineRatio,
+          &asan_parameters->zebra_block_heap_quarantine_ratio) == kFlagError) {
     return false;
   }
 
