@@ -73,6 +73,7 @@
 #include "base/logging.h"
 #include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/constants.h"
+#include "syzygy/agent/asan/shadow_marker.h"
 
 namespace agent {
 namespace asan {
@@ -95,94 +96,6 @@ class Shadow {
 
   // Tear down the shadow memory.
   static void TearDown();
-
-  // The different markers we use to mark the shadow memory.
-  enum ShadowMarker {
-    // This is either a range of bytes that we know nothing about, or is an
-    // allocated byte that is explicitly accessible.
-    kHeapAddressableByte = 0x00,
-
-    // Values 0x01 through 0x07 indicate that a range of bytes is partially
-    // accessible, and partially inaccessible.
-    kHeapPartiallyAddressableByte1 = 0x01,
-    kHeapPartiallyAddressableByte2 = 0x02,
-    kHeapPartiallyAddressableByte3 = 0x03,
-    kHeapPartiallyAddressableByte4 = 0x04,
-    kHeapPartiallyAddressableByte5 = 0x05,
-    kHeapPartiallyAddressableByte6 = 0x06,
-    kHeapPartiallyAddressableByte7 = 0x07,
-
-    // Any byte that has this mask set indicates a completely inaccessible
-    // range of bytes. The remaining bits encode additional metadata about why
-    // the bytes are inaccessible.
-    kHeapNonAccessibleByteMask = 0xe0,
-
-    // Any marker starting with 0xe0 marks the beginning of a block. The
-    // trailing 4 bits of the marker are used to encode additional metadata
-    // about the block itself. This is necessary to allow full introspection
-    // of blocks via the shadow.
-    kHeapBlockStartByte0 = 0xe0,
-    kHeapBlockStartByte1 = 0xe1,
-    kHeapBlockStartByte2 = 0xe2,
-    kHeapBlockStartByte3 = 0xe3,
-    kHeapBlockStartByte4 = 0xe4,
-    kHeapBlockStartByte5 = 0xe5,
-    kHeapBlockStartByte6 = 0xe6,
-    kHeapBlockStartByte7 = 0xe7,
-    kHeapNestedBlockStartByte0 = 0xe8,
-    kHeapNestedBlockStartByte1 = 0xe9,
-    kHeapNestedBlockStartByte2 = 0xea,
-    kHeapNestedBlockStartByte3 = 0xeb,
-    kHeapNestedBlockStartByte4 = 0xec,
-    kHeapNestedBlockStartByte5 = 0xed,
-    kHeapNestedBlockStartByte6 = 0xee,
-    kHeapNestedBlockStartByte7 = 0xef,
-    // Masks for extracting additional information from block start markers.
-    kHeapBlockStartByteNestedMask = 0x08,
-    kHeapBlockStartByteSizeMask = 0x07,
-
-    // The data in this block maps to internal memory structures.
-    kAsanMemoryByte = 0xf1,
-
-    // The address covered by this byte are simply invalid and unable to be
-    // accessed by user code.
-    kInvalidAddress = 0xf2,
-
-    // The bytes are part of a block that has been allocated by the
-    // instrumented code, but subsequently redzoned via the runtime API.
-    kUserRedzone = 0xf3,
-
-    // This marker marks the end of a block in memory, and is part of a right
-    // redzone.
-    kHeapBlockEndByte = 0xf4,
-    kHeapNestedBlockEndByte = 0xf5,
-    // Mask for extracting additional information from block end markers.
-    kHeapBlockEndByteNestedMask = 0x1,
-
-    // The bytes are part of a left redzone (block header padding).
-    // This is the same value as used by ASan itself.
-    kHeapLeftRedzone = 0xfa,
-
-    // The bytes are part of a right redzone (block trailer and padding).
-    // This is the same value as used by ASan itself.
-    kHeapRightRedzone = 0xfb,
-
-    // These bytes are part of memory that is destined to be used by the
-    // heap, has been reserved from the OS, but not yet handed out to the
-    // code under test.
-    kAsanReservedByte = 0xfc,
-
-    // The bytes are part of the body of a block that has been allocated and
-    // subsequently freed by instrumented code.
-    // This is the same value as used by ASan itself.
-    kHeapFreedByte = 0xfd,
-  };
-  COMPILE_ASSERT(kHeapBlockStartByte0 < kHeapNestedBlockStartByte7,
-                 start_bytes_must_be_well_ordered);
-  COMPILE_ASSERT(kHeapNestedBlockStartByte7 - kHeapBlockStartByte0 == 0xf,
-                 start_bytes_must_be_contiguous);
-  COMPILE_ASSERT((kHeapBlockStartByte0 ^ kHeapNestedBlockStartByte7) == 0xf,
-                 start_bytes_must_have_a_simple_bitmask);
 
   // Poisons @p size bytes starting at @p addr with @p shadow_val value.
   // @pre addr + size mod 8 == 0.
@@ -209,6 +122,18 @@ class Shadow {
   // @param addr The address that we want to check.
   // @returns true if this address is accessible, false otherwise.
   static bool IsAccessible(const void* addr);
+
+  // @param address The address that we want to check.
+  // @returns true if the byte at @p address is an active left redzone.
+  static bool IsLeftRedzone(const void* address);
+
+  // @param address The address that we want to check.
+  // @returns true if the byte at @p address is an active right redzone.
+  static bool IsRightRedzone(const void* address);
+
+  // @param address The address that we want to check.
+  // @returns true if the byte at @p address is the start of a block.
+  static bool IsBlockStartByte(const void* address);
 
   // Returns the ShadowMarker value for the byte at @p addr.
   // @param addr The address for which we want the ShadowMarker value.
@@ -266,44 +191,6 @@ class Shadow {
   // @note This function doesn't work for nested blocks.
   // TODO(sebmarchand): Add support for nested blocks.
   static size_t GetAllocSize(const uint8* mem);
-
-  // Determines if the given marker is a header byte marker (there are
-  // multiple distinct header byte markers).
-  // @param marker The marker to inspect.
-  // @return true if the marker corresponds to a header marker.
-  static bool IsBlockStartByteMarker(uint8 marker);
-
-  // Checks if an address belongs to the header of a block.
-  // @param addr The address that we want to check.
-  // @returns true if |addr| corresponds to a byte in the header of a
-  //     block, false otherwise.
-  static bool IsBlockStartByte(const void* addr);
-
-  // Checks if an address belongs to the left redzone of a block (including
-  // the block header).
-  // @param addr The address that we want to check.
-  // @returns true if |addr| corresponds to a byte in the left redzone of a
-  //     block, false otherwise.
-  static bool IsLeftRedzone(const void* addr);
-
-  // Determines if the given marker is an end byte marker (there are
-  // multiple distinct end byte markers).
-  // @param marker The marker to inspect.
-  // @return true if the marker corresponds to a header marker.
-  static bool IsBlockEndByteMarker(uint8 marker);
-
-  // Checks if an address belongs to the end of a block.
-  // @param addr The address that we want to check.
-  // @returns true if |addr| corresponds to a byte in the end of a
-  //     block, false otherwise.
-  static bool IsBlockEndByte(const void* addr);
-
-  // Checks if an address belongs to the right redzone of a block (including
-  // the block trailer).
-  // @param addr The address that we want to check.
-  // @returns true if |addr| corresponds to a byte in the right redzone of a
-  //     block, false otherwise.
-  static bool IsRightRedzone(const void* addr);
 
   // Poisons memory for an freshly allocated block.
   // @param info Info about the block layout.

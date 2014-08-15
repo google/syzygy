@@ -34,7 +34,7 @@ void asan_PoisonMemoryRange(const void* address, size_t size) {
   DCHECK(common::IsAligned(reinterpret_cast<uint8>(address) + size,
                            agent::asan::kShadowRatio));
 
-  Shadow::Poison(address, size, Shadow::kUserRedzone);
+  Shadow::Poison(address, size, agent::asan::kUserRedzoneMarker);
 }
 
 void asan_UnpoisonMemoryRange(const void* address, size_t size) {

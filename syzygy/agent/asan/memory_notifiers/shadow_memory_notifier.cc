@@ -23,13 +23,13 @@ namespace memory_notifiers {
 void ShadowMemoryNotifier::NotifyInternalUse(
     const void* address, size_t size) {
   DCHECK_NE(static_cast<void*>(NULL), address);
-  Shadow::Poison(address, size, Shadow::kAsanMemoryByte);
+  Shadow::Poison(address, size, kAsanMemoryMarker);
 }
 
 void ShadowMemoryNotifier::NotifyFutureHeapUse(
     const void* address, size_t size) {
   DCHECK_NE(static_cast<void*>(NULL), address);
-  Shadow::Poison(address, size, Shadow::kAsanReservedByte);
+  Shadow::Poison(address, size, kAsanReservedMarker);
 }
 
 void ShadowMemoryNotifier::NotifyReturnedToOS(

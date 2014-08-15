@@ -23,9 +23,9 @@ uint8 Shadow::shadow_[kShadowSize];
 
 void Shadow::SetUp() {
   // Poison the shadow memory.
-  Poison(shadow_, kShadowSize, kAsanMemoryByte);
+  Poison(shadow_, kShadowSize, kAsanMemoryMarker);
   // Poison the first 64k of the memory as they're not addressable.
-  Poison(0, kAddressLowerBound, kInvalidAddress);
+  Poison(0, kAddressLowerBound, kInvalidAddressMarker);
 }
 
 void Shadow::TearDown() {
@@ -61,7 +61,7 @@ void Shadow::Unpoison(const void* addr, size_t size) {
   index >>= 3;
   size >>= 3;
   DCHECK_GT(arraysize(shadow_), index + size);
-  ::memset(shadow_ + index, kHeapAddressableByte, size);
+  ::memset(shadow_ + index, kHeapAddressableMarker, size);
 
   if (remainder != 0)
     shadow_[index + size] = remainder;
@@ -80,13 +80,13 @@ void Shadow::MarkAsFreed(const void* addr, size_t size) {
   uint8* cursor_end = cursor + length;
   for (; cursor != cursor_end; ++cursor) {
     // Preserve block beginnings/ends/redzones as they were originally.
-    if (IsBlockStartByteMarker(*cursor) || IsBlockEndByteMarker(*cursor))
+    if (ShadowMarkerHelper::IsActiveLeftRedzone(*cursor) ||
+        ShadowMarkerHelper::IsActiveRightRedzone(*cursor)) {
       continue;
-    if (*cursor == kHeapLeftRedzone || *cursor == kHeapRightRedzone)
-      continue;
+    }
 
     // Anything else gets marked as freed.
-    *cursor = kHeapFreedByte;
+    *cursor = kHeapFreedMarker;
   }
 }
 
@@ -101,56 +101,66 @@ bool Shadow::IsAccessible(const void* addr) {
   if (shadow == 0)
     return true;
 
-  if ((shadow & kHeapNonAccessibleByteMask) != 0)
+  if (ShadowMarkerHelper::IsRedzone(shadow))
     return false;
 
   return start < shadow;
 }
 
-Shadow::ShadowMarker Shadow::GetShadowMarkerForAddress(const void* addr) {
+bool Shadow::IsLeftRedzone(const void* address) {
+  return ShadowMarkerHelper::IsActiveLeftRedzone(
+      GetShadowMarkerForAddress(address));
+}
+
+bool Shadow::IsRightRedzone(const void* address) {
+  uintptr_t index = reinterpret_cast<uintptr_t>(address);
+  uintptr_t start = index & 0x7;
+
+  index >>= 3;
+
+  DCHECK_GT(arraysize(shadow_), index);
+  uint8 marker = shadow_[index];
+
+  // If the marker is for accessible memory then some addresses may be part
+  // of a right redzone, assuming that the *next* marker in the shadow is for
+  // a right redzone.
+  if (marker == 0)
+    return false;
+  if (marker <= kHeapPartiallyAddressableByte7) {
+    if (index == arraysize(shadow_))
+      return false;
+    if (!ShadowMarkerHelper::IsActiveRightRedzone(shadow_[index + 1]))
+      return false;
+    return start < marker;
+  }
+
+  // Otherwise, check the marker directly.
+  return ShadowMarkerHelper::IsActiveRightRedzone(marker);
+}
+
+bool Shadow::IsBlockStartByte(const void* address) {
+  uintptr_t index = reinterpret_cast<uintptr_t>(address);
+  uintptr_t start = index & 0x7;
+
+  index >>= 3;
+
+  DCHECK_GT(arraysize(shadow_), index);
+  uint8 marker = shadow_[index];
+
+  if (start != 0)
+    return false;
+  if (!ShadowMarkerHelper::IsActiveBlockStart(marker))
+    return false;
+
+  return true;
+}
+
+ShadowMarker Shadow::GetShadowMarkerForAddress(const void* addr) {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
   index >>= 3;
 
   DCHECK_GT(arraysize(shadow_), index);
   return static_cast<ShadowMarker>(shadow_[index]);
-}
-
-bool Shadow::IsBlockStartByteMarker(uint8 marker) {
-  return marker >= kHeapBlockStartByte0 &&
-      marker <= kHeapNestedBlockStartByte7;
-}
-
-bool Shadow::IsBlockStartByte(const void* addr) {
-  Shadow::ShadowMarker marker = Shadow::GetShadowMarkerForAddress(addr);
-  if (IsBlockStartByteMarker(marker))
-    return true;
-  return false;
-}
-
-bool Shadow::IsLeftRedzone(const void* addr) {
-  Shadow::ShadowMarker marker = Shadow::GetShadowMarkerForAddress(addr);
-  if (marker == kHeapLeftRedzone || IsBlockStartByteMarker(marker))
-    return true;
-  return false;
-}
-
-bool Shadow::IsBlockEndByteMarker(uint8 marker) {
-  return marker == kHeapBlockEndByte ||
-      marker == kHeapNestedBlockEndByte;
-}
-
-bool Shadow::IsBlockEndByte(const void* addr) {
-  Shadow::ShadowMarker marker = Shadow::GetShadowMarkerForAddress(addr);
-  if (IsBlockEndByteMarker(marker))
-    return true;
-  return false;
-}
-
-bool Shadow::IsRightRedzone(const void* addr) {
-  Shadow::ShadowMarker marker = Shadow::GetShadowMarkerForAddress(addr);
-  if (marker == kHeapRightRedzone || IsBlockEndByteMarker(marker))
-    return true;
-  return false;
 }
 
 void Shadow::PoisonAllocatedBlock(const BlockInfo& info) {
@@ -176,34 +186,32 @@ void Shadow::PoisonAllocatedBlock(const BlockInfo& info) {
   // body of the allocation modulo the shadow ratio, so that the exact length
   // can be inferred from inspecting the shadow memory.
   uint8 body_size_mod = info.body_size % kShadowRatio;
-  uint8 nested_bit = info.header->is_nested << 3;
-  uint8 header_marker = Shadow::kHeapBlockStartByte0 | nested_bit |
-      body_size_mod;
+  uint8 header_marker = ShadowMarkerHelper::BuildBlockStart(
+      true, info.header->is_nested, body_size_mod);
 
   // Determine the marker byte for the trailer.
-  nested_bit = info.header->is_nested;
-  uint8 trailer_marker = Shadow::kHeapBlockEndByte | nested_bit;
+  uint8 trailer_marker = ShadowMarkerHelper::BuildBlockEnd(
+      true, info.header->is_nested);
 
-  // Poison the header and left redzone.
+  // Poison the header and left padding.
   uint8* cursor = shadow_ + index;
   ::memset(cursor, header_marker, 1);
-  ::memset(cursor + 1, kHeapLeftRedzone, left_redzone_bytes - 1);
+  ::memset(cursor + 1, kHeapLeftPaddingMarker, left_redzone_bytes - 1);
   cursor += left_redzone_bytes;
   cursor += body_bytes;
 
-  // Poison the right redzone and the trailer.
+  // Poison the right padding and the trailer.
   if (body_size_mod > 0)
     cursor[-1] = body_size_mod;
-  ::memset(cursor, kHeapRightRedzone, right_redzone_bytes - 1);
+  ::memset(cursor, kHeapRightPaddingMarker, right_redzone_bytes - 1);
   ::memset(cursor + right_redzone_bytes - 1, trailer_marker, 1);
 }
 
 
 bool Shadow::BlockIsNested(const BlockInfo& info) {
   uint8 marker = GetShadowMarkerForAddress(info.block);
-  if (marker & kHeapBlockStartByteNestedMask)
-    return true;
-  return false;
+  DCHECK(ShadowMarkerHelper::IsActiveBlockStart(marker));
+  return ShadowMarkerHelper::IsNestedBlockStart(marker);
 }
 
 bool Shadow::BlockInfoFromShadow(const void* addr, BlockInfo* info) {
@@ -284,28 +292,28 @@ void Shadow::AppendShadowMemoryText(const void* addr, std::string* output) {
   base::StringAppendF(output, "  Addressable:           00\n");
   base::StringAppendF(output, "  Partially addressable: 01 - 07\n");
   base::StringAppendF(output, "  Block start redzone:   %02x - %02x\n",
-                      kHeapBlockStartByte0, kHeapBlockStartByte7);
+                      kHeapBlockStartMarker0, kHeapBlockStartMarker7);
   base::StringAppendF(output, "  Nested block start:    %02x - %02x\n",
-                      kHeapNestedBlockStartByte0,
-                      kHeapNestedBlockStartByte7);
+                      kHeapNestedBlockStartMarker0,
+                      kHeapNestedBlockStartMarker7);
   base::StringAppendF(output, "  ASan memory byte:      %02x\n",
-                      kAsanMemoryByte);
+                      kAsanMemoryMarker);
   base::StringAppendF(output, "  Invalid address:       %02x\n",
-                      kInvalidAddress);
+                      kInvalidAddressMarker);
   base::StringAppendF(output, "  User redzone:          %02x\n",
-                      kUserRedzone);
+                      kUserRedzoneMarker);
   base::StringAppendF(output, "  Block end redzone:     %02x\n",
-                      kHeapBlockEndByte);
+                      kHeapBlockEndMarker);
   base::StringAppendF(output, "  Nested block end:      %02x\n",
-                      kHeapNestedBlockEndByte);
+                      kHeapNestedBlockEndMarker);
   base::StringAppendF(output, "  Heap left redzone:     %02x\n",
-                      kHeapLeftRedzone);
+                      kHeapLeftPaddingMarker);
   base::StringAppendF(output, "  Heap right redzone:    %02x\n",
-                      kHeapRightRedzone);
+                      kHeapRightPaddingMarker);
   base::StringAppendF(output, "  ASan reserved byte:    %02x\n",
-                      kAsanReservedByte);
+                      kAsanReservedMarker);
   base::StringAppendF(output, "  Freed heap region:     %02x\n",
-                      kHeapFreedByte);
+                      kHeapFreedMarker);
 }
 
 size_t Shadow::GetAllocSize(const uint8* mem) {
@@ -323,26 +331,26 @@ bool Shadow::ScanLeftForBracketingBlockStart(
 
   size_t left = cursor;
   int nesting_depth = static_cast<int>(initial_nesting_depth);
-  if (Shadow::IsBlockEndByteMarker(shadow_[left]))
+  if (ShadowMarkerHelper::IsBlockEnd(shadow_[left]))
     --nesting_depth;
   while (true) {
-    if (Shadow::IsBlockStartByteMarker(shadow_[left])) {
+    if (ShadowMarkerHelper::IsBlockStart(shadow_[left])) {
       if (nesting_depth == 0) {
         *location = left;
         return true;
       }
       // If this is not a nested block then there's no hope of finding a
       // block containing the original cursor.
-      if ((shadow_[left] & kHeapBlockStartByteNestedMask) == 0)
+      if (!ShadowMarkerHelper::IsNestedBlockStart(shadow_[left]))
         return false;
       --nesting_depth;
-    } else if (Shadow::IsBlockEndByteMarker(shadow_[left])) {
+    } else if (ShadowMarkerHelper::IsBlockEnd(shadow_[left])) {
       ++nesting_depth;
 
       // If we encounter the end of a non-nested block there's no way for
       // a block to bracket us.
       if (nesting_depth > 0 &&
-          (shadow_[left] & kHeapBlockEndByteNestedMask) == 0) {
+          !ShadowMarkerHelper::IsNestedBlockEnd(shadow_[left])) {
         return false;
       }
     }
@@ -360,24 +368,24 @@ bool Shadow::ScanRightForBracketingBlockEnd(
 
   size_t right = cursor;
   int nesting_depth = static_cast<int>(initial_nesting_depth);
-  if (IsBlockStartByteMarker(shadow_[right]))
+  if (ShadowMarkerHelper::IsBlockStart(shadow_[right]))
     --nesting_depth;
   while (true) {
-    if (Shadow::IsBlockEndByteMarker(shadow_[right])) {
+    if (ShadowMarkerHelper::IsBlockEnd(shadow_[right])) {
       if (nesting_depth == 0) {
         *location = right;
         return true;
       }
-      if ((shadow_[right] & kHeapBlockEndByteNestedMask) == 0)
+      if (!ShadowMarkerHelper::IsNestedBlockEnd(shadow_[right]))
         return false;
       --nesting_depth;
-    } else if (IsBlockStartByteMarker(shadow_[right])) {
+    } else if (ShadowMarkerHelper::IsBlockStart(shadow_[right])) {
       ++nesting_depth;
 
       // If we encounter the beginning of a non-nested block then there's
       // clearly no way for any block to bracket us.
       if (nesting_depth > 0 &&
-          (shadow_[right] & kHeapBlockStartByteNestedMask) == 0) {
+          !ShadowMarkerHelper::IsNestedBlockStart(shadow_[right])) {
         return false;
       }
     }
@@ -413,16 +421,17 @@ bool Shadow::BlockInfoFromShadowImpl(
       info->block + info->block_size) - 1;
 
   // Get the length of the body modulo the shadow ratio.
-  size_t body_size_mod = shadow_[left] % kShadowRatio;
+  size_t body_size_mod = ShadowMarkerHelper::GetBlockStartData(shadow_[left]);
+  bool is_nested = ShadowMarkerHelper::IsNestedBlockStart(shadow_[left]);
 
   // Find the beginning of the body (end of the left redzone).
   ++left;
-  while (left < right && shadow_[left] == kHeapLeftRedzone)
+  while (left < right && shadow_[left] == kHeapLeftPaddingMarker)
     ++left;
 
   // Find the beginning of the right redzone (end of the body).
   --right;
-  while (right > left && shadow_[right - 1] == kHeapRightRedzone)
+  while (right > left && shadow_[right - 1] == kHeapRightPaddingMarker)
     --right;
 
   // Fill out the body and padding sizes.
@@ -441,8 +450,8 @@ bool Shadow::BlockInfoFromShadowImpl(
   BlockIdentifyWholePages(info);
 
   // Check if the block is nested.
-  info->header->is_nested = BlockIsNested(*info);
-  info->is_nested = info->header->is_nested;
+  info->header->is_nested = is_nested;
+  info->is_nested = is_nested;
 
   return true;
 }
@@ -469,8 +478,8 @@ void ShadowWalker::Reset() {
   for (cursor_ = lower_bound_; cursor_ != upper_bound_;
        cursor_ += kShadowRatio) {
     uint8 marker = Shadow::GetShadowMarkerForAddress(cursor_);
-    if (Shadow::IsBlockStartByteMarker(marker) &&
-        (marker & Shadow::kHeapBlockStartByteNestedMask) == 0) {
+    if (ShadowMarkerHelper::IsBlockStart(marker) &&
+        !ShadowMarkerHelper::IsNestedBlockStart(marker)) {
       break;
     }
   }
@@ -484,19 +493,19 @@ bool ShadowWalker::Next(BlockInfo* info) {
     uint8 marker = Shadow::GetShadowMarkerForAddress(cursor_);
 
     // Update the nesting depth when block end markers are encountered.
-    if (Shadow::IsBlockEndByteMarker(marker)) {
+    if (ShadowMarkerHelper::IsBlockEnd(marker)) {
       DCHECK_LE(0, nesting_depth_);
       --nesting_depth_;
       continue;
     }
 
     // Look for a block start marker.
-    if (Shadow::IsBlockStartByteMarker(marker)) {
+    if (ShadowMarkerHelper::IsBlockStart(marker)) {
       // Update the nesting depth when block start bytes are encountered.
       ++nesting_depth_;
 
       // Non-nested blocks should only be encountered at depth 0.
-      bool is_nested = (marker & Shadow::kHeapBlockStartByteNestedMask) != 0;
+      bool is_nested = ShadowMarkerHelper::IsNestedBlockStart(marker);
       DCHECK(is_nested || nesting_depth_ == 0);
 
       // Determine if the block is to be reported.

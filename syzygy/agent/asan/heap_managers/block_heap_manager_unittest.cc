@@ -229,7 +229,7 @@ class BlockHeapManagerTest : public testing::Test {
     for (size_t i = 0; i < size; ++i) {
       ASSERT_FALSE(Shadow::IsAccessible(mem + i));
       ASSERT_EQ(Shadow::GetShadowMarkerForAddress(mem + i),
-                Shadow::kHeapFreedByte);
+                kHeapFreedMarker);
     }
     ASSERT_FALSE(Shadow::IsAccessible(mem + size));
   }
@@ -388,14 +388,14 @@ TEST_F(BlockHeapManagerTest, UnpoisonsQuarantine) {
   size_t shadow_start = mem_start >> 3;
   size_t shadow_alloc_size = real_alloc_size >> 3;
   for (size_t i = shadow_start; i < shadow_start + shadow_alloc_size; ++i)
-    ASSERT_NE(TestShadow::kHeapAddressableByte, TestShadow::shadow_[i]);
+    ASSERT_NE(kHeapAddressableMarker, TestShadow::shadow_[i]);
 
   // Flush the quarantine.
   heap.FlushQuarantine();
 
   // Assert that the quarantine has been correctly unpoisoned.
   for (size_t i = shadow_start; i < shadow_start + shadow_alloc_size; ++i)
-    ASSERT_EQ(TestShadow::kHeapAddressableByte, TestShadow::shadow_[i]);
+    ASSERT_EQ(kHeapAddressableMarker, TestShadow::shadow_[i]);
 }
 
 TEST_F(BlockHeapManagerTest, QuarantineIsShared) {

@@ -160,8 +160,7 @@ class HeapTest : public testing::TestWithAsanLogger {
     ASSERT_TRUE(Shadow::IsLeftRedzone(mem - 1));
     for (size_t i = 0; i < size; ++i) {
       ASSERT_FALSE(Shadow::IsAccessible(mem + i));
-      ASSERT_EQ(Shadow::GetShadowMarkerForAddress(mem + i),
-                Shadow::kHeapFreedByte);
+      ASSERT_EQ(Shadow::GetShadowMarkerForAddress(mem + i), kHeapFreedMarker);
     }
     ASSERT_FALSE(Shadow::IsAccessible(mem + size));
   }
@@ -323,14 +322,14 @@ TEST_F(HeapTest, UnpoisonsQuarantine) {
   size_t shadow_start = mem_start >> 3;
   size_t shadow_alloc_size = real_alloc_size >> 3;
   for (size_t i = shadow_start; i < shadow_start + shadow_alloc_size; ++i)
-    ASSERT_NE(TestShadow::kHeapAddressableByte, TestShadow::shadow_[i]);
+    ASSERT_NE(kHeapAddressableMarker, TestShadow::shadow_[i]);
 
   // Flush the quarantine.
   proxy_.SetQuarantineMaxSize(0);
 
   // Assert that the quarantine has been correctly unpoisoned.
   for (size_t i = shadow_start; i < shadow_start + shadow_alloc_size; ++i)
-    ASSERT_EQ(TestShadow::kHeapAddressableByte, TestShadow::shadow_[i]);
+    ASSERT_EQ(kHeapAddressableMarker, TestShadow::shadow_[i]);
 }
 
 TEST_F(HeapTest, Realloc) {
@@ -756,7 +755,7 @@ TEST_F(HeapTest, QuarantineDoesntAlterBlockContents) {
 }
 
 TEST_F(HeapTest, InternalStructureArePoisoned) {
-  EXPECT_EQ(Shadow::kAsanMemoryByte,
+  EXPECT_EQ(kAsanMemoryMarker,
             Shadow::GetShadowMarkerForAddress(TestShadow::shadow_));
 
   const size_t kAllocSize = 13;
@@ -768,7 +767,7 @@ TEST_F(HeapTest, InternalStructureArePoisoned) {
   ASSERT_TRUE(header != NULL);
   const void* alloc_stack_cache_addr =
       reinterpret_cast<const void*>(header->alloc_stack);
-  EXPECT_EQ(Shadow::kAsanMemoryByte,
+  EXPECT_EQ(kAsanMemoryMarker,
             Shadow::GetShadowMarkerForAddress(alloc_stack_cache_addr));
 
   ASSERT_TRUE(proxy_.Free(0, mem));

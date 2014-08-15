@@ -247,8 +247,7 @@ BadAccessKind ErrorInfoGetBadAccessKind(const void* addr,
       bad_access_kind = HEAP_BUFFER_UNDERFLOW;
     } else if (addr >= (block_info.body + block_info.body_size)) {
       bad_access_kind = HEAP_BUFFER_OVERFLOW;
-    } else if (Shadow::GetShadowMarkerForAddress(addr) ==
-        Shadow::kHeapFreedByte) {
+    } else if (Shadow::GetShadowMarkerForAddress(addr) == kHeapFreedMarker) {
       // This is a use after free on a block managed by a nested heap.
       bad_access_kind = USE_AFTER_FREE;
     }

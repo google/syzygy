@@ -237,7 +237,7 @@ class StackCaptureCache {
 class StackCaptureCache::CachePage {
  public:
   explicit CachePage(CachePage* link) : next_page_(link), bytes_used_(0) {
-    Shadow::Poison(this, sizeof(CachePage), Shadow::kAsanMemoryByte);
+    Shadow::Poison(this, sizeof(CachePage), kAsanMemoryMarker);
   }
 
   ~CachePage();

@@ -35,7 +35,7 @@ bool Shadow::GetNullTerminatedArraySize(const void* addr,
   // TODO(sebmarchand): Look into doing this more efficiently.
   while (true) {
     uint8 shadow = shadow_[index++];
-    if ((shadow & kHeapNonAccessibleByteMask) != 0)
+    if (ShadowMarkerHelper::IsRedzone(shadow))
       return false;
 
     uint8 max_index = shadow ? shadow : kShadowRatio;

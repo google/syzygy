@@ -37,7 +37,7 @@ TEST(ShadowMemoryNotifierTest, ShadowStateTransitionsWithNotification) {
   EXPECT_FALSE(Shadow::IsAccessible(buffer.get() + 10));
   EXPECT_TRUE(Shadow::IsAccessible(buffer.get() + kBufferSize));
   for (size_t i = 0; i < kBufferSize; ++i) {
-    EXPECT_EQ(Shadow::kAsanMemoryByte,
+    EXPECT_EQ(kAsanMemoryMarker,
               Shadow::GetShadowMarkerForAddress(buffer.get() + i));
   }
 
@@ -46,7 +46,7 @@ TEST(ShadowMemoryNotifierTest, ShadowStateTransitionsWithNotification) {
   EXPECT_FALSE(Shadow::IsAccessible(buffer.get() + 10));
   EXPECT_TRUE(Shadow::IsAccessible(buffer.get() + kBufferSize));
   for (size_t i = 0; i < kBufferSize; ++i) {
-    EXPECT_EQ(Shadow::kAsanReservedByte,
+    EXPECT_EQ(kAsanReservedMarker,
               Shadow::GetShadowMarkerForAddress(buffer.get() + i));
   }
 
@@ -55,7 +55,7 @@ TEST(ShadowMemoryNotifierTest, ShadowStateTransitionsWithNotification) {
   EXPECT_TRUE(Shadow::IsAccessible(buffer.get() + 10));
   EXPECT_TRUE(Shadow::IsAccessible(buffer.get() + kBufferSize));
   for (size_t i = 0; i < kBufferSize; ++i) {
-    EXPECT_EQ(Shadow::kHeapAddressableByte,
+    EXPECT_EQ(kHeapAddressableMarker,
               Shadow::GetShadowMarkerForAddress(buffer.get() + i));
   }
 

@@ -48,7 +48,7 @@ TEST(ShadowTest, PoisonUnpoisonAccess) {
     for (size_t i = 0; i < size; ++i)
       EXPECT_TRUE(Shadow::IsAccessible(start_addr + i));
 
-    Shadow::Poison(start_addr, size, Shadow::kHeapNonAccessibleByteMask);
+    Shadow::Poison(start_addr, size, kAsanReservedMarker);
     for (size_t i = 0; i < size; ++i)
       EXPECT_FALSE(Shadow::IsAccessible(start_addr + i));
     EXPECT_TRUE(Shadow::IsAccessible(start_addr - 1));
@@ -79,17 +79,17 @@ TEST(ShadowTest, SetUpAndTearDown) {
 
   Shadow::SetUp();
   for (size_t i = shadow_start; i < shadow_end; i += kLookupInterval)
-    ASSERT_EQ(Shadow::kAsanMemoryByte, TestShadow::shadow_[i]);
+    ASSERT_EQ(kAsanMemoryMarker, TestShadow::shadow_[i]);
 
   for (size_t i = 0; i < non_addressable_memory_end; i += kLookupInterval)
-    ASSERT_EQ(Shadow::kInvalidAddress, TestShadow::shadow_[i]);
+    ASSERT_EQ(kInvalidAddressMarker, TestShadow::shadow_[i]);
 
   Shadow::TearDown();
   for (size_t i = shadow_start; i < shadow_end; i += kLookupInterval)
-    ASSERT_EQ(Shadow::kHeapAddressableByte, TestShadow::shadow_[i]);
+    ASSERT_EQ(kHeapAddressableMarker, TestShadow::shadow_[i]);
 
   for (size_t i = 0; i < non_addressable_memory_end; i += kLookupInterval)
-    ASSERT_EQ(Shadow::kHeapAddressableByte, TestShadow::shadow_[i]);
+    ASSERT_EQ(kHeapAddressableMarker, TestShadow::shadow_[i]);
 }
 
 TEST(ShadowTest, GetNullTerminatedArraySize) {
@@ -107,7 +107,7 @@ TEST(ShadowTest, GetNullTerminatedArraySize) {
 
   ::memset(aligned_test_array, kMarkerValue, aligned_array_length);
   Shadow::Poison(aligned_test_array, aligned_array_length,
-      Shadow::kHeapNonAccessibleByteMask);
+                 kAsanReservedMarker);
 
   size_t sizes_to_test[] = { 4, 7, 12, 15, 21, 87, 88 };
 
@@ -150,8 +150,9 @@ TEST(ShadowTest, GetNullTerminatedArraySize) {
                                                           sizes_to_test[i],
                                                           &size));
 
-    Shadow::Poison(aligned_test_array, common::AlignUp(sizes_to_test[i],
-       kShadowRatio), Shadow::kHeapNonAccessibleByteMask);
+    Shadow::Poison(aligned_test_array,
+                   common::AlignUp(sizes_to_test[i], kShadowRatio),
+                   kAsanReservedMarker);
   }
   Shadow::Unpoison(aligned_test_array, aligned_array_length);
 }
@@ -182,12 +183,12 @@ TEST(ShadowTest, MarkAsFreed) {
       if (p >= i1.block && p < i1.body) {
         EXPECT_TRUE(Shadow::IsLeftRedzone(p));
       } else if (p >= i1.body && p < i1.trailer_padding) {
-        EXPECT_EQ(Shadow::kHeapFreedByte,
+        EXPECT_EQ(kHeapFreedMarker,
                   Shadow::GetShadowMarkerForAddress(p));
       } else if (p >= i1.trailer_padding && p < i1.block + i1.block_size) {
         EXPECT_TRUE(Shadow::IsRightRedzone(p));
       } else {
-        EXPECT_EQ(Shadow::kHeapFreedByte,
+        EXPECT_EQ(kHeapFreedMarker,
                   Shadow::GetShadowMarkerForAddress(p));
       }
     } else if (p >= i0.trailer_padding && p < i0.block + i0.block_size) {
@@ -209,21 +210,21 @@ TEST(ShadowTest, PoisonAllocatedBlock) {
 
   Shadow::PoisonAllocatedBlock(info);
   EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 0 * 8),
-            Shadow::kHeapBlockStartByte0 | 7);
+            kHeapBlockStartMarker0 | 7);
   EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 1 * 8),
-            Shadow::kHeapLeftRedzone);
+            kHeapLeftPaddingMarker);
   EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 2 * 8),
-            Shadow::kHeapLeftRedzone);
+            kHeapLeftPaddingMarker);
   EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 3 * 8),
             0);
   EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 4 * 8),
             7);
   EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 5 * 8),
-            Shadow::kHeapRightRedzone);
+            kHeapRightPaddingMarker);
   EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 6 * 8),
-            Shadow::kHeapRightRedzone);
+            kHeapRightPaddingMarker);
   EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 7 * 8),
-            Shadow::kHeapBlockEndByte);
+            kHeapBlockEndMarker);
   Shadow::Unpoison(info.block, info.block_size);
 
   delete [] data;
@@ -232,11 +233,11 @@ TEST(ShadowTest, PoisonAllocatedBlock) {
 TEST(ShadowTest, ScanLeftAndRight) {
   size_t offset = Shadow::kShadowSize / 2;
   size_t l = 0;
-  TestShadow::shadow_[offset + 0] = Shadow::kHeapBlockStartByte0;
-  TestShadow::shadow_[offset + 1] = Shadow::kHeapNestedBlockStartByte0;
-  TestShadow::shadow_[offset + 2] = Shadow::kHeapAddressableByte;
-  TestShadow::shadow_[offset + 3] = Shadow::kHeapNestedBlockEndByte;
-  TestShadow::shadow_[offset + 4] = Shadow::kHeapBlockEndByte;
+  TestShadow::shadow_[offset + 0] = kHeapBlockStartMarker0;
+  TestShadow::shadow_[offset + 1] = kHeapNestedBlockStartMarker0;
+  TestShadow::shadow_[offset + 2] = kHeapAddressableMarker;
+  TestShadow::shadow_[offset + 3] = kHeapNestedBlockEndMarker;
+  TestShadow::shadow_[offset + 4] = kHeapBlockEndMarker;
 
   EXPECT_TRUE(TestShadow::ScanLeftForBracketingBlockStart(0, offset + 0, &l));
   EXPECT_EQ(offset, l);

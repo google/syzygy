@@ -267,9 +267,8 @@ enum AccessMode {
 
 // The slow path relies on the fact that the shadow memory non accessible byte
 // mask has its upper bit set to 1.
-COMPILE_ASSERT(
-    (Shadow::kHeapNonAccessibleByteMask & (1 << 7)) != 0,
-        asan_shadow_mask_upper_bit_is_0);
+COMPILE_ASSERT((agent::asan::kHeapNonAccessibleMarkerMask & (1 << 7)) != 0,
+               asan_shadow_mask_upper_bit_is_0);
 
 // Generate the flag-saving memory access intercept functions.
 ASAN_MEM_INTERCEPT_FUNCTIONS(ASAN_CHECK_FUNCTION)

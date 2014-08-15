@@ -751,10 +751,10 @@ void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
   // in the upper region of the memory (over the 2 GB limit).
   if ((reinterpret_cast<size_t>(error_info->location) & (1 << 31)) != 0 ||
       Shadow::GetShadowMarkerForAddress(error_info->location)
-          == Shadow::kAsanMemoryByte) {
+          == kAsanMemoryMarker) {
       error_info->error_type = WILD_ACCESS;
   } else if (Shadow::GetShadowMarkerForAddress(error_info->location) ==
-      Shadow::kInvalidAddress) {
+      kInvalidAddressMarker) {
     error_info->error_type = INVALID_ADDRESS;
   } else {
     ErrorInfoGetBadAccessInformation(stack_cache_.get(), error_info);
