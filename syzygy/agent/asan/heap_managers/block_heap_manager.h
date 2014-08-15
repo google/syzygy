@@ -193,6 +193,9 @@ class BlockHeapManager : public HeapManagerInterface {
   // recovery of some useful debugging information.
   HeapErrorCallback heap_error_callback_;
 
+  // The heap that gets used for the unguarded allocations.
+  scoped_ptr<HeapInterface> unguarded_allocation_heap_;
+
  private:
   DISALLOW_COPY_AND_ASSIGN(BlockHeapManager);
 };

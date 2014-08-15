@@ -15,6 +15,7 @@
 #include "syzygy/agent/asan/heap_managers/block_heap_manager.h"
 
 #include "base/bind.h"
+#include "base/rand_util.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/heaps/simple_block_heap.h"
@@ -40,6 +41,7 @@ BlockHeapManager::BlockHeapManager(AsanRuntime* runtime)
   SetHeapErrorCallback(base::Bind(&AsanRuntime::OnError,
                                   base::Unretained(runtime_)));
   PropagateParameters();
+  unguarded_allocation_heap_.reset(new heaps::WinHeap());
 }
 
 BlockHeapManager::~BlockHeapManager() {
@@ -84,6 +86,14 @@ bool BlockHeapManager::DestroyHeap(HeapId heap_id) {
 
 void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
   DCHECK_NE(static_cast<HeapId>(NULL), heap_id);
+
+  // Some allocations can pass through without instrumentation.
+  if (parameters_.allocation_guard_rate < 1.0 &&
+      base::RandDouble() >= parameters_.allocation_guard_rate) {
+    void* alloc = unguarded_allocation_heap_->Allocate(bytes);
+    return alloc;
+  }
+
   BlockLayout block_layout = {};
   void* ptr = reinterpret_cast<BlockHeapInterface*>(heap_id)->AllocateBlock(
       bytes,
@@ -116,7 +126,16 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   BlockHeapInterface* heap = reinterpret_cast<BlockHeapInterface*>(heap_id);
   BlockInfo block_info = {};
 
-  if (IsBlockCorrupt(reinterpret_cast<uint8*>(alloc), &block_info)) {
+  BlockHeader* header = BlockGetHeaderFromBody(alloc);
+  if (header == NULL || !Shadow::BlockInfoFromShadow(header, &block_info)) {
+    // TODO(chrisha|sebmarchand): Handle invalid allocation addresses. Currently
+    //     we can't tell these apart from unguarded allocations.
+
+    // Assume that this block was allocated without guards.
+    return unguarded_allocation_heap_->Free(alloc);
+  }
+
+  if (!BlockChecksumIsValid(block_info)) {
     // The free stack hasn't yet been set, but may have been filled with junk.
     // Reset it.
     block_info.header->free_stack = NULL;

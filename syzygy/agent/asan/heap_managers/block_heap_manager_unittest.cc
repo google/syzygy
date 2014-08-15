@@ -184,6 +184,10 @@ class BlockHeapManagerTest : public testing::Test {
     // Set the error callback that the manager will use.
     heap_manager_.SetHeapErrorCallback(
         base::Bind(&BlockHeapManagerTest::OnHeapError, base::Unretained(this)));
+
+    common::AsanParameters params;
+    common::SetDefaultAsanParameters(&params);
+    heap_manager_.set_parameters(params);
   }
 
   virtual void TearDown() OVERRIDE {
@@ -741,6 +745,63 @@ TEST_F(BlockHeapManagerTest, DoubleFree) {
   EXPECT_EQ(1u, errors_.size());
   EXPECT_EQ(DOUBLE_FREE, errors_[0].error_type);
   EXPECT_EQ(mem, errors_[0].location);
+}
+
+TEST_F(BlockHeapManagerTest, SubsampledAllocationGuards) {
+  common::AsanParameters parameters = heap_manager_.parameters();
+  parameters.allocation_guard_rate = 0.5;
+  heap_manager_.set_parameters(parameters);
+  ScopedHeap heap(&heap_manager_);
+
+  size_t guarded_allocations = 0;
+  size_t unguarded_allocations = 0;
+
+  // Make a handful of allocations.
+  const size_t kAllocationCount = 10000;
+  const size_t kAllocationSizes[] = {
+      1, 2, 4, 8, 14, 30, 128, 237, 500, 1000, 2036 };
+  std::vector<void*> allocations;
+  for (size_t i = 0; i < kAllocationCount; ++i) {
+    size_t alloc_size = kAllocationSizes[i % arraysize(kAllocationSizes)];
+    void* alloc = heap.Allocate(alloc_size);
+    EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+
+    // Determine if the allocation has guards or not.
+    BlockHeader* header = BlockGetHeaderFromBody(alloc);
+    if (header == NULL) {
+      ++unguarded_allocations;
+    } else {
+      ++guarded_allocations;
+    }
+
+    // Delete half of the allocations immediately, and keep half of them
+    // around for longer. This puts more of a stress test on the quarantine
+    // itself.
+    if (base::RandDouble() < 0.5) {
+      EXPECT_TRUE(heap.Free(alloc));
+    } else {
+      allocations.push_back(alloc);
+    }
+  }
+
+  // Free the outstanding allocations.
+  for (size_t i = 0; i < allocations.size(); ++i)
+    EXPECT_TRUE(heap.Free(allocations[i]));
+
+  // Clear the quarantine. This should free up the remaining instrumented
+  // but quarantined blocks.
+  EXPECT_NO_FATAL_FAILURE(heap.FlushQuarantine());
+
+  // This could theoretically fail, but that would imply an extremely bad
+  // implementation of the underlying random number generator. There are 10000
+  // allocations. Since this is effectively a fair coin toss we expect a
+  // standard deviation of 0.5 * sqrt(10000) = 50. A 10% margin is
+  // 1000 / 50 = 20 standard deviations. For |z| > 20, the p-value is 5.5e-89,
+  // or 89 nines of confidence. That should keep any flake largely at bay.
+  // Thus, if this fails it's pretty much certain the implementation is at
+  // fault.
+  EXPECT_LT(4 * kAllocationCount / 10, guarded_allocations);
+  EXPECT_GT(6 * kAllocationCount / 10, guarded_allocations);
 }
 
 }  // namespace heap_managers
