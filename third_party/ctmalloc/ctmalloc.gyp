@@ -47,7 +47,7 @@
       ],
       'all_dependent_settings': {
         'defines': [
-          # We disable debug features of the CTMalloc heap as they are redundant
+          # We disable debug features of the CtMalloc heap as they are redundant
           # given SyzyASan's extensive debug features.
           'CTMALLOC_NDEBUG',
         ],

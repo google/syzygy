@@ -525,7 +525,7 @@ void AsanRuntime::PropagateParams() const {
   // checks will ensure that this is the case.
   COMPILE_ASSERT(sizeof(common::AsanParameters) == 52,
                  must_update_propagate_params);
-  COMPILE_ASSERT(common::kAsanParametersVersion == 3,
+  COMPILE_ASSERT(common::kAsanParametersVersion == 4,
                  must_update_parameters_version);
 
   // Push the configured parameter values to the appropriate endpoints.

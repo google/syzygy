@@ -158,6 +158,9 @@ const bool kDefaultLogAsText = true;
 const uint32 kDefaultZebraBlockHeapSize = 16 * 1024 * 1024;
 const float kDefaultZebraBlockHeapQuarantineRatio = 0.25f;
 
+// Default values of the BlockHeapManager parameters.
+const bool kDefaultEnableCtMalloc = false;
+
 // String names of HeapProxy parameters.
 const char kParamQuarantineSize[] = "quarantine_size";
 const char kParamQuarantineBlockSize[] = "quarantine_block_size";
@@ -185,6 +188,9 @@ const char kParamNoLogAsText[] = "no_log_as_text";
 const char kParamZebraBlockHeapSize[] = "zebra_block_heap_size";
 const char kParamZebraBlockHeapQuarantineRatio[] =
     "zebra_block_heap_quarantine_ratio";
+
+// String names of BlockHeapManager parameters.
+const char kParamEnableCtMalloc[] = "enable_ctmalloc";
 
 InflatedAsanParameters::InflatedAsanParameters() {
   // Clear the AsanParameters portion of ourselves.
@@ -254,12 +260,13 @@ void SetDefaultAsanParameters(AsanParameters* asan_parameters) {
   asan_parameters->zebra_block_heap_size = kDefaultZebraBlockHeapSize;
   asan_parameters->zebra_block_heap_quarantine_ratio =
       kDefaultZebraBlockHeapQuarantineRatio;
+  asan_parameters->enable_ctmalloc = kDefaultEnableCtMalloc;
 }
 
 bool InflateAsanParameters(const AsanParameters* pod_params,
                            InflatedAsanParameters* inflated_params) {
   // This must be kept up to date with AsanParameters as it evolves.
-  static const size_t kSizeOfAsanParametersByVersion[] = { 40, 44, 48, 52 };
+  static const size_t kSizeOfAsanParametersByVersion[] = { 40, 44, 48, 52, 52 };
   COMPILE_ASSERT(arraysize(kSizeOfAsanParametersByVersion) ==
                      kAsanParametersVersion + 1,
                  kSizeOfAsanParametersByVersion_out_of_date);
@@ -395,6 +402,8 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
     asan_parameters->check_heap_on_failure = false;
   if (cmd_line.HasSwitch(kParamDisableBreakpadReporting))
     asan_parameters->disable_breakpad_reporting = true;
+  if (cmd_line.HasSwitch(kParamEnableCtMalloc))
+    asan_parameters->enable_ctmalloc = true;
 
   return true;
 }

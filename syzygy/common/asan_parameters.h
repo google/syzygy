@@ -96,10 +96,15 @@ struct AsanParameters {
       // AsanRuntime: If true, we won't try to report the crashes via breakpad
       // on failure.
       unsigned disable_breakpad_reporting : 1;
+      // BlockHeapManager: Indicates if CtMalloc should be used to serve the
+      // user's allocations.
+      // TODO(sebmarchand): Add CtMalloc support to BlockHeapManager and put it
+      //     behind this flag.
+      unsigned enable_ctmalloc : 1;
 
       // Add new flags here!
 
-      unsigned reserved1 : 27;
+      unsigned reserved1 : 26;
     };
   };
 
@@ -124,7 +129,7 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 52);
 // The current version of the ASAN parameters structure. This must be updated
 // if any changes are made to the above structure! This is defined in the header
 // file to allow compile time assertions against this version number.
-const uint32 kAsanParametersVersion = 3u;
+const uint32 kAsanParametersVersion = 4u;
 
 // The name of the section that will be injected into an instrumented image,
 // and contain the AsanParameters structure. ASAN can't use your typical entry
@@ -199,6 +204,8 @@ extern const bool kDefaultLogAsText;
 // Default values of ZebraBlockHeap parameters.
 extern const uint32 kDefaultZebraBlockHeapSize;
 extern const float kDefaultZebraBlockHeapQuarantineRatio;
+// Default values of the BlockHeapManager parameters.
+extern const bool kDefaultEnableCtMalloc;
 
 // String names of HeapProxy parameters.
 extern const char kParamQuarantineSize[];
@@ -220,6 +227,8 @@ extern const char kParamLogAsText[];
 // String names of ZebraBlockHeap parameters.
 extern const char kParamZebraBlockHeapSize[];
 extern const char kParamZebraBlockHeapQuarantineRatio[];
+// String names of BlockHeapManager parameters.
+extern const char kParamEnableCtMalloc[];
 
 // Initializes an AsanParameters struct with default values.
 // @param asan_parameters The AsanParameters struct to be initialized.

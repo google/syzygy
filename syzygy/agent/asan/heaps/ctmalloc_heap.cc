@@ -20,7 +20,7 @@ namespace heaps {
 
 namespace {
 
-// Callback that CTMalloc will invoke when memory is reserved.
+// Callback that CtMalloc will invoke when memory is reserved.
 void CtMallocMemoryReservedCallback(
     void* user_data, void* addr, size_t length) {
   DCHECK_NE(static_cast<void*>(NULL), user_data);
@@ -32,7 +32,7 @@ void CtMallocMemoryReservedCallback(
   memory_notifier->NotifyFutureHeapUse(addr, length);
 }
 
-// Callback that CTMalloc will invoke when memory is released.
+// Callback that CtMalloc will invoke when memory is released.
 void CtMallocMemoryReleasedCallback(
     void* user_data, void* addr, size_t length) {
   DCHECK_NE(static_cast<void*>(NULL), user_data);
@@ -52,7 +52,7 @@ CtMallocHeap::CtMallocHeap(MemoryNotifierInterface* memory_notifier)
 
   ::memset(&allocator_, 0, sizeof(allocator_));
 
-  // Wire the memory notifier up to the underlying CTMalloc implementation via
+  // Wire the memory notifier up to the underlying CtMalloc implementation via
   // the callbacks we added.
   allocator_.root()->callbacks.user_data = memory_notifier;
   allocator_.root()->callbacks.reserved_callback =
@@ -60,12 +60,12 @@ CtMallocHeap::CtMallocHeap(MemoryNotifierInterface* memory_notifier)
   allocator_.root()->callbacks.released_callback =
       &CtMallocMemoryReleasedCallback;
 
-  // Initialize the CTMalloc heap.
+  // Initialize the CtMalloc heap.
   allocator_.init();
 }
 
 CtMallocHeap::~CtMallocHeap() {
-  // Shutdown the CTMalloc heap.
+  // Shutdown the CtMalloc heap.
   allocator_.shutdown();
 }
 

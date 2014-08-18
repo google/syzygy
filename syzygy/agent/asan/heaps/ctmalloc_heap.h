@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// An implementation of HeapInterface that wraps the CTMalloc heap.
+// An implementation of HeapInterface that wraps the CtMalloc heap.
 
 #ifndef SYZYGY_AGENT_ASAN_HEAPS_CTMALLOC_HEAP_H_
 #define SYZYGY_AGENT_ASAN_HEAPS_CTMALLOC_HEAP_H_
