@@ -36,8 +36,7 @@ class HeapChecker {
   typedef ScopedVector<AsanCorruptBlockRange> CorruptRangesVector;
 
   // Constructor.
-  // @param The runtime managing the heaps.
-  explicit HeapChecker(AsanRuntime* runtime);
+  HeapChecker() { }
 
   // Checks if the heap is corrupt and returns the information about the
   // corrupt ranges.
@@ -59,9 +58,6 @@ class HeapChecker {
   void GetCorruptRangesInSlab(const uint8* lower_bound,
                               size_t length,
                               CorruptRangesVector* corrupt_ranges);
-
-  // The runtime managing the heaps.
-  AsanRuntime* runtime_;
 };
 
 }  // namespace asan

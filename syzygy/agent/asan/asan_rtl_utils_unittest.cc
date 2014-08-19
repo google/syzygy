@@ -27,7 +27,6 @@ namespace asan {
 
 namespace {
 
-using agent::asan::HeapProxy;
 using agent::asan::Shadow;
 
 // A flag used in asan callback to ensure that a memory error has been detected.

@@ -205,7 +205,8 @@ class BlockHeapManagerTest : public testing::Test {
                     kShadowRatio,
                     user_size,
                     0,
-                    heap_manager_.parameters().trailer_padding_size,
+                    heap_manager_.parameters().trailer_padding_size +
+                        sizeof(BlockTrailer),
                     &layout);
     return layout.block_size;
   }

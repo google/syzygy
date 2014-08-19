@@ -75,7 +75,7 @@ struct AsanBlockInfo {
   const void* header;
   // The user size of the block.
   size_t user_size : 30;
-  // This is implicitly a HeapProxy::BlockState value.
+  // This is implicitly a BlockState value.
   size_t state : 2;
   // The ID of the allocation thread.
   DWORD alloc_tid;

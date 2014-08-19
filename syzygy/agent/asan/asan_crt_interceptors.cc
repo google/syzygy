@@ -24,7 +24,6 @@
 
 namespace {
 
-using agent::asan::HeapProxy;
 using agent::asan::Shadow;
 using agent::asan::TestMemoryRange;
 

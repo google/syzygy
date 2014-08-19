@@ -431,7 +431,7 @@ void AsanRuntime::OnError(AsanErrorInfo* error_info) {
   error_info->heap_is_corrupt = false;
   if (params_.check_heap_on_failure) {
     // TODO(chrisha): Rename IsHeapCorrupt to something else!
-    HeapChecker heap_checker(this);
+    HeapChecker heap_checker;
     HeapChecker::CorruptRangesVector corrupt_ranges;
     heap_checker.IsHeapCorrupt(&corrupt_ranges);
     size_t size = CalculateCorruptHeapInfoSize(corrupt_ranges);
@@ -801,7 +801,7 @@ LONG WINAPI AsanRuntime::UnhandledExceptionFilter(
       runtime_->logger_->Write(
           "SyzyASAN: Heap checker enabled, processing unhandled exception.");
 
-      HeapChecker heap_checker(runtime_);
+      HeapChecker heap_checker;
       HeapChecker::CorruptRangesVector corrupt_ranges;
       heap_checker.IsHeapCorrupt(&corrupt_ranges);
       size_t size = runtime_->CalculateCorruptHeapInfoSize(corrupt_ranges);

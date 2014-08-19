@@ -21,10 +21,6 @@
 namespace agent {
 namespace asan {
 
-HeapChecker::HeapChecker(AsanRuntime* runtime) : runtime_(runtime) {
-  DCHECK_NE(reinterpret_cast<AsanRuntime*>(NULL), runtime);
-}
-
 bool HeapChecker::IsHeapCorrupt(CorruptRangesVector* corrupt_ranges) {
   DCHECK_NE(reinterpret_cast<CorruptRangesVector*>(NULL), corrupt_ranges);
 
