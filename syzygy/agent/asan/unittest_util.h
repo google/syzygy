@@ -22,11 +22,12 @@
 #include "base/strings/string_piece.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/error_info.h"
+#include "syzygy/agent/asan/heap.h"
 #include "syzygy/agent/asan/memory_notifier.h"
+#include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/trace/agent_logger/agent_logger.h"
 #include "syzygy/trace/agent_logger/agent_logger_rpc_impl.h"
@@ -34,7 +35,7 @@
 namespace testing {
 
 using agent::asan::AsanErrorInfo;
-using agent::asan::HeapProxy;
+using agent::asan::StackCaptureCache;
 
 // The default name of the runtime library DLL.
 extern const wchar_t kSyzyAsanRtlDll[];
@@ -332,31 +333,22 @@ class ScopedASanAlloc : public scoped_ptr<T, ASanDeleteHelper> {
   }
 };
 
-// A unittest fixture that initializes an ASan heap that can be used in the
-// unittests.
-class TestWithAsanHeap : public testing::Test {
+// A unittest fixture that initializes an ASan runtime instance.
+class TestWithAsanRuntime : public testing::Test {
  public:
-  TestWithAsanHeap() : stack_cache_(&logger_) {
-  }
-
   virtual void SetUp() OVERRIDE {
     testing::Test::SetUp();
-    HeapProxy::Init(&stack_cache_);
-    agent::asan::Shadow::SetUp();
-    logger_.Init();
-    ASSERT_TRUE(proxy_.Create(0, 0, 0));
+    runtime_.SetUp(L"");
   }
 
   virtual void TearDown() OVERRIDE {
-    ASSERT_TRUE(proxy_.Destroy());
-    agent::asan::Shadow::TearDown();
+    runtime_.TearDown();
     testing::Test::TearDown();
   }
 
  protected:
-  agent::asan::AsanLogger logger_;
-  agent::asan::StackCaptureCache stack_cache_;
-  HeapProxy proxy_;
+  // The runtime instance used by the tests.
+  agent::asan::AsanRuntime runtime_;
 };
 
 // A unittest fixture to test the bookkeeping functions.
@@ -371,7 +363,7 @@ struct FakeAsanBlock {
   static const uint8 kBufferHeaderValue = 0xAE;
   static const uint8 kBufferTrailerValue = 0xEA;
 
-  FakeAsanBlock(HeapProxy* proxy, size_t alloc_alignment_log);
+  FakeAsanBlock(size_t alloc_alignment_log, StackCaptureCache* stack_cache);
 
   ~FakeAsanBlock();
 
@@ -389,25 +381,25 @@ struct FakeAsanBlock {
   // The buffer we use internally.
   uint8 buffer[kBufferSize];
 
-  // The heap proxy we delegate to.
-  HeapProxy* proxy;
+  // The information about the block once it has been initialized.
+  agent::asan::BlockInfo block_info;
 
   // The alignment of the current allocation.
   size_t alloc_alignment;
   size_t alloc_alignment_log;
 
   // The sizes of the different sub-structures in the buffer.
-  size_t asan_alloc_size;
-  size_t user_alloc_size;
   size_t buffer_header_size;
   size_t buffer_trailer_size;
 
   // The pointers to the different sub-structures in the buffer.
   uint8* buffer_align_begin;
-  void* user_ptr;
 
   // Indicate if the buffer has been initialized.
   bool is_initialized;
+
+  // The cache that will store the stack traces of this block.
+  StackCaptureCache* stack_cache;
 };
 
 // A null memory notifier. Useful when testing objects that have a memory

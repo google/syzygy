@@ -28,10 +28,17 @@
 
 namespace testing {
 
+namespace {
+
+typedef agent::asan::HeapManagerInterface::HeapId HeapId;
+
 using agent::asan::BlockHeader;
 using agent::asan::BlockInfo;
+using agent::asan::BlockLayout;
 using agent::asan::Shadow;
 using agent::asan::StackCapture;
+
+}  // namespace
 
 const wchar_t kSyzyAsanRtlDll[] = L"syzyasan_rtl.dll";
 
@@ -143,63 +150,65 @@ void TestWithAsanLogger::AppendToLoggerEnv(const std::string &instance) {
   env->SetVar(kSyzygyRpcInstanceIdEnvVar, instance_id);
 }
 
-FakeAsanBlock::FakeAsanBlock(HeapProxy* proxy, size_t alloc_alignment_log)
-    : proxy(proxy), is_initialized(false),
-      alloc_alignment_log(alloc_alignment_log),
-      alloc_alignment(1 << alloc_alignment_log), user_ptr(NULL) {
+FakeAsanBlock::FakeAsanBlock(size_t alloc_alignment_log,
+                             StackCaptureCache* stack_cache)
+    : is_initialized(false), alloc_alignment_log(alloc_alignment_log),
+      alloc_alignment(1 << alloc_alignment_log), stack_cache(stack_cache) {
   // Align the beginning of the buffer to the current granularity. Ensure that
   // there's room to store magic bytes in front of this block.
   buffer_align_begin = reinterpret_cast<uint8*>(common::AlignUp(
       reinterpret_cast<size_t>(buffer)+1, alloc_alignment));
+  ::memset(&block_info, 0, sizeof(block_info));
 }
 
 FakeAsanBlock::~FakeAsanBlock() {
-  Shadow::Unpoison(buffer_align_begin, asan_alloc_size);
+  EXPECT_NE(0U, block_info.block_size);
+  Shadow::Unpoison(buffer_align_begin, block_info.block_size);
   ::memset(buffer, 0, sizeof(buffer));
 }
 
 bool FakeAsanBlock::InitializeBlock(size_t alloc_size) {
-  user_alloc_size = alloc_size;
-  asan_alloc_size = proxy->GetAllocSize(alloc_size,
-    alloc_alignment);
+  BlockLayout layout = {};
+  BlockPlanLayout(alloc_alignment,
+                  alloc_alignment,
+                  alloc_size,
+                  0,
+                  0,
+                  &layout);
+
+  // Initialize the ASan block.
+  BlockInitialize(layout, buffer_align_begin, false, &block_info);
+  EXPECT_NE(reinterpret_cast<void*>(NULL), block_info.body);
+
+  StackCapture stack;
+  stack.InitFromStack();
+  block_info.header->alloc_stack = stack_cache->SaveStackTrace(stack);
+
+  Shadow::PoisonAllocatedBlock(block_info);
+  BlockSetChecksum(block_info);
 
   // Calculate the size of the zone of the buffer that we use to ensure that
   // we don't corrupt the heap.
   buffer_header_size = buffer_align_begin - buffer;
-  buffer_trailer_size = kBufferSize - buffer_header_size - asan_alloc_size;
-  EXPECT_GT(kBufferSize, asan_alloc_size + buffer_header_size);
+  buffer_trailer_size = kBufferSize - buffer_header_size -
+      block_info.block_size;
+  EXPECT_GT(kBufferSize, layout.block_size + buffer_header_size);
 
   // Initialize the buffer header and trailer.
   ::memset(buffer, kBufferHeaderValue, buffer_header_size);
-  ::memset(buffer_align_begin + asan_alloc_size,
-           kBufferTrailerValue,
-           buffer_trailer_size);
+  ::memset(buffer_align_begin + block_info.block_size, kBufferTrailerValue,
+      buffer_trailer_size);
 
-  StackCapture stack;
-  stack.InitFromStack();
-  // Initialize the ASan block.
-  user_ptr = proxy->InitializeAsanBlock(buffer_align_begin,
-                                        alloc_size,
-                                        alloc_alignment_log,
-                                        false,
-                                        stack);
-  EXPECT_NE(reinterpret_cast<void*>(NULL), user_ptr);
-  BlockHeader* header = agent::asan::BlockGetHeaderFromBody(user_ptr);
-  EXPECT_NE(reinterpret_cast<BlockHeader*>(NULL), header);
-  BlockInfo block_info = {};
-  EXPECT_TRUE(BlockInfoFromMemory(header, &block_info));
-  EXPECT_TRUE(common::IsAligned(reinterpret_cast<size_t>(user_ptr),
-                                alloc_alignment));
+  EXPECT_TRUE(common::IsAligned(reinterpret_cast<size_t>(block_info.body),
+      alloc_alignment));
   EXPECT_TRUE(common::IsAligned(
-      reinterpret_cast<size_t>(buffer_align_begin)+asan_alloc_size,
+      reinterpret_cast<size_t>(buffer_align_begin) + block_info.block_size,
       agent::asan::kShadowRatio));
   EXPECT_EQ(buffer_align_begin, block_info.block);
-  EXPECT_EQ(user_ptr, block_info.body);
 
   void* expected_user_ptr = reinterpret_cast<void*>(
-      buffer_align_begin + std::max(sizeof(BlockHeader),
-      alloc_alignment));
-  EXPECT_TRUE(user_ptr == expected_user_ptr);
+      buffer_align_begin + std::max(sizeof(BlockHeader), alloc_alignment));
+  EXPECT_EQ(block_info.body, expected_user_ptr);
 
   size_t i = 0;
   // Ensure that the buffer header is accessible and correctly tagged.
@@ -207,7 +216,7 @@ bool FakeAsanBlock::InitializeBlock(size_t alloc_size) {
     EXPECT_EQ(kBufferHeaderValue, buffer[i]);
     EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
   }
-  size_t user_block_offset = reinterpret_cast<uint8*>(user_ptr)-buffer;
+  size_t user_block_offset = block_info.body - buffer;
   // Ensure that the block header isn't accessible.
   for (; i < user_block_offset; ++i)
     EXPECT_FALSE(Shadow::IsAccessible(buffer + i));
@@ -218,7 +227,7 @@ bool FakeAsanBlock::InitializeBlock(size_t alloc_size) {
     EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
 
   // Ensure that the block trailer isn't accessible.
-  for (; i < buffer_header_size + asan_alloc_size; ++i)
+  for (; i < buffer_header_size + block_info.block_size; ++i)
     EXPECT_FALSE(Shadow::IsAccessible(buffer + i));
 
   // Ensure that the buffer trailer is accessible and correctly tagged.
@@ -237,23 +246,23 @@ bool FakeAsanBlock::TestBlockMetadata() {
 
   // Ensure that the block header is valid. BlockGetHeaderFromBody takes
   // care of checking the magic number in the signature of the block.
-  BlockHeader* block_header = agent::asan::BlockGetHeaderFromBody(user_ptr);
-  EXPECT_TRUE(block_header != NULL);
+  BlockHeader* block_header = block_info.header;
+  EXPECT_NE(static_cast<BlockHeader*>(NULL), block_header);
   BlockInfo block_info = {};
   EXPECT_TRUE(BlockInfoFromMemory(block_header, &block_info));
+  const uint8* cursor = buffer_align_begin;
   EXPECT_EQ(::GetCurrentThreadId(), block_info.trailer->alloc_tid);
-  EXPECT_EQ(user_alloc_size, block_header->body_size);
   EXPECT_TRUE(block_header->alloc_stack != NULL);
   EXPECT_EQ(agent::asan::ALLOCATED_BLOCK, block_header->state);
-  const uint8* cursor = buffer_align_begin;
   EXPECT_TRUE(Shadow::IsBlockStartByte(cursor++));
-  for (; cursor < user_ptr; ++cursor)
+  for (; cursor < block_info.body; ++cursor)
     EXPECT_TRUE(Shadow::IsLeftRedzone(cursor));
   const uint8* aligned_trailer_begin = reinterpret_cast<const uint8*>(
-      common::AlignUp(reinterpret_cast<size_t>(user_ptr)+user_alloc_size,
+      common::AlignUp(reinterpret_cast<size_t>(block_info.body) +
+          block_info.body_size,
       agent::asan::kShadowRatio));
   for (const uint8* pos = aligned_trailer_begin;
-       pos < buffer_align_begin + asan_alloc_size;
+       pos < buffer_align_begin + block_info.block_size;
        ++pos) {
     EXPECT_TRUE(Shadow::IsRightRedzone(pos));
   }
@@ -265,21 +274,22 @@ bool FakeAsanBlock::MarkBlockAsQuarantined() {
   if (!is_initialized)
     return false;
 
-  BlockHeader* block_header = agent::asan::BlockGetHeaderFromBody(user_ptr);
-  EXPECT_NE(reinterpret_cast<BlockHeader*>(NULL), block_header);
+  BlockHeader* block_header = block_info.header;
+  EXPECT_NE(static_cast<BlockHeader*>(NULL), block_header);
   BlockInfo block_info = {};
   BlockInfoFromMemory(block_header, &block_info);
   EXPECT_TRUE(block_header->free_stack == NULL);
   EXPECT_TRUE(block_info.trailer != NULL);
   EXPECT_EQ(0U, block_info.trailer->free_tid);
 
+  Shadow::MarkAsFreed(block_info.body, block_info.body_size);
   StackCapture stack;
   stack.InitFromStack();
-  // Mark the block as quarantined.
-  proxy->MarkBlockAsQuarantined(buffer_align_begin, stack);
-  EXPECT_TRUE(block_header->free_stack != NULL);
-  EXPECT_EQ(agent::asan::QUARANTINED_BLOCK, block_header->state);
-  EXPECT_EQ(::GetCurrentThreadId(), block_info.trailer->free_tid);
+  block_info.header->free_stack = stack_cache->SaveStackTrace(stack);
+  block_info.header->state = agent::asan::QUARANTINED_BLOCK;
+  block_info.trailer->free_tid = ::GetCurrentThreadId();
+  block_info.trailer->free_ticks = ::GetTickCount();
+  BlockSetChecksum(block_info);
 
   size_t i = 0;
   // Ensure that the buffer header is accessible and correctly tagged.
@@ -288,7 +298,7 @@ bool FakeAsanBlock::MarkBlockAsQuarantined() {
     EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
   }
   // Ensure that the whole block isn't accessible.
-  for (; i < buffer_header_size + asan_alloc_size; ++i)
+  for (; i < buffer_header_size + block_info.block_size; ++i)
     EXPECT_FALSE(Shadow::IsAccessible(buffer + i));
 
   // Ensure that the buffer trailer is accessible and correctly tagged.

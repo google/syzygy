@@ -854,7 +854,7 @@ TEST_F(HeapTest, InitializeAsanBlock) {
   for (size_t alloc_alignment_log = kShadowRatioLog;
        alloc_alignment_log <= testing::FakeAsanBlock::kMaxAlignmentLog;
        ++alloc_alignment_log) {
-    testing::FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
+    testing::FakeAsanBlock fake_block(alloc_alignment_log, &stack_cache_);
     const size_t kAllocSize = 100;
     EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
     EXPECT_TRUE(fake_block.TestBlockMetadata());
@@ -865,7 +865,7 @@ TEST_F(HeapTest, MarkBlockAsQuarantined) {
   for (size_t alloc_alignment_log = kShadowRatioLog;
        alloc_alignment_log <= testing::FakeAsanBlock::kMaxAlignmentLog;
        ++alloc_alignment_log) {
-    testing::FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
+    testing::FakeAsanBlock fake_block(alloc_alignment_log, &stack_cache_);
     const size_t kAllocSize = 100;
     EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
     EXPECT_TRUE(fake_block.TestBlockMetadata());
@@ -877,13 +877,13 @@ TEST_F(HeapTest, DestroyAsanBlock) {
   for (size_t alloc_alignment_log = kShadowRatioLog;
        alloc_alignment_log <= testing::FakeAsanBlock::kMaxAlignmentLog;
        ++alloc_alignment_log) {
-    testing::FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
+    testing::FakeAsanBlock fake_block(alloc_alignment_log, &stack_cache_);
     const size_t kAllocSize = 100;
     EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
     EXPECT_TRUE(fake_block.TestBlockMetadata());
     EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
 
-    BlockHeader* block_header = BlockGetHeaderFromBody(fake_block.user_ptr);
+    BlockHeader* block_header = fake_block.block_info.header;
     EXPECT_NE(reinterpret_cast<BlockHeader*>(NULL), block_header);
     StackCapture* alloc_stack = const_cast<StackCapture*>(
         block_header->alloc_stack);
@@ -914,18 +914,18 @@ TEST_F(HeapTest, CloneBlock) {
        alloc_alignment_log <= testing::FakeAsanBlock::kMaxAlignmentLog;
        ++alloc_alignment_log) {
     // Create a fake block and mark it as quarantined.
-    testing::FakeAsanBlock fake_block(&proxy_, alloc_alignment_log);
+    testing::FakeAsanBlock fake_block(alloc_alignment_log, &stack_cache_);
     const size_t kAllocSize = 100;
     EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
     EXPECT_TRUE(fake_block.TestBlockMetadata());
     // Fill the block with a non zero value.
-    ::memset(fake_block.user_ptr, 0xEE, kAllocSize);
+    ::memset(fake_block.block_info.body, 0xEE, kAllocSize);
     EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
 
-    size_t asan_alloc_size = fake_block.asan_alloc_size;
+    size_t asan_alloc_size = fake_block.block_info.block_size;
 
     // Get the current count of the alloc and free stack traces.
-    BlockHeader* block_header = BlockGetHeaderFromBody(fake_block.user_ptr);
+    BlockHeader* block_header = fake_block.block_info.header;
     StackCapture* alloc_stack = const_cast<StackCapture*>(
         block_header->alloc_stack);
     StackCapture* free_stack = const_cast<StackCapture*>(
@@ -938,10 +938,10 @@ TEST_F(HeapTest, CloneBlock) {
     size_t free_stack_count = alloc_stack->ref_count();
 
     // Clone the fake block into a second one.
-    testing::FakeAsanBlock fake_block_2(&proxy_, alloc_alignment_log);
+    testing::FakeAsanBlock fake_block_2(alloc_alignment_log, &stack_cache_);
     proxy_.CloneObject(fake_block.buffer_align_begin,
                        fake_block_2.buffer_align_begin);
-    fake_block_2.asan_alloc_size = asan_alloc_size;
+    fake_block_2.block_info.block_size = fake_block.block_info.block_size;
 
     // Ensure that the stack trace counts have been incremented.
     EXPECT_EQ(alloc_stack_count + 1, alloc_stack->ref_count());

@@ -17,7 +17,6 @@
 #include <algorithm>
 
 #include "gtest/gtest.h"
-#include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_rtl_impl.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/shadow.h"
