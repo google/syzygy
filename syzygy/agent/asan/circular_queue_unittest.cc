@@ -16,6 +16,7 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/agent/asan/allocators.h"
 #include "syzygy/agent/asan/unittest_util.h"
 
 namespace agent {

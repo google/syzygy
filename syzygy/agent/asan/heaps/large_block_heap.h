@@ -29,6 +29,7 @@
 
 #include <unordered_set>
 
+#include "syzygy/agent/asan/allocators.h"
 #include "syzygy/agent/asan/heap.h"
 #include "syzygy/agent/asan/memory_notifier.h"
 #include "syzygy/common/recursive_lock.h"

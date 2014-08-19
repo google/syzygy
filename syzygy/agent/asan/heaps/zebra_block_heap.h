@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "base/logging.h"
+#include "syzygy/agent/asan/allocators.h"
 #include "syzygy/agent/asan/circular_queue.h"
 #include "syzygy/agent/asan/constants.h"
 #include "syzygy/agent/asan/heap.h"

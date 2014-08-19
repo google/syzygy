@@ -444,6 +444,20 @@ class MockMemoryNotifier : public agent::asan::MemoryNotifierInterface {
   DISALLOW_COPY_AND_ASSIGN(MockMemoryNotifier);
 };
 
+// A mock HeapInterface.
+class LenientMockHeap : public agent::asan::HeapInterface {
+ public:
+  LenientMockHeap() { }
+  virtual ~LenientMockHeap() { }
+  MOCK_CONST_METHOD0(GetHeapFeatures, uint32());
+  MOCK_METHOD1(Allocate, void*(size_t));
+  MOCK_METHOD1(Free, bool(void*));
+  MOCK_METHOD1(IsAllocated, bool(void*));
+  MOCK_METHOD0(Lock, void());
+  MOCK_METHOD0(Unlock, void());
+};
+typedef testing::StrictMock<LenientMockHeap> MockHeap;
+
 typedef ScopedVector<agent::asan::AsanBlockInfo> AsanBlockInfoVector;
 typedef std::pair<agent::asan::AsanCorruptBlockRange, AsanBlockInfoVector>
     CorruptRangeInfo;

@@ -23,6 +23,8 @@
       'target_name': 'syzyasan_rtl_lib',
       'type': 'static_library',
       'sources': [
+        'allocators.h',
+        'allocators_impl.h',
         'asan_crt_interceptors.cc',
         'asan_crt_interceptors.h',
         'asan_heap.cc',
@@ -57,7 +59,6 @@
         'memory_interceptors.cc',
         'memory_interceptors.h',
         'memory_notifier.h',
-        'memory_notifier_impl.h',
         'page_allocator.h',
         'page_allocator_impl.h',
         'quarantine.h',
@@ -200,6 +201,7 @@
       'target_name': 'syzyasan_rtl_unittests',
       'type': 'executable',
       'sources': [
+        'allocators_unittest.cc',
         'asan_crt_interceptors_unittest.cc',
         'asan_heap_checker_unittest.cc',
         'asan_heap_unittest.cc',
@@ -216,7 +218,6 @@
         'error_info_unittest.cc',
         'nested_heap_unittest.cc',
         'memory_interceptors_unittest.cc',
-        'memory_notifier_unittest.cc',
         'page_allocator_unittest.cc',
         'shadow_marker_unittest.cc',
         'shadow_unittest.cc',

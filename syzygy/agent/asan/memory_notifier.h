@@ -50,63 +50,7 @@ class MemoryNotifierInterface {
   virtual void NotifyReturnedToOS(const void* address, size_t size) = 0;
 };
 
-// An STL-compatible allocator that notifies a MemoryNotifier object of
-// memory use.
-// @tparam T The type of object that is returned by the allocator.
-template <typename T>
-class MemoryNotifierAllocator : public std::allocator<T> {
- public:
-  typedef size_t size_type;
-  typedef T* pointer;
-  typedef const T* const_pointer;
-
-  // Functor that converts this allocator to an equivalent one for another
-  // type.
-  // @tparam T2 The type being casted to.
-  template <typename T2>
-  struct rebind {
-    typedef MemoryNotifierAllocator<T2> other;
-  };
-
-  // Constructor with a notification object.
-  // @param memory_notification A pointer to the memory notification object
-  //     that this allocate will notify.
-  explicit MemoryNotifierAllocator(
-      MemoryNotifierInterface* memory_notification);
-
-  // Copy constructor. Necessary for STL compatibility.
-  MemoryNotifierAllocator(const MemoryNotifierAllocator& other);
-
-  // Copy constructor from another type. Necessary for STL compatibility.
-  // This simply copies the memory notification API.
-  // @tparam T2 The type of the other allocator.
-  // @param other The allocator being copied.
-  template <typename T2>
-  MemoryNotifierAllocator(const MemoryNotifierAllocator<T2>& other);
-
-  // Allocates @p count objects of type T.
-  // @param count The number of objects to allocate.
-  // @param hint A hint as to where the objects should be allocated.
-  // @returns a pointer to the allocated objects, NULL if the allocation
-  //     failed.
-  pointer allocate(size_type count, const void* hint = NULL);
-
-  // Deallocates a group of @p n objects.
-  // @param objects A pointer to the allocated objects. This must have
-  //     previously been returned a call to 'allocate'.
-  // @param count The number of objects in the allocation.
-  void deallocate(pointer objects, size_type count);
-
-  // @returns the MemoryNotifier object used by this allocator.
-  MemoryNotifierInterface* memory_notification() const;
-
- protected:
-  MemoryNotifierInterface* memory_notification_;
-};
-
 }  // namespace asan
 }  // namespace agent
-
-#include "syzygy/agent/asan/memory_notifier_impl.h"
 
 #endif  // SYZYGY_AGENT_ASAN_MEMORY_NOTIFIER_H_

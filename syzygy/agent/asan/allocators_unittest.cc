@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/agent/asan/memory_notifier.h"
+#include "syzygy/agent/asan/allocators.h"
 
 #include <set>
 #include <utility>
@@ -20,6 +20,7 @@
 #include "base/basictypes.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/agent/asan/unittest_util.h"
 
 namespace agent {
 namespace asan {
@@ -82,13 +83,13 @@ TEST(MemoryNotifierAllocatorTest, ConstructorsWorkAsExpected) {
   DummyMemoryNotifier n;
 
   MemoryNotifierAllocator<uint32> a1(&n);
-  EXPECT_EQ(&n, a1.memory_notification());
+  EXPECT_EQ(&n, a1.memory_notifier());
 
   MemoryNotifierAllocator<uint32> a2(a1);
-  EXPECT_EQ(&n, a2.memory_notification());
+  EXPECT_EQ(&n, a2.memory_notifier());
 
   MemoryNotifierAllocator<uint16> a3(a1);
-  EXPECT_EQ(&n, a3.memory_notification());
+  EXPECT_EQ(&n, a3.memory_notifier());
 }
 
 TEST(MemoryNotifierAllocatorTest, NotifiesInternalUse) {
@@ -129,6 +130,71 @@ TEST(MemoryNotifierAllocatorTest, StlContainerStressTest) {
                    std::less<uint32>,
                    MemoryNotifierAllocator<uint32>> DummySet;
   MemoryNotifierAllocator<uint32> a(&n);
+  DummySet s(a);
+
+  for (size_t i = 0; i < 10000; ++i) {
+    uint32 j = ::rand() % 2000;
+    s.insert(j);
+  }
+
+  for (size_t i = 0; i < 1500; ++i) {
+    uint32 j = ::rand() % 2000;
+    s.erase(j);
+  }
+
+  s.clear();
+}
+
+TEST(HeapAllocatorTest, Allocate) {
+  testing::MockHeap h;
+  HeapAllocator<uint32> a(&h);
+  EXPECT_CALL(h, Allocate(sizeof(uint32)));
+  a.allocate(1, NULL);
+}
+
+TEST(HeapAllocatorTest, Deallocate) {
+  testing::MockHeap h;
+  HeapAllocator<uint32> a(&h);
+  EXPECT_CALL(h, Free(reinterpret_cast<void*>(0x12345678)));
+  a.deallocate(reinterpret_cast<uint32*>(0x12345678), 1);
+}
+
+namespace {
+
+// A very lightweight dummy heap to be used in stress testing the
+// HeapAllocator.
+class DummyHeap : public HeapInterface {
+ public:
+  virtual ~DummyHeap() { }
+
+  virtual uint32 GetHeapFeatures() const { return 0; }
+
+  virtual void* Allocate(size_t bytes) {
+    return ::malloc(bytes);
+  }
+
+  virtual bool Free(void* alloc) {
+    ::free(alloc);
+    return true;
+  }
+
+  virtual bool IsAllocated(void* alloc) {
+    return false;
+  }
+
+  // No need to worry about multithreading in this unittest.
+  virtual void Lock() { return; }
+  virtual void Unlock() { return; }
+};
+
+}  // namespace
+
+TEST(HeapAllocatorTest, StlContainerStressTest) {
+  DummyHeap h;
+  typedef std::set<uint32,
+                   std::less<uint32>,
+                   HeapAllocator<uint32>> DummySet;
+  HeapAllocator<uint32> a(&h);
   DummySet s(a);
 
   for (size_t i = 0; i < 10000; ++i) {

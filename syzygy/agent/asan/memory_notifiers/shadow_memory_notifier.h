@@ -18,6 +18,7 @@
 #ifndef SYZYGY_AGENT_ASAN_MEMORY_NOTIFIERS_SHADOW_MEMORY_NOTIFIER_H_
 #define SYZYGY_AGENT_ASAN_MEMORY_NOTIFIERS_SHADOW_MEMORY_NOTIFIER_H_
 
+#include "base/logging.h"
 #include "syzygy/agent/asan/memory_notifier.h"
 
 namespace agent {
