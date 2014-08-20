@@ -22,8 +22,9 @@
       '<(PRODUCT_DIR)/syzyprof.msi',
       '<(PRODUCT_DIR)/binaries.zip',
       '<(PRODUCT_DIR)/symbols.zip',
-      '<(PRODUCT_DIR)/include.zip',
       '<(PRODUCT_DIR)/lib.zip',
+      # TODO(sebmarchand): Put back the includes archive once we have some
+      #     header files to publish.
     ],
   },
   'includes': [
@@ -115,25 +116,6 @@
             '--subdir',
             'experimental',
             '<@(experimental_symbols)',
-          ],
-        },
-        {
-          'action_name': 'create_include_zip',
-          'msvs_cygwin_shell': 0,
-          'inputs': [
-            'create_zip.py',
-            '<(src)/syzygy/agent/asan/nested_heap.h',
-          ],
-          'outputs': [
-            '<(PRODUCT_DIR)/include.zip',
-          ],
-          'action': [
-            '<(python_exe)',
-            'create_zip.py',
-            '--output',
-            '<(PRODUCT_DIR)/include.zip',
-            '--files',
-            '<(src)/syzygy/agent/asan/nested_heap.h',
           ],
         },
         {

@@ -258,16 +258,6 @@ TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
 
     EXPECT_TRUE(tester.last_error_info().heap_is_corrupt);
 
-    size_t block_size = 0;
-    void* block_begin = NULL;
-
-    // We can't use the shadow functions here as they'll refer to the instance
-    // of the shadow memory which has been statically linked, but the shadow
-    // annotations for this block are in the shadow instance which has been
-    // instantiated while dynamically loading the runtime library.
-    GetAsanExtentFunction(mem.GetAs<void*>(), &block_begin, &block_size);
-    EXPECT_NE(reinterpret_cast<void*>(NULL), block_begin);
-
     EXPECT_EQ(1, tester.last_error_info().corrupt_range_count);
     EXPECT_EQ(1, tester.last_corrupt_ranges().size());
     const AsanCorruptBlockRange* corrupt_range =
@@ -278,7 +268,7 @@ TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
     EXPECT_EQ(1, blocks_info->size());
     EXPECT_TRUE((*blocks_info)[0]->corrupt);
     EXPECT_EQ(kAllocSize, (*blocks_info)[0]->user_size);
-    EXPECT_EQ(block_begin, (*blocks_info)[0]->header);
+    EXPECT_EQ(block_info.header, (*blocks_info)[0]->header);
     EXPECT_NE(0U, (*blocks_info)[0]->alloc_stack_size);
     for (size_t j = 0; j < (*blocks_info)[0]->alloc_stack_size; ++j) {
       EXPECT_NE(reinterpret_cast<void*>(NULL),

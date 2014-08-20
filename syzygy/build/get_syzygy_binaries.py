@@ -47,12 +47,13 @@ _MD5_RE = re.compile('^[a-f0-9]{32}$')
 # List of reources to be downloaded and installed. These are tuples with the
 # following format:
 # (basename, logging name, relative installation path, extraction filter)
+# TODO(sebmarchand): Add include.zip to this list once we have some header files
+#     to publish.
 _RESOURCES = [
   ('benchmark.zip', 'benchmark', '', None),
   ('binaries.zip', 'binaries', 'exe', None),
   ('symbols.zip', 'symbols', 'symbols',
       lambda x: x.filename.endswith('.dll.pdb')),
-  ('include.zip', 'include', 'include', None),
   ('lib.zip', 'library', 'lib', None)]
 
 

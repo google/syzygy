@@ -170,27 +170,6 @@ class TestWithAsanLogger : public testing::Test {
     F(_cdecl, char*, strncat,  \
       (char* destination, const char* source, size_t num),  \
       (destination, source, num))  \
-    F(_cdecl, void, PoisonMemoryRange, (const void* address, size_t size),  \
-      (address, size))  \
-    F(_cdecl, void, UnpoisonMemoryRange, (const void* address, size_t size),  \
-      (address, size))  \
-    F(_cdecl, void, GetAsanObjectSize,  \
-      (size_t user_object_size, size_t alignment),  \
-      (user_object_size, alignment))  \
-    F(_cdecl, void, InitializeObject,  \
-      (void* asan_pointer, size_t user_object_size, size_t alignment),  \
-      (asan_pointer, user_object_size, alignment))  \
-    F(_cdecl, void, GetUserExtent,  \
-      (const void* asan_pointer, void** user_pointer, size_t* size),  \
-      (asan_pointer, user_pointer, size))  \
-    F(_cdecl, void, GetAsanExtent,  \
-      (const void* user_pointer, void** asan_pointer, size_t* size),  \
-      (user_pointer, asan_pointer, size))  \
-    F(_cdecl, void, QuarantineObject, (void* asan_pointer), (asan_pointer))  \
-    F(_cdecl, void, DestroyObject, (void* asan_pointer), (asan_pointer))  \
-    F(_cdecl, void, CloneObject,  \
-      (const void* src_asan_pointer, const void* dst_asan_pointer),  \
-      (src_asan_pointer, dst_asan_pointer))  \
     F(WINAPI, BOOL, ReadFile,  \
       (HANDLE file_handle, LPVOID buffer, DWORD bytes_to_read,  \
        LPDWORD bytes_read, LPOVERLAPPED overlapped),  \
