@@ -30,7 +30,7 @@
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
-        '<(src)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
+        '<(src)/syzygy/trace/rpc/rpc.gyp:call_trace_rpc_lib',
       ],
     },
     {

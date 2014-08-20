@@ -14,11 +14,10 @@
 //
 // Definitions for the memory allocation hooks required by the RPC runtime.
 
+#include <rpc.h>
 #include <stdlib.h>
 
-#include "syzygy/trace/rpc/call_trace_rpc.h"
-
-
+extern "C" {
 // Memory allocator used by the RPC runtime.
 void* __RPC_USER midl_user_allocate(size_t len) {
   return ::malloc(len);
@@ -28,3 +27,5 @@ void* __RPC_USER midl_user_allocate(size_t len) {
 void __RPC_USER midl_user_free(void* ptr) {
   ::free(ptr);
 }
+
+}  // extern "C"

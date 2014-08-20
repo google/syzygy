@@ -35,19 +35,18 @@
       },
       'includes': ['../../build/midl_rpc.gypi'],
       'sources': ['call_trace_rpc.idl'],
+      'dependencies': [
+        'rpc_common_lib',
+        '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
+      ],
     },
     {
-      # TODO(rogerm): Invert the dependency on call_trace_rpc_idl.
       'target_name': 'rpc_common_lib',
       'type': 'static_library',
       'sources': [
         'rpc_helpers.cc',
         'rpc_helpers.h',
         'rpc_mem.cc',
-      ],
-      'dependencies': [
-        'call_trace_rpc_lib',
-        '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
       ],
     },
     {
@@ -64,6 +63,7 @@
       'sources': ['logger_rpc.idl'],
       'dependencies': [
         'rpc_common_lib',
+        '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
       ],
     },
   ],

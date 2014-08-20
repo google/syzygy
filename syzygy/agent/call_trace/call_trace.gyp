@@ -32,7 +32,7 @@
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/common/common.gyp:syzygy_version',
-        '<(src)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
+        '<(src)/syzygy/trace/rpc/rpc.gyp:call_trace_rpc_lib',
         '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
        ],
      },

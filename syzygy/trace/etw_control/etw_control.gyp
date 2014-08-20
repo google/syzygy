@@ -25,7 +25,7 @@
         'call_trace_control.h',
       ],
       'dependencies': [
-        '<(src)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
+        '<(src)/syzygy/trace/rpc/rpc.gyp:call_trace_rpc_lib',
       ],
     },
     {
@@ -39,7 +39,7 @@
         'etw_control_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/common/common.gyp:common_lib',
-        '<(src)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
+        '<(src)/syzygy/trace/rpc/rpc.gyp:call_trace_rpc_lib',
       ],
     },
   ],

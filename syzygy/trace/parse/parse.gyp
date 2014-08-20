@@ -33,7 +33,7 @@
       'dependencies': [
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
         '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
-        '<(src)/syzygy/trace/rpc/rpc.gyp:rpc_common_lib',
+        '<(src)/syzygy/trace/rpc/rpc.gyp:call_trace_rpc_lib',
       ],
     },
     {
