@@ -113,17 +113,24 @@ TEST_F(HeapCheckerTest, IsHeapCorruptInvalidMagicNumber) {
 TEST_F(HeapCheckerTest, IsHeapCorrupt) {
   const size_t kAllocSize = 100;
 
-  // This test assume that the blocks will be allocated back to back. As there's
-  // only a few of them and they all have the same size this is a safe
-  // assumption (they'll come from the same bucket), but this might become
-  // invalid if the number of blocks augment.
-  const size_t kNumberOfBlocks = 4;
+  BlockLayout block_layout = {};
+  BlockPlanLayout(kShadowRatio, kShadowRatio, kAllocSize, 0, 0, &block_layout);
 
-  FakeAsanBlock* fake_blocks[kNumberOfBlocks];
+  const size_t kNumberOfBlocks = 4;
+  size_t total_alloc_size = block_layout.block_size * kNumberOfBlocks;
+  uint8* global_alloc = reinterpret_cast<uint8*>(::malloc(total_alloc_size));
+
+  uint8* blocks[kNumberOfBlocks];
+  BlockHeader* block_headers[kNumberOfBlocks];
+
   for (size_t i = 0; i < kNumberOfBlocks; ++i) {
-    fake_blocks[i] = new FakeAsanBlock(kShadowRatioLog, runtime_.stack_cache());
-    fake_blocks[i]->InitializeBlock(kAllocSize);
-    base::RandBytes(fake_blocks[i]->block_info.body, kAllocSize);
+    blocks[i] = global_alloc + i * block_layout.block_size;
+    BlockInfo block_info = {};
+    BlockInitialize(block_layout, blocks[i], false, &block_info);
+    Shadow::PoisonAllocatedBlock(block_info);
+    BlockSetChecksum(block_info);
+    block_headers[i] = block_info.header;
+    EXPECT_EQ(block_headers[i], reinterpret_cast<BlockHeader*>(blocks[i]));
   }
 
   HeapChecker heap_checker;
@@ -131,9 +138,9 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
   EXPECT_FALSE(heap_checker.IsHeapCorrupt(&corrupt_ranges));
 
   // Corrupt the header of the first two blocks and of the last one.
-  fake_blocks[0]->block_info.header->magic++;
-  fake_blocks[1]->block_info.header->magic++;
-  fake_blocks[kNumberOfBlocks - 1]->block_info.header->magic++;
+  block_headers[0]->magic++;
+  block_headers[1]->magic++;
+  block_headers[kNumberOfBlocks - 1]->magic++;
 
   EXPECT_TRUE(heap_checker.IsHeapCorrupt(&corrupt_ranges));
 
@@ -150,10 +157,10 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
           corrupt_ranges[0]->length);
   EXPECT_TRUE(shadow_walker_1.Next(&block_info));
   EXPECT_EQ(reinterpret_cast<const BlockHeader*>(block_info.header),
-            fake_blocks[0]->block_info.header);
+            block_headers[0]);
   EXPECT_TRUE(shadow_walker_1.Next(&block_info));
   EXPECT_EQ(reinterpret_cast<const BlockHeader*>(block_info.header),
-            fake_blocks[1]->block_info.header);
+            block_headers[1]);
   EXPECT_FALSE(shadow_walker_1.Next(&block_info));
 
   ShadowWalker shadow_walker_2(
@@ -163,16 +170,16 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
           corrupt_ranges[1]->length);
   EXPECT_TRUE(shadow_walker_2.Next(&block_info));
   EXPECT_EQ(reinterpret_cast<const BlockHeader*>(block_info.header),
-            fake_blocks[kNumberOfBlocks - 1]->block_info.header);
+            block_headers[kNumberOfBlocks - 1]);
   EXPECT_FALSE(shadow_walker_2.Next(&block_info));
 
   // Restore the checksum of the blocks.
-  fake_blocks[0]->block_info.header->magic--;
-  fake_blocks[1]->block_info.header->magic--;
-  fake_blocks[kNumberOfBlocks - 1]->block_info.header->magic--;
+  block_headers[0]->magic--;
+  block_headers[1]->magic--;
+  block_headers[kNumberOfBlocks - 1]->magic--;
 
-  for (size_t i = 0; i < kNumberOfBlocks; ++i)
-    delete fake_blocks[i];
+  Shadow::Unpoison(global_alloc, total_alloc_size);
+  ::free(global_alloc);
 }
 
 }  // namespace asan
