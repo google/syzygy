@@ -159,38 +159,8 @@ TEST(HeapAllocatorTest, Deallocate) {
   a.deallocate(reinterpret_cast<uint32*>(0x12345678), 1);
 }
 
-namespace {
-
-// A very lightweight dummy heap to be used in stress testing the
-// HeapAllocator.
-class DummyHeap : public HeapInterface {
- public:
-  virtual ~DummyHeap() { }
-
-  virtual uint32 GetHeapFeatures() const { return 0; }
-
-  virtual void* Allocate(size_t bytes) {
-    return ::malloc(bytes);
-  }
-
-  virtual bool Free(void* alloc) {
-    ::free(alloc);
-    return true;
-  }
-
-  virtual bool IsAllocated(void* alloc) {
-    return false;
-  }
-
-  // No need to worry about multithreading in this unittest.
-  virtual void Lock() { return; }
-  virtual void Unlock() { return; }
-};
-
-}  // namespace
-
 TEST(HeapAllocatorTest, StlContainerStressTest) {
-  DummyHeap h;
+  testing::DummyHeap h;
   typedef std::set<uint32,
                    std::less<uint32>,
                    HeapAllocator<uint32>> DummySet;

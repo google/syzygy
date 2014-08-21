@@ -41,7 +41,8 @@ namespace heaps {
 class LargeBlockHeap : public BlockHeapInterface {
  public:
   // Constructor.
-  explicit LargeBlockHeap(MemoryNotifierInterface* memory_notifier);
+  // @param internal_heap The heap to use for making internal allocations.
+  explicit LargeBlockHeap(HeapInterface* internal_heap);
 
   // Virtual destructor.
   virtual ~LargeBlockHeap() { }
@@ -76,7 +77,7 @@ class LargeBlockHeap : public BlockHeapInterface {
       void*,
       std::hash<void*>,
       std::equal_to<void*>,
-      MemoryNotifierAllocator<void*>> AllocationSet;
+      HeapAllocator<void*>> AllocationSet;
   AllocationSet allocs_;  // Under lock_.
 
   // The global lock for this allocator.

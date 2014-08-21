@@ -32,12 +32,12 @@ struct BlockInfoLessThan {
 
 typedef std::set<BlockInfo, BlockInfoLessThan> BlockInfoSet;
 
-testing::NullMemoryNotifier null_notifier;
+testing::DummyHeap dummy_heap;
 
 // A LargeBlockHeap that uses a null memory notifier.
 class TestLargeBlockHeap : public LargeBlockHeap {
  public:
-  TestLargeBlockHeap() : LargeBlockHeap(&null_notifier) {
+  TestLargeBlockHeap() : LargeBlockHeap(&dummy_heap) {
   }
 };
 

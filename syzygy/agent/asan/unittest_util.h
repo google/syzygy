@@ -516,6 +516,20 @@ class MemoryAccessorTester {
   static MemoryAccessorTester* instance_;
 };
 
+// A very lightweight dummy heap to be used in stress testing the
+// HeapAllocator. Lock and Unlock are noops, so this is not thread
+// safe.
+class DummyHeap : public agent::asan::HeapInterface {
+ public:
+  virtual ~DummyHeap() { }
+  virtual uint32 GetHeapFeatures() const { return 0; }
+  virtual void* Allocate(size_t bytes) { return ::malloc(bytes); }
+  virtual bool Free(void* alloc) { ::free(alloc); return true; }
+  virtual bool IsAllocated(void* alloc) { return false; }
+  virtual void Lock() { return; }
+  virtual void Unlock() { return; }
+};
+
 }  // namespace testing
 
 #endif  // SYZYGY_AGENT_ASAN_UNITTEST_UTIL_H_

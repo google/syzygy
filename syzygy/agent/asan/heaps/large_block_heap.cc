@@ -25,8 +25,8 @@ namespace agent {
 namespace asan {
 namespace heaps {
 
-LargeBlockHeap::LargeBlockHeap(MemoryNotifierInterface* memory_notifier)
-    : allocs_(MemoryNotifierAllocator<void*>(memory_notifier)) {
+LargeBlockHeap::LargeBlockHeap(HeapInterface* internal_heap)
+    : allocs_(HeapAllocator<void*>(internal_heap)) {
 }
 
 uint32 LargeBlockHeap::GetHeapFeatures() const {
