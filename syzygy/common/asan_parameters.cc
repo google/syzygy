@@ -160,6 +160,7 @@ const float kDefaultZebraBlockHeapQuarantineRatio = 0.25f;
 
 // Default values of the BlockHeapManager parameters.
 const bool kDefaultEnableCtMalloc = false;
+const bool kDefaultEnableZebraBlockHeap = false;
 
 // String names of HeapProxy parameters.
 const char kParamQuarantineSize[] = "quarantine_size";
@@ -191,6 +192,7 @@ const char kParamZebraBlockHeapQuarantineRatio[] =
 
 // String names of BlockHeapManager parameters.
 const char kParamEnableCtMalloc[] = "enable_ctmalloc";
+const char kParamEnableZebraBlockHeap[] = "enable_zebra_block_heap";
 
 InflatedAsanParameters::InflatedAsanParameters() {
   // Clear the AsanParameters portion of ourselves.
@@ -261,12 +263,14 @@ void SetDefaultAsanParameters(AsanParameters* asan_parameters) {
   asan_parameters->zebra_block_heap_quarantine_ratio =
       kDefaultZebraBlockHeapQuarantineRatio;
   asan_parameters->enable_ctmalloc = kDefaultEnableCtMalloc;
+  asan_parameters->enable_zebra_block_heap = kDefaultEnableZebraBlockHeap;
 }
 
 bool InflateAsanParameters(const AsanParameters* pod_params,
                            InflatedAsanParameters* inflated_params) {
   // This must be kept up to date with AsanParameters as it evolves.
-  static const size_t kSizeOfAsanParametersByVersion[] = { 40, 44, 48, 52, 52 };
+  static const size_t kSizeOfAsanParametersByVersion[] =
+      { 40, 44, 48, 52, 52, 52 };
   COMPILE_ASSERT(arraysize(kSizeOfAsanParametersByVersion) ==
                      kAsanParametersVersion + 1,
                  kSizeOfAsanParametersByVersion_out_of_date);
@@ -404,6 +408,8 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
     asan_parameters->disable_breakpad_reporting = true;
   if (cmd_line.HasSwitch(kParamEnableCtMalloc))
     asan_parameters->enable_ctmalloc = true;
+  if (cmd_line.HasSwitch(kParamEnableZebraBlockHeap))
+    asan_parameters->enable_zebra_block_heap = true;
 
   return true;
 }

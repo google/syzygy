@@ -80,6 +80,8 @@ TEST(AsanParametersTest, SetDefaultAsanParameters) {
   EXPECT_EQ(kDefaultZebraBlockHeapQuarantineRatio,
             aparams.zebra_block_heap_quarantine_ratio);
   EXPECT_EQ(kDefaultEnableCtMalloc, static_cast<bool>(aparams.enable_ctmalloc));
+  EXPECT_EQ(kDefaultEnableZebraBlockHeap,
+            static_cast<bool>(aparams.enable_zebra_block_heap));
 }
 
 TEST(AsanParametersTest, InflateAsanParametersStackIdsPastEnd) {
@@ -220,6 +222,8 @@ TEST(AsanParametersTest, ParseAsanParametersMinimal) {
       iparams.zebra_block_heap_quarantine_ratio);
   EXPECT_EQ(kDefaultEnableCtMalloc,
             static_cast<bool>(iparams.enable_ctmalloc));
+  EXPECT_EQ(kDefaultEnableZebraBlockHeap,
+            static_cast<bool>(iparams.enable_zebra_block_heap));
 }
 
 TEST(AsanParametersTest, ParseAsanParametersMaximal) {
@@ -240,7 +244,8 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
       L"--ignored_as_it_doesnt_exist "
       L"--zebra_block_heap_size=8388608 "
       L"--zebra_block_heap_quarantine_ratio=0.5 "
-      L"--enable_ctmalloc";
+      L"--enable_ctmalloc "
+      L"--enable_zebra_block_heap";
 
   InflatedAsanParameters iparams;
   SetDefaultAsanParameters(&iparams);
@@ -266,6 +271,7 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
   EXPECT_EQ(8388608, iparams.zebra_block_heap_size);
   EXPECT_EQ(0.5, iparams.zebra_block_heap_quarantine_ratio);
   EXPECT_TRUE(static_cast<bool>(iparams.enable_ctmalloc));
+  EXPECT_TRUE(static_cast<bool>(iparams.enable_zebra_block_heap));
 }
 
 }  // namespace common
