@@ -72,8 +72,10 @@
 /third_party/modp_b64/
 /third_party/nss/
 /third_party/platformsdk_win7/
+/third_party/protobuf/src/
 /third_party/psyco_win32/
 /third_party/python_26/
+/third_party/sawbuck/py/
 /third_party/skia/
 /third_party/sqlite/
 /third_party/tcmalloc

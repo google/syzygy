@@ -92,6 +92,10 @@ deps = {
   # coverage generation.
   "src/tools/code_coverage":
     Var("chrome_base") + "/src/tools/code_coverage@" + Var("chrome_revision"),
+
+  # This brings in protobuf, used by SyzyASan metadata.
+  "src/third_party/protobuf/src":
+    "http://protobuf.googlecode.com/svn/trunk/src@573",
 }
 
 
