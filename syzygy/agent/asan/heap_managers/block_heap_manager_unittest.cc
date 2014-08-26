@@ -14,10 +14,13 @@
 
 #include "syzygy/agent/asan/heap_managers/block_heap_manager.h"
 
+#include <vector>
+
 #include "base/bind.h"
 #include "base/compiler_specific.h"
 #include "base/rand_util.h"
 #include "base/sha1.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/heap.h"
@@ -29,16 +32,80 @@ namespace heap_managers {
 
 namespace {
 
+using heaps::ZebraBlockHeap;
+
 typedef BlockHeapManager::HeapId HeapId;
+
+testing::NullMemoryNotifier null_memory_notifier;
+
+// A fake ZebraBlockHeap to simplify unit testing.
+// Wrapper with switches to enable/disable the quarantine and accept/refuse
+// allocations.
+class TestZebraBlockHeap : public heaps::ZebraBlockHeap {
+ public:
+  using ZebraBlockHeap::set_quarantine_ratio;
+  using ZebraBlockHeap::quarantine_ratio;
+
+  // Constructor.
+  TestZebraBlockHeap() : ZebraBlockHeap(1024 * 1024, &null_memory_notifier) {
+    refuse_allocations_ = false;
+    refuse_push_ = false;
+  }
+
+  // Virtual destructor.
+  virtual ~TestZebraBlockHeap() { }
+
+  // Wrapper that allows easily disabling allocations.
+  virtual void* AllocateBlock(size_t size,
+                              size_t min_left_redzone_size,
+                              size_t min_right_redzone_size,
+                              BlockLayout* layout) OVERRIDE {
+    if (refuse_allocations_)
+      return NULL;
+    return ZebraBlockHeap::AllocateBlock(size,
+                                         min_left_redzone_size,
+                                         min_right_redzone_size,
+                                         layout);
+  }
+
+  // Wrapper that allows easily disabling the insertion of new blocks in the
+  // quarantine.
+  virtual bool Push(BlockHeader* const &object) OVERRIDE {
+    if (refuse_push_)
+      return false;
+    return ZebraBlockHeap::Push(object);
+  }
+
+  // Enable/Disable future allocations.
+  void set_refuse_allocations(bool value) {
+    refuse_allocations_ = value;
+  }
+
+  // Enable/Disable the insertion of blocks in the quarantine.
+  void set_refuse_push(bool value) {
+    refuse_push_ = value;
+  }
+
+ protected:
+  bool refuse_allocations_;
+  bool refuse_push_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(TestZebraBlockHeap);
+};
 
 // A derived class to expose protected members for unit-testing.
 class TestBlockHeapManager : public BlockHeapManager {
  public:
+  using BlockHeapManager::FreePotentiallyCorruptBlock;
   using BlockHeapManager::HeapQuarantineMap;
   using BlockHeapManager::SetHeapErrorCallback;
   using BlockHeapManager::ShardedBlockQuarantine;
   using BlockHeapManager::TrimQuarantine;
+
   using BlockHeapManager::heaps_;
+  using BlockHeapManager::parameters_;
+  using BlockHeapManager::zebra_block_heap_;
 
   // A derived class to expose protected members for unit-testing. This has to
   // be nested into this one because ShardedBlockQuarantine accesses some
@@ -59,7 +126,7 @@ class TestBlockHeapManager : public BlockHeapManager {
   }
 
   // Returns the quarantine associated with a heap.
-  ShardedBlockQuarantine* GetHeapQuarantine(HeapId heap_id) {
+  BlockQuarantineInterface* GetHeapQuarantine(HeapId heap_id) {
     TestBlockHeapManager::HeapQuarantineMap::iterator iter_heap =
         heaps_.find(reinterpret_cast<BlockHeapInterface*>(heap_id));
     if (iter_heap == heaps_.end())
@@ -102,7 +169,7 @@ class ScopedHeap {
   }
 
   // Retrieves the quarantine associated with this heap.
-  TestBlockHeapManager::ShardedBlockQuarantine* GetQuarantine() {
+  BlockQuarantineInterface* GetQuarantine() {
     return heap_manager_->GetHeapQuarantine(heap_id_);
   }
 
@@ -120,13 +187,19 @@ class ScopedHeap {
 
   // Flush the quarantine of this heap.
   void FlushQuarantine() {
-    TestBlockHeapManager::ShardedBlockQuarantine* quarantine =  GetQuarantine();
-    EXPECT_NE(static_cast<TestBlockHeapManager::ShardedBlockQuarantine*>(NULL),
+    BlockQuarantineInterface* quarantine =  GetQuarantine();
+    EXPECT_NE(static_cast<BlockQuarantineInterface*>(NULL),
               quarantine);
-    size_t original_size = quarantine->max_quarantine_size();
-    quarantine->set_max_quarantine_size(0);
-    heap_manager_->TrimQuarantine(quarantine);
-    quarantine->set_max_quarantine_size(original_size);
+    BlockQuarantineInterface::ObjectVector blocks_to_free;
+    quarantine->Empty(&blocks_to_free);
+    BlockQuarantineInterface::ObjectVector::iterator iter_block =
+        blocks_to_free.begin();
+    for (; iter_block != blocks_to_free.end(); ++iter_block) {
+      DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), *iter_block);
+      BlockInfo block_info = {};
+      CHECK(Shadow::BlockInfoFromShadow(*iter_block, &block_info));
+      CHECK(heap_manager_->FreePotentiallyCorruptBlock(&block_info));
+    }
   }
 
   // Returns the underlying heap ID.
@@ -175,7 +248,8 @@ class BlockHeapManagerTest : public testing::Test {
  public:
   typedef TestBlockHeapManager::ShardedBlockQuarantine ShardedBlockQuarantine;
 
-  BlockHeapManagerTest() : heap_manager_(&runtime_) {
+  BlockHeapManagerTest() : heap_manager_(&runtime_),
+      test_zebra_block_heap_(NULL) {
   }
 
   virtual void SetUp() OVERRIDE {
@@ -191,6 +265,18 @@ class BlockHeapManagerTest : public testing::Test {
   }
 
   virtual void TearDown() OVERRIDE {
+    // Artificially clear the ZebraBlockHeap before releasing runtime_ to avoid
+    // runtime error.
+    // TearDown is called before destructing the zebra heap.
+    // The blocks contains stack-related information somehow linked to the
+    // runtime_ instance. If the runtime_ instance is cleared before the
+    // zebra heap and there are still blocks in its quarantine, some
+    // non-deterministic errors (failed DCHECKS) may arise.
+    if (test_zebra_block_heap_ != NULL) {
+      heap_manager_.parameters_.quarantine_size = 0;
+      heap_manager_.TrimQuarantine(test_zebra_block_heap_);
+    }
+
     runtime_.TearDown();
   }
 
@@ -209,6 +295,25 @@ class BlockHeapManagerTest : public testing::Test {
                         sizeof(BlockTrailer),
                     &layout);
     return layout.block_size;
+  }
+
+  void EnableTestZebraBlockHeap() {
+    // Erase previous ZebraBlockHeap.
+    if (heap_manager_.zebra_block_heap_ != NULL) {
+      heap_manager_.heaps_.erase(heap_manager_.zebra_block_heap_);
+      delete heap_manager_.zebra_block_heap_;
+    }
+    // Plug a mock ZebraBlockHeap by default disabled.
+    test_zebra_block_heap_ = new TestZebraBlockHeap();
+    heap_manager_.zebra_block_heap_ = test_zebra_block_heap_;
+    heap_manager_.heaps_.insert(std::make_pair(test_zebra_block_heap_,
+        test_zebra_block_heap_));
+
+    // Turn on the zebra_block_heap_enabled flag.
+    common::AsanParameters params = heap_manager_.parameters();
+    common::SetDefaultAsanParameters(&params);
+    params.enable_zebra_block_heap = true;
+    heap_manager_.set_parameters(params);
   }
 
   // Verifies that [alloc, alloc + size) is accessible, and that
@@ -244,6 +349,9 @@ class BlockHeapManagerTest : public testing::Test {
 
   // Info about the last errors reported.
   std::vector<AsanErrorInfo> errors_;
+
+  // The mock ZebraBlockHeap used in those tests.
+  TestZebraBlockHeap* test_zebra_block_heap_;
 };
 
 }  // namespace
@@ -272,11 +380,12 @@ TEST_F(BlockHeapManagerTest, SetQuarantinesMaxSize) {
 
   // Ensure that the maximum size of the quarantine of the 2 heaps has been
   // correctly set.
-  ShardedBlockQuarantine* quarantine =
+  BlockQuarantineInterface* quarantine =
       heap.GetQuarantine();
-  ASSERT_NE(reinterpret_cast<ShardedBlockQuarantine*>(NULL),
+  ASSERT_NE(reinterpret_cast<BlockQuarantineInterface*>(NULL),
             quarantine);
-  EXPECT_EQ(new_parameters.quarantine_size, quarantine->max_quarantine_size());
+  EXPECT_EQ(new_parameters.quarantine_size,
+            heap_manager_.parameters_.quarantine_size);
 }
 
 TEST_F(BlockHeapManagerTest, PopOnSetQuarantineMaxSize) {
@@ -430,7 +539,7 @@ TEST_F(BlockHeapManagerTest, QuarantineIsShared) {
   EXPECT_TRUE(heap_2.InQuarantine(heap_2_mem1));
   EXPECT_TRUE(heap_2.InQuarantine(heap_2_mem2));
 
-  ShardedBlockQuarantine* quarantine = heap_1.GetQuarantine();
+  BlockQuarantineInterface* quarantine = heap_1.GetQuarantine();
   EXPECT_EQ(4, quarantine->GetCount());
   heap_2.ReleaseHeap();
   EXPECT_EQ(2, quarantine->GetCount());
@@ -803,6 +912,132 @@ TEST_F(BlockHeapManagerTest, SubsampledAllocationGuards) {
   // fault.
   EXPECT_LT(4 * kAllocationCount / 10, guarded_allocations);
   EXPECT_GT(6 * kAllocationCount / 10, guarded_allocations);
+}
+
+// Ensures that the ZebraBlockHeap overrides the provided heap.
+TEST_F(BlockHeapManagerTest, ZebraHeapIdInTrailerAfterAllocation) {
+  EnableTestZebraBlockHeap();
+  ScopedHeap heap(&heap_manager_);
+  const size_t kAllocSize = 0x100;
+  void* alloc = heap.Allocate(kAllocSize);
+  EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+  ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
+
+  // Get the heap_id from the block trailer.
+  BlockInfo block_info = {};
+  BlockHeader* header = BlockGetHeaderFromBody(alloc);
+  EXPECT_TRUE(Shadow::BlockInfoFromShadow(header, &block_info));
+  // The heap_id stored in the block trailer should match the ZebraBlockHeap id.
+  EXPECT_EQ(reinterpret_cast<HeapId>(test_zebra_block_heap_),
+      block_info.trailer->heap_id);
+  EXPECT_TRUE(heap.Free(alloc));
+}
+
+// Ensures that the provided heap is used when the ZebraBlockHeap cannot handle
+// the allocation.
+TEST_F(BlockHeapManagerTest, DefaultHeapIdInTrailerWhenZebraHeapIsFull) {
+  EnableTestZebraBlockHeap();
+  ScopedHeap heap(&heap_manager_);
+  const size_t kAllocSize = 0x100;
+  // Refuse allocations on the ZebraBlockHeap.
+  test_zebra_block_heap_->set_refuse_allocations(true);
+
+  void* alloc = heap.Allocate(kAllocSize);
+  EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+  ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
+
+  // Get the heap_id from the block trailer.
+  BlockInfo block_info = {};
+  BlockHeader* header = BlockGetHeaderFromBody(alloc);
+  EXPECT_TRUE(Shadow::BlockInfoFromShadow(header, &block_info));
+  // The heap_id stored in the block trailer match the provided heap.
+  EXPECT_EQ(heap.Id(), block_info.trailer->heap_id);
+  EXPECT_TRUE(heap.Free(alloc));
+}
+
+TEST_F(BlockHeapManagerTest, AllocStress) {
+  EnableTestZebraBlockHeap();
+  ScopedHeap heap(&heap_manager_);
+  for (size_t i = 0; i < 1000; ++i) {
+    const size_t kAllocSize = 0x100 + i;
+    void* alloc = heap.Allocate(kAllocSize);
+    EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+    ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
+    // Free should succeed, even if the block is quarantined.
+    EXPECT_TRUE(heap.Free(alloc));
+  }
+}
+
+// The BlockHeapManager correctly quarantines the memory after free.
+TEST_F(BlockHeapManagerTest, QuarantinedAfterFree) {
+  EnableTestZebraBlockHeap();
+  ScopedHeap heap(&heap_manager_);
+  // Always quarantine if possible.
+  test_zebra_block_heap_->set_quarantine_ratio(1.0);
+
+  const size_t kAllocSize = 0x100;
+  void* alloc = heap.Allocate(kAllocSize);
+  EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+  ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
+  // Free should succeed, even if the block is quarantined.
+  EXPECT_TRUE(heap.Free(alloc));
+  // The block should be quarantined and poisoned.
+  ASSERT_NO_FATAL_FAILURE(VerifyFreedAccess(alloc, kAllocSize));
+  BlockInfo block_info = {};
+  BlockHeader* header = BlockGetHeaderFromBody(alloc);
+  EXPECT_TRUE(Shadow::BlockInfoFromShadow(header, &block_info));
+  EXPECT_EQ(QUARANTINED_BLOCK, block_info.header->state);
+}
+
+// The BlockHeapManager correctly unpoison the memory after free if the
+// quarantine is full.
+TEST_F(BlockHeapManagerTest, NotQuarantinedAfterFree) {
+  EnableTestZebraBlockHeap();
+  ScopedHeap heap(&heap_manager_);
+  const size_t kAllocSize = 0xFF;
+  void* alloc = heap.Allocate(kAllocSize);
+  EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+  ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
+
+  // Force the ZebraBlockHeap quarantine to refuse new blocks, so the block
+  // should be freed.
+  test_zebra_block_heap_->set_refuse_push(true);
+  BlockInfo block_info = {};
+  BlockHeader* header = BlockGetHeaderFromBody(alloc);
+  EXPECT_TRUE(Shadow::BlockInfoFromShadow(header, &block_info));
+  EXPECT_TRUE(heap.Free(alloc));
+  // Since it was refused from the quarantine it should be marked as freed.
+  EXPECT_EQ(FREED_BLOCK, block_info.header->state);
+}
+
+// set_parameters should set the zebra_block_heap_quarantine_ratio flag
+// correctly.
+TEST_F(BlockHeapManagerTest, set_parametersSetsZebraBlockHeapQuarantineRatio) {
+  EnableTestZebraBlockHeap();
+  float new_ratio = 1.0f / 8;
+  common::AsanParameters params = heap_manager_.parameters();
+  params.zebra_block_heap_quarantine_ratio = new_ratio;
+  heap_manager_.set_parameters(params);
+  EXPECT_EQ(new_ratio, test_zebra_block_heap_->quarantine_ratio());
+}
+
+// Test for double free errors on ZebraBlockHeap allocations.
+TEST_F(BlockHeapManagerTest, DoubleFreeOnZebraHeap) {
+  EnableTestZebraBlockHeap();
+  ScopedHeap heap(&heap_manager_);
+  test_zebra_block_heap_->set_quarantine_ratio(1.0);
+
+  const size_t kAllocSize = 0xFF;
+  void* alloc = heap.Allocate(kAllocSize);
+  EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+  ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
+
+  EXPECT_TRUE(heap.Free(alloc));
+  EXPECT_FALSE(heap.Free(alloc));
+
+  EXPECT_EQ(1u, errors_.size());
+  EXPECT_EQ(DOUBLE_FREE, errors_[0].error_type);
+  EXPECT_EQ(alloc, errors_[0].location);
 }
 
 }  // namespace heap_managers

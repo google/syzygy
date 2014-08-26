@@ -29,6 +29,8 @@
 #include "syzygy/agent/asan/heap_manager.h"
 #include "syzygy/agent/asan/quarantine.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
+#include "syzygy/agent/asan/heaps/zebra_block_heap.h"
+#include "syzygy/agent/asan/memory_notifiers/null_memory_notifier.h"
 #include "syzygy/agent/asan/quarantines/sharded_quarantine.h"
 #include "syzygy/common/asan_parameters.h"
 
@@ -53,6 +55,9 @@ namespace heap_managers {
 // actual heap that serves an allocation can be different from the one returned
 // to the user.
 //
+// The zebra heap is created once, when enabled for the first time, with a
+// specified size. It can't be resized after creation. Disabling the zebra
+// heap only disables allocations on it, deallocations will continue to work.
 // TODO(sebmarchand): Plug in other heaps, like the zebra heap and the large
 //     block heap.
 // TODO(sebmarchand): Add page protection support.
@@ -99,7 +104,7 @@ class BlockHeapManager : public HeapManagerInterface {
 
   // A map associating a block heap with the quarantine it will use. Many heaps
   // may share a single quarantine.
-  typedef std::unordered_map<BlockHeapInterface*, ShardedBlockQuarantine*>
+  typedef std::unordered_map<BlockHeapInterface*, BlockQuarantineInterface*>
       HeapQuarantineMap;
 
   // Propagates the parameters to the appropriate modules.
@@ -116,12 +121,16 @@ class BlockHeapManager : public HeapManagerInterface {
   // @note The heap pointer will be invalid if this function succeeds.
   // @note This must be called under lock_.
   bool DestroyHeapUnlocked(BlockHeapInterface* heap,
-                           ShardedBlockQuarantine* quarantine);
+                           BlockQuarantineInterface* quarantine);
 
   // If the quarantine of a heap is over its maximum size, trim it down until
-  // it's below the limit.
+  // it's below the limit. If parameters_.quarantine_size is 0 then
+  // then quarantine is flushed.
   // @param quarantine The quarantine to trim.
-  void TrimQuarantine(ShardedBlockQuarantine* quarantine);
+  // TODO(peterssen): Change the 0-size contract. The quarantine 'contract'
+  //    establish that when the size is 0, it means unlimited, this is rather
+  //    awkward since trimming with size 0 should flush the quarantine.
+  void TrimQuarantine(BlockQuarantineInterface* quarantine);
 
   // Free a block that might be corrupt. If the block is corrupt first reports
   // an error before safely releasing the block.
@@ -195,6 +204,16 @@ class BlockHeapManager : public HeapManagerInterface {
 
   // The heap that gets used for the unguarded allocations.
   scoped_ptr<HeapInterface> unguarded_allocation_heap_;
+
+  // Hold the single ZebraBlockHeap instance used by this heap manager.
+  // The lifetime management of the zebra heap is provided by the
+  // HeapQuarantineMap, this is simply a useful pointer for finding the
+  // zebra heap directly.
+  heaps::ZebraBlockHeap* zebra_block_heap_;
+
+  // Memory notifier used as a temporal workaround for the ZebraBlockHeap.
+  // TODO(peterssen): Remove when the memory notifier is implemented.
+  memory_notifiers::NullMemoryNotifier null_memory_notifier;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BlockHeapManager);

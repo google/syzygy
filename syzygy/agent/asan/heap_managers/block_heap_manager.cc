@@ -14,6 +14,8 @@
 
 #include "syzygy/agent/asan/heap_managers/block_heap_manager.h"
 
+#include <utility>
+
 #include "base/bind.h"
 #include "base/rand_util.h"
 #include "syzygy/agent/asan/asan_runtime.h"
@@ -29,11 +31,13 @@ namespace heap_managers {
 namespace {
 
 typedef HeapManagerInterface::HeapId HeapId;
+using heaps::ZebraBlockHeap;
 
 }  // namespace
 
 BlockHeapManager::BlockHeapManager(AsanRuntime* runtime)
-    : runtime_(runtime) {
+    : runtime_(runtime),
+      zebra_block_heap_(NULL) {
   DCHECK_NE(static_cast<AsanRuntime*>(NULL), runtime);
   SetDefaultAsanParameters(&parameters_);
   // TODO(sebmarchand): Set this callback directly from AsanRuntime::Setup once
@@ -45,19 +49,17 @@ BlockHeapManager::BlockHeapManager(AsanRuntime* runtime)
 }
 
 BlockHeapManager::~BlockHeapManager() {
-  shared_quarantine_.set_max_quarantine_size(0);
-  TrimQuarantine(&shared_quarantine_);
   base::AutoLock lock(lock_);
   // Delete all the heaps.
   HeapQuarantineMap::iterator iter_heaps = heaps_.begin();
   for (; iter_heaps != heaps_.end(); ++iter_heaps)
     DestroyHeapUnlocked(iter_heaps->first, iter_heaps->second);
   heaps_.clear();
+  // Clear the zebra heap reference since it was deleted.
+  zebra_block_heap_ = NULL;
 }
 
 HeapId BlockHeapManager::CreateHeap() {
-  // Creates a simple heap and returns it to the user.
-
   // Creates the underlying heap used by this heap.
   HeapInterface* win_heap = new heaps::WinHeap();
   // Creates the heap.
@@ -94,16 +96,37 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
     return alloc;
   }
 
+  void* alloc = NULL;
   BlockLayout block_layout = {};
-  void* ptr = reinterpret_cast<BlockHeapInterface*>(heap_id)->AllocateBlock(
-      bytes,
-      0,
-      parameters_.trailer_padding_size + sizeof(BlockTrailer),
-      &block_layout);
-  DCHECK_NE(reinterpret_cast<void*>(NULL), ptr);
-  DCHECK_EQ(0u, reinterpret_cast<size_t>(ptr) % kShadowRatio);
+
+  // Always try to allocate in the zebra heap.
+  if (parameters_.enable_zebra_block_heap) {
+    CHECK_NE(reinterpret_cast<heaps::ZebraBlockHeap*>(NULL),
+             zebra_block_heap_);
+
+    alloc = zebra_block_heap_->AllocateBlock(
+        bytes,
+        0,
+        parameters_.trailer_padding_size + sizeof(BlockTrailer),
+        &block_layout);
+
+    if (alloc != NULL)
+      heap_id = reinterpret_cast<HeapId>(zebra_block_heap_);
+  }
+
+  // Fallback to the provided heap.
+  if (alloc == NULL) {
+    alloc = reinterpret_cast<BlockHeapInterface*>(heap_id)->AllocateBlock(
+        bytes,
+        0,
+        parameters_.trailer_padding_size + sizeof(BlockTrailer),
+        &block_layout);
+  }
+
+  DCHECK_NE(reinterpret_cast<void*>(NULL), alloc);
+  DCHECK_EQ(0u, reinterpret_cast<size_t>(alloc) % kShadowRatio);
   BlockInfo block = {};
-  BlockInitialize(block_layout, ptr, false, &block);
+  BlockInitialize(block_layout, alloc, false, &block);
 
   // Capture the current stack. InitFromStack is inlined to preserve the
   // greatest number of stack frames.
@@ -116,16 +139,13 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
 
   BlockSetChecksum(block);
   Shadow::PoisonAllocatedBlock(block);
-
   return block.body;
 }
 
 bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   DCHECK_NE(static_cast<HeapId>(NULL), heap_id);
 
-  BlockHeapInterface* heap = reinterpret_cast<BlockHeapInterface*>(heap_id);
   BlockInfo block_info = {};
-
   BlockHeader* header = BlockGetHeaderFromBody(alloc);
   if (header == NULL || !Shadow::BlockInfoFromShadow(header, &block_info)) {
     // TODO(chrisha|sebmarchand): Handle invalid allocation addresses. Currently
@@ -148,7 +168,12 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
     return false;
   }
 
-  ShardedBlockQuarantine* quarantine = NULL;
+  // heap_id is just a hint, the block trailer contains the heap used for the
+  // allocation.
+  heap_id = block_info.trailer->heap_id;
+  DCHECK_NE(static_cast<HeapId>(NULL), heap_id);
+
+  BlockQuarantineInterface* quarantine = NULL;
   {
     base::AutoLock lock(lock_);
     HeapQuarantineMap::iterator iter_heap = heaps_.find(
@@ -222,29 +247,45 @@ void BlockHeapManager::PropagateParameters() {
   if (quarantine_size > parameters_.quarantine_size)
     TrimQuarantine(&shared_quarantine_);
 
+  if (parameters_.enable_zebra_block_heap && zebra_block_heap_ == NULL) {
+    // Initialize the zebra heap only if it isnt't already initialized.
+    // The zebra heap cannot be resized once created.
+    base::AutoLock lock(lock_);
+    zebra_block_heap_ = new ZebraBlockHeap(parameters_.zebra_block_heap_size,
+                                            &null_memory_notifier);
+    heaps_.insert(std::make_pair(zebra_block_heap_, zebra_block_heap_));
+  }
+
+  if (zebra_block_heap_ != NULL) {
+    zebra_block_heap_->set_quarantine_ratio(
+      parameters_.zebra_block_heap_quarantine_ratio);
+    TrimQuarantine(zebra_block_heap_);
+  }
+
   // TODO(chrisha|sebmarchand): Clean up existing blocks that exceed the
   //     maximum block size? This will require an entirely new TrimQuarantine
   //     function. Since this is never changed at runtime except in our
   //     unittests, this is not clearly useful.
 }
 
-bool BlockHeapManager::DestroyHeapUnlocked(BlockHeapInterface* heap,
-                                           ShardedBlockQuarantine* quarantine) {
+bool BlockHeapManager::DestroyHeapUnlocked(
+    BlockHeapInterface* heap,
+    BlockQuarantineInterface* quarantine) {
   DCHECK_NE(reinterpret_cast<BlockHeapInterface*>(NULL), heap);
-  DCHECK_NE(reinterpret_cast<ShardedBlockQuarantine*>(NULL), quarantine);
+  DCHECK_NE(reinterpret_cast<BlockQuarantineInterface*>(NULL), quarantine);
 
   // Starts by removing all the block from this heap from the quarantine.
 
-  ShardedBlockQuarantine::ObjectVector blocks_vec;
+  BlockQuarantineInterface::ObjectVector blocks_vec;
 
   // We'll keep the blocks that don't belong to this heap in a temporary list.
   // While this isn't optimal in terms of performance, destroying a heap isn't a
   // common operation.
   // TODO(sebmarchand): Add a version of the ShardedBlockQuarantine::Empty
   //     method that accepts a functor to filter the blocks to remove.
-  ShardedBlockQuarantine::ObjectVector blocks_to_reinsert;
+  BlockQuarantineInterface::ObjectVector blocks_to_reinsert;
   quarantine->Empty(&blocks_vec);
-  ShardedBlockQuarantine::ObjectVector::iterator iter_block =
+  BlockQuarantineInterface::ObjectVector::iterator iter_block =
       blocks_vec.begin();
 
   for (; iter_block != blocks_vec.end(); ++iter_block) {
@@ -267,31 +308,34 @@ bool BlockHeapManager::DestroyHeapUnlocked(BlockHeapInterface* heap,
     quarantine->Push(*iter_block);
 
   UnderlyingHeapMap::iterator iter = underlying_heaps_map_.find(heap);
-  DCHECK(iter != underlying_heaps_map_.end());
-  DCHECK_NE(reinterpret_cast<HeapInterface*>(NULL), iter->second);
-  delete iter->second;
-  underlying_heaps_map_.erase(iter);
+
+  // Not all the heaps have an underlying heap.
+  if (iter != underlying_heaps_map_.end()) {
+    DCHECK_NE(reinterpret_cast<HeapInterface*>(NULL), iter->second);
+    delete iter->second;
+    underlying_heaps_map_.erase(iter);
+  }
+
   delete heap;
+
   return true;
 }
 
-void BlockHeapManager::TrimQuarantine(ShardedBlockQuarantine* quarantine) {
-  DCHECK_NE(reinterpret_cast<ShardedBlockQuarantine*>(NULL), quarantine);
+void BlockHeapManager::TrimQuarantine(BlockQuarantineInterface* quarantine) {
+  DCHECK_NE(reinterpret_cast<BlockQuarantineInterface*>(NULL), quarantine);
 
-  ShardedBlockQuarantine::ObjectVector blocks_to_free;
+  BlockQuarantineInterface::ObjectVector blocks_to_free;
 
-  // Trim the quarantine to the new maximum size if it's not zero, empty it
-  // otherwise.
-  if (quarantine->max_quarantine_size() != 0) {
+  // Trim the quarantine to the new maximum size.
+  if (parameters_.quarantine_size == 0) {
+    quarantine->Empty(&blocks_to_free);
+  } else {
     BlockHeader* block_to_free = NULL;
     while (quarantine->Pop(&block_to_free))
       blocks_to_free.push_back(block_to_free);
-  } else {
-    // Flush the quarantine of this heap.
-    quarantine->Empty(&blocks_to_free);
   }
 
-  ShardedBlockQuarantine::ObjectVector::iterator iter_block =
+  BlockQuarantineInterface::ObjectVector::iterator iter_block =
       blocks_to_free.begin();
   for (; iter_block != blocks_to_free.end(); ++iter_block) {
     DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), *iter_block);
