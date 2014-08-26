@@ -83,6 +83,7 @@
         'heaps/win_heap.h',
         'heaps/zebra_block_heap.cc',
         'heaps/zebra_block_heap.h',
+        'memory_notifiers/null_memory_notifier.h',
         'memory_notifiers/shadow_memory_notifier.cc',
         'memory_notifiers/shadow_memory_notifier.h',
         'quarantines/sharded_quarantine.h',

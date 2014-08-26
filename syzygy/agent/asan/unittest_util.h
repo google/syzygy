@@ -28,6 +28,7 @@
 #include "syzygy/agent/asan/heap.h"
 #include "syzygy/agent/asan/memory_notifier.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
+#include "syzygy/agent/asan/memory_notifiers/null_memory_notifier.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/trace/agent_logger/agent_logger.h"
 #include "syzygy/trace/agent_logger/agent_logger_rpc_impl.h"
@@ -35,6 +36,7 @@
 namespace testing {
 
 using agent::asan::AsanErrorInfo;
+using agent::asan::memory_notifiers::NullMemoryNotifier;
 using agent::asan::StackCaptureCache;
 
 // The default name of the runtime library DLL.
@@ -379,27 +381,6 @@ struct FakeAsanBlock {
 
   // The cache that will store the stack traces of this block.
   StackCaptureCache* stack_cache;
-};
-
-// A null memory notifier. Useful when testing objects that have a memory
-// notifier dependency.
-class NullMemoryNotifier : public agent::asan::MemoryNotifierInterface {
- public:
-  // Constructor.
-  NullMemoryNotifier() { }
-
-  // Virtual destructor.
-  virtual ~NullMemoryNotifier() { }
-
-  // @name MemoryNotifierInterface implementation.
-  // @{
-  virtual void NotifyInternalUse(const void* address, size_t size) { }
-  virtual void NotifyFutureHeapUse(const void* address, size_t size) { }
-  virtual void NotifyReturnedToOS(const void* address, size_t size) { }
-  // @}
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(NullMemoryNotifier);
 };
 
 // A mock memory notifier. Useful when testing objects that have a memory
