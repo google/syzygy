@@ -294,6 +294,37 @@ TEST(ShadowTest, ScanLeftAndRight) {
   ::memset(TestShadow::shadow_ + offset, 0, 5);
 }
 
+TEST(ShadowTest, IsLeftOrRightRedzone) {
+  BlockLayout layout = {};
+  const size_t kAllocSize = 15;
+  ASSERT_NE(0U, kAllocSize % kShadowRatio);
+  BlockPlanLayout(kShadowRatio, kShadowRatio, kAllocSize, 0, 0, &layout);
+
+  uint8* data = new uint8[layout.block_size];
+  BlockInfo info = {};
+  BlockInitialize(layout, data, false, &info);
+
+  Shadow::PoisonAllocatedBlock(info);
+  uint8* cursor = info.block;
+
+  for (; cursor < info.body; ++cursor) {
+    EXPECT_TRUE(Shadow::IsLeftRedzone(cursor));
+    EXPECT_FALSE(Shadow::IsRightRedzone(cursor));
+  }
+  for (; cursor < info.body + info.body_size; ++cursor) {
+    EXPECT_FALSE(Shadow::IsLeftRedzone(cursor));
+    EXPECT_FALSE(Shadow::IsRightRedzone(cursor));
+  }
+  for (; cursor < info.block + info.block_size; ++cursor) {
+    EXPECT_FALSE(Shadow::IsLeftRedzone(cursor));
+    EXPECT_TRUE(Shadow::IsRightRedzone(cursor));
+  }
+
+  Shadow::Unpoison(info.block, info.block_size);
+  delete [] data;
+}
+
+
 namespace {
 
 void TestBlockInfoFromShadow(const BlockLayout& outer,

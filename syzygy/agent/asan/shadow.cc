@@ -131,7 +131,7 @@ bool Shadow::IsRightRedzone(const void* address) {
       return false;
     if (!ShadowMarkerHelper::IsActiveRightRedzone(shadow_[index + 1]))
       return false;
-    return start < marker;
+    return start >= marker;
   }
 
   // Otherwise, check the marker directly.
