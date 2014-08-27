@@ -232,6 +232,13 @@ bool Shadow::ParentBlockInfoFromShadow(const BlockInfo& nested,
   return true;
 }
 
+bool Shadow::IsBeginningOfBlockBody(const void* addr) {
+  DCHECK_NE(static_cast<void*>(NULL), addr);
+  if (IsLeftRedzone(addr) || IsRightRedzone(addr))
+    return false;
+  return IsLeftRedzone(reinterpret_cast<const uint8*>(addr) - 1);
+}
+
 void Shadow::CloneShadowRange(const void* src_pointer,
                               void* dst_pointer,
                               size_t size) {

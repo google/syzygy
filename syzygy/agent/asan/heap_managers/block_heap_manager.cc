@@ -146,10 +146,9 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   DCHECK_NE(static_cast<HeapId>(NULL), heap_id);
 
   BlockInfo block_info = {};
-  BlockHeader* header = BlockGetHeaderFromBody(alloc);
-  if (header == NULL || !Shadow::BlockInfoFromShadow(header, &block_info)) {
-    // TODO(chrisha|sebmarchand): Handle invalid allocation addresses. Currently
-    //     we can't tell these apart from unguarded allocations.
+  if (!Shadow::IsBeginningOfBlockBody(alloc) ||
+      !Shadow::BlockInfoFromShadow(alloc, &block_info)) {
+    // TODO(chrisha|sebmarchand): Handle invalid allocation addresses.
 
     // Assume that this block was allocated without guards.
     return unguarded_allocation_heap_->Free(alloc);

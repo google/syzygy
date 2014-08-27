@@ -15,6 +15,7 @@
 #include "syzygy/agent/asan/shadow.h"
 
 #include "base/rand_util.h"
+#include "base/memory/scoped_ptr.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/align.h"
 
@@ -300,9 +301,9 @@ TEST(ShadowTest, IsLeftOrRightRedzone) {
   ASSERT_NE(0U, kAllocSize % kShadowRatio);
   BlockPlanLayout(kShadowRatio, kShadowRatio, kAllocSize, 0, 0, &layout);
 
-  uint8* data = new uint8[layout.block_size];
+  scoped_ptr<uint8> data(new uint8[layout.block_size]);
   BlockInfo info = {};
-  BlockInitialize(layout, data, false, &info);
+  BlockInitialize(layout, data.get(), false, &info);
 
   Shadow::PoisonAllocatedBlock(info);
   uint8* cursor = info.block;
@@ -321,7 +322,6 @@ TEST(ShadowTest, IsLeftOrRightRedzone) {
   }
 
   Shadow::Unpoison(info.block, info.block_size);
-  delete [] data;
 }
 
 
@@ -404,6 +404,30 @@ TEST(ShadowTest, BlockInfoFromShadow) {
 
   EXPECT_NO_FATAL_FAILURE(TestBlockInfoFromShadow(layout1, layout0));
   EXPECT_NO_FATAL_FAILURE(TestBlockInfoFromShadow(layout2, layout0));
+}
+
+TEST(ShadowTest, IsBeginningOfBlockBody) {
+  BlockLayout l = {};
+  BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &l);
+
+  size_t data_size = l.block_size;
+  scoped_ptr<uint8> data(new uint8[data_size]);
+
+  BlockInfo block_info = {};
+  BlockInitialize(l, data.get(), false, &block_info);
+
+  Shadow::PoisonAllocatedBlock(block_info);
+
+  EXPECT_TRUE(Shadow::IsBeginningOfBlockBody(block_info.body));
+  EXPECT_FALSE(Shadow::IsBeginningOfBlockBody(data.get()));
+
+  block_info.header->state = QUARANTINED_BLOCK;
+  Shadow::MarkAsFreed(block_info.body, block_info.body_size);
+
+  EXPECT_TRUE(Shadow::IsBeginningOfBlockBody(block_info.body));
+  EXPECT_FALSE(Shadow::IsBeginningOfBlockBody(data.get()));
+
+  Shadow::Unpoison(data.get(), data_size);
 }
 
 TEST(ShadowWalkerTest, WalksNonNestedBlocks) {

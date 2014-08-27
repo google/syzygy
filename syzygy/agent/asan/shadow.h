@@ -216,6 +216,13 @@ class Shadow {
   static bool ParentBlockInfoFromShadow(
       const BlockInfo& nested, BlockInfo* info);
 
+  // Checks if the address @p addr corresponds to the beginning of a block's
+  // body, i.e. if it's preceded by a left redzone.
+  // @param addr The address that we want to check.
+  // @returns true if the address corresponds to the beginning of a block's
+  //     body, false otherwise.
+  static bool IsBeginningOfBlockBody(const void* addr);
+
  protected:
   // Reset the shadow memory.
   static void Reset();
