@@ -44,9 +44,9 @@ testing::NullMemoryNotifier null_notifier;
 
 class TestZebraBlockHeap : public ZebraBlockHeap {
  public:
-  using ZebraBlockHeap::max_number_of_allocations_;
   using ZebraBlockHeap::QuarantineInvariantIsSatisfied;
   using ZebraBlockHeap::heap_address_;
+  using ZebraBlockHeap::slab_count_;
 
   static const size_t kInitialHeapSize = 8 * (1 << 20);
 
@@ -65,7 +65,7 @@ class TestZebraBlockHeap : public ZebraBlockHeap {
   // false otherwise.
   bool IsHeapFull() {
     // No free slabs.
-    return free_slabs_->empty();
+    return free_slabs_.empty();
   }
 };
 
@@ -228,7 +228,7 @@ TEST(ZebraBlockHeapTest, AllocateUntilFull) {
   TestZebraBlockHeap h;
   // Test maximum number of allocations.
   std::vector<uint8*> buffers;
-  for (size_t i = 0; i < h.max_number_of_allocations_; ++i) {
+  for (size_t i = 0; i < h.slab_count_; ++i) {
     uint8* alloc = reinterpret_cast<uint8*>(h.Allocate(0xFF));
     EXPECT_NE(reinterpret_cast<uint8*>(NULL), alloc);
     EXPECT_TRUE(IsAligned(alloc, kShadowRatio));
@@ -236,7 +236,7 @@ TEST(ZebraBlockHeapTest, AllocateUntilFull) {
   }
 
   // The number of allocations should match the number of even pages.
-  EXPECT_EQ(h.max_number_of_allocations_, buffers.size());
+  EXPECT_EQ(h.slab_count_, buffers.size());
 
   // Impossible to allocate memory on a full heap.
   EXPECT_EQ(reinterpret_cast<void*>(NULL), h.Allocate(0xFF));
@@ -258,7 +258,7 @@ TEST(ZebraBlockHeapTest, StressAllocateFree) {
   std::vector<uint8*> buffers;
 
   // Fill the heap.
-  for (size_t i = 0; i < h.max_number_of_allocations_; ++i) {
+  for (size_t i = 0; i < h.slab_count_; ++i) {
     uint8* alloc = reinterpret_cast<uint8*>(h.Allocate(0xFF));
     EXPECT_NE(reinterpret_cast<uint8*>(NULL), alloc);
     EXPECT_TRUE(IsAligned(alloc, kShadowRatio));
@@ -266,7 +266,7 @@ TEST(ZebraBlockHeapTest, StressAllocateFree) {
   }
 
   // The number of allocations must match the number of even pages.
-  EXPECT_EQ(h.max_number_of_allocations_, buffers.size());
+  EXPECT_EQ(h.slab_count_, buffers.size());
   // Impossible to allocate memory on a full heap.
   EXPECT_EQ(reinterpret_cast<void*>(NULL), h.Allocate(0xFF));
 
@@ -290,7 +290,7 @@ TEST(ZebraBlockHeapTest, StressAllocateFree) {
     }
 
     // The number of allocations must match the number of even pages.
-    EXPECT_EQ(h.max_number_of_allocations_, buffers.size());
+    EXPECT_EQ(h.slab_count_, buffers.size());
     // Impossible to allocate memory on a full heap.
     EXPECT_EQ(reinterpret_cast<void*>(NULL), h.Allocate(0xFF));
   }
@@ -395,7 +395,7 @@ TEST(ZebraBlockHeapTest, PushPopInvariant) {
 
   // Fill the heap.
   std::vector<BlockInfo> blocks;
-  for (size_t i = 0; i < h.max_number_of_allocations_; i++) {
+  for (size_t i = 0; i < h.slab_count_; i++) {
     void* alloc = h.AllocateBlock(0xFF, 0, 0, &layout);
     EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
     EXPECT_TRUE(IsAligned(alloc, kShadowRatio));
@@ -404,7 +404,7 @@ TEST(ZebraBlockHeapTest, PushPopInvariant) {
     EXPECT_TRUE(h.Push(block.header));
   }
 
-  for (size_t i = 0; i < h.max_number_of_allocations_; i++) {
+  for (size_t i = 0; i < h.slab_count_; i++) {
     BlockHeader* dummy;
     bool old_invariant = h.QuarantineInvariantIsSatisfied();
     if (h.Pop(&dummy)) {

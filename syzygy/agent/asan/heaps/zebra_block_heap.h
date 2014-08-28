@@ -157,19 +157,16 @@ class ZebraBlockHeap : public BlockHeapInterface,
   // The total number of slabs.
   size_t slab_count_;
 
-  // The maximum number of allocations this heap can handle.
-  size_t max_number_of_allocations_;
-
   // The ratio [0 .. 1] of the memory used by the quarantine. Under lock_.
   float quarantine_ratio_;
 
   typedef CircularQueue<size_t, MemoryNotifierAllocator<size_t>> SlabIndexQueue;
 
   // Holds the indices of free slabs. Under lock_.
-  SlabIndexQueue* free_slabs_;
+  SlabIndexQueue free_slabs_;
 
   // Holds the indices of the quarantined slabs. Under lock_.
-  SlabIndexQueue* quarantine_;
+  SlabIndexQueue quarantine_;
 
   typedef std::vector<SlabInfo,
                       MemoryNotifierAllocator<SlabInfo>> SlabInfoVector;
