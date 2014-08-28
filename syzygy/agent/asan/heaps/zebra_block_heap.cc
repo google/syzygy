@@ -34,8 +34,10 @@ ZebraBlockHeap::ZebraBlockHeap(size_t heap_size,
       slab_count_(heap_size_ / kSlabSize),
       slab_info_(MemoryNotifierAllocator<SlabInfo>(memory_notifier)),
       quarantine_ratio_(common::kDefaultZebraBlockHeapQuarantineRatio),
-      free_slabs_(slab_count_, memory_notifier),
-      quarantine_(slab_count_, memory_notifier),
+      free_slabs_(slab_count_,
+                  MemoryNotifierAllocator<size_t>(memory_notifier)),
+      quarantine_(slab_count_,
+                  MemoryNotifierAllocator<size_t>(memory_notifier)),
       memory_notifier_(memory_notifier) {
   DCHECK_NE(reinterpret_cast<MemoryNotifierInterface*>(NULL), memory_notifier);
 

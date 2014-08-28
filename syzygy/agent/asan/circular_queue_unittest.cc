@@ -170,9 +170,9 @@ TEST(CircularQueue, MemoryNotifierIsCalled) {
     .Times(AtLeast(1));
 
   size_t capacity = 100000;
-  CircularQueue<int, MemoryNotifierAllocator<int>> q(capacity, &mock_notifier);
-  // This should give compilation error.
-  // CircularQueue<int> q(capacity, &mock_notifier);
+  CircularQueue<int, MemoryNotifierAllocator<int>> q(
+      capacity,
+      MemoryNotifierAllocator<int>(&mock_notifier));
 }
 
 

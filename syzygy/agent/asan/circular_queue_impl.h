@@ -31,11 +31,9 @@ CircularQueue<T, Alloc>::CircularQueue(size_t max_capacity)
 }
 
 template<typename T, typename Alloc>
-template<typename>
 CircularQueue<T, Alloc>::CircularQueue(
-    size_t max_capacity,
-    MemoryNotifierInterface* memory_notifier)
-    : buffer_(MemoryNotifierAllocator<T>(memory_notifier)),
+    size_t max_capacity, const Alloc& alloc)
+    : buffer_(alloc),
       head_(0u),
       tail_(0u),
       size_(0u) {

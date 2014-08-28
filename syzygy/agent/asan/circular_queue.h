@@ -55,13 +55,8 @@ class CircularQueue {
 
   // Constructor.
   // @param max_capacity Maximum number of elements the queue can store.
-  // @param memory_notifier The MemoryNotifierInterface used to report
-  //     allocation-related information.
-  // @note Enabled IFF the specified allocator is of type
-  //     MemoryNotifierAllocator<T> to avoid misuse.
-  template<typename = typename std::enable_if<std::is_same<Alloc,
-      MemoryNotifierAllocator<T>>::value>::type>
-  CircularQueue(size_t max_capacity, MemoryNotifierInterface* memory_notifier);
+  // @param alloc The allocator to use with this container.
+  CircularQueue(size_t max_capacity, const Alloc& alloc);
 
   // Inserts an element in the back/tail of the queue if possible.
   // @param the element to be inserted.
