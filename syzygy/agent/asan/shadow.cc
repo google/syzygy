@@ -234,9 +234,15 @@ bool Shadow::ParentBlockInfoFromShadow(const BlockInfo& nested,
 
 bool Shadow::IsBeginningOfBlockBody(const void* addr) {
   DCHECK_NE(static_cast<void*>(NULL), addr);
-  if (IsLeftRedzone(addr) || IsRightRedzone(addr))
-    return false;
-  return IsLeftRedzone(reinterpret_cast<const uint8*>(addr) - 1);
+  // If the block has a non-zero body size then the beginning of the body will
+  // be accessible or tagged as freed.
+  // If the block has an empty body then the beginning of the body will be a
+  // right redzone.
+  if (IsAccessible(addr) || IsRightRedzone(addr) ||
+      GetShadowMarkerForAddress(addr) == kHeapFreedMarker) {
+    return IsLeftRedzone(reinterpret_cast<const uint8*>(addr) - 1);
+  }
+  return false;
 }
 
 void Shadow::CloneShadowRange(const void* src_pointer,

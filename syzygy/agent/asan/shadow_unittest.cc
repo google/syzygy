@@ -324,7 +324,6 @@ TEST(ShadowTest, IsLeftOrRightRedzone) {
   Shadow::Unpoison(info.block, info.block_size);
 }
 
-
 namespace {
 
 void TestBlockInfoFromShadow(const BlockLayout& outer,
@@ -409,6 +408,30 @@ TEST(ShadowTest, BlockInfoFromShadow) {
 TEST(ShadowTest, IsBeginningOfBlockBody) {
   BlockLayout l = {};
   BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &l);
+
+  size_t data_size = l.block_size;
+  scoped_ptr<uint8> data(new uint8[data_size]);
+
+  BlockInfo block_info = {};
+  BlockInitialize(l, data.get(), false, &block_info);
+
+  Shadow::PoisonAllocatedBlock(block_info);
+
+  EXPECT_TRUE(Shadow::IsBeginningOfBlockBody(block_info.body));
+  EXPECT_FALSE(Shadow::IsBeginningOfBlockBody(data.get()));
+
+  block_info.header->state = QUARANTINED_BLOCK;
+  Shadow::MarkAsFreed(block_info.body, block_info.body_size);
+
+  EXPECT_TRUE(Shadow::IsBeginningOfBlockBody(block_info.body));
+  EXPECT_FALSE(Shadow::IsBeginningOfBlockBody(data.get()));
+
+  Shadow::Unpoison(data.get(), data_size);
+}
+
+TEST(ShadowTest, IsBeginningOfBlockBodyForBlockOfSizeZero) {
+  BlockLayout l = {};
+  BlockPlanLayout(kShadowRatio, kShadowRatio, 0, 0, 0, &l);
 
   size_t data_size = l.block_size;
   scoped_ptr<uint8> data(new uint8[data_size]);
