@@ -90,6 +90,24 @@ TEST_F(WindowsHeapAdapterTest, HeapAlloc) {
   ASSERT_EQ(kFakeAlloc, alloc);
 }
 
+TEST_F(WindowsHeapAdapterTest, HeapAllocWithZeroMemoryFlag) {
+  const size_t kAllocSize = 10;
+  uint8 kDummyBuffer[kAllocSize];
+
+  // Fill the array with a non-zero value.
+  ::memset(kDummyBuffer, 0xFF, kAllocSize);
+
+  EXPECT_CALL(mock_heap_manager_, Allocate(kFakeHeapId, kAllocSize)).WillOnce(
+      Return(reinterpret_cast<void*>(kDummyBuffer)));
+  void* alloc =
+      WindowsHeapAdapter::HeapAlloc(reinterpret_cast<HANDLE>(kFakeHeapId),
+                                    HEAP_ZERO_MEMORY,
+                                    kAllocSize);
+  EXPECT_EQ(reinterpret_cast<void*>(kDummyBuffer), alloc);
+  for (size_t i = 0; i < kAllocSize; ++i)
+    EXPECT_EQ(0, kDummyBuffer[i]);
+}
+
 TEST_F(WindowsHeapAdapterTest, HeapReAlloc) {
   void* kFakeAlloc = reinterpret_cast<void*>(0x12345678);
   void* kFakeReAlloc = reinterpret_cast<void*>(0x87654321);

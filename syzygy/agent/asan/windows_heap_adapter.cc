@@ -71,7 +71,10 @@ BOOL WindowsHeapAdapter::HeapDestroy(HANDLE heap) {
 
 LPVOID WindowsHeapAdapter::HeapAlloc(HANDLE heap, DWORD flags, SIZE_T bytes) {
   DCHECK_NE(reinterpret_cast<HeapManagerInterface*>(NULL), heap_manager_);
-  return heap_manager_->Allocate(HandleToHeapId(heap), bytes);
+  LPVOID alloc = heap_manager_->Allocate(HandleToHeapId(heap), bytes);
+  if (alloc != NULL && (flags & HEAP_ZERO_MEMORY) != 0 && bytes > 0)
+    ::memset(alloc, 0, bytes);
+  return alloc;
 }
 
 LPVOID WINAPI WindowsHeapAdapter::HeapReAlloc(HANDLE heap,
