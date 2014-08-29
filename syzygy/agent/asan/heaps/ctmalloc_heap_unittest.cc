@@ -25,7 +25,9 @@ TEST(CtMallocHeapTest, FeaturesAreValid) {
   testing::NullMemoryNotifier n;
   CtMallocHeap h(&n);
   EXPECT_EQ(CtMallocHeap::kHeapReportsReservations |
-                CtMallocHeap::kHeapSupportsIsAllocated,
+                CtMallocHeap::kHeapSupportsIsAllocated |
+                CtMallocHeap::kHeapSupportsGetAllocationSize |
+                CtMallocHeap::kHeapGetAllocationSizeIsUpperBound,
             h.GetHeapFeatures());
 }
 
@@ -81,6 +83,15 @@ TEST(CtMallocHeapTest, IsAllocated) {
 
   h.Free(a);
   EXPECT_FALSE(h.IsAllocated(a));
+}
+
+TEST(CtMallocHeapTest, GetAllocationSize) {
+  testing::NullMemoryNotifier n;
+  CtMallocHeap h(&n);
+
+  void* alloc = h.Allocate(67);
+  ASSERT_TRUE(alloc != NULL);
+  EXPECT_LE(67u, h.GetAllocationSize(alloc));
 }
 
 }  // namespace heaps

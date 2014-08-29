@@ -130,7 +130,7 @@ bool ZebraBlockHeap::IsAllocated(void* alloc) {
 }
 
 size_t ZebraBlockHeap::GetAllocationSize(void* alloc) {
-  return 0;
+  return kUnknownSize;
 }
 
 void ZebraBlockHeap::Lock() {

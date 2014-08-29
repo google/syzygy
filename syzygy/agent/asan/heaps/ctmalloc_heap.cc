@@ -70,7 +70,8 @@ CtMallocHeap::~CtMallocHeap() {
 }
 
 uint32 CtMallocHeap::GetHeapFeatures() const {
-  return kHeapReportsReservations | kHeapSupportsIsAllocated;
+  return kHeapReportsReservations | kHeapSupportsIsAllocated |
+      kHeapSupportsGetAllocationSize | kHeapGetAllocationSizeIsUpperBound;
 }
 
 void* CtMallocHeap::Allocate(size_t bytes) {
@@ -86,13 +87,21 @@ bool CtMallocHeap::Free(void* alloc) {
 }
 
 bool CtMallocHeap::IsAllocated(void* alloc) {
-  if (!WTF::partitionIsAllocatedGeneric(allocator_.root(), alloc, -1))
+  if (!WTF::partitionIsAllocatedGeneric(allocator_.root(), alloc, -1, NULL))
     return false;
   return true;
 }
 
 size_t CtMallocHeap::GetAllocationSize(void* alloc) {
-  return 0;
+  if (alloc == NULL)
+    return kUnknownSize;
+
+  size_t allocation_size = 0;
+  if (!WTF::partitionIsAllocatedGeneric(allocator_.root(), alloc, -1,
+                                        &allocation_size)) {
+    return kUnknownSize;
+  }
+  return allocation_size;
 }
 
 void CtMallocHeap::Lock() {

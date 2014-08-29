@@ -596,9 +596,10 @@ ALWAYS_INLINE void partitionFreeGeneric(PartitionRootGeneric* root, void* ptr)
 // Determines if the given address |ptr| is part of an allocation made from the
 // provided |root|. If |size| is -1 then simply checks if |ptr| was
 // allocated by this allocator; otherwise, validates that the allocation was
-// made with the given |size|.
+// made with the given |size|. If |allocated_size| is non-null then the actual
+// size of the allocation is returned.
 ALWAYS_INLINE bool partitionIsAllocatedGeneric(
-    PartitionRootGeneric* root, void* ptr, size_t size) {
+    PartitionRootGeneric* root, void* ptr, size_t size, size_t* allocated_size) {
   ASSERT(root->initialized);
   if (!ptr)
     return false;
@@ -623,12 +624,18 @@ ALWAYS_INLINE bool partitionIsAllocatedGeneric(
   if (root != root_base)
     return false;
 
+  // If the allocation size was requested then return it.
+  if (allocated_size != NULL) {
+    *allocated_size = partitionCookieSizeAdjustSubtract(
+        page->bucket->slotSize);
+  }
+
   // If a size was provided then validate that the allocation was made
   // with the expected size.
   if (size != -1) {
     size = partitionCookieSizeAdjustAdd(size);
     PartitionBucket* bucket = partitionGenericSizeToBucket(root, size);
-    if (bucket->slotSize != page->bucket->slotSize)
+    if (size != -1 && bucket->slotSize != page->bucket->slotSize)
       return false;
   }
 

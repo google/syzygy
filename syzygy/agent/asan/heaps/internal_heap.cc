@@ -93,7 +93,7 @@ bool InternalHeap::IsAllocated(void* alloc) {
 
 size_t InternalHeap::GetAllocationSize(void* alloc) {
   if (alloc == NULL)
-    return 0;
+    return kUnknownSize;
 
   uint8* bytes = reinterpret_cast<uint8*>(alloc);
   InternalHeapEntry* entry = reinterpret_cast<InternalHeapEntry*>(

@@ -72,7 +72,7 @@ bool LargeBlockHeap::IsAllocated(void* alloc) {
 }
 
 size_t LargeBlockHeap::GetAllocationSize(void* alloc) {
-  return 0;
+  return kUnknownSize;
 }
 
 void LargeBlockHeap::Lock() {

@@ -60,6 +60,9 @@ class HeapInterface {
     kHeapGetAllocationSizeIsUpperBound = 1 << 3,
   };
 
+  // The return value of GetAllocationSize if the heap does not support it.
+  static const size_t kUnknownSize = ~0;
+
   // Virtual destructor.
   virtual ~HeapInterface() { }
 
@@ -92,7 +95,7 @@ class HeapInterface {
   // Returns the size of the given allocation.
   // @param alloc An address previously returned by Allocate.
   // @returns the size of the allocation.
-  // @note This will always return zero unless the heap has the
+  // @note This will always return kUnknownSize unless the heap has the
   //     kHeapSupportsGetAllocationSize feature.
   virtual size_t GetAllocationSize(void* alloc) = 0;
 
