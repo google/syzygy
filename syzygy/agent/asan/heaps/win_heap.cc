@@ -65,6 +65,10 @@ bool WinHeap::IsAllocated(void* alloc) {
   return false;
 }
 
+size_t WinHeap::GetAllocationSize(void* alloc) {
+  return 0;
+}
+
 void WinHeap::Lock() {
   DCHECK_NE(static_cast<HANDLE>(NULL), heap_);
   // This can only fail if the heap was opened with HEAP_NO_SERIALIZATION.

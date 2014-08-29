@@ -49,6 +49,15 @@ class HeapInterface {
     // address is part of an active allocation owned by the heap, via the
     // 'IsAllocated' function.
     kHeapSupportsIsAllocated = 1 << 1,
+
+    // If this bit is set then the heap supports returning allocation sizes.
+    kHeapSupportsGetAllocationSize = 1 << 2,
+
+    // If this bit is set then the results returned by GetAllocationSize are
+    // approximate, and reflect the size of the block of memory returned for
+    // the allocation, not the actual initially requested amount. Can only be
+    // set in conjunction with kHeapSupportsGetAllocationSize.
+    kHeapGetAllocationSizeIsUpperBound = 1 << 3,
   };
 
   // Virtual destructor.
@@ -79,6 +88,13 @@ class HeapInterface {
   // @note This will always return false unless the heap has the
   //     kHeapSupportsIsAllocated feature.
   virtual bool IsAllocated(void* alloc) = 0;
+
+  // Returns the size of the given allocation.
+  // @param alloc An address previously returned by Allocate.
+  // @returns the size of the allocation.
+  // @note This will always return zero unless the heap has the
+  //     kHeapSupportsGetAllocationSize feature.
+  virtual size_t GetAllocationSize(void* alloc) = 0;
 
   // Locks the heap. All other calls to the heap will be blocked until
   // a corresponding call to Unlock.

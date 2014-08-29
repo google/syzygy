@@ -53,6 +53,7 @@ class LargeBlockHeap : public BlockHeapInterface {
   virtual void* Allocate(size_t bytes);
   virtual bool Free(void* alloc);
   virtual bool IsAllocated(void* alloc);
+  virtual size_t GetAllocationSize(void* alloc);
   virtual void Lock();
   virtual void Unlock();
   // @}

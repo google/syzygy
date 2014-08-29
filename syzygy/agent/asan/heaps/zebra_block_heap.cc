@@ -129,6 +129,10 @@ bool ZebraBlockHeap::IsAllocated(void* alloc) {
   return (slab_info_[slab_index].state != kFreeSlab);
 }
 
+size_t ZebraBlockHeap::GetAllocationSize(void* alloc) {
+  return 0;
+}
+
 void ZebraBlockHeap::Lock() {
   lock_.Acquire();
 }

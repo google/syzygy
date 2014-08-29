@@ -89,6 +89,10 @@ bool InternalHeap::IsAllocated(void* alloc) {
   return heap_->IsAllocated(alloc);
 }
 
+size_t InternalHeap::GetAllocationSize(void* alloc) {
+  return 0;
+}
+
 void InternalHeap::Lock() {
   heap_->Lock();
 }

@@ -91,6 +91,10 @@ bool CtMallocHeap::IsAllocated(void* alloc) {
   return true;
 }
 
+size_t CtMallocHeap::GetAllocationSize(void* alloc) {
+  return 0;
+}
+
 void CtMallocHeap::Lock() {
   lock_.Acquire();
 }

@@ -413,6 +413,7 @@ class LenientMockHeap : public agent::asan::HeapInterface {
   MOCK_METHOD1(Allocate, void*(size_t));
   MOCK_METHOD1(Free, bool(void*));
   MOCK_METHOD1(IsAllocated, bool(void*));
+  MOCK_METHOD1(GetAllocationSize, size_t(void*));
   MOCK_METHOD0(Lock, void());
   MOCK_METHOD0(Unlock, void());
 };
@@ -507,6 +508,7 @@ class DummyHeap : public agent::asan::HeapInterface {
   virtual void* Allocate(size_t bytes) { return ::malloc(bytes); }
   virtual bool Free(void* alloc) { ::free(alloc); return true; }
   virtual bool IsAllocated(void* alloc) { return false; }
+  virtual size_t GetAllocationSize(void* alloc) { return 0; }
   virtual void Lock() { return; }
   virtual void Unlock() { return; }
 };

@@ -43,6 +43,10 @@ bool SimpleBlockHeap::IsAllocated(void* alloc) {
   return heap_->IsAllocated(alloc);
 }
 
+size_t SimpleBlockHeap::GetAllocationSize(void* alloc) {
+  return heap_->GetAllocationSize(alloc);;
+}
+
 void SimpleBlockHeap::Lock() {
   heap_->Lock();
 }
