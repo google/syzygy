@@ -22,7 +22,8 @@ namespace heaps {
 
 TEST(WinHeapTest, FeaturesAreValid) {
   WinHeap h;
-  EXPECT_EQ(0u, h.GetHeapFeatures());
+  EXPECT_EQ(WinHeap::kHeapSupportsGetAllocationSize,
+            h.GetHeapFeatures());
 }
 
 TEST(WinHeapTest, HeapTest) {
@@ -44,6 +45,14 @@ TEST(WinHeapTest, HeapTest) {
   std::set<void*>::const_iterator it = allocs.begin();
   for (; it != allocs.end(); ++it)
     EXPECT_TRUE(h.Free(*it));
+}
+
+TEST(WinHeapTest, GetAllocationSize) {
+  WinHeap h;
+
+  void* alloc = h.Allocate(67);
+  ASSERT_TRUE(alloc != NULL);
+  EXPECT_EQ(67u, h.GetAllocationSize(alloc));
 }
 
 }  // namespace heaps

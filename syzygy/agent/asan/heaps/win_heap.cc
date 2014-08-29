@@ -34,8 +34,7 @@ WinHeap::~WinHeap() {
 }
 
 uint32 WinHeap::GetHeapFeatures() const {
-  // This heap doesn't support any advanced features.
-  return 0;
+  return kHeapSupportsGetAllocationSize;
 }
 
 void* WinHeap::Allocate(size_t bytes) {
@@ -66,7 +65,7 @@ bool WinHeap::IsAllocated(void* alloc) {
 }
 
 size_t WinHeap::GetAllocationSize(void* alloc) {
-  return 0;
+  return ::HeapSize(heap_, 0, alloc);
 }
 
 void WinHeap::Lock() {

@@ -53,6 +53,16 @@ TEST(InternalHeapTest, EndToEnd) {
     EXPECT_TRUE(h.Free(*it));
 }
 
+TEST(InternalHeapTest, GetAllocationSize) {
+  memory_notifiers::NullMemoryNotifier mock_notifier;
+  testing::DummyHeap heap;
+  InternalHeap h(&mock_notifier, &heap);
+
+  void* alloc = h.Allocate(67);
+  ASSERT_TRUE(alloc != NULL);
+  EXPECT_EQ(common::AlignUp(67u, kShadowRatio), h.GetAllocationSize(alloc));
+}
+
 TEST(InternalHeapTest, NotificationsWorkWithNonNotifyingHeap) {
   testing::MockMemoryNotifier mock_notifier;
   WinHeap win_heap;

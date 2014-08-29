@@ -43,7 +43,9 @@ InternalHeap::InternalHeap(MemoryNotifierInterface* memory_notifier,
 }
 
 uint32 InternalHeap::GetHeapFeatures() const {
-  return heap_->GetHeapFeatures();
+  // Endow a wrapped heap with GetAllocationSize support.
+  return heap_->GetHeapFeatures() | kHeapSupportsGetAllocationSize |
+      kHeapGetAllocationSizeIsUpperBound;
 }
 
 void* InternalHeap::Allocate(size_t bytes) {
@@ -90,7 +92,13 @@ bool InternalHeap::IsAllocated(void* alloc) {
 }
 
 size_t InternalHeap::GetAllocationSize(void* alloc) {
-  return 0;
+  if (alloc == NULL)
+    return 0;
+
+  uint8* bytes = reinterpret_cast<uint8*>(alloc);
+  InternalHeapEntry* entry = reinterpret_cast<InternalHeapEntry*>(
+      bytes - kBodyOffset);
+  return entry->size;
 }
 
 void InternalHeap::Lock() {
