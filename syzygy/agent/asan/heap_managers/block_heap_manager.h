@@ -202,9 +202,6 @@ class BlockHeapManager : public HeapManagerInterface {
   // The process's heap.
   BlockHeapInterface* process_heap_;
 
-  // The heap that gets used for the unguarded allocations.
-  scoped_ptr<HeapInterface> unguarded_allocation_heap_;
-
   // Hold the single ZebraBlockHeap instance used by this heap manager.
   // The lifetime management of the zebra heap is provided by the
   // HeapQuarantineMap, this is simply a useful pointer for finding the

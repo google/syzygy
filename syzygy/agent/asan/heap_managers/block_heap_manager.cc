@@ -41,7 +41,6 @@ BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
   DCHECK_NE(static_cast<StackCaptureCache*>(NULL), stack_cache);
   SetDefaultAsanParameters(&parameters_);
   PropagateParameters();
-  unguarded_allocation_heap_.reset(new heaps::WinHeap());
 
   // Creates the process heap.
   HeapInterface* process_heap_underlying_heap =
@@ -60,8 +59,10 @@ BlockHeapManager::~BlockHeapManager() {
     DestroyHeapUnlocked(iter_heaps->first, iter_heaps->second);
   heaps_.clear();
 
-  process_heap_ = NULL;  // Clear the zebra heap reference since it was deleted.
-  zebra_block_heap_ = NULL;}
+  process_heap_ = NULL;
+  // Clear the zebra heap reference since it was deleted.
+  zebra_block_heap_ = NULL;
+}
 
 HeapId BlockHeapManager::CreateHeap() {
   // Creates the underlying heap used by this heap.
@@ -96,7 +97,8 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
   // Some allocations can pass through without instrumentation.
   if (parameters_.allocation_guard_rate < 1.0 &&
       base::RandDouble() >= parameters_.allocation_guard_rate) {
-    void* alloc = unguarded_allocation_heap_->Allocate(bytes);
+    void* alloc =
+        reinterpret_cast<BlockHeapInterface*>(heap_id)->Allocate(bytes);
     return alloc;
   }
 
@@ -155,7 +157,7 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
     // TODO(chrisha|sebmarchand): Handle invalid allocation addresses.
 
     // Assume that this block was allocated without guards.
-    return unguarded_allocation_heap_->Free(alloc);
+    return reinterpret_cast<BlockHeapInterface*>(heap_id)->Free(alloc);
   }
 
   if (!BlockChecksumIsValid(block_info)) {
