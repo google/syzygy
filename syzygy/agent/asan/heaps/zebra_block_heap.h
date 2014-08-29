@@ -118,6 +118,29 @@ class ZebraBlockHeap : public BlockHeapInterface,
   void set_quarantine_ratio(float quarantine_ratio);
 
  protected:
+  // The set of possible states of the slabs.
+  enum SlabState {
+    kFreeSlab,
+    kAllocatedSlab,
+    kQuarantinedSlab
+  };
+
+  // TODO(chrisha): Make this a bitfield; all three fields fit in 4 bytes
+  //     rather than 12.
+  // - Need 14 bits for size (0 - 8192).
+  // - Need 13 bits for allocation offset in a slab (0 - 4096).
+  // - Need 2 bits for state.
+  // Describes the slab state.
+  struct SlabInfo {
+    SlabState state;
+    uint8* allocated_address;
+    size_t allocation_size;
+  };
+
+  // Performs an allocation, and returns a pointer to the SlabInfo where the
+  // allocation was made.
+  SlabInfo* AllocateImpl(size_t bytes);
+
   // Checks if the quarantine invariant is satisfied.
   // @returns true if the quarantine invariant is satisfied, false otherwise.
   bool QuarantineInvariantIsSatisfied();
@@ -135,19 +158,6 @@ class ZebraBlockHeap : public BlockHeapInterface,
 
   // Defines an invalid slab index.
   static const size_t kInvalidSlabIndex = -1;
-
-  // The set of possible states of the slabs.
-  enum SlabState {
-    kFreeSlab,
-    kAllocatedSlab,
-    kQuarantinedSlab
-  };
-
-  // Describes the slab state.
-  struct SlabInfo {
-    SlabState state;
-    uint8* allocated_address;
-  };
 
   // Heap memory address.
   uint8* heap_address_;

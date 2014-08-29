@@ -74,7 +74,8 @@ class TestZebraBlockHeap : public ZebraBlockHeap {
 TEST(ZebraBlockHeapTest, FeaturesAreValid) {
   TestZebraBlockHeap h;
   EXPECT_EQ(HeapInterface::kHeapSupportsIsAllocated |
-                HeapInterface::kHeapReportsReservations,
+                HeapInterface::kHeapReportsReservations |
+                HeapInterface::kHeapSupportsGetAllocationSize,
             h.GetHeapFeatures());
 }
 
@@ -386,6 +387,14 @@ TEST(ZebraBlockHeapTest, IsAllocated) {
 
   h.Free(a);
   EXPECT_FALSE(h.IsAllocated(a));
+}
+
+TEST(ZebraBlockHeapTest, GetAllocationSize) {
+  TestZebraBlockHeap h;
+
+  void* alloc = h.Allocate(67);
+  ASSERT_TRUE(alloc != NULL);
+  EXPECT_EQ(67u, h.GetAllocationSize(alloc));
 }
 
 TEST(ZebraBlockHeapTest, PushPopInvariant) {
