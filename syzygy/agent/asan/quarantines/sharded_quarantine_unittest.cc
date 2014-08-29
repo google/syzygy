@@ -76,7 +76,7 @@ TEST(ShardedQuarantineTest, EvenLoading) {
   DummyObject popped;
 
   // No max object size. This logic is tested in SizeLimitedQuarantineImpl.
-  q.set_max_object_size(0);
+  q.set_max_object_size(TestShardedQuarantine::kUnboundedSize);
   q.set_max_quarantine_size(10000);
 
   EXPECT_EQ(0u, q.size());

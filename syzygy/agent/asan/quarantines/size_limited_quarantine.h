@@ -51,19 +51,25 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
  public:
   typedef SizeFunctorType SizeFunctor;
 
-  // Constructor. Initializes all sizes to zero so the quarantine will
-  // block all objects from entering initially.
+  static const size_t kUnboundedSize = ~0;
+
+  // Constructor. Initially the quarantine has unlimited capacity.
   SizeLimitedQuarantineImpl()
-      : max_object_size_(0), max_quarantine_size_(0), size_(0), count_(0),
+      : max_object_size_(kUnboundedSize),
+        max_quarantine_size_(kUnboundedSize),
+        size_(0),
+        count_(0),
         size_functor_() {
   }
 
-  // Constructor. Initializes all sizes to zero so the quarantine will
-  // block all objects from entering initially.
+  // Constructor. Initially the quarantine has unlimited capacity.
   // @param size_functor The size functor to be used. This will be copied
   //     into the classes member size functor.
   explicit SizeLimitedQuarantineImpl(const SizeFunctor& size_functor)
-      : max_object_size_(0), max_quarantine_size_(0), size_(0), count_(0),
+      : max_object_size_(kUnboundedSize),
+        max_quarantine_size_(kUnboundedSize),
+        size_(0),
+        count_(0),
         size_functor_(size_functor) {
   }
 
@@ -74,7 +80,7 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
   // objects to 'Push', and does not invalidate overly objects already in
   // the quarantine.
   // @param max_object_size The maximum size of any single object in the
-  //     quarantine. A size of 0 means unlimited (no max).
+  //     quarantine. Use kUnboundedSize for unlimited (no max).
   void set_max_object_size(size_t max_object_size) {
     max_object_size_ = max_object_size;
   }
@@ -82,7 +88,7 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
   // Sets the maximum quarantine size. This may cause the quarantine
   // invariant to be immediately invalidated, requiring calls to 'Pop'.
   // @param max_quarantine_size The maximum size of the entire quarantine.
-  //     A size of 0 means unlimited (no max).
+  //     Use kUnboundedSize for unlimited (no max).
   void set_max_quarantine_size(size_t max_quarantine_size) {
     max_quarantine_size_ = max_quarantine_size;
   }

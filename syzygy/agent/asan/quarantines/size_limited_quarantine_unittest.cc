@@ -84,8 +84,8 @@ class TestQuarantine
 
 TEST(SizeLimitedQuarantineTest, ConstructorsSettersAndGetters) {
   TestQuarantine q;
-  EXPECT_EQ(0u, q.max_object_size());
-  EXPECT_EQ(0u, q.max_quarantine_size());
+  EXPECT_EQ(TestQuarantine::kUnboundedSize, q.max_object_size());
+  EXPECT_EQ(TestQuarantine::kUnboundedSize, q.max_quarantine_size());
   EXPECT_EQ(0u, q.size());
   EXPECT_EQ(0u, q.GetCount());
 

@@ -27,9 +27,9 @@ bool SizeLimitedQuarantineImpl<OT, SFT>::Push(
     const Object& object) {
   SizeFunctor get_size;
   size_t size = get_size(object);
-  if (max_object_size_ != 0 && size > max_object_size_)
+  if (max_object_size_ != kUnboundedSize && size > max_object_size_)
     return false;
-  if (max_quarantine_size_ != 0 && size > max_quarantine_size_)
+  if (max_quarantine_size_ != kUnboundedSize && size > max_quarantine_size_)
     return false;
   if (!PushImpl(object))
     return false;
@@ -42,7 +42,8 @@ template<typename OT, typename SFT>
 bool SizeLimitedQuarantineImpl<OT, SFT>::Pop(
     Object* object) {
   DCHECK_NE(static_cast<Object*>(NULL), object);
-  if (max_quarantine_size_ == 0 || size_ <= max_quarantine_size_)
+  if (max_quarantine_size_ == kUnboundedSize ||
+      size_ <= max_quarantine_size_)
     return false;
   PopImpl(object);
   SizeFunctor get_size;
