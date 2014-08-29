@@ -31,6 +31,7 @@
 #include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
+#include "syzygy/agent/asan/windows_heap_adapter.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
@@ -40,8 +41,8 @@ namespace asan {
 namespace {
 
 using agent::asan::AsanLogger;
-using agent::asan::HeapProxy;
 using agent::asan::StackCaptureCache;
+using agent::asan::WindowsHeapAdapter;
 using base::win::WinProcExceptionFilter;
 
 // Signatures of the various Breakpad functions for setting custom crash
@@ -345,8 +346,7 @@ LPTOP_LEVEL_EXCEPTION_FILTER AsanRuntime::previous_uef_ = NULL;
 bool AsanRuntime::uef_installed_ = false;
 
 AsanRuntime::AsanRuntime()
-    : logger_(), stack_cache_(), asan_error_callback_(),
-      heap_proxy_dlist_lock_(), heap_proxy_dlist_() {
+    : logger_(), stack_cache_(), asan_error_callback_(), heap_manager_() {
   common::SetDefaultAsanParameters(&params_);
 }
 
@@ -370,14 +370,13 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
 
   Shadow::SetUp();
 
-  InitializeListHead(&heap_proxy_dlist_);
-
   // Setup the "global" state.
   StackCapture::Init();
   StackCaptureCache::Init();
   SetUpLogger();
   SetUpStackCache();
-  HeapProxy::Init(stack_cache_.get());
+  SetUpHeapManager();
+  WindowsHeapAdapter::SetUp(heap_manager_.get());
 
   // Parse and propagate any flags set via the environment variable. This logs
   // failure for us.
@@ -411,6 +410,8 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
 void AsanRuntime::TearDown() {
   base::AutoLock auto_lock(lock_);
 
+  WindowsHeapAdapter::TearDown();
+  TearDownHeapManager();
   TearDownStackCache();
   TearDownLogger();
   DCHECK(asan_error_callback_.is_null() == FALSE);
@@ -502,6 +503,23 @@ void AsanRuntime::TearDownStackCache() {
   stack_cache_.reset();
 }
 
+void AsanRuntime::SetUpHeapManager() {
+  DCHECK_EQ(static_cast<heap_managers::BlockHeapManager*>(NULL),
+            heap_manager_.get());
+  DCHECK_NE(static_cast<StackCaptureCache*>(NULL), stack_cache_.get());
+  heap_manager_.reset(new heap_managers::BlockHeapManager(stack_cache_.get()));
+
+  // Configure the heap manager to notify us on heap corruption.
+  heap_manager_->SetHeapErrorCallback(base::Bind(&AsanRuntime::OnError,
+                                                 base::Unretained(this)));
+}
+
+void AsanRuntime::TearDownHeapManager() {
+  DCHECK_NE(static_cast<heap_managers::BlockHeapManager*>(NULL),
+            heap_manager_.get());
+  heap_manager_.reset();
+}
+
 bool AsanRuntime::GetAsanFlagsEnvVar(std::wstring* env_var_wstr) {
   scoped_ptr<base::Environment> env(base::Environment::Create());
   if (env.get() == NULL) {
@@ -520,7 +538,7 @@ bool AsanRuntime::GetAsanFlagsEnvVar(std::wstring* env_var_wstr) {
   return true;
 }
 
-void AsanRuntime::PropagateParams() const {
+void AsanRuntime::PropagateParams() {
   // This function has to be kept in sync with the AsanParameters struct. These
   // checks will ensure that this is the case.
   COMPILE_ASSERT(sizeof(common::AsanParameters) == 52,
@@ -529,15 +547,11 @@ void AsanRuntime::PropagateParams() const {
                  must_update_parameters_version);
 
   // Push the configured parameter values to the appropriate endpoints.
-  HeapProxy::set_default_quarantine_max_size(params_.quarantine_size);
-  HeapProxy::set_allocation_guard_rate(params_.allocation_guard_rate);
+  heap_manager_->set_parameters(params_);
   StackCaptureCache::set_compression_reporting_period(params_.reporting_period);
   StackCapture::set_bottom_frames_to_skip(params_.bottom_frames_to_skip);
   stack_cache_->set_max_num_frames(params_.max_num_frames);
   // ignored_stack_ids is used locally by AsanRuntime.
-  HeapProxy::set_trailer_padding_size(params_.trailer_padding_size);
-  HeapProxy::set_default_quarantine_max_block_size(
-      params_.quarantine_block_size);
   logger_->set_log_as_text(params_.log_as_text);
   // exit_on_failure is used locally by AsanRuntime.
   logger_->set_minidump_on_failure(params_.minidump_on_failure);
@@ -695,57 +709,8 @@ void AsanRuntime::LogAsanErrorInfo(AsanErrorInfo* error_info) {
   }
 }
 
-void AsanRuntime::AddHeap(HeapProxy* heap) {
-  DCHECK_NE(reinterpret_cast<HeapProxy*>(NULL), heap);
-
-  // Configure the proxy to notify us on heap corruption.
-  heap->SetHeapErrorCallback(
-      base::Bind(&AsanRuntime::OnError,
-                 base::Unretained(this)));
-
-  {
-    base::AutoLock lock(heap_proxy_dlist_lock_);
-    InsertTailList(&heap_proxy_dlist_, HeapProxy::ToListEntry(heap));
-  }
-}
-
-void AsanRuntime::RemoveHeap(HeapProxy* heap) {
-  DCHECK_NE(reinterpret_cast<HeapProxy*>(NULL), heap);
-
-  {
-    base::AutoLock lock(heap_proxy_dlist_lock_);
-    DCHECK(HeapListContainsEntry(&heap_proxy_dlist_,
-                                 HeapProxy::ToListEntry(heap)));
-    RemoveEntryList(HeapProxy::ToListEntry(heap));
-  }
-
-  // Clear the callback so that the heap no longer notifies us of errors.
-  heap->ClearHeapErrorCallback();
-}
-
-void AsanRuntime::GetHeaps(HeapVector* heap_vector) {
-  DCHECK_NE(reinterpret_cast<std::vector<HeapProxy*>*>(NULL), heap_vector);
-
-  heap_vector->clear();
-
-  base::AutoLock lock(heap_proxy_dlist_lock_);
-
-  if (IsListEmpty(&heap_proxy_dlist_))
-    return;
-
-  LIST_ENTRY* current = heap_proxy_dlist_.Flink;
-  while (current != NULL) {
-    LIST_ENTRY* next_item = NULL;
-    if (current->Flink != &heap_proxy_dlist_) {
-      next_item = current->Flink;
-    }
-    heap_vector->push_back(HeapProxy::FromListEntry(current));
-    current = next_item;
-  }
-}
-
 void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
-  base::AutoLock lock(heap_proxy_dlist_lock_);
+  base::AutoLock lock(lock_);
 
   // Checks if this is an access to an internal structure or if it's an access
   // in the upper region of the memory (over the 2 GB limit).

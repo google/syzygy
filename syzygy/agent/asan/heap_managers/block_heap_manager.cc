@@ -35,17 +35,21 @@ using heaps::ZebraBlockHeap;
 
 }  // namespace
 
-BlockHeapManager::BlockHeapManager(AsanRuntime* runtime)
-    : runtime_(runtime),
+BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
+    : stack_cache_(stack_cache),
       zebra_block_heap_(NULL) {
-  DCHECK_NE(static_cast<AsanRuntime*>(NULL), runtime);
+  DCHECK_NE(static_cast<StackCaptureCache*>(NULL), stack_cache);
   SetDefaultAsanParameters(&parameters_);
-  // TODO(sebmarchand): Set this callback directly from AsanRuntime::Setup once
-  //     everything has been plugged together.
-  SetHeapErrorCallback(base::Bind(&AsanRuntime::OnError,
-                                  base::Unretained(runtime_)));
   PropagateParameters();
   unguarded_allocation_heap_.reset(new heaps::WinHeap());
+
+  // Creates the process heap.
+  HeapInterface* process_heap_underlying_heap =
+      new heaps::WinHeap(::GetProcessHeap());
+  process_heap_ = new heaps::SimpleBlockHeap(process_heap_underlying_heap);
+  underlying_heaps_map_.insert(std::make_pair(process_heap_,
+                                              process_heap_underlying_heap));
+  heaps_.insert(std::make_pair(process_heap_, &shared_quarantine_));
 }
 
 BlockHeapManager::~BlockHeapManager() {
@@ -55,9 +59,9 @@ BlockHeapManager::~BlockHeapManager() {
   for (; iter_heaps != heaps_.end(); ++iter_heaps)
     DestroyHeapUnlocked(iter_heaps->first, iter_heaps->second);
   heaps_.clear();
-  // Clear the zebra heap reference since it was deleted.
-  zebra_block_heap_ = NULL;
-}
+
+  process_heap_ = NULL;  // Clear the zebra heap reference since it was deleted.
+  zebra_block_heap_ = NULL;}
 
 HeapId BlockHeapManager::CreateHeap() {
   // Creates the underlying heap used by this heap.
@@ -132,7 +136,7 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
   // greatest number of stack frames.
   StackCapture stack;
   stack.InitFromStack();
-  block.header->alloc_stack = runtime_->stack_cache()->SaveStackTrace(stack);
+  block.header->alloc_stack = stack_cache_->SaveStackTrace(stack);
   block.header->free_stack = NULL;
 
   block.trailer->heap_id = heap_id;
@@ -190,7 +194,7 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
     StackCapture stack;
     stack.InitFromStack();
     block_info.header->free_stack =
-        runtime_->stack_cache()->SaveStackTrace(stack);
+        stack_cache_->SaveStackTrace(stack);
     block_info.trailer->free_ticks = ::GetTickCount();
     block_info.trailer->free_tid = ::GetCurrentThreadId();
 
@@ -247,17 +251,17 @@ void BlockHeapManager::PropagateParameters() {
     TrimQuarantine(&shared_quarantine_);
 
   if (parameters_.enable_zebra_block_heap && zebra_block_heap_ == NULL) {
-    // Initialize the zebra heap only if it isnt't already initialized.
+    // Initialize the zebra heap only if it isn't already initialized.
     // The zebra heap cannot be resized once created.
     base::AutoLock lock(lock_);
     zebra_block_heap_ = new ZebraBlockHeap(parameters_.zebra_block_heap_size,
-                                            &null_memory_notifier);
+                                           &null_memory_notifier);
     heaps_.insert(std::make_pair(zebra_block_heap_, zebra_block_heap_));
   }
 
   if (zebra_block_heap_ != NULL) {
     zebra_block_heap_->set_quarantine_ratio(
-      parameters_.zebra_block_heap_quarantine_ratio);
+        parameters_.zebra_block_heap_quarantine_ratio);
     TrimQuarantine(zebra_block_heap_);
   }
 
@@ -376,11 +380,11 @@ bool BlockHeapManager::FreePristineBlock(BlockInfo* block_info) {
 
   // Return pointers to the stacks for reference counting purposes.
   if (block_info->header->alloc_stack != NULL) {
-    runtime_->stack_cache()->ReleaseStackTrace(block_info->header->alloc_stack);
+    stack_cache_->ReleaseStackTrace(block_info->header->alloc_stack);
     block_info->header->alloc_stack = NULL;
   }
   if (block_info->header->free_stack != NULL) {
-    runtime_->stack_cache()->ReleaseStackTrace(block_info->header->free_stack);
+    stack_cache_->ReleaseStackTrace(block_info->header->free_stack);
     block_info->header->free_stack = NULL;
   }
 
@@ -395,11 +399,11 @@ void BlockHeapManager::ClearCorruptBlockMetadata(BlockInfo* block_info) {
   DCHECK_NE(static_cast<BlockHeader*>(NULL), block_info->header);
 
   // Set the invalid stack captures to NULL.
-  if (!runtime_->stack_cache()->StackCapturePointerIsValid(
+  if (!stack_cache_->StackCapturePointerIsValid(
       block_info->header->alloc_stack)) {
     block_info->header->alloc_stack = NULL;
   }
-  if (!runtime_->stack_cache()->StackCapturePointerIsValid(
+  if (!stack_cache_->StackCapturePointerIsValid(
       block_info->header->free_stack)) {
     block_info->header->free_stack = NULL;
   }
@@ -414,7 +418,7 @@ void BlockHeapManager::ReportHeapError(void* address, BadAccessKind kind) {
   error_info.access_mode = agent::asan::ASAN_UNKNOWN_ACCESS;
   error_info.location = address;
   error_info.error_type = kind;
-  ErrorInfoGetBadAccessInformation(runtime_->stack_cache(), &error_info);
+  ErrorInfoGetBadAccessInformation(stack_cache_, &error_info);
   agent::asan::StackCapture stack;
   stack.InitFromStack();
   error_info.crash_stack_id = stack.ComputeRelativeStackId();

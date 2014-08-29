@@ -22,7 +22,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/unittest_util.h"
 
@@ -32,7 +31,6 @@ namespace asan {
 namespace {
 
 using agent::asan::AsanErrorInfo;
-using agent::asan::HeapProxy;
 
 // A derived class to expose protected members for unit-testing.
 class TestAsanRuntime : public AsanRuntime {
@@ -59,7 +57,6 @@ class AsanRuntimeTest : public testing::TestWithAsanLogger {
     // Setup the "global" state.
     StackCapture::Init();
     StackCaptureCache::Init();
-    HeapProxy::Init(&stack_cache_);
   }
 
   void TearDown() OVERRIDE {
@@ -113,39 +110,6 @@ TEST_F(AsanRuntimeTest, OnError) {
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 
-TEST_F(AsanRuntimeTest, SetDefaultQuarantineMaxSize) {
-  // Initialize the flags with the original command line.
-  ASSERT_NO_FATAL_FAILURE(
-      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
-
-  // Double the max size of the quarantine.
-  unsigned int quarantine_max_size =
-      HeapProxy::default_quarantine_max_size() * 2;
-  // Increments the quarantine max size if it was set to 0.
-  if (quarantine_max_size == 0)
-    quarantine_max_size++;
-  DCHECK_GT(quarantine_max_size, 0U);
-  std::string quarantine_max_size_str = base::UintToString(quarantine_max_size);
-  current_command_line_.AppendSwitchASCII(common::kParamQuarantineSize,
-                                          quarantine_max_size_str);
-
-  // Tear down the runtime and restart it with a different command line.
-  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
-  ASSERT_NO_FATAL_FAILURE(
-      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
-
-  // Ensure that the quarantine max size has been modified.
-  EXPECT_EQ(quarantine_max_size, HeapProxy::default_quarantine_max_size());
-
-  // Ensure that the heap proxies use the new quarantine max size.
-  HeapProxy heap_proxy;
-  ASSERT_TRUE(heap_proxy.Create(0, 0, 0));
-  EXPECT_EQ(quarantine_max_size, heap_proxy.quarantine_max_size());
-  ASSERT_TRUE(heap_proxy.Destroy());
-
-  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
-}
-
 TEST_F(AsanRuntimeTest, SetCompressionReportingPeriod) {
   ASSERT_EQ(StackCaptureCache::GetDefaultCompressionReportingPeriod(),
             StackCaptureCache::compression_reporting_period());
@@ -172,19 +136,6 @@ TEST_F(AsanRuntimeTest, SetBottomFramesToSkip) {
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
   EXPECT_EQ(frames_to_skip, StackCapture::bottom_frames_to_skip());
-  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
-}
-
-TEST_F(AsanRuntimeTest, SetTrailerPaddingSize) {
-  size_t trailer_padding_size = HeapProxy::trailer_padding_size() + 1;
-  std::string new_trailer_padding_size_str =
-      base::UintToString(trailer_padding_size);
-  current_command_line_.AppendSwitchASCII(
-      common::kParamTrailerPaddingSize, new_trailer_padding_size_str);
-
-  ASSERT_NO_FATAL_FAILURE(
-      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
-  EXPECT_EQ(trailer_padding_size, HeapProxy::trailer_padding_size());
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 
@@ -239,60 +190,6 @@ TEST_F(AsanRuntimeTest, IgnoredStackIds) {
 
   EXPECT_THAT(asan_runtime_.params().ignored_stack_ids_set,
               testing::ElementsAre(0x1, 0x7E577E57, 0xCAFEBABE, 0xFFFFFFFF));
-  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
-}
-
-TEST_F(AsanRuntimeTest, PropagateParams) {
-  ASSERT_NO_FATAL_FAILURE(
-      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
-
-  common::InflatedAsanParameters& params = asan_runtime_.params();
-  params.quarantine_size =
-      HeapProxy::default_quarantine_max_size() - 1;
-  ASSERT_LT(0U, params.quarantine_size);
-  params.reporting_period =
-      StackCaptureCache::GetDefaultCompressionReportingPeriod() - 1;
-  ASSERT_LT(0U, params.reporting_period);
-  params.bottom_frames_to_skip =
-      StackCapture::bottom_frames_to_skip() + 1;
-  ASSERT_LT(0U, params.bottom_frames_to_skip);
-  params.max_num_frames =
-      asan_runtime_.stack_cache()->max_num_frames() - 1;
-  ASSERT_LT(0U, params.max_num_frames);
-  asan_runtime_.PropagateParams();
-
-  ASSERT_EQ(params.quarantine_size, HeapProxy::default_quarantine_max_size());
-  ASSERT_EQ(params.reporting_period,
-            StackCaptureCache::compression_reporting_period());
-  ASSERT_EQ(params.bottom_frames_to_skip,
-            StackCapture::bottom_frames_to_skip());
-  ASSERT_EQ(params.max_num_frames,
-            asan_runtime_.stack_cache()->max_num_frames());
-
-  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
-}
-
-TEST_F(AsanRuntimeTest, AddAndRemoveHeaps) {
-  ASSERT_NO_FATAL_FAILURE(
-      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
-
-  HeapProxy heap_1;
-  HeapProxy heap_2;
-  asan_runtime_.AddHeap(&heap_1);
-  asan_runtime_.AddHeap(&heap_2);
-
-  AsanRuntime::HeapVector heaps;
-  asan_runtime_.GetHeaps(&heaps);
-  EXPECT_EQ(2, heaps.size());
-
-  asan_runtime_.RemoveHeap(&heap_1);
-  asan_runtime_.GetHeaps(&heaps);
-  EXPECT_EQ(1, heaps.size());
-
-  asan_runtime_.RemoveHeap(&heap_2);
-  asan_runtime_.GetHeaps(&heaps);
-  EXPECT_EQ(0U, heaps.size());
-
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 

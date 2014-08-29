@@ -21,10 +21,10 @@
 #include "base/logging.h"
 #include "syzygy/agent/asan/asan_rtl_utils.h"
 #include "syzygy/agent/asan/error_info.h"
+#include "syzygy/agent/asan/shadow.h"
 
 namespace {
 
-using agent::asan::HeapProxy;
 using agent::asan::Shadow;
 using agent::asan::TestMemoryRange;
 using agent::asan::TestStructure;

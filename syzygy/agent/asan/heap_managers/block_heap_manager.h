@@ -37,9 +37,6 @@
 namespace agent {
 namespace asan {
 
-// Forward declarations.
-class AsanRuntime;
-
 namespace heap_managers {
 
 // A block heap manager is an implementation of a heap manager that allocates
@@ -64,8 +61,8 @@ namespace heap_managers {
 class BlockHeapManager : public HeapManagerInterface {
  public:
   // Constructor.
-  // @param runtime The runtime instance to use.
-  explicit BlockHeapManager(AsanRuntime* runtime);
+  // @param stack_cache The stack cache to use.
+  explicit BlockHeapManager(StackCaptureCache* stack_cache);
 
   // Destructor.
   virtual ~BlockHeapManager();
@@ -89,6 +86,17 @@ class BlockHeapManager : public HeapManagerInterface {
   common::AsanParameters parameters() {
     return parameters_;
   }
+
+  // Sets the callback that this heap will invoke when heap corruption is
+  // encountered.
+  // @param heap_error_callback The callback to be invoked when heap
+  //     corruption is encountered.
+  void SetHeapErrorCallback(HeapErrorCallback heap_error_callback) {
+    heap_error_callback_ = heap_error_callback;
+  }
+
+  // Returns the process heap.
+  HeapId process_heap() { return reinterpret_cast<HeapId>(process_heap_); }
 
  protected:
   // The type of quarantine that we use internally.
@@ -158,14 +166,6 @@ class BlockHeapManager : public HeapManagerInterface {
   // @param block_info The information about this block.
   void ClearCorruptBlockMetadata(BlockInfo* block_info);
 
-  // Sets the callback that this heap will invoke when heap corruption is
-  // encountered.
-  // @param heap_error_callback The callback to be invoked when heap
-  //     corruption is encountered.
-  void SetHeapErrorCallback(HeapErrorCallback heap_error_callback) {
-    heap_error_callback_ = heap_error_callback;
-  }
-
   // Reports a heap error via the heap error callback. This is for originating
   // errors that are detected while performing operations on a heap metadata.
   // Read/write errors are detected outside of the manager, and query the heap
@@ -175,11 +175,8 @@ class BlockHeapManager : public HeapManagerInterface {
   // @param kind The type of error encountered.
   void ReportHeapError(void* address, BadAccessKind kind);
 
-  // The runtime instance to use to report the errors.
-  // TODO(sebmarchand): We don't really need to know about the runtime instance,
-  //     remove this and use the SetHeapErrorCallback once this has been plugged
-  //     into AsanRuntime.
-  AsanRuntime* runtime_;
+  // The stack cache used to store the stack traces.
+  StackCaptureCache* stack_cache_;
 
   // Protects concurrent access to the heap manager internals.
   base::Lock lock_;
@@ -201,6 +198,9 @@ class BlockHeapManager : public HeapManagerInterface {
   // at their source. Catching their side effect as early as possible allows the
   // recovery of some useful debugging information.
   HeapErrorCallback heap_error_callback_;
+
+  // The process's heap.
+  BlockHeapInterface* process_heap_;
 
   // The heap that gets used for the unguarded allocations.
   scoped_ptr<HeapInterface> unguarded_allocation_heap_;

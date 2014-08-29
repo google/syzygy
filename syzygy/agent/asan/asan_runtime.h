@@ -24,10 +24,9 @@
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
-#include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_heap_checker.h"
 #include "syzygy/agent/asan/stack_capture.h"
-#include "syzygy/agent/common/dlist.h"
+#include "syzygy/agent/asan/heap_managers/block_heap_manager.h"
 #include "syzygy/common/asan_parameters.h"
 
 namespace agent {
@@ -57,8 +56,6 @@ class AsanLogger;
 class AsanRuntime {
  public:
   typedef std::set<StackCapture::StackId> StackIdSet;
-
-  typedef std::vector<HeapProxy*> HeapVector;
 
   // The type of callback used by the OnError function.
   typedef base::Callback<void(AsanErrorInfo*)> AsanOnErrorCallBack;
@@ -99,12 +96,6 @@ class AsanRuntime {
   // returns true on success, false otherwise.
   static bool GetAsanFlagsEnvVar(std::wstring* env_var_wstr);
 
-  // Add a heap proxy to the heap proxies list.
-  void AddHeap(HeapProxy* heap);
-
-  // Remove a heap proxy from the heap proxies list.
-  void RemoveHeap(HeapProxy* heap);
-
   // Returns true if we should ignore the given @p stack_id, false
   // otherwise.
   bool ShouldIgnoreError(common::AsanStackId stack_id) const {
@@ -125,13 +116,15 @@ class AsanRuntime {
   common::InflatedAsanParameters& params() { return params_; }
   const common::InflatedAsanParameters& params() const { return params_; }
 
-  // Fill a vector with all the active heaps.
-  // @param heap_vector Will receive the active heaps.
-  void GetHeaps(HeapVector* heap_vector);
+  // Retrieves the process's heap.
+  // @returns The ID of the process's heap.
+  HeapManagerInterface::HeapId GetProcessHeap() {
+    return heap_manager_->process_heap();
+  }
 
  protected:
   // Propagate the values of the flags to the target modules.
-  void PropagateParams() const;
+  void PropagateParams();
 
   // @returns the space required to write the provided corrupt heap info.
   // @param corrupt_ranges The corrupt range info.
@@ -167,6 +160,12 @@ class AsanRuntime {
   // Tear down the stack cache.
   void TearDownStackCache();
 
+  // Set up the heap manager.
+  void SetUpHeapManager();
+
+  // Tear down the heap manager.
+  void TearDownHeapManager();
+
   // The unhandled exception filter registered by this runtime. This is used
   // to catch unhandled exceptions so we can augment them with information
   // about the corrupt heap.
@@ -181,20 +180,18 @@ class AsanRuntime {
   static bool uef_installed_;  // Under lock_.
   // @}
 
-  // The shared logger instance that will be used by all heap proxies.
+  // The shared logger instance that will be used to report errors and runtime
+  // information.
   scoped_ptr<AsanLogger> logger_;
 
-  // The shared stack cache instance that will be used by all heap proxies.
+  // The shared stack cache instance that will be used by all the heaps.
   scoped_ptr<StackCaptureCache> stack_cache_;
 
   // The asan error callback functor.
   AsanOnErrorCallBack asan_error_callback_;
 
-  // The heap proxies list lock.
-  base::Lock heap_proxy_dlist_lock_;
-
-  // The heap proxies list.
-  LIST_ENTRY heap_proxy_dlist_;  // Under heap_proxy_dlist_lock.
+  // The heap manager.
+  scoped_ptr<heap_managers::BlockHeapManager> heap_manager_;  // Under lock_.
 
   // The runtime parameters.
   common::InflatedAsanParameters params_;

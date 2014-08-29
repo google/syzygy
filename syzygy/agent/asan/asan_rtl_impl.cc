@@ -19,23 +19,25 @@
 #include "base/logging.h"
 #include "base/debug/alias.h"
 #include "base/memory/scoped_ptr.h"
-#include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/asan_rtl_utils.h"
 #include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/agent/asan/heap_manager.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture.h"
+#include "syzygy/agent/asan/windows_heap_adapter.h"
 #include "syzygy/agent/common/scoped_last_error_keeper.h"
 
 namespace {
 
 using agent::asan::AsanErrorInfo;
 using agent::asan::AsanRuntime;
-using agent::asan::HeapProxy;
+using agent::asan::HeapManagerInterface;
 using agent::asan::Shadow;
 using agent::asan::TestStructure;
+using agent::asan::WindowsHeapAdapter;
 
 HANDLE process_heap = NULL;
-scoped_ptr<HeapProxy> asan_process_heap;
+HeapManagerInterface::HeapId asan_process_heap = NULL;
 
 // The asan runtime manager.
 AsanRuntime* asan_runtime = NULL;
@@ -50,30 +52,17 @@ void SetUpRtl(AsanRuntime* runtime) {
   asan_runtime = runtime;
   process_heap = ::GetProcessHeap();
 
-  asan_process_heap.reset(new HeapProxy());
-  asan_process_heap->UseHeap(process_heap);
-  asan_runtime->AddHeap(asan_process_heap.get());
-
   // Set the instance used by the helper functions.
   SetAsanRuntimeInstance(runtime);
+
+  asan_process_heap = runtime->GetProcessHeap();
 }
 
 void TearDownRtl() {
-  DCHECK_NE(reinterpret_cast<HANDLE>(NULL), process_heap);
-  DCHECK_NE(reinterpret_cast<HeapProxy*>(NULL), asan_process_heap);
-
-  if (!asan_process_heap->Destroy()) {
-    LOG(ERROR) << "Unable to destroy the process heap.";
-    return;
-  }
-
-  // This needs to happen after the heap is destroyed so that the error handling
-  // callback is still available to report any errors encountered while cleaning
-  // up the quarantine.
-  asan_runtime->RemoveHeap(asan_process_heap.get());
-
-  asan_process_heap.reset(NULL);
+  DCHECK_NE(static_cast<HANDLE>(NULL), process_heap);
+  DCHECK_NE(static_cast<HeapManagerInterface::HeapId>(NULL), asan_process_heap);
   process_heap = NULL;
+  asan_process_heap = NULL;
 }
 
 }  // namespace asan
@@ -82,23 +71,15 @@ void TearDownRtl() {
 extern "C" {
 
 HANDLE WINAPI asan_GetProcessHeap() {
-  DCHECK_NE(reinterpret_cast<HeapProxy*>(NULL), asan_process_heap.get());
-  DCHECK_NE(reinterpret_cast<HANDLE>(NULL), asan_process_heap->heap());
-  DCHECK_EQ(process_heap, asan_process_heap->heap());
-  return HeapProxy::ToHandle(asan_process_heap.get());
+  DCHECK_NE(static_cast<HANDLE>(NULL), process_heap);
+  DCHECK_NE(static_cast<HeapManagerInterface::HeapId>(NULL), asan_process_heap);
+  return reinterpret_cast<HANDLE>(asan_process_heap);
 }
 
 HANDLE WINAPI asan_HeapCreate(DWORD options,
                               SIZE_T initial_size,
                               SIZE_T maximum_size) {
-  DCHECK(asan_runtime != NULL);
-  scoped_ptr<HeapProxy> proxy(new HeapProxy());
-  if (!proxy->Create(options, initial_size, maximum_size))
-    return NULL;
-
-  asan_runtime->AddHeap(proxy.get());
-
-  return HeapProxy::ToHandle(proxy.release());
+  return WindowsHeapAdapter::HeapCreate(options, initial_size, maximum_size);
 }
 
 BOOL WINAPI asan_HeapDestroy(HANDLE heap) {
@@ -106,20 +87,7 @@ BOOL WINAPI asan_HeapDestroy(HANDLE heap) {
   if (heap == process_heap)
     return ::HeapDestroy(heap);
 
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return FALSE;
-
-  // Clean up the heap before removing it, so that it remains attached to our
-  // callback in the event of any heap errors.
-  bool success = proxy->Destroy();
-  asan_runtime->RemoveHeap(proxy);
-  delete proxy;
-
-  if (success)
-    return TRUE;
-
-  return FALSE;
+  return WindowsHeapAdapter::HeapDestroy(heap);
 }
 
 LPVOID WINAPI asan_HeapAlloc(HANDLE heap,
@@ -129,11 +97,7 @@ LPVOID WINAPI asan_HeapAlloc(HANDLE heap,
   if (heap == process_heap)
     return ::HeapAlloc(heap, flags, bytes);
 
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return NULL;
-
-  return proxy->Alloc(flags, bytes);
+  return WindowsHeapAdapter::HeapAlloc(heap, flags, bytes);
 }
 
 LPVOID WINAPI asan_HeapReAlloc(HANDLE heap,
@@ -144,11 +108,7 @@ LPVOID WINAPI asan_HeapReAlloc(HANDLE heap,
   if (heap == process_heap)
     return ::HeapReAlloc(heap, flags, mem, bytes);
 
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return NULL;
-
-  return proxy->ReAlloc(flags, mem, bytes);
+  return WindowsHeapAdapter::HeapReAlloc(heap, flags, mem, bytes);
 }
 
 BOOL WINAPI asan_HeapFree(HANDLE heap,
@@ -158,14 +118,7 @@ BOOL WINAPI asan_HeapFree(HANDLE heap,
   if (heap == process_heap)
     return ::HeapFree(heap, flags, mem);
 
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return FALSE;
-
-  if (!proxy->Free(flags, mem))
-    return false;
-
-  return true;
+  return WindowsHeapAdapter::HeapFree(heap, flags, mem);
 }
 
 SIZE_T WINAPI asan_HeapSize(HANDLE heap,
@@ -175,11 +128,7 @@ SIZE_T WINAPI asan_HeapSize(HANDLE heap,
   if (heap == process_heap)
     return ::HeapSize(heap, flags, mem);
 
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return static_cast<SIZE_T>(-1);
-
-  return proxy->Size(flags, mem);
+  return WindowsHeapAdapter::HeapSize(heap, flags, mem);
 }
 
 BOOL WINAPI asan_HeapValidate(HANDLE heap,
@@ -189,11 +138,7 @@ BOOL WINAPI asan_HeapValidate(HANDLE heap,
   if (heap == process_heap)
     return ::HeapValidate(heap, flags, mem);
 
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return FALSE;
-
-  return proxy->Validate(flags, mem);
+  return WindowsHeapAdapter::HeapValidate(heap, flags, mem);
 }
 
 SIZE_T WINAPI asan_HeapCompact(HANDLE heap,
@@ -202,11 +147,7 @@ SIZE_T WINAPI asan_HeapCompact(HANDLE heap,
   if (heap == process_heap)
     return ::HeapCompact(heap, flags);
 
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return 0;
-
-  return proxy->Compact(flags);
+  return WindowsHeapAdapter::HeapCompact(heap, flags);
 }
 
 BOOL WINAPI asan_HeapLock(HANDLE heap) {
@@ -214,11 +155,7 @@ BOOL WINAPI asan_HeapLock(HANDLE heap) {
   if (heap == process_heap)
     return ::HeapLock(heap);
 
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return FALSE;
-
-  return proxy->Lock();
+  return WindowsHeapAdapter::HeapLock(heap);
 }
 
 BOOL WINAPI asan_HeapUnlock(HANDLE heap) {
@@ -226,11 +163,7 @@ BOOL WINAPI asan_HeapUnlock(HANDLE heap) {
   if (heap == process_heap)
     return ::HeapUnlock(heap);
 
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return FALSE;
-
-  return proxy->Unlock();
+  return WindowsHeapAdapter::HeapUnlock(heap);
 }
 
 BOOL WINAPI asan_HeapWalk(HANDLE heap,
@@ -239,11 +172,7 @@ BOOL WINAPI asan_HeapWalk(HANDLE heap,
   if (heap == process_heap)
     return ::HeapWalk(heap, entry);
 
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return FALSE;
-
-  return proxy->Walk(entry);
+  return WindowsHeapAdapter::HeapWalk(heap, entry);
 }
 
 BOOL WINAPI asan_HeapSetInformation(
@@ -253,11 +182,8 @@ BOOL WINAPI asan_HeapSetInformation(
   if (heap == NULL || heap == process_heap)
     return ::HeapSetInformation(heap, info_class, info, info_length);
 
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return FALSE;
-
-  return proxy->SetInformation(info_class, info, info_length);
+  return WindowsHeapAdapter::HeapSetInformation(heap, info_class, info,
+      info_length);
 }
 
 BOOL WINAPI asan_HeapQueryInformation(
@@ -272,15 +198,11 @@ BOOL WINAPI asan_HeapQueryInformation(
                                   return_length);
   }
 
-  HeapProxy* proxy = HeapProxy::FromHandle(heap);
-  if (!proxy)
-    return FALSE;
-
-  bool ret = proxy->QueryInformation(info_class,
-                                     info,
-                                     info_length,
-                                     return_length);
-  return ret == true;
+  return WindowsHeapAdapter::HeapQueryInformation(heap,
+                                                  info_class,
+                                                  info,
+                                                  info_length,
+                                                  return_length);
 }
 
 void WINAPI asan_SetCallBack(AsanErrorCallBack callback) {

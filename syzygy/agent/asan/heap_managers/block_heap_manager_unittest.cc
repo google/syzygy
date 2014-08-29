@@ -121,8 +121,8 @@ class TestBlockHeapManager : public BlockHeapManager {
   };
 
   // Constructor.
-  explicit TestBlockHeapManager(AsanRuntime* runtime)
-      : BlockHeapManager(runtime) {
+  explicit TestBlockHeapManager(StackCaptureCache* stack_cache)
+      : BlockHeapManager(stack_cache) {
   }
 
   // Returns the quarantine associated with a heap.
@@ -248,20 +248,20 @@ class BlockHeapManagerTest : public testing::Test {
  public:
   typedef TestBlockHeapManager::ShardedBlockQuarantine ShardedBlockQuarantine;
 
-  BlockHeapManagerTest() : heap_manager_(&runtime_),
-      test_zebra_block_heap_(NULL) {
+  BlockHeapManagerTest() : heap_manager_(), test_zebra_block_heap_(NULL) {
   }
 
   virtual void SetUp() OVERRIDE {
     runtime_.SetUp(L"");
+    heap_manager_.reset(new TestBlockHeapManager(runtime_.stack_cache()));
 
     // Set the error callback that the manager will use.
-    heap_manager_.SetHeapErrorCallback(
+    heap_manager_->SetHeapErrorCallback(
         base::Bind(&BlockHeapManagerTest::OnHeapError, base::Unretained(this)));
 
     common::AsanParameters params;
     common::SetDefaultAsanParameters(&params);
-    heap_manager_.set_parameters(params);
+    heap_manager_->set_parameters(params);
   }
 
   virtual void TearDown() OVERRIDE {
@@ -273,11 +273,12 @@ class BlockHeapManagerTest : public testing::Test {
     // zebra heap and there are still blocks in its quarantine, some
     // non-deterministic errors (failed DCHECKS) may arise.
     if (test_zebra_block_heap_ != NULL) {
-      heap_manager_.parameters_.quarantine_size = 0;
-      heap_manager_.TrimQuarantine(test_zebra_block_heap_);
+      heap_manager_->parameters_.quarantine_size = 0;
+      heap_manager_->TrimQuarantine(test_zebra_block_heap_);
     }
 
     runtime_.TearDown();
+    heap_manager_.reset(NULL);
   }
 
   void OnHeapError(AsanErrorInfo* error) {
@@ -291,7 +292,7 @@ class BlockHeapManagerTest : public testing::Test {
                     kShadowRatio,
                     user_size,
                     0,
-                    heap_manager_.parameters().trailer_padding_size +
+                    heap_manager_->parameters().trailer_padding_size +
                         sizeof(BlockTrailer),
                     &layout);
     return layout.block_size;
@@ -299,21 +300,21 @@ class BlockHeapManagerTest : public testing::Test {
 
   void EnableTestZebraBlockHeap() {
     // Erase previous ZebraBlockHeap.
-    if (heap_manager_.zebra_block_heap_ != NULL) {
-      heap_manager_.heaps_.erase(heap_manager_.zebra_block_heap_);
-      delete heap_manager_.zebra_block_heap_;
+    if (heap_manager_->zebra_block_heap_ != NULL) {
+      heap_manager_->heaps_.erase(heap_manager_->zebra_block_heap_);
+      delete heap_manager_->zebra_block_heap_;
     }
     // Plug a mock ZebraBlockHeap by default disabled.
     test_zebra_block_heap_ = new TestZebraBlockHeap();
-    heap_manager_.zebra_block_heap_ = test_zebra_block_heap_;
-    heap_manager_.heaps_.insert(std::make_pair(test_zebra_block_heap_,
+    heap_manager_->zebra_block_heap_ = test_zebra_block_heap_;
+    heap_manager_->heaps_.insert(std::make_pair(test_zebra_block_heap_,
         test_zebra_block_heap_));
 
     // Turn on the zebra_block_heap_enabled flag.
-    common::AsanParameters params = heap_manager_.parameters();
+    common::AsanParameters params = heap_manager_->parameters();
     common::SetDefaultAsanParameters(&params);
     params.enable_zebra_block_heap = true;
-    heap_manager_.set_parameters(params);
+    heap_manager_->set_parameters(params);
   }
 
   // Verifies that [alloc, alloc + size) is accessible, and that
@@ -342,7 +343,7 @@ class BlockHeapManagerTest : public testing::Test {
 
  protected:
   // The heap manager used in those tests.
-  TestBlockHeapManager heap_manager_;
+  scoped_ptr<TestBlockHeapManager> heap_manager_;
 
   // The runtime used by the heap manager.
   AsanRuntime runtime_;
@@ -358,25 +359,25 @@ class BlockHeapManagerTest : public testing::Test {
 
 TEST_F(BlockHeapManagerTest, AllocAndFree) {
   const size_t kAllocSize = 17;
-  HeapId heap_id = heap_manager_.CreateHeap();
+  HeapId heap_id = heap_manager_->CreateHeap();
   EXPECT_NE(static_cast<HeapId>(NULL), heap_id);
-  void* alloc = heap_manager_.Allocate(heap_id, kAllocSize);
+  void* alloc = heap_manager_->Allocate(heap_id, kAllocSize);
   EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
-  EXPECT_EQ(kAllocSize, heap_manager_.Size(heap_id, alloc));
-  EXPECT_TRUE(heap_manager_.Free(heap_id, alloc));
-  EXPECT_TRUE(heap_manager_.DestroyHeap(heap_id));
+  EXPECT_EQ(kAllocSize, heap_manager_->Size(heap_id, alloc));
+  EXPECT_TRUE(heap_manager_->Free(heap_id, alloc));
+  EXPECT_TRUE(heap_manager_->DestroyHeap(heap_id));
 }
 
 TEST_F(BlockHeapManagerTest, SetQuarantinesMaxSize) {
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
 
-  common::AsanParameters original_parameters = heap_manager_.parameters();
+  common::AsanParameters original_parameters = heap_manager_->parameters();
   common::AsanParameters new_parameters = original_parameters;
   new_parameters.quarantine_size = original_parameters.quarantine_size * 2;
   // Increments the quarantine max size if it was set to 0.
   if (new_parameters.quarantine_size == 0)
     new_parameters.quarantine_size++;
-  heap_manager_.set_parameters(new_parameters);
+  heap_manager_->set_parameters(new_parameters);
 
   // Ensure that the maximum size of the quarantine of the 2 heaps has been
   // correctly set.
@@ -385,26 +386,26 @@ TEST_F(BlockHeapManagerTest, SetQuarantinesMaxSize) {
   ASSERT_NE(reinterpret_cast<BlockQuarantineInterface*>(NULL),
             quarantine);
   EXPECT_EQ(new_parameters.quarantine_size,
-            heap_manager_.parameters_.quarantine_size);
+            heap_manager_->parameters_.quarantine_size);
 }
 
 TEST_F(BlockHeapManagerTest, PopOnSetQuarantineMaxSize) {
   const size_t kAllocSize = 100;
   size_t real_alloc_size = GetAllocSize(kAllocSize);
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
   void* mem = heap.Allocate(kAllocSize);
   ASSERT_FALSE(heap.InQuarantine(mem));
 
-  common::AsanParameters parameters = heap_manager_.parameters();
+  common::AsanParameters parameters = heap_manager_->parameters();
   parameters.quarantine_size = real_alloc_size;
-  heap_manager_.set_parameters(parameters);
+  heap_manager_->set_parameters(parameters);
 
   ASSERT_TRUE(heap.Free(mem));
   ASSERT_TRUE(heap.InQuarantine(mem));
 
   // We resize the quarantine to a smaller size, the block should pop out.
   parameters.quarantine_size = real_alloc_size - 1;
-  heap_manager_.set_parameters(parameters);
+  heap_manager_->set_parameters(parameters);
   ASSERT_FALSE(heap.InQuarantine(mem));
 }
 
@@ -412,11 +413,11 @@ TEST_F(BlockHeapManagerTest, Quarantine) {
   const size_t kAllocSize = 100;
   size_t real_alloc_size = GetAllocSize(kAllocSize);
   const size_t number_of_allocs = 16;
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
 
-  common::AsanParameters parameters = heap_manager_.parameters();
+  common::AsanParameters parameters = heap_manager_->parameters();
   parameters.quarantine_size = real_alloc_size * number_of_allocs;
-  heap_manager_.set_parameters(parameters);
+  heap_manager_->set_parameters(parameters);
 
   // Allocate a bunch of blocks until exactly one is removed from the
   // quarantine.
@@ -444,11 +445,11 @@ TEST_F(BlockHeapManagerTest, QuarantineLargeBlock) {
   size_t real_large_alloc_size = GetAllocSize(kLargeAllocSize);
   size_t real_small_alloc_size = GetAllocSize(kSmallAllocSize);
 
-  ScopedHeap heap(&heap_manager_);
-  common::AsanParameters parameters = heap_manager_.parameters();
+  ScopedHeap heap(heap_manager_.get());
+  common::AsanParameters parameters = heap_manager_->parameters();
   parameters.quarantine_size = real_large_alloc_size;
   parameters.quarantine_block_size = real_large_alloc_size;
-  heap_manager_.set_parameters(parameters);
+  heap_manager_->set_parameters(parameters);
 
   // A block larger than the quarantine should not make it in.
   void* mem1 = heap.Allocate(real_large_alloc_size + 1);
@@ -465,7 +466,7 @@ TEST_F(BlockHeapManagerTest, QuarantineLargeBlock) {
   EXPECT_TRUE(heap.InQuarantine(mem2));
 
   parameters.quarantine_block_size = real_small_alloc_size - 1;
-  heap_manager_.set_parameters(parameters);
+  heap_manager_->set_parameters(parameters);
 
   // A second small block should not make it in since we changed the block size.
   // However, the other block should remain in the quarantine.
@@ -480,10 +481,10 @@ TEST_F(BlockHeapManagerTest, UnpoisonsQuarantine) {
   const size_t kAllocSize = 100;
   const size_t real_alloc_size = GetAllocSize(kAllocSize);
 
-  ScopedHeap heap(&heap_manager_);
-  common::AsanParameters parameters = heap_manager_.parameters();
+  ScopedHeap heap(heap_manager_.get());
+  common::AsanParameters parameters = heap_manager_->parameters();
   parameters.quarantine_size = real_alloc_size;
-  heap_manager_.set_parameters(parameters);
+  heap_manager_->set_parameters(parameters);
 
   // Allocate a memory block and directly free it, this puts it in the
   // quarantine.
@@ -511,14 +512,14 @@ TEST_F(BlockHeapManagerTest, UnpoisonsQuarantine) {
 TEST_F(BlockHeapManagerTest, QuarantineIsShared) {
   const size_t kAllocSize = 100;
   const size_t real_alloc_size = GetAllocSize(kAllocSize);
-  ScopedHeap heap_1(&heap_manager_);
-  ScopedHeap heap_2(&heap_manager_);
+  ScopedHeap heap_1(heap_manager_.get());
+  ScopedHeap heap_2(heap_manager_.get());
 
   ASSERT_EQ(heap_1.GetQuarantine(), heap_2.GetQuarantine());
 
-  common::AsanParameters parameters = heap_manager_.parameters();
+  common::AsanParameters parameters = heap_manager_->parameters();
   parameters.quarantine_size = real_alloc_size * 4;
-  heap_manager_.set_parameters(parameters);
+  heap_manager_->set_parameters(parameters);
 
   void* heap_1_mem1 = heap_1.Allocate(kAllocSize);
   ASSERT_NE(reinterpret_cast<void*>(NULL), heap_1_mem1);
@@ -548,7 +549,7 @@ TEST_F(BlockHeapManagerTest, QuarantineIsShared) {
 }
 
 TEST_F(BlockHeapManagerTest, AllocZeroBytes) {
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
   void* mem1 = heap.Allocate(0);
   ASSERT_NE(reinterpret_cast<void*>(NULL), mem1);
   void* mem2 = heap.Allocate(0);
@@ -560,23 +561,23 @@ TEST_F(BlockHeapManagerTest, AllocZeroBytes) {
 
 TEST_F(BlockHeapManagerTest, Size) {
   const size_t kMaxAllocSize = 134584;
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
   for (size_t size = 10; size < kMaxAllocSize; size = size * 5 + 123) {
     void* mem = heap.Allocate(size);
     ASSERT_NE(reinterpret_cast<void*>(NULL), mem);
-    ASSERT_EQ(size, heap_manager_.Size(heap.Id(), mem));
+    ASSERT_EQ(size, heap_manager_->Size(heap.Id(), mem));
     ASSERT_TRUE(heap.Free(mem));
   }
 }
 
 TEST_F(BlockHeapManagerTest, AllocsAccessibility) {
   const size_t kMaxAllocSize = 134584;
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
   // Ensure that the quarantine is large enough to keep the allocated blocks in
   // this test.
-  common::AsanParameters parameters = heap_manager_.parameters();
+  common::AsanParameters parameters = heap_manager_->parameters();
   parameters.quarantine_size = kMaxAllocSize * 2;
-  heap_manager_.set_parameters(parameters);
+  heap_manager_->set_parameters(parameters);
   for (size_t size = 10; size < kMaxAllocSize; size = size * 5 + 123) {
     // Do an alloc/free and test that access is correctly managed.
     void* mem = heap.Allocate(size);
@@ -588,19 +589,19 @@ TEST_F(BlockHeapManagerTest, AllocsAccessibility) {
 }
 
 TEST_F(BlockHeapManagerTest, LockUnlock) {
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
   // We can't really test these, aside from not crashing.
-  ASSERT_NO_FATAL_FAILURE(heap_manager_.Lock(heap.Id()));
-  ASSERT_NO_FATAL_FAILURE(heap_manager_.Unlock(heap.Id()));
+  ASSERT_NO_FATAL_FAILURE(heap_manager_->Lock(heap.Id()));
+  ASSERT_NO_FATAL_FAILURE(heap_manager_->Unlock(heap.Id()));
 }
 
 TEST_F(BlockHeapManagerTest, CaptureTID) {
   const size_t kAllocSize = 13;
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
   // Ensure that the quarantine is large enough to keep this block.
-  common::AsanParameters parameters = heap_manager_.parameters();
+  common::AsanParameters parameters = heap_manager_->parameters();
   parameters.quarantine_size = GetAllocSize(kAllocSize);
-  heap_manager_.set_parameters(parameters);
+  heap_manager_->set_parameters(parameters);
   uint8* mem = static_cast<uint8*>(heap.Allocate(kAllocSize));
   ASSERT_TRUE(heap.Free(mem));
   EXPECT_EQ(QUARANTINED_BLOCK,
@@ -618,11 +619,11 @@ TEST_F(BlockHeapManagerTest, CaptureTID) {
 
 TEST_F(BlockHeapManagerTest, QuarantineDoesntAlterBlockContents) {
   const size_t kAllocSize = 13;
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
   // Ensure that the quarantine is large enough to keep this block.
-  common::AsanParameters parameters = heap_manager_.parameters();
+  common::AsanParameters parameters = heap_manager_->parameters();
   parameters.quarantine_size = GetAllocSize(kAllocSize);
-  heap_manager_.set_parameters(parameters);
+  heap_manager_->set_parameters(parameters);
   void* mem = heap.Allocate(kAllocSize);
   ASSERT_NE(reinterpret_cast<void*>(NULL), mem);
   base::RandBytes(mem, kAllocSize);
@@ -647,20 +648,20 @@ TEST_F(BlockHeapManagerTest, QuarantineDoesntAlterBlockContents) {
 
 TEST_F(BlockHeapManagerTest, SetTrailerPaddingSize) {
   const size_t kAllocSize = 13;
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
   // Ensure that the quarantine is large enough to keep this block with the
   // extra padding.
-  common::AsanParameters parameters = heap_manager_.parameters();
+  common::AsanParameters parameters = heap_manager_->parameters();
   parameters.quarantine_size = GetAllocSize(kAllocSize) * 5;
-  heap_manager_.set_parameters(parameters);
+  heap_manager_->set_parameters(parameters);
   size_t original_alloc_size = GetAllocSize(kAllocSize);
-  common::AsanParameters original_parameter = heap_manager_.parameters();
+  common::AsanParameters original_parameter = heap_manager_->parameters();
 
   for (size_t padding = 0; padding < 16; ++padding) {
     common::AsanParameters new_parameter = original_parameter;
     new_parameter.trailer_padding_size =
         original_parameter.trailer_padding_size + padding;
-    heap_manager_.set_parameters(new_parameter);
+    heap_manager_->set_parameters(new_parameter);
     size_t augmented_alloc_size = GetAllocSize(kAllocSize);
     EXPECT_GE(augmented_alloc_size, original_alloc_size);
 
@@ -675,17 +676,17 @@ TEST_F(BlockHeapManagerTest, SetTrailerPaddingSize) {
     }
     ASSERT_TRUE(heap.Free(mem));
   }
-  heap_manager_.set_parameters(original_parameter);
+  heap_manager_->set_parameters(original_parameter);
 }
 
 TEST_F(BlockHeapManagerTest, BlockChecksumUpdatedWhenEnterQuarantine) {
   const size_t kAllocSize = 100;
   size_t real_alloc_size = GetAllocSize(kAllocSize);
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
 
-  common::AsanParameters parameters = heap_manager_.parameters();
+  common::AsanParameters parameters = heap_manager_->parameters();
   parameters.quarantine_size = real_alloc_size;
-  heap_manager_.set_parameters(parameters);
+  heap_manager_->set_parameters(parameters);
 
   void* mem = heap.Allocate(kAllocSize);
   ASSERT_NE(reinterpret_cast<void*>(NULL), mem);
@@ -701,11 +702,11 @@ static const size_t kChecksumRepeatCount = 10;
 
 TEST_F(BlockHeapManagerTest, CorruptAsEntersQuarantine) {
   const size_t kAllocSize = 100;
-  common::AsanParameters parameters = heap_manager_.parameters();
+  common::AsanParameters parameters = heap_manager_->parameters();
   parameters.quarantine_size = GetAllocSize(kAllocSize);
-  heap_manager_.set_parameters(parameters);
+  heap_manager_->set_parameters(parameters);
 
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
   // This can fail because of a checksum collision. However, we run it a
   // handful of times to keep the chances as small as possible.
   for (size_t i = 0; i < kChecksumRepeatCount; ++i) {
@@ -729,11 +730,11 @@ TEST_F(BlockHeapManagerTest, CorruptAsEntersQuarantine) {
 
 TEST_F(BlockHeapManagerTest, CorruptAsExitsQuarantine) {
   const size_t kAllocSize = 100;
-  common::AsanParameters parameters = heap_manager_.parameters();
+  common::AsanParameters parameters = heap_manager_->parameters();
   parameters.quarantine_size = GetAllocSize(kAllocSize);
-  heap_manager_.set_parameters(parameters);
+  heap_manager_->set_parameters(parameters);
 
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
   // This can fail because of a checksum collision. However, we run it a
   // handful of times to keep the chances as small as possible.
   for (size_t i = 0; i < kChecksumRepeatCount; ++i) {
@@ -764,16 +765,16 @@ TEST_F(BlockHeapManagerTest, CorruptAsExitsQuarantine) {
 
 TEST_F(BlockHeapManagerTest, CorruptAsExitsQuarantineOnHeapDestroy) {
   const size_t kAllocSize = 100;
-  common::AsanParameters parameters = heap_manager_.parameters();
+  common::AsanParameters parameters = heap_manager_->parameters();
   parameters.quarantine_size = GetAllocSize(kAllocSize);
-  heap_manager_.set_parameters(parameters);
+  heap_manager_->set_parameters(parameters);
 
   // This can fail because of a checksum collision. However, we run it a
   // handful of times to keep the chances as small as possible.
   for (size_t i = 0; i < kChecksumRepeatCount; ++i) {
     void* mem = NULL;
     {
-      ScopedHeap heap(&heap_manager_);
+      ScopedHeap heap(heap_manager_.get());
       heap.FlushQuarantine();
       mem = heap.Allocate(kAllocSize);
       ASSERT_NE(static_cast<void*>(NULL), mem);
@@ -803,16 +804,16 @@ TEST_F(BlockHeapManagerTest, CorruptAsExitsQuarantineOnHeapDestroy) {
 
 TEST_F(BlockHeapManagerTest, CorruptHeapOnTrimQuarantine) {
   const size_t kAllocSize = 100;
-  common::AsanParameters parameters = heap_manager_.parameters();
+  common::AsanParameters parameters = heap_manager_->parameters();
   parameters.quarantine_size = GetAllocSize(kAllocSize);
-  heap_manager_.set_parameters(parameters);
+  heap_manager_->set_parameters(parameters);
 
   // This can fail because of a checksum collision. However, we run it a
   // handful of times to keep the chances as small as possible.
   for (size_t i = 0; i < kChecksumRepeatCount; ++i) {
     void* mem = NULL;
     {
-      ScopedHeap heap(&heap_manager_);
+      ScopedHeap heap(heap_manager_.get());
       heap.FlushQuarantine();
       mem = heap.Allocate(kAllocSize);
       ASSERT_NE(static_cast<void*>(NULL), mem);
@@ -842,11 +843,11 @@ TEST_F(BlockHeapManagerTest, CorruptHeapOnTrimQuarantine) {
 
 TEST_F(BlockHeapManagerTest, DoubleFree) {
   const size_t kAllocSize = 100;
-  common::AsanParameters parameters = heap_manager_.parameters();
+  common::AsanParameters parameters = heap_manager_->parameters();
   parameters.quarantine_size = GetAllocSize(kAllocSize);
-  heap_manager_.set_parameters(parameters);
+  heap_manager_->set_parameters(parameters);
 
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
   void* mem = heap.Allocate(kAllocSize);
   ASSERT_NE(static_cast<void*>(NULL), mem);
   EXPECT_TRUE(heap.Free(mem));
@@ -858,10 +859,10 @@ TEST_F(BlockHeapManagerTest, DoubleFree) {
 }
 
 TEST_F(BlockHeapManagerTest, SubsampledAllocationGuards) {
-  common::AsanParameters parameters = heap_manager_.parameters();
+  common::AsanParameters parameters = heap_manager_->parameters();
   parameters.allocation_guard_rate = 0.5;
-  heap_manager_.set_parameters(parameters);
-  ScopedHeap heap(&heap_manager_);
+  heap_manager_->set_parameters(parameters);
+  ScopedHeap heap(heap_manager_.get());
 
   size_t guarded_allocations = 0;
   size_t unguarded_allocations = 0;
@@ -917,7 +918,7 @@ TEST_F(BlockHeapManagerTest, SubsampledAllocationGuards) {
 // Ensures that the ZebraBlockHeap overrides the provided heap.
 TEST_F(BlockHeapManagerTest, ZebraHeapIdInTrailerAfterAllocation) {
   EnableTestZebraBlockHeap();
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
   const size_t kAllocSize = 0x100;
   void* alloc = heap.Allocate(kAllocSize);
   EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
@@ -937,7 +938,7 @@ TEST_F(BlockHeapManagerTest, ZebraHeapIdInTrailerAfterAllocation) {
 // the allocation.
 TEST_F(BlockHeapManagerTest, DefaultHeapIdInTrailerWhenZebraHeapIsFull) {
   EnableTestZebraBlockHeap();
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
   const size_t kAllocSize = 0x100;
   // Refuse allocations on the ZebraBlockHeap.
   test_zebra_block_heap_->set_refuse_allocations(true);
@@ -957,7 +958,7 @@ TEST_F(BlockHeapManagerTest, DefaultHeapIdInTrailerWhenZebraHeapIsFull) {
 
 TEST_F(BlockHeapManagerTest, AllocStress) {
   EnableTestZebraBlockHeap();
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
   for (size_t i = 0; i < 1000; ++i) {
     const size_t kAllocSize = 0x100 + i;
     void* alloc = heap.Allocate(kAllocSize);
@@ -971,7 +972,7 @@ TEST_F(BlockHeapManagerTest, AllocStress) {
 // The BlockHeapManager correctly quarantines the memory after free.
 TEST_F(BlockHeapManagerTest, QuarantinedAfterFree) {
   EnableTestZebraBlockHeap();
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
   // Always quarantine if possible.
   test_zebra_block_heap_->set_quarantine_ratio(1.0);
 
@@ -993,7 +994,7 @@ TEST_F(BlockHeapManagerTest, QuarantinedAfterFree) {
 // quarantine is full.
 TEST_F(BlockHeapManagerTest, NotQuarantinedAfterFree) {
   EnableTestZebraBlockHeap();
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
   const size_t kAllocSize = 0xFF;
   void* alloc = heap.Allocate(kAllocSize);
   EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
@@ -1015,16 +1016,16 @@ TEST_F(BlockHeapManagerTest, NotQuarantinedAfterFree) {
 TEST_F(BlockHeapManagerTest, set_parametersSetsZebraBlockHeapQuarantineRatio) {
   EnableTestZebraBlockHeap();
   float new_ratio = 1.0f / 8;
-  common::AsanParameters params = heap_manager_.parameters();
+  common::AsanParameters params = heap_manager_->parameters();
   params.zebra_block_heap_quarantine_ratio = new_ratio;
-  heap_manager_.set_parameters(params);
+  heap_manager_->set_parameters(params);
   EXPECT_EQ(new_ratio, test_zebra_block_heap_->quarantine_ratio());
 }
 
 // Test for double free errors on ZebraBlockHeap allocations.
 TEST_F(BlockHeapManagerTest, DoubleFreeOnZebraHeap) {
   EnableTestZebraBlockHeap();
-  ScopedHeap heap(&heap_manager_);
+  ScopedHeap heap(heap_manager_.get());
   test_zebra_block_heap_->set_quarantine_ratio(1.0);
 
   const size_t kAllocSize = 0xFF;

@@ -91,12 +91,12 @@ void AsanRtlTest::FreeMemoryBuffers() {
 }  // namespace
 
 TEST_F(AsanRtlTest, GetProcessHeap) {
+  agent::asan::AsanRuntime* runtime = GetActiveRuntimeFunction();
+  ASSERT_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime);
   HANDLE asan_heap_handle = GetProcessHeapFunction();
-  EXPECT_NE(INVALID_HANDLE_VALUE, asan_heap_handle);
-  HeapProxy* proxy = HeapProxy::FromHandle(asan_heap_handle);
-  EXPECT_NE(reinterpret_cast<HeapProxy*>(NULL), proxy);
-  EXPECT_FALSE(proxy->owns_heap());
-  EXPECT_EQ(::GetProcessHeap(), proxy->heap());
+  EXPECT_NE(static_cast<HANDLE>(NULL), asan_heap_handle);
+  EXPECT_EQ(reinterpret_cast<HANDLE>(runtime->GetProcessHeap()),
+                                     asan_heap_handle);
 }
 
 TEST_F(AsanRtlTest, AsanCheckGoodAccess) {

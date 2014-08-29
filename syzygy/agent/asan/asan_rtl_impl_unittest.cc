@@ -66,11 +66,6 @@ TEST_F(AsanRtlImplTest, CreateDestroy) {
   ASSERT_TRUE(asan_HeapDestroy(heap));
 }
 
-TEST_F(AsanRtlImplTest, CreateFailed) {
-  HANDLE heap = asan_HeapCreate(0, 0x80000000, 0x8000);
-  ASSERT_TRUE(heap == NULL);
-}
-
 TEST_F(AsanRtlImplTest, Alloc) {
   for (size_t size = 10; size < kMaxAllocSize; size = size * 5 + 123) {
     void* mem = asan_HeapAlloc(heap_, 0, size);
@@ -108,11 +103,9 @@ TEST_F(AsanRtlImplTest, Validate) {
 }
 
 TEST_F(AsanRtlImplTest, Compact) {
-  // Compact should return a non-zero size.
-  ASSERT_LT(0U, asan_HeapCompact(heap_, 0));
-
-  // TODO(siggi): It may not be possible to allocate the size returned due
-  //     to padding - fix and test.
+  // Compact isn't supported by the current heap implementation and should
+  // always return 0.
+  ASSERT_EQ(0U, asan_HeapCompact(heap_, 0));
 }
 
 TEST_F(AsanRtlImplTest, LockUnlock) {
@@ -122,21 +115,19 @@ TEST_F(AsanRtlImplTest, LockUnlock) {
 }
 
 TEST_F(AsanRtlImplTest, Walk) {
-  // We assume at least two entries to walk through.
+  // Walk isn't supported by the current heap implementation.
   PROCESS_HEAP_ENTRY entry = {};
-  ASSERT_TRUE(asan_HeapWalk(heap_, &entry));
-  ASSERT_TRUE(asan_HeapWalk(heap_, &entry));
+  ASSERT_FALSE(asan_HeapWalk(heap_, &entry));
 }
 
 TEST_F(AsanRtlImplTest, SetQueryInformation) {
   ULONG compat_flag = -1;
   unsigned long ret = 0;
-  // Get the current value of the compatibility flag.
-  ASSERT_TRUE(
+  // QueryInformation isn't supported by the current heap implementation and
+  // should always return false.
+  ASSERT_FALSE(
       asan_HeapQueryInformation(heap_, HeapCompatibilityInformation,
                                 &compat_flag, sizeof(compat_flag), &ret));
-  ASSERT_EQ(sizeof(compat_flag), ret);
-  ASSERT_NE(~0U, compat_flag);
 
   // Put the heap in LFH, which should always succeed, except when a debugger
   // is attached. When a debugger is attached, the heap is wedged in certain
@@ -146,7 +137,8 @@ TEST_F(AsanRtlImplTest, SetQueryInformation) {
     return;
   }
 
-  compat_flag = 2;
+  // SetInformation isn't supported by the current heap implementation and
+  // should always return true.
   ASSERT_TRUE(
       asan_HeapSetInformation(heap_, HeapCompatibilityInformation,
                               &compat_flag, sizeof(compat_flag)));

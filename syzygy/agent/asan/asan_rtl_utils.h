@@ -18,7 +18,6 @@
 
 #include <windows.h>
 
-#include "syzygy/agent/asan/asan_heap.h"
 #include "syzygy/agent/asan/error_info.h"
 
 namespace agent {
@@ -26,8 +25,6 @@ namespace asan {
 
 // Forward declarations.
 class AsanRuntime;
-
-using agent::asan::HeapProxy;
 
 // Contents of the registers before calling the ASAN memory check function.
 #pragma pack(push, 1)
