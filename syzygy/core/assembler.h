@@ -256,12 +256,14 @@ class AssemblerImpl {
   void push(const Register32& src);
   void push(const ImmediateImpl& src);
   void push(const OperandImpl& src);
+  void pushad();
 
   void pop(const Register32& dst);
   void pop(const OperandImpl& dst);
+  void popad();
   // @}
 
-  // @name Manipulation of flags.
+  // @name Flag manipulation.
   // @{
   void pushfd();
   void popfd();

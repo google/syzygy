@@ -851,6 +851,12 @@ void AssemblerImpl::push(const OperandImpl& dst) {
   instr.EmitOperand(0x6, dst);
 }
 
+void AssemblerImpl::pushad() {
+  InstructionBuffer instr(this);
+
+  instr.EmitOpCodeByte(0x60);
+}
+
 void AssemblerImpl::pop(const Register32& src) {
   InstructionBuffer instr(this);
 
@@ -862,6 +868,12 @@ void AssemblerImpl::pop(const OperandImpl& dst) {
 
   instr.EmitOpCodeByte(0x8F);
   instr.EmitOperand(0, dst);
+}
+
+void AssemblerImpl::popad() {
+  InstructionBuffer instr(this);
+
+  instr.EmitOpCodeByte(0x61);
 }
 
 void AssemblerImpl::pushfd() {

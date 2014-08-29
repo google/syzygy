@@ -731,6 +731,9 @@ TEST_F(AssemblerTest, Push) {
   // General push, try one variant as the rest are OperandImpl encodings.
   asm_.push(OperandImpl(DisplacementImpl(0xCAFEBABE, kSize32Bit, NULL)));
   EXPECT_BYTES(0xFF, 0x35, 0xBE, 0xBA, 0xFE, 0xCA);
+
+  asm_.pushad();
+  EXPECT_BYTES(0x60);
 }
 
 TEST_F(AssemblerTest, Pop) {
@@ -748,6 +751,9 @@ TEST_F(AssemblerTest, Pop) {
   // General pop, try one variant as the rest are OperandImpl encodings.
   asm_.pop(OperandImpl(DisplacementImpl(0xCAFEBABE, kSize32Bit, NULL)));
   EXPECT_BYTES(0x8F, 0x05, 0xBE, 0xBA, 0xFE, 0xCA);
+
+  asm_.popad();
+  EXPECT_BYTES(0x61);
 }
 
 TEST_F(AssemblerTest, Flags) {
