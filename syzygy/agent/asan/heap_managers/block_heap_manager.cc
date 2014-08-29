@@ -21,7 +21,6 @@
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/heaps/simple_block_heap.h"
-#include "syzygy/agent/asan/heaps/win_heap.h"
 #include "syzygy/common/asan_parameters.h"
 
 namespace agent {
@@ -37,7 +36,8 @@ using heaps::ZebraBlockHeap;
 
 BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
     : stack_cache_(stack_cache),
-      zebra_block_heap_(NULL) {
+      zebra_block_heap_(NULL),
+      internal_heap_(&shadow_memory_notifier_, &internal_win_heap_) {
   DCHECK_NE(static_cast<StackCaptureCache*>(NULL), stack_cache);
   SetDefaultAsanParameters(&parameters_);
   PropagateParameters();
@@ -257,7 +257,8 @@ void BlockHeapManager::PropagateParameters() {
     // The zebra heap cannot be resized once created.
     base::AutoLock lock(lock_);
     zebra_block_heap_ = new ZebraBlockHeap(parameters_.zebra_block_heap_size,
-                                           &null_memory_notifier);
+                                           &shadow_memory_notifier_,
+                                           &internal_heap_);
     heaps_.insert(std::make_pair(zebra_block_heap_, zebra_block_heap_));
   }
 

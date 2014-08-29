@@ -26,18 +26,19 @@ namespace heaps {
 const size_t ZebraBlockHeap::kSlabSize = 2 * kPageSize;
 
 ZebraBlockHeap::ZebraBlockHeap(size_t heap_size,
-                               MemoryNotifierInterface* memory_notifier)
+                               MemoryNotifierInterface* memory_notifier,
+                               HeapInterface* internal_heap)
     : heap_address_(NULL),
       // Makes the heap_size a multiple of kSlabSize to avoid incomplete slabs
       // at the end of the reserved memory.
       heap_size_(common::AlignUp(heap_size, kSlabSize)),
       slab_count_(heap_size_ / kSlabSize),
-      slab_info_(MemoryNotifierAllocator<SlabInfo>(memory_notifier)),
+      slab_info_(HeapAllocator<SlabInfo>(internal_heap)),
       quarantine_ratio_(common::kDefaultZebraBlockHeapQuarantineRatio),
       free_slabs_(slab_count_,
-                  MemoryNotifierAllocator<size_t>(memory_notifier)),
+                  HeapAllocator<size_t>(internal_heap)),
       quarantine_(slab_count_,
-                  MemoryNotifierAllocator<size_t>(memory_notifier)),
+                  HeapAllocator<size_t>(internal_heap)),
       memory_notifier_(memory_notifier) {
   DCHECK_NE(reinterpret_cast<MemoryNotifierInterface*>(NULL), memory_notifier);
 

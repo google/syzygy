@@ -77,8 +77,10 @@ class ZebraBlockHeap : public BlockHeapInterface,
   // @param heap_size The amount of memory reserved by the heap in bytes.
   // @param memory_notifier The MemoryNotifierInterface used to report
   //     allocation information.
+  // @param internal_heap The heap to use for making internal allocations.
   ZebraBlockHeap(size_t heap_size,
-                 MemoryNotifierInterface* memory_notifier);
+                 MemoryNotifierInterface* memory_notifier,
+                 HeapInterface* internal_heap);
 
   // Virtual destructor. Frees all the allocated memory.
   virtual ~ZebraBlockHeap();
@@ -171,7 +173,7 @@ class ZebraBlockHeap : public BlockHeapInterface,
   // The ratio [0 .. 1] of the memory used by the quarantine. Under lock_.
   float quarantine_ratio_;
 
-  typedef CircularQueue<size_t, MemoryNotifierAllocator<size_t>> SlabIndexQueue;
+  typedef CircularQueue<size_t, HeapAllocator<size_t>> SlabIndexQueue;
 
   // Holds the indices of free slabs. Under lock_.
   SlabIndexQueue free_slabs_;
@@ -180,7 +182,7 @@ class ZebraBlockHeap : public BlockHeapInterface,
   SlabIndexQueue quarantine_;
 
   typedef std::vector<SlabInfo,
-                      MemoryNotifierAllocator<SlabInfo>> SlabInfoVector;
+                      HeapAllocator<SlabInfo>> SlabInfoVector;
 
   // Holds the information related to slabs. Under lock_.
   SlabInfoVector slab_info_;

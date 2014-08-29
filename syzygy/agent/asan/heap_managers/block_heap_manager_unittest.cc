@@ -37,6 +37,7 @@ using heaps::ZebraBlockHeap;
 typedef BlockHeapManager::HeapId HeapId;
 
 testing::NullMemoryNotifier null_memory_notifier;
+testing::DummyHeap dummy_heap;
 
 // A fake ZebraBlockHeap to simplify unit testing.
 // Wrapper with switches to enable/disable the quarantine and accept/refuse
@@ -47,7 +48,8 @@ class TestZebraBlockHeap : public heaps::ZebraBlockHeap {
   using ZebraBlockHeap::quarantine_ratio;
 
   // Constructor.
-  TestZebraBlockHeap() : ZebraBlockHeap(1024 * 1024, &null_memory_notifier) {
+  TestZebraBlockHeap()
+      : ZebraBlockHeap(1024 * 1024, &null_memory_notifier, &dummy_heap) {
     refuse_allocations_ = false;
     refuse_push_ = false;
   }

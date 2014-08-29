@@ -41,6 +41,7 @@ using ::testing::NotNull;
 using ::testing::AtLeast;
 
 testing::NullMemoryNotifier null_notifier;
+testing::DummyHeap dummy_heap;
 
 class TestZebraBlockHeap : public ZebraBlockHeap {
  public:
@@ -53,12 +54,13 @@ class TestZebraBlockHeap : public ZebraBlockHeap {
   // Creates a test heap with 8 MB initial (and maximum) memory using the
   // default memory notifier.
   TestZebraBlockHeap() : ZebraBlockHeap(kInitialHeapSize,
-                                        &null_notifier) { }
+                                        &null_notifier,
+                                        &dummy_heap) { }
 
   // Creates a test heap with 8 MB initial (and maximum) memory using a custom
   // memory notifier.
   explicit TestZebraBlockHeap(MemoryNotifierInterface* memory_notifier)
-      : ZebraBlockHeap(kInitialHeapSize, memory_notifier) { }
+      : ZebraBlockHeap(kInitialHeapSize, memory_notifier, &dummy_heap) { }
 
   // Allows to know if the heap can handle more allocations.
   // @returns true if the heap is full (no more allocations allowed),
@@ -437,21 +439,15 @@ TEST(ZebraBlockHeapTest, PushPopInvariant) {
 TEST(ZebraBlockHeapTest, MemoryNotifierIsCalled) {
   testing::MockMemoryNotifier mock_notifier;
 
-  // Should be called by ZebraBlockHeap internal data structures.
-  EXPECT_CALL(mock_notifier,
-      NotifyInternalUse(NotNull(), Gt(0u)))
-      .Times(AtLeast(1));
-
   // Should be called exactly once when reserving the initial memory.
   EXPECT_CALL(mock_notifier,
       NotifyFutureHeapUse(NotNull(), Gt(0u)))
       .Times(1);
 
-  // Should be called in the ZebraBlockHeap destructor and in the internal
-  // structures.
+  // Should be called in the ZebraBlockHeap destructor.
   EXPECT_CALL(mock_notifier,
       NotifyReturnedToOS(NotNull(), Gt(0u)))
-      .Times(AtLeast(2));
+      .Times(1);
 
   TestZebraBlockHeap h(&mock_notifier);
   h.Allocate(10);

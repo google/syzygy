@@ -29,8 +29,10 @@
 #include "syzygy/agent/asan/heap_manager.h"
 #include "syzygy/agent/asan/quarantine.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
+#include "syzygy/agent/asan/heaps/internal_heap.h"
+#include "syzygy/agent/asan/heaps/win_heap.h"
 #include "syzygy/agent/asan/heaps/zebra_block_heap.h"
-#include "syzygy/agent/asan/memory_notifiers/null_memory_notifier.h"
+#include "syzygy/agent/asan/memory_notifiers/shadow_memory_notifier.h"
 #include "syzygy/agent/asan/quarantines/sharded_quarantine.h"
 #include "syzygy/common/asan_parameters.h"
 
@@ -202,15 +204,18 @@ class BlockHeapManager : public HeapManagerInterface {
   // The process's heap.
   BlockHeapInterface* process_heap_;
 
+  // Memory notifier used to update the shadow memory.
+  memory_notifiers::ShadowMemoryNotifier shadow_memory_notifier_;
+
+  // The heap that gets used for allocation of internal data structures.
+  heaps::WinHeap internal_win_heap_;
+  heaps::InternalHeap internal_heap_;
+
   // Hold the single ZebraBlockHeap instance used by this heap manager.
   // The lifetime management of the zebra heap is provided by the
   // HeapQuarantineMap, this is simply a useful pointer for finding the
   // zebra heap directly.
   heaps::ZebraBlockHeap* zebra_block_heap_;
-
-  // Memory notifier used as a temporal workaround for the ZebraBlockHeap.
-  // TODO(peterssen): Remove when the memory notifier is implemented.
-  memory_notifiers::NullMemoryNotifier null_memory_notifier;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BlockHeapManager);
