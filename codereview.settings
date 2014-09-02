@@ -1,5 +1,5 @@
 # This file is used by gcl to get repository specific information.
 CODE_REVIEW_SERVER: codereview.appspot.com
-VIEW_VC: https://code.google.com/p/sawbuck/source/detail?r=
-CC_LIST: sawbuck-changes@googlegroups.com
+VIEW_VC: https://code.google.com/p/syzygy/source/detail?r=
+CC_LIST: syzygy-changes@googlegroups.com
 TRY_ON_UPLOAD: False

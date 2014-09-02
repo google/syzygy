@@ -224,6 +224,10 @@ def CheckReadMe(input_api, output_api, committing):
 
 
 def CheckChange(input_api, output_api, committing):
+  if 'dcommit' in sys.argv:
+    return [output_api.PresubmitPromptWarning(
+        'You must use "git cl land" and not "git cl dcommit".')]
+
   # The list of (canned) checks we perform on all files in all changes.
   checks = [
     CheckIncludeOrder,
