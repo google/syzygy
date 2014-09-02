@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<?define VER_MAJOR = '${MAJOR}' ?>
-<?define VER_MINOR = '${MINOR}' ?>
-<?define VER_BUILD = '${BUILD}' ?>
-<?define VER_PATCH = '${PATCH}' ?>
-<Include>
-</Include>
