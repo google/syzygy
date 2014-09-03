@@ -1,0 +1,16 @@
+# Names should be added to this file with this pattern:
+#
+#   Full Name <email@address>
+#
+# For institutional/corporate committers with this pattern:
+#
+#   Institution name <*@institution-domain>
+
+# Individual contributors.
+
+# As of yet, there are no individual contributors.
+
+# Institutional contributors.
+
+The Chromium Authors <*@chromium.org>
+Google Inc. <*@google.com>

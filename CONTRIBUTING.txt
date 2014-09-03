@@ -1,0 +1,90 @@
+If you want to contribute code to the Syzygy repository, there are a few things
+you can do to make your life easier.
+
+Read
+----
+
+You've made a good start by opening this file! The most up to date resources for
+setting up the development environment are online in the project wiki. Syzygy is
+part of the Chromium eco-system, and uses the same tools. Familiarize yourself
+with gclient (checkout management), gyp (build/project file generation), Ninja
+(build system), Rietveld (code review) and git (revision control). These are all
+installed as part of the Chromium depot_tools package, a prerequisite for
+developing with Syzygy.
+
+  http://www.chromium.org/developers/how-tos/install-depot-tools
+
+Communicate
+-----------
+
+Contact the team at syzygy-team@chromium.org and let them know you want to make
+a contribution. They can give you feedback regarding new features, or guide you
+in choosing a bug to fix.
+
+Polish
+------
+
+1. Your code must conform to the Chromium style guidelines, and more generally
+   to the Google C++ and Python style guides:
+
+     http://www.chromium.org/developers/coding-style
+     http://google-styleguide.googlecode.com/svn/trunk/cppguide.xml
+     https://google-styleguide.googlecode.com/svn/trunk/pyguide.html
+
+   When in doubt follow the convention in use in a particular file or elsewhere
+   in the repository.
+
+2. Your code should be tested by unit tests, and integration tests when
+   appropriate. The Syzygy codebase is rigorously tested and observes strict
+   coverage and testing standards. The continuous builder and integration tester
+   is visible here:
+
+     http://build.chromium.org/p/client.syzygy/waterfall
+
+3. As an individual, you must complete the individual contributer license
+   agreement. If you are contributing as a corporation, you must complete the
+   corporate contribute license agreement.
+
+     https://developers.google.com/open-source/cla/individual?csw=1
+     https://developers.google.com/open-source/cla/corporate?csw=1
+
+   Filling this out should only take a few moments.
+
+4. If you are contributing for the first time please take a moment to add your
+   name to the AUTHORS.txt file in the root of the repository.
+
+Review
+------
+
+Before being accepted into the codebase your contribution must be uploaded to
+the Rietveld code review website at codereview.appspot.com, and reviewed by a
+member of the Syzygy team. Try to find an appropriate reviewer by looking at the
+most recent activity in that part of the repository. If in doubt contact the
+team mailing list at syzygy-team@chromium.org.
+
+Uploads to the review site are performed using "git cl upload" from the branch
+containing your patch.
+
+When your patch is accepted it will receive a "Looks good to me" (LGTM) from one
+or more of your reviewers. At this point it is ready to commit.
+
+Commit
+------
+
+If this a one-off contribution it is easiest for a full-time team member to land
+the CL for you. You will receive attribution in the commit message and the
+AUTHORS.txt file.
+
+If you have made or plan to make multiple contributions you will be added as a
+contributor and provided with access to the repository. In this case you will
+land your CL using "git cl land".
+
+Monitor
+-------
+
+As a Syzygy committer it is your responsibility to ensure that your CL passes
+through the continuous build, unit and integration tests on the Syzyg waterfall.
+If your code introduces any regressions please notify the mailing list and put
+together a fix as soon as possible. You can find the waterfall here:
+
+  http://build.chromium.org/p/client.syzygy/waterfall
