@@ -33,7 +33,7 @@ namespace quarantines {
 // Expects the derived class to provide implementations for a few methods:
 //
 //   bool PushImpl(const ObjectType& object);
-//   void PopImpl(ObjectType* object);
+//   bool PopImpl(ObjectType* object);
 //   void EmptyImpl(ObjectVector* object);
 //
 // Calculates the sizes of objects using the provided SizeFunctor. This
@@ -114,7 +114,7 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
   // @name SizeLimitedQuarantine interface.
   // @{
   virtual bool PushImpl(const Object& object) = 0;
-  virtual void PopImpl(Object* object) = 0;
+  virtual bool PopImpl(Object* object) = 0;
   virtual void EmptyImpl(ObjectVector* objects) = 0;
   // @}
 

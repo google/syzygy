@@ -64,11 +64,12 @@ class TestQuarantine
     return true;
   }
 
-  void PopImpl(DummyObject* o) {
+  bool PopImpl(DummyObject* o) {
     DCHECK_NE(static_cast<DummyObject*>(NULL), o);
     DCHECK(!objects_.empty());
     *o = objects_.back();
     objects_.pop_back();
+    return true;
   }
 
   void EmptyImpl(DummyObjectVector* os) {

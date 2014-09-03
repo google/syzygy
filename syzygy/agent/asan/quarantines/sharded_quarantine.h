@@ -63,7 +63,7 @@ class ShardedQuarantine
   // @name SizeLimitedQuarantineImpl implementation.
   // @{
   virtual bool PushImpl(const Object& object);
-  virtual void PopImpl(Object* object);
+  virtual bool PopImpl(Object* object);
   virtual void EmptyImpl(ObjectVector* objects);
   // @}
 

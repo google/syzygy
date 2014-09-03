@@ -196,21 +196,25 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
     quarantine = iter_heap->second;
   }
 
+  // We need to update the block's metadata before pushing it into the
+  // quarantine, otherwise a concurrent thread might try to pop it while its in
+  // an invalid state.
+  StackCapture stack;
+  stack.InitFromStack();
+  block_info.header->free_stack =
+      stack_cache_->SaveStackTrace(stack);
+  block_info.trailer->free_ticks = ::GetTickCount();
+  block_info.trailer->free_tid = ::GetCurrentThreadId();
+
+  block_info.header->state = QUARANTINED_BLOCK;
+
+  // Poison the released alloc (marked as freed) and quarantine the block.
+  // Note that the original data is left intact. This may make it easier
+  // to debug a crash report/dump on access to a quarantined block.
+  Shadow::MarkAsFreed(block_info.body, block_info.body_size);
+  BlockSetChecksum(block_info);
+
   if (quarantine->Push(block_info.header)) {
-    StackCapture stack;
-    stack.InitFromStack();
-    block_info.header->free_stack =
-        stack_cache_->SaveStackTrace(stack);
-    block_info.trailer->free_ticks = ::GetTickCount();
-    block_info.trailer->free_tid = ::GetCurrentThreadId();
-
-    block_info.header->state = QUARANTINED_BLOCK;
-
-    // Poison the released alloc (marked as freed) and quarantine the block.
-    // Note that the original data is left intact. This may make it easier
-    // to debug a crash report/dump on access to a quarantined block.
-    Shadow::MarkAsFreed(block_info.body, block_info.body_size);
-    BlockSetChecksum(block_info);
     TrimQuarantine(quarantine);
   } else {
     return FreePristineBlock(&block_info);

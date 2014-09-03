@@ -91,7 +91,7 @@ bool ShardedQuarantine<OT, SFT, HFT, SF>::PushImpl(const Object& object) {
 }
 
 template<typename OT, typename SFT, typename HFT, size_t SF>
-void ShardedQuarantine<OT, SFT, HFT, SF>::PopImpl(Object* object) {
+bool ShardedQuarantine<OT, SFT, HFT, SF>::PopImpl(Object* object) {
   DCHECK_NE(static_cast<Object*>(NULL), object);
 
   // Extract a node from this shard. If the shard is empty then scan linearly
@@ -105,9 +105,10 @@ void ShardedQuarantine<OT, SFT, HFT, SF>::PopImpl(Object* object) {
     if (node == NULL) {
       shard = (shard + 1) % kShardingFactor;
 
-      // This should never happen as PopImpl should only be called if there is
-      // actually an element in the quarantine.
-      CHECK_NE(orig_shard, shard);
+      // If there's no non-empty shard then this means that another thread
+      // emptied out all the buckets while we were in this function.
+      if (shard == orig_shard)
+        return false;
       continue;
     }
 
@@ -122,7 +123,7 @@ void ShardedQuarantine<OT, SFT, HFT, SF>::PopImpl(Object* object) {
   *object = node->object;
   node_caches_[shard].Free(node, 1);
 
-  return;
+  return true;
 }
 
 template<typename OT, typename SFT, typename HFT, size_t SF>

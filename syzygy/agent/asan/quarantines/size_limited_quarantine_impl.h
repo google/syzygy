@@ -45,7 +45,8 @@ bool SizeLimitedQuarantineImpl<OT, SFT>::Pop(
   if (max_quarantine_size_ == kUnboundedSize ||
       size_ <= max_quarantine_size_)
     return false;
-  PopImpl(object);
+  if (!PopImpl(object))
+    return false;
   SizeFunctor get_size;
   size_t size = get_size(*object);
   DCHECK_LE(size, size_);
