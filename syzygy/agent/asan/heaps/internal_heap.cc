@@ -83,21 +83,21 @@ bool InternalHeap::Free(void* alloc) {
   return heap_->Free(alloc);
 }
 
-bool InternalHeap::IsAllocated(void* alloc) {
+bool InternalHeap::IsAllocated(const void* alloc) {
   if (alloc != NULL) {
-    uint32* header = reinterpret_cast<uint32*>(alloc) - 1;
+    const uint32* header = reinterpret_cast<const uint32*>(alloc) - 1;
     alloc = header;
   }
   return heap_->IsAllocated(alloc);
 }
 
-size_t InternalHeap::GetAllocationSize(void* alloc) {
+size_t InternalHeap::GetAllocationSize(const void* alloc) {
   if (alloc == NULL)
     return kUnknownSize;
 
-  uint8* bytes = reinterpret_cast<uint8*>(alloc);
-  InternalHeapEntry* entry = reinterpret_cast<InternalHeapEntry*>(
-      bytes - kBodyOffset);
+  const uint8* bytes = reinterpret_cast<const uint8*>(alloc);
+  const InternalHeapEntry* entry =
+      reinterpret_cast<const InternalHeapEntry*>(bytes - kBodyOffset);
   return entry->size;
 }
 

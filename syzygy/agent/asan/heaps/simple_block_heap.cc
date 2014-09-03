@@ -39,11 +39,11 @@ bool SimpleBlockHeap::Free(void* alloc) {
   return heap_->Free(alloc);
 }
 
-bool SimpleBlockHeap::IsAllocated(void* alloc) {
+bool SimpleBlockHeap::IsAllocated(const void* alloc) {
   return heap_->IsAllocated(alloc);
 }
 
-size_t SimpleBlockHeap::GetAllocationSize(void* alloc) {
+size_t SimpleBlockHeap::GetAllocationSize(const void* alloc) {
   return heap_->GetAllocationSize(alloc);;
 }
 

@@ -238,6 +238,11 @@ class ScopedHeap {
     return false;
   }
 
+  // Returns the heap supported features.
+  uint32 GetHeapFeatures() {
+    return reinterpret_cast<HeapInterface*>(heap_id_)->GetHeapFeatures();
+  }
+
  private:
   // The heap manager owning the underlying heap.
   TestBlockHeapManager* heap_manager_;
@@ -892,6 +897,13 @@ TEST_F(BlockHeapManagerTest, SubsampledAllocationGuards) {
       ++unguarded_allocations;
     } else {
       ++guarded_allocations;
+    }
+
+    // TODO(sebmarchand): CTMalloc doesn't always report the exact size, update
+    //     this expectation once we switch to using it.
+    if ((heap.GetHeapFeatures() &
+         HeapInterface::kHeapSupportsGetAllocationSize) != 0) {
+      EXPECT_EQ(alloc_size, heap_manager_->Size(heap.Id(), alloc));
     }
 
     // Delete half of the allocations immediately, and keep half of them

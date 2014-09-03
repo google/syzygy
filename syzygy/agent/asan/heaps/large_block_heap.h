@@ -52,8 +52,8 @@ class LargeBlockHeap : public BlockHeapInterface {
   virtual uint32 GetHeapFeatures() const;
   virtual void* Allocate(size_t bytes);
   virtual bool Free(void* alloc);
-  virtual bool IsAllocated(void* alloc);
-  virtual size_t GetAllocationSize(void* alloc);
+  virtual bool IsAllocated(const void* alloc);
+  virtual size_t GetAllocationSize(const void* alloc);
   virtual void Lock();
   virtual void Unlock();
   // @}
@@ -75,10 +75,10 @@ class LargeBlockHeap : public BlockHeapInterface {
   // It is expected that a small number of allocations will be made, so keeping
   // track of these explicitly is fine for now.
   typedef std::unordered_set<
-      void*,
-      std::hash<void*>,
-      std::equal_to<void*>,
-      HeapAllocator<void*>> AllocationSet;
+      const void*,
+      std::hash<const void*>,
+      std::equal_to<const void*>,
+      HeapAllocator<const void*>> AllocationSet;
   AllocationSet allocs_;  // Under lock_.
 
   // The global lock for this allocator.

@@ -62,7 +62,7 @@ bool LargeBlockHeap::Free(void* alloc) {
   return true;
 }
 
-bool LargeBlockHeap::IsAllocated(void* alloc) {
+bool LargeBlockHeap::IsAllocated(const void* alloc) {
   common::AutoRecursiveLock lock(lock_);
   AllocationSet::iterator it = allocs_.find(alloc);
   if (it == allocs_.end())
@@ -71,7 +71,7 @@ bool LargeBlockHeap::IsAllocated(void* alloc) {
   return true;
 }
 
-size_t LargeBlockHeap::GetAllocationSize(void* alloc) {
+size_t LargeBlockHeap::GetAllocationSize(const void* alloc) {
   return kUnknownSize;
 }
 

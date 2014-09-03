@@ -60,11 +60,11 @@ bool WinHeap::Free(void* alloc) {
   return true;
 }
 
-bool WinHeap::IsAllocated(void* alloc) {
+bool WinHeap::IsAllocated(const void* alloc) {
   return false;
 }
 
-size_t WinHeap::GetAllocationSize(void* alloc) {
+size_t WinHeap::GetAllocationSize(const void* alloc) {
   return ::HeapSize(heap_, 0, alloc);
 }
 

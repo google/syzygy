@@ -90,14 +90,14 @@ class HeapInterface {
   //     to 'Allocate', and not yet returned via 'Free'.
   // @note This will always return false unless the heap has the
   //     kHeapSupportsIsAllocated feature.
-  virtual bool IsAllocated(void* alloc) = 0;
+  virtual bool IsAllocated(const void* alloc) = 0;
 
   // Returns the size of the given allocation.
   // @param alloc An address previously returned by Allocate.
   // @returns the size of the allocation.
   // @note This will always return kUnknownSize unless the heap has the
   //     kHeapSupportsGetAllocationSize feature.
-  virtual size_t GetAllocationSize(void* alloc) = 0;
+  virtual size_t GetAllocationSize(const void* alloc) = 0;
 
   // Locks the heap. All other calls to the heap will be blocked until
   // a corresponding call to Unlock.

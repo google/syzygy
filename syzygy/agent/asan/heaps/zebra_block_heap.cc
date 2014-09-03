@@ -105,7 +105,7 @@ bool ZebraBlockHeap::Free(void* alloc) {
   return true;
 }
 
-bool ZebraBlockHeap::IsAllocated(void* alloc) {
+bool ZebraBlockHeap::IsAllocated(const void* alloc) {
   if (alloc == NULL)
     return false;
   common::AutoRecursiveLock lock(lock_);
@@ -119,7 +119,7 @@ bool ZebraBlockHeap::IsAllocated(void* alloc) {
   return true;
 }
 
-size_t ZebraBlockHeap::GetAllocationSize(void* alloc) {
+size_t ZebraBlockHeap::GetAllocationSize(const void* alloc) {
   if (alloc == NULL)
     return kUnknownSize;
   common::AutoRecursiveLock lock(lock_);
@@ -299,10 +299,10 @@ uint8* ZebraBlockHeap::GetSlabAddress(size_t index) {
   return heap_address_ + index * kSlabSize;
 }
 
-size_t ZebraBlockHeap::GetSlabIndex(void* address) {
+size_t ZebraBlockHeap::GetSlabIndex(const void* address) {
   if (address < heap_address_ || address >= heap_address_ + heap_size_)
     return kInvalidSlabIndex;
-  return (reinterpret_cast<uint8*>(address) - heap_address_) / kSlabSize;
+  return (reinterpret_cast<const uint8*>(address) - heap_address_) / kSlabSize;
 }
 
 }  // namespace heaps

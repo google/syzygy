@@ -221,10 +221,19 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
 
 size_t BlockHeapManager::Size(HeapId heap_id, const void* alloc) {
   DCHECK_NE(static_cast<HeapId>(NULL), heap_id);
-  BlockHeader* header = BlockGetHeaderFromBody(alloc);
-  if (header == NULL)
+  if (Shadow::IsBeginningOfBlockBody(alloc)) {
+    BlockInfo block_info = {};
+    if (!Shadow::BlockInfoFromShadow(alloc, &block_info))
+      return 0;
+    return block_info.body_size;
+  }
+  HeapInterface* heap = reinterpret_cast<HeapInterface*>(heap_id);
+  if ((heap->GetHeapFeatures() &
+        HeapInterface::kHeapSupportsGetAllocationSize) != 0) {
+    return heap->GetAllocationSize(alloc);
+  } else {
     return 0;
-  return header->body_size;
+  }
 }
 
 void BlockHeapManager::Lock(HeapId heap_id) {

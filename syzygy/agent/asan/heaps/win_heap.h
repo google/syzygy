@@ -43,8 +43,8 @@ class WinHeap : public HeapInterface {
   virtual uint32 GetHeapFeatures() const;
   virtual void* Allocate(size_t bytes);
   virtual bool Free(void* alloc);
-  virtual bool IsAllocated(void* alloc);
-  virtual size_t GetAllocationSize(void* alloc);
+  virtual bool IsAllocated(const void* alloc);
+  virtual size_t GetAllocationSize(const void* alloc);
   virtual void Lock();
   virtual void Unlock();
   // @}
