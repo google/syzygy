@@ -138,9 +138,9 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
   // greatest number of stack frames.
   StackCapture stack;
   stack.InitFromStack();
+  block.header->state = ALLOCATED_BLOCK;
   block.header->alloc_stack = stack_cache_->SaveStackTrace(stack);
   block.header->free_stack = NULL;
-
   block.trailer->heap_id = heap_id;
 
   BlockSetChecksum(block);
@@ -150,6 +150,10 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
 
 bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   DCHECK_NE(static_cast<HeapId>(NULL), heap_id);
+
+   // The standard allows calling free on a null pointer.
+  if (alloc == NULL)
+    return true;
 
   BlockInfo block_info = {};
   if (!Shadow::IsBeginningOfBlockBody(alloc) ||

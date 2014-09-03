@@ -370,6 +370,13 @@ TEST_F(BlockHeapManagerTest, AllocAndFree) {
   EXPECT_TRUE(heap_manager_->DestroyHeap(heap_id));
 }
 
+TEST_F(BlockHeapManagerTest, FreeNullPointer) {
+  HeapId heap_id = heap_manager_->CreateHeap();
+  EXPECT_NE(static_cast<HeapId>(NULL), heap_id);
+  EXPECT_TRUE(heap_manager_->Free(heap_id, reinterpret_cast<void*>(NULL)));
+  EXPECT_TRUE(heap_manager_->DestroyHeap(heap_id));
+}
+
 TEST_F(BlockHeapManagerTest, SetQuarantinesMaxSize) {
   ScopedHeap heap(heap_manager_.get());
 
