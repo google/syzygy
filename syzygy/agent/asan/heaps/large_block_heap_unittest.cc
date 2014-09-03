@@ -45,7 +45,9 @@ class TestLargeBlockHeap : public LargeBlockHeap {
 
 TEST(LargeBlockHeapTest, FeaturesAreValid) {
   TestLargeBlockHeap h;
-  EXPECT_EQ(HeapInterface::kHeapSupportsIsAllocated, h.GetHeapFeatures());
+  EXPECT_EQ(HeapInterface::kHeapSupportsIsAllocated |
+                HeapInterface::kHeapSupportsGetAllocationSize,
+            h.GetHeapFeatures());
 }
 
 TEST(LargeBlockHeapTest, EndToEnd) {
@@ -126,6 +128,14 @@ TEST(LargeBlockHeapTest, IsAllocated) {
 
   h.Free(a);
   EXPECT_FALSE(h.IsAllocated(a));
+}
+
+TEST(LargeBlockHeapTest, GetAllocationSize) {
+  TestLargeBlockHeap h;
+
+  void* alloc = h.Allocate(67);
+  ASSERT_TRUE(alloc != NULL);
+  EXPECT_EQ(67u, h.GetAllocationSize(alloc));
 }
 
 }  // namespace heaps

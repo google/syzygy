@@ -29,8 +29,16 @@ LargeBlockHeap::LargeBlockHeap(HeapInterface* internal_heap)
     : allocs_(HeapAllocator<void*>(internal_heap)) {
 }
 
+LargeBlockHeap::~LargeBlockHeap() {
+  common::AutoRecursiveLock lock(lock_);
+  AllocationSet::iterator it = allocs_.begin();
+  for (; it != allocs_.end(); ++it)
+    ::VirtualFree(const_cast<void*>(it->address), 0, MEM_RELEASE);
+  allocs_.clear();
+}
+
 uint32 LargeBlockHeap::GetHeapFeatures() const {
-  return kHeapSupportsIsAllocated;
+  return kHeapSupportsIsAllocated | kHeapSupportsGetAllocationSize;
 }
 
 void* LargeBlockHeap::Allocate(size_t bytes) {
@@ -39,20 +47,23 @@ void* LargeBlockHeap::Allocate(size_t bytes) {
   size_t size = std::max(bytes, 1u);
   size = common::AlignUp(size, kPageSize);
   void* alloc = ::VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE);
+  Allocation allocation = { alloc, bytes };
 
   if (alloc != NULL) {
     common::AutoRecursiveLock lock(lock_);
-    allocs_.insert(alloc);
+    allocs_.insert(allocation);
   }
 
   return alloc;
 }
 
 bool LargeBlockHeap::Free(void* alloc) {
+  Allocation allocation = { alloc, 0 };
+
   {
     // First lookup the allocation to ensure it was made by us.
     common::AutoRecursiveLock lock(lock_);
-    AllocationSet::iterator it = allocs_.find(alloc);
+    AllocationSet::iterator it = allocs_.find(allocation);
     if (it == allocs_.end())
       return false;
     allocs_.erase(it);
@@ -63,16 +74,28 @@ bool LargeBlockHeap::Free(void* alloc) {
 }
 
 bool LargeBlockHeap::IsAllocated(const void* alloc) {
-  common::AutoRecursiveLock lock(lock_);
-  AllocationSet::iterator it = allocs_.find(alloc);
-  if (it == allocs_.end())
-    return false;
+  Allocation allocation = { alloc, 0 };
+
+  {
+    common::AutoRecursiveLock lock(lock_);
+    AllocationSet::iterator it = allocs_.find(allocation);
+    if (it == allocs_.end())
+      return false;
+  }
 
   return true;
 }
 
 size_t LargeBlockHeap::GetAllocationSize(const void* alloc) {
-  return kUnknownSize;
+  Allocation allocation = { alloc, 0 };
+
+  {
+    common::AutoRecursiveLock lock(lock_);
+    AllocationSet::iterator it = allocs_.find(allocation);
+    if (it == allocs_.end())
+      return kUnknownSize;
+    return it->size;
+  }
 }
 
 void LargeBlockHeap::Lock() {

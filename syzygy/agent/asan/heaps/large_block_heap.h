@@ -45,7 +45,7 @@ class LargeBlockHeap : public BlockHeapInterface {
   explicit LargeBlockHeap(HeapInterface* internal_heap);
 
   // Virtual destructor.
-  virtual ~LargeBlockHeap() { }
+  virtual ~LargeBlockHeap();
 
   // @name HeapInterface implementation.
   // @{
@@ -71,14 +71,37 @@ class LargeBlockHeap : public BlockHeapInterface {
   size_t size() const { return allocs_.size(); }
 
  protected:
+  // Information about an allocation made by this allocator.
+  struct Allocation {
+    const void* address;
+    size_t size;
+  };
+
+  // Calculates a hash of an Allocation object by forwarding to the STL
+  // hash for the allocation address.
+  struct AllocationHash {
+    size_t operator()(const Allocation& allocation) const {
+      std::hash<const void*> hash;
+      return hash(allocation.address);
+    }
+  };
+
+  // Functor for determining if 2 allocation objects are identical. This only
+  // uses the allocation address as a key.
+  struct AllocationEqualTo {
+    bool operator()(const Allocation& a1, const Allocation& a2) const {
+      return a1.address == a2.address;
+    }
+  };
+
   // The collection of allocations that has been made through this allocator.
   // It is expected that a small number of allocations will be made, so keeping
   // track of these explicitly is fine for now.
   typedef std::unordered_set<
-      const void*,
-      std::hash<const void*>,
-      std::equal_to<const void*>,
-      HeapAllocator<const void*>> AllocationSet;
+      Allocation,
+      AllocationHash,
+      AllocationEqualTo,
+      HeapAllocator<Allocation>> AllocationSet;
   AllocationSet allocs_;  // Under lock_.
 
   // The global lock for this allocator.
