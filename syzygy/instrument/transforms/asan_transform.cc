@@ -58,7 +58,7 @@ using block_graph::TypedBlock;
 using block_graph::Value;
 using block_graph::analysis::LivenessAnalysis;
 using block_graph::analysis::MemoryAccessAnalysis;
-using core::Register32;
+using assm::Register32;
 using pe::transforms::CoffAddImportsTransform;
 using pe::transforms::ImportedModule;
 using pe::transforms::PEAddImportsTransform;
@@ -213,7 +213,7 @@ bool DecodeMemoryAccess(const Instruction& instr,
   // Determine operand of the access.
   if (repr.ops[mem_op_id].type == O_SMEM) {
     // Simple memory dereference with optional displacement.
-    const Register32& base_reg = core::CastAsRegister32(
+    const Register32& base_reg = assm::CastAsRegister32(
         core::GetRegister(repr.ops[mem_op_id].index));
 
     // Get the displacement for the operand.
@@ -221,19 +221,19 @@ bool DecodeMemoryAccess(const Instruction& instr,
     *access = Operand(base_reg, displ);
   } else if (repr.ops[0].type == O_MEM || repr.ops[1].type == O_MEM) {
     // Complex memory dereference.
-    const Register32& index_reg = core::CastAsRegister32(
+    const Register32& index_reg = assm::CastAsRegister32(
         core::GetRegister(repr.ops[mem_op_id].index));
 
-    core::ScaleFactor scale = core::kTimes1;
+    assm::ScaleFactor scale = assm::kTimes1;
     switch (repr.scale) {
       case 2:
-        scale = core::kTimes2;
+        scale = assm::kTimes2;
         break;
       case 4:
-        scale = core::kTimes4;
+        scale = assm::kTimes4;
         break;
       case 8:
-        scale = core::kTimes8;
+        scale = assm::kTimes8;
         break;
       default:
         break;
@@ -244,10 +244,10 @@ bool DecodeMemoryAccess(const Instruction& instr,
 
     // Compute the full operand.
     if (repr.base != R_NONE) {
-      const Register32& base_reg = core::CastAsRegister32(
+      const Register32& base_reg = assm::CastAsRegister32(
           core::GetRegister(repr.base));
 
-      if (displ.size() == core::kSizeNone) {
+      if (displ.size() == assm::kSizeNone) {
         // No displacement, it's a [base + index * scale] access.
         *access = Operand(base_reg, index_reg, scale);
       } else {
@@ -258,7 +258,7 @@ bool DecodeMemoryAccess(const Instruction& instr,
       // No base, this is an [index * scale + displ] access.
       // TODO(siggi): AFAIK, there's no encoding for [index * scale] without
       //    a displacement. If this assert fires, I'm proven wrong.
-      DCHECK_NE(core::kSizeNone, displ.size());
+      DCHECK_NE(assm::kSizeNone, displ.size());
 
       *access = Operand(index_reg, scale, displ);
     }
@@ -288,8 +288,8 @@ void InjectAsanHook(BasicBlockAssembler* bb_asm,
   if (info.mode == AsanBasicBlockTransform::kReadAccess ||
       info.mode == AsanBasicBlockTransform::kWriteAccess) {
     // Load/store probe.
-    bb_asm->push(core::edx);
-    bb_asm->lea(core::edx, op);
+    bb_asm->push(assm::edx);
+    bb_asm->lea(assm::edx, op);
   }
 
   // Call the hook.
@@ -512,7 +512,7 @@ bool CreateHooksStub(BlockGraph* block_graph,
       mode == AsanBasicBlockTransform::kWriteAccess) {
     // The thunk body restores the original value of EDX and cleans the stack on
     // return.
-    assm.mov(core::edx, Operand(core::esp, Displacement(4)));
+    assm.mov(assm::edx, Operand(assm::esp, Displacement(4)));
     assm.ret(4);
   } else {
     assm.ret();
@@ -809,7 +809,7 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
       basic_block->instructions().begin();
   std::list<LivenessAnalysis::State>::iterator iter_state = states.begin();
   for (; iter_inst != basic_block->instructions().end(); ++iter_inst) {
-    Operand operand(core::eax);
+    Operand operand(assm::eax);
     const Instruction& instr = *iter_inst;
     const _DInst& repr = instr.representation();
 
@@ -871,8 +871,8 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
     // skip instrumenting stack-based memory access (based on ESP or EBP).
     // Conventionally, accesses through ESP/EBP are always on stack.
     if (stack_mode == kSafeStackAccess &&
-        (operand.base() == core::kRegisterEsp ||
-         operand.base() == core::kRegisterEbp)) {
+        (operand.base() == assm::kRegisterEsp ||
+         operand.base() == assm::kRegisterEbp)) {
       continue;
     }
 

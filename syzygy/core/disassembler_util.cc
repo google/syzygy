@@ -301,49 +301,49 @@ _RegisterType GetRegisterType(const Register& reg) {
 }
 
 _RegisterType GetRegisterType(RegisterId reg_id) {
-  static const _RegisterType kRegisterTypesById[kRegisterMax] = {
+  static const _RegisterType kRegisterTypesById[assm::kRegisterMax] = {
     R_AL,  R_CL,  R_DL,  R_BL,  R_AH,  R_CH,  R_DH,  R_BH,  // 8-bit.
     R_AX,  R_CX,  R_DX,  R_BX,  R_SP,  R_BP,  R_SI,  R_DI,  // 16-bit.
     R_EAX, R_ECX, R_EDX, R_EBX, R_ESP, R_EBP, R_ESI, R_EDI  // 32-bit.
   };
-  DCHECK_LE(kRegisterMin, reg_id);
-  DCHECK_GT(kRegisterMax, reg_id);
+  DCHECK_LE(assm::kRegisterMin, reg_id);
+  DCHECK_GT(assm::kRegisterMax, reg_id);
   return kRegisterTypesById[reg_id];
 }
 
 RegisterId GetRegisterId(uint32 distorm_reg_type) {
   switch (distorm_reg_type) {
     // 8-bit registers.
-    case R_AL: return kRegisterAl;
-    case R_CL: return kRegisterCl;
-    case R_DL: return kRegisterDl;
-    case R_BL: return kRegisterBl;
-    case R_AH: return kRegisterAh;
-    case R_CH: return kRegisterCh;
-    case R_DH: return kRegisterDh;
-    case R_BH: return kRegisterBh;
+    case R_AL: return assm::kRegisterAl;
+    case R_CL: return assm::kRegisterCl;
+    case R_DL: return assm::kRegisterDl;
+    case R_BL: return assm::kRegisterBl;
+    case R_AH: return assm::kRegisterAh;
+    case R_CH: return assm::kRegisterCh;
+    case R_DH: return assm::kRegisterDh;
+    case R_BH: return assm::kRegisterBh;
 
     // 16-bit registers.
-    case R_AX: return kRegisterAx;
-    case R_CX: return kRegisterCx;
-    case R_DX: return kRegisterDx;
-    case R_BX: return kRegisterBx;
-    case R_SP: return kRegisterSp;
-    case R_BP: return kRegisterBp;
-    case R_SI: return kRegisterSi;
-    case R_DI: return kRegisterDi;
+    case R_AX: return assm::kRegisterAx;
+    case R_CX: return assm::kRegisterCx;
+    case R_DX: return assm::kRegisterDx;
+    case R_BX: return assm::kRegisterBx;
+    case R_SP: return assm::kRegisterSp;
+    case R_BP: return assm::kRegisterBp;
+    case R_SI: return assm::kRegisterSi;
+    case R_DI: return assm::kRegisterDi;
 
     // 32-bit registers.
-    case R_EAX: return kRegisterEax;
-    case R_ECX: return kRegisterEcx;
-    case R_EDX: return kRegisterEdx;
-    case R_EBX: return kRegisterEbx;
-    case R_ESP: return kRegisterEsp;
-    case R_EBP: return kRegisterEbp;
-    case R_ESI: return kRegisterEsi;
-    case R_EDI: return kRegisterEdi;
+    case R_EAX: return assm::kRegisterEax;
+    case R_ECX: return assm::kRegisterEcx;
+    case R_EDX: return assm::kRegisterEdx;
+    case R_EBX: return assm::kRegisterEbx;
+    case R_ESP: return assm::kRegisterEsp;
+    case R_EBP: return assm::kRegisterEbp;
+    case R_ESI: return assm::kRegisterEsi;
+    case R_EDI: return assm::kRegisterEdi;
 
-    default: return kRegisterNone;
+    default: return assm::kRegisterNone;
   }
 }
 

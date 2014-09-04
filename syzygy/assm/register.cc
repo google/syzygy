@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/core/register.h"
+#include "syzygy/assm/register.h"
 
-namespace core {
+namespace assm {
 
 // A register factory.
 class RegisterBuilder {
@@ -119,4 +119,4 @@ const Register32& CastAsRegister32(const Register& reg) {
   return reinterpret_cast<const Register32&>(reg);
 }
 
-}  // namespace core
+}  // namespace assm

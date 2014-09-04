@@ -200,7 +200,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
 
   bool AddInstructionFromBuffer(const uint8* data, size_t length) {
     DCHECK(data != NULL);
-    DCHECK(length < core::AssemblerImpl::kMaxInstructionLength);
+    DCHECK(length < assm::AssemblerImpl::kMaxInstructionLength);
 
     block_graph::Instruction temp;
     if (!block_graph::Instruction::FromBuffer(data, length, &temp))
@@ -325,9 +325,9 @@ TEST_F(AsanTransformTest, ApplyAsanTransformCoff) {
 
 TEST_F(AsanTransformTest, InjectAsanHooksPe) {
   // Add a read access to the memory.
-  bb_asm_->mov(core::eax, block_graph::Operand(core::ebx));
+  bb_asm_->mov(assm::eax, block_graph::Operand(assm::ebx));
   // Add a write access to the memory.
-  bb_asm_->mov(block_graph::Operand(core::ecx), core::edx);
+  bb_asm_->mov(block_graph::Operand(assm::ecx), assm::edx);
 
   // Add source ranges to the instruction.
   block_graph::Instruction& i1 = *basic_block_->instructions().begin();
@@ -391,7 +391,7 @@ TEST_F(AsanTransformTest, InjectAsanHooksPe) {
 
 TEST_F(AsanTransformTest, InjectAsanHooksWithSourceRangePe) {
   // Add a read access to the memory.
-  bb_asm_->mov(core::eax, block_graph::Operand(core::ebx));
+  bb_asm_->mov(assm::eax, block_graph::Operand(assm::ebx));
 
   // Add a source range to the instruction.
   block_graph::Instruction& i1 = *basic_block_->instructions().begin();
@@ -426,9 +426,9 @@ TEST_F(AsanTransformTest, InjectAsanHooksWithSourceRangePe) {
 
 TEST_F(AsanTransformTest, InjectAsanHooksCoff) {
   // Add a read access to the memory.
-  bb_asm_->mov(core::eax, block_graph::Operand(core::ebx));
+  bb_asm_->mov(assm::eax, block_graph::Operand(assm::ebx));
   // Add a write access to the memory.
-  bb_asm_->mov(block_graph::Operand(core::ecx), core::edx);
+  bb_asm_->mov(block_graph::Operand(assm::ecx), assm::edx);
 
   // Add source ranges to the instruction.
   block_graph::Instruction& i1 = *basic_block_->instructions().begin();
@@ -494,19 +494,19 @@ TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
   uint32 instrumentable_instructions = 0;
 
   // Generate a bunch of instrumentable and non-instrumentable instructions.
-  bb_asm_->mov(core::eax, block_graph::Operand(core::ebx));
+  bb_asm_->mov(assm::eax, block_graph::Operand(assm::ebx));
   instrumentable_instructions++;
-  bb_asm_->mov(block_graph::Operand(core::ecx), core::edx);
+  bb_asm_->mov(block_graph::Operand(assm::ecx), assm::edx);
   instrumentable_instructions++;
-  bb_asm_->call(block_graph::Operand(core::ecx));
+  bb_asm_->call(block_graph::Operand(assm::ecx));
   instrumentable_instructions++;
-  bb_asm_->jmp(block_graph::Operand(core::ecx));
+  bb_asm_->jmp(block_graph::Operand(assm::ecx));
   instrumentable_instructions++;
-  bb_asm_->push(block_graph::Operand(core::eax));
+  bb_asm_->push(block_graph::Operand(assm::eax));
   instrumentable_instructions++;
 
   // Non-instrumentable.
-  bb_asm_->lea(core::eax, block_graph::Operand(core::ecx));
+  bb_asm_->lea(assm::eax, block_graph::Operand(assm::ecx));
 
   uint32 expected_instructions_count = basic_block_->instructions().size()
       + 3 * instrumentable_instructions;
@@ -525,16 +525,16 @@ TEST_F(AsanTransformTest, InstrumentAndRemoveRedundantChecks) {
 
   // Generate a bunch of instrumentable and non instrumentable instructions.
   // We generate operand [ecx] multiple time as a redundant memory access.
-  bb_asm_->mov(core::eax, block_graph::Operand(core::ecx));
+  bb_asm_->mov(assm::eax, block_graph::Operand(assm::ecx));
   instrumentable_instructions++;
-  bb_asm_->mov(block_graph::Operand(core::ecx), core::edx);
+  bb_asm_->mov(block_graph::Operand(assm::ecx), assm::edx);
   // Validate that indirect call clear the memory state.
-  bb_asm_->call(block_graph::Operand(core::ecx));
-  bb_asm_->push(block_graph::Operand(core::eax));
+  bb_asm_->call(block_graph::Operand(assm::ecx));
+  bb_asm_->push(block_graph::Operand(assm::eax));
   instrumentable_instructions++;
-  bb_asm_->mov(core::eax, block_graph::Operand(core::ecx));
+  bb_asm_->mov(assm::eax, block_graph::Operand(assm::ecx));
   instrumentable_instructions++;
-  bb_asm_->jmp(block_graph::Operand(core::ecx));
+  bb_asm_->jmp(block_graph::Operand(assm::ecx));
 
   uint32 expected_instructions_count = basic_block_->instructions().size()
       + 3 * instrumentable_instructions;
@@ -639,9 +639,9 @@ TEST_F(AsanTransformTest, NonInstrumentableSegmentBasedInstructions) {
 
 TEST_F(AsanTransformTest, FilteredInstructionsNotInstrumented) {
   // Add a read access to the memory.
-  bb_asm_->mov(core::eax, block_graph::Operand(core::ebx));
+  bb_asm_->mov(assm::eax, block_graph::Operand(assm::ebx));
   // Add a write access to the memory.
-  bb_asm_->mov(block_graph::Operand(core::ecx), core::edx);
+  bb_asm_->mov(block_graph::Operand(assm::ecx), assm::edx);
 
   // Add a source range to the first instruction.
   block_graph::Instruction& i1 = *basic_block_->instructions().begin();

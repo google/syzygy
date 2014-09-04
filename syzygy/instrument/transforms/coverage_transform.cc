@@ -27,7 +27,7 @@ namespace {
 
 using common::IndexedFrequencyData;
 using common::kBasicBlockCoverageAgentId;
-using core::eax;
+using assm::eax;
 using block_graph::ApplyBasicBlockSubGraphTransform;
 using block_graph::ApplyBlockGraphTransform;
 using block_graph::BasicBlock;

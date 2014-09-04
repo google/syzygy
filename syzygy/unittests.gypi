@@ -29,6 +29,9 @@
       # Archive unittests.
       '<(src)/syzygy/ar/ar.gyp:ar_unittests',
 
+      # Assembler unittests.
+      '<(src)/syzygy/assm/assm.gyp:asm_unittests',
+
       # Agent tests.
       '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl_unittests',
       '<(src)/syzygy/agent/common/common.gyp:agent_common_unittests',

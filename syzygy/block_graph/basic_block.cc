@@ -67,7 +67,7 @@
 #include <algorithm>
 
 #include "base/strings/stringprintf.h"
-#include "syzygy/core/assembler.h"
+#include "syzygy/assm/assembler.h"
 #include "syzygy/core/disassembler_util.h"
 
 #include "mnemonics.h"  // NOLINT
@@ -610,7 +610,7 @@ Successor::Condition Successor::InvertCondition(Condition cond) {
   // The conditional branches correspond exactly to those from core::Assembler.
   if (cond <= kMaxConditionalBranch) {
     return static_cast<Condition>(
-        core::NegateConditionCode(static_cast<core::ConditionCode>(cond)));
+        assm::NegateConditionCode(static_cast<assm::ConditionCode>(cond)));
   }
 
   DCHECK_EQ(kConditionTrue, cond);

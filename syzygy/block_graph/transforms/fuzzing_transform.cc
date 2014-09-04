@@ -76,8 +76,8 @@ bool LivenessFuzzingBasicBlockTransform::TransformBasicBlockSubGraph(
       liveness.PropagateBackward(instr, &state);
 
       // Rewrite dead registers.
-      for (size_t i = 0; i < core::kRegister32Count; ++i) {
-        const core::Register32& reg = core::kRegisters32[i];
+      for (size_t i = 0; i < assm::kRegister32Count; ++i) {
+        const assm::Register32& reg = assm::kRegisters32[i];
         if (state.IsLive(reg))
           continue;
 
@@ -91,7 +91,7 @@ bool LivenessFuzzingBasicBlockTransform::TransformBasicBlockSubGraph(
       if (!state.AreArithmeticFlagsLive()) {
         // Write some garbage to the flags register when they are not alive.
         BasicBlockAssembler assembly(instr_iter, &instructions);
-        assembly.add(core::ebp, Immediate(0, core::kSize32Bit));
+        assembly.add(assm::ebp, Immediate(0, assm::kSize32Bit));
         --instr_iter;
       }
 

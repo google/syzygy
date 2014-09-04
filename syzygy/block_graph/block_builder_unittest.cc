@@ -531,24 +531,24 @@ TEST_F(BlockBuilderTest, OutofReachBranchLayout) {
   ASSERT_TRUE(new_block != NULL);
 
   size_t expected_size = 62 +
-                         core::AssemblerImpl::kLongBranchSize +
+                         assm::AssemblerImpl::kLongBranchSize +
                          54 +
-                         core::AssemblerImpl::kShortJumpSize +
+                         assm::AssemblerImpl::kShortJumpSize +
                          72 +
                          1;
   EXPECT_EQ(expected_size, new_block->size());
   Block::ReferenceMap expected_refs;
   expected_refs.insert(
-      std::make_pair(62 + core::AssemblerImpl::kLongBranchOpcodeSize,
+      std::make_pair(62 + assm::AssemblerImpl::kLongBranchOpcodeSize,
                      Reference(BlockGraph::PC_RELATIVE_REF,
                                4,
                                new_block,
                                expected_size - 1,
                                expected_size - 1)));
   size_t succ_location = 62 +
-                         core::AssemblerImpl::kLongBranchSize +
+                         assm::AssemblerImpl::kLongBranchSize +
                          54 +
-                         core::AssemblerImpl::kShortJumpOpcodeSize;
+                         assm::AssemblerImpl::kShortJumpOpcodeSize;
   expected_refs.insert(
       std::make_pair(succ_location,
                      Reference(BlockGraph::PC_RELATIVE_REF,
@@ -562,24 +562,24 @@ TEST_F(BlockBuilderTest, OutofReachJmpLayout) {
   ASSERT_TRUE(new_block != NULL);
 
   size_t expected_size = 62 +
-                         core::AssemblerImpl::kShortBranchSize+
+                         assm::AssemblerImpl::kShortBranchSize+
                          63 +
-                         core::AssemblerImpl::kLongJumpSize+
+                         assm::AssemblerImpl::kLongJumpSize+
                          55 +
                          1;
   EXPECT_EQ(expected_size, new_block->size());
   Block::ReferenceMap expected_refs;
   expected_refs.insert(
-      std::make_pair(62 + core::AssemblerImpl::kShortBranchOpcodeSize,
+      std::make_pair(62 + assm::AssemblerImpl::kShortBranchOpcodeSize,
                      Reference(BlockGraph::PC_RELATIVE_REF,
                                1,
                                new_block,
                                expected_size - 1,
                                expected_size - 1)));
   size_t succ_location = 62 +
-                         core::AssemblerImpl::kShortBranchSize +
+                         assm::AssemblerImpl::kShortBranchSize +
                          63 +
-                         core::AssemblerImpl::kLongJumpOpcodeSize;
+                         assm::AssemblerImpl::kLongJumpOpcodeSize;
   expected_refs.insert(
       std::make_pair(succ_location,
                      Reference(BlockGraph::PC_RELATIVE_REF,

@@ -764,7 +764,7 @@ TEST_F(InstructionTest, FindOperandReference) {
 
   {
     // Generate a dual-reference instruction.
-    assm.mov(Operand(core::eax, core::ebx, core::kTimes4,
+    assm.mov(Operand(assm::eax, assm::ebx, assm::kTimes4,
                      Displacement(basic_code_block_)),
              Immediate(macro_block_, 30));
     const Instruction& inst = instructions.back();
@@ -787,9 +787,9 @@ TEST_F(InstructionTest, FindOperandReference) {
 
   {
     // Generate a singe-reference instruction with an 8-bit immediate.
-    assm.mov(Operand(core::eax, core::ebx, core::kTimes4,
+    assm.mov(Operand(assm::eax, assm::ebx, assm::kTimes4,
                      Displacement(basic_code_block_)),
-             Immediate(0x10, core::kSize8Bit));
+             Immediate(0x10, assm::kSize8Bit));
 
     const Instruction& inst = instructions.back();
 

@@ -18,10 +18,10 @@ namespace block_graph {
 
 namespace {
 
-typedef core::DisplacementImpl DisplacementImpl;
-typedef core::OperandImpl OperandImpl;
-typedef core::ValueImpl ValueImpl;
-typedef core::ValueSize ValueSize;
+typedef assm::DisplacementImpl DisplacementImpl;
+typedef assm::OperandImpl OperandImpl;
+typedef assm::ValueImpl ValueImpl;
+typedef assm::ValueSize ValueSize;
 
 ValueSize ValueSizeFromConstant(uint32 input_value) {
   // IA32 assembly may/will sign-extend 8-bit literals, so we attempt to encode
@@ -30,22 +30,22 @@ ValueSize ValueSizeFromConstant(uint32 input_value) {
   input_value |= 0x7F;
 
   if (input_value == 0xFFFFFFFF || input_value == 0x7F)
-    return core::kSize8Bit;
+    return assm::kSize8Bit;
 
-  return core::kSize32Bit;
+  return assm::kSize32Bit;
 }
 
 ValueImpl CopyValue(const UntypedReference* ref,
-                    const core::ValueImpl& value) {
+                    const assm::ValueImpl& value) {
   return ValueImpl(value.value(),
                    value.size(),
                    value.reference() ? ref : NULL);
 }
 
-size_t ToBytes(core::ValueSize size) {
+size_t ToBytes(assm::ValueSize size) {
   switch (size) {
-    case core::kSize8Bit: return 1;
-    case core::kSize32Bit: return 4;
+    case assm::kSize8Bit: return 1;
+    case assm::kSize32Bit: return 4;
   }
   NOTREACHED();
   return 0;
@@ -88,17 +88,17 @@ Value::Value(uint32 value, ValueSize size) : value_(value, size) {
 
 Value::Value(BasicBlock* bb)
     : reference_(bb),
-      value_(0, core::kSize32Bit, &reference_) {
+      value_(0, assm::kSize32Bit, &reference_) {
 }
 
 Value::Value(Block* block, Offset offset)
     : reference_(block, offset, offset),
-      value_(0, core::kSize32Bit, &reference_) {
+      value_(0, assm::kSize32Bit, &reference_) {
 }
 
 Value::Value(Block* block, Offset offset, Offset base)
     : reference_(block, offset, base),
-      value_(0, core::kSize32Bit, &reference_) {
+      value_(0, assm::kSize32Bit, &reference_) {
 }
 
 Value::Value(uint32 value, ValueSize size, const UntypedReference& ref)
@@ -137,10 +137,10 @@ bool Value::operator==(const Value& rhs) const {
   return value_ == rhs.value_;
 }
 
-Operand::Operand(const core::Register32& base) : operand_(base) {
+Operand::Operand(const assm::Register32& base) : operand_(base) {
 }
 
-Operand::Operand(const core::Register32& base, const Displacement& displ)
+Operand::Operand(const assm::Register32& base, const Displacement& displ)
     : reference_(displ.reference()),
       operand_(base, CopyValue(&reference_, displ.value_)) {
 }
@@ -150,22 +150,22 @@ Operand::Operand(const Displacement& displ)
       operand_(CopyValue(&reference_, displ.value_)) {
 }
 
-Operand::Operand(const core::Register32& base,
-                 const core::Register32& index,
-                 core::ScaleFactor scale,
+Operand::Operand(const assm::Register32& base,
+                 const assm::Register32& index,
+                 assm::ScaleFactor scale,
                  const Displacement& displ)
     : reference_(displ.reference_),
       operand_(base, index, scale, CopyValue(&reference_, displ.value_)) {
 }
 
-Operand::Operand(const core::Register32& base,
-                 const core::Register32& index,
-                 core::ScaleFactor scale)
+Operand::Operand(const assm::Register32& base,
+                 const assm::Register32& index,
+                 assm::ScaleFactor scale)
     : operand_(base, index, scale) {
 }
 
-Operand::Operand(const core::Register32& index,
-                 core::ScaleFactor scale,
+Operand::Operand(const assm::Register32& index,
+                 assm::ScaleFactor scale,
                  const Displacement& displ)
     : reference_(displ.reference_),
       operand_(index, scale, CopyValue(&reference_, displ.value_)) {
@@ -190,7 +190,7 @@ Operand::~Operand() {
 const Operand& Operand::operator=(const Operand& other) {
   reference_ = other.reference_;
   operand_ =
-      core::OperandImpl(other.base(), other.index(), other.scale(),
+      assm::OperandImpl(other.base(), other.index(), other.scale(),
                         CopyValue(&reference_, other.operand_.displacement()));
   return *this;
 }
@@ -230,7 +230,7 @@ void BasicBlockAssembler::BasicBlockSerializer::AppendInstruction(
 }
 
 void BasicBlockAssembler::BasicBlockSerializer::PushReferenceInfo(
-    BlockGraph::ReferenceType type, core::ValueSize size) {
+    BlockGraph::ReferenceType type, assm::ValueSize size) {
   DCHECK_GT(2u, num_ref_infos_);
   ref_infos_[num_ref_infos_].type = type;
   ref_infos_[num_ref_infos_].size = ToBytes(size);
@@ -256,14 +256,14 @@ void BasicBlockAssembler::call(const Immediate& dst) {
   // In the context of BasicBlockAssembler it only makes sense for calls with
   // immediate parameters to be backed by a 32-bit reference.
   PushMandatoryReferenceInfo(BlockGraph::PC_RELATIVE_REF, dst);
-  CheckReferenceSize(core::kSize32Bit, dst);
+  CheckReferenceSize(assm::kSize32Bit, dst);
   asm_.call(dst.value_);
 }
 
 void BasicBlockAssembler::call(const Operand& dst) {
   // If a call is backed by a reference it must be 32-bit.
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
-  CheckReferenceSize(core::kSize32Bit, dst);
+  CheckReferenceSize(assm::kSize32Bit, dst);
   asm_.call(dst.operand_);
 }
 
@@ -455,14 +455,14 @@ void BasicBlockAssembler::shr(const Register32& dst, const Immediate& src) {
 void BasicBlockAssembler::mov_b(const Operand& dst, const Immediate& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
-  CheckReferenceSize(core::kSize32Bit, dst);
-  CheckReferenceSize(core::kSize32Bit, src);
+  CheckReferenceSize(assm::kSize32Bit, dst);
+  CheckReferenceSize(assm::kSize32Bit, src);
   asm_.mov_b(dst.operand_, src.value_);
 }
 
 void BasicBlockAssembler::movzx_b(const Register32& dst, const Operand& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
-  CheckReferenceSize(core::kSize32Bit, src);
+  CheckReferenceSize(assm::kSize32Bit, src);
   asm_.movzx_b(dst, src.operand_);
 }
 
@@ -472,45 +472,45 @@ void BasicBlockAssembler::mov(const Register32& dst, const Register32& src) {
 
 void BasicBlockAssembler::mov(const Register32& dst, const Operand& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
-  CheckReferenceSize(core::kSize32Bit, src);
+  CheckReferenceSize(assm::kSize32Bit, src);
   asm_.mov(dst, src.operand_);
 }
 
 void BasicBlockAssembler::mov(const Operand& dst, const Register32& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
-  CheckReferenceSize(core::kSize32Bit, dst);
+  CheckReferenceSize(assm::kSize32Bit, dst);
   asm_.mov(dst.operand_, src);
 }
 
 void BasicBlockAssembler::mov(const Register32& dst, const Immediate& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
-  CheckReferenceSize(core::kSize32Bit, src);
+  CheckReferenceSize(assm::kSize32Bit, src);
   asm_.mov(dst, src.value_);
 }
 
 void BasicBlockAssembler::mov(const Operand& dst, const Immediate& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
-  CheckReferenceSize(core::kSize32Bit, dst);
-  CheckReferenceSize(core::kSize32Bit, src);
+  CheckReferenceSize(assm::kSize32Bit, dst);
+  CheckReferenceSize(assm::kSize32Bit, src);
   asm_.mov(dst.operand_, src.value_);
 }
 
 void BasicBlockAssembler::mov_fs(const Register32& dst, const Operand& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
-  CheckReferenceSize(core::kSize32Bit, src);
+  CheckReferenceSize(assm::kSize32Bit, src);
   asm_.mov_fs(dst, src.operand_);
 }
 
 void BasicBlockAssembler::mov_fs(const Operand& dst, const Register32& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
-  CheckReferenceSize(core::kSize32Bit, dst);
+  CheckReferenceSize(assm::kSize32Bit, dst);
   asm_.mov_fs(dst.operand_, src);
 }
 
 void BasicBlockAssembler::lea(const Register32& dst, const Operand& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
-  CheckReferenceSize(core::kSize32Bit, src);
+  CheckReferenceSize(assm::kSize32Bit, src);
   asm_.lea(dst, src.operand_);
 }
 
@@ -520,13 +520,13 @@ void BasicBlockAssembler::push(const Register32& src) {
 
 void BasicBlockAssembler::push(const Immediate& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
-  CheckReferenceSize(core::kSize32Bit, src);
+  CheckReferenceSize(assm::kSize32Bit, src);
   asm_.push(src.value_);
 }
 
 void BasicBlockAssembler::push(const Operand& src) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, src);
-  CheckReferenceSize(core::kSize32Bit, src);
+  CheckReferenceSize(assm::kSize32Bit, src);
   asm_.push(src.operand_);
 }
 
@@ -536,7 +536,7 @@ void BasicBlockAssembler::pop(const Register32& dst) {
 
 void BasicBlockAssembler::pop(const Operand& dst) {
   PushOptionalReferenceInfo(BlockGraph::ABSOLUTE_REF, dst);
-  CheckReferenceSize(core::kSize32Bit, dst);
+  CheckReferenceSize(assm::kSize32Bit, dst);
   asm_.pop(dst.operand_);
 }
 
@@ -581,12 +581,12 @@ void BasicBlockAssembler::PushOptionalReferenceInfo(
 }
 
 void BasicBlockAssembler::CheckReferenceSize(
-    core::ValueSize size, const Immediate& imm) const {
+    assm::ValueSize size, const Immediate& imm) const {
   DCHECK(imm.value_.reference() == NULL || imm.value_.size() == size);
 }
 
 void BasicBlockAssembler::CheckReferenceSize(
-    core::ValueSize size, const Operand& op) const {
+    assm::ValueSize size, const Operand& op) const {
   DCHECK(op.operand_.displacement().reference() == NULL ||
          op.operand_.displacement().size() == size);
 }

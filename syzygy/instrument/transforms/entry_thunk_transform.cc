@@ -59,8 +59,8 @@ EntryThunkTransform::EntryThunkTransform()
 }
 
 bool EntryThunkTransform::SetEntryThunkParameter(const Immediate& immediate) {
-  if (immediate.size() != core::kSizeNone &&
-      immediate.size() != core::kSize32Bit) {
+  if (immediate.size() != assm::kSizeNone &&
+      immediate.size() != assm::kSize32Bit) {
     return false;
   }
   entry_thunk_parameter_ = immediate;
@@ -69,8 +69,8 @@ bool EntryThunkTransform::SetEntryThunkParameter(const Immediate& immediate) {
 
 bool EntryThunkTransform::SetFunctionThunkParameter(
     const Immediate& immediate) {
-  if (immediate.size() != core::kSizeNone &&
-      immediate.size() != core::kSize32Bit) {
+  if (immediate.size() != assm::kSizeNone &&
+      immediate.size() != assm::kSize32Bit) {
     return false;
   }
   function_thunk_parameter_ = immediate;
@@ -78,11 +78,11 @@ bool EntryThunkTransform::SetFunctionThunkParameter(
 }
 
 bool EntryThunkTransform::EntryThunkIsParameterized() const {
-  return entry_thunk_parameter_.size() != core::kSizeNone;
+  return entry_thunk_parameter_.size() != assm::kSizeNone;
 }
 
 bool EntryThunkTransform::FunctionThunkIsParameterized() const {
-  return function_thunk_parameter_.size() != core::kSizeNone;
+  return function_thunk_parameter_.size() != assm::kSizeNone;
 }
 
 bool EntryThunkTransform::PreBlockGraphIteration(

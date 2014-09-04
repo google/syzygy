@@ -242,25 +242,25 @@ TEST(DisassemblerUtilTest, IsDebugInterrupt) {
 }
 
 TEST(DisassemblerUtilTest, GetRegisterType) {
-  EXPECT_EQ(R_DL, GetRegisterType(core::kRegisterDl));
-  EXPECT_EQ(R_AX, GetRegisterType(core::kRegisterAx));
-  EXPECT_EQ(R_EDI, GetRegisterType(core::kRegisterEdi));
+  EXPECT_EQ(R_DL, GetRegisterType(assm::kRegisterDl));
+  EXPECT_EQ(R_AX, GetRegisterType(assm::kRegisterAx));
+  EXPECT_EQ(R_EDI, GetRegisterType(assm::kRegisterEdi));
 
-  EXPECT_EQ(R_BH, GetRegisterType(core::bh));
-  EXPECT_EQ(R_CX, GetRegisterType(core::cx));
-  EXPECT_EQ(R_ESP, GetRegisterType(core::esp));
+  EXPECT_EQ(R_BH, GetRegisterType(assm::bh));
+  EXPECT_EQ(R_CX, GetRegisterType(assm::cx));
+  EXPECT_EQ(R_ESP, GetRegisterType(assm::esp));
 }
 
 TEST(DisassemblerUtilTest, GetRegisterId) {
-  EXPECT_EQ(kRegisterAl, GetRegisterId(R_AL));
-  EXPECT_EQ(kRegisterSp, GetRegisterId(R_SP));
-  EXPECT_EQ(kRegisterEdi, GetRegisterId(R_EDI));
+  EXPECT_EQ(assm::kRegisterAl, GetRegisterId(R_AL));
+  EXPECT_EQ(assm::kRegisterSp, GetRegisterId(R_SP));
+  EXPECT_EQ(assm::kRegisterEdi, GetRegisterId(R_EDI));
 }
 
 TEST(DisassemblerUtilTest, GetRegister) {
-  EXPECT_EQ(core::bh, GetRegister(R_BH));
-  EXPECT_EQ(core::cx, GetRegister(R_CX));
-  EXPECT_EQ(core::ebp, GetRegister(R_EBP));
+  EXPECT_EQ(assm::bh, GetRegister(R_BH));
+  EXPECT_EQ(assm::cx, GetRegister(R_CX));
+  EXPECT_EQ(assm::ebp, GetRegister(R_EBP));
 }
 
 TEST(DisassemblerUtilTest, DistormDecompose) {

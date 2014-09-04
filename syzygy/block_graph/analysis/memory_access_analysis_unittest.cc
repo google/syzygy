@@ -81,9 +81,9 @@ void AddSuccessorBetween(Successor::Condition condition,
 
 class TestMemoryAccessAnalysisState: public MemoryAccessAnalysis::State {
  public:
-  bool IsEmpty(const core::Register32& reg) const;
+  bool IsEmpty(const assm::Register32& reg) const;
   bool IsEmpty() const;
-  bool Contains(const core::Register32& reg, int32 displ) const;
+  bool Contains(const assm::Register32& reg, int32 displ) const;
 
   template<size_t N>
   bool HasNonRedundantAccess(const uint8 (& data)[N]) const;
@@ -123,22 +123,22 @@ class MemoryAccessAnalysisTest : public testing::Test {
   BasicCodeBlock* bb_;
 };
 
-bool TestMemoryAccessAnalysisState::IsEmpty(const core::Register32& reg) const {
-  return active_memory_accesses_[reg.id() - core::kRegister32Min].empty();
+bool TestMemoryAccessAnalysisState::IsEmpty(const assm::Register32& reg) const {
+  return active_memory_accesses_[reg.id() - assm::kRegister32Min].empty();
 }
 
 bool TestMemoryAccessAnalysisState::IsEmpty() const {
-  for (int r = 0; r < core::kRegister32Count; ++r) {
-    if (!IsEmpty(core::kRegisters32[r]))
+  for (int r = 0; r < assm::kRegister32Count; ++r) {
+    if (!IsEmpty(assm::kRegisters32[r]))
       return false;
   }
   return true;
 }
 
 bool TestMemoryAccessAnalysisState::Contains(
-    const core::Register32& reg, int32 displ) const {
+    const assm::Register32& reg, int32 displ) const {
   const std::set<int32>& offsets = active_memory_accesses_[
-      reg.id() - core::kRegister32Min];
+      reg.id() - assm::kRegister32Min];
   return offsets.find(displ) != offsets.end();
 }
 
@@ -146,7 +146,7 @@ template<size_t N>
 bool TestMemoryAccessAnalysisState::HasNonRedundantAccess(
     const uint8 (& data)[N]) const {
   // Decode an instruction.
-  DCHECK_GT(core::AssemblerImpl::kMaxInstructionLength, N);
+  DCHECK_GT(assm::AssemblerImpl::kMaxInstructionLength, N);
 
   block_graph::Instruction temp;
   bool decoded = block_graph::Instruction::FromBuffer(&data[0], N, &temp);
@@ -162,7 +162,7 @@ bool TestMemoryAccessAnalysisState::HasNonRedundantAccess(
 template<size_t N>
 void TestMemoryAccessAnalysisState::Execute(const uint8 (& data)[N]) {
   // Decode an instruction.
-  DCHECK_GT(core::AssemblerImpl::kMaxInstructionLength, N);
+  DCHECK_GT(assm::AssemblerImpl::kMaxInstructionLength, N);
 
   block_graph::Instruction temp;
   bool decoded = block_graph::Instruction::FromBuffer(&data[0], N, &temp);
@@ -179,7 +179,7 @@ template<size_t N>
 void MemoryAccessAnalysisTest::PropagateForward(
     const uint8 (& data)[N]) {
   // Decode an instruction.
-  DCHECK_GT(core::AssemblerImpl::kMaxInstructionLength, N);
+  DCHECK_GT(assm::AssemblerImpl::kMaxInstructionLength, N);
 
   block_graph::Instruction temp;
   bool decoded = block_graph::Instruction::FromBuffer(&data[0], N, &temp);
@@ -204,13 +204,13 @@ TEST(MemoryAccessAnalysisStateTest, CopyConstructor) {
   state1.Execute(kReadEax);
   state1.Execute(kWriteEax42);
 
-  EXPECT_TRUE(state1.Contains(core::eax, 0));
-  EXPECT_TRUE(state1.Contains(core::eax, 42));
+  EXPECT_TRUE(state1.Contains(assm::eax, 0));
+  EXPECT_TRUE(state1.Contains(assm::eax, 42));
 
   // Expect memory accesses to be copied into state2.
   TestMemoryAccessAnalysisState state2(state1);
-  EXPECT_TRUE(state2.Contains(core::eax, 0));
-  EXPECT_TRUE(state2.Contains(core::eax, 42));
+  EXPECT_TRUE(state2.Contains(assm::eax, 0));
+  EXPECT_TRUE(state2.Contains(assm::eax, 42));
 }
 
 TEST(MemoryAccessAnalysisStateTest, Clear) {
@@ -235,10 +235,10 @@ TEST(MemoryAccessAnalysisStateTest, ExecuteOperandKind) {
   EXPECT_TRUE(state.IsEmpty());
 
   state.Execute(kReadEax);
-  EXPECT_TRUE(state.Contains(core::eax, 0));
+  EXPECT_TRUE(state.Contains(assm::eax, 0));
 
   state.Execute(kReadEax42);
-  EXPECT_TRUE(state.Contains(core::eax, 42));
+  EXPECT_TRUE(state.Contains(assm::eax, 42));
 }
 
 TEST(MemoryAccessAnalysisStateTest, LeaOperand) {
@@ -246,9 +246,9 @@ TEST(MemoryAccessAnalysisStateTest, LeaOperand) {
 
   // LEA do not perform a memory access.
   state.Execute(kLeaEax);
-  EXPECT_FALSE(state.Contains(core::eax, 0));
+  EXPECT_FALSE(state.Contains(assm::eax, 0));
   state.Execute(kLeaEax42);
-  EXPECT_FALSE(state.Contains(core::eax, 42));
+  EXPECT_FALSE(state.Contains(assm::eax, 42));
 }
 
 TEST(MemoryAccessAnalysisStateTest, ExecuteWithPrefix) {
@@ -269,7 +269,7 @@ TEST(MemoryAccessAnalysisStateTest, HasNonRedundantAccess) {
 
   // Perform a read of [eax + 42].
   state.Execute(kReadEax42);
-  EXPECT_TRUE(state.Contains(core::eax, 42));
+  EXPECT_TRUE(state.Contains(assm::eax, 42));
 
   // After the read, accesses are redundant.
   bool redundant_read2 = state.HasNonRedundantAccess(kReadEax42);
@@ -351,12 +351,12 @@ TEST_F(MemoryAccessAnalysisTest, IntersectStates) {
 
   // Check current state [10, 11, 12, 14].
   GetStateAtEntryOf(bb_, &state_);
-  EXPECT_TRUE(state_.Contains(core::eax, 10));
-  EXPECT_TRUE(state_.Contains(core::eax, 11));
-  EXPECT_TRUE(state_.Contains(core::eax, 12));
-  EXPECT_FALSE(state_.Contains(core::eax, 13));
-  EXPECT_TRUE(state_.Contains(core::eax, 14));
-  EXPECT_FALSE(state_.Contains(core::eax, 15));
+  EXPECT_TRUE(state_.Contains(assm::eax, 10));
+  EXPECT_TRUE(state_.Contains(assm::eax, 11));
+  EXPECT_TRUE(state_.Contains(assm::eax, 12));
+  EXPECT_FALSE(state_.Contains(assm::eax, 13));
+  EXPECT_TRUE(state_.Contains(assm::eax, 14));
+  EXPECT_FALSE(state_.Contains(assm::eax, 15));
 
   // Intersection with displacements [10, 11, 15].
   TestMemoryAccessAnalysisState state3;
@@ -367,12 +367,12 @@ TEST_F(MemoryAccessAnalysisTest, IntersectStates) {
 
   // Check current state [10, 11].
   GetStateAtEntryOf(bb_, &state_);
-  EXPECT_TRUE(state_.Contains(core::eax, 10));
-  EXPECT_TRUE(state_.Contains(core::eax, 11));
-  EXPECT_FALSE(state_.Contains(core::eax, 12));
-  EXPECT_FALSE(state_.Contains(core::eax, 13));
-  EXPECT_FALSE(state_.Contains(core::eax, 14));
-  EXPECT_FALSE(state_.Contains(core::eax, 15));
+  EXPECT_TRUE(state_.Contains(assm::eax, 10));
+  EXPECT_TRUE(state_.Contains(assm::eax, 11));
+  EXPECT_FALSE(state_.Contains(assm::eax, 12));
+  EXPECT_FALSE(state_.Contains(assm::eax, 13));
+  EXPECT_FALSE(state_.Contains(assm::eax, 14));
+  EXPECT_FALSE(state_.Contains(assm::eax, 15));
 
   // Intersection with displacements [15].
   TestMemoryAccessAnalysisState state4;
@@ -386,11 +386,11 @@ TEST_F(MemoryAccessAnalysisTest, IntersectStates) {
 
 TEST_F(MemoryAccessAnalysisTest, PropagateForwardSimple) {
   ASSERT_NO_FATAL_FAILURE(PropagateForward(kReadEax10));
-  EXPECT_TRUE(state_.Contains(core::eax, 10));
+  EXPECT_TRUE(state_.Contains(assm::eax, 10));
 
   ASSERT_NO_FATAL_FAILURE(PropagateForward(kReadEax));
-  EXPECT_TRUE(state_.Contains(core::eax, 0));
-  EXPECT_TRUE(state_.Contains(core::eax, 10));
+  EXPECT_TRUE(state_.Contains(assm::eax, 0));
+  EXPECT_TRUE(state_.Contains(assm::eax, 10));
 
   ASSERT_NO_FATAL_FAILURE(PropagateForward(kClearEax));
   EXPECT_TRUE(state_.IsEmpty());
@@ -401,12 +401,12 @@ TEST_F(MemoryAccessAnalysisTest, PropagateForwardSimple) {
 
 TEST_F(MemoryAccessAnalysisTest, PropagateForwardWithCallRet) {
   ASSERT_NO_FATAL_FAILURE(PropagateForward(kReadEax10));
-  EXPECT_TRUE(state_.Contains(core::eax, 10));
+  EXPECT_TRUE(state_.Contains(assm::eax, 10));
   ASSERT_NO_FATAL_FAILURE(PropagateForward(kCall));
   EXPECT_TRUE(state_.IsEmpty());
 
   ASSERT_NO_FATAL_FAILURE(PropagateForward(kReadEax10));
-  EXPECT_TRUE(state_.Contains(core::eax, 10));
+  EXPECT_TRUE(state_.Contains(assm::eax, 10));
   ASSERT_NO_FATAL_FAILURE(PropagateForward(kRet));
   EXPECT_TRUE(state_.IsEmpty());
 }
@@ -414,7 +414,7 @@ TEST_F(MemoryAccessAnalysisTest, PropagateForwardWithCallRet) {
 TEST_F(MemoryAccessAnalysisTest, UnknownInstruction) {
   // Ensure unknown instructions are processed correctly.
   ASSERT_NO_FATAL_FAILURE(PropagateForward(kReadEax10));
-  EXPECT_TRUE(state_.Contains(core::eax, 10));
+  EXPECT_TRUE(state_.Contains(assm::eax, 10));
   ASSERT_NO_FATAL_FAILURE(PropagateForward(kRdtsc));
   EXPECT_TRUE(state_.IsEmpty());
 }
@@ -447,20 +447,20 @@ TEST_F(MemoryAccessAnalysisTest, Analyze) {
 
   BasicBlockAssembler asm_if(bb_if->instructions().end(),
                              &bb_if->instructions());
-  asm_if.mov(core::ecx, Operand(core::eax, Immediate(1, core::kSize32Bit)));
-  asm_if.mov(core::edx, Operand(core::ecx, Immediate(12, core::kSize32Bit)));
-  asm_if.mov(core::edx, Operand(core::eax, Immediate(42, core::kSize32Bit)));
+  asm_if.mov(assm::ecx, Operand(assm::eax, Immediate(1, assm::kSize32Bit)));
+  asm_if.mov(assm::edx, Operand(assm::ecx, Immediate(12, assm::kSize32Bit)));
+  asm_if.mov(assm::edx, Operand(assm::eax, Immediate(42, assm::kSize32Bit)));
 
   BasicBlockAssembler asm_true(bb_true->instructions().end(),
                                &bb_true->instructions());
-  asm_true.mov(core::ecx, Operand(core::eax, Immediate(1, core::kSize32Bit)));
-  asm_true.mov(core::edx, Operand(core::eax, Immediate(12, core::kSize32Bit)));
-  asm_true.mov(core::ecx, Operand(core::eax, Immediate(24, core::kSize32Bit)));
+  asm_true.mov(assm::ecx, Operand(assm::eax, Immediate(1, assm::kSize32Bit)));
+  asm_true.mov(assm::edx, Operand(assm::eax, Immediate(12, assm::kSize32Bit)));
+  asm_true.mov(assm::ecx, Operand(assm::eax, Immediate(24, assm::kSize32Bit)));
 
   BasicBlockAssembler asm_false(bb_false->instructions().end(),
                                 &bb_false->instructions());
-  asm_false.mov(core::ecx, Operand(core::eax, Immediate(24, core::kSize32Bit)));
-  asm_false.mov(core::edx, Operand(core::eax, Immediate(48, core::kSize32Bit)));
+  asm_false.mov(assm::ecx, Operand(assm::eax, Immediate(24, assm::kSize32Bit)));
+  asm_false.mov(assm::edx, Operand(assm::eax, Immediate(48, assm::kSize32Bit)));
 
   // Analyze the flow graph.
   memory_access_.Analyze(&subgraph);
@@ -471,23 +471,23 @@ TEST_F(MemoryAccessAnalysisTest, Analyze) {
 
   // Get entry state of bb_true.
   GetStateAtEntryOf(bb_true, &state_);
-  EXPECT_TRUE(state_.Contains(core::eax, 1));
-  EXPECT_TRUE(state_.Contains(core::ecx, 12));
-  EXPECT_TRUE(state_.Contains(core::eax, 42));
+  EXPECT_TRUE(state_.Contains(assm::eax, 1));
+  EXPECT_TRUE(state_.Contains(assm::ecx, 12));
+  EXPECT_TRUE(state_.Contains(assm::eax, 42));
 
   // Get entry state of bb_false.
   GetStateAtEntryOf(bb_false, &state_);
-  EXPECT_TRUE(state_.Contains(core::eax, 1));
-  EXPECT_TRUE(state_.Contains(core::ecx, 12));
-  EXPECT_TRUE(state_.Contains(core::eax, 42));
+  EXPECT_TRUE(state_.Contains(assm::eax, 1));
+  EXPECT_TRUE(state_.Contains(assm::ecx, 12));
+  EXPECT_TRUE(state_.Contains(assm::eax, 42));
 
   // Get entry state of bb_end. Intersection of bb_true and bb_false.
   GetStateAtEntryOf(bb_end, &state_);
-  EXPECT_TRUE(state_.Contains(core::eax, 1));
-  EXPECT_FALSE(state_.Contains(core::eax, 12));
-  EXPECT_FALSE(state_.Contains(core::ecx, 12));
-  EXPECT_TRUE(state_.Contains(core::eax, 24));
-  EXPECT_TRUE(state_.Contains(core::eax, 42));
+  EXPECT_TRUE(state_.Contains(assm::eax, 1));
+  EXPECT_FALSE(state_.Contains(assm::eax, 12));
+  EXPECT_FALSE(state_.Contains(assm::ecx, 12));
+  EXPECT_TRUE(state_.Contains(assm::eax, 24));
+  EXPECT_TRUE(state_.Contains(assm::eax, 42));
 }
 
 TEST_F(MemoryAccessAnalysisTest, AnalyzeWithData) {

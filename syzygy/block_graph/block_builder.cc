@@ -25,12 +25,12 @@
 #include <utility>
 #include <vector>
 
+#include "syzygy/assm/assembler.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/align.h"
-#include "syzygy/core/assembler.h"
 
 namespace block_graph {
 
@@ -435,9 +435,9 @@ bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
     }
 
     // Default to a short reference.
-    ValueSize reference_size = core::kSize8Bit;
+    ValueSize reference_size = assm::kSize8Bit;
     if (successor.size != GetShortSuccessorSize(successor.condition))
-      reference_size = core::kSize32Bit;
+      reference_size = assm::kSize32Bit;
 
     // Construct the reference we're going to deposit into the instruction
     // list first.
@@ -472,7 +472,7 @@ bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
       case Successor::kConditionOverflow:
       case Successor::kConditionParity:
       case Successor::kConditionSigned:
-        assm.j(static_cast<core::ConditionCode>(successor.condition), dest);
+        assm.j(static_cast<assm::ConditionCode>(successor.condition), dest);
         break;
 
       case Successor::kConditionTrue:
@@ -1074,11 +1074,11 @@ Size MergeContext::GetShortSuccessorSize(Successor::Condition condition) {
     case Successor::kConditionParity:
     case Successor::kConditionSigned:
       // Translates to a conditional branch.
-      return core::AssemblerImpl::kShortBranchSize;
+      return assm::AssemblerImpl::kShortBranchSize;
 
     case Successor::kConditionTrue:
       // Translates to a jump.
-      return core::AssemblerImpl::kShortJumpSize;
+      return assm::AssemblerImpl::kShortJumpSize;
 
     default:
       NOTREACHED() << "Unsupported successor type.";
@@ -1105,11 +1105,11 @@ Size MergeContext::GetLongSuccessorSize(Successor::Condition condition) {
     case Successor::kConditionParity:
     case Successor::kConditionSigned:
       // Translates to a conditional branch.
-      return core::AssemblerImpl::kLongBranchSize;
+      return assm::AssemblerImpl::kLongBranchSize;
 
     case Successor::kConditionTrue:
       // Translates to a jump.
-      return core::AssemblerImpl::kLongJumpSize;
+      return assm::AssemblerImpl::kLongJumpSize;
 
     default:
       NOTREACHED() << "Unsupported successor type.";

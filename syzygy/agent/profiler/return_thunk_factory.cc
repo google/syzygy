@@ -15,11 +15,11 @@
 #include "syzygy/agent/profiler/return_thunk_factory.h"
 
 #include "base/logging.h"
-#include "syzygy/core/assembler.h"
+#include "syzygy/assm/assembler.h"
 
 namespace {
 
-class Serializer : public core::AssemblerImpl::InstructionSerializer {
+class Serializer : public assm::AssemblerImpl::InstructionSerializer {
  public:
   virtual void AppendInstruction(uint32 location,
                                  const uint8* bytes,
@@ -138,9 +138,9 @@ void ReturnThunkFactoryBase::AddPage() {
   if (previous_page)
     previous_page->next_page = new_page;
 
-  typedef core::ImmediateImpl Immediate;
-  typedef core::AssemblerImpl Assembler;
-  using core::kSize32Bit;
+  typedef assm::ImmediateImpl Immediate;
+  typedef assm::AssemblerImpl Assembler;
+  using assm::kSize32Bit;
 
   // Initialize the thunks.
   uint32 start_addr = reinterpret_cast<uint32>(&new_page->thunks[0]);

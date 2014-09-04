@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/core/assembler.h"
+#include "syzygy/assm/assembler.h"
 
 #include <limits>
 
-namespace core {
+namespace assm {
 
 namespace {
 
@@ -727,7 +727,7 @@ void AssemblerImpl::set(ConditionCode cc, const Register32& dst) {
 
   // AMD64 Architecture Programmers Manual Volume 3: General-Purpose and System
   // Instructions: The reg field in the ModR/M byte is unused.
-  const Register32& unused = core::eax;
+  const Register32& unused = eax;
   instr.EmitModRMByte(kReg1, unused.id(), dst.id());
 }
 
@@ -1146,4 +1146,4 @@ void AssemblerImpl::Output(const InstructionBuffer& instr) {
   location_ += instr.len();
 }
 
-}  // namespace core
+}  // namespace assm

@@ -31,9 +31,9 @@ class BlockUtilTest: public testing::Test {
   }
 
   BlockGraph::Size AddInstructions(bool add_source_ranges) {
-    using core::eax;
-    using core::ebp;
-    using core::esp;
+    using assm::eax;
+    using assm::ebp;
+    using assm::esp;
 
     BasicBlockAssembler assm(bb_->instructions().begin(), &bb_->instructions());
 
@@ -186,10 +186,10 @@ TEST_F(BlockUtilTest, IsUnsafeReference) {
 TEST_F(BlockUtilTest, CheckNoUnexpectedStackFrameManipulation) {
   // Prepend some instrumentation with a conventional calling convention.
   BasicBlockAssembler assm(bb_->instructions().begin(), &bb_->instructions());
-  assm.push(core::ebp);
-  assm.mov(core::ebp, core::esp);
-  assm.mov(core::eax, Operand(core::ebp,  Displacement(8)));
-  assm.pop(core::ebp);
+  assm.push(assm::ebp);
+  assm.mov(assm::ebp, assm::esp);
+  assm.mov(assm::eax, Operand(assm::ebp,  Displacement(8)));
+  assm.pop(assm::ebp);
   assm.ret(0);
 
   EXPECT_FALSE(HasUnexpectedStackFrameManipulation(&subgraph_));
@@ -198,11 +198,11 @@ TEST_F(BlockUtilTest, CheckNoUnexpectedStackFrameManipulation) {
 TEST_F(BlockUtilTest, CheckInvalidInstructionUnexpectedStackFrameManipulation) {
   // Prepend some instrumentation with a conventional calling convention.
   BasicBlockAssembler assm(bb_->instructions().begin(), &bb_->instructions());
-  assm.push(core::ebp);
-  assm.mov(core::ebp, core::esp);
+  assm.push(assm::ebp);
+  assm.mov(assm::ebp, assm::esp);
   // The instruction LEA is invalid stack frame manipulation.
-  assm.lea(core::ebp, Operand(core::ebp,  Displacement(8)));
-  assm.pop(core::ebp);
+  assm.lea(assm::ebp, Operand(assm::ebp,  Displacement(8)));
+  assm.pop(assm::ebp);
   assm.ret(0);
 
   EXPECT_TRUE(HasUnexpectedStackFrameManipulation(&subgraph_));
@@ -211,11 +211,11 @@ TEST_F(BlockUtilTest, CheckInvalidInstructionUnexpectedStackFrameManipulation) {
 TEST_F(BlockUtilTest, CheckInvalidRegisterUnexpectedStackFrameManipulation) {
   // Prepend some instrumentation with a conventional calling convention.
   BasicBlockAssembler assm(bb_->instructions().begin(), &bb_->instructions());
-  assm.push(core::ebp);
+  assm.push(assm::ebp);
   // The instruction MOV use an invalid register EAX.
-  assm.mov(core::ebp, core::eax);
-  assm.lea(core::ebp, Operand(core::ebp,  Displacement(8)));
-  assm.pop(core::ebp);
+  assm.mov(assm::ebp, assm::eax);
+  assm.lea(assm::ebp, Operand(assm::ebp,  Displacement(8)));
+  assm.pop(assm::ebp);
   assm.ret(0);
 
   EXPECT_TRUE(HasUnexpectedStackFrameManipulation(&subgraph_));

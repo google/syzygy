@@ -18,9 +18,9 @@
 #include <stack>
 #include <vector>
 
+#include "syzygy/assm/assembler.h"
 #include "syzygy/block_graph/analysis/control_flow_analysis.h"
 #include "syzygy/block_graph/analysis/liveness_analysis_internal.h"
-#include "syzygy/core/assembler.h"
 #include "syzygy/core/disassembler_util.h"
 
 #include "mnemonics.h"  // NOLINT

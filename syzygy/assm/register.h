@@ -17,12 +17,12 @@
 // implementing a transform or analysis that cares about the details of
 // registers then you can find more details in register_internal.h.
 
-#ifndef SYZYGY_CORE_REGISTER_H_
-#define SYZYGY_CORE_REGISTER_H_
+#ifndef SYZYGY_ASSM_REGISTER_H_
+#define SYZYGY_ASSM_REGISTER_H_
 
-#include "syzygy/core/register_internal.h"
+#include "syzygy/assm/register_internal.h"
 
-namespace core {
+namespace assm {
 
 // Some utility constants.
 static const size_t kRegister8Count = kRegister8Max - kRegister8Min;
@@ -76,6 +76,6 @@ const Register8& CastAsRegister8(const Register& reg);
 const Register16& CastAsRegister16(const Register& reg);
 const Register32& CastAsRegister32(const Register& reg);
 
-}  // namespace core
+}  // namespace assm
 
-#endif  // SYZYGY_CORE_REGISTER_H_
+#endif  // SYZYGY_ASSM_REGISTER_H_

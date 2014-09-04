@@ -17,12 +17,12 @@
 #ifndef SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_ASSEMBLER_H_
 #define SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_ASSEMBLER_H_
 
+#include "syzygy/assm/assembler.h"
 #include "syzygy/block_graph/basic_block.h"
-#include "syzygy/core/assembler.h"
 
 namespace block_graph {
 
-using core::ValueSize;
+using assm::ValueSize;
 
 // Forward declarations.
 class BasicBlockAssembler;
@@ -115,8 +115,8 @@ class Value {
  public:
   typedef BlockGraph::Block Block;
   typedef BlockGraph::Offset Offset;
-  typedef core::ValueImpl ValueImpl;
-  typedef core::ValueSize ValueSize;
+  typedef assm::ValueImpl ValueImpl;
+  typedef assm::ValueSize ValueSize;
 
   // Default construction.
   Value();
@@ -186,7 +186,7 @@ class Value {
 
  private:
   // Private constructor for Operand.
-  Value(const UntypedReference& ref, const core::ValueImpl& value);
+  Value(const UntypedReference& ref, const assm::ValueImpl& value);
 
   friend class BasicBlockAssembler;
   friend class Operand;
@@ -205,31 +205,31 @@ typedef Value Displacement;
 class Operand {
  public:
   // A register-indirect mode.
-  explicit Operand(const core::Register32& base);
+  explicit Operand(const assm::Register32& base);
 
   // A register-indirect with displacement mode.
-  Operand(const core::Register32& base, const Displacement& displ);
+  Operand(const assm::Register32& base, const Displacement& displ);
 
   // A displacement-only mode.
   explicit Operand(const Displacement& displ);
 
   // The full [base + index * scale + displ32] mode.
   // @note esp cannot be used as an index register.
-  Operand(const core::Register32& base,
-          const core::Register32& index,
-          core::ScaleFactor scale,
+  Operand(const assm::Register32& base,
+          const assm::Register32& index,
+          assm::ScaleFactor scale,
           const Displacement& displ);
 
   // The full [base + index * scale] mode.
   // @note esp cannot be used as an index register.
-  Operand(const core::Register32& base,
-          const core::Register32& index,
-          core::ScaleFactor scale);
+  Operand(const assm::Register32& base,
+          const assm::Register32& index,
+          assm::ScaleFactor scale);
 
   // The [index * scale + displ32] mode.
   // @note esp cannot be used as an index register.
-  Operand(const core::Register32& index,
-          core::ScaleFactor scale,
+  Operand(const assm::Register32& index,
+          assm::ScaleFactor scale,
           const Displacement& displ);
 
   // Copy constructor.
@@ -243,9 +243,9 @@ class Operand {
 
   // @name Accessors.
   // @{
-  const core::RegisterId base() const { return operand_.base(); }
-  const core::RegisterId index() const { return operand_.index(); }
-  core::ScaleFactor scale() const { return operand_.scale(); }
+  const assm::RegisterId base() const { return operand_.base(); }
+  const assm::RegisterId index() const { return operand_.index(); }
+  assm::ScaleFactor scale() const { return operand_.scale(); }
   Displacement displacement() const {
     return Displacement(reference_, operand_.displacement());
   }
@@ -255,17 +255,17 @@ class Operand {
   friend class BasicBlockAssembler;
 
   UntypedReference reference_;
-  core::OperandImpl operand_;
+  assm::OperandImpl operand_;
 };
 
 class BasicBlockAssembler {
  public:
   typedef BlockGraph::Block::SourceRange SourceRange;
   typedef BasicBlock::Instructions Instructions;
-  typedef core::Register8 Register8;
-  typedef core::Register16 Register16;
-  typedef core::Register32 Register32;
-  typedef core::ConditionCode ConditionCode;
+  typedef assm::Register8 Register8;
+  typedef assm::Register16 Register16;
+  typedef assm::Register32 Register32;
+  typedef assm::ConditionCode ConditionCode;
 
   // Constructs a basic block assembler that inserts new instructions
   // into @p *list at @p where.
@@ -416,7 +416,7 @@ class BasicBlockAssembler {
   typedef BlockGraph::ReferenceType ReferenceType;
 
   class BasicBlockSerializer
-      : public core::AssemblerImpl::InstructionSerializer {
+      : public assm::AssemblerImpl::InstructionSerializer {
    public:
     BasicBlockSerializer(const Instructions::iterator& where,
                          Instructions* list);
@@ -436,7 +436,7 @@ class BasicBlockAssembler {
     // Pushes back a reference type to be associated with a untyped reference.
     // @param type The type of the reference.
     // @param size The size of the reference, as a ValueSize.
-    void PushReferenceInfo(ReferenceType type, core::ValueSize size);
+    void PushReferenceInfo(ReferenceType type, assm::ValueSize size);
 
    private:
     struct ReferenceInfo {
@@ -464,12 +464,12 @@ class BasicBlockAssembler {
   void PushMandatoryReferenceInfo(ReferenceType type, const Immediate& imm);
   void PushOptionalReferenceInfo(ReferenceType type, const Immediate& imm);
   void PushOptionalReferenceInfo(ReferenceType type, const Operand& op);
-  void CheckReferenceSize(core::ValueSize size, const Immediate& imm) const;
-  void CheckReferenceSize(core::ValueSize size, const Operand& op) const;
+  void CheckReferenceSize(assm::ValueSize size, const Immediate& imm) const;
+  void CheckReferenceSize(assm::ValueSize size, const Operand& op) const;
   // @}
 
   BasicBlockSerializer serializer_;
-  core::AssemblerImpl asm_;
+  assm::AssemblerImpl asm_;
 };
 
 }  // namespace block_graph

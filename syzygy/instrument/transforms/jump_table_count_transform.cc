@@ -263,7 +263,7 @@ BlockGraph::Block* JumpTableCaseCountTransform::CreateOneThunk(
 
   BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
   DCHECK_LT(jump_table_case_count_, std::numeric_limits<size_t>::max());
-  assm.push(Immediate(jump_table_case_count_++, core::kSize32Bit));
+  assm.push(Immediate(jump_table_case_count_++, assm::kSize32Bit));
   assm.call(jump_table_case_counter_hook);
   assm.jmp(Immediate(destination.referenced(), destination.offset()));
 

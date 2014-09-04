@@ -65,15 +65,15 @@ class LivenessAnalysisTest : public testing::Test {
  public:
   LivenessAnalysisTest();
 
-  inline bool is_def(const core::Register& reg) const {
+  inline bool is_def(const assm::Register& reg) const {
     return defs_.IsLive(reg);
   }
 
-  inline bool is_use(const core::Register& reg) const {
+  inline bool is_use(const assm::Register& reg) const {
     return uses_.IsLive(reg);
   }
 
-  inline bool is_live(const core::Register& reg) const {
+  inline bool is_live(const assm::Register& reg) const {
     return state_.IsLive(reg);
   }
 
@@ -123,7 +123,7 @@ LivenessAnalysisTest::LivenessAnalysisTest()
 template<size_t N>
 void LivenessAnalysisTest::UpdateDefsUsesFromBuffer(const uint8 (& data)[N]) {
   // Decode an instruction.
-  DCHECK_GT(core::AssemblerImpl::kMaxInstructionLength, N);
+  DCHECK_GT(assm::AssemblerImpl::kMaxInstructionLength, N);
 
   block_graph::Instruction temp;
   ASSERT_TRUE(block_graph::Instruction::FromBuffer(&data[0], N, &temp));
@@ -139,7 +139,7 @@ void LivenessAnalysisTest::UpdateDefsUsesFromBuffer(const uint8 (& data)[N]) {
 template<size_t N>
 void LivenessAnalysisTest::AddInstructionFromBuffer(const uint8 (& data)[N]) {
   // Decode an instruction and append it to basicblock_.
-  DCHECK_GT(core::AssemblerImpl::kMaxInstructionLength, N);
+  DCHECK_GT(assm::AssemblerImpl::kMaxInstructionLength, N);
 
   block_graph::Instruction temp;
   ASSERT_TRUE(block_graph::Instruction::FromBuffer(&data[0], N, &temp));
@@ -265,14 +265,14 @@ TEST(LivenessAnalysisStateTest, StateRegisterMaskOperations) {
   EXPECT_TRUE(StateHelper::IsSet(state_cx, StateHelper::REGBITS_CX));
 
   // Test IsLive operation.
-  EXPECT_TRUE(state_full.IsLive(core::eax));
-  EXPECT_TRUE(state_full.IsLive(core::ecx));
-  EXPECT_FALSE(state_empty.IsLive(core::eax));
-  EXPECT_FALSE(state_empty.IsLive(core::ecx));
-  EXPECT_TRUE(state_ax.IsLive(core::eax));
-  EXPECT_FALSE(state_ax.IsLive(core::ecx));
-  EXPECT_FALSE(state_cx.IsLive(core::eax));
-  EXPECT_TRUE(state_cx.IsLive(core::ecx));
+  EXPECT_TRUE(state_full.IsLive(assm::eax));
+  EXPECT_TRUE(state_full.IsLive(assm::ecx));
+  EXPECT_FALSE(state_empty.IsLive(assm::eax));
+  EXPECT_FALSE(state_empty.IsLive(assm::ecx));
+  EXPECT_TRUE(state_ax.IsLive(assm::eax));
+  EXPECT_FALSE(state_ax.IsLive(assm::ecx));
+  EXPECT_FALSE(state_cx.IsLive(assm::eax));
+  EXPECT_TRUE(state_cx.IsLive(assm::ecx));
 
   // Test copy constructor.
   State state_copy(state_ax);
@@ -364,57 +364,57 @@ TEST(LivenessAnalysisStateTest, StateFlagsMaskOperations) {
 }
 
 TEST_F(LivenessAnalysisTest, Mov1Analysis) {
-  asm_.mov(core::eax, Immediate(10));
-  asm_.mov(core::ecx, core::ebx);
+  asm_.mov(assm::eax, Immediate(10));
+  asm_.mov(assm::ecx, assm::ebx);
   AnalyzeInstructions();
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ax));
-  EXPECT_FALSE(is_live(core::ah));
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::bx));
-  EXPECT_TRUE(is_live(core::bl));
-  EXPECT_FALSE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ax));
+  EXPECT_FALSE(is_live(assm::ah));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::bx));
+  EXPECT_TRUE(is_live(assm::bl));
+  EXPECT_FALSE(is_live(assm::ecx));
 }
 
 TEST_F(LivenessAnalysisTest, Mov2Analysis) {
-  asm_.mov(core::eax, core::ebx);
-  asm_.mov(core::edx, Immediate(10));
-  asm_.mov(core::ecx, Immediate(test_block_, 0));
+  asm_.mov(assm::eax, assm::ebx);
+  asm_.mov(assm::edx, Immediate(10));
+  asm_.mov(assm::ecx, Immediate(test_block_, 0));
   AnalyzeInstructions();
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ax));
-  EXPECT_FALSE(is_live(core::ah));
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::bx));
-  EXPECT_TRUE(is_live(core::bl));
-  EXPECT_FALSE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ax));
+  EXPECT_FALSE(is_live(assm::ah));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::bx));
+  EXPECT_TRUE(is_live(assm::bl));
+  EXPECT_FALSE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
 }
 
 TEST_F(LivenessAnalysisTest, DefineAllRegisters) {
   // Validate the tester by defining all registers and using none.
   DefineAllRegisters();
   AnalyzeInstructions();
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ax));
-  EXPECT_FALSE(is_live(core::al));
-  EXPECT_FALSE(is_live(core::ah));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_FALSE(is_live(core::bx));
-  EXPECT_FALSE(is_live(core::bl));
-  EXPECT_FALSE(is_live(core::bh));
-  EXPECT_FALSE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::cx));
-  EXPECT_FALSE(is_live(core::cl));
-  EXPECT_FALSE(is_live(core::ch));
-  EXPECT_FALSE(is_live(core::edx));
-  EXPECT_FALSE(is_live(core::dx));
-  EXPECT_FALSE(is_live(core::dl));
-  EXPECT_FALSE(is_live(core::dh));
-  EXPECT_FALSE(is_live(core::esi));
-  EXPECT_FALSE(is_live(core::si));
-  EXPECT_FALSE(is_live(core::edi));
-  EXPECT_FALSE(is_live(core::di));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ax));
+  EXPECT_FALSE(is_live(assm::al));
+  EXPECT_FALSE(is_live(assm::ah));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_FALSE(is_live(assm::bx));
+  EXPECT_FALSE(is_live(assm::bl));
+  EXPECT_FALSE(is_live(assm::bh));
+  EXPECT_FALSE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::cx));
+  EXPECT_FALSE(is_live(assm::cl));
+  EXPECT_FALSE(is_live(assm::ch));
+  EXPECT_FALSE(is_live(assm::edx));
+  EXPECT_FALSE(is_live(assm::dx));
+  EXPECT_FALSE(is_live(assm::dl));
+  EXPECT_FALSE(is_live(assm::dh));
+  EXPECT_FALSE(is_live(assm::esi));
+  EXPECT_FALSE(is_live(assm::si));
+  EXPECT_FALSE(is_live(assm::edi));
+  EXPECT_FALSE(is_live(assm::di));
   EXPECT_FALSE(are_arithmetic_flags_live());
 }
 
@@ -424,22 +424,22 @@ TEST_F(LivenessAnalysisTest, Defs1Analysis) {
   AddInstructionFromBuffer(kMovEcxZero);
   AddInstructionFromBuffer(kMovEsiZero);
   AnalyzeInstructions();
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ax));
-  EXPECT_FALSE(is_live(core::ah));
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::bx));
-  EXPECT_TRUE(is_live(core::bl));
-  EXPECT_FALSE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::cx));
-  EXPECT_FALSE(is_live(core::cl));
-  EXPECT_TRUE(is_live(core::edx));
-  EXPECT_TRUE(is_live(core::dx));
-  EXPECT_TRUE(is_live(core::dl));
-  EXPECT_FALSE(is_live(core::esi));
-  EXPECT_FALSE(is_live(core::si));
-  EXPECT_TRUE(is_live(core::edi));
-  EXPECT_TRUE(is_live(core::di));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ax));
+  EXPECT_FALSE(is_live(assm::ah));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::bx));
+  EXPECT_TRUE(is_live(assm::bl));
+  EXPECT_FALSE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::cx));
+  EXPECT_FALSE(is_live(assm::cl));
+  EXPECT_TRUE(is_live(assm::edx));
+  EXPECT_TRUE(is_live(assm::dx));
+  EXPECT_TRUE(is_live(assm::dl));
+  EXPECT_FALSE(is_live(assm::esi));
+  EXPECT_FALSE(is_live(assm::si));
+  EXPECT_TRUE(is_live(assm::edi));
+  EXPECT_TRUE(is_live(assm::di));
 }
 
 TEST_F(LivenessAnalysisTest, Defs2Analysis) {
@@ -448,40 +448,40 @@ TEST_F(LivenessAnalysisTest, Defs2Analysis) {
   AddInstructionFromBuffer(kMovEdxZero);
   AddInstructionFromBuffer(kMovEdiZero);
   AnalyzeInstructions();
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ax));
-  EXPECT_TRUE(is_live(core::al));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_FALSE(is_live(core::bx));
-  EXPECT_FALSE(is_live(core::bh));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_TRUE(is_live(core::cx));
-  EXPECT_TRUE(is_live(core::cl));
-  EXPECT_FALSE(is_live(core::edx));
-  EXPECT_FALSE(is_live(core::dx));
-  EXPECT_FALSE(is_live(core::dl));
-  EXPECT_TRUE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::si));
-  EXPECT_FALSE(is_live(core::edi));
-  EXPECT_FALSE(is_live(core::di));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ax));
+  EXPECT_TRUE(is_live(assm::al));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_FALSE(is_live(assm::bx));
+  EXPECT_FALSE(is_live(assm::bh));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_TRUE(is_live(assm::cx));
+  EXPECT_TRUE(is_live(assm::cl));
+  EXPECT_FALSE(is_live(assm::edx));
+  EXPECT_FALSE(is_live(assm::dx));
+  EXPECT_FALSE(is_live(assm::dl));
+  EXPECT_TRUE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::si));
+  EXPECT_FALSE(is_live(assm::edi));
+  EXPECT_FALSE(is_live(assm::di));
 }
 
 TEST_F(LivenessAnalysisTest, Analysis16Bit) {
   AddInstructionFromBuffer(kMovAxZero);
   AnalyzeInstructions();
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ax));
-  EXPECT_FALSE(is_live(core::al));
-  EXPECT_FALSE(is_live(core::ah));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ax));
+  EXPECT_FALSE(is_live(assm::al));
+  EXPECT_FALSE(is_live(assm::ah));
 }
 
 TEST_F(LivenessAnalysisTest, Analysis8Bit) {
   AddInstructionFromBuffer(kMovAlZero);
   AnalyzeInstructions();
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ax));
-  EXPECT_FALSE(is_live(core::al));
-  EXPECT_TRUE(is_live(core::ah));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ax));
+  EXPECT_FALSE(is_live(assm::al));
+  EXPECT_TRUE(is_live(assm::ah));
 }
 
 TEST_F(LivenessAnalysisTest, OperandTypeLeft) {
@@ -489,42 +489,42 @@ TEST_F(LivenessAnalysisTest, OperandTypeLeft) {
   // _asm add eax, ecx
   static const uint8 kOpReg1[] = { 0x03, 0xC1 };
   AnalyzeSingleInstructionFromBuffer(kOpReg1);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
 
   // _asm add [eax], ecx
   static const uint8 kOpSmem[] = { 0x01, 0x08 };
   AnalyzeSingleInstructionFromBuffer(kOpSmem);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
 
   // _asm add [eax + 42], ecx
   static const uint8 kOpSmemOffet[] = { 0x01, 0x48, 0x2A };
   AnalyzeSingleInstructionFromBuffer(kOpSmemOffet);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
 
   // _asm add [eax + ebx*2 + 42], ecx
   static const uint8 kOpMemOffset[] = { 0x01, 0x4C, 0x58, 0x2A };
   AnalyzeSingleInstructionFromBuffer(kOpMemOffset);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
 
   // _asm add DWORD PTR [X], ecx
   static const uint8 kOpDispl[] = { 0x01, 0x0D, 0x80, 0x1E, 0xF2, 0x00 };
   AnalyzeSingleInstructionFromBuffer(kOpDispl);
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
 }
 
 TEST_F(LivenessAnalysisTest, OperandTypeRight) {
@@ -532,50 +532,50 @@ TEST_F(LivenessAnalysisTest, OperandTypeRight) {
   // _asm add ecx, 1
   static const uint8 kOpReg1[] = { 0x83, 0xC1, 0x01 };
   AnalyzeSingleInstructionFromBuffer(kOpReg1);
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
 
   // _asm add ecx, eax
   static const uint8 kOpReg2[] = { 0x03, 0xC8 };
   AnalyzeSingleInstructionFromBuffer(kOpReg2);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
 
   // _asm add ecx, [eax]
   static const uint8 kOpSmem[] = { 0x03, 0x08 };
   AnalyzeSingleInstructionFromBuffer(kOpSmem);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
 
   // _asm add ecx, [eax + 42]
   static const uint8 kOpSmemOffet[] = { 0x03, 0x48, 0x2A };
   AnalyzeSingleInstructionFromBuffer(kOpSmemOffet);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
 
   // _asm add ecx, [eax + ebx*2 + 42]
   static const uint8 kOpMemOffset[] = { 0x03, 0x4C, 0x58, 0x2A };
   AnalyzeSingleInstructionFromBuffer(kOpMemOffset);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
 
   // _asm add ecx, DWORD PTR [X]
   static const uint8 kOpDispl[] = { 0x03, 0x0D, 0x80, 0x1E, 0x27, 0x00 };
   AnalyzeSingleInstructionFromBuffer(kOpDispl);
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
 }
 
 TEST_F(LivenessAnalysisTest, InstructionWithoutDefine) {
@@ -583,14 +583,14 @@ TEST_F(LivenessAnalysisTest, InstructionWithoutDefine) {
   // _asm cmp eax, [ecx]
   static const uint8 kCmp[] = { 0x3B, 0x01 };
   AnalyzeSingleInstructionFromBuffer(kCmp);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ecx));
 
   // _asm test ebx, [edx+12]
   static const uint8 kTest[] = { 0x85, 0x5A, 0x0C };
   AnalyzeSingleInstructionFromBuffer(kTest);
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::edx));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::edx));
 }
 
 TEST_F(LivenessAnalysisTest, InstructionsWithDefine) {
@@ -598,14 +598,14 @@ TEST_F(LivenessAnalysisTest, InstructionsWithDefine) {
   // _asm mov ebx, [edx+12]
   static const uint8 kCmp[] = { 0x8B, 0x5A, 0x0C };
   AnalyzeSingleInstructionFromBuffer(kCmp);
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::edx));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::edx));
 
   // _asm lea ebx, [edx+12]
   static const uint8 kTest[] = { 0x8D, 0x5A, 0x0C };
   AnalyzeSingleInstructionFromBuffer(kTest);
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::edx));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::edx));
 }
 
 TEST_F(LivenessAnalysisTest, InstructionsWithPartialDefine) {
@@ -618,15 +618,15 @@ TEST_F(LivenessAnalysisTest, InstructionsWithPartialDefine) {
   AddInstructionFromBuffer(kStore);
   AnalyzeInstructions();
 
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::bx));
-  EXPECT_FALSE(is_live(core::bl));
-  EXPECT_TRUE(is_live(core::bh));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::bx));
+  EXPECT_FALSE(is_live(assm::bl));
+  EXPECT_TRUE(is_live(assm::bh));
 
-  EXPECT_TRUE(is_live(core::edx));
-  EXPECT_TRUE(is_live(core::dx));
-  EXPECT_TRUE(is_live(core::dl));
-  EXPECT_TRUE(is_live(core::dh));
+  EXPECT_TRUE(is_live(assm::edx));
+  EXPECT_TRUE(is_live(assm::dx));
+  EXPECT_TRUE(is_live(assm::dl));
+  EXPECT_TRUE(is_live(assm::dh));
 }
 
 TEST_F(LivenessAnalysisTest, InstructionsWithPartialDefineAll) {
@@ -671,74 +671,74 @@ TEST_F(LivenessAnalysisTest, InstructionsWithPartialDefineAll) {
 
   AnalyzeInstructions();
 
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_TRUE(is_live(core::edx));
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
-  EXPECT_TRUE(is_live(core::esp));
-  EXPECT_TRUE(is_live(core::ebp));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_TRUE(is_live(assm::edx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
+  EXPECT_TRUE(is_live(assm::esp));
+  EXPECT_TRUE(is_live(assm::ebp));
 }
 
 TEST_F(LivenessAnalysisTest, ArithmeticUnaryInstructions) {
   // _asm dec eax
   static const uint8 kDec1[] = { 0x48 };
   AnalyzeSingleInstructionFromBuffer(kDec1);
-  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_TRUE(is_live(assm::eax));
 
   // _asm dec [ebx + 1]
   static const uint8 kDec2[] = { 0xFE, 0x4B, 0x01 };
   AnalyzeSingleInstructionFromBuffer(kDec2);
-  EXPECT_TRUE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(assm::ebx));
 
   // _asm dec [esi + ebx*2 + 1]
   static const uint8 kDec3[] = { 0xFE, 0x4C, 0x5E, 0x01 };
   AnalyzeSingleInstructionFromBuffer(kDec3);
-  EXPECT_TRUE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::ebx));
 
   // _asm dec WORD PTR [X]
   static const uint8 kDec4[] = { 0x66, 0xFF, 0x0D, 0x80, 0x1E, 0x92, 0x00 };
   AnalyzeSingleInstructionFromBuffer(kDec4);
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_FALSE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_FALSE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
 
   // _asm not ebx
   static const uint8 kNot1[] = { 0xF7, 0xD3 };
   AnalyzeSingleInstructionFromBuffer(kNot1);
-  EXPECT_TRUE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(assm::ebx));
 
   // _asm not [ebx]
   static const uint8 kNot2[] = { 0xF6, 0x13 };
   AnalyzeSingleInstructionFromBuffer(kNot2);
-  EXPECT_TRUE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(assm::ebx));
 
   // _asm neg ebx
   static const uint8 kNeg1[] = { 0xF7, 0xDB };
   AnalyzeSingleInstructionFromBuffer(kNeg1);
-  EXPECT_TRUE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(assm::ebx));
 
   // _asm neg [ebx]
   static const uint8 kNeg2[] = { 0xF6, 0x1B };
   AnalyzeSingleInstructionFromBuffer(kNeg2);
-  EXPECT_TRUE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(assm::ebx));
 
   // _asm inc edx
   static const uint8 kInc[] = { 0x42 };
   AnalyzeSingleInstructionFromBuffer(kInc);
-  EXPECT_TRUE(is_live(core::edx));
+  EXPECT_TRUE(is_live(assm::edx));
 
   // _asm inc dh
   static const uint8 kIncHalf[] = { 0xFE, 0xC6 };
   AnalyzeSingleInstructionFromBuffer(kIncHalf);
-  EXPECT_TRUE(is_live(core::edx));
-  EXPECT_TRUE(is_def(core::dh));
-  EXPECT_FALSE(is_def(core::dl));
-  EXPECT_TRUE(is_use(core::dh));
-  EXPECT_FALSE(is_use(core::dl));
+  EXPECT_TRUE(is_live(assm::edx));
+  EXPECT_TRUE(is_def(assm::dh));
+  EXPECT_FALSE(is_def(assm::dl));
+  EXPECT_TRUE(is_use(assm::dh));
+  EXPECT_FALSE(is_use(assm::dl));
 }
 
 TEST_F(LivenessAnalysisTest, DecIncFlagsInstructions) {
@@ -760,103 +760,103 @@ TEST_F(LivenessAnalysisTest, ArithmeticBinaryInstructions) {
   // _asm add ebx, ecx
   static const uint8 kAdd[] = { 0x03, 0xD9 };
   AnalyzeSingleInstructionFromBuffer(kAdd);
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_TRUE(is_def(core::ebx));
-  EXPECT_TRUE(is_use(core::ebx));
-  EXPECT_TRUE(is_use(core::ecx));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_TRUE(is_def(assm::ebx));
+  EXPECT_TRUE(is_use(assm::ebx));
+  EXPECT_TRUE(is_use(assm::ecx));
 
   // _asm adc ebx, edx
   static const uint8 kAdc[] = { 0x13, 0xDA };
   AnalyzeSingleInstructionFromBuffer(kAdc);
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::edx));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::edx));
 
   // _asm sub esi, edi
   static const uint8 kSub[] = { 0x2B, 0xF7 };
   AnalyzeSingleInstructionFromBuffer(kSub);
-  EXPECT_TRUE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
+  EXPECT_TRUE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
 
   // _asm sbb ebx, [eax + edx + 12]
   static const uint8 KSbb[] = { 0x1B, 0x5C, 0x10, 0x0C };
   AnalyzeSingleInstructionFromBuffer(KSbb);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::edx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::edx));
 
   // _asm and ebx, ecx
   static const uint8 kAnd[] = { 0x23, 0xD9 };
   AnalyzeSingleInstructionFromBuffer(kAnd);
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
 
   // _asm or esi, [edi]
   static const uint8 kOr[] = { 0x0B, 0x37 };
   AnalyzeSingleInstructionFromBuffer(kOr);
-  EXPECT_TRUE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
+  EXPECT_TRUE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
 
   // _asm xor [esi], edi
   static const uint8 kXor[] = { 0x31, 0x3E };
   AnalyzeSingleInstructionFromBuffer(kXor);
-  EXPECT_TRUE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
+  EXPECT_TRUE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
 
   // _asm shl ebx, 1
   static const uint8 kShl1[] = { 0xD1, 0xE3 };
   AnalyzeSingleInstructionFromBuffer(kShl1);
-  EXPECT_TRUE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(assm::ebx));
 
   // _asm shr esi, 2
   static const uint8 kShr1[] = { 0xC1, 0xEE, 0x02 };
   AnalyzeSingleInstructionFromBuffer(kShr1);
-  EXPECT_TRUE(is_live(core::esi));
+  EXPECT_TRUE(is_live(assm::esi));
 
   // _asm sar ecx, 3
   static const uint8 kSar1[] = { 0xC1, 0xF9, 0x03 };
   AnalyzeSingleInstructionFromBuffer(kSar1);
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(assm::ecx));
 
   // _asm rol ebx, 1
   static const uint8 kRol1[] = { 0xD1, 0xC3 };
   AnalyzeSingleInstructionFromBuffer(kRol1);
-  EXPECT_TRUE(is_live(core::ebx));
+  EXPECT_TRUE(is_live(assm::ebx));
 
   // _asm ror esi, 2
   static const uint8 kRor1[] = { 0xC1, 0xCE, 0x02 };
   AnalyzeSingleInstructionFromBuffer(kRor1);
-  EXPECT_TRUE(is_live(core::esi));
+  EXPECT_TRUE(is_live(assm::esi));
 
   // _asm shl ebx, cl
   static const uint8 kShl2[] = { 0xD3, 0xE3 };
   AnalyzeSingleInstructionFromBuffer(kShl2);
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
 
   // _asm shr esi, cl
   static const uint8 kShr2[] = { 0xD3, 0xEE };
   AnalyzeSingleInstructionFromBuffer(kShr2);
-  EXPECT_TRUE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::ecx));
 
   // _asm sar edx, cl
   static const uint8 kSar2[] = { 0xD3, 0xFA };
   AnalyzeSingleInstructionFromBuffer(kSar2);
-  EXPECT_TRUE(is_live(core::edx));
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(assm::edx));
+  EXPECT_TRUE(is_live(assm::ecx));
 
   // _asm rol ebx, cl
   static const uint8 kRol2[] = { 0xD3, 0xC3 };
   AnalyzeSingleInstructionFromBuffer(kRol2);
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
 
   // _asm ror esi, cl
   static const uint8 kRor2[] = { 0xD3, 0xCE };
   AnalyzeSingleInstructionFromBuffer(kRor2);
-  EXPECT_TRUE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::ecx));
 }
 
 TEST_F(LivenessAnalysisTest, ArithmeticFlagsInstructions) {
@@ -876,179 +876,179 @@ TEST_F(LivenessAnalysisTest, MultiplicationInstructions) {
   static const uint8 kMul32[] = { 0xF7, 0xE1 };
   AnalyzeSingleInstructionFromBuffer(kMul32);
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
-  EXPECT_TRUE(is_def(core::eax));
-  EXPECT_FALSE(is_def(core::ecx));
-  EXPECT_TRUE(is_def(core::edx));
-  EXPECT_TRUE(is_use(core::eax));
-  EXPECT_TRUE(is_use(core::ecx));
-  EXPECT_FALSE(is_use(core::edx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
+  EXPECT_TRUE(is_def(assm::eax));
+  EXPECT_FALSE(is_def(assm::ecx));
+  EXPECT_TRUE(is_def(assm::edx));
+  EXPECT_TRUE(is_use(assm::eax));
+  EXPECT_TRUE(is_use(assm::ecx));
+  EXPECT_FALSE(is_use(assm::edx));
 
   // _asm mul cx
   static const uint8 kMul16[] = { 0x66, 0xF7, 0xE1 };
   AnalyzeSingleInstructionFromBuffer(kMul16);
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
-  EXPECT_TRUE(is_def(core::eax));
-  EXPECT_FALSE(is_def(core::ecx));
-  EXPECT_TRUE(is_use(core::eax));
-  EXPECT_TRUE(is_use(core::ecx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
+  EXPECT_TRUE(is_def(assm::eax));
+  EXPECT_FALSE(is_def(assm::ecx));
+  EXPECT_TRUE(is_use(assm::eax));
+  EXPECT_TRUE(is_use(assm::ecx));
 
   // _asm mul cl
   static const uint8 kMul8[] = { 0xF6, 0xE1 };
   AnalyzeSingleInstructionFromBuffer(kMul8);
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
-  EXPECT_FALSE(is_live(core::ah));
-  EXPECT_TRUE(is_def(core::eax));
-  EXPECT_TRUE(is_def(core::ah));
-  EXPECT_FALSE(is_def(core::ecx));
-  EXPECT_FALSE(is_def(core::cl));
-  EXPECT_TRUE(is_use(core::eax));
-  EXPECT_FALSE(is_use(core::ah));
-  EXPECT_TRUE(is_use(core::al));
-  EXPECT_TRUE(is_use(core::ecx));
-  EXPECT_FALSE(is_use(core::ch));
-  EXPECT_TRUE(is_use(core::cl));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
+  EXPECT_FALSE(is_live(assm::ah));
+  EXPECT_TRUE(is_def(assm::eax));
+  EXPECT_TRUE(is_def(assm::ah));
+  EXPECT_FALSE(is_def(assm::ecx));
+  EXPECT_FALSE(is_def(assm::cl));
+  EXPECT_TRUE(is_use(assm::eax));
+  EXPECT_FALSE(is_use(assm::ah));
+  EXPECT_TRUE(is_use(assm::al));
+  EXPECT_TRUE(is_use(assm::ecx));
+  EXPECT_FALSE(is_use(assm::ch));
+  EXPECT_TRUE(is_use(assm::cl));
 
   // _asm mul ah
   static const uint8 kMul16High[] = { 0xF6, 0xE4 };
   AnalyzeSingleInstructionFromBuffer(kMul16High);
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_FALSE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
-  EXPECT_TRUE(is_live(core::ah));
-  EXPECT_TRUE(is_def(core::eax));
-  EXPECT_TRUE(is_def(core::ah));
-  EXPECT_TRUE(is_def(core::al));
-  EXPECT_FALSE(is_def(core::dl));
-  EXPECT_TRUE(is_use(core::ah));
-  EXPECT_TRUE(is_use(core::al));
-  EXPECT_FALSE(is_use(core::dl));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_FALSE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
+  EXPECT_TRUE(is_live(assm::ah));
+  EXPECT_TRUE(is_def(assm::eax));
+  EXPECT_TRUE(is_def(assm::ah));
+  EXPECT_TRUE(is_def(assm::al));
+  EXPECT_FALSE(is_def(assm::dl));
+  EXPECT_TRUE(is_use(assm::ah));
+  EXPECT_TRUE(is_use(assm::al));
+  EXPECT_FALSE(is_use(assm::dl));
 
   // _asm imul ecx
   static const uint8 kIMul32[] = { 0xF7, 0xE9 };
   AnalyzeSingleInstructionFromBuffer(kIMul32);
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
-  EXPECT_TRUE(is_def(core::al));
-  EXPECT_TRUE(is_def(core::dl));
-  EXPECT_TRUE(is_use(core::ecx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
+  EXPECT_TRUE(is_def(assm::al));
+  EXPECT_TRUE(is_def(assm::dl));
+  EXPECT_TRUE(is_use(assm::ecx));
 
   // _asm imul cx
   static const uint8 kIMul16[] = { 0xF7, 0xE9 };
   AnalyzeSingleInstructionFromBuffer(kIMul16);
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
-  EXPECT_TRUE(is_def(core::al));
-  EXPECT_TRUE(is_def(core::dl));
-  EXPECT_TRUE(is_use(core::ecx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
+  EXPECT_TRUE(is_def(assm::al));
+  EXPECT_TRUE(is_def(assm::dl));
+  EXPECT_TRUE(is_use(assm::ecx));
 
   // _asm imul cl
   static const uint8 kIMul8[] = { 0xF6, 0xE9 };
   AnalyzeSingleInstructionFromBuffer(kIMul8);
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
-  EXPECT_FALSE(is_live(core::ch));
-  EXPECT_TRUE(is_def(core::al));
-  EXPECT_FALSE(is_def(core::dl));
-  EXPECT_TRUE(is_use(core::ecx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
+  EXPECT_FALSE(is_live(assm::ch));
+  EXPECT_TRUE(is_def(assm::al));
+  EXPECT_FALSE(is_def(assm::dl));
+  EXPECT_TRUE(is_use(assm::ecx));
 
   // _asm imul ah
   static const uint8 kIMul16High[] = { 0xF6, 0xEC };
   AnalyzeSingleInstructionFromBuffer(kIMul16High);
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_FALSE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
-  EXPECT_TRUE(is_live(core::ah));
-  EXPECT_TRUE(is_def(core::al));
-  EXPECT_TRUE(is_def(core::ah));
-  EXPECT_TRUE(is_use(core::al));
-  EXPECT_TRUE(is_use(core::ah));
-  EXPECT_FALSE(is_def(core::dl));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_FALSE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
+  EXPECT_TRUE(is_live(assm::ah));
+  EXPECT_TRUE(is_def(assm::al));
+  EXPECT_TRUE(is_def(assm::ah));
+  EXPECT_TRUE(is_use(assm::al));
+  EXPECT_TRUE(is_use(assm::ah));
+  EXPECT_FALSE(is_def(assm::dl));
 
   // _asm imul eax, 3
   static const uint8 kIMul32ByCst[] = { 0x6B, 0xC0, 0x03 };
   AnalyzeSingleInstructionFromBuffer(kIMul32ByCst);
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_FALSE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
-  EXPECT_TRUE(is_def(core::eax));
-  EXPECT_TRUE(is_use(core::eax));
-  EXPECT_FALSE(is_def(core::dl));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_FALSE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
+  EXPECT_TRUE(is_def(assm::eax));
+  EXPECT_TRUE(is_use(assm::eax));
+  EXPECT_FALSE(is_def(assm::dl));
 
   // _asm imul ecx, 3
   static const uint8 kIMul32EcxByCst[] = { 0x6B, 0xC9, 0x03 };
   AnalyzeSingleInstructionFromBuffer(kIMul32EcxByCst);
   EXPECT_FALSE(are_arithmetic_flags_live());
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
-  EXPECT_FALSE(is_def(core::eax));
-  EXPECT_TRUE(is_def(core::ecx));
-  EXPECT_FALSE(is_def(core::dl));
-  EXPECT_FALSE(is_use(core::eax));
-  EXPECT_TRUE(is_use(core::ecx));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
+  EXPECT_FALSE(is_def(assm::eax));
+  EXPECT_TRUE(is_def(assm::ecx));
+  EXPECT_FALSE(is_def(assm::dl));
+  EXPECT_FALSE(is_use(assm::eax));
+  EXPECT_TRUE(is_use(assm::ecx));
 }
 
 TEST_F(LivenessAnalysisTest, ConversionInstructions) {
   static const uint8 kCdq[] = { 0x99 };
   AnalyzeSingleInstructionFromBuffer(kCdq);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::edx));
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_def(core::eax));
-  EXPECT_TRUE(is_def(core::edx));
-  EXPECT_TRUE(is_use(core::eax));
-  EXPECT_FALSE(is_use(core::edx));
+  EXPECT_TRUE(is_def(assm::eax));
+  EXPECT_TRUE(is_def(assm::edx));
+  EXPECT_TRUE(is_use(assm::eax));
+  EXPECT_FALSE(is_use(assm::edx));
 
   static const uint8 kCwd[] = { 0x66, 0x99 };
   AnalyzeSingleInstructionFromBuffer(kCwd);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::edx));
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_def(core::eax));
-  EXPECT_FALSE(is_def(core::edx));
-  EXPECT_TRUE(is_use(core::eax));
-  EXPECT_FALSE(is_use(core::edx));
+  EXPECT_TRUE(is_def(assm::eax));
+  EXPECT_FALSE(is_def(assm::edx));
+  EXPECT_TRUE(is_use(assm::eax));
+  EXPECT_FALSE(is_use(assm::edx));
 }
 
 TEST_F(LivenessAnalysisTest, EpilogueInstructions) {
   static const uint8 kLeave[] = { 0xC9 };
   AnalyzeSingleInstructionFromBuffer(kLeave);
-  EXPECT_TRUE(is_live(core::ebp));
-  EXPECT_TRUE(is_live(core::esp));
+  EXPECT_TRUE(is_live(assm::ebp));
+  EXPECT_TRUE(is_live(assm::esp));
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_def(core::esp));
-  EXPECT_TRUE(is_def(core::ebp));
-  EXPECT_TRUE(is_use(core::esp));
-  EXPECT_TRUE(is_use(core::esp));
+  EXPECT_TRUE(is_def(assm::esp));
+  EXPECT_TRUE(is_def(assm::ebp));
+  EXPECT_TRUE(is_use(assm::esp));
+  EXPECT_TRUE(is_use(assm::esp));
 }
 
 TEST_F(LivenessAnalysisTest, StackInstructions) {
@@ -1056,41 +1056,41 @@ TEST_F(LivenessAnalysisTest, StackInstructions) {
   // _asm push eax
   static const uint8 kPushd[] = { 0x50 };
   AnalyzeSingleInstructionFromBuffer(kPushd);
-  EXPECT_TRUE(is_live(core::esp));
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_TRUE(is_def(core::esp));
-  EXPECT_TRUE(is_use(core::esp));
+  EXPECT_TRUE(is_live(assm::esp));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_TRUE(is_def(assm::esp));
+  EXPECT_TRUE(is_use(assm::esp));
 
   // _asm pop eax
   static const uint8 kPopd[] = { 0x58 };
   AnalyzeSingleInstructionFromBuffer(kPopd);
-  EXPECT_TRUE(is_live(core::esp));
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_TRUE(is_def(core::esp));
-  EXPECT_TRUE(is_use(core::esp));
+  EXPECT_TRUE(is_live(assm::esp));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_TRUE(is_def(assm::esp));
+  EXPECT_TRUE(is_use(assm::esp));
 
   // _asm push ax
   static const uint8 kPush[] = { 0x66, 0x50 };
   AnalyzeSingleInstructionFromBuffer(kPush);
-  EXPECT_TRUE(is_live(core::esp));
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_TRUE(is_def(core::esp));
-  EXPECT_TRUE(is_use(core::esp));
+  EXPECT_TRUE(is_live(assm::esp));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_TRUE(is_def(assm::esp));
+  EXPECT_TRUE(is_use(assm::esp));
 
   // _asm pop ax
   static const uint8 kPop[] = { 0x66, 0x58 };
   AnalyzeSingleInstructionFromBuffer(kPop);
-  EXPECT_TRUE(is_live(core::esp));
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_TRUE(is_def(core::esp));
-  EXPECT_TRUE(is_use(core::esp));
+  EXPECT_TRUE(is_live(assm::esp));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_TRUE(is_def(assm::esp));
+  EXPECT_TRUE(is_use(assm::esp));
 
   static const uint8 kPopSMem[] = { 0x66, 0x8F, 0x00 };
   AnalyzeSingleInstructionFromBuffer(kPopSMem);
-  EXPECT_TRUE(is_live(core::esp));
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_TRUE(is_def(core::esp));
-  EXPECT_TRUE(is_use(core::esp));
+  EXPECT_TRUE(is_live(assm::esp));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_TRUE(is_def(assm::esp));
+  EXPECT_TRUE(is_use(assm::esp));
 }
 
 TEST_F(LivenessAnalysisTest, SetFlagInstructions) {
@@ -1100,8 +1100,8 @@ TEST_F(LivenessAnalysisTest, SetFlagInstructions) {
   static const uint8 kSetA[] = { 0x0F, 0x97, 0xC0 };
   AnalyzeSingleInstructionFromBuffer(kSetA);
   EXPECT_TRUE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_def(core::al));
-  EXPECT_FALSE(is_use(core::al));
+  EXPECT_TRUE(is_def(assm::al));
+  EXPECT_FALSE(is_use(assm::al));
 
   // _asm setae al
   static const uint8 kSetAE[] = { 0x0F, 0x93, 0xC0 };
@@ -1187,33 +1187,33 @@ TEST_F(LivenessAnalysisTest, PushPopFlagsInstructions) {
   static const uint8 kPushfd[] = { 0x9C };
   AnalyzeSingleInstructionFromBuffer(kPushfd);
   EXPECT_TRUE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_live(core::esp));
-  EXPECT_TRUE(is_def(core::esp));
-  EXPECT_TRUE(is_use(core::esp));
+  EXPECT_TRUE(is_live(assm::esp));
+  EXPECT_TRUE(is_def(assm::esp));
+  EXPECT_TRUE(is_use(assm::esp));
 
   // _asm popfd
   static const uint8 kPopfd[] = { 0x9D };
   AnalyzeSingleInstructionFromBuffer(kPopfd);
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_live(core::esp));
-  EXPECT_TRUE(is_def(core::esp));
-  EXPECT_TRUE(is_use(core::esp));
+  EXPECT_TRUE(is_live(assm::esp));
+  EXPECT_TRUE(is_def(assm::esp));
+  EXPECT_TRUE(is_use(assm::esp));
 
   // _asm pushf
   static const uint8 kPushf[] = { 0x66, 0x9C };
   AnalyzeSingleInstructionFromBuffer(kPushf);
   EXPECT_TRUE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_live(core::esp));
-  EXPECT_TRUE(is_def(core::esp));
-  EXPECT_TRUE(is_use(core::esp));
+  EXPECT_TRUE(is_live(assm::esp));
+  EXPECT_TRUE(is_def(assm::esp));
+  EXPECT_TRUE(is_use(assm::esp));
 
   // _asm popf
   static const uint8 kPopf[] = { 0x66, 0x9D };
   AnalyzeSingleInstructionFromBuffer(kPopf);
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_live(core::esp));
-  EXPECT_TRUE(is_def(core::esp));
-  EXPECT_TRUE(is_use(core::esp));
+  EXPECT_TRUE(is_live(assm::esp));
+  EXPECT_TRUE(is_def(assm::esp));
+  EXPECT_TRUE(is_use(assm::esp));
 }
 
 TEST_F(LivenessAnalysisTest, LoadStoreFlagsInstructions) {
@@ -1224,19 +1224,19 @@ TEST_F(LivenessAnalysisTest, LoadStoreFlagsInstructions) {
   static const uint8 kSahf[] = { 0x9E };
   AnalyzeSingleInstructionFromBuffer(kSahf);
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_FALSE(is_live(core::esp));
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_def(core::ah));
-  EXPECT_TRUE(is_use(core::ah));
+  EXPECT_FALSE(is_live(assm::esp));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_def(assm::ah));
+  EXPECT_TRUE(is_use(assm::ah));
 
   // _asm lahf
   static const uint8 kLahf[] = { 0x9F };
   AnalyzeSingleInstructionFromBuffer(kLahf);
   EXPECT_TRUE(are_arithmetic_flags_live());
-  EXPECT_FALSE(is_live(core::esp));
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_TRUE(is_def(core::ah));
-  EXPECT_FALSE(is_use(core::ah));
+  EXPECT_FALSE(is_live(assm::esp));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_TRUE(is_def(assm::ah));
+  EXPECT_FALSE(is_use(assm::ah));
 }
 
 TEST_F(LivenessAnalysisTest, ExtendMovInstructions) {
@@ -1244,72 +1244,72 @@ TEST_F(LivenessAnalysisTest, ExtendMovInstructions) {
   static const uint8 kMovsx1[] = { 0x0F, 0xBE, 0xC1 };
   AnalyzeSingleInstructionFromBuffer(kMovsx1);
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_TRUE(is_def(core::ah));
-  EXPECT_FALSE(is_use(core::ch));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_TRUE(is_def(assm::ah));
+  EXPECT_FALSE(is_use(assm::ch));
 
   // _asm movsx eax, BYTE PTR [ecx]
   static const uint8 kMovsx2[] = { 0x0F, 0xBE, 0x01 };
   AnalyzeSingleInstructionFromBuffer(kMovsx2);
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ecx));
 
   // _asm movzx eax, cl
   static const uint8 kMovzx1[] = { 0x0F, 0xB6, 0xC1 };
   AnalyzeSingleInstructionFromBuffer(kMovzx1);
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ecx));
 
   // _asm movzx eax, BYTE PTR [ecx]
   static const uint8 kMovzx2[] = { 0x0F, 0xB6, 0x01 };
   AnalyzeSingleInstructionFromBuffer(kMovzx2);
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ecx));
 }
 
 TEST_F(LivenessAnalysisTest, StringInstructions) {
   // movs dword ptr es:[edi], dword ptr [esi]
   static const uint8 kMovsl[] = { 0xA5 };
   AnalyzeSingleInstructionFromBuffer(kMovsl);
-  EXPECT_TRUE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
-  EXPECT_FALSE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
+  EXPECT_FALSE(is_live(assm::ecx));
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_def(core::esi));
-  EXPECT_TRUE(is_def(core::edi));
-  EXPECT_TRUE(is_use(core::esi));
-  EXPECT_TRUE(is_use(core::edi));
+  EXPECT_TRUE(is_def(assm::esi));
+  EXPECT_TRUE(is_def(assm::edi));
+  EXPECT_TRUE(is_use(assm::esi));
+  EXPECT_TRUE(is_use(assm::edi));
 
   // movs byte ptr es:[edi], byte ptr [esi]
   static const uint8 kMovsb[] = { 0xA4 };
   AnalyzeSingleInstructionFromBuffer(kMovsb);
-  EXPECT_TRUE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
-  EXPECT_FALSE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
+  EXPECT_FALSE(is_live(assm::ecx));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // stos dword ptr es:[edi]
   static const uint8 kStosl[] = { 0xAB };
   AnalyzeSingleInstructionFromBuffer(kStosl);
-  EXPECT_FALSE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
-  EXPECT_FALSE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
+  EXPECT_FALSE(is_live(assm::ecx));
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_FALSE(is_def(core::esi));
-  EXPECT_TRUE(is_def(core::edi));
-  EXPECT_FALSE(is_use(core::esi));
-  EXPECT_TRUE(is_use(core::edi));
+  EXPECT_FALSE(is_def(assm::esi));
+  EXPECT_TRUE(is_def(assm::edi));
+  EXPECT_FALSE(is_use(assm::esi));
+  EXPECT_TRUE(is_use(assm::edi));
 
   // stos byte ptr es:[edi]
   static const uint8 Stosb[] = { 0xAA };
   AnalyzeSingleInstructionFromBuffer(Stosb);
-  EXPECT_FALSE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
-  EXPECT_FALSE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
+  EXPECT_FALSE(is_live(assm::ecx));
   EXPECT_FALSE(are_arithmetic_flags_live());
 }
 
@@ -1317,33 +1317,33 @@ TEST_F(LivenessAnalysisTest, PrefixedStringInstructions) {
   // repne movs dword ptr es:[edi], dword ptr [esi]
   static const uint8 kMovsl[] = { 0xF2, 0xA5 };
   AnalyzeSingleInstructionFromBuffer(kMovsl);
-  EXPECT_TRUE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
+  EXPECT_TRUE(is_live(assm::ecx));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // repne movs byte ptr es:[edi], byte ptr [esi]
   static const uint8 kMovsb[] = { 0xF2, 0xA4 };
   AnalyzeSingleInstructionFromBuffer(kMovsb);
-  EXPECT_TRUE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
+  EXPECT_TRUE(is_live(assm::ecx));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // repne stos dword ptr es:[edi]
   static const uint8 kStosl[] = { 0xF2, 0xAB };
   AnalyzeSingleInstructionFromBuffer(kStosl);
-  EXPECT_FALSE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
+  EXPECT_TRUE(is_live(assm::ecx));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // repne stos byte ptr es:[edi]
   static const uint8 Stosb[] = { 0xF2, 0xAA };
   AnalyzeSingleInstructionFromBuffer(Stosb);
-  EXPECT_FALSE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_FALSE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
+  EXPECT_TRUE(is_live(assm::ecx));
   EXPECT_FALSE(are_arithmetic_flags_live());
 }
 
@@ -1377,12 +1377,12 @@ TEST_F(LivenessAnalysisTest, FloatingPointInstructions) {
   DefineAllRegisters();
   AnalyzeInstructions();
 
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_FALSE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::edx));
-  EXPECT_FALSE(is_live(core::esi));
-  EXPECT_FALSE(is_live(core::edi));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_FALSE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::edx));
+  EXPECT_FALSE(is_live(assm::esi));
+  EXPECT_FALSE(is_live(assm::edi));
   EXPECT_FALSE(are_arithmetic_flags_live());
 }
 
@@ -1390,61 +1390,61 @@ TEST_F(LivenessAnalysisTest, FloatingPointMemoryInstructions) {
   // _asm fld DWORD PTR [eax + ecx]
   static const uint8 kFld[] = { 0xD9, 0x04, 0x08 };
   AnalyzeSingleInstructionFromBuffer(kFld);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // _asm fst DWORD PTR [eax + ecx]
   static const uint8 kFst[] = { 0xD9, 0x14, 0x08 };
   AnalyzeSingleInstructionFromBuffer(kFst);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // _asm fstp DWORD PTR [eax + ecx]
   static const uint8 kFstp[] = { 0xD9, 0x1C, 0x08 };
   AnalyzeSingleInstructionFromBuffer(kFstp);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // _asm fadd DWORD PTR [eax]
   static const uint8 kFadd[] = { 0xD8, 0x00 };
   AnalyzeSingleInstructionFromBuffer(kFadd);
-  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_TRUE(is_live(assm::eax));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // _asm fsub DWORD PTR [ecx]
   static const uint8 kFsub[] = { 0xD8, 0x21 };
   AnalyzeSingleInstructionFromBuffer(kFsub);
-  EXPECT_TRUE(is_live(core::ecx));
+  EXPECT_TRUE(is_live(assm::ecx));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // _asm fmul DWORD PTR [esi]
   static const uint8 kFmul[] = { 0xD8, 0x0E };
   AnalyzeSingleInstructionFromBuffer(kFmul);
-  EXPECT_TRUE(is_live(core::esi));
+  EXPECT_TRUE(is_live(assm::esi));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // _asm fild DWORD PTR [eax]
   static const uint8 kFild[] = { 0xDB, 0x00 };
   AnalyzeSingleInstructionFromBuffer(kFild);
-  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_TRUE(is_live(assm::eax));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // _asm fist DWORD PTR [eax]
   static const uint8 kFist[] = { 0xDB, 0x10 };
   AnalyzeSingleInstructionFromBuffer(kFist);
-  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_TRUE(is_live(assm::eax));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // _asm fistp DWORD PTR [eax]
   static const uint8 kFistp[] = { 0xDB, 0x18 };
   AnalyzeSingleInstructionFromBuffer(kFistp);
-  EXPECT_TRUE(is_live(core::eax));
+  EXPECT_TRUE(is_live(assm::eax));
   EXPECT_FALSE(are_arithmetic_flags_live());
 }
 
@@ -1479,51 +1479,51 @@ TEST_F(LivenessAnalysisTest, FloatingPointCompareMemoryInstructions) {
   // _asm fcom qword ptr [edx+ecx*8]
   static const uint8 kFcom[] = { 0xDC, 0x14, 0xCA };
   AnalyzeSingleInstructionFromBuffer(kFcom);
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_TRUE(is_live(core::edx));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_TRUE(is_live(assm::edx));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // _asm fcomp word ptr [edx+ecx*8]
   static const uint8 kFcomp[] = { 0xDC, 0x1C, 0xCA };
   AnalyzeSingleInstructionFromBuffer(kFcomp);
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_TRUE(is_live(core::edx));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_TRUE(is_live(assm::edx));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // _asm ficom qword ptr [edx+ecx*8]
   static const uint8 kFicom[] = { 0xDE, 0x14, 0xCA };
   AnalyzeSingleInstructionFromBuffer(kFicom);
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_TRUE(is_live(core::edx));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_TRUE(is_live(assm::edx));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // _asm ficomp word ptr [edx+ecx*8]
   static const uint8 kFicomp[] = { 0xDE, 0x1C, 0xCA };
   AnalyzeSingleInstructionFromBuffer(kFicomp);
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_TRUE(is_live(core::edx));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_TRUE(is_live(assm::edx));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // _asm ficom dword ptr [eax]
   static const uint8 kFicom2[] = { 0xDA, 0x10 };
   AnalyzeSingleInstructionFromBuffer(kFicom2);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::edx));
   EXPECT_FALSE(are_arithmetic_flags_live());
 
   // _asm ficomp dword ptr [eax]
   static const uint8 ficomp2[] = { 0xDA, 0x18 };
   AnalyzeSingleInstructionFromBuffer(ficomp2);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_FALSE(is_live(core::edx));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_FALSE(is_live(assm::edx));
   EXPECT_FALSE(are_arithmetic_flags_live());
 }
 
@@ -1547,10 +1547,10 @@ TEST_F(LivenessAnalysisTest, UnknownInstruction) {
   // Ensure unknown instructions are processed correctly.
   static const uint8 kRdtsc[] = { 0x0F, 0x31 };
   AnalyzeSingleInstructionFromBuffer(kRdtsc);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ecx));
-  EXPECT_TRUE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::ebp));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ecx));
+  EXPECT_TRUE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::ebp));
   EXPECT_TRUE(are_arithmetic_flags_live());
 }
 
@@ -1561,49 +1561,49 @@ TEST_F(LivenessAnalysisTest, XorInitializationSpecialCase) {
   // _asm xor eax, eax
   static const uint8 kXor1[] = { 0x33, 0xC0 };
   AnalyzeSingleInstructionFromBuffer(kXor1);
-  EXPECT_FALSE(is_live(core::eax));
+  EXPECT_FALSE(is_live(assm::eax));
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_def(core::eax));
-  EXPECT_FALSE(is_use(core::eax));
+  EXPECT_TRUE(is_def(assm::eax));
+  EXPECT_FALSE(is_use(assm::eax));
 
   // _asm xor ebx, ebx
   static const uint8 kXor2[] = { 0x33, 0xDB };
   AnalyzeSingleInstructionFromBuffer(kXor2);
-  EXPECT_FALSE(is_live(core::eax));
+  EXPECT_FALSE(is_live(assm::eax));
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_def(core::ebx));
-  EXPECT_FALSE(is_use(core::ebx));
+  EXPECT_TRUE(is_def(assm::ebx));
+  EXPECT_FALSE(is_use(assm::ebx));
 
   // _asm xor ecx, ecx
   static const uint8 kXor3[] = { 0x33, 0xC9 };
   AnalyzeSingleInstructionFromBuffer(kXor3);
-  EXPECT_FALSE(is_live(core::eax));
+  EXPECT_FALSE(is_live(assm::eax));
   EXPECT_FALSE(are_arithmetic_flags_live());
-  EXPECT_TRUE(is_def(core::ecx));
-  EXPECT_FALSE(is_use(core::ecx));
+  EXPECT_TRUE(is_def(assm::ecx));
+  EXPECT_FALSE(is_use(assm::ecx));
 }
 
 TEST_F(LivenessAnalysisTest, NopInstructionSpecialCase) {
   // Nop should be ignored by the analysis.
-  asm_.mov(core::eax, core::eax);
-  asm_.mov(core::eax, Immediate(10));
+  asm_.mov(assm::eax, assm::eax);
+  asm_.mov(assm::eax, Immediate(10));
   AnalyzeInstructions();
-  EXPECT_FALSE(is_live(core::eax));
+  EXPECT_FALSE(is_live(assm::eax));
 }
 
 TEST_F(LivenessAnalysisTest, GetStateAtEntryOfWithNull) {
   // It is valid to pass a NULL pointer to get a state.
   liveness_.GetStateAtEntryOf(NULL, &state_);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::esi));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::esi));
   EXPECT_TRUE(are_arithmetic_flags_live());
 }
 
 TEST_F(LivenessAnalysisTest, GetStateAtExitOfWithNull) {
   // It is valid to pass a NULL pointer to get a state.
   liveness_.GetStateAtExitOf(NULL, &state_);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::esi));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::esi));
   EXPECT_TRUE(are_arithmetic_flags_live());
 }
 
@@ -1666,87 +1666,87 @@ TEST_F(LivenessAnalysisTest, LivenessAnalysisOverControlFlow) {
   // Insert instructions into basic blocks.
   BasicBlockAssembler asm_end2(end2->instructions().end(),
                                &end2->instructions());
-  asm_end2.mov(core::ecx, core::eax);
+  asm_end2.mov(assm::ecx, assm::eax);
 
   BasicBlockAssembler asm_true2(true2->instructions().end(),
                                 &true2->instructions());
-  asm_true2.mov(core::eax, core::ebx);
+  asm_true2.mov(assm::eax, assm::ebx);
 
   BasicBlockAssembler asm_false2(false2->instructions().end(),
                                  &false2->instructions());
-  asm_false2.mov(core::ebp, core::esi);
-  asm_false2.mov(core::esi, core::edi);
-  asm_false2.mov(core::edi, core::ebp);
-  asm_false2.mov(core::eax, Operand(core::esi));
+  asm_false2.mov(assm::ebp, assm::esi);
+  asm_false2.mov(assm::esi, assm::edi);
+  asm_false2.mov(assm::edi, assm::ebp);
+  asm_false2.mov(assm::eax, Operand(assm::esi));
 
   BasicBlockAssembler asm_true1(true1->instructions().end(),
                                 &true1->instructions());
-  asm_true1.mov(core::esi, Immediate(1));
+  asm_true1.mov(assm::esi, Immediate(1));
 
   BasicBlockAssembler asm_false1(false1->instructions().end(),
                                  &false1->instructions());
-  asm_false1.mov(core::esi, Immediate(2));
-  asm_false1.mov(core::edi, Immediate(2));
+  asm_false1.mov(assm::esi, Immediate(2));
+  asm_false1.mov(assm::edi, Immediate(2));
 
   // Perform global liveness analysis.
   liveness_.Analyze(&subgraph);
 
   // Validate fix-point propagation.
   liveness_.GetStateAtEntryOf(end2, &state_);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_FALSE(is_live(core::ecx));
-  EXPECT_TRUE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
-  EXPECT_FALSE(is_live(core::ebp));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_FALSE(is_live(assm::ecx));
+  EXPECT_TRUE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
+  EXPECT_FALSE(is_live(assm::ebp));
 
   liveness_.GetStateAtEntryOf(true2, &state_);
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_FALSE(is_live(core::ecx));
-  EXPECT_TRUE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
-  EXPECT_FALSE(is_live(core::ebp));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_FALSE(is_live(assm::ecx));
+  EXPECT_TRUE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
+  EXPECT_FALSE(is_live(assm::ebp));
 
   liveness_.GetStateAtEntryOf(false2, &state_);
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_FALSE(is_live(core::ecx));
-  EXPECT_TRUE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
-  EXPECT_FALSE(is_live(core::ebp));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_FALSE(is_live(assm::ecx));
+  EXPECT_TRUE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
+  EXPECT_FALSE(is_live(assm::ebp));
 
   liveness_.GetStateAtEntryOf(if2, &state_);
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_FALSE(is_live(core::ecx));
-  EXPECT_TRUE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
-  EXPECT_FALSE(is_live(core::ebp));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_FALSE(is_live(assm::ecx));
+  EXPECT_TRUE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
+  EXPECT_FALSE(is_live(assm::ebp));
 
   liveness_.GetStateAtEntryOf(true1, &state_);
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_FALSE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
-  EXPECT_FALSE(is_live(core::ebp));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_FALSE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
+  EXPECT_FALSE(is_live(assm::ebp));
 
   liveness_.GetStateAtEntryOf(false1, &state_);
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_FALSE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::esi));
-  EXPECT_FALSE(is_live(core::edi));
-  EXPECT_FALSE(is_live(core::ebp));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_FALSE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::esi));
+  EXPECT_FALSE(is_live(assm::edi));
+  EXPECT_FALSE(is_live(assm::ebp));
 
   liveness_.GetStateAtEntryOf(if1, &state_);
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_FALSE(is_live(core::ecx));
-  EXPECT_FALSE(is_live(core::esi));
-  EXPECT_TRUE(is_live(core::edi));
-  EXPECT_FALSE(is_live(core::ebp));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_FALSE(is_live(assm::ecx));
+  EXPECT_FALSE(is_live(assm::esi));
+  EXPECT_TRUE(is_live(assm::edi));
+  EXPECT_FALSE(is_live(assm::ebp));
 }
 
 TEST_F(LivenessAnalysisTest, AnalyzeWithData) {
@@ -1764,21 +1764,21 @@ TEST_F(LivenessAnalysisTest, AnalyzeWithData) {
   block->basic_block_order.push_back(data);
 
   BasicBlockAssembler asm_bb(bb->instructions().end(), &bb->instructions());
-  asm_bb.mov(core::eax, core::ebx);
+  asm_bb.mov(assm::eax, assm::ebx);
   asm_bb.ret();
 
   // Analyze the flow graph.
   liveness_.Analyze(&subgraph);
 
   liveness_.GetStateAtEntryOf(bb, &state_);
-  EXPECT_FALSE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::esi));
+  EXPECT_FALSE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::esi));
 
   liveness_.GetStateAtEntryOf(data, &state_);
-  EXPECT_TRUE(is_live(core::eax));
-  EXPECT_TRUE(is_live(core::ebx));
-  EXPECT_TRUE(is_live(core::esi));
+  EXPECT_TRUE(is_live(assm::eax));
+  EXPECT_TRUE(is_live(assm::ebx));
+  EXPECT_TRUE(is_live(assm::esi));
 }
 
 }  // namespace

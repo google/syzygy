@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/core/register.h"
+#include "syzygy/assm/register.h"
 
 #include "gtest/gtest.h"
 
-namespace core {
+namespace assm {
 
 TEST(RegisterTest, AllViewsOccupySameMemory) {
   // We expect the by-type arrays to be slices of the full register array.
@@ -72,4 +72,4 @@ TEST(RegisterTest, Comparison) {
   EXPECT_FALSE(eax != eax);
 }
 
-}  // namespace core
+}  // namespace assm

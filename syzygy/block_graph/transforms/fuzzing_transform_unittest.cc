@@ -55,8 +55,8 @@ TEST(LivenessFuzzingBasicBlockTransformTest, SingleBasicBlock) {
 
   // Insert instructions into basic block.
   BasicBlockAssembler assembly(bb->instructions().end(), &bb->instructions());
-  assembly.cmp(core::eax, Immediate(42, core::kSize32Bit));
-  assembly.mov(core::eax, Immediate(0, core::kSize32Bit));
+  assembly.cmp(assm::eax, Immediate(42, assm::kSize32Bit));
+  assembly.mov(assm::eax, Immediate(0, assm::kSize32Bit));
 
   // Transforms the basic block.
   DummyTransformPolicy policy;

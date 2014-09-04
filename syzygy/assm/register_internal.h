@@ -23,13 +23,13 @@
 // For converting between Syzygy registers and Distorm RegisterType refer to the
 // utilities in disassembler_util.
 
-#ifndef SYZYGY_CORE_REGISTER_INTERNAL_H_
-#define SYZYGY_CORE_REGISTER_INTERNAL_H_
+#ifndef SYZYGY_ASSM_REGISTER_INTERNAL_H_
+#define SYZYGY_ASSM_REGISTER_INTERNAL_H_
 
 #include "base/basictypes.h"
 #include "base/logging.h"
 
-namespace core {
+namespace assm {
 
 // An enum of known registers. The enums guarantee unique values for each
 // register at each precision. These are not intended to be used directly, but
@@ -174,6 +174,6 @@ typedef RegisterImpl<kSize8Bit> Register8;
 typedef RegisterImpl<kSize16Bit> Register16;
 typedef RegisterImpl<kSize32Bit> Register32;
 
-}  // namespace core
+}  // namespace assm
 
-#endif  // SYZYGY_CORE_REGISTER_INTERNAL_H_
+#endif  // SYZYGY_ASSM_REGISTER_INTERNAL_H_

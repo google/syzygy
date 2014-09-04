@@ -238,10 +238,10 @@ bool PeepholeTransform::RemoveDeadCodeSubgraph(BasicBlockSubGraph* subgraph) {
         has_side_effects = true;
 
       // Determine whether this instruction may modify a register used later.
-      uint32 id = core::kRegisterMin;
-      for (; id < core::kRegisterMax; ++id) {
-        core::RegisterId reg_id = static_cast<core::RegisterId>(id);
-        const core::Register& reg = core::Register::Get(reg_id);
+      uint32 id = assm::kRegisterMin;
+      for (; id < assm::kRegisterMax; ++id) {
+        assm::RegisterId reg_id = static_cast<assm::RegisterId>(id);
+        const assm::Register& reg = assm::Register::Get(reg_id);
         if (defs.IsLive(reg) && state.IsLive(reg)) {
           has_side_effects = true;
           break;
@@ -252,10 +252,10 @@ bool PeepholeTransform::RemoveDeadCodeSubgraph(BasicBlockSubGraph* subgraph) {
         has_side_effects = true;
 
       // Avoid stack manipulation.
-      if (defs.IsLive(core::ebp) ||
-          defs.IsLive(core::esp) ||
-          uses.IsLive(core::ebp) ||
-          defs.IsLive(core::esp)) {
+      if (defs.IsLive(assm::ebp) ||
+          defs.IsLive(assm::esp) ||
+          uses.IsLive(assm::ebp) ||
+          defs.IsLive(assm::esp)) {
         has_side_effects = true;
       }
 

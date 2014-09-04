@@ -294,10 +294,10 @@ bool MatchTrivialBody(const BasicBlockSubGraph& subgraph,
       LivenessAnalysis::State uses;
       LivenessAnalysis::StateHelper::GetUsesOf(instr, &uses);
 
-      if (defs.IsLive(core::esp) ||
-          defs.IsLive(core::ebp) ||
-          uses.IsLive(core::esp) ||
-          uses.IsLive(core::ebp)) {
+      if (defs.IsLive(assm::esp) ||
+          defs.IsLive(assm::ebp) ||
+          uses.IsLive(assm::esp) ||
+          uses.IsLive(assm::ebp)) {
         return false;
       }
     }
@@ -432,8 +432,8 @@ bool InlineTrivialBody(MatchKind kind,
     case kReturnConstantMatch:
       // Replace a 'ret 4' instruction by a 'lea %esp, [%esp + 0x4]'.
       // Instruction add cannot be used because flags must be preserved,
-      assembler.lea(core::esp,
-                    Operand(core::esp, Displacement(return_constant)));
+      assembler.lea(assm::esp,
+                    Operand(assm::esp, Displacement(return_constant)));
       break;
     case kDirectTrampolineMatch:
       DCHECK(reference.IsValid());

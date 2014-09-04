@@ -16,12 +16,12 @@
 // The API to the assembler is intentionally very close to the API exposed
 // by the V8 assembler (see src/ia32/assembler-ia32.* in V8 repository).
 
-#ifndef SYZYGY_CORE_ASSEMBLER_H_
-#define SYZYGY_CORE_ASSEMBLER_H_
+#ifndef SYZYGY_ASSM_ASSEMBLER_H_
+#define SYZYGY_ASSM_ASSEMBLER_H_
 
-#include "syzygy/core/register.h"
+#include "syzygy/assm/register.h"
 
-namespace core {
+namespace assm {
 
 // The condition codes by which conditional branches are determined. This enum
 // is taken from the V8 project, and has the property that the conditions are
@@ -387,6 +387,6 @@ class AssemblerImpl {
   InstructionSerializer* serializer_;
 };
 
-}  // namespace core
+}  // namespace assm
 
-#endif  // SYZYGY_CORE_ASSEMBLER_H_
+#endif  // SYZYGY_ASSM_ASSEMBLER_H_

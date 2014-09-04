@@ -174,7 +174,7 @@ class MemoryAccessAnalysis::State {
 
   // Contains active memory accesses. For each 32-bit base register, we keep a
   // set of distances (displacements) done via the base register.
-  std::set<int32> active_memory_accesses_[core::kRegister32Count];
+  std::set<int32> active_memory_accesses_[assm::kRegister32Count];
 
   friend class MemoryAccessAnalysis;
 };

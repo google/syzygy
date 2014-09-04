@@ -398,18 +398,18 @@ TEST_F(EntryThunkTransformTest, ParameterizedThunks) {
 
   EXPECT_FALSE(tx.EntryThunkIsParameterized());
   EXPECT_FALSE(tx.FunctionThunkIsParameterized());
-  EXPECT_EQ(core::kSizeNone, tx.entry_thunk_parameter().size());
-  EXPECT_EQ(core::kSizeNone, tx.function_thunk_parameter().size());
+  EXPECT_EQ(assm::kSizeNone, tx.entry_thunk_parameter().size());
+  EXPECT_EQ(assm::kSizeNone, tx.function_thunk_parameter().size());
 
   // We shouldn't be allowed to set an 8-bit parameter.
-  Immediate imm8(43, core::kSize8Bit);
+  Immediate imm8(43, assm::kSize8Bit);
   EXPECT_FALSE(tx.SetEntryThunkParameter(imm8));
   EXPECT_FALSE(tx.SetFunctionThunkParameter(imm8));
 
   EXPECT_FALSE(tx.EntryThunkIsParameterized());
   EXPECT_FALSE(tx.FunctionThunkIsParameterized());
-  EXPECT_EQ(core::kSizeNone, tx.entry_thunk_parameter().size());
-  EXPECT_EQ(core::kSizeNone, tx.function_thunk_parameter().size());
+  EXPECT_EQ(assm::kSizeNone, tx.entry_thunk_parameter().size());
+  EXPECT_EQ(assm::kSizeNone, tx.function_thunk_parameter().size());
 
   // A 32-bit parameter should be accepted just fine.
   Immediate imm32(static_cast<int32>(0x11223344));
@@ -427,8 +427,8 @@ TEST_F(EntryThunkTransformTest, ParameterizedThunks) {
 
   EXPECT_FALSE(tx.EntryThunkIsParameterized());
   EXPECT_FALSE(tx.FunctionThunkIsParameterized());
-  EXPECT_EQ(core::kSizeNone, tx.entry_thunk_parameter().size());
-  EXPECT_EQ(core::kSizeNone, tx.function_thunk_parameter().size());
+  EXPECT_EQ(assm::kSizeNone, tx.entry_thunk_parameter().size());
+  EXPECT_EQ(assm::kSizeNone, tx.function_thunk_parameter().size());
 }
 
 TEST_F(EntryThunkTransformTest, InstrumentAll) {

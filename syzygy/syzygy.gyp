@@ -31,6 +31,7 @@
         'agent/coverage/coverage.gyp:*',
         'agent/profiler/profiler.gyp:*',
         'ar/ar.gyp:*',
+        'assm/assm.gyp:*',
         'block_graph/analysis/block_graph_analysis.gyp:*',
         'block_graph/block_graph.gyp:*',
         'block_graph/transforms/block_graph_transforms.gyp:*',

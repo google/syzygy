@@ -18,10 +18,10 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/assm/assembler.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/block_graph.h"
-#include "syzygy/core/assembler.h"
 
 namespace block_graph {
 

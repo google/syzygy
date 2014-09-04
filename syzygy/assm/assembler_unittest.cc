@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/core/assembler.h"
+#include "syzygy/assm/assembler.h"
 
 #include <vector>
 #include "gtest/gtest.h"
 #include "syzygy/core/disassembler_util.h"
 
-namespace core {
+namespace assm {
 
 namespace {
 
-class TestSerializer : public core::AssemblerImpl::InstructionSerializer {
+class TestSerializer : public AssemblerImpl::InstructionSerializer {
  public:
   struct Reference {
     uint32 location;
@@ -166,10 +166,10 @@ TEST_F(AssemblerTest, Nop) {
     size_t instruction_count = 0;
     while (j < i) {
       _DInst instruction = {};
-      ASSERT_TRUE(DecodeOneInstruction(serializer_.code.data() + j,
-                                       i - j,
-                                       &instruction));
-      ASSERT_TRUE(IsNop(instruction));
+      ASSERT_TRUE(core::DecodeOneInstruction(serializer_.code.data() + j,
+                                             i - j,
+                                             &instruction));
+      ASSERT_TRUE(core::IsNop(instruction));
       j += instruction.size;
       ++instruction_count;
     }
@@ -1325,27 +1325,27 @@ TEST_F(AssemblerTest, Jnz) {
 
 TEST_F(AssemblerTest, Seto) {
   asm_.set_location(0xCAFEBABE);
-  asm_.set(kOverflow, core::eax);
+  asm_.set(kOverflow, eax);
   EXPECT_BYTES(0x0F, 0x90, 0xC0);
 }
 
 TEST_F(AssemblerTest, Setno) {
-  asm_.set(kNoOverflow, core::ebx);
+  asm_.set(kNoOverflow, ebx);
   EXPECT_BYTES(0x0F, 0x91, 0xC3);
 }
 
 TEST_F(AssemblerTest, Sete) {
-  asm_.set(kEqual, core::eax);
+  asm_.set(kEqual, eax);
   EXPECT_BYTES(0x0F, 0x94, 0xC0);
 }
 
 TEST_F(AssemblerTest, Setne) {
-  asm_.set(kNotEqual, core::eax);
+  asm_.set(kNotEqual, eax);
   EXPECT_BYTES(0x0F, 0x95, 0xC0);
 }
 
 TEST_F(AssemblerTest, Setb) {
-  asm_.set(kBelow, core::eax);
+  asm_.set(kBelow, eax);
   EXPECT_BYTES(0x0F, 0x92, 0xC0);
 }
 
@@ -1400,4 +1400,4 @@ TEST_F(AssemblerTest, References) {
   EXPECT_EQ(&ref4, serializer_.references[3].ref);
 }
 
-}  // namespace core
+}  // namespace assm

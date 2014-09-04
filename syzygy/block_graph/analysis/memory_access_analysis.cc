@@ -22,8 +22,8 @@
 //     instructions helper namespace, and shared between analysis. It is quite
 //     common to get the information on registers defined or used by an
 //     instruction, or the memory operand read and written.
+#include "syzygy/assm/assembler.h"
 #include "syzygy/block_graph/analysis/liveness_analysis_internal.h"
-#include "syzygy/core/assembler.h"
 
 #include "mnemonics.h"  // NOLINT
 
@@ -33,7 +33,7 @@ namespace analysis {
 namespace {
 
 using block_graph::Operand;
-typedef core::RegisterId RegisterId;
+typedef assm::RegisterId RegisterId;
 typedef block_graph::BasicBlockSubGraph::BasicBlock BasicBlock;
 typedef block_graph::BasicBlockSubGraph::BasicBlock::Instructions Instructions;
 
@@ -80,8 +80,8 @@ void MemoryAccessAnalysis::PropagateForward(const Instruction& instr,
     return;
   }
 
-  for (size_t r = 0; r < core::kRegister32Count; ++r) {
-    if (defs.IsLive(core::kRegisters32[r])) {
+  for (size_t r = 0; r < assm::kRegister32Count; ++r) {
+    if (defs.IsLive(assm::kRegisters32[r])) {
       // This register is modified, clear all memory accesses with this base.
       state->active_memory_accesses_[r].clear();
     }
@@ -99,7 +99,7 @@ bool MemoryAccessAnalysis::Intersect(const block_graph::BasicBlock* bb,
 
   bool changed = false;
   // Subtract non redundant memory accesses.
-  for (size_t r = 0; r < core::kRegister32Count; ++r) {
+  for (size_t r = 0; r < assm::kRegister32Count; ++r) {
     const std::set<int32>& from = state.active_memory_accesses_[r];
     std::set<int32>& to = bbentry_state->second.active_memory_accesses_[r];
 
@@ -209,7 +209,7 @@ MemoryAccessAnalysis::State::State() {
 }
 
 MemoryAccessAnalysis::State::State(const State& state) {
-  for (size_t r = 0; r < core::kRegister32Count; ++r) {
+  for (size_t r = 0; r < assm::kRegister32Count; ++r) {
     active_memory_accesses_[r] = state.active_memory_accesses_[r];
   }
 }
@@ -241,9 +241,9 @@ bool MemoryAccessAnalysis::State::HasNonRedundantAccess(
 
         // Simple memory dereference with optional displacement.
         RegisterId base_reg_id = core::GetRegisterId(op.index);
-        DCHECK_LE(core::kRegister32Min, base_reg_id);
-        DCHECK_LT(base_reg_id, core::kRegister32Max);
-        size_t base_reg = base_reg_id - core::kRegister32Min;
+        DCHECK_LE(assm::kRegister32Min, base_reg_id);
+        DCHECK_LT(base_reg_id, assm::kRegister32Max);
+        size_t base_reg = base_reg_id - assm::kRegister32Min;
 
         BasicBlockReference reference;
         if (instr.FindOperandReference(op_id, &reference))
@@ -283,9 +283,9 @@ void MemoryAccessAnalysis::State::Execute(const Instruction& instr) {
 
     // Simple memory dereference with optional displacement.
     RegisterId base_reg_id = core::GetRegisterId(op.index);
-    DCHECK_LE(core::kRegister32Min, base_reg_id);
-    DCHECK_LT(base_reg_id, core::kRegister32Max);
-    size_t base_reg = base_reg_id - core::kRegister32Min;
+    DCHECK_LE(assm::kRegister32Min, base_reg_id);
+    DCHECK_LT(base_reg_id, assm::kRegister32Max);
+    size_t base_reg = base_reg_id - assm::kRegister32Min;
 
     BasicBlockReference reference;
     if (instr.FindOperandReference(op_id, &reference))
@@ -296,7 +296,7 @@ void MemoryAccessAnalysis::State::Execute(const Instruction& instr) {
 }
 
 void MemoryAccessAnalysis::State::Clear() {
-  for (size_t r = 0; r < core::kRegister32Count; ++r) {
+  for (size_t r = 0; r < assm::kRegister32Count; ++r) {
     active_memory_accesses_[r].clear();
   }
 }

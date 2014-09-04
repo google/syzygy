@@ -235,7 +235,7 @@ void InliningTransformTest::CreateCalleeBlock(CalleeKind kind,
       break;
     }
     case kDirectTrampolineWithInstruction: {
-      assembler.push(core::eax);
+      assembler.push(assm::eax);
       Successor successor(
           Successor::kConditionTrue,
           BasicBlockReference(BlockGraph::PC_RELATIVE_REF, 4, target, 0, 0),

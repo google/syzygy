@@ -20,11 +20,14 @@
 #include <string>
 
 #include "base/basictypes.h"
-#include "syzygy/core/register.h"
+#include "syzygy/assm/register.h"
 #include "distorm.h"  // NOLINT
 #include "mnemonics.h"  // NOLINT
 
 namespace core {
+
+using assm::Register;
+using assm::RegisterId;
 
 // Wrapper for the distorm_decompose function to patch a bug in distorm. The
 // access size for I_FNSTCW and I_FLDCW dst operand is 0 instead of 16.

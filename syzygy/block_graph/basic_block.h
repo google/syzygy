@@ -25,10 +25,10 @@
 #define SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_H_
 
 #include "base/strings/string_piece.h"
+#include "syzygy/assm/assembler.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/block_graph/tags.h"
 #include "syzygy/common/align.h"
-#include "syzygy/core/assembler.h"
 #include "syzygy/core/disassembler_util.h"
 
 #include "distorm.h"  // NOLINT
@@ -246,7 +246,7 @@ class Instruction {
   typedef std::map<Offset, BasicBlockReference> BasicBlockReferenceMap;
 
   // The maximum size (in bytes) of an x86 instruction, per specs.
-  static const size_t kMaxSize = core::AssemblerImpl::kMaxInstructionLength;
+  static const size_t kMaxSize = assm::AssemblerImpl::kMaxInstructionLength;
 
   // A default constructed Instruction will be a single byte NOP.
   Instruction();
@@ -398,28 +398,28 @@ class Successor {
 
     // These correspond to the conditional branch instructions.
     // @{
-    kConditionAbove = core::kAbove,  // JA and JNBE.
-    kConditionAboveOrEqual = core::kAboveEqual,  // JAE, JNB and JNC.
-    kConditionBelow = core::kBelow,  // JB, JNAE and JC.
-    kConditionBelowOrEqual = core::kBelowEqual,  // JBE and JNA.
-    kConditionEqual = core::kEqual,  // JE and JZ.
-    kConditionGreater = core::kGreater,  // JG and JNLE.
-    kConditionGreaterOrEqual = core::kGreaterEqual,  // JGE and JNL.
-    kConditionLess = core::kLess,  // JL and JNGE.
-    kConditionLessOrEqual = core::kLessEqual,  // JLE and JNG.
-    kConditionNotEqual = core::kNotEqual,  // JNZ, JNE.
-    kConditionNotOverflow = core::kNoOverflow,  // JNO.
-    kConditionNotParity = core::kParityOdd,  // JNP and JPO.
-    kConditionNotSigned = core::kNotSign,  // JNS.
-    kConditionOverflow = core::kOverflow,  // JO.
-    kConditionParity = core::kParityEven,  // JP and JPE.
-    kConditionSigned = core::kSign,  // JS.
+    kConditionAbove = assm::kAbove,  // JA and JNBE.
+    kConditionAboveOrEqual = assm::kAboveEqual,  // JAE, JNB and JNC.
+    kConditionBelow = assm::kBelow,  // JB, JNAE and JC.
+    kConditionBelowOrEqual = assm::kBelowEqual,  // JBE and JNA.
+    kConditionEqual = assm::kEqual,  // JE and JZ.
+    kConditionGreater = assm::kGreater,  // JG and JNLE.
+    kConditionGreaterOrEqual = assm::kGreaterEqual,  // JGE and JNL.
+    kConditionLess = assm::kLess,  // JL and JNGE.
+    kConditionLessOrEqual = assm::kLessEqual,  // JLE and JNG.
+    kConditionNotEqual = assm::kNotEqual,  // JNZ, JNE.
+    kConditionNotOverflow = assm::kNoOverflow,  // JNO.
+    kConditionNotParity = assm::kParityOdd,  // JNP and JPO.
+    kConditionNotSigned = assm::kNotSign,  // JNS.
+    kConditionOverflow = assm::kOverflow,  // JO.
+    kConditionParity = assm::kParityEven,  // JP and JPE.
+    kConditionSigned = assm::kSign,  // JS.
 
     // Definitions for the bounding values for the conditional branches.
     // Note: that the maximum must be defined here to let all subsequent
     //     enum values be properly incremented.
-    kMinConditionalBranch = core::kMinConditionCode,
-    kMaxConditionalBranch = core::kMaxConditionCode,
+    kMinConditionalBranch = assm::kMinConditionCode,
+    kMaxConditionalBranch = assm::kMaxConditionCode,
 
     // Unconditional control flow instructions.
     // @{
