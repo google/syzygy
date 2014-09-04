@@ -138,20 +138,23 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
   // greatest number of stack frames.
   StackCapture stack;
   stack.InitFromStack();
-  block.header->state = ALLOCATED_BLOCK;
   block.header->alloc_stack = stack_cache_->SaveStackTrace(stack);
   block.header->free_stack = NULL;
+  block.header->state = ALLOCATED_BLOCK;
+
   block.trailer->heap_id = heap_id;
 
   BlockSetChecksum(block);
   Shadow::PoisonAllocatedBlock(block);
+  BlockProtectRedzones(block);
+
   return block.body;
 }
 
 bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   DCHECK_NE(static_cast<HeapId>(NULL), heap_id);
 
-   // The standard allows calling free on a null pointer.
+  // The standard allows calling free on a null pointer.
   if (alloc == NULL)
     return true;
 
@@ -163,6 +166,9 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
     // Assume that this block was allocated without guards.
     return reinterpret_cast<BlockHeapInterface*>(heap_id)->Free(alloc);
   }
+
+  // Precondition: A valid guarded allocation.
+  BlockProtectNone(block_info);
 
   if (!BlockChecksumIsValid(block_info)) {
     // The free stack hasn't yet been set, but may have been filled with junk.
@@ -215,6 +221,12 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   BlockSetChecksum(block_info);
 
   if (quarantine->Push(block_info.header)) {
+    // The recently pushed block can be popped out in TrimQuarantine if the
+    // quarantine size is 0, in that case TrimQuarantine takes care of properly
+    // unprotecting and freeing the block. If the protection is set blindly
+    // after TrimQuarantine we could end up protecting a free (not quarantined,
+    // not allocated) block.
+    BlockProtectAll(block_info);
     TrimQuarantine(quarantine);
   } else {
     return FreePristineBlock(&block_info);
@@ -317,6 +329,9 @@ bool BlockHeapManager::DestroyHeapUnlocked(
     // that something went terribly wrong and that the shadow has been
     // corrupted, there's nothing we can do in this case.
     CHECK(Shadow::BlockInfoFromShadow(*iter_block, &block_info));
+
+    // Remove protection to be able to access to the block header.
+    BlockProtectNone(block_info);
     if (reinterpret_cast<BlockHeapInterface*>(block_info.trailer->heap_id) ==
         heap) {
       if (!FreePotentiallyCorruptBlock(&block_info))
@@ -325,10 +340,20 @@ bool BlockHeapManager::DestroyHeapUnlocked(
       blocks_to_reinsert.push_back(*iter_block);
     }
   }
+
   // Restore the blocks that don't belong to this quarantine.
   iter_block = blocks_to_reinsert.begin();
-  for (; iter_block != blocks_to_reinsert.end(); ++iter_block)
-    quarantine->Push(*iter_block);
+  for (; iter_block != blocks_to_reinsert.end(); ++iter_block) {
+    BlockInfo block_info = {};
+    CHECK(Shadow::BlockInfoFromShadow(*iter_block, &block_info));
+    if (quarantine->Push(*iter_block)) {
+      // Restore protection to quarantined block.
+      BlockProtectAll(block_info);
+    } else {
+      // Avoid memory leak.
+      CHECK(FreePotentiallyCorruptBlock(&block_info));
+    }
+  }
 
   UnderlyingHeapMap::iterator iter = underlying_heaps_map_.find(heap);
 
@@ -370,6 +395,9 @@ void BlockHeapManager::TrimQuarantine(BlockQuarantineInterface* quarantine) {
 
 bool BlockHeapManager::FreePotentiallyCorruptBlock(BlockInfo* block_info) {
   DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
+
+  BlockProtectNone(*block_info);
+
   if (block_info->header->magic != kBlockHeaderMagic ||
       !BlockChecksumIsValid(*block_info)) {
     ReportHeapError(block_info->block, CORRUPT_BLOCK);
@@ -397,6 +425,8 @@ bool BlockHeapManager::FreePristineBlock(BlockInfo* block_info) {
     //     doesn't have the kHeapSupportsIsAllocated feature.
     return false;
   }
+
+  BlockProtectNone(*block_info);
 
   // Return pointers to the stacks for reference counting purposes.
   if (block_info->header->alloc_stack != NULL) {

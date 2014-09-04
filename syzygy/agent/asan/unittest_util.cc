@@ -16,7 +16,10 @@
 
 #include "syzygy/agent/asan/unittest_util.h"
 
+#include <algorithm>
+
 #include "base/environment.h"
+#include "base/debug/alias.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -46,6 +49,81 @@ namespace {
 
 FARPROC check_access_fn = NULL;
 bool direction_flag_forward = true;
+
+// An exception filter that grabs and sets an exception pointer, and
+// triggers only for access violations.
+DWORD AccessViolationFilter(EXCEPTION_POINTERS* e, EXCEPTION_POINTERS** pe) {
+  if (e->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+    *pe = e;
+    return EXCEPTION_EXECUTE_HANDLER;
+  }
+  return EXCEPTION_CONTINUE_SEARCH;
+}
+
+// Tries to access the given address, validating whether or not an
+// access violation occurs.
+bool TestReadAccess(void* address, bool expect_access_violation) {
+  uint8* m = reinterpret_cast<uint8*>(address);
+  ULONG_PTR p = reinterpret_cast<ULONG_PTR>(address);
+
+  // Try a read.
+  uint8 value = 0;
+  EXCEPTION_POINTERS* e = NULL;
+  __try {
+    value = m[0];
+    if (expect_access_violation)
+      return false;
+  }
+  __except(AccessViolationFilter(GetExceptionInformation(), &e)) {
+    if (!expect_access_violation)
+      return false;
+    if (e->ExceptionRecord == NULL ||
+      e->ExceptionRecord->NumberParameters < 2 ||
+      e->ExceptionRecord->ExceptionInformation[1] != p) {
+      return false;
+    }
+    return true;
+  }
+
+  // Ensure that |value| doesn't get optimized away. If so, the attempted
+  // read never occurs.
+  base::debug::Alias(&value);
+
+  return true;
+}
+
+// Tries to write at the given address, validating whether or not an
+// access violation occurs.
+bool TestWriteAccess(void* address, bool expect_access_violation) {
+  uint8* m = reinterpret_cast<uint8*>(address);
+  ULONG_PTR p = reinterpret_cast<ULONG_PTR>(address);
+
+  // Try a write.
+  EXCEPTION_POINTERS* e = NULL;
+  __try {
+    m[0] = 0;
+    if (expect_access_violation)
+      return false;
+  }
+  __except(AccessViolationFilter(GetExceptionInformation(), &e)) {
+    if (!expect_access_violation)
+      return false;
+    if (e->ExceptionRecord == NULL ||
+      e->ExceptionRecord->NumberParameters < 2 ||
+      e->ExceptionRecord->ExceptionInformation[1] != p) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// Tries to access (read/write) at the given address, validating whether or
+// not an access violation occurs.
+bool TestAccess(void* address, bool expect_access_violation) {
+  return TestReadAccess(address, expect_access_violation) &&
+    TestWriteAccess(address, expect_access_violation);
+}
 
 }  // namespace
 
@@ -586,6 +664,14 @@ void MemoryAccessorTester::ExpectSpecialMemoryErrorIsDetected(
 
   EXPECT_EQ(expect_error, memory_error_detected_);
   check_access_fn = NULL;
+}
+
+bool IsAccessible(void* address) {
+  return testing::TestAccess(address, false);
+}
+
+bool IsNotAccessible(void* address) {
+  return testing::TestAccess(address, true);
 }
 
 }  // namespace testing

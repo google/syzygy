@@ -409,6 +409,7 @@ void BlockSetChecksum(const BlockInfo& block_info) {
 void BlockProtectNone(const BlockInfo& block_info) {
   if (block_info.block_pages_size == 0)
     return;
+  DCHECK_NE(static_cast<uint8*>(NULL), block_info.block_pages);
   DWORD old_protection = 0;
   DWORD ret = ::VirtualProtect(block_info.block_pages,
                                block_info.block_pages_size,
@@ -423,6 +424,7 @@ void BlockProtectRedzones(const BlockInfo& block_info) {
   DWORD old_protection = 0;
   DWORD ret = 0;
   if (block_info.left_redzone_pages_size > 0) {
+    DCHECK_NE(static_cast<uint8*>(NULL), block_info.left_redzone_pages);
     ret = ::VirtualProtect(block_info.left_redzone_pages,
                            block_info.left_redzone_pages_size,
                            PAGE_NOACCESS, &old_protection);
@@ -431,6 +433,7 @@ void BlockProtectRedzones(const BlockInfo& block_info) {
 
   // Protect the right redzone pages if any.
   if (block_info.right_redzone_pages_size > 0) {
+    DCHECK_NE(static_cast<uint8*>(NULL), block_info.right_redzone_pages);
     ret = ::VirtualProtect(block_info.right_redzone_pages,
                            block_info.right_redzone_pages_size,
                            PAGE_NOACCESS, &old_protection);
@@ -441,6 +444,7 @@ void BlockProtectRedzones(const BlockInfo& block_info) {
 void BlockProtectAll(const BlockInfo& block_info) {
   if (block_info.block_pages_size == 0)
     return;
+  DCHECK_NE(static_cast<uint8*>(NULL), block_info.block_pages);
   DWORD old_protection = 0;
   DWORD ret = ::VirtualProtect(block_info.block_pages,
                                block_info.block_pages_size,

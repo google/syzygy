@@ -463,7 +463,6 @@ bool Shadow::BlockInfoFromShadowImpl(
   BlockIdentifyWholePages(info);
 
   // Check if the block is nested.
-  info->header->is_nested = is_nested;
   info->is_nested = is_nested;
 
   return true;

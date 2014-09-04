@@ -16,6 +16,8 @@
 #define SYZYGY_AGENT_ASAN_UNITTEST_UTIL_H_
 
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "base/file_util.h"
 #include "base/files/scoped_temp_dir.h"
@@ -512,6 +514,17 @@ class DummyHeap : public agent::asan::HeapInterface {
   virtual void Lock() { return; }
   virtual void Unlock() { return; }
 };
+
+// Test read and write access.
+// Use carefully, since it will try to overwrite the value at @p address with 0.
+// @returns true if the address is readable and writable, false otherwise.
+bool IsAccessible(void* address);
+
+// Test read and write access.
+// Use carefully, since it will try to overwrite the value at @p address with 0.
+// @returns true if the address is neither readable nor writable,
+//     false otherwise.
+bool IsNotAccessible(void* address);
 
 }  // namespace testing
 
