@@ -541,9 +541,9 @@ bool AsanRuntime::GetAsanFlagsEnvVar(std::wstring* env_var_wstr) {
 void AsanRuntime::PropagateParams() {
   // This function has to be kept in sync with the AsanParameters struct. These
   // checks will ensure that this is the case.
-  COMPILE_ASSERT(sizeof(common::AsanParameters) == 52,
+  COMPILE_ASSERT(sizeof(common::AsanParameters) == 56,
                  must_update_propagate_params);
-  COMPILE_ASSERT(common::kAsanParametersVersion == 5,
+  COMPILE_ASSERT(common::kAsanParametersVersion == 6,
                  must_update_parameters_version);
 
   // Push the configured parameter values to the appropriate endpoints.

@@ -82,6 +82,10 @@ TEST(AsanParametersTest, SetDefaultAsanParameters) {
   EXPECT_EQ(kDefaultEnableCtMalloc, static_cast<bool>(aparams.enable_ctmalloc));
   EXPECT_EQ(kDefaultEnableZebraBlockHeap,
             static_cast<bool>(aparams.enable_zebra_block_heap));
+  EXPECT_EQ(kDefaultEnableLargeBlockHeap,
+            static_cast<bool>(aparams.enable_large_block_heap));
+  EXPECT_EQ(kDefaultLargeAllocationThreshold,
+            aparams.large_allocation_threshold);
 }
 
 TEST(AsanParametersTest, InflateAsanParametersStackIdsPastEnd) {
@@ -224,6 +228,10 @@ TEST(AsanParametersTest, ParseAsanParametersMinimal) {
             static_cast<bool>(iparams.enable_ctmalloc));
   EXPECT_EQ(kDefaultEnableZebraBlockHeap,
             static_cast<bool>(iparams.enable_zebra_block_heap));
+  EXPECT_EQ(kDefaultEnableLargeBlockHeap,
+            static_cast<bool>(iparams.enable_large_block_heap));
+  EXPECT_EQ(kDefaultLargeAllocationThreshold,
+            iparams.large_allocation_threshold);
 }
 
 TEST(AsanParametersTest, ParseAsanParametersMaximal) {
@@ -245,7 +253,9 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
       L"--zebra_block_heap_size=8388608 "
       L"--zebra_block_heap_quarantine_ratio=0.5 "
       L"--enable_ctmalloc "
-      L"--enable_zebra_block_heap";
+      L"--enable_zebra_block_heap "
+      L"--enable_large_block_heap "
+      L"--large_allocation_threshold=4096";
 
   InflatedAsanParameters iparams;
   SetDefaultAsanParameters(&iparams);
@@ -272,6 +282,8 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
   EXPECT_EQ(0.5, iparams.zebra_block_heap_quarantine_ratio);
   EXPECT_TRUE(static_cast<bool>(iparams.enable_ctmalloc));
   EXPECT_TRUE(static_cast<bool>(iparams.enable_zebra_block_heap));
+  EXPECT_TRUE(static_cast<bool>(iparams.enable_large_block_heap));
+  EXPECT_EQ(4096, iparams.large_allocation_threshold);
 }
 
 }  // namespace common

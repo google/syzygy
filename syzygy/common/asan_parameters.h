@@ -37,6 +37,8 @@ namespace common {
 // the StackCaptureCache.
 typedef uint32 AsanStackId;
 
+static const size_t kAsanParametersReserved1Bits = 24;
+
 // This data structure is injected into an instrumented image in a read-only
 // section. It is initialized by the instrumenter, and will be looked up at
 // runtime by the SyzyAsan RTL. Values in this structure (if present) will
@@ -104,10 +106,13 @@ struct AsanParameters {
       // ZebraBlockHeap: If true the ZebraBlockHeap will be used by the heap
       // manager.
       unsigned enable_zebra_block_heap : 1;
+      // LargeBlockHeap: If true then the LargeBlockHeap will be used by the
+      // heap manager.
+      unsigned enable_large_block_heap : 1;
 
       // Add new flags here!
 
-      unsigned reserved1 : 25;
+      unsigned reserved1 : kAsanParametersReserved1Bits;
     };
   };
 
@@ -122,17 +127,28 @@ struct AsanParameters {
   // ZebraBlockHeap: The ratio of the memory used for the quarantine.
   float zebra_block_heap_quarantine_ratio;
 
+  // LargeBlockHeap: The minimum size of allocations that will be passed to
+  // the large block heap.
+  uint32 large_allocation_threshold;
+
   // Add new parameters here!
 
   // When laid out in memory the ignored_stack_ids are present here as a NULL
   // terminated vector.
 };
-COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 52);
+COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 56);
 
 // The current version of the ASAN parameters structure. This must be updated
 // if any changes are made to the above structure! This is defined in the header
 // file to allow compile time assertions against this version number.
-const uint32 kAsanParametersVersion = 5u;
+const uint32 kAsanParametersVersion = 6u;
+
+// If the number of free bits in the parameters struct changes, then the
+// version has to change as well. This is simply here to make sure that
+// everything changes in lockstep.
+COMPILE_ASSERT(kAsanParametersReserved1Bits == 24 &&
+                   kAsanParametersVersion == 6,
+               version_must_change_if_reserved_bits_changes);
 
 // The name of the section that will be injected into an instrumented image,
 // and contain the AsanParameters structure. ASAN can't use your typical entry
@@ -210,6 +226,9 @@ extern const float kDefaultZebraBlockHeapQuarantineRatio;
 // Default values of the BlockHeapManager parameters.
 extern const bool kDefaultEnableCtMalloc;
 extern const bool kDefaultEnableZebraBlockHeap;
+// Default values of LargeBlockHeap parameters.
+extern const bool kDefaultEnableLargeBlockHeap;
+extern const size_t kDefaultLargeAllocationThreshold;
 
 // String names of HeapProxy parameters.
 extern const char kParamQuarantineSize[];
@@ -234,6 +253,9 @@ extern const char kParamZebraBlockHeapQuarantineRatio[];
 // String names of BlockHeapManager parameters.
 extern const char kParamEnableCtMalloc[];
 extern const char kParamEnableZebraBlockHeap[];
+// String names of LargeBlockHeap parameters.
+extern const char kParamEnableLargeBlockHeap[];
+extern const char kParamLargeAllocationThreshold[];
 
 // Initializes an AsanParameters struct with default values.
 // @param asan_parameters The AsanParameters struct to be initialized.

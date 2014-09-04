@@ -162,6 +162,13 @@ const float kDefaultZebraBlockHeapQuarantineRatio = 0.25f;
 const bool kDefaultEnableCtMalloc = false;
 const bool kDefaultEnableZebraBlockHeap = false;
 
+// Default values of LargeBlockHeap parameters.
+extern const bool kDefaultEnableLargeBlockHeap = false;
+// We want to maintain an allocation overhead of around 45%, which has been
+// our historic average for Chrome. Overhead in this heap is 2 pages, so want
+// 2 / 0.45 = 4.44 < 5 page minimum.
+extern const size_t kDefaultLargeAllocationThreshold = 5 * 4096;
+
 // String names of HeapProxy parameters.
 const char kParamQuarantineSize[] = "quarantine_size";
 const char kParamQuarantineBlockSize[] = "quarantine_block_size";
@@ -193,6 +200,10 @@ const char kParamZebraBlockHeapQuarantineRatio[] =
 // String names of BlockHeapManager parameters.
 const char kParamEnableCtMalloc[] = "enable_ctmalloc";
 const char kParamEnableZebraBlockHeap[] = "enable_zebra_block_heap";
+
+// String names of LargeBlockHeap parameters.
+const char kParamEnableLargeBlockHeap[] = "enable_large_block_heap";
+const char kParamLargeAllocationThreshold[] = "large_allocation_threshold";
 
 InflatedAsanParameters::InflatedAsanParameters() {
   // Clear the AsanParameters portion of ourselves.
@@ -264,13 +275,16 @@ void SetDefaultAsanParameters(AsanParameters* asan_parameters) {
       kDefaultZebraBlockHeapQuarantineRatio;
   asan_parameters->enable_ctmalloc = kDefaultEnableCtMalloc;
   asan_parameters->enable_zebra_block_heap = kDefaultEnableZebraBlockHeap;
+  asan_parameters->enable_zebra_block_heap = kDefaultEnableLargeBlockHeap;
+  asan_parameters->large_allocation_threshold =
+      kDefaultLargeAllocationThreshold;
 }
 
 bool InflateAsanParameters(const AsanParameters* pod_params,
                            InflatedAsanParameters* inflated_params) {
   // This must be kept up to date with AsanParameters as it evolves.
   static const size_t kSizeOfAsanParametersByVersion[] =
-      { 40, 44, 48, 52, 52, 52 };
+      { 40, 44, 48, 52, 52, 52, 56 };
   COMPILE_ASSERT(arraysize(kSizeOfAsanParametersByVersion) ==
                      kAsanParametersVersion + 1,
                  kSizeOfAsanParametersByVersion_out_of_date);
@@ -395,6 +409,13 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
     return false;
   }
 
+  // Parse the large block heap allocation threshold.
+  if (UpdateUint32FromCommandLine::Do(cmd_line,
+          kParamLargeAllocationThreshold,
+          &asan_parameters->large_allocation_threshold) == kFlagError) {
+    return false;
+  }
+
   // Parse the other (boolean) flags.
   if (cmd_line.HasSwitch(kParamMiniDumpOnFailure))
     asan_parameters->minidump_on_failure = true;
@@ -410,6 +431,8 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
     asan_parameters->enable_ctmalloc = true;
   if (cmd_line.HasSwitch(kParamEnableZebraBlockHeap))
     asan_parameters->enable_zebra_block_heap = true;
+  if (cmd_line.HasSwitch(kParamEnableLargeBlockHeap))
+    asan_parameters->enable_large_block_heap = true;
 
   return true;
 }
