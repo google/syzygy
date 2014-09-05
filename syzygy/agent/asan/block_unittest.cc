@@ -163,38 +163,38 @@ TEST(BlockTest, EndToEnd) {
   BlockInfo block_info = {};
 
   BlockPlanLayout(8, 8, 4, 0, 0, &layout);
-  void* block_data = ::malloc(layout.block_size);
+  scoped_ptr<uint8> block_data(new uint8[layout.block_size]);
+  ::memset(block_data.get(), 0, layout.block_size);
   ASSERT_TRUE(block_data != NULL);
-  BlockInitialize(layout, block_data, false, &block_info);
+  BlockInitialize(layout, block_data.get(), false, &block_info);
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
-  ::free(block_data);
-  block_data = NULL;
+  block_data.reset(NULL);
 
   BlockPlanLayout(8, 8, 61, 0, 0, &layout);
-  block_data = ::malloc(layout.block_size);
+  block_data.reset(new uint8[layout.block_size]);
+  ::memset(block_data.get(), 0, layout.block_size);
   ASSERT_TRUE(block_data != NULL);
-  BlockInitialize(layout, block_data, false, &block_info);
+  BlockInitialize(layout, block_data.get(), false, &block_info);
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
-  ::free(block_data);
-  block_data = NULL;
+  block_data.reset(NULL);
 
   BlockPlanLayout(8, 8, 60, 32, 32, &layout);
-  block_data = ::malloc(layout.block_size);
+  block_data.reset(new uint8[layout.block_size]);
+  ::memset(block_data.get(), 0, layout.block_size);
   ASSERT_TRUE(block_data != NULL);
-  BlockInitialize(layout, block_data, false, &block_info);
+  BlockInitialize(layout, block_data.get(), false, &block_info);
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
-  ::free(block_data);
-  block_data = NULL;
+  block_data.reset(NULL);
 
   // Do an allocation that uses entire pages.
   BlockPlanLayout(4096, 8, 100, 4096, 4096, &layout);
-  block_data = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
+  void* data = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
                               PAGE_READWRITE);
-  ASSERT_TRUE(block_data != NULL);
-  BlockInitialize(layout, block_data, false, &block_info);
+  ::memset(data, 0, layout.block_size);
+  ASSERT_TRUE(data != NULL);
+  BlockInitialize(layout, data, false, &block_info);
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
-  ASSERT_EQ(TRUE, ::VirtualFree(block_data, 0, MEM_RELEASE));
-  block_data = NULL;
+  ASSERT_EQ(TRUE, ::VirtualFree(data, 0, MEM_RELEASE));
 }
 
 TEST(BlockTest, GetHeaderFromBody) {
@@ -204,11 +204,12 @@ TEST(BlockTest, GetHeaderFromBody) {
   BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout1);
   BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 32, 0, &layout2);
 
-  uint8* data = new uint8[layout2.block_size];
+  scoped_ptr<uint8> data(new uint8[layout2.block_size]);
+  ::memset(data.get(), 0, layout2.block_size);
 
   // First try navigating a block without header padding.
   BlockInfo info = {};
-  BlockInitialize(layout1, data, false, &info);
+  BlockInitialize(layout1, data.get(), false, &info);
   // This should succeed as expected.
   EXPECT_EQ(info.header, BlockGetHeaderFromBody(info.body));
   // This fails because of invalid alignment.
@@ -225,7 +226,7 @@ TEST(BlockTest, GetHeaderFromBody) {
   EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == NULL);
 
   // Now navigate a block with header padding.
-  BlockInitialize(layout2, data, false, &info);
+  BlockInitialize(layout2, data.get(), false, &info);
   // This should succeed as expected.
   EXPECT_EQ(info.header, BlockGetHeaderFromBody(info.body));
   // This fails because of invalid alignment.
@@ -250,8 +251,6 @@ TEST(BlockTest, GetHeaderFromBody) {
   --(*tail);
   ++(*head);
   EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == NULL);
-
-  delete[] data;
 }
 
 TEST(BlockTest, GetHeaderFromBodyProtectedMemory) {
@@ -277,6 +276,7 @@ TEST(BlockTest, BlockInfoFromMemory) {
   BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 32, 0, &layout2);
 
   scoped_ptr<uint8> data(new uint8[layout2.block_size]);
+  ::memset(data.get(), 0, layout2.block_size);
 
   // First recover a block without header padding.
   BlockInfo info = {};
@@ -323,6 +323,32 @@ TEST(BlockTest, BlockInfoFromMemory) {
   }
 }
 
+TEST(BlockTest, BlockInfoFromMemoryInvalidPadding) {
+  BlockLayout layout = {};
+  BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 4 * sizeof(BlockHeader), 0,
+      &layout);
+
+  scoped_ptr<uint8> data(new uint8[layout.block_size]);
+  ::memset(data.get(), 0, layout.block_size);
+
+  BlockInfo info = {};
+  BlockInitialize(layout, data.get(), false, &info);
+  EXPECT_TRUE(info.header->has_header_padding = 1);
+  BlockInfo info_recovered = {};
+  EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
+  EXPECT_EQ(info, info_recovered);
+
+  // Invalidates the padding size and make sure that we can't retrieve the block
+  // information.
+  size_t* padding_size = reinterpret_cast<size_t*>(info.header + 1);
+  EXPECT_GE(*padding_size, 2 * sizeof(uint32));
+  for (*padding_size = 0;
+       *padding_size < 2 * sizeof(uint32);
+       ++(*padding_size)) {
+    EXPECT_FALSE(BlockInfoFromMemory(info.block, &info_recovered));
+  }
+}
+
 TEST(BlockTest, BlockInfoFromMemoryProtectedMemory) {
   BlockLayout layout = {};
   BlockPlanLayout(4096, 4096, 4096, 4096, 4096, &layout);
@@ -357,16 +383,16 @@ TEST(BlockTest, BlockInfoFromMemoryForNestedBlock) {
 TEST(BlockTest, ChecksumWorksForAllStates) {
   BlockLayout layout = {};
   BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout);
-  uint8* data = new uint8[layout.block_size];
+  scoped_ptr<uint8> data(new uint8[layout.block_size]);
+  ::memset(data.get(), 0, layout.block_size);
   BlockInfo info = {};
-  BlockInitialize(layout, data, false, &info);
+  BlockInitialize(layout, data.get(), false, &info);
   while (true) {
     BlockCalculateChecksum(info);
     ++info.header->state;
     if (info.header->state == 0)
       break;
   }
-  delete[] data;
 }
 
 namespace {

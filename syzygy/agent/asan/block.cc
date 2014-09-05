@@ -137,6 +137,8 @@ bool BlockInfoFromMemoryImpl(const void* const_raw_block,
     uint8* padding = reinterpret_cast<uint8*>(header + 1);
     uint32* head = reinterpret_cast<uint32*>(padding);
     header_padding_size = *head;
+    if (header_padding_size < 2 * sizeof(uint32))
+      return false;
     if (!IsAligned(header_padding_size, kShadowRatio))
       return false;
     uint32* tail = reinterpret_cast<uint32*>(
