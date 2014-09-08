@@ -110,3 +110,6 @@ EXPORTS
   asan_SetInterceptorCallback
   asan_GetActiveRuntime
 
+  ; AllocationFilterFlag functions.
+  asan_SetAllocationFilterFlag
+  asan_ClearAllocationFilterFlag

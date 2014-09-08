@@ -25,6 +25,7 @@
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture.h"
 #include "syzygy/agent/asan/windows_heap_adapter.h"
+#include "syzygy/agent/asan/heap_managers/block_heap_manager.h"
 #include "syzygy/agent/common/scoped_last_error_keeper.h"
 
 namespace {
@@ -35,6 +36,7 @@ using agent::asan::HeapManagerInterface;
 using agent::asan::Shadow;
 using agent::asan::TestStructure;
 using agent::asan::WindowsHeapAdapter;
+using agent::asan::heap_managers::BlockHeapManager;
 
 HANDLE process_heap = NULL;
 HeapManagerInterface::HeapId asan_process_heap = NULL;
@@ -213,6 +215,16 @@ void WINAPI asan_SetCallBack(AsanErrorCallBack callback) {
 // Unittesting seam.
 AsanRuntime* WINAPI asan_GetActiveRuntime() {
   return asan_runtime;
+}
+
+void WINAPI asan_SetAllocationFilterFlag() {
+  DCHECK_NE(reinterpret_cast<AsanRuntime*>(NULL), asan_runtime);
+  asan_runtime->set_allocation_filter_flag(true);
+}
+
+void WINAPI asan_ClearAllocationFilterFlag() {
+  DCHECK_NE(reinterpret_cast<AsanRuntime*>(NULL), asan_runtime);
+  asan_runtime->set_allocation_filter_flag(false);
 }
 
 }  // extern "C"

@@ -183,7 +183,9 @@ class TestWithAsanLogger : public testing::Test {
        LPDWORD bytes_written, LPOVERLAPPED overlapped),  \
       (file_handle, buffer, bytes_to_write, bytes_written, overlapped))  \
     F(_cdecl, void, SetInterceptorCallback, (void (*callback)()), (callback))  \
-    F(WINAPI, agent::asan::AsanRuntime*, GetActiveRuntime, (), ())
+    F(WINAPI, agent::asan::AsanRuntime*, GetActiveRuntime, (), ())  \
+    F(WINAPI, void, SetAllocationFilterFlag, (), ())  \
+    F(WINAPI, void, ClearAllocationFilterFlag, (), ())
 
 // Declare pointer types for the intercepted functions.
 #define DECLARE_ASAN_FUNCTION_PTR(convention, ret, name, args, argnames) \

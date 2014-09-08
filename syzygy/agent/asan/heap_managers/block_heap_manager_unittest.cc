@@ -23,6 +23,7 @@
 #include "base/debug/alias.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/agent/asan/asan_rtl_impl.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/heap.h"
@@ -114,6 +115,7 @@ class TestBlockHeapManager : public BlockHeapManager {
   using BlockHeapManager::parameters_;
   using BlockHeapManager::zebra_block_heap_;
   using BlockHeapManager::large_block_heap_;
+  using BlockHeapManager::allocation_filter_flag_tls_;
 
   // A derived class to expose protected members for unit-testing. This has to
   // be nested into this one because ShardedBlockQuarantine accesses some
@@ -1243,6 +1245,16 @@ TEST_F(BlockHeapManagerTest, LargeBlockHeapNotUsedForSmallAllocations) {
   }
 
   EXPECT_TRUE(heap.Free(alloc));
+}
+
+TEST_F(BlockHeapManagerTest, AllocationFilterFlag) {
+  EXPECT_NE(TLS_OUT_OF_INDEXES, heap_manager_->allocation_filter_flag_tls_);
+  heap_manager_->set_allocation_filter_flag(true);
+  EXPECT_TRUE(heap_manager_->allocation_filter_flag());
+  heap_manager_->set_allocation_filter_flag(false);
+  EXPECT_FALSE(heap_manager_->allocation_filter_flag());
+  heap_manager_->set_allocation_filter_flag(true);
+  EXPECT_TRUE(heap_manager_->allocation_filter_flag());
 }
 
 }  // namespace heap_managers

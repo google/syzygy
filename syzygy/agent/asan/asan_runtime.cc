@@ -726,6 +726,14 @@ void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
   }
 }
 
+bool AsanRuntime::allocation_filter_flag() {
+  return heap_manager_->allocation_filter_flag();
+}
+
+void AsanRuntime::set_allocation_filter_flag(bool value) {
+  heap_manager_->set_allocation_filter_flag(value);
+}
+
 LONG WINAPI AsanRuntime::UnhandledExceptionFilter(
     struct _EXCEPTION_POINTERS* exception) {
   // This ensures that we don't have multiple colliding crashes being processed

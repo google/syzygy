@@ -604,5 +604,15 @@ TEST_F(AsanRtlTest, AsanSpecialInstructionCheckShortcutAccess) {
   FreeMemoryBuffers();
 }
 
+TEST_F(AsanRtlTest, AllocationFilterFlag) {
+  agent::asan::AsanRuntime* runtime = GetActiveRuntimeFunction();
+  SetAllocationFilterFlagFunction();
+  EXPECT_TRUE(runtime->allocation_filter_flag());
+  ClearAllocationFilterFlagFunction();
+  EXPECT_FALSE(runtime->allocation_filter_flag());
+  SetAllocationFilterFlagFunction();
+  EXPECT_TRUE(runtime->allocation_filter_flag());
+}
+
 }  // namespace asan
 }  // namespace agent

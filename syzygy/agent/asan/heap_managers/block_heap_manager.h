@@ -101,6 +101,18 @@ class BlockHeapManager : public HeapManagerInterface {
   // Returns the process heap.
   HeapId process_heap() { return reinterpret_cast<HeapId>(process_heap_); }
 
+  // Returns the allocation-filter flag value.
+  // @returns the allocation-filter flag value.
+  // @note The flag is stored per-thread using TLS. Multiple threads do not
+  //     share the same flag.
+  bool allocation_filter_flag();
+
+  // Sets the allocation-filter flag to the specified value.
+  // @param value the new value for the flag.
+  // @note The flag is stored per-thread using TLS. Multiple threads do not
+  //     share the same flag.
+  void set_allocation_filter_flag(bool value);
+
  protected:
   // The type of quarantine that we use internally.
   typedef quarantines::ShardedQuarantine<BlockHeader*,
@@ -223,6 +235,9 @@ class BlockHeapManager : public HeapManagerInterface {
   // Lifetime management is provided by the HeapQuarantineMap so this is
   // simply a useful pointer for finding it directly.
   heaps::LargeBlockHeap* large_block_heap_;
+
+  // Stores the AllocationFilterFlag TLS slot.
+  DWORD allocation_filter_flag_tls_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BlockHeapManager);

@@ -51,6 +51,12 @@ BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
   underlying_heaps_map_.insert(std::make_pair(process_heap_,
                                               process_heap_underlying_heap));
   heaps_.insert(std::make_pair(process_heap_, &shared_quarantine_));
+
+  // Initialize the allocation-filter flag (using Thread Local Storage).
+  allocation_filter_flag_tls_ = ::TlsAlloc();
+  CHECK_NE(TLS_OUT_OF_INDEXES, allocation_filter_flag_tls_);
+  // And disable it by default.
+  set_allocation_filter_flag(false);
 }
 
 BlockHeapManager::~BlockHeapManager() {
@@ -65,6 +71,12 @@ BlockHeapManager::~BlockHeapManager() {
   // Clear the specialized heap references since they were deleted.
   zebra_block_heap_ = NULL;
   large_block_heap_ = NULL;
+
+  // Free the allocation-filter flag (TLS).
+  CHECK_NE(TLS_OUT_OF_INDEXES, allocation_filter_flag_tls_);
+  ::TlsFree(allocation_filter_flag_tls_);
+  // Invalidate the TLS slot.
+  allocation_filter_flag_tls_ = TLS_OUT_OF_INDEXES;
 }
 
 HeapId BlockHeapManager::CreateHeap() {
@@ -322,6 +334,14 @@ void BlockHeapManager::PropagateParameters() {
   //     maximum block size? This will require an entirely new TrimQuarantine
   //     function. Since this is never changed at runtime except in our
   //     unittests, this is not clearly useful.
+}
+
+bool BlockHeapManager::allocation_filter_flag() {
+  return reinterpret_cast<bool>(::TlsGetValue(allocation_filter_flag_tls_));
+}
+
+void BlockHeapManager::set_allocation_filter_flag(bool value) {
+  ::TlsSetValue(allocation_filter_flag_tls_, reinterpret_cast<void*>(value));
 }
 
 bool BlockHeapManager::DestroyHeapUnlocked(

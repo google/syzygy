@@ -252,7 +252,6 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       common::InitLoggingForDll(L"asan");
 
       SetUpAsanRuntime();
-
       break;
 
     case DLL_THREAD_ATTACH:

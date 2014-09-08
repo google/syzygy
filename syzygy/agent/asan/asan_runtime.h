@@ -122,6 +122,18 @@ class AsanRuntime {
     return heap_manager_->process_heap();
   }
 
+  // Returns the allocation-filter flag value.
+  // @returns the allocation-filter flag value.
+  // @note The flag is stored per-thread using TLS. Multiple threads do not
+  //     share the same flag.
+  bool allocation_filter_flag();
+
+  // Sets the allocation-filter flag to the specified value.
+  // @param value the new value for the flag.
+  // @note The flag is stored per-thread using TLS. Multiple threads do not
+  //     share the same flag.
+  void set_allocation_filter_flag(bool value);
+
  protected:
   // Propagate the values of the flags to the target modules.
   void PropagateParams();

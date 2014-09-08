@@ -87,6 +87,10 @@ BOOL WINAPI asan_HeapQueryInformation(
 typedef void (*AsanErrorCallBack)(agent::asan::AsanErrorInfo*);
 void WINAPI asan_SetCallBack(AsanErrorCallBack callback);
 
+void WINAPI asan_SetAllocationFilterFlag();
+
+void WINAPI asan_ClearAllocationFilterFlag();
+
 }  // extern "C"
 
 #endif  // SYZYGY_AGENT_ASAN_ASAN_RTL_IMPL_H_
