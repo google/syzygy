@@ -735,5 +735,63 @@ TEST(BlockTest, ProtectionTransitions) {
       4096, 8, 67, 0, 0));
 }
 
+TEST(BlockTest, BlockProtectAuto) {
+  BlockLayout layout = {};
+  BlockPlanLayout(kPageSize, kPageSize, kPageSize, kPageSize, kPageSize,
+                  &layout);
+  void* alloc = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
+                               PAGE_READWRITE);
+  ASSERT_TRUE(alloc != NULL);
+
+  BlockInfo block_info = {};
+  BlockInitialize(layout, alloc, false, &block_info);
+  TestAccessUnderProtection(block_info, kProtectNone);
+
+  block_info.header->state = ALLOCATED_BLOCK;
+  BlockProtectAuto(block_info);
+  TestAccessUnderProtection(block_info, kProtectRedzones);
+  BlockProtectNone(block_info);
+
+  block_info.header->state = QUARANTINED_BLOCK;
+  BlockProtectAuto(block_info);
+  TestAccessUnderProtection(block_info, kProtectAll);
+  BlockProtectNone(block_info);
+
+  block_info.header->state = FREED_BLOCK;
+  BlockProtectAuto(block_info);
+  TestAccessUnderProtection(block_info, kProtectAll);
+  BlockProtectNone(block_info);
+
+  ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
+}
+
+TEST(BlockTest, ScopedBlockAccess) {
+  BlockLayout layout = {};
+  BlockPlanLayout(kPageSize, kPageSize, kPageSize, kPageSize, kPageSize,
+                  &layout);
+  void* alloc = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
+                               PAGE_READWRITE);
+  ASSERT_TRUE(alloc != NULL);
+
+  BlockInfo block_info = {};
+  BlockInitialize(layout, alloc, false, &block_info);
+  TestAccessUnderProtection(block_info, kProtectNone);
+
+  block_info.header->state = FREED_BLOCK;
+  BlockProtectAuto(block_info);
+  TestAccessUnderProtection(block_info, kProtectAll);
+
+  {
+    ScopedBlockAccess block_access(block_info);
+    TestAccessUnderProtection(block_info, kProtectNone);
+  }
+
+  // And check that it restores protection on destruction.
+  TestAccessUnderProtection(block_info, kProtectAll);
+
+  BlockProtectNone(block_info);
+  ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
+}
+
 }  // namespace asan
 }  // namespace agent

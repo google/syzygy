@@ -31,6 +31,24 @@ using testing::FakeAsanBlock;
 
 }  // namespace
 
+TEST_F(HeapCheckerTest, HeapCheckerHandlesPageProtections) {
+  // Make a large allocation bigger than a couple pages. This will ensure
+  // that its big enough to have page protections. The HeapChecker will have
+  // to unset these in order to do its work successfully. Otherwise it will
+  // cause an access violation.
+  FakeAsanBlock fake_large_block(kShadowRatioLog, runtime_.stack_cache());
+  fake_large_block.InitializeBlock(2 * kPageSize);
+  base::RandBytes(fake_large_block.block_info.body, 2 * kPageSize);
+  fake_large_block.MarkBlockAsQuarantined();
+  BlockProtectAll(fake_large_block.block_info);
+
+  HeapChecker heap_checker;
+  HeapChecker::CorruptRangesVector corrupt_ranges;
+  EXPECT_FALSE(heap_checker.IsHeapCorrupt(&corrupt_ranges));
+
+  BlockProtectNone(fake_large_block.block_info);
+}
+
 TEST_F(HeapCheckerTest, IsHeapCorruptInvalidChecksum) {
   const size_t kAllocSize = 100;
   FakeAsanBlock fake_block(kShadowRatioLog, runtime_.stack_cache());

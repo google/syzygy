@@ -149,81 +149,6 @@ class TestShadow : public Shadow {
   using Shadow::shadow_;
 };
 
-// Utility class to automatically manage block access.
-// Nest carefully and use Unprotect to ensure access, since it blindly sets
-// (not restores) protections when exiting scope.
-// A block will be protected upon exiting scope according to the 'state'
-// flag on the block header, not according to the previous protection.
-// Can be safely used on unguarded blocks too since it has no effect on
-// unguarded blocks.
-class ScopedBlockAccess {
- public:
-  // Constructor. Removes the page protections of the whole block.
-  // @param block_info Block-related information.
-  // @note It has no effect on unguarded blocks.
-  explicit ScopedBlockAccess(BlockInfo* block_info) {
-    DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
-    guarded_block_ = true;
-    block_info_ = *block_info;
-    Unprotect();
-  }
-
-  // Constructor. Removes the page protections of the whole block.
-  // @param block_body pointer to the body of the block.
-  // @note It has no effect on unguarded blocks.
-  explicit ScopedBlockAccess(void* block_body) {
-    DCHECK_NE(static_cast<void*>(NULL), block_body);
-    guarded_block_ = Shadow::IsBeginningOfBlockBody(block_body);
-    if (guarded_block_) {
-      ::memset(&block_info_, 0, sizeof(BlockInfo));
-      CHECK(Shadow::BlockInfoFromShadow(block_body, &block_info_));
-      Unprotect();
-    }
-  }
-
-  // Removes the page protections of the whole block.
-  void Unprotect() {
-    if (guarded_block_)
-      BlockProtectNone(block_info_);
-  }
-
-  // Enable the page protections of the whole block based on the 'state' flag
-  // of the block header.
-  void Protect() {
-    if (!guarded_block_)
-      return;
-
-    // Always unlock first to ensure access to the block header.
-    // This should mitigate bugs due to nesting.
-    Unprotect();
-    switch (block_info_.header->state) {
-      case QUARANTINED_BLOCK:
-        BlockProtectAll(block_info_);
-        break;
-      case ALLOCATED_BLOCK:
-        BlockProtectRedzones(block_info_);
-        break;
-      case FREED_BLOCK:  // Do not protect free blocks.
-        break;
-      default:
-        NOTREACHED() << "Unknown block state";
-    }
-  }
-
-  // Destructor.
-  // Enable the page protections of the whole block based on the 'state' flag
-  // of the block header.
-  ~ScopedBlockAccess() {
-    Protect();
-  }
-
- private:
-  // Marks if the block is guarded of not.
-  bool guarded_block_;
-  // Block-related information. Ignored if the block is unguarded.
-  BlockInfo block_info_;
-};
-
 // A utility class for manipulating a heap. This automatically delete the heap
 // and its content in the destructor and provides some utility functions.
 class ScopedHeap {
@@ -1016,7 +941,7 @@ TEST_F(BlockHeapManagerTest, ZebraHeapIdInTrailerAfterAllocation) {
   EXPECT_TRUE(Shadow::BlockInfoFromShadow(alloc, &block_info));
 
   {
-    ScopedBlockAccess block_access(&block_info);
+    ScopedBlockAccess block_access(block_info);
     // The heap_id stored in the block trailer should match the zebra heap id.
     EXPECT_EQ(reinterpret_cast<HeapId>(test_zebra_block_heap_),
         block_info.trailer->heap_id);
@@ -1042,7 +967,7 @@ TEST_F(BlockHeapManagerTest, DefaultHeapIdInTrailerWhenZebraHeapIsFull) {
   BlockInfo block_info = {};
   EXPECT_TRUE(Shadow::BlockInfoFromShadow(alloc, &block_info));
   {
-    ScopedBlockAccess block_access(&block_info);
+    ScopedBlockAccess block_access(block_info);
     // The heap_id stored in the block trailer match the provided heap.
     EXPECT_EQ(heap.Id(), block_info.trailer->heap_id);
   }
@@ -1085,7 +1010,7 @@ TEST_F(BlockHeapManagerTest, QuarantinedAfterFree) {
   EXPECT_TRUE(Shadow::BlockInfoFromShadow(alloc, &block_info));
 
   {
-    ScopedBlockAccess block_access(&block_info);
+    ScopedBlockAccess block_access(block_info);
     EXPECT_EQ(QUARANTINED_BLOCK, block_info.header->state);
   }
 }
@@ -1150,7 +1075,7 @@ TEST_F(BlockHeapManagerTest, AllocatedBlockIsProtected) {
     EXPECT_TRUE(IsAccessible(block_info.body + i));
 
   {
-    ScopedBlockAccess block_access(&block_info);
+    ScopedBlockAccess block_access(block_info);
     EXPECT_EQ(ALLOCATED_BLOCK, block_info.header->state);
   }
 
@@ -1193,7 +1118,7 @@ TEST_F(BlockHeapManagerTest, QuarantinedBlockIsProtected) {
       EXPECT_TRUE(IsNotAccessible(block_info.body + i));
 
     {
-      ScopedBlockAccess block_access(&block_info);
+      ScopedBlockAccess block_access(block_info);
       EXPECT_EQ(QUARANTINED_BLOCK, block_info.header->state);
     }
   }
@@ -1221,7 +1146,7 @@ TEST_F(BlockHeapManagerTest, NonQuarantinedBlockIsMarkedAsFreed) {
     ASSERT_NO_FATAL_FAILURE(Shadow::IsAccessible(block_info.block + i));
 
   {
-    ScopedBlockAccess block_access(&block_info);
+    ScopedBlockAccess block_access(block_info);
     EXPECT_EQ(FREED_BLOCK, block_info.header->state);
   }
 }
@@ -1254,7 +1179,7 @@ TEST_F(BlockHeapManagerTest, ZebraBlockHeapQuarantineRatioIsRespected) {
     EXPECT_LE(test_zebra_block_heap_->GetCount(), max_quarantine_size);
 
     {
-      ScopedBlockAccess block_access(&block_info);
+      ScopedBlockAccess block_access(block_info);
       EXPECT_EQ(QUARANTINED_BLOCK, block_info.header->state);
     }
   }

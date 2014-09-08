@@ -333,6 +333,33 @@ void BlockProtectRedzones(const BlockInfo& block_info);
 // current state.
 // @param block_info The block whose protections are to be modified.
 void BlockProtectAll(const BlockInfo& block_info);
+
+// Sets the block protections according to the block state. If in the allocated
+// state uses BlockProtectRedzones. If in quarantined or freed uses
+// BlockProtectAll.
+// @param block_info The block whose protections are to be modified.
+// @note Assumes that the block header is readable.
+void BlockProtectAuto(const BlockInfo& block_info);
+
+// A scoped block access helper. Removes block protections when created via
+// BlockProtectNone, and restores them via BlockProtectAuto.
+class ScopedBlockAccess {
+ public:
+  // Constructor. Unprotects the provided block.
+  // @param block_info The block whose protections are to be modified.
+  explicit ScopedBlockAccess(const BlockInfo& block_info)
+      : block_info_(block_info) {
+    BlockProtectNone(block_info_);
+  }
+
+  // Destructor. Restores protections on the provided block.
+  ~ScopedBlockAccess() {
+    BlockProtectAuto(block_info_);
+  }
+
+ private:
+  const BlockInfo& block_info_;
+};
 // @}
 
 }  // namespace asan

@@ -454,6 +454,25 @@ void BlockProtectAll(const BlockInfo& block_info) {
   DCHECK_NE(0u, ret);
 }
 
+void BlockProtectAuto(const BlockInfo& block_info) {
+  switch (block_info.header->state) {
+    // An allocated block has an accessible body but protected redzones.
+    case ALLOCATED_BLOCK: {
+      BlockProtectRedzones(block_info);
+      break;
+    }
+
+    // No part of a quarantined or freed block is accessible.
+    case QUARANTINED_BLOCK:
+    case FREED_BLOCK: {
+      BlockProtectAll(block_info);
+      break;
+    }
+
+    default: NOTREACHED();
+  }
+}
+
 // Identifies whole pages in the given block_info.
 void BlockIdentifyWholePages(BlockInfo* block_info) {
   DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
