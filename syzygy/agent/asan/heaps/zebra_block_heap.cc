@@ -25,6 +25,11 @@ namespace heaps {
 
 const size_t ZebraBlockHeap::kSlabSize = 2 * kPageSize;
 
+const size_t ZebraBlockHeap::kMaximumAllocationSize = kPageSize;
+
+const size_t ZebraBlockHeap::kMaximumBlockAllocationSize =
+    kPageSize - sizeof(BlockHeader);
+
 ZebraBlockHeap::ZebraBlockHeap(size_t heap_size,
                                MemoryNotifierInterface* memory_notifier,
                                HeapInterface* internal_heap)

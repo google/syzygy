@@ -73,6 +73,14 @@ class ZebraBlockHeap : public BlockHeapInterface,
   // The size of a 2-page slab (2 * kPageSize).
   static const size_t kSlabSize;
 
+  // The maximum raw allocation size. Anything bigger than this will always
+  // fail a call to 'Allocate'.
+  static const size_t kMaximumAllocationSize;
+
+  // The maximum size of a block body that can be allocated. Anything bigger
+  // than this will always fail a call to 'AllocateBlock'.
+  static const size_t kMaximumBlockAllocationSize;
+
   // Constructor.
   // @param heap_size The amount of memory reserved by the heap in bytes.
   // @param memory_notifier The MemoryNotifierInterface used to report

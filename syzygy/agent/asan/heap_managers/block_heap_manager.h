@@ -30,6 +30,7 @@
 #include "syzygy/agent/asan/quarantine.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/agent/asan/heaps/internal_heap.h"
+#include "syzygy/agent/asan/heaps/large_block_heap.h"
 #include "syzygy/agent/asan/heaps/win_heap.h"
 #include "syzygy/agent/asan/heaps/zebra_block_heap.h"
 #include "syzygy/agent/asan/memory_notifiers/shadow_memory_notifier.h"
@@ -186,7 +187,8 @@ class BlockHeapManager : public HeapManagerInterface {
   // Contains the heaps owned by this manager.
   HeapQuarantineMap heaps_;  // Under lock_.
 
-  // The quarantine shared by the heaps created by this manager.
+  // The quarantine shared by the heaps created by this manager. This is also
+  // used by the LargeBlockHeap.
   ShardedBlockQuarantine shared_quarantine_;
 
   // Map the block heaps to their underlying heap.
@@ -216,6 +218,11 @@ class BlockHeapManager : public HeapManagerInterface {
   // HeapQuarantineMap, this is simply a useful pointer for finding the
   // zebra heap directly.
   heaps::ZebraBlockHeap* zebra_block_heap_;
+
+  // Points to the LargeBlockHeap instance used by this heap manager.
+  // Lifetime management is provided by the HeapQuarantineMap so this is
+  // simply a useful pointer for finding it directly.
+  heaps::LargeBlockHeap* large_block_heap_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BlockHeapManager);

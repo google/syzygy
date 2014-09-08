@@ -113,6 +113,7 @@ class TestBlockHeapManager : public BlockHeapManager {
   using BlockHeapManager::heaps_;
   using BlockHeapManager::parameters_;
   using BlockHeapManager::zebra_block_heap_;
+  using BlockHeapManager::large_block_heap_;
 
   // A derived class to expose protected members for unit-testing. This has to
   // be nested into this one because ShardedBlockQuarantine accesses some
@@ -318,6 +319,15 @@ class BlockHeapManagerTest : public testing::TestWithAsanRuntime {
     heap_manager_->set_parameters(params);
   }
 
+  void EnableLargeBlockHeap(size_t large_allocation_threshold) {
+    common::AsanParameters params = heap_manager_->parameters();
+    params.enable_large_block_heap = true;
+    params.large_allocation_threshold = large_allocation_threshold;
+    heap_manager_->set_parameters(params);
+    CHECK_NE(reinterpret_cast<heaps::LargeBlockHeap*>(NULL),
+             heap_manager_->large_block_heap_);
+  }
+
   // Verifies that [alloc, alloc + size) is accessible, and that
   // [alloc - 1] and [alloc+size] are poisoned.
   void VerifyAllocAccess(void* alloc, size_t size) {
@@ -349,7 +359,7 @@ class BlockHeapManagerTest : public testing::TestWithAsanRuntime {
   // Info about the last errors reported.
   std::vector<AsanErrorInfo> errors_;
 
-  // The mock ZebraBlockHeap used in those tests.
+  // The mock ZebraBlockHeap used in the tests.
   TestZebraBlockHeap* test_zebra_block_heap_;
 };
 
@@ -1183,6 +1193,56 @@ TEST_F(BlockHeapManagerTest, ZebraBlockHeapQuarantineRatioIsRespected) {
       EXPECT_EQ(QUARANTINED_BLOCK, block_info.header->state);
     }
   }
+}
+
+// Ensures that the LargeBlockHeap overrides the provided heap if the allocation
+// size exceeds the threshold.
+TEST_F(BlockHeapManagerTest, LargeBlockHeapUsedForLargeAllocations) {
+  EnableLargeBlockHeap(kPageSize);
+  ScopedHeap heap(heap_manager_.get());
+
+  const size_t kAllocSize = kPageSize + 0x100;
+  void* alloc = heap.Allocate(kAllocSize);
+  EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+  ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
+
+  // Get the heap_id from the block trailer.
+  BlockInfo block_info = {};
+  EXPECT_TRUE(Shadow::BlockInfoFromShadow(alloc, &block_info));
+
+  {
+    ScopedBlockAccess block_access(block_info);
+    BlockHeapInterface* large_block_heap = heap_manager_->large_block_heap_;
+    // The heap_id stored in the block trailer should match the large block
+    // heap id.
+    EXPECT_EQ(reinterpret_cast<HeapId>(large_block_heap),
+              block_info.trailer->heap_id);
+  }
+
+  EXPECT_TRUE(heap.Free(alloc));
+}
+
+// Ensures that the LargeBlockHeap is not used for a small allocation.
+TEST_F(BlockHeapManagerTest, LargeBlockHeapNotUsedForSmallAllocations) {
+  EnableLargeBlockHeap(kPageSize);
+  ScopedHeap heap(heap_manager_.get());
+
+  const size_t kAllocSize = 0x100;
+  void* alloc = heap.Allocate(kAllocSize);
+  EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+  ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
+
+  // Get the heap_id from the block trailer.
+  BlockInfo block_info = {};
+  EXPECT_TRUE(Shadow::BlockInfoFromShadow(alloc, &block_info));
+
+  {
+    ScopedBlockAccess block_access(block_info);
+    // The provided heap ID should be the one in the block trailer.
+    EXPECT_EQ(heap.Id(), block_info.trailer->heap_id);
+  }
+
+  EXPECT_TRUE(heap.Free(alloc));
 }
 
 }  // namespace heap_managers

@@ -30,14 +30,16 @@ namespace heap_managers {
 namespace {
 
 typedef HeapManagerInterface::HeapId HeapId;
+using heaps::LargeBlockHeap;
 using heaps::ZebraBlockHeap;
 
 }  // namespace
 
 BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
     : stack_cache_(stack_cache),
+      internal_heap_(&shadow_memory_notifier_, &internal_win_heap_),
       zebra_block_heap_(NULL),
-      internal_heap_(&shadow_memory_notifier_, &internal_win_heap_) {
+      large_block_heap_(NULL) {
   DCHECK_NE(static_cast<StackCaptureCache*>(NULL), stack_cache);
   SetDefaultAsanParameters(&parameters_);
   PropagateParameters();
@@ -60,8 +62,9 @@ BlockHeapManager::~BlockHeapManager() {
   heaps_.clear();
 
   process_heap_ = NULL;
-  // Clear the zebra heap reference since it was deleted.
+  // Clear the specialized heap references since they were deleted.
   zebra_block_heap_ = NULL;
+  large_block_heap_ = NULL;
 }
 
 HeapId BlockHeapManager::CreateHeap() {
@@ -102,32 +105,43 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
     return alloc;
   }
 
+  // Build the set of heaps that will be used to satisfy the allocation. This
+  // is a stack of heaps, and they will be tried in the reverse order they are
+  // inserted.
+  BlockHeapInterface* heaps[3] = {
+      reinterpret_cast<BlockHeapInterface*>(heap_id), 0, 0 };
+  size_t heap_count = 1;
+  if (parameters_.enable_zebra_block_heap &&
+      bytes <= ZebraBlockHeap::kMaximumBlockAllocationSize) {
+    DCHECK_NE(reinterpret_cast<ZebraBlockHeap*>(NULL), zebra_block_heap_);
+    DCHECK_LT(heap_count, arraysize(heaps));
+    heaps[heap_count++] = zebra_block_heap_;
+  }
+  if (parameters_.enable_large_block_heap &&
+      bytes >= parameters_.large_allocation_threshold) {
+    DCHECK_NE(reinterpret_cast<LargeBlockHeap*>(NULL), large_block_heap_);
+    DCHECK_LT(heap_count, arraysize(heaps));
+    heaps[heap_count++] = large_block_heap_;
+  }
+
+  // Use the selected heaps to try to satisfy the allocation.
   void* alloc = NULL;
   BlockLayout block_layout = {};
-
-  // Always try to allocate in the zebra heap.
-  if (parameters_.enable_zebra_block_heap) {
-    CHECK_NE(reinterpret_cast<heaps::ZebraBlockHeap*>(NULL),
-             zebra_block_heap_);
-
-    alloc = zebra_block_heap_->AllocateBlock(
+  for (int i = static_cast<int>(heap_count) - 1; i >= 0; --i) {
+    alloc = heaps[i]->AllocateBlock(
         bytes,
         0,
         parameters_.trailer_padding_size + sizeof(BlockTrailer),
         &block_layout);
-
-    if (alloc != NULL)
-      heap_id = reinterpret_cast<HeapId>(zebra_block_heap_);
+    if (alloc != NULL) {
+      heap_id = reinterpret_cast<HeapId>(heaps[i]);
+      break;
+    }
   }
 
-  // Fallback to the provided heap.
-  if (alloc == NULL) {
-    alloc = reinterpret_cast<BlockHeapInterface*>(heap_id)->AllocateBlock(
-        bytes,
-        0,
-        parameters_.trailer_padding_size + sizeof(BlockTrailer),
-        &block_layout);
-  }
+  // The allocation can fail if we're out of memory.
+  if (alloc == NULL)
+    return NULL;
 
   DCHECK_NE(reinterpret_cast<void*>(NULL), alloc);
   DCHECK_EQ(0u, reinterpret_cast<size_t>(alloc) % kShadowRatio);
@@ -295,6 +309,13 @@ void BlockHeapManager::PropagateParameters() {
     zebra_block_heap_->set_quarantine_ratio(
         parameters_.zebra_block_heap_quarantine_ratio);
     TrimQuarantine(zebra_block_heap_);
+  }
+
+  // Create the LargeBlockHeap if need be.
+  if (parameters_.enable_large_block_heap && large_block_heap_ == NULL) {
+    base::AutoLock lock(lock_);
+    large_block_heap_ = new LargeBlockHeap(&internal_heap_);
+    heaps_.insert(std::make_pair(large_block_heap_, &shared_quarantine_));
   }
 
   // TODO(chrisha|sebmarchand): Clean up existing blocks that exceed the
