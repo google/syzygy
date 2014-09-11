@@ -21,9 +21,11 @@
       'target_name': 'asm_lib',
       'type': 'static_library',
       'sources': [
-        'assembler.cc',
+        'assembler_base.h',
+        'assembler_base_impl.h',
         'assembler.h',
         'cond.h',
+        'const.h',
         'operand_base.h',
         'register_internal.h',
         'register.cc',

@@ -200,15 +200,15 @@ TEST_F(AssemblerTest, Jmp) {
   asm_.jmp(ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
   EXPECT_BYTES(0xEB, 0xFE);
 
-  ASSERT_EQ(1, AssemblerImpl::kShortJumpOpcodeSize);
-  ASSERT_EQ(2, AssemblerImpl::kShortJumpSize);
+  ASSERT_EQ(1, kShortJumpOpcodeSize);
+  ASSERT_EQ(2, kShortJumpSize);
 
   // Immediate 32-bit reach jmp.
   asm_.jmp(ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
   EXPECT_BYTES(0xE9, 0xF9, 0xFF, 0xFF, 0xFF);
 
-  ASSERT_EQ(1, AssemblerImpl::kLongJumpOpcodeSize);
-  ASSERT_EQ(5, AssemblerImpl::kLongJumpSize);
+  ASSERT_EQ(1, kLongJumpOpcodeSize);
+  ASSERT_EQ(5, kLongJumpSize);
 
   // Indirect jmp - we test only one operand encoding, as the others
   // are well covered in the mov instruction.
@@ -1114,14 +1114,14 @@ TEST_F(AssemblerTest, Ja) {
   asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize8Bit, NULL));
   EXPECT_BYTES(0x77, 0xFE);
 
-  ASSERT_EQ(1, AssemblerImpl::kShortBranchOpcodeSize);
-  ASSERT_EQ(2, AssemblerImpl::kShortBranchSize);
+  ASSERT_EQ(1, kShortBranchOpcodeSize);
+  ASSERT_EQ(2, kShortBranchSize);
 
   asm_.j(cc, ImmediateImpl(0xCAFEBABE, kSize32Bit, NULL));
   EXPECT_BYTES(0x0F, 0x87, 0xF8, 0xFF, 0xFF, 0xFF);
 
-  ASSERT_EQ(2, AssemblerImpl::kLongBranchOpcodeSize);
-  ASSERT_EQ(6, AssemblerImpl::kLongBranchSize);
+  ASSERT_EQ(2, kLongBranchOpcodeSize);
+  ASSERT_EQ(6, kLongBranchSize);
 }
 
 TEST_F(AssemblerTest, Jae) {

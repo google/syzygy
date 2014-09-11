@@ -123,7 +123,7 @@ LivenessAnalysisTest::LivenessAnalysisTest()
 template<size_t N>
 void LivenessAnalysisTest::UpdateDefsUsesFromBuffer(const uint8 (& data)[N]) {
   // Decode an instruction.
-  DCHECK_GT(assm::AssemblerImpl::kMaxInstructionLength, N);
+  DCHECK_GT(assm::kMaxInstructionLength, N);
 
   block_graph::Instruction temp;
   ASSERT_TRUE(block_graph::Instruction::FromBuffer(&data[0], N, &temp));
@@ -139,7 +139,7 @@ void LivenessAnalysisTest::UpdateDefsUsesFromBuffer(const uint8 (& data)[N]) {
 template<size_t N>
 void LivenessAnalysisTest::AddInstructionFromBuffer(const uint8 (& data)[N]) {
   // Decode an instruction and append it to basicblock_.
-  DCHECK_GT(assm::AssemblerImpl::kMaxInstructionLength, N);
+  DCHECK_GT(assm::kMaxInstructionLength, N);
 
   block_graph::Instruction temp;
   ASSERT_TRUE(block_graph::Instruction::FromBuffer(&data[0], N, &temp));

@@ -199,8 +199,8 @@ class AsanTransformTest : public testing::TestDllTransformTest {
   }
 
   bool AddInstructionFromBuffer(const uint8* data, size_t length) {
-    DCHECK(data != NULL);
-    DCHECK(length < assm::AssemblerImpl::kMaxInstructionLength);
+    EXPECT_NE(static_cast<const uint8*>(NULL), data);
+    EXPECT_GE(assm::kMaxInstructionLength, length);
 
     block_graph::Instruction temp;
     if (!block_graph::Instruction::FromBuffer(data, length, &temp))
@@ -806,13 +806,13 @@ bool EnumKernel32HeapImports(const PEImage &image,
                              unsigned long hint,
                              PIMAGE_THUNK_DATA iat,
                              void* cookie) {
-  DCHECK(module != NULL);
-  DCHECK(cookie != NULL);
+  EXPECT_NE(static_cast<const char*>(NULL), module);
+  EXPECT_NE(static_cast<void*>(NULL), cookie);
 
   StringVector* modules = reinterpret_cast<StringVector*>(cookie);
 
   if (_stricmp("kernel32.dll", module) == 0 && strncmp("Heap", name, 4) == 0) {
-    DCHECK(name != NULL);
+    EXPECT_NE(static_cast<const char*>(NULL), name);
     modules->push_back(name);
   }
 
@@ -826,8 +826,8 @@ bool EnumKernel32InterceptedFunctionsImports(const PEImage &image,
                                              unsigned long hint,
                                              PIMAGE_THUNK_DATA iat,
                                              void* cookie) {
-  DCHECK(module != NULL);
-  DCHECK(cookie != NULL);
+  EXPECT_NE(static_cast<const char*>(NULL), module);
+  EXPECT_NE(static_cast<void*>(NULL), cookie);
 
   StringVector* modules = reinterpret_cast<StringVector*>(cookie);
   static const char* kInterceptedFunctions[] = {
@@ -839,7 +839,7 @@ bool EnumKernel32InterceptedFunctionsImports(const PEImage &image,
   if (_stricmp("kernel32.dll", module) == 0) {
     for (size_t i = 0; i < arraysize(kInterceptedFunctions); ++i) {
       if (base::strcasecmp(kInterceptedFunctions[i], name) == 0) {
-        DCHECK(name != NULL);
+        EXPECT_NE(static_cast<const char*>(NULL), name);
         modules->push_back(name);
         return true;
       }
@@ -856,13 +856,13 @@ bool EnumAsanImports(const PEImage &image,
                      unsigned long hint,
                      PIMAGE_THUNK_DATA iat,
                      void* cookie) {
-  DCHECK(module != NULL);
-  DCHECK(cookie != NULL);
+  EXPECT_NE(static_cast<const char*>(NULL), module);
+  EXPECT_NE(static_cast<void*>(NULL), cookie);
 
   StringSet* modules = reinterpret_cast<StringSet*>(cookie);
 
   if (strcmp(kAsanRtlDll, module) == 0) {
-    DCHECK(name != NULL);
+    EXPECT_NE(static_cast<const char*>(NULL), name);
     modules->insert(name);
   }
 
@@ -876,8 +876,8 @@ bool GetAsanHooksIATEntries(const PEImage &image,
                             unsigned long hint,
                             PIMAGE_THUNK_DATA iat,
                             void* cookie) {
-  DCHECK(module != NULL);
-  DCHECK(cookie != NULL);
+  EXPECT_NE(static_cast<const char*>(NULL), module);
+  EXPECT_NE(static_cast<void*>(NULL), cookie);
 
   FunctionsIATAddressSet* hooks_iat_entries =
       reinterpret_cast<FunctionsIATAddressSet*>(cookie);
@@ -885,7 +885,7 @@ bool GetAsanHooksIATEntries(const PEImage &image,
   if (strcmp(kAsanRtlDll, module) != 0)
     return true;
 
-  DCHECK(name != NULL);
+  EXPECT_NE(static_cast<const char*>(NULL), name);
 
   // Ensures that the function is an asan_check_access hook.
   if (StartsWithASCII(name, "asan_check_", true /* case sensitive */))
@@ -1030,7 +1030,7 @@ namespace {
 size_t CountCoffSymbolReferences(const BlockGraph::Block* symbols_block,
                                  const pe::CoffSymbolNameOffsetMap& symbol_map,
                                  const base::StringPiece& name) {
-  DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), symbols_block);
+  EXPECT_NE(reinterpret_cast<BlockGraph::Block*>(NULL), symbols_block);
 
   pe::CoffSymbolNameOffsetMap::const_iterator symbol_it =
       symbol_map.find(name.as_string());

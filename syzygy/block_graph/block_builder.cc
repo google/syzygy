@@ -1074,11 +1074,11 @@ Size MergeContext::GetShortSuccessorSize(Successor::Condition condition) {
     case Successor::kConditionParity:
     case Successor::kConditionSigned:
       // Translates to a conditional branch.
-      return assm::AssemblerImpl::kShortBranchSize;
+      return assm::kShortBranchSize;
 
     case Successor::kConditionTrue:
       // Translates to a jump.
-      return assm::AssemblerImpl::kShortJumpSize;
+      return assm::kShortJumpSize;
 
     default:
       NOTREACHED() << "Unsupported successor type.";
@@ -1105,11 +1105,11 @@ Size MergeContext::GetLongSuccessorSize(Successor::Condition condition) {
     case Successor::kConditionParity:
     case Successor::kConditionSigned:
       // Translates to a conditional branch.
-      return assm::AssemblerImpl::kLongBranchSize;
+      return assm::kLongBranchSize;
 
     case Successor::kConditionTrue:
       // Translates to a jump.
-      return assm::AssemblerImpl::kLongJumpSize;
+      return assm::kLongJumpSize;
 
     default:
       NOTREACHED() << "Unsupported successor type.";

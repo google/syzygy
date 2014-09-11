@@ -146,7 +146,7 @@ template<size_t N>
 bool TestMemoryAccessAnalysisState::HasNonRedundantAccess(
     const uint8 (& data)[N]) const {
   // Decode an instruction.
-  DCHECK_GT(assm::AssemblerImpl::kMaxInstructionLength, N);
+  DCHECK_GT(assm::kMaxInstructionLength, N);
 
   block_graph::Instruction temp;
   bool decoded = block_graph::Instruction::FromBuffer(&data[0], N, &temp);
@@ -162,7 +162,7 @@ bool TestMemoryAccessAnalysisState::HasNonRedundantAccess(
 template<size_t N>
 void TestMemoryAccessAnalysisState::Execute(const uint8 (& data)[N]) {
   // Decode an instruction.
-  DCHECK_GT(assm::AssemblerImpl::kMaxInstructionLength, N);
+  DCHECK_GT(assm::kMaxInstructionLength, N);
 
   block_graph::Instruction temp;
   bool decoded = block_graph::Instruction::FromBuffer(&data[0], N, &temp);
@@ -179,7 +179,7 @@ template<size_t N>
 void MemoryAccessAnalysisTest::PropagateForward(
     const uint8 (& data)[N]) {
   // Decode an instruction.
-  DCHECK_GT(assm::AssemblerImpl::kMaxInstructionLength, N);
+  DCHECK_GT(assm::kMaxInstructionLength, N);
 
   block_graph::Instruction temp;
   bool decoded = block_graph::Instruction::FromBuffer(&data[0], N, &temp);
