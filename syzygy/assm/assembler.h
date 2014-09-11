@@ -19,161 +19,20 @@
 #ifndef SYZYGY_ASSM_ASSEMBLER_H_
 #define SYZYGY_ASSM_ASSEMBLER_H_
 
+#include "syzygy/assm/cond.h"
+#include "syzygy/assm/operand_base.h"
 #include "syzygy/assm/register.h"
+#include "syzygy/assm/value_base.h"
 
 namespace assm {
 
-// The condition codes by which conditional branches are determined. This enum
-// is taken from the V8 project, and has the property that the conditions are
-// defined to be bit-wise ORed into the base conditional branch opcode, and
-// they can be easily negated/inverted.
-//
-// See:
-//     http://code.google.com/p/v8/source/browse/trunk/src/ia32/assembler-ia32.h
-enum ConditionCode {
-  // Any value < 0 is considered no_condition
-  kNoCondition  = -1,
-
-  kOverflow =  0,
-  kNoOverflow =  1,
-  kBelow =  2,
-  kAboveEqual =  3,
-  kEqual =  4,
-  kNotEqual =  5,
-  kBelowEqual =  6,
-  kAbove =  7,
-  kNegative =  8,
-  kPositive =  9,
-  kParityEven = 10,
-  kParityOdd = 11,
-  kLess = 12,
-  kGreaterEqual = 13,
-  kLessEqual = 14,
-  kGreater = 15,
-
-  // Aliases.
-  kCarry = kBelow,
-  kNotCarry = kAboveEqual,
-  kZero = kEqual,
-  kNotZero = kNotEqual,
-  kSign = kNegative,
-  kNotSign = kPositive,
-
-  // Extents.
-  kMinConditionCode = 0,
-  kMaxConditionCode = 15
-};
-
-// The conditions on which a loop instruction should branch. These are modeled
-// in the same manner as ConditionCode (above).
-enum LoopCode {
-  kLoopOnCounterAndNotZeroFlag = 0,  // LOOPNE and LOOPNZ
-  kLoopOnCounterAndZeroFlag = 1,  // LOOPE and NOOPZ.
-  kLoopOnCounter = 2,  // LOOP.
-};
-
-inline ConditionCode NegateConditionCode(ConditionCode cc) {
-  DCHECK_GT(16, cc);
-  return static_cast<ConditionCode>(cc ^ 1);
-}
-
-// Selects a scale for the Operand addressing modes.
-// The values match the encoding in the x86 SIB bytes.
-enum ScaleFactor {
-  kTimes1 = 0,
-  kTimes2 = 1,
-  kTimes4 = 2,
-  kTimes8 = 3,
-};
-
-// We use the same enum for value sizes.
-typedef RegisterSize ValueSize;
-
-// An instance of this class is an explicit value, which is either
-// an immediate or a displacement.
-class ValueImpl {
- public:
-  ValueImpl();
-  ValueImpl(uint32 value, ValueSize size);
-  ValueImpl(uint32 value, ValueSize size, const void* imm_ref);
-
-  // @name Accessors.
-  // @{
-  uint32 value() const { return value_; }
-  const void* reference() const { return reference_; }
-  ValueSize size() const { return size_; }
-  // @}
-
-  // Comparison operator.
-  bool operator==(const ValueImpl& rhs) const;
-
- private:
-  uint32 value_;
-  const void* reference_;
-  ValueSize size_;
-};
+typedef ValueBase<const void*> ValueImpl;
 
 // Displacements and immediates behave near-identically, but are semantically
 // slightly different.
 typedef ValueImpl ImmediateImpl;
 typedef ValueImpl DisplacementImpl;
-
-// An operand implies indirection to memory through one of the myriad
-// modes supported by IA32.
-class OperandImpl {
- public:
-  // A register-indirect mode.
-  explicit OperandImpl(const Register32& base);
-
-  // A register-indirect with displacement mode.
-  OperandImpl(const Register32& base, const DisplacementImpl& displ);
-
-  // A displacement-only mode.
-  explicit OperandImpl(const DisplacementImpl& displ);
-
-  // The full [base + index * scale + displ32] mode.
-  // @note esp cannot be used as an index register.
-  OperandImpl(const Register32& base,
-              const Register32& index,
-              ScaleFactor scale,
-              const DisplacementImpl& displ);
-
-  // The [base + index * scale] mode.
-  // @note esp cannot be used as an index register.
-  OperandImpl(const Register32& base,
-              const Register32& index,
-              ScaleFactor scale);
-
-  // The [index * scale + displ32] mode - e.g. no base.
-  // @note esp cannot be used as an index register.
-  OperandImpl(const Register32& index,
-              ScaleFactor scale,
-              const DisplacementImpl& displ);
-
-  // Low-level constructor, none of the parameters are checked.
-  OperandImpl(RegisterId base,
-              RegisterId index,
-              ScaleFactor scale,
-              const DisplacementImpl& displacement);
-
-  // @name Accessors.
-  // @{
-  RegisterId base() const { return base_; }
-  RegisterId index() const { return index_; }
-  ScaleFactor scale() const { return scale_; }
-  const DisplacementImpl& displacement() const { return displacement_; }
-  // @}
-
- private:
-  // The base register involved, or none.
-  RegisterId base_;
-  // The index register involved, or none.
-  RegisterId index_;
-  // The scaling factor, must be kTimes1 if no index register.
-  ScaleFactor scale_;
-  // The displacement, if any.
-  DisplacementImpl displacement_;
-};
+typedef OperandBase<const void*> OperandImpl;
 
 // The assembler takes care of maintaining an output location (address), and
 // generating a stream of bytes and references as instructions are assembled.

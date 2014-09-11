@@ -23,9 +23,12 @@
       'sources': [
         'assembler.cc',
         'assembler.h',
+        'cond.h',
+        'operand_base.h',
         'register_internal.h',
         'register.cc',
         'register.h',
+        'value_base.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
