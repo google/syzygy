@@ -36,7 +36,7 @@ TEST_F(HeapCheckerTest, HeapCheckerHandlesPageProtections) {
   // that its big enough to have page protections. The HeapChecker will have
   // to unset these in order to do its work successfully. Otherwise it will
   // cause an access violation.
-  FakeAsanBlock fake_large_block(kShadowRatioLog, runtime_.stack_cache());
+  FakeAsanBlock fake_large_block(kShadowRatioLog, runtime_->stack_cache());
   fake_large_block.InitializeBlock(2 * kPageSize);
   base::RandBytes(fake_large_block.block_info.body, 2 * kPageSize);
   fake_large_block.MarkBlockAsQuarantined();
@@ -51,7 +51,7 @@ TEST_F(HeapCheckerTest, HeapCheckerHandlesPageProtections) {
 
 TEST_F(HeapCheckerTest, IsHeapCorruptInvalidChecksum) {
   const size_t kAllocSize = 100;
-  FakeAsanBlock fake_block(kShadowRatioLog, runtime_.stack_cache());
+  FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
 
   fake_block.InitializeBlock(kAllocSize);
   base::RandBytes(fake_block.block_info.body, kAllocSize);
@@ -98,7 +98,7 @@ TEST_F(HeapCheckerTest, IsHeapCorruptInvalidChecksum) {
 
 TEST_F(HeapCheckerTest, IsHeapCorruptInvalidMagicNumber) {
   const size_t kAllocSize = 100;
-  FakeAsanBlock fake_block(kShadowRatioLog, runtime_.stack_cache());
+  FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
 
   fake_block.InitializeBlock(kAllocSize);
   base::RandBytes(fake_block.block_info.body, kAllocSize);

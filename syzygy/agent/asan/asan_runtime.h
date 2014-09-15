@@ -159,6 +159,9 @@ class AsanRuntime {
   // Logs information about an ASAN error.
   void LogAsanErrorInfo(AsanErrorInfo* error_info);
 
+  // The heap manager.
+  scoped_ptr<heap_managers::BlockHeapManager> heap_manager_;  // Under lock_.
+
  private:
   // Set up the logger.
   void SetUpLogger();
@@ -201,9 +204,6 @@ class AsanRuntime {
 
   // The asan error callback functor.
   AsanOnErrorCallBack asan_error_callback_;
-
-  // The heap manager.
-  scoped_ptr<heap_managers::BlockHeapManager> heap_manager_;  // Under lock_.
 
   // The runtime parameters.
   common::InflatedAsanParameters params_;

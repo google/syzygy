@@ -321,19 +321,41 @@ class ScopedASanAlloc : public scoped_ptr<T, ASanDeleteHelper> {
 // A unittest fixture that initializes an ASan runtime instance.
 class TestWithAsanRuntime : public testing::Test {
  public:
+  TestWithAsanRuntime() {
+    runtime_ = new agent::asan::AsanRuntime();
+    owns_runtime_ = true;
+  }
+
+  explicit TestWithAsanRuntime(agent::asan::AsanRuntime* runtime)
+      : runtime_(runtime), owns_runtime_(false) {
+    CHECK_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime_);
+  }
+
+  ~TestWithAsanRuntime() {
+    CHECK_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime_);
+    if (owns_runtime_)
+      delete runtime_;
+    runtime_ = NULL;
+  }
+
   virtual void SetUp() OVERRIDE {
+    CHECK_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime_);
     testing::Test::SetUp();
-    runtime_.SetUp(L"");
+    runtime_->SetUp(L"");
   }
 
   virtual void TearDown() OVERRIDE {
-    runtime_.TearDown();
+    CHECK_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime_);
+    runtime_->TearDown();
     testing::Test::TearDown();
   }
 
  protected:
   // The runtime instance used by the tests.
-  agent::asan::AsanRuntime runtime_;
+  agent::asan::AsanRuntime* runtime_;
+
+  // Indicates if we own the runtime instance.
+  bool owns_runtime_;
 };
 
 // A unittest fixture to test the bookkeeping functions.

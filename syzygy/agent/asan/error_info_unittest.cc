@@ -43,25 +43,25 @@ TEST_F(AsanErrorInfoTest, ErrorInfoAccessTypeToStr) {
 }
 
 TEST_F(AsanErrorInfoTest, ErrorInfoGetBadAccessInformation) {
-  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_.stack_cache());
+  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
   const size_t kAllocSize = 100;
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
 
   AsanErrorInfo error_info = {};
   error_info.location = fake_block.block_info.body +
       kAllocSize + 1;
-  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_.stack_cache(),
+  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
                                                &error_info));
   EXPECT_EQ(HEAP_BUFFER_OVERFLOW, error_info.error_type);
 
   EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
   error_info.location = fake_block.block_info.body;
-  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_.stack_cache(),
+  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
                                                &error_info));
   EXPECT_EQ(USE_AFTER_FREE, error_info.error_type);
 
   error_info.location = fake_block.buffer_align_begin - 1;
-  EXPECT_FALSE(ErrorInfoGetBadAccessInformation(runtime_.stack_cache(),
+  EXPECT_FALSE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
                                                 &error_info));
 }
 
@@ -70,7 +70,7 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
   // inside it, then we mark the outer block as quarantined and we test a bad
   // access inside the inner block.
 
-  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_.stack_cache());
+  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
   const size_t kInnerBlockAllocSize = 100;
 
   // Allocates the outer block.
@@ -96,7 +96,7 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
   ASSERT_NE(reinterpret_cast<void*>(NULL), inner_block_info.body);
   Shadow::PoisonAllocatedBlock(inner_block_info);
   inner_block_info.header->alloc_stack =
-      runtime_.stack_cache()->SaveStackTrace(stack);
+      runtime_->stack_cache()->SaveStackTrace(stack);
   BlockHeader* inner_header = inner_block_info.header;
   BlockHeader* outer_header = reinterpret_cast<BlockHeader*>(
       fake_block.buffer_align_begin);
@@ -106,12 +106,12 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
   // Mark the inner block as quarantined and check that we detect a use after
   // free when trying to access its data.
   inner_block_info.header->free_stack =
-      runtime_.stack_cache()->SaveStackTrace(stack);
+      runtime_->stack_cache()->SaveStackTrace(stack);
   EXPECT_NE(reinterpret_cast<void*>(NULL), inner_header->free_stack);
   inner_header->state = QUARANTINED_BLOCK;
 
   error_info.location = fake_block.block_info.body;
-  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_.stack_cache(),
+  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
                                                &error_info));
   EXPECT_EQ(USE_AFTER_FREE, error_info.error_type);
   EXPECT_NE(reinterpret_cast<void*>(NULL), error_info.free_stack);
@@ -129,7 +129,7 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
 
   // Tests an access in the inner block.
   error_info.location = inner_block_info.body;
-  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_.stack_cache(),
+  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
                                                &error_info));
   EXPECT_EQ(USE_AFTER_FREE, error_info.error_type);
   EXPECT_NE(reinterpret_cast<void*>(NULL), error_info.free_stack);
@@ -141,7 +141,7 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
 
 TEST_F(AsanErrorInfoTest, ErrorInfoGetBadAccessKind) {
   const size_t kAllocSize = 100;
-  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_.stack_cache());
+  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
   uint8* heap_underflow_address = fake_block.block_info.body - 1;
   uint8* heap_overflow_address = fake_block.block_info.body +
@@ -159,13 +159,13 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetBadAccessKind) {
 
 TEST_F(AsanErrorInfoTest, ErrorInfoGetAsanBlockInfo) {
   const size_t kAllocSize = 100;
-  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_.stack_cache());
+  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
 
   AsanBlockInfo asan_block_info = {};
   asan_block_info.header = fake_block.block_info.header;
   asan_block_info.corrupt = !BlockChecksumIsValid(fake_block.block_info);
-  ErrorInfoGetAsanBlockInfo(runtime_.stack_cache(), &asan_block_info);
+  ErrorInfoGetAsanBlockInfo(runtime_->stack_cache(), &asan_block_info);
 
   // Test ErrorInfoGetAsanBlockInfo with an allocated block.
   EXPECT_EQ(fake_block.block_info.body_size, asan_block_info.user_size);
@@ -181,7 +181,7 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetAsanBlockInfo) {
 
   // Now test it with a quarantined block.
   EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
-  ErrorInfoGetAsanBlockInfo(runtime_.stack_cache(), &asan_block_info);
+  ErrorInfoGetAsanBlockInfo(runtime_->stack_cache(), &asan_block_info);
   EXPECT_EQ(QUARANTINED_BLOCK, static_cast<BlockState>(asan_block_info.state));
   EXPECT_EQ(fake_block.block_info.header->state,
             static_cast<BlockState>(asan_block_info.state));
@@ -192,7 +192,7 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetAsanBlockInfo) {
   // Ensure that the block is correctly tagged as corrupt if the header is
   // invalid.
   fake_block.block_info.header->magic = ~kBlockHeaderMagic;
-  ErrorInfoGetAsanBlockInfo(runtime_.stack_cache(), &asan_block_info);
+  ErrorInfoGetAsanBlockInfo(runtime_->stack_cache(), &asan_block_info);
   EXPECT_TRUE(asan_block_info.corrupt);
   fake_block.block_info.header->magic = kBlockHeaderMagic;
 }
@@ -200,7 +200,7 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetAsanBlockInfo) {
 TEST_F(AsanErrorInfoTest, GetTimeSinceFree) {
   const size_t kAllocSize = 100;
   const size_t kSleepTime = 25;
-  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_.stack_cache());
+  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
 
   uint32 ticks_before_free = ::GetTickCount();
@@ -209,7 +209,7 @@ TEST_F(AsanErrorInfoTest, GetTimeSinceFree) {
   AsanErrorInfo error_info = {};
   error_info.error_type = USE_AFTER_FREE;
   error_info.location = fake_block.block_info.body;
-  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_.stack_cache(),
+  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
                                                &error_info));
   EXPECT_NE(0U, error_info.milliseconds_since_free);
 
