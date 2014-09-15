@@ -604,6 +604,23 @@ ALWAYS_INLINE bool partitionIsAllocatedGeneric(
   if (!ptr)
     return false;
 
+  // First determine if this allocation fails into one of the top level extents
+  // owned by this allocator. This is a linear scan of at most 2048 extents
+  // (extents have a minimum size of 2MB). If performance is an issue this can
+  // be reduced to log[2](2048) by using a array rather than a linked list.
+  bool found_extent = false;
+  PartitionSuperPageExtentEntry* extent = root->firstExtent;
+  while (extent) {
+    if (ptr >= extent->superPageBase &&
+        reinterpret_cast<char*>(ptr) + size <= extent->superPagesEnd) {
+      found_extent = true;
+      break;
+    }
+    extent = extent->next;
+  }
+  if (!found_extent)
+    return NULL;
+
   // Track the allocation back to the page that owns it and validate that
   // its an expected address that could be served by the page.
   ptr = partitionCookieFreePointerAdjust(ptr);

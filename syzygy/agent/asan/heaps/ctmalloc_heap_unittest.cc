@@ -16,6 +16,7 @@
 
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/unittest_util.h"
+#include "syzygy/agent/asan/heaps/win_heap.h"
 
 namespace agent {
 namespace asan {
@@ -82,6 +83,12 @@ TEST(CtMallocHeapTest, IsAllocated) {
   EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) + 1));
 
   h.Free(a);
+  EXPECT_FALSE(h.IsAllocated(a));
+
+  // An allocation made in another heap should resolve as not belonging to
+  // this heap.
+  WinHeap wh;
+  a = wh.Allocate(100);
   EXPECT_FALSE(h.IsAllocated(a));
 }
 
