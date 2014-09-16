@@ -275,7 +275,7 @@ void SetDefaultAsanParameters(AsanParameters* asan_parameters) {
       kDefaultZebraBlockHeapQuarantineRatio;
   asan_parameters->enable_ctmalloc = kDefaultEnableCtMalloc;
   asan_parameters->enable_zebra_block_heap = kDefaultEnableZebraBlockHeap;
-  asan_parameters->enable_zebra_block_heap = kDefaultEnableLargeBlockHeap;
+  asan_parameters->enable_large_block_heap = kDefaultEnableLargeBlockHeap;
   asan_parameters->large_allocation_threshold =
       kDefaultLargeAllocationThreshold;
 }
