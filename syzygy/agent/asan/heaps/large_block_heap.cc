@@ -45,7 +45,7 @@ void* LargeBlockHeap::Allocate(size_t bytes) {
   // Always allocate some memory so as to guarantee that zero-sized
   // allocations get an actual distinct address each time.
   size_t size = std::max(bytes, 1u);
-  size = common::AlignUp(size, kPageSize);
+  size = common::AlignUp(size, GetPageSize());
   void* alloc = ::VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE);
   Allocation allocation = { alloc, bytes };
 
@@ -113,6 +113,7 @@ void* LargeBlockHeap::AllocateBlock(size_t size,
   DCHECK_NE(static_cast<BlockLayout*>(NULL), layout);
 
   // Plan the layout with full guard pages.
+  const size_t kPageSize = GetPageSize();
   BlockPlanLayout(kPageSize, kPageSize, size, kPageSize, kPageSize, layout);
   DCHECK_EQ(0u, layout->block_size % kPageSize);
 

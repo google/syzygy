@@ -477,13 +477,13 @@ void BlockProtectAuto(const BlockInfo& block_info) {
 void BlockIdentifyWholePages(BlockInfo* block_info) {
   DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
 
-  if (block_info->block_size < kPageSize)
+  if (block_info->block_size < GetPageSize())
     return;
 
   uint32 alloc_start = reinterpret_cast<uint32>(block_info->block);
   uint32 alloc_end = alloc_start + block_info->block_size;
-  alloc_start = common::AlignUp(alloc_start, kPageSize);
-  alloc_end = common::AlignDown(alloc_end, kPageSize);
+  alloc_start = common::AlignUp(alloc_start, GetPageSize());
+  alloc_end = common::AlignDown(alloc_end, GetPageSize());
   if (alloc_start >= alloc_end)
     return;
 
@@ -492,8 +492,8 @@ void BlockIdentifyWholePages(BlockInfo* block_info) {
 
   uint32 left_redzone_end = reinterpret_cast<uint32>(block_info->body);
   uint32 right_redzone_start = left_redzone_end + block_info->body_size;
-  left_redzone_end = common::AlignDown(left_redzone_end, kPageSize);
-  right_redzone_start = common::AlignUp(right_redzone_start, kPageSize);
+  left_redzone_end = common::AlignDown(left_redzone_end, GetPageSize());
+  right_redzone_start = common::AlignUp(right_redzone_start, GetPageSize());
 
   if (alloc_start < left_redzone_end) {
     block_info->left_redzone_pages = reinterpret_cast<uint8*>(alloc_start);

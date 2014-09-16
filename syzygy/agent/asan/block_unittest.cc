@@ -541,7 +541,7 @@ TEST(BlockTest, ChecksumDetectsTampering) {
   // the tests require multiple iterations. Be careful playing with these
   // constants or the unittest time can easily spiral out of control! This
   // currently requires less than half a second, and is strictly CPU bound.
-  for (size_t chunk_size = kShadowRatio; chunk_size <= kPageSize;
+  for (size_t chunk_size = kShadowRatio; chunk_size <= GetPageSize();
        chunk_size *= 2) {
     for (size_t align = kShadowRatio; align <= chunk_size; align *= 2) {
       for (size_t redzone = 0; redzone <= chunk_size; redzone += chunk_size) {
@@ -737,6 +737,7 @@ TEST(BlockTest, ProtectionTransitions) {
 
 TEST(BlockTest, BlockProtectAuto) {
   BlockLayout layout = {};
+  const size_t kPageSize = GetPageSize();
   BlockPlanLayout(kPageSize, kPageSize, kPageSize, kPageSize, kPageSize,
                   &layout);
   void* alloc = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
@@ -767,6 +768,7 @@ TEST(BlockTest, BlockProtectAuto) {
 
 TEST(BlockTest, ScopedBlockAccess) {
   BlockLayout layout = {};
+  const size_t kPageSize = GetPageSize();
   BlockPlanLayout(kPageSize, kPageSize, kPageSize, kPageSize, kPageSize,
                   &layout);
   void* alloc = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,

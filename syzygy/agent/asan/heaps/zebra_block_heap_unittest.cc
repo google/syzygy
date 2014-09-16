@@ -136,16 +136,16 @@ TEST(ZebraBlockHeapTest, BlocksHaveCorrectAlignment) {
         // kShadowRatio aligned.
         EXPECT_TRUE(IsAligned(block.body, kShadowRatio));
         EXPECT_TRUE(IsAligned(block.header, kShadowRatio));
-        EXPECT_TRUE(IsAligned(block.block, kPageSize));
-        EXPECT_TRUE(IsAligned(block.block + block.block_size, kPageSize));
+        EXPECT_TRUE(IsAligned(block.block, GetPageSize()));
+        EXPECT_TRUE(IsAligned(block.block + block.block_size, GetPageSize()));
 
         size_t right_redzone_size = (block.block + block.block_size) -
             reinterpret_cast<uint8*>(block.trailer_padding);
 
-        EXPECT_EQ(2 * kPageSize, block.block_size);
-        EXPECT_LE(kPageSize, right_redzone_size);
+        EXPECT_EQ(2 * GetPageSize(), block.block_size);
+        EXPECT_LE(GetPageSize(), right_redzone_size);
 
-        size_t body_offset = AlignUp(block.trailer_padding, kPageSize) -
+        size_t body_offset = AlignUp(block.trailer_padding, GetPageSize()) -
             block.trailer_padding;
 
         // The body must be as close as possible to the page.
@@ -161,7 +161,7 @@ TEST(ZebraBlockHeapTest, AllocateSizeLimits) {
   TestZebraBlockHeap h;
 
   // Test all possible allocation sizes.
-  for (size_t i = 1; i <= kPageSize; ++i) {
+  for (size_t i = 1; i <= GetPageSize(); ++i) {
     uint8* alloc = reinterpret_cast<uint8*>(h.Allocate(i));
     EXPECT_NE(reinterpret_cast<uint8*>(NULL), alloc);
     EXPECT_TRUE(IsAligned(alloc, kShadowRatio));
@@ -170,7 +170,7 @@ TEST(ZebraBlockHeapTest, AllocateSizeLimits) {
 
   // Impossible allocation sizes.
   for (size_t delta = 1; delta < 10000; delta += 7)
-    EXPECT_EQ(reinterpret_cast<void*>(NULL), h.Allocate(kPageSize + delta));
+    EXPECT_EQ(reinterpret_cast<void*>(NULL), h.Allocate(GetPageSize() + delta));
 }
 
 
@@ -179,7 +179,7 @@ TEST(ZebraBlockHeapTest, AllocateBlockSizeLimits) {
   BlockLayout layout = {};
   BlockInfo block = {};
 
-  const size_t kMaxAllowedBlockSize = kPageSize - sizeof(BlockHeader);
+  const size_t kMaxAllowedBlockSize = GetPageSize() - sizeof(BlockHeader);
 
   // Allocate all possible block sizes.
   for (size_t i = 0; i <= kMaxAllowedBlockSize; ++i) {
@@ -247,7 +247,7 @@ TEST(ZebraBlockHeapTest, AllocateUntilFull) {
   // Check that all buffers are at least page_size bytes apart.
   std::sort(buffers.begin(), buffers.end());
   for (size_t i = 1; i < buffers.size(); ++i)
-    EXPECT_LE(kPageSize, static_cast<size_t>(buffers[i] - buffers[i - 1]));
+    EXPECT_LE(GetPageSize(), static_cast<size_t>(buffers[i] - buffers[i - 1]));
 
   // Cleanup.
   for (size_t i = 0; i < buffers.size(); ++i)
@@ -314,9 +314,9 @@ TEST(ZebraBlockHeapTest, AllocateBlockCornerCases) {
   // Edge-case sizes for testing corner cases.
   const size_t kSizes[] = { 0, 1, 2, 3, 4, 5, 7, 8, 9, 15, 17, 1023, 1024, 1025,
       1235, 1365, 2014, 2047, 2048, 2049, 3000, 7000, 12345,
-      kPageSize - 1,
-      kPageSize,
-      kPageSize + 1,
+      GetPageSize() - 1,
+      GetPageSize(),
+      GetPageSize() + 1,
       kShadowRatio - 1,
       kShadowRatio,
       kShadowRatio + 1,
@@ -326,12 +326,12 @@ TEST(ZebraBlockHeapTest, AllocateBlockCornerCases) {
       block_trailer_size - 1,
       block_trailer_size,
       block_trailer_size + 1,
-      kPageSize - block_header_size - 1,
-      kPageSize - block_header_size,
-      kPageSize - block_header_size + 1,
-      kPageSize - block_trailer_size - 1,
-      kPageSize - block_trailer_size,
-      kPageSize - block_trailer_size + 1 };
+      GetPageSize() - block_header_size - 1,
+      GetPageSize() - block_header_size,
+      GetPageSize() - block_header_size + 1,
+      GetPageSize() - block_trailer_size - 1,
+      GetPageSize() - block_trailer_size,
+      GetPageSize() - block_trailer_size + 1 };
 
   for (size_t i = 0; i < arraysize(kSizes); ++i) {
     for (size_t j = 0; j < arraysize(kSizes); ++j) {
@@ -350,13 +350,14 @@ TEST(ZebraBlockHeapTest, AllocateBlockCornerCases) {
 
         if (alloc != NULL) {
           // Check that the block is well formed.
-          EXPECT_TRUE(header_size + body_size <= kPageSize);
-          EXPECT_TRUE(trailer_size <= kPageSize);
+          EXPECT_TRUE(header_size + body_size <= GetPageSize());
+          EXPECT_TRUE(trailer_size <= GetPageSize());
 
           size_t body_end_offset = layout.header_size +
               layout.header_padding_size + layout.body_size;
 
-          EXPECT_EQ(kPageSize, common::AlignUp(body_end_offset, kShadowRatio));
+          EXPECT_EQ(GetPageSize(),
+                    common::AlignUp(body_end_offset, kShadowRatio));
           BlockInitialize(layout, alloc, false, &block);
           EXPECT_TRUE(h.FreeBlock(block));
         } else {
@@ -366,11 +367,12 @@ TEST(ZebraBlockHeapTest, AllocateBlockCornerCases) {
           // Check the cause of the unsuccessful allocation.
           EXPECT_TRUE(
               // Even page overflow.
-              (header_size + body_size > kPageSize) ||
+              (header_size + body_size > GetPageSize()) ||
               // Odd page overflow.
-              (trailer_size > kPageSize) ||
+              (trailer_size > GetPageSize()) ||
               // Incorrect body alignment.
-              (kPageSize != common::AlignUp(body_end_offset, kShadowRatio)));
+              (GetPageSize() !=
+                  common::AlignUp(body_end_offset, kShadowRatio)));
         }
       }
     }

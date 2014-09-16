@@ -23,12 +23,12 @@ namespace agent {
 namespace asan {
 namespace heaps {
 
-const size_t ZebraBlockHeap::kSlabSize = 2 * kPageSize;
+const size_t ZebraBlockHeap::kSlabSize = 2 * GetPageSize();
 
-const size_t ZebraBlockHeap::kMaximumAllocationSize = kPageSize;
+const size_t ZebraBlockHeap::kMaximumAllocationSize = GetPageSize();
 
 const size_t ZebraBlockHeap::kMaximumBlockAllocationSize =
-    kPageSize - sizeof(BlockHeader);
+    GetPageSize() - sizeof(BlockHeader);
 
 ZebraBlockHeap::ZebraBlockHeap(size_t heap_size,
                                MemoryNotifierInterface* memory_notifier,
@@ -54,7 +54,7 @@ ZebraBlockHeap::ZebraBlockHeap(size_t heap_size,
                      MEM_RESERVE | MEM_COMMIT,
                      PAGE_READWRITE));
   CHECK_NE(reinterpret_cast<uint8*>(NULL), heap_address_);
-  DCHECK(common::IsAligned(heap_address_, kPageSize));
+  DCHECK(common::IsAligned(heap_address_, GetPageSize()));
   memory_notifier_->NotifyFutureHeapUse(heap_address_, heap_size_);
 
   // Initialize the metadata describing the state of our heap.
@@ -153,17 +153,17 @@ void* ZebraBlockHeap::AllocateBlock(size_t size,
   DCHECK_NE(static_cast<BlockLayout*>(NULL), layout);
   // Abort if the redzones do not fit in a page. Even if the allocation
   // is possible it will lead to a non-standard block layout.
-  if (min_left_redzone_size + size > kPageSize)
+  if (min_left_redzone_size + size > GetPageSize())
     return NULL;
-  if (min_right_redzone_size > kPageSize)
+  if (min_right_redzone_size > GetPageSize())
     return NULL;
 
   // Plan the block layout.
-  BlockPlanLayout(kPageSize,
+  BlockPlanLayout(GetPageSize(),
                   kShadowRatio,
                   size,
                   min_left_redzone_size,
-                  std::max(kPageSize, min_right_redzone_size),
+                  std::max(GetPageSize(), min_right_redzone_size),
                   layout);
 
   if (layout->block_size != kSlabSize)
@@ -171,19 +171,19 @@ void* ZebraBlockHeap::AllocateBlock(size_t size,
   size_t right_redzone_size = layout->trailer_size +
       layout->trailer_padding_size;
   // Part of the body lies inside an "odd" page.
-  if (right_redzone_size < kPageSize)
+  if (right_redzone_size < GetPageSize())
     return NULL;
   // There should be less than kShadowRatio bytes between the body end
   // and the "odd" page.
-  if (right_redzone_size - kPageSize >= kShadowRatio)
+  if (right_redzone_size - GetPageSize() >= kShadowRatio)
     return NULL;
 
   // Allocate space for the block, and update the slab info to reflect the right
   // redzone.
   void* alloc = NULL;
-  SlabInfo* slab_info = AllocateImpl(kPageSize);
+  SlabInfo* slab_info = AllocateImpl(GetPageSize());
   if (slab_info != NULL) {
-    slab_info->allocation_size = 2 * kPageSize;
+    slab_info->allocation_size = 2 * GetPageSize();
     alloc = slab_info->allocated_address;
   }
 
@@ -266,7 +266,7 @@ void ZebraBlockHeap::set_quarantine_ratio(float quarantine_ratio) {
 }
 
 ZebraBlockHeap::SlabInfo* ZebraBlockHeap::AllocateImpl(size_t bytes) {
-  if (bytes == 0 || bytes > kPageSize)
+  if (bytes == 0 || bytes > GetPageSize())
     return NULL;
   common::AutoRecursiveLock lock(lock_);
 
@@ -280,7 +280,7 @@ ZebraBlockHeap::SlabInfo* ZebraBlockHeap::AllocateImpl(size_t bytes) {
   DCHECK_NE(reinterpret_cast<uint8*>(NULL), slab_address);
 
   // Push the allocation to the end of the even page.
-  uint8* alloc = slab_address + kPageSize - bytes;
+  uint8* alloc = slab_address + GetPageSize() - bytes;
   alloc = common::AlignDown(alloc, kShadowRatio);
 
   // Update the slab info.

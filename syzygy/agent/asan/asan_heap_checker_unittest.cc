@@ -37,8 +37,8 @@ TEST_F(HeapCheckerTest, HeapCheckerHandlesPageProtections) {
   // to unset these in order to do its work successfully. Otherwise it will
   // cause an access violation.
   FakeAsanBlock fake_large_block(kShadowRatioLog, runtime_->stack_cache());
-  fake_large_block.InitializeBlock(2 * kPageSize);
-  base::RandBytes(fake_large_block.block_info.body, 2 * kPageSize);
+  fake_large_block.InitializeBlock(2 * GetPageSize());
+  base::RandBytes(fake_large_block.block_info.body, 2 * GetPageSize());
   fake_large_block.MarkBlockAsQuarantined();
   BlockProtectAll(fake_large_block.block_info);
 

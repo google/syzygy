@@ -21,16 +21,19 @@ namespace asan {
 
 namespace {
 
-// Gets the page size from the OS.
-size_t GetPageSize() {
-  SYSTEM_INFO system_info = {};
-  ::GetSystemInfo(&system_info);
-  return system_info.dwPageSize;
-}
+size_t page_size = 0;
 
 }  // namespace
 
-const size_t kPageSize = GetPageSize();
+size_t GetPageSize() {
+  // Gets the page size from the OS.
+  if (page_size == 0) {
+    SYSTEM_INFO system_info = {};
+    ::GetSystemInfo(&system_info);
+    page_size = system_info.dwPageSize;
+  }
+  return page_size;
+}
 
 }  // namespace asan
 }  // namespace agent

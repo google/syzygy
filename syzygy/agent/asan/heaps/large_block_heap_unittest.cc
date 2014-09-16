@@ -70,11 +70,11 @@ TEST(LargeBlockHeapTest, EndToEnd) {
   for (size_t i = 1, j = 1; i < 1024 * 1024; i <<= 1, ++j) {
     void* alloc = h.AllocateBlock(i, 0, 0, &layout);
     EXPECT_EQ(j, h.size());
-    EXPECT_EQ(0u, layout.block_size % kPageSize);
-    EXPECT_EQ(0u, reinterpret_cast<uintptr_t>(alloc) % kPageSize);
-    EXPECT_LE(kPageSize, layout.header_size + layout.header_padding_size);
+    EXPECT_EQ(0u, layout.block_size % GetPageSize());
+    EXPECT_EQ(0u, reinterpret_cast<uintptr_t>(alloc) % GetPageSize());
+    EXPECT_LE(GetPageSize(), layout.header_size + layout.header_padding_size);
     EXPECT_EQ(i, layout.body_size);
-    EXPECT_LE(kPageSize, layout.trailer_padding_size + layout.trailer_size);
+    EXPECT_LE(GetPageSize(), layout.trailer_padding_size + layout.trailer_size);
     BlockInitialize(layout, alloc, false, &block);
     blocks.insert(block);
   }

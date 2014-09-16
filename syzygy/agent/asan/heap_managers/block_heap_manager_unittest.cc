@@ -1212,10 +1212,10 @@ TEST_F(BlockHeapManagerTest, ZebraBlockHeapQuarantineRatioIsRespected) {
 // Ensures that the LargeBlockHeap overrides the provided heap if the allocation
 // size exceeds the threshold.
 TEST_F(BlockHeapManagerTest, LargeBlockHeapUsedForLargeAllocations) {
-  EnableLargeBlockHeap(kPageSize);
+  EnableLargeBlockHeap(GetPageSize());
   ScopedHeap heap(heap_manager_);
 
-  const size_t kAllocSize = kPageSize + 0x100;
+  const size_t kAllocSize = GetPageSize() + 0x100;
   void* alloc = heap.Allocate(kAllocSize);
   EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
   ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
@@ -1238,7 +1238,7 @@ TEST_F(BlockHeapManagerTest, LargeBlockHeapUsedForLargeAllocations) {
 
 // Ensures that the LargeBlockHeap is not used for a small allocation.
 TEST_F(BlockHeapManagerTest, LargeBlockHeapNotUsedForSmallAllocations) {
-  EnableLargeBlockHeap(kPageSize);
+  EnableLargeBlockHeap(GetPageSize());
   ScopedHeap heap(heap_manager_);
 
   const size_t kAllocSize = 0x100;
