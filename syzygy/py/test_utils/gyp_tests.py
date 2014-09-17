@@ -134,8 +134,7 @@ class GypTests(testing.TestSuite):
 
     # Add each test.
     for test in tests:
-      self.AddTest(testing.GTest(self._project_dir, test))
-
+      self.AddTest(testing.ShardedGTest(self._project_dir, test))
 
   def _BuildUnittests(self, configuration):
     """Causes the build_unittests target to be built if it hasn't been

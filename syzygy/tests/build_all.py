@@ -31,7 +31,7 @@ class BuildAll(testing.Test):
   """A test that checks to see if the 'build_all' target succeeds."""
 
   def __init__(self):
-    testing.Test.__init__(self, _SYZYGY_DIR, 'build_all')
+    testing.Test.__init__(self, _SYZYGY_DIR, 'build_all', True)
     self._solution_path = os.path.join(_SYZYGY_DIR, 'syzygy.sln')
     self._projects = ['build_all']
 
