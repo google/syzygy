@@ -112,8 +112,12 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
   // Some allocations can pass through without instrumentation.
   if (parameters_.allocation_guard_rate < 1.0 &&
       base::RandDouble() >= parameters_.allocation_guard_rate) {
-    void* alloc =
-        reinterpret_cast<BlockHeapInterface*>(heap_id)->Allocate(bytes);
+    HeapInterface* heap = reinterpret_cast<HeapInterface*>(heap_id);
+    void* alloc = heap->Allocate(bytes);
+    if ((heap->GetHeapFeatures() &
+       HeapInterface::kHeapReportsReservations) != 0) {
+      Shadow::Unpoison(alloc, bytes);
+    }
     return alloc;
   }
 
@@ -189,7 +193,10 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
       !Shadow::BlockInfoFromShadow(alloc, &block_info)) {
     // TODO(chrisha|sebmarchand): Handle invalid allocation addresses.
 
-    // Assume that this block was allocated without guards.
+    // Assume that this block was allocated without guards and that it comes
+    // from a heap for which we don't need to redzone the freed allocations in
+    // the shadow.
+    // TODO(sebmarchand): Fix this assumption once we support the CTMalloc heap.
     return reinterpret_cast<BlockHeapInterface*>(heap_id)->Free(alloc);
   }
 
@@ -481,7 +488,13 @@ bool BlockHeapManager::FreePristineBlock(BlockInfo* block_info) {
 
   block_info->header->state = FREED_BLOCK;
 
-  Shadow::Unpoison(block_info->header, block_info->block_size);
+  if ((heap->GetHeapFeatures() &
+       HeapInterface::kHeapReportsReservations) != 0) {
+    Shadow::Poison(block_info->block, block_info->block_size,
+                   kAsanReservedMarker);
+  } else {
+    Shadow::Unpoison(block_info->header, block_info->block_size);
+  }
   return heap->FreeBlock(*block_info);
 }
 

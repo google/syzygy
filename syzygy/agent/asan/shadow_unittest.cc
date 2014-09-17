@@ -226,6 +226,14 @@ TEST(ShadowTest, PoisonAllocatedBlock) {
             kHeapRightPaddingMarker);
   EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 7 * 8),
             kHeapBlockEndMarker);
+
+  uint8* cursor = info.block;
+  for (; cursor < info.body; ++cursor)
+    EXPECT_FALSE(Shadow::IsAccessible(cursor));
+  for (; cursor < info.body + info.body_size; ++cursor)
+    EXPECT_TRUE(Shadow::IsAccessible(cursor));
+  for (; cursor < info.block + info.block_size; ++cursor)
+    EXPECT_FALSE(Shadow::IsAccessible(cursor));
   Shadow::Unpoison(info.block, info.block_size);
 
   delete [] data;

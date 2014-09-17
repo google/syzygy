@@ -198,6 +198,7 @@ void Shadow::PoisonAllocatedBlock(const BlockInfo& info) {
   ::memset(cursor, header_marker, 1);
   ::memset(cursor + 1, kHeapLeftPaddingMarker, left_redzone_bytes - 1);
   cursor += left_redzone_bytes;
+  ::memset(cursor, kHeapAddressableMarker, body_bytes);
   cursor += body_bytes;
 
   // Poison the right padding and the trailer.
