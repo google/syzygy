@@ -69,7 +69,6 @@ TEST(CtMallocHeapTest, ZeroSizedAllocationsHaveDistinctAddresses) {
   h.Free(a2);
 }
 
-// NOTE: For now IsAllocated is not supported by this heap.
 TEST(CtMallocHeapTest, IsAllocated) {
   testing::NullMemoryNotifier n;
   CtMallocHeap h(&n);
@@ -90,15 +89,61 @@ TEST(CtMallocHeapTest, IsAllocated) {
   WinHeap wh;
   a = wh.Allocate(100);
   EXPECT_FALSE(h.IsAllocated(a));
+  wh.Free(a);
+}
+
+TEST(CtMallocHeapTest, IsAllocatedLargeAllocation) {
+  testing::NullMemoryNotifier n;
+  CtMallocHeap h(&n);
+
+  EXPECT_FALSE(h.IsAllocated(NULL));
+
+  // Mix large and small allocations to ensure that the CTMalloc data
+  // structures correctly keep track of both.
+  void* a = h.Allocate(100);
+  void* b = h.Allocate(64 * 1024 * 1024);
+
+  EXPECT_EQ(0u, reinterpret_cast<uintptr_t>(a) % kShadowRatio);
+  EXPECT_TRUE(h.IsAllocated(a));
+  EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) - 1));
+  EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) + 1));
+
+  EXPECT_EQ(0u, reinterpret_cast<uintptr_t>(b) % kShadowRatio);
+  EXPECT_TRUE(h.IsAllocated(b));
+  EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(b) - 1));
+  EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(b) + 1));
+
+  h.Free(a);
+  EXPECT_FALSE(h.IsAllocated(a));
+  EXPECT_TRUE(h.IsAllocated(b));
+
+  h.Free(b);
+  EXPECT_FALSE(h.IsAllocated(a));
+  EXPECT_FALSE(h.IsAllocated(b));
 }
 
 TEST(CtMallocHeapTest, GetAllocationSize) {
   testing::NullMemoryNotifier n;
   CtMallocHeap h(&n);
 
-  void* alloc = h.Allocate(67);
+  const size_t kAllocSize = 67;
+  void* alloc = h.Allocate(kAllocSize);
   ASSERT_TRUE(alloc != NULL);
-  EXPECT_LE(67u, h.GetAllocationSize(alloc));
+  EXPECT_LE(kAllocSize, h.GetAllocationSize(alloc));
+
+  // CTMalloc cleans up any oustanding allocations on tear down.
+}
+
+TEST(CtMallocHeapTest, GetAllocationSizeLargeAllocation) {
+  testing::NullMemoryNotifier n;
+  CtMallocHeap h(&n);
+
+  const size_t kAllocSize = 64 * 1024 * 1024;
+  void* alloc = h.Allocate(kAllocSize);
+  ASSERT_TRUE(alloc != NULL);
+  EXPECT_LE(kAllocSize, h.GetAllocationSize(alloc));
+
+  // CTMalloc cleans up any oustanding allocations on tear down.
 }
 
 }  // namespace heaps

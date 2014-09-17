@@ -256,6 +256,10 @@ struct PartitionSuperPageExtentEntry {
     char* superPageBase;
     char* superPagesEnd;
     PartitionSuperPageExtentEntry* next;
+    PartitionSuperPageExtentEntry* prev;
+    // True if this is a directly mapped super page (large allocation),
+    // false otherwise.
+    bool directMap;
 };
 
 struct WTF_EXPORT PartitionRootBase {
@@ -598,28 +602,50 @@ ALWAYS_INLINE void partitionFreeGeneric(PartitionRootGeneric* root, void* ptr)
 // allocated by this allocator; otherwise, validates that the allocation was
 // made with the given |size|. If |allocated_size| is non-null then the actual
 // size of the allocation is returned.
-ALWAYS_INLINE bool partitionIsAllocatedGeneric(
-    PartitionRootGeneric* root, void* ptr, size_t size, size_t* allocated_size) {
+ALWAYS_INLINE bool partitionIsAllocatedGenericUnlocked(
+    PartitionRootGeneric* root,
+    void* ptr,
+    size_t size,
+    size_t* allocated_size) {
   ASSERT(root->initialized);
   if (!ptr)
     return false;
 
-  // First determine if this allocation fails into one of the top level extents
+  // First determine if this allocation falls into one of the top level extents
   // owned by this allocator. This is a linear scan of at most 2048 extents
   // (extents have a minimum size of 2MB). If performance is an issue this can
-  // be reduced to log[2](2048) by using a array rather than a linked list.
-  bool found_extent = false;
+  // be reduced to log[2](2048) by using an array rather than a linked list.
   PartitionSuperPageExtentEntry* extent = root->firstExtent;
   while (extent) {
     if (ptr >= extent->superPageBase &&
         reinterpret_cast<char*>(ptr) + size <= extent->superPagesEnd) {
-      found_extent = true;
+      if (extent->directMap) {
+        char* alloc = extent->superPageBase + kPartitionPageSize;
+        if (alloc != ptr)
+          return false;
+
+        // If the allocation size was requested then return it. This is an
+        // upper bound and may actually be larger than the requested
+        // allocation.
+        size_t alloc_size = extent->superPagesEnd - extent->superPageBase -
+            3 * kSystemPageSize;
+        alloc_size = partitionCookieSizeAdjustSubtract(alloc_size);
+        if (allocated_size != NULL)
+          *allocated_size = alloc_size;
+
+        // If the size was provided then validate that the allocation was
+        // made with a compatible size.
+        if (size != -1 && size < alloc_size)
+          return false;
+
+        return true;
+      }
       break;
     }
     extent = extent->next;
   }
-  if (!found_extent)
-    return NULL;
+  if (extent == NULL)
+    return false;
 
   // Track the allocation back to the page that owns it and validate that
   // its an expected address that could be served by the page.
@@ -657,16 +683,26 @@ ALWAYS_INLINE bool partitionIsAllocatedGeneric(
   }
 
   // Ensure that the pointer is not in the free list.
-  spinLockLock(&root->lock);
   PartitionFreelistEntry* entry = page->freelistHead;
   while (entry) {
     if (entry == ptr)
       return false;
     entry = partitionFreelistMask(entry->next);
   }
-  spinLockUnlock(&root->lock);
 
   return true;
+}
+
+ALWAYS_INLINE bool partitionIsAllocatedGeneric(
+    PartitionRootGeneric* root,
+    void* ptr,
+    size_t size,
+    size_t* allocated_size) {
+  spinLockLock(&root->lock);
+  bool result = partitionIsAllocatedGenericUnlocked(
+      root, ptr, size, allocated_size);
+  spinLockUnlock(&root->lock);
+  return result;
 }
 
 // N (or more accurately, N - sizeof(void*)) represents the largest size in

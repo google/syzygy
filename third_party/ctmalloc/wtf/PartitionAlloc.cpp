@@ -252,20 +252,34 @@ static void partitionAllocBaseShutdown(PartitionRootBase* root)
 
     // Now that we've examined all partition pages in all buckets, it's safe
     // to free all our super pages. We first collect the super page pointers
-    // on the stack because some of them are themselves store in super pages.
+    // on the stack because some of them are themselves stored in super pages.
     char* superPages[kMaxPartitionSize / kSuperPageSize];
     size_t numSuperPages = 0;
+    size_t totalSizeOfSuperPages = 0;
     PartitionSuperPageExtentEntry* entry = root->firstExtent;
     while (entry) {
-        char* superPage = entry->superPageBase;
-        while (superPage != entry->superPagesEnd) {
-            superPages[numSuperPages] = superPage;
-            numSuperPages++;
-            superPage += kSuperPageSize;
+        PartitionSuperPageExtentEntry* next_entry = entry->next;
+        // Directly mapped extents contain a single allocation. Free it
+        // immediately.
+        if (entry->directMap) {
+            size_t superPageSize = entry->superPagesEnd - entry->superPageBase;
+            freePages(root->callbacks, entry->superPageBase, superPageSize);
+            totalSizeOfSuperPages += superPageSize;
+        } else {
+            // Extents that aren't directly mapped can contain multiple
+            // super pages.
+            char* superPage = entry->superPageBase;
+            while (superPage != entry->superPagesEnd) {
+                superPages[numSuperPages] = superPage;
+                numSuperPages++;
+                superPage += kSuperPageSize;
+                totalSizeOfSuperPages += kSuperPageSize;
+            }
+            ASSERT(superPage == entry->superPagesEnd);
         }
-        entry = entry->next;
+        entry = next_entry;
     }
-    ASSERT(numSuperPages == root->totalSizeOfSuperPages / kSuperPageSize);
+    ASSERT(totalSizeOfSuperPages == root->totalSizeOfSuperPages);
     for (size_t i = 0; i < numSuperPages; ++i)
         freePages(root->callbacks, superPages[i], kSuperPageSize);
 }
@@ -347,11 +361,13 @@ static ALWAYS_INLINE void* partitionAllocPartitionPages(PartitionRootBase* root,
     bool isNewExtent = (superPage != requestedAddress);
     if (UNLIKELY(isNewExtent)) {
         latestExtent->next = 0;
+        latestExtent->prev = 0;
         if (UNLIKELY(!currentExtent)) {
             root->firstExtent = latestExtent;
         } else {
             ASSERT(currentExtent->superPageBase);
             currentExtent->next = latestExtent;
+            latestExtent->prev = currentExtent;
         }
         root->currentExtent = latestExtent;
         currentExtent = latestExtent;
@@ -365,6 +381,7 @@ static ALWAYS_INLINE void* partitionAllocPartitionPages(PartitionRootBase* root,
     // By storing the root in every extent metadata object, we have a fast way
     // to go from a pointer within the partition to the root object.
     latestExtent->root = root;
+    latestExtent->directMap = false;
 
     return ret;
 }
@@ -581,6 +598,25 @@ static ALWAYS_INLINE void* partitionDirectMap(PartitionRootBase* root, int flags
 
     PartitionSuperPageExtentEntry* extent = reinterpret_cast<PartitionSuperPageExtentEntry*>(partitionSuperPageToMetadataArea(ptr));
     extent->root = root;
+    extent->superPageBase = ptr;
+    extent->superPagesEnd = ptr + mapSize;
+    extent->next = 0;
+    extent->directMap = true;
+
+    // Add this super page into the list of extents.
+    root->totalSizeOfSuperPages += mapSize;
+    if (root->firstExtent == 0) {
+        ASSERT(!root->currentExtent);
+        root->firstExtent = extent;
+        root->currentExtent = extent;
+        extent->prev = 0;
+    } else {
+        ASSERT(root->currentExtent);
+        extent->prev = root->currentExtent;
+        root->currentExtent->next = extent;
+        root->currentExtent = extent;
+    }
+
     PartitionPage* page = partitionPointerToPageNoAlignmentCheck(ret);
     PartitionBucket* bucket = reinterpret_cast<PartitionBucket*>(reinterpret_cast<char*>(page) + kPageMetadataSize);
     page->freelistHead = 0;
@@ -617,6 +653,26 @@ static ALWAYS_INLINE void partitionDirectUnmap(
     // Account for the mapping starting a partition page before the actual
     // allocation address.
     ptr -= kPartitionPageSize;
+
+    // Get the super page extent associated with this page, and unlink
+    // ourselves from the list of extents.
+    PartitionSuperPageExtentEntry* extent =
+        reinterpret_cast<PartitionSuperPageExtentEntry*>(
+            partitionSuperPageToMetadataArea(ptr));
+    if (extent->prev) {
+        ASSERT(root->firstExtent != extent);
+        extent->prev->next = extent->next;
+    }
+    if (extent->next) {
+        ASSERT(root->currentExtent != extent);
+        extent->next->prev = extent->prev;
+    }
+    if (root->firstExtent == extent)
+        root->firstExtent = extent->next;
+    if (root->currentExtent == extent)
+        root->currentExtent = extent->prev;
+    ASSERT(root->totalSizeOfSuperPages >= unmapSize);
+    root->totalSizeOfSuperPages -= unmapSize;
 
     freePages(root->callbacks, ptr, unmapSize);
 }
