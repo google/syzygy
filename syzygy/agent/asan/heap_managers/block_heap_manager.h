@@ -58,9 +58,6 @@ namespace heap_managers {
 // The zebra heap is created once, when enabled for the first time, with a
 // specified size. It can't be resized after creation. Disabling the zebra
 // heap only disables allocations on it, deallocations will continue to work.
-// TODO(sebmarchand): Plug in other heaps, like the zebra heap and the large
-//     block heap.
-// TODO(sebmarchand): Add page protection support.
 class BlockHeapManager : public HeapManagerInterface {
  public:
   // Constructor.

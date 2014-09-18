@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/agent/asan/asan_heap_checker.h"
+#include "syzygy/agent/asan/heap_checker.h"
 
 #include "base/rand_util.h"
 #include "gtest/gtest.h"

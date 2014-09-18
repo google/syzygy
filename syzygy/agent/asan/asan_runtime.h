@@ -24,7 +24,7 @@
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
-#include "syzygy/agent/asan/asan_heap_checker.h"
+#include "syzygy/agent/asan/heap_checker.h"
 #include "syzygy/agent/asan/stack_capture.h"
 #include "syzygy/agent/asan/heap_managers/block_heap_manager.h"
 #include "syzygy/common/asan_parameters.h"

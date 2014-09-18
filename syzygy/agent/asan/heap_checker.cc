@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/agent/asan/asan_heap_checker.h"
+#include "syzygy/agent/asan/heap_checker.h"
 
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/shadow.h"
@@ -20,10 +20,14 @@
 namespace agent {
 namespace asan {
 
+base::Lock HeapChecker::lock_;
+
 bool HeapChecker::IsHeapCorrupt(CorruptRangesVector* corrupt_ranges) {
   DCHECK_NE(reinterpret_cast<CorruptRangesVector*>(NULL), corrupt_ranges);
 
   corrupt_ranges->clear();
+
+  base::AutoLock scoped_lock(lock_);
 
   // Walk over all of the addressable memory to find the corrupt blocks.
   // TODO(sebmarchand): Iterates over the heap slabs once we have switched to
