@@ -261,8 +261,8 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
     case 119:
     case 126:
     case 133:
-      return reinterpret_cast<BOOL>(
-          function1() + strstr("hello world", "hello"));
+      return (reinterpret_cast<BOOL>(
+          function1() + strstr("hello world", "hello"))) | 1;
 
     case 1:
     case 8:
@@ -284,7 +284,7 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
     case 120:
     case 127:
     case 134:
-      return static_cast<BOOL>(function2() + strlen("foobar"));
+      return (static_cast<BOOL>(function2() + strlen("foobar"))) | 1;
 
     case 2:
     case 9:
@@ -306,7 +306,7 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
     case 121:
     case 128:
     case 135:
-      return static_cast<BOOL>(function3() + clock());
+      return (static_cast<BOOL>(function3() + clock())) | 1;
 
     case 3:
     case 10:
@@ -328,8 +328,8 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
     case 122:
     case 129:
     case 136:
-      return static_cast<BOOL>(function1() + function2() +
-          reinterpret_cast<int>(memchr("hello", 'e', 5)));
+      return (static_cast<BOOL>(function1() + function2() +
+          reinterpret_cast<int>(memchr("hello", 'e', 5)))) | 1;
 
     case 4:
     case 11:
@@ -351,7 +351,7 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
     case 123:
     case 130:
     case 137:
-      return static_cast<BOOL>(function1() + function3() + abs(-3));
+      return (static_cast<BOOL>(function1() + function3() + abs(-3))) | 1;
 
     case 5:
     case 12:
@@ -373,8 +373,8 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
     case 124:
     case 131:
     case 138:
-      return static_cast<BOOL>(
-          function2() + function3() + static_cast<int>(floor(1.3)));
+      return (static_cast<BOOL>(
+          function2() + function3() + static_cast<int>(floor(1.3)))) | 1;
 
     case 6:
     case 13:
@@ -396,9 +396,11 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
     case 125:
     case 132:
     case 139:
-      return static_cast<BOOL>(
-          function1() + function2() + function3() + atoi("7"));
+      return (static_cast<BOOL>(
+          function1() + function2() + function3() + atoi("7"))) | 1;
   }
+
+  return 1;
 }
 
 
