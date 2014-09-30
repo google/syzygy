@@ -81,9 +81,9 @@ void GetSymbolInfo(HANDLE process,
 
   // Lookup the symbol by address.
   if (::SymFromAddr(process, frame_ptr, offset, symbol.Get())) {
-    *name = symbol->Name;
+    base::SStringPrintf(name, "%s+%ld", symbol->Name, *offset);
   } else {
-    *name = "(unknown)";
+    base::SStringPrintf(name, "(unknown)+%ld", *offset);
   }
 }
 
@@ -94,10 +94,11 @@ void GetLineInfo(HANDLE process, DWORD_PTR frame, std::string* line_info) {
   DWORD line_displacement = 0;
   IMAGEHLP_LINE64 line = {};
   line.SizeOfStruct = sizeof(IMAGEHLP_LINE64);
-  if (::SymGetLineFromAddr64(process, frame, &line_displacement, &line))
+  if (::SymGetLineFromAddr64(process, frame, &line_displacement, &line)) {
     base::SStringPrintf(line_info, "%s:%d", line.FileName, line.LineNumber);
-  else
+  } else {
     line_info->clear();
+  }
 }
 
 // A callback function used with the StackWalk64 function. It is called when
