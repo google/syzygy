@@ -24,10 +24,19 @@ namespace {
 
 struct DummyObject {
   size_t size;
+  size_t hash;
 
-  DummyObject() : size(0) { }
-  explicit DummyObject(size_t size) : size(size) { }
-  DummyObject(const DummyObject& o) : size(o.size) { }  // NOLINT
+  DummyObject() : size(0), hash(::rand()) { }
+  explicit DummyObject(size_t size) : size(size), hash(::rand()) { }
+  DummyObject(const DummyObject& o)
+      : size(o.size),
+        hash(::rand()) {
+  }
+  DummyObject& operator=(const DummyObject& o) {
+    size = o.size;
+    hash = ::rand();
+    return *this;
+  }
 };
 
 struct DummyObjectSizeFunctor {

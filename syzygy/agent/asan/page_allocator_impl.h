@@ -373,7 +373,8 @@ bool PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
     DCHECK_GE(kMaxObjectCount, n);
     // These are objects that have never been allocated, so don't affect the
     // number of allocated groups or objects.
-    FreePush(current_object_, n, false, false);
+    if (n != 0)
+      FreePush(current_object_, n, false, false);
   }
 
   uint8* page = reinterpret_cast<uint8*>(
