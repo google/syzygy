@@ -76,6 +76,10 @@ class TestQuarantine
     DCHECK_NE(static_cast<DummyObjectVector*>(NULL), os);
     os->swap(objects_);
   }
+
+  size_t GetLockIdImpl(const DummyObject& o) { return 0; }
+  void LockImpl(size_t lock_id) { };
+  void UnlockImpl(size_t lock_id) { };
   // @}
 
   DummyObjectVector objects_;

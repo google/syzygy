@@ -108,6 +108,9 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
   virtual bool Pop(Object* object);
   virtual void Empty(ObjectVector* objects);
   virtual size_t GetCount();
+  virtual size_t GetLockId(const Object& object);
+  virtual void Lock(size_t id);
+  virtual void Unlock(size_t id);
   // @}
 
  protected:
@@ -116,6 +119,9 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
   virtual bool PushImpl(const Object& object) = 0;
   virtual bool PopImpl(Object* object) = 0;
   virtual void EmptyImpl(ObjectVector* objects) = 0;
+  virtual size_t GetLockIdImpl(const Object& object) = 0;
+  virtual void LockImpl(size_t id) = 0;
+  virtual void UnlockImpl(size_t id) = 0;
   // @}
 
   // Parameters controlling the quarantine invariant.

@@ -119,6 +119,11 @@ class ZebraBlockHeap : public BlockHeapInterface,
   virtual bool Pop(BlockHeader** object);
   virtual void Empty(std::vector<BlockHeader*>* objects);
   virtual size_t GetCount();
+  virtual size_t GetLockId(BlockHeader* const &object) {
+    return 0;
+  }
+  virtual void Lock(size_t id) { }
+  virtual void Unlock(size_t id) { }
   // @}
 
   // Get the ratio of the memory used by the quarantine.

@@ -69,6 +69,22 @@ size_t SizeLimitedQuarantineImpl<OT, SFT>::GetCount() {
   return count_;
 }
 
+template<typename OT, typename SFT>
+size_t SizeLimitedQuarantineImpl<OT, SFT>::GetLockId(
+    const Object& object) {
+  return GetLockIdImpl(object);
+}
+
+template<typename OT, typename SFT>
+void SizeLimitedQuarantineImpl<OT, SFT>::Lock(size_t id) {
+  LockImpl(id);
+}
+
+template<typename OT, typename SFT>
+void SizeLimitedQuarantineImpl<OT, SFT>::Unlock(size_t id) {
+  UnlockImpl(id);
+}
+
 }  // namespace quarantines
 }  // namespace asan
 }  // namespace agent

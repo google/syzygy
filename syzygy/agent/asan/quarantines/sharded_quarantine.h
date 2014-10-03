@@ -65,6 +65,9 @@ class ShardedQuarantine
   virtual bool PushImpl(const Object& object);
   virtual bool PopImpl(Object* object);
   virtual void EmptyImpl(ObjectVector* objects);
+  virtual size_t GetLockIdImpl(const Object& object);
+  virtual void LockImpl(size_t id);
+  virtual void UnlockImpl(size_t id);
   // @}
 
   // The internal type used for storing objects. This augments them with a

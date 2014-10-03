@@ -48,28 +48,75 @@ class QuarantineInterface {
   // Virtual destructor.
   virtual ~QuarantineInterface() { }
 
-  // Places an allocation in the quarantine. This routine must be thread-safe.
+  // Places an allocation in the quarantine. This routine must be called under
+  // Lock.
   // @param The object to place in the quarantine.
   // @returns true if the has been accepted by and placed in the quarantine,
   //     and false if its entry has been refused.
   virtual bool Push(const Object& object) = 0;
 
   // Potentially removes an object from the quarantine to maintain the
-  // invariant. This routine must be thread-safe.
+  // invariant. This routine must be thread-safe, and implement its own locking.
   // @param object Is filled in with a copy of the removed object.
   // @returns true if an object was removed, false otherwise. If this returns
   //     false then the cache invariant is satisfied.
   virtual bool Pop(Object* object) = 0;
 
   // Removes all objects from the quarantine, placing them in the provided
-  // vector. This routine must be thread-safe.
+  // vector. This routine must be thread-safe, and implement its own locking.
   virtual void Empty(ObjectVector* objects) = 0;
 
   // The number of objects currently in the quarantine.
   // @returns the number of objects in the quarantine.
   virtual size_t GetCount() = 0;
 
+  // An automatic quarantine lock.
+  //
+  // This class is nested into the QuarantineInterface class to avoid a
+  // complicated template definition. It also avoids exposing the Lock/Unlock
+  // functions.
+  class AutoQuarantineLock {
+   public:
+    // Constructor. Automatically lock the quarantine.
+    AutoQuarantineLock(QuarantineInterface* quarantine,
+                       const ObjectType& object)
+        : quarantine_(quarantine) {
+      DCHECK_NE(reinterpret_cast<QuarantineInterface*>(NULL), quarantine_);
+      lock_index_ = quarantine_->GetLockId(object);
+      quarantine_->Lock(lock_index_);
+    }
+
+    // Destructor. Automatically unlock the quarantine.
+    ~AutoQuarantineLock() {
+      quarantine_->Unlock(lock_index_);
+    }
+
+   private:
+    // The bucket to lock in the quarantine.
+    size_t lock_index_;
+
+    // The quarantine to lock.
+    QuarantineInterface* quarantine_;
+
+    DISALLOW_COPY_AND_ASSIGN(AutoQuarantineLock);
+  };
+
  private:
+  // Get the lock ID associated with a given object in the quarantine. This is
+  // useful in the case where there's several buckets in the quarantine.
+  // @param object The object for which we want to retrieve the lock ID
+  //     associated with it.
+  // @returns the lock ID associated with this object.
+  virtual size_t GetLockId(const Object& object) = 0;
+
+  // Lock the quarantine.
+  // @param id The bucket to lock, ignored if the quarantine isn't sharded.
+  virtual void Lock(size_t id) = 0;
+
+  // Unlock the quarantine.
+  // @param id The bucket to lock, ignored if the quarantine isn't sharded.
+  virtual void Unlock(size_t id) = 0;
+
   DISALLOW_COPY_AND_ASSIGN(QuarantineInterface);
 };
 

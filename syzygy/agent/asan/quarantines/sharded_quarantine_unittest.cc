@@ -14,6 +14,7 @@
 
 #include "syzygy/agent/asan/quarantines/sharded_quarantine.h"
 
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 namespace agent {
@@ -26,15 +27,15 @@ struct DummyObject {
   size_t size;
   size_t hash;
 
-  DummyObject() : size(0), hash(::rand()) { }
-  explicit DummyObject(size_t size) : size(size), hash(::rand()) { }
+  DummyObject() : size(0), hash(0) { }
+  explicit DummyObject(size_t size) : size(size), hash(0) { }
   DummyObject(const DummyObject& o)
       : size(o.size),
-        hash(::rand()) {
+        hash(o.hash) {
   }
   DummyObject& operator=(const DummyObject& o) {
     size = o.size;
-    hash = ::rand();
+    hash = o.hash;
     return *this;
   }
 };
@@ -46,10 +47,8 @@ struct DummyObjectSizeFunctor {
 };
 
 struct DummyObjectHashFunctor {
-  DummyObjectHashFunctor() : hash(0) { }
-  size_t hash;
   uint32 operator()(const DummyObject& o) {
-    return hash++;
+    return o.hash;
   }
 };
 
@@ -75,6 +74,9 @@ class TestShardedQuarantine
     }
     return count;
   }
+
+  MOCK_METHOD1(LockImpl, void(size_t lock_id));
+  MOCK_METHOD1(UnlockImpl, void(size_t lock_id));
 };
 
 }  // namespace
@@ -93,6 +95,7 @@ TEST(ShardedQuarantineTest, EvenLoading) {
   // Stuff a bunch of things into the quarantine, but don't saturate it.
   for (size_t i = 0; i < 9000; ++i) {
     EXPECT_TRUE(q.Push(d));
+    d.hash++;
     EXPECT_EQ(i + 1, q.size());
 
     EXPECT_FALSE(q.Pop(&popped));
@@ -100,8 +103,10 @@ TEST(ShardedQuarantineTest, EvenLoading) {
   }
 
   // Saturate the quarantine, invalidating the invariant.
-  while (q.size() <= q.max_quarantine_size())
+  while (q.size() <= q.max_quarantine_size()) {
     EXPECT_TRUE(q.Push(d));
+    d.hash++;
+  }
 
   // Now expect one element to be popped off before the invariant is satisfied.
   EXPECT_TRUE(q.Pop(&popped));
@@ -166,6 +171,17 @@ TEST(ShardedQuarantineTest, StressTest) {
   for (size_t i = 0; i < os.size(); ++i)
     emptied_size += os[i].size;
   EXPECT_EQ(old_size, emptied_size);
+}
+
+TEST(ShardedQuarantineTest, LockUnlock) {
+  TestShardedQuarantine q;
+  DummyObject dummy;
+  size_t lock_id = q.GetLockId(dummy);
+  {
+    EXPECT_CALL(q, LockImpl(lock_id)).Times(1);
+    TestShardedQuarantine::AutoQuarantineLock lock(&q, dummy);
+    EXPECT_CALL(q, UnlockImpl(lock_id)).Times(1);
+  }
 }
 
 }  // namespace quarantines

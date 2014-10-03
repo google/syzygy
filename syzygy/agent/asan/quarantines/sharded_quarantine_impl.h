@@ -72,19 +72,15 @@ bool ShardedQuarantine<OT, SFT, HFT, SF>::PushImpl(const Object& object) {
   node->object = object;
   node->next = NULL;
 
-  {
-    base::AutoLock lock(locks_[shard]);
-
-    // Append the node to the tail of this shard.
-    if (tails_[shard] != NULL) {
-      DCHECK_NE(static_cast<Node*>(NULL), heads_[shard]);
-      tails_[shard]->next = node;
-      tails_[shard] = node;
-    } else {
-      DCHECK_EQ(static_cast<Node*>(NULL), heads_[shard]);
-      heads_[shard] = node;
-      tails_[shard] = node;
-    }
+  // Append the node to the tail of this shard.
+  if (tails_[shard] != NULL) {
+    DCHECK_NE(static_cast<Node*>(NULL), heads_[shard]);
+    tails_[shard]->next = node;
+    tails_[shard] = node;
+  } else {
+    DCHECK_EQ(static_cast<Node*>(NULL), heads_[shard]);
+    heads_[shard] = node;
+    tails_[shard] = node;
   }
 
   return true;
@@ -146,6 +142,27 @@ void ShardedQuarantine<OT, SFT, HFT, SF>::EmptyImpl(ObjectVector* objects) {
   }
 
   return;
+}
+
+template<typename OT, typename SFT, typename HFT, size_t SF>
+size_t ShardedQuarantine<OT, SFT, HFT, SF>::GetLockIdImpl(
+    const Object& object) {
+  size_t hash = hash_functor_(object);
+  size_t shard = detail::ShardedQuarantineHash<kShardingFactor>(hash);
+  return shard;
+}
+
+template<typename OT, typename SFT, typename HFT, size_t SF>
+void ShardedQuarantine<OT, SFT, HFT, SF>::LockImpl(size_t id) {
+  DCHECK_LT(id, kShardingFactor);
+  locks_[id].Acquire();
+}
+
+template<typename OT, typename SFT, typename HFT, size_t SF>
+void ShardedQuarantine<OT, SFT, HFT, SF>::UnlockImpl(size_t id) {
+  DCHECK_LT(id, kShardingFactor);
+  locks_[id].AssertAcquired();
+  locks_[id].Release();
 }
 
 }  // namespace quarantines

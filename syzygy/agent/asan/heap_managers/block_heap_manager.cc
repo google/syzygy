@@ -253,18 +253,20 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   Shadow::MarkAsFreed(block_info.body, block_info.body_size);
   BlockSetChecksum(block_info);
 
-  if (quarantine->Push(block_info.header)) {
+  {
+    BlockQuarantineInterface::AutoQuarantineLock quarantine_lock(
+        quarantine, block_info.header);
+    if (!quarantine->Push(block_info.header))
+      return FreePristineBlock(&block_info);
+
     // The recently pushed block can be popped out in TrimQuarantine if the
     // quarantine size is 0, in that case TrimQuarantine takes care of properly
     // unprotecting and freeing the block. If the protection is set blindly
     // after TrimQuarantine we could end up protecting a free (not quarantined,
     // not allocated) block.
     BlockProtectAll(block_info);
-    TrimQuarantine(quarantine);
-  } else {
-    return FreePristineBlock(&block_info);
   }
-
+  TrimQuarantine(quarantine);
   return true;
 }
 
@@ -394,6 +396,8 @@ bool BlockHeapManager::DestroyHeapUnlocked(
   for (; iter_block != blocks_to_reinsert.end(); ++iter_block) {
     BlockInfo block_info = {};
     CHECK(Shadow::BlockInfoFromShadow(*iter_block, &block_info));
+    BlockQuarantineInterface::AutoQuarantineLock quarantine_lock(quarantine,
+                                                                 *iter_block);
     if (quarantine->Push(*iter_block)) {
       // Restore protection to quarantined block.
       BlockProtectAll(block_info);
