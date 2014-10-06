@@ -29,16 +29,20 @@
 #include "syzygy/agent/asan/heap_manager.h"
 #include "syzygy/agent/asan/quarantine.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
-#include "syzygy/agent/asan/heaps/internal_heap.h"
-#include "syzygy/agent/asan/heaps/large_block_heap.h"
-#include "syzygy/agent/asan/heaps/win_heap.h"
-#include "syzygy/agent/asan/heaps/zebra_block_heap.h"
 #include "syzygy/agent/asan/memory_notifiers/shadow_memory_notifier.h"
 #include "syzygy/agent/asan/quarantines/sharded_quarantine.h"
 #include "syzygy/common/asan_parameters.h"
 
 namespace agent {
 namespace asan {
+
+// Forward declarations
+namespace heaps {
+
+class LargeBlockHeap;
+class ZebraBlockHeap;
+
+}  // namespace heaps
 
 namespace heap_managers {
 
@@ -173,6 +177,13 @@ class BlockHeapManager : public HeapManagerInterface {
   // @returns true on success, false otherwise.
   bool FreePristineBlock(BlockInfo* block_info);
 
+  // Free an unguarded allocation.
+  // @param heap A hint on the heap that might contain this allocation.
+  // @param alloc The allocation to be freed.
+  // @returns true if the allocation has been successfully freed, false
+  //     otherwise.
+  bool FreeUnguardedAlloc(HeapInterface* heap, void* alloc);
+
   // Clears the metadata of a corrupt block. After calling this function the
   // block can safely be passed to FreeBlock.
   // @param block_info The information about this block.
@@ -186,6 +197,12 @@ class BlockHeapManager : public HeapManagerInterface {
   //     error was detected.
   // @param kind The type of error encountered.
   void ReportHeapError(void* address, BadAccessKind kind);
+
+  // Initialize the process heap. This is only meant to be called at
+  // initialization time when process_heap_ is NULL.
+  //
+  // Exposed for unittesting.
+  void InitProcessHeap();
 
   // The stack cache used to store the stack traces.
   StackCaptureCache* stack_cache_;
@@ -214,13 +231,14 @@ class BlockHeapManager : public HeapManagerInterface {
 
   // The process's heap.
   BlockHeapInterface* process_heap_;
+  HeapInterface* process_heap_underlying_heap_;
 
   // Memory notifier used to update the shadow memory.
   memory_notifiers::ShadowMemoryNotifier shadow_memory_notifier_;
 
   // The heap that gets used for allocation of internal data structures.
-  heaps::WinHeap internal_win_heap_;
-  heaps::InternalHeap internal_heap_;
+  scoped_ptr<HeapInterface> internal_win_heap_;
+  scoped_ptr<HeapInterface> internal_heap_;
 
   // Hold the single ZebraBlockHeap instance used by this heap manager.
   // The lifetime management of the zebra heap is provided by the

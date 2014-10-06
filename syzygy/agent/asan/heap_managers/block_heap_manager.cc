@@ -20,7 +20,12 @@
 #include "base/rand_util.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/shadow.h"
+#include "syzygy/agent/asan/heaps/ctmalloc_heap.h"
+#include "syzygy/agent/asan/heaps/internal_heap.h"
+#include "syzygy/agent/asan/heaps/large_block_heap.h"
 #include "syzygy/agent/asan/heaps/simple_block_heap.h"
+#include "syzygy/agent/asan/heaps/win_heap.h"
+#include "syzygy/agent/asan/heaps/zebra_block_heap.h"
 #include "syzygy/common/asan_parameters.h"
 
 namespace agent {
@@ -37,20 +42,16 @@ using heaps::ZebraBlockHeap;
 
 BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
     : stack_cache_(stack_cache),
-      internal_heap_(&shadow_memory_notifier_, &internal_win_heap_),
       zebra_block_heap_(NULL),
       large_block_heap_(NULL) {
   DCHECK_NE(static_cast<StackCaptureCache*>(NULL), stack_cache);
   SetDefaultAsanParameters(&parameters_);
   PropagateParameters();
 
-  // Creates the process heap.
-  HeapInterface* process_heap_underlying_heap =
-      new heaps::WinHeap(::GetProcessHeap());
-  process_heap_ = new heaps::SimpleBlockHeap(process_heap_underlying_heap);
-  underlying_heaps_map_.insert(std::make_pair(process_heap_,
-                                              process_heap_underlying_heap));
-  heaps_.insert(std::make_pair(process_heap_, &shared_quarantine_));
+  // Creates the process heap and the internal heap.
+  process_heap_ = NULL;
+  process_heap_underlying_heap_ = NULL;
+  InitProcessHeap();
 
   // Initialize the allocation-filter flag (using Thread Local Storage).
   allocation_filter_flag_tls_ = ::TlsAlloc();
@@ -81,12 +82,17 @@ BlockHeapManager::~BlockHeapManager() {
 
 HeapId BlockHeapManager::CreateHeap() {
   // Creates the underlying heap used by this heap.
-  HeapInterface* win_heap = new heaps::WinHeap();
+  HeapInterface* underlying_heap = NULL;
+  if (parameters_.enable_ctmalloc) {
+    underlying_heap = new heaps::CtMallocHeap(&shadow_memory_notifier_);
+  } else {
+    underlying_heap = new heaps::WinHeap();
+  }
   // Creates the heap.
-  BlockHeapInterface* heap = new heaps::SimpleBlockHeap(win_heap);
+  BlockHeapInterface* heap = new heaps::SimpleBlockHeap(underlying_heap);
 
   base::AutoLock lock(lock_);
-  underlying_heaps_map_.insert(std::make_pair(heap, win_heap));
+  underlying_heaps_map_.insert(std::make_pair(heap, underlying_heap));
   heaps_.insert(std::make_pair(heap, &shared_quarantine_));
 
   return reinterpret_cast<HeapId>(heap);
@@ -191,13 +197,7 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   BlockInfo block_info = {};
   if (!Shadow::IsBeginningOfBlockBody(alloc) ||
       !Shadow::BlockInfoFromShadow(alloc, &block_info)) {
-    // TODO(chrisha|sebmarchand): Handle invalid allocation addresses.
-
-    // Assume that this block was allocated without guards and that it comes
-    // from a heap for which we don't need to redzone the freed allocations in
-    // the shadow.
-    // TODO(sebmarchand): Fix this assumption once we support the CTMalloc heap.
-    return reinterpret_cast<BlockHeapInterface*>(heap_id)->Free(alloc);
+    return FreeUnguardedAlloc(reinterpret_cast<HeapInterface*>(heap_id), alloc);
   }
 
   // Precondition: A valid guarded allocation.
@@ -322,7 +322,7 @@ void BlockHeapManager::PropagateParameters() {
     base::AutoLock lock(lock_);
     zebra_block_heap_ = new ZebraBlockHeap(parameters_.zebra_block_heap_size,
                                            &shadow_memory_notifier_,
-                                           &internal_heap_);
+                                           internal_heap_.get());
     heaps_.insert(std::make_pair(zebra_block_heap_, zebra_block_heap_));
   }
 
@@ -335,7 +335,7 @@ void BlockHeapManager::PropagateParameters() {
   // Create the LargeBlockHeap if need be.
   if (parameters_.enable_large_block_heap && large_block_heap_ == NULL) {
     base::AutoLock lock(lock_);
-    large_block_heap_ = new LargeBlockHeap(&internal_heap_);
+    large_block_heap_ = new LargeBlockHeap(internal_heap_.get());
     heaps_.insert(std::make_pair(large_block_heap_, &shared_quarantine_));
   }
 
@@ -497,9 +497,34 @@ bool BlockHeapManager::FreePristineBlock(BlockInfo* block_info) {
     Shadow::Poison(block_info->block, block_info->block_size,
                    kAsanReservedMarker);
   } else {
-    Shadow::Unpoison(block_info->header, block_info->block_size);
+    Shadow::Unpoison(block_info->block, block_info->block_size);
   }
   return heap->FreeBlock(*block_info);
+}
+
+bool BlockHeapManager::FreeUnguardedAlloc(HeapInterface* heap, void* alloc) {
+  DCHECK_NE(static_cast<HeapInterface*>(NULL), heap);
+
+  // Check if the allocation comes from the process heap, if so there's two
+  // possibilities:
+  //   - CTMalloc is enabled, in this case the process heap underlying heap is
+  //     a CTMalloc heap. In this case the allocation might still have been
+  //     allocated against the real process heap, free it in this case.
+  //   - CTMalloc is disabled and in this case the process heap underlying heap
+  //     is always the real process heap.
+  if (heap == process_heap_ &&
+      (!parameters_.enable_ctmalloc || !heap->IsAllocated(alloc))) {
+    return ::HeapFree(::GetProcessHeap(), 0, alloc) == TRUE;
+  }
+  if ((heap->GetHeapFeatures() &
+       HeapInterface::kHeapReportsReservations) != 0) {
+    DCHECK_NE(0U, heap->GetHeapFeatures() &
+                  HeapInterface::kHeapSupportsGetAllocationSize);
+    Shadow::Poison(alloc,
+                   Size(reinterpret_cast<HeapId>(heap), alloc),
+                   kAsanReservedMarker);
+  }
+  return heap->Free(alloc);
 }
 
 void BlockHeapManager::ClearCorruptBlockMetadata(BlockInfo* block_info) {
@@ -534,6 +559,25 @@ void BlockHeapManager::ReportHeapError(void* address, BadAccessKind kind) {
   // We expect a callback to be set.
   DCHECK(!heap_error_callback_.is_null());
   heap_error_callback_.Run(&error_info);
+}
+
+void BlockHeapManager::InitProcessHeap() {
+  CHECK_EQ(reinterpret_cast<BlockHeapInterface*>(NULL), process_heap_);
+  if (parameters_.enable_ctmalloc) {
+    internal_heap_.reset(
+        new heaps::CtMallocHeap(&shadow_memory_notifier_));
+    process_heap_underlying_heap_ =
+        new heaps::CtMallocHeap(&shadow_memory_notifier_);
+  } else {
+    internal_win_heap_.reset(new heaps::WinHeap);
+    internal_heap_.reset(new heaps::InternalHeap(&shadow_memory_notifier_,
+                                                 internal_win_heap_.get()));
+    process_heap_underlying_heap_ = new heaps::WinHeap(::GetProcessHeap());
+  }
+  process_heap_ = new heaps::SimpleBlockHeap(process_heap_underlying_heap_);
+  underlying_heaps_map_.insert(std::make_pair(process_heap_,
+                                              process_heap_underlying_heap_));
+  heaps_.insert(std::make_pair(process_heap_, &shared_quarantine_));
 }
 
 }  // namespace heap_managers

@@ -43,6 +43,10 @@ class HeapInterface {
     // MemoryNotifierInterface. This implies that allocations will come
     // from regions of memory that have been previously redzoned, and
     // guides the heap manager in maintaining consistent shadow memory.
+    //
+    // If this flag is set then the heap should also support the
+    // kHeapSupportsGetAllocationSize feature in order to be able to redzone the
+    // unguarded allocations when they get freed.
     kHeapReportsReservations = 1 << 0,
 
     // If this bit is set then the heap is able to determine if a given

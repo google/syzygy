@@ -416,7 +416,7 @@ void BlockProtectNone(const BlockInfo& block_info) {
   DWORD ret = ::VirtualProtect(block_info.block_pages,
                                block_info.block_pages_size,
                                PAGE_READWRITE, &old_protection);
-  DCHECK_NE(0u, ret);
+  CHECK_NE(0u, ret);
 }
 
 void BlockProtectRedzones(const BlockInfo& block_info) {

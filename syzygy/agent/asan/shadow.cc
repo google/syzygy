@@ -208,7 +208,6 @@ void Shadow::PoisonAllocatedBlock(const BlockInfo& info) {
   ::memset(cursor + right_redzone_bytes - 1, trailer_marker, 1);
 }
 
-
 bool Shadow::BlockIsNested(const BlockInfo& info) {
   uint8 marker = GetShadowMarkerForAddress(info.block);
   DCHECK(ShadowMarkerHelper::IsActiveBlockStart(marker));
