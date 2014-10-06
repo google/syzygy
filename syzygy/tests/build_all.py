@@ -20,26 +20,25 @@ import sys
 
 _SYZYGY_DIR = os.path.abspath(os.path.dirname(__file__) + '/..')
 _SCRIPT_DIR = os.path.join(_SYZYGY_DIR, 'py')
+_SRC_DIR = os.path.abspath(os.path.join(_SYZYGY_DIR, '..'))
 
 
 if _SCRIPT_DIR not in sys.path:
   sys.path.insert(0, _SCRIPT_DIR)
 import test_utils.testing as testing  # pylint: disable=F0401
+import test_utils.syzygy as syzygy  # pylint: disable=F0401
 
 
-class BuildAll(testing.Test):
-  """A test that checks to see if the 'build_all' target succeeds."""
+class MsvsBuildAll(testing.Test):
+  """A test that checks to see if the 'build_all' target succeeds via MSVS."""
 
   def __init__(self):
-    testing.Test.__init__(self, _SYZYGY_DIR, 'build_all', True)
-    self._solution_path = os.path.join(_SYZYGY_DIR, 'syzygy.sln')
-    self._projects = ['build_all']
+    testing.Test.__init__(self, _SYZYGY_DIR, syzygy.SYZYGY_TARGET, True)
 
   def _Run(self, configuration):
     try:
-      testing.BuildProjectConfig(self._solution_path,
-                                 self._projects,
-                                 [configuration])
+      testing.BuildProjectConfig(
+          syzygy.SYZYGY_SLN, [syzygy.SYZYGY_TARGET], [configuration])
     except testing.BuildFailure:
       # Recast this error as a test failure.
       raise testing.TestFailure, sys.exc_info()[1], sys.exc_info()[2]
@@ -47,8 +46,23 @@ class BuildAll(testing.Test):
     return True
 
 
+class NinjaBuildAll(testing.Test):
+  """A test that checks to see if the 'build_all' target succeeds via Ninja."""
+
+  def __init__(self):
+    testing.Test.__init__(self, _SYZYGY_DIR, syzygy.SYZYGY_TARGET, True)
+
+  def _Run(self, configuration):
+    testing.RunCommand(
+        ['ninja', '-C', 'out/' + configuration, syzygy.SYZYGY_TARGET],
+        cwd=_SRC_DIR)
+
+
 def MakeTest():
-  return BuildAll()
+  if syzygy.UseNinjaBuild():
+    return NinjaBuildAll()
+  # Otherwise default to the MSVS builder.
+  return MsvsBuildAll()
 
 
 if __name__ == '__main__':

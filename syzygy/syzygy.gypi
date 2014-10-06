@@ -53,6 +53,10 @@
         'DebugInformationFormat': 3,
       },
       'VCLinkerTool': {
+        # Indicate that debug information is being generated. This is necessary
+        # to coax Ninja into indicating that PDBs have been generated as part
+        # of a linker step.
+        'GenerateDebugInformation': 'true',
         # Enable support for large address spaces.
         'LargeAddressAware': 2,
         # Default to using more sane PDB filenames. Otherwise, both foo.exe and

@@ -27,7 +27,7 @@
         'code_tally_app.h',
         'code_tally_main.cc',
       ],
-      'working_directory': '$(ConfigurationDir)',
+      'working_directory': '$(OutDir)',
       'action': [
         '$(TargetPath)',
         '$(OutputPath)test_dll.dll.pdb',

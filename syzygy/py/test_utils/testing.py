@@ -41,6 +41,11 @@ class BuildFailure(Error):
   pass
 
 
+class RunFailure(Error):
+  """The error thrown to indicate that a sub-command has failed."""
+  pass
+
+
 class TestFailure(Error):
   """An error that can be thrown to indicate that a test has failed."""
   pass
@@ -70,6 +75,27 @@ def BuildProjectConfig(*args, **kwargs):
     raise BuildFailure, sys.exc_info()[1], sys.exc_info()[2]
 
 
+def RunCommand(cmd, *args, **kwargs):
+  """Runs the provided command using subprocess.
+
+  Args:
+    cmd: The command to be run, as a list.
+
+  Returns:
+    A tuple of (stdout, stderr).
+
+  Raises:
+    RunFailure: If the command fails.
+  """
+  _LOGGER.info('Running %s.', cmd)
+  popen = subprocess.Popen(cmd, *args, **kwargs)
+  (stdout, stderr) = popen.communicate()
+  if popen.returncode != 0:
+    raise RunFailure('Command %s failed with return code %d.' %
+        (cmd, popen.returncode))
+  return (stdout, stderr)
+
+
 class Test(object):
   """A base class embodying the notion of a test. A test has a name, and is
   invokable by calling 'Run' with a given configuration. Upon success, the
@@ -84,8 +110,7 @@ class Test(object):
     """Initializes this test.
 
     Args:
-      project_dir: The directory housing the project under test. The build
-          artefacts are expected to be found in project_dir/../build/Config.
+      project_dir: The directory housing the project under test.
       name: The name of this test.
       leaf: If true this test is a leaf. That is, it actually runs an
           executable. Otherwise it is a non-leaf test that simply aggregates
@@ -336,7 +361,7 @@ class ExecutableTest(Test):
   executable file, and inspecting its return value.
   """
 
-  def __init__(self, project_dir, name, extra_args=None):
+  def __init__(self, project_dir, name, extra_args=None, build_dir=None):
     """Initializes this object.
 
     Args:
@@ -348,6 +373,9 @@ class ExecutableTest(Test):
           executable. If these are specified the test name (used for generating
           the success file) will be decorated to reflect the contents of the
           extra arguments.
+      build_dir: If specified is the root of the build directory. Artefacts are
+          expected to be in <build_dir>/<configuration>. Defaults to
+          <project_dir>/../build/.
     """
     if extra_args is None:
       extra_args = []
@@ -361,14 +389,18 @@ class ExecutableTest(Test):
     Test.__init__(self, project_dir, name, True)
     self._raw_name = raw_name
     self._extra_args = extra_args
+    if build_dir:
+      self._build_dir = os.path.abspath(build_dir)
+    else:
+      self._build_dir = os.path.abspath(os.path.join(
+          self._project_dir, '..', 'build'))
 
   def _GetTestPath(self, configuration):
     """Returns the path to the test executable. This stub may be overridden,
-    but it defaults to:
-        <project_dir>/../build/<build_configuration>/<name>.exe
+    but it defaults to self._build_dir/<build_configuration>/<name>.exe
     """
-    return os.path.join(self._project_dir, '..', 'build',
-        configuration, '%s.exe' % self._raw_name)
+    return os.path.join(
+        self._build_dir, configuration, '%s.exe' % self._raw_name)
 
   def _NeedToRun(self, configuration):
     test_path = self._GetTestPath(configuration)
@@ -532,12 +564,13 @@ class ShardedGTest(TestSuite):
   # Matches a test group in a --gtest_list_tests output.
   _GTEST_GROUP_NAME_RE = re.compile(r'^([^\s]+)\.$')
 
-  def __init__(self, project_dir, name, extra_args=None):
+  def __init__(self, project_dir, name, extra_args=None, build_dir=None):
     if extra_args is None:
       extra_args = []
 
     TestSuite.__init__(self, project_dir, name, [])
     self._extra_args = extra_args
+    self._build_dir = build_dir
 
   def _CanRun(self, configuration):
     # Clear the tests. The list is regenerated per configuration.
@@ -546,10 +579,9 @@ class ShardedGTest(TestSuite):
     # Parse the top level list of tests.
     groups = []
     test = ExecutableTest(self._project_dir, self._name)
-    proc = subprocess.Popen([test._GetCmdLine(configuration),
-                            '--gtest_list_tests'],
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdo, dummy_stde = proc.communicate()
+    stdo, dummy_stde = RunCommand(
+        [test._GetCmdLine(configuration), '--gtest_list_tests'],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     for line in stdo.splitlines():
       line = line.strip()
       m = ShardedGTest._GTEST_GROUP_NAME_RE.match(line)
@@ -558,7 +590,8 @@ class ShardedGTest(TestSuite):
 
     for group in groups:
       extra_args = ['--gtest_filter=%s.*' % group] + self._extra_args
-      gtest = GTest(self._project_dir, self._name, extra_args=extra_args)
+      gtest = GTest(self._project_dir, self._name, extra_args=extra_args,
+                    build_dir=self._build_dir)
       self.AddTest(gtest)
 
     return TestSuite._CanRun(self, configuration)

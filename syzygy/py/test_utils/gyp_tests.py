@@ -19,7 +19,9 @@ import ast
 import logging
 import os
 import re
+import subprocess
 import sys
+import syzygy
 import testing
 
 
@@ -83,6 +85,7 @@ class GypTests(testing.TestSuite):
     self._solution_path = re.sub('\.gyp$', '.sln', gyp_path)
     self._project = 'build_unittests'
     self._configuration_built = {}
+    self._use_ninja = syzygy.UseNinjaBuild()
 
     # Parse the gypi file and extract the tests.
     gypi_path = os.path.join(project_dir, 'unittests.gypi')
@@ -132,9 +135,15 @@ class GypTests(testing.TestSuite):
       tests.extend(targets)
     tests = sorted(tests)
 
+    # A blank build dir defaults to the MSVS directory.
+    build_dir = None
+    if self._use_ninja:
+      build_dir = syzygy.NINJA_BUILD_DIR
+
     # Add each test.
     for test in tests:
-      self.AddTest(testing.ShardedGTest(self._project_dir, test))
+      self.AddTest(testing.ShardedGTest(self._project_dir, test,
+                                        build_dir=build_dir))
 
   def _BuildUnittests(self, configuration):
     """Causes the build_unittests target to be built if it hasn't been
@@ -142,6 +151,14 @@ class GypTests(testing.TestSuite):
     if self._configuration_built.has_key(configuration):
       return
     self._configuration_built[configuration] = True
+
+    if self._use_ninja:
+      testing.RunCommand(
+          ['ninja', '-C', 'out/' + configuration, self._project ],
+          cwd=syzygy.SRC_DIR)
+      return
+
+    # MSVS build.
     testing.BuildProjectConfig(self._solution_path,
                                self._project,
                                configuration)

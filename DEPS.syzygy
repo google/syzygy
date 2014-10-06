@@ -19,7 +19,7 @@ vars = {
   "chrome_revision": "271365",
   "gmock_revision": "453",
   "gtest_revision": "664",
-  "gyp_revision": "1919",
+  "gyp_revision": "1988",
   "py_etw_revision": "559",
 
   "chrome_base": "http://src.chromium.org/svn/trunk",
