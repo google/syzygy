@@ -442,7 +442,7 @@ TEST_F(BasicBlockAssemblerTest, mov_b) {
   // mov BYTE PTR [base + index * scale + displ], immediate
   asm_.mov_b(Operand(assm::eax, assm::ebx, assm::kTimes4,
                      Displacement(test_block_, 0)),
-           Immediate(10));
+             Immediate(10));
   ASSERT_REFS(3, BasicBlockReference::REFERRED_TYPE_BLOCK, test_block_);
 }
 

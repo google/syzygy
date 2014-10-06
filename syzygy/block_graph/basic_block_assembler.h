@@ -17,7 +17,7 @@
 #ifndef SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_ASSEMBLER_H_
 #define SYZYGY_BLOCK_GRAPH_BASIC_BLOCK_ASSEMBLER_H_
 
-#include "syzygy/assm/assembler.h"
+#include "syzygy/assm/assembler_base.h"
 #include "syzygy/block_graph/basic_block.h"
 
 namespace block_graph {
@@ -104,6 +104,16 @@ class UntypedReference {
         base_ == other.base_;
   }
 
+  // Assignment operator.
+  const UntypedReference& operator=(const UntypedReference& other) {
+    basic_block_ = other.basic_block_;
+    block_ = other.block_;
+    offset_ = other.offset_;
+    base_ = other.base_;
+
+    return *this;
+  }
+
  private:
   BasicBlock* basic_block_;
   Block* block_;
@@ -111,8 +121,9 @@ class UntypedReference {
   Offset base_;
 };
 
-class Value {
+class Value : public assm::ValueBase<UntypedReference> {
  public:
+  typedef assm::ValueBase<UntypedReference> Super;
   typedef BlockGraph::Block Block;
   typedef BlockGraph::Offset Offset;
   typedef assm::ValueImpl ValueImpl;
@@ -167,32 +178,6 @@ class Value {
   // Copy constructor.
   // @param other The value to be copied.
   Value(const Value& other);
-
-  // Destructor.
-  ~Value();
-
-  // Assignment operator.
-  const Value& operator=(const Value& other);
-
-  // @name Accessors.
-  // @{
-  uint32 value() const { return value_.value(); }
-  ValueSize size() const { return value_.size(); }
-  const UntypedReference& reference() const { return reference_; }
-  // @}
-
-  // Comparison operator.
-  bool operator==(const Value& rhs) const;
-
- private:
-  // Private constructor for Operand.
-  Value(const UntypedReference& ref, const assm::ValueImpl& value);
-
-  friend class BasicBlockAssembler;
-  friend class Operand;
-
-  UntypedReference reference_;
-  ValueImpl value_;
 };
 
 // Displacements and immediates behave near-identically, but are semantically
@@ -202,8 +187,10 @@ typedef Value Displacement;
 
 // An operand implies indirection to memory through one of the myriad
 // modes supported by IA32.
-class Operand {
+class Operand : public assm::OperandBase<UntypedReference> {
  public:
+  typedef assm::OperandBase<UntypedReference> Super;
+
   // A register-indirect mode.
   explicit Operand(const assm::Register32& base);
 
@@ -234,28 +221,6 @@ class Operand {
 
   // Copy constructor.
   Operand(const Operand& o);
-
-  // Destructor.
-  ~Operand();
-
-  // Assignment operator.
-  const Operand& operator=(const Operand& other);
-
-  // @name Accessors.
-  // @{
-  const assm::RegisterId base() const { return operand_.base(); }
-  const assm::RegisterId index() const { return operand_.index(); }
-  assm::ScaleFactor scale() const { return operand_.scale(); }
-  Displacement displacement() const {
-    return Displacement(reference_, operand_.displacement());
-  }
-  // @}
-
- private:
-  friend class BasicBlockAssembler;
-
-  UntypedReference reference_;
-  assm::OperandImpl operand_;
 };
 
 class BasicBlockAssembler {
@@ -416,7 +381,7 @@ class BasicBlockAssembler {
   typedef BlockGraph::ReferenceType ReferenceType;
 
   class BasicBlockSerializer
-      : public assm::AssemblerImpl::InstructionSerializer {
+      : public assm::AssemblerBase<UntypedReference>::InstructionSerializer {
    public:
     BasicBlockSerializer(const Instructions::iterator& where,
                          Instructions* list);
@@ -425,7 +390,7 @@ class BasicBlockAssembler {
                                    const uint8* bytes,
                                    size_t num_bytes,
                                    const size_t *ref_locations,
-                                   const void* const* refs,
+                                   const UntypedReference* refs,
                                    size_t num_refs) OVERRIDE;
 
     SourceRange source_range() const { return source_range_; }
@@ -469,7 +434,7 @@ class BasicBlockAssembler {
   // @}
 
   BasicBlockSerializer serializer_;
-  assm::AssemblerImpl asm_;
+  assm::AssemblerBase<UntypedReference> asm_;
 };
 
 }  // namespace block_graph

@@ -38,7 +38,7 @@ class ValueBase {
   // @name Accessors.
   // @{
   uint32 value() const { return value_; }
-  ReferenceType reference() const { return reference_; }
+  const ReferenceType& reference() const { return reference_; }
   ValueSize size() const { return size_; }
   // @}
 
@@ -67,7 +67,8 @@ ValueBase<ReferenceType>::ValueBase(
     : value_(value), reference_(value_ref), size_(size) {
   // We can't have a 16-bit value *and* a reference, as there are no
   // addressing modes that accept 16-bit input.
-  DCHECK(value_ref == NULL || size != kSize16Bit);
+
+  DCHECK(!details::IsValidReference(value_ref) || size != kSize16Bit);
 }
 
 template <class ReferenceType>

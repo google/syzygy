@@ -26,6 +26,8 @@ namespace assm {
 // This class is used to buffer a single instruction during it's creation.
 // TODO(siggi): Add a small state machine in debug mode to ensure the
 //     correct order of invocation to opcode/modrm etc.
+// @note @p ReferenceType must either be a pointer type, or else have
+//     a method bool IsValid() const.
 template <class ReferenceType>
 class AssemblerBase<ReferenceType>::InstructionBuffer {
  public:
@@ -38,7 +40,7 @@ class AssemblerBase<ReferenceType>::InstructionBuffer {
   const uint8* buf() const { return buf_; }
   size_t num_references() const { return num_references_; }
   const size_t *reference_offsets() const { return reference_offsets_; }
-  const void*const* references() const { return references_; }
+  const ReferenceType* references() const { return references_; }
   // @}
 
   // Emits operand size prefix (0x66) bytes.
@@ -91,18 +93,32 @@ class AssemblerBase<ReferenceType>::InstructionBuffer {
   void EmitXchg(ValueSize size, RegisterId dst, RegisterId src);
 
   // Add reference at current location.
-  void AddReference(const void* reference);
+  void AddReference(const ReferenceType& reference);
 
  protected:
   void EmitByte(uint8 byte);
 
   AssemblerBase* asm_;
   size_t num_references_;
-  const void* (references_)[2];
+  ReferenceType references_[2];
   size_t reference_offsets_[2];
   size_t len_;
   uint8 buf_[kMaxInstructionLength];
 };
+
+namespace details {
+
+template <class ReferenceType>
+bool IsValidReference(const ReferenceType* ref) {
+  return ref != NULL;
+}
+
+template <class ReferenceType>
+bool IsValidReference(const ReferenceType& ref) {
+  return ref.IsValid();
+}
+
+}  // namespace details
 
 // Returns true if @p operand is a displacement only - e.g.
 // specifies neither a base, nor an index register.
@@ -224,7 +240,8 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::EmitOperand(
           // The [EBP] case cannot be encoded canonically, there always must
           // be a (zero) displacement.
           EmitModRMByte(kReg1ByteDisp, reg_op, op.base());
-          Emit8BitDisplacement(DisplacementImpl(0, kSize8Bit, NULL));
+          Emit8BitDisplacement(
+              DisplacementImpl(0, kSize8Bit, ReferenceType()));
         } else {
           EmitModRMByte(kReg1Ind, reg_op, op.base());
         }
@@ -438,8 +455,8 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::EmitXchg(
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::AddReference(
-    const void* reference) {
-  if (reference == NULL)
+    const ReferenceType& reference) {
+  if (!details::IsValidReference(reference))
     return;
 
   DCHECK_GT(arraysize(references_), num_references_);

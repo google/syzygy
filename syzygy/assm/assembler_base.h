@@ -29,7 +29,7 @@ namespace assm {
 // The assembler takes care of maintaining an output location (address), and
 // generating a stream of bytes and references as instructions are assembled.
 template <class ReferenceType>
-class AssemblerBase{
+class AssemblerBase {
  public:
   typedef ValueBase<ReferenceType> ValueImpl;
   typedef ValueImpl DisplacementImpl;
