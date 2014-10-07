@@ -107,7 +107,13 @@ include_rules = [
 
 hooks = [
   {
-    # A change to a .gyp, .gypi, or to GYP itself should run the generator.
+    "pattern": ".",
+    "action": [Var("python_path"),
+               "src\\syzygy\\build\\lastchange.py",
+               "-s", "src\\syzygy",
+               "-o", "src\\syzygy\\build\\LASTCHANGE.gen"],
+  },
+  {
     "pattern": ".",
     "action": [Var("python_path"),
                Var("gyp_path"),

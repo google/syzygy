@@ -33,7 +33,8 @@ class MsvsBuildAll(testing.Test):
   """A test that checks to see if the 'build_all' target succeeds via MSVS."""
 
   def __init__(self):
-    testing.Test.__init__(self, _SYZYGY_DIR, syzygy.SYZYGY_TARGET, True)
+    testing.Test.__init__(
+        self, syzygy.MSVS_BUILD_DIR, syzygy.SYZYGY_TARGET, True)
 
   def _Run(self, configuration):
     try:
@@ -50,12 +51,14 @@ class NinjaBuildAll(testing.Test):
   """A test that checks to see if the 'build_all' target succeeds via Ninja."""
 
   def __init__(self):
-    testing.Test.__init__(self, _SYZYGY_DIR, syzygy.SYZYGY_TARGET, True)
+    testing.Test.__init__(
+        self, syzygy.NINJA_BUILD_DIR, syzygy.SYZYGY_TARGET, True)
 
   def _Run(self, configuration):
     testing.RunCommand(
         ['ninja', '-C', 'out/' + configuration, syzygy.SYZYGY_TARGET],
         cwd=_SRC_DIR)
+    return True
 
 
 def MakeTest():

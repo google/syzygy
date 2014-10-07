@@ -29,11 +29,12 @@ _SCRIPT_DIR = os.path.join(_SYZYGY_DIR, 'py')
 
 if _SCRIPT_DIR not in sys.path:
   sys.path.insert(0, _SCRIPT_DIR)
+import test_utils.syzygy as syzygy  # pylint: disable=F0401
 import test_utils.testing as testing  # pylint: disable=F0401
 
 
 def MakeTest():
-  tests = testing.TestSuite(_SYZYGY_DIR, 'ALL', [])
+  tests = testing.TestSuite(syzygy.GetBuildDir(), 'ALL', [])
 
   for test in os.listdir(_SELF_DIR):
     if test == 'run_all_tests.py' or not re.search('\.py$', test):
@@ -47,8 +48,4 @@ def MakeTest():
 
 
 if __name__ == "__main__":
-  logging.basicConfig(
-      format='[%(asctime)s:%(levelname)s:%(filename)s(%(lineno)d)] %(message)s',
-      datefmt='%m%d/%H%M%S',
-      level=logging.INFO)
   sys.exit(MakeTest().Main())

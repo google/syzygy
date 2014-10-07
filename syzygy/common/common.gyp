@@ -27,28 +27,11 @@
       ],
       'actions': [
         {
-          'action_name': 'make_lastchange_gen',
-          'inputs': [
-            '<(src)/syzygy/build/lastchange.py',
-          ],
-          # We include a fake output target to ensure that this command
-          # is always run as part of any build.
-          'outputs': [
-            'THIS_OUTPUT_IS_NEVER_GENERATED.TXT',
-            '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
-          ],
-          'action': [
-            '<(python_exe)', '<(src)/syzygy/build/lastchange.py',
-            '-s', '<(src)/syzygy',
-            '-o', '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
-          ],
-        },
-        {
           'action_name': 'make_version_gen',
           'inputs': [
-            '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
             '<(src)/syzygy/build/template_replace.py',
             '<(src)/syzygy/VERSION',
+            '<(src)/syzygy/build/LASTCHANGE.gen',
             'version.gen.template',
           ],
           'outputs': [
@@ -60,7 +43,7 @@
             '--input', 'version.gen.template',
             '--output', '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/version.gen',
             '<(src)/syzygy/VERSION',
-            '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
+            '<(src)/syzygy/build/LASTCHANGE.gen',
           ],
           'process_outputs_as_sources': 1,
         },

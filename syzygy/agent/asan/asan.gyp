@@ -106,36 +106,21 @@
       'type': 'loadable_module',
       'includes': ['../agent.gypi'],
       'sources': [
-        '<(system_interceptors_output_base_name).def.gen',
+        # This file must have a .def extension in order for GYP to
+        # automatically configure it as the ModuleDefinitionFile
+        # (we usually suffix generated files with .gen).
+        '<(system_interceptors_output_base_name).def',
         'syzyasan_rtl.cc',
         'syzyasan_rtl.rc',
       ],
       'dependencies': [
+        'system_interceptors_generator',
         'syzyasan_rtl_lib',
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/common/common.gyp:syzygy_version',
         '<(src)/syzygy/core/core.gyp:core_lib',
       ],
-      'configurations': {
-        # Override the default imports list at source - apparently the
-        # configuration inheritance hierarchy is traversed and settings merged
-        # for each target. It's not sufficient here to e.g. override the
-        # desired settings in the final, assembled configuration such as
-        # 'Debug' or 'Release', as that will only alter their contribution to
-        # the project.
-        # Note that this is brittle to changes in build/common.gypi.
-        'Common_Base': {
-          'msvs_settings': {
-            'VCLinkerTool': {
-              'AdditionalDependencies=': [],
-              'ModuleDefinitionFile': [
-                '<(system_interceptors_output_base_name).def.gen'
-              ],
-            },
-          },
-        },
-      },
       'msvs_settings': {
         'VCLinkerTool': {
           # Link against the XP-constrained user32 import libraries for
@@ -178,21 +163,21 @@
         {
           'action_name': 'generate_syzyasan_system_interceptors',
           'inputs': [
-            'syzyasan_rtl.def',
+            'syzyasan_rtl.def.template',
             'asan_system_interceptors_function_list.txt',
           ],
           'outputs': [
             '<(system_interceptors_output_base_name)_impl.gen',
             '<(system_interceptors_output_base_name)_instrumentation_filter'
                 '.gen',
-            '<(system_interceptors_output_base_name).def.gen',
+            '<(system_interceptors_output_base_name).def',
           ],
           'action': [
             '<(python_exe)',
             'asan_system_interceptor_parser.py',
             '--output-base=<(system_interceptors_output_base_name)',
             '--overwrite',
-            '--def-file=syzyasan_rtl.def',
+            '--def-file=syzyasan_rtl.def.template',
             'asan_system_interceptors_function_list.txt',
           ],
         },

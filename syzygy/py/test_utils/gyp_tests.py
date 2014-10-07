@@ -79,16 +79,20 @@ class GypTests(testing.TestSuite):
     if not os.path.exists(gyp_path):
       raise Error('gyp file "%s" does not exist.' % (gyp_path))
 
-    project_dir = os.path.dirname(gyp_path)
-    testing.TestSuite.__init__(self, project_dir, name, [])
+    self._use_ninja = syzygy.UseNinjaBuild()
+    self._project_dir = os.path.dirname(gyp_path)
+    self._build_dir = syzygy.MSVS_BUILD_DIR
+    if self._use_ninja:
+      self._build_dir = syzygy.NINJA_BUILD_DIR
+
+    testing.TestSuite.__init__(self, self._build_dir, name, [])
 
     self._solution_path = re.sub('\.gyp$', '.sln', gyp_path)
     self._project = 'build_unittests'
     self._configuration_built = {}
-    self._use_ninja = syzygy.UseNinjaBuild()
 
     # Parse the gypi file and extract the tests.
-    gypi_path = os.path.join(project_dir, 'unittests.gypi')
+    gypi_path = os.path.join(self._project_dir, 'unittests.gypi')
     self._ExtractTestsFromGypi(gypi_path)
 
   @staticmethod
@@ -135,15 +139,9 @@ class GypTests(testing.TestSuite):
       tests.extend(targets)
     tests = sorted(tests)
 
-    # A blank build dir defaults to the MSVS directory.
-    build_dir = None
-    if self._use_ninja:
-      build_dir = syzygy.NINJA_BUILD_DIR
-
     # Add each test.
     for test in tests:
-      self.AddTest(testing.ShardedGTest(self._project_dir, test,
-                                        build_dir=build_dir))
+      self.AddTest(testing.ShardedGTest(self._build_dir, test))
 
   def _BuildUnittests(self, configuration):
     """Causes the build_unittests target to be built if it hasn't been

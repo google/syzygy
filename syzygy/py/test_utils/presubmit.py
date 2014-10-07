@@ -15,6 +15,7 @@
 """Contains functionality for integrating unit-tests with gcl presubmit
 checks."""
 import os
+import sys
 
 
 def MakeResult(output_api, message, committing, modified_files=None):
@@ -63,7 +64,11 @@ def CheckTestSuccess(input_api, output_api, committing, configuration,
   str, will also output the provided message."""
   # By convention, a test called NAME will generate NAME_success.txt in the
   # appropriate output directory.
-  build_path = os.path.join(input_api.PresubmitLocalPath(), '../build')
+  test_utils_path = os.path.join(input_api.PresubmitLocalPath(), 'py',
+                                 'test_utils')
+  sys.path.append(test_utils_path)
+  import syzygy
+  build_path = syzygy.GetBuildDir()
   success_path = GetTestSuccessPath(build_path,
                                     configuration,
                                     test_name)

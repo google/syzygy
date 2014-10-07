@@ -87,7 +87,7 @@ def RunCommand(cmd, *args, **kwargs):
   Raises:
     RunFailure: If the command fails.
   """
-  _LOGGER.info('Running %s.', cmd)
+  _LOGGER.debug('Running %s.', cmd)
   popen = subprocess.Popen(cmd, *args, **kwargs)
   (stdout, stderr) = popen.communicate()
   if popen.returncode != 0:
@@ -106,18 +106,18 @@ class Test(object):
   run as as stand-alone command line test.
   """
 
-  def __init__(self, project_dir, name, leaf):
+  def __init__(self, build_dir, name, leaf):
     """Initializes this test.
 
     Args:
-      project_dir: The directory housing the project under test.
+      build_dir: The root build output directory.
       name: The name of this test.
       leaf: If true this test is a leaf. That is, it actually runs an
           executable. Otherwise it is a non-leaf test that simply aggregates
           results from other tests.
     """
 
-    self._project_dir = project_dir
+    self._build_dir = build_dir
     self._name = name
     self._force = False
     self._leaf = leaf
@@ -129,8 +129,7 @@ class Test(object):
 
   def GetSuccessFilePath(self, configuration):
     """Returns the path to the success file associated with this test."""
-    build_path = os.path.join(self._project_dir, '../build')
-    success_path = presubmit.GetTestSuccessPath(build_path,
+    success_path = presubmit.GetTestSuccessPath(self._build_dir,
                                                 configuration,
                                                 self._name)
     return success_path
@@ -192,7 +191,7 @@ class Test(object):
     """
     success_path = self.GetSuccessFilePath(configuration)
     _LOGGER.debug('Creating success file "%s".',
-                  os.path.relpath(success_path, self._project_dir))
+                  os.path.relpath(success_path, self._build_dir))
     success_file = open(success_path, 'wb')
     success_file.write(str(datetime.datetime.now()))
     success_file.close()
@@ -320,7 +319,7 @@ class Test(object):
                       action='store_true', default=False,
                       help='Force tests to re-run even if not necessary.')
     parser.add_option('--verbose', dest='log_level', action='store_const',
-                      const=logging.INFO, default=logging.WARNING,
+                      const=logging.DEBUG, default=logging.WARNING,
                       help='Run the script with verbose logging.')
     return parser
 
@@ -361,21 +360,18 @@ class ExecutableTest(Test):
   executable file, and inspecting its return value.
   """
 
-  def __init__(self, project_dir, name, extra_args=None, build_dir=None):
+  def __init__(self, build_dir, name, extra_args=None):
     """Initializes this object.
 
     Args:
-      project_dir: The directory housing the project under test.
+      build_dir: The build output directory.
       name: The name of the executable being testing, without an extension.
           The binary will be looked for in the following location:
-              <project_dir>/../build/<build_configuration>/<name>.exe
+              <build_dir>/<build_configuration>/<name>.exe
       extra_args: Extra arguments that will be used when invoking the
           executable. If these are specified the test name (used for generating
           the success file) will be decorated to reflect the contents of the
           extra arguments.
-      build_dir: If specified is the root of the build directory. Artefacts are
-          expected to be in <build_dir>/<configuration>. Defaults to
-          <project_dir>/../build/.
     """
     if extra_args is None:
       extra_args = []
@@ -386,14 +382,9 @@ class ExecutableTest(Test):
     if extra_args:
       name = '%s_%s' % (name, hashlib.md5(' '.join(extra_args)).hexdigest())
 
-    Test.__init__(self, project_dir, name, True)
+    Test.__init__(self, build_dir, name, True)
     self._raw_name = raw_name
     self._extra_args = extra_args
-    if build_dir:
-      self._build_dir = os.path.abspath(build_dir)
-    else:
-      self._build_dir = os.path.abspath(os.path.join(
-          self._project_dir, '..', 'build'))
 
   def _GetTestPath(self, configuration):
     """Returns the path to the test executable. This stub may be overridden,
@@ -500,8 +491,8 @@ class TestSuite(Test):
   Test, so may be nested.
   """
 
-  def __init__(self, project_dir, name, tests):
-    Test.__init__(self, project_dir, name, False)
+  def __init__(self, build_dir, name, tests):
+    Test.__init__(self, build_dir, name, False)
     # tests may be anything iterable, but we want it to be a list when
     # stored internally.
     self._tests = list(tests)
@@ -558,27 +549,28 @@ class TestSuite(Test):
     return success
 
 
-class ShardedGTest(TestSuite):
+class ShardedGTest(ExecutableTest):
   """A wrapper for a GTest that causes it to be run in a sharded manner."""
 
   # Matches a test group in a --gtest_list_tests output.
   _GTEST_GROUP_NAME_RE = re.compile(r'^([^\s]+)\.$')
 
-  def __init__(self, project_dir, name, extra_args=None, build_dir=None):
-    if extra_args is None:
-      extra_args = []
+  def __init__(self, *args, **kwargs):
+    ExecutableTest.__init__(self, *args, **kwargs)
+    self._tests_configuration = None
+    self._tests = None
 
-    TestSuite.__init__(self, project_dir, name, [])
-    self._extra_args = extra_args
-    self._build_dir = build_dir
+  def _GenerateTestSuite(self, configuration):
+    if self._tests_configuration == configuration:
+      return
 
-  def _CanRun(self, configuration):
     # Clear the tests. The list is regenerated per configuration.
-    self._tests = []
+    self._tests_configuration = configuration
+    self._tests = TestSuite(self._build_dir, self._name, [])
 
     # Parse the top level list of tests.
     groups = []
-    test = ExecutableTest(self._project_dir, self._name)
+    test = ExecutableTest(self._build_dir, self._name)
     stdo, dummy_stde = RunCommand(
         [test._GetCmdLine(configuration), '--gtest_list_tests'],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -590,8 +582,9 @@ class ShardedGTest(TestSuite):
 
     for group in groups:
       extra_args = ['--gtest_filter=%s.*' % group] + self._extra_args
-      gtest = GTest(self._project_dir, self._name, extra_args=extra_args,
-                    build_dir=self._build_dir)
-      self.AddTest(gtest)
+      gtest = GTest(self._build_dir, self._name, extra_args=extra_args)
+      self._tests.AddTest(gtest)
 
-    return TestSuite._CanRun(self, configuration)
+  def _Run(self, configuration):
+    self._GenerateTestSuite(configuration)
+    return self._tests.Run(configuration)

@@ -23,6 +23,7 @@ SYZYGY_DIR = os.path.abspath(os.path.join(
 SRC_DIR = os.path.abspath(os.path.join(SYZYGY_DIR, '..'))
 SYZYGY_SLN = os.path.join(SYZYGY_DIR, 'syzygy.sln')
 SYZYGY_TARGET = 'build_all'
+MSVS_BUILD_DIR = os.path.abspath(os.path.join(SYZYGY_DIR, '..', 'build'))
 NINJA_BUILD_DIR = os.path.abspath(os.path.join(SYZYGY_DIR, '..', 'out'))
 
 
@@ -40,3 +41,9 @@ def UseNinjaBuild():
     raise Exception('Neither MSVS nor Ninja projects exist.')
 
   return mtime(build_ninja) >= mtime(SYZYGY_SLN)
+
+
+def GetBuildDir():
+  if UseNinjaBuild():
+    return NINJA_BUILD_DIR
+  return MSVS_BUILD_DIR

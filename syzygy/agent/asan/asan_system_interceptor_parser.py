@@ -26,7 +26,7 @@ python asan_system_interceptor_parser.py input_header.h --output-file=$(OutName)
    AsanInterceptor entries, e.g:
     { "foo", NULL, NULL, "foo.dll", true },
     { "bar", NULL, NULL, "bar.dll", true },
-- $(OutName).def.gen : This will contain a copy of the input DEF file followed
+- $(OutName).def: This will contain a copy of the input DEF file followed
     by the list of the new interceptors
 
 As an example, for a definition like this:
@@ -280,12 +280,12 @@ class ASanSystemInterceptorGenerator(object):
     #           implementation of the interceptors.
     #     - output_base + '_instrumentation_filter.gen : This file will
     #           contain a list of AsanIntercept entries.
-    #     - output_base + 'def.gen' : This file will contain a copy of the input
+    #     - output_base + 'def' : This file will contain a copy of the input
     #           DEF file followed by the list of the new interceptors.
     output_impl_filename = output_base + '_impl.gen'
     output_instrumentation_filter_filename = output_base +  \
         '_instrumentation_filter.gen'
-    output_def_filename = output_base + '.def.gen'
+    output_def_filename = output_base + '.def'
 
     if (os.path.isfile(output_impl_filename) or  \
         os.path.isfile(output_instrumentation_filter_filename) or  \

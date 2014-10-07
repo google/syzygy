@@ -443,14 +443,12 @@
           ],
           'outputs': [
             '<(PRODUCT_DIR)/test_data/test_dll.ltcg_obj',
-            '<(PRODUCT_DIR)/test_data/test_dll.ltcg_obj.pdb',
           ],
           'action': [
             'cl',
             '/c',
             '/GL',
             '/Fo<(PRODUCT_DIR)\\test_data\\test_dll.ltcg_obj',
-            '/Fd<(PRODUCT_DIR)\\test_data\\test_dll.ltcg_obj.pdb',
             'test_dll.cc',
           ],
         },
