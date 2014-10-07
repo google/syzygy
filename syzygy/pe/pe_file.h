@@ -27,6 +27,7 @@
 #include "base/files/file_path.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
+#include "syzygy/core/section_offset_address.h"
 #include "syzygy/core/serialization.h"
 #include "syzygy/pe/pe_coff_file.h"
 
@@ -81,6 +82,7 @@ class PEFileBase : public PECoffFile<PEAddressSpaceTraits> {
   typedef core::AbsoluteAddress AbsoluteAddress;
   typedef core::FileOffsetAddress FileOffsetAddress;
   typedef core::RelativeAddress RelativeAddress;
+  typedef core::SectionOffsetAddress SectionOffsetAddress;
 
   // A set of locations in the RVA address space where an address is
   // present and needs to be relocated.
@@ -194,6 +196,15 @@ class PEFileBase : public PECoffFile<PEAddressSpaceTraits> {
   // @param offs where to place the resulting address.
   // @returns true on success, false on error.
   bool Translate(RelativeAddress rel, FileOffsetAddress* offs) const;
+
+  // Translate a relative address to an offset in a section, based on the
+  // preferred loading address of this PE file.
+  //
+  // @param relative_address the address to translate.
+  // @param section_offset_address where to place the resulting address.
+  // @returns true on success, false on error.
+  bool Translate(RelativeAddress relative_address,
+                 SectionOffsetAddress* section_offset_address) const;
 
   // Absolute address wrappers around the same-named methods from
   // PECoffFile, which deal with relative addresses. Each of the

@@ -365,6 +365,40 @@ bool PEFileBase<ImageNtHeaders, MagicValidation>::Translate(
 }
 
 template <class ImageNtHeaders, DWORD MagicValidation>
+bool PEFileBase<ImageNtHeaders, MagicValidation>::Translate(
+    RelativeAddress relative_address,
+    SectionOffsetAddress* section_offset_address) const {
+  DCHECK_NE(static_cast<SectionOffsetAddress*>(NULL), section_offset_address);
+
+  // In the headers?
+  if (relative_address.value() < section_header(0)->VirtualAddress) {
+    section_offset_address->set_section_id(0);
+    section_offset_address->set_offset(relative_address.value());
+    return true;
+  }
+
+  // Find the section in which this address lies.
+  size_t section_id = GetSectionIndex(relative_address, 1);
+  if (section_id == kInvalidSection)
+    return false;
+  const IMAGE_SECTION_HEADER* section = section_header(section_id);
+
+  // Calculate the offset of this address and ensure it can be expressed as
+  // a section offset (lies in the explicit data part of the section, not the
+  // implicit virtual data at the end).
+  uint32 section_offset = relative_address.value() - section->VirtualAddress;
+  if (section_offset >= section->SizeOfRawData)
+    return false;
+
+  // The offset of the first explicitly defined section is 1. The index 0
+  // is used for addresses before the first section.
+  section_offset_address->set_section_id(section_id + 1);
+  section_offset_address->set_offset(section_offset);
+
+  return true;
+}
+
+template <class ImageNtHeaders, DWORD MagicValidation>
 bool PEFileBase<ImageNtHeaders, MagicValidation>::ReadImage(
     AbsoluteAddress addr, void* data, size_t len) const {
   RelativeAddress rel;

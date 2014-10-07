@@ -30,6 +30,7 @@ namespace {
 using core::AbsoluteAddress;
 using core::FileOffsetAddress;
 using core::RelativeAddress;
+using core::SectionOffsetAddress;
 
 class PEFileTest: public testing::PELibUnitTest {
   typedef testing::PELibUnitTest Super;
@@ -63,10 +64,12 @@ class PEFileTest: public testing::PELibUnitTest {
 
   void TestAddressesAreConsistent(RelativeAddress rel,
                                   AbsoluteAddress abs,
-                                  FileOffsetAddress off) {
+                                  FileOffsetAddress off,
+                                  SectionOffsetAddress sect_off) {
     AbsoluteAddress abs2;
     RelativeAddress rel2;
     FileOffsetAddress off2;
+    SectionOffsetAddress sect_off2;
 
     ASSERT_TRUE(image_file_.Translate(rel, &abs2));
     ASSERT_EQ(abs, abs2);
@@ -79,6 +82,9 @@ class PEFileTest: public testing::PELibUnitTest {
 
     ASSERT_TRUE(image_file_.Translate(rel, &off2));
     ASSERT_EQ(off, off2);
+
+    ASSERT_TRUE(image_file_.Translate(rel, &sect_off2));
+    ASSERT_EQ(sect_off, sect_off2);
   }
 
  protected:
@@ -226,7 +232,8 @@ TEST_F(PEFileTest, Translate) {
   AbsoluteAddress abs(image_file_.nt_headers()->OptionalHeader.ImageBase + 3);
   RelativeAddress rel(3);
   FileOffsetAddress off(3);
-  ASSERT_NO_FATAL_FAILURE(TestAddressesAreConsistent(rel, abs, off));
+  SectionOffsetAddress sect_off(0, 3);
+  ASSERT_NO_FATAL_FAILURE(TestAddressesAreConsistent(rel, abs, off, sect_off));
 
   // Now try an address in each of the sections.
   size_t i = 0;
@@ -237,8 +244,10 @@ TEST_F(PEFileTest, Translate) {
         image_file_.nt_headers()->OptionalHeader.ImageBase + i);
     RelativeAddress rel(section->VirtualAddress + i);
     FileOffsetAddress off(section->PointerToRawData + i);
+    SectionOffsetAddress sect_off(i + 1, i);
 
-    ASSERT_NO_FATAL_FAILURE(TestAddressesAreConsistent(rel, abs, off));
+    ASSERT_NO_FATAL_FAILURE(
+        TestAddressesAreConsistent(rel, abs, off, sect_off));
   }
 }
 
