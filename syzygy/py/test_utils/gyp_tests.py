@@ -87,10 +87,6 @@ class GypTests(testing.TestSuite):
 
     testing.TestSuite.__init__(self, self._build_dir, name, [])
 
-    self._solution_path = re.sub('\.gyp$', '.sln', gyp_path)
-    self._project = 'build_unittests'
-    self._configuration_built = {}
-
     # Parse the gypi file and extract the tests.
     gypi_path = os.path.join(self._project_dir, 'unittests.gypi')
     self._ExtractTestsFromGypi(gypi_path)
@@ -142,36 +138,6 @@ class GypTests(testing.TestSuite):
     # Add each test.
     for test in tests:
       self.AddTest(testing.ShardedGTest(self._build_dir, test))
-
-  def _BuildUnittests(self, configuration):
-    """Causes the build_unittests target to be built if it hasn't been
-    already."""
-    if self._configuration_built.has_key(configuration):
-      return
-    self._configuration_built[configuration] = True
-
-    if self._use_ninja:
-      testing.RunCommand(
-          ['ninja', '-C', 'out/' + configuration, self._project ],
-          cwd=syzygy.SRC_DIR)
-      return
-
-    # MSVS build.
-    testing.BuildProjectConfig(self._solution_path,
-                               self._project,
-                               configuration)
-
-  def _NeedToRun(self, configuration):
-    # Ensure the unittests are built first, and then delegate to our
-    # parent class.
-    try:
-      self._BuildUnittests(configuration)
-    except testing.BuildFailure:
-      # Recast the build failure as a test failure so that this test is
-      # stopped.
-      raise testing.TestFailure, sys.exc_info()[1], sys.exc_info()[2]
-
-    return testing.TestSuite._NeedToRun(self, configuration)
 
 
 def Main():

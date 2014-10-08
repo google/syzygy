@@ -37,10 +37,22 @@ def UseNinjaBuild():
     return 0
 
   build_ninja = os.path.join(NINJA_BUILD_DIR, 'Debug', 'build.ninja')
-  if not os.path.exists(SYZYGY_SLN) and not os.path.exists(build_ninja):
-    raise Exception('Neither MSVS nor Ninja projects exist.')
+  if not os.path.exists(build_ninja):
+    return False
 
-  return mtime(build_ninja) >= mtime(SYZYGY_SLN)
+  if mtime(build_ninja) >= mtime(SYZYGY_SLN):
+    return True
+
+  # Handle msvs-ninja by looking for calls to ninja from within the build_all
+  # target of the MSVS solution.
+  assert os.path.exists(SYZYGY_SLN)
+  build_all = os.path.join(SYZYGY_DIY, 'build_all.vcxproj')
+  contents = open(build_all, 'rb').read()
+  if 'call ninja.exe' in contents:
+    return True
+
+  # Looks like this is MSVS after all.
+  return False
 
 
 def GetBuildDir():

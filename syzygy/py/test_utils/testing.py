@@ -319,7 +319,7 @@ class Test(object):
                       action='store_true', default=False,
                       help='Force tests to re-run even if not necessary.')
     parser.add_option('--verbose', dest='log_level', action='store_const',
-                      const=logging.DEBUG, default=logging.WARNING,
+                      const=logging.DEBUG, default=logging.INFO,
                       help='Run the script with verbose logging.')
     return parser
 
@@ -491,11 +491,12 @@ class TestSuite(Test):
   Test, so may be nested.
   """
 
-  def __init__(self, build_dir, name, tests):
+  def __init__(self, build_dir, name, tests, stop_on_first_failure=False):
     Test.__init__(self, build_dir, name, False)
     # tests may be anything iterable, but we want it to be a list when
     # stored internally.
     self._tests = list(tests)
+    self._stop_on_first_failure = stop_on_first_failure
 
   def AddTest(self, test):
     self._tests.append(test)
@@ -544,6 +545,8 @@ class TestSuite(Test):
       if not test.Run(configuration, force=self._force):
         # Keep a cumulative log of all stderr from each test that fails.
         self._WriteStderr(test._GetStderr())  # pylint: disable=W0212
+        if self._stop_on_first_failure:
+          return False
         success = False
 
     return success

@@ -34,9 +34,13 @@ import test_utils.testing as testing  # pylint: disable=F0401
 
 
 def MakeTest():
-  tests = testing.TestSuite(syzygy.GetBuildDir(), 'ALL', [])
+  # All tests must run and pass consecutively. This is because the first
+  # test builds the entire project, and the second test runs the unittests.
+  tests = testing.TestSuite(syzygy.GetBuildDir(), 'ALL', [],
+                            stop_on_first_failure=True)
 
-  for test in os.listdir(_SELF_DIR):
+  # Add the tests in alphabetical order.
+  for test in sorted(os.listdir(_SELF_DIR)):
     if test == 'run_all_tests.py' or not re.search('\.py$', test):
       continue
 
