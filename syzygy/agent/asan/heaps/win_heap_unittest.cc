@@ -20,6 +20,15 @@ namespace agent {
 namespace asan {
 namespace heaps {
 
+namespace {
+
+class TestWinHeap : public WinHeap {
+ public:
+  using WinHeap::heap_lock_count_;
+};
+
+}  // namespace
+
 TEST(WinHeapTest, FeaturesAreValid) {
   WinHeap h;
   EXPECT_EQ(WinHeap::kHeapSupportsGetAllocationSize,
@@ -53,6 +62,22 @@ TEST(WinHeapTest, GetAllocationSize) {
   void* alloc = h.Allocate(67);
   ASSERT_TRUE(alloc != NULL);
   EXPECT_EQ(67u, h.GetAllocationSize(alloc));
+}
+
+TEST(WinkHeapTest, Lock) {
+  TestWinHeap h;
+
+  EXPECT_EQ(0u, h.heap_lock_count_);
+  h.Lock();
+  EXPECT_EQ(1u, h.heap_lock_count_);
+  // TryLock does not acquire the underlying heap lock, as there's no
+  // 'try' functionality.
+  EXPECT_TRUE(h.TryLock());
+  EXPECT_EQ(1u, h.heap_lock_count_);
+  h.Unlock();
+  EXPECT_EQ(0u, h.heap_lock_count_);
+  h.Unlock();
+  EXPECT_EQ(0u, h.heap_lock_count_);
 }
 
 }  // namespace heaps

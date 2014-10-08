@@ -24,26 +24,62 @@
 
 #include "base/logging.h"
 #include "base/time/time.h"
+#include "syzygy/agent/asan/heap.h"
 
 namespace agent {
 namespace asan {
 
-// A simple functor that calls LockType::Try.
+namespace detail {
+
+// A simple adapter for base::Lock-like locks (Try and Release).
 template<typename LockType>
-struct BasicLockTryFunctor {
-  bool operator()(LockType* lock) {
+struct BaseLockAdapter {
+  bool Try(LockType* lock) {
     DCHECK_NE(static_cast<LockType*>(NULL), lock);
     return lock->Try();
   }
+
+  void Release(LockType* lock) {
+    DCHECK_NE(static_cast<LockType*>(NULL), lock);
+    lock->Release();
+  }
 };
 
-template<typename LockType, typename LockTryFunctor>
+// A lock adapter for HeapInterface objects.
+struct HeapInterfaceAdapter {
+  bool Try(HeapInterface* heap) {
+    DCHECK_NE(static_cast<HeapInterface*>(NULL), heap);
+    return heap->TryLock();
+  }
+
+  void Release(HeapInterface* heap) {
+    DCHECK_NE(static_cast<HeapInterface*>(NULL), heap);
+    heap->Unlock();
+  }
+};
+
+// A lock adapter selector. By default selects BaseLockAdapter, and expects
+// the lock to implement 'Try' and 'Release'.
+template<typename LockType>
+struct SelectLockAdapter {
+  typedef BaseLockAdapter<LockType> type;
+};
+
+// A specialization that selects HeapInterfaceAdapter for HeapInterface objects.
+template<>
+struct SelectLockAdapter<HeapInterface> {
+  typedef HeapInterfaceAdapter type;
+};
+
+}  // namespace detail
+
+template<typename LockType>
 bool TimedTry(base::TimeDelta delta, LockType* lock) {
   DCHECK_NE(static_cast<LockType*>(NULL), lock);
 
   // Try at least once, even if |delta| is zero or negative.
-  LockTryFunctor try_lock;
-  if (try_lock(lock))
+  detail::SelectLockAdapter<LockType>::type adapter;
+  if (adapter.Try(lock))
     return true;
 
   // Try repeatedly, until timeout.
@@ -51,7 +87,7 @@ bool TimedTry(base::TimeDelta delta, LockType* lock) {
   while (base::Time::Now() < end) {
     // Spin a bunch of times.
     for (size_t i = 0; i < 100; ++i)
-      if (try_lock(lock))
+      if (adapter.Try(lock))
         return true;
 
     // Cede the processor to another thread, hoping the lock will become
@@ -62,22 +98,23 @@ bool TimedTry(base::TimeDelta delta, LockType* lock) {
   return false;
 }
 
-template<typename LockType, typename LockTryFunctor>
-AutoTimedTry<LockType, LockTryFunctor>::AutoTimedTry(
+template<typename LockType>
+AutoTimedTry<LockType>::AutoTimedTry(
     base::TimeDelta delta, LockType* lock)
     : lock_(lock) {
   DCHECK_NE(static_cast<LockType*>(NULL), lock);
-  is_acquired_ = TimedTry(delta, lock);
+  is_acquired_ = TimedTry<LockType>(delta, lock);
 }
 
-template<typename LockType, typename LockTryFunctor>
-AutoTimedTry<LockType, LockTryFunctor>::~AutoTimedTry() {
+template<typename LockType>
+AutoTimedTry<LockType>::~AutoTimedTry() {
+  detail::SelectLockAdapter<LockType>::type adapter;
   if (is_acquired_)
-    lock_->Release();
+    adapter.Release(lock_);
 }
 
-template<typename LockType, typename LockTryFunctor>
-bool AutoTimedTry<LockType, LockTryFunctor>::is_acquired() const {
+template<typename LockType>
+bool AutoTimedTry<LockType>::is_acquired() const {
   return is_acquired_;
 }
 

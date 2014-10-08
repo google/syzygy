@@ -138,6 +138,15 @@ TEST(LargeBlockHeapTest, GetAllocationSize) {
   EXPECT_EQ(67u, h.GetAllocationSize(alloc));
 }
 
+TEST(LargeBlockHeapTest, Lock) {
+  TestLargeBlockHeap h;
+
+  h.Lock();
+  EXPECT_TRUE(h.TryLock());
+  h.Unlock();
+  h.Unlock();
+}
+
 }  // namespace heaps
 }  // namespace asan
 }  // namespace agent

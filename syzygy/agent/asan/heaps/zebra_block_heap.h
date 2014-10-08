@@ -102,6 +102,7 @@ class ZebraBlockHeap : public BlockHeapInterface,
   virtual size_t GetAllocationSize(const void* alloc);
   virtual void Lock();
   virtual void Unlock();
+  virtual bool TryLock();
   // @}
 
   // @name BlockHeapInterface functions.

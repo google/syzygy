@@ -18,7 +18,7 @@ namespace agent {
 namespace asan {
 namespace heaps {
 
-WinHeap::WinHeap() : heap_(NULL), own_heap_(true) {
+WinHeap::WinHeap() : heap_(NULL), own_heap_(true), heap_lock_count_(0) {
   heap_ = ::HeapCreate(0, 0, 0);
   DCHECK_NE(static_cast<HANDLE>(NULL), heap_);
 }
@@ -70,16 +70,26 @@ size_t WinHeap::GetAllocationSize(const void* alloc) {
 
 void WinHeap::Lock() {
   DCHECK_NE(static_cast<HANDLE>(NULL), heap_);
+  lock_.Acquire();
   // This can only fail if the heap was opened with HEAP_NO_SERIALIZATION.
   // This is strictly unsupported.
   // TODO(chrisha): If we want to support this we can always provide our own
   //     serialization, and query for this condition at runtime.
   CHECK_EQ(TRUE, ::HeapLock(heap_));
+  ++heap_lock_count_;
 }
 
 void WinHeap::Unlock() {
   DCHECK_NE(static_cast<HANDLE>(NULL), heap_);
-  CHECK_EQ(TRUE, ::HeapUnlock(heap_));
+  if (heap_lock_count_ > 0) {
+    CHECK_EQ(TRUE, ::HeapUnlock(heap_));
+    --heap_lock_count_;
+  }
+  lock_.Release();
+}
+
+bool WinHeap::TryLock() {
+  return lock_.Try();
 }
 
 }  // namespace heaps

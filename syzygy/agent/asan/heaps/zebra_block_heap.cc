@@ -146,6 +146,10 @@ void ZebraBlockHeap::Unlock() {
   lock_.Release();
 }
 
+bool ZebraBlockHeap::TryLock() {
+  return lock_.Try();
+}
+
 void* ZebraBlockHeap::AllocateBlock(size_t size,
                                     size_t min_left_redzone_size,
                                     size_t min_right_redzone_size,

@@ -109,6 +109,10 @@ void InternalHeap::Unlock() {
   heap_->Unlock();
 }
 
+bool InternalHeap::TryLock() {
+  return heap_->TryLock();
+}
+
 }  // namespace heaps
 }  // namespace asan
 }  // namespace agent

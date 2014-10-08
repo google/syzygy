@@ -81,6 +81,16 @@ TEST(SimpleBlockHeap, IsAllocated) {
   EXPECT_FALSE(h.IsAllocated(a));
 }
 
+TEST(SimpleBlockHeapTest, Lock) {
+  WinHeap win_heap;
+  SimpleBlockHeap h(&win_heap);
+
+  h.Lock();
+  EXPECT_TRUE(h.TryLock());
+  h.Unlock();
+  h.Unlock();
+}
+
 }  // namespace heaps
 }  // namespace asan
 }  // namespace agent

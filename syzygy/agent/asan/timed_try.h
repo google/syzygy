@@ -27,21 +27,15 @@ namespace asan {
 // limit is a guideline and not precise. This function tries to grab the lock
 // by repeatedly calling 'LockType::Try' via LockTryFunctor.
 // @tparam LockType The type of the lock to be acquired.
-// @tparam LockTryFunctor The functor that is invoked to try acquiring the
-//     lock instantaneously. Must implemented 'bool operator()(LockType*)'.
 // @param delta The maximum amount of time to spend trying to acquire the lock.
 // @param lock The lock to be acquired.
 // @returns true if the lock has been acquired, false otherwise.
-template<typename LockType,
-         typename LockTryFunctor = BasicLockTryFunctor<LockType>>
+template<typename LockType>
 bool TimedTry(base::TimeDelta delta, LockType* lock);
 
 // A scoped timed try lock.
 // @tparam LockType The type of the lock to be acquired.
-// @tparam LockTryFunctor The functor that is invoked to try acquiring the
-//     lock instantaneously. Must implemented 'bool operator()(LockType*)'.
-template<typename LockType,
-         typename LockTryFunctor = BasicLockTryFunctor<LockType>>
+template<typename LockType>
 class AutoTimedTry {
  public:
   AutoTimedTry(base::TimeDelta delta, LockType* lock);

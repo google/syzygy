@@ -455,6 +455,15 @@ TEST(ZebraBlockHeapTest, MemoryNotifierIsCalled) {
   h.Allocate(10);
 }
 
+TEST(ZebraBlockHeapTest, Lock) {
+  TestZebraBlockHeap h;
+
+  h.Lock();
+  EXPECT_TRUE(h.TryLock());
+  h.Unlock();
+  h.Unlock();
+}
+
 }  // namespace heaps
 }  // namespace asan
 }  // namespace agent

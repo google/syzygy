@@ -146,6 +146,15 @@ TEST(CtMallocHeapTest, GetAllocationSizeLargeAllocation) {
   // CTMalloc cleans up any oustanding allocations on tear down.
 }
 
+TEST(CtMallocHeapTest, Lock) {
+  testing::NullMemoryNotifier n;
+  CtMallocHeap h(&n);
+  h.Lock();
+  EXPECT_TRUE(h.TryLock());
+  h.Unlock();
+  h.Unlock();
+}
+
 }  // namespace heaps
 }  // namespace asan
 }  // namespace agent

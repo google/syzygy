@@ -21,6 +21,7 @@
 
 #include "base/logging.h"
 #include "syzygy/agent/asan/heap.h"
+#include "syzygy/common/recursive_lock.h"
 
 namespace agent {
 namespace asan {
@@ -47,6 +48,7 @@ class WinHeap : public HeapInterface {
   virtual size_t GetAllocationSize(const void* alloc);
   virtual void Lock();
   virtual void Unlock();
+  virtual bool TryLock();
   // @}
 
  protected:
@@ -55,6 +57,15 @@ class WinHeap : public HeapInterface {
 
   // If true then this object owns the wrapped heap.
   bool own_heap_;
+
+  // The lock that gates access to this heap. This is a little redundant as
+  // the underlying heap has its own lock, but it allows 'try' locking
+  // semantics by our manager and heap checker.
+  common::RecursiveLock lock_;
+
+  // The number of times the heap lock itself has been acquired. This can differ
+  // from the number of times that lock_ has been acquired. Under lock_.
+  size_t heap_lock_count_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(WinHeap);

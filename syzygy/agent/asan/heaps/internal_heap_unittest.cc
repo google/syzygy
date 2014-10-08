@@ -106,6 +106,17 @@ TEST(InternalHeapTest, HeaderIsAllocated) {
   EXPECT_TRUE(h.Free(alloc));
 }
 
+TEST(InternalHeapTest, Lock) {
+  memory_notifiers::NullMemoryNotifier mock_notifier;
+  testing::DummyHeap heap;
+  InternalHeap h(&mock_notifier, &heap);
+
+  h.Lock();
+  EXPECT_TRUE(h.TryLock());
+  h.Unlock();
+  h.Unlock();
+}
+
 }  // namespace heaps
 }  // namespace asan
 }  // namespace agent

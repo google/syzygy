@@ -109,6 +109,10 @@ class HeapInterface {
 
   // Unlocks the heap.
   virtual void Unlock() = 0;
+
+  // Tries to lock this heap.
+  // @returns true if the lock was acquired, false otherwise.
+  virtual bool TryLock() = 0;
 };
 
 // Declares the interface that a block-allocating heap must implement. The API

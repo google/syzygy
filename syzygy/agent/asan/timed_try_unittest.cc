@@ -19,6 +19,7 @@
 #include "base/threading/simple_thread.h"
 #include "base/time/time.h"
 #include "gtest/gtest.h"
+#include "syzygy/agent/asan/heaps/win_heap.h"
 #include "syzygy/common/recursive_lock.h"
 
 namespace agent {
@@ -26,19 +27,70 @@ namespace asan {
 
 namespace {
 
+// An adapater for allowing a base::Lock to be used in the unittest.
+template<typename LockType>
+struct BaseLockAdapter {
+  typedef LockType ConcreteLockType;
+  typedef LockType AbstractLockType;
+
+  void AssertAcquired(LockType* lock) {
+    lock->AssertAcquired();
+  }
+
+  void Acquire(LockType* lock) {
+    lock->Acquire();
+  }
+
+  void Release(LockType* lock) {
+    lock->Release();
+  }
+
+  void Try(LockType* lock) {
+    return lock->Try();
+  }
+};
+
+
+// An adapater for allowing a HeapInterface object to be used in the
+// unittest.
+template<typename HeapType>
+struct HeapAdapter {
+  typedef HeapType ConcreteLockType;
+  typedef HeapInterface AbstractLockType;
+
+  void AssertAcquired(HeapType* heap) {
+  }
+
+  void Acquire(HeapType* heap) {
+    heap->Lock();
+  }
+
+  void Release(HeapType* heap) {
+    heap->Unlock();
+  }
+
+  void Try(HeapType* heap) {
+    return heap->TryLock();
+  }
+};
+
+
 // A thread body that acquires a lock, waits a certain amount of time, then
 // releases it. Signals when it has acquired the lock for unittest
 // synchronization purposes.
-template<typename LockType>
+template<typename LockAdapter>
 class TimedTryTestRunner : public base::DelegateSimpleThread::Delegate {
  public:
+  typedef typename LockAdapter::ConcreteLockType LockType;
+
   TimedTryTestRunner(base::TimeDelta delta, LockType* lock)
       : cv_(&cv_lock_), held_(false), delta_(delta), lock_(lock) {
     DCHECK_NE(static_cast<LockType*>(NULL), lock);
   }
 
   virtual void Run() {
-    lock_->Acquire();
+    LockAdapter adapter;
+    adapter.Acquire(lock_);
 
     // Notify that the lock has been acquired.
     {
@@ -56,7 +108,7 @@ class TimedTryTestRunner : public base::DelegateSimpleThread::Delegate {
       ::Sleep(remaining.InMillisecondsRoundedUp());
     }
 
-    lock_->Release();
+    adapter.Release(lock_);
   }
 
   void WaitUntilHeld() {
@@ -80,43 +132,48 @@ class TimedTryTestRunner : public base::DelegateSimpleThread::Delegate {
 
 base::TimeDelta kDelay(base::TimeDelta::FromMilliseconds(100));
 
-template <typename LockType>
+template <typename LockAdapter>
 void TimedTryTestImpl() {
+  typedef typename LockAdapter::ConcreteLockType LockType;
+  typedef typename LockAdapter::AbstractLockType LockInterfaceType;
+  LockAdapter adapter;
   LockType lock;
 
-  TimedTryTestRunner<LockType> runner(kDelay * 2, &lock);
+  TimedTryTestRunner<LockAdapter> runner(kDelay * 2, &lock);
   base::DelegateSimpleThread thread(&runner, "TimedTryTestRunner");
 
   // Grab the lock.
-  EXPECT_TRUE(TimedTry<LockType>(kDelay, &lock));
-  lock.AssertAcquired();
+  EXPECT_TRUE(TimedTry<LockInterfaceType>(kDelay, &lock));
+  adapter.AssertAcquired(&lock);
 
   // Try to grab the lock but expect a timeout.
   base::Time t0 = base::Time::Now();
   thread.Start();
-  lock.Release();
+  adapter.Release(&lock);
   runner.WaitUntilHeld();
-  ASSERT_FALSE(TimedTry<LockType>(kDelay, &lock));
+  ASSERT_FALSE(TimedTry<LockInterfaceType>(kDelay, &lock));
 
   // Try to grab the lock again, expecting success this time.
-  ASSERT_TRUE(TimedTry<LockType>(kDelay * 10, &lock));
-  lock.Release();
+  ASSERT_TRUE(TimedTry<LockInterfaceType>(kDelay * 10, &lock));
+  adapter.Release(&lock);
   base::Time t1 = base::Time::Now();
   EXPECT_LE(kDelay * 2, t1 - t0);
 
   thread.Join();
 }
 
-template <typename LockType>
+template <typename LockAdapter>
 void AutoTimedTryTestImpl() {
+  typedef typename LockAdapter::ConcreteLockType LockType;
+  typedef typename LockAdapter::AbstractLockType LockInterfaceType;
   LockType lock;
 
-  TimedTryTestRunner<LockType> runner(kDelay * 2, &lock);
+  TimedTryTestRunner<LockAdapter> runner(kDelay * 2, &lock);
   base::DelegateSimpleThread thread(&runner, "TimedTryTestRunner");
 
   base::Time t0;
   {
-    AutoTimedTry<LockType> timed_try(kDelay, &lock);
+    AutoTimedTry<LockInterfaceType> timed_try(kDelay, &lock);
     EXPECT_TRUE(timed_try.is_acquired());
     t0 = base::Time::Now();
     thread.Start();
@@ -126,14 +183,14 @@ void AutoTimedTryTestImpl() {
   // Try to grab the lock, but expect it to fail as the lock will be held
   // longer than we try.
   {
-    AutoTimedTry<LockType> timed_try(kDelay, &lock);
+    AutoTimedTry<LockInterfaceType> timed_try(kDelay, &lock);
     EXPECT_FALSE(timed_try.is_acquired());
   }
 
   // Try to grab the lock and expect it to succeed, as the wait is longer than
   // the lock will be held.
   {
-    AutoTimedTry<LockType> timed_try(kDelay * 10, &lock);
+    AutoTimedTry<LockInterfaceType> timed_try(kDelay * 10, &lock);
     base::Time t1 = base::Time::Now();
     EXPECT_LE(kDelay * 2, t1 - t0);
   }
@@ -144,19 +201,33 @@ void AutoTimedTryTestImpl() {
 }  // namespace
 
 TEST(TimedTryTest, BaseLock) {
-  ASSERT_NO_FATAL_FAILURE(TimedTryTestImpl<base::Lock>());
+  typedef BaseLockAdapter<base::Lock> LockAdapter;
+  ASSERT_NO_FATAL_FAILURE(TimedTryTestImpl<LockAdapter>());
 }
 
 TEST(AutoTimedTryTest, BaseLock) {
-  ASSERT_NO_FATAL_FAILURE(AutoTimedTryTestImpl<base::Lock>());
+  typedef BaseLockAdapter<base::Lock> LockAdapter;
+  ASSERT_NO_FATAL_FAILURE(AutoTimedTryTestImpl<LockAdapter>());
 }
 
 TEST(TimedTryTest, CommonRecursiveLock) {
-  ASSERT_NO_FATAL_FAILURE(TimedTryTestImpl<common::RecursiveLock>());
+  typedef BaseLockAdapter<common::RecursiveLock> LockAdapter;
+  ASSERT_NO_FATAL_FAILURE(TimedTryTestImpl<LockAdapter>());
 }
 
 TEST(AutoTimedTryTest, CommonRecursiveLock) {
-  ASSERT_NO_FATAL_FAILURE(AutoTimedTryTestImpl<common::RecursiveLock>());
+  typedef BaseLockAdapter<common::RecursiveLock> LockAdapter;
+  ASSERT_NO_FATAL_FAILURE(AutoTimedTryTestImpl<LockAdapter>());
+}
+
+TEST(TimedTryTest, HeapInterface) {
+  typedef HeapAdapter<heaps::WinHeap> LockAdapter;
+  ASSERT_NO_FATAL_FAILURE(TimedTryTestImpl<LockAdapter>());
+}
+
+TEST(AutoTimedTryTest, HeapInterface) {
+  typedef HeapAdapter<heaps::WinHeap> LockAdapter;
+  ASSERT_NO_FATAL_FAILURE(AutoTimedTryTestImpl<LockAdapter>());
 }
 
 }  // namespace asan

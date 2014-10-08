@@ -55,6 +55,10 @@ void SimpleBlockHeap::Unlock() {
   heap_->Unlock();
 }
 
+bool SimpleBlockHeap::TryLock() {
+  return heap_->TryLock();
+}
+
 void* SimpleBlockHeap::AllocateBlock(size_t size,
                                      size_t min_left_redzone_size,
                                      size_t min_right_redzone_size,

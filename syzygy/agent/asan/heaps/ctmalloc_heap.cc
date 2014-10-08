@@ -114,6 +114,10 @@ void CtMallocHeap::Unlock() {
   lock_.Release();
 }
 
+bool CtMallocHeap::TryLock() {
+  return lock_.Try();
+}
+
 }  // namespace heaps
 }  // namespace asan
 }  // namespace agent

@@ -106,6 +106,10 @@ void LargeBlockHeap::Unlock() {
   lock_.Release();
 }
 
+bool LargeBlockHeap::TryLock() {
+  return lock_.Try();
+}
+
 void* LargeBlockHeap::AllocateBlock(size_t size,
                                     size_t min_left_redzone_size,
                                     size_t min_right_redzone_size,

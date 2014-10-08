@@ -442,6 +442,7 @@ class LenientMockHeap : public agent::asan::HeapInterface {
   MOCK_METHOD1(GetAllocationSize, size_t(const void*));
   MOCK_METHOD0(Lock, void());
   MOCK_METHOD0(Unlock, void());
+  MOCK_METHOD0(TryLock, bool());
 };
 typedef testing::StrictMock<LenientMockHeap> MockHeap;
 
@@ -537,6 +538,7 @@ class DummyHeap : public agent::asan::HeapInterface {
   virtual size_t GetAllocationSize(const void* alloc) { return 0; }
   virtual void Lock() { return; }
   virtual void Unlock() { return; }
+  virtual bool TryLock() { return true; }
 };
 
 // Test read and write access.
