@@ -117,7 +117,7 @@ def _GetHeaderCompareKey(source_path, header):
   else:
     group = 3
   dirname, basename = os.path.split(header[1:-1])
-  return (group, dirname, basename)
+  return (group, dirname.lower(), basename.lower())
 
 
 def _GetHeaderCompareKeyFunc(source):
