@@ -48,6 +48,7 @@
         'agent_logger_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/common/common.gyp:common_unittest_utils',
+        '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
         '<(src)/testing/gtest.gyp:gtest',
         '<(src)/testing/gmock.gyp:gmock',
       ],
