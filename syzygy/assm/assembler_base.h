@@ -26,6 +26,9 @@
 
 namespace assm {
 
+// The reference sizes the assembler supports coincides with register sizes.
+typedef RegisterSize ReferenceSize;
+
 // The assembler takes care of maintaining an output location (address), and
 // generating a stream of bytes and references as instructions are assembled.
 template <class ReferenceType>
@@ -36,6 +39,14 @@ class AssemblerBase {
   typedef ValueImpl ImmediateImpl;
   typedef OperandBase<ReferenceType> OperandImpl;
 
+  // Tracks a single embedded reference in the instruction.
+  struct ReferenceInfo {
+    size_t offset;
+    ReferenceType reference;
+    ReferenceSize size;
+    bool pc_relative;
+  };
+
   // The assembler pushes instructions and references to
   // one of these for serialization.
   class InstructionSerializer {
@@ -43,8 +54,7 @@ class AssemblerBase {
     virtual void AppendInstruction(uint32 location,
                                    const uint8* bytes,
                                    size_t num_bytes,
-                                   const size_t *ref_locations,
-                                   const ReferenceType* refs,
+                                   const ReferenceInfo* refs,
                                    size_t num_refs) = 0;
   };
 

@@ -21,11 +21,11 @@ namespace {
 
 class Serializer : public assm::AssemblerImpl::InstructionSerializer {
  public:
+  typedef assm::AssemblerImpl::ReferenceInfo ReferenceInfo;
   virtual void AppendInstruction(uint32 location,
                                  const uint8* bytes,
                                  size_t num_bytes,
-                                 const size_t *ref_locations,
-                                 const void* const* refs,
+                                 const ReferenceInfo* refs,
                                  size_t num_refs) {
     memcpy(static_cast<uint8*>(0) + location, bytes, num_bytes);
   }

@@ -23,7 +23,7 @@
 
 namespace assm {
 
-// This class is used to buffer a single instruction during it's creation.
+// This class is used to buffer a single instruction during its creation.
 // TODO(siggi): Add a small state machine in debug mode to ensure the
 //     correct order of invocation to opcode/modrm etc.
 // @note @p ReferenceType must either be a pointer type, or else have
@@ -38,9 +38,8 @@ class AssemblerBase<ReferenceType>::InstructionBuffer {
   // @{
   size_t len() const { return len_; }
   const uint8* buf() const { return buf_; }
-  size_t num_references() const { return num_references_; }
-  const size_t *reference_offsets() const { return reference_offsets_; }
-  const ReferenceType* references() const { return references_; }
+  size_t num_reference_infos() const { return num_reference_infos_; }
+  const ReferenceInfo* reference_infos() const { return reference_infos_; }
   // @}
 
   // Emits operand size prefix (0x66) bytes.
@@ -93,15 +92,16 @@ class AssemblerBase<ReferenceType>::InstructionBuffer {
   void EmitXchg(ValueSize size, RegisterId dst, RegisterId src);
 
   // Add reference at current location.
-  void AddReference(const ReferenceType& reference);
+  void AddReference(const ReferenceType& reference,
+                    RegisterSize size,
+                    bool pc_relative);
 
  protected:
   void EmitByte(uint8 byte);
 
   AssemblerBase* asm_;
-  size_t num_references_;
-  ReferenceType references_[2];
-  size_t reference_offsets_[2];
+  size_t num_reference_infos_;
+  ReferenceInfo reference_infos_[2];
   size_t len_;
   uint8 buf_[kMaxInstructionLength];
 };
@@ -131,7 +131,7 @@ bool IsDisplacementOnly(const OperandBase<ReferenceType>& operand) {
 
 template <class ReferenceType>
 AssemblerBase<ReferenceType>::InstructionBuffer::InstructionBuffer(
-    AssemblerBase* assm) : asm_(assm), len_(0), num_references_(0) {
+    AssemblerBase* assm) : asm_(assm), len_(0), num_reference_infos_(0) {
   DCHECK(assm != NULL);
 #ifndef NDEBUG
   // Initialize the buffer in debug mode for easier debugging.
@@ -292,7 +292,7 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::Emit8BitDisplacement(
     const DisplacementImpl& disp) {
   DCHECK(disp.size() == kSize8Bit);
 
-  AddReference(disp.reference());
+  AddReference(disp.reference(), kSize8Bit, false);
 
   EmitByte(disp.value());
 }
@@ -300,7 +300,7 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::Emit8BitDisplacement(
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::Emit32BitDisplacement(
     const DisplacementImpl& disp) {
-  AddReference(disp.reference());
+  AddReference(disp.reference(), kSize32Bit, false);
 
   uint32 value = disp.value();
   EmitByte(value);
@@ -314,7 +314,7 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::Emit8BitPCRelative(
     uint32 location, const ValueImpl& value) {
   DCHECK_EQ(kSize8Bit, value.size());
 
-  AddReference(value.reference());
+  AddReference(value.reference(), kSize8Bit, true);
 
   // Turn the absolute value into a value relative to the address of
   // the end of the emitted constant.
@@ -329,7 +329,7 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::Emit32BitPCRelative(
     uint32 location, const ValueImpl& value) {
   DCHECK_EQ(kSize32Bit, value.size());
 
-  AddReference(value.reference());
+  AddReference(value.reference(), kSize32Bit, true);
 
   // Turn the absolute value into a value relative to the address of
   // the end of the emitted constant.
@@ -455,14 +455,17 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::EmitXchg(
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::AddReference(
-    const ReferenceType& reference) {
+    const ReferenceType& reference, RegisterSize size, bool pc_relative) {
   if (!details::IsValidReference(reference))
     return;
 
-  DCHECK_GT(arraysize(references_), num_references_);
-  reference_offsets_[num_references_] = len();
-  references_[num_references_] = reference;
-  ++num_references_;
+  DCHECK_GT(arraysize(reference_infos_), num_reference_infos_);
+  ReferenceInfo& info = reference_infos_[num_reference_infos_];
+  info.offset = len();
+  info.reference = reference;
+  info.size = size;
+  info.pc_relative = pc_relative;
+  ++num_reference_infos_;
 }
 
 template <class ReferenceType>
@@ -1184,9 +1187,8 @@ void AssemblerBase<ReferenceType>::Output(const InstructionBuffer& instr) {
   serializer_->AppendInstruction(location_,
                                  instr.buf(),
                                  instr.len(),
-                                 instr.reference_offsets(),
-                                 instr.references(),
-                                 instr.num_references());
+                                 instr.reference_infos(),
+                                 instr.num_reference_infos());
 
   location_ += instr.len();
 }

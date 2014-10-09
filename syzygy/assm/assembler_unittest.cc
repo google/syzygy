@@ -35,11 +35,10 @@ class TestSerializer : public AssemblerImpl::InstructionSerializer {
   virtual void AppendInstruction(uint32 location,
                                  const uint8* bytes,
                                  size_t num_bytes,
-                                 const uint32 *ref_locations,
-                                 const void* const* refs,
+                                 const AssemblerImpl::ReferenceInfo* refs,
                                  size_t num_refs) {
     for (size_t i = 0; i < num_refs; ++i) {
-      Reference ref = { code.size() + ref_locations[i], refs[i] };
+      Reference ref = { code.size() + refs[i].offset, refs[i].reference };
       references.push_back(ref);
     }
     code.insert(code.end(), bytes, bytes + num_bytes);
