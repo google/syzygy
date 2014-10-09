@@ -46,7 +46,7 @@ def UseNinjaBuild():
   # Handle msvs-ninja by looking for calls to ninja from within the build_all
   # target of the MSVS solution.
   assert os.path.exists(SYZYGY_SLN)
-  build_all = os.path.join(SYZYGY_DIY, 'build_all.vcxproj')
+  build_all = os.path.join(SYZYGY_DIR, 'build_all.vcxproj')
   contents = open(build_all, 'rb').read()
   if 'call ninja.exe' in contents:
     return True
