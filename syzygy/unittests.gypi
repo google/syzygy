@@ -61,6 +61,9 @@
       # Grinder tests.
       '<(src)/syzygy/grinder/grinder.gyp:grinder_unittests',
 
+      # Kasko tests.
+      '<(src)/syzygy/kasko/kasko.gyp:kasko_unittests',
+
       # Integration tests.
       '<(src)/syzygy/integration_tests/integration_tests.gyp:integration_tests',
 

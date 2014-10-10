@@ -95,6 +95,7 @@
       ],
       'dependencies': [
         'system_interceptors_generator',
+        '<(src)/syzygy/kasko/kasko.gyp:kasko',
         '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
         '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
         '<(src)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',

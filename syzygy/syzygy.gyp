@@ -44,6 +44,7 @@
         'instrument/instrument.gyp:*',
         'installer/installer.gyp:*',
         'integration_tests/integration_tests.gyp:*',
+        'kasko/kasko.gyp:*',
         'optimize/optimize.gyp:*',
         'pdb/pdb.gyp:*',
         'pdbfind/pdbfind.gyp:*',
