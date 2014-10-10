@@ -189,10 +189,13 @@ class _CodeCoverageRunnerBase(object):
   def _RunUnittests(self):
     unittests = (glob.glob(os.path.join(self._work_dir, '*_unittests.exe')) +
         glob.glob(os.path.join(self._work_dir, '*_tests.exe')))
-    print unittests
     for unittest in unittests:
       _LOGGER.info('Running unittest "%s".', unittest)
-      _Subprocess(unittest,
+      # Run single threaded, and with a 5 minute (in ms) timeout. This
+      # conserves existing buildbot behaviour with the new sharded tests.
+      _Subprocess([unittest,
+                   '--single-process-tests',
+                   '--test-launcher-timeout=300000'],
                   'Unittests "%s" failed.' % os.path.basename(unittest))
 
   def _GenerateHtml(self, input_path):
