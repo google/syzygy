@@ -37,10 +37,11 @@
       'type': 'executable',
       'sources': [
         'zap_timestamp_unittest.cc',
-        'zap_timestamp_unittests_main.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'zap_timestamp_lib',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/testing/gtest.gyp:gtest',
       ],

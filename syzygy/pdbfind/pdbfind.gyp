@@ -51,11 +51,12 @@
       'type': 'executable',
       'sources': [
         'pdbfind_app_unittest.cc',
-        'pdbfind_unittests_main.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'pdbfind_lib',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',

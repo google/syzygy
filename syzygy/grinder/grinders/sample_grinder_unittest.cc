@@ -16,6 +16,7 @@
 
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/win/scoped_com_initializer.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -220,6 +221,9 @@ class SampleGrinderTest : public testing::PELibUnitTest {
     ASSERT_TRUE(base::GetFileSize(csv_path, &file_size));
     ASSERT_LT(0u, file_size);
   }
+
+  // Ensures that COM is initialized for tests in this fixture.
+  base::win::ScopedCOMInitializer com_initializer_;
 
   base::FilePath test_dll_path_;
   pe::PEFile test_dll_pe_file_;

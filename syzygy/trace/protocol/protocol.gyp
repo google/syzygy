@@ -33,10 +33,11 @@
       'type': 'executable',
       'sources': [
         'call_trace_defs_unittest.cc',
-        'protocol_unittests_main.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'protocol_lib',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/testing/gtest.gyp:gtest',
       ],
     },

@@ -38,11 +38,12 @@
       'type': 'executable',
       'sources': [
         'client_utils_unittest.cc',
-        'rpc_client_lib_unittests_main.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'rpc_client_lib',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/trace/common/common.gyp:trace_unittest_utils',

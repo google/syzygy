@@ -41,11 +41,12 @@
       'type': 'executable',
       'sources': [
         'basic_block_entry_unittest.cc',
-        'basic_block_entry_unittests_main.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'basic_block_entry_client',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
         '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',

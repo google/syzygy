@@ -42,11 +42,12 @@
       'sources': [
         'agent_logger_app_unittest.cc',
         'agent_logger_unittest.cc',
-        'agent_logger_unittests_main.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'agent_logger_lib',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/common/common.gyp:common_unittest_utils',
         '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
         '<(src)/testing/gtest.gyp:gtest',

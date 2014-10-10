@@ -71,11 +71,12 @@
         'pe_coff_add_imports_transform_unittest.cc',
         'pe_remove_empty_sections_transform_unittest.cc',
         'pe_prepare_headers_transform_unittest.cc',
-        'pe_transforms_unittests_main.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'pe_transforms_lib',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:test_dll',

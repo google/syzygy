@@ -55,11 +55,12 @@
       'sources': [
         'pdb_public_stream_writer_unittest.cc',
         'pdb_string_table_writer_unittest.cc',
-        'pdb_writer_unittests_main.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'pdb_writer_lib',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/pdb/pdb.gyp:pdb_lib',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',

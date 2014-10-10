@@ -41,14 +41,15 @@
       'target_name': 'asm_unittests',
       'type': 'executable',
       'sources': [
-        'asm_unittests_main.cc',
         'assembler_unittest.cc',
         'register_unittest.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'asm_lib',
         '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/testing/gtest.gyp:gtest',
       ],
     },

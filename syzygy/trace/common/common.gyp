@@ -50,12 +50,13 @@
       'type': 'executable',
       'sources': [
         'clock_unittest.cc',
-        'common_unittests_main.cc',
         'service_unittest.cc',
         'service_util_unittest.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'trace_common_lib',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
       ],

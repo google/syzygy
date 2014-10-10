@@ -38,14 +38,15 @@
       'target_name': 'block_graph_orderers_unittests',
       'type': 'executable',
       'sources': [
-        'block_graph_orderers_unittests_main.cc',
         'named_orderer_unittest.cc',
         'original_orderer_unittest.cc',
         'random_orderer_unittest.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'block_graph_orderers_lib',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
         '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_unittest_lib',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',

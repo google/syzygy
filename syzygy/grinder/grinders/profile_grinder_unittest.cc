@@ -14,6 +14,7 @@
 
 #include "syzygy/grinder/grinders/profile_grinder.h"
 
+#include "base/win/scoped_com_initializer.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
@@ -121,6 +122,9 @@ class ProfileGrinderTest : public testing::PELibUnitTest {
                                1,
                                &batch);
   }
+
+  // Ensures that COM is initialized for tests in this fixture.
+  base::win::ScopedCOMInitializer com_initializer_;
 
   CommandLine cmd_line_;
   trace::parser::Parser parser_;

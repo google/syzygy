@@ -137,7 +137,7 @@ class GypTests(testing.TestSuite):
 
     # Add each test.
     for test in tests:
-      self.AddTest(testing.ShardedGTest(self._build_dir, test))
+      self.AddTest(testing.GTest(self._build_dir, test))
 
 
 def Main():

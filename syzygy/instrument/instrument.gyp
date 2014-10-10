@@ -107,7 +107,6 @@
       'type': 'executable',
       'sources': [
         'instrument_app_unittest.cc',
-        'instrument_unittests_main.cc',
         'instrumenters/archive_instrumenter_unittest.cc',
         'instrumenters/asan_instrumenter_unittest.cc',
         'instrumenters/bbentry_instrumenter_unittest.cc',
@@ -130,10 +129,12 @@
         'transforms/thunk_import_references_transform_unittest.cc',
         'transforms/unittest_util.cc',
         'transforms/unittest_util.h',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'instrument_lib',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
         '<(src)/syzygy/ar/ar.gyp:ar_unittest_utils',

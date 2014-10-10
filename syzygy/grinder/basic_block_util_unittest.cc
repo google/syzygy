@@ -15,6 +15,7 @@
 #include "syzygy/grinder/basic_block_util.h"
 
 #include "base/files/scoped_temp_dir.h"
+#include "base/win/scoped_com_initializer.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/indexed_frequency_data.h"
@@ -79,6 +80,9 @@ class TestGrinder : public GrinderInterface {
     ASSERT_TRUE(LoadPdbInfo(&pdb_info_cache_, *module_info, &dup_pdb_info));
     ASSERT_EQ(pdb_info, dup_pdb_info);
   }
+
+  // Ensures that COM is initialized for tests in this fixture.
+  base::win::ScopedCOMInitializer com_initializer_;
 
   Parser* parser_;
   PdbInfoMap pdb_info_cache_;

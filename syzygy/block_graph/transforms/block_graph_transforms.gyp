@@ -41,15 +41,16 @@
       'target_name': 'block_graph_transforms_unittests',
       'type': 'executable',
       'sources': [
-        'block_graph_transforms_unittests_main.cc',
         'chained_basic_block_transforms_unittest.cc',
         'fuzzing_transform_unittest.cc',
         'iterative_transform_unittest.cc',
         'named_transform_unittest.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'block_graph_transforms_lib',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
         '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_unittest_lib',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',

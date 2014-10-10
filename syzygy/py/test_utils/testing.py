@@ -395,6 +395,8 @@ class ExecutableTest(Test):
 
   def _NeedToRun(self, configuration):
     test_path = self._GetTestPath(configuration)
+    if not os.path.exists(test_path):
+      return True
     return os.stat(test_path).st_mtime > self.LastRunTime(configuration)
 
   def _GetCmdLine(self, configuration):
@@ -474,6 +476,14 @@ def _GTestColorize(text):
 class GTest(ExecutableTest):
   """This wraps a GTest unittest, with colorized output."""
   def __init__(self, *args, **kwargs):
+    # Syzygy unittests all use the sharded Chrome launcher, so by default
+    # shard them across a few CPUs. Some tests are quite long so provide a
+    # generous 5 minute timeout (300,000 ms).
+    extra_args = kwargs.get('extra_args', [])
+    extra_args.append('--test-launcher-jobs=5')
+    extra_args.append('--test-launcher-timeout=300000')
+    kwargs['extra_args'] = extra_args
+
     ExecutableTest.__init__(self, *args, **kwargs)
 
   def _WriteStdout(self, value):
@@ -550,44 +560,3 @@ class TestSuite(Test):
         success = False
 
     return success
-
-
-class ShardedGTest(ExecutableTest):
-  """A wrapper for a GTest that causes it to be run in a sharded manner."""
-
-  # Matches a test group in a --gtest_list_tests output.
-  _GTEST_GROUP_NAME_RE = re.compile(r'^([^\s]+)\.$')
-
-  def __init__(self, *args, **kwargs):
-    ExecutableTest.__init__(self, *args, **kwargs)
-    self._tests_configuration = None
-    self._tests = None
-
-  def _GenerateTestSuite(self, configuration):
-    if self._tests_configuration == configuration:
-      return
-
-    # Clear the tests. The list is regenerated per configuration.
-    self._tests_configuration = configuration
-    self._tests = TestSuite(self._build_dir, self._name, [])
-
-    # Parse the top level list of tests.
-    groups = []
-    test = ExecutableTest(self._build_dir, self._name)
-    stdo, dummy_stde = RunCommand(
-        [test._GetCmdLine(configuration), '--gtest_list_tests'],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    for line in stdo.splitlines():
-      line = line.strip()
-      m = ShardedGTest._GTEST_GROUP_NAME_RE.match(line)
-      if m:
-        groups.append(m.group(1))
-
-    for group in groups:
-      extra_args = ['--gtest_filter=%s.*' % group] + self._extra_args
-      gtest = GTest(self._build_dir, self._name, extra_args=extra_args)
-      self._tests.AddTest(gtest)
-
-  def _Run(self, configuration):
-    self._GenerateTestSuite(configuration)
-    return self._tests.Run(configuration)

@@ -15,6 +15,7 @@
 #include "syzygy/grinder/grinder_app.h"
 
 #include "base/files/scoped_temp_dir.h"
+#include "base/win/scoped_com_initializer.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/application.h"
 #include "syzygy/core/unittest_util.h"
@@ -61,6 +62,9 @@ class GrinderAppTest : public testing::PELibUnitTest {
   }
 
  protected:
+  // Ensures that COM is initialized for tests in this fixture.
+  base::win::ScopedCOMInitializer com_initializer_;
+
   // The command line to be given to the application under test.
   CommandLine cmd_line_;
 

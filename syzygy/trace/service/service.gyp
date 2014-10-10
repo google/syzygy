@@ -53,15 +53,16 @@
       'sources': [
         'mapped_buffer_unittest.cc',
         'process_info_unittest.cc',
-        'rpc_service_unittests_main.cc',
         'service_unittest.cc',
         'session_unittest.cc',
         'trace_file_writer_unittest.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'call_trace_service_exe',
         'rpc_service_lib',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',
         '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',

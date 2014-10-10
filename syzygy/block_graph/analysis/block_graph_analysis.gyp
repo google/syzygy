@@ -40,14 +40,15 @@
       'target_name': 'block_graph_analysis_unittests',
       'type': 'executable',
       'sources': [
-        'block_graph_analysis_unittests_main.cc',
         'control_flow_analysis_unittest.cc',
         'liveness_analysis_unittest.cc',
         'memory_access_analysis_unittest.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'block_graph_analysis_lib',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
         '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_unittest_lib',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',

@@ -40,8 +40,8 @@
         'kasko_dll.cc',
       ],
       'dependencies': [
-        '<(src)/base/base.gyp:base',
         'kasko_lib',
+        '<(src)/base/base.gyp:base',
       ],
       'defines': [
         'KASKO_IMPLEMENTATION',
@@ -81,11 +81,12 @@
       'target_name': 'kasko_unittests',
       'type': 'executable',
       'sources': [
-        'kasko_unittests_main.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'kasko_lib',
         'kasko',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/testing/gtest.gyp:gtest',
        ],
       # TODO(erikwright): Is this needed?

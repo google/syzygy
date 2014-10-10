@@ -49,13 +49,14 @@
       'sources': [
         'ar_reader_unittest.cc',
         'ar_transform_unittest.cc',
-        'ar_unittests_main.cc',
         'ar_writer_unittest.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'ar_lib',
         'ar_unittest_utils',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/testing/gmock.gyp:gmock',

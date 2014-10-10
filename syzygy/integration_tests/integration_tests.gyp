@@ -19,12 +19,13 @@
       'type': 'executable',
       'sources': [
         'integration_tests.rc',
-        'integration_tests_main.cc',
         'instrument_integration_test.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'integration_tests_dll',
         'integration_tests_harness',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl',
         '<(src)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
             'basic_block_entry_client',

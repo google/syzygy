@@ -20,6 +20,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/pe_image.h"
+#include "base/win/scoped_com_initializer.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_rtl_impl.h"
@@ -1201,6 +1202,7 @@ TEST_F(InstrumentAppIntegrationTest, CallTraceEndToEnd) {
 }
 
 TEST_F(InstrumentAppIntegrationTest, CoverageEndToEnd) {
+  base::win::ScopedCOMInitializer scoped_com_initializer;
   ASSERT_NO_FATAL_FAILURE(StartService());
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("coverage"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
@@ -1212,6 +1214,7 @@ TEST_F(InstrumentAppIntegrationTest, CoverageEndToEnd) {
 TEST_F(InstrumentAppIntegrationTest, BBEntryCoverageEndToEnd) {
   // Coverage grinder must be able to process traces produced by bbentry
   // instrumentation.
+  base::win::ScopedCOMInitializer scoped_com_initializer;
   ASSERT_NO_FATAL_FAILURE(StartService());
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("bbentry"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());

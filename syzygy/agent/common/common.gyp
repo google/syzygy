@@ -45,15 +45,16 @@
       'target_name': 'agent_common_unittests',
       'type': 'executable',
       'sources': [
-        'agent_common_unittests_main.cc',
         'dlist_unittest.cc',
         'dll_notifications_unittest.cc',
         'process_utils_unittest.cc',
         'thread_state_unittest.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'agent_common_lib',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/trace/common/common.gyp:trace_unittest_utils',
         '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',

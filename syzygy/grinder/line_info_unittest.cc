@@ -14,6 +14,7 @@
 
 #include "syzygy/grinder/line_info.h"
 
+#include "base/win/scoped_com_initializer.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -57,6 +58,9 @@ class LineInfoTest : public testing::Test {
         L"syzygy/grinder/test_data/coverage_instrumented_test_dll.pdb");
     static_pdb_path_ = testing::GetSrcRelativePath(static_pdb_path.c_str());
   }
+
+  // Ensures that COM is initialized for tests in this fixture.
+  base::win::ScopedCOMInitializer com_initializer_;
 
   base::FilePath pdb_path_;
   base::FilePath static_pdb_path_;

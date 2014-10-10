@@ -224,12 +224,12 @@
         'pe_file_parser_unittest.cc',
         'pe_file_writer_unittest.cc',
         'pe_image_layout_builder_unittest.cc',
-        'pe_unittests_main.cc',
         'pe_utils_unittest.cc',
         'pe_relinker_unittest.cc',
         'pe_relinker_util_unittest.cc',
         'pe_transform_policy_unittest.cc',
         'serialization_unittest.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'no_exports_dll',
@@ -239,6 +239,7 @@
         'test_dll',
         'test_dll_obj',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/ar/ar.gyp:ar_unittest_utils',
         '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_unittest_lib',
         '<(src)/syzygy/block_graph/orderers/block_graph_orderers.gyp:'

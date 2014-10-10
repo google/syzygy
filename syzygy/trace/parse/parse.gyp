@@ -71,12 +71,13 @@
         'parse_engine_unittest.cc',
         'parse_utils_unittest.cc',
         'parser_unittest.cc',
-        'unittests_main.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'parse_lib',
         'parse_unittest_utils',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         # TODO(siggi,rogerm): Remove these "backward" dependencies.
         '<(src)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
         '<(src)/syzygy/common/common.gyp:common_lib',

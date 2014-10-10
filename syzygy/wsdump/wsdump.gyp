@@ -33,11 +33,12 @@
       'type': 'executable',
       'sources': [
         'process_working_set_unittest.cc',
-        'wsdump_unittests_main.cc'
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'wsdump_lib',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/testing/gtest.gyp:gtest',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/third_party/pcre/pcre.gyp:pcre_lib',

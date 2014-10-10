@@ -52,14 +52,15 @@
       'type': 'executable',
       'sources': [
         'profiler_unittest.cc',
-        'profiler_unittests_main.cc',
         'return_thunk_factory_unittest.cc',
         'symbol_map_unittest.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'profile_client',
         'profile_lib',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
         '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',

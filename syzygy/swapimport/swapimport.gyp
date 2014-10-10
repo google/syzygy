@@ -46,11 +46,12 @@
       'type': 'executable',
       'sources': [
         'swapimport_app_unittest.cc',
-        'swapimport_unittests_main.cc',
+        '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'swapimport_lib',
         '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
