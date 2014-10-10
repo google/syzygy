@@ -1,0 +1,20 @@
+{
+  "hooks": {
+    "isdigit": [ 34 ],
+    "isleadbyte": [ 8 ],
+    "malloc": [ 67, 91, 103, 110, 124, 130 ],
+    "memchr": [ 15 ],
+    "rand": [ 0 ],
+    "realloc": [ 12, 31, 61, 82, 98, 104, 121, 128, 135, 145, 152, 159 ],
+    "strcpy_s": [ 27, 37, 72 ],
+    "strpbrk": [ 11 ],
+    "strrchr": [ 11 ],
+    "strstr": [ 11 ],
+    "strtol": [ 32 ],
+    "strtoxl": [ 12, 56, 67, 106, 461 ],
+    "time": [ 7 ],
+    "invalid_offset_list": 35,
+    "unused_operation": [ 31, 36, 46 ],
+    "used_operation": [ 3, 9, 14 ]
+  }
+}

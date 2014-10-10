@@ -17,6 +17,8 @@
 #include "syzygy/instrument/transforms/allocation_filter_transform.h"
 
 #include "base/logging.h"
+#include "base/values.h"
+#include "base/json/json_reader.h"
 #include "syzygy/agent/basic_block_entry/basic_block_entry.h"
 #include "syzygy/core/address_space.h"
 #include "syzygy/pe/transforms/pe_add_imports_transform.h"
@@ -25,6 +27,10 @@ namespace instrument {
 namespace transforms {
 
 namespace {
+
+using base::DictionaryValue;
+using base::ListValue;
+using base::Value;
 
 using block_graph::BasicBlock;
 using block_graph::BasicBlockAssembler;
@@ -267,6 +273,72 @@ bool AllocationFilterTransform::TransformBasicBlockSubGraph(
                      << std::hex << non_instrumented[i]
                      << " not instrumented.";
       }
+    }
+  }
+
+  return true;
+}
+
+bool AllocationFilterTransform::ReadFromJSON(const base::FilePath& path,
+    FunctionNameOffsetMap* targets) {
+  DCHECK_NE(static_cast<FunctionNameOffsetMap*>(NULL), targets);
+  std::string file_string;
+  if (!base::ReadFileToString(path, &file_string)) {
+    LOG(ERROR) << "Unable to read file to string.";
+    return false;
+  }
+
+  if (!ReadFromJSON(file_string, targets)) {
+    LOG(ERROR) << "Unable to parse JSON string.";
+    return false;
+  }
+  return true;
+}
+
+bool AllocationFilterTransform::ReadFromJSON(const std::string& json,
+    FunctionNameOffsetMap* targets) {
+  DCHECK_NE(static_cast<FunctionNameOffsetMap*>(NULL), targets);
+  scoped_ptr<Value> value(base::JSONReader::Read(json));
+  if (value.get() == NULL || value->GetType() != Value::TYPE_DICTIONARY) {
+    LOG(ERROR) << "'json' string does not contain a valid JSON dictionary.";
+    return false;
+  }
+
+  const DictionaryValue* outer_dict =
+    reinterpret_cast<const DictionaryValue*>(value.get());
+
+  std::string hooks_key("hooks");
+  const DictionaryValue* hooks_dict = NULL;
+
+  if (!outer_dict->GetDictionary(hooks_key, &hooks_dict)) {
+    LOG(ERROR) << "Outer dictionary must contain key 'hooks'.";
+    return false;
+  }
+
+  DictionaryValue::Iterator it(*hooks_dict);
+  for (; !it.IsAtEnd(); it.Advance()) {
+    std::string function_name = it.key();
+    const ListValue* offset_list = NULL;
+
+    if (!it.value().GetAsList(&offset_list))  {
+      LOG(ERROR) << "Offset list expected.";
+      return false;
+    }
+
+    // Load the offset list.
+    ListValue::const_iterator list_iter = offset_list->begin();
+    for (; list_iter != offset_list->end(); ++list_iter) {
+      int int_offset = 0;
+      if (!(*list_iter)->GetAsInteger(&int_offset)) {
+        LOG(ERROR) << "Invalid offset.";
+        return false;
+      }
+      if (int_offset < 0) {
+        LOG(ERROR) << "Invalid (negative) offset.";
+        return false;
+      }
+      Offset offset = static_cast<Offset>(int_offset);
+      (*targets)[function_name].insert(offset);
     }
   }
 

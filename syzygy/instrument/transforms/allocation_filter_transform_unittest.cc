@@ -16,12 +16,15 @@
 
 #include "syzygy/instrument/transforms/allocation_filter_transform.h"
 
+#include "base/values.h"
+#include "base/json/json_writer.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/block_graph/typed_block.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/instrument/transforms/unittest_util.h"
 
 #include "mnemonics.h"  // NOLINT
@@ -30,6 +33,10 @@ namespace instrument {
 namespace transforms {
 namespace {
 
+using base::DictionaryValue;
+using base::ListValue;
+using base::Value;
+
 using block_graph::BasicBlock;
 using block_graph::BasicBlockDecomposer;
 using block_graph::BasicBlockSubGraph;
@@ -37,8 +44,36 @@ using block_graph::BasicCodeBlock;
 using block_graph::BlockGraph;
 using block_graph::Instruction;
 
+typedef AllocationFilterTransform::Offset Offset;
+typedef AllocationFilterTransform::OffsetSet OffsetSet;
 typedef AllocationFilterTransform::FunctionNameOffsetMap
     FunctionNameOffsetMap;
+
+static wchar_t kConfigBadPathDoesNotExist[] =
+    L"syzygy/instrument/test_data/"
+    L"allocation-filter-bad-path-does-not-exist.json";
+static wchar_t kConfigBadEmpty[] =
+    L"syzygy/instrument/test_data/allocation-filter-bad-empty.json";
+static wchar_t kConfigBadInvalidkey[] =
+    L"syzygy/instrument/test_data/allocation-filter-bad-invalid-key.json";
+static wchar_t kConfigBadInvalidOffsetList[] =
+    L"syzygy/instrument/test_data/"
+    L"allocation-filter-bad-invalid-offset-list.json";
+static wchar_t kConfigBadList[] =
+    L"syzygy/instrument/test_data/allocation-filter-bad-list.json";
+static wchar_t kConfigBadNegativeOffset[] =
+    L"syzygy/instrument/test_data/allocation-filter-bad-negative-offset.json";
+static wchar_t kConfigBadNoOuterDictionary[] =
+    L"syzygy/instrument/test_data/"
+    L"allocation-filter-bad-no-outer-dictionary.json";
+static wchar_t kConfigBadNotJson[] =
+    L"syzygy/instrument/test_data/allocation-filter-bad-not-json.json";
+static wchar_t kConfigBadString[] =
+    L"syzygy/instrument/test_data/allocation-filter-bad-string.json";
+static wchar_t kConfigGoodFull[] =
+    L"syzygy/instrument/test_data/allocation-filter-good-full.json";
+static wchar_t kConfigGoodMinimal[] =
+    L"syzygy/instrument/test_data/allocation-filter-good-minimal.json";
 
 class TestAllocationFilterTransform : public AllocationFilterTransform {
  public:
@@ -46,6 +81,7 @@ class TestAllocationFilterTransform : public AllocationFilterTransform {
   using AllocationFilterTransform::post_call_hook_ref_;
   using AllocationFilterTransform::targets_;
   using AllocationFilterTransform::instrumented_;
+
   TestAllocationFilterTransform()
       : AllocationFilterTransform(FunctionNameOffsetMap()) {
     // Disabling reporting to make the tests faster, as reporting is very slow
@@ -75,6 +111,27 @@ class AllocationFilterTransformTest : public testing::TestDllTransformTest {
 
   // Ensures that all calls in the basic block are correctly instrumented.
   void CheckBasicBlockIsInstrumented(const BasicCodeBlock* bb_code_block);
+
+  // Dumps target call addresses which are represented by a function name and
+  // an offset to a JSON string.
+  // The resulting |json| string will follow the following format:
+  // {
+  //   "hooks": {
+  //     "function_name1": [offset1_1, offset1_2, ...],
+  //     "function_name2": [offset2_1, offset2_2, ...],
+  //     "function_name3": [offset3_1, offset3_2, ...],
+  //     ...
+  //   }
+  // }
+  // All offsets are represented as integers.
+  // @param pretty_print If true the JSON output will be pretty-printed.
+  // @param targets Source map to be JSON-ified.
+  // @param json Output parameter, a JSON string containing the call
+  //     addresses in |targets| following the format described above.
+  static void WriteToJSON(bool pretty_print,
+                          const FunctionNameOffsetMap& targets,
+                          std::string* json);
+
  protected:
   TestAllocationFilterTransform tx_;
   // Function names that won't be hooked.
@@ -312,6 +369,46 @@ void AllocationFilterTransformTest::CheckInstrumentation() {
   }
 }
 
+
+void AllocationFilterTransformTest::WriteToJSON(
+    bool pretty_print,
+    const AllocationFilterTransform::FunctionNameOffsetMap& targets,
+    std::string* json) {
+  DCHECK_NE(static_cast<std::string*>(NULL), json);
+  DictionaryValue* hooks = new DictionaryValue();
+
+  FunctionNameOffsetMap::const_iterator it = targets.begin();
+  for (; it != targets.end(); ++it) {
+    std::string function_name = it->first;
+
+    // Build the list of offsets.
+    ListValue * offset_list = new ListValue();
+    OffsetSet::const_iterator offset_iter = it->second.begin();
+    for (; offset_iter != it->second.end(); ++offset_iter) {
+      int offset = static_cast<int>(*offset_iter);
+
+      // Offsets shouldn't be too large to overflow an int.
+      DCHECK_EQ(static_cast<Offset>(static_cast<int>(*offset_iter)),
+                *offset_iter);
+
+      offset_list->AppendInteger(offset);
+    }
+
+    // Store the function name associated with its offset list.
+    hooks->SetWithoutPathExpansion(function_name, offset_list);
+  }
+
+  DictionaryValue outer_dict;
+  outer_dict.SetWithoutPathExpansion("hooks", hooks);
+
+  if (pretty_print) {
+    base::JSONWriter::WriteWithOptions(&outer_dict,
+        base::JSONWriter::OPTIONS_PRETTY_PRINT, json);
+  } else {
+    base::JSONWriter::WriteWithOptions(&outer_dict, 0, json);
+  }
+}
+
 }  // namespace
 
 TEST_F(AllocationFilterTransformTest, InstrumentAllCalls) {
@@ -368,6 +465,103 @@ TEST_F(AllocationFilterTransformTest, InvalidTargetsAreIgnored) {
 
   // Check that no invalid addresses were instrumented.
   EXPECT_TRUE(tx_.instrumented_.empty());
+}
+
+TEST_F(AllocationFilterTransformTest, JSONReadWrite) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
+  // This test JSON-ifies a valid target address map, then loads a new map
+  // from the produced JSON and ensures that boths,
+  // (the original and de-serialized) are equal.
+
+  // Collect all call addresses.
+  FunctionNameOffsetMap original = CollectCalls();
+
+  std::string json;
+  // Dump all the addresses to JSON.
+  WriteToJSON(true, original, &json);
+
+  // Loads from JSON.
+  FunctionNameOffsetMap output;
+  EXPECT_TRUE(AllocationFilterTransform::ReadFromJSON(json, &output));
+
+  ASSERT_EQ(original, output);
+}
+
+TEST_F(AllocationFilterTransformTest, JSONFailsPathDoesNotExists) {
+  base::FilePath config_file = testing::GetSrcRelativePath(
+      kConfigBadPathDoesNotExist);
+  FunctionNameOffsetMap output;
+  EXPECT_FALSE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
+}
+
+TEST_F(AllocationFilterTransformTest, JSONFailsEmpty) {
+  base::FilePath config_file = testing::GetSrcRelativePath(
+      kConfigBadEmpty);
+  FunctionNameOffsetMap output;
+  EXPECT_FALSE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
+}
+
+TEST_F(AllocationFilterTransformTest, JSONFailsInvalidkey) {
+  base::FilePath config_file = testing::GetSrcRelativePath(
+      kConfigBadInvalidkey);
+  FunctionNameOffsetMap output;
+  EXPECT_FALSE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
+}
+
+TEST_F(AllocationFilterTransformTest, JSONFailsInvalidOffsetList) {
+  base::FilePath config_file = testing::GetSrcRelativePath(
+      kConfigBadInvalidOffsetList);
+  FunctionNameOffsetMap output;
+  EXPECT_FALSE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
+}
+
+TEST_F(AllocationFilterTransformTest, JSONFailsList) {
+  base::FilePath config_file = testing::GetSrcRelativePath(
+      kConfigBadList);
+  FunctionNameOffsetMap output;
+  EXPECT_FALSE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
+}
+
+TEST_F(AllocationFilterTransformTest, JSONFailsNegativeOffset) {
+  base::FilePath config_file = testing::GetSrcRelativePath(
+      kConfigBadNegativeOffset);
+  FunctionNameOffsetMap output;
+  EXPECT_FALSE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
+}
+
+TEST_F(AllocationFilterTransformTest, JSONFailsNoOuterDictionary) {
+  base::FilePath config_file = testing::GetSrcRelativePath(
+     kConfigBadNoOuterDictionary);
+  FunctionNameOffsetMap output;
+  EXPECT_FALSE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
+}
+
+TEST_F(AllocationFilterTransformTest, JSONFailsNotJson) {
+  base::FilePath config_file = testing::GetSrcRelativePath(
+      kConfigBadNotJson);
+  FunctionNameOffsetMap output;
+  EXPECT_FALSE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
+}
+
+TEST_F(AllocationFilterTransformTest, JSONFailsString) {
+  base::FilePath config_file = testing::GetSrcRelativePath(
+      kConfigBadString);
+  FunctionNameOffsetMap output;
+  EXPECT_FALSE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
+}
+
+TEST_F(AllocationFilterTransformTest, JSONLoadsFull) {
+  base::FilePath config_file = testing::GetSrcRelativePath(
+      kConfigGoodFull);
+  FunctionNameOffsetMap output;
+  EXPECT_TRUE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
+}
+
+TEST_F(AllocationFilterTransformTest, JSONLoadsMinimal) {
+  base::FilePath config_file = testing::GetSrcRelativePath(
+      kConfigGoodMinimal);
+  FunctionNameOffsetMap output;
+  EXPECT_TRUE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
 }
 
 }  // namespace transforms

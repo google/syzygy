@@ -71,6 +71,33 @@ class AllocationFilterTransform
   bool enable_reporting() const { return enable_reporting_; }
   void set_enable_reporting(bool flag) { enable_reporting_ = flag; }
 
+  // Loads (from a JSON string) target call addresses which are represented
+  // by a function name and an offset.
+  // The contents of the 'json' string should follow the following format:
+  // {
+  //   "hooks": {
+  //     "function_name1": [offset1_1, offset1_2, ...],
+  //     "function_name2": [offset2_1, offset2_2, ...],
+  //     "function_name3": [offset3_1, offset3_2, ...],
+  //     ...
+  //   }
+  // }
+  // All offsets are represented as integers.
+  // @param json A JSON string containing the target addresses following the
+  //     format described above.
+  // @param path Path to a JSON file, to use a file instead of a string.
+  // @param targets Output parameter, all the target calls extracted from the
+  //     JSON string will be dumped to |targets|.
+  // @returns True if the operation succeeded, false otherwise.
+  // @note The |targets| map could be modified or partially filled in the case
+  //     of an error.
+  static bool AllocationFilterTransform::ReadFromJSON(
+      const std::string& json,
+      FunctionNameOffsetMap* targets);
+  static bool AllocationFilterTransform::ReadFromJSON(
+      const base::FilePath& path,
+      FunctionNameOffsetMap* targets);
+
  protected:
   friend NamedBlockGraphTransformImpl<AllocationFilterTransform>;
   friend IterativeTransformImpl<AllocationFilterTransform>;
