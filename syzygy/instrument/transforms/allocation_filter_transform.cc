@@ -167,12 +167,14 @@ bool AllocationFilterTransform::TransformBasicBlockSubGraph(
   instrumented_.clear();
 
   BlockDescriptionList& descriptions = subgraph->block_descriptions();
+  DCHECK_EQ(1u, descriptions.size());
+  const std::string function_name = descriptions.begin()->name;
+
   BlockDescriptionList::iterator description = descriptions.begin();
   for (; description != descriptions.end(); ++description) {
     BasicBlockSubGraph::BasicBlockOrdering& original_order =
         (*description).basic_block_order;
 
-    std::string function_name = description->name;
     FunctionNameOffsetMap::const_iterator target_iter =
         targets_.find(function_name);
     // Skip the block if the function name is not included in |targets_|.
@@ -255,12 +257,12 @@ bool AllocationFilterTransform::TransformBasicBlockSubGraph(
 
   // Report targeted but non-instrumented calls.
   if (enable_reporting_) {
-    FunctionNameOffsetMap::const_iterator targets_iter = targets_.begin();
-    for (; targets_iter != targets_.end(); ++targets_iter) {
-      const std::string function_name = targets_iter->first;
+    FunctionNameOffsetMap::const_iterator targets_iter =
+        targets_.find(function_name);
+    if (targets_iter != targets_.end()) {
       const OffsetSet& target_offsets = targets_iter->second;
-
       std::vector<Offset> non_instrumented;
+
       std::set_difference(target_offsets.begin(),
                           target_offsets.end(),
                           instrumented_[function_name].begin(),
@@ -270,9 +272,11 @@ bool AllocationFilterTransform::TransformBasicBlockSubGraph(
       // Warn about non-instrumented calls.
       for (size_t i = 0; i < non_instrumented.size(); ++i) {
         LOG(WARNING) << "Target call " << function_name << " + "
-                     << std::hex << non_instrumented[i]
+                     << non_instrumented[i]
                      << " not instrumented.";
       }
+    } else {
+      DCHECK(instrumented_.empty());
     }
   }
 
