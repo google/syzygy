@@ -21,11 +21,6 @@
       'target_name': 'kasko_lib',
       'type': 'static_library',
       'sources': [
-        'client.cc',
-        'client.h',
-        'kasko_export.h',
-        'reporter.cc',
-        'reporter.h'
       ],
       'dependencies': [
       ],
@@ -37,7 +32,12 @@
       'target_name': 'kasko',
       'type': 'loadable_module',
       'sources': [
+        'client.cc',
+        'client.h',
         'kasko_dll.cc',
+        'kasko_export.h',
+        'reporter.cc',
+        'reporter.h',
       ],
       'dependencies': [
         'kasko_lib',
