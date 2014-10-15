@@ -40,7 +40,6 @@
         'reporter.h',
       ],
       'dependencies': [
-        'kasko_lib',
         '<(src)/base/base.gyp:base',
       ],
       'defines': [
@@ -84,7 +83,6 @@
         '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
-        'kasko_lib',
         'kasko',
         '<(src)/base/base.gyp:test_support_base',
         '<(src)/testing/gtest.gyp:gtest',
