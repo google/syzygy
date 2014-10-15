@@ -80,6 +80,8 @@ class BlockHeapManager : public HeapManagerInterface {
   virtual size_t Size(HeapId heap_id, const void* alloc);
   virtual void Lock(HeapId heap_id);
   virtual void Unlock(HeapId heap_id);
+  virtual void BestEffortLockAll();
+  virtual void UnlockAll();
   // @}
 
   // Set the parameters of this heap manager.
@@ -253,6 +255,10 @@ class BlockHeapManager : public HeapManagerInterface {
 
   // Stores the AllocationFilterFlag TLS slot.
   DWORD allocation_filter_flag_tls_;
+
+  // A list of all heaps whose locks were acquired by the last call to
+  // BestEffortLockAll. Under lock_.
+  std::set<HeapInterface*> locked_heaps_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BlockHeapManager);

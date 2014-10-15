@@ -69,6 +69,17 @@ class HeapManagerInterface {
   // Unlocks a heap.
   // @param heap The ID of the heap that should be unlocked.
   virtual void Unlock(HeapId heap) = 0;
+
+  // Makes a best effort to lock the heap manager and all heaps internal
+  // to it. This must actually lock the heap manager, and prevent new heaps
+  // from beging created while this lock is created. It must make a best effort
+  // to lock all the heaps under this heap manager's control. This lock will
+  // be taken when a crash is being processed, thus can afford to be somewhat
+  // expensive. This lock is not reentrant.
+  virtual void BestEffortLockAll() = 0;
+
+  // Unlocks all locks acquired in a previous call to BestEffortLockAll.
+  virtual void UnlockAll() = 0;
 };
 
 }  // namespace asan

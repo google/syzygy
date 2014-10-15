@@ -39,6 +39,8 @@ class LenientMockHeapManager : public HeapManagerInterface {
   MOCK_METHOD2(Free, bool(HeapId, void*));
   MOCK_METHOD1(Lock, void(HeapId));
   MOCK_METHOD1(Unlock, void(HeapId));
+  MOCK_METHOD0(BestEffortLockAll, void());
+  MOCK_METHOD0(UnlockAll, void());
 };
 
 typedef testing::StrictMock<LenientMockHeapManager> MockHeapManager;

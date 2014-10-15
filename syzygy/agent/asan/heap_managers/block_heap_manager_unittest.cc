@@ -21,6 +21,9 @@
 #include "base/rand_util.h"
 #include "base/sha1.h"
 #include "base/debug/alias.h"
+#include "base/synchronization/condition_variable.h"
+#include "base/synchronization/lock.h"
+#include "base/threading/simple_thread.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_rtl_impl.h"
@@ -122,6 +125,7 @@ class TestBlockHeapManager : public BlockHeapManager {
   using BlockHeapManager::zebra_block_heap_;
   using BlockHeapManager::large_block_heap_;
   using BlockHeapManager::allocation_filter_flag_tls_;
+  using BlockHeapManager::locked_heaps_;
 
   // A derived class to expose protected members for unit-testing. This has to
   // be nested into this one because ShardedBlockQuarantine accesses some
@@ -394,7 +398,7 @@ class BlockHeapManagerTest
   }
 
  protected:
-  // The heap manager used in those tests.
+  // The heap manager used in these tests.
   TestBlockHeapManager* heap_manager_;
 
   // Info about the last errors reported.
@@ -1318,6 +1322,94 @@ TEST_P(BlockHeapManagerTest, AllocationFilterFlag) {
   EXPECT_FALSE(heap_manager_->allocation_filter_flag());
   heap_manager_->set_allocation_filter_flag(true);
   EXPECT_TRUE(heap_manager_->allocation_filter_flag());
+}
+
+TEST_P(BlockHeapManagerTest, BestEffortLockAllNoLocksHeld) {
+  heap_manager_->BestEffortLockAll();
+  EXPECT_EQ(heap_manager_->locked_heaps_.size(), heap_manager_->heaps_.size());
+  heap_manager_->UnlockAll();
+}
+
+namespace {
+
+// A helper thread runner for acquiring a HeapInterface lock for a certain
+// amount of time.
+class GrabHeapLockRunner : public base::DelegateSimpleThread::Delegate {
+ public:
+  explicit GrabHeapLockRunner(HeapInterface* heap)
+      : heap_(heap), cv_(&cv_lock_), acquired_(false), release_(false) {
+    DCHECK_NE(static_cast<HeapInterface*>(nullptr), heap);
+  }
+
+  virtual void Run() {
+    DCHECK_NE(static_cast<HeapInterface*>(nullptr), heap_);
+    heap_->Lock();
+    SignalAcquired();
+    WaitRelease();
+    heap_->Unlock();
+  }
+
+  // Waits until |acquired| is true.
+  void WaitAcquired() {
+    while (true) {
+      base::AutoLock auto_lock(cv_lock_);
+      if (acquired_)
+        return;
+      cv_.Wait();
+    }
+  }
+
+  // To be called externally to notify this runner that the lock may be
+  // released and the thread torn down.
+  void SignalRelease() {
+    base::AutoLock auto_lock(cv_lock_);
+    release_ = true;
+    cv_.Broadcast();
+  }
+
+ private:
+  // Notifies external observers that the lock has been acquired.
+  void SignalAcquired() {
+    base::AutoLock auto_lock(cv_lock_);
+    acquired_ = true;
+    cv_.Broadcast();
+  }
+
+  // Waits until |release| is true.
+  void WaitRelease() {
+    while (true) {
+      base::AutoLock auto_lock(cv_lock_);
+      if (release_)
+        return;
+      cv_.Wait();
+    }
+  }
+
+  HeapInterface* heap_;
+  base::Lock cv_lock_;
+  base::ConditionVariable cv_;
+  bool acquired_;
+  bool release_;
+
+  DISALLOW_COPY_AND_ASSIGN(GrabHeapLockRunner);
+};
+
+}  // namespace
+
+TEST_P(BlockHeapManagerTest, BestEffortLockAllOneHeapLockHeld) {
+  ASSERT_FALSE(heap_manager_->heaps_.empty());
+  GrabHeapLockRunner runner(heap_manager_->heaps_.begin()->first);
+  base::DelegateSimpleThread thread(&runner, "GrabHeapLockRunner");
+  thread.Start();
+  runner.WaitAcquired();
+  heap_manager_->BestEffortLockAll();
+
+  // Expect all but one heap lock to have been acquired.
+  EXPECT_EQ(heap_manager_->locked_heaps_.size(),
+            heap_manager_->heaps_.size() - 1);
+  heap_manager_->UnlockAll();
+  runner.SignalRelease();
+  thread.Join();
 }
 
 }  // namespace heap_managers

@@ -20,6 +20,7 @@
 #include "base/rand_util.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/shadow.h"
+#include "syzygy/agent/asan/timed_try.h"
 #include "syzygy/agent/asan/heaps/ctmalloc_heap.h"
 #include "syzygy/agent/asan/heaps/internal_heap.h"
 #include "syzygy/agent/asan/heaps/large_block_heap.h"
@@ -295,6 +296,25 @@ void BlockHeapManager::Lock(HeapId heap_id) {
 void BlockHeapManager::Unlock(HeapId heap_id) {
   DCHECK_NE(static_cast<HeapId>(NULL), heap_id);
   reinterpret_cast<HeapInterface*>(heap_id)->Unlock();
+}
+
+void BlockHeapManager::BestEffortLockAll() {
+  static const base::TimeDelta kTryTime(base::TimeDelta::FromMilliseconds(50));
+  lock_.Acquire();
+  DCHECK(locked_heaps_.empty());
+  for (auto& heap_quarantine_pair : heaps_) {
+    HeapInterface* heap = heap_quarantine_pair.first;
+    if (TimedTry(kTryTime, heap))
+      locked_heaps_.insert(heap);
+  }
+}
+
+void BlockHeapManager::UnlockAll() {
+  lock_.AssertAcquired();
+  for (HeapInterface* heap : locked_heaps_)
+    heap->Unlock();
+  locked_heaps_.clear();
+  lock_.Release();
 }
 
 void BlockHeapManager::set_parameters(
