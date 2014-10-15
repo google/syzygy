@@ -138,7 +138,7 @@ class AllocationFilterTransformTest : public testing::TestDllTransformTest {
   std::set<std::string> do_not_hook_;
 };
 
-// This function detects a hooked call, wich consist of three contiguous
+// This function detects a hooked call, which consists of three contiguous
 // instructions as follows:
 //     CALL pre_call_hook
 //     CALL some_address or [register]  // The original call
@@ -258,7 +258,7 @@ FunctionNameOffsetMap AllocationFilterTransformTest::CollectCalls() {
           ++inst_iter) {
         if (inst_iter->IsCall() && !inst_iter->CallsNonReturningFunction()) {
           EXPECT_EQ(I_CALL, inst_iter->representation().opcode);
-          call_addresses[function_name].insert(inst_offset);
+          call_addresses[function_name].insert(inst_offset + inst_iter->size());
         }
       }
     }
@@ -311,12 +311,14 @@ FunctionNameOffsetMap AllocationFilterTransformTest::GenerateInvalidTargets() {
       BasicBlock::Instructions::iterator next_iter;
       Instruction::Offset inst_offset = bb->offset();
 
+      bool previous_inst_is_call = true;
+
       for (; inst_iter != bb->instructions().end();
         // Adjust the offset for next instruction.
         inst_offset += inst_iter->size(),
         ++inst_iter) {
         // Add non-call address.
-        if (!inst_iter->IsCall())
+        if (!previous_inst_is_call)
           invalid_targets[function_name].insert(inst_offset);
 
         // Add an offset out of the instruction boundary.
@@ -325,6 +327,7 @@ FunctionNameOffsetMap AllocationFilterTransformTest::GenerateInvalidTargets() {
               inst_offset + inst_iter->size() - 1;
           invalid_targets[function_name].insert(out_of_inst_boundary);
         }
+        previous_inst_is_call = inst_iter->IsCall();
       }
     }
   }
@@ -453,13 +456,13 @@ TEST_F(AllocationFilterTransformTest, InstrumentTargetedCallsOnly) {
 TEST_F(AllocationFilterTransformTest, InvalidTargetsAreIgnored) {
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
 
-  // Loads lots of strictly invalid target addreses, including non-call
+  // Loads lots of strictly invalid target addresses, including non-call
   // instructions, invalid offsets, and non-existent function names.
   tx_.targets_ = GenerateInvalidTargets();
 
   // Apply the allocation filter transform with invalid targets.
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
-    &tx_, policy_, &block_graph_, header_block_));
+      &tx_, policy_, &block_graph_, header_block_));
   EXPECT_TRUE(tx_.pre_call_hook_ref_.IsValid());
   EXPECT_TRUE(tx_.post_call_hook_ref_.IsValid());
 
@@ -470,7 +473,7 @@ TEST_F(AllocationFilterTransformTest, InvalidTargetsAreIgnored) {
 TEST_F(AllocationFilterTransformTest, JSONReadWrite) {
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
   // This test JSON-ifies a valid target address map, then loads a new map
-  // from the produced JSON and ensures that boths,
+  // from the produced JSON and ensures that both,
   // (the original and de-serialized) are equal.
 
   // Collect all call addresses.

@@ -82,7 +82,9 @@ class AllocationFilterTransform
   //     ...
   //   }
   // }
-  // All offsets are represented as integers.
+  // All offsets are represented as integers and should point to the instruction
+  // following the one that we want to target, as it's usually represented in
+  // the stack traces.
   // @param json A JSON string containing the target addresses following the
   //     format described above.
   // @param path Path to a JSON file, to use a file instead of a string.
@@ -146,7 +148,8 @@ class AllocationFilterTransform
   bool enable_reporting_;
 
   // For each function name, stores the set of 'call' instruction offsets to be
-  // hooked.
+  // hooked. The offset should point to the instruction following the one to
+  // hook.
   FunctionNameOffsetMap targets_;
 
   // Instrumented calls bookkeeping.

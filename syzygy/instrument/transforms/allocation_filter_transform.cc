@@ -192,27 +192,25 @@ bool AllocationFilterTransform::TransformBasicBlockSubGraph(
         continue;
 
       // The instructions offset is calculated progressively.
-      Offset inst_offset = bb->offset();
+      Offset next_offset = bb->offset();
 
       BasicBlock::Instructions::iterator inst_iter = bb->instructions().begin();
       BasicBlock::Instructions::iterator next_iter;
-      for (; inst_iter != bb->instructions().end();
-           // Adjust the offset for next instruction.
-           inst_offset += inst_iter->size(),
-           inst_iter = next_iter) {
+      for (; inst_iter != bb->instructions().end(); inst_iter = next_iter) {
         // Since the BasicBlockAssembler can inject new instructions, and modify
         // the instruction sequence, the iterators used in the loop are safely
         // handled before any modification.
+        next_offset += inst_iter->size();
         next_iter = inst_iter;
         ++next_iter;
 
         if (inst_iter->IsCall() && !inst_iter->CallsNonReturningFunction()) {
           // Instrument only the calls in the specified offsets.
-          if (offset_set.find(inst_offset) == offset_set.end())
+          if (offset_set.find(next_offset) == offset_set.end())
             continue;
 
           // Keep track of the instrumented calls.
-          instrumented_[function_name].insert(inst_offset);
+          instrumented_[function_name].insert(next_offset);
 
           block_graph::Instruction::SourceRange source_range =
               inst_iter->source_range();
