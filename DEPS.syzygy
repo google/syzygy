@@ -116,6 +116,12 @@ hooks = [
   {
     "pattern": ".",
     "action": [Var("python_path"),
+               "src\\syzygy\\build\\timestamp.py",
+               "--output", "src\\syzygy\\build\\TIMESTAMP.gen"],
+  },
+  {
+    "pattern": ".",
+    "action": [Var("python_path"),
                Var("gyp_path"),
                "--include=src/build/common.gypi",
                "--include=src/syzygy/syzygy.gypi",

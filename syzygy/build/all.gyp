@@ -156,37 +156,14 @@
       'sources': [
         'README.TXT.template',
       ],
-      'dependencies': [
-        # This generates the lastchange.gen file.
-        '<(src)/syzygy/common/common.gyp:syzygy_version',
-      ],
       'actions': [
-        # Generate the timestamp.gen file.
-        {
-          'action_name': 'make_date_gen',
-          'inputs': [
-            'timestamp.py',
-          ],
-          'outputs': [
-            # We include a fake output target to ensure this always runs
-            # for every single build.
-            'THIS_OUTPUT_IS_NEVER_GENERATED',
-            '<(SHARED_INTERMEDIATE_DIR)/syzygy/build/timestamp.gen',
-          ],
-          'action': [
-            '<(python_exe)',
-            'timestamp.py',
-            '--output',
-            '<(SHARED_INTERMEDIATE_DIR)/syzygy/build/timestamp.gen',
-          ],
-        },
         # Generate the README.TXT file from its template.
         {
           'action_name': 'make_readme_txt',
           'inputs': [
-            '<(SHARED_INTERMEDIATE_DIR)/syzygy/build/timestamp.gen',
-            '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
+            '<(src)/syzygy/build/LASTCHANGE.gen',
             '<(src)/syzygy/build/README.TXT.template',
+            '<(src)/syzygy/build/TIMESTAMP.gen',
             '<(src)/syzygy/build/template_replace.py',
             '<(src)/syzygy/VERSION',
           ],
@@ -201,8 +178,8 @@
             '--output',
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/build/README.TXT',
             '<(src)/syzygy/VERSION',
-            '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/lastchange.gen',
-            '<(SHARED_INTERMEDIATE_DIR)/syzygy/build/timestamp.gen',
+            '<(src)/syzygy/build/LASTCHANGE.gen',
+            '<(src)/syzygy/build/TIMESTAMP.gen',
           ],
           'process_outputs_as_sources': 1,
         },
