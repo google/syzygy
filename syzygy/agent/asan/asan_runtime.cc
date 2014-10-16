@@ -431,6 +431,12 @@ void AsanRuntime::OnError(AsanErrorInfo* error_info) {
 
   error_info->heap_is_corrupt = false;
   if (params_.check_heap_on_failure) {
+    // Lock the entire heap manager while running the heap checker. This
+    // ensures that no new allocations or frees occur while the checker is
+    // scanning memory. This is a 'best effort' lock, as it is entirely
+    // possible that crashing threads hold some heap locks.
+    AutoHeapManagerLock lock(runtime_->heap_manager_.get());
+
     // TODO(chrisha): Rename IsHeapCorrupt to something else!
     HeapChecker heap_checker;
     HeapChecker::CorruptRangesVector corrupt_ranges;

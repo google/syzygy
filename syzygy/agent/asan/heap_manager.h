@@ -18,6 +18,7 @@
 #define SYZYGY_AGENT_ASAN_HEAP_MANAGER_H_
 
 #include "base/basictypes.h"
+#include "base/logging.h"
 
 namespace agent {
 namespace asan {
@@ -80,6 +81,27 @@ class HeapManagerInterface {
 
   // Unlocks all locks acquired in a previous call to BestEffortLockAll.
   virtual void UnlockAll() = 0;
+};
+
+
+// A utility class for locking a heap manager within a scope.
+class AutoHeapManagerLock {
+ public:
+  explicit AutoHeapManagerLock(HeapManagerInterface* heap_manager)
+      : heap_manager_(heap_manager) {
+    DCHECK_NE(static_cast<HeapManagerInterface*>(nullptr), heap_manager);
+    heap_manager_->BestEffortLockAll();
+  }
+
+  ~AutoHeapManagerLock() {
+    DCHECK_NE(static_cast<HeapManagerInterface*>(nullptr), heap_manager_);
+    heap_manager_->UnlockAll();
+  }
+
+ private:
+  HeapManagerInterface* heap_manager_;
+
+  DISALLOW_COPY_AND_ASSIGN(AutoHeapManagerLock);
 };
 
 }  // namespace asan
