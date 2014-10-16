@@ -14,9 +14,16 @@
 
 #include "syzygy/instrument/instrumenters/asan_instrumenter.h"
 
+#include <algorithm>
+
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "syzygy/common/application.h"
+#include "syzygy/instrument/transforms/allocation_filter_transform.h"
+
+namespace {
+  using instrument::transforms::AllocationFilterTransform;
+}
 
 namespace instrument {
 namespace instrumenters {
@@ -82,6 +89,13 @@ bool AsanInstrumenter::InstrumentImpl() {
   if (!relinker_->AppendTransform(asan_transform_.get()))
     return false;
 
+  // Append the AllocationFilter transform if a configuration file was
+  // specified.
+  if (!allocation_filter_config_file_path_.empty()) {
+    if (!relinker_->AppendTransform(af_transform_.get()))
+      return false;
+  }
+
   return true;
 }
 
@@ -113,6 +127,31 @@ bool AsanInstrumenter::ParseAdditionalCommandLineArguments(
     common::SetDefaultAsanParameters(&asan_params_);
     if (!common::ParseAsanParameters(options, &asan_params_))
       return false;
+  }
+
+  // Parse the allocation-filter flag.
+  static const char kAsanAllocationFilter[] = "allocation-filter-config-file";
+  allocation_filter_config_file_path_ = command_line->GetSwitchValuePath(
+      kAsanAllocationFilter);
+
+  // Setup the AllocationFilter transform if a configuration file was specified.
+  if (!allocation_filter_config_file_path_.empty()) {
+    std::string json_string;
+    AllocationFilterTransform::FunctionNameOffsetMap target_calls;
+    if (!AllocationFilterTransform::ReadFromJSON(
+      allocation_filter_config_file_path_, &target_calls)) {
+      LOG(ERROR) << "Failed to parse allocation-filter configuration file: "
+                 << allocation_filter_config_file_path_.value();
+      return false;
+    }
+    // Setup the allocation-filter transform.
+    af_transform_.reset(new AllocationFilterTransform(target_calls));
+
+    // Set overwrite source range flag in the AllocationFilter transform.
+    // It will overwrite the source range of created instructions to the source
+    // range of corresponding instrumented instructions. The AllocationFilter
+    // transform shares the ASAN flag.
+    af_transform_->set_debug_friendly(debug_friendly_);
   }
 
   return true;

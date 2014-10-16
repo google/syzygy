@@ -21,6 +21,7 @@
 #include "base/command_line.h"
 #include "syzygy/common/asan_parameters.h"
 #include "syzygy/instrument/instrumenters/instrumenter_with_agent.h"
+#include "syzygy/instrument/transforms/allocation_filter_transform.h"
 #include "syzygy/instrument/transforms/asan_transform.h"
 #include "syzygy/pe/image_filter.h"
 #include "syzygy/pe/pe_relinker.h"
@@ -65,6 +66,15 @@ class AsanInstrumenter : public InstrumenterWithAgent {
 
   // The image filter (optional).
   scoped_ptr<pe::ImageFilter> filter_;
+
+  // Path to the JSON configuration file for the AllocationFilter transform.
+  // The AllocationFilter tranform is only applied if this config file is
+  // specified.
+  base::FilePath allocation_filter_config_file_path_;
+
+  // The AllocationFilter transform.
+  // TODO(sebmarchand): Write some integration tests for this.
+  scoped_ptr<instrument::transforms::AllocationFilterTransform> af_transform_;
 };
 
 }  // namespace instrumenters

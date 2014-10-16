@@ -25,27 +25,32 @@ namespace instrumenters {
 
 namespace {
 
+static wchar_t kGoodAllocationFilterFile[] =
+    L"syzygy/instrument/test_data/allocation-filter-good-minimal.json";
+
 class TestAsanInstrumenter : public AsanInstrumenter {
  public:
+  using AsanInstrumenter::af_transform_;
   using AsanInstrumenter::agent_dll_;
+  using AsanInstrumenter::allocation_filter_config_file_path_;
+  using AsanInstrumenter::allow_overwrite_;
+  using AsanInstrumenter::asan_params_;
+  using AsanInstrumenter::asan_rtl_options_;
+  using AsanInstrumenter::debug_friendly_;
+  using AsanInstrumenter::filter_path_;
   using AsanInstrumenter::input_image_path_;
   using AsanInstrumenter::input_pdb_path_;
-  using AsanInstrumenter::use_interceptors_;
-  using AsanInstrumenter::output_image_path_;
-  using AsanInstrumenter::output_pdb_path_;
-  using AsanInstrumenter::allow_overwrite_;
+  using AsanInstrumenter::instrumentation_rate_;
+  using AsanInstrumenter::kAgentDllAsan;
   using AsanInstrumenter::no_augment_pdb_;
   using AsanInstrumenter::no_strip_strings_;
-  using AsanInstrumenter::filter_path_;
-  using AsanInstrumenter::debug_friendly_;
-  using AsanInstrumenter::use_liveness_analysis_;
+  using AsanInstrumenter::output_image_path_;
+  using AsanInstrumenter::output_pdb_path_;
   using AsanInstrumenter::remove_redundant_checks_;
-  using AsanInstrumenter::instrumentation_rate_;
-  using AsanInstrumenter::asan_rtl_options_;
-  using AsanInstrumenter::asan_params_;
-  using AsanInstrumenter::kAgentDllAsan;
-  using AsanInstrumenter::InstrumentImpl;
+  using AsanInstrumenter::use_interceptors_;
+  using AsanInstrumenter::use_liveness_analysis_;
   using InstrumenterWithAgent::CreateRelinker;
+  using AsanInstrumenter::InstrumentImpl;
 
   TestAsanInstrumenter() {
     // Call the GetPERelinker function to initialize it.
@@ -248,6 +253,30 @@ TEST_F(AsanInstrumenterTest, FailsWithInvalidAsanRtlOptions) {
   cmd_line_.AppendSwitchPath("output-image", output_image_path_);
   cmd_line_.AppendSwitchASCII("asan-rtl-options", "--quarantine_size=foobar");
 
+  EXPECT_FALSE(instrumenter_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(AsanInstrumenterTest, AllocationFilterConfigFile) {
+  SetUpValidCommandLine();
+  base::FilePath filter_file = testing::GetSrcRelativePath(
+      kGoodAllocationFilterFile);
+  cmd_line_.AppendSwitchPath("allocation-filter-config-file", filter_file);
+  EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  EXPECT_NE(nullptr, instrumenter_.af_transform_.get());
+}
+
+TEST_F(AsanInstrumenterTest, AllocationFilterConfigFileNotSpecified) {
+  SetUpValidCommandLine();
+  EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_.allocation_filter_config_file_path_.empty());
+  EXPECT_EQ(nullptr, instrumenter_.af_transform_.get());
+}
+
+TEST_F(AsanInstrumenterTest, FailsWithAllocationFilterConfigFileInvalidPath) {
+  SetUpValidCommandLine();
+  base::FilePath invalid_path = temp_dir_.Append(L"path-does-not-exist.json");
+  cmd_line_.AppendSwitchPath("allocation-filter-config-file", invalid_path);
+  // Should fail if the AllocationFilter configuration file path is invalid.
   EXPECT_FALSE(instrumenter_.ParseCommandLine(&cmd_line_));
 }
 
