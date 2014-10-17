@@ -34,12 +34,6 @@ typedef RegisterSize ReferenceSize;
 template <class ReferenceType>
 class AssemblerBase {
  public:
-  // TODO(siggi): Remove these typedefs and use the Displacement, Immediate,
-  //     Operand typedefs instead.
-  typedef DisplacementBase<ReferenceType> DisplacementImpl;
-  typedef ImmediateBase<ReferenceType> ImmediateImpl;
-  typedef OperandBase<ReferenceType> OperandImpl;
-
   typedef DisplacementBase<ReferenceType> Displacement;
   typedef ImmediateBase<ReferenceType> Immediate;
   typedef OperandBase<ReferenceType> Operand;
@@ -83,8 +77,8 @@ class AssemblerBase {
 
   // @name Call instructions.
   // @{
-  void call(const ImmediateImpl& dst);
-  void call(const OperandImpl& dst);
+  void call(const Immediate& dst);
+  void call(const Operand& dst);
   // @}
 
  protected:
@@ -92,11 +86,11 @@ class AssemblerBase {
   // These instructions are protected, as they're not appropriate to expose
   // for all assembler subclasses.
   // @{
-  void j(ConditionCode cc, const ImmediateImpl& dst);
-  void jecxz(const ImmediateImpl& dst);
-  void jmp(const ImmediateImpl& dst);
-  void jmp(const OperandImpl& dst);
-  void l(LoopCode lc, const ImmediateImpl& dst);
+  void j(ConditionCode cc, const Immediate& dst);
+  void jecxz(const Immediate& dst);
+  void jmp(const Immediate& dst);
+  void jmp(const Operand& dst);
+  void l(LoopCode lc, const Immediate& dst);
 
  public:
   void ret();
@@ -110,33 +104,33 @@ class AssemblerBase {
 
   // @name Byte mov varieties.
   // @{
-  void mov_b(const OperandImpl& dst, const ImmediateImpl& src);
-  void movzx_b(const Register32& dst, const OperandImpl& src);
+  void mov_b(const Operand& dst, const Immediate& src);
+  void movzx_b(const Register32& dst, const Operand& src);
   // @}
 
   // @name Double-word mov varieties.
   // @{
   void mov(const Register32& dst, const Register32& src);
-  void mov(const Register32& dst, const OperandImpl& src);
-  void mov(const OperandImpl& dst, const Register32& src);
-  void mov(const Register32& dst, const ImmediateImpl& src);
-  void mov(const OperandImpl& dst, const ImmediateImpl& src);
-  void mov_fs(const Register32& dst, const OperandImpl& src);
-  void mov_fs(const OperandImpl& dst, const Register32& src);
+  void mov(const Register32& dst, const Operand& src);
+  void mov(const Operand& dst, const Register32& src);
+  void mov(const Register32& dst, const Immediate& src);
+  void mov(const Operand& dst, const Immediate& src);
+  void mov_fs(const Register32& dst, const Operand& src);
+  void mov_fs(const Operand& dst, const Register32& src);
   // @}
 
   // @name Load effective address.
-  void lea(const Register32& dst, const OperandImpl& src);
+  void lea(const Register32& dst, const Operand& src);
 
   // @name Stack manipulation.
   // @{
   void push(const Register32& src);
-  void push(const ImmediateImpl& src);
-  void push(const OperandImpl& src);
+  void push(const Immediate& src);
+  void push(const Operand& src);
   void pushad();
 
   void pop(const Register32& dst);
-  void pop(const OperandImpl& dst);
+  void pop(const Operand& dst);
   void popad();
   // @}
 
@@ -151,46 +145,46 @@ class AssemblerBase {
   // @name Arithmetic operations.
   // @{
   void test(const Register8& dst, const Register8& src);
-  void test(const Register8& dst, const ImmediateImpl& src);
+  void test(const Register8& dst, const Immediate& src);
 
   void test(const Register32& dst, const Register32& src);
-  void test(const Register32& dst, const OperandImpl& src);
-  void test(const OperandImpl& dst, const Register32& src);
-  void test(const Register32& dst, const ImmediateImpl& src);
-  void test(const OperandImpl& dst, const ImmediateImpl& src);
+  void test(const Register32& dst, const Operand& src);
+  void test(const Operand& dst, const Register32& src);
+  void test(const Register32& dst, const Immediate& src);
+  void test(const Operand& dst, const Immediate& src);
 
   void cmp(const Register8& dst, const Register8& src);
-  void cmp(const Register8& dst, const ImmediateImpl& src);
+  void cmp(const Register8& dst, const Immediate& src);
 
   void cmp(const Register32& dst, const Register32& src);
-  void cmp(const Register32& dst, const OperandImpl& src);
-  void cmp(const OperandImpl& dst, const Register32& src);
-  void cmp(const Register32& dst, const ImmediateImpl& src);
-  void cmp(const OperandImpl& dst, const ImmediateImpl& src);
+  void cmp(const Register32& dst, const Operand& src);
+  void cmp(const Operand& dst, const Register32& src);
+  void cmp(const Register32& dst, const Immediate& src);
+  void cmp(const Operand& dst, const Immediate& src);
 
   void add(const Register8& dst, const Register8& src);
-  void add(const Register8& dst, const ImmediateImpl& src);
+  void add(const Register8& dst, const Immediate& src);
 
   void add(const Register32& dst, const Register32& src);
-  void add(const Register32& dst, const OperandImpl& src);
-  void add(const OperandImpl& dst, const Register32& src);
-  void add(const Register32& dst, const ImmediateImpl& src);
-  void add(const OperandImpl& dst, const ImmediateImpl& src);
+  void add(const Register32& dst, const Operand& src);
+  void add(const Operand& dst, const Register32& src);
+  void add(const Register32& dst, const Immediate& src);
+  void add(const Operand& dst, const Immediate& src);
 
   void sub(const Register8& dst, const Register8& src);
-  void sub(const Register8& dst, const ImmediateImpl& src);
+  void sub(const Register8& dst, const Immediate& src);
 
   void sub(const Register32& dst, const Register32& src);
-  void sub(const Register32& dst, const OperandImpl& src);
-  void sub(const OperandImpl& dst, const Register32& src);
-  void sub(const Register32& dst, const ImmediateImpl& src);
-  void sub(const OperandImpl& dst, const ImmediateImpl& src);
+  void sub(const Register32& dst, const Operand& src);
+  void sub(const Operand& dst, const Register32& src);
+  void sub(const Register32& dst, const Immediate& src);
+  void sub(const Operand& dst, const Immediate& src);
   // @}
 
   // @name Shifting operations.
   // @{
-  void shl(const Register32& dst, const ImmediateImpl& src);
-  void shr(const Register32& dst, const ImmediateImpl& src);
+  void shl(const Register32& dst, const Immediate& src);
+  void shr(const Register32& dst, const Immediate& src);
   // @}
 
   // Exchange contents of two registers.
@@ -206,9 +200,9 @@ class AssemblerBase {
 
   // @name Aliases
   // @{
-  void loop(const ImmediateImpl& dst) { l(kLoopOnCounter, dst); }
-  void loope(const ImmediateImpl& dst) { l(kLoopOnCounterAndZeroFlag, dst); }
-  void loopne(const ImmediateImpl& dst) {
+  void loop(const Immediate& dst) { l(kLoopOnCounter, dst); }
+  void loope(const Immediate& dst) { l(kLoopOnCounterAndZeroFlag, dst); }
+  void loopne(const Immediate& dst) {
     l(kLoopOnCounterAndNotZeroFlag, dst);
   }
   // @}

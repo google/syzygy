@@ -27,12 +27,6 @@
 
 namespace assm {
 
-// Displacements and immediates behave near-identically, but are semantically
-// slightly different.
-typedef ImmediateBase<const void*> ImmediateImpl;
-typedef DisplacementBase<const void*> DisplacementImpl;
-typedef OperandBase<const void*> OperandImpl;
-
 class AssemblerImpl : public AssemblerBase<const void*> {
  public:
   typedef AssemblerBase<const void*> Super;

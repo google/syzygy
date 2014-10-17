@@ -56,24 +56,24 @@ class AssemblerBase<ReferenceType>::InstructionBuffer {
                               RegisterId index,
                               RegisterId base);
   // Emit an operand.
-  void EmitOperand(uint8 reg_op, const OperandImpl& op);
+  void EmitOperand(uint8 reg_op, const Operand& op);
 
   // Emit an 8-bit displacement, with optional reference info.
-  void Emit8BitDisplacement(const DisplacementImpl& disp);
+  void Emit8BitDisplacement(const Displacement& disp);
   // Emit an 8-bit immediate, with optional reference info.
-  void Emit8BitImmediate(const ImmediateImpl& disp);
+  void Emit8BitImmediate(const Immediate& disp);
 
   // Emit a 32-bit displacement with optional reference info.
-  void Emit32BitDisplacement(const DisplacementImpl& disp);
+  void Emit32BitDisplacement(const Displacement& disp);
 
   // Emit a 32-bit immediate with optional reference info.
-  void Emit32BitImmediate(const ImmediateImpl& disp);
+  void Emit32BitImmediate(const Immediate& disp);
 
   // Emit an 8-bit PC-relative value.
-  void Emit8BitPCRelative(uint32 location, const ImmediateImpl& imm);
+  void Emit8BitPCRelative(uint32 location, const Immediate& imm);
 
   // Emit a 32-bit PC-relative value.
-  void Emit32BitPCRelative(uint32 location, const ImmediateImpl& imm);
+  void Emit32BitPCRelative(uint32 location, const Immediate& imm);
 
   // Emit a 16-bit immediate value.
   void Emit16BitValue(uint16 value);
@@ -82,16 +82,16 @@ class AssemblerBase<ReferenceType>::InstructionBuffer {
   void EmitArithmeticInstruction(
       uint8 op, const Register& dst, const Register& src);
   void EmitArithmeticInstruction(
-      uint8 op, const Register& dst, const OperandImpl& src);
+      uint8 op, const Register& dst, const Operand& src);
   void EmitArithmeticInstruction(
-      uint8 op, const OperandImpl& dst, const Register32& src);
+      uint8 op, const Operand& dst, const Register32& src);
   void EmitArithmeticInstructionToRegister32(uint8 op_eax, uint8 op_8,
       uint8 op_32, uint8 sub_op, const Register32& dst,
-      const ImmediateImpl& src);
+      const Immediate& src);
   void EmitArithmeticInstructionToRegister8(uint8 op_eax, uint8 op_8,
-      uint8 sub_op, const Register8& dst, const ImmediateImpl& src);
+      uint8 sub_op, const Register8& dst, const Immediate& src);
   void EmitArithmeticInstructionToOperand(uint8 op_8, uint8 op_32,
-      uint8 sub_op, const OperandImpl& dst, const ImmediateImpl& src);
+      uint8 sub_op, const Operand& dst, const Immediate& src);
 
   // Emit an XCHG instruction.
   void EmitXchg(ValueSize size, RegisterId dst, RegisterId src);
@@ -189,7 +189,7 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::EmitScaleIndexBaseByte(
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::EmitOperand(
-    uint8 reg_op, const OperandImpl& op) {
+    uint8 reg_op, const Operand& op) {
   DCHECK_GE(8, reg_op);
 
   // The op operand can encode any one of the following things:
@@ -246,7 +246,7 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::EmitOperand(
           // be a (zero) displacement.
           EmitModRMByte(kReg1ByteDisp, reg_op, op.base());
           Emit8BitDisplacement(
-              DisplacementImpl(0, kSize8Bit, ReferenceType()));
+              Displacement(0, kSize8Bit, ReferenceType()));
         } else {
           EmitModRMByte(kReg1Ind, reg_op, op.base());
         }
@@ -294,7 +294,7 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::EmitOperand(
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::Emit8BitDisplacement(
-    const DisplacementImpl& disp) {
+    const Displacement& disp) {
   DCHECK(disp.size() == kSize8Bit);
 
   AddReference(disp.reference(), kSize8Bit, false);
@@ -304,7 +304,7 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::Emit8BitDisplacement(
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::Emit8BitImmediate(
-    const ImmediateImpl& imm) {
+    const Immediate& imm) {
   DCHECK(imm.size() == kSize8Bit);
 
   AddReference(imm.reference(), kSize8Bit, false);
@@ -314,7 +314,7 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::Emit8BitImmediate(
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::Emit32BitDisplacement(
-    const DisplacementImpl& disp) {
+    const Displacement& disp) {
   AddReference(disp.reference(), kSize32Bit, false);
 
   uint32 value = disp.value();
@@ -326,7 +326,7 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::Emit32BitDisplacement(
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::Emit32BitImmediate(
-    const ImmediateImpl& imm) {
+    const Immediate& imm) {
   AddReference(imm.reference(), kSize32Bit, false);
 
   uint32 value = imm.value();
@@ -338,7 +338,7 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::Emit32BitImmediate(
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::Emit8BitPCRelative(
-    uint32 location, const ImmediateImpl& imm) {
+    uint32 location, const Immediate& imm) {
   DCHECK_EQ(kSize8Bit, imm.size());
 
   AddReference(imm.reference(), kSize8Bit, true);
@@ -353,7 +353,7 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::Emit8BitPCRelative(
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::Emit32BitPCRelative(
-    uint32 location, const ImmediateImpl& imm) {
+    uint32 location, const Immediate& imm) {
   DCHECK_EQ(kSize32Bit, imm.size());
 
   AddReference(imm.reference(), kSize32Bit, true);
@@ -386,7 +386,7 @@ EmitArithmeticInstruction(
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::
 EmitArithmeticInstruction(
-    uint8 op, const Register& dst, const OperandImpl& src) {
+    uint8 op, const Register& dst, const Operand& src) {
   EmitOpCodeByte(op);
   EmitOperand(dst.code(), src);
 }
@@ -394,7 +394,7 @@ EmitArithmeticInstruction(
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::
 EmitArithmeticInstruction(
-    uint8 op, const OperandImpl& dst, const Register32& src) {
+    uint8 op, const Operand& dst, const Register32& src) {
   EmitOpCodeByte(op);
   EmitOperand(src.code(), dst);
 }
@@ -403,7 +403,7 @@ template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::
 EmitArithmeticInstructionToRegister32(
     uint8 op_eax, uint8 op_8, uint8 op_32, uint8 sub_op,
-    const Register32& dst, const ImmediateImpl& src) {
+    const Register32& dst, const Immediate& src) {
   if (dst.id() == kRegisterEax && src.size() == kSize32Bit) {
     // Special encoding for EAX.
     EmitOpCodeByte(op_eax);
@@ -423,7 +423,7 @@ template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::
 EmitArithmeticInstructionToRegister8(
     uint8 op_eax, uint8 op_8, uint8 sub_op,
-    const Register8& dst, const ImmediateImpl& src) {
+    const Register8& dst, const Immediate& src) {
   DCHECK(src.size() == kSize8Bit);
   if (dst.code() == kAccumulatorCode) {
     // Special encoding for AL/AX/EAX.
@@ -439,7 +439,7 @@ template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::
 EmitArithmeticInstructionToOperand(
     uint8 op_8, uint8 op_32, uint8 sub_op,
-    const OperandImpl& dst, const ImmediateImpl& src) {
+    const Operand& dst, const Immediate& src) {
   if (src.size() == kSize8Bit) {
     EmitOpCodeByte(op_8);
     EmitOperand(sub_op, dst);
@@ -598,7 +598,7 @@ void AssemblerBase<ReferenceType>::nop(size_t size) {
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::call(const ImmediateImpl& dst) {
+void AssemblerBase<ReferenceType>::call(const Immediate& dst) {
   InstructionBuffer instr(this);
 
   instr.EmitOpCodeByte(0xE8);
@@ -606,7 +606,7 @@ void AssemblerBase<ReferenceType>::call(const ImmediateImpl& dst) {
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::call(const OperandImpl& dst) {
+void AssemblerBase<ReferenceType>::call(const Operand& dst) {
   InstructionBuffer instr(this);
 
   instr.EmitOpCodeByte(0xFF);
@@ -615,7 +615,7 @@ void AssemblerBase<ReferenceType>::call(const OperandImpl& dst) {
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::j(ConditionCode cc,
-                                     const ImmediateImpl& dst) {
+                                     const Immediate& dst) {
   DCHECK_LE(kMinConditionCode, cc);
   DCHECK_GE(kMaxConditionCode, cc);
 
@@ -632,7 +632,7 @@ void AssemblerBase<ReferenceType>::j(ConditionCode cc,
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::jecxz(const ImmediateImpl& dst) {
+void AssemblerBase<ReferenceType>::jecxz(const Immediate& dst) {
   DCHECK_EQ(kSize8Bit, dst.size());
   InstructionBuffer instr(this);
   instr.EmitOpCodeByte(0xE3);
@@ -640,7 +640,7 @@ void AssemblerBase<ReferenceType>::jecxz(const ImmediateImpl& dst) {
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::jmp(const ImmediateImpl& dst) {
+void AssemblerBase<ReferenceType>::jmp(const Immediate& dst) {
   InstructionBuffer instr(this);
 
   if (dst.size() == kSize32Bit) {
@@ -654,7 +654,7 @@ void AssemblerBase<ReferenceType>::jmp(const ImmediateImpl& dst) {
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::jmp(const OperandImpl& dst) {
+void AssemblerBase<ReferenceType>::jmp(const Operand& dst) {
   InstructionBuffer instr(this);
 
   instr.EmitOpCodeByte(0xFF);
@@ -662,7 +662,7 @@ void AssemblerBase<ReferenceType>::jmp(const OperandImpl& dst) {
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::l(LoopCode lc, const ImmediateImpl& dst) {
+void AssemblerBase<ReferenceType>::l(LoopCode lc, const Immediate& dst) {
   DCHECK_EQ(kSize8Bit, dst.size());
   DCHECK_LE(0, lc);
   DCHECK_GE(2, lc);
@@ -704,8 +704,8 @@ void AssemblerBase<ReferenceType>::set(ConditionCode cc,
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::mov_b(const OperandImpl& dst,
-                                         const ImmediateImpl& src) {
+void AssemblerBase<ReferenceType>::mov_b(const Operand& dst,
+                                         const Immediate& src) {
   InstructionBuffer instr(this);
 
   instr.EmitOpCodeByte(0xC6);
@@ -715,7 +715,7 @@ void AssemblerBase<ReferenceType>::mov_b(const OperandImpl& dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::movzx_b(const Register32& dst,
-                                           const OperandImpl& src) {
+                                           const Operand& src) {
   InstructionBuffer instr(this);
   instr.EmitOpCodeByte(kTwoByteOpCodePrefix);
   instr.EmitOpCodeByte(0xB6);
@@ -733,7 +733,7 @@ void AssemblerBase<ReferenceType>::mov(const Register32& dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::mov(const Register32& dst,
-                                       const OperandImpl& src) {
+                                       const Operand& src) {
   InstructionBuffer instr(this);
 
   if (dst.id() == kRegisterEax && IsDisplacementOnly(src)) {
@@ -747,7 +747,7 @@ void AssemblerBase<ReferenceType>::mov(const Register32& dst,
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::mov(const OperandImpl& dst,
+void AssemblerBase<ReferenceType>::mov(const Operand& dst,
                                        const Register32& src) {
   InstructionBuffer instr(this);
 
@@ -763,7 +763,7 @@ void AssemblerBase<ReferenceType>::mov(const OperandImpl& dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::mov(const Register32& dst,
-                                       const ImmediateImpl& src) {
+                                       const Immediate& src) {
   DCHECK_NE(kSizeNone, src.size());
   InstructionBuffer instr(this);
 
@@ -772,8 +772,8 @@ void AssemblerBase<ReferenceType>::mov(const Register32& dst,
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::mov(const OperandImpl& dst,
-                                       const ImmediateImpl& src) {
+void AssemblerBase<ReferenceType>::mov(const Operand& dst,
+                                       const Immediate& src) {
   InstructionBuffer instr(this);
 
   instr.EmitOpCodeByte(0xC7);
@@ -783,7 +783,7 @@ void AssemblerBase<ReferenceType>::mov(const OperandImpl& dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::mov_fs(const Register32& dst,
-                                          const OperandImpl& src) {
+                                          const Operand& src) {
   InstructionBuffer instr(this);
   instr.EmitOpCodeByte(kFsSegmentPrefix);
 
@@ -798,7 +798,7 @@ void AssemblerBase<ReferenceType>::mov_fs(const Register32& dst,
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::mov_fs(const OperandImpl& dst,
+void AssemblerBase<ReferenceType>::mov_fs(const Operand& dst,
                                           const Register32& src) {
   InstructionBuffer instr(this);
   instr.EmitOpCodeByte(kFsSegmentPrefix);
@@ -815,7 +815,7 @@ void AssemblerBase<ReferenceType>::mov_fs(const OperandImpl& dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::lea(const Register32& dst,
-                                       const OperandImpl& src) {
+                                       const Operand& src) {
   InstructionBuffer instr(this);
 
   instr.EmitOpCodeByte(0x8D);
@@ -830,7 +830,7 @@ void AssemblerBase<ReferenceType>::push(const Register32& src) {
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::push(const ImmediateImpl& src) {
+void AssemblerBase<ReferenceType>::push(const Immediate& src) {
   DCHECK_EQ(kSize32Bit, src.size());
   InstructionBuffer instr(this);
 
@@ -839,7 +839,7 @@ void AssemblerBase<ReferenceType>::push(const ImmediateImpl& src) {
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::push(const OperandImpl& dst) {
+void AssemblerBase<ReferenceType>::push(const Operand& dst) {
   InstructionBuffer instr(this);
 
   instr.EmitOpCodeByte(0xFF);
@@ -861,7 +861,7 @@ void AssemblerBase<ReferenceType>::pop(const Register32& src) {
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::pop(const OperandImpl& dst) {
+void AssemblerBase<ReferenceType>::pop(const Operand& dst) {
   InstructionBuffer instr(this);
 
   instr.EmitOpCodeByte(0x8F);
@@ -908,7 +908,7 @@ void AssemblerBase<ReferenceType>::test(const Register8& dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::test(const Register8& dst,
-                                        const ImmediateImpl& src) {
+                                        const Immediate& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstructionToRegister8(0xA8, 0xF6, 0, dst, src);
 }
@@ -922,13 +922,13 @@ void AssemblerBase<ReferenceType>::test(const Register32& dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::test(const Register32& dst,
-                                        const OperandImpl& src) {
+                                        const Operand& src) {
   // Use commutative property for a smaller encoding.
   test(src, dst);
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::test(const OperandImpl& dst,
+void AssemblerBase<ReferenceType>::test(const Operand& dst,
                                         const Register32& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstruction(0x85, dst, src);
@@ -936,10 +936,10 @@ void AssemblerBase<ReferenceType>::test(const OperandImpl& dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::test(const Register32& dst,
-                                        const ImmediateImpl& src) {
+                                        const Immediate& src) {
   if (src.size() == kSize8Bit) {
     // note: There is no encoding for a 8-bit immediate with 32-bit register.
-    test(dst, ImmediateImpl(src.value(), kSize32Bit));
+    test(dst, Immediate(src.value(), kSize32Bit));
   } else {
     InstructionBuffer instr(this);
     instr.EmitArithmeticInstructionToRegister32(0xA9, 0xF7, 0xF7, 0, dst, src);
@@ -947,11 +947,11 @@ void AssemblerBase<ReferenceType>::test(const Register32& dst,
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::test(const OperandImpl& dst,
-                                        const ImmediateImpl& src) {
+void AssemblerBase<ReferenceType>::test(const Operand& dst,
+                                        const Immediate& src) {
   if (src.size() == kSize8Bit) {
     // note: There is no encoding for a 8-bit immediate with 32-bit register.
-    test(dst, ImmediateImpl(src.value(), kSize32Bit));
+    test(dst, Immediate(src.value(), kSize32Bit));
   } else {
     InstructionBuffer instr(this);
     instr.EmitArithmeticInstructionToOperand(0xF7, 0xF7, 0, dst, src);
@@ -967,7 +967,7 @@ void AssemblerBase<ReferenceType>::cmp(const Register8& dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::cmp(const Register8& dst,
-                                       const ImmediateImpl& src) {
+                                       const Immediate& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstructionToRegister8(0x3C, 0x80, 7, dst, src);
 }
@@ -981,13 +981,13 @@ void AssemblerBase<ReferenceType>::cmp(const Register32& dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::cmp(const Register32& dst,
-                                       const OperandImpl& src) {
+                                       const Operand& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstruction(0x3B, dst, src);
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::cmp(const OperandImpl& dst,
+void AssemblerBase<ReferenceType>::cmp(const Operand& dst,
                                        const Register32& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstruction(0x39, dst, src);
@@ -995,14 +995,14 @@ void AssemblerBase<ReferenceType>::cmp(const OperandImpl& dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::cmp(const Register32& dst,
-                                       const ImmediateImpl& src) {
+                                       const Immediate& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstructionToRegister32(0x3D, 0x83, 0x81, 7, dst, src);
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::cmp(const OperandImpl& dst,
-                                       const ImmediateImpl& src) {
+void AssemblerBase<ReferenceType>::cmp(const Operand& dst,
+                                       const Immediate& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstructionToOperand(0x83, 0x81, 7, dst, src);
 }
@@ -1016,7 +1016,7 @@ void AssemblerBase<ReferenceType>::add(const Register8& dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::add(const Register8& dst,
-                                       const ImmediateImpl& src) {
+                                       const Immediate& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstructionToRegister8(0x04, 0x80, 0, dst, src);
 }
@@ -1030,13 +1030,13 @@ void AssemblerBase<ReferenceType>::add(const Register32& dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::add(const Register32& dst,
-                                       const OperandImpl& src) {
+                                       const Operand& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstruction(0x03, dst, src);
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::add(const OperandImpl& dst,
+void AssemblerBase<ReferenceType>::add(const Operand& dst,
                                        const Register32& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstruction(0x01, dst, src);
@@ -1044,14 +1044,14 @@ void AssemblerBase<ReferenceType>::add(const OperandImpl& dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::add(const Register32& dst,
-                                       const ImmediateImpl& src) {
+                                       const Immediate& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstructionToRegister32(0x05, 0x83, 0x81, 0, dst, src);
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::add(const OperandImpl& dst,
-                                       const ImmediateImpl& src) {
+void AssemblerBase<ReferenceType>::add(const Operand& dst,
+                                       const Immediate& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstructionToOperand(0x83, 0x81, 0, dst, src);
 }
@@ -1065,7 +1065,7 @@ void AssemblerBase<ReferenceType>::sub(const Register8& dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::sub(const Register8& dst,
-                                       const ImmediateImpl& src) {
+                                       const Immediate& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstructionToRegister8(0x2C, 0x80, 5, dst, src);
 }
@@ -1079,13 +1079,13 @@ void AssemblerBase<ReferenceType>::sub(const Register32& dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::sub(const Register32& dst,
-                                       const OperandImpl& src) {
+                                       const Operand& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstruction(0x2B, dst, src);
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::sub(const OperandImpl&  dst,
+void AssemblerBase<ReferenceType>::sub(const Operand&  dst,
                                        const Register32& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstruction(0x29, dst, src);
@@ -1093,21 +1093,21 @@ void AssemblerBase<ReferenceType>::sub(const OperandImpl&  dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::sub(const Register32& dst,
-                                       const ImmediateImpl& src) {
+                                       const Immediate& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstructionToRegister32(0x2D, 0x83, 0x81, 5, dst, src);
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::sub(const OperandImpl&  dst,
-                                       const ImmediateImpl& src) {
+void AssemblerBase<ReferenceType>::sub(const Operand&  dst,
+                                       const Immediate& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstructionToOperand(0x83, 0x81, 5, dst, src);
 }
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::shl(const Register32& dst,
-                                       const ImmediateImpl& src) {
+                                       const Immediate& src) {
   InstructionBuffer instr(this);
   if (src.value() == 1) {
     instr.EmitOpCodeByte(0xD1);
@@ -1121,7 +1121,7 @@ void AssemblerBase<ReferenceType>::shl(const Register32& dst,
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::shr(const Register32& dst,
-                                       const ImmediateImpl& src) {
+                                       const Immediate& src) {
   InstructionBuffer instr(this);
   if (src.value() == 1) {
     instr.EmitOpCodeByte(0xD1);
@@ -1169,7 +1169,7 @@ void AssemblerBase<ReferenceType>::nop4(size_t prefix_count) {
   instr.EmitOpCodeByte(kTwoByteOpCodePrefix);
   instr.EmitOpCodeByte(kNopOpCode);
   instr.EmitModRMByte(kReg1ByteDisp, 0, kRegisterEax);
-  instr.Emit8BitDisplacement(DisplacementImpl(0, kSize8Bit));
+  instr.Emit8BitDisplacement(Displacement(0, kSize8Bit));
 }
 
 template <class ReferenceType>
@@ -1182,7 +1182,7 @@ void AssemblerBase<ReferenceType>::nop5(size_t prefix_count) {
   // esp in the ModR/M byte indicates SIB to follow.
   instr.EmitModRMByte(kReg1ByteDisp, 0, kRegisterEsp);
   instr.EmitScaleIndexBaseByte(kTimes1, kRegisterEax, kRegisterEax);
-  instr.Emit8BitDisplacement(DisplacementImpl(0, kSize8Bit));
+  instr.Emit8BitDisplacement(Displacement(0, kSize8Bit));
 }
 
 template <class ReferenceType>
@@ -1193,7 +1193,7 @@ void AssemblerBase<ReferenceType>::nop7(size_t prefix_count) {
   instr.EmitOpCodeByte(kTwoByteOpCodePrefix);
   instr.EmitOpCodeByte(kNopOpCode);
   instr.EmitModRMByte(kReg1WordDisp, 0, kRegisterEax);
-  instr.Emit32BitDisplacement(DisplacementImpl(0, kSize32Bit));
+  instr.Emit32BitDisplacement(Displacement(0, kSize32Bit));
 }
 
 template <class ReferenceType>
@@ -1206,7 +1206,7 @@ void AssemblerBase<ReferenceType>::nop8(size_t prefix_count) {
   // esp in the ModR/M byte indicates SIB to follow.
   instr.EmitModRMByte(kReg1WordDisp, 0, kRegisterEsp);
   instr.EmitScaleIndexBaseByte(kTimes1, kRegisterEax, kRegisterEax);
-  instr.Emit32BitDisplacement(DisplacementImpl(0, kSize32Bit));
+  instr.Emit32BitDisplacement(Displacement(0, kSize32Bit));
 }
 
 template <class ReferenceType>

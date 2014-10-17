@@ -138,7 +138,7 @@ void ReturnThunkFactoryBase::AddPage() {
   if (previous_page)
     previous_page->next_page = new_page;
 
-  typedef assm::ImmediateImpl Immediate;
+  typedef assm::AssemblerImpl::Immediate Immediate;
   typedef assm::AssemblerImpl Assembler;
   using assm::kSize32Bit;
 
