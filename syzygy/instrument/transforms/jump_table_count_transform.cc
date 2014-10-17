@@ -223,7 +223,7 @@ bool JumpTableCaseCountTransform::PostBlockGraphIteration(
   add_thunks.set_only_instrument_module_entry(true);
   add_thunks.set_instrument_dll_name(instrument_dll_name_);
 
-  Immediate module_data(add_frequency_data_.frequency_data_block(), 0);
+  auto module_data(Immediate(add_frequency_data_.frequency_data_block(), 0));
   if (!add_thunks.SetEntryThunkParameter(module_data)) {
     LOG(ERROR) << "Failed to configure the entry thunks with the module_data "
                << "parameter.";
@@ -245,9 +245,9 @@ BlockGraph::Block* JumpTableCaseCountTransform::CreateOneThunk(
   // Construct the name for the new thunk.
   std::string thunk_name(destination.referenced()->name() + kThunkSuffix);
 
-  Operand jump_table_case_counter_hook(
-      Displacement(jump_table_case_counter_hook_ref_.referenced(),
-                   jump_table_case_counter_hook_ref_.offset()));
+  auto jump_table_case_counter_hook(
+      Operand(Displacement(jump_table_case_counter_hook_ref_.referenced(),
+                           jump_table_case_counter_hook_ref_.offset())));
 
   // Construct the thunk basic block.
   BasicBlockSubGraph bbsg;

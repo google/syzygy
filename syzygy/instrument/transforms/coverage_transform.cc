@@ -175,8 +175,8 @@ bool CoverageInstrumentationTransform::PostBlockGraphIteration(
   // we pass to the entry thunks. We run the thunk transform after the coverage
   // instrumentation transform as it creates new code blocks that we don't
   // want to instrument.
-  block_graph::Immediate ref_to_freq_data(
-      add_bb_freq_data_tx_.frequency_data_block(), 0);
+  auto ref_to_freq_data(
+      Immediate(add_bb_freq_data_tx_.frequency_data_block(), 0));
   entry_thunk_tx_.SetEntryThunkParameter(ref_to_freq_data);
   if (!ApplyBlockGraphTransform(
           &entry_thunk_tx_, policy, block_graph, header_block)) {

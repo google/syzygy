@@ -63,7 +63,7 @@ class EntryThunkTransform
     : public block_graph::transforms::IterativeTransformImpl<
         EntryThunkTransform> {
  public:
-  typedef block_graph::Immediate Immediate;
+  typedef block_graph::BasicBlockAssembler::Immediate ImmediateType;
   typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
 
@@ -100,10 +100,10 @@ class EntryThunkTransform
     return instrument_dll_name_.c_str();
   }
 
-  const Immediate& entry_thunk_parameter() const {
+  const ImmediateType& entry_thunk_parameter() const {
     return entry_thunk_parameter_;
   }
-  const Immediate& function_thunk_parameter() const {
+  const ImmediateType& function_thunk_parameter() const {
     return function_thunk_parameter_;
   }
 
@@ -114,10 +114,10 @@ class EntryThunkTransform
   // Sets the parameter to be used by entry/function thunks. Only 32-bit
   // parameters may be used. Set to an invalid parameter (default constructed)
   // with a size of core::kSizeNone in order to disable parameterized thunks.
-  // @param immediate the parameter to be used.
+  // @param ImmediateType the parameter to be used.
   // @returns true if the parameter was accepted, false otherwise.
-  bool SetEntryThunkParameter(const Immediate& immediate);
-  bool SetFunctionThunkParameter(const Immediate& immediate);
+  bool SetEntryThunkParameter(const ImmediateType& ImmediateType);
+  bool SetFunctionThunkParameter(const ImmediateType& ImmediateType);
   // @}
 
   // @{
@@ -167,7 +167,7 @@ class EntryThunkTransform
   BlockGraph::Block* CreateOneThunk(BlockGraph* block_graph,
                                     const BlockGraph::Reference& destination,
                                     const BlockGraph::Reference& hook,
-                                    const Immediate* parameter);
+                                    const ImmediateType* parameter);
 
  private:
   friend IterativeTransformImpl<EntryThunkTransform>;
@@ -202,11 +202,11 @@ class EntryThunkTransform
 
   // If has a size of 32 bits, then entry thunks will be set up with an extra
   // parameter on the stack prior to the address of the original function.
-  Immediate entry_thunk_parameter_;
+  ImmediateType entry_thunk_parameter_;
 
   // If has a size of 32 bits, then function hook thunks will be set up with an
   // extra parameter on the stack prior to the address of the original function.
-  Immediate function_thunk_parameter_;
+  ImmediateType function_thunk_parameter_;
 
   // Name of the instrumentation DLL we import.
   // Defaults to "call_trace_client.dll".

@@ -27,15 +27,24 @@
 
 namespace assm {
 
-typedef ValueBase<const void*> ValueImpl;
-
 // Displacements and immediates behave near-identically, but are semantically
 // slightly different.
-// TODO(siggi): Make them distinct types to make assembler interface typesafe.
-typedef ValueImpl ImmediateImpl;
-typedef ValueImpl DisplacementImpl;
+typedef ImmediateBase<const void*> ImmediateImpl;
+typedef DisplacementBase<const void*> DisplacementImpl;
 typedef OperandBase<const void*> OperandImpl;
-typedef AssemblerBase<const void*> AssemblerImpl;
+
+class AssemblerImpl : public AssemblerBase<const void*> {
+ public:
+  typedef AssemblerBase<const void*> Super;
+  AssemblerImpl(uint32 location, InstructionSerializer* serializer)
+      : Super(location, serializer) {
+  }
+
+  // Expose control flow instructions as public.
+  using Super::jmp;
+  using Super::j;
+  using Super::jecxz;
+};
 
 }  // namespace assm
 

@@ -37,7 +37,7 @@ enum ScaleFactor {
 template <class ReferenceType>
 class OperandBase {
  public:
-  typedef ValueBase<ReferenceType> DisplacementBase;
+  typedef DisplacementBase<ReferenceType> DisplacementBase;
 
   // A register-indirect mode.
   explicit OperandBase(const Register32& base);

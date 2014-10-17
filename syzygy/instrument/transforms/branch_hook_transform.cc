@@ -261,13 +261,14 @@ bool BranchHookTransform::TransformBasicBlockSubGraph(
       // range as the basic_block_id, and we pass a pointer to the frequency
       // data block as the module_data parameter. We then make a memory indirect
       // call to the bb_entry_hook.
-      Immediate basic_block_id(bb_ranges_.size(), assm::kSize32Bit);
-      Immediate module_data(add_frequency_data_.frequency_data_block(), 0);
+      auto basic_block_id(Immediate(bb_ranges_.size(), assm::kSize32Bit));
+      auto module_data(
+          Immediate(add_frequency_data_.frequency_data_block(), 0));
 
       // Assemble entry hook instrumentation into the instruction stream.
       BlockGraph::Reference* enter_hook_ref = &enter_hook_ref_;
-      Operand enter_hook(Displacement(enter_hook_ref->referenced(),
-                                      enter_hook_ref->offset()));
+      auto enter_hook(Operand(Displacement(enter_hook_ref->referenced(),
+                                           enter_hook_ref->offset())));
       BasicBlockAssembler bb_asm_enter(bb->instructions().begin(),
                                        &bb->instructions());
       bb_asm_enter.push(basic_block_id);
@@ -288,8 +289,8 @@ bool BranchHookTransform::TransformBasicBlockSubGraph(
       if (last == bb->instructions().end() ||
           !last->CallsNonReturningFunction()) {
         // Assemble exit hook instrumentation into the instruction stream.
-        Operand exit_hook(Displacement(exit_hook_ref_.referenced(),
-                                       exit_hook_ref_.offset()));
+        auto exit_hook(Operand(Displacement(exit_hook_ref_.referenced(),
+                                            exit_hook_ref_.offset())));
         BasicBlockAssembler bb_asm_exit(last_instruction,
                                         &bb->instructions());
         bb_asm_exit.push(basic_block_id);
@@ -307,9 +308,11 @@ bool BranchHookTransform::TransformBasicBlockSubGraph(
     if (function_enter_hook_ref_.IsValid()) {
       // Assemble function enter hook instrumentation into the instruction
       // stream.
-      Immediate module_data(add_frequency_data_.frequency_data_block(), 0);
-      Operand func_hook(Displacement(function_enter_hook_ref_.referenced(),
-                                     function_enter_hook_ref_.offset()));
+      auto module_data(
+          Immediate(add_frequency_data_.frequency_data_block(), 0));
+      auto func_hook(Operand(
+          Displacement(function_enter_hook_ref_.referenced(),
+                       function_enter_hook_ref_.offset())));
       BasicBlockAssembler func_asm_enter(first_bb->instructions().begin(),
                                          &first_bb->instructions());
       func_asm_enter.push(module_data);
@@ -353,7 +356,7 @@ bool BranchHookTransform::PostBlockGraphIteration(
   add_thunks.set_instrument_dll_name(instrument_dll_name_);
   add_thunks.set_src_ranges_for_thunks(true);
 
-  Immediate module_data(add_frequency_data_.frequency_data_block(), 0);
+  auto module_data(Immediate(add_frequency_data_.frequency_data_block(), 0));
   if (!add_thunks.SetEntryThunkParameter(module_data)) {
     LOG(ERROR) << "Failed to configure the entry thunks with the module_data "
                << "parameter.";

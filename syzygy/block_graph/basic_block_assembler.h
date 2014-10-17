@@ -19,6 +19,7 @@
 
 #include "syzygy/assm/assembler_base.h"
 #include "syzygy/block_graph/basic_block.h"
+#include "syzygy/block_graph/block_graph.h"
 
 namespace block_graph {
 
@@ -117,108 +118,6 @@ class UntypedReference {
   Offset base_;
 };
 
-class Value : public assm::ValueBase<UntypedReference> {
- public:
-  typedef assm::ValueBase<UntypedReference> Super;
-  typedef BlockGraph::Block Block;
-  typedef BlockGraph::Offset Offset;
-  typedef assm::ValueImpl ValueImpl;
-  typedef assm::ValueSize ValueSize;
-
-  // Default construction.
-  Value();
-
-  // Constructs an 8- or 32-bit value, depending on the minimum number of bits
-  // required to represent the Value. If the value can be encoded using 8-bits
-  // to have the same representation under sign extension, then an 8-bit Value
-  // will be created; otherwise, a 32-bit absolute Value will be created.
-  // @param value The value to be stored.
-  explicit Value(uint32 value);
-
-  // Constructs an absolute value having a specific bit width.
-  // @param value The value to be stored.
-  // @param size The size of the value.
-  Value(uint32 value, ValueSize size);
-
-  // Constructs a 32-bit direct reference to the basic block @p bb.
-  // @param bb The basic block to be referred to.
-  // @note This is fine even for jmps (which may be encoded using 8-bit
-  //     references) as the BB layout algorithm will use the shortest jmp
-  //     possible.
-  explicit Value(BasicBlock* bb);
-
-  // Constructs a 32-bit direct reference to @p block at the given @p offset.
-  // @param block The block to be referred to.
-  // @param offset The offset to be referred to, both semantically and
-  //     literally. The base and offset of the reference will be set to this.
-  // @note This is fine even for jmps (which may be encoded using 8-bit
-  //     references) as the BB layout algorithm will use the shortest jmp
-  //     possible.
-  Value(Block* block, Offset offset);
-
-  // Constructs a 32-bit reference to @p block at the given @p offset and
-  // @p base.
-  // @param block The block to be referred to.
-  // @param offset The offset to be literally referred to.
-  // @param base The offset to be semantically referred to. This must be
-  //     within the data of @p block.
-  Value(Block* block, Offset offset, Offset base);
-
-  // Full constructor.
-  // @param value The value to be stored.
-  // @param size The size of the value.
-  // @param ref The untyped reference backing this value. The reference must
-  //     be valid.
-  Value(uint32 value, ValueSize size, const UntypedReference& ref);
-
-  // Copy constructor.
-  // @param other The value to be copied.
-  Value(const Value& other);
-};
-
-// Displacements and immediates behave near-identically, but are semantically
-// slightly different.
-typedef Value Immediate;
-typedef Value Displacement;
-
-// An operand implies indirection to memory through one of the myriad
-// modes supported by IA32.
-class Operand : public assm::OperandBase<UntypedReference> {
- public:
-  typedef assm::OperandBase<UntypedReference> Super;
-
-  // A register-indirect mode.
-  explicit Operand(const assm::Register32& base);
-
-  // A register-indirect with displacement mode.
-  Operand(const assm::Register32& base, const Displacement& displ);
-
-  // A displacement-only mode.
-  explicit Operand(const Displacement& displ);
-
-  // The full [base + index * scale + displ32] mode.
-  // @note esp cannot be used as an index register.
-  Operand(const assm::Register32& base,
-          const assm::Register32& index,
-          assm::ScaleFactor scale,
-          const Displacement& displ);
-
-  // The full [base + index * scale] mode.
-  // @note esp cannot be used as an index register.
-  Operand(const assm::Register32& base,
-          const assm::Register32& index,
-          assm::ScaleFactor scale);
-
-  // The [index * scale + displ32] mode.
-  // @note esp cannot be used as an index register.
-  Operand(const assm::Register32& index,
-          assm::ScaleFactor scale,
-          const Displacement& displ);
-
-  // Copy constructor.
-  Operand(const Operand& o);
-};
-
 class BasicBlockAssembler : public assm::AssemblerBase<UntypedReference> {
  public:
   typedef assm::AssemblerBase<UntypedReference> Super;
@@ -304,6 +203,153 @@ class BasicBlockAssembler : public assm::AssemblerBase<UntypedReference> {
 
   BasicBlockSerializer serializer_;
 };
+
+// @name Immediate factory functions.
+// @{
+
+// Default construction.
+BasicBlockAssembler::Immediate Immediate();
+
+// Constructs an 8- or 32-bit Immediate, depending on the minimum number of
+// bits required to represent the Immediate. If the Immediate can be encoded
+// using 8-bits to have the same representation under sign extension, then an
+// 8-bit Immediate will be created; otherwise, a 32-bit absolute Immediate will
+// be created.
+// @param value The value to be stored.
+BasicBlockAssembler::Immediate Immediate(uint32 value);
+
+// Constructs an absolute Immediate having a specific bit width.
+// @param value The value to be stored.
+// @param size The size of the value.
+BasicBlockAssembler::Immediate Immediate(uint32 value, assm::ValueSize size);
+
+// Constructs a 32-bit direct reference to the basic block @p bb.
+// @param bb The basic block to be referred to.
+// @note This is fine even for jmps (which may be encoded using 8-bit
+//     references) as the BB layout algorithm will use the shortest jmp
+//     possible.
+BasicBlockAssembler::Immediate Immediate(BasicBlock* bb);
+
+// Constructs a 32-bit direct reference to @p block at the given @p offset.
+// @param block The block to be referred to.
+// @param offset The offset to be referred to, both semantically and
+//     literally. The base and offset of the reference will be set to this.
+// @note This is fine even for jmps (which may be encoded using 8-bit
+//     references) as the BB layout algorithm will use the shortest jmp
+//     possible.
+BasicBlockAssembler::Immediate Immediate(
+    BlockGraph::Block* block, BlockGraph::Offset offset);
+
+// Constructs a 32-bit reference to @p block at the given @p offset and
+// @p base.
+// @param block The block to be referred to.
+// @param offset The offset to be literally referred to.
+// @param base The offset to be semantically referred to. This must be
+//     within the data of @p block.
+BasicBlockAssembler::Immediate Immediate(
+    BlockGraph::Block* block, BlockGraph::Offset offset,
+    BlockGraph::Offset base);
+
+// Full constructor.
+// @param value The value to be stored.
+// @param size The size of the Immediate.
+// @param ref The untyped reference backing this Immediate. The reference must
+//     be valid.
+BasicBlockAssembler::Immediate Immediate(
+    uint32 value, ValueSize size, const UntypedReference& ref);
+
+// @}
+
+// @name Displacement factory functions.
+// @{
+
+// Default construction.
+BasicBlockAssembler::Displacement Displacement();
+
+// Constructs an 8- or 32-bit Displacement, depending on the minimum number of
+// bits required to represent the Displacement. If the Displacement can be
+// encoded using 8-bits to have the same representation under sign extension,
+// then an 8-bit Displacement will be created; otherwise, a 32-bit absolute
+// Displacement will be created.
+// @param value The value to be stored.
+BasicBlockAssembler::Displacement Displacement(uint32 value);
+
+// Constructs an absolute Displacement having a specific bit width.
+// @param value The value to be stored.
+// @param size The size of the Displacement.
+BasicBlockAssembler::Displacement Displacement(uint32 value, ValueSize size);
+
+// Constructs a 32-bit direct reference to the basic block @p bb.
+// @param bb The basic block to be referred to.
+// @note This is fine even for jmps (which may be encoded using 8-bit
+//     references) as the BB layout algorithm will use the shortest jmp
+//     possible.
+BasicBlockAssembler::Displacement Displacement(BasicBlock* bb);
+
+// Constructs a 32-bit direct reference to @p block at the given @p offset.
+// @param block The block to be referred to.
+// @param offset The offset to be referred to, both semantically and
+//     literally. The base and offset of the reference will be set to this.
+// @note This is fine even for jmps (which may be encoded using 8-bit
+//     references) as the BB layout algorithm will use the shortest jmp
+//     possible.
+BasicBlockAssembler::Displacement Displacement(
+    BlockGraph::Block* block, BlockGraph::Offset offset);
+
+// Constructs a 32-bit reference to @p block at the given @p offset and
+// @p base.
+// @param block The block to be referred to.
+// @param offset The offset to be literally referred to.
+// @param base The offset to be semantically referred to. This must be
+//     within the data of @p block.
+BasicBlockAssembler::Displacement Displacement(BlockGraph::Block* block,
+                                               BlockGraph::Offset offset,
+                                               BlockGraph::Offset base);
+
+// Full constructor.
+// @param value The value to be stored.
+// @param size The size of the Displacement.
+// @param ref The untyped reference backing this Displacement. The reference
+//     must be valid.
+BasicBlockAssembler::Displacement Displacement(
+    uint32 value, ValueSize size, const UntypedReference& ref);
+
+// @}
+
+// @name Operand factory functions.
+// @{
+
+// A register-indirect mode.
+BasicBlockAssembler::Operand Operand(const assm::Register32& base);
+
+// A register-indirect with displacement mode.
+BasicBlockAssembler::Operand Operand(
+    const assm::Register32& base,
+    const BasicBlockAssembler::Displacement& displ);
+
+// A displacement-only mode.
+BasicBlockAssembler::Operand Operand(
+    const BasicBlockAssembler::Displacement& displ);
+
+// The full [base + index * scale + displ32] mode.
+// @note esp cannot be used as an index register.
+BasicBlockAssembler::Operand Operand(
+    const assm::Register32& base, const assm::Register32& index,
+    assm::ScaleFactor scale, const BasicBlockAssembler::Displacement& displ);
+
+// The full [base + index * scale] mode.
+// @note esp cannot be used as an index register.
+BasicBlockAssembler::Operand Operand(const assm::Register32& base,
+                                     const assm::Register32& index,
+                                     assm::ScaleFactor scale);
+
+// The [index * scale + displ32] mode.
+// @note esp cannot be used as an index register.
+BasicBlockAssembler::Operand Operand(
+    const assm::Register32& index, assm::ScaleFactor scale,
+    const BasicBlockAssembler::Displacement& displ);
+
+// @}
 
 }  // namespace block_graph
 

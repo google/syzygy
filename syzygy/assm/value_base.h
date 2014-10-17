@@ -28,7 +28,7 @@ typedef RegisterSize ValueSize;
 
 // An instance of this class is an explicit value, which is either
 // an immediate or a displacement.
-template <class ReferenceType>
+template <class ReferenceType, class SubclassType>
 class ValueBase {
  public:
   ValueBase();
@@ -52,17 +52,47 @@ class ValueBase {
 };
 
 template <class ReferenceType>
-ValueBase<ReferenceType>::ValueBase()
+class ImmediateBase
+    : public ValueBase<ReferenceType, ImmediateBase<ReferenceType>> {
+ public:
+  typedef ValueBase<ReferenceType, ImmediateBase<ReferenceType>> Super;
+
+  ImmediateBase() {
+  }
+  ImmediateBase(uint32 value, ValueSize size) : Super(value, size) {
+  }
+  ImmediateBase(uint32 value, ValueSize size, ReferenceType imm_ref)
+      : Super(value, size, imm_ref) {
+  }
+};
+
+template <class ReferenceType>
+class DisplacementBase
+    : public ValueBase<ReferenceType, DisplacementBase<ReferenceType>> {
+ public:
+  typedef ValueBase<ReferenceType, DisplacementBase<ReferenceType>> Super;
+
+  DisplacementBase() {
+  }
+  DisplacementBase(uint32 value, ValueSize size) : Super(value, size) {
+  }
+  DisplacementBase(uint32 value, ValueSize size, ReferenceType imm_ref)
+      : Super(value, size, imm_ref) {
+  }
+};
+
+template <class ReferenceType, class SubclassType>
+ValueBase<ReferenceType, SubclassType>::ValueBase()
     : value_(0), reference_(), size_(kSizeNone) {
 }
 
-template <class ReferenceType>
-ValueBase<ReferenceType>::ValueBase(uint32 value, ValueSize size)
+template <class ReferenceType, class SubclassType>
+ValueBase<ReferenceType, SubclassType>::ValueBase(uint32 value, ValueSize size)
     : value_(value), reference_(), size_(size) {
 }
 
-template <class ReferenceType>
-ValueBase<ReferenceType>::ValueBase(
+template <class ReferenceType, class SubclassType>
+ValueBase<ReferenceType, SubclassType>::ValueBase(
     uint32 value, ValueSize size, ReferenceType value_ref)
     : value_(value), reference_(value_ref), size_(size) {
   // We can't have a 16-bit value *and* a reference, as there are no
@@ -71,8 +101,9 @@ ValueBase<ReferenceType>::ValueBase(
   DCHECK(!details::IsValidReference(value_ref) || size != kSize16Bit);
 }
 
-template <class ReferenceType>
-bool ValueBase<ReferenceType>::operator==(const ValueBase& rhs) const {
+template <class ReferenceType, class SubclassType>
+bool ValueBase<ReferenceType, SubclassType>::operator==(
+    const ValueBase& rhs) const {
   return value_ == rhs.value_ &&
       reference_ == rhs.reference_ &&
       size_ == rhs.size_;

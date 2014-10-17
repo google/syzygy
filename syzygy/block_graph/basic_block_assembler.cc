@@ -18,11 +18,6 @@ namespace block_graph {
 
 namespace {
 
-typedef assm::DisplacementImpl DisplacementImpl;
-typedef assm::OperandImpl OperandImpl;
-typedef assm::ValueImpl ValueImpl;
-typedef assm::ValueSize ValueSize;
-
 ValueSize ValueSizeFromConstant(uint32 input_value) {
   // IA32 assembly may/will sign-extend 8-bit literals, so we attempt to encode
   // in 8 bits only those literals whose value will be unchanged by that
@@ -70,66 +65,110 @@ BasicBlockReference CompleteUntypedReference(
 
 }  // namespace
 
-Value::Value() {
+BasicBlockAssembler::Immediate Immediate() {
+  return BasicBlockAssembler::Immediate();
 }
 
-Value::Value(uint32 value) : Super(value, ValueSizeFromConstant(value)) {
+BasicBlockAssembler::Immediate Immediate(uint32 value) {
+  return BasicBlockAssembler::Immediate(value, ValueSizeFromConstant(value));
 }
 
-Value::Value(uint32 value, ValueSize size) : Super(value, size) {
+BasicBlockAssembler::Immediate Immediate(uint32 value, ValueSize size) {
+  return BasicBlockAssembler::Immediate(value, size);
 }
 
-Value::Value(BasicBlock* bb)
-    : Super(0, assm::kSize32Bit, UntypedReference(bb)) {
+BasicBlockAssembler::Immediate Immediate(BasicBlock* bb) {
+  return BasicBlockAssembler::Immediate(
+      0, assm::kSize32Bit, UntypedReference(bb));
 }
 
-Value::Value(Block* block, Offset offset)
-    : Super(0, assm::kSize32Bit, UntypedReference(block, offset, offset)) {
+BasicBlockAssembler::Immediate Immediate(
+    BlockGraph::Block* block, BlockGraph::Offset offset) {
+  return BasicBlockAssembler::Immediate(
+      0, assm::kSize32Bit, UntypedReference(block, offset, offset));
 }
 
-Value::Value(Block* block, Offset offset, Offset base)
-    : Super(0, assm::kSize32Bit, UntypedReference(block, offset, base)) {
+BasicBlockAssembler::Immediate Immediate(BlockGraph::Block* block,
+                                         BlockGraph::Offset offset,
+                                         BlockGraph::Offset base) {
+  return BasicBlockAssembler::Immediate(
+      0, assm::kSize32Bit, UntypedReference(block, offset, base));
 }
 
-Value::Value(uint32 value, ValueSize size, const UntypedReference& ref)
-    : Super(value, size, ref) {
+BasicBlockAssembler::Immediate Immediate(
+    uint32 value, ValueSize size, const UntypedReference& ref) {
   DCHECK(ref.IsValid());
+  return BasicBlockAssembler::Immediate(value, size, ref);
 }
 
-Value::Value(const Value& other) : Super(other) {
+BasicBlockAssembler::Displacement Displacement() {
+  return BasicBlockAssembler::Displacement();
 }
 
-Operand::Operand(const assm::Register32& base) : Super(base) {
+BasicBlockAssembler::Displacement Displacement(uint32 value) {
+  return BasicBlockAssembler::Displacement(value,
+                                           ValueSizeFromConstant(value));
 }
 
-Operand::Operand(const assm::Register32& base, const Displacement& displ)
-    : Super(base, displ) {
+BasicBlockAssembler::Displacement Displacement(uint32 value, ValueSize size) {
+  return BasicBlockAssembler::Displacement(value, size);
 }
 
-Operand::Operand(const Displacement& displ) : Super(displ) {
+BasicBlockAssembler::Displacement Displacement(BasicBlock* bb) {
+  return BasicBlockAssembler::Displacement(
+      0, assm::kSize32Bit, UntypedReference(bb));
 }
 
-Operand::Operand(const assm::Register32& base,
-                 const assm::Register32& index,
-                 assm::ScaleFactor scale,
-                 const Displacement& displ)
-    : Super(base, index, scale, displ) {
+BasicBlockAssembler::Displacement Displacement(
+    BlockGraph::Block* block, BlockGraph::Offset offset) {
+  return BasicBlockAssembler::Displacement(
+      0, assm::kSize32Bit, UntypedReference(block, offset, offset));
 }
 
-Operand::Operand(const assm::Register32& base,
-                 const assm::Register32& index,
-                 assm::ScaleFactor scale)
-    : Super(base, index, scale) {
+BasicBlockAssembler::Displacement Displacement(
+    BlockGraph::Block* block, BlockGraph::Offset offset,
+    BlockGraph::Offset base) {
+  return BasicBlockAssembler::Displacement(
+      0, assm::kSize32Bit, UntypedReference(block, offset, base));
 }
 
-Operand::Operand(const assm::Register32& index,
-                 assm::ScaleFactor scale,
-                 const Displacement& displ)
-    : Super(index, scale, displ) {
+BasicBlockAssembler::Displacement Displacement(
+    uint32 value, ValueSize size, const UntypedReference& ref) {
+  DCHECK(ref.IsValid());
+  return BasicBlockAssembler::Displacement(value, size, ref);
 }
 
-Operand::Operand(const Operand& o)
-    : Super(o.base(), o.index(), o.scale(), o.displacement()) {
+BasicBlockAssembler::Operand Operand(const assm::Register32& base) {
+  return BasicBlockAssembler::Operand(base);
+}
+
+BasicBlockAssembler::Operand Operand(
+    const assm::Register32& base,
+    const BasicBlockAssembler::Displacement& displ) {
+  return BasicBlockAssembler::Operand(base, displ);
+}
+
+BasicBlockAssembler::Operand Operand(
+    const BasicBlockAssembler::Displacement& displ) {
+  return BasicBlockAssembler::Operand(displ);
+}
+
+BasicBlockAssembler::Operand Operand(
+    const assm::Register32& base, const assm::Register32& index,
+    assm::ScaleFactor scale, const BasicBlockAssembler::Displacement& displ) {
+  return BasicBlockAssembler::Operand(base, index, scale, displ);
+}
+
+BasicBlockAssembler::Operand Operand(const assm::Register32& base,
+                                     const assm::Register32& index,
+                                     assm::ScaleFactor scale) {
+  return BasicBlockAssembler::Operand(base, index, scale);
+}
+
+BasicBlockAssembler::Operand Operand(
+    const assm::Register32& index, assm::ScaleFactor scale,
+    const BasicBlockAssembler::Displacement& displ) {
+  return BasicBlockAssembler::Operand(index, scale, displ);
 }
 
 BasicBlockAssembler::BasicBlockSerializer::BasicBlockSerializer(
@@ -170,7 +209,7 @@ void BasicBlockAssembler::call(const Immediate& dst) {
   // immediate parameters to be backed by a 32-bit reference.
   DCHECK(dst.reference().IsValid());
   DCHECK_EQ(assm::kSize32Bit, dst.size());
-   Super::call(dst);
+  Super::call(dst);
 }
 
 void BasicBlockAssembler::call(const Operand& dst) {

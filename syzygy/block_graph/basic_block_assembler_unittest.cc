@@ -98,66 +98,6 @@ BasicBlockAssemblerTest::BasicBlockAssemblerTest()
   test_bb_= subgraph_.AddBasicCodeBlock("foo");
 }
 
-void TestValue(const Value& value,
-               uint32 expected_value,
-               assm::ValueSize expected_size) {
-  EXPECT_EQ(expected_size, value.size());
-  EXPECT_EQ(expected_value, value.value());
-  EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
-            value.reference().referred_type());
-
-  Value value_copy(value);
-  EXPECT_EQ(expected_size, value_copy.size());
-  EXPECT_EQ(expected_value, value_copy.value());
-  EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
-            value_copy.reference().referred_type());
-
-  EXPECT_TRUE(value == value_copy);
-
-  Value value_diff(expected_value - 1);
-  EXPECT_FALSE(value == value_diff);
-}
-
-void Test8BitValue(uint32 input_value, uint32 expected_value) {
-  TestValue(Value(input_value), expected_value, assm::kSize8Bit);
-  TestValue(
-      Value(input_value, assm::kSize8Bit), expected_value, assm::kSize8Bit);
-}
-
-void Test32BitValue(uint32 input_value, uint32 expected_value) {
-  TestValue(Value(input_value), expected_value, assm::kSize32Bit);
-  TestValue(
-      Value(input_value, assm::kSize32Bit), expected_value, assm::kSize32Bit);
-}
-
-typedef BasicBlockAssemblerTest ValueTest;
-
-void TestValueCopy(const Value& input) {
-  // Make sure copy-constructing the value works.
-  Value copy(input);
-
-  ASSERT_EQ(input.value(), copy.value());
-  ASSERT_EQ(input.size(), copy.size());
-  ASSERT_EQ(input.reference().referred_type(),
-            copy.reference().referred_type());
-  ASSERT_EQ(input.reference().block(), copy.reference().block());
-  ASSERT_EQ(input.reference().basic_block(), copy.reference().basic_block());
-  ASSERT_EQ(input.reference().offset(), copy.reference().offset());
-  ASSERT_EQ(input.reference().base(), copy.reference().base());
-
-  // Make sure assignment operator works.
-  Value copy2;
-  copy2 = input;
-  ASSERT_EQ(input.value(), copy2.value());
-  ASSERT_EQ(input.size(), copy2.size());
-  ASSERT_EQ(input.reference().referred_type(),
-            copy2.reference().referred_type());
-  ASSERT_EQ(input.reference().block(), copy2.reference().block());
-  ASSERT_EQ(input.reference().basic_block(), copy2.reference().basic_block());
-  ASSERT_EQ(input.reference().offset(), copy2.reference().offset());
-  ASSERT_EQ(input.reference().base(), copy2.reference().base());
-}
-
 }  // namespace
 
 TEST(UntypedReferenceTest, DefaultConstructor) {
@@ -261,15 +201,112 @@ TEST(UntypedReferenceTest, Comparison) {
   EXPECT_TRUE(r2 == r5);
 }
 
-TEST_F(ValueTest, Construction) {
-  {
-    Value value_empty;
-    ASSERT_EQ(0, value_empty.value());
-    ASSERT_EQ(assm::kSizeNone, value_empty.size());
-    ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
-              value_empty.reference().referred_type());
+namespace {
 
-    TestValueCopy(value_empty);
+template <typename ValueTraits>
+class ValueTest : public BasicBlockAssemblerTest {
+ public:
+  typedef typename ValueTraits ValueTraits;
+  typedef typename ValueTraits::ValueType ValueType;
+
+  void TestValue(const ValueType& value,
+                 uint32 expected_value,
+                 assm::ValueSize expected_size) {
+    EXPECT_EQ(expected_size, value.size());
+    EXPECT_EQ(expected_value, value.value());
+    EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
+              value.reference().referred_type());
+
+    auto value_copy(value);
+    EXPECT_EQ(expected_size, value_copy.size());
+    EXPECT_EQ(expected_value, value_copy.value());
+    EXPECT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
+              value_copy.reference().referred_type());
+
+    EXPECT_TRUE(value == value_copy);
+
+    auto value_diff(ValueTraits::Factory(expected_value - 1));
+    EXPECT_FALSE(value == value_diff);
+  }
+
+  void Test8BitValue(uint32 input_value, uint32 expected_value) {
+    TestValue(ValueTraits::Factory(input_value),
+              expected_value, assm::kSize8Bit);
+    TestValue(ValueTraits::Factory(input_value, assm::kSize8Bit),
+              expected_value, assm::kSize8Bit);
+  }
+
+  void Test32BitValue(uint32 input_value, uint32 expected_value) {
+    TestValue(ValueTraits::Factory(input_value),
+              expected_value, assm::kSize32Bit);
+    TestValue(ValueTraits::Factory(input_value, assm::kSize32Bit),
+              expected_value, assm::kSize32Bit);
+  }
+};
+
+struct ImmediateTestTraits {
+  typedef BasicBlockAssembler::Immediate ValueType;
+
+  static ValueType Factory() { return Immediate(); }
+  static ValueType Factory(uint32 value) { return Immediate(value); }
+  static ValueType Factory(uint32 value, assm::ValueSize size) {
+    return Immediate(value, size);
+  }
+  static ValueType Factory(BasicBlock* bb) { return Immediate(bb); }
+  static ValueType Factory(BlockGraph::Block* block,
+                           BlockGraph::Offset offset) {
+    return Immediate(block, offset);
+  }
+  static ValueType Factory(BlockGraph::Block* block,
+                           BlockGraph::Offset offset,
+                           BlockGraph::Offset base) {
+    return Immediate(block, offset, base);
+  }
+  static ValueType Factory(uint32 value,
+                           ValueSize size,
+                           const UntypedReference& ref) {
+    return Immediate(value, size, ref);
+  }
+};
+
+struct DisplacementTestTraits {
+  typedef BasicBlockAssembler::Displacement ValueType;
+
+  static ValueType Factory() { return Displacement(); }
+  static ValueType Factory(uint32 value) { return Displacement(value); }
+  static ValueType Factory(uint32 value, assm::ValueSize size) {
+    return Displacement(value, size);
+  }
+  static ValueType Factory(BasicBlock* bb) { return Displacement(bb); }
+  static ValueType Factory(BlockGraph::Block* block,
+                           BlockGraph::Offset offset) {
+    return Displacement(block, offset);
+  }
+  static ValueType Factory(BlockGraph::Block* block,
+                           BlockGraph::Offset offset,
+                           BlockGraph::Offset base) {
+    return Displacement(block, offset, base);
+  }
+  static ValueType Factory(uint32 value,
+                           ValueSize size,
+                           const UntypedReference& ref) {
+    return Displacement(value, size, ref);
+  }
+};
+
+}  // namespace
+
+typedef ::testing::Types<ImmediateTestTraits, DisplacementTestTraits>
+    ValueTestTypes;
+TYPED_TEST_CASE(ValueTest, ValueTestTypes);
+
+TYPED_TEST(ValueTest, Factories) {
+  {
+    auto imm_empty(ValueTraits::Factory());
+    ASSERT_EQ(0, imm_empty.value());
+    ASSERT_EQ(assm::kSizeNone, imm_empty.size());
+    ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_UNKNOWN,
+              imm_empty.reference().referred_type());
   }
 
   Test8BitValue(0, 0);
@@ -288,113 +325,146 @@ TEST_F(ValueTest, Construction) {
 
   {
     const BlockGraph::Offset kOffs = 10;
-    Value value_block_ref(test_block_, kOffs);
+    auto imm_block_ref(ValueTraits::Factory(test_block_, kOffs));
 
-    ASSERT_EQ(0, value_block_ref.value());
-    ASSERT_EQ(assm::kSize32Bit, value_block_ref.size());
+    ASSERT_EQ(0, imm_block_ref.value());
+    ASSERT_EQ(assm::kSize32Bit, imm_block_ref.size());
     ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK,
-              value_block_ref.reference().referred_type());
-    ASSERT_EQ(test_block_, value_block_ref.reference().block());
-    ASSERT_EQ(kOffs, value_block_ref.reference().offset());
-    ASSERT_EQ(kOffs, value_block_ref.reference().base());
-
-    TestValueCopy(value_block_ref);
+              imm_block_ref.reference().referred_type());
+    ASSERT_EQ(test_block_, imm_block_ref.reference().block());
+    ASSERT_EQ(kOffs, imm_block_ref.reference().offset());
+    ASSERT_EQ(kOffs, imm_block_ref.reference().base());
   }
 
   {
-    Value value_bb_ref(test_bb_);
+    auto imm_bb_ref(ValueTraits::Factory(test_bb_));
 
-    ASSERT_EQ(0, value_bb_ref.value());
-    ASSERT_EQ(assm::kSize32Bit, value_bb_ref.size());
+    ASSERT_EQ(0, imm_bb_ref.value());
+    ASSERT_EQ(assm::kSize32Bit, imm_bb_ref.size());
     ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK,
-              value_bb_ref.reference().referred_type());
-    ASSERT_EQ(test_bb_, value_bb_ref.reference().basic_block());
-    ASSERT_EQ(0, value_bb_ref.reference().offset());
-    ASSERT_EQ(0, value_bb_ref.reference().base());
-
-    TestValueCopy(value_bb_ref);
+              imm_bb_ref.reference().referred_type());
+    ASSERT_EQ(test_bb_, imm_bb_ref.reference().basic_block());
+    ASSERT_EQ(0, imm_bb_ref.reference().offset());
+    ASSERT_EQ(0, imm_bb_ref.reference().base());
   }
 
   {
     // Explicitly specified size and reference info.
     UntypedReference ref(test_block_, 1, 2);
-    Value value_expl_ref(0xBE, assm::kSize8Bit, ref);
+    auto imm_expl_ref(ValueTraits::Factory(0xBE, assm::kSize8Bit, ref));
 
-    ASSERT_EQ(0xBE, value_expl_ref.value());
-    ASSERT_EQ(assm::kSize8Bit, value_expl_ref.size());
+    ASSERT_EQ(0xBE, imm_expl_ref.value());
+    ASSERT_EQ(assm::kSize8Bit, imm_expl_ref.size());
     ASSERT_EQ(BasicBlockReference::REFERRED_TYPE_BLOCK,
-              value_expl_ref.reference().referred_type());
-    ASSERT_EQ(test_block_, value_expl_ref.reference().block());
-    ASSERT_EQ(1, value_expl_ref.reference().offset());
-    ASSERT_EQ(2, value_expl_ref.reference().base());
-
-    TestValueCopy(value_expl_ref);
+              imm_expl_ref.reference().referred_type());
+    ASSERT_EQ(test_block_, imm_expl_ref.reference().block());
+    ASSERT_EQ(1, imm_expl_ref.reference().offset());
+    ASSERT_EQ(2, imm_expl_ref.reference().base());
   }
 }
 
-typedef BasicBlockAssemblerTest OperandTest;
+namespace {
 
-void TestOperandCopy(const Operand& input) {
-  Operand copy(input);
+// Asserts that @p op.displacement() is equal to @p displ.
+void TestEqualDisplacement(const BasicBlockAssembler::Operand& op,
+                           const BasicBlockAssembler::Displacement& displ) {
+  ASSERT_EQ(displ.value(), op.displacement().value());
+  ASSERT_EQ(displ.size(), op.displacement().size());
 
-  ASSERT_EQ(input.base(), copy.base());
-  ASSERT_EQ(input.index(), copy.index());
-  ASSERT_EQ(input.scale(), copy.scale());
-  ASSERT_EQ(input.displacement().value(), copy.displacement().value());
-  ASSERT_EQ(input.displacement().size(), copy.displacement().size());
-  ASSERT_EQ(input.displacement().reference(), copy.displacement().reference());
+  ASSERT_EQ(displ.reference().IsValid(),
+            op.displacement().reference().IsValid());
+  if (!displ.reference().IsValid())
+    return;
 
-  Operand copy2(assm::eax);
+  ASSERT_EQ(displ.reference().IsValid(),
+            op.displacement().reference().IsValid());
 
-  copy2 = input;
-  ASSERT_EQ(input.base(), copy2.base());
-  ASSERT_EQ(input.index(), copy2.index());
-  ASSERT_EQ(input.scale(), copy2.scale());
-  ASSERT_EQ(input.displacement().value(), copy2.displacement().value());
-  ASSERT_EQ(input.displacement().size(), copy2.displacement().size());
-  ASSERT_EQ(input.displacement().reference(), copy2.displacement().reference());
+  ASSERT_EQ(displ.reference().basic_block(),
+            op.displacement().reference().basic_block());
+  ASSERT_EQ(displ.reference().block(),
+            op.displacement().reference().block());
+  ASSERT_EQ(displ.reference().offset(),
+            op.displacement().reference().offset());
+  ASSERT_EQ(displ.reference().base(),
+            op.displacement().reference().base());
 }
 
-TEST_F(OperandTest, Construction) {
-  // A register-indirect.
-  TestOperandCopy(Operand(assm::eax));
+}  // namespace
 
-  // Register-indirect with displacement.
-  TestOperandCopy(Operand(assm::eax, Displacement(100)));
-  TestOperandCopy(Operand(assm::eax, Displacement(test_block_, 2)));
-  TestOperandCopy(Operand(assm::eax, Displacement(test_bb_)));
+typedef BasicBlockAssemblerTest OperandTest;
 
-  // Displacement-only mode.
-  TestOperandCopy(Operand(Displacement(100)));
-  TestOperandCopy(Operand(Displacement(test_block_, 2)));
-  TestOperandCopy(Operand(Displacement(test_bb_)));
+TEST_F(OperandTest, Factories) {
+  {
+    auto op(Operand(assm::eax));
 
-  TestOperandCopy(Operand(assm::eax,
-                          assm::ebp,
-                          assm::kTimes2,
-                          Displacement(100)));
-  TestOperandCopy(Operand(assm::eax,
-                          assm::ebp,
-                          assm::kTimes2,
-                          Displacement(test_block_, 2)));
-  TestOperandCopy(Operand(assm::eax,
-                          assm::ebp,
-                          assm::kTimes2,
-                          Displacement(test_bb_)));
+    ASSERT_EQ(assm::kRegisterEax, op.base());
+    ASSERT_EQ(assm::kRegisterNone, op.index());
+    ASSERT_EQ(assm::kTimes1, op.scale());
+    ASSERT_EQ(assm::kSizeNone, op.displacement().size());
 
-  // The [base + index * scale] mode - no displ.
-  TestOperandCopy(Operand(assm::eax, assm::ebp, assm::kTimes2));
+    TestEqualDisplacement(op, Displacement());
+  }
 
-  // The [index * scale + displ32] mode - no base.
-  TestOperandCopy(Operand(assm::ebp,
-                          assm::kTimes2,
-                          Displacement(100)));
-  TestOperandCopy(Operand(assm::ebp,
-                          assm::kTimes2,
-                          Displacement(test_block_, 2)));
-  TestOperandCopy(Operand(assm::ebp,
-                          assm::kTimes2,
-                          Displacement(test_bb_)));
+  {
+    // Register-indirect with displacement.
+    auto op(Operand(assm::eax, Displacement(100)));
+    ASSERT_EQ(assm::kRegisterEax, op.base());
+    ASSERT_EQ(assm::kRegisterNone, op.index());
+    ASSERT_EQ(assm::kTimes1, op.scale());
+    ASSERT_EQ(assm::kSize8Bit, op.displacement().size());
+
+    TestEqualDisplacement(op, Displacement(100));
+
+    TestEqualDisplacement(Operand(assm::eax, Displacement(test_block_, 2)),
+                          Displacement(test_block_, 2));
+    TestEqualDisplacement(Operand(assm::eax, Displacement(test_bb_)),
+                          Displacement(test_bb_));
+  }
+
+  {
+    // Displacement-only mode.
+    auto op(Operand(Displacement(100)));
+    ASSERT_EQ(assm::kRegisterNone, op.base());
+    ASSERT_EQ(assm::kRegisterNone, op.index());
+    ASSERT_EQ(assm::kTimes1, op.scale());
+    ASSERT_EQ(assm::kSize8Bit, op.displacement().size());
+    TestEqualDisplacement(op, Displacement(100));
+
+    TestEqualDisplacement(Operand(Displacement(test_block_, 2)),
+                          Displacement(test_block_, 2));
+    TestEqualDisplacement(Operand(Displacement(test_bb_)),
+                          Displacement(test_bb_));
+  }
+
+  {
+    // The [base + index * scale] mode with displ.
+    auto op(Operand(assm::eax, assm::ebp, assm::kTimes2, Displacement(100)));
+    ASSERT_EQ(assm::kRegisterEax, op.base());
+    ASSERT_EQ(assm::kRegisterEbp, op.index());
+    ASSERT_EQ(assm::kTimes2, op.scale());
+    ASSERT_EQ(assm::kSize8Bit, op.displacement().size());
+
+    TestEqualDisplacement(
+        Operand(assm::eax, assm::ebp, assm::kTimes2,
+                Displacement(test_block_, 2)),
+        Displacement(test_block_, 2));
+    TestEqualDisplacement(
+        Operand(assm::eax, assm::ebp, assm::kTimes2, Displacement(test_bb_)),
+        Displacement(test_bb_));
+  }
+
+  {
+    // The [base + index * scale] mode - no displ.
+    auto op(Operand(assm::eax, assm::ebp, assm::kTimes2));
+    ASSERT_EQ(assm::kRegisterEax, op.base());
+    ASSERT_EQ(assm::kRegisterEbp, op.index());
+    ASSERT_EQ(assm::kTimes2, op.scale());
+    ASSERT_EQ(assm::kSizeNone, op.displacement().size());
+
+    // The [index * scale + displ32] mode - no base.
+    TestEqualDisplacement(Operand(assm::eax, assm::ebp, assm::kTimes2),
+                          Displacement());
+  }
 }
 
 TEST_F(BasicBlockAssemblerTest, nop) {

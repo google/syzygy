@@ -34,10 +34,15 @@ typedef RegisterSize ReferenceSize;
 template <class ReferenceType>
 class AssemblerBase {
  public:
-  typedef ValueBase<ReferenceType> ValueImpl;
-  typedef ValueImpl DisplacementImpl;
-  typedef ValueImpl ImmediateImpl;
+  // TODO(siggi): Remove these typedefs and use the Displacement, Immediate,
+  //     Operand typedefs instead.
+  typedef DisplacementBase<ReferenceType> DisplacementImpl;
+  typedef ImmediateBase<ReferenceType> ImmediateImpl;
   typedef OperandBase<ReferenceType> OperandImpl;
+
+  typedef DisplacementBase<ReferenceType> Displacement;
+  typedef ImmediateBase<ReferenceType> Immediate;
+  typedef OperandBase<ReferenceType> Operand;
 
   // Tracks a single embedded reference in the instruction.
   struct ReferenceInfo {
@@ -82,13 +87,18 @@ class AssemblerBase {
   void call(const OperandImpl& dst);
   // @}
 
+ protected:
   // @name Control flow instructions.
+  // These instructions are protected, as they're not appropriate to expose
+  // for all assembler subclasses.
   // @{
   void j(ConditionCode cc, const ImmediateImpl& dst);
   void jecxz(const ImmediateImpl& dst);
   void jmp(const ImmediateImpl& dst);
   void jmp(const OperandImpl& dst);
   void l(LoopCode lc, const ImmediateImpl& dst);
+
+ public:
   void ret();
   void ret(uint16 n);
   // @}

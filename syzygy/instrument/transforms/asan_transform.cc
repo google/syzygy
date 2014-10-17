@@ -55,7 +55,6 @@ using block_graph::Instruction;
 using block_graph::Operand;
 using block_graph::TransformPolicyInterface;
 using block_graph::TypedBlock;
-using block_graph::Value;
 using block_graph::analysis::LivenessAnalysis;
 using block_graph::analysis::MemoryAccessAnalysis;
 using assm::Register32;
@@ -107,8 +106,8 @@ bool ShouldInstrumentOpcode(uint16 opcode) {
 
 // Computes the correct displacement, if any, for operand
 // number @p operand of @p instr.
-Displacement ComputeDisplacementForOperand(const Instruction& instr,
-                                           size_t operand) {
+BasicBlockAssembler::Displacement ComputeDisplacementForOperand(
+    const Instruction& instr, size_t operand) {
   const _DInst& repr = instr.representation();
 
   DCHECK(repr.ops[operand].type == O_SMEM ||
@@ -163,7 +162,7 @@ bool IsSpecialInstruction(uint16_t opcode) {
 // Decodes the first O_MEM or O_SMEM operand of @p instr, if any to the
 // corresponding Operand.
 bool DecodeMemoryAccess(const Instruction& instr,
-    Operand* access,
+    BasicBlockAssembler::Operand* access,
     AsanBasicBlockTransform::MemoryAccessInfo* info) {
   DCHECK(access != NULL);
   DCHECK(info != NULL);
@@ -217,7 +216,7 @@ bool DecodeMemoryAccess(const Instruction& instr,
         core::GetRegister(repr.ops[mem_op_id].index));
 
     // Get the displacement for the operand.
-    Displacement displ = ComputeDisplacementForOperand(instr, mem_op_id);
+    auto displ = ComputeDisplacementForOperand(instr, mem_op_id);
     *access = Operand(base_reg, displ);
   } else if (repr.ops[0].type == O_MEM || repr.ops[1].type == O_MEM) {
     // Complex memory dereference.
@@ -240,7 +239,7 @@ bool DecodeMemoryAccess(const Instruction& instr,
     }
 
     // Get the displacement for the operand (if any).
-    Displacement displ = ComputeDisplacementForOperand(instr, mem_op_id);
+    auto displ = ComputeDisplacementForOperand(instr, mem_op_id);
 
     // Compute the full operand.
     if (repr.base != R_NONE) {
@@ -274,7 +273,7 @@ bool DecodeMemoryAccess(const Instruction& instr,
 // address stored in the operand @p op.
 void InjectAsanHook(BasicBlockAssembler* bb_asm,
                     const AsanBasicBlockTransform::MemoryAccessInfo& info,
-                    const Operand& op,
+                    const BasicBlockAssembler::Operand& op,
                     BlockGraph::Reference* hook,
                     const LivenessAnalysis::State& state,
                     BlockGraph::ImageFormat image_format) {
@@ -293,16 +292,15 @@ void InjectAsanHook(BasicBlockAssembler* bb_asm,
   }
 
   // Call the hook.
-  Displacement displ(hook->referenced(), hook->offset());
   if (image_format == BlockGraph::PE_IMAGE) {
     // In PE images the hooks are brought in as imports, so they are indirect
     // references.
-    bb_asm->call(Operand(displ));
+    bb_asm->call(Operand(Displacement(hook->referenced(), hook->offset())));
   } else {
     DCHECK_EQ(BlockGraph::COFF_IMAGE, image_format);
     // In COFF images the hooks are brought in as symbols, so they are direct
     // references.
-    bb_asm->call(displ);
+    bb_asm->call(Immediate(hook->referenced(), hook->offset()));
   }
 }
 
@@ -809,7 +807,7 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
       basic_block->instructions().begin();
   std::list<LivenessAnalysis::State>::iterator iter_state = states.begin();
   for (; iter_inst != basic_block->instructions().end(); ++iter_inst) {
-    Operand operand(assm::eax);
+    auto operand(Operand(assm::eax));
     const Instruction& instr = *iter_inst;
     const _DInst& repr = instr.representation();
 

@@ -65,9 +65,19 @@ do { \
   serializer_.code.clear(); \
 } while (0)
 
+template <typename ValueImpl>
+class ValueTest : public AssemblerTest {
+ public:
+  typedef ValueImpl ValueImpl;
+};
+
+typedef ::testing::Types<ImmediateImpl, DisplacementImpl>
+    ValueTestTypes;
+TYPED_TEST_CASE(ValueTest, ValueTestTypes);
+
 }  // namespace
 
-TEST_F(AssemblerTest, ValueImpl) {
+TYPED_TEST(ValueTest, ValueImpl) {
   ValueImpl imm1;
   EXPECT_EQ(0, imm1.value());
   EXPECT_EQ(NULL, imm1.reference());

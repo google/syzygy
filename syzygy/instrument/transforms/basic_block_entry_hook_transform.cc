@@ -230,10 +230,10 @@ bool BasicBlockEntryHookTransform::TransformBasicBlockSubGraph(
     // basic-block range as the basic_block_id, and we pass a pointer to
     // the frequency data block as the module_data parameter. We then make
     // a memory indirect call to the bb_entry_hook.
-    Immediate basic_block_id(bb_ranges_.size(), assm::kSize32Bit);
-    Immediate module_data(add_frequency_data_.frequency_data_block(), 0);
-    Operand bb_entry_hook(Displacement(bb_entry_hook_ref_.referenced(),
-                                       bb_entry_hook_ref_.offset()));
+    auto basic_block_id(Immediate(bb_ranges_.size(), assm::kSize32Bit));
+    auto module_data(Immediate(add_frequency_data_.frequency_data_block(), 0));
+    auto bb_entry_hook(Operand(Displacement(bb_entry_hook_ref_.referenced(),
+                                            bb_entry_hook_ref_.offset())));
 
     // Assemble entry hook instrumentation into the instruction stream.
     BasicBlockAssembler bb_asm(bb->instructions().begin(), &bb->instructions());
@@ -281,7 +281,7 @@ bool BasicBlockEntryHookTransform::PostBlockGraphIteration(
   add_thunks.set_instrument_dll_name(instrument_dll_name_);
   add_thunks.set_src_ranges_for_thunks(set_src_ranges_for_thunks_);
 
-  Immediate module_data(add_frequency_data_.frequency_data_block(), 0);
+  auto module_data(Immediate(add_frequency_data_.frequency_data_block(), 0));
   if (!add_thunks.SetEntryThunkParameter(module_data)) {
     LOG(ERROR) << "Failed to configure the entry thunks with the module_data "
                << "parameter.";
@@ -461,11 +461,11 @@ bool BasicBlockEntryHookTransform::FindOrCreateThunk(
   // basic-block range as the basic_block_id, and we pass a pointer to
   // the frequency data block as the module_data parameter. We then make
   // a memory indirect call to the bb_entry_hook.
-  Immediate basic_block_id(bb_ranges_.size()-1, assm::kSize32Bit);
-  Immediate module_data(add_frequency_data_.frequency_data_block(), 0);
-  Immediate original_function(Displacement(code_block, offset));
-  Operand bb_entry_hook(Displacement(bb_entry_hook_ref_.referenced(),
-                                     bb_entry_hook_ref_.offset()));
+  auto basic_block_id(Immediate(bb_ranges_.size()-1, assm::kSize32Bit));
+  auto module_data(Immediate(add_frequency_data_.frequency_data_block(), 0));
+  auto original_function(Immediate(code_block, offset));
+  auto bb_entry_hook(Operand(Displacement(bb_entry_hook_ref_.referenced(),
+                                          bb_entry_hook_ref_.offset())));
 
   // Assemble entry hook instrumentation into the thunk's instruction stream.
   // Note that we turn this into a simulated call, so that the return from

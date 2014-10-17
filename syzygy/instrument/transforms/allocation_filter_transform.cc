@@ -222,8 +222,9 @@ bool AllocationFilterTransform::TransformBasicBlockSubGraph(
           {
             DCHECK(pre_call_hook_ref_.IsValid());
             BlockGraph::Reference* pre_call_hook_ref = &pre_call_hook_ref_;
-            Operand pre_call_hook(Displacement(pre_call_hook_ref->referenced(),
-              pre_call_hook_ref->offset()));
+            auto pre_call_hook(
+                Operand(Displacement(pre_call_hook_ref->referenced(),
+                                     pre_call_hook_ref->offset())));
             BasicBlockAssembler bb_asm_enter(inst_iter, &bb->instructions());
 
             // Configure the assembler to copy the SourceRange information of
@@ -240,9 +241,9 @@ bool AllocationFilterTransform::TransformBasicBlockSubGraph(
          {
             DCHECK(post_call_hook_ref_.IsValid());
             BlockGraph::Reference* post_call_hook_ref = &post_call_hook_ref_;
-            Operand post_call_hook(Displacement(
-                post_call_hook_ref->referenced(),
-                post_call_hook_ref_.offset()));
+            auto post_call_hook(
+                Operand(Displacement(post_call_hook_ref->referenced(),
+                                     post_call_hook_ref_.offset())));
             BasicBlockAssembler bb_asm_exit(next_iter, &bb->instructions());
             if (debug_friendly_)
               bb_asm_exit.set_source_range(inst_iter->source_range());

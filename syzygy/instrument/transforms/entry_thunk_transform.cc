@@ -58,7 +58,8 @@ EntryThunkTransform::EntryThunkTransform()
       instrument_dll_name_(kDefaultInstrumentDll) {
 }
 
-bool EntryThunkTransform::SetEntryThunkParameter(const Immediate& immediate) {
+bool EntryThunkTransform::SetEntryThunkParameter(
+    const ImmediateType& immediate) {
   if (immediate.size() != assm::kSizeNone &&
       immediate.size() != assm::kSize32Bit) {
     return false;
@@ -68,7 +69,7 @@ bool EntryThunkTransform::SetEntryThunkParameter(const Immediate& immediate) {
 }
 
 bool EntryThunkTransform::SetFunctionThunkParameter(
-    const Immediate& immediate) {
+    const ImmediateType& immediate) {
   if (immediate.size() != assm::kSizeNone &&
       immediate.size() != assm::kSize32Bit) {
     return false;
@@ -269,7 +270,7 @@ bool EntryThunkTransform::InstrumentCodeBlockReferrer(
   DCHECK(hook_ref->referenced() != NULL);
 
   // Determine which parameter to use, if any.
-  const Immediate* param = NULL;
+  const ImmediateType* param = NULL;
   if ((is_dllmain_entry || is_exe_entry) && EntryThunkIsParameterized()) {
     param = &entry_thunk_parameter_;
   } else if (FunctionThunkIsParameterized()) {
@@ -306,7 +307,7 @@ BlockGraph::Block* EntryThunkTransform::CreateOneThunk(
     BlockGraph* block_graph,
     const BlockGraph::Reference& destination,
     const BlockGraph::Reference& hook,
-    const Immediate* parameter) {
+    const ImmediateType* parameter) {
   std::string name;
   if (destination.offset() == 0) {
     name = base::StringPrintf("%s%s",

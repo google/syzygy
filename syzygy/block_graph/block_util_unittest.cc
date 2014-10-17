@@ -135,7 +135,7 @@ TEST_F(BlockUtilTest, GetBasicBlockSourceRangePrependInstructionsSucceeds) {
   // Prepend some instrumentation-like code.
   BasicBlockAssembler assm(bb_->instructions().begin(), &bb_->instructions());
   assm.push(Immediate(0xBADF00D));
-  assm.call(Displacement(bb_));
+  assm.call(Immediate(bb_));
 
   BlockGraph::Block::SourceRange source_range;
   ASSERT_TRUE(GetBasicBlockSourceRange(*bb_, &source_range));

@@ -123,7 +123,8 @@ class MemoryAccessAnalysisTest : public testing::Test {
   BasicCodeBlock* bb_;
 };
 
-bool TestMemoryAccessAnalysisState::IsEmpty(const assm::Register32& reg) const {
+bool TestMemoryAccessAnalysisState::IsEmpty(
+    const assm::Register32& reg) const {
   return active_memory_accesses_[reg.id() - assm::kRegister32Min].empty();
 }
 
@@ -447,20 +448,27 @@ TEST_F(MemoryAccessAnalysisTest, Analyze) {
 
   BasicBlockAssembler asm_if(bb_if->instructions().end(),
                              &bb_if->instructions());
-  asm_if.mov(assm::ecx, Operand(assm::eax, Immediate(1, assm::kSize32Bit)));
-  asm_if.mov(assm::edx, Operand(assm::ecx, Immediate(12, assm::kSize32Bit)));
-  asm_if.mov(assm::edx, Operand(assm::eax, Immediate(42, assm::kSize32Bit)));
+  asm_if.mov(assm::ecx, Operand(assm::eax, Displacement(1, assm::kSize32Bit)));
+  asm_if.mov(assm::edx,
+             Operand(assm::ecx, Displacement(12, assm::kSize32Bit)));
+  asm_if.mov(assm::edx,
+             Operand(assm::eax, Displacement(42, assm::kSize32Bit)));
 
   BasicBlockAssembler asm_true(bb_true->instructions().end(),
                                &bb_true->instructions());
-  asm_true.mov(assm::ecx, Operand(assm::eax, Immediate(1, assm::kSize32Bit)));
-  asm_true.mov(assm::edx, Operand(assm::eax, Immediate(12, assm::kSize32Bit)));
-  asm_true.mov(assm::ecx, Operand(assm::eax, Immediate(24, assm::kSize32Bit)));
+  asm_true.mov(assm::ecx,
+               Operand(assm::eax, Displacement(1, assm::kSize32Bit)));
+  asm_true.mov(assm::edx,
+               Operand(assm::eax, Displacement(12, assm::kSize32Bit)));
+  asm_true.mov(assm::ecx,
+               Operand(assm::eax, Displacement(24, assm::kSize32Bit)));
 
   BasicBlockAssembler asm_false(bb_false->instructions().end(),
                                 &bb_false->instructions());
-  asm_false.mov(assm::ecx, Operand(assm::eax, Immediate(24, assm::kSize32Bit)));
-  asm_false.mov(assm::edx, Operand(assm::eax, Immediate(48, assm::kSize32Bit)));
+  asm_false.mov(assm::ecx,
+                Operand(assm::eax, Displacement(24, assm::kSize32Bit)));
+  asm_false.mov(assm::edx,
+                Operand(assm::eax, Displacement(48, assm::kSize32Bit)));
 
   // Analyze the flow graph.
   memory_access_.Analyze(&subgraph);

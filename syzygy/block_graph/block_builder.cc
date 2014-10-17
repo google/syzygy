@@ -452,7 +452,7 @@ bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
     Offset ref_offset = successor_start + successor.size;
     if (resolved_ref.referenced() == info.block)
       ref_offset = resolved_ref.offset();
-    Immediate dest(ref_offset, reference_size, untyped_ref);
+    auto dest(Immediate(ref_offset, reference_size, untyped_ref));
 
     // Assemble the instruction.
     switch (successor.condition) {
