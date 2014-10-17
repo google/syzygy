@@ -56,8 +56,10 @@
       'type': 'loadable_module',
       'sources': [
         'asan_check_tests.h',
-        'asan_interceptors_tests.h',
         'asan_interceptors_tests.cc',
+        'asan_interceptors_tests.h',
+        'asan_page_protection_tests.cc',
+        'asan_page_protection_tests.h',
         'bb_entry_tests.cc',
         'bb_entry_tests.h',
         'behavior_tests.cc',

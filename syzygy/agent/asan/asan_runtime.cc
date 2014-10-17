@@ -746,6 +746,15 @@ LONG WINAPI AsanRuntime::UnhandledExceptionFilter(
   // simultaneously.
   base::AutoLock auto_lock(lock_);
 
+  // If we're bound to a runtime then look for heap corruption and
+  // potentially augment the exception record. This needs to exist in the
+  // outermost scope of this function as pointers to it may be passed to
+  // other exception handlers.
+  AsanErrorInfo error_info = {};
+
+  // If this is set to true then an ASAN error will be logged.
+  bool log_asan_error = false;
+
   // If this is an exception that we launched then extract the original
   // exception data and continue processing it.
   if (exception->ExceptionRecord->ExceptionCode == kAsanException) {
@@ -762,13 +771,57 @@ LONG WINAPI AsanRuntime::UnhandledExceptionFilter(
     for (DWORD i = 0; i < nargs; ++i)
       args[i] = orig_args[i];
   } else if (runtime_) {
-    // If we're bound to a runtime then look for heap corruption and
-    // potentially augment the exception record.
-    AsanErrorInfo error_info = {};
+    // Initialize this as if heap corruption is the primary error being
+    // reported. This will be overridden by the access violation handling
+    // code below, if necessary.
     error_info.location = exception->ExceptionRecord->ExceptionAddress;
     error_info.context = *exception->ContextRecord;
     error_info.error_type = CORRUPT_HEAP;
     error_info.access_mode = ASAN_UNKNOWN_ACCESS;
+
+    // It is possible that access violations are due to page protections of a
+    // sufficiently large allocation. In this case the shadow will contain
+    // block redzone markers at the given address.
+    if (exception->ExceptionRecord->ExceptionCode ==
+            EXCEPTION_ACCESS_VIOLATION &&
+        exception->ExceptionRecord->NumberParameters >= 2 &&
+        exception->ExceptionRecord->ExceptionInformation[0] <= 1) {
+      void* address = reinterpret_cast<void*>(
+          exception->ExceptionRecord->ExceptionInformation[1]);
+      ShadowMarker marker = Shadow::GetShadowMarkerForAddress(address);
+      if (ShadowMarkerHelper::IsRedzone(marker) &&
+          ShadowMarkerHelper::IsActiveBlock(marker)) {
+        BlockInfo block_info = {};
+        if (Shadow::BlockInfoFromShadow(address, &block_info)) {
+          // Page protections have to be removed from this block otherwise our
+          // own inspection will cause further errors.
+          ScopedBlockAccess block_access(block_info);
+
+          // Useful for unittesting.
+          runtime_->logger_->Write("SyzyASAN: Caught an invalid access via "
+              "an access violation exception.");
+
+          // Override the invalid access location with the faulting address,
+          // not the code address.
+          error_info.location = address;
+
+          // The exact access size isn't reported so simply set it to 1 (an
+          // obvious lower bound).
+          error_info.access_size = 1;
+
+          // Determine if this is a read or a write using information in the
+          // exception record.
+          error_info.access_mode =
+              exception->ExceptionRecord->ExceptionInformation[0] == 0 ?
+              ASAN_READ_ACCESS : ASAN_WRITE_ACCESS;
+
+          // Fill out the rest of the bad access information.
+          ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
+                                           &error_info);
+          log_asan_error = true;
+        }
+      }
+    }
 
     // Check for heap corruption. If we find it we take over the exception
     // and add additional metadata to the reporting.
@@ -795,24 +848,29 @@ LONG WINAPI AsanRuntime::UnhandledExceptionFilter(
         SAFE_ALLOCA(size, buffer);
         runtime_->WriteCorruptHeapInfo(
             corrupt_ranges, size, buffer, &error_info);
-        runtime_->LogAsanErrorInfo(&error_info);
-
-        // If we have Breakpad integration then set our crash keys.
-        if (breakpad_functions.crash_for_exception_ptr != NULL)
-          SetCrashKeys(breakpad_functions, &error_info);
-
-        // Clone the old exception record.
-        _EXCEPTION_RECORD old_record = *(exception->ExceptionRecord);
-
-        // Modify the exception record, chaining it to the old one.
-        exception->ExceptionRecord->ExceptionRecord = &old_record;
-        exception->ExceptionRecord->NumberParameters = 2;
-        exception->ExceptionRecord->ExceptionInformation[0] =
-            reinterpret_cast<ULONG_PTR>(&error_info.context);
-        exception->ExceptionRecord->ExceptionInformation[1] =
-            reinterpret_cast<ULONG_PTR>(&error_info);
+        log_asan_error = true;
       }
     }
+  }
+
+  // If an ASAN error was detected then report it via the logger and Breakpad.
+  if (log_asan_error) {
+    runtime_->LogAsanErrorInfo(&error_info);
+
+    // If we have Breakpad integration then set our crash keys.
+    if (breakpad_functions.crash_for_exception_ptr != NULL)
+      SetCrashKeys(breakpad_functions, &error_info);
+
+    // Clone the old exception record.
+    _EXCEPTION_RECORD old_record = *(exception->ExceptionRecord);
+
+    // Modify the exception record, chaining it to the old one.
+    exception->ExceptionRecord->ExceptionRecord = &old_record;
+    exception->ExceptionRecord->NumberParameters = 2;
+    exception->ExceptionRecord->ExceptionInformation[0] =
+        reinterpret_cast<ULONG_PTR>(&error_info.context);
+    exception->ExceptionRecord->ExceptionInformation[1] =
+        reinterpret_cast<ULONG_PTR>(&error_info);
   }
 
   // Pass the buck to the next exception handler. If the process is Breakpad

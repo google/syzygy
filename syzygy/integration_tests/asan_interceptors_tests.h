@@ -23,10 +23,10 @@
 
 namespace testing {
 
-// Disable the intrinsic version of the intercepted function.
+// Disable the intrinsic versions of the intercepted functions.
 #pragma function(memset, memcpy, strlen, strcmp)
 
-// Helper function to make sure that a memory read access didn't get
+// Helper function to make sure that a memory read access doesn't get
 // instrumented.
 // @tparam type The type of the value to be read.
 // @param location The location where to read from.

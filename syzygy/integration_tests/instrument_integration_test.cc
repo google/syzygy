@@ -57,6 +57,12 @@ typedef grinder::CoverageData::SourceFileCoverageData SourceFileCoverageData;
 typedef grinder::CoverageData::SourceFileCoverageDataMap
     SourceFileCoverageDataMap;
 
+const char kAsanAccessViolationLog[] =
+    "SyzyASAN: Caught an invalid access via an access violation exception.";
+const char kAsanHeapBufferOverflow[] = "SyzyASAN error: heap-buffer-overflow ";
+const char kAsanCorruptHeap[] = "SyzyASAN error: corrupt-heap ";
+const char kAsanHeapUseAfterFree[] = "SyzyASAN error: heap-use-after-free ";
+
 // A convenience class for controlling an out of process agent_logger instance,
 // and getting the contents of its log file. Not thread safe.
 struct ScopedAgentLogger {
@@ -378,9 +384,13 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     return exit_code;
   }
 
+  // Runs an asan error check in an external process, invoking the test via the
+  // integration test harness.
   bool OutOfProcessAsanErrorCheck(testing::EndToEndTestId test,
                                   bool expect_exception,
-                                  const base::StringPiece& log_message) {
+                                  bool validate_log_messages,
+                                  const base::StringPiece& log_message_1,
+                                  const base::StringPiece& log_message_2) {
     ScopedAgentLogger logger;
     logger.Start();
 
@@ -414,11 +424,13 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
       env->UnSetVar(kSyzygyRpcInstanceIdEnvVar);
     }
 
-    if (log_message.empty())
-      return true;
-
-    if (!logger.LogContains(log_message))
-      return false;
+    // Check the log for any messages that are expected.
+    if (validate_log_messages) {
+      if (!log_message_1.empty() && !logger.LogContains(log_message_1))
+        return false;
+      if (!log_message_2.empty() && !logger.LogContains(log_message_2))
+        return false;
+    }
 
     return true;
   }
@@ -548,16 +560,15 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     // use an unfiltered exception mechanism they can't be tested in process.
     // Instead we go to great lengths to test them out of process, using an
     // agent_logger to monitor them.
-    static const char kPattern[] = "SyzyASAN error: corrupt-heap ";
     EXPECT_TRUE(OutOfProcessAsanErrorCheck(
         testing::kAsanInvalidAccessWithCorruptAllocatedBlockHeader,
-        true, kPattern));
+        true, true, kAsanCorruptHeap, NULL));
     EXPECT_TRUE(OutOfProcessAsanErrorCheck(
         testing::kAsanInvalidAccessWithCorruptAllocatedBlockTrailer,
-        true, kPattern));
+        true, true, kAsanCorruptHeap, NULL));
     EXPECT_TRUE(OutOfProcessAsanErrorCheck(
         testing::kAsanInvalidAccessWithCorruptFreedBlock,
-        true, kPattern));
+        true, true, kAsanCorruptHeap, NULL));
   }
 
   void AsanErrorCheckSampledAllocations() {
@@ -701,6 +712,21 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     // cleaned up and fires off the error we're looking for.
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanCorruptBlockInQuarantine,
         CORRUPT_BLOCK, ASAN_UNKNOWN_ACCESS, 0, 10, true));
+  }
+
+  void AsanLargeBlockHeapTests(bool expect_exception) {
+    EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+        testing::kAsanReadLargeAllocationTrailerBeforeFree,
+        expect_exception,
+        expect_exception,  // Check logs only if an exception is expected.
+        kAsanAccessViolationLog,
+        kAsanHeapBufferOverflow));
+    EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+        testing::kAsanReadLargeAllocationBodyAfterFree,
+        expect_exception,
+        expect_exception,  // Check logs only if an exception is expected.
+        kAsanAccessViolationLog,
+        kAsanHeapUseAfterFree));
   }
 
   void BBEntryInvokeTestDll() {
@@ -1141,6 +1167,24 @@ TEST_F(InstrumentAppIntegrationTest, SampledAllocationsAsanEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckSampledAllocations());
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanLargeBlockHeapEnabledTest) {
+  cmd_line_.AppendSwitchASCII("asan-rtl-options",
+                              "--no_check_heap_on_failure "
+                              "--quarantine_size=4000000 "
+                              "--quarantine_block_size=2000000 "
+                              "--enable_large_block_heap");
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanLargeBlockHeapTests(true));
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanLargeBlockHeapDisabledTest) {
+  cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanLargeBlockHeapTests(false));
 }
 
 TEST_F(InstrumentAppIntegrationTest, BBEntryEndToEnd) {

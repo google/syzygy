@@ -100,8 +100,6 @@ struct AsanParameters {
       unsigned disable_breakpad_reporting : 1;
       // BlockHeapManager: Indicates if CtMalloc should be used to serve the
       // user's allocations.
-      // TODO(sebmarchand): Add CtMalloc support to BlockHeapManager and put it
-      //     behind this flag.
       unsigned enable_ctmalloc : 1;
       // ZebraBlockHeap: If true the ZebraBlockHeap will be used by the heap
       // manager.

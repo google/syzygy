@@ -19,6 +19,7 @@
 #include "base/basictypes.h"
 #include "syzygy/integration_tests/asan_check_tests.h"
 #include "syzygy/integration_tests/asan_interceptors_tests.h"
+#include "syzygy/integration_tests/asan_page_protection_tests.h"
 #include "syzygy/integration_tests/bb_entry_tests.h"
 #include "syzygy/integration_tests/behavior_tests.h"
 #include "syzygy/integration_tests/coverage_tests.h"
