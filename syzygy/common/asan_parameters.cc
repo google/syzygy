@@ -161,6 +161,7 @@ const float kDefaultZebraBlockHeapQuarantineRatio = 0.25f;
 // Default values of the BlockHeapManager parameters.
 const bool kDefaultEnableCtMalloc = false;
 const bool kDefaultEnableZebraBlockHeap = false;
+const bool kDefaultEnableAllocationFilter = false;
 
 // Default values of LargeBlockHeap parameters.
 extern const bool kDefaultEnableLargeBlockHeap = false;
@@ -200,6 +201,7 @@ const char kParamZebraBlockHeapQuarantineRatio[] =
 // String names of BlockHeapManager parameters.
 const char kParamEnableCtMalloc[] = "enable_ctmalloc";
 const char kParamEnableZebraBlockHeap[] = "enable_zebra_block_heap";
+const char kParamEnableAllocationFilter[] = "enable_allocation_filter";
 
 // String names of LargeBlockHeap parameters.
 const char kParamEnableLargeBlockHeap[] = "enable_large_block_heap";
@@ -276,6 +278,7 @@ void SetDefaultAsanParameters(AsanParameters* asan_parameters) {
   asan_parameters->enable_ctmalloc = kDefaultEnableCtMalloc;
   asan_parameters->enable_zebra_block_heap = kDefaultEnableZebraBlockHeap;
   asan_parameters->enable_large_block_heap = kDefaultEnableLargeBlockHeap;
+  asan_parameters->enable_allocation_filter = kDefaultEnableAllocationFilter;
   asan_parameters->large_allocation_threshold =
       kDefaultLargeAllocationThreshold;
 }
@@ -284,7 +287,7 @@ bool InflateAsanParameters(const AsanParameters* pod_params,
                            InflatedAsanParameters* inflated_params) {
   // This must be kept up to date with AsanParameters as it evolves.
   static const size_t kSizeOfAsanParametersByVersion[] =
-      { 40, 44, 48, 52, 52, 52, 56 };
+      { 40, 44, 48, 52, 52, 52, 56, 56 };
   COMPILE_ASSERT(arraysize(kSizeOfAsanParametersByVersion) ==
                      kAsanParametersVersion + 1,
                  kSizeOfAsanParametersByVersion_out_of_date);
@@ -433,6 +436,8 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
     asan_parameters->enable_zebra_block_heap = true;
   if (cmd_line.HasSwitch(kParamEnableLargeBlockHeap))
     asan_parameters->enable_large_block_heap = true;
+  if (cmd_line.HasSwitch(kParamEnableAllocationFilter))
+    asan_parameters->enable_allocation_filter = true;
 
   return true;
 }

@@ -37,7 +37,7 @@ namespace common {
 // the StackCaptureCache.
 typedef uint32 AsanStackId;
 
-static const size_t kAsanParametersReserved1Bits = 24;
+static const size_t kAsanParametersReserved1Bits = 23;
 
 // This data structure is injected into an instrumented image in a read-only
 // section. It is initialized by the instrumenter, and will be looked up at
@@ -107,6 +107,9 @@ struct AsanParameters {
       // LargeBlockHeap: If true then the LargeBlockHeap will be used by the
       // heap manager.
       unsigned enable_large_block_heap : 1;
+      // BlockHeapManager: Indictaes if the allocation filtering is enabled. If
+      // so, only blocks from filtered sites can make it into the zebra heap.
+      unsigned enable_allocation_filter : 1;
 
       // Add new flags here!
 
@@ -139,13 +142,13 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 56);
 // The current version of the ASAN parameters structure. This must be updated
 // if any changes are made to the above structure! This is defined in the header
 // file to allow compile time assertions against this version number.
-const uint32 kAsanParametersVersion = 6u;
+const uint32 kAsanParametersVersion = 7u;
 
 // If the number of free bits in the parameters struct changes, then the
 // version has to change as well. This is simply here to make sure that
 // everything changes in lockstep.
-COMPILE_ASSERT(kAsanParametersReserved1Bits == 24 &&
-                   kAsanParametersVersion == 6,
+COMPILE_ASSERT(kAsanParametersReserved1Bits == 23 &&
+                   kAsanParametersVersion == 7,
                version_must_change_if_reserved_bits_changes);
 
 // The name of the section that will be injected into an instrumented image,
@@ -224,6 +227,7 @@ extern const float kDefaultZebraBlockHeapQuarantineRatio;
 // Default values of the BlockHeapManager parameters.
 extern const bool kDefaultEnableCtMalloc;
 extern const bool kDefaultEnableZebraBlockHeap;
+extern const bool kDefaultEnableAllocationFilter;
 // Default values of LargeBlockHeap parameters.
 extern const bool kDefaultEnableLargeBlockHeap;
 extern const size_t kDefaultLargeAllocationThreshold;
@@ -251,6 +255,7 @@ extern const char kParamZebraBlockHeapQuarantineRatio[];
 // String names of BlockHeapManager parameters.
 extern const char kParamEnableCtMalloc[];
 extern const char kParamEnableZebraBlockHeap[];
+extern const char kParamEnableAllocationFilter[];
 // String names of LargeBlockHeap parameters.
 extern const char kParamEnableLargeBlockHeap[];
 extern const char kParamLargeAllocationThreshold[];

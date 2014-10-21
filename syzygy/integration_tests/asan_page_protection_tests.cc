@@ -15,6 +15,7 @@
 #include "syzygy/integration_tests/asan_page_protection_tests.h"
 
 #include <stdlib.h>
+#include "base/basictypes.h"
 #include "syzygy/integration_tests/asan_interceptors_tests.h"
 
 namespace testing {
@@ -22,6 +23,7 @@ namespace testing {
 namespace {
 
 const size_t kLargeAllocationSize = 1 * 1024 * 1024;  // 1 MB.
+const size_t kPageHeapAllocationSize = 256;
 
 }  // namespace
 
@@ -37,7 +39,7 @@ size_t AsanReadLargeAllocationTrailerBeforeFree() {
   // Delete the allocation.
   delete[] alloc;
 
-  return 37;
+  return 0;
 }
 
 size_t AsanReadLargeAllocationBodyAfterFree() {
@@ -51,7 +53,34 @@ size_t AsanReadLargeAllocationBodyAfterFree() {
   // be caught immediately.
   char value = NonInterceptedRead<char>(alloc + 10);
 
-  return 63;
+  return 0;
+}
+
+size_t AsanReadPageAllocationTrailerBeforeFree() {
+  char* alloc = reinterpret_cast<char*>(::calloc(kPageHeapAllocationSize, 1));
+
+  // Read from the trailer while the allocation is still valid. This should be
+  // caught immediately.
+  int* trailer = reinterpret_cast<int*>(alloc + kPageHeapAllocationSize);
+  int value = NonInterceptedRead<int>(trailer);
+
+  // Free the allocation.
+  ::free(alloc);
+
+  return 0;
+}
+
+size_t AsanWritePageAllocationBodyAfterFree() {
+  char* alloc = reinterpret_cast<char*>(::calloc(kPageHeapAllocationSize, 1));
+
+  // Free the allocation.
+  ::free(alloc);
+
+  // Write to the body while the allocation is in the quarantine. This should
+  // be caught immediately.
+  NonInterceptedWrite<char>(alloc + 10, 'c');
+
+  return 0;
 }
 
 }  // namespace testing

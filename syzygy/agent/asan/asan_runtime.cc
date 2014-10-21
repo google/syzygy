@@ -549,7 +549,7 @@ void AsanRuntime::PropagateParams() {
   // checks will ensure that this is the case.
   COMPILE_ASSERT(sizeof(common::AsanParameters) == 56,
                  must_update_propagate_params);
-  COMPILE_ASSERT(common::kAsanParametersVersion == 6,
+  COMPILE_ASSERT(common::kAsanParametersVersion == 7,
                  must_update_parameters_version);
 
   // Push the configured parameter values to the appropriate endpoints.
@@ -561,12 +561,6 @@ void AsanRuntime::PropagateParams() {
   logger_->set_log_as_text(params_.log_as_text);
   // exit_on_failure is used locally by AsanRuntime.
   logger_->set_minidump_on_failure(params_.minidump_on_failure);
-
-  // TODO(peterssen|sebmarchand|chrisha): Pass the zebra_block_heap_size to
-  //     the BlockHeapManager when it's defined.
-  // TODO(peterssen|sebmarchand|chrisha): Pass the
-  //     zebra_block_heap_quarantine_ratio to the BlockHeapManager when it's
-  //     defined.
 }
 
 size_t AsanRuntime::CalculateCorruptHeapInfoSize(

@@ -131,20 +131,21 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
   // Build the set of heaps that will be used to satisfy the allocation. This
   // is a stack of heaps, and they will be tried in the reverse order they are
   // inserted.
+
+  // We can always use the heap that was passed in.
   BlockHeapInterface* heaps[3] = {
       reinterpret_cast<BlockHeapInterface*>(heap_id), 0, 0 };
   size_t heap_count = 1;
-  if (parameters_.enable_zebra_block_heap &&
-      bytes <= ZebraBlockHeap::kMaximumBlockAllocationSize) {
-    DCHECK_NE(reinterpret_cast<ZebraBlockHeap*>(NULL), zebra_block_heap_);
-    DCHECK_LT(heap_count, arraysize(heaps));
-    heaps[heap_count++] = zebra_block_heap_;
-  }
-  if (parameters_.enable_large_block_heap &&
-      bytes >= parameters_.large_allocation_threshold) {
+  if (MayUseLargeBlockHeap(bytes)) {
     DCHECK_NE(reinterpret_cast<LargeBlockHeap*>(NULL), large_block_heap_);
     DCHECK_LT(heap_count, arraysize(heaps));
     heaps[heap_count++] = large_block_heap_;
+  }
+
+  if (MayUseZebraBlockHeap(bytes)) {
+    DCHECK_NE(reinterpret_cast<ZebraBlockHeap*>(NULL), zebra_block_heap_);
+    DCHECK_LT(heap_count, arraysize(heaps));
+    heaps[heap_count++] = zebra_block_heap_;
   }
 
   // Use the selected heaps to try to satisfy the allocation.
@@ -365,7 +366,7 @@ void BlockHeapManager::PropagateParameters() {
   //     unittests, this is not clearly useful.
 }
 
-bool BlockHeapManager::allocation_filter_flag() {
+bool BlockHeapManager::allocation_filter_flag() const {
   return reinterpret_cast<bool>(::TlsGetValue(allocation_filter_flag_tls_));
 }
 
@@ -598,6 +599,35 @@ void BlockHeapManager::InitProcessHeap() {
   underlying_heaps_map_.insert(std::make_pair(process_heap_,
                                               process_heap_underlying_heap_));
   heaps_.insert(std::make_pair(process_heap_, &shared_quarantine_));
+}
+
+bool BlockHeapManager::MayUseLargeBlockHeap(size_t bytes) const {
+  if (!parameters_.enable_large_block_heap)
+    return false;
+  if (bytes >= parameters_.large_allocation_threshold)
+    return true;
+
+  // If we get here we're treating a small allocation. If the allocation
+  // filter is in effect and the flag set then allow it.
+  if (parameters_.enable_allocation_filter && allocation_filter_flag())
+    return true;
+
+  return false;
+}
+
+bool BlockHeapManager::MayUseZebraBlockHeap(size_t bytes) const {
+  if (!parameters_.enable_zebra_block_heap)
+    return false;
+  if (bytes > ZebraBlockHeap::kMaximumBlockAllocationSize)
+    return false;
+
+  // If the allocation filter is in effect only allow filtered allocations
+  // into the zebra heap.
+  if (parameters_.enable_allocation_filter)
+    return allocation_filter_flag();
+
+  // Otherwise, allow everything through.
+  return true;
 }
 
 }  // namespace heap_managers

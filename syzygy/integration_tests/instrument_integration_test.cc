@@ -25,8 +25,10 @@
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_rtl_impl.h"
 #include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/block_graph/transforms/chained_basic_block_transforms.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/common/unittest_util.h"
+#include "syzygy/core/disassembler_util.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/grinder/basic_block_util.h"
 #include "syzygy/grinder/grinder.h"
@@ -34,8 +36,11 @@
 #include "syzygy/grinder/grinders/indexed_frequency_data_grinder.h"
 #include "syzygy/grinder/grinders/profile_grinder.h"
 #include "syzygy/instrument/instrument_app.h"
+#include "syzygy/instrument/transforms/asan_transform.h"
+#include "syzygy/integration_tests/asan_page_protection_tests.h"
 #include "syzygy/integration_tests/integration_tests_dll.h"
 #include "syzygy/pe/decomposer.h"
+#include "syzygy/pe/pe_transform_policy.h"
 #include "syzygy/pe/unittest_util.h"
 #include "syzygy/trace/agent_logger/agent_logger.h"
 #include "syzygy/trace/common/unittest_util.h"
@@ -729,6 +734,8 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
         kAsanHeapUseAfterFree));
   }
 
+  void AsanZebraHeapTest(bool enabled);
+
   void BBEntryInvokeTestDll() {
     EXPECT_EQ(42, InvokeTestDllFunction(testing::kBBEntryCallOnce));
     EXPECT_EQ(42, InvokeTestDllFunction(testing::kBBEntryCallTree));
@@ -1060,6 +1067,129 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
   uint32 get_my_rva_;
 };
 
+typedef std::map<std::string, size_t> FunctionOffsetMap;
+
+// A utility transform for extracting call site offsets from blocks.
+// Used by GetCallOffsets and ZebraBlockHeap tests.
+class ExtractCallTransform
+    : public block_graph::BasicBlockSubGraphTransformInterface {
+ public:
+  explicit ExtractCallTransform(FunctionOffsetMap* map) : map_(map) { }
+  virtual ~ExtractCallTransform() { }
+  virtual const char* name() const { return "ExtractCallTransform"; }
+
+  virtual bool TransformBasicBlockSubGraph(
+      const block_graph::TransformPolicyInterface* policy,
+      block_graph::BlockGraph* block_graph,
+      block_graph::BasicBlockSubGraph* basic_block_subgraph) {
+    for (auto& desc : basic_block_subgraph->block_descriptions()) {
+      auto map_it = map_->find(desc.name);
+      if (map_it == map_->end())
+        continue;
+
+      // Set this to effectively 'infinite' to start with.
+      map_it->second = static_cast<size_t>(-1);
+
+      for (auto& bb : desc.basic_block_order) {
+        block_graph::BasicCodeBlock* bcb =
+            block_graph::BasicCodeBlock::Cast(bb);
+        if (bcb == nullptr)
+          continue;
+
+        size_t offset = bcb->offset();
+        for (auto& inst : bcb->instructions()) {
+          offset += inst.size();
+          if (inst.IsCall()) {
+            map_it->second = std::min(map_it->second, offset);
+          }
+        }
+      }
+    }
+
+    return true;
+  }
+
+ protected:
+  FunctionOffsetMap* map_;
+};
+
+// Gets the offsets of the first call from each function named in |map|,
+// as found in the image at |image_path|. Updates the map with the offsets.
+void GetCallOffsets(const base::FilePath& image_path,
+                    FunctionOffsetMap* map) {
+  pe::PEFile pe_file;
+  ASSERT_TRUE(pe_file.Init(image_path));
+  block_graph::BlockGraph bg;
+  block_graph::BlockGraph::Block* header = NULL;
+
+  // Decompose the image.
+  {
+    pe::ImageLayout image_layout(&bg);
+    pe::Decomposer decomposer(pe_file);
+    ASSERT_TRUE(decomposer.Decompose(&image_layout));
+    header = image_layout.blocks.GetBlockByAddress(
+        block_graph::BlockGraph::RelativeAddress(0));
+  }
+
+  // Apply the ASAN transform.
+  pe::PETransformPolicy policy;
+  {
+    instrument::transforms::AsanTransform tx;
+    ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
+        &tx, &policy, &bg, header));
+  }
+
+  // Apply our dummy transform which simply extracts call addresses.
+  {
+    ExtractCallTransform bbtx(map);
+    block_graph::transforms::ChainedBasicBlockTransforms tx;
+    tx.AppendTransform(&bbtx);
+    ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
+        &tx, &policy, &bg, header));
+  }
+}
+
+void InstrumentAppIntegrationTest::AsanZebraHeapTest(bool enabled) {
+  // Find the offset of the call we want to instrument.
+  static const char kTest1[] =
+      "testing::AsanReadPageAllocationTrailerBeforeFree";
+  static const char kTest2[] =
+      "testing::AsanWritePageAllocationBodyAfterFree";
+  FunctionOffsetMap map({{kTest1, -1}, {kTest2, -1}});
+  ASSERT_NO_FATAL_FAILURE(GetCallOffsets(input_dll_path_, &map));
+
+  // Create an allocation filter.
+  base::FilePath filter_path = temp_dir_.AppendASCII("allocation_filter.json");
+  std::string filter_contents = base::StringPrintf(
+      "{\"hooks\":{\"%s\":[%d],\"%s\":[%d]}}",
+      kTest1, map[kTest1], kTest2, map[kTest2]);
+  base::WriteFile(
+      filter_path, filter_contents.c_str(), filter_contents.size());
+
+  // Configure the transform and test the binary.
+  cmd_line_.AppendSwitchPath("allocation-filter-config-file", filter_path);
+  std::string rtl_options = "--no_check_heap_on_failure";
+  if (enabled)
+    rtl_options += " --enable_zebra_block_heap --enable_allocation_filter";
+  cmd_line_.AppendSwitchASCII("asan-rtl-options", rtl_options);
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+
+  // Run tests that are specific to the zebra block heap.
+  EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+      testing::kAsanReadPageAllocationTrailerBeforeFreeAllocation,
+      enabled,
+      enabled,  // Check logs only if an exception is expected.
+      kAsanAccessViolationLog,
+      kAsanHeapBufferOverflow));
+  EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+      testing::kAsanWritePageAllocationBodyAfterFree,
+      enabled,
+      enabled,  // Check logs only if an exception is expected.
+      kAsanAccessViolationLog,
+      kAsanHeapUseAfterFree));
+}
+
 }  // namespace
 
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEnd) {
@@ -1185,6 +1315,14 @@ TEST_F(InstrumentAppIntegrationTest, AsanLargeBlockHeapDisabledTest) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanLargeBlockHeapTests(false));
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanZebraHeapDisabledTest) {
+  AsanZebraHeapTest(false);
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanZebraHeapEnabledTest) {
+  AsanZebraHeapTest(true);
 }
 
 TEST_F(InstrumentAppIntegrationTest, BBEntryEndToEnd) {

@@ -166,7 +166,11 @@ namespace testing {
     decl(kAsanReadLargeAllocationTrailerBeforeFree,  \
          testing::AsanReadLargeAllocationTrailerBeforeFree)  \
     decl(kAsanReadLargeAllocationBodyAfterFree,  \
-         testing::AsanReadLargeAllocationBodyAfterFree)
+         testing::AsanReadLargeAllocationBodyAfterFree)  \
+    decl(kAsanReadPageAllocationTrailerBeforeFreeAllocation,  \
+         testing::AsanReadPageAllocationTrailerBeforeFree)  \
+    decl(kAsanWritePageAllocationBodyAfterFree,  \
+         testing::AsanWritePageAllocationBodyAfterFree)
 
 // This enumeration contains an unique id for each end to end test. It is used
 // to perform an indirect call through the DLL entry point 'EndToEndTest'.

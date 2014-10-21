@@ -108,7 +108,7 @@ class BlockHeapManager : public HeapManagerInterface {
   // @returns the allocation-filter flag value.
   // @note The flag is stored per-thread using TLS. Multiple threads do not
   //     share the same flag.
-  bool allocation_filter_flag();
+  bool allocation_filter_flag() const;
 
   // Sets the allocation-filter flag to the specified value.
   // @param value the new value for the flag.
@@ -205,6 +205,16 @@ class BlockHeapManager : public HeapManagerInterface {
   //
   // Exposed for unittesting.
   void InitProcessHeap();
+
+  // Determines if the large block heap should be used for an allocation of
+  // the given size.
+  // @param bytes The allocation size.
+  bool MayUseLargeBlockHeap(size_t bytes) const;
+
+  // Determines if the zebra block heap should be used for an allocation of
+  // the given size.
+  // @param bytes The allocation size.
+  bool MayUseZebraBlockHeap(size_t bytes) const;
 
   // The stack cache used to store the stack traces.
   StackCaptureCache* stack_cache_;

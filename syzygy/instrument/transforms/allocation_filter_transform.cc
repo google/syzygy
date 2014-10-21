@@ -168,87 +168,82 @@ bool AllocationFilterTransform::TransformBasicBlockSubGraph(
 
   BlockDescriptionList& descriptions = subgraph->block_descriptions();
   DCHECK_EQ(1u, descriptions.size());
-  const std::string function_name = descriptions.begin()->name;
-
-  BlockDescriptionList::iterator description = descriptions.begin();
-  for (; description != descriptions.end(); ++description) {
-    BasicBlockSubGraph::BasicBlockOrdering& original_order =
-        (*description).basic_block_order;
-
+  const auto description = descriptions.begin();
+  const std::string function_name = description->name;
     FunctionNameOffsetMap::const_iterator target_iter =
         targets_.find(function_name);
-    // Skip the block if the function name is not included in |targets_|.
-    if (target_iter == targets_.end())
+
+  // Skip the block if the function name is not included in |targets_|.
+  if (target_iter == targets_.end())
+    return true;
+
+  // Iterate over the basic blocks in this block.
+  const OffsetSet& offset_set = target_iter->second;
+  BasicBlockSubGraph::BasicBlockOrdering& original_order =
+      (*description).basic_block_order;
+  DCHECK(!original_order.empty());
+  for (auto basic_block : original_order) {
+    BasicCodeBlock* bb = BasicCodeBlock::Cast(basic_block);
+    if (bb == NULL || bb->is_padding() || !bb->IsValid())
       continue;
 
-    const OffsetSet& offset_set = target_iter->second;
+    // The instructions offset is calculated progressively.
+    Offset next_offset = bb->offset();
 
-    DCHECK(!original_order.empty());
-    BasicBlockSubGraph::BasicBlockOrdering::const_iterator it =
-      original_order.begin();
-    for (; it != original_order.end(); ++it) {
-      BasicCodeBlock* bb = BasicCodeBlock::Cast(*it);
-      if (bb == NULL || bb->is_padding() || !bb->IsValid())
-        continue;
+    BasicBlock::Instructions::iterator inst_iter = bb->instructions().begin();
+    BasicBlock::Instructions::iterator next_iter;
+    for (; inst_iter != bb->instructions().end(); inst_iter = next_iter) {
+      // Since the BasicBlockAssembler can inject new instructions, and modify
+      // the instruction sequence, the iterators used in the loop are safely
+      // handled before any modification.
+      next_offset += inst_iter->size();
+      next_iter = inst_iter;
+      ++next_iter;
 
-      // The instructions offset is calculated progressively.
-      Offset next_offset = bb->offset();
+      if (inst_iter->IsCall() && !inst_iter->CallsNonReturningFunction()) {
+        // Instrument only the calls in the specified offsets.
+        if (offset_set.find(next_offset) == offset_set.end())
+          continue;
 
-      BasicBlock::Instructions::iterator inst_iter = bb->instructions().begin();
-      BasicBlock::Instructions::iterator next_iter;
-      for (; inst_iter != bb->instructions().end(); inst_iter = next_iter) {
-        // Since the BasicBlockAssembler can inject new instructions, and modify
-        // the instruction sequence, the iterators used in the loop are safely
-        // handled before any modification.
-        next_offset += inst_iter->size();
-        next_iter = inst_iter;
-        ++next_iter;
+        // Keep track of the instrumented calls.
+        instrumented_[function_name].insert(next_offset);
 
-        if (inst_iter->IsCall() && !inst_iter->CallsNonReturningFunction()) {
-          // Instrument only the calls in the specified offsets.
-          if (offset_set.find(next_offset) == offset_set.end())
-            continue;
+        block_graph::Instruction::SourceRange source_range =
+            inst_iter->source_range();
 
-          // Keep track of the instrumented calls.
-          instrumented_[function_name].insert(next_offset);
+        // Using local scope to control exactly when the instructions are
+        // injected. The BasicBlockAssembler flush the new instructions when
+        // leaving scope.
+        // Prepend a call to pre-call hook (asan_SetAllocationFilterFlag).
+        {
+          DCHECK(pre_call_hook_ref_.IsValid());
+          BlockGraph::Reference* pre_call_hook_ref = &pre_call_hook_ref_;
+          auto pre_call_hook(
+              Operand(Displacement(pre_call_hook_ref->referenced(),
+                                    pre_call_hook_ref->offset())));
+          BasicBlockAssembler bb_asm_enter(inst_iter, &bb->instructions());
 
-          block_graph::Instruction::SourceRange source_range =
-              inst_iter->source_range();
+          // Configure the assembler to copy the SourceRange information of
+          // the current instrumented instruction into newly created
+          // instructions. This is a hack to allow valid stack walking and
+          // better error reporting, but breaks the 1:1 OMAP mapping and may
+          // confuse some debuggers.
+          if (debug_friendly_)
+            bb_asm_enter.set_source_range(inst_iter->source_range());
+          bb_asm_enter.call(pre_call_hook);
+        }
 
-          // Using local scope to control exactly when the instructions are
-          // injected. The BasicBlockAssembler flush the new instructions when
-          // leaving scope.
-          // Prepend a call to pre-call hook (asan_SetAllocationFilterFlag).
-          {
-            DCHECK(pre_call_hook_ref_.IsValid());
-            BlockGraph::Reference* pre_call_hook_ref = &pre_call_hook_ref_;
-            auto pre_call_hook(
-                Operand(Displacement(pre_call_hook_ref->referenced(),
-                                     pre_call_hook_ref->offset())));
-            BasicBlockAssembler bb_asm_enter(inst_iter, &bb->instructions());
-
-            // Configure the assembler to copy the SourceRange information of
-            // the current instrumented instruction into newly created
-            // instructions. This is a hack to allow valid stack walking and
-            // better error reporting, but breaks the 1:1 OMAP mapping and may
-            // confuse some debuggers.
-            if (debug_friendly_)
-              bb_asm_enter.set_source_range(inst_iter->source_range());
-            bb_asm_enter.call(pre_call_hook);
-          }
-
-          // Append a call to post-call hook (asan_ClearAllocationFilterFlag).
-         {
-            DCHECK(post_call_hook_ref_.IsValid());
-            BlockGraph::Reference* post_call_hook_ref = &post_call_hook_ref_;
-            auto post_call_hook(
-                Operand(Displacement(post_call_hook_ref->referenced(),
-                                     post_call_hook_ref_.offset())));
-            BasicBlockAssembler bb_asm_exit(next_iter, &bb->instructions());
-            if (debug_friendly_)
-              bb_asm_exit.set_source_range(inst_iter->source_range());
-            bb_asm_exit.call(post_call_hook);
-          }
+        // Append a call to post-call hook (asan_ClearAllocationFilterFlag).
+        {
+          DCHECK(post_call_hook_ref_.IsValid());
+          BlockGraph::Reference* post_call_hook_ref = &post_call_hook_ref_;
+          auto post_call_hook(
+              Operand(Displacement(post_call_hook_ref->referenced(),
+                                    post_call_hook_ref_.offset())));
+          BasicBlockAssembler bb_asm_exit(next_iter, &bb->instructions());
+          if (debug_friendly_)
+            bb_asm_exit.set_source_range(inst_iter->source_range());
+          bb_asm_exit.call(post_call_hook);
         }
       }
     }

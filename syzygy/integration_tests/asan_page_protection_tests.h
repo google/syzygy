@@ -25,6 +25,10 @@ namespace testing {
 size_t AsanReadLargeAllocationTrailerBeforeFree();
 size_t AsanReadLargeAllocationBodyAfterFree();
 
+// For testing small allocations that go through the ZebraBlockHeap.
+size_t AsanReadPageAllocationTrailerBeforeFree();
+size_t AsanWritePageAllocationBodyAfterFree();
+
 }  // namespace testing
 
 #endif  // SYZYGY_INTEGRATION_TESTS_ASAN_PAGE_PROTECTION_TESTS_H_

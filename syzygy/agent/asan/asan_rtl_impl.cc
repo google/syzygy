@@ -217,14 +217,30 @@ AsanRuntime* WINAPI asan_GetActiveRuntime() {
   return asan_runtime;
 }
 
-void WINAPI asan_SetAllocationFilterFlag() {
-  DCHECK_NE(reinterpret_cast<AsanRuntime*>(NULL), asan_runtime);
+void __declspec(naked) asan_SetAllocationFilterFlag() {
+  __asm {
+    pushad
+    pushfd
+  }
   asan_runtime->set_allocation_filter_flag(true);
+  __asm {
+    popfd
+    popad
+    ret
+  }
 }
 
-void WINAPI asan_ClearAllocationFilterFlag() {
-  DCHECK_NE(reinterpret_cast<AsanRuntime*>(NULL), asan_runtime);
+void __declspec(naked) asan_ClearAllocationFilterFlag() {
+  __asm {
+    pushad
+    pushfd
+  }
   asan_runtime->set_allocation_filter_flag(false);
+  __asm {
+    popfd
+    popad
+    ret
+  }
 }
 
 }  // extern "C"
