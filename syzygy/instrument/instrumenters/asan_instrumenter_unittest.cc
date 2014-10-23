@@ -25,8 +25,10 @@ namespace instrumenters {
 
 namespace {
 
-static wchar_t kGoodAllocationFilterFile[] =
+static wchar_t kGoodAllocationFilterFileEmpty[] =
     L"syzygy/instrument/test_data/allocation-filter-good-minimal.json";
+static wchar_t kGoodAllocationFilterFile[] =
+    L"syzygy/instrument/test_data/allocation-filter-good-full.json";
 
 class TestAsanInstrumenter : public AsanInstrumenter {
  public:
@@ -254,6 +256,16 @@ TEST_F(AsanInstrumenterTest, FailsWithInvalidAsanRtlOptions) {
   cmd_line_.AppendSwitchASCII("asan-rtl-options", "--quarantine_size=foobar");
 
   EXPECT_FALSE(instrumenter_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(AsanInstrumenterTest, AllocationFilterConfigFileEmpty) {
+  SetUpValidCommandLine();
+  base::FilePath filter_file = testing::GetSrcRelativePath(
+      kGoodAllocationFilterFileEmpty);
+  cmd_line_.AppendSwitchPath("allocation-filter-config-file", filter_file);
+  EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  // No transform should be initialized for an empty filter file.
+  EXPECT_EQ(nullptr, instrumenter_.af_transform_.get());
 }
 
 TEST_F(AsanInstrumenterTest, AllocationFilterConfigFile) {

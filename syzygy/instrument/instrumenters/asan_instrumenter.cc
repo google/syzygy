@@ -144,14 +144,17 @@ bool AsanInstrumenter::ParseAdditionalCommandLineArguments(
                  << allocation_filter_config_file_path_.value();
       return false;
     }
-    // Setup the allocation-filter transform.
-    af_transform_.reset(new AllocationFilterTransform(target_calls));
 
-    // Set overwrite source range flag in the AllocationFilter transform.
-    // It will overwrite the source range of created instructions to the source
-    // range of corresponding instrumented instructions. The AllocationFilter
-    // transform shares the ASAN flag.
-    af_transform_->set_debug_friendly(debug_friendly_);
+    if (!target_calls.empty()) {
+      // Setup the allocation-filter transform.
+      af_transform_.reset(new AllocationFilterTransform(target_calls));
+
+      // Set overwrite source range flag in the AllocationFilter transform.
+      // It will overwrite the source range of created instructions to the
+      // source range of corresponding instrumented instructions. The
+      // AllocationFilter transform shares the ASAN flag.
+      af_transform_->set_debug_friendly(debug_friendly_);
+    }
   }
 
   return true;
