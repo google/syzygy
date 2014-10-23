@@ -1,6 +1,26 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.0.0
+
+As of this version, SyzyASan has been entirely refactored and much of it
+reimplemented. New mechanisms exist for finding bugs in external/uninstrumented
+code, and coverage has been increased.
+
+This version also marks the official separation of Syzygy from Sawbuck, it's
+original ancestor. Syzygy is now hosted in a pure GIT repository, and built with
+Ninja.
+
+Some highlights:
+
+[4e6b4f9b19] Refactor of zap_timestamp.
+[a01d2374e6] SyzyASan - Zebra heap fully implemented.
+[990009f460] SyzyASan - Large block heap fully implemented.
+[735e51eb5c] SyzyASan - Narrowed crash race conditions as much as possible.
+[08ebb870d9] Full Ninja support for the build.
+[45d2fb0bec] SyzyASan - CTMalloc support added.
+[217fe21486] Fully split from Sawbuck repository.
+
 Version 0.7.18.1
 
 [r2183] SyzyASan - Fix the interceptor of wcsstr.
