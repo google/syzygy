@@ -18,6 +18,7 @@
 #include "base/files/scoped_temp_dir.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/unittest_util.h"
 
 namespace zap_timestamp {
 
@@ -80,6 +81,14 @@ class ZapTimestampTest : public testing::Test {
         test_paths_[index].pe_path, test_paths_[index].pdb_path));
   }
 
+  void CopyNoPdbTestData() {
+    base::FilePath pe_path = testing::GetSrcRelativePath(
+        L"syzygy\\zap_timestamp\\test_data\\test_dll_no_pdb.dll");
+    temp_pe_path_ = temp_dir_.path().Append(L"test_dll_no_pdb.dll");
+    temp_pdb_path_.clear();
+    ASSERT_TRUE(base::CopyFileW(pe_path, temp_pe_path_));
+  }
+
   base::ScopedTempDir temp_dir_;
   std::vector<PePdbPathPair> test_paths_;
 
@@ -91,43 +100,56 @@ class ZapTimestampTest : public testing::Test {
 
 TEST_F(ZapTimestampTest, InitFailsForNonExistentPath) {
   ZapTimestamp zap;
-  EXPECT_FALSE(zap.Init(base::FilePath(L"nonexistent_pe_file.dll")));
+  zap.set_input_image(base::FilePath(L"nonexistent_pe_file.dll"));
+  zap.set_overwrite(true);
+  EXPECT_FALSE(zap.Init());
 }
 
 TEST_F(ZapTimestampTest, InitFailsForMismatchedPeAndPdb) {
   ASSERT_NO_FATAL_FAILURE(CopyTestData(
       test_paths_[0].pe_path, test_paths_[1].pdb_path));
   ZapTimestamp zap;
-  EXPECT_FALSE(zap.Init(temp_pe_path_));
+  zap.set_input_image(temp_pe_path_);
+  zap.set_overwrite(true);
+  EXPECT_FALSE(zap.Init());
 }
 
 TEST_F(ZapTimestampTest, InitFailsWithMissingPdb) {
   ASSERT_NO_FATAL_FAILURE(CopyTestData(0));
   ASSERT_TRUE(base::DeleteFile(temp_pdb_path_, false));
   ZapTimestamp zap;
-  EXPECT_FALSE(zap.Init(temp_pe_path_));
+  zap.set_input_image(temp_pe_path_);
+  zap.set_overwrite(true);
+  EXPECT_FALSE(zap.Init());
 }
 
 TEST_F(ZapTimestampTest, InitAutoFindPdb) {
   ASSERT_NO_FATAL_FAILURE(CopyTestData(0));
   ZapTimestamp zap;
-  EXPECT_TRUE(zap.Init(temp_pe_path_));
-  EXPECT_EQ(temp_pdb_path_, zap.pdb_path());
+  zap.set_input_image(temp_pe_path_);
+  zap.set_overwrite(true);
+  EXPECT_TRUE(zap.Init());
+  EXPECT_EQ(temp_pdb_path_, zap.input_pdb());
 }
 
 TEST_F(ZapTimestampTest, InitExplicitPdb) {
   ASSERT_NO_FATAL_FAILURE(CopyTestData(0));
   ZapTimestamp zap;
-  EXPECT_TRUE(zap.Init(temp_pe_path_, temp_pdb_path_));
+  zap.set_input_image(temp_pe_path_);
+  zap.set_input_pdb(temp_pdb_path_);
+  zap.set_overwrite(true);
+  EXPECT_TRUE(zap.Init());
 }
 
 TEST_F(ZapTimestampTest, IsIdempotent) {
   // Zap the first set of the PE and PDB files.
   ASSERT_NO_FATAL_FAILURE(CopyTestData(0));
   ZapTimestamp zap0;
-  EXPECT_TRUE(zap0.Init(temp_pe_path_));
-  EXPECT_EQ(temp_pdb_path_, zap0.pdb_path());
-  EXPECT_TRUE(zap0.Zap(true, true));
+  zap0.set_input_image(temp_pe_path_);
+  zap0.set_overwrite(true);
+  EXPECT_TRUE(zap0.Init());
+  EXPECT_EQ(temp_pdb_path_, zap0.output_pdb());
+  EXPECT_TRUE(zap0.Zap());
 
   // Make a copy of the singly zapped files.
   base::FilePath pe_path_0 = temp_dir_.path().Append(L"test_dll_0.dll");
@@ -137,22 +159,117 @@ TEST_F(ZapTimestampTest, IsIdempotent) {
 
   // Zap them again.
   ZapTimestamp zap1;
-  EXPECT_TRUE(zap1.Init(temp_pe_path_));
-  EXPECT_EQ(temp_pdb_path_, zap1.pdb_path());
-  EXPECT_TRUE(zap1.Zap(true, true));
+  zap1.set_input_image(temp_pe_path_);
+  zap1.set_overwrite(true);
+  EXPECT_TRUE(zap1.Init());
+  EXPECT_EQ(temp_pdb_path_, zap1.output_pdb());
+  EXPECT_TRUE(zap1.Zap());
 
   // The singly and doubly zapped files should be the same.
   EXPECT_TRUE(base::ContentsEqual(temp_pe_path_, pe_path_0));
   EXPECT_TRUE(base::ContentsEqual(temp_pdb_path_, pdb_path_0));
 }
 
+TEST_F(ZapTimestampTest, SucceedsInferPdb) {
+  ASSERT_NO_FATAL_FAILURE(CopyTestData(0));
+  base::FilePath pe_path = temp_dir_.path().Append(L"test_dll.new.dll");
+  base::FilePath pdb_path = temp_dir_.path().Append(L"test_dll.new.dll.pdb");
+
+  // Zap the image. Let the PDB output be inferred.
+  ZapTimestamp zap0;
+  zap0.set_input_image(temp_pe_path_);
+  zap0.set_output_image(pe_path);
+  EXPECT_TRUE(zap0.Init());
+  EXPECT_TRUE(zap0.Zap());
+  EXPECT_TRUE(base::PathExists(pe_path));
+  EXPECT_TRUE(base::PathExists(pdb_path));
+}
+
+TEST_F(ZapTimestampTest, SucceedsExplicitPdb) {
+  ASSERT_NO_FATAL_FAILURE(CopyTestData(0));
+  base::FilePath pe_path = temp_dir_.path().Append(L"test_dll.new.dll");
+  base::FilePath pdb_path = temp_dir_.path().Append(L"test_dll.new.dll.pdb");
+
+  // Zap the image. Provide an explicit output PDB.
+  ZapTimestamp zap0;
+  zap0.set_input_image(temp_pe_path_);
+  zap0.set_output_image(pe_path);
+  zap0.set_output_pdb(pdb_path);
+  EXPECT_TRUE(zap0.Init());
+  EXPECT_TRUE(zap0.Zap());
+  EXPECT_TRUE(base::PathExists(pe_path));
+  EXPECT_TRUE(base::PathExists(pdb_path));
+}
+
+TEST_F(ZapTimestampTest, SucceedsDontWritePdb) {
+  ASSERT_NO_FATAL_FAILURE(CopyTestData(0));
+  base::FilePath pe_path = temp_dir_.path().Append(L"test_dll.new.dll");
+  base::FilePath pdb_path = temp_dir_.path().Append(L"test_dll.new.dll.pdb");
+
+  // Zap the image. Let the PDB output be inferred.
+  ZapTimestamp zap0;
+  zap0.set_input_image(temp_pe_path_);
+  zap0.set_output_image(pe_path);
+  zap0.set_write_pdb(false);
+  EXPECT_TRUE(zap0.Init());
+  EXPECT_TRUE(zap0.Zap());
+  EXPECT_TRUE(base::PathExists(pe_path));
+  EXPECT_FALSE(base::PathExists(pdb_path));
+}
+
+TEST_F(ZapTimestampTest, SucceedsDontWriteImage) {
+  ASSERT_NO_FATAL_FAILURE(CopyTestData(0));
+  base::FilePath pe_path = temp_dir_.path().Append(L"test_dll.new.dll");
+  base::FilePath pdb_path = temp_dir_.path().Append(L"test_dll.new.dll.pdb");
+
+  // Zap the image. Let the PDB output be inferred.
+  ZapTimestamp zap0;
+  zap0.set_input_image(temp_pe_path_);
+  zap0.set_output_image(pe_path);
+  zap0.set_write_image(false);
+  EXPECT_TRUE(zap0.Init());
+  EXPECT_TRUE(zap0.Zap());
+  EXPECT_FALSE(base::PathExists(pe_path));
+  EXPECT_TRUE(base::PathExists(pdb_path));
+}
+
+TEST_F(ZapTimestampTest, FailsBecauseWouldOverwritePe) {
+  ASSERT_NO_FATAL_FAILURE(CopyTestData(0));
+  base::FilePath pe_path = temp_dir_.path().Append(L"test_dll.new.dll");
+  base::FilePath pdb_path = temp_dir_.path().Append(L"test_dll.new.dll.pdb");
+
+  base::WriteFile(pe_path, "h", 1);
+
+  // Zap the image. Let the PDB output be inferred.
+  ZapTimestamp zap0;
+  zap0.set_input_image(temp_pe_path_);
+  zap0.set_output_image(pe_path);
+  EXPECT_FALSE(zap0.Init());
+}
+
+TEST_F(ZapTimestampTest, FailsBecauseWouldOverwritePdb) {
+  ASSERT_NO_FATAL_FAILURE(CopyTestData(0));
+  base::FilePath pe_path = temp_dir_.path().Append(L"test_dll.new.dll");
+  base::FilePath pdb_path = temp_dir_.path().Append(L"test_dll.new.dll.pdb");
+
+  base::WriteFile(pdb_path, "h", 1);
+
+  // Zap the image. Let the PDB output be inferred.
+  ZapTimestamp zap0;
+  zap0.set_input_image(temp_pe_path_);
+  zap0.set_output_image(pe_path);
+  EXPECT_FALSE(zap0.Init());
+}
+
 TEST_F(ZapTimestampTest, Succeeds) {
   // Zap the first set of the PE and PDB files.
   ASSERT_NO_FATAL_FAILURE(CopyTestData(0));
   ZapTimestamp zap0;
-  EXPECT_TRUE(zap0.Init(temp_pe_path_));
-  EXPECT_EQ(temp_pdb_path_, zap0.pdb_path());
-  EXPECT_TRUE(zap0.Zap(true, true));
+  zap0.set_input_image(temp_pe_path_);
+  zap0.set_overwrite(true);
+  EXPECT_TRUE(zap0.Init());
+  EXPECT_EQ(temp_pdb_path_, zap0.input_pdb());
+  EXPECT_TRUE(zap0.Zap());
 
   // Rename and move the PE and PDB file.
   base::FilePath pe_path_0 = temp_dir_.path().Append(L"test_dll_0.dll");
@@ -163,8 +280,11 @@ TEST_F(ZapTimestampTest, Succeeds) {
   // Zap the second set of the PE and PDB files.
   ASSERT_NO_FATAL_FAILURE(CopyTestData(1));
   ZapTimestamp zap1;
-  EXPECT_TRUE(zap1.Init(temp_pe_path_, temp_pdb_path_));
-  EXPECT_TRUE(zap1.Zap(true, true));
+  zap1.set_input_image(temp_pe_path_);
+  zap1.set_input_pdb(temp_pdb_path_);
+  zap1.set_overwrite(true);
+  EXPECT_TRUE(zap1.Init());
+  EXPECT_TRUE(zap1.Zap());
 
   // Rename and move the PE and PDB file.
   base::FilePath pe_path_1 = temp_dir_.path().Append(L"test_dll_1.dll");
@@ -175,14 +295,43 @@ TEST_F(ZapTimestampTest, Succeeds) {
   // Zap the third set of the PE and PDB files.
   ASSERT_NO_FATAL_FAILURE(CopyTestData(2));
   ZapTimestamp zap2;
-  EXPECT_TRUE(zap2.Init(temp_pe_path_, temp_pdb_path_));
-  EXPECT_TRUE(zap2.Zap(true, true));
+  zap2.set_input_image(temp_pe_path_);
+  zap2.set_input_pdb(temp_pdb_path_);
+  zap2.set_overwrite(true);
+  EXPECT_TRUE(zap2.Init());
+  EXPECT_TRUE(zap2.Zap());
 
   // The sets of zapped files should match.
   EXPECT_TRUE(base::ContentsEqual(temp_pe_path_, pe_path_0));
   EXPECT_TRUE(base::ContentsEqual(temp_pe_path_, pe_path_1));
   EXPECT_TRUE(base::ContentsEqual(temp_pdb_path_, pdb_path_0));
   EXPECT_TRUE(base::ContentsEqual(temp_pdb_path_, pdb_path_1));
+}
+
+TEST_F(ZapTimestampTest, IsIdempotentNoPdb) {
+  // Zap the iage.
+  ASSERT_NO_FATAL_FAILURE(CopyNoPdbTestData());
+  ZapTimestamp zap0;
+  zap0.set_input_image(temp_pe_path_);
+  zap0.set_overwrite(true);
+  zap0.set_write_pdb(false);
+  EXPECT_TRUE(zap0.Init());
+  EXPECT_TRUE(zap0.Zap());
+
+  // Make a copy of the singly zapped image.
+  base::FilePath pe_path_0 = temp_dir_.path().Append(L"test_dll_no_pdb_0.dll");
+  ASSERT_TRUE(base::CopyFile(temp_pe_path_, pe_path_0));
+
+  // Zap it again.
+  ZapTimestamp zap1;
+  zap1.set_input_image(temp_pe_path_);
+  zap1.set_overwrite(true);
+  zap1.set_write_pdb(false);
+  EXPECT_TRUE(zap1.Init());
+  EXPECT_TRUE(zap1.Zap());
+
+  // The singly and doubly zapped files should be the same.
+  EXPECT_TRUE(base::ContentsEqual(temp_pe_path_, pe_path_0));
 }
 
 }  // namespace zap_timestamp

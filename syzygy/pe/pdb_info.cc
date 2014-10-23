@@ -81,7 +81,7 @@ bool PdbInfo::Init(const PEFile& pe_file) {
     return Init(*cv_info);
   }
 
-  LOG(ERROR) << "PE file has no CodeView debug entry.";
+  LOG(INFO) << "PE file has no CodeView debug entry.";
   return false;
 }
 

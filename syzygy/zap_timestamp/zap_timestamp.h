@@ -14,19 +14,13 @@
 //
 // Declares a class that allows for the normalization of a PE file and its
 // corresponding PDB file.
-//
-// TODO(chrisha): This currently works in-place only, but should be extended to
-//     work to a new destination as well.
 
 #ifndef SYZYGY_ZAP_TIMESTAMP_ZAP_TIMESTAMP_H_
 #define SYZYGY_ZAP_TIMESTAMP_ZAP_TIMESTAMP_H_
 
-#include <vector>
-
 #include "base/files/file_path.h"
 #include "base/strings/string_piece.h"
 #include "syzygy/block_graph/block_graph.h"
-#include "syzygy/common/application.h"
 #include "syzygy/core/address_space.h"
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pe/image_layout.h"
@@ -40,32 +34,54 @@ class ZapTimestamp {
  public:
   ZapTimestamp();
 
-  // Prepares for modifying the given PE file. Tracks down all of the bytes
-  // to be modified and prepares the new values to be stored. Searches for the
-  // matching PDB file and does the same thing with it.
-  // @param pe_path path to the PE file to be zapped.
-  // @returns true on success, false otherwise.
-  bool Init(const base::FilePath& pe_path);
-
-  // Prepares for modifying the given PE file. Tracks down all of the bytes
-  // to be modified and prepares the new values to be stored.
-  // @param pe_path path to the PE file to be zapped.
-  // @param pdb_path path the PDB file to be zapped.
-  // @returns true on success, false otherwise.
-  bool Init(const base::FilePath& pe_path, const base::FilePath& pdb_path);
-
-  // Modifies the given PE file in place, as well as its associated PDB file.
-  // @param modify_pe if true then the PE file will be updated in place.
-  // @param modify_pdb if true then the PDB file will be updated in place.
-  // @returns true on success, false on failure.
-  // @pre Init has been successfully called.
-  bool Zap(bool modify_pe, bool modify_pdb);
+  // @name Mutators.
+  // @{
+  void set_input_image(const base::FilePath& input_image) {
+    input_image_ = input_image;
+  }
+  void set_input_pdb(const base::FilePath& input_pdb) {
+    input_pdb_ = input_pdb;
+  }
+  void set_output_image(const base::FilePath& output_image) {
+    output_image_ = output_image;
+  }
+  void set_output_pdb(const base::FilePath& output_pdb) {
+    output_pdb_ = output_pdb;
+  }
+  void set_write_image(bool write_image) {
+    write_image_ = write_image;
+  }
+  void set_write_pdb(bool write_pdb) {
+    write_pdb_ = write_pdb;
+  }
+  void set_overwrite(bool overwrite) {
+    overwrite_ = overwrite;
+  }
+  // @}
 
   // @name Accessors.
   // @{
-  const base::FilePath& pe_path() const { return pe_path_; }
-  const base::FilePath& pdb_path() const { return pdb_path_; }
+  const base::FilePath& input_image() const { return input_image_; }
+  const base::FilePath& input_pdb() const { return input_pdb_; }
+  const base::FilePath& output_image() const { return output_image_; }
+  const base::FilePath& output_pdb() const { return output_pdb_; }
+  bool write_image() const { return write_image_; }
+  bool write_pdb() const { return write_pdb_; }
+  bool overwrite() const { return overwrite_; }
   // @}
+
+  // Prepares for modifying the given PE file. Tracks down all of the bytes
+  // to be modified and prepares the new values to be stored. Searches for the
+  // matching PDB file and does the same thing with it.
+  // @returns true on success, false otherwise.
+  bool Init();
+
+  // Modifies the given PE file (and its associated PDB file, if applicable).
+  // Output will be written to |output_image| and |output_pdb|. If these are
+  // not specified the transform will be applied in place.
+  // @returns true on success, false on failure.
+  // @pre Init has been successfully called.
+  bool Zap();
 
   // Forward declarations. These are public so they can be used by anonymous
   // helper functions in zap_timestamp.cc.
@@ -75,9 +91,13 @@ class ZapTimestamp {
 
  private:
   // Ensures the PE file exists and is valid, and searches for the corresponding
-  // PDB file. After this runs both pe_path_ and pdb_path_ are initialized and
-  // point to valid corresponding files.
+  // PDB file. After this runs both input_image_ and input_pdb_ are initialized
+  // and point to valid corresponding files.
   bool ValidatePeAndPdbFiles();
+
+  // Infers and validates output paths. After this |output_image_| and
+  // |output_pdb_| are configured.
+  bool ValidateOutputPaths();
 
   // Decomposes the PE file. After this is complete block_graph_, image_layout_
   // and pe_file_ and dos_header_block_ have been initialized.
@@ -98,10 +118,6 @@ class ZapTimestamp {
   bool WritePdbFile();
   // @}
 
-  // Initialized by ValidatePeAndPdbFiles.
-  base::FilePath pe_path_;
-  base::FilePath pdb_path_;
-
   // Initialized by DecomposePeFile.
   block_graph::BlockGraph block_graph_;
   pe::ImageLayout image_layout_;
@@ -119,6 +135,15 @@ class ZapTimestamp {
   DWORD pdb_age_data_;
   GUID pdb_guid_data_;
 
+  // Controls the transform. Configured externally.
+  base::FilePath input_image_;
+  base::FilePath input_pdb_;
+  base::FilePath output_image_;
+  base::FilePath output_pdb_;
+  bool write_image_;
+  bool write_pdb_;
+  bool overwrite_;
+
   DISALLOW_COPY_AND_ASSIGN(ZapTimestamp);
 };
 
@@ -131,24 +156,6 @@ struct ZapTimestamp::PatchData {
   }
   const uint8* data;
   std::string name;
-};
-
-// The application class that actually runs ZapTimestamp.
-class ZapTimestampApp : public common::AppImplBase {
- public:
-  ZapTimestampApp() : AppImplBase("Zap Timestamp") { }
-
-  // @name Implementation of the AppImplbase interface.
-  // @{
-  bool ParseCommandLine(const CommandLine* command_line);
-  int Run();
-  // @}
-
- private:
-  // The input modules to be zapped. Each one must be a PE file.
-  std::vector<base::FilePath> input_modules_;
-
-  DISALLOW_COPY_AND_ASSIGN(ZapTimestampApp);
 };
 
 }  // namespace zap_timestamp

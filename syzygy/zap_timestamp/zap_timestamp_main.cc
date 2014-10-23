@@ -14,7 +14,7 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "syzygy/zap_timestamp/zap_timestamp.h"
+#include "syzygy/zap_timestamp/zap_timestamp_app.h"
 
 int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;

@@ -21,12 +21,15 @@
       'target_name': 'zap_timestamp_lib',
       'type': 'static_library',
       'sources': [
+        'zap_timestamp_app.cc',
+        'zap_timestamp_app.h',
         'zap_timestamp.cc',
         'zap_timestamp.h',
       ],
       'dependencies': [
         '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/syzygy/pe/pe.gyp:dia_sdk',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
         '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',
@@ -36,13 +39,16 @@
       'target_name': 'zap_timestamp_unittests',
       'type': 'executable',
       'sources': [
+        'zap_timestamp_app_unittest.cc',
         'zap_timestamp_unittest.cc',
         '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'zap_timestamp_lib',
         '<(src)/base/base.gyp:test_support_base',
+        '<(src)/syzygy/common/common.gyp:common_unittest_utils',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(src)/testing/gtest.gyp:gtest',
       ],
     },
