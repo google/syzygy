@@ -78,7 +78,7 @@ class TestZebraBlockHeap : public heaps::ZebraBlockHeap {
                               size_t min_right_redzone_size,
                               BlockLayout* layout) OVERRIDE {
     if (refuse_allocations_)
-      return NULL;
+      return nullptr;
     return ZebraBlockHeap::AllocateBlock(size,
                                          min_left_redzone_size,
                                          min_right_redzone_size,
@@ -114,6 +114,9 @@ class TestZebraBlockHeap : public heaps::ZebraBlockHeap {
 // A derived class to expose protected members for unit-testing.
 class TestBlockHeapManager : public BlockHeapManager {
  public:
+  using BlockHeapManager::GetHeapId;
+  using BlockHeapManager::GetHeapFromId;
+  using BlockHeapManager::GetQuarantineFromId;
   using BlockHeapManager::FreePotentiallyCorruptBlock;
   using BlockHeapManager::HeapQuarantineMap;
   using BlockHeapManager::SetHeapErrorCallback;
@@ -122,8 +125,9 @@ class TestBlockHeapManager : public BlockHeapManager {
 
   using BlockHeapManager::heaps_;
   using BlockHeapManager::parameters_;
+  using BlockHeapManager::large_block_heap_id_;
   using BlockHeapManager::zebra_block_heap_;
-  using BlockHeapManager::large_block_heap_;
+  using BlockHeapManager::zebra_block_heap_id_;
   using BlockHeapManager::allocation_filter_flag_tls_;
   using BlockHeapManager::locked_heaps_;
 
@@ -145,15 +149,6 @@ class TestBlockHeapManager : public BlockHeapManager {
       : BlockHeapManager(stack_cache) {
   }
 
-  // Returns the quarantine associated with a heap.
-  BlockQuarantineInterface* GetHeapQuarantine(HeapId heap_id) {
-    TestBlockHeapManager::HeapQuarantineMap::iterator iter_heap =
-        heaps_.find(reinterpret_cast<BlockHeapInterface*>(heap_id));
-    if (iter_heap == heaps_.end())
-      return NULL;
-    return iter_heap->second;
-  }
-
   // Wrapper for the set_parameters method. This also takes care of
   // reinitializing the variables that are usually initialized in the
   // constructor of a BlockHeapManager.
@@ -163,10 +158,10 @@ class TestBlockHeapManager : public BlockHeapManager {
       EXPECT_EQ(1, underlying_heaps_map_.erase(process_heap_));
       EXPECT_EQ(1, heaps_.erase(process_heap_));
       delete process_heap_;
-      process_heap_ = NULL;
+      process_heap_ = nullptr;
       if (process_heap_underlying_heap_) {
         delete process_heap_underlying_heap_;
-        process_heap_underlying_heap_ = NULL;
+        process_heap_underlying_heap_ = nullptr;
       }
       InitProcessHeap();
     }
@@ -187,7 +182,7 @@ class TestAsanRuntime : public agent::asan::AsanRuntime {
   using agent::asan::AsanRuntime::heap_manager_;
 };
 
-// A utility class for manipulating a heap. This automatically delete the heap
+// A utility class for manipulating a heap. This automatically deletes the heap
 // and its content in the destructor and provides some utility functions.
 class ScopedHeap {
  public:
@@ -197,7 +192,7 @@ class ScopedHeap {
   explicit ScopedHeap(TestBlockHeapManager* heap_manager)
       : heap_manager_(heap_manager) {
     heap_id_ = heap_manager->CreateHeap();
-    EXPECT_NE(static_cast<HeapId>(NULL), heap_id_);
+    EXPECT_NE(0u, heap_id_);
   }
 
   // Destructor. Destroy the heap, this will flush its quarantine and delete all
@@ -207,21 +202,21 @@ class ScopedHeap {
   }
 
   void ReleaseHeap() {
-    if (heap_id_ != static_cast<HeapId>(NULL)) {
+    if (heap_id_ != 0) {
       EXPECT_TRUE(heap_manager_->DestroyHeap(heap_id_));
-      heap_id_ = static_cast<HeapId>(NULL);
+      heap_id_ = 0;
     }
   }
 
   // Retrieves the quarantine associated with this heap.
   BlockQuarantineInterface* GetQuarantine() {
-    return heap_manager_->GetHeapQuarantine(heap_id_);
+    return heap_manager_->GetQuarantineFromId(heap_id_);
   }
 
   // Allocate a block of @p size bytes.
   void* Allocate(size_t size) {
     void* alloc = heap_manager_->Allocate(heap_id_, size);
-    EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+    EXPECT_NE(static_cast<void*>(nullptr), alloc);
     return alloc;
   }
 
@@ -233,14 +228,14 @@ class ScopedHeap {
   // Flush the quarantine of this heap.
   void FlushQuarantine() {
     BlockQuarantineInterface* quarantine =  GetQuarantine();
-    EXPECT_NE(static_cast<BlockQuarantineInterface*>(NULL),
+    EXPECT_NE(static_cast<BlockQuarantineInterface*>(nullptr),
               quarantine);
     BlockQuarantineInterface::ObjectVector blocks_to_free;
     quarantine->Empty(&blocks_to_free);
     BlockQuarantineInterface::ObjectVector::iterator iter_block =
         blocks_to_free.begin();
     for (; iter_block != blocks_to_free.end(); ++iter_block) {
-      DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), *iter_block);
+      DCHECK_NE(static_cast<BlockHeader*>(nullptr), *iter_block);
       BlockInfo block_info = {};
       CHECK(Shadow::BlockInfoFromShadow(*iter_block, &block_info));
       CHECK(heap_manager_->FreePotentiallyCorruptBlock(&block_info));
@@ -262,12 +257,12 @@ class ScopedHeap {
         test_quarantine_is_not_an_interface);
     TestQuarantine* test_quarantine =
         reinterpret_cast<TestQuarantine*>(GetQuarantine());
-    EXPECT_NE(reinterpret_cast<TestQuarantine*>(NULL), test_quarantine);
+    EXPECT_NE(static_cast<TestQuarantine*>(nullptr), test_quarantine);
     // Search through all of the shards.
     for (size_t i = 0; i < test_quarantine->kShardingFactor; ++i) {
       // Search through all blocks in each shard.
       TestQuarantine::Node* current_node = test_quarantine->heads_[i];
-      while (current_node != NULL) {
+      while (current_node != nullptr) {
         BlockInfo block_info = {};
         EXPECT_TRUE(BlockInfoFromMemory(current_node->object, &block_info));
         if (block_info.body == mem) {
@@ -283,7 +278,7 @@ class ScopedHeap {
 
   // Returns the heap supported features.
   uint32 GetHeapFeatures() {
-    return reinterpret_cast<HeapInterface*>(heap_id_)->GetHeapFeatures();
+    return heap_manager_->GetHeapFromId(heap_id_)->GetHeapFeatures();
   }
 
  private:
@@ -306,7 +301,7 @@ class BlockHeapManagerTest
 
   BlockHeapManagerTest()
       : TestWithAsanRuntime(&test_runtime_), heap_manager_(),
-        test_zebra_block_heap_(NULL) {
+        test_zebra_block_heap_(nullptr) {
   }
 
   virtual void SetUp() OVERRIDE {
@@ -325,7 +320,7 @@ class BlockHeapManagerTest
   }
 
   virtual void TearDown() OVERRIDE {
-    heap_manager_ = NULL;
+    heap_manager_ = nullptr;
     Super::TearDown();
   }
 
@@ -348,15 +343,16 @@ class BlockHeapManagerTest
 
   void EnableTestZebraBlockHeap() {
     // Erase previous ZebraBlockHeap.
-    if (heap_manager_->zebra_block_heap_ != NULL) {
+    if (heap_manager_->zebra_block_heap_ != 0) {
       heap_manager_->heaps_.erase(heap_manager_->zebra_block_heap_);
       delete heap_manager_->zebra_block_heap_;
     }
     // Plug a mock ZebraBlockHeap by default disabled.
     test_zebra_block_heap_ = new TestZebraBlockHeap();
     heap_manager_->zebra_block_heap_ = test_zebra_block_heap_;
-    heap_manager_->heaps_.insert(std::make_pair(test_zebra_block_heap_,
-        test_zebra_block_heap_));
+    auto result = heap_manager_->heaps_.insert(std::make_pair(
+        test_zebra_block_heap_, test_zebra_block_heap_));
+    heap_manager_->zebra_block_heap_id_ = heap_manager_->GetHeapId(result);
 
     // Turn on the zebra_block_heap_enabled flag.
     common::AsanParameters params = heap_manager_->parameters();
@@ -369,8 +365,7 @@ class BlockHeapManagerTest
     params.enable_large_block_heap = true;
     params.large_allocation_threshold = large_allocation_threshold;
     heap_manager_->set_parameters(params);
-    CHECK_NE(reinterpret_cast<heaps::LargeBlockHeap*>(NULL),
-             heap_manager_->large_block_heap_);
+    CHECK_NE(0u, heap_manager_->large_block_heap_id_);
   }
 
   // Verifies that [alloc, alloc + size) is accessible, and that
@@ -421,9 +416,9 @@ INSTANTIATE_TEST_CASE_P(BlockHeapManagerTests,
 TEST_P(BlockHeapManagerTest, AllocAndFree) {
   const size_t kAllocSize = 17;
   HeapId heap_id = heap_manager_->CreateHeap();
-  EXPECT_NE(static_cast<HeapId>(NULL), heap_id);
+  EXPECT_NE(0u, heap_id);
   void* alloc = heap_manager_->Allocate(heap_id, kAllocSize);
-  EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+  EXPECT_NE(static_cast<void*>(nullptr), alloc);
   EXPECT_LE(kAllocSize, heap_manager_->Size(heap_id, alloc));
   EXPECT_TRUE(heap_manager_->Free(heap_id, alloc));
   EXPECT_TRUE(heap_manager_->DestroyHeap(heap_id));
@@ -431,8 +426,8 @@ TEST_P(BlockHeapManagerTest, AllocAndFree) {
 
 TEST_P(BlockHeapManagerTest, FreeNullPointer) {
   HeapId heap_id = heap_manager_->CreateHeap();
-  EXPECT_NE(static_cast<HeapId>(NULL), heap_id);
-  EXPECT_TRUE(heap_manager_->Free(heap_id, reinterpret_cast<void*>(NULL)));
+  EXPECT_NE(0u, heap_id);
+  EXPECT_TRUE(heap_manager_->Free(heap_id, static_cast<void*>(nullptr)));
   EXPECT_TRUE(heap_manager_->DestroyHeap(heap_id));
 }
 
@@ -445,14 +440,15 @@ TEST_P(BlockHeapManagerTest, FreeUnguardedAlloc) {
   ScopedHeap heap(heap_manager_);
 
   void* heap_alloc = heap.Allocate(kAllocSize);
-  EXPECT_NE(reinterpret_cast<void*>(NULL), heap_alloc);
+  EXPECT_NE(static_cast<void*>(nullptr), heap_alloc);
 
   void* process_heap_alloc = ::HeapAlloc(::GetProcessHeap(), 0, kAllocSize);
-  EXPECT_NE(reinterpret_cast<void*>(NULL), process_heap_alloc);
+  EXPECT_NE(static_cast<void*>(nullptr), process_heap_alloc);
 
-  void* process_heap_wrapper_alloc = reinterpret_cast<HeapInterface*>(
-      heap_manager_->process_heap())->Allocate(kAllocSize);
-  EXPECT_NE(reinterpret_cast<void*>(NULL), process_heap_wrapper_alloc);
+  BlockHeapInterface* process_heap = heap_manager_->GetHeapFromId(
+      heap_manager_->process_heap());
+  void* process_heap_wrapper_alloc = process_heap->Allocate(kAllocSize);
+  EXPECT_NE(static_cast<void*>(nullptr), process_heap_wrapper_alloc);
 
   EXPECT_TRUE(heap_manager_->Free(heap.Id(), heap_alloc));
   EXPECT_TRUE(heap_manager_->Free(heap_manager_->process_heap(),
@@ -496,7 +492,7 @@ TEST_P(BlockHeapManagerTest, Quarantine) {
   std::vector<void*> blocks;
   for (size_t i = 0; i < number_of_allocs + 1; ++i) {
     void* mem = heap.Allocate(kAllocSize);
-    ASSERT_TRUE(mem != NULL);
+    ASSERT_TRUE(mem != nullptr);
     heap.Free(mem);
     blocks.push_back(mem);
     if (i < number_of_allocs)
@@ -525,7 +521,7 @@ TEST_P(BlockHeapManagerTest, QuarantineLargeBlock) {
 
   // A block larger than the quarantine should not make it in.
   void* mem1 = heap.Allocate(real_large_alloc_size + 1);
-  ASSERT_NE(reinterpret_cast<void*>(NULL), mem1);
+  ASSERT_NE(static_cast<void*>(nullptr), mem1);
   EXPECT_TRUE(heap.Free(mem1));
   EXPECT_FALSE(heap.InQuarantine(mem1));
   EXPECT_EQ(0u, heap.GetQuarantine()->GetCount());
@@ -533,7 +529,7 @@ TEST_P(BlockHeapManagerTest, QuarantineLargeBlock) {
   // A smaller block should make it because our current max block size allows
   // it.
   void* mem2 = heap.Allocate(kSmallAllocSize);
-  ASSERT_NE(reinterpret_cast<void*>(NULL), mem2);
+  ASSERT_NE(static_cast<void*>(nullptr), mem2);
   EXPECT_TRUE(heap.Free(mem2));
   EXPECT_TRUE(heap.InQuarantine(mem2));
 
@@ -543,7 +539,7 @@ TEST_P(BlockHeapManagerTest, QuarantineLargeBlock) {
   // A second small block should not make it in since we changed the block size.
   // However, the other block should remain in the quarantine.
   void* mem3 = heap.Allocate(kSmallAllocSize);
-  ASSERT_NE(reinterpret_cast<void*>(NULL), mem3);
+  ASSERT_NE(static_cast<void*>(nullptr), mem3);
   EXPECT_TRUE(heap.Free(mem3));
   EXPECT_TRUE(heap.InQuarantine(mem2));
   EXPECT_FALSE(heap.InQuarantine(mem3));
@@ -561,7 +557,7 @@ TEST_P(BlockHeapManagerTest, UnpoisonsQuarantine) {
   // Allocate a memory block and directly free it, this puts it in the
   // quarantine.
   void* mem = heap.Allocate(kAllocSize);
-  ASSERT_NE(reinterpret_cast<void*>(NULL), mem);
+  ASSERT_NE(static_cast<void*>(nullptr), mem);
   ASSERT_TRUE(heap.Free(mem));
   ASSERT_TRUE(heap.InQuarantine(mem));
 
@@ -600,13 +596,13 @@ TEST_P(BlockHeapManagerTest, QuarantineIsShared) {
   heap_manager_->set_parameters(parameters);
 
   void* heap_1_mem1 = heap_1.Allocate(kAllocSize);
-  ASSERT_NE(reinterpret_cast<void*>(NULL), heap_1_mem1);
+  ASSERT_NE(static_cast<void*>(nullptr), heap_1_mem1);
   void* heap_1_mem2 = heap_1.Allocate(kAllocSize);
-  ASSERT_NE(reinterpret_cast<void*>(NULL), heap_1_mem2);
+  ASSERT_NE(static_cast<void*>(nullptr), heap_1_mem2);
   void* heap_2_mem1 = heap_2.Allocate(kAllocSize);
-  ASSERT_NE(reinterpret_cast<void*>(NULL), heap_2_mem1);
+  ASSERT_NE(static_cast<void*>(nullptr), heap_2_mem1);
   void* heap_2_mem2 = heap_2.Allocate(kAllocSize);
-  ASSERT_NE(reinterpret_cast<void*>(NULL), heap_2_mem2);
+  ASSERT_NE(static_cast<void*>(nullptr), heap_2_mem2);
 
   EXPECT_TRUE(heap_1.Free(heap_1_mem1));
   EXPECT_TRUE(heap_1.Free(heap_1_mem2));
@@ -629,9 +625,9 @@ TEST_P(BlockHeapManagerTest, QuarantineIsShared) {
 TEST_P(BlockHeapManagerTest, AllocZeroBytes) {
   ScopedHeap heap(heap_manager_);
   void* mem1 = heap.Allocate(0);
-  ASSERT_NE(reinterpret_cast<void*>(NULL), mem1);
+  ASSERT_NE(static_cast<void*>(nullptr), mem1);
   void* mem2 = heap.Allocate(0);
-  ASSERT_NE(reinterpret_cast<void*>(NULL), mem2);
+  ASSERT_NE(static_cast<void*>(nullptr), mem2);
   ASSERT_NE(mem1, mem2);
   ASSERT_TRUE(heap.Free(mem1));
   ASSERT_TRUE(heap.Free(mem2));
@@ -642,7 +638,7 @@ TEST_P(BlockHeapManagerTest, Size) {
   ScopedHeap heap(heap_manager_);
   for (size_t size = 10; size < kMaxAllocSize; size = size * 5 + 123) {
     void* mem = heap.Allocate(size);
-    ASSERT_NE(reinterpret_cast<void*>(NULL), mem);
+    ASSERT_NE(static_cast<void*>(nullptr), mem);
     ASSERT_EQ(size, heap_manager_->Size(heap.Id(), mem));
     ASSERT_TRUE(heap.Free(mem));
   }
@@ -659,7 +655,7 @@ TEST_P(BlockHeapManagerTest, AllocsAccessibility) {
   for (size_t size = 10; size < kMaxAllocSize; size = size * 5 + 123) {
     // Do an alloc/free and test that access is correctly managed.
     void* mem = heap.Allocate(size);
-    ASSERT_NE(reinterpret_cast<void*>(NULL), mem);
+    ASSERT_NE(static_cast<void*>(nullptr), mem);
     ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(mem, size));
     ASSERT_TRUE(heap.Free(mem));
     ASSERT_NO_FATAL_FAILURE(VerifyFreedAccess(mem, size));
@@ -686,10 +682,10 @@ TEST_P(BlockHeapManagerTest, CaptureTID) {
             static_cast<BlockState>(BlockGetHeaderFromBody(mem)->state));
 
   BlockHeader* header = BlockGetHeaderFromBody(mem);
-  ASSERT_NE(reinterpret_cast<BlockHeader*>(NULL), header);
+  ASSERT_NE(static_cast<BlockHeader*>(nullptr), header);
   BlockInfo block_info = {};
   EXPECT_TRUE(BlockInfoFromMemory(header, &block_info));
-  EXPECT_NE(reinterpret_cast<BlockTrailer*>(NULL), block_info.trailer);
+  EXPECT_NE(static_cast<BlockTrailer*>(nullptr), block_info.trailer);
 
   EXPECT_EQ(block_info.trailer->alloc_tid, ::GetCurrentThreadId());
   EXPECT_EQ(block_info.trailer->free_tid, ::GetCurrentThreadId());
@@ -703,7 +699,7 @@ TEST_P(BlockHeapManagerTest, QuarantineDoesntAlterBlockContents) {
   parameters.quarantine_size = GetAllocSize(kAllocSize);
   heap_manager_->set_parameters(parameters);
   void* mem = heap.Allocate(kAllocSize);
-  ASSERT_NE(reinterpret_cast<void*>(NULL), mem);
+  ASSERT_NE(static_cast<void*>(nullptr), mem);
   base::RandBytes(mem, kAllocSize);
 
   unsigned char sha1_before[base::kSHA1Length] = {};
@@ -744,7 +740,7 @@ TEST_P(BlockHeapManagerTest, SetTrailerPaddingSize) {
     EXPECT_GE(augmented_alloc_size, original_alloc_size);
 
     void* mem = heap.Allocate(kAllocSize);
-    ASSERT_TRUE(mem != NULL);
+    ASSERT_TRUE(mem != nullptr);
 
     size_t offset = kAllocSize;
     for (; offset < augmented_alloc_size - sizeof(BlockHeader);
@@ -767,7 +763,7 @@ TEST_P(BlockHeapManagerTest, BlockChecksumUpdatedWhenEnterQuarantine) {
   heap_manager_->set_parameters(parameters);
 
   void* mem = heap.Allocate(kAllocSize);
-  ASSERT_NE(reinterpret_cast<void*>(NULL), mem);
+  ASSERT_NE(static_cast<void*>(nullptr), mem);
   BlockInfo block_info = {};
   EXPECT_TRUE(Shadow::BlockInfoFromShadow(mem, &block_info));
   EXPECT_TRUE(BlockChecksumIsValid(block_info));
@@ -790,7 +786,7 @@ TEST_P(BlockHeapManagerTest, CorruptAsEntersQuarantine) {
   for (size_t i = 0; i < kChecksumRepeatCount; ++i) {
     heap.FlushQuarantine();
     void* mem = heap.Allocate(kAllocSize);
-    ASSERT_NE(static_cast<void*>(NULL), mem);
+    ASSERT_NE(static_cast<void*>(nullptr), mem);
     reinterpret_cast<int*>(mem)[-1] = rand();
     EXPECT_TRUE(heap.Free(mem));
 
@@ -818,7 +814,7 @@ TEST_P(BlockHeapManagerTest, CorruptAsExitsQuarantine) {
   for (size_t i = 0; i < kChecksumRepeatCount; ++i) {
     heap.FlushQuarantine();
     void* mem = heap.Allocate(kAllocSize);
-    ASSERT_NE(static_cast<void*>(NULL), mem);
+    ASSERT_NE(static_cast<void*>(nullptr), mem);
     EXPECT_TRUE(heap.Free(mem));
     EXPECT_TRUE(errors_.empty());
 
@@ -850,12 +846,12 @@ TEST_P(BlockHeapManagerTest, CorruptAsExitsQuarantineOnHeapDestroy) {
   // This can fail because of a checksum collision. However, we run it a
   // handful of times to keep the chances as small as possible.
   for (size_t i = 0; i < kChecksumRepeatCount; ++i) {
-    void* mem = NULL;
+    void* mem = nullptr;
     {
       ScopedHeap heap(heap_manager_);
       heap.FlushQuarantine();
       mem = heap.Allocate(kAllocSize);
-      ASSERT_NE(static_cast<void*>(NULL), mem);
+      ASSERT_NE(static_cast<void*>(nullptr), mem);
       EXPECT_TRUE(heap.Free(mem));
       EXPECT_TRUE(errors_.empty());
 
@@ -889,12 +885,12 @@ TEST_P(BlockHeapManagerTest, CorruptHeapOnTrimQuarantine) {
   // This can fail because of a checksum collision. However, we run it a
   // handful of times to keep the chances as small as possible.
   for (size_t i = 0; i < kChecksumRepeatCount; ++i) {
-    void* mem = NULL;
+    void* mem = nullptr;
     {
       ScopedHeap heap(heap_manager_);
       heap.FlushQuarantine();
       mem = heap.Allocate(kAllocSize);
-      ASSERT_NE(static_cast<void*>(NULL), mem);
+      ASSERT_NE(static_cast<void*>(nullptr), mem);
       EXPECT_TRUE(heap.Free(mem));
       EXPECT_TRUE(errors_.empty());
 
@@ -927,7 +923,7 @@ TEST_P(BlockHeapManagerTest, DoubleFree) {
 
   ScopedHeap heap(heap_manager_);
   void* mem = heap.Allocate(kAllocSize);
-  ASSERT_NE(static_cast<void*>(NULL), mem);
+  ASSERT_NE(static_cast<void*>(nullptr), mem);
   EXPECT_TRUE(heap.Free(mem));
   EXPECT_FALSE(heap.Free(mem));
 
@@ -953,14 +949,14 @@ TEST_P(BlockHeapManagerTest, SubsampledAllocationGuards) {
   for (size_t i = 0; i < kAllocationCount; ++i) {
     size_t alloc_size = kAllocationSizes[i % arraysize(kAllocationSizes)];
     void* alloc = heap.Allocate(alloc_size);
-    EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+    EXPECT_NE(static_cast<void*>(nullptr), alloc);
 
     for (size_t i = 0; i < alloc_size; ++i)
       EXPECT_TRUE(Shadow::IsAccessible(reinterpret_cast<uint8*>(alloc) + i));
 
     // Determine if the allocation has guards or not.
     BlockHeader* header = BlockGetHeaderFromBody(alloc);
-    if (header == NULL) {
+    if (header == nullptr) {
       ++unguarded_allocations;
     } else {
       ++guarded_allocations;
@@ -1012,7 +1008,7 @@ TEST_P(BlockHeapManagerTest, ZebraHeapIdInTrailerAfterAllocation) {
   ScopedHeap heap(heap_manager_);
   const size_t kAllocSize = 0x100;
   void* alloc = heap.Allocate(kAllocSize);
-  EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+  EXPECT_NE(static_cast<void*>(nullptr), alloc);
   ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
 
   // Get the heap_id from the block trailer.
@@ -1022,8 +1018,8 @@ TEST_P(BlockHeapManagerTest, ZebraHeapIdInTrailerAfterAllocation) {
   {
     ScopedBlockAccess block_access(block_info);
     // The heap_id stored in the block trailer should match the zebra heap id.
-    EXPECT_EQ(reinterpret_cast<HeapId>(test_zebra_block_heap_),
-        block_info.trailer->heap_id);
+    EXPECT_EQ(heap_manager_->zebra_block_heap_id_,
+              block_info.trailer->heap_id);
   }
 
   EXPECT_TRUE(heap.Free(alloc));
@@ -1039,7 +1035,7 @@ TEST_P(BlockHeapManagerTest, DefaultHeapIdInTrailerWhenZebraHeapIsFull) {
   test_zebra_block_heap_->set_refuse_allocations(true);
 
   void* alloc = heap.Allocate(kAllocSize);
-  EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+  EXPECT_NE(static_cast<void*>(nullptr), alloc);
   ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
 
   // Get the heap_id from the block trailer.
@@ -1063,7 +1059,7 @@ TEST_P(BlockHeapManagerTest, AllocStress) {
     // spread across the ZebraBlockheap and normal heaps.
     const size_t kAllocSize = (i * 997) % (9 * 1024);
     void* alloc = heap.Allocate(kAllocSize);
-    EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+    EXPECT_NE(static_cast<void*>(nullptr), alloc);
     ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
     // Free should succeed, even if the block is quarantined.
     EXPECT_TRUE(heap.Free(alloc));
@@ -1079,7 +1075,7 @@ TEST_P(BlockHeapManagerTest, QuarantinedAfterFree) {
 
   const size_t kAllocSize = 0x100;
   void* alloc = heap.Allocate(kAllocSize);
-  EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+  EXPECT_NE(static_cast<void*>(nullptr), alloc);
   ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
   // Free should succeed, even if the block is quarantined.
   EXPECT_TRUE(heap.Free(alloc));
@@ -1113,7 +1109,7 @@ TEST_P(BlockHeapManagerTest, DoubleFreeOnZebraHeap) {
 
   const size_t kAllocSize = 0xFF;
   void* alloc = heap.Allocate(kAllocSize);
-  EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+  EXPECT_NE(static_cast<void*>(nullptr), alloc);
   ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
 
   EXPECT_TRUE(heap.Free(alloc));
@@ -1130,7 +1126,7 @@ TEST_P(BlockHeapManagerTest, AllocatedBlockIsProtected) {
 
   const size_t kAllocSize = 0xFF;
   void* alloc = heap.Allocate(kAllocSize);
-  EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+  EXPECT_NE(static_cast<void*>(nullptr), alloc);
   ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
 
   BlockInfo block_info = {};
@@ -1170,7 +1166,7 @@ TEST_P(BlockHeapManagerTest, QuarantinedBlockIsProtected) {
   for (size_t i = 0; i < 20; ++i) {
     const size_t kAllocSize = 0xFF + i;
     void* alloc = heap.Allocate(kAllocSize);
-    EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+    EXPECT_NE(static_cast<void*>(nullptr), alloc);
     ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
 
     BlockInfo block_info = {};
@@ -1211,7 +1207,7 @@ TEST_P(BlockHeapManagerTest, NonQuarantinedBlockIsMarkedAsFreed) {
 
   const size_t kAllocSize = 0x100;
   void* alloc = heap.Allocate(kAllocSize);
-  EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+  EXPECT_NE(static_cast<void*>(nullptr), alloc);
   ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
 
   BlockInfo block_info = {};
@@ -1247,7 +1243,7 @@ TEST_P(BlockHeapManagerTest, ZebraBlockHeapQuarantineRatioIsRespected) {
   for (size_t i = 0; i < kAllocations; ++i) {
     const size_t kAllocSize = (0x100 + i) % 1024;
     void* alloc = heap.Allocate(kAllocSize);
-    EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+    EXPECT_NE(static_cast<void*>(nullptr), alloc);
 
     BlockInfo block_info = {};
     EXPECT_TRUE(Shadow::BlockInfoFromShadow(alloc, &block_info));
@@ -1272,7 +1268,7 @@ TEST_P(BlockHeapManagerTest, LargeBlockHeapUsedForLargeAllocations) {
 
   const size_t kAllocSize = GetPageSize() + 0x100;
   void* alloc = heap.Allocate(kAllocSize);
-  EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+  EXPECT_NE(static_cast<void*>(nullptr), alloc);
   ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
 
   // Get the heap_id from the block trailer.
@@ -1281,10 +1277,9 @@ TEST_P(BlockHeapManagerTest, LargeBlockHeapUsedForLargeAllocations) {
 
   {
     ScopedBlockAccess block_access(block_info);
-    BlockHeapInterface* large_block_heap = heap_manager_->large_block_heap_;
     // The heap_id stored in the block trailer should match the large block
     // heap id.
-    EXPECT_EQ(reinterpret_cast<HeapId>(large_block_heap),
+    EXPECT_EQ(heap_manager_->large_block_heap_id_,
               block_info.trailer->heap_id);
   }
 
@@ -1298,7 +1293,7 @@ TEST_P(BlockHeapManagerTest, LargeBlockHeapNotUsedForSmallAllocations) {
 
   const size_t kAllocSize = 0x100;
   void* alloc = heap.Allocate(kAllocSize);
-  EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
+  EXPECT_NE(static_cast<void*>(nullptr), alloc);
   ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
 
   // Get the heap_id from the block trailer.

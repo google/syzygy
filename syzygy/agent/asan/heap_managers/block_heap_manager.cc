@@ -43,15 +43,17 @@ using heaps::ZebraBlockHeap;
 
 BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
     : stack_cache_(stack_cache),
-      zebra_block_heap_(NULL),
-      large_block_heap_(NULL) {
-  DCHECK_NE(static_cast<StackCaptureCache*>(NULL), stack_cache);
+      process_heap_(nullptr),
+      process_heap_underlying_heap_(nullptr),
+      process_heap_id_(0),
+      zebra_block_heap_(nullptr),
+      zebra_block_heap_id_(0),
+      large_block_heap_id_(0) {
+  DCHECK_NE(static_cast<StackCaptureCache*>(nullptr), stack_cache);
   SetDefaultAsanParameters(&parameters_);
   PropagateParameters();
 
   // Creates the process heap and the internal heap.
-  process_heap_ = NULL;
-  process_heap_underlying_heap_ = NULL;
   InitProcessHeap();
 
   // Initialize the allocation-filter flag (using Thread Local Storage).
@@ -69,10 +71,13 @@ BlockHeapManager::~BlockHeapManager() {
     DestroyHeapUnlocked(iter_heaps->first, iter_heaps->second);
   heaps_.clear();
 
-  process_heap_ = NULL;
   // Clear the specialized heap references since they were deleted.
-  zebra_block_heap_ = NULL;
-  large_block_heap_ = NULL;
+  process_heap_ = nullptr;
+  process_heap_underlying_heap_ = nullptr;
+  process_heap_id_ = 0;
+  zebra_block_heap_ = nullptr;
+  zebra_block_heap_id_ = 0;
+  large_block_heap_id_ = 0;
 
   // Free the allocation-filter flag (TLS).
   CHECK_NE(TLS_OUT_OF_INDEXES, allocation_filter_flag_tls_);
@@ -83,7 +88,7 @@ BlockHeapManager::~BlockHeapManager() {
 
 HeapId BlockHeapManager::CreateHeap() {
   // Creates the underlying heap used by this heap.
-  HeapInterface* underlying_heap = NULL;
+  HeapInterface* underlying_heap = nullptr;
   if (parameters_.enable_ctmalloc) {
     underlying_heap = new heaps::CtMallocHeap(&shadow_memory_notifier_);
   } else {
@@ -94,15 +99,16 @@ HeapId BlockHeapManager::CreateHeap() {
 
   base::AutoLock lock(lock_);
   underlying_heaps_map_.insert(std::make_pair(heap, underlying_heap));
-  heaps_.insert(std::make_pair(heap, &shared_quarantine_));
-
-  return reinterpret_cast<HeapId>(heap);
+  auto result = heaps_.insert(std::make_pair(heap, &shared_quarantine_));
+  return GetHeapId(result);
 }
 
 bool BlockHeapManager::DestroyHeap(HeapId heap_id) {
+  DCHECK(IsValidHeapId(heap_id));
+  BlockHeapInterface* heap = GetHeapFromId(heap_id);
+
   base::AutoLock lock(lock_);
-  HeapQuarantineMap::iterator iter = heaps_.find(
-      reinterpret_cast<BlockHeapInterface*>(heap_id));
+  HeapQuarantineMap::iterator iter = heaps_.find(heap);
   // We should always be able to retrieve a heap that we previously passed to
   // the user.
   CHECK(iter != heaps_.end());
@@ -114,12 +120,12 @@ bool BlockHeapManager::DestroyHeap(HeapId heap_id) {
 }
 
 void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
-  DCHECK_NE(static_cast<HeapId>(NULL), heap_id);
+  DCHECK(IsValidHeapId(heap_id));
 
   // Some allocations can pass through without instrumentation.
   if (parameters_.allocation_guard_rate < 1.0 &&
       base::RandDouble() >= parameters_.allocation_guard_rate) {
-    HeapInterface* heap = reinterpret_cast<HeapInterface*>(heap_id);
+    BlockHeapInterface* heap = GetHeapFromId(heap_id);
     void* alloc = heap->Allocate(bytes);
     if ((heap->GetHeapFeatures() &
        HeapInterface::kHeapReportsReservations) != 0) {
@@ -133,41 +139,39 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
   // inserted.
 
   // We can always use the heap that was passed in.
-  BlockHeapInterface* heaps[3] = {
-      reinterpret_cast<BlockHeapInterface*>(heap_id), 0, 0 };
+  HeapId heaps[3] = { heap_id, 0, 0 };
   size_t heap_count = 1;
   if (MayUseLargeBlockHeap(bytes)) {
-    DCHECK_NE(reinterpret_cast<LargeBlockHeap*>(NULL), large_block_heap_);
     DCHECK_LT(heap_count, arraysize(heaps));
-    heaps[heap_count++] = large_block_heap_;
+    heaps[heap_count++] = large_block_heap_id_;
   }
 
   if (MayUseZebraBlockHeap(bytes)) {
-    DCHECK_NE(reinterpret_cast<ZebraBlockHeap*>(NULL), zebra_block_heap_);
     DCHECK_LT(heap_count, arraysize(heaps));
-    heaps[heap_count++] = zebra_block_heap_;
+    heaps[heap_count++] = zebra_block_heap_id_;
   }
 
   // Use the selected heaps to try to satisfy the allocation.
-  void* alloc = NULL;
+  void* alloc = nullptr;
   BlockLayout block_layout = {};
   for (int i = static_cast<int>(heap_count) - 1; i >= 0; --i) {
-    alloc = heaps[i]->AllocateBlock(
+    BlockHeapInterface* heap = GetHeapFromId(heaps[i]);
+    alloc = heap->AllocateBlock(
         bytes,
         0,
         parameters_.trailer_padding_size + sizeof(BlockTrailer),
         &block_layout);
-    if (alloc != NULL) {
-      heap_id = reinterpret_cast<HeapId>(heaps[i]);
+    if (alloc != nullptr) {
+      heap_id = heaps[i];
       break;
     }
   }
 
   // The allocation can fail if we're out of memory.
-  if (alloc == NULL)
-    return NULL;
+  if (alloc == nullptr)
+    return nullptr;
 
-  DCHECK_NE(reinterpret_cast<void*>(NULL), alloc);
+  DCHECK_NE(static_cast<void*>(nullptr), alloc);
   DCHECK_EQ(0u, reinterpret_cast<size_t>(alloc) % kShadowRatio);
   BlockInfo block = {};
   BlockInitialize(block_layout, alloc, false, &block);
@@ -177,7 +181,7 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
   StackCapture stack;
   stack.InitFromStack();
   block.header->alloc_stack = stack_cache_->SaveStackTrace(stack);
-  block.header->free_stack = NULL;
+  block.header->free_stack = nullptr;
   block.header->state = ALLOCATED_BLOCK;
 
   block.trailer->heap_id = heap_id;
@@ -190,16 +194,16 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
 }
 
 bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
-  DCHECK_NE(static_cast<HeapId>(NULL), heap_id);
+  DCHECK(IsValidHeapId(heap_id));
 
   // The standard allows calling free on a null pointer.
-  if (alloc == NULL)
+  if (alloc == nullptr)
     return true;
 
   BlockInfo block_info = {};
   if (!Shadow::IsBeginningOfBlockBody(alloc) ||
       !Shadow::BlockInfoFromShadow(alloc, &block_info)) {
-    return FreeUnguardedAlloc(reinterpret_cast<HeapInterface*>(heap_id), alloc);
+    return FreeUnguardedAlloc(heap_id, alloc);
   }
 
   // Precondition: A valid guarded allocation.
@@ -208,7 +212,7 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   if (!BlockChecksumIsValid(block_info)) {
     // The free stack hasn't yet been set, but may have been filled with junk.
     // Reset it.
-    block_info.header->free_stack = NULL;
+    block_info.header->free_stack = nullptr;
     ReportHeapError(alloc, CORRUPT_BLOCK);
     return FreeCorruptBlock(&block_info);
   }
@@ -221,21 +225,7 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   // heap_id is just a hint, the block trailer contains the heap used for the
   // allocation.
   heap_id = block_info.trailer->heap_id;
-  DCHECK_NE(static_cast<HeapId>(NULL), heap_id);
-
-  BlockQuarantineInterface* quarantine = NULL;
-  {
-    base::AutoLock lock(lock_);
-    HeapQuarantineMap::iterator iter_heap = heaps_.find(
-        reinterpret_cast<BlockHeapInterface*>(heap_id));
-    // We should always be able to retrieve a heap that we previously passed to
-    // the user.
-    CHECK(iter_heap != heaps_.end());
-
-    DCHECK_NE(reinterpret_cast<ShardedBlockQuarantine*>(NULL),
-              iter_heap->second);
-    quarantine = iter_heap->second;
-  }
+  BlockQuarantineInterface* quarantine = GetQuarantineFromId(heap_id);
 
   // We need to update the block's metadata before pushing it into the
   // quarantine, otherwise a concurrent thread might try to pop it while its in
@@ -273,14 +263,16 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
 }
 
 size_t BlockHeapManager::Size(HeapId heap_id, const void* alloc) {
-  DCHECK_NE(static_cast<HeapId>(NULL), heap_id);
+  DCHECK(IsValidHeapId(heap_id));
+
   if (Shadow::IsBeginningOfBlockBody(alloc)) {
     BlockInfo block_info = {};
     if (!Shadow::BlockInfoFromShadow(alloc, &block_info))
       return 0;
     return block_info.body_size;
   }
-  HeapInterface* heap = reinterpret_cast<HeapInterface*>(heap_id);
+
+  BlockHeapInterface* heap = GetHeapFromId(heap_id);
   if ((heap->GetHeapFeatures() &
         HeapInterface::kHeapSupportsGetAllocationSize) != 0) {
     return heap->GetAllocationSize(alloc);
@@ -290,13 +282,13 @@ size_t BlockHeapManager::Size(HeapId heap_id, const void* alloc) {
 }
 
 void BlockHeapManager::Lock(HeapId heap_id) {
-  DCHECK_NE(static_cast<HeapId>(NULL), heap_id);
-  reinterpret_cast<HeapInterface*>(heap_id)->Lock();
+  DCHECK(IsValidHeapId(heap_id));
+  GetHeapFromId(heap_id)->Lock();
 }
 
 void BlockHeapManager::Unlock(HeapId heap_id) {
-  DCHECK_NE(static_cast<HeapId>(NULL), heap_id);
-  reinterpret_cast<HeapInterface*>(heap_id)->Unlock();
+  DCHECK(IsValidHeapId(heap_id));
+  GetHeapFromId(heap_id)->Unlock();
 }
 
 void BlockHeapManager::BestEffortLockAll() {
@@ -328,6 +320,36 @@ void BlockHeapManager::set_parameters(
   PropagateParameters();
 }
 
+HeapId BlockHeapManager::GetHeapId(
+    const std::pair<HeapQuarantineMap::iterator, bool>& insert_result) const {
+  HeapQuarantinePair* hq_pair = &(*insert_result.first);
+  return reinterpret_cast<HeapId>(hq_pair);
+}
+
+bool BlockHeapManager::IsValidHeapId(HeapId heap_id) {
+  if (heap_id == 0)
+    return false;
+  HeapQuarantinePair* hq = reinterpret_cast<HeapQuarantinePair*>(heap_id);
+  if (hq->first == nullptr || hq->second == nullptr)
+    return false;
+  return true;
+}
+
+BlockHeapInterface* BlockHeapManager::GetHeapFromId(HeapId heap_id) {
+  DCHECK_NE(reinterpret_cast<HeapId>(nullptr), heap_id);
+  HeapQuarantinePair* hq = reinterpret_cast<HeapQuarantinePair*>(heap_id);
+  DCHECK_NE(static_cast<BlockHeapInterface*>(nullptr), hq->first);
+  return hq->first;
+}
+
+BlockQuarantineInterface* BlockHeapManager::GetQuarantineFromId(
+    HeapId heap_id) {
+  DCHECK_NE(reinterpret_cast<HeapId>(nullptr), heap_id);
+  HeapQuarantinePair* hq = reinterpret_cast<HeapQuarantinePair*>(heap_id);
+  DCHECK_NE(static_cast<BlockQuarantineInterface*>(nullptr), hq->second);
+  return hq->second;
+}
+
 void BlockHeapManager::PropagateParameters() {
   size_t quarantine_size = shared_quarantine_.max_quarantine_size();
   shared_quarantine_.set_max_quarantine_size(parameters_.quarantine_size);
@@ -337,27 +359,31 @@ void BlockHeapManager::PropagateParameters() {
   if (quarantine_size > parameters_.quarantine_size)
     TrimQuarantine(&shared_quarantine_);
 
-  if (parameters_.enable_zebra_block_heap && zebra_block_heap_ == NULL) {
+  if (parameters_.enable_zebra_block_heap && zebra_block_heap_ == nullptr) {
     // Initialize the zebra heap only if it isn't already initialized.
     // The zebra heap cannot be resized once created.
     base::AutoLock lock(lock_);
     zebra_block_heap_ = new ZebraBlockHeap(parameters_.zebra_block_heap_size,
                                            &shadow_memory_notifier_,
                                            internal_heap_.get());
-    heaps_.insert(std::make_pair(zebra_block_heap_, zebra_block_heap_));
+    // The zebra block heap is its own quarantine.
+    auto result = heaps_.insert(std::make_pair(
+        zebra_block_heap_, zebra_block_heap_));
+    zebra_block_heap_id_ = GetHeapId(result);
   }
 
-  if (zebra_block_heap_ != NULL) {
+  if (zebra_block_heap_ != nullptr) {
     zebra_block_heap_->set_quarantine_ratio(
         parameters_.zebra_block_heap_quarantine_ratio);
     TrimQuarantine(zebra_block_heap_);
   }
 
   // Create the LargeBlockHeap if need be.
-  if (parameters_.enable_large_block_heap && large_block_heap_ == NULL) {
+  if (parameters_.enable_large_block_heap && large_block_heap_id_ == 0) {
     base::AutoLock lock(lock_);
-    large_block_heap_ = new LargeBlockHeap(internal_heap_.get());
-    heaps_.insert(std::make_pair(large_block_heap_, &shared_quarantine_));
+    BlockHeapInterface* heap = new LargeBlockHeap(internal_heap_.get());
+    auto result = heaps_.insert(std::make_pair(heap, &shared_quarantine_));
+    large_block_heap_id_ = GetHeapId(result);
   }
 
   // TODO(chrisha|sebmarchand): Clean up existing blocks that exceed the
@@ -377,8 +403,8 @@ void BlockHeapManager::set_allocation_filter_flag(bool value) {
 bool BlockHeapManager::DestroyHeapUnlocked(
     BlockHeapInterface* heap,
     BlockQuarantineInterface* quarantine) {
-  DCHECK_NE(reinterpret_cast<BlockHeapInterface*>(NULL), heap);
-  DCHECK_NE(reinterpret_cast<BlockQuarantineInterface*>(NULL), quarantine);
+  DCHECK_NE(static_cast<BlockHeapInterface*>(nullptr), heap);
+  DCHECK_NE(static_cast<BlockQuarantineInterface*>(nullptr), quarantine);
 
   // Starts by removing all the block from this heap from the quarantine.
 
@@ -398,13 +424,14 @@ bool BlockHeapManager::DestroyHeapUnlocked(
     BlockInfo block_info = {};
     // If we can't retrieve the block information from the shadow then it means
     // that something went terribly wrong and that the shadow has been
-    // corrupted, there's nothing we can do in this case.
+    // corrupted; there's nothing we can do in this case.
     CHECK(Shadow::BlockInfoFromShadow(*iter_block, &block_info));
 
-    // Remove protection to be able to access to the block header.
+    // Remove protection to enable access to the block header.
     BlockProtectNone(block_info);
-    if (reinterpret_cast<BlockHeapInterface*>(block_info.trailer->heap_id) ==
-        heap) {
+    BlockHeapInterface* block_heap = GetHeapFromId(
+        block_info.trailer->heap_id);
+    if (block_heap == heap) {
       if (!FreePotentiallyCorruptBlock(&block_info))
         return false;
     } else {
@@ -432,7 +459,7 @@ bool BlockHeapManager::DestroyHeapUnlocked(
 
   // Not all the heaps have an underlying heap.
   if (iter != underlying_heaps_map_.end()) {
-    DCHECK_NE(reinterpret_cast<HeapInterface*>(NULL), iter->second);
+    DCHECK_NE(static_cast<HeapInterface*>(nullptr), iter->second);
     delete iter->second;
     underlying_heaps_map_.erase(iter);
   }
@@ -443,7 +470,7 @@ bool BlockHeapManager::DestroyHeapUnlocked(
 }
 
 void BlockHeapManager::TrimQuarantine(BlockQuarantineInterface* quarantine) {
-  DCHECK_NE(reinterpret_cast<BlockQuarantineInterface*>(NULL), quarantine);
+  DCHECK_NE(static_cast<BlockQuarantineInterface*>(nullptr), quarantine);
 
   BlockQuarantineInterface::ObjectVector blocks_to_free;
 
@@ -451,7 +478,7 @@ void BlockHeapManager::TrimQuarantine(BlockQuarantineInterface* quarantine) {
   if (parameters_.quarantine_size == 0) {
     quarantine->Empty(&blocks_to_free);
   } else {
-    BlockHeader* block_to_free = NULL;
+    BlockHeader* block_to_free = nullptr;
     while (quarantine->Pop(&block_to_free))
       blocks_to_free.push_back(block_to_free);
   }
@@ -459,7 +486,7 @@ void BlockHeapManager::TrimQuarantine(BlockQuarantineInterface* quarantine) {
   BlockQuarantineInterface::ObjectVector::iterator iter_block =
       blocks_to_free.begin();
   for (; iter_block != blocks_to_free.end(); ++iter_block) {
-    DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), *iter_block);
+    DCHECK_NE(static_cast<BlockHeader*>(nullptr), *iter_block);
     BlockInfo block_info = {};
     CHECK(Shadow::BlockInfoFromShadow(*iter_block, &block_info));
     CHECK(FreePotentiallyCorruptBlock(&block_info));
@@ -467,7 +494,7 @@ void BlockHeapManager::TrimQuarantine(BlockQuarantineInterface* quarantine) {
 }
 
 bool BlockHeapManager::FreePotentiallyCorruptBlock(BlockInfo* block_info) {
-  DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
+  DCHECK_NE(static_cast<BlockInfo*>(nullptr), block_info);
 
   BlockProtectNone(*block_info);
 
@@ -481,34 +508,26 @@ bool BlockHeapManager::FreePotentiallyCorruptBlock(BlockInfo* block_info) {
 }
 
 bool BlockHeapManager::FreeCorruptBlock(BlockInfo* block_info) {
-  DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
+  DCHECK_NE(static_cast<BlockInfo*>(nullptr), block_info);
   ClearCorruptBlockMetadata(block_info);
   return FreePristineBlock(block_info);
 }
 
 bool BlockHeapManager::FreePristineBlock(BlockInfo* block_info) {
-  DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
+  DCHECK_NE(static_cast<BlockInfo*>(nullptr), block_info);
+  BlockHeapInterface* heap = GetHeapFromId(block_info->trailer->heap_id);
 
-  BlockHeapInterface* heap = reinterpret_cast<BlockHeapInterface*>(
-      block_info->trailer->heap_id);
-
-  if (heap == NULL) {
-    // TODO(sebmarchand): Iterates over the heaps to find the one owning this
-    //     block. This is currently useless as we're using the WinHeap which
-    //     doesn't have the kHeapSupportsIsAllocated feature.
-    return false;
-  }
-
+  // Remove block protections so the redzones may be modified.
   BlockProtectNone(*block_info);
 
   // Return pointers to the stacks for reference counting purposes.
-  if (block_info->header->alloc_stack != NULL) {
+  if (block_info->header->alloc_stack != nullptr) {
     stack_cache_->ReleaseStackTrace(block_info->header->alloc_stack);
-    block_info->header->alloc_stack = NULL;
+    block_info->header->alloc_stack = nullptr;
   }
-  if (block_info->header->free_stack != NULL) {
+  if (block_info->header->free_stack != nullptr) {
     stack_cache_->ReleaseStackTrace(block_info->header->free_stack);
-    block_info->header->free_stack = NULL;
+    block_info->header->free_stack = nullptr;
   }
 
   block_info->header->state = FREED_BLOCK;
@@ -523,8 +542,9 @@ bool BlockHeapManager::FreePristineBlock(BlockInfo* block_info) {
   return heap->FreeBlock(*block_info);
 }
 
-bool BlockHeapManager::FreeUnguardedAlloc(HeapInterface* heap, void* alloc) {
-  DCHECK_NE(static_cast<HeapInterface*>(NULL), heap);
+bool BlockHeapManager::FreeUnguardedAlloc(HeapId heap_id, void* alloc) {
+  DCHECK(IsValidHeapId(heap_id));
+  BlockHeapInterface* heap = GetHeapFromId(heap_id);
 
   // Check if the allocation comes from the process heap, if so there's two
   // possibilities:
@@ -542,29 +562,29 @@ bool BlockHeapManager::FreeUnguardedAlloc(HeapInterface* heap, void* alloc) {
     DCHECK_NE(0U, heap->GetHeapFeatures() &
                   HeapInterface::kHeapSupportsGetAllocationSize);
     Shadow::Poison(alloc,
-                   Size(reinterpret_cast<HeapId>(heap), alloc),
+                   Size(heap_id, alloc),
                    kAsanReservedMarker);
   }
   return heap->Free(alloc);
 }
 
 void BlockHeapManager::ClearCorruptBlockMetadata(BlockInfo* block_info) {
-  DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
-  DCHECK_NE(static_cast<BlockHeader*>(NULL), block_info->header);
+  DCHECK_NE(static_cast<BlockInfo*>(nullptr), block_info);
+  DCHECK_NE(static_cast<BlockHeader*>(nullptr), block_info->header);
 
-  // Set the invalid stack captures to NULL.
+  // Set the invalid stack captures to nullptr.
   if (!stack_cache_->StackCapturePointerIsValid(
       block_info->header->alloc_stack)) {
-    block_info->header->alloc_stack = NULL;
+    block_info->header->alloc_stack = nullptr;
   }
   if (!stack_cache_->StackCapturePointerIsValid(
       block_info->header->free_stack)) {
-    block_info->header->free_stack = NULL;
+    block_info->header->free_stack = nullptr;
   }
 }
 
 void BlockHeapManager::ReportHeapError(void* address, BadAccessKind kind) {
-  DCHECK_NE(reinterpret_cast<void*>(NULL), address);
+  DCHECK_NE(static_cast<void*>(nullptr), address);
 
   // Collect information about the error.
   AsanErrorInfo error_info = {};
@@ -583,7 +603,7 @@ void BlockHeapManager::ReportHeapError(void* address, BadAccessKind kind) {
 }
 
 void BlockHeapManager::InitProcessHeap() {
-  CHECK_EQ(reinterpret_cast<BlockHeapInterface*>(NULL), process_heap_);
+  CHECK_EQ(static_cast<BlockHeapInterface*>(nullptr), process_heap_);
   if (parameters_.enable_ctmalloc) {
     internal_heap_.reset(
         new heaps::CtMallocHeap(&shadow_memory_notifier_));
@@ -598,7 +618,9 @@ void BlockHeapManager::InitProcessHeap() {
   process_heap_ = new heaps::SimpleBlockHeap(process_heap_underlying_heap_);
   underlying_heaps_map_.insert(std::make_pair(process_heap_,
                                               process_heap_underlying_heap_));
-  heaps_.insert(std::make_pair(process_heap_, &shared_quarantine_));
+  auto result = heaps_.insert(std::make_pair(
+      process_heap_, &shared_quarantine_));
+  process_heap_id_ = GetHeapId(result);
 }
 
 bool BlockHeapManager::MayUseLargeBlockHeap(size_t bytes) const {

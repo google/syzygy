@@ -39,7 +39,6 @@ namespace asan {
 // Forward declarations
 namespace heaps {
 
-class LargeBlockHeap;
 class ZebraBlockHeap;
 
 }  // namespace heaps
@@ -101,8 +100,8 @@ class BlockHeapManager : public HeapManagerInterface {
     heap_error_callback_ = heap_error_callback;
   }
 
-  // Returns the process heap.
-  HeapId process_heap() { return reinterpret_cast<HeapId>(process_heap_); }
+  // Returns the process heap ID.
+  HeapId process_heap() { return process_heap_id_; }
 
   // Returns the allocation-filter flag value.
   // @returns the allocation-filter flag value.
@@ -132,6 +131,31 @@ class BlockHeapManager : public HeapManagerInterface {
   // may share a single quarantine.
   typedef std::unordered_map<BlockHeapInterface*, BlockQuarantineInterface*>
       HeapQuarantineMap;
+  typedef BlockHeapManager::HeapQuarantineMap::value_type
+      HeapQuarantinePair;
+
+  // Given the result of an HeapQuarantineMap insert, returns a heap id.
+  // @param insert_result The result of a call to heaps_.insert.
+  // @returns the ID associated with the inserted heap.
+  HeapId GetHeapId(
+      const std::pair<HeapQuarantineMap::iterator, bool>& insert_result) const;
+
+  // Determines if a heap ID is valid.
+  // @param heap_id The heap_id to validate.
+  // @returns true if the given heap id is valid.
+  bool IsValidHeapId(HeapId heap_id);
+
+  // Given a heap ID, returns the underlying heap.
+  // @param heap_id The ID of the heap to look up.
+  // @returns a pointer to the heap implementation.
+  // @note DCHECKs on invalid input.
+  BlockHeapInterface* GetHeapFromId(HeapId heap_id);
+
+  // Given a heap ID, returns the associated quarantine.
+  // @param heap_id The ID of the heap whose quarantine is to be looked up.
+  // @returns a pointer to the quarantine implementation.
+  // @note DCHECKs on invalid input.
+  BlockQuarantineInterface* GetQuarantineFromId(HeapId heap_id);
 
   // Propagates the parameters to the appropriate modules.
   // @note This function is responsible for acquiring lock_ when necessary.
@@ -180,11 +204,11 @@ class BlockHeapManager : public HeapManagerInterface {
   bool FreePristineBlock(BlockInfo* block_info);
 
   // Free an unguarded allocation.
-  // @param heap A hint on the heap that might contain this allocation.
+  // @param heap_id A hint about the heap that might contain this allocation.
   // @param alloc The allocation to be freed.
   // @returns true if the allocation has been successfully freed, false
   //     otherwise.
-  bool FreeUnguardedAlloc(HeapInterface* heap, void* alloc);
+  bool FreeUnguardedAlloc(HeapId heap_id, void* alloc);
 
   // Clears the metadata of a corrupt block. After calling this function the
   // block can safely be passed to FreeBlock.
@@ -244,6 +268,7 @@ class BlockHeapManager : public HeapManagerInterface {
   // The process's heap.
   BlockHeapInterface* process_heap_;
   HeapInterface* process_heap_underlying_heap_;
+  HeapId process_heap_id_;
 
   // Memory notifier used to update the shadow memory.
   memory_notifiers::ShadowMemoryNotifier shadow_memory_notifier_;
@@ -257,11 +282,10 @@ class BlockHeapManager : public HeapManagerInterface {
   // HeapQuarantineMap, this is simply a useful pointer for finding the
   // zebra heap directly.
   heaps::ZebraBlockHeap* zebra_block_heap_;
+  HeapId zebra_block_heap_id_;
 
-  // Points to the LargeBlockHeap instance used by this heap manager.
-  // Lifetime management is provided by the HeapQuarantineMap so this is
-  // simply a useful pointer for finding it directly.
-  heaps::LargeBlockHeap* large_block_heap_;
+  // The ID of the large block heap. Allows accessing it directly.
+  HeapId large_block_heap_id_;
 
   // Stores the AllocationFilterFlag TLS slot.
   DWORD allocation_filter_flag_tls_;
