@@ -18,7 +18,7 @@
 #include <string>
 
 #include "base/logging.h"
-#include "syzygy/trace/rpc/rpc_helpers.h"
+#include "syzygy/common/rpc/helpers.h"
 
 namespace agent {
 namespace asan {
@@ -72,7 +72,7 @@ class AsanLogger {
 
  protected:
   // The RPC binding.
-  trace::client::ScopedRpcBinding rpc_binding_;
+  common::rpc::ScopedRpcBinding rpc_binding_;
 
   // The logger's instance id.
   std::wstring instance_id_;

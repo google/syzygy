@@ -18,10 +18,10 @@
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/file_util.h"
-#include "base/logging.h"
-#include "base/path_service.h"
 #include "base/files/file_path.h"
+#include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/path_service.h"
 #include "base/process/kill.h"
 #include "base/process/launch.h"
 #include "base/strings/string_number_conversions.h"
@@ -30,9 +30,9 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread.h"
 #include "syzygy/common/com_utils.h"
+#include "syzygy/common/rpc/helpers.h"
 #include "syzygy/trace/common/service_util.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
-#include "syzygy/trace/rpc/rpc_helpers.h"
 #include "syzygy/trace/service/service.h"
 #include "syzygy/trace/service/service_rpc_impl.h"
 #include "syzygy/trace/service/session_trace_file_writer_factory.h"
@@ -41,8 +41,8 @@ namespace trace {
 namespace service {
 namespace {
 
-using ::trace::client::CreateRpcBinding;
-using ::trace::client::InvokeRpc;
+using ::common::rpc::CreateRpcBinding;
+using ::common::rpc::InvokeRpc;
 
 // Minimum buffer size to allow (1 MB).
 const int kMinBufferSize = 1024 * 1024;

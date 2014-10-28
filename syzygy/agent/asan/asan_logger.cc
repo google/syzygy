@@ -15,22 +15,22 @@
 #include "syzygy/agent/asan/asan_logger.h"
 
 #include "base/command_line.h"
+#include "base/debug/stack_trace.h"
 #include "base/environment.h"
 #include "base/logging.h"
-#include "base/debug/stack_trace.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/process/launch.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "syzygy/common/rpc/helpers.h"
 #include "syzygy/trace/rpc/logger_rpc.h"
-#include "syzygy/trace/rpc/rpc_helpers.h"
 
 namespace agent {
 namespace asan {
 
 namespace {
 
-using trace::client::GetInstanceString;
+using common::rpc::GetInstanceString;
 
 AsanLogger* logger_instance = NULL;
 
@@ -71,7 +71,7 @@ void AsanLogger::Init() {
         "PID=%d; cmd-line='%ls'\n",
         ::GetCurrentProcessId(),
         command_line->GetCommandLineString().c_str());
-    success = trace::client::InvokeRpc(
+    success = common::rpc::InvokeRpc(
         &LoggerClient_Write,
         rpc_binding_.Get(),
         reinterpret_cast<const unsigned char*>(message.c_str())).succeeded();
@@ -82,7 +82,7 @@ void AsanLogger::Init() {
 
 void AsanLogger::Stop() {
   if (rpc_binding_.Get() != NULL) {
-    trace::client::InvokeRpc(
+    common::rpc::InvokeRpc(
         &LoggerClient_Stop,
         rpc_binding_.Get());
   }
@@ -91,7 +91,7 @@ void AsanLogger::Stop() {
 void AsanLogger::Write(const std::string& message) {
   // If we're bound to a logging endpoint, log the message there.
   if (rpc_binding_.Get() != NULL) {
-    trace::client::InvokeRpc(
+    common::rpc::InvokeRpc(
         &LoggerClient_Write,
         rpc_binding_.Get(),
         reinterpret_cast<const unsigned char*>(message.c_str()));
@@ -104,7 +104,7 @@ void AsanLogger::WriteWithContext(const std::string& message,
   if (rpc_binding_.Get() != NULL) {
     ExecutionContext exec_context = {};
     InitExecutionContext(context, &exec_context);
-    trace::client::InvokeRpc(
+    common::rpc::InvokeRpc(
         &LoggerClient_WriteWithContext,
         rpc_binding_.Get(),
         reinterpret_cast<const unsigned char*>(message.c_str()),
@@ -117,7 +117,7 @@ void AsanLogger::WriteWithStackTrace(const std::string& message,
                                      size_t trace_length) {
   // If we're bound to a logging endpoint, log the message there.
   if (rpc_binding_.Get() != NULL) {
-    trace::client::InvokeRpc(
+    common::rpc::InvokeRpc(
         &LoggerClient_WriteWithTrace,
         rpc_binding_.Get(),
         reinterpret_cast<const unsigned char*>(message.c_str()),
@@ -141,11 +141,9 @@ void AsanLogger::SaveMiniDump(CONTEXT* context, AsanErrorInfo* error_info) {
   exception.ExceptionInformation[1] = reinterpret_cast<ULONG_PTR>(error_info);
 
   const EXCEPTION_POINTERS pointers = { &exception, context };
-  trace::client::InvokeRpc(&LoggerClient_SaveMiniDump,
-                           rpc_binding_.Get(),
-                           ::GetCurrentThreadId(),
-                           reinterpret_cast<unsigned long>(&pointers),
-                           0);
+  common::rpc::InvokeRpc(&LoggerClient_SaveMiniDump, rpc_binding_.Get(),
+                         ::GetCurrentThreadId(),
+                         reinterpret_cast<unsigned long>(&pointers), 0);
 }
 
 }  // namespace asan

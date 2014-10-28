@@ -24,18 +24,20 @@
 #include "base/threading/thread.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/common/rpc/helpers.h"
 #include "syzygy/trace/agent_logger/agent_logger_rpc_impl.h"
-#include "syzygy/trace/rpc/rpc_helpers.h"
 
 namespace trace {
 namespace agent_logger {
 
 namespace {
 
+using ::common::rpc::CreateRpcBinding;
+using ::common::rpc::GetInstanceString;
+using ::common::rpc::InvokeRpc;
+using ::common::rpc::ScopedRpcBinding;
 using testing::_;
 using testing::Return;
-using trace::client::CreateRpcBinding;
-using trace::client::InvokeRpc;
 using trace::common::Service;
 
 int __declspec(noinline) FunctionA(const base::Callback<void(void)>& callback) {
@@ -266,9 +268,9 @@ TEST_F(LoggerTest, Write) {
 
 TEST_F(LoggerTest, RpcWrite) {
   // Connect to the logger over RPC.
-  trace::client::ScopedRpcBinding rpc_binding;
+  ScopedRpcBinding rpc_binding;
   std::wstring endpoint(
-      trace::client::GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
+      GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
   ASSERT_TRUE(rpc_binding.Open(kLoggerRpcProtocol, endpoint));
 
   // Write to and stop the logger via RPC.
@@ -300,9 +302,9 @@ TEST_F(LoggerTest, RpcWrite) {
 
 TEST_F(LoggerTest, RpcWriteWithStack) {
   // Connect to the logger over RPC.
-  trace::client::ScopedRpcBinding rpc_binding;
+  ScopedRpcBinding rpc_binding;
   std::wstring endpoint(
-      trace::client::GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
+      GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
   ASSERT_TRUE(rpc_binding.Open(kLoggerRpcProtocol, endpoint));
 
   HANDLE process = ::GetCurrentProcess();
@@ -339,9 +341,9 @@ TEST_F(LoggerTest, RpcWriteWithStack) {
 
 TEST_F(LoggerTest, RpcWriteWithContext) {
   // Connect to the logger over RPC.
-  trace::client::ScopedRpcBinding rpc_binding;
+  ScopedRpcBinding rpc_binding;
   std::wstring endpoint(
-      trace::client::GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
+      GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
   ASSERT_TRUE(rpc_binding.Open(kLoggerRpcProtocol, endpoint));
 
   // Write to and stop the logger via RPC.
@@ -370,9 +372,9 @@ TEST_F(LoggerTest, RpcWriteWithContext) {
 
 TEST_F(LoggerTest, RpcGenerateMiniDump) {
   // Connect to the logger over RPC.
-  trace::client::ScopedRpcBinding rpc_binding;
+  ScopedRpcBinding rpc_binding;
   std::wstring endpoint(
-      trace::client::GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
+      GetInstanceString(kLoggerRpcEndpointRoot, instance_id_));
   ASSERT_TRUE(rpc_binding.Open(kLoggerRpcProtocol, endpoint));
 
   // Write to and stop the logger via RPC.

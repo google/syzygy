@@ -27,15 +27,15 @@
 #include "base/win/scoped_handle.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/common/dbghelp_util.h"
+#include "syzygy/common/rpc/helpers.h"
 #include "syzygy/pe/find.h"
-#include "syzygy/trace/rpc/rpc_helpers.h"
 
 namespace trace {
 namespace agent_logger {
 
 namespace {
 
-using trace::client::GetInstanceString;
+using ::common::rpc::GetInstanceString;
 
 // A helper class to manage a SYMBOL_INFO structure.
 template <size_t max_name_len>

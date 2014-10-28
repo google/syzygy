@@ -36,7 +36,6 @@
 #include "syzygy/common/path_util.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
-#include "syzygy/trace/rpc/rpc_helpers.h"
 
 using agent::client::Client;
 using agent::common::ScopedLastErrorKeeper;

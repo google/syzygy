@@ -14,8 +14,8 @@
 //
 // Helper functions to wrap RPC invocations.
 
-#ifndef SYZYGY_TRACE_RPC_RPC_HELPERS_H_
-#define SYZYGY_TRACE_RPC_RPC_HELPERS_H_
+#ifndef SYZYGY_COMMON_RPC_HELPERS_H_
+#define SYZYGY_COMMON_RPC_HELPERS_H_
 
 #include <rpc.h>
 #include <wtypes.h>
@@ -25,8 +25,8 @@
 // TODO(rogerm): Is there directly usable stuff in base/callback.h that
 //     might make this simpler/cleaner?
 
-namespace trace {
-namespace client {
+namespace common {
+namespace rpc {
 
 // Create an RPC binding.
 //
@@ -143,7 +143,7 @@ class ScopedRpcBinding {
   DISALLOW_COPY_AND_ASSIGN(ScopedRpcBinding);
 };
 
-}  // namespace client
-}  // namespace trace
+}  // namespace rpc
+}  // namespace common
 
-#endif  // SYZYGY_TRACE_RPC_RPC_HELPERS_H_
+#endif  // SYZYGY_COMMON_RPC_HELPERS_H_

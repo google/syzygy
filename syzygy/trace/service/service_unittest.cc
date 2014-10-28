@@ -31,15 +31,17 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/align.h"
+#include "syzygy/common/rpc/helpers.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/parse/parse_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
-#include "syzygy/trace/rpc/rpc_helpers.h"
 #include "syzygy/trace/service/service_rpc_impl.h"
 #include "syzygy/trace/service/session_trace_file_writer_factory.h"
 
-using namespace trace::client;
+using ::common::rpc::InvokeRpc;
+using ::common::rpc::RpcStatus;
+using trace::client::TraceFileSegment;
 
 namespace trace {
 namespace service {

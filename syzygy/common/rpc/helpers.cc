@@ -15,15 +15,15 @@
 // Declares utility functions used by the call trace client and its unit
 // tests.
 
-#include "syzygy/trace/rpc/rpc_helpers.h"
+#include "syzygy/common/rpc/helpers.h"
 
 #include <windows.h>
 
 #include "base/logging.h"
 #include "syzygy/common/com_utils.h"
 
-namespace trace {
-namespace client {
+namespace common {
+namespace rpc {
 
 bool CreateRpcBinding(const base::StringPiece16& protocol,
                       const base::StringPiece16& endpoint,
@@ -104,5 +104,5 @@ bool ScopedRpcBinding::Close() {
   return true;
 }
 
-}  // namespace client
-}  // namespace trace
+}  // namespace rpc
+}  // namespace common

@@ -36,17 +36,8 @@
       'includes': ['../../build/midl_rpc.gypi'],
       'sources': ['call_trace_rpc.idl'],
       'dependencies': [
-        'rpc_common_lib',
+        '<(src)/syzygy/common/rpc/rpc.gyp:common_rpc_lib',
         '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
-      ],
-    },
-    {
-      'target_name': 'rpc_common_lib',
-      'type': 'static_library',
-      'sources': [
-        'rpc_helpers.cc',
-        'rpc_helpers.h',
-        'rpc_mem.cc',
       ],
     },
     {
@@ -62,7 +53,7 @@
       'includes': ['../../build/midl_rpc.gypi'],
       'sources': ['logger_rpc.idl'],
       'dependencies': [
-        'rpc_common_lib',
+        '<(src)/syzygy/common/rpc/rpc.gyp:common_rpc_lib',
         '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
       ],
     },

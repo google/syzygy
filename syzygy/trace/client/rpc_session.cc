@@ -16,10 +16,10 @@
 #include "syzygy/trace/client/rpc_session.h"
 
 #include "syzygy/common/com_utils.h"
+#include "syzygy/common/rpc/helpers.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/call_trace_rpc.h"
-#include "syzygy/trace/rpc/rpc_helpers.h"
 
 // http://blogs.msdn.com/oldnewthing/archive/2004/10/25/247180.aspx
 extern "C" IMAGE_DOS_HEADER __ImageBase;
@@ -92,18 +92,17 @@ bool RpcSession::CreateSession(TraceFileSegment* segment) {
   ::GetSyzygyCallTraceRpcProtocol(&protocol);
   ::GetSyzygyCallTraceRpcEndpoint(instance_id_, &endpoint);
 
-  if (!CreateRpcBinding(protocol, endpoint, &rpc_binding_)) {
+  if (!::common::rpc::CreateRpcBinding(protocol, endpoint, &rpc_binding_)) {
     is_disabled_ = true;
     return false;
   }
 
   DCHECK(rpc_binding_ != 0);
 
-  bool succeeded = InvokeRpc(CallTraceClient_CreateSession,
-                             rpc_binding_,
-                             &session_handle_,
-                             &segment->buffer_info,
-                             &flags_).succeeded();
+  bool succeeded =
+      ::common::rpc::InvokeRpc(CallTraceClient_CreateSession, rpc_binding_,
+                               &session_handle_, &segment->buffer_info,
+                               &flags_).succeeded();
 
   if (!succeeded) {
     // We often have multiple agents running simultaneously in unittests,
@@ -135,9 +134,9 @@ bool RpcSession::AllocateBuffer(TraceFileSegment* segment) {
   DCHECK(IsTracing());
   DCHECK(segment != NULL);
 
-  bool succeeded = InvokeRpc(CallTraceClient_AllocateBuffer,
-                             session_handle_,
-                             &segment->buffer_info).succeeded();
+  bool succeeded =
+      ::common::rpc::InvokeRpc(CallTraceClient_AllocateBuffer, session_handle_,
+                               &segment->buffer_info).succeeded();
 
   return succeeded ? MapSegmentBuffer(segment) : false;
 }
@@ -152,10 +151,10 @@ bool RpcSession::AllocateBuffer(size_t min_size, TraceFileSegment* segment) {
   const size_t kHeaderSize = sizeof(RecordPrefix) +
       sizeof(TraceFileSegmentHeader);
 
-  bool succeeded = InvokeRpc(CallTraceClient_AllocateLargeBuffer,
-                             session_handle_,
-                             min_size + kHeaderSize,
-                             &segment->buffer_info).succeeded();
+  bool succeeded =
+      ::common::rpc::InvokeRpc(CallTraceClient_AllocateLargeBuffer,
+                               session_handle_, min_size + kHeaderSize,
+                               &segment->buffer_info).succeeded();
   if (!succeeded)
     return false;
 
@@ -172,9 +171,9 @@ bool RpcSession::ExchangeBuffer(TraceFileSegment* segment) {
   DCHECK(IsTracing());
   DCHECK(segment != NULL);
 
-  bool succeeded = InvokeRpc(CallTraceClient_ExchangeBuffer,
-                             session_handle_,
-                             &segment->buffer_info).succeeded();
+  bool succeeded =
+      ::common::rpc::InvokeRpc(CallTraceClient_ExchangeBuffer, session_handle_,
+                               &segment->buffer_info).succeeded();
 
   return succeeded ? MapSegmentBuffer(segment) : false;
 }
@@ -183,16 +182,15 @@ bool RpcSession::ReturnBuffer(TraceFileSegment* segment) {
   DCHECK(IsTracing());
   DCHECK(segment != NULL);
 
-  return InvokeRpc(CallTraceClient_ReturnBuffer,
-                   session_handle_,
-                   &segment->buffer_info).succeeded();
+  return ::common::rpc::InvokeRpc(CallTraceClient_ReturnBuffer, session_handle_,
+                                  &segment->buffer_info).succeeded();
 }
 
 bool RpcSession::CloseSession() {
   DCHECK(IsTracing());
 
-  bool succeeded = InvokeRpc(CallTraceClient_CloseSession,
-                             &session_handle_).succeeded();
+  bool succeeded = ::common::rpc::InvokeRpc(CallTraceClient_CloseSession,
+                                            &session_handle_).succeeded();
 
   ignore_result(::RpcBindingFree(&rpc_binding_));
   rpc_binding_ = NULL;

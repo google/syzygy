@@ -20,9 +20,9 @@
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/file_util.h"
-#include "base/path_service.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/path_service.h"
 #include "base/process/launch.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -35,10 +35,7 @@
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/parse/parse_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
-#include "syzygy/trace/rpc/rpc_helpers.h"
 #include "syzygy/trace/service/service_rpc_impl.h"
-
-using namespace trace::client;
 
 namespace trace {
 namespace agent_logger {

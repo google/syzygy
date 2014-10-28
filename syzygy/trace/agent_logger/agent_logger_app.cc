@@ -21,27 +21,27 @@
 #include "base/environment.h"
 #include "base/file_util.h"
 #include "base/path_service.h"
-#include "base/rand_util.h"
 #include "base/process/kill.h"
 #include "base/process/launch.h"
 #include "base/process/process.h"
+#include "base/rand_util.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/scoped_handle.h"
+#include "syzygy/common/rpc/helpers.h"
 #include "syzygy/trace/agent_logger/agent_logger.h"
 #include "syzygy/trace/agent_logger/agent_logger_rpc_impl.h"
 #include "syzygy/trace/common/service_util.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/logger_rpc.h"
-#include "syzygy/trace/rpc/rpc_helpers.h"
 
 namespace trace {
 namespace agent_logger {
 
 namespace {
 
-using trace::client::GetInstanceString;
+using ::common::rpc::GetInstanceString;
 
 // The usage string for the logger app.
 const char kUsageFormatStr[] =
@@ -90,12 +90,12 @@ bool SendStopRequest(const base::StringPiece16& instance_id) {
             << endpoint << "' via " << protocol << '.';
 
   handle_t binding = NULL;
-  if (!trace::client::CreateRpcBinding(protocol, endpoint, &binding)) {
+  if (!::common::rpc::CreateRpcBinding(protocol, endpoint, &binding)) {
     LOG(ERROR) << "Failed to connect to logging service.";
     return false;
   }
 
-  if (!trace::client::InvokeRpc(LoggerClient_Stop, binding).succeeded()) {
+  if (!::common::rpc::InvokeRpc(LoggerClient_Stop, binding).succeeded()) {
     LOG(ERROR) << "Failed to stop logging service.";
     return false;
   }
