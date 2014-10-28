@@ -1,0 +1,7 @@
+namespace kasko {
+
+class Service {
+  public:
+   void SendDiagnosticReport(base::ProcessId client_process_id,
+                             const char* protobuf, size_t length);
+};

@@ -1,0 +1,9 @@
+namespace kasko {
+
+namespace {
+
+ServiceBridge* g_service_bridge = NULL;
+
+}  // namespace
+
+}  // namespace kasko

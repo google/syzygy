@@ -154,13 +154,13 @@ class CallTraceServiceTest : public testing::Test {
 
     ASSERT_TRUE(client_rpc_binding_ == 0);
 
-    ASSERT_EQ(RPC_S_OK, ::RpcStringBindingCompose(
-        NULL,  // UUID.
-        reinterpret_cast<RPC_WSTR>(&protocol[0]),
-        NULL,  // Address.
-        reinterpret_cast<RPC_WSTR>(&endpoint[0]),
-        NULL,  // Options.
-        &string_binding));
+    ASSERT_EQ(RPC_S_OK,
+              ::RpcStringBindingCompose(NULL,  // UUID.
+                                        ::common::rpc::AsRpcWstr(&protocol[0]),
+                                        NULL,  // Address.
+                                        ::common::rpc::AsRpcWstr(&endpoint[0]),
+                                        NULL,  // Options.
+                                        &string_binding));
 
     ASSERT_EQ(RPC_S_OK, ::RpcBindingFromStringBinding(string_binding,
                                                       &client_rpc_binding_));

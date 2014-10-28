@@ -52,6 +52,9 @@
       # Common tests.
       '<(src)/syzygy/common/common.gyp:common_unittests',
 
+      # RPC Common tests.
+      '<(src)/syzygy/common/rpc/rpc.gyp:common_rpc_unittests',
+
       # Core tests.
       '<(src)/syzygy/core/core.gyp:core_unittests',
 

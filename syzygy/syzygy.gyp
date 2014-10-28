@@ -37,6 +37,7 @@
         'block_graph/transforms/block_graph_transforms.gyp:*',
         'block_graph/orderers/block_graph_orderers.gyp:*',
         'common/common.gyp:*',
+        'common/rpc/rpc.gyp:*',
         'core/core.gyp:*',
         'experimental/experimental.gyp:*',
         'genfilter/genfilter.gyp:*',

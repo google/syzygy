@@ -20,6 +20,7 @@
 #include <rpc.h>
 #include <wtypes.h>
 
+#include "base/macros.h"
 #include "base/strings/string_piece.h"
 
 // TODO(rogerm): Is there directly usable stuff in base/callback.h that
@@ -142,6 +143,26 @@ class ScopedRpcBinding {
  private:
   DISALLOW_COPY_AND_ASSIGN(ScopedRpcBinding);
 };
+
+namespace internal {
+
+template <class T>
+struct dereference_pointer;
+
+template <class T>
+struct dereference_pointer<T*> {
+  typedef T value;
+};
+
+}  // namespace internal
+
+template <class T>
+RPC_WSTR AsRpcWstr(T* value) {
+  COMPILE_ASSERT(
+      sizeof(internal::dereference_pointer<RPC_WSTR>::value) == sizeof(T),
+      TypeIsCompatible);
+  return reinterpret_cast<RPC_WSTR>(value);
+}
 
 }  // namespace rpc
 }  // namespace common

@@ -26,5 +26,19 @@
         'mem.cc',
       ],
     },
+    {
+      'target_name': 'common_rpc_unittests',
+      'type': 'executable',
+      'sources': [
+        'helpers_unittest.cc',
+        '<(src)/base/test/run_all_unittests.cc',
+      ],
+      'dependencies': [
+        'common_rpc_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
+        '<(src)/testing/gtest.gyp:gtest',
+      ],
+    },
   ],
 }

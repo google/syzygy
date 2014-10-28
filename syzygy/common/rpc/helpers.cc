@@ -36,13 +36,12 @@ bool CreateRpcBinding(const base::StringPiece16& protocol,
   std::wstring endpoint_temp(endpoint.begin(), endpoint.end());
   RPC_WSTR string_binding = NULL;
 
-  RPC_STATUS status = ::RpcStringBindingCompose(
-      NULL,  // UUID.
-      reinterpret_cast<RPC_WSTR>(&protocol_temp[0]),
-      NULL,  // Address.
-      reinterpret_cast<RPC_WSTR>(&endpoint_temp[0]),
-      NULL,  // Options.
-      &string_binding);
+  RPC_STATUS status = ::RpcStringBindingCompose(NULL,  // UUID.
+                                                AsRpcWstr(&protocol_temp[0]),
+                                                NULL,  // Address.
+                                                AsRpcWstr(&endpoint_temp[0]),
+                                                NULL,  // Options.
+                                                &string_binding);
   if (status != RPC_S_OK) {
     LOG(ERROR) << "Can't compose RPC binding: " << ::common::LogWe(status)
                << ".";

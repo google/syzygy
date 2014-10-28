@@ -27,6 +27,7 @@
 #include "base/strings/string_util.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/com_utils.h"
+#include "syzygy/common/rpc/helpers.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/service/buffer_consumer.h"
 #include "syzygy/trace/service/session.h"
@@ -170,10 +171,8 @@ bool Service::InitializeRpc()  {
   VLOG(1) << "Initializing RPC endpoint '" << endpoint << "' "
           << "using the '" << protocol << "' protocol.";
   status = ::RpcServerUseProtseqEp(
-      reinterpret_cast<RPC_WSTR>(&protocol[0]),
-      RPC_C_LISTEN_MAX_CALLS_DEFAULT,
-      reinterpret_cast<RPC_WSTR>(&endpoint[0]),
-      NULL /* Security descriptor. */);
+      ::common::rpc::AsRpcWstr(&protocol[0]), RPC_C_LISTEN_MAX_CALLS_DEFAULT,
+      ::common::rpc::AsRpcWstr(&endpoint[0]), NULL /* Security descriptor. */);
   if (status != RPC_S_OK && status != RPC_S_DUPLICATE_ENDPOINT) {
     LOG(ERROR) << "Failed to init RPC protocol: " << ::common::LogWe(status)
                << ".";
