@@ -1,7 +1,0 @@
-namespace kasko {
-
-class ServiceBridge {
- public:
-  Service(const std::wstring& protocol, const std::wstring& endpoint);
-
-};
