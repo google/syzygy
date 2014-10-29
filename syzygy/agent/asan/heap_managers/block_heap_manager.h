@@ -70,6 +70,10 @@ class BlockHeapManager : public HeapManagerInterface {
   // Destructor.
   virtual ~BlockHeapManager();
 
+  // Initializes this block heap manager. Must be called prior to any
+  // HeapManagerInterface functions. Parameters may be set prior to this.
+  void Init();
+
   // @name HeapManagerInterface functions.
   // @{
   virtual HeapId CreateHeap();
@@ -224,9 +228,12 @@ class BlockHeapManager : public HeapManagerInterface {
   // @param kind The type of error encountered.
   void ReportHeapError(void* address, BadAccessKind kind);
 
+  // Initializes internal heap structures, if not yet done. This must be called
+  // before PropagateParameters and InitProcessHeap.
+  void InitInternalHeap();
+
   // Initialize the process heap. This is only meant to be called at
   // initialization time when process_heap_ is NULL.
-  //
   // Exposed for unittesting.
   void InitProcessHeap();
 
@@ -245,6 +252,9 @@ class BlockHeapManager : public HeapManagerInterface {
 
   // Protects concurrent access to the heap manager internals.
   base::Lock lock_;
+
+  // Indicates if 'Init' has been called.
+  bool initialized_;  // Under lock_.
 
   // Contains the heaps owned by this manager.
   HeapQuarantineMap heaps_;  // Under lock_.
@@ -265,7 +275,7 @@ class BlockHeapManager : public HeapManagerInterface {
   // recovery of some useful debugging information.
   HeapErrorCallback heap_error_callback_;
 
-  // The process's heap.
+  // The process heap.
   BlockHeapInterface* process_heap_;
   HeapInterface* process_heap_underlying_heap_;
   HeapId process_heap_id_;

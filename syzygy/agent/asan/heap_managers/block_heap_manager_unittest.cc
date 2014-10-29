@@ -149,12 +149,46 @@ class TestBlockHeapManager : public BlockHeapManager {
       : BlockHeapManager(stack_cache) {
   }
 
+  // Removes the heap with the given ID.
+  void RemoveHeapById(HeapId heap_id) {
+    if (heap_id == 0)
+      return;
+    BlockHeapInterface* heap = GetHeapFromId(heap_id);
+    delete heap;
+    EXPECT_EQ(1, heaps_.erase(heap));
+  }
+
   // Wrapper for the set_parameters method. This also takes care of
   // reinitializing the variables that are usually initialized in the
   // constructor of a BlockHeapManager.
   void SetParameters(const common::AsanParameters& params) {
-    // Check if the process heap should be reinitialized.
-    if (params.enable_ctmalloc != parameters_.enable_ctmalloc) {
+    bool ctmalloc_changed = false;
+
+    // Set the parameters.
+    {
+      base::AutoLock lock(lock_);
+      ctmalloc_changed = params.enable_ctmalloc != parameters_.enable_ctmalloc;
+      parameters_ = params;
+    }
+
+    // Reinitialize the internal and special heaps if necessary.
+    if (ctmalloc_changed) {
+      // Since the zebra and large block heaps use the internal heap they
+      // must also be reset.
+      RemoveHeapById(large_block_heap_id_);
+      RemoveHeapById(zebra_block_heap_id_);
+      large_block_heap_id_ = 0;
+      zebra_block_heap_id_ = 0;
+
+      internal_heap_.reset();
+      internal_win_heap_.reset();
+      InitInternalHeap();
+    }
+
+    PropagateParameters();
+
+    // Reinitialize the process heap if necessary.
+    if (ctmalloc_changed) {
       EXPECT_EQ(1, underlying_heaps_map_.erase(process_heap_));
       EXPECT_EQ(1, heaps_.erase(process_heap_));
       delete process_heap_;
@@ -165,7 +199,6 @@ class TestBlockHeapManager : public BlockHeapManager {
       }
       InitProcessHeap();
     }
-    set_parameters(params);
   }
 };
 

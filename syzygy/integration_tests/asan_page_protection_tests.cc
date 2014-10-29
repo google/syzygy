@@ -50,8 +50,10 @@ size_t AsanReadLargeAllocationBodyAfterFree() {
   delete[] alloc;
 
   // Read from the body while the allocation is in the quarantine. This should
-  // be caught immediately.
-  char value = NonInterceptedRead<char>(alloc + 10);
+  // be caught immediately. We need to read at least a page into the block to
+  // ensure that its at an address where page protections are guaranteed to be
+  // active.
+  char value = NonInterceptedRead<char>(alloc + 4096);
 
   return 0;
 }

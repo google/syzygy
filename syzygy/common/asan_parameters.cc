@@ -159,12 +159,12 @@ const uint32 kDefaultZebraBlockHeapSize = 16 * 1024 * 1024;
 const float kDefaultZebraBlockHeapQuarantineRatio = 0.25f;
 
 // Default values of the BlockHeapManager parameters.
-const bool kDefaultEnableCtMalloc = false;
+const bool kDefaultEnableCtMalloc = true;
 const bool kDefaultEnableZebraBlockHeap = false;
 const bool kDefaultEnableAllocationFilter = false;
 
 // Default values of LargeBlockHeap parameters.
-extern const bool kDefaultEnableLargeBlockHeap = false;
+extern const bool kDefaultEnableLargeBlockHeap = true;
 // We want to maintain an allocation overhead of around 45%, which has been
 // our historic average for Chrome. Overhead in this heap is 2 pages, so want
 // 2 / 0.45 = 4.44 < 5 page minimum.
@@ -199,12 +199,12 @@ const char kParamZebraBlockHeapQuarantineRatio[] =
     "zebra_block_heap_quarantine_ratio";
 
 // String names of BlockHeapManager parameters.
-const char kParamEnableCtMalloc[] = "enable_ctmalloc";
+const char kParamDisableCtMalloc[] = "disable_ctmalloc";
 const char kParamEnableZebraBlockHeap[] = "enable_zebra_block_heap";
 const char kParamEnableAllocationFilter[] = "enable_allocation_filter";
 
 // String names of LargeBlockHeap parameters.
-const char kParamEnableLargeBlockHeap[] = "enable_large_block_heap";
+const char kParamDisableLargeBlockHeap[] = "disable_large_block_heap";
 const char kParamLargeAllocationThreshold[] = "large_allocation_threshold";
 
 InflatedAsanParameters::InflatedAsanParameters() {
@@ -430,12 +430,12 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
     asan_parameters->check_heap_on_failure = false;
   if (cmd_line.HasSwitch(kParamDisableBreakpadReporting))
     asan_parameters->disable_breakpad_reporting = true;
-  if (cmd_line.HasSwitch(kParamEnableCtMalloc))
-    asan_parameters->enable_ctmalloc = true;
+  if (cmd_line.HasSwitch(kParamDisableCtMalloc))
+    asan_parameters->enable_ctmalloc = false;
   if (cmd_line.HasSwitch(kParamEnableZebraBlockHeap))
     asan_parameters->enable_zebra_block_heap = true;
-  if (cmd_line.HasSwitch(kParamEnableLargeBlockHeap))
-    asan_parameters->enable_large_block_heap = true;
+  if (cmd_line.HasSwitch(kParamDisableLargeBlockHeap))
+    asan_parameters->enable_large_block_heap = false;
   if (cmd_line.HasSwitch(kParamEnableAllocationFilter))
     asan_parameters->enable_allocation_filter = true;
 

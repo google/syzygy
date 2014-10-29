@@ -405,6 +405,10 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
     uef_installed_ = true;
     previous_uef_ = ::SetUnhandledExceptionFilter(&UnhandledExceptionFilter);
   }
+
+  // Finally, initialize the heap manager. This comes after parsing all
+  // parameters as some decisions can only be made once.
+  heap_manager_->Init();
 }
 
 void AsanRuntime::TearDown() {

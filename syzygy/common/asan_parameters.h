@@ -253,11 +253,11 @@ extern const char kParamLogAsText[];
 extern const char kParamZebraBlockHeapSize[];
 extern const char kParamZebraBlockHeapQuarantineRatio[];
 // String names of BlockHeapManager parameters.
-extern const char kParamEnableCtMalloc[];
+extern const char kParamDisableCtMalloc[];
 extern const char kParamEnableZebraBlockHeap[];
 extern const char kParamEnableAllocationFilter[];
 // String names of LargeBlockHeap parameters.
-extern const char kParamEnableLargeBlockHeap[];
+extern const char kParamDisableLargeBlockHeap[];
 extern const char kParamLargeAllocationThreshold[];
 
 // Initializes an AsanParameters struct with default values.

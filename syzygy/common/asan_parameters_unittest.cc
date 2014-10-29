@@ -256,9 +256,9 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
       L"--ignored_as_it_doesnt_exist "
       L"--zebra_block_heap_size=8388608 "
       L"--zebra_block_heap_quarantine_ratio=0.5 "
-      L"--enable_ctmalloc "
+      L"--disable_ctmalloc "
       L"--enable_zebra_block_heap "
-      L"--enable_large_block_heap "
+      L"--disable_large_block_heap "
       L"--enable_allocation_filter "
       L"--large_allocation_threshold=4096";
 
@@ -285,9 +285,9 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
               testing::ElementsAre(0x1, 0xBAADF00D, 0xCAFEBABE, 0xDEADBEEF));
   EXPECT_EQ(8388608, iparams.zebra_block_heap_size);
   EXPECT_EQ(0.5, iparams.zebra_block_heap_quarantine_ratio);
-  EXPECT_TRUE(static_cast<bool>(iparams.enable_ctmalloc));
+  EXPECT_FALSE(static_cast<bool>(iparams.enable_ctmalloc));
   EXPECT_TRUE(static_cast<bool>(iparams.enable_zebra_block_heap));
-  EXPECT_TRUE(static_cast<bool>(iparams.enable_large_block_heap));
+  EXPECT_FALSE(static_cast<bool>(iparams.enable_large_block_heap));
   EXPECT_TRUE(static_cast<bool>(iparams.enable_allocation_filter));
   EXPECT_EQ(4096, iparams.large_allocation_threshold);
 }

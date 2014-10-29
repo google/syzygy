@@ -43,6 +43,7 @@ using heaps::ZebraBlockHeap;
 
 BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
     : stack_cache_(stack_cache),
+      initialized_(false),
       process_heap_(nullptr),
       process_heap_underlying_heap_(nullptr),
       process_heap_id_(0),
@@ -51,10 +52,6 @@ BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
       large_block_heap_id_(0) {
   DCHECK_NE(static_cast<StackCaptureCache*>(nullptr), stack_cache);
   SetDefaultAsanParameters(&parameters_);
-  PropagateParameters();
-
-  // Creates the process heap and the internal heap.
-  InitProcessHeap();
 
   // Initialize the allocation-filter flag (using Thread Local Storage).
   allocation_filter_flag_tls_ = ::TlsAlloc();
@@ -65,7 +62,9 @@ BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
 
 BlockHeapManager::~BlockHeapManager() {
   base::AutoLock lock(lock_);
-  // Delete all the heaps.
+
+  // Delete all the heaps. This must be done manually to ensure that
+  // all references to internal_heap_ have been cleaned up.
   HeapQuarantineMap::iterator iter_heaps = heaps_.begin();
   for (; iter_heaps != heaps_.end(); ++iter_heaps)
     DestroyHeapUnlocked(iter_heaps->first, iter_heaps->second);
@@ -86,7 +85,27 @@ BlockHeapManager::~BlockHeapManager() {
   allocation_filter_flag_tls_ = TLS_OUT_OF_INDEXES;
 }
 
+void BlockHeapManager::Init() {
+  DCHECK(!initialized_);
+
+  {
+    base::AutoLock lock(lock_);
+    InitInternalHeap();
+  }
+
+  // This takes care of its own locking, as its reentrant.
+  PropagateParameters();
+
+  {
+    base::AutoLock lock(lock_);
+    InitProcessHeap();
+    initialized_ = true;
+  }
+}
+
 HeapId BlockHeapManager::CreateHeap() {
+  DCHECK(initialized_);
+
   // Creates the underlying heap used by this heap.
   HeapInterface* underlying_heap = nullptr;
   if (parameters_.enable_ctmalloc) {
@@ -104,6 +123,7 @@ HeapId BlockHeapManager::CreateHeap() {
 }
 
 bool BlockHeapManager::DestroyHeap(HeapId heap_id) {
+  DCHECK(initialized_);
   DCHECK(IsValidHeapId(heap_id));
   BlockHeapInterface* heap = GetHeapFromId(heap_id);
 
@@ -120,6 +140,7 @@ bool BlockHeapManager::DestroyHeap(HeapId heap_id) {
 }
 
 void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
+  DCHECK(initialized_);
   DCHECK(IsValidHeapId(heap_id));
 
   // Some allocations can pass through without instrumentation.
@@ -194,6 +215,7 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
 }
 
 bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
+  DCHECK(initialized_);
   DCHECK(IsValidHeapId(heap_id));
 
   // The standard allows calling free on a null pointer.
@@ -263,6 +285,7 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
 }
 
 size_t BlockHeapManager::Size(HeapId heap_id, const void* alloc) {
+  DCHECK(initialized_);
   DCHECK(IsValidHeapId(heap_id));
 
   if (Shadow::IsBeginningOfBlockBody(alloc)) {
@@ -282,16 +305,19 @@ size_t BlockHeapManager::Size(HeapId heap_id, const void* alloc) {
 }
 
 void BlockHeapManager::Lock(HeapId heap_id) {
+  DCHECK(initialized_);
   DCHECK(IsValidHeapId(heap_id));
   GetHeapFromId(heap_id)->Lock();
 }
 
 void BlockHeapManager::Unlock(HeapId heap_id) {
+  DCHECK(initialized_);
   DCHECK(IsValidHeapId(heap_id));
   GetHeapFromId(heap_id)->Unlock();
 }
 
 void BlockHeapManager::BestEffortLockAll() {
+  DCHECK(initialized_);
   static const base::TimeDelta kTryTime(base::TimeDelta::FromMilliseconds(50));
   lock_.Acquire();
   DCHECK(locked_heaps_.empty());
@@ -303,6 +329,7 @@ void BlockHeapManager::BestEffortLockAll() {
 }
 
 void BlockHeapManager::UnlockAll() {
+  DCHECK(initialized_);
   lock_.AssertAcquired();
   for (HeapInterface* heap : locked_heaps_)
     heap->Unlock();
@@ -312,12 +339,19 @@ void BlockHeapManager::UnlockAll() {
 
 void BlockHeapManager::set_parameters(
     const common::AsanParameters& parameters) {
+  // Once initialized we can't tolerate changes to enable_ctmalloc, as the
+  // internal heap and process heap would have to be reinitialized.
+  DCHECK(!initialized_ ||
+         parameters_.enable_ctmalloc == parameters.enable_ctmalloc);
+
   {
     base::AutoLock lock(lock_);
     parameters_ = parameters;
   }
+
   // Releases the lock before propagating the parameters.
-  PropagateParameters();
+  if (initialized_)
+    PropagateParameters();
 }
 
 HeapId BlockHeapManager::GetHeapId(
@@ -351,12 +385,15 @@ BlockQuarantineInterface* BlockHeapManager::GetQuarantineFromId(
 }
 
 void BlockHeapManager::PropagateParameters() {
+  // The internal heap should already be setup.
+  DCHECK_NE(static_cast<HeapInterface*>(nullptr), internal_heap_.get());
+
   size_t quarantine_size = shared_quarantine_.max_quarantine_size();
   shared_quarantine_.set_max_quarantine_size(parameters_.quarantine_size);
   shared_quarantine_.set_max_object_size(parameters_.quarantine_block_size);
 
   // Trim the quarantine if its maximum size has decreased.
-  if (quarantine_size > parameters_.quarantine_size)
+  if (initialized_ && quarantine_size > parameters_.quarantine_size)
     TrimQuarantine(&shared_quarantine_);
 
   if (parameters_.enable_zebra_block_heap && zebra_block_heap_ == nullptr) {
@@ -375,7 +412,8 @@ void BlockHeapManager::PropagateParameters() {
   if (zebra_block_heap_ != nullptr) {
     zebra_block_heap_->set_quarantine_ratio(
         parameters_.zebra_block_heap_quarantine_ratio);
-    TrimQuarantine(zebra_block_heap_);
+    if (initialized_)
+      TrimQuarantine(zebra_block_heap_);
   }
 
   // Create the LargeBlockHeap if need be.
@@ -403,6 +441,7 @@ void BlockHeapManager::set_allocation_filter_flag(bool value) {
 bool BlockHeapManager::DestroyHeapUnlocked(
     BlockHeapInterface* heap,
     BlockQuarantineInterface* quarantine) {
+  DCHECK(initialized_);
   DCHECK_NE(static_cast<BlockHeapInterface*>(nullptr), heap);
   DCHECK_NE(static_cast<BlockQuarantineInterface*>(nullptr), quarantine);
 
@@ -470,6 +509,7 @@ bool BlockHeapManager::DestroyHeapUnlocked(
 }
 
 void BlockHeapManager::TrimQuarantine(BlockQuarantineInterface* quarantine) {
+  DCHECK(initialized_);
   DCHECK_NE(static_cast<BlockQuarantineInterface*>(nullptr), quarantine);
 
   BlockQuarantineInterface::ObjectVector blocks_to_free;
@@ -494,6 +534,7 @@ void BlockHeapManager::TrimQuarantine(BlockQuarantineInterface* quarantine) {
 }
 
 bool BlockHeapManager::FreePotentiallyCorruptBlock(BlockInfo* block_info) {
+  DCHECK(initialized_);
   DCHECK_NE(static_cast<BlockInfo*>(nullptr), block_info);
 
   BlockProtectNone(*block_info);
@@ -508,12 +549,14 @@ bool BlockHeapManager::FreePotentiallyCorruptBlock(BlockInfo* block_info) {
 }
 
 bool BlockHeapManager::FreeCorruptBlock(BlockInfo* block_info) {
+  DCHECK(initialized_);
   DCHECK_NE(static_cast<BlockInfo*>(nullptr), block_info);
   ClearCorruptBlockMetadata(block_info);
   return FreePristineBlock(block_info);
 }
 
 bool BlockHeapManager::FreePristineBlock(BlockInfo* block_info) {
+  DCHECK(initialized_);
   DCHECK_NE(static_cast<BlockInfo*>(nullptr), block_info);
   BlockHeapInterface* heap = GetHeapFromId(block_info->trailer->heap_id);
 
@@ -543,20 +586,26 @@ bool BlockHeapManager::FreePristineBlock(BlockInfo* block_info) {
 }
 
 bool BlockHeapManager::FreeUnguardedAlloc(HeapId heap_id, void* alloc) {
+  DCHECK(initialized_);
   DCHECK(IsValidHeapId(heap_id));
   BlockHeapInterface* heap = GetHeapFromId(heap_id);
 
   // Check if the allocation comes from the process heap, if so there's two
   // possibilities:
-  //   - CTMalloc is enabled, in this case the process heap underlying heap is
-  //     a CTMalloc heap. In this case the allocation might still have been
-  //     allocated against the real process heap, free it in this case.
+  //   - If CTMalloc is enabled the process heap underlying heap is a CTMalloc
+  //     heap. In this case we can explicitly check if the allocation was made
+  //     via the CTMalloc process heap.
   //   - CTMalloc is disabled and in this case the process heap underlying heap
   //     is always the real process heap.
   if (heap == process_heap_ &&
       (!parameters_.enable_ctmalloc || !heap->IsAllocated(alloc))) {
+    // The shadow memory associated with this allocation is already green, so
+    // no need to modify it.
     return ::HeapFree(::GetProcessHeap(), 0, alloc) == TRUE;
   }
+
+  // If the heap carves greenzones out of redzones, then color the allocation
+  // red again. Otherwise, simply leave it green.
   if ((heap->GetHeapFeatures() &
        HeapInterface::kHeapReportsReservations) != 0) {
     DCHECK_NE(0U, heap->GetHeapFeatures() &
@@ -565,10 +614,12 @@ bool BlockHeapManager::FreeUnguardedAlloc(HeapId heap_id, void* alloc) {
                    Size(heap_id, alloc),
                    kAsanReservedMarker);
   }
+
   return heap->Free(alloc);
 }
 
 void BlockHeapManager::ClearCorruptBlockMetadata(BlockInfo* block_info) {
+  DCHECK(initialized_);
   DCHECK_NE(static_cast<BlockInfo*>(nullptr), block_info);
   DCHECK_NE(static_cast<BlockHeader*>(nullptr), block_info->header);
 
@@ -584,6 +635,7 @@ void BlockHeapManager::ClearCorruptBlockMetadata(BlockInfo* block_info) {
 }
 
 void BlockHeapManager::ReportHeapError(void* address, BadAccessKind kind) {
+  DCHECK(initialized_);
   DCHECK_NE(static_cast<void*>(nullptr), address);
 
   // Collect information about the error.
@@ -602,17 +654,27 @@ void BlockHeapManager::ReportHeapError(void* address, BadAccessKind kind) {
   heap_error_callback_.Run(&error_info);
 }
 
-void BlockHeapManager::InitProcessHeap() {
-  CHECK_EQ(static_cast<BlockHeapInterface*>(nullptr), process_heap_);
+void BlockHeapManager::InitInternalHeap() {
+  DCHECK_EQ(static_cast<HeapInterface*>(nullptr), internal_heap_.get());
+  DCHECK_EQ(static_cast<HeapInterface*>(nullptr),
+            internal_win_heap_.get());
+
   if (parameters_.enable_ctmalloc) {
     internal_heap_.reset(
         new heaps::CtMallocHeap(&shadow_memory_notifier_));
-    process_heap_underlying_heap_ =
-        new heaps::CtMallocHeap(&shadow_memory_notifier_);
   } else {
     internal_win_heap_.reset(new heaps::WinHeap);
     internal_heap_.reset(new heaps::InternalHeap(&shadow_memory_notifier_,
                                                  internal_win_heap_.get()));
+  }
+}
+
+void BlockHeapManager::InitProcessHeap() {
+  DCHECK_EQ(static_cast<BlockHeapInterface*>(nullptr), process_heap_);
+  if (parameters_.enable_ctmalloc) {
+    process_heap_underlying_heap_ =
+        new heaps::CtMallocHeap(&shadow_memory_notifier_);
+  } else {
     process_heap_underlying_heap_ = new heaps::WinHeap(::GetProcessHeap());
   }
   process_heap_ = new heaps::SimpleBlockHeap(process_heap_underlying_heap_);
@@ -624,6 +686,7 @@ void BlockHeapManager::InitProcessHeap() {
 }
 
 bool BlockHeapManager::MayUseLargeBlockHeap(size_t bytes) const {
+  DCHECK(initialized_);
   if (!parameters_.enable_large_block_heap)
     return false;
   if (bytes >= parameters_.large_allocation_threshold)
@@ -638,6 +701,7 @@ bool BlockHeapManager::MayUseLargeBlockHeap(size_t bytes) const {
 }
 
 bool BlockHeapManager::MayUseZebraBlockHeap(size_t bytes) const {
+  DCHECK(initialized_);
   if (!parameters_.enable_zebra_block_heap)
     return false;
   if (bytes > ZebraBlockHeap::kMaximumBlockAllocationSize)

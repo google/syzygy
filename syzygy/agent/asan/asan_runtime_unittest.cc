@@ -172,6 +172,7 @@ TEST_F(AsanRuntimeTest, ExitOnFailure) {
   // after the call to OnError, without calling the destructor of this class
   // (who takes care of deleting the temporary files/directories).
   DeleteTempFileAndDirectory();
+
   // Disable the heap checking as this really slows down the unittests.
   asan_runtime_.params().check_heap_on_failure = false;
   EXPECT_EXIT(asan_runtime_.OnError(&bad_access_info),

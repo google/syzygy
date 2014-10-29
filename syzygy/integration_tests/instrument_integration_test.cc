@@ -468,11 +468,6 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
       if (asan_error_count == 0 && i + 1 < max_tries)
         continue;
 
-      EXPECT_LT(0, asan_error_count);
-      EXPECT_EQ(kind, last_asan_error.error_type);
-      EXPECT_EQ(mode, last_asan_error.access_mode);
-      EXPECT_EQ(size, last_asan_error.access_size);
-
       if (asan_error_count == 0 ||
           last_asan_error.error_type != kind ||
           last_asan_error.access_mode != mode ||
@@ -728,8 +723,8 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
         kAsanHeapBufferOverflow));
     EXPECT_TRUE(OutOfProcessAsanErrorCheck(
         testing::kAsanReadLargeAllocationBodyAfterFree,
-        expect_exception,
-        expect_exception,  // Check logs only if an exception is expected.
+        true,
+        true,  // Check logs only if an exception is expected.
         kAsanAccessViolationLog,
         kAsanHeapUseAfterFree));
   }
@@ -1303,15 +1298,26 @@ TEST_F(InstrumentAppIntegrationTest, AsanLargeBlockHeapEnabledTest) {
   cmd_line_.AppendSwitchASCII("asan-rtl-options",
                               "--no_check_heap_on_failure "
                               "--quarantine_size=4000000 "
-                              "--quarantine_block_size=2000000 "
-                              "--enable_large_block_heap");
+                              "--quarantine_block_size=2000000");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanLargeBlockHeapTests(true));
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanLargeBlockHeapDisabledTest) {
-  cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
+  cmd_line_.AppendSwitchASCII("asan-rtl-options",
+                              "--no_check_heap_on_failure "
+                              "--disable_large_block_heap");
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanLargeBlockHeapTests(false));
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanLargeBlockHeapCtMallocDisabledTest) {
+  cmd_line_.AppendSwitchASCII("asan-rtl-options",
+                              "--no_check_heap_on_failure "
+                              "--disable_large_block_heap "
+                              "--disable_ctmalloc");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanLargeBlockHeapTests(false));
