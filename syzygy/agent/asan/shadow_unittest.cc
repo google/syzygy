@@ -160,9 +160,9 @@ TEST(ShadowTest, GetNullTerminatedArraySize) {
 
 TEST(ShadowTest, MarkAsFreed) {
   BlockLayout l0 = {}, l1 = {};
-  BlockPlanLayout(kShadowRatio, kShadowRatio, 16, 30, 30, &l1);
-  BlockPlanLayout(kShadowRatio, kShadowRatio, l1.block_size + 2 * kShadowRatio,
-                  30, 30, &l0);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 16, 30, 30, &l1));
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio,
+                              l1.block_size + 2 * kShadowRatio, 30, 30, &l0));
 
   uint8* data = new uint8[l0.block_size];
 
@@ -203,7 +203,7 @@ TEST(ShadowTest, MarkAsFreed) {
 
 TEST(ShadowTest, PoisonAllocatedBlock) {
   BlockLayout layout = {};
-  BlockPlanLayout(kShadowRatio, kShadowRatio, 15, 22, 0, &layout);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 15, 22, 0, &layout));
 
   uint8* data = new uint8[layout.block_size];
   BlockInfo info = {};
@@ -307,7 +307,8 @@ TEST(ShadowTest, IsLeftOrRightRedzone) {
   BlockLayout layout = {};
   const size_t kAllocSize = 15;
   ASSERT_NE(0U, kAllocSize % kShadowRatio);
-  BlockPlanLayout(kShadowRatio, kShadowRatio, kAllocSize, 0, 0, &layout);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, kAllocSize, 0, 0,
+                              &layout));
 
   scoped_ptr<uint8> data(new uint8[layout.block_size]);
   BlockInfo info = {};
@@ -392,20 +393,19 @@ void TestBlockInfoFromShadow(const BlockLayout& outer,
 TEST(ShadowTest, BlockInfoFromShadow) {
   // This is a simple layout that will be nested inside of another block.
   BlockLayout layout0 = {};
-  BlockPlanLayout(kShadowRatio, kShadowRatio, 6, 0, 0, &layout0);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 6, 0, 0, &layout0));
 
   // Plan two layouts, one with padding and another with none. The first has
   // exactly enough space for the nested block, while the second has room to
   // spare.
   BlockLayout layout1 = {};
   BlockLayout layout2 = {};
-  BlockPlanLayout(kShadowRatio, kShadowRatio,
-                  common::AlignUp(layout0.block_size, kShadowRatio) + 4, 0, 0,
-                  &layout1);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio,
+      common::AlignUp(layout0.block_size, kShadowRatio) + 4, 0, 0, &layout1));
   ASSERT_EQ(0u, layout1.header_padding_size);
   ASSERT_EQ(0u, layout1.trailer_padding_size);
-  BlockPlanLayout(kShadowRatio, kShadowRatio,
-                  layout0.block_size + 2 * kShadowRatio, 32, 13, &layout2);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio,
+      layout0.block_size + 2 * kShadowRatio, 32, 13, &layout2));
   ASSERT_LT(0u, layout2.header_padding_size);
   ASSERT_LT(0u, layout2.trailer_padding_size);
 
@@ -415,7 +415,7 @@ TEST(ShadowTest, BlockInfoFromShadow) {
 
 TEST(ShadowTest, IsBeginningOfBlockBody) {
   BlockLayout l = {};
-  BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &l);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &l));
 
   size_t data_size = l.block_size;
   scoped_ptr<uint8> data(new uint8[data_size]);
@@ -439,7 +439,7 @@ TEST(ShadowTest, IsBeginningOfBlockBody) {
 
 TEST(ShadowTest, IsBeginningOfBlockBodyForBlockOfSizeZero) {
   BlockLayout l = {};
-  BlockPlanLayout(kShadowRatio, kShadowRatio, 0, 0, 0, &l);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 0, 0, 0, &l));
 
   size_t data_size = l.block_size;
   scoped_ptr<uint8> data(new uint8[data_size]);
@@ -463,7 +463,7 @@ TEST(ShadowTest, IsBeginningOfBlockBodyForBlockOfSizeZero) {
 
 TEST(ShadowWalkerTest, WalksNonNestedBlocks) {
   BlockLayout l = {};
-  BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &l);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &l));
 
   size_t data_size = l.block_size * 3 + kShadowRatio;
   uint8* data = new uint8[data_size];
@@ -518,14 +518,16 @@ TEST(ShadowWalkerTest, WalksNonNestedBlocks) {
 TEST(ShadowWalkerTest, WalksNestedBlocks) {
   BlockLayout b0 = {}, b1 = {}, b2 = {}, b00 = {}, b01 = {}, b10 = {},
       b100 = {};
-  BlockPlanLayout(kShadowRatio, kShadowRatio, 15, 30, 30, &b00);
-  BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &b01);
-  BlockPlanLayout(kShadowRatio, kShadowRatio,
-                  b00.block_size + b01.block_size + kShadowRatio, 0, 0, &b0);
-  BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &b100);
-  BlockPlanLayout(kShadowRatio, kShadowRatio, b100.block_size, 0, 0, &b10);
-  BlockPlanLayout(kShadowRatio, kShadowRatio, b10.block_size, 0, 0, &b1);
-  BlockPlanLayout(kShadowRatio, kShadowRatio, 100, 0, 0, &b2);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 15, 30, 30, &b00));
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &b01));
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio,
+      b00.block_size + b01.block_size + kShadowRatio, 0, 0, &b0));
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &b100));
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, b100.block_size, 0, 0,
+                              &b10));
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, b10.block_size, 0, 0,
+                              &b1));
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 100, 0, 0, &b2));
 
   size_t data_size = b0.block_size + b1.block_size + kShadowRatio +
       b2.block_size;

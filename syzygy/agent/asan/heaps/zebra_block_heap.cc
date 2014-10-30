@@ -154,7 +154,7 @@ void* ZebraBlockHeap::AllocateBlock(size_t size,
                                     size_t min_left_redzone_size,
                                     size_t min_right_redzone_size,
                                     BlockLayout* layout) {
-  DCHECK_NE(static_cast<BlockLayout*>(NULL), layout);
+  DCHECK_NE(static_cast<BlockLayout*>(nullptr), layout);
   // Abort if the redzones do not fit in a page. Even if the allocation
   // is possible it will lead to a non-standard block layout.
   if (min_left_redzone_size + size > GetPageSize())
@@ -163,30 +163,32 @@ void* ZebraBlockHeap::AllocateBlock(size_t size,
     return NULL;
 
   // Plan the block layout.
-  BlockPlanLayout(GetPageSize(),
-                  kShadowRatio,
-                  size,
-                  min_left_redzone_size,
-                  std::max(GetPageSize(), min_right_redzone_size),
-                  layout);
+  if (!BlockPlanLayout(GetPageSize(),
+                       kShadowRatio,
+                       size,
+                       min_left_redzone_size,
+                       std::max(GetPageSize(), min_right_redzone_size),
+                       layout)) {
+    return nullptr;
+  }
 
   if (layout->block_size != kSlabSize)
-    return NULL;
+    return nullptr;
   size_t right_redzone_size = layout->trailer_size +
       layout->trailer_padding_size;
   // Part of the body lies inside an "odd" page.
   if (right_redzone_size < GetPageSize())
-    return NULL;
+    return nullptr;
   // There should be less than kShadowRatio bytes between the body end
   // and the "odd" page.
   if (right_redzone_size - GetPageSize() >= kShadowRatio)
-    return NULL;
+    return nullptr;
 
   // Allocate space for the block, and update the slab info to reflect the right
   // redzone.
-  void* alloc = NULL;
+  void* alloc = nullptr;
   SlabInfo* slab_info = AllocateImpl(GetPageSize());
-  if (slab_info != NULL) {
+  if (slab_info != nullptr) {
     slab_info->allocation_size = 2 * GetPageSize();
     alloc = slab_info->allocated_address;
   }

@@ -132,7 +132,8 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
   const size_t kAllocSize = 100;
 
   BlockLayout block_layout = {};
-  BlockPlanLayout(kShadowRatio, kShadowRatio, kAllocSize, 0, 0, &block_layout);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, kAllocSize, 0, 0,
+                              &block_layout));
 
   const size_t kNumberOfBlocks = 4;
   size_t total_alloc_size = block_layout.block_size * kNumberOfBlocks;

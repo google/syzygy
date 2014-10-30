@@ -138,31 +138,34 @@ TEST(BlockTest, BlockPlanLayout) {
   BlockLayout layout = {};
 
   // Zero sized allocations should work fine.
-  BlockPlanLayout(8, 8, 0, 0, 0, &layout);
+  EXPECT_TRUE(BlockPlanLayout(8, 8, 0, 0, 0, &layout));
   EXPECT_EQ(BuildBlockLayout(8, 40, 16, 0, 0, 4, 20), layout);
 
-  BlockPlanLayout(8, 8, 60, 32, 32, &layout);
+  EXPECT_TRUE(BlockPlanLayout(8, 8, 60, 32, 32, &layout));
   EXPECT_EQ(BuildBlockLayout(8, 128, 16, 16, 60, 16, 20), layout);
 
-  BlockPlanLayout(8, 8, 60, 0, 0, &layout);
+  EXPECT_TRUE(BlockPlanLayout(8, 8, 60, 0, 0, &layout));
   EXPECT_EQ(BuildBlockLayout(8, 96, 16, 0, 60, 0, 20), layout);
 
-  BlockPlanLayout(8, 8, 64, 0, 0, &layout);
+  EXPECT_TRUE(BlockPlanLayout(8, 8, 64, 0, 0, &layout));
   EXPECT_EQ(BuildBlockLayout(8, 104, 16, 0, 64, 4, 20), layout);
 
-  BlockPlanLayout(8, 8, 61, 0, 0, &layout);
+  EXPECT_TRUE(BlockPlanLayout(8, 8, 61, 0, 0, &layout));
   EXPECT_EQ(BuildBlockLayout(8, 104, 16, 0, 61, 7, 20), layout);
 
   // Plan a layout that would use guard pages.
-  BlockPlanLayout(4096, 8, 100, 4096, 4096, &layout);
+  EXPECT_TRUE(BlockPlanLayout(4096, 8, 100, 4096, 4096, &layout));
   EXPECT_EQ(BuildBlockLayout(4096, 3 * 4096, 16, 8072, 100, 4080, 20), layout);
+
+  // Plan a layout with an invalid size, this should fail.
+  EXPECT_FALSE(BlockPlanLayout(8, 8, 0xffffffff, 0, 0, &layout));
 }
 
 TEST(BlockTest, EndToEnd) {
   BlockLayout layout = {};
   BlockInfo block_info = {};
 
-  BlockPlanLayout(8, 8, 4, 0, 0, &layout);
+  EXPECT_TRUE(BlockPlanLayout(8, 8, 4, 0, 0, &layout));
   scoped_ptr<uint8> block_data(new uint8[layout.block_size]);
   ::memset(block_data.get(), 0, layout.block_size);
   ASSERT_TRUE(block_data != NULL);
@@ -170,7 +173,7 @@ TEST(BlockTest, EndToEnd) {
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
   block_data.reset(NULL);
 
-  BlockPlanLayout(8, 8, 61, 0, 0, &layout);
+  EXPECT_TRUE(BlockPlanLayout(8, 8, 61, 0, 0, &layout));
   block_data.reset(new uint8[layout.block_size]);
   ::memset(block_data.get(), 0, layout.block_size);
   ASSERT_TRUE(block_data != NULL);
@@ -178,7 +181,7 @@ TEST(BlockTest, EndToEnd) {
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
   block_data.reset(NULL);
 
-  BlockPlanLayout(8, 8, 60, 32, 32, &layout);
+  EXPECT_TRUE(BlockPlanLayout(8, 8, 60, 32, 32, &layout));
   block_data.reset(new uint8[layout.block_size]);
   ::memset(block_data.get(), 0, layout.block_size);
   ASSERT_TRUE(block_data != NULL);
@@ -187,7 +190,7 @@ TEST(BlockTest, EndToEnd) {
   block_data.reset(NULL);
 
   // Do an allocation that uses entire pages.
-  BlockPlanLayout(4096, 8, 100, 4096, 4096, &layout);
+  EXPECT_TRUE(BlockPlanLayout(4096, 8, 100, 4096, 4096, &layout));
   void* data = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
                               PAGE_READWRITE);
   ::memset(data, 0, layout.block_size);
@@ -201,8 +204,8 @@ TEST(BlockTest, GetHeaderFromBody) {
   // Plan two layouts, one with header padding and another without.
   BlockLayout layout1 = {};
   BlockLayout layout2 = {};
-  BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout1);
-  BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 32, 0, &layout2);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout1));
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 32, 0, &layout2));
 
   scoped_ptr<uint8> data(new uint8[layout2.block_size]);
   ::memset(data.get(), 0, layout2.block_size);
@@ -255,7 +258,7 @@ TEST(BlockTest, GetHeaderFromBody) {
 
 TEST(BlockTest, GetHeaderFromBodyProtectedMemory) {
   BlockLayout layout = {};
-  BlockPlanLayout(4096, 4096, 4096, 4096, 4096, &layout);
+  EXPECT_TRUE(BlockPlanLayout(4096, 4096, 4096, 4096, 4096, &layout));
   void* alloc = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
                                PAGE_READWRITE);
   ASSERT_TRUE(alloc != NULL);
@@ -272,8 +275,8 @@ TEST(BlockTest, BlockInfoFromMemory) {
   // Plan two layouts, one with header padding and another without.
   BlockLayout layout1 = {};
   BlockLayout layout2 = {};
-  BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout1);
-  BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 32, 0, &layout2);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout1));
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 32, 0, &layout2));
 
   scoped_ptr<uint8> data(new uint8[layout2.block_size]);
   ::memset(data.get(), 0, layout2.block_size);
@@ -314,7 +317,8 @@ TEST(BlockTest, BlockInfoFromMemory) {
   // sizes.
   for (size_t block_size = 0; block_size < kShadowRatio * 2; ++block_size) {
     BlockLayout layout = {};
-    BlockPlanLayout(kShadowRatio, kShadowRatio, block_size, 0, 0, &layout);
+    EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, block_size, 0, 0,
+                                &layout));
     data.reset(new uint8[layout.block_size]);
     BlockInitialize(layout, data.get(), false, &info);
     EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
@@ -325,8 +329,8 @@ TEST(BlockTest, BlockInfoFromMemory) {
 
 TEST(BlockTest, BlockInfoFromMemoryInvalidPadding) {
   BlockLayout layout = {};
-  BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 4 * sizeof(BlockHeader), 0,
-      &layout);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10,
+      4 * sizeof(BlockHeader), 0, &layout));
 
   scoped_ptr<uint8> data(new uint8[layout.block_size]);
   ::memset(data.get(), 0, layout.block_size);
@@ -351,7 +355,7 @@ TEST(BlockTest, BlockInfoFromMemoryInvalidPadding) {
 
 TEST(BlockTest, BlockInfoFromMemoryProtectedMemory) {
   BlockLayout layout = {};
-  BlockPlanLayout(4096, 4096, 4096, 4096, 4096, &layout);
+  EXPECT_TRUE(BlockPlanLayout(4096, 4096, 4096, 4096, 4096, &layout));
   void* alloc = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
                                PAGE_READWRITE);
   ASSERT_TRUE(alloc != NULL);
@@ -367,7 +371,7 @@ TEST(BlockTest, BlockInfoFromMemoryProtectedMemory) {
 
 TEST(BlockTest, BlockInfoFromMemoryForNestedBlock) {
   BlockLayout layout = {};
-  BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout));
 
   scoped_ptr<uint8> data(new uint8[layout.block_size]);
   BlockInfo block_info = {};
@@ -382,7 +386,7 @@ TEST(BlockTest, BlockInfoFromMemoryForNestedBlock) {
 
 TEST(BlockTest, ChecksumWorksForAllStates) {
   BlockLayout layout = {};
-  BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout));
   scoped_ptr<uint8> data(new uint8[layout.block_size]);
   ::memset(data.get(), 0, layout.block_size);
   BlockInfo info = {};
@@ -547,8 +551,8 @@ TEST(BlockTest, ChecksumDetectsTampering) {
       for (size_t redzone = 0; redzone <= chunk_size; redzone += chunk_size) {
         for (size_t i = 0; i < arraysize(kSizes); ++i) {
           BlockLayout layout = {};
-          BlockPlanLayout(chunk_size, align, kSizes[i], redzone, redzone,
-                          &layout);
+          EXPECT_TRUE(BlockPlanLayout(chunk_size, align, kSizes[i], redzone,
+                                      redzone, &layout));
           ASSERT_GT(kAllocSize, layout.block_size);
 
           BlockInfo block_info = {};
@@ -685,8 +689,8 @@ void TestAllProtectionTransitions(size_t chunk_size,
                                   size_t min_right_redzone_size) {
   // Create and initialize the given block.
   BlockLayout layout = {};
-  BlockPlanLayout(chunk_size, alignment, size, min_left_redzone_size,
-                  min_right_redzone_size, &layout);
+  EXPECT_TRUE(BlockPlanLayout(chunk_size, alignment, size,
+      min_left_redzone_size, min_right_redzone_size, &layout));
   void* alloc = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
                                PAGE_READWRITE);
   ASSERT_TRUE(alloc != NULL);
@@ -738,8 +742,8 @@ TEST(BlockTest, ProtectionTransitions) {
 TEST(BlockTest, BlockProtectAuto) {
   BlockLayout layout = {};
   const size_t kPageSize = GetPageSize();
-  BlockPlanLayout(kPageSize, kPageSize, kPageSize, kPageSize, kPageSize,
-                  &layout);
+  EXPECT_TRUE(BlockPlanLayout(kPageSize, kPageSize, kPageSize, kPageSize,
+                              kPageSize, &layout));
   void* alloc = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
                                PAGE_READWRITE);
   ASSERT_TRUE(alloc != NULL);
@@ -769,8 +773,8 @@ TEST(BlockTest, BlockProtectAuto) {
 TEST(BlockTest, ScopedBlockAccess) {
   BlockLayout layout = {};
   const size_t kPageSize = GetPageSize();
-  BlockPlanLayout(kPageSize, kPageSize, kPageSize, kPageSize, kPageSize,
-                  &layout);
+  EXPECT_TRUE(BlockPlanLayout(kPageSize, kPageSize, kPageSize, kPageSize,
+                              kPageSize, &layout));
   void* alloc = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
                                PAGE_READWRITE);
   ASSERT_TRUE(alloc != NULL);

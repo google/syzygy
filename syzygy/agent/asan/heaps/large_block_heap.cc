@@ -114,11 +114,14 @@ void* LargeBlockHeap::AllocateBlock(size_t size,
                                     size_t min_left_redzone_size,
                                     size_t min_right_redzone_size,
                                     BlockLayout* layout) {
-  DCHECK_NE(static_cast<BlockLayout*>(NULL), layout);
+  DCHECK_NE(static_cast<BlockLayout*>(nullptr), layout);
 
   // Plan the layout with full guard pages.
   const size_t kPageSize = GetPageSize();
-  BlockPlanLayout(kPageSize, kPageSize, size, kPageSize, kPageSize, layout);
+  if (!BlockPlanLayout(kPageSize, kPageSize, size, kPageSize, kPageSize,
+                       layout)) {
+    return nullptr;
+  }
   DCHECK_EQ(0u, layout->block_size % kPageSize);
 
   return Allocate(layout->block_size);

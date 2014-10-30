@@ -248,9 +248,7 @@ class ScopedHeap {
 
   // Allocate a block of @p size bytes.
   void* Allocate(size_t size) {
-    void* alloc = heap_manager_->Allocate(heap_id_, size);
-    EXPECT_NE(static_cast<void*>(nullptr), alloc);
-    return alloc;
+    return heap_manager_->Allocate(heap_id_, size);
   }
 
   // Free the block @p mem.
@@ -364,13 +362,9 @@ class BlockHeapManagerTest
   // Calculates the ASan size for an allocation of @p user_size bytes.
   size_t GetAllocSize(size_t user_size) {
     BlockLayout layout = {};
-    BlockPlanLayout(kShadowRatio,
-                    kShadowRatio,
-                    user_size,
-                    0,
-                    heap_manager_->parameters().trailer_padding_size +
-                        sizeof(BlockTrailer),
-                    &layout);
+    EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, user_size, 0,
+        heap_manager_->parameters().trailer_padding_size + sizeof(BlockTrailer),
+        &layout));
     return layout.block_size;
   }
 
@@ -664,6 +658,13 @@ TEST_P(BlockHeapManagerTest, AllocZeroBytes) {
   ASSERT_NE(mem1, mem2);
   ASSERT_TRUE(heap.Free(mem1));
   ASSERT_TRUE(heap.Free(mem2));
+}
+
+TEST_P(BlockHeapManagerTest, AllocInvalidBlockSize) {
+  ScopedHeap heap(heap_manager_);
+  const size_t kInvalidSize = 0xffffffff;
+  void* mem = heap.Allocate(0xffffffff);
+  ASSERT_EQ(static_cast<void*>(nullptr), mem);
 }
 
 TEST_P(BlockHeapManagerTest, Size) {

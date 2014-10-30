@@ -75,8 +75,8 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
 
   // Allocates the outer block.
   BlockLayout outer_block_layout = {};
-  BlockPlanLayout(kShadowRatio, kShadowRatio, kInnerBlockAllocSize, 0, 0,
-      &outer_block_layout);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, kInnerBlockAllocSize,
+                              0, 0, &outer_block_layout));
   EXPECT_TRUE(fake_block.InitializeBlock(outer_block_layout.block_size));
 
   StackCapture stack;
@@ -84,12 +84,12 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
 
   // Initializes the inner block.
   BlockLayout inner_block_layout = {};
-  BlockPlanLayout(kShadowRatio,
-                  kShadowRatio,
-                  kInnerBlockAllocSize,
-                  0,
-                  0,
-                  &inner_block_layout);
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio,
+                              kShadowRatio,
+                              kInnerBlockAllocSize,
+                              0,
+                              0,
+                              &inner_block_layout));
   BlockInfo inner_block_info = {};
   BlockInitialize(inner_block_layout, fake_block.block_info.body, true,
       &inner_block_info);

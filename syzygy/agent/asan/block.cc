@@ -221,7 +221,7 @@ BlockHeader* BlockGetHeaderFromBodyImpl(const void* const_body) {
 
 }  // namespace
 
-void BlockPlanLayout(size_t chunk_size,
+bool BlockPlanLayout(size_t chunk_size,
                      size_t alignment,
                      size_t size,
                      size_t min_left_redzone_size,
@@ -243,6 +243,9 @@ void BlockPlanLayout(size_t chunk_size,
   // Calculate the total size of the allocation.
   size_t total_size = common::AlignUp(
       left_redzone_size + size + right_redzone_size, chunk_size);
+
+  if (total_size < size)
+    return false;
 
   // Now figure out the sizes of things such that the body of the allocation is
   // aligned as close as possible to the beginning of the right redzone while
@@ -272,6 +275,7 @@ void BlockPlanLayout(size_t chunk_size,
   layout->body_size = size;
   layout->trailer_padding_size = right_redzone_size - sizeof(BlockTrailer);
   layout->trailer_size = sizeof(BlockTrailer);
+  return true;
 }
 
 void BlockInitialize(const BlockLayout& layout,

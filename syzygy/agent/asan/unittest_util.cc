@@ -247,12 +247,12 @@ FakeAsanBlock::~FakeAsanBlock() {
 
 bool FakeAsanBlock::InitializeBlock(size_t alloc_size) {
   BlockLayout layout = {};
-  BlockPlanLayout(alloc_alignment,
-                  alloc_alignment,
-                  alloc_size,
-                  0,
-                  0,
-                  &layout);
+  EXPECT_TRUE(BlockPlanLayout(alloc_alignment,
+                              alloc_alignment,
+                              alloc_size,
+                              0,
+                              0,
+                              &layout));
 
   // Initialize the ASan block.
   BlockInitialize(layout, buffer_align_begin, false, &block_info);

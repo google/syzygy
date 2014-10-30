@@ -243,7 +243,8 @@ struct BlockInfo {
 // @param min_left_redzone_size The minimum size of the left redzone.
 // @param min_right_redzone_size The minimum size of the right redzone.
 // @param layout The layout structure to be populated.
-void BlockPlanLayout(size_t chunk_size,
+// @returns true if the layout of the block is valid, false otherwise.
+bool BlockPlanLayout(size_t chunk_size,
                      size_t alignment,
                      size_t size,
                      size_t min_left_redzone_size,

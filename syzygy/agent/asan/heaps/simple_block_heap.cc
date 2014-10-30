@@ -63,11 +63,13 @@ void* SimpleBlockHeap::AllocateBlock(size_t size,
                                      size_t min_left_redzone_size,
                                      size_t min_right_redzone_size,
                                      BlockLayout* layout) {
-  DCHECK_NE(static_cast<BlockLayout*>(NULL), layout);
+  DCHECK_NE(static_cast<BlockLayout*>(nullptr), layout);
 
   // Plan the block layout.
-  BlockPlanLayout(kShadowRatio, kShadowRatio, size, min_left_redzone_size,
-                  min_right_redzone_size, layout);
+  if (!BlockPlanLayout(kShadowRatio, kShadowRatio, size, min_left_redzone_size,
+                       min_right_redzone_size, layout)) {
+    return nullptr;
+  }
 
   // Allocate space for the block. If the allocation fails heap_ will
   // return NULL and we'll simply pass it on.
