@@ -188,6 +188,25 @@ COMPILE_ASSERT((sizeof(BlockTrailer) % kShadowRatio) == (kShadowRatio / 2),
                invalid_BlockTrailer_mod_size);
 COMPILE_ASSERT(sizeof(BlockTrailer) == 20, invalid_BlockTrailer_size);
 
+// A structure for recording the minimum pertinent information about a block.
+// Can easily be expanded into a BlockInfo, but requires less space. This makes
+// it suitable for storing blocks in a quarantine, for example.
+struct CompactBlockInfo {
+  // Pointer to the beginning of the allocation.
+  uint8* block;
+  // The size of the entire allocation.
+  uint32 block_size;
+  struct {
+    // The entire size of the header, including padding.
+    unsigned header_size : 15;
+    // The entire size of the trailer, including padding.
+    unsigned trailer_size : 15;
+    // Indicates if the block is nested.
+    unsigned is_nested : 1;
+  };
+};
+COMPILE_ASSERT(sizeof(CompactBlockInfo) == 12, invalid_CompactBlockInfo_size);
+
 // A struct for initializing, modifying and navigating the various portions
 // of an allocated block. This can be initialized as part of the creation of
 // a new block, inferred from an in-memory investigation of an existing block
@@ -270,16 +289,22 @@ void BlockInitialize(const BlockLayout& layout,
                      bool is_nested,
                      BlockInfo* block_info);
 
+// Converts between the two BlockInfo formats. This will work as long as the
+// input is valid; garbage in implies garbage out.
+// @param compact The populated compact block info.
+// @param expanded The full expanded block info.
+void ConvertBlockInfo(const CompactBlockInfo& compact, BlockInfo* expanded);
+void ConvertBlockInfo(const BlockInfo& expanded, CompactBlockInfo* compact);
+
 // Given a pointer to a block examines memory and extracts the block layout.
 // This protects against invalid memory accesses that may occur as a result of
 // block corruption, or the block pages being protected; in case of error,
 // this will return false.
-// TODO(chrisha): Create an equivalent function for parsing a block layout
-//     from the shadow memory contents.
 // @param raw_block A pointer to the beginning of the block.
 // @param block_info The description of the block to be populated.
 // @returns true if a valid block was encountered at the provided location,
 //     false otherwise.
+bool BlockInfoFromMemory(const void* raw_block, CompactBlockInfo* block_info);
 bool BlockInfoFromMemory(const void* raw_block, BlockInfo* block_info);
 
 // Given a block body, finds the header. To find any other part of the

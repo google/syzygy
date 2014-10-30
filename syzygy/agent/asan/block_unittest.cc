@@ -271,6 +271,30 @@ TEST(BlockTest, GetHeaderFromBodyProtectedMemory) {
   ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
 }
 
+TEST(BlockTest, ConvertBlockInfo) {
+  BlockLayout layout = {};
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout));
+
+  scoped_ptr<uint8> data(new uint8[layout.block_size]);
+  ::memset(data.get(), 0, layout.block_size);
+
+  BlockInfo expanded = {};
+  BlockInitialize(layout, data.get(), false, &expanded);
+
+  CompactBlockInfo compact = {};
+  ConvertBlockInfo(expanded, &compact);
+  EXPECT_EQ(layout.block_size, compact.block_size);
+  EXPECT_EQ(layout.header_size + layout.header_padding_size,
+            compact.header_size);
+  EXPECT_EQ(layout.trailer_size + layout.trailer_padding_size,
+            compact.trailer_size);
+  EXPECT_FALSE(compact.is_nested);
+
+  BlockInfo expanded2 = {};
+  ConvertBlockInfo(compact, &expanded2);
+  EXPECT_EQ(0, ::memcmp(&expanded, &expanded2, sizeof(expanded)));
+}
+
 TEST(BlockTest, BlockInfoFromMemory) {
   // Plan two layouts, one with header padding and another without.
   BlockLayout layout1 = {};

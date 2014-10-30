@@ -117,9 +117,9 @@ DWORD AccessViolationFilter(EXCEPTION_POINTERS* e) {
 }
 
 bool BlockInfoFromMemoryImpl(const void* const_raw_block,
-                             BlockInfo* block_info) {
+                             CompactBlockInfo* block_info) {
   DCHECK_NE(static_cast<void*>(NULL), const_raw_block);
-  DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
+  DCHECK_NE(static_cast<CompactBlockInfo*>(NULL), block_info);
 
   void* raw_block = const_cast<void*>(const_raw_block);
 
@@ -172,17 +172,10 @@ bool BlockInfoFromMemoryImpl(const void* const_raw_block,
   block_info->block = reinterpret_cast<uint8*>(raw_block);
   block_info->block_size = reinterpret_cast<uint8*>(trailer + 1)
       - reinterpret_cast<uint8*>(header);
-  block_info->header = header;
-  block_info->header_padding_size = header_padding_size;
-  block_info->header_padding = block_info->block + sizeof(BlockHeader);
-  block_info->body = body;
-  block_info->body_size = header->body_size;
-  block_info->trailer_padding_size = trailer_padding_size;
-  block_info->trailer_padding = body + header->body_size;
-  block_info->trailer = trailer;
+  block_info->header_size = sizeof(BlockHeader) + header_padding_size;
+  block_info->trailer_size = trailer_padding_size + sizeof(BlockTrailer);
   block_info->is_nested = header->is_nested;
 
-  BlockIdentifyWholePages(block_info);
   return true;
 }
 
@@ -329,9 +322,9 @@ void BlockInitialize(const BlockLayout& layout,
   InitializeBlockTrailer(block_info);
 }
 
-bool BlockInfoFromMemory(const void* raw_block, BlockInfo* block_info) {
+bool BlockInfoFromMemory(const void* raw_block, CompactBlockInfo* block_info) {
   DCHECK_NE(static_cast<void*>(NULL), raw_block);
-  DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
+  DCHECK_NE(static_cast<CompactBlockInfo*>(NULL), block_info);
 
   __try {
     // As little code as possible is inside the body of the __try so that
@@ -342,6 +335,42 @@ bool BlockInfoFromMemory(const void* raw_block, BlockInfo* block_info) {
     // The block is either corrupt, or the pages are protected.
     return false;
   }
+}
+
+void ConvertBlockInfo(const CompactBlockInfo& compact, BlockInfo* expanded) {
+  expanded->block = compact.block;
+  expanded->block_size = compact.block_size;
+  expanded->header = reinterpret_cast<BlockHeader*>(compact.block);
+  expanded->header_padding_size = compact.header_size - sizeof(BlockHeader);
+  expanded->header_padding = compact.block + sizeof(BlockHeader);
+  expanded->body = compact.block + compact.header_size;
+  expanded->body_size = compact.block_size - compact.header_size -
+      compact.trailer_size;
+  expanded->trailer_padding_size = compact.trailer_size - sizeof(BlockTrailer);
+  expanded->trailer_padding = expanded->body + expanded->body_size;
+  expanded->trailer = reinterpret_cast<BlockTrailer*>(
+      expanded->trailer_padding + expanded->trailer_padding_size);
+  expanded->is_nested = compact.is_nested;
+  BlockIdentifyWholePages(expanded);
+}
+
+void ConvertBlockInfo(const BlockInfo& expanded, CompactBlockInfo* compact) {
+  DCHECK_NE(static_cast<CompactBlockInfo*>(nullptr), compact);
+  compact->block = expanded.block;
+  compact->block_size = expanded.block_size;
+  compact->header_size = sizeof(BlockHeader) + expanded.header_padding_size;
+  compact->trailer_size = sizeof(BlockTrailer) + expanded.trailer_padding_size;
+  compact->is_nested = expanded.is_nested;
+}
+
+bool BlockInfoFromMemory(const void* raw_block, BlockInfo* block_info) {
+  DCHECK_NE(static_cast<void*>(NULL), raw_block);
+  DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
+  CompactBlockInfo compact = {};
+  if (!BlockInfoFromMemory(raw_block, &compact))
+    return false;
+  ConvertBlockInfo(compact, block_info);
+  return true;
 }
 
 BlockHeader* BlockGetHeaderFromBody(const void* body) {

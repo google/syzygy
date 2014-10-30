@@ -214,11 +214,21 @@ bool Shadow::BlockIsNested(const BlockInfo& info) {
   return ShadowMarkerHelper::IsNestedBlockStart(marker);
 }
 
+bool Shadow::BlockInfoFromShadow(const void* addr, CompactBlockInfo* info) {
+  DCHECK_NE(static_cast<void*>(NULL), addr);
+  DCHECK_NE(static_cast<CompactBlockInfo*>(NULL), info);
+  if (!BlockInfoFromShadowImpl(0, addr, info))
+    return false;
+  return true;
+}
+
 bool Shadow::BlockInfoFromShadow(const void* addr, BlockInfo* info) {
   DCHECK_NE(static_cast<void*>(NULL), addr);
   DCHECK_NE(static_cast<BlockInfo*>(NULL), info);
-  if (!BlockInfoFromShadowImpl(0, addr, info))
+  CompactBlockInfo compact = {};
+  if (!BlockInfoFromShadow(addr, &compact))
     return false;
+  ConvertBlockInfo(compact, info);
   return true;
 }
 
@@ -227,8 +237,10 @@ bool Shadow::ParentBlockInfoFromShadow(const BlockInfo& nested,
   DCHECK_NE(static_cast<BlockInfo*>(NULL), info);
   if (!BlockIsNested(nested))
     return false;
-  if (!BlockInfoFromShadowImpl(1, nested.block, info))
+  CompactBlockInfo compact = {};
+  if (!BlockInfoFromShadowImpl(1, nested.block, &compact))
     return false;
+  ConvertBlockInfo(compact, info);
   return true;
 }
 
@@ -411,9 +423,9 @@ bool Shadow::ScanRightForBracketingBlockEnd(
 }
 
 bool Shadow::BlockInfoFromShadowImpl(
-    size_t initial_nesting_depth, const void* addr, BlockInfo* info) {
+    size_t initial_nesting_depth, const void* addr, CompactBlockInfo* info) {
   DCHECK_NE(static_cast<void*>(NULL), addr);
-  DCHECK_NE(static_cast<BlockInfo*>(NULL), info);
+  DCHECK_NE(static_cast<CompactBlockInfo*>(NULL), info);
 
   // Convert the address to an offset in the shadow memory.
   size_t left = reinterpret_cast<uintptr_t>(addr) / kShadowRatio;
@@ -425,17 +437,12 @@ bool Shadow::BlockInfoFromShadowImpl(
     return false;
   ++right;
 
-  // Set up the block, header and trailer pointers.
   info->block = reinterpret_cast<uint8*>(left * kShadowRatio);
   info->block_size = (right - left) * kShadowRatio;
-  info->header = reinterpret_cast<BlockHeader*>(info->block);
-  info->header_padding = info->block + sizeof(BlockHeader);
-  info->trailer = reinterpret_cast<BlockTrailer*>(
-      info->block + info->block_size) - 1;
 
   // Get the length of the body modulo the shadow ratio.
   size_t body_size_mod = ShadowMarkerHelper::GetBlockStartData(shadow_[left]);
-  bool is_nested = ShadowMarkerHelper::IsNestedBlockStart(shadow_[left]);
+  info->is_nested = ShadowMarkerHelper::IsNestedBlockStart(shadow_[left]);
 
   // Find the beginning of the body (end of the left redzone).
   ++left;
@@ -447,23 +454,17 @@ bool Shadow::BlockInfoFromShadowImpl(
   while (right > left && shadow_[right - 1] == kHeapRightPaddingMarker)
     --right;
 
-  // Fill out the body and padding sizes.
-  info->body = reinterpret_cast<uint8*>(left * kShadowRatio);
-  info->body_size = (right - left) * kShadowRatio;
+  // Calculate the body location and size.
+  uint8* body = reinterpret_cast<uint8*>(left * kShadowRatio);
+  size_t body_size = (right - left) * kShadowRatio;
   if (body_size_mod > 0) {
-    DCHECK_LE(8u, info->body_size);
-    info->body_size = info->body_size - kShadowRatio + body_size_mod;
+    DCHECK_LE(8u, body_size);
+    body_size = body_size - kShadowRatio + body_size_mod;
   }
-  info->header_padding_size = info->body - info->header_padding;
-  info->trailer_padding = info->body + info->body_size;
-  info->trailer_padding_size =
-      reinterpret_cast<uint8*>(info->trailer) - info->trailer_padding;
 
-  // Fill out page information.
-  BlockIdentifyWholePages(info);
-
-  // Check if the block is nested.
-  info->is_nested = is_nested;
+  // Fill out header and trailer sizes.
+  info->header_size = body - info->block;
+  info->trailer_size = info->block_size - body_size - info->header_size;
 
   return true;
 }

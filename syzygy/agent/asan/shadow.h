@@ -207,6 +207,7 @@ class Shadow {
   // @param addr An address in the block to be inspected.
   // @param info The block information to be populated.
   // @returns true on success, false otherwise.
+  static bool BlockInfoFromShadow(const void* addr, CompactBlockInfo* info);
   static bool BlockInfoFromShadow(const void* addr, BlockInfo* info);
 
   // Inspects shadow memory to find the block containing a nested block.
@@ -266,7 +267,7 @@ class Shadow {
   // @param info The block information to be populated.
   // @returns true on success, false otherwise.
   static bool BlockInfoFromShadowImpl(
-      size_t initial_nesting_depth, const void* addr, BlockInfo* info);
+      size_t initial_nesting_depth, const void* addr, CompactBlockInfo* info);
 
   // The shadow memory.
   static uint8 shadow_[kShadowSize];
