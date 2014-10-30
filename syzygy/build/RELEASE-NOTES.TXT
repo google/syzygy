@@ -1,6 +1,12 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.1.0
+
+[6dc7c8be0f] SyzyASan - Exception filtering for interceptors.
+[a4121262fa] SyzyASan - CTMalloc and LargeBlockHeap enabled by default.
+[d38ee96601] SyzyASan - Remove use of contended lock in quarantine logic.
+
 Version 0.8.0.0
 
 As of this version, SyzyASan has been entirely refactored and much of it
