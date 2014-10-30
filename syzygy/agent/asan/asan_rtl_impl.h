@@ -87,6 +87,8 @@ BOOL WINAPI asan_HeapQueryInformation(
 typedef void (*AsanErrorCallBack)(agent::asan::AsanErrorInfo*);
 void WINAPI asan_SetCallBack(AsanErrorCallBack callback);
 
+int asan_CrashForException(EXCEPTION_POINTERS* exception);
+
 }  // extern "C"
 
 #endif  // SYZYGY_AGENT_ASAN_ASAN_RTL_IMPL_H_

@@ -1119,4 +1119,32 @@ size_t AsanInvalidAccessWithCorruptFreedBlock() {
   return ret;
 }
 
+size_t AsanMemcmpAccessViolation() {
+  static const size_t kPageSize = 4096;
+  char* alloc = new char[2 * kPageSize];
+  ::memset(alloc, 0, 2 * kPageSize);
+
+  // Find the beginning of a page in the allocation.
+  char* page_start = reinterpret_cast<char*>(
+      ((reinterpret_cast<uintptr_t>(alloc) + kPageSize - 1) / kPageSize) *
+          kPageSize);
+
+  // Protect the page so that memcmp will produce an access violation when
+  // reading from it.
+  DWORD old_protections = 0;
+  if (!::VirtualProtect(
+          page_start, kPageSize, PAGE_NOACCESS, &old_protections)) {
+    return 0;
+  }
+
+  size_t result = 0;
+  __try {
+    static const char kMessage[] = "This is a message!";
+    result = ::memcmp(kMessage, page_start, sizeof(kMessage));
+  } __except (EXCEPTION_CONTINUE_SEARCH) {
+  }
+
+  return result;
+}
+
 }  // namespace testing

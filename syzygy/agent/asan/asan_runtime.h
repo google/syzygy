@@ -82,6 +82,11 @@ class AsanRuntime {
   // Release asan runtime library.
   void TearDown();
 
+  // The body of the OnError functions, minus the error handler callback.
+  // Factored out for reuse by OnError and unfiltered exception handling.
+  // @param error_info The information about this error.
+  void OnErrorImpl(AsanErrorInfo* error_info);
+
   // The error handler.
   // @param error_info The information about this error.
   void OnError(AsanErrorInfo* error_info);
@@ -133,6 +138,14 @@ class AsanRuntime {
   // @note The flag is stored per-thread using TLS. Multiple threads do not
   //     share the same flag.
   void set_allocation_filter_flag(bool value);
+
+  // Processes an exception and determines if an ASAN error has occurred,
+  // updating the exception if so. If Breakpad is enabled, passes the
+  // exception to it, otherwise lets the exception continue unhandled.
+  // @note This is basically a Windows SEH exception filter.
+  // @param exception The exception to be processed.
+  // @returns EXCEPTION_CONTINUE_SEARCH or EXCEPTION_EXECUTE_HANDLER.
+  static int CrashForException(EXCEPTION_POINTERS* exception);
 
  protected:
   // Propagate the values of the flags to the target modules.
@@ -186,6 +199,15 @@ class AsanRuntime {
   // about the corrupt heap.
   static LONG WINAPI UnhandledExceptionFilter(
       struct _EXCEPTION_POINTERS* exception);
+
+  // The implementation of the ASAN exception handler. This has two flavours:
+  // in the context of an unhandled exception filter, and in the context of
+  // an exception handler. If |is_unhandled| is true then this will pass the
+  // exception along to the next unfiltered exception handler. Otherwise, it'll
+  // pass it along to Breakpad, if present. Finally, it'll let the exception
+  // processing continue unhandled.
+  static LONG ExceptionFilterImpl(bool is_unhandled,
+                                  EXCEPTION_POINTERS* exception);
 
   // @name Static variables related to unhandled exception filtering (UEF).
   // @{

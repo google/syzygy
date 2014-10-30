@@ -200,6 +200,27 @@ void SetCrashKeys(const BreakpadFunctions& breakpad_functions,
   }
 }
 
+// Initializes an exception record for an ASAN crash.
+void InitializeExceptionRecord(const AsanErrorInfo* error_info,
+                               EXCEPTION_RECORD* record,
+                               EXCEPTION_POINTERS* pointers) {
+  DCHECK_NE(static_cast<AsanErrorInfo*>(nullptr), error_info);
+  DCHECK_NE(static_cast<EXCEPTION_RECORD*>(nullptr), record);
+  DCHECK_NE(static_cast<EXCEPTION_POINTERS*>(nullptr), pointers);
+
+  ::memset(record, 0, sizeof(EXCEPTION_RECORD));
+  record->ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
+  record->ExceptionAddress = reinterpret_cast<PVOID>(
+      error_info->context.Eip);
+  record->NumberParameters = 2;
+  record->ExceptionInformation[0] = reinterpret_cast<ULONG_PTR>(
+      &error_info->context);
+  record->ExceptionInformation[1] = reinterpret_cast<ULONG_PTR>(error_info);
+
+  pointers->ExceptionRecord = record;
+  pointers->ContextRecord = const_cast<CONTEXT*>(&error_info->context);
+}
+
 // The breakpad error handler. It is expected that this will be bound in a
 // callback in the ASan runtime.
 // @param breakpad_functions A struct containing pointers to the various
@@ -213,15 +234,9 @@ void BreakpadErrorHandler(const BreakpadFunctions& breakpad_functions,
   SetCrashKeys(breakpad_functions, error_info);
 
   EXCEPTION_RECORD exception = {};
-  exception.ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
-  exception.ExceptionAddress = reinterpret_cast<PVOID>(
-      error_info->context.Eip);
-  exception.NumberParameters = 2;
-  exception.ExceptionInformation[0] = reinterpret_cast<ULONG_PTR>(
-      &error_info->context);
-  exception.ExceptionInformation[1] = reinterpret_cast<ULONG_PTR>(error_info);
+  EXCEPTION_POINTERS pointers = {};
+  InitializeExceptionRecord(error_info, &exception, &pointers);
 
-  EXCEPTION_POINTERS pointers = { &exception, &error_info->context };
   breakpad_functions.crash_for_exception_ptr(&pointers);
   NOTREACHED();
 }
@@ -336,6 +351,29 @@ size_t MaxSafeAllocaSize() {
       size = 0;  \
   }
 
+// Runs the heap checker if enabled. If heap corruption is found serializes
+// the results to the stack and modifies the |error_info| structure.
+#define CHECK_HEAP_CORRUPTION(runtime, error_info)  \
+  (error_info)->heap_is_corrupt = false;  \
+  if (!((runtime)->params_.check_heap_on_failure)) {  \
+    runtime_->logger_->Write(  \
+          "SyzyASAN: Heap checker disabled, ignoring exception.");  \
+  } else {  \
+    runtime_->logger_->Write(  \
+          "SyzyASAN: Heap checker enabled, processing exception.");  \
+    AutoHeapManagerLock lock(runtime_->heap_manager_.get());  \
+    HeapChecker heap_checker;  \
+    HeapChecker::CorruptRangesVector corrupt_ranges;  \
+    heap_checker.IsHeapCorrupt(&corrupt_ranges);  \
+    size_t size = (runtime)->CalculateCorruptHeapInfoSize(corrupt_ranges);  \
+    void* buffer = NULL;  \
+    if (size > 0) {  \
+      SAFE_ALLOCA(size, buffer);  \
+      (runtime)->WriteCorruptHeapInfo(  \
+          corrupt_ranges, size, buffer, error_info);  \
+    }  \
+  }
+
 }  // namespace
 
 const char AsanRuntime::kSyzygyAsanOptionsEnvVar[] = "SYZYGY_ASAN_OPTIONS";
@@ -430,34 +468,8 @@ void AsanRuntime::TearDown() {
   // not be empty here.
 }
 
-void AsanRuntime::OnError(AsanErrorInfo* error_info) {
+void AsanRuntime::OnErrorImpl(AsanErrorInfo* error_info) {
   DCHECK_NE(reinterpret_cast<AsanErrorInfo*>(NULL), error_info);
-
-  error_info->heap_is_corrupt = false;
-  if (params_.check_heap_on_failure) {
-    // Lock the entire heap manager while running the heap checker. This
-    // ensures that no new allocations or frees occur while the checker is
-    // scanning memory. This is a 'best effort' lock, as it is entirely
-    // possible that crashing threads hold some heap locks.
-    AutoHeapManagerLock lock(runtime_->heap_manager_.get());
-
-    // TODO(chrisha): Rename IsHeapCorrupt to something else!
-    HeapChecker heap_checker;
-    HeapChecker::CorruptRangesVector corrupt_ranges;
-    heap_checker.IsHeapCorrupt(&corrupt_ranges);
-    size_t size = CalculateCorruptHeapInfoSize(corrupt_ranges);
-
-    // We place the corrupt heap information directly on the stack so that
-    // it gets recorded in minidumps. This is necessary until we can
-    // establish a side-channel in Breakpad for attaching additional metadata
-    // to crash reports.
-    void* buffer = NULL;
-    if (size > 0) {
-      // This modifies |size| and |buffer| in place with allocation details.
-      SAFE_ALLOCA(size, buffer);
-      WriteCorruptHeapInfo(corrupt_ranges, size, buffer, error_info);
-    }
-  }
 
   LogAsanErrorInfo(error_info);
 
@@ -471,6 +483,16 @@ void AsanRuntime::OnError(AsanErrorInfo* error_info) {
     logger_->Stop();
     exit(EXIT_FAILURE);
   }
+}
+
+void AsanRuntime::OnError(AsanErrorInfo* error_info) {
+  DCHECK_NE(reinterpret_cast<AsanErrorInfo*>(NULL), error_info);
+
+  // Unfortunately this is a giant macro, but it needs to be as it performs
+  // stack allocations.
+  CHECK_HEAP_CORRUPTION(this, error_info);
+
+  OnErrorImpl(error_info);
 
   // Call the callback to handle this error.
   DCHECK(!asan_error_callback_.is_null());
@@ -738,11 +760,23 @@ void AsanRuntime::set_allocation_filter_flag(bool value) {
   heap_manager_->set_allocation_filter_flag(value);
 }
 
+int AsanRuntime::CrashForException(EXCEPTION_POINTERS* exception) {
+  return ExceptionFilterImpl(false, exception);
+}
+
 LONG WINAPI AsanRuntime::UnhandledExceptionFilter(
     struct _EXCEPTION_POINTERS* exception) {
+  return ExceptionFilterImpl(true, exception);
+}
+
+LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
+                                      EXCEPTION_POINTERS* exception) {
   // This ensures that we don't have multiple colliding crashes being processed
   // simultaneously.
   base::AutoLock auto_lock(lock_);
+
+  // This is needed for unittesting.
+  runtime_->logger_->Write("SyzyASAN: Handling an exception.");
 
   // If we're bound to a runtime then look for heap corruption and
   // potentially augment the exception record. This needs to exist in the
@@ -750,8 +784,8 @@ LONG WINAPI AsanRuntime::UnhandledExceptionFilter(
   // other exception handlers.
   AsanErrorInfo error_info = {};
 
-  // If this is set to true then an ASAN error will be logged.
-  bool log_asan_error = false;
+  // If this is set to true then an ASAN error will be emitted.
+  bool emit_asan_error = false;
 
   // If this is an exception that we launched then extract the original
   // exception data and continue processing it.
@@ -779,7 +813,8 @@ LONG WINAPI AsanRuntime::UnhandledExceptionFilter(
 
     // It is possible that access violations are due to page protections of a
     // sufficiently large allocation. In this case the shadow will contain
-    // block redzone markers at the given address.
+    // block redzone markers at the given address. We take over the exception
+    // if that is the case.
     if (exception->ExceptionRecord->ExceptionCode ==
             EXCEPTION_ACCESS_VIOLATION &&
         exception->ExceptionRecord->NumberParameters >= 2 &&
@@ -802,11 +837,9 @@ LONG WINAPI AsanRuntime::UnhandledExceptionFilter(
           // Override the invalid access location with the faulting address,
           // not the code address.
           error_info.location = address;
-
           // The exact access size isn't reported so simply set it to 1 (an
           // obvious lower bound).
           error_info.access_size = 1;
-
           // Determine if this is a read or a write using information in the
           // exception record.
           error_info.access_mode =
@@ -816,65 +849,46 @@ LONG WINAPI AsanRuntime::UnhandledExceptionFilter(
           // Fill out the rest of the bad access information.
           ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
                                            &error_info);
-          log_asan_error = true;
+          emit_asan_error = true;
         }
       }
     }
 
-    // Check for heap corruption. If we find it we take over the exception
-    // and add additional metadata to the reporting.
-    if (!runtime_->params_.check_heap_on_failure) {
-      // This message is required in order to unittest this properly.
-      runtime_->logger_->Write(
-          "SyzyASAN: Heap checker disabled, ignoring unhandled exception.");
-    } else {
-      runtime_->logger_->Write(
-          "SyzyASAN: Heap checker enabled, processing unhandled exception.");
-
-      HeapChecker heap_checker;
-      HeapChecker::CorruptRangesVector corrupt_ranges;
-      heap_checker.IsHeapCorrupt(&corrupt_ranges);
-      size_t size = runtime_->CalculateCorruptHeapInfoSize(corrupt_ranges);
-
-      // We place the corrupt heap information directly on the stack so that
-      // it gets recorded in minidumps. This is necessary until we can
-      // establish a side-channel in Breakpad for attaching additional metadata
-      // to crash reports.
-      void* buffer = NULL;
-      if (size > 0) {
-        // This modifies |size| and |buffer| in place with allocation details.
-        SAFE_ALLOCA(size, buffer);
-        runtime_->WriteCorruptHeapInfo(
-            corrupt_ranges, size, buffer, &error_info);
-        log_asan_error = true;
-      }
-    }
+    CHECK_HEAP_CORRUPTION(runtime_, &error_info);
+    if (error_info.heap_is_corrupt)
+      emit_asan_error = true;
   }
 
-  // If an ASAN error was detected then report it via the logger and Breakpad.
-  if (log_asan_error) {
-    runtime_->LogAsanErrorInfo(&error_info);
+  // If an ASAN error was detected then report it via the logger and take over
+  // the exception record.
+  EXCEPTION_RECORD record = {};
+  if (emit_asan_error) {
+    // Log the error via the usual means.
+    runtime_->OnErrorImpl(&error_info);
 
     // If we have Breakpad integration then set our crash keys.
     if (breakpad_functions.crash_for_exception_ptr != NULL)
       SetCrashKeys(breakpad_functions, &error_info);
 
-    // Clone the old exception record.
-    _EXCEPTION_RECORD old_record = *(exception->ExceptionRecord);
+    // Remember the old exception record.
+    EXCEPTION_RECORD* old_record = exception->ExceptionRecord;
 
-    // Modify the exception record, chaining it to the old one.
-    exception->ExceptionRecord->ExceptionRecord = &old_record;
-    exception->ExceptionRecord->NumberParameters = 2;
-    exception->ExceptionRecord->ExceptionInformation[0] =
-        reinterpret_cast<ULONG_PTR>(&error_info.context);
-    exception->ExceptionRecord->ExceptionInformation[1] =
-        reinterpret_cast<ULONG_PTR>(&error_info);
+    // Initialize the exception record and chain the original exception to it.
+    InitializeExceptionRecord(&error_info, &record, exception);
+    record.ExceptionRecord = old_record;
   }
 
-  // Pass the buck to the next exception handler. If the process is Breakpad
-  // enabled this will eventually make its way there.
-  if (previous_uef_ != NULL)
-    return (*previous_uef_)(exception);
+  if (is_unhandled) {
+    // Pass the buck to the next exception handler. If the process is Breakpad
+    // enabled this will eventually make its way there.
+    if (previous_uef_ != NULL)
+      return (*previous_uef_)(exception);
+  }
+
+  // If we've found an ASAN error then pass the buck to Breakpad directly,
+  // if possible. Otherwise, simply let things take their natural course.
+  if (emit_asan_error && breakpad_functions.crash_for_exception_ptr)
+    return (*breakpad_functions.crash_for_exception_ptr)(exception);
 
   // We can't do anything with this, so let the system deal with it.
   return EXCEPTION_CONTINUE_SEARCH;

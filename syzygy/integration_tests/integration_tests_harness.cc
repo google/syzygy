@@ -180,6 +180,7 @@ int main(int argc, char** argv) {
 
   if (expect_exception) {
     LOG(ERROR) << "Expected an exception, but none was raised.";
+    LOG(ERROR) << "Command-line: " << cmd_line->GetCommandLineString();
     Exit(1);
   }
   Exit(0);

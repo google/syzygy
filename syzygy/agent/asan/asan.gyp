@@ -116,7 +116,6 @@
         'syzyasan_rtl.rc',
       ],
       'dependencies': [
-        'system_interceptors_generator',
         'syzyasan_rtl_lib',
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
@@ -158,13 +157,11 @@
       'target_name': 'system_interceptors_generator',
       'type': 'none',
       'msvs_cygwin_shell': 0,
-      'sources': [
-        'asan_system_interceptor_parser.py',
-      ],
       'actions': [
         {
           'action_name': 'generate_syzyasan_system_interceptors',
           'inputs': [
+            'asan_system_interceptor_parser.py',
             'syzyasan_rtl.def.template',
             'asan_system_interceptors_function_list.txt',
           ],
@@ -182,6 +179,9 @@
             '--def-file=syzyasan_rtl.def.template',
             'asan_system_interceptors_function_list.txt',
           ],
+          # This just ensures that the outputs show up in the list of files
+          # in the project, so they can easily be located and inspected.
+          'process_outputs_as_sources': 1,
         },
       ],
     },

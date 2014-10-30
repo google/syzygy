@@ -231,7 +231,12 @@ asan_${function_name}(${function_arguments}) {
   ${buffer_check}
   ${param_checks_precall}
 
-  ${ret_type} ret = ::${function_name}(${function_param_names});
+  ${ret_type} ret = 0;
+  __try {
+    ret = ::${function_name}(${function_param_names});
+  } __except (agent::asan::AsanRuntime::CrashForException(
+                  GetExceptionInformation())) {
+  }
 
   if (interceptor_tail_callback != NULL)
     (*interceptor_tail_callback)();

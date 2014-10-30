@@ -64,6 +64,7 @@ typedef grinder::CoverageData::SourceFileCoverageDataMap
 
 const char kAsanAccessViolationLog[] =
     "SyzyASAN: Caught an invalid access via an access violation exception.";
+const char kAsanHandlingException[] = "SyzyASAN: Handling an exception.";
 const char kAsanHeapBufferOverflow[] = "SyzyASAN error: heap-buffer-overflow ";
 const char kAsanCorruptHeap[] = "SyzyASAN error: corrupt-heap ";
 const char kAsanHeapUseAfterFree[] = "SyzyASAN error: heap-use-after-free ";
@@ -712,6 +713,13 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     // cleaned up and fires off the error we're looking for.
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanCorruptBlockInQuarantine,
         CORRUPT_BLOCK, ASAN_UNKNOWN_ACCESS, 0, 10, true));
+
+    EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+        testing::kAsanMemcmpAccessViolation,
+        true,
+        true,
+        kAsanHandlingException,
+        nullptr));
   }
 
   void AsanLargeBlockHeapTests(bool expect_exception) {

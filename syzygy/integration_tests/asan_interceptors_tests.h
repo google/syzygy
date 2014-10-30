@@ -437,6 +437,11 @@ size_t AsanInvalidAccessWithCorruptAllocatedBlockHeader();
 size_t AsanInvalidAccessWithCorruptAllocatedBlockTrailer();
 size_t AsanInvalidAccessWithCorruptFreedBlock();
 
+// Generates a call to memcmp that will cause an access violation to be
+// raised. Catches and swallows the access violation by itself. When
+// instrumented, this should be caught by the SyzyASan exception handler.
+size_t AsanMemcmpAccessViolation();
+
 }  // namespace testing
 
 #endif  // SYZYGY_INTEGRATION_TESTS_ASAN_INTERCEPTORS_TESTS_H_

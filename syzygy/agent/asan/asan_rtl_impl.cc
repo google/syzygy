@@ -243,4 +243,9 @@ void __declspec(naked) asan_ClearAllocationFilterFlag() {
   }
 }
 
+int asan_CrashForException(EXCEPTION_POINTERS* exception) {
+  DCHECK_NE(static_cast<EXCEPTION_POINTERS*>(nullptr), exception);
+  return agent::asan::AsanRuntime::CrashForException(exception);
+}
+
 }  // extern "C"

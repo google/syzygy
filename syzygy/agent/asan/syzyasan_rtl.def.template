@@ -113,3 +113,6 @@ EXPORTS
   ; AllocationFilterFlag functions.
   asan_SetAllocationFilterFlag
   asan_ClearAllocationFilterFlag
+
+  ; Breakpad-like exception filter.
+  asan_CrashForException
