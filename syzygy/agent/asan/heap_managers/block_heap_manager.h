@@ -301,8 +301,12 @@ class BlockHeapManager : public HeapManagerInterface {
   DWORD allocation_filter_flag_tls_;
 
   // A list of all heaps whose locks were acquired by the last call to
-  // BestEffortLockAll. Under lock_.
-  std::set<HeapInterface*> locked_heaps_;
+  // BestEffortLockAll. This uses the internal heap, otherwise the default
+  // allocator makes use of the process heap. The process heap may itself
+  // be locked when we try to use this, hence a deadlock can occur. This ends
+  // up being a null terminated array of HeapInterface*.
+  // Under lock_.
+  HeapInterface** locked_heaps_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BlockHeapManager);

@@ -18,12 +18,13 @@ namespace agent {
 namespace asan {
 namespace heaps {
 
-WinHeap::WinHeap() : heap_(NULL), own_heap_(true), heap_lock_count_(0) {
+WinHeap::WinHeap() : heap_(NULL), own_heap_(true), heap_lock_held_(false) {
   heap_ = ::HeapCreate(0, 0, 0);
   DCHECK_NE(static_cast<HANDLE>(NULL), heap_);
 }
 
-WinHeap::WinHeap(HANDLE heap) : heap_(heap), own_heap_(false) {
+WinHeap::WinHeap(HANDLE heap)
+    : heap_(heap), own_heap_(false), heap_lock_held_(false) {
 }
 
 WinHeap::~WinHeap() {
@@ -71,19 +72,19 @@ size_t WinHeap::GetAllocationSize(const void* alloc) {
 void WinHeap::Lock() {
   DCHECK_NE(static_cast<HANDLE>(NULL), heap_);
   lock_.Acquire();
-  // This can only fail if the heap was opened with HEAP_NO_SERIALIZATION.
-  // This is strictly unsupported.
-  // TODO(chrisha): If we want to support this we can always provide our own
-  //     serialization, and query for this condition at runtime.
-  CHECK_EQ(TRUE, ::HeapLock(heap_));
-  ++heap_lock_count_;
+  if (lock_.recursion() == 1) {
+    DCHECK(!heap_lock_held_);
+    if (::HeapLock(heap_) == TRUE)
+      heap_lock_held_ = true;
+  }
 }
 
 void WinHeap::Unlock() {
   DCHECK_NE(static_cast<HANDLE>(NULL), heap_);
-  if (heap_lock_count_ > 0) {
-    CHECK_EQ(TRUE, ::HeapUnlock(heap_));
-    --heap_lock_count_;
+  lock_.AssertAcquired();
+  if (lock_.recursion() == 1 && heap_lock_held_) {
+    ::HeapUnlock(heap_);
+    heap_lock_held_ = false;
   }
   lock_.Release();
 }

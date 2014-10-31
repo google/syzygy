@@ -48,6 +48,9 @@ class RecursiveLock {
   //     calling thread), false otherwise.
   bool Try();
 
+  // @returns the recursion count of the lock.
+  size_t recursion() const { return recursion_; }
+
  protected:
   // The internal lock logic. Returns true if the lock is acquired, false
   // otherwise. If |wait| is true then this blocks until the lock is acquired.

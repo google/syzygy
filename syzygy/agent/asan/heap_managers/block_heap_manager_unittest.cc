@@ -1353,9 +1353,22 @@ TEST_P(BlockHeapManagerTest, AllocationFilterFlag) {
   EXPECT_TRUE(heap_manager_->allocation_filter_flag());
 }
 
+namespace {
+
+size_t CountLockedHeaps(HeapInterface** heaps) {
+  size_t i = 0;
+  while (heaps[i] != nullptr) {
+    ++i;
+  }
+  return i;
+}
+
+}  // namespace
+
 TEST_P(BlockHeapManagerTest, BestEffortLockAllNoLocksHeld) {
   heap_manager_->BestEffortLockAll();
-  EXPECT_EQ(heap_manager_->locked_heaps_.size(), heap_manager_->heaps_.size());
+  EXPECT_EQ(CountLockedHeaps(heap_manager_->locked_heaps_),
+            heap_manager_->heaps_.size());
   heap_manager_->UnlockAll();
 }
 
@@ -1434,7 +1447,7 @@ TEST_P(BlockHeapManagerTest, BestEffortLockAllOneHeapLockHeld) {
   heap_manager_->BestEffortLockAll();
 
   // Expect all but one heap lock to have been acquired.
-  EXPECT_EQ(heap_manager_->locked_heaps_.size(),
+  EXPECT_EQ(CountLockedHeaps(heap_manager_->locked_heaps_),
             heap_manager_->heaps_.size() - 1);
   heap_manager_->UnlockAll();
   runner.SignalRelease();

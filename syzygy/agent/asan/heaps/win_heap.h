@@ -63,9 +63,8 @@ class WinHeap : public HeapInterface {
   // semantics by our manager and heap checker.
   common::RecursiveLock lock_;
 
-  // The number of times the heap lock itself has been acquired. This can differ
-  // from the number of times that lock_ has been acquired. Under lock_.
-  size_t heap_lock_count_;
+  // True if the heap lock itself is held. Under lock_.
+  bool heap_lock_held_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(WinHeap);

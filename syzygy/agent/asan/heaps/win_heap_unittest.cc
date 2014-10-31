@@ -24,7 +24,7 @@ namespace {
 
 class TestWinHeap : public WinHeap {
  public:
-  using WinHeap::heap_lock_count_;
+  using WinHeap::heap_lock_held_;
 };
 
 }  // namespace
@@ -64,20 +64,21 @@ TEST(WinHeapTest, GetAllocationSize) {
   EXPECT_EQ(67u, h.GetAllocationSize(alloc));
 }
 
-TEST(WinkHeapTest, Lock) {
+TEST(WinHeapTest, Lock) {
   TestWinHeap h;
 
-  EXPECT_EQ(0u, h.heap_lock_count_);
+  EXPECT_FALSE(h.heap_lock_held_);
   h.Lock();
-  EXPECT_EQ(1u, h.heap_lock_count_);
+  EXPECT_TRUE(h.heap_lock_held_);
+
   // TryLock does not acquire the underlying heap lock, as there's no
-  // 'try' functionality.
+  // 'try' functionality for it.
   EXPECT_TRUE(h.TryLock());
-  EXPECT_EQ(1u, h.heap_lock_count_);
+  EXPECT_TRUE(h.heap_lock_held_);
   h.Unlock();
-  EXPECT_EQ(0u, h.heap_lock_count_);
+  EXPECT_TRUE(h.heap_lock_held_);
   h.Unlock();
-  EXPECT_EQ(0u, h.heap_lock_count_);
+  EXPECT_FALSE(h.heap_lock_held_);
 }
 
 }  // namespace heaps

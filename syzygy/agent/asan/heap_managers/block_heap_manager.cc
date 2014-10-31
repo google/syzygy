@@ -49,7 +49,8 @@ BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
       process_heap_id_(0),
       zebra_block_heap_(nullptr),
       zebra_block_heap_id_(0),
-      large_block_heap_id_(0) {
+      large_block_heap_id_(0),
+      locked_heaps_(nullptr) {
   DCHECK_NE(static_cast<StackCaptureCache*>(nullptr), stack_cache);
   SetDefaultAsanParameters(&parameters_);
 
@@ -62,6 +63,11 @@ BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
 
 BlockHeapManager::~BlockHeapManager() {
   base::AutoLock lock(lock_);
+
+  // This would indicate that we have outstanding heap locks being
+  // held. This shouldn't happen as |locked_heaps_| is only non-null
+  // under |lock_|.
+  DCHECK_EQ(static_cast<HeapInterface**>(nullptr), locked_heaps_);
 
   // Delete all the heaps. This must be done manually to ensure that
   // all references to internal_heap_ have been cleaned up.
@@ -320,20 +326,34 @@ void BlockHeapManager::BestEffortLockAll() {
   DCHECK(initialized_);
   static const base::TimeDelta kTryTime(base::TimeDelta::FromMilliseconds(50));
   lock_.Acquire();
-  DCHECK(locked_heaps_.empty());
+
+  // Create room to store the list of locked heaps. This must use the internal
+  // heap as any other heap may be involved in a crash and locked right now.
+  DCHECK_EQ(static_cast<HeapInterface**>(nullptr), locked_heaps_);
+  size_t alloc_size = sizeof(HeapInterface*) * (heaps_.size() + 1);
+  locked_heaps_ = reinterpret_cast<HeapInterface**>(internal_heap_->Allocate(
+      alloc_size));
+  DCHECK_NE(static_cast<HeapInterface**>(nullptr), locked_heaps_);
+  ::memset(locked_heaps_, 0, alloc_size);
+
+  size_t index = 0;
   for (auto& heap_quarantine_pair : heaps_) {
     HeapInterface* heap = heap_quarantine_pair.first;
-    if (TimedTry(kTryTime, heap))
-      locked_heaps_.insert(heap);
+    if (TimedTry(kTryTime, heap)) {
+      locked_heaps_[index] = heap;
+      ++index;
+    }
   }
 }
 
 void BlockHeapManager::UnlockAll() {
   DCHECK(initialized_);
   lock_.AssertAcquired();
-  for (HeapInterface* heap : locked_heaps_)
-    heap->Unlock();
-  locked_heaps_.clear();
+  DCHECK_NE(static_cast<HeapInterface**>(nullptr), locked_heaps_);
+  for (HeapInterface** heap = locked_heaps_; *heap != nullptr; ++heap)
+    (*heap)->Unlock();
+  internal_heap_->Free(locked_heaps_);
+  locked_heaps_ = nullptr;
   lock_.Release();
 }
 
