@@ -18,11 +18,31 @@
   },
   'targets': [
     {
+      'target_name': 'kasko_rpc',
+      'type': 'static_library',
+      'variables': {
+        'prefix': 'Kasko',
+        'midl_out_dir': '<(SHARED_INTERMEDIATE_DIR)/syzygy/kasko',
+      },
+      # This path must be relative.
+      'includes': ['../build/midl_rpc.gypi'],
+      'sources': ['kasko_rpc.idl'],
+      'all_dependent_settings': {
+        'include_dirs': ['<(SHARED_INTERMEDIATE_DIR)'],
+      },
+    },
+    {
       'target_name': 'kasko_lib',
       'type': 'static_library',
       'sources': [
+        'service.h',
+        'service_bridge.cc',
+        'service_bridge.h',
       ],
       'dependencies': [
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/common/rpc/rpc.gyp:common_rpc_lib',
+        'kasko_rpc',
       ],
       'defines': [
         'KASKO_IMPLEMENTATION',
@@ -41,6 +61,7 @@
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
+        'kasko_lib'
       ],
       'defines': [
         'KASKO_IMPLEMENTATION',
@@ -81,9 +102,10 @@
       'type': 'executable',
       'sources': [
         '<(src)/base/test/run_all_unittests.cc',
+        'service_bridge_unittest.cc'
       ],
       'dependencies': [
-        'kasko',
+        'kasko_lib',
         '<(src)/base/base.gyp:test_support_base',
         '<(src)/testing/gtest.gyp:gtest',
        ],

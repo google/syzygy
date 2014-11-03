@@ -103,5 +103,24 @@ bool ScopedRpcBinding::Close() {
   return true;
 }
 
+ScopedRpcInterfaceRegistration::ScopedRpcInterfaceRegistration(
+    RPC_IF_HANDLE if_spec)
+    : if_spec_(if_spec), status_(::RpcServerRegisterIf(if_spec_, NULL, NULL)) {
+  if (status_ != RPC_S_OK) {
+    LOG(ERROR) << "Failed to register RPC interface: "
+               << ::common::LogWe(status_) << ".";
+  }
+}
+
+ScopedRpcInterfaceRegistration::~ScopedRpcInterfaceRegistration() {
+  if (status_ == RPC_S_OK) {
+    status_ = ::RpcServerUnregisterIf(NULL, NULL, FALSE);
+    if (status_ != RPC_S_OK) {
+      LOG(ERROR) << "Failed to unregister RPC interface: "
+                 << ::common::LogWe(status_) << ".";
+    }
+  }
+}
+
 }  // namespace rpc
 }  // namespace common

@@ -144,6 +144,19 @@ class ScopedRpcBinding {
   DISALLOW_COPY_AND_ASSIGN(ScopedRpcBinding);
 };
 
+// A helper to manage an RPC interface registration.
+class ScopedRpcInterfaceRegistration {
+ public:
+  explicit ScopedRpcInterfaceRegistration(RPC_IF_HANDLE if_spec);
+  ~ScopedRpcInterfaceRegistration();
+
+  RPC_STATUS status() { return status_; }
+
+ private:
+  RPC_IF_HANDLE if_spec_;
+  RPC_STATUS status_;
+};
+
 namespace internal {
 
 template <class T>

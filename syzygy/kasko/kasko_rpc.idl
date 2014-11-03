@@ -1,0 +1,26 @@
+// Copyright 2014 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Defines the Kasko RPC interface.
+[
+    uuid(4FD41D5D-32DF-4C48-8394-19B880B6ACA4),
+    version(1.0)
+]
+interface Kasko {
+  // Sends a diagnostic report for the caller process. |protobuf| will be
+  // included in the report as a custom data stream.
+  boolean SendDiagnosticReport(
+      [in] long message_size,
+      [in, size_is(message_size)] const char protobuf[*]);
+}
