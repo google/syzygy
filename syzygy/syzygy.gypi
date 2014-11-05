@@ -41,6 +41,12 @@
         'output_dir_prefix': 'build',
       }],
     ],
+
+    # The current PGO phase. 0 means that the PGO is disabled, 1 should be used
+    # for the instrumentation phase and 2 is for the optimization one. The
+    # targets are responsible on setting the appropriate linker settings
+    # depending on the value of this flag.
+    'pgo_phase%': '0',
   },
   'target_defaults': {
     'include_dirs': [
@@ -121,7 +127,11 @@
               },
               'VCLinkerTool': {
                 # 0: Inherit, 1: Enabled, 2-4: For PGO.
-                'LinkTimeCodeGeneration': '1',
+                'conditions': [
+                  ['pgo_phase==0', {
+                    'LinkTimeCodeGeneration': '1',
+                  }],
+                ],
                 # Ensure that the checksum present in the header of the binaries
                 # is set.
                 'SetChecksum': 'true',

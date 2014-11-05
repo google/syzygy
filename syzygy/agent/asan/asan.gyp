@@ -152,6 +152,24 @@
           'ImportLibrary': '$(OutDir)lib\$(TargetFileName).lib'
         },
       },
+      'conditions': [
+        ['pgo_phase==1', {
+          'msvs_settings': {
+            'VCLinkerTool': {
+              # 2 corresponds to LTCG:PGINSTRUMENT.
+              'LinkTimeCodeGeneration': '2',
+            },
+          },
+        }],
+        ['pgo_phase==2', {
+          'msvs_settings': {
+            'VCLinkerTool': {
+              # 3 corresponds to LTCG:PGOPTIMIZE.
+              'LinkTimeCodeGeneration': '3',
+            },
+          },
+        }],
+      ],
     },
     {
       'target_name': 'system_interceptors_generator',
