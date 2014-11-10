@@ -196,6 +196,15 @@ class ParseEngineUnitTest
                void(base::Time time,
                     DWORD process_id,
                     const TraceSampleData* data));
+  MOCK_METHOD3(OnFunctionNameTableEntry,
+               void(base::Time time,
+                    DWORD process_id,
+                    const TraceFunctionNameTableEntry* data));
+  MOCK_METHOD4(OnDetailedFunctionCall,
+               void(base::Time time,
+                    DWORD process_id,
+                    DWORD thread_id,
+                    const TraceDetailedFunctionCall* data));
 
   static const DWORD kProcessId;
   static const DWORD kThreadId;
@@ -640,6 +649,57 @@ TEST_F(ParseEngineUnitTest, SampleData) {
   // Dispatch a malformed record and make sure the parser errors.
   ASSERT_NO_FATAL_FAILURE(
       DispatchEventData(TRACE_SAMPLE_DATA, data, sizeof(buffer) - 1));
+  ASSERT_TRUE(error_occurred());
+}
+
+TEST_F(ParseEngineUnitTest, FunctionNameTableEntry) {
+  const char kDummyFunctionName[] = "DummyFunction";
+  char buffer[FIELD_OFFSET(TraceFunctionNameTableEntry, name) +
+      arraysize(kDummyFunctionName)] = {};
+  TraceFunctionNameTableEntry* data =
+      reinterpret_cast<TraceFunctionNameTableEntry*>(buffer);
+
+  data->function_id = 37;
+  data->name_length = arraysize(kDummyFunctionName);
+  ::strcpy(data->name, kDummyFunctionName);
+
+  EXPECT_CALL(*this, OnFunctionNameTableEntry(_, kProcessId, data));
+  ASSERT_NO_FATAL_FAILURE(DispatchEventData(
+      TRACE_FUNCTION_NAME_TABLE_ENTRY, data, sizeof(buffer)));
+  ASSERT_FALSE(error_occurred());
+
+  // Dispatch a malformed record and make sure the parser errors.
+  ASSERT_NO_FATAL_FAILURE(DispatchEventData(
+      TRACE_FUNCTION_NAME_TABLE_ENTRY, data, sizeof(buffer) - 1));
+  ASSERT_TRUE(error_occurred());
+}
+
+TEST_F(ParseEngineUnitTest, DetailedFunctionCall) {
+  const uint8 kDummyArguments[] = {
+      0x02, 0x00, 0x00, 0x00,  // 2 aguments
+      0x04, 0x00, 0x00, 0x00,  // Argument 0 length 4.
+      0x01, 0x00, 0x00, 0x00,  // Argument 1 length 1.
+      0xDE, 0xAD, 0xBE, 0xEF,  // Argument 0: 0xDEADBEEF.
+      'A'                      // Argument 1: 'A'
+      };
+  char buffer[FIELD_OFFSET(TraceDetailedFunctionCall, argument_data) +
+      arraysize(kDummyArguments)] = {};
+  TraceDetailedFunctionCall* data =
+      reinterpret_cast<TraceDetailedFunctionCall*>(buffer);
+
+  data->timestamp = 0x0102030405060708;
+  data->function_id = 37;
+  data->argument_data_size = arraysize(kDummyArguments);
+  ::memcpy(data->argument_data, kDummyArguments, arraysize(kDummyArguments));
+
+  EXPECT_CALL(*this, OnDetailedFunctionCall(_, kProcessId, kThreadId, data));
+  ASSERT_NO_FATAL_FAILURE(DispatchEventData(
+      TRACE_DETAILED_FUNCTION_CALL, data, sizeof(buffer)));
+  ASSERT_FALSE(error_occurred());
+
+  // Dispatch a malformed record and make sure the parser errors.
+  ASSERT_NO_FATAL_FAILURE(DispatchEventData(
+      TRACE_DETAILED_FUNCTION_CALL, data, sizeof(buffer) - 1));
   ASSERT_TRUE(error_occurred());
 }
 

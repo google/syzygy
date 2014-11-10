@@ -385,9 +385,84 @@ class TraceFileDumper : public ParseEventHandler {
               samples);
   }
 
+  // Issued for detailed function call records.
+  virtual void OnFunctionNameTableEntry(
+      base::Time Time,
+      DWORD process_id,
+      const TraceFunctionNameTableEntry* data) OVERRIDE {
+    DCHECK_NE(static_cast<TraceFunctionNameTableEntry*>(nullptr), data);
+    ::fprintf(file_,
+              "OnFunctionNameTableEntry: process-id=%d; function-id=%d; "
+              "name='%.*s'\n",
+              process_id,
+              data->function_id,
+              data->name_length,
+              data->name);
+    ProcessIdFunctionIdPair key(process_id, data->function_id);
+    std::string value(data->name, data->name_length);
+    function_names_.insert(std::make_pair(key, value));
+  }
+
+  // Issued for detailed function call records.
+  virtual void OnDetailedFunctionCall(
+      base::Time Time,
+      DWORD process_id,
+      DWORD thread_id,
+      const TraceDetailedFunctionCall* data) OVERRIDE {
+    DCHECK_NE(static_cast<TraceDetailedFunctionCall*>(nullptr), data);
+    ::fprintf(file_,
+              "OnDetailedFunctionCall: process-id=%d; thread-id=%d;\n"
+              "    timestamp=0x%016llX; function_id=%d;\n",
+              process_id,
+              thread_id,
+              data->timestamp,
+              data->function_id);
+
+    // Output the function name if we've seen it.
+    auto it = function_names_.find(
+        ProcessIdFunctionIdPair(process_id, data->function_id));
+    if (it != function_names_.end())
+      ::fprintf(file_, "    function_name='%s';\n", it->second.c_str());
+
+    // Output the arguments summary info.
+    const uint32* argument_lengths = reinterpret_cast<const uint32*>(
+        data->argument_data);
+    uint32 argument_count = 0;
+    if (data->argument_data_size > 0) {
+      argument_count = *argument_lengths;
+      argument_lengths++;
+    }
+    ::fprintf(file_, "    argument_data_size=%d; argument_count=%d\n",
+              data->argument_data_size, argument_count);
+
+    const uint8* argument_data = reinterpret_cast<const uint8*>(
+        argument_lengths + argument_count);
+    const uint8* argument_data_end = data->argument_data +
+        data->argument_data_size;
+    for (size_t i = 0; i < argument_count; ++i) {
+      ::fprintf(file_, "    argument %d:", i);
+      for (size_t j = 0; j < argument_lengths[i]; ++j) {
+        if (argument_data < argument_data_end) {
+          ::fprintf(file_, " %02X", (int)(*argument_data));
+          ++argument_data;
+        } else {
+          ::fprintf(file_, " <insufficient argument data>\n");
+          return;
+        }
+      }
+      ::fprintf(file_, ";\n");
+    }
+  }
+
  private:
   FILE* file_;
   const char* indentation_;
+
+  // Stores function names per process. Used for symbolizing detailed
+  // function call data. These are keyed be process ID and function ID.
+  typedef std::pair<DWORD, size_t> ProcessIdFunctionIdPair;
+  typedef std::map<ProcessIdFunctionIdPair, std::string> FunctionNameMap;
+  FunctionNameMap function_names_;
 
   DISALLOW_COPY_AND_ASSIGN(TraceFileDumper);
 };

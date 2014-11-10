@@ -18,6 +18,7 @@
 #ifndef SYZYGY_TRACE_CLIENT_CLIENT_UTILS_H_
 #define SYZYGY_TRACE_CLIENT_CLIENT_UTILS_H_
 
+#include "base/callback.h"
 #include "base/files/file_path.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/rpc/call_trace_rpc.h"
@@ -72,6 +73,16 @@ class TraceFileSegment {
   inline RecordType* AllocateTraceRecord() {
     return AllocateTraceRecord<RecordType>(sizeof(RecordType));
   }
+
+  // @name Testing seam. Used for observing data that is stuffed into a
+  // TraceFileSegment.
+  // @{
+  typedef base::Callback<void(int record_type,
+                              size_t record_size,
+                              void* record)>
+      AllocateTraceRecordCallback;
+  AllocateTraceRecordCallback allocate_callback;
+  // @}
 
  // TODO(siggi): Make this private.
  public:

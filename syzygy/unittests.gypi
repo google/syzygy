@@ -34,11 +34,12 @@
 
       # Agent tests.
       '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl_unittests',
-      '<(src)/syzygy/agent/common/common.gyp:agent_common_unittests',
-      '<(src)/syzygy/agent/coverage/coverage.gyp:coverage_unittests',
-      '<(src)/syzygy/agent/profiler/profiler.gyp:profile_unittests',
       '<(src)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
           'basic_block_entry_unittests',
+      '<(src)/syzygy/agent/common/common.gyp:agent_common_unittests',
+      '<(src)/syzygy/agent/coverage/coverage.gyp:coverage_unittests',
+      '<(src)/syzygy/agent/memprof/memprof.gyp:memprof_unittests',
+      '<(src)/syzygy/agent/profiler/profiler.gyp:profile_unittests',
 
       # Block graph tests.
       '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_unittests',

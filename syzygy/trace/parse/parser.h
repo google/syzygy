@@ -205,6 +205,19 @@ class ParseEventHandler {
   virtual void OnSampleData(base::Time Time,
                             DWORD process_id,
                             const TraceSampleData* data) = 0;
+
+  // Issued for detailed function call records.
+  virtual void OnFunctionNameTableEntry(
+      base::Time Time,
+      DWORD process_id,
+      const TraceFunctionNameTableEntry* data) = 0;
+
+  // Issued for detailed function call records.
+  virtual void OnDetailedFunctionCall(
+      base::Time Time,
+      DWORD process_id,
+      DWORD thread_id,
+      const TraceDetailedFunctionCall* data) = 0;
 };
 
 // A default implementation of the ParseEventHandler interface. Provides
@@ -266,6 +279,15 @@ class ParseEventHandlerImpl : public ParseEventHandler {
   virtual void OnSampleData(base::Time Time,
                             DWORD process_id,
                             const TraceSampleData* data) OVERRIDE;
+  virtual void OnFunctionNameTableEntry(
+      base::Time Time,
+      DWORD process_id,
+      const TraceFunctionNameTableEntry* data) OVERRIDE;
+  virtual void OnDetailedFunctionCall(
+      base::Time Time,
+      DWORD process_id,
+      DWORD thread_id,
+      const TraceDetailedFunctionCall* data) OVERRIDE;
   // @}
 };
 

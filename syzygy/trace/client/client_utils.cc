@@ -259,6 +259,9 @@ void* TraceFileSegment::AllocateTraceRecordImpl(int record_type,
   write_ptr += total_size;
   header->segment_length += total_size;
 
+  if (!allocate_callback.is_null())
+    allocate_callback.Run(record_type, record_size, prefix + 1);
+
   return prefix + 1;
 }
 

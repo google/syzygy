@@ -219,5 +219,18 @@ void ParseEventHandlerImpl::OnSampleData(
     base::Time Time, DWORD process_id, const TraceSampleData* data) {
 }
 
+void ParseEventHandlerImpl::OnFunctionNameTableEntry(
+      base::Time Time,
+      DWORD process_id,
+      const TraceFunctionNameTableEntry* data) {
+}
+
+void ParseEventHandlerImpl::OnDetailedFunctionCall(
+    base::Time Time,
+    DWORD process_id,
+    DWORD thread_id,
+    const TraceDetailedFunctionCall* data) {
+}
+
 }  // namespace parser
 }  // namespace trace

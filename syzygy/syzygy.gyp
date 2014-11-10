@@ -29,6 +29,7 @@
         'agent/call_trace/call_trace.gyp:*',
         'agent/common/common.gyp:*',
         'agent/coverage/coverage.gyp:*',
+        'agent/memprof/memprof.gyp:*',
         'agent/profiler/profiler.gyp:*',
         'ar/ar.gyp:*',
         'assm/assm.gyp:*',

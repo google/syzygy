@@ -42,19 +42,19 @@ class RpcSession {
   const std::wstring instance_id() const { return instance_id_; }
 
   // @name Wrapper and helper functions for the RPC and shared memory calls made
-  // by the call-trace client.
+  // by the call-trace client. These are virtual for ease of unittesting.
   // @{
 
   // @note Do not call this function directly unless you know exactly what
   //     you're doing. For consistent semantics across agents please use
   //     trace::client::InitializeRpcSession.
-  bool CreateSession(TraceFileSegment* segment);
-  bool AllocateBuffer(TraceFileSegment* segment);
-  bool AllocateBuffer(size_t min_size, TraceFileSegment* segment);
-  bool ExchangeBuffer(TraceFileSegment* segment);
-  bool ReturnBuffer(TraceFileSegment* segment);
-  bool CloseSession();
-  void FreeSharedMemory();
+  virtual bool CreateSession(TraceFileSegment* segment);
+  virtual bool AllocateBuffer(TraceFileSegment* segment);
+  virtual bool AllocateBuffer(size_t min_size, TraceFileSegment* segment);
+  virtual bool ExchangeBuffer(TraceFileSegment* segment);
+  virtual bool ReturnBuffer(TraceFileSegment* segment);
+  virtual bool CloseSession();
+  virtual void FreeSharedMemory();
   // @}
 
   inline bool IsEnabled(unsigned long bit_mask) const {
@@ -71,7 +71,7 @@ class RpcSession {
 
   unsigned long flags() const { return flags_; }
 
- private:
+ protected:
   // Map a tracefile segment buffer into local memory.
   bool MapSegmentBuffer(TraceFileSegment* segment);
 

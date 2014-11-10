@@ -88,6 +88,8 @@ enum TraceEventType {
   TRACE_INDEXED_FREQUENCY,
   TRACE_DYNAMIC_SYMBOL,
   TRACE_SAMPLE_DATA,
+  TRACE_FUNCTION_NAME_TABLE_ENTRY,
+  TRACE_DETAILED_FUNCTION_CALL,
 };
 
 // All traces are emitted at this trace level.
@@ -428,5 +430,50 @@ struct TraceSampleData {
   uint32 buckets[1];
 };
 COMPILE_ASSERT_IS_POD(TraceSampleData);
+
+// Records a functions name and its assined ID.
+struct TraceFunctionNameTableEntry {
+  enum { kTypeId = TRACE_FUNCTION_NAME_TABLE_ENTRY };
+
+  // The assigned ID of this function.
+  uint32 function_id;
+
+  // The length of the function name.
+  uint32 name_length;
+
+  // The name of this function. This is actually of length |name_length|,
+  // which doesn't need to include null termination.
+  char name[1];
+};
+COMPILE_ASSERT_IS_POD(TraceFunctionNameTableEntry);
+
+// Records detailed information about a call to a function.
+struct TraceDetailedFunctionCall {
+  enum { kTypeId = TRACE_DETAILED_FUNCTION_CALL };
+
+  // The timestamp of the funtion call.
+  uint64 timestamp;
+
+  // The ID of the function. This is an entry in the global
+  // function table.
+  uint32 function_id;
+
+  // The size of the argument data.
+  uint32 argument_data_size;
+
+  // The blob of argument data. This is actually of size
+  // |argument_data_size|. This is laid out as follows:
+  // uint32 argument_count
+  // uint32 argument_length_0
+  // uint32 argument_length_1
+  // ...
+  // uint8 argument_data_0
+  // uint8 argument_data_1
+  // ...
+  // The content and interpretation of this data is up to the
+  // individual producer and consumer.
+  uint8 argument_data[1];
+};
+COMPILE_ASSERT_IS_POD(TraceDetailedFunctionCall);
 
 #endif  // SYZYGY_TRACE_PROTOCOL_CALL_TRACE_DEFS_H_

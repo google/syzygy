@@ -195,9 +195,9 @@ bool ParseEngine::RemoveProcessInformation(DWORD process_id) {
 }
 
 bool ParseEngine::DispatchEvent(EVENT_TRACE* event) {
-  DCHECK(event != NULL);
-  DCHECK(event_handler_ != NULL);
-  DCHECK(error_occurred_ == false);
+  DCHECK_NE(static_cast<EVENT_TRACE*>(nullptr), event);
+  DCHECK_NE(static_cast<ParseEventHandler*>(nullptr), event_handler_);
+  DCHECK(!error_occurred_);
 
   if (kCallTraceEventClass != event->Header.Guid)
     return false;
@@ -250,6 +250,14 @@ bool ParseEngine::DispatchEvent(EVENT_TRACE* event) {
       success = DispatchSampleDataEvent(event);
       break;
 
+    case TRACE_FUNCTION_NAME_TABLE_ENTRY:
+      success = DispatchFunctionNameTableEntryEvent(event);
+      break;
+
+    case TRACE_DETAILED_FUNCTION_CALL:
+      success = DispatchDetailedFunctionCall(event);
+      break;
+
     default:
       LOG(ERROR) << "Unknown event type encountered.";
       break;
@@ -264,10 +272,10 @@ bool ParseEngine::DispatchEvent(EVENT_TRACE* event) {
 
 bool ParseEngine::DispatchEntryExitEvent(EVENT_TRACE* event,
                                          TraceEventType type) {
-  DCHECK(event != NULL);
+  DCHECK_NE(static_cast<EVENT_TRACE*>(nullptr), event);
+  DCHECK_NE(static_cast<ParseEventHandler*>(nullptr), event_handler_);
+  DCHECK(!error_occurred_);
   DCHECK(type == TRACE_ENTER_EVENT || type == TRACE_EXIT_EVENT);
-  DCHECK(event_handler_ != NULL);
-  DCHECK(error_occurred_ == false);
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
   const TraceEnterExitEventData* data = NULL;
@@ -300,9 +308,9 @@ bool ParseEngine::DispatchEntryExitEvent(EVENT_TRACE* event,
 }
 
 bool ParseEngine::DispatchBatchEnterEvent(EVENT_TRACE* event) {
-  DCHECK(event != NULL);
-  DCHECK(event_handler_ != NULL);
-  DCHECK(error_occurred_ == false);
+  DCHECK_NE(static_cast<EVENT_TRACE*>(nullptr), event);
+  DCHECK_NE(static_cast<ParseEventHandler*>(nullptr), event_handler_);
+  DCHECK(!error_occurred_);
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
   const TraceBatchEnterData* data = NULL;
@@ -341,9 +349,9 @@ bool ParseEngine::DispatchBatchEnterEvent(EVENT_TRACE* event) {
 }
 
 bool ParseEngine::DispatchProcessEndedEvent(EVENT_TRACE* event) {
-  DCHECK(event != NULL);
-  DCHECK(event_handler_ != NULL);
-  DCHECK(error_occurred_ == false);
+  DCHECK_NE(static_cast<EVENT_TRACE*>(nullptr), event);
+  DCHECK_NE(static_cast<ParseEventHandler*>(nullptr), event_handler_);
+  DCHECK(!error_occurred_);
 
   base::Time time(base::Time::FromFileTime(
       reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
@@ -356,9 +364,9 @@ bool ParseEngine::DispatchProcessEndedEvent(EVENT_TRACE* event) {
 }
 
 bool ParseEngine::DispatchBatchInvocationEvent(EVENT_TRACE* event) {
-  DCHECK(event != NULL);
-  DCHECK(event_handler_ != NULL);
-  DCHECK(error_occurred_ == false);
+  DCHECK_NE(static_cast<EVENT_TRACE*>(nullptr), event);
+  DCHECK_NE(static_cast<ParseEventHandler*>(nullptr), event_handler_);
+  DCHECK(!error_occurred_);
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
   if (event->MofLength % sizeof(InvocationInfo) != 0) {
@@ -388,9 +396,9 @@ bool ParseEngine::DispatchBatchInvocationEvent(EVENT_TRACE* event) {
 }
 
 bool ParseEngine::DispatchThreadNameEvent(EVENT_TRACE* event) {
-  DCHECK(event != NULL);
-  DCHECK(event_handler_ != NULL);
-  DCHECK(error_occurred_ == false);
+  DCHECK_NE(static_cast<EVENT_TRACE*>(nullptr), event);
+  DCHECK_NE(static_cast<ParseEventHandler*>(nullptr), event_handler_);
+  DCHECK(!error_occurred_);
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
   const char* thread_name = NULL;
@@ -413,9 +421,9 @@ bool ParseEngine::DispatchThreadNameEvent(EVENT_TRACE* event) {
 }
 
 bool ParseEngine::DispatchIndexedFrequencyEvent(EVENT_TRACE* event) {
-  DCHECK(event != NULL);
-  DCHECK(event_handler_ != NULL);
-  DCHECK(error_occurred_ == false);
+  DCHECK_NE(static_cast<EVENT_TRACE*>(nullptr), event);
+  DCHECK_NE(static_cast<ParseEventHandler*>(nullptr), event_handler_);
+  DCHECK(!error_occurred_);
 
   if (event->MofLength < sizeof(TraceIndexedFrequencyData)) {
     LOG(ERROR) << "Data too small for TraceIndexedFrequency struct.";
@@ -449,9 +457,9 @@ bool ParseEngine::DispatchIndexedFrequencyEvent(EVENT_TRACE* event) {
 }
 
 bool ParseEngine::DispatchDynamicSymbolEvent(EVENT_TRACE* event) {
-  DCHECK(event != NULL);
-  DCHECK(event_handler_ != NULL);
-  DCHECK(error_occurred_ == false);
+  DCHECK_NE(static_cast<EVENT_TRACE*>(nullptr), event);
+  DCHECK_NE(static_cast<ParseEventHandler*>(nullptr), event_handler_);
+  DCHECK(!error_occurred_);
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
   const TraceDynamicSymbol* symbol = NULL;
@@ -472,9 +480,9 @@ bool ParseEngine::DispatchDynamicSymbolEvent(EVENT_TRACE* event) {
 }
 
 bool ParseEngine::DispatchSampleDataEvent(EVENT_TRACE* event) {
-  DCHECK(event != NULL);
-  DCHECK(event_handler_ != NULL);
-  DCHECK(error_occurred_ == false);
+  DCHECK_NE(static_cast<EVENT_TRACE*>(nullptr), event);
+  DCHECK_NE(static_cast<ParseEventHandler*>(nullptr), event_handler_);
+  DCHECK(!error_occurred_);
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
   const TraceSampleData* data = NULL;
@@ -501,6 +509,70 @@ bool ParseEngine::DispatchSampleDataEvent(EVENT_TRACE* event) {
   return true;
 }
 
+bool ParseEngine::DispatchFunctionNameTableEntryEvent(EVENT_TRACE* event) {
+  DCHECK_NE(static_cast<EVENT_TRACE*>(nullptr), event);
+  DCHECK_NE(static_cast<ParseEventHandler*>(nullptr), event_handler_);
+  DCHECK(!error_occurred_);
+
+  BinaryBufferReader reader(event->MofData, event->MofLength);
+  const TraceFunctionNameTableEntry* data = NULL;
+  if (!reader.Read(&data)) {
+    LOG(ERROR) << "Short or empty TraceFunctionNameTableEntry event.";
+    return false;
+  }
+  DCHECK(data != NULL);
+
+  // Calculate the expected size of the payload and ensure there's
+  // enough data.
+  size_t expected_length = FIELD_OFFSET(TraceFunctionNameTableEntry, name) +
+      data->name_length;
+  if (event->MofLength < expected_length) {
+    LOG(ERROR) << "Payload smaller than size implied by "
+               << "TraceFunctionNameTableEntry header.";
+    return false;
+  }
+
+  base::Time time(base::Time::FromFileTime(
+      reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
+  DWORD process_id = event->Header.ProcessId;
+  event_handler_->OnFunctionNameTableEntry(time, process_id, data);
+
+  return true;
+}
+
+bool ParseEngine::DispatchDetailedFunctionCall(EVENT_TRACE* event) {
+  DCHECK_NE(static_cast<EVENT_TRACE*>(nullptr), event);
+  DCHECK_NE(static_cast<ParseEventHandler*>(nullptr), event_handler_);
+  DCHECK(!error_occurred_);
+
+  BinaryBufferReader reader(event->MofData, event->MofLength);
+  const TraceDetailedFunctionCall* data = NULL;
+  if (!reader.Read(&data)) {
+    LOG(ERROR) << "Short or empty TraceDetailedFunctionCall event.";
+    return false;
+  }
+  DCHECK(data != NULL);
+
+  // Calculate the expected size of the payload and ensure there's
+  // enough data.
+  size_t expected_length =
+      FIELD_OFFSET(TraceDetailedFunctionCall, argument_data) +
+      data->argument_data_size;
+  if (event->MofLength < expected_length) {
+    LOG(ERROR) << "Payload smaller than size implied by "
+               << "TraceDetailedFunctionCall header.";
+    return false;
+  }
+
+  base::Time time(base::Time::FromFileTime(
+      reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
+  DWORD process_id = event->Header.ProcessId;
+  DWORD thread_id = event->Header.ThreadId;
+  event_handler_->OnDetailedFunctionCall(time, process_id, thread_id, data);
+
+  return true;
+}
+
 namespace {
 
 void ModuleTraceDataToModuleInformation(
@@ -519,13 +591,13 @@ void ModuleTraceDataToModuleInformation(
 
 bool ParseEngine::DispatchModuleEvent(EVENT_TRACE* event,
                                       TraceEventType type) {
-  DCHECK(event != NULL);
+  DCHECK_NE(static_cast<EVENT_TRACE*>(nullptr), event);
+  DCHECK_NE(static_cast<ParseEventHandler*>(nullptr), event_handler_);
+  DCHECK(!error_occurred_);
   DCHECK(type == TRACE_PROCESS_ATTACH_EVENT ||
          type == TRACE_PROCESS_DETACH_EVENT ||
          type == TRACE_THREAD_ATTACH_EVENT ||
          type == TRACE_THREAD_DETACH_EVENT);
-  DCHECK(event_handler_ != NULL);
-  DCHECK(error_occurred_ == false);
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
   const TraceModuleData* data = NULL;
