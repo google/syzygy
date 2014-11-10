@@ -14,6 +14,8 @@
 
 #include "syzygy/zap_timestamp/zap_timestamp_app.h"
 
+#include "base/strings/string_number_conversions.h"
+
 namespace zap_timestamp {
 
 namespace {
@@ -44,7 +46,10 @@ const char kUsageFormatStr[] =
     "    --output-image must also be specified."
     "  --overwrite\n"
     "    If specified will allow overwriting of existing output files. Must\n"
-    "    be specified for in place processing.\n";
+    "    be specified for in place processing.\n"
+    "  --timestamp-value=<seconds since Jan 1, 1970>\n"
+    "    The timestamp value to use in the binaries, if not specified an\n"
+    "    arbitrary date in the past will be used (default to Jan 1, 2010).\n";
 
 void PrintUsage(FILE* out,
                 const base::FilePath& program,
@@ -81,6 +86,17 @@ bool ZapTimestampApp::ParseCommandLine(const CommandLine* command_line) {
   zap_.set_write_image(!command_line->HasSwitch("no-write-image"));
   zap_.set_write_pdb(!command_line->HasSwitch("no-write-pdb"));
   zap_.set_overwrite(command_line->HasSwitch("overwrite"));
+
+  if (command_line->HasSwitch("timestamp-value")) {
+    size_t timestamp_value = 0;
+    if (!base::StringToSizeT(
+            command_line->GetSwitchValueASCII("timestamp-value"),
+            &timestamp_value)) {
+      LOG(ERROR) << "Unable to read the timestamp value from the command line.";
+      return false;
+    }
+    zap_.set_timestamp_value(timestamp_value);
+  }
 
   return true;
 }

@@ -495,8 +495,11 @@ ZapTimestamp::ZapTimestamp()
       overwrite_(false) {
   // The timestamp can't just be set to zero as that represents a special
   // value in the PE file. We set it to some arbitrary fixed date in the past.
-  // This is Y2K: Jan 1, 2000, 0:00:00 GMT.
-  timestamp_data_ = 946684800;
+  // This is Jan 1, 2010, 0:00:00 GMT. This date shouldn't be too much in
+  // the past, otherwise Windows might trigger a warning saying that the
+  // instrumented image has known incompatibility issues when someone tries to
+  // run it.
+  timestamp_data_ = 1262304000;
 
   // Initialize the age to 1.
   pdb_age_data_ = 1;

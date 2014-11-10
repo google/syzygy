@@ -111,6 +111,7 @@ TEST_F(ZapTimestampAppTest, ParseMaximalCommandLine) {
   cmd_line_.AppendSwitch("no-write-image");
   cmd_line_.AppendSwitch("no-write-pdb");
   cmd_line_.AppendSwitch("overwrite");
+  cmd_line_.AppendSwitchASCII("timestamp-value", "42");
   EXPECT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
 
   EXPECT_EQ(input_image, test_impl_.zap_.input_image());
@@ -120,6 +121,7 @@ TEST_F(ZapTimestampAppTest, ParseMaximalCommandLine) {
   EXPECT_FALSE(test_impl_.zap_.write_image());
   EXPECT_FALSE(test_impl_.zap_.write_pdb());
   EXPECT_TRUE(test_impl_.zap_.overwrite());
+  EXPECT_EQ(42, test_impl_.zap_.timestamp_value());
 }
 
 }  // namespace zap_timestamp

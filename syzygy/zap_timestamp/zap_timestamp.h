@@ -57,6 +57,9 @@ class ZapTimestamp {
   void set_overwrite(bool overwrite) {
     overwrite_ = overwrite;
   }
+  void set_timestamp_value(size_t timestamp_value) {
+    timestamp_data_ = static_cast<size_t>(timestamp_value);
+  }
   // @}
 
   // @name Accessors.
@@ -68,6 +71,9 @@ class ZapTimestamp {
   bool write_image() const { return write_image_; }
   bool write_pdb() const { return write_pdb_; }
   bool overwrite() const { return overwrite_; }
+  size_t timestamp_value() const {
+    return static_cast<size_t>(timestamp_data_);
+  }
   // @}
 
   // Prepares for modifying the given PE file. Tracks down all of the bytes
