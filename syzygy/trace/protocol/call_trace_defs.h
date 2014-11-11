@@ -89,6 +89,7 @@ enum TraceEventType {
   TRACE_DYNAMIC_SYMBOL,
   TRACE_SAMPLE_DATA,
   TRACE_FUNCTION_NAME_TABLE_ENTRY,
+  TRACE_STACK_TRACE,
   TRACE_DETAILED_FUNCTION_CALL,
 };
 
@@ -447,6 +448,23 @@ struct TraceFunctionNameTableEntry {
 };
 COMPILE_ASSERT_IS_POD(TraceFunctionNameTableEntry);
 
+// Records an unsymbolized stack trace. This is referred to by other
+// records, which put it in appropriate context.
+struct TraceStackTrace {
+  enum { kTypeId = TRACE_STACK_TRACE };
+
+  // The ID of this stack trace. This is computed as a hash of the stack trace
+  // and is unique for a given set of load addresses (ie: for a process).
+  uint32 stack_trace_id;
+
+  // The number of frames in the stack trace.
+  uint32 num_frames;
+
+  // The frames of the stack trace. There are actually |num_frames| frames
+  // in total.
+  void* frames[1];
+};
+
 // Records detailed information about a call to a function.
 struct TraceDetailedFunctionCall {
   enum { kTypeId = TRACE_DETAILED_FUNCTION_CALL };
@@ -457,6 +475,9 @@ struct TraceDetailedFunctionCall {
   // The ID of the function. This is an entry in the global
   // function table.
   uint32 function_id;
+
+  // The ID of the stack trace leading to the function call.
+  uint32 stack_trace_id;
 
   // The size of the argument data.
   uint32 argument_data_size;

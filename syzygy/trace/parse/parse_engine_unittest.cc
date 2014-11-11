@@ -200,6 +200,10 @@ class ParseEngineUnitTest
                void(base::Time time,
                     DWORD process_id,
                     const TraceFunctionNameTableEntry* data));
+  MOCK_METHOD3(OnStackTrace,
+               void(base::Time time,
+                    DWORD process_id,
+                    const TraceStackTrace* data));
   MOCK_METHOD4(OnDetailedFunctionCall,
                void(base::Time time,
                     DWORD process_id,
@@ -671,6 +675,30 @@ TEST_F(ParseEngineUnitTest, FunctionNameTableEntry) {
   // Dispatch a malformed record and make sure the parser errors.
   ASSERT_NO_FATAL_FAILURE(DispatchEventData(
       TRACE_FUNCTION_NAME_TABLE_ENTRY, data, sizeof(buffer) - 1));
+  ASSERT_TRUE(error_occurred());
+}
+
+TEST_F(ParseEngineUnitTest, StackTrace) {
+  char buffer[FIELD_OFFSET(TraceStackTrace, frames) +
+      sizeof(void*) * 4] = {};
+  TraceStackTrace* data =
+      reinterpret_cast<TraceStackTrace*>(buffer);
+
+  data->stack_trace_id = 42;
+  data->num_frames = 4;
+  data->frames[0] = reinterpret_cast<void*>(0xDEADBEEF);
+  data->frames[1] = reinterpret_cast<void*>(0x900DF00D);
+  data->frames[2] = reinterpret_cast<void*>(0xCAFEBABE);
+  data->frames[3] = reinterpret_cast<void*>(0x00031337);
+
+  EXPECT_CALL(*this, OnStackTrace(_, kProcessId, data));
+  ASSERT_NO_FATAL_FAILURE(DispatchEventData(
+      TRACE_STACK_TRACE, data, sizeof(buffer)));
+  ASSERT_FALSE(error_occurred());
+
+  // Dispatch a malformed record and make sure the parser errors.
+  ASSERT_NO_FATAL_FAILURE(DispatchEventData(
+      TRACE_STACK_TRACE, data, sizeof(buffer) - 1));
   ASSERT_TRUE(error_occurred());
 }
 

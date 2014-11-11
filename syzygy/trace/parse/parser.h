@@ -213,6 +213,12 @@ class ParseEventHandler {
       const TraceFunctionNameTableEntry* data) = 0;
 
   // Issued for detailed function call records.
+  virtual void OnStackTrace(
+      base::Time Time,
+      DWORD process_id,
+      const TraceStackTrace* data) = 0;
+
+  // Issued for detailed function call records.
   virtual void OnDetailedFunctionCall(
       base::Time Time,
       DWORD process_id,
@@ -283,6 +289,10 @@ class ParseEventHandlerImpl : public ParseEventHandler {
       base::Time Time,
       DWORD process_id,
       const TraceFunctionNameTableEntry* data) OVERRIDE;
+  virtual void OnStackTrace(
+      base::Time Time,
+      DWORD process_id,
+      const TraceStackTrace* data) OVERRIDE;
   virtual void OnDetailedFunctionCall(
       base::Time Time,
       DWORD process_id,

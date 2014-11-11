@@ -404,6 +404,20 @@ class TraceFileDumper : public ParseEventHandler {
   }
 
   // Issued for detailed function call records.
+  virtual void OnStackTrace(
+      base::Time Time,
+      DWORD process_id,
+      const TraceStackTrace* data) OVERRIDE {
+    DCHECK_NE(static_cast<TraceStackTrace*>(nullptr), data);
+    ::fprintf(file_,
+              "OnStackTrace: process-id=%d; stack-trace-id=%d; "
+              "num_frames='%d'\n",
+              process_id,
+              data->stack_trace_id,
+              data->num_frames);
+  }
+
+  // Issued for detailed function call records.
   virtual void OnDetailedFunctionCall(
       base::Time Time,
       DWORD process_id,
@@ -412,11 +426,12 @@ class TraceFileDumper : public ParseEventHandler {
     DCHECK_NE(static_cast<TraceDetailedFunctionCall*>(nullptr), data);
     ::fprintf(file_,
               "OnDetailedFunctionCall: process-id=%d; thread-id=%d;\n"
-              "    timestamp=0x%016llX; function_id=%d;\n",
+              "    timestamp=0x%016llX; function-id=%d; stack-trace-id=%d\n",
               process_id,
               thread_id,
               data->timestamp,
-              data->function_id);
+              data->function_id,
+              data->stack_trace_id);
 
     // Output the function name if we've seen it.
     auto it = function_names_.find(

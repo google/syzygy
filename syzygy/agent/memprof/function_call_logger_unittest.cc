@@ -204,6 +204,7 @@ TEST(FunctionCallLogger, TraceDetailedFunctionCall) {
           data1->argument_data_size,
       info1.record_size);
   EXPECT_EQ(0u, data1->function_id);
+  EXPECT_EQ(0u, data1->stack_trace_id);
   EXPECT_NE(0ull, data1->timestamp);
   // Number of arguments, size of argument, content of argument.
   EXPECT_EQ(2 * sizeof(uint32) + sizeof(void*), data1->argument_data_size);

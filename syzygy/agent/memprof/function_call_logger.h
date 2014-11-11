@@ -165,6 +165,7 @@ void FunctionCallLogger::EmitDetailedFunctionCall(uint32 function_id,
       segment_->AllocateTraceRecord<TraceDetailedFunctionCall>(data_size);
   data->timestamp = ::trace::common::GetTsc();
   data->function_id = function_id;
+  data->stack_trace_id = 0;  // No stack trace is currently emitted.
   data->argument_data_size = args_size;
 
   if (args_size == 0)

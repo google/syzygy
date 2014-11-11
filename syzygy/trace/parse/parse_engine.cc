@@ -254,6 +254,10 @@ bool ParseEngine::DispatchEvent(EVENT_TRACE* event) {
       success = DispatchFunctionNameTableEntryEvent(event);
       break;
 
+    case TRACE_STACK_TRACE:
+      success = DispatchStackTrace(event);
+      break;
+
     case TRACE_DETAILED_FUNCTION_CALL:
       success = DispatchDetailedFunctionCall(event);
       break;
@@ -536,6 +540,37 @@ bool ParseEngine::DispatchFunctionNameTableEntryEvent(EVENT_TRACE* event) {
       reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
   DWORD process_id = event->Header.ProcessId;
   event_handler_->OnFunctionNameTableEntry(time, process_id, data);
+
+  return true;
+}
+
+bool ParseEngine::DispatchStackTrace(EVENT_TRACE* event) {
+  DCHECK_NE(static_cast<EVENT_TRACE*>(nullptr), event);
+  DCHECK_NE(static_cast<ParseEventHandler*>(nullptr), event_handler_);
+  DCHECK(!error_occurred_);
+
+  BinaryBufferReader reader(event->MofData, event->MofLength);
+  const TraceStackTrace* data = NULL;
+  if (!reader.Read(&data)) {
+    LOG(ERROR) << "Short or empty TraceStackTrace event.";
+    return false;
+  }
+  DCHECK(data != NULL);
+
+  // Calculate the expected size of the payload and ensure there's
+  // enough data.
+  size_t expected_length = FIELD_OFFSET(TraceStackTrace, frames) +
+      data->num_frames * sizeof(void*);
+  if (event->MofLength < expected_length) {
+    LOG(ERROR) << "Payload smaller than size implied by "
+               << "TraceStackTrace header.";
+    return false;
+  }
+
+  base::Time time(base::Time::FromFileTime(
+      reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
+  DWORD process_id = event->Header.ProcessId;
+  event_handler_->OnStackTrace(time, process_id, data);
 
   return true;
 }

@@ -225,6 +225,12 @@ void ParseEventHandlerImpl::OnFunctionNameTableEntry(
       const TraceFunctionNameTableEntry* data) {
 }
 
+void ParseEventHandlerImpl::OnStackTrace(
+      base::Time Time,
+      DWORD process_id,
+      const TraceStackTrace* data) {
+}
+
 void ParseEventHandlerImpl::OnDetailedFunctionCall(
     base::Time Time,
     DWORD process_id,

@@ -221,6 +221,12 @@ class ParseEngine {
   //     Does not explicitly set error occurred.
   bool DispatchFunctionNameTableEntryEvent(EVENT_TRACE* event);
 
+  // Parses and dispatches stack trace data.
+  // @param event the event to dispatch.
+  // @returns true if the event was successfully dispatched, false otherwise.
+  //     Does not explicitly set error occurred.
+  bool DispatchStackTrace(EVENT_TRACE* event);
+
   // Parses and dispatches detailed function call data.
   // @param event the event to dispatch.
   // @returns true if the event was successfully dispatched, false otherwise.
