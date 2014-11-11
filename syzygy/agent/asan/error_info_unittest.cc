@@ -79,7 +79,7 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
                               0, 0, &outer_block_layout));
   EXPECT_TRUE(fake_block.InitializeBlock(outer_block_layout.block_size));
 
-  StackCapture stack;
+  common::StackCapture stack;
   stack.InitFromStack();
 
   // Initializes the inner block.

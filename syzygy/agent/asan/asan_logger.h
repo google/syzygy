@@ -72,7 +72,7 @@ class AsanLogger {
 
  protected:
   // The RPC binding.
-  common::rpc::ScopedRpcBinding rpc_binding_;
+  ::common::rpc::ScopedRpcBinding rpc_binding_;
 
   // The logger's instance id.
   std::wstring instance_id_;

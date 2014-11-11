@@ -31,9 +31,9 @@ namespace heaps {
 
 namespace {
 
-using common::IsAligned;
-using common::AlignDown;
-using common::AlignUp;
+using ::common::IsAligned;
+using ::common::AlignDown;
+using ::common::AlignUp;
 
 using ::testing::_;
 using ::testing::Gt;
@@ -357,7 +357,7 @@ TEST(ZebraBlockHeapTest, AllocateBlockCornerCases) {
               layout.header_padding_size + layout.body_size;
 
           EXPECT_EQ(GetPageSize(),
-                    common::AlignUp(body_end_offset, kShadowRatio));
+                    ::common::AlignUp(body_end_offset, kShadowRatio));
           BlockInitialize(layout, alloc, false, &block);
           EXPECT_TRUE(h.FreeBlock(block));
         } else {
@@ -372,7 +372,7 @@ TEST(ZebraBlockHeapTest, AllocateBlockCornerCases) {
               (trailer_size > GetPageSize()) ||
               // Incorrect body alignment.
               (GetPageSize() !=
-                  common::AlignUp(body_end_offset, kShadowRatio)));
+                  ::common::AlignUp(body_end_offset, kShadowRatio)));
         }
       }
     }

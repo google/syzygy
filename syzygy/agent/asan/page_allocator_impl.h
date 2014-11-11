@@ -84,7 +84,7 @@ PageAllocator()
   page_size_ = std::max<size_t>(kPageSize,
                                 kObjectSize + sizeof(void*));
   // Round this up to a multiple of the OS page size.
-  page_size_ = common::AlignUp(page_size_, agent::asan::GetPageSize());
+  page_size_ = ::common::AlignUp(page_size_, agent::asan::GetPageSize());
 
   objects_per_page_ = (page_size_ - sizeof(void*)) / kObjectSize;
 

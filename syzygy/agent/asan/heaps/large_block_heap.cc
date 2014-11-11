@@ -30,7 +30,7 @@ LargeBlockHeap::LargeBlockHeap(HeapInterface* internal_heap)
 }
 
 LargeBlockHeap::~LargeBlockHeap() {
-  common::AutoRecursiveLock lock(lock_);
+  ::common::AutoRecursiveLock lock(lock_);
   AllocationSet::iterator it = allocs_.begin();
   for (; it != allocs_.end(); ++it)
     ::VirtualFree(const_cast<void*>(it->address), 0, MEM_RELEASE);
@@ -45,12 +45,12 @@ void* LargeBlockHeap::Allocate(size_t bytes) {
   // Always allocate some memory so as to guarantee that zero-sized
   // allocations get an actual distinct address each time.
   size_t size = std::max(bytes, 1u);
-  size = common::AlignUp(size, GetPageSize());
+  size = ::common::AlignUp(size, GetPageSize());
   void* alloc = ::VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE);
   Allocation allocation = { alloc, bytes };
 
   if (alloc != NULL) {
-    common::AutoRecursiveLock lock(lock_);
+    ::common::AutoRecursiveLock lock(lock_);
     allocs_.insert(allocation);
   }
 
@@ -62,7 +62,7 @@ bool LargeBlockHeap::Free(void* alloc) {
 
   {
     // First lookup the allocation to ensure it was made by us.
-    common::AutoRecursiveLock lock(lock_);
+    ::common::AutoRecursiveLock lock(lock_);
     AllocationSet::iterator it = allocs_.find(allocation);
     if (it == allocs_.end())
       return false;
@@ -77,7 +77,7 @@ bool LargeBlockHeap::IsAllocated(const void* alloc) {
   Allocation allocation = { alloc, 0 };
 
   {
-    common::AutoRecursiveLock lock(lock_);
+    ::common::AutoRecursiveLock lock(lock_);
     AllocationSet::iterator it = allocs_.find(allocation);
     if (it == allocs_.end())
       return false;
@@ -90,7 +90,7 @@ size_t LargeBlockHeap::GetAllocationSize(const void* alloc) {
   Allocation allocation = { alloc, 0 };
 
   {
-    common::AutoRecursiveLock lock(lock_);
+    ::common::AutoRecursiveLock lock(lock_);
     AllocationSet::iterator it = allocs_.find(allocation);
     if (it == allocs_.end())
       return kUnknownSize;

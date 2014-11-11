@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/agent/asan/stack_capture.h"
+#include "syzygy/agent/common/stack_capture.h"
 
 #include "base/memory/scoped_ptr.h"
 #include "gtest/gtest.h"
 
 namespace agent {
-namespace asan {
+namespace common {
 
 namespace {
 
@@ -97,5 +97,5 @@ TEST_F(StackCaptureTest, RestrictedFrameCount) {
   EXPECT_EQ(5u, capture.max_num_frames());
 }
 
-}  // namespace asan
+}  // namespace common
 }  // namespace agent

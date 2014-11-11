@@ -23,7 +23,7 @@
 #include "base/memory/scoped_vector.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/error_info.h"
-#include "syzygy/agent/asan/stack_capture.h"
+#include "syzygy/agent/common/stack_capture.h"
 
 namespace agent {
 namespace asan {

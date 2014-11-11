@@ -26,7 +26,7 @@ namespace asan {
 
 namespace {
 
-using common::IsAligned;
+using ::common::IsAligned;
 
 // Declares a function that returns the maximum value representable by
 // the given bitfield.
@@ -221,20 +221,20 @@ bool BlockPlanLayout(size_t chunk_size,
                      size_t min_right_redzone_size,
                      BlockLayout* layout) {
   DCHECK_LE(kShadowRatio, chunk_size);
-  DCHECK(common::IsPowerOfTwo(chunk_size));
+  DCHECK(::common::IsPowerOfTwo(chunk_size));
   DCHECK_LE(kShadowRatio, alignment);
   DCHECK_GE(chunk_size, alignment);
-  DCHECK(common::IsPowerOfTwo(alignment));
+  DCHECK(::common::IsPowerOfTwo(alignment));
 
   // Calculate minimum redzone sizes that respect the parameters.
-  size_t left_redzone_size = common::AlignUp(
+  size_t left_redzone_size = ::common::AlignUp(
       std::max(min_left_redzone_size, sizeof(BlockHeader)),
       alignment);
   size_t right_redzone_size = std::max(min_right_redzone_size,
                                        sizeof(BlockTrailer));
 
   // Calculate the total size of the allocation.
-  size_t total_size = common::AlignUp(
+  size_t total_size = ::common::AlignUp(
       left_redzone_size + size + right_redzone_size, chunk_size);
 
   if (total_size < size)
@@ -245,8 +245,8 @@ bool BlockPlanLayout(size_t chunk_size,
   // respecting the body alignment requirements. This favors catching overflows
   // vs underflows when page protection mechanisms are active.
   size_t body_trailer_size = size + right_redzone_size;
-  size_t body_trailer_size_aligned = common::AlignUp(body_trailer_size,
-                                                     alignment);
+  size_t body_trailer_size_aligned = ::common::AlignUp(body_trailer_size,
+                                                       alignment);
   size_t body_padding_size = body_trailer_size_aligned - body_trailer_size;
   right_redzone_size += body_padding_size;
 
@@ -515,8 +515,8 @@ void BlockIdentifyWholePages(BlockInfo* block_info) {
 
   uint32 alloc_start = reinterpret_cast<uint32>(block_info->block);
   uint32 alloc_end = alloc_start + block_info->block_size;
-  alloc_start = common::AlignUp(alloc_start, GetPageSize());
-  alloc_end = common::AlignDown(alloc_end, GetPageSize());
+  alloc_start = ::common::AlignUp(alloc_start, GetPageSize());
+  alloc_end = ::common::AlignDown(alloc_end, GetPageSize());
   if (alloc_start >= alloc_end)
     return;
 
@@ -525,8 +525,8 @@ void BlockIdentifyWholePages(BlockInfo* block_info) {
 
   uint32 left_redzone_end = reinterpret_cast<uint32>(block_info->body);
   uint32 right_redzone_start = left_redzone_end + block_info->body_size;
-  left_redzone_end = common::AlignDown(left_redzone_end, GetPageSize());
-  right_redzone_start = common::AlignUp(right_redzone_start, GetPageSize());
+  left_redzone_end = ::common::AlignDown(left_redzone_end, GetPageSize());
+  right_redzone_start = ::common::AlignUp(right_redzone_start, GetPageSize());
 
   if (alloc_start < left_redzone_end) {
     block_info->left_redzone_pages = reinterpret_cast<uint8*>(alloc_start);

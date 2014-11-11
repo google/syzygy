@@ -15,8 +15,8 @@
 // Declares a utility class for getting and storing quick and dirty stack
 // captures.
 
-#ifndef SYZYGY_AGENT_ASAN_STACK_CAPTURE_H_
-#define SYZYGY_AGENT_ASAN_STACK_CAPTURE_H_
+#ifndef SYZYGY_AGENT_COMMON_STACK_CAPTURE_H_
+#define SYZYGY_AGENT_COMMON_STACK_CAPTURE_H_
 
 #include <windows.h>
 
@@ -24,7 +24,7 @@
 #include "syzygy/common/asan_parameters.h"
 
 namespace agent {
-namespace asan {
+namespace common {
 
 // Computes the hash of a given stack trace. The hash function is simply an add
 // of all the stack trace pointers.
@@ -46,7 +46,7 @@ class StackCapture {
   // This corresponds to the the type used by ::CaptureStackBackTrace's hash
   // for a stack-trace.
   typedef ULONG StackId;
-  COMPILE_ASSERT(sizeof(StackId) == sizeof(common::AsanStackId),
+  COMPILE_ASSERT(sizeof(StackId) == sizeof(::common::AsanStackId),
                  stack_id_type_mismatch);
 
   StackCapture()
@@ -203,7 +203,7 @@ class StackCapture {
   DISALLOW_COPY_AND_ASSIGN(StackCapture);
 };
 
-}  // namespace asan
+}  // namespace common
 }  // namespace agent
 
-#endif  // SYZYGY_AGENT_ASAN_STACK_CAPTURE_H_
+#endif  // SYZYGY_AGENT_COMMON_STACK_CAPTURE_H_

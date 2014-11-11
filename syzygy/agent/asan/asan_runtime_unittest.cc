@@ -55,7 +55,7 @@ class AsanRuntimeTest : public testing::TestWithAsanLogger {
     env_->UnSetVar(AsanRuntime::kSyzygyAsanOptionsEnvVar);
 
     // Setup the "global" state.
-    StackCapture::Init();
+    common::StackCapture::Init();
     StackCaptureCache::Init();
   }
 
@@ -118,7 +118,7 @@ TEST_F(AsanRuntimeTest, SetCompressionReportingPeriod) {
       StackCaptureCache::GetDefaultCompressionReportingPeriod() + 1024;
   std::string new_period_str = base::UintToString(new_period);
   current_command_line_.AppendSwitchASCII(
-      common::kParamReportingPeriod, new_period_str);
+      ::common::kParamReportingPeriod, new_period_str);
 
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
@@ -128,19 +128,19 @@ TEST_F(AsanRuntimeTest, SetCompressionReportingPeriod) {
 }
 
 TEST_F(AsanRuntimeTest, SetBottomFramesToSkip) {
-  size_t frames_to_skip = StackCapture::bottom_frames_to_skip() + 1;
+  size_t frames_to_skip = common::StackCapture::bottom_frames_to_skip() + 1;
   std::string new_frames_to_skip_str = base::UintToString(frames_to_skip);
   current_command_line_.AppendSwitchASCII(
-      common::kParamBottomFramesToSkip, new_frames_to_skip_str);
+      ::common::kParamBottomFramesToSkip, new_frames_to_skip_str);
 
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
-  EXPECT_EQ(frames_to_skip, StackCapture::bottom_frames_to_skip());
+  EXPECT_EQ(frames_to_skip, common::StackCapture::bottom_frames_to_skip());
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 
 TEST_F(AsanRuntimeTest, SetDisableBreakpad) {
-  current_command_line_.AppendSwitch(common::kParamDisableBreakpadReporting);
+  current_command_line_.AppendSwitch(::common::kParamDisableBreakpadReporting);
 
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
@@ -149,7 +149,7 @@ TEST_F(AsanRuntimeTest, SetDisableBreakpad) {
 }
 
 TEST_F(AsanRuntimeTest, SetExitOnFailure) {
-  current_command_line_.AppendSwitch(common::kParamExitOnFailure);
+  current_command_line_.AppendSwitch(::common::kParamExitOnFailure);
 
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
@@ -158,7 +158,7 @@ TEST_F(AsanRuntimeTest, SetExitOnFailure) {
 }
 
 TEST_F(AsanRuntimeTest, ExitOnFailure) {
-  current_command_line_.AppendSwitch(common::kParamExitOnFailure);
+  current_command_line_.AppendSwitch(::common::kParamExitOnFailure);
 
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
@@ -184,7 +184,7 @@ TEST_F(AsanRuntimeTest, ExitOnFailure) {
 TEST_F(AsanRuntimeTest, IgnoredStackIds) {
   std::string ignored_stack_ids = "0x1;0X7E577E57;0xCAFEBABE;0xffffffff";
   current_command_line_.AppendSwitchASCII(
-      common::kParamIgnoredStackIds, ignored_stack_ids);
+      ::common::kParamIgnoredStackIds, ignored_stack_ids);
 
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));

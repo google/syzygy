@@ -69,7 +69,7 @@ void Shadow::Unpoison(const void* addr, size_t size) {
 
 void Shadow::MarkAsFreed(const void* addr, size_t size) {
   DCHECK_LE(kAddressLowerBound, reinterpret_cast<uintptr_t>(addr));
-  DCHECK(common::IsAligned(addr, kShadowRatio));
+  DCHECK(::common::IsAligned(addr, kShadowRatio));
   size_t index = reinterpret_cast<uintptr_t>(addr) / kShadowRatio;
   size_t length = (size + kShadowRatio - 1) / kShadowRatio;
 
@@ -171,9 +171,9 @@ void Shadow::PoisonAllocatedBlock(const BlockInfo& info) {
   // of things that we require to be true for the shadow to have 100%
   // fidelity.
   uintptr_t index = reinterpret_cast<uintptr_t>(info.block);
-  DCHECK(common::IsAligned(index, kShadowRatio));
-  DCHECK(common::IsAligned(info.header_padding_size, kShadowRatio));
-  DCHECK(common::IsAligned(info.block_size, kShadowRatio));
+  DCHECK(::common::IsAligned(index, kShadowRatio));
+  DCHECK(::common::IsAligned(info.header_padding_size, kShadowRatio));
+  DCHECK(::common::IsAligned(info.block_size, kShadowRatio));
   index /= kShadowRatio;
 
   // Determine the distribution of bytes in the shadow.
@@ -477,10 +477,10 @@ ShadowWalker::ShadowWalker(
   DCHECK_GE(Shadow::kAddressUpperBound, reinterpret_cast<size_t>(upper_bound));
   DCHECK_LE(lower_bound, upper_bound);
 
-  lower_bound_ = common::AlignDown(reinterpret_cast<const uint8*>(lower_bound),
-                                   kShadowRatio);
-  upper_bound_ = common::AlignUp(reinterpret_cast<const uint8*>(upper_bound),
-                                 kShadowRatio);
+  lower_bound_ = ::common::AlignDown(
+      reinterpret_cast<const uint8*>(lower_bound), kShadowRatio);
+  upper_bound_ = ::common::AlignUp(
+      reinterpret_cast<const uint8*>(upper_bound), kShadowRatio);
   Reset();
 }
 

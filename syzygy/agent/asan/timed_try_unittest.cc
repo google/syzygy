@@ -211,12 +211,12 @@ TEST(AutoTimedTryTest, BaseLock) {
 }
 
 TEST(TimedTryTest, CommonRecursiveLock) {
-  typedef BaseLockAdapter<common::RecursiveLock> LockAdapter;
+  typedef BaseLockAdapter<::common::RecursiveLock> LockAdapter;
   ASSERT_NO_FATAL_FAILURE(TimedTryTestImpl<LockAdapter>());
 }
 
 TEST(AutoTimedTryTest, CommonRecursiveLock) {
-  typedef BaseLockAdapter<common::RecursiveLock> LockAdapter;
+  typedef BaseLockAdapter<::common::RecursiveLock> LockAdapter;
   ASSERT_NO_FATAL_FAILURE(AutoTimedTryTestImpl<LockAdapter>());
 }
 

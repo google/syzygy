@@ -19,7 +19,7 @@
 #define SYZYGY_AGENT_ASAN_ERROR_INFO_H_
 
 #include "base/callback.h"
-#include "syzygy/agent/asan/stack_capture.h"
+#include "syzygy/agent/common/stack_capture.h"
 
 namespace agent {
 namespace asan {
@@ -84,9 +84,9 @@ struct AsanBlockInfo {
   // True iff the block is corrupt.
   bool corrupt;
   // The allocation stack trace.
-  void* alloc_stack[agent::asan::StackCapture::kMaxNumFrames];
+  void* alloc_stack[agent::common::StackCapture::kMaxNumFrames];
   // The free stack trace.
-  void* free_stack[agent::asan::StackCapture::kMaxNumFrames];
+  void* free_stack[agent::common::StackCapture::kMaxNumFrames];
   // The size of the allocation stack trace.
   uint8 alloc_stack_size;
   // The size of the free stack trace.
@@ -117,20 +117,20 @@ struct AsanErrorInfo {
   // The context prior to the crash.
   CONTEXT context;
   // The allocation stack trace.
-  void* alloc_stack[agent::asan::StackCapture::kMaxNumFrames];
+  void* alloc_stack[agent::common::StackCapture::kMaxNumFrames];
   // The size of the allocation stack trace.
   uint8 alloc_stack_size;
   // The ID of the allocation thread.
   DWORD alloc_tid;
   // The free stack trace.
-  void* free_stack[agent::asan::StackCapture::kMaxNumFrames];
+  void* free_stack[agent::common::StackCapture::kMaxNumFrames];
   // The size of the free stack trace.
   uint8 free_stack_size;
   // The ID of the free thread.
   DWORD free_tid;
   // The ID of the crash stack, this is needed to be able to blacklist some
   // known bugs.
-  StackCapture::StackId crash_stack_id;
+  common::StackCapture::StackId crash_stack_id;
   // The error type.
   BadAccessKind error_type;
   // The access mode.

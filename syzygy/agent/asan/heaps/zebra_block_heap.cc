@@ -36,10 +36,10 @@ ZebraBlockHeap::ZebraBlockHeap(size_t heap_size,
     : heap_address_(NULL),
       // Makes the heap_size a multiple of kSlabSize to avoid incomplete slabs
       // at the end of the reserved memory.
-      heap_size_(common::AlignUp(heap_size, kSlabSize)),
+      heap_size_(::common::AlignUp(heap_size, kSlabSize)),
       slab_count_(heap_size_ / kSlabSize),
       slab_info_(HeapAllocator<SlabInfo>(internal_heap)),
-      quarantine_ratio_(common::kDefaultZebraBlockHeapQuarantineRatio),
+      quarantine_ratio_(::common::kDefaultZebraBlockHeapQuarantineRatio),
       free_slabs_(slab_count_,
                   HeapAllocator<size_t>(internal_heap)),
       quarantine_(slab_count_,
@@ -54,7 +54,7 @@ ZebraBlockHeap::ZebraBlockHeap(size_t heap_size,
                      MEM_RESERVE | MEM_COMMIT,
                      PAGE_READWRITE));
   CHECK_NE(reinterpret_cast<uint8*>(NULL), heap_address_);
-  DCHECK(common::IsAligned(heap_address_, GetPageSize()));
+  DCHECK(::common::IsAligned(heap_address_, GetPageSize()));
   memory_notifier_->NotifyFutureHeapUse(heap_address_, heap_size_);
 
   // Initialize the metadata describing the state of our heap.
@@ -89,7 +89,7 @@ void* ZebraBlockHeap::Allocate(size_t bytes) {
 bool ZebraBlockHeap::Free(void* alloc) {
   if (alloc == NULL)
     return true;
-  common::AutoRecursiveLock lock(lock_);
+  ::common::AutoRecursiveLock lock(lock_);
   size_t slab_index = GetSlabIndex(alloc);
   if (slab_index == kInvalidSlabIndex)
     return false;
@@ -113,7 +113,7 @@ bool ZebraBlockHeap::Free(void* alloc) {
 bool ZebraBlockHeap::IsAllocated(const void* alloc) {
   if (alloc == NULL)
     return false;
-  common::AutoRecursiveLock lock(lock_);
+  ::common::AutoRecursiveLock lock(lock_);
   size_t slab_index = GetSlabIndex(alloc);
   if (slab_index == kInvalidSlabIndex)
     return false;
@@ -127,7 +127,7 @@ bool ZebraBlockHeap::IsAllocated(const void* alloc) {
 size_t ZebraBlockHeap::GetAllocationSize(const void* alloc) {
   if (alloc == NULL)
     return kUnknownSize;
-  common::AutoRecursiveLock lock(lock_);
+  ::common::AutoRecursiveLock lock(lock_);
   size_t slab_index = GetSlabIndex(alloc);
   if (slab_index == kInvalidSlabIndex)
     return kUnknownSize;
@@ -205,7 +205,7 @@ bool ZebraBlockHeap::FreeBlock(const BlockInfo& block_info) {
 }
 
 bool ZebraBlockHeap::Push(BlockHeader* const &object) {
-  common::AutoRecursiveLock lock(lock_);
+  ::common::AutoRecursiveLock lock(lock_);
   size_t slab_index = GetSlabIndex(reinterpret_cast<void*>(object));
   if (slab_index == kInvalidSlabIndex)
     return false;
@@ -222,7 +222,7 @@ bool ZebraBlockHeap::Push(BlockHeader* const &object) {
 }
 
 bool ZebraBlockHeap::Pop(BlockHeader** block) {
-  common::AutoRecursiveLock lock(lock_);
+  ::common::AutoRecursiveLock lock(lock_);
 
   if (QuarantineInvariantIsSatisfied())
     return false;
@@ -241,7 +241,7 @@ bool ZebraBlockHeap::Pop(BlockHeader** block) {
 }
 
 void ZebraBlockHeap::Empty(ObjectVector* objects) {
-  common::AutoRecursiveLock lock(lock_);
+  ::common::AutoRecursiveLock lock(lock_);
   BlockHeader* object = NULL;
   while (!quarantine_.empty()) {
     size_t slab_index = quarantine_.front();
@@ -260,21 +260,21 @@ void ZebraBlockHeap::Empty(ObjectVector* objects) {
 }
 
 size_t ZebraBlockHeap::GetCount() {
-  common::AutoRecursiveLock lock(lock_);
+  ::common::AutoRecursiveLock lock(lock_);
   return quarantine_.size();
 }
 
 void ZebraBlockHeap::set_quarantine_ratio(float quarantine_ratio) {
   DCHECK_LE(0, quarantine_ratio);
   DCHECK_GE(1, quarantine_ratio);
-  common::AutoRecursiveLock lock(lock_);
+  ::common::AutoRecursiveLock lock(lock_);
   quarantine_ratio_ = quarantine_ratio;
 }
 
 ZebraBlockHeap::SlabInfo* ZebraBlockHeap::AllocateImpl(size_t bytes) {
   if (bytes == 0 || bytes > GetPageSize())
     return NULL;
-  common::AutoRecursiveLock lock(lock_);
+  ::common::AutoRecursiveLock lock(lock_);
 
   if (free_slabs_.empty())
     return NULL;
@@ -287,7 +287,7 @@ ZebraBlockHeap::SlabInfo* ZebraBlockHeap::AllocateImpl(size_t bytes) {
 
   // Push the allocation to the end of the even page.
   uint8* alloc = slab_address + GetPageSize() - bytes;
-  alloc = common::AlignDown(alloc, kShadowRatio);
+  alloc = ::common::AlignDown(alloc, kShadowRatio);
 
   // Update the slab info.
   SlabInfo* slab_info = &slab_info_[slab_index];

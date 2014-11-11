@@ -60,7 +60,7 @@ TEST(InternalHeapTest, GetAllocationSize) {
 
   void* alloc = h.Allocate(67);
   ASSERT_TRUE(alloc != NULL);
-  EXPECT_EQ(common::AlignUp(67u, kShadowRatio), h.GetAllocationSize(alloc));
+  EXPECT_EQ(::common::AlignUp(67u, kShadowRatio), h.GetAllocationSize(alloc));
 }
 
 TEST(InternalHeapTest, NotificationsWorkWithNonNotifyingHeap) {

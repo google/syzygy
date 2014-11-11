@@ -23,10 +23,10 @@
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/heap_manager.h"
 #include "syzygy/agent/asan/shadow.h"
-#include "syzygy/agent/asan/stack_capture.h"
 #include "syzygy/agent/asan/windows_heap_adapter.h"
 #include "syzygy/agent/asan/heap_managers/block_heap_manager.h"
 #include "syzygy/agent/common/scoped_last_error_keeper.h"
+#include "syzygy/agent/common/stack_capture.h"
 
 namespace {
 

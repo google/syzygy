@@ -46,9 +46,9 @@ uint32 GetTimeSinceFree(const BlockHeader* header) {
 // @param stack_capture The stack capture that we want to copy.
 // @param dst Will receive the stack frames.
 // @param dst_size Will receive the number of frames that has been copied.
-void CopyStackCaptureToArray(const StackCapture* stack_capture,
+void CopyStackCaptureToArray(const common::StackCapture* stack_capture,
                              void* dst, uint8* dst_size) {
-  DCHECK_NE(reinterpret_cast<const StackCapture*>(NULL), stack_capture);
+  DCHECK_NE(reinterpret_cast<common::StackCapture*>(NULL), stack_capture);
   DCHECK_NE(reinterpret_cast<void*>(NULL), dst);
   DCHECK_NE(reinterpret_cast<uint8*>(NULL), dst_size);
   ::memcpy(dst,
@@ -210,7 +210,7 @@ bool ErrorInfoGetBadAccessInformation(StackCaptureCache* stack_cache,
     bad_access_info->alloc_tid = block_info.trailer->alloc_tid;
 
     if (block_info.header->state != ALLOCATED_BLOCK) {
-      const StackCapture* free_stack = block_info.header->free_stack;
+      const common::StackCapture* free_stack = block_info.header->free_stack;
       BlockTrailer* free_stack_trailer = block_info.trailer;
       // Use the free metadata of the containing block if there's one.
       // TODO(chrisha): This should report all of the nested stack information

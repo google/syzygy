@@ -205,7 +205,7 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
 
   // Capture the current stack. InitFromStack is inlined to preserve the
   // greatest number of stack frames.
-  StackCapture stack;
+  common::StackCapture stack;
   stack.InitFromStack();
   block.header->alloc_stack = stack_cache_->SaveStackTrace(stack);
   block.header->free_stack = nullptr;
@@ -258,7 +258,7 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   // We need to update the block's metadata before pushing it into the
   // quarantine, otherwise a concurrent thread might try to pop it while its in
   // an invalid state.
-  StackCapture stack;
+  common::StackCapture stack;
   stack.InitFromStack();
   block_info.header->free_stack =
       stack_cache_->SaveStackTrace(stack);
@@ -358,7 +358,7 @@ void BlockHeapManager::UnlockAll() {
 }
 
 void BlockHeapManager::set_parameters(
-    const common::AsanParameters& parameters) {
+    const ::common::AsanParameters& parameters) {
   // Once initialized we can't tolerate changes to enable_ctmalloc, as the
   // internal heap and process heap would have to be reinitialized.
   DCHECK(!initialized_ ||
@@ -665,7 +665,7 @@ void BlockHeapManager::ReportHeapError(void* address, BadAccessKind kind) {
   error_info.location = address;
   error_info.error_type = kind;
   ErrorInfoGetBadAccessInformation(stack_cache_, &error_info);
-  agent::asan::StackCapture stack;
+  agent::common::StackCapture stack;
   stack.InitFromStack();
   error_info.crash_stack_id = stack.ComputeRelativeStackId();
 

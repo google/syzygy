@@ -23,6 +23,8 @@ namespace asan {
 
 namespace {
 
+using agent::common::StackCapture;
+
 class TestStackCaptureCache : public StackCaptureCache {
  public:
   explicit TestStackCaptureCache(AsanLogger* logger)

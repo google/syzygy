@@ -12,19 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/agent/asan/stack_capture.h"
+#include "syzygy/agent/common/stack_capture.h"
 
 #include <algorithm>
 
 #include "base/logging.h"
 #include "base/process/memory.h"
-#include "syzygy/common/asan_parameters.h"
 
 // http://blogs.msdn.com/oldnewthing/archive/2004/10/25/247180.aspx
 extern "C" IMAGE_DOS_HEADER __ImageBase;
 
 namespace agent {
-namespace asan {
+namespace common {
 
 uint32 ComputeStackTraceHash(void** stack_trace, uint8 stack_depth) {
   uint32 hash_value = 0;
@@ -36,7 +35,7 @@ uint32 ComputeStackTraceHash(void** stack_trace, uint8 stack_depth) {
 
 // The number of bottom frames to skip per stack trace.
 size_t StackCapture::bottom_frames_to_skip_ =
-    common::kDefaultBottomFramesToSkip;
+    ::common::kDefaultBottomFramesToSkip;
 
 size_t StackCapture::GetSize(size_t max_num_frames) {
   DCHECK_LT(0u, max_num_frames);
@@ -67,7 +66,7 @@ void StackCapture::RemoveRef() {
 }
 
 void StackCapture::Init() {
-  bottom_frames_to_skip_ = common::kDefaultBottomFramesToSkip;
+  bottom_frames_to_skip_ = ::common::kDefaultBottomFramesToSkip;
 }
 
 void StackCapture::InitFromBuffer(StackId stack_id,
@@ -120,5 +119,5 @@ bool StackCapture::HashCompare::operator()(
   return stack_capture1->stack_id_ < stack_capture2->stack_id_;
 }
 
-}  // namespace asan
+}  // namespace common
 }  // namespace agent

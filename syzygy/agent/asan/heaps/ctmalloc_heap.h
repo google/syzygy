@@ -60,7 +60,7 @@ class CtMallocHeap : public HeapInterface {
   MemoryNotifierInterface* memory_notifier_;
 
   // The lock that gates access to this heap.
-  common::RecursiveLock lock_;
+  ::common::RecursiveLock lock_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(CtMallocHeap);

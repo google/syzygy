@@ -26,7 +26,7 @@
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/shadow.h"
-#include "syzygy/agent/asan/stack_capture.h"
+#include "syzygy/agent/common/stack_capture.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
 namespace testing {
@@ -39,7 +39,7 @@ using agent::asan::BlockHeader;
 using agent::asan::BlockInfo;
 using agent::asan::BlockLayout;
 using agent::asan::Shadow;
-using agent::asan::StackCapture;
+using agent::common::StackCapture;
 
 }  // namespace
 

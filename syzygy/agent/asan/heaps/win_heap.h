@@ -61,7 +61,7 @@ class WinHeap : public HeapInterface {
   // The lock that gates access to this heap. This is a little redundant as
   // the underlying heap has its own lock, but it allows 'try' locking
   // semantics by our manager and heap checker.
-  common::RecursiveLock lock_;
+  ::common::RecursiveLock lock_;
 
   // True if the heap lock itself is held. Under lock_.
   bool heap_lock_held_;

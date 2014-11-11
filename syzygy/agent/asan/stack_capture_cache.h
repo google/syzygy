@@ -17,7 +17,7 @@
 
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/shadow.h"
-#include "syzygy/agent/asan/stack_capture.h"
+#include "syzygy/agent/common/stack_capture.h"
 #include "syzygy/common/asan_parameters.h"
 
 namespace agent {
@@ -25,7 +25,6 @@ namespace asan {
 
 // Forward declaration.
 class AsanLogger;
-class StackCapture;
 
 // A class which manages a thread-safe cache of unique stack traces, by ID.
 class StackCaptureCache {
@@ -37,7 +36,7 @@ class StackCaptureCache {
   static const size_t kCachePageSize = 1024 * 1024;
 
   // The type used to uniquely identify a stack.
-  typedef StackCapture::StackId StackId;
+  typedef common::StackCapture::StackId StackId;
 
   // Forward declaration.
   class CachePage;
@@ -71,7 +70,7 @@ class StackCaptureCache {
 
   // @returns the default compression reporting period value.
   static size_t GetDefaultCompressionReportingPeriod() {
-    return common::kDefaultReportingPeriod;
+    return ::common::kDefaultReportingPeriod;
   }
 
   // Sets a new (global) compression reporting period value. Note that this
@@ -96,15 +95,16 @@ class StackCaptureCache {
   //     at most StackCapture::kMaxNumFrames will be saved.
   // @param stack_capture The initialized stack capture to save.
   // @returns a pointer to the saved stack capture.
-  const StackCapture* SaveStackTrace(StackId stack_id,
-                                     const void* const* frames,
-                                     size_t num_frames);
-  const StackCapture* SaveStackTrace(const StackCapture& stack_capture);
+  const common::StackCapture* SaveStackTrace(StackId stack_id,
+                                             const void* const* frames,
+                                             size_t num_frames);
+  const common::StackCapture* SaveStackTrace(
+      const common::StackCapture& stack_capture);
 
   // Releases a previously referenced stack trace. This decrements the reference
   // count and potentially cleans up the stack trace.
   // @param stack_capture The stack capture to be released.
-  void ReleaseStackTrace(const StackCapture* stack_capture);
+  void ReleaseStackTrace(const common::StackCapture* stack_capture);
 
   // Logs the current stack capture cache statistics. This method is thread
   // safe.
@@ -114,13 +114,13 @@ class StackCaptureCache {
   // it point into a CachePage.
   // @param stack_capture The pointer that we want to check.
   // @returns true if the pointer is valid, false otherwise.
-  bool StackCapturePointerIsValid(const StackCapture* stack_capture);
+  bool StackCapturePointerIsValid(const common::StackCapture* stack_capture);
 
  protected:
   // The container type in which we store the cached stacks. This enforces
   // uniqueness based on their hash value, nothing more.
-  typedef base::hash_set<StackCapture*,
-                         StackCapture::HashCompare> StackSet;
+  typedef base::hash_set<common::StackCapture*,
+                         common::StackCapture::HashCompare> StackSet;
 
   // Used for shuttling around statistics about this cache.
   struct Statistics {
@@ -177,13 +177,13 @@ class StackCaptureCache {
   // Grabs a temporary StackCapture from reclaimed_ or the current CachePage.
   // Must be called under lock_. Takes care of updating frames_dead.
   // @param num_frames The minimum number of frames that are required.
-  StackCapture* GetStackCapture(size_t num_frames);
+  common::StackCapture* GetStackCapture(size_t num_frames);
 
   // Links a stack capture into the reclaimed_ list. Meant to be called by
-  // ReturnStackCapture only. Must be called under lock_. Takes care of updating
-  // frames_dead (on behalf of ReturnStackCapture).
+  // ReturnStackCapture only. Must be called under lock_. Takes care of
+  // updating frames_dead (on behalf of ReturnStackCapture).
   // @param stack_capture The stack capture to be linked into reclaimed_.
-  void AddStackCaptureToReclaimedList(StackCapture* stack_capture);
+  void AddStackCaptureToReclaimedList(common::StackCapture* stack_capture);
 
   // The default number of known stacks sets that we keep.
   static const size_t kKnownStacksSharding = 16;
@@ -220,13 +220,13 @@ class StackCaptureCache {
   Statistics statistics_;
 
   // Locks to protect each reclaimed list from concurrent access.
-  base::Lock reclaimed_locks_[StackCapture::kMaxNumFrames + 1];
+  base::Lock reclaimed_locks_[common::StackCapture::kMaxNumFrames + 1];
 
   // StackCaptures that have been reclaimed for reuse are stored in a link list
   // according to their length. We reuse the first frame in the stack capture
   // as a pointer to the next StackCapture of that size, if there is one.
   // Accessed under reclaimed_locks_.
-  StackCapture* reclaimed_[StackCapture::kMaxNumFrames + 1];
+  common::StackCapture* reclaimed_[common::StackCapture::kMaxNumFrames + 1];
 
  private:
   DISALLOW_COPY_AND_ASSIGN(StackCaptureCache);
@@ -246,13 +246,13 @@ class StackCaptureCache::CachePage {
   // @param max_num_frames The maximum number of frames the object needs to be
   //     able to store.
   // @returns a new StackCapture, or NULL if the page is full.
-  StackCapture* GetNextStackCapture(size_t max_num_frames);
+  common::StackCapture* GetNextStackCapture(size_t max_num_frames);
 
   // Returns the most recently allocated stack capture back to the page.
   // @param stack_capture The stack capture to return.
   // @returns false if the provided stack capture was not the most recently
   //    allocated one, true otherwise.
-  bool ReturnStackCapture(StackCapture* stack_capture);
+  bool ReturnStackCapture(common::StackCapture* stack_capture);
 
   // @returns the number of bytes used in this page. This is mainly a hook
   //     for unittesting.

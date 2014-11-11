@@ -55,8 +55,8 @@ TEST(ShadowTest, PoisonUnpoisonAccess) {
     EXPECT_TRUE(Shadow::IsAccessible(start_addr - 1));
     EXPECT_TRUE(Shadow::IsAccessible(start_addr + size));
 
-    const size_t aligned_size = common::AlignUp(size,
-                                                kShadowRatio);
+    const size_t aligned_size = ::common::AlignUp(size,
+                                                  kShadowRatio);
     const uint8* aligned_start_addr = end_addr - aligned_size;
     Shadow::Unpoison(aligned_start_addr, aligned_size);
     for (size_t i = 0; i < size; ++i)
@@ -101,9 +101,9 @@ TEST(ShadowTest, GetNullTerminatedArraySize) {
 
   uint8 test_array[kArrayLength];
   uint8* aligned_test_array = reinterpret_cast<uint8*>(
-      common::AlignUp(reinterpret_cast<size_t>(test_array),
-                      kShadowRatio));
-  size_t aligned_array_length = common::AlignDown(kArrayLength -
+      ::common::AlignUp(reinterpret_cast<size_t>(test_array),
+                        kShadowRatio));
+  size_t aligned_array_length = ::common::AlignDown(kArrayLength -
       (aligned_test_array - test_array), kShadowRatio);
 
   ::memset(aligned_test_array, kMarkerValue, aligned_array_length);
@@ -152,7 +152,7 @@ TEST(ShadowTest, GetNullTerminatedArraySize) {
                                                           &size));
 
     Shadow::Poison(aligned_test_array,
-                   common::AlignUp(sizes_to_test[i], kShadowRatio),
+                   ::common::AlignUp(sizes_to_test[i], kShadowRatio),
                    kAsanReservedMarker);
   }
   Shadow::Unpoison(aligned_test_array, aligned_array_length);
@@ -357,8 +357,8 @@ void TestBlockInfoFromShadow(const BlockLayout& outer,
   }
 
   // Place a nested block and try the recovery from every position again.
-  size_t padding = common::AlignDown(info.body_size - nested.block_size,
-                                     kShadowRatio * 2);
+  size_t padding = ::common::AlignDown(info.body_size - nested.block_size,
+                                       kShadowRatio * 2);
   uint8* nested_begin = info.body + padding / 2;
   uint8* nested_end = nested_begin + nested.block_size;
   BlockInfo nested_info = {};
@@ -401,7 +401,8 @@ TEST(ShadowTest, BlockInfoFromShadow) {
   BlockLayout layout1 = {};
   BlockLayout layout2 = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio,
-      common::AlignUp(layout0.block_size, kShadowRatio) + 4, 0, 0, &layout1));
+      ::common::AlignUp(layout0.block_size, kShadowRatio) + 4, 0, 0,
+      &layout1));
   ASSERT_EQ(0u, layout1.header_padding_size);
   ASSERT_EQ(0u, layout1.trailer_padding_size);
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio,

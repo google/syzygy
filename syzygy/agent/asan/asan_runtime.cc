@@ -385,7 +385,7 @@ bool AsanRuntime::uef_installed_ = false;
 
 AsanRuntime::AsanRuntime()
     : logger_(), stack_cache_(), asan_error_callback_(), heap_manager_() {
-  common::SetDefaultAsanParameters(&params_);
+  ::common::SetDefaultAsanParameters(&params_);
 }
 
 AsanRuntime::~AsanRuntime() {
@@ -409,7 +409,7 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   Shadow::SetUp();
 
   // Setup the "global" state.
-  StackCapture::Init();
+  common::StackCapture::Init();
   StackCaptureCache::Init();
   SetUpLogger();
   SetUpStackCache();
@@ -418,7 +418,7 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
 
   // Parse and propagate any flags set via the environment variable. This logs
   // failure for us.
-  if (!common::ParseAsanParameters(flags_command_line, &params_))
+  if (!::common::ParseAsanParameters(flags_command_line, &params_))
     return;
 
   // Propagates the flags values to the different modules.
@@ -573,15 +573,17 @@ bool AsanRuntime::GetAsanFlagsEnvVar(std::wstring* env_var_wstr) {
 void AsanRuntime::PropagateParams() {
   // This function has to be kept in sync with the AsanParameters struct. These
   // checks will ensure that this is the case.
-  COMPILE_ASSERT(sizeof(common::AsanParameters) == 56,
+  COMPILE_ASSERT(sizeof(::common::AsanParameters) == 56,
                  must_update_propagate_params);
-  COMPILE_ASSERT(common::kAsanParametersVersion == 7,
+  COMPILE_ASSERT(::common::kAsanParametersVersion == 7,
                  must_update_parameters_version);
 
   // Push the configured parameter values to the appropriate endpoints.
   heap_manager_->set_parameters(params_);
-  StackCaptureCache::set_compression_reporting_period(params_.reporting_period);
-  StackCapture::set_bottom_frames_to_skip(params_.bottom_frames_to_skip);
+  StackCaptureCache::set_compression_reporting_period(
+      params_.reporting_period);
+  common::StackCapture::set_bottom_frames_to_skip(
+      params_.bottom_frames_to_skip);
   stack_cache_->set_max_num_frames(params_.max_num_frames);
   // ignored_stack_ids is used locally by AsanRuntime.
   logger_->set_log_as_text(params_.log_as_text);

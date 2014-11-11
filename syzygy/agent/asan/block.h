@@ -90,10 +90,15 @@
 #include "syzygy/agent/asan/heap_manager.h"
 
 namespace agent {
+
+// Forward declaration.
+namespace common {
+class StackCapture;
+}  // namespace common
+
 namespace asan {
 
-// Forward declarations.
-class StackCapture;
+// Forward declaration.
 struct BlockLayout;
 
 // Various constants for identifying the beginnings of regions of memory.
@@ -149,9 +154,9 @@ struct BlockHeader {
     unsigned body_size : 30;
   };
   // The allocation stack of this block.
-  const StackCapture* alloc_stack;
+  const common::StackCapture* alloc_stack;
   // The free stack of this block (NULL if not yet quarantined/freed).
-  const StackCapture* free_stack;
+  const common::StackCapture* free_stack;
 };
 #pragma pack(pop)
 COMPILE_ASSERT((sizeof(BlockHeader) % kShadowRatio) == 0,

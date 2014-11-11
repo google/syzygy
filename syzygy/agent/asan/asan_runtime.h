@@ -25,8 +25,8 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/heap_checker.h"
-#include "syzygy/agent/asan/stack_capture.h"
 #include "syzygy/agent/asan/heap_managers/block_heap_manager.h"
+#include "syzygy/agent/common/stack_capture.h"
 #include "syzygy/common/asan_parameters.h"
 
 namespace agent {
@@ -55,7 +55,7 @@ class AsanLogger;
 //     delete asan_runtime;
 class AsanRuntime {
  public:
-  typedef std::set<StackCapture::StackId> StackIdSet;
+  typedef std::set<common::StackCapture::StackId> StackIdSet;
 
   // The type of callback used by the OnError function.
   typedef base::Callback<void(AsanErrorInfo*)> AsanOnErrorCallBack;
@@ -103,7 +103,7 @@ class AsanRuntime {
 
   // Returns true if we should ignore the given @p stack_id, false
   // otherwise.
-  bool ShouldIgnoreError(common::AsanStackId stack_id) const {
+  bool ShouldIgnoreError(::common::AsanStackId stack_id) const {
     // TODO(sebmarchand): Keep a list of the stack ids that have already been
     //     reported so we can avoid reporting the same error multiple times.
     return params_.ignored_stack_ids_set.find(stack_id) !=
@@ -118,8 +118,8 @@ class AsanRuntime {
   static const char kSyzygyAsanOptionsEnvVar[];
 
   // Accessors for runtime parameters.
-  common::InflatedAsanParameters& params() { return params_; }
-  const common::InflatedAsanParameters& params() const { return params_; }
+  ::common::InflatedAsanParameters& params() { return params_; }
+  const ::common::InflatedAsanParameters& params() const { return params_; }
 
   // Retrieves the process's heap.
   // @returns The ID of the process's heap.
@@ -228,7 +228,7 @@ class AsanRuntime {
   AsanOnErrorCallBack asan_error_callback_;
 
   // The runtime parameters.
-  common::InflatedAsanParameters params_;
+  ::common::InflatedAsanParameters params_;
 
   DISALLOW_COPY_AND_ASSIGN(AsanRuntime);
 };

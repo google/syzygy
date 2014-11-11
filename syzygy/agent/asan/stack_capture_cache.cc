@@ -19,7 +19,7 @@
 #include "base/logging.h"
 #include "base/strings/stringprintf.h"
 #include "syzygy/agent/asan/asan_logger.h"
-#include "syzygy/agent/asan/stack_capture.h"
+#include "syzygy/agent/common/stack_capture.h"
 
 namespace agent {
 namespace asan {
@@ -27,9 +27,10 @@ namespace asan {
 namespace {
 
 // Gives us access to the first frame of a stack capture as link-list pointer.
-StackCapture** GetFirstFrameAsLink(StackCapture* stack_capture) {
+common::StackCapture** GetFirstFrameAsLink(
+    common::StackCapture* stack_capture) {
   DCHECK(stack_capture != NULL);
-  StackCapture** link = reinterpret_cast<StackCapture**>(
+  common::StackCapture** link = reinterpret_cast<common::StackCapture**>(
       const_cast<void**>(stack_capture->frames()));
   DCHECK(link != NULL);
   return link;
@@ -38,7 +39,7 @@ StackCapture** GetFirstFrameAsLink(StackCapture* stack_capture) {
 }  // namespace
 
 size_t StackCaptureCache::compression_reporting_period_ =
-    common::kDefaultReportingPeriod;
+    ::common::kDefaultReportingPeriod;
 
 StackCaptureCache::CachePage::~CachePage() {
   // It's our parent StackCaptureCache's responsibility to clean up the linked
@@ -48,21 +49,22 @@ StackCaptureCache::CachePage::~CachePage() {
   Shadow::Unpoison(this, sizeof(CachePage));
 }
 
-StackCapture* StackCaptureCache::CachePage::GetNextStackCapture(
+common::StackCapture* StackCaptureCache::CachePage::GetNextStackCapture(
     size_t max_num_frames) {
-  size_t size = StackCapture::GetSize(max_num_frames);
+  size_t size = common::StackCapture::GetSize(max_num_frames);
   if (bytes_used_ + size > kDataSize)
     return NULL;
 
   // Use placement new.
-  StackCapture* stack = new(data_ + bytes_used_) StackCapture(max_num_frames);
+  common::StackCapture* stack =
+      new(data_ + bytes_used_) common::StackCapture(max_num_frames);
   bytes_used_ += size;
 
   return stack;
 }
 
 bool StackCaptureCache::CachePage::ReturnStackCapture(
-    StackCapture* stack_capture) {
+    common::StackCapture* stack_capture) {
   DCHECK(stack_capture != NULL);
 
   uint8* stack = reinterpret_cast<uint8*>(stack_capture);
@@ -79,7 +81,7 @@ bool StackCaptureCache::CachePage::ReturnStackCapture(
 
 StackCaptureCache::StackCaptureCache(AsanLogger* logger)
     : logger_(logger),
-      max_num_frames_(StackCapture::kMaxNumFrames),
+      max_num_frames_(common::StackCapture::kMaxNumFrames),
       current_page_(new CachePage(NULL)) {
   CHECK(current_page_ != NULL);
   DCHECK(logger_ != NULL);
@@ -96,7 +98,7 @@ StackCaptureCache::StackCaptureCache(AsanLogger* logger, size_t max_num_frames)
   DCHECK(logger_ != NULL);
   DCHECK_LT(0u, max_num_frames);
   max_num_frames_ = static_cast<uint8>(
-      std::min(max_num_frames, StackCapture::kMaxNumFrames));
+      std::min(max_num_frames, common::StackCapture::kMaxNumFrames));
   ::memset(&statistics_, 0, sizeof(statistics_));
   ::memset(reclaimed_, 0, sizeof(reclaimed_));
   statistics_.size = sizeof(CachePage);
@@ -113,17 +115,17 @@ StackCaptureCache::~StackCaptureCache() {
 }
 
 void StackCaptureCache::Init() {
-  compression_reporting_period_ = common::kDefaultReportingPeriod;
+  compression_reporting_period_ = ::common::kDefaultReportingPeriod;
 }
 
-const StackCapture* StackCaptureCache::SaveStackTrace(
+const common::StackCapture* StackCaptureCache::SaveStackTrace(
     StackId stack_id, const void* const* frames, size_t num_frames) {
   DCHECK(frames != NULL);
   DCHECK_NE(num_frames, 0U);
   DCHECK(current_page_ != NULL);
 
   bool already_cached = false;
-  StackCapture* stack_trace = NULL;
+  common::StackCapture* stack_trace = NULL;
   bool saturated = false;
 
   {
@@ -133,7 +135,7 @@ const StackCapture* StackCaptureCache::SaveStackTrace(
     base::AutoLock auto_lock(known_stacks_locks_[known_stack_shard]);
 
     // Check if the stack capture is already in the cache map.
-    StackCapture capture;
+    common::StackCapture capture;
     capture.set_stack_id(stack_id);
     StackSet::iterator result = known_stacks_[known_stack_shard].find(&capture);
 
@@ -197,25 +199,26 @@ const StackCapture* StackCaptureCache::SaveStackTrace(
   return stack_trace;
 }
 
-const StackCapture* StackCaptureCache::SaveStackTrace(
-    const StackCapture& stack_capture) {
+const common::StackCapture* StackCaptureCache::SaveStackTrace(
+    const common::StackCapture& stack_capture) {
   return SaveStackTrace(stack_capture.stack_id(),
                         stack_capture.frames(),
                         stack_capture.num_frames());
 }
 
-void StackCaptureCache::ReleaseStackTrace(const StackCapture* stack_capture) {
+void StackCaptureCache::ReleaseStackTrace(
+    const common::StackCapture* stack_capture) {
   DCHECK(stack_capture != NULL);
 
   size_t known_stack_shard = stack_capture->stack_id() % kKnownStacksSharding;
   bool add_to_reclaimed_list = false;
-  StackCapture* stack = NULL;
+  common::StackCapture* stack = NULL;
   {
     base::AutoLock auto_lock(known_stacks_locks_[known_stack_shard]);
 
     // We own the stack so its fine to remove the const. We double check this
     // is the case in debug builds with the DCHECK.
-    stack = const_cast<StackCapture*>(stack_capture);
+    stack = const_cast<common::StackCapture*>(stack_capture);
     DCHECK(known_stacks_[known_stack_shard].find(stack) !=
         known_stacks_[known_stack_shard].end());
 
@@ -250,7 +253,7 @@ void StackCaptureCache::ReleaseStackTrace(const StackCapture* stack_capture) {
 }
 
 bool StackCaptureCache::StackCapturePointerIsValid(
-    const StackCapture* stack_capture) {
+    const common::StackCapture* stack_capture) {
   base::AutoLock lock(current_page_lock_);
   const uint8* stack_capture_addr =
       reinterpret_cast<const uint8*>(stack_capture);
@@ -319,16 +322,17 @@ void StackCaptureCache::LogStatisticsImpl(const Statistics& statistics) const {
       statistics.cached));
 }
 
-StackCapture* StackCaptureCache::GetStackCapture(size_t num_frames) {
-  StackCapture* stack_capture = NULL;
+common::StackCapture* StackCaptureCache::GetStackCapture(size_t num_frames) {
+  common::StackCapture* stack_capture = NULL;
 
   // First look to the reclaimed stacks and try to use one of those. We'll use
   // the first one that's big enough.
   for (size_t n = num_frames; n <= max_num_frames_; ++n) {
     base::AutoLock lock(reclaimed_locks_[n]);
     if (reclaimed_[n] != NULL) {
-      StackCapture* reclaimed_stack_capture = reclaimed_[n];
-      StackCapture** link = GetFirstFrameAsLink(reclaimed_stack_capture);
+      common::StackCapture* reclaimed_stack_capture = reclaimed_[n];
+      common::StackCapture** link =
+          GetFirstFrameAsLink(reclaimed_stack_capture);
       reclaimed_[n] = *link;
       stack_capture = reclaimed_stack_capture;
       break;
@@ -345,7 +349,7 @@ StackCapture* StackCaptureCache::GetStackCapture(size_t num_frames) {
     return stack_capture;
   }
 
-  StackCapture* unused_stack_capture = NULL;
+  common::StackCapture* unused_stack_capture = NULL;
   {
     base::AutoLock current_page_lock(current_page_lock_);
 
@@ -361,10 +365,10 @@ StackCapture* StackCaptureCache::GetStackCapture(size_t num_frames) {
     // capture. We will stuff this into the reclaimed_ structure for later
     // use.
     size_t bytes_left = current_page_->bytes_left();
-    size_t max_num_frames = StackCapture::GetMaxNumFrames(bytes_left);
+    size_t max_num_frames = common::StackCapture::GetMaxNumFrames(bytes_left);
     if (max_num_frames > 0) {
       DCHECK_LT(max_num_frames, num_frames);
-      DCHECK_LE(StackCapture::GetSize(max_num_frames), bytes_left);
+      DCHECK_LE(common::StackCapture::GetSize(max_num_frames), bytes_left);
       unused_stack_capture =
           current_page_->GetNextStackCapture(max_num_frames);
       DCHECK(unused_stack_capture != NULL);
@@ -394,12 +398,12 @@ StackCapture* StackCaptureCache::GetStackCapture(size_t num_frames) {
 }
 
 void StackCaptureCache::AddStackCaptureToReclaimedList(
-    StackCapture* stack_capture) {
+    common::StackCapture* stack_capture) {
   DCHECK(stack_capture != NULL);
   {
     base::AutoLock lock(reclaimed_locks_[stack_capture->max_num_frames()]);
 
-    StackCapture** link = GetFirstFrameAsLink(stack_capture);
+    common::StackCapture** link = GetFirstFrameAsLink(stack_capture);
     size_t num_frames = stack_capture->max_num_frames();
     *link = reclaimed_[num_frames];
     reclaimed_[num_frames] = stack_capture;

@@ -206,7 +206,7 @@ class ZebraBlockHeap : public BlockHeapInterface,
   MemoryNotifierInterface* memory_notifier_;
 
   // The global lock for this allocator.
-  common::RecursiveLock lock_;
+  ::common::RecursiveLock lock_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ZebraBlockHeap);

@@ -75,13 +75,13 @@ uint32 CtMallocHeap::GetHeapFeatures() const {
 }
 
 void* CtMallocHeap::Allocate(size_t bytes) {
-  common::AutoRecursiveLock lock(lock_);
+  ::common::AutoRecursiveLock lock(lock_);
   void* alloc = WTF::partitionAllocGeneric(allocator_.root(), bytes);
   return alloc;
 }
 
 bool CtMallocHeap::Free(void* alloc) {
-  common::AutoRecursiveLock lock(lock_);
+  ::common::AutoRecursiveLock lock(lock_);
   WTF::partitionFreeGeneric(allocator_.root(), alloc);
   return true;
 }

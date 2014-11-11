@@ -89,10 +89,10 @@ class BlockHeapManager : public HeapManagerInterface {
 
   // Set the parameters of this heap manager.
   // @param trailer_padding_size The trailer padding size, in bytes.
-  void set_parameters(const common::AsanParameters& parameters);
+  void set_parameters(const ::common::AsanParameters& parameters);
 
   // Get the parameters.
-  common::AsanParameters parameters() {
+  ::common::AsanParameters parameters() {
     return parameters_;
   }
 
@@ -267,7 +267,7 @@ class BlockHeapManager : public HeapManagerInterface {
   UnderlyingHeapMap underlying_heaps_map_;  // Under lock_.
 
   // The parameters of this heap manager.
-  common::AsanParameters parameters_;
+  ::common::AsanParameters parameters_;
 
   // The callback this manager uses to expose internal state errors. These are
   // caused by uninstrumented code (system libraries, etc), thus aren't caught

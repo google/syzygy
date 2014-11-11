@@ -49,7 +49,7 @@ uint32 InternalHeap::GetHeapFeatures() const {
 }
 
 void* InternalHeap::Allocate(size_t bytes) {
-  size_t size = common::AlignUp(bytes + kBodyOffset, kShadowRatio);
+  size_t size = ::common::AlignUp(bytes + kBodyOffset, kShadowRatio);
   void* alloc = heap_->Allocate(size);
   if (alloc == NULL)
     return NULL;

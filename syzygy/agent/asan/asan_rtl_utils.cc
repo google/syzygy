@@ -22,8 +22,8 @@
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/heap_checker.h"
 #include "syzygy/agent/asan/shadow.h"
-#include "syzygy/agent/asan/stack_capture.h"
 #include "syzygy/agent/common/scoped_last_error_keeper.h"
+#include "syzygy/agent/common/stack_capture.h"
 
 namespace {
 
@@ -70,7 +70,7 @@ void ReportBadMemoryAccess(void* location,
   bad_access_info.context.Edi = asan_context.original_edi;
   bad_access_info.context.EFlags = asan_context.original_eflags;
 
-  StackCapture stack;
+  common::StackCapture stack;
   stack.InitFromStack();
   // We need to compute a relative stack id so that for the same stack trace
   // we'll get the same value every time even if the modules are loaded at a

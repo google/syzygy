@@ -106,7 +106,7 @@ class LargeBlockHeap : public BlockHeapInterface {
   AllocationSet allocs_;  // Under lock_.
 
   // The global lock for this allocator.
-  common::RecursiveLock lock_;
+  ::common::RecursiveLock lock_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(LargeBlockHeap);
