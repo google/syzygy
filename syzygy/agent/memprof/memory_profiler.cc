@@ -19,10 +19,21 @@ namespace memprof {
 
 MemoryProfiler::MemoryProfiler()
     : function_call_logger_(&session_, &segment_) {
+  SetDefaultParameters(&parameters_);
 }
 
 bool MemoryProfiler::Init() {
-  return trace::client::InitializeRpcSession(&session_, &segment_);
+  if (!ParseParametersFromEnv(&parameters_))
+    return false;
+  PropagateParameters();
+  if (!trace::client::InitializeRpcSession(&session_, &segment_))
+    return false;
+  return true;
+}
+
+void MemoryProfiler::PropagateParameters() {
+  function_call_logger_.set_stack_trace_tracking(
+      parameters_.stack_trace_tracking);
 }
 
 }  // namespace memprof

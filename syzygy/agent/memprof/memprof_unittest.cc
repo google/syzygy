@@ -148,6 +148,57 @@ class MemoryProfilerTest : public testing::Test {
     }
   }
 
+  void ExpectedRecordsSeenTest(bool emit_stack_traces) {
+    base::Environment* env = base::Environment::Create();
+    ASSERT_NE(static_cast<base::Environment*>(nullptr), env);
+    if (emit_stack_traces)
+      env->SetVar(kParametersEnvVar, "--stack-trace-tracking=emit");
+
+    ASSERT_NO_FATAL_FAILURE(StartService());
+    ASSERT_NO_FATAL_FAILURE(LoadDll());
+
+    DWORD process_id = ::GetCurrentProcessId();
+    DWORD thread_id = ::GetCurrentThreadId();
+
+    // Make some calls to the instrumented heap API.
+    HANDLE heap = (*heap_create_)(0, 0, 0);
+    ASSERT_TRUE(heap != nullptr);
+    void* alloc = (*heap_alloc_)(heap, 0, 1024);
+    ASSERT_TRUE(alloc != nullptr);
+    (*heap_free_)(heap, 0, alloc);
+    // Deliberately keep around the value of |alloc| for checking expectation,
+    // even though the memory it points to is no longer valid.
+    (*heap_destroy_)(heap);
+    // Ditto for the value of |heap|.
+
+    ASSERT_NO_FATAL_FAILURE(UnloadDll());
+    ASSERT_NO_FATAL_FAILURE(StopService());
+
+    env->UnSetVar(kParametersEnvVar);
+
+    EXPECT_CALL(handler_, OnProcessStarted(_, ::GetCurrentProcessId(), _));
+    EXPECT_CALL(handler_, OnProcessAttach(_,
+                                          ::GetCurrentProcessId(),
+                                          ::GetCurrentThreadId(),
+                                          _))
+        .Times(testing::AnyNumber());
+
+    EXPECT_CALL(handler_,
+                OnFunctionNameTableEntry(_, process_id, _)).Times(4);
+    EXPECT_CALL(handler_,
+                OnDetailedFunctionCall(_, process_id, thread_id, _)).Times(4);
+
+    if (emit_stack_traces) {
+      EXPECT_CALL(handler_,
+                  OnStackTrace(_, process_id, _)).Times(4);
+    }
+
+    EXPECT_CALL(handler_, OnProcessEnded(_, ::GetCurrentProcessId()));
+
+    // Replay the log.
+    ASSERT_NO_FATAL_FAILURE(ReplayLogs());
+  }
+
  protected:
   // The directory where trace file output will be written.
   base::ScopedTempDir temp_dir_;
@@ -175,43 +226,12 @@ TEST_F(MemoryProfilerTest, NoServerNoCrash) {
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
 }
 
-TEST_F(MemoryProfilerTest, DeatailedFunctionCallRecordsSeen) {
-  ASSERT_NO_FATAL_FAILURE(StartService());
-  ASSERT_NO_FATAL_FAILURE(LoadDll());
+TEST_F(MemoryProfilerTest, ExpectedRecordsSeenTestNoStackTraces) {
+  ASSERT_NO_FATAL_FAILURE(ExpectedRecordsSeenTest(false));
+}
 
-  DWORD process_id = ::GetCurrentProcessId();
-  DWORD thread_id = ::GetCurrentThreadId();
-
-  // Make some calls to the instrumented heap API.
-  HANDLE heap = (*heap_create_)(0, 0, 0);
-  ASSERT_TRUE(heap != nullptr);
-  void* alloc = (*heap_alloc_)(heap, 0, 1024);
-  ASSERT_TRUE(alloc != nullptr);
-  (*heap_free_)(heap, 0, alloc);
-  // Deliberately keep around the value of |alloc| for checking expectation,
-  // even though the memory it points to is no longer valid.
-  (*heap_destroy_)(heap);
-  // Ditto for the value of |heap|.
-
-  ASSERT_NO_FATAL_FAILURE(UnloadDll());
-  ASSERT_NO_FATAL_FAILURE(StopService());
-
-  EXPECT_CALL(handler_, OnProcessStarted(_, ::GetCurrentProcessId(), _));
-  EXPECT_CALL(handler_, OnProcessAttach(_,
-                                        ::GetCurrentProcessId(),
-                                        ::GetCurrentThreadId(),
-                                        _))
-      .Times(testing::AnyNumber());
-
-  EXPECT_CALL(handler_,
-              OnFunctionNameTableEntry(_, process_id, _)).Times(4);
-  EXPECT_CALL(handler_,
-              OnDetailedFunctionCall(_, process_id, thread_id, _)).Times(4);
-
-  EXPECT_CALL(handler_, OnProcessEnded(_, ::GetCurrentProcessId()));
-
-  // Replay the log.
-  ASSERT_NO_FATAL_FAILURE(ReplayLogs());
+TEST_F(MemoryProfilerTest, ExpectedRecordsSeenTestWithStackTraces) {
+  ASSERT_NO_FATAL_FAILURE(ExpectedRecordsSeenTest(true));
 }
 
 }  // namespace memprof

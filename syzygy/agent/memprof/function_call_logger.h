@@ -18,6 +18,9 @@
 #ifndef SYZYGY_AGENT_MEMPROF_FUNCTION_CALL_LOGGER_H_
 #define SYZYGY_AGENT_MEMPROF_FUNCTION_CALL_LOGGER_H_
 
+#include <set>
+
+#include "syzygy/agent/memprof/parameters.h"
 #include "syzygy/trace/client/rpc_session.h"
 
 namespace agent {
@@ -41,9 +44,19 @@ class FunctionCallLogger {
   // @returns the ID of the function.
   uint32 GetFunctionId(const std::string& function_name);
 
+  // Gets a stack ID for the current stack. The behaviour of this function
+  // depends on the stack_trace_tracking mode. If disabled, this always
+  // returns 0. If enabled, this returns the actual ID of the current stack.
+  // If 'emit' mode is enabled, this will also keep track of already emitted
+  // stack IDs and emit the stack the first time it's encountered.
+  // @returns the ID of the current stack trace.
+  uint32 GetStackTraceId();
+
   // Emits a detailed function call event with a variable number of arguments.
   // @tparam ArgTypeN The type of the optional Nth argument.
   // @param function_id The ID of the function that was called.
+  // @param stack_trace_id The ID of the stack trace where the function was
+  //     called.
   // @param argN The value of the optional Nth argument.
   template<typename ArgType0 = NoArgument,
            typename ArgType1 = NoArgument,
@@ -52,6 +65,7 @@ class FunctionCallLogger {
            typename ArgType4 = NoArgument,
            typename ArgType5 = NoArgument>
   void EmitDetailedFunctionCall(uint32 function_id,
+                                uint32 stack_trace_id,
                                 ArgType0 arg0 = NoArgument(),
                                 ArgType1 arg1 = NoArgument(),
                                 ArgType2 arg2 = NoArgument(),
@@ -59,9 +73,22 @@ class FunctionCallLogger {
                                 ArgType4 arg4 = NoArgument(),
                                 ArgType5 arg5 = NoArgument());
 
+  // @name Accessors and mutators.
+  // @{
+  StackTraceTracking stack_trace_tracking() const {
+    return stack_trace_tracking_;
+  }
+  void set_stack_trace_tracking(StackTraceTracking tracking) {
+    stack_trace_tracking_ = tracking;
+  }
+  // @}
+
  protected:
   // Flushes the currently open segment, and gets a new one.
   bool FlushSegment();
+
+  // The stack-trace tracking mode. Default to kTrackingNone.
+  StackTraceTracking stack_trace_tracking_;
 
   // The RPC session events are being written to.
   trace::client::RpcSession* session_;
@@ -77,6 +104,11 @@ class FunctionCallLogger {
   // call-trace format more compact.
   typedef std::map<std::string, uint32> FunctionIdMap;
   FunctionIdMap function_id_map_;  // Under lock_.
+
+  // A set of stack traces whose IDs have already been emitted. This is only
+  // maintained if stack_trace_tracking_ is set to 'kTrackingEmit'.
+  typedef std::set<uint32> StackIdSet;
+  StackIdSet emitted_stack_ids_;  // Under lock_.
 
  private:
   DISALLOW_COPY_AND_ASSIGN(FunctionCallLogger);
@@ -119,6 +151,7 @@ template<typename ArgType0,
          typename ArgType4,
          typename ArgType5>
 void FunctionCallLogger::EmitDetailedFunctionCall(uint32 function_id,
+                                                  uint32 stack_trace_id,
                                                   ArgType0 arg0,
                                                   ArgType1 arg1,
                                                   ArgType2 arg2,
@@ -165,7 +198,7 @@ void FunctionCallLogger::EmitDetailedFunctionCall(uint32 function_id,
       segment_->AllocateTraceRecord<TraceDetailedFunctionCall>(data_size);
   data->timestamp = ::trace::common::GetTsc();
   data->function_id = function_id;
-  data->stack_trace_id = 0;  // No stack trace is currently emitted.
+  data->stack_trace_id = stack_trace_id;
   data->argument_data_size = args_size;
 
   if (args_size == 0)
@@ -208,12 +241,15 @@ void FunctionCallLogger::EmitDetailedFunctionCall(uint32 function_id,
 // A macro for emitting a detailed function call record. Automatically
 // emits a function name record the first time it is invoked for a given
 // function.
-#define EMIT_DETAILED_FUNCTION_CALL(function_call_logger, ...)  \
-    static size_t function_id = -1;  \
-    /* Racy, but safe because of GetFunctionId implementation. */  \
-    if (function_id == -1)  \
-      function_id = (function_call_logger).GetFunctionId(__FUNCTION__);  \
-    (function_call_logger).EmitDetailedFunctionCall(function_id, __VA_ARGS__);
+#define EMIT_DETAILED_FUNCTION_CALL(function_call_logger, ...) {  \
+      static size_t function_id = -1;  \
+      /* Racy, but safe because of GetFunctionId implementation. */  \
+      if (function_id == -1)  \
+        function_id = (function_call_logger).GetFunctionId(__FUNCTION__);  \
+      uint32 stack_trace_id = (function_call_logger).GetStackTraceId();  \
+      (function_call_logger).EmitDetailedFunctionCall(  \
+          function_id, stack_trace_id, __VA_ARGS__);  \
+    }
 
 }  // namespace memprof
 }  // namespace agent

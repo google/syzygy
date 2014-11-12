@@ -279,7 +279,8 @@ class TraceFileDumper : public ParseEventHandler {
                                  const TraceBatchInvocationInfo* data) {
     DCHECK(data != NULL);
     ::fprintf(file_,
-              "OnInvocationBatch: process-id=%d; thread-id=%d;\n",
+              "[%012lld] OnInvocationBatch: process-id=%d; thread-id=%d;\n",
+              time.ToInternalValue(),
               process_id,
               thread_id);
     for (size_t i = 0; i < num_invocations; ++i) {
@@ -316,9 +317,10 @@ class TraceFileDumper : public ParseEventHandler {
                             DWORD process_id,
                             DWORD thread_id,
                             const base::StringPiece& thread_name) OVERRIDE {
-    ::fprintf(file_, "OnThreadName: process-id=%d; thread-id=%d;\n"
+    ::fprintf(file_, "[%012lld] OnThreadName: process-id=%d; thread-id=%d;\n"
               "    name=%s\n",
-              process_id, thread_id, thread_name.as_string().c_str());
+              time.ToInternalValue(), process_id, thread_id,
+              thread_name.as_string().c_str());
   }
 
   virtual void OnIndexedFrequency(
@@ -328,11 +330,12 @@ class TraceFileDumper : public ParseEventHandler {
       const TraceIndexedFrequencyData* data) OVERRIDE {
     DCHECK(data != NULL);
     ::fprintf(file_,
-              "OnIndexedFrequency: process-id=%d; thread-id=%d;\n"
+              "[%012lld] OnIndexedFrequency: process-id=%d; thread-id=%d;\n"
               "    module-base-addr=0x%08X; module-base-size=%d\n"
               "    module-checksum=0x%08X; module-time-date-stamp=0x%08X\n"
               "    frequency-size=%d; num_columns=%d; num-entries=%d;\n"
               "    data-type=%s;\n",
+              time.ToInternalValue(),
               process_id,
               thread_id,
               data->module_base_addr,
@@ -354,7 +357,7 @@ class TraceFileDumper : public ParseEventHandler {
               process_id, symbol_id, symbol_name.as_string().c_str());
   }
 
-  virtual void OnSampleData(base::Time Time,
+  virtual void OnSampleData(base::Time time,
                             DWORD process_id,
                             const TraceSampleData* data) OVERRIDE {
     DCHECK(data != NULL);
@@ -364,13 +367,15 @@ class TraceFileDumper : public ParseEventHandler {
       samples += data->buckets[i];
 
     ::fprintf(file_,
-              "OnSampleData: process-id=%d; module-base-addr=0x%08X;\n"
+              "[%012lld] OnSampleData: process-id=%d;\n"
+              "    module-base-addr=0x%08X;\n"
               "    module-size=%d; module-checksum=0x%08X;\n"
               "    module-time-date-stamp=0x%08X; bucket-size=%d;\n"
               "    bucket-start=0x%08x; bucket-count=%d;\n"
               "    sampling-start-time=0x%016llx;\n"
               "    sampling-end-time=0x%016llx; sampling-interval=0x%016llx;\n"
               "    samples=%lld\n",
+              time.ToInternalValue(),
               process_id,
               data->module_base_addr,
               data->module_size,
@@ -387,13 +392,14 @@ class TraceFileDumper : public ParseEventHandler {
 
   // Issued for detailed function call records.
   virtual void OnFunctionNameTableEntry(
-      base::Time Time,
+      base::Time time,
       DWORD process_id,
       const TraceFunctionNameTableEntry* data) OVERRIDE {
     DCHECK_NE(static_cast<TraceFunctionNameTableEntry*>(nullptr), data);
     ::fprintf(file_,
-              "OnFunctionNameTableEntry: process-id=%d; function-id=%d; "
-              "name='%.*s'\n",
+              "[%012lld] OnFunctionNameTableEntry: process-id=%d;\n"
+              "    function-id=%d; name='%.*s'\n",
+              time.ToInternalValue(),
               process_id,
               data->function_id,
               data->name_length,
@@ -405,13 +411,14 @@ class TraceFileDumper : public ParseEventHandler {
 
   // Issued for detailed function call records.
   virtual void OnStackTrace(
-      base::Time Time,
+      base::Time time,
       DWORD process_id,
       const TraceStackTrace* data) OVERRIDE {
     DCHECK_NE(static_cast<TraceStackTrace*>(nullptr), data);
     ::fprintf(file_,
-              "OnStackTrace: process-id=%d; stack-trace-id=%d; "
-              "num_frames='%d'\n",
+              "[%012lld] OnStackTrace: process-id=%d;\n"
+              "    stack-trace-id=0x%08X; num_frames=%d\n",
+              time.ToInternalValue(),
               process_id,
               data->stack_trace_id,
               data->num_frames);
@@ -419,14 +426,16 @@ class TraceFileDumper : public ParseEventHandler {
 
   // Issued for detailed function call records.
   virtual void OnDetailedFunctionCall(
-      base::Time Time,
+      base::Time time,
       DWORD process_id,
       DWORD thread_id,
       const TraceDetailedFunctionCall* data) OVERRIDE {
     DCHECK_NE(static_cast<TraceDetailedFunctionCall*>(nullptr), data);
     ::fprintf(file_,
-              "OnDetailedFunctionCall: process-id=%d; thread-id=%d;\n"
-              "    timestamp=0x%016llX; function-id=%d; stack-trace-id=%d\n",
+              "[%012lld] OnDetailedFunctionCall: process-id=%d;\n"
+              "    thread-id=%d; timestamp=0x%016llX;\n"
+              "    function-id=%d; stack-trace-id=0x%08X\n",
+              time.ToInternalValue(),
               process_id,
               thread_id,
               data->timestamp,
@@ -455,7 +464,7 @@ class TraceFileDumper : public ParseEventHandler {
     const uint8* argument_data_end = data->argument_data +
         data->argument_data_size;
     for (size_t i = 0; i < argument_count; ++i) {
-      ::fprintf(file_, "    argument %d:", i);
+      ::fprintf(file_, "    argument[%d]:", i);
       for (size_t j = 0; j < argument_lengths[i]; ++j) {
         if (argument_data < argument_data_end) {
           ::fprintf(file_, " %02X", (int)(*argument_data));

@@ -107,6 +107,7 @@ class TestFunctionCallLogger : public FunctionCallLogger {
   }
 
   using FunctionCallLogger::function_id_map_;
+  using FunctionCallLogger::emitted_stack_ids_;
 
   // The session and segment that are passed to the function call logger.
   TestRpcSession test_session_;
@@ -135,7 +136,7 @@ void TestEmitDetailedFunctionCall(TestFunctionCallLogger* fcl) {
 
 }  // namespace
 
-TEST(FunctionCallLogger, TraceFunctionNameTableEntry) {
+TEST(FunctionCallLoggerTest, TraceFunctionNameTableEntry) {
   TestFunctionCallLogger fcl;
   EXPECT_EQ(0u, fcl.function_id_map_.size());
 
@@ -167,8 +168,39 @@ TEST(FunctionCallLogger, TraceFunctionNameTableEntry) {
   EXPECT_EQ(1u, fcl.allocation_infos.size());
 }
 
-TEST(FunctionCallLogger, TraceDetailedFunctionCall) {
+TEST(FunctionCallLoggerTest, TraceStackTrace) {
   TestFunctionCallLogger fcl;
+  EXPECT_EQ(0u, fcl.emitted_stack_ids_.size());
+
+  fcl.set_stack_trace_tracking(kTrackingNone);
+  EXPECT_EQ(0u, fcl.GetStackTraceId());
+  EXPECT_EQ(0u, fcl.emitted_stack_ids_.size());
+  EXPECT_EQ(0u, fcl.allocation_infos.size());
+
+  fcl.set_stack_trace_tracking(kTrackingTrack);
+  EXPECT_NE(0u, fcl.GetStackTraceId());
+  EXPECT_EQ(0u, fcl.emitted_stack_ids_.size());
+  EXPECT_EQ(0u, fcl.allocation_infos.size());
+
+  fcl.set_stack_trace_tracking(kTrackingEmit);
+  uint32 stack_trace_id = fcl.GetStackTraceId();
+  EXPECT_NE(0u, stack_trace_id);
+  EXPECT_THAT(fcl.emitted_stack_ids_, testing::ElementsAre(stack_trace_id));
+  EXPECT_EQ(1u, fcl.allocation_infos.size());
+  const auto& info = fcl.allocation_infos[0];
+  EXPECT_EQ(TraceStackTrace::kTypeId, info.record_type);
+  EXPECT_TRUE(info.record != nullptr);
+  TraceStackTrace* data = reinterpret_cast<TraceStackTrace*>(info.record);
+  EXPECT_EQ(stack_trace_id, data->stack_trace_id);
+  EXPECT_LT(0u, data->num_frames);
+  size_t expected_size = data->num_frames * sizeof(void*) +
+      FIELD_OFFSET(TraceStackTrace, frames);
+  EXPECT_LE(expected_size, info.record_size);
+}
+
+TEST(FunctionCallLoggerTest, TraceDetailedFunctionCall) {
+  TestFunctionCallLogger fcl;
+  fcl.set_stack_trace_tracking(kTrackingEmit);
   EXPECT_EQ(0u, fcl.function_id_map_.size());
 
   std::string name("agent::memprof::`anonymous-namespace'::"
@@ -177,7 +209,7 @@ TEST(FunctionCallLogger, TraceDetailedFunctionCall) {
   EXPECT_EQ(1u, fcl.function_id_map_.size());
   EXPECT_THAT(fcl.function_id_map_,
               testing::Contains(std::make_pair(name, 0)));
-  EXPECT_EQ(2u, fcl.allocation_infos.size());
+  EXPECT_EQ(3u, fcl.allocation_infos.size());
 
   // Validate that the name record was appropriately written.
   const auto& info0 = fcl.allocation_infos[0];
@@ -192,22 +224,32 @@ TEST(FunctionCallLogger, TraceDetailedFunctionCall) {
       info0.record_size);
   EXPECT_EQ(name, data0->name);
 
-  // Validate that the detailed function call record was written correctly.
+  // Validate that the stack trace was written correctly.
   const auto& info1 = fcl.allocation_infos[1];
-  EXPECT_EQ(TraceDetailedFunctionCall::kTypeId,
-            info1.record_type);
+  EXPECT_EQ(TraceStackTrace::kTypeId, info1.record_type);
   EXPECT_TRUE(info1.record != nullptr);
-  TraceDetailedFunctionCall* data1 =
-      reinterpret_cast<TraceDetailedFunctionCall*>(info1.record);
+  TraceStackTrace* data1 = reinterpret_cast<TraceStackTrace*>(info1.record);
+  EXPECT_LT(0u, data1->num_frames);
+  size_t expected_size = data1->num_frames * sizeof(void*) +
+      FIELD_OFFSET(TraceStackTrace, frames);
+  EXPECT_LE(expected_size, info1.record_size);
+
+  // Validate that the detailed function call record was written correctly.
+  const auto& info2 = fcl.allocation_infos[2];
+  EXPECT_EQ(TraceDetailedFunctionCall::kTypeId,
+            info2.record_type);
+  EXPECT_TRUE(info2.record != nullptr);
+  TraceDetailedFunctionCall* data2 =
+      reinterpret_cast<TraceDetailedFunctionCall*>(info2.record);
   EXPECT_LE(
       FIELD_OFFSET(TraceDetailedFunctionCall, argument_data) +
-          data1->argument_data_size,
-      info1.record_size);
-  EXPECT_EQ(0u, data1->function_id);
-  EXPECT_EQ(0u, data1->stack_trace_id);
-  EXPECT_NE(0ull, data1->timestamp);
+          data2->argument_data_size,
+      info2.record_size);
+  EXPECT_EQ(0u, data2->function_id);
+  EXPECT_EQ(data1->stack_trace_id, data2->stack_trace_id);
+  EXPECT_NE(0ull, data2->timestamp);
   // Number of arguments, size of argument, content of argument.
-  EXPECT_EQ(2 * sizeof(uint32) + sizeof(void*), data1->argument_data_size);
+  EXPECT_EQ(2 * sizeof(uint32) + sizeof(void*), data2->argument_data_size);
 
   void* fcl_ptr = &fcl;
   uint8 ptr[4] = {};
@@ -217,9 +259,9 @@ TEST(FunctionCallLogger, TraceDetailedFunctionCall) {
       0x04, 0x00, 0x00, 0x00,  // ...of size 4...
       ptr[0], ptr[1], ptr[2], ptr[3],  // ...pointing to |fcl|.
       };
-  ASSERT_EQ(arraysize(kExpectedContents), data1->argument_data_size);
-  EXPECT_EQ(0u, ::memcmp(kExpectedContents, data1->argument_data,
-                         data1->argument_data_size));
+  ASSERT_EQ(arraysize(kExpectedContents), data2->argument_data_size);
+  EXPECT_EQ(0u, ::memcmp(kExpectedContents, data2->argument_data,
+                         data2->argument_data_size));
 }
 
 }  // namespace memprof

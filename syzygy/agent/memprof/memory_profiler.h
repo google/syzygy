@@ -22,6 +22,7 @@
 
 #include "syzygy/agent/common/agent.h"
 #include "syzygy/agent/memprof/function_call_logger.h"
+#include "syzygy/agent/memprof/parameters.h"
 #include "syzygy/common/logging.h"
 #include "syzygy/trace/client/rpc_session.h"
 
@@ -42,6 +43,9 @@ class MemoryProfiler {
   }
 
  protected:
+  // Propagates configured parameters to sub-components.
+  void PropagateParameters();
+
   // The RPC session we're logging to/through.
   trace::client::RpcSession session_;
 
@@ -52,6 +56,9 @@ class MemoryProfiler {
   // The function call logger that we use for detailed function call
   // events.
   FunctionCallLogger function_call_logger_;
+
+  // The parameters that we use. These are parsed from the environment.
+  Parameters parameters_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MemoryProfiler);

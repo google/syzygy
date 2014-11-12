@@ -198,7 +198,9 @@ bool TraceFileSegment::CanAllocateRaw(size_t num_bytes) const {
   DCHECK(write_ptr != NULL);
   DCHECK(end_ptr != NULL);
   DCHECK(num_bytes != 0);
-  return (write_ptr + num_bytes) <= end_ptr;
+  if ((write_ptr + num_bytes) <= end_ptr)
+    return true;
+  return false;
 }
 
 // Returns true if there's enough space left in the given segment to write

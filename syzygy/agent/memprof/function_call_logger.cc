@@ -14,13 +14,17 @@
 
 #include "syzygy/agent/memprof/function_call_logger.h"
 
+#include "syzygy/agent/common/stack_capture.h"
+
 namespace agent {
 namespace memprof {
 
 FunctionCallLogger::FunctionCallLogger(
     trace::client::RpcSession* session,
     trace::client::TraceFileSegment* segment)
-    : session_(session), segment_(segment) {
+    : session_(session),
+      segment_(segment),
+      stack_trace_tracking_(kTrackingNone) {
   DCHECK_NE(static_cast<trace::client::RpcSession*>(nullptr), session);
   DCHECK_NE(static_cast<trace::client::TraceFileSegment*>(nullptr), segment);
 }
@@ -42,17 +46,53 @@ uint32 FunctionCallLogger::GetFunctionId(const std::string& function_name) {
   size_t data_size = FIELD_OFFSET(TraceFunctionNameTableEntry, name) +
       function_name.size() + 1;
 
-  if (!segment_->CanAllocate(data_size) || !FlushSegment())
+  if (!segment_->CanAllocate(data_size) && !FlushSegment())
     return id;
   DCHECK(segment_->CanAllocate(data_size));
 
   TraceFunctionNameTableEntry* data =
       segment_->AllocateTraceRecord<TraceFunctionNameTableEntry>(data_size);
+  DCHECK_NE(static_cast<TraceFunctionNameTableEntry*>(nullptr), data);
   data->function_id = id;
   data->name_length = function_name.size() + 1;
   ::memcpy(data->name, function_name.data(), data->name_length);
 
   return id;
+}
+
+uint32 FunctionCallLogger::GetStackTraceId() {
+  if (stack_trace_tracking_ == kTrackingNone)
+    return 0;
+
+  agent::common::StackCapture stack;
+  stack.InitFromStack();
+  if (stack_trace_tracking_ == kTrackingTrack)
+    return stack.stack_id();
+
+  // Insert the stack ID. If it already exists it doesn't need to be emitted
+  // so return early.
+  bool inserted = false;
+  {
+    base::AutoLock lock(lock_);
+    inserted = emitted_stack_ids_.insert(stack.stack_id()).second;
+  }
+  if (!inserted)
+    return stack.stack_id();
+
+  size_t frame_size = sizeof(void*) * stack.num_frames();
+  size_t data_size = FIELD_OFFSET(TraceStackTrace, frames) + frame_size;
+  if (!segment_->CanAllocate(data_size) && !FlushSegment())
+    return stack.stack_id();
+  DCHECK(segment_->CanAllocate(data_size));
+
+  TraceStackTrace* data = segment_->AllocateTraceRecord<TraceStackTrace>(
+      data_size);
+  DCHECK_NE(static_cast<TraceStackTrace*>(nullptr), data);
+  data->num_frames = stack.num_frames();
+  data->stack_trace_id = stack.stack_id();
+  ::memcpy(data->frames, stack.frames(), frame_size);
+
+  return stack.stack_id();
 }
 
 bool FunctionCallLogger::FlushSegment() {

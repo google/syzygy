@@ -44,6 +44,8 @@
         'memory_interceptors.cc',
         'memory_profiler.cc',
         'memory_profiler.h',
+        'parameters.cc',
+        'parameters.h',
       ],
       'dependencies': [
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
@@ -62,6 +64,7 @@
       'sources': [
         'function_call_logger_unittest.cc',
         'memprof_unittest.cc',
+        'parameters_unittest.cc',
         '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
