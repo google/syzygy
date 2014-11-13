@@ -28,6 +28,14 @@ extern "C" {
     __asm ret 4  \
   }
 
+// Special instruction takes their addresses directly in some known registers,
+// so no extra information gets pushed onto the stack and there's nothing to
+// clean, we can simply return.
+#define DEFINE_NULL_SPECIAL_PROBE(name)  \
+  void __declspec(naked) name() {  \
+    __asm ret  \
+  }
+
 // Define all of the null memory probes.
 DEFINE_NULL_MEMORY_PROBE(asan_check_1_byte_read_access);
 DEFINE_NULL_MEMORY_PROBE(asan_check_2_byte_read_access);
@@ -57,24 +65,25 @@ DEFINE_NULL_MEMORY_PROBE(asan_check_8_byte_write_access_no_flags);
 DEFINE_NULL_MEMORY_PROBE(asan_check_10_byte_write_access_no_flags);
 DEFINE_NULL_MEMORY_PROBE(asan_check_16_byte_write_access_no_flags);
 DEFINE_NULL_MEMORY_PROBE(asan_check_32_byte_write_access_no_flags);
-DEFINE_NULL_MEMORY_PROBE(asan_check_repz_1_byte_cmps_access);
-DEFINE_NULL_MEMORY_PROBE(asan_check_repz_2_byte_cmps_access);
-DEFINE_NULL_MEMORY_PROBE(asan_check_repz_4_byte_cmps_access);
-DEFINE_NULL_MEMORY_PROBE(asan_check_repz_1_byte_movs_access);
-DEFINE_NULL_MEMORY_PROBE(asan_check_repz_2_byte_movs_access);
-DEFINE_NULL_MEMORY_PROBE(asan_check_repz_4_byte_movs_access);
-DEFINE_NULL_MEMORY_PROBE(asan_check_repz_1_byte_stos_access);
-DEFINE_NULL_MEMORY_PROBE(asan_check_repz_2_byte_stos_access);
-DEFINE_NULL_MEMORY_PROBE(asan_check_repz_4_byte_stos_access);
-DEFINE_NULL_MEMORY_PROBE(asan_check_1_byte_cmps_access);
-DEFINE_NULL_MEMORY_PROBE(asan_check_2_byte_cmps_access);
-DEFINE_NULL_MEMORY_PROBE(asan_check_4_byte_cmps_access);
-DEFINE_NULL_MEMORY_PROBE(asan_check_1_byte_movs_access);
-DEFINE_NULL_MEMORY_PROBE(asan_check_2_byte_movs_access);
-DEFINE_NULL_MEMORY_PROBE(asan_check_4_byte_movs_access);
-DEFINE_NULL_MEMORY_PROBE(asan_check_1_byte_stos_access);
-DEFINE_NULL_MEMORY_PROBE(asan_check_2_byte_stos_access);
-DEFINE_NULL_MEMORY_PROBE(asan_check_4_byte_stos_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_repz_1_byte_cmps_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_repz_2_byte_cmps_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_repz_4_byte_cmps_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_repz_1_byte_movs_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_repz_2_byte_movs_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_repz_4_byte_movs_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_repz_1_byte_stos_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_repz_2_byte_stos_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_repz_4_byte_stos_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_1_byte_cmps_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_2_byte_cmps_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_4_byte_cmps_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_1_byte_movs_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_2_byte_movs_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_4_byte_movs_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_1_byte_stos_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_2_byte_stos_access);
+DEFINE_NULL_SPECIAL_PROBE(asan_check_4_byte_stos_access);
 #undef DEFINE_NULL_MEMORY_PROBE
+#undef DEFINE_NULL_STRING_PROBE
 
 }  // extern "C"
