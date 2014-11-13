@@ -14,6 +14,12 @@
 
 #include "syzygy/agent/memprof/memory_profiler.h"
 
+#include "base/bind.h"
+#include "syzygy/agent/common/process_utils.h"
+
+// Gives us a pointer to the load address of our image.
+extern "C" IMAGE_DOS_HEADER __ImageBase;
+
 namespace agent {
 namespace memprof {
 
@@ -28,12 +34,79 @@ bool MemoryProfiler::Init() {
   PropagateParameters();
   if (!trace::client::InitializeRpcSession(&session_, &segment_))
     return false;
+
+  // Setup the DLL watcher. This will be notified of module load and unload
+  // events as they occur.
+  dll_watcher_.Init(base::Bind(&MemoryProfiler::OnDllEvent,
+                               base::Unretained(this)));
+
+  // Log all modules that are already loaded when we are. Further modules
+  // will be logged as they load and unload via the DllNotification
+  // mechanism.
+  HMODULE module = reinterpret_cast<HMODULE>(&__ImageBase);
+  LogAllModules(module);
+
   return true;
 }
 
 void MemoryProfiler::PropagateParameters() {
   function_call_logger_.set_stack_trace_tracking(
       parameters_.stack_trace_tracking);
+}
+
+bool MemoryProfiler::FlushSegment() {
+  return session_.ExchangeBuffer(&segment_);
+}
+
+void MemoryProfiler::LogAllModules(HMODULE module) {
+  agent::common::ModuleVector modules;
+  agent::common::GetProcessModules(&modules);
+
+  // Our module should be in the process modules.
+  DCHECK(std::find(modules.begin(), modules.end(), module) != modules.end());
+
+  for (size_t i = 0; i < modules.size(); ++i) {
+    DCHECK(modules[i] != NULL);
+    LogModule(modules[i]);
+  }
+
+  // We need to flush module events right away, so that the module is
+  // defined in the trace file before events using that module start to
+  // occur.
+  FlushSegment();
+}
+
+void MemoryProfiler::LogModule(HMODULE module) {
+  {
+    base::AutoLock lock(lock_);
+    bool inserted = logged_modules_.insert(module).second;
+    if (!inserted)
+      return;
+  }
+
+  agent::common::LogModule(module, &session_, &segment_);
+}
+
+void MemoryProfiler::OnDllEvent(
+    agent::common::DllNotificationWatcher::EventType type,
+    HMODULE module,
+    size_t module_size,
+    const base::StringPiece16& dll_path,
+    const base::StringPiece16& dll_base_name) {
+  switch (type) {
+    case agent::common::DllNotificationWatcher::kDllLoaded: {
+      LogModule(module);
+      break;
+    }
+
+    case agent::common::DllNotificationWatcher::kDllUnloaded: {
+      base::AutoLock lock(lock_);
+      logged_modules_.erase(module);
+      break;
+    }
+  }
+
+  return;
 }
 
 }  // namespace memprof

@@ -21,6 +21,7 @@
 #define SYZYGY_AGENT_MEMPROF_MEMORY_PROFILER_H_
 
 #include "syzygy/agent/common/agent.h"
+#include "syzygy/agent/common/dll_notifications.h"
 #include "syzygy/agent/memprof/function_call_logger.h"
 #include "syzygy/agent/memprof/parameters.h"
 #include "syzygy/common/logging.h"
@@ -46,11 +47,34 @@ class MemoryProfiler {
   // Propagates configured parameters to sub-components.
   void PropagateParameters();
 
+  // Flushes the active segment and gets a new one. Returns true if all
+  // went well, false otherwise.
+  bool FlushSegment();
+
+  // Logs @p module and all other modules in the process, then flushes
+  // the current trace buffer.
+  void LogAllModules(HMODULE module);
+
+  // Logs @p module.
+  void LogModule(HMODULE module);
+
+  // Sink for DLL load/unload event notifications.
+  void OnDllEvent(agent::common::DllNotificationWatcher::EventType type,
+                  HMODULE module,
+                  size_t module_size,
+                  const base::StringPiece16& dll_path,
+                  const base::StringPiece16& dll_base_name);
+
+  // Synchronizes access to various global state.
+  base::Lock lock_;
+
   // The RPC session we're logging to/through.
   trace::client::RpcSession session_;
 
   // The active trace file segment where events are written. This object
   // guarantees its own thread safety.
+  // TODO(chrisha): Make this live in thread-local state, so each thread has
+  //     its own segment. Right now they all contend for one.
   trace::client::TraceFileSegment segment_;
 
   // The function call logger that we use for detailed function call
@@ -59,6 +83,13 @@ class MemoryProfiler {
 
   // The parameters that we use. These are parsed from the environment.
   Parameters parameters_;
+
+  // To keep track of modules added after initialization.
+  agent::common::DllNotificationWatcher dll_watcher_;
+
+  // Contains the set of modules we've seen and logged.
+  typedef base::hash_set<HMODULE> ModuleSet;
+  ModuleSet logged_modules_;  // Under lock_.
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MemoryProfiler);
