@@ -32,17 +32,19 @@ class FunctionCallLogger {
   struct NoArgument;
   template<typename ArgType> struct ArgumentSerializer;
 
+  typedef trace::client::TraceFileSegment TraceFileSegment;
+
   // Consructor.
   // @param session The call-trace session to log to.
   // @param segment The segment to write to.
-  FunctionCallLogger(trace::client::RpcSession* session,
-                     trace::client::TraceFileSegment* segment);
+  explicit FunctionCallLogger(trace::client::RpcSession* session);
 
   // Given a function name returns it's ID. If this is the first time seeing
   // a given function name then emits a record to the call-trace buffer.
   // @param function_name The name of the function.
   // @returns the ID of the function.
-  uint32 GetFunctionId(const std::string& function_name);
+  uint32 GetFunctionId(TraceFileSegment* segment,
+                       const std::string& function_name);
 
   // Gets a stack ID for the current stack. The behaviour of this function
   // depends on the stack_trace_tracking mode. If disabled, this always
@@ -50,7 +52,7 @@ class FunctionCallLogger {
   // If 'emit' mode is enabled, this will also keep track of already emitted
   // stack IDs and emit the stack the first time it's encountered.
   // @returns the ID of the current stack trace.
-  uint32 GetStackTraceId();
+  uint32 GetStackTraceId(TraceFileSegment* segment);
 
   // Emits a detailed function call event with a variable number of arguments.
   // @tparam ArgTypeN The type of the optional Nth argument.
@@ -64,7 +66,8 @@ class FunctionCallLogger {
            typename ArgType3 = NoArgument,
            typename ArgType4 = NoArgument,
            typename ArgType5 = NoArgument>
-  void EmitDetailedFunctionCall(uint32 function_id,
+  void EmitDetailedFunctionCall(TraceFileSegment* segment,
+                                uint32 function_id,
                                 uint32 stack_trace_id,
                                 ArgType0 arg0 = NoArgument(),
                                 ArgType1 arg1 = NoArgument(),
@@ -84,18 +87,14 @@ class FunctionCallLogger {
   // @}
 
  protected:
-  // Flushes the currently open segment, and gets a new one.
-  bool FlushSegment();
+  // Flushes the provided segment, and gets a new one.
+  bool FlushSegment(TraceFileSegment* segment);
 
   // The stack-trace tracking mode. Default to kTrackingNone.
   StackTraceTracking stack_trace_tracking_;
 
   // The RPC session events are being written to.
   trace::client::RpcSession* session_;
-
-  // The active trace file segment where events are written. This object
-  // guarantees its own thread safety.
-  trace::client::TraceFileSegment* segment_;
 
   // A lock that is used for synchronizing access to internals.
   base::Lock lock_;
@@ -150,7 +149,8 @@ template<typename ArgType0,
          typename ArgType3,
          typename ArgType4,
          typename ArgType5>
-void FunctionCallLogger::EmitDetailedFunctionCall(uint32 function_id,
+void FunctionCallLogger::EmitDetailedFunctionCall(TraceFileSegment* segment,
+                                                  uint32 function_id,
                                                   uint32 stack_trace_id,
                                                   ArgType0 arg0,
                                                   ArgType1 arg1,
@@ -158,6 +158,7 @@ void FunctionCallLogger::EmitDetailedFunctionCall(uint32 function_id,
                                                   ArgType3 arg3,
                                                   ArgType4 arg4,
                                                   ArgType5 arg5) {
+  DCHECK_NE(static_cast<TraceFileSegment*>(nullptr), segment);
   size_t args_count = 0;
   size_t args_size = 0;
 
@@ -190,12 +191,12 @@ void FunctionCallLogger::EmitDetailedFunctionCall(uint32 function_id,
   size_t data_size = FIELD_OFFSET(TraceDetailedFunctionCall, argument_data) +
       args_size;
 
-  if (!segment_->CanAllocate(data_size) && !FlushSegment())
+  if (!segment->CanAllocate(data_size) && !FlushSegment(segment))
     return;
-  DCHECK(segment_->CanAllocate(data_size));
+  DCHECK(segment->CanAllocate(data_size));
 
   TraceDetailedFunctionCall* data =
-      segment_->AllocateTraceRecord<TraceDetailedFunctionCall>(data_size);
+      segment->AllocateTraceRecord<TraceDetailedFunctionCall>(data_size);
   data->timestamp = ::trace::common::GetTsc();
   data->function_id = function_id;
   data->stack_trace_id = stack_trace_id;
@@ -241,14 +242,22 @@ void FunctionCallLogger::EmitDetailedFunctionCall(uint32 function_id,
 // A macro for emitting a detailed function call record. Automatically
 // emits a function name record the first time it is invoked for a given
 // function.
-#define EMIT_DETAILED_FUNCTION_CALL(function_call_logger, ...) {  \
+// @param function_call_logger A pointer to the function call logger
+//     instance to use.
+// @param segment A pointer to the TraceFileSegment to write to.
+#define EMIT_DETAILED_FUNCTION_CALL(function_call_logger,  \
+                                    segment,  \
+                                    ...) {  \
       static size_t function_id = -1;  \
       /* Racy, but safe because of GetFunctionId implementation. */  \
-      if (function_id == -1)  \
-        function_id = (function_call_logger).GetFunctionId(__FUNCTION__);  \
-      uint32 stack_trace_id = (function_call_logger).GetStackTraceId();  \
-      (function_call_logger).EmitDetailedFunctionCall(  \
-          function_id, stack_trace_id, __VA_ARGS__);  \
+      if (function_id == -1) {  \
+        function_id = (function_call_logger)->GetFunctionId(  \
+            segment, __FUNCTION__);  \
+      }  \
+      uint32 stack_trace_id =  \
+          (function_call_logger)->GetStackTraceId(segment);  \
+      (function_call_logger)->EmitDetailedFunctionCall(  \
+          segment, function_id, stack_trace_id, __VA_ARGS__);  \
     }
 
 }  // namespace memprof

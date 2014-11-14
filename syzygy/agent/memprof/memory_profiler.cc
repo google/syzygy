@@ -17,14 +17,11 @@
 #include "base/bind.h"
 #include "syzygy/agent/common/process_utils.h"
 
-// Gives us a pointer to the load address of our image.
-extern "C" IMAGE_DOS_HEADER __ImageBase;
-
 namespace agent {
 namespace memprof {
 
 MemoryProfiler::MemoryProfiler()
-    : function_call_logger_(&session_, &segment_) {
+    : function_call_logger_(&session_) {
   SetDefaultParameters(&parameters_);
 }
 
@@ -32,8 +29,11 @@ bool MemoryProfiler::Init() {
   if (!ParseParametersFromEnv(&parameters_))
     return false;
   PropagateParameters();
-  if (!trace::client::InitializeRpcSession(&session_, &segment_))
+  ThreadState* state = GetOrAllocateThreadState();
+  if (!trace::client::InitializeRpcSession(
+          &session_, state->segment())) {
     return false;
+  }
 
   // Setup the DLL watcher. This will be notified of module load and unload
   // events as they occur.
@@ -43,10 +43,21 @@ bool MemoryProfiler::Init() {
   // Log all modules that are already loaded when we are. Further modules
   // will be logged as they load and unload via the DllNotification
   // mechanism.
-  HMODULE module = reinterpret_cast<HMODULE>(&__ImageBase);
-  LogAllModules(module);
+  LogAllModules();
 
   return true;
+}
+
+MemoryProfiler::ThreadState* MemoryProfiler::GetOrAllocateThreadState() {
+  ThreadState* data = GetOrAllocateThreadStateImpl();
+  if (!data->segment()->write_ptr && session_.IsTracing())
+    session_.AllocateBuffer(data->segment());
+
+  return data;
+}
+
+MemoryProfiler::ThreadState* MemoryProfiler::GetThreadState() {
+  return tls_.Get();
 }
 
 void MemoryProfiler::PropagateParameters() {
@@ -54,16 +65,26 @@ void MemoryProfiler::PropagateParameters() {
       parameters_.stack_trace_tracking);
 }
 
-bool MemoryProfiler::FlushSegment() {
-  return session_.ExchangeBuffer(&segment_);
+MemoryProfiler::ThreadState* MemoryProfiler::GetOrAllocateThreadStateImpl() {
+  ThreadState *data = tls_.Get();
+  if (data != NULL)
+    return data;
+
+  data = new ThreadState(this);
+  if (data == NULL) {
+    LOG(ERROR) << "Unable to allocate per-thread data";
+    return NULL;
+  }
+
+  thread_state_manager_.Register(data);
+  tls_.Set(data);
+
+  return data;
 }
 
-void MemoryProfiler::LogAllModules(HMODULE module) {
+void MemoryProfiler::LogAllModules() {
   agent::common::ModuleVector modules;
   agent::common::GetProcessModules(&modules);
-
-  // Our module should be in the process modules.
-  DCHECK(std::find(modules.begin(), modules.end(), module) != modules.end());
 
   for (size_t i = 0; i < modules.size(); ++i) {
     DCHECK(modules[i] != NULL);
@@ -73,7 +94,7 @@ void MemoryProfiler::LogAllModules(HMODULE module) {
   // We need to flush module events right away, so that the module is
   // defined in the trace file before events using that module start to
   // occur.
-  FlushSegment();
+  GetOrAllocateThreadState()->FlushSegment();
 }
 
 void MemoryProfiler::LogModule(HMODULE module) {
@@ -84,7 +105,8 @@ void MemoryProfiler::LogModule(HMODULE module) {
       return;
   }
 
-  agent::common::LogModule(module, &session_, &segment_);
+  ThreadState* state = GetOrAllocateThreadState();
+  agent::common::LogModule(module, &session_, state->segment());
 }
 
 void MemoryProfiler::OnDllEvent(
@@ -107,6 +129,17 @@ void MemoryProfiler::OnDllEvent(
   }
 
   return;
+}
+
+MemoryProfiler::ThreadState::ThreadState(MemoryProfiler* parent)
+    : parent_(parent) {
+  DCHECK_NE(static_cast<MemoryProfiler*>(nullptr), parent);
+}
+
+bool MemoryProfiler::ThreadState::FlushSegment() {
+  if (!parent_->session_.ExchangeBuffer(&segment_))
+    return false;
+  return true;
 }
 
 }  // namespace memprof

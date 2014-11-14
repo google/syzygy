@@ -20,8 +20,10 @@
 #ifndef SYZYGY_AGENT_MEMPROF_MEMORY_PROFILER_H_
 #define SYZYGY_AGENT_MEMPROF_MEMORY_PROFILER_H_
 
+#include "base/threading/thread_local.h"
 #include "syzygy/agent/common/agent.h"
 #include "syzygy/agent/common/dll_notifications.h"
+#include "syzygy/agent/common/thread_state.h"
 #include "syzygy/agent/memprof/function_call_logger.h"
 #include "syzygy/agent/memprof/parameters.h"
 #include "syzygy/common/logging.h"
@@ -43,19 +45,33 @@ class MemoryProfiler {
     return function_call_logger_;
   }
 
+  // Forward declaration.
+  class ThreadState;
+
+  // @returns the thread state for the current thread, with an initialized
+  //     call trace segment. Allocates thread state if this is not already
+  //     done.
+  ThreadState* GetOrAllocateThreadState();
+
+  // @returns the thread state, returning nullptr if none has yet been
+  //     allocated.
+  ThreadState* GetThreadState();
+
  protected:
+  friend class ThreadState;
+
   // Propagates configured parameters to sub-components.
   void PropagateParameters();
 
-  // Flushes the active segment and gets a new one. Returns true if all
-  // went well, false otherwise.
-  bool FlushSegment();
+  // Returns the thread state for the current thread, but doesn't initialize
+  // a call trace segment.
+  ThreadState* GetOrAllocateThreadStateImpl();
 
-  // Logs @p module and all other modules in the process, then flushes
-  // the current trace buffer.
-  void LogAllModules(HMODULE module);
+  // Logs all modules in the process, then flushes the current trace segment.
+  // Logs using the current thread's segment.
+  void LogAllModules();
 
-  // Logs @p module.
+  // Logs @p module, using the current thread's segment.
   void LogModule(HMODULE module);
 
   // Sink for DLL load/unload event notifications.
@@ -65,17 +81,14 @@ class MemoryProfiler {
                   const base::StringPiece16& dll_path,
                   const base::StringPiece16& dll_base_name);
 
+  // Helper class for managing ThreadState lifetimes.
+  agent::common::ThreadStateManager thread_state_manager_;
+
   // Synchronizes access to various global state.
   base::Lock lock_;
 
   // The RPC session we're logging to/through.
   trace::client::RpcSession session_;
-
-  // The active trace file segment where events are written. This object
-  // guarantees its own thread safety.
-  // TODO(chrisha): Make this live in thread-local state, so each thread has
-  //     its own segment. Right now they all contend for one.
-  trace::client::TraceFileSegment segment_;
 
   // The function call logger that we use for detailed function call
   // events.
@@ -91,8 +104,41 @@ class MemoryProfiler {
   typedef base::hash_set<HMODULE> ModuleSet;
   ModuleSet logged_modules_;  // Under lock_.
 
+  // This points to our per-thread state.
+  mutable base::ThreadLocalPointer<ThreadState> tls_;
+
  private:
   DISALLOW_COPY_AND_ASSIGN(MemoryProfiler);
+};
+
+// Maintains thread specific memory profiler state, and provides convenient
+// logging methods.
+class MemoryProfiler::ThreadState : public agent::common::ThreadStateBase {
+ public:
+  // Initializes this thread state.
+  // @param parent The memory profiler owning this thread state.
+  explicit ThreadState(MemoryProfiler* parent);
+
+  // Flushes the active segment and gets a new one.
+  // @returns true if all went well, false otherwise.
+  bool FlushSegment();
+
+  // @returns the active trace file segment.
+  trace::client::TraceFileSegment* segment() {
+    return &segment_;
+  }
+
+ protected:
+  friend class MemoryProfiler;
+
+  // Our parent memory profiler.
+  MemoryProfiler* parent_;
+
+  // The active trace file segment where events are written.
+  trace::client::TraceFileSegment segment_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ThreadState);
 };
 
 }  // namespace memprof

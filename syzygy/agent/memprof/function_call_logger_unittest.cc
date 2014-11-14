@@ -47,8 +47,9 @@ class TestRpcSession : public trace::client::RpcSession {
     DCHECK_NE(static_cast<TraceFileSegment*>(nullptr), segment);
     if (closed_)
       return false;
-    buffer_.resize(min_size);
-    segment->base_ptr = buffer_.data();
+    auto it = buffers_.insert(buffers_.begin(), std::vector<uint8>());
+    it->resize(min_size);
+    segment->base_ptr = it->data();
     segment->buffer_info.buffer_offset = 0;
     segment->buffer_info.buffer_size = min_size;
     segment->buffer_info.shared_memory_handle = 0;
@@ -92,14 +93,16 @@ class TestRpcSession : public trace::client::RpcSession {
   }
 
  private:
-  std::vector<uint8> buffer_;
+  // All generated buffers are kept around so that the contents of flushed
+  // buffers can be inspected.
+  std::list<std::vector<uint8>> buffers_;
   bool closed_;
 };
 
 class TestFunctionCallLogger : public FunctionCallLogger {
  public:
   TestFunctionCallLogger()
-      : FunctionCallLogger(&test_session_, &test_segment_) {
+      : FunctionCallLogger(&test_session_) {
     test_segment_.allocate_callback =
         base::Bind(&TestFunctionCallLogger::AllocateCallback,
                    base::Unretained(this));
@@ -131,7 +134,7 @@ class TestFunctionCallLogger : public FunctionCallLogger {
 
 void TestEmitDetailedFunctionCall(TestFunctionCallLogger* fcl) {
   ASSERT_NE(static_cast<TestFunctionCallLogger*>(nullptr), fcl);
-  EMIT_DETAILED_FUNCTION_CALL((*fcl), fcl);
+  EMIT_DETAILED_FUNCTION_CALL(fcl, &fcl->test_segment_, fcl);
 }
 
 }  // namespace
@@ -141,7 +144,7 @@ TEST(FunctionCallLoggerTest, TraceFunctionNameTableEntry) {
   EXPECT_EQ(0u, fcl.function_id_map_.size());
 
   std::string name("foo");
-  EXPECT_EQ(0u, fcl.GetFunctionId(name));
+  EXPECT_EQ(0u, fcl.GetFunctionId(&fcl.test_segment_, name));
   EXPECT_EQ(1u, fcl.function_id_map_.size());
   EXPECT_THAT(fcl.function_id_map_,
               testing::Contains(std::make_pair(name, 0)));
@@ -161,7 +164,7 @@ TEST(FunctionCallLoggerTest, TraceFunctionNameTableEntry) {
   fcl.allocation_infos.empty();
 
   // Adding the same name again should do nothing.
-  EXPECT_EQ(0u, fcl.GetFunctionId("foo"));
+  EXPECT_EQ(0u, fcl.GetFunctionId(&fcl.test_segment_, "foo"));
   EXPECT_EQ(1u, fcl.function_id_map_.size());
   EXPECT_THAT(fcl.function_id_map_,
               testing::Contains(std::make_pair(std::string("foo"), 0)));
@@ -173,17 +176,17 @@ TEST(FunctionCallLoggerTest, TraceStackTrace) {
   EXPECT_EQ(0u, fcl.emitted_stack_ids_.size());
 
   fcl.set_stack_trace_tracking(kTrackingNone);
-  EXPECT_EQ(0u, fcl.GetStackTraceId());
+  EXPECT_EQ(0u, fcl.GetStackTraceId(&fcl.test_segment_));
   EXPECT_EQ(0u, fcl.emitted_stack_ids_.size());
   EXPECT_EQ(0u, fcl.allocation_infos.size());
 
   fcl.set_stack_trace_tracking(kTrackingTrack);
-  EXPECT_NE(0u, fcl.GetStackTraceId());
+  EXPECT_NE(0u, fcl.GetStackTraceId(&fcl.test_segment_));
   EXPECT_EQ(0u, fcl.emitted_stack_ids_.size());
   EXPECT_EQ(0u, fcl.allocation_infos.size());
 
   fcl.set_stack_trace_tracking(kTrackingEmit);
-  uint32 stack_trace_id = fcl.GetStackTraceId();
+  uint32 stack_trace_id = fcl.GetStackTraceId(&fcl.test_segment_);
   EXPECT_NE(0u, stack_trace_id);
   EXPECT_THAT(fcl.emitted_stack_ids_, testing::ElementsAre(stack_trace_id));
   EXPECT_EQ(1u, fcl.allocation_infos.size());

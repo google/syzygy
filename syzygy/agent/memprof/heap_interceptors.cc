@@ -26,7 +26,9 @@
     DCHECK_NE(static_cast<agent::memprof::MemoryProfiler*>(nullptr),  \
               agent::memprof::memory_profiler.get());  \
     EMIT_DETAILED_FUNCTION_CALL(  \
-        agent::memprof::memory_profiler->function_call_logger(),  \
+        &agent::memprof::memory_profiler->function_call_logger(),  \
+        agent::memprof::memory_profiler->GetOrAllocateThreadState()->  \
+            segment(),  \
         __VA_ARGS__);
 
 extern "C" {
