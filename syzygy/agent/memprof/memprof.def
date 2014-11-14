@@ -115,3 +115,14 @@ EXPORTS
 
   ; Breakpad-like exception filter.
   asan_CrashForException
+
+  ; System interceptors.
+  asan_ReadFile
+  asan_ReadFileEx
+  asan_WriteFile
+  asan_WriteFileEx
+  asan_InterlockedCompareExchange
+  asan_InterlockedIncrement
+  asan_InterlockedDecrement
+  asan_InterlockedExchange
+  asan_InterlockedExchangeAdd

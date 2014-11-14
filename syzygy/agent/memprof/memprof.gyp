@@ -46,6 +46,7 @@
         'memory_profiler.h',
         'parameters.cc',
         'parameters.h',
+        'system_interceptors.cc',
       ],
       'dependencies': [
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
