@@ -61,11 +61,10 @@
 # Ignore directories gclient syncs.
 /base/
 /build/
-/syzygy/internal
-
 /google_apis/
 /googleurl/
 /skia/
+/syzygy/internal
 /testing/
 /third_party/coverage_analyzer/
 /third_party/distorm/files
@@ -96,3 +95,6 @@
 
 # Ignore Python build artifacts
 *.egg-info/
+
+# Ignore developer specific GYP configuration.
+syzygy.gyp_env
