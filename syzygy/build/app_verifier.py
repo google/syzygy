@@ -89,6 +89,8 @@ _EXCEPTIONS = {
   'memprof_unittests.exe': [
     # This leak occurs due to a leaky global variable in ScopedHandle.
     ('Error', 'Leak', 2304, '.*::MemoryProfilerTest::UnloadDll'),
+    # This leak occurs due to a leaky global lock in ScopedHandle.
+    ('Error', 'Locks', 513, '.*::MemoryProfilerTest::UnloadDll'),
     # This leak occurs only in Debug, which leaks a thread local variable
     # used to check thread restrictions.
     ('Error', 'TLS', 848, '.*::MemoryProfilerTest::UnloadDll'),
