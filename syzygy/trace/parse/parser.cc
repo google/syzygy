@@ -238,5 +238,11 @@ void ParseEventHandlerImpl::OnDetailedFunctionCall(
     const TraceDetailedFunctionCall* data) {
 }
 
+void ParseEventHandlerImpl::OnComment(
+    base::Time time,
+    DWORD process_id,
+    const TraceComment* data) {
+}
+
 }  // namespace parser
 }  // namespace trace

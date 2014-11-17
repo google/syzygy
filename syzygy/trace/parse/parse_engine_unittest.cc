@@ -209,6 +209,10 @@ class ParseEngineUnitTest
                     DWORD process_id,
                     DWORD thread_id,
                     const TraceDetailedFunctionCall* data));
+  MOCK_METHOD3(OnComment,
+               void(base::Time time,
+                    DWORD process_id,
+                    const TraceComment* data));
 
   static const DWORD kProcessId;
   static const DWORD kThreadId;
@@ -728,6 +732,27 @@ TEST_F(ParseEngineUnitTest, DetailedFunctionCall) {
   // Dispatch a malformed record and make sure the parser errors.
   ASSERT_NO_FATAL_FAILURE(DispatchEventData(
       TRACE_DETAILED_FUNCTION_CALL, data, sizeof(buffer) - 1));
+  ASSERT_TRUE(error_occurred());
+}
+
+TEST_F(ParseEngineUnitTest, Comment) {
+  const char kDummyComment[] = "This is a comment!";
+  char buffer[FIELD_OFFSET(TraceComment, comment) +
+      arraysize(kDummyComment)] = {};
+  TraceComment* data =
+      reinterpret_cast<TraceComment*>(buffer);
+
+  data->comment_size = arraysize(kDummyComment);
+  ::memcpy(data->comment, kDummyComment, arraysize(kDummyComment));
+
+  EXPECT_CALL(*this, OnComment(_, kProcessId, data));
+  ASSERT_NO_FATAL_FAILURE(DispatchEventData(
+      TRACE_COMMENT, data, sizeof(buffer)));
+  ASSERT_FALSE(error_occurred());
+
+  // Dispatch a malformed record and make sure the parser errors.
+  ASSERT_NO_FATAL_FAILURE(DispatchEventData(
+      TRACE_COMMENT, data, sizeof(buffer) - 1));
   ASSERT_TRUE(error_occurred());
 }
 

@@ -91,6 +91,7 @@ enum TraceEventType {
   TRACE_FUNCTION_NAME_TABLE_ENTRY,
   TRACE_STACK_TRACE,
   TRACE_DETAILED_FUNCTION_CALL,
+  TRACE_COMMENT,
 };
 
 // All traces are emitted at this trace level.
@@ -496,5 +497,17 @@ struct TraceDetailedFunctionCall {
   uint8 argument_data[1];
 };
 COMPILE_ASSERT_IS_POD(TraceDetailedFunctionCall);
+
+// Records a comment in a trace file. These are output via the call-trace
+// service and act as delimiters in a call-trace log.
+struct TraceComment {
+  enum { kTypedId = TRACE_COMMENT };
+
+  // The size of the comment in bytes.
+  uint32 comment_size;
+
+  // Actuall of size |comment_size|. A UTF8 encoded string.
+  char comment[1];
+};
 
 #endif  // SYZYGY_TRACE_PROTOCOL_CALL_TRACE_DEFS_H_

@@ -233,6 +233,12 @@ class ParseEngine {
   //     Does not explicitly set error occurred.
   bool DispatchDetailedFunctionCall(EVENT_TRACE* event);
 
+  // Parses and dispatches a call-trace comment.
+  // @param event the event to dispatch.
+  // @returns true if the event was successfully dispatched, false otherwise.
+  //     Does not explicitly set error occurred.
+  bool DispatchComment(EVENT_TRACE* event);
+
   // The name by which this parse engine is known.
   std::string name_;
 

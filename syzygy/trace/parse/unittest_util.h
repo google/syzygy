@@ -79,18 +79,22 @@ class MockParseEventHandler : public trace::parser::ParseEventHandler {
                     DWORD process_id,
                     const TraceSampleData* data));
   MOCK_METHOD3(OnFunctionNameTableEntry,
-               void(base::Time Time,
+               void(base::Time time,
                     DWORD process_id,
                     const TraceFunctionNameTableEntry* data));
   MOCK_METHOD3(OnStackTrace,
-               void(base::Time Time,
+               void(base::Time time,
                     DWORD process_id,
                     const TraceStackTrace* data));
   MOCK_METHOD4(OnDetailedFunctionCall,
-               void(base::Time Time,
+               void(base::Time time,
                     DWORD process_id,
                     DWORD thread_id,
                     const TraceDetailedFunctionCall* data));
+  MOCK_METHOD3(OnComment,
+               void(base::Time time,
+                    DWORD process_id,
+                    const TraceComment* data));
 };
 
 typedef testing::StrictMock<MockParseEventHandler> StrictMockParseEventHandler;

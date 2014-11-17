@@ -224,6 +224,12 @@ class ParseEventHandler {
       DWORD process_id,
       DWORD thread_id,
       const TraceDetailedFunctionCall* data) = 0;
+
+  // Issued for comment records.
+  virtual void OnComment(
+      base::Time time,
+      DWORD process_id,
+      const TraceComment* data) = 0;
 };
 
 // A default implementation of the ParseEventHandler interface. Provides
@@ -282,22 +288,26 @@ class ParseEventHandlerImpl : public ParseEventHandler {
   virtual void OnDynamicSymbol(DWORD process_id,
                                uint32 symbol_id,
                                const base::StringPiece& symbol_name) OVERRIDE;
-  virtual void OnSampleData(base::Time Time,
+  virtual void OnSampleData(base::Time time,
                             DWORD process_id,
                             const TraceSampleData* data) OVERRIDE;
   virtual void OnFunctionNameTableEntry(
-      base::Time Time,
+      base::Time time,
       DWORD process_id,
       const TraceFunctionNameTableEntry* data) OVERRIDE;
   virtual void OnStackTrace(
-      base::Time Time,
+      base::Time time,
       DWORD process_id,
       const TraceStackTrace* data) OVERRIDE;
   virtual void OnDetailedFunctionCall(
-      base::Time Time,
+      base::Time time,
       DWORD process_id,
       DWORD thread_id,
       const TraceDetailedFunctionCall* data) OVERRIDE;
+  virtual void OnComment(
+      base::Time time,
+      DWORD process_id,
+      const TraceComment* data) OVERRIDE;
   // @}
 };
 

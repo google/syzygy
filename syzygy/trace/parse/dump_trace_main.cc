@@ -478,6 +478,20 @@ class TraceFileDumper : public ParseEventHandler {
     }
   }
 
+  virtual void OnComment(
+      base::Time time,
+      DWORD process_id,
+      const TraceComment* data) {
+    DCHECK_NE(static_cast<TraceComment*>(nullptr), data);
+    ::fprintf(file_,
+              "[%012lld] OnComment: process-id=%d;\n"
+              "    comment=\"%.*s\"\n",
+              time.ToInternalValue(),
+              process_id,
+              data->comment_size,
+              data->comment);
+  }
+
  private:
   FILE* file_;
   const char* indentation_;

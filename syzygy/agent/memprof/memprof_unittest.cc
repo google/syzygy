@@ -179,7 +179,7 @@ class MemoryProfilerTest : public testing::Test {
     EXPECT_CALL(handler_, OnProcessStarted(_, ::GetCurrentProcessId(), _));
     EXPECT_CALL(handler_, OnProcessAttach(_,
                                           ::GetCurrentProcessId(),
-                                          ::GetCurrentThreadId(),
+                                          _,
                                           _))
         .Times(testing::AnyNumber());
 

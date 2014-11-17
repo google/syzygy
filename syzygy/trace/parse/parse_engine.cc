@@ -262,6 +262,10 @@ bool ParseEngine::DispatchEvent(EVENT_TRACE* event) {
       success = DispatchDetailedFunctionCall(event);
       break;
 
+    case TRACE_COMMENT:
+      success = DispatchComment(event);
+      break;
+
     default:
       LOG(ERROR) << "Unknown event type encountered.";
       break;
@@ -604,6 +608,39 @@ bool ParseEngine::DispatchDetailedFunctionCall(EVENT_TRACE* event) {
   DWORD process_id = event->Header.ProcessId;
   DWORD thread_id = event->Header.ThreadId;
   event_handler_->OnDetailedFunctionCall(time, process_id, thread_id, data);
+
+  return true;
+}
+
+bool ParseEngine::DispatchComment(EVENT_TRACE* event) {
+  DCHECK_NE(static_cast<EVENT_TRACE*>(nullptr), event);
+  DCHECK_NE(static_cast<ParseEventHandler*>(nullptr), event_handler_);
+  DCHECK(!error_occurred_);
+
+  BinaryBufferReader reader(event->MofData, event->MofLength);
+  const TraceComment* data = NULL;
+  if (!reader.Read(&data)) {
+    LOG(ERROR) << "Short or empty TraceComment event.";
+    return false;
+  }
+  DCHECK(data != NULL);
+
+  // Calculate the expected size of the payload and ensure there's
+  // enough data.
+  size_t expected_length =
+      FIELD_OFFSET(TraceComment, comment) +
+      data->comment_size;
+  if (event->MofLength < expected_length) {
+    LOG(ERROR) << "Payload smaller than size implied by "
+               << "TraceComment header.";
+    return false;
+  }
+
+  base::Time time(base::Time::FromFileTime(
+      reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
+  DWORD process_id = event->Header.ProcessId;
+  DWORD thread_id = event->Header.ThreadId;
+  event_handler_->OnComment(time, process_id, data);
 
   return true;
 }
