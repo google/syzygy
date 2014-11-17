@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.2.0
+
+[ae952911d4] Change the default date used in zap_timestamp.
+[0c61db4c14] SyzyASan - Fix a potential deadlock.
+
 Version 0.8.1.0
 
 [6dc7c8be0f] SyzyASan - Exception filtering for interceptors.
