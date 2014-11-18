@@ -22,8 +22,19 @@ namespace memprof {
 FunctionCallLogger::FunctionCallLogger(
     trace::client::RpcSession* session)
     : session_(session),
-      stack_trace_tracking_(kTrackingNone) {
+      stack_trace_tracking_(kTrackingNone),
+      serialize_timestamps_(false),
+      call_counter_(0),
+      serial_(0) {
   DCHECK_NE(static_cast<trace::client::RpcSession*>(nullptr), session);
+
+  // Generate a unique 'serial number' for this instance. This is so that we
+  // can tell one logger from the next in unittests, where they often end up
+  // having the same address.
+  uint64 t = ::trace::common::GetTsc();
+  serial_ = static_cast<uint32>(t & 0xFFFFFFFF) ^
+            static_cast<uint32>((t >> 32) & 0xFFFFFFFF) ^
+            reinterpret_cast<uint32>(this);
 }
 
 // Given a function name returns it's ID. If this is the first time seeing

@@ -41,7 +41,11 @@ enum StackTraceTracking {
 
 // A structure housing runtime paramters for the memory profiler agent.
 struct Parameters {
+  // Controls the level of detail stored in |stack_trace_id|.
   StackTraceTracking stack_trace_tracking;
+  // If this is enabled then timestamps are strictly serialized and
+  // synchronized across all threads.
+  bool serialize_timestamps;
 };
 
 // The environment variable that is used for extracting parameters.
@@ -52,9 +56,11 @@ extern const char* kStackTraceTrackingValues[];
 
 // Default parameter values.
 extern StackTraceTracking kDefaultStackTraceTracking;
+extern bool kDefaultSerializeTimestamps;
 
 // Parameter names for parsing.
 extern const char kParamStackTraceTracking[];
+extern const char kParamSerializeTimestamps[];
 
 // Initializes a Parameters struct with default values.
 // @param parameters The Parameters struct to be initialized.

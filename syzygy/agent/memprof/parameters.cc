@@ -34,13 +34,16 @@ const char kParametersEnvVar[] = "SYZYGY_MEMPROF_OPTIONS";
 
 // Default parameter values.
 StackTraceTracking kDefaultStackTraceTracking = kTrackingNone;
+bool kDefaultSerializeTimestamps = false;
 
 // Parameter names for parsing.
 const char kParamStackTraceTracking[] = "stack-trace-tracking";
+const char kParamSerializeTimestamps[] = "serialize-timestamps";
 
 void SetDefaultParameters(Parameters* parameters) {
   DCHECK_NE(static_cast<Parameters*>(nullptr), parameters);
   parameters->stack_trace_tracking = kDefaultStackTraceTracking;
+  parameters->serialize_timestamps = false;
 }
 
 bool ParseParameters(const base::StringPiece& param_string,
@@ -53,6 +56,8 @@ bool ParseParameters(const base::StringPiece& param_string,
   str.insert(0, L" ");
   str.insert(0, L"dummy.exe");
   CommandLine cmd_line = CommandLine::FromString(str);
+
+  bool success = true;
 
   // Parse the stack trace tracking enum.
   std::string value = cmd_line.GetSwitchValueASCII(kParamStackTraceTracking);
@@ -68,11 +73,14 @@ bool ParseParameters(const base::StringPiece& param_string,
     if (!parsed) {
       LOG(ERROR) << "Unknown value for --" << kParamStackTraceTracking
                  << ": " << value;
-      return false;
+      success = false;
     }
   }
 
-  return true;
+  if (cmd_line.HasSwitch(kParamSerializeTimestamps))
+    parameters->serialize_timestamps = true;
+
+  return success;
 }
 
 bool ParseParametersFromEnv(Parameters* parameters) {

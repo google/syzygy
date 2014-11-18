@@ -26,8 +26,9 @@ MemoryProfiler::MemoryProfiler()
 }
 
 bool MemoryProfiler::Init() {
-  if (!ParseParametersFromEnv(&parameters_))
-    return false;
+  // We don't care if parameter parsing fails at runtime; such parameters will
+  // simply be ignored.
+  ParseParametersFromEnv(&parameters_);
   PropagateParameters();
   ThreadState* state = GetOrAllocateThreadState();
   if (!trace::client::InitializeRpcSession(
@@ -63,6 +64,8 @@ MemoryProfiler::ThreadState* MemoryProfiler::GetThreadState() {
 void MemoryProfiler::PropagateParameters() {
   function_call_logger_.set_stack_trace_tracking(
       parameters_.stack_trace_tracking);
+  function_call_logger_.set_serialize_timestamps(
+      parameters_.serialize_timestamps);
 }
 
 MemoryProfiler::ThreadState* MemoryProfiler::GetOrAllocateThreadStateImpl() {

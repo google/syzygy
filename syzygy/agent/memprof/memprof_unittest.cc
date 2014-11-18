@@ -151,8 +151,10 @@ class MemoryProfilerTest : public testing::Test {
   void ExpectedRecordsSeenTest(bool emit_stack_traces) {
     base::Environment* env = base::Environment::Create();
     ASSERT_NE(static_cast<base::Environment*>(nullptr), env);
-    if (emit_stack_traces)
-      env->SetVar(kParametersEnvVar, "--stack-trace-tracking=emit");
+    if (emit_stack_traces) {
+      env->SetVar(kParametersEnvVar,
+                  "--stack-trace-tracking=emit --serialize-timestamps");
+    }
 
     ASSERT_NO_FATAL_FAILURE(StartService());
     ASSERT_NO_FATAL_FAILURE(LoadDll());
@@ -176,11 +178,8 @@ class MemoryProfilerTest : public testing::Test {
 
     env->UnSetVar(kParametersEnvVar);
 
-    EXPECT_CALL(handler_, OnProcessStarted(_, ::GetCurrentProcessId(), _));
-    EXPECT_CALL(handler_, OnProcessAttach(_,
-                                          ::GetCurrentProcessId(),
-                                          _,
-                                          _))
+    EXPECT_CALL(handler_, OnProcessStarted(_, process_id, _));
+    EXPECT_CALL(handler_, OnProcessAttach(_, process_id, _, _))
         .Times(testing::AnyNumber());
 
     EXPECT_CALL(handler_,
@@ -193,7 +192,7 @@ class MemoryProfilerTest : public testing::Test {
                   OnStackTrace(_, process_id, _)).Times(4);
     }
 
-    EXPECT_CALL(handler_, OnProcessEnded(_, ::GetCurrentProcessId()));
+    EXPECT_CALL(handler_, OnProcessEnded(_, process_id));
 
     // Replay the log.
     ASSERT_NO_FATAL_FAILURE(ReplayLogs());

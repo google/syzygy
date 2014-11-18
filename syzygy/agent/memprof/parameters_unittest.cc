@@ -24,6 +24,7 @@ TEST(ParametersTest, SetDefaults) {
   Parameters p = {};
   SetDefaultParameters(&p);
   EXPECT_EQ(kDefaultStackTraceTracking, p.stack_trace_tracking);
+  EXPECT_EQ(kDefaultSerializeTimestamps, p.serialize_timestamps);
 }
 
 TEST(ParametersTest, ParseInvalidStackTraceTracking) {
@@ -39,14 +40,16 @@ TEST(ParametersTest, ParseMinimalCommandLine) {
   std::string str("");
   EXPECT_TRUE(ParseParameters(str, &p));
   EXPECT_EQ(kDefaultStackTraceTracking, p.stack_trace_tracking);
+  EXPECT_EQ(kDefaultSerializeTimestamps, p.serialize_timestamps);
 }
 
 TEST(ParametersTest, ParseMaximalCommandLine) {
   Parameters p = {};
   SetDefaultParameters(&p);
-  std::string str("--stack-trace-tracking=emit");
+  std::string str("--stack-trace-tracking=emit --serialize-timestamps");
   EXPECT_TRUE(ParseParameters(str, &p));
   EXPECT_EQ(kTrackingEmit, p.stack_trace_tracking);
+  EXPECT_TRUE(p.serialize_timestamps);
 }
 
 TEST(ParametersTest, ParseNoEnvironment) {
@@ -58,6 +61,7 @@ TEST(ParametersTest, ParseNoEnvironment) {
   SetDefaultParameters(&p);
   EXPECT_TRUE(ParseParametersFromEnv(&p));
   EXPECT_EQ(kDefaultStackTraceTracking, p.stack_trace_tracking);
+  EXPECT_EQ(kDefaultSerializeTimestamps, p.serialize_timestamps);
 }
 
 TEST(ParametersTest, ParseEmptyEnvironment) {
@@ -69,6 +73,7 @@ TEST(ParametersTest, ParseEmptyEnvironment) {
   SetDefaultParameters(&p);
   EXPECT_TRUE(ParseParametersFromEnv(&p));
   EXPECT_EQ(kDefaultStackTraceTracking, p.stack_trace_tracking);
+  EXPECT_EQ(kDefaultSerializeTimestamps, p.serialize_timestamps);
 }
 
 TEST(ParametersTest, ParseInvalidEnvironment) {
@@ -84,12 +89,14 @@ TEST(ParametersTest, ParseInvalidEnvironment) {
 TEST(ParametersTest, ParseValidEnvironment) {
   base::Environment* env = base::Environment::Create();
   ASSERT_NE(static_cast<base::Environment*>(nullptr), env);
-  env->SetVar(kParametersEnvVar, "--stack-trace-tracking=emit");
+  env->SetVar(kParametersEnvVar,
+              "--stack-trace-tracking=emit --serialize-timestamps");
 
   Parameters p = {};
   SetDefaultParameters(&p);
   EXPECT_TRUE(ParseParametersFromEnv(&p));
   EXPECT_EQ(kTrackingEmit, p.stack_trace_tracking);
+  EXPECT_TRUE(p.serialize_timestamps);
 }
 
 }  // namespace memprof

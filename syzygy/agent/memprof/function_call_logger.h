@@ -84,7 +84,17 @@ class FunctionCallLogger {
   void set_stack_trace_tracking(StackTraceTracking tracking) {
     stack_trace_tracking_ = tracking;
   }
+  bool serialize_timestamps() const {
+    return serialize_timestamps_;
+  }
+  void set_serialize_timestamps(bool serialize_timestamps) {
+    serialize_timestamps_ = serialize_timestamps;
+  }
   // @}
+
+  // @returns a unique serial number for this function call logger.
+  // @note This is for unittesting purposes.
+  uint32 serial() const { return serial_; }
 
  protected:
   // Flushes the provided segment, and gets a new one.
@@ -93,11 +103,18 @@ class FunctionCallLogger {
   // The stack-trace tracking mode. Default to kTrackingNone.
   StackTraceTracking stack_trace_tracking_;
 
+  // Whether or not timestamps are being serialized.
+  bool serialize_timestamps_;
+
   // The RPC session events are being written to.
   trace::client::RpcSession* session_;
 
   // A lock that is used for synchronizing access to internals.
   base::Lock lock_;
+
+  // The counter to use for serialized timestamps. Only used if
+  // |serialized_timestamps_| is true.
+  uint64 call_counter_;  // Under lock_.
 
   // A map of known function names and their IDs. This is used for making the
   // call-trace format more compact.
@@ -108,6 +125,9 @@ class FunctionCallLogger {
   // maintained if stack_trace_tracking_ is set to 'kTrackingEmit'.
   typedef std::set<uint32> StackIdSet;
   StackIdSet emitted_stack_ids_;  // Under lock_.
+
+  // A unique serial number generated at construction time. For unittesting.
+  uint32 serial_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(FunctionCallLogger);
@@ -197,10 +217,17 @@ void FunctionCallLogger::EmitDetailedFunctionCall(TraceFileSegment* segment,
 
   TraceDetailedFunctionCall* data =
       segment->AllocateTraceRecord<TraceDetailedFunctionCall>(data_size);
-  data->timestamp = ::trace::common::GetTsc();
   data->function_id = function_id;
   data->stack_trace_id = stack_trace_id;
   data->argument_data_size = args_size;
+
+  if (serialize_timestamps_) {
+    base::AutoLock lock(lock_);
+    data->timestamp = call_counter_;
+    ++call_counter_;
+  } else {
+    data->timestamp = ::trace::common::GetTsc();
+  }
 
   if (args_size == 0)
     return;
@@ -239,25 +266,63 @@ void FunctionCallLogger::EmitDetailedFunctionCall(TraceFileSegment* segment,
   arg_data += arg_size5;
 }
 
+// A templated helper for emitting a detailed function call record.
+// @param function_call_logger A pointer to the function call logger
+//     instance to use.
+// @param segment A pointer to the TraceFileSegment to write to.
+// @param logger_serial A pointer to where the serial number of the previous
+//     function call logger can be stored. Must be statically initialized to
+//     -1.
+// @param function_id A pointer where the function ID can be saved. Must
+//     be statically initialized to -1.
+// @param function_name The name of the function being traced.
+// @param arguments The arguments to the function being traced.
+template<typename... Arguments>
+inline void EmitDetailedFunctionCallHelper(
+    FunctionCallLogger* function_call_logger,
+    trace::client::TraceFileSegment* segment,
+    uint32* logger_serial,
+    uint32* function_id,
+    const char* function_name,
+    const Arguments&... arguments) {
+  DCHECK_NE(static_cast<FunctionCallLogger*>(nullptr), function_call_logger);
+  DCHECK_NE(static_cast<trace::client::TraceFileSegment*>(nullptr), segment);
+  DCHECK_NE(static_cast<uint32*>(nullptr), logger_serial);
+  DCHECK_NE(static_cast<uint32*>(nullptr), function_id);
+  DCHECK_NE(static_cast<char*>(nullptr), function_name);
+
+  // This is racy but safe because of the way GetFunctionId works and because
+  // 32-bit writes are atomic.
+  if (*logger_serial != function_call_logger->serial() ||
+      *function_id == -1) {
+    *logger_serial = function_call_logger->serial();
+    *function_id = function_call_logger->GetFunctionId(segment, function_name);
+  }
+  uint32 stack_trace_id =
+      function_call_logger->GetStackTraceId(segment);
+  function_call_logger->EmitDetailedFunctionCall(
+      segment, *function_id, stack_trace_id, arguments...);
+}
+
 // A macro for emitting a detailed function call record. Automatically
 // emits a function name record the first time it is invoked for a given
-// function.
+// function. This is a macro because it needs to use some function scope
+// static storage.
 // @param function_call_logger A pointer to the function call logger
 //     instance to use.
 // @param segment A pointer to the TraceFileSegment to write to.
 #define EMIT_DETAILED_FUNCTION_CALL(function_call_logger,  \
                                     segment,  \
                                     ...) {  \
-      static size_t function_id = -1;  \
-      /* Racy, but safe because of GetFunctionId implementation. */  \
-      if (function_id == -1) {  \
-        function_id = (function_call_logger)->GetFunctionId(  \
-            segment, __FUNCTION__);  \
-      }  \
-      uint32 stack_trace_id =  \
-          (function_call_logger)->GetStackTraceId(segment);  \
-      (function_call_logger)->EmitDetailedFunctionCall(  \
-          segment, function_id, stack_trace_id, __VA_ARGS__);  \
+      static uint32 logger_serial = -1;  \
+      static uint32 function_id = -1;  \
+      EmitDetailedFunctionCallHelper(  \
+          (function_call_logger),  \
+          (segment),  \
+          &logger_serial,  \
+          &function_id,  \
+          __FUNCTION__,  \
+          __VA_ARGS__);  \
     }
 
 }  // namespace memprof

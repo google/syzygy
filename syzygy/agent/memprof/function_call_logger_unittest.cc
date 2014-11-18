@@ -267,5 +267,45 @@ TEST(FunctionCallLoggerTest, TraceDetailedFunctionCall) {
                          data2->argument_data_size));
 }
 
+TEST(FunctionCallLoggerTest, TraceDetailedFunctionCallSerializeTimestamps) {
+  TestFunctionCallLogger fcl;
+  fcl.set_stack_trace_tracking(kTrackingNone);
+  fcl.set_serialize_timestamps(true);
+  EXPECT_EQ(0u, fcl.function_id_map_.size());
+
+  std::string name("agent::memprof::`anonymous-namespace'::"
+                   "TestEmitDetailedFunctionCall");
+  for (size_t i = 0; i < 3; ++i)
+    TestEmitDetailedFunctionCall(&fcl);
+  EXPECT_EQ(1u, fcl.function_id_map_.size());
+  EXPECT_THAT(fcl.function_id_map_,
+              testing::Contains(std::make_pair(name, 0)));
+  // 1 name, 3 calls.
+  EXPECT_EQ(4u, fcl.allocation_infos.size());
+
+  // Validate that the name record was appropriately written.
+  const auto& info0 = fcl.allocation_infos[0];
+  EXPECT_EQ(TraceFunctionNameTableEntry::kTypeId,
+            info0.record_type);
+  EXPECT_NE(nullptr, info0.record);
+  TraceFunctionNameTableEntry* data0 =
+      reinterpret_cast<TraceFunctionNameTableEntry*>(
+          info0.record);
+  EXPECT_LE(
+      FIELD_OFFSET(TraceFunctionNameTableEntry, name) + data0->name_length,
+      info0.record_size);
+  EXPECT_EQ(name, data0->name);
+
+  for (size_t i = 0; i < 3; ++i) {
+    // Validate that the detailed function call has the appropriate timestamp.
+    const auto& info1 = fcl.allocation_infos[1 + i];
+    EXPECT_EQ(TraceDetailedFunctionCall::kTypeId, info1.record_type);
+    EXPECT_NE(nullptr, info0.record);
+    TraceDetailedFunctionCall* data1 =
+        reinterpret_cast<TraceDetailedFunctionCall*>(info1.record);
+    EXPECT_EQ(static_cast<uint64>(i), data1->timestamp);
+  }
+}
+
 }  // namespace memprof
 }  // namespace agent
