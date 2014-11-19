@@ -21,7 +21,7 @@
   # Default to ninja-msvs & ninja projects.
   # If you don't use MSVS for editing projects, you can remove the
   # "ninja-msvs" part for a little quicker project generation.
-  'GYP_GENERATORS': 'ninja-msvs,ninja',
+  'GYP_GENERATORS': 'ninja,msvs-ninja',
 
   # Build an official build by default.
   'GYP_DEFINES': 'buildtype=Official',
