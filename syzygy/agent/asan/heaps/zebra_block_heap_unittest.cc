@@ -414,11 +414,13 @@ TEST(ZebraBlockHeapTest, PushPopInvariant) {
     EXPECT_TRUE(IsAligned(alloc, kShadowRatio));
     BlockInitialize(layout, alloc, false, &block);
     blocks.push_back(block);
-    EXPECT_TRUE(h.Push(block.header));
+    CompactBlockInfo compact = {};
+    ConvertBlockInfo(block, &compact);
+    EXPECT_TRUE(h.Push(compact));
   }
 
   for (size_t i = 0; i < h.slab_count_; i++) {
-    BlockHeader* dummy;
+    CompactBlockInfo dummy = {};
     bool old_invariant = h.QuarantineInvariantIsSatisfied();
     if (h.Pop(&dummy)) {
       EXPECT_FALSE(old_invariant);
@@ -430,7 +432,7 @@ TEST(ZebraBlockHeapTest, PushPopInvariant) {
   }
 
   // Clear the quarantine.
-  std::vector<BlockHeader*> objects;
+  std::vector<CompactBlockInfo> objects;
   h.Empty(&objects);
 
   // Blocks can be freed now.

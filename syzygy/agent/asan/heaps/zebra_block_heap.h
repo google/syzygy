@@ -116,11 +116,11 @@ class ZebraBlockHeap : public BlockHeapInterface,
 
   // @name BlockQuarantineInterface functions.
   // @{
-  virtual bool Push(BlockHeader* const &object);
-  virtual bool Pop(BlockHeader** object);
-  virtual void Empty(std::vector<BlockHeader*>* objects);
+  virtual bool Push(const CompactBlockInfo& info);
+  virtual bool Pop(CompactBlockInfo* info);
+  virtual void Empty(std::vector<CompactBlockInfo>* infos);
   virtual size_t GetCount();
-  virtual size_t GetLockId(BlockHeader* const &object) {
+  virtual size_t GetLockId(const CompactBlockInfo& info) {
     return 0;
   }
   virtual void Lock(size_t id) { }
@@ -141,16 +141,11 @@ class ZebraBlockHeap : public BlockHeapInterface,
     kQuarantinedSlab
   };
 
-  // TODO(chrisha): Make this a bitfield; all three fields fit in 4 bytes
-  //     rather than 12.
-  // - Need 14 bits for size (0 - 8192).
-  // - Need 13 bits for allocation offset in a slab (0 - 4096).
-  // - Need 2 bits for state.
-  // Describes the slab state.
   struct SlabInfo {
+    // The state of the slab.
     SlabState state;
-    uint8* allocated_address;
-    size_t allocation_size;
+    // Information about the allocation.
+    CompactBlockInfo info;
   };
 
   // Performs an allocation, and returns a pointer to the SlabInfo where the

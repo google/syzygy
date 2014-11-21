@@ -26,11 +26,8 @@ namespace asan {
 
 // A functor that retrieves the total size of an ASan allocation.
 struct GetTotalBlockSizeFunctor {
-  size_t operator()(const BlockHeader* block) {
-    DCHECK_NE(reinterpret_cast<const BlockHeader*>(NULL), block);
-    BlockInfo info = {};
-    if (!Shadow::BlockInfoFromShadow(block, &info))
-      return 0;
+  size_t operator()(const CompactBlockInfo& info) {
+    DCHECK_NE(static_cast<uint8*>(nullptr), info.block);
     return info.block_size;
   }
 };
@@ -38,12 +35,11 @@ struct GetTotalBlockSizeFunctor {
 // A functor for calculating a hash value associated with a block. This is used
 // by the sharded quarantine.
 struct GetBlockHashFunctor {
-  size_t operator()(const BlockHeader* block) {
-    DCHECK_NE(reinterpret_cast<const BlockHeader*>(NULL), block);
-    BlockInfo info = {};
-    if (!Shadow::BlockInfoFromShadow(block, &info))
-      return 0;
-    return info.trailer->alloc_ticks + reinterpret_cast<size_t>(block);
+  size_t operator()(const CompactBlockInfo& info) {
+    DCHECK_NE(static_cast<uint8*>(nullptr), info.block);
+    const BlockTrailer* trailer = reinterpret_cast<const BlockTrailer*>(
+        info.block + info.block_size) - 1;
+    return trailer->alloc_ticks + reinterpret_cast<size_t>(info.block);
   }
 };
 

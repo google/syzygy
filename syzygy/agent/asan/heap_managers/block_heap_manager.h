@@ -121,7 +121,7 @@ class BlockHeapManager : public HeapManagerInterface {
 
  protected:
   // The type of quarantine that we use internally.
-  typedef quarantines::ShardedQuarantine<BlockHeader*,
+  typedef quarantines::ShardedQuarantine<CompactBlockInfo,
                                          GetTotalBlockSizeFunctor,
                                          GetBlockHashFunctor,
                                          kQuarantineDefaultShardingFactor>

@@ -87,10 +87,10 @@ class TestZebraBlockHeap : public heaps::ZebraBlockHeap {
 
   // Wrapper that allows easily disabling the insertion of new blocks in the
   // quarantine.
-  virtual bool Push(BlockHeader* const &object) OVERRIDE {
+  virtual bool Push(const CompactBlockInfo& info) OVERRIDE {
     if (refuse_push_)
       return false;
-    return ZebraBlockHeap::Push(object);
+    return ZebraBlockHeap::Push(info);
   }
 
   // Enable/Disable future allocations.
@@ -266,10 +266,10 @@ class ScopedHeap {
     BlockQuarantineInterface::ObjectVector::iterator iter_block =
         blocks_to_free.begin();
     for (; iter_block != blocks_to_free.end(); ++iter_block) {
-      DCHECK_NE(static_cast<BlockHeader*>(nullptr), *iter_block);
-      BlockInfo block_info = {};
-      CHECK(Shadow::BlockInfoFromShadow(*iter_block, &block_info));
-      CHECK(heap_manager_->FreePotentiallyCorruptBlock(&block_info));
+      const CompactBlockInfo& compact = *iter_block;
+      BlockInfo expanded = {};
+      ConvertBlockInfo(compact, &expanded);
+      CHECK(heap_manager_->FreePotentiallyCorruptBlock(&expanded));
     }
   }
 
@@ -294,10 +294,12 @@ class ScopedHeap {
       // Search through all blocks in each shard.
       TestQuarantine::Node* current_node = test_quarantine->heads_[i];
       while (current_node != nullptr) {
-        BlockInfo block_info = {};
-        EXPECT_TRUE(BlockInfoFromMemory(current_node->object, &block_info));
-        if (block_info.body == mem) {
-          EXPECT_EQ(QUARANTINED_BLOCK, current_node->object->state);
+        const uint8* body = current_node->object.block +
+            current_node->object.header_size;
+        if (body == mem) {
+          const BlockHeader* header = reinterpret_cast<BlockHeader*>(
+              current_node->object.block);
+          EXPECT_EQ(QUARANTINED_BLOCK, header->state);
           return true;
         }
         current_node = current_node->next;

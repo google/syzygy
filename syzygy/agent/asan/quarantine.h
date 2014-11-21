@@ -120,10 +120,11 @@ class QuarantineInterface {
   DISALLOW_COPY_AND_ASSIGN(QuarantineInterface);
 };
 
-// Quarantines in ASAN are typically storing blocks, represented by the address
-// of their allocation.
-struct BlockHeader;  // Forward declaration.
-typedef QuarantineInterface<BlockHeader*> BlockQuarantineInterface;
+// Quarantines in ASAN are typically storing blocks. Here they are represented
+// by a CompactBlockInfo, which contains information that the quarantine
+// frequently accesses.
+struct CompactBlockInfo;  // Forward declaration.
+typedef QuarantineInterface<CompactBlockInfo> BlockQuarantineInterface;
 
 }  // namespace asan
 }  // namespace agent

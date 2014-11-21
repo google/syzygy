@@ -61,8 +61,7 @@ ZebraBlockHeap::ZebraBlockHeap(size_t heap_size,
   slab_info_.resize(slab_count_);
   for (size_t i = 0; i < slab_count_; ++i) {
     slab_info_[i].state = kFreeSlab;
-    slab_info_[i].allocated_address = NULL;
-    slab_info_[i].allocation_size = 0;
+    ::memset(&slab_info_[i].info, 0, sizeof(slab_info_[i].info));
     free_slabs_.push(i);
   }
 }
@@ -83,7 +82,7 @@ void* ZebraBlockHeap::Allocate(size_t bytes) {
   SlabInfo* slab_info = AllocateImpl(bytes);
   if (slab_info == NULL)
     return NULL;
-  return slab_info->allocated_address;
+  return slab_info->info.block;
 }
 
 bool ZebraBlockHeap::Free(void* alloc) {
@@ -93,7 +92,7 @@ bool ZebraBlockHeap::Free(void* alloc) {
   size_t slab_index = GetSlabIndex(alloc);
   if (slab_index == kInvalidSlabIndex)
     return false;
-  if (slab_info_[slab_index].allocated_address != alloc)
+  if (slab_info_[slab_index].info.block != alloc)
     return false;
 
   // Memory must be released from the quarantine before calling Free.
@@ -104,8 +103,8 @@ bool ZebraBlockHeap::Free(void* alloc) {
 
   // Make the slab available for allocations.
   slab_info_[slab_index].state = kFreeSlab;
-  slab_info_[slab_index].allocated_address = NULL;
-  slab_info_[slab_index].allocation_size = 0;
+  ::memset(&slab_info_[slab_index].info, 0,
+           sizeof(slab_info_[slab_index].info));
   free_slabs_.push(slab_index);
   return true;
 }
@@ -119,7 +118,7 @@ bool ZebraBlockHeap::IsAllocated(const void* alloc) {
     return false;
   if (slab_info_[slab_index].state == kFreeSlab)
     return false;
-  if (slab_info_[slab_index].allocated_address != alloc)
+  if (slab_info_[slab_index].info.block != alloc)
     return false;
   return true;
 }
@@ -133,9 +132,9 @@ size_t ZebraBlockHeap::GetAllocationSize(const void* alloc) {
     return kUnknownSize;
   if (slab_info_[slab_index].state == kFreeSlab)
     return kUnknownSize;
-  if (slab_info_[slab_index].allocated_address != alloc)
+  if (slab_info_[slab_index].info.block != alloc)
     return kUnknownSize;
-  return slab_info_[slab_index].allocation_size;
+  return slab_info_[slab_index].info.block_size;
 }
 
 void ZebraBlockHeap::Lock() {
@@ -189,8 +188,13 @@ void* ZebraBlockHeap::AllocateBlock(size_t size,
   void* alloc = nullptr;
   SlabInfo* slab_info = AllocateImpl(GetPageSize());
   if (slab_info != nullptr) {
-    slab_info->allocation_size = 2 * GetPageSize();
-    alloc = slab_info->allocated_address;
+    slab_info->info.block_size = layout->block_size;
+    slab_info->info.header_size = layout->header_size +
+        layout->header_padding_size;
+    slab_info->info.trailer_size = layout->trailer_size +
+        layout->trailer_padding_size;
+    slab_info->info.is_nested = false;
+    alloc = slab_info->info.block;
   }
 
   DCHECK_EQ(0u, reinterpret_cast<uintptr_t>(alloc) % kShadowRatio);
@@ -204,15 +208,15 @@ bool ZebraBlockHeap::FreeBlock(const BlockInfo& block_info) {
   return true;
 }
 
-bool ZebraBlockHeap::Push(BlockHeader* const &object) {
+bool ZebraBlockHeap::Push(const CompactBlockInfo& info) {
   ::common::AutoRecursiveLock lock(lock_);
-  size_t slab_index = GetSlabIndex(reinterpret_cast<void*>(object));
+  size_t slab_index = GetSlabIndex(info.block);
   if (slab_index == kInvalidSlabIndex)
     return false;
   if (slab_info_[slab_index].state != kAllocatedSlab)
     return false;
-  if (slab_info_[slab_index].allocated_address !=
-      reinterpret_cast<void*>(object)) {
+  if (::memcmp(&slab_info_[slab_index].info, &info,
+               sizeof(info)) != 0) {
     return false;
   }
 
@@ -221,7 +225,7 @@ bool ZebraBlockHeap::Push(BlockHeader* const &object) {
   return true;
 }
 
-bool ZebraBlockHeap::Pop(BlockHeader** block) {
+bool ZebraBlockHeap::Pop(CompactBlockInfo* info) {
   ::common::AutoRecursiveLock lock(lock_);
 
   if (QuarantineInvariantIsSatisfied())
@@ -231,31 +235,23 @@ bool ZebraBlockHeap::Pop(BlockHeader** block) {
   DCHECK_NE(kInvalidSlabIndex, slab_index);
   quarantine_.pop();
 
-  void* alloc = slab_info_[slab_index].allocated_address;
-  DCHECK_NE(static_cast<void*>(NULL), alloc);
-  *block = reinterpret_cast<BlockHeader*>(alloc);
-
   DCHECK_EQ(kQuarantinedSlab, slab_info_[slab_index].state);
   slab_info_[slab_index].state = kAllocatedSlab;
+  *info = slab_info_[slab_index].info;
+
   return true;
 }
 
-void ZebraBlockHeap::Empty(ObjectVector* objects) {
+void ZebraBlockHeap::Empty(ObjectVector* infos) {
   ::common::AutoRecursiveLock lock(lock_);
-  BlockHeader* object = NULL;
   while (!quarantine_.empty()) {
     size_t slab_index = quarantine_.front();
     DCHECK_NE(kInvalidSlabIndex, slab_index);
     quarantine_.pop();
 
-    object = reinterpret_cast<BlockHeader*>(
-        slab_info_[slab_index].allocated_address);
-
-    DCHECK_NE(reinterpret_cast<BlockHeader*>(NULL), object);
-
     // Do not free the slab, only release it from the quarantine.
     slab_info_[slab_index].state = kAllocatedSlab;
-    objects->push_back(object);
+    infos->push_back(slab_info_[slab_index].info);
   }
 }
 
@@ -292,8 +288,11 @@ ZebraBlockHeap::SlabInfo* ZebraBlockHeap::AllocateImpl(size_t bytes) {
   // Update the slab info.
   SlabInfo* slab_info = &slab_info_[slab_index];
   slab_info->state = kAllocatedSlab;
-  slab_info->allocated_address = alloc;
-  slab_info->allocation_size = bytes;
+  slab_info->info.block = alloc;
+  slab_info->info.block_size = bytes;
+  slab_info->info.header_size = 0;
+  slab_info->info.trailer_size = 0;
+  slab_info->info.is_nested = false;
 
   return slab_info;
 }

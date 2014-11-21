@@ -264,7 +264,6 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
       stack_cache_->SaveStackTrace(stack);
   block_info.trailer->free_ticks = ::GetTickCount();
   block_info.trailer->free_tid = ::GetCurrentThreadId();
-
   block_info.header->state = QUARANTINED_BLOCK;
 
   // Poison the released alloc (marked as freed) and quarantine the block.
@@ -273,10 +272,13 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   Shadow::MarkAsFreed(block_info.body, block_info.body_size);
   BlockSetChecksum(block_info);
 
+  CompactBlockInfo compact = {};
+  ConvertBlockInfo(block_info, &compact);
+
   {
     BlockQuarantineInterface::AutoQuarantineLock quarantine_lock(
-        quarantine, block_info.header);
-    if (!quarantine->Push(block_info.header))
+        quarantine, compact);
+    if (!quarantine->Push(compact))
       return FreePristineBlock(&block_info);
 
     // The recently pushed block can be popped out in TrimQuarantine if the
@@ -480,18 +482,16 @@ bool BlockHeapManager::DestroyHeapUnlocked(
       blocks_vec.begin();
 
   for (; iter_block != blocks_vec.end(); ++iter_block) {
-    BlockInfo block_info = {};
-    // If we can't retrieve the block information from the shadow then it means
-    // that something went terribly wrong and that the shadow has been
-    // corrupted; there's nothing we can do in this case.
-    CHECK(Shadow::BlockInfoFromShadow(*iter_block, &block_info));
+    const CompactBlockInfo& compact = *iter_block;
+    BlockInfo expanded = {};
+    ConvertBlockInfo(compact, &expanded);
 
     // Remove protection to enable access to the block header.
-    BlockProtectNone(block_info);
+    BlockProtectNone(expanded);
     BlockHeapInterface* block_heap = GetHeapFromId(
-        block_info.trailer->heap_id);
+        expanded.trailer->heap_id);
     if (block_heap == heap) {
-      if (!FreePotentiallyCorruptBlock(&block_info))
+      if (!FreePotentiallyCorruptBlock(&expanded))
         return false;
     } else {
       blocks_to_reinsert.push_back(*iter_block);
@@ -501,16 +501,18 @@ bool BlockHeapManager::DestroyHeapUnlocked(
   // Restore the blocks that don't belong to this quarantine.
   iter_block = blocks_to_reinsert.begin();
   for (; iter_block != blocks_to_reinsert.end(); ++iter_block) {
-    BlockInfo block_info = {};
-    CHECK(Shadow::BlockInfoFromShadow(*iter_block, &block_info));
+    const CompactBlockInfo& compact = *iter_block;
+    BlockInfo expanded = {};
+    ConvertBlockInfo(compact, &expanded);
+
     BlockQuarantineInterface::AutoQuarantineLock quarantine_lock(quarantine,
-                                                                 *iter_block);
-    if (quarantine->Push(*iter_block)) {
+                                                                 compact);
+    if (quarantine->Push(compact)) {
       // Restore protection to quarantined block.
-      BlockProtectAll(block_info);
+      BlockProtectAll(expanded);
     } else {
       // Avoid memory leak.
-      CHECK(FreePotentiallyCorruptBlock(&block_info));
+      CHECK(FreePotentiallyCorruptBlock(&expanded));
     }
   }
 
@@ -538,18 +540,18 @@ void BlockHeapManager::TrimQuarantine(BlockQuarantineInterface* quarantine) {
   if (parameters_.quarantine_size == 0) {
     quarantine->Empty(&blocks_to_free);
   } else {
-    BlockHeader* block_to_free = nullptr;
-    while (quarantine->Pop(&block_to_free))
-      blocks_to_free.push_back(block_to_free);
+    CompactBlockInfo compact = {};
+    while (quarantine->Pop(&compact))
+      blocks_to_free.push_back(compact);
   }
 
   BlockQuarantineInterface::ObjectVector::iterator iter_block =
       blocks_to_free.begin();
   for (; iter_block != blocks_to_free.end(); ++iter_block) {
-    DCHECK_NE(static_cast<BlockHeader*>(nullptr), *iter_block);
-    BlockInfo block_info = {};
-    CHECK(Shadow::BlockInfoFromShadow(*iter_block, &block_info));
-    CHECK(FreePotentiallyCorruptBlock(&block_info));
+    const CompactBlockInfo& compact = *iter_block;
+    BlockInfo expanded = {};
+    ConvertBlockInfo(compact, &expanded);
+    CHECK(FreePotentiallyCorruptBlock(&expanded));
   }
 }
 
