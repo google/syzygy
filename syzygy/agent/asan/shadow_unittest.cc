@@ -303,6 +303,39 @@ TEST(ShadowTest, ScanLeftAndRight) {
   ::memset(TestShadow::shadow_ + offset, 0, 5);
 }
 
+TEST(ShadowTest, ScanRightPerfTest) {
+  size_t offset = Shadow::kShadowSize / 2;
+  size_t length = 1 * 1024 * 1024;
+
+  ::memset(TestShadow::shadow_ + offset, 0, length);
+
+  TestShadow::shadow_[offset + 0] = kHeapBlockStartMarker0;
+  // A nested block with freed contents.
+  TestShadow::shadow_[offset + 50] = kHeapNestedBlockStartMarker0;
+  ::memset(TestShadow::shadow_ + offset + 51, kHeapFreedMarker, 8);
+  TestShadow::shadow_[offset + 60] = kHeapNestedBlockEndMarker;
+  // A nested block with a nested block.
+  TestShadow::shadow_[offset + 100000] = kHeapNestedBlockStartMarker0;
+  TestShadow::shadow_[offset + 100100] = kHeapNestedBlockStartMarker0;
+  TestShadow::shadow_[offset + 100400] = kHeapNestedBlockEndMarker;
+  TestShadow::shadow_[offset + 200000] = kHeapNestedBlockEndMarker;
+  // The end of the outer block.
+  TestShadow::shadow_[offset + length - 1] = kHeapBlockEndMarker;
+
+  uint64 tnet = 0;
+  for (size_t i = 0; i < 100; ++i) {
+    size_t l = 0;
+    uint64 t0 = ::__rdtsc();
+    TestShadow::ScanRightForBracketingBlockEnd(0, offset + 1, &l);
+    uint64 t1 = ::__rdtsc();
+    tnet += t1 - t0;
+  }
+  // TODO(chrisha): Output this data in a meaningful way. For now this simply
+  // ensures that the results are visible somewhere.
+  LOG(INFO) << "PERF: Syzygy.ASan.Shadow.ScanRightForBracketingBlockEnd="
+            << tnet;
+}
+
 TEST(ShadowTest, IsLeftOrRightRedzone) {
   BlockLayout layout = {};
   const size_t kAllocSize = 15;
@@ -460,6 +493,22 @@ TEST(ShadowTest, IsBeginningOfBlockBodyForBlockOfSizeZero) {
   EXPECT_FALSE(Shadow::IsBeginningOfBlockBody(data.get()));
 
   Shadow::Unpoison(data.get(), data_size);
+}
+
+TEST(ShadowTest, MarkAsFreedPerfTest) {
+  std::vector<uint8> buf;
+  buf.resize(10 * 1024 * 1024, 0);
+  uint64 tnet = 0;
+  for (size_t i = 0; i < 1000; ++i) {
+    Shadow::Unpoison(buf.data(), buf.size());
+    uint64 t0 = ::__rdtsc();
+    Shadow::MarkAsFreed(buf.data(), buf.size());
+    uint64 t1 = ::__rdtsc();
+    tnet += t1 - t0;
+  }
+  // TODO(chrisha): Output this data in a meaningful way. For now this simply
+  // ensures that the results are visible somewhere.
+  LOG(INFO) << "PERF: Syzygy.ASan.Shadow.MarkAsFreed=" << tnet;
 }
 
 TEST(ShadowWalkerTest, WalksNonNestedBlocks) {

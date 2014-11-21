@@ -11,7 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/agent/asan/shadow.h"
+
+#include <algorithm>
 
 #include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
@@ -67,6 +70,74 @@ void Shadow::Unpoison(const void* addr, size_t size) {
     shadow_[index + size] = remainder;
 }
 
+namespace {
+
+// An array of kFreedMarkers. This is used for constructing uint16, uint32 and
+// uint64 byte variants of kHeapFreedMarker.
+static const uint8 kFreedMarkers[] = {
+    kHeapFreedMarker, kHeapFreedMarker, kHeapFreedMarker, kHeapFreedMarker,
+    kHeapFreedMarker, kHeapFreedMarker, kHeapFreedMarker, kHeapFreedMarker };
+COMPILE_ASSERT(sizeof(kFreedMarkers) == sizeof(uint64),
+                wrong_number_of_freed_markers);
+static const uint64& kFreedMarker64 =
+    *reinterpret_cast<const uint64*>(kFreedMarkers);
+static const uint32& kFreedMarker32 =
+    *reinterpret_cast<const uint32*>(kFreedMarkers);
+static const uint16& kFreedMarker16 =
+    *reinterpret_cast<const uint16*>(kFreedMarkers);
+static const uint8& kFreedMarker8 =
+    *reinterpret_cast<const uint8*>(kFreedMarkers);
+
+// Marks the given range of shadow bytes as freed, preserving left and right
+// redzone bytes.
+inline void MarkAsFreedImpl8(uint8* cursor, uint8* cursor_end) {
+  for (; cursor != cursor_end; ++cursor) {
+    // Preserve block beginnings/ends/redzones as they were originally.
+    // This is necessary to preserve information about nested blocks.
+    if (ShadowMarkerHelper::IsActiveLeftRedzone(*cursor) ||
+        ShadowMarkerHelper::IsActiveRightRedzone(*cursor)) {
+      continue;
+    }
+
+    // Anything else gets marked as freed.
+    *cursor = kHeapFreedMarker;
+  }
+}
+
+// Marks the given range of shadow bytes as freed, preserving left and right
+// redzone bytes. |cursor| and |cursor_end| must be 8-byte aligned.
+inline void MarkAsFreedImplAligned64(uint64* cursor, uint64* cursor_end) {
+  DCHECK(::common::IsAligned(cursor, sizeof(uint64)));
+  DCHECK(::common::IsAligned(cursor_end, sizeof(uint64)));
+
+  for (; cursor != cursor_end; ++cursor) {
+    // If the block of shadow memory is entirely green then mark as freed.
+    // Otherwise go check its contents byte by byte.
+    if (*cursor == 0) {
+      *cursor = kFreedMarker64;
+    } else {
+      MarkAsFreedImpl8(reinterpret_cast<uint8*>(cursor),
+                       reinterpret_cast<uint8*>(cursor + 1));
+    }
+  }
+}
+
+inline void MarkAsFreedImpl64(uint8* cursor, uint8* cursor_end) {
+  if (cursor_end - cursor >= 2 * sizeof(uint64)) {
+    uint8* cursor_aligned = ::common::AlignUp(cursor, sizeof(uint64));
+    uint8* cursor_end_aligned = ::common::AlignDown(cursor_end,
+                                                    sizeof(uint64));
+    MarkAsFreedImpl8(cursor, cursor_aligned);
+    MarkAsFreedImplAligned64(reinterpret_cast<uint64*>(cursor_aligned),
+                             reinterpret_cast<uint64*>(cursor_end_aligned));
+    MarkAsFreedImpl8(cursor_end_aligned, cursor_end);
+  } else {
+    MarkAsFreedImpl8(cursor, cursor_end);
+  }
+}
+
+}  // namespace
+
 void Shadow::MarkAsFreed(const void* addr, size_t size) {
   DCHECK_LE(kAddressLowerBound, reinterpret_cast<uintptr_t>(addr));
   DCHECK(::common::IsAligned(addr, kShadowRatio));
@@ -77,17 +148,11 @@ void Shadow::MarkAsFreed(const void* addr, size_t size) {
   DCHECK_LE(index + length, kShadowSize);
 
   uint8* cursor = shadow_ + index;
-  uint8* cursor_end = cursor + length;
-  for (; cursor != cursor_end; ++cursor) {
-    // Preserve block beginnings/ends/redzones as they were originally.
-    if (ShadowMarkerHelper::IsActiveLeftRedzone(*cursor) ||
-        ShadowMarkerHelper::IsActiveRightRedzone(*cursor)) {
-      continue;
-    }
+  uint8* cursor_end = static_cast<uint8*>(cursor) + length;
 
-    // Anything else gets marked as freed.
-    *cursor = kHeapFreedMarker;
-  }
+  // This isn't as simple as a memset because we need to preserve left and
+  // right redzone padding bytes that may be found in the range.
+  MarkAsFreedImpl64(cursor, cursor_end);
 }
 
 bool Shadow::IsAccessible(const void* addr) {
@@ -387,39 +452,127 @@ bool Shadow::ScanLeftForBracketingBlockStart(
   NOTREACHED();
 }
 
+namespace {
+
+// This handles an unaligned input cursor. It can potentially read up to 7
+// bytes past the end of the cursor, but only up to an 8 byte boundary. Thus
+// this out of bounds access is safe.
+inline const uint8* ScanRightForPotentialHeaderBytes(
+    const uint8* pos, const uint8* end) {
+  DCHECK(::common::IsAligned(end, 8));
+
+  // Handle the first few bytes that aren't aligned. If pos == end then
+  // it is already 8-byte aligned and we'll simply fall through to the end.
+  // This is a kind of Duffy's device that takes bytes 'as large as possible'
+  // until we reach an 8 byte alignment.
+  switch (reinterpret_cast<uintptr_t>(pos) & 0x7) {
+    case 1:
+      if (*pos != 0 && *pos != kFreedMarker8)
+        return pos;
+      pos += 1;
+    case 2:
+      if (*reinterpret_cast<const uint16*>(pos) != 0 &&
+          *reinterpret_cast<const uint16*>(pos) != kFreedMarker16) {
+        return pos;
+      }
+      pos += 2;
+    case 4:
+      if (*reinterpret_cast<const uint32*>(pos) != 0 &&
+          *reinterpret_cast<const uint32*>(pos) != kFreedMarker32) {
+        return pos;
+      }
+      pos += 4;
+      break;
+
+    case 3:
+      if (*pos != 0 && *pos != kFreedMarker8)
+        return pos;
+      pos += 1;
+      // Now have alignemnt of 4.
+      if (*reinterpret_cast<const uint32*>(pos) != 0 &&
+          *reinterpret_cast<const uint32*>(pos) != kFreedMarker32) {
+        return pos;
+      }
+      pos += 4;
+      break;
+
+    case 5:
+      if (*pos != 0 && *pos != kFreedMarker8)
+        return pos;
+      pos += 1;
+    case 6:
+      if (*reinterpret_cast<const uint16*>(pos) != 0 &&
+          *reinterpret_cast<const uint16*>(pos) != kFreedMarker16) {
+        return pos;
+      }
+      pos += 2;
+      break;
+
+    case 7:
+      if (*pos != 0 && *pos != kFreedMarker8)
+        return pos;
+      pos += 1;
+
+    case 0:
+    default:
+      // Do nothing, as we're already 8 byte aligned.
+      break;
+  }
+
+  // Handle the 8-byte aligned bytes as much as we can.
+  while (pos < end) {
+    if (*reinterpret_cast<const uint64*>(pos) != 0 &&
+        *reinterpret_cast<const uint64*>(pos) != kFreedMarker64) {
+      return pos;
+    }
+    pos += 8;
+  }
+
+  return pos;
+}
+
+}  // namespace
+
 bool Shadow::ScanRightForBracketingBlockEnd(
     size_t initial_nesting_depth, size_t cursor, size_t* location) {
   DCHECK_NE(static_cast<size_t*>(NULL), location);
+  static const uint8* kShadowEnd = Shadow::shadow_ + Shadow::kShadowSize;
 
-  size_t right = cursor;
+  const uint8* pos = shadow_ + cursor;
   int nesting_depth = static_cast<int>(initial_nesting_depth);
-  if (ShadowMarkerHelper::IsBlockStart(shadow_[right]))
+  if (ShadowMarkerHelper::IsBlockStart(*pos))
     --nesting_depth;
-  while (true) {
-    if (ShadowMarkerHelper::IsBlockEnd(shadow_[right])) {
+  while (pos < kShadowEnd) {
+    // Skips past as many addressable and freed bytes as possible.
+    pos = ScanRightForPotentialHeaderBytes(pos, kShadowEnd);
+    if (pos == kShadowEnd)
+      return false;
+
+    // When the above loop exits early then somewhere in the next 8 bytes
+    // there's non-addressable data that isn't 'freed'. Look byte by byte to
+    // see what's up.
+
+    if (ShadowMarkerHelper::IsBlockEnd(*pos)) {
       if (nesting_depth == 0) {
-        *location = right;
+        *location = pos - shadow_;
         return true;
       }
-      if (!ShadowMarkerHelper::IsNestedBlockEnd(shadow_[right]))
+      if (!ShadowMarkerHelper::IsNestedBlockEnd(*pos))
         return false;
       --nesting_depth;
-    } else if (ShadowMarkerHelper::IsBlockStart(shadow_[right])) {
+    } else if (ShadowMarkerHelper::IsBlockStart(*pos)) {
       ++nesting_depth;
 
       // If we encounter the beginning of a non-nested block then there's
       // clearly no way for any block to bracket us.
       if (nesting_depth > 0 &&
-          !ShadowMarkerHelper::IsNestedBlockStart(shadow_[right])) {
+          !ShadowMarkerHelper::IsNestedBlockStart(*pos)) {
         return false;
       }
     }
-    if (right + 1 == kShadowSize)
-      return false;
-    ++right;
+    ++pos;
   }
-
-  NOTREACHED();
+  return false;
 }
 
 bool Shadow::BlockInfoFromShadowImpl(
