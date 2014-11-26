@@ -37,6 +37,7 @@
 #include "syzygy/agent/asan/heaps/simple_block_heap.h"
 #include "syzygy/agent/asan/heaps/win_heap.h"
 #include "syzygy/agent/asan/heaps/zebra_block_heap.h"
+#include "syzygy/agent/asan/memory_notifiers/shadow_memory_notifier.h"
 
 namespace agent {
 namespace asan {
@@ -50,8 +51,8 @@ using testing::IsNotAccessible;
 
 typedef BlockHeapManager::HeapId HeapId;
 
-testing::NullMemoryNotifier null_memory_notifier;
 testing::DummyHeap dummy_heap;
+agent::asan::memory_notifiers::ShadowMemoryNotifier shadow_notifier;
 
 // A fake ZebraBlockHeap to simplify unit testing.
 // Wrapper with switches to enable/disable the quarantine and accept/refuse
@@ -64,7 +65,7 @@ class TestZebraBlockHeap : public heaps::ZebraBlockHeap {
 
   // Constructor.
   TestZebraBlockHeap()
-      : ZebraBlockHeap(1024 * 1024, &null_memory_notifier, &dummy_heap) {
+      : ZebraBlockHeap(1024 * 1024, &shadow_notifier, &dummy_heap) {
     refuse_allocations_ = false;
     refuse_push_ = false;
   }
