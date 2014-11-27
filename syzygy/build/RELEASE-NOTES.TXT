@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.3.0
+
+[734f70ac46] Shadow memory performance improvements.
+
 Version 0.8.2.0
 
 [ae952911d4] Change the default date used in zap_timestamp.
