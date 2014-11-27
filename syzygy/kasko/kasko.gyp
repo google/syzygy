@@ -29,6 +29,14 @@
       'sources': ['kasko_rpc.idl'],
       'all_dependent_settings': {
         'include_dirs': ['<(SHARED_INTERMEDIATE_DIR)'],
+        'msvs_settings': {
+          'VCLinkerTool': {
+            'AdditionalDependencies': [
+              # SDK import libs.
+              'rpcrt4.lib',
+            ],
+          },
+        },
       },
     },
     {
@@ -41,6 +49,18 @@
         'service_bridge.cc',
         'service_bridge.h',
       ],
+      'all_dependent_settings': {
+        'include_dirs': ['<(SHARED_INTERMEDIATE_DIR)'],
+        'msvs_settings': {
+          'VCLinkerTool': {
+            'AdditionalDependencies': [
+              # SDK import libs.
+              'dbghelp.lib',
+              'rpcrt4.lib',
+            ],
+          },
+        },
+      },
       'dependencies': [
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/common/rpc/rpc.gyp:common_rpc_lib',
@@ -77,15 +97,10 @@
             'user32.lib',
             'kernel32.lib',
           ],
-          'AdditionalDependencies=': [
+          'AdditionalDependencies': [
             # Custom import libs.
             'user32.winxp.lib',
             'kernel32.winxp.lib',
-
-            # SDK import libs.
-            'dbghelp.lib',
-            'psapi.lib',
-            'rpcrt4.lib',
           ],
           'AdditionalLibraryDirectories': [
             '<(src)/build/win/importlibs/x86',
