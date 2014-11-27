@@ -35,6 +35,8 @@
       'target_name': 'kasko_lib',
       'type': 'static_library',
       'sources': [
+        'minidump.cc',
+        'minidump.h',
         'service.h',
         'service_bridge.cc',
         'service_bridge.h',
@@ -102,18 +104,22 @@
       'type': 'executable',
       'sources': [
         '<(src)/base/test/run_all_unittests.cc',
-        'service_bridge_unittest.cc'
+        'minidump_unittest.cc',
+        'service_bridge_unittest.cc',
       ],
       'dependencies': [
         'kasko_lib',
         '<(src)/base/base.gyp:test_support_base',
         '<(src)/testing/gtest.gyp:gtest',
        ],
-      # TODO(erikwright): Is this needed?
       'msvs_settings': {
         'VCLinkerTool': {
           # Disable support for large address spaces.
           'LargeAddressAware': 1,
+          'AdditionalDependencies': [
+            # SDK import libs.
+            'dbgeng.lib',
+          ],
         },
       },
     },
