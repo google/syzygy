@@ -43,11 +43,17 @@
       'target_name': 'kasko_lib',
       'type': 'static_library',
       'sources': [
+        'http_agent.h',
+        'http_response.h',
+        'internet_helpers.cc',
+        'internet_helpers.h',
         'minidump.cc',
         'minidump.h',
         'service.h',
         'service_bridge.cc',
         'service_bridge.h',
+        'upload.cc',
+        'upload.h',
       ],
       'all_dependent_settings': {
         'include_dirs': ['<(SHARED_INTERMEDIATE_DIR)'],
@@ -57,6 +63,7 @@
               # SDK import libs.
               'dbghelp.lib',
               'rpcrt4.lib',
+              'Winhttp.lib',
             ],
           },
         },
@@ -119,8 +126,12 @@
       'type': 'executable',
       'sources': [
         '<(src)/base/test/run_all_unittests.cc',
+        'internet_helpers_unittest.cc',
+        'internet_unittest_helpers.cc',
+        'internet_unittest_helpers.h',
         'minidump_unittest.cc',
         'service_bridge_unittest.cc',
+        'upload_unittest.cc',
       ],
       'dependencies': [
         'kasko_lib',
