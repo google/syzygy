@@ -28,13 +28,12 @@ ServiceBridge* g_service_bridge = NULL;
 
 // RPC calls all come through this single free function. We use the singleton
 // g_service_bridge to forward the call to the running Service.
-boolean KaskoService_SendDiagnosticReport(
-    handle_t IDL_handle, long message_size,
-    const unsigned char protobuf[]) {
+boolean KaskoService_SendDiagnosticReport(handle_t IDL_handle,
+                                          unsigned long exception_info_address,
+                                          unsigned long thread_id,
+                                          unsigned long protobuf_length,
+                                          const signed char* protobuf) {
   DCHECK(kasko::g_service_bridge);
-
-  if (message_size < 0)
-    return false;
 
   const int kVersion = 2;
   RPC_CALL_ATTRIBUTES_V2 attribs = { kVersion, RPC_QUERY_CLIENT_PID };
@@ -49,8 +48,8 @@ boolean KaskoService_SendDiagnosticReport(
       reinterpret_cast<base::ProcessId>(attribs.ClientPID);
 
   kasko::g_service_bridge->service_->SendDiagnosticReport(
-      client_process_id, reinterpret_cast<const char*>(protobuf),
-      static_cast<size_t>(message_size));
+      client_process_id, exception_info_address, thread_id,
+      reinterpret_cast<const char*>(protobuf), protobuf_length);
 
   return true;
 }

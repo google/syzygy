@@ -21,6 +21,8 @@ interface Kasko {
   // Sends a diagnostic report for the caller process. |protobuf| will be
   // included in the report as a custom data stream.
   boolean SendDiagnosticReport(
-      [in] long message_size,
-      [in, size_is(message_size)] const char protobuf[*]);
+      unsigned long exception_info_address,
+      unsigned long thread_id,
+      [in] unsigned long protobuf_size,
+      [in, size_is(protobuf_size)] const signed char* protobuf);
 }

@@ -56,9 +56,11 @@ class MockService : public Service {
   virtual ~MockService();
 
   // Service implementation
-  virtual void SendDiagnosticReport(base::ProcessId client_process_id,
-                                    const char* protobuf,
-                                    size_t length) override;
+   virtual void SendDiagnosticReport(base::ProcessId client_process_id,
+                                     unsigned long exception_info_address,
+                                     base::PlatformThreadId thread_id,
+                                     const char* protobuf,
+                                     size_t protobuf_length) override;
 
  private:
   std::vector<CallRecord>* call_log_;
@@ -71,8 +73,12 @@ MockService::MockService(std::vector<CallRecord>* call_log)
 MockService::~MockService() {}
 
 void MockService::SendDiagnosticReport(base::ProcessId client_process_id,
-                                       const char* protobuf, size_t length) {
-  CallRecord record = {client_process_id, std::string(protobuf, length)};
+                                       unsigned long exception_info_address,
+                                       base::PlatformThreadId thread_id,
+                                       const char* protobuf,
+                                       size_t protobuf_length) {
+  CallRecord record = {client_process_id,
+                       std::string(protobuf, protobuf_length)};
   call_log_->push_back(record);
 }
 
@@ -84,8 +90,10 @@ class BlockingService : public Service {
 
   // Service implementation
   virtual void SendDiagnosticReport(base::ProcessId client_process_id,
+                                    unsigned long exception_info_address,
+                                    base::PlatformThreadId thread_id,
                                     const char* protobuf,
-                                    size_t length) override;
+                                    size_t protobuf_length) override;
 
  private:
   base::WaitableEvent* release_call_;
@@ -100,8 +108,10 @@ BlockingService::BlockingService(base::WaitableEvent* release_call,
 BlockingService::~BlockingService() {}
 
 void BlockingService::SendDiagnosticReport(base::ProcessId client_process_id,
+                                           unsigned long exception_info_address,
+                                           base::PlatformThreadId thread_id,
                                            const char* protobuf,
-                                           size_t length) {
+                                           size_t protobuf_length) {
   blocking_->Signal();
   release_call_->Wait();
 }
@@ -122,8 +132,9 @@ void DoInvokeService(const base::string16& protocol,
   ASSERT_TRUE(rpc_binding.Open(protocol, endpoint));
 
   common::rpc::RpcStatus status = common::rpc::InvokeRpc(
-      KaskoClient_SendDiagnosticReport, rpc_binding.Get(), protobuf.length(),
-      reinterpret_cast<const unsigned char*>(protobuf.c_str()));
+      KaskoClient_SendDiagnosticReport, rpc_binding.Get(), NULL, 0,
+      protobuf.length(),
+      reinterpret_cast<const signed char*>(protobuf.c_str()));
   ASSERT_FALSE(status.exception_occurred);
   ASSERT_TRUE(status.succeeded());
   *complete = true;
