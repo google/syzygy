@@ -334,6 +334,9 @@ TEST(ShadowTest, ScanRightPerfTest) {
   // ensures that the results are visible somewhere.
   LOG(INFO) << "PERF: Syzygy.ASan.Shadow.ScanRightForBracketingBlockEnd="
             << tnet;
+
+  // Reset the shadow memory.
+  ::memset(TestShadow::shadow_ + offset, 0, length);
 }
 
 TEST(ShadowTest, IsLeftOrRightRedzone) {
@@ -498,6 +501,7 @@ TEST(ShadowTest, IsBeginningOfBlockBodyForBlockOfSizeZero) {
 TEST(ShadowTest, MarkAsFreedPerfTest) {
   std::vector<uint8> buf;
   buf.resize(10 * 1024 * 1024, 0);
+
   uint64 tnet = 0;
   for (size_t i = 0; i < 1000; ++i) {
     Shadow::Unpoison(buf.data(), buf.size());
@@ -505,6 +509,7 @@ TEST(ShadowTest, MarkAsFreedPerfTest) {
     Shadow::MarkAsFreed(buf.data(), buf.size());
     uint64 t1 = ::__rdtsc();
     tnet += t1 - t0;
+    Shadow::Unpoison(buf.data(), buf.size());
   }
   // TODO(chrisha): Output this data in a meaningful way. For now this simply
   // ensures that the results are visible somewhere.

@@ -43,8 +43,7 @@ class AsanRuntimeTest : public testing::TestWithAsanLogger {
   typedef testing::TestWithAsanLogger Super;
 
   AsanRuntimeTest()
-      : current_command_line_(CommandLine::NO_PROGRAM),
-        stack_cache_(&logger_) {
+      : current_command_line_(CommandLine::NO_PROGRAM) {
   }
 
   void SetUp() OVERRIDE {
@@ -67,7 +66,6 @@ class AsanRuntimeTest : public testing::TestWithAsanLogger {
   }
 
   AsanLogger logger_;
-  StackCaptureCache stack_cache_;
 
   // The test runtime instance.
   TestAsanRuntime asan_runtime_;

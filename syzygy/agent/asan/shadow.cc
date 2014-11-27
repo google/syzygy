@@ -22,7 +22,7 @@
 namespace agent {
 namespace asan {
 
-uint8 Shadow::shadow_[kShadowSize];
+uint8 Shadow::shadow_[kShadowSize] = {};
 
 void Shadow::SetUp() {
   // Poison the shadow memory.
