@@ -1,0 +1,88 @@
+// Copyright 2014 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Collection of functions and objects for modifying page protections in a
+// consistent way.
+
+#ifndef SYZYGY_AGENT_ASAN_PAGE_PROTECTION_HELPERS_H_
+#define SYZYGY_AGENT_ASAN_PAGE_PROTECTION_HELPERS_H_
+
+#include "syzygy/agent/asan/block.h"
+#include "syzygy/agent/asan/shadow.h"
+
+namespace agent {
+namespace asan {
+
+// Given a pointer to the body of a block extracts its layout. If the block
+// header is not under any block protections then the layout will be read from
+// the header. If the header is corrupt, or the memory is otherwise unreadable,
+// this will be inferred from the shadow memory (less efficient, but not subject
+// to corruption).
+// @param raw_block A pointer to the beginning of the block.
+// @param block_info The description of the block to be populated.
+// @returns true if a valid block was encountered at the provided location,
+//     false otherwise.
+bool GetBlockInfo(const void* raw_block, CompactBlockInfo* block_info);
+bool GetBlockInfo(const void* raw_block, BlockInfo* block_info);
+
+// Unprotects all pages fully covered by the given block. All pages
+// intersecting but not fully covered by the block will be left in their
+// current state.
+// @param block_info The block whose protections are to be modified.
+void BlockProtectNone(const BlockInfo& block_info);
+
+// Protects all entire pages that are spanned by the redzones of the
+// block. All pages intersecting the body of the block will be explicitly
+// unprotected. All pages not intersecting the body but only partially
+// covered by the redzone will be left in their current state.
+// @param block_info The block whose protections are to be modified.
+void BlockProtectRedzones(const BlockInfo& block_info);
+
+// Protects all pages completely spanned by the block. All pages
+// intersecting but not fully covered by the block will be left in their
+// current state.
+// @param block_info The block whose protections are to be modified.
+void BlockProtectAll(const BlockInfo& block_info);
+
+// Sets the block protections according to the block state. If in the allocated
+// state uses BlockProtectRedzones. If in quarantined or freed uses
+// BlockProtectAll.
+// @param block_info The block whose protections are to be modified.
+// @note Assumes that the block header is readable.
+void BlockProtectAuto(const BlockInfo& block_info);
+
+// A scoped block access helper. Removes block protections when created via
+// BlockProtectNone, and restores them via BlockProtectAuto.
+class ScopedBlockAccess {
+ public:
+  // Constructor. Unprotects the provided block.
+  // @param block_info The block whose protections are to be modified.
+  explicit ScopedBlockAccess(const BlockInfo& block_info)
+      : block_info_(block_info) {
+    BlockProtectNone(block_info_);
+  }
+
+  // Destructor. Restores protections on the provided block.
+  ~ScopedBlockAccess() {
+    BlockProtectAuto(block_info_);
+  }
+
+ private:
+  const BlockInfo& block_info_;
+};
+
+}  // namespace asan
+}  // namespace agent
+
+#endif  // SYZYGY_AGENT_ASAN_PAGE_PROTECTION_HELPERS_H_

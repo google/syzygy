@@ -516,6 +516,47 @@ TEST(ShadowTest, MarkAsFreedPerfTest) {
   LOG(INFO) << "PERF: Syzygy.ASan.Shadow.MarkAsFreed=" << tnet;
 }
 
+TEST(ShadowTest, PageBits) {
+  // Set an individual page.
+  const uint8* addr = reinterpret_cast<const uint8*>(16 * 4096);
+  EXPECT_FALSE(Shadow::PageIsProtected(addr));
+  Shadow::MarkPageProtected(addr);
+  EXPECT_TRUE(Shadow::PageIsProtected(addr));
+  Shadow::MarkPageProtected(addr);
+  EXPECT_TRUE(Shadow::PageIsProtected(addr));
+  Shadow::MarkPageUnprotected(addr);
+  EXPECT_FALSE(Shadow::PageIsProtected(addr));
+  Shadow::MarkPageUnprotected(addr);
+  EXPECT_FALSE(Shadow::PageIsProtected(addr));
+
+  // Set a range of pages at once.
+  const uint8* addr2 = addr + 4096;
+  EXPECT_FALSE(Shadow::PageIsProtected(addr - 4096));
+  EXPECT_FALSE(Shadow::PageIsProtected(addr));
+  EXPECT_FALSE(Shadow::PageIsProtected(addr2));
+  EXPECT_FALSE(Shadow::PageIsProtected(addr2 + 4096));
+  Shadow::MarkPagesProtected(addr, 2 * 4096);
+  EXPECT_FALSE(Shadow::PageIsProtected(addr - 4096));
+  EXPECT_TRUE(Shadow::PageIsProtected(addr));
+  EXPECT_TRUE(Shadow::PageIsProtected(addr2));
+  EXPECT_FALSE(Shadow::PageIsProtected(addr2 + 4096));
+  Shadow::MarkPagesProtected(addr, 2 * 4096);
+  EXPECT_FALSE(Shadow::PageIsProtected(addr - 4096));
+  EXPECT_TRUE(Shadow::PageIsProtected(addr));
+  EXPECT_TRUE(Shadow::PageIsProtected(addr2));
+  EXPECT_FALSE(Shadow::PageIsProtected(addr2 + 4096));
+  Shadow::MarkPagesUnprotected(addr, 2 * 4096);
+  EXPECT_FALSE(Shadow::PageIsProtected(addr - 4096));
+  EXPECT_FALSE(Shadow::PageIsProtected(addr));
+  EXPECT_FALSE(Shadow::PageIsProtected(addr2));
+  EXPECT_FALSE(Shadow::PageIsProtected(addr2 + 4096));
+  Shadow::MarkPagesUnprotected(addr, 2 * 4096);
+  EXPECT_FALSE(Shadow::PageIsProtected(addr - 4096));
+  EXPECT_FALSE(Shadow::PageIsProtected(addr));
+  EXPECT_FALSE(Shadow::PageIsProtected(addr2));
+  EXPECT_FALSE(Shadow::PageIsProtected(addr2 + 4096));
+}
+
 TEST(ShadowWalkerTest, WalksNonNestedBlocks) {
   BlockLayout l = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &l));

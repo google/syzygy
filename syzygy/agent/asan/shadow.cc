@@ -23,12 +23,16 @@ namespace agent {
 namespace asan {
 
 uint8 Shadow::shadow_[kShadowSize] = {};
+uint8 Shadow::page_bits_[kPageBitsSize] = {};
+base::Lock Shadow::page_bits_lock_;
 
 void Shadow::SetUp() {
   // Poison the shadow memory.
   Poison(shadow_, kShadowSize, kAsanMemoryMarker);
   // Poison the first 64k of the memory as they're not addressable.
   Poison(0, kAddressLowerBound, kInvalidAddressMarker);
+  // Poison the protection bits array.
+  Poison(page_bits_, kPageBitsSize, kAsanMemoryMarker);
 }
 
 void Shadow::TearDown() {
@@ -36,10 +40,13 @@ void Shadow::TearDown() {
   Unpoison(shadow_, kShadowSize);
   // Unpoison the first 64k of the memory.
   Unpoison(0, kAddressLowerBound);
+  // Unpoison the protection bits array.
+  Unpoison(page_bits_, kPageBitsSize);
 }
 
 void Shadow::Reset() {
   ::memset(shadow_, 0, kShadowSize);
+  ::memset(page_bits_, 0, kPageBitsSize);
 }
 
 void Shadow::Poison(const void* addr, size_t size, ShadowMarker shadow_val) {
@@ -320,6 +327,82 @@ bool Shadow::IsBeginningOfBlockBody(const void* addr) {
     return IsLeftRedzone(reinterpret_cast<const uint8*>(addr) - 1);
   }
   return false;
+}
+
+namespace {
+
+static const size_t kPageSize = GetPageSize();
+
+// Converts an address to a page index and bit mask.
+inline void AddressToPageMask(const void* address,
+                              size_t* index,
+                              uint8* mask) {
+  DCHECK_NE(static_cast<size_t*>(nullptr), index);
+  DCHECK_NE(static_cast<uint8*>(nullptr), mask);
+
+  size_t i = reinterpret_cast<uintptr_t>(address) / kPageSize;
+  *index = i / 8;
+  *mask = 1 << (i % 8);
+}
+
+}  // namespace
+
+bool Shadow::PageIsProtected(const void* addr) {
+  // Since the page bit is read very frequently this is not performed
+  // under a lock. The values change quite rarely, so this will almost always
+  // be correct. However, consumers of this knowledge have to be robust to
+  // getting incorrect data.
+  size_t index = 0;
+  uint8 mask = 0;
+  AddressToPageMask(addr, &index, &mask);
+  return (page_bits_[index] & mask) == mask;
+}
+
+void Shadow::MarkPageProtected(const void* addr) {
+  size_t index = 0;
+  uint8 mask = 0;
+  AddressToPageMask(addr, &index, &mask);
+
+  base::AutoLock lock(page_bits_lock_);
+  page_bits_[index] |= mask;
+}
+
+void Shadow::MarkPageUnprotected(const void* addr) {
+  size_t index = 0;
+  uint8 mask = 0;
+  AddressToPageMask(addr, &index, &mask);
+  mask = ~mask;
+
+  base::AutoLock lock(page_bits_lock_);
+  page_bits_[index] &= mask;
+}
+
+void Shadow::MarkPagesProtected(const void* addr, size_t size) {
+  const uint8* page = reinterpret_cast<const uint8*>(addr);
+  const uint8* page_end = page + size;
+  size_t index = 0;
+  uint8 mask = 0;
+
+  base::AutoLock lock(page_bits_lock_);
+  while (page < page_end) {
+    AddressToPageMask(page, &index, &mask);
+    page_bits_[index] |= mask;
+    page += kPageSize;
+  }
+}
+
+void Shadow::MarkPagesUnprotected(const void* addr, size_t size) {
+  const uint8* page = reinterpret_cast<const uint8*>(addr);
+  const uint8* page_end = page + size;
+  size_t index = 0;
+  uint8 mask = 0;
+
+  base::AutoLock lock(page_bits_lock_);
+  while (page < page_end) {
+    AddressToPageMask(page, &index, &mask);
+    page_bits_[index] &= ~mask;
+    page += kPageSize;
+  }
 }
 
 void Shadow::CloneShadowRange(const void* src_pointer,

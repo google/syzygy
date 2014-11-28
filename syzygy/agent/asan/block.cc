@@ -152,15 +152,12 @@ bool BlockInfoFromMemoryImpl(const void* const_raw_block,
 
   // Parse the trailer padding.
   uint32 trailer_padding_size = 0;
-  if ((header->body_size % kShadowRatio) != (kShadowRatio / 2)) {
-    trailer_padding_size = (kShadowRatio / 2) -
-        (header->body_size % (kShadowRatio / 2));
-  }
   if (header->has_excess_trailer_padding) {
     uint32* head = reinterpret_cast<uint32*>(body + header->body_size);
-    if ((*head % (kShadowRatio / 2)) != trailer_padding_size)
-      return false;
     trailer_padding_size = *head;
+  } else if ((header->body_size % kShadowRatio) != (kShadowRatio / 2)) {
+    trailer_padding_size = (kShadowRatio / 2) -
+        (header->body_size % (kShadowRatio / 2));
   }
 
   // Parse the trailer. The end of it must be 8 aligned.
@@ -200,6 +197,8 @@ BlockHeader* BlockGetHeaderFromBodyImpl(const void* const_body) {
   if (*tail == 0 || !IsAligned(*tail, kShadowRatio))
     return NULL;
   uint32* head = (tail + 1) - ((*tail) / sizeof(uint32));
+  if (head > tail)
+    return NULL;
   if (*head != *tail)
     return NULL;
 
@@ -441,84 +440,26 @@ void BlockSetChecksum(const BlockInfo& block_info) {
   block_info.header->checksum = checksum;
 }
 
-void BlockProtectNone(const BlockInfo& block_info) {
-  if (block_info.block_pages_size == 0)
-    return;
-  DCHECK_NE(static_cast<uint8*>(NULL), block_info.block_pages);
-  DWORD old_protection = 0;
-  DWORD ret = ::VirtualProtect(block_info.block_pages,
-                               block_info.block_pages_size,
-                               PAGE_READWRITE, &old_protection);
-  CHECK_NE(0u, ret);
-}
-
-void BlockProtectRedzones(const BlockInfo& block_info) {
-  BlockProtectNone(block_info);
-
-  // Protect the left redzone pages if any.
-  DWORD old_protection = 0;
-  DWORD ret = 0;
-  if (block_info.left_redzone_pages_size > 0) {
-    DCHECK_NE(static_cast<uint8*>(NULL), block_info.left_redzone_pages);
-    ret = ::VirtualProtect(block_info.left_redzone_pages,
-                           block_info.left_redzone_pages_size,
-                           PAGE_NOACCESS, &old_protection);
-    DCHECK_NE(0u, ret);
-  }
-
-  // Protect the right redzone pages if any.
-  if (block_info.right_redzone_pages_size > 0) {
-    DCHECK_NE(static_cast<uint8*>(NULL), block_info.right_redzone_pages);
-    ret = ::VirtualProtect(block_info.right_redzone_pages,
-                           block_info.right_redzone_pages_size,
-                           PAGE_NOACCESS, &old_protection);
-    DCHECK_NE(0u, ret);
-  }
-}
-
-void BlockProtectAll(const BlockInfo& block_info) {
-  if (block_info.block_pages_size == 0)
-    return;
-  DCHECK_NE(static_cast<uint8*>(NULL), block_info.block_pages);
-  DWORD old_protection = 0;
-  DWORD ret = ::VirtualProtect(block_info.block_pages,
-                               block_info.block_pages_size,
-                               PAGE_NOACCESS, &old_protection);
-  DCHECK_NE(0u, ret);
-}
-
-void BlockProtectAuto(const BlockInfo& block_info) {
-  switch (block_info.header->state) {
-    // An allocated block has an accessible body but protected redzones.
-    case ALLOCATED_BLOCK: {
-      BlockProtectRedzones(block_info);
-      break;
-    }
-
-    // No part of a quarantined or freed block is accessible.
-    case QUARANTINED_BLOCK:
-    case FREED_BLOCK: {
-      BlockProtectAll(block_info);
-      break;
-    }
-
-    default: NOTREACHED();
-  }
-}
-
 // Identifies whole pages in the given block_info.
 void BlockIdentifyWholePages(BlockInfo* block_info) {
   DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
+  static const size_t kPageInfoSize =
+      FIELD_OFFSET(BlockInfo, is_nested) -
+      FIELD_OFFSET(BlockInfo, block_pages);
 
-  if (block_info->block_size < GetPageSize())
+  if (block_info->block_size < GetPageSize()) {
+    ::memset(&block_info->block_pages, 0, kPageInfoSize);
     return;
+  }
 
   uint32 alloc_start = reinterpret_cast<uint32>(block_info->block);
   uint32 alloc_end = alloc_start + block_info->block_size;
   alloc_start = ::common::AlignUp(alloc_start, GetPageSize());
   alloc_end = ::common::AlignDown(alloc_end, GetPageSize());
-  if (alloc_start >= alloc_end)
+  if (alloc_start >= alloc_end) {
+    ::memset(&block_info->block_pages, 0, kPageInfoSize);
     return;
+  }
 
   block_info->block_pages = reinterpret_cast<uint8*>(alloc_start);
   block_info->block_pages_size = alloc_end - alloc_start;
@@ -531,12 +472,18 @@ void BlockIdentifyWholePages(BlockInfo* block_info) {
   if (alloc_start < left_redzone_end) {
     block_info->left_redzone_pages = reinterpret_cast<uint8*>(alloc_start);
     block_info->left_redzone_pages_size = left_redzone_end - alloc_start;
+  } else {
+    block_info->left_redzone_pages = nullptr;
+    block_info->left_redzone_pages_size = 0;
   }
 
   if (right_redzone_start < alloc_end) {
     block_info->right_redzone_pages =
         reinterpret_cast<uint8*>(right_redzone_start);
     block_info->right_redzone_pages_size = alloc_end - right_redzone_start;
+  } else {
+    block_info->right_redzone_pages = nullptr;
+    block_info->right_redzone_pages_size = 0;
   }
 }
 

@@ -352,11 +352,8 @@ bool FakeAsanBlock::MarkBlockAsQuarantined() {
   if (!is_initialized)
     return false;
 
-  BlockHeader* block_header = block_info.header;
-  EXPECT_NE(static_cast<BlockHeader*>(NULL), block_header);
-  BlockInfo block_info = {};
-  BlockInfoFromMemory(block_header, &block_info);
-  EXPECT_TRUE(block_header->free_stack == NULL);
+  EXPECT_NE(static_cast<BlockHeader*>(NULL), block_info.header);
+  EXPECT_TRUE(block_info.header->free_stack == NULL);
   EXPECT_TRUE(block_info.trailer != NULL);
   EXPECT_EQ(0U, block_info.trailer->free_tid);
 

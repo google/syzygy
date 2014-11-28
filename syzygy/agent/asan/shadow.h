@@ -71,6 +71,7 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/constants.h"
 #include "syzygy/agent/asan/shadow_marker.h"
@@ -87,6 +88,10 @@ class Shadow {
   // One shadow byte for per group of kShadowRatio bytes in a 2G address space.
   // NOTE: This is dependent on the process NOT being large address aware.
   static const size_t kShadowSize = 1 << (31 - kShadowRatioLog);
+
+  // We use a 2GB address space (2^31), divided into 4KB (2^12) pages, and only
+  // need 1 bit per page.
+  static const size_t kPageBitsSize = 1 << (31 - 12 - 3);
 
   // The upper bound of the addressable memory.
   static const size_t kAddressUpperBound = kShadowSize << kShadowRatioLog;
@@ -224,6 +229,36 @@ class Shadow {
   //     body, false otherwise.
   static bool IsBeginningOfBlockBody(const void* addr);
 
+  // Queries a given page's protection status.
+  // @param addr An address in the page to be queried.
+  // @returns true if the address containing the given page is protected,
+  //     false otherwise.
+  // @note The read does not occur under a lock, so it is possible to get
+  //     stale data. Users must be robust for this.
+  static bool PageIsProtected(const void* addr);
+
+  // Marks a given page as being protected.
+  // @param addr An address in the page to be protected.
+  // @note Grabs a global shadow lock.
+  static void MarkPageProtected(const void* addr);
+
+  // Marks a given page as being unprotected.
+  // @param addr An address in the page to be protected.
+  // @note Grabs a global shadow lock.
+  static void MarkPageUnprotected(const void* addr);
+
+  // Marks a given range of pages as being protected.
+  // @param addr The first page to be marked.
+  // @param size The extent of the memory to be marked.
+  // @note Grabs a global shadow lock.
+  static void MarkPagesProtected(const void* addr, size_t size);
+
+  // Marks a given range of pages as being unprotected.
+  // @param addr The first page to be marked.
+  // @param size The extent of the memory to be marked.
+  // @note Grabs a global shadow lock.
+  static void MarkPagesUnprotected(const void* addr, size_t size);
+
  protected:
   // Reset the shadow memory.
   static void Reset();
@@ -271,6 +306,13 @@ class Shadow {
 
   // The shadow memory.
   static uint8 shadow_[kShadowSize];
+
+  // A lock under which page protection bits are modified.
+  static base::Lock page_bits_lock_;
+
+  // Data about which pages are protected. This changes relatively rarely, so
+  // is reasonable to synchronize.
+  static uint8 page_bits_[kPageBitsSize];  // Under page_bits_lock_.
 };
 
 // A helper class to walk over the blocks contained in a given memory region.

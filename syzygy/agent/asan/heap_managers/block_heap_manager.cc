@@ -19,6 +19,7 @@
 #include "base/bind.h"
 #include "base/rand_util.h"
 #include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/agent/asan/page_protection_helpers.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/timed_try.h"
 #include "syzygy/agent/asan/heaps/ctmalloc_heap.h"
@@ -230,7 +231,7 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
 
   BlockInfo block_info = {};
   if (!Shadow::IsBeginningOfBlockBody(alloc) ||
-      !Shadow::BlockInfoFromShadow(alloc, &block_info)) {
+      !GetBlockInfo(alloc, &block_info)) {
     return FreeUnguardedAlloc(heap_id, alloc);
   }
 
@@ -298,7 +299,7 @@ size_t BlockHeapManager::Size(HeapId heap_id, const void* alloc) {
 
   if (Shadow::IsBeginningOfBlockBody(alloc)) {
     BlockInfo block_info = {};
-    if (!Shadow::BlockInfoFromShadow(alloc, &block_info))
+    if (!GetBlockInfo(alloc, &block_info))
       return 0;
     return block_info.body_size;
   }

@@ -241,6 +241,7 @@ struct BlockInfo {
   // Pages of memory that are *exclusive* to this block. These pages may be a
   // strict subset of the entire block, depending on how it was allocated.
   // These pages will have protections toggled as the block changes state.
+  // These must stay contiguous.
   uint8* block_pages;
   size_t block_pages_size;
   uint8* left_redzone_pages;
@@ -313,7 +314,7 @@ bool BlockInfoFromMemory(const void* raw_block, CompactBlockInfo* block_info);
 bool BlockInfoFromMemory(const void* raw_block, BlockInfo* block_info);
 
 // Given a block body, finds the header. To find any other part of the
-// block first parse it using ParseBlockFromMemory. This protects against
+// block first parse it using BlockInfoFromMemory. This protects against
 // invalid memory accesses that may occur as a result of block corruption,
 // or the block pages being protected; in case of error, this will return
 // NULL.
@@ -342,55 +343,6 @@ bool BlockChecksumIsValid(const BlockInfo& block_info);
 // @param block_info The block to be checksummed.
 // @note The pages containing the block must be writable and readable.
 void BlockSetChecksum(const BlockInfo& block_info);
-// @}
-
-// @name Page protection functions.
-// @{
-// Unprotects all pages fully covered by the given block. All pages
-// intersecting but not fully covered by the block will be left in their
-// current state.
-// @param block_info The block whose protections are to be modified.
-void BlockProtectNone(const BlockInfo& block_info);
-
-// Protects all entire pages that are spanned by the redzones of the
-// block. All pages intersecting the body of the block will be explicitly
-// unprotected. All pages not intersecting the body but only partially
-// covered by the redzone will be left in their current state.
-// @param block_info The block whose protections are to be modified.
-void BlockProtectRedzones(const BlockInfo& block_info);
-
-// Protects all pages completely spanned by the block. All pages
-// intersecting but not fully covered by the block will be left in their
-// current state.
-// @param block_info The block whose protections are to be modified.
-void BlockProtectAll(const BlockInfo& block_info);
-
-// Sets the block protections according to the block state. If in the allocated
-// state uses BlockProtectRedzones. If in quarantined or freed uses
-// BlockProtectAll.
-// @param block_info The block whose protections are to be modified.
-// @note Assumes that the block header is readable.
-void BlockProtectAuto(const BlockInfo& block_info);
-
-// A scoped block access helper. Removes block protections when created via
-// BlockProtectNone, and restores them via BlockProtectAuto.
-class ScopedBlockAccess {
- public:
-  // Constructor. Unprotects the provided block.
-  // @param block_info The block whose protections are to be modified.
-  explicit ScopedBlockAccess(const BlockInfo& block_info)
-      : block_info_(block_info) {
-    BlockProtectNone(block_info_);
-  }
-
-  // Destructor. Restores protections on the provided block.
-  ~ScopedBlockAccess() {
-    BlockProtectAuto(block_info_);
-  }
-
- private:
-  const BlockInfo& block_info_;
-};
 // @}
 
 }  // namespace asan

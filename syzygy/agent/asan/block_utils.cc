@@ -14,6 +14,8 @@
 
 #include "syzygy/agent/asan/block_utils.h"
 
+#include "syzygy/agent/asan/page_protection_helpers.h"
+
 namespace agent {
 namespace asan {
 
@@ -26,7 +28,7 @@ bool IsBlockCorrupt(const uint8* block_header, BlockInfo* block_info) {
     ::memset(block_info, 0, sizeof(BlockInfo));
   }
 
-  if (!Shadow::BlockInfoFromShadow(block_header, block_info) ||
+  if (!GetBlockInfo(block_header, block_info) ||
       block_info->header->magic != kBlockHeaderMagic ||
       !BlockChecksumIsValid(*block_info)) {
     return true;

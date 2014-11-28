@@ -30,6 +30,7 @@
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/heap.h"
+#include "syzygy/agent/asan/page_protection_helpers.h"
 #include "syzygy/agent/asan/unittest_util.h"
 #include "syzygy/agent/asan/heaps/ctmalloc_heap.h"
 #include "syzygy/agent/asan/heaps/internal_heap.h"

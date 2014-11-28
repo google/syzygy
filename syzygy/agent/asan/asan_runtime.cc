@@ -29,6 +29,7 @@
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/heap_checker.h"
+#include "syzygy/agent/asan/page_protection_helpers.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/agent/asan/windows_heap_adapter.h"
