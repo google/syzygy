@@ -15,7 +15,9 @@
 #ifndef SYZYGY_KASKO_INTERNET_HELPERS_H_
 #define SYZYGY_KASKO_INTERNET_HELPERS_H_
 
-#include <Windows.h>
+#include <Windows.h>  // NOLINT
+
+#include <stdint.h>
 
 #include <map>
 #include <string>
@@ -48,7 +50,7 @@ void ParseContentType(const base::string16& content_type_str,
 bool DecomposeUrl(const base::string16& url,
                   base::string16* scheme,
                   base::string16* host,
-                  uint16* port,
+                  uint16_t* port,
                   base::string16* path);
 
 // @returns A random string to be used as a multipart MIME message boundary.

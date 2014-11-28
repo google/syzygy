@@ -137,12 +137,12 @@ bool SendHttpUpload(HttpAgent* agent,
                     const std::string& upload_file,
                     const base::string16& file_part_name,
                     base::string16* response_body,
-                    uint16* response_code) {
+                    uint16_t* response_code) {
   if (response_code)
     *response_code = 0;
 
   base::string16 scheme, host, path;
-  uint16 port = 0;
+  uint16_t port = 0;
   if (!DecomposeUrl(url, &scheme, &host, &port, &path)) {
     LOG(ERROR) << "Failed to decompose URL: " << url;
     return false;
@@ -170,7 +170,7 @@ bool SendHttpUpload(HttpAgent* agent,
     return false;
   }
 
-  uint16 status_code = 0;
+  uint16_t status_code = 0;
   if (!response->GetStatusCode(&status_code))
     return false;
 

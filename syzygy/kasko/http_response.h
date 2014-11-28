@@ -15,6 +15,7 @@
 #ifndef SYZYGY_KASKO_HTTP_RESPONSE_H_
 #define SYZYGY_KASKO_HTTP_RESPONSE_H_
 
+#include <stdint.h>
 #include "base/strings/string16.h"
 
 namespace kasko {
@@ -28,7 +29,7 @@ class HttpResponse {
   // Retrieves the response status code.
   // @param status_code Receives the status code.
   // @returns true if successful.
-  virtual bool GetStatusCode(uint16* status_code) = 0;
+  virtual bool GetStatusCode(uint16_t* status_code) = 0;
 
   // Retrieves the specified content length, if any.
   // @param has_content_length Is set to true if the content length is

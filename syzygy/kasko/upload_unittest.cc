@@ -44,7 +44,7 @@ class MockHttpAgent : public HttpAgent {
   // Defines the expected request parameters.
   struct Expectations {
     base::string16 host;
-    uint16 port;
+    uint16_t port;
     base::string16 path;
     bool secure;
     std::map<base::string16, base::string16> parameters;
@@ -60,7 +60,7 @@ class MockHttpAgent : public HttpAgent {
 
   // HttpAgent implementation
   virtual scoped_ptr<HttpResponse> Post(const base::string16& host,
-                                        uint16 port,
+                                        uint16_t port,
                                         const base::string16& path,
                                         bool secure,
                                         const base::string16& extra_headers,
@@ -91,7 +91,7 @@ void MockHttpAgent::set_response(scoped_ptr<HttpResponse> response) {
 
 scoped_ptr<HttpResponse> MockHttpAgent::Post(
     const base::string16& host,
-    uint16 port,
+    uint16_t port,
     const base::string16& path,
     bool secure,
     const base::string16& extra_headers,
@@ -144,7 +144,7 @@ class MockHttpResponse : public HttpResponse {
   MockHttpResponse();
 
   // HttpResponse implementation
-  virtual bool GetStatusCode(uint16* status_code) override;
+  virtual bool GetStatusCode(uint16_t* status_code) override;
   virtual bool GetContentLength(bool* has_content_length,
                                 size_t* content_length) override;
   virtual bool GetContentType(bool* has_content_type,
@@ -153,7 +153,7 @@ class MockHttpResponse : public HttpResponse {
   virtual bool ReadData(char* buffer, size_t* count) override;
 
   // Sets the values that will be returned by GetStatusCode().
-  void set_status_code(bool success, uint16 status_code);
+  void set_status_code(bool success, uint16_t status_code);
 
   // Sets the values that will be returned by GetContentLength();
   void set_content_length(bool success,
@@ -176,7 +176,7 @@ class MockHttpResponse : public HttpResponse {
 
  private:
   bool status_code_success_;
-  uint16 status_code_;
+  uint16_t status_code_;
   bool content_length_success_;
   bool has_content_length_;
   size_t content_length_;
@@ -199,7 +199,7 @@ MockHttpResponse::MockHttpResponse()
   data_.push_back(std::string());
 }
 
-bool MockHttpResponse::GetStatusCode(uint16* status_code) {
+bool MockHttpResponse::GetStatusCode(uint16_t* status_code) {
   DCHECK(status_code);
   if (status_code && status_code_success_)
     *status_code = status_code_;
@@ -255,7 +255,7 @@ bool MockHttpResponse::ReadData(char* buffer, size_t* count) {
   return true;
 }
 
-void MockHttpResponse::set_status_code(bool success, uint16 status_code) {
+void MockHttpResponse::set_status_code(bool success, uint16_t status_code) {
   status_code_success_ = success;
   status_code_ = status_code;
 }
@@ -296,14 +296,14 @@ class UploadTest : public testing::Test {
 
   MockHttpAgent& agent() { return agent_; }
 
-  bool SendUpload(base::string16* response_body, uint16* response_code);
+  bool SendUpload(base::string16* response_body, uint16_t* response_code);
 
  private:
   MockHttpAgent agent_;
 };
 
 bool UploadTest::SendUpload(base::string16* response_body,
-                            uint16* response_code) {
+                            uint16_t* response_code) {
   return SendHttpUpload(
       &agent(),
       L"http://" + agent().expectations().host + agent().expectations().path,
@@ -313,7 +313,7 @@ bool UploadTest::SendUpload(base::string16* response_body,
 
 TEST_F(UploadTest, PostFails) {
   base::string16 response_body;
-  uint16 response_code = 0;
+  uint16_t response_code = 0;
   EXPECT_FALSE(SendUpload(&response_body, &response_code));
 }
 
@@ -328,7 +328,7 @@ TEST_F(UploadTest, PostSucceeds) {
   agent().set_response(mock_response.Pass());
 
   base::string16 response_body;
-  uint16 response_code = 0;
+  uint16_t response_code = 0;
   EXPECT_TRUE(SendUpload(&response_body, &response_code));
   EXPECT_EQ(200, response_code);
   EXPECT_EQ(base::UTF8ToWide(kResponse), response_body);
@@ -346,7 +346,7 @@ TEST_F(UploadTest, PostSucceedsInMultiplePackets) {
   agent().set_response(mock_response.Pass());
 
   base::string16 response_body;
-  uint16 response_code = 0;
+  uint16_t response_code = 0;
   EXPECT_TRUE(SendUpload(&response_body, &response_code));
   EXPECT_EQ(200, response_code);
   EXPECT_EQ(base::UTF8ToWide(kResponse1 + kResponse2), response_body);
@@ -365,7 +365,7 @@ TEST_F(UploadTest, PostFailsInMultiplePackets) {
   agent().set_response(mock_response.Pass());
 
   base::string16 response_body;
-  uint16 response_code = 0;
+  uint16_t response_code = 0;
   EXPECT_FALSE(SendUpload(&response_body, &response_code));
 }
 
@@ -378,7 +378,7 @@ TEST_F(UploadTest, TooMuchData) {
   agent().set_response(mock_response.Pass());
 
   base::string16 response_body;
-  uint16 response_code = 0;
+  uint16_t response_code = 0;
   EXPECT_FALSE(SendUpload(&response_body, &response_code));
 }
 
@@ -393,7 +393,7 @@ TEST_F(UploadTest, CorrectContentLength) {
   agent().set_response(mock_response.Pass());
 
   base::string16 response_body;
-  uint16 response_code = 0;
+  uint16_t response_code = 0;
   EXPECT_TRUE(SendUpload(&response_body, &response_code));
   EXPECT_EQ(200, response_code);
   EXPECT_EQ(base::UTF8ToWide(kResponse), response_body);
@@ -410,7 +410,7 @@ TEST_F(UploadTest, UnderContentLength) {
   agent().set_response(mock_response.Pass());
 
   base::string16 response_body;
-  uint16 response_code = 0;
+  uint16_t response_code = 0;
   EXPECT_FALSE(SendUpload(&response_body, &response_code));
 }
 
@@ -425,7 +425,7 @@ TEST_F(UploadTest, OverContentLength) {
   agent().set_response(mock_response.Pass());
 
   base::string16 response_body;
-  uint16 response_code = 0;
+  uint16_t response_code = 0;
   EXPECT_FALSE(SendUpload(&response_body, &response_code));
 }
 
@@ -441,7 +441,7 @@ TEST_F(UploadTest, OverContentLengthTwoPackets) {
   agent().set_response(mock_response.Pass());
 
   base::string16 response_body;
-  uint16 response_code = 0;
+  uint16_t response_code = 0;
   EXPECT_FALSE(SendUpload(&response_body, &response_code));
 }
 
@@ -456,7 +456,7 @@ TEST_F(UploadTest, CorrectContentType) {
   agent().set_response(mock_response.Pass());
 
   base::string16 response_body;
-  uint16 response_code = 0;
+  uint16_t response_code = 0;
   EXPECT_TRUE(SendUpload(&response_body, &response_code));
   EXPECT_EQ(200, response_code);
   EXPECT_EQ(base::UTF8ToWide(kResponse), response_body);
@@ -473,7 +473,7 @@ TEST_F(UploadTest, UnsupportedContentType) {
   agent().set_response(mock_response.Pass());
 
   base::string16 response_body;
-  uint16 response_code = 0;
+  uint16_t response_code = 0;
   EXPECT_FALSE(SendUpload(&response_body, &response_code));
 }
 
@@ -488,7 +488,7 @@ TEST_F(UploadTest, CorrectContentTypeNoCharset) {
   agent().set_response(mock_response.Pass());
 
   base::string16 response_body;
-  uint16 response_code = 0;
+  uint16_t response_code = 0;
   EXPECT_TRUE(SendUpload(&response_body, &response_code));
   EXPECT_EQ(200, response_code);
   EXPECT_EQ(base::UTF8ToWide(kResponse), response_body);
@@ -506,7 +506,7 @@ TEST_F(UploadTest, WideResponse) {
   agent().set_response(mock_response.Pass());
 
   base::string16 response_body;
-  uint16 response_code = 0;
+  uint16_t response_code = 0;
   EXPECT_TRUE(SendUpload(&response_body, &response_code));
   EXPECT_EQ(200, response_code);
   EXPECT_EQ(kResponse, response_body);

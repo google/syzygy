@@ -111,7 +111,7 @@ TEST(InternetHelpersTest, DecomposeUrl) {
     const base::char16* url;
     const base::char16* scheme;
     const base::char16* host;
-    uint16 port;
+    uint16_t port;
     const base::char16* path;
   } tests[] = {
       {L"http://example.com/", L"http", L"example.com", 80, L"/"},
@@ -122,7 +122,7 @@ TEST(InternetHelpersTest, DecomposeUrl) {
   };
   for (size_t i = 0; i < arraysize(tests); ++i) {
     base::string16 scheme, host, path;
-    uint16 port = 0;
+    uint16_t port = 0;
     EXPECT_TRUE(DecomposeUrl(tests[i].url, &scheme, &host, &port, &path))
         << "i=" << i;
     EXPECT_EQ(tests[i].scheme, scheme) << "i=" << i;
@@ -143,7 +143,7 @@ TEST(InternetHelpersTest, DecomposeUrl) {
 
   for (size_t i = 0; i < arraysize(invalid_urls); ++i) {
     base::string16 scheme, host, path;
-    uint16 port = 0;
+    uint16_t port = 0;
     EXPECT_FALSE(DecomposeUrl(invalid_urls[i], &scheme, &host, &port, &path))
         << "i=" << i;
   }

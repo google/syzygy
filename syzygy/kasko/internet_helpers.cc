@@ -168,7 +168,7 @@ void ParseContentType(const base::string16& content_type_str,
 bool DecomposeUrl(const base::string16& url,
                   base::string16* scheme,
                   base::string16* host,
-                  uint16* port,
+                  uint16_t* port,
                   base::string16* path) {
   DCHECK(scheme);
   DCHECK(host);

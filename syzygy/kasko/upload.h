@@ -15,6 +15,7 @@
 #ifndef SYZYGY_KASKO_UPLOAD_H_
 #define SYZYGY_KASKO_UPLOAD_H_
 
+#include <stdint.h>
 #include <map>
 #include <string>
 
@@ -39,7 +40,7 @@ bool SendHttpUpload(HttpAgent* agent,
                     const std::string& upload_file,
                     const base::string16& file_part_name,
                     base::string16* response_body,
-                    uint16* response_code);
+                    uint16_t* response_code);
 
 }  // namespace kasko
 

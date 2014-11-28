@@ -15,6 +15,7 @@
 #ifndef SYZYGY_KASKO_HTTP_AGENT_H_
 #define SYZYGY_KASKO_HTTP_AGENT_H_
 
+#include <stdint.h>
 #include <string>
 
 #include "base/memory/scoped_ptr.h"
@@ -40,7 +41,7 @@ class HttpAgent {
   // @returns NULL if the request fails for any reason. Otherwise, returns an
   //     HttpResponse that may be used to access the HTTP response.
   virtual scoped_ptr<HttpResponse> Post(const base::string16& host,
-                                        uint16 port,
+                                        uint16_t port,
                                         const base::string16& path,
                                         bool secure,
                                         const base::string16& extra_headers,
