@@ -609,18 +609,17 @@ void MemoryAccessorTester::AsanErrorCallbackImpl(AsanErrorInfo* error_info) {
       range_info->first = error_info->corrupt_ranges[i];
       AsanBlockInfoVector* block_infos = &range_info->second;
       for (size_t j = 0; j < range_info->first.block_info_count; ++j) {
-        agent::asan::AsanBlockInfo* block_info =
-          new agent::asan::AsanBlockInfo(range_info->first.block_info[j]);
+        agent::asan::AsanBlockInfo block_info = range_info->first.block_info[j];
         for (size_t k = 0;
              k < range_info->first.block_info[j].alloc_stack_size;
              ++k) {
-          block_info->alloc_stack[k] =
+          block_info.alloc_stack[k] =
               range_info->first.block_info[j].alloc_stack[k];
         }
         for (size_t k = 0;
              k < range_info->first.block_info[j].free_stack_size;
              ++k) {
-          block_info->free_stack[k] =
+          block_info.free_stack[k] =
               range_info->first.block_info[j].free_stack[k];
         }
         block_infos->push_back(block_info);

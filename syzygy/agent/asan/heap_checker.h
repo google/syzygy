@@ -20,7 +20,6 @@
 #include <vector>
 
 #include "base/logging.h"
-#include "base/memory/scoped_vector.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/error_info.h"
 #include "syzygy/agent/common/stack_capture.h"
@@ -34,7 +33,7 @@ class AsanRuntime;
 // A class to analyze the heap and to check if it's corrupt.
 class HeapChecker {
  public:
-  typedef ScopedVector<AsanCorruptBlockRange> CorruptRangesVector;
+  typedef std::vector<AsanCorruptBlockRange> CorruptRangesVector;
 
   // Constructor.
   HeapChecker() { }

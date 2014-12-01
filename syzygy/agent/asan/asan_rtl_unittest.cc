@@ -262,19 +262,16 @@ TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
     EXPECT_EQ(1, tester.last_corrupt_ranges().size());
     const AsanCorruptBlockRange* corrupt_range =
         &tester.last_corrupt_ranges()[0].first;
-    const AsanBlockInfoVector* blocks_info =
-        &tester.last_corrupt_ranges()[0].second;
+    AsanBlockInfoVector blocks_info = tester.last_corrupt_ranges()[0].second;
 
-    EXPECT_EQ(1, blocks_info->size());
-    EXPECT_TRUE((*blocks_info)[0]->corrupt);
-    EXPECT_EQ(kAllocSize, (*blocks_info)[0]->user_size);
-    EXPECT_EQ(block_info.header, (*blocks_info)[0]->header);
-    EXPECT_NE(0U, (*blocks_info)[0]->alloc_stack_size);
-    for (size_t j = 0; j < (*blocks_info)[0]->alloc_stack_size; ++j) {
-      EXPECT_NE(reinterpret_cast<void*>(NULL),
-                (*blocks_info)[0]->alloc_stack[j]);
-    }
-    EXPECT_EQ(0U, (*blocks_info)[0]->free_stack_size);
+    EXPECT_EQ(1, blocks_info.size());
+    EXPECT_TRUE(blocks_info[0].corrupt);
+    EXPECT_EQ(kAllocSize, blocks_info[0].user_size);
+    EXPECT_EQ(block_info.header, blocks_info[0].header);
+    EXPECT_NE(0U, blocks_info[0].alloc_stack_size);
+    for (size_t j = 0; j < blocks_info[0].alloc_stack_size; ++j)
+      EXPECT_NE(reinterpret_cast<void*>(NULL), blocks_info[0].alloc_stack[j]);
+    EXPECT_EQ(0U, blocks_info[0].free_stack_size);
 
     // An error should be triggered when we free this block.
     tester.set_memory_error_detected(false);

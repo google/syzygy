@@ -446,7 +446,7 @@ class LenientMockHeap : public agent::asan::HeapInterface {
 };
 typedef testing::StrictMock<LenientMockHeap> MockHeap;
 
-typedef ScopedVector<agent::asan::AsanBlockInfo> AsanBlockInfoVector;
+typedef std::vector<agent::asan::AsanBlockInfo> AsanBlockInfoVector;
 typedef std::pair<agent::asan::AsanCorruptBlockRange, AsanBlockInfoVector>
     CorruptRangeInfo;
 typedef std::vector<CorruptRangeInfo> CorruptRangeVector;

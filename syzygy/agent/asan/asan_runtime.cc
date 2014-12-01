@@ -623,7 +623,7 @@ void AsanRuntime::WriteCorruptHeapInfo(
   error_info->heap_is_corrupt = true;
   error_info->corrupt_range_count = corrupt_ranges.size();
   for (size_t i = 0; i < corrupt_ranges.size(); ++i)
-    error_info->corrupt_block_count += corrupt_ranges[i]->block_count;
+    error_info->corrupt_block_count += corrupt_ranges[i].block_count;
 
   // We report a AsanCorruptBlockRange and at least one AsanBlockInfo per
   // corrupt range. Determine how many ranges we can report on.
@@ -649,7 +649,7 @@ void AsanRuntime::WriteCorruptHeapInfo(
   // effectively random as it is by order of address.
   for (size_t i = 0; i < range_count; ++i) {
     // Copy the information about the corrupt range.
-    error_info->corrupt_ranges[i] = *corrupt_ranges[i];
+    error_info->corrupt_ranges[i] = corrupt_ranges[i];
 
     // Allocate space for the first block of this range on the stack.
     // TODO(sebmarchand): Report more blocks if necessary.
@@ -662,9 +662,9 @@ void AsanRuntime::WriteCorruptHeapInfo(
     // copy its metadata.
     ShadowWalker shadow_walker(
         false,
-        reinterpret_cast<const uint8*>(corrupt_ranges[i]->address),
-        reinterpret_cast<const uint8*>(corrupt_ranges[i]->address) +
-            corrupt_ranges[i]->length);
+        reinterpret_cast<const uint8*>(corrupt_ranges[i].address),
+        reinterpret_cast<const uint8*>(corrupt_ranges[i].address) +
+            corrupt_ranges[i].length);
     BlockInfo block_info = {};
     CHECK(shadow_walker.Next(&block_info));
     asan_block_info->header = block_info.header;

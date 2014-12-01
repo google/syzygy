@@ -64,13 +64,14 @@ void HeapChecker::GetCorruptRangesInSlab(const uint8* lower_bound,
     // then this means that the current block is at the beginning of a corrupt
     // range.
     if (current_block_is_corrupt && current_corrupt_range == NULL) {
-      current_corrupt_range = new AsanCorruptBlockRange();
-      current_corrupt_range->address = block_info.block;
-      current_corrupt_range->length = 0;
-      current_corrupt_range->block_count = 0;
-      current_corrupt_range->block_info = NULL;
-      current_corrupt_range->block_info_count = 0;
-      corrupt_ranges->push_back(current_corrupt_range);
+      AsanCorruptBlockRange corrupt_range;
+      corrupt_range.address = block_info.block;
+      corrupt_range.length = 0;
+      corrupt_range.block_count = 0;
+      corrupt_range.block_info = NULL;
+      corrupt_range.block_info_count = 0;
+      corrupt_ranges->push_back(corrupt_range);
+      current_corrupt_range = &corrupt_ranges->back();
     } else if (!current_block_is_corrupt && current_corrupt_range != NULL) {
       current_corrupt_range = NULL;
     }

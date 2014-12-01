@@ -80,13 +80,13 @@ TEST_F(HeapCheckerTest, IsHeapCorruptInvalidChecksum) {
 
   EXPECT_TRUE(heap_checker.IsHeapCorrupt(&corrupt_ranges));
   ASSERT_EQ(1, corrupt_ranges.size());
-  AsanCorruptBlockRange* range_info = *corrupt_ranges.begin();
+  AsanCorruptBlockRange range_info = *corrupt_ranges.begin();
 
-  EXPECT_EQ(1, range_info->block_count);
+  EXPECT_EQ(1, range_info.block_count);
   ShadowWalker shadow_walker(
       false,
-      reinterpret_cast<const uint8*>(range_info->address),
-      reinterpret_cast<const uint8*>(range_info->address) + range_info->length);
+      reinterpret_cast<const uint8*>(range_info.address),
+      reinterpret_cast<const uint8*>(range_info.address) + range_info.length);
   BlockInfo block_info = {};
   EXPECT_TRUE(shadow_walker.Next(&block_info));
   EXPECT_EQ(fake_block.block_info.header, block_info.header);
@@ -113,13 +113,13 @@ TEST_F(HeapCheckerTest, IsHeapCorruptInvalidMagicNumber) {
   fake_block.block_info.header->magic = ~fake_block.block_info.header->magic;
   EXPECT_TRUE(heap_checker.IsHeapCorrupt(&corrupt_ranges));
   ASSERT_EQ(1, corrupt_ranges.size());
-  AsanCorruptBlockRange* range_info = *corrupt_ranges.begin();
+  AsanCorruptBlockRange range_info = *corrupt_ranges.begin();
 
-  EXPECT_EQ(1, range_info->block_count);
+  EXPECT_EQ(1, range_info.block_count);
   ShadowWalker shadow_walker(
       false,
-      reinterpret_cast<const uint8*>(range_info->address),
-      reinterpret_cast<const uint8*>(range_info->address) + range_info->length);
+      reinterpret_cast<const uint8*>(range_info.address),
+      reinterpret_cast<const uint8*>(range_info.address) + range_info.length);
   BlockInfo block_info = {};
   EXPECT_TRUE(shadow_walker.Next(&block_info));
   EXPECT_EQ(fake_block.block_info.header, block_info.header);
@@ -172,9 +172,9 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
   BlockInfo block_info = {};
   ShadowWalker shadow_walker_1(
       false,
-      reinterpret_cast<const uint8*>(corrupt_ranges[0]->address),
-      reinterpret_cast<const uint8*>(corrupt_ranges[0]->address) +
-          corrupt_ranges[0]->length);
+      reinterpret_cast<const uint8*>(corrupt_ranges[0].address),
+      reinterpret_cast<const uint8*>(corrupt_ranges[0].address) +
+          corrupt_ranges[0].length);
   EXPECT_TRUE(shadow_walker_1.Next(&block_info));
   EXPECT_EQ(reinterpret_cast<const BlockHeader*>(block_info.header),
             block_headers[0]);
@@ -185,9 +185,9 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
 
   ShadowWalker shadow_walker_2(
       false,
-      reinterpret_cast<const uint8*>(corrupt_ranges[1]->address),
-      reinterpret_cast<const uint8*>(corrupt_ranges[1]->address) +
-          corrupt_ranges[1]->length);
+      reinterpret_cast<const uint8*>(corrupt_ranges[1].address),
+      reinterpret_cast<const uint8*>(corrupt_ranges[1].address) +
+          corrupt_ranges[1].length);
   EXPECT_TRUE(shadow_walker_2.Next(&block_info));
   EXPECT_EQ(reinterpret_cast<const BlockHeader*>(block_info.header),
             block_headers[kNumberOfBlocks - 1]);
