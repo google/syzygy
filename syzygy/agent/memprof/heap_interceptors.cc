@@ -18,6 +18,7 @@
 
 #include <windows.h>
 
+#include "base/hash.h"
 #include "syzygy/agent/memprof/memprof.h"
 
 // A wrapper to EMIT_DETAILED_FUNCTION_CALL that provides the MemoryProfiler
@@ -73,8 +74,16 @@ LPVOID WINAPI asan_HeapReAlloc(HANDLE heap,
 BOOL WINAPI asan_HeapFree(HANDLE heap,
                           DWORD flags,
                           LPVOID mem) {
+  // Calculate a hash value of the contents if necessary.
+  uint32 hash = 0;
+  if (mem != nullptr &&
+      agent::memprof::memory_profiler->parameters().hash_contents_at_free) {
+    size_t size = ::HeapSize(heap, 0, mem);
+    hash = base::SuperFastHash(reinterpret_cast<const char*>(mem), size);
+  }
+
   BOOL ret = ::HeapFree(heap, flags, mem);
-  EMIT_DETAILED_HEAP_FUNCTION_CALL(heap, flags, mem, ret);
+  EMIT_DETAILED_HEAP_FUNCTION_CALL(heap, flags, mem, ret, hash);
   return ret;
 }
 

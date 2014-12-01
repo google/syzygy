@@ -57,6 +57,9 @@ class MemoryProfiler {
   //     allocated.
   ThreadState* GetThreadState();
 
+  // @returns the current parameters.
+  const Parameters& parameters() const { return parameters_; }
+
  protected:
   friend class ThreadState;
 

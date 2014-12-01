@@ -46,6 +46,10 @@ struct Parameters {
   // If this is enabled then timestamps are strictly serialized and
   // synchronized across all threads.
   bool serialize_timestamps;
+  // If this is enabled then block contents will be hashed when freed, and
+  // the hash value stored as an additional parameter to the heap free
+  // function.
+  bool hash_contents_at_free;
 };
 
 // The environment variable that is used for extracting parameters.
@@ -57,10 +61,12 @@ extern const char* kStackTraceTrackingValues[];
 // Default parameter values.
 extern StackTraceTracking kDefaultStackTraceTracking;
 extern bool kDefaultSerializeTimestamps;
+extern bool kDefaultHashContentsAtFree;
 
 // Parameter names for parsing.
 extern const char kParamStackTraceTracking[];
 extern const char kParamSerializeTimestamps[];
+extern const char kParamHashContentsAtFree[];
 
 // Initializes a Parameters struct with default values.
 // @param parameters The Parameters struct to be initialized.

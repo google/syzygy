@@ -25,6 +25,7 @@ TEST(ParametersTest, SetDefaults) {
   SetDefaultParameters(&p);
   EXPECT_EQ(kDefaultStackTraceTracking, p.stack_trace_tracking);
   EXPECT_EQ(kDefaultSerializeTimestamps, p.serialize_timestamps);
+  EXPECT_EQ(kDefaultHashContentsAtFree, p.hash_contents_at_free);
 }
 
 TEST(ParametersTest, ParseInvalidStackTraceTracking) {
@@ -41,15 +42,19 @@ TEST(ParametersTest, ParseMinimalCommandLine) {
   EXPECT_TRUE(ParseParameters(str, &p));
   EXPECT_EQ(kDefaultStackTraceTracking, p.stack_trace_tracking);
   EXPECT_EQ(kDefaultSerializeTimestamps, p.serialize_timestamps);
+  EXPECT_EQ(kDefaultHashContentsAtFree, p.hash_contents_at_free);
 }
 
 TEST(ParametersTest, ParseMaximalCommandLine) {
   Parameters p = {};
   SetDefaultParameters(&p);
-  std::string str("--stack-trace-tracking=emit --serialize-timestamps");
+  std::string str("--stack-trace-tracking=emit "
+                  "--serialize-timestamps "
+                  "--hash-contents-at-free");
   EXPECT_TRUE(ParseParameters(str, &p));
   EXPECT_EQ(kTrackingEmit, p.stack_trace_tracking);
   EXPECT_TRUE(p.serialize_timestamps);
+  EXPECT_TRUE(p.hash_contents_at_free);
 }
 
 TEST(ParametersTest, ParseNoEnvironment) {
@@ -62,6 +67,7 @@ TEST(ParametersTest, ParseNoEnvironment) {
   EXPECT_TRUE(ParseParametersFromEnv(&p));
   EXPECT_EQ(kDefaultStackTraceTracking, p.stack_trace_tracking);
   EXPECT_EQ(kDefaultSerializeTimestamps, p.serialize_timestamps);
+  EXPECT_EQ(kDefaultHashContentsAtFree, p.hash_contents_at_free);
 }
 
 TEST(ParametersTest, ParseEmptyEnvironment) {
@@ -74,6 +80,7 @@ TEST(ParametersTest, ParseEmptyEnvironment) {
   EXPECT_TRUE(ParseParametersFromEnv(&p));
   EXPECT_EQ(kDefaultStackTraceTracking, p.stack_trace_tracking);
   EXPECT_EQ(kDefaultSerializeTimestamps, p.serialize_timestamps);
+  EXPECT_EQ(kDefaultHashContentsAtFree, p.hash_contents_at_free);
 }
 
 TEST(ParametersTest, ParseInvalidEnvironment) {

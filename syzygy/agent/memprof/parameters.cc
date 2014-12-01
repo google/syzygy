@@ -35,15 +35,18 @@ const char kParametersEnvVar[] = "SYZYGY_MEMPROF_OPTIONS";
 // Default parameter values.
 StackTraceTracking kDefaultStackTraceTracking = kTrackingNone;
 bool kDefaultSerializeTimestamps = false;
+bool kDefaultHashContentsAtFree = false;
 
 // Parameter names for parsing.
 const char kParamStackTraceTracking[] = "stack-trace-tracking";
 const char kParamSerializeTimestamps[] = "serialize-timestamps";
+const char kParamHashContentsAtFree[] = "hash-contents-at-free";
 
 void SetDefaultParameters(Parameters* parameters) {
   DCHECK_NE(static_cast<Parameters*>(nullptr), parameters);
   parameters->stack_trace_tracking = kDefaultStackTraceTracking;
   parameters->serialize_timestamps = false;
+  parameters->hash_contents_at_free = false;
 }
 
 bool ParseParameters(const base::StringPiece& param_string,
@@ -79,6 +82,9 @@ bool ParseParameters(const base::StringPiece& param_string,
 
   if (cmd_line.HasSwitch(kParamSerializeTimestamps))
     parameters->serialize_timestamps = true;
+
+  if (cmd_line.HasSwitch(kParamHashContentsAtFree))
+    parameters->hash_contents_at_free = true;
 
   return success;
 }
