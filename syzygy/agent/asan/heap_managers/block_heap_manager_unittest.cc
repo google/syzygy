@@ -1254,14 +1254,14 @@ TEST_P(BlockHeapManagerTest, NonQuarantinedBlockIsMarkedAsFreed) {
   // The block is freed but not quarantined.
   EXPECT_TRUE(heap.Free(alloc));
 
-  // The whole block should be unpoisoned in the shadow memory.
-  for (size_t i = 0; i < block_info.block_size; ++i)
+  // The whole block should be unpoisoned in the shadow memory, and its
+  // associated pages unprotected.
+  for (size_t i = 0; i < block_info.block_size; ++i) {
     ASSERT_NO_FATAL_FAILURE(Shadow::IsAccessible(block_info.block + i));
-
-  {
-    ScopedBlockAccess block_access(block_info);
-    EXPECT_EQ(FREED_BLOCK, block_info.header->state);
+    ASSERT_FALSE(Shadow::PageIsProtected(block_info.block + i));
   }
+
+  EXPECT_EQ(FREED_BLOCK, block_info.header->state);
 }
 
 TEST_P(BlockHeapManagerTest, ZebraBlockHeapQuarantineRatioIsRespected) {

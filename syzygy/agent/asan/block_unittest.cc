@@ -264,6 +264,7 @@ TEST(BlockTest, GetHeaderFromBodyProtectedMemory) {
 
   BlockProtectRedzones(block_info);
   EXPECT_TRUE(BlockGetHeaderFromBody(block_info.body) == NULL);
+  BlockProtectNone(block_info);
 
   ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
 }
@@ -397,6 +398,7 @@ TEST(BlockTest, BlockInfoFromMemoryProtectedMemory) {
   BlockProtectRedzones(block_info);
   BlockInfo recovered_info = {};
   EXPECT_FALSE(BlockInfoFromMemory(block_info.block, &recovered_info));
+  BlockProtectNone(block_info);
 
   ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
 }
