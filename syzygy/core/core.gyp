@@ -64,6 +64,7 @@
         'unittest_util.h',
       ],
       'dependencies': [
+        'core_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/testing/gtest.gyp:gtest',
       ],

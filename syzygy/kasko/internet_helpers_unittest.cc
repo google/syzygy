@@ -106,7 +106,7 @@ TEST(InternetHelpersTest, ParseContentType) {
   }
 }
 
-TEST(InternetHelpersTest, DecomposeUrl) {
+TEST(InternetHelpersTest, ComposeAndDecomposeUrl) {
   const struct {
     const base::char16* url;
     const base::char16* scheme;
@@ -129,6 +129,9 @@ TEST(InternetHelpersTest, DecomposeUrl) {
     EXPECT_EQ(tests[i].host, host) << "i=" << i;
     EXPECT_EQ(tests[i].port, port) << "i=" << i;
     EXPECT_EQ(tests[i].path, path) << "i=" << i;
+    EXPECT_EQ(tests[i].url,
+              ComposeUrl(tests[i].host, tests[i].port, tests[i].path,
+                         tests[i].scheme == base::string16(L"https")));
   }
 
   const base::char16* invalid_urls[] = {L"",

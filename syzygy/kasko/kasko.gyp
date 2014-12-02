@@ -44,6 +44,8 @@
       'type': 'static_library',
       'sources': [
         'http_agent.h',
+        'http_agent_impl.cc',
+        'http_agent_impl.h',
         'http_response.h',
         'internet_helpers.cc',
         'internet_helpers.h',
@@ -54,6 +56,8 @@
         'service_bridge.h',
         'upload.cc',
         'upload.h',
+        'user_agent.cc',
+        'user_agent.h',
       ],
       'all_dependent_settings': {
         'include_dirs': ['<(SHARED_INTERMEDIATE_DIR)'],
@@ -126,16 +130,19 @@
       'type': 'executable',
       'sources': [
         '<(src)/base/test/run_all_unittests.cc',
+        'http_agent_impl_unittest.cc',
         'internet_helpers_unittest.cc',
         'internet_unittest_helpers.cc',
         'internet_unittest_helpers.h',
         'minidump_unittest.cc',
         'service_bridge_unittest.cc',
         'upload_unittest.cc',
+        'user_agent_unittest.cc',
       ],
       'dependencies': [
         'kasko_lib',
         '<(src)/base/base.gyp:test_support_base',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/testing/gtest.gyp:gtest',
        ],
       'msvs_settings': {

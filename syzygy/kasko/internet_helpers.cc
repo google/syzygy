@@ -18,11 +18,12 @@
 // multipart/form-data HTTP message type implemented in this file.
 #include "syzygy/kasko/internet_helpers.h"
 
+#include <winhttp.h>  // NOLINT
+
 #include <wchar.h>
 
-#include <Winhttp.h>
-
 #include "base/logging.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_tokenizer.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -191,6 +192,20 @@ bool DecomposeUrl(const base::string16& url,
   *path = path_buffer;
   *port = components.nPort;
   return true;
+}
+
+base::string16 ComposeUrl(const base::string16& host,
+                          uint16_t port,
+                          const base::string16& path,
+                          bool secure) {
+  if (secure) {
+    if (port == 443)
+      return L"https://" + host + path;
+    return L"https://" + host + L':' + base::UintToString16(port) + path;
+  }
+  if (port == 80)
+      return L"http://" + host + path;
+  return L"http://" + host + L':' + base::UintToString16(port) + path;
 }
 
 base::string16 GenerateMultipartHttpRequestBoundary() {

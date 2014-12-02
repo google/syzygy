@@ -53,6 +53,16 @@ bool DecomposeUrl(const base::string16& url,
                   uint16_t* port,
                   base::string16* path);
 
+// Composes an HTTP or HTTPS URL.
+// @param host The URL host component.
+// @param port The URL port component.
+// @param path The URL path component.
+// @returns The composed URL.
+base::string16 ComposeUrl(const base::string16& host,
+                          uint16_t port,
+                          const base::string16& path,
+                          bool secure);
+
 // @returns A random string to be used as a multipart MIME message boundary.
 base::string16 GenerateMultipartHttpRequestBoundary();
 
