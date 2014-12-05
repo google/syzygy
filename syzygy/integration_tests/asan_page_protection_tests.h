@@ -29,6 +29,10 @@ size_t AsanReadLargeAllocationBodyAfterFree();
 size_t AsanReadPageAllocationTrailerBeforeFree();
 size_t AsanWritePageAllocationBodyAfterFree();
 
+// For testing that the error handling code doesn't do any invalid access when a
+// block has page protections.
+size_t AsanCorruptBlockWithPageProtections();
+
 }  // namespace testing
 
 #endif  // SYZYGY_INTEGRATION_TESTS_ASAN_PAGE_PROTECTION_TESTS_H_

@@ -211,7 +211,7 @@ void SetAsanDefaultCallBack(AsanErrorCallBack callback) {
   DCHECK(set_callback != NULL);
 
   set_callback(callback);
-};
+}
 
 agent::asan::AsanRuntime* GetActiveAsanRuntime() {
   HMODULE asan_module = GetModuleHandle(L"syzyasan_rtl.dll");
@@ -225,7 +225,7 @@ agent::asan::AsanRuntime* GetActiveAsanRuntime() {
             asan_get_active_runtime);
 
   return (*asan_get_active_runtime)();
-};
+}
 
 // Filters non-continuable exceptions in the given module.
 int FilterExceptionsInModule(HMODULE module,
@@ -552,24 +552,6 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
         USE_AFTER_FREE, ASAN_WRITE_ACCESS, 4, 1, false));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite64UseAfterFreeTestId,
         USE_AFTER_FREE, ASAN_WRITE_ACCESS, 8, 1, false));
-  }
-
-  void AsanErrorCheckCorruptHeap() {
-    // These check our ability to diagnose and report heap corruption when
-    // non-ASAN generated exceptions are raised. Such bugs will show up as
-    // CORRUPT_HEAP errors with unknown access type, and zero size. Since they
-    // use an unfiltered exception mechanism they can't be tested in process.
-    // Instead we go to great lengths to test them out of process, using an
-    // agent_logger to monitor them.
-    EXPECT_TRUE(OutOfProcessAsanErrorCheck(
-        testing::kAsanInvalidAccessWithCorruptAllocatedBlockHeader,
-        true, true, kAsanCorruptHeap, NULL));
-    EXPECT_TRUE(OutOfProcessAsanErrorCheck(
-        testing::kAsanInvalidAccessWithCorruptAllocatedBlockTrailer,
-        true, true, kAsanCorruptHeap, NULL));
-    EXPECT_TRUE(OutOfProcessAsanErrorCheck(
-        testing::kAsanInvalidAccessWithCorruptFreedBlock,
-        true, true, kAsanCorruptHeap, NULL));
   }
 
   void AsanErrorCheckSampledAllocations() {
@@ -1287,10 +1269,38 @@ TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckInterceptedFunctions());
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanCheckCorruptHeap) {
+TEST_F(InstrumentAppIntegrationTest,
+       AsanInvalidAccessWithCorruptAllocatedBlockHeader) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckCorruptHeap());
+  EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+      testing::kAsanInvalidAccessWithCorruptAllocatedBlockHeader,
+      true, true, kAsanCorruptHeap, NULL));
+}
+
+TEST_F(InstrumentAppIntegrationTest,
+       AsanInvalidAccessWithCorruptAllocatedBlockTrailer) {
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+      testing::kAsanInvalidAccessWithCorruptAllocatedBlockTrailer,
+      true, true, kAsanCorruptHeap, NULL));
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanInvalidAccessWithCorruptFreedBlock) {
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+      testing::kAsanInvalidAccessWithCorruptFreedBlock,
+      true, true, kAsanCorruptHeap, NULL));
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanCorruptBlockWithPageProtections) {
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+        testing::kAsanCorruptBlockWithPageProtections,
+        true, true,  kAsanHeapUseAfterFree, kAsanCorruptHeap));
 }
 
 TEST_F(InstrumentAppIntegrationTest, SampledAllocationsAsanEndToEnd) {

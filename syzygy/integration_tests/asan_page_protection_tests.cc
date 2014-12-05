@@ -15,6 +15,8 @@
 #include "syzygy/integration_tests/asan_page_protection_tests.h"
 
 #include <stdlib.h>
+#include <windows.h>
+
 #include "base/basictypes.h"
 #include "syzygy/integration_tests/asan_interceptors_tests.h"
 
@@ -28,8 +30,7 @@ const size_t kPageHeapAllocationSize = 256;
 }  // namespace
 
 size_t AsanReadLargeAllocationTrailerBeforeFree() {
-  char* alloc = new char [kLargeAllocationSize];
-  ::memset(alloc, 0, kLargeAllocationSize);
+  char* alloc = reinterpret_cast<char*>(::calloc(kLargeAllocationSize, 1));
 
   // Read from the trailer while the allocation is still valid. This should be
   // caught immediately.
@@ -43,8 +44,7 @@ size_t AsanReadLargeAllocationTrailerBeforeFree() {
 }
 
 size_t AsanReadLargeAllocationBodyAfterFree() {
-  char* alloc = new char [kLargeAllocationSize];
-  ::memset(alloc, 0, kLargeAllocationSize);
+  char* alloc = reinterpret_cast<char*>(::calloc(kLargeAllocationSize, 1));
 
   // Delete the allocation.
   delete[] alloc;
@@ -81,6 +81,32 @@ size_t AsanWritePageAllocationBodyAfterFree() {
   // Write to the body while the allocation is in the quarantine. This should
   // be caught immediately.
   NonInterceptedWrite<char>(alloc + 10, 'c');
+
+  return 0;
+}
+
+size_t AsanCorruptBlockWithPageProtections() {
+  // Do a large allocation and make sure that it gets corrupt (by an
+  // uninstrumented use after free), then generate an error on another memory
+  // allocation to make sure that the error handling code doesn't crash because
+  // of the page protection set on the large block.
+  char* large_alloc =
+      reinterpret_cast<char*>(::calloc(kPageHeapAllocationSize, 1));
+  char* small_alloc =
+      reinterpret_cast<char*>(::calloc(10, 1));
+
+  // Free the large allocation.
+  ::free(large_alloc);
+
+  // Corrupt the large allocation.
+  DWORD old_protection = 0;
+  ::VirtualProtect(large_alloc, 0, PAGE_READWRITE, &old_protection);
+  NonInterceptedWrite<char>(large_alloc + 10, 'c');
+  ::VirtualProtect(large_alloc, 0, old_protection, &old_protection);
+
+  // Do an invalid access on the small allocation.
+  ::free(small_alloc);
+  TryInvalidAccessToLocation(INVALID_READ, &small_alloc[0]);
 
   return 0;
 }

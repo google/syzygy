@@ -667,6 +667,9 @@ void AsanRuntime::WriteCorruptHeapInfo(
             corrupt_ranges[i].length);
     BlockInfo block_info = {};
     CHECK(shadow_walker.Next(&block_info));
+    // Remove the protections on this block so its checksum can be safely
+    // validated.
+    ScopedBlockAccess block_access(block_info);
     asan_block_info->header = block_info.header;
     ErrorInfoGetAsanBlockInfo(stack_cache_.get(), asan_block_info);
     DCHECK(asan_block_info->corrupt);
