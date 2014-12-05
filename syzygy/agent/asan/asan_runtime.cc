@@ -489,6 +489,10 @@ void AsanRuntime::OnErrorImpl(AsanErrorInfo* error_info) {
 void AsanRuntime::OnError(AsanErrorInfo* error_info) {
   DCHECK_NE(reinterpret_cast<AsanErrorInfo*>(NULL), error_info);
 
+  // Grab the global page protection lock to prevent page protection settings
+  // from being modified while processing the error.
+  ::common::AutoRecursiveLock lock(block_protect_lock);
+
   // Unfortunately this is a giant macro, but it needs to be as it performs
   // stack allocations.
   CHECK_HEAP_CORRUPTION(this, error_info);
@@ -780,6 +784,10 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
   // This ensures that we don't have multiple colliding crashes being processed
   // simultaneously.
   base::AutoLock auto_lock(lock_);
+
+  // Grab the global page protection lock to prevent page protection settings
+  // from being modified while processing the error.
+  ::common::AutoRecursiveLock lock(block_protect_lock);
 
   // This is needed for unittesting.
   runtime_->logger_->Write("SyzyASAN: Handling an exception.");

@@ -17,6 +17,11 @@
 namespace agent {
 namespace asan {
 
+// TODO(chrisha): Move the page protections bits out of the shadow to an entire
+//     class that lives here. Or move all of this to shadow.
+
+::common::RecursiveLock block_protect_lock;
+
 bool GetBlockInfo(const void* raw_body, CompactBlockInfo* block_info) {
   DCHECK_NE(static_cast<void*>(NULL), raw_body);
   DCHECK_NE(static_cast<CompactBlockInfo*>(NULL), block_info);
@@ -51,6 +56,8 @@ bool GetBlockInfo(const void* raw_block, BlockInfo* block_info) {
 void BlockProtectNone(const BlockInfo& block_info) {
   if (block_info.block_pages_size == 0)
     return;
+
+  ::common::AutoRecursiveLock lock(block_protect_lock);
   DCHECK_NE(static_cast<uint8*>(NULL), block_info.block_pages);
   DWORD old_protection = 0;
   DWORD ret = ::VirtualProtect(block_info.block_pages,
@@ -62,6 +69,10 @@ void BlockProtectNone(const BlockInfo& block_info) {
 }
 
 void BlockProtectRedzones(const BlockInfo& block_info) {
+  if (block_info.block_pages_size == 0)
+    return;
+
+  ::common::AutoRecursiveLock lock(block_protect_lock);
   BlockProtectNone(block_info);
 
   // Protect the left redzone pages if any.
@@ -92,6 +103,8 @@ void BlockProtectRedzones(const BlockInfo& block_info) {
 void BlockProtectAll(const BlockInfo& block_info) {
   if (block_info.block_pages_size == 0)
     return;
+
+  ::common::AutoRecursiveLock lock(block_protect_lock);
   DCHECK_NE(static_cast<uint8*>(NULL), block_info.block_pages);
   DWORD old_protection = 0;
   DWORD ret = ::VirtualProtect(block_info.block_pages,
@@ -103,6 +116,21 @@ void BlockProtectAll(const BlockInfo& block_info) {
 }
 
 void BlockProtectAuto(const BlockInfo& block_info) {
+  if (block_info.block_pages_size == 0)
+    return;
+
+  ::common::AutoRecursiveLock lock(block_protect_lock);
+
+  // Remove the page protection from the header if necessary.
+  if (!Shadow::IsAccessible(block_info.block_pages)) {
+    DWORD old_protection = 0;
+    DWORD ret = ::VirtualProtect(block_info.block_pages,
+                                 GetPageSize(),
+                                 PAGE_READWRITE, &old_protection);
+    DCHECK_NE(0u, ret);
+  }
+
+  // Now set page protections based on the block state.
   switch (block_info.header->state) {
     // An allocated block has an accessible body but protected redzones.
     case ALLOCATED_BLOCK: {

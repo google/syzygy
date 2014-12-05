@@ -20,7 +20,6 @@
 #include <vector>
 
 #include "base/logging.h"
-#include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/error_info.h"
 #include "syzygy/agent/common/stack_capture.h"
 
@@ -58,10 +57,6 @@ class HeapChecker {
   void GetCorruptRangesInSlab(const uint8* lower_bound,
                               size_t length,
                               CorruptRangesVector* corrupt_ranges);
-
-  // A global lock that ensures that only one HeapChecker can run at a time.
-  // This prevents races with multiple crashing threads.
-  static base::Lock lock_;
 };
 
 }  // namespace asan

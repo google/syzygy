@@ -21,14 +21,15 @@
 namespace agent {
 namespace asan {
 
-base::Lock HeapChecker::lock_;
-
 bool HeapChecker::IsHeapCorrupt(CorruptRangesVector* corrupt_ranges) {
   DCHECK_NE(reinterpret_cast<CorruptRangesVector*>(NULL), corrupt_ranges);
 
   corrupt_ranges->clear();
 
-  base::AutoLock scoped_lock(lock_);
+  // Grab the page protection lock. This prevents multiple heap checkers from
+  // running simultaneously, and also prevents page protections from being
+  // modified from underneath us.
+  ::common::AutoRecursiveLock scoped_lock(block_protect_lock);
 
   // Walk over all of the addressable memory to find the corrupt blocks.
   // TODO(sebmarchand): Iterates over the heap slabs once we have switched to

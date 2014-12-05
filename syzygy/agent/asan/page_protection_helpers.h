@@ -20,9 +20,15 @@
 
 #include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/shadow.h"
+#include "syzygy/common/recursive_lock.h"
 
 namespace agent {
 namespace asan {
+
+// A global recursive lock. This gates all access to block protection
+// functions. This is exposed for crash processing, which wants to block
+// other threads from tinkering with page protections.
+extern ::common::RecursiveLock block_protect_lock;
 
 // Given a pointer to the body of a block extracts its layout. If the block
 // header is not under any block protections then the layout will be read from
@@ -40,6 +46,7 @@ bool GetBlockInfo(const void* raw_block, BlockInfo* block_info);
 // intersecting but not fully covered by the block will be left in their
 // current state.
 // @param block_info The block whose protections are to be modified.
+// @note Under block_protect_lock.
 void BlockProtectNone(const BlockInfo& block_info);
 
 // Protects all entire pages that are spanned by the redzones of the
@@ -47,23 +54,29 @@ void BlockProtectNone(const BlockInfo& block_info);
 // unprotected. All pages not intersecting the body but only partially
 // covered by the redzone will be left in their current state.
 // @param block_info The block whose protections are to be modified.
+// @note Under block_protect_lock.
 void BlockProtectRedzones(const BlockInfo& block_info);
 
 // Protects all pages completely spanned by the block. All pages
 // intersecting but not fully covered by the block will be left in their
 // current state.
 // @param block_info The block whose protections are to be modified.
+// @note Under block_protect_lock.
 void BlockProtectAll(const BlockInfo& block_info);
 
 // Sets the block protections according to the block state. If in the allocated
 // state uses BlockProtectRedzones. If in quarantined or freed uses
 // BlockProtectAll.
 // @param block_info The block whose protections are to be modified.
-// @note Assumes that the block header is readable.
+// @note Under block_protect_lock.
 void BlockProtectAuto(const BlockInfo& block_info);
 
 // A scoped block access helper. Removes block protections when created via
 // BlockProtectNone, and restores them via BlockProtectAuto.
+// TODO(chrisha): Consider recording the fact the block protections on this
+//     block are being blocked in some synchronous manner. This will prevent
+//     the page protections from being added during the lifetime of this
+//     object.
 class ScopedBlockAccess {
  public:
   // Constructor. Unprotects the provided block.
