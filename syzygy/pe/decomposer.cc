@@ -773,18 +773,35 @@ bool CodeBlockHasAlignedJumpTables(const Block* block) {
   return has_jump_tables;
 }
 
-bool AlignCodeBlocksWithJumpTables(ImageLayout* image_layout) {
+bool AlignCodeBlocks(ImageLayout* image_layout) {
   DCHECK_NE(reinterpret_cast<ImageLayout*>(NULL), image_layout);
 
   BlockGraph::AddressSpace::RangeMapConstIter block_it =
       image_layout->blocks.begin();
   for (; block_it != image_layout->blocks.end(); ++block_it) {
     Block* block = block_it->second;
-
-    // We only care about code blocks that are already aligned 0 mod 4 but
-    // whose explicit alignment is currently less than that.
     if (block->type() != BlockGraph::CODE_BLOCK)
       continue;
+
+    // Preserve alignment for anything built by an unknown compiler. There may
+    // be inline data that has alignment requirements we don't know about. SSE
+    // and AVX instructions have 8 and 16 byte alignments, so we preserve
+    // these. It is not possible for a function to contain both instructions
+    // and data with an alignment constraint unless the size of the block is at
+    // least twice the alignment; this is used as a simple filter to avoid
+    // adding alignment where unnecessary.
+    if (block->attributes() & BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER) {
+      uint32 align = std::min(16u, block_it->first.start().GetAlignment());
+      if (align >= 8 && block->size() >= 2 * align) {
+        VLOG(1) << "Preserving alignment of " << BlockInfo(block) << " as "
+                << align << ".";
+        block->set_alignment(align);
+        continue;
+      }
+    }
+
+    // We only care about code blocks that are already 4-byte aligned but
+    // whose explicit alignment is currently less than that.
     if (block->alignment() >= kPointerSize)
       continue;
     if (block_it->first.start().value() % kPointerSize != 0)
@@ -1109,7 +1126,7 @@ bool Decomposer::DecomposeImpl() {
   // Set the alignment on code blocks with jump tables. This ensures that the
   // jump tables remain aligned post-transform.
   VLOG(1) << "Calculating code block alignments.";
-  if (!AlignCodeBlocksWithJumpTables(image_layout_))
+  if (!AlignCodeBlocks(image_layout_))
     return false;
 
   // Set the alignment of data blocks. This is not precise in that it simply
