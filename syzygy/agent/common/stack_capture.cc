@@ -85,7 +85,12 @@ StackCapture::StackId StackCapture::ComputeRelativeStackId() {
   HANDLE asan_handle = reinterpret_cast<HANDLE>(&__ImageBase);
   DCHECK(asan_handle != NULL);
 
-  StackId stack_id = 0;
+  // Use a simple hash with reasonable properties.
+  // This is effectively the same as base::SuperFastHash, but we can't use it
+  // as there's no API for updating an in-progress hash.
+  // http://en.wikipedia.org/wiki/Jenkins_hash_function#one-at-a-time
+
+  StackId stack_id = num_frames_;
   for (size_t i = 0; i < num_frames_; ++i) {
     // NULL stack frames may be returned from ::CaptureStackBackTrace.
     // This has been observed on Windows 8.
@@ -95,8 +100,14 @@ StackCapture::StackId StackCapture::ComputeRelativeStackId() {
     if (module == NULL || module == asan_handle)
       continue;
     stack_id += reinterpret_cast<size_t>(frames_[i]) -
-      reinterpret_cast<size_t>(module);
+        reinterpret_cast<size_t>(module);
+    stack_id += stack_id << 10;
+    stack_id ^= stack_id >> 6;
   }
+
+  stack_id += stack_id << 3;
+  stack_id ^= stack_id >> 11;
+  stack_id += stack_id << 15;
 
   return stack_id;
 }
