@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/kasko/reporter.h"
+#include "syzygy/kasko/api/reporter.h"
 
 namespace kasko {
+namespace api {
 
 void InitializeReporter() {
-
 }
 
+}  // namespace api
 }  // namespace kasko

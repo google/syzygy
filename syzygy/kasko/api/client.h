@@ -12,15 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SYZYGY_KASKO_REPORTER_H_
-#define SYZYGY_KASKO_REPORTER_H_
+#ifndef SYZYGY_KASKO_API_CLIENT_H_
+#define SYZYGY_KASKO_API_CLIENT_H_
 
-#include "syzygy/kasko/kasko_export.h"
+#include "syzygy/kasko/api/kasko_export.h"
 
 namespace kasko {
+namespace api {
 
-KASKO_EXPORT void InitializeReporter();
+KASKO_EXPORT void InitializeClient();
+KASKO_EXPORT void SendReport();
 
+}  // namespace api
 }  // namespace kasko
 
-#endif  // SYZYGY_KASKO_REPORTER_H_
+#endif  // SYZYGY_KASKO_API_CLIENT_H_

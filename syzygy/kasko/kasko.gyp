@@ -89,12 +89,12 @@
       'target_name': 'kasko',
       'type': 'loadable_module',
       'sources': [
-        'client.cc',
-        'client.h',
-        'kasko_dll.cc',
-        'kasko_export.h',
-        'reporter.cc',
-        'reporter.h',
+        'api/client.cc',
+        'api/client.h',
+        'api/kasko_dll.cc',
+        'api/kasko_export.h',
+        'api/reporter.cc',
+        'api/reporter.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',

@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/kasko/client.h"
+#include "syzygy/kasko/api/client.h"
 
 namespace kasko {
+namespace api {
 
 void InitializeClient() {
 }
@@ -22,4 +23,5 @@ void InitializeClient() {
 void SendReport() {
 }
 
+}  // namespace api
 }  // namespace kasko

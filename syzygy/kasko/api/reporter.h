@@ -12,15 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SYZYGY_KASKO_KASKO_EXPORT_H_
-#define SYZYGY_KASKO_KASKO_EXPORT_H_
+#ifndef SYZYGY_KASKO_API_REPORTER_H_
+#define SYZYGY_KASKO_API_REPORTER_H_
 
-#if defined(KASKO_IMPLEMENTATION)
-#define KASKO_EXPORT __declspec(dllexport)
-#define KASKO_EXPORT_PRIVATE __declspec(dllexport)
-#else
-#define KASKO_EXPORT __declspec(dllimport)
-#define KASKO_EXPORT_PRIVATE __declspec(dllimport)
-#endif  // defined(KASKO_IMPLEMENTATION)
+#include "syzygy/kasko/api/kasko_export.h"
 
-#endif  // SYZYGY_KASKO_KASKO_EXPORT_H_
+namespace kasko {
+namespace api {
+
+KASKO_EXPORT void InitializeReporter();
+
+}  // namespace api
+}  // namespace kasko
+
+#endif  // SYZYGY_KASKO_API_REPORTER_H_
