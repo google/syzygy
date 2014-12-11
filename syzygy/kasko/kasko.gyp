@@ -144,6 +144,8 @@
         'service_bridge_unittest.cc',
         'upload_unittest.cc',
         'user_agent_unittest.cc',
+        'testing/test_server.cc',
+        'testing/test_server.h',
       ],
       'dependencies': [
         'kasko_lib',
