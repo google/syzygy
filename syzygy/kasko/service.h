@@ -15,6 +15,8 @@
 #ifndef SYZYGY_KASKO_SERVICE_H_
 #define SYZYGY_KASKO_SERVICE_H_
 
+#include <stdint.h>
+
 #include "base/process/process_handle.h"
 #include "base/threading/platform_thread.h"
 
@@ -30,7 +32,7 @@ class Service {
    // identified by |client_process_id| and including |protobuf| as a custom
    // data stream.
    virtual void SendDiagnosticReport(base::ProcessId client_process_id,
-                                     unsigned long exception_info_address,
+                                     uint64_t exception_info_address,
                                      base::PlatformThreadId thread_id,
                                      const char* protobuf,
                                      size_t protobuf_length) = 0;

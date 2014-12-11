@@ -57,7 +57,7 @@ class MockService : public Service {
 
   // Service implementation
    virtual void SendDiagnosticReport(base::ProcessId client_process_id,
-                                     unsigned long exception_info_address,
+                                     uint64_t exception_info_address,
                                      base::PlatformThreadId thread_id,
                                      const char* protobuf,
                                      size_t protobuf_length) override;
@@ -73,7 +73,7 @@ MockService::MockService(std::vector<CallRecord>* call_log)
 MockService::~MockService() {}
 
 void MockService::SendDiagnosticReport(base::ProcessId client_process_id,
-                                       unsigned long exception_info_address,
+                                       uint64_t exception_info_address,
                                        base::PlatformThreadId thread_id,
                                        const char* protobuf,
                                        size_t protobuf_length) {
@@ -90,7 +90,7 @@ class BlockingService : public Service {
 
   // Service implementation
   virtual void SendDiagnosticReport(base::ProcessId client_process_id,
-                                    unsigned long exception_info_address,
+                                    uint64_t exception_info_address,
                                     base::PlatformThreadId thread_id,
                                     const char* protobuf,
                                     size_t protobuf_length) override;
@@ -108,7 +108,7 @@ BlockingService::BlockingService(base::WaitableEvent* release_call,
 BlockingService::~BlockingService() {}
 
 void BlockingService::SendDiagnosticReport(base::ProcessId client_process_id,
-                                           unsigned long exception_info_address,
+                                           uint64_t exception_info_address,
                                            base::PlatformThreadId thread_id,
                                            const char* protobuf,
                                            size_t protobuf_length) {
