@@ -1,0 +1,198 @@
+// Copyright 2014 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Defines the master crash data protobuf format. This is effectively a binary
+// equivalent to JSON, with a few strongly typed message types where special
+// back-end handling (symbolization) is desired.
+//
+// This is intended to be used for transmitting additional information about
+// ASAN crashes. Specifically, something like the following will be emitted
+// (this mirrors the AsanErrorInfo struct in agent/asan/error_info.h):
+//
+// In JSON-ish representation:
+//
+// {
+//   "location": Address(0xBAADF00D),
+//   "allocation-stack-trace": StackTrace([0xCAFEBABE, ...]),
+//   "free-stack-trace": StackTrace([0x900DF00D, ...]),
+//   "allocation-thread-id": 42,
+//   ...
+//   "corrupt-ranges": [
+//     {
+//       "range": Blob(address = 0xAABBCCDD, size = 1024),
+//       "corrupt-block-count": 10,
+//       "blocks": [
+//         ... a dictionary of properties about the block ...
+//       ]
+//     }
+//   ]
+// }
+//
+//
+// The full protobuf value:
+//
+// Value(
+//   type = DICTIONARY,
+//   dictionary = Dictionary(
+//     values = [
+//       KeyValue(
+//         key = String("location"),
+//         value = Value(type = ADDRESS, address = Address(0xBAADF00D))
+//       ),
+//       KeyValue(
+//         key = String("allocation-stack-trace"),
+//         value = Value(type = STACK_TRACE,
+//                       stack_trace=StackTrace(frames = [0xCAFEBABE, ...]))
+//       ),
+//       KeyValue(
+//         key = String("free-stack-trace"),
+//         value = Value(type = STACK_TRACE,
+//                       stack_trace=StackTrace(frames = [0x900DF00D, ...]))
+//       ),
+//       KeyValue(
+//         key = String("allocation-thread-id"),
+//         value = Value(type = UNSIGNED_INTEGER, unsigned_integer = 42)
+//       ),
+//       ...
+//       KeyValue(
+//         key = String("corrupt-ranges"),
+//         value = Value(type = LIST, value = List(values = [
+//           Dictionary(values = [
+//             KeyValue(
+//               key = String("range"),
+//               value = Value(type = BLOB, value=Blob(
+//                 address = 0xAABBCCDD, size = 1024
+//               ))
+//             ),
+//             KeyValue(
+//               key = String("corrupt-block-count"),
+//               value = Value(type = UNSIGNED_INTEGER, value=10)
+//             ),
+//             KeyValue(
+//               key = String("blocks"),
+//               value = Value(type = LIST, value = List(values=[
+//                 ... a Dictionary of properties about the block ...
+//               ])
+//             )
+//           ])
+//         ]))
+//       )
+//     ]
+//   )
+// )
+
+package crashdata;
+
+option optimize_for = LITE_RUNTIME;
+
+// A 32-bit or 64-bit address. This is a special type so that symbolization can
+// be applied on the backend.
+message Address {
+  // A uint64 is used as more often than not this will benefit from variable
+  // length encoding.
+  optional uint64 address = 1;  // Required.
+}
+
+// A stack trace with 32-bit or 64-bit frames. This is a special type so that
+// symbolization can be applied on the backend.
+message StackTrace {
+  // Repeated numeric values pack more efficiently if 'packed=true' is
+  // specified, and that is only permitted for primitive types. The fact
+  // that this is a list of addresses is implicit in the 'StackTrace' type.
+  repeated uint64 frames = 1 [packed=true];
+}
+
+// A binary blob of data. This is a separate type so that it may be
+// appropriately displayed on the backend (as hexdecimal binary data).
+// The blob may simply be a reference to a range of memory, or it may
+// contain explicit contents. Intended to be used in one of 3 modes:
+// - implicit: address and size are specified, data is empty.
+// - explicit: address, size and data are specified. The length of data
+//   must agree with the size.
+// - explicit data not tied to a memory address: data is specified, but
+//   address and size are not.
+message Blob {
+  optional Address address = 1;
+  optional uint32 size = 2;
+  optional bytes data = 3;
+}
+
+// A leaf is an abstract container encapsulating a single concrete type.
+message Leaf {
+  enum Type {
+    UNKNOWN_TYPE = 0;
+    INTEGER = 1;
+    UNSIGNED_INTEGER = 2;
+    REAL = 3;
+    STRING = 4;
+    ADDRESS = 5;
+    STACK_TRACE = 6;
+    BLOB = 7;
+  }
+
+  // The type of value stored in this union.
+  optional Type type = 1;  // Required.
+
+  // Exactly one of the following should be present.
+  optional int64 integer = 2;
+  optional uint64 unsigned_integer = 3;
+  optional double real = 4;
+  optional string string = 5;
+  optional Address address = 6;
+  optional StackTrace stack_trace = 7;
+  optional Blob blob = 8;
+}
+
+// A list of any number of values. If ordering is important, it is up to the
+// user to maintain this.
+message List {
+  repeated Value values = 1;
+}
+
+// A key-value is an element of a dictionary, associating a name to an
+// element.
+message KeyValue {
+  optional string key = 1;  // Required.
+  optional Value value = 2;  // Required.
+}
+
+// A dictionary is a list of KeyValue elements.
+message Dictionary {
+  repeated KeyValue values = 1;
+}
+
+// A value is a leaf or a container. All messages are fundamentally a single
+// 'Value' object.
+message Value {
+  enum Type {
+    UNKNOWN_TYPE = 0;
+    LEAF = 1;
+    LIST = 2;
+    DICTIONARY = 3;
+  }
+
+  // The type of value stored in this union.
+  optional Type type = 1;  // Required.
+
+  // An optional comment for this value. This is additional context which can
+  // be displayed in the form of a tooltip, for example.
+  optional string comment = 2;
+
+  // Concrete types.
+  optional Leaf leaf = 3;
+
+  // Recursive container types.
+  optional List list = 4;
+  optional Dictionary dictionary = 5;
+}

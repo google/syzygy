@@ -40,6 +40,7 @@
         'common/common.gyp:*',
         'common/rpc/rpc.gyp:*',
         'core/core.gyp:*',
+        'crashdata/crashdata.gyp:*',
         'experimental/experimental.gyp:*',
         'genfilter/genfilter.gyp:*',
         'grinder/grinder.gyp:*',
