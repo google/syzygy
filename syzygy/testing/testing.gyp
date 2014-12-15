@@ -81,6 +81,8 @@
       'target_name': 'testing_lib',
       'type': 'static_library',
       'sources': [
+        'metrics.cc',
+        'metrics.h',
         'toolchain.cc',
         'toolchain.h',
       ],

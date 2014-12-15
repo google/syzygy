@@ -18,7 +18,7 @@
 namespace common {
 
 const SyzygyVersion kSyzygyVersion(SYZYGY_MAJOR, SYZYGY_MINOR, SYZYGY_BUILD,
-                                   SYZYGY_PATCH, SYZYGY_LASTCHANGE);
+                                   SYZYGY_PATCH, SYZYGY_LASTCHANGE_FULL);
 
 SyzygyVersion::SyzygyVersion()
     : major_(0),
@@ -69,7 +69,7 @@ std::string SyzygyVersion::GetVersionString() const {
       base::StringPrintf("%d.%d.%d.%d", major_, minor_, build_, patch_);
   // Only append the last-change string if it is not empty.
   if (!last_change_.empty()) {
-    version += base::StringPrintf(" (%s)", last_change_.c_str());
+    version += base::StringPrintf(" (%.7s)", last_change_.c_str());
   }
   return version;
 }

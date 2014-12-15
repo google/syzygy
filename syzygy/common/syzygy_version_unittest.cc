@@ -22,7 +22,7 @@ namespace common {
 
 TEST(SyzygyVersionTest, Equality) {
   SyzygyVersion version1(SYZYGY_MAJOR, SYZYGY_MINOR, SYZYGY_BUILD,
-                         SYZYGY_PATCH, SYZYGY_LASTCHANGE);
+                         SYZYGY_PATCH, SYZYGY_LASTCHANGE_FULL);
   SyzygyVersion version2;
 
   EXPECT_TRUE(version1 == kSyzygyVersion);
@@ -33,7 +33,7 @@ TEST(SyzygyVersionTest, Compatibility) {
   // For now, this is the same unit test as Equality. However, we may eventually
   // change our notion of compatibility.
   SyzygyVersion version1(SYZYGY_MAJOR, SYZYGY_MINOR, SYZYGY_BUILD,
-                         SYZYGY_PATCH, SYZYGY_LASTCHANGE);
+                         SYZYGY_PATCH, SYZYGY_LASTCHANGE_FULL);
   SyzygyVersion version2;
 
   EXPECT_TRUE(version1.IsCompatible(kSyzygyVersion));

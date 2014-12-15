@@ -249,6 +249,7 @@
         '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/testing/testing.gyp:testing_lib',
         '<(src)/syzygy/trace/agent_logger/agent_logger.gyp:agent_logger_lib',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',

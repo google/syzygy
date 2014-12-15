@@ -18,6 +18,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/align.h"
+#include "syzygy/testing/metrics.h"
 
 namespace agent {
 namespace asan {
@@ -330,10 +331,8 @@ TEST(ShadowTest, ScanRightPerfTest) {
     uint64 t1 = ::__rdtsc();
     tnet += t1 - t0;
   }
-  // TODO(chrisha): Output this data in a meaningful way. For now this simply
-  // ensures that the results are visible somewhere.
-  LOG(INFO) << "PERF: Syzygy.ASan.Shadow.ScanRightForBracketingBlockEnd="
-            << tnet;
+  testing::EmitMetric("Syzygy.ASan.Shadow.ScanRightForBracketingBlockEnd",
+                      tnet);
 
   // Reset the shadow memory.
   ::memset(TestShadow::shadow_ + offset, 0, length);
@@ -511,9 +510,7 @@ TEST(ShadowTest, MarkAsFreedPerfTest) {
     tnet += t1 - t0;
     Shadow::Unpoison(buf.data(), buf.size());
   }
-  // TODO(chrisha): Output this data in a meaningful way. For now this simply
-  // ensures that the results are visible somewhere.
-  LOG(INFO) << "PERF: Syzygy.ASan.Shadow.MarkAsFreed=" << tnet;
+  testing::EmitMetric("Syzygy.ASan.Shadow.MarkAsFreed", tnet);
 }
 
 TEST(ShadowTest, PageBits) {

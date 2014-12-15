@@ -21,8 +21,11 @@
 #define SYZYGY_BUILD ${BUILD}
 #define SYZYGY_PATCH ${PATCH}
 
-// This holds the subversion revision or git hash as a string.
+// This holds the short git hash as a string, truncated to 7 characters.
 #define SYZYGY_LASTCHANGE "${LASTCHANGE}"
+
+// This holds the full 32-character git hash as a string.
+#define SYZYGY_LASTCHANGE_FULL "${LASTCHANGE_FULL}"
 
 #define SYZYGY_VERSION_STRING \
     "${MAJOR}.${MINOR}.${BUILD}.${PATCH} (${LASTCHANGE})"
