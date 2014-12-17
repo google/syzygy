@@ -109,10 +109,12 @@ uint32 CombineUInt32IntoBlockChecksum(uint32 val) {
   return checksum;
 }
 
-// An exception filter that only catches access violations.
-DWORD AccessViolationFilter(EXCEPTION_POINTERS* e) {
-  if (e->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION)
+// An exception filter that catches access violations and out of bound accesses.
+DWORD BadMemoryAccessFilter(EXCEPTION_POINTERS* e) {
+  if (e->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION ||
+      e->ExceptionRecord->ExceptionCode == EXCEPTION_ARRAY_BOUNDS_EXCEEDED) {
     return EXCEPTION_EXECUTE_HANDLER;
+  }
   return EXCEPTION_CONTINUE_SEARCH;
 }
 
@@ -330,7 +332,7 @@ bool BlockInfoFromMemory(const void* raw_block, CompactBlockInfo* block_info) {
     // our code coverage can instrument it.
     bool result = BlockInfoFromMemoryImpl(raw_block, block_info);
     return result;
-  } __except (AccessViolationFilter(GetExceptionInformation())) {  // NOLINT
+  } __except (BadMemoryAccessFilter(GetExceptionInformation())) {  // NOLINT
     // The block is either corrupt, or the pages are protected.
     return false;
   }
@@ -380,7 +382,7 @@ BlockHeader* BlockGetHeaderFromBody(const void* body) {
     // our code coverage can instrument it.
     BlockHeader* header = BlockGetHeaderFromBodyImpl(body);
     return header;
-  } __except (AccessViolationFilter(GetExceptionInformation())) {  // NOLINT
+  } __except (BadMemoryAccessFilter(GetExceptionInformation())) {  // NOLINT
     // The block is either corrupt, or the pages are protected.
     return NULL;
   }
