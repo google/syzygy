@@ -57,8 +57,9 @@ void HeapChecker::GetCorruptRangesInSlab(const uint8* lower_bound,
   BlockInfo block_info = {};
   while (shadow_walker.Next(&block_info)) {
     // Remove the protections on this block so its checksum can be safely
-    // validated.
-    ScopedBlockAccess block_access(block_info);
+    // validated. We leave the protections permanently removed so that the
+    // minidump generation has free access to block contents.
+    BlockProtectNone(block_info);
 
     bool current_block_is_corrupt = IsBlockCorrupt(block_info.block, NULL);
     // If the current block is corrupt and |current_corrupt_range| is NULL

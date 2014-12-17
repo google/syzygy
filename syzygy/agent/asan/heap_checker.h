@@ -38,7 +38,8 @@ class HeapChecker {
   HeapChecker() { }
 
   // Checks if the heap is corrupt and returns the information about the
-  // corrupt ranges.
+  // corrupt ranges. This permanently removes all page protections as it
+  // walks through memory.
   // @param corrupt_ranges Will receive the information about the corrupt
   //     ranges.
   // @returns true if the heap is corrupt, false otherwise.
