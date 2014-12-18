@@ -241,7 +241,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
   agent::common::InitializeCrt();
 
   switch (reason) {
-    case DLL_PROCESS_ATTACH:
+    case DLL_PROCESS_ATTACH: {
       // Create the At-Exit manager.
       SetUpAtExitManager();
 
@@ -253,16 +253,20 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
 
       SetUpAsanRuntime();
       break;
+    }
 
-    case DLL_THREAD_ATTACH:
-      // Nothing to do here.
+    case DLL_THREAD_ATTACH: {
+      agent::asan::AsanRuntime* runtime = agent::asan::AsanRuntime::runtime();
+      DCHECK_NE(static_cast<agent::asan::AsanRuntime*>(nullptr), runtime);
+      runtime->AddThreadId(::GetCurrentThreadId());
       break;
+    }
 
     case DLL_THREAD_DETACH:
       // Nothing to do here.
       break;
 
-    case DLL_PROCESS_DETACH:
+    case DLL_PROCESS_DETACH: {
       CommandLine::Reset();
       // This should be the last thing called in the agent DLL before it
       // gets unloaded. Everything should otherwise have been initialized
@@ -270,6 +274,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       agent::asan::TearDownRtl();
       TearDownAsanRuntime();
       break;
+    }
 
     default:
       NOTREACHED();

@@ -20,6 +20,7 @@
 #include "base/strings/stringprintf.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/common/stack_capture.h"
+#include "syzygy/common/align.h"
 
 namespace agent {
 namespace asan {
@@ -233,10 +234,6 @@ void StackCaptureCache::ReleaseStackTrace(
     }
   }
 
-  // Link this stack capture into the list of reclaimed stacks.
-  if (add_to_reclaimed_list)
-    AddStackCaptureToReclaimedList(stack);
-
   // Update the statistics.
   if (compression_reporting_period_ != 0) {
     base::AutoLock stats_lock(stats_lock_);
@@ -250,17 +247,39 @@ void StackCaptureCache::ReleaseStackTrace(
       statistics_.frames_alive -= stack->num_frames();
     }
   }
+
+  // Link this stack capture into the list of reclaimed stacks. This
+  // must come after the statistics updating, as we modify the |num_frames|
+  // parameter in place.
+  if (add_to_reclaimed_list)
+    AddStackCaptureToReclaimedList(stack);
 }
 
 bool StackCaptureCache::StackCapturePointerIsValid(
     const common::StackCapture* stack_capture) {
-  base::AutoLock lock(current_page_lock_);
+  // All stack captures must have pointer alignment at least.
+  if (!::common::IsAligned(stack_capture, sizeof(uintptr_t)))
+    return false;
+
   const uint8* stack_capture_addr =
       reinterpret_cast<const uint8*>(stack_capture);
+
+  // Walk over the allocated pages and see if it lands within any of them.
+  base::AutoLock lock(current_page_lock_);
   CachePage* page = current_page_;
   while (page != NULL) {
+    const uint8* page_end = page->data() + page->bytes_used();
+
+    // If the proposed stack capture lands within a page we then check to
+    // ensure that it is also internally consistent. This can still fail
+    // but is somewhat unlikely.
+    static const size_t kMinSize = common::StackCapture::GetSize(1);
     if (stack_capture_addr >= page->data() &&
-        stack_capture_addr < (page->data() + page->data_size())) {
+        stack_capture_addr + kMinSize <= page_end &&
+        stack_capture_addr + stack_capture->Size() <= page_end &&
+        stack_capture->num_frames() <= stack_capture->max_num_frames() &&
+        stack_capture->max_num_frames() <=
+            common::StackCapture::kMaxNumFrames) {
       return true;
     }
     page = page->next_page_;
@@ -397,9 +416,26 @@ common::StackCapture* StackCaptureCache::GetStackCapture(size_t num_frames) {
   return stack_capture;
 }
 
+namespace {
+
+class PrivateStackCapture : public common::StackCapture {
+ public:
+  // Expose the actual number of frames. We use this to make reclaimed
+  // stack captures look invalid when they're in a free list.
+  using common::StackCapture::num_frames_;
+};
+
+}
+
 void StackCaptureCache::AddStackCaptureToReclaimedList(
     common::StackCapture* stack_capture) {
   DCHECK(stack_capture != NULL);
+
+  // Make the stack capture internally inconsistent so that it can't be
+  // interpreted as being valid. This is rewritten upon reuse so not
+  // dangerous.
+  reinterpret_cast<PrivateStackCapture*>(stack_capture)->num_frames_ = -1;
+
   {
     base::AutoLock lock(reclaimed_locks_[stack_capture->max_num_frames()]);
 

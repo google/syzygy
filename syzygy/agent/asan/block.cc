@@ -18,6 +18,7 @@
 
 #include "base/hash.h"
 #include "base/logging.h"
+#include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/common/align.h"
 
@@ -486,6 +487,250 @@ void BlockIdentifyWholePages(BlockInfo* block_info) {
   } else {
     block_info->right_redzone_pages = nullptr;
     block_info->right_redzone_pages_size = 0;
+  }
+}
+
+// This namespace contains helpers for block analysis.
+namespace {
+
+// Determines if a stack-capture pointer is valid by referring to the
+// stack-capture cache in the active runtime.
+bool IsValidStackCapturePointer(const common::StackCapture* stack) {
+  if (stack == nullptr)
+    return false;
+  AsanRuntime* runtime = AsanRuntime::runtime();
+  DCHECK_NE(static_cast<AsanRuntime*>(nullptr), runtime);
+  StackCaptureCache* cache = runtime->stack_cache();
+  DCHECK_NE(static_cast<StackCaptureCache*>(nullptr), cache);
+  if (!cache->StackCapturePointerIsValid(stack))
+    return false;
+  return true;
+}
+
+// Determines if a thread-id is valid by referring to the cache of thread-ids
+// in the runtime.
+bool IsValidThreadId(uint32 thread_id) {
+  AsanRuntime* runtime = AsanRuntime::runtime();
+  DCHECK_NE(static_cast<AsanRuntime*>(nullptr), runtime);
+  if (!runtime->ThreadIdIsValid(thread_id))
+    return false;
+  return true;
+}
+
+// Determines if timestamp is plausible by referring to the process start
+// time as recorded by the runtime.
+bool IsValidTicks(uint32 ticks) {
+  uint32 end = ::GetTickCount();
+  AsanRuntime* runtime = AsanRuntime::runtime();
+  DCHECK_NE(static_cast<AsanRuntime*>(nullptr), runtime);
+  uint32 begin = runtime->starting_ticks();
+  if (ticks < begin || ticks > end)
+    return false;
+  return true;
+}
+
+// Determines if a heap id is valid by referring to the runtime.
+bool IsValidHeapId(uint32 heap_id) {
+  AsanRuntime* runtime = AsanRuntime::runtime();
+  DCHECK_NE(static_cast<AsanRuntime*>(nullptr), runtime);
+  if (!runtime->HeapIdIsValid(heap_id))
+    return false;
+  return true;
+}
+
+bool BlockHeaderIsConsistent(const BlockInfo& block_info) {
+  const BlockHeader* h = block_info.header;
+  if (h->magic != kBlockHeaderMagic)
+    return false;
+  if (static_cast<bool>(h->is_nested) != block_info.is_nested)
+    return false;
+
+  bool expect_header_padding = block_info.header_padding_size > 0;
+  if (static_cast<bool>(h->has_header_padding) != expect_header_padding)
+    return false;
+
+  bool expect_excess_trailer_padding =
+      block_info.trailer_padding_size > (kShadowRatio / 2);
+  if (static_cast<bool>(h->has_excess_trailer_padding) !=
+          expect_excess_trailer_padding) {
+    return false;
+  }
+
+  if (h->state > FREED_BLOCK)
+    return false;
+
+  if (h->body_size != block_info.body_size)
+    return false;
+
+  // There should always be a valid allocation stack trace.
+  if (!IsValidStackCapturePointer(h->alloc_stack))
+    return false;
+
+  // The free stack should be empty if we're in the allocated state.
+  if (h->state == ALLOCATED_BLOCK) {
+    if (h->free_stack != nullptr)
+      return false;
+  } else {
+    // Otherwise there should be a valid free stack.
+    if (!IsValidStackCapturePointer(h->free_stack))
+      return false;
+  }
+
+  // If there's no header padding then the block is valid.
+  if (block_info.header_padding_size == 0)
+    return true;
+
+  // Analyze the block header padding.
+  const uint32* head = reinterpret_cast<const uint32*>(
+      block_info.header_padding);
+  const uint32* tail = reinterpret_cast<const uint32*>(
+      block_info.header_padding + block_info.header_padding_size) - 1;
+  if (*head != block_info.header_padding_size)
+    return false;
+  if (*tail != block_info.header_padding_size)
+    return false;
+  static const uint32 kHeaderPaddingValue =
+      (kBlockHeaderPaddingByte << 24) |
+      (kBlockHeaderPaddingByte << 16) |
+      (kBlockHeaderPaddingByte << 8) |
+      kBlockHeaderPaddingByte;
+  for (++head; head < tail; ++head) {
+    if (*head != kHeaderPaddingValue)
+      return false;
+  }
+
+  return true;
+}
+
+// Returns true if the trailer is self-consistent, false otherwise.
+// Via |cross_consistent| indicates whether or not the header and trailer
+// are consistent with respect to each other.
+bool BlockTrailerIsConsistent(const BlockInfo& block_info) {
+  const BlockHeader* h = block_info.header;
+  const BlockTrailer* t = block_info.trailer;
+
+  // The allocation data must always be set.
+  if (!IsValidThreadId(t->alloc_tid))
+    return false;
+  if (!IsValidTicks(t->alloc_ticks))
+    return false;
+
+  // The free fields must both be set, or both be clear.
+  if (t->free_tid != 0 && t->free_ticks != 0) {
+    if (!IsValidThreadId(t->free_tid))
+      return false;
+    if (!IsValidTicks(t->free_ticks))
+      return false;
+  } else if (t->free_tid != 0 || t->free_ticks != 0) {
+    // If one or the other is set then the trailer is inconsistent.
+    return false;
+  }
+
+  // The heap ID must always be set and be valid.
+  if (!IsValidHeapId(t->heap_id))
+    return false;
+
+  // If there's no padding to check then we're done.
+  if (block_info.trailer_padding_size == 0)
+    return true;
+
+  const uint8* padding = block_info.trailer_padding;
+  size_t size = block_info.trailer_padding_size;
+
+  // If we have excess trailer padding then check the encoded length.
+  if (size > (kShadowRatio / 2)) {
+    const uint32* length = reinterpret_cast<const uint32*>(padding);
+    if (*length != size)
+      return false;
+    padding += sizeof(uint32);
+    size -= sizeof(uint32);
+  }
+
+  // Check the remaining trailer padding to ensure it's appropriately
+  // flood-filled.
+  while (size > 0) {
+    if (*padding != kBlockTrailerPaddingByte)
+      return false;
+    ++padding;
+    --size;
+  }
+
+  return true;
+}
+
+// Returns true if the header and trailer are cross-consistent with
+// respect to each other.
+bool BlockHeaderAndTrailerAreCrossConsistent(const BlockInfo& block_info) {
+  const BlockHeader* h = block_info.header;
+  const BlockTrailer* t = block_info.trailer;
+
+  if (h->state == ALLOCATED_BLOCK) {
+    if (t->free_tid != 0 || t->free_ticks != 0)
+      return false;
+  } else {
+    if (t->free_tid == 0 || t->free_ticks == 0)
+      return false;
+  }
+
+  return true;
+}
+
+}  // namespace
+
+void BlockAnalyze(const BlockInfo& block_info,
+                  BlockAnalysisResult* result) {
+  DCHECK_NE(static_cast<BlockAnalysisResult*>(nullptr), result);
+
+  result->block_state = kDataStateUnknown;
+  result->header_state = kDataStateUnknown;
+  result->body_state = kDataStateUnknown;
+  result->trailer_state = kDataStateUnknown;
+
+  if (BlockChecksumIsValid(block_info)) {
+    result->block_state = kDataIsClean;
+    result->header_state = kDataIsClean;
+    result->body_state = kDataIsClean;
+    result->trailer_state = kDataIsClean;
+    return;
+  }
+
+  // At this point it's known that the checksum is invalid, so some part
+  // of the block is corrupt.
+  result->block_state = kDataIsCorrupt;
+
+  // Either the header, the body or the trailer is invalid. We can't
+  // ever exonerate the body contents, so at the very least its state
+  // is unknown. Leave it set to unknown.
+
+  // Check the header.
+  bool consistent_header = BlockHeaderIsConsistent(block_info);
+  if (!consistent_header) {
+    result->header_state = kDataIsCorrupt;
+  } else {
+    result->header_state = kDataIsClean;
+  }
+
+  // Check the trailer.
+  bool consistent_trailer = BlockTrailerIsConsistent(block_info);
+  if (!consistent_trailer) {
+    result->trailer_state = kDataIsCorrupt;
+  } else {
+    result->trailer_state = kDataIsClean;
+  }
+
+  bool cross_consistent = BlockHeaderAndTrailerAreCrossConsistent(block_info);
+  if (consistent_header && consistent_trailer) {
+    if (cross_consistent) {
+      // If both the header and trailer are fine and cross-consistent, then the
+      // body must be corrupt.
+      result->body_state = kDataIsCorrupt;
+    } else {
+      // If both the header and trailer are fine but not cross-consistent, then
+      // one or both of them is corrupt but we can't tell. Mark everything as
+      // doubtful.
+      result->header_state = kDataStateUnknown;
+      result->trailer_state = kDataStateUnknown;
+    }
   }
 }
 

@@ -90,6 +90,25 @@ void TestCallback(AsanErrorInfo* error_info) {
 TEST_F(AsanRuntimeTest, SetUpAndTearDown) {
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
+  // Make sure the singleton pointer matches the runtime we created.
+  ASSERT_EQ(reinterpret_cast<AsanRuntime*>(&asan_runtime_),
+            AsanRuntime::runtime());
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
+}
+
+TEST_F(AsanRuntimeTest, ThreadIdCache) {
+  ASSERT_NO_FATAL_FAILURE(
+      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
+
+  EXPECT_FALSE(asan_runtime_.ThreadIdIsValid(1234));
+  EXPECT_FALSE(asan_runtime_.ThreadIdIsValid(5678));
+  asan_runtime_.AddThreadId(1234);
+  EXPECT_TRUE(asan_runtime_.ThreadIdIsValid(1234));
+  EXPECT_FALSE(asan_runtime_.ThreadIdIsValid(5678));
+  asan_runtime_.AddThreadId(5678);
+  EXPECT_TRUE(asan_runtime_.ThreadIdIsValid(1234));
+  EXPECT_TRUE(asan_runtime_.ThreadIdIsValid(5678));
+
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 
@@ -189,6 +208,16 @@ TEST_F(AsanRuntimeTest, IgnoredStackIds) {
 
   EXPECT_THAT(asan_runtime_.params().ignored_stack_ids_set,
               testing::ElementsAre(0x1, 0x7E577E57, 0xCAFEBABE, 0xFFFFFFFF));
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
+}
+
+TEST_F(AsanRuntimeTest, IsValidHeapId) {
+  ASSERT_NO_FATAL_FAILURE(
+      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
+
+  EXPECT_FALSE(asan_runtime_.HeapIdIsValid(0xDEADBEEF));
+  EXPECT_TRUE(asan_runtime_.HeapIdIsValid(asan_runtime_.GetProcessHeap()));
+
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 

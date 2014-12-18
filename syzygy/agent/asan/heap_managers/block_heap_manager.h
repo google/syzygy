@@ -85,6 +85,7 @@ class BlockHeapManager : public HeapManagerInterface {
   virtual void Unlock(HeapId heap_id);
   virtual void BestEffortLockAll();
   virtual void UnlockAll();
+  virtual bool IsValidHeap(HeapId heap);
   // @}
 
   // Set the parameters of this heap manager.
@@ -138,9 +139,12 @@ class BlockHeapManager : public HeapManagerInterface {
   typedef BlockHeapManager::HeapQuarantineMap::value_type
       HeapQuarantinePair;
 
-  // Given the result of an HeapQuarantineMap insert, returns a heap id.
+  // Given the result of an HeapQuarantineMap insert or find, returns a heap id.
+  // @param iterator An iterator to a heap.
   // @param insert_result The result of a call to heaps_.insert.
   // @returns the ID associated with the inserted heap.
+  HeapId GetHeapId(
+      HeapQuarantineMap::iterator iterator) const;
   HeapId GetHeapId(
       const std::pair<HeapQuarantineMap::iterator, bool>& insert_result) const;
 

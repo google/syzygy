@@ -20,6 +20,7 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "gtest/gtest.h"
+#include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/page_protection_helpers.h"
 
 namespace agent {
@@ -460,6 +461,11 @@ void FindModifiedBits(size_t length,
   *mask = 0;
 }
 
+// This is initialized by TestChecksumDetectsTampering, but referred to by
+// ChecksumDetectsTamperingWithMask as well, hence not in a function.
+size_t state_offset = -1;
+uint8 state_mask = 0;
+
 bool ChecksumDetectsTamperingWithMask(const BlockInfo& block_info,
                                       void* address_to_modify,
                                       uint8 mask_to_modify) {
@@ -485,8 +491,48 @@ bool ChecksumDetectsTamperingWithMask(const BlockInfo& block_info,
     BlockSetChecksum(block_info);
     if (block_info.header->checksum != checksum) {
       // Success, the checksum detected the change!
+      // Restore the original checksum so the block analysis can continue.
+      block_info.header->checksum = checksum;
       detected = true;
       break;
+    }
+  }
+
+  // Run a detailed analysis on the block. We expect the results of this to
+  // agree with where the block was modified.
+  BlockAnalysisResult result = {};
+  BlockAnalyze(block_info, &result);
+  if (address_to_modify < block_info.body) {
+    EXPECT_EQ(kDataIsCorrupt, result.block_state);
+    // If the thing being modified is the block state, then this is so
+    // localized that the analysis will sometimes mess up. Seeing this in
+    // the wild is quite unlikely.
+    // TODO(chrisha): If we ever have individual checksums for the header
+    // the body and the trailer, then revisit this.
+    if (address_to_modify != block_info.block + state_offset ||
+        mask_to_modify != state_mask) {
+      EXPECT_EQ(kDataIsCorrupt, result.header_state);
+      EXPECT_EQ(kDataStateUnknown, result.body_state);
+      EXPECT_EQ(kDataIsClean, result.trailer_state);
+    }
+  } else if (address_to_modify >= block_info.trailer_padding) {
+    EXPECT_EQ(kDataIsCorrupt, result.block_state);
+    EXPECT_EQ(kDataIsClean, result.header_state);
+    EXPECT_EQ(kDataStateUnknown, result.body_state);
+    EXPECT_EQ(kDataIsCorrupt, result.trailer_state);
+  } else {
+    // The byte being modified is in the body. Only expect to find
+    // tampering if the block is quarantined or freed.
+    if (block_info.header->state != ALLOCATED_BLOCK) {
+      EXPECT_EQ(kDataIsCorrupt, result.block_state);
+      EXPECT_EQ(kDataIsClean, result.header_state);
+      EXPECT_EQ(kDataIsCorrupt, result.body_state);
+      EXPECT_EQ(kDataIsClean, result.trailer_state);
+    } else {
+      EXPECT_EQ(kDataIsClean, result.block_state);
+      EXPECT_EQ(kDataIsClean, result.header_state);
+      EXPECT_EQ(kDataIsClean, result.body_state);
+      EXPECT_EQ(kDataIsClean, result.trailer_state);
     }
   }
 
@@ -511,10 +557,16 @@ void TestChecksumDetectsTampering(const BlockInfo& block_info) {
   BlockSetChecksum(block_info);
   EXPECT_EQ(checksum, block_info.header->checksum);
 
+  // A detailed block analysis should find nothing awry.
+  BlockAnalysisResult result = {};
+  BlockAnalyze(block_info, &result);
+  EXPECT_EQ(kDataIsClean, result.block_state);
+  EXPECT_EQ(kDataIsClean, result.header_state);
+  EXPECT_EQ(kDataIsClean, result.body_state);
+  EXPECT_EQ(kDataIsClean, result.trailer_state);
+
   // Get the offset of the byte and the mask of the bits containing the
   // block state. This is resilient to changes in the BlockHeader layout.
-  static size_t state_offset = -1;
-  static uint8 state_mask = 0;
   if (state_offset == -1) {
     BlockHeader header1 = {};
     BlockHeader header2 = {};
@@ -550,7 +602,7 @@ void TestChecksumDetectsTampering(const BlockInfo& block_info) {
   // Trailer bytes should be tamper proof.
   EXPECT_TRUE(ChecksumDetectsTampering(block_info, block_info.trailer));
   EXPECT_TRUE(ChecksumDetectsTampering(block_info,
-                                       &block_info.trailer->alloc_ticks));
+                                       &block_info.trailer->heap_id));
 
   // Expect the checksum to detect body tampering in quarantined and freed
   // states, but not in the allocated state.
@@ -565,6 +617,17 @@ void TestChecksumDetectsTampering(const BlockInfo& block_info) {
 }  // namespace
 
 TEST(BlockTest, ChecksumDetectsTampering) {
+  // This test requires a runtime because it makes use of BlockAnalyze.
+  // Initialize it with valid values.
+  AsanRuntime runtime;
+  ASSERT_NO_FATAL_FAILURE(runtime.SetUp(L""));
+  HeapManagerInterface::HeapId valid_heap_id = runtime.GetProcessHeap();
+  runtime.AddThreadId(::GetCurrentThreadId());
+  common::StackCapture capture;
+  capture.InitFromStack();
+  const common::StackCapture* valid_stack =
+      runtime.stack_cache()->SaveStackTrace(capture);
+
   size_t kSizes[] = { 1, 4, 7, 16, 23, 32, 117, 1000, 4096 };
 
   // Doing a single allocation makes this test a bit faster.
@@ -591,13 +654,20 @@ TEST(BlockTest, ChecksumDetectsTampering) {
 
           BlockInfo block_info = {};
           BlockInitialize(layout, alloc, false, &block_info);
+          block_info.header->alloc_stack = valid_stack;
+          block_info.trailer->heap_id = valid_heap_id;
 
           // Test that the checksum detects tampering as expected in each block
           // state.
           block_info.header->state = ALLOCATED_BLOCK;
           ASSERT_NO_FATAL_FAILURE(TestChecksumDetectsTampering(block_info));
+
           block_info.header->state = QUARANTINED_BLOCK;
+          block_info.header->free_stack = valid_stack;
+          block_info.trailer->free_tid = ::GetCurrentThreadId();
+          block_info.trailer->free_ticks = ::GetTickCount();
           ASSERT_NO_FATAL_FAILURE(TestChecksumDetectsTampering(block_info));
+
           block_info.header->state = FREED_BLOCK;
           ASSERT_NO_FATAL_FAILURE(TestChecksumDetectsTampering(block_info));
         }  // kSizes[i]
@@ -606,6 +676,7 @@ TEST(BlockTest, ChecksumDetectsTampering) {
   }  // chunk_size
 
   ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
+  ASSERT_NO_FATAL_FAILURE(runtime.TearDown());
 }
 
 }  // namespace asan

@@ -387,6 +387,7 @@ bool AsanRuntime::uef_installed_ = false;
 AsanRuntime::AsanRuntime()
     : logger_(), stack_cache_(), asan_error_callback_(), heap_manager_() {
   ::common::SetDefaultAsanParameters(&params_);
+  starting_ticks_ = ::GetTickCount();
 }
 
 AsanRuntime::~AsanRuntime() {
@@ -770,6 +771,21 @@ bool AsanRuntime::allocation_filter_flag() {
 
 void AsanRuntime::set_allocation_filter_flag(bool value) {
   heap_manager_->set_allocation_filter_flag(value);
+}
+
+void AsanRuntime::AddThreadId(uint32 thread_id) {
+  DCHECK_NE(0u, thread_id);
+  base::AutoLock lock(thread_ids_lock_);
+  thread_ids_.insert(thread_id);
+}
+
+bool AsanRuntime::ThreadIdIsValid(uint32 thread_id) {
+  base::AutoLock lock(thread_ids_lock_);
+  return thread_ids_.count(thread_id) > 0;
+}
+
+bool AsanRuntime::HeapIdIsValid(HeapManagerInterface::HeapId heap_id) {
+  return heap_manager_->IsValidHeap(heap_id);
 }
 
 int AsanRuntime::CrashForException(EXCEPTION_POINTERS* exception) {

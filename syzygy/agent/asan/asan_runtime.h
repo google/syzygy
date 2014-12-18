@@ -117,9 +117,16 @@ class AsanRuntime {
   // The name of the environment variable containing the command-line.
   static const char kSyzygyAsanOptionsEnvVar[];
 
+  // TODO(chrisha): Make this a proper singleton.
+  // @returns the singleton runtime.
+  static AsanRuntime* runtime() { return runtime_; }
+
   // Accessors for runtime parameters.
   ::common::InflatedAsanParameters& params() { return params_; }
   const ::common::InflatedAsanParameters& params() const { return params_; }
+
+  // @returns the value of the tick ccounter when the runtime was created.
+  uint32 starting_ticks() const { return starting_ticks_; }
 
   // Retrieves the process's heap.
   // @returns The ID of the process's heap.
@@ -138,6 +145,20 @@ class AsanRuntime {
   // @note The flag is stored per-thread using TLS. Multiple threads do not
   //     share the same flag.
   void set_allocation_filter_flag(bool value);
+
+  // Observes a given thread ID, adding it to thread ID set.
+  // @param thread_id The thread ID that has been observed.
+  void AddThreadId(uint32 thread_id);
+
+  // Determines if a thread ID has already been seen.
+  // @param thread_id The thread ID to be queried.
+  // @returns true if a given thread ID is valid for this process.
+  bool ThreadIdIsValid(uint32 thread_id);
+
+  // Determines if a given heap ID is valid.
+  // @param uint32 heap_id The heap ID to check.
+  // @returns true if valid, false otherwise.
+  bool HeapIdIsValid(HeapManagerInterface::HeapId heap_id);
 
   // Processes an exception and determines if an ASAN error has occurred,
   // updating the exception if so. If Breakpad is enabled, passes the
@@ -229,6 +250,15 @@ class AsanRuntime {
 
   // The runtime parameters.
   ::common::InflatedAsanParameters params_;
+
+  // The tick counter when the runtime was created. This is used for
+  // bracketing valid alloc and free ticks values.
+  uint32 starting_ticks_;
+
+  // The set of thread IDs that have been seen in the current process.
+  // This is used to validate thread IDs in a block trailer.
+  base::Lock thread_ids_lock_;
+  std::hash_set<uint32> thread_ids_;  // Under thread_ids_lock_.
 
   DISALLOW_COPY_AND_ASSIGN(AsanRuntime);
 };

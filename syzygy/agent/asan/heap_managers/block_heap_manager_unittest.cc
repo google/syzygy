@@ -116,6 +116,8 @@ class TestZebraBlockHeap : public heaps::ZebraBlockHeap {
 // A derived class to expose protected members for unit-testing.
 class TestBlockHeapManager : public BlockHeapManager {
  public:
+  using BlockHeapManager::HeapQuarantinePair;
+
   using BlockHeapManager::GetHeapId;
   using BlockHeapManager::GetHeapFromId;
   using BlockHeapManager::GetQuarantineFromId;
@@ -1456,6 +1458,17 @@ TEST_P(BlockHeapManagerTest, BestEffortLockAllOneHeapLockHeld) {
   heap_manager_->UnlockAll();
   runner.SignalRelease();
   thread.Join();
+}
+
+TEST_P(BlockHeapManagerTest, IsValidHeap) {
+  ASSERT_FALSE(heap_manager_->heaps_.empty());
+  EXPECT_FALSE(heap_manager_->IsValidHeap(0xDEADBEEF));
+  for (auto& hq_pair : heap_manager_->heaps_) {
+    TestBlockHeapManager::HeapQuarantinePair* hq = &hq_pair;
+    TestBlockHeapManager::HeapId heap_id =
+        reinterpret_cast<TestBlockHeapManager::HeapId>(hq);
+    EXPECT_TRUE(heap_manager_->IsValidHeap(heap_id));
+  }
 }
 
 }  // namespace heap_managers

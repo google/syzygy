@@ -360,6 +360,19 @@ void BlockHeapManager::UnlockAll() {
   lock_.Release();
 }
 
+bool BlockHeapManager::IsValidHeap(HeapId heap) {
+  DCHECK(initialized_);
+  // Run this in an exception handler, as if it's a really invalid heap id
+  // we could end up reading from inaccessible memory.
+  __try {
+    if (!IsValidHeapId(heap))
+      return false;
+  } __except(EXCEPTION_EXECUTE_HANDLER) {
+    return false;
+  }
+  return true;
+}
+
 void BlockHeapManager::set_parameters(
     const ::common::AsanParameters& parameters) {
   // Once initialized we can't tolerate changes to enable_ctmalloc, as the
@@ -378,17 +391,34 @@ void BlockHeapManager::set_parameters(
 }
 
 HeapId BlockHeapManager::GetHeapId(
-    const std::pair<HeapQuarantineMap::iterator, bool>& insert_result) const {
-  HeapQuarantinePair* hq_pair = &(*insert_result.first);
+    HeapQuarantineMap::iterator iterator) const {
+  HeapQuarantinePair* hq_pair = &(*iterator);
   return reinterpret_cast<HeapId>(hq_pair);
 }
 
+HeapId BlockHeapManager::GetHeapId(
+    const std::pair<HeapQuarantineMap::iterator, bool>& insert_result) const {
+  return GetHeapId(insert_result.first);
+}
+
 bool BlockHeapManager::IsValidHeapId(HeapId heap_id) {
+  // First check to see if it looks like it has the right shape. This could
+  // cause an invalid access if the heap_id is completely a wild value.
   if (heap_id == 0)
     return false;
   HeapQuarantinePair* hq = reinterpret_cast<HeapQuarantinePair*>(heap_id);
   if (hq->first == nullptr || hq->second == nullptr)
     return false;
+
+  // Ensure that it actually comes from this heap manager.
+  {
+    base::AutoLock lock(lock_);
+    auto it = heaps_.find(hq->first);
+    HeapId heap_id2 = GetHeapId(it);
+    if (heap_id != heap_id2)
+      return false;
+  }
+
   return true;
 }
 

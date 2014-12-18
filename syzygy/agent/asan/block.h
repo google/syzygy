@@ -345,6 +345,42 @@ bool BlockChecksumIsValid(const BlockInfo& block_info);
 void BlockSetChecksum(const BlockInfo& block_info);
 // @}
 
+
+// @name Block analysis related functions and declarations.
+// @{
+// An enumeration of possible states of snippets of data.
+enum DataState {
+  // Unable to determine if the data is corrupt or clean.
+  kDataStateUnknown,
+  // The data is in a known good state.
+  kDataIsClean,
+  // The data is corrupt.
+  kDataIsCorrupt,
+};
+
+// Results of an analysis of block contents.
+struct BlockAnalysisResult {
+  // The overall result of the block state.
+  DataState block_state;
+  // The state of the sub-components of the block.
+  DataState header_state;
+  DataState body_state;
+  DataState trailer_state;
+};
+
+// Analyzes a block for types of corruption. For each of the header,
+// the body and the trailer, determines their state.
+// TODO(chrisha): This currently gets data via singleton AsanRuntime.
+//     Open a seam and use dependency injection for this?
+// @param block_info The block to be analyzed.
+// @param result The determined state of the block will be written
+//     here.
+// @note The pages of the block must be readable.
+void BlockAnalyze(const BlockInfo& block_info,
+                  BlockAnalysisResult* result);
+
+// @}
+
 }  // namespace asan
 }  // namespace agent
 
