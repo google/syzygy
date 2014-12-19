@@ -414,6 +414,8 @@ bool BlockHeapManager::IsValidHeapId(HeapId heap_id) {
   {
     base::AutoLock lock(lock_);
     auto it = heaps_.find(hq->first);
+    if (it == heaps_.end())
+      return false;
     HeapId heap_id2 = GetHeapId(it);
     if (heap_id != heap_id2)
       return false;
