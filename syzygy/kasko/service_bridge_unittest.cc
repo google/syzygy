@@ -32,6 +32,7 @@
 #include "base/threading/thread.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/rpc/helpers.h"
+#include "syzygy/kasko/kasko_rpc.h"
 #include "syzygy/kasko/service.h"
 
 namespace kasko {
