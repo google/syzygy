@@ -48,11 +48,11 @@ bool GenerateMinidump(const base::FilePath& destination,
     dump_exception_pointers = &dump_exception_info;
   }
 
-  base::File destination_file(
-      destination, static_cast<base::File::Flags>(base::File::FLAG_CREATE |
-                                                  base::File::FLAG_WRITE));
+  base::File destination_file(destination, static_cast<base::File::Flags>(
+                                               base::File::FLAG_CREATE_ALWAYS |
+                                               base::File::FLAG_WRITE));
   if (!destination_file.IsValid()) {
-    LOG(ERROR) << "Failed to create destination file.";
+    LOG(ERROR) << "Failed to create destination file: " << destination.value();
     return false;
   }
 

@@ -20,6 +20,7 @@
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/callback_helpers.h"
+#include "base/file_util.h"
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/win/scoped_comptr.h"
@@ -34,16 +35,7 @@ void EndSession(IDebugClient* debug_client) {
       debug_client->EndSession(DEBUG_END_ACTIVE_TERMINATE));
 }
 
-}  // namespace
-
-TEST(MinidumpTest, GenerateAndLoad) {
-  // Generate a minidump for the current process.
-  base::ScopedTempDir temp_dir;
-  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
-  base::FilePath dump_file_path = temp_dir.path().Append(L"test.dump");
-  ASSERT_TRUE(kasko::GenerateMinidump(dump_file_path, ::GetCurrentProcessId(),
-                                      0, NULL));
-
+void VerifyMinidumpFile(const base::FilePath& dump_file_path) {
   // Create a debugging client.
   base::win::ScopedComPtr<IDebugClient4> debug_client_4;
   base::win::ScopedComPtr<IDebugClient> debug_client;
@@ -75,6 +67,30 @@ TEST(MinidumpTest, GenerateAndLoad) {
 
   ASSERT_HRESULT_SUCCEEDED(
       debug_symbols->GetModuleByModuleName("kasko_unittests", 0, NULL, NULL));
+}
+
+}  // namespace
+
+TEST(MinidumpTest, GenerateAndLoad) {
+  // Generate a minidump for the current process.
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+  base::FilePath dump_file_path = temp_dir.path().Append(L"test.dump");
+  ASSERT_TRUE(kasko::GenerateMinidump(dump_file_path, ::GetCurrentProcessId(),
+                                      0, NULL));
+
+  VerifyMinidumpFile(dump_file_path);
+}
+
+TEST(MinidumpTest, OverwriteExistingFile) {
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+  base::FilePath dump_file_path;
+  ASSERT_TRUE(base::CreateTemporaryFileInDir(temp_dir.path(), &dump_file_path));
+  ASSERT_TRUE(kasko::GenerateMinidump(dump_file_path, ::GetCurrentProcessId(),
+                                      0, NULL));
+
+  VerifyMinidumpFile(dump_file_path);
 }
 
 }  // namespace kasko
