@@ -54,7 +54,7 @@ deps = {
 
   # A general purpose X86 disassembler.
   "src/third_party/distorm/files":
-    "http://distorm.googlecode.com/svn/trunk@229",
+    "http://distorm.googlecode.com/svn/trunk@250",
 
   # Used for benchmarking.
   "src/third_party/dromaeo/files":

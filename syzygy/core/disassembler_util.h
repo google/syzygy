@@ -29,9 +29,7 @@ namespace core {
 using assm::Register;
 using assm::RegisterId;
 
-// Wrapper for the distorm_decompose function to patch a bug in distorm. The
-// access size for I_FNSTCW and I_FLDCW dst operand is 0 instead of 16.
-// TODO(sebmarchand): Remove this code once this is fixed in distorm.
+// Wrapper for the distorm_decompose function to patch a bug in distorm.
 // @param ci Structure containing some information about the code to decompose
 //     (code origin, code data, code length, decoding mode and features).
 // @param result Array of type _DecodeInst which will be used by this function

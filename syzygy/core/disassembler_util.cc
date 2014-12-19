@@ -93,34 +93,6 @@ _DecodeResult DistormDecompose(_CodeInfo* ci,
       return ret;
     }
   }
-
-  for (unsigned int i = 0; i < *used_instructions_count; ++i) {
-    // Distorm @229 has a bug where the access size for I_FNSTCW and I_FLDCW
-    // destination operand is 0 instead of 16. I've filed issue
-    // http://code.google.com/p/distorm/issues/detail?id=58 to have this fixed.
-    // In the meantime this is a workaround to have the correct operand size.
-    switch (result[i].opcode) {
-      case I_FNSTCW:
-      case I_FLDCW:
-        // If result[i].ops[0].size is not zero that means that distorm has been
-        // fixed and that this workaround is not needed anymore.
-        DCHECK(result[i].ops[0].size == 0);
-        result[i].ops[0].size = 16;
-        break;
-      case I_FST:
-      case I_FSTP:
-      case I_FIST:
-      case I_FISTP:
-        // Distorm @229 has a bug, the flag do no reflect the memory store.
-        // https://code.google.com/p/distorm/issues/detail?id=70
-        // If FLAG_DST_WR is set that means that distorm has been fixed.
-        DCHECK_EQ(0, result[i].flags & FLAG_DST_WR);
-        result[i].flags |= FLAG_DST_WR;
-        break;
-      default:
-        break;
-    }
-  }
   return ret;
 }
 

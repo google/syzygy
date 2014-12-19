@@ -291,20 +291,6 @@ TEST(DisassemblerUtilTest, DistormDecomposeFnstcw) {
   EXPECT_EQ(16U, results[0].ops[0].size);
 }
 
-TEST(DisassemblerUtilTest, WrongAccessSizeOnRawDistormDecomposeFnstcw) {
-  const unsigned int kMaxResults = 16;
-  unsigned int result_count = 0;
-  _DInst results[kMaxResults];
-  EXPECT_EQ(DECRES_SUCCESS,
-            RawDecomposeCode(kFldcw,
-                             sizeof(kFldcw),
-                             results,
-                             kMaxResults,
-                             &result_count));
-  EXPECT_EQ(1U, result_count);
-  EXPECT_EQ(0U, results[0].ops[0].size);
-}
-
 TEST(DisassemblerUtilTest, DistormDecomposeFldcw) {
   const unsigned int kMaxResults = 16;
   unsigned int result_count = 0;
@@ -317,34 +303,6 @@ TEST(DisassemblerUtilTest, DistormDecomposeFldcw) {
                           &result_count));
   EXPECT_EQ(1U, result_count);
   EXPECT_EQ(16U, results[0].ops[0].size);
-}
-
-TEST(DisassemblerUtilTest, WrongAccessSizeOnRawDistormDecomposeFldcw) {
-  const unsigned int kMaxResults = 16;
-  unsigned int result_count = 0;
-  _DInst results[kMaxResults];
-  EXPECT_EQ(DECRES_SUCCESS,
-            RawDecomposeCode(kFldcw,
-                             sizeof(kFldcw),
-                             results,
-                             kMaxResults,
-                             &result_count));
-  EXPECT_EQ(1U, result_count);
-  EXPECT_EQ(0U, results[0].ops[0].size);
-}
-
-TEST(DisassemblerUtilTest, WrongWriteFlagOnRawDistormDecomposeFst) {
-  _DInst fst = DecodeBuffer(kFst, sizeof(kFst));
-  EXPECT_NE(0, fst.flags & FLAG_DST_WR);
-
-  _DInst fstp = DecodeBuffer(kFstp, sizeof(kFstp));
-  EXPECT_NE(0, fstp.flags & FLAG_DST_WR);
-
-  _DInst fist = DecodeBuffer(kFist, sizeof(kFist));
-  EXPECT_NE(0, fist.flags & FLAG_DST_WR);
-
-  _DInst fistp = DecodeBuffer(kFistp, sizeof(kFistp));
-  EXPECT_NE(0, fistp.flags & FLAG_DST_WR);
 }
 
 // If this test starts failing then Distorm now properly handles the vpermq
