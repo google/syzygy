@@ -37,6 +37,10 @@ LargeBlockHeap::~LargeBlockHeap() {
   allocs_.clear();
 }
 
+HeapType LargeBlockHeap::GetHeapType() const {
+  return kLargeBlockHeap;
+}
+
 uint32 LargeBlockHeap::GetHeapFeatures() const {
   return kHeapSupportsIsAllocated | kHeapSupportsGetAllocationSize;
 }

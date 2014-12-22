@@ -27,6 +27,10 @@ SimpleBlockHeap::SimpleBlockHeap(HeapInterface* heap) : heap_(heap) {
 SimpleBlockHeap::~SimpleBlockHeap() {
 }
 
+HeapType SimpleBlockHeap::GetHeapType() const {
+  return heap_->GetHeapType();
+}
+
 uint32 SimpleBlockHeap::GetHeapFeatures() const {
   return heap_->GetHeapFeatures();
 }

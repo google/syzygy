@@ -73,6 +73,11 @@ class TestZebraBlockHeap : public ZebraBlockHeap {
 
 }  // namespace
 
+TEST(ZebraBlockHeapTest, GetHeapTypeIsValid) {
+  TestZebraBlockHeap h;
+  EXPECT_EQ(kZebraBlockHeap, h.GetHeapType());
+}
+
 TEST(ZebraBlockHeapTest, FeaturesAreValid) {
   TestZebraBlockHeap h;
   EXPECT_EQ(HeapInterface::kHeapSupportsIsAllocated |

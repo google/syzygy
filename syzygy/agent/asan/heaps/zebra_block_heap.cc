@@ -73,6 +73,10 @@ ZebraBlockHeap::~ZebraBlockHeap() {
   heap_address_ = NULL;
 }
 
+HeapType ZebraBlockHeap::GetHeapType() const {
+  return kZebraBlockHeap;
+}
+
 uint32 ZebraBlockHeap::GetHeapFeatures() const {
   return kHeapSupportsIsAllocated | kHeapReportsReservations |
       kHeapSupportsGetAllocationSize;

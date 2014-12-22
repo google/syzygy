@@ -29,6 +29,17 @@
 namespace agent {
 namespace asan {
 
+// An enumeration of known heap types. New heaps should be added strictly
+// to the end of this list.
+enum HeapType {
+  // A catch-all heap type for test fixtures, etc.
+  kUnknownHeapType,
+  kWinHeap,
+  kCtMallocHeap,
+  kLargeBlockHeap,
+  kZebraBlockHeap,
+};
+
 // An extremely simple heap interface. More advanced heap features are
 // provided by the instrumentation layer which is overlaid on top of a
 // raw heap. This is the API for a heap that performs actual memory
@@ -69,6 +80,10 @@ class HeapInterface {
 
   // Virtual destructor.
   virtual ~HeapInterface() { }
+
+  // Reports the tpe of this heap.
+  // @returns the type of this heap.
+  virtual HeapType GetHeapType() const = 0;
 
   // @returns the heap features.
   virtual uint32 GetHeapFeatures() const = 0;

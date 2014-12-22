@@ -19,6 +19,7 @@
 #define SYZYGY_AGENT_ASAN_ERROR_INFO_H_
 
 #include "base/callback.h"
+#include "syzygy/agent/asan/heap.h"
 #include "syzygy/agent/common/stack_capture.h"
 
 namespace agent {
@@ -91,6 +92,8 @@ struct AsanBlockInfo {
   uint8 alloc_stack_size;
   // The size of the free stack trace.
   uint8 free_stack_size;
+  // The type of heap that made the allocation.
+  HeapType heap_type;
 };
 
 struct AsanCorruptBlockRange {

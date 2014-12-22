@@ -34,6 +34,12 @@ typedef std::set<BlockInfo, BlockInfoLessThan> BlockInfoSet;
 
 }  // namespace
 
+TEST(SimpleBlockHeapTest, GetHeapTypeIsValid) {
+  WinHeap win_heap;
+  SimpleBlockHeap h(&win_heap);
+  EXPECT_EQ(win_heap.GetHeapType(), h.GetHeapType());
+}
+
 TEST(SimpleBlockHeapTest, FeaturesAreValid) {
   WinHeap win_heap;
   SimpleBlockHeap h(&win_heap);

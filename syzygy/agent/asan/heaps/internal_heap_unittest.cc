@@ -30,6 +30,13 @@ using testing::Return;
 
 }  // namespace
 
+TEST(InternalHeapTest, GetHeapTypeIsValid) {
+  memory_notifiers::NullMemoryNotifier mock_notifier;
+  WinHeap win_heap;
+  InternalHeap h(&mock_notifier, &win_heap);
+  EXPECT_EQ(win_heap.GetHeapType(), h.GetHeapType());
+}
+
 TEST(InternalHeapTest, EndToEnd) {
   memory_notifiers::NullMemoryNotifier mock_notifier;
   WinHeap win_heap;

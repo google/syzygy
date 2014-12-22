@@ -435,6 +435,7 @@ class LenientMockHeap : public agent::asan::HeapInterface {
  public:
   LenientMockHeap() { }
   virtual ~LenientMockHeap() { }
+  MOCK_CONST_METHOD0(GetHeapType, agent::asan::HeapType());
   MOCK_CONST_METHOD0(GetHeapFeatures, uint32());
   MOCK_METHOD1(Allocate, void*(size_t));
   MOCK_METHOD1(Free, bool(void*));
@@ -531,6 +532,9 @@ class MemoryAccessorTester {
 class DummyHeap : public agent::asan::HeapInterface {
  public:
   virtual ~DummyHeap() { }
+  virtual agent::asan::HeapType GetHeapType() const {
+    return agent::asan::kUnknownHeapType;
+  }
   virtual uint32 GetHeapFeatures() const { return 0; }
   virtual void* Allocate(size_t bytes) { return ::malloc(bytes); }
   virtual bool Free(void* alloc) { ::free(alloc); return true; }

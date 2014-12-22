@@ -22,6 +22,12 @@ namespace agent {
 namespace asan {
 namespace heaps {
 
+TEST(CtMallocHeapTest, GetHeapTypeIsValid) {
+  testing::NullMemoryNotifier n;
+  CtMallocHeap h(&n);
+  EXPECT_EQ(kCtMallocHeap, h.GetHeapType());
+}
+
 TEST(CtMallocHeapTest, FeaturesAreValid) {
   testing::NullMemoryNotifier n;
   CtMallocHeap h(&n);

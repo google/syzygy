@@ -69,6 +69,10 @@ CtMallocHeap::~CtMallocHeap() {
   allocator_.shutdown();
 }
 
+HeapType CtMallocHeap::GetHeapType() const {
+  return kCtMallocHeap;
+}
+
 uint32 CtMallocHeap::GetHeapFeatures() const {
   return kHeapReportsReservations | kHeapSupportsIsAllocated |
       kHeapSupportsGetAllocationSize | kHeapGetAllocationSizeIsUpperBound;

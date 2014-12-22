@@ -48,6 +48,7 @@ class InternalHeap : public HeapInterface {
 
   // @name HeapInterface functions.
   // @{
+  virtual HeapType GetHeapType() const;
   virtual uint32 GetHeapFeatures() const;
   virtual void* Allocate(size_t bytes);
   virtual bool Free(void* alloc);

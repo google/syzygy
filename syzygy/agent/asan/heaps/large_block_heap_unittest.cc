@@ -43,6 +43,11 @@ class TestLargeBlockHeap : public LargeBlockHeap {
 
 }  // namespace
 
+TEST(LargeBlockHeapTest, GetHeapTypeIsValid) {
+  TestLargeBlockHeap h;
+  EXPECT_EQ(kLargeBlockHeap, h.GetHeapType());
+}
+
 TEST(LargeBlockHeapTest, FeaturesAreValid) {
   TestLargeBlockHeap h;
   EXPECT_EQ(HeapInterface::kHeapSupportsIsAllocated |

@@ -29,6 +29,11 @@ class TestWinHeap : public WinHeap {
 
 }  // namespace
 
+TEST(WinHeapTest, GetHeapTypeIsValid) {
+  WinHeap h;
+  EXPECT_EQ(kWinHeap, h.GetHeapType());
+}
+
 TEST(WinHeapTest, FeaturesAreValid) {
   WinHeap h;
   EXPECT_EQ(WinHeap::kHeapSupportsGetAllocationSize,

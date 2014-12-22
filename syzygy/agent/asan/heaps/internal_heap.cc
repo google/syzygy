@@ -42,6 +42,10 @@ InternalHeap::InternalHeap(MemoryNotifierInterface* memory_notifier,
       heap_->GetHeapFeatures() & HeapInterface::kHeapReportsReservations;
 }
 
+HeapType InternalHeap::GetHeapType() const {
+  return heap_->GetHeapType();
+}
+
 uint32 InternalHeap::GetHeapFeatures() const {
   // Endow a wrapped heap with GetAllocationSize support.
   return heap_->GetHeapFeatures() | kHeapSupportsGetAllocationSize |
