@@ -18,53 +18,19 @@
 #include <Dbgeng.h>
 
 #include "base/bind.h"
-#include "base/callback.h"
-#include "base/callback_helpers.h"
 #include "base/file_util.h"
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
-#include "base/win/scoped_comptr.h"
 #include "gtest/gtest.h"
+#include "syzygy/kasko/testing/minidump_unittest_helpers.h"
 
 namespace kasko {
 
 namespace {
 
-void EndSession(IDebugClient* debug_client) {
-  EXPECT_HRESULT_SUCCEEDED(
-      debug_client->EndSession(DEBUG_END_ACTIVE_TERMINATE));
-}
-
-void VerifyMinidumpFile(const base::FilePath& dump_file_path) {
-  // Create a debugging client.
-  base::win::ScopedComPtr<IDebugClient4> debug_client_4;
-  base::win::ScopedComPtr<IDebugClient> debug_client;
-  ASSERT_HRESULT_SUCCEEDED(
-      DebugCreate(__uuidof(IDebugClient4), debug_client_4.ReceiveVoid()));
-  ASSERT_HRESULT_SUCCEEDED(debug_client_4.QueryInterface(
-      __uuidof(IDebugClient), debug_client.ReceiveVoid()));
-
-  // Ask the debugger to open our dump file.
-  ASSERT_HRESULT_SUCCEEDED(
-      debug_client_4->OpenDumpFileWide(dump_file_path.value().c_str(), NULL));
-
-  // Now that we have started a debugging session must ensure we will terminate
-  // it when the test completes. Otherwise the dump file will remain open and we
-  // won't be able to clean up our temporary directory.
-  base::ScopedClosureRunner end_debugger_session(
-      base::Bind(&EndSession, base::Unretained(debug_client.get())));
-
-  // The following will block until the dump file has finished loading.
-  base::win::ScopedComPtr<IDebugControl> debug_control;
-  ASSERT_HRESULT_SUCCEEDED(debug_client_4.QueryInterface(
-      __uuidof(IDebugControl), debug_control.ReceiveVoid()));
-  ASSERT_HRESULT_SUCCEEDED(debug_control->WaitForEvent(0, INFINITE));
-
-  // Simple sanity test that the dump contained the expected data.
-  base::win::ScopedComPtr<IDebugSymbols> debug_symbols;
-  ASSERT_HRESULT_SUCCEEDED(debug_client_4.QueryInterface(
-      __uuidof(IDebugSymbols), debug_symbols.ReceiveVoid()));
-
+void ValidateMinidump(IDebugClient4* debug_client,
+                      IDebugControl* debug_control,
+                      IDebugSymbols* debug_symbols) {
   ASSERT_HRESULT_SUCCEEDED(
       debug_symbols->GetModuleByModuleName("kasko_unittests", 0, NULL, NULL));
 }
@@ -79,7 +45,8 @@ TEST(MinidumpTest, GenerateAndLoad) {
   ASSERT_TRUE(kasko::GenerateMinidump(dump_file_path, ::GetCurrentProcessId(),
                                       0, NULL));
 
-  VerifyMinidumpFile(dump_file_path);
+  ASSERT_HRESULT_SUCCEEDED(
+      testing::VisitMinidump(dump_file_path, base::Bind(&ValidateMinidump)));
 }
 
 TEST(MinidumpTest, OverwriteExistingFile) {
@@ -89,8 +56,8 @@ TEST(MinidumpTest, OverwriteExistingFile) {
   ASSERT_TRUE(base::CreateTemporaryFileInDir(temp_dir.path(), &dump_file_path));
   ASSERT_TRUE(kasko::GenerateMinidump(dump_file_path, ::GetCurrentProcessId(),
                                       0, NULL));
-
-  VerifyMinidumpFile(dump_file_path);
+  ASSERT_HRESULT_SUCCEEDED(
+      testing::VisitMinidump(dump_file_path, base::Bind(&ValidateMinidump)));
 }
 
 }  // namespace kasko

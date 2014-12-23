@@ -151,6 +151,8 @@
         'upload_unittest.cc',
         'user_agent_unittest.cc',
         'waitable_timer_impl_unittest.cc',
+        'testing/minidump_unittest_helpers.cc',
+        'testing/minidump_unittest_helpers.h',
         'testing/test_server.cc',
         'testing/test_server.h',
       ],
