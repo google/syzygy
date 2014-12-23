@@ -17,8 +17,10 @@ import cgi
 import msvcrt
 import optparse
 import os
+import re
 import struct
 import sys
+import uuid
 
 def serve_file_handler(file_path):
   class ServeFileHandler(BaseHTTPServer.BaseHTTPRequestHandler):
@@ -35,30 +37,51 @@ def serve_file_handler(file_path):
       self.wfile.write(contents)
   return ServeFileHandler
 
-class MultipartFormHandler(BaseHTTPServer.BaseHTTPRequestHandler):
-  def __init__(self, request, client_address, socket_server):
-    BaseHTTPServer.BaseHTTPRequestHandler.__init__(
-      self, request, client_address, socket_server)
+def multipart_form_handler(incoming_directory):
+  class MultipartFormHandler(BaseHTTPServer.BaseHTTPRequestHandler):
+    def __init__(self, request, client_address, socket_server):
+      BaseHTTPServer.BaseHTTPRequestHandler.__init__(
+        self, request, client_address, socket_server)
 
-  def do_POST(self):
-    content_type, parameters = cgi.parse_header(
-        self.headers.getheader('content-type'))
-    if content_type != 'multipart/form-data':
-      raise Exception('Unsupported Content-Type: ' + content_type)
-    post_multipart = cgi.parse_multipart(self.rfile, parameters)
-
-    self.send_response(200)
-    self.send_header("Content-Type", "text/plain")
-    self.end_headers()
-    for field, values in post_multipart.items():
-      self.wfile.write(field + '=' + ','.join(values) + '\r\n')
-
+    def do_POST(self):
+      content_type, parameters = cgi.parse_header(
+          self.headers.getheader('content-type'))
+      if content_type != 'multipart/form-data':
+        raise Exception('Unsupported Content-Type: ' + content_type)
+      post_multipart = cgi.parse_multipart(self.rfile, parameters)
+      if self.path == '/crash_failure':
+        self.send_response(500)
+        self.end_headers()
+      elif self.path == '/crash':
+        report_id = str(uuid.uuid4())
+        if len(incoming_directory):
+          report_directory = os.path.join(incoming_directory, report_id)
+          os.mkdir(report_directory)
+          for field, values in post_multipart.items():
+            if re.match('^[a-zA-Z0-9_-]+$', field):
+              f = open(os.path.join(report_directory, field), 'wb+')
+              f.write(','.join(values))
+              f.close()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(report_id)
+      else:
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        for field, values in post_multipart.items():
+          self.wfile.write(field + '=' + ','.join(values) + '\r\n')
+  return MultipartFormHandler
 
 if __name__ == '__main__':
   option_parser = optparse.OptionParser()
   option_parser.add_option('--startup-pipe', type='int',
                            dest='startup_pipe',
                            help='File handle of pipe to parent process')
+  option_parser.add_option('--incoming-directory',
+                           dest='incoming_directory',
+                           help='Path where uploaded files should be written')
   option_parser.add_option('--serve-file',
                            dest='serve_file',
                            help='Path to a file that should be served in '
@@ -66,9 +89,11 @@ if __name__ == '__main__':
 
   options, args = option_parser.parse_args()
 
-  page_handler = MultipartFormHandler
   if options.serve_file:
     page_handler = serve_file_handler(options.serve_file)
+  else:
+    page_handler = multipart_form_handler(options.incoming_directory)
+
   server = BaseHTTPServer.HTTPServer(('127.0.0.1', 0), page_handler)
 
   print 'HTTP server started on http://127.0.0.1:%d...' % \

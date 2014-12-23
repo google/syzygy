@@ -18,6 +18,7 @@
 #include <stdint.h>
 
 #include "base/macros.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/win/scoped_handle.h"
 
 namespace kasko {
@@ -35,7 +36,11 @@ class TestServer {
   // Returns the port that the server is listening on.
   uint16_t port() { return port_; }
 
+  // Returns the directory that the test server writes uploaded files to.
+  base::FilePath incoming_directory() { return incoming_directory_.path(); }
+
  private:
+  base::ScopedTempDir incoming_directory_;
   // Handle of the Python process running the test server.
   base::win::ScopedHandle process_handle_;
 

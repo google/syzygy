@@ -24,6 +24,7 @@
 #include "base/process/kill.h"
 #include "base/process/launch.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/test/test_timeouts.h"
 #include "base/threading/thread.h"
 #include "syzygy/common/com_utils.h"
@@ -99,6 +100,11 @@ TestServer::~TestServer() {
 }
 
 bool TestServer::Start() {
+  if (!incoming_directory_.CreateUniqueTempDir()) {
+    LOG(ERROR) << "Failed to create temporary 'incoming' directory.";
+    return false;
+  }
+
   // We will open a pipe used by the child process to indicate its chosen port.
   base::win::ScopedHandle read_fd;
   base::win::ScopedHandle write_fd;
@@ -140,6 +146,10 @@ bool TestServer::Start() {
     python_command.AppendArg(
         "--startup-pipe=" +
         base::IntToString(reinterpret_cast<uintptr_t>(write_fd.Get())));
+
+    python_command.AppendArg(
+        "--incoming-directory=" +
+        base::UTF16ToUTF8(incoming_directory_.path().value()));
 
     base::LaunchOptions launch_options;
     launch_options.inherit_handles = true;
