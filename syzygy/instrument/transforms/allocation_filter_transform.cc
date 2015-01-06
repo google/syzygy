@@ -297,8 +297,13 @@ bool AllocationFilterTransform::ReadFromJSON(const std::string& json,
     FunctionNameOffsetMap* targets) {
   DCHECK_NE(static_cast<FunctionNameOffsetMap*>(NULL), targets);
   scoped_ptr<Value> value(base::JSONReader::Read(json));
-  if (value.get() == NULL || value->GetType() != Value::TYPE_DICTIONARY) {
-    LOG(ERROR) << "'json' string does not contain a valid JSON dictionary.";
+  if (value.get() == NULL) {
+    LOG(INFO) << "Ignoring invalid or empty allocation filter file.";
+    return true;
+  }
+
+  if (value->GetType() != Value::TYPE_DICTIONARY) {
+    LOG(ERROR) << "Invalid allocation filter transform file.";
     return false;
   }
 

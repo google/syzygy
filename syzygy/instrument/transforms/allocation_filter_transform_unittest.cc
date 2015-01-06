@@ -52,8 +52,6 @@ typedef AllocationFilterTransform::FunctionNameOffsetMap
 static wchar_t kConfigBadPathDoesNotExist[] =
     L"syzygy/instrument/test_data/"
     L"allocation-filter-bad-path-does-not-exist.json";
-static wchar_t kConfigBadEmpty[] =
-    L"syzygy/instrument/test_data/allocation-filter-bad-empty.json";
 static wchar_t kConfigBadInvalidkey[] =
     L"syzygy/instrument/test_data/allocation-filter-bad-invalid-key.json";
 static wchar_t kConfigBadInvalidOffsetList[] =
@@ -63,13 +61,10 @@ static wchar_t kConfigBadList[] =
     L"syzygy/instrument/test_data/allocation-filter-bad-list.json";
 static wchar_t kConfigBadNegativeOffset[] =
     L"syzygy/instrument/test_data/allocation-filter-bad-negative-offset.json";
-static wchar_t kConfigBadNoOuterDictionary[] =
-    L"syzygy/instrument/test_data/"
-    L"allocation-filter-bad-no-outer-dictionary.json";
-static wchar_t kConfigBadNotJson[] =
-    L"syzygy/instrument/test_data/allocation-filter-bad-not-json.json";
 static wchar_t kConfigBadString[] =
     L"syzygy/instrument/test_data/allocation-filter-bad-string.json";
+static wchar_t kConfigGoodEmpty[] =
+    L"syzygy/instrument/test_data/allocation-filter-good-empty.json";
 static wchar_t kConfigGoodFull[] =
     L"syzygy/instrument/test_data/allocation-filter-good-full.json";
 static wchar_t kConfigGoodMinimal[] =
@@ -497,13 +492,6 @@ TEST_F(AllocationFilterTransformTest, JSONFailsPathDoesNotExists) {
   EXPECT_FALSE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
 }
 
-TEST_F(AllocationFilterTransformTest, JSONFailsEmpty) {
-  base::FilePath config_file = testing::GetSrcRelativePath(
-      kConfigBadEmpty);
-  FunctionNameOffsetMap output;
-  EXPECT_FALSE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
-}
-
 TEST_F(AllocationFilterTransformTest, JSONFailsInvalidkey) {
   base::FilePath config_file = testing::GetSrcRelativePath(
       kConfigBadInvalidkey);
@@ -532,25 +520,18 @@ TEST_F(AllocationFilterTransformTest, JSONFailsNegativeOffset) {
   EXPECT_FALSE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
 }
 
-TEST_F(AllocationFilterTransformTest, JSONFailsNoOuterDictionary) {
-  base::FilePath config_file = testing::GetSrcRelativePath(
-     kConfigBadNoOuterDictionary);
-  FunctionNameOffsetMap output;
-  EXPECT_FALSE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
-}
-
-TEST_F(AllocationFilterTransformTest, JSONFailsNotJson) {
-  base::FilePath config_file = testing::GetSrcRelativePath(
-      kConfigBadNotJson);
-  FunctionNameOffsetMap output;
-  EXPECT_FALSE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
-}
-
 TEST_F(AllocationFilterTransformTest, JSONFailsString) {
   base::FilePath config_file = testing::GetSrcRelativePath(
       kConfigBadString);
   FunctionNameOffsetMap output;
   EXPECT_FALSE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
+}
+
+TEST_F(AllocationFilterTransformTest, JSONLoadsEmpty) {
+  base::FilePath config_file = testing::GetSrcRelativePath(
+      kConfigGoodEmpty);
+  FunctionNameOffsetMap output;
+  EXPECT_TRUE(AllocationFilterTransform::ReadFromJSON(config_file, &output));
 }
 
 TEST_F(AllocationFilterTransformTest, JSONLoadsFull) {

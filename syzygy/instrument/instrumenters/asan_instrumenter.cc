@@ -89,9 +89,8 @@ bool AsanInstrumenter::InstrumentImpl() {
   if (!relinker_->AppendTransform(asan_transform_.get()))
     return false;
 
-  // Append the AllocationFilter transform if a configuration file was
-  // specified.
-  if (!allocation_filter_config_file_path_.empty()) {
+  // Append the AllocationFilter transform if necessary.
+  if (af_transform_.get() != nullptr) {
     if (!relinker_->AppendTransform(af_transform_.get()))
       return false;
   }
