@@ -443,10 +443,8 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 
   void EndToEndCheckTestDll() {
     // Validate that behavior is unchanged after instrumentation.
-    EXPECT_EQ(0xfff80200,
-              InvokeTestDllFunction(testing::kArrayComputation1TestId));
-    EXPECT_EQ(0x00000200,
-              InvokeTestDllFunction(testing::kArrayComputation2TestId));
+    EXPECT_EQ(0xfff80200, InvokeTestDllFunction(testing::kArrayComputation1));
+    EXPECT_EQ(0x00000200, InvokeTestDllFunction(testing::kArrayComputation2));
   }
 
   bool AsanErrorCheck(testing::EndToEndTestId test,
@@ -499,58 +497,58 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
   }
 
   void AsanErrorCheckTestDll() {
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead8BufferOverflowTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead8BufferOverflow,
         HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead16BufferOverflowTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead16BufferOverflow,
         HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 2, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead32BufferOverflowTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead32BufferOverflow,
         HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 4, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead64BufferOverflowTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead64BufferOverflow,
         HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 8, 1, false));
 
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead8BufferUnderflowTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead8BufferUnderflow,
         HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead16BufferUnderflowTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead16BufferUnderflow,
         HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 2, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead32BufferUnderflowTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead32BufferUnderflow,
         HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 4, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead64BufferUnderflowTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead64BufferUnderflow,
         HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 8, 1, false));
 
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite8BufferOverflowTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite8BufferOverflow,
         HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 1, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite16BufferOverflowTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite16BufferOverflow,
         HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 2, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite32BufferOverflowTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite32BufferOverflow,
         HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 4, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite64BufferOverflowTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite64BufferOverflow,
         HEAP_BUFFER_OVERFLOW, ASAN_WRITE_ACCESS, 8, 1, false));
 
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite8BufferUnderflowTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite8BufferUnderflow,
         HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 1, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite16BufferUnderflowTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite16BufferUnderflow,
         HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 2, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite32BufferUnderflowTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite32BufferUnderflow,
         HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 4, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite64BufferUnderflowTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite64BufferUnderflow,
         HEAP_BUFFER_UNDERFLOW, ASAN_WRITE_ACCESS, 8, 1, false));
 
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead8UseAfterFreeTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead8UseAfterFree,
         USE_AFTER_FREE, ASAN_READ_ACCESS, 1, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead16UseAfterFreeTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead16UseAfterFree,
         USE_AFTER_FREE, ASAN_READ_ACCESS, 2, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead32UseAfterFreeTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead32UseAfterFree,
         USE_AFTER_FREE, ASAN_READ_ACCESS, 4, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead64UseAfterFreeTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanRead64UseAfterFree,
         USE_AFTER_FREE, ASAN_READ_ACCESS, 8, 1, false));
 
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite8UseAfterFreeTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite8UseAfterFree,
         USE_AFTER_FREE, ASAN_WRITE_ACCESS, 1, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite16UseAfterFreeTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite16UseAfterFree,
         USE_AFTER_FREE, ASAN_WRITE_ACCESS, 2, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite32UseAfterFreeTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite32UseAfterFree,
         USE_AFTER_FREE, ASAN_WRITE_ACCESS, 4, 1, false));
-    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite64UseAfterFreeTestId,
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWrite64UseAfterFree,
         USE_AFTER_FREE, ASAN_WRITE_ACCESS, 8, 1, false));
   }
 
@@ -563,23 +561,23 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     size_t good = 0;
     size_t test = 0;
     while (test < 1000) {
-      good += FilteredAsanErrorCheck(testing::kAsanRead8BufferOverflowTestId,
+      good += FilteredAsanErrorCheck(testing::kAsanRead8BufferOverflow,
           HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1, 1, false) ? 1 : 0;
-      good += FilteredAsanErrorCheck(testing::kAsanRead16BufferOverflowTestId,
+      good += FilteredAsanErrorCheck(testing::kAsanRead16BufferOverflow,
           HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 2, 1, false) ? 1 : 0;
-      good += FilteredAsanErrorCheck(testing::kAsanRead32BufferOverflowTestId,
+      good += FilteredAsanErrorCheck(testing::kAsanRead32BufferOverflow,
           HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 4, 1, false) ? 1 : 0;
-      good += FilteredAsanErrorCheck(testing::kAsanRead64BufferOverflowTestId,
+      good += FilteredAsanErrorCheck(testing::kAsanRead64BufferOverflow,
           HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 8, 1, false) ? 1 : 0;
       test += 4;
 
-      good += FilteredAsanErrorCheck(testing::kAsanRead8BufferUnderflowTestId,
+      good += FilteredAsanErrorCheck(testing::kAsanRead8BufferUnderflow,
           HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1, 1, false) ? 1 : 0;
-      good += FilteredAsanErrorCheck(testing::kAsanRead16BufferUnderflowTestId,
+      good += FilteredAsanErrorCheck(testing::kAsanRead16BufferUnderflow,
           HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 2, 1, false) ? 1 : 0;
-      good += FilteredAsanErrorCheck(testing::kAsanRead32BufferUnderflowTestId,
+      good += FilteredAsanErrorCheck(testing::kAsanRead32BufferUnderflow,
           HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 4, 1, false) ? 1 : 0;
-      good += FilteredAsanErrorCheck(testing::kAsanRead64BufferUnderflowTestId,
+      good += FilteredAsanErrorCheck(testing::kAsanRead64BufferUnderflow,
           HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 8, 1, false) ? 1 : 0;
       test += 4;
     }

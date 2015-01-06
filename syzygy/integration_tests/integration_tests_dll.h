@@ -22,52 +22,37 @@ namespace testing {
 // This macro declares the tests ids and the function that they're associated
 // with.
 #define END_TO_END_TEST_ID_TABLE(decl) \
-    decl(kArrayComputation1TestId, testing::ArrayComputation1)  \
-    decl(kArrayComputation2TestId, testing::ArrayComputation2)  \
-    decl(kAsanRead8BufferOverflowTestId,  \
-         testing::AsanReadBufferOverflow<int8>)  \
-    decl(kAsanRead16BufferOverflowTestId,  \
-         testing::AsanReadBufferOverflow<int16>)  \
-    decl(kAsanRead32BufferOverflowTestId,  \
-         testing::AsanReadBufferOverflow<int32>)  \
-    decl(kAsanRead64BufferOverflowTestId,  \
-         testing::AsanReadBufferOverflow<double>)  \
-    decl(kAsanRead8BufferUnderflowTestId,  \
-         testing::AsanReadBufferUnderflow<int8>)  \
-    decl(kAsanRead16BufferUnderflowTestId,  \
-         testing::AsanReadBufferUnderflow<int16>)  \
-    decl(kAsanRead32BufferUnderflowTestId,  \
-         testing::AsanReadBufferUnderflow<int32>)  \
-    decl(kAsanRead64BufferUnderflowTestId,  \
+    decl(kArrayComputation1, testing::ArrayComputation1)  \
+    decl(kArrayComputation2, testing::ArrayComputation2)  \
+    decl(kAsanRead8BufferOverflow, testing::AsanReadBufferOverflow<int8>)  \
+    decl(kAsanRead16BufferOverflow, testing::AsanReadBufferOverflow<int16>)  \
+    decl(kAsanRead32BufferOverflow, testing::AsanReadBufferOverflow<int32>)  \
+    decl(kAsanRead64BufferOverflow, testing::AsanReadBufferOverflow<double>)  \
+    decl(kAsanRead8BufferUnderflow, testing::AsanReadBufferUnderflow<int8>)  \
+    decl(kAsanRead16BufferUnderflow, testing::AsanReadBufferUnderflow<int16>)  \
+    decl(kAsanRead32BufferUnderflow, testing::AsanReadBufferUnderflow<int32>)  \
+    decl(kAsanRead64BufferUnderflow,  \
          testing::AsanReadBufferUnderflow<double>)  \
-    decl(kAsanWrite8BufferOverflowTestId,  \
-         testing::AsanWriteBufferOverflow<int8>)  \
-    decl(kAsanWrite16BufferOverflowTestId,  \
-         testing::AsanWriteBufferOverflow<int16>)  \
-    decl(kAsanWrite32BufferOverflowTestId,  \
-         testing::AsanWriteBufferOverflow<int32>)  \
-    decl(kAsanWrite64BufferOverflowTestId,  \
+    decl(kAsanWrite8BufferOverflow, testing::AsanWriteBufferOverflow<int8>)  \
+    decl(kAsanWrite16BufferOverflow, testing::AsanWriteBufferOverflow<int16>)  \
+    decl(kAsanWrite32BufferOverflow, testing::AsanWriteBufferOverflow<int32>)  \
+    decl(kAsanWrite64BufferOverflow,  \
          testing::AsanWriteBufferOverflow<double>)  \
-    decl(kAsanWrite8BufferUnderflowTestId,  \
-         testing::AsanWriteBufferUnderflow<int8>)  \
-    decl(kAsanWrite16BufferUnderflowTestId,  \
+    decl(kAsanWrite8BufferUnderflow, testing::AsanWriteBufferUnderflow<int8>)  \
+    decl(kAsanWrite16BufferUnderflow,  \
          testing::AsanWriteBufferUnderflow<int16>)  \
-    decl(kAsanWrite32BufferUnderflowTestId,  \
+    decl(kAsanWrite32BufferUnderflow,  \
          testing::AsanWriteBufferUnderflow<int32>)  \
-    decl(kAsanWrite64BufferUnderflowTestId,  \
+    decl(kAsanWrite64BufferUnderflow,  \
          testing::AsanWriteBufferUnderflow<double>)  \
-    decl(kAsanRead8UseAfterFreeTestId, testing::AsanReadUseAfterFree<int8>)  \
-    decl(kAsanRead16UseAfterFreeTestId, testing::AsanReadUseAfterFree<int16>)  \
-    decl(kAsanRead32UseAfterFreeTestId, testing::AsanReadUseAfterFree<int32>)  \
-    decl(kAsanRead64UseAfterFreeTestId,  \
-         testing::AsanReadUseAfterFree<double>)  \
-    decl(kAsanWrite8UseAfterFreeTestId, testing::AsanWriteUseAfterFree<int8>)  \
-    decl(kAsanWrite16UseAfterFreeTestId,  \
-         testing::AsanWriteUseAfterFree<int16>)  \
-    decl(kAsanWrite32UseAfterFreeTestId,  \
-         testing::AsanWriteUseAfterFree<int32>)  \
-    decl(kAsanWrite64UseAfterFreeTestId,  \
-         testing::AsanWriteUseAfterFree<double>)  \
+    decl(kAsanRead8UseAfterFree, testing::AsanReadUseAfterFree<int8>)  \
+    decl(kAsanRead16UseAfterFree, testing::AsanReadUseAfterFree<int16>)  \
+    decl(kAsanRead32UseAfterFree, testing::AsanReadUseAfterFree<int32>)  \
+    decl(kAsanRead64UseAfterFree, testing::AsanReadUseAfterFree<double>)  \
+    decl(kAsanWrite8UseAfterFree, testing::AsanWriteUseAfterFree<int8>)  \
+    decl(kAsanWrite16UseAfterFree, testing::AsanWriteUseAfterFree<int16>)  \
+    decl(kAsanWrite32UseAfterFree, testing::AsanWriteUseAfterFree<int32>)  \
+    decl(kAsanWrite64UseAfterFree, testing::AsanWriteUseAfterFree<double>)  \
     decl(kAsanMemsetOverflow, testing::AsanMemsetOverflow<int32>)  \
     decl(kAsanMemsetUnderflow, testing::AsanMemsetUnderflow<int8>)  \
     decl(kAsanMemsetUseAfterFree, testing::AsanMemsetUseAfterFree<size_t>)  \
@@ -171,8 +156,7 @@ namespace testing {
          testing::AsanReadPageAllocationTrailerBeforeFree)  \
     decl(kAsanWritePageAllocationBodyAfterFree,  \
          testing::AsanWritePageAllocationBodyAfterFree)  \
-    decl(kAsanMemcmpAccessViolation,  \
-         testing::AsanMemcmpAccessViolation)  \
+    decl(kAsanMemcmpAccessViolation, testing::AsanMemcmpAccessViolation)  \
     decl(kAsanCorruptBlockWithPageProtections,  \
          testing::AsanCorruptBlockWithPageProtections)
 
