@@ -37,15 +37,10 @@ _DEFAULT_CDB_PATHS = [
 
 
 # The frame containing the error info structure.
-_BAD_ACCESS_INFO_FRAME = 'asan_rtl!agent::asan::AsanRuntime::OnError'
-
-
-# Various command that'll be run in the debugger.
-_GET_BAD_ACCESS_INFO_COMMAND = 'dt -o error_info'
-_GET_ALLOC_STACK_COMMAND = 'dps @@(&error_info->alloc_stack) ' \
-                           'l@@(error_info->alloc_stack_size);'
-_GET_FREE_STACK_COMMAND = 'dps @@(&error_info->free_stack) ' \
-                          'l@@(error_info->free_stack_size);'
+_BAD_ACCESS_INFO_FRAMES = [
+    'asan_rtl!agent::asan::AsanRuntime::OnError',
+    'syzyasan_rtl!agent::asan::AsanRuntime::ExceptionFilterImpl',
+]
 
 
 # The helper string that will be included at the beginning of the printed crash
@@ -53,6 +48,39 @@ _GET_FREE_STACK_COMMAND = 'dps @@(&error_info->free_stack) ' \
 _ERROR_HELP_URL = 'You can go to \
 https://code.google.com/p/syzygy/wiki/SyzyASanBug to get more information \
 about how to treat this bug.'
+
+
+# Command to print the error info structure.
+_GET_BAD_ACCESS_INFO_COMMAND = 'dt -o error_info'
+
+
+# Template command to print a stack trace from an error info structure.
+#
+# Here's the description of the keyword to use in this template:
+#     - operand: The operator to use to access the structure ('.' or '->').
+#     - type: The stack trace type ('alloc' or 'free')
+_GET_STACK_COMMAND_TEMPLATE = (
+    'dps @@(&error_info{operand}{type}_stack) '
+    'l@@(error_info{operand}{type}_stack_size);'
+  )
+
+
+# Template command to print the stack trace of a corrupt block from an error
+# info structure.
+#
+# Here's the description of the keyword to use in this template:
+#     - operand: The operator to use to access the structure ('.' or '->').
+#     - range_idx: The corrupt range index.
+#     - block_idx: The block index in its range.
+#     - type: The stack trace type ('alloc' or 'free')
+_GET_CORRUPT_BLOCK_STACK_TRACE_TEMPLATE = (
+  'dps @@(((syzyasan_rtl!agent::asan::AsanCorruptBlockRange*)'
+  '(error_info{operand}corrupt_ranges))[{range_idx}].block_info[{block_idx}].'
+  '{type}_stack) '
+  'L@@(((syzyasan_rtl!agent::asan::AsanCorruptBlockRange*)'
+  '(error_info{operand}corrupt_ranges))[{range_idx}].block_info[{block_idx}].'
+  '{type}_stack_size)'
+)
 
 
 # A named tuple that will contain an ASan crash report.
@@ -64,7 +92,8 @@ ASanReport = namedtuple('ASanReport',
                         'alloc_stack_hash '
                         'free_stack '
                         'free_stack_hash '
-                        'corrupt_heap_info')
+                        'corrupt_heap_info '
+                        'from_uef')
 
 
 # Match a stack frame as printed by cdb.exe (or windbg.exe).
@@ -72,6 +101,7 @@ ASanReport = namedtuple('ASanReport',
 # Here's some examples of stack frames that this regex will match:
 #   - 003cd6b8 0ff3a36b 007bff00 00004e84 003cd760 foo!bar+0x18
 #   - 003cd6b8 0ff3a36b 007bff00 00004e84 003cd760 0xcafebabe
+#   - (Inline) -------- -------- -------- -------- foo!bar+0x42
 #
 # Here's a description of the different groups in this regex:
 #     - args: The arguments in front of the module name.
@@ -80,9 +110,10 @@ ASanReport = namedtuple('ASanReport',
 #     - address: If the module name is not available then we'll get its address.
 _STACK_FRAME_RE = re.compile("""
     ^
-    (?P<args>([0-9A-F]+\ +)+)
+    (\(Inline\)\s)?
+    (?P<args>([0-9A-F\-]+\ +)+)
     (?:
-      (?P<module>[^ ]+)(!(?P<location>.*))? |
+      ((?P<module>[^ ]+)(!(?P<location>.*)))? |
       (?P<address>0x[0-9a-f]+)
     )
     $
@@ -105,7 +136,7 @@ _MODULE_MATCH_RE = re.compile("""
 
 
 # Match a Chrome frame in a stack trace.
-_CHROME_RE = re.compile('(chrome[_0-9A-F]+)', re.VERBOSE | re.IGNORECASE)
+_CHROME_RE = re.compile('^(chrome[_0-9A-F]+)$', re.VERBOSE | re.IGNORECASE)
 
 
 # Match a frame pointer in a stack frame as it is printed by a debugger.
@@ -118,27 +149,6 @@ _FRAME_POINTER_RE = re.compile(
 _ENUM_VAL_RE = re.compile(
     '\s*(?P<num_value>\d+)\s*\(\s*(?P<literal_value>[a-zA-Z0-9_]+)\s*\)',
     re.VERBOSE | re.IGNORECASE)
-
-
-def _Command(debugger, command):
-  """Execute a command in a debugger instance.
-
-  Args:
-    debugger: A handle to a cdb debugging session.
-    command: The command to execute.
-
-  Returns:
-    The output of the debugger after running this command.
-  """
-  debugger.stdin.write(command + '; .echo %s\n' % _SENTINEL)
-  lines = []
-  while True:
-    line = debugger.stdout.readline().rstrip()
-    # Sometimes the sentinel value is preceded by something like '0:000> '.
-    if line.endswith(_SENTINEL):
-      break
-    lines.append(line)
-  return lines
 
 
 def NormalizeChromeSymbol(symbol):
@@ -183,31 +193,6 @@ def NormalizeStackTrace(stack_trace):
   return (output_trace, trace_hash)
 
 
-def LoadSymbols(debugger, pdb_path):
-  """Loads the pdbs for the loaded modules if they are present in |pdb_path|
-
-  Args:
-    debugger: A handle to a cdb debugging session.
-    command: The path containing the pdbs.
-  """
-  pdbs = [f for f in os.listdir(pdb_path) if f.endswith('.pdb')]
-  # The path needs to be quoted to avoid including the sentinel value in cdb's
-  # symbol search path.
-  _Command(debugger, '.sympath \"%s\"' % pdb_path)
-  for line in _Command(debugger, 'lm n'):
-    m = _MODULE_MATCH_RE.match(line)
-    if m is None:
-      continue
-    image_name =  m.group('image_name')
-    if image_name is None:
-      continue
-    pdb_name = image_name + '.pdb'
-    if pdb_name in pdbs:
-      _Command(debugger, '.reload /fi %s' % image_name)
-
-  _Command(debugger, '.symfix')
-
-
 def DebugStructToDict(structure):
   """Converts a structure as printed by the debugger into a dictionary. The
   structure should have the following format:
@@ -231,7 +216,8 @@ def DebugStructToDict(structure):
   return ret
 
 
-def GetCorruptHeapInfo(debugger, bad_access_info_vals, bad_access_info_frame):
+def GetCorruptHeapInfo(debugger, bad_access_info_vals, bad_access_info_frame,
+                       from_uef):
   """Extract the information stored in the minidump about the heap corruption.
 
   Args:
@@ -240,14 +226,16 @@ def GetCorruptHeapInfo(debugger, bad_access_info_vals, bad_access_info_frame):
         invalid access.
     bad_access_info_frame: The number of the frame containing the error_info
         structure.
+    from_uef: Indicates if the error has been caught by the unhandled exception
+        filter.
 
   Returns:
     A list of corrupt ranges, each of them containing the information about the
     corrupt blocks in it.
   """
   # Reset the debugger context and jump to the frame containing the information.
-  corrupt_range_count = int(bad_access_info_vals['corrupt_range_count'])
-  _Command(debugger, '.cxr; .frame %X' % bad_access_info_frame)
+  corrupt_range_count = int(bad_access_info_vals['corrupt_range_count'], 16)
+  debugger.Command('.cxr; .frame %X' % bad_access_info_frame)
 
   corrupt_ranges = []
 
@@ -258,11 +246,12 @@ def GetCorruptHeapInfo(debugger, bad_access_info_vals, bad_access_info_frame):
     # When using the '??' operator in a debugging session to evaluate a
     # structure the offsets gets printed, this regex allows their removal.
     struct_field_re = re.compile('\s+\+0x[0-9a-f]+\s*(.*)')
+    operand = '.' if from_uef else '->'
 
     # Get the information about this corrupt range.
-    for line in _Command(debugger,
+    for line in debugger.Command(
         '?? ((syzyasan_rtl!agent::asan::AsanCorruptBlockRange*)'
-        '(error_info->corrupt_ranges))[%x]' % corrupt_range_idx):
+        '(error_info%scorrupt_ranges))[0x%x]' % (operand, corrupt_range_idx)):
       m = struct_field_re.match(line)
       if m:
         corrupt_range_info.append(m.group(1))
@@ -274,30 +263,40 @@ def GetCorruptHeapInfo(debugger, bad_access_info_vals, bad_access_info_frame):
     for block_info_idx in range(0, block_info_count):
       # Retrieves the information about the current block info structure.
       block_info = []
-      for line in _Command(debugger,
+      for line in debugger.Command(
           '?? ((syzyasan_rtl!agent::asan::AsanCorruptBlockRange*)'
-          '(error_info->corrupt_ranges))[%d].block_info[%d]' % (
-              corrupt_range_idx, block_info_idx)):
+          '(error_info%scorrupt_ranges))[%d].block_info[%d]' % (
+              operand, corrupt_range_idx, block_info_idx)):
         m = struct_field_re.match(line)
         if m:
           block_info.append(m.group(1))
       block_info_vals = DebugStructToDict(block_info)
       # Get the allocation stack trace for this block info structure.
-      block_info_vals['alloc_stack'], _ = NormalizeStackTrace(_Command(debugger,
-          'dps @@(((syzyasan_rtl!agent::asan::AsanCorruptBlockRange*)'
-          '(error_info->corrupt_ranges))[%d].block_info[%d].alloc_stack) '
-          'L@@(((syzyasan_rtl!agent::asan::AsanCorruptBlockRange*)'
-          '(error_info->corrupt_ranges))[%d].block_info[%d].alloc_stack_size)' %
-          (corrupt_range_idx, block_info_idx, corrupt_range_idx,
-          block_info_idx)))
+      block_info_vals['alloc_stack'], _ = NormalizeStackTrace(debugger.Command(
+          _GET_CORRUPT_BLOCK_STACK_TRACE_TEMPLATE.format(type='alloc',
+              operand=operand, range_idx=corrupt_range_idx,
+              block_idx=block_info_idx)))
       # Get the free stack trace for this block info structure.
-      block_info_vals['free_stack'], _ = NormalizeStackTrace(_Command(debugger,
-          'dps @@(((syzyasan_rtl!agent::asan::AsanCorruptBlockRange*)'
-          '(error_info->corrupt_ranges))[%d].block_info[%d].free_stack) '
-          'L@@(((syzyasan_rtl!agent::asan::AsanCorruptBlockRange*)'
-          '(error_info->corrupt_ranges))[%d].block_info[%d].free_stack_size)' %
-          (corrupt_range_idx, block_info_idx, corrupt_range_idx,
-          block_info_idx)))
+      block_info_vals['free_stack'], _ = NormalizeStackTrace(debugger.Command(
+          _GET_CORRUPT_BLOCK_STACK_TRACE_TEMPLATE.format(type='free',
+              operand=operand, range_idx=corrupt_range_idx,
+              block_idx=block_info_idx)))
+
+      # Get the block content.
+      block_address = block_info_vals['header'].split(' ')[0]
+      block_info_vals['block_content'] = []
+      block_content = debugger.Command('db %s+0x10 L0x80' % block_address)
+
+      # Match a block data line as printed by Windbg. This helps to get rid of
+      # the extra characters that we sometime see at the beginning of the
+      # lines ('0:000>').
+      line_cleanup_re = re.compile('^\d\:\d+>\s*(.*)')
+      for line in block_content:
+        m = line_cleanup_re.match(line)
+        if m:
+          line = m.group(1)
+        block_info_vals['block_content'].append(line)
+
       corrupt_range_info_vals['block_info'].append(block_info_vals)
 
     # Append the information about the current range to the list of corrupt
@@ -305,6 +304,85 @@ def GetCorruptHeapInfo(debugger, bad_access_info_vals, bad_access_info_frame):
     corrupt_ranges.append(corrupt_range_info_vals)
 
   return corrupt_ranges
+
+
+class ScopedDebugger(subprocess.Popen):
+  """A scoped debugger instance.
+  """
+  def __init__(self, debugger_path, minidump_filename):
+    """Initialize the debugger instance.
+
+    Args:
+      debugger_path: The debugger's patth.
+      minidump_filename: The minidump filename.
+    """
+    super(ScopedDebugger, self).__init__([debugger_path,
+                                          '-z', minidump_filename],
+                                         stdin=subprocess.PIPE,
+                                         stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE)
+
+  def __enter__(self):
+    """This debugger should be instantiated via a 'with' statement to ensure
+    that its resources are correctly closed.
+    """
+    return self
+
+  def __exit__(self, e_type, value, traceback):
+    """Terminate the debugger process. This is executed when the instance of
+    this debugger is created with a 'with' statement.
+    """
+    self.StopDebugger()
+
+  def StopDebugger(self):
+    """Terminate the debugger process. We could send the terminate command ('q')
+    to the debugger directly but at this point the debugger might be stuck
+    because of a previous command and it's just faster to kill the process
+    anyway.
+    """
+    self.terminate()
+
+  def Command(self, command):
+    """Execute a command in the debugger instance.
+
+    Args:
+      command: The command to execute.
+
+    Returns:
+      The output of the debugger after running this command.
+    """
+    self.stdin.write(command + '; .echo %s\n' % _SENTINEL)
+    lines = []
+    while True:
+      line = self.stdout.readline().rstrip()
+      # Sometimes the sentinel value is preceded by something like '0:000> '.
+      if line.endswith(_SENTINEL):
+        break
+      lines.append(line)
+    return lines
+
+  def LoadSymbols(self, pdb_path):
+    """Loads the pdbs for the loaded modules if they are present in |pdb_path|
+
+    Args:
+      pdb_path: The path containing the pdbs.
+    """
+    pdbs = [f for f in os.listdir(pdb_path) if f.endswith('.pdb')]
+    # The path needs to be quoted to avoid including the sentinel value in cdb's
+    # symbol search path.
+    self.Command('.sympath \"%s\"' % pdb_path)
+    for line in self.Command('lm n'):
+      m = _MODULE_MATCH_RE.match(line)
+      if m is None:
+        continue
+      image_name =  m.group('image_name')
+      if image_name is None:
+        continue
+      pdb_name = image_name + '.pdb'
+      if pdb_name in pdbs:
+        self.Command('.reload /fi %s' % image_name)
+
+    self.Command('.symfix')
 
 
 def ProcessMinidump(minidump_filename, cdb_path, pdb_path):
@@ -321,95 +399,115 @@ def ProcessMinidump(minidump_filename, cdb_path, pdb_path):
   Returns:
     The crash report to be printed.
   """
-  debugger = subprocess.Popen([cdb_path,
-                               '-z', minidump_filename],
-                               stdin=subprocess.PIPE,
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE)
-  if pdb_path is not None:
-    LoadSymbols(debugger, pdb_path)
-
-  # Enable the line number informations.
-  _Command(debugger, '.lines')
-
-  # Get the SyzyASan crash stack and try to find the frame containing the
-  # bad access info structure.
-
-  asan_crash_stack = _Command(debugger, 'kv')
-
-  bad_access_info_frame = 0;
-  crash_lines, _ = NormalizeStackTrace(asan_crash_stack)
-  for line in crash_lines:
-    if line.find(_BAD_ACCESS_INFO_FRAME) == -1:
-      bad_access_info_frame += 1
-    else:
-      break
-
-  if bad_access_info_frame == -1:
-    # End the debugging session.
-    debugger.stdin.write('q\n')
-    debugger.wait()
-    print 'Unable to find the %s frame for %d.' % (_BAD_ACCESS_INFO_FRAME,
-                                                   minidump_filename)
+  if not os.path.exists(minidump_filename):
     return
 
-  # Get the information about this bad access.
-  _Command(debugger, '.frame %X' % bad_access_info_frame)
-  bad_access_info = _Command(debugger, _GET_BAD_ACCESS_INFO_COMMAND)
-  # The first two lines contain no useful information, remove them.
-  bad_access_info.pop(0)
-  bad_access_info.pop(0)
-  bad_access_info_vals = DebugStructToDict(bad_access_info)
+  with ScopedDebugger(cdb_path, minidump_filename) as debugger:
+    if pdb_path is not None:
+      debugger.LoadSymbols(debugger, pdb_path)
 
-  # Checks if the heap is corrupt.
-  heap_is_corrupt = bad_access_info_vals['heap_is_corrupt'] == '1'
+    # Enable the line number information.
+    debugger.Command('.lines')
 
-  # Cleans the enum value stored in the dictionary.
-  for key in bad_access_info_vals:
-    m = _ENUM_VAL_RE.match(bad_access_info_vals[key])
-    if m:
-      bad_access_info_vals[key] = m.group('literal_value')
+    # Get the SyzyASan crash stack and try to find the frame containing the
+    # bad access info structure.
 
-  # If the heap is not corrupt and the error type indicates an invalid or wild
-  # address then there's no useful information that we can report.
-  if not heap_is_corrupt and (
-      bad_access_info_vals['error_type'] == 'INVALID_ADDRESS' or
-      bad_access_info_vals['error_type'] == 'WILD_ACCESS'):
-    # End the debugging session.
-    debugger.stdin.write('q\n')
-    debugger.wait()
-    return
+    asan_crash_stack = debugger.Command('kv')
 
-  alloc_stack, alloc_stack_hash = \
-      NormalizeStackTrace(_Command(debugger, _GET_ALLOC_STACK_COMMAND))
-  free_stack, free_stack_hash = \
-      NormalizeStackTrace(_Command(debugger, _GET_FREE_STACK_COMMAND))
-  _Command(debugger, '.ecxr')
-  crash_stack, crash_stack_hash = NormalizeStackTrace(_Command(debugger, 'kv'))
+    bad_access_info_frame = 0;
+    crash_lines, _ = NormalizeStackTrace(asan_crash_stack)
 
-  corrupt_heap_info = None
-  if heap_is_corrupt:
-    corrupt_heap_info = GetCorruptHeapInfo(debugger,
-                                           bad_access_info_vals,
-                                           bad_access_info_frame)
+    # Indicates if this bug has been caught by the unhandled exception filter.
+    from_uef = False
 
-  # End the debugging session.
-  debugger.stdin.write('q\n')
-  debugger.wait()
+    for line in crash_lines:
+      if not any(line.find(b) != -1 for b in _BAD_ACCESS_INFO_FRAMES):
+        bad_access_info_frame += 1
+      else:
+        if line.find('ExceptionFilter') != -1:
+          from_uef = True
+        break
 
-  report = ASanReport(bad_access_info = bad_access_info_vals,
-                      crash_stack = crash_stack,
-                      crash_stack_hash = crash_stack_hash,
-                      alloc_stack = alloc_stack,
-                      alloc_stack_hash = alloc_stack_hash,
-                      free_stack = free_stack,
-                      free_stack_hash = free_stack_hash,
-                      corrupt_heap_info = corrupt_heap_info)
+    if bad_access_info_frame == -1:
+      print ('Unable to find the frame containing the invalid access'
+             'informations for %d.' % minidump_filename)
+      return
 
+    # Get the information about this bad access.
+    debugger.Command('.frame %X' % bad_access_info_frame)
+    debugger.Command('kv')
+    bad_access_info = debugger.Command(_GET_BAD_ACCESS_INFO_COMMAND)
+    # The first two lines contain no useful information, remove them.
+    bad_access_info.pop(0)
+    bad_access_info.pop(0)
+    bad_access_info_vals = DebugStructToDict(bad_access_info)
+
+    # Checks if the heap is corrupt.
+    heap_is_corrupt = bad_access_info_vals['heap_is_corrupt'] == '1'
+
+    # Cleans the enum value stored in the dictionary.
+    for key in bad_access_info_vals:
+      m = _ENUM_VAL_RE.match(bad_access_info_vals[key])
+      if m:
+        bad_access_info_vals[key] = m.group('literal_value')
+
+    # If the heap is not corrupt and the error type indicates an invalid or wild
+    # address then there's no useful information that we can report.
+    if not heap_is_corrupt and (
+        bad_access_info_vals['error_type'] == 'INVALID_ADDRESS' or
+        bad_access_info_vals['error_type'] == 'WILD_ACCESS'):
+
+      report = ASanReport(bad_access_info=bad_access_info_vals,
+                          crash_stack=None,
+                          crash_stack_hash=None,
+                          alloc_stack=None,
+                          alloc_stack_hash=None,
+                          free_stack=None,
+                          free_stack_hash=None,
+                          corrupt_heap_info=None,
+                          from_uef=None)
+      return report
+
+    alloc_stack = None
+    alloc_stack_hash = None
+    free_stack = None
+    free_stack_hash = None
+
+    def GetStackAndStackHashFromErrorInfoStruct(debugger, stack_type, is_ptr):
+      assert stack_type in ['alloc', 'free']
+      command = _GET_STACK_COMMAND_TEMPLATE.format(type=stack_type,
+          operand='->' if is_ptr else '.')
+      return NormalizeStackTrace(debugger.Command(command))
+
+    alloc_stack, alloc_stack_hash = GetStackAndStackHashFromErrorInfoStruct(
+        debugger, 'alloc', is_ptr=not from_uef)
+    free_stack, free_stack_hash = GetStackAndStackHashFromErrorInfoStruct(
+        debugger, 'free', is_ptr=not from_uef)
+
+    debugger.Command('.ecxr')
+    crash_stack, crash_stack_hash = NormalizeStackTrace(
+        debugger.Command('kv'))
+
+    corrupt_heap_info = None
+
+    if heap_is_corrupt:
+      corrupt_heap_info = GetCorruptHeapInfo(debugger,
+                                             bad_access_info_vals,
+                                             bad_access_info_frame, from_uef)
+
+    report = ASanReport(bad_access_info=bad_access_info_vals,
+                        crash_stack=crash_stack,
+                        crash_stack_hash=crash_stack_hash,
+                        alloc_stack=alloc_stack,
+                        alloc_stack_hash=alloc_stack_hash,
+                        free_stack=free_stack,
+                        free_stack_hash=free_stack_hash,
+                        corrupt_heap_info=corrupt_heap_info,
+                        from_uef=from_uef)
   return report
 
 
-def PrintASanReport(report, file_handle = sys.stdout):
+def PrintASanReport(report, file_handle=sys.stdout):
   """Print a crash report.
 
   Args:
@@ -421,13 +519,17 @@ def PrintASanReport(report, file_handle = sys.stdout):
   for key in report.bad_access_info:
     file_handle.write('  %s: %s\n' % (key, report.bad_access_info[key]))
   file_handle.write('\nCrash stack:\n')
-  for line in report.crash_stack: file_handle.write('%s\n' % line)
-  if len(report.alloc_stack) != 0:
+  if report.crash_stack and len(report.crash_stack) != 0:
+    for line in report.crash_stack:
+      file_handle.write('%s\n' % line)
+  if report.alloc_stack and len(report.alloc_stack) != 0:
     file_handle.write('\nAllocation stack:\n')
-    for line in report.alloc_stack: file_handle.write('%s\n' % line)
-  if len(report.free_stack) != 0:
+    for line in report.alloc_stack:
+      file_handle.write('%s\n' % line)
+  if report.free_stack and len(report.free_stack) != 0:
     file_handle.write('\nFree stack:\n')
-    for line in report.free_stack: file_handle.write('%s\n' % line)
+    for line in report.free_stack:
+      file_handle.write('%s\n' % line)
 
   if report.corrupt_heap_info:
     file_handle.write('\n\nHeap is corrupt, here\'s some information about the '
@@ -463,15 +565,19 @@ def PrintASanReport(report, file_handle = sys.stdout):
           file_handle.write('      Free stack:\n')
           for frame in block_info['free_stack']:
             file_handle.write('        %s\n' % frame)
+        file_handle.write('      Block content:\n')
+        for line in block_info['block_content']:
+          file_handle.write('        %s\n' % line)
 
   file_handle.write('\n\n%s\n' % _ERROR_HELP_URL)
 
 
 _USAGE = """\
-%prog [options]
+%prog [options] <minidumps>
 
-Symbolizes a minidump that has been generated by SyzyASan. This prints the
-crash, alloc and free stack traces and gives more information about the crash.
+Symbolizes a list of minidumps that has been generated by SyzyASan. For each of
+them this prints the crash, alloc and free stack traces and gives more
+information about the crash.
 """
 
 
@@ -479,20 +585,14 @@ def _ParseArguments():
   """Parse the command line arguments.
 
   Returns:
-    The options on the command line.
+    The options on the command line and the list of minidumps to process.
   """
   parser = optparse.OptionParser(usage=_USAGE)
-  # TODO(sebmarchand): Move this to an argument instead of a switch?
-  parser.add_option('--minidump',
-                    help='The input minidump.')
   parser.add_option('--cdb-path', help='(Optional) The path to cdb.exe.')
   parser.add_option('--pdb-path',
                     help='(Optional) The path to the folder containing the'
                          ' PDBs.')
   (opts, args) = parser.parse_args()
-
-  if len(args):
-    parser.error('Unexpected argument(s).')
 
   if not opts.cdb_path:
     for path in _DEFAULT_CDB_PATHS:
@@ -502,21 +602,21 @@ def _ParseArguments():
     if not opts.cdb_path:
       parser.error('Unable to find cdb.exe.')
 
-  if not opts.minidump:
-    parser.error('You must provide a minidump.')
-
-  opts.minidump = os.path.abspath(opts.minidump)
-
-  return opts
+  return opts, args
 
 
 def main():
   """Parse arguments and do the symbolization."""
-  opts = _ParseArguments()
+  opts, minidumps = _ParseArguments()
 
-  report = ProcessMinidump(opts.minidump, opts.cdb_path, opts.pdb_path)
-  if report:
-    PrintASanReport(report)
+  for minidump in minidumps:
+    report = ProcessMinidump(minidump, opts.cdb_path, opts.pdb_path)
+    if report:
+      print 'Report for %s' % minidump
+      PrintASanReport(report)
+      print '\n'
+    else:
+      print 'Error while processing %s' % minidump
 
   return 0
 
