@@ -487,6 +487,19 @@ bool AgentLogger::StartRpc() {
     return false;
   }
 
+  // Signal that the RPC is up and running.
+  DCHECK(!started_event_.IsValid());
+  std::wstring event_name;
+  GetSyzygyAgentLoggerEventName(instance_id(), &event_name);
+  started_event_.Set(::CreateEvent(NULL, TRUE, FALSE, event_name.c_str()));
+  if (!started_event_.IsValid()) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Failed to create event: " << ::common::LogWe(error) << ".";
+    return false;
+  }
+  BOOL success = ::SetEvent(started_event_.Get());
+  DCHECK(success);
+
   // Invoke the callback for the logger started event, giving it a chance to
   // abort the startup.
   if (!OnStarted()) {
@@ -502,6 +515,9 @@ bool AgentLogger::StopRpc() {
   // This method may be called by any thread, but it does not inspect or modify
   // the internal state of the Logger; so, no synchronization is required.
   VLOG(1) << "Requesting an asynchronous shutdown of the logging service.";
+
+  BOOL success = ::ResetEvent(started_event_.Get());
+  DCHECK(success);
 
   RPC_STATUS status = ::RpcMgmtStopServerListening(NULL);
   if (status != RPC_S_OK) {
@@ -550,6 +566,18 @@ bool AgentLogger::FinishRpc() {
     error = true;
 
   return !error;
+}
+
+void AgentLogger::GetSyzygyAgentLoggerEventName(const base::StringPiece16& id,
+                                                std::wstring* output) {
+  DCHECK(output != NULL);
+  const wchar_t* const kAgentLoggerSvcEvent = L"syzygy-agent-logger-svc-event";
+
+  output->assign(kAgentLoggerSvcEvent);
+  if (!id.empty()) {
+    output->append(1, '-');
+    output->append(id.begin(), id.end());
+  }
 }
 
 }  // namespace agent_logger

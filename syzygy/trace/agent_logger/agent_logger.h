@@ -100,6 +100,12 @@ class AgentLogger : public trace::common::Service {
                     DWORD exc_ptr,
                     DWORD flags);
 
+  // Generate an event name used to signal that the logger is ready.
+  // @param id The process id.
+  // @param output The output string.
+  static void GetSyzygyAgentLoggerEventName(const base::StringPiece16& id,
+                                            std::wstring* output);
+
  protected:
   // @name Implementation of Service.
   // @{
@@ -135,6 +141,9 @@ class AgentLogger : public trace::common::Service {
 
   // Indicates if we should symbolize the stack traces. Defaults to true.
   bool symbolize_stack_traces_;
+
+  // Signaled once the agent has successfully initialized.
+  base::win::ScopedHandle started_event_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(AgentLogger);

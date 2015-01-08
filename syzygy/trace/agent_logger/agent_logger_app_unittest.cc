@@ -20,9 +20,10 @@
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/file_util.h"
+#include "base/path_service.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/path_service.h"
+#include "base/process/kill.h"
 #include "base/process/launch.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -32,6 +33,7 @@
 #include "syzygy/common/align.h"
 #include "syzygy/common/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/trace/agent_logger/agent_logger.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/parse/parse_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -292,8 +294,41 @@ TEST_F(LoggerAppTest, StartEndToEnd) {
   ASSERT_EQ(0, test_app_.Run());
 }
 
-TEST_F(LoggerAppTest, SpawnStatusAndStop) {
-  // TODO(rogerm): Write me!
+TEST_F(LoggerAppTest, StartSetsStopResetsEvent) {
+  // The maximum time we're willing to wait for the process to get
+  // started/killed. This is very generous, but also prevents the unittests
+  // from hanging if the event never fires.
+  static const size_t kTimeOutMs = 10000;
+
+  // We need a different instance ID because we are spawning a new process
+  // otherwise we get a conflict with the test above (permission issue).
+  // TODO(georgesak): Look into that issue.
+  instance_id_ += L"-0";
+  cmd_line_.AppendSwitchNative(TestLoggerApp::kInstanceId, instance_id_);
+  // Saving the command line to be used when stopping the logger.
+  CommandLine cmd_line_saved(cmd_line_);
+  cmd_line_.AppendArgNative(TestLoggerApp::kStart);
+
+  // Launch the logger as a separate process and make sure it succeeds.
+  base::LaunchOptions options;
+  options.start_hidden = true;
+  base::ProcessHandle logger_process;
+  bool success = base::LaunchProcess(cmd_line_, options, &logger_process);
+  ASSERT_TRUE(success);
+
+  std::wstring event_name;
+  AgentLogger::GetSyzygyAgentLoggerEventName(instance_id_, &event_name);
+  base::win::ScopedHandle event(
+      ::CreateEvent(NULL, FALSE, FALSE, event_name.c_str()));
+  EXPECT_EQ(WAIT_OBJECT_0, ::WaitForSingleObject(event.Get(), kTimeOutMs));
+  cmd_line_ = cmd_line_saved;
+  cmd_line_.AppendArgNative(TestLoggerApp::kStop);
+  base::ProcessHandle logger_process_kill;
+  success = base::LaunchProcess(cmd_line_, options, &logger_process_kill);
+  ASSERT_TRUE(success);
+  ASSERT_TRUE(base::WaitForSingleProcess(logger_process,
+      base::TimeDelta::FromMilliseconds(kTimeOutMs)));
+  ASSERT_EQ(WAIT_TIMEOUT, ::WaitForSingleObject(event.Get(), 0));
 }
 
 }  // namespace agent_logger
