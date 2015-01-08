@@ -304,6 +304,7 @@ TEST_F(LoggerAppTest, StartSetsStopResetsEvent) {
   // otherwise we get a conflict with the test above (permission issue).
   // TODO(georgesak): Look into that issue.
   instance_id_ += L"-0";
+  cmd_line_.SetProgram(testing::GetExeRelativePath(L"agent_logger.exe"));
   cmd_line_.AppendSwitchNative(TestLoggerApp::kInstanceId, instance_id_);
   // Saving the command line to be used when stopping the logger.
   CommandLine cmd_line_saved(cmd_line_);

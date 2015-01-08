@@ -49,9 +49,10 @@
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/common/common.gyp:common_unittest_utils',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
-        '<(src)/testing/gtest.gyp:gtest',
         '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
     },
     {
