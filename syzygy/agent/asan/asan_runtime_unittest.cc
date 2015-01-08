@@ -175,6 +175,13 @@ TEST_F(AsanRuntimeTest, SetExitOnFailure) {
 }
 
 TEST_F(AsanRuntimeTest, ExitOnFailure) {
+  // This test always fails under a debugger, due to strangeness in how
+  // gtest death tests work.
+  if (base::debug::BeingDebugged()) {
+    LOG(WARNING) << "Skipping this test under debugger.";
+    return;
+  }
+
   current_command_line_.AppendSwitch(::common::kParamExitOnFailure);
 
   ASSERT_NO_FATAL_FAILURE(

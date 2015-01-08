@@ -677,9 +677,8 @@ void AsanRuntime::WriteCorruptHeapInfo(
     // They are left turned off so that the minidump generation can introspect
     // the block.
     BlockProtectNone(block_info);
-    asan_block_info->header = block_info.header;
-    ErrorInfoGetAsanBlockInfo(stack_cache_.get(), asan_block_info);
-    DCHECK(asan_block_info->corrupt);
+    ErrorInfoGetAsanBlockInfo(block_info, stack_cache_.get(), asan_block_info);
+    DCHECK_EQ(kDataIsCorrupt, asan_block_info->analysis.block_state);
   }
 
   return;

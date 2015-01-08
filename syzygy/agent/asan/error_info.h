@@ -19,6 +19,7 @@
 #define SYZYGY_AGENT_ASAN_ERROR_INFO_H_
 
 #include "base/callback.h"
+#include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/heap.h"
 #include "syzygy/agent/common/stack_capture.h"
 
@@ -82,8 +83,8 @@ struct AsanBlockInfo {
   DWORD alloc_tid;
   // The ID of the free thread.
   DWORD free_tid;
-  // True iff the block is corrupt.
-  bool corrupt;
+  // The result of a block analysis on this block.
+  BlockAnalysisResult analysis;
   // The allocation stack trace.
   void* alloc_stack[agent::common::StackCapture::kMaxNumFrames];
   // The free stack trace.
@@ -197,8 +198,10 @@ BadAccessKind ErrorInfoGetBadAccessKind(const void* addr,
 // Retrieves a block's metadata.
 // @param stack_cache The stack cache that owns the alloc and free stack traces
 //     of this block.
+// @param block_info THe block whose info is to be gathered.
 // @param asan_block_info Will receive the block's metadata.
-void ErrorInfoGetAsanBlockInfo(StackCaptureCache* stack_cache,
+void ErrorInfoGetAsanBlockInfo(const BlockInfo& block_info,
+                               StackCaptureCache* stack_cache,
                                AsanBlockInfo* asan_block_info);
 
 }  // namespace asan

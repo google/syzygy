@@ -198,32 +198,37 @@ bool ErrorInfoGetBadAccessInformation(StackCaptureCache* stack_cache,
      Shadow::ParentBlockInfoFromShadow(block_info, &containing_block);
   }
 
-  // Get the bad access description if we've been able to determine its kind.
-  if (bad_access_info->error_type != UNKNOWN_BAD_ACCESS) {
-    bad_access_info->milliseconds_since_free =
+  // TODO(chrisha): Write the heap type!
+  // TODO(chrisha): Use results of the analysis to determine which fields are
+  //     written here.
+
+  bad_access_info->milliseconds_since_free =
         GetTimeSinceFree(block_info.header);
 
-    DCHECK(block_info.header->alloc_stack != NULL);
-    CopyStackCaptureToArray(block_info.header->alloc_stack,
-                            bad_access_info->alloc_stack,
-                            &bad_access_info->alloc_stack_size);
-    bad_access_info->alloc_tid = block_info.trailer->alloc_tid;
+  DCHECK(block_info.header->alloc_stack != NULL);
+  CopyStackCaptureToArray(block_info.header->alloc_stack,
+                          bad_access_info->alloc_stack,
+                          &bad_access_info->alloc_stack_size);
+  bad_access_info->alloc_tid = block_info.trailer->alloc_tid;
 
-    if (block_info.header->state != ALLOCATED_BLOCK) {
-      const common::StackCapture* free_stack = block_info.header->free_stack;
-      BlockTrailer* free_stack_trailer = block_info.trailer;
-      // Use the free metadata of the containing block if there's one.
-      // TODO(chrisha): This should report all of the nested stack information
-      //     from innermost to outermost. For now, innermost is best.
-      if (containing_block.block != NULL) {
-        free_stack = containing_block.header->free_stack;
-        free_stack_trailer = containing_block.trailer;
-      }
-      CopyStackCaptureToArray(block_info.header->free_stack,
-                              bad_access_info->free_stack,
-                              &bad_access_info->free_stack_size);
-      bad_access_info->free_tid = free_stack_trailer->free_tid;
+  if (block_info.header->state != ALLOCATED_BLOCK) {
+    const common::StackCapture* free_stack = block_info.header->free_stack;
+    BlockTrailer* free_stack_trailer = block_info.trailer;
+    // Use the free metadata of the containing block if there's one.
+    // TODO(chrisha): This should report all of the nested stack information
+    //     from innermost to outermost. For now, innermost is best.
+    if (containing_block.block != NULL) {
+      free_stack = containing_block.header->free_stack;
+      free_stack_trailer = containing_block.trailer;
     }
+    CopyStackCaptureToArray(block_info.header->free_stack,
+                            bad_access_info->free_stack,
+                            &bad_access_info->free_stack_size);
+    bad_access_info->free_tid = free_stack_trailer->free_tid;
+  }
+
+  // Get the bad access description if we've been able to determine its kind.
+  if (bad_access_info->error_type != UNKNOWN_BAD_ACCESS) {
     GetAddressInformation(block_info.header, bad_access_info);
     return true;
   }
@@ -255,44 +260,37 @@ BadAccessKind ErrorInfoGetBadAccessKind(const void* addr,
   return bad_access_kind;
 }
 
-void ErrorInfoGetAsanBlockInfo(StackCaptureCache* stack_cache,
+void ErrorInfoGetAsanBlockInfo(const BlockInfo& block_info,
+                               StackCaptureCache* stack_cache,
                                AsanBlockInfo* asan_block_info) {
   DCHECK_NE(reinterpret_cast<StackCaptureCache*>(NULL), stack_cache);
   DCHECK_NE(reinterpret_cast<AsanBlockInfo*>(NULL), asan_block_info);
-  const BlockHeader* header =
-      reinterpret_cast<const BlockHeader*>(asan_block_info->header);
 
-  asan_block_info->alloc_stack_size = 0;
-  asan_block_info->free_stack_size = 0;
-  asan_block_info->corrupt = IsBlockCorrupt(
-      reinterpret_cast<const uint8*>(asan_block_info->header), NULL);
+  ::memset(asan_block_info, 0, sizeof(*asan_block_info));
+  BlockAnalyze(block_info, &asan_block_info->analysis);
+
+  asan_block_info->header = block_info.header;
+  asan_block_info->user_size = block_info.header->body_size;
+  asan_block_info->state = block_info.header->state;
+  asan_block_info->alloc_tid = block_info.trailer->alloc_tid;
+  asan_block_info->free_tid = block_info.trailer->free_tid;
 
   // Copy the alloc and free stack traces if they're valid.
-  if (stack_cache->StackCapturePointerIsValid(header->alloc_stack)) {
-    CopyStackCaptureToArray(header->alloc_stack,
+  // TODO(chrisha): Use detailed analysis results that have been gathered
+  //                once, rather than recalculating this.
+  if (stack_cache->StackCapturePointerIsValid(
+          block_info.header->alloc_stack)) {
+    CopyStackCaptureToArray(block_info.header->alloc_stack,
                             asan_block_info->alloc_stack,
                             &asan_block_info->alloc_stack_size);
   }
-  if (header->state != ALLOCATED_BLOCK &&
-      stack_cache->StackCapturePointerIsValid(header->free_stack)) {
-    CopyStackCaptureToArray(header->free_stack,
+  if (block_info.header->state != ALLOCATED_BLOCK &&
+      stack_cache->StackCapturePointerIsValid(
+          block_info.header->free_stack)) {
+    CopyStackCaptureToArray(block_info.header->free_stack,
                             asan_block_info->free_stack,
                             &asan_block_info->free_stack_size);
   }
-
-  // Only check the trailer if the block isn't marked as corrupt.
-  if (!asan_block_info->corrupt) {
-    BlockInfo block_info = {};
-    Shadow::BlockInfoFromShadow(asan_block_info->header, &block_info);
-    asan_block_info->alloc_tid = block_info.trailer->alloc_tid;
-    asan_block_info->free_tid = block_info.trailer->free_tid;
-  } else {
-    asan_block_info->alloc_tid = 0;
-    asan_block_info->free_tid = 0;
-  }
-
-  asan_block_info->state = header->state;
-  asan_block_info->user_size = header->body_size;
 }
 
 }  // namespace asan

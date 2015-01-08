@@ -265,7 +265,7 @@ TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
     AsanBlockInfoVector blocks_info = tester.last_corrupt_ranges()[0].second;
 
     EXPECT_EQ(1, blocks_info.size());
-    EXPECT_TRUE(blocks_info[0].corrupt);
+    EXPECT_EQ(kDataIsCorrupt, blocks_info[0].analysis.block_state);
     EXPECT_EQ(kAllocSize, blocks_info[0].user_size);
     EXPECT_EQ(block_info.header, blocks_info[0].header);
     EXPECT_NE(0U, blocks_info[0].alloc_stack_size);
