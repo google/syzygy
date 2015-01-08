@@ -170,6 +170,8 @@ extern const bool kDefaultEnableLargeBlockHeap = true;
 // 2 / 0.45 = 4.44 < 5 page minimum.
 extern const size_t kDefaultLargeAllocationThreshold = 5 * 4096;
 
+const char kSyzyASanOptionsEnvVar[] = "SYZYGY_ASAN_OPTIONS";
+
 // String names of HeapProxy parameters.
 const char kParamQuarantineSize[] = "quarantine_size";
 const char kParamQuarantineBlockSize[] = "quarantine_block_size";

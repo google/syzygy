@@ -232,6 +232,9 @@ extern const bool kDefaultEnableAllocationFilter;
 extern const bool kDefaultEnableLargeBlockHeap;
 extern const size_t kDefaultLargeAllocationThreshold;
 
+// The name of the environment variable containing the SyzyASan command-line.
+extern const char kSyzyASanOptionsEnvVar[];
+
 // String names of HeapProxy parameters.
 extern const char kParamQuarantineSize[];
 extern const char kParamQuarantineBlockSize[];

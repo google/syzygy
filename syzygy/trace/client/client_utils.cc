@@ -380,21 +380,20 @@ bool InitializeRpcSession(RpcSession* rpc_session, TraceFileSegment* segment) {
 
   LOG(ERROR) << "RPC instance ID is \"" << id << "\".";
 
-  base::Environment* env = base::Environment::Create();
-  if (env) {
-    std::string var;
-    if (env->GetVar(::kSyzygyRpcInstanceIdEnvVar, &var)) {
-      LOG(ERROR) << ::kSyzygyRpcInstanceIdEnvVar << " is \"" << var << "\".";
-    } else {
-      LOG(ERROR) << ::kSyzygyRpcInstanceIdEnvVar << " is not set.";
-    }
+  scoped_ptr<base::Environment> env(base::Environment::Create());
+  DCHECK_NE(static_cast<base::Environment*>(nullptr), env.get());
+  std::string var;
+  if (env->GetVar(::kSyzygyRpcInstanceIdEnvVar, &var)) {
+    LOG(ERROR) << ::kSyzygyRpcInstanceIdEnvVar << " is \"" << var << "\".";
+  } else {
+    LOG(ERROR) << ::kSyzygyRpcInstanceIdEnvVar << " is not set.";
+  }
 
-    if (env->GetVar(::kSyzygyRpcSessionMandatoryEnvVar, &var)) {
-      LOG(ERROR) << ::kSyzygyRpcSessionMandatoryEnvVar << " is \"" << var
-                 << "\".";
-    } else {
-      LOG(ERROR) << ::kSyzygyRpcSessionMandatoryEnvVar << " is not set.";
-    }
+  if (env->GetVar(::kSyzygyRpcSessionMandatoryEnvVar, &var)) {
+    LOG(ERROR) << ::kSyzygyRpcSessionMandatoryEnvVar << " is \"" << var
+                << "\".";
+  } else {
+    LOG(ERROR) << ::kSyzygyRpcSessionMandatoryEnvVar << " is not set.";
   }
 
   // Kill this process with prejudice. We need to be heavy handed here because

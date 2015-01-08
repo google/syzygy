@@ -51,7 +51,7 @@ class AsanRuntimeTest : public testing::TestWithAsanLogger {
 
     env_.reset(base::Environment::Create());
     ASSERT_TRUE(env_.get() != NULL);
-    env_->UnSetVar(AsanRuntime::kSyzygyAsanOptionsEnvVar);
+    env_->UnSetVar(::common::kSyzyASanOptionsEnvVar);
 
     // Setup the "global" state.
     common::StackCapture::Init();
@@ -60,7 +60,7 @@ class AsanRuntimeTest : public testing::TestWithAsanLogger {
 
   void TearDown() OVERRIDE {
     // Clear the environment so other tests aren't affected.
-    env_->UnSetVar(AsanRuntime::kSyzygyAsanOptionsEnvVar);
+    env_->UnSetVar(::common::kSyzyASanOptionsEnvVar);
 
     Super::TearDown();
   }

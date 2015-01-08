@@ -400,8 +400,8 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     ScopedAgentLogger logger;
     logger.Start();
 
-    base::Environment* env = base::Environment::Create();
-    CHECK(env != NULL);
+    scoped_ptr<base::Environment> env(base::Environment::Create());
+    CHECK_NE(static_cast<base::Environment*>(nullptr), env.get());
 
     // Update the instance ID environment variable to specifically aim the
     // ASAN RTL to the agent logger we are running. We have to be careful not
@@ -1232,10 +1232,9 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndWithRtlOptions) {
 
 TEST_F(InstrumentAppIntegrationTest,
        AsanEndToEndWithRtlOptionsOverrideWithEnvironment) {
-  static const char kSyzygyAsanOptions[] = "SYZYGY_ASAN_OPTIONS";
-  base::Environment* env = base::Environment::Create();
-  ASSERT_TRUE(env != NULL);
-  env->SetVar(kSyzygyAsanOptions,
+  scoped_ptr<base::Environment> env(base::Environment::Create());
+  ASSERT_NE(env.get(), nullptr);
+  env->SetVar(::common::kSyzyASanOptionsEnvVar,
               "--quarantine_block_size=800000 --ignored_stack_ids=0x1 "
               "--no_check_heap_on_failure");
   cmd_line_.AppendSwitchASCII(
@@ -1254,7 +1253,7 @@ TEST_F(InstrumentAppIntegrationTest,
   ASSERT_THAT(runtime->params().ignored_stack_ids_set,
               testing::ElementsAre(0x1, 0x2));
 
-  env->UnSetVar(kSyzygyAsanOptions);
+  env->UnSetVar(::common::kSyzyASanOptionsEnvVar);
 }
 
 TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {

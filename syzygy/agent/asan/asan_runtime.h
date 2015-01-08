@@ -114,9 +114,6 @@ class AsanRuntime {
   // @param bad_access_info Will receive the information about this access.
   void GetBadAccessInformation(AsanErrorInfo* error_info);
 
-  // The name of the environment variable containing the command-line.
-  static const char kSyzygyAsanOptionsEnvVar[];
-
   // TODO(chrisha): Make this a proper singleton.
   // @returns the singleton runtime.
   static AsanRuntime* runtime() { return runtime_; }

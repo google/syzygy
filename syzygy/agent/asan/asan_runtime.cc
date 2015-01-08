@@ -377,8 +377,6 @@ size_t MaxSafeAllocaSize() {
 
 }  // namespace
 
-const char AsanRuntime::kSyzygyAsanOptionsEnvVar[] = "SYZYGY_ASAN_OPTIONS";
-
 base::Lock AsanRuntime::lock_;
 AsanRuntime* AsanRuntime::runtime_ = NULL;
 LPTOP_LEVEL_EXCEPTION_FILTER AsanRuntime::previous_uef_ = NULL;
@@ -567,7 +565,7 @@ bool AsanRuntime::GetAsanFlagsEnvVar(std::wstring* env_var_wstr) {
 
   // If this fails, the environment variable simply does not exist.
   std::string env_var_str;
-  if (!env->GetVar(kSyzygyAsanOptionsEnvVar, &env_var_str)) {
+  if (!env->GetVar(::common::kSyzyASanOptionsEnvVar, &env_var_str)) {
     return true;
   }
 

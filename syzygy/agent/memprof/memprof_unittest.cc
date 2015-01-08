@@ -149,8 +149,8 @@ class MemoryProfilerTest : public testing::Test {
   }
 
   void ExpectedRecordsSeenTest(bool emit_stack_traces) {
-    base::Environment* env = base::Environment::Create();
-    ASSERT_NE(static_cast<base::Environment*>(nullptr), env);
+    scoped_ptr<base::Environment> env(base::Environment::Create());
+    DCHECK_NE(static_cast<base::Environment*>(nullptr), env.get());
     if (emit_stack_traces) {
       env->SetVar(kParametersEnvVar,
                   "--stack-trace-tracking=emit --serialize-timestamps");
