@@ -19,10 +19,12 @@
     # successful build are named here.
     'files_to_archive': [
       '<(PRODUCT_DIR)/benchmark.zip',
-      '<(PRODUCT_DIR)/syzyprof.msi',
       '<(PRODUCT_DIR)/binaries.zip',
-      '<(PRODUCT_DIR)/symbols.zip',
+      '<(PRODUCT_DIR)/kasko.zip',
+      '<(PRODUCT_DIR)/kasko_symbols.zip',
       '<(PRODUCT_DIR)/lib.zip',
+      '<(PRODUCT_DIR)/symbols.zip',
+      '<(PRODUCT_DIR)/syzyprof.msi',
       # TODO(sebmarchand): Put back the includes archive once we have some
       #     header files to publish.
     ],
@@ -119,21 +121,56 @@
           ],
         },
         {
-          'action_name': 'create_lib_zip',
+          'action_name': 'create_kasko_symbols_zip',
           'msvs_cygwin_shell': 0,
-          'variables': {
-            'conditions': [
-              ['"<(GENERATOR)"=="ninja" or "<(GENERATOR)"=="msvs-ninja"', {
-                'syzyasan_rtl_lib': '<(PRODUCT_DIR)/syzyasan_rtl.dll.lib',
-              }],
-              ['"<(GENERATOR)"=="msvs"', {
-                'syzyasan_rtl_lib': '<(PRODUCT_DIR)/lib/syzyasan_rtl.dll.lib',
-              }],
-            ],
-          },
           'inputs': [
             'create_zip.py',
-            '<(syzyasan_rtl_lib)',
+            '<@(kasko_symbols)',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/kasko_symbols.zip',
+          ],
+          'action': [
+            '<(python_exe)',
+            'create_zip.py',
+            '--output',
+            '<(PRODUCT_DIR)/kasko_symbols.zip',
+            '--files',
+            '<@(kasko_symbols)',
+          ],
+        },
+        {
+          'action_name': 'create_kasko_zip',
+          'msvs_cygwin_shell': 0,
+          'inputs': [
+            'create_zip.py',
+            'LICENSE.TXT',
+            '<@(kasko_binaries)',
+            '<@(kasko_headers)',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/kasko.zip',
+          ],
+          'action': [
+            '<(python_exe)',
+            'create_zip.py',
+            '--output',
+            '<(PRODUCT_DIR)/kasko.zip',
+            '--files',
+            'LICENSE.TXT',
+            '<@(kasko_binaries)',
+            '--subtree',
+            'includes',
+            '<(src)',
+            '<@(kasko_headers)',
+          ],
+        },
+        {
+          'action_name': 'create_lib_zip',
+          'msvs_cygwin_shell': 0,
+          'inputs': [
+            'create_zip.py',
+            '<(lib_dir)/syzyasan_rtl.dll.lib',
           ],
           'outputs': [
             '<(PRODUCT_DIR)/lib.zip',
@@ -144,7 +181,7 @@
             '--output',
             '<(PRODUCT_DIR)/lib.zip',
             '--files',
-            '<(syzyasan_rtl_lib)',
+            '<(lib_dir)/syzyasan_rtl.dll.lib',
           ],
         },
       ],

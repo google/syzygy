@@ -31,10 +31,34 @@ def _CreateZipArchive(input_dict, output_file):
   Creates or overwrites output_file with a zip archive containing files
   from input_dict.
 
+  Example input_dict:
+
+  { '': { None: [ 'README', 'LICENSE', 'special/binary.dll' ]},
+    'libs': { None: [ 'special/binary.lib' ]},
+    'include': { 'src': [ 'src/special/magic.h', 'src/special/potion.h' ]}
+  }
+
+  Output zip structure:
+
+  /
+    README
+    LICENSE
+    special/
+      binary.dll
+      binary.lib
+    include/
+      special/
+        magic.h
+        potion.h
+
   Args:
-    input_dict: a dict of paths (relative to root, with no leading path
-        separator), mapping to lists of files to store in that path. The
-        files will be stored with their basename at the given relative path.
+    input_dict: a dict of destination root paths (relative to the root of the
+        zip archive) mapping to dicts of source root paths mapping to lists of
+        files under the source root to be copied to the destination root. If the
+        source root is None the files will be stored with their basename at the
+        destination root. Otherwise, the destination path relative to the
+        destination root will be equal to the source path relative to the source
+        root.
     output_file: the path to the output file.
   """
   # Create a StringIO for the output.
@@ -44,11 +68,16 @@ def _CreateZipArchive(input_dict, output_file):
 
   zzip = zipfile.ZipFile(temp_file, 'w', zipfile.ZIP_DEFLATED)
   with contextlib.closing(zzip):
-    for subdir, files in input_dict.iteritems():
-      for path in files:
-        zip_path = os.path.join(subdir, os.path.basename(path))
-        _LOGGER.info('Zipping "%s" to path "%s".', path, zip_path)
-        zzip.write(path, zip_path)
+    for subdir, subdir_roots in input_dict.iteritems():
+      for subdir_root, files in subdir_roots.iteritems():
+        for path in files:
+          if subdir_root is None:
+            rel_path = os.path.basename(path)
+          else:
+            rel_path = os.path.relpath(path, subdir_root)
+          zip_path = os.path.join(subdir, rel_path)
+          _LOGGER.info('Zipping "%s" to path "%s".', path, zip_path)
+          zzip.write(path, zip_path)
 
   output = temp_file.getvalue()
 
@@ -79,8 +108,16 @@ def _SwitchSubdir(dummy_option, dummy_option_string, value, parser):
   # Extend the previously active sub-directory file list with those
   # arguments that have been parsed since it was set.
   files = parser.values.files
-  subdir = files.setdefault(parser.values.subdir, [])
-  subdir.extend(parser.largs)
+  if isinstance(parser.values.subdir, basestring):
+    destroot = parser.values.subdir
+    srcroot = None
+  else:
+    destroot = parser.values.subdir[0]
+    srcroot = parser.values.subdir[1]
+
+  subdir = files.setdefault(destroot, {})
+  subdir_root = subdir.setdefault(srcroot, [])
+  subdir_root.extend(parser.largs)
 
   # Remove these arguments from the list of processed arguments.
   del parser.largs[:len(parser.largs)]
@@ -120,6 +157,14 @@ def _ParseArgs():
                     help='Specify a subdirectory of files. All arguments '
                          'following this will be treated as files to add to '
                          'the archive in the specified sub-directory.')
+  parser.add_option('--subtree', action='callback', callback=_SwitchSubdir,
+                    type='string', nargs=2, dest='subdir', default='',
+                    help='Specify a subdirectory of files and a source root. '
+                         'All arguments following this will be treated as '
+                         'files to add to the archive in the specified '
+                         'sub-directory. Their destination path, relative to '
+                         'the subdirectory, will be equivalent to their source '
+                         'path, relative to the source root.')
 
   # We append a trailing '--files' so that any trailing positional arguments
   # get inserted into the appropriate dict entry by the _SwitchSubdir

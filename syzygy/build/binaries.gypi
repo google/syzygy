@@ -24,7 +24,21 @@
 #   ... binaries from 'experimental_binaries' variable ...
 
 {
+  'conditions': [
+    ['"<(GENERATOR)"=="ninja" or "<(GENERATOR)"=="msvs-ninja"', {
+      'variables': {
+        'lib_dir': '<(PRODUCT_DIR)',
+      },
+    }],
+    ['"<(GENERATOR)"=="msvs"', {
+      'variables': {
+        'lib_dir': '<(PRODUCT_DIR)/lib',
+      },
+    }],
+  ],
+
   'variables': {
+    'lib_dir': '<(lib_dir)',
     'binaries': [
       # Executables.
       '<(PRODUCT_DIR)/agent_logger.exe',
@@ -106,6 +120,23 @@
       '<(PRODUCT_DIR)/compare.exe.pdb',
       '<(PRODUCT_DIR)/pdb_dumper.exe.pdb',
       '<(PRODUCT_DIR)/timed_decomposer.exe.pdb',
+    ],
+
+    'kasko_binaries': [
+      '<(PRODUCT_DIR)/kasko.dll',
+      '<(lib_dir)/kasko.dll.lib',
+    ],
+
+    'kasko_headers': [
+      # These must all start with '<(src)' in order to be archived in the
+      # correct relative path.
+      '<(src)/syzygy/kasko/api/client.h',
+      '<(src)/syzygy/kasko/api/kasko_export.h',
+      '<(src)/syzygy/kasko/api/reporter.h',
+    ],
+
+    'kasko_symbols': [
+      '<(PRODUCT_DIR)/kasko.dll.pdb',
     ],
   }
 }
