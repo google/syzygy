@@ -14,10 +14,45 @@
 
 #include "syzygy/kasko/api/reporter.h"
 
+#include <stdint.h>
+
+#include "base/logging.h"
+#include "base/files/file_path.h"
+#include "base/memory/scoped_ptr.h"
+#include "base/time/time.h"
+#include "syzygy/kasko/reporter.h"
+
 namespace kasko {
 namespace api {
+namespace {
 
-void InitializeReporter() {
+const uint16_t kUploadDelayInSeconds = 180;
+const uint16_t kRetryIntevalInMinutes = 180;
+
+Reporter* g_reporter;
+
+}  // namespace
+
+bool InitializeReporter(
+    const base::char16* endpoint_name,
+    const base::char16* url,
+    const base::char16* data_directory,
+    const base::char16* permanent_failure_directory) {
+  DCHECK(!g_reporter);
+
+  g_reporter =
+      Reporter::Create(endpoint_name, url, base::FilePath(data_directory),
+                       base::FilePath(permanent_failure_directory),
+                       base::TimeDelta::FromSeconds(kUploadDelayInSeconds),
+                       base::TimeDelta::FromMinutes(kRetryIntevalInMinutes))
+          .release();
+  return g_reporter != nullptr;
+}
+
+void ShutdownReporter() {
+  scoped_ptr<Reporter> reporter(g_reporter);
+  g_reporter = NULL;
+  Reporter::Shutdown(reporter.Pass());
 }
 
 }  // namespace api

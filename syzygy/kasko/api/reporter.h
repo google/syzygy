@@ -15,12 +15,31 @@
 #ifndef SYZYGY_KASKO_API_REPORTER_H_
 #define SYZYGY_KASKO_API_REPORTER_H_
 
+#include "base/strings/string16.h"
 #include "syzygy/kasko/api/kasko_export.h"
 
 namespace kasko {
 namespace api {
 
-KASKO_EXPORT void InitializeReporter();
+// Initializes the Kasko reporter process. Must be matched by a call to
+// ShutdownReporter.
+// @param endpoint_name The endpoint name that will be used by the Kasko RPC
+//     service.
+// @param url The URL that will be used for uploading crash reports.
+// @param data_directory The directory where crash reports will be queued until
+//     uploaded.
+// @param permanent_failure_directory The location where reports will be stored
+//     once the maximum number of upload attempts has been exceeded.
+// @returns true if successful.
+KASKO_EXPORT bool InitializeReporter(
+    const base::char16* endpoint_name,
+    const base::char16* url,
+    const base::char16* data_directory,
+    const base::char16* permanent_failure_directory);
+
+// Shuts down the Kasko reporter process. Must only be called after a successful
+// invocation of InitializeReporter.
+void ShutdownReporter();
 
 }  // namespace api
 }  // namespace kasko
