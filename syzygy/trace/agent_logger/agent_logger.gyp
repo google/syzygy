@@ -45,6 +45,7 @@
         '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
+        'agent_logger',
         'agent_logger_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',
