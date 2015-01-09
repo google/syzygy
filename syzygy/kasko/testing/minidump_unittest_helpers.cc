@@ -17,8 +17,8 @@
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/callback_helpers.h"
-#include "base/files/file_path.h"
 #include "base/logging.h"
+#include "base/files/file_path.h"
 #include "base/win/scoped_comptr.h"
 #include "syzygy/common/com_utils.h"
 
@@ -39,19 +39,25 @@ HRESULT VisitMinidump(const base::FilePath& path,
   base::win::ScopedComPtr<IDebugClient4> debug_client_4;
   base::win::ScopedComPtr<IDebugClient> debug_client;
   HRESULT result =
-      DebugCreate(__uuidof(IDebugClient4), debug_client_4.ReceiveVoid());
-  if (!SUCCEEDED(result))
+      ::DebugCreate(__uuidof(IDebugClient4), debug_client_4.ReceiveVoid());
+  if (!SUCCEEDED(result)) {
+    LOG(ERROR) << "DebugCreate failed: " << ::common::LogHr(result);
     return result;
+  }
 
   result = debug_client_4.QueryInterface(__uuidof(IDebugClient),
                                          debug_client.ReceiveVoid());
-  if (!SUCCEEDED(result))
+  if (!SUCCEEDED(result)) {
+    LOG(ERROR) << "QI(IDebugClient) failed: " << ::common::LogHr(result);
     return result;
+  }
 
   // Ask the debugger to open our dump file.
   result = debug_client_4->OpenDumpFileWide(path.value().c_str(), NULL);
-  if (!SUCCEEDED(result))
+  if (!SUCCEEDED(result)) {
+    LOG(ERROR) << "OpenDumpFileWide failed: " << ::common::LogHr(result);
     return result;
+  }
 
   // Now that we have started a debugging session must ensure we will terminate
   // it when the test completes. Otherwise the dump file will remain open and we
@@ -63,17 +69,24 @@ HRESULT VisitMinidump(const base::FilePath& path,
   base::win::ScopedComPtr<IDebugControl> debug_control;
   result = debug_client_4.QueryInterface(__uuidof(IDebugControl),
                                          debug_control.ReceiveVoid());
-  if (!SUCCEEDED(result))
+  if (!SUCCEEDED(result)) {
+    LOG(ERROR) << "QI(IDebugControl) failed: " << ::common::LogHr(result);
     return result;
+  }
+
   result = debug_control->WaitForEvent(0, INFINITE);
-  if (!SUCCEEDED(result))
+  if (!SUCCEEDED(result)) {
+    LOG(ERROR) << "WaitForEvent failed: " << ::common::LogHr(result);
     return result;
+  }
 
   base::win::ScopedComPtr<IDebugSymbols> debug_symbols;
   result = debug_client_4.QueryInterface(__uuidof(IDebugSymbols),
                                          debug_symbols.ReceiveVoid());
-  if (!SUCCEEDED(result))
+  if (!SUCCEEDED(result)) {
+    LOG(ERROR) << "QI(IDebugSymbols) failed: " << ::common::LogHr(result);
     return result;
+  }
 
   IDebugClient4* dc4 = debug_client_4.get();
   visitor.Run(dc4, debug_control.get(), debug_symbols.get());
