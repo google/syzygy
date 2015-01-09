@@ -40,8 +40,9 @@ _FILE_PATTERNS_TO_COPY = [
     '*_unittests.exe',
     '*.dll',
     '*.pdb',
-    'test_data',
+    'agent_logger.exe',
     'call_trace_service.exe',
+    'test_data',
 ]
 
 _SYZYGY_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
