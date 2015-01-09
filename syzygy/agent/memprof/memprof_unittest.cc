@@ -154,6 +154,8 @@ class MemoryProfilerTest : public testing::Test {
     if (emit_stack_traces) {
       env->SetVar(kParametersEnvVar,
                   "--stack-trace-tracking=emit --serialize-timestamps");
+    } else {
+      env->SetVar(kParametersEnvVar, "--stack-trace-tracking=none");
     }
 
     ASSERT_NO_FATAL_FAILURE(StartService());
