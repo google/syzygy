@@ -132,7 +132,12 @@ bool RunApp(const CommandLine& command_line,
   DCHECK(exit_code != NULL);
   scoped_ptr<base::Environment> env(base::Environment::Create());
   CHECK(env != NULL);
-  env->SetVar(kSyzygyRpcInstanceIdEnvVar, base::WideToUTF8(instance_id));
+
+  // Put |instance_id| as the first value.
+  std::string env_var;
+  env->GetVar(kSyzygyRpcInstanceIdEnvVar, &env_var);
+  env->SetVar(kSyzygyRpcInstanceIdEnvVar,
+              base::WideToUTF8(instance_id) + ";" + env_var);
 
   LOG(INFO) << "Launching '" << command_line.GetProgram().value() << "'.";
   VLOG(1) << "Command Line: " << command_line.GetCommandLineString();
