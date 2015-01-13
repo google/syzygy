@@ -14,14 +14,21 @@
 # limitations under the License.
 
 """
-lastchange.py -- Chromium revision fetching utility.
+lastchange.py -- Revision fetching utility.
+
+The helper functions defined in this utility are also used by timestamp.py.
 """
 
 import re
+import logging
 import optparse
 import os
 import subprocess
 import sys
+
+
+_LOGGER = logging.getLogger(os.path.basename(__file__))
+
 
 class VersionInfo(object):
   def __init__(self, url, revision):
@@ -29,11 +36,17 @@ class VersionInfo(object):
     self.revision = revision
 
 
-def RunGitCommand(directory, command):
+def IsOfficialBuild():
   """
-  Launches git subcommand.
+  Determines if this is an official Syzygy release build.
+  """
+  return (os.getenv('BUILDBOT_MASTERNAME') == 'client.syzygy' and
+      os.getenv('BUILDBOT_SLAVENAME') == 'Syzygy Official')
 
-  Errors are swallowed.
+
+def RunGitCommandImpl(directory, command):
+  """
+  Launches a git subcommand using Popen. Raises OSError exceptions.
 
   Returns:
     A process object or None.
@@ -45,31 +58,67 @@ def RunGitCommand(directory, command):
   # cause CMD to be used, while we explicitly want a cygwin shell.
   if sys.platform == 'cygwin':
     command = ['sh', '-c', ' '.join(command)]
-  try:
-    proc = subprocess.Popen(command,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                            cwd=directory,
-                            shell=(sys.platform=='win32'))
-    return proc
-  except OSError:
-    return None
+  _LOGGER.info('Running command: %s', command)
+  proc = subprocess.Popen(command,
+                          stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE,
+                          cwd=directory,
+                          shell=(sys.platform=='win32'))
+  return proc
+
+
+def RunGitCommand(directory, command):
+  """
+  Runs a git command, and returns its output as a string. Raises a RuntimeError
+  exception if the command does not complete successfully, and propagates
+  OSError exceptions from RunGitCommandImpl.
+  """
+  proc = RunGitCommandImpl(directory, command)
+  output = proc.communicate()[0].strip()
+  if proc.returncode == 0 and output:
+    return output
+  raise RuntimeError('Returned non-zero: %s' % command)
+
+
+def FetchGitRevisionImpl(directory):
+  """
+  Fetch the Git hash for a given directory. Propagates RuntimeError and OSError
+  exceptions.
+
+  Returns:
+    A string containing the revision.
+  """
+  # The buildbots need to be able support requests to build specific revisions,
+  # and the LASTCHANGE file needs to always be updated in this case.
+  if IsOfficialBuild():
+    _LOGGER.info('Official build, reporting revision of HEAD.')
+    rev = RunGitCommand(directory, ['rev-parse', 'HEAD'])
+    return rev
+
+  _LOGGER.info('Developer build, reporting fake revision.')
+  return '0' * 40
 
 
 def FetchGitRevision(directory):
   """
   Fetch the Git hash for a given directory.
 
-  Errors are swallowed.
+  This reports the revision of HEAD only for official builds hosted on the
+  Syzygy master. Otherwise, this returns a fake revision to reduce build churn
+  associated with 'gclient runhooks'. Errors are swallowed.
 
   Returns:
     A VersionInfo object or None on error.
   """
-  proc = RunGitCommand(directory, ['rev-parse', 'HEAD'])
-  if proc:
-    output = proc.communicate()[0].strip()
-    if proc.returncode == 0 and output:
-      return VersionInfo('git', output)
+  try:
+    rev = FetchGitRevisionImpl(directory)
+    if not re.match('^[a-fA-F0-9]{40}$', rev):
+      return None
+  except (OSError, RuntimeError) as e:
+    _LOGGER.error(e)
+    return None
+  if rev:
+    return VersionInfo('git', rev)
   return None
 
 
@@ -84,8 +133,10 @@ def WriteIfChanged(file_name, contents):
     pass
   else:
     if contents == old_contents:
+      _LOGGER.info('Contents unchanged, not writing file: %s', file_name)
       return
     os.unlink(file_name)
+  _LOGGER.info('Contents changes, writing file: %s', file_name)
   open(file_name, 'w').write(contents)
 
 
@@ -100,7 +151,15 @@ def main(argv=None):
                     help="just print the revision number")
   parser.add_option("-s", "--source-dir", metavar="DIR",
                     help="use repository in the given directory")
+  parser.add_option('-v', '--verbose', dest='verbose',
+                    action='store_true', default=False,
+                    help='Enable verbose logging.')
   opts, args = parser.parse_args(argv[1:])
+
+  if opts.verbose:
+    logging.basicConfig(level=logging.INFO)
+  else:
+    logging.basicConfig(level=logging.ERROR)
 
   out_file = opts.output
 
