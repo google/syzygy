@@ -53,12 +53,14 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetBadAccessInformation) {
   EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
                                                &error_info));
   EXPECT_EQ(HEAP_BUFFER_OVERFLOW, error_info.error_type);
+  EXPECT_EQ(kUnknownHeapType, error_info.heap_type);
 
   EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
   error_info.location = fake_block.block_info.body;
   EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
                                                &error_info));
   EXPECT_EQ(USE_AFTER_FREE, error_info.error_type);
+  EXPECT_EQ(kUnknownHeapType, error_info.heap_type);
 
   error_info.location = fake_block.buffer_align_begin - 1;
   EXPECT_FALSE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
@@ -115,6 +117,7 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
                                                &error_info));
   EXPECT_EQ(USE_AFTER_FREE, error_info.error_type);
   EXPECT_NE(reinterpret_cast<void*>(NULL), error_info.free_stack);
+  EXPECT_EQ(kUnknownHeapType, error_info.heap_type);
 
   EXPECT_EQ(inner_header->free_stack->num_frames(), error_info.free_stack_size);
   for (size_t i = 0; i < inner_header->free_stack->num_frames(); ++i)
@@ -133,6 +136,7 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
                                                &error_info));
   EXPECT_EQ(USE_AFTER_FREE, error_info.error_type);
   EXPECT_NE(reinterpret_cast<void*>(NULL), error_info.free_stack);
+  EXPECT_EQ(kUnknownHeapType, error_info.heap_type);
 
   EXPECT_EQ(inner_header->free_stack->num_frames(), error_info.free_stack_size);
   for (size_t i = 0; i < inner_header->free_stack->num_frames(); ++i)
@@ -178,6 +182,7 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetAsanBlockInfo) {
   EXPECT_EQ(fake_block.block_info.header->alloc_stack->num_frames(),
             asan_block_info.alloc_stack_size);
   EXPECT_EQ(0, asan_block_info.free_stack_size);
+  EXPECT_EQ(kUnknownHeapType, asan_block_info.heap_type);
 
   // Now test it with a quarantined block.
   EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
@@ -190,6 +195,7 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetAsanBlockInfo) {
   EXPECT_EQ(::GetCurrentThreadId(), asan_block_info.free_tid);
   EXPECT_EQ(fake_block.block_info.header->free_stack->num_frames(),
             asan_block_info.free_stack_size);
+  EXPECT_EQ(kUnknownHeapType, asan_block_info.heap_type);
 
   // Ensure that the block is correctly tagged as corrupt if the header is
   // invalid.

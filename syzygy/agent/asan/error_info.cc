@@ -15,6 +15,7 @@
 #include "syzygy/agent/asan/error_info.h"
 
 #include "base/strings/string_util.h"
+#include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/block_utils.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
@@ -198,9 +199,18 @@ bool ErrorInfoGetBadAccessInformation(StackCaptureCache* stack_cache,
      Shadow::ParentBlockInfoFromShadow(block_info, &containing_block);
   }
 
-  // TODO(chrisha): Write the heap type!
   // TODO(chrisha): Use results of the analysis to determine which fields are
   //     written here.
+  // TODO(chrisha, sebmarchand): Remove duplicated code in this function
+  //     and GetAsanBlockInfo. Wait until we have integration tests with the
+  //     symbolization scripts as this will most certainly derail them.
+  bad_access_info->heap_type = kUnknownHeapType;
+  HeapManagerInterface::HeapId heap_id = block_info.trailer->heap_id;
+  if (heap_id != 0) {
+    AsanRuntime* runtime = AsanRuntime::runtime();
+    DCHECK_NE(static_cast<AsanRuntime*>(nullptr), runtime);
+    bad_access_info->heap_type = runtime->GetHeapType(heap_id);
+  }
 
   bad_access_info->milliseconds_since_free =
         GetTimeSinceFree(block_info.header);
@@ -274,6 +284,15 @@ void ErrorInfoGetAsanBlockInfo(const BlockInfo& block_info,
   asan_block_info->state = block_info.header->state;
   asan_block_info->alloc_tid = block_info.trailer->alloc_tid;
   asan_block_info->free_tid = block_info.trailer->free_tid;
+
+// TODO(chrisha): Use detailed analysis results to do this more efficiently.
+  asan_block_info->heap_type = kUnknownHeapType;
+  HeapManagerInterface::HeapId heap_id = block_info.trailer->heap_id;
+  if (heap_id != 0) {
+    AsanRuntime* runtime = AsanRuntime::runtime();
+    DCHECK_NE(static_cast<AsanRuntime*>(nullptr), runtime);
+    asan_block_info->heap_type = runtime->GetHeapType(heap_id);
+  }
 
   // Copy the alloc and free stack traces if they're valid.
   // TODO(chrisha): Use detailed analysis results that have been gathered

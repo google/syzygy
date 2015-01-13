@@ -152,10 +152,22 @@ class AsanRuntime {
   // @returns true if a given thread ID is valid for this process.
   bool ThreadIdIsValid(uint32 thread_id);
 
+  // @name Introspection entry points into the block heap manager. These
+  //    are only meant to be run when the block heap manager lock is already
+  //    held, like during crash processing. If used in unittests care must be
+  //    taken to ensure the access is synchronous if the lock isn't otherwise
+  //    held.
+  // @{
   // Determines if a given heap ID is valid.
   // @param uint32 heap_id The heap ID to check.
   // @returns true if valid, false otherwise.
   bool HeapIdIsValid(HeapManagerInterface::HeapId heap_id);
+
+  // Returns the type of a given heap.
+  // @param uint32 heap_id The heap ID to check.
+  // @returns the heap type, or kUnknownHeapType if the heap is invalid.
+  HeapType GetHeapType(HeapManagerInterface::HeapId heap_id);
+  // @}
 
   // Processes an exception and determines if an ASAN error has occurred,
   // updating the exception if so. If Breakpad is enabled, passes the

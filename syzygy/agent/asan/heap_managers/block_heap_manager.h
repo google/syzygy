@@ -85,7 +85,6 @@ class BlockHeapManager : public HeapManagerInterface {
   virtual void Unlock(HeapId heap_id);
   virtual void BestEffortLockAll();
   virtual void UnlockAll();
-  virtual bool IsValidHeap(HeapId heap);
   // @}
 
   // Set the parameters of this heap manager.
@@ -121,6 +120,16 @@ class BlockHeapManager : public HeapManagerInterface {
   void set_allocation_filter_flag(bool value);
 
  protected:
+  // This allows the runtime access to our internals, necessary for crash
+  // processing.
+  friend class AsanRuntime;
+
+  // @name Functions intended for use exclusively by the AsanRuntime for
+  //     introspection during crash processing.
+  // @{
+  HeapType GetHeapTypeUnlocked(HeapId heap_id);
+  // @}
+
   // The type of quarantine that we use internally.
   typedef quarantines::ShardedQuarantine<CompactBlockInfo,
                                          GetTotalBlockSizeFunctor,
@@ -139,6 +148,14 @@ class BlockHeapManager : public HeapManagerInterface {
   typedef BlockHeapManager::HeapQuarantineMap::value_type
       HeapQuarantinePair;
 
+  // Causes the heap manager to tear itself down. If the heap manager
+  // encounters corrupt blocks while tearing itself dow it will report an
+  // error. This will in turn cause the asan runtime to call back into itself
+  // and access the block heap manager. Thus, the block heap manager needs to
+  // still be alive while this process is occurring. Hence, the need to
+  // separate the work of tearing down the heap manager from its destructor.
+  void TearDownHeapManager();
+
   // Given the result of an HeapQuarantineMap insert or find, returns a heap id.
   // @param iterator An iterator to a heap.
   // @param insert_result The result of a call to heaps_.insert.
@@ -148,22 +165,37 @@ class BlockHeapManager : public HeapManagerInterface {
   HeapId GetHeapId(
       const std::pair<HeapQuarantineMap::iterator, bool>& insert_result) const;
 
+  // @name Heap validation. There are multiple ways to do this because of the
+  //     need to do this during crash processing, when locks are already
+  //     implicitly acquired. As such, the runtime has been made a friend of
+  //     this class.
   // Determines if a heap ID is valid.
   // @param heap_id The heap_id to validate.
   // @returns true if the given heap id is valid.
+  // @note The unsafe variants can raise access violations.
+  bool IsValidHeapIdUnsafe(HeapId heap_id);
+  bool IsValidHeapIdUnsafeUnlocked(HeapId heap_id);
   bool IsValidHeapId(HeapId heap_id);
+  bool IsValidHeapIdUnlocked(HeapId heap_id);
+
+  // Helpers for the above functions. This is split into two to keep the
+  // locking as narrow as possible.
+  bool IsValidHeapIdUnsafeUnlockedImpl1(HeapQuarantinePair* hq);
+  bool IsValidHeapIdUnlockedImpl1(HeapQuarantinePair* hq);
+  bool IsValidHeapIdUnlockedImpl2(HeapQuarantinePair* hq);
+  // @}
 
   // Given a heap ID, returns the underlying heap.
   // @param heap_id The ID of the heap to look up.
   // @returns a pointer to the heap implementation.
   // @note DCHECKs on invalid input.
-  BlockHeapInterface* GetHeapFromId(HeapId heap_id);
+  static BlockHeapInterface* GetHeapFromId(HeapId heap_id);
 
   // Given a heap ID, returns the associated quarantine.
   // @param heap_id The ID of the heap whose quarantine is to be looked up.
   // @returns a pointer to the quarantine implementation.
   // @note DCHECKs on invalid input.
-  BlockQuarantineInterface* GetQuarantineFromId(HeapId heap_id);
+  static BlockQuarantineInterface* GetQuarantineFromId(HeapId heap_id);
 
   // Propagates the parameters to the appropriate modules.
   // @note This function is responsible for acquiring lock_ when necessary.

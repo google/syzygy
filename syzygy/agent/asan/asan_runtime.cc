@@ -553,6 +553,11 @@ void AsanRuntime::SetUpHeapManager() {
 void AsanRuntime::TearDownHeapManager() {
   DCHECK_NE(static_cast<heap_managers::BlockHeapManager*>(NULL),
             heap_manager_.get());
+  // Tear down the heap manager before we destroy it and lose our pointer
+  // to it. This is necessary because the heap manager can raise errors
+  // while tearing down the heap, which will in turn call back into the
+  // block heap manager via the runtime.
+  heap_manager_->TearDownHeapManager();
   heap_manager_.reset();
 }
 
@@ -782,7 +787,11 @@ bool AsanRuntime::ThreadIdIsValid(uint32 thread_id) {
 }
 
 bool AsanRuntime::HeapIdIsValid(HeapManagerInterface::HeapId heap_id) {
-  return heap_manager_->IsValidHeap(heap_id);
+  return heap_manager_->IsValidHeapIdUnlocked(heap_id);
+}
+
+HeapType AsanRuntime::GetHeapType(HeapManagerInterface::HeapId heap_id) {
+  return heap_manager_->GetHeapTypeUnlocked(heap_id);
 }
 
 int AsanRuntime::CrashForException(EXCEPTION_POINTERS* exception) {

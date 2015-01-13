@@ -118,11 +118,13 @@ class TestBlockHeapManager : public BlockHeapManager {
  public:
   using BlockHeapManager::HeapQuarantinePair;
 
+  using BlockHeapManager::FreePotentiallyCorruptBlock;
   using BlockHeapManager::GetHeapId;
   using BlockHeapManager::GetHeapFromId;
+  using BlockHeapManager::GetHeapTypeUnlocked;
   using BlockHeapManager::GetQuarantineFromId;
-  using BlockHeapManager::FreePotentiallyCorruptBlock;
   using BlockHeapManager::HeapQuarantineMap;
+  using BlockHeapManager::IsValidHeapIdUnlocked;
   using BlockHeapManager::SetHeapErrorCallback;
   using BlockHeapManager::ShardedBlockQuarantine;
   using BlockHeapManager::TrimQuarantine;
@@ -1460,14 +1462,27 @@ TEST_P(BlockHeapManagerTest, BestEffortLockAllOneHeapLockHeld) {
   thread.Join();
 }
 
-TEST_P(BlockHeapManagerTest, IsValidHeap) {
+// These functions are tested explicitly because the AsanRuntime reaches in
+// to use them.
+
+TEST_P(BlockHeapManagerTest, IsValidHeapIdUnlocked) {
   ASSERT_FALSE(heap_manager_->heaps_.empty());
-  EXPECT_FALSE(heap_manager_->IsValidHeap(0xDEADBEEF));
+  EXPECT_FALSE(heap_manager_->IsValidHeapIdUnlocked(0xDEADBEEF));
   for (auto& hq_pair : heap_manager_->heaps_) {
     TestBlockHeapManager::HeapQuarantinePair* hq = &hq_pair;
     TestBlockHeapManager::HeapId heap_id =
         reinterpret_cast<TestBlockHeapManager::HeapId>(hq);
-    EXPECT_TRUE(heap_manager_->IsValidHeap(heap_id));
+    EXPECT_TRUE(heap_manager_->IsValidHeapIdUnlocked(heap_id));
+  }
+}
+
+TEST_P(BlockHeapManagerTest, GetHeapTypeUnlocked) {
+  ASSERT_FALSE(heap_manager_->heaps_.empty());
+  for (auto& hq_pair : heap_manager_->heaps_) {
+    TestBlockHeapManager::HeapQuarantinePair* hq = &hq_pair;
+    TestBlockHeapManager::HeapId heap_id =
+        reinterpret_cast<TestBlockHeapManager::HeapId>(hq);
+    EXPECT_NE(kUnknownHeapType, heap_manager_->GetHeapTypeUnlocked(heap_id));
   }
 }
 

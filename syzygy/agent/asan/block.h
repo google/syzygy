@@ -87,7 +87,6 @@
 
 #include "base/basictypes.h"
 #include "syzygy/agent/asan/constants.h"
-#include "syzygy/agent/asan/heap_manager.h"
 
 namespace agent {
 

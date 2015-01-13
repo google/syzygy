@@ -71,7 +71,7 @@ extern const char kCorruptHeap[];
 
 // Store the information that we want to report about a block.
 // TODO(sebmarchand): Rename this to avoid the confusion with the BlockInfo
-//     structure ?
+//     structure?
 struct AsanBlockInfo {
   // The address of the header for this block.
   const void* header;
@@ -115,6 +115,8 @@ struct AsanCorruptBlockRange {
 };
 
 // Store the information about a bad memory access.
+// TODO(chrisha, sebmarchand): Make AsanErrorInfo contain an AsanBlockInfo
+//     rather than duplicating fields from it.
 struct AsanErrorInfo {
   // The address where the bad access happened.
   void* location;
@@ -132,6 +134,8 @@ struct AsanErrorInfo {
   uint8 free_stack_size;
   // The ID of the free thread.
   DWORD free_tid;
+  // The type of heap that made the allocation.
+  HeapType heap_type;
   // The ID of the crash stack, this is needed to be able to blacklist some
   // known bugs.
   common::StackCapture::StackId crash_stack_id;

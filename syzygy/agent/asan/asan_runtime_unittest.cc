@@ -218,12 +218,22 @@ TEST_F(AsanRuntimeTest, IgnoredStackIds) {
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 
-TEST_F(AsanRuntimeTest, IsValidHeapId) {
+TEST_F(AsanRuntimeTest, HeapIdIsValid) {
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
 
   EXPECT_FALSE(asan_runtime_.HeapIdIsValid(0xDEADBEEF));
   EXPECT_TRUE(asan_runtime_.HeapIdIsValid(asan_runtime_.GetProcessHeap()));
+
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
+}
+
+TEST_F(AsanRuntimeTest, GetHeapType) {
+  ASSERT_NO_FATAL_FAILURE(
+      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
+
+  HeapManagerInterface::HeapId heap_id = asan_runtime_.GetProcessHeap();
+  EXPECT_EQ(kCtMallocHeap, asan_runtime_.GetHeapType(heap_id));
 
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }

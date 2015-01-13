@@ -63,33 +63,7 @@ BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
 }
 
 BlockHeapManager::~BlockHeapManager() {
-  base::AutoLock lock(lock_);
-
-  // This would indicate that we have outstanding heap locks being
-  // held. This shouldn't happen as |locked_heaps_| is only non-null
-  // under |lock_|.
-  DCHECK_EQ(static_cast<HeapInterface**>(nullptr), locked_heaps_);
-
-  // Delete all the heaps. This must be done manually to ensure that
-  // all references to internal_heap_ have been cleaned up.
-  HeapQuarantineMap::iterator iter_heaps = heaps_.begin();
-  for (; iter_heaps != heaps_.end(); ++iter_heaps)
-    DestroyHeapUnlocked(iter_heaps->first, iter_heaps->second);
-  heaps_.clear();
-
-  // Clear the specialized heap references since they were deleted.
-  process_heap_ = nullptr;
-  process_heap_underlying_heap_ = nullptr;
-  process_heap_id_ = 0;
-  zebra_block_heap_ = nullptr;
-  zebra_block_heap_id_ = 0;
-  large_block_heap_id_ = 0;
-
-  // Free the allocation-filter flag (TLS).
-  CHECK_NE(TLS_OUT_OF_INDEXES, allocation_filter_flag_tls_);
-  ::TlsFree(allocation_filter_flag_tls_);
-  // Invalidate the TLS slot.
-  allocation_filter_flag_tls_ = TLS_OUT_OF_INDEXES;
+  TearDownHeapManager();
 }
 
 void BlockHeapManager::Init() {
@@ -360,19 +334,6 @@ void BlockHeapManager::UnlockAll() {
   lock_.Release();
 }
 
-bool BlockHeapManager::IsValidHeap(HeapId heap) {
-  DCHECK(initialized_);
-  // Run this in an exception handler, as if it's a really invalid heap id
-  // we could end up reading from inaccessible memory.
-  __try {
-    if (!IsValidHeapId(heap))
-      return false;
-  } __except(EXCEPTION_EXECUTE_HANDLER) {
-    return false;
-  }
-  return true;
-}
-
 void BlockHeapManager::set_parameters(
     const ::common::AsanParameters& parameters) {
   // Once initialized we can't tolerate changes to enable_ctmalloc, as the
@@ -390,6 +351,36 @@ void BlockHeapManager::set_parameters(
     PropagateParameters();
 }
 
+void BlockHeapManager::TearDownHeapManager() {
+  base::AutoLock lock(lock_);
+
+  // This would indicate that we have outstanding heap locks being
+  // held. This shouldn't happen as |locked_heaps_| is only non-null
+  // under |lock_|.
+  DCHECK_EQ(static_cast<HeapInterface**>(nullptr), locked_heaps_);
+
+  // Delete all the heaps. This must be done manually to ensure that
+  // all references to internal_heap_ have been cleaned up.
+  HeapQuarantineMap::iterator iter_heaps = heaps_.begin();
+  for (; iter_heaps != heaps_.end(); ++iter_heaps)
+    DestroyHeapUnlocked(iter_heaps->first, iter_heaps->second);
+  heaps_.clear();
+
+  // Clear the specialized heap references since they were deleted.
+  process_heap_ = nullptr;
+  process_heap_underlying_heap_ = nullptr;
+  process_heap_id_ = 0;
+  zebra_block_heap_ = nullptr;
+  zebra_block_heap_id_ = 0;
+  large_block_heap_id_ = 0;
+
+  // Free the allocation-filter flag (TLS).
+  if (allocation_filter_flag_tls_ != TLS_OUT_OF_INDEXES) {
+    ::TlsFree(allocation_filter_flag_tls_);
+    allocation_filter_flag_tls_ = TLS_OUT_OF_INDEXES;
+  }
+}
+
 HeapId BlockHeapManager::GetHeapId(
     HeapQuarantineMap::iterator iterator) const {
   HeapQuarantinePair* hq_pair = &(*iterator);
@@ -401,26 +392,79 @@ HeapId BlockHeapManager::GetHeapId(
   return GetHeapId(insert_result.first);
 }
 
+bool BlockHeapManager::IsValidHeapIdUnsafe(HeapId heap_id) {
+  DCHECK(initialized_);
+  HeapQuarantinePair* hq = reinterpret_cast<HeapQuarantinePair*>(heap_id);
+  if (!IsValidHeapIdUnsafeUnlockedImpl1(hq))
+    return false;
+  base::AutoLock auto_lock(lock_);
+  if (!IsValidHeapIdUnlockedImpl2(hq))
+    return false;
+  return true;
+}
+
+bool BlockHeapManager::IsValidHeapIdUnsafeUnlocked(HeapId heap_id) {
+  DCHECK(initialized_);
+  HeapQuarantinePair* hq = reinterpret_cast<HeapQuarantinePair*>(heap_id);
+  if (!IsValidHeapIdUnsafeUnlockedImpl1(hq))
+    return false;
+  if (!IsValidHeapIdUnlockedImpl2(hq))
+    return false;
+  return true;
+}
+
 bool BlockHeapManager::IsValidHeapId(HeapId heap_id) {
+  DCHECK(initialized_);
+  HeapQuarantinePair* hq = reinterpret_cast<HeapQuarantinePair*>(heap_id);
+  if (!IsValidHeapIdUnlockedImpl1(hq))
+    return false;
+  base::AutoLock auto_lock(lock_);
+  if (!IsValidHeapIdUnlockedImpl2(hq))
+    return false;
+  return true;
+}
+
+bool BlockHeapManager::IsValidHeapIdUnlocked(HeapId heap_id) {
+  DCHECK(initialized_);
+  HeapQuarantinePair* hq = reinterpret_cast<HeapQuarantinePair*>(heap_id);
+  if (!IsValidHeapIdUnlockedImpl1(hq))
+    return false;
+  if (!IsValidHeapIdUnlockedImpl2(hq))
+    return false;
+  return true;
+}
+
+bool BlockHeapManager::IsValidHeapIdUnsafeUnlockedImpl1(
+    HeapQuarantinePair* hq) {
   // First check to see if it looks like it has the right shape. This could
   // cause an invalid access if the heap_id is completely a wild value.
-  if (heap_id == 0)
+  if (hq == nullptr)
     return false;
-  HeapQuarantinePair* hq = reinterpret_cast<HeapQuarantinePair*>(heap_id);
   if (hq->first == nullptr || hq->second == nullptr)
     return false;
+  return true;
+}
 
-  // Ensure that it actually comes from this heap manager.
-  {
-    base::AutoLock lock(lock_);
-    auto it = heaps_.find(hq->first);
-    if (it == heaps_.end())
+bool BlockHeapManager::IsValidHeapIdUnlockedImpl1(
+    HeapQuarantinePair* hq) {
+  // Run this in an exception handler, as if it's a really invalid heap id
+  // we could end up reading from inaccessible memory.
+  __try {
+    if (!IsValidHeapIdUnsafeUnlockedImpl1(hq))
       return false;
-    HeapId heap_id2 = GetHeapId(it);
-    if (heap_id != heap_id2)
-      return false;
+  } __except(EXCEPTION_EXECUTE_HANDLER) {
+    return false;
   }
+  return true;
+}
 
+bool BlockHeapManager::IsValidHeapIdUnlockedImpl2(HeapQuarantinePair* hq) {
+  auto it = heaps_.find(hq->first);
+  if (it == heaps_.end())
+    return false;
+  HeapId heap_id = GetHeapId(it);
+  if (heap_id != reinterpret_cast<HeapId>(hq))
+    return false;
   return true;
 }
 
@@ -491,6 +535,13 @@ bool BlockHeapManager::allocation_filter_flag() const {
 
 void BlockHeapManager::set_allocation_filter_flag(bool value) {
   ::TlsSetValue(allocation_filter_flag_tls_, reinterpret_cast<void*>(value));
+}
+
+HeapType BlockHeapManager::GetHeapTypeUnlocked(HeapId heap_id) {
+  DCHECK(initialized_);
+  DCHECK(IsValidHeapIdUnlocked(heap_id));
+  BlockHeapInterface* heap = GetHeapFromId(heap_id);
+  return heap->GetHeapType();
 }
 
 bool BlockHeapManager::DestroyHeapUnlocked(

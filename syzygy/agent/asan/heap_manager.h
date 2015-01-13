@@ -19,6 +19,7 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "syzygy/agent/asan/heap.h"
 
 namespace agent {
 namespace asan {
@@ -81,11 +82,6 @@ class HeapManagerInterface {
 
   // Unlocks all locks acquired in a previous call to BestEffortLockAll.
   virtual void UnlockAll() = 0;
-
-  // Determines if a given heap is managed by this manager.
-  // @param heap The heap to query.
-  // @returns true if the given heap is managed by this manager.
-  virtual bool IsValidHeap(HeapId heap) = 0;
 };
 
 
