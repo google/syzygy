@@ -21,7 +21,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/common/unittest_util.h"
 
-namespace common {
+namespace application {
 
 using ::testing::Return;
 using ::testing::ScopedLogLevelSaver;
@@ -243,4 +243,4 @@ TEST_F(ApplicationTest, GetDeprecatedSwitch) {
   EXPECT_EQ(kBarPath, path);
 }
 
-}  // namespace common
+}  // namespace application
