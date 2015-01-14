@@ -69,6 +69,12 @@ class TestWithAsanLogger : public testing::Test {
   // Delete the temporary file used for the logging and its directory.
   void DeleteTempFileAndDirectory();
 
+  // Starts the logger process.
+  void StartLogger();
+
+  // Stops the logger process.
+  void StopLogger();
+
   // Reset the log contents.
   void ResetLog();
 
@@ -76,21 +82,14 @@ class TestWithAsanLogger : public testing::Test {
   void AppendToLoggerEnv(const std::string &instance);
 
  private:
-  // The log service instance.
-  trace::agent_logger::AgentLogger log_service_;
-
-  // Manages the binding between the RPC stub functions and a log service
-  // instance.
-  trace::agent_logger::RpcLoggerInstanceManager log_service_instance_;
-
   // The instance ID used by the running logger instance.
   std::wstring instance_id_;
 
   // The path to the log file where the the logger instance will write.
   base::FilePath log_file_path_;
 
-  // The open file handle, if any to which the logger instance will write.
-  file_util::ScopedFILE log_file_;
+  // Status of the logger process.
+  bool logger_running_;
 
   // A temporary directory into which the log file will be written.
   base::ScopedTempDir temp_dir_;
@@ -101,6 +100,11 @@ class TestWithAsanLogger : public testing::Test {
 
   // Value of the logger instance environment variable before SetUp.
   std::string old_logger_env_;
+
+  // Redirection files for the logger.
+  base::ScopedFILE logger_stdin_file_;
+  base::ScopedFILE logger_stdout_file_;
+  base::ScopedFILE logger_stderr_file_;
 };
 
 // Shorthand for discussing all the asan runtime functions.

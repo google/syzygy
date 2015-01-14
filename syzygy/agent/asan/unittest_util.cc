@@ -18,8 +18,11 @@
 
 #include <algorithm>
 
+#include "base/command_line.h"
 #include "base/environment.h"
 #include "base/debug/alias.h"
+#include "base/process/kill.h"
+#include "base/process/launch.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -44,6 +47,10 @@ using agent::common::StackCapture;
 }  // namespace
 
 const wchar_t kSyzyAsanRtlDll[] = L"syzyasan_rtl.dll";
+// The maximum time we're willing to wait for the logger process to get
+// started/killed. This is very generous, but also prevents the unittests
+// from hanging if the event never fires.
+static const size_t kLoggerTimeOutMs = 10000;
 
 namespace {
 
@@ -154,40 +161,44 @@ ASAN_RTL_FUNCTIONS(DEFINE_FAILING_FUNCTION)
 #undef DEFINE_FAILING_FUNCTION
 
 TestWithAsanLogger::TestWithAsanLogger()
-    : log_service_instance_(&log_service_), log_contents_read_(false) {
+    : logger_running_(false), log_contents_read_(false) {
 }
 
 void TestWithAsanLogger::SetUp() {
-  // Create and open the log file.
+  // Create the log file.
   ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
   CHECK(base::CreateTemporaryFileInDir(temp_dir_.path(), &log_file_path_));
-  log_file_.reset(base::OpenFile(log_file_path_, "wb"));
+
+  // Open files used to redirect standard in/out/err of the logger, to not
+  // pollute the console.
+  logger_stdin_file_.reset(base::OpenFile(
+      temp_dir_.path().AppendASCII("agent_logger_stdin.txt"), "w"));
+  CHECK(logger_stdin_file_);
+  logger_stdout_file_.reset(base::OpenFile(
+      temp_dir_.path().AppendASCII("agent_logger_stdout.txt"), "w"));
+  CHECK(logger_stdout_file_);
+  logger_stderr_file_.reset(base::OpenFile(
+      temp_dir_.path().AppendASCII("agent_logger_stderr.txt"), "w"));
+  CHECK(logger_stderr_file_);
 
   // Save the environment we found.
   scoped_ptr<base::Environment> env(base::Environment::Create());
   env->GetVar(kSyzygyRpcInstanceIdEnvVar, &old_logger_env_);
 
   // Configure the environment (to pass the instance id to the agent DLL).
-  AppendToLoggerEnv(base::StringPrintf("%ls,%u",
+  // We append "-0" to the process id to avoid potential conflict with other
+  // tests.
+  instance_id_ = base::UintToString16(::GetCurrentProcessId()) + L"-0";
+  AppendToLoggerEnv(base::StringPrintf("%ls,%ls",
                                        kSyzyAsanRtlDll,
-                                       ::GetCurrentProcessId()));
-
-  // Configure and start the log service.
-  instance_id_ = base::UintToString16(::GetCurrentProcessId());
-  log_service_.set_instance_id(instance_id_);
-  log_service_.set_destination(log_file_.get());
-  log_service_.set_minidump_dir(temp_dir_.path());
-  log_service_.set_symbolize_stack_traces(false);
-  ASSERT_TRUE(log_service_.Start());
+                                       instance_id_.c_str()));
 
   log_contents_read_ = false;
+  StartLogger();
 }
 
 void TestWithAsanLogger::TearDown() {
-  log_service_.Stop();
-  log_service_.Join();
-  log_file_.reset(NULL);
-  LogContains("");
+  StopLogger();
 
   // Restore the environment variable as we found it.
   scoped_ptr<base::Environment> env(base::Environment::Create());
@@ -195,7 +206,7 @@ void TestWithAsanLogger::TearDown() {
 }
 
 bool TestWithAsanLogger::LogContains(const base::StringPiece& message) {
-  if (!log_contents_read_ && log_file_.get() != NULL) {
+  if (!log_contents_read_ && logger_running_) {
     CHECK(base::ReadFileToString(log_file_path_, &log_contents_));
     log_contents_read_ = true;
   }
@@ -203,17 +214,65 @@ bool TestWithAsanLogger::LogContains(const base::StringPiece& message) {
 }
 
 void TestWithAsanLogger::DeleteTempFileAndDirectory() {
-  log_file_.reset();
+  StopLogger();
+  logger_stdin_file_.reset();
+  logger_stdout_file_.reset();
+  logger_stderr_file_.reset();
   if (temp_dir_.IsValid())
     temp_dir_.Delete();
 }
 
+void TestWithAsanLogger::StartLogger() {
+  // Launch the logger as a separate process and make sure it succeeds.
+  base::CommandLine cmd_line(testing::GetExeRelativePath(L"agent_logger.exe"));
+  cmd_line.AppendSwitchNative("instance-id", instance_id_);
+  cmd_line.AppendSwitchNative("output-file", log_file_path_.value());
+  cmd_line.AppendSwitchNative("minidump-dir", temp_dir_.path().value());
+  cmd_line.AppendArgNative(L"start");
+  base::LaunchOptions options;
+  options.start_hidden = true;
+  options.stdin_handle = reinterpret_cast<HANDLE>(
+      _get_osfhandle(_fileno(logger_stdin_file_.get())));
+  options.stdout_handle = reinterpret_cast<HANDLE>(
+      _get_osfhandle(_fileno(logger_stdout_file_.get())));
+  options.stderr_handle = reinterpret_cast<HANDLE>(
+      _get_osfhandle(_fileno(logger_stderr_file_.get())));
+  options.inherit_handles = true;  // As per documentation.
+  bool success = base::LaunchProcess(cmd_line, options, NULL);
+  ASSERT_TRUE(success);
+
+  // Wait for the logger to be ready before continuing.
+  std::wstring event_name;
+  trace::agent_logger::AgentLogger::GetSyzygyAgentLoggerEventName(
+      instance_id_, &event_name);
+  base::win::ScopedHandle event(
+      ::CreateEvent(NULL, FALSE, FALSE, event_name.c_str()));
+  ::WaitForSingleObject(event.Get(), kLoggerTimeOutMs);
+  logger_running_ = true;
+}
+
+void TestWithAsanLogger::StopLogger() {
+  if (!logger_running_)
+    return;
+  // Launch the logger as a separate process to stop it and make sure it
+  // succeeds.
+  base::CommandLine cmd_line(base::FilePath(L"agent_logger.exe"));
+  cmd_line.AppendSwitchNative("instance-id", instance_id_);
+  cmd_line.AppendArgNative(L"stop");
+  base::LaunchOptions options;
+  options.start_hidden = true;
+  base::ProcessHandle logger_process;
+  bool success = base::LaunchProcess(cmd_line, options, &logger_process);
+  ASSERT_TRUE(success);
+  ASSERT_TRUE(base::WaitForSingleProcess(logger_process,
+      base::TimeDelta::FromMilliseconds(kLoggerTimeOutMs)));
+  logger_running_ = false;
+}
+
 void TestWithAsanLogger::ResetLog() {
-  DCHECK(log_file_.get() != NULL);
+  StopLogger();
   CHECK(base::CreateTemporaryFileInDir(temp_dir_.path(), &log_file_path_));
-  base::ScopedFILE log_file(base::OpenFile(log_file_path_, "wb"));
-  log_service_.set_destination(log_file.get());
-  log_file_.reset(log_file.release());
+  StartLogger();
   log_contents_read_ = false;
 }
 

@@ -22,7 +22,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/unittest_util.h"
 
 namespace agent {
@@ -64,8 +63,6 @@ class AsanRuntimeTest : public testing::TestWithAsanLogger {
 
     Super::TearDown();
   }
-
-  AsanLogger logger_;
 
   // The test runtime instance.
   TestAsanRuntime asan_runtime_;
