@@ -21,4 +21,4 @@
 #define SYZYGY_INTERNALNAME "Call Trace Service"
 #define SYZYGY_ORIGINALFILENAME "call_trace_service.exe"
 
-#include "syzygy/common/version.rc"
+#include "syzygy/version/version.rc"

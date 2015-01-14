@@ -21,4 +21,4 @@
 #define SYZYGY_INTERNALNAME "Test DLL"
 #define SYZYGY_ORIGINALFILENAME "test_dll.dll"
 
-#include "syzygy/common/version.rc"
+#include "syzygy/version/version.rc"

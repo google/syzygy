@@ -21,4 +21,4 @@
 #define SYZYGY_INTERNALNAME "call_trace_client"
 #define SYZYGY_ORIGINALFILENAME "call_trace_client.dll"
 
-#include "syzygy/common/version.rc"
+#include "syzygy/version/version.rc"

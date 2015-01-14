@@ -21,4 +21,4 @@
 #define SYZYGY_INTERNALNAME "Relinker"
 #define SYZYGY_ORIGINALFILENAME "relink.exe"
 
-#include "syzygy/common/version.rc"
+#include "syzygy/version/version.rc"

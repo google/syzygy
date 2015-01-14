@@ -21,4 +21,4 @@
 #define SYZYGY_INTERNALNAME "SwapImport"
 #define SYZYGY_ORIGINALFILENAME "swapimport.exe"
 
-#include "syzygy/common/version.rc"
+#include "syzygy/version/version.rc"

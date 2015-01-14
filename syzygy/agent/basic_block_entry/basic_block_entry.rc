@@ -21,4 +21,4 @@
 #define SYZYGY_INTERNALNAME "basic_block_entry"
 #define SYZYGY_ORIGINALFILENAME "basic_block_entry_client.dll"
 
-#include "syzygy/common/version.rc"
+#include "syzygy/version/version.rc"

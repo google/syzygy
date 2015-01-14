@@ -21,4 +21,4 @@
 #define SYZYGY_INTERNALNAME "call_trace_control"
 #define SYZYGY_ORIGINALFILENAME "call_trace_control.exe"
 
-#include "syzygy/common/version.rc"
+#include "syzygy/version/version.rc"

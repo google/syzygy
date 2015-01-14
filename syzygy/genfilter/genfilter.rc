@@ -21,4 +21,4 @@
 #define SYZYGY_INTERNALNAME "GenFilter"
 #define SYZYGY_ORIGINALFILENAME "genfilter.exe"
 
-#include "syzygy/common/version.rc"
+#include "syzygy/version/version.rc"

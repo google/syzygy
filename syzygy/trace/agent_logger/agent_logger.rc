@@ -21,4 +21,4 @@
 #define SYZYGY_INTERNALNAME "Logging Service"
 #define SYZYGY_ORIGINALFILENAME "agent_logger.exe"
 
-#include "syzygy/common/version.rc"
+#include "syzygy/version/version.rc"

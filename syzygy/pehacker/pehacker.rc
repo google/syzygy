@@ -21,4 +21,4 @@
 #define SYZYGY_INTERNALNAME "PEHacker"
 #define SYZYGY_ORIGINALFILENAME "pehacker.exe"
 
-#include "syzygy/common/version.rc"
+#include "syzygy/version/version.rc"

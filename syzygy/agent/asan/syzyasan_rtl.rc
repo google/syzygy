@@ -21,4 +21,4 @@
 #define SYZYGY_INTERNALNAME "SYZYASAN_RTL"
 #define SYZYGY_ORIGINALFILENAME "syzyasan_rtl.dll"
 
-#include "syzygy/common/version.rc"
+#include "syzygy/version/version.rc"

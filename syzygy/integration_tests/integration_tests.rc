@@ -21,4 +21,4 @@
 #define SYZYGY_INTERNALNAME "IntegrationTests"
 #define SYZYGY_ORIGINALFILENAME "integration_tests.exe"
 
-#include "syzygy/common/version.rc"
+#include "syzygy/version/version.rc"

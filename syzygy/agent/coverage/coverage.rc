@@ -21,4 +21,4 @@
 #define SYZYGY_INTERNALNAME "coverage"
 #define SYZYGY_ORIGINALFILENAME "coverage.dll"
 
-#include "syzygy/common/version.rc"
+#include "syzygy/version/version.rc"

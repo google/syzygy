@@ -21,4 +21,4 @@
 #define SYZYGY_INTERNALNAME "Optimize"
 #define SYZYGY_ORIGINALFILENAME "optimize.exe"
 
-#include "syzygy/common/version.rc"
+#include "syzygy/version/version.rc"

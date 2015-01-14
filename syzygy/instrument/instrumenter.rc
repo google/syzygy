@@ -21,4 +21,4 @@
 #define SYZYGY_INTERNALNAME "Instrumenter"
 #define SYZYGY_ORIGINALFILENAME "instrument.exe"
 
-#include "syzygy/common/version.rc"
+#include "syzygy/version/version.rc"
