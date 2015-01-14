@@ -24,8 +24,8 @@
 #include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
+#include "syzygy/application/application.h"
 #include "syzygy/block_graph/block_graph.h"
-#include "syzygy/common/application.h"
 #include "syzygy/pe/image_layout.h"
 #include "syzygy/pe/pe_file.h"
 
@@ -36,7 +36,7 @@ namespace pe {
 //
 // See the description given in DecomposeApp:::PrintUsage() for information
 // about running this utility.
-class DecomposeApp : public common::AppImplBase {
+class DecomposeApp : public application::AppImplBase {
  public:
   typedef block_graph::BlockGraph::AddressSpace AddressSpace;
   typedef block_graph::BlockGraph::Block Block;
@@ -47,7 +47,7 @@ class DecomposeApp : public common::AppImplBase {
   // @name Implementation of the AppImplBase interface.
   // @{
   DecomposeApp()
-    : common::AppImplBase("Decomposer"),
+    : application::AppImplBase("Decomposer"),
       benchmark_load_(false),
       graph_only_(false),
       strip_strings_(false) {

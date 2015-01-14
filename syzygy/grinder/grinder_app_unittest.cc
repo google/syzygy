@@ -17,7 +17,7 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/win/scoped_com_initializer.h"
 #include "gtest/gtest.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
 #include "syzygy/sampler/unittest_util.h"
@@ -36,7 +36,7 @@ class TestGrinderApp : public GrinderApp {
 class GrinderAppTest : public testing::PELibUnitTest {
  public:
   typedef testing::PELibUnitTest Super;
-  typedef common::Application<TestGrinderApp> TestApplication;
+  typedef application::Application<TestGrinderApp> TestApplication;
 
   GrinderAppTest()
       : cmd_line_(base::FilePath(L"grinder.exe")),

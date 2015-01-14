@@ -13,15 +13,16 @@
 // limitations under the License.
 //
 // Version defines.
-#ifndef SYZYGY_COMMON_SYZYGY_VERSION_H_
-#define SYZYGY_COMMON_SYZYGY_VERSION_H_
+
+#ifndef SYZYGY_VERSION_SYZYGY_VERSION_H_
+#define SYZYGY_VERSION_SYZYGY_VERSION_H_
 
 #include <string>
 #include "base/basictypes.h"
 #include "base/logging.h"
-#include "syzygy/common/version.gen"
+#include "syzygy/version/version.gen"
 
-namespace common {
+namespace version {
 
 class SyzygyVersion {
  public:
@@ -90,6 +91,6 @@ class SyzygyVersion {
 
 extern const SyzygyVersion kSyzygyVersion;
 
-}  // namespace common
+}  // namespace version
 
-#endif  // SYZYGY_COMMON_SYZYGY_VERSION_H_
+#endif  // SYZYGY_VERSION_SYZYGY_VERSION_H_

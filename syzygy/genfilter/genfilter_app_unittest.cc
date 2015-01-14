@@ -39,7 +39,7 @@ class TestGenFilterApp : public GenFilterApp {
 class GenFilterAppTest : public testing::PELibUnitTest {
  public:
   typedef testing::PELibUnitTest Super;
-  typedef common::Application<TestGenFilterApp> TestApplication;
+  typedef application::Application<TestGenFilterApp> TestApplication;
 
   GenFilterAppTest()
       : cmd_line_(base::FilePath(L"genfilter.exe")),

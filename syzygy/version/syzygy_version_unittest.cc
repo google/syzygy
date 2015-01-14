@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/common/syzygy_version.h"
+#include "syzygy/version/syzygy_version.h"
 
 #include "gtest/gtest.h"
 #include "syzygy/core/serialization.h"
 #include "syzygy/core/unittest_util.h"
 
-namespace common {
+namespace version {
 
 TEST(SyzygyVersionTest, Equality) {
   SyzygyVersion version1(SYZYGY_MAJOR, SYZYGY_MINOR, SYZYGY_BUILD,
@@ -105,4 +105,4 @@ TEST(SyzygyVersionTest, VersionString) {
   EXPECT_TRUE(version.GetVersionString() == "0.0.0.0");
 }
 
-}  // namespace common
+}  // namespace version

@@ -22,7 +22,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/common/defs.h"
-#include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/json_file_writer.h"
 #include "syzygy/core/serialization.h"
 #include "syzygy/pdb/omap.h"
@@ -30,6 +29,7 @@
 #include "syzygy/pe/metadata.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_utils.h"
+#include "syzygy/version/syzygy_version.h"
 
 namespace reorder {
 

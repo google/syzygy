@@ -50,6 +50,7 @@
         'grinders/sample_grinder.h',
       ],
       'dependencies': [
+        '<(src)/syzygy/application/application.gyp:application_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/pe/pe.gyp:dia_sdk',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
@@ -79,6 +80,7 @@
         '<(src)/base/base.gyp:test_support_base',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/syzygy/application/application.gyp:application_lib',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(src)/syzygy/sampler/sampler.gyp:sampler_unittest_utils',
@@ -86,6 +88,7 @@
         '<(src)/syzygy/test_data/test_data.gyp:coverage_traces',
         '<(src)/syzygy/test_data/test_data.gyp:profile_traces',
         '<(src)/syzygy/trace/service/service.gyp:rpc_service_lib',
+        '<(src)/syzygy/version/version.gyp:version_lib',
       ],
     },
     {

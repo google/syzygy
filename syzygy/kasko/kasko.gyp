@@ -86,6 +86,7 @@
       'dependencies': [
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/common/rpc/rpc.gyp:common_rpc_lib',
+        '<(src)/syzygy/version/version.gyp:version_lib',
         'kasko_rpc',
       ],
       'defines': [

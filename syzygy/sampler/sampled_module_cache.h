@@ -56,7 +56,7 @@
 #include "base/callback.h"
 #include "base/files/file_path.h"
 #include "base/win/scoped_handle.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 #include "syzygy/sampler/sampling_profiler.h"
 #include "syzygy/trace/common/clock.h"
 #include "syzygy/trace/service/process_info.h"

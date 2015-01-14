@@ -32,6 +32,9 @@
       # Assembler unittests.
       '<(src)/syzygy/assm/assm.gyp:asm_unittests',
 
+      # Application unittests.
+      '<(src)/syzygy/application/application.gyp:application_unittests',
+
       # Agent tests.
       '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl_unittests',
       '<(src)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
@@ -117,6 +120,9 @@
       '<(src)/syzygy/trace/service/service.gyp:rpc_service_unittests',
       '<(src)/syzygy/trace/agent_logger/agent_logger.gyp:'
           'agent_logger_unittests',
+
+      # Version unittests.
+      '<(src)/syzygy/version/version.gyp:version_unittests',
 
       # WSDump tests.
       '<(src)/syzygy/wsdump/wsdump.gyp:wsdump_unittests',

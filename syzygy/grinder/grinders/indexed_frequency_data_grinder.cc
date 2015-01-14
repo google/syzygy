@@ -19,13 +19,13 @@
 #include "base/files/file_path.h"
 #include "base/json/json_reader.h"
 #include "syzygy/common/indexed_frequency_data.h"
-#include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/json_file_writer.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/find.h"
 #include "syzygy/pe/metadata.h"
 #include "syzygy/pe/pe_file.h"
+#include "syzygy/version/syzygy_version.h"
 
 namespace grinder {
 namespace grinders {

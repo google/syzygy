@@ -19,5 +19,5 @@
 int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;
   CommandLine::Init(argc, argv);
-  return common::Application<sampler::SamplerApp>().Run();
+  return application::Application<sampler::SamplerApp>().Run();
 }

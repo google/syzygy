@@ -56,7 +56,7 @@ using instrument::InstrumentApp;
 using trace::parser::Parser;
 typedef block_graph::BlockGraph::Block Block;
 typedef block_graph::BlockGraph::BlockMap BlockMap;
-typedef common::Application<InstrumentApp> TestApp;
+typedef application::Application<InstrumentApp> TestApp;
 typedef grinder::CoverageData::LineExecutionCountMap LineExecutionCountMap;
 typedef grinder::CoverageData::SourceFileCoverageData SourceFileCoverageData;
 typedef grinder::CoverageData::SourceFileCoverageDataMap
@@ -348,7 +348,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     cmd_line_.AppendSwitchASCII("mode", mode);
 
     // Create the instrumented DLL.
-    common::Application<instrument::InstrumentApp> app;
+    application::Application<instrument::InstrumentApp> app;
     ASSERT_NO_FATAL_FAILURE(ConfigureTestApp(&app));
     ASSERT_EQ(0, app.Run());
 

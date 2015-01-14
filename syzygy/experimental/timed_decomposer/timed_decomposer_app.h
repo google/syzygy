@@ -15,12 +15,12 @@
 // A command line application to decompose an image multiple times and
 // generate timing information.
 
-#ifndef SYZYGY_EXPERIMENTAL_TIMED_DECOMPSER_TIMED_DECOMPOSER_APP_H_
-#define SYZYGY_EXPERIMENTAL_TIMED_DECOMPSER_TIMED_DECOMPOSER_APP_H_
+#ifndef SYZYGY_EXPERIMENTAL_TIMED_DECOMPOSER_TIMED_DECOMPOSER_APP_H_
+#define SYZYGY_EXPERIMENTAL_TIMED_DECOMPOSER_TIMED_DECOMPOSER_APP_H_
 
 #include "base/command_line.h"
 #include "base/files/file_path.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 
 namespace experimental {
 
@@ -28,7 +28,7 @@ namespace experimental {
 //
 // See the description given in TimedDecomposerApp:::PrintUsage() for
 // information about running this utility.
-class TimedDecomposerApp : public common::AppImplBase {
+class TimedDecomposerApp : public application::AppImplBase {
  public:
   TimedDecomposerApp();
 
@@ -57,4 +57,4 @@ class TimedDecomposerApp : public common::AppImplBase {
 
 }  // namespace experimental
 
-#endif  // SYZYGY_EXPERIMENTAL_TIMED_DECOMPSER_TIMED_DECOMPOSER_APP_H_
+#endif  // SYZYGY_EXPERIMENTAL_TIMED_DECOMPOSER_TIMED_DECOMPOSER_APP_H_

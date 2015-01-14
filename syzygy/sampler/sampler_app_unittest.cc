@@ -25,7 +25,7 @@
 #include "base/win/windows_version.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
 #include "syzygy/trace/parse/parser.h"
@@ -145,7 +145,7 @@ class TestParseEventHandler : public testing::MockParseEventHandler {
 class SamplerAppTest : public testing::PELibUnitTest {
  public:
   typedef testing::PELibUnitTest Super;
-  typedef common::Application<TestSamplerApp> TestApplication;
+  typedef application::Application<TestSamplerApp> TestApplication;
 
   SamplerAppTest()
       : cmd_line_(base::FilePath(L"sampler.exe")),

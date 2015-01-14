@@ -20,15 +20,15 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/file_util.h"
+#include "base/files/file_path.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
-#include "base/files/file_path.h"
-#include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/serialization.h"
 #include "syzygy/experimental/compare/compare.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/serialization.h"
+#include "syzygy/version/syzygy_version.h"
 
 using block_graph::BlockGraph;
 using block_graph::ConstBlockVector;
@@ -186,7 +186,7 @@ int main(int argc, char** argv) {
     return Usage(argv, "Must specify '--from' and '--to' parameters!");
 
   LOG(INFO) << "Toolchain version: "
-            << common::kSyzygyVersion.GetVersionString() << ".";
+            << version::kSyzygyVersion.GetVersionString() << ".";
 
   pe::PEFile pe_file_from;
   BlockGraph block_graph_from;

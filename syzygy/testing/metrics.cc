@@ -25,7 +25,7 @@
 #include "base/synchronization/lock.h"
 #include "base/time/time.h"
 #include "base/win/scoped_handle.h"
-#include "syzygy/common/syzygy_version.h"
+#include "syzygy/version/syzygy_version.h"
 
 namespace testing {
 
@@ -223,7 +223,7 @@ void EmitMetric(const base::StringPiece& name, const std::string& value) {
 
   // Build the CSV record.
   base::Time time = base::Time::Now();
-  const common::SyzygyVersion& version = common::kSyzygyVersion;
+  const version::SyzygyVersion& version = version::kSyzygyVersion;
   std::string record = base::StringPrintf(
       "%lld, "         // Time (in microseconds since epoch)
       "%d.%d.%d.%d, "  // Version

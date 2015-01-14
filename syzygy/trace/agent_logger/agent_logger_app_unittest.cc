@@ -68,7 +68,7 @@ class TestLoggerApp : public LoggerApp {
   using LoggerApp::mini_dump_dir_;
 };
 
-typedef ::common::Application<TestLoggerApp> TestApp;
+typedef ::application::Application<TestLoggerApp> TestApp;
 
 class LoggerAppTest : public testing::ApplicationTestBase {
  public:

@@ -91,6 +91,7 @@
         '<(src)/base/base.gyp:base',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/syzygy/version/version.gyp:version_lib',
       ],
       'hard_dependency': 1,
     },

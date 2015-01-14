@@ -31,7 +31,7 @@ namespace pe {
 
 using block_graph::BlockGraph;
 using block_graph::BlockGraphSerializer;
-using common::ScopedTimeLogger;
+using application::ScopedTimeLogger;
 
 namespace {
 

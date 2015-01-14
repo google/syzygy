@@ -20,5 +20,5 @@
 int main(int argc, const char* const* argv) {
   base::AtExitManager at_exit_manager;
   CommandLine::Init(argc, argv);
-  return common::Application<experimental::TimedDecomposerApp>().Run();
+  return application::Application<experimental::TimedDecomposerApp>().Run();
 }

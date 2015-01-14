@@ -18,7 +18,7 @@
 
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 #include "syzygy/instrument/transforms/allocation_filter_transform.h"
 
 namespace {

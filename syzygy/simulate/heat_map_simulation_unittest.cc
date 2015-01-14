@@ -17,11 +17,11 @@
 #include <map>
 #include <vector>
 
-#include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/random_number_generator.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/version/syzygy_version.h"
 
 namespace simulate {
 

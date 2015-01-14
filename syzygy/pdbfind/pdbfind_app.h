@@ -22,7 +22,7 @@
 
 #include "base/command_line.h"
 #include "base/files/file_path.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 
 namespace pdbfind {
 
@@ -30,10 +30,10 @@ namespace pdbfind {
 //
 // Refer to kUsageFormatStr (referenced from PdbFindApp::Usage()) for
 // usage information.
-class PdbFindApp : public common::AppImplBase {
+class PdbFindApp : public application::AppImplBase {
  public:
   PdbFindApp()
-      : common::AppImplBase("PdbFind") {
+      : application::AppImplBase("PdbFind") {
   }
 
   // @name Implementation of the AppImplBase interface.

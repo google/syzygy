@@ -32,7 +32,7 @@ class TestPdbFindApp : public PdbFindApp {
   using PdbFindApp::input_image_path_;
 };
 
-typedef common::Application<TestPdbFindApp> TestApp;
+typedef application::Application<TestPdbFindApp> TestApp;
 
 class PdbFindAppTest : public testing::PELibUnitTest {
  public:

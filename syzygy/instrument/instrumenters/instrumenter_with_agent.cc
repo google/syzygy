@@ -16,7 +16,7 @@
 
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 #include "syzygy/core/file_util.h"
 
 namespace instrument {
@@ -63,20 +63,20 @@ bool InstrumenterWithAgent::ParseCommandLine(const CommandLine* command_line) {
   // Parse the input image.
   if (command_line->HasSwitch("input-dll")) {
     LOG(WARNING) << "DEPRECATED: Using --input-dll.";
-    input_image_path_ = common::AppImplBase::AbsolutePath(
+    input_image_path_ = application::AppImplBase::AbsolutePath(
         command_line->GetSwitchValuePath("input-dll"));
   } else {
-    input_image_path_ = common::AppImplBase::AbsolutePath(
+    input_image_path_ = application::AppImplBase::AbsolutePath(
         command_line->GetSwitchValuePath("input-image"));
   }
 
   // Parse the output image.
   if (command_line->HasSwitch("output-dll")) {
     LOG(WARNING) << "DEPRECATED: Using --output-dll.";
-    output_image_path_ = common::AppImplBase::AbsolutePath(
+    output_image_path_ = application::AppImplBase::AbsolutePath(
         command_line->GetSwitchValuePath("output-dll"));
   } else {
-    output_image_path_ = common::AppImplBase::AbsolutePath(
+    output_image_path_ = application::AppImplBase::AbsolutePath(
         command_line->GetSwitchValuePath("output-image"));
   }
 
@@ -87,9 +87,9 @@ bool InstrumenterWithAgent::ParseCommandLine(const CommandLine* command_line) {
   }
 
   // Parse the remaining command line arguments.
-  input_pdb_path_ = common::AppImplBase::AbsolutePath(
+  input_pdb_path_ = application::AppImplBase::AbsolutePath(
       command_line->GetSwitchValuePath("input-pdb"));
-  output_pdb_path_ = common::AppImplBase::AbsolutePath(
+  output_pdb_path_ = application::AppImplBase::AbsolutePath(
       command_line->GetSwitchValuePath("output-pdb"));
   allow_overwrite_ = command_line->HasSwitch("overwrite");
   debug_friendly_ = command_line->HasSwitch("debug-friendly");

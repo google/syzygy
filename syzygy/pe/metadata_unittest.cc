@@ -37,7 +37,7 @@ void InitMetadata(Metadata* metadata) {
   EXPECT_TRUE(base::Time::FromString("Thu, 7 Jul 2011 13:45:00 GMT",
                                      &creation_time));
 
-  SyzygyVersion toolchain_version(1, 2, 3, 4, "5");
+  version::SyzygyVersion toolchain_version(1, 2, 3, 4, "5");
 
   PEFile::Signature module_signature;
   module_signature.path = L"C:\\foo\\foo.dll";
@@ -123,9 +123,9 @@ TEST(MetadataTest, SaveToBlock) {
   Metadata metadata1;
   InitMetadata(&metadata1);
 
-  BlockGraph block_graph;
-  BlockGraph::Block* block =
-      block_graph.AddBlock(BlockGraph::DATA_BLOCK, 0, "Metadata");
+  block_graph::BlockGraph graph;
+  block_graph::BlockGraph::Block* block =
+      graph.AddBlock(block_graph::BlockGraph::DATA_BLOCK, 0, "Metadata");
   EXPECT_TRUE(metadata1.SaveToBlock(block));
 
   Metadata metadata2;

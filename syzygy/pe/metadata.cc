@@ -55,7 +55,7 @@ const char kModuleSizeKey[] = "module_size";
 const char kModuleTimeDateStampKey[] = "module_time_date_stamp";
 const char kModuleChecksumKey[] = "module_checksum";
 
-std::string TimeToString(const Time& time) {
+std::string TimeToString(const base::Time& time) {
   // Want the output format to be consistent with what Time::FromString
   // accepts as input. An example follows:
   // Tue, 15 Nov 1994 12:45:26 GMT.
@@ -67,13 +67,13 @@ std::string TimeToString(const Time& time) {
   return std::string(buffer);
 }
 
-bool StringToTime(const std::string& string, Time* time) {
-  return Time::FromString(string.c_str(), time);
+bool StringToTime(const std::string& string, base::Time* time) {
+  return base::Time::FromString(string.c_str(), time);
 }
 
 // Outputs a SyzygyVersion object in JSON format as a dictionary. Does not
 // output a newline after the dictionary.
-bool OutputSyzygyVersion(const common::SyzygyVersion& version,
+bool OutputSyzygyVersion(const version::SyzygyVersion& version,
                          core::JSONFileWriter* json_file) {
   DCHECK(json_file != NULL);
 
@@ -130,7 +130,7 @@ bool OutputPEFileSignature(const PEFile::Signature& signature,
 
 // Loads a syzygy version from a JSON dictionary.
 bool LoadSyzygyVersion(const DictionaryValue& dictionary,
-                       common::SyzygyVersion* version) {
+                       version::SyzygyVersion* version) {
   DCHECK(version != NULL);
 
   int major = 0;
@@ -213,14 +213,14 @@ bool Metadata::Init(const PEFile::Signature& module_signature) {
 
   // Set the remaining properties.
   creation_time_ = base::Time::Now();
-  toolchain_version_ = common::kSyzygyVersion;
+  toolchain_version_ = version::kSyzygyVersion;
   module_signature_ = module_signature;
 
   return true;
 }
 
 bool Metadata::IsConsistent(const PEFile::Signature& module_signature) const {
-  if (!common::kSyzygyVersion.IsCompatible(toolchain_version_)) {
+  if (!version::kSyzygyVersion.IsCompatible(toolchain_version_)) {
     LOG(ERROR) << "Metadata is not compatible with current toolchain version.";
     return false;
   }

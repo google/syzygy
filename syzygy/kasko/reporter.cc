@@ -27,7 +27,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/platform_thread.h"
 #include "base/time/time.h"
-#include "syzygy/common/syzygy_version.h"
 #include "syzygy/kasko/http_agent_impl.h"
 #include "syzygy/kasko/minidump.h"
 #include "syzygy/kasko/service.h"
@@ -35,6 +34,7 @@
 #include "syzygy/kasko/upload_thread.h"
 #include "syzygy/kasko/waitable_timer.h"
 #include "syzygy/kasko/waitable_timer_impl.h"
+#include "syzygy/version/syzygy_version.h"
 
 namespace kasko {
 
@@ -60,7 +60,7 @@ bool UploadCrashReport(
   }
 
   HttpAgentImpl http_agent(
-      L"Kasko", base::ASCIIToUTF16(common::kSyzygyVersion.GetVersionString()));
+      L"Kasko", base::ASCIIToUTF16(version::kSyzygyVersion.GetVersionString()));
   base::string16 remote_dump_id;
   uint16_t response_code = 0;
   if (!SendHttpUpload(&http_agent, upload_url, crash_keys, dump_contents,

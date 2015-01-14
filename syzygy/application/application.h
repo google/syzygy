@@ -16,7 +16,7 @@
 //
 // An application can be declared as follows in a library:
 //
-//     class MyApp : public common::AppImplBase {
+//     class MyApp : public application::AppImplBase {
 //      public:
 //       bool ParseCommandLine(const CommandLine* command_line);
 //       int Run();
@@ -25,7 +25,7 @@
 //     };
 //
 // The application class can then be unit-tested as appropriate. See the
-// declaration of common::AppImplBase for the entire interface expected
+// declaration of application::AppImplBase for the entire interface expected
 // by the application framework. Note that derivation from AppImplBase
 // is optional, as the integration with the application framework is
 // by template expansion, not virtual function invocation; AppImplBase
@@ -37,7 +37,7 @@
 //     int main(int argc, const char* const* argv) {
 //       base::AtExitManager at_exit_manager;
 //       CommandLine::Init(argc, argv);
-//       return common::Application<MyApp>().Run();
+//       return application::Application<MyApp>().Run();
 //     }
 //
 // To test how your application implementation interacts with the
@@ -45,7 +45,7 @@
 // a unittest as follows:
 //
 //     TEST(FixtureName, TestName) {
-//       using common::Application;
+//       using application::Application;
 //
 //       base::ScopedFILE in(base::OpenFile("NUL", "r"));
 //       base::ScopedFILE out(base::OpenFile("NUL", "w"));
@@ -65,8 +65,8 @@
 //     }
 //
 
-#ifndef SYZYGY_COMMON_APPLICATION_H_
-#define SYZYGY_COMMON_APPLICATION_H_
+#ifndef SYZYGY_APPLICATION_APPLICATION_H_
+#define SYZYGY_APPLICATION_APPLICATION_H_
 
 #include <objbase.h>
 #include <vector>
@@ -78,7 +78,7 @@
 #include "base/strings/string_util.h"
 #include "syzygy/common/com_utils.h"
 
-namespace common {
+namespace application {
 
 // A convenience base class that describes the interface an application
 // implementation is expected to expose. This class provides empty default
@@ -276,8 +276,8 @@ class ScopedTimeLogger {
   const base::Time start_;
 };
 
-}  // namespace common
+}  // namespace application
 
-#include "syzygy/common/application_impl.h"
+#include "syzygy/application/application_impl.h"
 
-#endif  // SYZYGY_COMMON_APPLICATION_H_
+#endif  // SYZYGY_APPLICATION_APPLICATION_H_

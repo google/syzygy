@@ -33,6 +33,7 @@
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/application/application.gyp:application_lib',
         '<(src)/syzygy/block_graph/analysis/block_graph_analysis.gyp:'
             'block_graph_analysis_lib',
         '<(src)/syzygy/block_graph/transforms/block_graph_transforms.gyp:'

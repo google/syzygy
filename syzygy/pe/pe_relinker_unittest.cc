@@ -33,6 +33,7 @@ namespace pe {
 
 namespace {
 
+using block_graph::BlockGraph;
 using block_graph::BlockGraphOrdererInterface;
 using block_graph::BlockGraphTransformInterface;
 using block_graph::OrderedBlockGraph;

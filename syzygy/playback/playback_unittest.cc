@@ -18,13 +18,13 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/unittest_util.h"
 #include "syzygy/trace/parse/parse_engine.h"
 #include "syzygy/trace/parse/unittest_util.h"
+#include "syzygy/version/syzygy_version.h"
 
 namespace playback {
 

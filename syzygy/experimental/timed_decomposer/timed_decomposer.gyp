@@ -26,7 +26,8 @@
       ],
       'dependencies': [
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
-        '<(src)/syzygy/common/common.gyp:syzygy_version',
+        '<(src)/syzygy/application/application.gyp:application_lib',
+        '<(src)/syzygy/version/version.gyp:syzygy_version',
       ],
     },
     {

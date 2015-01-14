@@ -74,7 +74,8 @@ const char kUsageFormatStr[] =
 
 }  // namespace
 
-GrinderApp::GrinderApp() : common::AppImplBase("Grinder"), mode_(kProfile) {
+GrinderApp::GrinderApp()
+    : application::AppImplBase("Grinder"), mode_(kProfile) {
 }
 
 void GrinderApp::PrintUsage(const base::FilePath& program,

@@ -25,7 +25,7 @@
 namespace pe {
 
 using block_graph::BlockGraph;
-using common::Application;
+using application::Application;
 using core::RelativeAddress;
 using ::testing::ScopedLogLevelSaver;
 

@@ -30,10 +30,10 @@
       'dependencies': [
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
-        '<(src)/syzygy/common/common.gyp:syzygy_version',
         '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/syzygy/trace/rpc/rpc.gyp:call_trace_rpc_lib',
         '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
+        '<(src)/syzygy/version/version.gyp:syzygy_version',
       ],
     },
     {

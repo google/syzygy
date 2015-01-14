@@ -57,7 +57,7 @@ class TestPEHackerApp : public PEHackerApp {
   using PEHackerApp::config_;
 };
 
-typedef common::Application<TestPEHackerApp> TestApp;
+typedef application::Application<TestPEHackerApp> TestApp;
 
 class PEHackerAppTest : public testing::PELibUnitTest {
  public:

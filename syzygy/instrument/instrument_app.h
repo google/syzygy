@@ -22,7 +22,7 @@
 #include "base/files/file_path.h"
 #include "base/strings/string_piece.h"
 #include "base/time/time.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 #include "syzygy/instrument/instrumenter.h"
 
 namespace instrument {
@@ -31,10 +31,10 @@ namespace instrument {
 //
 // Refer to kUsageFormatStr (referenced from InstrumentApp::Usage()) for
 // usage information.
-class InstrumentApp : public common::AppImplBase {
+class InstrumentApp : public application::AppImplBase {
  public:
   InstrumentApp()
-      : common::AppImplBase("Instrumenter") {
+      : application::AppImplBase("Instrumenter") {
   }
 
   // @name Implementation of the AppImplBase interface.

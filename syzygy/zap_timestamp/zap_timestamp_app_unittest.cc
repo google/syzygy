@@ -26,7 +26,7 @@ class TestZapTimestampApp : public ZapTimestampApp {
   using ZapTimestampApp::zap_;
 };
 
-typedef common::Application<TestZapTimestampApp> TestApp;
+typedef application::Application<TestZapTimestampApp> TestApp;
 
 class ZapTimestampAppTest : public testing::PELibUnitTest {
  public:

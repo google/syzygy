@@ -26,6 +26,7 @@
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/application/application.gyp:application_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/pdb/pdb.gyp:pdb_lib',
         '<(src)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_lib',

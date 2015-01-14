@@ -17,11 +17,11 @@
 #include "base/values.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/json/json_reader.h"
-#include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/random_number_generator.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/omap.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/version/syzygy_version.h"
 
 namespace simulate {
 

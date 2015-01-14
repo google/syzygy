@@ -15,14 +15,14 @@
 #define SYZYGY_GRINDER_GRINDER_APP_H_
 
 #include "base/files/file_path.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 #include "syzygy/grinder/grinder.h"
 
 namespace grinder {
 
 // The application class that takes care of running Grinder over a set of
 // profiler trace files.
-class GrinderApp : public common::AppImplBase {
+class GrinderApp : public application::AppImplBase {
  public:
   GrinderApp();
 

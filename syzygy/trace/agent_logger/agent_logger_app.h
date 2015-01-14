@@ -24,7 +24,7 @@
 #include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 
 namespace trace {
 namespace agent_logger {
@@ -40,7 +40,7 @@ namespace agent_logger {
 // and shutdown, respectively. The spawn command waits for the startup event
 // to be set (or the termination of the spawned logger) before returning and
 // the stop command waits for the shutdown event to be set before returning.
-class LoggerApp : public common::AppImplBase {
+class LoggerApp : public application::AppImplBase {
  public:
   LoggerApp();
   ~LoggerApp();

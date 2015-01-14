@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/common/syzygy_version.h"
+#include "syzygy/version/syzygy_version.h"
+
 #include "base/strings/stringprintf.h"
 
-namespace common {
+namespace version {
 
 const SyzygyVersion kSyzygyVersion(SYZYGY_MAJOR, SYZYGY_MINOR, SYZYGY_BUILD,
                                    SYZYGY_PATCH, SYZYGY_LASTCHANGE_FULL);
@@ -74,4 +75,4 @@ std::string SyzygyVersion::GetVersionString() const {
   return version;
 }
 
-}  // namespace common
+}  // namespace version

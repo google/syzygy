@@ -21,5 +21,5 @@
 int main(int argc, const char* const* argv) {
   base::AtExitManager at_exit_manager;
   CommandLine::Init(argc, argv);
-  return common::Application<pe::DecomposeImageToTextApp>().Run();
+  return application::Application<pe::DecomposeImageToTextApp>().Run();
 }

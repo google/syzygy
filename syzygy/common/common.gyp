@@ -18,52 +18,12 @@
   },
   'targets': [
     {
-      'target_name': 'syzygy_version',
-      'type': 'none',
-      'msvs_cygwin_shell': 0,
-      'sources': [
-        'syzygy_version.h',
-        'version.gen.template',
-      ],
-      'actions': [
-        {
-          'action_name': 'make_version_gen',
-          'inputs': [
-            '<(src)/syzygy/build/template_replace.py',
-            '<(src)/syzygy/VERSION',
-            '<(src)/syzygy/build/LASTCHANGE.gen',
-            'version.gen.template',
-          ],
-          'outputs': [
-            '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/version.gen',
-          ],
-          'action': [
-            '<(python_exe)',
-            '<(src)/syzygy/build/template_replace.py',
-            '--input', 'version.gen.template',
-            '--output', '<(SHARED_INTERMEDIATE_DIR)/syzygy/common/version.gen',
-            '<(src)/syzygy/VERSION',
-            '<(src)/syzygy/build/LASTCHANGE.gen',
-          ],
-          'process_outputs_as_sources': 1,
-        },
-      ],
-      'all_dependent_settings': {
-        'include_dirs': [
-          '<(SHARED_INTERMEDIATE_DIR)',
-        ],
-      },
-    },
-    {
       'target_name': 'common_lib',
       'type': 'static_library',
       'sources': [
         'align.cc',
         'align.h',
         'align_impl.h',
-        'application.cc',
-        'application.h',
-        'application_impl.h',
         'asan_parameters.cc',
         'asan_parameters.h',
         'assertions.h',
@@ -86,15 +46,7 @@
         'path_util.h',
         'recursive_lock.cc',
         'recursive_lock.h',
-        'syzygy_version.cc',
-        'syzygy_version.h',
       ],
-      'dependencies': [
-        'syzygy_version',
-      ],
-      # This target exports a hard dependency because it exposes
-      # files that from syzygy_version that are included from compiles.
-      'hard_dependency': 1,
       'defines': [
         # This is required for ATL to use XP-safe versions of its functions.
         '_USING_V110_SDK71_',
@@ -117,7 +69,6 @@
       'type': 'executable',
       'sources': [
         'align_unittest.cc',
-        'application_unittest.cc',
         'asan_parameters_unittest.cc',
         'buffer_parser_unittest.cc',
         'buffer_writer_unittest.cc',
@@ -125,7 +76,6 @@
         'comparable_unittest.cc',
         'path_util_unittest.cc',
         'recursive_lock_unittest.cc',
-        'syzygy_version_unittest.cc',
         'unittest_util_unittest.cc',
         '<(src)/base/test/run_all_unittests.cc',
       ],

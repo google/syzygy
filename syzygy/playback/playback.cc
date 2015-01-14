@@ -192,7 +192,7 @@ bool Playback::ValidateInstrumentedModuleAndParseSignature(
     return false;
   *orig_signature = metadata.module_signature();
 
-  if (!common::kSyzygyVersion.IsCompatible(metadata.toolchain_version())) {
+  if (!version::kSyzygyVersion.IsCompatible(metadata.toolchain_version())) {
     LOG(ERROR) << "Module was instrumented with an incompatible version of "
                << "the toolchain: " << instrumented_path_.value();
     return false;

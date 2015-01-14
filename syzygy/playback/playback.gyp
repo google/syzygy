@@ -29,6 +29,7 @@
         '<(src)/syzygy/pdb/pdb.gyp:pdb_lib',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
         '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',
+        '<(src)/syzygy/version/version.gyp:version_lib',
       ],
     },
     {

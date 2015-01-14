@@ -206,7 +206,7 @@ const LoggerApp::ActionTableEntry LoggerApp::kActionTable[] = {
 };
 
 LoggerApp::LoggerApp()
-    : ::common::AppImplBase("AgentLogger"),
+    : ::application::AppImplBase("AgentLogger"),
       logger_command_line_(CommandLine::NO_PROGRAM),
       action_handler_(NULL),
       append_(false) {

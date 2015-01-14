@@ -32,7 +32,7 @@ class TestSwapImportApp : public SwapImportApp {
   using SwapImportApp::verbose_;
 };
 
-typedef common::Application<TestSwapImportApp> TestApp;
+typedef application::Application<TestSwapImportApp> TestApp;
 
 class SwapImportAppTest : public testing::PELibUnitTest {
  public:

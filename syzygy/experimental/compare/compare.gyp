@@ -34,6 +34,7 @@
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/version/version.gyp:version_lib',
       ],
     },
   ]

@@ -582,7 +582,7 @@ base::Lock SamplerApp::console_ctrl_lock_;
 SamplerApp* SamplerApp::console_ctrl_owner_ = NULL;
 
 SamplerApp::SamplerApp()
-    : common::AppImplBase("Sampler"),
+    : application::AppImplBase("Sampler"),
       blacklist_pids_(true),
       log2_bucket_size_(kDefaultLog2BucketSize),
       sampling_interval_(),

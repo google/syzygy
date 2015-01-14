@@ -30,7 +30,7 @@
 namespace relink {
 
 using block_graph::BlockGraph;
-using common::Application;
+using application::Application;
 using core::RelativeAddress;
 using ::testing::ScopedLogLevelSaver;
 
@@ -54,7 +54,7 @@ class TestRelinkApp : public RelinkApp {
   using RelinkApp::fuzz_;
 };
 
-typedef common::Application<TestRelinkApp> TestApp;
+typedef application::Application<TestRelinkApp> TestApp;
 
 class RelinkAppTest : public testing::PELibUnitTest {
  public:

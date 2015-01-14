@@ -210,7 +210,7 @@ def CheckEnforcedChanges(input_api, output_api, committing, enforced):
 
 
 def CheckReleaseNotes(input_api, output_api, committing):
-  version = os.path.join('syzygy', 'VERSION')
+  version = os.path.join('syzygy', 'SYZYGY_VERSION')
   release_notes = os.path.join('syzygy', 'build', 'RELEASE-NOTES.TXT')
   return CheckEnforcedChanges(input_api, output_api, committing,
                               [[[version], [release_notes]]])

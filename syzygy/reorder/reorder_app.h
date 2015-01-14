@@ -20,7 +20,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/string_piece.h"
 #include "base/time/time.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 #include "syzygy/pe/image_layout.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/reorder/reorderer.h"
@@ -28,7 +28,7 @@
 namespace reorder {
 
 // This class implements the command-line reorder utility.
-class ReorderApp : public common::AppImplBase {
+class ReorderApp : public application::AppImplBase {
  public:
   ReorderApp();
 

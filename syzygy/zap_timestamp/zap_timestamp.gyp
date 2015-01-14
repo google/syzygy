@@ -27,6 +27,7 @@
         'zap_timestamp.h',
       ],
       'dependencies': [
+        '<(src)/syzygy/application/application.gyp:application_lib',
         '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/core/core.gyp:core_lib',

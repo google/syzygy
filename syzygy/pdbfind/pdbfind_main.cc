@@ -19,5 +19,5 @@
 int main(int argc, const char* const* argv) {
   base::AtExitManager at_exit_manager;
   CommandLine::Init(argc, argv);
-  return common::Application<pdbfind::PdbFindApp>().Run();
+  return application::Application<pdbfind::PdbFindApp>().Run();
 }

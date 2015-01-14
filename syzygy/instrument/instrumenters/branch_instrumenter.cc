@@ -17,7 +17,7 @@
 #include "base/file_util.h"
 #include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 #include "syzygy/pe/image_filter.h"
 
 namespace instrument {

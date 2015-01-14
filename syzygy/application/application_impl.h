@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Defines the template member function of the common::Application template
+// Defines the template member function of the application::Application template
 // class.
 //
 // This is not meant to be included directly.
 
-#ifndef SYZYGY_COMMON_APPLICATION_IMPL_H_
-#define SYZYGY_COMMON_APPLICATION_IMPL_H_
+#ifndef SYZYGY_APPLICATION_APPLICATION_IMPL_H_
+#define SYZYGY_APPLICATION_APPLICATION_IMPL_H_
 
 #include "base/win/scoped_com_initializer.h"
-#include "syzygy/common/syzygy_version.h"
+#include "syzygy/version/syzygy_version.h"
 
-namespace common {
+namespace application {
 
 template <typename Impl, AppLoggingFlag kInitLogging>
 Application<Impl, kInitLogging>::Application()
@@ -34,7 +34,8 @@ template <typename Impl, AppLoggingFlag kInitLogging>
 int Application<Impl, kInitLogging>::Run() {
   // If we've been asked for our version, spit it out and quit.
   if (command_line_->HasSwitch("version")) {
-    ::fprintf(out(), "%s\n", kSyzygyVersion.GetVersionString().c_str());
+    ::fprintf(out(), "%s\n",
+              version::kSyzygyVersion.GetVersionString().c_str());
     return 0;
   }
 
@@ -42,8 +43,8 @@ int Application<Impl, kInitLogging>::Run() {
     return 1;
 
   if (!command_line_->HasSwitch("no-logo")) {
-    LOG(INFO) << "Syzygy " << implementation_.name()
-        << " Version " << kSyzygyVersion.GetVersionString() << ".";
+    LOG(INFO) << "Syzygy " << implementation_.name() << " Version "
+              << version::kSyzygyVersion.GetVersionString() << ".";
     LOG(INFO) << "Copyright (c) Google Inc. All rights reserved.";
   }
 
@@ -87,6 +88,6 @@ bool Application<Impl, kInitLogging>::InitializeLogging() {
   return true;
 }
 
-}  // namespace common
+}  // namespace application
 
-#endif  // SYZYGY_COMMON_APPLICATION_IMPL_H_
+#endif  // SYZYGY_APPLICATION_APPLICATION_IMPL_H_

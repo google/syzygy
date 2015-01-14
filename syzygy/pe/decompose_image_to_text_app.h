@@ -19,9 +19,9 @@
 #define SYZYGY_PE_DECOMPOSE_IMAGE_TO_TEXT_APP_H_
 
 #include "base/files/file_path.h"
+#include "syzygy/application/application.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
-#include "syzygy/common/application.h"
 
 namespace pe {
 
@@ -29,7 +29,7 @@ namespace pe {
 //
 // See the description given in PrintUsage() for information about running
 // this utility.
-class DecomposeImageToTextApp : public common::AppImplBase {
+class DecomposeImageToTextApp : public application::AppImplBase {
  public:
   DecomposeImageToTextApp();
 

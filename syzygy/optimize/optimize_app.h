@@ -22,12 +22,12 @@
 #include "base/files/file_path.h"
 #include "base/strings/string_piece.h"
 #include "base/time/time.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 
 namespace optimize {
 
 // This class implements the command-line optimize utility.
-class OptimizeApp : public common::AppImplBase {
+class OptimizeApp : public application::AppImplBase {
  public:
   OptimizeApp()
       : AppImplBase("Optimize"),

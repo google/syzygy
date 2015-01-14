@@ -24,8 +24,8 @@
 #include "base/memory/scoped_vector.h"
 #include "base/strings/string_piece.h"
 #include "base/time/time.h"
+#include "syzygy/application/application.h"
 #include "syzygy/block_graph/block_graph.h"
-#include "syzygy/common/application.h"
 #include "syzygy/pe/image_source_map.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/pe/pe_transform_policy.h"
@@ -36,10 +36,10 @@ namespace pehacker {
 //
 // Refer to kUsageFormatStr (referenced from PEHackerApp::Usage()) for
 // usage information.
-class PEHackerApp : public common::AppImplBase {
+class PEHackerApp : public application::AppImplBase {
  public:
   PEHackerApp()
-      : common::AppImplBase("PEHacker"), overwrite_(false) {
+      : application::AppImplBase("PEHacker"), overwrite_(false) {
   }
 
   // @name Implementation of the AppImplBase interface.

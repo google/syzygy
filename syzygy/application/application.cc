@@ -15,13 +15,13 @@
 // Defines member function for a generic application implementation base
 // class (empty implementation).
 
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 
 #include "base/file_util.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 
-namespace common {
+namespace application {
 
 AppImplBase::AppImplBase(const base::StringPiece& name)
     : in_(stdin), out_(stdout), err_(stderr) {
@@ -79,4 +79,4 @@ bool AppImplBase::AppendMatchingPaths(const base::FilePath& pattern,
   return found_a_match;
 }
 
-}  // namespace common
+}  // namespace application

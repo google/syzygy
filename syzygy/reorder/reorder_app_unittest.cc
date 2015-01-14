@@ -32,7 +32,7 @@
 namespace reorder {
 
 using block_graph::BlockGraph;
-using common::Application;
+using application::Application;
 using core::RelativeAddress;
 using ::testing::ScopedLogLevelSaver;
 
@@ -65,7 +65,7 @@ class TestReorderApp : public ReorderApp {
   using ReorderApp::kInputDll;
 };
 
-typedef common::Application<TestReorderApp> TestApp;
+typedef application::Application<TestReorderApp> TestApp;
 
 class ReorderAppTest : public testing::PELibUnitTest {
  public:

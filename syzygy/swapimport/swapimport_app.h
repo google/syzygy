@@ -20,7 +20,7 @@
 
 #include "base/command_line.h"
 #include "base/files/file_path.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 
 namespace swapimport {
 
@@ -28,11 +28,12 @@ namespace swapimport {
 //
 // Refer to kUsageFormatStr (referenced from SwapImportApp::Usage()) for
 // usage information.
-class SwapImportApp : public common::AppImplBase {
+class SwapImportApp : public application::AppImplBase {
  public:
   SwapImportApp()
-      : common::AppImplBase("SwapImport"), overwrite_(false), verbose_(false) {
-  }
+      : application::AppImplBase("SwapImport"),
+        overwrite_(false),
+        verbose_(false) {}
 
   // @name Implementation of the AppImplBase interface.
   // @{

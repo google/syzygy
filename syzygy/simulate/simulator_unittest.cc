@@ -18,9 +18,9 @@
 #include "syzygy/simulate/simulator.h"
 
 #include "gmock/gmock.h"
-#include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/version/syzygy_version.h"
 
 namespace simulate {
 

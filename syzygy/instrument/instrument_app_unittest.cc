@@ -36,7 +36,7 @@ class TestInstrumentApp : public InstrumentApp {
   using InstrumentApp::instrumenter_;
 };
 
-typedef common::Application<TestInstrumentApp> TestApp;
+typedef application::Application<TestInstrumentApp> TestApp;
 
 class InstrumentAppTest : public testing::PELibUnitTest {
  public:

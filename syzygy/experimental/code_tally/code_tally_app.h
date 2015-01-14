@@ -20,9 +20,9 @@
 #define SYZYGY_EXPERIMENTAL_CODE_TALLY_CODE_TALLY_APP_H_
 
 #include "base/command_line.h"
-#include "base/strings/string_piece.h"
 #include "base/files/file_path.h"
-#include "syzygy/common/application.h"
+#include "base/strings/string_piece.h"
+#include "syzygy/application/application.h"
 #include "syzygy/experimental/code_tally/code_tally.h"
 
 
@@ -30,11 +30,11 @@
 //
 // See the description given in CodeTallyApp:::PrintUsage() for information
 // about running this utility.
-class CodeTallyApp : public common::AppImplBase {
+class CodeTallyApp : public application::AppImplBase {
  public:
   // @name Implementation of the AppImplBase interface.
   // @{
-  CodeTallyApp() : common::AppImplBase("CodeTally"), pretty_print_(false) {
+  CodeTallyApp() : application::AppImplBase("CodeTally"), pretty_print_(false) {
   }
 
   bool ParseCommandLine(const CommandLine* command_line);

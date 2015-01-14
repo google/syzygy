@@ -21,12 +21,12 @@
 #include "base/files/file_path.h"
 #include "base/strings/string_piece.h"
 #include "base/time/time.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 
 namespace relink {
 
 // This class implements the command-line relink utility.
-class RelinkApp : public common::AppImplBase {
+class RelinkApp : public application::AppImplBase {
  public:
   RelinkApp()
       : AppImplBase("Relinker"),

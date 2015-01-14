@@ -20,7 +20,7 @@
 
 #include "base/command_line.h"
 #include "base/files/file_path.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 
 namespace genfilter {
 
@@ -28,7 +28,7 @@ namespace genfilter {
 //
 // Refer to kUsageFormatStr (referenced from GenFilterApp::Usage()) for
 // usage information.
-class GenFilterApp : public common::AppImplBase {
+class GenFilterApp : public application::AppImplBase {
  public:
   // The valid actions.
   enum Action {
@@ -40,7 +40,7 @@ class GenFilterApp : public common::AppImplBase {
   };
 
   GenFilterApp()
-      : common::AppImplBase("GenFilterApp"),
+      : application::AppImplBase("GenFilterApp"),
         action_(kCompile),
         pretty_print_(false),
         overwrite_(false) {

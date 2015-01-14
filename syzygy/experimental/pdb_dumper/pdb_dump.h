@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "base/files/file_path.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 #include "syzygy/pdb/pdb_util.h"
 
 namespace pdb {
@@ -30,7 +30,7 @@ class DbiStream;
 // The PdbDump application dumps data for one or more PDB files to stdout,
 // and can optionally explode the streams from each PDB file to a set of files
 // in a directory named <pdbfile>-streams.
-class PdbDumpApp : public common::AppImplBase {
+class PdbDumpApp : public application::AppImplBase {
  public:
   PdbDumpApp();
 

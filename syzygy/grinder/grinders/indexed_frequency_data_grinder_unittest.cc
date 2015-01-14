@@ -21,10 +21,10 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/indexed_frequency_data.h"
-#include "syzygy/common/syzygy_version.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/metadata.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/version/syzygy_version.h"
 
 namespace grinder {
 namespace grinders {
@@ -39,7 +39,7 @@ using basic_block_util::EntryCountType;
 using basic_block_util::ModuleIndexedFrequencyMap;
 using basic_block_util::IsValidFrequencySize;
 using basic_block_util::ModuleInformation;
-using common::kSyzygyVersion;
+using version::kSyzygyVersion;
 using base::CreateAndOpenTemporaryFileInDir;
 
 const wchar_t kImageFileName[] = L"foo.dll";

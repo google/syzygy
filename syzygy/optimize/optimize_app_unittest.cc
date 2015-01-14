@@ -24,7 +24,7 @@
 
 namespace optimize {
 
-using common::Application;
+using application::Application;
 using ::testing::ScopedLogLevelSaver;
 
 namespace {
@@ -46,7 +46,7 @@ class TestOptimizeApp : public OptimizeApp {
   using OptimizeApp::overwrite_;
 };
 
-typedef common::Application<TestOptimizeApp> TestApp;
+typedef application::Application<TestOptimizeApp> TestApp;
 
 class OptimizeAppTest : public testing::PELibUnitTest {
  public:

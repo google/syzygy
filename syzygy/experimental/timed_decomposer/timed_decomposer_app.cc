@@ -71,7 +71,7 @@ bool WriteCsvFile(const base::FilePath& path,
 }  // namespace
 
 TimedDecomposerApp::TimedDecomposerApp()
-    : common::AppImplBase("Timed Image Decomposer"),
+    : application::AppImplBase("Timed Image Decomposer"),
       num_iterations_(0) {
 }
 

@@ -15,13 +15,13 @@
 #ifndef SYZYGY_ZAP_TIMESTAMP_ZAP_TIMESTAMP_APP_H_
 #define SYZYGY_ZAP_TIMESTAMP_ZAP_TIMESTAMP_APP_H_
 
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 #include "syzygy/zap_timestamp/zap_timestamp.h"
 
 namespace zap_timestamp {
 
 // The application class that actually runs ZapTimestamp.
-class ZapTimestampApp : public common::AppImplBase {
+class ZapTimestampApp : public application::AppImplBase {
  public:
   ZapTimestampApp() : AppImplBase("Zap Timestamp") { }
 

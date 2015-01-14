@@ -202,7 +202,7 @@
             '<(src)/syzygy/build/README.TXT.template',
             '<(src)/syzygy/build/TIMESTAMP.gen',
             '<(src)/syzygy/build/template_replace.py',
-            '<(src)/syzygy/VERSION',
+            '<(src)/syzygy/SYZYGY_VERSION',
           ],
           'outputs': [
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/build/README.TXT',
@@ -214,7 +214,7 @@
             '<(src)/syzygy/build/README.TXT.template',
             '--output',
             '<(SHARED_INTERMEDIATE_DIR)/syzygy/build/README.TXT',
-            '<(src)/syzygy/VERSION',
+            '<(src)/syzygy/SYZYGY_VERSION',
             '<(src)/syzygy/build/LASTCHANGE.gen',
             '<(src)/syzygy/build/TIMESTAMP.gen',
           ],

@@ -133,6 +133,7 @@
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/syzygy/pdb/pdb.gyp:pdb_lib',
+        '<(src)/syzygy/version/version.gyp:version_lib',
         '<(src)/third_party/distorm/distorm.gyp:distorm',
         '<(src)/third_party/pcre/pcre.gyp:pcre_lib',
       ],
@@ -161,7 +162,8 @@
       ],
       'dependencies': [
         'pe_lib',
-        '<(src)/syzygy/common/common.gyp:syzygy_version',
+        '<(src)/syzygy/application/application.gyp:application_lib',
+        '<(src)/syzygy/version/version.gyp:syzygy_version',
       ],
     },
     {
@@ -280,7 +282,7 @@
       'dependencies': [
         'export_dll',
         'test_dll_no_private_symbols',
-        '<(src)/syzygy/common/common.gyp:syzygy_version',
+        '<(src)/syzygy/version/version.gyp:syzygy_version',
       ],
       'msvs_settings': {
         'VCLinkerTool': {
@@ -343,7 +345,7 @@
         'test_dll_x64.rc',
       ],
       'dependencies': [
-        '<(src)/syzygy/common/common.gyp:syzygy_version',
+        '<(src)/syzygy/version/version.gyp:syzygy_version',
       ],
       'msvs_settings': {
         'VCLinkerTool': {

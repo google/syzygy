@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 
 #include <shellapi.h>
 

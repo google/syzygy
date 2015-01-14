@@ -22,7 +22,7 @@
 
 #include "base/files/file_path.h"
 #include "base/time/time.h"
-#include "syzygy/common/application.h"
+#include "syzygy/application/application.h"
 #include "syzygy/sampler/sampled_module_cache.h"
 
 namespace sampler {
@@ -30,7 +30,7 @@ namespace sampler {
 // The application class that takes care of running a profiling sampler. This
 // works by polling running processes and attaching a SamplingProfiler instance
 // to every module of interest. The output is then shuttled to trace data files.
-class SamplerApp : public common::AppImplBase {
+class SamplerApp : public application::AppImplBase {
  public:
   SamplerApp();
   ~SamplerApp();

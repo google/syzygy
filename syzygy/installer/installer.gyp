@@ -58,7 +58,7 @@
           'action_name': 'make_version_wxi',
           'inputs': [
             '<(src)/syzygy/build/template_replace.py',
-            '<(src)/syzygy/VERSION',
+            '<(src)/syzygy/SYZYGY_VERSION',
             'version.wxi.template',
           ],
           'outputs': [
@@ -69,7 +69,7 @@
             '<(src)/syzygy/build/template_replace.py',
             '--input', 'version.wxi.template',
             '--output', '<(INTERMEDIATE_DIR)/version.wxi',
-            '<(src)/syzygy/VERSION',
+            '<(src)/syzygy/SYZYGY_VERSION',
           ],
           'process_outputs_as_sources': 1,
         },
