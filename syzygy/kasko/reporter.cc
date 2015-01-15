@@ -32,9 +32,9 @@
 #include "syzygy/kasko/service.h"
 #include "syzygy/kasko/upload.h"
 #include "syzygy/kasko/upload_thread.h"
+#include "syzygy/kasko/version.h"
 #include "syzygy/kasko/waitable_timer.h"
 #include "syzygy/kasko/waitable_timer_impl.h"
-#include "syzygy/version/syzygy_version.h"
 
 namespace kasko {
 
@@ -60,7 +60,7 @@ bool UploadCrashReport(
   }
 
   HttpAgentImpl http_agent(
-      L"Kasko", base::ASCIIToUTF16(version::kSyzygyVersion.GetVersionString()));
+      L"Kasko", base::ASCIIToUTF16(KASKO_VERSION_STRING));
   base::string16 remote_dump_id;
   uint16_t response_code = 0;
   if (!SendHttpUpload(&http_agent, upload_url, crash_keys, dump_contents,

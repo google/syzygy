@@ -18,6 +18,42 @@
   },
   'targets': [
     {
+      'target_name': 'kasko_version',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'sources': [
+        'version.h.template',
+      ],
+      'actions': [
+        {
+          'action_name': 'make_version_gen',
+          'inputs': [
+            '<(src)/syzygy/build/template_replace.py',
+            '<(src)/syzygy/kasko/VERSION',
+            '<(src)/syzygy/build/LASTCHANGE.gen',
+            'version.h.template',
+          ],
+          'outputs': [
+            '<(SHARED_INTERMEDIATE_DIR)/syzygy/kasko/version.h',
+          ],
+          'action': [
+            '<(python_exe)',
+            '<(src)/syzygy/build/template_replace.py',
+            '--input', 'version.h.template',
+            '--output', '<(SHARED_INTERMEDIATE_DIR)/syzygy/kasko/version.h',
+            '<(src)/syzygy/kasko/VERSION',
+            '<(src)/syzygy/build/LASTCHANGE.gen',
+          ],
+          'process_outputs_as_sources': 1,
+        },
+      ],
+      'all_dependent_settings': {
+        'include_dirs': [
+          '<(SHARED_INTERMEDIATE_DIR)',
+        ],
+      },
+    },
+    {
       'target_name': 'kasko_rpc',
       'type': 'static_library',
       'variables': {
@@ -86,7 +122,7 @@
       'dependencies': [
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/common/rpc/rpc.gyp:common_rpc_lib',
-        '<(src)/syzygy/version/version.gyp:version_lib',
+        'kasko_version',
         'kasko_rpc',
       ],
       'defines': [
