@@ -20,6 +20,7 @@ import os
 import re
 import struct
 import sys
+import tempfile
 import uuid
 
 def serve_file_handler(file_path):
@@ -59,9 +60,11 @@ def multipart_form_handler(incoming_directory):
           os.mkdir(report_directory)
           for field, values in post_multipart.items():
             if re.match('^[a-zA-Z0-9_-]+$', field):
-              f = open(os.path.join(report_directory, field), 'wb+')
+              fd, temp_path = tempfile.mkstemp()
+              f = os.fdopen(fd, 'wb+')
               f.write(','.join(values))
               f.close()
+              os.rename(temp_path, os.path.join(report_directory, field))
         self.send_response(200)
         self.send_header("Content-Type", "text/plain")
         self.end_headers()
