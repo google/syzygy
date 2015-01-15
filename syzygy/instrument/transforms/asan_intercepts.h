@@ -76,12 +76,12 @@ struct AsanIntercept {
   bool optional;
 };
 
-// List of ASAN intercepts. The terminating entry will contain all NULLs.
+// List of Asan intercepts. The terminating entry will contain all NULLs.
 // Functions that have the same value for |module| will be consecutive in this
 // array.
 extern const AsanIntercept kAsanIntercepts[];
 
-// The prefix that is applied to the name of ASAN instrumented implementations
+// The prefix that is applied to the name of Asan instrumented implementations
 // of intercepted functions.
 extern const char kUndecoratedAsanInterceptPrefix[];
 extern const char kDecoratedAsanInterceptPrefix[];

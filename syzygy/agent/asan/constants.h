@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Declares some constants that are used across ASan.
+// Declares some constants that are used across Asan.
 
 #ifndef SYZYGY_AGENT_ASAN_CONSTANTS_H_
 #define SYZYGY_AGENT_ASAN_CONSTANTS_H_
@@ -21,7 +21,7 @@ namespace agent {
 namespace asan {
 
 // The ratio of shadow memory to actual memory. This governs the behaviour, size
-// and alignment requirements of many ASan structures.
+// and alignment requirements of many Asan structures.
 static const size_t kShadowRatioLog = 3;
 static const size_t kShadowRatio = (1 << kShadowRatioLog);
 

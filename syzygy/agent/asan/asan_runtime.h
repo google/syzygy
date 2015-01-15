@@ -169,7 +169,7 @@ class AsanRuntime {
   HeapType GetHeapType(HeapManagerInterface::HeapId heap_id);
   // @}
 
-  // Processes an exception and determines if an ASAN error has occurred,
+  // Processes an exception and determines if an Asan error has occurred,
   // updating the exception if so. If Breakpad is enabled, passes the
   // exception to it, otherwise lets the exception continue unhandled.
   // @note This is basically a Windows SEH exception filter.
@@ -199,7 +199,7 @@ class AsanRuntime {
       void* buffer,
       AsanErrorInfo* error_info);
 
-  // Logs information about an ASAN error.
+  // Logs information about an Asan error.
   void LogAsanErrorInfo(AsanErrorInfo* error_info);
 
   // The heap manager.
@@ -230,7 +230,7 @@ class AsanRuntime {
   static LONG WINAPI UnhandledExceptionFilter(
       struct _EXCEPTION_POINTERS* exception);
 
-  // The implementation of the ASAN exception handler. This has two flavours:
+  // The implementation of the Asan exception handler. This has two flavours:
   // in the context of an unhandled exception filter, and in the context of
   // an exception handler. If |is_unhandled| is true then this will pass the
   // exception along to the next unfiltered exception handler. Otherwise, it'll

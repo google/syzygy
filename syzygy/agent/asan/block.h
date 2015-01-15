@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Describes and declares an ASan block, which is fundamentally a single
+// Describes and declares an Asan block, which is fundamentally a single
 // instrumented allocation of memory.
 //
-// Under ASan instrumentation allocations are instrumented with leading
+// Under Asan instrumentation allocations are instrumented with leading
 // (left) and trailing (right) redzones. The left redzone contains a
 // BlockHeader, while the right redzone contains a BlockTrailer. Each of
 // these contain metadata about the allocation itself. In both cases the
@@ -111,7 +111,7 @@ static const uint8 kBlockTrailerPaddingByte = 0xC3;
 // it can be referred to by the checksumming code.
 static const size_t kBlockHeaderChecksumBits = 13;
 
-// The state of an ASan block. These are in the order that reflects the typical
+// The state of an Asan block. These are in the order that reflects the typical
 // lifespan of an allocation.
 enum BlockState {
   // The block is allocated and valid for reading/writing.

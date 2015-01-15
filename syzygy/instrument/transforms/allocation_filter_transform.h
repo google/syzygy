@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 // Allocation-filter instrumentation transform.
-// This is an extension of the ASAN transform that allows enabling/disabling
+// This is an extension of the Asan transform that allows enabling/disabling
 // heavy allocation instrumentation at targeted allocation sites.
 
 #ifndef SYZYGY_INSTRUMENT_TRANSFORMS_ALLOCATION_FILTER_TRANSFORM_H_

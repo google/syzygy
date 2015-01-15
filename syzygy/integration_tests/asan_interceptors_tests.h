@@ -431,7 +431,7 @@ size_t AsanCorruptBlock();
 
 size_t AsanCorruptBlockInQuarantine();
 
-// Non-ASAN errors that are meant to be caught by the heap checker after
+// Non-Asan errors that are meant to be caught by the heap checker after
 // an exception is caught by the unfiltered exception handler.
 size_t AsanInvalidAccessWithCorruptAllocatedBlockHeader();
 size_t AsanInvalidAccessWithCorruptAllocatedBlockTrailer();
@@ -439,7 +439,7 @@ size_t AsanInvalidAccessWithCorruptFreedBlock();
 
 // Generates a call to memcmp that will cause an access violation to be
 // raised. Catches and swallows the access violation by itself. When
-// instrumented, this should be caught by the SyzyASan exception handler.
+// instrumented, this should be caught by the SyzyAsan exception handler.
 size_t AsanMemcmpAccessViolation();
 
 }  // namespace testing

@@ -588,7 +588,7 @@ bool PeFindImportsToIntercept(bool use_interceptors,
     return false;
   }
 
-  // Add ASAN imports for those functions found in the import tables. These will
+  // Add Asan imports for those functions found in the import tables. These will
   // later be redirected.
   for (size_t i = 0; i < imported_modules->size(); ++i) {
     ImportedModule* module = (*imported_modules)[i];
@@ -1033,7 +1033,7 @@ bool AsanTransform::PreBlockGraphIteration(
     default_stub_map[AsanBasicBlockTransform::kRepnzAccess] = instr_hook;
   }
 
-  // Add an import entry for the ASAN runtime.
+  // Add an import entry for the Asan runtime.
   ImportedModule import_module(asan_dll_name_, kDateInThePast);
 
   // Import the hooks for the read/write accesses.
@@ -1172,7 +1172,7 @@ bool AsanTransform::PeInterceptFunctions(
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), header_block);
   DCHECK_EQ(BlockGraph::PE_IMAGE, block_graph->image_format());
 
-  // This is used to keep track of the index of imports to the ASAN RTL.
+  // This is used to keep track of the index of imports to the Asan RTL.
   ImportNameIndexMap import_name_index_map;
 
   // Keeps track of all imported modules with imports that we intercept.
@@ -1211,7 +1211,7 @@ bool AsanTransform::PeInterceptFunctions(
   if (asan_rtl.size() == 0)
     return true;
 
-  // Add the ASAN RTL imports to the image.
+  // Add the Asan RTL imports to the image.
   PEAddImportsTransform add_imports_transform;
   add_imports_transform.AddModule(&asan_rtl);
   if (!add_imports_transform.TransformBlockGraph(
@@ -1340,11 +1340,11 @@ bool AsanTransform::CoffInterceptFunctions(
     std::string imp_name(kDecoratedImportPrefix);
     imp_name += intercept->decorated_name;
 
-    // Build the name of the ASAN instrumented version of this symbol.
+    // Build the name of the Asan instrumented version of this symbol.
     std::string asan_name(kDecoratedAsanInterceptPrefix);
     asan_name += intercept->decorated_name;
 
-    // Build the name of the ASAN instrumented imported version of this symbol.
+    // Build the name of the Asan instrumented imported version of this symbol.
     std::string imp_asan_name(kDecoratedImportPrefix);
     imp_asan_name += asan_name;
 
@@ -1353,13 +1353,13 @@ bool AsanTransform::CoffInterceptFunctions(
     rename_tx.AddSymbolMapping(intercept->decorated_name, asan_name);
     rename_tx.AddSymbolMapping(imp_name, imp_asan_name);
 
-    // We use the add imports transform to try to find names for the ASAN
+    // We use the add imports transform to try to find names for the Asan
     // implementation. If these already exist in the object file then our
     // instrumentation will fail.
     const std::string* names[] = { &asan_name, &imp_asan_name };
     for (size_t i = 0; i < arraysize(names); ++i) {
       if (symbol_map.count(*names[i])) {
-        LOG(ERROR) << "Object file being instrumented defines ASAN function \""
+        LOG(ERROR) << "Object file being instrumented defines Asan function \""
                    << asan_name << "\".";
         defines_asan_functions = true;
       }

@@ -17,7 +17,7 @@
 // back-end handling (symbolization) is desired.
 //
 // This is intended to be used for transmitting additional information about
-// ASAN crashes. Specifically, something like the following will be emitted
+// Asan crashes. Specifically, something like the following will be emitted
 // (this mirrors the AsanErrorInfo struct in agent/asan/error_info.h):
 //
 // In JSON-ish representation:

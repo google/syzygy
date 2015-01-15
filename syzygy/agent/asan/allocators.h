@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 // Declares a handful of STL compatible allocators that interact with
-// SyzyASan subsystems. This is all with the goal of enhanced redzone
+// SyzyAsan subsystems. This is all with the goal of enhanced redzone
 // reporting.
 
 #ifndef SYZYGY_AGENT_ASAN_ALLOCATORS_H_

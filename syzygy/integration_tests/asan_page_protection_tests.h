@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Declares functions used for end-to-end integration testing of ASAN page
+// Declares functions used for end-to-end integration testing of Asan page
 // protection mechanisms (ie: ZebraBlockHeap and LargeBlockHeap).
 
 #ifndef SYZYGY_INTEGRATION_TESTS_ASAN_PAGE_PROTECTION_TESTS_H_

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Implements an all-static class that manages shadow memory for ASAN.
+// Implements an all-static class that manages shadow memory for Asan.
 //
 // The layout of a block is fully encoded in shadow memory, allowing for
 // recovery of the block simply by inspecting the shadow memory. This is
@@ -79,7 +79,7 @@
 namespace agent {
 namespace asan {
 
-// An all-static class that manages the ASAN shadow memory.
+// An all-static class that manages the Asan shadow memory.
 class Shadow {
  public:
   // The first 64k of the memory are not addressable.

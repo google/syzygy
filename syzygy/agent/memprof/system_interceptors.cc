@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Implementations of the ASAN system interceptors. These are simple
-// pass-throughs to the original functions for the purpose of ASAN
+// Implementations of the Asan system interceptors. These are simple
+// pass-throughs to the original functions for the purpose of Asan
 // compatibility.
 
 #include "windows.h"

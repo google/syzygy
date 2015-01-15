@@ -12,7 +12,7 @@
 ; See the License for the specific language governing permissions and
 ; limitations under the License.
 ;
-; Export declarations for the ASAN RTL DLL.
+; Export declarations for the Asan RTL DLL.
 LIBRARY syzyasan_rtl.dll
 
 EXPORTS

@@ -14,7 +14,7 @@
 //
 // Declares SimpleBlockHeap, which is a simple block-aware wrapper of an
 // instance of a HeapInterface. This is the primary type of block heap used
-// by the ASAN instrumentation.
+// by the Asan instrumentation.
 
 #ifndef SYZYGY_AGENT_ASAN_HEAPS_SIMPLE_BLOCK_HEAP_H_
 #define SYZYGY_AGENT_ASAN_HEAPS_SIMPLE_BLOCK_HEAP_H_

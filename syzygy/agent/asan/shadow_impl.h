@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Contains the implementation details of the templated functions of ASAN's
+// Contains the implementation details of the templated functions of Asan's
 // shadow memory. See 'shadow.h' for more information. This file is not
 // meant to be included directly, but is brought in by shadow.h.
 #ifndef SYZYGY_AGENT_ASAN_SHADOW_IMPL_H_

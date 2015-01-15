@@ -13,8 +13,8 @@
 ; limitations under the License.
 ;
 ; Export declarations for the memory profiler library. This exposes the
-; same interface as the ASAN runtime library so it can be used as a plug
-; and play replacement. It also makes it compatible with the ASAN
+; same interface as the Asan runtime library so it can be used as a plug
+; and play replacement. It also makes it compatible with the Asan
 ; instrumentation mechanism.
 LIBRARY memprof.dll
 

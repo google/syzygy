@@ -17,7 +17,7 @@
 // sufficiently large allocations (hence the name) where the redzone overhead
 // can be amortized.
 //
-// SyzyASan overhead is roughly 45% overall, with 25% coming from memory
+// SyzyAsan overhead is roughly 45% overall, with 25% coming from memory
 // allocation overhead (20 + 16 = 36 bytes of overhead for average allocation
 // sizes of 144 bytes in Chrome). If we wish to maintain a similar overhead
 // then allocations being fed into the large block heap should be at least

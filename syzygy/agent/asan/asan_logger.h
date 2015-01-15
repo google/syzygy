@@ -25,7 +25,7 @@ namespace asan {
 
 struct AsanErrorInfo;
 
-// A wrapper class to manage the singleton ASAN RPC logger instance.
+// A wrapper class to manage the singleton Asan RPC logger instance.
 class AsanLogger {
  public:
   AsanLogger();

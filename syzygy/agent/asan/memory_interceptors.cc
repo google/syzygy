@@ -167,13 +167,13 @@ void CheckStringsMemoryAccesses(
 #define ASAN_ERROR_PATH(access_size, access_mode_value)  \
     /* Restore original value of EDX, and put memory location on stack. */  \
     __asm xchg edx, DWORD PTR[esp + 4]  \
-    /* Create an ASAN registers context on the stack. */  \
+    /* Create an Asan registers context on the stack. */  \
     __asm pushfd  \
     __asm pushad  \
-    /* Fix the original value of ESP in the ASAN registers context. */  \
+    /* Fix the original value of ESP in the Asan registers context. */  \
     /* Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX). */  \
     __asm add DWORD PTR[esp + 12], 12  \
-    /* Push ARG4: the address of ASAN context on stack. */  \
+    /* Push ARG4: the address of Asan context on stack. */  \
     __asm push esp  \
     /* Push ARG3: the access size. */  \
     __asm push access_size  \
@@ -305,7 +305,7 @@ ASAN_MEM_INTERCEPT_FUNCTIONS(ASAN_CHECK_FUNCTION_NO_FLAGS)
       /* Prologue, save context. */  \
       __asm pushfd  \
       __asm pushad  \
-      /* Fix the original value of ESP in the ASAN registers context. */  \
+      /* Fix the original value of ESP in the Asan registers context. */  \
       /* Removing 8 bytes (e.g.EFLAGS / EIP was on stack). */  \
       __asm add DWORD PTR[esp + 12], 8  \
       /* Setup increment in EBX (depends on direction flag in EFLAGS). */  \
@@ -318,7 +318,7 @@ ASAN_MEM_INTERCEPT_FUNCTIONS(ASAN_CHECK_FUNCTION_NO_FLAGS)
     __asm skip_neg_direction:  \
       /* By standard calling convention, direction flag must be forward. */  \
       __asm cld  \
-      /* Push ARG(context), the ASAN registers context. */  \
+      /* Push ARG(context), the Asan registers context. */  \
       __asm push esp  \
       /* Push ARG(compare), shortcut when memory contents differ. */  \
       __asm push compare  \

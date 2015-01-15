@@ -113,14 +113,14 @@ SIZE_T WindowsHeapAdapter::HeapSize(HANDLE heap, DWORD flags, LPCVOID mem) {
 BOOL WindowsHeapAdapter::HeapValidate(HANDLE heap, DWORD flags, LPCVOID mem) {
   DCHECK_NE(reinterpret_cast<HeapManagerInterface*>(NULL), heap_manager_);
   // This function isn't supported by the by the heap managers and doesn't
-  // really makes sense in an ASan build.
+  // really makes sense in an Asan build.
   return TRUE;
 }
 
 SIZE_T WindowsHeapAdapter::HeapCompact(HANDLE heap, DWORD flags) {
   DCHECK_NE(reinterpret_cast<HeapManagerInterface*>(NULL), heap_manager_);
   // This function isn't supported by the by the heap managers and doesn't
-  // really makes sense in an ASan build.
+  // really makes sense in an Asan build.
   return 0;
 }
 
@@ -148,7 +148,7 @@ BOOL WindowsHeapAdapter::HeapSetInformation(HANDLE heap,
                                             SIZE_T info_length) {
   DCHECK_NE(reinterpret_cast<HeapManagerInterface*>(NULL), heap_manager_);
   // This function isn't supported by the by the heap managers and doesn't
-  // really makes sense in an ASan build.
+  // really makes sense in an Asan build.
   // Return true to avoid crashing if a process try to set some heap information
   // at startup.
   return TRUE;
@@ -161,7 +161,7 @@ BOOL WindowsHeapAdapter::HeapQueryInformation(HANDLE heap,
                                               PSIZE_T return_length) {
   DCHECK_NE(reinterpret_cast<HeapManagerInterface*>(NULL), heap_manager_);
   // This function isn't supported by the by the heap managers and doesn't
-  // really makes sense in an ASan build.
+  // really makes sense in an Asan build.
   return FALSE;
 }
 

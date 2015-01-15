@@ -24,7 +24,7 @@ namespace asan {
 
 namespace {
 
-using testing::ScopedASanAlloc;
+using testing::ScopedAsanAlloc;
 
 void AsanErrorCallbackWithoutComparingContext(AsanErrorInfo* error_info) {
   // All of our unittests should be cleaning up after themselves and not causing
@@ -81,7 +81,7 @@ TEST_F(AsanRtlReadFileTest, AsanReadFile) {
   // Test that the function works correctly with valid parameters. In this case
   // we don't pass an OVERLAPPED structure to the function.
   DWORD bytes_read = 0;
-  ScopedASanAlloc<char> alloc(this, kTestStringLength);
+  ScopedAsanAlloc<char> alloc(this, kTestStringLength);
   EXPECT_TRUE(ReadFileFunction(temp_file_handle_.Get(),
                                alloc.get(),
                                kTestStringLength,
@@ -92,7 +92,7 @@ TEST_F(AsanRtlReadFileTest, AsanReadFile) {
 }
 
 TEST_F(AsanRtlReadFileTest, AsanReadFileWithOverlapped) {
-  ScopedASanAlloc<char> alloc(this, kTestStringLength);
+  ScopedAsanAlloc<char> alloc(this, kTestStringLength);
   // Test that the function works correctly with valid parameters. Here we pass
   // an OVERLAPPED structure to the function, which indicates that we want to do
   // the read from a given offset.
@@ -114,7 +114,7 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileOverflow) {
   // Test that the function works correctly with valid parameters. In this case
   // we don't pass an OVERLAPPED structure to the function.
   DWORD bytes_read = 0;
-  ScopedASanAlloc<char> alloc(this, kTestStringLength);
+  ScopedAsanAlloc<char> alloc(this, kTestStringLength);
   ReadFileFunctionFailing(temp_file_handle_.Get(),
                           alloc.get(),
                           kTestStringLength + 1,
@@ -124,9 +124,9 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileOverflow) {
 }
 
 TEST_F(AsanRtlReadFileTest, AsanReadFileUAFOnOverlapped) {
-  ScopedASanAlloc<char> alloc(this, kTestStringLength);
+  ScopedAsanAlloc<char> alloc(this, kTestStringLength);
   // Test a use-after-free on the overlapped structure.
-  ScopedASanAlloc<OVERLAPPED> overlapped(this, sizeof(OVERLAPPED));
+  ScopedAsanAlloc<OVERLAPPED> overlapped(this, sizeof(OVERLAPPED));
 
   // Start the read from the middle of the test string.
   const size_t kOffset = kTestStringLength / 2;
@@ -145,7 +145,7 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileUAFOnOverlapped) {
 TEST_F(AsanRtlReadFileTest, AsanReadFileUseAfterFree) {
   // Test if an use-after-free on the destination buffer is correctly detected.
   DWORD bytes_read = 0;
-  ScopedASanAlloc<char> alloc(this, kTestStringLength);
+  ScopedAsanAlloc<char> alloc(this, kTestStringLength);
   char* alloc_ptr = alloc.get();
   alloc.reset(NULL);
   ReadFileFunctionFailing(temp_file_handle_.Get(),
@@ -158,7 +158,7 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileUseAfterFree) {
 
 namespace {
 
-typedef ScopedASanAlloc<char>* AsanReadFileCallbackData;
+typedef ScopedAsanAlloc<char>* AsanReadFileCallbackData;
 AsanReadFileCallbackData readfile_callback_data = NULL;
 
 void AsanReadFileCallback() {
@@ -171,7 +171,7 @@ void AsanReadFileCallback() {
 TEST_F(AsanRtlReadFileTest, AsanReadFileUAFAfterInternalCall) {
   // This test makes sure that use-after-free errors on the input buffer given
   // to the ReadFile function are correctly detected.
-  ScopedASanAlloc<char> alloc(this, kTestStringLength);
+  ScopedAsanAlloc<char> alloc(this, kTestStringLength);
   ::memset(alloc.get(), 0, kTestStringLength);
   char* alloc_ptr = alloc.get();
   readfile_callback_data = &alloc;
@@ -260,7 +260,7 @@ TEST_F(AsanRtlWriteFileTest, AsanWriteFile) {
   // Test that the function works correctly with valid parameters. In this case
   // we don't pass an OVERLAPPED structure to the function.
   DWORD bytes_written = 0;
-  ScopedASanAlloc<char> alloc(this, kTestStringLength);
+  ScopedAsanAlloc<char> alloc(this, kTestStringLength);
   EXPECT_TRUE(WriteFileFunction(temp_file_handle_.Get(),
                                 kTestString,
                                 kTestStringLength,
@@ -273,7 +273,7 @@ TEST_F(AsanRtlWriteFileTest, AsanWriteFile) {
 }
 
 TEST_F(AsanRtlWriteFileTest, AsanWriteFileWithOverlapped) {
-  ScopedASanAlloc<char> alloc(this, kTestStringLength);
+  ScopedAsanAlloc<char> alloc(this, kTestStringLength);
   // Test that the function works correctly with valid parameters. Here we pass
   // an OVERLAPPED structure to the function, which indicates that we want to do
   // the write after a given offset.
@@ -297,7 +297,7 @@ TEST_F(AsanRtlWriteFileTest, AsanWriteFileOverflow) {
   // Test that the function works correctly with valid parameters. In this case
   // we don't pass an OVERLAPPED structure to the function.
   DWORD bytes_written = 0;
-  ScopedASanAlloc<char> alloc(this, kTestStringLength);
+  ScopedAsanAlloc<char> alloc(this, kTestStringLength);
   strcpy(alloc.get(), kTestString);
   WriteFileFunctionFailing(temp_file_handle_.Get(),
                            alloc.get(),
@@ -310,7 +310,7 @@ TEST_F(AsanRtlWriteFileTest, AsanWriteFileOverflow) {
 
 TEST_F(AsanRtlWriteFileTest, AsanWriteFileUAFOnOverlapped) {
   // Test an use-after-free on the overlapped structure.
-  ScopedASanAlloc<OVERLAPPED> overlapped(this, sizeof(OVERLAPPED));
+  ScopedAsanAlloc<OVERLAPPED> overlapped(this, sizeof(OVERLAPPED));
   // Start the write from the middle of the test string.
   const size_t kOffset = kTestStringLength / 2;
   overlapped->Offset = kOffset;
@@ -328,7 +328,7 @@ TEST_F(AsanRtlWriteFileTest, AsanWriteFileUAFOnOverlapped) {
 TEST_F(AsanRtlWriteFileTest, AsanWriteFileUseAfterFree) {
   // Test if an use-after-free on the destination buffer is correctly detected.
   DWORD bytes_written = 0;
-  ScopedASanAlloc<char> alloc(this, kTestStringLength);
+  ScopedAsanAlloc<char> alloc(this, kTestStringLength);
   strcpy(alloc.get(), kTestString);
   char* alloc_ptr = alloc.get();
   alloc.reset(NULL);
@@ -342,7 +342,7 @@ TEST_F(AsanRtlWriteFileTest, AsanWriteFileUseAfterFree) {
 
 namespace {
 
-typedef ScopedASanAlloc<char>* AsanWriteFileCallbackData;
+typedef ScopedAsanAlloc<char>* AsanWriteFileCallbackData;
 AsanWriteFileCallbackData writefile_callback_data = NULL;
 
 void AsanWriteFileCallback() {
@@ -355,7 +355,7 @@ void AsanWriteFileCallback() {
 TEST_F(AsanRtlWriteFileTest, AsanWriteFileUAFAfterInternalCall) {
   // This test makes sure that use-after-free errors on the input buffer given
   // to the WriteFile function are correctly detected.
-  ScopedASanAlloc<char> alloc(this, kTestStringLength);
+  ScopedAsanAlloc<char> alloc(this, kTestStringLength);
   strcpy(alloc.get(), kTestString);
 
   writefile_callback_data = &alloc;

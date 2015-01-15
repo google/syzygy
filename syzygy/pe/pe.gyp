@@ -316,7 +316,7 @@
             },
             'VCCLCompilerTool': {
               'BasicRuntimeChecks': '0',
-              # ASAN needs the application to be linked with the release static
+              # Asan needs the application to be linked with the release static
               # runtime library. Otherwise, memory allocation functions are
               # wrapped and hide memory bugs like overflow/underflow.
               'RuntimeLibrary':  '0', # 0 = /MT (nondebug static)
@@ -377,7 +377,7 @@
             },
             'VCCLCompilerTool': {
               'BasicRuntimeChecks': '0',
-              # ASAN needs the application to be linked with the release static
+              # Asan needs the application to be linked with the release static
               # runtime library. Otherwise, memory allocation functions are
               # wrapped and hide memory bugs like overflow/underflow.
               'RuntimeLibrary':  '0', # 0 = /MT (nondebug static)

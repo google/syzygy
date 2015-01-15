@@ -44,7 +44,7 @@ using agent::asan::StackCaptureCache;
 // The default name of the runtime library DLL.
 extern const wchar_t kSyzyAsanRtlDll[];
 
-// A unittest fixture that ensures that an ASAN logger instance is up and
+// A unittest fixture that ensures that an Asan logger instance is up and
 // running for the duration of the test. Output is captured to a file so that
 // its contents can be read after the test if necessary.
 class TestWithAsanLogger : public testing::Test {
@@ -205,7 +205,7 @@ class TestAsanRtl : public testing::TestWithAsanLogger {
   void SetUp() OVERRIDE {
     testing::TestWithAsanLogger::SetUp();
 
-    // Load the ASAN runtime library.
+    // Load the Asan runtime library.
     base::FilePath asan_rtl_path =
         testing::GetExeRelativePath(L"syzyasan_rtl.dll");
     asan_rtl_ = ::LoadLibrary(asan_rtl_path.value().c_str());
@@ -261,16 +261,16 @@ class TestAsanRtl : public testing::TestWithAsanLogger {
 #undef DECLARE_FAILING_FUNCTION
 
  protected:
-  // The ASAN runtime module to test.
+  // The AsanAsan runtime module to test.
   HMODULE asan_rtl_;
 
   // Scratch heap handle valid from SetUp to TearDown.
   HANDLE heap_;
 };
 
-// A helper struct to be passed as a destructor of ASan scoped allocation.
-struct ASanDeleteHelper {
-  explicit ASanDeleteHelper(TestAsanRtl* asan_rtl)
+// A helper struct to be passed as a destructor of Asan scoped allocation.
+struct AsanDeleteHelper {
+  explicit AsanDeleteHelper(TestAsanRtl* asan_rtl)
       : asan_rtl_(asan_rtl) {
   }
 
@@ -280,21 +280,21 @@ struct ASanDeleteHelper {
   TestAsanRtl* asan_rtl_;
 };
 
-// A scoped_ptr specialization for the ASan allocations.
+// A scoped_ptr specialization for the Asan allocations.
 template <typename T>
-class ScopedASanAlloc : public scoped_ptr<T, ASanDeleteHelper> {
+class ScopedAsanAlloc : public scoped_ptr<T, AsanDeleteHelper> {
  public:
-  explicit ScopedASanAlloc(TestAsanRtl* asan_rtl)
-      : scoped_ptr(NULL, ASanDeleteHelper(asan_rtl)) {
+  explicit ScopedAsanAlloc(TestAsanRtl* asan_rtl)
+      : scoped_ptr(NULL, AsanDeleteHelper(asan_rtl)) {
   }
 
-  ScopedASanAlloc(TestAsanRtl* asan_rtl, size_t size)
-      : scoped_ptr(NULL, ASanDeleteHelper(asan_rtl)) {
+  ScopedAsanAlloc(TestAsanRtl* asan_rtl, size_t size)
+      : scoped_ptr(NULL, AsanDeleteHelper(asan_rtl)) {
     Allocate(asan_rtl, size);
   }
 
-  ScopedASanAlloc(TestAsanRtl* asan_rtl, size_t size, const T* value)
-      : scoped_ptr(NULL, ASanDeleteHelper(asan_rtl)) {
+  ScopedAsanAlloc(TestAsanRtl* asan_rtl, size_t size, const T* value)
+      : scoped_ptr(NULL, AsanDeleteHelper(asan_rtl)) {
     Allocate(asan_rtl, size);
     ::memcpy(get(), value, size * sizeof(T));
   }
@@ -322,7 +322,7 @@ class ScopedASanAlloc : public scoped_ptr<T, ASanDeleteHelper> {
   }
 };
 
-// A unittest fixture that initializes an ASan runtime instance.
+// A unittest fixture that initializes an Asan runtime instance.
 class TestWithAsanRuntime : public testing::Test {
  public:
   TestWithAsanRuntime() {
@@ -378,15 +378,15 @@ struct FakeAsanBlock {
 
   ~FakeAsanBlock();
 
-  // Initialize an ASan block in the buffer.
-  // @param alloc_size The user size of the ASan block.
+  // Initialize an Asan block in the buffer.
+  // @param alloc_size The user size of the Asan block.
   // @returns true on success, false otherwise.
   bool InitializeBlock(size_t alloc_size);
 
   // Ensures that this block has a valid block header.
   bool TestBlockMetadata();
 
-  // Mark the current ASan block as quarantined.
+  // Mark the current Asan block as quarantined.
   bool MarkBlockAsQuarantined();
 
   // The buffer we use internally.
@@ -456,7 +456,7 @@ typedef std::pair<agent::asan::AsanCorruptBlockRange, AsanBlockInfoVector>
     CorruptRangeInfo;
 typedef std::vector<CorruptRangeInfo> CorruptRangeVector;
 
-// A helper for testing SyzyASAN memory accessor instrumentation functions.
+// A helper for testing SyzyAsan memory accessor instrumentation functions.
 class MemoryAccessorTester {
  public:
   typedef agent::asan::BadAccessKind BadAccessKind;

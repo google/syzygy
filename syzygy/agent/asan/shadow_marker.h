@@ -26,7 +26,7 @@ namespace asan {
 // Defines the various distinct values that are used to mark shadow memory. At
 // the highest level this is split into 2 classes: accessible memory (leading
 // bit is 0), and inaccessible, or redzoned, memory (leading bit is 1). The
-// fast path ASan error checking code relies on the fact that the leading bit
+// fast path Asan error checking code relies on the fact that the leading bit
 // is 1 for redzoned memory.
 //
 // The redzoned memory is broken into various distinct types. A lot of the
@@ -40,7 +40,7 @@ namespace asan {
 // in memory, at least until the owning heap reuses the memory.
 //
 // Since the code space is quite convoluted (it has strictly been added to, and
-// was initially a clone of ASan's far simpler marker types) a helper class
+// was initially a clone of Asan's far simpler marker types) a helper class
 // (ShadowMarkerHelper) has been defined for making queries about marker
 // properties.
 //
@@ -130,10 +130,10 @@ namespace asan {
     F(kHeapBlockEndMarker, 0xF4)  \
     F(kHeapNestedBlockEndMarker, 0xF5)  \
     /* The bytes are part of a left redzone (block header padding). */  \
-    /* This is the same value as used by ASan itself. */  \
+    /* This is the same value as used by Asan itself. */  \
     F(kHeapLeftPaddingMarker, 0xFA)  \
     /* The bytes are part of a right redzone (block trailer and padding). */  \
-    /* This is the same value as used by ASan itself. */  \
+    /* This is the same value as used by Asan itself. */  \
     F(kHeapRightPaddingMarker, 0xFB)  \
     /* These bytes are part of memory that is destined to be used by the */  \
     /* heap, has been reserved from the OS, but not yet handed out to */  \
@@ -141,7 +141,7 @@ namespace asan {
     F(kAsanReservedMarker, 0xFC)  \
     /* The bytes are part of the body of a block that has been allocated */  \
     /* and subsequently freed by instrumented code. */  \
-    /* This is the same value as used by ASan itself. */  \
+    /* This is the same value as used by Asan itself. */  \
     F(kHeapFreedMarker, 0xFD)
 
 // Any non-accessible marker will have these bits set.

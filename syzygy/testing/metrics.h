@@ -19,8 +19,8 @@
 //
 // Metric names are alpha-numeric strings. They are made hierarchical by
 // inserted '.', allowing related metrics to be grouped. For example,
-// "Syzygy.ASan.Shadow.ScanRightForBracketingBlockEnd" and
-// "Syzygy.ASan.Shadow.MarkAsFreed".
+// "Syzygy.Asan.Shadow.ScanRightForBracketingBlockEnd" and
+// "Syzygy.Asan.Shadow.MarkAsFreed".
 
 #ifndef SYZYGY_TESTING_METRICS_H_
 #define SYZYGY_TESTING_METRICS_H_

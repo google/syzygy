@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Defines the list of functions to be intercepted by ASAN instrumentation.
+// Defines the list of functions to be intercepted by Asan instrumentation.
 
 #include "syzygy/instrument/transforms/asan_intercepts.h"
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Defines the ASan CRT interceptors.
+// Defines the Asan CRT interceptors.
 #ifndef SYZYGY_AGENT_ASAN_ASAN_CRT_INTERCEPTORS_H_
 #define SYZYGY_AGENT_ASAN_ASAN_CRT_INTERCEPTORS_H_
 

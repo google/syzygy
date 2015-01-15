@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Declares a collection of static hooks that are used to provide ASAN with
+// Declares a collection of static hooks that are used to provide Asan with
 // information about the bulk allocation and freeing of memory.
 
 #include "wtf/AsanHooks.h"

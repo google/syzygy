@@ -367,7 +367,7 @@ class BlockHeapManagerTest
     errors_.push_back(*error);
   }
 
-  // Calculates the ASan size for an allocation of @p user_size bytes.
+  // Calculates the Asan size for an allocation of @p user_size bytes.
   size_t GetAllocSize(size_t user_size) {
     BlockLayout layout = {};
     EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, user_size, 0,

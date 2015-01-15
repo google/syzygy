@@ -59,7 +59,7 @@ static const char kUsageFormatStr[] =
     "    --agent=<path>          If specified indicates exactly which DLL to\n"
     "                            use when instrumenting the provided module.\n"
     "                            If not specified a default agent library\n"
-    "                            will be used. This is ignored in ASAN mode.\n"
+    "                            will be used. This is ignored in Asan mode.\n"
     "    --debug-friendly        Generate more debugger friendly output by\n"
     "                            making the thunks resolve to the original\n"
     "                            function's name. This is at the cost of the\n"
@@ -84,7 +84,7 @@ static const char kUsageFormatStr[] =
     "  asan mode options:\n"
     "    --asan-rtl-options=OPTIONS\n"
     "                            Allows specification of options that will\n"
-    "                            influence the ASAN RTL that attaches to the\n"
+    "                            influence the Asan RTL that attaches to the\n"
     "                            instrumented module. For descriptions of\n"
     "                            these options see common/asan_parameters. If\n"
     "                            not specified then the defaults of the RTL\n"
@@ -116,7 +116,7 @@ static const char kUsageFormatStr[] =
     "    --instrument-imports    Also instrument calls to imports.\n"
     "\n";
 
-// Currently only ASAN supports COFF/LIB instrumentation. As other
+// Currently only Asan supports COFF/LIB instrumentation. As other
 // instrumenters add COFF support they need to be added with a similar
 // mechanism.
 InstrumenterInterface* AsanInstrumenterFactory() {
@@ -166,7 +166,7 @@ bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
   } else {
     std::string mode = cmd_line->GetSwitchValueASCII("mode");
     if (LowerCaseEqualsASCII(mode, "asan")) {
-      // We wrap the ASAN instrumenter in an ArchiveInstrumenter adapter so
+      // We wrap the Asan instrumenter in an ArchiveInstrumenter adapter so
       // that it can transparently handle .lib files.
       instrumenter_.reset(new instrumenters::ArchiveInstrumenter(
           &AsanInstrumenterFactory));

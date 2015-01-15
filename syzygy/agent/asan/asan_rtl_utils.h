@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Utility functions used by the ASan check functions..
+// Utility functions used by the Asan check functions..
 #ifndef SYZYGY_AGENT_ASAN_ASAN_RTL_UTILS_H_
 #define SYZYGY_AGENT_ASAN_ASAN_RTL_UTILS_H_
 
@@ -26,7 +26,7 @@ namespace asan {
 // Forward declarations.
 class AsanRuntime;
 
-// Contents of the registers before calling the ASAN memory check function.
+// Contents of the registers before calling the Asan memory check function.
 #pragma pack(push, 1)
 struct AsanContext {
   DWORD original_edi;
@@ -46,9 +46,9 @@ struct AsanContext {
 // @param runtime The runtime instance to use.
 void SetAsanRuntimeInstance(AsanRuntime* runtime);
 
-// Convert a CONTEXT struct to an ASan context.
+// Convert a CONTEXT struct to an Asan context.
 // @param context The context to convert.
-// @param asan_context Receives the ASan context.
+// @param asan_context Receives the Asan context.
 void ContextToAsanContext(const CONTEXT& context, AsanContext* asan_context);
 
 // Report a bad access to the memory.

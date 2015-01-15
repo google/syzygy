@@ -331,7 +331,7 @@ TEST(ShadowTest, ScanRightPerfTest) {
     uint64 t1 = ::__rdtsc();
     tnet += t1 - t0;
   }
-  testing::EmitMetric("Syzygy.ASan.Shadow.ScanRightForBracketingBlockEnd",
+  testing::EmitMetric("Syzygy.Asan.Shadow.ScanRightForBracketingBlockEnd",
                       tnet);
 
   // Reset the shadow memory.
@@ -510,7 +510,7 @@ TEST(ShadowTest, MarkAsFreedPerfTest) {
     tnet += t1 - t0;
     Shadow::Unpoison(buf.data(), buf.size());
   }
-  testing::EmitMetric("Syzygy.ASan.Shadow.MarkAsFreed", tnet);
+  testing::EmitMetric("Syzygy.Asan.Shadow.MarkAsFreed", tnet);
 }
 
 TEST(ShadowTest, PageBits) {

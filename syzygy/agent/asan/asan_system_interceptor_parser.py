@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""A utility script to automatically generate the SyzyASan interceptors for the
+"""A utility script to automatically generate the SyzyAsan interceptors for the
 functions declared in a header file using SAL annotations.
 
 Here's how this script should be used:
@@ -201,7 +201,7 @@ _TAGS_TO_CHECK_PRECALL = frozenset(list(_TAGS_TO_CHECK_POSTCALL) +
 _LOGGER = logging.getLogger(__name__)
 
 
-# String template for an entry in an ASan instrumentation filter array.
+# String template for an entry in an Asan instrumentation filter array.
 #
 # Here's the description of the different identifiers in this template:
 #     - function_name: Name of the function.
@@ -211,7 +211,7 @@ instrumentation_filter_entry_template = Template("""
 """)
 
 
-# String template for an ASan interceptor implementation.
+# String template for an Asan interceptor implementation.
 #
 # Here's the description of the different identifiers in this template:
 #     - ret_type: Return type of the function.
@@ -249,7 +249,7 @@ asan_${function_name}(${function_arguments}) {
 """)
 
 
-# String template for an ASan check on a parameter.
+# String template for an Asan check on a parameter.
 #
 # Here's the description of the different identifiers in this template:
 #     - param_to_check: The parameter to check.
@@ -272,8 +272,8 @@ param_checks_template = Template("""
 """)
 
 
-class ASanSystemInterceptorGenerator(object):
-  """Implement the ASan system interceptor generator class.
+class AsanSystemInterceptorGenerator(object):
+  """Implement the Asan system interceptor generator class.
 
   The instances of this class should be created with a 'with' statement to
   ensure that the output files get correctly closed.
@@ -497,7 +497,7 @@ def main(args):
   if not len(input_files):
     parser.error('You must specify at least one input file.')
 
-  with ASanSystemInterceptorGenerator(opts.output_base,
+  with AsanSystemInterceptorGenerator(opts.output_base,
                                       opts.def_file,
                                       opts.overwrite) as generator:
     generator.VisitFunctionsInFiles(input_files,

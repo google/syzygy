@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Declares the data structure that will be injected into ASAN instrumented
+// Declares the data structure that will be injected into Asan instrumented
 // images and which contains instrumentation-time specified parameters to
 // control the runtime. This allows for the specification of default parameters
 // that aren't hard coded into the toolchain itself. Overrides may still be
@@ -139,7 +139,7 @@ struct AsanParameters {
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 56);
 
-// The current version of the ASAN parameters structure. This must be updated
+// The current version of the Asan parameters structure. This must be updated
 // if any changes are made to the above structure! This is defined in the header
 // file to allow compile time assertions against this version number.
 const uint32 kAsanParametersVersion = 7u;
@@ -152,7 +152,7 @@ COMPILE_ASSERT(kAsanParametersReserved1Bits == 23 &&
                version_must_change_if_reserved_bits_changes);
 
 // The name of the section that will be injected into an instrumented image,
-// and contain the AsanParameters structure. ASAN can't use your typical entry
+// and contain the AsanParameters structure. Asan can't use your typical entry
 // hook because the entry hook is called after the RTL has initialized itself.
 // Instead the RTL scans through libraries in its memory and looks for a
 // telltale section containing parameters. The first set of parameters it
@@ -197,7 +197,7 @@ class FlatAsanParameters {
   // @}
 
  protected:
-  // The data backing the ASAN parameters.
+  // The data backing the Asan parameters.
   std::vector<uint8> data_;
 
  private:
@@ -232,8 +232,8 @@ extern const bool kDefaultEnableAllocationFilter;
 extern const bool kDefaultEnableLargeBlockHeap;
 extern const size_t kDefaultLargeAllocationThreshold;
 
-// The name of the environment variable containing the SyzyASan command-line.
-extern const char kSyzyASanOptionsEnvVar[];
+// The name of the environment variable containing the SyzyAsan command-line.
+extern const char kSyzyAsanOptionsEnvVar[];
 
 // String names of HeapProxy parameters.
 extern const char kParamQuarantineSize[];

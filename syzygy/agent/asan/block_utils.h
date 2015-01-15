@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Utility functions for working with ASan Blocks.
+// Utility functions for working with Asan Blocks.
 
 #ifndef SYZYGY_AGENT_ASAN_BLOCK_UTILS_H_
 #define SYZYGY_AGENT_ASAN_BLOCK_UTILS_H_
@@ -24,7 +24,7 @@
 namespace agent {
 namespace asan {
 
-// A functor that retrieves the total size of an ASan allocation.
+// A functor that retrieves the total size of an Asan allocation.
 struct GetTotalBlockSizeFunctor {
   size_t operator()(const CompactBlockInfo& info) {
     DCHECK_NE(static_cast<uint8*>(nullptr), info.block);

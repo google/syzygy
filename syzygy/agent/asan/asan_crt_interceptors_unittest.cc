@@ -25,7 +25,7 @@ namespace asan {
 
 namespace {
 
-using testing::ScopedASanAlloc;
+using testing::ScopedAsanAlloc;
 
 typedef testing::TestAsanRtl CrtInterceptorsTest;
 
@@ -47,7 +47,7 @@ void AsanErrorCallback(AsanErrorInfo* error_info) {
 
 TEST_F(CrtInterceptorsTest, AsanCheckMemset) {
   const size_t kAllocSize = 13;
-  ScopedASanAlloc<uint8> mem(this, kAllocSize);
+  ScopedAsanAlloc<uint8> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
   SetCallBackFunction(&AsanErrorCallback);
   EXPECT_EQ(mem.get(), memsetFunction(mem.GetAs<void*>(), 0xAA, kAllocSize));
@@ -65,7 +65,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemset) {
 
 TEST_F(CrtInterceptorsTest, AsanCheckMemchr) {
   const size_t kAllocSize = 13;
-  ScopedASanAlloc<uint8> mem(this, kAllocSize);
+  ScopedAsanAlloc<uint8> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
   ::memset(mem.get(), 0, kAllocSize);
   mem[4] = 0xAA;
@@ -85,7 +85,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemchr) {
 
 TEST_F(CrtInterceptorsTest, AsanCheckMemmove) {
   const size_t kAllocSize = 13;
-  ScopedASanAlloc<uint8> mem_src(this, kAllocSize);
+  ScopedAsanAlloc<uint8> mem_src(this, kAllocSize);
   ASSERT_TRUE(mem_src.get() != NULL);
   // Fill the array with value going from 0 to kAllocSize;
   for (size_t i = 0; i < kAllocSize; ++i)
@@ -111,9 +111,9 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemmove) {
 
 TEST_F(CrtInterceptorsTest, AsanCheckMemcpy) {
   const size_t kAllocSize = 13;
-  ScopedASanAlloc<uint8> mem_src(this, kAllocSize);
+  ScopedAsanAlloc<uint8> mem_src(this, kAllocSize);
   ASSERT_TRUE(mem_src.get() != NULL);
-  ScopedASanAlloc<uint8> mem_dst(this, kAllocSize);
+  ScopedAsanAlloc<uint8> mem_dst(this, kAllocSize);
   ASSERT_TRUE(mem_dst.get() != NULL);
   // Fill the array with value going from 0 to kAllocSize;
   for (size_t i = 0; i < kAllocSize; ++i) {
@@ -140,11 +140,11 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrcspn) {
   // TODO(sebmarchand): Reactivate this unittest once the implementation of
   //     this interceptor has been fixed.
   const char* str_value = "abc1";
-  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
+  ScopedAsanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
   ASSERT_TRUE(str.get() != NULL);
 
   const char* str_value_2 = "abc";
-  ScopedASanAlloc<char> str2(this, ::strlen(str_value_2) + 1, str_value_2);
+  ScopedAsanAlloc<char> str2(this, ::strlen(str_value_2) + 1, str_value_2);
   ASSERT_TRUE(str2.get() != NULL);
 
   // This should contain at least one value present in |str| but none present
@@ -152,7 +152,7 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrcspn) {
   const char* keys_value = "12";
   EXPECT_NE(::strlen(str_value), ::strcspn(str_value, keys_value));
   EXPECT_EQ(::strlen(str_value_2), ::strcspn(str_value_2, keys_value));
-  ScopedASanAlloc<char> keys(this, ::strlen(keys_value) + 1, keys_value);
+  ScopedAsanAlloc<char> keys(this, ::strlen(keys_value) + 1, keys_value);
   ASSERT_TRUE(keys.get() != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
@@ -205,7 +205,7 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanStrcspnImpl) {
 
 TEST_F(CrtInterceptorsTest, AsanCheckStrlen) {
   const char* str_value = "test_strlen";
-  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
+  ScopedAsanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
   ASSERT_TRUE(str != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
@@ -224,7 +224,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrlen) {
 
 TEST_F(CrtInterceptorsTest, AsanCheckStrrchr) {
   const char* str_value = "test_strrchr";
-  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
+  ScopedAsanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
   ASSERT_TRUE(str != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
@@ -244,7 +244,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrrchr) {
 
 TEST_F(CrtInterceptorsTest, AsanCheckWcsrchr) {
   const wchar_t* wstr_value = L"test_wcsrchr";
-  ScopedASanAlloc<wchar_t> wstr(this, ::wcslen(wstr_value) + 1);
+  ScopedAsanAlloc<wchar_t> wstr(this, ::wcslen(wstr_value) + 1);
   ASSERT_TRUE(wstr != NULL);
   wcscpy(wstr.get(), wstr_value);
 
@@ -265,7 +265,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckWcsrchr) {
 
 TEST_F(CrtInterceptorsTest, AsanCheckWcschr) {
   const wchar_t* wstr_value = L"test_wcschr";
-  ScopedASanAlloc<wchar_t> wstr(this, ::wcslen(wstr_value) + 1);
+  ScopedAsanAlloc<wchar_t> wstr(this, ::wcslen(wstr_value) + 1);
   ASSERT_TRUE(wstr != NULL);
   wcscpy(wstr.get(), wstr_value);
 
@@ -288,11 +288,11 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrcmp) {
   // TODO(sebmarchand): Reactivate this unittest once the implementation of
   //     this interceptor has been fixed.
   const char* str_value = "test_strcmp";
-  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
+  ScopedAsanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
   ASSERT_TRUE(str.get() != NULL);
 
   const char* keys_value = "strcmp";
-  ScopedASanAlloc<char> keys(this, ::strlen(keys_value) + 1, keys_value);
+  ScopedAsanAlloc<char> keys(this, ::strlen(keys_value) + 1, keys_value);
   ASSERT_TRUE(keys.get() != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
@@ -315,11 +315,11 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrpbrk) {
   // TODO(sebmarchand): Reactivate this unittest once the implementation of
   //     this interceptor has been fixed.
   const char* str_value = "abc1";
-  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
+  ScopedAsanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
   ASSERT_TRUE(str.get() != NULL);
 
   const char* str_value_2 = "abc";
-  ScopedASanAlloc<char> str2(this, ::strlen(str_value_2) + 1, str_value_2);
+  ScopedAsanAlloc<char> str2(this, ::strlen(str_value_2) + 1, str_value_2);
   ASSERT_TRUE(str2.get() != NULL);
 
   // This should contain at least one value present in |str| but none present
@@ -327,7 +327,7 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrpbrk) {
   const char* keys_value = "12";
   EXPECT_NE(::strlen(str_value), ::strcspn(str_value, keys_value));
   EXPECT_EQ(::strlen(str_value_2), ::strcspn(str_value_2, keys_value));
-  ScopedASanAlloc<char> keys(this, ::strlen(keys_value) + 1, keys_value);
+  ScopedAsanAlloc<char> keys(this, ::strlen(keys_value) + 1, keys_value);
   ASSERT_TRUE(keys.get() != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
@@ -382,11 +382,11 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrstr) {
   // TODO(sebmarchand): Reactivate this unittest once the implementation of
   //     this interceptor has been fixed.
   const char* str_value = "test_strstr";
-  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
+  ScopedAsanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
   ASSERT_TRUE(str != NULL);
 
   const char* keys_value = "strstr";
-  ScopedASanAlloc<char> keys(this, ::strlen(keys_value) + 1, keys_value);
+  ScopedAsanAlloc<char> keys(this, ::strlen(keys_value) + 1, keys_value);
   ASSERT_TRUE(keys.get() != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
@@ -407,11 +407,11 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrstr) {
 
 TEST_F(CrtInterceptorsTest, AsanCheckWcsstr) {
   const wchar_t* str_value = L"test_wcsstr";
-  ScopedASanAlloc<wchar_t> str(this, ::wcslen(str_value) + 1, str_value);
+  ScopedAsanAlloc<wchar_t> str(this, ::wcslen(str_value) + 1, str_value);
   ASSERT_TRUE(str != NULL);
 
   const wchar_t* keys_value = L"wcsstr";
-  ScopedASanAlloc<wchar_t> keys(this, ::wcslen(keys_value) + 1, keys_value);
+  ScopedAsanAlloc<wchar_t> keys(this, ::wcslen(keys_value) + 1, keys_value);
   ASSERT_TRUE(keys.get() != NULL);
 
   EXPECT_EQ(::wcsstr(str.get(), keys.get()),
@@ -432,17 +432,17 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanCheckStrspn) {
   // TODO(sebmarchand): Reactivate this unittest once the implementation of
   //     this interceptor has been fixed.
   const char* str_value = "123_abc";
-  ScopedASanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
+  ScopedAsanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);
   ASSERT_TRUE(str.get() != NULL);
 
   const char* keys_value = "123";
   EXPECT_EQ(::strlen(keys_value), ::strspn(str_value, keys_value));
-  ScopedASanAlloc<char> keys(this, ::strlen(keys_value) + 1, keys_value);
+  ScopedAsanAlloc<char> keys(this, ::strlen(keys_value) + 1, keys_value);
   ASSERT_TRUE(keys.get() != NULL);
 
   // The second test string should only contains values present in the keys.
   const char* str_value_2 = "12321";
-  ScopedASanAlloc<char> str2(this, ::strlen(str_value_2) + 1, str_value_2);
+  ScopedAsanAlloc<char> str2(this, ::strlen(str_value_2) + 1, str_value_2);
   EXPECT_EQ(::strlen(str_value_2), ::strspn(str_value_2, keys_value));
   ASSERT_TRUE(str2.get() != NULL);
 
@@ -497,15 +497,15 @@ TEST_F(CrtInterceptorsTest, DISABLED_AsanStrspnImpl) {
 
 TEST_F(CrtInterceptorsTest, AsanCheckStrncpy) {
   const char* str_value = "test_strncpy";
-  ScopedASanAlloc<char> source(this, ::strlen(str_value) + 1, str_value);
+  ScopedAsanAlloc<char> source(this, ::strlen(str_value) + 1, str_value);
   ASSERT_TRUE(source != NULL);
 
   const char* long_str_value = "test_strncpy_long_source";
-  ScopedASanAlloc<char> long_source(this, ::strlen(long_str_value) + 1,
+  ScopedAsanAlloc<char> long_source(this, ::strlen(long_str_value) + 1,
       long_str_value);
   ASSERT_TRUE(long_source.get() != NULL);
 
-  ScopedASanAlloc<char> destination(this, ::strlen(str_value) + 1);
+  ScopedAsanAlloc<char> destination(this, ::strlen(str_value) + 1);
   ASSERT_TRUE(destination != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);
@@ -560,12 +560,12 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncat) {
   const char* suffix_value = "strncat";
   char buffer[64];
 
-  ScopedASanAlloc<char> mem(this,
+  ScopedAsanAlloc<char> mem(this,
       ::strlen(prefix_value) + ::strlen(suffix_value) + 1, prefix_value);
   ASSERT_TRUE(mem != NULL);
   ::strcpy(buffer, prefix_value);
 
-  ScopedASanAlloc<char> suffix(this, ::strlen(suffix_value) + 1, suffix_value);
+  ScopedAsanAlloc<char> suffix(this, ::strlen(suffix_value) + 1, suffix_value);
   ASSERT_TRUE(mem.get() != NULL);
 
   SetCallBackFunction(&AsanErrorCallback);

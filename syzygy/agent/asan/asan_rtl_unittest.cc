@@ -27,7 +27,7 @@ namespace {
 
 using testing::AsanBlockInfoVector;
 using testing::MemoryAccessorTester;
-using testing::ScopedASanAlloc;
+using testing::ScopedAsanAlloc;
 
 // An arbitrary size for the buffer we allocate in the different unittests.
 const size_t kAllocSize = 13;
@@ -107,7 +107,7 @@ TEST_F(AsanRtlTest, AsanCheckGoodAccess) {
   // Run through access checking an allocation that's larger than our
   // block size (8), but not a multiple thereof to exercise all paths
   // in the access check function (save for the failure path).
-  ScopedASanAlloc<uint8> mem(this, kAllocSize);
+  ScopedAsanAlloc<uint8> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
 
   MemoryAccessorTester tester;
@@ -122,7 +122,7 @@ TEST_F(AsanRtlTest, AsanCheckHeapBufferOverflow) {
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
   ASSERT_TRUE(check_access_fn != NULL);
 
-  ScopedASanAlloc<uint8> mem(this, kAllocSize);
+  ScopedAsanAlloc<uint8> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
 
   MemoryAccessorTester tester;
@@ -137,7 +137,7 @@ TEST_F(AsanRtlTest, AsanCheckHeapBufferUnderflow) {
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
   ASSERT_TRUE(check_access_fn != NULL);
 
-  ScopedASanAlloc<uint8> mem(this, kAllocSize);
+  ScopedAsanAlloc<uint8> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
 
   MemoryAccessorTester tester;
@@ -152,7 +152,7 @@ TEST_F(AsanRtlTest, AsanCheckUseAfterFree) {
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
   ASSERT_TRUE(check_access_fn != NULL);
 
-  ScopedASanAlloc<uint8> mem(this, kAllocSize);
+  ScopedAsanAlloc<uint8> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
 
   uint8* mem_ptr = mem.get();
@@ -172,7 +172,7 @@ TEST_F(AsanRtlTest, AsanCheckDoubleFree) {
 
   uint8* mem_ptr = NULL;
   {
-    ScopedASanAlloc<uint8> mem(this, kAllocSize);
+    ScopedAsanAlloc<uint8> mem(this, kAllocSize);
     ASSERT_TRUE(mem.get() != NULL);
     mem_ptr = mem.get();
   }
@@ -228,7 +228,7 @@ TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
   ASSERT_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime);
   runtime->params().check_heap_on_failure = true;
 
-  ScopedASanAlloc<uint8> mem(this, kAllocSize);
+  ScopedAsanAlloc<uint8> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
 
   const size_t kMaxIterations = 10;

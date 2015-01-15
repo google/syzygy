@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Implementations of the ASAN heap interceptors. These functions are
+// Implementations of the Asan heap interceptors. These functions are
 // instrumented and log detailed function call information to the call-trace
 // service.
 

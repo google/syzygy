@@ -843,7 +843,7 @@ size_t AsanReadFileOverflow() {
   char* alloc = new char[kTestStringLength];
   memset(alloc, 0, kTestStringLength);
   // Do an overflow on the destination buffer. It should be detected by the
-  // ASan interceptor of ReadFile.
+  // Asan interceptor of ReadFile.
   DWORD bytes_read = 0;
 
   TryInvalidStdCall5(&::ReadFile,
@@ -918,7 +918,7 @@ size_t AsanWriteFileOverflow() {
   char* alloc = new char[kTestStringLength];
   ::strcpy(alloc, kTestString);
 
-  // Do an overflow on the input buffer. It should be detected by the ASan
+  // Do an overflow on the input buffer. It should be detected by the Asan
   // interceptor of WriteFile.
   DWORD bytes_written = 0;
   TryInvalidStdCall5(&::WriteFile,
@@ -960,7 +960,7 @@ size_t AsanWriteFileUseAfterFree() {
 
   DWORD bytes_written = 0;
 
-  // Do a use-after-free on the input buffer. It should be detected by the ASan
+  // Do a use-after-free on the input buffer. It should be detected by the Asan
   // interceptor of WriteFile.
   TryInvalidStdCall5(&::WriteFile,
                      file_handle,

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Defines the ASan system interceptors.
+// Defines the Asan system interceptors.
 #ifndef SYZYGY_AGENT_ASAN_ASAN_SYSTEM_INTERCEPTORS_H_
 #define SYZYGY_AGENT_ASAN_ASAN_SYSTEM_INTERCEPTORS_H_
 

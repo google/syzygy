@@ -77,7 +77,7 @@ bool AsanInstrumenter::InstrumentImpl() {
     asan_transform_->set_filter(&filter_->filter);
   }
 
-  // Set overwrite source range flag in the ASAN transform. The ASAN
+  // Set overwrite source range flag in the Asan transform. The Asan
   // transformation will overwrite the source range of created instructions to
   // the source range of corresponding instrumented instructions.
   asan_transform_->set_debug_friendly(debug_friendly_);
@@ -119,7 +119,7 @@ bool AsanInstrumenter::ParseAdditionalCommandLineArguments(
     instrumentation_rate_ = std::max(0.0, std::min(1.0, d));
   }
 
-  // Parse ASAN RTL options if present.
+  // Parse Asan RTL options if present.
   static const char kAsanRtlOptions[] = "asan-rtl-options";
   if (asan_rtl_options_ = command_line->HasSwitch(kAsanRtlOptions)) {
     std::wstring options = command_line->GetSwitchValueNative(kAsanRtlOptions);
@@ -151,7 +151,7 @@ bool AsanInstrumenter::ParseAdditionalCommandLineArguments(
       // Set overwrite source range flag in the AllocationFilter transform.
       // It will overwrite the source range of created instructions to the
       // source range of corresponding instrumented instructions. The
-      // AllocationFilter transform shares the ASAN flag.
+      // AllocationFilter transform shares the Asan flag.
       af_transform_->set_debug_friendly(debug_friendly_);
     }
   }

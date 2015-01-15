@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 // Declares some structure and some utility functions used to get some
-// information about an ASan error.
+// information about an Asan error.
 
 #ifndef SYZYGY_AGENT_ASAN_ERROR_INFO_H_
 #define SYZYGY_AGENT_ASAN_ERROR_INFO_H_
@@ -169,7 +169,7 @@ struct AsanErrorInfo {
 };
 
 // This callback allows a heap manager to report heap consistency problems that
-// it encounters during its operation. This is usually plumbed into the ASan
+// it encounters during its operation. This is usually plumbed into the Asan
 // runtime so that the errors may be appropriately reported.
 //
 // |asan_error_info| contains information about the primary heap error that

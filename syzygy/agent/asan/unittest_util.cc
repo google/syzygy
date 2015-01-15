@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Common unittest fixtures and utilities for the ASAN runtime library.
+// Common unittest fixtures and utilities for the Asan runtime library.
 
 #include "syzygy/agent/asan/unittest_util.h"
 
@@ -313,7 +313,7 @@ bool FakeAsanBlock::InitializeBlock(size_t alloc_size) {
                               0,
                               &layout));
 
-  // Initialize the ASan block.
+  // Initialize the Asan block.
   BlockInitialize(layout, buffer_align_begin, false, &block_info);
   EXPECT_NE(reinterpret_cast<void*>(NULL), block_info.body);
 

@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 // Implements an all-static class that act as a proxy between the Windows heap
-// interceptors and the ASan heaps.
+// interceptors and the Asan heaps.
 #ifndef SYZYGY_AGENT_ASAN_WINDOWS_HEAP_ADAPTER_H_
 #define SYZYGY_AGENT_ASAN_WINDOWS_HEAP_ADAPTER_H_
 

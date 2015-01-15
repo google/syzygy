@@ -281,7 +281,7 @@ struct WTF_EXPORT PartitionRootBase {
     static PartitionPage gSeedPage;
     static PartitionBucket gPagedBucket;
 
-    // Callbacks that have been added for ASAN integration.
+    // Callbacks that have been added for Asan integration.
     AsanCallbacks callbacks;
 };
 

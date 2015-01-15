@@ -178,9 +178,9 @@ enum BadAccessKind {
   CORRUPT_HEAP = agent::asan::CORRUPT_HEAP,
 };
 
-// Contains the number of ASAN errors reported with our callback.
+// Contains the number of Asan errors reported with our callback.
 int asan_error_count;
-// Contains the last ASAN error reported.
+// Contains the last Asan error reported.
 agent::asan::AsanErrorInfo last_asan_error;
 
 void AsanCallback(agent::asan::AsanErrorInfo* info) {
@@ -404,7 +404,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     CHECK_NE(static_cast<base::Environment*>(nullptr), env.get());
 
     // Update the instance ID environment variable to specifically aim the
-    // ASAN RTL to the agent logger we are running. We have to be careful not
+    // Asan RTL to the agent logger we are running. We have to be careful not
     // to influence other RPC settings so as not to break coverage support.
     base::FilePath agent = testing::GetExeRelativePath(L"syzyasan_rtl.dll");
     std::string instance_id = base::WideToUTF8(agent.value());
@@ -490,7 +490,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
                                          GetExceptionCode(),
                                          GetExceptionInformation())) {
       // If the exception is of the expected type and originates from the
-      // instrumented module, then we indicate that no ASAN error was
+      // instrumented module, then we indicate that no Asan error was
       // detected.
       return false;
     }
@@ -555,7 +555,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
   void AsanErrorCheckSampledAllocations() {
     // This assumes we have a 50% allocation sampling rate.
 
-    // Run ASAN tests over and over again until we've done enough of them. We
+    // Run Asan tests over and over again until we've done enough of them. We
     // only check the read operations as the writes may actually cause
     // corruption if not caught.
     size_t good = 0;
@@ -1114,7 +1114,7 @@ void GetCallOffsets(const base::FilePath& image_path,
         block_graph::BlockGraph::RelativeAddress(0));
   }
 
-  // Apply the ASAN transform.
+  // Apply the Asan transform.
   pe::PETransformPolicy policy;
   {
     instrument::transforms::AsanTransform tx;
@@ -1234,7 +1234,7 @@ TEST_F(InstrumentAppIntegrationTest,
        AsanEndToEndWithRtlOptionsOverrideWithEnvironment) {
   scoped_ptr<base::Environment> env(base::Environment::Create());
   ASSERT_NE(env.get(), nullptr);
-  env->SetVar(::common::kSyzyASanOptionsEnvVar,
+  env->SetVar(::common::kSyzyAsanOptionsEnvVar,
               "--quarantine_block_size=800000 --ignored_stack_ids=0x1 "
               "--no_check_heap_on_failure");
   cmd_line_.AppendSwitchASCII(
@@ -1253,7 +1253,7 @@ TEST_F(InstrumentAppIntegrationTest,
   ASSERT_THAT(runtime->params().ignored_stack_ids_set,
               testing::ElementsAre(0x1, 0x2));
 
-  env->UnSetVar(::common::kSyzyASanOptionsEnvVar);
+  env->UnSetVar(::common::kSyzyAsanOptionsEnvVar);
 }
 
 TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Declares a collection of static hooks that are used to provide ASAN with
+// Declares a collection of static hooks that are used to provide Asan with
 // information about the bulk allocation and freeing of memory.
 
 #ifndef WTF_AsanHooks_h
@@ -32,8 +32,8 @@ typedef void (*AsanMemoryStateChangeCallback)(
 struct AsanCallbacks {
   // This is called by the underlying allocator to indicate that a region of
   // memory has been bulk reserved from the operating system, yet is reserved
-  // for use by the allocator. The ASAN instrumentation will redzone this
-  // memory. As memory is doled out by the allocator the ASAN instrumentation
+  // for use by the allocator. The Asan instrumentation will redzone this
+  // memory. As memory is doled out by the allocator the Asan instrumentation
   // can then green zone it, and subsequently redzone it when it is returned
   // (freed) to the allocator.
   AsanMemoryStateChangeCallback reserved_callback;
@@ -41,7 +41,7 @@ struct AsanCallbacks {
   // This is called by the underlying allocator to indicate that a region of
   // memory has been returned to the operating system. This region of memory is
   // then potentially accessible by other things running in the process. The
-  // ASAN instrumentation will consequently greenzone the memory.
+  // Asan instrumentation will consequently greenzone the memory.
   AsanMemoryStateChangeCallback released_callback;
 
   // The user data that will be passed to the callback.

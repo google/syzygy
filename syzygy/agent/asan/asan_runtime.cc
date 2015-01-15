@@ -71,7 +71,7 @@ struct BreakpadFunctions {
 BreakpadFunctions breakpad_functions = {};
 
 // A custom exception code we use to indicate that the exception originated
-// from ASan, and shouldn't be processed again by our unhandled exception
+// from Asan, and shouldn't be processed again by our unhandled exception
 // handler. This value has been created according to the rules here:
 // http://msdn.microsoft.com/en-us/library/windows/hardware/ff543026(v=vs.85).aspx
 // See winerror.h for more details.
@@ -87,7 +87,7 @@ COMPILE_ASSERT((kAsanStatus >> 16) == 0, too_many_status_bits);
 COMPILE_ASSERT((kAsanException & (3 << 27)) == 0,
                bits_27_and_28_must_be_clear);
 
-// Raises an exception, first wrapping it an ASan specific exception. This
+// Raises an exception, first wrapping it an Asan specific exception. This
 // indicates to our unhandled exception handler that it doesn't need to
 // process the exception.
 void RaiseFilteredException(
@@ -99,7 +99,7 @@ void RaiseFilteredException(
 }
 
 // The default error handler. It is expected that this will be bound in a
-// callback in the ASan runtime.
+// callback in the Asan runtime.
 // @param context The context when the error has been reported.
 // @param error_info The information about this error.
 void DefaultErrorHandler(AsanErrorInfo* error_info) {
@@ -112,7 +112,7 @@ void DefaultErrorHandler(AsanErrorInfo* error_info) {
 
   ::DebugBreak();
 
-  // This raises an error in such a way that the ASan unhandled exception
+  // This raises an error in such a way that the Asan unhandled exception
   // handler will not process it.
   RaiseFilteredException(EXCEPTION_ARRAY_BOUNDS_EXCEEDED,
                          0,
@@ -125,7 +125,7 @@ void DefaultErrorHandler(AsanErrorInfo* error_info) {
 //
 // If we're running in the context of a breakpad enabled binary we can
 // report errors directly via that breakpad entry-point. This allows us
-// to report the exact context of the error without including the ASan RTL
+// to report the exact context of the error without including the Asan RTL
 // in crash context, depending on where and when we capture the context.
 //
 // @param breakpad_functions The Breakpad functions structure to be populated.
@@ -201,7 +201,7 @@ void SetCrashKeys(const BreakpadFunctions& breakpad_functions,
   }
 }
 
-// Initializes an exception record for an ASAN crash.
+// Initializes an exception record for an Asan crash.
 void InitializeExceptionRecord(const AsanErrorInfo* error_info,
                                EXCEPTION_RECORD* record,
                                EXCEPTION_POINTERS* pointers) {
@@ -223,7 +223,7 @@ void InitializeExceptionRecord(const AsanErrorInfo* error_info,
 }
 
 // The breakpad error handler. It is expected that this will be bound in a
-// callback in the ASan runtime.
+// callback in the Asan runtime.
 // @param breakpad_functions A struct containing pointers to the various
 //     Breakpad reporting functions.
 // @param error_info The information about this error.
@@ -277,7 +277,7 @@ bool CurrentProcessIsLargeAddressAware() {
 
 // A helper function to send a command to Windbg. Windbg should first receive
 // the ".ocommand ASAN" command to treat those messages as commands.
-void ASANDbgCmd(const wchar_t* fmt, ...) {
+void AsanDbgCmd(const wchar_t* fmt, ...) {
   if (!base::debug::BeingDebugged())
     return;
   // The string should start with "ASAN" to be interpreted by the debugger as a
@@ -298,7 +298,7 @@ void ASANDbgCmd(const wchar_t* fmt, ...) {
 }
 
 // A helper function to print a message to Windbg's console.
-void ASANDbgMessage(const wchar_t* fmt, ...) {
+void AsanDbgMessage(const wchar_t* fmt, ...) {
   if (!base::debug::BeingDebugged())
     return;
   // Prepend the message with the .echo command so it'll be printed into the
@@ -311,15 +311,15 @@ void ASANDbgMessage(const wchar_t* fmt, ...) {
   base::StringAppendV(&message_wstring, fmt, args);
 
   // Treat the message as a command to print it.
-  ASANDbgCmd(message_wstring.c_str());
+  AsanDbgCmd(message_wstring.c_str());
 }
 
 // Switch to the caller's context and print its stack trace in Windbg.
-void ASANDbgPrintContext(const CONTEXT& context) {
+void AsanDbgPrintContext(const CONTEXT& context) {
   if (!base::debug::BeingDebugged())
     return;
-  ASANDbgMessage(L"Caller's context (%p) and stack trace:", &context);
-  ASANDbgCmd(L".cxr %p; kv", reinterpret_cast<uint32>(&context));
+  AsanDbgMessage(L"Caller's context (%p) and stack trace:", &context);
+  AsanDbgCmd(L".cxr %p; kv", reinterpret_cast<uint32>(&context));
 }
 
 // Returns the maximum allocation size that can be made safely. This leaves
@@ -424,7 +424,7 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // Propagates the flags values to the different modules.
   PropagateParams();
 
-  // Register the error reporting callback to use if/when an ASan error is
+  // Register the error reporting callback to use if/when an Asan error is
   // detected. If we're able to resolve a breakpad error reporting function
   // then use that; otherwise, fall back to the default error handler.
   if (!params_.disable_breakpad_reporting &&
@@ -570,7 +570,7 @@ bool AsanRuntime::GetAsanFlagsEnvVar(std::wstring* env_var_wstr) {
 
   // If this fails, the environment variable simply does not exist.
   std::string env_var_str;
-  if (!env->GetVar(::common::kSyzyASanOptionsEnvVar, &env_var_str)) {
+  if (!env->GetVar(::common::kSyzyAsanOptionsEnvVar, &env_var_str)) {
     return true;
   }
 
@@ -730,21 +730,21 @@ void AsanRuntime::LogAsanErrorInfo(AsanErrorInfo* error_info) {
   }
 
   // Print the base of the Windbg help message.
-  ASANDbgMessage(L"An Asan error has been found (%ls), here are the details:",
+  AsanDbgMessage(L"An Asan error has been found (%ls), here are the details:",
                  base::SysUTF8ToWide(bug_descr).c_str());
 
   // Print the Windbg information to display the allocation stack if present.
   if (error_info->alloc_stack_size != NULL) {
-    ASANDbgMessage(L"Allocation stack trace:");
-    ASANDbgCmd(L"dps %p l%d",
+    AsanDbgMessage(L"Allocation stack trace:");
+    AsanDbgCmd(L"dps %p l%d",
                error_info->alloc_stack,
                error_info->alloc_stack_size);
   }
 
   // Print the Windbg information to display the free stack if present.
   if (error_info->free_stack_size != NULL) {
-    ASANDbgMessage(L"Free stack trace:");
-    ASANDbgCmd(L"dps %p l%d",
+    AsanDbgMessage(L"Free stack trace:");
+    AsanDbgCmd(L"dps %p l%d",
                error_info->free_stack,
                error_info->free_stack_size);
   }
@@ -824,7 +824,7 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
   // other exception handlers.
   AsanErrorInfo error_info = {};
 
-  // If this is set to true then an ASAN error will be emitted.
+  // If this is set to true then an Asan error will be emitted.
   bool emit_asan_error = false;
 
   // If this is an exception that we launched then extract the original
@@ -899,7 +899,7 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
       emit_asan_error = true;
   }
 
-  // If an ASAN error was detected then report it via the logger and take over
+  // If an Asan error was detected then report it via the logger and take over
   // the exception record.
   EXCEPTION_RECORD record = {};
   if (emit_asan_error) {
@@ -925,7 +925,7 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
       return (*previous_uef_)(exception);
   }
 
-  // If we've found an ASAN error then pass the buck to Breakpad directly,
+  // If we've found an Asan error then pass the buck to Breakpad directly,
   // if possible. Otherwise, simply let things take their natural course.
   if (emit_asan_error && breakpad_functions.crash_for_exception_ptr)
     return (*breakpad_functions.crash_for_exception_ptr)(exception);

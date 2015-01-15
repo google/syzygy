@@ -120,7 +120,7 @@ class QuarantineInterface {
   DISALLOW_COPY_AND_ASSIGN(QuarantineInterface);
 };
 
-// Quarantines in ASAN are typically storing blocks. Here they are represented
+// Quarantines in Asan are typically storing blocks. Here they are represented
 // by a CompactBlockInfo, which contains information that the quarantine
 // frequently accesses.
 struct CompactBlockInfo;  // Forward declaration.

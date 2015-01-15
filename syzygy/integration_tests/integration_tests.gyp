@@ -43,7 +43,7 @@
       ],
       'msvs_settings': {
         'VCLinkerTool': {
-          # ASAN agent is compiled without large address spaces to allow a
+          # Asan agent is compiled without large address spaces to allow a
           # memory optimization on the shadow memory. Agents should run in both
           # modes, thus in the long term, we should remove this.
           # Disable support for large address spaces.
@@ -79,7 +79,7 @@
       ],
       'msvs_settings': {
         'VCLinkerTool': {
-          # ASAN agent is compiled without large address spaces to allow a
+          # Asan agent is compiled without large address spaces to allow a
           # memory optimization on the shadow memory. Agents should run in both
           # modes, thus in the long term, we should remove this.
           # Disable support for large address spaces.
@@ -105,7 +105,7 @@
             },
             'VCCLCompilerTool': {
               'BasicRuntimeChecks': '0',
-              # ASAN needs the application to be linked with the release static
+              # Asan needs the application to be linked with the release static
               # runtime library. Otherwise, memory allocation functions are
               # wrapped and hide memory bugs like overflow/underflow.
               'RuntimeLibrary':  '0', # 0 = /MT (nondebug static)
@@ -143,7 +143,7 @@
       ],
       'msvs_settings': {
         'VCLinkerTool': {
-          # ASAN agent is compiled without large address spaces to allow a
+          # Asan agent is compiled without large address spaces to allow a
           # memory optimization on the shadow memory. Agents should run in both
           # modes, thus in the long term, we should remove this.
           # Disable support for large address spaces.

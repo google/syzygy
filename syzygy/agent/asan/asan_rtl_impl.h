@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Implement the ASAN RTL functions.
+// Implement the Asan RTL functions.
 #ifndef SYZYGY_AGENT_ASAN_ASAN_RTL_IMPL_H_
 #define SYZYGY_AGENT_ASAN_ASAN_RTL_IMPL_H_
 

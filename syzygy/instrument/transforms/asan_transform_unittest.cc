@@ -1135,7 +1135,7 @@ TEST_F(AsanTransformTest, ImportsAreRedirectedCoff) {
   Intersect(symbols, expected, &results);
   EXPECT_THAT(results, ContainerEq(expected));
 
-  // Expect at least some of the ASAN instrumentation symbols to be referenced.
+  // Expect at least some of the Asan instrumentation symbols to be referenced.
   size_t instrumentation_references = 0;
   StringSet::const_iterator str_it = expected.begin();
   for (; str_it != expected.end(); ++str_it) {
@@ -1145,7 +1145,7 @@ TEST_F(AsanTransformTest, ImportsAreRedirectedCoff) {
   EXPECT_LT(0u, instrumentation_references);
 
   // Expect any intercepted symbols to have no references to them if they
-  // are present, and expect an equivalent ASAN instrumented symbol to exist
+  // are present, and expect an equivalent Asan instrumented symbol to exist
   // and be referenced.
   const AsanIntercept* intercept = kAsanIntercepts;
   for (; intercept->undecorated_name != NULL; ++intercept) {
@@ -1158,11 +1158,11 @@ TEST_F(AsanTransformTest, ImportsAreRedirectedCoff) {
     std::string imp_name(kDecoratedImportPrefix);
     imp_name += name;
 
-    // Build the name of the ASAN instrumented version of this symbol.
+    // Build the name of the Asan instrumented version of this symbol.
     std::string asan_name(kDecoratedAsanInterceptPrefix);
     asan_name += name;
 
-    // Build the name of the ASAN instrumented imported version of this symbol.
+    // Build the name of the Asan instrumented imported version of this symbol.
     std::string imp_asan_name(kDecoratedImportPrefix);
     imp_asan_name += name;
 
@@ -1195,10 +1195,10 @@ TEST_F(AsanTransformTest, ImportsAreRedirectedCoff) {
           symbols_block, symbol_map, imp_asan_name);
     }
 
-    // If the original symbol is present we expect the ASAN version to be
+    // If the original symbol is present we expect the Asan version to be
     // present as well. The converse it not necessarily true, as the symbol
     // can be reused in place by the transform in some cases. We also expect
-    // them to have no references (having been redirected to the ASAN
+    // them to have no references (having been redirected to the Asan
     // equivalents).
     if (has_name) {
       EXPECT_TRUE(has_asan_name);
@@ -1209,7 +1209,7 @@ TEST_F(AsanTransformTest, ImportsAreRedirectedCoff) {
       EXPECT_EQ(0u, imp_name_refs);
     }
 
-    // If the ASAN versions of the symbols are present we expect them to
+    // If the Asan versions of the symbols are present we expect them to
     // have references.
     if (has_asan_name) {
       EXPECT_LT(0u, asan_name_refs);

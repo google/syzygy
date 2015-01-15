@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Implementations of ASAN-specific functions. These are stubs that don't
+// Implementations of Asan-specific functions. These are stubs that don't
 // actually do anything, but are necessary for ABI compatibility.
 
 #include <windows.h>

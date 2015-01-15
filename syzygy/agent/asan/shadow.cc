@@ -469,7 +469,7 @@ void Shadow::AppendShadowMemoryText(const void* addr, std::string* output) {
   base::StringAppendF(output, "  Nested block start:    %02x - %02x\n",
                       kHeapNestedBlockStartMarker0,
                       kHeapNestedBlockStartMarker7);
-  base::StringAppendF(output, "  ASan memory byte:      %02x\n",
+  base::StringAppendF(output, "  Asan memory byte:      %02x\n",
                       kAsanMemoryMarker);
   base::StringAppendF(output, "  Invalid address:       %02x\n",
                       kInvalidAddressMarker);
@@ -483,7 +483,7 @@ void Shadow::AppendShadowMemoryText(const void* addr, std::string* output) {
                       kHeapLeftPaddingMarker);
   base::StringAppendF(output, "  Heap right redzone:    %02x\n",
                       kHeapRightPaddingMarker);
-  base::StringAppendF(output, "  ASan reserved byte:    %02x\n",
+  base::StringAppendF(output, "  Asan reserved byte:    %02x\n",
                       kAsanReservedMarker);
   base::StringAppendF(output, "  Freed heap region:     %02x\n",
                       kHeapFreedMarker);

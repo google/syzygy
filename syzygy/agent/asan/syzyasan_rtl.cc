@@ -112,7 +112,7 @@ bool EnumImportChunksCallback(const base::win::PEImage& image,
   return true;
 }
 
-// Inspects the given module for embedded ASAN parameters. If they are found
+// Inspects the given module for embedded Asan parameters. If they are found
 // sets a pointer to them in |asan_params|. Returns true on success, false
 // otherwise.
 bool InspectModuleForEmbeddedAsanParameters(
@@ -145,7 +145,7 @@ bool InspectModuleForEmbeddedAsanParameters(
   return true;
 }
 
-// |asan_params| will be populated with a pointer to any found ASAN parameters,
+// |asan_params| will be populated with a pointer to any found Asan parameters,
 // and will be set to NULL if none are found.
 bool LookForEmbeddedAsanParameters(const common::AsanParameters** asan_params) {
   DCHECK_NE(reinterpret_cast<common::AsanParameters**>(NULL), asan_params);
@@ -180,7 +180,7 @@ bool LookForEmbeddedAsanParameters(const common::AsanParameters** asan_params) {
     return false;
   }
 
-  // Inspect each module to see if it contains ASAN runtime parameters. The
+  // Inspect each module to see if it contains Asan runtime parameters. The
   // first ones found will be used.
   for (size_t i = 0; i < modules.size(); ++i) {
     if (!InspectModuleForEmbeddedAsanParameters(

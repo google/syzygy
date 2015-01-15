@@ -31,7 +31,7 @@ using agent::asan::Shadow;
 
 // A flag used in asan callback to ensure that a memory error has been detected.
 bool memory_error_detected = false;
-// Will save the information about the last ASan error.
+// Will save the information about the last Asan error.
 AsanErrorInfo last_error_info = {};
 
 void AsanErrorCallBack(AsanErrorInfo* error_info) {

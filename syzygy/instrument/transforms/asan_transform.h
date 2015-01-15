@@ -70,7 +70,7 @@ class AsanBasicBlockTransform
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
   typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
   typedef MemoryAccessInfo AsanHookMapEntryKey;
-  // Map of hooks to asan check access functions.
+  // Map of hooks to Asan check access functions.
   typedef std::map<AsanHookMapEntryKey, BlockGraph::Reference> AsanHookMap;
   typedef std::map<MemoryAccessMode, BlockGraph::Reference> AsanDefaultHookMap;
 
@@ -214,7 +214,7 @@ class AsanTransform
   double instrumentation_rate() const { return instrumentation_rate_; }
   void set_instrumentation_rate(double instrumentation_rate);
 
-  // ASAN RTL parameters.
+  // Asan RTL parameters.
   const common::InflatedAsanParameters* asan_parameters() const {
     return asan_parameters_;
   }
@@ -253,7 +253,7 @@ class AsanTransform
   // @name COFF-specific methods.
   // @{
   // Invoked when instrumenting a COFF image. Intercepts all relevant functions
-  // via symbol renaming, redirecting to ASAN instrumented versions. The
+  // via symbol renaming, redirecting to Asan instrumented versions. The
   // intercepts to be used are exposed for unittesting.
   bool CoffInterceptFunctions(const AsanIntercept* intercepts,
                               const TransformPolicyInterface* policy,
@@ -281,14 +281,14 @@ class AsanTransform
   // implemented using random sampling.
   double instrumentation_rate_;
 
-  // ASAN RTL parameters that will be injected into the instrumented image.
+  // Asan RTL parameters that will be injected into the instrumented image.
   // These will be found by the RTL and used to control its behaviour. Allows
   // for setting parameters at instrumentation time that vary from the defaults.
   // These can still be overridden by configuring the RTL via an environment
   // variable.
   const common::InflatedAsanParameters* asan_parameters_;
 
-  // References to the different asan check access import entries. Valid after
+  // References to the different Asan check access import entries. Valid after
   // successful PreBlockGraphIteration.
   AsanBasicBlockTransform::AsanHookMap check_access_hooks_ref_;
 
