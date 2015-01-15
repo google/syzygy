@@ -1467,12 +1467,12 @@ TEST_P(BlockHeapManagerTest, BestEffortLockAllOneHeapLockHeld) {
 
 TEST_P(BlockHeapManagerTest, IsValidHeapIdUnlocked) {
   ASSERT_FALSE(heap_manager_->heaps_.empty());
-  EXPECT_FALSE(heap_manager_->IsValidHeapIdUnlocked(0xDEADBEEF));
+  EXPECT_FALSE(heap_manager_->IsValidHeapIdUnlocked(0xDEADBEEF, false));
   for (auto& hq_pair : heap_manager_->heaps_) {
     TestBlockHeapManager::HeapQuarantinePair* hq = &hq_pair;
     TestBlockHeapManager::HeapId heap_id =
         reinterpret_cast<TestBlockHeapManager::HeapId>(hq);
-    EXPECT_TRUE(heap_manager_->IsValidHeapIdUnlocked(heap_id));
+    EXPECT_TRUE(heap_manager_->IsValidHeapIdUnlocked(heap_id, false));
   }
 }
 

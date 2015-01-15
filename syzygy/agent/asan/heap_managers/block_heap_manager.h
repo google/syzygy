@@ -171,18 +171,23 @@ class BlockHeapManager : public HeapManagerInterface {
   //     this class.
   // Determines if a heap ID is valid.
   // @param heap_id The heap_id to validate.
+  // @param allow_dying If true then also consider heaps that are in the
+  //     process of dying. Otherwise, only consider live heaps.
   // @returns true if the given heap id is valid.
   // @note The unsafe variants can raise access violations.
-  bool IsValidHeapIdUnsafe(HeapId heap_id);
-  bool IsValidHeapIdUnsafeUnlocked(HeapId heap_id);
-  bool IsValidHeapId(HeapId heap_id);
-  bool IsValidHeapIdUnlocked(HeapId heap_id);
+  bool IsValidHeapIdUnsafe(HeapId heap_id, bool allow_dying);
+  bool IsValidHeapIdUnsafeUnlocked(HeapId heap_id, bool allow_dying);
+  bool IsValidHeapId(HeapId heap_id, bool allow_dying);
+  bool IsValidHeapIdUnlocked(HeapId heap_id, bool allow_dying);
 
   // Helpers for the above functions. This is split into two to keep the
   // locking as narrow as possible.
+  // @param hq The heap quarantine pair being queried.
+  // @param allow_dying If true then also consider heaps that are in the
+  //     process of dying. Otherwise, only consider live heaps.
   bool IsValidHeapIdUnsafeUnlockedImpl1(HeapQuarantinePair* hq);
   bool IsValidHeapIdUnlockedImpl1(HeapQuarantinePair* hq);
-  bool IsValidHeapIdUnlockedImpl2(HeapQuarantinePair* hq);
+  bool IsValidHeapIdUnlockedImpl2(HeapQuarantinePair* hq, bool allow_dying);
   // @}
 
   // Given a heap ID, returns the underlying heap.
@@ -202,16 +207,22 @@ class BlockHeapManager : public HeapManagerInterface {
   void PropagateParameters();
 
   // Destroy a heap and flush its quarantine. If this heap has an underlying
-  // heap it'll also destroy it. All the block belonging to this heap that are
+  // heap it'll also destroy it. All the blocks belonging to this heap that are
   // in the quarantine will be freed.
   //
   // @param heap The heap to destroy.
   // @param quarantine The quarantine of this heap.
   // @returns true on success, false otherwise.
   // @note The heap pointer will be invalid if this function succeeds.
-  // @note This must be called under lock_.
-  bool DestroyHeapUnlocked(BlockHeapInterface* heap,
+  bool DestroyHeapContents(BlockHeapInterface* heap,
                            BlockQuarantineInterface* quarantine);
+
+  // Removes a heap from the manager, then frees it and any resources
+  // associated with it. This does not remove the heap pointer from the
+  // heaps_ structure.
+  // @note This must be called under lock_.
+  void DestroyHeapResourcesUnlocked(BlockHeapInterface* heap,
+                                    BlockQuarantineInterface* quarantine);
 
   // If the quarantine of a heap is over its maximum size, trim it down until
   // it's below the limit. If parameters_.quarantine_size is 0 then
@@ -294,6 +305,9 @@ class BlockHeapManager : public HeapManagerInterface {
 
   // Contains the heaps owned by this manager.
   HeapQuarantineMap heaps_;  // Under lock_.
+  // Contains the heaps owned by this manager, but in the process of being
+  // deleted.
+  HeapQuarantineMap dying_heaps_;  // Under lock.
 
   // The quarantine shared by the heaps created by this manager. This is also
   // used by the LargeBlockHeap.

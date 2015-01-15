@@ -105,24 +105,38 @@ HeapId BlockHeapManager::CreateHeap() {
 
 bool BlockHeapManager::DestroyHeap(HeapId heap_id) {
   DCHECK(initialized_);
-  DCHECK(IsValidHeapId(heap_id));
+  DCHECK(IsValidHeapId(heap_id, false));
   BlockHeapInterface* heap = GetHeapFromId(heap_id);
+  BlockQuarantineInterface* quarantine = GetQuarantineFromId(heap_id);
 
-  base::AutoLock lock(lock_);
-  HeapQuarantineMap::iterator iter = heaps_.find(heap);
-  // We should always be able to retrieve a heap that we previously passed to
-  // the user.
-  CHECK(iter != heaps_.end());
-  // Destroy the heap and flush its quarantine.
-  DestroyHeapUnlocked(iter->first, iter->second);
+  {
+    // Move the heap from the active to the dying list. This prevents it from
+    // being used while it's being torn down.
+    base::AutoLock lock(lock_);
+    auto iter = heaps_.find(heap);
+    CHECK(iter != heaps_.end());
+    heaps_.erase(iter);
+    dying_heaps_.insert(std::make_pair(heap, quarantine));
+  }
 
-  heaps_.erase(iter);
+  // Destroy the heap and flush its quarantine. This is done outside of the
+  // lock to both reduce contention and to ensure that we can re-enter the
+  // block heap manager if corruption is found during the heap tear down.
+  DestroyHeapContents(heap, quarantine);
+
+  // Free up any resources associated with the heap. This modifies block
+  // heap manager internals, so must be called under a lock.
+  {
+    base::AutoLock lock(lock_);
+    DestroyHeapResourcesUnlocked(heap, quarantine);
+  }
+
   return true;
 }
 
 void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
   DCHECK(initialized_);
-  DCHECK(IsValidHeapId(heap_id));
+  DCHECK(IsValidHeapId(heap_id, false));
 
   // Some allocations can pass through without instrumentation.
   if (parameters_.allocation_guard_rate < 1.0 &&
@@ -197,7 +211,7 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
 
 bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   DCHECK(initialized_);
-  DCHECK(IsValidHeapId(heap_id));
+  DCHECK(IsValidHeapId(heap_id, false));
 
   // The standard allows calling free on a null pointer.
   if (alloc == nullptr)
@@ -269,7 +283,7 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
 
 size_t BlockHeapManager::Size(HeapId heap_id, const void* alloc) {
   DCHECK(initialized_);
-  DCHECK(IsValidHeapId(heap_id));
+  DCHECK(IsValidHeapId(heap_id, false));
 
   if (Shadow::IsBeginningOfBlockBody(alloc)) {
     BlockInfo block_info = {};
@@ -289,13 +303,13 @@ size_t BlockHeapManager::Size(HeapId heap_id, const void* alloc) {
 
 void BlockHeapManager::Lock(HeapId heap_id) {
   DCHECK(initialized_);
-  DCHECK(IsValidHeapId(heap_id));
+  DCHECK(IsValidHeapId(heap_id, false));
   GetHeapFromId(heap_id)->Lock();
 }
 
 void BlockHeapManager::Unlock(HeapId heap_id) {
   DCHECK(initialized_);
-  DCHECK(IsValidHeapId(heap_id));
+  DCHECK(IsValidHeapId(heap_id, false));
   GetHeapFromId(heap_id)->Unlock();
 }
 
@@ -362,8 +376,15 @@ void BlockHeapManager::TearDownHeapManager() {
   // Delete all the heaps. This must be done manually to ensure that
   // all references to internal_heap_ have been cleaned up.
   HeapQuarantineMap::iterator iter_heaps = heaps_.begin();
-  for (; iter_heaps != heaps_.end(); ++iter_heaps)
-    DestroyHeapUnlocked(iter_heaps->first, iter_heaps->second);
+  for (; iter_heaps != heaps_.end(); ++iter_heaps) {
+    // Insert the heap into the list of dying heaps. Don't bother removing it
+    // from the active heaps list, as we hold the lock the entire time, and it
+    // won't be modified from underneath us.
+    dying_heaps_.insert(*iter_heaps);
+    DestroyHeapContents(iter_heaps->first, iter_heaps->second);
+    DestroyHeapResourcesUnlocked(iter_heaps->first, iter_heaps->second);
+  }
+  // Clear the active heap list.
   heaps_.clear();
 
   // Clear the specialized heap references since they were deleted.
@@ -392,44 +413,45 @@ HeapId BlockHeapManager::GetHeapId(
   return GetHeapId(insert_result.first);
 }
 
-bool BlockHeapManager::IsValidHeapIdUnsafe(HeapId heap_id) {
+bool BlockHeapManager::IsValidHeapIdUnsafe(HeapId heap_id, bool allow_dying) {
   DCHECK(initialized_);
   HeapQuarantinePair* hq = reinterpret_cast<HeapQuarantinePair*>(heap_id);
   if (!IsValidHeapIdUnsafeUnlockedImpl1(hq))
     return false;
   base::AutoLock auto_lock(lock_);
-  if (!IsValidHeapIdUnlockedImpl2(hq))
+  if (!IsValidHeapIdUnlockedImpl2(hq, allow_dying))
     return false;
   return true;
 }
 
-bool BlockHeapManager::IsValidHeapIdUnsafeUnlocked(HeapId heap_id) {
+bool BlockHeapManager::IsValidHeapIdUnsafeUnlocked(
+    HeapId heap_id, bool allow_dying) {
   DCHECK(initialized_);
   HeapQuarantinePair* hq = reinterpret_cast<HeapQuarantinePair*>(heap_id);
   if (!IsValidHeapIdUnsafeUnlockedImpl1(hq))
     return false;
-  if (!IsValidHeapIdUnlockedImpl2(hq))
+  if (!IsValidHeapIdUnlockedImpl2(hq, allow_dying))
     return false;
   return true;
 }
 
-bool BlockHeapManager::IsValidHeapId(HeapId heap_id) {
+bool BlockHeapManager::IsValidHeapId(HeapId heap_id, bool allow_dying) {
   DCHECK(initialized_);
   HeapQuarantinePair* hq = reinterpret_cast<HeapQuarantinePair*>(heap_id);
   if (!IsValidHeapIdUnlockedImpl1(hq))
     return false;
   base::AutoLock auto_lock(lock_);
-  if (!IsValidHeapIdUnlockedImpl2(hq))
+  if (!IsValidHeapIdUnlockedImpl2(hq, allow_dying))
     return false;
   return true;
 }
 
-bool BlockHeapManager::IsValidHeapIdUnlocked(HeapId heap_id) {
+bool BlockHeapManager::IsValidHeapIdUnlocked(HeapId heap_id, bool allow_dying) {
   DCHECK(initialized_);
   HeapQuarantinePair* hq = reinterpret_cast<HeapQuarantinePair*>(heap_id);
   if (!IsValidHeapIdUnlockedImpl1(hq))
     return false;
-  if (!IsValidHeapIdUnlockedImpl2(hq))
+  if (!IsValidHeapIdUnlockedImpl2(hq, allow_dying))
     return false;
   return true;
 }
@@ -458,14 +480,28 @@ bool BlockHeapManager::IsValidHeapIdUnlockedImpl1(
   return true;
 }
 
-bool BlockHeapManager::IsValidHeapIdUnlockedImpl2(HeapQuarantinePair* hq) {
+bool BlockHeapManager::IsValidHeapIdUnlockedImpl2(HeapQuarantinePair* hq,
+                                                  bool allow_dying) {
+  // Look in the list of live heaps first.
   auto it = heaps_.find(hq->first);
-  if (it == heaps_.end())
+  if (it != heaps_.end()) {
+    HeapId heap_id = GetHeapId(it);
+    if (heap_id == reinterpret_cast<HeapId>(hq))
+      return true;
+  }
+
+  if (!allow_dying)
     return false;
-  HeapId heap_id = GetHeapId(it);
-  if (heap_id != reinterpret_cast<HeapId>(hq))
-    return false;
-  return true;
+
+  // If permitted, look in the list of dying heaps.
+  it = dying_heaps_.find(hq->first);
+  if (it != dying_heaps_.end()) {
+    HeapId heap_id = GetHeapId(it);
+    if (heap_id == reinterpret_cast<HeapId>(hq))
+      return true;
+  }
+
+  return false;
 }
 
 BlockHeapInterface* BlockHeapManager::GetHeapFromId(HeapId heap_id) {
@@ -539,12 +575,12 @@ void BlockHeapManager::set_allocation_filter_flag(bool value) {
 
 HeapType BlockHeapManager::GetHeapTypeUnlocked(HeapId heap_id) {
   DCHECK(initialized_);
-  DCHECK(IsValidHeapIdUnlocked(heap_id));
+  DCHECK(IsValidHeapIdUnlocked(heap_id, true));
   BlockHeapInterface* heap = GetHeapFromId(heap_id);
   return heap->GetHeapType();
 }
 
-bool BlockHeapManager::DestroyHeapUnlocked(
+bool BlockHeapManager::DestroyHeapContents(
     BlockHeapInterface* heap,
     BlockQuarantineInterface* quarantine) {
   DCHECK(initialized_);
@@ -552,7 +588,6 @@ bool BlockHeapManager::DestroyHeapUnlocked(
   DCHECK_NE(static_cast<BlockQuarantineInterface*>(nullptr), quarantine);
 
   // Starts by removing all the block from this heap from the quarantine.
-
   BlockQuarantineInterface::ObjectVector blocks_vec;
 
   // We'll keep the blocks that don't belong to this heap in a temporary list.
@@ -600,18 +635,30 @@ bool BlockHeapManager::DestroyHeapUnlocked(
     }
   }
 
-  UnderlyingHeapMap::iterator iter = underlying_heaps_map_.find(heap);
+  return true;
+}
 
-  // Not all the heaps have an underlying heap.
-  if (iter != underlying_heaps_map_.end()) {
-    DCHECK_NE(static_cast<HeapInterface*>(nullptr), iter->second);
-    delete iter->second;
-    underlying_heaps_map_.erase(iter);
+void BlockHeapManager::DestroyHeapResourcesUnlocked(
+    BlockHeapInterface* heap,
+    BlockQuarantineInterface* quarantine) {
+  // If the heap has an underlying heap then free it as well.
+  {
+    auto iter = underlying_heaps_map_.find(heap);
+    if (iter != underlying_heaps_map_.end()) {
+      DCHECK_NE(static_cast<HeapInterface*>(nullptr), iter->second);
+      delete iter->second;
+      underlying_heaps_map_.erase(iter);
+    }
+  }
+
+  {
+    // Remove the heap from the list of dying heaps.
+    auto iter = dying_heaps_.find(heap);
+    CHECK(iter != dying_heaps_.end());
+    dying_heaps_.erase(iter);
   }
 
   delete heap;
-
-  return true;
 }
 
 void BlockHeapManager::TrimQuarantine(BlockQuarantineInterface* quarantine) {
@@ -693,7 +740,7 @@ bool BlockHeapManager::FreePristineBlock(BlockInfo* block_info) {
 
 bool BlockHeapManager::FreeUnguardedAlloc(HeapId heap_id, void* alloc) {
   DCHECK(initialized_);
-  DCHECK(IsValidHeapId(heap_id));
+  DCHECK(IsValidHeapId(heap_id, false));
   BlockHeapInterface* heap = GetHeapFromId(heap_id);
 
   // Check if the allocation comes from the process heap, if so there's two

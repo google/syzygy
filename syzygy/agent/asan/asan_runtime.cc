@@ -787,7 +787,9 @@ bool AsanRuntime::ThreadIdIsValid(uint32 thread_id) {
 }
 
 bool AsanRuntime::HeapIdIsValid(HeapManagerInterface::HeapId heap_id) {
-  return heap_manager_->IsValidHeapIdUnlocked(heap_id);
+  // Consider dying heaps in this query, as they are still valid from the
+  // point of view of an error report.
+  return heap_manager_->IsValidHeapIdUnlocked(heap_id, true);
 }
 
 HeapType AsanRuntime::GetHeapType(HeapManagerInterface::HeapId heap_id) {
