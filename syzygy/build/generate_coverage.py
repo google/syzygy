@@ -344,11 +344,11 @@ class _CodeCoverageRunnerSyzygy(_CodeCoverageRunnerBase):
     _Subprocess(cmd, 'Failed to stop coverage capture.')
 
   def _ProcessCoverage(self, output_path):
-    bin_files = glob.glob(os.path.join(self._work_dir, 'trace-*.bin'))
     _LOGGER.info('Generating LCOV file.')
     cmd = [os.path.join(self._build_dir, 'grinder.exe'),
            '--mode=coverage',
-           '--output-file=%s' % output_path] + bin_files
+           '--output-file=%s' % output_path,
+           os.path.join(self._work_dir, 'trace-*.bin')]
     _Subprocess(cmd, 'LCOV generation failed.')
 
 

@@ -93,7 +93,7 @@ static const char kUsageFormatStr[] =
     "                            Specifies the fraction of instructions to\n"
     "                            be instrumented, as a value in the range\n"
     "                            0..1, inclusive. Defaults to 1.\n"
-    "    --no-interceptors\n     Disable the interception of the functions\n"
+    "    --no-interceptors       Disable the interception of the functions\n"
     "                            like memset, memcpy, stcpy, ReadFile... to\n"
     "                            check their parameters.\n"
     "    --no-liveness-analysis  Disables register and flags liveness\n"
