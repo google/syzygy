@@ -23,10 +23,11 @@
 namespace agent {
 namespace asan {
 
-// Forward declaration.
+// Forward declarations.
 class AsanLogger;
 
 // A class which manages a thread-safe cache of unique stack traces, by ID.
+// Associated with each stack trace is an optional bit of metadata.
 class StackCaptureCache {
  public:
   // The size of a page of stack captures, in bytes. This should be in the
@@ -88,18 +89,38 @@ class StackCaptureCache {
 
   // Save (or retrieve) the stack capture (the first @p num_frames elements
   // from  @p frames) into the cache using @p stack_id as the key.
+  // @tparam Metadata the type of metadata to augment the stack crash with.
   // @param stack_id a unique identifier for this stack trace. It is expected
   //     that identical stack traces will have the same @p stack_id.
   // @param frames an array of stack frame pointers.
   // @param num_frames the number of valid elements in @p frames. Note that
   //     at most StackCapture::kMaxNumFrames will be saved.
+  // @param extra_frames the number of extra frames to allocate in the stack
+  //     trace.
   // @param stack_capture The initialized stack capture to save.
+  // @param metadata will be populated with a pointer to metadata, if
+  //     available. The metadata will *not* be initialized.
   // @returns a pointer to the saved stack capture.
   const common::StackCapture* SaveStackTrace(StackId stack_id,
                                              const void* const* frames,
                                              size_t num_frames);
   const common::StackCapture* SaveStackTrace(
       const common::StackCapture& stack_capture);
+  // Templated variants with metadata.
+  template<typename Metadata>
+  const common::StackCapture* SaveStackTrace(StackId stack_id,
+                                             const void* const* frames,
+                                             size_t num_frames,
+                                             Metadata** metadata);
+  template<typename Metadata>
+  const common::StackCapture* SaveStackTrace(
+      const common::StackCapture& stack_capture,
+      Metadata** metadata);
+
+  // Given a stack capture in this cache, returns a pointer to the associated
+  // metadata, if available.
+  template<typename Metadata>
+  static Metadata* GetMetadata(const common::StackCapture* stack_capture);
 
   // Releases a previously referenced stack trace. This decrements the reference
   // count and potentially cleans up the stack trace.
@@ -173,6 +194,14 @@ class StackCaptureCache {
   // Implementation function for logging statistics.
   // @param report The statistics to be reported.
   void LogStatisticsImpl(const Statistics& statistics) const;
+
+  // Allocates a stack trace and initializes it with the given data. Ensures
+  // that the stack trace will have a certain number of |extra_frames| left
+  // empty and available for use as metadata.
+  const common::StackCapture* SaveStackTrace(StackId stack_id,
+                                             const void* const* frames,
+                                             size_t num_frames,
+                                             size_t extra_frames);
 
   // Grabs a temporary StackCapture from reclaimed_ or the current CachePage.
   // Must be called under lock_. Takes care of updating frames_dead.
@@ -297,6 +326,56 @@ COMPILE_ASSERT(sizeof(StackCaptureCache::CachePage) ==
                kDataSize_calculation_needs_to_be_updated);
 COMPILE_ASSERT(StackCaptureCache::kCachePageSize % 4096 == 0,
                kCachePageSize_should_be_a_multiple_of_the_page_size);
+
+// Returns the number of frames necessary to represent the given metadata
+// structure.
+template<typename Metadata>
+size_t GetMetadataFrames() {
+  return (sizeof(Metadata) + sizeof(uintptr_t) - 1) / sizeof(uintptr_t);
+}
+
+template<typename Metadata>
+const common::StackCapture* StackCaptureCache::SaveStackTrace(
+    StackId stack_id,
+    const void* const* frames,
+    size_t num_frames,
+    Metadata** metadata) {
+  DCHECK_NE(static_cast<void**>(nullptr), frames);
+  DCHECK_NE(num_frames, 0U);
+  DCHECK_NE(static_cast<Metadata**>(nullptr), metadata);
+  const common::StackCapture* stack = SaveStackTrace(
+      stack_id, frames, num_frames, GetMetadataFrames<Metadata>());
+  if (stack != nullptr) {
+    *metadata = GetMetadata<Metadata>(stack);
+  } else {
+    *metadata = nullptr;
+  }
+  return stack;
+}
+
+template<typename Metadata>
+const common::StackCapture* StackCaptureCache::SaveStackTrace(
+    const common::StackCapture& stack_capture,
+    Metadata** metadata) {
+  DCHECK_NE(static_cast<Metadata**>(nullptr), metadata);
+  return SaveStackTrace(stack_capture.stack_id(),
+                        stack_capture.frames(),
+                        stack_capture.num_frames(),
+                        metadata);
+}
+
+template<typename Metadata>
+static Metadata* StackCaptureCache::GetMetadata(
+    const common::StackCapture* stack_capture) {
+  DCHECK_NE(static_cast<common::StackCapture*>(nullptr), stack_capture);
+  size_t frames_left = stack_capture->max_num_frames() -
+      stack_capture->num_frames();
+  if (frames_left < GetMetadataFrames<Metadata>())
+    return nullptr;
+  const void* metadata = stack_capture->frames() +
+      stack_capture->num_frames() - GetMetadataFrames<Metadata>();
+  return reinterpret_cast<Metadata*>(const_cast<void*>(metadata));
+}
 
 }  // namespace asan
 }  // namespace agent
