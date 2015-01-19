@@ -191,12 +191,17 @@ class AssemblerBase {
   // @param dst The destination register.
   // @param src The source register.
   // @note Exchanges involving eax generate shorter byte code.
-  // @note This instruction can be used as a primitive for writing
-  //     synchronization mechanisms as there is an implicit lock taken
-  //     during execution.
   void xchg(const Register32& dst, const Register32& src);
   void xchg(const Register16& dst, const Register16& src);
   void xchg(const Register8& dst, const Register8& src);
+
+  // Exchange contents of a register and memory.
+  // @param dst The destination register.
+  // @param src The source memory location.
+  // @note This instruction can be used as a primitive for writing
+  //     synchronization mechanisms as there is an implicit lock taken
+  //     on @p src during execution.
+  void xchg(const Register32& dst, const Operand& src);
 
   // @name Aliases
   // @{

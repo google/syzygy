@@ -1069,6 +1069,11 @@ TEST_F(AssemblerTest, Xchg32) {
   EXPECT_BYTES(0x87, 0xE2);
   asm_.xchg(esp, edx);
   EXPECT_BYTES(0x87, 0xD4);
+
+  int ref = 0;
+  asm_.xchg(eax,
+            Operand(ecx, Displacement(0xCAFEBABE, kSize32Bit, &ref)));
+  EXPECT_BYTES(0x87, 0x81, 0xBE, 0xBA, 0xFE, 0xCA);
 }
 
 TEST_F(AssemblerTest, Xchg16) {

@@ -1155,6 +1155,14 @@ void AssemblerBase<ReferenceType>::xchg(const Register8& dst,
 }
 
 template <class ReferenceType>
+void AssemblerBase<ReferenceType>::xchg(const Register32& dst,
+                                        const Operand& src) {
+  InstructionBuffer instr(this);
+  instr.EmitOpCodeByte(0x87);
+  instr.EmitOperand(dst.code(), src);
+}
+
+template <class ReferenceType>
 void AssemblerBase<ReferenceType>::nop1(size_t prefix_count) {
   InstructionBuffer instr(this);
   instr.EmitOperandSizePrefix(prefix_count);
