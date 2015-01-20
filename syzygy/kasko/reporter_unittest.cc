@@ -149,7 +149,7 @@ void StartWatch(base::FilePathWatcher* watcher,
 
 }  // namespace
 
-TEST(ReporterTest, BasicTest) {
+TEST(ReporterTest, DISABLED_BasicTest) {
   testing::TestServer server;
   ASSERT_TRUE(server.Start());
 
@@ -181,7 +181,7 @@ TEST(ReporterTest, BasicTest) {
   Reporter::Shutdown(instance.Pass());
 }
 
-TEST(ReporterTest, PermanentFailureTest) {
+TEST(ReporterTest, DISABLED_PermanentFailureTest) {
   testing::TestServer server;
   ASSERT_TRUE(server.Start());
 
