@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.4.1
+
+[----------] Fixed some unittest failures.
+
 Version 0.8.4.0
 
 [5130039b66] Synchronize page protection modifications.
