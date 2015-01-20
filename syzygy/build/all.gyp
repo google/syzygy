@@ -26,10 +26,6 @@
       # TODO(sebmarchand): Put back the includes archive once we have some
       #     header files to publish.
     ],
-    'kasko_files_to_archive': [
-      '<(PRODUCT_DIR)/kasko.zip',
-      '<(PRODUCT_DIR)/kasko_symbols.zip',
-    ],
   },
   'includes': [
     'binaries.gypi',
@@ -176,79 +172,6 @@
             '<(src)/syzygy/build/TIMESTAMP.gen',
           ],
           'process_outputs_as_sources': 1,
-        },
-      ],
-    },
-    {
-      'target_name': 'official_kasko_build',
-      'type': 'none',
-      'dependencies': [
-        'archive_kasko_build_artifacts',
-      ],
-    },
-    {
-      'target_name': 'archive_kasko_build_artifacts',
-      'type': 'none',
-      'dependencies': [
-        '<(src)/syzygy/syzygy.gyp:build_all',
-        'kasko_binaries_zip',
-      ],
-      'copies': [{
-        'destination': '<(PRODUCT_DIR)/archive',
-        'files': ['<@(kasko_files_to_archive)'],
-      }],
-    },
-    {
-      'target_name': 'kasko_binaries_zip',
-      'type': 'none',
-      'dependencies': [
-        '<(src)/syzygy/syzygy.gyp:build_all',
-      ],
-      'actions': [
-        {
-          'action_name': 'create_kasko_symbols_zip',
-          'msvs_cygwin_shell': 0,
-          'inputs': [
-            'create_zip.py',
-            '<@(kasko_symbols)',
-          ],
-          'outputs': [
-            '<(PRODUCT_DIR)/kasko_symbols.zip',
-          ],
-          'action': [
-            '<(python_exe)',
-            'create_zip.py',
-            '--output',
-            '<(PRODUCT_DIR)/kasko_symbols.zip',
-            '--files',
-            '<@(kasko_symbols)',
-          ],
-        },
-        {
-          'action_name': 'create_kasko_zip',
-          'msvs_cygwin_shell': 0,
-          'inputs': [
-            'create_zip.py',
-            'LICENSE.TXT',
-            '<@(kasko_binaries)',
-            '<@(kasko_headers)',
-          ],
-          'outputs': [
-            '<(PRODUCT_DIR)/kasko.zip',
-          ],
-          'action': [
-            '<(python_exe)',
-            'create_zip.py',
-            '--output',
-            '<(PRODUCT_DIR)/kasko.zip',
-            '--files',
-            'LICENSE.TXT',
-            '<@(kasko_binaries)',
-            '--subtree',
-            'includes',
-            '<(src)',
-            '<@(kasko_headers)',
-          ],
         },
       ],
     },

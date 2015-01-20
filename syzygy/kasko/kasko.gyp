@@ -15,7 +15,15 @@
 {
   'variables': {
     'chromium_code': 1,
+    'files_to_archive': [
+      '<(PRODUCT_DIR)/kasko.zip',
+      '<(PRODUCT_DIR)/kasko_symbols.zip',
+    ],
   },
+  'includes': [
+    'binaries.gypi',
+    'unittests.gypi',
+  ],
   'targets': [
     {
       'target_name': 'kasko_version',
@@ -212,6 +220,80 @@
           ],
         },
       },
+    },
+    {
+      'target_name': 'official_kasko_build',
+      'type': 'none',
+      'dependencies': [
+        'kasko',
+        '<@(unittests)',
+        'archive_kasko_build_artifacts',
+      ],
+    },
+    {
+      'target_name': 'archive_kasko_build_artifacts',
+      'type': 'none',
+      'dependencies': [
+        'kasko_binaries_zip',
+      ],
+      'copies': [{
+        'destination': '<(PRODUCT_DIR)/archive',
+        'files': ['<@(files_to_archive)'],
+      }],
+    },
+    {
+      'target_name': 'kasko_binaries_zip',
+      'type': 'none',
+      'dependencies': [
+        'kasko',
+      ],
+      'actions': [
+        {
+          'action_name': 'create_kasko_symbols_zip',
+          'msvs_cygwin_shell': 0,
+          'inputs': [
+            '<(src)/syzygy/build/create_zip.py',
+            '<@(symbols)',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/kasko_symbols.zip',
+          ],
+          'action': [
+            '<(python_exe)',
+            '<(src)/syzygy/build/create_zip.py',
+            '--output',
+            '<(PRODUCT_DIR)/kasko_symbols.zip',
+            '--files',
+            '<@(symbols)',
+          ],
+        },
+        {
+          'action_name': 'create_kasko_zip',
+          'msvs_cygwin_shell': 0,
+          'inputs': [
+            '<(src)/syzygy/build/create_zip.py',
+            '<(src)/syzygy/build/LICENSE.TXT',
+            '<@(binaries)',
+            '<@(headers)',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/kasko.zip',
+          ],
+          'action': [
+            '<(python_exe)',
+            '<(src)/syzygy/build/create_zip.py',
+            '--output',
+            '<(PRODUCT_DIR)/kasko.zip',
+            '--files',
+            '<(src)/syzygy/build/LICENSE.TXT',
+            '<@(binaries)',
+            '--subtree',
+            'includes',
+            '<(src)',
+            '<@(headers)',
+          ],
+        },
+      ],
     },
   ],
 }
