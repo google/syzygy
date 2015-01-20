@@ -90,13 +90,13 @@ TEST_F(AsanLoggerTest, EndToEnd) {
     client_.Init();
     ASSERT_EQ(instance_id_, client_.instance_id_);
     ASSERT_TRUE(client_.rpc_binding_.Get() != NULL);
-    client_.Write(kMessage);
 
     // Generate a minidump.
     CONTEXT ctx = {};
     ::RtlCaptureContext(&ctx);
     AsanErrorInfo info = {};
     client_.SaveMiniDump(&ctx, &info);
+    client_.Write(kMessage);
 
     // Shutdown the logging service.
     ASSERT_TRUE(server.Stop());

@@ -1067,15 +1067,18 @@ size_t AsanCorruptBlock() {
 }
 
 size_t AsanCorruptBlockInQuarantine() {
-  size_t* mem = new size_t[10];
+  HANDLE heap = ::HeapCreate(NULL, 0, 0);
+  size_t* mem =
+      static_cast<size_t*>(::HeapAlloc(heap, NULL, 10 * sizeof(size_t)));
   size_t ret = mem[0];
-  delete[] mem;
+  ::HeapFree(heap, NULL, mem);
 
   // We modify the block after deletion so that it will cause an error to be
   // fired when the block is trimmed from the quarantine.
   size_t original_value = NonInterceptedRead(&mem[0]);
   NonInterceptedWrite(&mem[0], original_value + 1);
 
+  ::HeapDestroy(heap);
   return ret;
 }
 

@@ -23,9 +23,11 @@
 #include "base/win/scoped_com_initializer.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "pcrecpp.h"  // NOLINT
 #include "syzygy/agent/asan/asan_rtl_impl.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/block_graph/transforms/chained_basic_block_transforms.h"
+#include "syzygy/common/asan_parameters.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/common/unittest_util.h"
 #include "syzygy/core/disassembler_util.h"
@@ -62,6 +64,9 @@ typedef grinder::CoverageData::SourceFileCoverageData SourceFileCoverageData;
 typedef grinder::CoverageData::SourceFileCoverageDataMap
     SourceFileCoverageDataMap;
 
+#define _STRINGIFY(s) #s
+#define STRINGIFY(s) _STRINGIFY(s)
+
 const char kAsanAccessViolationLog[] =
     "SyzyASAN: Caught an invalid access via an access violation exception.";
 const char kAsanHandlingException[] = "SyzyASAN: Handling an exception.";
@@ -72,7 +77,8 @@ const char kAsanHeapUseAfterFree[] = "SyzyASAN error: heap-use-after-free ";
 // A convenience class for controlling an out of process agent_logger instance,
 // and getting the contents of its log file. Not thread safe.
 struct ScopedAgentLogger {
-  ScopedAgentLogger() : handle_(NULL), nul_(NULL) {
+  explicit ScopedAgentLogger(base::FilePath temp_dir)
+      : handle_(NULL), nul_(NULL), temp_dir_(temp_dir) {
     agent_logger_ = testing::GetOutputRelativePath(
         L"agent_logger.exe");
     instance_id_ = base::StringPrintf("integra%08X", ::GetCurrentProcessId());
@@ -114,7 +120,6 @@ struct ScopedAgentLogger {
       CHECK(nul_);
     }
 
-    CHECK(base::CreateNewTempDirectory(L"agent_logger", &temp_dir_));
     log_file_ = temp_dir_.Append(L"integration_test.log");
 
     std::wstring start_event_name(L"syzygy-logger-started-");
@@ -142,8 +147,9 @@ struct ScopedAgentLogger {
       CHECK(base::ReadFileToString(log_file_, &log_contents_));
   }
 
-  bool LogContains(const base::StringPiece& s) {
-    return log_contents_.find(s.as_string()) != std::string::npos;
+  void GetLog(std::string* log) {
+    DCHECK_NE(static_cast<std::string*>(nullptr), log);
+    *log = log_contents_;
   }
 
   // Initialized at construction.
@@ -159,7 +165,6 @@ struct ScopedAgentLogger {
   // Modified by Stop.
   std::string log_contents_;
 };
-
 
 typedef void (WINAPI *AsanSetCallBack)(AsanErrorCallBack);
 
@@ -392,12 +397,11 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 
   // Runs an asan error check in an external process, invoking the test via the
   // integration test harness.
-  bool OutOfProcessAsanErrorCheck(testing::EndToEndTestId test,
+  void OutOfProcessAsanErrorCheck(testing::EndToEndTestId test,
                                   bool expect_exception,
-                                  bool validate_log_messages,
-                                  const base::StringPiece& log_message_1,
-                                  const base::StringPiece& log_message_2) {
-    ScopedAgentLogger logger;
+                                  std::string* log) {
+    DCHECK_NE(static_cast<std::string*>(nullptr), log);
+    ScopedAgentLogger logger(temp_dir_);
     logger.Start();
 
     scoped_ptr<base::Environment> env(base::Environment::Create());
@@ -430,14 +434,29 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
       env->UnSetVar(kSyzygyRpcInstanceIdEnvVar);
     }
 
-    // Check the log for any messages that are expected.
-    if (validate_log_messages) {
-      if (!log_message_1.empty() && !logger.LogContains(log_message_1))
-        return false;
-      if (!log_message_2.empty() && !logger.LogContains(log_message_2))
-        return false;
-    }
+    logger.GetLog(log);
+  }
 
+  bool OutOfProcessAsanErrorCheckAndValidateLog(
+      testing::EndToEndTestId test,
+      bool expect_exception,
+      const base::StringPiece& log_message_1,
+      const base::StringPiece& log_message_2) {
+    std::string log;
+    OutOfProcessAsanErrorCheck(test, expect_exception, &log);
+
+    if (!expect_exception)
+      return true;
+
+    // Check the log for any messages that are expected.
+    if (!log_message_1.empty() &&
+        log.find(log_message_1.as_string()) == std::string::npos) {
+      return false;
+    }
+    if (!log_message_2.empty() &&
+        log.find(log_message_2.as_string()) == std::string::npos) {
+      return false;
+    }
     return true;
   }
 
@@ -694,25 +713,22 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanCorruptBlockInQuarantine,
         CORRUPT_BLOCK, ASAN_UNKNOWN_ACCESS, 0, 10, true));
 
-    EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+    EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
         testing::kAsanMemcmpAccessViolation,
-        true,
         true,
         kAsanHandlingException,
         nullptr));
   }
 
   void AsanLargeBlockHeapTests(bool expect_exception) {
-    EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+    EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
         testing::kAsanReadLargeAllocationTrailerBeforeFree,
         expect_exception,
-        expect_exception,  // Check logs only if an exception is expected.
         kAsanAccessViolationLog,
         kAsanHeapBufferOverflow));
-    EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+    EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
         testing::kAsanReadLargeAllocationBodyAfterFree,
         true,
-        true,  // Check logs only if an exception is expected.
         kAsanAccessViolationLog,
         kAsanHeapUseAfterFree));
   }
@@ -1015,6 +1031,70 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     FAIL() << "Didn't find GetMyRVA function entry.";
   }
 
+  // Helper function to test the Asan symbolizer script.
+  //
+  // It starts by running a test with the '--minidump_on_failure' flag turned
+  // on and then verify that the generated minidump can be symbolized correctly.
+  //
+  // @param test_id The test to run.
+  // @param kind The expected bad access kind.
+  // @param mode The expected bad access mode.
+  // @param size The expected bad access size.
+  // @param expect_corrupt_heap Indicates if we expect the heap to be corrupt.
+  void AsanSymbolizerTest(testing::EndToEndTestId test_id,
+                          const char* kind,
+                          const char* mode,
+                          size_t size,
+                          bool expect_corrupt_heap) {
+    ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+    ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+
+    // Make sure that a minidump gets produced by the logger when a bug occurs.
+    scoped_ptr<base::Environment> env(base::Environment::Create());
+    ASSERT_NE(env.get(), nullptr);
+    if (expect_corrupt_heap) {
+      env->SetVar(::common::kSyzyAsanOptionsEnvVar, "--minidump_on_failure");
+    } else {
+      env->SetVar(::common::kSyzyAsanOptionsEnvVar,
+                  "--minidump_on_failure --no_check_heap_on_failure");
+    }
+    std::string log;
+
+    // Run the test.
+    OutOfProcessAsanErrorCheck(test_id, true, &log);
+
+    // Look for the minidump path in the logger's output.
+    pcrecpp::RE re("A minidump has been written to (.*\\.dmp)\\.\\n?");
+    std::string minidump_path;
+    EXPECT_TRUE(re.PartialMatch(log, &minidump_path));
+
+    // Run the symbolizer tester script to make sure that the minidump gets
+    // symbolized correctly.
+
+    base::CommandLine cmd_line(
+        ::testing::GetSrcRelativePath(L"third_party/python_26/python.exe"));
+    cmd_line.AppendArgPath(::testing::GetSrcRelativePath(
+        L"syzygy/scripts/asan/minidump_symbolizer_tester.py"));
+    cmd_line.AppendArg(base::StringPrintf("--minidump=%s",
+        minidump_path.c_str()));
+    cmd_line.AppendArg(base::StringPrintf("--bug-type=%s", kind));
+    cmd_line.AppendArg(base::StringPrintf("--access-mode=%s", mode));
+    cmd_line.AppendArg(base::StringPrintf("--access-size=%d", size));
+    if (expect_corrupt_heap)
+      cmd_line.AppendArg("--corrupt-heap");
+
+    base::LaunchOptions options;
+    base::ProcessHandle handle;
+    options.inherit_handles = true;
+    EXPECT_TRUE(base::LaunchProcess(cmd_line, options, &handle));
+
+    int exit_code = 0;
+    EXPECT_TRUE(base::WaitForExitCode(handle, &exit_code));
+    EXPECT_EQ(0u, exit_code);
+
+    env->UnSetVar(::common::kSyzyAsanOptionsEnvVar);
+  }
+
   // Stashes the current log-level before each test instance and restores it
   // after each test completes.
   testing::ScopedLogLevelSaver log_level_saver;
@@ -1159,16 +1239,14 @@ void InstrumentAppIntegrationTest::AsanZebraHeapTest(bool enabled) {
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
 
   // Run tests that are specific to the zebra block heap.
-  EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+  EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
       testing::kAsanReadPageAllocationTrailerBeforeFreeAllocation,
       enabled,
-      enabled,  // Check logs only if an exception is expected.
       kAsanAccessViolationLog,
       kAsanHeapBufferOverflow));
-  EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+  EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
       testing::kAsanWritePageAllocationBodyAfterFree,
       enabled,
-      enabled,  // Check logs only if an exception is expected.
       kAsanAccessViolationLog,
       kAsanHeapUseAfterFree));
 }
@@ -1270,34 +1348,34 @@ TEST_F(InstrumentAppIntegrationTest,
        AsanInvalidAccessWithCorruptAllocatedBlockHeader) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+  EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
       testing::kAsanInvalidAccessWithCorruptAllocatedBlockHeader,
-      true, true, kAsanCorruptHeap, NULL));
+      true, kAsanCorruptHeap, NULL));
 }
 
 TEST_F(InstrumentAppIntegrationTest,
        AsanInvalidAccessWithCorruptAllocatedBlockTrailer) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+  EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
       testing::kAsanInvalidAccessWithCorruptAllocatedBlockTrailer,
-      true, true, kAsanCorruptHeap, NULL));
+      true, kAsanCorruptHeap, NULL));
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanInvalidAccessWithCorruptFreedBlock) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+  EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
       testing::kAsanInvalidAccessWithCorruptFreedBlock,
-      true, true, kAsanCorruptHeap, NULL));
+      true, kAsanCorruptHeap, NULL));
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanCorruptBlockWithPageProtections) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  EXPECT_TRUE(OutOfProcessAsanErrorCheck(
+  EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
         testing::kAsanCorruptBlockWithPageProtections,
-        true, true,  kAsanHeapUseAfterFree, kAsanCorruptHeap));
+        true, kAsanHeapUseAfterFree, kAsanCorruptHeap));
 }
 
 TEST_F(InstrumentAppIntegrationTest, SampledAllocationsAsanEndToEnd) {
@@ -1344,6 +1422,47 @@ TEST_F(InstrumentAppIntegrationTest, AsanZebraHeapDisabledTest) {
 
 TEST_F(InstrumentAppIntegrationTest, AsanZebraHeapEnabledTest) {
   AsanZebraHeapTest(true);
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanBufferOverflow) {
+  AsanSymbolizerTest(testing::kAsanRead8BufferOverflow,
+                     STRINGIFY(HEAP_BUFFER_OVERFLOW),
+                     STRINGIFY(ASAN_READ_ACCESS),
+                     1,
+                     false);
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanBufferUnderflow) {
+  AsanSymbolizerTest(testing::kAsanWrite32BufferUnderflow,
+                     STRINGIFY(HEAP_BUFFER_UNDERFLOW),
+                     STRINGIFY(ASAN_WRITE_ACCESS),
+                     4,
+                     false);
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanUseAfterFree) {
+  AsanSymbolizerTest(testing::kAsanRead64UseAfterFree,
+                     STRINGIFY(USE_AFTER_FREE),
+                     STRINGIFY(ASAN_READ_ACCESS),
+                     8,
+                     false);
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanCorruptBlock) {
+  AsanSymbolizerTest(testing::kAsanCorruptBlock,
+                     STRINGIFY(CORRUPT_BLOCK),
+                     STRINGIFY(ASAN_UNKNOWN_ACCESS),
+                     0,
+                     false);
+}
+
+TEST_F(InstrumentAppIntegrationTest,
+       AsanSymbolizerTestAsanCorruptBlockInQuarantine) {
+  AsanSymbolizerTest(testing::kAsanCorruptBlockInQuarantine,
+                     STRINGIFY(CORRUPT_BLOCK),
+                     STRINGIFY(ASAN_UNKNOWN_ACCESS),
+                     0,
+                     true);
 }
 
 TEST_F(InstrumentAppIntegrationTest, BBEntryEndToEnd) {

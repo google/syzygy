@@ -20,7 +20,7 @@
       'sources': [
         'integration_tests.rc',
         'instrument_integration_test.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests_with_large_timeout.cc',
       ],
       'dependencies': [
         'integration_tests_dll',
@@ -36,10 +36,12 @@
         '<(src)/syzygy/grinder/grinder.gyp:grinder_lib',
         '<(src)/syzygy/instrument/instrument.gyp:instrument_lib',
         '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(src)/syzygy/testing/testing.gyp:testing_lib',
+        '<(src)/syzygy/trace/agent_logger/agent_logger.gyp:agent_logger',
         '<(src)/syzygy/trace/common/common.gyp:trace_unittest_utils',
         '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
         '<(src)/testing/gmock.gyp:gmock',
-        '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/third_party/pcre/pcre.gyp:pcre_lib',
       ],
       'msvs_settings': {
         'VCLinkerTool': {

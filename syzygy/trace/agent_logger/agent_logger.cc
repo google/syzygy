@@ -414,8 +414,10 @@ bool AgentLogger::SaveMiniDump(HANDLE process,
                          pid, tid, ::GetTickCount()));
   base::FilePath final_path = minidump_dir_.Append(final_name);
   if (base::Move(temp_file_path, final_path)) {
-    LOG(INFO) << "A minidump has been written to \"" << final_path.value()
-              << "\".";
+    std::string log_msg = base::StringPrintf(
+        "A minidump has been written to %s.",
+        final_path.AsUTF8Unsafe().c_str());
+    Write(log_msg);
   } else {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to move dump file to final location "
