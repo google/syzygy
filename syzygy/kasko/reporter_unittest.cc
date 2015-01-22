@@ -149,7 +149,7 @@ void StartWatch(base::FilePathWatcher* watcher,
 
 }  // namespace
 
-TEST(ReporterTest, DISABLED_BasicTest) {
+TEST(ReporterTest, BasicTest) {
   testing::TestServer server;
   ASSERT_TRUE(server.Start());
 
@@ -170,18 +170,18 @@ TEST(ReporterTest, DISABLED_BasicTest) {
   base::FilePathWatcher watcher;
   base::MessageLoop watcher_loop(base::MessageLoop::TYPE_IO);
   watcher_loop.PostTask(
-      FROM_HERE, base::Bind(&DoInvokeService, base::string16(L"test_endpoint"),
-                            std::string("protobuf")));
-  watcher_loop.PostTask(
       FROM_HERE,
       base::Bind(&StartWatch, base::Unretained(&watcher),
                  server.incoming_directory(), base::Bind(&WatchForUpload)));
+  watcher_loop.PostTask(
+      FROM_HERE, base::Bind(&DoInvokeService, base::string16(L"test_endpoint"),
+                            std::string("protobuf")));
   watcher_loop.Run();
 
   Reporter::Shutdown(instance.Pass());
 }
 
-TEST(ReporterTest, DISABLED_PermanentFailureTest) {
+TEST(ReporterTest, PermanentFailureTest) {
   testing::TestServer server;
   ASSERT_TRUE(server.Start());
 
@@ -202,13 +202,13 @@ TEST(ReporterTest, DISABLED_PermanentFailureTest) {
 
   base::FilePathWatcher watcher;
   base::MessageLoop watcher_loop(base::MessageLoop::TYPE_IO);
-  watcher_loop.PostTask(
-      FROM_HERE, base::Bind(&DoInvokeService, base::string16(L"test_endpoint"),
-                            std::string("protobuf")));
   watcher_loop.PostTask(FROM_HERE,
                         base::Bind(&StartWatch, base::Unretained(&watcher),
                                    permanent_failure_directory.path(),
                                    base::Bind(&WatchForPermanentFailure)));
+  watcher_loop.PostTask(
+      FROM_HERE, base::Bind(&DoInvokeService, base::string16(L"test_endpoint"),
+                            std::string("protobuf")));
   watcher_loop.Run();
 
   Reporter::Shutdown(instance.Pass());
