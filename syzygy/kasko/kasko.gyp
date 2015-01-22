@@ -21,7 +21,7 @@
     ],
   },
   'includes': [
-    'binaries.gypi',
+    'archive_contents.gypi',
     'unittests.gypi',
   ],
   'targets': [
@@ -288,7 +288,7 @@
             '<(src)/syzygy/build/LICENSE.TXT',
             '<@(binaries)',
             '--subtree',
-            'includes',
+            'include',
             '<(src)',
             '<@(headers)',
           ],

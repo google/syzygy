@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Binaries that need to be distributed as part of our official release need
+# Files that need to be distributed as part of our official release need
 # to be added to this file so that they will be included in the
-# kasko_binaries.zip archive created and archived by our official builder.
+# kasko.zip and kasko_symbols.zip archives created and archived by our official
+# builder.
 
 {
   'conditions': [
