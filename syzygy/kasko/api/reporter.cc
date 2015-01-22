@@ -49,9 +49,30 @@ bool InitializeReporter(
   return g_reporter != nullptr;
 }
 
+void SendReportForProcess(base::ProcessHandle process_handle,
+                          const base::char16* const* keys,
+                          const base::char16* const* values) {
+  DCHECK(g_reporter);
+  if (!g_reporter)
+    return;
+  DCHECK_EQ(keys == nullptr, values == nullptr);
+
+  std::map<base::string16, base::string16> crash_keys;
+  if (keys != nullptr && values != nullptr) {
+    size_t i = 0;
+    for (; keys[i] && values[i]; ++i) {
+      crash_keys[keys[i]] = values[i];
+    }
+    DCHECK(!keys[i]);
+    DCHECK(!values[i]);
+  }
+
+  g_reporter->SendReportForProcess(process_handle, crash_keys);
+}
+
 void ShutdownReporter() {
   scoped_ptr<Reporter> reporter(g_reporter);
-  g_reporter = NULL;
+  g_reporter = nullptr;
   Reporter::Shutdown(reporter.Pass());
 }
 

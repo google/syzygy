@@ -67,6 +67,13 @@ void DoInvokeService(const base::string16& endpoint,
   ASSERT_TRUE(status.succeeded());
 }
 
+// Invokes the diagnostic reporter API locally to request a dump of the current
+// process by process HANDLE, including |protobuf|.
+void DoInvokeForProcess(Reporter* reporter, const std::string& protobuf) {
+  reporter->SendReportForProcess(base::GetCurrentProcessHandle(),
+                                 std::map<base::string16, base::string16>());
+}
+
 // Verifies that the uploaded minidump is plausibly a dump of this test process.
 void ValidateMinidump(IDebugClient4* debug_client,
                       IDebugControl* debug_control,
@@ -149,19 +156,37 @@ void StartWatch(base::FilePathWatcher* watcher,
 
 }  // namespace
 
-TEST(ReporterTest, BasicTest) {
-  testing::TestServer server;
-  ASSERT_TRUE(server.Start());
+class ReporterTest : public ::testing::Test {
+ public:
+  ReporterTest() {}
 
-  base::ScopedTempDir data_directory;
-  base::ScopedTempDir permanent_failure_directory;
-  ASSERT_TRUE(data_directory.CreateUniqueTempDir());
-  ASSERT_TRUE(permanent_failure_directory.CreateUniqueTempDir());
+  virtual void SetUp() override {
+    ASSERT_TRUE(server_.Start());
+    ASSERT_TRUE(data_directory_.CreateUniqueTempDir());
+    ASSERT_TRUE(permanent_failure_directory_.CreateUniqueTempDir());
+  }
 
+ protected:
+  uint16_t server_port() { return server_.port(); }
+  base::FilePath data_directory() { return data_directory_.path();}
+  base::FilePath permanent_failure_directory() {
+    return permanent_failure_directory_.path();
+  }
+  base::FilePath upload_directory() { return server_.incoming_directory(); }
+
+ private:
+  testing::TestServer server_;
+  base::ScopedTempDir data_directory_;
+  base::ScopedTempDir permanent_failure_directory_;
+
+  DISALLOW_COPY_AND_ASSIGN(ReporterTest);
+};
+
+TEST_F(ReporterTest, BasicTest) {
   scoped_ptr<Reporter> instance(Reporter::Create(
       L"test_endpoint",
-      L"http://127.0.0.1:" + base::UintToString16(server.port()) + L"/crash",
-      data_directory.path(), permanent_failure_directory.path(),
+      L"http://127.0.0.1:" + base::UintToString16(server_port()) + L"/crash",
+      data_directory(), permanent_failure_directory(),
       base::TimeDelta::FromMilliseconds(1),
       base::TimeDelta::FromMilliseconds(1)));
 
@@ -170,9 +195,8 @@ TEST(ReporterTest, BasicTest) {
   base::FilePathWatcher watcher;
   base::MessageLoop watcher_loop(base::MessageLoop::TYPE_IO);
   watcher_loop.PostTask(
-      FROM_HERE,
-      base::Bind(&StartWatch, base::Unretained(&watcher),
-                 server.incoming_directory(), base::Bind(&WatchForUpload)));
+      FROM_HERE, base::Bind(&StartWatch, base::Unretained(&watcher),
+                            upload_directory(), base::Bind(&WatchForUpload)));
   watcher_loop.PostTask(
       FROM_HERE, base::Bind(&DoInvokeService, base::string16(L"test_endpoint"),
                             std::string("protobuf")));
@@ -181,20 +205,35 @@ TEST(ReporterTest, BasicTest) {
   Reporter::Shutdown(instance.Pass());
 }
 
-TEST(ReporterTest, PermanentFailureTest) {
-  testing::TestServer server;
-  ASSERT_TRUE(server.Start());
-
-  base::ScopedTempDir data_directory;
-  base::ScopedTempDir permanent_failure_directory;
-  ASSERT_TRUE(data_directory.CreateUniqueTempDir());
-  ASSERT_TRUE(permanent_failure_directory.CreateUniqueTempDir());
-
+TEST_F(ReporterTest, SendReportForProcessTest) {
   scoped_ptr<Reporter> instance(Reporter::Create(
       L"test_endpoint",
-      L"http://127.0.0.1:" + base::UintToString16(server.port()) +
+      L"http://127.0.0.1:" + base::UintToString16(server_port()) + L"/crash",
+      data_directory(), permanent_failure_directory(),
+      base::TimeDelta::FromMilliseconds(1),
+      base::TimeDelta::FromMilliseconds(1)));
+
+  ASSERT_TRUE(instance);
+
+  base::FilePathWatcher watcher;
+  base::MessageLoop watcher_loop(base::MessageLoop::TYPE_IO);
+  watcher_loop.PostTask(
+      FROM_HERE, base::Bind(&StartWatch, base::Unretained(&watcher),
+                            upload_directory(), base::Bind(&WatchForUpload)));
+  watcher_loop.PostTask(FROM_HERE, base::Bind(&DoInvokeForProcess,
+                                              base::Unretained(instance.get()),
+                                              std::string("protobuf")));
+  watcher_loop.Run();
+
+  Reporter::Shutdown(instance.Pass());
+}
+
+TEST_F(ReporterTest, PermanentFailureTest) {
+  scoped_ptr<Reporter> instance(Reporter::Create(
+      L"test_endpoint",
+      L"http://127.0.0.1:" + base::UintToString16(server_port()) +
           L"/crash_failure",
-      data_directory.path(), permanent_failure_directory.path(),
+      data_directory(), permanent_failure_directory(),
       base::TimeDelta::FromMilliseconds(1),
       base::TimeDelta::FromMilliseconds(1)));
 
@@ -204,7 +243,7 @@ TEST(ReporterTest, PermanentFailureTest) {
   base::MessageLoop watcher_loop(base::MessageLoop::TYPE_IO);
   watcher_loop.PostTask(FROM_HERE,
                         base::Bind(&StartWatch, base::Unretained(&watcher),
-                                   permanent_failure_directory.path(),
+                                   permanent_failure_directory(),
                                    base::Bind(&WatchForPermanentFailure)));
   watcher_loop.PostTask(
       FROM_HERE, base::Bind(&DoInvokeService, base::string16(L"test_endpoint"),

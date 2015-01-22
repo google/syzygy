@@ -15,6 +15,7 @@
 #ifndef SYZYGY_KASKO_API_REPORTER_H_
 #define SYZYGY_KASKO_API_REPORTER_H_
 
+#include "base/process/process_handle.h"
 #include "base/strings/string16.h"
 #include "syzygy/kasko/api/kasko_export.h"
 
@@ -36,6 +37,16 @@ KASKO_EXPORT bool InitializeReporter(
     const base::char16* url,
     const base::char16* data_directory,
     const base::char16* permanent_failure_directory);
+
+// Sends a diagnostic report for a specified process with the specified crash
+// keys. May only be invoked after a successful call to InitializeReporter.
+// @param process_handle A handle to the process to report on.
+// @param keys An optional null-terminated array of crash key names
+// @param values An optional null-terminated array of crash key values. Must be
+//     of equal length to |keys|.
+KASKO_EXPORT void SendReportForProcess(base::ProcessHandle process_handle,
+                                       const base::char16* const* keys,
+                                       const base::char16* const* values);
 
 // Shuts down the Kasko reporter process. Must only be called after a successful
 // invocation of InitializeReporter.

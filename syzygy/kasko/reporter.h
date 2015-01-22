@@ -16,6 +16,7 @@
 #define SYZYGY_KASKO_REPORTER_H_
 
 #include "base/macros.h"
+#include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/process/process_handle.h"
 #include "base/strings/string16.h"
@@ -23,7 +24,6 @@
 #include "syzygy/kasko/service_bridge.h"
 
 namespace base {
-class FilePath;
 class TimeDelta;
 }  // namespace base
 
@@ -72,6 +72,14 @@ class Reporter {
 
   ~Reporter();
 
+  // Sends a diagnostic report for a specified process with the specified crash
+  // keys.
+  // @param process_handle A handle to the process to report on.
+  // @param crash_keys Crash keys to include in the report.
+  void SendReportForProcess(
+      base::ProcessHandle process_handle,
+      const std::map<base::string16, base::string16>& crash_keys);
+
   // Shuts down and destroys a Reporter process. Blocks until all background
   // tasks have terminated.
   // @param instance The Reporter process instance to shut down.
@@ -96,8 +104,13 @@ class Reporter {
 
   // A repository for generated reports.
   ReportRepository report_repository_;
+
   // A background upload scheduler.
   scoped_ptr<UploadThread> upload_thread_;
+
+  // The directory where minidumps will be initially created.
+  base::FilePath temporary_minidump_directory_;
+
   // An RPC service endpoint.
   ServiceBridge service_bridge_;
 

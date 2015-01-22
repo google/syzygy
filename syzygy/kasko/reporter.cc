@@ -23,7 +23,6 @@
 #include "base/bind_helpers.h"
 #include "base/file_util.h"
 #include "base/logging.h"
-#include "base/files/file_path.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/platform_thread.h"
 #include "base/time/time.h"
@@ -101,6 +100,36 @@ void HandlePermanentFailure(const base::FilePath& permanent_failure_directory,
   }
 }
 
+void SendReportImpl(const base::FilePath& temporary_directory,
+                    ReportRepository* report_repository,
+                    base::ProcessId client_process_id,
+                    uint64_t exception_info_address,
+                    base::PlatformThreadId thread_id,
+                    const char* protobuf,
+                    size_t protobuf_length,
+                    std::map<base::string16, base::string16> crash_keys) {
+  if (!base::CreateDirectory(temporary_directory)) {
+    LOG(ERROR) << "Failed to create dump destination directory: "
+               << temporary_directory.value();
+    return;
+  }
+
+  base::FilePath dump_file;
+  if (!base::CreateTemporaryFileInDir(temporary_directory, &dump_file)) {
+    LOG(ERROR) << "Failed to create a temporary dump file.";
+    return;
+  }
+
+  if (!GenerateMinidump(dump_file, client_process_id, thread_id,
+                        exception_info_address)) {
+    LOG(ERROR) << "Minidump generation failed.";
+    base::DeleteFile(dump_file, false);
+    return;
+  }
+
+  report_repository->StoreReport(dump_file, crash_keys);
+}
+
 // Implements kasko::Service to capture minidumps and store them in a
 // ReportRepository.
 class ServiceImpl : public Service {
@@ -122,26 +151,9 @@ class ServiceImpl : public Service {
 
      // TODO(erikwright): Read crash keys from the client process.
 
-     if (!base::CreateDirectory(temporary_directory_)) {
-       LOG(ERROR) << "Failed to create dump destination directory: "
-                  << temporary_directory_.value();
-       return;
-     }
-
-     base::FilePath dump_file;
-     if (!base::CreateTemporaryFileInDir(temporary_directory_, &dump_file)) {
-       LOG(ERROR) << "Failed to create a temporary dump file.";
-       return;
-     }
-
-     if (!GenerateMinidump(dump_file, client_process_id, thread_id,
-                           exception_info_address)) {
-       LOG(ERROR) << "Minidump generation failed.";
-       base::DeleteFile(dump_file, false);
-       return;
-     }
-
-     report_repository_->StoreReport(dump_file, crash_keys);
+     SendReportImpl(temporary_directory_, report_repository_, client_process_id,
+                    exception_info_address, thread_id, protobuf,
+                    protobuf_length, crash_keys);
    }
 
   private:
@@ -202,6 +214,13 @@ scoped_ptr<Reporter> Reporter::Create(
 
 Reporter::~Reporter() {}
 
+void Reporter::SendReportForProcess(
+    base::ProcessHandle process_handle,
+    const std::map<base::string16, base::string16>& crash_keys) {
+  SendReportImpl(temporary_minidump_directory_, &report_repository_,
+                 base::GetProcId(process_handle), NULL, 0, NULL, 0, crash_keys);
+}
+
 // static
 void Reporter::Shutdown(scoped_ptr<Reporter> instance) {
   instance->upload_thread_->Stop();  // Non-blocking.
@@ -220,12 +239,13 @@ Reporter::Reporter(const base::string16& endpoint_name,
           base::Bind(&base::Time::Now),
           base::Bind(&UploadCrashReport, url),
           base::Bind(&HandlePermanentFailure, permanent_failure_directory)),
+      temporary_minidump_directory_(
+          base::FilePath(data_directory).Append(kTemporarySubdir)),
       service_bridge_(
           kRpcProtocol,
           endpoint_name,
-          make_scoped_ptr(new ServiceImpl(
-              base::FilePath(data_directory).Append(kTemporarySubdir),
-              &report_repository_))) {
+          make_scoped_ptr(new ServiceImpl(temporary_minidump_directory_,
+                                          &report_repository_))) {
 }
 
 }  // namespace kasko
