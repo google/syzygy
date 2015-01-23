@@ -51,17 +51,20 @@ class MockService : public Service {
   struct CallRecord {
     const base::ProcessId client_process_id;
     const std::string protobuf;
+    const std::map<base::string16, base::string16> crash_keys;
   };
 
   explicit MockService(std::vector<CallRecord>* call_log);
   virtual ~MockService();
 
   // Service implementation
-   virtual void SendDiagnosticReport(base::ProcessId client_process_id,
-                                     uint64_t exception_info_address,
-                                     base::PlatformThreadId thread_id,
-                                     const char* protobuf,
-                                     size_t protobuf_length) override;
+  virtual void SendDiagnosticReport(
+      base::ProcessId client_process_id,
+      uint64_t exception_info_address,
+      base::PlatformThreadId thread_id,
+      const char* protobuf,
+      size_t protobuf_length,
+      const std::map<base::string16, base::string16>& crash_keys) override;
 
  private:
   std::vector<CallRecord>* call_log_;
@@ -73,13 +76,15 @@ MockService::MockService(std::vector<CallRecord>* call_log)
 
 MockService::~MockService() {}
 
-void MockService::SendDiagnosticReport(base::ProcessId client_process_id,
-                                       uint64_t exception_info_address,
-                                       base::PlatformThreadId thread_id,
-                                       const char* protobuf,
-                                       size_t protobuf_length) {
-  CallRecord record = {client_process_id,
-                       std::string(protobuf, protobuf_length)};
+void MockService::SendDiagnosticReport(
+    base::ProcessId client_process_id,
+    uint64_t exception_info_address,
+    base::PlatformThreadId thread_id,
+    const char* protobuf,
+    size_t protobuf_length,
+    const std::map<base::string16, base::string16>& crash_keys) {
+  CallRecord record = {
+      client_process_id, std::string(protobuf, protobuf_length), crash_keys};
   call_log_->push_back(record);
 }
 
@@ -90,11 +95,13 @@ class BlockingService : public Service {
   virtual ~BlockingService();
 
   // Service implementation
-  virtual void SendDiagnosticReport(base::ProcessId client_process_id,
-                                    uint64_t exception_info_address,
-                                    base::PlatformThreadId thread_id,
-                                    const char* protobuf,
-                                    size_t protobuf_length) override;
+  virtual void SendDiagnosticReport(
+      base::ProcessId client_process_id,
+      uint64_t exception_info_address,
+      base::PlatformThreadId thread_id,
+      const char* protobuf,
+      size_t protobuf_length,
+      const std::map<base::string16, base::string16>& crash_keys) override;
 
  private:
   base::WaitableEvent* release_call_;
@@ -108,11 +115,13 @@ BlockingService::BlockingService(base::WaitableEvent* release_call,
 
 BlockingService::~BlockingService() {}
 
-void BlockingService::SendDiagnosticReport(base::ProcessId client_process_id,
-                                           uint64_t exception_info_address,
-                                           base::PlatformThreadId thread_id,
-                                           const char* protobuf,
-                                           size_t protobuf_length) {
+void BlockingService::SendDiagnosticReport(
+    base::ProcessId client_process_id,
+    uint64_t exception_info_address,
+    base::PlatformThreadId thread_id,
+    const char* protobuf,
+    size_t protobuf_length,
+    const std::map<base::string16, base::string16>& crash_keys) {
   blocking_->Signal();
   release_call_->Wait();
 }
@@ -128,14 +137,17 @@ base::Closure WrapRpcStatusCallback(
 
 void DoInvokeService(const base::string16& protocol,
                      const base::string16& endpoint,
-                     const std::string& protobuf, bool* complete) {
+                     const std::string& protobuf,
+                     bool* complete,
+                     size_t crash_keys_length,
+                     const CrashKey* crash_keys) {
   common::rpc::ScopedRpcBinding rpc_binding;
   ASSERT_TRUE(rpc_binding.Open(protocol, endpoint));
 
   common::rpc::RpcStatus status = common::rpc::InvokeRpc(
       KaskoClient_SendDiagnosticReport, rpc_binding.Get(), NULL, 0,
-      protobuf.length(),
-      reinterpret_cast<const signed char*>(protobuf.c_str()));
+      protobuf.length(), reinterpret_cast<const signed char*>(protobuf.c_str()),
+      crash_keys_length, crash_keys);
   ASSERT_FALSE(status.exception_occurred);
   ASSERT_TRUE(status.succeeded());
   *complete = true;
@@ -209,11 +221,24 @@ TEST(KaskoServiceBridgeTest, InvokeService) {
 
   std::string protobuf = "hello world";
   bool complete = false;
-  DoInvokeService(protocol, endpoint, protobuf, &complete);
+  CrashKey crash_keys[] = {{reinterpret_cast<const signed char*>("foo"),
+                            reinterpret_cast<const signed char*>("bar")},
+                           {reinterpret_cast<const signed char*>("hello"),
+                            reinterpret_cast<const signed char*>("world")}};
+
+  DoInvokeService(protocol, endpoint, protobuf, &complete,
+                  arraysize(crash_keys), crash_keys);
   ASSERT_TRUE(complete);
   ASSERT_EQ(1u, call_log.size());
   ASSERT_EQ(::GetCurrentProcessId(), call_log[0].client_process_id);
   ASSERT_EQ(protobuf, call_log[0].protobuf);
+  ASSERT_EQ(2u, call_log[0].crash_keys.size());
+  auto entry = call_log[0].crash_keys.find(L"foo");
+  ASSERT_NE(call_log[0].crash_keys.end(), entry);
+  ASSERT_EQ(L"bar", entry->second);
+  entry = call_log[0].crash_keys.find(L"hello");
+  ASSERT_NE(call_log[0].crash_keys.end(), entry);
+  ASSERT_EQ(L"world", entry->second);
 }
 
 
@@ -236,12 +261,18 @@ TEST(KaskoServiceBridgeTest, StopBlocksUntilCallsComplete) {
 
   std::string protobuf = "hello world";
   bool complete = false;
+  CrashKey crash_keys[] = {{reinterpret_cast<const signed char*>("foo"),
+                            reinterpret_cast<const signed char*>("bar")},
+                           {reinterpret_cast<const signed char*>("hello"),
+                            reinterpret_cast<const signed char*>("world")}};
 
   base::Thread client_thread("client thread");
   ASSERT_TRUE(client_thread.Start());
   client_thread.message_loop()->PostTask(
-      FROM_HERE, base::Bind(&DoInvokeService, protocol, endpoint, protobuf,
-                            base::Unretained(&complete)));
+      FROM_HERE,
+      base::Bind(&DoInvokeService, protocol, endpoint, protobuf,
+                 base::Unretained(&complete), arraysize(crash_keys),
+                 base::Unretained(crash_keys)));
   // In case the DoInvokeService fails, let's make sure we unblock ourselves.
   client_thread.message_loop()->PostTask(
       FROM_HERE,

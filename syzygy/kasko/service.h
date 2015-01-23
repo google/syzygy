@@ -17,7 +17,10 @@
 
 #include <stdint.h>
 
+#include <map>
+
 #include "base/process/process_handle.h"
+#include "base/strings/string16.h"
 #include "base/threading/platform_thread.h"
 
 namespace kasko {
@@ -28,14 +31,21 @@ class Service {
   public:
    virtual ~Service() {}
 
-   // Responds to a request to send a diagnostic report for the process
-   // identified by |client_process_id| and including |protobuf| as a custom
-   // data stream.
-   virtual void SendDiagnosticReport(base::ProcessId client_process_id,
-                                     uint64_t exception_info_address,
-                                     base::PlatformThreadId thread_id,
-                                     const char* protobuf,
-                                     size_t protobuf_length) = 0;
+   // Responds to a request to send a diagnostic report.
+   // @param client_process_id The process to be reported on.
+   // @param exception_info_address An optional address (in the target process
+   //     memory space) of an EXCEPTION_POINTERS structure.
+   // @param thread_id The (optional) faulting thread in the target process.
+   // @param protobuf An optional protobuf to be included in the report.
+   // @param protobuf_length The length of the protobuf.
+   // @param crash_keys Crash keys to be included in the report.
+   virtual void SendDiagnosticReport(
+       base::ProcessId client_process_id,
+       uint64_t exception_info_address,
+       base::PlatformThreadId thread_id,
+       const char* protobuf,
+       size_t protobuf_length,
+       const std::map<base::string16, base::string16>& crash_keys) = 0;
 };
 
 }  // namespace kasko

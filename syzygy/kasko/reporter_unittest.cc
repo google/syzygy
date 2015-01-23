@@ -33,6 +33,7 @@
 #include "base/message_loop/message_loop.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/rpc/helpers.h"
@@ -52,6 +53,11 @@ namespace kasko {
 
 namespace {
 
+const char kCrashKey1Name[] = "foo";
+const char kCrashKey1Value[] = "bar";
+const char kCrashKey2Name[] = "hello";
+const char kCrashKey2Value[] = "world";
+
 // Invokes the diagnostic report RPC service at |endpoint|, requesting a dump of
 // the current process, and including |protobuf|.
 void DoInvokeService(const base::string16& endpoint,
@@ -59,10 +65,16 @@ void DoInvokeService(const base::string16& endpoint,
   common::rpc::ScopedRpcBinding rpc_binding;
   ASSERT_TRUE(rpc_binding.Open(L"ncalrpc", endpoint));
 
+  CrashKey crash_keys[] = {
+      {reinterpret_cast<const signed char*>(kCrashKey1Name),
+       reinterpret_cast<const signed char*>(kCrashKey1Value)},
+      {reinterpret_cast<const signed char*>(kCrashKey2Name),
+       reinterpret_cast<const signed char*>(kCrashKey2Value)}};
+
   common::rpc::RpcStatus status = common::rpc::InvokeRpc(
       KaskoClient_SendDiagnosticReport, rpc_binding.Get(), NULL, 0,
-      protobuf.length(),
-      reinterpret_cast<const signed char*>(protobuf.c_str()));
+      protobuf.length(), reinterpret_cast<const signed char*>(protobuf.c_str()),
+      arraysize(crash_keys), crash_keys);
   ASSERT_FALSE(status.exception_occurred);
   ASSERT_TRUE(status.succeeded());
 }
@@ -70,8 +82,12 @@ void DoInvokeService(const base::string16& endpoint,
 // Invokes the diagnostic reporter API locally to request a dump of the current
 // process by process HANDLE, including |protobuf|.
 void DoInvokeForProcess(Reporter* reporter, const std::string& protobuf) {
-  reporter->SendReportForProcess(base::GetCurrentProcessHandle(),
-                                 std::map<base::string16, base::string16>());
+  std::map<base::string16, base::string16> crash_keys;
+  crash_keys[base::UTF8ToUTF16(kCrashKey1Name)] =
+      base::UTF8ToUTF16(kCrashKey1Value);
+  crash_keys[base::UTF8ToUTF16(kCrashKey2Name)] =
+      base::UTF8ToUTF16(kCrashKey2Value);
+  reporter->SendReportForProcess(base::GetCurrentProcessHandle(), crash_keys);
 }
 
 // Verifies that the uploaded minidump is plausibly a dump of this test process.
@@ -103,6 +119,19 @@ void WatchForUpload(const base::FilePath& path, bool error) {
 
     EXPECT_HRESULT_SUCCEEDED(
         testing::VisitMinidump(candidate, base::Bind(&ValidateMinidump)));
+
+    std::string crash_key_value;
+    bool read_crash_key_result = base::ReadFileToString(
+        candidate.DirName().Append(base::UTF8ToUTF16(kCrashKey1Name)),
+        &crash_key_value);
+    EXPECT_TRUE(read_crash_key_result);
+    EXPECT_EQ(kCrashKey1Value, crash_key_value);
+    read_crash_key_result = base::ReadFileToString(
+        candidate.DirName().Append(base::UTF8ToUTF16(kCrashKey2Name)),
+        &crash_key_value);
+    EXPECT_TRUE(read_crash_key_result);
+    EXPECT_EQ(kCrashKey2Value, crash_key_value);
+
     base::MessageLoop::current()->Quit();
   }
 }

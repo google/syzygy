@@ -16,6 +16,7 @@
 
 #include "base/logging.h"
 #include "base/process/process_handle.h"
+#include "base/strings/utf_string_conversions.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/common/rpc/helpers.h"
 #include "syzygy/kasko/service.h"
@@ -32,7 +33,9 @@ boolean KaskoService_SendDiagnosticReport(handle_t IDL_handle,
                                           unsigned long exception_info_address,
                                           unsigned long thread_id,
                                           unsigned long protobuf_length,
-                                          const signed char* protobuf) {
+                                          const signed char* protobuf,
+                                          unsigned long crash_keys_size,
+                                          const CrashKey* crash_keys) {
   DCHECK(kasko::g_service_bridge);
 
   const int kVersion = 2;
@@ -46,10 +49,17 @@ boolean KaskoService_SendDiagnosticReport(handle_t IDL_handle,
 
   base::ProcessId client_process_id =
       reinterpret_cast<base::ProcessId>(attribs.ClientPID);
-
+  std::map<base::string16, base::string16> crash_keys_map;
+  for (unsigned long i = 0; i < crash_keys_size; ++i) {
+    if (!crash_keys[i].name || !crash_keys[i].value)
+      continue;
+    crash_keys_map[base::UTF8ToUTF16(
+        reinterpret_cast<const char*>(crash_keys[i].name))] =
+        base::UTF8ToUTF16(reinterpret_cast<const char*>(crash_keys[i].value));
+  }
   kasko::g_service_bridge->service_->SendDiagnosticReport(
       client_process_id, exception_info_address, thread_id,
-      reinterpret_cast<const char*>(protobuf), protobuf_length);
+      reinterpret_cast<const char*>(protobuf), protobuf_length, crash_keys_map);
 
   return true;
 }

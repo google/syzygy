@@ -66,7 +66,9 @@ class ServiceBridge {
       unsigned long exception_info_address,
       unsigned long thread_id,
       unsigned long protobuf_length,
-      const signed char* protobuf);
+      const signed char* protobuf,
+      unsigned long crash_keys_size,
+      const CrashKey* crash_keys);
 
   scoped_ptr<common::rpc::ScopedRpcInterfaceRegistration>
       interface_registration_;

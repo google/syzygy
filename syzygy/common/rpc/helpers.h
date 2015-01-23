@@ -115,6 +115,56 @@ RpcStatus InvokeRpc(const Func& func,
   return status;
 }
 
+// Helper to invoke an RPC function taking six parameters.
+template <typename Func,
+          typename T1,
+          typename T2,
+          typename T3,
+          typename T4,
+          typename T5,
+          typename T6>
+RpcStatus InvokeRpc(const Func& func,
+                    const T1& p1,
+                    const T2& p2,
+                    const T3& p3,
+                    const T4& p4,
+                    const T5& p5,
+                    const T6& p6) {
+  RpcStatus status = { FALSE, FALSE };
+  RpcTryExcept {
+    status.result = func(p1, p2, p3, p4, p5, p6);
+  } RpcExcept(1) {
+    status.exception_occurred = TRUE;
+  } RpcEndExcept;
+  return status;
+}
+
+// Helper to invoke an RPC function taking seven parameters.
+template <typename Func,
+          typename T1,
+          typename T2,
+          typename T3,
+          typename T4,
+          typename T5,
+          typename T6,
+          typename T7>
+RpcStatus InvokeRpc(const Func& func,
+                    const T1& p1,
+                    const T2& p2,
+                    const T3& p3,
+                    const T4& p4,
+                    const T5& p5,
+                    const T6& p6,
+                    const T7& p7) {
+  RpcStatus status = { FALSE, FALSE };
+  RpcTryExcept {
+    status.result = func(p1, p2, p3, p4, p5, p6, p7);
+  } RpcExcept(1) {
+    status.exception_occurred = TRUE;
+  } RpcEndExcept;
+  return status;
+}
+
 // A helper function to get an @p instance_id specialized version of the
 // given @p root string.
 std::wstring GetInstanceString(const base::StringPiece16& root,

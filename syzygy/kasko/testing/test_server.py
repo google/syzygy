@@ -54,17 +54,19 @@ def multipart_form_handler(incoming_directory):
         self.send_response(500)
         self.end_headers()
       elif self.path == '/crash':
-        report_id = str(uuid.uuid4())
         if len(incoming_directory):
-          report_directory = os.path.join(incoming_directory, report_id)
-          os.mkdir(report_directory)
+          tempdir = tempfile.mkdtemp()
           for field, values in post_multipart.items():
             if re.match('^[a-zA-Z0-9_-]+$', field):
-              fd, temp_path = tempfile.mkstemp()
-              f = os.fdopen(fd, 'wb+')
+              f = open(os.path.join(tempdir, field), 'wb+')
               f.write(','.join(values))
               f.close()
-              os.rename(temp_path, os.path.join(report_directory, field))
+          # Ensure that the entire directory appears atomically.
+          # Technically we don't know for sure that the temporary directory is
+          # on the same volume. It would be better if we did.
+          report_id = str(uuid.uuid4())
+          report_directory = os.path.join(incoming_directory, report_id)
+          os.rename(tempdir, report_directory)
         self.send_response(200)
         self.send_header("Content-Type", "text/plain")
         self.end_headers()

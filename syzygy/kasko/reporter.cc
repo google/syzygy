@@ -142,15 +142,13 @@ class ServiceImpl : public Service {
    ~ServiceImpl() override {}
 
    // Service implementation.
-   void SendDiagnosticReport(base::ProcessId client_process_id,
-                             uint64_t exception_info_address,
-                             base::PlatformThreadId thread_id,
-                             const char* protobuf,
-                             size_t protobuf_length) override {
-     std::map<base::string16, base::string16> crash_keys;
-
-     // TODO(erikwright): Read crash keys from the client process.
-
+   void SendDiagnosticReport(
+       base::ProcessId client_process_id,
+       uint64_t exception_info_address,
+       base::PlatformThreadId thread_id,
+       const char* protobuf,
+       size_t protobuf_length,
+       const std::map<base::string16, base::string16>& crash_keys) override {
      SendReportImpl(temporary_directory_, report_repository_, client_process_id,
                     exception_info_address, thread_id, protobuf,
                     protobuf_length, crash_keys);

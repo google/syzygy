@@ -18,11 +18,18 @@
     version(1.0)
 ]
 interface Kasko {
+  typedef struct {
+      [string] const signed char* name;
+      [string] const signed char* value;
+  } CrashKey;
+
   // Sends a diagnostic report for the caller process. |protobuf| will be
   // included in the report as a custom data stream.
   boolean SendDiagnosticReport(
       unsigned long exception_info_address,
       unsigned long thread_id,
       [in] unsigned long protobuf_size,
-      [in, size_is(protobuf_size)] const signed char* protobuf);
+      [in, size_is(protobuf_size)] const signed char* protobuf,
+      [in] unsigned long crash_keys_size,
+      [in, size_is(crash_keys_size)] const CrashKey* crash_keys);
 }
