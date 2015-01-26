@@ -50,7 +50,7 @@ KASKO_EXPORT void SendReportForProcess(base::ProcessHandle process_handle,
 
 // Shuts down the Kasko reporter process. Must only be called after a successful
 // invocation of InitializeReporter.
-void ShutdownReporter();
+KASKO_EXPORT void ShutdownReporter();
 
 }  // namespace api
 }  // namespace kasko
