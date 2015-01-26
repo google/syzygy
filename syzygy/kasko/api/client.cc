@@ -14,13 +14,40 @@
 
 #include "syzygy/kasko/api/client.h"
 
+#include "base/logging.h"
+#include "syzygy/kasko/client.h"
+
 namespace kasko {
 namespace api {
 
-void InitializeClient() {
+namespace {
+const Client* g_client = NULL;
+}  // namespace
+
+void InitializeClient(const base::char16* endpoint_name) {
+  DCHECK(endpoint_name);
+  DCHECK(!g_client);
+  g_client = new Client(endpoint_name);
 }
 
-void SendReport() {
+void SendReport(const EXCEPTION_POINTERS* exception_pointers,
+                const char* protobuf,
+                size_t protobuf_length,
+                const base::char16* const* keys,
+                const base::char16* const* values) {
+  if (!g_client) {
+    LOG(ERROR) << "SendReport failed: uninitialized.";
+    return;
+  }
+
+  g_client->SendReport(exception_pointers, protobuf, protobuf_length, keys,
+                       values);
+}
+
+void ShutdownClient() {
+  DCHECK(g_client);
+  delete g_client;
+  g_client = NULL;
 }
 
 }  // namespace api

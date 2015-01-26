@@ -87,6 +87,8 @@
       'target_name': 'kasko_lib',
       'type': 'static_library',
       'sources': [
+        'client.cc',
+        'client.h',
         'crash_keys_serialization.cc',
         'crash_keys_serialization.h',
         'http_agent.h',
@@ -186,6 +188,7 @@
       'type': 'executable',
       'sources': [
         '<(src)/base/test/run_all_unittests.cc',
+        'client_unittest.cc',
         'crash_keys_serialization_unittest.cc',
         'http_agent_impl_unittest.cc',
         'internet_helpers_unittest.cc',
