@@ -211,7 +211,7 @@ class ReporterTest : public ::testing::Test {
   DISALLOW_COPY_AND_ASSIGN(ReporterTest);
 };
 
-TEST_F(ReporterTest, BasicTest) {
+TEST_F(ReporterTest, DISABLED_BasicTest) {
   scoped_ptr<Reporter> instance(Reporter::Create(
       L"test_endpoint",
       L"http://127.0.0.1:" + base::UintToString16(server_port()) + L"/crash",
@@ -234,7 +234,7 @@ TEST_F(ReporterTest, BasicTest) {
   Reporter::Shutdown(instance.Pass());
 }
 
-TEST_F(ReporterTest, SendReportForProcessTest) {
+TEST_F(ReporterTest, DISABLED_SendReportForProcessTest) {
   scoped_ptr<Reporter> instance(Reporter::Create(
       L"test_endpoint",
       L"http://127.0.0.1:" + base::UintToString16(server_port()) + L"/crash",
@@ -257,7 +257,7 @@ TEST_F(ReporterTest, SendReportForProcessTest) {
   Reporter::Shutdown(instance.Pass());
 }
 
-TEST_F(ReporterTest, PermanentFailureTest) {
+TEST_F(ReporterTest, DISABLED_PermanentFailureTest) {
   scoped_ptr<Reporter> instance(Reporter::Create(
       L"test_endpoint",
       L"http://127.0.0.1:" + base::UintToString16(server_port()) +
