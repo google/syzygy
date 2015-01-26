@@ -34,6 +34,7 @@
 #include "syzygy/common/rpc/helpers.h"
 #include "syzygy/kasko/kasko_rpc.h"
 #include "syzygy/kasko/service.h"
+#include "syzygy/kasko/testing/mock_service.h"
 
 namespace kasko {
 
@@ -44,48 +45,6 @@ const base::char16* const kTestRpcEndpointPrefix = L"syzygy-kasko-test-svc";
 
 base::string16 GetTestEndpoint() {
   return kTestRpcEndpointPrefix + base::UintToString16(::GetCurrentProcessId());
-}
-
-class MockService : public Service {
- public:
-  struct CallRecord {
-    const base::ProcessId client_process_id;
-    const std::string protobuf;
-    const std::map<base::string16, base::string16> crash_keys;
-  };
-
-  explicit MockService(std::vector<CallRecord>* call_log);
-  virtual ~MockService();
-
-  // Service implementation
-  virtual void SendDiagnosticReport(
-      base::ProcessId client_process_id,
-      uint64_t exception_info_address,
-      base::PlatformThreadId thread_id,
-      const char* protobuf,
-      size_t protobuf_length,
-      const std::map<base::string16, base::string16>& crash_keys) override;
-
- private:
-  std::vector<CallRecord>* call_log_;
-  DISALLOW_COPY_AND_ASSIGN(MockService);
-};
-
-MockService::MockService(std::vector<CallRecord>* call_log)
-    : call_log_(call_log) {}
-
-MockService::~MockService() {}
-
-void MockService::SendDiagnosticReport(
-    base::ProcessId client_process_id,
-    uint64_t exception_info_address,
-    base::PlatformThreadId thread_id,
-    const char* protobuf,
-    size_t protobuf_length,
-    const std::map<base::string16, base::string16>& crash_keys) {
-  CallRecord record = {
-      client_process_id, std::string(protobuf, protobuf_length), crash_keys};
-  call_log_->push_back(record);
 }
 
 class BlockingService : public Service {
@@ -156,29 +115,32 @@ void DoInvokeService(const base::string16& protocol,
 }  // namespace
 
 TEST(KaskoServiceBridgeTest, ConstructDestruct) {
-  std::vector<MockService::CallRecord> call_log;
+  std::vector<testing::MockService::CallRecord> call_log;
   {
-    ServiceBridge instance(L"aaa", L"bbb",
-                           scoped_ptr<Service>(new MockService(&call_log)));
+    ServiceBridge instance(
+        L"aaa", L"bbb",
+        scoped_ptr<Service>(new testing::MockService(&call_log)));
   }
   {
-    ServiceBridge instance(L"aaa", L"bbb",
-                           scoped_ptr<Service>(new MockService(&call_log)));
+    ServiceBridge instance(
+        L"aaa", L"bbb",
+        scoped_ptr<Service>(new testing::MockService(&call_log)));
   }
 }
 
 TEST(KaskoServiceBridgeTest, StopNonRunningInstance) {
-  std::vector<MockService::CallRecord> call_log;
-  ServiceBridge instance(L"aaa", L"bbb",
-                         scoped_ptr<Service>(new MockService(&call_log)));
+  std::vector<testing::MockService::CallRecord> call_log;
+  ServiceBridge instance(
+      L"aaa", L"bbb", scoped_ptr<Service>(new testing::MockService(&call_log)));
   instance.Stop();
 }
 
 TEST(KaskoServiceBridgeTest, FailToRunWithBadProtocol) {
-  std::vector<MockService::CallRecord> call_log;
+  std::vector<testing::MockService::CallRecord> call_log;
   {
-    ServiceBridge instance(L"aaa", GetTestEndpoint(),
-                           scoped_ptr<Service>(new MockService(&call_log)));
+    ServiceBridge instance(
+        L"aaa", GetTestEndpoint(),
+        scoped_ptr<Service>(new testing::MockService(&call_log)));
     ASSERT_FALSE(instance.Run());
     // Stop should not crash in this case.
     instance.Stop();
@@ -186,11 +148,12 @@ TEST(KaskoServiceBridgeTest, FailToRunWithBadProtocol) {
 }
 
 TEST(KaskoServiceBridgeTest, RunSuccessfully) {
-  std::vector<MockService::CallRecord> call_log;
+  std::vector<testing::MockService::CallRecord> call_log;
 
   {
-    ServiceBridge instance(kValidRpcProtocol, GetTestEndpoint(),
-                           scoped_ptr<Service>(new MockService(&call_log)));
+    ServiceBridge instance(
+        kValidRpcProtocol, GetTestEndpoint(),
+        scoped_ptr<Service>(new testing::MockService(&call_log)));
     ASSERT_TRUE(instance.Run());
     instance.Stop();
 
@@ -200,20 +163,22 @@ TEST(KaskoServiceBridgeTest, RunSuccessfully) {
   }
   {
     // Second instance.
-    ServiceBridge instance(kValidRpcProtocol, GetTestEndpoint(),
-                           scoped_ptr<Service>(new MockService(&call_log)));
+    ServiceBridge instance(
+        kValidRpcProtocol, GetTestEndpoint(),
+        scoped_ptr<Service>(new testing::MockService(&call_log)));
     ASSERT_TRUE(instance.Run());
     instance.Stop();
   }
 }
 
 TEST(KaskoServiceBridgeTest, InvokeService) {
-  std::vector<MockService::CallRecord> call_log;
+  std::vector<testing::MockService::CallRecord> call_log;
 
   base::string16 protocol = kValidRpcProtocol;
   base::string16 endpoint = GetTestEndpoint();
-  ServiceBridge instance(protocol, endpoint,
-                         scoped_ptr<Service>(new MockService(&call_log)));
+  ServiceBridge instance(
+      protocol, endpoint,
+      scoped_ptr<Service>(new testing::MockService(&call_log)));
   ASSERT_TRUE(instance.Run());
 
   base::ScopedClosureRunner stop_service_bridge(

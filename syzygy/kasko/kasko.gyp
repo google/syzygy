@@ -201,6 +201,8 @@
         'waitable_timer_impl_unittest.cc',
         'testing/minidump_unittest_helpers.cc',
         'testing/minidump_unittest_helpers.h',
+        'testing/mock_service.cc',
+        'testing/mock_service.h',
         'testing/test_server.cc',
         'testing/test_server.h',
       ],
