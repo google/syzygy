@@ -242,13 +242,11 @@ std::string GenerateMultipartHttpRequestBody(
   std::string request_body;
 
   // Append each of the parameter pairs as a form-data part.
-  for (std::map<base::string16, base::string16>::const_iterator it =
-           parameters.begin();
-       it != parameters.end(); ++it) {
+  for (const auto& entry : parameters) {
     request_body.append("--" + boundary_utf8 + "\r\n");
     request_body.append("Content-Disposition: form-data; name=\"" +
-                        base::WideToUTF8(it->first) + "\"\r\n\r\n" +
-                        base::WideToUTF8(it->second) + "\r\n");
+                        base::WideToUTF8(entry.first) + "\"\r\n\r\n" +
+                        base::WideToUTF8(entry.second) + "\r\n");
   }
 
   std::string file_part_name_utf8 = base::WideToUTF8(file_part_name);

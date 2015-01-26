@@ -61,9 +61,9 @@ bool WriteCrashKeysToFile(
     const base::FilePath& file_path,
     const std::map<base::string16, base::string16>& crash_keys) {
   base::DictionaryValue dictionary;
-  for (auto it = crash_keys.begin(); it != crash_keys.end(); ++it) {
-    dictionary.SetStringWithoutPathExpansion(base::WideToUTF8(it->first),
-                                             base::WideToUTF8(it->second));
+  for (const auto& entry : crash_keys) {
+    dictionary.SetStringWithoutPathExpansion(base::WideToUTF8(entry.first),
+                                             base::WideToUTF8(entry.second));
   }
 
   std::string file_contents;

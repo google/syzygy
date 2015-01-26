@@ -62,13 +62,11 @@ void Client::SendReport(const EXCEPTION_POINTERS* exception_pointers,
   // invocation.
   scoped_ptr<CrashKey[]> crash_keys(new CrashKey[utf8_crash_keys.size()]);
   size_t index = 0;
-  for (std::map<std::string, std::string>::const_iterator entry =
-           utf8_crash_keys.begin();
-       entry != utf8_crash_keys.end(); ++entry) {
+  for (const auto& entry : utf8_crash_keys) {
     crash_keys[index].name =
-        reinterpret_cast<const signed char*>(entry->first.c_str());
+        reinterpret_cast<const signed char*>(entry.first.c_str());
     crash_keys[index].value =
-        reinterpret_cast<const signed char*>(entry->second.c_str());
+        reinterpret_cast<const signed char*>(entry.second.c_str());
     ++index;
   }
   DCHECK_EQ(index, utf8_crash_keys.size());
