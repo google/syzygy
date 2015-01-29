@@ -193,6 +193,12 @@ void BasicBlockAssembler::BasicBlockSerializer::AppendInstruction(
   }
 }
 
+bool BasicBlockAssembler::BasicBlockSerializer::FinalizeLabel(
+    uint32 location, const uint8* bytes, size_t num_bytes) {
+  // No support for labels.
+  return false;
+}
+
 BasicBlockAssembler::BasicBlockAssembler(const Instructions::iterator& where,
                                          Instructions* list)
     : Super(0, &serializer_), serializer_(where, list) {

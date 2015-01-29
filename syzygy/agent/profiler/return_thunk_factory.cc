@@ -22,12 +22,17 @@ namespace {
 class Serializer : public assm::AssemblerImpl::InstructionSerializer {
  public:
   typedef assm::AssemblerImpl::ReferenceInfo ReferenceInfo;
-  virtual void AppendInstruction(uint32 location,
-                                 const uint8* bytes,
-                                 size_t num_bytes,
-                                 const ReferenceInfo* refs,
-                                 size_t num_refs) {
+  void AppendInstruction(uint32 location,
+                         const uint8* bytes,
+                         size_t num_bytes,
+                         const ReferenceInfo* refs,
+                         size_t num_refs) override {
     memcpy(static_cast<uint8*>(0) + location, bytes, num_bytes);
+  }
+  bool FinalizeLabel(uint32 location,
+                     const uint8* bytes,
+                     size_t num_bytes) override {
+    return false;  // No label support.
   }
 };
 

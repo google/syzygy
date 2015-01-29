@@ -23,6 +23,7 @@ namespace assm {
 typedef AssemblerImpl::Immediate Immediate;
 typedef AssemblerImpl::Operand Operand;
 typedef AssemblerImpl::Displacement Displacement;
+typedef AssemblerImpl::Label Label;
 
 namespace {
 
@@ -31,6 +32,12 @@ class TestSerializer : public AssemblerImpl::InstructionSerializer {
   struct Reference {
     uint32 location;
     const void* ref;
+  };
+  struct Instruction {
+    uint32 location;
+    size_t size;
+    // Position in code.
+    size_t position;
   };
 
   TestSerializer() {
@@ -41,6 +48,10 @@ class TestSerializer : public AssemblerImpl::InstructionSerializer {
                                  size_t num_bytes,
                                  const AssemblerImpl::ReferenceInfo* refs,
                                  size_t num_refs) {
+    // Note the location of this instruction.
+    Instruction instr = { location, num_bytes, code.size() };
+    instructions.push_back(instr);
+
     for (size_t i = 0; i < num_refs; ++i) {
       Reference ref = { code.size() + refs[i].offset, refs[i].reference };
       references.push_back(ref);
@@ -48,7 +59,32 @@ class TestSerializer : public AssemblerImpl::InstructionSerializer {
     code.insert(code.end(), bytes, bytes + num_bytes);
   }
 
+  virtual bool FinalizeLabel(uint32 location,
+                             const uint8* bytes,
+                             size_t num_bytes) {
+    // Find the instruction that's being amended.
+    for (auto instr: instructions) {
+      if (instr.location <= location &&
+          instr.location + instr.size > location) {
+        // Make sure the amended bytes are flush against the end of the
+        // instruction.
+        EXPECT_EQ(instr.location + instr.size, location + num_bytes);
+
+        size_t pos = instr.position + location - instr.location;
+        for (size_t i = 0; i < num_bytes; ++i)
+          code.at(pos + i) = bytes[i];
+
+        return true;
+      }
+    }
+
+    ADD_FAILURE() << "FinalizeLabel targeting data outside instructions.";
+
+    return false;
+  }
+
   std::vector<uint8> code;
+  std::vector<Instruction> instructions;
   std::vector<Reference> references;
 };
 
@@ -1336,6 +1372,91 @@ TEST_F(AssemblerTest, Jnz) {
   EXPECT_BYTES(0x75, 0xFE);
   asm_.j(cc, Immediate(0xCAFEBABE, kSize32Bit, NULL));
   EXPECT_BYTES(0x0F, 0x85, 0xF8, 0xFF, 0xFF, 0xFF);
+}
+
+TEST_F(AssemblerTest, JnzToBoundLabel) {
+  ConditionCode cc = kNotZero;
+  asm_.set_location(0xCAFEBABE);
+
+  // Bind the label.
+  Label label(&asm_);
+  label.Bind();
+
+  // Test default to short.
+  EXPECT_TRUE(asm_.j(cc, &label));
+  // Test explicit long.
+  EXPECT_TRUE(asm_.j(cc, &label, kSize32Bit));
+
+  EXPECT_BYTES(0x75, 0xFE,
+               0x0F, 0x85, 0xF8, 0xFF, 0xFF, 0xFF);
+
+  // Jump the location to the limit of the negative 8 bit range of -128 bytes
+  // from the start of the succeeding instruction.
+  asm_.set_location(0xCAFEBABE + 128 - kShortBranchSize);
+  EXPECT_TRUE(asm_.j(cc, &label));
+  EXPECT_BYTES(0x75, 0x80);
+
+  // Jump the location just beyond the negative 8 bit range of -128 bytes
+  // from the start of the succeeding instruction.
+  asm_.set_location(0xCAFEBABE + 128 - kShortBranchSize + 1);
+  EXPECT_TRUE(asm_.j(cc, &label));
+  EXPECT_BYTES(0x0F, 0x85, 0x7B, 0xFF, 0xFF, 0xFF);
+
+  // Jump the location to the limit of the positive 8 bit range of +127 bytes
+  // from the start of the succeeding instruction.
+  asm_.set_location(0xCAFEBABE - (127 + kShortBranchSize));
+  EXPECT_TRUE(asm_.j(cc, &label));
+  EXPECT_BYTES(0x75, 0x7F);
+
+  // Jump the location just beyond the positive 8 bit range of +127 bytes
+  // from the start of the succeeding instruction.
+  asm_.set_location(0xCAFEBABE - (127 + kShortBranchSize + 1));
+
+  // Test that requesting a short reach fails.
+  EXPECT_FALSE(asm_.j(cc, &label, kSize8Bit));
+
+  // Test default generation of long reach.
+  EXPECT_TRUE(asm_.j(cc, &label));
+  EXPECT_BYTES(0x0F, 0x85, 0x7C, 0x00, 0x00, 0x00);
+}
+
+TEST_F(AssemblerTest, JnzToUnBoundLabel) {
+  ConditionCode cc = kNotZero;
+  asm_.set_location(0xCAFEBABE);
+
+  // Create a label.
+  Label label(&asm_);
+
+  // The default is a long jump.
+  EXPECT_TRUE(asm_.j(cc, &label));
+
+  // Generate an explicit long jump.
+  EXPECT_TRUE(asm_.j(cc, &label, kSize32Bit));
+
+  // Generate a short jump also.
+  EXPECT_TRUE(asm_.j(cc, &label, kSize8Bit));
+
+  EXPECT_TRUE(label.Bind());
+
+  EXPECT_BYTES(0x0F, 0x85, 0x08, 0x00, 0x00, 0x00,
+               0x0F, 0x85, 0x02, 0x00, 0x00, 0x00,
+               0x75, 0x00);
+}
+
+TEST_F(AssemblerTest, JnzToOutOfBoundsLabel) {
+  ConditionCode cc = kNotZero;
+  asm_.set_location(0xCAFEBABE);
+
+  // Create a label.
+  Label label(&asm_);
+
+  // Generate a short jump.
+  asm_.j(cc, &label, kSize8Bit);
+
+  // Move the location forward past the range of an 8 bit PC-relative ref.
+  asm_.set_location(asm_.location() + 128);
+
+  EXPECT_FALSE(label.Bind());
 }
 
 TEST_F(AssemblerTest, Seto) {

@@ -19,6 +19,9 @@
 #error Do not include this file directly.
 #endif  // SYZYGY_ASSM_ASSEMBLER_BASE_H_
 
+#include <stdint.h>
+#include <limits>
+
 #include "syzygy/assm/const.h"
 
 namespace assm {
@@ -614,8 +617,7 @@ void AssemblerBase<ReferenceType>::call(const Operand& dst) {
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::j(ConditionCode cc,
-                                     const Immediate& dst) {
+void AssemblerBase<ReferenceType>::j(ConditionCode cc, const Immediate& dst) {
   DCHECK_LE(kMinConditionCode, cc);
   DCHECK_GE(kMaxConditionCode, cc);
 
@@ -629,6 +631,58 @@ void AssemblerBase<ReferenceType>::j(ConditionCode cc,
     instr.EmitOpCodeByte(0x70 | cc);
     instr.Emit8BitPCRelative(location_, dst);
   }
+}
+
+template <class ReferenceType>
+bool AssemblerBase<ReferenceType>::j(ConditionCode cc,
+                                     Label* label,
+                                     RegisterSize size) {
+  DCHECK(label != NULL);
+  DCHECK_LE(kMinConditionCode, cc);
+  DCHECK_GE(kMaxConditionCode, cc);
+  DCHECK(size == kSize8Bit || size == kSize32Bit || size == kSizeNone);
+
+  Immediate dst;
+  if (label->bound()) {
+    // Check whether the short reach is in range.
+    // TODO(siggi): Utility function for this.
+    int32 offs = label->location() - (location() + kShortBranchSize);
+    if (offs > std::numeric_limits<int8>::max() ||
+        offs < std::numeric_limits<int8>::min()) {
+      // Short is out of range, fail if that's requested.
+      if (size == kSize8Bit)
+        return false;
+      // Short is out of range, go long.
+      size = kSize32Bit;
+    } else {
+      // Short is in range, pick short if there's a choice.
+      if (size == kSizeNone)
+        size = kSize8Bit;
+    }
+
+    dst = Immediate(label->location(), size);
+  } else {
+    if (size == kSizeNone)
+      size = kSize32Bit;
+
+    size_t opcode_size = kShortBranchOpcodeSize;
+    if (size == kSize32Bit)
+      opcode_size = kLongBranchOpcodeSize;
+
+    // The label is not yet bound, declare our use.
+    label->Use(location() + opcode_size, size);
+    // Point the destination to our own instruction as a debugging aid.
+    dst = Immediate(location(), size);
+  }
+
+  j(cc, dst);
+
+  return true;
+}
+
+template <class ReferenceType>
+bool AssemblerBase<ReferenceType>::j(ConditionCode cc, Label* label) {
+  return j(cc, label, kSizeNone);
 }
 
 template <class ReferenceType>
@@ -1226,6 +1280,32 @@ void AssemblerBase<ReferenceType>::Output(const InstructionBuffer& instr) {
                                  instr.num_reference_infos());
 
   location_ += instr.len();
+}
+
+template <class ReferenceType>
+bool AssemblerBase<ReferenceType>::FinalizeLabel(
+    uint32 location, uint32 destination, RegisterSize size) {
+  if (size == kSize8Bit) {
+    // Compute the relative value, note that this is computed relative to
+    // the end of the PC-relative constant, e.g. from the start of the next
+    // instruction.
+    int32 relative_value = destination - (location + 1);
+    if (relative_value < std::numeric_limits<int8>::min() ||
+        relative_value > std::numeric_limits<int8>::max()) {
+      // Out of bounds...
+      return false;
+    }
+    uint8 byte = relative_value & 0xFF;
+    return serializer_->FinalizeLabel(location, &byte, sizeof(byte));
+  } else {
+    DCHECK_EQ(kSize32Bit, size);
+    int32 relative_value = destination - (location + 4);
+
+    return serializer_->FinalizeLabel(
+        location,
+        reinterpret_cast<const uint8*>(&relative_value),
+        sizeof(relative_value));
+  }
 }
 
 }  // namespace assm

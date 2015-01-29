@@ -20,6 +20,7 @@
 #define SYZYGY_ASSM_ASSEMBLER_BASE_H_
 
 #include "syzygy/assm/cond.h"
+#include "syzygy/assm/label_base.h"
 #include "syzygy/assm/operand_base.h"
 #include "syzygy/assm/register.h"
 #include "syzygy/assm/value_base.h"
@@ -37,6 +38,7 @@ class AssemblerBase {
   typedef DisplacementBase<ReferenceType> Displacement;
   typedef ImmediateBase<ReferenceType> Immediate;
   typedef OperandBase<ReferenceType> Operand;
+  typedef LabelBase<ReferenceType> Label;
 
   // Tracks a single embedded reference in the instruction.
   struct ReferenceInfo {
@@ -55,6 +57,9 @@ class AssemblerBase {
                                    size_t num_bytes,
                                    const ReferenceInfo* refs,
                                    size_t num_refs) = 0;
+    virtual bool FinalizeLabel(uint32 location,
+                               const uint8* bytes,
+                               size_t num_bytes) = 0;
   };
 
   // Constructs an assembler that assembles to @p delegate
@@ -87,6 +92,16 @@ class AssemblerBase {
   // for all assembler subclasses.
   // @{
   void j(ConditionCode cc, const Immediate& dst);
+
+  // @param cc the condition code to generate.
+  // @param dst the label to jump to.
+  // @param size the requested size/reach of the instruction. Will generate the
+  //     optimal reach if kSizeNone and the label is bound. Will generate long
+  //     reach if kSizeNone and the label is unbound.
+  // @returns true if successful, false if the requested reach is
+  //     inappropriate.
+  bool j(ConditionCode cc, Label* dst, RegisterSize size);
+  bool j(ConditionCode cc, Label* dst);
   void jecxz(const Immediate& dst);
   void jmp(const Immediate& dst);
   void jmp(const Operand& dst);
@@ -213,6 +228,7 @@ class AssemblerBase {
   // @}
 
  private:
+  friend class Label;
   class InstructionBuffer;
 
   // @name Nop instruction helpers.
@@ -231,6 +247,9 @@ class AssemblerBase {
 
   // Output the instruction data in @p instr to our delegate.
   void Output(const InstructionBuffer& instr);
+
+  // Finalizes the use of an unbound label.
+  bool FinalizeLabel(uint32 location, uint32 destination, RegisterSize size);
 
   // Stores the current location of assembly.
   uint32 location_;

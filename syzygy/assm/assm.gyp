@@ -26,6 +26,7 @@
         'assembler.h',
         'cond.h',
         'const.h',
+        'label_base.h',
         'operand_base.h',
         'register_internal.h',
         'register.cc',

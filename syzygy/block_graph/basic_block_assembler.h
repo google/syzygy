@@ -177,11 +177,14 @@ class BasicBlockAssembler : public assm::AssemblerBase<UntypedReference> {
     BasicBlockSerializer(const Instructions::iterator& where,
                          Instructions* list);
 
-    virtual void AppendInstruction(uint32 location,
-                                   const uint8* bytes,
-                                   size_t num_bytes,
-                                   const ReferenceInfo* refs,
-                                   size_t num_refs) OVERRIDE;
+    void AppendInstruction(uint32 location,
+                           const uint8* bytes,
+                           size_t num_bytes,
+                           const ReferenceInfo* refs,
+                           size_t num_refs) override;
+    bool FinalizeLabel(uint32 location,
+                       const uint8* bytes,
+                       size_t num_bytes) override;
 
     SourceRange source_range() const { return source_range_; }
     void set_source_range(const SourceRange& source_range) {
