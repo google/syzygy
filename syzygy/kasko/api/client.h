@@ -23,6 +23,21 @@
 namespace kasko {
 namespace api {
 
+// Represents a property to include in a diagnostic report. This structure is
+// intended to have the same layout as a google_breakpad::CustomInfoEntry to
+// facilitate maintenance of a single property store in clients.
+struct CrashKey {
+  // Maximum name length.
+  static const int kNameMaxLength = 64;
+  // Maximum value length.
+  static const int kValueMaxLength = 64;
+
+  // The name of the property.
+  base::char16 name[kNameMaxLength];
+  // The value of the property.
+  base::char16 value[kValueMaxLength];
+};
+
 // Initializes a diagnostic reporting client in the current process.
 // @param endpoint_name The RPC endpoint name shared with the reporter process.
 KASKO_EXPORT void InitializeClient(const base::char16* endpoint_name);
@@ -35,14 +50,15 @@ KASKO_EXPORT void ShutdownClient();
 // @param exception_info_address Optional exception information.
 // @param protobuf An optional protobuf to be included in the report.
 // @param protobuf_length The length of the protobuf.
-// @param keys An optional null-terminated array of crash key names
-// @param values An optional null-terminated array of crash key values. Must be
-//     of equal length to |keys|.
-KASKO_EXPORT void SendReport(const EXCEPTION_POINTERS* exception_pointers,
-                             const char* protobuf,
-                             size_t protobuf_length,
-                             const base::char16* const* keys,
-                             const base::char16* const* values);
+// @param crash_keys An optional array of crash keys. Keys with empty names or
+//     values will be ignored.
+// @param crash_key_count The number of entries in crash_keys.
+KASKO_EXPORT void SendReport(
+    const EXCEPTION_POINTERS* exception_pointers,
+    const char* protobuf,
+    size_t protobuf_length,
+    const CrashKey* crash_keys,
+    size_t crash_key_count);
 
 }  // namespace api
 }  // namespace kasko
