@@ -129,12 +129,8 @@ TEST_F(StackCaptureCacheTest, SaveStackTrace) {
 
 TEST_F(StackCaptureCacheTest, RestrictedStackTraces) {
   AsanLogger logger;
-
-  // This needs to be less than 23 (the depth of this function) in order to
-  // actually test the frame-depth capping.
-  static const size_t kFrameLimit = 20;
-  TestStackCaptureCache cache(&logger, kFrameLimit);
-  EXPECT_EQ(kFrameLimit, cache.max_num_frames());
+  TestStackCaptureCache cache(&logger, 20);
+  EXPECT_EQ(20u, cache.max_num_frames());
 
   // Capture a stack trace.
   ULONG stack_id = 0;
@@ -142,12 +138,10 @@ TEST_F(StackCaptureCacheTest, RestrictedStackTraces) {
   size_t num_frames = ::CaptureStackBackTrace(
       0, StackCapture::kMaxNumFrames, frames, &stack_id);
 
-  // We should be able to save the captures stack trace, but capped to the
-  // maximum number of frames supported by the cache.
+  // We should be able to save the captures stack trace.
   const StackCapture* s1 = cache.SaveStackTrace(stack_id, frames, num_frames);
   ASSERT_TRUE(s1 != NULL);
-  EXPECT_LE(s1->num_frames(), cache.max_num_frames());
-  EXPECT_LE(s1->num_frames(), num_frames);
+  EXPECT_EQ(num_frames, s1->max_num_frames());
 
   // We should get a pointer to the initial stack capture object if we attempt
   // to save the same trace again.
@@ -162,8 +156,7 @@ TEST_F(StackCaptureCacheTest, RestrictedStackTraces) {
   // to save a different trace.
   const StackCapture* s3 = cache.SaveStackTrace(stack_id, frames, num_frames);
   EXPECT_NE(s1, s3);
-  EXPECT_LE(s3->num_frames(), cache.max_num_frames());
-  EXPECT_LE(s3->num_frames(), num_frames);
+  EXPECT_EQ(num_frames, s1->max_num_frames());
 }
 
 TEST_F(StackCaptureCacheTest, MaxNumFrames) {
@@ -370,26 +363,6 @@ TEST_F(StackCaptureCacheTest, StackCapturePointerIsValid) {
   // A null pointer should be invalid.
   EXPECT_FALSE(cache.StackCapturePointerIsValid(
       reinterpret_cast<const StackCapture*>(NULL)));
-}
-
-struct DummyMetadata {
-  uint32 value0;
-  float value1;
-};
-
-TEST_F(StackCaptureCacheTest, SaveWithMetadata) {
-  AsanLogger logger;
-  TestStackCaptureCache cache(&logger);
-
-  common::StackCapture stack;
-  stack.InitFromStack();
-
-  DummyMetadata* metadata0 = nullptr;
-  const common::StackCapture* saved = cache.SaveStackTrace(stack, &metadata0);
-  EXPECT_TRUE(metadata0 != nullptr);
-
-  DummyMetadata* metadata1 = cache.GetMetadata<DummyMetadata>(saved);
-  EXPECT_EQ(metadata0, metadata1);
 }
 
 }  // namespace asan

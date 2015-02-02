@@ -120,22 +120,10 @@ void StackCaptureCache::Init() {
 }
 
 const common::StackCapture* StackCaptureCache::SaveStackTrace(
-    StackId stack_id, const void* const* frames, size_t actual_frames,
-    size_t extra_frames) {
+    StackId stack_id, const void* const* frames, size_t num_frames) {
   DCHECK(frames != NULL);
-  DCHECK_NE(actual_frames, 0U);
+  DCHECK_NE(num_frames, 0U);
   DCHECK(current_page_ != NULL);
-
-  // Figure out how many frames to allocate and how many to write.
-  size_t num_frames = actual_frames + extra_frames;
-  if (num_frames > max_num_frames_) {
-    num_frames = max_num_frames_;
-    // If the metadata consumes all of the frames then it doesn't make sense
-    // to allocate anything.
-    if (num_frames <= extra_frames)
-      return nullptr;
-    actual_frames = num_frames - extra_frames;
-  }
 
   bool already_cached = false;
   common::StackCapture* stack_trace = NULL;
@@ -157,7 +145,7 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
     if (result == known_stacks_[known_stack_shard].end()) {
       stack_trace = GetStackCapture(num_frames);
       DCHECK(stack_trace != NULL);
-      stack_trace->InitFromBuffer(stack_id, frames, actual_frames);
+      stack_trace->InitFromBuffer(stack_id, frames, num_frames);
       std::pair<StackSet::iterator, bool> it =
           known_stacks_[known_stack_shard].insert(stack_trace);
       DCHECK(it.second);
@@ -189,7 +177,7 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
       }
     } else {
       ++statistics_.cached;
-      statistics_.frames_alive += actual_frames;
+      statistics_.frames_alive += num_frames;
       ++statistics_.allocated;
     }
     if (!saturated && stack_trace->RefCountIsSaturated()) {
@@ -198,7 +186,7 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
     }
     ++statistics_.requested;
     ++statistics_.references;
-    statistics_.frames_stored += actual_frames;
+    statistics_.frames_stored += num_frames;
     if (statistics_.requested % compression_reporting_period_ == 0) {
       must_log = true;
       GetStatisticsUnlocked(&statistics);
@@ -210,12 +198,6 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
 
   // Return the stack trace pointer that is now in the cache.
   return stack_trace;
-}
-
-const common::StackCapture* StackCaptureCache::SaveStackTrace(
-    StackId stack_id, const void* const* frames, size_t num_frames) {
-  // Allocate with zero extra frames.
-  return SaveStackTrace(stack_id, frames, num_frames, 0);
 }
 
 const common::StackCapture* StackCaptureCache::SaveStackTrace(
