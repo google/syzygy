@@ -91,6 +91,8 @@
         'client.h',
         'crash_keys_serialization.cc',
         'crash_keys_serialization.h',
+        'dll_lifetime.cc',
+        'dll_lifetime.h',
         'http_agent.h',
         'http_agent_impl.cc',
         'http_agent_impl.h',

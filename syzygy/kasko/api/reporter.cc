@@ -20,6 +20,7 @@
 #include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/time/time.h"
+#include "syzygy/kasko/dll_lifetime.h"
 #include "syzygy/kasko/reporter.h"
 
 namespace kasko {
@@ -29,6 +30,7 @@ namespace {
 const uint16_t kUploadDelayInSeconds = 180;
 const uint16_t kRetryIntevalInMinutes = 180;
 
+const DllLifetime* g_dll_lifetime;
 Reporter* g_reporter;
 
 }  // namespace
@@ -38,8 +40,10 @@ bool InitializeReporter(
     const base::char16* url,
     const base::char16* data_directory,
     const base::char16* permanent_failure_directory) {
-  DCHECK(!g_reporter);
+  DCHECK(!g_dll_lifetime);
+  g_dll_lifetime = new DllLifetime;
 
+  DCHECK(!g_reporter);
   g_reporter =
       Reporter::Create(endpoint_name, url, base::FilePath(data_directory),
                        base::FilePath(permanent_failure_directory),
@@ -74,6 +78,10 @@ void ShutdownReporter() {
   scoped_ptr<Reporter> reporter(g_reporter);
   g_reporter = nullptr;
   Reporter::Shutdown(reporter.Pass());
+
+  DCHECK(g_dll_lifetime);
+  delete g_dll_lifetime;
+  g_dll_lifetime = nullptr;
 }
 
 }  // namespace api

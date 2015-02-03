@@ -18,6 +18,7 @@
 
 #include "base/logging.h"
 #include "syzygy/kasko/client.h"
+#include "syzygy/kasko/dll_lifetime.h"
 
 namespace kasko {
 namespace api {
@@ -28,7 +29,8 @@ static_assert(sizeof(CrashKey) == 256u,
               "CrashKey struct size must match that of the "
               "google_breakpad::CustomInfoEntry struct.");
 
-const Client* g_client = NULL;
+const DllLifetime* g_dll_lifetime;
+const Client* g_client = nullptr;
 
 // Returns true if |buffer| is a null-terminated string whose length is greater
 // than 0 and less than |buffer_length|.
@@ -40,8 +42,11 @@ bool IsValidNonEmptyString(const base::char16* buffer, size_t buffer_length) {
 }  // namespace
 
 void InitializeClient(const base::char16* endpoint_name) {
-  DCHECK(endpoint_name);
+  DCHECK(!g_dll_lifetime);
+  g_dll_lifetime = new DllLifetime;
+
   DCHECK(!g_client);
+  DCHECK(endpoint_name);
   g_client = new Client(endpoint_name);
 }
 
@@ -75,7 +80,7 @@ void SendReport(const EXCEPTION_POINTERS* exception_pointers,
 void ShutdownClient() {
   DCHECK(g_client);
   delete g_client;
-  g_client = NULL;
+  g_client = nullptr;
 }
 
 }  // namespace api
