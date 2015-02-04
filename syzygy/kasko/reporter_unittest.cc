@@ -191,22 +191,29 @@ class ReporterTest : public ::testing::Test {
 
   virtual void SetUp() override {
     ASSERT_TRUE(server_.Start());
-    ASSERT_TRUE(data_directory_.CreateUniqueTempDir());
-    ASSERT_TRUE(permanent_failure_directory_.CreateUniqueTempDir());
+    ASSERT_TRUE(temp_directory_.CreateUniqueTempDir());
   }
 
  protected:
   uint16_t server_port() { return server_.port(); }
-  base::FilePath data_directory() { return data_directory_.path();}
-  base::FilePath permanent_failure_directory() {
-    return permanent_failure_directory_.path();
+
+  // This directory is intentionally non-existant to verify that the reporter
+  // creates the target directory as needed.
+  base::FilePath data_directory() {
+    return temp_directory_.path().Append(L"Crash Reports");
   }
+
+  // This directory is intentionally non-existant to verify that the reporter
+  // creates the target directory as needed.
+  base::FilePath permanent_failure_directory() {
+    return temp_directory_.path().Append(L"Permanent Failure");
+  }
+
   base::FilePath upload_directory() { return server_.incoming_directory(); }
 
  private:
   testing::TestServer server_;
-  base::ScopedTempDir data_directory_;
-  base::ScopedTempDir permanent_failure_directory_;
+  base::ScopedTempDir temp_directory_;
 
   DISALLOW_COPY_AND_ASSIGN(ReporterTest);
 };

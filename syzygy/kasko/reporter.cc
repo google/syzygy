@@ -88,18 +88,19 @@ void HandlePermanentFailure(const base::FilePath& permanent_failure_directory,
       minidump_path.BaseName().ReplaceExtension(
           Reporter::kPermanentFailureMinidumpExtension));
 
-  if (!base::Move(minidump_path, minidump_target)) {
-    LOG(ERROR) << "Failed to move " << minidump_path.value() << " to "
-               << minidump_target.value();
-  }
-
   // Note that we take the filename from the minidump file, in order to
   // guarantee that the two files have matching names.
   base::FilePath crash_keys_target = permanent_failure_directory.Append(
       minidump_path.BaseName().ReplaceExtension(
           Reporter::kPermanentFailureCrashKeysExtension));
 
-  if (!base::Move(crash_keys_path, crash_keys_target)) {
+  if (!base::CreateDirectory(permanent_failure_directory)) {
+    LOG(ERROR) << "Failed to create directory at "
+               << permanent_failure_directory.value();
+  } else if (!base::Move(minidump_path, minidump_target)) {
+    LOG(ERROR) << "Failed to move " << minidump_path.value() << " to "
+               << minidump_target.value();
+  } else if (!base::Move(crash_keys_path, crash_keys_target)) {
     LOG(ERROR) << "Failed to move " << crash_keys_path.value() << " to "
                << crash_keys_target.value();
   }
