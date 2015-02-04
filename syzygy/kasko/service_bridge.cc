@@ -38,17 +38,11 @@ boolean KaskoService_SendDiagnosticReport(handle_t IDL_handle,
                                           const CrashKey* crash_keys) {
   DCHECK(kasko::g_service_bridge);
 
-  const int kVersion = 2;
-  RPC_CALL_ATTRIBUTES_V2 attribs = { kVersion, RPC_QUERY_CLIENT_PID };
-  RPC_STATUS status = RpcServerInqCallAttributes(IDL_handle, &attribs);
-  if (status != RPC_S_OK) {
-    LOG(ERROR) << "Failed to query RPC call attributes: "
-               << ::common::LogWe(status) << ".";
-    return false;
-  }
-
   base::ProcessId client_process_id =
-      reinterpret_cast<base::ProcessId>(attribs.ClientPID);
+      ::common::rpc::GetClientProcessID(IDL_handle);
+  if (!client_process_id)
+    return false;
+
   std::map<base::string16, base::string16> crash_keys_map;
   for (unsigned long i = 0; i < crash_keys_size; ++i) {
     if (!crash_keys[i].name || !crash_keys[i].value)
@@ -57,6 +51,7 @@ boolean KaskoService_SendDiagnosticReport(handle_t IDL_handle,
         reinterpret_cast<const char*>(crash_keys[i].name))] =
         base::UTF8ToUTF16(reinterpret_cast<const char*>(crash_keys[i].value));
   }
+
   kasko::g_service_bridge->service_->SendDiagnosticReport(
       client_process_id, exception_info_address, thread_id,
       reinterpret_cast<const char*>(protobuf), protobuf_length, crash_keys_map);

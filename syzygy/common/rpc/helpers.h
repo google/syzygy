@@ -21,6 +21,7 @@
 #include <wtypes.h>
 
 #include "base/macros.h"
+#include "base/process/process_handle.h"
 #include "base/strings/string_piece.h"
 
 // TODO(rogerm): Is there directly usable stuff in base/callback.h that
@@ -39,6 +40,12 @@ namespace rpc {
 bool CreateRpcBinding(const base::StringPiece16& protocol,
                       const base::StringPiece16& endpoint,
                       handle_t* out_handle);
+
+// Retrieves the PID for the RPC client process.
+//
+// @param binding An RPC binding.
+// @returns The client PID on success, or 0.
+base::ProcessId GetClientProcessID(handle_t binding);
 
 // Structure returned by RPC calls
 struct RpcStatus {

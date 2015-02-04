@@ -20,6 +20,7 @@
 #include <windows.h>
 
 #include "base/logging.h"
+#include "base/win/windows_version.h"
 #include "syzygy/common/com_utils.h"
 
 namespace common {
@@ -61,6 +62,29 @@ bool CreateRpcBinding(const base::StringPiece16& protocol,
 
   *out_handle = binding;
   return true;
+}
+
+base::ProcessId GetClientProcessID(handle_t binding) {
+  base::ProcessId result = 0;
+  RPC_STATUS status = 0;
+  // RPC_CALL_ATTRIBUTES_V2 isn't available before Windows Vista.
+  if (base::win::GetVersion() >= base::win::VERSION_VISTA) {
+    // Get the RPC call attributes.
+    static const int kVersion = 2;
+    RPC_CALL_ATTRIBUTES_V2 attribs = { kVersion, RPC_QUERY_CLIENT_PID };
+    status = ::RpcServerInqCallAttributes(binding, &attribs);
+    result = reinterpret_cast<base::ProcessId>(attribs.ClientPID);
+  } else {
+    status = ::I_RpcBindingInqLocalClientPID(binding,
+        reinterpret_cast<unsigned long*>(&result));
+  }
+
+  if (status == RPC_S_OK)
+    return result;
+
+  LOG(ERROR) << "Failed to query RPC call attributes: "
+             << ::common::LogWe(status) << ".";
+  return 0;
 }
 
 std::wstring GetInstanceString(
