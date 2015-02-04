@@ -67,6 +67,11 @@ bool UploadCrashReport(
                       &response_code)) {
     LOG(ERROR) << "Failed to upload the minidump file to " << upload_url;
     return false;
+  } else {
+    // TODO(erikwright): Log this report ID somewhere accessible to our client.
+    // For example, the Windows Event Log.
+    LOG(INFO) << "Successfully uploded a crash report. Report ID: "
+              << remote_dump_id;
   }
 
   return true;
@@ -167,7 +172,8 @@ const base::char16* const Reporter::kPermanentFailureCrashKeysExtension =
     L".kys";
 const base::char16* const Reporter::kPermanentFailureMinidumpExtension =
     L".dmp";
-const base::char16* const Reporter::kMinidumpUploadFilePart = L"minidump";
+const base::char16* const Reporter::kMinidumpUploadFilePart =
+    L"upload_file_minidump";
 
 // static
 scoped_ptr<Reporter> Reporter::Create(

@@ -445,7 +445,7 @@ TEST_F(UploadTest, OverContentLengthTwoPackets) {
   EXPECT_FALSE(SendUpload(&response_body, &response_code));
 }
 
-TEST_F(UploadTest, CorrectContentType) {
+TEST_F(UploadTest, CorrectContentTypeAndCharset) {
   scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   std::string kResponse = "0123456789";
   std::vector<std::string> data;
@@ -462,7 +462,58 @@ TEST_F(UploadTest, CorrectContentType) {
   EXPECT_EQ(base::UTF8ToWide(kResponse), response_body);
 }
 
+TEST_F(UploadTest, UnsupportedCharset) {
+  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  unsigned char kResponseArray[] = {'0', '1', '2', '3', 128, 0};
+  std::string kResponse = reinterpret_cast<char*>(kResponseArray);
+  std::vector<std::string> data;
+  data.push_back(kResponse);
+  data.push_back(std::string());
+  mock_response->set_data(data);
+  mock_response->set_content_type(true, true,
+                                  L"text/plain; charset=iso-8859-1");
+  agent().set_response(mock_response.Pass());
+
+  base::string16 response_body;
+  uint16_t response_code = 0;
+  EXPECT_FALSE(SendUpload(&response_body, &response_code));
+}
+
+TEST_F(UploadTest, ASCIISubsetOfLatin1) {
+  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  char kResponseArray[] = {'0', '1', '2', '3', 127, 0};
+  std::string kResponse = kResponseArray;
+  std::vector<std::string> data;
+  data.push_back(kResponse);
+  data.push_back(std::string());
+  mock_response->set_data(data);
+  mock_response->set_content_type(true, true,
+                                  L"text/plain; charset=iso-8859-1");
+  agent().set_response(mock_response.Pass());
+
+  base::string16 response_body;
+  uint16_t response_code = 0;
+  EXPECT_TRUE(SendUpload(&response_body, &response_code));
+  EXPECT_EQ(200, response_code);
+  EXPECT_EQ(base::UTF8ToWide(kResponse), response_body);
+}
+
 TEST_F(UploadTest, UnsupportedContentType) {
+  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::string kResponse = "<html><body>0123456789</body></html>";
+  std::vector<std::string> data;
+  data.push_back(kResponse);
+  data.push_back(std::string());
+  mock_response->set_data(data);
+  mock_response->set_content_type(true, true, L"text/html; charset=utf-8");
+  agent().set_response(mock_response.Pass());
+
+  base::string16 response_body;
+  uint16_t response_code = 0;
+  EXPECT_FALSE(SendUpload(&response_body, &response_code));
+}
+
+TEST_F(UploadTest, TextLabeledAsHTML) {
   scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   std::string kResponse = "0123456789";
   std::vector<std::string> data;
@@ -474,7 +525,9 @@ TEST_F(UploadTest, UnsupportedContentType) {
 
   base::string16 response_body;
   uint16_t response_code = 0;
-  EXPECT_FALSE(SendUpload(&response_body, &response_code));
+  EXPECT_TRUE(SendUpload(&response_body, &response_code));
+  EXPECT_EQ(200, response_code);
+  EXPECT_EQ(base::UTF8ToWide(kResponse), response_body);
 }
 
 TEST_F(UploadTest, CorrectContentTypeNoCharset) {
