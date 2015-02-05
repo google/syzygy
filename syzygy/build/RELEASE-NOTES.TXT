@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.5.0
+
+[cec4a29a57] Add support for rate targeted heaps
+[562794745b] Add support for more AVX2 instructions.
+
 Version 0.8.4.1
 
 [----------] Fixed some unittest failures.
