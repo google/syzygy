@@ -37,7 +37,7 @@ namespace common {
 // the StackCaptureCache.
 typedef uint32 AsanStackId;
 
-static const size_t kAsanParametersReserved1Bits = 23;
+static const size_t kAsanParametersReserved1Bits = 22;
 
 // This data structure is injected into an instrumented image in a read-only
 // section. It is initialized by the instrumenter, and will be looked up at
@@ -107,9 +107,12 @@ struct AsanParameters {
       // LargeBlockHeap: If true then the LargeBlockHeap will be used by the
       // heap manager.
       unsigned enable_large_block_heap : 1;
-      // BlockHeapManager: Indictaes if the allocation filtering is enabled. If
+      // BlockHeapManager: Indicates if the allocation filtering is enabled. If
       // so, only blocks from filtered sites can make it into the zebra heap.
       unsigned enable_allocation_filter : 1;
+      // BlockHeapManager: Indicates if we want to use the rate targeted heaps
+      // to reduce the aliasing of the low frequency allocation sites.
+      unsigned enable_rate_targeted_heaps : 1;
 
       // Add new flags here!
 
@@ -142,13 +145,13 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 56);
 // The current version of the Asan parameters structure. This must be updated
 // if any changes are made to the above structure! This is defined in the header
 // file to allow compile time assertions against this version number.
-const uint32 kAsanParametersVersion = 7u;
+const uint32 kAsanParametersVersion = 8u;
 
 // If the number of free bits in the parameters struct changes, then the
 // version has to change as well. This is simply here to make sure that
 // everything changes in lockstep.
-COMPILE_ASSERT(kAsanParametersReserved1Bits == 23 &&
-                   kAsanParametersVersion == 7,
+COMPILE_ASSERT(kAsanParametersReserved1Bits == 22 &&
+                   kAsanParametersVersion == 8,
                version_must_change_if_reserved_bits_changes);
 
 // The name of the section that will be injected into an instrumented image,
@@ -231,6 +234,7 @@ extern const bool kDefaultEnableAllocationFilter;
 // Default values of LargeBlockHeap parameters.
 extern const bool kDefaultEnableLargeBlockHeap;
 extern const size_t kDefaultLargeAllocationThreshold;
+extern const bool kDefaultEnableRateTargetedHeaps;
 
 // The name of the environment variable containing the SyzyAsan command-line.
 extern const char kSyzyAsanOptionsEnvVar[];
@@ -257,6 +261,7 @@ extern const char kParamZebraBlockHeapSize[];
 extern const char kParamZebraBlockHeapQuarantineRatio[];
 // String names of BlockHeapManager parameters.
 extern const char kParamDisableCtMalloc[];
+extern const char kParamDisableSizeTargetedHeaps[];
 extern const char kParamEnableZebraBlockHeap[];
 extern const char kParamEnableAllocationFilter[];
 // String names of LargeBlockHeap parameters.

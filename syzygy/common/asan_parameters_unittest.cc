@@ -86,6 +86,8 @@ TEST(AsanParametersTest, SetDefaultAsanParameters) {
             static_cast<bool>(aparams.enable_large_block_heap));
   EXPECT_EQ(kDefaultEnableAllocationFilter,
             static_cast<bool>(aparams.enable_allocation_filter));
+  EXPECT_EQ(kDefaultEnableRateTargetedHeaps,
+            static_cast<bool>(aparams.enable_rate_targeted_heaps));
   EXPECT_EQ(kDefaultLargeAllocationThreshold,
             aparams.large_allocation_threshold);
 }
@@ -234,6 +236,8 @@ TEST(AsanParametersTest, ParseAsanParametersMinimal) {
             static_cast<bool>(iparams.enable_large_block_heap));
   EXPECT_EQ(kDefaultEnableAllocationFilter,
             static_cast<bool>(iparams.enable_allocation_filter));
+  EXPECT_EQ(kDefaultEnableRateTargetedHeaps,
+            static_cast<bool>(iparams.enable_rate_targeted_heaps));
   EXPECT_EQ(kDefaultLargeAllocationThreshold,
             iparams.large_allocation_threshold);
 }
@@ -259,6 +263,7 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
       L"--disable_ctmalloc "
       L"--enable_zebra_block_heap "
       L"--disable_large_block_heap "
+      L"--disable_rate_targeted_heaps "
       L"--enable_allocation_filter "
       L"--large_allocation_threshold=4096";
 
@@ -289,6 +294,7 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
   EXPECT_TRUE(static_cast<bool>(iparams.enable_zebra_block_heap));
   EXPECT_FALSE(static_cast<bool>(iparams.enable_large_block_heap));
   EXPECT_TRUE(static_cast<bool>(iparams.enable_allocation_filter));
+  EXPECT_FALSE(static_cast<bool>(iparams.enable_rate_targeted_heaps));
   EXPECT_EQ(4096, iparams.large_allocation_threshold);
 }
 
