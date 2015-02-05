@@ -22,6 +22,64 @@ namespace core {
 
 namespace {
 
+// Return the size of a 3-byte VEX encoded instruction.
+//
+// The layout of these instructions is as follows, starting with a byte with
+// value 0xC4:
+//     - First byte:
+//         +---+---+---+---+---+---+---+---+
+//         | 1   1   0   0   0   1   0   0 |
+//         +---+---+---+---+---+---+---+---+
+//     - Second byte:
+//         +---+---+---+---+---+---+---+---+
+//         |~R |~X |~B |     map_select    |
+//         +---+---+---+---+---+---+---+---+
+//     - Third byte:
+//         +---+---+---+---+---+---+---+---+
+//         |W/E|     ~vvvv     | L |   pp  |
+//         +---+---+---+---+---+---+---+---+
+//     - Fourth byte: The opcode for this instruction.
+//
+// |map_select| Indicates the opcode map that should be used for this
+// instruction.
+//
+// See http://wiki.osdev.org/X86-64_Instruction_Encoding#Three_byte_VEX_escape_prefix
+// for more details.
+size_t Get3ByteVexEncodedInstructionSize(_CodeInfo* ci) {
+  DCHECK_EQ(0xC4, ci->code[0]);
+  // Switch case based on the opcode map used by this instruction.
+  switch (ci->code[1] & 0x1F) {
+    case 0x01: {
+      switch (ci->code[3]) {
+        case 0x1D: return 5;  // vpermd
+        default: break;
+      }
+      break;
+    }
+    case 0x02: {
+      switch (ci->code[3]) {
+        case 0x36: return 5;  // vpermd
+        case 0x5A: return 6;  // vbroadcasti128
+        case 0x78: return 5;  // vpbroadcastb
+        default: break;
+      }
+      break;
+    }
+    case 0x03: {
+      switch (ci->code[3]) {
+        case 0x00: return 6;  // vpermq
+        case 0x38: return 7;  // vinserti128
+        case 0x39: return 6;  // vextracti128
+        default: break;
+      }
+      break;
+    }
+    default:
+      break;
+  }
+  return 0;
+}
+
 // Handle improperly decoded instructions. Returns true if an instruction was
 // handled, false otherwise. If this returns false then none of the output
 // parameters will have been changed.
@@ -37,16 +95,8 @@ bool HandleBadDecode(_CodeInfo* ci,
 
   size_t size = 0;
 
-  // 3-byte VEX encoded instructions.
-  if (ci->code[0] == 0xC4) {
-    // vpermq
-    if (ci->code[1] == 0xE3 && ci->code[2] == 0xFD) {
-      size = 6;
-    } else if (ci->code[1] == 0xE2 && ci->code[2] == 0x4D) {
-      // vpermd
-      size = 5;
-    }
-  }
+  if (ci->code[0] == 0xC4)
+    size = Get3ByteVexEncodedInstructionSize(ci);
 
   if (size == 0)
     return false;

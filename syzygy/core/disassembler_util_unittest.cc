@@ -120,9 +120,13 @@ const uint8 kSysExit[] = { 0x0F, 0x35 };
 const uint8 kInt2[] = { 0xCD, 0x02 };
 const uint8 kInt3[] = { 0xCC };
 
-// Improperly handled instructions.
+// Improperly handled 3-byte VEX encoded instructions.
 const uint8 kVpermq[] = { 0xC4, 0xE3, 0xFD, 0x00, 0xED, 0x44 };
 const uint8 kVpermd[] = { 0xC4, 0xE2, 0x4D, 0x36, 0xC0 };
+const uint8 kVbroadcasti128[] = { 0xC4, 0xE2, 0x7D, 0x5A, 0x45, 0xD0 };
+const uint8 kVinserti128[] = { 0xC4, 0xE3, 0x7D, 0x38, 0x2C, 0x0F, 0x01 };
+const uint8 kVpbroadcastb[] = { 0xC4, 0xE2, 0x79, 0x78, 0xC0 };
+const uint8 kVextracti128[] = { 0xC4, 0xE3, 0x7D, 0x39, 0xC8, 0x01};
 
 void TestBadlyDecodedInstruction(const uint8* code, size_t code_length) {
   _DInst inst[1] = {};
@@ -305,18 +309,37 @@ TEST(DisassemblerUtilTest, DistormDecomposeFldcw) {
   EXPECT_EQ(16U, results[0].ops[0].size);
 }
 
-// If this test starts failing then Distorm now properly handles the vpermq
-// instruction. Please remove the workaround in disassembler_util.cc.
+// If one of these test starts failing then Distorm now properly handles the
+// AVX2 instructions. Please remove the workaround in disassembler_util.cc.
+
 TEST(DisassemblerUtilTest, TestBadlyDecodedVpermq) {
   EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
       kVpermq, sizeof(kVpermq)));
 }
 
-// If this test starts failing then Distorm now properly handles the vpermd
-// instruction. Please remove the workaround in disassembler_util.cc.
 TEST(DisassemblerUtilTest, TestBadlyDecodedVpermd) {
   EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
       kVpermd, sizeof(kVpermd)));
+}
+
+TEST(DisassemblerUtilTest, TestBadlyDecodedVbroadcasti128) {
+  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
+      kVbroadcasti128, sizeof(kVbroadcasti128)));
+}
+
+TEST(DisassemblerUtilTest, TestBadlyDecodedVinserti128) {
+  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
+      kVinserti128, sizeof(kVinserti128)));
+}
+
+TEST(DisassemblerUtilTest, TestBadlyDecodedVpbroadcastb) {
+  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
+      kVpbroadcastb, sizeof(kVpbroadcastb)));
+}
+
+TEST(DisassemblerUtilTest, TestBadlyDecodedVextracti128) {
+  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
+      kVextracti128, sizeof(kVextracti128)));
 }
 
 }  // namespace core
