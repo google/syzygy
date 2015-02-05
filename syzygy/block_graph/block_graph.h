@@ -97,6 +97,8 @@ class BlockGraphSerializer;
     F(COFF_RELOC_DATA) \
     /* COFF BSS (unmapped) block; has size but no data. */ \
     F(COFF_BSS) \
+    /* Contains unsupported instructions. */ \
+    F(UNSUPPORTED_INSTRUCTIONS) \
     /* This always needs to be set to the next available attribute bit. */ \
     F(BLOCK_ATTRIBUTES_MAX)
 
@@ -1080,6 +1082,53 @@ class BlockGraph::Reference {
 typedef std::vector<BlockGraph::Block*> BlockVector;
 typedef std::vector<const BlockGraph::Block*> ConstBlockVector;
 
+// A small helper struct for dumping block information to log messages.
+struct BlockInfo {
+  enum AddressType {
+    kNoAddress,
+    kAbsoluteAddress,
+    kFileOffsetAddress,
+    kRelativeAddress,
+  };
+
+  explicit BlockInfo(const BlockGraph::Block* block)
+      : block(block), type(kNoAddress) {
+    DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), block);
+  }
+
+  BlockInfo(const BlockGraph::Block* block,
+            core::AbsoluteAddress address)
+      : block(block), type(kAbsoluteAddress), abs_addr(address) {
+    DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), block);
+  }
+  BlockInfo(const BlockGraph::Block* block,
+            core::FileOffsetAddress address)
+      : block(block), type(kFileOffsetAddress), file_addr(address) {
+    DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), block);
+  }
+  BlockInfo(const BlockGraph::Block* block,
+            core::RelativeAddress address)
+      : block(block), type(kRelativeAddress), rel_addr(address) {
+    DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), block);
+  }
+
+  const BlockGraph::Block* block;
+  AddressType type;
+
+  // Ideally these would be in a union but because they have non-trivial
+  // constructors they are not allowed.
+  core::AbsoluteAddress abs_addr;
+  core::FileOffsetAddress file_addr;
+  core::RelativeAddress rel_addr;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(BlockInfo);
+};
+
 }  // namespace block_graph
+
+// Pretty prints a BlockInfo to an ostream. This has to be outside of any
+// namespaces so that operator<< is found properly.
+std::ostream& operator<<(std::ostream& os, const block_graph::BlockInfo& bi);
 
 #endif  // SYZYGY_BLOCK_GRAPH_BLOCK_GRAPH_H_

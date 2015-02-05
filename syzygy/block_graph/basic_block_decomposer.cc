@@ -132,7 +132,8 @@ BasicBlockDecomposer::BasicBlockDecomposer(const BlockGraph::Block* block,
     : block_(block),
       subgraph_(subgraph),
       current_block_start_(0),
-      check_decomposition_results_(true) {
+      check_decomposition_results_(true),
+      contains_unsupported_instructions_(false) {
   // TODO(rogerm): Once we're certain this is stable for all input binaries
   //     turn on check_decomposition_results_ by default only ifndef NDEBUG.
   DCHECK(block != NULL);
@@ -152,6 +153,10 @@ bool BasicBlockDecomposer::Decompose() {
   subgraph_->set_original_block(block_);
 
   bool disassembled = Disassemble();
+  if (contains_unsupported_instructions_) {
+    CHECK(!disassembled);
+    return false;
+  }
   CHECK(disassembled);
 
   // Don't bother with the following bookkeeping work if the results aren't
@@ -376,12 +381,17 @@ bool BasicBlockDecomposer::HandleInstruction(const Instruction& instruction,
   DCHECK(instruction.HasPcRelativeOperand(0));
 
   // Make sure we understand the branching condition. If we don't, then
-  // there's an instruction we have failed to consider.
+  // there's an instruction we have failed (or are unable) to consider.
+  // This failure is by design, as we can't represent instructions like
+  // JECZX or LOOPZ, as discussed in basic_block.cc.
   Successor::Condition condition = Successor::OpCodeToCondition(
       instruction.opcode());
-  CHECK_NE(Successor::kInvalidCondition, condition)
-      << "Received unknown condition for branch instruction: "
-      << instruction.GetName() << ".";
+  if (condition == Successor::kInvalidCondition) {
+    VLOG(1) << "Received unknown condition for branch instruction: "
+            << instruction.GetName() << ".";
+    contains_unsupported_instructions_ = true;
+    return false;
+  }
 
   // If this is a conditional branch add the inverse conditional successor
   // to represent the fall-through. If we don't understand the inverse, then

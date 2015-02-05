@@ -201,6 +201,14 @@ TEST_F(PETransformPolicyTest,
 }
 
 TEST_F(PETransformPolicyTest,
+       CodeBlockAttributesAreBasicBlockSafeUnsupportedInstructions) {
+  ASSERT_NO_FATAL_FAILURE(TestAttributes(
+      BlockGraph::UNSUPPORTED_INSTRUCTIONS, false, false));
+  ASSERT_NO_FATAL_FAILURE(TestAttributes(
+      BlockGraph::UNSUPPORTED_INSTRUCTIONS, true, false));
+}
+
+TEST_F(PETransformPolicyTest,
        CodeBlockAttributesAreBasicBlockSafeExceptionHandling) {
   ASSERT_NO_FATAL_FAILURE(TestAttributes(
       BlockGraph::HAS_EXCEPTION_HANDLING, false, false));
@@ -544,6 +552,30 @@ TEST_F(PETransformPolicyTest, CodeBlockIsSafeToBasicBlockDecomposeCache) {
       "data", BlockGraph::DATA_LABEL)));
   ASSERT_FALSE(policy.CodeBlockIsSafeToBasicBlockDecompose(code));
   ASSERT_TRUE(policy.BlockIsSafeToBasicBlockDecompose(code));
+  EXPECT_EQ(1u, policy.block_result_cache_->size());
+}
+
+TEST_F(PETransformPolicyTest,
+       CodeBlockIsSafeToBasicBlockDecomposeAttributesNotCached) {
+  TestPETransformPolicy policy;
+  EXPECT_EQ(0u, policy.block_result_cache_->size());
+
+  BlockGraph::Block* code = image_.AddBlock(BlockGraph::CODE_BLOCK, 2, "c");
+  code->SetLabel(0, "code", BlockGraph::CODE_LABEL);
+  ASSERT_TRUE(policy.BlockIsSafeToBasicBlockDecompose(code));
+  EXPECT_EQ(1u, policy.block_result_cache_->size());
+
+  TestPETransformPolicy::BlockResultCache::const_iterator it =
+      policy.block_result_cache_->find(code->id());
+  ASSERT_NE(policy.block_result_cache_->end(), it);
+  EXPECT_EQ(code->id(), it->first);
+  EXPECT_TRUE(it->second);
+
+  // Set an attribute that disqualifies decomposition. This should return false
+  // from both functions, ignoring the cached result.
+  code->set_attribute(BlockGraph::UNSUPPORTED_INSTRUCTIONS);
+  ASSERT_FALSE(policy.CodeBlockIsSafeToBasicBlockDecompose(code));
+  ASSERT_FALSE(policy.BlockIsSafeToBasicBlockDecompose(code));
   EXPECT_EQ(1u, policy.block_result_cache_->size());
 }
 

@@ -92,7 +92,15 @@ class BasicBlockDecomposer {
   // new basic blocks added, and basic blocks shuffled between the descriptions.
   // The subgraph can then be coalesced back into the BlockGraph from
   // which the original block came.
+  //
+  // This can set various status bits indicating the reason for the failure.
   bool Decompose();
+
+  // @returns true if the decomposition failed because of unsupported
+  //     instructions.
+  bool contains_unsupported_instructions() const {
+    return contains_unsupported_instructions_;
+  }
 
  protected:
   typedef std::map<Offset, BasicBlockReference> BasicBlockReferenceMap;
@@ -256,6 +264,9 @@ class BasicBlockDecomposer {
   // If no explicit subgraph was provided then we need to use one as scratch
   // space in order to do some work.
   scoped_ptr<BasicBlockSubGraph> scratch_subgraph_;
+
+  // Decomposition failure flags.
+  bool contains_unsupported_instructions_;
 };
 
 }  // namespace block_graph

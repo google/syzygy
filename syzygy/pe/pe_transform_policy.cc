@@ -144,6 +144,14 @@ bool PETransformPolicy::BlockIsSafeToBasicBlockDecompose(
   if (block->type() != BlockGraph::CODE_BLOCK)
     return false;
 
+  // Check attributes directly here, outside of the cache. These are cheap to
+  // check and can change during decomposition/transformation, so can
+  // potentially change cached results.
+  if (block->attributes() & BlockGraph::BUILT_BY_SYZYGY)
+    return true;
+  if (!CodeBlockAttributesAreBasicBlockSafe(block, allow_inline_assembly_))
+    return false;
+
   // Look for a cached result. This prevents repeated (expensive) calculations
   // and inspections over the block.
   BlockResultCache::const_iterator it = block_result_cache_->find(
@@ -215,7 +223,8 @@ bool PETransformPolicy::CodeBlockAttributesAreBasicBlockSafe(
       BlockGraph::PADDING_BLOCK |
       BlockGraph::HAS_INLINE_ASSEMBLY |
       BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER |
-      BlockGraph::HAS_EXCEPTION_HANDLING;
+      BlockGraph::HAS_EXCEPTION_HANDLING |
+      BlockGraph::UNSUPPORTED_INSTRUCTIONS;
 
   BlockGraph::BlockAttributes invalid_attributes = kDefaultInvalidAttributes;
   if (allow_inline_assembly)

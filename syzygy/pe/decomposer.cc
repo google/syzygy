@@ -42,84 +42,14 @@ namespace cci = Microsoft_Cci_Pdb;
 namespace {
 
 using block_graph::BlockGraph;
+using block_graph::BlockInfo;
 using core::AbsoluteAddress;
 using core::FileOffsetAddress;
 using core::RelativeAddress;
 
 typedef BlockGraph::Block Block;
 
-// A small helper struct for dumping block information to log messages.
-// TODO(chrisha): Move this to block_graph and reuse it everywhere!
-struct BlockInfo {
-  enum AddressType {
-    kNoAddress,
-    kAbsoluteAddress,
-    kFileOffsetAddress,
-    kRelativeAddress,
-  };
-
-  explicit BlockInfo(const Block* block)
-      : block(block), type(kNoAddress) {
-    DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
-  }
-
-  BlockInfo(const Block* block,
-            AbsoluteAddress address)
-      : block(block), type(kAbsoluteAddress), abs_addr(address) {
-    DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
-  }
-  BlockInfo(const Block* block,
-            FileOffsetAddress address)
-      : block(block), type(kFileOffsetAddress), file_addr(address) {
-    DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
-  }
-  BlockInfo(const Block* block,
-            RelativeAddress address)
-      : block(block), type(kRelativeAddress), rel_addr(address) {
-    DCHECK_NE(reinterpret_cast<Block*>(NULL), block);
-  }
-
-  const Block* block;
-  AddressType type;
-
-  // Ideally these would be in a union but because they have non-trivial
-  // constructors they are not allowed.
-  AbsoluteAddress abs_addr;
-  FileOffsetAddress file_addr;
-  RelativeAddress rel_addr;
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(BlockInfo);
-};
-
 }  // namespace
-
-// Pretty prints a BlockInfo to an ostream. This has to be outside of any
-// namespaces so that operator<< is found properly.
-std::ostream& operator<<(std::ostream& os, const BlockInfo& bi) {
-  os << "Block(id=" << bi.block->id() << ", name=\"" << bi.block->name()
-     << "\", size=" << bi.block->size();
-  if (bi.type != BlockInfo::kNoAddress) {
-    os << ", address=";
-    switch (bi.type) {
-      case BlockInfo::kAbsoluteAddress: {
-        os << bi.abs_addr;
-        break;
-      }
-      case BlockInfo::kFileOffsetAddress: {
-        os << bi.file_addr;
-        break;
-      }
-      case BlockInfo::kRelativeAddress: {
-        os << bi.rel_addr;
-        break;
-      }
-      default: break;
-    }
-  }
-  os << ")";
-  return os;
-}
 
 namespace pe {
 

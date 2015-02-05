@@ -91,8 +91,18 @@ bool ApplyBasicBlockSubGraphTransform(
   // Decompose block to basic blocks.
   BasicBlockSubGraph subgraph;
   BasicBlockDecomposer bb_decomposer(block, &subgraph);
-  if (!bb_decomposer.Decompose())
+  if (!bb_decomposer.Decompose()) {
+    // If the failure is due to unsupported instructions then simply mark the
+    // block as undecomposable so it won't be processed again.
+    if (bb_decomposer.contains_unsupported_instructions()) {
+      VLOG(1) << "Block contains unsupported instruction(s): "
+              << BlockInfo(block);
+      block->set_attribute(BlockGraph::UNSUPPORTED_INSTRUCTIONS);
+      return true;
+    }
+
     return false;
+  }
 
   // Call the transform.
   if (!transform->TransformBasicBlockSubGraph(policy, block_graph, &subgraph))

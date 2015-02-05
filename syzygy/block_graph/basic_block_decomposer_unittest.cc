@@ -245,6 +245,7 @@ TEST_F(BasicBlockDecomposerTest, DecomposeNoSubGraph) {
   ASSERT_NO_FATAL_FAILURE(InitBlockGraph());
   BasicBlockDecomposer bbd(assembly_func_, NULL);
   EXPECT_TRUE(bbd.Decompose());
+  EXPECT_FALSE(bbd.contains_unsupported_instructions());
 }
 
 TEST_F(BasicBlockDecomposerTest, Decompose) {
@@ -466,12 +467,38 @@ TEST_F(BasicBlockDecomposerTest, HasInlineAssembly) {
     BasicBlockSubGraph bbsg;
     BasicBlockDecomposer bbd(block, &bbsg);
     ASSERT_TRUE(bbd.Decompose());
+    EXPECT_FALSE(bbd.contains_unsupported_instructions());
     EXPECT_EQ(block->size(), GetNetBBSize(bbsg));
 
     // Validate a block in detail.
     if (block->id() == 5677)
       ASSERT_NO_FATAL_FAILURE(ValidateHasInlineAssemblyBlock5677(bbsg));
   }
+}
+
+TEST_F(BasicBlockDecomposerTest, ContainsJECXZ) {
+  ASSERT_NO_FATAL_FAILURE(InitBlockGraph());
+  BlockGraph::Block* jecxz = block_graph_.AddBlock(
+      BlockGraph::CODE_BLOCK, 4, "jecxz");
+  ASSERT_TRUE(jecxz != NULL);
+  jecxz->set_section(text_section_->id());
+
+  // The following bytes are the assembly of the following code:
+  //   JECXZ done
+  //   DEC ecx
+  //   done:
+  //   RET
+  // The JECXZ instruction has a PC-relative reference at byte 1 to
+  // byte 3.
+  const uint8 kAssembly[] = { 0xE3, 0x01, 0x49, 0xC3 };
+  jecxz->CopyData(arraysize(kAssembly), kAssembly);
+  jecxz->SetReference(1,
+      BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 1, jecxz, 3, 3));
+
+  BasicBlockSubGraph bbsg;
+  BasicBlockDecomposer bbd(jecxz, &bbsg);
+  EXPECT_FALSE(bbd.Decompose());
+  EXPECT_TRUE(bbd.contains_unsupported_instructions());
 }
 
 }  // namespace block_graph

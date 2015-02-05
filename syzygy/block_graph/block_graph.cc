@@ -19,6 +19,33 @@
 #include "base/logging.h"
 #include "base/strings/stringprintf.h"
 
+// Pretty prints a BlockInfo to an ostream. This has to be outside of any
+// namespaces so that operator<< is found properly.
+std::ostream& operator<<(std::ostream& os, const block_graph::BlockInfo& bi) {
+  os << "Block(id=" << bi.block->id() << ", name=\"" << bi.block->name()
+     << "\", size=" << bi.block->size();
+  if (bi.type != block_graph::BlockInfo::kNoAddress) {
+    os << ", address=";
+    switch (bi.type) {
+      case block_graph::BlockInfo::kAbsoluteAddress: {
+        os << bi.abs_addr;
+        break;
+      }
+      case block_graph::BlockInfo::kFileOffsetAddress: {
+        os << bi.file_addr;
+        break;
+      }
+      case block_graph::BlockInfo::kRelativeAddress: {
+        os << bi.rel_addr;
+        break;
+      }
+      default: break;
+    }
+  }
+  os << ")";
+  return os;
+}
+
 namespace block_graph {
 
 namespace {

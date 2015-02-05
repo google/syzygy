@@ -523,7 +523,7 @@ bool Instruction::IsCallToNonReturningFunction(const Representation& inst,
 Successor::Condition Successor::OpCodeToCondition(Successor::OpCode op_code) {
   switch (op_code) {
     default:
-      LOG(ERROR) << GET_MNEMONIC_NAME(op_code) << " is not a branch.";
+      VLOG(1) << GET_MNEMONIC_NAME(op_code) << " is not a branch.";
       return kInvalidCondition;
 
     case I_JA:  // Equivalent to JNBE.
