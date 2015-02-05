@@ -41,7 +41,7 @@ def IsOfficialBuild():
   Determines if this is an official Syzygy release build.
   """
   return (os.getenv('BUILDBOT_MASTERNAME') == 'client.syzygy' and
-      os.getenv('BUILDBOT_SLAVENAME') == 'Syzygy Official')
+      os.getenv('BUILDBOT_BUILDERNAME') == 'Syzygy Official')
 
 
 def RunGitCommandImpl(directory, command):
