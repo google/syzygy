@@ -92,8 +92,7 @@ BOOL CALLBACK FindPeFileCallback(PCTSTR path, PVOID context) {
   pe_file.GetSignature(&pe_sig);
 
   // We don't care about the base address or the path.
-  if (pe_sig.module_checksum != pe_info->module_checksum ||
-      pe_sig.module_size != pe_info->module_size ||
+  if (pe_sig.module_size != pe_info->module_size ||
       pe_sig.module_time_date_stamp != pe_info->module_time_date_stamp) {
     return TRUE;
   }

@@ -59,8 +59,16 @@ TEST_F(PeFindTest, PeFindTestDllNoHint) {
   PEFile::Signature module_signature;
   pe_file.GetSignature(&module_signature);
 
+  // Make sure we can do this on size and time stamp alone, as those
+  // are the symbol server signature.
+  PEFile::Signature search_signature;
+  search_signature.path = module_signature.path;
+  search_signature.module_size = module_signature.module_size;
+  search_signature.module_time_date_stamp =
+      module_signature.module_time_date_stamp;
+
   base::FilePath found_path;
-  EXPECT_TRUE(FindModuleBySignature(module_signature, &found_path));
+  EXPECT_TRUE(FindModuleBySignature(search_signature, &found_path));
 
   EXPECT_SAME_FILE(module_path, found_path);
 }
