@@ -28,6 +28,7 @@ _DLLS_TO_INSTRUMENT = [
     'basic_block_entry_client.dll',
     'call_trace_client.dll',
     'coverage_client.dll',
+    'kasko.dll',
     'profile_client.dll',
     'syzyasan_rtl.dll',
 ]
