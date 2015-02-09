@@ -37,6 +37,36 @@ TEST(InternetHelpersTest, ParseContentType) {
       true,
       L""
     },
+    { L"text/html; charset=",
+      L"text/html",
+      L"",
+      true,
+      L""
+    },
+    { L"text/html; charset",
+      L"text/html",
+      L"",
+      false,
+      L""
+    },
+    { L"text/html; charset='",
+      L"text/html",
+      L"",
+      true,
+      L""
+    },
+    { L"text/html; charset='utf-8'",
+      L"text/html",
+      L"utf-8",
+      true,
+      L""
+    },
+    { L"text/html; charset=\"utf-8\"",
+      L"text/html",
+      L"utf-8",
+      true,
+      L""
+    },
     { L"text/html; charset =utf-8",
       L"text/html",
       L"utf-8",

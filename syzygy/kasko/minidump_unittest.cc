@@ -60,4 +60,12 @@ TEST(MinidumpTest, OverwriteExistingFile) {
       testing::VisitMinidump(dump_file_path, base::Bind(&ValidateMinidump)));
 }
 
+TEST(MinidumpTest, NonexistantTargetDirectory) {
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+  ASSERT_FALSE(kasko::GenerateMinidump(
+      temp_dir.path().Append(L"Foobar").Append(L"HelloWorld"),
+      ::GetCurrentProcessId(), 0, NULL));
+}
+
 }  // namespace kasko

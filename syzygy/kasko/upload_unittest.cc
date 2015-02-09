@@ -57,6 +57,9 @@ class MockHttpAgent : public HttpAgent {
 
   Expectations& expectations();
   void set_response(scoped_ptr<HttpResponse> response);
+  void set_expect_invocation(bool expect_invocation) {
+    invoked_ = !expect_invocation;
+  }
 
   // HttpAgent implementation
   virtual scoped_ptr<HttpResponse> Post(const base::string16& host,
@@ -305,8 +308,8 @@ class UploadTest : public testing::Test {
 bool UploadTest::SendUpload(base::string16* response_body,
                             uint16_t* response_code) {
   return SendHttpUpload(
-      &agent(),
-      L"http://" + agent().expectations().host + agent().expectations().path,
+      &agent(), (agent().expectations().secure ? L"https://" : L"http://") +
+                    agent().expectations().host + agent().expectations().path,
       agent().expectations().parameters, agent().expectations().file,
       agent().expectations().file_name, response_body, response_code);
 }
@@ -332,6 +335,59 @@ TEST_F(UploadTest, PostSucceeds) {
   EXPECT_TRUE(SendUpload(&response_body, &response_code));
   EXPECT_EQ(200, response_code);
   EXPECT_EQ(base::UTF8ToWide(kResponse), response_body);
+}
+
+TEST_F(UploadTest, PostSucceedsSecure) {
+  const std::string kResponse = "hello world";
+
+  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::vector<std::string> data;
+  data.push_back(kResponse);
+  data.push_back(std::string());
+  mock_response->set_data(data);
+  agent().set_response(mock_response.Pass());
+  agent().expectations().secure = true;
+  agent().expectations().port = 443;
+
+  base::string16 response_body;
+  uint16_t response_code = 0;
+  EXPECT_TRUE(SendUpload(&response_body, &response_code));
+  EXPECT_EQ(200, response_code);
+  EXPECT_EQ(base::UTF8ToWide(kResponse), response_body);
+}
+
+TEST_F(UploadTest, InvalidURL) {
+  agent().set_expect_invocation(false);
+  base::string16 response_body;
+  uint16_t response_code = 0;
+  EXPECT_FALSE(SendHttpUpload(
+      &agent(),
+      L"@@::/:" + agent().expectations().host + agent().expectations().path,
+      agent().expectations().parameters, agent().expectations().file,
+      agent().expectations().file_name, &response_body, &response_code));
+}
+
+TEST_F(UploadTest, BadScheme) {
+  agent().set_expect_invocation(false);
+  base::string16 response_body;
+  uint16_t response_code = 0;
+  EXPECT_FALSE(SendHttpUpload(
+      &agent(),
+      L"ftp://" + agent().expectations().host + agent().expectations().path,
+      agent().expectations().parameters, agent().expectations().file,
+      agent().expectations().file_name, &response_body, &response_code));
+}
+
+TEST_F(UploadTest, GetStatusFails) {
+  const std::string kResponse = "hello world";
+
+  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  mock_response->set_status_code(false, 500);
+  agent().set_response(mock_response.Pass());
+
+  base::string16 response_body;
+  uint16_t response_code = 0;
+  EXPECT_FALSE(SendUpload(&response_body, &response_code));
 }
 
 TEST_F(UploadTest, PostSucceedsInMultiplePackets) {
