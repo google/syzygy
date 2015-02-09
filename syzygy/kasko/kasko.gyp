@@ -210,6 +210,8 @@
         'testing/mock_service.h',
         'testing/test_server.cc',
         'testing/test_server.h',
+        'testing/upload_observer.cc',
+        'testing/upload_observer.h',
       ],
       'dependencies': [
         'kasko_lib',
