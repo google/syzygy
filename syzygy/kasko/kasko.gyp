@@ -274,8 +274,21 @@
           'AdditionalDependencies': [
             # SDK import libs.
             'dbgeng.lib',
-            '<(PRODUCT_DIR)/kasko.dll.lib',
           ],
+          'conditions': [
+            ['"<(GENERATOR)"=="ninja" or "<(GENERATOR)"=="msvs-ninja"', {
+              'AdditionalDependencies': [
+                '<(PRODUCT_DIR)/kasko.dll.lib',
+              ],
+            }],
+            ['"<(GENERATOR)"=="msvs"', {
+              'AdditionalDependencies': [
+                '<(PRODUCT_DIR)/lib/kasko.dll.lib',
+              ],
+            }],
+          ],
+
+
         },
       },
     },
