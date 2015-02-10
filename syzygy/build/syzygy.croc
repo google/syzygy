@@ -79,6 +79,14 @@
       'regexp': '.*unittest.*',
       'group': 'test',
     },
+    {
+      'regexp': '.*_test(s)?\\.(h|cc|cpp|hpp)$',
+      'group': 'test',
+    },
+    {
+      'regexp': '.*/testing/.*',
+      'group': 'test',
+    },
 
     # Languages
     {
