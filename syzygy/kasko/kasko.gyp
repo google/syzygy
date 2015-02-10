@@ -186,24 +186,11 @@
       },
     },
     {
-      'target_name': 'kasko_unittests',
-      'type': 'executable',
+      'target_name': 'test_support_kasko',
+      'type': 'static_library',
       'sources': [
-        '<(src)/base/test/run_all_unittests.cc',
-        'client_unittest.cc',
-        'crash_keys_serialization_unittest.cc',
-        'http_agent_impl_unittest.cc',
-        'internet_helpers_unittest.cc',
         'internet_unittest_helpers.cc',
         'internet_unittest_helpers.h',
-        'minidump_unittest.cc',
-        'report_repository_unittest.cc',
-        'reporter_unittest.cc',
-        'service_bridge_unittest.cc',
-        'upload_thread_unittest.cc',
-        'upload_unittest.cc',
-        'user_agent_unittest.cc',
-        'waitable_timer_impl_unittest.cc',
         'testing/minidump_unittest_helpers.cc',
         'testing/minidump_unittest_helpers.h',
         'testing/mock_service.cc',
@@ -226,6 +213,68 @@
           'AdditionalDependencies': [
             # SDK import libs.
             'dbgeng.lib',
+          ],
+        },
+      },
+    },
+    {
+      'target_name': 'kasko_unittests',
+      'type': 'executable',
+      'sources': [
+        '<(src)/base/test/run_all_unittests.cc',
+        'client_unittest.cc',
+        'crash_keys_serialization_unittest.cc',
+        'http_agent_impl_unittest.cc',
+        'internet_helpers_unittest.cc',
+        'minidump_unittest.cc',
+        'report_repository_unittest.cc',
+        'reporter_unittest.cc',
+        'service_bridge_unittest.cc',
+        'upload_thread_unittest.cc',
+        'upload_unittest.cc',
+        'user_agent_unittest.cc',
+        'waitable_timer_impl_unittest.cc',
+      ],
+      'dependencies': [
+        'kasko_lib',
+        'test_support_kasko',
+        '<(src)/base/base.gyp:test_support_base',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/testing/gtest.gyp:gtest',
+       ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          # Disable support for large address spaces.
+          'LargeAddressAware': 1,
+          'AdditionalDependencies': [
+            # SDK import libs.
+            'dbgeng.lib',
+          ],
+        },
+      },
+    },
+    {
+      'target_name': 'kasko_api_tests',
+      'type': 'executable',
+      'sources': [
+        '<(src)/base/test/run_all_unittests.cc',
+        'api/api_tests.cc',
+      ],
+      'dependencies': [
+        'kasko',
+        'test_support_kasko',
+        '<(src)/base/base.gyp:test_support_base',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/testing/gtest.gyp:gtest',
+       ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          # Disable support for large address spaces.
+          'LargeAddressAware': 1,
+          'AdditionalDependencies': [
+            # SDK import libs.
+            'dbgeng.lib',
+            '<(PRODUCT_DIR)/kasko.dll.lib',
           ],
         },
       },

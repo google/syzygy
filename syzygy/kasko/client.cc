@@ -76,11 +76,11 @@ void Client::SendReport(const EXCEPTION_POINTERS* exception_pointers,
       KaskoClient_SendDiagnosticReport, rpc_binding.Get(),
       reinterpret_cast<unsigned long>(exception_pointers),
       base::PlatformThread::CurrentId(), protobuf_length,
-      reinterpret_cast<const signed char*>(protobuf), utf8_crash_keys.size(),
-      crash_keys.get());
+      reinterpret_cast<const signed char*>(protobuf ? protobuf : ""),
+      utf8_crash_keys.size(), crash_keys.get());
 
   if (!status.succeeded())
-    LOG(ERROR) << "Failed to send the crash report.";
+    LOG(ERROR) << "Failed to invoke the SendDiagnosticReport RPC.";
 }
 
 }  // namespace kasko

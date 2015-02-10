@@ -41,6 +41,9 @@
 
       # Kasko tests.
       '<(src)/syzygy/kasko/kasko.gyp:kasko_unittests',
+
+      # Kasko API tests.
+      '<(src)/syzygy/kasko/kasko.gyp:kasko_api_tests',
     ],
   }
 }
