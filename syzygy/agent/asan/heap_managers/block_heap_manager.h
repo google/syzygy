@@ -338,11 +338,12 @@ class BlockHeapManager : public HeapManagerInterface {
   // TODO(sebmarchand): Make this value configurable.
   static const size_t kRateTargetedHeapCount = 4;
 
-  // The minimum and maximum size of the block that should go into the rate
-  // targeted heaps.
+  // The minimum and maximum sizes of the blocks that should go into the rate
+  // targeted heaps. After analyzing crash data, two intervals of blocks have
+  // been identified and targeted.
   // TODO(sebmarchand): Make these values configurable.
-  static const size_t kDefaultRateTargetedHeapsMinBlockSize = 8 * 1024;
-  static const size_t kDefaultRateTargetedHeapsMaxBlockSize = 16 * 1024;
+  static const size_t kDefaultRateTargetedHeapsMinBlockSize[2];
+  static const size_t kDefaultRateTargetedHeapsMaxBlockSize[2];
 
   // The rate targeted heaps.
   HeapId rate_targeted_heaps_[kRateTargetedHeapCount];

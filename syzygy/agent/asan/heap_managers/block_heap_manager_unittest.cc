@@ -1123,28 +1123,41 @@ TEST_P(BlockHeapManagerTest, AllocStress) {
 TEST_P(BlockHeapManagerTest, AllocFromRateTargetedHeap) {
   ScopedHeap heap(heap_manager_);
   std::vector<void*> alloc_to_free;
-  const size_t kAllocSize =
-      TestBlockHeapManager::kDefaultRateTargetedHeapsMinBlockSize;
+  const size_t kAllocSize1 =
+      TestBlockHeapManager::kDefaultRateTargetedHeapsMinBlockSize[0];
+  const size_t kAllocSize2 =
+      TestBlockHeapManager::kDefaultRateTargetedHeapsMinBlockSize[1];
   const size_t kIterations = 10;
 
   // The first iteration will be used to initialize the allocation sites
   // frequency min and max.
   for (size_t c = 0; c < kIterations + 1; ++c) {
-    void* alloc = heap.Allocate(kAllocSize);
+    void* alloc = heap.Allocate(kAllocSize1);
+    EXPECT_NE(static_cast<void*>(nullptr), alloc);
+    alloc = heap.Allocate(kAllocSize2);
     EXPECT_NE(static_cast<void*>(nullptr), alloc);
     alloc_to_free.push_back(alloc);
     for (size_t i = 0; i < 10; ++i) {
-      void* alloc = heap.Allocate(kAllocSize);
+      void* alloc = heap.Allocate(kAllocSize1);
+      EXPECT_NE(static_cast<void*>(nullptr), alloc);
+      alloc_to_free.push_back(alloc);
+      alloc = heap.Allocate(kAllocSize2);
       EXPECT_NE(static_cast<void*>(nullptr), alloc);
       alloc_to_free.push_back(alloc);
     }
     for (size_t i = 0; i < 100; ++i) {
-      void* alloc = heap.Allocate(kAllocSize);
+      void* alloc = heap.Allocate(kAllocSize1);
+      EXPECT_NE(static_cast<void*>(nullptr), alloc);
+      alloc_to_free.push_back(alloc);
+      alloc = heap.Allocate(kAllocSize2);
       EXPECT_NE(static_cast<void*>(nullptr), alloc);
       alloc_to_free.push_back(alloc);
     }
     for (size_t i = 0; i < 1000; ++i) {
-      void* alloc = heap.Allocate(kAllocSize);
+      void* alloc = heap.Allocate(kAllocSize1);
+      EXPECT_NE(static_cast<void*>(nullptr), alloc);
+      alloc_to_free.push_back(alloc);
+      alloc = heap.Allocate(kAllocSize2);
       EXPECT_NE(static_cast<void*>(nullptr), alloc);
       alloc_to_free.push_back(alloc);
     }
@@ -1159,8 +1172,10 @@ TEST_P(BlockHeapManagerTest, AllocFromRateTargetedHeap) {
         heap_manager_->rate_targeted_heaps_count_[i] = 0;
     }
   }
-  for (size_t i = 1, j = 0; i < 10000; i *= 10, ++j)
-    EXPECT_EQ(kIterations * i, heap_manager_->rate_targeted_heaps_count_[j]);
+  for (size_t i = 1, j = 0; i < 10000; i *= 10, ++j) {
+    EXPECT_EQ(kIterations * i * 2,
+        heap_manager_->rate_targeted_heaps_count_[j]);
+  }
   for (const auto& alloc : alloc_to_free)
     heap.Free(alloc);
 }
@@ -1363,6 +1378,12 @@ TEST_P(BlockHeapManagerTest, ZebraBlockHeapQuarantineRatioIsRespected) {
 // size exceeds the threshold.
 TEST_P(BlockHeapManagerTest, LargeBlockHeapUsedForLargeAllocations) {
   EnableLargeBlockHeap(GetPageSize());
+
+  // Disable targeted heaps as it interferes with this test.
+  ::common::AsanParameters params = heap_manager_->parameters();
+  params.enable_rate_targeted_heaps = false;
+  heap_manager_->SetParameters(params);
+
   ScopedHeap heap(heap_manager_);
 
   const size_t kAllocSize = GetPageSize() + 0x100;

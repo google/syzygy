@@ -64,6 +64,11 @@ size_t GetMSBIndex(size_t n) {
 
 }  // namespace
 
+const size_t BlockHeapManager::kDefaultRateTargetedHeapsMinBlockSize[] =
+    { 4 * 1024, 15 * 1024 };
+const size_t BlockHeapManager::kDefaultRateTargetedHeapsMaxBlockSize[] =
+    { 9 * 1024, 18 * 1024 };
+
 BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
     : stack_cache_(stack_cache),
       initialized_(false),
@@ -921,11 +926,15 @@ bool BlockHeapManager::MayUseRateTargetedHeap(size_t bytes) const {
   DCHECK(initialized_);
   if (!parameters_.enable_rate_targeted_heaps)
     return false;
-  if (bytes > kDefaultRateTargetedHeapsMaxBlockSize ||
-      bytes < kDefaultRateTargetedHeapsMinBlockSize) {
-    return false;
+  if (bytes <= kDefaultRateTargetedHeapsMaxBlockSize[0] &&
+    bytes >= kDefaultRateTargetedHeapsMinBlockSize[0]) {
+    return true;
   }
-  return true;
+  if (bytes <= kDefaultRateTargetedHeapsMaxBlockSize[1] &&
+    bytes >= kDefaultRateTargetedHeapsMinBlockSize[1]) {
+    return true;
+  }
+  return false;
 }
 
 HeapId BlockHeapManager::ChooseRateTargetedHeap(
