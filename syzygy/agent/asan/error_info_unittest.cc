@@ -53,14 +53,14 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetBadAccessInformation) {
   EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
                                                &error_info));
   EXPECT_EQ(HEAP_BUFFER_OVERFLOW, error_info.error_type);
-  EXPECT_EQ(kUnknownHeapType, error_info.heap_type);
+  EXPECT_EQ(kUnknownHeapType, error_info.block_info.heap_type);
 
   EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
   error_info.location = fake_block.block_info.body;
   EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
                                                &error_info));
   EXPECT_EQ(USE_AFTER_FREE, error_info.error_type);
-  EXPECT_EQ(kUnknownHeapType, error_info.heap_type);
+  EXPECT_EQ(kUnknownHeapType, error_info.block_info.heap_type);
 
   error_info.location = fake_block.buffer_align_begin - 1;
   EXPECT_FALSE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
@@ -116,12 +116,15 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
   EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
                                                &error_info));
   EXPECT_EQ(USE_AFTER_FREE, error_info.error_type);
-  EXPECT_NE(reinterpret_cast<void*>(NULL), error_info.free_stack);
-  EXPECT_EQ(kUnknownHeapType, error_info.heap_type);
+  EXPECT_NE(reinterpret_cast<void*>(NULL), error_info.block_info.free_stack);
+  EXPECT_EQ(kUnknownHeapType, error_info.block_info.heap_type);
 
-  EXPECT_EQ(inner_header->free_stack->num_frames(), error_info.free_stack_size);
-  for (size_t i = 0; i < inner_header->free_stack->num_frames(); ++i)
-    EXPECT_EQ(inner_header->free_stack->frames()[i], error_info.free_stack[i]);
+  EXPECT_EQ(inner_header->free_stack->num_frames(),
+            error_info.block_info.free_stack_size);
+  for (size_t i = 0; i < inner_header->free_stack->num_frames(); ++i) {
+    EXPECT_EQ(inner_header->free_stack->frames()[i],
+              error_info.block_info.free_stack[i]);
+  }
 
   // Mark the outer block as quarantined, we should detect a use after free
   // when trying to access the data of the inner block, and the free stack
@@ -135,12 +138,15 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
   EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
                                                &error_info));
   EXPECT_EQ(USE_AFTER_FREE, error_info.error_type);
-  EXPECT_NE(reinterpret_cast<void*>(NULL), error_info.free_stack);
-  EXPECT_EQ(kUnknownHeapType, error_info.heap_type);
+  EXPECT_NE(reinterpret_cast<void*>(NULL), error_info.block_info.free_stack);
+  EXPECT_EQ(kUnknownHeapType, error_info.block_info.heap_type);
 
-  EXPECT_EQ(inner_header->free_stack->num_frames(), error_info.free_stack_size);
-  for (size_t i = 0; i < inner_header->free_stack->num_frames(); ++i)
-    EXPECT_EQ(inner_header->free_stack->frames()[i], error_info.free_stack[i]);
+  EXPECT_EQ(inner_header->free_stack->num_frames(),
+            error_info.block_info.free_stack_size);
+  for (size_t i = 0; i < inner_header->free_stack->num_frames(); ++i) {
+    EXPECT_EQ(inner_header->free_stack->frames()[i],
+              error_info.block_info.free_stack[i]);
+  }
 }
 
 TEST_F(AsanErrorInfoTest, ErrorInfoGetBadAccessKind) {
@@ -221,12 +227,12 @@ TEST_F(AsanErrorInfoTest, GetTimeSinceFree) {
   error_info.location = fake_block.block_info.body;
   EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
                                                &error_info));
-  EXPECT_NE(0U, error_info.milliseconds_since_free);
+  EXPECT_NE(0U, error_info.block_info.milliseconds_since_free);
 
   uint32 ticks_delta = ::GetTickCount() - ticks_before_free;
   EXPECT_GT(ticks_delta, 0U);
 
-  EXPECT_GE(ticks_delta, error_info.milliseconds_since_free);
+  EXPECT_GE(ticks_delta, error_info.block_info.milliseconds_since_free);
 }
 
 }  // namespace asan

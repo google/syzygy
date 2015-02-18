@@ -204,22 +204,22 @@ bool ErrorInfoGetBadAccessInformation(StackCaptureCache* stack_cache,
   // TODO(chrisha, sebmarchand): Remove duplicated code in this function
   //     and GetAsanBlockInfo. Wait until we have integration tests with the
   //     symbolization scripts as this will most certainly derail them.
-  bad_access_info->heap_type = kUnknownHeapType;
+  bad_access_info->block_info.heap_type = kUnknownHeapType;
   HeapManagerInterface::HeapId heap_id = block_info.trailer->heap_id;
   if (heap_id != 0) {
     AsanRuntime* runtime = AsanRuntime::runtime();
     DCHECK_NE(static_cast<AsanRuntime*>(nullptr), runtime);
-    bad_access_info->heap_type = runtime->GetHeapType(heap_id);
+    bad_access_info->block_info.heap_type = runtime->GetHeapType(heap_id);
   }
 
-  bad_access_info->milliseconds_since_free =
+  bad_access_info->block_info.milliseconds_since_free =
         GetTimeSinceFree(block_info.header);
 
   DCHECK(block_info.header->alloc_stack != NULL);
   CopyStackCaptureToArray(block_info.header->alloc_stack,
-                          bad_access_info->alloc_stack,
-                          &bad_access_info->alloc_stack_size);
-  bad_access_info->alloc_tid = block_info.trailer->alloc_tid;
+                          bad_access_info->block_info.alloc_stack,
+                          &bad_access_info->block_info.alloc_stack_size);
+  bad_access_info->block_info.alloc_tid = block_info.trailer->alloc_tid;
 
   if (block_info.header->state != ALLOCATED_BLOCK) {
     const common::StackCapture* free_stack = block_info.header->free_stack;
@@ -232,9 +232,9 @@ bool ErrorInfoGetBadAccessInformation(StackCaptureCache* stack_cache,
       free_stack_trailer = containing_block.trailer;
     }
     CopyStackCaptureToArray(block_info.header->free_stack,
-                            bad_access_info->free_stack,
-                            &bad_access_info->free_stack_size);
-    bad_access_info->free_tid = free_stack_trailer->free_tid;
+                            bad_access_info->block_info.free_stack,
+                            &bad_access_info->block_info.free_stack_size);
+    bad_access_info->block_info.free_tid = free_stack_trailer->free_tid;
   }
 
   // Get the bad access description if we've been able to determine its kind.

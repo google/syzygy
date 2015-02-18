@@ -95,6 +95,9 @@ struct AsanBlockInfo {
   uint8 free_stack_size;
   // The type of heap that made the allocation.
   HeapType heap_type;
+  // The time since this block has been freed. This would be equal to zero if
+  // the block is still allocated.
+  uint32 milliseconds_since_free;
 };
 
 struct AsanCorruptBlockRange {
@@ -115,30 +118,16 @@ struct AsanCorruptBlockRange {
 };
 
 // Store the information about a bad memory access.
-// TODO(chrisha, sebmarchand): Make AsanErrorInfo contain an AsanBlockInfo
-//     rather than duplicating fields from it.
 struct AsanErrorInfo {
   // The address where the bad access happened.
   void* location;
   // The context prior to the crash.
   CONTEXT context;
-  // The allocation stack trace.
-  void* alloc_stack[agent::common::StackCapture::kMaxNumFrames];
-  // The size of the allocation stack trace.
-  uint8 alloc_stack_size;
-  // The ID of the allocation thread.
-  DWORD alloc_tid;
-  // The free stack trace.
-  void* free_stack[agent::common::StackCapture::kMaxNumFrames];
-  // The size of the free stack trace.
-  uint8 free_stack_size;
-  // The ID of the free thread.
-  DWORD free_tid;
-  // The type of heap that made the allocation.
-  HeapType heap_type;
   // The ID of the crash stack, this is needed to be able to blacklist some
   // known bugs.
   common::StackCapture::StackId crash_stack_id;
+  // The information about the block that contains the invalid location.
+  AsanBlockInfo block_info;
   // The error type.
   BadAccessKind error_type;
   // The access mode.
@@ -151,9 +140,6 @@ struct AsanErrorInfo {
   char shadow_info[128];
   // A textual description of the shadow memory around |location|.
   char shadow_memory[512];
-  // The time since the memory block containing this address has been freed.
-  // This would be equal to zero if the block is still allocated.
-  uint32 milliseconds_since_free;
   // Indicates if the heap is corrupt.
   bool heap_is_corrupt;
   // The number of corrupt ranges encountered.

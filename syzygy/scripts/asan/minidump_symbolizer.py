@@ -54,14 +54,18 @@ about how to treat this bug.'
 _GET_BAD_ACCESS_INFO_COMMAND = 'dt -o error_info'
 
 
+# Command to print the block info structure nested into the error info one.
+_GET_BLOCK_INFO_COMMAND = 'dt agent::asan::AsanBlockInfo poi(error_info) -o'
+
+
 # Template command to print a stack trace from an error info structure.
 #
 # Here's the description of the keyword to use in this template:
 #     - operand: The operator to use to access the structure ('.' or '->').
 #     - type: The stack trace type ('alloc' or 'free')
 _GET_STACK_COMMAND_TEMPLATE = (
-    'dps @@(&error_info{operand}{type}_stack) '
-    'l@@(error_info{operand}{type}_stack_size);'
+    'dps @@(&error_info{operand}block_info.{type}_stack) '
+    'l@@(error_info{operand}block_info.{type}_stack_size);'
   )
 
 
@@ -113,7 +117,7 @@ _STACK_FRAME_RE = re.compile("""
     (\(Inline\)\s)?
     (?P<args>([0-9A-F\-]+\ +)+)
     (?:
-      ((?P<module>[^ ]+)(!(?P<location>.*)))? |
+      (?P<module>[^ ]+)(!(?P<location>.*))? |
       (?P<address>0x[0-9a-f]+)
     )
     $
@@ -270,7 +274,20 @@ def GetCorruptHeapInfo(debugger, bad_access_info_vals, bad_access_info_frame,
         m = struct_field_re.match(line)
         if m:
           block_info.append(m.group(1))
+      block_info_corruption_state = []
+      for line in debugger.Command(
+          '?? ((syzyasan_rtl!agent::asan::AsanCorruptBlockRange*)'
+          '(error_info%scorrupt_ranges))[%d].block_info[%d].analysis' % (
+              operand, corrupt_range_idx, block_info_idx)):
+        m = struct_field_re.match(line)
+        if m:
+          block_info_corruption_state.append(m.group(1))
       block_info_vals = DebugStructToDict(block_info)
+      block_info_corruption_state_vals = DebugStructToDict(
+          block_info_corruption_state)
+      block_info_vals.pop('analysis', None)
+      for e in block_info_corruption_state_vals:
+        block_info_vals['analysis.%s' % e] = block_info_corruption_state_vals[e]
       # Get the allocation stack trace for this block info structure.
       block_info_vals['alloc_stack'], _ = NormalizeStackTrace(debugger.Command(
           _GET_CORRUPT_BLOCK_STACK_TRACE_TEMPLATE.format(type='alloc',
@@ -437,10 +454,14 @@ def ProcessMinidump(minidump_filename, cdb_path, pdb_path):
     debugger.Command('.frame %X' % bad_access_info_frame)
     debugger.Command('kv')
     bad_access_info = debugger.Command(_GET_BAD_ACCESS_INFO_COMMAND)
+    bad_access_block_info = debugger.Command(_GET_BLOCK_INFO_COMMAND)
     # The first two lines contain no useful information, remove them.
     bad_access_info.pop(0)
     bad_access_info.pop(0)
+    bad_access_block_info.pop(0)
+    bad_access_block_info.pop(0)
     bad_access_info_vals = DebugStructToDict(bad_access_info)
+    bad_access_info_vals.update(DebugStructToDict(bad_access_block_info))
 
     # Checks if the heap is corrupt.
     heap_is_corrupt = bad_access_info_vals['heap_is_corrupt'] == '1'
@@ -548,16 +569,9 @@ def PrintASanReport(report, file_handle=sys.stdout):
       block_info_idx = 0
       for block_info in corrupt_heap_range['block_info']:
         file_handle.write('    Block info #%d\n' % block_info_idx)
-        file_handle.write('      Header : %s\n' % block_info['header'])
-        file_handle.write('      User size : %s\n' % block_info['user_size'])
-        file_handle.write('      State : %s\n' % block_info['state'])
-        file_handle.write('      Alloc TID : %s\n' % block_info['alloc_tid'])
-        file_handle.write('      Free TID : %s\n' % block_info['free_tid'])
-        file_handle.write('      Is corrupt : %s\n' % block_info['corrupt'])
-        file_handle.write('      Alloc stack size : %s\n' %
-            block_info['alloc_stack_size'])
-        file_handle.write('      Free stack size : %s\n' %
-            block_info['free_stack_size'])
+        for field in sorted(block_info):
+          if not field.endswith('stack') and field != ('block_content'):
+            file_handle.write('      %s : %s\n' % (field, block_info[field]))
         file_handle.write('      Alloc stack:\n')
         for frame in block_info['alloc_stack']:
           file_handle.write('        %s\n' % frame)

@@ -638,15 +638,15 @@ void MemoryAccessorTester::AsanErrorCallbackImpl(AsanErrorInfo* error_info) {
   EXPECT_EQ(expected_error_type_, error_info->error_type);
   if (error_info->error_type >= agent::asan::USE_AFTER_FREE) {
     // We should at least have the stack trace of the allocation of this block.
-    EXPECT_GT(error_info->alloc_stack_size, 0U);
-    EXPECT_NE(0U, error_info->alloc_tid);
+    EXPECT_GT(error_info->block_info.alloc_stack_size, 0U);
+    EXPECT_NE(0U, error_info->block_info.alloc_tid);
     if (error_info->error_type == agent::asan::USE_AFTER_FREE ||
       error_info->error_type == agent::asan::DOUBLE_FREE) {
-      EXPECT_GT(error_info->free_stack_size, 0U);
-      EXPECT_NE(0U, error_info->free_tid);
+      EXPECT_GT(error_info->block_info.free_stack_size, 0U);
+      EXPECT_NE(0U, error_info->block_info.free_tid);
     } else {
-      EXPECT_EQ(error_info->free_stack_size, 0U);
-      EXPECT_EQ(0U, error_info->free_tid);
+      EXPECT_EQ(error_info->block_info.free_stack_size, 0U);
+      EXPECT_EQ(0U, error_info->block_info.free_tid);
     }
   }
 

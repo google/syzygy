@@ -712,15 +712,15 @@ void AsanRuntime::LogAsanErrorInfo(AsanErrorInfo* error_info) {
     logger_->WriteWithContext(output, error_info->context);
 
     logger_->Write(error_info->shadow_info);
-    if (error_info->free_stack_size != 0U) {
+    if (error_info->block_info.free_stack_size != 0U) {
       logger_->WriteWithStackTrace("freed here:\n",
-                                   error_info->free_stack,
-                                   error_info->free_stack_size);
+                                   error_info->block_info.free_stack,
+                                   error_info->block_info.free_stack_size);
     }
-    if (error_info->alloc_stack_size != NULL) {
+    if (error_info->block_info.alloc_stack_size != NULL) {
       logger_->WriteWithStackTrace("previously allocated here:\n",
-                                   error_info->alloc_stack,
-                                   error_info->alloc_stack_size);
+                                   error_info->block_info.alloc_stack,
+                                   error_info->block_info.alloc_stack_size);
     }
     if (error_info->error_type >= USE_AFTER_FREE) {
       std::string shadow_text;
@@ -734,19 +734,19 @@ void AsanRuntime::LogAsanErrorInfo(AsanErrorInfo* error_info) {
                  base::SysUTF8ToWide(bug_descr).c_str());
 
   // Print the Windbg information to display the allocation stack if present.
-  if (error_info->alloc_stack_size != NULL) {
+  if (error_info->block_info.alloc_stack_size != NULL) {
     AsanDbgMessage(L"Allocation stack trace:");
     AsanDbgCmd(L"dps %p l%d",
-               error_info->alloc_stack,
-               error_info->alloc_stack_size);
+               error_info->block_info.alloc_stack,
+               error_info->block_info.alloc_stack_size);
   }
 
   // Print the Windbg information to display the free stack if present.
-  if (error_info->free_stack_size != NULL) {
+  if (error_info->block_info.free_stack_size != NULL) {
     AsanDbgMessage(L"Free stack trace:");
     AsanDbgCmd(L"dps %p l%d",
-               error_info->free_stack,
-               error_info->free_stack_size);
+               error_info->block_info.free_stack,
+               error_info->block_info.free_stack_size);
   }
 }
 

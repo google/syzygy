@@ -85,12 +85,12 @@ void ReportBadMemoryAccess(void* location,
   bad_access_info.location = location;
   bad_access_info.access_mode = access_mode;
   bad_access_info.access_size = access_size;
-  bad_access_info.alloc_stack_size = 0U;
-  bad_access_info.alloc_tid = 0U;
   bad_access_info.error_type = UNKNOWN_BAD_ACCESS;
-  bad_access_info.free_stack_size = 0U;
-  bad_access_info.free_tid = 0U;
-  bad_access_info.milliseconds_since_free = 0U;
+  bad_access_info.block_info.alloc_stack_size = 0U;
+  bad_access_info.block_info.alloc_tid = 0U;
+  bad_access_info.block_info.free_stack_size = 0U;
+  bad_access_info.block_info.free_tid = 0U;
+  bad_access_info.block_info.milliseconds_since_free = 0U;
   bad_access_info.corrupt_ranges = NULL;
   bad_access_info.corrupt_range_count = 0;
 
