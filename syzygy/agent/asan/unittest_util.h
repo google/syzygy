@@ -53,8 +53,8 @@ class TestWithAsanLogger : public testing::Test {
 
   // @name testing::Test overrides.
   // @{
-  void SetUp() OVERRIDE;
-  void TearDown() OVERRIDE;
+  void SetUp() override;
+  void TearDown() override;
   // @}
 
   // @name Accessors.
@@ -202,7 +202,7 @@ class TestAsanRtl : public testing::TestWithAsanLogger {
   TestAsanRtl() : asan_rtl_(NULL), heap_(NULL) {
   }
 
-  void SetUp() OVERRIDE {
+  void SetUp() override {
     testing::TestWithAsanLogger::SetUp();
 
     // Load the Asan runtime library.
@@ -230,7 +230,7 @@ class TestAsanRtl : public testing::TestWithAsanLogger {
     runtime->params().check_heap_on_failure = false;
   }
 
-  void TearDown() OVERRIDE {
+  void TearDown() override {
     if (heap_ != NULL) {
       HeapDestroyFunction(heap_);
       heap_ = NULL;
@@ -342,13 +342,13 @@ class TestWithAsanRuntime : public testing::Test {
     runtime_ = NULL;
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     CHECK_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime_);
     testing::Test::SetUp();
     runtime_->SetUp(L"");
   }
 
-  virtual void TearDown() OVERRIDE {
+  virtual void TearDown() override {
     CHECK_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime_);
     runtime_->TearDown();
     testing::Test::TearDown();
@@ -528,6 +528,76 @@ class MemoryAccessorTester {
 
   // There shall be only one!
   static MemoryAccessorTester* instance_;
+};
+
+// A fixture class for testing memory interceptors.
+class TestMemoryInterceptors : public TestWithAsanLogger {
+ public:
+  // Redefine some enums for local use.
+  enum AccessMode {
+    AsanReadAccess = agent::asan::ASAN_READ_ACCESS,
+    AsanWriteAccess = agent::asan::ASAN_WRITE_ACCESS,
+    AsanUnknownAccess = agent::asan::ASAN_UNKNOWN_ACCESS,
+  };
+
+  struct InterceptFunction {
+    void(*function)();
+    size_t size;
+  };
+
+  struct StringInterceptFunction {
+    void(*function)();
+    size_t size;
+    AccessMode dst_access_mode;
+    AccessMode src_access_mode;
+    bool uses_counter;
+  };
+
+  static const bool kCounterInit_ecx = true;
+  static const bool kCounterInit_1 = false;
+
+  TestMemoryInterceptors();
+  void SetUp() override;
+  void TearDown() override;
+
+  template <size_t N>
+  void TestValidAccess(const InterceptFunction (&fns)[N]) {
+    TestValidAccess(fns, N);
+  }
+  template <size_t N>
+  void TestOverrunAccess(const InterceptFunction (&fns)[N]) {
+    TestOverrunAccess(fns, N);
+  }
+  template <size_t N>
+  void TestUnderrunAccess(const InterceptFunction (&fns)[N]) {
+    TestUnderrunAccess(fns, N);
+  }
+  template <size_t N>
+  void TestStringValidAccess(const StringInterceptFunction (&fns)[N]) {
+    TestStringValidAccess(fns, N);
+  }
+  template <size_t N>
+  void TestStringOverrunAccess(const StringInterceptFunction (&fns)[N]) {
+    TestStringOverrunAccess(fns, N);
+  }
+
+ protected:
+  void TestValidAccess(const InterceptFunction* fns, size_t num_fns);
+  void TestOverrunAccess(const InterceptFunction* fns, size_t num_fns);
+  void TestUnderrunAccess(const InterceptFunction* fns, size_t num_fns);
+  void TestStringValidAccess(
+      const StringInterceptFunction* fns, size_t num_fns);
+  void TestStringOverrunAccess(
+      const StringInterceptFunction* fns, size_t num_fns);
+
+  const size_t kAllocSize = 64;
+
+  agent::asan::AsanRuntime asan_runtime_;
+  HANDLE heap_;
+
+  // Convenience allocs of kAllocSize. Valid from SetUp to TearDown.
+  byte* src_;
+  byte* dst_;
 };
 
 // A very lightweight dummy heap to be used in stress testing the

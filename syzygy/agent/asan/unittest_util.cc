@@ -18,6 +18,7 @@
 
 #include <algorithm>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/debug/alias.h"
@@ -26,8 +27,10 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "syzygy/agent/asan/asan_rtl_impl.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/block.h"
+#include "syzygy/agent/asan/error_info.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/common/stack_capture.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -719,6 +722,192 @@ void MemoryAccessorTester::ExpectSpecialMemoryErrorIsDetected(
 
   EXPECT_EQ(expect_error, memory_error_detected_);
   check_access_fn = NULL;
+}
+
+TestMemoryInterceptors::TestMemoryInterceptors()
+    : heap_(NULL), src_(NULL), dst_(NULL) {
+}
+
+void TestMemoryInterceptors::SetUp() {
+  testing::TestWithAsanLogger::SetUp();
+
+  // Make sure the logging routes to our instance.
+  AppendToLoggerEnv(base::StringPrintf("syzyasan_rtl_unittests.exe,%u",
+                                        ::GetCurrentProcessId()));
+
+  asan_runtime_.SetUp(std::wstring());
+
+  // Heap checking on error is expensive, so turn it down here.
+  asan_runtime_.params().check_heap_on_failure = false;
+
+  agent::asan::SetUpRtl(&asan_runtime_);
+
+  asan_runtime_.SetErrorCallBack(
+      base::Bind(testing::MemoryAccessorTester::AsanErrorCallback));
+  heap_ = asan_HeapCreate(0, 0, 0);
+  ASSERT_TRUE(heap_ != NULL);
+
+  src_ = reinterpret_cast<byte*>(asan_HeapAlloc(heap_, 0, kAllocSize));
+  dst_ = reinterpret_cast<byte*>(asan_HeapAlloc(heap_, 0, kAllocSize));
+  ASSERT_TRUE(src_ && dst_);
+
+  // String instructions may compare memory contents and bail early on
+  // differences, so fill the buffers to make sure the checks go the full
+  // distance.
+  ::memset(src_, 0xFF, kAllocSize);
+  ::memset(dst_, 0xFF, kAllocSize);
+}
+
+void TestMemoryInterceptors::TearDown() {
+  if (heap_ != NULL) {
+    asan_HeapFree(heap_, 0, src_);
+    asan_HeapFree(heap_, 0, dst_);
+
+    asan_HeapDestroy(heap_);
+    heap_ = NULL;
+  }
+  agent::asan::TearDownRtl();
+  asan_runtime_.TearDown();
+  testing::TestWithAsanLogger::TearDown();
+}
+
+void TestMemoryInterceptors::TestValidAccess(
+    const InterceptFunction* fns, size_t num_fns) {
+  for (size_t i = 0; i < num_fns; ++i) {
+    const InterceptFunction& fn = fns[i];
+
+    MemoryAccessorTester tester;
+    tester.CheckAccessAndCompareContexts(
+        reinterpret_cast<FARPROC>(fn.function), src_);
+
+    ASSERT_FALSE(tester.memory_error_detected());
+  }
+}
+
+void TestMemoryInterceptors::TestOverrunAccess(
+    const InterceptFunction* fns, size_t num_fns) {
+  for (size_t i = 0; i < num_fns; ++i) {
+    const InterceptFunction& fn = fns[i];
+
+    MemoryAccessorTester tester;
+    tester.AssertMemoryErrorIsDetected(
+        reinterpret_cast<FARPROC>(fn.function),
+        src_ + kAllocSize,
+        MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_OVERFLOW);
+
+    ASSERT_TRUE(tester.memory_error_detected());
+  }
+}
+
+void TestMemoryInterceptors::TestUnderrunAccess(
+    const InterceptFunction* fns, size_t num_fns) {
+  for (size_t i = 0; i < num_fns; ++i) {
+    const InterceptFunction& fn = fns[i];
+
+    // TODO(someone): the 32 byte access checker does not fire on 32 byte
+    //     underrun. I guess the checkers test a single shadow byte at most
+    //     whereas it'd be more correct for access checkers to test as many
+    //     shadow bytes as is appropriate for the range of memory they touch.
+    MemoryAccessorTester tester;
+    tester.AssertMemoryErrorIsDetected(
+        reinterpret_cast<FARPROC>(fn.function),
+        src_ - 8,
+        MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_UNDERFLOW);
+
+    ASSERT_TRUE(tester.memory_error_detected());
+  }
+}
+
+void TestMemoryInterceptors::TestStringValidAccess(
+    const StringInterceptFunction* fns, size_t num_fns) {
+  for (size_t i = 0; i < num_fns; ++i) {
+    const StringInterceptFunction& fn = fns[i];
+
+    MemoryAccessorTester tester;
+    tester.CheckSpecialAccessAndCompareContexts(
+        reinterpret_cast<FARPROC>(fn.function),
+        MemoryAccessorTester::DIRECTION_FORWARD,
+        dst_, src_, kAllocSize / fn.size);
+    ASSERT_FALSE(tester.memory_error_detected());
+
+    tester.CheckSpecialAccessAndCompareContexts(
+        reinterpret_cast<FARPROC>(fn.function),
+        MemoryAccessorTester::DIRECTION_BACKWARD,
+        dst_ + kAllocSize - fn.size, src_ + kAllocSize - fn.size,
+        kAllocSize / fn.size);
+
+    ASSERT_FALSE(tester.memory_error_detected());
+  }
+}
+
+void TestMemoryInterceptors::TestStringOverrunAccess(
+    const StringInterceptFunction* fns, size_t num_fns) {
+  for (size_t i = 0; i < num_fns; ++i) {
+    const StringInterceptFunction& fn = fns[i];
+
+    MemoryAccessorTester tester;
+    size_t oob_len = 0;
+    byte* oob_dst = NULL;
+    byte* oob_src = NULL;
+
+    // Half the string function intercepts are for rep-prefixed instructions,
+    // which count on "ecx", and the other half is for non-prefixed
+    // instructions that always perform a single access.
+    // Compute appropriate pointers for both variants, forwards.
+    if (fn.uses_counter) {
+      oob_len = kAllocSize / fn.size;
+      oob_dst = dst_ + fn.size;
+      oob_src = src_ + fn.size;
+    } else {
+      oob_len = 1;
+      oob_dst = dst_ + kAllocSize;
+      oob_src = src_ + kAllocSize;
+    }
+
+    ASSERT_NE(agent::asan::ASAN_UNKNOWN_ACCESS, fn.dst_access_mode);
+    // Overflow on dst forwards.
+    tester.ExpectSpecialMemoryErrorIsDetected(
+        reinterpret_cast<FARPROC>(fn.function),
+        MemoryAccessorTester::DIRECTION_FORWARD, true,
+        oob_dst, src_, oob_len,
+        MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_OVERFLOW);
+
+    if (fn.src_access_mode != agent::asan::ASAN_UNKNOWN_ACCESS) {
+      // Overflow on src forwards.
+      tester.ExpectSpecialMemoryErrorIsDetected(
+          reinterpret_cast<FARPROC>(fn.function),
+          MemoryAccessorTester::DIRECTION_FORWARD, true,
+          dst_, oob_src, oob_len,
+          MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_OVERFLOW);
+    }
+
+    // Compute appropriate pointers for both variants, backwards.
+    if (fn.uses_counter) {
+      oob_len = kAllocSize / fn.size;
+    } else {
+      oob_len = 1;
+    }
+
+    oob_dst = dst_ + kAllocSize;
+    oob_src = src_ + kAllocSize;
+
+    ASSERT_NE(agent::asan::ASAN_UNKNOWN_ACCESS, fn.dst_access_mode);
+    // Overflow on dst backwards.
+    tester.ExpectSpecialMemoryErrorIsDetected(
+        reinterpret_cast<FARPROC>(fn.function),
+        MemoryAccessorTester::DIRECTION_BACKWARD, true,
+        oob_dst, src_ + kAllocSize - fn.size, oob_len,
+        MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_OVERFLOW);
+
+    if (fn.src_access_mode != agent::asan::ASAN_UNKNOWN_ACCESS) {
+      // Overflow on src backwards.
+      tester.ExpectSpecialMemoryErrorIsDetected(
+          reinterpret_cast<FARPROC>(fn.function),
+          MemoryAccessorTester::DIRECTION_BACKWARD, true,
+          dst_ + kAllocSize - fn.size, oob_dst, oob_len,
+          MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_OVERFLOW);
+    }
+  }
 }
 
 bool IsAccessible(void* address) {
