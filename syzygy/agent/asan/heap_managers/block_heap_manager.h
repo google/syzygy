@@ -133,24 +133,28 @@ class BlockHeapManager : public HeapManagerInterface {
   // @}
 
   // The type of quarantine that we use internally.
-  typedef quarantines::ShardedQuarantine<CompactBlockInfo,
-                                         GetTotalBlockSizeFunctor,
-                                         GetBlockHashFunctor,
-                                         kQuarantineDefaultShardingFactor>
-      ShardedBlockQuarantine;
+  using ShardedBlockQuarantine =
+      quarantines::ShardedQuarantine<CompactBlockInfo,
+                                     GetTotalBlockSizeFunctor,
+                                     GetBlockHashFunctor,
+                                     kQuarantineDefaultShardingFactor>;
 
   // A map associating a block heap with its underlying heap.
-  typedef std::unordered_map<BlockHeapInterface*, HeapInterface*>
-      UnderlyingHeapMap;
+  using UnderlyingHeapMap =
+      std::unordered_map<BlockHeapInterface*, HeapInterface*>;
 
-  // A map associating a block heap with the quarantine it will use. Many heaps
-  // may share a single quarantine.
-  typedef std::unordered_map<BlockHeapInterface*, BlockQuarantineInterface*>
-      HeapQuarantineMap;
-  typedef BlockHeapManager::HeapQuarantineMap::value_type
-      HeapQuarantinePair;
+  // A map associating a block heap with a pair containing the quarantine it
+  // will use and a bit indicating if it's dying. Many heaps may share a single
+  // quarantine.
+  struct HeapMetadata {
+    BlockQuarantineInterface* quarantine;
+    bool is_dying;
+  };
+  using HeapQuarantineMap =
+      std::unordered_map<BlockHeapInterface*, HeapMetadata>;
+  using HeapQuarantinePair = BlockHeapManager::HeapQuarantineMap::value_type;
 
-  typedef agent::common::StackCapture::StackId StackId;
+  using StackId = agent::common::StackCapture::StackId;
 
   // Contains the information allowing to determine which rate targeted heap
   // should serve a given allocation.
@@ -252,6 +256,10 @@ class BlockHeapManager : public HeapManagerInterface {
   //    establish that when the size is 0, it means unlimited, this is rather
   //    awkward since trimming with size 0 should flush the quarantine.
   void TrimQuarantine(BlockQuarantineInterface* quarantine);
+
+  // Free a vector of blocks.
+  // @param vec The vector of blocks to be freed.
+  void FreeBlockVector(BlockQuarantineInterface::ObjectVector& vec);
 
   // Free a block that might be corrupt. If the block is corrupt first reports
   // an error before safely releasing the block.
@@ -368,9 +376,6 @@ class BlockHeapManager : public HeapManagerInterface {
 
   // Contains the heaps owned by this manager.
   HeapQuarantineMap heaps_;  // Under lock_.
-  // Contains the heaps owned by this manager, but in the process of being
-  // deleted.
-  HeapQuarantineMap dying_heaps_;  // Under lock.
 
   // The quarantine shared by the heaps created by this manager. This is also
   // used by the LargeBlockHeap.

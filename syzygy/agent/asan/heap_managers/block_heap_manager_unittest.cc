@@ -123,6 +123,7 @@ class TestBlockHeapManager : public BlockHeapManager {
   using BlockHeapManager::GetHeapFromId;
   using BlockHeapManager::GetHeapTypeUnlocked;
   using BlockHeapManager::GetQuarantineFromId;
+  using BlockHeapManager::HeapMetadata;
   using BlockHeapManager::HeapQuarantineMap;
   using BlockHeapManager::IsValidHeapIdUnlocked;
   using BlockHeapManager::SetHeapErrorCallback;
@@ -397,8 +398,10 @@ class BlockHeapManagerTest
     // Plug a mock ZebraBlockHeap by default disabled.
     test_zebra_block_heap_ = new TestZebraBlockHeap();
     heap_manager_->zebra_block_heap_ = test_zebra_block_heap_;
+    TestBlockHeapManager::HeapMetadata heap_metadata =
+      { test_zebra_block_heap_, false };
     auto result = heap_manager_->heaps_.insert(std::make_pair(
-        test_zebra_block_heap_, test_zebra_block_heap_));
+        test_zebra_block_heap_, heap_metadata));
     heap_manager_->zebra_block_heap_id_ = heap_manager_->GetHeapId(result);
 
     // Turn on the zebra_block_heap_enabled flag.

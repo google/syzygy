@@ -128,7 +128,8 @@ HeapId BlockHeapManager::CreateHeap() {
 
   base::AutoLock lock(lock_);
   underlying_heaps_map_.insert(std::make_pair(heap, underlying_heap));
-  auto result = heaps_.insert(std::make_pair(heap, &shared_quarantine_));
+  HeapMetadata metadata = { &shared_quarantine_, false };
+  auto result = heaps_.insert(std::make_pair(heap, metadata));
   return GetHeapId(result);
 }
 
@@ -143,9 +144,7 @@ bool BlockHeapManager::DestroyHeap(HeapId heap_id) {
     // being used while it's being torn down.
     base::AutoLock lock(lock_);
     auto iter = heaps_.find(heap);
-    CHECK(iter != heaps_.end());
-    heaps_.erase(iter);
-    dying_heaps_.insert(std::make_pair(heap, quarantine));
+    iter->second.is_dying = true;
   }
 
   // Destroy the heap and flush its quarantine. This is done outside of the
@@ -158,6 +157,7 @@ bool BlockHeapManager::DestroyHeap(HeapId heap_id) {
   {
     base::AutoLock lock(lock_);
     DestroyHeapResourcesUnlocked(heap, quarantine);
+    heaps_.erase(heaps_.find(heap));
   }
 
   return true;
@@ -412,12 +412,11 @@ void BlockHeapManager::TearDownHeapManager() {
   // all references to internal_heap_ have been cleaned up.
   HeapQuarantineMap::iterator iter_heaps = heaps_.begin();
   for (; iter_heaps != heaps_.end(); ++iter_heaps) {
-    // Insert the heap into the list of dying heaps. Don't bother removing it
-    // from the active heaps list, as we hold the lock the entire time, and it
-    // won't be modified from underneath us.
-    dying_heaps_.insert(*iter_heaps);
-    DestroyHeapContents(iter_heaps->first, iter_heaps->second);
-    DestroyHeapResourcesUnlocked(iter_heaps->first, iter_heaps->second);
+    DCHECK(!iter_heaps->second.is_dying);
+    iter_heaps->second.is_dying = true;
+    DestroyHeapContents(iter_heaps->first, iter_heaps->second.quarantine);
+    DestroyHeapResourcesUnlocked(iter_heaps->first,
+                                 iter_heaps->second.quarantine);
   }
   // Clear the active heap list.
   heaps_.clear();
@@ -504,7 +503,7 @@ bool BlockHeapManager::IsValidHeapIdUnsafeUnlockedImpl1(
   // cause an invalid access if the heap_id is completely a wild value.
   if (hq == nullptr)
     return false;
-  if (hq->first == nullptr || hq->second == nullptr)
+  if (hq->first == nullptr || hq->second.quarantine == nullptr)
     return false;
   return true;
 }
@@ -529,18 +528,7 @@ bool BlockHeapManager::IsValidHeapIdUnlockedImpl2(HeapQuarantinePair* hq,
   if (it != heaps_.end()) {
     HeapId heap_id = GetHeapId(it);
     if (heap_id == reinterpret_cast<HeapId>(hq))
-      return true;
-  }
-
-  if (!allow_dying)
-    return false;
-
-  // If permitted, look in the list of dying heaps.
-  it = dying_heaps_.find(hq->first);
-  if (it != dying_heaps_.end()) {
-    HeapId heap_id = GetHeapId(it);
-    if (heap_id == reinterpret_cast<HeapId>(hq))
-      return true;
+      return !it->second.is_dying || allow_dying;
   }
 
   return false;
@@ -557,8 +545,9 @@ BlockQuarantineInterface* BlockHeapManager::GetQuarantineFromId(
     HeapId heap_id) {
   DCHECK_NE(reinterpret_cast<HeapId>(nullptr), heap_id);
   HeapQuarantinePair* hq = reinterpret_cast<HeapQuarantinePair*>(heap_id);
-  DCHECK_NE(static_cast<BlockQuarantineInterface*>(nullptr), hq->second);
-  return hq->second;
+  DCHECK_NE(static_cast<BlockQuarantineInterface*>(nullptr),
+            hq->second.quarantine);
+  return hq->second.quarantine;
 }
 
 void BlockHeapManager::PropagateParameters() {
@@ -581,8 +570,9 @@ void BlockHeapManager::PropagateParameters() {
                                            &shadow_memory_notifier_,
                                            internal_heap_.get());
     // The zebra block heap is its own quarantine.
-    auto result = heaps_.insert(std::make_pair(
-        zebra_block_heap_, zebra_block_heap_));
+    HeapMetadata heap_metadata = { zebra_block_heap_, false };
+    auto result = heaps_.insert(std::make_pair(zebra_block_heap_,
+                                               heap_metadata));
     zebra_block_heap_id_ = GetHeapId(result);
   }
 
@@ -597,7 +587,8 @@ void BlockHeapManager::PropagateParameters() {
   if (parameters_.enable_large_block_heap && large_block_heap_id_ == 0) {
     base::AutoLock lock(lock_);
     BlockHeapInterface* heap = new LargeBlockHeap(internal_heap_.get());
-    auto result = heaps_.insert(std::make_pair(heap, &shared_quarantine_));
+    HeapMetadata metadata = { &shared_quarantine_, false };
+    auto result = heaps_.insert(std::make_pair(heap, metadata));
     large_block_heap_id_ = GetHeapId(result);
   }
 
@@ -631,6 +622,7 @@ bool BlockHeapManager::DestroyHeapContents(
 
   // Starts by removing all the block from this heap from the quarantine.
   BlockQuarantineInterface::ObjectVector blocks_vec;
+  BlockQuarantineInterface::ObjectVector blocks_to_free;
 
   // We'll keep the blocks that don't belong to this heap in a temporary list.
   // While this isn't optimal in terms of performance, destroying a heap isn't a
@@ -639,43 +631,40 @@ bool BlockHeapManager::DestroyHeapContents(
   //     method that accepts a functor to filter the blocks to remove.
   BlockQuarantineInterface::ObjectVector blocks_to_reinsert;
   quarantine->Empty(&blocks_vec);
-  BlockQuarantineInterface::ObjectVector::iterator iter_block =
-      blocks_vec.begin();
 
-  for (; iter_block != blocks_vec.end(); ++iter_block) {
-    const CompactBlockInfo& compact = *iter_block;
+  for (const auto& iter_block : blocks_vec) {
     BlockInfo expanded = {};
-    ConvertBlockInfo(compact, &expanded);
+    ConvertBlockInfo(iter_block, &expanded);
 
     // Remove protection to enable access to the block header.
     BlockProtectNone(expanded);
-    BlockHeapInterface* block_heap = GetHeapFromId(
-        expanded.trailer->heap_id);
+
+    BlockHeapInterface* block_heap = GetHeapFromId(expanded.trailer->heap_id);
+
     if (block_heap == heap) {
-      if (!FreePotentiallyCorruptBlock(&expanded))
-        return false;
+      blocks_to_free.push_back(iter_block);
     } else {
-      blocks_to_reinsert.push_back(*iter_block);
+      blocks_to_reinsert.push_back(iter_block);
     }
   }
 
   // Restore the blocks that don't belong to this quarantine.
-  iter_block = blocks_to_reinsert.begin();
-  for (; iter_block != blocks_to_reinsert.end(); ++iter_block) {
-    const CompactBlockInfo& compact = *iter_block;
+  for (const auto& iter_block : blocks_to_reinsert) {
     BlockInfo expanded = {};
-    ConvertBlockInfo(compact, &expanded);
+    ConvertBlockInfo(iter_block, &expanded);
 
     BlockQuarantineInterface::AutoQuarantineLock quarantine_lock(quarantine,
-                                                                 compact);
-    if (quarantine->Push(compact)) {
+                                                                 iter_block);
+    if (quarantine->Push(iter_block)) {
       // Restore protection to quarantined block.
       BlockProtectAll(expanded);
     } else {
       // Avoid memory leak.
-      CHECK(FreePotentiallyCorruptBlock(&expanded));
+      blocks_to_free.push_back(iter_block);
     }
   }
+
+  FreeBlockVector(blocks_to_free);
 
   return true;
 }
@@ -691,13 +680,6 @@ void BlockHeapManager::DestroyHeapResourcesUnlocked(
       delete iter->second;
       underlying_heaps_map_.erase(iter);
     }
-  }
-
-  {
-    // Remove the heap from the list of dying heaps.
-    auto iter = dying_heaps_.find(heap);
-    CHECK(iter != dying_heaps_.end());
-    dying_heaps_.erase(iter);
   }
 
   delete heap;
@@ -718,12 +700,14 @@ void BlockHeapManager::TrimQuarantine(BlockQuarantineInterface* quarantine) {
       blocks_to_free.push_back(compact);
   }
 
-  BlockQuarantineInterface::ObjectVector::iterator iter_block =
-      blocks_to_free.begin();
-  for (; iter_block != blocks_to_free.end(); ++iter_block) {
-    const CompactBlockInfo& compact = *iter_block;
+  FreeBlockVector(blocks_to_free);
+}
+
+void BlockHeapManager::FreeBlockVector(
+    BlockQuarantineInterface::ObjectVector& vec) {
+  for (const auto& iter_block : vec) {
     BlockInfo expanded = {};
-    ConvertBlockInfo(compact, &expanded);
+    ConvertBlockInfo(iter_block, &expanded);
     CHECK(FreePotentiallyCorruptBlock(&expanded));
   }
 }
@@ -875,8 +859,8 @@ void BlockHeapManager::InitProcessHeap() {
   process_heap_ = new heaps::SimpleBlockHeap(process_heap_underlying_heap_);
   underlying_heaps_map_.insert(std::make_pair(process_heap_,
                                               process_heap_underlying_heap_));
-  auto result = heaps_.insert(std::make_pair(
-      process_heap_, &shared_quarantine_));
+  HeapMetadata heap_metadata = { &shared_quarantine_, false };
+  auto result = heaps_.insert(std::make_pair(process_heap_, heap_metadata));
   process_heap_id_ = GetHeapId(result);
 }
 
