@@ -461,7 +461,11 @@ class MemoryAccessorTester {
  public:
   typedef agent::asan::BadAccessKind BadAccessKind;
 
+  enum IgnoreFlags {
+    IGNORE_FLAGS
+  };
   MemoryAccessorTester();
+  explicit MemoryAccessorTester(IgnoreFlags ignore_flags);
   ~MemoryAccessorTester();
 
   // Checks that @p access_fn doesn't raise exceptions on access checking
@@ -516,6 +520,9 @@ class MemoryAccessorTester {
   // detected.
   bool memory_error_detected_;
 
+  // Indicates whether to ignore changes to the flags register.
+  bool ignore_flags_;
+
   // The pre- and post-invocation contexts.
   CONTEXT context_before_hook_;
   CONTEXT context_after_hook_;
@@ -565,12 +572,24 @@ class TestMemoryInterceptors : public TestWithAsanLogger {
     TestValidAccess(fns, N);
   }
   template <size_t N>
+  void TestValidAccessIgnoreFlags(const InterceptFunction (&fns)[N]) {
+    TestValidAccessIgnoreFlags(fns, N);
+  }
+  template <size_t N>
   void TestOverrunAccess(const InterceptFunction (&fns)[N]) {
     TestOverrunAccess(fns, N);
   }
   template <size_t N>
+  void TestOverrunAccessIgnoreFlags(const InterceptFunction (&fns)[N]) {
+    TestOverrunAccessIgnoreFlags(fns, N);
+  }
+  template <size_t N>
   void TestUnderrunAccess(const InterceptFunction (&fns)[N]) {
     TestUnderrunAccess(fns, N);
+  }
+  template <size_t N>
+  void TestUnderrunAccessIgnoreFlags(const InterceptFunction (&fns)[N]) {
+    TestUnderrunAccessIgnoreFlags(fns, N);
   }
   template <size_t N>
   void TestStringValidAccess(const StringInterceptFunction (&fns)[N]) {
@@ -583,8 +602,14 @@ class TestMemoryInterceptors : public TestWithAsanLogger {
 
  protected:
   void TestValidAccess(const InterceptFunction* fns, size_t num_fns);
+  void TestValidAccessIgnoreFlags(const InterceptFunction* fns,
+                                  size_t num_fns);
   void TestOverrunAccess(const InterceptFunction* fns, size_t num_fns);
+  void TestOverrunAccessIgnoreFlags(const InterceptFunction* fns,
+                                    size_t num_fns);
   void TestUnderrunAccess(const InterceptFunction* fns, size_t num_fns);
+  void TestUnderrunAccessIgnoreFlags(const InterceptFunction* fns,
+                                     size_t num_fns);
   void TestStringValidAccess(
       const StringInterceptFunction* fns, size_t num_fns);
   void TestStringOverrunAccess(

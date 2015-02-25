@@ -476,7 +476,9 @@ namespace {
 // Check whether 2 contexts are equal.
 // @param c1 The first context to check.
 // @param c2 The second context to check.
-void ExpectEqualContexts(const CONTEXT& c1, const CONTEXT& c2) {
+void ExpectEqualContexts(const CONTEXT& c1,
+                         const CONTEXT& c2,
+                         bool ignore_flags) {
   // Segment registers.
   EXPECT_EQ(static_cast<WORD>(c1.SegGs), static_cast<WORD>(c2.SegGs));
   EXPECT_EQ(static_cast<WORD>(c1.SegFs), static_cast<WORD>(c2.SegFs));
@@ -495,7 +497,8 @@ void ExpectEqualContexts(const CONTEXT& c1, const CONTEXT& c2) {
   EXPECT_EQ(c1.Ebp, c2.Ebp);
   EXPECT_EQ(c1.Eip, c2.Eip);
   EXPECT_EQ(static_cast<WORD>(c1.SegCs), static_cast<WORD>(c2.SegCs));
-  EXPECT_EQ(c1.EFlags, c2.EFlags);
+  if (!ignore_flags)
+    EXPECT_EQ(c1.EFlags, c2.EFlags);
   EXPECT_EQ(c1.Esp, c2.Esp);
   EXPECT_EQ(static_cast<WORD>(c1.SegSs), static_cast<WORD>(c2.SegSs));
 }
@@ -504,7 +507,18 @@ void ExpectEqualContexts(const CONTEXT& c1, const CONTEXT& c2) {
 
 MemoryAccessorTester::MemoryAccessorTester()
     : expected_error_type_(agent::asan::UNKNOWN_BAD_ACCESS),
-      memory_error_detected_(false) {
+      memory_error_detected_(false),
+      ignore_flags_(false) {
+  EXPECT_EQ(static_cast<MemoryAccessorTester*>(NULL), instance_);
+
+  Initialize();
+  instance_ = this;
+}
+
+MemoryAccessorTester::MemoryAccessorTester(IgnoreFlags /* ignore_flags */)
+    : expected_error_type_(agent::asan::UNKNOWN_BAD_ACCESS),
+      memory_error_detected_(false),
+      ignore_flags_(true) {
   EXPECT_EQ(static_cast<MemoryAccessorTester*>(NULL), instance_);
 
   Initialize();
@@ -567,9 +581,14 @@ void MemoryAccessorTester::CheckAccessAndCompareContexts(
   CheckAccessAndCaptureContexts(
       &context_before_hook_, &context_after_hook_, ptr);
 
-  ExpectEqualContexts(context_before_hook_, context_after_hook_);
-  if (memory_error_detected_)
-    ExpectEqualContexts(context_before_hook_, error_context_);
+  ExpectEqualContexts(context_before_hook_,
+                      context_after_hook_,
+                      ignore_flags_);
+  if (memory_error_detected_) {
+    ExpectEqualContexts(context_before_hook_,
+                        error_context_,
+                        ignore_flags_);
+  }
 
   check_access_fn = NULL;
 }
@@ -625,9 +644,14 @@ void MemoryAccessorTester::CheckSpecialAccessAndCompareContexts(
   CheckSpecialAccess(
       &context_before_hook_, &context_after_hook_, dst, src, len);
 
-  ExpectEqualContexts(context_before_hook_, context_after_hook_);
-  if (memory_error_detected_)
-    ExpectEqualContexts(context_before_hook_, error_context_);
+  ExpectEqualContexts(context_before_hook_,
+                      context_after_hook_,
+                      ignore_flags_);
+  if (memory_error_detected_) {
+    ExpectEqualContexts(context_before_hook_,
+                        error_context_,
+                        ignore_flags_);
+  }
 
   check_access_fn = NULL;
 }
@@ -784,12 +808,40 @@ void TestMemoryInterceptors::TestValidAccess(
   }
 }
 
+void TestMemoryInterceptors::TestValidAccessIgnoreFlags(
+    const InterceptFunction* fns, size_t num_fns) {
+  for (size_t i = 0; i < num_fns; ++i) {
+    const InterceptFunction& fn = fns[i];
+
+    MemoryAccessorTester tester(MemoryAccessorTester::IGNORE_FLAGS);
+    tester.CheckAccessAndCompareContexts(
+        reinterpret_cast<FARPROC>(fn.function), src_);
+
+    ASSERT_FALSE(tester.memory_error_detected());
+  }
+}
+
 void TestMemoryInterceptors::TestOverrunAccess(
     const InterceptFunction* fns, size_t num_fns) {
   for (size_t i = 0; i < num_fns; ++i) {
     const InterceptFunction& fn = fns[i];
 
     MemoryAccessorTester tester;
+    tester.AssertMemoryErrorIsDetected(
+        reinterpret_cast<FARPROC>(fn.function),
+        src_ + kAllocSize,
+        MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_OVERFLOW);
+
+    ASSERT_TRUE(tester.memory_error_detected());
+  }
+}
+
+void TestMemoryInterceptors::TestOverrunAccessIgnoreFlags(
+    const InterceptFunction* fns, size_t num_fns) {
+  for (size_t i = 0; i < num_fns; ++i) {
+    const InterceptFunction& fn = fns[i];
+
+    MemoryAccessorTester tester(MemoryAccessorTester::IGNORE_FLAGS);
     tester.AssertMemoryErrorIsDetected(
         reinterpret_cast<FARPROC>(fn.function),
         src_ + kAllocSize,
@@ -809,6 +861,25 @@ void TestMemoryInterceptors::TestUnderrunAccess(
     //     whereas it'd be more correct for access checkers to test as many
     //     shadow bytes as is appropriate for the range of memory they touch.
     MemoryAccessorTester tester;
+    tester.AssertMemoryErrorIsDetected(
+        reinterpret_cast<FARPROC>(fn.function),
+        src_ - 8,
+        MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_UNDERFLOW);
+
+    ASSERT_TRUE(tester.memory_error_detected());
+  }
+}
+
+void TestMemoryInterceptors::TestUnderrunAccessIgnoreFlags(
+    const InterceptFunction* fns, size_t num_fns) {
+  for (size_t i = 0; i < num_fns; ++i) {
+    const InterceptFunction& fn = fns[i];
+
+    // TODO(someone): the 32 byte access checker does not fire on 32 byte
+    //     underrun. I guess the checkers test a single shadow byte at most
+    //     whereas it'd be more correct for access checkers to test as many
+    //     shadow bytes as is appropriate for the range of memory they touch.
+    MemoryAccessorTester tester(MemoryAccessorTester::IGNORE_FLAGS);
     tester.AssertMemoryErrorIsDetected(
         reinterpret_cast<FARPROC>(fn.function),
         src_ - 8,

@@ -36,6 +36,18 @@ ASAN_MEM_INTERCEPT_FUNCTIONS(DEFINE_INTERCEPT_FUNCTION_TABLE)
 #undef DEFINE_INTERCEPT_FUNCTION_TABLE
 };
 
+static const TestMemoryInterceptors::InterceptFunction
+    intercept_functions_no_flags[] = {
+#define DEFINE_INTERCEPT_FUNCTION_TABLE_NO_FLAGS(access_size, \
+    access_mode_str, access_mode) \
+  { asan_check_ ## access_size ## _byte_ ## access_mode_str ## _no_flags, \
+    access_size },
+
+ASAN_MEM_INTERCEPT_FUNCTIONS(DEFINE_INTERCEPT_FUNCTION_TABLE_NO_FLAGS)
+
+#undef DEFINE_INTERCEPT_FUNCTION_TABLE_NO_FLAGS
+};
+
 static const TestMemoryInterceptors::StringInterceptFunction
     string_intercept_functions[] = {
 #define DEFINE_STRING_INTERCEPT_FUNCTION_TABLE(func, prefix, counter, \
@@ -56,14 +68,17 @@ typedef TestMemoryInterceptors MemoryInterceptorsTest;
 
 TEST_F(MemoryInterceptorsTest, TestValidAccess) {
   TestValidAccess(intercept_functions);
+  TestValidAccessIgnoreFlags(intercept_functions_no_flags);
 }
 
 TEST_F(MemoryInterceptorsTest, TestOverrunAccess) {
   TestOverrunAccess(intercept_functions);
+  TestOverrunAccessIgnoreFlags(intercept_functions_no_flags);
 }
 
 TEST_F(MemoryInterceptorsTest, TestUnderrunAccess) {
   TestUnderrunAccess(intercept_functions);
+  TestUnderrunAccessIgnoreFlags(intercept_functions_no_flags);
 }
 
 TEST_F(MemoryInterceptorsTest, TestStringValidAccess) {
