@@ -62,6 +62,9 @@
       # Core tests.
       '<(src)/syzygy/core/core.gyp:core_unittests',
 
+      # Crash data tests.
+      '<(src)/syzygy/crashdata/crashdata.gyp:crashdata_unittests',
+
       # GenFilter tests.
       '<(src)/syzygy/genfilter/genfilter.gyp:genfilter_unittests',
 

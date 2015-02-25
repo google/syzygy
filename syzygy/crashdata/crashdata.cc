@@ -12,5 +12,84 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// This uses 'assert' and not base DCHECKs so that it is portable.
+#include <assert.h>
+
 // This is a simple wrapper to the automatically generated file.
 #include "syzygy/crashdata/crashdata.pb.cc"
+
+namespace crashdata {
+
+Leaf* ValueGetLeaf(Value* value) {
+  assert(value != nullptr);
+  value->set_type(Value_Type_LEAF);
+  return value->mutable_leaf();
+}
+
+List* ValueGetList(Value* value) {
+  assert(value != nullptr);
+  value->set_type(Value_Type_LIST);
+  return value->mutable_list();
+}
+
+Dictionary* ValueGetDict(Value* value) {
+  assert(value != nullptr);
+  value->set_type(Value_Type_DICTIONARY);
+  return value->mutable_dictionary();
+}
+
+Value* DictAddValue(const char* key, Dictionary* dict) {
+  assert(key != nullptr);
+  assert(dict != nullptr);
+  KeyValue* kv = dict->add_values();
+  kv->set_key(key);
+  return kv->mutable_value();
+}
+
+Value* DictAddValue(const std::string& key, Dictionary* dict) {
+  return DictAddValue(key.c_str(), dict);
+}
+
+void LeafSetInt(google::protobuf::int64 value, Leaf* leaf) {
+  assert(leaf != nullptr);
+  leaf->set_type(Leaf_Type_INTEGER);
+  leaf->set_integer(value);
+}
+
+void LeafSetUInt(google::protobuf::uint64 value, Leaf* leaf) {
+  assert(leaf != nullptr);
+  leaf->set_type(Leaf_Type_UNSIGNED_INTEGER);
+  leaf->set_unsigned_integer(value);
+}
+
+void LeafSetReal(double value, Leaf* leaf) {
+  assert(leaf != nullptr);
+  leaf->set_type(Leaf_Type_REAL);
+  leaf->set_real(value);
+}
+
+std::string* LeafGetString(Leaf* leaf) {
+  assert(leaf != nullptr);
+  leaf->set_type(Leaf_Type_STRING);
+  return leaf->mutable_string();
+}
+
+Address* LeafGetAddress(Leaf* leaf) {
+  assert(leaf != nullptr);
+  leaf->set_type(Leaf_Type_ADDRESS);
+  return leaf->mutable_address();
+}
+
+StackTrace* LeafGetStackTrace(Leaf* leaf) {
+  assert(leaf != nullptr);
+  leaf->set_type(Leaf_Type_STACK_TRACE);
+  return leaf->mutable_stack_trace();
+}
+
+Blob* LeafGetBlob(Leaf* leaf) {
+  assert(leaf != nullptr);
+  leaf->set_type(Leaf_Type_BLOB);
+  return leaf->mutable_blob();
+}
+
+}  // namespace crashdata

@@ -28,8 +28,8 @@
             'crashdata.proto',
           ],
           'outputs': [
-            '<(SHARED_INTERMEDIATE_DIR)/syzygy/crashdata/asan.pb.cc',
-            '<(SHARED_INTERMEDIATE_DIR)/syzygy/crashdata/asan.pb.h',
+            '<(SHARED_INTERMEDIATE_DIR)/syzygy/crashdata/crashdata.pb.cc',
+            '<(SHARED_INTERMEDIATE_DIR)/syzygy/crashdata/crashdata.pb.h',
           ],
           'action': [
             '<(PRODUCT_DIR)/protoc.exe',
@@ -58,23 +58,30 @@
       'sources': [
         'crashdata.cc',
         'crashdata.h',
+        'json.cc',
+        'json.h',
       ],
       'dependencies': [
-        'crashdata_proto',
         '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',
+        'crashdata_proto',
+      ],
+      'export_dependent_settings': [
+        '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',
+      ]
+    },
+    {
+      'target_name': 'crashdata_unittests',
+      'type': 'executable',
+      'sources': [
+        '<(src)/base/test/run_all_unittests.cc',
+        'crashdata_unittest.cc',
+        'json_unittest.cc',
+      ],
+      'dependencies': [
+        'crashdata_lib',
+        '<(src)/base/base.gyp:test_support_base',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
     },
-    #{
-    #  'target_name': 'crashdata_unittests',
-    #  'type': 'executable',
-    #  'sources': [
-    #    '<(src)/base/test/run_all_unittests.cc',
-    #  ],
-    #  'dependencies': [
-    #    'crashdata_lib',
-    #    '<(src)/base/base.gyp:test_support_base',
-    #    '<(src)/testing/gtest.gyp:gtest',
-    #  ],
-    #},
   ],
 }
