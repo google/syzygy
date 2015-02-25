@@ -22,8 +22,25 @@
 namespace kasko {
 namespace api {
 
-// Initializes the Kasko reporter process. Must be matched by a call to
+// The extension given to crash keys files in the permanent failure directory.
+KASKO_EXPORT extern const base::char16* const
+    kPermanentFailureCrashKeysExtension;
+// The extension given to minidump files in the permanent failure directory.
+KASKO_EXPORT extern const base::char16* const
+    kPermanentFailureMinidumpExtension;
+
+// Initializes the Kasko reporter process, including the reporter RPC service
+// and background report uploading. Must be matched by a call to
 // ShutdownReporter.
+//
+// Reports that exceed upload retry limits will be moved to the configured
+// permanent failure directory. The reports consist of two files: a minidump
+// file (extension kPermanentFailureMinidumpExtension, which is '.dmp') and a
+// crash keys file (extension kPermanentFailureCrashKeysExtension, which is
+// '.kys'). The two file names will be identical apart from the extension. The
+// crash keys file will contain a JSON dictionary mapping crash key names to
+// string values.
+//
 // @param endpoint_name The endpoint name that will be used by the Kasko RPC
 //     service.
 // @param url The URL that will be used for uploading crash reports.

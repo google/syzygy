@@ -109,6 +109,14 @@ MULTIPROCESS_TEST_MAIN(ApiTestReporterProcess) {
 // not configurable via the public API and this test would therefore need to
 // wait 3 minutes before observing an upload.
 TEST(ApiTest, BasicTest) {
+  {
+    // Verify that these constants are exported.
+    base::string16 crash_keys_extension(
+        kasko::api::kPermanentFailureCrashKeysExtension);
+    base::string16 minidump_extension(
+        kasko::api::kPermanentFailureMinidumpExtension);
+  }
+
   // Pick an ID used to avoid global namespace collisions.
   base::string16 test_instance_key =
       base::UintToString16(base::GetCurrentProcId());

@@ -35,6 +35,11 @@ Reporter* g_reporter;
 
 }  // namespace
 
+const base::char16* const kPermanentFailureCrashKeysExtension =
+    Reporter::kPermanentFailureCrashKeysExtension;
+const base::char16* const kPermanentFailureMinidumpExtension =
+    Reporter::kPermanentFailureMinidumpExtension;
+
 bool InitializeReporter(
     const base::char16* endpoint_name,
     const base::char16* url,
