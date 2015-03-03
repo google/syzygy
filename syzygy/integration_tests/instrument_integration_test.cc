@@ -51,6 +51,8 @@ namespace integration_tests {
 
 namespace {
 
+const int kExeCrashForExceptionExitCode = 99;
+
 using grinder::basic_block_util::IndexedFrequencyInformation;
 using grinder::basic_block_util::IndexedFrequencyMap;
 using grinder::basic_block_util::ModuleIndexedFrequencyMap;
@@ -374,10 +376,10 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     return func(test);
   }
 
-  int RunOutOfProcessFunction(testing::EndToEndTestId test,
+  int RunOutOfProcessFunction(const base::string16& harness_name,
+                              testing::EndToEndTestId test,
                               bool expect_exception) {
-    base::FilePath harness = testing::GetExeRelativePath(
-        L"integration_tests_harness.exe");
+    base::FilePath harness = testing::GetExeRelativePath(harness_name.c_str());
     CommandLine cmd_line(harness);
     cmd_line.AppendSwitchASCII("test", base::StringPrintf("%d", test));
     cmd_line.AppendSwitchPath("dll", output_dll_path_);
@@ -390,8 +392,6 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 
     int exit_code = 0;
     EXPECT_TRUE(base::WaitForExitCode(handle, &exit_code));
-
-    EXPECT_EQ(0u, exit_code);
     return exit_code;
   }
 
@@ -424,7 +424,9 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     }
     env->SetVar(kSyzygyRpcInstanceIdEnvVar, instance_id);
 
-    RunOutOfProcessFunction(test, expect_exception);
+    int exit_code = RunOutOfProcessFunction(L"integration_tests_harness.exe",
+                                            test, expect_exception);
+    EXPECT_EQ(0, exit_code);
     logger.Stop();
 
     // Restore the instance ID variable to its original state.
@@ -437,7 +439,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     logger.GetLog(log);
   }
 
-  bool OutOfProcessAsanErrorCheckAndValidateLog(
+  void OutOfProcessAsanErrorCheckAndValidateLog(
       testing::EndToEndTestId test,
       bool expect_exception,
       const base::StringPiece& log_message_1,
@@ -446,18 +448,16 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     OutOfProcessAsanErrorCheck(test, expect_exception, &log);
 
     if (!expect_exception)
-      return true;
-
+      return;
     // Check the log for any messages that are expected.
-    if (!log_message_1.empty() &&
-        log.find(log_message_1.as_string()) == std::string::npos) {
-      return false;
+    if (!log_message_1.empty()) {
+      EXPECT_NE(std::string::npos, log.find(log_message_1.as_string()))
+          << "Expected to find '" << log_message_1 << "' in logs: " << log;
     }
-    if (!log_message_2.empty() &&
-        log.find(log_message_2.as_string()) == std::string::npos) {
-      return false;
+    if (!log_message_2.empty()) {
+      EXPECT_NE(std::string::npos, log.find(log_message_2.as_string()))
+          << "Expected to find '" << log_message_2 << "' in logs: " << log;
     }
-    return true;
   }
 
   void EndToEndCheckTestDll() {
@@ -713,24 +713,18 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanCorruptBlockInQuarantine,
         CORRUPT_BLOCK, ASAN_UNKNOWN_ACCESS, 0, 10, true));
 
-    EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
-        testing::kAsanMemcmpAccessViolation,
-        true,
-        kAsanHandlingException,
-        nullptr));
+    OutOfProcessAsanErrorCheckAndValidateLog(
+        testing::kAsanMemcmpAccessViolation, true, kAsanHandlingException,
+        nullptr);
   }
 
   void AsanLargeBlockHeapTests(bool expect_exception) {
-    EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
-        testing::kAsanReadLargeAllocationTrailerBeforeFree,
-        expect_exception,
-        kAsanAccessViolationLog,
-        kAsanHeapBufferOverflow));
-    EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
-        testing::kAsanReadLargeAllocationBodyAfterFree,
-        true,
-        kAsanAccessViolationLog,
-        kAsanHeapUseAfterFree));
+    OutOfProcessAsanErrorCheckAndValidateLog(
+        testing::kAsanReadLargeAllocationTrailerBeforeFree, expect_exception,
+        kAsanAccessViolationLog, kAsanHeapBufferOverflow);
+    OutOfProcessAsanErrorCheckAndValidateLog(
+        testing::kAsanReadLargeAllocationBodyAfterFree, true,
+        kAsanAccessViolationLog, kAsanHeapUseAfterFree);
   }
 
   void AsanZebraHeapTest(bool enabled);
@@ -1239,16 +1233,12 @@ void InstrumentAppIntegrationTest::AsanZebraHeapTest(bool enabled) {
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
 
   // Run tests that are specific to the zebra block heap.
-  EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
-      testing::kAsanReadPageAllocationTrailerBeforeFreeAllocation,
-      enabled,
-      kAsanAccessViolationLog,
-      kAsanHeapBufferOverflow));
-  EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
-      testing::kAsanWritePageAllocationBodyAfterFree,
-      enabled,
-      kAsanAccessViolationLog,
-      kAsanHeapUseAfterFree));
+  OutOfProcessAsanErrorCheckAndValidateLog(
+      testing::kAsanReadPageAllocationTrailerBeforeFreeAllocation, enabled,
+      kAsanAccessViolationLog, kAsanHeapBufferOverflow);
+  OutOfProcessAsanErrorCheckAndValidateLog(
+      testing::kAsanWritePageAllocationBodyAfterFree, enabled,
+      kAsanAccessViolationLog, kAsanHeapUseAfterFree);
 }
 
 }  // namespace
@@ -1348,34 +1338,58 @@ TEST_F(InstrumentAppIntegrationTest,
        AsanInvalidAccessWithCorruptAllocatedBlockHeader) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
-      testing::kAsanInvalidAccessWithCorruptAllocatedBlockHeader,
-      true, kAsanCorruptHeap, NULL));
+  OutOfProcessAsanErrorCheckAndValidateLog(
+      testing::kAsanInvalidAccessWithCorruptAllocatedBlockHeader, true,
+      kAsanCorruptHeap, NULL);
+}
+
+TEST_F(InstrumentAppIntegrationTest,
+       AsanHeapCheckerIgnoresCrashForException) {
+  // Heap checker failures go through the unhandled exception filter even if
+  // CrashForException is defined.
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+
+  int exit_code = RunOutOfProcessFunction(
+      L"crash_for_exception_harness.exe",
+      testing::kAsanInvalidAccessWithCorruptAllocatedBlockHeader, true);
+  EXPECT_EQ(EXIT_SUCCESS, exit_code);
+}
+
+TEST_F(InstrumentAppIntegrationTest,
+       AsanOverflowCallsCrashForException) {
+  // Asan-detected violations go through CrashForException if it is available.
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  int exit_code =
+      RunOutOfProcessFunction(L"crash_for_exception_harness.exe",
+                              testing::kAsanRead8BufferOverflow, true);
+  EXPECT_EQ(kExeCrashForExceptionExitCode, exit_code);
 }
 
 TEST_F(InstrumentAppIntegrationTest,
        AsanInvalidAccessWithCorruptAllocatedBlockTrailer) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
-      testing::kAsanInvalidAccessWithCorruptAllocatedBlockTrailer,
-      true, kAsanCorruptHeap, NULL));
+  OutOfProcessAsanErrorCheckAndValidateLog(
+      testing::kAsanInvalidAccessWithCorruptAllocatedBlockTrailer, true,
+      kAsanCorruptHeap, NULL);
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanInvalidAccessWithCorruptFreedBlock) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
-      testing::kAsanInvalidAccessWithCorruptFreedBlock,
-      true, kAsanCorruptHeap, NULL));
+  OutOfProcessAsanErrorCheckAndValidateLog(
+      testing::kAsanInvalidAccessWithCorruptFreedBlock, true, kAsanCorruptHeap,
+      NULL);
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanCorruptBlockWithPageProtections) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  EXPECT_TRUE(OutOfProcessAsanErrorCheckAndValidateLog(
-        testing::kAsanCorruptBlockWithPageProtections,
-        true, kAsanHeapUseAfterFree, kAsanCorruptHeap));
+  OutOfProcessAsanErrorCheckAndValidateLog(
+      testing::kAsanCorruptBlockWithPageProtections, true,
+      kAsanHeapUseAfterFree, kAsanCorruptHeap);
 }
 
 TEST_F(InstrumentAppIntegrationTest, SampledAllocationsAsanEndToEnd) {
