@@ -26,6 +26,7 @@
         'crash_for_exception_harness',
         'integration_tests_dll',
         'integration_tests_harness',
+        'report_crash_with_protobuf_harness',
         '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl',
         '<(src)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
@@ -159,6 +160,30 @@
       'type': 'executable',
       'sources': [
         'crash_for_exception_export.cc',
+        'integration_tests_harness.cc',
+      ],
+      'dependencies': [
+        'integration_tests_dll',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+      ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          # Asan agent is compiled without large address spaces to allow a
+          # memory optimization on the shadow memory. Agents should run in both
+          # modes, thus in the long term, we should remove this.
+          # Disable support for large address spaces.
+          'LargeAddressAware': 1,
+        },
+      },
+    },
+    {
+      'target_name': 'report_crash_with_protobuf_harness',
+      'type': 'executable',
+      'sources': [
+        'crash_for_exception_export.cc',
+        'report_crash_with_protobuf_export.cc',
         'integration_tests_harness.cc',
       ],
       'dependencies': [

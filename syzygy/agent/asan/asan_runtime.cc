@@ -54,10 +54,18 @@ typedef void (__cdecl * SetCrashKeyValuePairPtr)(const char*, const char*);
 typedef void (__cdecl * SetCrashKeyValueImplPtr)(const wchar_t*,
                                                  const wchar_t*);
 
+// Signature of an enhanced crash reporting function.
+typedef void(__cdecl* ReportCrashWithProtobufPtr)(EXCEPTION_POINTERS*,
+                                                  const char*,
+                                                  size_t);
+
 // Collects the various Breakpad-related exported functions.
 struct BreakpadFunctions {
   // The Breakpad crash reporting entry point.
   WinProcExceptionFilter crash_for_exception_ptr;
+
+  // The optional enhanced crash reporting entry point.
+  ReportCrashWithProtobufPtr report_crash_with_protobuf_ptr;
 
   // Various flavours of the custom key-value setting function. The version
   // exported depends on the version of Chrome. It is possible for both of these
@@ -139,6 +147,10 @@ bool GetBreakpadFunctions(BreakpadFunctions* breakpad_functions) {
   // The named entry-point exposed to report a crash.
   static const char kCrashHandlerSymbol[] = "CrashForException";
 
+  // The optional enhanced entry-point exposed to report a crash.
+  static const char kReportCrashWithProtobufSymbol[] =
+      "ReportCrashWithProtobuf";
+
   // The named entry-point exposed to annotate a crash with a key/value pair.
   static const char kSetCrashKeyValuePairSymbol[] = "SetCrashKeyValuePair";
   static const char kSetCrashKeyValueImplSymbol[] = "SetCrashKeyValueImpl";
@@ -150,8 +162,16 @@ bool GetBreakpadFunctions(BreakpadFunctions* breakpad_functions) {
   breakpad_functions->crash_for_exception_ptr =
       reinterpret_cast<WinProcExceptionFilter>(
           ::GetProcAddress(exe_hmodule, kCrashHandlerSymbol));
-  if (breakpad_functions->crash_for_exception_ptr == NULL)
+
+  // Lookup the optional enhanced crash handler symbol.
+  breakpad_functions->report_crash_with_protobuf_ptr =
+      reinterpret_cast<ReportCrashWithProtobufPtr>(
+          ::GetProcAddress(exe_hmodule, kReportCrashWithProtobufSymbol));
+
+  if (breakpad_functions->crash_for_exception_ptr == NULL &&
+      breakpad_functions->report_crash_with_protobuf_ptr == NULL) {
     return false;
+  }
 
   // Lookup the crash annotation symbol.
   breakpad_functions->set_crash_key_value_pair_ptr =
@@ -187,7 +207,8 @@ void SetCrashKeyValuePair(const BreakpadFunctions& breakpad_functions,
 // Writes the appropriate crash keys for the given error.
 void SetCrashKeys(const BreakpadFunctions& breakpad_functions,
                   AsanErrorInfo* error_info) {
-  DCHECK(breakpad_functions.crash_for_exception_ptr != NULL);
+  DCHECK(breakpad_functions.crash_for_exception_ptr != NULL ||
+         breakpad_functions.report_crash_with_protobuf_ptr != NULL);
   DCHECK(error_info != NULL);
 
   SetCrashKeyValuePair(breakpad_functions,
@@ -229,7 +250,8 @@ void InitializeExceptionRecord(const AsanErrorInfo* error_info,
 // @param error_info The information about this error.
 void BreakpadErrorHandler(const BreakpadFunctions& breakpad_functions,
                           AsanErrorInfo* error_info) {
-  DCHECK(breakpad_functions.crash_for_exception_ptr != NULL);
+  DCHECK(breakpad_functions.crash_for_exception_ptr != NULL ||
+         breakpad_functions.report_crash_with_protobuf_ptr != NULL);
   DCHECK(error_info != NULL);
 
   SetCrashKeys(breakpad_functions, error_info);
@@ -238,7 +260,13 @@ void BreakpadErrorHandler(const BreakpadFunctions& breakpad_functions,
   EXCEPTION_POINTERS pointers = {};
   InitializeExceptionRecord(error_info, &exception, &pointers);
 
-  breakpad_functions.crash_for_exception_ptr(&pointers);
+  if (breakpad_functions.report_crash_with_protobuf_ptr) {
+    std::string protobuf = "protobuf placeholder";
+    breakpad_functions.report_crash_with_protobuf_ptr(
+        &pointers, protobuf.data(), protobuf.length());
+  } else {
+    breakpad_functions.crash_for_exception_ptr(&pointers);
+  }
   NOTREACHED();
 }
 
@@ -917,6 +945,15 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
     InitializeExceptionRecord(&error_info, &record, exception);
     record.ExceptionRecord = old_record;
   }
+
+  if (breakpad_functions.report_crash_with_protobuf_ptr) {
+    // This method is expected to terminate the process.
+    std::string protobuf = "protobuf placeholder";
+    breakpad_functions.report_crash_with_protobuf_ptr(
+        exception, protobuf.data(), protobuf.length());
+    return EXCEPTION_CONTINUE_SEARCH;
+  }
+
 
   if (is_unhandled) {
     // Pass the buck to the next exception handler. If the process is Breakpad
