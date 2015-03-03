@@ -132,6 +132,12 @@ syzyasan_rtl.dll
   The runtime library associated with the address-sanitizer instrumentation
   mode. Useful for finding heap use errors (use after free, double free, etc).
 
+Scripts
+-------
+
+minidump_symbolizer.py
+  The symbolizing script for the minidumps produced by SyzyASan.
+
 Experimental Executables
 ------------------------
 

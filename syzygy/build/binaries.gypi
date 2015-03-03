@@ -69,6 +69,9 @@
       '<(PRODUCT_DIR)/coverage_client.dll',
       '<(PRODUCT_DIR)/profile_client.dll',
       '<(PRODUCT_DIR)/syzyasan_rtl.dll',
+
+      # Symbolization script for the SyzyASan crashes.
+      '<(src)/syzygy/scripts/asan/minidump_symbolizer.py',
     ],
 
     'experimental_binaries': [
