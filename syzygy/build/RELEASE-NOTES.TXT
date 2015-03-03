@@ -1,10 +1,16 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.6.0
+
+[52bb7c7062] SyzyASan - Add the minidump symbolizer to the release binaries.
+[645e667e25] SyzyASan - Don't replace the process heap by an ASan one.
+[17dedec789] SyzyASan - Changed the rate targeted heaps intervals.
+
 Version 0.8.5.0
 
-[cec4a29a57] Add support for rate targeted heaps
-[562794745b] Add support for more AVX2 instructions.
+[cec4a29a57] SyzyASan - Add support for rate targeted heaps
+[562794745b] SyzyASan - Add support for more AVX2 instructions.
 
 Version 0.8.4.1
 
