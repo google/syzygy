@@ -85,7 +85,6 @@ const char kKernel32[] = "kernel32.dll";
 // array.
 const AsanIntercept kAsanIntercepts[] = {
   // Heap related kernel32 functions.
-  { "GetProcessHeap", "_GetProcessHeap@0", kKernel32, NULL, false },
   { "HeapCreate", "_HeapCreate@12", kKernel32, NULL, false },
   { "HeapDestroy", "_HeapDestroy@4", kKernel32, NULL, false },
   { "HeapAlloc",  "_HeapAlloc@12", kKernel32, NULL, false },

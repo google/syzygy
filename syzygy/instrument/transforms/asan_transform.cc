@@ -532,6 +532,129 @@ bool CreateHooksStub(BlockGraph* block_graph,
   return true;
 }
 
+// Since MSVS 2012 the implementation of the CRT _heap_init function has changed
+// and as a result the CRT defers all its allocation to the process heap.
+//
+// As we don't want to replace the process heap by an Asan heap we need to patch
+// this function to make it use ::HeapCreate instead of ::GetProcessHeap. We
+// can't simply intercept it like we do for the other functions because we need
+// to update the value of the _crtheap variable, adding an export for it will
+// make the instrumentation agent depend on the instrumented image.
+//
+// Here's the assembly code that we're injecting to replace this function.
+//
+// push    0
+// push    1000h
+// push    0
+// call    syzyasan_rtl!asan_HeapCreate
+// mov     dword ptr [module!crt_heap], eax
+// mov     eax,1
+// ret
+//
+// TODO(sebmarchand): Also patch the _heap_term function. This function isn't
+//     always present and is just used to reset the crt_heap pointer and free
+//     the underlying heap. This isn't so important in this case because it only
+//     happen when the process terminate and the heap will be automatically
+//     freed when we unload the SyzyAsan agent DLL.
+//
+// @param block_graph The block-graph to populate with the stub.
+// @param header_block the header block of @p block_graph.
+// @param policy the policy object restricting how the transform is applied.
+// @returns true on success, false otherwise.
+bool PatchCRTHeapInitialization(BlockGraph* block_graph,
+                                BlockGraph::Block* header_block,
+                                const TransformPolicyInterface* policy) {
+  DCHECK_NE(static_cast<BlockGraph*>(nullptr), block_graph);
+  DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), header_block);
+  DCHECK_NE(static_cast<const TransformPolicyInterface*>(nullptr), policy);
+
+  // The original _heap_init block.
+  BlockGraph::Block* heap_init_block = nullptr;
+  // The data block to _crtheap.
+  BlockGraph::Block* crtheap_block = nullptr;
+
+  for (auto& iter : block_graph->blocks_mutable()) {
+    if (::strcmp(iter.second.name().c_str(), "_heap_init") == 0) {
+      DCHECK_EQ(static_cast<BlockGraph::Block*>(nullptr), heap_init_block);
+       heap_init_block = &(iter.second);
+    } else if (::strcmp(iter.second.name().c_str(), "_crtheap") == 0) {
+      DCHECK_EQ(static_cast<BlockGraph::Block*>(nullptr), crtheap_block);
+      crtheap_block = &(iter.second);
+    }
+
+    if (heap_init_block != nullptr && crtheap_block != nullptr)
+      break;
+  }
+
+  if (heap_init_block == nullptr || crtheap_block == nullptr)
+    return true;
+
+  // Find or create the section we put our thunks in.
+  BlockGraph::Section* thunk_section = block_graph->FindOrAddSection(
+      common::kThunkSectionName, pe::kCodeCharacteristics);
+
+  if (thunk_section == NULL) {
+    LOG(ERROR) << "Unable to find or create .thunks section.";
+    return false;
+  }
+
+  // Find the asan_HeapCreate import.
+  PEAddImportsTransform find_imports;
+  ImportedModule kernel32_module(AsanTransform::kSyzyAsanDll);
+  kernel32_module.AddSymbol("asan_HeapCreate", ImportedModule::kAlwaysImport);
+  find_imports.AddModule(&kernel32_module);
+  if (!find_imports.TransformBlockGraph(policy, block_graph, header_block)) {
+    LOG(ERROR) << "Unable to find the asan_HeapCreate import.";
+    return false;
+  }
+  BlockGraph::Reference heap_create_ref;
+  CHECK(kernel32_module.GetSymbolReference(0, &heap_create_ref));
+
+  std::string stub_name = "asan_heap_init";
+  BasicBlockSubGraph bbsg;
+  BasicBlockSubGraph::BlockDescription* block_desc = bbsg.AddBlockDescription(
+      stub_name,
+      thunk_section->name(),
+      BlockGraph::CODE_BLOCK,
+      thunk_section->id(),
+      1,
+      0);
+
+  BasicCodeBlock* bb = bbsg.AddBasicCodeBlock(stub_name);
+  block_desc->basic_block_order.push_back(bb);
+  BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
+  assm.push(Immediate(0U, assm::kSize32Bit));
+  assm.push(Immediate(0x1000U, assm::kSize32Bit));
+  assm.push(Immediate(0U, assm::kSize32Bit));
+  assm.call(Operand(Displacement(heap_create_ref.referenced(),
+                                 heap_create_ref.offset())));
+  assm.mov(Operand(Displacement(crtheap_block, 0U)), assm::eax);
+  assm.mov(assm::eax, Immediate(1U));
+  assm.ret();
+
+  // Condense into a block.
+  BlockBuilder block_builder(block_graph);
+  if (!block_builder.Merge(&bbsg)) {
+    LOG(ERROR) << "Failed to build thunk block.";
+    return NULL;
+  }
+
+  // Exactly one new block should have been created.
+  DCHECK_EQ(1u, block_builder.new_blocks().size());
+  BlockGraph::Block* heap_init_thunk = block_builder.new_blocks().front();
+
+  heap_init_block->TransferReferrers(0U, heap_init_thunk,
+      BlockGraph::Block::kTransferInternalReferences);
+
+  if (!heap_init_block->RemoveAllReferences() ||
+      !block_graph->RemoveBlock(heap_init_block)) {
+    LOG(ERROR) << "Unable to remove the original _heap_init block.";
+    return false;
+  }
+
+  return true;
+}
+
 typedef std::map<std::string, size_t> ImportNameIndexMap;
 
 bool PeFindImportsToIntercept(bool use_interceptors,
@@ -582,23 +705,21 @@ bool PeFindImportsToIntercept(bool use_interceptors,
   }
 
   // Query the imports to see which ones are present.
-  if (!find_imports.TransformBlockGraph(
-          policy, block_graph, header_block)) {
+  if (!find_imports.TransformBlockGraph(policy, block_graph, header_block)) {
     LOG(ERROR) << "Unable to find imports for redirection.";
     return false;
   }
 
   // Add Asan imports for those functions found in the import tables. These will
   // later be redirected.
-  for (size_t i = 0; i < imported_modules->size(); ++i) {
-    ImportedModule* module = (*imported_modules)[i];
-    for (size_t j = 0; j < module->size(); ++j) {
-      if (!module->SymbolIsImported(j))
+  for (const auto& module : *imported_modules) {
+    for (size_t i = 0; i < module->size(); ++i) {
+      if (!module->SymbolIsImported(i))
         continue;
 
       // The function should not already be imported. If it is then the
       // intercepts data contains duplicates.
-      const std::string& function_name = module->GetSymbolName(j);
+      const std::string& function_name = module->GetSymbolName(i);
       DCHECK(import_name_index_map->find(function_name) ==
                  import_name_index_map->end());
 
@@ -664,8 +785,7 @@ void PeGetRedirectsForInterceptedImports(
   DCHECK_NE(reinterpret_cast<pe::ReferenceMap*>(NULL), reference_redirect_map);
 
   // Register redirections related to the original.
-  for (size_t i = 0, k = 0; i < imported_modules.size(); ++i) {
-    const ImportedModule* module = imported_modules[i];
+  for (const auto& module : imported_modules) {
     for (size_t j = 0; j < module->size(); ++j) {
       if (!module->SymbolIsImported(j))
         continue;
@@ -1157,6 +1277,9 @@ bool AsanTransform::PostBlockGraphIteration(
       return false;
     }
   }
+
+  if (!PatchCRTHeapInitialization(block_graph, header_block, policy))
+    return false;
 
   return true;
 }

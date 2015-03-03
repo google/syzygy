@@ -205,19 +205,6 @@ class TestBlockHeapManager : public BlockHeapManager {
     }
 
     PropagateParameters();
-
-    // Reinitialize the process heap if necessary.
-    if (ctmalloc_changed) {
-      EXPECT_EQ(1, underlying_heaps_map_.erase(process_heap_));
-      EXPECT_EQ(1, heaps_.erase(process_heap_));
-      delete process_heap_;
-      process_heap_ = nullptr;
-      if (process_heap_underlying_heap_) {
-        delete process_heap_underlying_heap_;
-        process_heap_underlying_heap_ = nullptr;
-      }
-      InitProcessHeap();
-    }
   }
 };
 
@@ -492,19 +479,10 @@ TEST_P(BlockHeapManagerTest, FreeUnguardedAlloc) {
   void* heap_alloc = heap.Allocate(kAllocSize);
   EXPECT_NE(static_cast<void*>(nullptr), heap_alloc);
 
-  void* process_heap_alloc = ::HeapAlloc(::GetProcessHeap(), 0, kAllocSize);
-  EXPECT_NE(static_cast<void*>(nullptr), process_heap_alloc);
-
-  BlockHeapInterface* process_heap = heap_manager_->GetHeapFromId(
-      heap_manager_->process_heap());
-  void* process_heap_wrapper_alloc = process_heap->Allocate(kAllocSize);
-  EXPECT_NE(static_cast<void*>(nullptr), process_heap_wrapper_alloc);
+  BlockInfo block_info = {};
+  EXPECT_FALSE(Shadow::BlockInfoFromShadow(heap_alloc, &block_info));
 
   EXPECT_TRUE(heap_manager_->Free(heap.Id(), heap_alloc));
-  EXPECT_TRUE(heap_manager_->Free(heap_manager_->process_heap(),
-                                  process_heap_alloc));
-  EXPECT_TRUE(heap_manager_->Free(heap_manager_->process_heap(),
-                                  process_heap_wrapper_alloc));
 }
 
 TEST_P(BlockHeapManagerTest, PopOnSetQuarantineMaxSize) {

@@ -72,9 +72,6 @@ const size_t BlockHeapManager::kDefaultRateTargetedHeapsMaxBlockSize[] =
 BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
     : stack_cache_(stack_cache),
       initialized_(false),
-      process_heap_(nullptr),
-      process_heap_underlying_heap_(nullptr),
-      process_heap_id_(0),
       zebra_block_heap_(nullptr),
       zebra_block_heap_id_(0),
       large_block_heap_id_(0),
@@ -104,11 +101,7 @@ void BlockHeapManager::Init() {
   // This takes care of its own locking, as its reentrant.
   PropagateParameters();
 
-  {
-    base::AutoLock lock(lock_);
-    InitProcessHeap();
-    initialized_ = true;
-  }
+  initialized_ = true;
 
   InitRateTargetedHeaps();
 }
@@ -422,9 +415,6 @@ void BlockHeapManager::TearDownHeapManager() {
   heaps_.clear();
 
   // Clear the specialized heap references since they were deleted.
-  process_heap_ = nullptr;
-  process_heap_underlying_heap_ = nullptr;
-  process_heap_id_ = 0;
   zebra_block_heap_ = nullptr;
   zebra_block_heap_id_ = 0;
   large_block_heap_id_ = 0;
@@ -769,20 +759,6 @@ bool BlockHeapManager::FreeUnguardedAlloc(HeapId heap_id, void* alloc) {
   DCHECK(IsValidHeapId(heap_id, false));
   BlockHeapInterface* heap = GetHeapFromId(heap_id);
 
-  // Check if the allocation comes from the process heap, if so there's two
-  // possibilities:
-  //   - If CTMalloc is enabled the process heap underlying heap is a CTMalloc
-  //     heap. In this case we can explicitly check if the allocation was made
-  //     via the CTMalloc process heap.
-  //   - CTMalloc is disabled and in this case the process heap underlying heap
-  //     is always the real process heap.
-  if (heap == process_heap_ &&
-      (!parameters_.enable_ctmalloc || !heap->IsAllocated(alloc))) {
-    // The shadow memory associated with this allocation is already green, so
-    // no need to modify it.
-    return ::HeapFree(::GetProcessHeap(), 0, alloc) == TRUE;
-  }
-
   // If the heap carves greenzones out of redzones, then color the allocation
   // red again. Otherwise, simply leave it green.
   if ((heap->GetHeapFeatures() &
@@ -846,22 +822,6 @@ void BlockHeapManager::InitInternalHeap() {
     internal_heap_.reset(new heaps::InternalHeap(&shadow_memory_notifier_,
                                                  internal_win_heap_.get()));
   }
-}
-
-void BlockHeapManager::InitProcessHeap() {
-  DCHECK_EQ(static_cast<BlockHeapInterface*>(nullptr), process_heap_);
-  if (parameters_.enable_ctmalloc) {
-    process_heap_underlying_heap_ =
-        new heaps::CtMallocHeap(&shadow_memory_notifier_);
-  } else {
-    process_heap_underlying_heap_ = new heaps::WinHeap(::GetProcessHeap());
-  }
-  process_heap_ = new heaps::SimpleBlockHeap(process_heap_underlying_heap_);
-  underlying_heaps_map_.insert(std::make_pair(process_heap_,
-                                              process_heap_underlying_heap_));
-  HeapMetadata heap_metadata = { &shared_quarantine_, false };
-  auto result = heaps_.insert(std::make_pair(process_heap_, heap_metadata));
-  process_heap_id_ = GetHeapId(result);
 }
 
 void BlockHeapManager::InitRateTargetedHeaps() {

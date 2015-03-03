@@ -90,15 +90,6 @@ void AsanRtlTest::FreeMemoryBuffers() {
 
 }  // namespace
 
-TEST_F(AsanRtlTest, GetProcessHeap) {
-  agent::asan::AsanRuntime* runtime = GetActiveRuntimeFunction();
-  ASSERT_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime);
-  HANDLE asan_heap_handle = GetProcessHeapFunction();
-  EXPECT_NE(static_cast<HANDLE>(NULL), asan_heap_handle);
-  EXPECT_EQ(reinterpret_cast<HANDLE>(runtime->GetProcessHeap()),
-                                     asan_heap_handle);
-}
-
 TEST_F(AsanRtlTest, AsanCheckGoodAccess) {
   FARPROC check_access_fn =
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");

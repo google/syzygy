@@ -109,7 +109,6 @@ class TestWithAsanLogger : public testing::Test {
 
 // Shorthand for discussing all the asan runtime functions.
 #define ASAN_RTL_FUNCTIONS(F)  \
-    F(WINAPI, HANDLE, GetProcessHeap, (), ())  \
     F(WINAPI, HANDLE, HeapCreate,  \
       (DWORD options, SIZE_T initial_size, SIZE_T maximum_size),  \
       (options, initial_size, maximum_size))  \

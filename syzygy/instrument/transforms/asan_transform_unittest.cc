@@ -831,7 +831,6 @@ bool EnumKernel32InterceptedFunctionsImports(const PEImage &image,
 
   StringVector* modules = reinterpret_cast<StringVector*>(cookie);
   static const char* kInterceptedFunctions[] = {
-    "GetProcessHeap",
     "ReadFile",
     "WriteFile",
   };
@@ -1482,6 +1481,66 @@ TEST_F(AsanTransformTest, PeInjectAsanParametersStackIds) {
 
   // The block should only be referred to by itself.
   EXPECT_EQ(1u, asan_transform_.asan_parameters_block_->referrers().size());
+}
+
+TEST_F(AsanTransformTest, PatchCRTHeapInitialization) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
+
+  // Get the heap ID of the original _heap_init block and the list of its
+  // referrers.
+  BlockGraph::BlockId heap_init_id = SIZE_MAX;
+  BlockGraph::Block::ReferrerSet heap_init_referrers;
+  for (const auto& iter : block_graph_.blocks()) {
+    if (::strcmp(iter.second.name().c_str(), "_heap_init") == 0) {
+      heap_init_id = iter.first;
+      heap_init_referrers.insert(iter.second.referrers().begin(),
+                                 iter.second.referrers().end());
+      break;
+    }
+  }
+  EXPECT_NE(SIZE_MAX, heap_init_id);
+  EXPECT_NE(0U, heap_init_referrers.size());
+
+  // Apply the Asan transform.
+  asan_transform_.use_interceptors_ = true;
+  asan_transform_.use_liveness_analysis_ = true;
+  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &asan_transform_, &pe_policy_, &block_graph_, header_block_));
+
+  // The original _heap_init block should have been removed.
+  EXPECT_EQ(nullptr, block_graph_.GetBlockById(heap_init_id));
+
+  // Search for the asan_heap_init block.
+  const BlockGraph::Block* asan_heap_init_block = NULL;
+  BlockGraph::Block::ReferrerSet asan_heap_init_referrers;
+  for (const auto& iter : block_graph_.blocks()) {
+    if (::strcmp(iter.second.name().c_str(), "asan_heap_init") == 0) {
+      asan_heap_init_block = &iter.second;
+      asan_heap_init_referrers.insert(iter.second.referrers().begin(),
+                                      iter.second.referrers().end());
+      break;
+    }
+  }
+  EXPECT_NE(nullptr, asan_heap_init_block);
+
+  // Make sure that all the blocks that referred to _heap_init now refer to the
+  // patched function.
+  EXPECT_EQ(heap_init_referrers.size(), asan_heap_init_referrers.size());
+  EXPECT_TRUE(std::equal(heap_init_referrers.begin(), heap_init_referrers.end(),
+                         asan_heap_init_referrers.begin()));
+
+  // Verify that the patched block contains a reference to asan_HeapCreate.
+  bool refers_to_heap_create = false;
+  for (const auto& iter : asan_heap_init_block->references()) {
+    BlockGraph::Offset ref_offset = iter.second.offset();
+    BlockGraph::Label ref_label;
+    EXPECT_TRUE(iter.second.referenced()->GetLabel(ref_offset, &ref_label));
+    if (ref_label.name().find("asan_HeapCreate") != std::string::npos) {
+      refers_to_heap_create = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(refers_to_heap_create);
 }
 
 }  // namespace transforms

@@ -122,14 +122,8 @@ class AsanRuntime {
   ::common::InflatedAsanParameters& params() { return params_; }
   const ::common::InflatedAsanParameters& params() const { return params_; }
 
-  // @returns the value of the tick ccounter when the runtime was created.
+  // @returns the value of the tick counter when the runtime was created.
   uint32 starting_ticks() const { return starting_ticks_; }
-
-  // Retrieves the process's heap.
-  // @returns The ID of the process's heap.
-  HeapManagerInterface::HeapId GetProcessHeap() {
-    return heap_manager_->process_heap();
-  }
 
   // Returns the allocation-filter flag value.
   // @returns the allocation-filter flag value.

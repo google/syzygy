@@ -28,6 +28,12 @@ namespace asan {
 
 namespace {
 
+// A derived class to expose protected members for unit-testing.
+class TestAsanRuntime : public AsanRuntime {
+ public:
+  using AsanRuntime::heap_manager_;
+};
+
 BlockLayout BuildBlockLayout(size_t block_alignment,
                              size_t block_size,
                              size_t header_size,
@@ -619,9 +625,10 @@ void TestChecksumDetectsTampering(const BlockInfo& block_info) {
 TEST(BlockTest, ChecksumDetectsTampering) {
   // This test requires a runtime because it makes use of BlockAnalyze.
   // Initialize it with valid values.
-  AsanRuntime runtime;
+  TestAsanRuntime runtime;
   ASSERT_NO_FATAL_FAILURE(runtime.SetUp(L""));
-  HeapManagerInterface::HeapId valid_heap_id = runtime.GetProcessHeap();
+  HeapManagerInterface::HeapId valid_heap_id =
+      runtime.heap_manager_->CreateHeap();
   runtime.AddThreadId(::GetCurrentThreadId());
   common::StackCapture capture;
   capture.InitFromStack();
