@@ -23,6 +23,11 @@
 #include "syzygy/agent/asan/heap.h"
 #include "syzygy/agent/common/stack_capture.h"
 
+// Forward declaration.
+namespace crashdata {
+class Value;
+}  // namespace crashdata
+
 namespace agent {
 namespace asan {
 
@@ -193,6 +198,27 @@ BadAccessKind ErrorInfoGetBadAccessKind(const void* addr,
 void ErrorInfoGetAsanBlockInfo(const BlockInfo& block_info,
                                StackCaptureCache* stack_cache,
                                AsanBlockInfo* asan_block_info);
+
+// Given a populated AsanBlockInfo struct, fills out a corresponding crashdata
+// protobuf.
+// @param block_info The block info information.
+// @param value The uninitialized protobuf value to be populated.
+void PopulateBlockInfo(const AsanBlockInfo& block_info,
+                       crashdata::Value* value);
+
+// Given a populated AsanCorruptBlockRange struct, fills out a corresponding
+// crashdata protobuf.
+// @param range The corrupt block range information.
+// @param value The uninitialized protobuf value to be populated.
+void PopulateCorruptBlockRange(const AsanCorruptBlockRange& range,
+                               crashdata::Value* value);
+
+// Given a populated AsanErrorInfo struct, fills out a corresponding crashdata
+// protobuf.
+// @param error_info The filled in error information.
+// @param value The uninitialized protobuf value to be populated.
+void PopulateErrorInfo(const AsanErrorInfo& error_info,
+                       crashdata::Value* value);
 
 }  // namespace asan
 }  // namespace agent

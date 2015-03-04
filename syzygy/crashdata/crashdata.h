@@ -51,8 +51,20 @@ Dictionary* ValueGetDict(Value* value);
 
 // @name Functions for adding a key-value to a dict.
 // @{
+
+// Adds a value to a dictionary.
+// @param key The key name.
+// @param dict The dictionary to be modified.
+// @returns a pointer to the created value.
 Value* DictAddValue(const char* key, Dictionary* dict);
 Value* DictAddValue(const std::string& key, Dictionary* dict);
+
+// Adds a value containing a leaf to a dictionary.
+// @param key The key name.
+// @param dict The dictionary to be modified.
+// @returns a pointer to the created leaf.
+Leaf* DictAddLeaf(const char* key, Dictionary* dict);
+Leaf* DictAddLeaf(const std::string& key, Dictionary* dict);
 // @}
 
 // @name Functions for initializing leaves.

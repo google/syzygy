@@ -19,6 +19,7 @@
 #include "syzygy/agent/asan/block_utils.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
+#include "syzygy/crashdata/crashdata.h"
 
 namespace agent {
 namespace asan {
@@ -309,6 +310,180 @@ void ErrorInfoGetAsanBlockInfo(const BlockInfo& block_info,
     CopyStackCaptureToArray(block_info.header->free_stack,
                             asan_block_info->free_stack,
                             &asan_block_info->free_stack_size);
+  }
+}
+
+namespace {
+
+// Converts an access mode to a string.
+void AccessModeToString(AccessMode access_mode, std::string* str) {
+  DCHECK_NE(static_cast<std::string*>(nullptr), str);
+  switch (access_mode) {
+    case ASAN_READ_ACCESS: *str = "read"; break;
+    case ASAN_WRITE_ACCESS: *str = "write"; break;
+    default: *str = "(unknown)"; break;
+  }
+}
+
+// Converts a block state to a string.
+void BlockStateToString(BlockState block_state, std::string* str) {
+  DCHECK_NE(static_cast<std::string*>(nullptr), str);
+  switch (block_state) {
+    case ALLOCATED_BLOCK: *str = "allocated"; break;
+    case QUARANTINED_BLOCK: *str = "quarantined"; break;
+    case FREED_BLOCK: *str = "freed"; break;
+    default: *str = "(unknown)"; break;
+  }
+}
+
+uint64 CastAddress(const void* address) {
+  return static_cast<uint64>(reinterpret_cast<uint32>(address));
+}
+
+void PopulateStackTrace(const void* const* frames,
+                        size_t frame_count,
+                        crashdata::StackTrace* stack_trace) {
+  DCHECK_NE(static_cast<void*>(nullptr), frames);
+  DCHECK_LT(0u, frame_count);
+  DCHECK_NE(static_cast<crashdata::StackTrace*>(nullptr), stack_trace);
+  for (size_t i = 0; i < frame_count; ++i)
+    stack_trace->add_frames(CastAddress(frames[i]));
+}
+
+void DataStateToString(DataState data_state, std::string* str) {
+  DCHECK_NE(static_cast<std::string*>(nullptr), str);
+  switch (data_state) {
+    default:
+    case kDataStateUnknown: *str = "(unknown)"; break;
+    case kDataIsClean: *str = "clean"; break;
+    case kDataIsCorrupt: *str = "corrupt"; break;
+  }
+}
+
+void PopulateBlockAnalysisResult(const BlockAnalysisResult& analysis,
+                                 crashdata::Dictionary* dict) {
+  DCHECK_NE(static_cast<crashdata::Dictionary*>(nullptr), dict);
+  DataStateToString(
+      analysis.block_state,
+      crashdata::LeafGetString(crashdata::DictAddLeaf("block", dict)));
+  DataStateToString(
+      analysis.header_state,
+      crashdata::LeafGetString(crashdata::DictAddLeaf("header", dict)));
+  DataStateToString(
+      analysis.body_state,
+      crashdata::LeafGetString(crashdata::DictAddLeaf("body", dict)));
+  DataStateToString(
+      analysis.trailer_state,
+      crashdata::LeafGetString(crashdata::DictAddLeaf("trailer", dict)));
+}
+
+}  // namespace
+
+void PopulateBlockInfo(const AsanBlockInfo& block_info,
+                       crashdata::Value* value) {
+  DCHECK_NE(static_cast<crashdata::Value*>(nullptr), value);
+
+  crashdata::Dictionary* dict = ValueGetDict(value);
+  DCHECK_NE(static_cast<crashdata::Dictionary*>(nullptr), dict);
+
+  // Set block properties.
+  crashdata::LeafGetAddress(crashdata::DictAddLeaf("header", dict))
+      ->set_address(CastAddress(block_info.header));
+  crashdata::LeafSetUInt(block_info.user_size,
+                         crashdata::DictAddLeaf("user-size", dict));
+  BlockStateToString(
+      static_cast<BlockState>(block_info.state),
+      crashdata::LeafGetString(crashdata::DictAddLeaf("state", dict)));
+  crashdata::LeafGetString(crashdata::DictAddLeaf("heap-type", dict))
+      ->assign(kHeapTypes[block_info.heap_type]);
+
+  // Set the block analysis.
+  PopulateBlockAnalysisResult(
+      block_info.analysis,
+      crashdata::ValueGetDict(crashdata::DictAddValue("analysis", dict)));
+
+  // Set the allocation information.
+  crashdata::LeafSetUInt(block_info.alloc_tid,
+                         crashdata::DictAddLeaf("alloc-thread-id", dict));
+  PopulateStackTrace(block_info.alloc_stack,
+                     block_info.alloc_stack_size,
+                     crashdata::LeafGetStackTrace(
+                         crashdata::DictAddLeaf("alloc-stack", dict)));
+
+  // Set the free information if available.
+  if (block_info.free_stack_size != 0) {
+    crashdata::LeafSetUInt(block_info.free_tid,
+                           crashdata::DictAddLeaf("free-thread-id", dict));
+    PopulateStackTrace(block_info.free_stack,
+                       block_info.free_stack_size,
+                       crashdata::LeafGetStackTrace(
+                           crashdata::DictAddLeaf("free-stack", dict)));
+    crashdata::LeafSetUInt(
+        block_info.milliseconds_since_free,
+        crashdata::DictAddLeaf("milliseconds-since-free", dict));
+  }
+}
+
+void PopulateCorruptBlockRange(const AsanCorruptBlockRange& range,
+                               crashdata::Value* value) {
+  DCHECK_NE(static_cast<crashdata::Value*>(nullptr), value);
+
+  crashdata::Dictionary* dict = ValueGetDict(value);
+  DCHECK_NE(static_cast<crashdata::Dictionary*>(nullptr), dict);
+
+  crashdata::LeafGetAddress(crashdata::DictAddLeaf("address", dict))
+      ->set_address(CastAddress(range.address));
+  crashdata::LeafSetUInt(range.length, crashdata::DictAddLeaf("length", dict));
+  crashdata::LeafSetUInt(range.block_count,
+                         crashdata::DictAddLeaf("block-count", dict));
+
+  // Add the blocks.
+  if (range.block_info_count > 0) {
+    crashdata::List* list = crashdata::ValueGetList(
+        crashdata::DictAddValue("blocks", dict));
+    for (size_t i = 0; i < range.block_info_count; ++i)
+      PopulateBlockInfo(range.block_info[i], list->add_values());
+  }
+}
+
+void PopulateErrorInfo(const AsanErrorInfo& error_info,
+                       crashdata::Value* value) {
+  DCHECK_NE(static_cast<crashdata::Value*>(nullptr), value);
+
+  // Create a single outermost dictionary.
+  crashdata::Dictionary* dict = ValueGetDict(value);
+  DCHECK_NE(static_cast<crashdata::Dictionary*>(nullptr), dict);
+
+  crashdata::LeafGetAddress(crashdata::DictAddLeaf("location", dict))
+      ->set_address(CastAddress(error_info.location));
+  crashdata::LeafSetUInt(error_info.crash_stack_id,
+                         crashdata::DictAddLeaf("crash-stack-id", dict));
+  PopulateBlockInfo(error_info.block_info,
+                    crashdata::DictAddValue("block-info", dict));
+  crashdata::LeafGetString(crashdata::DictAddLeaf("error-type", dict))
+      ->assign(ErrorInfoAccessTypeToStr(error_info.error_type));
+  AccessModeToString(
+      error_info.access_mode,
+      crashdata::LeafGetString(crashdata::DictAddLeaf("access-mode", dict)));
+  crashdata::LeafSetUInt(error_info.access_size,
+                         crashdata::DictAddLeaf("access-size", dict));
+  crashdata::LeafGetString(crashdata::DictAddLeaf("shadow-info", dict))
+      ->assign(error_info.shadow_info);
+  crashdata::LeafGetString(crashdata::DictAddLeaf("shadow-memory", dict))
+      ->assign(error_info.shadow_memory);
+  crashdata::LeafSetUInt(error_info.heap_is_corrupt,
+                         crashdata::DictAddLeaf("heap-is-corrupt", dict));
+  crashdata::LeafSetUInt(error_info.corrupt_range_count,
+                         crashdata::DictAddLeaf("corrupt-range-count", dict));
+  crashdata::LeafSetUInt(error_info.corrupt_block_count,
+                         crashdata::DictAddLeaf("corrupt-block-count", dict));
+  if (error_info.corrupt_ranges_reported > 0) {
+    crashdata::List* list = crashdata::ValueGetList(
+        crashdata::DictAddValue("corrupt-ranges", dict));
+    for (size_t i = 0; i < error_info.corrupt_ranges_reported; ++i) {
+      PopulateCorruptBlockRange(error_info.corrupt_ranges[i],
+                                list->add_values());
+    }
   }
 }
 

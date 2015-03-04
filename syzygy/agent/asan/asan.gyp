@@ -48,6 +48,7 @@
         'constants.h',
         'error_info.cc',
         'error_info.h',
+        'heap.cc',
         'heap.h',
         'heap_checker.cc',
         'heap_checker.h',
@@ -95,12 +96,20 @@
       ],
       'dependencies': [
         'system_interceptors_generator',
+        '<(src)/syzygy/crashdata/crashdata.gyp:crashdata_lib',
         '<(src)/syzygy/kasko/kasko.gyp:kasko',
         '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
         '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
         '<(src)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
         '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
         '<(src)/third_party/ctmalloc/ctmalloc.gyp:ctmalloc_lib',
+      ],
+      'export_dependent_settings': [
+        # We depend on crashdata_lib, which means we can see the include
+        # directories it exports via 'all_dependent_settings' or
+        # 'direct_dependent_settings'. However, our dependents will have
+        # this same dependency, so we forward these settings to them.
+        '<(src)/syzygy/crashdata/crashdata.gyp:crashdata_lib',
       ],
     },
     {
@@ -250,7 +259,6 @@
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/testing/testing.gyp:testing_lib',
-        '<(src)/syzygy/trace/agent_logger/agent_logger.gyp:agent_logger',
         '<(src)/syzygy/trace/agent_logger/agent_logger.gyp:agent_logger_lib',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',

@@ -47,7 +47,21 @@ Value* DictAddValue(const char* key, Dictionary* dict) {
 }
 
 Value* DictAddValue(const std::string& key, Dictionary* dict) {
+  assert(dict != nullptr);
   return DictAddValue(key.c_str(), dict);
+}
+
+Leaf* DictAddLeaf(const char* key, Dictionary* dict) {
+  assert(key != nullptr);
+  assert(dict != nullptr);
+  Value* v = DictAddValue(key, dict);
+  Leaf* l = ValueGetLeaf(v);
+  return l;
+}
+
+Leaf* DictAddLeaf(const std::string& key, Dictionary* dict) {
+  assert(dict != nullptr);
+  return DictAddLeaf(key.c_str(), dict);
 }
 
 void LeafSetInt(google::protobuf::int64 value, Leaf* leaf) {

@@ -38,7 +38,12 @@ enum HeapType {
   kCtMallocHeap,
   kLargeBlockHeap,
   kZebraBlockHeap,
+
+  // This must be last.
+  kHeapTypeMax,
 };
+
+extern const char* kHeapTypes[kHeapTypeMax];
 
 // An extremely simple heap interface. More advanced heap features are
 // provided by the instrumentation layer which is overlaid on top of a

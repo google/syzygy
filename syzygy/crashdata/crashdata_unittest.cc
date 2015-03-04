@@ -62,6 +62,21 @@ TEST(CrashDataTest, DictAddValue) {
   EXPECT_EQ(v1, &kv.value());
 }
 
+TEST(CrashDataTest, DictAddLeaf) {
+  Value v;
+  Dictionary* d = ValueGetDict(&v);
+  EXPECT_EQ(0u, d->values_size());
+
+  std::string key("key");
+  Leaf* l = DictAddLeaf(key, d);
+
+  EXPECT_EQ(1u, d->values_size());
+  const KeyValue& kv = d->values().Get(0);
+  EXPECT_EQ(key, kv.key());
+  EXPECT_EQ(Value_Type_LEAF, kv.value().type());
+  EXPECT_EQ(l, &kv.value().leaf());
+}
+
 TEST(CrashDataTest, LeafSetInt) {
   Value v;
   Leaf* l = ValueGetLeaf(&v);

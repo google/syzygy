@@ -18,6 +18,7 @@
 
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/unittest_util.h"
+#include "syzygy/crashdata/json.h"
 
 namespace agent {
 namespace asan {
@@ -233,6 +234,236 @@ TEST_F(AsanErrorInfoTest, GetTimeSinceFree) {
   EXPECT_GT(ticks_delta, 0U);
 
   EXPECT_GE(ticks_delta, error_info.block_info.milliseconds_since_free);
+}
+
+namespace {
+
+void InitAsanBlockInfo(AsanBlockInfo* block_info) {
+  block_info->header = reinterpret_cast<void*>(0xDEADBEEF);
+  block_info->user_size = 1024;
+  block_info->state = ALLOCATED_BLOCK;
+  block_info->alloc_tid = 47;
+  block_info->analysis.block_state = kDataIsCorrupt;
+  block_info->analysis.header_state = kDataIsCorrupt;
+  block_info->analysis.body_state = kDataStateUnknown;
+  block_info->analysis.trailer_state = kDataIsClean;
+  block_info->alloc_stack[0] = reinterpret_cast<void*>(1);
+  block_info->alloc_stack[1] = reinterpret_cast<void*>(2);
+  block_info->alloc_stack_size = 2;
+  block_info->heap_type = kWinHeap;
+}
+
+}  // namespace
+
+TEST_F(AsanErrorInfoTest, PopulateBlockInfo) {
+  AsanBlockInfo block_info = {};
+  InitAsanBlockInfo(&block_info);
+
+  {
+    crashdata::Value info;
+    PopulateBlockInfo(block_info, &info);
+    std::string json;
+    EXPECT_TRUE(crashdata::ToJson(true, &info, &json));
+    const char kExpected[] =
+        "{\n"
+        "  \"header\": 0xDEADBEEF,\n"
+        "  \"user-size\": 1024,\n"
+        "  \"state\": \"allocated\",\n"
+        "  \"heap-type\": \"WinHeap\",\n"
+        "  \"analysis\": {\n"
+        "    \"block\": \"corrupt\",\n"
+        "    \"header\": \"corrupt\",\n"
+        "    \"body\": \"(unknown)\",\n"
+        "    \"trailer\": \"clean\"\n"
+        "  },\n"
+        "  \"alloc-thread-id\": 47,\n"
+        "  \"alloc-stack\": [\n"
+        "    0x00000001,\n"
+        "    0x00000002\n"
+        "  ]\n"
+        "}";
+    EXPECT_EQ(kExpected, json);
+  }
+
+  block_info.state = QUARANTINED_BLOCK;
+  block_info.free_tid = 32;
+  block_info.free_stack[0] = reinterpret_cast<void*>(3);
+  block_info.free_stack[1] = reinterpret_cast<void*>(4);
+  block_info.free_stack[2] = reinterpret_cast<void*>(5);
+  block_info.free_stack_size = 3;
+  block_info.heap_type = kCtMallocHeap;
+  block_info.milliseconds_since_free = 100;
+
+  {
+    crashdata::Value info;
+    PopulateBlockInfo(block_info, &info);
+    std::string json;
+    EXPECT_TRUE(crashdata::ToJson(true, &info, &json));
+    const char kExpected[] =
+        "{\n"
+        "  \"header\": 0xDEADBEEF,\n"
+        "  \"user-size\": 1024,\n"
+        "  \"state\": \"quarantined\",\n"
+        "  \"heap-type\": \"CtMallocHeap\",\n"
+        "  \"analysis\": {\n"
+        "    \"block\": \"corrupt\",\n"
+        "    \"header\": \"corrupt\",\n"
+        "    \"body\": \"(unknown)\",\n"
+        "    \"trailer\": \"clean\"\n"
+        "  },\n"
+        "  \"alloc-thread-id\": 47,\n"
+        "  \"alloc-stack\": [\n"
+        "    0x00000001,\n"
+        "    0x00000002\n"
+        "  ],\n"
+        "  \"free-thread-id\": 32,\n"
+        "  \"free-stack\": [\n"
+        "    0x00000003,\n"
+        "    0x00000004,\n"
+        "    0x00000005\n"
+        "  ],\n"
+        "  \"milliseconds-since-free\": 100\n"
+        "}";
+    EXPECT_EQ(kExpected, json);
+  }
+}
+
+TEST_F(AsanErrorInfoTest, PopulateCorruptBlockRange) {
+  AsanBlockInfo block_info = {};
+  InitAsanBlockInfo(&block_info);
+
+  AsanCorruptBlockRange range = {};
+  range.address = reinterpret_cast<void*>(0xBAADF00D);
+  range.length = 1024 * 1024;
+  range.block_count = 100;
+  range.block_info_count = 1;
+  range.block_info = &block_info;
+
+  crashdata::Value info;
+  PopulateCorruptBlockRange(range, &info);
+
+  std::string json;
+  EXPECT_TRUE(crashdata::ToJson(true, &info, &json));
+  const char kExpected[] =
+      "{\n"
+      "  \"address\": 0xBAADF00D,\n"
+      "  \"length\": 1048576,\n"
+      "  \"block-count\": 100,\n"
+      "  \"blocks\": [\n"
+      "    {\n"
+      "      \"header\": 0xDEADBEEF,\n"
+      "      \"user-size\": 1024,\n"
+      "      \"state\": \"allocated\",\n"
+      "      \"heap-type\": \"WinHeap\",\n"
+      "      \"analysis\": {\n"
+      "        \"block\": \"corrupt\",\n"
+      "        \"header\": \"corrupt\",\n"
+      "        \"body\": \"(unknown)\",\n"
+      "        \"trailer\": \"clean\"\n"
+      "      },\n"
+      "      \"alloc-thread-id\": 47,\n"
+      "      \"alloc-stack\": [\n"
+      "        0x00000001,\n"
+      "        0x00000002\n"
+      "      ]\n"
+      "    }\n"
+      "  ]\n"
+      "}";
+  EXPECT_EQ(kExpected, json);
+}
+
+TEST_F(AsanErrorInfoTest, PopulateErrorInfo) {
+  AsanBlockInfo block_info = {};
+  InitAsanBlockInfo(&block_info);
+
+  AsanCorruptBlockRange range = {};
+  range.address = reinterpret_cast<void*>(0xBAADF00D);
+  range.length = 1024 * 1024;
+  range.block_count = 100;
+  range.block_info_count = 1;
+  range.block_info = &block_info;
+
+  AsanErrorInfo error_info = {};
+  error_info.location = reinterpret_cast<void*>(0x12345678);
+  error_info.crash_stack_id = 1234;
+  InitAsanBlockInfo(&error_info.block_info);
+  error_info.error_type = WILD_ACCESS;
+  error_info.access_mode = ASAN_READ_ACCESS;
+  error_info.access_size = 4;
+  ::strncpy(error_info.shadow_info,
+            "shadow info!",
+            sizeof(error_info.shadow_info));
+  ::strncpy(error_info.shadow_memory,
+            "shadow memory!",
+            sizeof(error_info.shadow_memory));
+  error_info.heap_is_corrupt = true;
+  error_info.corrupt_range_count = 10;
+  error_info.corrupt_block_count = 200;
+  error_info.corrupt_ranges_reported = 1;
+  error_info.corrupt_ranges = &range;
+
+  crashdata::Value info;
+  PopulateErrorInfo(error_info, &info);
+
+  std::string json;
+  EXPECT_TRUE(crashdata::ToJson(true, &info, &json));
+  const char kExpected[] =
+      "{\n"
+      "  \"location\": 0x12345678,\n"
+      "  \"crash-stack-id\": 1234,\n"
+      "  \"block-info\": {\n"
+      "    \"header\": 0xDEADBEEF,\n"
+      "    \"user-size\": 1024,\n"
+      "    \"state\": \"allocated\",\n"
+      "    \"heap-type\": \"WinHeap\",\n"
+      "    \"analysis\": {\n"
+      "      \"block\": \"corrupt\",\n"
+      "      \"header\": \"corrupt\",\n"
+      "      \"body\": \"(unknown)\",\n"
+      "      \"trailer\": \"clean\"\n"
+      "    },\n"
+      "    \"alloc-thread-id\": 47,\n"
+      "    \"alloc-stack\": [\n"
+      "      0x00000001,\n"
+      "      0x00000002\n"
+      "    ]\n"
+      "  },\n"
+      "  \"error-type\": \"wild-access\",\n"
+      "  \"access-mode\": \"read\",\n"
+      "  \"access-size\": 4,\n"
+      "  \"shadow-info\": \"shadow info!\",\n"
+      "  \"shadow-memory\": \"shadow memory!\",\n"
+      "  \"heap-is-corrupt\": 1,\n"
+      "  \"corrupt-range-count\": 10,\n"
+      "  \"corrupt-block-count\": 200,\n"
+      "  \"corrupt-ranges\": [\n"
+      "    {\n"
+      "      \"address\": 0xBAADF00D,\n"
+      "      \"length\": 1048576,\n"
+      "      \"block-count\": 100,\n"
+      "      \"blocks\": [\n"
+      "        {\n"
+      "          \"header\": 0xDEADBEEF,\n"
+      "          \"user-size\": 1024,\n"
+      "          \"state\": \"allocated\",\n"
+      "          \"heap-type\": \"WinHeap\",\n"
+      "          \"analysis\": {\n"
+      "            \"block\": \"corrupt\",\n"
+      "            \"header\": \"corrupt\",\n"
+      "            \"body\": \"(unknown)\",\n"
+      "            \"trailer\": \"clean\"\n"
+      "          },\n"
+      "          \"alloc-thread-id\": 47,\n"
+      "          \"alloc-stack\": [\n"
+      "            0x00000001,\n"
+      "            0x00000002\n"
+      "          ]\n"
+      "        }\n"
+      "      ]\n"
+      "    }\n"
+      "  ]\n"
+      "}";
+  EXPECT_EQ(kExpected, json);
 }
 
 }  // namespace asan
