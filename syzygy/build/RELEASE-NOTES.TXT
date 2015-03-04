@@ -1,6 +1,12 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.6.1
+
+[e01e186430] SyzyASan - Restore the asan_GetProcessHeap function for backward
+             compatibility.
+[----------] Disabled some flaky unittests.
+
 Version 0.8.6.0
 
 [52bb7c7062] SyzyASan - Add the minidump symbolizer to the release binaries.
