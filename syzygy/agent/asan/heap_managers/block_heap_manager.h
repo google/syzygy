@@ -106,6 +106,9 @@ class BlockHeapManager : public HeapManagerInterface {
     heap_error_callback_ = heap_error_callback;
   }
 
+  // Returns the process heap ID.
+  HeapId process_heap() { return process_heap_id_; }
+
   // Returns the allocation-filter flag value.
   // @returns the allocation-filter flag value.
   // @note The flag is stored per-thread using TLS. Multiple threads do not
@@ -304,6 +307,11 @@ class BlockHeapManager : public HeapManagerInterface {
   // before PropagateParameters and InitProcessHeap.
   void InitInternalHeap();
 
+  // Initialize the process heap. This is only meant to be called at
+  // initialization time when process_heap_ is NULL.
+  // Exposed for unittesting.
+  void InitProcessHeap();
+
   // Initialize the rate targeted heaps.
   void InitRateTargetedHeaps();
 
@@ -384,6 +392,14 @@ class BlockHeapManager : public HeapManagerInterface {
   // at their source. Catching their side effect as early as possible allows the
   // recovery of some useful debugging information.
   HeapErrorCallback heap_error_callback_;
+
+  // The process heap.
+  //
+  // TODO(sebmarchand): Put the interception of the process heap behind a flag
+  //     and return the original process heap by default.
+  BlockHeapInterface* process_heap_;
+  HeapInterface* process_heap_underlying_heap_;
+  HeapId process_heap_id_;
 
   // Memory notifier used to update the shadow memory.
   memory_notifiers::ShadowMemoryNotifier shadow_memory_notifier_;

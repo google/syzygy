@@ -34,7 +34,6 @@ using agent::asan::AsanErrorInfo;
 class TestAsanRuntime : public AsanRuntime {
  public:
   using AsanRuntime::PropagateParams;
-  using AsanRuntime::heap_manager_;
 };
 
 class AsanRuntimeTest : public testing::TestWithAsanLogger {
@@ -218,25 +217,20 @@ TEST_F(AsanRuntimeTest, IgnoredStackIds) {
 TEST_F(AsanRuntimeTest, HeapIdIsValid) {
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
-  HeapManagerInterface::HeapId heap_id =
-      asan_runtime_.heap_manager_->CreateHeap();
 
   EXPECT_FALSE(asan_runtime_.HeapIdIsValid(0xDEADBEEF));
-  EXPECT_TRUE(asan_runtime_.HeapIdIsValid(heap_id));
+  EXPECT_TRUE(asan_runtime_.HeapIdIsValid(asan_runtime_.GetProcessHeap()));
 
-  EXPECT_TRUE(asan_runtime_.heap_manager_->DestroyHeap(heap_id));
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 
 TEST_F(AsanRuntimeTest, GetHeapType) {
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
-  HeapManagerInterface::HeapId heap_id =
-      asan_runtime_.heap_manager_->CreateHeap();
 
+  HeapManagerInterface::HeapId heap_id = asan_runtime_.GetProcessHeap();
   EXPECT_EQ(kCtMallocHeap, asan_runtime_.GetHeapType(heap_id));
 
-  EXPECT_TRUE(asan_runtime_.heap_manager_->DestroyHeap(heap_id));
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 

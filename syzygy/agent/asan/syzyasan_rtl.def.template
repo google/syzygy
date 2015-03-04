@@ -72,6 +72,7 @@ EXPORTS
   asan_check_4_byte_stos_access
 
   ; Heap-replacement functions.
+  asan_GetProcessHeap
   asan_HeapCreate
   asan_HeapDestroy
   asan_HeapAlloc

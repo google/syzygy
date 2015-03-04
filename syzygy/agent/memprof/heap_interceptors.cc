@@ -34,6 +34,12 @@
 
 extern "C" {
 
+HANDLE WINAPI asan_GetProcessHeap() {
+  HANDLE ret = ::GetProcessHeap();
+  EMIT_DETAILED_HEAP_FUNCTION_CALL(ret);
+  return ret;
+}
+
 HANDLE WINAPI asan_HeapCreate(DWORD options,
                               SIZE_T initial_size,
                               SIZE_T maximum_size) {

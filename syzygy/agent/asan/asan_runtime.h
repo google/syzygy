@@ -125,6 +125,12 @@ class AsanRuntime {
   // @returns the value of the tick counter when the runtime was created.
   uint32 starting_ticks() const { return starting_ticks_; }
 
+  // Retrieves the process's heap.
+  // @returns The ID of the process's heap.
+  HeapManagerInterface::HeapId GetProcessHeap() {
+    return heap_manager_->process_heap();
+  }
+
   // Returns the allocation-filter flag value.
   // @returns the allocation-filter flag value.
   // @note The flag is stored per-thread using TLS. Multiple threads do not

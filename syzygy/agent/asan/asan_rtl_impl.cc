@@ -39,6 +39,7 @@ using agent::asan::WindowsHeapAdapter;
 using agent::asan::heap_managers::BlockHeapManager;
 
 HANDLE process_heap = NULL;
+HeapManagerInterface::HeapId asan_process_heap = NULL;
 
 // The asan runtime manager.
 AsanRuntime* asan_runtime = NULL;
@@ -55,17 +56,27 @@ void SetUpRtl(AsanRuntime* runtime) {
 
   // Set the instance used by the helper functions.
   SetAsanRuntimeInstance(runtime);
+
+  asan_process_heap = runtime->GetProcessHeap();
 }
 
 void TearDownRtl() {
   DCHECK_NE(static_cast<HANDLE>(NULL), process_heap);
+  DCHECK_NE(static_cast<HeapManagerInterface::HeapId>(NULL), asan_process_heap);
   process_heap = NULL;
+  asan_process_heap = NULL;
 }
 
 }  // namespace asan
 }  // namespace agent
 
 extern "C" {
+
+HANDLE WINAPI asan_GetProcessHeap() {
+  DCHECK_NE(static_cast<HANDLE>(NULL), process_heap);
+  DCHECK_NE(static_cast<HeapManagerInterface::HeapId>(NULL), asan_process_heap);
+  return reinterpret_cast<HANDLE>(asan_process_heap);
+}
 
 HANDLE WINAPI asan_HeapCreate(DWORD options,
                               SIZE_T initial_size,
