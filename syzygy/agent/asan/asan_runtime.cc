@@ -33,6 +33,7 @@
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/agent/asan/windows_heap_adapter.h"
+#include "syzygy/crashdata/crashdata.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
@@ -243,6 +244,16 @@ void InitializeExceptionRecord(const AsanErrorInfo* error_info,
   pointers->ContextRecord = const_cast<CONTEXT*>(&error_info->context);
 }
 
+// Creates a serialized protobuf representing crash data.
+bool PopulateProtobuf(const AsanErrorInfo& error_info, std::string* protobuf) {
+  DCHECK_NE(static_cast<std::string*>(nullptr), protobuf);
+  crashdata::Value value;
+  PopulateErrorInfo(error_info, &value);
+  if (!value.SerializeToString(protobuf))
+    return false;
+  return true;
+}
+
 // The breakpad error handler. It is expected that this will be bound in a
 // callback in the Asan runtime.
 // @param breakpad_functions A struct containing pointers to the various
@@ -261,7 +272,8 @@ void BreakpadErrorHandler(const BreakpadFunctions& breakpad_functions,
   InitializeExceptionRecord(error_info, &exception, &pointers);
 
   if (breakpad_functions.report_crash_with_protobuf_ptr) {
-    std::string protobuf = "protobuf placeholder";
+    std::string protobuf;
+    PopulateProtobuf(*error_info, &protobuf);
     breakpad_functions.report_crash_with_protobuf_ptr(
         &pointers, protobuf.data(), protobuf.length());
   } else {
@@ -948,12 +960,12 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
 
   if (breakpad_functions.report_crash_with_protobuf_ptr) {
     // This method is expected to terminate the process.
-    std::string protobuf = "protobuf placeholder";
+    std::string protobuf;
+    PopulateProtobuf(error_info, &protobuf);
     breakpad_functions.report_crash_with_protobuf_ptr(
         exception, protobuf.data(), protobuf.length());
     return EXCEPTION_CONTINUE_SEARCH;
   }
-
 
   if (is_unhandled) {
     // Pass the buck to the next exception handler. If the process is Breakpad

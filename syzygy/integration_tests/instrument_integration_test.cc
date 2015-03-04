@@ -51,7 +51,16 @@ namespace integration_tests {
 
 namespace {
 
+// The exit code used by report_crash_with_protobuf_harness if the
+// exception was appropriately dispatched but did not contain a valid protobuf.
+const int kExeReportCrashWithProtobufExitCodeBadProtobuf = 97;
+
+// The exit code used by report_crash_with_protobuf_harness if the
+// exception was appropriately dispatched and contained a valid protobuf.
 const int kExeReportCrashWithProtobufExitCode = 98;
+
+// The exit code used by crash_for_exception_harness if the exception
+// was appropriately dispatched.
 const int kExeCrashForExceptionExitCode = 99;
 
 using grinder::basic_block_util::IndexedFrequencyInformation;
@@ -506,7 +515,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
                               bool unload) {
     __try {
       return AsanErrorCheck(test, kind, mode, size, max_tries, unload);
-    } __except (FilterExceptionsInModule(module_,
+    } __except (FilterExceptionsInModule(module_,  // NOLINT
                                          GetExceptionCode(),
                                          GetExceptionInformation())) {
       // If the exception is of the expected type and originates from the

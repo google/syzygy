@@ -19,9 +19,34 @@
 
 #include <windows.h>
 
+#include "base/environment.h"
+#include "syzygy/crashdata/crashdata.h"
+#include "syzygy/crashdata/json.h"
+
+void Exit(UINT code) {
+  ::TerminateProcess(::GetCurrentProcess(), code);
+}
+
 extern "C" void __declspec(dllexport)
     ReportCrashWithProtobuf(EXCEPTION_POINTERS* info,
                             const char* protobuf,
                             size_t protobuf_length) {
-  ::TerminateProcess(::GetCurrentProcess(), 98);
+  // Bail if there was no protobuf.
+  if (protobuf == nullptr || protobuf_length == 0)
+    Exit(97);
+
+  // Parse the protobuf and bail if that fails.
+  crashdata::Value value;
+  if (!value.ParseFromArray(protobuf, protobuf_length))
+    ::Exit(97);
+
+  // A useful debugging hack.
+  scoped_ptr<base::Environment> env(base::Environment::Create());
+  if (env->HasVar("SYZYGY_ASAN_DUMP_PROTOBUF_ON_CRASH")) {
+    std::string json;
+    crashdata::ToJson(true, &value, &json);
+    ::printf("%s", json.c_str());
+  }
+
+  Exit(98);
 }

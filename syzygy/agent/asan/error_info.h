@@ -102,6 +102,7 @@ struct AsanBlockInfo {
   HeapType heap_type;
   // The time since this block has been freed. This would be equal to zero if
   // the block is still allocated.
+  // TODO(chrisha): We actually keep track of this in ticks. Rename this?
   uint32 milliseconds_since_free;
 };
 

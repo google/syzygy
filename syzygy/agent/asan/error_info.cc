@@ -26,24 +26,6 @@ namespace asan {
 
 namespace {
 
-// Returns the time since the block @p header was freed (in milliseconds).
-// @param header The block for which we want the time since free.
-// @returns the time since the block was freed.
-uint32 GetTimeSinceFree(const BlockHeader* header) {
-  DCHECK(header != NULL);
-
-  if (header->state == ALLOCATED_BLOCK)
-    return 0;
-
-  BlockInfo block_info = {};
-  Shadow::BlockInfoFromShadow(header, &block_info);
-  DCHECK(block_info.trailer != NULL);
-
-  uint32 time_since_free = ::GetTickCount() - block_info.trailer->free_ticks;
-
-  return time_since_free;
-}
-
 // Copy a stack capture object into an array.
 // @param stack_capture The stack capture that we want to copy.
 // @param dst Will receive the stack frames.
@@ -173,69 +155,14 @@ bool ErrorInfoGetBadAccessInformation(StackCaptureCache* stack_cache,
   if (!Shadow::BlockInfoFromShadow(bad_access_info->location, &block_info))
     return false;
 
+  // Fill out the information about the primary block.
+  ErrorInfoGetAsanBlockInfo(
+      block_info, stack_cache, &bad_access_info->block_info);
+
   if (bad_access_info->error_type != DOUBLE_FREE &&
       bad_access_info->error_type != CORRUPT_BLOCK) {
     bad_access_info->error_type =
         ErrorInfoGetBadAccessKind(bad_access_info->location, block_info.header);
-  }
-
-  // Makes sure that we don't try to use an invalid stack capture pointer.
-  if (bad_access_info->error_type == CORRUPT_BLOCK) {
-    // Set the invalid stack captures to NULL.
-    if (!stack_cache->StackCapturePointerIsValid(
-        block_info.header->alloc_stack)) {
-      block_info.header->alloc_stack = NULL;
-    }
-    if (!stack_cache->StackCapturePointerIsValid(
-        block_info.header->free_stack)) {
-      block_info.header->free_stack = NULL;
-    }
-  }
-
-  // Checks if there's a containing block in the case of a use after free on a
-  // block owned by a nested heap.
-  BlockInfo containing_block = {};
-  if (bad_access_info->error_type == USE_AFTER_FREE &&
-      block_info.header->state != QUARANTINED_BLOCK) {
-     Shadow::ParentBlockInfoFromShadow(block_info, &containing_block);
-  }
-
-  // TODO(chrisha): Use results of the analysis to determine which fields are
-  //     written here.
-  // TODO(chrisha, sebmarchand): Remove duplicated code in this function
-  //     and GetAsanBlockInfo. Wait until we have integration tests with the
-  //     symbolization scripts as this will most certainly derail them.
-  bad_access_info->block_info.heap_type = kUnknownHeapType;
-  HeapManagerInterface::HeapId heap_id = block_info.trailer->heap_id;
-  if (heap_id != 0) {
-    AsanRuntime* runtime = AsanRuntime::runtime();
-    DCHECK_NE(static_cast<AsanRuntime*>(nullptr), runtime);
-    bad_access_info->block_info.heap_type = runtime->GetHeapType(heap_id);
-  }
-
-  bad_access_info->block_info.milliseconds_since_free =
-        GetTimeSinceFree(block_info.header);
-
-  DCHECK(block_info.header->alloc_stack != NULL);
-  CopyStackCaptureToArray(block_info.header->alloc_stack,
-                          bad_access_info->block_info.alloc_stack,
-                          &bad_access_info->block_info.alloc_stack_size);
-  bad_access_info->block_info.alloc_tid = block_info.trailer->alloc_tid;
-
-  if (block_info.header->state != ALLOCATED_BLOCK) {
-    const common::StackCapture* free_stack = block_info.header->free_stack;
-    BlockTrailer* free_stack_trailer = block_info.trailer;
-    // Use the free metadata of the containing block if there's one.
-    // TODO(chrisha): This should report all of the nested stack information
-    //     from innermost to outermost. For now, innermost is best.
-    if (containing_block.block != NULL) {
-      free_stack = containing_block.header->free_stack;
-      free_stack_trailer = containing_block.trailer;
-    }
-    CopyStackCaptureToArray(block_info.header->free_stack,
-                            bad_access_info->block_info.free_stack,
-                            &bad_access_info->block_info.free_stack_size);
-    bad_access_info->block_info.free_tid = free_stack_trailer->free_tid;
   }
 
   // Get the bad access description if we've been able to determine its kind.
@@ -286,7 +213,13 @@ void ErrorInfoGetAsanBlockInfo(const BlockInfo& block_info,
   asan_block_info->alloc_tid = block_info.trailer->alloc_tid;
   asan_block_info->free_tid = block_info.trailer->free_tid;
 
-// TODO(chrisha): Use detailed analysis results to do this more efficiently.
+  if (block_info.header->state != ALLOCATED_BLOCK &&
+      block_info.trailer->free_ticks != 0) {
+    asan_block_info->milliseconds_since_free =
+        ::GetTickCount() - block_info.trailer->free_ticks;
+  }
+
+  // TODO(chrisha): Use detailed analysis results to do this more efficiently.
   asan_block_info->heap_type = kUnknownHeapType;
   HeapManagerInterface::HeapId heap_id = block_info.trailer->heap_id;
   if (heap_id != 0) {
@@ -403,12 +336,14 @@ void PopulateBlockInfo(const AsanBlockInfo& block_info,
       crashdata::ValueGetDict(crashdata::DictAddValue("analysis", dict)));
 
   // Set the allocation information.
-  crashdata::LeafSetUInt(block_info.alloc_tid,
-                         crashdata::DictAddLeaf("alloc-thread-id", dict));
-  PopulateStackTrace(block_info.alloc_stack,
-                     block_info.alloc_stack_size,
-                     crashdata::LeafGetStackTrace(
-                         crashdata::DictAddLeaf("alloc-stack", dict)));
+  if (block_info.alloc_stack_size != 0) {
+    crashdata::LeafSetUInt(block_info.alloc_tid,
+                           crashdata::DictAddLeaf("alloc-thread-id", dict));
+    PopulateStackTrace(block_info.alloc_stack,
+                       block_info.alloc_stack_size,
+                       crashdata::LeafGetStackTrace(
+                           crashdata::DictAddLeaf("alloc-stack", dict)));
+  }
 
   // Set the free information if available.
   if (block_info.free_stack_size != 0) {
@@ -441,8 +376,10 @@ void PopulateCorruptBlockRange(const AsanCorruptBlockRange& range,
   if (range.block_info_count > 0) {
     crashdata::List* list = crashdata::ValueGetList(
         crashdata::DictAddValue("blocks", dict));
-    for (size_t i = 0; i < range.block_info_count; ++i)
-      PopulateBlockInfo(range.block_info[i], list->add_values());
+    for (size_t i = 0; i < range.block_info_count; ++i) {
+      if (range.block_info[i].header != nullptr)
+        PopulateBlockInfo(range.block_info[i], list->add_values());
+    }
   }
 }
 
@@ -458,8 +395,10 @@ void PopulateErrorInfo(const AsanErrorInfo& error_info,
       ->set_address(CastAddress(error_info.location));
   crashdata::LeafSetUInt(error_info.crash_stack_id,
                          crashdata::DictAddLeaf("crash-stack-id", dict));
-  PopulateBlockInfo(error_info.block_info,
-                    crashdata::DictAddValue("block-info", dict));
+  if (error_info.block_info.header != nullptr) {
+    PopulateBlockInfo(error_info.block_info,
+                      crashdata::DictAddValue("block-info", dict));
+  }
   crashdata::LeafGetString(crashdata::DictAddLeaf("error-type", dict))
       ->assign(ErrorInfoAccessTypeToStr(error_info.error_type));
   AccessModeToString(
