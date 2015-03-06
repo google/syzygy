@@ -66,14 +66,13 @@ bool GenerateMinidump(const base::FilePath& destination,
   }
 
   MINIDUMP_USER_STREAM_INFORMATION
-        user_stream_information = {custom_streams.size(), user_streams.data()};
+  user_stream_information = {custom_streams.size(), user_streams.data()};
 
   if (::MiniDumpWriteDump(
           target_process_handle, target_process_id,
           destination_file.GetPlatformFile(),
           static_cast<MINIDUMP_TYPE>(MiniDumpWithProcessThreadData |
-                                     MiniDumpWithUnloadedModules |
-                                     MiniDumpWithIndirectlyReferencedMemory),
+                                     MiniDumpWithUnloadedModules),
           dump_exception_pointers, &user_stream_information, NULL) == FALSE) {
     LOG(ERROR) << "MiniDumpWriteDump failed: " << ::common::LogWe() << ".";
     return false;
