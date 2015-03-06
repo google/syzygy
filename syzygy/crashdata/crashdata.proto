@@ -92,6 +92,8 @@
 //   )
 // )
 
+syntax = "proto2";
+
 package crashdata;
 
 option optimize_for = LITE_RUNTIME;
