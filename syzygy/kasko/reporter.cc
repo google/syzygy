@@ -14,6 +14,8 @@
 
 #include "syzygy/kasko/reporter.h"
 
+#include <DbgHelp.h>
+
 #include <stdint.h>
 
 #include <map>
@@ -126,8 +128,15 @@ void SendReportImpl(const base::FilePath& temporary_directory,
     return;
   }
 
+  std::vector<CustomStream> custom_streams;
+  if (protobuf && protobuf_length) {
+    CustomStream custom_stream = {
+        Reporter::kProtobufStreamType, protobuf, protobuf_length};
+    custom_streams.push_back(custom_stream);
+  }
+
   if (!GenerateMinidump(dump_file, client_process_id, thread_id,
-                        exception_info_address)) {
+                        exception_info_address, custom_streams)) {
     LOG(ERROR) << "Minidump generation failed.";
     base::DeleteFile(dump_file, false);
     return;
@@ -175,6 +184,10 @@ const base::char16* const Reporter::kPermanentFailureMinidumpExtension =
     L".dmp";
 const base::char16* const Reporter::kMinidumpUploadFilePart =
     L"upload_file_minidump";
+// 0x4B6B is 'Kk'.
+const uint32_t Reporter::kProtobufStreamType = 0x4B6B0001;
+static_assert(Reporter::kProtobufStreamType > LastReservedStream,
+              "kProtobufStreamType <= LastReservedStream.");
 
 // static
 scoped_ptr<Reporter> Reporter::Create(

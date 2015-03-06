@@ -49,6 +49,9 @@ class Reporter {
   static const base::char16* const kPermanentFailureMinidumpExtension;
   // The parameter name assigned to the uploaded minidump file.
   static const base::char16* const kMinidumpUploadFilePart;
+  // The stream type assigned to the protobuf stream in the uploaded minidump
+  // file.
+  static const uint32_t kProtobufStreamType;
 
   // Creates a Reporter process. The process is already running in the
   // background when this method returns.

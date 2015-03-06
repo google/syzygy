@@ -28,7 +28,8 @@ namespace kasko {
 bool GenerateMinidump(const base::FilePath& destination,
                       base::ProcessId target_process_id,
                       base::PlatformThreadId thread_id,
-                      unsigned long client_exception_pointers) {
+                      unsigned long client_exception_pointers,
+                      const std::vector<CustomStream>& custom_streams) {
   base::win::ScopedHandle target_process_handle(
       ::OpenProcess(GENERIC_ALL, FALSE, target_process_id));
   if (!target_process_handle) {
@@ -56,13 +57,24 @@ bool GenerateMinidump(const base::FilePath& destination,
     return false;
   }
 
+  std::vector<MINIDUMP_USER_STREAM> user_streams;
+  for (const auto& custom_stream : custom_streams) {
+    MINIDUMP_USER_STREAM user_stream = {custom_stream.type,
+                                        custom_stream.length,
+                                        const_cast<void*>(custom_stream.data)};
+    user_streams.push_back(user_stream);
+  }
+
+  MINIDUMP_USER_STREAM_INFORMATION
+        user_stream_information = {custom_streams.size(), user_streams.data()};
+
   if (::MiniDumpWriteDump(
           target_process_handle, target_process_id,
           destination_file.GetPlatformFile(),
           static_cast<MINIDUMP_TYPE>(MiniDumpWithProcessThreadData |
                                      MiniDumpWithUnloadedModules |
                                      MiniDumpWithIndirectlyReferencedMemory),
-          dump_exception_pointers, NULL, NULL) == FALSE) {
+          dump_exception_pointers, &user_stream_information, NULL) == FALSE) {
     LOG(ERROR) << "MiniDumpWriteDump failed: " << ::common::LogWe() << ".";
     return false;
   }

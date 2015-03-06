@@ -15,6 +15,8 @@
 #ifndef SYZYGY_KASKO_MINIDUMP_H_
 #define SYZYGY_KASKO_MINIDUMP_H_
 
+#include <vector>
+
 #include "base/process/process_handle.h"
 #include "base/threading/platform_thread.h"
 
@@ -24,6 +26,13 @@ class FilePath;
 
 namespace kasko {
 
+// Represents a custom stream to be included in the generated minidump.
+struct CustomStream {
+  uint32_t type;
+  const void* data;
+  size_t length;
+};
+
 // Generates a minidump.
 // @param destination The path where the dump should be generated.
 // @param target_process The ID of the process whose dump should be captured.
@@ -31,11 +40,13 @@ namespace kasko {
 //     structure in the target process memory space.
 // @param thread_id The thread that threw the exception, or 0 in the absence of
 //     an exception.
+// @param custom_streams A vector of extra streams to include in the minidump.
 // @returns true if the operation is successful.
 bool GenerateMinidump(const base::FilePath& destination,
                       base::ProcessId target_process,
                       base::PlatformThreadId thread_id,
-                      unsigned long client_exception_pointers);
+                      unsigned long client_exception_pointers,
+                      const std::vector<CustomStream>& custom_streams);
 
 }  // namespace kasko
 
