@@ -60,6 +60,8 @@
         'crashdata.h',
         'json.cc',
         'json.h',
+        '<(SHARED_INTERMEDIATE_DIR)/syzygy/crashdata/crashdata.pb.cc',
+        '<(SHARED_INTERMEDIATE_DIR)/syzygy/crashdata/crashdata.pb.h',
       ],
       'dependencies': [
         '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',

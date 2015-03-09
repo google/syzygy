@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "syzygy/crashdata/crashdata.h"
+
 // This uses 'assert' and not base DCHECKs so that it is portable.
 #include <assert.h>
-
-// This is a simple wrapper to the automatically generated file.
-#include "syzygy/crashdata/crashdata.pb.cc"
 
 namespace crashdata {
 
