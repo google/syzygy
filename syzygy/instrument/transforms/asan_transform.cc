@@ -1026,16 +1026,24 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
       info.save_flags = state.AreArithmeticFlagsLive();
     }
 
-    // Insert hook for standard instructions.
-    AsanHookMap::iterator hook = check_access_hooks_->find(info);
-    if (hook == check_access_hooks_->end()) {
-      LOG(ERROR) << "Invalid access : "
-                 << GetAsanCheckAccessFunctionName(info, image_format);
-      return false;
+    // Mark that an instrumentation will happen. Do this before selecting a
+    // hook so we can call a dry run without hooks present.
+    instrumentation_happened_ = true;
+
+    if (!dry_run_) {
+      // Insert hook for standard instructions.
+      AsanHookMap::iterator hook = check_access_hooks_->find(info);
+      if (hook == check_access_hooks_->end()) {
+        LOG(ERROR) << "Invalid access : "
+                   << GetAsanCheckAccessFunctionName(info, image_format);
+        return false;
+      }
+
+      // Instrument this instruction.
+      InjectAsanHook(
+          &bb_asm, info, operand, &hook->second, state, image_format);
     }
 
-    // Instrument this instruction.
-    InjectAsanHook(&bb_asm, info, operand, &hook->second, state, image_format);
   }
 
   DCHECK(iter_state == states.end());

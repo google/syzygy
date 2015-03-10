@@ -81,9 +81,11 @@ class AsanBasicBlockTransform
   explicit AsanBasicBlockTransform(AsanHookMap* check_access_hooks) :
       check_access_hooks_(check_access_hooks),
       debug_friendly_(false),
-      use_liveness_analysis_(false),
+      dry_run_(false),
+      instrumentation_happened_(false),
+      instrumentation_rate_(1.0),
       remove_redundant_checks_(false),
-      instrumentation_rate_(1.0) {
+      use_liveness_analysis_(false) {
     DCHECK(check_access_hooks != NULL);
   }
 
@@ -105,6 +107,21 @@ class AsanBasicBlockTransform
   // The instrumentation rate must be in the range [0, 1], inclusive.
   double instrumentation_rate() const { return instrumentation_rate_; }
   void set_instrumentation_rate(double instrumentation_rate);
+
+  // Instead of instrumenting the basic blocks, in dry run mode the instrumenter
+  // only signals if any instrumentation would have happened on the block.
+  // @returns true iff the instrumenter is in dry run mode.
+  bool dry_run() const { return dry_run_; }
+  // Instead of instrumenting the basic blocks, in dry run mode the instrumenter
+  // only signals if any instrumentation would have happened on the block.
+  // @param dry_run true iff dry run mode is on.
+  void set_dry_run(bool dry_run) { dry_run_ = dry_run; }
+
+  // If at least one instrumentation happened during a transform, or would have
+  // happened during a dry run transform, this returns true.
+  // @returns true iff an instrumentation happened (or would have happened, in
+  //     case of a dry run).
+  bool instrumentation_happened() const { return instrumentation_happened_; }
   // @}
 
   // The transform name.
@@ -144,16 +161,24 @@ class AsanBasicBlockTransform
   // Activate the overwriting of source range for created instructions.
   bool debug_friendly_;
 
-  // Set iff we should use the liveness analysis to do smarter instrumentation.
-  bool use_liveness_analysis_;
+  // Instead of instrumenting the basic blocks, run in dry run mode and just
+  // signal whether there would be an instrumenation in the block.
+  bool dry_run_;
+
+  // Controls the rate at which reads/writes are instrumented. This is
+  // implemented using random sampling.
+  double instrumentation_rate_;
+
+  // If any instrumentation happened during a transform, or would have happened
+  // during a dry run transform, this member is set to true.
+  bool instrumentation_happened_;
 
   // When activated, a redundancy elimination is performed to minimize the
   // memory checks added by this transform.
   bool remove_redundant_checks_;
 
-  // Controls the rate at which reads/writes are instrumented. This is
-  // implemented using random sampling.
-  double instrumentation_rate_;
+  // Set iff we should use the liveness analysis to do smarter instrumentation.
+  bool use_liveness_analysis_;
 
   DISALLOW_COPY_AND_ASSIGN(AsanBasicBlockTransform);
 };

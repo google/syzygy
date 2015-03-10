@@ -233,24 +233,54 @@ const uint8 AsanTransformTest::kBlockData[AsanTransformTest::kDataSize] = {};
 
 }  // namespace
 
+TEST_F(AsanTransformTest, SetAsanParameters) {
+  common::InflatedAsanParameters iparams;
+  common::InflatedAsanParameters* null = NULL;
+  common::InflatedAsanParameters* params = &iparams;
+
+  EXPECT_EQ(null, asan_transform_.asan_parameters());
+  asan_transform_.set_asan_parameters(params);
+  EXPECT_EQ(params, asan_transform_.asan_parameters());
+  asan_transform_.set_asan_parameters(NULL);
+  EXPECT_EQ(null, asan_transform_.asan_parameters());
+}
+
+TEST_F(AsanTransformTest, SetDryRunFlag) {
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  EXPECT_FALSE(bb_transform.dry_run());
+  bb_transform.set_dry_run(true);
+  EXPECT_TRUE(bb_transform.dry_run());
+  bb_transform.set_dry_run(false);
+  EXPECT_FALSE(bb_transform.dry_run());
+}
+
+TEST_F(AsanTransformTest, GetInstrumentationHappenedFlag) {
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  EXPECT_FALSE(bb_transform.instrumentation_happened());
+}
+
+TEST_F(AsanTransformTest, SetInstrumentationRate) {
+  EXPECT_EQ(1.0, asan_transform_.instrumentation_rate());
+  asan_transform_.set_instrumentation_rate(1.2);
+  EXPECT_EQ(1.0, asan_transform_.instrumentation_rate());
+  asan_transform_.set_instrumentation_rate(-0.2);
+  EXPECT_EQ(0.0, asan_transform_.instrumentation_rate());
+  asan_transform_.set_instrumentation_rate(0.5);
+  EXPECT_EQ(0.5, asan_transform_.instrumentation_rate());;
+
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  EXPECT_EQ(1.0, bb_transform.instrumentation_rate());
+  bb_transform.set_instrumentation_rate(1.2);
+  EXPECT_EQ(1.0, bb_transform.instrumentation_rate());
+  bb_transform.set_instrumentation_rate(-0.2);
+  EXPECT_EQ(0.0, bb_transform.instrumentation_rate());
+  bb_transform.set_instrumentation_rate(0.5);
+  EXPECT_EQ(0.5, bb_transform.instrumentation_rate());
+}
+
 TEST_F(AsanTransformTest, SetInstrumentDLLName) {
   asan_transform_.set_instrument_dll_name("foo");
   ASSERT_EQ(strcmp(asan_transform_.instrument_dll_name(), "foo"), 0);
-}
-
-TEST_F(AsanTransformTest, SetUseLivenessFlag) {
-  EXPECT_FALSE(asan_transform_.use_liveness_analysis());
-  asan_transform_.set_use_liveness_analysis(true);
-  EXPECT_TRUE(asan_transform_.use_liveness_analysis());
-  asan_transform_.set_use_liveness_analysis(false);
-  EXPECT_FALSE(asan_transform_.use_liveness_analysis());
-
-  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
-  EXPECT_FALSE(bb_transform.use_liveness_analysis());
-  bb_transform.set_use_liveness_analysis(true);
-  EXPECT_TRUE(bb_transform.use_liveness_analysis());
-  bb_transform.set_use_liveness_analysis(false);
-  EXPECT_FALSE(bb_transform.use_liveness_analysis());
 }
 
 TEST_F(AsanTransformTest, SetInterceptCRTFuntionsFlag) {
@@ -276,35 +306,19 @@ TEST_F(AsanTransformTest, SetRemoveRedundantChecksFlag) {
   EXPECT_FALSE(bb_transform.remove_redundant_checks());
 }
 
-TEST_F(AsanTransformTest, SetInstrumentationRate) {
-  EXPECT_EQ(1.0, asan_transform_.instrumentation_rate());
-  asan_transform_.set_instrumentation_rate(1.2);
-  EXPECT_EQ(1.0, asan_transform_.instrumentation_rate());
-  asan_transform_.set_instrumentation_rate(-0.2);
-  EXPECT_EQ(0.0, asan_transform_.instrumentation_rate());
-  asan_transform_.set_instrumentation_rate(0.5);
-  EXPECT_EQ(0.5, asan_transform_.instrumentation_rate());;
+TEST_F(AsanTransformTest, SetUseLivenessFlag) {
+  EXPECT_FALSE(asan_transform_.use_liveness_analysis());
+  asan_transform_.set_use_liveness_analysis(true);
+  EXPECT_TRUE(asan_transform_.use_liveness_analysis());
+  asan_transform_.set_use_liveness_analysis(false);
+  EXPECT_FALSE(asan_transform_.use_liveness_analysis());
 
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
-  EXPECT_EQ(1.0, bb_transform.instrumentation_rate());
-  bb_transform.set_instrumentation_rate(1.2);
-  EXPECT_EQ(1.0, bb_transform.instrumentation_rate());
-  bb_transform.set_instrumentation_rate(-0.2);
-  EXPECT_EQ(0.0, bb_transform.instrumentation_rate());
-  bb_transform.set_instrumentation_rate(0.5);
-  EXPECT_EQ(0.5, bb_transform.instrumentation_rate());
-}
-
-TEST_F(AsanTransformTest, SetAsanParameters) {
-  common::InflatedAsanParameters iparams;
-  common::InflatedAsanParameters* null = NULL;
-  common::InflatedAsanParameters* params = &iparams;
-
-  EXPECT_EQ(null, asan_transform_.asan_parameters());
-  asan_transform_.set_asan_parameters(params);
-  EXPECT_EQ(params, asan_transform_.asan_parameters());
-  asan_transform_.set_asan_parameters(NULL);
-  EXPECT_EQ(null, asan_transform_.asan_parameters());
+  EXPECT_FALSE(bb_transform.use_liveness_analysis());
+  bb_transform.set_use_liveness_analysis(true);
+  EXPECT_TRUE(bb_transform.use_liveness_analysis());
+  bb_transform.set_use_liveness_analysis(false);
+  EXPECT_FALSE(bb_transform.use_liveness_analysis());
 }
 
 TEST_F(AsanTransformTest, ApplyAsanTransformPE) {
@@ -344,6 +358,9 @@ TEST_F(AsanTransformTest, InjectAsanHooksPe) {
       BlockGraph::PE_IMAGE));
 
   // Ensure that the basic block is instrumented.
+
+  // Check what the transform reports at first.
+  EXPECT_TRUE(bb_transform.instrumentation_happened());
 
   // We had 2 instructions initially, and for each of them we add 3
   // instructions, so we expect to have 2 + 3 * 2 = 8 instructions.
@@ -413,6 +430,7 @@ TEST_F(AsanTransformTest, InjectAsanHooksWithSourceRangePe) {
         BlockGraph::PE_IMAGE));
 
   // Ensure this basic block is instrumented.
+  EXPECT_TRUE(bb_transform.instrumentation_happened());
   uint32 after_instructions_count = basic_block_->instructions().size();
   ASSERT_LT(before_instructions_count, after_instructions_count);
 
@@ -445,6 +463,9 @@ TEST_F(AsanTransformTest, InjectAsanHooksCoff) {
       BlockGraph::COFF_IMAGE));
 
   // Ensure that the basic block is instrumented.
+
+  // Check what the transform reports at first.
+  EXPECT_TRUE(bb_transform.instrumentation_happened());
 
   // We had 2 instructions initially, and for each of them we add 3
   // instructions, so we expect to have 2 + 3 * 2 = 8 instructions.
@@ -517,6 +538,7 @@ TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
       basic_block_,
       AsanBasicBlockTransform::kSafeStackAccess,
       BlockGraph::PE_IMAGE));
+  EXPECT_TRUE(bb_transform.instrumentation_happened());
   ASSERT_EQ(basic_block_->instructions().size(), expected_instructions_count);
 }
 
@@ -546,6 +568,7 @@ TEST_F(AsanTransformTest, InstrumentAndRemoveRedundantChecks) {
       basic_block_,
       AsanBasicBlockTransform::kSafeStackAccess,
       BlockGraph::PE_IMAGE));
+  EXPECT_TRUE(bb_transform.instrumentation_happened());
   ASSERT_EQ(basic_block_->instructions().size(), expected_instructions_count);
 }
 
@@ -588,6 +611,7 @@ TEST_F(AsanTransformTest, NonInstrumentableStackBasedInstructions) {
         BlockGraph::PE_IMAGE));
 
   // Non-instrumentable instructions implies no change.
+  EXPECT_FALSE(bb_transform.instrumentation_happened());
   EXPECT_EQ(expected_basic_block_size, basic_block_->instructions().size());
 }
 
@@ -610,6 +634,7 @@ TEST_F(AsanTransformTest, InstrumentableStackBasedUnsafeInstructions) {
 
   // This instruction should have been instrumented, and we must observe
   // a increase in size.
+  EXPECT_TRUE(bb_transform.instrumentation_happened());
   EXPECT_LT(previous_basic_block_size, basic_block_->instructions().size());
 }
 
@@ -634,6 +659,7 @@ TEST_F(AsanTransformTest, NonInstrumentableSegmentBasedInstructions) {
         BlockGraph::PE_IMAGE));
 
   // Non-instrumentable instructions implies no change.
+  EXPECT_FALSE(bb_transform.instrumentation_happened());
   EXPECT_EQ(expected_basic_block_size, basic_block_->instructions().size());
 }
 
@@ -666,6 +692,9 @@ TEST_F(AsanTransformTest, FilteredInstructionsNotInstrumented) {
 
   // Ensure that the basic block is instrumented, but only the second
   // instruction.
+
+  // The transform should report changes.
+  EXPECT_TRUE(bb_transform.instrumentation_happened());
 
   // We had 2 instructions initially. For the second one we add 3
   // instructions, so we expect to have 1 + (1 + 3) = 5 instructions.
@@ -731,6 +760,8 @@ TEST_F(AsanTransformTest, InstrumentableStringInstructions) {
         AsanBasicBlockTransform::kSafeStackAccess,
         BlockGraph::PE_IMAGE));
 
+  EXPECT_TRUE(bb_transform.instrumentation_happened());
+
   // Each instrumentable instructions implies 1 new instructions.
   uint32 expected_basic_block_size = count_instructions + basic_block_size;
 
@@ -775,11 +806,63 @@ TEST_F(AsanTransformTest, InstrumentableRepzStringInstructions) {
         AsanBasicBlockTransform::kSafeStackAccess,
         BlockGraph::PE_IMAGE));
 
+  EXPECT_TRUE(bb_transform.instrumentation_happened());
+
   // Each instrumentable instructions implies 1 new instructions.
   uint32 expected_basic_block_size = count_instructions + basic_block_size;
 
   // Validate basic block size.
   ASSERT_EQ(basic_block_->instructions().size(), expected_basic_block_size);
+}
+
+TEST_F(AsanTransformTest, DryRunInstrumentable) {
+  // Generate an instrumentable instruction.
+  bb_asm_->mov(assm::eax, block_graph::Operand(assm::ecx));
+
+  // Keep track of the basic block size before Asan transform.
+  uint32 basic_block_size = basic_block_->instructions().size();
+
+  // Instrument this basic block.
+  // Note that InitHooksRefs() is not needed for a dry run.
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  bb_transform.set_dry_run(true);
+
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
+      basic_block_,
+      AsanBasicBlockTransform::kSafeStackAccess,
+      BlockGraph::PE_IMAGE));
+
+  // The instructions_happened() function should return true because we
+  // had an instruction to instrument.
+  EXPECT_TRUE(bb_transform.instrumentation_happened());
+
+  // Yet, the basic block should not be touched.
+  ASSERT_EQ(basic_block_size, basic_block_->instructions().size());
+}
+
+TEST_F(AsanTransformTest, DryRunNonInstrumentable) {
+  // Generate a non-instrumentable instruction.
+  bb_asm_->xchg(assm::eax, assm::ecx);
+
+  // Keep track of the basic block size before Asan transform.
+  uint32 basic_block_size = basic_block_->instructions().size();
+
+  // Instrument this basic block.
+  // Note that InitHooksRefs() is not needed for a dry run.
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  bb_transform.set_dry_run(true);
+
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
+      basic_block_,
+      AsanBasicBlockTransform::kSafeStackAccess,
+      BlockGraph::PE_IMAGE));
+
+  // The instructions_happened() function should return false because we
+  // had no instructions to instrument.
+  EXPECT_FALSE(bb_transform.instrumentation_happened());
+
+  // The basic block should not be touched either.
+  ASSERT_EQ(basic_block_size, basic_block_->instructions().size());
 }
 
 namespace {
