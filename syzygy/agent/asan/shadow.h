@@ -96,6 +96,17 @@ class Shadow {
   // The upper bound of the addressable memory.
   static const size_t kAddressUpperBound = kShadowSize << kShadowRatioLog;
 
+  // The number of shadow bytes to emit per line of a report.
+  static const size_t kShadowBytesPerLine = 8;
+
+  // The number of lines of shadow memory to emit before and after the
+  // faulting address. Thus, information about
+  //
+  // (2 * kShadowContextLines + 1) * kShadowBytesPerLine
+  //
+  // shadow bytes will be reported in all.
+  static const size_t kShadowContextLines = 4;
+
   // Set up the shadow memory.
   static void SetUp();
 
@@ -259,6 +270,13 @@ class Shadow {
   // @note Grabs a global shadow lock.
   static void MarkPagesUnprotected(const void* addr, size_t size);
 
+  // Read only accessor of shadow memory.
+  // @returns a pointer to the actual shadow memory.
+  static const uint8* shadow() { return shadow_; }
+
+  // Read only accessor of page protection bits.
+  static const uint8* page_bits() { return page_bits_; }
+
  protected:
   // Reset the shadow memory.
   static void Reset();
@@ -328,8 +346,8 @@ class ShadowWalker {
   // @param upper_bound The upper bound of the region that this walker should
   //     cover in the actual memory.
   ShadowWalker(bool recursive,
-                  const void* lower_bound,
-                  const void* upper_bound);
+               const void* lower_bound,
+               const void* upper_bound);
 
   // Return the next block in this memory region.
   // @param info The block information to be populated.

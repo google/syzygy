@@ -430,7 +430,7 @@ void Shadow::AppendShadowByteText(const char *prefix,
   base::StringAppendF(
       output, "%s0x%08x:", prefix, reinterpret_cast<void*>(index << 3));
   char separator = ' ';
-  for (uint32 i = 0; i < 8; i++) {
+  for (uint32 i = 0; i < kShadowBytesPerLine; i++) {
     if (index + i == bug_index)
       separator = '[';
     uint8 shadow_value = shadow_[index + i];
@@ -450,10 +450,13 @@ void Shadow::AppendShadowArrayText(const void* addr, std::string* output) {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
   index >>= 3;
   size_t index_start = index;
-  index_start &= ~0x7;
-  for (int i = -4; i <= 4; i++) {
+  index_start /= kShadowBytesPerLine;
+  index_start *= kShadowBytesPerLine;
+  for (int i = -static_cast<int>(kShadowContextLines);
+       i <= static_cast<int>(kShadowContextLines); i++) {
     const char * const prefix = (i == 0) ? "=>" : "  ";
-    AppendShadowByteText(prefix, (index_start + i * 8), output, index);
+    AppendShadowByteText(
+        prefix, (index_start + i * kShadowBytesPerLine), output, index);
   }
 }
 

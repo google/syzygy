@@ -222,13 +222,6 @@ class TestBlockHeapManager : public BlockHeapManager {
 };
 
 // A derived class to expose protected members for unit-testing.
-class TestShadow : public Shadow {
- public:
-  using Shadow::kShadowSize;
-  using Shadow::shadow_;
-};
-
-// A derived class to expose protected members for unit-testing.
 class TestAsanRuntime : public agent::asan::AsanRuntime {
  public:
   using agent::asan::AsanRuntime::heap_manager_;
@@ -617,7 +610,7 @@ TEST_P(BlockHeapManagerTest, UnpoisonsQuarantine) {
   size_t shadow_start = mem_start >> 3;
   size_t shadow_alloc_size = real_alloc_size >> 3;
   for (size_t i = shadow_start; i < shadow_start + shadow_alloc_size; ++i)
-    ASSERT_NE(kHeapAddressableMarker, TestShadow::shadow_[i]);
+    ASSERT_NE(kHeapAddressableMarker, Shadow::shadow()[i]);
 
   // Flush the quarantine.
   heap.FlushQuarantine();
@@ -626,9 +619,9 @@ TEST_P(BlockHeapManagerTest, UnpoisonsQuarantine) {
   for (size_t i = shadow_start; i < shadow_start + shadow_alloc_size; ++i) {
     if ((heap.GetHeapFeatures() &
          HeapInterface::kHeapReportsReservations) != 0) {
-      ASSERT_EQ(kAsanReservedMarker, TestShadow::shadow_[i]);
+      ASSERT_EQ(kAsanReservedMarker, Shadow::shadow()[i]);
     } else {
-      ASSERT_EQ(kHeapAddressableMarker, TestShadow::shadow_[i]);
+      ASSERT_EQ(kHeapAddressableMarker, Shadow::shadow()[i]);
     }
   }
 }
