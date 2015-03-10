@@ -30,6 +30,7 @@ namespace kasko {
 
 TEST(CrashKeysSerializationTest, BasicTest) {
   base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
   base::FilePath temp_file = temp_dir.path().Append(L"test.dat");
   std::map<base::string16, base::string16> crash_keys;
   crash_keys[L"name"] = L"value";
@@ -41,6 +42,7 @@ TEST(CrashKeysSerializationTest, BasicTest) {
 
 TEST(CrashKeysSerializationTest, MissingFile) {
   base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
   std::map<base::string16, base::string16> crash_keys_from_disk;
   ASSERT_FALSE(ReadCrashKeysFromFile(
       temp_dir.path().Append(L"some_other_path.dat"), &crash_keys_from_disk));
@@ -48,6 +50,7 @@ TEST(CrashKeysSerializationTest, MissingFile) {
 
 TEST(CrashKeysSerializationTest, InvalidFile) {
   base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
   base::FilePath temp_file = temp_dir.path().Append(L"test.dat");
   std::string invalid_file_contents =
       "These aren't the bytes you're looking for.";
@@ -63,6 +66,7 @@ TEST(CrashKeysSerializationTest, IllegalDictionaryContents) {
   list->AppendString("value 1");
   dictionary.Set("name", list.release());
   base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
   base::FilePath temp_file = temp_dir.path().Append(L"test.dat");
   std::string file_contents;
   ASSERT_TRUE(base::JSONWriter::Write(&dictionary, &file_contents));
@@ -76,6 +80,7 @@ TEST(CrashKeysSerializationTest, NotADictionary) {
   base::ListValue list;
   list.AppendString("value 1");
   base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
   base::FilePath temp_file = temp_dir.path().Append(L"test.dat");
   std::string file_contents;
   ASSERT_TRUE(base::JSONWriter::Write(&list, &file_contents));
