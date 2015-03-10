@@ -60,13 +60,13 @@ TEST(ClientTest, BasicTest) {
   base::char16* keys[] = {L"foo", L"hello", nullptr};
   base::char16* values[] = {L"bar", L"world", nullptr};
 
-  // With crash keys.
-  Client(endpoint)
-      .SendReport(nullptr, protobuf.data(), protobuf.length(), keys, values);
+  // Small dump with crash keys.
+  Client(endpoint).SendReport(nullptr, SMALL_DUMP_TYPE, protobuf.data(),
+                              protobuf.length(), keys, values);
 
-  // No crash keys.
-  Client(endpoint).SendReport(nullptr, protobuf.data(), protobuf.length(),
-                              nullptr, nullptr);
+  // Larger dump without crash keys.
+  Client(endpoint).SendReport(nullptr, LARGER_DUMP_TYPE, protobuf.data(),
+                              protobuf.length(), nullptr, nullptr);
 
   ASSERT_EQ(2u, call_log.size());
   ASSERT_EQ(::GetCurrentProcessId(), call_log[0].client_process_id);
@@ -78,10 +78,12 @@ TEST(ClientTest, BasicTest) {
   entry = call_log[0].crash_keys.find(L"hello");
   ASSERT_NE(call_log[0].crash_keys.end(), entry);
   ASSERT_EQ(L"world", entry->second);
+  ASSERT_EQ(SMALL_DUMP_TYPE, call_log[0].minidump_type);
 
   ASSERT_EQ(::GetCurrentProcessId(), call_log[1].client_process_id);
   ASSERT_EQ(protobuf, call_log[1].protobuf);
   ASSERT_EQ(0u, call_log[1].crash_keys.size());
+  ASSERT_EQ(LARGER_DUMP_TYPE, call_log[1].minidump_type);
 }
 
 }  // namespace kasko

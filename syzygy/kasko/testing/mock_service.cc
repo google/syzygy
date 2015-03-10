@@ -26,11 +26,14 @@ void MockService::SendDiagnosticReport(
     base::ProcessId client_process_id,
     uint64_t exception_info_address,
     base::PlatformThreadId thread_id,
+    MinidumpType minidump_type,
     const char* protobuf,
     size_t protobuf_length,
     const std::map<base::string16, base::string16>& crash_keys) {
-  CallRecord record = {
-      client_process_id, std::string(protobuf, protobuf_length), crash_keys};
+  CallRecord record = {client_process_id,
+                       minidump_type,
+                       std::string(protobuf, protobuf_length),
+                       crash_keys};
   call_log_->push_back(record);
 }
 

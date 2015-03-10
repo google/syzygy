@@ -32,6 +32,7 @@ ServiceBridge* g_service_bridge = NULL;
 boolean KaskoService_SendDiagnosticReport(handle_t IDL_handle,
                                           unsigned long exception_info_address,
                                           unsigned long thread_id,
+                                          DumpType minidump_type,
                                           unsigned long protobuf_length,
                                           const signed char* protobuf,
                                           unsigned long crash_keys_size,
@@ -52,9 +53,26 @@ boolean KaskoService_SendDiagnosticReport(handle_t IDL_handle,
         base::UTF8ToUTF16(reinterpret_cast<const char*>(crash_keys[i].value));
   }
 
+  kasko::MinidumpType internal_minidump_type = kasko::SMALL_DUMP_TYPE;
+  switch (minidump_type) {
+    case SMALL_DUMP:
+      internal_minidump_type = kasko::SMALL_DUMP_TYPE;
+      break;
+    case LARGER_DUMP:
+      internal_minidump_type = kasko::LARGER_DUMP_TYPE;
+      break;
+    case FULL_DUMP:
+      internal_minidump_type = kasko::FULL_DUMP_TYPE;
+      break;
+    default:
+      NOTREACHED();
+      break;
+  }
+
   kasko::g_service_bridge->service_->SendDiagnosticReport(
       client_process_id, exception_info_address, thread_id,
-      reinterpret_cast<const char*>(protobuf), protobuf_length, crash_keys_map);
+      internal_minidump_type, reinterpret_cast<const char*>(protobuf),
+      protobuf_length, crash_keys_map);
 
   return true;
 }

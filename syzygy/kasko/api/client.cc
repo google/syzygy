@@ -51,6 +51,7 @@ void InitializeClient(const base::char16* endpoint_name) {
 }
 
 void SendReport(const EXCEPTION_POINTERS* exception_pointers,
+                MinidumpType minidump_type,
                 const char* protobuf,
                 size_t protobuf_length,
                 const CrashKey* crash_keys,
@@ -73,8 +74,25 @@ void SendReport(const EXCEPTION_POINTERS* exception_pointers,
   }
   keys.push_back(nullptr);
   values.push_back(nullptr);
-  g_client->SendReport(exception_pointers, protobuf, protobuf_length,
-                       keys.data(), values.data());
+
+  kasko::MinidumpType internal_minidump_type = kasko::SMALL_DUMP_TYPE;
+  switch (minidump_type) {
+    case SMALL_DUMP_TYPE:
+      internal_minidump_type = kasko::SMALL_DUMP_TYPE;
+      break;
+    case LARGER_DUMP_TYPE:
+      internal_minidump_type = kasko::LARGER_DUMP_TYPE;
+      break;
+    case FULL_DUMP_TYPE:
+      internal_minidump_type = kasko::FULL_DUMP_TYPE;
+      break;
+    default:
+      NOTREACHED();
+      break;
+  }
+
+  g_client->SendReport(exception_pointers, internal_minidump_type, protobuf,
+                       protobuf_length, keys.data(), values.data());
 }
 
 void ShutdownClient() {

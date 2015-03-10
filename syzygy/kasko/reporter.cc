@@ -113,6 +113,7 @@ void SendReportImpl(const base::FilePath& temporary_directory,
                     base::ProcessId client_process_id,
                     uint64_t exception_info_address,
                     base::PlatformThreadId thread_id,
+                    MinidumpType minidump_type,
                     const char* protobuf,
                     size_t protobuf_length,
                     std::map<base::string16, base::string16> crash_keys) {
@@ -136,7 +137,8 @@ void SendReportImpl(const base::FilePath& temporary_directory,
   }
 
   if (!GenerateMinidump(dump_file, client_process_id, thread_id,
-                        exception_info_address, custom_streams)) {
+                        exception_info_address, minidump_type,
+                        custom_streams)) {
     LOG(ERROR) << "Minidump generation failed.";
     base::DeleteFile(dump_file, false);
     return;
@@ -161,11 +163,12 @@ class ServiceImpl : public Service {
        base::ProcessId client_process_id,
        uint64_t exception_info_address,
        base::PlatformThreadId thread_id,
+       MinidumpType minidump_type,
        const char* protobuf,
        size_t protobuf_length,
        const std::map<base::string16, base::string16>& crash_keys) override {
      SendReportImpl(temporary_directory_, report_repository_, client_process_id,
-                    exception_info_address, thread_id, protobuf,
+                    exception_info_address, thread_id, minidump_type, protobuf,
                     protobuf_length, crash_keys);
    }
 
@@ -234,9 +237,11 @@ Reporter::~Reporter() {}
 
 void Reporter::SendReportForProcess(
     base::ProcessHandle process_handle,
+    MinidumpType minidump_type,
     const std::map<base::string16, base::string16>& crash_keys) {
   SendReportImpl(temporary_minidump_directory_, &report_repository_,
-                 base::GetProcId(process_handle), NULL, 0, NULL, 0, crash_keys);
+                 base::GetProcId(process_handle), NULL, 0, minidump_type, NULL,
+                 0, crash_keys);
 }
 
 // static

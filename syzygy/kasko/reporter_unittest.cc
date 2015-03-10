@@ -70,7 +70,7 @@ void DoInvokeService(const base::string16& endpoint,
        reinterpret_cast<const signed char*>(kCrashKey2Value)}};
 
   common::rpc::RpcStatus status = common::rpc::InvokeRpc(
-      KaskoClient_SendDiagnosticReport, rpc_binding.Get(), NULL, 0,
+      KaskoClient_SendDiagnosticReport, rpc_binding.Get(), NULL, 0, SMALL_DUMP,
       protobuf.length(), reinterpret_cast<const signed char*>(protobuf.c_str()),
       arraysize(crash_keys), crash_keys);
   ASSERT_FALSE(status.exception_occurred);
@@ -168,7 +168,7 @@ TEST_F(ReporterTest, DISABLED_SendReportForProcessTest) {
       base::UTF8ToUTF16(kCrashKey2Value);
 
   instance->SendReportForProcess(base::GetCurrentProcessHandle(),
-                                 crash_keys_in);
+                                 SMALL_DUMP_TYPE, crash_keys_in);
 
   base::FilePath minidump_path;
   std::map<std::string, std::string> crash_keys;

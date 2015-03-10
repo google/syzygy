@@ -19,6 +19,7 @@
 
 #include "base/strings/string16.h"
 #include "syzygy/kasko/api/kasko_export.h"
+#include "syzygy/kasko/api/minidump_type.h"
 
 namespace kasko {
 namespace api {
@@ -48,17 +49,18 @@ KASKO_EXPORT void ShutdownClient();
 
 // Sends a diagnostic report for the current process.
 // @param exception_info_address Optional exception information.
+// @param minidump_type The type of minidump to be included in the report.
 // @param protobuf An optional protobuf to be included in the report.
 // @param protobuf_length The length of the protobuf.
 // @param crash_keys An optional array of crash keys. Keys with empty names or
 //     values will be ignored.
 // @param crash_key_count The number of entries in crash_keys.
-KASKO_EXPORT void SendReport(
-    const EXCEPTION_POINTERS* exception_pointers,
-    const char* protobuf,
-    size_t protobuf_length,
-    const CrashKey* crash_keys,
-    size_t crash_key_count);
+KASKO_EXPORT void SendReport(const EXCEPTION_POINTERS* exception_pointers,
+                             MinidumpType minidump_type,
+                             const char* protobuf,
+                             size_t protobuf_length,
+                             const CrashKey* crash_keys,
+                             size_t crash_key_count);
 
 }  // namespace api
 }  // namespace kasko

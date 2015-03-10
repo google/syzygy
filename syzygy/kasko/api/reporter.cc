@@ -59,6 +59,7 @@ bool InitializeReporter(
 }
 
 void SendReportForProcess(base::ProcessHandle process_handle,
+                          MinidumpType minidump_type,
                           const base::char16* const* keys,
                           const base::char16* const* values) {
   DCHECK(g_reporter);
@@ -76,7 +77,24 @@ void SendReportForProcess(base::ProcessHandle process_handle,
     DCHECK(!values[i]);
   }
 
-  g_reporter->SendReportForProcess(process_handle, crash_keys);
+  kasko::MinidumpType internal_minidump_type = kasko::SMALL_DUMP_TYPE;
+  switch (minidump_type) {
+    case SMALL_DUMP_TYPE:
+      internal_minidump_type = kasko::SMALL_DUMP_TYPE;
+      break;
+    case LARGER_DUMP_TYPE:
+      internal_minidump_type = kasko::LARGER_DUMP_TYPE;
+      break;
+    case FULL_DUMP_TYPE:
+      internal_minidump_type = kasko::FULL_DUMP_TYPE;
+      break;
+    default:
+      NOTREACHED();
+      break;
+  }
+
+  g_reporter->SendReportForProcess(process_handle, internal_minidump_type,
+                                   crash_keys);
 }
 
 void ShutdownReporter() {

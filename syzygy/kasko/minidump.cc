@@ -25,10 +25,33 @@
 
 namespace kasko {
 
+namespace {
+
+// Minidump with stacks, PEB, TEB, and unloaded module list.
+const MINIDUMP_TYPE kSmallDumpType = static_cast<MINIDUMP_TYPE>(
+    MiniDumpWithProcessThreadData |  // Get PEB and TEB.
+    MiniDumpWithUnloadedModules);  // Get unloaded modules when available.
+
+// Minidump with all of the above, plus memory referenced from stack.
+const MINIDUMP_TYPE kLargerDumpType = static_cast<MINIDUMP_TYPE>(
+    MiniDumpWithProcessThreadData |  // Get PEB and TEB.
+    MiniDumpWithUnloadedModules |  // Get unloaded modules when available.
+    MiniDumpWithIndirectlyReferencedMemory);  // Get memory referenced by stack.
+
+// Large dump with all process memory.
+const MINIDUMP_TYPE kFullDumpType = static_cast<MINIDUMP_TYPE>(
+    MiniDumpWithFullMemory |  // Full memory from process.
+    MiniDumpWithProcessThreadData |  // Get PEB and TEB.
+    MiniDumpWithHandleData |  // Get all handle information.
+    MiniDumpWithUnloadedModules);  // Get unloaded modules when available.
+
+}  // namespace
+
 bool GenerateMinidump(const base::FilePath& destination,
                       base::ProcessId target_process_id,
                       base::PlatformThreadId thread_id,
                       unsigned long client_exception_pointers,
+                      MinidumpType minidump_type,
                       const std::vector<CustomStream>& custom_streams) {
   base::win::ScopedHandle target_process_handle(
       ::OpenProcess(GENERIC_ALL, FALSE, target_process_id));
@@ -57,6 +80,23 @@ bool GenerateMinidump(const base::FilePath& destination,
     return false;
   }
 
+  MINIDUMP_TYPE platform_minidump_type = kSmallDumpType;
+
+  switch (minidump_type) {
+    case SMALL_DUMP_TYPE:
+      platform_minidump_type = kSmallDumpType;
+      break;
+    case LARGER_DUMP_TYPE:
+      platform_minidump_type = kLargerDumpType;
+      break;
+    case FULL_DUMP_TYPE:
+      platform_minidump_type = kFullDumpType;
+      break;
+    default:
+      NOTREACHED();
+      break;
+  }
+
   std::vector<MINIDUMP_USER_STREAM> user_streams;
   for (const auto& custom_stream : custom_streams) {
     MINIDUMP_USER_STREAM user_stream = {custom_stream.type,
@@ -68,12 +108,10 @@ bool GenerateMinidump(const base::FilePath& destination,
   MINIDUMP_USER_STREAM_INFORMATION
   user_stream_information = {custom_streams.size(), user_streams.data()};
 
-  if (::MiniDumpWriteDump(
-          target_process_handle, target_process_id,
-          destination_file.GetPlatformFile(),
-          static_cast<MINIDUMP_TYPE>(MiniDumpWithProcessThreadData |
-                                     MiniDumpWithUnloadedModules),
-          dump_exception_pointers, &user_stream_information, NULL) == FALSE) {
+  if (::MiniDumpWriteDump(target_process_handle, target_process_id,
+                          destination_file.GetPlatformFile(),
+                          platform_minidump_type, dump_exception_pointers,
+                          &user_stream_information, NULL) == FALSE) {
     LOG(ERROR) << "MiniDumpWriteDump failed: " << ::common::LogWe() << ".";
     return false;
   }

@@ -19,6 +19,7 @@
 
 #include "base/macros.h"
 #include "base/strings/string16.h"
+#include "syzygy/kasko/minidump_type.h"
 
 namespace kasko {
 
@@ -35,12 +36,14 @@ class Client {
 
   // Sends a diagnostic report for the current process.
   // @param exception_pointers Optional exception information.
+  // @param minidump_type The type of minidump to be included in the report.
   // @param protobuf An optional protobuf to be included in the report.
   // @param protobuf_length The length of the protobuf.
   // @param keys An optional null-terminated array of crash key names
   // @param values An optional null-terminated array of crash key values. Must
   //     be of equal length to |keys|.
   void SendReport(const EXCEPTION_POINTERS* exception_pointers,
+                  MinidumpType minidump_type,
                   const char* protobuf,
                   size_t protobuf_length,
                   const base::char16* const* keys,

@@ -18,18 +18,36 @@
     version(1.0)
 ]
 interface Kasko {
+
+  // Represents a property to include in a diagnostic report.
   typedef struct {
       [string] const signed char* name;
       [string] const signed char* value;
   } CrashKey;
 
-  // Sends a diagnostic report for the caller process. |protobuf| will be
-  // included in the report as a custom data stream.
+  // Specifies the type of Minidump to be included in a report.
+  typedef enum {
+    SMALL_DUMP,
+    LARGER_DUMP,
+    FULL_DUMP
+  } DumpType;
+
+  // Sends a diagnostic report for the caller process.
+  // @param exception_info_address Optional exception information.
+  // @param thread_id The (optional) faulting thread in the target process.
+  // @param minidump_type The type of minidump to be included in the report.
+  // @param protobuf_size The length of |protobuf|.
+  // @param protobuf An optional protobuf to be included in the report.
+  // @param crash_keys_size The number of entries in |crash_keys|.
+  // @param crash_keys An optional array of crash keys. Keys with empty names or
+  //     values will be ignored.
   boolean SendDiagnosticReport(
       unsigned long exception_info_address,
       unsigned long thread_id,
+      DumpType minidump_type,
       [in] unsigned long protobuf_size,
       [in, size_is(protobuf_size)] const signed char* protobuf,
       [in] unsigned long crash_keys_size,
       [in, size_is(crash_keys_size)] const CrashKey* crash_keys);
+
 }

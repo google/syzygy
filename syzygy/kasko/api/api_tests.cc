@@ -87,7 +87,7 @@ MULTIPROCESS_TEST_MAIN(ApiTestReporterProcess) {
   base::win::ScopedHandle client_process(
       ::OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, client_process_id));
   CHECK(client_process.IsValid());
-  SendReportForProcess(client_process.Get(), keys, values);
+  SendReportForProcess(client_process.Get(), SMALL_DUMP_TYPE, keys, values);
 
   // Tell the client process that we are active.
   ready_event.Signal();
@@ -165,7 +165,8 @@ TEST(ApiTest, BasicTest) {
   EXCEPTION_POINTERS exc_ptrs = { &exc_rec, &ctx };
 
   CrashKey crash_keys[] = {{L"hello", L"world"}, {L"", L"bar"}};
-  SendReport(&exc_ptrs, NULL, 0, crash_keys, arraysize(crash_keys));
+  SendReport(&exc_ptrs, SMALL_DUMP_TYPE, NULL, 0, crash_keys,
+             arraysize(crash_keys));
 
   // TODO(erikwright): Wait for the upload and verify the report contents.
 

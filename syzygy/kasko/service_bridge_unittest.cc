@@ -58,6 +58,7 @@ class BlockingService : public Service {
       base::ProcessId client_process_id,
       uint64_t exception_info_address,
       base::PlatformThreadId thread_id,
+      MinidumpType minidump_type,
       const char* protobuf,
       size_t protobuf_length,
       const std::map<base::string16, base::string16>& crash_keys) override;
@@ -78,6 +79,7 @@ void BlockingService::SendDiagnosticReport(
     base::ProcessId client_process_id,
     uint64_t exception_info_address,
     base::PlatformThreadId thread_id,
+    MinidumpType minidump_type,
     const char* protobuf,
     size_t protobuf_length,
     const std::map<base::string16, base::string16>& crash_keys) {
@@ -104,7 +106,7 @@ void DoInvokeService(const base::string16& protocol,
   ASSERT_TRUE(rpc_binding.Open(protocol, endpoint));
 
   common::rpc::RpcStatus status = common::rpc::InvokeRpc(
-      KaskoClient_SendDiagnosticReport, rpc_binding.Get(), NULL, 0,
+      KaskoClient_SendDiagnosticReport, rpc_binding.Get(), NULL, 0, SMALL_DUMP,
       protobuf.length(), reinterpret_cast<const signed char*>(protobuf.c_str()),
       crash_keys_length, crash_keys);
   ASSERT_FALSE(status.exception_occurred);

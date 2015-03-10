@@ -44,6 +44,7 @@
       # correct relative path.
       '<(src)/syzygy/kasko/api/client.h',
       '<(src)/syzygy/kasko/api/kasko_export.h',
+      '<(src)/syzygy/kasko/api/minidump_type.h',
       '<(src)/syzygy/kasko/api/reporter.h',
     ],
 

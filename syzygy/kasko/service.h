@@ -22,6 +22,7 @@
 #include "base/process/process_handle.h"
 #include "base/strings/string16.h"
 #include "base/threading/platform_thread.h"
+#include "syzygy/kasko/minidump_type.h"
 
 namespace kasko {
 
@@ -43,6 +44,7 @@ class Service {
        base::ProcessId client_process_id,
        uint64_t exception_info_address,
        base::PlatformThreadId thread_id,
+       MinidumpType minidump_type,
        const char* protobuf,
        size_t protobuf_length,
        const std::map<base::string16, base::string16>& crash_keys) = 0;

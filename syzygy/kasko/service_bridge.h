@@ -65,6 +65,7 @@ class ServiceBridge {
       handle_t IDL_handle,
       unsigned long exception_info_address,
       unsigned long thread_id,
+      ::DumpType dump_type,
       unsigned long protobuf_length,
       const signed char* protobuf,
       unsigned long crash_keys_size,

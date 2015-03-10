@@ -20,6 +20,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/process/process_handle.h"
 #include "base/strings/string16.h"
+#include "syzygy/kasko/minidump_type.h"
 #include "syzygy/kasko/report_repository.h"
 #include "syzygy/kasko/service_bridge.h"
 
@@ -78,9 +79,11 @@ class Reporter {
   // Sends a diagnostic report for a specified process with the specified crash
   // keys.
   // @param process_handle A handle to the process to report on.
+  // @param minidump_type The type of minidump to be included in the report.
   // @param crash_keys Crash keys to include in the report.
   void SendReportForProcess(
       base::ProcessHandle process_handle,
+      MinidumpType minidump_type,
       const std::map<base::string16, base::string16>& crash_keys);
 
   // Shuts down and destroys a Reporter process. Blocks until all background

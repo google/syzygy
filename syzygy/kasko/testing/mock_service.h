@@ -35,6 +35,9 @@ class MockService : public Service {
     // The caller process ID.
     const base::ProcessId client_process_id;
 
+    // The requested minidump type.
+    MinidumpType minidump_type;
+
     // The supplied protobuf.
     const std::string protobuf;
 
@@ -55,6 +58,7 @@ class MockService : public Service {
       base::ProcessId client_process_id,
       uint64_t exception_info_address,
       base::PlatformThreadId thread_id,
+      MinidumpType minidump_type,
       const char* protobuf,
       size_t protobuf_length,
       const std::map<base::string16, base::string16>& crash_keys) override;

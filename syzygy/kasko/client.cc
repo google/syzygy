@@ -35,6 +35,7 @@ Client::~Client(){
 }
 
 void Client::SendReport(const EXCEPTION_POINTERS* exception_pointers,
+                        MinidumpType minidump_type,
                         const char* protobuf,
                         size_t protobuf_length,
                         const base::char16* const* keys,
@@ -71,11 +72,27 @@ void Client::SendReport(const EXCEPTION_POINTERS* exception_pointers,
   }
   DCHECK_EQ(index, utf8_crash_keys.size());
 
+  DumpType rpc_dump_type = SMALL_DUMP;
+  switch (minidump_type) {
+    case SMALL_DUMP_TYPE:
+      rpc_dump_type = SMALL_DUMP;
+      break;
+    case LARGER_DUMP_TYPE:
+      rpc_dump_type = LARGER_DUMP;
+      break;
+    case FULL_DUMP:
+      rpc_dump_type = FULL_DUMP;
+      break;
+    default:
+      NOTREACHED();
+      break;
+  }
+
   // Invoke SendDiagnosticReport via RPC.
   common::rpc::RpcStatus status = common::rpc::InvokeRpc(
       KaskoClient_SendDiagnosticReport, rpc_binding.Get(),
       reinterpret_cast<unsigned long>(exception_pointers),
-      base::PlatformThread::CurrentId(), protobuf_length,
+      base::PlatformThread::CurrentId(), rpc_dump_type, protobuf_length,
       reinterpret_cast<const signed char*>(protobuf ? protobuf : ""),
       utf8_crash_keys.size(), crash_keys.get());
 

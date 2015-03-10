@@ -18,6 +18,7 @@
 #include "base/process/process_handle.h"
 #include "base/strings/string16.h"
 #include "syzygy/kasko/api/kasko_export.h"
+#include "syzygy/kasko/api/minidump_type.h"
 
 namespace kasko {
 namespace api {
@@ -58,10 +59,12 @@ KASKO_EXPORT bool InitializeReporter(
 // Sends a diagnostic report for a specified process with the specified crash
 // keys. May only be invoked after a successful call to InitializeReporter.
 // @param process_handle A handle to the process to report on.
+// @param minidump_type The type of minidump to be included in the report.
 // @param keys An optional null-terminated array of crash key names
 // @param values An optional null-terminated array of crash key values. Must be
 //     of equal length to |keys|.
 KASKO_EXPORT void SendReportForProcess(base::ProcessHandle process_handle,
+                                       MinidumpType minidump_type,
                                        const base::char16* const* keys,
                                        const base::char16* const* values);
 
