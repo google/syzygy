@@ -606,6 +606,18 @@ class BlockGraph::Block {
     alignment_ = alignment;
   }
 
+  // Returns the minimum amount of padding bytes that are inserted before the
+  // block when building the layout.
+  // @returns The minimum amount of padding.
+  Size padding_before() const { return padding_before_; }
+  // Sets the minium amount of padding bytes before the block when building the
+  // layout.
+  // @param padding_before At least this amount of bytes are inserted before
+  //     the block when building the layout.
+  void set_padding_before(Size padding_before) {
+    padding_before_ = padding_before;
+  }
+
   // The address of the block is set any time the block is assigned
   // an address in an address space.
   RelativeAddress addr() const { return addr_; }
@@ -815,6 +827,7 @@ class BlockGraph::Block {
   BlockType type_;
   Size size_;
   Size alignment_;
+  Size padding_before_;
   const std::string* name_;
   const std::string* compiland_name_;
   RelativeAddress addr_;

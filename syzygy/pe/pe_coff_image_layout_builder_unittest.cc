@@ -194,4 +194,120 @@ TEST_F(PECoffImageLayoutBuilderTest, Padding) {
   EXPECT_EQ(kCharacteristics, sections[1].characteristics);
 }
 
+TEST_F(PECoffImageLayoutBuilderTest, BlockPadding) {
+  ImageLayout layout(&block_graph_);
+  TestImageLayoutBuilder builder(&layout, 1, 1);
+
+  const size_t kBlockPadding = 7;
+
+  // Create a few dummy blocks for populating our sections.
+  BlockGraph::Block* b1 = block_graph_.AddBlock(BlockGraph::CODE_BLOCK,
+                                                0x123, "b1");
+  BlockGraph::Block* b2 = block_graph_.AddBlock(BlockGraph::CODE_BLOCK,
+                                                0x123, "b2");
+  BlockGraph::Block* b3 = block_graph_.AddBlock(BlockGraph::CODE_BLOCK,
+                                                0x123, "b3");
+  b1->AllocateData(0x100);
+  b2->AllocateData(0x100);
+  b3->AllocateData(0x100);
+  memset(b1->GetMutableData(), 0xCC, 0x100);
+  memset(b2->GetMutableData(), 0xCC, 0x100);
+  memset(b3->GetMutableData(), 0xCC, 0x100);
+
+  // Set block paddings.
+  b2->set_padding_before(kBlockPadding);
+  b3->set_padding_before(kBlockPadding);
+
+  const uint32 kCharacteristics = IMAGE_SCN_CNT_CODE;
+  EXPECT_TRUE(builder.OpenSection("foo", kCharacteristics));
+  EXPECT_TRUE(builder.LayoutBlock(b1));
+  EXPECT_TRUE(builder.LayoutBlock(b2));
+  EXPECT_TRUE(builder.CloseSection());
+
+  EXPECT_TRUE(builder.OpenSection("bar", kCharacteristics));
+  EXPECT_TRUE(builder.LayoutBlock(b3));
+  EXPECT_TRUE(builder.CloseSection());
+
+  // Check sections. Only last block can be trimmed; any non-last block is
+  // written up to its virtual size, before any padding is added.
+  const std::vector<ImageLayout::SectionInfo>& sections =
+      builder.image_layout()->sections;
+
+  EXPECT_EQ("foo", sections[0].name);
+  EXPECT_EQ(RelativeAddress(0x1), sections[0].addr);
+  EXPECT_EQ(0x123 + kBlockPadding + 0x123, sections[0].size);
+  EXPECT_EQ(0x123 + kBlockPadding + 0x100, sections[0].data_size);
+  EXPECT_EQ(kCharacteristics, sections[0].characteristics);
+
+  // Padding is applied to the first block in a section as well.
+  EXPECT_EQ("bar", sections[1].name);
+  EXPECT_EQ(sections[0].addr + sections[0].size, sections[1].addr);
+  EXPECT_EQ(kBlockPadding + 0x123, sections[1].size);
+  EXPECT_EQ(kBlockPadding + 0x100, sections[1].data_size);
+  EXPECT_EQ(kCharacteristics, sections[1].characteristics);
+}
+
+TEST_F(PECoffImageLayoutBuilderTest, PaddingAndBlockPadding) {
+  ImageLayout layout(&block_graph_);
+  TestImageLayoutBuilder builder(&layout, 1, 1);
+
+  const size_t kPadding = 5;
+  builder.set_padding(kPadding);
+
+  // Test a smaller and a bigger value than kPadding.
+  const size_t kBlockPaddingSmall = 3;
+  const size_t kBlockPaddingBig = 7;
+
+  // Create a few dummy blocks for populating our sections.
+  BlockGraph::Block* b1 = block_graph_.AddBlock(BlockGraph::CODE_BLOCK,
+                                                0x123, "b1");
+  BlockGraph::Block* b2 = block_graph_.AddBlock(BlockGraph::CODE_BLOCK,
+                                                0x123, "b2");
+  BlockGraph::Block* b3 = block_graph_.AddBlock(BlockGraph::CODE_BLOCK,
+                                                0x123, "b3");
+  BlockGraph::Block* b4 = block_graph_.AddBlock(BlockGraph::CODE_BLOCK,
+                                                0x123, "b4");
+
+  b1->AllocateData(0x100);
+  b2->AllocateData(0x100);
+  b3->AllocateData(0x100);
+  b4->AllocateData(0x100);
+  memset(b1->GetMutableData(), 0xCC, 0x100);
+  memset(b2->GetMutableData(), 0xCC, 0x100);
+  memset(b3->GetMutableData(), 0xCC, 0x100);
+  memset(b4->GetMutableData(), 0xCC, 0x100);
+
+  // Set block paddings.
+  b2->set_padding_before(kBlockPaddingSmall);
+  b4->set_padding_before(kBlockPaddingBig);
+
+  const uint32 kCharacteristics = IMAGE_SCN_CNT_CODE;
+  EXPECT_TRUE(builder.OpenSection("foo", kCharacteristics));
+  EXPECT_TRUE(builder.LayoutBlock(b1));
+  EXPECT_TRUE(builder.LayoutBlock(b2));
+  EXPECT_TRUE(builder.CloseSection());
+
+  EXPECT_TRUE(builder.OpenSection("bar", kCharacteristics));
+  EXPECT_TRUE(builder.LayoutBlock(b3));
+  EXPECT_TRUE(builder.LayoutBlock(b4));
+  EXPECT_TRUE(builder.CloseSection());
+
+  const std::vector<ImageLayout::SectionInfo>& sections =
+      builder.image_layout()->sections;
+
+  // Inter-block padding is bigger, that should be in effect.
+  EXPECT_EQ("foo", sections[0].name);
+  EXPECT_EQ(RelativeAddress(0x1), sections[0].addr);
+  EXPECT_EQ(0x123 + kPadding + 0x123, sections[0].size);
+  EXPECT_EQ(0x123 + kPadding + 0x100, sections[0].data_size);
+  EXPECT_EQ(kCharacteristics, sections[0].characteristics);
+
+  // Block's own padding is bigger, that should be in effect.
+  EXPECT_EQ("bar", sections[1].name);
+  EXPECT_EQ(sections[0].addr + sections[0].size, sections[1].addr);
+  EXPECT_EQ(0x123 + kBlockPaddingBig + 0x123, sections[1].size);
+  EXPECT_EQ(0x123 + kBlockPaddingBig + 0x100, sections[1].data_size);
+  EXPECT_EQ(kCharacteristics, sections[1].characteristics);
+}
+
 }  // namespace pe

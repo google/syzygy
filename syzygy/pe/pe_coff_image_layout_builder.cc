@@ -14,6 +14,8 @@
 
 #include "syzygy/pe/pe_coff_image_layout_builder.h"
 
+#include <algorithm>
+
 #include "base/strings/string_util.h"
 #include "syzygy/common/align.h"
 #include "syzygy/pe/pe_utils.h"
@@ -89,10 +91,14 @@ bool PECoffImageLayoutBuilder::LayoutBlock(size_t alignment,
   DCHECK(block != NULL);
   DCHECK_NE(0u, section_start_.value());
 
-  // If this is not the first block of the section and we have padding, then
-  // output the padding.
-  if (padding_ > 0 && cursor_ > section_start_)
-    cursor_ += padding_;
+  // We don't need to apply inter-block padding to the first block.
+  if (padding_ > 0 && cursor_ > section_start_) {
+    // Apply the bigger padding.
+    cursor_ += std::max(block->padding_before(), padding_);
+  } else {
+    // Per-block padding needs to be applied to the first block as well.
+    cursor_ += block->padding_before();
+  }
 
   // Keep the larger alignment.
   if (block->type() == BlockGraph::CODE_BLOCK && alignment < code_alignment_)

@@ -622,6 +622,7 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
     BlockGraph::Block* block = intersecting[i].second;
     DCHECK_EQ(block_type, block->type());
     DCHECK_EQ(section_id, block->section());
+    DCHECK_EQ(0U, block->padding_before());
 
     if (block->data() != NULL) {
       have_data = true;
@@ -816,19 +817,20 @@ bool BlockGraph::Label::AreValidAttributes(LabelAttributes attributes) {
 }
 
 BlockGraph::Block::Block(BlockGraph* block_graph)
-    : id_(0),
+    : id_(0U),
       type_(BlockGraph::CODE_BLOCK),
-      size_(0),
-      alignment_(1),
+      size_(0U),
+      alignment_(1U),
+      padding_before_(0U),
       name_(NULL),
       compiland_name_(NULL),
       addr_(RelativeAddress::kInvalidAddress),
       block_graph_(block_graph),
       section_(kInvalidSectionId),
-      attributes_(0),
+      attributes_(0U),
       owns_data_(false),
       data_(NULL),
-      data_size_(0) {
+      data_size_(0U) {
   DCHECK(block_graph != NULL);
 }
 
@@ -840,16 +842,17 @@ BlockGraph::Block::Block(BlockId id,
     : id_(id),
       type_(type),
       size_(size),
-      alignment_(1),
+      alignment_(1U),
+      padding_before_(0U),
       name_(NULL),
       compiland_name_(NULL),
       addr_(RelativeAddress::kInvalidAddress),
       block_graph_(block_graph),
       section_(kInvalidSectionId),
-      attributes_(0),
+      attributes_(0U),
       owns_data_(false),
       data_(NULL),
-      data_size_(0) {
+      data_size_(0U) {
   DCHECK(block_graph != NULL);
   set_name(name);
 }
