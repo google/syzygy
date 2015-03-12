@@ -399,7 +399,7 @@ void PopulateShadowMemoryBlob(const AsanErrorInfo& error_info,
       Shadow::kShadowContextLines * Shadow::kShadowBytesPerLine;
   if (index_min > index)
     index_min = 0;
-  uintptr_t index_max = index + 1 +
+  uintptr_t index_max = index +
       Shadow::kShadowContextLines * Shadow::kShadowBytesPerLine;
   if (index_max < index)
     index_max = 0;

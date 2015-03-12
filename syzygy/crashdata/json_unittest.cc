@@ -129,15 +129,20 @@ TEST(CrashDataJsonTest, ValueLeafStackTrace) {
   StackTrace* stack = LeafGetStackTrace(ValueGetLeaf(&value));
   stack->add_frames(0xDEADBEEF);
   stack->add_frames(0xBADF00D);
+  stack->add_frames(0x10000000);
+  stack->add_frames(0x20000000);
+  stack->add_frames(0x30000000);
+  stack->add_frames(0x40000000);
 
   const char kExpectedPretty[] =
       "[\n"
-      "  0xDEADBEEF,\n"
-      "  0x0BADF00D\n"
+      "  0xDEADBEEF, 0x0BADF00D, 0x10000000, 0x20000000,\n"
+      "  0x30000000, 0x40000000\n"
       "]";
   TestConversion(true, value, kExpectedPretty);
 
-  const char kExpectedCompact[] = "[0xDEADBEEF,0x0BADF00D]";
+  const char kExpectedCompact[] = "[0xDEADBEEF,0x0BADF00D,0x10000000,"
+      "0x20000000,0x30000000,0x40000000]";
   TestConversion(false, value, kExpectedCompact);
 }
 
@@ -146,8 +151,12 @@ TEST(CrashDataJsonTest, ValueLeafBlob) {
   Blob* blob = LeafGetBlob(ValueGetLeaf(&value));
   blob->mutable_address()->set_address(0xF00);
   std::string* data = blob->mutable_data();
-  data->push_back(static_cast<unsigned char>(0xDE));
-  data->push_back(static_cast<unsigned char>(0xAD));
+  for (size_t i = 0; i < 3; ++i) {
+    data->push_back(static_cast<unsigned char>(0xDE));
+    data->push_back(static_cast<unsigned char>(0xAD));
+    data->push_back(static_cast<unsigned char>(0xBE));
+    data->push_back(static_cast<unsigned char>(0xEF));
+  }
 
   const char kExpectedPretty[] =
       "{\n"
@@ -155,15 +164,16 @@ TEST(CrashDataJsonTest, ValueLeafBlob) {
       "  \"address\": 0x00000F00,\n"
       "  \"size\": null,\n"
       "  \"data\": [\n"
-      "    0xDE,\n"
-      "    0xAD\n"
+      "    0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,\n"
+      "    0xDE, 0xAD, 0xBE, 0xEF\n"
       "  ]\n"
       "}";
   TestConversion(true, value, kExpectedPretty);
 
   const char kExpectedCompact[] =
       "{\"type\":\"blob\",\"address\":0x00000F00,\"size\":null,"
-      "\"data\":[0xDE,0xAD]}";
+      "\"data\":[0xDE,0xAD,0xBE,0xEF,0xDE,0xAD,0xBE,0xEF,0xDE,0xAD,"
+      "0xBE,0xEF]}";
   TestConversion(false, value, kExpectedCompact);
 }
 
@@ -244,9 +254,7 @@ TEST(CrashDataJsonTest, AllTypes) {
       "    \"address\": null,\n"
       "    \"size\": null,\n"
       "    \"data\": [\n"
-      "      0x68,\n"
-      "      0x65,\n"
-      "      0x79\n"
+      "      0x68, 0x65, 0x79\n"
       "    ]\n"
       "  },\n"
       "  \"dict\": {\n"

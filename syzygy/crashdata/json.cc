@@ -103,10 +103,12 @@ void EmitString(const std::string& s, std::string* output) {
 template <typename YieldFunctor>
 bool EmitJsonList(char open_bracket,
                   char close_bracket,
+                  size_t items_per_line,
                   size_t item_count,
                   YieldFunctor& yield,
                   std::string* indent,
                   std::string* output) {
+  assert(items_per_line > 0);
   assert(output != nullptr);
 
   // Open up the list, and indent if necessary.
@@ -128,9 +130,16 @@ bool EmitJsonList(char open_bracket,
       DecreaseIndent(indent);
     }
 
-    // Output the appropriate indent for the next entry or the
-    // closing bracket.
-    EmitIndent(indent, output);
+    // If at the last element in a line, or the last element in the list then
+    // emit a line ending and indent.
+    if ((i + 1) % items_per_line == 0 || i + 1 == item_count) {
+      // Output the appropriate indent for the next line or the
+      // closing bracket.
+      EmitIndent(indent, output);
+    } else if (indent != nullptr) {
+      // Emit a single space for the next element if we're emitting whitespace.
+      output->push_back(' ');
+    }
   }
 
   // Close the list.
@@ -182,7 +191,7 @@ bool ToJson(const StackTrace* stack_trace,
   assert(stack_trace != nullptr);
   assert(output != nullptr);
   StackTraceYieldFunctor yield(stack_trace);
-  if (!EmitJsonList('[', ']', stack_trace->frames_size(), yield,
+  if (!EmitJsonList('[', ']', 4, stack_trace->frames_size(), yield,
                     indent, output)) {
     return false;
   }
@@ -243,7 +252,7 @@ struct BlobYieldFunctor {
         EmitDictKey("data", indent, output);
         if (blob_->has_data()) {
           BlobDataYieldFunctor yield(blob_);
-          if (!EmitJsonList('[', ']', blob_->data().size(), yield,
+          if (!EmitJsonList('[', ']', 8, blob_->data().size(), yield,
                             indent, output)) {
             return false;
           }
@@ -268,7 +277,8 @@ bool ToJson(const Blob* blob, std::string* indent, std::string* output) {
   assert(blob != nullptr);
   assert(output != nullptr);
   BlobYieldFunctor yield(blob);
-  if (!EmitJsonList('{', '}', 4, yield, indent, output))
+  // 1 element per line, 4 elements total.
+  if (!EmitJsonList('{', '}', 1, 4, yield, indent, output))
     return false;
   return true;
 }
@@ -361,7 +371,7 @@ bool ToJson(const List* list, std::string* indent, std::string* output) {
   assert(list != nullptr);
   assert(output != nullptr);
   ListYieldFunctor yield(list);
-  if (!EmitJsonList('[', ']', list->values_size(), yield, indent, output))
+  if (!EmitJsonList('[', ']', 1, list->values_size(), yield, indent, output))
     return false;
   return true;
 }
@@ -400,7 +410,7 @@ bool ToJson(const Dictionary* dict, std::string* indent, std::string* output) {
   assert(dict != nullptr);
   assert(output != nullptr);
   DictYieldFunctor yield(dict);
-  if (!EmitJsonList('{', '}', dict->values_size(), yield, indent, output))
+  if (!EmitJsonList('{', '}', 1, dict->values_size(), yield, indent, output))
     return false;
   return true;
 }
