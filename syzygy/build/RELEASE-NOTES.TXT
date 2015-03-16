@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.6.2
+
+[8a14d34c61] SyzyASan - Fixed two CtMalloc bugs.
+[09655752d6] SyzyASan - Report metadata via Kasko.
+
 Version 0.8.6.1
 
 [e01e186430] SyzyASan - Restore the asan_GetProcessHeap function for backward
