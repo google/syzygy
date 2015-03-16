@@ -51,6 +51,9 @@
           '4018',  # signed/unsigned mismatch.
         ],
       },
+      # This target exports a hard dependency because it generates header
+      # files.
+      'hard_dependency': 1,
     },
     {
       'target_name': 'crashdata_lib',
