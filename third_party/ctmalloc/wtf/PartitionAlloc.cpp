@@ -253,8 +253,6 @@ static void partitionAllocBaseShutdown(PartitionRootBase* root)
     // Now that we've examined all partition pages in all buckets, it's safe
     // to free all our super pages. We first collect the super page pointers
     // on the stack because some of them are themselves stored in super pages.
-    char* superPages[kMaxPartitionSize / kSuperPageSize];
-    size_t numSuperPages = 0;
     size_t totalSizeOfSuperPages = 0;
     PartitionSuperPageExtentEntry* entry = root->firstExtent;
     while (entry) {
@@ -266,6 +264,9 @@ static void partitionAllocBaseShutdown(PartitionRootBase* root)
             freePages(root->callbacks, entry->superPageBase, superPageSize);
             totalSizeOfSuperPages += superPageSize;
         } else {
+            char* superPages[kMaxPartitionSize / kSuperPageSize] = {};
+            size_t numSuperPages = 0;
+
             // Extents that aren't directly mapped can contain multiple
             // super pages.
             char* superPage = entry->superPageBase;
@@ -276,12 +277,15 @@ static void partitionAllocBaseShutdown(PartitionRootBase* root)
                 totalSizeOfSuperPages += kSuperPageSize;
             }
             ASSERT(superPage == entry->superPagesEnd);
+
+            // Free the superpages.
+            for (size_t i = 0; i < numSuperPages; ++i)
+                freePages(root->callbacks, superPages[i], kSuperPageSize);
         }
         entry = next_entry;
     }
+
     ASSERT(totalSizeOfSuperPages == root->totalSizeOfSuperPages);
-    for (size_t i = 0; i < numSuperPages; ++i)
-        freePages(root->callbacks, superPages[i], kSuperPageSize);
 }
 
 bool partitionAllocShutdown(PartitionRoot* root)
@@ -603,19 +607,19 @@ static ALWAYS_INLINE void* partitionDirectMap(PartitionRootBase* root, int flags
     extent->next = 0;
     extent->directMap = true;
 
-    // Add this super page into the list of extents.
+    // Add this super page into the list of extents. We put this at the head
+    // of the list as the extent growing logic expects to extend the current
+    // extent, which is always at the end of the list.
     root->totalSizeOfSuperPages += mapSize;
-    if (root->firstExtent == 0) {
-        ASSERT(!root->currentExtent);
-        root->firstExtent = extent;
-        root->currentExtent = extent;
-        extent->prev = 0;
-    } else {
-        ASSERT(root->currentExtent);
-        extent->prev = root->currentExtent;
-        root->currentExtent->next = extent;
-        root->currentExtent = extent;
+    extent->prev = 0;
+    extent->next = root->firstExtent;
+    root->firstExtent = extent;
+    if (extent->next) {
+      ASSERT(!extent->next->prev);
+      extent->next->prev = extent;
     }
+    if (root->currentExtent == nullptr)
+      root->currentExtent = extent;
 
     PartitionPage* page = partitionPointerToPageNoAlignmentCheck(ret);
     PartitionBucket* bucket = reinterpret_cast<PartitionBucket*>(reinterpret_cast<char*>(page) + kPageMetadataSize);

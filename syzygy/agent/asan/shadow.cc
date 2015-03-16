@@ -44,6 +44,40 @@ void Shadow::TearDown() {
   Unpoison(page_bits_, kPageBitsSize);
 }
 
+bool Shadow::IsClean() {
+  static const size_t kInnacEnd = kAddressLowerBound >> kShadowRatioLog;
+
+  static const size_t kShadowBegin =
+      reinterpret_cast<uintptr_t>(shadow_) >> kShadowRatioLog;
+  static const size_t kShadowEnd =
+      reinterpret_cast<uintptr_t>(shadow_ + kShadowSize) >> kShadowRatioLog;
+
+  static const size_t kPageBitsBegin =
+      reinterpret_cast<uintptr_t>(page_bits_) >> kShadowRatioLog;
+  static const size_t kPageBitsEnd =
+      reinterpret_cast<uintptr_t>(page_bits_ + kPageBitsSize) >>
+          kShadowRatioLog;
+
+  size_t i = 0;
+  for (; i < kInnacEnd; ++i) {
+    if (shadow_[i] != kInvalidAddressMarker)
+      return false;
+  }
+
+  for (; i < kShadowSize; ++i) {
+    if ((i >= kShadowBegin && i < kShadowEnd) ||
+        (i >= kPageBitsBegin && i < kPageBitsEnd)) {
+      if (shadow_[i] != kAsanMemoryMarker)
+        return false;
+    } else {
+      if (shadow_[i] != kHeapAddressableMarker)
+        return false;
+    }
+  }
+
+  return true;
+}
+
 void Shadow::Reset() {
   ::memset(shadow_, 0, kShadowSize);
   ::memset(page_bits_, 0, kPageBitsSize);
@@ -51,25 +85,25 @@ void Shadow::Reset() {
 
 void Shadow::Poison(const void* addr, size_t size, ShadowMarker shadow_val) {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
-  uintptr_t start = index & 0x7;
-  DCHECK_EQ(0U, (index + size) & 0x7);
+  uintptr_t start = index & (kShadowRatio - 1);
+  DCHECK_EQ(0U, (index + size) & (kShadowRatio - 1));
 
-  index >>= 3;
+  index >>= kShadowRatioLog;
   if (start)
     shadow_[index++] = start;
 
-  size >>= 3;
+  size >>= kShadowRatioLog;
   DCHECK_GT(arraysize(shadow_), index + size);
   ::memset(shadow_ + index, shadow_val, size);
 }
 
 void Shadow::Unpoison(const void* addr, size_t size) {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
-  DCHECK_EQ(0U, index & 0x7);
+  DCHECK_EQ(0U, index & (kShadowRatio - 1));
 
-  uint8 remainder = size & 0x7;
-  index >>= 3;
-  size >>= 3;
+  uint8 remainder = size & (kShadowRatio - 1);
+  index >>= kShadowRatioLog;
+  size >>= kShadowRatioLog;
   DCHECK_GT(arraysize(shadow_), index + size);
   ::memset(shadow_ + index, kHeapAddressableMarker, size);
 

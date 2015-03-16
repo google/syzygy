@@ -611,6 +611,12 @@ ALWAYS_INLINE bool partitionIsAllocatedGenericUnlocked(
   if (!ptr)
     return false;
 
+  // We have to probe with a positive size to see if the address actually falls
+  // within an allocated extent.
+  size_t probe_size = size;
+  if (probe_size == -1 || probe_size == 0)
+    probe_size = 1;
+
   // First determine if this allocation falls into one of the top level extents
   // owned by this allocator. This is a linear scan of at most 2048 extents
   // (extents have a minimum size of 2MB). If performance is an issue this can
@@ -618,7 +624,7 @@ ALWAYS_INLINE bool partitionIsAllocatedGenericUnlocked(
   PartitionSuperPageExtentEntry* extent = root->firstExtent;
   while (extent) {
     if (ptr >= extent->superPageBase &&
-        reinterpret_cast<char*>(ptr) + size <= extent->superPagesEnd) {
+        reinterpret_cast<char*>(ptr) + probe_size <= extent->superPagesEnd) {
       if (extent->directMap) {
         char* alloc = extent->superPageBase + kPartitionPageSize;
         if (alloc != ptr)
@@ -626,9 +632,10 @@ ALWAYS_INLINE bool partitionIsAllocatedGenericUnlocked(
 
         // If the allocation size was requested then return it. This is an
         // upper bound and may actually be larger than the requested
-        // allocation.
-        size_t alloc_size = extent->superPagesEnd - extent->superPageBase -
-            3 * kSystemPageSize;
+        // allocation. We have to subtract the guard page from the end of the
+        // extent.
+        size_t alloc_size = (extent->superPagesEnd - kSystemPageSize) -
+            reinterpret_cast<char*>(ptr);
         alloc_size = partitionCookieSizeAdjustSubtract(alloc_size);
         if (allocated_size != NULL)
           *allocated_size = alloc_size;

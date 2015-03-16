@@ -277,6 +277,11 @@ class Shadow {
   // Read only accessor of page protection bits.
   static const uint8* page_bits() { return page_bits_; }
 
+  // Determines if the shadow memory is clean. That is, it reflects the
+  // state of shadow memory immediately after construction and a call to
+  // SetUp.
+  static bool IsClean();
+
  protected:
   // Reset the shadow memory.
   static void Reset();

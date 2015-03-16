@@ -117,6 +117,8 @@ HeapId BlockHeapManager::CreateHeap() {
   DCHECK(initialized_);
 
   // Creates the underlying heap used by this heap.
+  // TODO(chrisha): We should be using the internal allocator for these
+  //     heap allocations!
   HeapInterface* underlying_heap = nullptr;
   if (parameters_.enable_ctmalloc) {
     underlying_heap = new heaps::CtMallocHeap(&shadow_memory_notifier_);
@@ -867,6 +869,13 @@ void BlockHeapManager::InitProcessHeap() {
 void BlockHeapManager::InitRateTargetedHeaps() {
   // |kRateTargetedHeapCount| should be <= 32 because of the way the logarithm
   // taking works.
+  if (!parameters_.enable_rate_targeted_heaps) {
+    ::memset(rate_targeted_heaps_, 0, sizeof(rate_targeted_heaps_));
+    ::memset(rate_targeted_heaps_count_, 0,
+             sizeof(rate_targeted_heaps_count_));
+    return;
+  }
+
   COMPILE_ASSERT(kRateTargetedHeapCount <= 32,
       rate_targeted_heap_count_should_is_too_high);
   for (size_t i = 0; i < kRateTargetedHeapCount; ++i) {

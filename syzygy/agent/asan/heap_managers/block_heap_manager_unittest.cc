@@ -31,6 +31,7 @@
 #include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/heap.h"
 #include "syzygy/agent/asan/page_protection_helpers.h"
+#include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/agent/asan/unittest_util.h"
 #include "syzygy/agent/asan/heaps/ctmalloc_heap.h"
 #include "syzygy/agent/asan/heaps/internal_heap.h"
@@ -39,6 +40,7 @@
 #include "syzygy/agent/asan/heaps/win_heap.h"
 #include "syzygy/agent/asan/heaps/zebra_block_heap.h"
 #include "syzygy/agent/asan/memory_notifiers/shadow_memory_notifier.h"
+#include "syzygy/common/asan_parameters.h"
 
 namespace agent {
 namespace asan {
@@ -1558,6 +1560,166 @@ TEST_P(BlockHeapManagerTest, GetHeapTypeUnlocked) {
         reinterpret_cast<TestBlockHeapManager::HeapId>(hq);
     EXPECT_NE(kUnknownHeapType, heap_manager_->GetHeapTypeUnlocked(heap_id));
   }
+}
+
+namespace {
+
+bool ShadowIsConsistentPostAlloc(const void* alloc, size_t size) {
+  uintptr_t index = reinterpret_cast<uintptr_t>(alloc);
+  index >>= kShadowRatioLog;
+  uintptr_t index_end = index + (size >> kShadowRatioLog);
+  for (size_t i = index; i < index_end; ++i) {
+    if (Shadow::shadow()[i] != ShadowMarker::kHeapAddressableMarker)
+      return false;
+  }
+  return true;
+}
+
+bool ShadowIsConsistentPostFree(const void* alloc, size_t size) {
+  uintptr_t index = reinterpret_cast<uintptr_t>(alloc);
+  index >>= kShadowRatioLog;
+  uintptr_t index_end = index + (size >> kShadowRatioLog);
+
+  uint8 m = Shadow::shadow()[index];
+  if (m != ShadowMarker::kHeapAddressableMarker &&
+      m != ShadowMarker::kAsanReservedMarker &&
+      m != ShadowMarker::kHeapFreedMarker) {
+    return false;
+  }
+
+  // We expect green memory only for large allocations which are directly
+  // mapped. Small allocations should be returned to a common pool and
+  // marked as reserved. Note that this is only specifically true of the
+  // CtMalloc heap.
+  if (m == ShadowMarker::kHeapAddressableMarker && size < 1 * 1024 * 1024)
+    return false;
+
+  for (size_t i = index; i < index_end; ++i) {
+    if (Shadow::shadow()[index] != m)
+      return false;
+  }
+  return true;
+}
+
+class TestShadow : public Shadow {
+ public:
+  using Shadow::Reset;
+};
+
+}  // namespace
+
+// A stress test of the CtMalloc heap integration.
+TEST(BlockHeapManagerIntegrationTest, CtMallocStressTest) {
+  TestShadow::Reset();
+  TestShadow::SetUp();
+  ASSERT_TRUE(TestShadow::IsClean());
+
+  // Set up a configuration that disables most features, but specifically
+  // enables CtMalloc. We also enable mixed allocation guards to increase
+  // the complexity.
+  ::common::AsanParameters p;
+  ::common::SetDefaultAsanParameters(&p);
+  p.check_heap_on_failure = false;
+  p.enable_ctmalloc = true;
+  p.enable_zebra_block_heap = false;
+  p.enable_large_block_heap = false;
+  p.enable_allocation_filter = false;
+  p.enable_rate_targeted_heaps = false;
+  p.allocation_guard_rate = 0.5;
+  p.zebra_block_heap_size = 0;
+  p.zebra_block_heap_quarantine_ratio = 0.0;
+
+  // Initialize a block heap manager.
+  AsanLogger al;
+  scoped_ptr<StackCaptureCache> scc(new StackCaptureCache(&al));
+  scoped_ptr<TestBlockHeapManager> bhm(new TestBlockHeapManager(scc.get()));
+  bhm->set_parameters(p);
+  bhm->Init();
+  BlockHeapManager::HeapId hid = bhm->CreateHeap();
+
+  // The target number of allocations to be alive on average.
+  static const size_t kAlive = 1000;
+
+  // The maximum allocation size, in bits.
+  // CtMalloc can serve up to 1MB (20 bits) allocations from standard super
+  // pages, and anything else is served by a custom page that is directly
+  // allocated from the OS.
+  static const size_t kMinAllocBits = 5;
+  static const size_t kMaxAllocBits = 23;
+
+  // The number of operations to perform.
+  static const size_t kOpCount = 1000000;
+
+  // Let's stress test the heap.
+  std::vector<std::pair<void*, size_t>> allocs;
+  size_t net_allocs = 0;
+  allocs.reserve(2 * kAlive);
+  for (size_t i = 0; i < kOpCount; ++i) {
+    // Get a number between 0 and 2 * kAlive.
+    size_t op = ::rand() % (2 * kAlive);
+
+    // If the number of live allocations is low then most of our space will
+    // call for an allocation, and a minority will call for a free.
+    // If the number of allocations is exactly at the target, then the chances
+    // are 50/50. If the number of allocations is much higher than the target
+    // then the chance of free is higher. Combined, this should keep that
+    // average number of allocations close to the target.
+    op = op < allocs.size() ? 1 : 0;
+
+    // If after one more allocation there will be more objects left than
+    // chances left to clean them up, then stick to a free. This ensures that
+    // we exit the loop with all allocations cleaned up.
+    if (i + 1 + allocs.size() + 1 >= kOpCount)
+      op = 1;
+
+    // Performan an allocation.
+    if (op == 0) {
+      // Want each smaller size to be twice as likely as the next higher
+      // size. Use the bits in the random number as coin tosses that decide
+      // whether to stay at the current size or move to a bigger size.
+      size_t bits = ::rand();
+      size_t size = 1 << kMinAllocBits;
+      while (bits & 1 && size < (1 << kMaxAllocBits)) {
+        size <<= 1;
+        bits >>= 1;
+      }
+
+      // Perform the allocation.
+      void* alloc = bhm->Allocate(hid, size);
+      DCHECK(alloc != nullptr);
+      allocs.push_back(std::make_pair(alloc, size));
+      net_allocs += size;
+
+      // Check that the shadow memory is green.
+      ASSERT_TRUE(ShadowIsConsistentPostAlloc(alloc, size));
+    } else {
+      if (allocs.empty())
+        continue;
+      size_t j = ::rand() % allocs.size();
+      void* alloc = allocs[j].first;
+      size_t size = allocs[j].second;
+
+      bhm->Free(hid, alloc);
+      allocs[j] = allocs.back();
+      allocs.resize(allocs.size() - 1);
+      net_allocs -= size;
+
+      // Check that the shadow memory is green or reserved. This is
+      // smart enough to check for the appropriate condition based on the
+      // allocation size.
+      ASSERT_TRUE(ShadowIsConsistentPostFree(alloc, size));
+    }
+  }
+
+  // All of the allocations should have been cleaned up.
+  ASSERT_TRUE(allocs.empty());
+
+  // Force everything to be cleaned up.
+  bhm.reset();
+  scc.reset();
+
+  // Ensure that the shadow memory has been completely cleaned up.
+  ASSERT_TRUE(TestShadow::IsClean());
 }
 
 }  // namespace heap_managers

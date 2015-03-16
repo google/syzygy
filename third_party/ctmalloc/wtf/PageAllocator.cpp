@@ -216,8 +216,11 @@ void* allocPagesImpl(void* addr, size_t len, size_t align)
     int count = 0;
     while (count++ < 100) {
         ret = systemAllocPages(addr, tryLen);
-        if (!ret)
+        if (!ret) {
+            // This is where we finally give up because the OS is unable to
+            // satisfy the requested allocation.
             return 0;
+        }
         // We can now try and trim out a subset of the mapping.
         addr = reinterpret_cast<void*>((reinterpret_cast<uintptr_t>(ret) + alignOffsetMask) & alignBaseMask);
 
@@ -251,8 +254,9 @@ void* allocPages(const AsanCallbacks& callbacks,
   void* ret = allocPagesImpl(addr, len, align);
   if (!ret)
       return ret;
-  if (ret && len > 0 && callbacks.reserved_callback)
-    callbacks.reserved_callback(callbacks.user_data, ret, len);
+  if (ret && len > 0 && callbacks.reserved_callback) {
+      callbacks.reserved_callback(callbacks.user_data, ret, len);
+  }
   return ret;
 }
 
@@ -262,8 +266,9 @@ void freePages(const AsanCallbacks& callbacks,
 {
     ASSERT(!(reinterpret_cast<uintptr_t>(addr) & kPageAllocationGranularityOffsetMask));
     ASSERT(!(len & kPageAllocationGranularityOffsetMask));
-    if (addr != 0 && len > 0 && callbacks.released_callback)
-        (callbacks.released_callback)(callbacks.user_data, addr, len);
+    if (addr != 0 && len > 0 && callbacks.released_callback) {
+        callbacks.released_callback(callbacks.user_data, addr, len);
+    }
 #if OS(POSIX)
     int ret = munmap(addr, len);
     RELEASE_ASSERT(!ret);
