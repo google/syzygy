@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.6.3
+
+[48b8591e29] Fixed a broken header generation build dependency.
+
 Version 0.8.6.2
 
 [8a14d34c61] SyzyASan - Fixed two CtMalloc bugs.
