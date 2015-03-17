@@ -19,6 +19,11 @@
 
 namespace common {
 
+// This is the name of the section that will be created by hot patching
+// transformations. It contains metadata that is required for hot patching
+// at runtime.
+extern const char kHotPatchingMetadataSectionName[];
+
 // This is the name of the section that will be created in modules that
 // are produced by the Syzygy toolchain. It contains metadata that allows
 // for consistency checking between the various parts of the toolchain.

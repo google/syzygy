@@ -16,6 +16,7 @@
 
 namespace common {
 
+const char kHotPatchingMetadataSectionName[] = ".syzyhp";
 const char kSyzygyMetadataSectionName[] = ".syzygy";
 const char kResourceSectionName[] = ".rsrc";
 const char kThunkSectionName[] = ".thunks";

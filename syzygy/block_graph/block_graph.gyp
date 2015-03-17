@@ -43,6 +43,7 @@
         'filter_util.h',
         'filterable.cc',
         'filterable.h',
+        'hot_patching_metadata.h',
         'iterate.cc',
         'iterate.h',
         'ordered_block_graph.cc',
