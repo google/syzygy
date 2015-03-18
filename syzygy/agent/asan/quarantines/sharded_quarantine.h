@@ -62,12 +62,12 @@ class ShardedQuarantine
  protected:
   // @name SizeLimitedQuarantineImpl implementation.
   // @{
-  virtual bool PushImpl(const Object& object);
-  virtual bool PopImpl(Object* object);
-  virtual void EmptyImpl(ObjectVector* objects);
-  virtual size_t GetLockIdImpl(const Object& object);
-  virtual void LockImpl(size_t id);
-  virtual void UnlockImpl(size_t id);
+  bool PushImpl(const Object& object) override;
+  bool PopImpl(Object* object) override;
+  void EmptyImpl(ObjectVector* objects) override;
+  size_t GetLockIdImpl(const Object& object) override;
+  void LockImpl(size_t id) override;
+  void UnlockImpl(size_t id) override;
   // @}
 
   // The internal type used for storing objects. This augments them with a

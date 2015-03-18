@@ -65,6 +65,8 @@ template<typename OT, typename SFT, typename HFT, size_t SF>
 bool ShardedQuarantine<OT, SFT, HFT, SF>::PushImpl(const Object& object) {
   size_t hash = hash_functor_(object);
   size_t shard = detail::ShardedQuarantineHash<kShardingFactor>(hash);
+  // Make sure the corresponding lock is held.
+  locks_[shard].AssertAcquired();
 
   Node* node = node_caches_[shard].Allocate(1);
   if (node == NULL)
