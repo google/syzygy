@@ -233,6 +233,9 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
   BlockInfo block = {};
   BlockInitialize(block_layout, alloc, false, &block);
 
+  // Poison the redzones in the shadow memory as early as possible.
+  Shadow::PoisonAllocatedBlock(block);
+
   block.header->alloc_stack = stack_cache_->SaveStackTrace(stack);
   block.header->free_stack = nullptr;
   block.header->state = ALLOCATED_BLOCK;
@@ -240,7 +243,6 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
   block.trailer->heap_id = heap_id;
 
   BlockSetChecksum(block);
-  Shadow::PoisonAllocatedBlock(block);
   BlockProtectRedzones(block);
 
   return block.body;
@@ -281,6 +283,11 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   heap_id = block_info.trailer->heap_id;
   BlockQuarantineInterface* quarantine = GetQuarantineFromId(heap_id);
 
+  // Poison the released alloc (marked as freed) and quarantine the block.
+  // Note that the original data is left intact. This may make it easier
+  // to debug a crash report/dump on access to a quarantined block.
+  Shadow::MarkAsFreed(block_info.body, block_info.body_size);
+
   // We need to update the block's metadata before pushing it into the
   // quarantine, otherwise a concurrent thread might try to pop it while its in
   // an invalid state.
@@ -292,10 +299,6 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   block_info.trailer->free_tid = ::GetCurrentThreadId();
   block_info.header->state = QUARANTINED_BLOCK;
 
-  // Poison the released alloc (marked as freed) and quarantine the block.
-  // Note that the original data is left intact. This may make it easier
-  // to debug a crash report/dump on access to a quarantined block.
-  Shadow::MarkAsFreed(block_info.body, block_info.body_size);
   BlockSetChecksum(block_info);
 
   CompactBlockInfo compact = {};

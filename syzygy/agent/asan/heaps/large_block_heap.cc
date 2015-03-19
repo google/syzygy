@@ -30,11 +30,11 @@ LargeBlockHeap::LargeBlockHeap(HeapInterface* internal_heap)
 }
 
 LargeBlockHeap::~LargeBlockHeap() {
-  ::common::AutoRecursiveLock lock(lock_);
-  AllocationSet::iterator it = allocs_.begin();
-  for (; it != allocs_.end(); ++it)
-    ::VirtualFree(const_cast<void*>(it->address), 0, MEM_RELEASE);
-  allocs_.clear();
+  // No need to lock here, as concurrent access to an object under destruction
+  // is a programming error.
+  // If there are still allocations in the heap at destruction, then freeing
+  // them here will not clear the associated shadow metadata.
+  CHECK_EQ(0U, allocs_.size());
 }
 
 HeapType LargeBlockHeap::GetHeapType() const {
@@ -55,7 +55,9 @@ void* LargeBlockHeap::Allocate(size_t bytes) {
 
   if (alloc != NULL) {
     ::common::AutoRecursiveLock lock(lock_);
-    allocs_.insert(allocation);
+
+    bool inserted = allocs_.insert(allocation).second;
+    DCHECK(inserted);
   }
 
   return alloc;

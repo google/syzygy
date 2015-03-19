@@ -124,6 +124,13 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
   virtual void UnlockImpl(size_t id) = 0;
   // @}
 
+  // TODO(chrisha): RACE ALERT!
+  //   The member variables below need some mode of locking. If they're not
+  //   managed atomically to insertions/removal, then it seems it'll not be
+  //   possible to maintain an invariant where they can't e.g. drop below zero.
+  //   Maybe that's the right tradeoff, however, as the momentary size of the
+  //   quarantine is fairly unimportant.
+
   // Parameters controlling the quarantine invariant.
   size_t max_object_size_;
   size_t max_quarantine_size_;

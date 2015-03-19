@@ -99,8 +99,8 @@ TEST(LargeBlockHeapTest, ZeroSizedAllocationsHaveDistinctAddresses) {
   void* a2 = h.Allocate(0);
   EXPECT_TRUE(a2 != NULL);
   EXPECT_NE(a1, a2);
-  h.Free(a1);
-  h.Free(a2);
+  EXPECT_TRUE(h.Free(a1));
+  EXPECT_TRUE(h.Free(a2));
 
   BlockLayout layout = {};
 
@@ -117,8 +117,8 @@ TEST(LargeBlockHeapTest, ZeroSizedAllocationsHaveDistinctAddresses) {
   EXPECT_NE(a1, a2);
   EXPECT_NE(b1.block, b2.block);
 
-  h.FreeBlock(b1);
-  h.FreeBlock(b2);
+  EXPECT_TRUE(h.FreeBlock(b1));
+  EXPECT_TRUE(h.FreeBlock(b2));
 }
 
 TEST(LargeBlockHeapTest, IsAllocated) {
@@ -131,7 +131,7 @@ TEST(LargeBlockHeapTest, IsAllocated) {
   EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) - 1));
   EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) + 1));
 
-  h.Free(a);
+  EXPECT_TRUE(h.Free(a));
   EXPECT_FALSE(h.IsAllocated(a));
 }
 
@@ -141,6 +141,7 @@ TEST(LargeBlockHeapTest, GetAllocationSize) {
   void* alloc = h.Allocate(67);
   ASSERT_TRUE(alloc != NULL);
   EXPECT_EQ(67u, h.GetAllocationSize(alloc));
+  EXPECT_TRUE(h.Free(alloc));
 }
 
 TEST(LargeBlockHeapTest, Lock) {
