@@ -65,6 +65,12 @@
       'regexp': 'Syzygy/pe/test_dll.*\\.(h|cc)',
       'include': 0,
     },
+    # Exclude the generated ASAN memory accessor stubs.
+    # We cannot yet instrument these as they're inline assembly.
+    {
+      'regexp': 'Syzygy/agent/asan/memory_interceptors_gen.cc',
+      'include': 0,
+    },
     {
       'regexp': 'Syzygy/integration_tests/.*_tests(_dll)?\\.(h|cc)',
       'include': 0,
