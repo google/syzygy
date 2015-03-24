@@ -15,6 +15,7 @@
 #include "syzygy/block_graph/filterable.h"
 
 #include "gtest/gtest.h"
+#include "syzygy/assm/unittest_util.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 
 namespace block_graph {
@@ -51,7 +52,6 @@ TEST(FilterableTest, Accessors)  {
 TEST(FilterableTest, IsFiltered) {
   Filterable f;
 
-  const uint8 nop[] = { 0x90 };
   const uint8 data[10] = {};
 
   BlockGraph block_graph;
@@ -62,7 +62,8 @@ TEST(FilterableTest, IsFiltered) {
   BlockGraph::Block* block =
       block_graph.AddBlock(BlockGraph::CODE_BLOCK, 10, "block");
   Instruction inst;
-  EXPECT_TRUE(Instruction::FromBuffer(nop, arraysize(nop), &inst));
+  EXPECT_TRUE(Instruction::FromBuffer(testing::kNop1,
+                                      arraysize(testing::kNop1), &inst));
   BasicCodeBlock* code_bb = subgraph.AddBasicCodeBlock("code_bb");
   code_bb->instructions().push_back(inst);
   BasicDataBlock* data_bb =
@@ -90,9 +91,9 @@ TEST(FilterableTest, IsFiltered) {
         BlockGraph::Block::SourceRanges::DestinationRange(
             RelativeAddress(35), 10)));
   inst.set_source_range(
-      Range(RelativeAddress(32), arraysize(nop)));
+      Range(RelativeAddress(32), arraysize(testing::kNop1)));
   code_bb->instructions().begin()->set_source_range(
-      Range(RelativeAddress(38), arraysize(nop)));
+      Range(RelativeAddress(38), arraysize(testing::kNop1)));
   data_bb->set_source_range(Range(RelativeAddress(29), arraysize(data)));
 
   // We expect nothing to be filtered.

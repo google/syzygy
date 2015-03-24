@@ -24,6 +24,7 @@
         'assembler_base.h',
         'assembler_base_impl.h',
         'assembler.h',
+        'buffer_serializer.h',
         'cond.h',
         'const.h',
         'label_base.h',
@@ -39,15 +40,28 @@
       ],
     },
     {
+      'target_name': 'asm_unittest_utils',
+      'type': 'static_library',
+      'sources': [
+        'unittest_util.cc',
+        'unittest_util.h',
+      ],
+      'dependencies': [
+        '<(src)/base/base.gyp:base',
+      ],
+    },
+    {
       'target_name': 'asm_unittests',
       'type': 'executable',
       'sources': [
         'assembler_unittest.cc',
+        'buffer_serializer_unittest.cc',
         'register_unittest.cc',
         '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'asm_lib',
+        'asm_unittest_utils',
         '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',

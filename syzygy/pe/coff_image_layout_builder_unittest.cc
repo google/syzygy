@@ -20,6 +20,7 @@
 #include "base/process/launch.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/assm/unittest_util.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/block_graph/orderers/original_orderer.h"
 #include "syzygy/common/align.h"
@@ -351,7 +352,7 @@ TEST_F(CoffImageLayoutBuilderTest, ShiftedCode) {
     uint8* data = mutable_it->second.GetMutableData();
     for (size_t i = 0; i < 11; ++i) {
       // NOP.
-      data[i] = 0x90;
+      data[i] = testing::kNop1[0];
     }
   }
 

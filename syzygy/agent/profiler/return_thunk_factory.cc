@@ -16,27 +16,7 @@
 
 #include "base/logging.h"
 #include "syzygy/assm/assembler.h"
-
-namespace {
-
-class Serializer : public assm::AssemblerImpl::InstructionSerializer {
- public:
-  typedef assm::AssemblerImpl::ReferenceInfo ReferenceInfo;
-  void AppendInstruction(uint32 location,
-                         const uint8* bytes,
-                         size_t num_bytes,
-                         const ReferenceInfo* refs,
-                         size_t num_refs) override {
-    memcpy(static_cast<uint8*>(0) + location, bytes, num_bytes);
-  }
-  bool FinalizeLabel(uint32 location,
-                     const uint8* bytes,
-                     size_t num_bytes) override {
-    return false;  // No label support.
-  }
-};
-
-}  // namespace
+#include "syzygy/assm/buffer_serializer.h"
 
 namespace agent {
 namespace profiler {
@@ -149,12 +129,13 @@ void ReturnThunkFactoryBase::AddPage() {
 
   // Initialize the thunks.
   uint32 start_addr = reinterpret_cast<uint32>(&new_page->thunks[0]);
-  Serializer serializer;
+  assm::BufferSerializer serializer(reinterpret_cast<uint8*>(new_page->thunks),
+                                    kNumThunksPerPage * sizeof(Thunk));
   Assembler assm(start_addr, &serializer);
   for (size_t i = 0; i < kNumThunksPerPage; ++i) {
     DCHECK_EQ(0U, (assm.location() - start_addr) % sizeof(Thunk));
     // Check that there's sufficient room for one more thunk.
-    DCHECK_GE((kNumThunksPerPage - 1) * sizeof(ThunkData),
+    DCHECK_GE((kNumThunksPerPage - 1) * sizeof(Thunk),
               assm.location() - start_addr);
     // Set data up to point to thunk.
     data[i].thunk = &new_page->thunks[i];

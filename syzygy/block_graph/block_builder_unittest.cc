@@ -18,6 +18,7 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/assm/unittest_util.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/basic_block_test_util.h"
@@ -35,14 +36,7 @@ typedef Block::Referrer Referrer;
 const uint8 kEmptyData[32] = { 0 };
 
 // Instructions we'll need in order to build the test subgraph.
-// TODO(rogerm): Share these definitions from a central location for all the
-//     basic-block, builder and assembler/decomposer unit-tests.
 const uint8 kCall[5] = { 0xE8, 0x00, 0x00, 0x00, 0x00  };
-const uint8 kNop1[1] = { 0x90 };
-const uint8 kNop2[2] = { 0x66, 0x90 };
-const uint8 kNop3[3] = { 0x66, 0x66, 0x90 };
-const uint8 kNop7[7] = { 0x0F, 0x1F, 0x80, 0x00, 0x00, 0x00, 0x00 };
-const uint8 kNop9[9] = { 0x66, 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 // The BlockInfo describes the minimal information needed to represent a single
 // basic block within a fake flow-graph. An array of BlockInfos represents the
@@ -333,20 +327,22 @@ TEST_F(BlockBuilderTest, Merge) {
   ASSERT_TRUE(bb1->referrers().insert(BasicBlockReferrer(other, 0)).second);
 
   // Flesh out bb2 with some instructions and no successor.
-  inst = AddInstruction(bb2, kNop2, sizeof(kNop2));
+  inst = AddInstruction(bb2, testing::kNop2, sizeof(testing::kNop2));
   Label label_2("2", BlockGraph::CODE_LABEL);
   inst->set_label(label_2);
   ASSERT_TRUE(inst != NULL);
-  ASSERT_TRUE(AddInstruction(bb2, kNop3, sizeof(kNop3)) != NULL);
+  ASSERT_TRUE(
+      AddInstruction(bb2, testing::kNop3, sizeof(testing::kNop3)) != NULL);
 
   // Flesh out bb3 with some instructions and a single successor.
   // We set tags on the successor and its reference. Since these are elided
   // we expect zero-sized entries in the tag info map.
-  inst = AddInstruction(bb3, kNop2, sizeof(kNop2));
+  inst = AddInstruction(bb3, testing::kNop2, sizeof(testing::kNop2));
   Label label_3("3", BlockGraph::CODE_LABEL);
   inst->set_label(label_3);
   ASSERT_TRUE(inst != NULL);
-  ASSERT_TRUE(AddInstruction(bb3, kNop1, sizeof(kNop1)) != NULL);
+  ASSERT_TRUE(
+      AddInstruction(bb3, testing::kNop1, sizeof(testing::kNop1)) != NULL);
   BasicBlockReference bb3_succ_ref(BlockGraph::RELATIVE_REF, 4, bb4);
   bb3_succ_ref.tags().insert(&bb3_succ_ref);
   Successor bb3_succ(Successor::kConditionTrue, bb3_succ_ref, 0);
@@ -356,8 +352,10 @@ TEST_F(BlockBuilderTest, Merge) {
   bb3->successors().back().set_label(label_4);
 
   // Flesh out bb4 with some instructions and a single successor.
-  ASSERT_TRUE(AddInstruction(bb4, kNop7, sizeof(kNop7)) != NULL);
-  ASSERT_TRUE(AddInstruction(bb4, kNop9, sizeof(kNop9)) != NULL);
+  ASSERT_TRUE(
+      AddInstruction(bb4, testing::kNop7, sizeof(testing::kNop7)) != NULL);
+  ASSERT_TRUE(
+      AddInstruction(bb4, testing::kNop9, sizeof(testing::kNop9)) != NULL);
   bb4->successors().push_back(
       Successor(Successor::kConditionTrue,
                 BasicBlockReference(BlockGraph::RELATIVE_REF, 4, bb2),

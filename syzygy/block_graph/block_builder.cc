@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "syzygy/assm/assembler.h"
+#include "syzygy/assm/buffer_serializer.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
@@ -47,32 +48,6 @@ typedef BasicBlockOrdering::const_iterator BasicBlockOrderingConstIter;
 typedef BlockDescriptionList::const_iterator BlockDescriptionConstIter;
 typedef BasicBlock::Instructions::const_iterator InstructionConstIter;
 typedef BasicBlock::Successors::const_iterator SuccessorConstIter;
-
-// Definitions of various length NOP codes for 32-bit X86. We use the same
-// ones that are typically used by MSVC and recommended by Intel.
-
-// NOP (XCHG EAX, EAX)
-const uint8 kNop1[1] = { 0x90 };
-// 66 NOP
-const uint8 kNop2[2] = { 0x66, 0x90 };
-// LEA REG, 0 (REG) (8-bit displacement)
-const uint8 kNop3[3] = { 0x66, 0x66, 0x90 };
-// NOP DWORD PTR [EAX + 0] (8-bit displacement)
-const uint8 kNop4[4] = { 0x0F, 0x1F, 0x40, 0x00 };
-// NOP DWORD PTR [EAX + EAX*1 + 0] (8-bit displacement)
-const uint8 kNop5[5] = { 0x0F, 0x1F, 0x44, 0x00, 0x00 };
-// LEA REG, 0 (REG) (32-bit displacement)
-const uint8 kNop6[6] = { 0x66, 0x0F, 0x1F, 0x44, 0x00, 0x00 };
-// LEA REG, 0 (REG) (32-bit displacement)
-const uint8 kNop7[7] = { 0x0F, 0x1F, 0x80, 0x00, 0x00, 0x00, 0x00 };
-// NOP DWORD PTR [EAX + EAX*1 + 0] (32-bit displacement)
-const uint8 kNop8[8] = { 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 };
-// NOP WORD  PTR [EAX + EAX*1 + 0] (32-bit displacement)
-const uint8 kNop9[9] = { 0x66, 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 };
-
-// Collect all of the various NOPs in an array indexable by their length.
-const uint8* kNops[] = { NULL, kNop1, kNop2, kNop3, kNop4, kNop5, kNop6,
-    kNop7, kNop8, kNop9 };
 
 const size_t kInvalidSize = -1;
 
@@ -523,18 +498,12 @@ bool MergeContext::InsertNops(Offset offset, Size bytes, Block* new_block) {
   uint8* buffer = new_block->GetMutableData();
   DCHECK_NE(reinterpret_cast<uint8*>(NULL), buffer);
 
-  size_t kMaxNopLength = arraysize(kNops) - 1;
-  buffer += offset;
-  while (bytes >= kMaxNopLength) {
-    ::memcpy(buffer, kNops[kMaxNopLength], kMaxNopLength);
-    buffer += kMaxNopLength;
-    bytes -= kMaxNopLength;
-  }
-
-  if (bytes > 0) {
-    DCHECK_GT(kMaxNopLength, bytes);
-    ::memcpy(buffer, kNops[bytes], bytes);
-  }
+  // Use an assembler to insert a proper NOP sequence.
+  typedef assm::AssemblerImpl Assembler;
+  assm::BufferSerializer serializer(buffer + offset, bytes);
+  uint32 start_addr = reinterpret_cast<uint32>(buffer) + offset;
+  Assembler assm(start_addr, &serializer);
+  assm.nop(bytes);
 
   return true;
 }

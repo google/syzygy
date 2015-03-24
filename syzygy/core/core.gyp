@@ -94,6 +94,7 @@
         'core_unittest_utils',
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',
+        '<(src)/syzygy/assm/assm.gyp:asm_unittest_utils',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
         '<(src)/third_party/distorm/distorm.gyp:distorm',
