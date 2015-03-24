@@ -197,6 +197,7 @@ TEST_F(BlockTest, Initialization) {
   ASSERT_EQ(kBlockType, block_->type());
   ASSERT_EQ(kBlockSize, block_->size());
   ASSERT_EQ(1U, block_->alignment());
+  ASSERT_EQ(0, block_->alignment_offset());
   ASSERT_EQ(0U, block_->padding_before());
   ASSERT_STREQ(kBlockName, block_->name().c_str());
   ASSERT_EQ(RelativeAddress::kInvalidAddress, block_->addr());
@@ -227,6 +228,10 @@ TEST_F(BlockTest, Accessors) {
   ASSERT_NE(16U, block_->alignment());
   block_->set_alignment(16);
   ASSERT_EQ(16U, block_->alignment());
+
+  ASSERT_NE(2, block_->alignment_offset());
+  block_->set_alignment_offset(2);
+  ASSERT_EQ(2, block_->alignment_offset());
 
   ASSERT_NE(15U, block_->padding_before());
   block_->set_padding_before(15U);

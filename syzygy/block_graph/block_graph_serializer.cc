@@ -30,11 +30,13 @@ using core::OutArchive;
 //     representation.
 // Version 3: Added image_format_ block-graph property.
 // Version 4: Deprecated old decomposer attributes.
-static const uint32 kSerializedBlockGraphVersion = 4;
+// Version 5: Added new Block attributes: padding_before and alignment_offset.
+static const uint32 kSerializedBlockGraphVersion = 5;
 
 // Some constants for use in dealing with backwards compatibility.
 static const uint32 kMinSupportedSerializedBlockGraphVersion = 2;
 static const uint32 kImageFormatPropertyBlockGraphVersion = 3;
+static const uint32 kPaddingBeforePropertyBlockGraphVersion = 5;
 
 // Potentially saves a string, depending on whether or not OMIT_STRINGS is
 // enabled.
@@ -156,7 +158,7 @@ bool BlockGraphSerializer::Load(BlockGraph* block_graph,
     return false;
 
   // Load the blocks, except for their references.
-  if (!LoadBlocks(block_graph, in_archive)) {
+  if (!LoadBlocks(version, block_graph, in_archive)) {
     LOG(ERROR) << "Unable to load blocks.";
     return false;
   }
@@ -248,7 +250,8 @@ bool BlockGraphSerializer::SaveBlocks(const BlockGraph& block_graph,
   return true;
 }
 
-bool BlockGraphSerializer::LoadBlocks(BlockGraph* block_graph,
+bool BlockGraphSerializer::LoadBlocks(uint32 version,
+                                      BlockGraph* block_graph,
                                       InArchive* in_archive) const {
   DCHECK(block_graph != NULL);
   DCHECK(in_archive != NULL);
@@ -279,7 +282,7 @@ bool BlockGraphSerializer::LoadBlocks(BlockGraph* block_graph,
     BlockGraph::Block* block = &result.first->second;
     block->id_ = id;
 
-    if (!LoadBlockProperties(block, in_archive) ||
+    if (!LoadBlockProperties(version, block, in_archive) ||
         !LoadBlockLabels(block, in_archive) ||
         !LoadBlockData(block, in_archive)) {
       LOG(ERROR) << "Unable to load block " << i << " of " << count
@@ -336,6 +339,8 @@ bool BlockGraphSerializer::SaveBlockProperties(const BlockGraph::Block& block,
   if (!out_archive->Save(type) ||
       !SaveUint32(block.size(), out_archive) ||
       !SaveUint32(block.alignment(), out_archive) ||
+      !SaveInt32(block.alignment_offset(), out_archive) ||
+      !SaveUint32(block.padding_before(), out_archive) ||
       !out_archive->Save(block.source_ranges()) ||
       !out_archive->Save(block.addr()) ||
       !SaveInt32(static_cast<uint32>(block.section()), out_archive) ||
@@ -350,8 +355,10 @@ bool BlockGraphSerializer::SaveBlockProperties(const BlockGraph::Block& block,
   return true;
 }
 
-bool BlockGraphSerializer::LoadBlockProperties(BlockGraph::Block* block,
-                                               InArchive* in_archive) const {
+bool BlockGraphSerializer::LoadBlockPropertiesImpl(uint32 version,
+                                                   BlockGraph::Block* block,
+                                                   InArchive* in_archive)
+                                                   const {
   DCHECK(block != NULL);
   DCHECK(in_archive != NULL);
 
@@ -367,21 +374,29 @@ bool BlockGraphSerializer::LoadBlockProperties(BlockGraph::Block* block,
   uint8 type = 0;
   uint32 size = 0;
   uint32 alignment = 0;
+  int32 alignment_offset = 0;
+  uint32 padding_before = 0;
   uint32 section = 0;
   uint32 attributes = 0;
   std::string name;
   std::string compiland_name;
   if (!in_archive->Load(&type) ||
       !LoadUint32(&size, in_archive) ||
-      !LoadUint32(&alignment, in_archive) ||
-      !in_archive->Load(&block->source_ranges_) ||
+      !LoadUint32(&alignment, in_archive)) {
+    return false;
+  }
+  if (version >= kPaddingBeforePropertyBlockGraphVersion) {
+    if (!LoadInt32(&alignment_offset, in_archive) ||
+        !LoadUint32(&padding_before, in_archive)) {
+      return false;
+    }
+  }
+  if (!in_archive->Load(&block->source_ranges_) ||
       !in_archive->Load(&block->addr_) ||
       !LoadInt32(reinterpret_cast<int32*>(&section), in_archive) ||
       !in_archive->Load(&attributes) ||
       !MaybeLoadString(*this, &name, in_archive) ||
       !MaybeLoadString(*this, &compiland_name, in_archive)) {
-    LOG(ERROR) << "Unable to load properties for block with id "
-               << block->id() << ".";
     return false;
   }
 
@@ -397,10 +412,27 @@ bool BlockGraphSerializer::LoadBlockProperties(BlockGraph::Block* block,
   block->type_ = static_cast<BlockGraph::BlockType>(type);
   block->size_ = size;
   block->alignment_ = alignment;
+  block->alignment_offset_ = alignment_offset;
+  block->padding_before_ = padding_before;
   block->section_ = section;
   block->attributes_ = attributes;
   block->set_name(name);
   block->set_compiland_name(compiland_name);
+  return true;
+}
+
+bool BlockGraphSerializer::LoadBlockProperties(uint32 version,
+                                               BlockGraph::Block* block,
+                                               InArchive* in_archive) const {
+  DCHECK(block != NULL);
+  DCHECK(in_archive != NULL);
+
+  if (!LoadBlockPropertiesImpl(version, block, in_archive)) {
+    LOG(ERROR) << "Unable to load properties for block with id "
+               << block->id() << ".";
+    return false;
+  }
+
   return true;
 }
 

@@ -599,11 +599,30 @@ class BlockGraph::Block {
   const std::string& compiland_name() const;
   void set_compiland_name(const base::StringPiece& name);
 
+  // Gets the alignment of the block. Note that the alignment is applied to
+  // the byte at the alignment offset.
+  // @returns The current alignment of the block.
   Size alignment() const { return alignment_; }
+  // Sets the alignment that applies to the block when building the layout.
+  // By default, the first byte of the block will be aligned, but that can
+  // be overridden by setting the alignment offset.
+  // @param alignment The new alignment. The alignment should be a power of two.
+  // The value of zero is invalid, use 1 to signal no alignment requirements.
   void set_alignment(Size alignment) {
     // Ensure that alignment is a non-zero power of two.
     DCHECK(common::IsPowerOfTwo(alignment));
     alignment_ = alignment;
+  }
+
+  // Gets the offset the alignment is applied to.
+  // @returns The offset that will be aligned.
+  Offset alignment_offset() const { return alignment_offset_; }
+  // Sets the offset the alignment refers to. The layout builder makes sure the
+  // byte at this position is aligned. By default this value is zero which
+  // means that the first byte of the block should be aligned.
+  // @param alignment_offset The new offset of the alignment.
+  void set_alignment_offset(Offset alignment_offset) {
+    alignment_offset_ = alignment_offset;
   }
 
   // Returns the minimum amount of padding bytes that are inserted before the
@@ -827,6 +846,7 @@ class BlockGraph::Block {
   BlockType type_;
   Size size_;
   Size alignment_;
+  Offset alignment_offset_;
   Size padding_before_;
   const std::string* name_;
   const std::string* compiland_name_;

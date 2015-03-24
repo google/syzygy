@@ -75,7 +75,10 @@ class BlockGraphSerializerTest : public ::testing::Test {
     rd1->set_compiland_name("d.o");
     rd2->set_compiland_name("d.o");
 
-    // Set up alignments.
+    // Set up alignments and paddings.
+    c2->set_alignment(16);
+    c2->set_alignment_offset(-4);
+    c2->set_padding_before(1);
     d1->set_alignment(16);
     rd1->set_alignment(16);
     rd1->set_alignment(16);
@@ -91,7 +94,7 @@ class BlockGraphSerializerTest : public ::testing::Test {
     c1->source_ranges().Push(BlockGraph::Block::DataRange(0, 20),
         BlockGraph::Block::SourceRange(core::RelativeAddress(0), 20));
     c2->source_ranges().Push(BlockGraph::Block::DataRange(0, 16),
-        BlockGraph::Block::SourceRange(core::RelativeAddress(32), 48));
+        BlockGraph::Block::SourceRange(core::RelativeAddress(36), 48));
     d1->source_ranges().Push(BlockGraph::Block::DataRange(0, 20),
         BlockGraph::Block::SourceRange(core::RelativeAddress(512), 532));
     rd1->source_ranges().Push(BlockGraph::Block::DataRange(0, 16),
@@ -172,7 +175,7 @@ class BlockGraphSerializerTest : public ::testing::Test {
         data_size = sizeof(kCode1Data);
         break;
 
-      case 32:
+      case 36:
         data = kCode2Data;
         data_size = sizeof(kCode2Data);
         break;

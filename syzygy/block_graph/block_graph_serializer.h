@@ -213,7 +213,9 @@ class BlockGraphSerializer {
                                 InArchive* in_archive) const;
 
   bool SaveBlocks(const BlockGraph& block_graph, OutArchive* out_archive) const;
-  bool LoadBlocks(BlockGraph* block_graph, InArchive* in_archive) const;
+  bool LoadBlocks(uint32 version,
+                  BlockGraph* block_graph,
+                  InArchive* in_archive) const;
 
   bool SaveBlockGraphReferences(const BlockGraph& block_graph,
                                 OutArchive* out_archive) const;
@@ -222,7 +224,8 @@ class BlockGraphSerializer {
 
   bool SaveBlockProperties(const BlockGraph::Block& block,
                            OutArchive* out_archive) const;
-  bool LoadBlockProperties(BlockGraph::Block* block,
+  bool LoadBlockProperties(uint32 version,
+                           BlockGraph::Block* block,
                            InArchive* in_archive) const;
 
   bool SaveBlockLabels(const BlockGraph::Block& block,
@@ -263,6 +266,14 @@ class BlockGraphSerializer {
   // Optional callbacks.
   scoped_ptr<SaveBlockDataCallback> save_block_data_callback_;
   scoped_ptr<LoadBlockDataCallback> load_block_data_callback_;
+
+ private:
+  // A helper function that implements loading of block properties. The
+  // separation to two functions avoids duplication of logging on each
+  // return false branch.
+  bool LoadBlockPropertiesImpl(uint32 version,
+                               BlockGraph::Block* block,
+                               InArchive* in_archive) const;
 };
 
 }  // namespace block_graph

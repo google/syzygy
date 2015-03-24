@@ -65,6 +65,7 @@ BasicBlockSubGraph::BlockDescription* BasicBlockSubGraph::AddBlockDescription(
   desc->type = type;
   desc->section = section;
   desc->alignment = alignment;
+  desc->padding_before = 0U;
   desc->attributes = attributes;
   return desc;
 }

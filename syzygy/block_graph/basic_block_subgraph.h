@@ -61,6 +61,7 @@ class BasicBlockSubGraph {
     BlockType type;
     SectionId section;
     Size alignment;
+    Size padding_before;
     BlockAttributes attributes;
     BasicBlockOrdering basic_block_order;
   };

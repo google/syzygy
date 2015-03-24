@@ -868,6 +868,7 @@ bool MergeContext::GenerateLayout(const BasicBlockSubGraph& subgraph) {
 
     // Initialize the new block's properties.
     new_block->set_alignment(description.alignment);
+    new_block->set_padding_before(description.padding_before);
     new_block->set_section(description.section);
     new_block->set_attributes(description.attributes);
 

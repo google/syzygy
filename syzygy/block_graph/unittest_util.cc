@@ -147,6 +147,8 @@ bool BlocksEqual(const BlockGraph::Block& b1,
   // Compare the basic block properties.
   if (b1.id() != b2.id() || b1.type() != b2.type() ||
       b1.size() != b2.size() || b1.alignment() != b2.alignment() ||
+      b1.alignment_offset() != b2.alignment_offset() ||
+      b1.padding_before() != b2.padding_before() ||
       b1.addr() != b2.addr() || b1.section() != b2.section() ||
       b1.attributes() != b2.attributes() ||
       b1.source_ranges() != b2.source_ranges() ||

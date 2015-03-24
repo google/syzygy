@@ -164,6 +164,10 @@ bool BasicBlockDecomposer::Decompose() {
   if (scratch_subgraph_.get() != NULL)
     return true;
 
+  // TODO(cseri): Decomposition of blocks with nonzero alignment offset is not
+  // yet supported.
+  CHECK_EQ(0, block_->alignment_offset());
+
   typedef BasicBlockSubGraph::BlockDescription BlockDescription;
   subgraph_->block_descriptions().push_back(BlockDescription());
   BlockDescription& desc = subgraph_->block_descriptions().back();
@@ -171,6 +175,7 @@ bool BasicBlockDecomposer::Decompose() {
   desc.compiland_name = block_->compiland_name();
   desc.type = block_->type();
   desc.alignment = block_->alignment();
+  desc.padding_before = block_->padding_before();
   desc.attributes = block_->attributes();
   desc.section = block_->section();
 

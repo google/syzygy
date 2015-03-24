@@ -103,7 +103,13 @@ bool PECoffImageLayoutBuilder::LayoutBlock(size_t alignment,
   // Keep the larger alignment.
   if (block->type() == BlockGraph::CODE_BLOCK && alignment < code_alignment_)
     alignment = code_alignment_;
-  cursor_ = cursor_.AlignUp(alignment);
+
+  // Align at the proper offset.
+  {
+    cursor_ += block->alignment_offset();
+    cursor_ = cursor_.AlignUp(alignment);
+    cursor_ -= block->alignment_offset();
+  }
 
   // If we have explicit data, advance the explicit data cursor.
   if (block->data_size() > 0)

@@ -601,6 +601,7 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
   BlockType block_type = first_block->type();
   size_t section_id = first_block->section();
   size_t alignment = first_block->alignment();
+  Offset alignment_offset = first_block->alignment_offset();
   BlockAttributes attributes = 0;
 
   // Some attributes are only propagated if they are present on *all* blocks
@@ -664,6 +665,7 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
   new_block->source_ranges() = source_ranges;
   new_block->set_section(section_id);
   new_block->set_alignment(alignment);
+  new_block->set_alignment_offset(alignment_offset);
   new_block->set_attributes(attributes | uniform_attributes);
   if (have_data) {
     uint8* data = new_block->CopyData(merged_data.size(), &merged_data.at(0));
@@ -821,6 +823,7 @@ BlockGraph::Block::Block(BlockGraph* block_graph)
       type_(BlockGraph::CODE_BLOCK),
       size_(0U),
       alignment_(1U),
+      alignment_offset_(0),
       padding_before_(0U),
       name_(NULL),
       compiland_name_(NULL),
@@ -843,6 +846,7 @@ BlockGraph::Block::Block(BlockId id,
       type_(type),
       size_(size),
       alignment_(1U),
+      alignment_offset_(0),
       padding_before_(0U),
       name_(NULL),
       compiland_name_(NULL),

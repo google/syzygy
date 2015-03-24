@@ -310,4 +310,75 @@ TEST_F(PECoffImageLayoutBuilderTest, PaddingAndBlockPadding) {
   EXPECT_EQ(kCharacteristics, sections[1].characteristics);
 }
 
+TEST_F(PECoffImageLayoutBuilderTest, Align) {
+  ImageLayout layout(&block_graph_);
+  TestImageLayoutBuilder builder(&layout, 1, 1);
+
+  const size_t kAlignment = 16U;
+  const size_t kBlockSize = 17U;
+  const BlockGraph::Offset kOffsetMin = -1;
+  const BlockGraph::Offset kOffsetMax = 100;
+
+  // Create aligned blocks with different alignment offsets.
+  std::vector<BlockGraph::Block*> blocks;
+  for (BlockGraph::Offset i = kOffsetMin; i < kOffsetMax; ++i) {
+    BlockGraph::Block* block = block_graph_.AddBlock(BlockGraph::CODE_BLOCK,
+                                                     kBlockSize,
+                                                     "b" + std::to_string(i));
+    block->AllocateData(kBlockSize);
+    memset(block->GetMutableData(), 0xCC, kBlockSize);
+
+    block->set_alignment(kAlignment);
+    block->set_alignment_offset(i);
+
+    blocks.push_back(block);
+  }
+
+  const uint32 kCharacteristics = IMAGE_SCN_CNT_CODE;
+  EXPECT_TRUE(builder.OpenSection("foo", kCharacteristics));
+  for (BlockGraph::Block* block : blocks) {
+    EXPECT_TRUE(builder.LayoutBlock(block));
+  }
+  EXPECT_TRUE(builder.CloseSection());
+
+  const std::vector<ImageLayout::SectionInfo>& sections =
+      builder.image_layout()->sections;
+  EXPECT_EQ("foo", sections[0].name);
+  EXPECT_EQ(RelativeAddress(0x1), sections[0].addr);
+
+  // Check if each block is placed at an address that respects its alignment
+  // and that the blocks do not overlap, nor are they placed too far away from
+  // each other.
+  // This test uses the fact that Block::addr_ is populated upon layout.
+  BlockGraph::RelativeAddress last_address;
+  bool first = true;
+  for (const BlockGraph::Block* block : blocks) {
+    BlockGraph::RelativeAddress curr_address = block->addr();
+    BlockGraph::Offset curr_offset = block->alignment_offset();
+
+    // Test proper alignment.
+    EXPECT_TRUE((curr_address + curr_offset).IsAligned(kAlignment));
+
+    if (first) {
+      first = false;
+
+      // This is true because kOffsetMin is negative.
+      EXPECT_EQ(static_cast<uint32>(-kOffsetMin), curr_address.value());
+    } else {
+      // The space between the blocks is the difference of the addresses minus
+      // the data size.
+      int space_between_blocks = curr_address - last_address -
+                                 static_cast<int>(kBlockSize);
+
+      // Check that blocks do not overlap.
+      EXPECT_GE(space_between_blocks, 0);
+
+      // If the space is bigger then kAlignment bytes then the block could have
+      // been placed kAlignment bytes ahead.
+      EXPECT_LT(space_between_blocks, static_cast<int>(kAlignment));
+    }
+    last_address = curr_address;
+  }
+}
+
 }  // namespace pe
