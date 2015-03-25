@@ -421,7 +421,7 @@ def ProcessMinidump(minidump_filename, cdb_path, pdb_path):
 
   with ScopedDebugger(cdb_path, minidump_filename) as debugger:
     if pdb_path is not None:
-      debugger.LoadSymbols(debugger, pdb_path)
+      debugger.LoadSymbols(pdb_path)
 
     # Enable the line number information.
     debugger.Command('.lines')
