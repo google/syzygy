@@ -37,6 +37,7 @@ namespace {
 void StartWatch(base::FilePathWatcher* watcher,
                 const base::FilePath& path,
                 const base::FilePathWatcher::Callback& callback) {
+  LOG(INFO) << "Watching " << path.value();
   if (!watcher->Watch(path, true, callback)) {
     ADD_FAILURE() << "Failed to initiate file path watch.";
     base::MessageLoop::current()->Quit();
@@ -61,6 +62,8 @@ UploadObserver::~UploadObserver() {
 void UploadObserver::WaitForUpload(base::FilePath* minidump_path,
                      std::map<std::string, std::string>* crash_keys,
                      bool* upload_success) {
+  LOG(INFO) << "Waiting for an upload.";
+
   DCHECK(minidump_path);
   DCHECK(crash_keys);
   DCHECK(upload_success);
@@ -72,6 +75,9 @@ void UploadObserver::WaitForUpload(base::FilePath* minidump_path,
   *minidump_path = thread_.minidump_path();
   *crash_keys = thread_.crash_keys();
   *upload_success = thread_.upload_success();
+
+  LOG(INFO) << "Wait for upload completed. Upload path: "
+            << thread_.minidump_path().value();
 }
 
 UploadObserver::UploadObserverThread::UploadObserverThread(
@@ -87,7 +93,9 @@ UploadObserver::UploadObserverThread::~UploadObserverThread(){
 }
 
 void UploadObserver::UploadObserverThread::WaitUntilReady() {
+  LOG(INFO) << "Waiting for watch to initiate.";
   ready_.Wait();
+  LOG(INFO) << "Watch initiated.";
 }
 
 void UploadObserver::UploadObserverThread::Run() {
@@ -114,9 +122,13 @@ void UploadObserver::UploadObserverThread::Run() {
   watcher_loop.PostTask(FROM_HERE, base::Bind(&base::WaitableEvent::Signal,
                                               base::Unretained(&ready_)));
 
+  LOG(INFO) << "Running background thread.";
+
   // Run the loop. This will block until one of the watcher callbacks detects
   // and extracts the data from a crash report.
   watcher_loop.Run();
+
+  LOG(INFO) << "Background thread terminating.";
 }
 
 // Observes changes to the test server's 'incoming' directory. Notifications do
@@ -126,6 +138,8 @@ void UploadObserver::UploadObserverThread::Run() {
 void UploadObserver::UploadObserverThread::WatchForUpload(
     const base::FilePath& path,
     bool error) {
+  LOG(INFO) << "Detected potential upload in " << path.value();
+
   if (error) {
     ADD_FAILURE() << "Failure in path watching.";
     base::MessageLoop::current()->Quit();
@@ -137,6 +151,7 @@ void UploadObserver::UploadObserverThread::WatchForUpload(
   base::FileEnumerator enumerator(path, true, base::FileEnumerator::FILES);
   for (base::FilePath candidate = enumerator.Next(); !candidate.empty();
        candidate = enumerator.Next()) {
+    LOG(INFO) << "Inspecting candidate: " << candidate.value();
     if (candidate.BaseName() !=
         base::FilePath(Reporter::kMinidumpUploadFilePart)) {
       crash_key_files.push_back(candidate);
@@ -158,6 +173,8 @@ void UploadObserver::UploadObserverThread::WatchForUpload(
     }
     upload_success_ = true;
     base::MessageLoop::current()->Quit();
+  } else {
+    LOG(INFO) << "No minidump file detected.";
   }
 }
 
@@ -167,6 +184,7 @@ void UploadObserver::UploadObserverThread::WatchForUpload(
 void UploadObserver::UploadObserverThread::WatchForPermanentFailure(
     const base::FilePath& path,
     bool error) {
+  LOG(INFO) << "Detected potential permanent failure in " << path.value();
   if (error) {
     ADD_FAILURE() << "Failure in path watching.";
     base::MessageLoop::current()->Quit();
@@ -179,9 +197,14 @@ void UploadObserver::UploadObserverThread::WatchForPermanentFailure(
   base::FileEnumerator enumerator(path, true, base::FileEnumerator::FILES);
   for (base::FilePath candidate = enumerator.Next(); !candidate.empty();
        candidate = enumerator.Next()) {
+    LOG(INFO) << "Inspecting candidate: " << candidate.value();
+
     // We are scanning for a minidump file.
     if (candidate.FinalExtension() !=
         Reporter::kPermanentFailureMinidumpExtension) {
+      LOG(INFO) << "Extension " << candidate.FinalExtension()
+                << " doesn't match "
+                << Reporter::kPermanentFailureMinidumpExtension;
       continue;
     }
 
@@ -189,8 +212,11 @@ void UploadObserver::UploadObserverThread::WatchForPermanentFailure(
     // file.
     base::FilePath crash_keys_file = candidate.ReplaceExtension(
         Reporter::kPermanentFailureCrashKeysExtension);
-    if (!base::PathExists(crash_keys_file))
+    if (!base::PathExists(crash_keys_file)) {
+      LOG(INFO) << "Expected crash keys file " << crash_keys_file.value()
+                << " is missing.";
       continue;
+    }
 
     // Copy the data out of the crash keys file.
     std::map<base::string16, base::string16> crash_keys;
@@ -202,8 +228,11 @@ void UploadObserver::UploadObserverThread::WatchForPermanentFailure(
     }
     upload_success_ = false;
     base::MessageLoop::current()->Quit();
+    LOG(INFO) << "Successfully detected a minidump file.";
     return;
   }
+
+  LOG(INFO) << "No minidump file detected.";
 }
 
 }  // namespace testing

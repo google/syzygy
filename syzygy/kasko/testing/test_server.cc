@@ -87,6 +87,22 @@ bool ReadData(HANDLE read_fd, HANDLE write_fd, DWORD bytes_max, uint8* buffer) {
   return true;
 }
 
+base::win::ScopedHandle DuplicateStdHandleForInheritance(DWORD std_handle) {
+  HANDLE original = ::GetStdHandle(std_handle);
+  if (!original || original == INVALID_HANDLE_VALUE)
+    return base::win::ScopedHandle();
+
+  HANDLE duplicate = nullptr;
+  if (!::DuplicateHandle(base::GetCurrentProcessHandle(), original,
+                  base::GetCurrentProcessHandle(), &duplicate, 0, TRUE,
+                  DUPLICATE_SAME_ACCESS)) {
+    LOG(ERROR) << "Duplicating standard handle " << std_handle
+               << " failed: " << ::common::LogWe();
+    return base::win::ScopedHandle();
+  }
+
+  return base::win::ScopedHandle(duplicate);
+}
 }  // namespace
 
 TestServer::TestServer() : port_(0) {
@@ -127,40 +143,48 @@ bool TestServer::Start() {
     return false;
   }
 
-  {
-    base::CommandLine python_command(
-        ::testing::GetSrcRelativePath(L"third_party/python_26/python.exe"));
-    python_command.AppendArgPath(
-        ::testing::GetSrcRelativePath(L"syzygy/kasko/testing/test_server.py"));
+  base::CommandLine python_command(
+      ::testing::GetSrcRelativePath(L"third_party/python_26/python.exe"));
+  python_command.AppendArgPath(
+      ::testing::GetSrcRelativePath(L"syzygy/kasko/testing/test_server.py"));
 
-    // Pass the handle on the command-line. Although HANDLE is a
-    // pointer, truncating it on 64-bit machines is okay. See
-    // http://msdn.microsoft.com/en-us/library/aa384203.aspx
-    //
-    // "64-bit versions of Windows use 32-bit handles for
-    // interoperability. When sharing a handle between 32-bit and 64-bit
-    // applications, only the lower 32 bits are significant, so it is
-    // safe to truncate the handle (when passing it from 64-bit to
-    // 32-bit) or sign-extend the handle (when passing it from 32-bit to
-    // 64-bit)."
-    python_command.AppendArg(
-        "--startup-pipe=" +
-        base::IntToString(reinterpret_cast<uintptr_t>(write_fd.Get())));
+  // Pass the handle on the command-line. Although HANDLE is a
+  // pointer, truncating it on 64-bit machines is okay. See
+  // http://msdn.microsoft.com/en-us/library/aa384203.aspx
+  //
+  // "64-bit versions of Windows use 32-bit handles for
+  // interoperability. When sharing a handle between 32-bit and 64-bit
+  // applications, only the lower 32 bits are significant, so it is
+  // safe to truncate the handle (when passing it from 64-bit to
+  // 32-bit) or sign-extend the handle (when passing it from 32-bit to
+  // 64-bit)."
+  python_command.AppendArg(
+      "--startup-pipe=" +
+      base::IntToString(reinterpret_cast<uintptr_t>(write_fd.Get())));
 
-    python_command.AppendArg(
-        "--incoming-directory=" +
-        base::UTF16ToUTF8(incoming_directory_.path().value()));
+  python_command.AppendArg(
+      "--incoming-directory=" +
+      base::UTF16ToUTF8(incoming_directory_.path().value()));
 
-    base::LaunchOptions launch_options;
-    launch_options.inherit_handles = true;
-    HANDLE process_handle = NULL;
-    if (!base::LaunchProcess(python_command, launch_options, &process_handle)) {
-      LOG(ERROR) << "Failed to launch "
-                 << python_command.GetCommandLineString();
-      return false;
-    }
-    process_handle_.Set(process_handle);
+  base::win::ScopedHandle stdin_dup =
+      DuplicateStdHandleForInheritance(STD_INPUT_HANDLE);
+  base::win::ScopedHandle stdout_dup =
+      DuplicateStdHandleForInheritance(STD_OUTPUT_HANDLE);
+  base::win::ScopedHandle stderr_dup =
+      DuplicateStdHandleForInheritance(STD_ERROR_HANDLE);
+
+  base::LaunchOptions launch_options;
+  launch_options.inherit_handles = true;
+  launch_options.stdin_handle = stdin_dup.Get();
+  launch_options.stdout_handle = stdout_dup.Get();
+  launch_options.stderr_handle = stderr_dup.Get();
+
+  HANDLE process_handle = NULL;
+  if (!base::LaunchProcess(python_command, launch_options, &process_handle)) {
+    LOG(ERROR) << "Failed to launch " << python_command.GetCommandLineString();
+    return false;
   }
+  process_handle_.Set(process_handle);
 
   if (!ReadData(read_fd.Get(), write_fd.Get(), sizeof(port_),
                 reinterpret_cast<uint8*>(&port_))) {

@@ -51,6 +51,7 @@ def multipart_form_handler(incoming_directory):
         raise Exception('Unsupported Content-Type: ' + content_type)
       post_multipart = cgi.parse_multipart(self.rfile, parameters)
       if self.path == '/crash_failure':
+        self.log_error('Simulating upload failure.')
         self.send_response(500)
         self.end_headers()
       elif self.path == '/crash':
@@ -58,7 +59,9 @@ def multipart_form_handler(incoming_directory):
           tempdir = tempfile.mkdtemp()
           for field, values in post_multipart.items():
             if re.match('^[a-zA-Z0-9_-]+$', field):
-              f = open(os.path.join(tempdir, field), 'wb+')
+              file_path = os.path.join(tempdir, field)
+              self.log_message('Writing %s', file_path)
+              f = open(file_path, 'wb+')
               f.write(','.join(values))
               f.close()
           # Ensure that the entire directory appears atomically.
@@ -66,7 +69,10 @@ def multipart_form_handler(incoming_directory):
           # on the same volume. It would be better if we did.
           report_id = str(uuid.uuid4())
           report_directory = os.path.join(incoming_directory, report_id)
+          self.log_message('Renaming %s to %s', tempdir, report_directory)
           os.rename(tempdir, report_directory)
+        else:
+          self.log_error('ERROR: incoming_directory is unset.')
         self.send_response(200)
         self.send_header("Content-Type", "text/plain")
         self.end_headers()

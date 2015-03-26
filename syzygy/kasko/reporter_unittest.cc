@@ -92,8 +92,11 @@ class ReporterTest : public ::testing::Test {
   ReporterTest() {}
 
   virtual void SetUp() override {
+    LOG(INFO) << "Starting server.";
     ASSERT_TRUE(server_.Start());
+    LOG(INFO) << "Server started.";
     ASSERT_TRUE(temp_directory_.CreateUniqueTempDir());
+    LOG(INFO) << "Temp directory: " << temp_directory_.path().value();
   }
 
  protected:
