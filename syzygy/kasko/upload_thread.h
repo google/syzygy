@@ -70,6 +70,20 @@ class UploadThread {
   // has completely shut down.
   void Join();
 
+  // Immediately initiates a single upload attempt. The attempt will be serviced
+  // by the active UploadThread instance, whether this one or another (possibly
+  // in a separate process). This method returns immediately without waiting for
+  // the upload attempt to complete.
+  //
+  // The upload attempt is guaranteed to take place, regardless of any
+  // subsequent calls to UploadThread::Stop(), as long as this instance has
+  // previously been started via UploadThread::Start.
+  //
+  // If an upload attempt is already active, the requested upload attempt will
+  // take place imediately after its completion. If a previously requested
+  // upload attempt has not yet started, this method has no effect.
+  void UploadOneNowAsync();
+
  private:
   class ThreadImpl : public base::SimpleThread {
    public:
@@ -87,11 +101,13 @@ class UploadThread {
 
   UploadThread(base::win::ScopedHandle mutex,
                base::win::ScopedHandle stop_event,
+               base::win::ScopedHandle wake_event,
                scoped_ptr<WaitableTimer> waitable_timer,
                const base::Closure& uploader);
 
   base::win::ScopedHandle mutex_;
   base::win::ScopedHandle stop_event_;
+  base::win::ScopedHandle wake_event_;
   scoped_ptr<WaitableTimer> waitable_timer_;
   base::Closure uploader_;
   ThreadImpl thread_impl_;

@@ -32,7 +32,9 @@ scoped_ptr<UploadThread> UploadThread::Create(
   // '\' is the only character not permitted in mutex names.
   base::string16 escaped_path;
   base::ReplaceChars(exclusive_path.value(), L"\\", L"/", &escaped_path);
-  base::string16 mutex_name = L"Local\\kasko_uploader_" + escaped_path;
+  base::string16 mutex_name = L"Local\\kasko_uploader_mutex_" + escaped_path;
+  base::string16 wake_event_name =
+      L"Local\\kasko_uploader_wake_event_" + escaped_path;
   base::win::ScopedHandle mutex(::CreateMutex(NULL, FALSE, mutex_name.c_str()));
   if (!mutex) {
     DWORD error = ::GetLastError();
@@ -46,7 +48,16 @@ scoped_ptr<UploadThread> UploadThread::Create(
     LOG(ERROR) << "Failed to create an event: " << ::common::LogWe(error);
     return scoped_ptr<UploadThread>();
   }
+  base::win::ScopedHandle wake_event(
+      ::CreateEvent(NULL, FALSE, FALSE, wake_event_name.c_str()));
+  if (!wake_event) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Failed to create an event named '" << wake_event_name
+               << "': " << ::common::LogWe(error);
+    return scoped_ptr<UploadThread>();
+  }
   return make_scoped_ptr(new UploadThread(mutex.Pass(), stop_event.Pass(),
+                                          wake_event.Pass(),
                                           waitable_timer.Pass(), uploader));
 }
 
@@ -73,6 +84,13 @@ void UploadThread::Join() {
   thread_impl_.Join();
 }
 
+void UploadThread::UploadOneNowAsync() {
+  if (!::SetEvent(wake_event_)) {
+    DWORD error = ::GetLastError();
+    LOG(ERROR) << "Failed to signal wake event: " << ::common::LogWe(error);
+  }
+}
+
 UploadThread::ThreadImpl::ThreadImpl(UploadThread* owner)
     : base::SimpleThread("upload_thread"), owner_(owner) {
 }
@@ -80,35 +98,41 @@ UploadThread::ThreadImpl::ThreadImpl(UploadThread* owner)
 UploadThread::ThreadImpl::~ThreadImpl(){}
 
 void UploadThread::ThreadImpl::Run() {
-  HANDLE handles[] = { owner_->stop_event_, owner_->mutex_ };
-  DWORD wait_result =
-      ::WaitForMultipleObjects(arraysize(handles), handles, FALSE, INFINITE);
+  HANDLE handles_pre_mutex[] = {owner_->mutex_, owner_->stop_event_};
+  DWORD wait_result = ::WaitForMultipleObjects(
+      arraysize(handles_pre_mutex), handles_pre_mutex, FALSE, INFINITE);
   switch (wait_result) {
     case WAIT_OBJECT_0:
-      // stop_event_
-      return;
-    case WAIT_OBJECT_0 + 1:
-    case WAIT_ABANDONED_0 + 1:
+    case WAIT_ABANDONED_0:
       // mutex_
       break;
+    case WAIT_OBJECT_0 + 1:
+      // stop_event_
+      return;
     default:
       DWORD error = ::GetLastError();
       LOG(ERROR) << "WaitForMultipleObjects failed: " << ::common::LogWe(error);
       return;
   }
 
-  // We have the mutex now. We will wait on the timer and the stop event.
-  handles[1] = owner_->waitable_timer_->GetHANDLE();
+  // We have the mutex now. We will wait on the wake event, the stop event, and
+  // the timer.
+  HANDLE handles_post_mutex[] = {owner_->wake_event_,
+                                 owner_->stop_event_,
+                                 owner_->waitable_timer_->GetHANDLE()};
 
   while (true) {
     owner_->waitable_timer_->Start();
-    wait_result =
-        ::WaitForMultipleObjects(arraysize(handles), handles, FALSE, INFINITE);
+    wait_result = ::WaitForMultipleObjects(arraysize(handles_post_mutex),
+                                           handles_post_mutex, FALSE, INFINITE);
     switch (wait_result) {
       case WAIT_OBJECT_0:
-      // stop_event_
-      return;
+        // wake_event_
+        break;
       case WAIT_OBJECT_0 + 1:
+        // stop_event_
+        return;
+      case WAIT_OBJECT_0 + 2:
         // waitable_timer_
         break;
       default:
@@ -123,10 +147,12 @@ void UploadThread::ThreadImpl::Run() {
 
 UploadThread::UploadThread(base::win::ScopedHandle mutex,
                            base::win::ScopedHandle stop_event,
+                           base::win::ScopedHandle wake_event,
                            scoped_ptr<WaitableTimer> waitable_timer,
                            const base::Closure& uploader)
     : mutex_(mutex.Take()),
       stop_event_(stop_event.Take()),
+      wake_event_(wake_event.Take()),
       waitable_timer_(waitable_timer.Pass()),
       uploader_(uploader),
       thread_impl_(this) {

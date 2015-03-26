@@ -23,6 +23,7 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/message_loop/message_loop.h"
+#include "base/synchronization/lock.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread.h"
@@ -37,32 +38,57 @@ namespace {
 // Implements a WaitableTimer that can be triggered by tests.
 class WaitableTimerMock : public WaitableTimer {
  public:
-  WaitableTimerMock() : event_(false, false), timer_activated_(true, false) {}
+  WaitableTimerMock()
+      : unmatched_activations_(0),
+        event_(false, false),
+        timer_activated_(false, false) {}
 
-  ~WaitableTimerMock() override {}
+  ~WaitableTimerMock() override { EXPECT_EQ(0, unmatched_activations_); }
 
   // WaitableTimer implementation
   void Start() override {
+    base::AutoLock auto_lock(lock_);
+    event_.Reset();
+    ++unmatched_activations_;
     timer_activated_.Signal();
   }
+
   HANDLE GetHANDLE() override { return event_.handle(); }
 
   // Returns true if Start() has been called. Resets after Trigger() is invoked.
   bool IsActivated() { return timer_activated_.IsSignaled(); }
 
-  // Signals the timer event. Resets IsActivated() to false.
+  // Signals the timer event. Call WaitForActivation() first.
   void Trigger() {
-    EXPECT_TRUE(timer_activated_.IsSignaled());
-    timer_activated_.Reset();
-    event_.Signal();
+    {
+      base::AutoLock auto_lock(lock_);
+      EXPECT_EQ(0, unmatched_activations_);
+      event_.Signal();
+    }
   }
 
-  // Blocks until the timer is activated.
-  void WaitForActivation() { timer_activated_.Wait(); }
+  // Blocks until the timer is activated. Each call to Start() releases one call
+  // to WaitForActivation().
+  void WaitForActivation() {
+    {
+      base::AutoLock auto_lock(lock_);
+      --unmatched_activations_;
+    }
+    while (true) {
+      {
+        base::AutoLock auto_lock(lock_);
+        if (unmatched_activations_ >= 0)
+          return;
+      }
+      timer_activated_.Wait();
+    }
+  }
 
  private:
+  int unmatched_activations_;
   base::WaitableEvent event_;
   base::WaitableEvent timer_activated_;
+  base::Lock lock_;
 
   DISALLOW_COPY_AND_ASSIGN(WaitableTimerMock);
 };
@@ -105,11 +131,11 @@ base::Closure MakeUploader(base::WaitableEvent* event) {
 }
 
 // A mock uploader that signals |upload_started| and then blocks on
-// |stop_upload|.
+// |unblock_upload|.
 void BlockingUpload(base::WaitableEvent* upload_started,
-                    base::WaitableEvent* stop_upload) {
+                    base::WaitableEvent* unblock_upload) {
   upload_started->Signal();
-  stop_upload->Wait();
+  unblock_upload->Wait();
 }
 
 // Signals |join_started|, invokes upload_thread->Join(), and then signals
@@ -150,6 +176,14 @@ TEST(UploadThreadTest, BasicTest) {
   upload_event.Wait();
 
   // The thread goes back to reactivate the timer.
+  instance.timer()->WaitForActivation();
+
+  // UploadOneNowAsync triggers an upload without the timer trigger.
+  instance.get()->UploadOneNowAsync();
+  upload_event.Wait();
+
+  // The timer is reset after handling an upload requested via
+  // UploadOneNowAsync().
   instance.timer()->WaitForActivation();
 
   // Stop and shut down the thread.
@@ -193,12 +227,30 @@ TEST(UploadThreadTest, OnlyOneActivates) {
 
   instance_1.timer()->WaitForActivation();
 
-  // Shut down the active thread.
-  instance_1.get()->Join();
+  // UploadOneNowAsync triggers an upload without the timer trigger.
+  instance_1.get()->UploadOneNowAsync();
+  upload_event_1.Wait();
+  instance_1.timer()->WaitForActivation();
 
+  instance_2.get()->UploadOneNowAsync();
+  upload_event_1.Wait();
+  instance_1.timer()->WaitForActivation();
+
+  // Give a broken implementation a chance to do something unexpected.
+  base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(100));
+  EXPECT_FALSE(instance_2.timer()->IsActivated());
+  EXPECT_FALSE(upload_event_2.IsSignaled());
+
+  // Shut down the active thread. The 2nd thread should take over.
+  instance_1.get()->Join();
   instance_2.timer()->WaitForActivation();
   instance_2.timer()->Trigger();
   upload_event_2.Wait();
+
+  instance_2.timer()->WaitForActivation();
+  instance_2.get()->UploadOneNowAsync();
+  upload_event_2.Wait();
+  instance_2.timer()->WaitForActivation();
 
   instance_2.get()->Join();
 }
@@ -229,17 +281,43 @@ TEST(UploadThreadTest, SimultaneousActivationOnSeparatePaths) {
   instance_1.timer()->Trigger();
   upload_event_1.Wait();
 
+  // Give a broken implementation a chance to do something unexpected.
+  base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(100));
+  EXPECT_FALSE(upload_event_2.IsSignaled());
+
   instance_2.timer()->Trigger();
   upload_event_2.Wait();
+
+  // Give a broken implementation a chance to do something unexpected.
+  base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(100));
+  EXPECT_FALSE(upload_event_1.IsSignaled());
 
   instance_1.timer()->WaitForActivation();
   instance_2.timer()->WaitForActivation();
 
   instance_2.timer()->Trigger();
   upload_event_2.Wait();
+  instance_2.timer()->WaitForActivation();
 
   instance_1.timer()->Trigger();
   upload_event_1.Wait();
+  instance_1.timer()->WaitForActivation();
+
+  instance_2.get()->UploadOneNowAsync();
+  upload_event_2.Wait();
+  instance_2.timer()->WaitForActivation();
+
+  // Give a broken implementation a chance to do something unexpected.
+  base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(100));
+  EXPECT_FALSE(upload_event_1.IsSignaled());
+
+  instance_1.get()->UploadOneNowAsync();
+  upload_event_1.Wait();
+  instance_1.timer()->WaitForActivation();
+
+  // Give a broken implementation a chance to do something unexpected.
+  base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(100));
+  EXPECT_FALSE(upload_event_2.IsSignaled());
 
   instance_1.get()->Join();
   instance_2.get()->Join();
@@ -249,13 +327,13 @@ TEST(UploadThreadTest, JoinBlocksOnUploadCompletion) {
   base::Thread join_thread("join thread");
 
   base::WaitableEvent upload_started(false, false);
-  base::WaitableEvent stop_upload(false, false);
+  base::WaitableEvent unblock_upload(false, false);
   base::WaitableEvent join_started(false, false);
   base::WaitableEvent join_completed(false, false);
 
   TestInstance instance(base::Bind(&BlockingUpload,
                                    base::Unretained(&upload_started),
-                                   base::Unretained(&stop_upload)));
+                                   base::Unretained(&unblock_upload)));
 
   ASSERT_TRUE(instance.get());
   ASSERT_TRUE(instance.timer());
@@ -272,8 +350,99 @@ TEST(UploadThreadTest, JoinBlocksOnUploadCompletion) {
 
   // A small wait to allow a chance for a broken Join to return early.
   base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(100));
-  stop_upload.Signal();
+
+  // Release the blocking upload.
+  unblock_upload.Signal();
+  // Implementation detail: the UploadThread will reset the timer before
+  // checking the stop event.
+  instance.timer()->WaitForActivation();
   join_completed.Wait();
+}
+
+TEST(UploadThreadTest, UploadOneNowAsyncGuarantees) {
+  base::Thread join_thread("join thread");
+
+  base::WaitableEvent upload_started(false, false);
+  base::WaitableEvent unblock_upload(false, false);
+
+  TestInstance instance(base::Bind(&BlockingUpload,
+                                   base::Unretained(&upload_started),
+                                   base::Unretained(&unblock_upload)));
+
+  ASSERT_TRUE(instance.get());
+  ASSERT_TRUE(instance.timer());
+
+  // Basic case.
+  instance.get()->Start();
+  instance.timer()->WaitForActivation();
+  instance.get()->UploadOneNowAsync();
+  upload_started.Wait();
+  unblock_upload.Signal();
+
+  // If a request is received while an upload is in progress the request is
+  // honored immediately after the previous upload completes.
+  instance.timer()->WaitForActivation();
+  instance.timer()->Trigger();
+  upload_started.Wait();
+  // The thread is now blocking on |unblock_upload|.
+  // Request an upload.
+  instance.get()->UploadOneNowAsync();
+  // End the initial upload.
+  unblock_upload.Signal();
+  // Implementation detail: the timer will be reset before the pending upload
+  // request is detected.
+  instance.timer()->WaitForActivation();
+  // Now the requested upload should take place.
+  upload_started.Wait();
+  unblock_upload.Signal();
+
+  // If a request is received when another request is already pending (not yet
+  // started) the second request is ignored.
+  instance.timer()->WaitForActivation();
+  instance.timer()->Trigger();
+  upload_started.Wait();
+  // The thread is now blocking on |unblock_upload|.
+  // Request an upload.
+  instance.get()->UploadOneNowAsync();
+  // Request a second upload - this request should be a no-op.
+  instance.get()->UploadOneNowAsync();
+  // End the initial upload.
+  unblock_upload.Signal();
+  // Implementation detail: the timer will be reset before the pending upload
+  // request is detected.
+  instance.timer()->WaitForActivation();
+  // Now the first requested upload should take place.
+  upload_started.Wait();
+  unblock_upload.Signal();
+  instance.timer()->WaitForActivation();
+  // A small wait to allow a broken implementation to handle the second request.
+  base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(100));
+  EXPECT_FALSE(upload_started.IsSignaled());
+
+  // Any request received before Stop() is called will be honoured, even if it
+  // has not started yet.
+  // Trigger a scheduled upload.
+  instance.timer()->Trigger();
+  upload_started.Wait();
+  // The scheduled upload is blocking.
+  // Request an upload.
+  instance.get()->UploadOneNowAsync();
+  // The requested upload has not started yet. Invoke Stop() on the
+  // UploadThread.
+  instance.get()->Stop();
+  // End the initial upload.
+  unblock_upload.Signal();
+  // Implementation detail: the timer will be reset before the pending upload
+  // request is detected.
+  instance.timer()->WaitForActivation();
+  // Now the requested upload should take place, even though Stop() was called.
+  upload_started.Wait();
+  // If we get here, the second upload occurred. Now unblock it.
+  unblock_upload.Signal();
+  // Implementation detail: the timer will be reset before the stop request is
+  // detected.
+  instance.timer()->WaitForActivation();
+  instance.get()->Join();
 }
 
 }  // namespace kasko
