@@ -20,13 +20,19 @@
 
 #include <string>
 
+#include "base/base_switches.h"
 #include "base/bind.h"
+#include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/process/kill.h"
+#include "base/process/launch.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/synchronization/waitable_event.h"
+#include "base/test/multiprocess_test.h"
 #include "base/time/time.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/rpc/helpers.h"
@@ -34,6 +40,7 @@
 #include "syzygy/kasko/testing/minidump_unittest_helpers.h"
 #include "syzygy/kasko/testing/test_server.h"
 #include "syzygy/kasko/testing/upload_observer.h"
+#include "testing/multiprocess_func_list.h"
 
 // The test server will respond to POSTs to /crash by writing all parameters to
 // a report directory. Each file in the directory has the name of a parameter
@@ -56,12 +63,32 @@ const char kCrashKey1Value[] = "bar";
 const char kCrashKey2Name[] = "hello";
 const char kCrashKey2Value[] = "world";
 
-// Invokes the diagnostic report RPC service at |endpoint|, requesting a dump of
-// the current process, and including |protobuf|.
-void DoInvokeService(const base::string16& endpoint,
-                     const std::string& protobuf) {
+const char kEndpointSwitch[] = "endpoint";
+const char kReadyEventSwitch[] = "ready-event";
+
+// Signals an event named by kReadyEventSwitch, then blocks indefinitely.
+MULTIPROCESS_TEST_MAIN(ReporterTestBlockingProcess) {
+  // Read the caller-supplied parameters.
+  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
+  base::string16 ready_event_name =
+      base::ASCIIToUTF16(cmd_line->GetSwitchValueASCII(kReadyEventSwitch));
+  base::WaitableEvent ready_event(
+      ::OpenEvent(EVENT_MODIFY_STATE, FALSE, ready_event_name.c_str()));
+  ready_event.Signal();
+  ::Sleep(INFINITE);
+  return 0;
+}
+
+// Invokes SendDiagnosticReport via the RPC endpoint named by kEndpointSwitch.
+MULTIPROCESS_TEST_MAIN(ReporterTestClientProcess) {
+  // Read the caller-supplied parameters.
+  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
+  base::string16 endpoint =
+      base::ASCIIToUTF16(cmd_line->GetSwitchValueASCII(kEndpointSwitch));
+
   common::rpc::ScopedRpcBinding rpc_binding;
-  ASSERT_TRUE(rpc_binding.Open(L"ncalrpc", endpoint));
+  if (!rpc_binding.Open(L"ncalrpc", endpoint))
+    return 1;
 
   CrashKey crash_keys[] = {
       {reinterpret_cast<const signed char*>(kCrashKey1Name),
@@ -69,12 +96,27 @@ void DoInvokeService(const base::string16& endpoint,
       {reinterpret_cast<const signed char*>(kCrashKey2Name),
        reinterpret_cast<const signed char*>(kCrashKey2Value)}};
 
+  std::string protobuf = "protobuf";
+
   common::rpc::RpcStatus status = common::rpc::InvokeRpc(
       KaskoClient_SendDiagnosticReport, rpc_binding.Get(), NULL, 0, SMALL_DUMP,
       protobuf.length(), reinterpret_cast<const signed char*>(protobuf.c_str()),
       arraysize(crash_keys), crash_keys);
-  ASSERT_FALSE(status.exception_occurred);
-  ASSERT_TRUE(status.succeeded());
+  if (status.exception_occurred || !status.succeeded())
+    return 1;
+  return 0;
+}
+
+// Invokes |instance|->SendReportForProcess() using |child_process|.
+void InvokeSendReportForProcess(Reporter* instance,
+                                base::ProcessHandle child_process) {
+  std::map<base::string16, base::string16> crash_keys_in;
+  crash_keys_in[base::UTF8ToUTF16(kCrashKey1Name)] =
+      base::UTF8ToUTF16(kCrashKey1Value);
+  crash_keys_in[base::UTF8ToUTF16(kCrashKey2Name)] =
+      base::UTF8ToUTF16(kCrashKey2Value);
+
+  instance->SendReportForProcess(child_process, SMALL_DUMP_TYPE, crash_keys_in);
 }
 
 // Verifies that the uploaded minidump is plausibly a dump of this test process.
@@ -89,7 +131,8 @@ void ValidateMinidump(IDebugClient4* debug_client,
 
 class ReporterTest : public ::testing::Test {
  public:
-  ReporterTest() {}
+  ReporterTest()
+      : test_instance_key_(base::UintToString(base::GetCurrentProcId())) {}
 
   virtual void SetUp() override {
     LOG(INFO) << "Starting server.";
@@ -100,7 +143,51 @@ class ReporterTest : public ::testing::Test {
   }
 
  protected:
+  // Launches a child process that will invoke SendDiagnosticReport using the
+  // RPC endpoint returned by endpoint().
+  void InvokeRpcFromChildProcess() {
+    base::CommandLine client_command_line =
+        base::GetMultiProcessTestChildBaseCommandLine();
+    client_command_line.AppendSwitchASCII(switches::kTestChildProcess,
+                                          "ReporterTestClientProcess");
+    client_command_line.AppendSwitchASCII(kEndpointSwitch,
+                                          base::UTF16ToASCII(endpoint()));
+    base::ProcessHandle client_process;
+    ASSERT_TRUE(base::LaunchProcess(client_command_line, base::LaunchOptions(),
+                                    &client_process));
+
+    int exit_code = 0;
+    ASSERT_TRUE(base::WaitForExitCode(client_process, &exit_code));
+    ASSERT_EQ(0, exit_code);
+  }
+
+  // Launches a child process and passes its handle to |callback|. Then kills
+  // the child process.
+  void DoWithChildProcess(
+      const base::Callback<void(base::ProcessHandle)>& callback) {
+    std::string ready_event_name = "reporter_test_ready_" + test_instance_key_;
+    base::WaitableEvent ready_event(::CreateEvent(
+        NULL, FALSE, FALSE, base::ASCIIToUTF16(ready_event_name).c_str()));
+
+    base::CommandLine child_command_line =
+        base::GetMultiProcessTestChildBaseCommandLine();
+    child_command_line.AppendSwitchASCII(switches::kTestChildProcess,
+                                         "ReporterTestBlockingProcess");
+    child_command_line.AppendSwitchASCII(kReadyEventSwitch, ready_event_name);
+    base::ProcessHandle child_process;
+    ASSERT_TRUE(base::LaunchProcess(child_command_line, base::LaunchOptions(),
+                                    &child_process));
+    base::win::ScopedHandle scoped_child_process(child_process);
+    ready_event.Wait();
+    callback.Run(child_process);
+    ASSERT_TRUE(base::KillProcess(child_process, 0, true));
+  }
+
   uint16_t server_port() { return server_.port(); }
+
+  base::string16 endpoint() {
+    return base::ASCIIToUTF16("reporter_test_endpoint_" + test_instance_key_);
+  }
 
   // This directory is intentionally non-existant to verify that the reporter
   // creates the target directory as needed.
@@ -119,13 +206,14 @@ class ReporterTest : public ::testing::Test {
  private:
   testing::TestServer server_;
   base::ScopedTempDir temp_directory_;
+  std::string test_instance_key_;
 
   DISALLOW_COPY_AND_ASSIGN(ReporterTest);
 };
 
-TEST_F(ReporterTest, DISABLED_BasicTest) {
+TEST_F(ReporterTest, BasicTest) {
   scoped_ptr<Reporter> instance(Reporter::Create(
-      L"test_endpoint",
+      endpoint(),
       L"http://127.0.0.1:" + base::UintToString16(server_port()) + L"/crash",
       data_directory(), permanent_failure_directory(),
       base::TimeDelta::FromMilliseconds(1),
@@ -136,7 +224,7 @@ TEST_F(ReporterTest, DISABLED_BasicTest) {
   testing::UploadObserver upload_observer(upload_directory(),
                                           permanent_failure_directory());
 
-  ASSERT_NO_FATAL_FAILURE(DoInvokeService(L"test_endpoint", "protobuf"));
+  ASSERT_NO_FATAL_FAILURE(InvokeRpcFromChildProcess());
 
   base::FilePath minidump_path;
   std::map<std::string, std::string> crash_keys;
@@ -151,9 +239,9 @@ TEST_F(ReporterTest, DISABLED_BasicTest) {
   Reporter::Shutdown(instance.Pass());
 }
 
-TEST_F(ReporterTest, DISABLED_SendReportForProcessTest) {
+TEST_F(ReporterTest, SendReportForProcessTest) {
   scoped_ptr<Reporter> instance(Reporter::Create(
-      L"test_endpoint",
+      endpoint(),
       L"http://127.0.0.1:" + base::UintToString16(server_port()) + L"/crash",
       data_directory(), permanent_failure_directory(),
       base::TimeDelta::FromMilliseconds(1),
@@ -164,14 +252,8 @@ TEST_F(ReporterTest, DISABLED_SendReportForProcessTest) {
   testing::UploadObserver upload_observer(upload_directory(),
                                           permanent_failure_directory());
 
-  std::map<base::string16, base::string16> crash_keys_in;
-  crash_keys_in[base::UTF8ToUTF16(kCrashKey1Name)] =
-      base::UTF8ToUTF16(kCrashKey1Value);
-  crash_keys_in[base::UTF8ToUTF16(kCrashKey2Name)] =
-      base::UTF8ToUTF16(kCrashKey2Value);
-
-  instance->SendReportForProcess(base::GetCurrentProcessHandle(),
-                                 SMALL_DUMP_TYPE, crash_keys_in);
+  ASSERT_NO_FATAL_FAILURE(DoWithChildProcess(base::Bind(
+      &InvokeSendReportForProcess, base::Unretained(instance.get()))));
 
   base::FilePath minidump_path;
   std::map<std::string, std::string> crash_keys;
@@ -185,9 +267,9 @@ TEST_F(ReporterTest, DISABLED_SendReportForProcessTest) {
   Reporter::Shutdown(instance.Pass());
 }
 
-TEST_F(ReporterTest, DISABLED_PermanentFailureTest) {
+TEST_F(ReporterTest, PermanentFailureTest) {
   scoped_ptr<Reporter> instance(Reporter::Create(
-      L"test_endpoint",
+      endpoint(),
       L"http://127.0.0.1:" + base::UintToString16(server_port()) +
           L"/crash_failure",
       data_directory(), permanent_failure_directory(),
@@ -199,7 +281,7 @@ TEST_F(ReporterTest, DISABLED_PermanentFailureTest) {
   testing::UploadObserver upload_observer(upload_directory(),
                                           permanent_failure_directory());
 
-  ASSERT_NO_FATAL_FAILURE(DoInvokeService(L"test_endpoint", "protobuf"));
+  ASSERT_NO_FATAL_FAILURE(InvokeRpcFromChildProcess());
 
   base::FilePath minidump_path;
   std::map<std::string, std::string> crash_keys;
