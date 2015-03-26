@@ -108,7 +108,7 @@ void HandlePermanentFailure(const base::FilePath& permanent_failure_directory,
   }
 }
 
-void SendReportImpl(const base::FilePath& temporary_directory,
+void GenerateReport(const base::FilePath& temporary_directory,
                     ReportRepository* report_repository,
                     base::ProcessId client_process_id,
                     uint64_t exception_info_address,
@@ -152,9 +152,11 @@ void SendReportImpl(const base::FilePath& temporary_directory,
 class ServiceImpl : public Service {
   public:
    ServiceImpl(const base::FilePath& temporary_directory,
-               ReportRepository* report_repository)
+               ReportRepository* report_repository,
+               UploadThread* upload_thread)
        : temporary_directory_(temporary_directory),
-         report_repository_(report_repository) {}
+         report_repository_(report_repository),
+         upload_thread_(upload_thread) {}
 
    ~ServiceImpl() override {}
 
@@ -167,14 +169,16 @@ class ServiceImpl : public Service {
        const char* protobuf,
        size_t protobuf_length,
        const std::map<base::string16, base::string16>& crash_keys) override {
-     SendReportImpl(temporary_directory_, report_repository_, client_process_id,
+     GenerateReport(temporary_directory_, report_repository_, client_process_id,
                     exception_info_address, thread_id, minidump_type, protobuf,
                     protobuf_length, crash_keys);
+     upload_thread_->UploadOneNowAsync();
    }
 
   private:
    base::FilePath temporary_directory_;
    ReportRepository* report_repository_;
+   UploadThread* upload_thread_;
 
    DISALLOW_COPY_AND_ASSIGN(ServiceImpl);
 };
@@ -200,28 +204,35 @@ scoped_ptr<Reporter> Reporter::Create(
     const base::FilePath& permanent_failure_directory,
     const base::TimeDelta& upload_interval,
     const base::TimeDelta& retry_interval) {
-  scoped_ptr<Reporter> instance(new Reporter(endpoint_name, url, data_directory,
-                                             permanent_failure_directory,
-                                             retry_interval));
+
   scoped_ptr<WaitableTimer> waitable_timer(
       WaitableTimerImpl::Create(upload_interval));
   if (!waitable_timer) {
     LOG(ERROR) << "Failed to create a timer for the upload process.";
     return scoped_ptr<Reporter>();
   }
-  // It's safe to pass an Unretained reference to |report_repository_| because
-  // |instance| will shut down |upload_thread_| before destroying
-  // |report_repository_|..
-  instance->upload_thread_ = UploadThread::Create(
+
+  scoped_ptr<ReportRepository> report_repository(new ReportRepository(
+      data_directory, retry_interval, base::Bind(&base::Time::Now),
+      base::Bind(&UploadCrashReport, url),
+      base::Bind(&HandlePermanentFailure, permanent_failure_directory)));
+
+  // It's safe to pass an Unretained reference to |report_repository| because
+  // the Reporter instance will shut down |upload_thread| before destroying
+  // |report_repository|.
+  scoped_ptr<UploadThread> upload_thread = UploadThread::Create(
       data_directory, waitable_timer.Pass(),
       base::Bind(base::IgnoreResult(&ReportRepository::UploadPendingReport),
-                 base::Unretained(&instance->report_repository_)));
+                 base::Unretained(report_repository.get())));
 
-  if (!instance->upload_thread_) {
+  if (!upload_thread) {
     LOG(ERROR) << "Failed to initialize background upload process.";
     return scoped_ptr<Reporter>();
   }
 
+  scoped_ptr<Reporter> instance(
+      new Reporter(report_repository.Pass(), upload_thread.Pass(),
+                   endpoint_name, data_directory.Append(kTemporarySubdir)));
   if (!instance->service_bridge_.Run()) {
     LOG(ERROR) << "Failed to start the Kasko RPC service using protocol "
                << kRpcProtocol << " and endpoint name " << endpoint_name << ".";
@@ -239,9 +250,10 @@ void Reporter::SendReportForProcess(
     base::ProcessHandle process_handle,
     MinidumpType minidump_type,
     const std::map<base::string16, base::string16>& crash_keys) {
-  SendReportImpl(temporary_minidump_directory_, &report_repository_,
+  GenerateReport(temporary_minidump_directory_, report_repository_.get(),
                  base::GetProcId(process_handle), NULL, 0, minidump_type, NULL,
                  0, crash_keys);
+  upload_thread_->UploadOneNowAsync();
 }
 
 // static
@@ -251,24 +263,19 @@ void Reporter::Shutdown(scoped_ptr<Reporter> instance) {
   instance->upload_thread_->Join();  // Blocking.
 }
 
-Reporter::Reporter(const base::string16& endpoint_name,
-                   const base::string16& url,
-                   const base::FilePath& data_directory,
-                   const base::FilePath& permanent_failure_directory,
-                   const base::TimeDelta& retry_interval)
-    : report_repository_(
-          data_directory,
-          retry_interval,
-          base::Bind(&base::Time::Now),
-          base::Bind(&UploadCrashReport, url),
-          base::Bind(&HandlePermanentFailure, permanent_failure_directory)),
-      temporary_minidump_directory_(
-          base::FilePath(data_directory).Append(kTemporarySubdir)),
+Reporter::Reporter(scoped_ptr<ReportRepository> report_repository,
+                   scoped_ptr<UploadThread> upload_thread,
+                   const base::string16& endpoint_name,
+                   const base::FilePath& temporary_minidump_directory)
+    : report_repository_(report_repository.Pass()),
+      upload_thread_(upload_thread.Pass()),
+      temporary_minidump_directory_(temporary_minidump_directory),
       service_bridge_(
           kRpcProtocol,
           endpoint_name,
           make_scoped_ptr(new ServiceImpl(temporary_minidump_directory_,
-                                          &report_repository_))) {
+                                          report_repository_.get(),
+                                          upload_thread_.get()))) {
 }
 
 }  // namespace kasko

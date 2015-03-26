@@ -94,22 +94,19 @@ class Reporter {
  private:
   // Instantiates a Reporter process instance. Does not start any background
   // processes.
+  // @param report_repository The report repository to store reports in.
+  // @param upload_thread An upload thread that is configured to upload reports
+  //     from |report_repository|.
   // @param endpoint_name The RPC endpoint name to listen on.
-  // @param url The URL that crash reports should be uploaded to.
-  // @param data_directory The directory where crash reports will be generated
-  //     and stored for uploading.
-  // @param permanent_failure_directory The directory where crash reports that
-  //     have exceeded retry limits will be moved to.
-  // @param retry_interval The minimum interval between upload attempts for a
-  //     single crash report.
-  Reporter(const base::string16& endpoint_name,
-           const base::string16& url,
-           const base::FilePath& data_directory,
-           const base::FilePath& permanent_failure_directory,
-           const base::TimeDelta& retry_interval);
+  // @param temporary_minidump_directory A directory where minidumps may be
+  //     temporarily stored before uploading.
+  Reporter(scoped_ptr<ReportRepository> report_repository,
+           scoped_ptr<UploadThread> upload_thread,
+           const base::string16& endpoint_name,
+           const base::FilePath& temporary_minidump_directory);
 
   // A repository for generated reports.
-  ReportRepository report_repository_;
+  scoped_ptr<ReportRepository> report_repository_;
 
   // A background upload scheduler.
   scoped_ptr<UploadThread> upload_thread_;
