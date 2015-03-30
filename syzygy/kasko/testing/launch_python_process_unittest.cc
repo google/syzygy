@@ -14,6 +14,8 @@
 
 #include "syzygy/kasko/testing/launch_python_process.h"
 
+#include "base/bind.h"
+#include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/process/kill.h"
@@ -44,6 +46,17 @@ TEST(LaunchPythonProcessTest, BasicTest) {
   // to be tricky in the implementation. Hence this test case with both a switch
   // and an argument.
   args.AppendSwitch("-p 3");
+  process = LaunchPythonProcess(
+      base::FilePath(L"syzygy/kasko/testing/exit_with.py"), args);
+  ASSERT_TRUE(process.IsValid());
+  ASSERT_TRUE(base::WaitForExitCode(process.Take(), &exit_code));
+  ASSERT_EQ(5, exit_code);
+
+  // Set stdin to NULL, as the test launcher does in a parallel test mode.
+  base::ScopedClosureRunner reset_stdin(
+      base::Bind(base::IgnoreResult(&::SetStdHandle), STD_INPUT_HANDLE,
+                 ::GetStdHandle(STD_INPUT_HANDLE)));
+  ::SetStdHandle(STD_INPUT_HANDLE, INVALID_HANDLE_VALUE);
   process = LaunchPythonProcess(
       base::FilePath(L"syzygy/kasko/testing/exit_with.py"), args);
   ASSERT_TRUE(process.IsValid());

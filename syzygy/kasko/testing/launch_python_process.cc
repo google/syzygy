@@ -53,18 +53,21 @@ base::win::ScopedHandle LaunchPythonProcess(
       ::testing::GetSrcRelativePath(L"third_party/python_26/python.exe")
           .value());
 
-  base::win::ScopedHandle stdin_dup =
-      DuplicateStdHandleForInheritance(STD_INPUT_HANDLE);
   base::win::ScopedHandle stdout_dup =
       DuplicateStdHandleForInheritance(STD_OUTPUT_HANDLE);
   base::win::ScopedHandle stderr_dup =
       DuplicateStdHandleForInheritance(STD_ERROR_HANDLE);
+  base::win::ScopedHandle stdin_dup =
+      DuplicateStdHandleForInheritance(STD_INPUT_HANDLE);
 
   base::LaunchOptions launch_options;
   launch_options.inherit_handles = true;
-  launch_options.stdin_handle = stdin_dup.Get();
-  launch_options.stdout_handle = stdout_dup.Get();
-  launch_options.stderr_handle = stderr_dup.Get();
+  launch_options.stdin_handle =
+      stdin_dup ? stdin_dup.Get() : INVALID_HANDLE_VALUE;
+  launch_options.stdout_handle =
+      stdout_dup ? stdout_dup.Get() : INVALID_HANDLE_VALUE;
+  launch_options.stderr_handle =
+      stderr_dup ? stderr_dup.Get() : INVALID_HANDLE_VALUE;
 
   HANDLE process_handle = nullptr;
   base::LaunchProcess(python_command, launch_options, &process_handle);
