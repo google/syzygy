@@ -76,10 +76,9 @@ const base::char16 kFailedTwiceSubdir[] = L"Retry 2";
 // @param path The path to delete.
 // @returns true if the operation succeeds.
 bool LoggedDeleteFile(const base::FilePath& path) {
-  if (base::DeleteFile(path, false))
-    return true;
-  LOG(ERROR) << "Failed to delete " << path.value();
-  return false;
+  bool result = base::DeleteFile(path, false);
+  LOG_IF(ERROR, !result) << "Failed to delete " << path.value();
+  return result;
 }
 
 // Takes ownership of a FilePath. The owned path will be deleted when the
@@ -110,25 +109,25 @@ class ScopedReportFile {
   // @param new_path The full destination path.
   // @returns true if the operation succeeds.
   bool Move(const base::FilePath& new_path) {
-    if (base::Move(path_, new_path)) {
+    bool result = base::Move(path_, new_path);
+    LOG_IF(ERROR, !result) << "Failed to move " << path_.value() << " to "
+                           << new_path.value();
+    if (result)
       path_ = new_path;
-      return true;
-    }
-    LOG(ERROR) << "Failed to move " << path_.value() << " to "
-               << new_path.value();
-    return false;
+    return result;
   }
 
   // Sets the last-modified timestamp of the file pointed to by the owned path.
   // @param value The desired timestamp.
   // @returns true if the operation succeeds.
   bool UpdateTimestamp(const base::Time& value) {
-    if (path_.empty())
-      return false;
-    if (base::TouchFile(path_, value, value))
-      return true;
-    LOG(ERROR) << "Failed to update timestamp for " << path_.value();
-    return false;
+    bool result = false;
+    if (!path_.empty()) {
+      result = base::TouchFile(path_, value, value);
+      LOG_IF(ERROR, !result) << "Failed to update timestamp for "
+                             << path_.value();
+    }
+    return result;
   }
 
  private:
@@ -241,12 +240,12 @@ std::pair<base::FilePath, base::FilePath> GetPendingReport(
     base::FilePath result = GetPendingReportFromDirectory(
         repository_path.Append(directories[i].subdir),
         directories[i].retry_cutoff);
-    if (result.empty())
-      continue;
-    if (!directories[i].failure_subdir)
-      return std::make_pair(result, base::FilePath());
-    return std::make_pair(
-        result, repository_path.Append(directories[i].failure_subdir));
+    if (!result.empty()) {
+      if (!directories[i].failure_subdir)
+        return std::make_pair(result, base::FilePath());
+      return std::make_pair(
+          result, repository_path.Append(directories[i].failure_subdir));
+    }
   }
   return std::pair<base::FilePath, base::FilePath>();
 }
@@ -260,21 +259,19 @@ std::pair<base::FilePath, base::FilePath> GetPendingReport(
 void HandleNonpermanentFailure(ScopedReportFile* minidump_file,
                                ScopedReportFile* crash_keys_file,
                                const base::FilePath& destination_directory) {
-  if (!base::CreateDirectory(destination_directory)) {
-    LOG(ERROR) << "Failed to create destination directory "
-               << destination_directory.value();
-    return;
+  bool result = base::CreateDirectory(destination_directory);
+  LOG_IF(ERROR, !result) << "Failed to create destination directory "
+                         << destination_directory.value();
+  if (result) {
+    if (minidump_file->Move(
+            destination_directory.Append(minidump_file->Get().BaseName()))) {
+      if (crash_keys_file->Move(destination_directory.Append(
+              crash_keys_file->Get().BaseName()))) {
+        minidump_file->Take();
+        crash_keys_file->Take();
+      }
+    }
   }
-  if (!minidump_file->Move(
-          destination_directory.Append(minidump_file->Get().BaseName()))) {
-    return;
-  }
-  if (!crash_keys_file->Move(
-          destination_directory.Append(crash_keys_file->Get().BaseName()))) {
-    return;
-  }
-  minidump_file->Take();
-  crash_keys_file->Take();
 }
 
 // Handles a permanent failure by invoking the PermanentFailureHandler. Ensures
@@ -320,34 +317,31 @@ void ReportRepository::StoreReport(
 
   base::FilePath destination_directory(
       repository_path_.Append(kIncomingReportsSubdir));
-  if (!base::CreateDirectory(destination_directory)) {
-    LOG(ERROR) << "Failed to create target directory "
-               << destination_directory.value();
-    return;
+  bool result = base::CreateDirectory(destination_directory);
+  LOG_IF(ERROR, !result) << "Failed to create destination directory "
+                         << destination_directory.value();
+  if (result) {
+    // Choose the location and extension where the minidump will be stored.
+    base::FilePath minidump_target_path = destination_directory.Append(
+        minidump_path.BaseName().ReplaceExtension(kDumpFileExtension));
+    base::FilePath crash_keys_path =
+        GetCrashKeysFileForDumpFile(minidump_target_path);
+
+    if (WriteCrashKeysToFile(crash_keys_path, crash_keys)) {
+      ScopedReportFile crash_keys_file(crash_keys_path);
+
+      if (minidump_file.Move(minidump_target_path)) {
+        base::Time now = time_source_.Run();
+        if (minidump_file.UpdateTimestamp(now)) {
+          if (crash_keys_file.UpdateTimestamp(now)) {
+            // Prevent the files from being deleted.
+            minidump_file.Take();
+            crash_keys_file.Take();
+          }
+        }
+      }
+    }
   }
-
-  // Choose the location and extension where the minidump will be stored.
-  base::FilePath minidump_target_path = destination_directory.Append(
-      minidump_path.BaseName().ReplaceExtension(kDumpFileExtension));
-  base::FilePath crash_keys_path =
-      GetCrashKeysFileForDumpFile(minidump_target_path);
-
-  if (!WriteCrashKeysToFile(crash_keys_path, crash_keys))
-    return;
-  ScopedReportFile crash_keys_file(crash_keys_path);
-
-  if (!minidump_file.Move(minidump_target_path))
-    return;
-
-  base::Time now = time_source_.Run();
-  if (!minidump_file.UpdateTimestamp(now))
-    return;
-  if (!crash_keys_file.UpdateTimestamp(now))
-    return;
-
-  // Prevent the files from being deleted.
-  minidump_file.Take();
-  crash_keys_file.Take();
 }
 
 bool ReportRepository::UploadPendingReport() {
@@ -370,26 +364,26 @@ bool ReportRepository::UploadPendingReport() {
   // Renew the file timestamps before attempting upload. If we are unable to do
   // this, make no upload attempt (since that would potentially lead to a hot
   // loop of upload attempts).
-  if (!minidump_file.UpdateTimestamp(now))
-    return false;
-  if (!crash_keys_file.UpdateTimestamp(now))
-    return false;
+  if (minidump_file.UpdateTimestamp(now)) {
+    if (crash_keys_file.UpdateTimestamp(now)) {
+      // Attempt the upload.
+      std::map<base::string16, base::string16> crash_keys;
+      if (ReadCrashKeysFromFile(crash_keys_file.Get(), &crash_keys)) {
+        if (uploader_.Run(minidump_file.Get(), crash_keys))
+          return true;
+      }
 
-  // Attempt the upload.
-  std::map<base::string16, base::string16> crash_keys;
-  if (ReadCrashKeysFromFile(crash_keys_file.Get(), &crash_keys)) {
-    if (uploader_.Run(minidump_file.Get(), crash_keys))
-      return true;
+      // We failed.
+      if (!failure_destination.empty()) {
+        HandleNonpermanentFailure(&minidump_file, &crash_keys_file,
+                                  failure_destination);
+      } else {
+        HandlePermanentFailure(minidump_file.Take(), crash_keys_file.Take(),
+                               permanent_failure_handler_);
+      }
+    }
   }
 
-  // We failed.
-  if (!failure_destination.empty()) {
-    HandleNonpermanentFailure(&minidump_file, &crash_keys_file,
-                              failure_destination);
-  } else {
-    HandlePermanentFailure(minidump_file.Take(), crash_keys_file.Take(),
-                           permanent_failure_handler_);
-  }
   return false;
 }
 
