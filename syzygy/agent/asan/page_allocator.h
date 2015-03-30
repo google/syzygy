@@ -32,20 +32,32 @@
 namespace agent {
 namespace asan {
 
-// Forward declarations.
+// Forward declarations. These are all defined in the corresponding _impl.h.
 struct PageAllocatorStatistics;
+namespace detail {
 template<bool kKeepStats> struct PageAllocatorStatisticsHelper;
+template<size_t kObjectSize, size_t kPageSize> struct PageAllocatorPage;
+}  // namespace detail
+
+
+// NOTE: If you want these to be optimally packed, please use #pragma pack(1)!
+//       Otherwise, the default compiler alignment will kick in, and the
+//       objects will be rounded up in size to be 4-byte aligned.
+
 
 // An untyped PageAllocator. Thread safety is provided by this object.
 // @tparam kObjectSize The size of objects returned by the allocator,
 //     in bytes. Objects will be tightly packed so any alignment constraints
-//     should be reflected in this size.
+//     should be reflected in this size. Must be at least as big as a pointer.
 // @tparam kMaxObjectCount The maximum number of consecutive objects that
 //     will be requested at once by the allocator. The allocator will
 //     ensure that this is possible, and will maintain separate free lists
 //     for each possible length from 1 to kMaxObjectCount.
 // @tparam kPageSize The amount of memory to be allocated at a time as
-//     the pool grows.
+//     the pool grows. This will be rounded up to a multiple of the OS page
+//     size that is a divisor of the allocation granularity, or a multiple of
+//     the allocation granularity. This ensures efficient memory use and
+//     minimal fragmentation.
 // @tparam kKeepStats If true, then statistics will be collected.
 template<size_t kObjectSize,
          size_t kMaxObjectCount,
@@ -53,6 +65,9 @@ template<size_t kObjectSize,
          bool kKeepStats>
 class PageAllocator {
  public:
+  typedef detail::PageAllocatorPage<kObjectSize, kPageSize> Page;
+  typedef typename Page::Object Object;
+
   // Constructor.
   PageAllocator();
 
@@ -80,14 +95,21 @@ class PageAllocator {
   //     number of objects originally allocated.
   void Free(void* object, size_t count);
 
-  // Determines if an allocation was handed out by this allocator.
+  // Returns current statistics. If kKeepStats is false this is a noop and
+  // does not set any meaningful data.
+  // @param stats The statistics data to be populated.
+  void GetStatistics(PageAllocatorStatistics* stats);
+
+  // Determines if an allocation is currently handed out by this allocator.
   // @param object The object to be checked.
   // @param count The number of objects in the allocation.
   // @returns true if the given object was handed out by this allocator.
   // @note Handles locking, so no locks must already be held.
-  bool Allocated(const void* object, size_t count);
+  bool Allocated(const void* object, size_t count) {
+    return AllocationStatus(object, count) == 1;
+  }
 
-  // Determines if an allocation has been returned to this allocator.
+  // Determines if an allocation is currently freed by this allocator.
   // @param object The object to be checked.
   // @param count The number of objects in the allocation. If this is zero then
   //     all freed size classes will be checked, otherwise only the exact
@@ -95,19 +117,43 @@ class PageAllocator {
   // @returns true if the given object is the first object in a range that was
   //     freed by the allocator.
   // @note Handles locking, so no locks must already be held.
-  bool Freed(const void* object, size_t count);
-
-  // Returns current statistics. If kKeepStats is false this is a noop and
-  // does not set any meaningful data.
-  // @param stats The statistics data to be populated.
-  void GetStatistics(PageAllocatorStatistics* stats);
+  bool Freed(const void* object, size_t count) {
+    return AllocationStatus(object, count) == 0;
+  }
 
  protected:
+  // Tri-state allocation status function, determining if the given object
+  // is currently allocated by this allocator (1), currently freed (0), or
+  // isn't under management by it (-1).
+  // @returns 1 if the object was allocated, 0 if it has since been freed, or
+  //     -1 if the object is not under management by this allocator.
+  // @note This is a very costly O(memory under management) function!
+  int AllocationStatus(const void* object, size_t count);
+
+  // Determines if an allocation was handed out by this allocator. The object
+  // may since have been freed.
+  // @param object The object to be checked.
+  // @param count The number of objects in the allocation.
+  // @returns true if the given object was handed out by this allocator.
+  // @note Handles locking, so no locks must already be held.
+  bool WasOnceAllocated(const void* object, size_t count);
+
+  // Determines if an allocation is currently in the freed list of this
+  // allocator.
+  // @param object The object to be checked.
+  // @param count The number of objects in the allocation. If this is zero then
+  //     all freed size classes will be checked, otherwise only the exact
+  //     specified size class will be checked.
+  // @returns true if the given object is the first object in a range that was
+  //     freed by the allocator.
+  // @note Handles locking, so no locks must already be held.
+  bool IsInFreeList(const void* object, size_t count);
+
   // Pops the top item from the given free list.
   // @param count The size class.
   // @returns a pointer to the popped item, NULL if there was none.
   // @note Handles locking, so no free_lock_ should be already held.
-  uint8* FreePop(size_t count);
+  Object* FreePop(size_t count);
 
   // Pushes the given object to the specified free list. Directives as to
   // statistics keeping are provided directly here to minimize the number of
@@ -117,7 +163,7 @@ class PageAllocator {
   // @param decr_alloc_groups If true then decrements allocated_groups.
   // @param decr_alloc_objects If true then decrements allocated_object.
   // @note Handles locking, so no free_lock_ should be already held.
-  void FreePush(void* object, size_t count,
+  void FreePush(Object* object, size_t count,
                 bool decr_alloc_groups, bool decr_alloc_objects);
 
   // Reserves a new page of objects, modifying current_page_ and
@@ -127,27 +173,22 @@ class PageAllocator {
   // @note Assumes the lock_ has already been acquired.
   bool AllocatePageLocked();
 
-  // The size of a page in bytes, and the number of objects that fits in it.
-  // Initialized in the constructor and never touched again. These are
-  // actually compile time constants, but are hard to express that way.
-  size_t page_size_;
-  size_t objects_per_page_;
+  // The number of pages that have been allocated. Under lock_.
+  size_t page_count_;
 
-  // The currently active page of objects. Under lock_.
-  uint8* current_page_;
+  // The current slab of reserved memory we are working from  Under lock_.
+  Page* slab_;
+  Page* slab_cursor_;
 
-  // A pointer into the currently active page of objects. Under lock_.
-  uint8* current_object_;
+  // The currently active page. Under lock_.
+  Page* page_;
 
-  // A pointer into the currently active page of objects that represents beyond
-  // the end of allocatable objects. This also points to the last pointer sized
-  // run of bytes in the page, which is used for storing the linked list
-  // pointer. Under lock_.
-  uint8* end_object_;
+  // The next object to be allocated in the current page. Under lock_.
+  Object* object_;
 
   // A singly linked list of freed objects, one per possible size category.
   // These are under the corresponding free_lock_.
-  uint8* free_[kMaxObjectCount];
+  Object* free_[kMaxObjectCount];
 
   // Locks for the freed lists. This keeps contention down while freeing.
   base::Lock free_lock_[kMaxObjectCount];
@@ -157,7 +198,7 @@ class PageAllocator {
 
   // For keeping statistics. If kKeepStats == 0 this is an empty struct with
   // noop routines.
-  PageAllocatorStatisticsHelper<kKeepStats> stats_;
+  detail::PageAllocatorStatisticsHelper<kKeepStats> stats_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(PageAllocator);

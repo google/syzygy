@@ -29,6 +29,8 @@
 namespace agent {
 namespace asan {
 
+namespace detail {
+
 // Empty statistics helper.
 template<> struct PageAllocatorStatisticsHelper<false> {
   void Lock() { }
@@ -36,7 +38,7 @@ template<> struct PageAllocatorStatisticsHelper<false> {
   template<size_t PageAllocatorStatistics::*stat> void Increment(size_t) { }
   template<size_t PageAllocatorStatistics::*stat> void Decrement(size_t) { }
   void GetStatistics(PageAllocatorStatistics* stats) const {
-    DCHECK_NE(static_cast<PageAllocatorStatistics*>(NULL), stats);
+    DCHECK_NE(static_cast<PageAllocatorStatistics*>(nullptr), stats);
     ::memset(stats, 0, sizeof(*stats));
   }
 };
@@ -64,7 +66,7 @@ template<> struct PageAllocatorStatisticsHelper<true> {
 
   void GetStatistics(PageAllocatorStatistics* stats) const {
     lock.AssertAcquired();
-    DCHECK_NE(static_cast<PageAllocatorStatistics*>(NULL), stats);
+    DCHECK_NE(static_cast<PageAllocatorStatistics*>(nullptr), stats);
     *stats = this->stats;
   }
 
@@ -72,21 +74,88 @@ template<> struct PageAllocatorStatisticsHelper<true> {
   PageAllocatorStatistics stats;
 };
 
+// This is the internal object type used by the page allocator. This allows
+// easy free list chaining.
+template<size_t kObjectSize>
+struct PageAllocatorObject {
+  typedef PageAllocatorObject<kObjectSize> Self;
+
+  union {
+    uint8 object_data[kObjectSize];
+    Self* next_free;
+  };
+};
+
+
+template<size_t kMinPageSize>
+struct PageAllocatorPageSize {
+  // The kPageSize calculation below presumes a 64KB allocation
+  // granularity. If this changes for whatever reason the logic needs
+  // to be updated.
+  COMPILE_ASSERT(64 * 1024 == kUsualAllocationGranularity,
+                 logic_out_of_sync_with_allocation_granularity);
+
+  // Round up to the nearest multiple of the allocation granularity.
+  static const size_t kSlabSize =
+      (kMinPageSize + kUsualAllocationGranularity - 1) &
+      ~(kUsualAllocationGranularity - 1);
+
+  // Calculate a number of pages that divides the allocation granularity,
+  // or that is a multiple of it.
+  static const size_t kPageSize =
+      (kMinPageSize <= (1<<12) ? (1<<12) :              // 4KB.
+          (kMinPageSize <= (1<<13) ? (1<<13) :          // 8KB.
+              (kMinPageSize <= (1<<14) ? (1<<14) :      // 16KB.
+                  (kMinPageSize <= (1<<15) ? (1<<15) :  // 32KB.
+                      kSlabSize))));
+};
+
+// The internal page type used by the page allocator. Allows easy page list
+// chaining.
+template<size_t kObjectSize, size_t kMinPageSize>
+struct PageAllocatorPage {
+  typedef PageAllocatorPage<kObjectSize, kMinPageSize> Self;
+  typedef PageAllocatorObject<kObjectSize> Object;
+  typedef PageAllocatorPageSize<kMinPageSize> PageSize;
+
+  // The OS reserves virtual memory in chunks of 64KB, and backs them with real
+  // memory with pages of 4KB. We want to use a page size that is a multiple of
+  // 4KB, and a divisor of 64KB, or a multiple of 64KB.
+  static const size_t kPageSize = PageSize::kPageSize;
+  static const size_t kSlabSize = PageSize::kSlabSize;
+  static const size_t kPagesPerSlab = kSlabSize / kPageSize;
+
+  static const size_t kObjectsPerPage =
+      (kPageSize - sizeof(void*)) / sizeof(Object);
+
+  const Object* end() const {
+    return objects + kObjectsPerPage;
+  }
+
+  union {
+    struct {
+      Object objects[kObjectsPerPage];
+      Self* prev_page;
+    };
+    uint8 unused[kPageSize];
+  };
+};
+
+}  // namespace detail
+
 template<size_t kObjectSize, size_t kMaxObjectCount, size_t kPageSize,
          bool kKeepStats>
 PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
 PageAllocator()
-    : current_page_(NULL), current_object_(NULL), end_object_(NULL) {
+    : page_count_(0), slab_(nullptr), slab_cursor_(nullptr), page_(nullptr),
+      object_(nullptr) {
+  COMPILE_ASSERT(kPageSize > kObjectSize,
+                 page_size_must_be_bigger_than_the_object_size);
   COMPILE_ASSERT(kObjectSize >= sizeof(uintptr_t), object_size_too_small);
-
-  // There needs to be at least one object per page, and extra bytes for a
-  // linked list pointer.
-  page_size_ = std::max<size_t>(kPageSize,
-                                kObjectSize + sizeof(void*));
-  // Round this up to a multiple of the OS page size.
-  page_size_ = ::common::AlignUp(page_size_, agent::asan::GetPageSize());
-
-  objects_per_page_ = (page_size_ - sizeof(void*)) / kObjectSize;
+  COMPILE_ASSERT(kObjectSize <= sizeof(Object), object_too_small);
+  COMPILE_ASSERT(sizeof(Object) < kObjectSize + 4, object_too_large);
+  COMPILE_ASSERT(kPageSize <= sizeof(Page), page_too_small);
+  COMPILE_ASSERT(sizeof(Page) % kUsualPageSize == 0, invalid_page_size);
 
   // Clear the freelists.
   ::memset(free_, 0, sizeof(free_));
@@ -96,14 +165,31 @@ template<size_t kObjectSize, size_t kMaxObjectCount, size_t kPageSize,
          bool kKeepStats>
 PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
 ~PageAllocator() {
-  // Returns all pages to the OS.
-  uint8* page = current_page_;
+  // Iterate over the pages and make not of the slab addresses. These will
+  // be pages whose root address a multiple of the allocation granulairty.
+  Page* page = page_;
+  size_t page_count = 0;
+  size_t slab_count = 0;
   while (page) {
-    uint8* prev = page + page_size_ - sizeof(void*);
-    uint8* next_page = *reinterpret_cast<uint8**>(prev);
-    CHECK_EQ(TRUE, ::VirtualFree(page, 0, MEM_RELEASE));
-    page = next_page;
+    // Pages are chained in reverse order, and allocated moving forward through
+    // a slab. Thus it is safe for us to remove the entire slab when we
+    // encounter the first page within it, as we'll already have iterated
+    // through the other pages in the slab.
+    ++page_count;
+    Page* prev_page = page->prev_page;
+    if (::common::IsAligned(page, kUsualAllocationGranularity)) {
+      ++slab_count;
+      CHECK_EQ(TRUE, ::VirtualFree(page, 0, MEM_RELEASE));
+    }
+    page = prev_page;
   }
+  DCHECK_EQ(page_count_, page_count);
+
+  // Determine how many slabs we expected to see and confirm that we saw that
+  // many.
+  size_t expected_slab_count = (page_count + Page::kPagesPerSlab - 1) /
+      Page::kPagesPerSlab;
+  DCHECK_EQ(expected_slab_count, slab_count);
 }
 
 template<size_t kObjectSize, size_t kMaxObjectCount, size_t kPageSize,
@@ -117,8 +203,7 @@ Allocate(size_t count) {
   // add them to the appropriate free list.
   if (count < received) {
     size_t n = received - count;
-    uint8* remaining = reinterpret_cast<uint8*>(alloc) +
-        kObjectSize * count;
+    Object* remaining = reinterpret_cast<Object*>(alloc) + count;
     // These objects are part of an active allocation that are being returned.
     // Thus we don't decrement the number of allocated groups, but we do
     // decrement the number of allocated objects.
@@ -134,9 +219,9 @@ void* PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
 Allocate(size_t count, size_t* received) {
   DCHECK_LT(0u, count);
   DCHECK_GE(kMaxObjectCount, count);
-  DCHECK_NE(static_cast<size_t*>(NULL), received);
+  DCHECK_NE(static_cast<size_t*>(nullptr), received);
 
-  uint8* object = NULL;
+  void* object = nullptr;
 
   // Look to the lists of freed objects and try to use one of those. Use the
   // first one that's big enough, and stuff the leftover objects into another
@@ -144,12 +229,13 @@ Allocate(size_t count, size_t* received) {
   for (size_t n = count; n <= kMaxObjectCount; ++n) {
     // This is racy and can end up lying to us. However, it's faster to first
     // check this outside of the lock. We do this properly afterwards.
-    if (free_[n - 1] == NULL)
+    if (free_[n - 1] == nullptr)
       continue;
 
-    // Unlink the objects from the free list of size n.
+    // Unlink the objects from the free list of size n. This actually acquires
+    // the appropriate free-list lock.
     object = FreePop(n);
-    if (object == NULL)
+    if (object == nullptr)
       continue;
 
     // Update statistics.
@@ -169,20 +255,17 @@ Allocate(size_t count, size_t* received) {
 
     // If the current page is not big enough for the requested allocation then
     // get a new page.
-    DCHECK_LE(current_object_, end_object_);
-    if (static_cast<size_t>(end_object_ - current_object_) <
-            kObjectSize * count) {
+    if (page_ == nullptr || page_->end() - object_ < count) {
       if (!AllocatePageLocked())
-        return NULL;
+        return nullptr;
     }
 
-    DCHECK_NE(static_cast<uint8*>(NULL), current_page_);
-    DCHECK_NE(static_cast<uint8*>(NULL), current_object_);
-    DCHECK_LE(current_object_ + kObjectSize * count, end_object_);
+    DCHECK_NE(static_cast<Page*>(nullptr), page_);
+    DCHECK_LT(object_, page_->end());
 
     // Grab a copy of the cursor and advance it.
-    object = current_object_;
-    current_object_ += kObjectSize * count;
+    object = object_;
+    object_ += count;
   }
 
   // Update statistics.
@@ -199,52 +282,79 @@ template<size_t kObjectSize, size_t kMaxObjectCount, size_t kPageSize,
          bool kKeepStats>
 void PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
 Free(void* object, size_t count) {
-  DCHECK_NE(static_cast<void*>(NULL), object);
+  DCHECK_NE(static_cast<void*>(nullptr), object);
   DCHECK_LT(0u, count);
   DCHECK_GE(kMaxObjectCount, count);
 
 #ifndef NDEBUG
   // These checks are expensive so only run in debug builds.
-  // Ensure that the object was actually allocated by this allocator.
-  DCHECK(Allocated(object, count));
-  // Ensure that it has not been freed.
-  DCHECK(!Freed(object, count));
+  // Ensure the block is currently allocated by the allocator.
+  DCHECK_EQ(1, AllocationStatus(object, count));
 #endif
 
   // Add this object to the list of freed objects for this size class.
   // This is a simple allocation that is being returned so both allocated
   // groups and objects are decremented.
-  FreePush(object, count, true, true);
+  FreePush(reinterpret_cast<Object*>(object), count, true, true);
+}
+
+template<size_t kObjectSize, size_t kMaxObjectCount, size_t kPageSize,
+         bool kKeepStats>
+void PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
+GetStatistics(PageAllocatorStatistics* stats) {
+  DCHECK_NE(static_cast<PageAllocatorStatistics*>(nullptr), stats);
+
+  stats_.Lock();
+  stats_.GetStatistics(stats);
+  stats_.Unlock();
+}
+
+template<size_t kObjectSize, size_t kMaxObjectCount, size_t kPageSize,
+         bool kKeepStats>
+int PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
+AllocationStatus(const void* object, size_t count) {
+  // If the memory was never allocated then it's under management.
+  if (!WasOnceAllocated(object, count))
+    return -1;
+  // The memory has been allocated, but it may since have been freed.
+  if (IsInFreeList(object, count))
+    return 0;
+  // It's been allocated and it's not in the freed list. Must still be
+  // a valid allocation!
+  return 1;
 }
 
 template<size_t kObjectSize, size_t kMaxObjectCount, size_t kPageSize,
          bool kKeepStats>
 bool PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
-Allocated(const void* object, size_t count) {
-  if (object == NULL || count == 0)
+WasOnceAllocated(const void* object, size_t count) {
+  if (object == nullptr || count == 0)
     return false;
 
   base::AutoLock lock(lock_);
 
   // Look for a page owning this object.
-  const uint8* alloc = reinterpret_cast<const uint8*>(object);
-  const uint8* alloc_end = alloc + count * kObjectSize;
-  uint8* page = current_page_;
+  const Object* object_begin = reinterpret_cast<const Object*>(object);
+  const Object* object_end = object_begin + count;
+  Page* page = page_;
   while (page) {
-    // Skip to the next page if it doesn't own this allocation.
-    uint8* page_end = page + objects_per_page_ * kObjectSize;
-    if (alloc < page || alloc_end > page_end) {
-      page = *reinterpret_cast<uint8**>(page_end);
+    // If this page does not contain the objects entirely, then skip to the next
+    // page.
+    if (object_begin < page->objects || object_end > page->end()) {
+      page = page->prev_page;
       continue;
     }
 
     // If the allocation hasn't yet been handed out then this page does not own
     // it.
-    if (page == current_page_ && alloc_end > current_object_)
+    if (page == page_ && object_end > object_)
       return false;
 
     // Determine if it's aligned as expected.
-    if (((alloc - page) % kObjectSize) != 0)
+    size_t offset =
+        reinterpret_cast<const uint8*>(object) -
+        reinterpret_cast<const uint8*>(page);
+    if ((offset % sizeof(Object)) != 0)
       return false;
 
     // This allocation must have been previously handed out at some point.
@@ -261,11 +371,11 @@ Allocated(const void* object, size_t count) {
 template<size_t kObjectSize, size_t kMaxObjectCount, size_t kPageSize,
          bool kKeepStats>
 bool PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
-Freed(const void* object, size_t count) {
-  if (object == NULL)
+IsInFreeList(const void* object, size_t count) {
+  if (object == nullptr)
     return false;
 
-  DCHECK_NE(static_cast<void*>(NULL), object);
+  DCHECK_NE(static_cast<void*>(nullptr), object);
 
   // Determine the range of size classes to investigate.
   size_t n_min = 1;
@@ -280,13 +390,13 @@ Freed(const void* object, size_t count) {
     base::AutoLock lock(free_lock_[n - 1]);
 
     // Walk the list for this size class.
-    uint8* free = free_[n - 1];
+    Object* free = free_[n - 1];
     while (free) {
-      if (object == free)
+      if (free == object)
         return true;
 
       // Jump to the next freed object in this size class.
-      free = *reinterpret_cast<uint8**>(free);
+      free = free->next_free;
     }
   }
 
@@ -296,29 +406,21 @@ Freed(const void* object, size_t count) {
 
 template<size_t kObjectSize, size_t kMaxObjectCount, size_t kPageSize,
          bool kKeepStats>
-void PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
-GetStatistics(PageAllocatorStatistics* stats) {
-  DCHECK_NE(static_cast<PageAllocatorStatistics*>(NULL), stats);
-
-  stats_.Lock();
-  stats_.GetStatistics(stats);
-  stats_.Unlock();
-}
-
-template<size_t kObjectSize, size_t kMaxObjectCount, size_t kPageSize,
-         bool kKeepStats>
-uint8* PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
+typename
+PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::Object*
+PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
     FreePop(size_t count) {
   DCHECK_LT(0u, count);
   DCHECK_GE(kMaxObjectCount, count);
 
-  uint8* object = NULL;
+  Object* object = nullptr;
   {
     base::AutoLock lock(free_lock_[count - 1]);
     object = free_[count - 1];
     if (object)
-      free_[count - 1] = *reinterpret_cast<uint8**>(object);
+      free_[count - 1] = object->next_free;
   }
+  object->next_free = nullptr;
 
   // Update statistics.
   stats_.Lock();
@@ -332,16 +434,16 @@ uint8* PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
 template<size_t kObjectSize, size_t kMaxObjectCount, size_t kPageSize,
          bool kKeepStats>
 void PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
-    FreePush(void* object, size_t count,
+    FreePush(Object* object, size_t count,
              bool decr_alloc_groups, bool decr_alloc_objects) {
-  DCHECK_NE(static_cast<void*>(NULL), object);
+  DCHECK_NE(static_cast<void*>(nullptr), object);
   DCHECK_LT(0u, count);
   DCHECK_GE(kMaxObjectCount, count);
 
   {
     base::AutoLock lock(free_lock_[count - 1]);
-    *reinterpret_cast<uint8**>(object) = free_[count - 1];
-    free_[count - 1] = reinterpret_cast<uint8*>(object);
+    object->next_free = free_[count - 1];
+    free_[count - 1] = object;
   }
 
   // Update statistics.
@@ -359,36 +461,62 @@ template<size_t kObjectSize, size_t kMaxObjectCount, size_t kPageSize,
          bool kKeepStats>
 bool PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
     AllocatePageLocked() {
-  DCHECK_LT(0u, page_size_);
   lock_.AssertAcquired();
 
   // If there are remaining objects stuff them into the appropriately sized
   // free list.
   // NOTE: If this is a point of contention it could be moved to be outside
   //     the scoped of lock_.
-  if (current_object_ < end_object_) {
-    size_t n = reinterpret_cast<uint8*>(end_object_) -
-        reinterpret_cast<uint8*>(current_object_);
-    n /= kObjectSize;
+  if (page_ && object_ < page_->end()) {
+    size_t n = page_->end() - object_;
+    DCHECK_LT(0u, n);
     DCHECK_GE(kMaxObjectCount, n);
+
     // These are objects that have never been allocated, so don't affect the
     // number of allocated groups or objects.
-    if (n != 0)
-      FreePush(current_object_, n, false, false);
+    FreePush(object_, n, false, false);
   }
 
-  uint8* page = reinterpret_cast<uint8*>(
-      ::VirtualAlloc(NULL, page_size_, MEM_COMMIT, PAGE_READWRITE));
-  if (page == NULL)
-    return false;
+  Page* slab_end = slab_ + Page::kPagesPerSlab;
 
-  uint8* prev = page + page_size_ - sizeof(void*);
-  end_object_ = ::common::AlignDown(prev, kObjectSize);
+  // Grab a new slab if needed.
+  if (slab_ == nullptr || slab_cursor_ >= slab_end) {
+    // IF we have an existing slab try to get its immediate neighbor in order
+    // to reduce fragmentation.
+    void* slab = nullptr;
+    if (slab_) {
+      slab = ::VirtualAlloc(
+          slab_end, Page::kSlabSize, MEM_RESERVE, PAGE_NOACCESS);
+      DCHECK(slab == nullptr || slab == slab_end);
+    }
+
+    if (slab == nullptr) {
+      slab = ::VirtualAlloc(
+          nullptr, Page::kSlabSize, MEM_RESERVE, PAGE_NOACCESS);
+    }
+    if (slab == nullptr)
+      return false;
+
+    // Update the slab and next page cursor.
+    slab_ = reinterpret_cast<Page*>(slab);
+    slab_cursor_ = slab_;
+  }
+
+  // Commit the next page. If this fails to commit we simply explode.
+  Page* page = reinterpret_cast<Page*>(::VirtualAlloc(
+      slab_cursor_, sizeof(Page), MEM_COMMIT, PAGE_READWRITE));
+  if (page == nullptr)
+    return false;
+  DCHECK_EQ(page, slab_cursor_);
+
+  // Update the slab cursor.
+  ++slab_cursor_;
 
   // Keep a pointer to the previous page, and set up the next object pointer.
-  *reinterpret_cast<uint8**>(prev) = current_page_;
-  current_page_ = page;
-  current_object_ = page;
+  page->prev_page = page_;
+  page_ = page;
+  object_ = page->objects;
+  ++page_count_;
 
   // Update statistics.
   // NOTE: This can also be moved out from under lock_.
@@ -417,7 +545,7 @@ TypedPageAllocator<ObjectType, kMaxObjectCount, kPageSize, kKeepStats>::
     Allocate(size_t count, size_t* received) {
   DCHECK_LT(0u, count);
   DCHECK_GE(kMaxObjectCount, count);
-  DCHECK_NE(static_cast<size_t*>(NULL), received);
+  DCHECK_NE(static_cast<size_t*>(nullptr), received);
   void* object = Super::Allocate(count, received);
   return reinterpret_cast<ObjectType*>(object);
 }
@@ -426,7 +554,7 @@ template<typename ObjectType, size_t kMaxObjectCount, size_t kPageSize,
          bool kKeepStats>
 void TypedPageAllocator<ObjectType, kMaxObjectCount, kPageSize, kKeepStats>::
     Free(ObjectType* object, size_t count) {
-  DCHECK_NE(static_cast<ObjectType*>(NULL), object);
+  DCHECK_NE(static_cast<ObjectType*>(nullptr), object);
   DCHECK_LT(0u, count);
   DCHECK_GE(kMaxObjectCount, count);
   Super::Free(object, count);

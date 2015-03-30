@@ -97,6 +97,7 @@
       'dependencies': [
         'system_interceptors_generator',
         '<(src)/syzygy/crashdata/crashdata.gyp:crashdata_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/kasko/kasko.gyp:kasko',
         '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
         '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
@@ -257,6 +258,7 @@
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/testing/testing.gyp:testing_lib',
         '<(src)/syzygy/trace/agent_logger/agent_logger.gyp:agent_logger_lib',

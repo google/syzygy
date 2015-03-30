@@ -84,7 +84,7 @@ class ShardedQuarantine
   // given Chrome's typical allocation size. This in turn translates to
   // about 1MB of Node data. Typical 16 way sharding means about 65KB.
   // All of this to justify a 32KB page size to balance fragmentation and
-  // number of pages.
+  // number of pages, and to respect the system allocation granularity.
   typedef TypedPageAllocator<Node, 1, 32 * 1024, false> NodeCache;
 
   // Linked lists containing quarantined objects. Each shard is under the

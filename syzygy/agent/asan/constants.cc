@@ -22,17 +22,27 @@ namespace asan {
 namespace {
 
 size_t page_size = 0;
+size_t allocation_granularity = 0;
 
-}  // namespace
-
-size_t GetPageSize() {
-  // Gets the page size from the OS.
+void InitializeConstants() {
   if (page_size == 0) {
     SYSTEM_INFO system_info = {};
     ::GetSystemInfo(&system_info);
     page_size = system_info.dwPageSize;
+    allocation_granularity = system_info.dwAllocationGranularity;
   }
+}
+
+}  // namespace
+
+size_t GetPageSize() {
+  InitializeConstants();
   return page_size;
+}
+
+size_t GetAllocationGranularity() {
+  InitializeConstants();
+  return allocation_granularity;
 }
 
 }  // namespace asan

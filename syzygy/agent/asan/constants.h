@@ -25,14 +25,24 @@ namespace asan {
 static const size_t kShadowRatioLog = 3;
 static const size_t kShadowRatio = (1 << kShadowRatioLog);
 
+// Expected page sizes and allocation granularities. Some usages of these are
+// at compile time, thus we need accessible constants.
+static const size_t kUsualPageSize = 4096;
+static const size_t kUsualAllocationGranularity = 64 * 1024;
+
 // The default sharding factor of the quarantine. This is used to give us linear
 // access for random removal and insertion of elements into the quarantine.
 static const size_t kQuarantineDefaultShardingFactor = 128;
 
-// @returns the size of a page on the OS.
+// @returns the size of a page on the OS (usually 4KB).
 // @note Declaring this as a constant might result in an initialization order
 //     fiasco.
 size_t GetPageSize();
+
+// @returns the allocation granularity of the OS (usually 64KB).
+// @note Declaring this as a constant might result in an initialization order
+//     fiasco.
+size_t GetAllocationGranularity();
 
 }  // namespace asan
 }  // namespace agent

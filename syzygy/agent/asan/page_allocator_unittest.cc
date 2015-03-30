@@ -48,10 +48,10 @@ class TestPageAllocator
 
     size_t free_objects = 0;
     for (size_t n = n_min; n <= n_max; ++n) {
-      uint8* free = free_[n - 1];
+      Object* free = free_[n - 1];
       while (free) {
         free_objects += n;
-        free = *reinterpret_cast<uint8**>(free);
+        free = free->next_free;
       }
     }
 
@@ -63,13 +63,8 @@ class TestPageAllocator
   }
 
   using Super::AllocatePageLocked;
-  using Super::Allocated;
-  using Super::Freed;
-  using Super::page_size_;
-  using Super::objects_per_page_;
-  using Super::current_page_;
-  using Super::current_object_;
-  using Super::end_object_;
+  using Super::page_;
+  using Super::object_;
   using Super::free_;
 };
 
@@ -93,68 +88,85 @@ typedef TestPageAllocator<16, 10, 4096> TestPageAllocatorMulti255;
 
 }  // namespace
 
-
 TEST(PageAllocatorTest, Constructor) {
   TestPageAllocator255 pa;
-  EXPECT_EQ(4096, pa.page_size_);
-  EXPECT_EQ(255, pa.objects_per_page_);
-  EXPECT_TRUE(pa.current_page_ == NULL);
-  EXPECT_TRUE(pa.current_object_ == NULL);
-  EXPECT_TRUE(pa.free_[0] == NULL);
+  EXPECT_EQ(255, TestPageAllocator255::Page::kObjectsPerPage);
+  EXPECT_TRUE(pa.page_ == nullptr);
+  EXPECT_TRUE(pa.object_ == nullptr);
+  EXPECT_TRUE(pa.free_[0] == nullptr);
 
   TestPageAllocatorMulti255 mpa;
-  EXPECT_EQ(4096, mpa.page_size_);
-  EXPECT_EQ(255, mpa.objects_per_page_);
-  EXPECT_TRUE(mpa.current_page_ == NULL);
-  EXPECT_TRUE(mpa.current_object_ == NULL);
-  for (size_t i = 0; i < 10; ++i)
-    EXPECT_TRUE(mpa.free_[i] == NULL);
+  EXPECT_EQ(255, TestPageAllocatorMulti255::Page::kObjectsPerPage);
+  EXPECT_TRUE(mpa.page_ == nullptr);
+  EXPECT_TRUE(mpa.object_ == nullptr);
+  for (size_t i = 0; i < arraysize(mpa.free_); ++i)
+    EXPECT_TRUE(mpa.free_[i] == nullptr);
 }
 
 TEST(PageAllocatorTest, AllocatePage) {
   TestPageAllocator255 pa;
-  EXPECT_TRUE(pa.current_page_ == NULL);
-  EXPECT_TRUE(pa.current_object_ == NULL);
+  EXPECT_TRUE(pa.page_ == nullptr);
+  EXPECT_TRUE(pa.object_ == nullptr);
   EXPECT_EQ(0u, pa.stats().page_count);
 
   pa.AllocatePage();
-  EXPECT_TRUE(pa.current_page_ != NULL);
-  EXPECT_TRUE(pa.current_object_ != NULL);
-  EXPECT_EQ(reinterpret_cast<uint8*>(pa.current_page_),
-            reinterpret_cast<uint8*>(pa.current_object_));
+  EXPECT_FALSE(pa.page_ == nullptr);
+  EXPECT_FALSE(pa.object_ == nullptr);
+  EXPECT_EQ(pa.page_->objects, pa.object_);
   EXPECT_EQ(1u, pa.stats().page_count);
+}
+
+TEST(PageAllocatorTest, Allocated) {
+  TestPageAllocator255 pa;
+  EXPECT_TRUE(pa.page_ == nullptr);
+  EXPECT_TRUE(pa.object_ == nullptr);
+  EXPECT_EQ(0u, pa.stats().page_count);
+
+  std::vector<void*> allocs;
+  allocs.reserve(300);
+  for (size_t i = 0; i < 300; ++i) {
+    void* alloc = pa.Allocate(1);
+    EXPECT_TRUE(pa.Allocated(alloc, 1));
+    EXPECT_FALSE(pa.Freed(alloc, 1));
+    allocs.push_back(alloc);
+  }
+  EXPECT_EQ(2u, pa.stats().page_count);
+
+  for (size_t i = 0; i < 300; ++i) {
+    size_t index = ::rand() % allocs.size();
+    void* alloc = allocs[index];
+    allocs[index] = allocs.back();
+    allocs.pop_back();
+    EXPECT_TRUE(pa.Allocated(alloc, 1));
+    EXPECT_FALSE(pa.Freed(alloc, 1));
+  }
 }
 
 TEST(PageAllocatorTest, SuccessiveSingleAllocations) {
   TestPageAllocator255 pa;
-  EXPECT_TRUE(pa.current_page_ == NULL);
-  EXPECT_TRUE(pa.current_object_ == NULL);
+  EXPECT_TRUE(pa.page_ == nullptr);
+  EXPECT_TRUE(pa.object_ == nullptr);
   EXPECT_EQ(0u, pa.stats().page_count);
 
   pa.AllocatePage();
   for (size_t i = 0; i < 255; ++i) {
-    EXPECT_EQ(reinterpret_cast<uint8*>(pa.current_page_) + i * 16,
-              reinterpret_cast<uint8*>(pa.current_object_));
-    void* current_object = pa.current_object_;
+    EXPECT_EQ(pa.page_->objects + i, pa.object_);
+    void* current_object = pa.object_;
     EXPECT_EQ(current_object, pa.Allocate(1));
     EXPECT_EQ(i + 1, pa.stats().allocated_groups);
     EXPECT_EQ(i + 1, pa.stats().allocated_objects);
     EXPECT_EQ(0u, pa.stats().freed_groups);
     EXPECT_EQ(0u, pa.stats().freed_objects);
   }
-  EXPECT_GE(pa.current_object_, pa.end_object_);
+  EXPECT_EQ(pa.object_, pa.page_->end());
   EXPECT_EQ(1u, pa.stats().page_count);
 
-  void* current_page = pa.current_page_;
+  TestPageAllocator255::Page* current_page = pa.page_;
   pa.Allocate(1);
-  EXPECT_NE(current_page, pa.current_page_);
-  EXPECT_EQ(reinterpret_cast<uint8*>(pa.current_page_) + 16,
-            reinterpret_cast<uint8*>(pa.current_object_));
+  EXPECT_NE(current_page, pa.page_);
+  EXPECT_EQ(pa.page_->objects + 1, pa.object_);
   EXPECT_EQ(2u, pa.stats().page_count);
-
-  void* prev = reinterpret_cast<uint8*>(pa.current_page_) + pa.page_size_ -
-      sizeof(void*);
-  EXPECT_EQ(current_page, *reinterpret_cast<void**>(prev));
+  EXPECT_EQ(current_page, pa.page_->prev_page);
 }
 
 TEST(PageAllocatorTest, SingleStatsTest) {
@@ -215,6 +227,8 @@ TEST(PageAllocatorTest, SingleAllocsAndFrees) {
       // Allocating.
       for (size_t j = 0; j < kSizes[i]; ++j) {
         void* alloc = pa.Allocate(1);
+        EXPECT_TRUE(pa.Allocated(alloc, 1));
+        EXPECT_FALSE(pa.Freed(alloc, 1));
         EXPECT_EQ(0u, allocated.count(alloc));
         allocated.insert(alloc);
 
@@ -228,18 +242,26 @@ TEST(PageAllocatorTest, SingleAllocsAndFrees) {
       // Freeing.
       for (size_t j = 0; j < kSizes[i]; ++j) {
         void* alloc = *allocated.begin();
+        EXPECT_TRUE(pa.Allocated(alloc, 1));
+        EXPECT_FALSE(pa.Freed(alloc, 1));
         allocated.erase(alloc);
         pa.Free(alloc, 1);
+        EXPECT_FALSE(pa.Allocated(alloc, 1));
+        EXPECT_TRUE(pa.Freed(alloc, 1));
         EXPECT_EQ(0u, freed.count(alloc));
         freed.insert(alloc);
       }
     }
 
     std::set<void*>::const_iterator it;
-    for (it = allocated.begin(); it != allocated.end(); ++it)
+    for (it = allocated.begin(); it != allocated.end(); ++it) {
       EXPECT_TRUE(pa.Allocated(*it, 1));
-    for (it = freed.begin(); it != freed.end(); ++it)
+      EXPECT_FALSE(pa.Freed(*it, 1));
+    }
+    for (it = freed.begin(); it != freed.end(); ++it) {
+      EXPECT_FALSE(pa.Allocated(*it, 1));
       EXPECT_TRUE(pa.Freed(*it, 1));
+    }
   }
 
   EXPECT_EQ(129u, pa.FreeObjects(1));
@@ -344,6 +366,39 @@ TEST(PageAllocatorTest, MultiStatsTest) {
   EXPECT_EQ(12u, pa.stats().allocated_objects);
   EXPECT_EQ(1u, pa.stats().freed_groups);
   EXPECT_EQ(3u, pa.stats().freed_objects);
+}
+
+TEST(PageAllocatorTest, MultiSlabsPagesSmallerThanAllocGranularity) {
+  typedef PageAllocator<16, 1, 32 * 1024, false> PA;
+  PA pa;
+
+  EXPECT_EQ(2u, PA::Page::kPagesPerSlab);
+  EXPECT_EQ(64 * 1024, PA::Page::kSlabSize);
+  EXPECT_EQ(32 * 1024, PA::Page::kPageSize);
+  EXPECT_EQ(32 * 1024, sizeof(PA::Page));
+  EXPECT_EQ(2 * 1024 - 1, PA::Page::kObjectsPerPage);
+
+  // We can fit 2047 objects per page, and 2 pages per 64KB slab. So we need
+  // to allocate nearly 10000 objects before we'll be certain that 2 slabs have
+  // been allocated, each containing 2 pages.
+  for (size_t i = 0; i < 10000; ++i)
+    void* alloc = pa.Allocate(1);
+}
+
+TEST(PageAllocatorTest, MultiSlabsPagesBiggerThanAllGranularity) {
+  typedef PageAllocator<16, 1, 70 * 1024, false> PA;
+  PA pa;
+
+  EXPECT_EQ(1u, PA::Page::kPagesPerSlab);
+  EXPECT_EQ(128 * 1024, PA::Page::kSlabSize);
+  EXPECT_EQ(128 * 1024, PA::Page::kPageSize);
+  EXPECT_EQ(128 * 1024, sizeof(PA::Page));
+  EXPECT_EQ(8 * 1024 - 1, PA::Page::kObjectsPerPage);
+
+  // We can over 16K objects per page/slab so we need to allocate at least 35K
+  // objects before we're certain that 2 slabs will have been allocated.
+  for (size_t i = 0; i < 35000; ++i)
+    void* alloc = pa.Allocate(1);
 }
 
 TEST(TypedPageAllocatorTest, SingleEndToEnd) {
