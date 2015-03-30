@@ -472,6 +472,10 @@ def ProcessMinidump(minidump_filename, cdb_path, pdb_path):
       if m:
         bad_access_info_vals[key] = m.group('literal_value')
 
+    debugger.Command('.ecxr')
+    crash_stack, crash_stack_hash = NormalizeStackTrace(
+        debugger.Command('kv'))
+
     # If the heap is not corrupt and the error type indicates an invalid or wild
     # address then there's no useful information that we can report.
     if not heap_is_corrupt and (
@@ -479,8 +483,8 @@ def ProcessMinidump(minidump_filename, cdb_path, pdb_path):
         bad_access_info_vals['error_type'] == 'WILD_ACCESS'):
 
       report = ASanReport(bad_access_info=bad_access_info_vals,
-                          crash_stack=None,
-                          crash_stack_hash=None,
+                          crash_stack=crash_stack,
+                          crash_stack_hash=crash_stack_hash,
                           alloc_stack=None,
                           alloc_stack_hash=None,
                           free_stack=None,
@@ -500,14 +504,12 @@ def ProcessMinidump(minidump_filename, cdb_path, pdb_path):
           operand='->' if is_ptr else '.')
       return NormalizeStackTrace(debugger.Command(command))
 
+    debugger.Command('.cxr; .frame %X' % bad_access_info_frame)
+
     alloc_stack, alloc_stack_hash = GetStackAndStackHashFromErrorInfoStruct(
         debugger, 'alloc', is_ptr=not from_uef)
     free_stack, free_stack_hash = GetStackAndStackHashFromErrorInfoStruct(
         debugger, 'free', is_ptr=not from_uef)
-
-    debugger.Command('.ecxr')
-    crash_stack, crash_stack_hash = NormalizeStackTrace(
-        debugger.Command('kv'))
 
     corrupt_heap_info = None
 
