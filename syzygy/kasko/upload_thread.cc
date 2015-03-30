@@ -19,7 +19,6 @@
 #include "base/files/file_path.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_util.h"
-#include "syzygy/common/com_utils.h"
 #include "syzygy/kasko/waitable_timer.h"
 
 namespace kasko {
@@ -29,6 +28,8 @@ scoped_ptr<UploadThread> UploadThread::Create(
     const base::FilePath& exclusive_path,
     scoped_ptr<WaitableTimer> waitable_timer,
     const base::Closure& uploader) {
+  scoped_ptr<UploadThread> instance;
+
   // '\' is the only character not permitted in mutex names.
   base::string16 escaped_path;
   base::ReplaceChars(exclusive_path.value(), L"\\", L"/", &escaped_path);
@@ -36,29 +37,19 @@ scoped_ptr<UploadThread> UploadThread::Create(
   base::string16 wake_event_name =
       L"Local\\kasko_uploader_wake_event_" + escaped_path;
   base::win::ScopedHandle mutex(::CreateMutex(NULL, FALSE, mutex_name.c_str()));
-  if (!mutex) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to create a mutex named " << mutex_name << ": "
-               << ::common::LogWe(error);
-    return scoped_ptr<UploadThread>();
-  }
+  DPCHECK(mutex);
   base::win::ScopedHandle stop_event(::CreateEvent(NULL, TRUE, FALSE, NULL));
-  if (!stop_event) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to create an event: " << ::common::LogWe(error);
-    return scoped_ptr<UploadThread>();
-  }
+  DPCHECK(stop_event);
   base::win::ScopedHandle wake_event(
       ::CreateEvent(NULL, FALSE, FALSE, wake_event_name.c_str()));
-  if (!wake_event) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to create an event named '" << wake_event_name
-               << "': " << ::common::LogWe(error);
-    return scoped_ptr<UploadThread>();
+  DPCHECK(wake_event);
+  if (mutex && stop_event && wake_event) {
+    instance.reset(new UploadThread(mutex.Pass(), stop_event.Pass(),
+                                    wake_event.Pass(), waitable_timer.Pass(),
+                                    uploader));
   }
-  return make_scoped_ptr(new UploadThread(mutex.Pass(), stop_event.Pass(),
-                                          wake_event.Pass(),
-                                          waitable_timer.Pass(), uploader));
+
+  return instance.Pass();
 }
 
 UploadThread::~UploadThread() {
@@ -72,11 +63,9 @@ void UploadThread::Start() {
 }
 
 void UploadThread::Stop() {
-  if (!::SetEvent(stop_event_)) {
-    DWORD error = ::GetLastError();
-    LOG(FATAL) << "Failed to signal stop event. Terminating to avoid deadlock: "
-               << ::common::LogWe(error);
-  }
+  BOOL result = ::SetEvent(stop_event_);
+  PCHECK(result)
+      << "Failed to signal stop event. Terminating to avoid deadlock.";
 }
 
 void UploadThread::Join() {
@@ -85,10 +74,8 @@ void UploadThread::Join() {
 }
 
 void UploadThread::UploadOneNowAsync() {
-  if (!::SetEvent(wake_event_)) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "Failed to signal wake event: " << ::common::LogWe(error);
-  }
+  BOOL result = ::SetEvent(wake_event_);
+  DPCHECK(result);
 }
 
 UploadThread::ThreadImpl::ThreadImpl(UploadThread* owner)
@@ -110,8 +97,7 @@ void UploadThread::ThreadImpl::Run() {
       // stop_event_
       return;
     default:
-      DWORD error = ::GetLastError();
-      LOG(ERROR) << "WaitForMultipleObjects failed: " << ::common::LogWe(error);
+      DPLOG(ERROR) << "WaitForMultipleObjects failed.";
       return;
   }
 
@@ -136,9 +122,7 @@ void UploadThread::ThreadImpl::Run() {
         // waitable_timer_
         break;
       default:
-        DWORD error = ::GetLastError();
-        LOG(ERROR) << "WaitForMultipleObjects failed: "
-                   << ::common::LogWe(error);
+        DPLOG(ERROR) << "WaitForMultipleObjects failed.";
         return;
     }
     owner_->uploader_.Run();
