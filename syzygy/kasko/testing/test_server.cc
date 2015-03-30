@@ -17,137 +17,21 @@
 #include <windows.h>
 
 #include <string>
-#include "base/bind.h"
 #include "base/command_line.h"
-#include "base/location.h"
 #include "base/logging.h"
 #include "base/process/kill.h"
-#include "base/process/launch.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/utf_string_conversions.h"
 #include "base/test/test_timeouts.h"
-#include "base/threading/thread.h"
-#include "syzygy/common/com_utils.h"
-#include "syzygy/core/unittest_util.h"
+#include "syzygy/kasko/testing/launch_python_process.h"
+#include "syzygy/kasko/testing/safe_pipe_reader.h"
 
 namespace kasko {
 namespace testing {
 namespace {
 
-// Writes |size| bytes to |handle| and sets |*unblocked| to true.
-// Used as a crude timeout mechanism by ReadData().
-void UnblockPipe(HANDLE handle, DWORD size, bool* unblocked) {
-  std::string unblock_data(size, '\0');
-  // Unblock the ReadFile in LocalTestServer::WaitToStart by writing to the
-  // pipe. Make sure the call succeeded, otherwise we are very likely to hang.
-  DWORD bytes_written = 0;
-  LOG(WARNING) << "Timeout reached; unblocking pipe by writing " << size
-               << " bytes";
-  CHECK(::WriteFile(handle, unblock_data.data(), size, &bytes_written, NULL));
-  CHECK_EQ(size, bytes_written);
-  *unblocked = true;
-}
-
-// Given a file handle, reads into |buffer| until |bytes_max| bytes
-// has been read or an error has been encountered.  Returns
-// true if the read was successful.
-bool ReadData(HANDLE read_fd, HANDLE write_fd, DWORD bytes_max, uint8* buffer) {
-  base::Thread thread("test_server_watcher");
-  if (!thread.Start())
-    return false;
-
-  // Prepare a timeout in case the server fails to start.
-  bool unblocked = false;
-  thread.message_loop()->PostDelayedTask(
-      FROM_HERE, base::Bind(UnblockPipe, write_fd, bytes_max, &unblocked),
-      TestTimeouts::action_max_timeout());
-
-  DWORD bytes_read = 0;
-  while (bytes_read < bytes_max) {
-    DWORD num_bytes;
-    if (!::ReadFile(read_fd, buffer + bytes_read, bytes_max - bytes_read,
-                    &num_bytes, NULL)) {
-      LOG(ERROR) << "ReadFile failed" << ::common::LogWe();
-      return false;
-    }
-    if (num_bytes <= 0) {
-      LOG(ERROR) << "ReadFile returned invalid byte count: " << num_bytes;
-      return false;
-    }
-    bytes_read += num_bytes;
-  }
-
-  thread.Stop();
-  // If the timeout kicked in, abort.
-  if (unblocked) {
-    LOG(ERROR) << "Timeout exceeded for ReadData";
-    return false;
-  }
-
-  return true;
-}
-
-base::win::ScopedHandle DuplicateStdHandleForInheritance(DWORD std_handle) {
-  HANDLE original = ::GetStdHandle(std_handle);
-  if (!original || original == INVALID_HANDLE_VALUE)
-    return base::win::ScopedHandle();
-
-  HANDLE duplicate = nullptr;
-  if (!::DuplicateHandle(base::GetCurrentProcessHandle(), original,
-                  base::GetCurrentProcessHandle(), &duplicate, 0, TRUE,
-                  DUPLICATE_SAME_ACCESS)) {
-    LOG(ERROR) << "Duplicating standard handle " << std_handle
-               << " failed: " << ::common::LogWe();
-    return base::win::ScopedHandle();
-  }
-
-  return base::win::ScopedHandle(duplicate);
-}
-}  // namespace
-
-TestServer::TestServer() : port_(0) {
-}
-
-TestServer::~TestServer() {
-  if (process_handle_) {
-    if (!base::WaitForSingleProcess(process_handle_.Get(), base::TimeDelta()))
-      base::KillProcess(process_handle_.Get(), 1, true);
-  }
-}
-
-bool TestServer::Start() {
-  if (!incoming_directory_.CreateUniqueTempDir()) {
-    LOG(ERROR) << "Failed to create temporary 'incoming' directory.";
-    return false;
-  }
-
-  // We will open a pipe used by the child process to indicate its chosen port.
-  base::win::ScopedHandle read_fd;
-  base::win::ScopedHandle write_fd;
-  {
-    HANDLE child_read = NULL;
-    HANDLE child_write = NULL;
-    if (!::CreatePipe(&child_read, &child_write, NULL, 0)) {
-      LOG(ERROR) << "Failed to create pipe" << ::common::LogWe();
-      return false;
-    }
-
-    read_fd.Set(child_read);
-    write_fd.Set(child_write);
-  }
-
-  // Have the child inherit the write half.
-  if (!::SetHandleInformation(write_fd.Get(), HANDLE_FLAG_INHERIT,
-                              HANDLE_FLAG_INHERIT)) {
-    LOG(ERROR) << "Failed to enable pipe inheritance" << ::common::LogWe();
-    return false;
-  }
-
-  base::CommandLine python_command(
-      ::testing::GetSrcRelativePath(L"third_party/python_26/python.exe"));
-  python_command.AppendArgPath(
-      ::testing::GetSrcRelativePath(L"syzygy/kasko/testing/test_server.py"));
-
+base::win::ScopedHandle LaunchServer(HANDLE socket_write_handle,
+                                     const base::FilePath& incoming_directory) {
+  base::CommandLine args(base::CommandLine::NO_PROGRAM);
   // Pass the handle on the command-line. Although HANDLE is a
   // pointer, truncating it on 64-bit machines is okay. See
   // http://msdn.microsoft.com/en-us/library/aa384203.aspx
@@ -158,41 +42,52 @@ bool TestServer::Start() {
   // safe to truncate the handle (when passing it from 64-bit to
   // 32-bit) or sign-extend the handle (when passing it from 32-bit to
   // 64-bit)."
-  python_command.AppendArg(
-      "--startup-pipe=" +
-      base::IntToString(reinterpret_cast<uintptr_t>(write_fd.Get())));
+  args.AppendSwitchASCII(
+      "--startup-pipe",
+      base::IntToString(reinterpret_cast<uintptr_t>(socket_write_handle)));
+  args.AppendSwitchPath("--incoming-directory", incoming_directory);
 
-  python_command.AppendArg(
-      "--incoming-directory=" +
-      base::UTF16ToUTF8(incoming_directory_.path().value()));
+  base::win::ScopedHandle process_handle = LaunchPythonProcess(
+      base::FilePath(L"syzygy/kasko/testing/test_server.py"), args);
 
-  base::win::ScopedHandle stdin_dup =
-      DuplicateStdHandleForInheritance(STD_INPUT_HANDLE);
-  base::win::ScopedHandle stdout_dup =
-      DuplicateStdHandleForInheritance(STD_OUTPUT_HANDLE);
-  base::win::ScopedHandle stderr_dup =
-      DuplicateStdHandleForInheritance(STD_ERROR_HANDLE);
+  DCHECK(process_handle);
 
-  base::LaunchOptions launch_options;
-  launch_options.inherit_handles = true;
-  launch_options.stdin_handle = stdin_dup.Get();
-  launch_options.stdout_handle = stdout_dup.Get();
-  launch_options.stderr_handle = stderr_dup.Get();
+  return process_handle.Pass();
+}
 
-  HANDLE process_handle = NULL;
-  if (!base::LaunchProcess(python_command, launch_options, &process_handle)) {
-    LOG(ERROR) << "Failed to launch " << python_command.GetCommandLineString();
-    return false;
+}  // namespace
+
+TestServer::TestServer() : port_(0) {
+}
+
+TestServer::~TestServer() {
+  if (process_handle_)
+    base::KillProcess(process_handle_.Get(), 0, true);
+}
+
+bool TestServer::Start() {
+  bool started = false;
+  incoming_directory_.CreateUniqueTempDir();
+  DCHECK(incoming_directory_.IsValid());
+
+  if (incoming_directory_.IsValid()) {
+    SafePipeReader pipe_reader;
+    DCHECK(pipe_reader.IsValid());
+
+    if (pipe_reader.IsValid()) {
+      process_handle_ =
+          LaunchServer(pipe_reader.write_handle(), incoming_directory_.path());
+      DCHECK(process_handle_);
+
+      if (process_handle_) {
+        started = pipe_reader.ReadData(TestTimeouts::action_max_timeout(),
+                                       sizeof(port_), &port_);
+        DCHECK(started);
+      }
+    }
   }
-  process_handle_.Set(process_handle);
 
-  if (!ReadData(read_fd.Get(), write_fd.Get(), sizeof(port_),
-                reinterpret_cast<uint8*>(&port_))) {
-    LOG(ERROR) << "Could not read port";
-    return false;
-  }
-
-  return true;
+  return started;
 }
 
 }  // namespace testing
