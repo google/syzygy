@@ -99,6 +99,7 @@ class Popen(subprocess.Popen):
 
     # Launch the subprocess.
     kwargs['env'] = env
+    _LOGGER.debug('Running command [%s]', *args)
     subprocess.Popen.__init__(self, *args, **kwargs)
 
   def _Log(self, *args, **kwargs):
