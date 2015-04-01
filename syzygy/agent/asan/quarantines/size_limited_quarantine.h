@@ -18,6 +18,7 @@
 #ifndef SYZYGY_AGENT_ASAN_QUARANTINES_SIZE_LIMITED_QUARANTINE_H_
 #define SYZYGY_AGENT_ASAN_QUARANTINES_SIZE_LIMITED_QUARANTINE_H_
 
+#include "base/atomicops.h"
 #include "syzygy/agent/asan/quarantine.h"
 
 namespace agent {
@@ -124,22 +125,20 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
   virtual void UnlockImpl(size_t id) = 0;
   // @}
 
-  // TODO(chrisha): RACE ALERT!
-  //   The member variables below need some mode of locking. If they're not
-  //   managed atomically to insertions/removal, then it seems it'll not be
-  //   possible to maintain an invariant where they can't e.g. drop below zero.
-  //   Maybe that's the right tradeoff, however, as the momentary size of the
-  //   quarantine is fairly unimportant.
-
   // Parameters controlling the quarantine invariant.
   size_t max_object_size_;
   size_t max_quarantine_size_;
 
-  // The current size of the quarantine.
-  size_t size_;
+  // NOTE: The following variables are accessed atomically, but outside of any
+  //       lock held by the user-provided implementation. This means that these
+  //       two variables will race to catch up to the state of the quarantine,
+  //       and will potentially lag. These values are also signed because it is
+  //       possible for them to briefly dip below zero.
 
-  // The number of elements in the quarantine.
-  size_t count_;
+  // The current size of the quarantine. Modified atomically.
+  volatile int32 size_;
+  // The number of elements in the quarantine. Modified atomically.
+  volatile int32 count_;
 
   // The size functor.
   SizeFunctor size_functor_;

@@ -25,16 +25,15 @@ namespace quarantines {
 template<typename OT, typename SFT>
 bool SizeLimitedQuarantineImpl<OT, SFT>::Push(
     const Object& object) {
-  SizeFunctor get_size;
-  size_t size = get_size(object);
+  size_t size = size_functor_(object);
   if (max_object_size_ != kUnboundedSize && size > max_object_size_)
     return false;
   if (max_quarantine_size_ != kUnboundedSize && size > max_quarantine_size_)
     return false;
   if (!PushImpl(object))
     return false;
-  size_ += size;
-  ++count_;
+  base::subtle::NoBarrier_AtomicIncrement(&size_, static_cast<int32>(size));
+  base::subtle::NoBarrier_AtomicIncrement(&count_, 1);
   return true;
 }
 
@@ -42,16 +41,13 @@ template<typename OT, typename SFT>
 bool SizeLimitedQuarantineImpl<OT, SFT>::Pop(
     Object* object) {
   DCHECK_NE(static_cast<Object*>(NULL), object);
-  if (max_quarantine_size_ == kUnboundedSize ||
-      size_ <= max_quarantine_size_)
+  if (max_quarantine_size_ == kUnboundedSize || size_ <= max_quarantine_size_)
     return false;
   if (!PopImpl(object))
     return false;
-  SizeFunctor get_size;
-  size_t size = get_size(*object);
-  DCHECK_LE(size, size_);
-  size_ -= size;
-  --count_;
+  size_t size = size_functor_(*object);
+  base::subtle::NoBarrier_AtomicIncrement(&size_, -static_cast<int32>(size));
+  base::subtle::NoBarrier_AtomicIncrement(&count_, -1);
   return true;
 }
 
@@ -60,8 +56,21 @@ void SizeLimitedQuarantineImpl<OT, SFT>::Empty(
     ObjectVector* objects) {
   DCHECK_NE(static_cast<ObjectVector*>(NULL), objects);
   EmptyImpl(objects);
-  size_ = 0;
-  count_ = 0;
+
+  // In order for the quarantine to remain long-term consistent we need to
+  // remove a size and count consistent with the output of EmptyImpl. Simply
+  // setting size_ and count_ to zero could introduce inconsistency, as they
+  // may not yet reflect the contributions of some of the elements returned by
+  // EmptyImpl.
+  int32 net_size = 0;
+  for (size_t i = 0; i < objects->size(); ++i) {
+    size_t size = size_functor_(objects->at(i));
+    net_size += size;
+  }
+
+  base::subtle::NoBarrier_AtomicIncrement(&size_, -net_size);
+  base::subtle::NoBarrier_AtomicIncrement(
+      &count_, -static_cast<int32>(objects->size()));
 }
 
 template<typename OT, typename SFT>
