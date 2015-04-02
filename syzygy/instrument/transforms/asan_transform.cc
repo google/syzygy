@@ -560,10 +560,12 @@ bool CreateHooksStub(BlockGraph* block_graph,
 // @param block_graph The block-graph to populate with the stub.
 // @param header_block the header block of @p block_graph.
 // @param policy the policy object restricting how the transform is applied.
+// @param asan_dll_name the name of the asan_rtl DLL we import.
 // @returns true on success, false otherwise.
 bool PatchCRTHeapInitialization(BlockGraph* block_graph,
                                 BlockGraph::Block* header_block,
-                                const TransformPolicyInterface* policy) {
+                                const TransformPolicyInterface* policy,
+                                const std::string& asan_dll_name) {
   DCHECK_NE(static_cast<BlockGraph*>(nullptr), block_graph);
   DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), header_block);
   DCHECK_NE(static_cast<const TransformPolicyInterface*>(nullptr), policy);
@@ -600,7 +602,7 @@ bool PatchCRTHeapInitialization(BlockGraph* block_graph,
 
   // Find the asan_HeapCreate import.
   PEAddImportsTransform find_imports;
-  ImportedModule kernel32_module(AsanTransform::kSyzyAsanDll);
+  ImportedModule kernel32_module(asan_dll_name);
   kernel32_module.AddSymbol("asan_HeapCreate", ImportedModule::kAlwaysImport);
   find_imports.AddModule(&kernel32_module);
   if (!find_imports.TransformBlockGraph(policy, block_graph, header_block)) {
@@ -1286,7 +1288,8 @@ bool AsanTransform::PostBlockGraphIteration(
     }
   }
 
-  if (!PatchCRTHeapInitialization(block_graph, header_block, policy))
+  if (!PatchCRTHeapInitialization(block_graph, header_block, policy,
+                                  asan_dll_name_))
     return false;
 
   return true;
