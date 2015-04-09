@@ -237,6 +237,7 @@ class BlockGraph {
   class Block;
   class Label;
   class Reference;
+  struct BlockIdLess;
 
   // The block map contains all blocks, indexed by id.
   typedef std::map<BlockId, Block> BlockMap;
@@ -871,6 +872,16 @@ class BlockGraph::Block {
   const uint8* data_;
   // Size of the above.
   size_t data_size_;
+};
+
+// Less-than comparator for blocks. Useful to keep ordered set stable.
+struct BlockGraph::BlockIdLess {
+  bool operator()(const Block* lhs,
+                  const Block* rhs) const {
+    DCHECK_NE(static_cast<const Block*>(NULL), lhs);
+    DCHECK_NE(static_cast<const Block*>(NULL), rhs);
+    return lhs->id() < rhs->id();
+  }
 };
 
 // A graph address space endows a graph with a non-overlapping ordering

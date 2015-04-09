@@ -191,9 +191,12 @@ class AsanTransform
   typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
   typedef AsanBasicBlockTransform::MemoryAccessInfo MemoryAccessInfo;
   typedef AsanBasicBlockTransform::MemoryAccessMode MemoryAccessMode;
+  typedef std::set<BlockGraph::Block*, BlockGraph::BlockIdLess> BlockSet;
 
   // Initialize a new AsanTransform instance.
   AsanTransform();
+
+  ~AsanTransform();
 
   // @name IterativeTransformImpl implementation.
   // @{
@@ -259,8 +262,41 @@ class AsanTransform
   static const char kAsanHookStubName[];
 
  protected:
+  // PreBlockGraphIteration uses this to find the block of the _heap_init
+  // function and the data block of _crtheap. This information is used by
+  // PatchCRTHeapInitialization. Also, the block of _heap_init is skipped by
+  // OnBlock.
+  // Calling this initializes heap_init_block_ and crtheap_block_ members.
+  // @param block_graph The block graph to be searched.
+  // @pre Both heap_init_block_ and crtheap_block_ must be nullptr.
+  // @note If either heap_init_block_ and crtheap_block_ is not found, both are
+  //     set to nullptr.
+  void FindHeapInitAndCrtHeapBlocks(BlockGraph* block_graph);
+
+  // Decides if we should skip a Block in OnBlock. A block is skipped if
+  // either
+  //   - it is the block of _heap_init,
+  //   - it is in the static_intercepted_blocks_ set,
+  //   - it is not safe to BB-decompose.
+  // @param policy The policy object that tells if a block is safe to
+  //     BB-decompose.
+  // @param block The block to examine.
+  // @returns true iff the block should be skipped.
+  bool ShouldSkipBlock(const TransformPolicyInterface* policy,
+                       BlockGraph::Block* block);
+
   // @name PE-specific methods.
   // @{
+  // Finds statically linked functions that need to be intercepted. Called in
+  // PreBlockGraphTransform. Fills the static_intercepted_blocks_ set.
+  // Blocks in this set are skipped in OnBlock and intercepted in
+  // PeInterceptFunctions.
+  // @param intercepts The Asan intercepts.
+  // @param block_graph The block graph to search in.
+  void PeFindStaticallyLinkedFunctionsToIntercept(
+      const AsanIntercept* intercepts,
+      BlockGraph* block_graph);
+
   // Invoked when instrumenting a PE image. Intercepts all relevant import
   // and statically linked functions found in the image. The intercepts to be
   // used are exposed for unittesting.
@@ -320,6 +356,22 @@ class AsanTransform
   // Block containing any injected runtime parameters. Valid in PE mode after
   // a successful PostBlockGraphIteration. This is a unittesting seam.
   block_graph::BlockGraph::Block* asan_parameters_block_;
+
+  // Pointers to the heap initialization block and the block of the CRT heap
+  // pointer. These are determined during PreBlockGraphIteration, and are either
+  // both present or both nullptr. The heap initialization block is skipped
+  // during OnBlock, then transformed in PostBlockGraphIteration
+  // (via PatchCRTHeapInitialization). The block of the CRT heap pointer
+  // is needed for this transformation.
+  BlockGraph::Block* heap_init_block_;
+  BlockGraph::Block* crtheap_block_;
+
+  // Statically linked functions that need to be intercepted. Populated by
+  // PeFindStaticallyLinkedFunctionsToIntercept. Block in this set are skipped
+  // in OnBlock and intercepted in PeInterceptFunctions.
+  // This is a set because OnBlock needs fast lookup. We sort by the BlockID
+  // to have a consistent output in PeInterceptFunctions.
+  BlockSet static_intercepted_blocks_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(AsanTransform);

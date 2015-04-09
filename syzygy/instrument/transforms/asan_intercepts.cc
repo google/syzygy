@@ -67,15 +67,13 @@ const MD5Hash kHashes_strstr[] = {
     {"1926bd8c94118f97819d604ec5afee30"},  // VS2013.
     {""} };
 const MD5Hash kHashes_wcsrchr[] = {
-    {"e049d7b7cb421013b2151b2070302def"},  // VS2010.
-    {"86cb28d7c68ae6f62c694f2e3239b725"},  // VS2013.
+    {"dc474260def9e341659230dc2edd13e6"},  // VS2013.
     {""} };
 const MD5Hash kHashes_wcschr[] = {
-    {"e1d33ebe81f646a5b6941fbc3bad43b1"},  // VS2010.
-    {"4b3cb8aead9ba1128988938c5c8b82e3"},  // VS2013.
+    {"3fae79785ec4de9951eac512bc62a27e"},  // VS2013.
     {""} };
 const MD5Hash kHashes_wcsstr[] = {
-    {"714b318fa42fe38b53e7c6b5aacc0000"},  // VS2013.
+    {"2301f403b55567eae76f3dc58dd777f4"},  // VS2013.
     {""} };
 
 // List of module names.

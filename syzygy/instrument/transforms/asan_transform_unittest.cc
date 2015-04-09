@@ -78,10 +78,16 @@ class TestAsanInterceptorFilter : public AsanInterceptorFilter {
 
 class TestAsanTransform : public AsanTransform {
  public:
+  using AsanTransform::asan_parameters_block_;
+  using AsanTransform::crtheap_block_;
+  using AsanTransform::heap_init_block_;
+  using AsanTransform::static_intercepted_blocks_;
   using AsanTransform::use_interceptors_;
   using AsanTransform::use_liveness_analysis_;
-  using AsanTransform::asan_parameters_block_;
   using AsanTransform::CoffInterceptFunctions;
+  using AsanTransform::FindHeapInitAndCrtHeapBlocks;
+  using AsanTransform::ShouldSkipBlock;
+  using AsanTransform::PeFindStaticallyLinkedFunctionsToIntercept;
   using AsanTransform::PeInterceptFunctions;
   using AsanTransform::PeInjectAsanParameters;
 };
@@ -1090,6 +1096,7 @@ TEST_F(AsanTransformTest, ImportsAreRedirectedPe) {
   expected.insert("asan_strncat");
   expected.insert("asan_wcsrchr");
   expected.insert("asan_wcschr");
+  expected.insert("asan_wcsstr");
   Intersect(imports, expected, &results);
   EXPECT_FALSE(results.empty());
   EXPECT_EQ(results, expected);
@@ -1389,8 +1396,15 @@ TEST_F(AsanTransformTest, PeInterceptFunctions) {
     { NULL },
   };
 
-  // Intercept all calls to b1.
+  // Find statically linked functions.
   asan_transform_.use_interceptors_ = true;
+  asan_transform_.PeFindStaticallyLinkedFunctionsToIntercept(b1_intercepts,
+                                                             &block_graph_);
+
+  ASSERT_EQ(1U, asan_transform_.static_intercepted_blocks_.size());
+  EXPECT_EQ(b1, *(asan_transform_.static_intercepted_blocks_.begin()));
+
+  // Intercept all calls to b1.
   EXPECT_TRUE(asan_transform_.PeInterceptFunctions(b1_intercepts,
                                                    policy_,
                                                    &block_graph_,
@@ -1407,7 +1421,7 @@ TEST_F(AsanTransformTest, PeInterceptFunctions) {
 
   BlockGraph::Section* thunk_section = block_graph_.FindSection(
       common::kThunkSectionName);
-  EXPECT_TRUE(thunk_section != NULL);
+  ASSERT_TRUE(thunk_section != NULL);
 
   const BlockGraph::Block* block_in_thunk_section = NULL;
   BlockGraph::BlockMap::const_iterator iter_blocks =
@@ -1566,6 +1580,50 @@ TEST_F(AsanTransformTest, PeInjectAsanParametersStackIds) {
   EXPECT_EQ(1u, asan_transform_.asan_parameters_block_->referrers().size());
 }
 
+TEST_F(AsanTransformTest, FindHeapInitAndCrtHeapBlocks) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
+
+  asan_transform_.FindHeapInitAndCrtHeapBlocks(&block_graph_);
+
+  ASSERT_NE(nullptr, asan_transform_.heap_init_block_);
+  EXPECT_EQ(std::string("_heap_init"),
+            asan_transform_.heap_init_block_->name());
+  EXPECT_EQ(BlockGraph::CODE_BLOCK, asan_transform_.heap_init_block_->type());
+
+  ASSERT_NE(nullptr, asan_transform_.crtheap_block_);
+  EXPECT_EQ(std::string("_crtheap"), asan_transform_.crtheap_block_->name());
+  EXPECT_EQ(BlockGraph::DATA_BLOCK, asan_transform_.crtheap_block_->type());
+}
+
+TEST_F(AsanTransformTest, ShouldSkipBlock) {
+  testing::DummyTransformPolicy policy;
+
+  BlockGraph::Block* b1 =
+      block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "testAsan_b1");
+  BlockGraph::Block* b2 =
+      block_graph_.AddBlock(BlockGraph::DATA_BLOCK, 0x20, "testAsan_b2");
+  ASSERT_TRUE(b1 != NULL);
+  ASSERT_TRUE(b2 != NULL);
+
+  // A code block should not be skipped according to the dummy policy.
+  EXPECT_FALSE(asan_transform_.ShouldSkipBlock(&policy, b1));
+
+  // _heap_init block should be skipped.
+  asan_transform_.heap_init_block_ = b1;
+  EXPECT_TRUE(asan_transform_.ShouldSkipBlock(&policy, b1));
+  asan_transform_.heap_init_block_ = nullptr;
+  EXPECT_FALSE(asan_transform_.ShouldSkipBlock(&policy, b1));
+
+  // A block in static_intercepted_blocks_ should be skipped.
+  asan_transform_.static_intercepted_blocks_.insert(b1);
+  EXPECT_TRUE(asan_transform_.ShouldSkipBlock(&policy, b1));
+  asan_transform_.static_intercepted_blocks_.erase(b1);
+  EXPECT_FALSE(asan_transform_.ShouldSkipBlock(&policy, b1));
+
+  // A data block should be skipped according to the dummy policy.
+  EXPECT_TRUE(asan_transform_.ShouldSkipBlock(&policy, b2));
+}
+
 TEST_F(AsanTransformTest, PatchCRTHeapInitialization) {
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
 
@@ -1593,6 +1651,9 @@ TEST_F(AsanTransformTest, PatchCRTHeapInitialization) {
   // The original _heap_init block should have been removed.
   EXPECT_EQ(nullptr, block_graph_.GetBlockById(heap_init_id));
 
+  // The heap_init_block_ member should be nullptr because the block is deleted.
+  EXPECT_EQ(nullptr, asan_transform_.heap_init_block_);
+
   // Search for the asan_heap_init block.
   const BlockGraph::Block* asan_heap_init_block = NULL;
   BlockGraph::Block::ReferrerSet asan_heap_init_referrers;
@@ -1608,7 +1669,7 @@ TEST_F(AsanTransformTest, PatchCRTHeapInitialization) {
 
   // Make sure that all the blocks that referred to _heap_init now refer to the
   // patched function.
-  EXPECT_EQ(heap_init_referrers.size(), asan_heap_init_referrers.size());
+  ASSERT_EQ(heap_init_referrers.size(), asan_heap_init_referrers.size());
   EXPECT_TRUE(std::equal(heap_init_referrers.begin(), heap_init_referrers.end(),
                          asan_heap_init_referrers.begin()));
 

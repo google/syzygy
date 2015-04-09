@@ -560,36 +560,23 @@ bool CreateHooksStub(BlockGraph* block_graph,
 // @param block_graph The block-graph to populate with the stub.
 // @param header_block the header block of @p block_graph.
 // @param policy the policy object restricting how the transform is applied.
+// @param heap_init_block The original _heap_init block. Set to nullptr after
+//     deletion.
+// @param crtheap_block The data block to _crtheap.
 // @param asan_dll_name the name of the asan_rtl DLL we import.
 // @returns true on success, false otherwise.
+// @pre heap_init_block and crtheap_block must not be nullptr.
 bool PatchCRTHeapInitialization(BlockGraph* block_graph,
                                 BlockGraph::Block* header_block,
                                 const TransformPolicyInterface* policy,
+                                BlockGraph::Block* heap_init_block,
+                                BlockGraph::Block* crtheap_block,
                                 const std::string& asan_dll_name) {
   DCHECK_NE(static_cast<BlockGraph*>(nullptr), block_graph);
   DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), header_block);
   DCHECK_NE(static_cast<const TransformPolicyInterface*>(nullptr), policy);
-
-  // The original _heap_init block.
-  BlockGraph::Block* heap_init_block = nullptr;
-  // The data block to _crtheap.
-  BlockGraph::Block* crtheap_block = nullptr;
-
-  for (auto& iter : block_graph->blocks_mutable()) {
-    if (::strcmp(iter.second.name().c_str(), "_heap_init") == 0) {
-      DCHECK_EQ(static_cast<BlockGraph::Block*>(nullptr), heap_init_block);
-       heap_init_block = &(iter.second);
-    } else if (::strcmp(iter.second.name().c_str(), "_crtheap") == 0) {
-      DCHECK_EQ(static_cast<BlockGraph::Block*>(nullptr), crtheap_block);
-      crtheap_block = &(iter.second);
-    }
-
-    if (heap_init_block != nullptr && crtheap_block != nullptr)
-      break;
-  }
-
-  if (heap_init_block == nullptr || crtheap_block == nullptr)
-    return true;
+  DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), heap_init_block);
+  DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), crtheap_block);
 
   // Find or create the section we put our thunks in.
   BlockGraph::Section* thunk_section = block_graph->FindOrAddSection(
@@ -638,7 +625,7 @@ bool PatchCRTHeapInitialization(BlockGraph* block_graph,
   BlockBuilder block_builder(block_graph);
   if (!block_builder.Merge(&bbsg)) {
     LOG(ERROR) << "Failed to build thunk block.";
-    return NULL;
+    return false;
   }
 
   // Exactly one new block should have been created.
@@ -736,35 +723,20 @@ bool PeFindImportsToIntercept(bool use_interceptors,
   return true;
 }
 
-void PeFindStaticallyLinkedFunctionsToIntercept(
-    bool use_interceptors,
-    const AsanIntercept* intercepts,
-    BlockGraph* block_graph,
-    std::vector<BlockGraph::Block*>* static_blocks,
+// Loads the intercepts for the statically linked functions that need to be
+// intercepted into the imported module and the import index map.
+// @param static_blocks The blocks containing the statically linked functions we
+//     want to intercept.
+// @param import_name_index_map The import index map of the runtime library.
+// @param asan_rtl The module of the runtime library.
+void PeLoadInterceptsForStaticallyLinkedFunctions(
+    const AsanTransform::BlockSet& static_blocks,
     ImportNameIndexMap* import_name_index_map,
     ImportedModule* asan_rtl) {
-  DCHECK_NE(reinterpret_cast<AsanIntercept*>(NULL), intercepts);
-  DCHECK_NE(reinterpret_cast<BlockGraph*>(NULL), block_graph);
-  DCHECK_NE(reinterpret_cast<std::vector<BlockGraph::Block*>*>(NULL),
-            static_blocks);
-  DCHECK_NE(reinterpret_cast<ImportNameIndexMap*>(NULL), import_name_index_map);
-  DCHECK_NE(reinterpret_cast<ImportedModule*>(NULL), asan_rtl);
+  DCHECK_NE(static_cast<ImportNameIndexMap*>(nullptr), import_name_index_map);
+  DCHECK_NE(static_cast<ImportedModule*>(nullptr), asan_rtl);
 
-  // Populate the filter with known hashes.
-  AsanInterceptorFilter filter;
-  filter.InitializeContentHashes(intercepts, use_interceptors);
-  if (filter.empty())
-    return;
-
-  // Discover statically linked functions that need to be intercepted.
-  BlockGraph::BlockMap::iterator block_it =
-      block_graph->blocks_mutable().begin();
-  for (; block_it != block_graph->blocks_mutable().end(); ++block_it) {
-    BlockGraph::Block* block = &block_it->second;
-    if (!filter.ShouldIntercept(block))
-      continue;
-    static_blocks->push_back(block);
-
+  for (BlockGraph::Block* block : static_blocks) {
     // Don't add an import entry for names that have already been processed.
     if (import_name_index_map->find(block->name()) !=
             import_name_index_map->end()) {
@@ -773,8 +745,7 @@ void PeFindStaticallyLinkedFunctionsToIntercept(
 
     std::string name = kUndecoratedAsanInterceptPrefix;
     name += block->name();
-    size_t index = asan_rtl->AddSymbol(name,
-                                      ImportedModule::kAlwaysImport);
+    size_t index = asan_rtl->AddSymbol(name, ImportedModule::kAlwaysImport);
     import_name_index_map->insert(std::make_pair(block->name(), index));
   }
 }
@@ -813,7 +784,7 @@ void PeGetRedirectsForInterceptedImports(
 }
 
 bool PeGetRedirectsForStaticallyLinkedFunctions(
-    const std::vector<BlockGraph::Block*>& static_blocks,
+    const AsanTransform::BlockSet& static_blocks,
     const ImportNameIndexMap& import_name_index_map,
     const ImportedModule& asan_rtl,
     BlockGraph* block_graph,
@@ -827,9 +798,7 @@ bool PeGetRedirectsForStaticallyLinkedFunctions(
 
   typedef std::map<std::string, BlockGraph::Block*> ThunkMap;
   ThunkMap thunk_map;
-  for (size_t i = 0; i < static_blocks.size(); ++i) {
-    BlockGraph::Block* block = static_blocks[i];
-
+  for (BlockGraph::Block* block : static_blocks) {
     ThunkMap::iterator thunk_it = thunk_map.find(block->name());
     if (thunk_it == thunk_map.end()) {
       // Generate the name of the thunk for this function.
@@ -1107,10 +1076,14 @@ AsanTransform::AsanTransform()
       remove_redundant_checks_(false),
       use_interceptors_(false),
       instrumentation_rate_(1.0),
-      asan_parameters_(NULL),
+      asan_parameters_(nullptr),
       check_access_hooks_ref_(),
-      asan_parameters_block_(NULL) {
+      asan_parameters_block_(nullptr),
+      heap_init_block_(nullptr),
+      crtheap_block_(nullptr) {
 }
+
+AsanTransform::~AsanTransform() { }
 
 void AsanTransform::set_instrumentation_rate(double instrumentation_rate) {
   // Set the instrumentation rate, capping it between 0 and 1.
@@ -1133,8 +1106,18 @@ bool AsanTransform::PreBlockGraphIteration(
     return false;
   }
 
+  // Initialize heap_init_block_ and crtheap_block_. heap_init_block_ must be
+  // skipped in OnBlock in hot patching mode because PostBlockGraphIteration
+  // deletes it.
+  FindHeapInitAndCrtHeapBlocks(block_graph);
+
   AccessHookParamVector access_hook_param_vec;
   AsanBasicBlockTransform::AsanDefaultHookMap default_stub_map;
+
+  // Find static intercepts in PE images before the transform so that OnBlock
+  // can skip them.
+  if (block_graph->image_format() == BlockGraph::PE_IMAGE)
+    PeFindStaticallyLinkedFunctionsToIntercept(kAsanIntercepts, block_graph);
 
   // We only need to add stubs for PE images. COFF images use direct references,
   // and the linker takes care of dragging in the appropriate code for us.
@@ -1245,7 +1228,7 @@ bool AsanTransform::OnBlock(const TransformPolicyInterface* policy,
   DCHECK(block_graph != NULL);
   DCHECK(block != NULL);
 
-  if (!policy->BlockIsSafeToBasicBlockDecompose(block))
+  if (ShouldSkipBlock(policy, block))
     return true;
 
   // Use the filter that was passed to us for our child transform.
@@ -1288,11 +1271,79 @@ bool AsanTransform::PostBlockGraphIteration(
     }
   }
 
-  if (!PatchCRTHeapInitialization(block_graph, header_block, policy,
-                                  asan_dll_name_))
-    return false;
+  // If the heap initialization blocks were encountered in the
+  // PreBlockGraphIteration, patch them now.
+  if (heap_init_block_ != nullptr && crtheap_block_ != nullptr) {
+    if (!PatchCRTHeapInitialization(block_graph, header_block, policy,
+                                    heap_init_block_, crtheap_block_,
+                                    asan_dll_name_)) {
+      return false;
+    }
+    heap_init_block_ = nullptr;
+    crtheap_block_ = nullptr;
+  }
 
   return true;
+}
+
+void AsanTransform::FindHeapInitAndCrtHeapBlocks(BlockGraph* block_graph) {
+  BlockGraph::Block* heap_init_block = nullptr;
+  BlockGraph::Block* crtheap_block = nullptr;
+
+  for (auto& iter : block_graph->blocks_mutable()) {
+    if (::strcmp(iter.second.name().c_str(), "_heap_init") == 0) {
+      DCHECK_EQ(static_cast<BlockGraph::Block*>(nullptr), heap_init_block);
+      heap_init_block = &(iter.second);
+    } else if (::strcmp(iter.second.name().c_str(), "_crtheap") == 0) {
+      DCHECK_EQ(static_cast<BlockGraph::Block*>(nullptr), crtheap_block);
+      crtheap_block = &(iter.second);
+    }
+
+    if (heap_init_block != nullptr && crtheap_block != nullptr) {
+      heap_init_block_ = heap_init_block;
+      crtheap_block_ = crtheap_block;
+      return;
+    }
+  }
+}
+
+bool AsanTransform::ShouldSkipBlock(const TransformPolicyInterface* policy,
+                                    BlockGraph::Block* block) {
+  // Blocks of _heap_init and intercepted blocks must be skipped.
+  if (block == heap_init_block_)
+    return true;
+  if (static_intercepted_blocks_.count(block))
+    return true;
+
+  // Blocks that are not safe to basic block decompose should also be skipped.
+  if (!policy->BlockIsSafeToBasicBlockDecompose(block))
+    return true;
+
+  return false;
+}
+
+void AsanTransform::PeFindStaticallyLinkedFunctionsToIntercept(
+    const AsanIntercept* intercepts,
+    BlockGraph* block_graph) {
+  DCHECK_NE(static_cast<AsanIntercept*>(nullptr), intercepts);
+  DCHECK_NE(static_cast<BlockGraph*>(nullptr), block_graph);
+  DCHECK(static_intercepted_blocks_.empty());
+
+  // Populate the filter with known hashes.
+  AsanInterceptorFilter filter;
+  filter.InitializeContentHashes(intercepts, use_interceptors_);
+  if (filter.empty())
+    return;
+
+  // Discover statically linked functions that need to be intercepted.
+  BlockGraph::BlockMap::iterator block_it =
+      block_graph->blocks_mutable().begin();
+  for (; block_it != block_graph->blocks_mutable().end(); ++block_it) {
+    BlockGraph::Block* block = &block_it->second;
+    if (!filter.ShouldIntercept(block))
+      continue;
+    static_intercepted_blocks_.insert(block);
+  }
 }
 
 bool AsanTransform::PeInterceptFunctions(
@@ -1331,15 +1382,11 @@ bool AsanTransform::PeInterceptFunctions(
   // a minor optimization later on when there are none to be performed.
   size_t import_redirection_count = asan_rtl.size();
 
-  // Find statically linked function blocks to intercept, adding them to
-  // |asan_rtl| and |import_name_index_map|.
-  std::vector<BlockGraph::Block*> static_blocks;
-  PeFindStaticallyLinkedFunctionsToIntercept(use_interceptors_,
-                                             intercepts,
-                                             block_graph,
-                                             &static_blocks,
-                                             &import_name_index_map,
-                                             &asan_rtl);
+  // Add the intercepts of statically linked functions to |asan_rtl| and
+  // |import_name_index_map|.
+  PeLoadInterceptsForStaticallyLinkedFunctions(static_intercepted_blocks_,
+                                               &import_name_index_map,
+                                               &asan_rtl);
 
   // If no imports were found at all, then there are no redirections to perform.
   if (asan_rtl.size() == 0)
@@ -1365,8 +1412,8 @@ bool AsanTransform::PeInterceptFunctions(
   }
 
   // Adds redirect information for any intercepted statically linked functions.
-  if (!static_blocks.empty()) {
-    if (!PeGetRedirectsForStaticallyLinkedFunctions(static_blocks,
+  if (!static_intercepted_blocks_.empty()) {
+    if (!PeGetRedirectsForStaticallyLinkedFunctions(static_intercepted_blocks_,
                                                     import_name_index_map,
                                                     asan_rtl,
                                                     block_graph,
