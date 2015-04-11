@@ -273,6 +273,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       // and we're now just cleaning it up again.
       agent::asan::TearDownRtl();
       TearDownAsanRuntime();
+      TearDownAtExitManager();
       break;
     }
 

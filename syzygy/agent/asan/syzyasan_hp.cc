@@ -14,10 +14,30 @@
 
 #include <windows.h>
 
+#include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "syzygy/agent/common/agent.h"
 #include "syzygy/common/logging.h"
+
+namespace {
+
+// Our AtExit manager required by base.
+base::AtExitManager* at_exit = nullptr;
+
+void SetUpAtExitManager() {
+  DCHECK_EQ(static_cast<base::AtExitManager*>(nullptr), at_exit);
+  at_exit = new base::AtExitManager();
+  CHECK_NE(static_cast<base::AtExitManager*>(nullptr), at_exit);
+}
+
+void TearDownAtExitManager() {
+  DCHECK_NE(static_cast<base::AtExitManager*>(nullptr), at_exit);
+  delete at_exit;
+  at_exit = nullptr;
+}
+
+}  // namespace
 
 extern "C" {
 
@@ -26,6 +46,9 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
 
   switch (reason) {
     case DLL_PROCESS_ATTACH: {
+      // Create the At-Exit manager.
+      SetUpAtExitManager();
+
       // Disable logging. In the case of Chrome this is running in a sandboxed
       // process where logging to file doesn't help us any. In other cases the
       // log output will still go to console.
@@ -43,9 +66,10 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       // Nothing to do here.
       break;
 
-    case DLL_PROCESS_DETACH:
-      // Nothing to do here.
+    case DLL_PROCESS_DETACH: {
+      TearDownAtExitManager();
       break;
+    }
 
     default:
       NOTREACHED();
