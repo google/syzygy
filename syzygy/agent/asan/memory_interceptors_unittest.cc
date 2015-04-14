@@ -48,6 +48,20 @@ ASAN_MEM_INTERCEPT_FUNCTIONS(DEFINE_INTERCEPT_FUNCTION_TABLE_NO_FLAGS)
 #undef DEFINE_INTERCEPT_FUNCTION_TABLE_NO_FLAGS
 };
 
+static const TestMemoryInterceptors::InterceptFunction
+    redirect_functions[] = {
+#define DEFINE_REDIRECT_FUNCTION_TABLE(access_size, access_mode_str, \
+    access_mode) \
+  { asan_redirect_ ## access_size ## _byte_ ## access_mode_str, \
+    access_size }, \
+  { asan_redirect_ ## access_size ## _byte_ ## access_mode_str ## _no_flags, \
+    access_size },
+
+ASAN_MEM_INTERCEPT_FUNCTIONS(DEFINE_REDIRECT_FUNCTION_TABLE)
+
+#undef DEFINE_INTERCEPT_FUNCTION_TABLE_NO_FLAGS
+};
+
 static const TestMemoryInterceptors::StringInterceptFunction
     string_intercept_functions[] = {
 #define DEFINE_STRING_INTERCEPT_FUNCTION_TABLE(func, prefix, counter, \
@@ -59,7 +73,21 @@ static const TestMemoryInterceptors::StringInterceptFunction
 
 ASAN_STRING_INTERCEPT_FUNCTIONS(DEFINE_STRING_INTERCEPT_FUNCTION_TABLE)
 
-#undef DEFINE_STRINGINTERCEPT_FUNCTION_TABLE
+#undef DEFINE_STRING_INTERCEPT_FUNCTION_TABLE
+};
+
+static const TestMemoryInterceptors::StringInterceptFunction
+    string_redirect_functions[] = {
+#define DEFINE_STRING_REDIRECT_FUNCTION_TABLE(func, prefix, counter, \
+    dst_mode, src_mode, access_size, compare) \
+  { asan_redirect ## prefix ## access_size ## _byte_ ## func ## _access, \
+    access_size, TestMemoryInterceptors::dst_mode, \
+    TestMemoryInterceptors::src_mode, \
+    TestMemoryInterceptors::kCounterInit_##counter },
+
+ASAN_STRING_INTERCEPT_FUNCTIONS(DEFINE_STRING_REDIRECT_FUNCTION_TABLE)
+
+#undef DEFINE_STRING_REDIRECT_FUNCTION_TABLE
 };
 
 typedef TestMemoryInterceptors MemoryInterceptorsTest;
@@ -81,12 +109,21 @@ TEST_F(MemoryInterceptorsTest, TestUnderrunAccess) {
   TestUnderrunAccessIgnoreFlags(intercept_functions_no_flags);
 }
 
+TEST_F(MemoryInterceptorsTest, TestRedirectors) {
+  // Test that the redirect functions pass through to the noop tester.
+  TestValidAccess(redirect_functions);
+}
+
 TEST_F(MemoryInterceptorsTest, TestStringValidAccess) {
   TestStringValidAccess(string_intercept_functions);
 }
 
 TEST_F(MemoryInterceptorsTest, TestStringOverrunAccess) {
   TestStringOverrunAccess(string_intercept_functions);
+}
+
+TEST_F(MemoryInterceptorsTest, TestStringRedirectors) {
+  TestStringValidAccess(string_redirect_functions);
 }
 
 }  // namespace asan

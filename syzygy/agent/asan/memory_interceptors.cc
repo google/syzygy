@@ -13,7 +13,10 @@
 // limitations under the License.
 #include "syzygy/agent/asan/memory_interceptors.h"
 
+#include <stdint.h>
+
 #include "base/logging.h"
+#include "base/macros.h"
 #include "syzygy/agent/asan/asan_rtl_utils.h"
 #include "syzygy/agent/asan/shadow.h"
 
@@ -21,6 +24,39 @@ using agent::asan::Shadow;
 
 namespace agent {
 namespace asan {
+
+const MemoryAccessorVariants kMemoryAccessorVariants[] = {
+#define ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS(access_size, \
+                                             access_mode_str, \
+                                             access_mode_value) \
+  { \
+    asan_redirect_ ## access_size ## _byte_ ## access_mode_str, \
+    asan_no_check, \
+    asan_check_ ## access_size ## _byte_ ## access_mode_str \
+  }, { \
+    asan_redirect_ ## access_size ## _byte_ ## access_mode_str ## _no_flags, \
+    asan_no_check, \
+    asan_check_ ## access_size ## _byte_ ## access_mode_str ## _no_flags, \
+  },
+
+  ASAN_MEM_INTERCEPT_FUNCTIONS(ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS)
+
+#undef ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS
+
+#define ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS( \
+    func, prefix, counter, dst_mode, src_mode, access_size, compare) \
+  { \
+    asan_redirect ## prefix ## access_size ## _byte_ ## func ## _access, \
+    asan_string_no_check, \
+    asan_check ## prefix ## access_size ## _byte_ ## func ## _access, \
+  },
+
+  ASAN_STRING_INTERCEPT_FUNCTIONS(ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS)
+
+#undef ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS
+};
+
+const size_t kNumMemoryAccessorVariants = arraysize(kMemoryAccessorVariants);
 
 // Check if the memory location is accessible and report an error on bad memory
 // accesses.
@@ -92,6 +128,25 @@ void CheckStringsMemoryAccesses(
     // Increments offset of dst/src to the next memory location.
     offset += increment;
   }
+}
+
+MemoryAccessorFunction RedirectStubEntry(
+    const void* caller_address, MemoryAccessorFunction called_redirect) {
+  // TODO(siggi, chrisha): Flesh this out, this needs to be parametrizable
+  //     for testing and the like. The intent is for this function to
+  //     initialize the runtime, which includes
+  //       - determining the mode of operation.
+  //       - allocating the shadow memory (if appropriate).
+  //       - initializing the stubs with the allocated shadow memory.
+  //    after which it will need to reach back to the caller and patch its
+  //    IAT to the stub(s) associated with the selected mode of operation.
+  for (size_t i = 0; i < arraysize(kMemoryAccessorVariants); ++i) {
+    if (kMemoryAccessorVariants[i].redirect_accessor == called_redirect)
+      return kMemoryAccessorVariants[i].accessor_noop;
+  }
+
+  NOTREACHED();
+  return NULL;
 }
 
 }  // namespace asan

@@ -19,6 +19,19 @@
 namespace agent {
 namespace asan {
 
+// This type is not accurate, as the memory accessors have a custom calling
+// convention, but it's nice to have a type for them.
+typedef void (*MemoryAccessorFunction)();
+
+struct MemoryAccessorVariants {
+  MemoryAccessorFunction redirect_accessor;
+  MemoryAccessorFunction accessor_noop;
+  MemoryAccessorFunction accessor_2G;
+};
+
+extern const MemoryAccessorVariants kMemoryAccessorVariants[];
+extern const size_t kNumMemoryAccessorVariants;
+
 // List of the memory accessor function variants this file implements.
 #define ASAN_MEM_INTERCEPT_FUNCTIONS(F) \
     F(1, read_access, AsanReadAccess) \
@@ -61,11 +74,21 @@ namespace asan {
 
 extern "C" {
 
+// The no-op memory access checker.
+void asan_no_check();
+
+// The no-op string instruction memory access checker.
+void asan_string_no_check();
+
 #define DECLARE_MEM_INTERCEPT_FUNCTIONS(access_size, \
                                         access_mode_str, \
                                         access_mode_value) \
+    void asan_redirect_ ## access_size ## _byte_ ## access_mode_str(); \
     void asan_check_ ## access_size ## _byte_ ## access_mode_str(); \
-    void asan_check_ ## access_size ## _byte_ ## access_mode_str ## _no_flags();
+    void asan_redirect_ ## access_size ## _byte_ ## access_mode_str \
+        ## _no_flags(); \
+    void asan_check_ ## access_size ## _byte_ ## access_mode_str \
+        ## _no_flags();
 
 // Declare all the memory interceptor functions. Note that these functions have
 // a custom calling convention, and can't be invoked directly.
@@ -75,7 +98,8 @@ ASAN_MEM_INTERCEPT_FUNCTIONS(DECLARE_MEM_INTERCEPT_FUNCTIONS)
 
 #define DECLARE_STRING_INTERCEPT_FUNCTIONS(func, prefix, counter, dst_mode, \
                                            src_mode, access_size, compare) \
-  void asan_check ## prefix ## access_size ## _byte_ ## func ## _access();
+  void asan_redirect ## prefix ## access_size ## _byte_ ## func ## _access(); \
+  void asan_check ## prefix ## access_size ## _byte_ ## func ## _access(); \
 
 // Declare all the string instruction interceptor functions. Note that these
 // functions have a custom calling convention, and can't be invoked directly.
@@ -83,6 +107,6 @@ ASAN_STRING_INTERCEPT_FUNCTIONS(DECLARE_STRING_INTERCEPT_FUNCTIONS)
 
 #undef DECLARE_STRING_INTERCEPT_FUNCTIONS
 
-}
+}  // extern "C"
 
 #endif  // SYZYGY_AGENT_ASAN_MEMORY_INTERCEPTORS_H_

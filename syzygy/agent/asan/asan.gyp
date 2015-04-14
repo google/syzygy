@@ -22,6 +22,7 @@
     {
       'target_name': 'syzyasan_rtl_lib',
       'type': 'static_library',
+      'includes': ['../../build/masm.gypi'],
       'sources': [
         'allocators.h',
         'allocators_impl.h',
@@ -53,6 +54,7 @@
         'heap_checker.cc',
         'heap_checker.h',
         'heap_manager.h',
+        'memory_interceptors.asm',
         'memory_interceptors.cc',
         'memory_interceptors.h',
         'memory_notifier.h',
