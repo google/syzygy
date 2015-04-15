@@ -275,6 +275,14 @@
       },
     },
     {
+      'target_name': 'syzyasan_hp_lib',
+      'type': 'static_library',
+      'sources': [
+        'asan_hp_crt_interceptors.cc',
+        'asan_hp_crt_interceptors.h',
+      ],
+    },
+    {
       'target_name': 'syzyasan_hp',
       'type': 'loadable_module',
       'includes': ['../agent.gypi'],
@@ -284,6 +292,7 @@
         'syzyasan_hp.rc',
       ],
       'dependencies': [
+        'syzyasan_hp_lib',
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/core/core.gyp:core_lib',
