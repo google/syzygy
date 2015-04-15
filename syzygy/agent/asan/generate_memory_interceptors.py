@@ -496,6 +496,9 @@ def _GenerateCppFile():
   #     bottleneck is then the nicest, but the easiest is probably to pass in
   #     the redirector function itself...
 
+  # The statically allocated shadow memory.
+  SHADOW = "agent::asan::StaticShadow::shadow_memory"
+
   # Generate the memory accessor checkers.
   for access_size in _ACCESS_SIZES:
     for access, access_name in _ACCESS_MODES:
@@ -503,7 +506,7 @@ def _GenerateCppFile():
                             access_size=access_size,
                             access_mode_str=access,
                             access_mode_value=access_name,
-                            shadow="Shadow::shadow_"))
+                            shadow=SHADOW))
 
   # Generate the no flag saving memory accessor checkers.
   for access_size in _ACCESS_SIZES:
@@ -512,7 +515,7 @@ def _GenerateCppFile():
                             access_size=access_size,
                             access_mode_str=access,
                             access_mode_value=access_name,
-                            shadow="Shadow::shadow_"))
+                            shadow=SHADOW))
 
   # Generate string operation accessors.
   for (fn, p, c, dst_mode, src_mode, size, compare) in _STRING_ACCESSORS:

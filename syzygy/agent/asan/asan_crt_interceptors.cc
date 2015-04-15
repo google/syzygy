@@ -67,7 +67,8 @@ size_t __cdecl asan_strcspn(const char* str1, const char* str2) {
 
 size_t __cdecl asan_strlen(const char* str) {
   size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str, 0U, &size)) {
+  if (!agent::asan::StaticShadow::shadow.GetNullTerminatedArraySize<char>(
+          str, 0U, &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str) + size,
                     agent::asan::ASAN_READ_ACCESS);
     return ::strlen(str);
@@ -77,7 +78,8 @@ size_t __cdecl asan_strlen(const char* str) {
 
 const char* __cdecl asan_strrchr(const char* str, int character) {
   size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(str, 0U, &size)) {
+  if (!agent::asan::StaticShadow::shadow.GetNullTerminatedArraySize<char>(
+          str, 0U, &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str) + size,
                     agent::asan::ASAN_READ_ACCESS);
   }
@@ -86,9 +88,8 @@ const char* __cdecl asan_strrchr(const char* str, int character) {
 
 const wchar_t* asan_wcsrchr(const wchar_t* str, wchar_t character) {
   size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<wchar_t>(str,
-                                                                0U,
-                                                                &size)) {
+  if (!agent::asan::StaticShadow::shadow.GetNullTerminatedArraySize<wchar_t>(
+          str, 0U, &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str) + size,
                     agent::asan::ASAN_READ_ACCESS);
   }
@@ -97,14 +98,13 @@ const wchar_t* asan_wcsrchr(const wchar_t* str, wchar_t character) {
 
 const wchar_t* asan_wcsstr(const wchar_t* str, const wchar_t* keys) {
   size_t size = 0;
-  if (!agent::asan::Shadow::GetNullTerminatedArraySize<wchar_t>(keys,
-                                                                0U,
-                                                                &size)) {
+  if (!agent::asan::StaticShadow::shadow.GetNullTerminatedArraySize<wchar_t>(
+          keys, 0U, &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(keys) + size,
                     agent::asan::ASAN_READ_ACCESS);
   }
   const wchar_t* ret = ::wcsstr(str, keys);
-  if (ret != NULL && !agent::asan::Shadow::IsAccessible(ret)) {
+  if (ret != NULL && !agent::asan::StaticShadow::shadow.IsAccessible(ret)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(ret),
                     agent::asan::ASAN_READ_ACCESS);
   }
@@ -113,9 +113,11 @@ const wchar_t* asan_wcsstr(const wchar_t* str, const wchar_t* keys) {
 
 const wchar_t* asan_wcschr(const wchar_t* str, wchar_t character) {
   const wchar_t* s = str;
-  while (agent::asan::Shadow::IsAccessible(s) && *s != character && *s != NULL)
+  while (agent::asan::StaticShadow::shadow.IsAccessible(s) &&
+         *s != character && *s != NULL) {
     s++;
-  if (!agent::asan::Shadow::IsAccessible(s)) {
+  }
+  if (!agent::asan::StaticShadow::shadow.IsAccessible(s)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(s),
                     agent::asan::ASAN_READ_ACCESS);
     return ::wcschr(str, character);
@@ -157,9 +159,8 @@ size_t __cdecl asan_strspn(const char* str1, const char* str2) {
 char* __cdecl asan_strncpy(char* destination, const char* source, size_t num) {
   if (num != 0U) {
     size_t src_size = 0;
-    if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(source,
-                                                               num,
-                                                               &src_size) &&
+    if (!agent::asan::StaticShadow::shadow.GetNullTerminatedArraySize<char>(
+            source, num, &src_size) &&
         src_size <= num) {
       ReportBadAccess(reinterpret_cast<const uint8*>(source) + src_size,
                       agent::asan::ASAN_READ_ACCESS);
@@ -176,17 +177,15 @@ char* __cdecl asan_strncpy(char* destination, const char* source, size_t num) {
 char* __cdecl asan_strncat(char* destination, const char* source, size_t num) {
   if (num != 0U) {
     size_t src_size = 0;
-    if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(source,
-                                                               num,
-                                                               &src_size) &&
+    if (!agent::asan::StaticShadow::shadow.GetNullTerminatedArraySize<char>(
+            source, num, &src_size) &&
         src_size <= num) {
       ReportBadAccess(reinterpret_cast<const uint8*>(source) + src_size,
                       agent::asan::ASAN_READ_ACCESS);
     }
     size_t dst_size = 0;
-    if (!agent::asan::Shadow::GetNullTerminatedArraySize<char>(destination,
-                                                               0U,
-                                                               &dst_size)) {
+    if (!agent::asan::StaticShadow::shadow.GetNullTerminatedArraySize<char>(
+            destination, 0U, &dst_size)) {
       ReportBadAccess(reinterpret_cast<const uint8*>(destination) + dst_size,
                       agent::asan::ASAN_WRITE_ACCESS);
     } else {

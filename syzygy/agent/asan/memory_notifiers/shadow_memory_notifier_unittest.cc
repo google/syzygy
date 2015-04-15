@@ -22,45 +22,64 @@ namespace agent {
 namespace asan {
 namespace memory_notifiers {
 
-TEST(ShadowMemoryNotifierTest, ShadowStateTransitionsWithNotification) {
+namespace {
+
+class ShadowMemoryNotifierTest : public testing::Test {
+ public:
+  ShadowMemoryNotifierTest()
+      : shadow_(shadow_data_, arraysize(shadow_data_)) {
+  }
+
+  virtual void SetUp() override {
+    ::memset(shadow_data_, 0, arraysize(shadow_data_));
+    shadow_.SetUp();
+  }
+
+  virtual void TearDown() override {
+    shadow_.TearDown();
+  }
+
+  uint8 shadow_data_[StaticShadow::kShadowSize];
+  Shadow shadow_;
+};
+
+}  // namespace
+
+TEST_F(ShadowMemoryNotifierTest, ShadowStateTransitionsWithNotification) {
   // A buffer to use. This is allocated dynamically to ensure it has 8 byte
   // alignment.
   const size_t kBufferSize = 1024;
   scoped_ptr<uint8> buffer(new uint8[kBufferSize]);
 
-  // Unpoison the memory so that the test starts from clean data.
-  Shadow::Unpoison(buffer.get(), kBufferSize);
-
-  ShadowMemoryNotifier n;
+  ShadowMemoryNotifier n(&shadow_);
   n.NotifyInternalUse(buffer.get(), kBufferSize);
-  EXPECT_FALSE(Shadow::IsAccessible(buffer.get()));
-  EXPECT_FALSE(Shadow::IsAccessible(buffer.get() + 10));
-  EXPECT_TRUE(Shadow::IsAccessible(buffer.get() + kBufferSize));
+  EXPECT_FALSE(shadow_.IsAccessible(buffer.get()));
+  EXPECT_FALSE(shadow_.IsAccessible(buffer.get() + 10));
+  EXPECT_TRUE(shadow_.IsAccessible(buffer.get() + kBufferSize));
   for (size_t i = 0; i < kBufferSize; ++i) {
     EXPECT_EQ(kAsanMemoryMarker,
-              Shadow::GetShadowMarkerForAddress(buffer.get() + i));
+              shadow_.GetShadowMarkerForAddress(buffer.get() + i));
   }
 
   n.NotifyFutureHeapUse(buffer.get(), kBufferSize);
-  EXPECT_FALSE(Shadow::IsAccessible(buffer.get()));
-  EXPECT_FALSE(Shadow::IsAccessible(buffer.get() + 10));
-  EXPECT_TRUE(Shadow::IsAccessible(buffer.get() + kBufferSize));
+  EXPECT_FALSE(shadow_.IsAccessible(buffer.get()));
+  EXPECT_FALSE(shadow_.IsAccessible(buffer.get() + 10));
+  EXPECT_TRUE(shadow_.IsAccessible(buffer.get() + kBufferSize));
   for (size_t i = 0; i < kBufferSize; ++i) {
     EXPECT_EQ(kAsanReservedMarker,
-              Shadow::GetShadowMarkerForAddress(buffer.get() + i));
+              shadow_.GetShadowMarkerForAddress(buffer.get() + i));
   }
 
   n.NotifyReturnedToOS(buffer.get(), kBufferSize);
-  EXPECT_TRUE(Shadow::IsAccessible(buffer.get()));
-  EXPECT_TRUE(Shadow::IsAccessible(buffer.get() + 10));
-  EXPECT_TRUE(Shadow::IsAccessible(buffer.get() + kBufferSize));
+  EXPECT_TRUE(shadow_.IsAccessible(buffer.get()));
+  EXPECT_TRUE(shadow_.IsAccessible(buffer.get() + 10));
+  EXPECT_TRUE(shadow_.IsAccessible(buffer.get() + kBufferSize));
   for (size_t i = 0; i < kBufferSize; ++i) {
     EXPECT_EQ(kHeapAddressableMarker,
-              Shadow::GetShadowMarkerForAddress(buffer.get() + i));
+              shadow_.GetShadowMarkerForAddress(buffer.get() + i));
   }
 
-  // Clean up behind ourselves.
-  Shadow::Unpoison(buffer.get(), kBufferSize);
+  EXPECT_TRUE(shadow_.IsClean());
 }
 
 }  // namespace memory_notifiers

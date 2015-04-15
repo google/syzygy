@@ -33,7 +33,7 @@ TEST(PageProtectionHelpersTest, GetBlockInfo) {
   // Initialize the block in both memory and the shadow memory.
   BlockInfo info = {};
   BlockInitialize(layout, alloc, false, &info);
-  Shadow::PoisonAllocatedBlock(info);
+  StaticShadow::shadow.PoisonAllocatedBlock(info);
 
   // Try recovering in the usual case.
   BlockInfo info_recovered = {};
@@ -58,7 +58,7 @@ TEST(PageProtectionHelpersTest, GetBlockInfo) {
   EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
 
   // Clean up.
-  Shadow::Unpoison(info.block, info.block_size);
+  StaticShadow::shadow.Unpoison(info.block, info.block_size);
   ::VirtualFree(alloc, layout.block_size, MEM_RELEASE);
 }
 
@@ -69,7 +69,7 @@ namespace {
 bool IsAccessible(void* addr) {
   if (!testing::IsAccessible(addr))
     return false;
-  if (Shadow::PageIsProtected(addr))
+  if (StaticShadow::shadow.PageIsProtected(addr))
     return false;
   return true;
 }
@@ -79,7 +79,7 @@ bool IsAccessible(void* addr) {
 bool IsNotAccessible(void* addr) {
   if (!testing::IsNotAccessible(addr))
     return false;
-  if (!Shadow::PageIsProtected(addr))
+  if (!StaticShadow::shadow.PageIsProtected(addr))
     return false;
   return true;
 }

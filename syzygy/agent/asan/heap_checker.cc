@@ -36,7 +36,7 @@ bool HeapChecker::IsHeapCorrupt(CorruptRangesVector* corrupt_ranges) {
   //     a new memory allocator.
   GetCorruptRangesInSlab(
       reinterpret_cast<const uint8*>(Shadow::kAddressLowerBound),
-      Shadow::kAddressUpperBound - Shadow::kAddressLowerBound - 1,
+      StaticShadow::shadow.memory_size() - Shadow::kAddressLowerBound - 1,
       corrupt_ranges);
 
   return !corrupt_ranges->empty();
@@ -49,7 +49,8 @@ void HeapChecker::GetCorruptRangesInSlab(const uint8* lower_bound,
   DCHECK_NE(0U, length);
   DCHECK_NE(reinterpret_cast<CorruptRangesVector*>(NULL), corrupt_ranges);
 
-  ShadowWalker shadow_walker(false, lower_bound, lower_bound + length);
+  ShadowWalker shadow_walker(
+      &StaticShadow::shadow, false, lower_bound, lower_bound + length);
 
   AsanCorruptBlockRange* current_corrupt_range = NULL;
 

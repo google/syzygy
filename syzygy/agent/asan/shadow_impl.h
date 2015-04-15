@@ -21,7 +21,7 @@
 template<typename type>
 bool Shadow::GetNullTerminatedArraySize(const void* addr,
                                         size_t max_size,
-                                        size_t* size) {
+                                        size_t* size) const {
   DCHECK_NE(reinterpret_cast<const void*>(NULL), addr);
   DCHECK_NE(reinterpret_cast<size_t*>(NULL), size);
 

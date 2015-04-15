@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Implements an all-static class that manages shadow memory for Asan.
+// Implements a class that manages shadow memory for Asan.
 //
 // The layout of a block is fully encoded in shadow memory, allowing for
 // recovery of the block simply by inspecting the shadow memory. This is
@@ -68,6 +68,7 @@
 #define SYZYGY_AGENT_ASAN_SHADOW_H_
 
 #include <string>
+#include <vector>
 
 #include "base/basictypes.h"
 #include "base/logging.h"
@@ -79,22 +80,11 @@
 namespace agent {
 namespace asan {
 
-// An all-static class that manages the Asan shadow memory.
+// A class for managing shadow memory state.
 class Shadow {
  public:
   // The first 64k of the memory are not addressable.
   static const size_t kAddressLowerBound = 0x10000;
-
-  // One shadow byte for per group of kShadowRatio bytes in a 2G address space.
-  // NOTE: This is dependent on the process NOT being large address aware.
-  static const size_t kShadowSize = 1 << (31 - kShadowRatioLog);
-
-  // We use a 2GB address space (2^31), divided into 4KB (2^12) pages, and only
-  // need 1 bit per page.
-  static const size_t kPageBitsSize = 1 << (31 - 12 - 3);
-
-  // The upper bound of the addressable memory.
-  static const size_t kAddressUpperBound = kShadowSize << kShadowRatioLog;
 
   // The number of shadow bytes to emit per line of a report.
   static const size_t kShadowBytesPerLine = 8;
@@ -107,24 +97,43 @@ class Shadow {
   // shadow bytes will be reported in all.
   static const size_t kShadowContextLines = 4;
 
+  // Default constructor. Creates a shadow memory of the appropriate size
+  // depending on the addressable memory for this process.
+  Shadow();
+
+  // Shadow constructor. Allocates shadow memory internally.
+  // @param length The length of the shadow memory in bytes. This implicitly
+  //     encodes the maximum addressable address of the shadow.
+  explicit Shadow(size_t length);
+
+  // Shadow constructor.
+  // @param shadow The array to use for storing the shadow memory. The shadow
+  //     memory allocation *must* be kShadowRatio byte aligned.
+  // @param length The length of the shadow memory in bytes. This implicitly
+  //     encodes the maximum addressable address of the shadow.
+  Shadow(void* shadow, size_t length);
+
+  // Destructor.
+  virtual ~Shadow();
+
   // Set up the shadow memory.
-  static void SetUp();
+  void SetUp();
 
   // Tear down the shadow memory.
-  static void TearDown();
+  void TearDown();
 
   // Poisons @p size bytes starting at @p addr with @p shadow_val value.
   // @pre addr + size mod 8 == 0.
   // @param address The starting address.
   // @param size The size of the memory to poison.
   // @param shadow_val The poison marker value.
-  static void Poison(const void* addr, size_t size, ShadowMarker shadow_val);
+  void Poison(const void* addr, size_t size, ShadowMarker shadow_val);
 
   // Un-poisons @p size bytes starting at @p addr.
   // @pre addr mod 8 == 0 && size mod 8 == 0.
   // @param addr The starting address.
   // @param size The size of the memory to unpoison.
-  static void Unpoison(const void* addr, size_t size);
+  void Unpoison(const void* addr, size_t size);
 
   // Mark @p size bytes starting at @p addr as freed. This will preserve
   // nested block headers/trailers/redzones, but mark all contents as freed.
@@ -132,42 +141,42 @@ class Shadow {
   // marked as freed prior to possibly freeing the parent block.
   // @param addr The starting address.
   // @param size The size of the memory to mark as freed.
-  static void MarkAsFreed(const void* addr, size_t size);
+  void MarkAsFreed(const void* addr, size_t size);
 
   // Returns true iff the byte at @p addr is not poisoned.
   // @param addr The address that we want to check.
   // @returns true if this address is accessible, false otherwise.
-  static bool IsAccessible(const void* addr);
+  bool IsAccessible(const void* addr) const;
 
   // @param address The address that we want to check.
   // @returns true if the byte at @p address is an active left redzone.
-  static bool IsLeftRedzone(const void* address);
+  bool IsLeftRedzone(const void* address) const;
 
   // @param address The address that we want to check.
   // @returns true if the byte at @p address is an active right redzone.
-  static bool IsRightRedzone(const void* address);
+  bool IsRightRedzone(const void* address) const;
 
   // @param address The address that we want to check.
   // @returns true if the byte at @p address is the start of a block.
-  static bool IsBlockStartByte(const void* address);
+  bool IsBlockStartByte(const void* address) const;
 
   // Returns the ShadowMarker value for the byte at @p addr.
   // @param addr The address for which we want the ShadowMarker value.
   // @returns the ShadowMarker value for this address.
-  static ShadowMarker GetShadowMarkerForAddress(const void* addr);
+  ShadowMarker GetShadowMarkerForAddress(const void* addr) const;
 
   // Appends a textual description of the shadow memory for @p addr to
   // @p output, including the values of the shadow bytes and a legend.
   // @param addr The address for which we want to get the textual description.
   // @param output The string in which we want to store this information.
-  static void AppendShadowMemoryText(const void* addr, std::string* output);
+  void AppendShadowMemoryText(const void* addr, std::string* output) const;
 
   // Appends a textual description of the shadow memory for @p addr to
   // @p output. This only appends the values of the shadow bytes.
   // @param addr The address whose shadow memory is to be described.
   // @param output The string to be populated with the shadow memory
   //     information.
-  static void AppendShadowArrayText(const void* addr, std::string* output);
+  void AppendShadowArrayText(const void* addr, std::string* output) const;
 
   // Returns true iff the array starting at @p addr is terminated with
   // sizeof(@p type) null bytes within a contiguous accessible region of memory.
@@ -184,9 +193,9 @@ class Shadow {
   // @returns true iff the array starting at @p addr is null terminated within a
   //     contiguous accessible region of memory, false otherwise.
   template<typename type>
-  static bool GetNullTerminatedArraySize(const void* addr,
-                                         size_t max_size,
-                                         size_t* size);
+  bool GetNullTerminatedArraySize(const void* addr,
+                                  size_t max_size,
+                                  size_t* size) const;
 
   // Clones a shadow memory range from one location to another.
   // @pre src_pointer mod 8 == 0.
@@ -195,9 +204,9 @@ class Shadow {
   // @param src_pointer The starting address of the range to copy.
   // @param dst_pointer The destination where the copy should be made.
   // @param size The size of the range to copy.
-  static void CloneShadowRange(const void* src_pointer,
-                               void* dst_pointer,
-                               size_t size);
+  void CloneShadowRange(const void* src_pointer,
+                        void* dst_pointer,
+                        size_t size);
 
   // Calculate the allocation size of a block by using the shadow memory.
   // @param mem A pointer inside the memory block for which we want to calculate
@@ -206,15 +215,15 @@ class Shadow {
   //     at this address.
   // @note This function doesn't work for nested blocks.
   // TODO(sebmarchand): Add support for nested blocks.
-  static size_t GetAllocSize(const uint8* mem);
+  size_t GetAllocSize(const uint8* mem) const;
 
   // Poisons memory for an freshly allocated block.
   // @param info Info about the block layout.
   // @note The block must be readable.
-  static void PoisonAllocatedBlock(const BlockInfo& info);
+  void PoisonAllocatedBlock(const BlockInfo& info);
 
   // Determines if the block is nested simply by inspecting shadow memory.
-  static bool BlockIsNested(const BlockInfo& info);
+  bool BlockIsNested(const BlockInfo& info) const;
 
   // Inspects shadow memory to determine the layout of a block in memory.
   // Does not rely on any block content itself, strictly reading from the
@@ -223,22 +232,22 @@ class Shadow {
   // @param addr An address in the block to be inspected.
   // @param info The block information to be populated.
   // @returns true on success, false otherwise.
-  static bool BlockInfoFromShadow(const void* addr, CompactBlockInfo* info);
-  static bool BlockInfoFromShadow(const void* addr, BlockInfo* info);
+  bool BlockInfoFromShadow(const void* addr, CompactBlockInfo* info) const;
+  bool BlockInfoFromShadow(const void* addr, BlockInfo* info) const;
 
   // Inspects shadow memory to find the block containing a nested block.
   // @param nested Information about the nested block.
   // @param info The block information to be populated.
   // @returns true on success, false otherwise.
-  static bool ParentBlockInfoFromShadow(
-      const BlockInfo& nested, BlockInfo* info);
+  bool ParentBlockInfoFromShadow(
+      const BlockInfo& nested, BlockInfo* info) const;
 
   // Checks if the address @p addr corresponds to the beginning of a block's
   // body, i.e. if it's preceded by a left redzone.
   // @param addr The address that we want to check.
   // @returns true if the address corresponds to the beginning of a block's
   //     body, false otherwise.
-  static bool IsBeginningOfBlockBody(const void* addr);
+  bool IsBeginningOfBlockBody(const void* addr) const;
 
   // Queries a given page's protection status.
   // @param addr An address in the page to be queried.
@@ -246,54 +255,67 @@ class Shadow {
   //     false otherwise.
   // @note The read does not occur under a lock, so it is possible to get
   //     stale data. Users must be robust for this.
-  static bool PageIsProtected(const void* addr);
+  bool PageIsProtected(const void* addr) const;
 
   // Marks a given page as being protected.
   // @param addr An address in the page to be protected.
   // @note Grabs a global shadow lock.
-  static void MarkPageProtected(const void* addr);
+  void MarkPageProtected(const void* addr);
 
   // Marks a given page as being unprotected.
   // @param addr An address in the page to be protected.
   // @note Grabs a global shadow lock.
-  static void MarkPageUnprotected(const void* addr);
+  void MarkPageUnprotected(const void* addr);
 
   // Marks a given range of pages as being protected.
   // @param addr The first page to be marked.
   // @param size The extent of the memory to be marked.
   // @note Grabs a global shadow lock.
-  static void MarkPagesProtected(const void* addr, size_t size);
+  void MarkPagesProtected(const void* addr, size_t size);
 
   // Marks a given range of pages as being unprotected.
   // @param addr The first page to be marked.
   // @param size The extent of the memory to be marked.
   // @note Grabs a global shadow lock.
-  static void MarkPagesUnprotected(const void* addr, size_t size);
+  void MarkPagesUnprotected(const void* addr, size_t size);
+
+  // Returns the size of memory represented by the shadow.
+  const size_t memory_size() const { return length_ << kShadowRatioLog; }
 
   // Read only accessor of shadow memory.
   // @returns a pointer to the actual shadow memory.
-  static const uint8* shadow() { return shadow_; }
+  const uint8* shadow() const { return shadow_; }
+
+  // Returns the length of the shadow array.
+  size_t length() const { return length_; }
 
   // Read only accessor of page protection bits.
-  static const uint8* page_bits() { return page_bits_; }
+  const uint8* page_bits() const { return page_bits_.data(); }
+
+  // Returns the length of the page bits array.
+  size_t const page_bits_size() const { return page_bits_.size(); }
 
   // Determines if the shadow memory is clean. That is, it reflects the
   // state of shadow memory immediately after construction and a call to
   // SetUp.
-  static bool IsClean();
+  bool IsClean();
 
  protected:
+  // Initializes this shadow object.
+  void Init(size_t length);
+  void Init(bool own_memory, void* shadow, size_t length);
+
   // Reset the shadow memory.
-  static void Reset();
+  void Reset();
 
   // Appends a line of shadow byte text for the bytes ranging from
   // shadow_[index] to shadow_[index + 7], prefixed by @p prefix. If the index
   // @p bug_index is present in this range then its value will be surrounded by
   // brackets.
-  static void AppendShadowByteText(const char *prefix,
-                                   uintptr_t index,
-                                   std::string* output,
-                                   size_t bug_index);
+  void AppendShadowByteText(const char *prefix,
+                            uintptr_t index,
+                            std::string* output,
+                            size_t bug_index) const;
 
   // Scans to the left of the provided cursor, looking for the presence of a
   // block start marker that brackets the cursor.
@@ -303,8 +325,8 @@ class Shadow {
   // @param cursor The position in shadow memory from which to start the scan.
   // @param location Will be set to the location of the start marker, if found.
   // @returns true on success, false otherwise.
-  static bool ScanLeftForBracketingBlockStart(
-      size_t initial_nesting_depth, size_t cursor, size_t* location);
+  bool ScanLeftForBracketingBlockStart(
+      size_t initial_nesting_depth, size_t cursor, size_t* location) const;
 
   // Scans to the right of the provided cursor, looking for the presence of a
   // block end marker that brackets the cursor.
@@ -314,8 +336,8 @@ class Shadow {
   // @param cursor The position in shadow memory from which to start the scan.
   // @param location Will be set to the location of the end marker, if found.
   // @returns true on success, false otherwise.
-  static bool ScanRightForBracketingBlockEnd(
-      size_t initial_nesting_depth, size_t cursor, size_t* location);
+  bool ScanRightForBracketingBlockEnd(
+      size_t initial_nesting_depth, size_t cursor, size_t* location) const;
 
   // Inspects shadow memory to determine the layout of a block in memory.
   // @param initial_nesting_depth If zero then this will return the inner
@@ -324,18 +346,26 @@ class Shadow {
   // @param addr An address in the block to be inspected.
   // @param info The block information to be populated.
   // @returns true on success, false otherwise.
-  static bool BlockInfoFromShadowImpl(
-      size_t initial_nesting_depth, const void* addr, CompactBlockInfo* info);
+  bool BlockInfoFromShadowImpl(
+      size_t initial_nesting_depth,
+      const void* addr,
+      CompactBlockInfo* info) const;
 
-  // The shadow memory.
-  static uint8 shadow_[kShadowSize];
+  // If this is true then this shadow object owns the memory.
+  bool own_memory_;
+
+  // The actual shadow that is being referred to.
+  uint8* shadow_;
+
+  // The length of the underlying shadow.
+  size_t length_;
 
   // A lock under which page protection bits are modified.
-  static base::Lock page_bits_lock_;
+  base::Lock page_bits_lock_;
 
   // Data about which pages are protected. This changes relatively rarely, so
-  // is reasonable to synchronize.
-  static uint8 page_bits_[kPageBitsSize];  // Under page_bits_lock_.
+  // is reasonable to synchronize. Under page_bits_lock_.
+  std::vector<uint8> page_bits_;
 };
 
 // A helper class to walk over the blocks contained in a given memory region.
@@ -343,6 +373,7 @@ class Shadow {
 class ShadowWalker {
  public:
   // Constructor.
+  // @param shadow The shadow memory object to walk.
   // @param recursive If true then this will recursively descend into nested
   //     blocks. Otherwise it will only return the outermost blocks in the
   //     provided region.
@@ -350,7 +381,8 @@ class ShadowWalker {
   //     cover in the actual memory.
   // @param upper_bound The upper bound of the region that this walker should
   //     cover in the actual memory.
-  ShadowWalker(bool recursive,
+  ShadowWalker(const Shadow* shadow,
+               bool recursive,
                const void* lower_bound,
                const void* upper_bound);
 
@@ -367,6 +399,9 @@ class ShadowWalker {
   int nesting_depth() const { return nesting_depth_; }
 
  private:
+  // The shadow memory being walked.
+  const Shadow* shadow_;
+
   // Indicates whether or not the walker will descend recursively into nested
   // blocks.
   bool recursive_;
@@ -383,6 +418,24 @@ class ShadowWalker {
   int nesting_depth_;
 
   DISALLOW_COPY_AND_ASSIGN(ShadowWalker);
+};
+
+// An all-static class that stores a static copy of shadow memory.
+struct StaticShadow {
+  // One shadow byte for per group of kShadowRatio bytes in a 2G address space.
+  // NOTE: This is dependent on the process NOT being large address aware.
+  static const size_t kShadowSize = 1 << (31 - kShadowRatioLog);
+
+  // The upper bound of the addressable memory.
+  static const size_t kAddressUpperBound = kShadowSize << kShadowRatioLog;
+
+  // The static shadow memory. This will disappear once stubs are chosen at
+  // runtime.
+  static uint8 shadow_memory[kShadowSize];
+
+  // The static shadow object itself.
+  // TODO(chrisha): Use DI in the RTL to make this disappear.
+  static Shadow shadow;
 };
 
 // Bring in the implementation of the templated functions.

@@ -55,7 +55,8 @@ using testing::IsNotAccessible;
 typedef BlockHeapManager::HeapId HeapId;
 
 testing::DummyHeap dummy_heap;
-agent::asan::memory_notifiers::ShadowMemoryNotifier shadow_notifier;
+agent::asan::memory_notifiers::ShadowMemoryNotifier
+    shadow_notifier(&StaticShadow::shadow);
 
 // A fake ZebraBlockHeap to simplify unit testing.
 // Wrapper with switches to enable/disable the quarantine and accept/refuse
@@ -417,24 +418,24 @@ class BlockHeapManagerTest
   // [alloc - 1] and [alloc+size] are poisoned.
   void VerifyAllocAccess(void* alloc, size_t size) {
     uint8* mem = reinterpret_cast<uint8*>(alloc);
-    ASSERT_FALSE(Shadow::IsAccessible(mem - 1));
-    ASSERT_TRUE(Shadow::IsLeftRedzone(mem - 1));
+    ASSERT_FALSE(StaticShadow::shadow.IsAccessible(mem - 1));
+    ASSERT_TRUE(StaticShadow::shadow.IsLeftRedzone(mem - 1));
     for (size_t i = 0; i < size; ++i)
-      ASSERT_TRUE(Shadow::IsAccessible(mem + i));
-    ASSERT_FALSE(Shadow::IsAccessible(mem + size));
+      ASSERT_TRUE(StaticShadow::shadow.IsAccessible(mem + i));
+    ASSERT_FALSE(StaticShadow::shadow.IsAccessible(mem + size));
   }
 
   // Verifies that [alloc-1, alloc+size] is poisoned.
   void VerifyFreedAccess(void* alloc, size_t size) {
     uint8* mem = reinterpret_cast<uint8*>(alloc);
-    ASSERT_FALSE(Shadow::IsAccessible(mem - 1));
-    ASSERT_TRUE(Shadow::IsLeftRedzone(mem - 1));
+    ASSERT_FALSE(StaticShadow::shadow.IsAccessible(mem - 1));
+    ASSERT_TRUE(StaticShadow::shadow.IsLeftRedzone(mem - 1));
     for (size_t i = 0; i < size; ++i) {
-      ASSERT_FALSE(Shadow::IsAccessible(mem + i));
-      ASSERT_EQ(Shadow::GetShadowMarkerForAddress(mem + i),
+      ASSERT_FALSE(StaticShadow::shadow.IsAccessible(mem + i));
+      ASSERT_EQ(StaticShadow::shadow.GetShadowMarkerForAddress(mem + i),
                 kHeapFreedMarker);
     }
-    ASSERT_FALSE(Shadow::IsAccessible(mem + size));
+    ASSERT_FALSE(StaticShadow::shadow.IsAccessible(mem + size));
   }
 
  protected:
@@ -612,7 +613,7 @@ TEST_P(BlockHeapManagerTest, UnpoisonsQuarantine) {
   size_t shadow_start = mem_start >> 3;
   size_t shadow_alloc_size = real_alloc_size >> 3;
   for (size_t i = shadow_start; i < shadow_start + shadow_alloc_size; ++i)
-    ASSERT_NE(kHeapAddressableMarker, Shadow::shadow()[i]);
+    ASSERT_NE(kHeapAddressableMarker, StaticShadow::shadow.shadow()[i]);
 
   // Flush the quarantine.
   heap.FlushQuarantine();
@@ -621,9 +622,9 @@ TEST_P(BlockHeapManagerTest, UnpoisonsQuarantine) {
   for (size_t i = shadow_start; i < shadow_start + shadow_alloc_size; ++i) {
     if ((heap.GetHeapFeatures() &
          HeapInterface::kHeapReportsReservations) != 0) {
-      ASSERT_EQ(kAsanReservedMarker, Shadow::shadow()[i]);
+      ASSERT_EQ(kAsanReservedMarker, StaticShadow::shadow.shadow()[i]);
     } else {
-      ASSERT_EQ(kHeapAddressableMarker, Shadow::shadow()[i]);
+      ASSERT_EQ(kHeapAddressableMarker, StaticShadow::shadow.shadow()[i]);
     }
   }
 }
@@ -797,7 +798,7 @@ TEST_P(BlockHeapManagerTest, SetTrailerPaddingSize) {
     size_t offset = kAllocSize;
     for (; offset < augmented_alloc_size - sizeof(BlockHeader);
          ++offset) {
-      EXPECT_FALSE(Shadow::IsAccessible(
+      EXPECT_FALSE(StaticShadow::shadow.IsAccessible(
           reinterpret_cast<const uint8*>(mem) + offset));
     }
     ASSERT_TRUE(heap.Free(mem));
@@ -817,7 +818,7 @@ TEST_P(BlockHeapManagerTest, BlockChecksumUpdatedWhenEnterQuarantine) {
   void* mem = heap.Allocate(kAllocSize);
   ASSERT_NE(static_cast<void*>(nullptr), mem);
   BlockInfo block_info = {};
-  EXPECT_TRUE(Shadow::BlockInfoFromShadow(mem, &block_info));
+  EXPECT_TRUE(StaticShadow::shadow.BlockInfoFromShadow(mem, &block_info));
   EXPECT_TRUE(BlockChecksumIsValid(block_info));
   heap.Free(mem);
   EXPECT_TRUE(BlockChecksumIsValid(block_info));
@@ -1003,8 +1004,10 @@ TEST_P(BlockHeapManagerTest, SubsampledAllocationGuards) {
     void* alloc = heap.Allocate(alloc_size);
     EXPECT_NE(static_cast<void*>(nullptr), alloc);
 
-    for (size_t i = 0; i < alloc_size; ++i)
-      EXPECT_TRUE(Shadow::IsAccessible(reinterpret_cast<uint8*>(alloc) + i));
+    for (size_t i = 0; i < alloc_size; ++i) {
+      EXPECT_TRUE(StaticShadow::shadow.IsAccessible(
+          reinterpret_cast<uint8*>(alloc) + i));
+    }
 
     // Determine if the allocation has guards or not.
     BlockHeader* header = BlockGetHeaderFromBody(alloc);
@@ -1065,7 +1068,7 @@ TEST_P(BlockHeapManagerTest, ZebraHeapIdInTrailerAfterAllocation) {
 
   // Get the heap_id from the block trailer.
   BlockInfo block_info = {};
-  EXPECT_TRUE(Shadow::BlockInfoFromShadow(alloc, &block_info));
+  EXPECT_TRUE(StaticShadow::shadow.BlockInfoFromShadow(alloc, &block_info));
 
   {
     ScopedBlockAccess block_access(block_info);
@@ -1092,7 +1095,7 @@ TEST_P(BlockHeapManagerTest, DefaultHeapIdInTrailerWhenZebraHeapIsFull) {
 
   // Get the heap_id from the block trailer.
   BlockInfo block_info = {};
-  EXPECT_TRUE(Shadow::BlockInfoFromShadow(alloc, &block_info));
+  EXPECT_TRUE(StaticShadow::shadow.BlockInfoFromShadow(alloc, &block_info));
   {
     ScopedBlockAccess block_access(block_info);
     // The heap_id stored in the block trailer match the provided heap.
@@ -1194,7 +1197,7 @@ TEST_P(BlockHeapManagerTest, QuarantinedAfterFree) {
   // The block should be quarantined and poisoned.
   ASSERT_NO_FATAL_FAILURE(VerifyFreedAccess(alloc, kAllocSize));
   BlockInfo block_info = {};
-  EXPECT_TRUE(Shadow::BlockInfoFromShadow(alloc, &block_info));
+  EXPECT_TRUE(StaticShadow::shadow.BlockInfoFromShadow(alloc, &block_info));
 
   {
     ScopedBlockAccess block_access(block_info);
@@ -1242,12 +1245,12 @@ TEST_P(BlockHeapManagerTest, AllocatedBlockIsProtected) {
   ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
 
   BlockInfo block_info = {};
-  EXPECT_TRUE(Shadow::BlockInfoFromShadow(alloc, &block_info));
+  EXPECT_TRUE(StaticShadow::shadow.BlockInfoFromShadow(alloc, &block_info));
 
   // Test the block protections before being quarantined.
   // The whole block should be unpoisoned in the shadow memory.
   for (size_t i = 0; i < block_info.body_size; ++i)
-    EXPECT_TRUE(Shadow::IsAccessible(block_info.body + i));
+    EXPECT_TRUE(StaticShadow::shadow.IsAccessible(block_info.body + i));
 
   // Ensure that the block left redzone is page-protected.
   for (size_t i = 0; i < block_info.left_redzone_pages_size; ++i)
@@ -1282,7 +1285,7 @@ TEST_P(BlockHeapManagerTest, QuarantinedBlockIsProtected) {
     ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
 
     BlockInfo block_info = {};
-    EXPECT_TRUE(Shadow::BlockInfoFromShadow(alloc, &block_info));
+    EXPECT_TRUE(StaticShadow::shadow.BlockInfoFromShadow(alloc, &block_info));
 
     // The block is freed and quarantined.
     EXPECT_TRUE(heap.Free(alloc));
@@ -1290,7 +1293,7 @@ TEST_P(BlockHeapManagerTest, QuarantinedBlockIsProtected) {
     // Test the block protections after being quarantined.
     // The whole block should be poisoned in the shadow memory.
     for (size_t i = 0; i < block_info.body_size; ++i)
-      EXPECT_FALSE(Shadow::IsAccessible(block_info.body + i));
+      EXPECT_FALSE(StaticShadow::shadow.IsAccessible(block_info.body + i));
 
     // Ensure that the block left redzone is page-protected.
     for (size_t i = 0; i < block_info.left_redzone_pages_size; ++i)
@@ -1323,7 +1326,7 @@ TEST_P(BlockHeapManagerTest, NonQuarantinedBlockIsMarkedAsFreed) {
   ASSERT_NO_FATAL_FAILURE(VerifyAllocAccess(alloc, kAllocSize));
 
   BlockInfo block_info = {};
-  EXPECT_TRUE(Shadow::BlockInfoFromShadow(alloc, &block_info));
+  EXPECT_TRUE(StaticShadow::shadow.BlockInfoFromShadow(alloc, &block_info));
 
   // The block is freed but not quarantined.
   EXPECT_TRUE(heap.Free(alloc));
@@ -1331,8 +1334,9 @@ TEST_P(BlockHeapManagerTest, NonQuarantinedBlockIsMarkedAsFreed) {
   // The whole block should be unpoisoned in the shadow memory, and its
   // associated pages unprotected.
   for (size_t i = 0; i < block_info.block_size; ++i) {
-    ASSERT_NO_FATAL_FAILURE(Shadow::IsAccessible(block_info.block + i));
-    ASSERT_FALSE(Shadow::PageIsProtected(block_info.block + i));
+    ASSERT_NO_FATAL_FAILURE(StaticShadow::shadow.IsAccessible(
+        block_info.block + i));
+    ASSERT_FALSE(StaticShadow::shadow.PageIsProtected(block_info.block + i));
   }
 
   EXPECT_EQ(FREED_BLOCK, block_info.header->state);
@@ -1358,7 +1362,7 @@ TEST_P(BlockHeapManagerTest, ZebraBlockHeapQuarantineRatioIsRespected) {
     EXPECT_NE(static_cast<void*>(nullptr), alloc);
 
     BlockInfo block_info = {};
-    EXPECT_TRUE(Shadow::BlockInfoFromShadow(alloc, &block_info));
+    EXPECT_TRUE(StaticShadow::shadow.BlockInfoFromShadow(alloc, &block_info));
     EXPECT_TRUE(heap.Free(alloc));
 
     // After Free the quarantine should be trimmed, enforcing the quarantine
@@ -1391,7 +1395,7 @@ TEST_P(BlockHeapManagerTest, LargeBlockHeapUsedForLargeAllocations) {
 
   // Get the heap_id from the block trailer.
   BlockInfo block_info = {};
-  EXPECT_TRUE(Shadow::BlockInfoFromShadow(alloc, &block_info));
+  EXPECT_TRUE(StaticShadow::shadow.BlockInfoFromShadow(alloc, &block_info));
 
   {
     ScopedBlockAccess block_access(block_info);
@@ -1416,7 +1420,7 @@ TEST_P(BlockHeapManagerTest, LargeBlockHeapNotUsedForSmallAllocations) {
 
   // Get the heap_id from the block trailer.
   BlockInfo block_info = {};
-  EXPECT_TRUE(Shadow::BlockInfoFromShadow(alloc, &block_info));
+  EXPECT_TRUE(StaticShadow::shadow.BlockInfoFromShadow(alloc, &block_info));
 
   {
     ScopedBlockAccess block_access(block_info);
@@ -1569,8 +1573,10 @@ bool ShadowIsConsistentPostAlloc(const void* alloc, size_t size) {
   index >>= kShadowRatioLog;
   uintptr_t index_end = index + (size >> kShadowRatioLog);
   for (size_t i = index; i < index_end; ++i) {
-    if (Shadow::shadow()[i] != ShadowMarker::kHeapAddressableMarker)
+    if (StaticShadow::shadow.shadow()[i] !=
+            ShadowMarker::kHeapAddressableMarker) {
       return false;
+    }
   }
   return true;
 }
@@ -1580,7 +1586,7 @@ bool ShadowIsConsistentPostFree(const void* alloc, size_t size) {
   index >>= kShadowRatioLog;
   uintptr_t index_end = index + (size >> kShadowRatioLog);
 
-  uint8 m = Shadow::shadow()[index];
+  uint8 m = StaticShadow::shadow.shadow()[index];
   if (m != ShadowMarker::kHeapAddressableMarker &&
       m != ShadowMarker::kAsanReservedMarker &&
       m != ShadowMarker::kHeapFreedMarker) {
@@ -1595,25 +1601,36 @@ bool ShadowIsConsistentPostFree(const void* alloc, size_t size) {
     return false;
 
   for (size_t i = index; i < index_end; ++i) {
-    if (Shadow::shadow()[index] != m)
+    if (StaticShadow::shadow.shadow()[index] != m)
       return false;
   }
   return true;
 }
 
-class TestShadow : public Shadow {
+class BlockHeapManagerIntegrationTest : public testing::Test {
  public:
-  using Shadow::Reset;
+  BlockHeapManagerIntegrationTest()
+      : shadow_(shadow_data_, arraysize(shadow_data_)) {
+  }
+
+  virtual void SetUp() override {
+    shadow_.SetUp();
+    ASSERT_TRUE(shadow_.IsClean());
+  }
+
+  virtual void TearDown() override {
+    ASSERT_TRUE(shadow_.IsClean());
+    shadow_.TearDown();
+  }
+
+  uint8 shadow_data_[StaticShadow::kShadowSize];
+  Shadow shadow_;
 };
 
 }  // namespace
 
 // A stress test of the CtMalloc heap integration.
 TEST(BlockHeapManagerIntegrationTest, CtMallocStressTest) {
-  TestShadow::Reset();
-  TestShadow::SetUp();
-  ASSERT_TRUE(TestShadow::IsClean());
-
   // Set up a configuration that disables most features, but specifically
   // enables CtMalloc. We also enable mixed allocation guards to increase
   // the complexity.
@@ -1717,9 +1734,6 @@ TEST(BlockHeapManagerIntegrationTest, CtMallocStressTest) {
   // Force everything to be cleaned up.
   bhm.reset();
   scc.reset();
-
-  // Ensure that the shadow memory has been completely cleaned up.
-  ASSERT_TRUE(TestShadow::IsClean());
 }
 
 }  // namespace heap_managers

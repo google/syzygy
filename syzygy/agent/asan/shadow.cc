@@ -14,59 +14,127 @@
 
 #include "syzygy/agent/asan/shadow.h"
 
+#include <windows.h>
 #include <algorithm>
 
 #include "base/strings/stringprintf.h"
+#include "base/win/pe_image.h"
 #include "syzygy/common/align.h"
 
 namespace agent {
 namespace asan {
 
-uint8 Shadow::shadow_[kShadowSize] = {};
-uint8 Shadow::page_bits_[kPageBitsSize] = {};
-base::Lock Shadow::page_bits_lock_;
+namespace {
+
+static const size_t kPageSize = GetPageSize();
+
+// Converts an address to a page index and bit mask.
+inline void AddressToPageMask(const void* address,
+                              size_t* index,
+                              uint8* mask) {
+  DCHECK_NE(static_cast<size_t*>(nullptr), index);
+  DCHECK_NE(static_cast<uint8*>(nullptr), mask);
+
+  size_t i = reinterpret_cast<uintptr_t>(address) / kPageSize;
+  *index = i / 8;
+  *mask = 1 << (i % 8);
+}
+
+}  // namespace
+
+// The RTL wide static shadow. These will disappear when runtime chosen
+// instrumentation stubs are available, and we move to a DI approach.
+uint8 StaticShadow::shadow_memory[kShadowSize] = {};
+Shadow StaticShadow::shadow(shadow_memory, kShadowSize);
+
+Shadow::Shadow() : own_memory_(false), shadow_(nullptr), length_(0) {
+  MEMORYSTATUSEX mem_status = {};
+  CHECK(::GlobalMemoryStatusEx(&mem_status));
+
+  // Because of the way the interceptors work we only support 2GB or 4GB
+  // virtual memory sizes, even if the actual is 3GB (32-bit windows, LAA,
+  // and 4GT kernel option enabled).
+  uint64 mem_size = ::common::AlignUp64(
+      mem_status.ullTotalVirtual,
+      2 << 30);  // 2GB.
+
+  Init(mem_size >> kShadowRatioLog);
+}
+
+Shadow::Shadow(size_t length)
+    : own_memory_(false), shadow_(nullptr), length_(0) {
+  Init(length);
+}
+
+Shadow::Shadow(void* shadow, size_t length)
+    : own_memory_(false), shadow_(nullptr), length_(0) {
+  Init(false, shadow, length);
+}
+
+Shadow::~Shadow() {
+  if (own_memory_)
+    CHECK(::VirtualFree(shadow_, 0, MEM_RELEASE));
+  own_memory_ = false;
+  shadow_ = nullptr;
+  length_ = 0;
+}
 
 void Shadow::SetUp() {
+  // Poison the shadow object itself.
+  // TODO(chrisha): Lift this to something that derived classes can do.
+  Poison(this,
+         ::common::AlignUp(sizeof(*this), kShadowRatio),
+         kAsanMemoryMarker);
   // Poison the shadow memory.
-  Poison(shadow_, kShadowSize, kAsanMemoryMarker);
+  Poison(shadow_, length_, kAsanMemoryMarker);
   // Poison the first 64k of the memory as they're not addressable.
   Poison(0, kAddressLowerBound, kInvalidAddressMarker);
   // Poison the protection bits array.
-  Poison(page_bits_, kPageBitsSize, kAsanMemoryMarker);
+  Poison(page_bits_.data(), page_bits_.size(), kAsanMemoryMarker);
 }
 
 void Shadow::TearDown() {
+  // Poison the shadow object itself.
+  // TODO(chrisha): Lift this to something that derived classes can do.
+  Unpoison(this, ::common::AlignUp(sizeof(*this), kShadowRatio));
   // Unpoison the shadow memory.
-  Unpoison(shadow_, kShadowSize);
+  Unpoison(shadow_, length_);
   // Unpoison the first 64k of the memory.
   Unpoison(0, kAddressLowerBound);
   // Unpoison the protection bits array.
-  Unpoison(page_bits_, kPageBitsSize);
+  Unpoison(page_bits_.data(), page_bits_.size());
 }
 
 bool Shadow::IsClean() {
-  static const size_t kInnacEnd = kAddressLowerBound >> kShadowRatioLog;
+  const size_t innac_end = kAddressLowerBound >> kShadowRatioLog;
 
-  static const size_t kShadowBegin =
+  const size_t shadow_begin =
       reinterpret_cast<uintptr_t>(shadow_) >> kShadowRatioLog;
-  static const size_t kShadowEnd =
-      reinterpret_cast<uintptr_t>(shadow_ + kShadowSize) >> kShadowRatioLog;
+  const size_t shadow_end =
+      reinterpret_cast<uintptr_t>(shadow_ + length_) >> kShadowRatioLog;
 
-  static const size_t kPageBitsBegin =
-      reinterpret_cast<uintptr_t>(page_bits_) >> kShadowRatioLog;
-  static const size_t kPageBitsEnd =
-      reinterpret_cast<uintptr_t>(page_bits_ + kPageBitsSize) >>
+  const size_t page_bits_begin =
+      reinterpret_cast<uintptr_t>(page_bits_.data()) >> kShadowRatioLog;
+  const size_t page_bits_end =
+      reinterpret_cast<uintptr_t>(page_bits_.data() + page_bits_.size()) >>
+          kShadowRatioLog;
+
+  const size_t this_begin =
+      reinterpret_cast<uintptr_t>(this) >> kShadowRatioLog;
+  const size_t this_end =
+      (reinterpret_cast<uintptr_t>(this) + sizeof(*this) + kShadowRatio - 1) >>
           kShadowRatioLog;
 
   size_t i = 0;
-  for (; i < kInnacEnd; ++i) {
+  for (; i < innac_end; ++i) {
     if (shadow_[i] != kInvalidAddressMarker)
       return false;
   }
 
-  for (; i < kShadowSize; ++i) {
-    if ((i >= kShadowBegin && i < kShadowEnd) ||
-        (i >= kPageBitsBegin && i < kPageBitsEnd)) {
+  for (; i < length_; ++i) {
+    if ((i >= shadow_begin && i < shadow_end) ||
+        (i >= page_bits_begin && i < page_bits_end) ||
+        (i >= this_begin && i < this_end)) {
       if (shadow_[i] != kAsanMemoryMarker)
         return false;
     } else {
@@ -78,9 +146,34 @@ bool Shadow::IsClean() {
   return true;
 }
 
+void Shadow::Init(size_t length) {
+  DCHECK_LT(0u, length);
+
+  void* mem = ::VirtualAlloc(nullptr, length, MEM_COMMIT, PAGE_READWRITE);
+  DCHECK_NE(static_cast<void*>(nullptr), mem);
+  Init(true, mem, length);
+}
+
+void Shadow::Init(bool own_memory, void* shadow, size_t length) {
+  DCHECK_LT(0u, length);
+  DCHECK_NE(static_cast<uint8*>(nullptr), shadow);
+  DCHECK(::common::IsAligned(shadow, kShadowRatio));
+
+  own_memory_ = own_memory;
+  shadow_ = reinterpret_cast<uint8*>(shadow);
+  length_ = length;
+
+  // Initialize the page bits array.
+  uint64 memory_size = static_cast<uint64>(length) << kShadowRatioLog;
+  DCHECK_EQ(0u, memory_size % kPageSize);
+  size_t page_count = memory_size / kPageSize;
+  size_t page_bytes = page_count / 8;
+  page_bits_.resize(page_bytes);
+}
+
 void Shadow::Reset() {
-  ::memset(shadow_, 0, kShadowSize);
-  ::memset(page_bits_, 0, kPageBitsSize);
+  ::memset(shadow_, 0, length_);
+  ::memset(page_bits_.data(), 0, page_bits_.size());
 }
 
 void Shadow::Poison(const void* addr, size_t size, ShadowMarker shadow_val) {
@@ -93,7 +186,7 @@ void Shadow::Poison(const void* addr, size_t size, ShadowMarker shadow_val) {
     shadow_[index++] = start;
 
   size >>= kShadowRatioLog;
-  DCHECK_GT(arraysize(shadow_), index + size);
+  DCHECK_GT(length_, index + size);
   ::memset(shadow_ + index, shadow_val, size);
 }
 
@@ -104,7 +197,7 @@ void Shadow::Unpoison(const void* addr, size_t size) {
   uint8 remainder = size & (kShadowRatio - 1);
   index >>= kShadowRatioLog;
   size >>= kShadowRatioLog;
-  DCHECK_GT(arraysize(shadow_), index + size);
+  DCHECK_GT(length_, index + size);
   ::memset(shadow_ + index, kHeapAddressableMarker, size);
 
   if (remainder != 0)
@@ -185,8 +278,8 @@ void Shadow::MarkAsFreed(const void* addr, size_t size) {
   size_t index = reinterpret_cast<uintptr_t>(addr) / kShadowRatio;
   size_t length = (size + kShadowRatio - 1) / kShadowRatio;
 
-  DCHECK_LE(index, kShadowSize);
-  DCHECK_LE(index + length, kShadowSize);
+  DCHECK_LE(index, length_);
+  DCHECK_LE(index + length, length_);
 
   uint8* cursor = shadow_ + index;
   uint8* cursor_end = static_cast<uint8*>(cursor) + length;
@@ -196,13 +289,13 @@ void Shadow::MarkAsFreed(const void* addr, size_t size) {
   MarkAsFreedImpl64(cursor, cursor_end);
 }
 
-bool Shadow::IsAccessible(const void* addr) {
+bool Shadow::IsAccessible(const void* addr) const {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
   uintptr_t start = index & 0x7;
 
-  index >>= 3;
+  index >>= kShadowRatioLog;
 
-  DCHECK_GT(arraysize(shadow_), index);
+  DCHECK_GT(length_, index);
   uint8 shadow = shadow_[index];
   if (shadow == 0)
     return true;
@@ -213,18 +306,18 @@ bool Shadow::IsAccessible(const void* addr) {
   return start < shadow;
 }
 
-bool Shadow::IsLeftRedzone(const void* address) {
+bool Shadow::IsLeftRedzone(const void* address) const {
   return ShadowMarkerHelper::IsActiveLeftRedzone(
       GetShadowMarkerForAddress(address));
 }
 
-bool Shadow::IsRightRedzone(const void* address) {
+bool Shadow::IsRightRedzone(const void* address) const {
   uintptr_t index = reinterpret_cast<uintptr_t>(address);
   uintptr_t start = index & 0x7;
 
-  index >>= 3;
+  index >>= kShadowRatioLog;
 
-  DCHECK_GT(arraysize(shadow_), index);
+  DCHECK_GT(length_, index);
   uint8 marker = shadow_[index];
 
   // If the marker is for accessible memory then some addresses may be part
@@ -233,7 +326,7 @@ bool Shadow::IsRightRedzone(const void* address) {
   if (marker == 0)
     return false;
   if (marker <= kHeapPartiallyAddressableByte7) {
-    if (index == arraysize(shadow_))
+    if (index == length_)
       return false;
     if (!ShadowMarkerHelper::IsActiveRightRedzone(shadow_[index + 1]))
       return false;
@@ -244,13 +337,13 @@ bool Shadow::IsRightRedzone(const void* address) {
   return ShadowMarkerHelper::IsActiveRightRedzone(marker);
 }
 
-bool Shadow::IsBlockStartByte(const void* address) {
+bool Shadow::IsBlockStartByte(const void* address) const {
   uintptr_t index = reinterpret_cast<uintptr_t>(address);
   uintptr_t start = index & 0x7;
 
-  index >>= 3;
+  index >>= kShadowRatioLog;
 
-  DCHECK_GT(arraysize(shadow_), index);
+  DCHECK_GT(length_, index);
   uint8 marker = shadow_[index];
 
   if (start != 0)
@@ -261,11 +354,11 @@ bool Shadow::IsBlockStartByte(const void* address) {
   return true;
 }
 
-ShadowMarker Shadow::GetShadowMarkerForAddress(const void* addr) {
+ShadowMarker Shadow::GetShadowMarkerForAddress(const void* addr) const {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
-  index >>= 3;
+  index >>= kShadowRatioLog;
 
-  DCHECK_GT(arraysize(shadow_), index);
+  DCHECK_GT(length_, index);
   return static_cast<ShadowMarker>(shadow_[index]);
 }
 
@@ -314,13 +407,14 @@ void Shadow::PoisonAllocatedBlock(const BlockInfo& info) {
   ::memset(cursor + right_redzone_bytes - 1, trailer_marker, 1);
 }
 
-bool Shadow::BlockIsNested(const BlockInfo& info) {
+bool Shadow::BlockIsNested(const BlockInfo& info) const {
   uint8 marker = GetShadowMarkerForAddress(info.block);
   DCHECK(ShadowMarkerHelper::IsActiveBlockStart(marker));
   return ShadowMarkerHelper::IsNestedBlockStart(marker);
 }
 
-bool Shadow::BlockInfoFromShadow(const void* addr, CompactBlockInfo* info) {
+bool Shadow::BlockInfoFromShadow(
+    const void* addr, CompactBlockInfo* info) const {
   DCHECK_NE(static_cast<void*>(NULL), addr);
   DCHECK_NE(static_cast<CompactBlockInfo*>(NULL), info);
   if (!BlockInfoFromShadowImpl(0, addr, info))
@@ -328,7 +422,7 @@ bool Shadow::BlockInfoFromShadow(const void* addr, CompactBlockInfo* info) {
   return true;
 }
 
-bool Shadow::BlockInfoFromShadow(const void* addr, BlockInfo* info) {
+bool Shadow::BlockInfoFromShadow(const void* addr, BlockInfo* info) const {
   DCHECK_NE(static_cast<void*>(NULL), addr);
   DCHECK_NE(static_cast<BlockInfo*>(NULL), info);
   CompactBlockInfo compact = {};
@@ -339,7 +433,7 @@ bool Shadow::BlockInfoFromShadow(const void* addr, BlockInfo* info) {
 }
 
 bool Shadow::ParentBlockInfoFromShadow(const BlockInfo& nested,
-                                       BlockInfo* info) {
+                                       BlockInfo* info) const {
   DCHECK_NE(static_cast<BlockInfo*>(NULL), info);
   if (!BlockIsNested(nested))
     return false;
@@ -350,7 +444,7 @@ bool Shadow::ParentBlockInfoFromShadow(const BlockInfo& nested,
   return true;
 }
 
-bool Shadow::IsBeginningOfBlockBody(const void* addr) {
+bool Shadow::IsBeginningOfBlockBody(const void* addr) const {
   DCHECK_NE(static_cast<void*>(NULL), addr);
   // If the block has a non-zero body size then the beginning of the body will
   // be accessible or tagged as freed.
@@ -363,25 +457,7 @@ bool Shadow::IsBeginningOfBlockBody(const void* addr) {
   return false;
 }
 
-namespace {
-
-static const size_t kPageSize = GetPageSize();
-
-// Converts an address to a page index and bit mask.
-inline void AddressToPageMask(const void* address,
-                              size_t* index,
-                              uint8* mask) {
-  DCHECK_NE(static_cast<size_t*>(nullptr), index);
-  DCHECK_NE(static_cast<uint8*>(nullptr), mask);
-
-  size_t i = reinterpret_cast<uintptr_t>(address) / kPageSize;
-  *index = i / 8;
-  *mask = 1 << (i % 8);
-}
-
-}  // namespace
-
-bool Shadow::PageIsProtected(const void* addr) {
+bool Shadow::PageIsProtected(const void* addr) const {
   // Since the page bit is read very frequently this is not performed
   // under a lock. The values change quite rarely, so this will almost always
   // be correct. However, consumers of this knowledge have to be robust to
@@ -446,13 +522,13 @@ void Shadow::CloneShadowRange(const void* src_pointer,
 
   uintptr_t src_index = reinterpret_cast<uintptr_t>(src_pointer);
   DCHECK_EQ(0U, src_index & 0x7);
-  src_index >>= 3;
+  src_index >>= kShadowRatioLog;
 
   uintptr_t dst_index = reinterpret_cast<uintptr_t>(dst_pointer);
   DCHECK_EQ(0U, dst_index & 0x7);
-  dst_index >>= 3;
+  dst_index >>= kShadowRatioLog;
 
-  size_t size_shadow = size >> 3;
+  size_t size_shadow = size >> kShadowRatioLog;
 
   memcpy(shadow_ + dst_index, shadow_ + src_index, size_shadow);
 }
@@ -460,9 +536,12 @@ void Shadow::CloneShadowRange(const void* src_pointer,
 void Shadow::AppendShadowByteText(const char *prefix,
                                   uintptr_t index,
                                   std::string* output,
-                                  size_t bug_index) {
+                                  size_t bug_index) const {
   base::StringAppendF(
-      output, "%s0x%08x:", prefix, reinterpret_cast<void*>(index << 3));
+      output,
+      "%s0x%08x:",
+      prefix,
+      reinterpret_cast<void*>(index << kShadowRatioLog));
   char separator = ' ';
   for (uint32 i = 0; i < kShadowBytesPerLine; i++) {
     if (index + i == bug_index)
@@ -480,9 +559,10 @@ void Shadow::AppendShadowByteText(const char *prefix,
   base::StringAppendF(output, "\n");
 }
 
-void Shadow::AppendShadowArrayText(const void* addr, std::string* output) {
+void Shadow::AppendShadowArrayText(
+    const void* addr, std::string* output) const {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
-  index >>= 3;
+  index >>= kShadowRatioLog;
   size_t index_start = index;
   index_start /= kShadowBytesPerLine;
   index_start *= kShadowBytesPerLine;
@@ -494,7 +574,8 @@ void Shadow::AppendShadowArrayText(const void* addr, std::string* output) {
   }
 }
 
-void Shadow::AppendShadowMemoryText(const void* addr, std::string* output) {
+void Shadow::AppendShadowMemoryText(
+    const void* addr, std::string* output) const {
   base::StringAppendF(output, "Shadow bytes around the buggy address:\n");
   AppendShadowArrayText(addr, output);
   base::StringAppendF(output, "Shadow byte legend (one shadow byte represents "
@@ -526,7 +607,7 @@ void Shadow::AppendShadowMemoryText(const void* addr, std::string* output) {
                       kHeapFreedMarker);
 }
 
-size_t Shadow::GetAllocSize(const uint8* mem) {
+size_t Shadow::GetAllocSize(const uint8* mem) const {
   BlockInfo block_info = {};
   if (!Shadow::BlockInfoFromShadow(mem, &block_info))
     return 0;
@@ -534,7 +615,7 @@ size_t Shadow::GetAllocSize(const uint8* mem) {
 }
 
 bool Shadow::ScanLeftForBracketingBlockStart(
-    size_t initial_nesting_depth, size_t cursor, size_t* location) {
+    size_t initial_nesting_depth, size_t cursor, size_t* location) const {
   DCHECK_NE(static_cast<size_t*>(NULL), location);
 
   static const size_t kLowerBound = kAddressLowerBound / kShadowRatio;
@@ -654,9 +735,9 @@ inline const uint8* ScanRightForPotentialHeaderBytes(
 }  // namespace
 
 bool Shadow::ScanRightForBracketingBlockEnd(
-    size_t initial_nesting_depth, size_t cursor, size_t* location) {
+    size_t initial_nesting_depth, size_t cursor, size_t* location) const {
   DCHECK_NE(static_cast<size_t*>(NULL), location);
-  static const uint8* kShadowEnd = Shadow::shadow_ + Shadow::kShadowSize;
+  static const uint8* kShadowEnd = shadow_ + length_;
 
   const uint8* pos = shadow_ + cursor;
   int nesting_depth = static_cast<int>(initial_nesting_depth);
@@ -696,7 +777,9 @@ bool Shadow::ScanRightForBracketingBlockEnd(
 }
 
 bool Shadow::BlockInfoFromShadowImpl(
-    size_t initial_nesting_depth, const void* addr, CompactBlockInfo* info) {
+    size_t initial_nesting_depth,
+    const void* addr,
+    CompactBlockInfo* info) const {
   DCHECK_NE(static_cast<void*>(NULL), addr);
   DCHECK_NE(static_cast<CompactBlockInfo*>(NULL), info);
 
@@ -742,12 +825,15 @@ bool Shadow::BlockInfoFromShadowImpl(
   return true;
 }
 
-ShadowWalker::ShadowWalker(
-    bool recursive, const void* lower_bound, const void* upper_bound)
-    : recursive_(recursive), lower_bound_(0), upper_bound_(0), cursor_(0),
-      nesting_depth_(0) {
+ShadowWalker::ShadowWalker(const Shadow* shadow,
+                           bool recursive,
+                           const void* lower_bound,
+                           const void* upper_bound)
+    : shadow_(shadow), recursive_(recursive), lower_bound_(0), upper_bound_(0),
+      cursor_(0), nesting_depth_(0) {
+  DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   DCHECK_LE(Shadow::kAddressLowerBound, reinterpret_cast<size_t>(lower_bound));
-  DCHECK_GE(Shadow::kAddressUpperBound, reinterpret_cast<size_t>(upper_bound));
+  DCHECK_GE(shadow->memory_size(), reinterpret_cast<size_t>(upper_bound));
   DCHECK_LE(lower_bound, upper_bound);
 
   lower_bound_ = ::common::AlignDown(
@@ -763,7 +849,7 @@ void ShadowWalker::Reset() {
   nesting_depth_ = -1;
   for (cursor_ = lower_bound_; cursor_ != upper_bound_;
        cursor_ += kShadowRatio) {
-    uint8 marker = Shadow::GetShadowMarkerForAddress(cursor_);
+    uint8 marker = shadow_->GetShadowMarkerForAddress(cursor_);
     if (ShadowMarkerHelper::IsBlockStart(marker) &&
         !ShadowMarkerHelper::IsNestedBlockStart(marker)) {
       break;
@@ -776,7 +862,7 @@ bool ShadowWalker::Next(BlockInfo* info) {
 
   // Iterate until a reportable block is encountered, or the slab is exhausted.
   for (; cursor_ != upper_bound_; cursor_ += kShadowRatio) {
-    uint8 marker = Shadow::GetShadowMarkerForAddress(cursor_);
+    uint8 marker = shadow_->GetShadowMarkerForAddress(cursor_);
 
     // Update the nesting depth when block end markers are encountered.
     if (ShadowMarkerHelper::IsBlockEnd(marker)) {
@@ -797,7 +883,7 @@ bool ShadowWalker::Next(BlockInfo* info) {
       // Determine if the block is to be reported.
       if (!is_nested || recursive_) {
         // This can only fail if the shadow memory is malformed.
-        CHECK(Shadow::BlockInfoFromShadow(cursor_, info));
+        CHECK(shadow_->BlockInfoFromShadow(cursor_, info));
 
         // In a recursive descent we have to process body contents.
         if (recursive_) {

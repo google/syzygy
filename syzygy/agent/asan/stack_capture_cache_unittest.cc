@@ -329,9 +329,9 @@ TEST_F(StackCaptureCacheTest, CachePagesArePoisoned) {
   scoped_ptr<TestStackCaptureCache::CachePage> page(
       new TestStackCaptureCache::CachePage(NULL));
   void* cache_page_ptr = reinterpret_cast<void*>(page.get());
-  EXPECT_FALSE(Shadow::IsAccessible(cache_page_ptr));
+  EXPECT_FALSE(StaticShadow::shadow.IsAccessible(cache_page_ptr));
   page.reset(NULL);
-  EXPECT_TRUE(Shadow::IsAccessible(cache_page_ptr));
+  EXPECT_TRUE(StaticShadow::shadow.IsAccessible(cache_page_ptr));
 }
 
 TEST_F(StackCaptureCacheTest, StackCapturePointerIsValid) {

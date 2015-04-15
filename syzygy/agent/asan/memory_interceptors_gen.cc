@@ -83,7 +83,7 @@ void asan_check_1_byte_read_access() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -156,7 +156,7 @@ void asan_check_1_byte_write_access() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -229,7 +229,7 @@ void asan_check_2_byte_read_access() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -302,7 +302,7 @@ void asan_check_2_byte_write_access() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -375,7 +375,7 @@ void asan_check_4_byte_read_access() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -448,7 +448,7 @@ void asan_check_4_byte_write_access() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -521,7 +521,7 @@ void asan_check_8_byte_read_access() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -594,7 +594,7 @@ void asan_check_8_byte_write_access() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -667,7 +667,7 @@ void asan_check_10_byte_read_access() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -740,7 +740,7 @@ void asan_check_10_byte_write_access() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -813,7 +813,7 @@ void asan_check_16_byte_read_access() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -886,7 +886,7 @@ void asan_check_16_byte_write_access() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -959,7 +959,7 @@ void asan_check_32_byte_read_access() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -1032,7 +1032,7 @@ void asan_check_32_byte_write_access() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -1101,7 +1101,7 @@ void asan_check_1_byte_read_access_no_flags() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -1158,7 +1158,7 @@ void asan_check_1_byte_write_access_no_flags() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -1215,7 +1215,7 @@ void asan_check_2_byte_read_access_no_flags() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -1272,7 +1272,7 @@ void asan_check_2_byte_write_access_no_flags() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -1329,7 +1329,7 @@ void asan_check_4_byte_read_access_no_flags() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -1386,7 +1386,7 @@ void asan_check_4_byte_write_access_no_flags() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -1443,7 +1443,7 @@ void asan_check_8_byte_read_access_no_flags() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -1500,7 +1500,7 @@ void asan_check_8_byte_write_access_no_flags() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -1557,7 +1557,7 @@ void asan_check_10_byte_read_access_no_flags() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -1614,7 +1614,7 @@ void asan_check_10_byte_write_access_no_flags() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -1671,7 +1671,7 @@ void asan_check_16_byte_read_access_no_flags() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -1728,7 +1728,7 @@ void asan_check_16_byte_write_access_no_flags() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -1785,7 +1785,7 @@ void asan_check_32_byte_read_access_no_flags() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4
@@ -1842,7 +1842,7 @@ void asan_check_32_byte_write_access_no_flags() {
     push edx
     sar edx, 3
     js report_failure
-    movzx edx, BYTE PTR[edx + Shadow::shadow_]
+    movzx edx, BYTE PTR[edx + agent::asan::StaticShadow::shadow_memory]
     cmp dl, 0
     jnz check_access_slow
     add esp, 4

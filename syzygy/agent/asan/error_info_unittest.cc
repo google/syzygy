@@ -97,7 +97,7 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
   BlockInitialize(inner_block_layout, fake_block.block_info.body, true,
       &inner_block_info);
   ASSERT_NE(reinterpret_cast<void*>(NULL), inner_block_info.body);
-  Shadow::PoisonAllocatedBlock(inner_block_info);
+  StaticShadow::shadow.PoisonAllocatedBlock(inner_block_info);
   inner_block_info.header->alloc_stack =
       runtime_->stack_cache()->SaveStackTrace(stack);
   BlockHeader* inner_header = inner_block_info.header;

@@ -44,7 +44,7 @@ typedef agent::asan::HeapManagerInterface::HeapId HeapId;
 using agent::asan::BlockHeader;
 using agent::asan::BlockInfo;
 using agent::asan::BlockLayout;
-using agent::asan::Shadow;
+using agent::asan::StaticShadow;
 using agent::common::StackCapture;
 
 }  // namespace
@@ -303,7 +303,7 @@ FakeAsanBlock::FakeAsanBlock(size_t alloc_alignment_log,
 
 FakeAsanBlock::~FakeAsanBlock() {
   EXPECT_NE(0U, block_info.block_size);
-  Shadow::Unpoison(buffer_align_begin, block_info.block_size);
+  StaticShadow::shadow.Unpoison(buffer_align_begin, block_info.block_size);
   ::memset(buffer, 0, sizeof(buffer));
 }
 
@@ -324,7 +324,7 @@ bool FakeAsanBlock::InitializeBlock(size_t alloc_size) {
   stack.InitFromStack();
   block_info.header->alloc_stack = stack_cache->SaveStackTrace(stack);
 
-  Shadow::PoisonAllocatedBlock(block_info);
+  StaticShadow::shadow.PoisonAllocatedBlock(block_info);
   BlockSetChecksum(block_info);
 
   // Calculate the size of the zone of the buffer that we use to ensure that
@@ -354,26 +354,26 @@ bool FakeAsanBlock::InitializeBlock(size_t alloc_size) {
   // Ensure that the buffer header is accessible and correctly tagged.
   for (; i < buffer_header_size; ++i) {
     EXPECT_EQ(kBufferHeaderValue, buffer[i]);
-    EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
+    EXPECT_TRUE(StaticShadow::shadow.IsAccessible(buffer + i));
   }
   size_t user_block_offset = block_info.body - buffer;
   // Ensure that the block header isn't accessible.
   for (; i < user_block_offset; ++i)
-    EXPECT_FALSE(Shadow::IsAccessible(buffer + i));
+    EXPECT_FALSE(StaticShadow::shadow.IsAccessible(buffer + i));
 
   // Ensure that the user block is accessible.
   size_t block_trailer_offset = i + alloc_size;
   for (; i < block_trailer_offset; ++i)
-    EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
+    EXPECT_TRUE(StaticShadow::shadow.IsAccessible(buffer + i));
 
   // Ensure that the block trailer isn't accessible.
   for (; i < buffer_header_size + block_info.block_size; ++i)
-    EXPECT_FALSE(Shadow::IsAccessible(buffer + i));
+    EXPECT_FALSE(StaticShadow::shadow.IsAccessible(buffer + i));
 
   // Ensure that the buffer trailer is accessible and correctly tagged.
   for (; i < kBufferSize; ++i) {
     EXPECT_EQ(kBufferTrailerValue, buffer[i]);
-    EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
+    EXPECT_TRUE(StaticShadow::shadow.IsAccessible(buffer + i));
   }
 
   is_initialized = true;
@@ -394,9 +394,9 @@ bool FakeAsanBlock::TestBlockMetadata() {
   EXPECT_EQ(::GetCurrentThreadId(), block_info.trailer->alloc_tid);
   EXPECT_TRUE(block_header->alloc_stack != NULL);
   EXPECT_EQ(agent::asan::ALLOCATED_BLOCK, block_header->state);
-  EXPECT_TRUE(Shadow::IsBlockStartByte(cursor++));
+  EXPECT_TRUE(StaticShadow::shadow.IsBlockStartByte(cursor++));
   for (; cursor < block_info.body; ++cursor)
-    EXPECT_TRUE(Shadow::IsLeftRedzone(cursor));
+    EXPECT_TRUE(StaticShadow::shadow.IsLeftRedzone(cursor));
   const uint8* aligned_trailer_begin = reinterpret_cast<const uint8*>(
       common::AlignUp(reinterpret_cast<size_t>(block_info.body) +
           block_info.body_size,
@@ -404,7 +404,7 @@ bool FakeAsanBlock::TestBlockMetadata() {
   for (const uint8* pos = aligned_trailer_begin;
        pos < buffer_align_begin + block_info.block_size;
        ++pos) {
-    EXPECT_TRUE(Shadow::IsRightRedzone(pos));
+    EXPECT_TRUE(StaticShadow::shadow.IsRightRedzone(pos));
   }
 
   return true;
@@ -419,7 +419,7 @@ bool FakeAsanBlock::MarkBlockAsQuarantined() {
   EXPECT_TRUE(block_info.trailer != NULL);
   EXPECT_EQ(0U, block_info.trailer->free_tid);
 
-  Shadow::MarkAsFreed(block_info.body, block_info.body_size);
+  StaticShadow::shadow.MarkAsFreed(block_info.body, block_info.body_size);
   StackCapture stack;
   stack.InitFromStack();
   block_info.header->free_stack = stack_cache->SaveStackTrace(stack);
@@ -432,16 +432,16 @@ bool FakeAsanBlock::MarkBlockAsQuarantined() {
   // Ensure that the buffer header is accessible and correctly tagged.
   for (; i < buffer_header_size; ++i) {
     EXPECT_EQ(kBufferHeaderValue, buffer[i]);
-    EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
+    EXPECT_TRUE(StaticShadow::shadow.IsAccessible(buffer + i));
   }
   // Ensure that the whole block isn't accessible.
   for (; i < buffer_header_size + block_info.block_size; ++i)
-    EXPECT_FALSE(Shadow::IsAccessible(buffer + i));
+    EXPECT_FALSE(StaticShadow::shadow.IsAccessible(buffer + i));
 
   // Ensure that the buffer trailer is accessible and correctly tagged.
   for (; i < kBufferSize; ++i) {
     EXPECT_EQ(kBufferTrailerValue, buffer[i]);
-    EXPECT_TRUE(Shadow::IsAccessible(buffer + i));
+    EXPECT_TRUE(StaticShadow::shadow.IsAccessible(buffer + i));
   }
   return true;
 }

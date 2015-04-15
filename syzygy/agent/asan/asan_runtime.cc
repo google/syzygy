@@ -446,7 +446,7 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // this process. Note: this is mostly for debugging purposes.
   CommandLine::Init(0, NULL);
 
-  Shadow::SetUp();
+  StaticShadow::shadow.SetUp();
 
   // Setup the "global" state.
   common::StackCapture::Init();
@@ -498,7 +498,7 @@ void AsanRuntime::TearDown() {
   TearDownLogger();
   DCHECK(asan_error_callback_.is_null() == FALSE);
   asan_error_callback_.Reset();
-  Shadow::TearDown();
+  StaticShadow::shadow.TearDown();
 
   // Unregister ourselves as the singleton runtime for UEF.
   runtime_ = NULL;
@@ -709,6 +709,7 @@ void AsanRuntime::WriteCorruptHeapInfo(
     // Use a shadow walker to find the first corrupt block in this range and
     // copy its metadata.
     ShadowWalker shadow_walker(
+        &StaticShadow::shadow,
         false,
         reinterpret_cast<const uint8*>(corrupt_ranges[i].address),
         reinterpret_cast<const uint8*>(corrupt_ranges[i].address) +
@@ -764,7 +765,8 @@ void AsanRuntime::LogAsanErrorInfo(AsanErrorInfo* error_info) {
     }
     if (error_info->error_type >= USE_AFTER_FREE) {
       std::string shadow_text;
-      Shadow::AppendShadowMemoryText(error_info->location, &shadow_text);
+      StaticShadow::shadow.AppendShadowMemoryText(
+          error_info->location, &shadow_text);
       logger_->Write(shadow_text);
     }
   }
@@ -796,11 +798,11 @@ void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
   // Checks if this is an access to an internal structure or if it's an access
   // in the upper region of the memory (over the 2 GB limit).
   if ((reinterpret_cast<size_t>(error_info->location) & (1 << 31)) != 0 ||
-      Shadow::GetShadowMarkerForAddress(error_info->location)
+      StaticShadow::shadow.GetShadowMarkerForAddress(error_info->location)
           == kAsanMemoryMarker) {
       error_info->error_type = WILD_ACCESS;
-  } else if (Shadow::GetShadowMarkerForAddress(error_info->location) ==
-      kInvalidAddressMarker) {
+  } else if (StaticShadow::shadow.GetShadowMarkerForAddress(
+      error_info->location) == kInvalidAddressMarker) {
     error_info->error_type = INVALID_ADDRESS;
   } else {
     ErrorInfoGetBadAccessInformation(stack_cache_.get(), error_info);
@@ -901,11 +903,12 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
         exception->ExceptionRecord->ExceptionInformation[0] <= 1) {
       void* address = reinterpret_cast<void*>(
           exception->ExceptionRecord->ExceptionInformation[1]);
-      ShadowMarker marker = Shadow::GetShadowMarkerForAddress(address);
+      ShadowMarker marker =
+          StaticShadow::shadow.GetShadowMarkerForAddress(address);
       if (ShadowMarkerHelper::IsRedzone(marker) &&
           ShadowMarkerHelper::IsActiveBlock(marker)) {
         BlockInfo block_info = {};
-        if (Shadow::BlockInfoFromShadow(address, &block_info)) {
+        if (StaticShadow::shadow.BlockInfoFromShadow(address, &block_info)) {
           // Page protections have to be removed from this block otherwise our
           // own inspection will cause further errors.
           ScopedBlockAccess block_access(block_info);

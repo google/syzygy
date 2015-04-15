@@ -47,7 +47,8 @@ StackCaptureCache::CachePage::~CachePage() {
   // list of cache pages. We balk if we're being deleted and haven't been
   // properly unlinked from the linked list.
   DCHECK(next_page_ == NULL);
-  Shadow::Unpoison(this, sizeof(CachePage));
+  // TODO(chrisha): Make this use ShadowMemoryNotifier.
+  StaticShadow::shadow.Unpoison(this, sizeof(CachePage));
 }
 
 common::StackCapture* StackCaptureCache::CachePage::GetNextStackCapture(

@@ -141,10 +141,10 @@ void TestMemoryRange(const uint8* memory,
   //     if the first and the last elements are accessible. Once we have the
   //     plumbing in place we should benchmark a check that looks at each
   //     address to be touched (via the shadow memory, 8 bytes at a time).
-  if (!Shadow::IsAccessible(memory) ||
-      !Shadow::IsAccessible(memory + size - 1)) {
+  if (!StaticShadow::shadow.IsAccessible(memory) ||
+      !StaticShadow::shadow.IsAccessible(memory + size - 1)) {
     const uint8* location = NULL;
-    if (!Shadow::IsAccessible(memory)) {
+    if (!StaticShadow::shadow.IsAccessible(memory)) {
       location = memory;
     } else {
       location = memory + size - 1;

@@ -54,7 +54,7 @@ void GetAddressInformation(BlockHeader* header,
   DCHECK(bad_access_info->location != NULL);
 
   BlockInfo block_info = {};
-  Shadow::BlockInfoFromShadow(header, &block_info);
+  StaticShadow::shadow.BlockInfoFromShadow(header, &block_info);
   int offset = 0;
   char* offset_relativity = "";
   switch (bad_access_info->error_type) {
@@ -97,7 +97,8 @@ void GetAddressInformation(BlockHeader* header,
       block_info.trailer_padding);
 
   std::string shadow_memory;
-  Shadow::AppendShadowArrayText(bad_access_info->location, &shadow_memory);
+  StaticShadow::shadow.AppendShadowArrayText(
+      bad_access_info->location, &shadow_memory);
   size_t shadow_mem_bytes = base::snprintf(
       bad_access_info->shadow_memory,
       arraysize(bad_access_info->shadow_memory) - 1,
@@ -152,8 +153,10 @@ bool ErrorInfoGetBadAccessInformation(StackCaptureCache* stack_cache,
   DCHECK_NE(reinterpret_cast<StackCaptureCache*>(NULL), stack_cache);
   DCHECK_NE(reinterpret_cast<AsanErrorInfo*>(NULL), bad_access_info);
   BlockInfo block_info = {};
-  if (!Shadow::BlockInfoFromShadow(bad_access_info->location, &block_info))
+  if (!StaticShadow::shadow.BlockInfoFromShadow(
+      bad_access_info->location, &block_info)) {
     return false;
+  }
 
   // Fill out the information about the primary block.
   ErrorInfoGetAsanBlockInfo(
@@ -185,12 +188,13 @@ BadAccessKind ErrorInfoGetBadAccessKind(const void* addr,
     bad_access_kind = USE_AFTER_FREE;
   } else {
     BlockInfo block_info = {};
-    Shadow::BlockInfoFromShadow(header, &block_info);
+    StaticShadow::shadow.BlockInfoFromShadow(header, &block_info);
     if (addr < block_info.body) {
       bad_access_kind = HEAP_BUFFER_UNDERFLOW;
     } else if (addr >= (block_info.body + block_info.body_size)) {
       bad_access_kind = HEAP_BUFFER_OVERFLOW;
-    } else if (Shadow::GetShadowMarkerForAddress(addr) == kHeapFreedMarker) {
+    } else if (StaticShadow::shadow.GetShadowMarkerForAddress(addr) ==
+        kHeapFreedMarker) {
       // This is a use after free on a block managed by a nested heap.
       bad_access_kind = USE_AFTER_FREE;
     }
@@ -394,7 +398,8 @@ void PopulateShadowMemoryBlob(const AsanErrorInfo& error_info,
   // need to send it. This is emitted as a blob.
   uintptr_t index = reinterpret_cast<uintptr_t>(error_info.location);
   index >>= kShadowRatioLog;
-  index = (index / Shadow::kShadowBytesPerLine) * Shadow::kShadowBytesPerLine;
+  index = (index / StaticShadow::shadow.kShadowBytesPerLine) *
+      Shadow::kShadowBytesPerLine;
   uintptr_t index_min = index -
       Shadow::kShadowContextLines * Shadow::kShadowBytesPerLine;
   if (index_min > index)
@@ -409,7 +414,7 @@ void PopulateShadowMemoryBlob(const AsanErrorInfo& error_info,
   crashdata::Blob* blob = crashdata::LeafGetBlob(
       crashdata::DictAddLeaf("shadow-memory", dict));
   blob->mutable_data()->assign(
-      reinterpret_cast<const char*>(Shadow::shadow() + index_min),
+      reinterpret_cast<const char*>(StaticShadow::shadow.shadow() + index_min),
       length);
 }
 
@@ -434,7 +439,8 @@ void PopulatePageBitsBlob(const AsanErrorInfo& error_info,
   crashdata::Blob* blob = crashdata::LeafGetBlob(
       crashdata::DictAddLeaf("page-bits", dict));
   blob->mutable_data()->assign(
-      reinterpret_cast<const char*>(Shadow::page_bits() + index_min),
+      reinterpret_cast<const char*>(
+          StaticShadow::shadow.page_bits() + index_min),
       length);
 }
 

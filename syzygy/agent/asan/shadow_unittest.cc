@@ -28,18 +28,29 @@ namespace {
 // A derived class to expose protected members for unit-testing.
 class TestShadow : public Shadow {
  public:
+  TestShadow() : Shadow(kTestShadowSize) {
+  }
+
+  // We'll simulate memory as being 1GB in size.
+  static const size_t kTestShadowSize =
+      (1 * 1024 * 1024 * 1024) >> kShadowRatioLog;
+
+  // Protected functions that we want to unittest directly.
   using Shadow::Reset;
   using Shadow::ScanLeftForBracketingBlockStart;
   using Shadow::ScanRightForBracketingBlockEnd;
-  using Shadow::kShadowSize;
   using Shadow::shadow_;
+};
+
+// A fixture for shadow memory tests.
+class ShadowTest : public testing::Test {
+ public:
+  TestShadow test_shadow;
 };
 
 }  // namespace
 
-TEST(ShadowTest, PoisonUnpoisonAccess) {
-  // Reset the shadow memory.
-  TestShadow::Reset();
+TEST_F(ShadowTest, PoisonUnpoisonAccess) {
   for (size_t count = 0; count < 100; ++count) {
     // Use a random 8-byte aligned end address.
     const size_t size = base::RandInt(1, 16384);
@@ -48,55 +59,50 @@ TEST(ShadowTest, PoisonUnpoisonAccess) {
     const uint8* start_addr = end_addr - size;
 
     for (size_t i = 0; i < size; ++i)
-      EXPECT_TRUE(Shadow::IsAccessible(start_addr + i));
+      EXPECT_TRUE(test_shadow.IsAccessible(start_addr + i));
 
-    Shadow::Poison(start_addr, size, kAsanReservedMarker);
+    test_shadow.Poison(start_addr, size, kAsanReservedMarker);
     for (size_t i = 0; i < size; ++i)
-      EXPECT_FALSE(Shadow::IsAccessible(start_addr + i));
-    EXPECT_TRUE(Shadow::IsAccessible(start_addr - 1));
-    EXPECT_TRUE(Shadow::IsAccessible(start_addr + size));
+      EXPECT_FALSE(test_shadow.IsAccessible(start_addr + i));
+    EXPECT_TRUE(test_shadow.IsAccessible(start_addr - 1));
+    EXPECT_TRUE(test_shadow.IsAccessible(start_addr + size));
 
     const size_t aligned_size = ::common::AlignUp(size,
                                                   kShadowRatio);
     const uint8* aligned_start_addr = end_addr - aligned_size;
-    Shadow::Unpoison(aligned_start_addr, aligned_size);
+    test_shadow.Unpoison(aligned_start_addr, aligned_size);
     for (size_t i = 0; i < size; ++i)
-      EXPECT_TRUE(Shadow::IsAccessible(start_addr + i));
+      EXPECT_TRUE(test_shadow.IsAccessible(start_addr + i));
   }
 }
 
-TEST(ShadowTest, SetUpAndTearDown) {
-  // Reset the shadow memory.
-  TestShadow::Reset();
-
+TEST_F(ShadowTest, SetUpAndTearDown) {
   // Don't check all the shadow bytes otherwise this test will take too much
   // time.
   const size_t kLookupInterval = 25;
 
-  intptr_t shadow_array_start = reinterpret_cast<intptr_t>(TestShadow::shadow_);
+  intptr_t shadow_array_start = reinterpret_cast<intptr_t>(test_shadow.shadow_);
   size_t shadow_start = shadow_array_start >> 3;
-  size_t shadow_end = shadow_start + (TestShadow::kShadowSize >> 3);
+  size_t shadow_end = shadow_start + (test_shadow.length() >> 3);
 
   const size_t non_addressable_memory_end = (0x10000 >> 3);
 
-  Shadow::SetUp();
+  test_shadow.SetUp();
   for (size_t i = shadow_start; i < shadow_end; i += kLookupInterval)
-    ASSERT_EQ(kAsanMemoryMarker, TestShadow::shadow_[i]);
+    ASSERT_EQ(kAsanMemoryMarker, test_shadow.shadow_[i]);
 
   for (size_t i = 0; i < non_addressable_memory_end; i += kLookupInterval)
-    ASSERT_EQ(kInvalidAddressMarker, TestShadow::shadow_[i]);
+    ASSERT_EQ(kInvalidAddressMarker, test_shadow.shadow_[i]);
 
-  Shadow::TearDown();
+  test_shadow.TearDown();
   for (size_t i = shadow_start; i < shadow_end; i += kLookupInterval)
-    ASSERT_EQ(kHeapAddressableMarker, TestShadow::shadow_[i]);
+    ASSERT_EQ(kHeapAddressableMarker, test_shadow.shadow_[i]);
 
   for (size_t i = 0; i < non_addressable_memory_end; i += kLookupInterval)
-    ASSERT_EQ(kHeapAddressableMarker, TestShadow::shadow_[i]);
+    ASSERT_EQ(kHeapAddressableMarker, test_shadow.shadow_[i]);
 }
 
-TEST(ShadowTest, GetNullTerminatedArraySize) {
-  // Reset the shadow memory.
-  TestShadow::Reset();
+TEST_F(ShadowTest, GetNullTerminatedArraySize) {
   const size_t kArrayLength = 100;
   const uint8 kMarkerValue = 0xAA;
 
@@ -108,35 +114,34 @@ TEST(ShadowTest, GetNullTerminatedArraySize) {
       (aligned_test_array - test_array), kShadowRatio);
 
   ::memset(aligned_test_array, kMarkerValue, aligned_array_length);
-  Shadow::Poison(aligned_test_array, aligned_array_length,
-                 kAsanReservedMarker);
+  test_shadow.Poison(aligned_test_array, aligned_array_length,
+                     kAsanReservedMarker);
 
   size_t sizes_to_test[] = { 4, 7, 12, 15, 21, 87, 88 };
 
   for (size_t i = 0; i < arraysize(sizes_to_test); ++i) {
-    Shadow::Unpoison(aligned_test_array, sizes_to_test[i]);
+    test_shadow.Unpoison(aligned_test_array, sizes_to_test[i]);
     size_t size = 0;
 
     // Put a null byte at the end of the array and call the
     // GetNullTerminatedArraySize function with a 1-byte template argument. This
     // simulates the use of this function for a null terminated string.
     aligned_test_array[sizes_to_test[i] - 1] = 0;
-    EXPECT_TRUE(Shadow::GetNullTerminatedArraySize<uint8>(aligned_test_array,
-                                                          0U,
-                                                          &size));
+    EXPECT_TRUE(test_shadow.GetNullTerminatedArraySize<uint8>(
+        aligned_test_array, 0U, &size));
     EXPECT_EQ(sizes_to_test[i], size);
 
     if (sizes_to_test[i] % sizeof(uint16) == 0) {
       // Call the GetNullTerminatedArraySize with a 2-byte template argument.
       // As there is only one null byte at the end of the array we expect the
       // function to return false.
-      EXPECT_FALSE(Shadow::GetNullTerminatedArraySize<uint16>(
+      EXPECT_FALSE(test_shadow.GetNullTerminatedArraySize<uint16>(
           aligned_test_array, 0U, &size));
       EXPECT_EQ(sizes_to_test[i], size);
       // Put a second null byte at the end of the array and call the function
       // again, this time we expect the function to succeed.
       aligned_test_array[sizes_to_test[i] - sizeof(uint16)] = 0;
-      EXPECT_TRUE(Shadow::GetNullTerminatedArraySize<uint16>(
+      EXPECT_TRUE(test_shadow.GetNullTerminatedArraySize<uint16>(
           aligned_test_array, 0U, &size));
       EXPECT_EQ(sizes_to_test[i], size);
       aligned_test_array[sizes_to_test[i] - sizeof(uint16)] = kMarkerValue;
@@ -144,22 +149,20 @@ TEST(ShadowTest, GetNullTerminatedArraySize) {
     aligned_test_array[sizes_to_test[i] - 1] = kMarkerValue;
 
     aligned_test_array[sizes_to_test[i]] = kMarkerValue;
-    EXPECT_FALSE(Shadow::GetNullTerminatedArraySize<uint8>(aligned_test_array,
-                                                           0U,
-                                                           &size));
+    EXPECT_FALSE(test_shadow.GetNullTerminatedArraySize<uint8>(
+        aligned_test_array, 0U, &size));
     EXPECT_EQ(sizes_to_test[i], size);
-    EXPECT_TRUE(Shadow::GetNullTerminatedArraySize<uint8>(aligned_test_array,
-                                                          sizes_to_test[i],
-                                                          &size));
+    EXPECT_TRUE(test_shadow.GetNullTerminatedArraySize<uint8>(
+        aligned_test_array, sizes_to_test[i], &size));
 
-    Shadow::Poison(aligned_test_array,
+    test_shadow.Poison(aligned_test_array,
                    ::common::AlignUp(sizes_to_test[i], kShadowRatio),
                    kAsanReservedMarker);
   }
-  Shadow::Unpoison(aligned_test_array, aligned_array_length);
+  test_shadow.Unpoison(aligned_test_array, aligned_array_length);
 }
 
-TEST(ShadowTest, MarkAsFreed) {
+TEST_F(ShadowTest, MarkAsFreed) {
   BlockLayout l0 = {}, l1 = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 16, 30, 30, &l1));
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio,
@@ -170,39 +173,39 @@ TEST(ShadowTest, MarkAsFreed) {
   uint8* d0 = data;
   BlockInfo i0 = {};
   BlockInitialize(l0, d0, false, &i0);
-  Shadow::PoisonAllocatedBlock(i0);
+  test_shadow.PoisonAllocatedBlock(i0);
 
   uint8* d1 = i0.body + kShadowRatio;
   BlockInfo i1 = {};
   BlockInitialize(l1, d1, true, &i1);
-  Shadow::PoisonAllocatedBlock(i1);
+  test_shadow.PoisonAllocatedBlock(i1);
 
-  Shadow::MarkAsFreed(i0.body, i0.body_size);
+  test_shadow.MarkAsFreed(i0.body, i0.body_size);
   for (uint8* p = i0.block; p < i0.block + i0.block_size; ++p) {
     if (p >= i0.block && p < i0.body) {
-      EXPECT_TRUE(Shadow::IsLeftRedzone(p));
+      EXPECT_TRUE(test_shadow.IsLeftRedzone(p));
     } else if (p >= i0.body && p < i0.trailer_padding) {
       if (p >= i1.block && p < i1.body) {
-        EXPECT_TRUE(Shadow::IsLeftRedzone(p));
+        EXPECT_TRUE(test_shadow.IsLeftRedzone(p));
       } else if (p >= i1.body && p < i1.trailer_padding) {
         EXPECT_EQ(kHeapFreedMarker,
-                  Shadow::GetShadowMarkerForAddress(p));
+                  test_shadow.GetShadowMarkerForAddress(p));
       } else if (p >= i1.trailer_padding && p < i1.block + i1.block_size) {
-        EXPECT_TRUE(Shadow::IsRightRedzone(p));
+        EXPECT_TRUE(test_shadow.IsRightRedzone(p));
       } else {
         EXPECT_EQ(kHeapFreedMarker,
-                  Shadow::GetShadowMarkerForAddress(p));
+                  test_shadow.GetShadowMarkerForAddress(p));
       }
     } else if (p >= i0.trailer_padding && p < i0.block + i0.block_size) {
-      EXPECT_TRUE(Shadow::IsRightRedzone(p));
+      EXPECT_TRUE(test_shadow.IsRightRedzone(p));
     }
   }
 
-  Shadow::Unpoison(data, l0.block_size);
+  test_shadow.Unpoison(data, l0.block_size);
   delete [] data;
 }
 
-TEST(ShadowTest, PoisonAllocatedBlock) {
+TEST_F(ShadowTest, PoisonAllocatedBlock) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 15, 22, 0, &layout));
 
@@ -210,124 +213,124 @@ TEST(ShadowTest, PoisonAllocatedBlock) {
   BlockInfo info = {};
   BlockInitialize(layout, data, false, &info);
 
-  Shadow::PoisonAllocatedBlock(info);
-  EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 0 * 8),
+  test_shadow.PoisonAllocatedBlock(info);
+  EXPECT_EQ(test_shadow.GetShadowMarkerForAddress(data + 0 * 8),
             kHeapBlockStartMarker0 | 7);
-  EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 1 * 8),
+  EXPECT_EQ(test_shadow.GetShadowMarkerForAddress(data + 1 * 8),
             kHeapLeftPaddingMarker);
-  EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 2 * 8),
+  EXPECT_EQ(test_shadow.GetShadowMarkerForAddress(data + 2 * 8),
             kHeapLeftPaddingMarker);
-  EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 3 * 8),
+  EXPECT_EQ(test_shadow.GetShadowMarkerForAddress(data + 3 * 8),
             0);
-  EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 4 * 8),
+  EXPECT_EQ(test_shadow.GetShadowMarkerForAddress(data + 4 * 8),
             7);
-  EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 5 * 8),
+  EXPECT_EQ(test_shadow.GetShadowMarkerForAddress(data + 5 * 8),
             kHeapRightPaddingMarker);
-  EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 6 * 8),
+  EXPECT_EQ(test_shadow.GetShadowMarkerForAddress(data + 6 * 8),
             kHeapRightPaddingMarker);
-  EXPECT_EQ(Shadow::GetShadowMarkerForAddress(data + 7 * 8),
+  EXPECT_EQ(test_shadow.GetShadowMarkerForAddress(data + 7 * 8),
             kHeapBlockEndMarker);
 
   uint8* cursor = info.block;
   for (; cursor < info.body; ++cursor)
-    EXPECT_FALSE(Shadow::IsAccessible(cursor));
+    EXPECT_FALSE(test_shadow.IsAccessible(cursor));
   for (; cursor < info.body + info.body_size; ++cursor)
-    EXPECT_TRUE(Shadow::IsAccessible(cursor));
+    EXPECT_TRUE(test_shadow.IsAccessible(cursor));
   for (; cursor < info.block + info.block_size; ++cursor)
-    EXPECT_FALSE(Shadow::IsAccessible(cursor));
-  Shadow::Unpoison(info.block, info.block_size);
+    EXPECT_FALSE(test_shadow.IsAccessible(cursor));
+  test_shadow.Unpoison(info.block, info.block_size);
 
   delete [] data;
 }
 
-TEST(ShadowTest, ScanLeftAndRight) {
-  size_t offset = Shadow::kShadowSize / 2;
+TEST_F(ShadowTest, ScanLeftAndRight) {
+  size_t offset = test_shadow.length() / 2;
   size_t l = 0;
-  TestShadow::shadow_[offset + 0] = kHeapBlockStartMarker0;
-  TestShadow::shadow_[offset + 1] = kHeapNestedBlockStartMarker0;
-  TestShadow::shadow_[offset + 2] = kHeapAddressableMarker;
-  TestShadow::shadow_[offset + 3] = kHeapNestedBlockEndMarker;
-  TestShadow::shadow_[offset + 4] = kHeapBlockEndMarker;
+  test_shadow.shadow_[offset + 0] = kHeapBlockStartMarker0;
+  test_shadow.shadow_[offset + 1] = kHeapNestedBlockStartMarker0;
+  test_shadow.shadow_[offset + 2] = kHeapAddressableMarker;
+  test_shadow.shadow_[offset + 3] = kHeapNestedBlockEndMarker;
+  test_shadow.shadow_[offset + 4] = kHeapBlockEndMarker;
 
-  EXPECT_TRUE(TestShadow::ScanLeftForBracketingBlockStart(0, offset + 0, &l));
+  EXPECT_TRUE(test_shadow.ScanLeftForBracketingBlockStart(0, offset + 0, &l));
   EXPECT_EQ(offset, l);
-  EXPECT_TRUE(TestShadow::ScanLeftForBracketingBlockStart(0, offset + 1, &l));
+  EXPECT_TRUE(test_shadow.ScanLeftForBracketingBlockStart(0, offset + 1, &l));
   EXPECT_EQ(offset + 1, l);
-  EXPECT_TRUE(TestShadow::ScanLeftForBracketingBlockStart(0, offset + 2, &l));
+  EXPECT_TRUE(test_shadow.ScanLeftForBracketingBlockStart(0, offset + 2, &l));
   EXPECT_EQ(offset + 1, l);
-  EXPECT_TRUE(TestShadow::ScanLeftForBracketingBlockStart(0, offset + 3, &l));
+  EXPECT_TRUE(test_shadow.ScanLeftForBracketingBlockStart(0, offset + 3, &l));
   EXPECT_EQ(offset + 1, l);
-  EXPECT_TRUE(TestShadow::ScanLeftForBracketingBlockStart(0, offset + 4, &l));
+  EXPECT_TRUE(test_shadow.ScanLeftForBracketingBlockStart(0, offset + 4, &l));
   EXPECT_EQ(offset, l);
 
-  EXPECT_FALSE(TestShadow::ScanLeftForBracketingBlockStart(1, offset + 0, &l));
-  EXPECT_TRUE(TestShadow::ScanLeftForBracketingBlockStart(1, offset + 1, &l));
+  EXPECT_FALSE(test_shadow.ScanLeftForBracketingBlockStart(1, offset + 0, &l));
+  EXPECT_TRUE(test_shadow.ScanLeftForBracketingBlockStart(1, offset + 1, &l));
   EXPECT_EQ(offset, l);
-  EXPECT_TRUE(TestShadow::ScanLeftForBracketingBlockStart(1, offset + 2, &l));
+  EXPECT_TRUE(test_shadow.ScanLeftForBracketingBlockStart(1, offset + 2, &l));
   EXPECT_EQ(offset, l);
-  EXPECT_TRUE(TestShadow::ScanLeftForBracketingBlockStart(1, offset + 3, &l));
+  EXPECT_TRUE(test_shadow.ScanLeftForBracketingBlockStart(1, offset + 3, &l));
   EXPECT_EQ(offset, l);
-  EXPECT_FALSE(TestShadow::ScanLeftForBracketingBlockStart(1, offset + 4, &l));
+  EXPECT_FALSE(test_shadow.ScanLeftForBracketingBlockStart(1, offset + 4, &l));
 
-  EXPECT_FALSE(TestShadow::ScanLeftForBracketingBlockStart(2, offset + 0, &l));
-  EXPECT_FALSE(TestShadow::ScanLeftForBracketingBlockStart(2, offset + 1, &l));
-  EXPECT_FALSE(TestShadow::ScanLeftForBracketingBlockStart(2, offset + 2, &l));
-  EXPECT_FALSE(TestShadow::ScanLeftForBracketingBlockStart(2, offset + 3, &l));
-  EXPECT_FALSE(TestShadow::ScanLeftForBracketingBlockStart(2, offset + 4, &l));
+  EXPECT_FALSE(test_shadow.ScanLeftForBracketingBlockStart(2, offset + 0, &l));
+  EXPECT_FALSE(test_shadow.ScanLeftForBracketingBlockStart(2, offset + 1, &l));
+  EXPECT_FALSE(test_shadow.ScanLeftForBracketingBlockStart(2, offset + 2, &l));
+  EXPECT_FALSE(test_shadow.ScanLeftForBracketingBlockStart(2, offset + 3, &l));
+  EXPECT_FALSE(test_shadow.ScanLeftForBracketingBlockStart(2, offset + 4, &l));
 
-  EXPECT_TRUE(TestShadow::ScanRightForBracketingBlockEnd(0, offset + 0, &l));
+  EXPECT_TRUE(test_shadow.ScanRightForBracketingBlockEnd(0, offset + 0, &l));
   EXPECT_EQ(offset + 4, l);
-  EXPECT_TRUE(TestShadow::ScanRightForBracketingBlockEnd(0, offset + 1, &l));
+  EXPECT_TRUE(test_shadow.ScanRightForBracketingBlockEnd(0, offset + 1, &l));
   EXPECT_EQ(offset + 3, l);
-  EXPECT_TRUE(TestShadow::ScanRightForBracketingBlockEnd(0, offset + 2, &l));
+  EXPECT_TRUE(test_shadow.ScanRightForBracketingBlockEnd(0, offset + 2, &l));
   EXPECT_EQ(offset + 3, l);
-  EXPECT_TRUE(TestShadow::ScanRightForBracketingBlockEnd(0, offset + 3, &l));
+  EXPECT_TRUE(test_shadow.ScanRightForBracketingBlockEnd(0, offset + 3, &l));
   EXPECT_EQ(offset + 3, l);
-  EXPECT_TRUE(TestShadow::ScanRightForBracketingBlockEnd(0, offset + 4, &l));
+  EXPECT_TRUE(test_shadow.ScanRightForBracketingBlockEnd(0, offset + 4, &l));
   EXPECT_EQ(offset + 4, l);
 
-  EXPECT_FALSE(TestShadow::ScanRightForBracketingBlockEnd(1, offset + 0, &l));
-  EXPECT_TRUE(TestShadow::ScanRightForBracketingBlockEnd(1, offset + 1, &l));
+  EXPECT_FALSE(test_shadow.ScanRightForBracketingBlockEnd(1, offset + 0, &l));
+  EXPECT_TRUE(test_shadow.ScanRightForBracketingBlockEnd(1, offset + 1, &l));
   EXPECT_EQ(offset + 4, l);
-  EXPECT_TRUE(TestShadow::ScanRightForBracketingBlockEnd(1, offset + 2, &l));
+  EXPECT_TRUE(test_shadow.ScanRightForBracketingBlockEnd(1, offset + 2, &l));
   EXPECT_EQ(offset + 4, l);
-  EXPECT_TRUE(TestShadow::ScanRightForBracketingBlockEnd(1, offset + 3, &l));
+  EXPECT_TRUE(test_shadow.ScanRightForBracketingBlockEnd(1, offset + 3, &l));
   EXPECT_EQ(offset + 4, l);
-  EXPECT_FALSE(TestShadow::ScanRightForBracketingBlockEnd(1, offset + 4, &l));
+  EXPECT_FALSE(test_shadow.ScanRightForBracketingBlockEnd(1, offset + 4, &l));
 
-  EXPECT_FALSE(TestShadow::ScanRightForBracketingBlockEnd(2, offset + 0, &l));
-  EXPECT_FALSE(TestShadow::ScanRightForBracketingBlockEnd(2, offset + 1, &l));
-  EXPECT_FALSE(TestShadow::ScanRightForBracketingBlockEnd(2, offset + 2, &l));
-  EXPECT_FALSE(TestShadow::ScanRightForBracketingBlockEnd(2, offset + 3, &l));
-  EXPECT_FALSE(TestShadow::ScanRightForBracketingBlockEnd(2, offset + 4, &l));
+  EXPECT_FALSE(test_shadow.ScanRightForBracketingBlockEnd(2, offset + 0, &l));
+  EXPECT_FALSE(test_shadow.ScanRightForBracketingBlockEnd(2, offset + 1, &l));
+  EXPECT_FALSE(test_shadow.ScanRightForBracketingBlockEnd(2, offset + 2, &l));
+  EXPECT_FALSE(test_shadow.ScanRightForBracketingBlockEnd(2, offset + 3, &l));
+  EXPECT_FALSE(test_shadow.ScanRightForBracketingBlockEnd(2, offset + 4, &l));
 
-  ::memset(TestShadow::shadow_ + offset, 0, 5);
+  ::memset(test_shadow.shadow_ + offset, 0, 5);
 }
 
-TEST(ShadowTest, ScanRightPerfTest) {
-  size_t offset = Shadow::kShadowSize / 2;
+TEST_F(ShadowTest, ScanRightPerfTest) {
+  size_t offset = test_shadow.length() / 2;
   size_t length = 1 * 1024 * 1024;
 
-  ::memset(TestShadow::shadow_ + offset, 0, length);
+  ::memset(test_shadow.shadow_ + offset, 0, length);
 
-  TestShadow::shadow_[offset + 0] = kHeapBlockStartMarker0;
+  test_shadow.shadow_[offset + 0] = kHeapBlockStartMarker0;
   // A nested block with freed contents.
-  TestShadow::shadow_[offset + 50] = kHeapNestedBlockStartMarker0;
-  ::memset(TestShadow::shadow_ + offset + 51, kHeapFreedMarker, 8);
-  TestShadow::shadow_[offset + 60] = kHeapNestedBlockEndMarker;
+  test_shadow.shadow_[offset + 50] = kHeapNestedBlockStartMarker0;
+  ::memset(test_shadow.shadow_ + offset + 51, kHeapFreedMarker, 8);
+  test_shadow.shadow_[offset + 60] = kHeapNestedBlockEndMarker;
   // A nested block with a nested block.
-  TestShadow::shadow_[offset + 100000] = kHeapNestedBlockStartMarker0;
-  TestShadow::shadow_[offset + 100100] = kHeapNestedBlockStartMarker0;
-  TestShadow::shadow_[offset + 100400] = kHeapNestedBlockEndMarker;
-  TestShadow::shadow_[offset + 200000] = kHeapNestedBlockEndMarker;
+  test_shadow.shadow_[offset + 100000] = kHeapNestedBlockStartMarker0;
+  test_shadow.shadow_[offset + 100100] = kHeapNestedBlockStartMarker0;
+  test_shadow.shadow_[offset + 100400] = kHeapNestedBlockEndMarker;
+  test_shadow.shadow_[offset + 200000] = kHeapNestedBlockEndMarker;
   // The end of the outer block.
-  TestShadow::shadow_[offset + length - 1] = kHeapBlockEndMarker;
+  test_shadow.shadow_[offset + length - 1] = kHeapBlockEndMarker;
 
   uint64 tnet = 0;
   for (size_t i = 0; i < 100; ++i) {
     size_t l = 0;
     uint64 t0 = ::__rdtsc();
-    TestShadow::ScanRightForBracketingBlockEnd(0, offset + 1, &l);
+    test_shadow.ScanRightForBracketingBlockEnd(0, offset + 1, &l);
     uint64 t1 = ::__rdtsc();
     tnet += t1 - t0;
   }
@@ -335,10 +338,10 @@ TEST(ShadowTest, ScanRightPerfTest) {
                       tnet);
 
   // Reset the shadow memory.
-  ::memset(TestShadow::shadow_ + offset, 0, length);
+  ::memset(test_shadow.shadow_ + offset, 0, length);
 }
 
-TEST(ShadowTest, IsLeftOrRightRedzone) {
+TEST_F(ShadowTest, IsLeftOrRightRedzone) {
   BlockLayout layout = {};
   const size_t kAllocSize = 15;
   ASSERT_NE(0U, kAllocSize % kShadowRatio);
@@ -349,29 +352,31 @@ TEST(ShadowTest, IsLeftOrRightRedzone) {
   BlockInfo info = {};
   BlockInitialize(layout, data.get(), false, &info);
 
-  Shadow::PoisonAllocatedBlock(info);
+  test_shadow.PoisonAllocatedBlock(info);
   uint8* cursor = info.block;
 
   for (; cursor < info.body; ++cursor) {
-    EXPECT_TRUE(Shadow::IsLeftRedzone(cursor));
-    EXPECT_FALSE(Shadow::IsRightRedzone(cursor));
+    EXPECT_TRUE(test_shadow.IsLeftRedzone(cursor));
+    EXPECT_FALSE(test_shadow.IsRightRedzone(cursor));
   }
   for (; cursor < info.body + info.body_size; ++cursor) {
-    EXPECT_FALSE(Shadow::IsLeftRedzone(cursor));
-    EXPECT_FALSE(Shadow::IsRightRedzone(cursor));
+    EXPECT_FALSE(test_shadow.IsLeftRedzone(cursor));
+    EXPECT_FALSE(test_shadow.IsRightRedzone(cursor));
   }
   for (; cursor < info.block + info.block_size; ++cursor) {
-    EXPECT_FALSE(Shadow::IsLeftRedzone(cursor));
-    EXPECT_TRUE(Shadow::IsRightRedzone(cursor));
+    EXPECT_FALSE(test_shadow.IsLeftRedzone(cursor));
+    EXPECT_TRUE(test_shadow.IsRightRedzone(cursor));
   }
 
-  Shadow::Unpoison(info.block, info.block_size);
+  test_shadow.Unpoison(info.block, info.block_size);
 }
 
 namespace {
 
-void TestBlockInfoFromShadow(const BlockLayout& outer,
+void TestBlockInfoFromShadow(Shadow* shadow,
+                             const BlockLayout& outer,
                              const BlockLayout& nested) {
+  ASSERT_TRUE(shadow != nullptr);
   ASSERT_LE(nested.block_size, outer.body_size);
 
   uint8* data = new uint8[outer.block_size];
@@ -380,14 +385,15 @@ void TestBlockInfoFromShadow(const BlockLayout& outer,
   // block exists. Expect finding a nested block to fail.
   BlockInfo info = {};
   BlockInitialize(outer, data, false, &info);
-  Shadow::PoisonAllocatedBlock(info);
+  shadow->PoisonAllocatedBlock(info);
   BlockInfo info_recovered = {};
   for (size_t i = 0; i < info.block_size; ++i) {
-    EXPECT_TRUE(Shadow::BlockInfoFromShadow(info.block + i, &info_recovered));
+    EXPECT_TRUE(shadow->BlockInfoFromShadow(
+        info.block + i, &info_recovered));
     EXPECT_EQ(0, ::memcmp(&info, &info_recovered, sizeof(info)));
 
     // This block should have no parent block as its not nested.
-    EXPECT_FALSE(Shadow::ParentBlockInfoFromShadow(
+    EXPECT_FALSE(shadow->ParentBlockInfoFromShadow(
         info, &info_recovered));
   }
 
@@ -399,13 +405,13 @@ void TestBlockInfoFromShadow(const BlockLayout& outer,
   BlockInfo nested_info = {};
   BlockInitialize(nested, nested_begin, true, &nested_info);
   nested_info.header->is_nested = true;
-  Shadow::PoisonAllocatedBlock(nested_info);
+  shadow->PoisonAllocatedBlock(nested_info);
   for (size_t i = 0; i < info.block_size; ++i) {
     uint8* pos = info.block + i;
-    EXPECT_TRUE(Shadow::BlockInfoFromShadow(pos, &info_recovered));
+    EXPECT_TRUE(shadow->BlockInfoFromShadow(pos, &info_recovered));
 
     BlockInfo parent_info = {};
-    bool found_parent = Shadow::ParentBlockInfoFromShadow(
+    bool found_parent = shadow->ParentBlockInfoFromShadow(
         info_recovered, &parent_info);
 
     if (pos >= nested_begin && pos < nested_end) {
@@ -418,14 +424,14 @@ void TestBlockInfoFromShadow(const BlockLayout& outer,
       EXPECT_FALSE(found_parent);
     }
   }
-  Shadow::Unpoison(info.block, info.block_size);
+  shadow->Unpoison(info.block, info.block_size);
 
   delete [] data;
 }
 
 }  // namespace
 
-TEST(ShadowTest, BlockInfoFromShadow) {
+TEST_F(ShadowTest, BlockInfoFromShadow) {
   // This is a simple layout that will be nested inside of another block.
   BlockLayout layout0 = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 6, 0, 0, &layout0));
@@ -445,11 +451,13 @@ TEST(ShadowTest, BlockInfoFromShadow) {
   ASSERT_LT(0u, layout2.header_padding_size);
   ASSERT_LT(0u, layout2.trailer_padding_size);
 
-  EXPECT_NO_FATAL_FAILURE(TestBlockInfoFromShadow(layout1, layout0));
-  EXPECT_NO_FATAL_FAILURE(TestBlockInfoFromShadow(layout2, layout0));
+  EXPECT_NO_FATAL_FAILURE(TestBlockInfoFromShadow(
+      &test_shadow, layout1, layout0));
+  EXPECT_NO_FATAL_FAILURE(TestBlockInfoFromShadow(
+      &test_shadow, layout2, layout0));
 }
 
-TEST(ShadowTest, IsBeginningOfBlockBody) {
+TEST_F(ShadowTest, IsBeginningOfBlockBody) {
   BlockLayout l = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &l));
 
@@ -459,21 +467,21 @@ TEST(ShadowTest, IsBeginningOfBlockBody) {
   BlockInfo block_info = {};
   BlockInitialize(l, data.get(), false, &block_info);
 
-  Shadow::PoisonAllocatedBlock(block_info);
+  test_shadow.PoisonAllocatedBlock(block_info);
 
-  EXPECT_TRUE(Shadow::IsBeginningOfBlockBody(block_info.body));
-  EXPECT_FALSE(Shadow::IsBeginningOfBlockBody(data.get()));
+  EXPECT_TRUE(test_shadow.IsBeginningOfBlockBody(block_info.body));
+  EXPECT_FALSE(test_shadow.IsBeginningOfBlockBody(data.get()));
 
   block_info.header->state = QUARANTINED_BLOCK;
-  Shadow::MarkAsFreed(block_info.body, block_info.body_size);
+  test_shadow.MarkAsFreed(block_info.body, block_info.body_size);
 
-  EXPECT_TRUE(Shadow::IsBeginningOfBlockBody(block_info.body));
-  EXPECT_FALSE(Shadow::IsBeginningOfBlockBody(data.get()));
+  EXPECT_TRUE(test_shadow.IsBeginningOfBlockBody(block_info.body));
+  EXPECT_FALSE(test_shadow.IsBeginningOfBlockBody(data.get()));
 
-  Shadow::Unpoison(data.get(), data_size);
+  test_shadow.Unpoison(data.get(), data_size);
 }
 
-TEST(ShadowTest, IsBeginningOfBlockBodyForBlockOfSizeZero) {
+TEST_F(ShadowTest, IsBeginningOfBlockBodyForBlockOfSizeZero) {
   BlockLayout l = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 0, 0, 0, &l));
 
@@ -483,78 +491,88 @@ TEST(ShadowTest, IsBeginningOfBlockBodyForBlockOfSizeZero) {
   BlockInfo block_info = {};
   BlockInitialize(l, data.get(), false, &block_info);
 
-  Shadow::PoisonAllocatedBlock(block_info);
+  test_shadow.PoisonAllocatedBlock(block_info);
 
-  EXPECT_TRUE(Shadow::IsBeginningOfBlockBody(block_info.body));
-  EXPECT_FALSE(Shadow::IsBeginningOfBlockBody(data.get()));
+  EXPECT_TRUE(test_shadow.IsBeginningOfBlockBody(block_info.body));
+  EXPECT_FALSE(test_shadow.IsBeginningOfBlockBody(data.get()));
 
   block_info.header->state = QUARANTINED_BLOCK;
-  Shadow::MarkAsFreed(block_info.body, block_info.body_size);
+  test_shadow.MarkAsFreed(block_info.body, block_info.body_size);
 
-  EXPECT_TRUE(Shadow::IsBeginningOfBlockBody(block_info.body));
-  EXPECT_FALSE(Shadow::IsBeginningOfBlockBody(data.get()));
+  EXPECT_TRUE(test_shadow.IsBeginningOfBlockBody(block_info.body));
+  EXPECT_FALSE(test_shadow.IsBeginningOfBlockBody(data.get()));
 
-  Shadow::Unpoison(data.get(), data_size);
+  test_shadow.Unpoison(data.get(), data_size);
 }
 
-TEST(ShadowTest, MarkAsFreedPerfTest) {
+TEST_F(ShadowTest, MarkAsFreedPerfTest) {
   std::vector<uint8> buf;
   buf.resize(10 * 1024 * 1024, 0);
 
   uint64 tnet = 0;
   for (size_t i = 0; i < 1000; ++i) {
-    Shadow::Unpoison(buf.data(), buf.size());
+    test_shadow.Unpoison(buf.data(), buf.size());
     uint64 t0 = ::__rdtsc();
-    Shadow::MarkAsFreed(buf.data(), buf.size());
+    test_shadow.MarkAsFreed(buf.data(), buf.size());
     uint64 t1 = ::__rdtsc();
     tnet += t1 - t0;
-    Shadow::Unpoison(buf.data(), buf.size());
+    test_shadow.Unpoison(buf.data(), buf.size());
   }
   testing::EmitMetric("Syzygy.Asan.Shadow.MarkAsFreed", tnet);
 }
 
-TEST(ShadowTest, PageBits) {
+TEST_F(ShadowTest, PageBits) {
   // Set an individual page.
   const uint8* addr = reinterpret_cast<const uint8*>(16 * 4096);
-  EXPECT_FALSE(Shadow::PageIsProtected(addr));
-  Shadow::MarkPageProtected(addr);
-  EXPECT_TRUE(Shadow::PageIsProtected(addr));
-  Shadow::MarkPageProtected(addr);
-  EXPECT_TRUE(Shadow::PageIsProtected(addr));
-  Shadow::MarkPageUnprotected(addr);
-  EXPECT_FALSE(Shadow::PageIsProtected(addr));
-  Shadow::MarkPageUnprotected(addr);
-  EXPECT_FALSE(Shadow::PageIsProtected(addr));
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr));
+  test_shadow.MarkPageProtected(addr);
+  EXPECT_TRUE(test_shadow.PageIsProtected(addr));
+  test_shadow.MarkPageProtected(addr);
+  EXPECT_TRUE(test_shadow.PageIsProtected(addr));
+  test_shadow.MarkPageUnprotected(addr);
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr));
+  test_shadow.MarkPageUnprotected(addr);
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr));
 
   // Set a range of pages at once.
   const uint8* addr2 = addr + 4096;
-  EXPECT_FALSE(Shadow::PageIsProtected(addr - 4096));
-  EXPECT_FALSE(Shadow::PageIsProtected(addr));
-  EXPECT_FALSE(Shadow::PageIsProtected(addr2));
-  EXPECT_FALSE(Shadow::PageIsProtected(addr2 + 4096));
-  Shadow::MarkPagesProtected(addr, 2 * 4096);
-  EXPECT_FALSE(Shadow::PageIsProtected(addr - 4096));
-  EXPECT_TRUE(Shadow::PageIsProtected(addr));
-  EXPECT_TRUE(Shadow::PageIsProtected(addr2));
-  EXPECT_FALSE(Shadow::PageIsProtected(addr2 + 4096));
-  Shadow::MarkPagesProtected(addr, 2 * 4096);
-  EXPECT_FALSE(Shadow::PageIsProtected(addr - 4096));
-  EXPECT_TRUE(Shadow::PageIsProtected(addr));
-  EXPECT_TRUE(Shadow::PageIsProtected(addr2));
-  EXPECT_FALSE(Shadow::PageIsProtected(addr2 + 4096));
-  Shadow::MarkPagesUnprotected(addr, 2 * 4096);
-  EXPECT_FALSE(Shadow::PageIsProtected(addr - 4096));
-  EXPECT_FALSE(Shadow::PageIsProtected(addr));
-  EXPECT_FALSE(Shadow::PageIsProtected(addr2));
-  EXPECT_FALSE(Shadow::PageIsProtected(addr2 + 4096));
-  Shadow::MarkPagesUnprotected(addr, 2 * 4096);
-  EXPECT_FALSE(Shadow::PageIsProtected(addr - 4096));
-  EXPECT_FALSE(Shadow::PageIsProtected(addr));
-  EXPECT_FALSE(Shadow::PageIsProtected(addr2));
-  EXPECT_FALSE(Shadow::PageIsProtected(addr2 + 4096));
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr - 4096));
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr));
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr2));
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr2 + 4096));
+  test_shadow.MarkPagesProtected(addr, 2 * 4096);
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr - 4096));
+  EXPECT_TRUE(test_shadow.PageIsProtected(addr));
+  EXPECT_TRUE(test_shadow.PageIsProtected(addr2));
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr2 + 4096));
+  test_shadow.MarkPagesProtected(addr, 2 * 4096);
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr - 4096));
+  EXPECT_TRUE(test_shadow.PageIsProtected(addr));
+  EXPECT_TRUE(test_shadow.PageIsProtected(addr2));
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr2 + 4096));
+  test_shadow.MarkPagesUnprotected(addr, 2 * 4096);
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr - 4096));
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr));
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr2));
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr2 + 4096));
+  test_shadow.MarkPagesUnprotected(addr, 2 * 4096);
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr - 4096));
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr));
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr2));
+  EXPECT_FALSE(test_shadow.PageIsProtected(addr2 + 4096));
 }
 
-TEST(ShadowWalkerTest, WalksNonNestedBlocks) {
+namespace {
+
+// A fixture for shadow walker tests.
+class ShadowWalkerTest : public testing::Test {
+ public:
+  TestShadow test_shadow;
+};
+
+}  // namespace
+
+TEST_F(ShadowWalkerTest, WalksNonNestedBlocks) {
   BlockLayout l = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &l));
 
@@ -569,16 +587,16 @@ TEST(ShadowWalkerTest, WalksNonNestedBlocks) {
   BlockInitialize(l, data1, false, &i1);
   BlockInitialize(l, data2, false, &i2);
 
-  Shadow::PoisonAllocatedBlock(i0);
-  Shadow::PoisonAllocatedBlock(i1);
-  Shadow::PoisonAllocatedBlock(i2);
+  test_shadow.PoisonAllocatedBlock(i0);
+  test_shadow.PoisonAllocatedBlock(i1);
+  test_shadow.PoisonAllocatedBlock(i2);
 
   i2.header->state = QUARANTINED_BLOCK;
-  Shadow::MarkAsFreed(i2.body, i2.body_size);
+  test_shadow.MarkAsFreed(i2.body, i2.body_size);
 
   // Do a non-recursive walk through the shadow.
   BlockInfo i = {};
-  ShadowWalker w0(false, data, data + data_size);
+  ShadowWalker w0(&test_shadow, false, data, data + data_size);
   EXPECT_EQ(-1, w0.nesting_depth());
   EXPECT_TRUE(w0.Next(&i));
   EXPECT_EQ(0, w0.nesting_depth());
@@ -590,7 +608,7 @@ TEST(ShadowWalkerTest, WalksNonNestedBlocks) {
   EXPECT_EQ(-1, w0.nesting_depth());
 
   // Walk recursively through the shadow and expect the same results.
-  ShadowWalker w1(true, data, data + data_size);
+  ShadowWalker w1(&test_shadow, true, data, data + data_size);
   EXPECT_EQ(-1, w1.nesting_depth());
   EXPECT_TRUE(w1.Next(&i));
   EXPECT_EQ(0, w1.nesting_depth());
@@ -604,11 +622,11 @@ TEST(ShadowWalkerTest, WalksNonNestedBlocks) {
   EXPECT_FALSE(w1.Next(&i));
   EXPECT_EQ(-1, w1.nesting_depth());
 
-  Shadow::Unpoison(data, data_size);
+  test_shadow.Unpoison(data, data_size);
   delete [] data;
 }
 
-TEST(ShadowWalkerTest, WalksNestedBlocks) {
+TEST_F(ShadowWalkerTest, WalksNestedBlocks) {
   BlockLayout b0 = {}, b1 = {}, b2 = {}, b00 = {}, b01 = {}, b10 = {},
       b100 = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 15, 30, 30, &b00));
@@ -634,9 +652,9 @@ TEST(ShadowWalkerTest, WalksNestedBlocks) {
   BlockInitialize(b0, d0, false, &i0);
   BlockInitialize(b1, d1, false, &i1);
   BlockInitialize(b2, d2, false, &i2);
-  Shadow::PoisonAllocatedBlock(i0);
-  Shadow::PoisonAllocatedBlock(i1);
-  Shadow::PoisonAllocatedBlock(i2);
+  test_shadow.PoisonAllocatedBlock(i0);
+  test_shadow.PoisonAllocatedBlock(i1);
+  test_shadow.PoisonAllocatedBlock(i2);
 
   // Initialize depth 1 blocks.
   uint8* d00 = i0.body;
@@ -646,21 +664,21 @@ TEST(ShadowWalkerTest, WalksNestedBlocks) {
   BlockInitialize(b00, d00, true, &i00);
   BlockInitialize(b01, d01, true, &i01);
   BlockInitialize(b10, d10, true, &i10);
-  Shadow::PoisonAllocatedBlock(i00);
-  Shadow::PoisonAllocatedBlock(i01);
-  Shadow::PoisonAllocatedBlock(i10);
+  test_shadow.PoisonAllocatedBlock(i00);
+  test_shadow.PoisonAllocatedBlock(i01);
+  test_shadow.PoisonAllocatedBlock(i10);
 
   // Initialize depth 2 blocks.
   uint8* d100 = i10.body;
   BlockInfo i100 = {};
   BlockInitialize(b100, d100, true, &i100);
-  Shadow::PoisonAllocatedBlock(i100);
+  test_shadow.PoisonAllocatedBlock(i100);
   i100.header->state = QUARANTINED_BLOCK;
-  Shadow::MarkAsFreed(i100.body, i100.body_size);
+  test_shadow.MarkAsFreed(i100.body, i100.body_size);
 
   // Do a non-recursive walk through the shadow.
   BlockInfo i = {};
-  ShadowWalker w0(false, data, data + data_size);
+  ShadowWalker w0(&test_shadow, false, data, data + data_size);
   EXPECT_EQ(-1, w0.nesting_depth());
   EXPECT_TRUE(w0.Next(&i));
   EXPECT_EQ(0, w0.nesting_depth());
@@ -675,7 +693,7 @@ TEST(ShadowWalkerTest, WalksNestedBlocks) {
   EXPECT_EQ(-1, w0.nesting_depth());
 
   // Walk recursively through the shadow.
-  ShadowWalker w1(true, data, data + data_size);
+  ShadowWalker w1(&test_shadow, true, data, data + data_size);
   EXPECT_EQ(-1, w1.nesting_depth());
   EXPECT_TRUE(w1.Next(&i));
   EXPECT_EQ(0, w1.nesting_depth());
@@ -701,7 +719,7 @@ TEST(ShadowWalkerTest, WalksNestedBlocks) {
   EXPECT_FALSE(w1.Next(&i));
   EXPECT_EQ(-1, w1.nesting_depth());
 
-  Shadow::Unpoison(data, data_size);
+  test_shadow.Unpoison(data, data_size);
   delete [] data;
 }
 

@@ -68,7 +68,7 @@ void CheckMemoryAccess(void* location,
                        AccessMode access_mode,
                        size_t access_size,
                        const AsanContext& context) {
-  if (!Shadow::IsAccessible(location))
+  if (!StaticShadow::shadow.IsAccessible(location))
     ReportBadMemoryAccess(location, access_mode, access_size, context);
 }
 

@@ -23,6 +23,10 @@
 
 namespace agent {
 namespace asan {
+
+// Forward declaration.
+class Shadow;
+
 namespace memory_notifiers {
 
 // Declares a simple interface that is used by internal runtime components to
@@ -30,7 +34,10 @@ namespace memory_notifiers {
 class ShadowMemoryNotifier : public MemoryNotifierInterface {
  public:
   // Constructor.
-  ShadowMemoryNotifier() { }
+  // @param shadow The shadow memory to notify.
+  explicit ShadowMemoryNotifier(Shadow* shadow) : shadow_(shadow) {
+    DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
+  }
 
   // Virtual destructor.
   virtual ~ShadowMemoryNotifier() { }
@@ -43,6 +50,9 @@ class ShadowMemoryNotifier : public MemoryNotifierInterface {
   // @}
 
  private:
+  // The shadow that is being notified.
+  Shadow* shadow_;
+
   DISALLOW_COPY_AND_ASSIGN(ShadowMemoryNotifier);
 };
 
