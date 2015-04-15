@@ -28,6 +28,13 @@ namespace {
 
 using block_graph::BlockGraph;
 
+// Expose the function needed for unittesting.
+class TestAddHotPatchingMetadataTransform
+    : public AddHotPatchingMetadataTransform {
+ public:
+  using AddHotPatchingMetadataTransform::CalculateCodeSize;
+};
+
 // Inserts all blocks that are safe to decompose into a container.
 // @param block_container The blocks will be inserted into this container.
 void BuildListOfDecomposableBlocks(
@@ -69,9 +76,7 @@ class AddHotPatchingMetadataTransformTest : public testing::PELibUnitTest {
 
 }  // namespace
 
-TEST_F(AddHotPatchingMetadataTransformTest, SetBlocksPrepared) {
-  DecomposeTestDll(&pe_file_, &layout_);
-
+TEST(AddHotPatchingMetadataTransformSimpleTest, SetBlocksPrepared) {
   // Create an empty container.
   AddHotPatchingMetadataTransform::BlockVector cont;
 
@@ -80,6 +85,38 @@ TEST_F(AddHotPatchingMetadataTransformTest, SetBlocksPrepared) {
   EXPECT_EQ(nullptr, hpt.blocks_prepared());
   hpt.set_blocks_prepared(&cont);
   EXPECT_EQ(&cont, hpt.blocks_prepared());
+}
+
+TEST(AddHotPatchingMetadataTransformSimpleTest, CalculateCodeSize) {
+  BlockGraph block_graph;
+  BlockGraph::Block* block = block_graph.AddBlock(BlockGraph::CODE_BLOCK,
+                                                  100U,
+                                                  "dummy");
+
+  // Add some data to the block.
+  static const uint8 buffer[50];
+  block->SetData(buffer, sizeof(buffer));
+
+  // The whole data should be considered as code if there are no labels.
+  ASSERT_EQ(50U, TestAddHotPatchingMetadataTransform::CalculateCodeSize(block));
+
+  // A code label should not change the code size.
+  block->SetLabel(20U, "CODE", BlockGraph::CODE_LABEL);
+  ASSERT_EQ(50U, TestAddHotPatchingMetadataTransform::CalculateCodeSize(block));
+
+  // A data label should limit the code size.
+  block->SetLabel(30U, "DATA", BlockGraph::DATA_LABEL);
+  ASSERT_EQ(30U, TestAddHotPatchingMetadataTransform::CalculateCodeSize(block));
+
+  // A data label with other attributes set should limit the code size.
+  block->SetLabel(29U,
+                  "DATA",
+                  BlockGraph::DATA_LABEL | BlockGraph::JUMP_TABLE_LABEL);
+  ASSERT_EQ(29U, TestAddHotPatchingMetadataTransform::CalculateCodeSize(block));
+
+  // A debug-end label at the end should be ignored.
+  block->SetLabel(49U, "DEBUG-END", BlockGraph::DEBUG_END_LABEL);
+  ASSERT_EQ(29U, TestAddHotPatchingMetadataTransform::CalculateCodeSize(block));
 }
 
 TEST_F(AddHotPatchingMetadataTransformTest, TransformBlockGraph) {
@@ -165,9 +202,14 @@ TEST_F(AddHotPatchingMetadataTransformTest, TransformBlockGraph) {
     EXPECT_EQ(4U, ref.size());
     EXPECT_EQ(BlockGraph::RELATIVE_REF, ref.type());
 
-    // Check if size information is correct.
-    EXPECT_EQ(hpt.blocks_prepared()->operator[](i)->data_size(),
-              hp_block_metadata_arr[i].data_size);
+    // Check if the code and data size information is correct.
+    const BlockGraph::Block* original_block =
+        hpt.blocks_prepared()->operator[](i);
+    EXPECT_EQ(original_block->data_size(),
+              hp_block_metadata_arr[i].block_size);
+    EXPECT_EQ(TestAddHotPatchingMetadataTransform::CalculateCodeSize(
+                  original_block),
+              hp_block_metadata_arr[i].code_size);
 
     ++i;
   }

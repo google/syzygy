@@ -34,8 +34,11 @@ struct HotPatchingBlockMetadata {
   // The RVA of the start of the block.
   uint32 relative_address;
 
+  // The size of the code in the block data.
+  uint16 code_size;
+
   // The size of the block data.
-  uint16 data_size;
+  uint16 block_size;
 };
 
 // This struct contains the data that will be injected into images transformed

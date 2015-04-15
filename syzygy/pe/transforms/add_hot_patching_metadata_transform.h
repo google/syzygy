@@ -73,11 +73,19 @@ class AddHotPatchingMetadataTransform
   }
   // @}
 
- private:
+ protected:
   // Adds a section containing the hot patching metadata.
   // @param block_graph The block_graph to modify.
   void AddHotPatchingSection(BlockGraph* block_graph);
 
+  // Calculates the code size of a block. It assumes that everything before the
+  // first DATA_LABEL is code. If the block contains no data labels, the whole
+  // data of the block is considered to be code.
+  // @param block The block to calculate
+  // @returns the size of the code the block contains.
+  static size_t CalculateCodeSize(const BlockGraph::Block* block);
+
+ private:
   // This is a pointer to a vector that contains the blocks prepared for
   // hot patching. The TransformBlockGraph uses this data to build the
   // hot patching stream.

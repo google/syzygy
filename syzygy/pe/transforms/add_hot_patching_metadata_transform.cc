@@ -79,7 +79,8 @@ void AddHotPatchingMetadataTransform::AddHotPatchingSection(
                                    block,
                                    0,
                                    0);
-    hp_block_metadata->data_size = block->size();
+    hp_block_metadata->code_size = CalculateCodeSize(block);
+    hp_block_metadata->block_size = block->data_size();
 
     ++index;
   }
@@ -91,6 +92,38 @@ void AddHotPatchingMetadataTransform::AddHotPatchingSection(
                               kReadOnlyDataCharacteristics);
   DCHECK_NE(static_cast<BlockGraph::Section*>(nullptr), hp_section);
   hp_metadata_block->set_section(hp_section->id());
+}
+
+size_t AddHotPatchingMetadataTransform::CalculateCodeSize(
+    const BlockGraph::Block* block) {
+  // If we will not encounter a data label, we assume that the whole block
+  // contains code.
+  size_t code_size = block->data_size();
+
+  // Iterate over labels to find a data label. We iterate backwards as data
+  // labels are at the end and there are far less data labels than code labels.
+  for (auto it = block->labels().rbegin(); it != block->labels().rend(); ++it) {
+    const BlockGraph::Label& label = it->second;
+
+    // We ignore the debug-end label, as it can come after block data.
+    if (label.has_attributes(BlockGraph::DEBUG_END_LABEL))
+      continue;
+
+    // Anything that is not a data label means that there are no more data
+    // labels.
+    if (!label.has_attributes(BlockGraph::DATA_LABEL))
+      break;
+
+    // Update the code size with the information from the current data label.
+    // Offsets are represented by signed integers, so we need a conversion.
+    DCHECK_GE(it->first, 0);
+    code_size = static_cast<size_t>(it->first);
+
+    // Check if the label really points inside the block.
+    DCHECK_LE(code_size, block->data_size());
+  }
+
+  return code_size;
 }
 
 }  // namespace transforms
