@@ -737,16 +737,16 @@ inline const uint8* ScanRightForPotentialHeaderBytes(
 bool Shadow::ScanRightForBracketingBlockEnd(
     size_t initial_nesting_depth, size_t cursor, size_t* location) const {
   DCHECK_NE(static_cast<size_t*>(NULL), location);
-  static const uint8* kShadowEnd = shadow_ + length_;
 
+  const uint8* shadow_end = shadow_ + length_;
   const uint8* pos = shadow_ + cursor;
   int nesting_depth = static_cast<int>(initial_nesting_depth);
   if (ShadowMarkerHelper::IsBlockStart(*pos))
     --nesting_depth;
-  while (pos < kShadowEnd) {
+  while (pos < shadow_end) {
     // Skips past as many addressable and freed bytes as possible.
-    pos = ScanRightForPotentialHeaderBytes(pos, kShadowEnd);
-    if (pos == kShadowEnd)
+    pos = ScanRightForPotentialHeaderBytes(pos, shadow_end);
+    if (pos == shadow_end)
       return false;
 
     // When the above loop exits early then somewhere in the next 8 bytes
