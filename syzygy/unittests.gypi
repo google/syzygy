@@ -101,6 +101,9 @@
       # Playback tests.
       '<(src)/syzygy/playback/playback.gyp:playback_unittests',
 
+      # Refinery tests.
+      '<(src)/syzygy/refinery/refinery.gyp:refinery_unittests',
+
       # Relink tests.
       '<(src)/syzygy/relink/relink.gyp:relink_unittests',
 
