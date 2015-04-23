@@ -21,18 +21,22 @@
       'target_name': 'refinery',
       'type': 'none',
       'dependencies': [
-        '<(src)/syzygy/refinery/minidump/minidump.gyp:*',
+        'process_state/process_state.gyp:*',
+        'minidump/minidump.gyp:*',
       ],
     },
     {
       'target_name': 'refinery_unittests',
       'type': 'executable',
       'sources': [
+        'process_state/process_state_unittest.cc',
         'minidump/minidump_unittest.cc',
         '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'minidump/minidump.gyp:minidump_lib',
+        'process_state/process_state.gyp:process_state_lib',
+        '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',
         '<(src)/testing/gtest.gyp:gtest',
