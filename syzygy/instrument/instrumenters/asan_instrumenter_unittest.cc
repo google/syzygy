@@ -40,10 +40,10 @@ class TestAsanInstrumenter : public AsanInstrumenter {
   using AsanInstrumenter::asan_rtl_options_;
   using AsanInstrumenter::debug_friendly_;
   using AsanInstrumenter::filter_path_;
+  using AsanInstrumenter::hot_patching_;
   using AsanInstrumenter::input_image_path_;
   using AsanInstrumenter::input_pdb_path_;
   using AsanInstrumenter::instrumentation_rate_;
-  using AsanInstrumenter::kAgentDllAsan;
   using AsanInstrumenter::no_augment_pdb_;
   using AsanInstrumenter::no_strip_strings_;
   using AsanInstrumenter::output_image_path_;
@@ -152,7 +152,7 @@ TEST_F(AsanInstrumenterTest, ParseMinimalAsan) {
 
   EXPECT_EQ(abs_input_image_path_, instrumenter_.input_image_path_);
   EXPECT_EQ(output_image_path_, instrumenter_.output_image_path_);
-  EXPECT_EQ(std::string(TestAsanInstrumenter::kAgentDllAsan),
+  EXPECT_EQ(std::string(instrument::transforms::AsanTransform::kSyzyAsanDll),
             instrumenter_.agent_dll_);
   EXPECT_FALSE(instrumenter_.allow_overwrite_);
   EXPECT_FALSE(instrumenter_.no_augment_pdb_);
@@ -163,6 +163,7 @@ TEST_F(AsanInstrumenterTest, ParseMinimalAsan) {
   EXPECT_TRUE(instrumenter_.remove_redundant_checks_);
   EXPECT_EQ(1.0, instrumenter_.instrumentation_rate_);
   EXPECT_FALSE(instrumenter_.asan_rtl_options_);
+  EXPECT_FALSE(instrumenter_.hot_patching_);
 }
 
 TEST_F(AsanInstrumenterTest, ParseFullAsan) {
@@ -170,6 +171,7 @@ TEST_F(AsanInstrumenterTest, ParseFullAsan) {
   cmd_line_.AppendSwitchPath("filter", test_dll_filter_path_);
   cmd_line_.AppendSwitchASCII("agent", "foo.dll");
   cmd_line_.AppendSwitch("debug-friendly");
+  cmd_line_.AppendSwitch("hot-patching");
   cmd_line_.AppendSwitchPath("input-pdb", input_pdb_path_);
   cmd_line_.AppendSwitch("no-augment-pdb");
   cmd_line_.AppendSwitch("no-interceptors");
@@ -199,6 +201,7 @@ TEST_F(AsanInstrumenterTest, ParseFullAsan) {
   EXPECT_FALSE(instrumenter_.remove_redundant_checks_);
   EXPECT_EQ(0.5, instrumenter_.instrumentation_rate_);
   EXPECT_TRUE(instrumenter_.asan_rtl_options_);
+  EXPECT_TRUE(instrumenter_.hot_patching_);
 
   // We check that the requested RTL options were parsed, and that others are
   // left to their defaults. We don't check all the parameters as other
@@ -290,6 +293,16 @@ TEST_F(AsanInstrumenterTest, FailsWithAllocationFilterConfigFileInvalidPath) {
   cmd_line_.AppendSwitchPath("allocation-filter-config-file", invalid_path);
   // Should fail if the AllocationFilter configuration file path is invalid.
   EXPECT_FALSE(instrumenter_.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(AsanInstrumenterTest, HotPatchingChangesDefaultAgentDll) {
+  SetUpValidCommandLine();
+  cmd_line_.AppendSwitch("hot-patching");
+
+  EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+
+  EXPECT_EQ(std::string(instrument::transforms::AsanTransform::kSyzyAsanHpDll),
+            instrumenter_.agent_dll_);
 }
 
 }  // namespace instrumenters

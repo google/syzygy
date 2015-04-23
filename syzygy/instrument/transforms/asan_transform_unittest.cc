@@ -17,6 +17,7 @@
 #include "syzygy/instrument/transforms/asan_transform.h"
 
 #include <set>
+#include <unordered_set>
 #include <vector>
 
 #include "base/scoped_native_library.h"
@@ -81,6 +82,7 @@ class TestAsanTransform : public AsanTransform {
   using AsanTransform::asan_parameters_block_;
   using AsanTransform::crtheap_block_;
   using AsanTransform::heap_init_block_;
+  using AsanTransform::hot_patched_blocks_;
   using AsanTransform::static_intercepted_blocks_;
   using AsanTransform::use_interceptors_;
   using AsanTransform::use_liveness_analysis_;
@@ -99,6 +101,13 @@ class AsanTransformTest : public testing::TestDllTransformTest {
     bb_asm_.reset(new block_graph::BasicBlockAssembler(
         basic_block_->instructions().begin(),
         &basic_block_->instructions()));
+
+    // Insert a block description into the subgraph containing the dummy
+    // basic block.
+    BasicBlockSubGraph::BlockDescription* description =
+        subgraph_.AddBlockDescription("dummy_block", "dummy_compiland",
+                                      BlockGraph::CODE_BLOCK, 0, 1, 0);
+    description->basic_block_order.push_back(basic_block_);
   }
 
   void ApplyTransformToIntegrationTestDll() {
@@ -237,6 +246,9 @@ class AsanTransformTest : public testing::TestDllTransformTest {
 const BasicBlock::Size AsanTransformTest::kDataSize = 32;
 const uint8 AsanTransformTest::kBlockData[AsanTransformTest::kDataSize] = {};
 
+// Dummy library name to test |set_instrument_dll_name|.
+const char kFooDll[] = "foo.dll";
+
 }  // namespace
 
 TEST_F(AsanTransformTest, SetAsanParameters) {
@@ -258,6 +270,29 @@ TEST_F(AsanTransformTest, SetDryRunFlag) {
   EXPECT_TRUE(bb_transform.dry_run());
   bb_transform.set_dry_run(false);
   EXPECT_FALSE(bb_transform.dry_run());
+}
+
+TEST_F(AsanTransformTest, SetHotPatchingFlag) {
+  EXPECT_FALSE(asan_transform_.hot_patching());
+  asan_transform_.set_hot_patching(true);
+  EXPECT_TRUE(asan_transform_.hot_patching());
+  asan_transform_.set_hot_patching(false);
+  EXPECT_FALSE(asan_transform_.hot_patching());
+}
+
+TEST_F(AsanTransformTest, SetInstrumentDllName) {
+  EXPECT_EQ(AsanTransform::kSyzyAsanDll, asan_transform_.instrument_dll_name());
+  asan_transform_.set_instrument_dll_name(kFooDll);
+  EXPECT_EQ(kFooDll, asan_transform_.instrument_dll_name());
+}
+
+TEST_F(AsanTransformTest, SetInstrumentDllNameHotPatchingMode) {
+  // The default dll name is different in hot patching mode.
+  asan_transform_.set_hot_patching(true);
+  EXPECT_EQ(AsanTransform::kSyzyAsanHpDll,
+            asan_transform_.instrument_dll_name());
+  asan_transform_.set_instrument_dll_name(kFooDll);
+  EXPECT_EQ(kFooDll, asan_transform_.instrument_dll_name());
 }
 
 TEST_F(AsanTransformTest, GetInstrumentationHappenedFlag) {
@@ -282,11 +317,6 @@ TEST_F(AsanTransformTest, SetInstrumentationRate) {
   EXPECT_EQ(0.0, bb_transform.instrumentation_rate());
   bb_transform.set_instrumentation_rate(0.5);
   EXPECT_EQ(0.5, bb_transform.instrumentation_rate());
-}
-
-TEST_F(AsanTransformTest, SetInstrumentDLLName) {
-  asan_transform_.set_instrument_dll_name("foo");
-  ASSERT_EQ(strcmp(asan_transform_.instrument_dll_name(), "foo"), 0);
 }
 
 TEST_F(AsanTransformTest, SetInterceptCRTFuntionsFlag) {
@@ -871,6 +901,58 @@ TEST_F(AsanTransformTest, DryRunNonInstrumentable) {
   ASSERT_EQ(basic_block_size, basic_block_->instructions().size());
 }
 
+TEST_F(AsanTransformTest, HotPatchingBBTransformInstrumentable) {
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  bb_transform.set_dry_run(true);
+  HotPatchingAsanBasicBlockTransform hp_bb_transform(&bb_transform);
+
+  // Generate an instrumentable basic block.
+  bb_asm_->xchg(assm::eax, assm::ecx);
+  bb_asm_->mov(assm::eax, block_graph::Operand(assm::ebx));
+
+  // Check subgraph before transformation.
+  EXPECT_EQ(2U, basic_block_->instructions().size());
+  ASSERT_EQ(1U, subgraph_.block_descriptions().size());
+  EXPECT_EQ(0U, subgraph_.block_descriptions().front().padding_before);
+  EXPECT_FALSE(hp_bb_transform.prepared_for_hot_patching());
+
+  // Apply the Asan hot patching basic block transform.
+  ASSERT_TRUE(hp_bb_transform.TransformBasicBlockSubGraph(
+      &pe_policy_, &block_graph_, &subgraph_));
+
+  // Padding should be added in the block description. Also, as the code block
+  // began with a 1-byte instruction, a 2-byte NOP should be prepended.
+  EXPECT_EQ(3U, basic_block_->instructions().size());
+  ASSERT_EQ(1U, subgraph_.block_descriptions().size());
+  EXPECT_EQ(5U, subgraph_.block_descriptions().front().padding_before);
+  EXPECT_TRUE(hp_bb_transform.prepared_for_hot_patching());
+}
+
+TEST_F(AsanTransformTest, HotPatchingBBTransformNonInstrumentable) {
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  bb_transform.set_dry_run(true);
+  HotPatchingAsanBasicBlockTransform hp_bb_transform(&bb_transform);
+
+  // Generate a non-instrumentable instruction.
+  bb_asm_->xchg(assm::eax, assm::ecx);
+
+  // Check subgraph before transformation.
+  EXPECT_EQ(1U, basic_block_->instructions().size());
+  ASSERT_EQ(1U, subgraph_.block_descriptions().size());
+  EXPECT_EQ(0U, subgraph_.block_descriptions().front().padding_before);
+  EXPECT_FALSE(hp_bb_transform.prepared_for_hot_patching());
+
+  // Apply the Asan hot patching basic block transform.
+  ASSERT_TRUE(hp_bb_transform.TransformBasicBlockSubGraph(
+      &pe_policy_, &block_graph_, &subgraph_));
+
+  // The subgraph should stay the same.
+  EXPECT_EQ(1U, basic_block_->instructions().size());
+  ASSERT_EQ(1U, subgraph_.block_descriptions().size());
+  EXPECT_EQ(0U, subgraph_.block_descriptions().front().padding_before);
+  EXPECT_FALSE(hp_bb_transform.prepared_for_hot_patching());
+}
+
 namespace {
 
 using base::win::PEImage;
@@ -885,8 +967,6 @@ void Intersect(const StringSet& ss1, const StringSet& ss2, StringSet* ss3) {
                         ss2.begin(), ss2.end(),
                         std::inserter(*ss3, ss3->begin()));
 }
-
-const char kAsanRtlDll[] = "syzyasan_rtl.dll";
 
 bool EnumKernel32HeapImports(const PEImage &image,
                              const char* module,
@@ -937,6 +1017,12 @@ bool EnumKernel32InterceptedFunctionsImports(const PEImage &image,
   return true;
 }
 
+// A struct used to pass parameters in the cookie of EnumAsanImports
+struct EnumAsanImportsParams {
+  const char* imported_module_name;
+  StringSet* imports;
+};
+
 bool EnumAsanImports(const PEImage &image,
                      const char* module,
                      unsigned long ordinal,
@@ -947,11 +1033,12 @@ bool EnumAsanImports(const PEImage &image,
   EXPECT_NE(static_cast<const char*>(NULL), module);
   EXPECT_NE(static_cast<void*>(NULL), cookie);
 
-  StringSet* modules = reinterpret_cast<StringSet*>(cookie);
+  EnumAsanImportsParams* params =
+      reinterpret_cast<EnumAsanImportsParams*>(cookie);
 
-  if (strcmp(kAsanRtlDll, module) == 0) {
+  if (strcmp(params->imported_module_name, module) == 0) {
     EXPECT_NE(static_cast<const char*>(NULL), name);
-    modules->insert(name);
+    params->imports->insert(name);
   }
 
   return true;
@@ -970,7 +1057,7 @@ bool GetAsanHooksIATEntries(const PEImage &image,
   FunctionsIATAddressSet* hooks_iat_entries =
       reinterpret_cast<FunctionsIATAddressSet*>(cookie);
 
-  if (strcmp(kAsanRtlDll, module) != 0)
+  if (strcmp(AsanTransform::kSyzyAsanDll, module) != 0)
     return true;
 
   EXPECT_NE(static_cast<const char*>(NULL), name);
@@ -982,14 +1069,13 @@ bool GetAsanHooksIATEntries(const PEImage &image,
   return true;
 }
 
-}  // namespace
-
-TEST_F(AsanTransformTest, ImportsAreRedirectedPe) {
-  ASSERT_NO_FATAL_FAILURE(ApplyTransformToIntegrationTestDll());
+void CheckImportsAreRedirectedPe(
+    const base::FilePath::StringType& library_path,
+    bool hot_patching) {
 
   // Load the transformed module without resolving its dependencies.
   base::NativeLibrary lib =
-      ::LoadLibraryEx(relinked_path_.value().c_str(),
+      ::LoadLibraryEx(library_path.c_str(),
                       NULL,
                       DONT_RESOLVE_DLL_REFERENCES);
   ASSERT_TRUE(lib != NULL);
@@ -999,7 +1085,16 @@ TEST_F(AsanTransformTest, ImportsAreRedirectedPe) {
   PEImage image(lib);
   ASSERT_TRUE(image.VerifyMagic());
   StringSet imports;
-  ASSERT_TRUE(image.EnumAllImports(&EnumAsanImports, &imports));
+  EnumAsanImportsParams enum_asan_imports_params;
+  if (!hot_patching) {
+    enum_asan_imports_params.imported_module_name = AsanTransform::kSyzyAsanDll;
+  } else {
+    enum_asan_imports_params.imported_module_name =
+        AsanTransform::kSyzyAsanHpDll;
+  }
+  enum_asan_imports_params.imports = &imports;
+  ASSERT_TRUE(image.EnumAllImports(&EnumAsanImports,
+                                   &enum_asan_imports_params));
 
   StringVector heap_imports;
   ASSERT_TRUE(image.EnumAllImports(&EnumKernel32HeapImports, &heap_imports));
@@ -1025,10 +1120,15 @@ TEST_F(AsanTransformTest, ImportsAreRedirectedPe) {
   // Imports that should be redirected should all have matching asan imports.
   StringSet results;
   Intersect(imports, expected, &results);
-  EXPECT_EQ(results, expected);
+  if (!hot_patching) {
+    EXPECT_EQ(expected, results);
+  } else {
+    // These should not be present in hot patching mode.
+    EXPECT_TRUE(results.empty());
+  }
 
   // Some instrumentation functions (but not necessarily all of them) should be
-  // found.
+  // found, unless we are in hot patching mode.
   expected.clear();
   expected.insert("asan_check_1_byte_read_access");
   expected.insert("asan_check_2_byte_read_access");
@@ -1082,21 +1182,29 @@ TEST_F(AsanTransformTest, ImportsAreRedirectedPe) {
 
   // We expect all of the instrumentation functions to have been added.
   Intersect(imports, expected, &results);
-  EXPECT_EQ(results, expected);
+  if (!hot_patching) {
+    EXPECT_EQ(expected, results);
+  } else {
+    // These should not be present in hot patching mode.
+    EXPECT_TRUE(results.empty());
+  }
+
+  // Hot patching mode uses a different prefix for static CRT intercepts.
+  std::string prefix = !hot_patching ? "asan_" : "hp_asan_";
 
   // We expect all of these statically linked CRT functions to be redirected.
   expected.clear();
-  expected.insert("asan_memcpy");
-  expected.insert("asan_memmove");
-  expected.insert("asan_memset");
-  expected.insert("asan_memchr");
-  expected.insert("asan_strlen");
-  expected.insert("asan_strrchr");
-  expected.insert("asan_strncpy");
-  expected.insert("asan_strncat");
-  expected.insert("asan_wcsrchr");
-  expected.insert("asan_wcschr");
-  expected.insert("asan_wcsstr");
+  expected.insert(prefix + "memcpy");
+  expected.insert(prefix + "memmove");
+  expected.insert(prefix + "memset");
+  expected.insert(prefix + "memchr");
+  expected.insert(prefix + "strlen");
+  expected.insert(prefix + "strrchr");
+  expected.insert(prefix + "strncpy");
+  expected.insert(prefix + "strncat");
+  expected.insert(prefix + "wcsrchr");
+  expected.insert(prefix + "wcschr");
+  expected.insert(prefix + "wcsstr");
   Intersect(imports, expected, &results);
   EXPECT_FALSE(results.empty());
   EXPECT_EQ(results, expected);
@@ -1104,13 +1212,28 @@ TEST_F(AsanTransformTest, ImportsAreRedirectedPe) {
   // The implementation of the interceptors for these functions isn't available
   // so we don't expect them to be redirected.
   StringSet not_expected;
-  not_expected.insert("asan_strcmp");
-  not_expected.insert("asan_strcspn");
-  not_expected.insert("asan_strspn");
-  not_expected.insert("asan_strstr");
-  not_expected.insert("asan_strpbrk");
+  not_expected.insert(prefix + "strcmp");
+  not_expected.insert(prefix + "strcspn");
+  not_expected.insert(prefix + "strspn");
+  not_expected.insert(prefix + "strstr");
+  not_expected.insert(prefix + "strpbrk");
   Intersect(imports, not_expected, &results);
   EXPECT_TRUE(results.empty());
+}
+
+}  // namespace
+
+TEST_F(AsanTransformTest, ImportsAreRedirectedPe) {
+  ASSERT_NO_FATAL_FAILURE(ApplyTransformToIntegrationTestDll());
+
+  CheckImportsAreRedirectedPe(relinked_path_.value(), false);
+}
+
+TEST_F(AsanTransformTest, ImportsAreRedirectedHpPe) {
+  asan_transform_.set_hot_patching(true);
+  ASSERT_NO_FATAL_FAILURE(ApplyTransformToIntegrationTestDll());
+
+  CheckImportsAreRedirectedPe(relinked_path_.value(), true);
 }
 
 namespace {
@@ -1333,7 +1456,7 @@ TEST_F(AsanTransformTest, AsanHooksAreStubbed) {
   for (; iid->FirstThunk; ++iid) {
     std::string module_name(reinterpret_cast<LPCSTR>(
         image.RVAToAddr(iid->Name)));
-    if (module_name == kAsanRtlDll)
+    if (module_name == AsanTransform::kSyzyAsanDll)
       ASSERT_NE(0u, iid->TimeDateStamp);
   }
 
@@ -1685,6 +1808,38 @@ TEST_F(AsanTransformTest, PatchCRTHeapInitialization) {
     }
   }
   EXPECT_TRUE(refers_to_heap_create);
+}
+
+TEST_F(AsanTransformTest, HotPatchingSection) {
+  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
+
+  asan_transform_.set_hot_patching(true);
+  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
+      &asan_transform_, policy_, &block_graph_, header_block_));
+
+  // Look for the presence of the hot patching section.
+  const BlockGraph::Section* hp_section = nullptr;
+  for (const auto& entry: block_graph_.sections()) {
+    const BlockGraph::Section* sect = &entry.second;
+    if (sect->name() == common::kHotPatchingMetadataSectionName) {
+      hp_section = sect;
+    }
+  }
+  ASSERT_NE(nullptr, hp_section);
+
+  // We iterate over the blocks and check that a block is in the list of hot
+  // patched blocks iff it has been prepared for hot patching.
+  std::unordered_set<const BlockGraph::Block*> hot_patched_set_(
+      asan_transform_.hot_patched_blocks_.begin(),
+      asan_transform_.hot_patched_blocks_.end());
+  for (const auto& entry : block_graph_.blocks()) {
+    const BlockGraph::Block* block = &entry.second;
+
+    // We check |padding_before| to see if the block has been prepared for hot
+    // patching.
+    size_t expected_padding = hot_patched_set_.count(block) ? 5U : 0U;
+    EXPECT_EQ(expected_padding, block->padding_before());
+  }
 }
 
 }  // namespace transforms

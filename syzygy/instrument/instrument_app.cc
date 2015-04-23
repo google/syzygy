@@ -89,6 +89,7 @@ static const char kUsageFormatStr[] =
     "                            these options see common/asan_parameters. If\n"
     "                            not specified then the defaults of the RTL\n"
     "                            will be used.\n"
+    "    --hot-patching          Use hot patching Asan instrumentation.\n"
     "    --instrumentation-rate=DOUBLE\n"
     "                            Specifies the fraction of instructions to\n"
     "                            be instrumented, as a value in the range\n"

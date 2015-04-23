@@ -91,6 +91,10 @@ extern const char kDecoratedAsanInterceptPrefix[];
 // associated with a DLL takes care of defining these.
 extern const char kDecoratedImportPrefix[];
 
+// The prefix that is applied to the name of hot patching Asan instrumented
+// implementations of intercepted functions.
+extern const char kUndecoratedHotPatchingAsanInterceptPrefix[];
+
 }  // namespace transforms
 }  // namespace instrument
 

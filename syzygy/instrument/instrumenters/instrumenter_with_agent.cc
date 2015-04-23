@@ -110,14 +110,14 @@ bool InstrumenterWithAgent::ParseCommandLine(const CommandLine* command_line) {
     }
   }
 
-  if (agent_dll_.empty()) {
-    LOG(ERROR) << "No agent DLL has been specified.";
-    return false;
-  }
-
   if (!ParseAdditionalCommandLineArguments(command_line)) {
     LOG(ERROR) << "Unable to parse the additional arguments from the command "
                << "line.";
+    return false;
+  }
+
+  if (agent_dll_.empty()) {
+    LOG(ERROR) << "No agent DLL has been specified.";
     return false;
   }
 

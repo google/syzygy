@@ -36,9 +36,6 @@ class AsanInstrumenter : public InstrumenterWithAgent {
   ~AsanInstrumenter() { }
 
  protected:
-  // The name of the agent for this mode of instrumentation.
-  static const char kAgentDllAsan[];
-
   // @name InstrumenterWithAgent overrides.
   // @{
   virtual bool ImageFormatIsSupported(ImageFormat image_format) OVERRIDE;
@@ -56,6 +53,7 @@ class AsanInstrumenter : public InstrumenterWithAgent {
   bool use_liveness_analysis_;
   double instrumentation_rate_;
   bool asan_rtl_options_;
+  bool hot_patching_;
   // @}
 
   // Valid if asan_rtl_options_ is true.

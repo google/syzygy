@@ -127,13 +127,13 @@ class AsanBasicBlockTransform
   // The transform name.
   static const char kTransformName[];
 
- protected:
   // @name BasicBlockSubGraphTransformInterface method.
   virtual bool TransformBasicBlockSubGraph(
       const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
-      BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
+      BasicBlockSubGraph* basic_block_subgraph) override;
 
+ protected:
   // Instruments the memory accesses in a basic block.
   // @param basic_block The basic block to be instrumented.
   // @param stack_mode Give some assumptions to the transformation on stack
@@ -162,7 +162,7 @@ class AsanBasicBlockTransform
   bool debug_friendly_;
 
   // Instead of instrumenting the basic blocks, run in dry run mode and just
-  // signal whether there would be an instrumenation in the block.
+  // signal whether there would be an instrumentation in the block.
   bool dry_run_;
 
   // Controls the rate at which reads/writes are instrumented. This is
@@ -183,13 +183,51 @@ class AsanBasicBlockTransform
   DISALLOW_COPY_AND_ASSIGN(AsanBasicBlockTransform);
 };
 
+// This runs Asan basic block transform in dry run mode and prepares the block
+// for hot patching if Asan would instrument it. Doing these two things in a
+// single basic block transform avoids running basic block decomposer twice.
+class HotPatchingAsanBasicBlockTransform
+    : public block_graph::transforms::NamedBasicBlockSubGraphTransformImpl<
+          AsanBasicBlockTransform>,
+      public block_graph::Filterable {
+ public:
+  typedef block_graph::BlockGraph BlockGraph;
+  typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
+  typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
+
+  // Construct a HotPatchingAsanBasicBlockTransform.
+  // @param asan_bb_transform An Asan basic block transform that will be run
+  //     to check if an instrumentation would happen.
+  // @pre the transform in the parameter must be in dry run mode.
+  HotPatchingAsanBasicBlockTransform(
+      AsanBasicBlockTransform* asan_bb_transform);
+
+  // @name BasicBlockSubGraphTransformInterface method.
+  virtual bool TransformBasicBlockSubGraph(
+      const TransformPolicyInterface* policy,
+      BlockGraph* block_graph,
+      BasicBlockSubGraph* basic_block_subgraph) override;
+
+  // Check if the block in the subgraph was prepared for hot patching during
+  // the last run of TransformBasicBlockSubGraph.
+  // @returns true if the prepared the block for hot patching, false if the
+  //     block needs no Asan instrumentation.
+  bool prepared_for_hot_patching() {
+    return prepared_for_hot_patching_;
+  }
+
+ private:
+  AsanBasicBlockTransform* asan_bb_transform_;
+
+  bool prepared_for_hot_patching_;
+};
+
 class AsanTransform
     : public block_graph::transforms::IterativeTransformImpl<AsanTransform>,
       public block_graph::Filterable {
  public:
   typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
-  typedef AsanBasicBlockTransform::MemoryAccessInfo MemoryAccessInfo;
   typedef AsanBasicBlockTransform::MemoryAccessMode MemoryAccessMode;
   typedef std::set<BlockGraph::Block*, BlockGraph::BlockIdLess> BlockSet;
 
@@ -216,9 +254,12 @@ class AsanTransform
   void set_instrument_dll_name(const base::StringPiece& instrument_dll_name) {
     instrument_dll_name.CopyToString(&asan_dll_name_);
   }
-  const char* instrument_dll_name() const {
-    return asan_dll_name_.c_str();
-  }
+  // Name of the asan_rtl DLL we import. The |instrument_dll_name_| member is
+  // empty by default, in that case |kSyzyAsanDll| will be returned if hot
+  // patching mode is disabled and |kSyzyAsanHpDll| will be returned in hot
+  // patching mode.
+  // @returns the name of the runtime library of the instrumentation.
+  base::StringPiece instrument_dll_name() const;
 
   bool debug_friendly() const { return debug_friendly_; }
   void set_debug_friendly(bool flag) { debug_friendly_ = flag; }
@@ -252,8 +293,24 @@ class AsanTransform
   }
   // @}
 
-  // The name of the DLL that is imported by default.
+  // Checks if the transform is in hot patching mode.
+  // @returns true iff in hot patching mode.
+  bool hot_patching() const {
+    return hot_patching_;
+  }
+  // If this flag is true, running the transformation prepares the module to
+  // be used by the hot patching Asan runtime.
+  // @param hot_patching The new value of the flag.
+  void set_hot_patching(bool hot_patching) {
+    hot_patching_ = hot_patching;
+  }
+
+  // The name of the DLL that is imported by default if hot patching mode is
+  // inactive.
   static const char kSyzyAsanDll[];
+
+  // The name of the DLL that is imported by default in hot patching mode.
+  static const char kSyzyAsanHpDll[];
 
   // The transform name.
   static const char kTransformName[];
@@ -322,7 +379,8 @@ class AsanTransform
                               BlockGraph::Block* header_block);
   // @}
 
-  // Name of the asan_rtl DLL we import. Defaults to "syzyasan_rtl.dll".
+  // Name of the asan_rtl DLL we import. Do not access this directly, use the
+  // instrument_dll_name() getter that provides default values.
   std::string asan_dll_name_;
 
   // Activate the overwriting of source range for created instructions.
@@ -372,6 +430,15 @@ class AsanTransform
   // This is a set because OnBlock needs fast lookup. We sort by the BlockID
   // to have a consistent output in PeInterceptFunctions.
   BlockSet static_intercepted_blocks_;
+
+  // If this flag is true, running the transformation prepares the module to
+  // be used by the hot patching Asan runtime.
+  bool hot_patching_;
+
+  // In hot patching mode, this vector is used to collect the blocks prepared
+  // for hot patching in the OnBlock method and insert them to the hot patching
+  // metadata stream in the PostBlockGraphIteration.
+  std::vector<BlockGraph::Block*> hot_patched_blocks_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(AsanTransform);
