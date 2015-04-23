@@ -17,19 +17,19 @@ LIBRARY syzyasan_hp.dll
 
 EXPORTS
   ; CRT Interceptor functions.
-  hp_memchr
-  hp_memcpy
-  hp_memmove
-  hp_memset
-  hp_strcmp
-  hp_strcspn
-  hp_strlen
-  hp_strncat
-  hp_strncpy
-  hp_strpbrk
-  hp_strrchr
-  hp_strspn
-  hp_strstr
-  hp_wcschr
-  hp_wcsrchr
-  hp_wcsstr
+  hp_asan_memchr
+  hp_asan_memcpy
+  hp_asan_memmove
+  hp_asan_memset
+  hp_asan_strcmp
+  hp_asan_strcspn
+  hp_asan_strlen
+  hp_asan_strncat
+  hp_asan_strncpy
+  hp_asan_strpbrk
+  hp_asan_strrchr
+  hp_asan_strspn
+  hp_asan_strstr
+  hp_asan_wcschr
+  hp_asan_wcsrchr
+  hp_asan_wcsstr

@@ -26,43 +26,47 @@
 // Exposes the CRT interceptors.
 extern "C" {
 
-const void* __cdecl hp_memchr(const unsigned char* ptr,
-                              int value,
-                              size_t num);
+const void* __cdecl hp_asan_memchr(const unsigned char* ptr,
+                                   int value,
+                                   size_t num);
 
-void* __cdecl hp_memcpy(unsigned char* destination,
-                        const unsigned char* source,
-                        size_t num);
+void* __cdecl hp_asan_memcpy(unsigned char* destination,
+                             const unsigned char* source,
+                             size_t num);
 
-void* __cdecl hp_memmove(unsigned char* destination,
+void* __cdecl hp_asan_memmove(unsigned char* destination,
                          const unsigned char* source,
                          size_t num);
 
-void* __cdecl hp_memset(unsigned char* ptr, int value, size_t num);
+void* __cdecl hp_asan_memset(unsigned char* ptr, int value, size_t num);
 
-int __cdecl hp_strcmp(const char* str1, const char* str2);
+int __cdecl hp_asan_strcmp(const char* str1, const char* str2);
 
-size_t __cdecl hp_strcspn(const char* str1, const char* str2);
+size_t __cdecl hp_asan_strcspn(const char* str1, const char* str2);
 
-size_t __cdecl hp_strlen(const char* str);
+size_t __cdecl hp_asan_strlen(const char* str);
 
-char* __cdecl hp_strncat(char* destination, const char* source, size_t num);
+char* __cdecl hp_asan_strncat(char* destination,
+                              const char* source,
+                              size_t num);
 
-char* __cdecl hp_strncpy(char* destination, const char* source, size_t num);
+char* __cdecl hp_asan_strncpy(char* destination,
+                              const char* source,
+                              size_t num);
 
-const char* __cdecl hp_strpbrk(const char* str1, const char* str2);
+const char* __cdecl hp_asan_strpbrk(const char* str1, const char* str2);
 
-const char* __cdecl hp_strrchr(const char* str, int character);
+const char* __cdecl hp_asan_strrchr(const char* str, int character);
 
-size_t __cdecl hp_strspn(const char* str1, const char* str2);
+size_t __cdecl hp_asan_strspn(const char* str1, const char* str2);
 
-const char* __cdecl hp_strstr(const char* str1, const char* str2);
+const char* __cdecl hp_asan_strstr(const char* str1, const char* str2);
 
-const wchar_t* hp_wcschr(const wchar_t* str, wchar_t character);
+const wchar_t* hp_asan_wcschr(const wchar_t* str, wchar_t character);
 
-const wchar_t* hp_wcsrchr(const wchar_t* str, wchar_t character);
+const wchar_t* hp_asan_wcsrchr(const wchar_t* str, wchar_t character);
 
-const wchar_t* hp_wcsstr(const wchar_t* str, const wchar_t* keys);
+const wchar_t* hp_asan_wcsstr(const wchar_t* str, const wchar_t* keys);
 
 }  // extern "C"
 
