@@ -79,33 +79,51 @@ Shadow::~Shadow() {
   length_ = 0;
 }
 
-void Shadow::SetUp() {
+bool Shadow::SetUp() {
   // Poison the shadow object itself.
-  // TODO(chrisha): Lift this to something that derived classes can do.
-  Poison(this,
-         ::common::AlignUp(sizeof(*this), kShadowRatio),
-         kAsanMemoryMarker);
+  const void* self = nullptr;
+  size_t self_size = 0;
+  GetPointerAndSize(&self, &self_size);
+  DCHECK(::common::IsAligned(self, kShadowRatio));
+  DCHECK(::common::IsAligned(self_size, kShadowRatio));
+  if (!Poison(self, self_size, kAsanMemoryMarker))
+    return false;
+
   // Poison the shadow memory.
-  Poison(shadow_, length_, kAsanMemoryMarker);
+  if (!Poison(shadow_, length_, kAsanMemoryMarker))
+    return false;
   // Poison the first 64k of the memory as they're not addressable.
-  Poison(0, kAddressLowerBound, kInvalidAddressMarker);
+  if (!Poison(0, kAddressLowerBound, kInvalidAddressMarker))
+    return false;
   // Poison the protection bits array.
-  Poison(page_bits_.data(), page_bits_.size(), kAsanMemoryMarker);
+  if (!Poison(page_bits_.data(), page_bits_.size(), kAsanMemoryMarker))
+    return false;
+  return true;
 }
 
-void Shadow::TearDown() {
-  // Poison the shadow object itself.
-  // TODO(chrisha): Lift this to something that derived classes can do.
-  Unpoison(this, ::common::AlignUp(sizeof(*this), kShadowRatio));
+bool Shadow::TearDown() {
+  // Unpoison the shadow object itself.
+  const void* self = nullptr;
+  size_t self_size = 0;
+  GetPointerAndSize(&self, &self_size);
+  DCHECK(::common::IsAligned(self, kShadowRatio));
+  DCHECK(::common::IsAligned(self_size, kShadowRatio));
+  if (!Unpoison(self, self_size))
+    return false;
+
   // Unpoison the shadow memory.
-  Unpoison(shadow_, length_);
+  if (!Unpoison(shadow_, length_))
+    return false;
   // Unpoison the first 64k of the memory.
-  Unpoison(0, kAddressLowerBound);
+  if (!Unpoison(0, kAddressLowerBound))
+    return false;
   // Unpoison the protection bits array.
-  Unpoison(page_bits_.data(), page_bits_.size());
+  if (!Unpoison(page_bits_.data(), page_bits_.size()))
+    return false;
+  return true;
 }
 
-bool Shadow::IsClean() {
+bool Shadow::IsClean() const {
   const size_t innac_end = kAddressLowerBound >> kShadowRatioLog;
 
   const size_t shadow_begin =
@@ -119,10 +137,13 @@ bool Shadow::IsClean() {
       reinterpret_cast<uintptr_t>(page_bits_.data() + page_bits_.size()) >>
           kShadowRatioLog;
 
+  void const* self = nullptr;
+  size_t self_size = 0;
+  GetPointerAndSize(&self, &self_size);
   const size_t this_begin =
-      reinterpret_cast<uintptr_t>(this) >> kShadowRatioLog;
+      reinterpret_cast<uintptr_t>(self) >> kShadowRatioLog;
   const size_t this_end =
-      (reinterpret_cast<uintptr_t>(this) + sizeof(*this) + kShadowRatio - 1) >>
+      (reinterpret_cast<uintptr_t>(self) + self_size + kShadowRatio - 1) >>
           kShadowRatioLog;
 
   size_t i = 0;
@@ -144,6 +165,25 @@ bool Shadow::IsClean() {
   }
 
   return true;
+}
+
+void Shadow::GetPointerAndSize(void const** self, size_t* size) const {
+  DCHECK_NE(static_cast<void**>(nullptr), self);
+  DCHECK_NE(static_cast<size_t*>(nullptr), size);
+  GetPointerAndSizeImpl(self, size);
+  const uint8* begin = ::common::AlignDown(
+      reinterpret_cast<const uint8*>(*self), kShadowRatio);
+  const uint8* end = ::common::AlignUp(
+      reinterpret_cast<const uint8*>(*self), kShadowRatio);
+  *self = begin;
+  *size = end - begin;
+}
+
+void Shadow::GetPointerAndSizeImpl(void const** self, size_t* size) const {
+  DCHECK_NE(static_cast<void**>(nullptr), self);
+  DCHECK_NE(static_cast<size_t*>(nullptr), size);
+  *self = this;
+  *size = sizeof(*this);
 }
 
 void Shadow::Init(size_t length) {
@@ -176,7 +216,7 @@ void Shadow::Reset() {
   ::memset(page_bits_.data(), 0, page_bits_.size());
 }
 
-void Shadow::Poison(const void* addr, size_t size, ShadowMarker shadow_val) {
+bool Shadow::Poison(const void* addr, size_t size, ShadowMarker shadow_val) {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
   uintptr_t start = index & (kShadowRatio - 1);
   DCHECK_EQ(0U, (index + size) & (kShadowRatio - 1));
@@ -188,9 +228,11 @@ void Shadow::Poison(const void* addr, size_t size, ShadowMarker shadow_val) {
   size >>= kShadowRatioLog;
   DCHECK_GT(length_, index + size);
   ::memset(shadow_ + index, shadow_val, size);
+
+  return true;
 }
 
-void Shadow::Unpoison(const void* addr, size_t size) {
+bool Shadow::Unpoison(const void* addr, size_t size) {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
   DCHECK_EQ(0U, index & (kShadowRatio - 1));
 
@@ -202,6 +244,8 @@ void Shadow::Unpoison(const void* addr, size_t size) {
 
   if (remainder != 0)
     shadow_[index + size] = remainder;
+
+  return true;
 }
 
 namespace {
@@ -272,7 +316,7 @@ inline void MarkAsFreedImpl64(uint8* cursor, uint8* cursor_end) {
 
 }  // namespace
 
-void Shadow::MarkAsFreed(const void* addr, size_t size) {
+bool Shadow::MarkAsFreed(const void* addr, size_t size) {
   DCHECK_LE(kAddressLowerBound, reinterpret_cast<uintptr_t>(addr));
   DCHECK(::common::IsAligned(addr, kShadowRatio));
   size_t index = reinterpret_cast<uintptr_t>(addr) / kShadowRatio;
@@ -287,6 +331,8 @@ void Shadow::MarkAsFreed(const void* addr, size_t size) {
   // This isn't as simple as a memset because we need to preserve left and
   // right redzone padding bytes that may be found in the range.
   MarkAsFreedImpl64(cursor, cursor_end);
+
+  return true;
 }
 
 bool Shadow::IsAccessible(const void* addr) const {
@@ -513,24 +559,6 @@ void Shadow::MarkPagesUnprotected(const void* addr, size_t size) {
     page_bits_[index] &= ~mask;
     page += kPageSize;
   }
-}
-
-void Shadow::CloneShadowRange(const void* src_pointer,
-                              void* dst_pointer,
-                              size_t size) {
-  DCHECK_EQ(0U, size & 0x7);
-
-  uintptr_t src_index = reinterpret_cast<uintptr_t>(src_pointer);
-  DCHECK_EQ(0U, src_index & 0x7);
-  src_index >>= kShadowRatioLog;
-
-  uintptr_t dst_index = reinterpret_cast<uintptr_t>(dst_pointer);
-  DCHECK_EQ(0U, dst_index & 0x7);
-  dst_index >>= kShadowRatioLog;
-
-  size_t size_shadow = size >> kShadowRatioLog;
-
-  memcpy(shadow_ + dst_index, shadow_ + src_index, size_shadow);
 }
 
 void Shadow::AppendShadowByteText(const char *prefix,

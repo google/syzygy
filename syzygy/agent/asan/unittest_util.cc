@@ -303,7 +303,8 @@ FakeAsanBlock::FakeAsanBlock(size_t alloc_alignment_log,
 
 FakeAsanBlock::~FakeAsanBlock() {
   EXPECT_NE(0U, block_info.block_size);
-  StaticShadow::shadow.Unpoison(buffer_align_begin, block_info.block_size);
+  CHECK(StaticShadow::shadow.Unpoison(
+      buffer_align_begin, block_info.block_size));
   ::memset(buffer, 0, sizeof(buffer));
 }
 
@@ -419,7 +420,8 @@ bool FakeAsanBlock::MarkBlockAsQuarantined() {
   EXPECT_TRUE(block_info.trailer != NULL);
   EXPECT_EQ(0U, block_info.trailer->free_tid);
 
-  StaticShadow::shadow.MarkAsFreed(block_info.body, block_info.body_size);
+  EXPECT_TRUE(StaticShadow::shadow.MarkAsFreed(
+      block_info.body, block_info.body_size));
   StackCapture stack;
   stack.InitFromStack();
   block_info.header->free_stack = stack_cache->SaveStackTrace(stack);

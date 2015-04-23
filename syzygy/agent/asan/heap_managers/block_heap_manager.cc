@@ -177,7 +177,7 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
     void* alloc = heap->Allocate(bytes);
     if ((heap->GetHeapFeatures() &
         HeapInterface::kHeapReportsReservations) != 0) {
-      StaticShadow::shadow.Unpoison(alloc, bytes);
+      CHECK(StaticShadow::shadow.Unpoison(alloc, bytes));
     }
     return alloc;
   }
@@ -287,7 +287,8 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   // Poison the released alloc (marked as freed) and quarantine the block.
   // Note that the original data is left intact. This may make it easier
   // to debug a crash report/dump on access to a quarantined block.
-  StaticShadow::shadow.MarkAsFreed(block_info.body, block_info.body_size);
+  CHECK(StaticShadow::shadow.MarkAsFreed(
+      block_info.body, block_info.body_size));
 
   // We need to update the block's metadata before pushing it into the
   // quarantine, otherwise a concurrent thread might try to pop it while its in
@@ -762,10 +763,12 @@ bool BlockHeapManager::FreePristineBlock(BlockInfo* block_info) {
 
   if ((heap->GetHeapFeatures() &
        HeapInterface::kHeapReportsReservations) != 0) {
-    StaticShadow::shadow.Poison(block_info->block, block_info->block_size,
-                                kAsanReservedMarker);
+    CHECK(StaticShadow::shadow.Poison(
+        block_info->block, block_info->block_size,
+        kAsanReservedMarker));
   } else {
-    StaticShadow::shadow.Unpoison(block_info->block, block_info->block_size);
+    CHECK(StaticShadow::shadow.Unpoison(
+        block_info->block, block_info->block_size));
   }
   return heap->FreeBlock(*block_info);
 }
@@ -795,9 +798,10 @@ bool BlockHeapManager::FreeUnguardedAlloc(HeapId heap_id, void* alloc) {
        HeapInterface::kHeapReportsReservations) != 0) {
     DCHECK_NE(0U, heap->GetHeapFeatures() &
                   HeapInterface::kHeapSupportsGetAllocationSize);
-    StaticShadow::shadow.Poison(alloc,
-                                Size(heap_id, alloc),
-                                kAsanReservedMarker);
+    CHECK(StaticShadow::shadow.Poison(
+        alloc,
+        Size(heap_id, alloc),
+        kAsanReservedMarker));
   }
 
   return heap->Free(alloc);

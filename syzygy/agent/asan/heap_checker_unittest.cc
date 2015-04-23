@@ -202,7 +202,8 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
   block_headers[1]->magic--;
   block_headers[kNumberOfBlocks - 1]->magic--;
 
-  StaticShadow::shadow.Unpoison(global_alloc, total_alloc_size);
+  ASSERT_TRUE(StaticShadow::shadow.Unpoison(
+      global_alloc, total_alloc_size));
   ::free(global_alloc);
 }
 

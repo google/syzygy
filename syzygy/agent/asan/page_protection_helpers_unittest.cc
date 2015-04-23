@@ -58,7 +58,7 @@ TEST(PageProtectionHelpersTest, GetBlockInfo) {
   EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
 
   // Clean up.
-  StaticShadow::shadow.Unpoison(info.block, info.block_size);
+  ASSERT_TRUE(StaticShadow::shadow.Unpoison(info.block, info.block_size));
   ::VirtualFree(alloc, layout.block_size, MEM_RELEASE);
 }
 

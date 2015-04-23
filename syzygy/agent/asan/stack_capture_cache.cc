@@ -48,7 +48,7 @@ StackCaptureCache::CachePage::~CachePage() {
   // properly unlinked from the linked list.
   DCHECK(next_page_ == NULL);
   // TODO(chrisha): Make this use ShadowMemoryNotifier.
-  StaticShadow::shadow.Unpoison(this, sizeof(CachePage));
+  CHECK(StaticShadow::shadow.Unpoison(this, sizeof(CachePage)));
 }
 
 common::StackCapture* StackCaptureCache::CachePage::GetNextStackCapture(

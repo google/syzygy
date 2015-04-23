@@ -446,7 +446,7 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // this process. Note: this is mostly for debugging purposes.
   CommandLine::Init(0, NULL);
 
-  StaticShadow::shadow.SetUp();
+  CHECK(StaticShadow::shadow.SetUp());
 
   // Setup the "global" state.
   common::StackCapture::Init();
@@ -498,7 +498,7 @@ void AsanRuntime::TearDown() {
   TearDownLogger();
   DCHECK(asan_error_callback_.is_null() == FALSE);
   asan_error_callback_.Reset();
-  StaticShadow::shadow.TearDown();
+  CHECK(StaticShadow::shadow.TearDown());
 
   // Unregister ourselves as the singleton runtime for UEF.
   runtime_ = NULL;

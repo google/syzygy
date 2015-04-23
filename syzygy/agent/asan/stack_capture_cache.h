@@ -238,7 +238,8 @@ class StackCaptureCache::CachePage {
  public:
   explicit CachePage(CachePage* link) : next_page_(link), bytes_used_(0) {
     // TODO(chrisha): Make this use a ShadowMemoryNotifier.
-    StaticShadow::shadow.Poison(this, sizeof(CachePage), kAsanMemoryMarker);
+    CHECK(StaticShadow::shadow.Poison(
+        this, sizeof(CachePage), kAsanMemoryMarker));
   }
 
   ~CachePage();
