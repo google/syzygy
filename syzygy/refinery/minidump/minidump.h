@@ -47,17 +47,17 @@ class Minidump {
 
   // Returns a stream for @p location.
   // @param location defines the offset and length of the returned stream.
-  Stream GetStreamFor(const MINIDUMP_LOCATION_DESCRIPTOR& location);
+  Stream GetStreamFor(const MINIDUMP_LOCATION_DESCRIPTOR& location) const;
 
   // Returns a stream for the file's @p stream_id.
   // @param stream_id the stream id to return, must be a valid stream id.
-  Stream GetStream(size_t stream_id);
+  Stream GetStream(size_t stream_id) const;
 
   // Find the next stream of type @p stream_type.
   // @param prev the previous stream of this type or nullptr.
   // @param stream_type the stream type to look for.
   // @returns a valid stream if one can be found, otherwise an invalid stream.
-  Stream FindNextStream(const Stream* prev, size_t stream_type);
+  Stream FindNextStream(const Stream* prev, size_t stream_type) const;
 
   // Accessors.
   const std::vector<MINIDUMP_DIRECTORY>& directory() const {
@@ -74,7 +74,7 @@ class Minidump {
   // @param data where to write the data, must be of size @p data_data size or
   //     larger.
   // @returns true on success, false on failure, including a short read.
-  bool ReadBytes(size_t offset, size_t data_size, void* data);
+  bool ReadBytes(size_t offset, size_t data_size, void* data) const;
 
   base::ScopedFILE file_;
   std::vector<MINIDUMP_DIRECTORY> directory_;
@@ -87,7 +87,8 @@ class Minidump {
 class Minidump::Stream {
  public:
   Stream();
-  Stream(Minidump* minidump, size_t offset, size_t length, size_t stream_id);
+  Stream(const Minidump* minidump, size_t offset, size_t length,
+         size_t stream_id);
 
   bool IsValid() const { return minidump_ != nullptr; }
   bool ReadBytes(size_t data_len, void* data);
@@ -99,7 +100,7 @@ class Minidump::Stream {
   size_t stream_id() const { return stream_id_; }
 
  private:
-  Minidump* minidump_;
+  const Minidump* minidump_;
 
   size_t current_offset_;
   size_t remaining_length_;

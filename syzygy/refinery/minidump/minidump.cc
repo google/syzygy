@@ -52,11 +52,11 @@ bool Minidump::Open(const base::FilePath& path) {
 }
 
 Minidump::Stream Minidump::GetStreamFor(
-    const MINIDUMP_LOCATION_DESCRIPTOR& location) {
+    const MINIDUMP_LOCATION_DESCRIPTOR& location) const {
   return Stream(this, location.Rva, location.DataSize, kNoStreamId);
 }
 
-Minidump::Stream Minidump::GetStream(size_t stream_id) {
+Minidump::Stream Minidump::GetStream(size_t stream_id) const {
   DCHECK_GT(directory_.size(), stream_id);
   const MINIDUMP_DIRECTORY& dir_entry = directory_[stream_id];
 
@@ -67,7 +67,7 @@ Minidump::Stream Minidump::GetStream(size_t stream_id) {
 }
 
 Minidump::Stream Minidump::FindNextStream(const Stream* prev,
-                                          size_t stream_type) {
+                                          size_t stream_type) const {
   size_t start = prev ? prev->stream_id() + 1 : 0;
 
   for (size_t id = start; id < directory_.size(); ++id) {
@@ -79,7 +79,7 @@ Minidump::Stream Minidump::FindNextStream(const Stream* prev,
   return Stream();
 }
 
-bool Minidump::ReadBytes(size_t offset, size_t data_size, void* data) {
+bool Minidump::ReadBytes(size_t offset, size_t data_size, void* data) const {
   if (fseek(file_.get(), offset, SEEK_SET) != 0)
     return false;
 
@@ -97,7 +97,7 @@ Minidump::Stream::Stream()
 }
 
 Minidump::Stream::Stream(
-    Minidump* minidump, size_t offset, size_t length, size_t stream_id)
+    const Minidump* minidump, size_t offset, size_t length, size_t stream_id)
         : minidump_(minidump),
           current_offset_(offset),
           remaining_length_(length),
