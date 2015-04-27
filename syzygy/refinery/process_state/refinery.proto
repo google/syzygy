@@ -18,28 +18,55 @@ package refinery;
 
 option optimize_for = LITE_RUNTIME;
 
-message MemoryInfo {
-  optional uint64 address = 1;
-  optional uint64 size_bytes = 2;
+message Bytes {
+  optional bytes data = 1;
 }
 
-message Bytes {
-  optional MemoryInfo memory_info = 1;
+// TODO(siggi, manzagop): Should this split into optional architecture-specific
+//    sub-structures?
+message RegisterInformation {
+  optional uint32 seg_gs = 1;
+  optional uint32 seg_fs = 2;
+  optional uint32 seg_es = 3;
+  optional uint32 seg_ds = 4;
+  optional uint32 edi = 5;
+  optional uint32 esi = 6;
+  optional uint32 ebx = 7;
+  optional uint32 edx = 8;
+  optional uint32 ecx = 9;
+  optional uint32 eax = 10;
+  optional uint32 ebp = 11;
+  optional uint32 eip = 12;
+  optional uint32 seg_cs = 13;
+  optional uint32 eflags = 14;
+  optional uint32 esp = 15;
+  optional uint32 seg_ss = 16;
+};
+
+
+// TODO(siggi, manzagop): Should this have optional platform-specific
+//    sub-structures?
+message ThreadInformation {
+  optional uint32 thread_id = 1;
+  optional uint32 suspend_count = 2;
+  optional uint32 priority_class = 3;
+  optional uint32 priority = 4;
+
+  optional uint64 teb_address = 5;
+
+  optional RegisterInformation register_info = 6;
 }
 
 // Also holds thread information.
 message Stack {
-  optional MemoryInfo memory_info = 1;
+  optional ThreadInformation thread_info = 1;
 }
 
 message StackFrame {
-  optional MemoryInfo memory_info = 1;
 }
 
 message HeapSnippet {
-  optional MemoryInfo memory_info = 1;
 }
 
 message TypedBlock {
-  optional MemoryInfo memory_info = 1;
 }

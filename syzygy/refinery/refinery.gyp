@@ -21,6 +21,7 @@
       'target_name': 'refinery',
       'type': 'none',
       'dependencies': [
+        'analyzers/analyzers.gyp:*',
         'process_state/process_state.gyp:*',
         'minidump/minidump.gyp:*',
       ],
@@ -29,11 +30,13 @@
       'target_name': 'refinery_unittests',
       'type': 'executable',
       'sources': [
+        'analyzers/thread_analyzer_unittest.cc',
         'process_state/process_state_unittest.cc',
         'minidump/minidump_unittest.cc',
         '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
+        'analyzers/analyzers.gyp:analyzers_lib',
         'minidump/minidump.gyp:minidump_lib',
         'process_state/process_state.gyp:process_state_lib',
         '<(src)/syzygy/core/core.gyp:core_lib',

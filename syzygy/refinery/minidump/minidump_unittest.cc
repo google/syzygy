@@ -15,7 +15,6 @@
 #include "syzygy/refinery/minidump/minidump.h"
 
 #include <stdint.h>
-#include <vector>
 
 #include "base/file_util.h"
 #include "base/files/file.h"
