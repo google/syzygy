@@ -232,7 +232,7 @@ TEST_F(ReporterTest, BasicTest) {
 
   upload_observer.WaitForUpload(&minidump_path, &crash_keys, &upload_success);
 
-  ASSERT_TRUE(upload_success);
+  EXPECT_TRUE(upload_success);
   EXPECT_HRESULT_SUCCEEDED(
       testing::VisitMinidump(minidump_path, base::Bind(&ValidateMinidump)));
 
@@ -260,7 +260,7 @@ TEST_F(ReporterTest, SendReportForProcessTest) {
   bool upload_success = false;
   upload_observer.WaitForUpload(&minidump_path, &crash_keys, &upload_success);
 
-  ASSERT_TRUE(upload_success);
+  EXPECT_TRUE(upload_success);
   EXPECT_HRESULT_SUCCEEDED(
       testing::VisitMinidump(minidump_path, base::Bind(&ValidateMinidump)));
 
@@ -289,7 +289,7 @@ TEST_F(ReporterTest, PermanentFailureTest) {
 
   upload_observer.WaitForUpload(&minidump_path, &crash_keys, &upload_success);
 
-  ASSERT_FALSE(upload_success);
+  EXPECT_FALSE(upload_success);
   EXPECT_HRESULT_SUCCEEDED(
       testing::VisitMinidump(minidump_path, base::Bind(&ValidateMinidump)));
 

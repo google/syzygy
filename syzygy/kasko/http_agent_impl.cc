@@ -278,12 +278,11 @@ scoped_ptr<HttpResponse> HttpResponseImpl::Create(
     return scoped_ptr<HttpResponse>();
   }
 
-  // Look up URL-specific proxy settings.
+  // Look up URL-specific proxy settings. If this fails, we will fall back to
+  // working without a proxy.
   AutoWinHttpUrlProxyConfig url_proxy_config(proxy_config);
-  if (!url_proxy_config.Load(instance->session_.Get(),
-                             ComposeUrl(host, port, path, secure))) {
-    return scoped_ptr<HttpResponse>();
-  }
+  url_proxy_config.Load(instance->session_.Get(),
+                        ComposeUrl(host, port, path, secure));
 
   // Connect to a host/port.
   instance->connection_.Set(
