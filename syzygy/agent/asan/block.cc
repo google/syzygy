@@ -113,8 +113,7 @@ uint32 CombineUInt32IntoBlockChecksum(uint32 val) {
 // An exception filter that catches access violations and out of bound accesses.
 DWORD BadMemoryAccessFilter(EXCEPTION_POINTERS* e) {
   if (e->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION ||
-      e->ExceptionRecord->ExceptionCode == EXCEPTION_ARRAY_BOUNDS_EXCEEDED ||
-      e->ExceptionRecord->ExceptionCode == STATUS_GUARD_PAGE_VIOLATION) {
+      e->ExceptionRecord->ExceptionCode == EXCEPTION_ARRAY_BOUNDS_EXCEEDED) {
     return EXCEPTION_EXECUTE_HANDLER;
   }
   return EXCEPTION_CONTINUE_SEARCH;
