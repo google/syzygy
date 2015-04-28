@@ -15,6 +15,7 @@
 #include "syzygy/refinery/minidump/minidump.h"
 
 #include <stdint.h>
+#include <string>
 
 #include "base/file_util.h"
 #include "syzygy/refinery/unittest_util.h"
@@ -127,6 +128,14 @@ TEST_F(MinidumpTest, StreamTest) {
 
   // No moar data.
   EXPECT_FALSE(test.ReadBytes(1, &bytes));
+
+  // Reset the stream to test reading via a string.
+  test = minidump.GetStreamFor(loc);
+  std::string data;
+  ASSERT_TRUE(test.ReadBytes(1, &data));
+  EXPECT_EQ(6U, test.GetRemainingBytes());
+  EXPECT_EQ(1U, data.size());
+  EXPECT_EQ(0, data[0]);
 }
 
 TEST_F(MinidumpTest, FindNextStream) {

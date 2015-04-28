@@ -26,6 +26,8 @@
       ],
       'sources': [
         'analyzer.h',
+        'memory_analyzer.cc',
+        'memory_analyzer.h',
         'thread_analyzer.cc',
         'thread_analyzer.h',
       ],

@@ -92,6 +92,7 @@ class Minidump::Stream {
 
   bool IsValid() const { return minidump_ != nullptr; }
   bool ReadBytes(size_t data_len, void* data);
+  bool ReadBytes(size_t data_len, std::string* data);
 
   template <class DataType>
   bool ReadElement(DataType* element);

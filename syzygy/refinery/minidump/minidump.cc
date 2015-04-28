@@ -106,6 +106,8 @@ Minidump::Stream::Stream(
 }
 
 bool Minidump::Stream::ReadBytes(size_t data_len, void* data) {
+  DCHECK(minidump_ != nullptr);
+
   if (data_len > remaining_length_)
     return false;
 
@@ -116,6 +118,18 @@ bool Minidump::Stream::ReadBytes(size_t data_len, void* data) {
   remaining_length_ -= data_len;
 
   return true;
+}
+
+bool Minidump::Stream::ReadBytes(size_t data_len, std::string* data) {
+  DCHECK(data != nullptr);
+  DCHECK(minidump_ != nullptr);
+
+  data->resize(data_len);
+  bool success = ReadBytes(data_len, &data->at(0));
+  if (!success)
+    data->resize(0);
+
+  return success;
 }
 
 }  // namespace refinery
