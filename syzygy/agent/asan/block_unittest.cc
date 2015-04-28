@@ -404,6 +404,26 @@ TEST(BlockTest, BlockInfoFromMemoryProtectedMemory) {
   ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
 }
 
+TEST(BlockTest, BlockInfoFromMemoryGuardPage) {
+  BlockLayout layout = {};
+  EXPECT_TRUE(BlockPlanLayout(4096, 4096, 4096, 4096, 4096, &layout));
+  void* alloc = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
+                               PAGE_READWRITE);
+  ASSERT_TRUE(alloc != NULL);
+  BlockInfo block_info = {};
+  BlockInitialize(layout, alloc, false, &block_info);
+
+  DWORD old_protection = 0;
+  ASSERT_TRUE(::VirtualProtect(alloc, layout.body_size,
+                               PAGE_READONLY | PAGE_GUARD, &old_protection));
+
+  BlockInfo recovered_info = {};
+  EXPECT_FALSE(BlockInfoFromMemory(block_info.block, &recovered_info));
+  BlockProtectNone(block_info);
+
+  ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
+}
+
 TEST(BlockTest, BlockInfoFromMemoryForNestedBlock) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout));
