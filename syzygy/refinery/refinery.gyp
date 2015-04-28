@@ -27,6 +27,17 @@
       ],
     },
     {
+      'target_name': 'refinery_unittest_utils',
+      'type': 'static_library',
+      'sources': [
+        'unittest_util.cc',
+        'unittest_util.h',
+      ],
+      'dependencies': [
+        '<(src)/testing/gtest.gyp:gtest',
+      ],
+    },
+    {
       'target_name': 'refinery_unittests',
       'type': 'executable',
       'sources': [
@@ -39,6 +50,7 @@
         'analyzers/analyzers.gyp:analyzers_lib',
         'minidump/minidump.gyp:minidump_lib',
         'process_state/process_state.gyp:process_state_lib',
+        'refinery_unittest_utils',
         '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',

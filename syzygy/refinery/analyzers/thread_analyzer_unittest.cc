@@ -16,13 +16,8 @@
 
 #include <stdint.h>
 
-#include "base/file_util.h"
-#include "base/files/file.h"
-#include "base/files/file_path.h"
-#include "base/files/scoped_temp_dir.h"
-#include "base/process/process.h"
-#include "base/process/process_handle.h"
 #include "gtest/gtest.h"
+#include "syzygy/refinery/unittest_util.h"
 #include "syzygy/refinery/minidump/minidump.h"
 #include "syzygy/refinery/process_state/process_state.h"
 
@@ -30,36 +25,13 @@ namespace refinery {
 
 namespace {
 
-class AnalysisTest : public testing::Test {
+class AnalysisTest : public testing::MinidumpTest {
  public:
   void SetUp() override {
-    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+    ASSERT_NO_FATAL_FAILURE(MinidumpTest::SetUp());
 
-    dump_file_ = temp_dir_.path().Append(L"minidump.dmp");
     ASSERT_TRUE(CreateDump());
   }
-
-  bool CreateDump() {
-    base::File dump_file;
-    dump_file.Initialize(
-        dump_file_, base::File::FLAG_CREATE | base::File::FLAG_WRITE);
-    if (!dump_file.IsValid())
-      return false;
-
-    return ::MiniDumpWriteDump(base::GetCurrentProcessHandle(),
-                               base::GetCurrentProcId(),
-                               dump_file.GetPlatformFile(),
-                               MiniDumpNormal,
-                               nullptr,
-                               nullptr,
-                               nullptr) == TRUE;
-  }
-
-  const base::FilePath& dump_file() const { return dump_file_; }
-
- private:
-  base::FilePath dump_file_;
-  base::ScopedTempDir temp_dir_;
 };
 
 }  // namespace
