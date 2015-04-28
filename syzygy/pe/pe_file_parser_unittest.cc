@@ -24,6 +24,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/pe/pe_structs.h"
 #include "syzygy/pe/unittest_util.h"
 
 namespace pe {
@@ -45,22 +46,11 @@ class TestPEFileParser: public PEFileParser {
   }
 
   // Expose as public for testing.
-  using PEFileParser::ParseArchitectureDir;
-  using PEFileParser::ParseBoundImportDir;
-  using PEFileParser::ParseComDescriptorDir;
-  using PEFileParser::ParseDebugDir;
   using PEFileParser::ParseDelayImportDir;
-  using PEFileParser::ParseExceptionDir;
   using PEFileParser::ParseExportDir;
-  using PEFileParser::ParseGlobalDir;
-  using PEFileParser::ParseIatDir;
   using PEFileParser::ParseImageHeader;
   using PEFileParser::ParseImportDir;
   using PEFileParser::ParseLoadConfigDir;
-  using PEFileParser::ParseRelocDir;
-  using PEFileParser::ParseResourceDir;
-  using PEFileParser::ParseSecurityDir;
-  using PEFileParser::ParseTlsDir;
 };
 
 class PEFileParserTest: public testing::PELibUnitTest {
@@ -506,6 +496,55 @@ TEST_F(PEFileParserTest, ParseImage) {
   // And a delay import directory.
   EXPECT_NO_FATAL_FAILURE(AssertDataDirectoryEntryValid(
       header.data_directory[IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT]));
+}
+
+TEST_F(PEFileParserTest, ParseImageHeadersFromDifferentWindowsSDKs) {
+  struct TestData {
+    const wchar_t* filename;
+    size_t expected_load_config_dir_size;
+    size_t expected_number_of_references;
+  };
+
+  TestData test_data[] = {
+    { L"syzygy\\pe\\test_data\\test_dll_winsdk80.dll",
+      pe::kLoadConfigDirectorySize80,
+      5
+    },
+    { L"syzygy\\pe\\test_data\\test_dll_winsdk81.dll",
+      pe::kLoadConfigDirectorySize81,
+      7
+    },
+  };
+  for (size_t i = 0; i < arraysize(test_data); ++i) {
+    base::FilePath dll_path = testing::GetSrcRelativePath(
+        test_data[i].filename);
+    pe::PEFile image_file;
+    pe::BlockGraph image;
+    BlockGraph::AddressSpace address_space(&image);
+
+    ASSERT_TRUE(image_file.Init(dll_path));
+    TestPEFileParser parser(image_file, &address_space, add_reference_);
+
+    PEFileParser::PEHeader header;
+    EXPECT_TRUE(parser.ParseImageHeader(&header));
+
+    const IMAGE_NT_HEADERS* nt_headers =
+        reinterpret_cast<const IMAGE_NT_HEADERS*>(header.nt_headers->data());
+    ASSERT_NE(static_cast<const IMAGE_NT_HEADERS*>(nullptr), nt_headers);
+
+    const IMAGE_DATA_DIRECTORY& dir = nt_headers->OptionalHeader.DataDirectory[
+        IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG];
+
+    references_.clear();
+    BlockGraph::Block* data_dir_block = parser.ParseLoadConfigDir(dir);
+    EXPECT_NE(static_cast<BlockGraph::Block*>(nullptr), data_dir_block);
+    EXPECT_EQ(test_data[i].expected_load_config_dir_size,
+              data_dir_block->size());
+    EXPECT_EQ(test_data[i].expected_number_of_references,
+              references_.size());
+
+    references_.clear();
+  }
 }
 
 }  // namespace pe

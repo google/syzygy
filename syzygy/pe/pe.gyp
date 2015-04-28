@@ -116,6 +116,7 @@
         'pe_relinker.h',
         'pe_relinker_util.cc',
         'pe_relinker_util.h',
+        'pe_structs.h',
         'pe_transform_policy.cc',
         'pe_transform_policy.h',
         'relinker.h',

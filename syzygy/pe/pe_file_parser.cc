@@ -22,6 +22,7 @@
 #include "base/bind.h"
 #include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
+#include "syzygy/pe/pe_structs.h"
 
 namespace pe {
 
@@ -163,7 +164,8 @@ class PEFilePtr {
 };
 
 // Represents a typed pointer into a PE image at a given address.
-// The data pointed to by a struct ptr is always at least sizeof(ItemType).
+// The data pointed to by a struct ptr is typically at least sizeof(ItemType),
+// but may be less when parsing structures that have grown over time.
 template <typename ItemType>
 class PEFileStructPtr {
  public:
@@ -176,6 +178,15 @@ class PEFileStructPtr {
     if (block->data_size() < sizeof(ItemType))
       return false;
 
+    return ptr_.Set(block);
+  }
+
+  // Set this pointer to the address and data in @p block, without checking
+  // the block length.
+  // @note the caller assumes responsibility for not accessing fields
+  //    beyond the block length.
+  // @returns true iff successful.
+  bool SetUnchecked(BlockGraph::Block* block) {
     return ptr_.Set(block);
   }
 
@@ -199,11 +210,6 @@ class PEFileStructPtr {
   bool Read(const PEFile& image, RelativeAddress addr, size_t len) {
     DCHECK(len >= sizeof(ItemType));
     return ptr_.Read(image, addr, len);
-  }
-
-  // @returns true iff this pointer is valid.
-  bool IsValid() const {
-    return ptr_.ptr() != NULL && ptr_.len() >= sizeof(ItemType);
   }
 
   // Advance our pointer by sizeof(ItemType) iff this would leave
@@ -251,6 +257,11 @@ class PEFileStructPtr {
   size_t len() const { return ptr_.len(); }
 
  private:
+  // @returns true iff this pointer is valid.
+  bool IsValid() const {
+    return ptr_.ptr() != NULL;
+  }
+
   PEFilePtr ptr_;
 
   DISALLOW_COPY_AND_ASSIGN(PEFileStructPtr);
@@ -1119,25 +1130,53 @@ BlockGraph::Block* PEFileParser::ParseTlsDir(
 
 BlockGraph::Block* PEFileParser::ParseLoadConfigDir(
     const IMAGE_DATA_DIRECTORY& dir) {
-  // We chunk the load config directory to sizeof(IMAGE_LOAD_CONFIG_DIRECTORY),
-  // because it appears the VC9 linker leaves the data directory entry 8 bytes
-  // short for some strange reason.
+  // The load config directory starts with a size field, which we use as the
+  // size for chunking. It appears the size of the data directory entry is
+  // always fixed, but the structure itself has grown over time.
+  PEFileStructPtr<DWORD> load_config_len;
+  if (!load_config_len.Read(image_file_, RelativeAddress(dir.VirtualAddress))) {
+    LOG(ERROR) << "Unable to read load config len.";
+    return NULL;
+  }
+
+  LoadConfigDirectoryVersion load_config_version =
+      kLoadConfigDirectorySizeUnknown;
+  switch (*load_config_len.ptr()) {
+    case kLoadConfigDirectorySize80:
+    case kLoadConfigDirectorySize81:
+      load_config_version =
+          static_cast<LoadConfigDirectoryVersion>(*load_config_len.ptr());
+      break;
+    default:
+      LOG(ERROR) << "Unknown version of the IMAGE_LOAD_CONFIG_DIRECTORY "
+                 << "structure (" << *load_config_len.ptr() << " bytes), might "
+                 << "be because you're using a new version of the Windows SDK.";
+      return NULL;
+  }
+
   BlockGraph::Block* load_config_block =
       AddBlock(BlockGraph::DATA_BLOCK,
                RelativeAddress(dir.VirtualAddress),
-               sizeof(IMAGE_LOAD_CONFIG_DIRECTORY),
+               *load_config_len.ptr(),
                "Load Config Directory");
 
-  PEFileStructPtr<IMAGE_LOAD_CONFIG_DIRECTORY> load_config;
-  if (!load_config.Set(load_config_block)) {
-    LOG(ERROR) << "Unable to the load config directory.";
+  DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), load_config_block);
+
+  // Use SetUnchecked here as the load config structure may be longer than the
+  // data we have for it.
+  PEFileStructPtr<LoadConfigDirectory> load_config;
+  if (!load_config.SetUnchecked(load_config_block)) {
+    LOG(ERROR) << "Unable to parse the load config directory.";
     return NULL;
   }
 
   if (!AddAbsolute(load_config, &load_config->LockPrefixTable) ||
       !AddAbsolute(load_config, &load_config->EditList) ||
       !AddAbsolute(load_config, &load_config->SecurityCookie) ||
-      !AddAbsolute(load_config, &load_config->SEHandlerTable)) {
+      !AddAbsolute(load_config, &load_config->SEHandlerTable) ||
+      !MaybeAddAbsolute(load_config,
+                        &load_config->GuardCFCheckFunctionPointer) ||
+      !MaybeAddAbsolute(load_config, &load_config->GuardCFFunctionTable)) {
     LOG(ERROR) << "Unable to add load config directory references.";
     return NULL;
   }
@@ -1338,6 +1377,20 @@ bool PEFileParser::AddAbsolute(const PEFileStructPtr<ItemType>& structure,
                    BlockGraph::ABSOLUTE_REF,
                    sizeof(*item),
                    rel);
+}
+
+template <typename ItemType>
+bool PEFileParser::MaybeAddAbsolute(const PEFileStructPtr<ItemType>& structure,
+                                    const DWORD* item) {
+  DCHECK(item != NULL);
+
+  const uint8* tmp = reinterpret_cast<const uint8*>(item);
+  size_t offset = tmp - reinterpret_cast<const uint8*>(structure.ptr()) +
+      sizeof(*item);
+  if (structure.len() <= offset)
+    return true;
+
+  return AddAbsolute(structure, item);
 }
 
 template <typename ItemType>

@@ -20,6 +20,7 @@
 #include "base/strings/string_util.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/common/align.h"
+#include "syzygy/pe/pe_structs.h"
 #include "syzygy/pe/pe_utils.h"
 
 namespace {
@@ -295,30 +296,42 @@ bool PEImageLayoutBuilder::SortSafeSehTable() {
     return true;
   }
 
-  TypedBlock<IMAGE_LOAD_CONFIG_DIRECTORY> load_config_directory;
-  if (!nt_headers.Dereference(load_config->VirtualAddress,
-                              &load_config_directory)) {
-      LOG(ERROR) << "Failed to dereference Load Config Directory.";
+  // The reference to the load config directory block.
+  BlockGraph::Reference load_config_directory_block_ref;
+  BlockGraph::Offset load_config_dir_offset =
+      reinterpret_cast<uint8*>(load_config) - nt_headers.block()->data();
+  if (!nt_headers.GetReferenceAt(load_config_dir_offset,
+                                 &load_config_directory_block_ref)) {
+      LOG(ERROR) << "Failed to get a reference to the Load Config Directory.";
     return false;
   }
 
-  TypedBlock<DWORD> safe_seh_table;
-  if (!load_config_directory.Dereference(
-          load_config_directory->SEHandlerTable, &safe_seh_table)) {
+  // Get a reference to the safe SEH table in the load config directory block.
+  BlockGraph::Reference safe_seh_table_block_ref;
+  if (!load_config_directory_block_ref.referenced()->GetReference(
+      offsetof(LoadConfigDirectory, SEHandlerTable),
+      &safe_seh_table_block_ref)) {
     // There's no SEHandlerTable.
     return true;
   }
+  BlockGraph::Block* safe_seh_table_block =
+      safe_seh_table_block_ref.referenced();
 
   // Grab the references to the safe SEH code blocks.
   typedef BlockGraph::Block::ReferenceMap ReferenceMap;
-  const ReferenceMap& orig_references = safe_seh_table.block()->references();
+  const ReferenceMap& orig_references = safe_seh_table_block->references();
+
+  // Read the number of SEH handlers directly from the load config directory
+  // block.
+  size_t seh_handler_count = reinterpret_cast<const LoadConfigDirectory*>(
+      load_config_directory_block_ref.referenced()->data())->SEHandlerCount;
 
   // We should have as many references as there are handlers and we expect the
-  // safe seh block to be zero offset and exactly the right size.
+  // safe SEH block to be zero offset and exactly the right size.
   size_t num_references = orig_references.size();
-  if (num_references != load_config_directory->SEHandlerCount ||
-      safe_seh_table.offset() != 0 ||
-      safe_seh_table.block()->size() != num_references * sizeof(DWORD)) {
+  if (num_references != seh_handler_count ||
+      safe_seh_table_block_ref.offset() != 0 ||
+      safe_seh_table_block->size() != num_references * sizeof(DWORD)) {
     LOG(ERROR) << "Safe SEH Table block does not conform to expectations.";
     return false;
   }
@@ -351,7 +364,7 @@ bool PEImageLayoutBuilder::SortSafeSehTable() {
        offset += sizeof(DWORD), ++iter) {
     DCHECK(iter->size() == sizeof(DWORD));
     DCHECK(iter->referenced()->type() == BlockGraph::CODE_BLOCK);
-    safe_seh_table.block()->SetReference(offset, *iter);
+    safe_seh_table_block->SetReference(offset, *iter);
   }
 
   return true;

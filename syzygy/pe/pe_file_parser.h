@@ -209,6 +209,10 @@ class PEFileParser {
                    const DWORD* item);
 
   template <typename ItemType>
+  bool MaybeAddAbsolute(const PEFileStructPtr<ItemType>& structure,
+                        const DWORD* item);
+
+  template <typename ItemType>
   bool AddFileOffset(const PEFileStructPtr<ItemType>& structure,
                      const DWORD* item);
 
