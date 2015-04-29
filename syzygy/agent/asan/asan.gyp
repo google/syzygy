@@ -36,6 +36,8 @@
         'asan_rtl_utils.h',
         'asan_runtime.cc',
         'asan_runtime.h',
+        'asan_runtime_util.cc',
+        'asan_runtime_util.h',
         'asan_system_interceptors.cc',
         'asan_system_interceptors.h',
         'block.cc',
