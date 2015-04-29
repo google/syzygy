@@ -18,17 +18,29 @@
 #include <string>
 
 #include "base/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "syzygy/refinery/unittest_util.h"
 
 namespace refinery {
 
-using MinidumpTest = testing::MinidumpTest;
+class MinidumpTest : public testing::Test {
+ public:
+  void SetUp() override {
+    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+    dump_file_ = temp_dir_.path().Append(L"minidump.dmp");
+  }
+
+  const base::FilePath& dump_file() const { return dump_file_; }
+
+ private:
+  base::FilePath dump_file_;
+  base::ScopedTempDir temp_dir_;
+};
 
 TEST_F(MinidumpTest, OpenSuccedsForValidFile) {
   Minidump minidump;
 
-  ASSERT_TRUE(CreateDump());
-  ASSERT_TRUE(minidump.Open(dump_file()));
+  ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
   ASSERT_LE(1U, minidump.directory().size());
 }
 
@@ -141,8 +153,7 @@ TEST_F(MinidumpTest, StreamTest) {
 TEST_F(MinidumpTest, FindNextStream) {
   Minidump minidump;
 
-  ASSERT_TRUE(CreateDump());
-  ASSERT_TRUE(minidump.Open(dump_file()));
+  ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
 
   Minidump::Stream sys_info =
       minidump.FindNextStream(nullptr, SystemInfoStream);
@@ -159,8 +170,7 @@ TEST_F(MinidumpTest, FindNextStream) {
 TEST_F(MinidumpTest, ReadThreadInfo) {
   Minidump minidump;
 
-  ASSERT_TRUE(CreateDump());
-  ASSERT_TRUE(minidump.Open(dump_file()));
+  ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
 
   Minidump::Stream thread_list =
       minidump.FindNextStream(nullptr, ThreadListStream);

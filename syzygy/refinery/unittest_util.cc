@@ -14,37 +14,17 @@
 
 #include "syzygy/refinery/unittest_util.h"
 
-#include <Windows.h>  // NOLINT
-#include <dbghelp.h>
-
-#include "base/files/file.h"
-#include "base/files/file_path.h"
-#include "base/files/scoped_temp_dir.h"
-#include "base/process/process.h"
-#include "base/process/process_handle.h"
+#include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
 
 namespace testing {
 
-void MinidumpTest::SetUp() {
-  ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-
-  dump_file_ = temp_dir_.path().Append(L"minidump.dmp");
+const base::FilePath TestMinidumps::GetNotepad32Dump() {
+  return GetSrcRelativePath(L"syzygy\\refinery\\test_data\\notepad-32bit.dmp");
 }
 
-bool MinidumpTest::CreateDump() {
-  base::File dump_file;
-  dump_file.Initialize(
-      dump_file_, base::File::FLAG_CREATE | base::File::FLAG_WRITE);
-  if (!dump_file.IsValid())
-    return false;
-
-  return ::MiniDumpWriteDump(base::GetCurrentProcessHandle(),
-                             base::GetCurrentProcId(),
-                             dump_file.GetPlatformFile(),
-                             MiniDumpNormal,
-                             nullptr,
-                             nullptr,
-                             nullptr) == TRUE;
+const base::FilePath TestMinidumps::GetNotepad64Dump() {
+  return GetSrcRelativePath(L"syzygy\\refinery\\test_data\\notepad-64bit.dmp");
 }
 
 }  // namespace testing

@@ -34,6 +34,7 @@
         'unittest_util.h',
       ],
       'dependencies': [
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/testing/gtest.gyp:gtest',
       ],
     },

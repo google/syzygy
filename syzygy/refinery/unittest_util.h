@@ -21,21 +21,12 @@
 
 namespace testing {
 
-class MinidumpTest : public testing::Test {
+class TestMinidumps {
  public:
-  void SetUp() override;
-
-  // Creates a minidump of the current process.
-  // @returns true on success.
-  bool CreateDump();
-
-  // Returns a path to the dump file. The path is guaranteed not to be a valid
-  // file until after a successful call to CreateDump.
-  const base::FilePath& dump_file() const { return dump_file_; }
-
- private:
-  base::FilePath dump_file_;
-  base::ScopedTempDir temp_dir_;
+  // @returns the path to a 32 bit notepad dump file.
+  static const base::FilePath GetNotepad32Dump();
+  // @returns the path to a 64 bit notepad dump file.
+  static const base::FilePath GetNotepad64Dump();
 };
 
 }  // namespace testing

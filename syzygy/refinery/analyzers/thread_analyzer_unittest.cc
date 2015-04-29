@@ -23,22 +23,9 @@
 
 namespace refinery {
 
-namespace {
-
-class AnalysisTest : public testing::MinidumpTest {
- public:
-  void SetUp() override {
-    ASSERT_NO_FATAL_FAILURE(MinidumpTest::SetUp());
-
-    ASSERT_TRUE(CreateDump());
-  }
-};
-
-}  // namespace
-
-TEST_F(AnalysisTest, Basic) {
+TEST(ThreadAnalyzerTest, Basic) {
   Minidump minidump;
-  ASSERT_TRUE(minidump.Open(dump_file()));
+  ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
   ProcessState process_state;
 
   ThreadAnalyzer analyzer;
