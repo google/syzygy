@@ -81,12 +81,14 @@ class BlockUtilTest: public testing::Test {
 }  // namespace
 
 TEST_F(BlockUtilTest, GetBasicBlockSourceRangeEmptyFails) {
+  AddInstructions(false);
   BlockGraph::Block::SourceRange source_range;
   ASSERT_FALSE(GetBasicBlockSourceRange(*bb_, &source_range));
   EXPECT_EQ(0, source_range.size());
 }
 
 TEST_F(BlockUtilTest, GetBasicBlockSourceRangeNonContiguousFails) {
+  AddInstructions(true);
   // Make the range non-contiguous by pushing the successor out one byte.
   BlockGraph::Block::SourceRange range =
       bb_->successors().front().source_range();
