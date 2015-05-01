@@ -64,7 +64,7 @@ int Usage(const char* message) {
 
 int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;
-  CommandLine::Init(argc, argv);
+  base::CommandLine::Init(argc, argv);
 
   logging::LoggingSettings settings;
   settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
@@ -73,11 +73,11 @@ int main(int argc, char** argv) {
   if (!logging::InitLogging(settings))
     return 1;
 
-  CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
   DCHECK(cmd_line != NULL);
 
   // Parse the command line.
-  typedef CommandLine::StringType StringType;
+  typedef base::CommandLine::StringType StringType;
   base::FilePath instrumented_dll_path =
       cmd_line->GetSwitchValuePath("instrumented-dll");
   base::FilePath input_dll_path = cmd_line->GetSwitchValuePath("input-dll");

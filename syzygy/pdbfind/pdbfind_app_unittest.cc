@@ -14,7 +14,7 @@
 
 #include "syzygy/pdbfind/pdbfind_app.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -44,7 +44,7 @@ class PdbFindAppTest : public testing::PELibUnitTest {
         old_log_level_(0) {
   }
 
-  void SetUp() OVERRIDE {
+  void SetUp() override {
     Super::SetUp();
 
     // Several of the tests generate progress and (deliberate) error messages
@@ -67,7 +67,7 @@ class PdbFindAppTest : public testing::PELibUnitTest {
     app_.set_err(err());
   }
 
-  void TearDown() OVERRIDE {
+  void TearDown() override {
     logging::SetMinLogLevel(old_log_level_);
 
     Super::TearDown();
@@ -81,7 +81,7 @@ class PdbFindAppTest : public testing::PELibUnitTest {
   base::FilePath stdout_path_;
   base::FilePath stderr_path_;
 
-  CommandLine cmd_line_;
+  base::CommandLine cmd_line_;
   int old_log_level_;
 };
 
@@ -132,7 +132,7 @@ TEST_F(PdbFindAppTest, Succeeds) {
   ASSERT_TRUE(base::ReadFileToString(stdout_path_, &actual_stdout));
   base::TrimWhitespaceASCII(actual_stdout, base::TRIM_TRAILING,
                             &actual_stdout);
-  base::FilePath actual_pdb_path(base::ASCIIToWide(actual_stdout));
+  base::FilePath actual_pdb_path(base::ASCIIToUTF16(actual_stdout));
   EXPECT_TRUE(base::PathExists(actual_pdb_path));
 
 #ifdef _COVERAGE_BUILD

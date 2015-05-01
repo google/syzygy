@@ -17,9 +17,9 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/logging.h"
-#include "base/debug/trace_event_win.h"
 #include "base/files/file_path.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/trace_event/trace_event_win.h"
 #include "base/win/event_trace_controller.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -50,7 +50,7 @@ struct CallTraceOptions {
 
 // Initializes the command-line and logging for functions called via rundll32.
 static void Init() {
-  CommandLine::Init(0, NULL);
+  base::CommandLine::Init(0, NULL);
 
   logging::LoggingSettings settings;
   settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
@@ -63,7 +63,7 @@ static void Init() {
 static bool ParseOptions(CallTraceOptions* options) {
   DCHECK(options != NULL);
 
-  CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
 
   options->call_trace_file = cmd_line->GetSwitchValuePath("call-trace-file");
   if (options->call_trace_file.empty())
@@ -412,10 +412,8 @@ bool StartCallTraceImpl() {
 
     if (result == kStarted) {
       // Enable Chrome trace events.
-      ULONG err = ::EnableTrace(TRUE,
-                                0,
-                                TRACE_LEVEL_INFORMATION,
-                                &base::debug::kChromeTraceProviderName,
+      ULONG err = ::EnableTrace(TRUE, 0, TRACE_LEVEL_INFORMATION,
+                                &base::trace_event::kChromeTraceProviderName,
                                 session_handle);
       if (err != ERROR_SUCCESS) {
         LOG(ERROR) << "Failed to enable Chrome logging: "

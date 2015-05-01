@@ -16,9 +16,9 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread.h"
@@ -90,7 +90,7 @@ class LoggerTest : public testing::Test {
       : io_thread_("LoggerTest IO Thread"), instance_manager_(&logger_) {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     ASSERT_NO_FATAL_FAILURE(testing::Test::SetUp());
 
     // Create a log file.
@@ -139,7 +139,7 @@ class LoggerTest : public testing::Test {
         .WillOnce(Return(true));
   }
 
-  virtual void TearDown() OVERRIDE {
+  virtual void TearDown() override {
     if (logger_.state() != AgentLogger::kStopped) {
       ASSERT_TRUE(logger_.Stop());
       ASSERT_NO_FATAL_FAILURE(WaitForLoggerToFinish());

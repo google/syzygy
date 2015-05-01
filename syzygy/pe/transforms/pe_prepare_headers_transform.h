@@ -46,7 +46,7 @@ class PEPrepareHeadersTransform
   virtual bool TransformBlockGraph(
       const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
-      BlockGraph::Block* dos_header_block) OVERRIDE;
+      BlockGraph::Block* dos_header_block) override;
 
   // The name of this transform.
   static const char kTransformName[];

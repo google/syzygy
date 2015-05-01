@@ -52,7 +52,7 @@ class BasicBlockReorderingTransform : public SubGraphTransformInterface {
       BlockGraph* block_graph,
       BasicBlockSubGraph* subgraph,
       ApplicationProfile* profile,
-      SubGraphProfile* subgraph_profile) OVERRIDE;
+      SubGraphProfile* subgraph_profile) override;
   // @}
 
  protected:

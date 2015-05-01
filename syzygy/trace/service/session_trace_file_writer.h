@@ -48,10 +48,10 @@ class SessionTraceFileWriter : public BufferConsumer {
   // Initialize this trace file writer.
   // @name BufferConsumer implementation.
   // @{
-  virtual bool Open(Session* session) OVERRIDE;
-  virtual bool Close(Session* session) OVERRIDE;
-  virtual bool ConsumeBuffer(Buffer* buffer) OVERRIDE;
-  virtual size_t block_size() const OVERRIDE;
+  virtual bool Open(Session* session) override;
+  virtual bool Close(Session* session) override;
+  virtual bool ConsumeBuffer(Buffer* buffer) override;
+  virtual size_t block_size() const override;
   // @}
 
  protected:

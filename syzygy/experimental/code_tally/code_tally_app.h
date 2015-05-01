@@ -37,7 +37,7 @@ class CodeTallyApp : public application::AppImplBase {
   CodeTallyApp() : application::AppImplBase("CodeTally"), pretty_print_(false) {
   }
 
-  bool ParseCommandLine(const CommandLine* command_line);
+  bool ParseCommandLine(const base::CommandLine* command_line);
 
   int Run();
   // @}

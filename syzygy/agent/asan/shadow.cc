@@ -56,7 +56,7 @@ Shadow::Shadow() : own_memory_(false), shadow_(nullptr), length_(0) {
   // and 4GT kernel option enabled).
   uint64 mem_size = ::common::AlignUp64(
       mem_status.ullTotalVirtual,
-      2 << 30);  // 2GB.
+      2UL << 30);  // 2GB.
 
   Init(mem_size >> kShadowRatioLog);
 }

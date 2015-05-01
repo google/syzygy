@@ -59,7 +59,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       // Disable logging. In the case of Chrome this is running in a sandboxed
       // process where logging to file doesn't help us any. In other cases the
       // log output will still go to console.
-      CommandLine::Init(0, NULL);
+      base::CommandLine::Init(0, NULL);
       common::InitLoggingForDll(L"asan");
 
       SetUpAsanRuntime(&asan_runtime);
@@ -78,7 +78,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       break;
 
     case DLL_PROCESS_DETACH: {
-      CommandLine::Reset();
+      base::CommandLine::Reset();
       // This should be the last thing called in the agent DLL before it
       // gets unloaded. Everything should otherwise have been initialized
       // and we're now just cleaning it up again.

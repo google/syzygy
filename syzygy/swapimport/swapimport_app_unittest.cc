@@ -14,7 +14,7 @@
 
 #include "syzygy/swapimport/swapimport_app.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
@@ -125,7 +125,7 @@ class SwapImportAppTest : public testing::PELibUnitTest {
   base::FilePath stderr_path_;
   // @}
 
-  CommandLine cmd_line_;
+  base::CommandLine cmd_line_;
   base::FilePath input_image_;
   base::FilePath output_image_;
   base::FilePath input_image_64_;

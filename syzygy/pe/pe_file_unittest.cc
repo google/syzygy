@@ -39,7 +39,7 @@ class PEFileTest: public testing::PELibUnitTest {
   PEFileTest() : test_dll_(NULL) {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     Super::SetUp();
 
     base::FilePath test_dll =
@@ -56,7 +56,7 @@ class PEFileTest: public testing::PELibUnitTest {
     ASSERT_TRUE(image_file_64_.Init(test_dll_64));
   }
 
-  virtual void TearDown() OVERRIDE {
+  virtual void TearDown() override {
     base::UnloadNativeLibrary(test_dll_);
     base::UnloadNativeLibrary(test_dll_64_);
     Super::TearDown();
@@ -309,9 +309,9 @@ TEST_F(PEFileTest, DecodeRelocs) {
     //  i->second is the absolute value of that pointer (i.e., the relocation)
 
     const RelativeAddress &pointer_location(i->first);
-    const AbsoluteAddress &pointer_value(i->second);
 
-    ASSERT_TRUE(image_file_.Contains(pointer_location, sizeof(pointer_value)));
+    ASSERT_TRUE(
+        image_file_.Contains(pointer_location, sizeof(AbsoluteAddress)));
   }
 }
 

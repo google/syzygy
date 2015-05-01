@@ -82,8 +82,8 @@
 #include <map>
 #include <vector>
 
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "syzygy/ar/ar_common.h"
 
 namespace ar {

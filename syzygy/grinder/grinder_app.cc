@@ -14,8 +14,8 @@
 
 #include "syzygy/grinder/grinder_app.h"
 
-#include "base/file_util.h"
 #include "base/logging.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "syzygy/grinder/grinders/coverage_grinder.h"
@@ -88,10 +88,10 @@ void GrinderApp::PrintUsage(const base::FilePath& program,
   ::fprintf(out(), kUsageFormatStr, program.BaseName().value().c_str());
 }
 
-bool GrinderApp::ParseCommandLine(const CommandLine* command_line) {
+bool GrinderApp::ParseCommandLine(const base::CommandLine* command_line) {
   DCHECK(command_line != NULL);
 
-  CommandLine::StringVector args = command_line->GetArgs();
+  base::CommandLine::StringVector args = command_line->GetArgs();
   if (args.empty()) {
     PrintUsage(command_line->GetProgram(),
                "You must provide at least one trace file.");

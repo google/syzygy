@@ -29,8 +29,8 @@ namespace kasko {
 namespace testing {
 namespace {
 
-base::win::ScopedHandle LaunchServer(HANDLE socket_write_handle,
-                                     const base::FilePath& incoming_directory) {
+base::Process LaunchServer(HANDLE socket_write_handle,
+                  const base::FilePath& incoming_directory) {
   base::CommandLine args(base::CommandLine::NO_PROGRAM);
   // Pass the handle on the command-line. Although HANDLE is a
   // pointer, truncating it on 64-bit machines is okay. See
@@ -47,12 +47,8 @@ base::win::ScopedHandle LaunchServer(HANDLE socket_write_handle,
       base::IntToString(reinterpret_cast<uintptr_t>(socket_write_handle)));
   args.AppendSwitchPath("--incoming-directory", incoming_directory);
 
-  base::win::ScopedHandle process_handle = LaunchPythonProcess(
+  return LaunchPythonProcess(
       base::FilePath(L"syzygy/kasko/testing/test_server.py"), args);
-
-  DCHECK(process_handle);
-
-  return process_handle.Pass();
 }
 
 }  // namespace
@@ -61,8 +57,11 @@ TestServer::TestServer() : port_(0) {
 }
 
 TestServer::~TestServer() {
-  if (process_handle_)
-    base::KillProcess(process_handle_.Get(), 0, true);
+  if (process_.IsValid()) {
+    int exit_code = 0;
+    if (!process_.WaitForExitWithTimeout(base::TimeDelta(), &exit_code))
+      process_.Terminate(1, true);
+  }
 }
 
 bool TestServer::Start() {
@@ -75,11 +74,11 @@ bool TestServer::Start() {
     DCHECK(pipe_reader.IsValid());
 
     if (pipe_reader.IsValid()) {
-      process_handle_ =
-          LaunchServer(pipe_reader.write_handle(), incoming_directory_.path());
-      DCHECK(process_handle_);
+      process_ = LaunchServer(pipe_reader.write_handle(),
+                              incoming_directory_.path());
+      DCHECK(process_.IsValid());
 
-      if (process_handle_) {
+      if (process_.IsValid()) {
         started = pipe_reader.ReadData(TestTimeouts::action_max_timeout(),
                                        sizeof(port_), &port_);
         DCHECK(started);

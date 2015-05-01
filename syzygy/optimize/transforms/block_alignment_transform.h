@@ -41,7 +41,7 @@ class BlockAlignmentTransform : public SubGraphTransformInterface {
       BlockGraph* block_graph,
       BasicBlockSubGraph* basic_block_subgraph,
       ApplicationProfile* profile,
-      SubGraphProfile* subgraph_profile) OVERRIDE;
+      SubGraphProfile* subgraph_profile) override;
   // @}
 
  private:

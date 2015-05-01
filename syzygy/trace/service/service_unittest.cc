@@ -19,8 +19,8 @@
 
 #include "base/command_line.h"
 #include "base/environment.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/process/kill.h"
@@ -105,7 +105,7 @@ class CallTraceServiceTest : public testing::Test {
   }
 
   // Sets up each test invocation.
-  virtual void SetUp() OVERRIDE {
+  void SetUp() override {
     Super::SetUp();
 
     ASSERT_TRUE(consumer_thread_has_started_);
@@ -132,7 +132,7 @@ class CallTraceServiceTest : public testing::Test {
   }
 
   // Cleans up after each test invocation.
-  virtual void TearDown() OVERRIDE {
+  void TearDown() override {
     FreeMappings();
 
     if (client_rpc_binding_) {
@@ -374,42 +374,39 @@ inline ptrdiff_t RawPtrDiff(const T1* p1, const T2* p2) {
 
 void ControlExternalCallTraceService(const std::string& command,
                                      const std::wstring& instance_id_,
-                                     ScopedHandle* handle) {
+                                     base::Process* process) {
   ASSERT_TRUE(command == "start" || command == "stop");
   ASSERT_FALSE(instance_id_.empty());
-  ASSERT_FALSE(handle == NULL);
+  ASSERT_NE(static_cast<base::Process*>(nullptr), process);
 
-  CommandLine cmd_line(testing::GetExeRelativePath(L"call_trace_service.exe"));
+  base::CommandLine cmd_line(
+      testing::GetExeRelativePath(L"call_trace_service.exe"));
   cmd_line.AppendArg(command);
   cmd_line.AppendSwitchNative("instance-id", instance_id_);
 
   base::LaunchOptions options;
-  HANDLE temp_handle = NULL;
-  ASSERT_TRUE(base::LaunchProcess(cmd_line, options, &temp_handle));
-  handle->Set(temp_handle);
+  *process = base::LaunchProcess(cmd_line, options);
+  ASSERT_TRUE(process->IsValid());
 }
 
 void StartExternalCallTraceService(const std::wstring& instance_id_,
-                                   ScopedHandle* handle) {
-  ControlExternalCallTraceService("start", instance_id_, handle);
+                                   base::Process* process) {
+  ControlExternalCallTraceService("start", instance_id_, process);
 }
 
 void StopExternalCallTraceService(const std::wstring& instance_id_,
-                                  ScopedHandle* service_handle) {
-  ASSERT_FALSE(service_handle == NULL);
-  ScopedHandle controller_handle;
-  ControlExternalCallTraceService("stop", instance_id_, &controller_handle);
+                                  base::Process* process) {
+  ASSERT_NE(static_cast<base::Process*>(nullptr), process);
+  base::Process controller_process;
+  ControlExternalCallTraceService("stop", instance_id_, &controller_process);
 
   static base::TimeDelta k30Seconds = base::TimeDelta::FromSeconds(30);
   int exit_code;
-  EXPECT_TRUE(base::WaitForExitCodeWithTimeout(controller_handle.Take(),
-                                               &exit_code,
-                                               k30Seconds));
+  EXPECT_TRUE(
+      controller_process.WaitForExitWithTimeout(k30Seconds, &exit_code));
   EXPECT_EQ(0, exit_code);
 
-  EXPECT_TRUE(base::WaitForExitCodeWithTimeout(service_handle->Take(),
-                                               &exit_code,
-                                               k30Seconds));
+  EXPECT_TRUE(process->WaitForExitWithTimeout(k30Seconds, &exit_code));
   EXPECT_EQ(0, exit_code);
 }
 
@@ -464,9 +461,10 @@ TEST_F(CallTraceServiceTest, IsSingletonPerInstanceId) {
   std::wstring duplicate_id = instance_id_ + L"-foo";
 
   // Start an external service with the new instance id.
-  ScopedHandle handle;
-  ASSERT_NO_FATAL_FAILURE(StartExternalCallTraceService(duplicate_id, &handle));
-  ASSERT_NO_FATAL_FAILURE(CheckIsStillRunning(handle));
+  base::Process process;
+  ASSERT_NO_FATAL_FAILURE(StartExternalCallTraceService(duplicate_id,
+                                                        &process));
+  ASSERT_NO_FATAL_FAILURE(CheckIsStillRunning(process.Handle()));
 
   // Create a new local service instance and see if it starts. We use a new
   // instance to pick up the new instance id and to make sure any state in
@@ -477,8 +475,8 @@ TEST_F(CallTraceServiceTest, IsSingletonPerInstanceId) {
   EXPECT_TRUE(local_call_trace_service.Stop());
 
   // The external instance should still be running.
-  CheckIsStillRunning(handle);
-  StopExternalCallTraceService(duplicate_id, &handle);
+  CheckIsStillRunning(process.Handle());
+  StopExternalCallTraceService(duplicate_id, &process);
 }
 
 TEST_F(CallTraceServiceTest, IsConcurrentWithDifferentInstanceId) {
@@ -488,9 +486,9 @@ TEST_F(CallTraceServiceTest, IsConcurrentWithDifferentInstanceId) {
   std::wstring internal_id = instance_id_ + L"-bar-2";
 
   // Start an external service with the external instance id.
-  ScopedHandle handle;
-  ASSERT_NO_FATAL_FAILURE(StartExternalCallTraceService(external_id, &handle));
-  ASSERT_NO_FATAL_FAILURE(CheckIsStillRunning(handle));
+  base::Process process;
+  ASSERT_NO_FATAL_FAILURE(StartExternalCallTraceService(external_id, &process));
+  ASSERT_NO_FATAL_FAILURE(CheckIsStillRunning(process.Handle()));
 
   // Create a new local service instance and see if it starts. We use a new
   // instance to pick up the new instance id and to make sure any state in
@@ -501,8 +499,8 @@ TEST_F(CallTraceServiceTest, IsConcurrentWithDifferentInstanceId) {
   EXPECT_TRUE(local_call_trace_service.Stop());
 
   // The external instance should still be running.
-  CheckIsStillRunning(handle);
-  StopExternalCallTraceService(external_id, &handle);
+  CheckIsStillRunning(process.Handle());
+  StopExternalCallTraceService(external_id, &process);
 }
 
 TEST_F(CallTraceServiceTest, Connect) {
@@ -632,7 +630,7 @@ TEST_F(CallTraceServiceTest, AllocateLargeBuffer) {
       sizeof(LargeRecordType) + sizeof(RecordPrefix),
       &segment2));
   segment2.WriteSegmentHeader(session_handle);
-  LargeRecordType* record2 = segment2.AllocateTraceRecord<LargeRecordType>();
+  segment2.AllocateTraceRecord<LargeRecordType>();
   size_t length2 = segment2.header->segment_length;
 
   // Commit the buffers and close the session.
@@ -699,8 +697,6 @@ TEST_F(CallTraceServiceTest, AllocateLargeBuffer) {
   ASSERT_EQ(prefix->size, sizeof(LargeRecordType));
   ASSERT_EQ(prefix->version.hi, TRACE_VERSION_HI);
   ASSERT_EQ(prefix->version.lo, TRACE_VERSION_LO);
-  LargeRecordType* large_record =
-      reinterpret_cast<LargeRecordType*>(prefix + 1);
 }
 
 TEST_F(CallTraceServiceTest, SendBuffer) {

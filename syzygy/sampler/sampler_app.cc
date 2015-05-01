@@ -17,7 +17,7 @@
 #include <psapi.h>
 
 #include "base/bind.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/stringprintf.h"
@@ -71,7 +71,7 @@ const char kUsageFormatStr[] =
     "\n";
 
 // Parses the bucket size. Leaves the value unchanged if it is not specified.
-bool ParseBucketSize(const CommandLine* command_line,
+bool ParseBucketSize(const base::CommandLine* command_line,
                      size_t* log2_bucket_size) {
   DCHECK(command_line != NULL);
   DCHECK(log2_bucket_size != NULL);
@@ -106,7 +106,7 @@ bool ParseBucketSize(const CommandLine* command_line,
 
 // Parses the sampling interval. Leaves the value unchanged if it is not
 // specified.
-bool ParseSamplingInterval(const CommandLine* command_line,
+bool ParseSamplingInterval(const base::CommandLine* command_line,
                            base::TimeDelta* sampling_interval) {
   DCHECK(command_line != NULL);
   DCHECK(sampling_interval != NULL);
@@ -593,7 +593,7 @@ SamplerApp::SamplerApp()
 SamplerApp::~SamplerApp() {
 }
 
-bool SamplerApp::ParseCommandLine(const CommandLine* command_line) {
+bool SamplerApp::ParseCommandLine(const base::CommandLine* command_line) {
   DCHECK(command_line != NULL);
 
   if (command_line->HasSwitch("help"))
@@ -617,7 +617,7 @@ bool SamplerApp::ParseCommandLine(const CommandLine* command_line) {
 
   output_dir_ = command_line->GetSwitchValuePath(kOutputDir);
 
-  const CommandLine::StringVector& args = command_line->GetArgs();
+  const base::CommandLine::StringVector& args = command_line->GetArgs();
   if (args.size() == 0) {
     return PrintUsage(command_line->GetProgram(),
                       "Must specify at least one module to profile.");

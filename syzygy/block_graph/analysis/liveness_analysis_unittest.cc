@@ -203,7 +203,7 @@ bool LivenessAnalysisTest::CheckCarryFlagInstruction(
     bool expect_on, bool expect_off) {
   LivenessAnalysis::State flags;
   StateHelper::Clear(&flags);
-  StateHelper::SetFlags(~(D_CF), &state_);
+  StateHelper::SetFlags(static_cast<StateHelper::FlagsMask>(~(D_CF)), &state_);
 
   // Try with the carry flag on.
   StateHelper::Clear(&state_);
@@ -237,14 +237,16 @@ void LivenessAnalysisTest::AddSuccessorBetween(Successor::Condition condition,
 TEST(LivenessAnalysisStateTest, StateRegisterMaskOperations) {
   // On creation, a state assumes all registers are alive.
   State state_full;
-  EXPECT_TRUE(StateHelper::IsSet(state_full, StateHelper::REGBITS_ALL));
+  EXPECT_TRUE(StateHelper::IsSet(state_full,
+      static_cast<StateHelper::RegisterMask>(StateHelper::REGBITS_ALL)));
   EXPECT_TRUE(StateHelper::IsSet(state_full, StateHelper::REGBITS_AX));
 
   // The Clear operation should not keep any register partially defined.
   State state_empty;
   StateHelper::Clear(&state_empty);
   EXPECT_FALSE(
-    StateHelper::IsPartiallySet(state_empty, StateHelper::REGBITS_ALL));
+    StateHelper::IsPartiallySet(state_empty,
+      static_cast<StateHelper::RegisterMask>(StateHelper::REGBITS_ALL)));
   EXPECT_FALSE(
     StateHelper::IsPartiallySet(state_empty, StateHelper::REGBITS_AX));
 

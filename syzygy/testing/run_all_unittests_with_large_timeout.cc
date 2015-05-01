@@ -44,17 +44,17 @@ int RunTestSuite(int argc, char** argv) {
 
 int main(int argc, char** argv) {
   base::AtExitManager at_exit;
-  CommandLine::Init(argc, argv);
+  base::CommandLine::Init(argc, argv);
   // We can't use the value from test_timeouts.h as they require
   // TestTimeouts::Initialize to have been called; this function can only be
   // called once, however, and gtest calls it later on.
   //
   // Set the timeout value to five minutes.
   std::string test_timeout_val = "300000";
-  CommandLine::ForCurrentProcess()->AppendSwitchASCII(
+  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
       switches::kTestLauncherTimeout, test_timeout_val);
   // We don't need to update |argc| and |argv|, gtest read the value from
-  // CommandLine::ForCurrentProcess().
+  // base::CommandLine::ForCurrentProcess().
   return base::LaunchUnitTests(argc,
                                argv,
                                base::Bind(&RunTestSuite,

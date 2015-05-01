@@ -62,7 +62,7 @@ class ChainedSubgraphTransforms
   // @returns true on success, false otherwise.
   virtual bool TransformBlockGraph(const TransformPolicyInterface* policy,
                                    BlockGraph* block_graph,
-                                   BlockGraph::Block* header_block) OVERRIDE;
+                                   BlockGraph::Block* header_block) override;
 
   // Insert a subgraph transform to the optimizing pipeline.
   // @param transform a transform to be applied.

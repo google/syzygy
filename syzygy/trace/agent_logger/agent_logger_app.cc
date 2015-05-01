@@ -19,9 +19,9 @@
 
 #include "base/bind.h"
 #include "base/environment.h"
-#include "base/file_util.h"
 #include "base/path_service.h"
 #include "base/rand_util.h"
+#include "base/files/file_util.h"
 #include "base/process/kill.h"
 #include "base/process/launch.h"
 #include "base/process/process.h"
@@ -125,7 +125,7 @@ bool SignalEvent(HANDLE event_handle, trace::common::Service* /* logger */) {
 
 // A helper function which sets the Syzygy RPC instance id environment variable
 // then runs a given command line to completion.
-bool RunApp(const CommandLine& command_line,
+bool RunApp(const base::CommandLine& command_line,
             const std::wstring& instance_id,
             HANDLE interruption_event,
             int* exit_code) {
@@ -145,31 +145,31 @@ bool RunApp(const CommandLine& command_line,
   *exit_code = 0;
 
   // Launch a new process in the background.
-  base::ProcessHandle process_handle;
   base::LaunchOptions options;
   options.start_hidden = false;
-  if (!base::LaunchProcess(command_line, options, &process_handle)) {
+  base::Process process = base::LaunchProcess(command_line, options);
+  if (!process.IsValid()) {
     LOG(ERROR)
         << "Failed to launch '" << command_line.GetProgram().value() << "'.";
     return false;
   }
 
-  HANDLE objects[] = { process_handle, interruption_event };
+  HANDLE objects[] = {process.Handle(), interruption_event};
   DWORD num_objects = arraysize(objects);
   switch (::WaitForMultipleObjects(num_objects, objects, FALSE, INFINITE)) {
     case WAIT_OBJECT_0 + 0: {
       // The client process has finished.
       DWORD temp_exit_code;
-      ::GetExitCodeProcess(process_handle, &temp_exit_code);
+      ::GetExitCodeProcess(process.Handle(), &temp_exit_code);
       *exit_code = temp_exit_code;
-      base::CloseProcessHandle(process_handle);
+      process.Close();
       return true;
     }
 
     case WAIT_OBJECT_0 + 1: {
       // The logger has been shutdown. Kill the client process.
-      base::KillProcess(process_handle, 1, true);
-      base::CloseProcessHandle(process_handle);
+      process.Terminate(1, true);
+      process.Close();
       *exit_code = 1;
       return true;
     }
@@ -207,7 +207,7 @@ const LoggerApp::ActionTableEntry LoggerApp::kActionTable[] = {
 
 LoggerApp::LoggerApp()
     : ::application::AppImplBase("AgentLogger"),
-      logger_command_line_(CommandLine::NO_PROGRAM),
+      logger_command_line_(base::CommandLine::NO_PROGRAM),
       action_handler_(NULL),
       append_(false) {
 }
@@ -215,7 +215,7 @@ LoggerApp::LoggerApp()
 LoggerApp::~LoggerApp() {
 }
 
-bool LoggerApp::ParseCommandLine(const CommandLine* command_line) {
+bool LoggerApp::ParseCommandLine(const base::CommandLine* command_line) {
   DCHECK(command_line != NULL);
 
   if (!trace::common::SplitCommandLine(
@@ -408,7 +408,7 @@ bool LoggerApp::Start() {
     // We have a command to run, so launch that command and when it finishes
     // stop the logger.
     int exit_code = 0;
-    if (!RunApp(*app_command_line_, instance_id_, interrupt_event,
+    if (!RunApp(*app_command_line_, instance_id_, interrupt_event.Get(),
                 &exit_code) ||
         exit_code != 0) {
       error = true;
@@ -451,24 +451,23 @@ bool LoggerApp::Spawn() {
   PathService::Get(base::FILE_EXE, &self_path);
 
   // Build a command line for starting a new instance of the logger.
-  CommandLine new_command_line(self_path);
+  base::CommandLine new_command_line(self_path);
   new_command_line.AppendArg("start");
 
   // Copy over any other switches.
-  CommandLine::SwitchMap::const_iterator it =
+  base::CommandLine::SwitchMap::const_iterator it =
       logger_command_line_.GetSwitches().begin();
   for (; it != logger_command_line_.GetSwitches().end(); ++it)
     new_command_line.AppendSwitchNative(it->first, it->second);
 
   // Launch a new process in the background.
-  base::ProcessHandle service_process;
   base::LaunchOptions options;
   options.start_hidden = true;
-  if (!base::LaunchProcess(new_command_line, options, &service_process)) {
+  base::Process process = base::LaunchProcess(new_command_line, options);
+  if (!process.IsValid()) {
     LOG(ERROR) << "Failed to launch process.";
     return false;
   }
-  DCHECK_NE(base::kNullProcessHandle, service_process);
 
   // Setup the start event.
   base::win::ScopedHandle start_event;
@@ -481,7 +480,7 @@ bool LoggerApp::Spawn() {
 
   // We wait on both the start event and the process, as if the process fails
   // for any reason, it'll exit and its handle will become signaled.
-  HANDLE handles[] = { start_event, service_process };
+  HANDLE handles[] = {start_event.Get(), process.Handle()};
   if (::WaitForMultipleObjects(arraysize(handles),
                                handles,
                                FALSE,
@@ -514,7 +513,7 @@ bool LoggerApp::Stop() {
 
   // We wait on both the RPC event and the process, as if the process fails for
   // any reason, it'll exit and its handle will become signaled.
-  if (::WaitForSingleObject(stop_event, INFINITE) != WAIT_OBJECT_0) {
+  if (::WaitForSingleObject(stop_event.Get(), INFINITE) != WAIT_OBJECT_0) {
     LOG(ERROR) << "Timed out waiting for '" << logger_name << "' to stop.";
     return false;
   }
@@ -566,7 +565,7 @@ bool LoggerApp::OpenOutputFile(FILE** output_file, bool* must_close) {
 }
 
 // Print the usage/help text, plus an optional @p message.
-bool LoggerApp::Usage(const CommandLine* command_line,
+bool LoggerApp::Usage(const base::CommandLine* command_line,
                       const base::StringPiece& message) const {
   if (!message.empty()) {
     ::fwrite(message.data(), 1, message.length(), err());

@@ -412,7 +412,6 @@ bool InlineTrivialBody(MatchKind kind,
   Instructions::const_iterator inst_iter = body->instructions().begin();
   for (; inst_iter != body->instructions().end(); ++inst_iter) {
     const Instruction& instr = *inst_iter;
-    const _DInst& repr = instr.representation();
 
     if (instr.IsBranch()) {
       // Skip the indirect branch instruction.

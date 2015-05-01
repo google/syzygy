@@ -156,12 +156,12 @@ void ParseContentType(const base::string16& content_type_str,
                                    base::WideToUTF8(*mime_type).data());
     if (!eq) {
       mime_type->assign(begin + type_val, begin + type_end);
-      StringToLowerASCII(mime_type);
+      base::StringToLowerASCII(mime_type);
     }
     if ((!eq && *had_charset) || type_has_charset) {
       *had_charset = true;
       charset->assign(begin + charset_val, begin + charset_end);
-      StringToLowerASCII(charset);
+      base::StringToLowerASCII(charset);
     }
   }
 }

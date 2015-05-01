@@ -48,7 +48,7 @@ class IterativeTransformImpl
   // @returns true on success, false otherwise.
   virtual bool TransformBlockGraph(const TransformPolicyInterface* policy,
                                    BlockGraph* block_graph,
-                                   BlockGraph::Block* header_block) OVERRIDE;
+                                   BlockGraph::Block* header_block) override;
 
  protected:
   // This function is called prior to the iterative portion of the transform.

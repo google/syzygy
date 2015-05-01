@@ -93,7 +93,7 @@ class ThreadStateTest : public testing::Test {
   }
 
   // A setup function run before each test.
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     manager_.reset(new TestThreadStateManager);
     ASSERT_TRUE(worker_thread_.Start());
   }

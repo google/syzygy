@@ -41,7 +41,7 @@ class StackCapture {
   // The type used for reference counting. We use saturation arithmetic, so it
   // will top out at kMaxRefCount.
   typedef uint16 RefCount;
-  static const RefCount kMaxRefCount = -1;
+  static const RefCount kMaxRefCount = static_cast<RefCount>(-1);
 
   // This corresponds to the the type used by ::CaptureStackBackTrace's hash
   // for a stack-trace.

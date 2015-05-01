@@ -14,8 +14,8 @@
 
 #include "syzygy/instrument/instrumenters/entry_thunk_instrumenter.h"
 
-#include "base/file_util.h"
 #include "base/logging.h"
+#include "base/files/file_util.h"
 #include "syzygy/application/application.h"
 #include "syzygy/pe/image_filter.h"
 
@@ -73,7 +73,7 @@ bool EntryThunkInstrumenter::InstrumentImpl() {
 }
 
 bool EntryThunkInstrumenter::ParseAdditionalCommandLineArguments(
-    const CommandLine* command_line) {
+    const base::CommandLine* command_line) {
   if (instrumentation_mode_ == CALL_TRACE) {
     module_entry_only_ = command_line->HasSwitch("module-entry-only");
     instrument_unsafe_references_ = !command_line->HasSwitch("no-unsafe-refs");

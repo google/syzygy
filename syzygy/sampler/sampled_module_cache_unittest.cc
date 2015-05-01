@@ -26,7 +26,7 @@ struct MockedCallbackStruct {
 
 class SampledModuleCacheTest : public ::testing::Test {
  public:
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::Test::SetUp();
 
     dead_module_callback = base::Bind(&MockedCallbackStruct::OnDeadModule,

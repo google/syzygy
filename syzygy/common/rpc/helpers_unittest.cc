@@ -27,6 +27,7 @@ TEST(RpcHelpersTest, AsRpcWstr) {
   // As this helper only amounts to a reinterpret cast, the real test is that it
   // compiles.
   RPC_WSTR an_rpc_wstr = AsRpcWstr(a_string);
+  EXPECT_NE(static_cast<RPC_WSTR>(nullptr), an_rpc_wstr);
 }
 
 }  // namespace rpc

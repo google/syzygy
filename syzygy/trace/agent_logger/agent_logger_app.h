@@ -49,7 +49,7 @@ class LoggerApp : public application::AppImplBase {
 
   // @name Implementation of the AppImplBase interface.
   // @{
-  bool ParseCommandLine(const CommandLine* command_line);
+  bool ParseCommandLine(const base::CommandLine* command_line);
   int Run();
   // @}
 
@@ -105,7 +105,7 @@ class LoggerApp : public application::AppImplBase {
   bool OpenOutputFile(FILE** output_file, bool* must_close);
 
   // Print the usage/help text, plus an optional @p message.
-  bool Usage(const CommandLine* command_line,
+  bool Usage(const base::CommandLine* command_line,
              const base::StringPiece& message) const;
 
   // A table mapping action keywords to their handler implementations.
@@ -135,10 +135,10 @@ class LoggerApp : public application::AppImplBase {
   // @}
 
   // The command line parameters pertaining to the logger.
-  CommandLine logger_command_line_;
+  base::CommandLine logger_command_line_;
 
   // The command-line parameters pertaining to the subprocess to exec.
-  scoped_ptr<CommandLine> app_command_line_;
+  scoped_ptr<base::CommandLine> app_command_line_;
 
   // Members to hold the logger's parsed command-line parameters
   // @{

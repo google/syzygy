@@ -493,11 +493,6 @@ def ProcessMinidump(minidump_filename, cdb_path, pdb_path):
                           from_uef=None)
       return report
 
-    alloc_stack = None
-    alloc_stack_hash = None
-    free_stack = None
-    free_stack_hash = None
-
     def GetStackAndStackHashFromErrorInfoStruct(debugger, stack_type, is_ptr):
       assert stack_type in ['alloc', 'free']
       command = _GET_STACK_COMMAND_TEMPLATE.format(type=stack_type,

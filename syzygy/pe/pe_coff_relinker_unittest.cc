@@ -14,7 +14,7 @@
 
 #include "syzygy/pe/pe_coff_relinker.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/unittest_util.h"
@@ -40,12 +40,12 @@ class TestPECoffRelinker : public PECoffRelinker {
   using PECoffRelinker::transforms_;
   using PECoffRelinker::orderers_;
 
-  virtual ImageFormat image_format() const OVERRIDE {
+  virtual ImageFormat image_format() const override {
     return BlockGraph::PE_IMAGE;
   }
 
-  virtual bool Init() OVERRIDE { return true; }
-  virtual bool Relink() OVERRIDE { return true; }
+  virtual bool Init() override { return true; }
+  virtual bool Relink() override { return true; }
 };
 
 class MockTransform : public BlockGraphTransformInterface {

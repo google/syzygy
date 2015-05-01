@@ -47,11 +47,11 @@ bool InitEvent(const base::StringPiece16& event_name,
 // non-switch parameter. All remaining arguments and switches will be added
 // to the app command line. This function understands the "--" marker
 // which is used to allow switches to appear after the first non-switch
-// argument (otherwise CommandLine will sort the entire command line before
-// we get a chance to inspect it.).
-bool SplitCommandLine(const CommandLine* orig_command_line,
-                      CommandLine* logger_command_line,
-                      scoped_ptr<CommandLine>* app_command_line);
+// argument (otherwise base::CommandLine will sort the entire command line
+// before we get a chance to inspect it.).
+bool SplitCommandLine(const base::CommandLine* orig_command_line,
+                      base::CommandLine* logger_command_line,
+                      scoped_ptr<base::CommandLine>* app_command_line);
 
 // A helper class to manage a console handler for Control-C.
 class ScopedConsoleCtrlHandler {

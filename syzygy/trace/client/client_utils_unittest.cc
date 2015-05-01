@@ -34,7 +34,7 @@ class GetInstanceIdForModuleTest : public testing::Test {
  public:
   GetInstanceIdForModuleTest() : path_(L"C:\\path\\foo.exe") { }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::Test::SetUp();
     env_.reset(base::Environment::Create());
   }
@@ -55,7 +55,7 @@ class IsRpcSessionMandatoryTest : public testing::Test {
  public:
   IsRpcSessionMandatoryTest() : path_(L"C:\\path\\foo.exe") { }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::Test::SetUp();
     env_.reset(base::Environment::Create());
   }

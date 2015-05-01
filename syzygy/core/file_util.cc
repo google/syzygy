@@ -14,7 +14,7 @@
 
 #include "syzygy/core/file_util.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/core/serialization.h"

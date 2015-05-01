@@ -595,7 +595,6 @@ TEST_F(PETransformPolicyTest, BasicBlockDisassemblyFilter) {
   pe::ImageLayout image_layout(&block_graph);
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll(&pe_file, &image_layout));
 
-  size_t count = 0;
   BlockGraph::BlockMap::const_iterator it = block_graph.blocks().begin();
   for (; it != block_graph.blocks().end(); ++it) {
     if (!policy.BlockIsSafeToBasicBlockDecompose(&it->second))

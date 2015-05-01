@@ -42,6 +42,8 @@
       }],
     ],
 
+    'msvs_xtree_patched%': '0',
+
     # The current PGO phase. 0 means that the PGO is disabled, 1 should be used
     # for the instrumentation phase and 2 is for the optimization one. The
     # targets are responsible on setting the appropriate linker settings
@@ -57,6 +59,10 @@
         # See http://msdn.microsoft.com/en-us/library/aa652260(v=vs.71).aspx
         # Equivalent to debugEnabled, which is equivalent to /Zi.
         'DebugInformationFormat': 3,
+        # Disable various noisy warnings that have low value.
+        'AdditionalOptions': [
+          '/wd4201',  # nameless struct/union
+        ],
       },
       'VCLinkerTool': {
         # Indicate that debug information is being generated. This is necessary

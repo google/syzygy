@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "syzygy/core/serialization.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 

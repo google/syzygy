@@ -359,8 +359,9 @@ bool ProcessInfo::Initialize(uint32 pid) {
   ::GetSystemInfo(&system_info);
 
   // Get the executable path, command line and environment string.
-  if (!GetProcessStrings(process_id, process_handle, system_info.dwPageSize,
-                         &executable_path, &command_line, &environment)) {
+  if (!GetProcessStrings(process_id, process_handle.Get(),
+                         system_info.dwPageSize, &executable_path,
+                         &command_line, &environment)) {
     Reset();
     return false;
   }
@@ -388,7 +389,7 @@ bool ProcessInfo::Initialize(uint32 pid) {
   // Get the headers for the running image and use these to populate various
   // fields.
   IMAGE_NT_HEADERS nt_headers;
-  if (!GetProcessNtHeaders(process_id, process_handle, &nt_headers)) {
+  if (!GetProcessNtHeaders(process_id, process_handle.Get(), &nt_headers)) {
     Reset();
     return false;
   }

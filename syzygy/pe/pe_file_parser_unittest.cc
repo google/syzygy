@@ -209,10 +209,11 @@ TEST_F(PEFileParserTest, ParseImageHeader) {
   ASSERT_TRUE(nt_headers != NULL);
   ASSERT_EQ(IMAGE_NT_OPTIONAL_HDR32_MAGIC, nt_headers->OptionalHeader.Magic);
 
-  const IMAGE_SECTION_HEADER* section_headers = NULL;
   // Check that the data accounts for the image section headers.
-  ASSERT_EQ(nt_headers->FileHeader.NumberOfSections * sizeof(*section_headers) +
-      sizeof(*nt_headers), header.nt_headers->data_size());
+  ASSERT_EQ(
+      nt_headers->FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER) +
+          sizeof(*nt_headers),
+      header.nt_headers->data_size());
 }
 
 TEST_F(PEFileParserTest, ParseExportDir) {

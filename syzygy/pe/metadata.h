@@ -44,7 +44,7 @@ class Metadata {
 
   // Initialize this metadata for a given module. Automatically infers
   // command-line, time, and toolchain version from the environment. Assumes
-  // that the singleton CommandLine has already been initialized.
+  // that the singleton base::CommandLine has already been initialized.
   bool Init(const PEFile::Signature& module_signature);
 
   // Confirms the metadata is consistent with the given module and current

@@ -53,12 +53,12 @@ bool ParseParameters(const base::StringPiece& param_string,
                      Parameters* parameters) {
   DCHECK_NE(static_cast<Parameters*>(nullptr), parameters);
 
-  // Prepends the flags with a dummy executable name to keep the CommandLine
-  // parser happy.
+  // Prepends the flags with a dummy executable name to keep the
+  // base::CommandLine parser happy.
   std::wstring str = base::UTF8ToWide(param_string);
   str.insert(0, L" ");
   str.insert(0, L"dummy.exe");
-  CommandLine cmd_line = CommandLine::FromString(str);
+  base::CommandLine cmd_line = base::CommandLine::FromString(str);
 
   bool success = true;
 

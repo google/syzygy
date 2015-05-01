@@ -45,7 +45,7 @@ class ExplicitOrderer
   // @param ordered_block_graph the block graph to order.
   // @returns true on success, false otherwise.
   virtual bool OrderBlockGraph(OrderedBlockGraph* ordered_block_graph,
-                               BlockGraph::Block* header_block_unused) OVERRIDE;
+                               BlockGraph::Block* header_block_unused) override;
 
   static const char kOrdererName[];
 

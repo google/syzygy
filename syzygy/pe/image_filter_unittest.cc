@@ -27,7 +27,7 @@ class ImageFilterTest : public testing::PELibUnitTest {
   ImageFilterTest() : dummy_path(L"C:\\this\\path\\does-not-exist.exe") {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     test_dll_path = testing::GetExeRelativePath(testing::kTestDllName);
   }
 

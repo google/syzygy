@@ -53,7 +53,7 @@ void GetCurrentDriveAndDevice(std::wstring* drive_out,
 
 class PathUtilTest : public ::testing::Test {
  public:
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     ASSERT_NO_FATAL_FAILURE(GetCurrentDriveAndDevice(&cur_drive_,
                                                      &cur_device_));
   }

@@ -117,16 +117,16 @@ class Reorderer : public trace::parser::ParseEventHandlerImpl {
   // @{
   virtual void OnProcessStarted(base::Time time,
                                 DWORD process_id,
-                                const TraceSystemInfo* data) OVERRIDE;
-  virtual void OnProcessEnded(base::Time time, DWORD process_id) OVERRIDE;
+                                const TraceSystemInfo* data) override;
+  virtual void OnProcessEnded(base::Time time, DWORD process_id) override;
   virtual void OnFunctionEntry(base::Time time,
                                DWORD process_id,
                                DWORD thread_id,
-                               const TraceEnterExitEventData* data) OVERRIDE;
+                               const TraceEnterExitEventData* data) override;
   virtual void OnBatchFunctionEntry(base::Time time,
                                     DWORD process_id,
                                     DWORD thread_id,
-                                    const TraceBatchEnterData* data) OVERRIDE;
+                                    const TraceBatchEnterData* data) override;
   // @}
 
   // A playback, which will decompose the image for us.

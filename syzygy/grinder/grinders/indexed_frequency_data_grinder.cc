@@ -36,7 +36,7 @@ IndexedFrequencyDataGrinder::IndexedFrequencyDataGrinder()
 }
 
 bool IndexedFrequencyDataGrinder::ParseCommandLine(
-    const CommandLine* command_line) {
+    const base::CommandLine* command_line) {
   serializer_.set_pretty_print(command_line->HasSwitch("pretty-print"));
   return true;
 }

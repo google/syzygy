@@ -17,7 +17,7 @@
 #ifndef SYZYGY_PDB_UNITTEST_UTIL_H_
 #define SYZYGY_PDB_UNITTEST_UTIL_H_
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_file_stream.h"
 

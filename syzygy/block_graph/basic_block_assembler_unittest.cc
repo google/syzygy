@@ -28,11 +28,9 @@ class BasicBlockAssemblerTest : public testing::Test {
 
   BasicBlockAssemblerTest();
 
-  void SetUp() OVERRIDE {
-  }
+  void SetUp() override {}
 
-  void TearDown() OVERRIDE {
-  }
+  void TearDown() override {}
 
  protected:
   struct Ref {
@@ -95,7 +93,7 @@ BasicBlockAssemblerTest::BasicBlockAssemblerTest()
       test_bb_(NULL),
       asm_(instructions_.end(), &instructions_) {
   test_block_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 10, "test block");
-  test_bb_= subgraph_.AddBasicCodeBlock("foo");
+  test_bb_ = subgraph_.AddBasicCodeBlock("foo");
 }
 
 }  // namespace
@@ -189,7 +187,6 @@ TEST(UntypedReferenceTest, Comparison) {
   EXPECT_FALSE(r1 == r2);
 
   BasicCodeBlock* bcb = subgraph.AddBasicCodeBlock("foo");
-  BasicBlock* bb = bcb;
   UntypedReference r3(bcb);
   EXPECT_FALSE(r1 == r3);
   EXPECT_FALSE(r2 == r3);
@@ -312,14 +309,14 @@ TYPED_TEST(ValueTest, Factories) {
   Test8BitValue(0, 0);
   Test8BitValue(127, 127);
 
-  Test8BitValue(-128, 0xFFFFFF80);
+  Test8BitValue(static_cast<uint32>(-128), 0xFFFFFF80);
   Test8BitValue(0, 0);
   Test8BitValue(127, 0x0000007F);
 
   Test32BitValue(128, 0x00000080);
   Test32BitValue(0xCAFEBABE, 0xCAFEBABE);
 
-  Test32BitValue(-129, 0xFFFFFF7F);
+  Test32BitValue(static_cast<uint32>(-129), 0xFFFFFF7F);
   Test32BitValue(128, 0x000000080);
   Test32BitValue(0xBABE, 0xBABE);
 

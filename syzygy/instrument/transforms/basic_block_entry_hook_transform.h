@@ -106,7 +106,7 @@ class BasicBlockEntryHookTransform
   virtual bool TransformBasicBlockSubGraph(
       const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
-      BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
+      BasicBlockSubGraph* basic_block_subgraph) override;
   // @}
 
   // Add basic-block entry counting thunks for all entry points of a

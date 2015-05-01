@@ -19,8 +19,8 @@
 
 #include "base/command_line.h"
 #include "base/environment.h"
-#include "base/file_util.h"
 #include "base/path_service.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/process/kill.h"
@@ -121,7 +121,7 @@ class LoggerAppTest : public testing::ApplicationTestBase {
 
   // @name Command-line and parameters.
   // @{
-  CommandLine cmd_line_;
+  base::CommandLine cmd_line_;
   std::wstring instance_id_;
   base::FilePath output_file_path_;
   // @}
@@ -223,7 +223,7 @@ TEST_F(LoggerAppTest, ParseFullStartWithCommand) {
   EXPECT_EQ(output_file_path_, test_impl_.output_file_path_);
   EXPECT_EQ(instance_id_, test_impl_.instance_id_);
   EXPECT_EQ(std::wstring(TestLoggerApp::kStart), test_impl_.action_);
-  const CommandLine* app_cmd_line = test_impl_.app_command_line_.get();
+  const base::CommandLine* app_cmd_line = test_impl_.app_command_line_.get();
   ASSERT_TRUE(app_cmd_line != NULL);
   EXPECT_EQ(kFooExe, app_cmd_line->GetProgram());
   EXPECT_TRUE(app_cmd_line->GetSwitches().empty());
@@ -307,15 +307,14 @@ TEST_F(LoggerAppTest, StartSetsStopResetsEvent) {
   cmd_line_.SetProgram(testing::GetExeRelativePath(L"agent_logger.exe"));
   cmd_line_.AppendSwitchNative(TestLoggerApp::kInstanceId, instance_id_);
   // Saving the command line to be used when stopping the logger.
-  CommandLine cmd_line_saved(cmd_line_);
+  base::CommandLine cmd_line_saved(cmd_line_);
   cmd_line_.AppendArgNative(TestLoggerApp::kStart);
 
   // Launch the logger as a separate process and make sure it succeeds.
   base::LaunchOptions options;
   options.start_hidden = true;
-  base::ProcessHandle logger_process;
-  bool success = base::LaunchProcess(cmd_line_, options, &logger_process);
-  ASSERT_TRUE(success);
+  base::Process logger_process = base::LaunchProcess(cmd_line_, options);
+  ASSERT_TRUE(logger_process.IsValid());
 
   std::wstring event_name;
   AgentLogger::GetSyzygyAgentLoggerEventName(instance_id_, &event_name);
@@ -324,11 +323,11 @@ TEST_F(LoggerAppTest, StartSetsStopResetsEvent) {
   EXPECT_EQ(WAIT_OBJECT_0, ::WaitForSingleObject(event.Get(), kTimeOutMs));
   cmd_line_ = cmd_line_saved;
   cmd_line_.AppendArgNative(TestLoggerApp::kStop);
-  base::ProcessHandle logger_process_kill;
-  success = base::LaunchProcess(cmd_line_, options, &logger_process_kill);
-  ASSERT_TRUE(success);
-  ASSERT_TRUE(base::WaitForSingleProcess(logger_process,
-      base::TimeDelta::FromMilliseconds(kTimeOutMs)));
+  base::Process logger_process_kill = base::LaunchProcess(cmd_line_, options);
+  ASSERT_TRUE(logger_process_kill.IsValid());
+  int exit_code = 0;
+  ASSERT_TRUE(logger_process.WaitForExitWithTimeout(
+      base::TimeDelta::FromMilliseconds(kTimeOutMs), &exit_code));
   ASSERT_EQ(WAIT_TIMEOUT, ::WaitForSingleObject(event.Get(), 0));
 }
 

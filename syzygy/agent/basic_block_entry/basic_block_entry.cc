@@ -228,7 +228,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       DCHECK(at_exit == NULL);
       at_exit = new base::AtExitManager();
 
-      CommandLine::Init(0, NULL);
+      base::CommandLine::Init(0, NULL);
       common::InitLoggingForDll(L"basic_block_entry");
       LOG(INFO) << "Initialized basic-block entry counting agent library.";
       break;
@@ -240,7 +240,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       break;
 
     case DLL_PROCESS_DETACH:
-      CommandLine::Reset();
+      base::CommandLine::Reset();
       DCHECK(at_exit != NULL);
       delete at_exit;
       at_exit = NULL;

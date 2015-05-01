@@ -90,7 +90,7 @@ const char kAsanHeapUseAfterFree[] = "SyzyASAN error: heap-use-after-free ";
 // and getting the contents of its log file. Not thread safe.
 struct ScopedAgentLogger {
   explicit ScopedAgentLogger(base::FilePath temp_dir)
-      : handle_(NULL), nul_(NULL), temp_dir_(temp_dir) {
+      : nul_(NULL), temp_dir_(temp_dir) {
     agent_logger_ = testing::GetOutputRelativePath(
         L"agent_logger.exe");
     instance_id_ = base::StringPrintf("integra%08X", ::GetCurrentProcessId());
@@ -107,11 +107,11 @@ struct ScopedAgentLogger {
     }
   }
 
-  void RunAction(const char* action, base::ProcessHandle* handle) {
-    DCHECK_NE(reinterpret_cast<const char*>(NULL), action);
-    DCHECK_NE(reinterpret_cast<base::ProcessHandle*>(NULL), handle);
+  void RunAction(const char* action, base::Process* process) {
+    DCHECK_NE(static_cast<const char*>(nullptr), action);
+    DCHECK_NE(static_cast<base::Process*>(nullptr), process);
 
-    CommandLine cmd_line(agent_logger_);
+    base::CommandLine cmd_line(agent_logger_);
     cmd_line.AppendSwitchASCII("instance-id", instance_id_);
     cmd_line.AppendSwitchPath("minidump-dir", temp_dir_);
     cmd_line.AppendSwitchPath("output-file", log_file_);
@@ -120,11 +120,12 @@ struct ScopedAgentLogger {
     options.stderr_handle = nul_;
     options.stdin_handle = nul_;
     options.stdout_handle = nul_;
-    CHECK(base::LaunchProcess(cmd_line, options, handle));
+    *process = base::LaunchProcess(cmd_line, options);
+    DCHECK(process->IsValid());
   }
 
   void Start() {
-    DCHECK(!handle_);
+    DCHECK(!process_.IsValid());
 
     if (nul_ == NULL) {
       nul_ = CreateFile(L"NUL", GENERIC_READ | GENERIC_WRITE, 0, NULL,
@@ -135,24 +136,23 @@ struct ScopedAgentLogger {
     log_file_ = temp_dir_.Append(L"integration_test.log");
 
     std::wstring start_event_name(L"syzygy-logger-started-");
-    start_event_name += base::ASCIIToWide(instance_id_);
+    start_event_name += base::ASCIIToUTF16(instance_id_);
     base::win::ScopedHandle start_event(
         ::CreateEvent(NULL, FALSE, FALSE, start_event_name.c_str()));
 
-    RunAction("start", &handle_);
+    RunAction("start", &process_);
 
     ::WaitForSingleObject(start_event.Get(), INFINITE);
   }
 
   void Stop() {
-    DCHECK(handle_);
+    DCHECK(process_.IsValid());
 
-    base::ProcessHandle handle = NULL;
-    RunAction("stop", &handle);
+    base::Process process;
+    RunAction("stop", &process);
     int exit_code = 0;
-    CHECK(base::WaitForExitCode(handle, &exit_code));
-    CHECK(base::WaitForExitCode(handle_, &exit_code));
-    handle_ = NULL;
+    CHECK(process.WaitForExit(&exit_code));
+    CHECK(process_.WaitForExit(&exit_code));
 
     // Read the contents of the log file.
     if (base::PathExists(log_file_))
@@ -171,7 +171,7 @@ struct ScopedAgentLogger {
   // Modified by Start and Stop.
   base::FilePath temp_dir_;
   base::FilePath log_file_;
-  base::ProcessHandle handle_;
+  base::Process process_;
   HANDLE nul_;
 
   // Modified by Stop.
@@ -390,18 +390,18 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
                               testing::EndToEndTestId test,
                               bool expect_exception) {
     base::FilePath harness = testing::GetExeRelativePath(harness_name.c_str());
-    CommandLine cmd_line(harness);
+    base::CommandLine cmd_line(harness);
     cmd_line.AppendSwitchASCII("test", base::StringPrintf("%d", test));
     cmd_line.AppendSwitchPath("dll", output_dll_path_);
     if (expect_exception)
       cmd_line.AppendSwitch("expect-exception");
 
     base::LaunchOptions options;
-    base::ProcessHandle handle;
-    EXPECT_TRUE(base::LaunchProcess(cmd_line, options, &handle));
+    base::Process process = base::LaunchProcess(cmd_line, options);
+    EXPECT_TRUE(process.IsValid());
 
     int exit_code = 0;
-    EXPECT_TRUE(base::WaitForExitCode(handle, &exit_code));
+    EXPECT_TRUE(process.WaitForExit(&exit_code));
     return exit_code;
   }
 
@@ -1088,12 +1088,12 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
       cmd_line.AppendArg("--corrupt-heap");
 
     base::LaunchOptions options;
-    base::ProcessHandle handle;
     options.inherit_handles = true;
-    EXPECT_TRUE(base::LaunchProcess(cmd_line, options, &handle));
+    base::Process process = base::LaunchProcess(cmd_line, options);
+    EXPECT_TRUE(process.IsValid());
 
     int exit_code = 0;
-    EXPECT_TRUE(base::WaitForExitCode(handle, &exit_code));
+    EXPECT_TRUE(process.WaitForExit(&exit_code));
     EXPECT_EQ(0u, exit_code);
 
     env->UnSetVar(::common::kSyzyAsanOptionsEnvVar);
@@ -1115,7 +1115,7 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
 
   // @name Command-line, parameters and outputs.
   // @{
-  CommandLine cmd_line_;
+  base::CommandLine cmd_line_;
   base::FilePath input_dll_path_;
   base::FilePath output_dll_path_;
   base::FilePath traces_dir_;

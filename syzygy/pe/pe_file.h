@@ -22,9 +22,9 @@
 #include <string>
 #include <vector>
 
-#include "base/file_util.h"
 #include "base/logging.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
 #include "syzygy/core/section_offset_address.h"
@@ -442,7 +442,7 @@ struct PEFileBase<ImageNtHeaders, MagicValidation>::ImportDll {
   // Construct a default empty ImportDll structure.
   ImportDll() {
     memset(&desc, 0, sizeof(desc));
-    desc.ForwarderChain = -1;
+    desc.ForwarderChain = SIZE_MAX;
   }
 
   // The import descriptor.

@@ -42,13 +42,15 @@ class TestGrinder : public GrinderInterface {
 
   // @name GrinderInterface implementation.
   // @{
-  virtual bool ParseCommandLine(const CommandLine*) OVERRIDE { return true; }
-  virtual void SetParser(Parser* parser) OVERRIDE {
+  virtual bool ParseCommandLine(const base::CommandLine*) override {
+    return true;
+  }
+  virtual void SetParser(Parser* parser) override {
     ASSERT_TRUE(parser != NULL);
     parser_ = parser;
   }
-  virtual bool Grind() OVERRIDE { return true; }
-  virtual bool OutputData(FILE*) OVERRIDE { return true; }
+  virtual bool Grind() override { return true; }
+  virtual bool OutputData(FILE*) override { return true; }
   // @}
 
   // @name ParseEventHandler overrides.
@@ -57,7 +59,7 @@ class TestGrinder : public GrinderInterface {
       base::Time time,
       DWORD process_id,
       DWORD thread_id,
-      const TraceIndexedFrequencyData* data) OVERRIDE {
+      const TraceIndexedFrequencyData* data) override {
     on_bb_freq_was_called_ = true;
     ASSERT_TRUE(data != NULL);
 

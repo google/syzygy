@@ -56,8 +56,8 @@ class ArchiveInstrumenter : public InstrumenterInterface {
   // @}
 
   // @name InstrumenterInterface implementation.
-  virtual bool ParseCommandLine(const CommandLine* command_line) OVERRIDE;
-  virtual bool Instrument() OVERRIDE;
+  virtual bool ParseCommandLine(const base::CommandLine* command_line) override;
+  virtual bool Instrument() override;
   // @}
 
  private:
@@ -78,7 +78,7 @@ class ArchiveInstrumenter : public InstrumenterInterface {
   InstrumenterFactoryFunction factory_;
 
   // A copy of the command-line that we originally parsed.
-  scoped_ptr<CommandLine> command_line_;
+  scoped_ptr<base::CommandLine> command_line_;
 
   // Bits of the command-line that we've parsed.
   base::FilePath input_image_;

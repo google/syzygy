@@ -50,7 +50,7 @@ class TestStackCaptureCache : public StackCaptureCache {
 
 class StackCaptureCacheTest : public testing::Test {
  public:
-  void SetUp() OVERRIDE {
+  void SetUp() override {
     // Setup the "global" state.
     StackCapture::Init();
     StackCaptureCache::Init();

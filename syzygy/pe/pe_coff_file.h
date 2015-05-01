@@ -36,7 +36,7 @@ namespace pe {
 // dependency.
 // Header data and other data not from a regular section is considered as
 // being from an invalid section.
-const size_t kInvalidSection = -1;
+const size_t kInvalidSection = SIZE_MAX;
 
 // Base class for PE and COFF file readers, parameterized with an
 // address and a size type, wrapped in a traits class. The base class

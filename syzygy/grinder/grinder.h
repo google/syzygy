@@ -34,7 +34,7 @@ class GrinderInterface : public trace::parser::ParseEventHandlerImpl {
   // @param command_line the command-line to be parsed.
   // @returns true on success, false otherwise.
   // @note The implementation should log on failure.
-  virtual bool ParseCommandLine(const CommandLine* command_line) = 0;
+  virtual bool ParseCommandLine(const base::CommandLine* command_line) = 0;
 
   // Provides a pointer to the parse engine that will be used to push events
   // to the grinder. This will be called after a successful call to

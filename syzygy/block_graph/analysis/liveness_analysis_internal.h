@@ -47,6 +47,7 @@ class LivenessAnalysis::StateHelper {
   typedef State::FlagsMask FlagsMask;
 
   enum RegisterBits {
+    REGBITS_NONE = 0x00000000,
     REGBITS_AL = 0x00000001,
     REGBITS_AH = 0x00000002,
     REGBITS_AX = 0x00000003,

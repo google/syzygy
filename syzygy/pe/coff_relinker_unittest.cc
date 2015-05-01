@@ -14,7 +14,7 @@
 
 #include "syzygy/pe/coff_relinker.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/defs.h"
@@ -45,7 +45,7 @@ class TestCoffRelinker : public CoffRelinker {
 
 class CoffRelinkerTest : public testing::PELibUnitTest {
  public:
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::PELibUnitTest::SetUp();
 
     test_dll_obj_path_ =

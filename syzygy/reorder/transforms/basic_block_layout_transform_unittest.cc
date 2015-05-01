@@ -30,7 +30,7 @@ using testing::ContainerEq;
 
 class BasicBlockSubGraphLayoutTransformTest : public BasicBlockTest {
  public:
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     BasicBlockTest::SetUp();
     ASSERT_NO_FATAL_FAILURE(InitBlockGraph());
     ASSERT_NO_FATAL_FAILURE(InitBasicBlockSubGraph());
@@ -149,7 +149,7 @@ class BasicBlockLayoutTransformTest : public BasicBlockTest {
  public:
   typedef BasicBlockLayoutTransform::Order Order;
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     BasicBlockTest::SetUp();
     header_block_ = block_graph_.AddBlock(BlockGraph::DATA_BLOCK,
         10, "Dummy Header Block");

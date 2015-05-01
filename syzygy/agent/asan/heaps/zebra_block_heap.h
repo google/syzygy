@@ -169,7 +169,7 @@ class ZebraBlockHeap : public BlockHeapInterface,
   uint8* GetSlabAddress(size_t index);
 
   // Defines an invalid slab index.
-  static const size_t kInvalidSlabIndex = -1;
+  static const size_t kInvalidSlabIndex = SIZE_MAX;
 
   // Heap memory address.
   uint8* heap_address_;

@@ -31,7 +31,7 @@
 #include <vector>
 
 #include "base/basictypes.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_piece.h"
 #include "syzygy/common/align.h"
 #include "syzygy/core/address.h"

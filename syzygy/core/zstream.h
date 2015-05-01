@@ -62,13 +62,13 @@ class ZOutStream : public OutStream {
   // @param length the number of bytes to write.
   // @param bytes the buffer of data to write.
   // @returns true on success, false otherwise.
-  virtual bool Write(size_t length, const Byte* bytes) OVERRIDE;
+  virtual bool Write(size_t length, const Byte* bytes) override;
   // After a call to Flush the compressed stream is closed and further calls to
   // Write will fail. Flush must be called after all writing is finished in
   // order for the output to be well-formed. This does not recursively call
   // flush on the child stream.
   // @returns true on success, false otherwise.
-  virtual bool Flush() OVERRIDE;
+  virtual bool Flush() override;
   // @}
 
  private:
@@ -102,8 +102,9 @@ class ZInStream : public InStream {
 
  protected:
   // InStream implementation.
-  virtual bool ReadImpl(
-      size_t length, Byte* bytes, size_t* bytes_read) OVERRIDE;
+  virtual bool ReadImpl(size_t length,
+                        Byte* bytes,
+                        size_t* bytes_read) override;
 
  private:
   // Functor that takes care of cleaning up a zstream object that was

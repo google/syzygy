@@ -21,6 +21,6 @@
 
 int main(int argc, const char* const* argv) {
   base::AtExitManager at_exit_manager;
-  CommandLine::Init(argc, argv);
+  base::CommandLine::Init(argc, argv);
   return application::Application<pe::DecomposeApp>().Run();
 }

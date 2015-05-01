@@ -26,7 +26,7 @@ scoped_ptr<WaitableTimer> WaitableTimerImpl::Create(
     const base::TimeDelta& interval) {
   scoped_ptr<WaitableTimer> result;
   base::win::ScopedHandle handle(::CreateWaitableTimer(NULL, TRUE, NULL));
-  if (handle)
+  if (handle.IsValid())
     result.reset(new WaitableTimerImpl(handle.Pass(), interval));
   return result.Pass();
 }
@@ -34,12 +34,12 @@ scoped_ptr<WaitableTimer> WaitableTimerImpl::Create(
 WaitableTimerImpl::~WaitableTimerImpl() {}
 
 void WaitableTimerImpl::Start() {
-  if (!::SetWaitableTimer(handle_, &interval_, 0, NULL, NULL, FALSE))
+  if (!::SetWaitableTimer(handle_.Get(), &interval_, 0, NULL, NULL, FALSE))
     LOG(ERROR) << "Unexpected failure to set a timer: " << ::common::LogWe();
 }
 
 HANDLE WaitableTimerImpl::GetHANDLE() {
-  return handle_;
+  return handle_.Get();
 }
 
 WaitableTimerImpl::WaitableTimerImpl(base::win::ScopedHandle handle,

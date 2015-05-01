@@ -64,10 +64,11 @@ MULTIPROCESS_TEST_MAIN(ApiTestReporterProcess) {
   CHECK(data_directory.CreateUniqueTempDir());
 
   // Create the events used for inter-process synchronization.
-  base::WaitableEvent exit_event(::CreateEvent(
-      NULL, FALSE, FALSE, (kExitEventNamePrefix + test_instance_key).c_str()));
-  base::WaitableEvent ready_event(::CreateEvent(
-      NULL, FALSE, FALSE, (kReadyEventNamePrefix + test_instance_key).c_str()));
+  base::WaitableEvent exit_event(base::win::ScopedHandle(::CreateEvent(
+      NULL, FALSE, FALSE, (kExitEventNamePrefix + test_instance_key).c_str())));
+  base::WaitableEvent ready_event(base::win::ScopedHandle(
+      ::CreateEvent(NULL, FALSE, FALSE,
+                    (kReadyEventNamePrefix + test_instance_key).c_str())));
 
   // Start up a test server to receive uploads.
   testing::TestServer server;
@@ -125,12 +126,14 @@ TEST(ApiTest, BasicTest) {
   base::win::ScopedHandle exit_event_handle(::CreateEvent(
       NULL, FALSE, FALSE, (kExitEventNamePrefix + test_instance_key).c_str()));
   ASSERT_TRUE(exit_event_handle.IsValid());
-  base::WaitableEvent exit_event(exit_event_handle.Take());
+  base::WaitableEvent exit_event(
+      base::win::ScopedHandle(exit_event_handle.Take()));
 
   base::win::ScopedHandle ready_event_handle(::CreateEvent(
       NULL, FALSE, FALSE, (kReadyEventNamePrefix + test_instance_key).c_str()));
   ASSERT_TRUE(ready_event_handle.IsValid());
-  base::WaitableEvent ready_event(ready_event_handle.Take());
+  base::WaitableEvent ready_event(
+      base::win::ScopedHandle(ready_event_handle.Take()));
 
   // Start building the Reporter process command line.
   base::CommandLine reporter_command_line =
@@ -148,9 +151,9 @@ TEST(ApiTest, BasicTest) {
       kClientProcessIdSwitch, base::UintToString(base::GetCurrentProcId()));
 
   // Launch the Reporter process and wait until it is fully initialized.
-  base::ProcessHandle reporter_process;
-  ASSERT_TRUE(base::LaunchProcess(reporter_command_line, base::LaunchOptions(),
-                                  &reporter_process));
+  base::Process reporter_process =
+      base::LaunchProcess(reporter_command_line, base::LaunchOptions());
+  ASSERT_TRUE(reporter_process.IsValid());
   ready_event.Wait();
 
   // Initialize the Client process.
@@ -178,7 +181,7 @@ TEST(ApiTest, BasicTest) {
 
   // Wait for the reporter process to exit and verify its status code.
   int exit_code = 0;
-  base::WaitForExitCode(reporter_process, &exit_code);
+  reporter_process.WaitForExit(&exit_code);
   ASSERT_EQ(0, exit_code);
 }
 

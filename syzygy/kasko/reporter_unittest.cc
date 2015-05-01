@@ -72,8 +72,8 @@ MULTIPROCESS_TEST_MAIN(ReporterTestBlockingProcess) {
   base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
   base::string16 ready_event_name =
       base::ASCIIToUTF16(cmd_line->GetSwitchValueASCII(kReadyEventSwitch));
-  base::WaitableEvent ready_event(
-      ::OpenEvent(EVENT_MODIFY_STATE, FALSE, ready_event_name.c_str()));
+  base::WaitableEvent ready_event(base::win::ScopedHandle(
+      ::OpenEvent(EVENT_MODIFY_STATE, FALSE, ready_event_name.c_str())));
   ready_event.Signal();
   ::Sleep(INFINITE);
   return 0;
@@ -152,12 +152,12 @@ class ReporterTest : public ::testing::Test {
                                           "ReporterTestClientProcess");
     client_command_line.AppendSwitchASCII(kEndpointSwitch,
                                           base::UTF16ToASCII(endpoint()));
-    base::ProcessHandle client_process;
-    ASSERT_TRUE(base::LaunchProcess(client_command_line, base::LaunchOptions(),
-                                    &client_process));
+    base::Process client_process = base::LaunchProcess(client_command_line,
+                                                       base::LaunchOptions());
+    ASSERT_TRUE(client_process.IsValid());
 
     int exit_code = 0;
-    ASSERT_TRUE(base::WaitForExitCode(client_process, &exit_code));
+    ASSERT_TRUE(client_process.WaitForExit(&exit_code));
     ASSERT_EQ(0, exit_code);
   }
 
@@ -166,21 +166,20 @@ class ReporterTest : public ::testing::Test {
   void DoWithChildProcess(
       const base::Callback<void(base::ProcessHandle)>& callback) {
     std::string ready_event_name = "reporter_test_ready_" + test_instance_key_;
-    base::WaitableEvent ready_event(::CreateEvent(
-        NULL, FALSE, FALSE, base::ASCIIToUTF16(ready_event_name).c_str()));
+    base::WaitableEvent ready_event(base::win::ScopedHandle(::CreateEvent(
+        NULL, FALSE, FALSE, base::ASCIIToUTF16(ready_event_name).c_str())));
 
     base::CommandLine child_command_line =
         base::GetMultiProcessTestChildBaseCommandLine();
     child_command_line.AppendSwitchASCII(switches::kTestChildProcess,
                                          "ReporterTestBlockingProcess");
     child_command_line.AppendSwitchASCII(kReadyEventSwitch, ready_event_name);
-    base::ProcessHandle child_process;
-    ASSERT_TRUE(base::LaunchProcess(child_command_line, base::LaunchOptions(),
-                                    &child_process));
-    base::win::ScopedHandle scoped_child_process(child_process);
+    base::Process child_process = base::LaunchProcess(child_command_line,
+                                                      base::LaunchOptions());
+    ASSERT_TRUE(child_process.IsValid());
     ready_event.Wait();
-    callback.Run(child_process);
-    ASSERT_TRUE(base::KillProcess(child_process, 0, true));
+    callback.Run(child_process.Handle());
+    ASSERT_TRUE(child_process.Terminate(0, true));
   }
 
   uint16_t server_port() { return server_.port(); }

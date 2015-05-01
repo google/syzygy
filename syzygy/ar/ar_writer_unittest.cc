@@ -14,7 +14,7 @@
 
 #include "syzygy/ar/ar_writer.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/memory/scoped_vector.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -36,7 +36,7 @@ const size_t kSymbolCounts[] = { 3, 3 };
 // Test fixture.
 class ArWriterTest : public testing::Test {
  public:
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     for (size_t i = 0; i < arraysize(kObjectFiles); ++i)
       object_files_.push_back(testing::GetSrcRelativePath(kObjectFiles[i]));
 
@@ -46,7 +46,7 @@ class ArWriterTest : public testing::Test {
     lib_path_ = temp_dir_.Append(L"foo.lib");
   }
 
-  virtual void TearDown() OVERRIDE {
+  virtual void TearDown() override {
     ASSERT_TRUE(base::DeleteFile(temp_dir_, true));
   }
 

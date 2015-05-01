@@ -140,7 +140,7 @@ bool CodeTally::TallyLines(const base::FilePath& pdb_file) {
     return false;
   }
 
-  pe::CompilandVisitor visitor(session_);
+  pe::CompilandVisitor visitor(session_.get());
   if (!visitor.VisitAllCompilands(base::Bind(&CodeTally::OnCompilandPassOne,
                                         base::Unretained(this)))) {
     return false;
@@ -346,11 +346,10 @@ bool CodeTally::OnCompilandPassOne(IDiaSymbol* compiland) {
   DCHECK(pe::IsSymTag(compiland, SymTagCompiland));
 
   base::win::ScopedBstr compiland_name;
-  HRESULT hr = compiland->get_name(compiland_name.Receive());
 
   // On the first pass, we simply crawl the source lines in this compiland
   // and update the share counts for each referenced byte.
-  pe::LineVisitor visitor(session_, compiland);
+  pe::LineVisitor visitor(session_.get(), compiland);
   return visitor.VisitLines(
       base::Bind(&CodeTally::OnLinePassOne, base::Unretained(this)));
 }
@@ -359,7 +358,6 @@ bool CodeTally::OnCompilandPassTwo(IDiaSymbol* compiland) {
   DCHECK(compiland != NULL);
 
   base::win::ScopedBstr compiland_name;
-  HRESULT hr = compiland->get_name(compiland_name.Receive());
   ObjectFileInfo* object_file =
       FindOrCreateObjectFileInfo(common::ToString(compiland_name));
 
@@ -373,7 +371,7 @@ bool CodeTally::OnCompilandPassTwo(IDiaSymbol* compiland) {
 
   // On the second pass we know the share count for each byte in the executable,
   // so we can calculate accurate code contributions by line.
-  pe::LineVisitor line_visitor(session_, compiland);
+  pe::LineVisitor line_visitor(session_.get(), compiland);
 
   return line_visitor.VisitLines(
       base::Bind(&CodeTally::OnLinePassTwo,

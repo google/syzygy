@@ -14,8 +14,8 @@
 
 #include "syzygy/instrument/instrumenters/instrumenter_with_agent.h"
 
-#include "base/file_util.h"
 #include "base/logging.h"
+#include "base/files/file_util.h"
 #include "syzygy/application/application.h"
 #include "syzygy/core/file_util.h"
 
@@ -54,7 +54,8 @@ bool GetImageFormat(const base::FilePath& path,
 
 }  // namespace
 
-bool InstrumenterWithAgent::ParseCommandLine(const CommandLine* command_line) {
+bool InstrumenterWithAgent::ParseCommandLine(
+    const base::CommandLine* command_line) {
   DCHECK(command_line != NULL);
 
   // TODO(chrisha): Simplify the input/output image parsing once external

@@ -16,7 +16,7 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 #include "syzygy/core/json_file_writer.h"
 #include "syzygy/pe/pe_file.h"
@@ -59,7 +59,7 @@ void CodeTallyApp::PrintUsage(const base::FilePath& program,
   ::fprintf(out(), kUsageFormatStr, program.BaseName().value().c_str());
 }
 
-bool CodeTallyApp::ParseCommandLine(const CommandLine* cmd_line) {
+bool CodeTallyApp::ParseCommandLine(const base::CommandLine* cmd_line) {
   DCHECK(cmd_line != NULL);
 
   if (cmd_line->HasSwitch("help")) {

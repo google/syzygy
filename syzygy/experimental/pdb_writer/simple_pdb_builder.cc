@@ -58,61 +58,56 @@ bool BuildSimplePdb(const pe::PEFile& pe_file,
     return false;
 
   scoped_refptr<PdbStream> header_stream(new PdbByteStream);
-  if (!WriteHeaderStream(pdb_info,
-                         kNamesStreamIndex,
-                         header_stream->GetWritablePdbStream())) {
+  if (!WriteHeaderStream(pdb_info, kNamesStreamIndex,
+                         header_stream->GetWritablePdbStream().get())) {
     return false;
   }
-  pdb_file->SetStream(kPdbHeaderInfoStream, header_stream);
+  pdb_file->SetStream(kPdbHeaderInfoStream, header_stream.get());
 
   // Build the Type Info stream.
   scoped_refptr<PdbStream> type_info_stream(new PdbByteStream);
-  if (!WriteEmptyTypeInfoStream(type_info_stream->GetWritablePdbStream()))
+  if (!WriteEmptyTypeInfoStream(type_info_stream->GetWritablePdbStream().get()))
     return false;
-  pdb_file->SetStream(kTpiStream, type_info_stream);
+  pdb_file->SetStream(kTpiStream, type_info_stream.get());
 
   // Build the Debug Info stream.
   scoped_refptr<PdbStream> debug_info_stream(new PdbByteStream);
-  if (!WriteDebugInfoStream(pdb_info.pdb_age(),
-                            kSymbolRecordStreamIndex,
-                            kPublicStreamIndex,
-                            kSectionHeaderStreamIndex,
-                            debug_info_stream->GetWritablePdbStream())) {
+  if (!WriteDebugInfoStream(pdb_info.pdb_age(), kSymbolRecordStreamIndex,
+                            kPublicStreamIndex, kSectionHeaderStreamIndex,
+                            debug_info_stream->GetWritablePdbStream().get())) {
     return false;
   }
-  pdb_file->SetStream(kDbiStream, debug_info_stream);
+  pdb_file->SetStream(kDbiStream, debug_info_stream.get());
 
   // Build an empty Name Table stream.
   scoped_refptr<PdbStream> names_stream(new PdbByteStream);
-  WriteStringTable(StringTable(), names_stream->GetWritablePdbStream());
+  WriteStringTable(StringTable(), names_stream->GetWritablePdbStream().get());
   pdb_file->SetStream(kNamesStreamIndex, names_stream.get());
 
   // Build the Section Header stream.
   scoped_refptr<PdbStream> section_header_stream(new PdbByteStream);
   if (!WriteSectionHeaderStream(
-          pe_file, section_header_stream->GetWritablePdbStream())) {
+          pe_file, section_header_stream->GetWritablePdbStream().get())) {
     return false;
   }
-  pdb_file->SetStream(kSectionHeaderStreamIndex, section_header_stream);
+  pdb_file->SetStream(kSectionHeaderStreamIndex, section_header_stream.get());
 
   // Build the Symbol Record stream.
   scoped_refptr<PdbStream> symbol_record_stream(new PdbByteStream);
   SymbolOffsets symbol_offsets;
-  if (!WriteSymbolRecords(symbols,
-                          &symbol_offsets,
-                          symbol_record_stream->GetWritablePdbStream())) {
+  if (!WriteSymbolRecords(symbols, &symbol_offsets,
+                          symbol_record_stream->GetWritablePdbStream().get())) {
     return false;
   }
-  pdb_file->SetStream(kSymbolRecordStreamIndex, symbol_record_stream);
+  pdb_file->SetStream(kSymbolRecordStreamIndex, symbol_record_stream.get());
 
   // Build the Public stream.
   scoped_refptr<PdbStream> public_stream(new PdbByteStream);
-  if (!WritePublicStream(symbols,
-                         symbol_offsets,
-                         public_stream->GetWritablePdbStream())) {
+  if (!WritePublicStream(symbols, symbol_offsets,
+                         public_stream->GetWritablePdbStream().get())) {
     return false;
   }
-  pdb_file->SetStream(kPublicStreamIndex, public_stream);
+  pdb_file->SetStream(kPublicStreamIndex, public_stream.get());
 
   return true;
 }

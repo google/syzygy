@@ -18,8 +18,8 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
 #include "syzygy/block_graph/block_graph.h"
@@ -73,7 +73,7 @@ void DecomposeApp::PrintUsage(const base::FilePath& program,
   ::fprintf(out(), kUsageFormatStr, program.BaseName().value().c_str());
 }
 
-bool DecomposeApp::ParseCommandLine(const CommandLine* cmd_line) {
+bool DecomposeApp::ParseCommandLine(const base::CommandLine* cmd_line) {
   DCHECK(cmd_line != NULL);
 
   if (cmd_line->HasSwitch("help")) {

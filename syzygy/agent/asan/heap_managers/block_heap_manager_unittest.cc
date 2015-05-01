@@ -81,7 +81,7 @@ class TestZebraBlockHeap : public heaps::ZebraBlockHeap {
   virtual void* AllocateBlock(size_t size,
                               size_t min_left_redzone_size,
                               size_t min_right_redzone_size,
-                              BlockLayout* layout) OVERRIDE {
+                              BlockLayout* layout) override {
     if (refuse_allocations_)
       return nullptr;
     return ZebraBlockHeap::AllocateBlock(size,
@@ -92,7 +92,7 @@ class TestZebraBlockHeap : public heaps::ZebraBlockHeap {
 
   // Wrapper that allows easily disabling the insertion of new blocks in the
   // quarantine.
-  virtual bool Push(const CompactBlockInfo& info) OVERRIDE {
+  virtual bool Push(const CompactBlockInfo& info) override {
     if (refuse_push_)
       return false;
     return ZebraBlockHeap::Push(info);
@@ -352,7 +352,7 @@ class BlockHeapManagerTest
         test_zebra_block_heap_(nullptr) {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     Super::SetUp();
     heap_manager_ = reinterpret_cast<TestBlockHeapManager*>(
         test_runtime_.heap_manager_.get());
@@ -367,7 +367,7 @@ class BlockHeapManagerTest
     heap_manager_->SetParameters(params);
   }
 
-  virtual void TearDown() OVERRIDE {
+  virtual void TearDown() override {
     heap_manager_ = nullptr;
     Super::TearDown();
   }
@@ -681,8 +681,8 @@ TEST_P(BlockHeapManagerTest, AllocZeroBytes) {
 
 TEST_P(BlockHeapManagerTest, AllocInvalidBlockSize) {
   ScopedHeap heap(heap_manager_);
-  const size_t kInvalidSize = 0xffffffff;
-  void* mem = heap.Allocate(0xffffffff);
+  const size_t kInvalidSize = SIZE_MAX;
+  void* mem = heap.Allocate(kInvalidSize);
   ASSERT_EQ(static_cast<void*>(nullptr), mem);
 }
 

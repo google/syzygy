@@ -61,7 +61,7 @@ TEST(PdbStreamTest, Constructor) {
   EXPECT_EQ(5, stream->length());
   EXPECT_EQ(0, stream->pos());
 
-  scoped_refptr<TestPdbStream> stream2(new TestPdbStream(-1));
+  scoped_refptr<TestPdbStream> stream2(new TestPdbStream(SIZE_MAX));
   EXPECT_EQ(0, stream2->length());
   EXPECT_EQ(0, stream2->pos());
 }

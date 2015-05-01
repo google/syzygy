@@ -34,7 +34,7 @@ class ReorderApp : public application::AppImplBase {
 
   // @name Implementation of the AppImplBase interface.
   // @{
-  bool ParseCommandLine(const CommandLine* command_line);
+  bool ParseCommandLine(const base::CommandLine* command_line);
   bool SetUp();
   int Run();
   // @}
@@ -50,7 +50,7 @@ class ReorderApp : public application::AppImplBase {
   };
   // @name Utility members.
   // @{
-  bool Usage(const CommandLine* command_line,
+  bool Usage(const base::CommandLine* command_line,
              const base::StringPiece& message) const;
   bool OptimizeBasicBlocks(const pe::PEFile::Signature& signature,
                            const pe::ImageLayout& image_layout,

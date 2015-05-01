@@ -43,10 +43,9 @@ class CoffPrepareHeadersTransform
   // @param block_graph The block graph to transform.
   // @param headers_block The COFF headers block of the block graph.
   // @returns true on success, false otherwise.
-  virtual bool TransformBlockGraph(
-      const TransformPolicyInterface* policy,
-      BlockGraph* block_graph,
-      BlockGraph::Block* headers_block) OVERRIDE;
+  virtual bool TransformBlockGraph(const TransformPolicyInterface* policy,
+                                   BlockGraph* block_graph,
+                                   BlockGraph::Block* headers_block) override;
 
   // The name of this transform.
   static const char kTransformName[];

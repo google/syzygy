@@ -17,8 +17,8 @@
 #ifndef SYZYGY_CORE_UNITTEST_UTIL_H_
 #define SYZYGY_CORE_UNITTEST_UTIL_H_
 
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/serialization.h"
 

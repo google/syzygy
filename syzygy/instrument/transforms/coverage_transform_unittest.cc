@@ -36,9 +36,7 @@ using block_graph::BlockGraph;
 class CoverageInstrumentationTransformTest
     : public testing::TestDllTransformTest {
  public:
-  virtual void SetUp() OVERRIDE {
-    ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
-  }
+  virtual void SetUp() override { ASSERT_NO_FATAL_FAILURE(DecomposeTestDll()); }
 };
 
 }  // namespace

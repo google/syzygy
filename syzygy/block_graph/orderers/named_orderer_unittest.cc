@@ -27,7 +27,7 @@ namespace {
 class MockNamedOrderer : public NamedOrdererImpl<MockNamedOrderer> {
  public:
   bool OrderBlockGraph(OrderedBlockGraph* /*ordered_block_graph*/,
-                       BlockGraph::Block* /*header_block*/) OVERRIDE {
+                       BlockGraph::Block* /*header_block*/) override {
     return true;
   }
 

@@ -18,7 +18,7 @@
 #ifndef SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_LEAF_H_
 #define SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_LEAF_H_
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "syzygy/pdb/pdb_data_types.h"
 
 namespace pdb {

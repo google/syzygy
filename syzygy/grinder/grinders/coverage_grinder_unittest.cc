@@ -36,9 +36,7 @@ class CoverageGrinderTest : public testing::PELibUnitTest {
   CoverageGrinderTest() : cmd_line_(base::FilePath(L"coverage_grinder.exe")) {
   }
 
-  virtual void SetUp() OVERRIDE {
-    Super::Test::SetUp();
-  }
+  virtual void SetUp() override { Super::Test::SetUp(); }
 
   void InitParser(trace::parser::ParseEventHandlerImpl* handler) {
     ASSERT_TRUE(handler != NULL);
@@ -78,7 +76,7 @@ class CoverageGrinderTest : public testing::PELibUnitTest {
   // Ensures that COM is initialized for tests in this fixture.
   base::win::ScopedCOMInitializer com_initializer_;
 
-  CommandLine cmd_line_;
+  base::CommandLine cmd_line_;
   trace::parser::Parser parser_;
 };
 

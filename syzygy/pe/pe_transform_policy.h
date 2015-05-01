@@ -33,10 +33,10 @@ class PETransformPolicy : public block_graph::TransformPolicyInterface {
   // @name TransformPolicyInterface implementation
   // @{
   virtual bool BlockIsSafeToBasicBlockDecompose(
-      const BlockGraph::Block* block) const OVERRIDE;
+      const BlockGraph::Block* block) const override;
   virtual bool ReferenceIsSafeToRedirect(
       const BlockGraph::Block* referrer,
-      const BlockGraph::Reference& reference) const OVERRIDE;
+      const BlockGraph::Reference& reference) const override;
   // @}
 
   bool allow_inline_assembly() const { return allow_inline_assembly_; }

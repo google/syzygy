@@ -132,14 +132,14 @@ boolean LoggerService_WriteWithContext(
   CONTEXT context = {};
   InitContext(exc_context, &context);
   std::vector<DWORD> trace_data;
-  if (!instance->CaptureRemoteTrace(handle, &context, &trace_data)) {
+  if (!instance->CaptureRemoteTrace(handle.Get(), &context, &trace_data)) {
     return false;
   }
 
   // Create the log message.
   std::string message(reinterpret_cast<const char*>(text));
-  if (!instance->AppendTrace(
-          handle, trace_data.data(), trace_data.size(), &message)) {
+  if (!instance->AppendTrace(handle.Get(), trace_data.data(), trace_data.size(),
+                             &message)) {
     return false;
   }
 
@@ -172,7 +172,7 @@ boolean LoggerService_WriteWithTrace(
 
   // Create the log message.
   std::string message(reinterpret_cast<const char*>(text));
-  if (!instance->AppendTrace(handle, trace_data, trace_length, &message))
+  if (!instance->AppendTrace(handle.Get(), trace_data, trace_length, &message))
     return false;
 
   // Write the log message.
@@ -201,7 +201,7 @@ boolean LoggerService_SaveMiniDump(
     return false;
 
   AgentLogger* instance = RpcLoggerInstanceManager::GetInstance();
-  if (!instance->SaveMiniDump(handle, pid, thread_id, exception, flags))
+  if (!instance->SaveMiniDump(handle.Get(), pid, thread_id, exception, flags))
     return false;
 
   return true;

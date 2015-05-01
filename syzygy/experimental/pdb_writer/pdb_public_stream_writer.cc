@@ -28,7 +28,7 @@ namespace pdb {
 namespace {
 
 // The value we've observed for the |unknown| field of the public stream header.
-const uint32 kPublicStreamUnknownValue = -1;
+const uint32 kPublicStreamUnknownValue = UINT32_MAX;
 
 // The value we've observed for the |unknown| field of PublicStreamSymbolOffset.
 const uint32 kPublicStreamSymbolOffsetUnknownValue = 1;

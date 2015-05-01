@@ -97,7 +97,7 @@ class InstrumentAppTest : public testing::PELibUnitTest {
 
   // @name Command-line and parameters.
   // @{
-  CommandLine cmd_line_;
+  base::CommandLine cmd_line_;
   base::FilePath input_dll_path_;
   base::FilePath input_pdb_path_;
   base::FilePath output_dll_path_;

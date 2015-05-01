@@ -48,14 +48,14 @@ class GenFilterApp : public application::AppImplBase {
 
   // @name Implementation of the AppImplBase interface.
   // @{
-  bool ParseCommandLine(const CommandLine* command_line);
+  bool ParseCommandLine(const base::CommandLine* command_line);
   int Run();
   // @}
 
  protected:
   // @name Utility members.
   // @{
-  void PrintUsage(const CommandLine* command_line,
+  void PrintUsage(const base::CommandLine* command_line,
                   const base::StringPiece& message) const;
   // @}
 

@@ -70,21 +70,17 @@ class TestInstrumenterWithAgent : public InstrumenterWithAgent {
   }
 
   // For the purposes of testing, our instrumenter supports all image formats.
-  virtual bool ImageFormatIsSupported(ImageFormat image_format) OVERRIDE {
+  virtual bool ImageFormatIsSupported(ImageFormat image_format) override {
     return true;
   }
 
   MOCK_METHOD0(InstrumentImpl, bool());
 
-  pe::PERelinker* GetPERelinker() OVERRIDE {
-    return &mock_pe_relinker_;
-  }
+  pe::PERelinker* GetPERelinker() override { return &mock_pe_relinker_; }
 
-  pe::CoffRelinker* GetCoffRelinker() OVERRIDE {
-    return &mock_coff_relinker_;
-  }
+  pe::CoffRelinker* GetCoffRelinker() override { return &mock_coff_relinker_; }
 
-  virtual const char* InstrumentationMode() OVERRIDE { return "test"; }
+  virtual const char* InstrumentationMode() override { return "test"; }
 
   StrictMock<MockPERelinker> mock_pe_relinker_;
   StrictMock<MockCoffRelinker> mock_coff_relinker_;
@@ -98,7 +94,7 @@ class InstrumenterWithAgentTest : public testing::PELibUnitTest {
       : cmd_line_(base::FilePath(L"instrument.exe")) {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::Test::SetUp();
 
     // Several of the tests generate progress and (deliberate) error messages
@@ -150,7 +146,7 @@ class InstrumenterWithAgentTest : public testing::PELibUnitTest {
 
   // @name Command-line and parameters.
   // @{
-  CommandLine cmd_line_;
+  base::CommandLine cmd_line_;
   base::FilePath input_pe_image_path_;
   base::FilePath input_pdb_path_;
   base::FilePath output_pe_image_path_;

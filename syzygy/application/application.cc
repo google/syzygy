@@ -17,9 +17,9 @@
 
 #include "syzygy/application/application.h"
 
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 
 namespace application {
 
@@ -28,7 +28,7 @@ AppImplBase::AppImplBase(const base::StringPiece& name)
   name_.assign(name.begin(), name.end());
 }
 
-bool AppImplBase::ParseCommandLine(const CommandLine* command_line) {
+bool AppImplBase::ParseCommandLine(const base::CommandLine* command_line) {
   return true;
 }
 

@@ -20,7 +20,7 @@
 #include "syzygy/instrument/instrumenters/archive_instrumenter.h"
 
 #include "base/bind.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "syzygy/ar/ar_transform.h"
 #include "syzygy/core/file_util.h"
 
@@ -43,11 +43,12 @@ ArchiveInstrumenter::ArchiveInstrumenter(InstrumenterFactoryFunction factory)
   DCHECK_NE(reinterpret_cast<InstrumenterFactoryFunction>(NULL), factory);
 }
 
-bool ArchiveInstrumenter::ParseCommandLine(const CommandLine* command_line) {
-  DCHECK_NE(reinterpret_cast<CommandLine*>(NULL), command_line);
+bool ArchiveInstrumenter::ParseCommandLine(
+    const base::CommandLine* command_line) {
+  DCHECK_NE(reinterpret_cast<base::CommandLine*>(NULL), command_line);
 
   // Create a copy of the command-line.
-  command_line_.reset(new CommandLine(*command_line));
+  command_line_.reset(new base::CommandLine(*command_line));
 
   // Parse the few parameters that we care about.
   input_image_ = command_line_->GetSwitchValuePath(kInputImage);
@@ -154,7 +155,7 @@ bool ArchiveInstrumenter::InstrumentFile(const base::FilePath& input_path,
   }
 
   // Create the command-line for the child instrumenter.
-  CommandLine command_line(*command_line_.get());
+  base::CommandLine command_line(*command_line_.get());
   command_line.AppendSwitchPath(kInputImage, input_path);
   command_line.AppendSwitchPath(kOutputImage, output_path);
 

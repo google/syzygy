@@ -35,7 +35,7 @@ class AddImportsOperation : public OperationInterface {
 
   // @name OperationInterface implementation.
   // @{
-  virtual const char* name() const OVERRIDE;
+  virtual const char* name() const override;
   virtual bool Init(const TransformPolicyInterface* policy,
                     const base::DictionaryValue* operation);
   virtual bool Apply(const TransformPolicyInterface* policy,

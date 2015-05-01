@@ -35,7 +35,7 @@ class NamedOrdererImpl : public BlockGraphOrdererInterface {
   // Gets the name of this orderer.
   //
   // @returns the name of this orderer.
-  virtual const char* name() const OVERRIDE {
+  virtual const char* name() const override {
     return DerivedType::kOrdererName;
   }
 };

@@ -77,9 +77,9 @@ TEST(ImportedModuleTest, AfterTransform) {
   EXPECT_EQ("foo", module.name());
   EXPECT_EQ(0, module.size());
 
-  size_t froboz1 = module.AddSymbol("froboz1", ImportedModule::kFindOnly);
+  module.AddSymbol("froboz1", ImportedModule::kFindOnly);
   size_t bar1 = module.AddSymbol("bar1", ImportedModule::kAlwaysImport);
-  size_t froboz2 = module.AddSymbol("froboz2", ImportedModule::kFindOnly);
+  module.AddSymbol("froboz2", ImportedModule::kFindOnly);
   EXPECT_EQ(3, module.size());
 
   TestPECoffAddImportsTransform transform;

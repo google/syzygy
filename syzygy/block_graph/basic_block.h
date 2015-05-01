@@ -663,7 +663,7 @@ class BasicCodeBlock : public BasicBlock {
 
   // Returns true iff this basic block is a valid code block - i.e., it
   // contains at least one instruction and/or 0-2 successors.
-  virtual bool IsValid() const OVERRIDE;
+  virtual bool IsValid() const override;
 
   // Return the number of bytes required to store the instructions
   // this basic block contains, exclusive successors.
@@ -726,7 +726,7 @@ class BasicDataBlock : public BasicBlock {
   bool SetReference(Offset offset, const BasicBlockReference& ref);
 
   // Returns true iff this basic block is a valid block i.e., it contains data.
-  virtual bool IsValid() const OVERRIDE;
+  virtual bool IsValid() const override;
 
  private:
   // BasicBlockSubGraph has a factory for this type.
@@ -794,7 +794,7 @@ class BasicEndBlock : public BasicBlock {
   bool SetReference(const BasicBlockReference& ref);
 
   // Returns true iff this basic block is a valid block.
-  virtual bool IsValid() const OVERRIDE;
+  virtual bool IsValid() const override;
 
  private:
   // BasicBlockSubGraph has a factory for this type.

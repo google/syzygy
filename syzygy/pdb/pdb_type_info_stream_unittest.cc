@@ -14,7 +14,7 @@
 
 #include "syzygy/pdb/pdb_type_info_stream.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/unittest_util.h"

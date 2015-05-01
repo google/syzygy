@@ -24,7 +24,7 @@ namespace {
 
 class StackCaptureTest : public testing::Test {
  public:
-  void SetUp() OVERRIDE {
+  void SetUp() override {
     // Setup the "global" state.
     StackCapture::Init();
   }

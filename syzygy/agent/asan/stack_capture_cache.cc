@@ -435,7 +435,8 @@ void StackCaptureCache::AddStackCaptureToReclaimedList(
   // Make the stack capture internally inconsistent so that it can't be
   // interpreted as being valid. This is rewritten upon reuse so not
   // dangerous.
-  reinterpret_cast<PrivateStackCapture*>(stack_capture)->num_frames_ = -1;
+  reinterpret_cast<PrivateStackCapture*>(stack_capture)->num_frames_ =
+      UINT8_MAX;
 
   {
     base::AutoLock lock(reclaimed_locks_[stack_capture->max_num_frames()]);

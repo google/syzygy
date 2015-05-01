@@ -30,7 +30,7 @@ class AsanRtlImplTest : public testing::TestWithAsanLogger {
   AsanRtlImplTest() : heap_(NULL) {
   }
 
-  void SetUp() OVERRIDE {
+  void SetUp() override {
     testing::TestWithAsanLogger::SetUp();
     asan_runtime_.SetUp(std::wstring());
     agent::asan::SetUpRtl(&asan_runtime_);
@@ -38,7 +38,7 @@ class AsanRtlImplTest : public testing::TestWithAsanLogger {
     ASSERT_TRUE(heap_ != NULL);
   }
 
-  void TearDown() OVERRIDE {
+  void TearDown() override {
     if (heap_ != NULL) {
       asan_HeapDestroy(heap_);
       heap_ = NULL;
@@ -121,7 +121,7 @@ TEST_F(AsanRtlImplTest, Walk) {
 }
 
 TEST_F(AsanRtlImplTest, SetQueryInformation) {
-  ULONG compat_flag = -1;
+  ULONG compat_flag = ULONG_MAX;
   unsigned long ret = 0;
   // QueryInformation isn't supported by the current heap implementation and
   // should always return false.

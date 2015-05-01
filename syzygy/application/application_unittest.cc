@@ -16,7 +16,7 @@
 
 #include <shellapi.h>
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/unittest_util.h"
@@ -45,7 +45,7 @@ class MockAppImpl : public AppImplBase {
   MockAppImpl() : AppImplBase("Mock Application (Unit Test)") {
   }
 
-  MOCK_METHOD1(ParseCommandLine, bool(const CommandLine*));
+  MOCK_METHOD1(ParseCommandLine, bool(const base::CommandLine*));
   MOCK_METHOD0(SetUp, bool());
   MOCK_METHOD0(Run, int());
   MOCK_METHOD0(TearDown, bool());
@@ -80,7 +80,7 @@ class ApplicationTest : public testing::ApplicationTestBase {
     ASSERT_EQ(err(), app->err());
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::Test::SetUp();
 
     // Validate test streams were created.
@@ -93,7 +93,7 @@ class ApplicationTest : public testing::ApplicationTestBase {
     RerouteAppStreams(&mock_app_);
   }
 
-  CommandLine cmd_line_;
+  base::CommandLine cmd_line_;
   TestApp test_app_;
   MockApp mock_app_;
 };
@@ -111,7 +111,8 @@ TEST_F(ApplicationTest, AppImplBaseDefault) {
   // The command line for this process has already been set we can pass
   // whatever we want to Main and it will end up using the current
   // command line.
-  const CommandLine* current_command_line = CommandLine::ForCurrentProcess();
+  const base::CommandLine* current_command_line =
+      base::CommandLine::ForCurrentProcess();
   ASSERT_TRUE(current_command_line != NULL);
 
   // Validate the application name.
@@ -169,16 +170,18 @@ TEST_F(ApplicationTest, MockAppFailsRun) {
 }
 
 TEST_F(ApplicationTest, AbsolutePath) {
-  AppImplBase& app_impl = test_app_.implementation();
   base::FilePath current_dir;
   ASSERT_TRUE(base::GetCurrentDirectory(&current_dir));
 
   const base::FilePath kRelativePath(L"foo\\bar\\file.txt");
   const base::FilePath kAbsolutePath(current_dir.Append(kRelativePath));
 
-  EXPECT_EQ(base::FilePath(), app_impl.AbsolutePath(base::FilePath()));
-  EXPECT_EQ(kAbsolutePath, app_impl.AbsolutePath(kRelativePath));
-  EXPECT_EQ(kAbsolutePath, app_impl.AbsolutePath(kAbsolutePath));
+  EXPECT_EQ(base::FilePath(),
+            test_app_.implementation().AbsolutePath(base::FilePath()));
+  EXPECT_EQ(kAbsolutePath,
+            test_app_.implementation().AbsolutePath(kRelativePath));
+  EXPECT_EQ(kAbsolutePath,
+            test_app_.implementation().AbsolutePath(kAbsolutePath));
 }
 
 TEST_F(ApplicationTest, AppendMatchingPaths) {
@@ -225,21 +228,23 @@ TEST_F(ApplicationTest, GetDeprecatedSwitch) {
 
   base::FilePath path;
   EXPECT_TRUE(TestAppImpl::GetDeprecatedSwitch(
-      &cmd_line_, kFoo, kBar, &CommandLine::GetSwitchValuePath, &path));
+      &cmd_line_, kFoo, kBar, &base::CommandLine::GetSwitchValuePath, &path));
   EXPECT_TRUE(path.empty());
 
   cmd_line_.AppendSwitchPath(kFoo, kFooPath);
   cmd_line_.AppendSwitchPath(kBar, kBarPath);
 
   EXPECT_FALSE(TestAppImpl::GetDeprecatedSwitch(
-      &cmd_line_, kFoo, kBar, &CommandLine::GetSwitchValuePath, &path));
+      &cmd_line_, kFoo, kBar, &base::CommandLine::GetSwitchValuePath, &path));
 
   EXPECT_TRUE(TestAppImpl::GetDeprecatedSwitch(
-      &cmd_line_, kFoo, kMissing, &CommandLine::GetSwitchValuePath, &path));
+      &cmd_line_, kFoo, kMissing, &base::CommandLine::GetSwitchValuePath,
+      &path));
   EXPECT_EQ(kFooPath, path);
 
   EXPECT_TRUE(TestAppImpl::GetDeprecatedSwitch(
-      &cmd_line_, kMissing, kBar, &CommandLine::GetSwitchValuePath, &path));
+      &cmd_line_, kMissing, kBar, &base::CommandLine::GetSwitchValuePath,
+      &path));
   EXPECT_EQ(kBarPath, path);
 }
 

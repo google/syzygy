@@ -120,6 +120,7 @@ class StackCaptureCache {
   // The container type in which we store the cached stacks. This enforces
   // uniqueness based on their hash value, nothing more.
   typedef base::hash_set<common::StackCapture*,
+                         common::StackCapture::HashCompare,
                          common::StackCapture::HashCompare> StackSet;
 
   // Used for shuttling around statistics about this cache.

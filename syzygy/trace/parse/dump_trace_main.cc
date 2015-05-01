@@ -18,9 +18,9 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/logging.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/threading/simple_thread.h"
 #include "base/win/event_trace_consumer.h"
 #include "base/win/event_trace_controller.h"
@@ -316,7 +316,7 @@ class TraceFileDumper : public ParseEventHandler {
   virtual void OnThreadName(base::Time time,
                             DWORD process_id,
                             DWORD thread_id,
-                            const base::StringPiece& thread_name) OVERRIDE {
+                            const base::StringPiece& thread_name) override {
     ::fprintf(file_, "[%012lld] OnThreadName: process-id=%d; thread-id=%d;\n"
               "    name=%s\n",
               time.ToInternalValue(), process_id, thread_id,
@@ -327,7 +327,7 @@ class TraceFileDumper : public ParseEventHandler {
       base::Time time,
       DWORD process_id,
       DWORD thread_id,
-      const TraceIndexedFrequencyData* data) OVERRIDE {
+      const TraceIndexedFrequencyData* data) override {
     DCHECK(data != NULL);
     ::fprintf(file_,
               "[%012lld] OnIndexedFrequency: process-id=%d; thread-id=%d;\n"
@@ -350,7 +350,7 @@ class TraceFileDumper : public ParseEventHandler {
 
   virtual void OnDynamicSymbol(DWORD process_id,
                                uint32 symbol_id,
-                               const base::StringPiece& symbol_name) OVERRIDE {
+                               const base::StringPiece& symbol_name) override {
     ::fprintf(file_, "OnDynamicSymbol: process-id=%d;\n"
               "    symbol_id=%d\n"
               "    symbol_name=%s\n",
@@ -359,7 +359,7 @@ class TraceFileDumper : public ParseEventHandler {
 
   virtual void OnSampleData(base::Time time,
                             DWORD process_id,
-                            const TraceSampleData* data) OVERRIDE {
+                            const TraceSampleData* data) override {
     DCHECK(data != NULL);
 
     uint64 samples = 0;
@@ -394,7 +394,7 @@ class TraceFileDumper : public ParseEventHandler {
   virtual void OnFunctionNameTableEntry(
       base::Time time,
       DWORD process_id,
-      const TraceFunctionNameTableEntry* data) OVERRIDE {
+      const TraceFunctionNameTableEntry* data) override {
     DCHECK_NE(static_cast<TraceFunctionNameTableEntry*>(nullptr), data);
     ::fprintf(file_,
               "[%012lld] OnFunctionNameTableEntry: process-id=%d;\n"
@@ -410,10 +410,9 @@ class TraceFileDumper : public ParseEventHandler {
   }
 
   // Issued for detailed function call records.
-  virtual void OnStackTrace(
-      base::Time time,
-      DWORD process_id,
-      const TraceStackTrace* data) OVERRIDE {
+  virtual void OnStackTrace(base::Time time,
+                            DWORD process_id,
+                            const TraceStackTrace* data) override {
     DCHECK_NE(static_cast<TraceStackTrace*>(nullptr), data);
     ::fprintf(file_,
               "[%012lld] OnStackTrace: process-id=%d;\n"
@@ -429,7 +428,7 @@ class TraceFileDumper : public ParseEventHandler {
       base::Time time,
       DWORD process_id,
       DWORD thread_id,
-      const TraceDetailedFunctionCall* data) OVERRIDE {
+      const TraceDetailedFunctionCall* data) override {
     DCHECK_NE(static_cast<TraceDetailedFunctionCall*>(nullptr), data);
     ::fprintf(file_,
               "[%012lld] OnDetailedFunctionCall: process-id=%d;\n"
@@ -525,7 +524,7 @@ bool DumpTraceFiles(FILE* out_file,
 
 int main(int argc, const char** argv) {
   base::AtExitManager at_exit_manager;
-  CommandLine::Init(argc, argv);
+  base::CommandLine::Init(argc, argv);
 
   logging::LoggingSettings settings;
   settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
@@ -534,7 +533,7 @@ int main(int argc, const char** argv) {
   if (!logging::InitLogging(settings))
     return 1;
 
-  CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
   CHECK(cmd_line != NULL);
 
   std::vector<base::FilePath> trace_file_paths;

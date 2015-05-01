@@ -51,7 +51,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       // Disable logging. In the case of Chrome this is running in a sandboxed
       // process where logging to file doesn't help us any. In other cases the
       // log output will still go to console.
-      CommandLine::Init(0, NULL);
+      base::CommandLine::Init(0, NULL);
       common::InitLoggingForDll(L"memprof");
 
       agent::memprof::memory_profiler.reset(
@@ -68,7 +68,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       break;
 
     case DLL_PROCESS_DETACH:
-      CommandLine::Reset();
+      base::CommandLine::Reset();
       agent::memprof::memory_profiler.reset(nullptr);
       break;
 

@@ -36,7 +36,7 @@ class CoffPrepareHeadersTransformTest : public testing::Test {
         file_header_block_(NULL) {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     block_graph_.set_image_format(BlockGraph::COFF_IMAGE);
     block_graph_.AddSection(kCodeSectionName, kCodeCharacteristics);
     block_graph_.AddSection(kReadOnlyDataSectionName,

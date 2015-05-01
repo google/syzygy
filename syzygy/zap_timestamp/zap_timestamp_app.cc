@@ -64,7 +64,7 @@ void PrintUsage(FILE* out,
 
 }  // namespace
 
-bool ZapTimestampApp::ParseCommandLine(const CommandLine* command_line) {
+bool ZapTimestampApp::ParseCommandLine(const base::CommandLine* command_line) {
   DCHECK(command_line != NULL);
 
   if (command_line->HasSwitch("help")) {

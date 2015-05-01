@@ -17,8 +17,8 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/logging.h"
+#include "base/files/file_util.h"
 #include "base/process/process_iterator.h"
 #include "base/strings/utf_string_conversions.h"
 #include "pcrecpp.h"  // NOLINT
@@ -35,7 +35,7 @@ class RegexpProcessFilter: public base::ProcessFilter {
 
   bool Initialize(const std::string& regexpr);
 
-  virtual bool Includes(const base::ProcessEntry& entry) const OVERRIDE;
+  virtual bool Includes(const base::ProcessEntry& entry) const override;
 
  private:
   pcrecpp::RE expr_;
@@ -177,7 +177,7 @@ void OutputProcessInfo(const ProcessInfo& info,
 
 int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;
-  CommandLine::Init(argc, argv);
+  base::CommandLine::Init(argc, argv);
 
   logging::LoggingSettings settings;
   settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
@@ -186,7 +186,7 @@ int main(int argc, char** argv) {
   if (!logging::InitLogging(settings))
     return 1;
 
-  CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
   DCHECK(cmd_line != NULL);
 
   if (cmd_line->HasSwitch("help") || !cmd_line->GetArgs().empty()) {
@@ -206,7 +206,8 @@ int main(int argc, char** argv) {
 
   const base::ProcessEntry* entry = NULL;
   base::ProcessIterator process_iterator(&filter);
-  while (entry = process_iterator.NextProcessEntry()) {
+  entry = process_iterator.NextProcessEntry();
+  while (entry) {
     working_sets.push_back(ProcessInfo());
     ProcessInfo& info = working_sets.back();
     if (info.ws.Initialize(entry->pid())) {
@@ -218,6 +219,7 @@ int main(int argc, char** argv) {
                  << entry->pid();
       working_sets.pop_back();
     }
+    entry = process_iterator.NextProcessEntry();
   }
 
   core::JSONFileWriter json(stdout, true);

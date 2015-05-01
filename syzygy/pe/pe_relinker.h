@@ -107,7 +107,7 @@ class PERelinker : public PECoffRelinker {
   explicit PERelinker(const PETransformPolicy* pe_transform_policy);
 
   // @see RelinkerInterface::image_format()
-  virtual ImageFormat image_format() const OVERRIDE {
+  virtual ImageFormat image_format() const override {
     return BlockGraph::PE_IMAGE;
   }
 
@@ -152,11 +152,11 @@ class PERelinker : public PECoffRelinker {
   // @}
 
   // @see RelinkerInterface::AppendPdbMutator()
-  virtual bool AppendPdbMutator(pdb::PdbMutatorInterface* pdb_mutator) OVERRIDE;
+  virtual bool AppendPdbMutator(pdb::PdbMutatorInterface* pdb_mutator) override;
 
   // @see RelinkerInterface::AppendPdbMutators()
   virtual bool AppendPdbMutators(
-      const std::vector<pdb::PdbMutatorInterface*>& pdb_mutators) OVERRIDE;
+      const std::vector<pdb::PdbMutatorInterface*>& pdb_mutators) override;
 
   // Runs the initialization phase of the relinker. This consists of decomposing
   // the input image, after which the intermediate data accessors declared below
@@ -168,14 +168,14 @@ class PERelinker : public PECoffRelinker {
   //     to calling this.
   // @post input_pe_file and input_image_layout may be called after this.
   // @note This entrypoint is virtual for unittest/mocking purposes.
-  virtual bool Init() OVERRIDE;
+  virtual bool Init() override;
 
   // Runs the relinker, generating an output image and PDB.
   //
   // @returns true on success, false otherwise.
   // @pre Init must have been called successfully.
   // @note This entrypoint is virtual for unittest/mocking purposes.
-  virtual bool Relink() OVERRIDE;
+  virtual bool Relink() override;
 
   // @name Intermediate data accessors.
   // @{

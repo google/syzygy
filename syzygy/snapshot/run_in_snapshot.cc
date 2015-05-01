@@ -40,7 +40,7 @@ const char kHelp[] =
 
 
 int Usage() {
-  CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
 
   std::cout << "Usage: " << cmd_line->GetProgram().BaseName().value().c_str()
             << " [options] -- [command and argument]\n" << std::endl;
@@ -51,13 +51,13 @@ int Usage() {
 
 int main(int argc, char** argv) {
   base::AtExitManager at_exit;
-  CommandLine::Init(argc, argv);
+  base::CommandLine::Init(argc, argv);
 
-  CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
 
   std::wstring volume = cmd_line->GetSwitchValueNative("volume");
   std::wstring snapshot = cmd_line->GetSwitchValueNative("snapshot");
-  CommandLine::StringVector args = cmd_line->GetArgs();
+  base::CommandLine::StringVector args = cmd_line->GetArgs();
   if (volume.empty() || snapshot.empty() || args.size() == 0) {
     return Usage();
   }
@@ -170,7 +170,7 @@ int main(int argc, char** argv) {
   ::VssFreeSnapshotProperties(&prop.Obj.Snap);
 
   base::FilePath cmd_path(args[0]);
-  CommandLine cmd(cmd_path);
+  base::CommandLine cmd(cmd_path);
   for (size_t i = 1; i < args.size(); ++i)
     cmd.AppendArgNative(args[i]);
 
@@ -178,7 +178,8 @@ int main(int argc, char** argv) {
   // Launch the command line we were given, and wait on it to complete.
   base::LaunchOptions options;
   options.wait = true;
-  if (!base::LaunchProcess(cmd, options, NULL)) {
+  base::Process process = base::LaunchProcess(cmd, options);
+  if (!process.IsValid()) {
     LOG(ERROR) << "Unable to launch application";
     ret = 1;
   }

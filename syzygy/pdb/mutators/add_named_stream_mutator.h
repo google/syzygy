@@ -36,7 +36,7 @@ template<typename DerivedType>
 class AddNamedStreamMutatorImpl : public NamedPdbMutatorImpl<DerivedType> {
  public:
   // The main body of the mutator.
-  virtual bool MutatePdb(PdbFile* pdb_file) OVERRIDE;
+  virtual bool MutatePdb(PdbFile* pdb_file) override;
 
  protected:
   // This is called by MutatePdb and is the hook where the derived class can

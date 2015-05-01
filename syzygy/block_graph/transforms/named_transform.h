@@ -38,7 +38,7 @@ class NamedBlockGraphTransformImpl : public BlockGraphTransformInterface {
   // Gets the name of this transform.
   //
   // @returns the name of this transform.
-  virtual const char* name() const OVERRIDE {
+  virtual const char* name() const override {
     return DerivedType::kTransformName;
   }
 };
@@ -56,7 +56,7 @@ class NamedBasicBlockSubGraphTransformImpl
   // Gets the name of this transform.
   //
   // @returns the name of this transform.
-  virtual const char* name() const OVERRIDE {
+  virtual const char* name() const override {
     return DerivedType::kTransformName;
   }
 };

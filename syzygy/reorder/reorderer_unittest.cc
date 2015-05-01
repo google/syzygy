@@ -74,7 +74,7 @@ class TestOrderGenerator : public Reorderer::OrderGenerator {
                                 RelativeAddress address,
                                 uint32 process_id,
                                 uint32 thread_id,
-                                const Reorderer::UniqueTime& time) OVERRIDE {
+                                const Reorderer::UniqueTime& time) override {
     // Record the visited block.
     blocks.push_back(block);
     return true;
@@ -84,7 +84,7 @@ class TestOrderGenerator : public Reorderer::OrderGenerator {
                                    const ImageLayout& image,
                                    bool reorder_code,
                                    bool reorder_data,
-                                   Reorderer::Order* order) OVERRIDE {
+                                   Reorderer::Order* order) override {
     // We don't actually generate an ordering.
     return true;
   }
@@ -198,8 +198,9 @@ bool TestParseEngine::ConsumeAllEvents() {
   // Simulate the process and thread attaching to the DLL. This adds the DLL
   // to the list of modules.
   EVENT_TRACE event_record = {};
-  event_record.Header.TimeStamp =
-      reinterpret_cast<LARGE_INTEGER&>(time.ToFileTime());
+  FILETIME timestamp = time.ToFileTime();
+  event_record.Header.TimeStamp.LowPart = timestamp.dwLowDateTime;
+  event_record.Header.TimeStamp.HighPart = timestamp.dwHighDateTime;
   event_record.Header.ProcessId = kProcessId;
   event_record.Header.ThreadId = kThreadId;
   event_record.Header.Guid = kCallTraceEventClass;
@@ -316,7 +317,7 @@ class ReordererTest : public testing::PELibUnitTest {
   ReordererTest() : test_parse_engine_(NULL) {
   }
 
-  void SetUp() OVERRIDE {
+  void SetUp() override {
     Super::SetUp();
 
     // Create the dummy trace file list.

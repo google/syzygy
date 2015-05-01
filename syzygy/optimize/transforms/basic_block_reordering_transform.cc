@@ -148,7 +148,6 @@ uint64 BasicBlockReorderingTransform::EvaluateCost(
 
     // Retrieve the basic block profile information.
     const BasicBlockProfile* bb_profile = profile.GetBasicBlockProfile(bb);
-    EntryCountType bb_count = bb_profile->count();
 
     // Accumulate the count for jumps which do not target the next basic block.
     const BasicCodeBlock::Successors& successors = bb->successors();

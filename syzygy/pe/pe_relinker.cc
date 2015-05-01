@@ -14,7 +14,7 @@
 
 #include "syzygy/pe/pe_relinker.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_reader.h"

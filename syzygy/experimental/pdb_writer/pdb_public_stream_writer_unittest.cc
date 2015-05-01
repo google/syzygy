@@ -143,7 +143,7 @@ TEST(PdbPublicStreamWriterTest, WritePublicStream) {
   scoped_refptr<PdbByteStream> reader(new PdbByteStream());
   scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
 
-  WritePublicStream(symbols, symbol_offsets, writer);
+  WritePublicStream(symbols, symbol_offsets, writer.get());
   std::vector<uint8> public_stream;
   reader->Read(&public_stream, reader->length());
 

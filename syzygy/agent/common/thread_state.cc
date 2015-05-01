@@ -167,7 +167,7 @@ void ThreadStateManager::GatherDeadItemsUnlocked(LIST_ENTRY* dead_items) {
 
 bool ThreadStateManager::IsThreadDead(ThreadStateBase* item) {
   DCHECK(item != NULL);
-  return ::WaitForSingleObject(item->thread_handle_, 0)  == WAIT_OBJECT_0;
+  return ::WaitForSingleObject(item->thread_handle_.Get(), 0) == WAIT_OBJECT_0;
 }
 
 void ThreadStateManager::DeleteItems(LIST_ENTRY* items) {

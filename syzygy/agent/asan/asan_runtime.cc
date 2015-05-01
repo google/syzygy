@@ -444,7 +444,7 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // Initialize the command-line structures. This is needed so that
   // SetUpLogger() can include the command-line in the message announcing
   // this process. Note: this is mostly for debugging purposes.
-  CommandLine::Init(0, NULL);
+  base::CommandLine::Init(0, NULL);
 
   CHECK(StaticShadow::shadow.SetUp());
 

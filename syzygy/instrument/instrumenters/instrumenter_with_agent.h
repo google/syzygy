@@ -47,8 +47,8 @@ class InstrumenterWithAgent : public InstrumenterInterface {
 
   // @name InstrumenterInterface implementation.
   // @{
-  virtual bool ParseCommandLine(const CommandLine* command_line) OVERRIDE;
-  virtual bool Instrument() OVERRIDE;
+  virtual bool ParseCommandLine(const base::CommandLine* command_line) override;
+  virtual bool Instrument() override;
   // @}
 
   // @name Accessors.
@@ -78,7 +78,7 @@ class InstrumenterWithAgent : public InstrumenterInterface {
   // @param command_line the command-line to be parsed.
   // @returns true by default. Should return false on error.
   virtual bool ParseAdditionalCommandLineArguments(
-     const CommandLine* command_line) {
+      const base::CommandLine* command_line) {
     return true;
   }
 

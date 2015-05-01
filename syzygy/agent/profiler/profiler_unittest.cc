@@ -19,9 +19,9 @@
 #include <psapi.h>
 
 #include "base/bind.h"
-#include "base/file_util.h"
 #include "base/scoped_native_library.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/message_loop/message_loop.h"
 #include "base/threading/platform_thread.h"
@@ -103,7 +103,7 @@ void SetNameInternal(const char* name) {
   THREADNAME_INFO info;
   info.dwType = 0x1000;
   info.szName = name;
-  info.dwThreadID = -1;
+  info.dwThreadID = SIZE_MAX;
   info.dwFlags = 0;
 
   __try {
@@ -176,7 +176,7 @@ class ProfilerTest : public testing::Test {
         on_v8_function_entry_(NULL) {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::Test::SetUp();
 
     // Create a temporary directory for the call trace files.
@@ -185,7 +185,7 @@ class ProfilerTest : public testing::Test {
     service_.SetEnvironment();
   }
 
-  virtual void TearDown() OVERRIDE {
+  virtual void TearDown() override {
     tls_action = NULL;
 
     UnloadDll();

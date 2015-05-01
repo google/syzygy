@@ -16,8 +16,8 @@
 
 #include <limits>
 
-#include "base/file_util.h"
 #include "base/logging.h"
+#include "base/files/file_util.h"
 #include "syzygy/block_graph/typed_block.h"
 #include "syzygy/common/align.h"
 #include "syzygy/pe/pe_file.h"

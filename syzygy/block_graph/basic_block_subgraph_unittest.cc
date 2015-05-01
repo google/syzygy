@@ -117,7 +117,7 @@ TEST(BasicBlockSubGraphTest, AddBasicBlock) {
   BasicBlockSubGraph::BBCollection::const_iterator it = blocks.begin();
   BasicBlockSubGraph::BlockId current_id = (*it)->id();
   ++it;
-  for (; it != blocks.end(); ++ it) {
+  for (; it != blocks.end(); ++it) {
     EXPECT_LT(current_id, (*it)->id());
     current_id = (*it)->id();
   }
@@ -138,7 +138,6 @@ TEST(BasicBlockSubGraphTest, AddBlockDescription) {
 
 TEST(BasicBlockSubGraphTest, MapsBasicBlocksToAtMostOneDescription) {
   TestBasicBlockSubGraph subgraph;
-  uint8 data[32] = {0};
 
   // Add three basic code blocks.
   BasicBlock* bb1 = subgraph.AddBasicCodeBlock("bb1");

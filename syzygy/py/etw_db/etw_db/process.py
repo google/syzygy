@@ -26,7 +26,7 @@ class _Process:
     self.parent_id = event.ParentId
     self.session_id = event.SessionId
     self.image_file_name = event.ImageFileName
-    # XP-generated logs don't have the CommandLine property,
+    # XP-generated logs don't have the base::CommandLine property,
     # so we use the image file name instead.
     try:
       self.cmd_line = event.CommandLine

@@ -31,7 +31,7 @@
           'AdditionalOptions': ['/wd4018', '/wd4996'],
         },
       },
-    },      
+    },
     {
       'target_name': 'make_tables',
       'type': 'none',
@@ -46,15 +46,15 @@
             '<(PRODUCT_DIR)/dftables_exe.exe',
           ],
           'outputs': [
-            '<(SHARED_INTERMEDIATE_DIR)/pcre_chartables.c', 
+            '<(SHARED_INTERMEDIATE_DIR)/pcre_chartables.c',
           ],
           'action': [
             '<(PRODUCT_DIR)/dftables_exe.exe',
-            '<(SHARED_INTERMEDIATE_DIR)/pcre_chartables.c', 
+            '<(SHARED_INTERMEDIATE_DIR)/pcre_chartables.c',
           ],
         },
       ],
-    },      
+    },
     {
       'target_name': 'pcre_lib',
       'type': 'static_library',
@@ -89,7 +89,7 @@
         'files/pcreposix.c',
         'files/pcreposix.h',
         'files/ucp.h',
-        '<(SHARED_INTERMEDIATE_DIR)/pcre_chartables.c', 
+        '<(SHARED_INTERMEDIATE_DIR)/pcre_chartables.c',
         # C plusplus sourcews
         'files/pcrecpp.cc',
         'files/pcre_scanner.cc',
@@ -97,7 +97,7 @@
       ],
       'msvs_settings': {
         'VCCLCompilerTool': {
-          'AdditionalOptions': ['/wd4018', '/wd4996'],
+          'AdditionalOptions': ['/wd4130', '/wd4018', '/wd4189', '/wd4996'],
         },
       },
       'all_dependent_settings': {
@@ -154,7 +154,7 @@
           'AdditionalOptions': ['/wd4018', '/wd4996'],
         },
       },
-    },      
+    },
     {
       'target_name': 'pcregrep',
       'type': 'executable',
@@ -169,7 +169,7 @@
           'AdditionalOptions': ['/wd4018', '/wd4996'],
         },
       },
-    },      
+    },
     {
       'target_name': 'pcretest',
       'type': 'executable',
@@ -184,6 +184,6 @@
           'AdditionalOptions': ['/wd4018', '/wd4996'],
         },
       },
-    },      
+    },
   ]
 }

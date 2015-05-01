@@ -43,11 +43,11 @@ class DllNotificationWatcherTest : public testing::Test {
   DllNotificationWatcherTest() : test_dll_(NULL) {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     test_dll_path_ = testing::GetExeRelativePath(L"test_dll.dll");
   }
 
-  virtual void TearDown() OVERRIDE {
+  virtual void TearDown() override {
     if (test_dll_ != NULL) {
       ::FreeLibrary(test_dll_);
     }

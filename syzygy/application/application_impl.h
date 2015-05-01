@@ -27,7 +27,7 @@ namespace application {
 
 template <typename Impl, AppLoggingFlag kInitLogging>
 Application<Impl, kInitLogging>::Application()
-    : command_line_(CommandLine::ForCurrentProcess()) {
+    : command_line_(base::CommandLine::ForCurrentProcess()) {
 }
 
 template <typename Impl, AppLoggingFlag kInitLogging>

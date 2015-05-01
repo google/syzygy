@@ -17,7 +17,7 @@
 #ifndef SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_DUMP_UTIL_H_
 #define SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_DUMP_UTIL_H_
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 
 namespace pdb {
 

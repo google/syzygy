@@ -14,8 +14,8 @@
 
 #include "syzygy/instrument/instrumenters/entry_call_instrumenter.h"
 
-#include "base/file_util.h"
 #include "base/logging.h"
+#include "base/files/file_util.h"
 #include "syzygy/application/application.h"
 #include "syzygy/pe/image_filter.h"
 
@@ -48,7 +48,7 @@ bool EntryCallInstrumenter::InstrumentImpl() {
 }
 
 bool EntryCallInstrumenter::ParseAdditionalCommandLineArguments(
-    const CommandLine* command_line) {
+    const base::CommandLine* command_line) {
   thunk_imports_ = command_line->HasSwitch("instrument-imports");
 
   return true;

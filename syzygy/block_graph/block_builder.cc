@@ -49,7 +49,7 @@ typedef BlockDescriptionList::const_iterator BlockDescriptionConstIter;
 typedef BasicBlock::Instructions::const_iterator InstructionConstIter;
 typedef BasicBlock::Successors::const_iterator SuccessorConstIter;
 
-const size_t kInvalidSize = -1;
+const size_t kInvalidSize = SIZE_MAX;
 
 // Updates the tag info map for the given taggable object.
 void UpdateTagInfoMap(const TagSet& tag_set,

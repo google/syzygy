@@ -112,7 +112,7 @@ void DecomposeImageToTextApp::PrintUsage(const base::FilePath& program,
 }
 
 bool DecomposeImageToTextApp::ParseCommandLine(
-    const CommandLine* cmd_line) {
+    const base::CommandLine* cmd_line) {
   image_path_ = cmd_line->GetSwitchValuePath("image");
   if (image_path_.empty()) {
     PrintUsage(cmd_line->GetProgram(),

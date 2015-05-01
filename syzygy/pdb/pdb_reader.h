@@ -17,8 +17,8 @@
 
 #include <vector>
 
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "syzygy/pdb/pdb_constants.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_file.h"

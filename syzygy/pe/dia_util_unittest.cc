@@ -19,8 +19,8 @@
 #include <vector>
 
 #include "base/bind.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
 #include "gmock/gmock.h"
@@ -190,7 +190,7 @@ TEST_F(DiaUtilTest, FindAndLoadDiaDebugStreamByName) {
 
 class DiaUtilVisitorTest : public DiaUtilTest {
  public:
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     ASSERT_TRUE(CreateDiaSource(dia_source_.Receive()));
     ASSERT_TRUE(CreateDiaSession(
         testing::GetExeRelativePath(testing::kTestDllName),
@@ -264,7 +264,7 @@ class DiaUtilVisitorTest : public DiaUtilTest {
 };
 
 TEST_F(DiaUtilVisitorTest, ChildVisitorTest) {
-  ChildVisitor visitor(dia_globals_, SymTagFunction);
+  ChildVisitor visitor(dia_globals_.get(), SymTagFunction);
 
   StringVector function_names;
   ASSERT_TRUE(visitor.VisitChildren(
@@ -279,7 +279,7 @@ TEST_F(DiaUtilVisitorTest, ChildVisitorTest) {
 }
 
 TEST_F(DiaUtilVisitorTest, CompilandVisitorTest) {
-  CompilandVisitor visitor(dia_session_);
+  CompilandVisitor visitor(dia_session_.get());
 
   StringVector compiland_names;
   ASSERT_TRUE(visitor.VisitAllCompilands(
@@ -301,7 +301,7 @@ TEST_F(DiaUtilVisitorTest, CompilandVisitorTest) {
 }
 
 TEST_F(DiaUtilVisitorTest, LineVisitorTest) {
-  CompilandVisitor compiland_visitor(dia_session_);
+  CompilandVisitor compiland_visitor(dia_session_.get());
 
   // Start by finding the test dll compiland.
   ScopedComPtr<IDiaSymbol> compiland;
@@ -319,7 +319,7 @@ TEST_F(DiaUtilVisitorTest, LineVisitorTest) {
   ASSERT_TRUE(compiland != NULL);
 
   // Now enumerate all line entries in that compiland.
-  LineVisitor line_visitor(dia_session_, compiland);
+  LineVisitor line_visitor(dia_session_.get(), compiland.get());
 
   LineMap line_map;
   ASSERT_TRUE(line_visitor.VisitLines(

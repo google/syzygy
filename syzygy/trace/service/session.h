@@ -105,7 +105,7 @@ class Session : public base::RefCountedThreadSafe<Session> {
   const ProcessInfo& client_info() const { return client_; }
 
   // Get the buffer consumer for this session.
-  BufferConsumer* buffer_consumer() { return buffer_consumer_; }
+  BufferConsumer* buffer_consumer() { return buffer_consumer_.get(); }
 
   // Set the buffer consumer for this session.
   void set_buffer_consumer(BufferConsumer* consumer) {

@@ -45,7 +45,7 @@ class PEOrderer
   //     headers block.
   // @returns true on success, false otherwise.
   virtual bool OrderBlockGraph(OrderedBlockGraph* ordered_block_graph,
-                               BlockGraph::Block* dos_header_block) OVERRIDE;
+                               BlockGraph::Block* dos_header_block) override;
 
   static const char kOrdererName[];
 

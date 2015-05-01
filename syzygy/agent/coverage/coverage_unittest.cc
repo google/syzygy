@@ -16,8 +16,8 @@
 
 #include "syzygy/agent/coverage/coverage.h"
 
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -76,7 +76,7 @@ class CoverageClientTest : public testing::Test {
       : module_(NULL) {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::Test::SetUp();
 
     coverage_data.initialization_attempted = 0U;
@@ -89,7 +89,7 @@ class CoverageClientTest : public testing::Test {
     service_.SetEnvironment();
   }
 
-  virtual void TearDown() OVERRIDE {
+  virtual void TearDown() override {
     UnloadDll();
 
     // Stop the call trace service.

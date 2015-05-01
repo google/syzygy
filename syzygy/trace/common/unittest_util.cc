@@ -38,9 +38,9 @@ CallTraceService::~CallTraceService() {
 }
 
 void CallTraceService::Start(const base::FilePath& trace_dir) {
-  ASSERT_EQ(base::kNullProcessHandle, service_process_);
+  ASSERT_TRUE(!service_process_.IsValid());
 
-  CommandLine service_cmd(
+  base::CommandLine service_cmd(
       testing::GetExeRelativePath(L"call_trace_service.exe"));
   service_cmd.AppendArg("start");
   service_cmd.AppendSwitch("--verbose");
@@ -57,12 +57,12 @@ void CallTraceService::Start(const base::FilePath& trace_dir) {
       ::CreateEvent(NULL, TRUE, FALSE, event_name.c_str()));
   ASSERT_TRUE(event.IsValid());
 
-  ASSERT_TRUE(base::LaunchProcess(service_cmd, options, &service_process_));
-  ASSERT_NE(base::kNullProcessHandle, service_process_);
+  service_process_ = base::LaunchProcess(service_cmd, options);
+  ASSERT_TRUE(service_process_.IsValid());
 
   // We wait on both the "ready" handle and the process, as if the process
   // fails for any reason, it'll exit and its handle will become signaled.
-  HANDLE handles[] = { event.Get(), service_process_ };
+  HANDLE handles[] = {event.Get(), service_process_.Handle()};
   ASSERT_EQ(WAIT_OBJECT_0, ::WaitForMultipleObjects(arraysize(handles),
                                                     handles,
                                                     FALSE,
@@ -70,10 +70,10 @@ void CallTraceService::Start(const base::FilePath& trace_dir) {
 }
 
 void CallTraceService::Stop() {
-  if (service_process_ == base::kNullProcessHandle)
+  if (!service_process_.IsValid())
     return;
 
-  CommandLine service_cmd(
+  base::CommandLine service_cmd(
       testing::GetExeRelativePath(L"call_trace_service.exe"));
   service_cmd.AppendArg("stop");
   service_cmd.AppendSwitchASCII("--instance-id", instance_id_);
@@ -81,11 +81,12 @@ void CallTraceService::Stop() {
   base::LaunchOptions options;
   options.start_hidden = true;
   options.wait = true;
-  ASSERT_TRUE(base::LaunchProcess(service_cmd, options, NULL));
+  base::Process stop_process = base::LaunchProcess(service_cmd, options);
+  ASSERT_TRUE(stop_process.IsValid());
 
   int exit_code = 0;
-  ASSERT_TRUE(base::WaitForExitCode(service_process_, &exit_code));
-  service_process_ = base::kNullProcessHandle;
+  ASSERT_TRUE(service_process_.WaitForExit(&exit_code));
+  service_process_.Close();
 }
 
 void CallTraceService::SetEnvironment() {

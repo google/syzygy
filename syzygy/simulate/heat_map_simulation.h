@@ -98,14 +98,14 @@ class HeatMapSimulation : public SimulationEventHandler {
   // @{
   // Sets the entry time of the trace file.
   // @param time The startup time of the execution.
-  void OnProcessStarted(base::Time time, size_t default_page_size) OVERRIDE;
+  void OnProcessStarted(base::Time time, size_t default_page_size) override;
 
   // Adds a group of code blocks corresponding to one function
   // to time_memory_map_.
   // @param time The entry time of the function.
   // @param block_start The start start of the function.
   // @param size The size of the function.
-  void OnFunctionEntry(base::Time time, const Block* block) OVERRIDE;
+  void OnFunctionEntry(base::Time time, const Block* block) override;
 
   // Serializes the data to JSON.
   // The serialization consists of a list containing a dictionary of each

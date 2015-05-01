@@ -14,7 +14,7 @@
 
 #include "syzygy/pe/coff_relinker.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "syzygy/pe/coff_decomposer.h"
 #include "syzygy/pe/coff_file_writer.h"
 #include "syzygy/pe/coff_image_layout_builder.h"
@@ -47,8 +47,6 @@ bool Decompose(const CoffFile& image_file,
   DCHECK(headers_block != NULL);
 
   LOG(INFO) << "Decomposing module: " << image_file.path().value() << ".";
-
-  BlockGraph* block_graph = image_layout->blocks.graph();
 
   // Decompose the input image.
   CoffDecomposer decomposer(image_file);

@@ -79,7 +79,7 @@ class PEAddImportsTransform
   virtual bool TransformBlockGraph(
       const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
-      BlockGraph::Block* dos_header_block) OVERRIDE;
+      BlockGraph::Block* dos_header_block) override;
 
   // @returns a pointer to the Block containing the Image Import Descriptor.
   BlockGraph::Block* image_import_descriptor_block() {

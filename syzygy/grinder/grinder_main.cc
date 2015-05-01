@@ -18,6 +18,6 @@
 
 int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;
-  CommandLine::Init(argc, argv);
+  base::CommandLine::Init(argc, argv);
   return application::Application<grinder::GrinderApp>().Run();
 }

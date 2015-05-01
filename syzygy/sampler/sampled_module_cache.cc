@@ -348,7 +348,7 @@ bool SampledModuleCache::Module::Init() {
   module_time_date_stamp_ = nt_headers->FileHeader.TimeDateStamp;
 
   // Find the RVA range associated with any text segments in the module.
-  DWORD text_begin = ~0;
+  DWORD text_begin = SIZE_MAX;
   DWORD text_end = 0;
   for (size_t i = 0; i < section_count; ++i) {
     const IMAGE_SECTION_HEADER& sh = section_headers[i];

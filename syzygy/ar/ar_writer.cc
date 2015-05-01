@@ -20,9 +20,9 @@
 #include <windows.h>
 #include <sys/stat.h>
 
-#include "base/file_util.h"
 #include "base/logging.h"
 #include "base/sys_byteorder.h"
+#include "base/files/file_util.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -612,7 +612,6 @@ bool ArWriter::Write(const base::FilePath& path) {
   for (size_t i = 0; i < files_.size(); ++i) {
     // Grab a copy of the header because we are going to modify it.
     ParsedArFileHeader header = files_[i].first;
-    const DataBuffer& buffer = *files_[i].second;
     ArFileHeader& raw_header = raw_headers[i];
 
     // Translate the filename.

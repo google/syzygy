@@ -14,7 +14,7 @@
 
 #include "syzygy/genfilter/genfilter_app.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "syzygy/genfilter/filter_compiler.h"
@@ -116,14 +116,14 @@ bool OutputFilter(bool pretty_print,
 
 }  // namespace
 
-bool GenFilterApp::ParseCommandLine(const CommandLine* command_line) {
+bool GenFilterApp::ParseCommandLine(const base::CommandLine* command_line) {
   if (!command_line->HasSwitch("action")) {
     PrintUsage(command_line, "You must specify an action.");
     return false;
   }
 
   // Get a list of all input files.
-  CommandLine::StringVector args = command_line->GetArgs();
+  base::CommandLine::StringVector args = command_line->GetArgs();
   if (args.empty()) {
     PrintUsage(command_line, "You must provide at least one input file.");
     return false;
@@ -144,7 +144,7 @@ bool GenFilterApp::ParseCommandLine(const CommandLine* command_line) {
 
   // Parse the action and any action-specific options.
   size_t min_inputs = 1;
-  size_t max_inputs = -1;
+  size_t max_inputs = SIZE_MAX;
   std::string action = command_line->GetSwitchValueASCII("action");
   if (LowerCaseEqualsASCII(action, "compile")) {
     action_ = kCompile;
@@ -216,8 +216,8 @@ int GenFilterApp::Run() {
   return 0;
 }
 
-void GenFilterApp::PrintUsage(const CommandLine* command_line,
-                           const base::StringPiece& message) const {
+void GenFilterApp::PrintUsage(const base::CommandLine* command_line,
+                              const base::StringPiece& message) const {
   if (!message.empty()) {
     ::fwrite(message.data(), 1, message.length(), out());
     ::fprintf(out(), "\n\n");

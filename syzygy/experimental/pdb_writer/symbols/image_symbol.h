@@ -52,7 +52,7 @@ class ImageSymbol : public TypedSymbolImpl {
  private:
   // @name SymbolBaseImpl functions.
   // @{
-  virtual bool WritePayload(WritablePdbStream* stream) const OVERRIDE;
+  virtual bool WritePayload(WritablePdbStream* stream) const override;
   // @}
 
   // Address of the symbol.

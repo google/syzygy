@@ -37,7 +37,7 @@ class AsanRtlTest : public testing::TestAsanRtl {
   AsanRtlTest() : memory_src_(NULL), memory_dst_(NULL), memory_length_(0),
       memory_size_(0) { }
 
-  void SetUp() OVERRIDE {
+  void SetUp() override {
     testing::TestAsanRtl::SetUp();
 
     // Setup the callback to detect invalid accesses.
@@ -260,8 +260,6 @@ TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
 
     EXPECT_EQ(1, tester.last_error_info().corrupt_range_count);
     EXPECT_EQ(1, tester.last_corrupt_ranges().size());
-    const AsanCorruptBlockRange* corrupt_range =
-        &tester.last_corrupt_ranges()[0].first;
     AsanBlockInfoVector blocks_info = tester.last_corrupt_ranges()[0].second;
 
     EXPECT_EQ(1, blocks_info.size());

@@ -14,8 +14,8 @@
 
 #include "syzygy/instrument/instrumenters/bbentry_instrumenter.h"
 
-#include "base/file_util.h"
 #include "base/logging.h"
+#include "base/files/file_util.h"
 #include "syzygy/application/application.h"
 #include "syzygy/pe/image_filter.h"
 
@@ -50,7 +50,7 @@ bool BasicBlockEntryInstrumenter::InstrumentImpl() {
 }
 
 bool BasicBlockEntryInstrumenter::ParseAdditionalCommandLineArguments(
-    const CommandLine* command_line) {
+    const base::CommandLine* command_line) {
   // Parse the additional command line arguments.
   inline_fast_path_ = command_line->HasSwitch("inline-fast-path");
 

@@ -17,7 +17,7 @@
 #include <stdio.h>
 
 #include "base/bind.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -175,7 +175,7 @@ bool FilterCompiler::ParseFilterDescriptionFile(const base::FilePath& path) {
 
     // Get the rule type.
     RuleType rule_type = kFunctionRule;
-    StringToLowerASCII(&type);
+    base::StringToLowerASCII(&type);
     if (type == kFunction) {
       rule_type = kFunctionRule;
     } else if (type == kPublicSymbol) {
@@ -255,12 +255,12 @@ bool FilterCompiler::CrawlSymbols() {
     return false;
 
   base::win::ScopedComPtr<IDiaSession> session;
-  if (!pe::CreateDiaSession(pdb_path_, data_source, session.Receive()))
+  if (!pe::CreateDiaSession(pdb_path_, data_source.get(), session.Receive()))
     return false;
 
   // Visit all compilands looking for symbols if we need to.
   if (!rules_by_type_[kFunctionRule].empty()) {
-    pe::CompilandVisitor compiland_visitor(session);
+    pe::CompilandVisitor compiland_visitor(session.get());
     if (!compiland_visitor.VisitAllCompilands(
             base::Bind(&FilterCompiler::OnCompiland,
                        base::Unretained(this)))) {
@@ -279,7 +279,7 @@ bool FilterCompiler::CrawlSymbols() {
       return false;
     }
 
-    pe::ChildVisitor public_symbol_visitor(global, SymTagPublicSymbol);
+    pe::ChildVisitor public_symbol_visitor(global.get(), SymTagPublicSymbol);
     if (!public_symbol_visitor.VisitChildren(
             base::Bind(&FilterCompiler::OnPublicSymbol,
                        base::Unretained(this)))) {

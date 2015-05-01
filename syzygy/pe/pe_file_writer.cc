@@ -18,8 +18,8 @@
 #include <winnt.h>
 #include <imagehlp.h>  // NOLINT
 
-#include "base/file_util.h"
 #include "base/logging.h"
+#include "base/files/file_util.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/common/buffer_parser.h"
 #include "syzygy/common/com_utils.h"

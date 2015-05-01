@@ -52,7 +52,7 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
  public:
   typedef SizeFunctorType SizeFunctor;
 
-  static const size_t kUnboundedSize = ~0;
+  static const size_t kUnboundedSize = SIZE_MAX;
 
   // Constructor. Initially the quarantine has unlimited capacity.
   SizeLimitedQuarantineImpl()

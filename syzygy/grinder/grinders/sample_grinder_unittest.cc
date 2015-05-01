@@ -61,7 +61,7 @@ class SampleGrinderTest : public testing::PELibUnitTest {
     trace::common::GetClockInfo(&clock_info_);
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::PELibUnitTest::SetUp();
     test_dll_path_ = testing::GetOutputRelativePath(testing::kTestDllName);
     ASSERT_TRUE(test_dll_pe_file_.Init(test_dll_path_));
@@ -195,8 +195,8 @@ class SampleGrinderTest : public testing::PELibUnitTest {
         if (line.visit_count < min_visit_count)
           min_visit_count = line.visit_count;
 
-        EXPECT_EQ(StringToLowerASCII(source_file),
-                  StringToLowerASCII(*line.source_file_name));
+        EXPECT_EQ(base::StringToLowerASCII(source_file),
+                  base::StringToLowerASCII(*line.source_file_name));
         actual[line.line_number] = line.visit_count;
       }
       EXPECT_EQ(1u, min_visit_count);
@@ -232,7 +232,7 @@ class SampleGrinderTest : public testing::PELibUnitTest {
   base::FilePath temp_dir_;
   base::FilePath trace_file_path_;
 
-  CommandLine cmd_line_;
+  base::CommandLine cmd_line_;
   trace::parser::Parser parser_;
 
   std::vector<uint8> buffer_;

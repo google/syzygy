@@ -29,17 +29,17 @@ namespace {
 class DummyBufferConsumer : public BufferConsumer {
  public:
   virtual ~DummyBufferConsumer() { }
-  virtual bool Open(Session* session) OVERRIDE { return true; }
-  virtual bool Close(Session* session) OVERRIDE { return true; }
-  virtual bool ConsumeBuffer(Buffer* buffer) OVERRIDE { return true; }
-  virtual size_t block_size() const OVERRIDE { return 1024; }
+  virtual bool Open(Session* session) override { return true; }
+  virtual bool Close(Session* session) override { return true; }
+  virtual bool ConsumeBuffer(Buffer* buffer) override { return true; }
+  virtual size_t block_size() const override { return 1024; }
 };
 
 // A factory for producing DummyBufferConsumer instances.
 class DummyBufferConsumerFactory : public BufferConsumerFactory {
  public:
   virtual bool CreateConsumer(
-      scoped_refptr<BufferConsumer>* consumer) OVERRIDE {
+      scoped_refptr<BufferConsumer>* consumer) override {
     *consumer = new DummyBufferConsumer();
     return true;
   }
@@ -56,7 +56,7 @@ class MappedBufferTest : public testing::Test {
     DCHECK_LT(kBufferSize, sys_info.dwAllocationGranularity);
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     service.reset(new Service(&dummy_buffer_consumer_factory));
     session = new Session(service.get());
 
@@ -68,7 +68,7 @@ class MappedBufferTest : public testing::Test {
     ASSERT_EQ(2, pool->end() - pool->begin());
   }
 
-  virtual void TearDown() OVERRIDE {
+  virtual void TearDown() override {
     b1 = NULL;
     b2 = NULL;
 

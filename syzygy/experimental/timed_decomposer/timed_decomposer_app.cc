@@ -21,7 +21,7 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
@@ -85,7 +85,7 @@ void TimedDecomposerApp::PrintUsage(const base::FilePath& program,
   ::fprintf(out(), kUsageFormatStr, program.BaseName().value().c_str());
 }
 
-bool TimedDecomposerApp::ParseCommandLine(const CommandLine* cmd_line) {
+bool TimedDecomposerApp::ParseCommandLine(const base::CommandLine* cmd_line) {
   DCHECK(cmd_line != NULL);
 
   if (cmd_line->HasSwitch("help")) {

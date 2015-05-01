@@ -311,19 +311,14 @@ inline void EmitDetailedFunctionCallHelper(
 // @param function_call_logger A pointer to the function call logger
 //     instance to use.
 // @param segment A pointer to the TraceFileSegment to write to.
-#define EMIT_DETAILED_FUNCTION_CALL(function_call_logger,  \
-                                    segment,  \
-                                    ...) {  \
-      static uint32 logger_serial = -1;  \
-      static uint32 function_id = -1;  \
-      EmitDetailedFunctionCallHelper(  \
-          (function_call_logger),  \
-          (segment),  \
-          &logger_serial,  \
-          &function_id,  \
-          __FUNCTION__,  \
-          __VA_ARGS__);  \
-    }
+#define EMIT_DETAILED_FUNCTION_CALL(function_call_logger, segment, ...)        \
+  {                                                                            \
+    static uint32 logger_serial = UINT32_MAX;                                  \
+    static uint32 function_id = UINT32_MAX;                                    \
+    EmitDetailedFunctionCallHelper((function_call_logger), (segment),          \
+                                   &logger_serial, &function_id, __FUNCTION__, \
+                                   __VA_ARGS__);                               \
+  }
 
 }  // namespace memprof
 }  // namespace agent

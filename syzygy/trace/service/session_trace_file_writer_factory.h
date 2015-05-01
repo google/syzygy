@@ -46,7 +46,7 @@ class SessionTraceFileWriterFactory : public BufferConsumerFactory {
 
   // @name BufferConsumerFactory implementation.
   // @{
-  virtual bool CreateConsumer(scoped_refptr<BufferConsumer>* consumer) OVERRIDE;
+  virtual bool CreateConsumer(scoped_refptr<BufferConsumer>* consumer) override;
   // @}
 
   // Sets the trace file directory to which all subsequently created trace

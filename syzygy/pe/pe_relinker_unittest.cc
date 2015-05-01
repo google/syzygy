@@ -14,7 +14,7 @@
 
 #include "syzygy/pe/pe_relinker.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/defs.h"
@@ -349,10 +349,9 @@ TEST_F(PERelinkerTest, BlockGraphStreamIsCreated) {
   EXPECT_TRUE(pdb_reader.Read(temp_pdb_, &pdb_file));
   pdb::PdbInfoHeader70 pdb_header = {0};
   pdb::NameStreamMap name_stream_map;
-  EXPECT_TRUE(ReadHeaderInfoStream(
-      pdb_file.GetStream(pdb::kPdbHeaderInfoStream),
-      &pdb_header,
-      &name_stream_map));
+  EXPECT_TRUE(
+      ReadHeaderInfoStream(pdb_file.GetStream(pdb::kPdbHeaderInfoStream).get(),
+                           &pdb_header, &name_stream_map));
   pdb::NameStreamMap::const_iterator name_it = name_stream_map.find(
       pdb::kSyzygyBlockGraphStreamName);
   ASSERT_TRUE(name_it != name_stream_map.end());
@@ -379,10 +378,9 @@ TEST_F(PERelinkerTest, BlockGraphStreamVersionIsTheCurrentOne) {
   EXPECT_TRUE(pdb_reader.Read(temp_pdb_, &pdb_file));
   pdb::PdbInfoHeader70 pdb_header = {0};
   pdb::NameStreamMap name_stream_map;
-  EXPECT_TRUE(ReadHeaderInfoStream(
-              pdb_file.GetStream(pdb::kPdbHeaderInfoStream),
-              &pdb_header,
-              &name_stream_map));
+  EXPECT_TRUE(
+      ReadHeaderInfoStream(pdb_file.GetStream(pdb::kPdbHeaderInfoStream).get(),
+                           &pdb_header, &name_stream_map));
   pdb::NameStreamMap::const_iterator name_it = name_stream_map.find(
       pdb::kSyzygyBlockGraphStreamName);
   ASSERT_TRUE(name_it != name_stream_map.end());

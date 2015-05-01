@@ -41,7 +41,7 @@ class TestCoffRenameSymbolsTransform : public CoffRenameSymbolsTransform {
 
 class CoffRenameSymbolsTransformTest : public testing::CoffUnitTest {
  public:
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::CoffUnitTest::SetUp();
     ASSERT_NO_FATAL_FAILURE(DecomposeOriginal());
   }

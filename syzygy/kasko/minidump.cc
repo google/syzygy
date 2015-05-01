@@ -55,7 +55,7 @@ bool GenerateMinidump(const base::FilePath& destination,
                       const std::vector<CustomStream>& custom_streams) {
   base::win::ScopedHandle target_process_handle(
       ::OpenProcess(GENERIC_ALL, FALSE, target_process_id));
-  if (!target_process_handle) {
+  if (!target_process_handle.IsValid()) {
     LOG(ERROR) << "Failed to open target process: " << ::common::LogWe() << ".";
     return false;
   }
@@ -108,7 +108,7 @@ bool GenerateMinidump(const base::FilePath& destination,
   MINIDUMP_USER_STREAM_INFORMATION
   user_stream_information = {custom_streams.size(), user_streams.data()};
 
-  if (::MiniDumpWriteDump(target_process_handle, target_process_id,
+  if (::MiniDumpWriteDump(target_process_handle.Get(), target_process_id,
                           destination_file.GetPlatformFile(),
                           platform_minidump_type, dump_exception_pointers,
                           &user_stream_information, NULL) == FALSE) {

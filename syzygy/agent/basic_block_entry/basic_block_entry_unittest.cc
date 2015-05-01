@@ -18,8 +18,8 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread.h"
@@ -180,14 +180,14 @@ class BasicBlockEntryTest : public testing::Test {
     }
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::Test::SetUp();
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     service_.SetEnvironment();
     common_data_ = &module_data_.module_data;
   }
 
-  virtual void TearDown() OVERRIDE {
+  virtual void TearDown() override {
     UnloadDll();
     service_.Stop();
   }

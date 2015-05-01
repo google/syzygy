@@ -40,7 +40,7 @@ class PERemoveEmptySectionsTransformTest : public testing::Test {
         block_header_(NULL) {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     // Set the block graph type to PE_IMAGE.
     block_graph_.set_image_format(BlockGraph::PE_IMAGE);
 

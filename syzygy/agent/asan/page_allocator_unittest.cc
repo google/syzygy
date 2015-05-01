@@ -382,7 +382,7 @@ TEST(PageAllocatorTest, MultiSlabsPagesSmallerThanAllocGranularity) {
   // to allocate nearly 10000 objects before we'll be certain that 2 slabs have
   // been allocated, each containing 2 pages.
   for (size_t i = 0; i < 10000; ++i)
-    void* alloc = pa.Allocate(1);
+    pa.Allocate(1);
 }
 
 TEST(PageAllocatorTest, MultiSlabsPagesBiggerThanAllGranularity) {
@@ -398,7 +398,7 @@ TEST(PageAllocatorTest, MultiSlabsPagesBiggerThanAllGranularity) {
   // We can over 16K objects per page/slab so we need to allocate at least 35K
   // objects before we're certain that 2 slabs will have been allocated.
   for (size_t i = 0; i < 35000; ++i)
-    void* alloc = pa.Allocate(1);
+    pa.Allocate(1);
 }
 
 TEST(TypedPageAllocatorTest, SingleEndToEnd) {

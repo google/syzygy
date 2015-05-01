@@ -241,8 +241,8 @@ void TestWithAsanLogger::StartLogger() {
   options.stderr_handle = reinterpret_cast<HANDLE>(
       _get_osfhandle(_fileno(logger_stderr_file_.get())));
   options.inherit_handles = true;  // As per documentation.
-  bool success = base::LaunchProcess(cmd_line, options, NULL);
-  ASSERT_TRUE(success);
+  base::Process process = base::LaunchProcess(cmd_line, options);
+  ASSERT_TRUE(process.IsValid());
 
   // Wait for the logger to be ready before continuing.
   std::wstring event_name;
@@ -264,11 +264,12 @@ void TestWithAsanLogger::StopLogger() {
   cmd_line.AppendArgNative(L"stop");
   base::LaunchOptions options;
   options.start_hidden = true;
-  base::ProcessHandle logger_process;
-  bool success = base::LaunchProcess(cmd_line, options, &logger_process);
-  ASSERT_TRUE(success);
-  ASSERT_TRUE(base::WaitForSingleProcess(logger_process,
-      base::TimeDelta::FromMilliseconds(kLoggerTimeOutMs)));
+  base::Process process = base::LaunchProcess(cmd_line, options);
+  ASSERT_TRUE(process.IsValid());
+
+  int exit_code = 0;
+  ASSERT_TRUE(process.WaitForExitWithTimeout(
+      base::TimeDelta::FromMilliseconds(kLoggerTimeOutMs), &exit_code));
   logger_running_ = false;
 }
 

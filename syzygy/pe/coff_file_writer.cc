@@ -16,7 +16,7 @@
 
 #include <cstdio>
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/block_graph/block_graph.h"
 

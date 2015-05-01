@@ -18,7 +18,7 @@
 //
 //     class MyApp : public application::AppImplBase {
 //      public:
-//       bool ParseCommandLine(const CommandLine* command_line);
+//       bool ParseCommandLine(const base::CommandLine* command_line);
 //       int Run();
 //      protected:
 //       bool InternalFunc();
@@ -36,7 +36,7 @@
 //
 //     int main(int argc, const char* const* argv) {
 //       base::AtExitManager at_exit_manager;
-//       CommandLine::Init(argc, argv);
+//       base::CommandLine::Init(argc, argv);
 //       return application::Application<MyApp>().Run();
 //     }
 //
@@ -54,7 +54,7 @@
 //       ASSERT_TRUE(out.get() != NULL);
 //       ASSERT_TRUE(err.get() != NULL);
 //
-//       CommandLine cmd_line(base::FilePath(L"program"));
+//       base::CommandLine cmd_line(base::FilePath(L"program"));
 //       Application<MyTestApp, LOG_INIT_NO> test_app(&cmd_line,
 //                                                    in.get(),
 //                                                    out.get(),
@@ -95,7 +95,7 @@ class AppImplBase {
   explicit AppImplBase(const base::StringPiece& name);
 
   // Parse the given command line in preparation for execution.
-  bool ParseCommandLine(const CommandLine* command_line);
+  bool ParseCommandLine(const base::CommandLine* command_line);
 
   // A hook called just before Run().
   bool SetUp();
@@ -147,10 +147,10 @@ class AppImplBase {
   // and a deprecated name.
   template <typename ValueType>
   static bool GetDeprecatedSwitch(
-      const CommandLine* cmd_line,
+      const base::CommandLine* cmd_line,
       const std::string& current_switch_name,
       const std::string& deprecated_switch_name,
-      ValueType (CommandLine::*getter)(const std::string&) const,
+      ValueType (base::CommandLine::*getter)(const std::string&) const,
       ValueType* value) {
     DCHECK(cmd_line != NULL);
     DCHECK(getter != NULL);
@@ -201,7 +201,7 @@ class Application {
   // Initializes the application with the current processes command line and
   // the standard IO streams.
   //
-  // @pre CommandLine::Init() has been called prior to the creation of the
+  // @pre base::CommandLine::Init() has been called prior to the creation of the
   //     application object.
   Application();
 
@@ -210,9 +210,9 @@ class Application {
 
   // @name Accessors for the command line.
   // @{
-  const CommandLine* command_line() const { return command_line_; }
+  const base::CommandLine* command_line() const { return command_line_; }
 
-  void set_command_line(const CommandLine* command_line) {
+  void set_command_line(const base::CommandLine* command_line) {
     DCHECK(command_line != NULL);
     command_line_ = command_line;
   }
@@ -244,7 +244,7 @@ class Application {
 
   // The command line for this application. The referred instance must outlive
   // the application instance.
-  const CommandLine* command_line_;
+  const base::CommandLine* command_line_;
 
   // The implementation instance for this application. Execution will be
   // delegated to this object.

@@ -104,7 +104,7 @@ class BasicBlockReorderingTransformTest : public testing::Test {
         profile_(&image_) {
   }
 
-  void SetUp() OVERRIDE;
+  void SetUp() override;
   void ApplyTransform(BlockGraph::Block** block);
   void ApplyTransform(BlockGraph::Block** block,
                       TestBasicBlockProfile* bb_profiles,

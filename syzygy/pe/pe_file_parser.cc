@@ -1170,6 +1170,7 @@ BlockGraph::Block* PEFileParser::ParseLoadConfigDir(
     return NULL;
   }
 
+  // TODO(siggi): Must length check prior to each of these...
   if (!AddAbsolute(load_config, &load_config->LockPrefixTable) ||
       !AddAbsolute(load_config, &load_config->EditList) ||
       !AddAbsolute(load_config, &load_config->SecurityCookie) ||
@@ -1199,6 +1200,14 @@ BlockGraph::Block* PEFileParser::ParseLoadConfigDir(
     }
   }
 
+  // TODO(siggi): Add new load config directory fields.
+  // As of WDK 8.1 we have the following new fields:
+  // DWORD   GuardCFCheckFunctionPointer;    // VA
+  // DWORD   Reserved2;
+  // DWORD   GuardCFFunctionTable;           // VA
+  // DWORD   GuardCFFunctionCount;
+  // DWORD   GuardFlags;
+
   return load_config_block;
 }
 
@@ -1226,11 +1235,9 @@ BlockGraph::Block* PEFileParser::ParseDebugDir(
     }
 
     // Chunk the data referenced by the debug directory entry.
-    BlockGraph::Block* debug_data =
-        AddBlock(BlockGraph::DATA_BLOCK,
-                 RelativeAddress(debug_directory->AddressOfRawData),
-                 debug_directory->SizeOfData,
-                 "Debug Info");
+    AddBlock(BlockGraph::DATA_BLOCK,
+             RelativeAddress(debug_directory->AddressOfRawData),
+             debug_directory->SizeOfData, "Debug Info");
   } while (debug_directory.Next());
 
   return debug_directory_block;

@@ -267,7 +267,7 @@ class AsanRuntime {
   // The set of thread IDs that have been seen in the current process.
   // This is used to validate thread IDs in a block trailer.
   base::Lock thread_ids_lock_;
-  std::hash_set<uint32> thread_ids_;  // Under thread_ids_lock_.
+  base::hash_set<uint32> thread_ids_;  // Under thread_ids_lock_.
 
   DISALLOW_COPY_AND_ASSIGN(AsanRuntime);
 };

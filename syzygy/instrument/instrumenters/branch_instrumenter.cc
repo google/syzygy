@@ -14,8 +14,8 @@
 
 #include "syzygy/instrument/instrumenters/branch_instrumenter.h"
 
-#include "base/file_util.h"
 #include "base/logging.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "syzygy/application/application.h"
 #include "syzygy/pe/image_filter.h"
@@ -52,7 +52,7 @@ bool BranchInstrumenter::InstrumentImpl() {
 }
 
 bool BranchInstrumenter::ParseAdditionalCommandLineArguments(
-    const CommandLine* command_line) {
+    const base::CommandLine* command_line) {
   // Parse the additional command line arguments.
   buffering_ = command_line->HasSwitch("buffering");
 

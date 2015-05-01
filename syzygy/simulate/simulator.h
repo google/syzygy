@@ -55,15 +55,17 @@ class Simulator : public trace::parser::ParseEventHandlerImpl {
 
   // @name ParseEventHandler overrides.
   // @{
-  virtual void OnProcessStarted(
-      base::Time time, DWORD process_id,
-      const TraceSystemInfo* data) OVERRIDE;
-  virtual void OnFunctionEntry(
-      base::Time time, DWORD process_id, DWORD thread_id,
-      const TraceEnterExitEventData* data) OVERRIDE;
-  virtual void OnBatchFunctionEntry(
-      base::Time time, DWORD process_id, DWORD thread_id,
-      const TraceBatchEnterData* data) OVERRIDE;
+  virtual void OnProcessStarted(base::Time time,
+                                DWORD process_id,
+                                const TraceSystemInfo* data) override;
+  virtual void OnFunctionEntry(base::Time time,
+                               DWORD process_id,
+                               DWORD thread_id,
+                               const TraceEnterExitEventData* data) override;
+  virtual void OnBatchFunctionEntry(base::Time time,
+                                    DWORD process_id,
+                                    DWORD thread_id,
+                                    const TraceBatchEnterData* data) override;
   // @}
 
   // The input files.

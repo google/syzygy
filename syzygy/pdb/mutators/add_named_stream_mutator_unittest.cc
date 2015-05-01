@@ -53,7 +53,7 @@ class MockAddNamedStreamMutator
     EXPECT_TRUE(foo.get() != NULL);
 
     scoped_refptr<PdbByteStream> stream(new PdbByteStream());
-    EXPECT_TRUE(stream->Init(foo));
+    EXPECT_TRUE(stream->Init(foo.get()));
 
     added_stream_ = stream;
     EXPECT_FALSE(SetNamedStream("foo", stream.get()));
@@ -68,9 +68,7 @@ const char MockAddNamedStreamMutator::kMutatorName[] =
 
 class AddNamedStreamMutatorTest : public testing::Test {
  public:
-  virtual void SetUp() OVERRIDE {
-    testing::Test::SetUp();
-  }
+  virtual void SetUp() override { testing::Test::SetUp(); }
 
   void ReadActualPdb() {
     base::FilePath pdb_path =

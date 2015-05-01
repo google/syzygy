@@ -42,14 +42,14 @@ class LenientArTransformTest : public testing::Test {
         on_disk_adapter_(on_disk_callback_) {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     input_archive_ = testing::GetSrcRelativePath(testing::kArchiveFile);
     ASSERT_TRUE(base::CreateNewTempDirectory(L"ArTransformTest",
                                                   &temp_dir_));
     output_archive_ = temp_dir_.Append(L"output.lib");
   }
 
-  virtual void TearDown() OVERRIDE {
+  virtual void TearDown() override {
     ASSERT_TRUE(base::DeleteFile(temp_dir_, true));
   }
 

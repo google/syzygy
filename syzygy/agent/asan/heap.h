@@ -81,12 +81,12 @@ class HeapInterface {
   };
 
   // The return value of GetAllocationSize if the heap does not support it.
-  static const size_t kUnknownSize = ~0;
+  static const size_t kUnknownSize = ~0U;
 
   // Virtual destructor.
   virtual ~HeapInterface() { }
 
-  // Reports the tpe of this heap.
+  // Reports the of this heap.
   // @returns the type of this heap.
   virtual HeapType GetHeapType() const = 0;
 

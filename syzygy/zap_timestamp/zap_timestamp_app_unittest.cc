@@ -70,7 +70,7 @@ class ZapTimestampAppTest : public testing::PELibUnitTest {
 
   // @name Command-line and parameters.
   // @{
-  CommandLine cmd_line_;
+  base::CommandLine cmd_line_;
 };
 
 }  // namespace

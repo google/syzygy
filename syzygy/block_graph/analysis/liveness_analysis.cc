@@ -42,7 +42,8 @@ typedef LivenessAnalysis::State::FlagsMask FlagsMask;
 }  // namespace
 
 State::State()
-    : flags_(StateHelper::REGBITS_ALL), registers_(StateHelper::REGBITS_ALL) {
+    : flags_(static_cast<RegisterMask>(StateHelper::REGBITS_ALL)),
+      registers_(static_cast<RegisterMask>(StateHelper::REGBITS_ALL)) {
 }
 
 State::State(const State& state) {
@@ -200,77 +201,79 @@ void LivenessAnalysis::Analyze(const BasicBlockSubGraph* subgraph) {
 }
 
 RegisterMask LivenessAnalysis::StateHelper::RegisterToRegisterMask(uint8 reg) {
+  LivenessAnalysis::StateHelper::RegisterBits mask =
+      LivenessAnalysis::StateHelper::REGBITS_NONE;
   switch (reg) {
     case R_AL:
-      return LivenessAnalysis::StateHelper::REGBITS_AL;
+      mask = LivenessAnalysis::StateHelper::REGBITS_AL; break;
     case R_AH:
-      return LivenessAnalysis::StateHelper::REGBITS_AH;
+      mask = LivenessAnalysis::StateHelper::REGBITS_AH; break;
     case R_AX:
-      return LivenessAnalysis::StateHelper::REGBITS_AX;
+      mask = LivenessAnalysis::StateHelper::REGBITS_AX; break;
     case R_EAX:
-      return LivenessAnalysis::StateHelper::REGBITS_EAX;
+      mask = LivenessAnalysis::StateHelper::REGBITS_EAX; break;
     case R_RAX:
-      return LivenessAnalysis::StateHelper::REGBITS_RAX;
+      mask = LivenessAnalysis::StateHelper::REGBITS_RAX; break;
     case R_BL:
-      return LivenessAnalysis::StateHelper::REGBITS_BL;
+      mask = LivenessAnalysis::StateHelper::REGBITS_BL; break;
     case R_BH:
-      return LivenessAnalysis::StateHelper::REGBITS_BH;
+      mask = LivenessAnalysis::StateHelper::REGBITS_BH; break;
     case R_BX:
-      return LivenessAnalysis::StateHelper::REGBITS_BX;
+      mask = LivenessAnalysis::StateHelper::REGBITS_BX; break;
     case R_EBX:
-      return LivenessAnalysis::StateHelper::REGBITS_EBX;
+      mask = LivenessAnalysis::StateHelper::REGBITS_EBX; break;
     case R_RBX:
-      return LivenessAnalysis::StateHelper::REGBITS_RBX;
+      mask = LivenessAnalysis::StateHelper::REGBITS_RBX; break;
     case R_CL:
-      return LivenessAnalysis::StateHelper::REGBITS_CL;
+      mask = LivenessAnalysis::StateHelper::REGBITS_CL; break;
     case R_CH:
-      return LivenessAnalysis::StateHelper::REGBITS_CH;
+      mask = LivenessAnalysis::StateHelper::REGBITS_CH; break;
     case R_CX:
-      return LivenessAnalysis::StateHelper::REGBITS_CX;
+      mask = LivenessAnalysis::StateHelper::REGBITS_CX; break;
     case R_ECX:
-      return LivenessAnalysis::StateHelper::REGBITS_ECX;
+      mask = LivenessAnalysis::StateHelper::REGBITS_ECX; break;
     case R_RCX:
-      return LivenessAnalysis::StateHelper::REGBITS_RCX;
+      mask = LivenessAnalysis::StateHelper::REGBITS_RCX; break;
     case R_DL:
-      return LivenessAnalysis::StateHelper::REGBITS_DL;
+      mask = LivenessAnalysis::StateHelper::REGBITS_DL; break;
     case R_DH:
-      return LivenessAnalysis::StateHelper::REGBITS_DH;
+      mask = LivenessAnalysis::StateHelper::REGBITS_DH; break;
     case R_DX:
-      return LivenessAnalysis::StateHelper::REGBITS_DX;
+      mask = LivenessAnalysis::StateHelper::REGBITS_DX; break;
     case R_EDX:
-      return LivenessAnalysis::StateHelper::REGBITS_EDX;
+      mask = LivenessAnalysis::StateHelper::REGBITS_EDX; break;
     case R_RDX:
-      return LivenessAnalysis::StateHelper::REGBITS_RDX;
+      mask = LivenessAnalysis::StateHelper::REGBITS_RDX; break;
     case R_SI:
-      return LivenessAnalysis::StateHelper::REGBITS_SI;
+      mask = LivenessAnalysis::StateHelper::REGBITS_SI; break;
     case R_ESI:
-      return LivenessAnalysis::StateHelper::REGBITS_ESI;
+      mask = LivenessAnalysis::StateHelper::REGBITS_ESI; break;
     case R_RSI:
-      return LivenessAnalysis::StateHelper::REGBITS_RSI;
+      mask = LivenessAnalysis::StateHelper::REGBITS_RSI; break;
     case R_DI:
-      return LivenessAnalysis::StateHelper::REGBITS_DI;
+      mask = LivenessAnalysis::StateHelper::REGBITS_DI; break;
     case R_EDI:
-      return LivenessAnalysis::StateHelper::REGBITS_EDI;
+      mask = LivenessAnalysis::StateHelper::REGBITS_EDI; break;
     case R_RDI:
-      return LivenessAnalysis::StateHelper::REGBITS_RDI;
+      mask = LivenessAnalysis::StateHelper::REGBITS_RDI; break;
     case R_SP:
-      return LivenessAnalysis::StateHelper::REGBITS_SP;
+      mask = LivenessAnalysis::StateHelper::REGBITS_SP; break;
     case R_ESP:
-      return LivenessAnalysis::StateHelper::REGBITS_ESP;
+      mask = LivenessAnalysis::StateHelper::REGBITS_ESP; break;
     case R_RSP:
-      return LivenessAnalysis::StateHelper::REGBITS_RSP;
+      mask = LivenessAnalysis::StateHelper::REGBITS_RSP; break;
     case R_BP:
-      return LivenessAnalysis::StateHelper::REGBITS_BP;
+      mask = LivenessAnalysis::StateHelper::REGBITS_BP; break;
     case R_EBP:
-      return LivenessAnalysis::StateHelper::REGBITS_EBP;
+      mask = LivenessAnalysis::StateHelper::REGBITS_EBP; break;
     case R_RBP:
-      return LivenessAnalysis::StateHelper::REGBITS_RBP;
+      mask = LivenessAnalysis::StateHelper::REGBITS_RBP; break;
     default:
       // Unhandled registers are ignored.
-      return 0;
+      break;
   }
 
-  NOTREACHED();
+  return static_cast<RegisterMask>(mask);
 }
 
 void LivenessAnalysis::StateHelper::Clear(State* state) {
@@ -281,8 +284,8 @@ void LivenessAnalysis::StateHelper::Clear(State* state) {
 
 void LivenessAnalysis::StateHelper::SetAll(State* state) {
   DCHECK(state != NULL);
-  state->flags_ = StateHelper::REGBITS_ALL;
-  state->registers_ = REGBITS_ALL;
+  state->flags_ = static_cast<RegisterMask>(StateHelper::REGBITS_ALL);
+  state->registers_ = static_cast<RegisterMask>(StateHelper::REGBITS_ALL);
 }
 
 bool LivenessAnalysis::StateHelper::AreArithmeticFlagsLive(
@@ -631,7 +634,7 @@ bool LivenessAnalysis::StateHelper::GetUsesOf(
       StateUseOperand(instr, repr.ops[1], state);
       return true;
     case I_PUSHF:
-      SetFlags(REGBITS_ALL, state);
+      SetFlags(static_cast<FlagsMask>(REGBITS_ALL), state);
       Set(RegisterToRegisterMask(R_ESP), state);
       return true;
     case I_LAHF:

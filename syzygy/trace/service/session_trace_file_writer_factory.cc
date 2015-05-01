@@ -14,7 +14,7 @@
 
 #include "syzygy/trace/service/session_trace_file_writer_factory.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/message_loop/message_loop.h"
 #include "syzygy/trace/service/session_trace_file_writer.h"
 

@@ -76,14 +76,15 @@ TEST(BlockHash, HashAndCompare) {
 
   // Alter the data in |test_block| (outside of the reference) and make sure
   // that this results in a different hash.
-  test_block->GetMutableData()[0] = ~kMagicValue;
+  test_block->GetMutableData()[0] = static_cast<uint8>(~kMagicValue);
   EXPECT_NE(0, code_block_1_hash.Compare(BlockHash(test_block)));
   test_block->GetMutableData()[0] = kMagicValue;
   EXPECT_EQ(0, code_block_1_hash.Compare(BlockHash(test_block)));
 
   // Alter the data in |test_block| in the reference and make sure that this
   // doesn't alter the hash.
-  test_block->GetMutableData()[kReferenceOffset] = ~kMagicValue;
+  test_block->GetMutableData()[kReferenceOffset] =
+      static_cast<uint8>(~kMagicValue);
   EXPECT_EQ(0, code_block_1_hash.Compare(BlockHash(test_block)));
   test_block->GetMutableData()[kReferenceOffset] = kMagicValue;
 

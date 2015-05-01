@@ -119,7 +119,7 @@ bool Service::AcquireServiceMutex() {
   }
   const DWORD kOneSecondInMs = 1000;
 
-  switch (::WaitForSingleObject(mutex, kOneSecondInMs)) {
+  switch (::WaitForSingleObject(mutex.Get(), kOneSecondInMs)) {
     case WAIT_ABANDONED:
       LOG(WARNING) << "Orphaned service mutex found!";
       // Fall through...
@@ -147,7 +147,7 @@ void Service::ReleaseServiceMutex() {
   DCHECK_EQ(owner_thread_, base::PlatformThread::CurrentId());
 
   if (service_mutex_.IsValid()) {
-    ::ReleaseMutex(service_mutex_);
+    ::ReleaseMutex(service_mutex_.Get());
     service_mutex_.Close();
   }
 }
@@ -602,12 +602,12 @@ bool Service::GetNewSession(ProcessId client_process_id,
     return false;
 
   // Open the buffer consumer.
-  if (!consumer->Open(new_session))
+  if (!consumer->Open(new_session.get()))
     return false;
 
   // Hand the buffer consumer over to the session. The session will direct
   // returned buffers to the consumer.
-  new_session->set_buffer_consumer(consumer);
+  new_session->set_buffer_consumer(consumer.get());
 
   bool inserted = false;
   {

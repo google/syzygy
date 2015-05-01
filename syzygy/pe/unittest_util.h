@@ -17,8 +17,8 @@
 
 #include <windows.h>
 
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/block_graph/orderer.h"
@@ -130,7 +130,7 @@ class CoffUnitTest : public testing::PELibUnitTest {
   CoffUnitTest() : image_layout_(&block_graph_) {
   }
 
-  virtual void SetUp() OVERRIDE;
+  virtual void SetUp() override;
 
   // Decompose test_dll.coff_obj.
   void DecomposeOriginal();

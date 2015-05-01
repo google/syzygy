@@ -51,7 +51,7 @@ class UnreachableBlockTransform
   // @returns true on success, false otherwise.
   virtual bool TransformBlockGraph(const TransformPolicyInterface* policy,
                                    BlockGraph* block_graph,
-                                   BlockGraph::Block* header_block) OVERRIDE;
+                                   BlockGraph::Block* header_block) override;
 
   // The transform name.
   static const char kTransformName[];

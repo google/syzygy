@@ -15,9 +15,9 @@
 #include "syzygy/agent/asan/asan_logger.h"
 
 #include "base/command_line.h"
-#include "base/debug/stack_trace.h"
 #include "base/environment.h"
 #include "base/logging.h"
+#include "base/debug/stack_trace.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/process/launch.h"
 #include "base/strings/stringprintf.h"
@@ -66,7 +66,8 @@ void AsanLogger::Init() {
   //     a session (either here, or on first use) allows for better management
   //     of symbol context across trace log messages for a given process.
   if (success) {
-    const CommandLine* command_line = CommandLine::ForCurrentProcess();
+    const base::CommandLine* command_line =
+        base::CommandLine::ForCurrentProcess();
     std::string message = base::StringPrintf(
         "PID=%d; cmd-line='%ls'\n",
         ::GetCurrentProcessId(),

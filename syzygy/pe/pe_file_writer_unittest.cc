@@ -14,8 +14,8 @@
 
 #include "syzygy/pe/pe_file_writer.h"
 
-#include "base/file_util.h"
 #include "base/path_service.h"
+#include "base/files/file_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"

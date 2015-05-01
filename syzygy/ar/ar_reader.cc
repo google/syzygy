@@ -52,7 +52,7 @@ bool ParseArNumber(const char (&s)[kArrayLength], OutputType* output) {
 
   size_t l = ArStringLength(s);
   if (l == 0) {
-    *output = ~0;
+    *output = ~0UL;
     return true;
   }
 
@@ -132,7 +132,6 @@ bool ParseSecondarySymbolTable(
   // Get pointers to the various parts of the symbol table.
   const uint16* indices = reinterpret_cast<const uint16*>(
       offsets + file_count + 1);
-  const uint16* indices_end = indices + symbol_count;
   const char* names = reinterpret_cast<const char*>(indices + symbol_count);
   const char* names_end = reinterpret_cast<const char*>(data + length);
   if (names > names_end) {

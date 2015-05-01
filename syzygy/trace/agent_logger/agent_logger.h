@@ -19,7 +19,7 @@
 #define SYZYGY_TRACE_AGENT_LOGGER_AGENT_LOGGER_H_
 
 #include "base/callback.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/message_loop/message_loop.h"
 #include "base/process/process.h"
 #include "base/strings/string_piece.h"

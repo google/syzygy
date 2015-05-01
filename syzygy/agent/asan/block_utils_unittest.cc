@@ -32,7 +32,8 @@ TEST_F(BlockUtilTest, IsBlockCorruptInvalidMagicNumber) {
   testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
 
-  fake_block.block_info.header->magic = ~kBlockHeaderMagic;
+  fake_block.block_info.header->magic =
+      static_cast<unsigned>(~kBlockHeaderMagic);
   EXPECT_TRUE(IsBlockCorrupt(fake_block.block_info.block, NULL));
   fake_block.block_info.header->magic = kBlockHeaderMagic;
   EXPECT_FALSE(IsBlockCorrupt(fake_block.block_info.block, NULL));
@@ -51,7 +52,6 @@ TEST_F(BlockUtilTest, IsBlockCorruptInvalidChecksum) {
 
     // Change some of the block content and verify that the block is now being
     // seen as corrupt.
-    size_t original_checksum = fake_block.block_info.header->checksum;
     uint8 original_value = fake_block.block_info.body[0];
     fake_block.block_info.body[0]++;
 

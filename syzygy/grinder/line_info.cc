@@ -170,7 +170,7 @@ bool LineInfo::Init(const base::FilePath& pdb_path) {
   source_lines_.reserve(line_number_count);
 
   // Iterate over the source line information.
-  DWORD old_source_file_id = -1;
+  DWORD old_source_file_id = SIZE_MAX;
   DWORD old_rva = 0;
   const std::string* source_file_name = NULL;
   while (true) {

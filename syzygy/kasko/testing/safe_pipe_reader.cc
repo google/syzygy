@@ -75,7 +75,7 @@ bool SafePipeReader::ReadData(base::TimeDelta timeout,
     DWORD num_bytes = 0;
     do {
       num_bytes = 0;
-      bool result = ::ReadFile(read_handle_,
+      bool result = ::ReadFile(read_handle_.Get(),
                                reinterpret_cast<uint8_t*>(buffer) + bytes_read,
                                length - bytes_read, &num_bytes, NULL);
       DCHECK(result);

@@ -47,7 +47,7 @@ struct BlockInfo {
   uint8 succ2;
 };
 
-const uint8 kNoSucc = -1;
+const uint8 kNoSucc = UINT8_MAX;
 
 // The following flow-graph was produced by fuzzing. It produced a corner case
 // when computing basic block layout.

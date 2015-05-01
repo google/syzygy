@@ -27,19 +27,19 @@ bool WriteEmptyTypeInfoStream(WritablePdbStream* stream) {
   header.type_min = kTpiStreamFirstUserTypeIndex;
   header.type_max = kTpiStreamFirstUserTypeIndex;
   header.type_info_data_size = 0;
-  header.type_info_hash.stream_number = -1;
-  header.type_info_hash.padding = -1;
+  header.type_info_hash.stream_number = UINT16_MAX;
+  header.type_info_hash.padding = UINT16_MAX;
   header.type_info_hash.hash_key = kTpiStreamEmptyHashKey;
   header.type_info_hash.cb_hash_buckets = kTpiStreamEmptyHashBuckets;
 
   header.type_info_hash.offset_cb_hash_vals.offset = 0;
-  header.type_info_hash.offset_cb_hash_vals.cb = -1;
+  header.type_info_hash.offset_cb_hash_vals.cb = UINT32_MAX;
 
   header.type_info_hash.offset_cb_type_info_offset.offset = 0;
-  header.type_info_hash.offset_cb_type_info_offset.cb = -1;
+  header.type_info_hash.offset_cb_type_info_offset.cb = UINT32_MAX;
 
   header.type_info_hash.offset_cb_hash_adj.offset = 0;
-  header.type_info_hash.offset_cb_hash_adj.cb = -1;
+  header.type_info_hash.offset_cb_hash_adj.cb = UINT32_MAX;
 
   return stream->Write(header);
 }

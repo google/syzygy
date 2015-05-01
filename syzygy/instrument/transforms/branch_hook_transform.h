@@ -94,7 +94,7 @@ class BranchHookTransform
   virtual bool TransformBasicBlockSubGraph(
       const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
-      BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
+      BasicBlockSubGraph* basic_block_subgraph) override;
   // @}
 
   // Adds the basic-block frequency data referenced by the coverage agent.

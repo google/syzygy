@@ -71,17 +71,17 @@ class PECoffRelinker : public RelinkerInterface {
   bool allow_overwrite() const { return allow_overwrite_; }
 
   // @see RelinkerInterface::AppendTransform()
-  virtual bool AppendTransform(Transform* transform) OVERRIDE;
+  virtual bool AppendTransform(Transform* transform) override;
 
   // @see RelinkerInterface::AppendTransforms()
   virtual bool AppendTransforms(
-      const std::vector<Transform*>& transforms) OVERRIDE;
+      const std::vector<Transform*>& transforms) override;
 
   // @see RelinkerInterface::AppendOrderer()
-  virtual bool AppendOrderer(Orderer* orderer) OVERRIDE;
+  virtual bool AppendOrderer(Orderer* orderer) override;
 
   // @see RelinkerInterface::AppendOrderers()
-  virtual bool AppendOrderers(const std::vector<Orderer*>& orderers) OVERRIDE;
+  virtual bool AppendOrderers(const std::vector<Orderer*>& orderers) override;
 
   // The following accessors provide access to properties not initialized by
   // this class; they should be valid after the relinker has been

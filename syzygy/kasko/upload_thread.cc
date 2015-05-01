@@ -37,13 +37,13 @@ scoped_ptr<UploadThread> UploadThread::Create(
   base::string16 wake_event_name =
       L"Local\\kasko_uploader_wake_event_" + escaped_path;
   base::win::ScopedHandle mutex(::CreateMutex(NULL, FALSE, mutex_name.c_str()));
-  DPCHECK(mutex);
+  DPCHECK(mutex.Get());
   base::win::ScopedHandle stop_event(::CreateEvent(NULL, TRUE, FALSE, NULL));
-  DPCHECK(stop_event);
+  DPCHECK(stop_event.Get());
   base::win::ScopedHandle wake_event(
       ::CreateEvent(NULL, FALSE, FALSE, wake_event_name.c_str()));
-  DPCHECK(wake_event);
-  if (mutex && stop_event && wake_event) {
+  DPCHECK(wake_event.Get());
+  if (mutex.Get() && stop_event.Get() && wake_event.Get()) {
     instance.reset(new UploadThread(mutex.Pass(), stop_event.Pass(),
                                     wake_event.Pass(), waitable_timer.Pass(),
                                     uploader));
@@ -63,7 +63,7 @@ void UploadThread::Start() {
 }
 
 void UploadThread::Stop() {
-  BOOL result = ::SetEvent(stop_event_);
+  BOOL result = ::SetEvent(stop_event_.Get());
   PCHECK(result)
       << "Failed to signal stop event. Terminating to avoid deadlock.";
 }
@@ -74,7 +74,7 @@ void UploadThread::Join() {
 }
 
 void UploadThread::UploadOneNowAsync() {
-  BOOL result = ::SetEvent(wake_event_);
+  BOOL result = ::SetEvent(wake_event_.Get());
   DPCHECK(result);
 }
 
@@ -85,7 +85,10 @@ UploadThread::ThreadImpl::ThreadImpl(UploadThread* owner)
 UploadThread::ThreadImpl::~ThreadImpl(){}
 
 void UploadThread::ThreadImpl::Run() {
-  HANDLE handles_pre_mutex[] = {owner_->mutex_, owner_->stop_event_};
+  HANDLE handles_pre_mutex[] = {
+      owner_->mutex_.Get(),
+      owner_->stop_event_.Get()
+  };
   DWORD wait_result = ::WaitForMultipleObjects(
       arraysize(handles_pre_mutex), handles_pre_mutex, FALSE, INFINITE);
   switch (wait_result) {
@@ -103,8 +106,8 @@ void UploadThread::ThreadImpl::Run() {
 
   // We have the mutex now. We will wait on the wake event, the stop event, and
   // the timer.
-  HANDLE handles_post_mutex[] = {owner_->wake_event_,
-                                 owner_->stop_event_,
+  HANDLE handles_post_mutex[] = {owner_->wake_event_.Get(),
+                                 owner_->stop_event_.Get(),
                                  owner_->waitable_timer_->GetHANDLE()};
 
   while (true) {

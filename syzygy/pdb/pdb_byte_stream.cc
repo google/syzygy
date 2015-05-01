@@ -36,7 +36,7 @@ class WritablePdbByteStream : public WritablePdbStream {
   virtual ~WritablePdbByteStream();
 
   // common::BufferWriter implementation.
-  virtual uint8* GrowBuffer(size_t size) OVERRIDE;
+  virtual uint8* GrowBuffer(size_t size) override;
 
   // A reference counted pointer to the PdbByteStream we are wrapping.
   scoped_refptr<PdbByteStream> pdb_byte_stream_;

@@ -206,12 +206,14 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetAsanBlockInfo) {
 
   // Ensure that the block is correctly tagged as corrupt if the header is
   // invalid.
-  fake_block.block_info.header->magic = ~kBlockHeaderMagic;
+  fake_block.block_info.header->magic =
+      static_cast<unsigned>(~kBlockHeaderMagic);
   ErrorInfoGetAsanBlockInfo(fake_block.block_info,
                             runtime_->stack_cache(),
                             &asan_block_info);
   EXPECT_EQ(kDataIsCorrupt, asan_block_info.analysis.block_state);
-  fake_block.block_info.header->magic = kBlockHeaderMagic;
+  fake_block.block_info.header->magic =
+      static_cast<unsigned>(~kBlockHeaderMagic);
 }
 
 TEST_F(AsanErrorInfoTest, GetTimeSinceFree) {

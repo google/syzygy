@@ -463,7 +463,7 @@ void FindModifiedBits(size_t length,
 
 // This is initialized by TestChecksumDetectsTampering, but referred to by
 // ChecksumDetectsTamperingWithMask as well, hence not in a function.
-size_t state_offset = -1;
+size_t state_offset = SIZE_MAX;
 uint8 state_mask = 0;
 
 bool ChecksumDetectsTamperingWithMask(const BlockInfo& block_info,
@@ -570,7 +570,7 @@ void TestChecksumDetectsTampering(const BlockInfo& block_info) {
   if (state_offset == -1) {
     BlockHeader header1 = {};
     BlockHeader header2 = {};
-    header2.state = -1;
+    header2.state = UINT_MAX;
     FindModifiedBits(sizeof(BlockHeader),
                      reinterpret_cast<const uint8*>(&header1),
                      reinterpret_cast<const uint8*>(&header2),

@@ -639,7 +639,6 @@ bool ParseEngine::DispatchComment(EVENT_TRACE* event) {
   base::Time time(base::Time::FromFileTime(
       reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
   DWORD process_id = event->Header.ProcessId;
-  DWORD thread_id = event->Header.ThreadId;
   event_handler_->OnComment(time, process_id, data);
 
   return true;

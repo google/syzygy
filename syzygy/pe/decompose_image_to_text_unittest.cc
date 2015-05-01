@@ -74,7 +74,7 @@ class DecomposeImageToTextAppTest : public testing::PELibUnitTest {
 
  protected:
   // The command line to be given to the application under test.
-  CommandLine cmd_line_;
+  base::CommandLine cmd_line_;
 
   // The application object under test.
   TestApplication app_;

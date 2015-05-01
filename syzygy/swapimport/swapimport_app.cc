@@ -17,7 +17,7 @@
 
 #include "syzygy/swapimport/swapimport_app.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "syzygy/core/file_util.h"
@@ -43,8 +43,8 @@ static const char kUsageFormatStr[] = "Usage: %ls [options] IMPORT\n"
 
 }  // namespace
 
-bool SwapImportApp::ParseCommandLine(const CommandLine* cmd_line) {
-  DCHECK_NE(reinterpret_cast<const CommandLine*>(NULL), cmd_line);
+bool SwapImportApp::ParseCommandLine(const base::CommandLine* cmd_line) {
+  DCHECK_NE(reinterpret_cast<const base::CommandLine*>(NULL), cmd_line);
 
   if (cmd_line->HasSwitch("help"))
     return Usage(cmd_line, "");
@@ -72,7 +72,7 @@ bool SwapImportApp::ParseCommandLine(const CommandLine* cmd_line) {
   if (overwrite_)
     VLOG(1) << "Parsed --overwrite switch.";
 
-  CommandLine::StringVector args = cmd_line->GetArgs();
+  base::CommandLine::StringVector args = cmd_line->GetArgs();
   if (args.size() != 1) {
     LOG(ERROR) << "Expect exactly one import name.";
     return false;
@@ -238,8 +238,8 @@ int SwapImportApp::Run() {
   }
 }
 
-bool SwapImportApp::Usage(const CommandLine* cmd_line,
-                        const base::StringPiece& message) const {
+bool SwapImportApp::Usage(const base::CommandLine* cmd_line,
+                          const base::StringPiece& message) const {
   if (!message.empty()) {
     ::fwrite(message.data(), 1, message.length(), err());
     ::fprintf(err(), "\n\n");

@@ -78,14 +78,14 @@ class PageFaultSimulation : public SimulationEventHandler {
   // @name SimulationEventHandler implementation
   // @{
   // Sets the initial page size, if it's not set already.
-  void OnProcessStarted(base::Time time, size_t default_page_size) OVERRIDE;
+  void OnProcessStarted(base::Time time, size_t default_page_size) override;
 
   // Registers the page faults, given a certain code block.
-  void OnFunctionEntry(base::Time time, const Block* block) OVERRIDE;
+  void OnFunctionEntry(base::Time time, const Block* block) override;
 
   // The serialization consists of a single dictionary containing
   // the block number of each block that pagefaulted.
-  bool SerializeToJSON(FILE* output, bool pretty_print) OVERRIDE;
+  bool SerializeToJSON(FILE* output, bool pretty_print) override;
   // @}
 
  protected:

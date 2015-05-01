@@ -172,7 +172,6 @@ bool VisitCoffSymbols(const VisitCoffSymbolCallback& callback,
 
   size_t num_symbols = symbols.ElementCount();
   for (size_t i = 0; i < num_symbols; i += 1 + symbols[i].NumberOfAuxSymbols) {
-    IMAGE_SYMBOL* symbol = &symbols[i];
     size_t symbol_offset = i * sizeof(IMAGE_SYMBOL);
     if (!callback.Run(symbols_block, strings_block, symbol_offset))
       return false;

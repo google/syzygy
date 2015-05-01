@@ -14,7 +14,7 @@
 
 #include "syzygy/pe/pe_relinker_util.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "syzygy/block_graph/transform.h"
 #include "syzygy/core/file_util.h"
 #include "syzygy/core/zstream.h"
@@ -61,7 +61,7 @@ class PdbOutStream : public core::OutStream {
 
   virtual ~PdbOutStream() { }
 
-  virtual bool Write(size_t length, const core::Byte* bytes) OVERRIDE {
+  virtual bool Write(size_t length, const core::Byte* bytes) override {
     return pdb_stream_->Write(length, bytes);
   }
 

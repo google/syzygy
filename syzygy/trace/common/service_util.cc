@@ -14,7 +14,7 @@
 
 #include "syzygy/trace/common/service_util.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "syzygy/common/com_utils.h"
 
 namespace trace {
@@ -37,7 +37,7 @@ bool AcquireMutex(const base::StringPiece16& mutex_name,
   }
   const DWORD kOneSecondInMs = 1000;
 
-  switch (::WaitForSingleObject(tmp_mutex, kOneSecondInMs)) {
+  switch (::WaitForSingleObject(tmp_mutex.Get(), kOneSecondInMs)) {
     case WAIT_ABANDONED:
       LOG(WARNING) << "Orphaned named mutex found!";
       // Fall through...
@@ -101,9 +101,9 @@ bool ScopedConsoleCtrlHandler::Init(PHANDLER_ROUTINE handler) {
   return true;
 }
 
-bool SplitCommandLine(const CommandLine* orig_command_line,
-                      CommandLine* logger_command_line,
-                      scoped_ptr<CommandLine>* app_command_line) {
+bool SplitCommandLine(const base::CommandLine* orig_command_line,
+                      base::CommandLine* logger_command_line,
+                      scoped_ptr<base::CommandLine>* app_command_line) {
   DCHECK(orig_command_line != NULL);
   DCHECK(!orig_command_line->argv().empty());
   DCHECK(logger_command_line != NULL);
@@ -112,8 +112,8 @@ bool SplitCommandLine(const CommandLine* orig_command_line,
   // Copy the initial parts of the command-line, up to and including the
   // first non-switch argument (which should be the "action"), into a
   // string vector for the logger command line.
-  CommandLine::StringVector logger_argv;
-  CommandLine::StringVector::const_iterator it =
+  base::CommandLine::StringVector logger_argv;
+  base::CommandLine::StringVector::const_iterator it =
       orig_command_line->argv().begin();
   logger_argv.push_back(*(it++));  // Always copy the program.
   for (; it != orig_command_line->argv().end(); ++it) {
@@ -131,7 +131,7 @@ bool SplitCommandLine(const CommandLine* orig_command_line,
 
   // Copy the rest of the command-line arguments into a string vector for the
   // app command line.
-  CommandLine::StringVector app_argv;
+  base::CommandLine::StringVector app_argv;
   for (; it != orig_command_line->argv().end(); ++it) {
     app_argv.push_back(*it);
   }
@@ -145,7 +145,7 @@ bool SplitCommandLine(const CommandLine* orig_command_line,
     // Otherwise, we break command like:
     //     agent_logger.exe START -- <app> -d 1 -c 2.
     // We should not re-order <app> parameters.
-    app_command_line->reset(new CommandLine(base::FilePath(app_argv[0])));
+    app_command_line->reset(new base::CommandLine(base::FilePath(app_argv[0])));
     for (size_t arg = 1; arg < app_argv.size(); ++arg)
       app_command_line->get()->AppendArgNative(app_argv[arg]);
   }

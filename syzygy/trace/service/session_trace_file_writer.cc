@@ -20,7 +20,7 @@
 #include "syzygy/trace/service/session_trace_file_writer.h"
 
 #include "base/bind.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 #include "syzygy/trace/service/buffer_pool.h"
 #include "syzygy/trace/service/mapped_buffer.h"

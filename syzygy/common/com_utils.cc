@@ -30,8 +30,8 @@ std::ostream& operator<<(std::ostream& os, const LogHr& hr) {
   const DWORD kFlags = FORMAT_MESSAGE_FROM_SYSTEM |
                        FORMAT_MESSAGE_IGNORE_INSERTS;
   char error_text[4096] = { '\0' };
-  DWORD message_length = ::FormatMessageA(kFlags, 0, hr.hr_, 0, error_text,
-                                          arraysize(error_text), NULL);
+  ::FormatMessageA(kFlags, 0, hr.hr_, 0, error_text, arraysize(error_text),
+                   NULL);
   std::string error(error_text);
   base::TrimWhitespaceASCII(error, base::TRIM_ALL, &error);
 
@@ -45,8 +45,8 @@ std::ostream& operator<<(std::ostream& os, const LogWe& we) {
   const DWORD kFlags = FORMAT_MESSAGE_FROM_SYSTEM |
                        FORMAT_MESSAGE_IGNORE_INSERTS;
   char error_text[4096] = { '\0' };
-  DWORD message_length = ::FormatMessageA(kFlags, 0, we.we_, 0, error_text,
-                                          arraysize(error_text), NULL);
+  ::FormatMessageA(kFlags, 0, we.we_, 0, error_text, arraysize(error_text),
+                   NULL);
   std::string error(error_text);
   base::TrimWhitespaceASCII(error, base::TRIM_ALL, &error);
 

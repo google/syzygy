@@ -162,7 +162,7 @@ void BasicBlockTest::InitBlockGraph() {
 
 void BasicBlockTest::InitBasicBlockSubGraph() {
   BasicBlockDecomposer bb_decomposer(assembly_func_, &subgraph_);
-  logging::SetMinLogLevel(logging::LOG_ERROR_REPORT);
+  logging::SetMinLogLevel(logging::LOG_ERROR);
   ASSERT_TRUE(bb_decomposer.Decompose());
   ASSERT_TRUE(subgraph_.IsValid());
 

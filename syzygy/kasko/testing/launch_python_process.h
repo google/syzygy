@@ -15,11 +15,12 @@
 #ifndef SYZYGY_KASKO_TESTING_LAUNCH_PYTHON_PROCESS_H_
 #define SYZYGY_KASKO_TESTING_LAUNCH_PYTHON_PROCESS_H_
 
-#include "base/win/scoped_handle.h"
+#include "base/process/process.h"
 
 namespace base {
 class CommandLine;
 class FilePath;
+class Process;
 }  // namespace base
 
 namespace kasko {
@@ -27,9 +28,10 @@ namespace testing {
 
 // Launches a Python script.
 // @param src_relative_path The script to launch, relative to the src tree root.
-// @paran args The script's arguments.
-// @returns a handle to the launched process if successful.
-base::win::ScopedHandle LaunchPythonProcess(
+// @param args The script's arguments.
+// @returns the process if it has launched successfully, an invalid process
+//     otherwise.
+base::Process LaunchPythonProcess(
     const base::FilePath& src_relative_path,
     const base::CommandLine& args);
 

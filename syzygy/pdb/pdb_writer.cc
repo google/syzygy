@@ -88,8 +88,9 @@ class ReadOnlyPdbStream : public PdbStream {
       : PdbStream(bytes), data_(data) {
   }
 
-  virtual bool ReadBytes(
-      void* dest, size_t count, size_t* bytes_read) OVERRIDE {
+  virtual bool ReadBytes(void* dest,
+                         size_t count,
+                         size_t* bytes_read) override {
     DCHECK(dest != NULL);
     DCHECK(bytes_read != NULL);
 
@@ -229,7 +230,7 @@ bool PdbWriter::Write(const base::FilePath& pdb_path, const PdbFile& pdb_file) {
   directory.push_back(pdb_file.StreamCount());
   for (size_t i = 0; i < pdb_file.StreamCount(); ++i) {
     // Null streams have an implicit zero length.
-    PdbStream* stream = pdb_file.GetStream(i);
+    PdbStream* stream = pdb_file.GetStream(i).get();
     if (stream == NULL)
       directory.push_back(0);
     else
@@ -257,7 +258,7 @@ bool PdbWriter::Write(const base::FilePath& pdb_path, const PdbFile& pdb_file) {
       stream0_end = directory.size();
 
     // Null streams are treated as empty streams.
-    PdbStream* stream = pdb_file.GetStream(i);
+    PdbStream* stream = pdb_file.GetStream(i).get();
     if (stream == NULL || stream->length() == 0)
       continue;
 
@@ -329,7 +330,6 @@ bool PdbWriter::AppendStream(PdbStream* stream,
 
 #ifndef NDEBUG
   size_t old_pages_written_count = pages_written->size();
-  size_t old_page_count = *page_count;
 #endif
 
   // Write the stream page by page.

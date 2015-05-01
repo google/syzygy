@@ -14,7 +14,7 @@
 
 #include "syzygy/pe/pe_relinker_util.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"

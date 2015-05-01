@@ -418,7 +418,6 @@ bool ParseDebugSubsections4(Block* block) {
 bool ParseDebugSubsections2(Block* block) {
   DCHECK(block != NULL);
 
-  size_t section_index = block->section();
   size_t cursor = sizeof(uint32);
   if (!ParseDebugSymbols(cci::C11, cursor, block->size() - cursor, block))
     return false;

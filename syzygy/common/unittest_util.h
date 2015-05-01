@@ -17,9 +17,9 @@
 #ifndef SYZYGY_COMMON_UNITTEST_UTIL_H_
 #define SYZYGY_COMMON_UNITTEST_UTIL_H_
 
-#include "base/file_util.h"
 #include "base/logging.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "gtest/gtest.h"
 
 namespace testing {
@@ -72,10 +72,10 @@ class ApplicationTestBase : public testing::Test {
   }
 
   // Sets up before each test invocation.
-  virtual void SetUp() OVERRIDE;
+  virtual void SetUp() override;
 
   // Cleans up after each test invocation.
-  virtual void TearDown() OVERRIDE;
+  virtual void TearDown() override;
 
   // Disables logging for the test in which this is called.
   void DisableLogging() {

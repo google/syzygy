@@ -1102,7 +1102,6 @@ void AddressRangeMap<SourceRangeType, DestinationRangeType>::
   for (; i > 0; --i) {
     RangePair& range_pair = range_pairs_[i - 1];
     SourceRange& src = range_pair.first;
-    DestinationRange& dst = range_pair.second;
 
     // This range pair starts before the end of the range we want to unmap?
     // Then we've finished fixing ranges that simply need to be shifted.
@@ -1120,7 +1119,6 @@ void AddressRangeMap<SourceRangeType, DestinationRangeType>::
   for (; i > 0; --i) {
     RangePair& range_pair = range_pairs_[i - 1];
     SourceRange& src = range_pair.first;
-    DestinationRange& dst = range_pair.second;
 
     if (src.end() <= mapped.start())
       break;

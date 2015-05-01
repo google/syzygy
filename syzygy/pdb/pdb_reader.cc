@@ -74,7 +74,7 @@ bool PdbReader::Read(const base::FilePath& pdb_path, PdbFile* pdb_file) {
   // use by the PDB and from then on use that.
   uint32 header_page = 0;
   scoped_refptr<PdbFileStream> header_stream(new PdbFileStream(
-      file, sizeof(header), &header_page, kPdbPageSize));
+      file.get(), sizeof(header), &header_page, kPdbPageSize));
   if (!header_stream->Read(&header, 1)) {
     LOG(ERROR) << "Failed to read PDB file header.";
     return false;
@@ -98,9 +98,9 @@ bool PdbReader::Read(const base::FilePath& pdb_path, PdbFile* pdb_file) {
   // containing that many page pointers from the root pages array.
   int num_dir_pages = static_cast<int>(GetNumPages(header,
                                                    header.directory_size));
-  scoped_refptr<PdbFileStream> dir_page_stream(new PdbFileStream(
-      file, num_dir_pages * sizeof(uint32),
-      header.root_pages, header.page_size));
+  scoped_refptr<PdbFileStream> dir_page_stream(
+      new PdbFileStream(file.get(), num_dir_pages * sizeof(uint32),
+                        header.root_pages, header.page_size));
   scoped_ptr<uint32[]> dir_pages(new uint32[num_dir_pages]);
   if (dir_pages.get() == NULL) {
     LOG(ERROR) << "Failed to allocate directory pages.";
@@ -114,7 +114,7 @@ bool PdbReader::Read(const base::FilePath& pdb_path, PdbFile* pdb_file) {
   // Load the actual directory.
   int dir_size = static_cast<int>(header.directory_size / sizeof(uint32));
   scoped_refptr<PdbFileStream> dir_stream(new PdbFileStream(
-      file, header.directory_size, dir_pages.get(), header.page_size));
+      file.get(), header.directory_size, dir_pages.get(), header.page_size));
   std::vector<uint32> directory(dir_size);
   if (!dir_stream->Read(&directory[0], dir_size)) {
     LOG(ERROR) << "Failed to read directory stream.";
@@ -128,10 +128,9 @@ bool PdbReader::Read(const base::FilePath& pdb_path, PdbFile* pdb_file) {
 
   uint32 page_index = 0;
   for (uint32 stream_index = 0; stream_index < num_streams; ++stream_index) {
-    pdb_file->AppendStream(new PdbFileStream(file,
-                                             stream_lengths[stream_index],
-                                             stream_pages + page_index,
-                                             header.page_size));
+    pdb_file->AppendStream(
+        new PdbFileStream(file.get(), stream_lengths[stream_index],
+                          stream_pages + page_index, header.page_size));
     page_index += GetNumPages(header, stream_lengths[stream_index]);
   }
 

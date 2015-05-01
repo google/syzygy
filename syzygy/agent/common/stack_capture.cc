@@ -127,7 +127,7 @@ bool StackCapture::HashCompare::operator()(
     const StackCapture* stack_capture2) const {
   DCHECK(stack_capture1 != NULL);
   DCHECK(stack_capture2 != NULL);
-  return stack_capture1->stack_id_ < stack_capture2->stack_id_;
+  return stack_capture1->stack_id_ == stack_capture2->stack_id_;
 }
 
 }  // namespace common

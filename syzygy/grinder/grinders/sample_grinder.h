@@ -51,10 +51,10 @@ class SampleGrinder : public GrinderInterface {
 
   // @name SampleInterface implementation.
   // @{
-  virtual bool ParseCommandLine(const CommandLine* command_line) OVERRIDE;
-  virtual void SetParser(Parser* parser) OVERRIDE;
-  virtual bool Grind() OVERRIDE;
-  virtual bool OutputData(FILE* file) OVERRIDE;
+  virtual bool ParseCommandLine(const base::CommandLine* command_line) override;
+  virtual void SetParser(Parser* parser) override;
+  virtual bool Grind() override;
+  virtual bool OutputData(FILE* file) override;
   // @}
 
   // @name ParseEventHandler implementation.
@@ -63,11 +63,11 @@ class SampleGrinder : public GrinderInterface {
   // the system clock rate for scaling frequency data.
   virtual void OnProcessStarted(base::Time time,
                                 DWORD process_id,
-                                const TraceSystemInfo* data) OVERRIDE;
+                                const TraceSystemInfo* data) override;
   // Override of the OnSampleData callback.
   virtual void OnSampleData(base::Time Time,
                             DWORD process_id,
-                            const TraceSampleData* data) OVERRIDE;
+                            const TraceSampleData* data) override;
   // @}
 
   // @name Parameter names.

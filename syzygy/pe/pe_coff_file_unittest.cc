@@ -116,7 +116,7 @@ class PECoffFileTest : public testing::PELibUnitTest {
   PECoffFileTest() {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     Super::SetUp();
 
     test_dll_path_ = testing::GetExeRelativePath(testing::kTestDllName);

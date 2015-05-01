@@ -122,7 +122,7 @@ TEST(InternetHelpersTest, ParseContentType) {
       L"WebKit-ada-df-dsf-adsfadsfs"
     },
   };
-  for (size_t i = 0; i < ARRAYSIZE_UNSAFE(tests); ++i) {
+  for (size_t i = 0; i < arraysize(tests); ++i) {
     base::string16 mime_type;
     base::string16 charset;
     bool had_charset = false;

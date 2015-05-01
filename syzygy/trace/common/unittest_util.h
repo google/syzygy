@@ -47,8 +47,8 @@ class CallTraceService {
  private:
   std::string instance_id_;
 
-  // The handle to the call trace service process.
-  base::ProcessHandle service_process_;
+  // The call trace service process.
+  base::Process service_process_;
 };
 
 // Given a raw record, wraps it with a RecordPrefix/TraceFileSegmentHeader/

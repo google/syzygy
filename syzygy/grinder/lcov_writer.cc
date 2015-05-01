@@ -14,7 +14,7 @@
 
 #include "syzygy/grinder/lcov_writer.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 
 namespace grinder {
 

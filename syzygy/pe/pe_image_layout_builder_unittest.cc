@@ -18,7 +18,7 @@
 #include <cstdlib>
 #include <ctime>
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"
@@ -233,7 +233,7 @@ TEST_F(PEImageLayoutBuilderTest, CodeAlignmentTestDll) {
   BlockGraph::AddressSpace::RangeMapConstIter iter = layout.blocks.begin();
   for (; iter != layout.blocks.end(); ++iter) {
     BlockGraph::Block* block = iter->second;
-    BlockGraph::AddressSpace::Range range =iter->first;
+    BlockGraph::AddressSpace::Range range = iter->first;
     if (block->type() == BlockGraph::CODE_BLOCK) {
       EXPECT_TRUE(range.start().IsAligned(kCodeAlignment));
     }

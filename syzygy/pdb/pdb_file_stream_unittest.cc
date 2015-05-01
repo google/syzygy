@@ -14,8 +14,8 @@
 
 #include "syzygy/pdb/pdb_file_stream.h"
 
-#include "base/file_util.h"
 #include "base/path_service.h"
+#include "base/files/file_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/pdb_constants.h"
@@ -57,7 +57,8 @@ class PdbFileStreamTest : public testing::Test {
 
 TEST_F(PdbFileStreamTest, Constructor) {
   size_t pages[] = {1, 2, 3};
-  scoped_refptr<PdbFileStream> stream(new PdbFileStream(file_, 10, pages, 8));
+  scoped_refptr<PdbFileStream> stream(
+      new PdbFileStream(file_.get(), 10, pages, 8));
   EXPECT_EQ(10, stream->length());
 }
 
@@ -84,8 +85,8 @@ TEST_F(PdbFileStreamTest, ReadFromPage) {
 
   size_t pages[] = {0, 1, 2};
   size_t page_size = 4;
-  scoped_refptr<TestPdbFileStream> stream(new TestPdbFileStream(
-      file_, sizeof(PdbHeader), pages, page_size));
+  scoped_refptr<TestPdbFileStream> stream(
+      new TestPdbFileStream(file_.get(), sizeof(PdbHeader), pages, page_size));
 
   char buffer[4] = {0};
   for (uint32 i = 0; i < arraysize(test_cases); ++i) {

@@ -14,8 +14,8 @@
 
 #include "syzygy/reorder/reorderer.h"
 
-#include "base/file_util.h"
 #include "base/values.h"
+#include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/json/string_escape.h"
 #include "base/strings/stringprintf.h"
@@ -347,7 +347,7 @@ bool LoadSectionSpec(const pe::ImageLayout& image,
 
 }  // namespace
 
-const size_t Reorderer::Order::SectionSpec::kNewSectionId = ~1;
+const size_t Reorderer::Order::SectionSpec::kNewSectionId = ~1U;
 
 Reorderer::Reorderer(const base::FilePath& module_path,
                      const base::FilePath& instrumented_path,

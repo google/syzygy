@@ -81,16 +81,12 @@ class BlockUtilTest: public testing::Test {
 }  // namespace
 
 TEST_F(BlockUtilTest, GetBasicBlockSourceRangeEmptyFails) {
-  BlockGraph::Size instr_len = AddInstructions(false);
-
   BlockGraph::Block::SourceRange source_range;
   ASSERT_FALSE(GetBasicBlockSourceRange(*bb_, &source_range));
   EXPECT_EQ(0, source_range.size());
 }
 
 TEST_F(BlockUtilTest, GetBasicBlockSourceRangeNonContiguousFails) {
-  BlockGraph::Size instr_len = AddInstructions(true);
-
   // Make the range non-contiguous by pushing the successor out one byte.
   BlockGraph::Block::SourceRange range =
       bb_->successors().front().source_range();
@@ -227,7 +223,7 @@ namespace {
 // basic_block_assembly_func.asm.
 class BlockUtilOnTestDataTest : public testing::BasicBlockTest {
  public:
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     BasicBlockTest::SetUp();
     ASSERT_NO_FATAL_FAILURE(InitBlockGraph());
   }

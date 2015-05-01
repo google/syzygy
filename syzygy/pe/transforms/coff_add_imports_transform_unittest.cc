@@ -28,9 +28,7 @@ namespace {
 
 class CoffAddImportsTransformTest : public testing::CoffUnitTest {
  public:
-  virtual void SetUp() OVERRIDE {
-    testing::CoffUnitTest::SetUp();
-  }
+  virtual void SetUp() override { testing::CoffUnitTest::SetUp(); }
 
   // Check that symbols in @p module have been assigned a reference, and that
   // they pass through a round-trip writing and decomposition.

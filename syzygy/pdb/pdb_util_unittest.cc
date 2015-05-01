@@ -164,7 +164,7 @@ class TestPdbStream : public PdbStream {
 
   virtual bool ReadBytes(void* dest,
                          size_t count,
-                         size_t* bytes_read) OVERRIDE {
+                         size_t* bytes_read) override {
     if (pos() >= length())
       return false;
     size_t max_count = length() - pos();
@@ -327,7 +327,7 @@ TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetTestDll) {
       testing::GetSrcRelativePath(testing::kTestPdbFilePath),
       &pdb_file));
 
-  PdbStream* dbi_stream = pdb_file.GetStream(kDbiStream);
+  PdbStream* dbi_stream = pdb_file.GetStream(kDbiStream).get();
   DbiHeader dbi_header;
   EXPECT_TRUE(dbi_stream->Read(&dbi_header, 1));
 
@@ -350,7 +350,7 @@ TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetOmappedTestDll) {
       testing::GetSrcRelativePath(testing::kOmappedTestPdbFilePath),
       &pdb_file));
 
-  PdbStream* dbi_stream = pdb_file.GetStream(kDbiStream);
+  PdbStream* dbi_stream = pdb_file.GetStream(kDbiStream).get();
   DbiHeader dbi_header;
   EXPECT_TRUE(dbi_stream->Read(&dbi_header, 1));
 
@@ -442,9 +442,6 @@ TEST_F(PdbUtilTest, PdbHeaderMatchesImageDebugDirectory) {
   // Make sure the DLL is unloaded on exit.
   base::ScopedNativeLibrary test_dll_keeper(test_dll);
   base::win::PEImage image(test_dll);
-
-  // Retrieve the NT headers to make it easy to look at them in debugger.
-  const IMAGE_NT_HEADERS* nt_headers = image.GetNTHeaders();
 
   ASSERT_EQ(sizeof(IMAGE_DEBUG_DIRECTORY),
             image.GetImageDirectoryEntrySize(IMAGE_DIRECTORY_ENTRY_DEBUG));
@@ -577,7 +574,8 @@ TEST(ReadHeaderInfoStreamTest, ReadEmptyStream) {
   scoped_refptr<PdbStream> stream(new TestPdbStream());
   PdbInfoHeader70 pdb_header = {};
   NameStreamMap name_stream_map;
-  EXPECT_FALSE(ReadHeaderInfoStream(stream, &pdb_header, &name_stream_map));
+  EXPECT_FALSE(
+      ReadHeaderInfoStream(stream.get(), &pdb_header, &name_stream_map));
 }
 
 TEST(ReadHeaderInfoStreamTest, ReadStreamWithOnlyHeader) {
@@ -588,7 +586,8 @@ TEST(ReadHeaderInfoStreamTest, ReadStreamWithOnlyHeader) {
   ASSERT_TRUE(writer->Write(pdb_header));
 
   NameStreamMap name_stream_map;
-  EXPECT_FALSE(ReadHeaderInfoStream(reader, &pdb_header, &name_stream_map));
+  EXPECT_FALSE(
+      ReadHeaderInfoStream(reader.get(), &pdb_header, &name_stream_map));
 }
 
 TEST(ReadHeaderInfoStreamTest, ReadStreamWithEmptyNameStreamMap) {
@@ -604,7 +603,8 @@ TEST(ReadHeaderInfoStreamTest, ReadStreamWithEmptyNameStreamMap) {
   ASSERT_TRUE(writer->Write(static_cast<uint32>(0)));  // second bitset.
 
   NameStreamMap name_stream_map;
-  EXPECT_TRUE(ReadHeaderInfoStream(reader, &pdb_header, &name_stream_map));
+  EXPECT_TRUE(
+      ReadHeaderInfoStream(reader.get(), &pdb_header, &name_stream_map));
   EXPECT_EQ(name_stream_map.size(), 0u);
 }
 
@@ -629,7 +629,7 @@ TEST(ReadHeaderInfoStreamTest, ReadStreamWithNameStreamMap) {
   present.Set(0);
   present.Set(1);
   present.Set(2);
-  ASSERT_TRUE(present.Write(writer, true));
+  ASSERT_TRUE(present.Write(writer.get(), true));
 
   ASSERT_TRUE(writer->Write(static_cast<uint32>(0)));  // second bitset.
 
@@ -641,7 +641,8 @@ TEST(ReadHeaderInfoStreamTest, ReadStreamWithNameStreamMap) {
   ASSERT_TRUE(writer->Write(static_cast<uint32>(95)));
 
   NameStreamMap name_stream_map;
-  EXPECT_TRUE(ReadHeaderInfoStream(reader, &pdb_header, &name_stream_map));
+  EXPECT_TRUE(
+      ReadHeaderInfoStream(reader.get(), &pdb_header, &name_stream_map));
 
   NameStreamMap expected;
   expected["/a"] = 42;
@@ -659,9 +660,9 @@ TEST(ReadHeaderInfoStreamTest, ReadFromPdb) {
 
   PdbInfoHeader70 pdb_header = {};
   NameStreamMap name_stream_map;
-  EXPECT_TRUE(ReadHeaderInfoStream(pdb_file.GetStream(kPdbHeaderInfoStream),
-                                   &pdb_header,
-                                   &name_stream_map));
+  EXPECT_TRUE(
+      ReadHeaderInfoStream(pdb_file.GetStream(kPdbHeaderInfoStream).get(),
+                           &pdb_header, &name_stream_map));
 }
 
 TEST(WriteHeaderInfoStreamTest, WriteToPdbFile) {
@@ -761,8 +762,8 @@ TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
     // Read the existing name-stream map.
     PdbInfoHeader70 pdb_header = {};
     NameStreamMap name_stream_map;
-    ASSERT_TRUE(ReadHeaderInfoStream(
-        header_stream, &pdb_header, &name_stream_map));
+    ASSERT_TRUE(ReadHeaderInfoStream(header_stream.get(), &pdb_header,
+                                     &name_stream_map));
 
     // Add an entry for the new stream.
     name_stream_map["foo"] = foo_index;
@@ -771,9 +772,9 @@ TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
     scoped_refptr<PdbStream> new_header_reader(new PdbByteStream());
     scoped_refptr<WritablePdbStream> new_header_writer(
         new_header_reader->GetWritablePdbStream());
-    ASSERT_TRUE(pdb::WriteHeaderInfoStream(
-        pdb_header, name_stream_map, new_header_writer));
-    pdb_file.ReplaceStream(kPdbHeaderInfoStream, new_header_reader);
+    ASSERT_TRUE(pdb::WriteHeaderInfoStream(pdb_header, name_stream_map,
+                                           new_header_writer.get()));
+    pdb_file.ReplaceStream(kPdbHeaderInfoStream, new_header_reader.get());
 
     // Write the PDB.
     PdbWriter pdb_writer;
@@ -797,7 +798,7 @@ TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
 
   // First test: try to read a non-existing stream. Should produce no output.
   {
-    CommandLine cmd(pdbstr_path);
+    base::CommandLine cmd(pdbstr_path);
     cmd.AppendArg(pdb_arg);
     cmd.AppendArg("-r");
     cmd.AppendArg("-s:nonexistent-stream-name");
@@ -810,7 +811,7 @@ TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
   // exit without error and return the expected contents (with a trailing
   // newline).
   {
-    CommandLine cmd(pdbstr_path);
+    base::CommandLine cmd(pdbstr_path);
     cmd.AppendArg(pdb_arg);
     cmd.AppendArg("-r");
     cmd.AppendArg("-s:foo");
@@ -831,7 +832,7 @@ TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
     std::string bar_arg = base::WideToUTF8(bar_txt.value());
     bar_arg.insert(0, "-i:");
 
-    CommandLine cmd(pdbstr_path);
+    base::CommandLine cmd(pdbstr_path);
     cmd.AppendArg(pdb_arg);
     cmd.AppendArg("-w");
     cmd.AppendArg("-s:bar");
@@ -852,8 +853,8 @@ TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
     // Read the existing name-stream map.
     PdbInfoHeader70 pdb_header = {};
     NameStreamMap name_stream_map;
-    ASSERT_TRUE(ReadHeaderInfoStream(
-        header_stream, &pdb_header, &name_stream_map));
+    ASSERT_TRUE(ReadHeaderInfoStream(header_stream.get(), &pdb_header,
+                                     &name_stream_map));
 
     // There should be a 'bar' stream.
     ASSERT_TRUE(name_stream_map.count("bar"));

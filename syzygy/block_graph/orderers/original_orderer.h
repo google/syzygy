@@ -46,7 +46,7 @@ class OriginalOrderer
   // @param header_block The header block of the block graph to transform.
   // @returns true on success, false otherwise.
   virtual bool OrderBlockGraph(OrderedBlockGraph* ordered_block_graph,
-                               BlockGraph::Block* header_block) OVERRIDE;
+                               BlockGraph::Block* header_block) override;
 
   static const char kOrdererName[];
 

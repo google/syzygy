@@ -28,7 +28,7 @@ class InstrumenterInterface {
   // Parses any required and/or optional arguments from the command-line.
   // @param command_line the command-line to be parsed.
   // @returns true on success, false otherwise.
-  virtual bool ParseCommandLine(const CommandLine* command_line) = 0;
+  virtual bool ParseCommandLine(const base::CommandLine* command_line) = 0;
 
   // Do the instrumentation.
   virtual bool Instrument() = 0;

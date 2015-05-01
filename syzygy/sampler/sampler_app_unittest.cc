@@ -81,7 +81,7 @@ class TestSamplerApp : public SamplerApp {
 
  protected:
   virtual void OnStartProfiling(
-      const SampledModuleCache::Module* module) OVERRIDE {
+      const SampledModuleCache::Module* module) override {
     DCHECK(module != NULL);
     base::AutoLock auto_lock(cv_lock_);
     ++start_profiling_counter_;
@@ -89,7 +89,7 @@ class TestSamplerApp : public SamplerApp {
   }
 
   virtual void OnStopProfiling(
-      const SampledModuleCache::Module* module) OVERRIDE {
+      const SampledModuleCache::Module* module) override {
     DCHECK(module != NULL);
     base::AutoLock auto_lock(cv_lock_);
 
@@ -153,7 +153,7 @@ class SamplerAppTest : public testing::PELibUnitTest {
         worker_thread_("worker-thread") {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     Super::SetUp();
 
     ASSERT_TRUE(worker_thread_.Start());
@@ -200,7 +200,7 @@ class SamplerAppTest : public testing::PELibUnitTest {
 
  protected:
   // The command line to be given to the application under test.
-  CommandLine cmd_line_;
+  base::CommandLine cmd_line_;
 
   // The application object under test.
   TestApplication app_;

@@ -43,7 +43,7 @@ base::win::ScopedHandle DuplicateStdHandleForInheritance(DWORD std_handle) {
 
 }  // namespace
 
-base::win::ScopedHandle LaunchPythonProcess(
+base::Process LaunchPythonProcess(
     const base::FilePath& src_relative_path,
     const base::CommandLine& args) {
   base::CommandLine python_command(args);
@@ -63,16 +63,13 @@ base::win::ScopedHandle LaunchPythonProcess(
   base::LaunchOptions launch_options;
   launch_options.inherit_handles = true;
   launch_options.stdin_handle =
-      stdin_dup ? stdin_dup.Get() : INVALID_HANDLE_VALUE;
+      stdin_dup.Get() ? stdin_dup.Get() : INVALID_HANDLE_VALUE;
   launch_options.stdout_handle =
-      stdout_dup ? stdout_dup.Get() : INVALID_HANDLE_VALUE;
+      stdout_dup.Get() ? stdout_dup.Get() : INVALID_HANDLE_VALUE;
   launch_options.stderr_handle =
-      stderr_dup ? stderr_dup.Get() : INVALID_HANDLE_VALUE;
+      stderr_dup.Get() ? stderr_dup.Get() : INVALID_HANDLE_VALUE;
 
-  HANDLE process_handle = nullptr;
-  base::LaunchProcess(python_command, launch_options, &process_handle);
-  // Possibly NULL.
-  return base::win::ScopedHandle(process_handle);
+  return base::LaunchProcess(python_command, launch_options);
 }
 
 }  // namespace testing

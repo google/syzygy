@@ -34,9 +34,9 @@
 #include "base/at_exit.h"
 #include "base/bind.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/logging.h"
 #include "base/md5.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/strings/stringprintf.h"
 #include "syzygy/block_graph/typed_block.h"
@@ -343,8 +343,8 @@ scoped_refptr<PdbStream> GetWritablePdbStream(size_t index,
   scoped_refptr<WritablePdbStream> writer = reader->GetWritablePdbStream();
   if (writer.get() == NULL) {
     scoped_refptr<PdbByteStream> byte_stream(new PdbByteStream());
-    byte_stream->Init(reader);
-    pdb_file->ReplaceStream(index, byte_stream);
+    byte_stream->Init(reader.get());
+    pdb_file->ReplaceStream(index, byte_stream.get());
     reader = byte_stream;
   }
 
@@ -639,7 +639,6 @@ bool ZapTimestamp::ValidateOutputPaths() {
 bool ZapTimestamp::DecomposePeFile() {
   // Decompose the image. This is a very high level decomposition only
   // chunking out the PE structures and references from/to PE blocks.
-  BlockGraph::Block* dos_header_block = NULL;
   if (!MiniDecompose(pe_file_, &image_layout_, &dos_header_block_))
     return false;
 
@@ -873,9 +872,9 @@ bool ZapTimestamp::LoadAndUpdatePdbFile() {
 
   // Normalize the DBI stream in place.
   scoped_refptr<PdbByteStream> dbi_stream(new PdbByteStream());
-  CHECK(dbi_stream->Init(pdb_file_->GetStream(pdb::kDbiStream)));
-  pdb_file_->ReplaceStream(pdb::kDbiStream, dbi_stream);
-  if (!NormalizeDbiStream(pdb_age_data_, dbi_stream)) {
+  CHECK(dbi_stream->Init(pdb_file_->GetStream(pdb::kDbiStream).get()));
+  pdb_file_->ReplaceStream(pdb::kDbiStream, dbi_stream.get());
+  if (!NormalizeDbiStream(pdb_age_data_, dbi_stream.get())) {
     LOG(ERROR) << "Failed to normalize DBI stream.";
     return false;
   }
@@ -885,10 +884,11 @@ bool ZapTimestamp::LoadAndUpdatePdbFile() {
 
   // Normalize the symbol record stream in place.
   scoped_refptr<PdbByteStream> symrec_stream(new PdbByteStream());
-  CHECK(symrec_stream->Init(pdb_file_->GetStream(
-      dbi_header->symbol_record_stream)));
-  pdb_file_->ReplaceStream(dbi_header->symbol_record_stream, symrec_stream);
-  if (!NormalizeSymbolRecordStream(symrec_stream)) {
+  CHECK(symrec_stream->Init(
+      pdb_file_->GetStream(dbi_header->symbol_record_stream).get()));
+  pdb_file_->ReplaceStream(dbi_header->symbol_record_stream,
+                           symrec_stream.get());
+  if (!NormalizeSymbolRecordStream(symrec_stream.get())) {
     LOG(ERROR) << "Failed to normalize symbol record stream.";
     return false;
   }

@@ -17,11 +17,11 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/environment.h"
-#include "base/file_util.h"
-#include "base/files/file_path.h"
 #include "base/logging.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
+#include "base/files/file_path.h"
+#include "base/files/file_util.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/process/kill.h"
 #include "base/process/launch.h"
 #include "base/strings/string_number_conversions.h"
@@ -102,7 +102,7 @@ int Usage() {
   return 1;
 }
 
-bool GetInstanceId(const CommandLine* cmd_line, std::wstring* id) {
+bool GetInstanceId(const base::CommandLine* cmd_line, std::wstring* id) {
   DCHECK(cmd_line != NULL);
   DCHECK(id != NULL);
 
@@ -122,7 +122,7 @@ bool GetInstanceId(const CommandLine* cmd_line, std::wstring* id) {
 // A helper function which sets the Syzygy RPC instance id environment variable
 // then runs a given command line to completion.
 // TODO(etienneb): We should merge common code of logger and call_service.
-bool RunApp(const CommandLine& command_line,
+bool RunApp(const base::CommandLine& command_line,
             const std::wstring& instance_id,
             int* exit_code) {
   DCHECK(exit_code != NULL);
@@ -134,10 +134,10 @@ bool RunApp(const CommandLine& command_line,
   VLOG(1) << "Command Line: " << command_line.GetCommandLineString();
 
   // Launch a new process in the background.
-  base::ProcessHandle process_handle;
   base::LaunchOptions options;
   options.start_hidden = false;
-  if (!base::LaunchProcess(command_line, options, &process_handle)) {
+  base::Process process = base::LaunchProcess(command_line, options);
+  if (!process.IsValid()) {
     LOG(ERROR)
         << "Failed to launch '" << command_line.GetProgram().value() << "'.";
     return false;
@@ -145,7 +145,7 @@ bool RunApp(const CommandLine& command_line,
 
   // Wait for and return the processes exit code.
   // Note that this closes the process handle.
-  if (!base::WaitForExitCode(process_handle, exit_code)) {
+  if (!process.WaitForExit(exit_code)) {
     LOG(ERROR) << "Failed to get exit code.";
     return false;
   }
@@ -153,8 +153,8 @@ bool RunApp(const CommandLine& command_line,
   return true;
 }
 
-bool RunService(const CommandLine* cmd_line,
-                const scoped_ptr<CommandLine>* app_cmd_line) {
+bool RunService(const base::CommandLine* cmd_line,
+                const scoped_ptr<base::CommandLine>* app_cmd_line) {
   DCHECK(cmd_line != NULL);
   DCHECK(app_cmd_line != NULL);
 
@@ -247,17 +247,17 @@ bool RunService(const CommandLine* cmd_line,
   return true;
 }
 
-bool SpawnService(const CommandLine* cmd_line) {
+bool SpawnService(const base::CommandLine* cmd_line) {
   // Get the path to ourselves.
   base::FilePath self_path;
   PathService::Get(base::FILE_EXE, &self_path);
 
   // Build a command line for starting a new instance of the service.
-  CommandLine service_cmd(self_path);
+  base::CommandLine service_cmd(self_path);
   service_cmd.AppendArg("start");
 
   // Copy over any other switches.
-  CommandLine::SwitchMap::const_iterator it =
+  base::CommandLine::SwitchMap::const_iterator it =
       cmd_line->GetSwitches().begin();
   for (; it != cmd_line->GetSwitches().end(); ++it)
     service_cmd.AppendSwitchNative(it->first, it->second);
@@ -270,14 +270,13 @@ bool SpawnService(const CommandLine* cmd_line) {
   // Launch a new process in the background.
   LOG(INFO) << "Launching background call trace service with instance ID \""
             << instance_id << "\".";
-  base::ProcessHandle service_process;
   base::LaunchOptions options;
   options.start_hidden = true;
-  if (!base::LaunchProcess(service_cmd, options, &service_process)) {
+  base::Process service_process = base::LaunchProcess(service_cmd, options);
+  if (!service_process.IsValid()) {
     LOG(ERROR) << "Failed to launch process.";
     return false;
   }
-  DCHECK_NE(base::kNullProcessHandle, service_process);
 
   // Get the name of the event that will be signaled when the service is up
   // and running.
@@ -293,7 +292,7 @@ bool SpawnService(const CommandLine* cmd_line) {
 
   // We wait on both the RPC event and the process, as if the process fails for
   // any reason, it'll exit and its handle will become signaled.
-  HANDLE handles[] = { rpc_event.Get(), service_process };
+  HANDLE handles[] = {rpc_event.Get(), service_process.Handle()};
   if (::WaitForMultipleObjects(arraysize(handles),
                                handles,
                                FALSE,
@@ -338,7 +337,7 @@ bool StopService(const base::StringPiece16& instance_id) {
 
 extern "C" int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;
-  CommandLine::Init(argc, argv);
+  base::CommandLine::Init(argc, argv);
   const int kVlogLevelVerbose = -2;
 
   logging::LoggingSettings settings;
@@ -350,11 +349,11 @@ extern "C" int main(int argc, char** argv) {
 
   // TODO(rogerm): Turn on ETW logging as well.
 
-  CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
   DCHECK(cmd_line != NULL);
 
-  CommandLine calltrace_command_line(CommandLine::NO_PROGRAM);
-  scoped_ptr<CommandLine> app_command_line;
+  base::CommandLine calltrace_command_line(base::CommandLine::NO_PROGRAM);
+  scoped_ptr<base::CommandLine> app_command_line;
   if (!trace::common::SplitCommandLine(
           cmd_line,
           &calltrace_command_line,

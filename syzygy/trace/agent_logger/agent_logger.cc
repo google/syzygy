@@ -394,7 +394,7 @@ bool AgentLogger::SaveMiniDump(HANDLE process,
     // Generate the minidump.
     MINIDUMP_EXCEPTION_INFORMATION exc_info = {
         tid, reinterpret_cast<EXCEPTION_POINTERS*>(exc_ptr), true };
-    if (!::MiniDumpWriteDump(process, pid, temp_file, ::MiniDumpNormal,
+    if (!::MiniDumpWriteDump(process, pid, temp_file.Get(), ::MiniDumpNormal,
                              &exc_info, NULL, NULL)) {
       // Note that the error set by ::MiniDumpWriteDump is an HRESULT, not a
       // Windows error. even though it is returned via ::GetLastError().

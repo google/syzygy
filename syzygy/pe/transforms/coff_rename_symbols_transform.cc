@@ -59,7 +59,6 @@ void AddSymbol(const base::StringPiece& symbol_name,
   // Determine whether the name goes in the string table or is embedded in the
   // symbol record itself.
   char* symbol_name_dst = NULL;
-  size_t copy_size = 0;
   if (symbol_name.size() <= sizeof(symbol->N.ShortName)) {
     symbol_name_dst = reinterpret_cast<char*>(symbol->N.ShortName);
   } else {

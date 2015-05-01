@@ -35,8 +35,7 @@ class BlockGraphSerializerTest : public ::testing::Test {
  public:
   BlockGraphSerializerTest() : block_data_loaded_by_callback_(0) { }
 
-  virtual void SetUp() OVERRIDE {
-  }
+  virtual void SetUp() override {}
 
   void InitOutArchive() {
     v_.clear();

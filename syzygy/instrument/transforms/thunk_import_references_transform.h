@@ -90,10 +90,9 @@ class ThunkImportReferencesTransform
 
   // @name IterativeTransformImpl implementation.
   // @{
-  virtual bool TransformBlockGraph(
-      const TransformPolicyInterface* policy,
-      BlockGraph* block_graph,
-      BlockGraph::Block* header_block) OVERRIDE;
+  virtual bool TransformBlockGraph(const TransformPolicyInterface* policy,
+                                   BlockGraph* block_graph,
+                                   BlockGraph::Block* header_block) override;
   // @}
 
   // Accessor.

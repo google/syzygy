@@ -15,7 +15,7 @@
 #include "syzygy/pdb/pdb_symbol_record.h"
 
 #include "base/bind.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -87,7 +87,8 @@ TEST_F(PdbVisitSymbolsTest, FailsOnInvalidTableSize) {
       &MockVisitor::Callback, base::Unretained(&visitor));
 
   // Don't expect any calls to the visitor callback.
-  EXPECT_FALSE(VisitSymbols(callback, 2 * reader->length(), true, reader));
+  EXPECT_FALSE(
+      VisitSymbols(callback, 2 * reader->length(), true, reader.get()));
 }
 
 TEST_F(PdbVisitSymbolsTest, FailsOnMissingStreamType) {
@@ -98,7 +99,7 @@ TEST_F(PdbVisitSymbolsTest, FailsOnMissingStreamType) {
       &MockVisitor::Callback, base::Unretained(&visitor));
 
   // Don't expect any calls to the visitor callback.
-  EXPECT_FALSE(VisitSymbols(callback, reader->length(), true, reader));
+  EXPECT_FALSE(VisitSymbols(callback, reader->length(), true, reader.get()));
 }
 
 TEST_F(PdbVisitSymbolsTest, FailsOnInvalidStreamType) {
@@ -111,7 +112,7 @@ TEST_F(PdbVisitSymbolsTest, FailsOnInvalidStreamType) {
       &MockVisitor::Callback, base::Unretained(&visitor));
 
   // Don't expect any calls to the visitor callback.
-  EXPECT_FALSE(VisitSymbols(callback, reader->length(), true, reader));
+  EXPECT_FALSE(VisitSymbols(callback, reader->length(), true, reader.get()));
 }
 
 TEST_F(PdbVisitSymbolsTest, FailsOnMissingSymbolLength) {
@@ -124,7 +125,7 @@ TEST_F(PdbVisitSymbolsTest, FailsOnMissingSymbolLength) {
       &MockVisitor::Callback, base::Unretained(&visitor));
 
   // Don't expect any calls to the visitor callback.
-  EXPECT_FALSE(VisitSymbols(callback, reader->length(), true, reader));
+  EXPECT_FALSE(VisitSymbols(callback, reader->length(), true, reader.get()));
 }
 
 TEST_F(PdbVisitSymbolsTest, FailsOnShortSymbolLength) {
@@ -137,7 +138,7 @@ TEST_F(PdbVisitSymbolsTest, FailsOnShortSymbolLength) {
       &MockVisitor::Callback, base::Unretained(&visitor));
 
   // Don't expect any calls to the visitor callback.
-  EXPECT_FALSE(VisitSymbols(callback, reader->length(), true, reader));
+  EXPECT_FALSE(VisitSymbols(callback, reader->length(), true, reader.get()));
 }
 
 TEST_F(PdbVisitSymbolsTest, FailsOnMissingSymbolType) {
@@ -150,7 +151,7 @@ TEST_F(PdbVisitSymbolsTest, FailsOnMissingSymbolType) {
       &MockVisitor::Callback, base::Unretained(&visitor));
 
   // Don't expect any calls to the visitor callback.
-  EXPECT_FALSE(VisitSymbols(callback, reader->length(), true, reader));
+  EXPECT_FALSE(VisitSymbols(callback, reader->length(), true, reader.get()));
 }
 
 TEST_F(PdbVisitSymbolsTest, FailsOnMissingSymbolData) {
@@ -164,7 +165,7 @@ TEST_F(PdbVisitSymbolsTest, FailsOnMissingSymbolData) {
       &MockVisitor::Callback, base::Unretained(&visitor));
 
   // Don't expect any calls to the visitor callback.
-  EXPECT_FALSE(VisitSymbols(callback, reader->length(), true, reader));
+  EXPECT_FALSE(VisitSymbols(callback, reader->length(), true, reader.get()));
 }
 
 TEST_F(PdbVisitSymbolsTest, SucceedsOnEmptySymbolStream) {
@@ -177,7 +178,7 @@ TEST_F(PdbVisitSymbolsTest, SucceedsOnEmptySymbolStream) {
       &MockVisitor::Callback, base::Unretained(&visitor));
 
   // Don't expect any calls to the visitor callback.
-  EXPECT_TRUE(VisitSymbols(callback, reader->length(), true, reader));
+  EXPECT_TRUE(VisitSymbols(callback, reader->length(), true, reader.get()));
 }
 
 TEST_F(PdbVisitSymbolsTest, EarlyTermination) {
@@ -192,7 +193,7 @@ TEST_F(PdbVisitSymbolsTest, EarlyTermination) {
       &MockVisitor::Callback, base::Unretained(&visitor));
 
   EXPECT_CALL(visitor, Callback(_, _, _)).Times(1).WillOnce(Return(false));
-  EXPECT_FALSE(VisitSymbols(callback, reader->length(), true, reader));
+  EXPECT_FALSE(VisitSymbols(callback, reader->length(), true, reader.get()));
 }
 
 TEST_F(PdbVisitSymbolsTest, AllSymbolsVisitedNoHeader) {
@@ -208,7 +209,7 @@ TEST_F(PdbVisitSymbolsTest, AllSymbolsVisitedNoHeader) {
   // There are 697 symbols in the sample symbol stream in test_data.
   EXPECT_CALL(visitor, Callback(_, _, _)).Times(697).
       WillRepeatedly(Return(true));
-  EXPECT_TRUE(VisitSymbols(callback, reader->length(), false, reader));
+  EXPECT_TRUE(VisitSymbols(callback, reader->length(), false, reader.get()));
 }
 
 }  // namespace pdb

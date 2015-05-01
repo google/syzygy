@@ -14,7 +14,7 @@
 
 #include "syzygy/pe/metadata.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/json_file_writer.h"

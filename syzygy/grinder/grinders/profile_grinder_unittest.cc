@@ -47,7 +47,7 @@ class ProfileGrinderTest : public testing::PELibUnitTest {
   ProfileGrinderTest() : cmd_line_(base::FilePath(L"profile_grinder.exe")) {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     Super::Test::SetUp();
     cmd_line_.AppendSwitchASCII("mode", "profile");
   }
@@ -126,7 +126,7 @@ class ProfileGrinderTest : public testing::PELibUnitTest {
   // Ensures that COM is initialized for tests in this fixture.
   base::win::ScopedCOMInitializer com_initializer_;
 
-  CommandLine cmd_line_;
+  base::CommandLine cmd_line_;
   trace::parser::Parser parser_;
 };
 

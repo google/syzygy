@@ -19,8 +19,8 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
 #include "syzygy/core/serialization.h"
@@ -168,7 +168,7 @@ void GetMappingStats(const BlockGraphMapping& mapping,
 
 int main(int argc, char** argv) {
   base::AtExitManager at_exit_manager;
-  CommandLine::Init(argc, argv);
+  base::CommandLine::Init(argc, argv);
 
   logging::LoggingSettings settings;
   settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
@@ -177,7 +177,7 @@ int main(int argc, char** argv) {
   if (!logging::InitLogging(settings))
     return 1;
 
-  CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
   DCHECK(cmd_line != NULL);
 
   base::FilePath path_from = cmd_line->GetSwitchValuePath("from");

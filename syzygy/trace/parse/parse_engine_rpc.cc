@@ -16,8 +16,8 @@
 
 #include "syzygy/trace/parse/parse_engine_rpc.h"
 
-#include "base/file_util.h"
 #include "base/logging.h"
+#include "base/files/file_util.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/trace/parse/parse_utils.h"

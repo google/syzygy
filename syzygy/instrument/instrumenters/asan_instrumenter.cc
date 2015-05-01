@@ -16,8 +16,8 @@
 
 #include <algorithm>
 
-#include "base/file_util.h"
 #include "base/logging.h"
+#include "base/files/file_util.h"
 #include "syzygy/application/application.h"
 #include "syzygy/instrument/transforms/allocation_filter_transform.h"
 
@@ -98,7 +98,7 @@ bool AsanInstrumenter::InstrumentImpl() {
 }
 
 bool AsanInstrumenter::ParseAdditionalCommandLineArguments(
-    const CommandLine* command_line) {
+    const base::CommandLine* command_line) {
   // Parse the additional command line arguments.
   filter_path_ = command_line->GetSwitchValuePath("filter");
   use_liveness_analysis_ = !command_line->HasSwitch("no-liveness-analysis");
@@ -121,7 +121,8 @@ bool AsanInstrumenter::ParseAdditionalCommandLineArguments(
 
   // Parse Asan RTL options if present.
   static const char kAsanRtlOptions[] = "asan-rtl-options";
-  if (asan_rtl_options_ = command_line->HasSwitch(kAsanRtlOptions)) {
+  asan_rtl_options_ = command_line->HasSwitch(kAsanRtlOptions);
+  if (asan_rtl_options_) {
     std::wstring options = command_line->GetSwitchValueNative(kAsanRtlOptions);
     common::SetDefaultAsanParameters(&asan_params_);
     if (!common::ParseAsanParameters(options, &asan_params_))

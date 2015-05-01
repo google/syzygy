@@ -16,8 +16,8 @@
 
 #include <cstring>
 
-#include "base/file_util.h"
 #include "base/path_service.h"
+#include "base/files/file_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/typed_block.h"

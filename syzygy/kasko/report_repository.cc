@@ -51,9 +51,9 @@
 
 #include "syzygy/kasko/report_repository.h"
 
-#include "base/file_util.h"
 #include "base/logging.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "syzygy/kasko/crash_keys_serialization.h"
 
 namespace kasko {

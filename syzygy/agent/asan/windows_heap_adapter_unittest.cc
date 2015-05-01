@@ -49,13 +49,11 @@ class WindowsHeapAdapterTest : public testing::Test {
  public:
   WindowsHeapAdapterTest() { }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     WindowsHeapAdapter::SetUp(&mock_heap_manager_);
   }
 
-  virtual void TearDown() OVERRIDE {
-    WindowsHeapAdapter::TearDown();
-  }
+  virtual void TearDown() override { WindowsHeapAdapter::TearDown(); }
 
  protected:
   const HeapManagerInterface::HeapId kFakeHeapId =

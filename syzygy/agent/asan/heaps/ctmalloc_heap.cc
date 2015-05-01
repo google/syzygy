@@ -91,9 +91,10 @@ bool CtMallocHeap::Free(void* alloc) {
 }
 
 bool CtMallocHeap::IsAllocated(const void* alloc) {
-  if (!WTF::partitionIsAllocatedGeneric(allocator_.root(),
-                                        const_cast<void*>(alloc), -1, NULL))
+  if (!WTF::partitionIsAllocatedGeneric(
+          allocator_.root(), const_cast<void*>(alloc), SIZE_MAX, NULL)) {
     return false;
+  }
   return true;
 }
 
@@ -103,7 +104,7 @@ size_t CtMallocHeap::GetAllocationSize(const void* alloc) {
 
   size_t allocation_size = 0;
   if (!WTF::partitionIsAllocatedGeneric(allocator_.root(),
-                                        const_cast<void*>(alloc), -1,
+                                        const_cast<void*>(alloc), SIZE_MAX,
                                         &allocation_size)) {
     return kUnknownSize;
   }

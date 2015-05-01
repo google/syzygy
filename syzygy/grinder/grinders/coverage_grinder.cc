@@ -48,7 +48,7 @@ CoverageGrinder::CoverageGrinder()
 CoverageGrinder::~CoverageGrinder() {
 }
 
-bool CoverageGrinder::ParseCommandLine(const CommandLine* command_line) {
+bool CoverageGrinder::ParseCommandLine(const base::CommandLine* command_line) {
   DCHECK(command_line != NULL);
 
   // If the switch isn't present we have nothing to do!

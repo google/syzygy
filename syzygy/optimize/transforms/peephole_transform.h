@@ -48,7 +48,7 @@ class PeepholeTransform : public SubGraphTransformInterface {
       BlockGraph* block_graph,
       BasicBlockSubGraph* subgraph,
       ApplicationProfile* profile,
-      SubGraphProfile* subgraph_profile) OVERRIDE;
+      SubGraphProfile* subgraph_profile) override;
   // @}
 
   // Apply a sequence of patterns to simplify the contents of a subgraph. The

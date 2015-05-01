@@ -36,7 +36,7 @@ class PdbDumpApp : public application::AppImplBase {
 
   // @name Application interface overrides.
   // @{
-  bool ParseCommandLine(const CommandLine* command_line);
+  bool ParseCommandLine(const base::CommandLine* command_line);
   int Run();
   // @}
 

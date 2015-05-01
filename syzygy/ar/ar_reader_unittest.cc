@@ -26,7 +26,7 @@ namespace {
 // Test fixture.
 class ArReaderTest : public testing::Test {
  public:
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     lib_path_ = testing::GetSrcRelativePath(testing::kArchiveFile);
   }
 

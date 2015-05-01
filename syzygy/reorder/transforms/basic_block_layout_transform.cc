@@ -341,8 +341,8 @@ bool BasicBlockSubGraphLayoutTransform::TransformBasicBlockSubGraph(
   // The reverse map will be conveniently in sorted order for us. So we simply
   // need to append blocks to the block descriptions in the appropriate order.
   ReverseMap::iterator rev_map_it = reverse_map.begin();
-  size_t prev_block_index = -1;
-  size_t prev_bb_index = -1;
+  size_t prev_block_index = SIZE_MAX;
+  size_t prev_bb_index = SIZE_MAX;
   for (; rev_map_it != reverse_map.end(); ++rev_map_it) {
     size_t block_index = rev_map_it->first.first;
     size_t bb_index = rev_map_it->first.second;
@@ -356,7 +356,7 @@ bool BasicBlockSubGraphLayoutTransform::TransformBasicBlockSubGraph(
         LOG(ERROR) << "Invalid block index in BasicBlockMap.";
         return false;
       }
-      prev_bb_index = -1;
+      prev_bb_index = SIZE_MAX;
       prev_block_index = block_index;
     }
 

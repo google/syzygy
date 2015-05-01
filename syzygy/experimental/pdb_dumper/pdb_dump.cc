@@ -23,7 +23,7 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -156,7 +156,7 @@ bool ExplodeStreams(const base::FilePath& input_pdb_path,
   // exist.
   size_t stream_without_suffixes = 0;
   for (size_t i = 0; i < pdb_file.StreamCount(); ++i) {
-    pdb::PdbStream* stream = pdb_file.GetStream(i);
+    pdb::PdbStream* stream = pdb_file.GetStream(i).get();
     // We avoid dumping the empty streams belonging to a previous version of the
     // PDB file.
     if (stream == NULL || stream->length() == 0)
@@ -213,7 +213,7 @@ PdbDumpApp::PdbDumpApp()
       dump_modules_(false) {
 }
 
-bool PdbDumpApp::ParseCommandLine(const CommandLine* command_line) {
+bool PdbDumpApp::ParseCommandLine(const base::CommandLine* command_line) {
   DCHECK(command_line != NULL);
 
   explode_streams_ = command_line->HasSwitch("explode-streams");
@@ -221,7 +221,7 @@ bool PdbDumpApp::ParseCommandLine(const CommandLine* command_line) {
   dump_type_info_ = command_line->HasSwitch("dump-type-info");
   dump_modules_ = command_line->HasSwitch("dump-modules");
 
-  CommandLine::StringVector args = command_line->GetArgs();
+  base::CommandLine::StringVector args = command_line->GetArgs();
   if (args.empty())
     return Usage("You must provide at least one input file.");
 
@@ -246,7 +246,8 @@ int PdbDumpApp::Run() {
 
     pdb::PdbInfoHeader70 info = {};
     NameStreamMap name_streams;
-    pdb::PdbStream* stream = pdb_file.GetStream(pdb::kPdbHeaderInfoStream);
+    pdb::PdbStream* stream =
+        pdb_file.GetStream(pdb::kPdbHeaderInfoStream).get();
     if (stream != NULL && ReadHeaderInfoStream(stream, &info, &name_streams)) {
       DumpInfoStream(info, name_streams);
     } else {
@@ -257,7 +258,7 @@ int PdbDumpApp::Run() {
     NameStreamMap::const_iterator it(name_streams.find("/names"));
     OffsetStringMap index_names;
     if (it != name_streams.end()) {
-      if (ReadNameStream(pdb_file.GetStream(it->second), &index_names)) {
+      if (ReadNameStream(pdb_file.GetStream(it->second).get(), &index_names)) {
         DumpNameTable(index_names);
       } else {
         LOG(ERROR) << "Unable to read the name table.";
@@ -270,7 +271,7 @@ int PdbDumpApp::Run() {
 
     // Read the dbi stream.
     DbiStream dbi_stream;
-    stream = pdb_file.GetStream(pdb::kDbiStream);
+    stream = pdb_file.GetStream(pdb::kDbiStream).get();
     if (stream != NULL && dbi_stream.Read(stream)) {
       DumpDbiStream(dbi_stream);
     } else {
@@ -281,7 +282,7 @@ int PdbDumpApp::Run() {
     // Read the type info stream.
     TypeInfoHeader type_info_header = {};
     TypeInfoRecordMap type_info_records;
-    stream = pdb_file.GetStream(pdb::kTpiStream);
+    stream = pdb_file.GetStream(pdb::kTpiStream).get();
     if (stream != NULL && ReadTypeInfoStream(stream,
                                              &type_info_header,
                                              &type_info_records)) {
@@ -297,8 +298,8 @@ int PdbDumpApp::Run() {
       LOG(ERROR) << "No symbol record stream.";
       return 1;
     }
-    PdbStream* sym_record_stream = pdb_file.GetStream(
-        dbi_stream.header().symbol_record_stream);
+    PdbStream* sym_record_stream =
+        pdb_file.GetStream(dbi_stream.header().symbol_record_stream).get();
     SymbolRecordVector symbol_vector;
     if (sym_record_stream != NULL &&
         ReadSymbolRecord(sym_record_stream,
@@ -322,7 +323,7 @@ int PdbDumpApp::Run() {
       for (; iter_modules != dbi_stream.modules().end(); ++iter_modules) {
         if (iter_modules->module_info_base().stream != -1) {
           PdbStream* module_stream =
-              pdb_file.GetStream(iter_modules->module_info_base().stream);
+              pdb_file.GetStream(iter_modules->module_info_base().stream).get();
           if (module_stream == NULL) {
             LOG(ERROR) << "Unable to read a module info stream.";
             return 1;

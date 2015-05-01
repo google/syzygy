@@ -59,7 +59,7 @@ class EntryThunkInstrumenterTest : public testing::PELibUnitTest {
       : cmd_line_(base::FilePath(L"instrument.exe")) {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::Test::SetUp();
 
     // Several of the tests generate progress and (deliberate) error messages
@@ -99,7 +99,7 @@ class EntryThunkInstrumenterTest : public testing::PELibUnitTest {
 
   // @name Command-line and parameters.
   // @{
-  CommandLine cmd_line_;
+  base::CommandLine cmd_line_;
   base::FilePath input_image_path_;
   base::FilePath input_pdb_path_;
   base::FilePath output_image_path_;

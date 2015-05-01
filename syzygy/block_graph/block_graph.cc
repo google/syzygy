@@ -251,7 +251,7 @@ std::string BlockGraph::LabelAttributesToString(
   return s;
 }
 
-const BlockGraph::SectionId BlockGraph::kInvalidSectionId = -1;
+const BlockGraph::SectionId BlockGraph::kInvalidSectionId = SIZE_MAX;
 
 BlockGraph::BlockGraph()
     : next_section_id_(0),

@@ -123,7 +123,7 @@ class AllocationFilterTransform
   virtual bool TransformBasicBlockSubGraph(
       const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
-      BasicBlockSubGraph* basic_block_subgraph) OVERRIDE;
+      BasicBlockSubGraph* basic_block_subgraph) override;
   // @}
 
   // The pre-call hook which is called before hooked calls.

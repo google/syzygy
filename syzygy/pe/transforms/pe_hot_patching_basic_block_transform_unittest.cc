@@ -74,7 +74,7 @@ class PEHotPatchingTransformBlockOperationTest : public ::testing::Test {
  public:
 
   // Create the test blocks.
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     block_1_byte_instr_ =
         block_graph_.AddBlock(BlockGraph::CODE_BLOCK, 1U, "i1byte");
     ASSERT_NE(nullptr, block_1_byte_instr_);

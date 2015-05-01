@@ -181,7 +181,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
         std::string name =
             base::StringPrintf("asan_check_repz_%d_byte_%s_access",
                                access_size, opcode_str);
-        StringToLowerASCII(&name);
+        base::StringToLowerASCII(&name);
         AddHookRef(name, AsanBasicBlockTransform::kRepzAccess, access_size,
                    opcode, true);
       }
@@ -198,7 +198,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
         std::string name =
             base::StringPrintf("asan_check_%d_byte_%s_access",
                                access_size, opcode_str);
-        StringToLowerASCII(&name);
+        base::StringToLowerASCII(&name);
         AddHookRef(name, AsanBasicBlockTransform::kInstrAccess, access_size,
                    opcode, true);
 
@@ -206,7 +206,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
          std::string repz_name =
             base::StringPrintf("asan_check_repz_%d_byte_%s_access",
                                access_size, opcode_str);
-        StringToLowerASCII(&repz_name);
+         base::StringToLowerASCII(&repz_name);
         AddHookRef(repz_name, AsanBasicBlockTransform::kRepzAccess, access_size,
                    opcode, true);
       }

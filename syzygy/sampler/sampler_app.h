@@ -37,7 +37,7 @@ class SamplerApp : public application::AppImplBase {
 
   // @name Implementation of the AppImplbase interface.
   // @{
-  bool ParseCommandLine(const CommandLine* command_line);
+  bool ParseCommandLine(const base::CommandLine* command_line);
   int Run();
   // @}
 

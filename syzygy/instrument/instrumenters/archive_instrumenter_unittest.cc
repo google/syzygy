@@ -14,7 +14,7 @@
 
 #include "syzygy/instrument/instrumenters/archive_instrumenter.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/ar/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
@@ -43,7 +43,8 @@ class IdentityInstrumenter : public InstrumenterInterface {
     ++constructor_count;
   }
 
-  virtual bool ParseCommandLine(const CommandLine* command_line) OVERRIDE {
+  virtual bool ParseCommandLine(
+      const base::CommandLine* command_line) override {
     ++parse_count;
     input_image_ = command_line->GetSwitchValuePath("input-image");
     output_image_ = command_line->GetSwitchValuePath("output-image");
@@ -52,7 +53,7 @@ class IdentityInstrumenter : public InstrumenterInterface {
     return true;
   }
 
-  virtual bool Instrument() OVERRIDE {
+  virtual bool Instrument() override {
     ++instrument_count;
     base::CopyFile(input_image_, output_image_);
     return true;
@@ -72,7 +73,7 @@ InstrumenterInterface* AsanInstrumenterFactory() {
 
 class ArchiveInstrumenterTest : public testing::PELibUnitTest {
  public:
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::PELibUnitTest::SetUp();
 
     CreateTemporaryDir(&temp_dir_);
@@ -81,7 +82,8 @@ class ArchiveInstrumenterTest : public testing::PELibUnitTest {
     zlib_lib_ = testing::GetSrcRelativePath(testing::kArchiveFile);
     output_image_ = temp_dir_.Append(L"output.dat");
 
-    command_line_.reset(new CommandLine(base::FilePath(L"instrumenter.exe")));
+    command_line_.reset(
+        new base::CommandLine(base::FilePath(L"instrumenter.exe")));
     command_line_->AppendSwitchPath("output-image", output_image_);
 
     // Reset function counts.
@@ -92,16 +94,14 @@ class ArchiveInstrumenterTest : public testing::PELibUnitTest {
     output_images.clear();
   }
 
-  virtual void TearDown() OVERRIDE {
-    testing::PELibUnitTest::TearDown();
-  }
+  virtual void TearDown() override { testing::PELibUnitTest::TearDown(); }
 
   base::FilePath temp_dir_;
   base::FilePath test_dll_dll_;
   base::FilePath zlib_lib_;
   base::FilePath output_image_;
 
-  scoped_ptr<CommandLine> command_line_;
+  scoped_ptr<base::CommandLine> command_line_;
 };
 
 }  // namespace

@@ -14,8 +14,8 @@
 
 #include "syzygy/instrument/instrumenters/coverage_instrumenter.h"
 
-#include "base/file_util.h"
 #include "base/logging.h"
+#include "base/files/file_util.h"
 #include "syzygy/application/application.h"
 #include "syzygy/pe/image_filter.h"
 

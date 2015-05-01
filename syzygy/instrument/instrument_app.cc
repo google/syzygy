@@ -126,7 +126,7 @@ InstrumenterInterface* AsanInstrumenterFactory() {
 
 }  // namespace
 
-void InstrumentApp::ParseDeprecatedMode(const CommandLine* cmd_line) {
+void InstrumentApp::ParseDeprecatedMode(const base::CommandLine* cmd_line) {
   DCHECK(cmd_line != NULL);
 
   std::string client = cmd_line->GetSwitchValueASCII("call-trace-client");
@@ -153,7 +153,7 @@ void InstrumentApp::ParseDeprecatedMode(const CommandLine* cmd_line) {
   }
 }
 
-bool InstrumentApp::ParseCommandLine(const CommandLine* cmd_line) {
+bool InstrumentApp::ParseCommandLine(const base::CommandLine* cmd_line) {
   DCHECK(cmd_line != NULL);
 
   if (cmd_line->HasSwitch("help"))
@@ -199,7 +199,7 @@ int InstrumentApp::Run() {
   return instrumenter_->Instrument() ? 0 : 1;
 }
 
-bool InstrumentApp::Usage(const CommandLine* cmd_line,
+bool InstrumentApp::Usage(const base::CommandLine* cmd_line,
                           const base::StringPiece& message) const {
   if (!message.empty()) {
     ::fwrite(message.data(), 1, message.length(), err());

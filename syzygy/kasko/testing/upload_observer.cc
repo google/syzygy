@@ -16,11 +16,11 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
-#include "base/file_util.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path_watcher.h"
+#include "base/files/file_util.h"
 #include "base/message_loop/message_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "gtest/gtest.h"

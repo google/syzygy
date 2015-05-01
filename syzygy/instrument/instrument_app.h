@@ -39,21 +39,21 @@ class InstrumentApp : public application::AppImplBase {
 
   // @name Implementation of the AppImplBase interface.
   // @{
-  bool ParseCommandLine(const CommandLine* command_line);
+  bool ParseCommandLine(const base::CommandLine* command_line);
   int Run();
   // @}
 
  protected:
   // @name Utility members.
   // @{
-  bool Usage(const CommandLine* command_line,
+  bool Usage(const base::CommandLine* command_line,
              const base::StringPiece& message) const;
   // @}
 
   // Used to parse old-style deprecated command-lines.
   // TODO(chrisha): Remove this once build scripts and profiling tools have
   //     been updated.
-  void ParseDeprecatedMode(const CommandLine* command_line);
+  void ParseDeprecatedMode(const base::CommandLine* command_line);
 
   // The instrumenter we delegate to.
   scoped_ptr<InstrumenterInterface> instrumenter_;

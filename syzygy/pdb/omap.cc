@@ -60,7 +60,7 @@ core::RelativeAddress TranslateAddressViaOmap(const std::vector<OMAP>& omaps,
 bool ReadOmapsFromPdbFile(const PdbFile& pdb_file,
                           std::vector<OMAP>* omap_to,
                           std::vector<OMAP>* omap_from) {
-  PdbStream* dbi_stream = pdb_file.GetStream(kDbiStream);
+  PdbStream* dbi_stream = pdb_file.GetStream(kDbiStream).get();
   if (dbi_stream == NULL)
     return false;
 
@@ -79,8 +79,9 @@ bool ReadOmapsFromPdbFile(const PdbFile& pdb_file,
     return false;
 
   // We expect both streams to exist.
-  PdbStream* omap_to_stream = pdb_file.GetStream(dbg_header.omap_to_src);
-  PdbStream* omap_from_stream = pdb_file.GetStream(dbg_header.omap_from_src);
+  PdbStream* omap_to_stream = pdb_file.GetStream(dbg_header.omap_to_src).get();
+  PdbStream* omap_from_stream =
+      pdb_file.GetStream(dbg_header.omap_from_src).get();
   if (omap_to_stream == NULL || omap_from_stream == NULL)
     return false;
 

@@ -18,7 +18,7 @@
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/environment.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/stringprintf.h"
@@ -76,7 +76,7 @@ class TestSessionTraceFileWriter : public SessionTraceFileWriter {
     RecycleBuffers();
   }
 
-  virtual bool ConsumeBuffer(Buffer* buffer) OVERRIDE {
+  virtual bool ConsumeBuffer(Buffer* buffer) override {
     base::AutoLock auto_lock(queue_lock_);
     EXPECT_TRUE(buffer != NULL);
     if (buffer) {
@@ -126,7 +126,7 @@ class TestSessionTraceFileWriterFactory : public SessionTraceFileWriterFactory {
       : SessionTraceFileWriterFactory(message_loop) {
   }
 
-  bool CreateConsumer(scoped_refptr<BufferConsumer>* consumer) OVERRIDE {
+  bool CreateConsumer(scoped_refptr<BufferConsumer>* consumer) override {
     // w00t, somewhat bogus coverage ploy, at least will reuse the DCHECKS.
     EXPECT_TRUE(SessionTraceFileWriterFactory::CreateConsumer(consumer));
     EXPECT_TRUE((*consumer)->HasOneRef());
@@ -197,13 +197,13 @@ class TestSession : public Session {
     return buffer_requests_waiting_for_recycle_;
   }
 
-  virtual void OnWaitingForBufferToBeRecycled() OVERRIDE {
+  virtual void OnWaitingForBufferToBeRecycled() override {
     lock_.AssertAcquired();
     waiting_for_buffer_to_be_recycled_state_ = true;
     waiting_for_buffer_to_be_recycled_.Signal();
   }
 
-  virtual void OnDestroySingletonBuffer(Buffer* buffer) OVERRIDE {
+  virtual void OnDestroySingletonBuffer(Buffer* buffer) override {
     lock_.AssertAcquired();
     last_singleton_buffer_destroyed_ = buffer;
     singleton_buffers_destroyed_++;
@@ -212,7 +212,7 @@ class TestSession : public Session {
   }
 
   bool InitializeProcessInfo(ProcessId process_id,
-                             ProcessInfo* client) OVERRIDE {
+                             ProcessInfo* client) override {
     DCHECK(client != NULL);
 
     // Lobotomize the process info initialization to allow using fake PIDs.
@@ -230,13 +230,13 @@ class TestSession : public Session {
 
   bool CopyBufferHandleToClient(HANDLE client_process_handle,
                                 HANDLE local_handle,
-                                HANDLE* client_copy) OVERRIDE {
+                                HANDLE* client_copy) override {
     // Avoid handle leaks by using the same handle for both "ends".
     *client_copy = local_handle;
     return true;
   }
 
-  virtual bool AllocateBuffers(size_t count, size_t size) OVERRIDE {
+  virtual bool AllocateBuffers(size_t count, size_t size) override {
     lock_.AssertAcquired();
 
     allocating_buffers_state_ = true;
@@ -281,9 +281,7 @@ class TestService : public Service {
   size_t num_active_sessions() const { return num_active_sessions_; }
 
  protected:
-  virtual Session* CreateSession() OVERRIDE {
-    return new TestSession(this);
-  }
+  virtual Session* CreateSession() override { return new TestSession(this); }
 
  private:
   uint32 process_id_;  // Under lock_;
@@ -303,7 +301,7 @@ class SessionTest : public ::testing::Test {
         worker2_("Worker2") {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::Test::SetUp();
 
     ASSERT_TRUE(consumer_thread_has_started_);
@@ -339,7 +337,7 @@ class SessionTest : public ::testing::Test {
     ASSERT_TRUE(worker2_.Start());
   }
 
-  virtual void TearDown() OVERRIDE {
+  virtual void TearDown() override {
     // Stop the worker threads.
     worker2_.Stop();
     worker1_.Stop();

@@ -71,10 +71,9 @@ class CoffAddImportsTransform
   // @param block_graph the BlockGraph to populate.
   // @param headers_block the block containing the headers.
   // @returns true on success, false otherwise.
-  virtual bool TransformBlockGraph(
-      const TransformPolicyInterface* policy,
-      BlockGraph* block_graph,
-      BlockGraph::Block* headers_block) OVERRIDE;
+  virtual bool TransformBlockGraph(const TransformPolicyInterface* policy,
+                                   BlockGraph* block_graph,
+                                   BlockGraph::Block* headers_block) override;
 
   // The name of this transform.
   static const char kTransformName[];

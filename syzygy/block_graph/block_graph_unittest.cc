@@ -1378,10 +1378,6 @@ TEST(BlockGraphAddressSpaceTest, GetFirstIntersectingBlock) {
                                                      RelativeAddress(0x1010),
                                                      0x10,
                                                      "code");
-  BlockGraph::Block* block3 = address_space.AddBlock(BlockGraph::CODE_BLOCK,
-                                                     RelativeAddress(0x1030),
-                                                     0x10,
-                                                     "code");
 
   EXPECT_EQ(NULL,
       address_space.GetFirstIntersectingBlock(RelativeAddress(0xFFF), 0x1));

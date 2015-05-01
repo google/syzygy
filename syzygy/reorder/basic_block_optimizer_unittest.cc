@@ -63,7 +63,7 @@ class TestBasicBlockOrderer : public BasicBlockOptimizer::BasicBlockOrderer {
 
 class BasicBlockOrdererTest : public testing::BasicBlockTest {
  public:
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     ASSERT_NO_FATAL_FAILURE(testing::BasicBlockTest::SetUp());
     ASSERT_NO_FATAL_FAILURE(InitBlockGraph());
     ASSERT_NO_FATAL_FAILURE(InitBasicBlockSubGraph());
@@ -102,7 +102,6 @@ class BasicBlockOrdererTest : public testing::BasicBlockTest {
     IndexedFrequencyMap& frequency_map = entry_counts_.frequency_map;
     frequency_map.clear();
 
-    uint32 start = start_addr_.value();
     frequency_map[std::make_pair(start_addr_ + kBasicBlockOffsets[0], 0)] = bb0;
     frequency_map[std::make_pair(start_addr_ + kBasicBlockOffsets[1], 0)] = bb1;
     frequency_map[std::make_pair(start_addr_ + kBasicBlockOffsets[2], 0)] = bb2;
@@ -133,7 +132,7 @@ class BasicBlockOptimizerTest : public testing::OrderGeneratorTest {
         num_non_code_blocks_(0) {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     ASSERT_NO_FATAL_FAILURE(Super::SetUp());
     ASSERT_NO_FATAL_FAILURE(InitBlockCounts());
     base::FilePath pdb_path(GetExeTestDataRelativePath(
@@ -382,7 +381,6 @@ TEST_F(BasicBlockOptimizerTest, EmptyOrderingAllCold) {
   // Count the blocks left in the original sections. This should only include
   // non-code blocks.
   size_t num_non_code_blocks = 0;
-  size_t num_non_decomposable_blocks = 0;
   for (size_t i = 0; i < image_layout_.sections.size(); ++i) {
     for (size_t k = 0; k < order.sections[i].blocks.size(); ++k) {
       const BlockGraph::Block* block = order.sections[i].blocks[k].block;

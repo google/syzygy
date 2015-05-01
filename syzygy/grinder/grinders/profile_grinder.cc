@@ -140,7 +140,7 @@ ProfileGrinder::ProfileGrinder()
 ProfileGrinder::~ProfileGrinder() {
 }
 
-bool ProfileGrinder::ParseCommandLine(const CommandLine* command_line) {
+bool ProfileGrinder::ParseCommandLine(const base::CommandLine* command_line) {
   thread_parts_ = command_line->HasSwitch("thread-parts");
   return true;
 }
@@ -235,7 +235,7 @@ bool ProfileGrinder::GetSessionForModule(const ModuleInformation* module,
     return false;
   }
 
-  *session_out = it->second;
+  *session_out = it->second.get();
   (*session_out)->AddRef();
 
   return true;

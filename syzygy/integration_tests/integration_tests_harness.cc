@@ -19,9 +19,9 @@
 // exception handling.
 
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/logging.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/integration_tests/integration_tests_dll.h"
@@ -47,8 +47,8 @@ base::FilePath dll;
 size_t test_id = 0;
 bool expect_exception = false;
 
-bool ParseTestId(CommandLine* cmd_line) {
-  DCHECK_NE(reinterpret_cast<CommandLine*>(NULL), cmd_line);
+bool ParseTestId(base::CommandLine* cmd_line) {
+  DCHECK_NE(reinterpret_cast<base::CommandLine*>(NULL), cmd_line);
 
   std::string test = cmd_line->GetSwitchValueASCII("test");
   if (test.empty()) {
@@ -79,8 +79,8 @@ bool ParseTestId(CommandLine* cmd_line) {
   return true;
 }
 
-bool ParseCommandLine(CommandLine* cmd_line) {
-  DCHECK_NE(reinterpret_cast<CommandLine*>(NULL), cmd_line);
+bool ParseCommandLine(base::CommandLine* cmd_line) {
+  DCHECK_NE(reinterpret_cast<base::CommandLine*>(NULL), cmd_line);
 
   // Parse and validate the path to the DLL.
   dll = cmd_line->GetSwitchValuePath("dll");
@@ -131,8 +131,8 @@ LONG WINAPI MyUnhandledExceptionFilter(struct _EXCEPTION_POINTERS* exception) {
 
 int main(int argc, char** argv) {
   // Initialize the command-line.
-  CommandLine::Init(argc, argv);
-  CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  base::CommandLine::Init(argc, argv);
+  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
 
   // Initialize logging.
   logging::LoggingSettings settings;

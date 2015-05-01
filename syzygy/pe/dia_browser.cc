@@ -54,9 +54,8 @@ struct DiaBrowser::PatternElement {
       : sym_tags(),
         outgoing_sym_tags(),
         links(),
-        pattern_id(-1),
-        full_match(false) {
-  }
+        pattern_id(SIZE_MAX),
+        full_match(false) {}
 
   ~PatternElement() {
   }

@@ -73,27 +73,26 @@ class ProfileGrinder : public GrinderInterface {
 
   // @name GrinderInterface implementation.
   // @{
-  virtual bool ParseCommandLine(const CommandLine* command_line) OVERRIDE;
-  virtual void SetParser(Parser* parser) OVERRIDE;
-  virtual bool Grind() OVERRIDE;
-  virtual bool OutputData(FILE* file) OVERRIDE;
+  virtual bool ParseCommandLine(const base::CommandLine* command_line) override;
+  virtual void SetParser(Parser* parser) override;
+  virtual bool Grind() override;
+  virtual bool OutputData(FILE* file) override;
   // @}
 
   // @name ParseEventHandler overrides.
   // @{
-  virtual void OnInvocationBatch(
-      base::Time time,
-      DWORD process_id,
-      DWORD thread_id,
-      size_t num_invocations,
-      const TraceBatchInvocationInfo* data) OVERRIDE;
+  virtual void OnInvocationBatch(base::Time time,
+                                 DWORD process_id,
+                                 DWORD thread_id,
+                                 size_t num_invocations,
+                                 const TraceBatchInvocationInfo* data) override;
   virtual void OnThreadName(base::Time time,
                             DWORD process_id,
                             DWORD thread_id,
-                            const base::StringPiece& thread_name) OVERRIDE;
+                            const base::StringPiece& thread_name) override;
   virtual void OnDynamicSymbol(DWORD process_id,
                                uint32 symbol_id,
-                               const base::StringPiece& symbol_name) OVERRIDE;
+                               const base::StringPiece& symbol_name) override;
   // @}
 
  protected:

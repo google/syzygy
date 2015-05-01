@@ -17,8 +17,8 @@
 #include <algorithm>
 
 #include "base/environment.h"
-#include "base/file_util.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/strings/utf_string_conversions.h"
 #include "gtest/gtest.h"
@@ -44,7 +44,7 @@ MATCHER_P(ModuleAtAddress, module, "") {
 //     Don't forget the 'ModuleAtAddress' above as well.
 class ProcessUtilsTest : public testing::Test {
  public:
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::Test::SetUp();
 
     // Call trace files will be stuffed here.
@@ -53,9 +53,7 @@ class ProcessUtilsTest : public testing::Test {
     service_.SetEnvironment();
   }
 
-  virtual void TearDown() OVERRIDE {
-    service_.Stop();
-  }
+  virtual void TearDown() override { service_.Stop(); }
 
   void StartService() {
     service_.Start(temp_dir_.path());

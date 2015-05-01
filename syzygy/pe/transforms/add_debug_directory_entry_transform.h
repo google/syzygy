@@ -60,7 +60,7 @@ class AddDebugDirectoryEntryTransform
   virtual bool TransformBlockGraph(
       const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
-      BlockGraph::Block* dos_header_block) OVERRIDE;
+      BlockGraph::Block* dos_header_block) override;
 
   // Returns true if a new debug directory entry was created.
   bool added() const { return added_; }

@@ -197,14 +197,9 @@ class PEOrdererTest : public testing::PELibUnitTest {
 
     // Create one dummy block per section. This just ensures they have something
     // in them.
-    BlockGraph::Block* text_block = AddBlock(
-        BlockGraph::CODE_BLOCK, 16, "text block", text);
-
-    BlockGraph::Block* rdata_block = AddBlock(
-        BlockGraph::DATA_BLOCK, 16, "rdata block", rdata);
-
-    BlockGraph::Block* data_block = AddBlock(
-        BlockGraph::DATA_BLOCK, 16, "data block", data);
+    AddBlock(BlockGraph::CODE_BLOCK, 16, "text block", text);
+    AddBlock(BlockGraph::DATA_BLOCK, 16, "rdata block", rdata);
+    AddBlock(BlockGraph::DATA_BLOCK, 16, "data block", data);
 
     BlockGraph::Block* rsrc_block = AddBlock(BlockGraph::DATA_BLOCK,
         sizeof(IMAGE_RESOURCE_DIRECTORY), "rsrc block", rsrc);
@@ -222,8 +217,6 @@ class PEOrdererTest : public testing::PELibUnitTest {
             block_graph_.sections().size() * sizeof(IMAGE_SECTION_HEADER),
         "Nt Headers");
     nt_headers_block->ResizeData(nt_headers_block->size());
-
-    size_t header_size = dos_header_block_->size() + nt_headers_block->size();
 
     TypedBlock<IMAGE_DOS_HEADER> dos_header;
     ASSERT_TRUE(dos_header.Init(0, dos_header_block_));

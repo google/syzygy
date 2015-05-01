@@ -24,9 +24,9 @@
 #include "base/base_switches.h"
 #include "base/bind.h"
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/macros.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/memory_mapped_file.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/process/kill.h"
@@ -52,8 +52,8 @@ MULTIPROCESS_TEST_MAIN(MinidumpTestBlockingProcess) {
   base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
   base::string16 ready_event_name =
       base::ASCIIToUTF16(cmd_line->GetSwitchValueASCII(kReadyEventSwitch));
-  base::WaitableEvent ready_event(
-      ::OpenEvent(EVENT_MODIFY_STATE, FALSE, ready_event_name.c_str()));
+  base::WaitableEvent ready_event(base::win::ScopedHandle(
+      ::OpenEvent(EVENT_MODIFY_STATE, FALSE, ready_event_name.c_str())));
   ready_event.Signal();
   ::Sleep(INFINITE);
   return 0;
@@ -87,25 +87,25 @@ class MinidumpTest : public ::testing::Test {
     std::string ready_event_name =
         "minidump_test_ready_" + base::UintToString(base::GetCurrentProcId());
 
-    base::WaitableEvent ready_event(::CreateEvent(
-        NULL, FALSE, FALSE, base::ASCIIToUTF16(ready_event_name).c_str()));
+    base::WaitableEvent ready_event(base::win::ScopedHandle(::CreateEvent(
+        NULL, FALSE, FALSE, base::ASCIIToUTF16(ready_event_name).c_str())));
 
     base::CommandLine child_command_line =
         base::GetMultiProcessTestChildBaseCommandLine();
     child_command_line.AppendSwitchASCII(switches::kTestChildProcess,
                                          "MinidumpTestBlockingProcess");
     child_command_line.AppendSwitchASCII(kReadyEventSwitch, ready_event_name);
-    base::ProcessHandle child_process;
-    ASSERT_TRUE(base::LaunchProcess(child_command_line, base::LaunchOptions(),
-                                    &child_process));
-    base::win::ScopedHandle scoped_child_process(child_process);
+    base::Process child_process = base::LaunchProcess(child_command_line,
+                                                      base::LaunchOptions());
+    ASSERT_TRUE(child_process.IsValid());
     ready_event.Wait();
 
     *result =
-        kasko::GenerateMinidump(dump_file_path, base::GetProcId(child_process),
+        kasko::GenerateMinidump(dump_file_path,
+                                base::GetProcId(child_process.Handle()),
                                 0, NULL, minidump_type, custom_streams);
 
-    ASSERT_TRUE(base::KillProcess(child_process, 0, true));
+    ASSERT_TRUE(child_process.Terminate(0, true));
   }
 
  protected:

@@ -29,6 +29,8 @@ namespace common {
 
 namespace {
 
+using base::CommandLine;
+
 // Trinary return values used to indicate if a flag was updated or not.
 enum FlagResult {
   kFlagNotPresent,
@@ -48,7 +50,7 @@ struct UpdateValueFromCommandLine {
   //     default; kFlagSet if the flag was present, valid and modified; or
   //     kFlagError if the flag was present but invalid. Logs an error on
   //     failure, and an info message on successful parsing.
-  static FlagResult Do(const CommandLine& cmd_line,
+  static FlagResult Do(const base::CommandLine& cmd_line,
                        const std::string& param_name,
                        typename Parser::ValueType* value) {
     DCHECK_NE(reinterpret_cast<Parser::ValueType*>(NULL), value);
@@ -97,7 +99,7 @@ typedef UpdateValueFromCommandLine<FloatParser> UpdateFloatFromCommandLine;
 // @param param_name The parameter that we want to read.
 // @param values Will receive the set of parsed values.
 // @returns true on success, false otherwise.
-bool ReadIgnoredStackIdsFromCommandLine(const CommandLine& cmd_line,
+bool ReadIgnoredStackIdsFromCommandLine(const base::CommandLine& cmd_line,
                                         const std::string& param_name,
                                         std::set<AsanStackId>* values) {
   DCHECK(values != NULL);
@@ -349,12 +351,12 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
                          InflatedAsanParameters* asan_parameters) {
   DCHECK_NE(reinterpret_cast<InflatedAsanParameters*>(NULL), asan_parameters);
 
-  // Prepends the flags with a dummy executable name to keep the CommandLine
-  // parser happy.
+  // Prepends the flags with a dummy executable name to keep the
+  // base::CommandLine parser happy.
   std::wstring str(param_string.as_string());
   str.insert(0, L" ");
   str.insert(0, L"dummy.exe");
-  CommandLine cmd_line = CommandLine::FromString(str);
+  base::CommandLine cmd_line = base::CommandLine::FromString(str);
 
   // Parse the quarantine size flag.
   if (UpdateUint32FromCommandLine::Do(cmd_line, kParamQuarantineSize,

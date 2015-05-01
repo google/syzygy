@@ -40,11 +40,9 @@ class AsanRuntimeTest : public testing::TestWithAsanLogger {
  public:
   typedef testing::TestWithAsanLogger Super;
 
-  AsanRuntimeTest()
-      : current_command_line_(CommandLine::NO_PROGRAM) {
-  }
+  AsanRuntimeTest() : current_command_line_(base::CommandLine::NO_PROGRAM) {}
 
-  void SetUp() OVERRIDE {
+  void SetUp() override {
     Super::SetUp();
 
     env_.reset(base::Environment::Create());
@@ -56,7 +54,7 @@ class AsanRuntimeTest : public testing::TestWithAsanLogger {
     StackCaptureCache::Init();
   }
 
-  void TearDown() OVERRIDE {
+  void TearDown() override {
     // Clear the environment so other tests aren't affected.
     env_->UnSetVar(::common::kSyzyAsanOptionsEnvVar);
 
@@ -67,7 +65,7 @@ class AsanRuntimeTest : public testing::TestWithAsanLogger {
   TestAsanRuntime asan_runtime_;
 
   // The value of the command-line that we want to test.
-  CommandLine current_command_line_;
+  base::CommandLine current_command_line_;
 
   // The process environment.
   scoped_ptr<base::Environment> env_;

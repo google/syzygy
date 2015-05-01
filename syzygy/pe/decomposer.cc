@@ -554,7 +554,7 @@ scoped_refptr<pdb::PdbStream> GetLinkerSymbolStream(
   // Read the entire thing into memory before parsing it. This makes parsing
   // much faster.
   scoped_refptr<pdb::PdbByteStream> dbi_stream(new pdb::PdbByteStream());
-  if (!dbi_stream->Init(stream)) {
+  if (!dbi_stream->Init(stream.get())) {
     LOG(ERROR) << "Failed to read DBI stream.";
   }
 
@@ -586,7 +586,7 @@ scoped_refptr<pdb::PdbStream> GetLinkerSymbolStream(
 
   // Also read it entirely into memory for faster parsing.
   scoped_refptr<pdb::PdbByteStream> symbols(new pdb::PdbByteStream());
-  if (!symbols->Init(stream)) {
+  if (!symbols->Init(stream.get())) {
     LOG(ERROR) << "Failed to read linker symbol stream.";
   }
 
@@ -1658,7 +1658,7 @@ DiaBrowser::BrowserDirective Decomposer::OnPushFunctionOrThunkSymbol(
     block->set_attribute(BlockGraph::HAS_INLINE_ASSEMBLY);
   if (has_eh || has_seh)
     block->set_attribute(BlockGraph::HAS_EXCEPTION_HANDLING);
-  if (IsSymTag(symbol, SymTagThunk))
+  if (IsSymTag(symbol.get(), SymTagThunk))
     block->set_attribute(BlockGraph::THUNK);
 
   return DiaBrowser::kBrowserContinue;
@@ -1742,7 +1742,7 @@ DiaBrowser::BrowserDirective Decomposer::OnDataSymbol(
 
   // Get the size of this datum from its type info.
   size_t length = 0;
-  if (!GetDataSymbolSize(symbol, &length))
+  if (!GetDataSymbolSize(symbol.get(), &length))
     return DiaBrowser::kBrowserAbort;
 
   // Reuse the parent function block if we can. This acts as small lookup

@@ -33,7 +33,7 @@ class SafePipeReader {
   SafePipeReader();
 
   // @returns an inheritable handle that may be used to write to the pipe.
-  HANDLE write_handle() { return write_handle_; }
+  HANDLE write_handle() { return write_handle_.Get(); }
 
   // Reads data from the anonymous pipe.
   // @param timeout The maximum duration to wait for the read operation to

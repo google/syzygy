@@ -91,7 +91,7 @@ void GuessPdbPath(const base::FilePath& module_path, base::FilePath* pdb_path) {
 
 }  // namespace
 
-bool RelinkApp::ParseCommandLine(const CommandLine* cmd_line) {
+bool RelinkApp::ParseCommandLine(const base::CommandLine* cmd_line) {
   if (cmd_line->HasSwitch("help"))
     return Usage(cmd_line, "");
 
@@ -284,7 +284,7 @@ int RelinkApp::Run() {
   return 0;
 }
 
-bool RelinkApp::Usage(const CommandLine* cmd_line,
+bool RelinkApp::Usage(const base::CommandLine* cmd_line,
                       const base::StringPiece& message) const {
   if (!message.empty()) {
     ::fwrite(message.data(), 1, message.length(), err());

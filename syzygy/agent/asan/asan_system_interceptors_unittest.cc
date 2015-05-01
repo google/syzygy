@@ -44,7 +44,7 @@ class AsanRtlReadFileTest : public testing::TestAsanRtl {
   AsanRtlReadFileTest() : temp_file_handle_(INVALID_HANDLE_VALUE) {
   }
 
-  void SetUp() OVERRIDE {
+  void SetUp() override {
     Super::SetUp();
     SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
     ASSERT_NO_FATAL_FAILURE(CreateTempFile());
@@ -207,7 +207,7 @@ class AsanRtlWriteFileTest : public testing::TestAsanRtl {
       : temp_file_handle_(INVALID_HANDLE_VALUE) {
   }
 
-  void SetUp() OVERRIDE {
+  void SetUp() override {
     Super::SetUp();
 
     temp_file_handle_.Set(::CreateFile(temp_file_.path().value().c_str(),

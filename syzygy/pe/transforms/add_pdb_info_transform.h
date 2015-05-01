@@ -59,7 +59,7 @@ class AddPdbInfoTransform
   virtual bool TransformBlockGraph(
       const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
-      BlockGraph::Block* dos_header_block) OVERRIDE;
+      BlockGraph::Block* dos_header_block) override;
 
   // The transform name.
   static const char kTransformName[];

@@ -19,6 +19,7 @@
 
 #include "base/macros.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/process/process.h"
 #include "base/win/scoped_handle.h"
 
 namespace kasko {
@@ -41,8 +42,8 @@ class TestServer {
 
  private:
   base::ScopedTempDir incoming_directory_;
-  // Handle of the Python process running the test server.
-  base::win::ScopedHandle process_handle_;
+  // Python process running the test server.
+  base::Process process_;
 
   // The TCP port that the Python process is listening on.
   uint16_t port_;

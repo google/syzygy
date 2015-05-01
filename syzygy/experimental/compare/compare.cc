@@ -85,7 +85,7 @@ using block_graph::ConstBlockVector;
 
 namespace {
 
-const size_t kInvalidIndex = -1;
+const size_t kInvalidIndex = SIZE_MAX;
 
 // Features are properties of blocks that are used to match up blocks between
 // block graphs. If there exists exactly one block in each graph with the same
@@ -157,7 +157,7 @@ class BlockFeature {
 // block.
 class FeatureIndex {
  public:
-  static const size_t kInvalidFeatureBucket = -1;
+  static const size_t kInvalidFeatureBucket = SIZE_MAX;
 
   // Blocks with these attributes are ignored in the mapping.
   static const BlockGraph::BlockAttributes kIgnoredAttributes =
@@ -715,6 +715,10 @@ bool BlockGraphMapper::ScheduleMapping(const BlockGraph::Block* block0,
       const BlockMetadata* meta0 = FeatureIndex::GetBlockMetadata(block0);
       const BlockMetadata* meta1 = FeatureIndex::GetBlockMetadata(block1);
       const BlockMetadata* meta2 = FeatureIndex::GetBlockMetadata(block2);
+      DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), block2);
+      DCHECK_NE(static_cast<const BlockMetadata*>(nullptr), meta1);
+      DCHECK_NE(static_cast<const BlockMetadata*>(nullptr), meta0);
+      DCHECK_NE(static_cast<const BlockMetadata*>(nullptr), meta2);
     }
 #endif
 
@@ -734,6 +738,10 @@ bool BlockGraphMapper::ScheduleMapping(const BlockGraph::Block* block0,
       const BlockMetadata* meta0 = FeatureIndex::GetBlockMetadata(block0);
       const BlockMetadata* meta1 = FeatureIndex::GetBlockMetadata(block1);
       const BlockMetadata* meta2 = FeatureIndex::GetBlockMetadata(block2);
+      DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), block2);
+      DCHECK_NE(static_cast<const BlockMetadata*>(nullptr), meta1);
+      DCHECK_NE(static_cast<const BlockMetadata*>(nullptr), meta0);
+      DCHECK_NE(static_cast<const BlockMetadata*>(nullptr), meta2);
     }
 #endif
 

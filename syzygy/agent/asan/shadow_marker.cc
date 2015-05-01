@@ -131,7 +131,8 @@ bool ShadowMarkerHelper::IsHistoricBlockEnd(ShadowMarkerValue marker) {
 bool ShadowMarkerHelper::IsBlockEnd(ShadowMarkerValue marker) {
   // Block end markers have arbitrary values for the active bit
   // and the block end nested bit.
-  static const uint8 kMask = ~(kActiveBit | kBlockEndNestedBit);
+  static const uint8 kMask =
+      static_cast<uint8>(~(kActiveBit | kBlockEndNestedBit));
   return (marker.value & kMask) == kHeapHistoricBlockEndMarker;
 }
 

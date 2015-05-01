@@ -62,7 +62,7 @@ class RandomOrderer
   //     in.
   // @returns true on success, false otherwise.
   virtual bool OrderBlockGraph(OrderedBlockGraph* ordered_block_graph,
-                               BlockGraph::Block* header_block) OVERRIDE;
+                               BlockGraph::Block* header_block) override;
 
   static const char kOrdererName[];
 

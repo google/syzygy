@@ -120,15 +120,13 @@ ReorderApp::ReorderApp()
       flags_(0) {
 }
 
-bool ReorderApp::ParseCommandLine(const CommandLine* command_line) {
+bool ReorderApp::ParseCommandLine(const base::CommandLine* command_line) {
   DCHECK(command_line != NULL);
   DCHECK_EQ(kInvalidMode, mode_);
 
   // Parse the instrumented image path.
-  if (!GetDeprecatedSwitch(command_line,
-                           kInstrumentedImage,
-                           kInstrumentedDll,
-                           &CommandLine::GetSwitchValuePath,
+  if (!GetDeprecatedSwitch(command_line, kInstrumentedImage, kInstrumentedDll,
+                           &base::CommandLine::GetSwitchValuePath,
                            &instrumented_image_path_) ||
       instrumented_image_path_.empty()) {
     return Usage(command_line, "Invalid or missing instrumented image path.");
@@ -141,10 +139,8 @@ bool ReorderApp::ParseCommandLine(const CommandLine* command_line) {
   }
 
   // Parse the (optional) input image path.
-  if (!GetDeprecatedSwitch(command_line,
-                           kInputImage,
-                           kInputDll,
-                           &CommandLine::GetSwitchValuePath,
+  if (!GetDeprecatedSwitch(command_line, kInputImage, kInputDll,
+                           &base::CommandLine::GetSwitchValuePath,
                            &input_image_path_)) {
     return Usage(command_line, "Invalid input image path.");
   }
@@ -289,7 +285,7 @@ int ReorderApp::Run() {
   return 0;
 }
 
-bool ReorderApp::Usage(const CommandLine* cmd_line,
+bool ReorderApp::Usage(const base::CommandLine* cmd_line,
                        const base::StringPiece& message) const {
   if (!message.empty()) {
     ::fwrite(message.data(), 1, message.length(), err());

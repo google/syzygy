@@ -15,7 +15,7 @@
 #include "syzygy/pdb/pdb_writer.h"
 
 #include "base/command_line.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/process/launch.h"
 #include "base/strings/utf_string_conversions.h"
@@ -100,8 +100,8 @@ void EnsurePdbContentsAreIdentical(const PdbFile& pdb_file,
   ASSERT_EQ(pdb_file.StreamCount(), pdb_file_read.StreamCount());
 
   for (size_t i = 0; i < pdb_file.StreamCount(); ++i) {
-    PdbStream* stream = pdb_file.GetStream(i);
-    PdbStream* stream_read = pdb_file_read.GetStream(i);
+    PdbStream* stream = pdb_file.GetStream(i).get();
+    PdbStream* stream_read = pdb_file_read.GetStream(i).get();
 
     ASSERT_TRUE(stream != NULL);
     ASSERT_TRUE(stream_read != NULL);
@@ -282,7 +282,7 @@ TEST(PdbWriterTest, PdbStrCompatible) {
 
   // Add a new stream to the PDB in place. This should produce no output.
   {
-    CommandLine cmd(pdbstr_path);
+    base::CommandLine cmd(pdbstr_path);
     cmd.AppendArg(pdb_arg);
     cmd.AppendArg(stream_arg);
     cmd.AppendArg("-w");

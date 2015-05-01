@@ -34,7 +34,7 @@ class NamedPdbMutatorImpl : public PdbMutatorInterface {
  public:
   // Gets the name of this mutator.
   // @returns the name of this mutator.
-  virtual const char* name() const OVERRIDE {
+  virtual const char* name() const override {
     return DerivedType::kMutatorName;
   }
 };

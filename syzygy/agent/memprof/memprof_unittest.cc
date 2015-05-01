@@ -18,9 +18,9 @@
 
 #include <windows.h>
 
-#include "base/file_util.h"
 #include "base/scoped_native_library.h"
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/message_loop/message_loop.h"
 #include "base/threading/platform_thread.h"
@@ -69,7 +69,7 @@ class MemoryProfilerTest : public testing::Test {
         heap_free_(nullptr) {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::Test::SetUp();
 
     // Create a temporary directory for the call trace files.
@@ -78,7 +78,7 @@ class MemoryProfilerTest : public testing::Test {
     service_.SetEnvironment();
   }
 
-  virtual void TearDown() OVERRIDE {
+  virtual void TearDown() override {
     UnloadDll();
 
     // Stop the call trace service.

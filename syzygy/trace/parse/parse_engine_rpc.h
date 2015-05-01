@@ -33,11 +33,10 @@ class ParseEngineRpc : public ParseEngine {
   // @name ParseEngine implementation
   // @{
   virtual bool IsRecognizedTraceFile(
-      const base::FilePath& trace_file_path) OVERRIDE;
-  virtual bool OpenTraceFile(
-      const base::FilePath& trace_file_path) OVERRIDE;
-  virtual bool ConsumeAllEvents() OVERRIDE;
-  virtual bool CloseAllTraceFiles() OVERRIDE;
+      const base::FilePath& trace_file_path) override;
+  virtual bool OpenTraceFile(const base::FilePath& trace_file_path) override;
+  virtual bool ConsumeAllEvents() override;
+  virtual bool CloseAllTraceFiles() override;
   // @}
 
  private:

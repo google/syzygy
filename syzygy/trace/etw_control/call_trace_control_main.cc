@@ -58,7 +58,7 @@ struct Options {
 bool ParseOptions(Options* options) {
   DCHECK(options != NULL);
 
-  CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
 
   if (cmd_line->HasSwitch("help") || cmd_line->HasSwitch("h")) {
     Usage();
@@ -91,7 +91,7 @@ bool ParseOptions(Options* options) {
 
 int main(int argc, char** argv) {
   base::AtExitManager at_exit;
-  CommandLine::Init(argc, argv);
+  base::CommandLine::Init(argc, argv);
 
   logging::LoggingSettings settings;
   settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;

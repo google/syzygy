@@ -19,8 +19,8 @@
 #define SYZYGY_PE_DECOMPOSE_APP_H_
 
 #include "base/command_line.h"
-#include "base/file_util.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
@@ -53,7 +53,7 @@ class DecomposeApp : public application::AppImplBase {
       strip_strings_(false) {
   }
 
-  bool ParseCommandLine(const CommandLine* command_line);
+  bool ParseCommandLine(const base::CommandLine* command_line);
 
   int Run();
   // @}

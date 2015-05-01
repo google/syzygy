@@ -14,8 +14,8 @@
 
 #include "syzygy/grinder/indexed_frequency_data_serializer.h"
 
-#include "base/file_util.h"
 #include "base/values.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/json/json_reader.h"
 #include "gmock/gmock.h"
@@ -57,7 +57,7 @@ class IndexedFrequencyDataSerializerTest : public testing::PELibUnitTest {
  public:
   typedef testing::PELibUnitTest Super;
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     Super::SetUp();
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
   }
@@ -102,13 +102,13 @@ TEST_F(IndexedFrequencyDataSerializerTest, PopulateFromJsonValueFails) {
   TestIndexedFrequencyDataSerializer serializer;
 
   // It should fail if the outermost JSON object is not a list.
-  scoped_ptr<Value> int_value(Value::CreateIntegerValue(7));
+  scoped_ptr<Value> int_value(new base::FundamentalValue(7));
   ASSERT_FALSE(serializer.PopulateFromJsonValue(int_value.get(),
                                                 &frequency_map));
 
   // It should fail if the outermost list does not contain dictionaries.
   scoped_ptr<ListValue> list_value(new ListValue());
-  list_value->Append(Value::CreateBooleanValue(true));
+  list_value->Append(new base::FundamentalValue(true));
   ASSERT_FALSE(serializer.PopulateFromJsonValue(list_value.get(),
                                                 &frequency_map));
   list_value->Clear();
@@ -120,7 +120,7 @@ TEST_F(IndexedFrequencyDataSerializerTest, PopulateFromJsonValueFails) {
                                                 &frequency_map));
 
   // It should fail if the metadata value is not a dictionary.
-  dict_value->Set("metadata", Value::CreateStringValue("foo"));
+  dict_value->Set("metadata", new base::FundamentalValue("foo"));
   ASSERT_FALSE(serializer.PopulateFromJsonValue(list_value.get(),
                                                 &frequency_map));
 
@@ -174,25 +174,25 @@ TEST_F(IndexedFrequencyDataSerializerTest, PopulateFromJsonValueFails) {
                                                 &frequency_map));
 
   // It should still fail since the frequencies key has the wrong value type.
-  dict_value->Set("frequencies", Value::CreateStringValue("foo"));
+  dict_value->Set("frequencies", new base::StringValue("foo"));
   ASSERT_FALSE(serializer.PopulateFromJsonValue(list_value.get(),
                                                 &frequency_map));
 
   // It should still fail since the frequencies list contains an invalid value.
   ListValue* frequencies = new ListValue();
   dict_value->Set("frequencies", frequencies);
-  frequencies->Append(Value::CreateStringValue("foo"));
+  frequencies->Append(new base::StringValue("foo"));
   ASSERT_FALSE(serializer.PopulateFromJsonValue(list_value.get(),
                                                 &frequency_map));
 
   // It should succeed once we start putting numbers into the entry_counts list.
   IndexedFrequencyMap expected_values;
   frequencies->Clear();
-  for (size_t i = 0; i < expected_values.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(expected_values.size()); ++i) {
     scoped_ptr<ListValue> entry(new ListValue());
-    entry->Append(Value::CreateIntegerValue(i * i));
-    entry->Append(Value::CreateIntegerValue(100 * i));
-    entry->Append(Value::CreateIntegerValue(100 * i + 1));
+    entry->Append(new base::FundamentalValue(i * i));
+    entry->Append(new base::FundamentalValue(100 * i));
+    entry->Append(new base::FundamentalValue(100 * i + 1));
     expected_values[std::make_pair(core::RelativeAddress(i * i), 0)] = 100 * i;
     expected_values[std::make_pair(core::RelativeAddress(i * i), 1)] =
         100 * i + 1;

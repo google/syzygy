@@ -62,7 +62,7 @@ scoped_refptr<pdb::PdbFileStream> GetStreamFromFile(base::FilePath file_path) {
   scoped_refptr<pdb::RefCountedFILE> file = new pdb::RefCountedFILE(
       base::OpenFile(file_path, "rb"));
   scoped_refptr<pdb::PdbFileStream> stream(
-    new pdb::PdbFileStream(file, file_size, pages, file_size));
+      new pdb::PdbFileStream(file.get(), file_size, pages, file_size));
 
   return stream;
 }
@@ -76,9 +76,10 @@ void InitMockPdbFile(pdb::PdbFile* pdb_file) {
       pdb::kPdbCurrentVersion, 123456789, 1,
       { 0xDEADBEEF, 0xCAFE, 0xBABE, { 0, 1, 2, 3, 4, 5, 6, 7 } } };
   pdb::NameStreamMap name_stream_map;
-  ASSERT_TRUE(pdb::WriteHeaderInfoStream(header, name_stream_map, writer));
+  ASSERT_TRUE(
+      pdb::WriteHeaderInfoStream(header, name_stream_map, writer.get()));
 
-  pdb_file->SetStream(pdb::kPdbHeaderInfoStream, stream);
+  pdb_file->SetStream(pdb::kPdbHeaderInfoStream, stream.get());
 }
 
 }  // namespace testing

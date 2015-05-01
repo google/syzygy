@@ -202,7 +202,7 @@ Metadata::Metadata() {
 
 bool Metadata::Init(const PEFile::Signature& module_signature) {
   // Populate the command line string.
-  CommandLine* cmd_line = CommandLine::ForCurrentProcess();
+  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
   DCHECK(cmd_line != NULL);
   if (!base::WideToUTF8(cmd_line->GetCommandLineString().c_str(),
                   cmd_line->GetCommandLineString().size(),

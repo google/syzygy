@@ -606,7 +606,6 @@ bool BlockHeaderIsConsistent(const BlockInfo& block_info) {
 // Via |cross_consistent| indicates whether or not the header and trailer
 // are consistent with respect to each other.
 bool BlockTrailerIsConsistent(const BlockInfo& block_info) {
-  const BlockHeader* h = block_info.header;
   const BlockTrailer* t = block_info.trailer;
 
   // The allocation data must always be set.

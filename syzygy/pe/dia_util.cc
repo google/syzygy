@@ -235,7 +235,7 @@ bool ChildVisitor::VisitChildrenImpl() {
     return false;
   }
 
-  return EnumerateChildren(children);
+  return EnumerateChildren(children.get());
 }
 
 bool ChildVisitor::EnumerateChildren(IDiaEnumSymbols* children) {
@@ -257,7 +257,7 @@ bool ChildVisitor::EnumerateChildren(IDiaEnumSymbols* children) {
     DCHECK_EQ(1U, fetched);
     DCHECK(child != NULL);
 
-    if (!VisitChild(child))
+    if (!VisitChild(child.get()))
       return false;
   }
 
@@ -283,7 +283,7 @@ bool CompilandVisitor::VisitAllCompilands(
     return false;
   }
 
-  ChildVisitor visitor(global, SymTagCompiland);
+  ChildVisitor visitor(global.get(), SymTagCompiland);
 
   return visitor.VisitChildren(compiland_callback);
 }
@@ -333,7 +333,7 @@ bool LineVisitor::EnumerateCompilandSource(IDiaSymbol* compiland,
     DCHECK_EQ(1U, fetched);
     DCHECK(line_number != NULL);
 
-    if (!VisitSourceLine(line_number))
+    if (!VisitSourceLine(line_number.get()))
       return false;
   }
 
@@ -361,7 +361,7 @@ bool LineVisitor::EnumerateCompilandSources(IDiaSymbol* compiland,
     DCHECK_EQ(1U, fetched);
     DCHECK(compiland != NULL);
 
-    if (!EnumerateCompilandSource(compiland, source_file))
+    if (!EnumerateCompilandSource(compiland, source_file.get()))
       return false;
   }
 
@@ -375,16 +375,14 @@ bool LineVisitor::VisitLinesImpl() {
 
   // Enumerate all source files referenced by this compiland.
   base::win::ScopedComPtr<IDiaEnumSourceFiles> source_files;
-  HRESULT hr = session_->findFile(compiland_,
-                                  NULL,
-                                  nsNone,
+  HRESULT hr = session_->findFile(compiland_.get(), NULL, nsNone,
                                   source_files.Receive());
   if (FAILED(hr)) {
     LOG(ERROR) << "Unable to get source files: " << common::LogHr(hr);
     return false;
   }
 
-  return EnumerateCompilandSources(compiland_, source_files);
+  return EnumerateCompilandSources(compiland_.get(), source_files.get());
 }
 
 bool LineVisitor::VisitSourceLine(IDiaLineNumber* line_number) {

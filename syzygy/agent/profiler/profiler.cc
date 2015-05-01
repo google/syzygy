@@ -244,7 +244,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       DCHECK(at_exit == NULL);
       at_exit = new base::AtExitManager();
 
-      CommandLine::Init(0, NULL);
+      base::CommandLine::Init(0, NULL);
       common::InitLoggingForDll(L"profiler");
       break;
 
@@ -253,7 +253,7 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       break;
 
     case DLL_PROCESS_DETACH:
-      CommandLine::Reset();
+      base::CommandLine::Reset();
       DCHECK(at_exit != NULL);
       delete at_exit;
       at_exit = NULL;
@@ -318,8 +318,8 @@ class Profiler::ThreadState
 
   // @name Callback notification implementation.
   // @{
-  virtual void OnPageAdded(const void* page) OVERRIDE;
-  virtual void OnPageRemoved(const void* page) OVERRIDE;
+  virtual void OnPageAdded(const void* page) override;
+  virtual void OnPageRemoved(const void* page) override;
   // @}
 
   // Function exit hook.
@@ -585,11 +585,11 @@ void Profiler::ThreadState::RecordInvocation(RetAddr caller,
     // TODO(siggi): It might lead to worst-case behavior to log symbols into
     //    the same trace buffer as we store invocations, as we're likely to
     //    alternate symbols and single-entry invocation batches. Fixme.
-    LogSymbol(caller_symbol);
+    LogSymbol(caller_symbol.get());
   }
   if (function_symbol != NULL && function_symbol->EnsureHasId()) {
     // TODO(siggi): See above.
-    LogSymbol(function_symbol);
+    LogSymbol(function_symbol.get());
   }
 
   InvocationInfo* info = AllocateInvocationInfo();

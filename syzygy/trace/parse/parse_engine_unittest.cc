@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "base/logging.h"
+#include "base/strings/string_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/indexed_frequency_data.h"
@@ -66,11 +67,11 @@ class ParseEngineUnitTest
     ASSERT_TRUE(DispatchEvent(&event_record_));
   }
 
-  bool IsRecognizedTraceFile(const base::FilePath& trace_file_path) OVERRIDE {
+  bool IsRecognizedTraceFile(const base::FilePath& trace_file_path) override {
     return true;
   }
 
-  bool OpenTraceFile(const base::FilePath& trace_file_path) OVERRIDE {
+  bool OpenTraceFile(const base::FilePath& trace_file_path) override {
     return true;
   }
 
@@ -84,20 +85,20 @@ class ParseEngineUnitTest
 
   // ParseEventHander methods.
 
-  virtual void OnProcessStarted(base::Time time,
-                                DWORD process_id,
-                                const TraceSystemInfo* data) OVERRIDE {
+  void OnProcessStarted(base::Time time,
+                        DWORD process_id,
+                        const TraceSystemInfo* data) override {
     ASSERT_EQ(process_id, kProcessId);
   }
 
-  virtual void OnProcessEnded(base::Time time, DWORD process_id) OVERRIDE {
+  void OnProcessEnded(base::Time time, DWORD process_id) override {
     ASSERT_EQ(process_id, kProcessId);
   }
 
-  virtual void OnFunctionEntry(base::Time time,
-                               DWORD process_id,
-                               DWORD thread_id,
-                               const TraceEnterExitEventData* data) OVERRIDE {
+  void OnFunctionEntry(base::Time time,
+                       DWORD process_id,
+                       DWORD thread_id,
+                       const TraceEnterExitEventData* data) override {
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
@@ -105,10 +106,10 @@ class ParseEngineUnitTest
     function_entries.insert(data->function);
   }
 
-  virtual void OnFunctionExit(base::Time time,
-                              DWORD process_id,
-                              DWORD thread_id,
-                              const TraceEnterExitEventData* data) OVERRIDE {
+  void OnFunctionExit(base::Time time,
+                      DWORD process_id,
+                      DWORD thread_id,
+                      const TraceEnterExitEventData* data) override {
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
@@ -116,10 +117,10 @@ class ParseEngineUnitTest
     function_exits.insert(data->function);
   }
 
-  virtual void OnBatchFunctionEntry(base::Time time,
-                                    DWORD process_id,
-                                    DWORD thread_id,
-                                    const TraceBatchEnterData* data) OVERRIDE {
+  void OnBatchFunctionEntry(base::Time time,
+                            DWORD process_id,
+                            DWORD thread_id,
+                            const TraceBatchEnterData* data) override {
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
@@ -128,30 +129,30 @@ class ParseEngineUnitTest
     }
   }
 
-  virtual void OnProcessAttach(base::Time time,
-                               DWORD process_id,
-                               DWORD thread_id,
-                               const TraceModuleData* data) OVERRIDE {
+  void OnProcessAttach(base::Time time,
+                       DWORD process_id,
+                       DWORD thread_id,
+                       const TraceModuleData* data) override {
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
     process_attaches.push_back(*data);
   }
 
-  virtual void OnProcessDetach(base::Time time,
-                               DWORD process_id,
-                               DWORD thread_id,
-                               const TraceModuleData* data) OVERRIDE {
+  void OnProcessDetach(base::Time time,
+                       DWORD process_id,
+                       DWORD thread_id,
+                       const TraceModuleData* data) override {
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
     process_detaches.push_back(*data);
   }
 
-  virtual void OnThreadAttach(base::Time time,
-                              DWORD process_id,
-                              DWORD thread_id,
-                              const TraceModuleData* data) OVERRIDE {
+  void OnThreadAttach(base::Time time,
+                      DWORD process_id,
+                      DWORD thread_id,
+                      const TraceModuleData* data) override {
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
@@ -159,27 +160,30 @@ class ParseEngineUnitTest
   }
 
   // Issued for DLL_THREAD_DETACH on an instrumented module.
-  virtual void OnThreadDetach(base::Time time,
-                              DWORD process_id,
-                              DWORD thread_id,
-                              const TraceModuleData* data) OVERRIDE {
+  void OnThreadDetach(base::Time time,
+                      DWORD process_id,
+                      DWORD thread_id,
+                      const TraceModuleData* data) override {
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
     thread_detaches.push_back(*data);
   }
 
-  virtual void OnInvocationBatch(
-      base::Time time, DWORD process_id, DWORD thread_id,
-      size_t num_invocations, const TraceBatchInvocationInfo* data) OVERRIDE {
-    // TODO(anyone): Test this.
-  }
-
-  virtual void OnIndexedFrequency(
+  void OnInvocationBatch(
       base::Time time,
       DWORD process_id,
       DWORD thread_id,
-      const TraceIndexedFrequencyData* data) OVERRIDE {
+      size_t num_invocations,
+      const TraceBatchInvocationInfo* data) override {
+    // TODO(anyone): Test this.
+  }
+
+  void OnIndexedFrequency(
+      base::Time time,
+      DWORD process_id,
+      DWORD thread_id,
+      const TraceIndexedFrequencyData* data) override {
     ASSERT_EQ(process_id, kProcessId);
     ASSERT_EQ(thread_id, kThreadId);
     ASSERT_TRUE(reinterpret_cast<const void*>(data) == expected_data);
@@ -440,7 +444,7 @@ TEST_F(ParseEngineUnitTest, FunctionExitEvents) {
   ASSERT_EQ(function_exits.count(&TestFunc2), 2);
 
   // Check for short event data.
- ASSERT_NO_FATAL_FAILURE(
+  ASSERT_NO_FATAL_FAILURE(
      DispatchEventData(TRACE_EXIT_EVENT,
                        &event_data,
                        sizeof(TraceEnterEventData) - 1));
@@ -669,7 +673,7 @@ TEST_F(ParseEngineUnitTest, FunctionNameTableEntry) {
 
   data->function_id = 37;
   data->name_length = arraysize(kDummyFunctionName);
-  ::strcpy(data->name, kDummyFunctionName);
+  base::snprintf(data->name, data->name_length, kDummyFunctionName);
 
   EXPECT_CALL(*this, OnFunctionNameTableEntry(_, kProcessId, data));
   ASSERT_NO_FATAL_FAILURE(DispatchEventData(

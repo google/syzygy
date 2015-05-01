@@ -53,7 +53,7 @@ class SymbolBaseImpl : public Symbol {
  public:
   // @name Symbol functions.
   // @{
-  virtual bool Write(WritablePdbStream* stream) const OVERRIDE;
+  virtual bool Write(WritablePdbStream* stream) const override;
   // @}
 
  private:
@@ -73,7 +73,7 @@ class TypedSymbolImpl : public SymbolBaseImpl {
 
   // @name Symbol functions.
   // @{
-  virtual Microsoft_Cci_Pdb::SYM GetType() const OVERRIDE;
+  virtual Microsoft_Cci_Pdb::SYM GetType() const override;
   // @}
 
  private:

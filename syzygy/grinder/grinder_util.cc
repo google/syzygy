@@ -14,7 +14,7 @@
 
 #include "syzygy/grinder/grinder_util.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "mnemonics.h"  // NOLINT
 #include "syzygy/common/defs.h"
 #include "syzygy/common/indexed_frequency_data.h"

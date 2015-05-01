@@ -47,15 +47,13 @@ class ShuffleOrderer : public block_graph::BlockGraphOrdererInterface {
   explicit ShuffleOrderer(uint32 seed) : rng_(seed) {
   }
 
-  virtual const char* name() const OVERRIDE {
-    return "ShuffleOrderer";
-  }
+  virtual const char* name() const override { return "ShuffleOrderer"; }
 
   // Shuffle sections while paying attention to put .debug$S sections at the
   // end, so that they come after the associated sections.
   virtual bool OrderBlockGraph(
       OrderedBlockGraph* ordered_graph,
-      BlockGraph::Block* /* headers_block */) OVERRIDE {
+      BlockGraph::Block* /* headers_block */) override {
     DCHECK(ordered_graph != NULL);
     BlockGraph* graph = ordered_graph->block_graph();
     DCHECK(graph != NULL);
@@ -80,10 +78,10 @@ class ShuffleOrderer : public block_graph::BlockGraphOrdererInterface {
   core::RandomNumberGenerator rng_;
 };
 
-// We can't rely on CommandLine to built the command-line string for us
+// We can't rely on base::CommandLine to built the command-line string for us
 // because it doesn't maintain the order of arguments.
-void MakeCommandLineString(const CommandLine::StringVector& args,
-                           CommandLine::StringType* cmd_line) {
+void MakeCommandLineString(const base::CommandLine::StringVector& args,
+                           base::CommandLine::StringType* cmd_line) {
   DCHECK(cmd_line != NULL);
 
   cmd_line->clear();
@@ -101,7 +99,7 @@ class CoffImageLayoutBuilderTest : public testing::PELibUnitTest {
   CoffImageLayoutBuilderTest() : image_layout_(&block_graph_) {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::PELibUnitTest::SetUp();
 
     test_dll_obj_path_ =
@@ -165,7 +163,7 @@ class CoffImageLayoutBuilderTest : public testing::PELibUnitTest {
     opts.wait = true;
 
     // Build linker command line.
-    CommandLine::StringVector args;
+    base::CommandLine::StringVector args;
     args.push_back(testing::kToolchainWrapperPath);
     args.push_back(L"LINK.EXE");
     args.push_back(L"/NOLOGO");
@@ -201,9 +199,10 @@ class CoffImageLayoutBuilderTest : public testing::PELibUnitTest {
     args.push_back(new_test_dll_obj_path_.value());
 
     // Link and check result.
-    CommandLine::StringType cmd_line;
+    base::CommandLine::StringType cmd_line;
     MakeCommandLineString(args, &cmd_line);
-    ASSERT_TRUE(base::LaunchProcess(cmd_line, opts, NULL));
+    base::Process process = base::LaunchProcess(cmd_line, opts);
+    ASSERT_TRUE(process.IsValid());
     ASSERT_NO_FATAL_FAILURE(CheckTestDll(new_test_dll_path_));
   }
 

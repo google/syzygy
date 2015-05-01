@@ -14,7 +14,7 @@
 
 #include "syzygy/pe/transforms/add_pdb_info_transform.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"

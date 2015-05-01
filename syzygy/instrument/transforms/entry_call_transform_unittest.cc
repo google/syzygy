@@ -51,7 +51,7 @@ class EntryCallTransformTest : public testing::TestDllTransformTest {
 
 class EntryCallBasicBlockTransformTest : public testing::BasicBlockTest {
  public:
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     // Create a dummy IAT block for our reference.
     dummy_iat_ = block_graph_.AddBlock(BlockGraph::DATA_BLOCK, 1024, "IAT");
     import_ref_ =

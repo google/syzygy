@@ -47,7 +47,7 @@ class TestLineInfo : public LineInfo {
 
 class LineInfoTest : public testing::Test {
  public:
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::Test::SetUp();
 
     pdb_path_ = testing::GetExeTestDataRelativePath(

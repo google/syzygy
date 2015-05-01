@@ -418,7 +418,7 @@ bool ReadPdbHeader(const base::FilePath& pdb_path,
     return false;
   }
 
-  PdbStream* header_stream = pdb_file.GetStream(kPdbHeaderInfoStream);
+  PdbStream* header_stream = pdb_file.GetStream(kPdbHeaderInfoStream).get();
   if (header_stream == NULL) {
     LOG(ERROR) << "PDB file contains no header stream: " << pdb_path.value();
     return false;
@@ -782,9 +782,9 @@ bool LoadNamedStreamFromPdbFile(
   // Get the PDB header and try to get the named stream ID from it.
   pdb::PdbInfoHeader70 pdb_header = {0};
   pdb::NameStreamMap name_stream_map;
-  if (!ReadHeaderInfoStream(pdb_file->GetStream(pdb::kPdbHeaderInfoStream),
-                            &pdb_header,
-                            &name_stream_map)) {
+  if (!ReadHeaderInfoStream(
+          pdb_file->GetStream(pdb::kPdbHeaderInfoStream).get(), &pdb_header,
+          &name_stream_map)) {
     LOG(ERROR) << "Failed to read header info stream.";
     return false;
   }

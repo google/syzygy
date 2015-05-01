@@ -45,7 +45,7 @@ const size_t kNumCaseLabelsInDllMain = 2;
 
 class CoffDecomposerTest : public testing::Test {
  public:
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::Test::SetUp();
 
     test_dll_obj_path_ =
@@ -95,7 +95,6 @@ TEST_F(CoffDecomposerTest, Decompose) {
 
   // Count symbols.
   size_t num_internal_symbols = 0;
-  size_t num_assoc_comdat_sections = 0;
   size_t num_symbols = image_file_.file_header()->NumberOfSymbols;
   for (size_t i = 0; i < num_symbols; ++i) {
     const IMAGE_SYMBOL* symbol = image_file_.symbol(i);

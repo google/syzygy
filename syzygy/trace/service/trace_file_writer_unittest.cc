@@ -14,7 +14,7 @@
 
 #include "syzygy/trace/service/trace_file_writer.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/align.h"
 #include "syzygy/pe/unittest_util.h"
@@ -33,7 +33,7 @@ class TestTraceFileWriter : public TraceFileWriter {
 
 class TraceFileWriterTest : public testing::PELibUnitTest {
  public:
-  virtual void SetUp() OVERRIDE {
+  void SetUp() override {
     testing::PELibUnitTest::SetUp();
     CreateTemporaryDir(&temp_dir);
     trace_path = temp_dir.AppendASCII("trace.dat");
@@ -141,7 +141,7 @@ TEST_F(TraceFileWriterTest, WriteRecordFailsOverwritten) {
   TraceFileSegmentHeader* header = reinterpret_cast<TraceFileSegmentHeader*>(
       record + 1);
   record->size = sizeof(TraceFileSegmentHeader);
-  record->type= TraceFileSegmentHeader::kTypeId;
+  record->type = TraceFileSegmentHeader::kTypeId;
   record->version.hi = TRACE_VERSION_HI;
   record->version.lo = TRACE_VERSION_LO;
   header->segment_length = 1;
@@ -163,7 +163,7 @@ TEST_F(TraceFileWriterTest, WriteRecordSucceeds) {
   TraceFileSegmentHeader* header = reinterpret_cast<TraceFileSegmentHeader*>(
       record + 1);
   record->size = sizeof(TraceFileSegmentHeader);
-  record->type= TraceFileSegmentHeader::kTypeId;
+  record->type = TraceFileSegmentHeader::kTypeId;
   record->version.hi = TRACE_VERSION_HI;
   record->version.lo = TRACE_VERSION_LO;
   header->segment_length = 1;

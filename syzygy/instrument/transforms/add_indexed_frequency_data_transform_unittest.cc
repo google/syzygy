@@ -42,9 +42,7 @@ const uint32 kNumEntries = 7;
 class AddFrequencyDataTransformTest
     : public testing::TestDllTransformTest {
  public:
-  virtual void SetUp() OVERRIDE {
-    ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
-  }
+  virtual void SetUp() override { ASSERT_NO_FATAL_FAILURE(DecomposeTestDll()); }
 
   void Apply(size_t num_entries,
              size_t num_columns,

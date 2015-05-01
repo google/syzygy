@@ -123,7 +123,6 @@ bool ApplicationProfile::ComputeGlobalProfile() {
   const BlockGraph::BlockMap& blocks = graph->blocks();
   BlockGraph::BlockMap::const_iterator it = blocks.begin();
   for (; it != blocks.end(); ++it) {
-    BlockGraph::BlockId id = it->first;
     const BlockGraph::Block* block = &it->second;
     bool valid = true;
 

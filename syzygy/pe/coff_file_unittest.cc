@@ -33,7 +33,7 @@ class CoffFileTest : public testing::PELibUnitTest {
   CoffFileTest() {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     Super::SetUp();
 
     test_dll_obj_path_ =
@@ -87,7 +87,7 @@ TEST_F(CoffFileTest, TranslateSectionOffsets) {
     EXPECT_NE(addr, FileOffsetAddress::kInvalidAddress);
 
     size_t new_section_index = kInvalidSection;
-    size_t new_offset = -1;
+    size_t new_offset = SIZE_MAX;
     ASSERT_TRUE(image_file_.FileOffsetToSectionOffset(
         addr, &new_section_index, &new_offset));
     EXPECT_EQ(i, new_section_index);

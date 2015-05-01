@@ -17,7 +17,7 @@
 #include <stdint.h>
 #include <string>
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "syzygy/refinery/unittest_util.h"
 

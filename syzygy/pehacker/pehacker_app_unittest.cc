@@ -108,7 +108,7 @@ class PEHackerAppTest : public testing::PELibUnitTest {
   base::FilePath stderr_path_;
   // @}
 
-  CommandLine cmd_line_;
+  base::CommandLine cmd_line_;
   base::FilePath config_file_;
 };
 
@@ -180,7 +180,6 @@ TEST_F(PEHackerAppTest, ParseFullCommandLineSucceeds) {
 
   std::string s;
   int i = 0;
-  double d = 0;
   bool b = false;
 
   EXPECT_TRUE(test_impl_.variables_.GetString("var1", &s));

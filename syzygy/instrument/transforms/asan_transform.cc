@@ -172,7 +172,7 @@ bool DecodeMemoryAccess(const Instruction& instr,
   const _DInst& repr = instr.representation();
 
   // Figure out which operand we're instrumenting.
-  size_t mem_op_id = -1;
+  size_t mem_op_id = SIZE_MAX;
   if (IsInstrumentable(repr.ops[0]) && IsInstrumentable(repr.ops[1])) {
     // This happens with instructions like: MOVS [EDI], [ESI].
     DCHECK(repr.ops[0].size == repr.ops[1].size);
@@ -344,7 +344,7 @@ std::string GetAsanCheckAccessFunctionName(
                          info.size,
                          access_mode_str,
                          info.save_flags ? "" : "_no_flags");
-  StringToLowerASCII(&function_name);
+  base::StringToLowerASCII(&function_name);
   return function_name;
 }
 

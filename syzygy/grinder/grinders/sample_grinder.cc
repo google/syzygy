@@ -354,7 +354,7 @@ SampleGrinder::SampleGrinder()
 SampleGrinder::~SampleGrinder() {
 }
 
-bool SampleGrinder::ParseCommandLine(const CommandLine* command_line) {
+bool SampleGrinder::ParseCommandLine(const base::CommandLine* command_line) {
   DCHECK(command_line != NULL);
 
   if (command_line->HasSwitch(kAggregationLevel)) {

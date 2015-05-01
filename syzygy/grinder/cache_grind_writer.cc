@@ -14,7 +14,7 @@
 
 #include "syzygy/grinder/cache_grind_writer.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 
 namespace grinder {

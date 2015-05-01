@@ -17,7 +17,7 @@
 
 #include "syzygy/pehacker/pehacker_app.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/strings/string_split.h"
 #include "base/strings/stringprintf.h"
@@ -108,8 +108,8 @@ bool PEHackerApp::ImageId::operator<(const ImageId& rhs) const {
   return output_module.value() < rhs.output_module.value();
 }
 
-bool PEHackerApp::ParseCommandLine(const CommandLine* cmd_line) {
-  DCHECK_NE(reinterpret_cast<const CommandLine*>(NULL), cmd_line);
+bool PEHackerApp::ParseCommandLine(const base::CommandLine* cmd_line) {
+  DCHECK_NE(reinterpret_cast<const base::CommandLine*>(NULL), cmd_line);
 
   if (cmd_line->HasSwitch("help"))
     return Usage(cmd_line, "");
@@ -137,8 +137,8 @@ bool PEHackerApp::ParseCommandLine(const CommandLine* cmd_line) {
 
   // Parse any variables defined as arguments.
   VLOG(1) << "Parsing command-line variables.";
-  const CommandLine::SwitchMap& switches = cmd_line->GetSwitches();
-  CommandLine::SwitchMap::const_iterator it = switches.begin();
+  const base::CommandLine::SwitchMap& switches = cmd_line->GetSwitches();
+  base::CommandLine::SwitchMap::const_iterator it = switches.begin();
   for (; it != switches.end(); ++it) {
     if (it->first[0] != 'd')
       continue;
@@ -165,7 +165,7 @@ int PEHackerApp::Run() {
   return 0;
 }
 
-bool PEHackerApp::Usage(const CommandLine* cmd_line,
+bool PEHackerApp::Usage(const base::CommandLine* cmd_line,
                         const base::StringPiece& message) const {
   if (!message.empty()) {
     ::fwrite(message.data(), 1, message.length(), err());

@@ -79,8 +79,7 @@ const char kUsageFormatStr[] =
 
 }  // namespace
 
-bool OptimizeApp::ParseCommandLine(const CommandLine* cmd_line) {
-
+bool OptimizeApp::ParseCommandLine(const base::CommandLine* cmd_line) {
   if (cmd_line->HasSwitch("help"))
      return Usage(cmd_line, "");
 
@@ -234,7 +233,7 @@ int OptimizeApp::Run() {
   return 0;
 }
 
-bool OptimizeApp::Usage(const CommandLine* cmd_line,
+bool OptimizeApp::Usage(const base::CommandLine* cmd_line,
                         const base::StringPiece& message) const {
   if (!message.empty()) {
     ::fwrite(message.data(), 1, message.length(), err());

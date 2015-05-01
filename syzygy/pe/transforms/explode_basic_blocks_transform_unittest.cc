@@ -36,7 +36,7 @@ class ExplodeBasicBlocksTransformTest : public testing::PELibUnitTest {
         input_path_(testing::GetExeRelativePath(testing::kTestDllName)) {
   }
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     this->CreateTemporaryDir(&temp_dir_);
     output_path_ = temp_dir_.Append(testing::kTestDllName);
   }
@@ -74,7 +74,7 @@ class ExplodeBasicBlocksTransformTest : public testing::PELibUnitTest {
 
 class DllMainRandomizer : public ExplodeBasicBlocksTransform {
  protected:
-  bool SkipThisBlock(const BlockGraph::Block* candidate) OVERRIDE {
+  bool SkipThisBlock(const BlockGraph::Block* candidate) override {
     return candidate->name() != "DllMain";
   }
 };

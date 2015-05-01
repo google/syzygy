@@ -53,7 +53,7 @@ bool ImageLayoutsEqual(const ImageLayout& il1, const ImageLayout& il2) {
 class SerializationTest : public testing::PELibUnitTest {
  public:
   SerializationTest() : image_layout_(&block_graph_) { }
-  virtual void SetUp() OVERRIDE { }
+  virtual void SetUp() override {}
 
   void InitPEFile() {
     base::FilePath image_path(

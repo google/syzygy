@@ -38,11 +38,11 @@ class AsanInstrumenter : public InstrumenterWithAgent {
  protected:
   // @name InstrumenterWithAgent overrides.
   // @{
-  virtual bool ImageFormatIsSupported(ImageFormat image_format) OVERRIDE;
-  virtual bool InstrumentImpl() OVERRIDE;
-  virtual const char* InstrumentationMode() OVERRIDE { return "asan"; }
+  virtual bool ImageFormatIsSupported(ImageFormat image_format) override;
+  virtual bool InstrumentImpl() override;
+  virtual const char* InstrumentationMode() override { return "asan"; }
   virtual bool ParseAdditionalCommandLineArguments(
-      const CommandLine* command_line) OVERRIDE;
+      const base::CommandLine* command_line) override;
   // @}
 
   // @name Command-line parameters.

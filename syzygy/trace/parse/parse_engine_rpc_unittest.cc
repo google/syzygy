@@ -20,11 +20,11 @@
 #include <map>
 
 #include "base/environment.h"
-#include "base/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/memory/scoped_vector.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -426,9 +426,9 @@ class IndirectFunctionThread : public base::DelegateSimpleThread::Delegate {
       : invocation_count_(invocation_count), f_(f), module_(module),
         delay_(delay), thread_detach_(true) {
     exit_event_.Set(::CreateEvent(NULL, TRUE, FALSE, NULL));
-    CHECK(exit_event_);
+    CHECK(exit_event_.Get());
     done_event_.Set(::CreateEvent(NULL, TRUE, FALSE, NULL));
-    CHECK(done_event_);
+    CHECK(done_event_.Get());
   }
 
   void set_thread_detach(bool value) {
@@ -446,18 +446,18 @@ class IndirectFunctionThread : public base::DelegateSimpleThread::Delegate {
         ::Sleep(delay_);
       }
     }
-    ::SetEvent(done_event_);
-    ASSERT_EQ(WAIT_OBJECT_0, ::WaitForSingleObject(exit_event_, INFINITE));
+    ::SetEvent(done_event_.Get());
+    ASSERT_EQ(WAIT_OBJECT_0,
+              ::WaitForSingleObject(exit_event_.Get(), INFINITE));
     if (thread_detach_)
       IndirectThunkDllMain(module_, DLL_THREAD_DETACH, NULL);
   }
 
-  void Exit() {
-    ::SetEvent(exit_event_);
-  }
+  void Exit() { ::SetEvent(exit_event_.Get()); }
 
   void Wait() {
-    ASSERT_EQ(WAIT_OBJECT_0, ::WaitForSingleObject(done_event_, INFINITE));
+    ASSERT_EQ(WAIT_OBJECT_0,
+              ::WaitForSingleObject(done_event_.Get(), INFINITE));
   }
 
  private:

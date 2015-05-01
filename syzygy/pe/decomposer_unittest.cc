@@ -207,7 +207,7 @@ TEST_F(DecomposerTest, Decompose) {
   SectionCountMap expected_section_counts;
 #ifndef NDEBUG
   // Debug build.
-  expected_section_counts[-1] = 2;
+  expected_section_counts[static_cast<unsigned>(-1)] = 2;
   expected_section_counts[0] = 323;
   expected_section_counts[1] = 747;
   expected_section_counts[2] = 91;
@@ -217,7 +217,7 @@ TEST_F(DecomposerTest, Decompose) {
 #else
 #ifndef OFFICIAL_BUILD
   // Release build.
-  expected_section_counts[-1] = 2;
+  expected_section_counts[static_cast<unsigned>(-1)] = 2;
   expected_section_counts[0] = 298;
   expected_section_counts[1] = 724;
   expected_section_counts[2] = 85;
@@ -226,7 +226,7 @@ TEST_F(DecomposerTest, Decompose) {
   expected_section_counts[5] = 1;
 #else
   // Official build.
-  expected_section_counts[-1] = 2;
+  expected_section_counts[static_cast<unsigned>(-1)] = 2;
   expected_section_counts[0] = 297;
   expected_section_counts[1] = 724;
   expected_section_counts[2] = 85;
@@ -588,9 +588,7 @@ class DecomposerAfterRelinkTest : public DecomposerTest {
 
   DecomposerAfterRelinkTest() : relinker_(&policy_) { }
 
-  virtual void SetUp() OVERRIDE {
-    Super::SetUp();
-  }
+  virtual void SetUp() override { Super::SetUp(); }
 
   void Relink(bool compress_pdb) {
     // Initialize a relinker and generate a pdb that contains a block-graph

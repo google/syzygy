@@ -33,10 +33,10 @@ class CoverageGrinder : public GrinderInterface {
 
   // @name GrinderInterface implementation.
   // @{
-  virtual bool ParseCommandLine(const CommandLine* command_line) OVERRIDE;
-  virtual void SetParser(Parser* parser) OVERRIDE;
-  virtual bool Grind() OVERRIDE;
-  virtual bool OutputData(FILE* file) OVERRIDE;
+  virtual bool ParseCommandLine(const base::CommandLine* command_line) override;
+  virtual void SetParser(Parser* parser) override;
+  virtual bool Grind() override;
+  virtual bool OutputData(FILE* file) override;
   // @}
 
   // @name IndexedFrequencyGrinder implementation.
@@ -48,7 +48,7 @@ class CoverageGrinder : public GrinderInterface {
       base::Time time,
       DWORD process_id,
       DWORD thread_id,
-      const TraceIndexedFrequencyData* data) OVERRIDE;
+      const TraceIndexedFrequencyData* data) override;
   // @}
 
   enum OutputFormat {

@@ -35,7 +35,7 @@ class ImportedModule {
  public:
   // Used to indicate that the date/time stamp for the module should not be
   // updated.
-  static const uint32 kInvalidDate = -1;
+  static const uint32 kInvalidDate = UINT32_MAX;
 
   // The modes in which the transform will treat a symbol.
   enum TransformMode {

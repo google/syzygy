@@ -14,7 +14,7 @@
 
 #include "syzygy/zap_timestamp/zap_timestamp.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -52,7 +52,7 @@ struct PePdbPathPair {
 
 class ZapTimestampTest : public testing::Test {
  public:
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     testing::Test::SetUp();
 
     temp_dir_.CreateUniqueTempDir();

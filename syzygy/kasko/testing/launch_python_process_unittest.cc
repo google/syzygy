@@ -27,11 +27,12 @@ namespace testing {
 
 TEST(LaunchPythonProcessTest, BasicTest) {
   base::CommandLine args(base::CommandLine::NO_PROGRAM);
-  base::win::ScopedHandle process = LaunchPythonProcess(
+  base::Process process;
+  process = LaunchPythonProcess(
       base::FilePath(L"syzygy/kasko/testing/exit_with.py"), args);
   ASSERT_TRUE(process.IsValid());
   int exit_code = 0;
-  ASSERT_TRUE(base::WaitForExitCode(process.Take(), &exit_code));
+  ASSERT_TRUE(process.WaitForExit(&exit_code));
   ASSERT_EQ(0, exit_code);
 
   // Pass an argument.
@@ -39,7 +40,7 @@ TEST(LaunchPythonProcessTest, BasicTest) {
   process = LaunchPythonProcess(
       base::FilePath(L"syzygy/kasko/testing/exit_with.py"), args);
   ASSERT_TRUE(process.IsValid());
-  ASSERT_TRUE(base::WaitForExitCode(process.Take(), &exit_code));
+  ASSERT_TRUE(process.WaitForExit(&exit_code));
   ASSERT_EQ(2, exit_code);
 
   // Switches are treated differently than arguments by CommandLine, and proved
@@ -49,7 +50,7 @@ TEST(LaunchPythonProcessTest, BasicTest) {
   process = LaunchPythonProcess(
       base::FilePath(L"syzygy/kasko/testing/exit_with.py"), args);
   ASSERT_TRUE(process.IsValid());
-  ASSERT_TRUE(base::WaitForExitCode(process.Take(), &exit_code));
+  ASSERT_TRUE(process.WaitForExit(&exit_code));
   ASSERT_EQ(5, exit_code);
 
   // Set stdin to NULL, as the test launcher does in a parallel test mode.
@@ -60,7 +61,7 @@ TEST(LaunchPythonProcessTest, BasicTest) {
   process = LaunchPythonProcess(
       base::FilePath(L"syzygy/kasko/testing/exit_with.py"), args);
   ASSERT_TRUE(process.IsValid());
-  ASSERT_TRUE(base::WaitForExitCode(process.Take(), &exit_code));
+  ASSERT_TRUE(process.WaitForExit(&exit_code));
   ASSERT_EQ(5, exit_code);
 }
 

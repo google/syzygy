@@ -14,7 +14,7 @@
 
 #include "syzygy/genfilter/filter_compiler.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
@@ -46,7 +46,7 @@ class FilterCompilerTest : public testing::PELibUnitTest {
  public:
   typedef testing::PELibUnitTest Super;
 
-  virtual void SetUp() OVERRIDE {
+  virtual void SetUp() override {
     Super::SetUp();
     ASSERT_NO_FATAL_FAILURE(CreateTemporaryDir(&temp_dir_));
     test_dll_ = testing::GetExeRelativePath(testing::kTestDllName);
@@ -58,7 +58,7 @@ class FilterCompilerTest : public testing::PELibUnitTest {
     filter_txt_ = temp_dir_.Append(L"filter.txt");
   }
 
-  virtual void TearDown() OVERRIDE {
+  virtual void TearDown() override {
     ASSERT_TRUE(base::DeleteFile(temp_dir_, true));
     Super::TearDown();
   }

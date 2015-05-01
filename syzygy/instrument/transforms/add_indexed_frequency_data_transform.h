@@ -61,7 +61,7 @@ class AddIndexedFrequencyDataTransform
   // BlockGraphTransformInterface Implementation.
   virtual bool TransformBlockGraph(const TransformPolicyInterface* policy,
                                    BlockGraph* block_graph,
-                                   BlockGraph::Block* header_block) OVERRIDE;
+                                   BlockGraph::Block* header_block) override;
 
   // After applying the transform, this method can be used to allocate the
   // correct number of bytes for the default frequency data static buffer.

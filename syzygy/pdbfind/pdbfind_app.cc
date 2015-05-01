@@ -14,7 +14,7 @@
 
 #include "syzygy/pdbfind/pdbfind_app.h"
 
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "syzygy/pe/find.h"
 #include "syzygy/pe/pdb_info.h"
 #include "syzygy/pe/pe_file.h"
@@ -49,13 +49,13 @@ const char kUsageFormatStr[] =
 
 }  // namespace
 
-bool PdbFindApp::ParseCommandLine(const CommandLine* cmd_line) {
+bool PdbFindApp::ParseCommandLine(const base::CommandLine* cmd_line) {
   DCHECK(cmd_line != NULL);
 
   if (cmd_line->HasSwitch("help"))
     return Usage(cmd_line, "");
 
-  CommandLine::StringVector args = cmd_line->GetArgs();
+  base::CommandLine::StringVector args = cmd_line->GetArgs();
   if (args.size() == 0)
     return Usage(cmd_line, "Must specify input-image-path.");
 
@@ -102,7 +102,7 @@ int PdbFindApp::Run() {
   return kSuccess;
 }
 
-bool PdbFindApp::Usage(const CommandLine* cmd_line,
+bool PdbFindApp::Usage(const base::CommandLine* cmd_line,
                        const base::StringPiece& message) const {
   if (!message.empty()) {
     ::fwrite(message.data(), 1, message.length(), err());

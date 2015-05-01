@@ -14,8 +14,8 @@
 
 #include "syzygy/pe/coff_file.h"
 
-#include "base/file_util.h"
 #include "base/logging.h"
+#include "base/files/file_util.h"
 
 namespace pe {
 

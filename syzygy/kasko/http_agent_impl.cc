@@ -273,7 +273,7 @@ scoped_ptr<HttpResponse> HttpResponseImpl::Create(
   instance->session_.Set(
       ::WinHttpOpen(user_agent.c_str(), proxy_config.access_type(),
                     proxy_config.proxy(), proxy_config.proxy_bypass(), 0));
-  if (!instance->session_) {
+  if (!instance->session_.IsValid()) {
     LOG(ERROR) << "WinHttpOpen() failed: " << ::common::LogWe();
     return scoped_ptr<HttpResponse>();
   }
@@ -287,7 +287,7 @@ scoped_ptr<HttpResponse> HttpResponseImpl::Create(
   // Connect to a host/port.
   instance->connection_.Set(
       ::WinHttpConnect(instance->session_.Get(), host.c_str(), port, 0));
-  if (!instance->connection_) {
+  if (!instance->connection_.IsValid()) {
     LOG(ERROR) << "WinHttpConnect() failed with host " << host << " and port "
                << port << ": " << ::common::LogWe();
     return scoped_ptr<HttpResponse>();
@@ -300,7 +300,7 @@ scoped_ptr<HttpResponse> HttpResponseImpl::Create(
                            NULL,  // referer
                            NULL,  // accept types
                            secure ? WINHTTP_FLAG_SECURE : 0));
-  if (!instance->connection_) {
+  if (!instance->connection_.IsValid()) {
     LOG(ERROR) << "WinHttpConnect() failed with host " << host << " and port "
                << port << ": " << ::common::LogWe();
     return scoped_ptr<HttpResponse>();

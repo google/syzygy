@@ -577,7 +577,7 @@ TEST_F(ControlFlowAnalysisTest, IrreductibleStructure) {
   BasicCodeBlock* head = subgraph_.AddBasicCodeBlock("head");
   BasicCodeBlock* body1 = subgraph_.AddBasicCodeBlock("body1");
   BasicCodeBlock* body2 = subgraph_.AddBasicCodeBlock("body2");
-  BasicCodeBlock* end = subgraph_.AddBasicCodeBlock("end");
+  subgraph_.AddBasicCodeBlock("end");
 
   MakeIf(head, body1, body2);
   Connect(body1, body2);

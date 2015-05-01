@@ -34,7 +34,7 @@ TEST(PdbWriterTest, WriteStringTable) {
   scoped_refptr<PdbByteStream> reader(new PdbByteStream());
   scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
 
-  EXPECT_TRUE(WriteStringTable(strings, writer));
+  EXPECT_TRUE(WriteStringTable(strings, writer.get()));
 
   EXPECT_EQ(reader->length(), writer->pos());
 
@@ -52,7 +52,7 @@ TEST(PdbWriterTest, WriteStringTable) {
 
   for (size_t i = 0; i < kNumStrings; ++i) {
     std::string read_string;
-    ReadString(reader, &read_string);
+    ReadString(reader.get(), &read_string);
     EXPECT_EQ(strings[i], read_string);
   }
 
@@ -81,7 +81,7 @@ TEST(PdbWriterTest, WriteEmptyStringTable) {
   scoped_refptr<PdbByteStream> reader(new PdbByteStream());
   scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
 
-  EXPECT_TRUE(WriteStringTable(strings, writer));
+  EXPECT_TRUE(WriteStringTable(strings, writer.get()));
 
   EXPECT_EQ(reader->length(), writer->pos());
 

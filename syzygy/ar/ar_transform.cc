@@ -15,8 +15,8 @@
 #include "syzygy/ar/ar_transform.h"
 
 #include "base/bind.h"
-#include "base/file_util.h"
 #include "base/logging.h"
+#include "base/files/file_util.h"
 #include "base/memory/scoped_vector.h"
 #include "base/strings/stringprintf.h"
 #include "syzygy/ar/ar_reader.h"
