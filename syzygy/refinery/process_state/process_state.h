@@ -16,7 +16,9 @@
 #define SYZYGY_REFINERY_PROCESS_STATE_PROCESS_STATE_H_
 
 #include <stdint.h>
+#include <iterator>
 #include <map>
+#include <vector>
 
 #include "base/logging.h"
 #include "base/macros.h"
@@ -81,6 +83,7 @@ class ProcessState::LayerBase : public base::RefCounted<LayerBase> {
   friend class base::RefCounted<LayerBase>;
   ~LayerBase() {}
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(LayerBase);
 };
 
@@ -110,17 +113,75 @@ class ProcessState::Record : public base::RefCounted<Record<RecordType>> {
   DISALLOW_COPY_AND_ASSIGN(Record);
 };
 
+template <typename RecordType> class Iterator;
+
 template <typename RecordType>
 class ProcessState::Layer : public ProcessState::LayerBase {
  public:
   typedef scoped_refptr<Record<RecordType>> RecordPtr;
+  typedef Iterator<RecordType> Iterator;
 
   void CreateRecord(Address add, Size size, RecordPtr* record);
 
+  // Gets records that fully span |size| bytes from |addr|.
+  // @param add the address of the region records should span.
+  // @param size the size of the region records should span.
+  // @param records contains the matching records.
+  void GetRecordsSpanning(Address add,
+                          Size size,
+                          std::vector<RecordPtr>* records) const;
+
+  // TODO(manzagop): GetRecordsIntersecting.
+
+  // Removes |record| from the layer.
+  // @param record the record to remove.
+  // @returns true on success, false otherwise.
+  bool RemoveRecord(const RecordPtr& record);
+
+  // Iterators for range-based for loop.
+  Iterator begin() { return Iterator(records_.begin()); }
+  Iterator end() { return Iterator(records_.end()); }
+
+  size_t size() const { return records_.size(); }
+
  private:
-  std::map<Record<RecordType>*, RecordPtr> records_;
+  std::multimap<Address, RecordPtr> records_;
 };
 
+template <typename RecordType>
+class Iterator
+    : public std::iterator<std::input_iterator_tag,
+                           typename ProcessState::Layer<RecordType>::RecordPtr>
+{
+ public:
+  typedef typename ProcessState::Layer<RecordType>::RecordPtr RecordPtr;
+
+  Iterator() {}
+  const RecordPtr& operator*() const { return it_->second; }
+  Iterator& operator=(const Iterator&) {
+    it_ = other.it_;
+    return *this;
+  }
+  const Iterator& operator++() {
+    ++it_;
+    return *this;
+  }
+  bool operator==(const Iterator& other) const {
+    return it_ == other.it_;
+  }
+  bool operator!=(const Iterator& other) const {
+    return it_ != other.it_;
+  }
+
+ private:
+  friend ProcessState::Layer<RecordType>;
+  explicit Iterator(typename std::multimap<Address, RecordPtr>::iterator it)
+      : it_(it) {}
+
+  typename std::multimap<Address, RecordPtr>::iterator it_;
+};
+
+// ProcessState
 template<typename RecordType>
 bool ProcessState::FindLayer(scoped_refptr<Layer<RecordType>>* layer) {
   DCHECK(layer != nullptr);
@@ -161,16 +222,52 @@ void ProcessState::CreateLayer(scoped_refptr<Layer<RecordType>>* layer) {
   layer->swap(new_layer);
 }
 
+// ProcessState::Layer
 template <typename RecordType>
 void ProcessState::Layer<RecordType>::CreateRecord(
     Address addr, Size size, RecordPtr* record) {
   DCHECK(record != nullptr);
+  CHECK_NE(0U, size);  // Not supported.
   RecordPtr new_record = new Record<RecordType>(addr, size);
-
-  auto ib = records_.insert(std::make_pair(new_record.get(), new_record));
-  DCHECK(ib.second);
+  records_.insert(std::make_pair(addr, new_record));
 
   record->swap(new_record);
+}
+
+template <typename RecordType>
+void ProcessState::Layer<RecordType>::GetRecordsSpanning(
+    Address address, Size size, std::vector<RecordPtr>* records) const {
+  CHECK_NE(0U, size);  // Not supported.
+
+  records->clear();
+
+  for (const auto& entry : records_) {
+    Address record_start_address = entry.first;
+    Address record_end_address = entry.first + entry.second->size();
+
+    if (record_start_address > address)
+      return;
+    if (record_end_address < address + size)
+      continue;
+    records->push_back(entry.second);
+  }
+}
+
+template <typename RecordType>
+bool ProcessState::Layer<RecordType>::RemoveRecord(const RecordPtr& record) {
+  DCHECK(record.get() != nullptr);
+
+  // Note: a record can only appear once, as per API (CreateRecord is the only
+  // mechanism to add a record).
+  auto matches = records_.equal_range(record->addr());
+  for (auto it = matches.first; it != matches.second; ++it) {
+    if (it->second.get() == record.get()) {
+      records_.erase(it);
+      return true;
+    }
+  }
+
+  return false;
 }
 
 }  // namespace refinery

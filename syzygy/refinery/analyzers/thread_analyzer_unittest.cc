@@ -35,6 +35,7 @@ TEST(ThreadAnalyzerTest, Basic) {
   scoped_refptr<ProcessState::Layer<Stack>> stack_layer;
   ASSERT_TRUE(process_state.FindLayer(&stack_layer));
 
+  ASSERT_LE(1, stack_layer->size());
   // TODO(siggi): Flesh out layer so that it can be enumerated in some way for
   //     more elaborate testing.
 }

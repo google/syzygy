@@ -36,6 +36,7 @@ TEST(MemoryAnalyzerTest, Basic) {
   ASSERT_TRUE(process_state.FindLayer(&bytes_layer));
 
   // TODO(manzagop): More testing once Layer interface fleshed out.
+  ASSERT_LE(1, bytes_layer->size());
 }
 
 }  // namespace refinery
