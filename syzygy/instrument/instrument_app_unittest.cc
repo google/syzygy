@@ -124,16 +124,12 @@ TEST_F(InstrumentAppTest, EmptyCommandLineFails) {
 
 TEST_F(InstrumentAppTest, ParseWithNoInputImageFails) {
   cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
-
   ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
-  ASSERT_EQ(1, test_impl_.Run());
 }
 
 TEST_F(InstrumentAppTest, ParseWithNoOutputImageFails) {
   cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-
   ASSERT_FALSE(test_impl_.ParseCommandLine(&cmd_line_));
-  ASSERT_EQ(1, test_impl_.Run());
 }
 
 TEST_F(InstrumentAppTest, DeprecatedParseNoModeSpecifyDlls) {

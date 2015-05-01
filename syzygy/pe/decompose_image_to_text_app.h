@@ -45,6 +45,7 @@ class DecomposeImageToTextApp : public application::AppImplBase {
   typedef block_graph::BasicBlock BasicBlock;
   typedef block_graph::BasicCodeBlock BasicCodeBlock;
   typedef block_graph::BasicDataBlock BasicDataBlock;
+  typedef block_graph::BasicEndBlock BasicEndBlock;
   typedef block_graph::BasicBlockSubGraph BasicBlockSubGraph;
 
   void PrintUsage(const base::FilePath& program,
@@ -62,6 +63,9 @@ class DecomposeImageToTextApp : public application::AppImplBase {
   // Given the data basic block @p bb, dump it in text format to out().
   void DumpDataBBToText(const BlockGraph::Block* block,
                         const BasicDataBlock* bb);
+  // Given the end basic block @p bb, dump it in text format to out().
+  void DumpEndBBToText(const BlockGraph::Block* block,
+                       const BasicEndBlock* bb);
 
   // Dump @p block at @p addr in text format to out().
   void DumpBlockToText(core::RelativeAddress addr,

@@ -46,8 +46,6 @@ class TestEntryThunkInstrumenter : public EntryThunkInstrumenter {
 
   explicit TestEntryThunkInstrumenter(Mode instrumentation_mode)
       : EntryThunkInstrumenter(instrumentation_mode) {
-    // Call the GetPERelinker function to initialize it.
-    EXPECT_TRUE(GetPERelinker() != NULL);
   }
 };
 

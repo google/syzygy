@@ -39,11 +39,6 @@ class TestEntryCallInstrumenter : public EntryCallInstrumenter {
   using EntryCallInstrumenter::kAgentDllProfile;
   using EntryCallInstrumenter::InstrumentImpl;
   using InstrumenterWithAgent::CreateRelinker;
-
-  TestEntryCallInstrumenter() {
-    // Call the GetPERelinker function to initialize it.
-    EXPECT_TRUE(GetPERelinker() != NULL);
-  }
 };
 
 class EntryCallInstrumenterTest : public testing::PELibUnitTest {

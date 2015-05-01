@@ -47,6 +47,7 @@ using block_graph::BlockGraph;
 using block_graph::BasicBlock;
 using block_graph::BasicCodeBlock;
 using block_graph::BasicDataBlock;
+using block_graph::BasicEndBlock;
 using block_graph::BasicBlockReference;
 
 void DumpReference(const BasicBlockReference& ref, FILE* out) {
@@ -55,25 +56,31 @@ void DumpReference(const BasicBlockReference& ref, FILE* out) {
   switch (ref.referred_type()) {
     case BasicBlockReference::REFERRED_TYPE_BLOCK: {
         const BlockGraph::Block* block = ref.block();
-        if (ref.offset() == 0) {
-          ::fprintf(out, " ; (%s)", block->name().c_str());
-        } else if (ref.offset() < 0) {
-          ::fprintf(out, " ; (%s%d)", block->name().c_str(), ref.offset());
+        if (ref.base() == 0) {
+          ::fprintf(out, " ; (%s", block->name().c_str());
+        } else if (ref.base() < 0) {
+          ::fprintf(out, " ; (%s%d", block->name().c_str(), ref.base());
         } else {
           BlockGraph::Label label;
-          if (block->GetLabel(ref.offset(), &label)) {
-            ::fprintf(out, " ; (%s:%s)",
+          if (block->GetLabel(ref.base(), &label)) {
+            ::fprintf(out, " ; (%s:%s",
                       block->name().c_str(),
                       label.ToString().c_str());
           } else {
-            ::fprintf(out, " ; (%s+%d)", block->name().c_str(), ref.offset());
+            ::fprintf(out, " ; (%s+%d", block->name().c_str(), ref.base());
           }
+        }
+        if (ref.offset() == ref.base()) {
+          ::fprintf(out, ")");
+        } else {
+          ::fprintf(out, ", +indirect offset:%d)", ref.offset() - ref.base());
         }
       }
       break;
 
     case BasicBlockReference::REFERRED_TYPE_BASIC_BLOCK: {
         const BasicBlock* bb = ref.basic_block();
+        DCHECK_EQ(0, ref.base());
         DCHECK_EQ(0, ref.offset());
 
         ::fprintf(out, " ; (%s)", bb->name().c_str());
@@ -177,6 +184,10 @@ void DecomposeImageToTextApp::DumpSubGraphToText(
 
       case BasicBlock::BASIC_DATA_BLOCK:
         DumpDataBBToText(block, BasicDataBlock::Cast(bb));
+        break;
+
+      case BasicBlock::BASIC_END_BLOCK:
+        DumpEndBBToText(block, BasicEndBlock::Cast(bb));
         break;
 
       default:
@@ -292,6 +303,18 @@ void DecomposeImageToTextApp::DumpDataBBToText(
 
       curr_start = next_chunk_end;
     }
+  }
+}
+
+void DecomposeImageToTextApp::DumpEndBBToText(
+    const BlockGraph::Block* block, const BasicEndBlock* bb) {
+
+  // Dump the references of the basic end block.
+  for (const auto& entry : bb->references()) {
+    ::fprintf(out(), "  end basic-block reference with offset %d: ",
+              entry.first);
+    DumpReference(entry.second, out());
+    ::fprintf(out(), "\n");
   }
 }
 

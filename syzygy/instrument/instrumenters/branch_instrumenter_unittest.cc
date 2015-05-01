@@ -42,12 +42,6 @@ class TestBranchInstrumenter : public BranchInstrumenter {
   using BranchInstrumenter::kAgentDllBasicBlockEntry;
   using BranchInstrumenter::InstrumentImpl;
   using InstrumenterWithAgent::CreateRelinker;
-
-  TestBranchInstrumenter() {
-    // Call the GetPERelinker function to initialize it.
-    pe::PERelinker* relinker = GetPERelinker();
-    EXPECT_TRUE(relinker != NULL);
-  }
 };
 
 class BranchInstrumenterTest : public testing::PELibUnitTest {

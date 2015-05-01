@@ -117,6 +117,7 @@ struct ScopedAgentLogger {
     cmd_line.AppendSwitchPath("output-file", log_file_);
     cmd_line.AppendArg(action);
     base::LaunchOptions options;
+    options.inherit_handles = true;
     options.stderr_handle = nul_;
     options.stdin_handle = nul_;
     options.stdout_handle = nul_;

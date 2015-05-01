@@ -38,12 +38,6 @@ class TestCoverageInstrumenter : public CoverageInstrumenter {
   using CoverageInstrumenter::kAgentDllCoverage;
   using CoverageInstrumenter::InstrumentImpl;
   using InstrumenterWithAgent::CreateRelinker;
-
-  TestCoverageInstrumenter() {
-    // Call the GetPERelinker function to initialize it.
-    pe::PERelinker* relinker = GetPERelinker();
-    EXPECT_TRUE(relinker != NULL);
-  }
 };
 
 class CoverageInstrumenterTest : public testing::PELibUnitTest {

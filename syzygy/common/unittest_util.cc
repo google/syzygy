@@ -96,6 +96,11 @@ bool ApplicationTestBase::HandleLogMessage(int severity, const char* file,
     fflush(stdout);
   }
 
+  // Pass FATAL log messages, like those coming from DCHECKs to default handler
+  // to crash the program.
+  if (severity == logging::LOG_FATAL)
+    return false;
+
   return true;
 }
 

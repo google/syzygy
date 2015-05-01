@@ -53,11 +53,6 @@ class TestAsanInstrumenter : public AsanInstrumenter {
   using AsanInstrumenter::use_liveness_analysis_;
   using InstrumenterWithAgent::CreateRelinker;
   using AsanInstrumenter::InstrumentImpl;
-
-  TestAsanInstrumenter() {
-    // Call the GetPERelinker function to initialize it.
-    EXPECT_TRUE(GetPERelinker() != NULL);
-  }
 };
 
 class AsanInstrumenterTest : public testing::PELibUnitTest {

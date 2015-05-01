@@ -39,11 +39,6 @@ class TestBasicBlockEntryInstrumenter : public BasicBlockEntryInstrumenter {
   using BasicBlockEntryInstrumenter::kAgentDllBasicBlockEntry;
   using BasicBlockEntryInstrumenter::InstrumentImpl;
   using InstrumenterWithAgent::CreateRelinker;
-
-  TestBasicBlockEntryInstrumenter() {
-    // Call the GetPERelinker function to initialize it.
-    EXPECT_TRUE(GetPERelinker() != NULL);
-  }
 };
 
 class BasicBlockEntryInstrumenterTest : public testing::PELibUnitTest {
