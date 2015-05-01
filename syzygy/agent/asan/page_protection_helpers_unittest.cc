@@ -37,28 +37,28 @@ TEST(PageProtectionHelpersTest, GetBlockInfo) {
 
   // Try recovering in the usual case.
   BlockInfo info_recovered = {};
-  EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
-  EXPECT_TRUE(GetBlockInfo(info.block, &info_recovered));
+  EXPECT_TRUE(BlockInfoFromMemory(info.header, &info_recovered));
+  EXPECT_TRUE(GetBlockInfo(info.body, &info_recovered));
   EXPECT_EQ(0, ::memcmp(&info, &info_recovered, sizeof(info)));
 
   // Muck up the header and try again.
   info.header->magic++;
-  EXPECT_FALSE(BlockInfoFromMemory(info.block, &info_recovered));
-  EXPECT_TRUE(GetBlockInfo(info.block, &info_recovered));
+  EXPECT_FALSE(BlockInfoFromMemory(info.header, &info_recovered));
+  EXPECT_TRUE(GetBlockInfo(info.body, &info_recovered));
   EXPECT_EQ(0, ::memcmp(&info, &info_recovered, sizeof(info)));
   info.header->magic--;
-  EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
+  EXPECT_TRUE(BlockInfoFromMemory(info.header, &info_recovered));
 
   // Set page protections and try again.
   BlockProtectRedzones(info);
-  EXPECT_FALSE(BlockInfoFromMemory(info.block, &info_recovered));
-  EXPECT_TRUE(GetBlockInfo(info.block, &info_recovered));
+  EXPECT_FALSE(BlockInfoFromMemory(info.header, &info_recovered));
+  EXPECT_TRUE(GetBlockInfo(info.body, &info_recovered));
   EXPECT_EQ(0, ::memcmp(&info, &info_recovered, sizeof(info)));
   BlockProtectNone(info);
-  EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
+  EXPECT_TRUE(BlockInfoFromMemory(info.header, &info_recovered));
 
   // Clean up.
-  ASSERT_TRUE(StaticShadow::shadow.Unpoison(info.block, info.block_size));
+  ASSERT_TRUE(StaticShadow::shadow.Unpoison(info.header, info.block_size));
   ::VirtualFree(alloc, layout.block_size, MEM_RELEASE);
 }
 
@@ -95,28 +95,28 @@ void TestAccessUnderProtection(const BlockInfo& block_info,
   // Grab a set of points to sample for access, scattered across the various
   // components of the block.
   std::set<void*> samples;
-  samples.insert(block_info.header);
-  samples.insert(block_info.header_padding - 1);
+  samples.insert(block_info.RawHeader());
+  samples.insert(block_info.RawHeaderPadding() - 1);
   samples.insert(block_info.header_padding);
-  samples.insert(block_info.header_padding +
+  samples.insert(block_info.RawHeaderPadding() +
       block_info.header_padding_size / 2);
-  samples.insert(block_info.header_padding +
+  samples.insert(block_info.RawHeaderPadding() +
       block_info.header_padding_size - 1);
-  samples.insert(block_info.body);
-  samples.insert(block_info.body + block_info.body_size / 2);
-  samples.insert(block_info.body + block_info.body_size - 1);
-  samples.insert(block_info.trailer_padding);
-  samples.insert(block_info.trailer_padding +
+  samples.insert(block_info.RawBody());
+  samples.insert(block_info.RawBody() + block_info.body_size / 2);
+  samples.insert(block_info.RawBody() + block_info.body_size - 1);
+  samples.insert(block_info.RawTrailerPadding());
+  samples.insert(block_info.RawTrailerPadding() +
       block_info.trailer_padding_size / 2);
-  samples.insert(block_info.trailer_padding +
+  samples.insert(block_info.RawTrailerPadding() +
       block_info.trailer_padding_size - 1);
-  samples.insert(block_info.trailer);
-  samples.insert(block_info.trailer);
-  samples.insert(block_info.block + block_info.block_size - 1);
+  samples.insert(block_info.RawTrailer());
+  samples.insert(block_info.RawTrailer());
+  samples.insert(block_info.RawBlock() + block_info.block_size - 1);
 
   // Also sample at points at the edges of the pages in the redzones.
   if (block_info.left_redzone_pages_size > 0) {
-    if (block_info.block < block_info.left_redzone_pages)
+    if (block_info.RawBlock() < block_info.left_redzone_pages)
       samples.insert(block_info.left_redzone_pages - 1);
     samples.insert(block_info.left_redzone_pages);
     samples.insert(block_info.left_redzone_pages +
@@ -131,7 +131,7 @@ void TestAccessUnderProtection(const BlockInfo& block_info,
         block_info.right_redzone_pages_size - 1);
     uint8* past_end = block_info.right_redzone_pages +
         block_info.right_redzone_pages_size;
-    if (past_end < block_info.block + block_info.block_size)
+    if (past_end < block_info.RawBlock() + block_info.block_size)
       samples.insert(past_end);
   }
 

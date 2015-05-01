@@ -234,7 +234,8 @@ TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
   const size_t kMaxIterations = 10;
 
   // Retrieves the information about this block.
-  BlockHeader* header = BlockGetHeaderFromBody(mem.get());
+  BlockHeader* header = BlockGetHeaderFromBody(
+      reinterpret_cast<BlockBody*>(mem.get()));
   BlockInfo block_info = {};
   EXPECT_TRUE(BlockInfoFromMemory(header, &block_info));
 

@@ -34,13 +34,14 @@ extern ::common::RecursiveLock block_protect_lock;
 // header is not under any block protections then the layout will be read from
 // the header. If the header is corrupt, or the memory is otherwise unreadable,
 // this will be inferred from the shadow memory (less efficient, but not subject
-// to corruption).
-// @param raw_block A pointer to the beginning of the block.
+// to corruption). This is effectively a wrapper to BlockInfoFromMemory and
+// Shadow::GetBlockInfo.
+// @param body A pointer to the body of a block.
 // @param block_info The description of the block to be populated.
 // @returns true if a valid block was encountered at the provided location,
 //     false otherwise.
-bool GetBlockInfo(const void* raw_block, CompactBlockInfo* block_info);
-bool GetBlockInfo(const void* raw_block, BlockInfo* block_info);
+bool GetBlockInfo(const BlockBody* body, CompactBlockInfo* block_info);
+bool GetBlockInfo(const BlockBody* body, BlockInfo* block_info);
 
 // Unprotects all pages fully covered by the given block. All pages
 // intersecting but not fully covered by the block will be left in their

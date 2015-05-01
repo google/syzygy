@@ -65,12 +65,12 @@ void InitializeBlockHeaderPadding(BlockInfo* block_info) {
   DCHECK(IsAligned(block_info->header_padding_size,
                    2 * sizeof(uint32)));
 
-  ::memset(block_info->header_padding + sizeof(uint32),
+  ::memset(block_info->RawHeaderPadding() + sizeof(uint32),
            kBlockHeaderPaddingByte,
            block_info->header_padding_size - 2 * sizeof(uint32));
   uint32* head = reinterpret_cast<uint32*>(block_info->header_padding);
   uint32* tail = reinterpret_cast<uint32*>(
-      block_info->header_padding + block_info->header_padding_size -
+      block_info->RawHeaderPadding() + block_info->header_padding_size -
           sizeof(uint32));
   *head = block_info->header_padding_size;
   *tail = block_info->header_padding_size;
@@ -119,18 +119,20 @@ DWORD BadMemoryAccessFilter(EXCEPTION_POINTERS* e) {
   return EXCEPTION_CONTINUE_SEARCH;
 }
 
-bool BlockInfoFromMemoryImpl(const void* const_raw_block,
+bool BlockInfoFromMemoryImpl(const BlockHeader* const_header,
                              CompactBlockInfo* block_info) {
-  DCHECK_NE(static_cast<void*>(NULL), const_raw_block);
-  DCHECK_NE(static_cast<CompactBlockInfo*>(NULL), block_info);
+  DCHECK_NE(static_cast<BlockHeader*>(nullptr), const_header);
+  DCHECK_NE(static_cast<CompactBlockInfo*>(nullptr), block_info);
 
-  void* raw_block = const_cast<void*>(const_raw_block);
+  // We only perform read operations, but the block_info needs to be populated
+  // with non-const pointers. Thus, we cast once here to avoid a bunch of casts
+  // all through this method.
+  BlockHeader* header = const_cast<BlockHeader*>(const_header);
 
   // The raw_block header must be minimally aligned and begin with the expected
   // magic.
-  if (!IsAligned(reinterpret_cast<uint32>(raw_block), kShadowRatio))
+  if (!IsAligned(reinterpret_cast<uint32>(header), kShadowRatio))
     return false;
-  BlockHeader* header = reinterpret_cast<BlockHeader*>(raw_block);
   if (header->magic != kBlockHeaderMagic)
     return false;
 
@@ -146,12 +148,13 @@ bool BlockInfoFromMemoryImpl(const void* const_raw_block,
       return false;
     uint32* tail = reinterpret_cast<uint32*>(
         padding + header_padding_size - sizeof(uint32));
-    if (*head != *tail)
+    if (header_padding_size != *tail)
       return false;
   }
 
   // Parse the body.
-  uint8* body = reinterpret_cast<uint8*>(header + 1) + header_padding_size;
+  uint8* body = reinterpret_cast<uint8*>(header + 1) +
+      header_padding_size;
 
   // Parse the trailer padding.
   uint32 trailer_padding_size = 0;
@@ -169,7 +172,7 @@ bool BlockInfoFromMemoryImpl(const void* const_raw_block,
   if (!IsAligned(reinterpret_cast<uint32>(trailer + 1), kShadowRatio))
     return false;
 
-  block_info->block = reinterpret_cast<uint8*>(raw_block);
+  block_info->header = header;
   block_info->block_size = reinterpret_cast<uint8*>(trailer + 1)
       - reinterpret_cast<uint8*>(header);
   block_info->header_size = sizeof(BlockHeader) + header_padding_size;
@@ -179,10 +182,10 @@ bool BlockInfoFromMemoryImpl(const void* const_raw_block,
   return true;
 }
 
-BlockHeader* BlockGetHeaderFromBodyImpl(const void* const_body) {
-  DCHECK_NE(static_cast<void*>(NULL), const_body);
+BlockHeader* BlockGetHeaderFromBodyImpl(const BlockBody* const_body) {
+  DCHECK_NE(static_cast<BlockBody*>(nullptr), const_body);
 
-  void* body = const_cast<void*>(const_body);
+  void* body = const_cast<BlockBody*>(const_body);
 
   // The header must be appropriately aligned.
   if (!IsAligned(reinterpret_cast<uint32>(body), kShadowRatio))
@@ -292,18 +295,17 @@ void BlockInitialize(const BlockLayout& layout,
 
   // Get pointers to the various components of the block.
   uint8* cursor = reinterpret_cast<uint8*>(allocation);
-  block_info->block = reinterpret_cast<uint8*>(cursor);
   block_info->block_size = layout.block_size;
   block_info->is_nested = is_nested;
   block_info->header = reinterpret_cast<BlockHeader*>(cursor);
   cursor += sizeof(BlockHeader);
-  block_info->header_padding = cursor;
+  block_info->header_padding = reinterpret_cast<BlockHeaderPadding*>(cursor);
   cursor += layout.header_padding_size;
   block_info->header_padding_size = layout.header_padding_size;
-  block_info->body = reinterpret_cast<uint8*>(cursor);
+  block_info->body = reinterpret_cast<BlockBody*>(cursor);
   cursor += layout.body_size;
   block_info->body_size = layout.body_size;
-  block_info->trailer_padding = cursor;
+  block_info->trailer_padding = reinterpret_cast<BlockTrailerPadding*>(cursor);
   cursor += layout.trailer_padding_size;
   block_info->trailer_padding_size = layout.trailer_padding_size;
   block_info->trailer = reinterpret_cast<BlockTrailer*>(cursor);
@@ -324,14 +326,15 @@ void BlockInitialize(const BlockLayout& layout,
   InitializeBlockTrailer(block_info);
 }
 
-bool BlockInfoFromMemory(const void* raw_block, CompactBlockInfo* block_info) {
-  DCHECK_NE(static_cast<void*>(NULL), raw_block);
+bool BlockInfoFromMemory(const BlockHeader* header,
+                         CompactBlockInfo* block_info) {
+  DCHECK_NE(static_cast<BlockHeader*>(nullptr), header);
   DCHECK_NE(static_cast<CompactBlockInfo*>(NULL), block_info);
 
   __try {
     // As little code as possible is inside the body of the __try so that
     // our code coverage can instrument it.
-    bool result = BlockInfoFromMemoryImpl(raw_block, block_info);
+    bool result = BlockInfoFromMemoryImpl(header, block_info);
     return result;
   } __except (BadMemoryAccessFilter(GetExceptionInformation())) {  // NOLINT
     // The block is either corrupt, or the pages are protected.
@@ -340,43 +343,48 @@ bool BlockInfoFromMemory(const void* raw_block, CompactBlockInfo* block_info) {
 }
 
 void ConvertBlockInfo(const CompactBlockInfo& compact, BlockInfo* expanded) {
-  expanded->block = compact.block;
+  // Get a byte-aligned pointer to the header for use in calculating pointers to
+  // various other points to the block.
+  uint8* block = reinterpret_cast<uint8*>(compact.header);
+
   expanded->block_size = compact.block_size;
-  expanded->header = reinterpret_cast<BlockHeader*>(compact.block);
+  expanded->header = compact.header;
   expanded->header_padding_size = compact.header_size - sizeof(BlockHeader);
-  expanded->header_padding = compact.block + sizeof(BlockHeader);
-  expanded->body = compact.block + compact.header_size;
+  expanded->header_padding = reinterpret_cast<BlockHeaderPadding*>(
+      block + sizeof(BlockHeader));
+  expanded->body = reinterpret_cast<BlockBody*>(block + compact.header_size);
   expanded->body_size = compact.block_size - compact.header_size -
       compact.trailer_size;
   expanded->trailer_padding_size = compact.trailer_size - sizeof(BlockTrailer);
-  expanded->trailer_padding = expanded->body + expanded->body_size;
+  expanded->trailer_padding = reinterpret_cast<BlockTrailerPadding*>(
+      block + compact.header_size + expanded->body_size);
   expanded->trailer = reinterpret_cast<BlockTrailer*>(
-      expanded->trailer_padding + expanded->trailer_padding_size);
+      expanded->RawTrailerPadding() + expanded->trailer_padding_size);
   expanded->is_nested = compact.is_nested;
   BlockIdentifyWholePages(expanded);
 }
 
 void ConvertBlockInfo(const BlockInfo& expanded, CompactBlockInfo* compact) {
   DCHECK_NE(static_cast<CompactBlockInfo*>(nullptr), compact);
-  compact->block = expanded.block;
+  compact->header = expanded.header;
   compact->block_size = expanded.block_size;
   compact->header_size = sizeof(BlockHeader) + expanded.header_padding_size;
   compact->trailer_size = sizeof(BlockTrailer) + expanded.trailer_padding_size;
   compact->is_nested = expanded.is_nested;
 }
 
-bool BlockInfoFromMemory(const void* raw_block, BlockInfo* block_info) {
-  DCHECK_NE(static_cast<void*>(NULL), raw_block);
+bool BlockInfoFromMemory(const BlockHeader* header, BlockInfo* block_info) {
+  DCHECK_NE(static_cast<BlockHeader*>(nullptr), header);
   DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
   CompactBlockInfo compact = {};
-  if (!BlockInfoFromMemory(raw_block, &compact))
+  if (!BlockInfoFromMemory(header, &compact))
     return false;
   ConvertBlockInfo(compact, block_info);
   return true;
 }
 
-BlockHeader* BlockGetHeaderFromBody(const void* body) {
-  DCHECK_NE(static_cast<void*>(NULL), body);
+BlockHeader* BlockGetHeaderFromBody(const BlockBody* body) {
+  DCHECK_NE(static_cast<BlockBody*>(nullptr), body);
 
   __try {
     // As little code as possible is inside the body of the __try so that
@@ -415,12 +423,11 @@ void BlockSetChecksum(const BlockInfo& block_info) {
     case ALLOCATED_BLOCK: {
       // Only checksum the header and trailer regions.
       checksum = base::SuperFastHash(
-          reinterpret_cast<const char*>(block_info.block),
-          block_info.body - block_info.block);
+          reinterpret_cast<const char*>(block_info.header),
+          block_info.TotalHeaderSize());
       checksum ^= base::SuperFastHash(
           reinterpret_cast<const char*>(block_info.trailer_padding),
-          block_info.block + block_info.block_size -
-              block_info.trailer_padding);
+          block_info.TotalTrailerSize());
       break;
     }
 
@@ -432,7 +439,7 @@ void BlockSetChecksum(const BlockInfo& block_info) {
     case FREED_BLOCK:
     default: {
       checksum = base::SuperFastHash(
-          reinterpret_cast<const char*>(block_info.block),
+          reinterpret_cast<const char*>(block_info.header),
           block_info.block_size);
       break;
     }
@@ -455,7 +462,7 @@ void BlockIdentifyWholePages(BlockInfo* block_info) {
     return;
   }
 
-  uint32 alloc_start = reinterpret_cast<uint32>(block_info->block);
+  uint32 alloc_start = reinterpret_cast<uint32>(block_info->header);
   uint32 alloc_end = alloc_start + block_info->block_size;
   alloc_start = ::common::AlignUp(alloc_start, GetPageSize());
   alloc_end = ::common::AlignDown(alloc_end, GetPageSize());
@@ -584,7 +591,7 @@ bool BlockHeaderIsConsistent(const BlockInfo& block_info) {
   const uint32* head = reinterpret_cast<const uint32*>(
       block_info.header_padding);
   const uint32* tail = reinterpret_cast<const uint32*>(
-      block_info.header_padding + block_info.header_padding_size) - 1;
+      block_info.RawHeaderPadding() + block_info.header_padding_size) - 1;
   if (*head != block_info.header_padding_size)
     return false;
   if (*tail != block_info.header_padding_size)
@@ -633,7 +640,7 @@ bool BlockTrailerIsConsistent(const BlockInfo& block_info) {
   if (block_info.trailer_padding_size == 0)
     return true;
 
-  const uint8* padding = block_info.trailer_padding;
+  const uint8* padding = block_info.RawTrailerPadding();
   size_t size = block_info.trailer_padding_size;
 
   // If we have excess trailer padding then check the encoded length.

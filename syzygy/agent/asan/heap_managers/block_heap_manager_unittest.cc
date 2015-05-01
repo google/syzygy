@@ -309,12 +309,11 @@ class ScopedHeap {
       // Search through all blocks in each shard.
       TestQuarantine::Node* current_node = test_quarantine->heads_[i];
       while (current_node != nullptr) {
-        const uint8* body = current_node->object.block +
-            current_node->object.header_size;
+        const uint8* body =
+            reinterpret_cast<const uint8*>(current_node->object.header) +
+                current_node->object.header_size;
         if (body == mem) {
-          const BlockHeader* header = reinterpret_cast<BlockHeader*>(
-              current_node->object.block);
-          EXPECT_EQ(QUARANTINED_BLOCK, header->state);
+          EXPECT_EQ(QUARANTINED_BLOCK, current_node->object.header->state);
           return true;
         }
         current_node = current_node->next;
@@ -608,7 +607,8 @@ TEST_P(BlockHeapManagerTest, UnpoisonsQuarantine) {
   ASSERT_TRUE(heap.InQuarantine(mem));
 
   // Assert that the shadow memory has been correctly poisoned.
-  intptr_t mem_start = reinterpret_cast<intptr_t>(BlockGetHeaderFromBody(mem));
+  intptr_t mem_start = reinterpret_cast<intptr_t>(BlockGetHeaderFromBody(
+      reinterpret_cast<BlockBody*>(mem)));
   ASSERT_EQ(0, (mem_start & 7) );
   size_t shadow_start = mem_start >> 3;
   size_t shadow_alloc_size = real_alloc_size >> 3;
@@ -730,12 +730,11 @@ TEST_P(BlockHeapManagerTest, CaptureTID) {
   parameters.quarantine_size = GetAllocSize(kAllocSize);
   heap_manager_->set_parameters(parameters);
   uint8* mem = static_cast<uint8*>(heap.Allocate(kAllocSize));
+  BlockBody* body = reinterpret_cast<BlockBody*>(mem);
   ASSERT_TRUE(heap.Free(mem));
-  EXPECT_EQ(QUARANTINED_BLOCK,
-            static_cast<BlockState>(BlockGetHeaderFromBody(mem)->state));
-
-  BlockHeader* header = BlockGetHeaderFromBody(mem);
+  BlockHeader* header = BlockGetHeaderFromBody(body);
   ASSERT_NE(static_cast<BlockHeader*>(nullptr), header);
+  EXPECT_EQ(QUARANTINED_BLOCK, header->state);
   BlockInfo block_info = {};
   EXPECT_TRUE(BlockInfoFromMemory(header, &block_info));
   EXPECT_NE(static_cast<BlockTrailer*>(nullptr), block_info.trailer);
@@ -760,7 +759,8 @@ TEST_P(BlockHeapManagerTest, QuarantineDoesntAlterBlockContents) {
                       kAllocSize,
                       sha1_before);
 
-  BlockHeader* header = BlockGetHeaderFromBody(mem);
+  BlockHeader* header = BlockGetHeaderFromBody(
+      reinterpret_cast<BlockBody*>(mem));
 
   ASSERT_TRUE(heap.Free(mem));
   EXPECT_EQ(QUARANTINED_BLOCK, static_cast<BlockState>(header->state));
@@ -1010,7 +1010,8 @@ TEST_P(BlockHeapManagerTest, SubsampledAllocationGuards) {
     }
 
     // Determine if the allocation has guards or not.
-    BlockHeader* header = BlockGetHeaderFromBody(alloc);
+    BlockHeader* header = BlockGetHeaderFromBody(
+        reinterpret_cast<BlockBody*>(alloc));
     if (header == nullptr) {
       ++unguarded_allocations;
     } else {
@@ -1250,7 +1251,7 @@ TEST_P(BlockHeapManagerTest, AllocatedBlockIsProtected) {
   // Test the block protections before being quarantined.
   // The whole block should be unpoisoned in the shadow memory.
   for (size_t i = 0; i < block_info.body_size; ++i)
-    EXPECT_TRUE(StaticShadow::shadow.IsAccessible(block_info.body + i));
+    EXPECT_TRUE(StaticShadow::shadow.IsAccessible(block_info.RawBody() + i));
 
   // Ensure that the block left redzone is page-protected.
   for (size_t i = 0; i < block_info.left_redzone_pages_size; ++i)
@@ -1262,7 +1263,7 @@ TEST_P(BlockHeapManagerTest, AllocatedBlockIsProtected) {
 
   // The block body should be accessible.
   for (size_t i = 0; i < block_info.body_size; ++i)
-    EXPECT_TRUE(IsAccessible(block_info.body + i));
+    EXPECT_TRUE(IsAccessible(block_info.RawBody() + i));
 
   {
     ScopedBlockAccess block_access(block_info);
@@ -1292,8 +1293,10 @@ TEST_P(BlockHeapManagerTest, QuarantinedBlockIsProtected) {
 
     // Test the block protections after being quarantined.
     // The whole block should be poisoned in the shadow memory.
-    for (size_t i = 0; i < block_info.body_size; ++i)
-      EXPECT_FALSE(StaticShadow::shadow.IsAccessible(block_info.body + i));
+    for (size_t i = 0; i < block_info.body_size; ++i) {
+      EXPECT_FALSE(StaticShadow::shadow.IsAccessible(
+          block_info.RawBody() + i));
+    }
 
     // Ensure that the block left redzone is page-protected.
     for (size_t i = 0; i < block_info.left_redzone_pages_size; ++i)
@@ -1305,7 +1308,7 @@ TEST_P(BlockHeapManagerTest, QuarantinedBlockIsProtected) {
 
     // Ensure that the block body is page-protected.
     for (size_t i = 0; i < block_info.body_size; ++i)
-      EXPECT_TRUE(IsNotAccessible(block_info.body + i));
+      EXPECT_TRUE(IsNotAccessible(block_info.RawBody() + i));
 
     {
       ScopedBlockAccess block_access(block_info);
@@ -1335,8 +1338,9 @@ TEST_P(BlockHeapManagerTest, NonQuarantinedBlockIsMarkedAsFreed) {
   // associated pages unprotected.
   for (size_t i = 0; i < block_info.block_size; ++i) {
     ASSERT_NO_FATAL_FAILURE(StaticShadow::shadow.IsAccessible(
-        block_info.block + i));
-    ASSERT_FALSE(StaticShadow::shadow.PageIsProtected(block_info.block + i));
+        block_info.RawBlock() + i));
+    ASSERT_FALSE(StaticShadow::shadow.PageIsProtected(
+        block_info.RawBlock() + i));
   }
 
   EXPECT_EQ(FREED_BLOCK, block_info.header->state);

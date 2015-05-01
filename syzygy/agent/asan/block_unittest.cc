@@ -45,20 +45,19 @@ void IsValidBlockImpl(const BlockInfo& block, bool just_initialized) {
   EXPECT_EQ(0u, block.block_size % kShadowRatio);
 
   // Validate the layout of the block.
-  EXPECT_TRUE(block.block != NULL);
+  EXPECT_TRUE(block.header != nullptr);
   EXPECT_EQ(0u, block.block_size % kShadowRatio);
-  EXPECT_EQ(block.block, reinterpret_cast<void*>(block.header));
   EXPECT_EQ(0u, block.header_padding_size % kShadowRatio);
-  EXPECT_EQ(reinterpret_cast<uint8*>(block.header + 1),
-            block.header_padding);
-  EXPECT_EQ(block.header_padding + block.header_padding_size,
-            block.body);
-  EXPECT_EQ(reinterpret_cast<uint8*>(block.body + block.body_size),
-            block.trailer_padding);
-  EXPECT_EQ(block.trailer_padding + block.trailer_padding_size,
-            reinterpret_cast<uint8*>(block.trailer));
-  EXPECT_EQ(block.block + block.block_size,
-            reinterpret_cast<uint8*>(block.trailer + 1));
+  EXPECT_EQ(block.RawHeader() + sizeof(BlockHeader),
+            block.RawHeaderPadding());
+  EXPECT_EQ(block.RawHeaderPadding() + block.header_padding_size,
+            block.RawBody());
+  EXPECT_EQ(block.RawBody() + block.body_size,
+            block.RawTrailerPadding());
+  EXPECT_EQ(block.RawTrailerPadding() + block.trailer_padding_size,
+            block.RawTrailer());
+  EXPECT_EQ(block.RawHeader() + block.block_size,
+            block.RawTrailer() + sizeof(BlockTrailer));
 
   // Validate the actual contents of the various parts of the block.
 
@@ -84,12 +83,12 @@ void IsValidBlockImpl(const BlockInfo& block, bool just_initialized) {
     EXPECT_EQ(block.header_padding_size,
               *reinterpret_cast<const uint32*>(block.header_padding));
     EXPECT_EQ(block.header_padding_size,
-              *reinterpret_cast<const uint32*>(block.header_padding +
+              *reinterpret_cast<const uint32*>(block.RawHeaderPadding() +
                   block.header_padding_size - sizeof(uint32)));
     for (size_t i = sizeof(uint32);
          i < block.header_padding_size - sizeof(uint32);
          ++i) {
-      EXPECT_EQ(kBlockHeaderPaddingByte, block.header_padding[i]);
+      EXPECT_EQ(kBlockHeaderPaddingByte, block.RawHeaderPadding(i));
     }
   }
 
@@ -102,7 +101,7 @@ void IsValidBlockImpl(const BlockInfo& block, bool just_initialized) {
   }
   for (size_t i = start_of_trailer_iteration; i < block.trailer_padding_size;
        ++i) {
-    EXPECT_EQ(kBlockTrailerPaddingByte, block.trailer_padding[i]);
+    EXPECT_EQ(kBlockTrailerPaddingByte, block.RawTrailerPadding(i));
   }
 
   // Check the trailer.
@@ -214,44 +213,48 @@ TEST(BlockTest, GetHeaderFromBody) {
   // This should succeed as expected.
   EXPECT_EQ(info.header, BlockGetHeaderFromBody(info.body));
   // This fails because of invalid alignment.
-  EXPECT_TRUE(BlockGetHeaderFromBody(info.body + 1) == NULL);
+  EXPECT_TRUE(BlockGetHeaderFromBody(
+      reinterpret_cast<BlockBody*>(info.RawBody() + 1)) == nullptr);
   // This fails because the pointer is not at the beginning of the
   // body.
-  EXPECT_TRUE(BlockGetHeaderFromBody(info.body + 8) == NULL);
+  EXPECT_TRUE(BlockGetHeaderFromBody(
+      reinterpret_cast<BlockBody*>(info.RawBody() + kShadowRatio)) == nullptr);
   // This fails because of invalid header magic.
   ++info.header->magic;
-  EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == NULL);
+  EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == nullptr);
   // This fails because the header indicates there's padding.
   --info.header->magic;
   info.header->has_header_padding = 1;
-  EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == NULL);
+  EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == nullptr);
 
   // Now navigate a block with header padding.
   BlockInitialize(layout2, data.get(), false, &info);
   // This should succeed as expected.
   EXPECT_EQ(info.header, BlockGetHeaderFromBody(info.body));
   // This fails because of invalid alignment.
-  EXPECT_TRUE(BlockGetHeaderFromBody(info.body + 1) == NULL);
+  EXPECT_TRUE(BlockGetHeaderFromBody(
+      reinterpret_cast<BlockBody*>(info.RawBody() + 1)) == nullptr);
   // This fails because the pointer is not at the beginning of the
   // body.
-  EXPECT_TRUE(BlockGetHeaderFromBody(info.body + 8) == NULL);
+  EXPECT_TRUE(BlockGetHeaderFromBody(
+      reinterpret_cast<BlockBody*>(info.RawBody() + kShadowRatio)) == nullptr);
   // This fails because of invalid header magic.
   ++info.header->magic;
-  EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == NULL);
+  EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == nullptr);
   // This fails because the header indicates there's no padding.
   --info.header->magic;
   info.header->has_header_padding = 0;
-  EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == NULL);
+  EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == nullptr);
   // This fails because the padding length is invalid.
   info.header->has_header_padding = 1;
   uint32* head = reinterpret_cast<uint32*>(info.header_padding);
   uint32* tail = head + (info.header_padding_size / sizeof(uint32)) - 1;
   ++(*tail);
-  EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == NULL);
+  EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == nullptr);
   // This fails because the padding lengths don't agree.
   --(*tail);
   ++(*head);
-  EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == NULL);
+  EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == nullptr);
 }
 
 TEST(BlockTest, GetHeaderFromBodyProtectedMemory) {
@@ -308,32 +311,34 @@ TEST(BlockTest, BlockInfoFromMemory) {
   BlockInfo info = {};
   BlockInitialize(layout1, data.get(), false, &info);
   BlockInfo info_recovered = {};
-  EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
+  EXPECT_TRUE(BlockInfoFromMemory(info.header, &info_recovered));
   EXPECT_EQ(info, info_recovered);
   // Failed because its not aligned.
-  EXPECT_FALSE(BlockInfoFromMemory(info.block + 1, &info_recovered));
+  EXPECT_FALSE(BlockInfoFromMemory(
+      reinterpret_cast<BlockHeader*>(info.RawHeader() + 1),
+      &info_recovered));
   // Failed because the magic is invalid.
   ++info.header->magic;
-  EXPECT_FALSE(BlockInfoFromMemory(info.block, &info_recovered));
+  EXPECT_FALSE(BlockInfoFromMemory(info.header, &info_recovered));
   --info.header->magic;
   // This fails because the header indicates there's padding yet there is
   // none.
   info.header->has_header_padding = 1;
-  EXPECT_FALSE(BlockInfoFromMemory(info.block, &info_recovered));
+  EXPECT_FALSE(BlockInfoFromMemory(info.header, &info_recovered));
 
   // Now recover a block with header padding.
   BlockInitialize(layout2, data.get(), false, &info);
-  EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
+  EXPECT_TRUE(BlockInfoFromMemory(info.header, &info_recovered));
   EXPECT_EQ(info, info_recovered);
   // Failed because the magic is invalid.
   ++info.header->magic;
-  EXPECT_FALSE(BlockInfoFromMemory(info.block, &info_recovered));
+  EXPECT_FALSE(BlockInfoFromMemory(info.header, &info_recovered));
   --info.header->magic;
   // Failed because the header padding lengths don't match.
   uint32* head = reinterpret_cast<uint32*>(info.header_padding);
   uint32* tail = head + (info.header_padding_size / sizeof(uint32)) - 1;
   ++(*tail);
-  EXPECT_FALSE(BlockInfoFromMemory(info.block, &info_recovered));
+  EXPECT_FALSE(BlockInfoFromMemory(info.header, &info_recovered));
   --(*tail);
 
   // Finally ensure that we can recover information about blocks of various
@@ -346,7 +351,7 @@ TEST(BlockTest, BlockInfoFromMemory) {
                                 &layout));
     ASSERT_LE(layout.block_size, kAllocSize);
     BlockInitialize(layout, alloc, false, &info);
-    EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
+    EXPECT_TRUE(BlockInfoFromMemory(info.header, &info_recovered));
     EXPECT_EQ(info.body_size, info_recovered.body_size);
     EXPECT_EQ(info, info_recovered);
 
@@ -354,7 +359,7 @@ TEST(BlockTest, BlockInfoFromMemory) {
                                 &layout));
     ASSERT_LE(layout.block_size, kAllocSize);
     BlockInitialize(layout, alloc, false, &info);
-    EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
+    EXPECT_TRUE(BlockInfoFromMemory(info.header, &info_recovered));
     EXPECT_EQ(info.body_size, info_recovered.body_size);
     EXPECT_EQ(info, info_recovered);
   }
@@ -373,7 +378,7 @@ TEST(BlockTest, BlockInfoFromMemoryInvalidPadding) {
   BlockInitialize(layout, data.get(), false, &info);
   EXPECT_TRUE(info.header->has_header_padding = 1);
   BlockInfo info_recovered = {};
-  EXPECT_TRUE(BlockInfoFromMemory(info.block, &info_recovered));
+  EXPECT_TRUE(BlockInfoFromMemory(info.header, &info_recovered));
   EXPECT_EQ(info, info_recovered);
 
   // Invalidates the padding size and make sure that we can't retrieve the block
@@ -383,7 +388,7 @@ TEST(BlockTest, BlockInfoFromMemoryInvalidPadding) {
   for (*padding_size = 0;
        *padding_size < 2 * sizeof(uint32);
        ++(*padding_size)) {
-    EXPECT_FALSE(BlockInfoFromMemory(info.block, &info_recovered));
+    EXPECT_FALSE(BlockInfoFromMemory(info.header, &info_recovered));
   }
 }
 
@@ -398,7 +403,7 @@ TEST(BlockTest, BlockInfoFromMemoryProtectedMemory) {
 
   BlockProtectRedzones(block_info);
   BlockInfo recovered_info = {};
-  EXPECT_FALSE(BlockInfoFromMemory(block_info.block, &recovered_info));
+  EXPECT_FALSE(BlockInfoFromMemory(block_info.header, &recovered_info));
   BlockProtectNone(block_info);
 
   ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
@@ -413,7 +418,7 @@ TEST(BlockTest, BlockInfoFromMemoryForNestedBlock) {
   BlockInitialize(layout, data.get(), true, &block_info);
 
   BlockInfo recovered_info = {};
-  EXPECT_TRUE(BlockInfoFromMemory(block_info.block, &recovered_info));
+  EXPECT_TRUE(BlockInfoFromMemory(block_info.header, &recovered_info));
 
   EXPECT_TRUE(recovered_info.is_nested);
   EXPECT_TRUE(recovered_info.header->is_nested);
@@ -507,9 +512,9 @@ bool ChecksumDetectsTamperingWithMask(const BlockInfo& block_info,
     // If the thing being modified is the block state, then this is so
     // localized that the analysis will sometimes mess up. Seeing this in
     // the wild is quite unlikely.
-    // TODO(chrisha): If we ever have individual checksums for the header
-    // the body and the trailer, then revisit this.
-    if (address_to_modify != block_info.block + state_offset ||
+    // TODO(chrisha): If we ever have individual checksums for the header,
+    //     the body and the trailer, then revisit this.
+    if (address_to_modify != block_info.RawHeader() + state_offset ||
         mask_to_modify != state_mask) {
       EXPECT_EQ(kDataIsCorrupt, result.header_state);
       EXPECT_EQ(kDataStateUnknown, result.body_state);
@@ -584,19 +589,19 @@ void TestChecksumDetectsTampering(const BlockInfo& block_info) {
                                        &block_info.header->alloc_stack));
   EXPECT_TRUE(ChecksumDetectsTamperingWithMask(
       block_info,
-      block_info.block + state_offset,
+      block_info.RawHeader() + state_offset,
       state_mask));
 
   // Header padding should be tamper proof.
   if (block_info.header_padding_size > 0) {
     EXPECT_TRUE(ChecksumDetectsTampering(block_info,
-        block_info.header_padding + block_info.header_padding_size / 2));
+        block_info.RawHeaderPadding() + block_info.header_padding_size / 2));
   }
 
   // Trailer padding should be tamper proof.
   if (block_info.trailer_padding_size > 0) {
     EXPECT_TRUE(ChecksumDetectsTampering(block_info,
-        block_info.trailer_padding + block_info.trailer_padding_size / 2));
+        block_info.RawTrailerPadding() + block_info.trailer_padding_size / 2));
   }
 
   // Trailer bytes should be tamper proof.
@@ -609,9 +614,9 @@ void TestChecksumDetectsTampering(const BlockInfo& block_info) {
   bool expected = (block_info.header->state != ALLOCATED_BLOCK);
   EXPECT_EQ(expected, ChecksumDetectsTampering(block_info, block_info.body));
   EXPECT_EQ(expected, ChecksumDetectsTampering(block_info,
-      block_info.body + block_info.body_size / 2));
+      block_info.RawBody() + block_info.body_size / 2));
   EXPECT_EQ(expected, ChecksumDetectsTampering(block_info,
-      block_info.body + block_info.body_size - 1));
+      block_info.RawBody() + block_info.body_size - 1));
 }
 
 }  // namespace

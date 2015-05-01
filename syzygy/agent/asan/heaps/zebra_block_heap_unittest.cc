@@ -141,17 +141,16 @@ TEST(ZebraBlockHeapTest, BlocksHaveCorrectAlignment) {
         // kShadowRatio aligned.
         EXPECT_TRUE(IsAligned(block.body, kShadowRatio));
         EXPECT_TRUE(IsAligned(block.header, kShadowRatio));
-        EXPECT_TRUE(IsAligned(block.block, GetPageSize()));
-        EXPECT_TRUE(IsAligned(block.block + block.block_size, GetPageSize()));
+        EXPECT_TRUE(IsAligned(block.header, GetPageSize()));
+        EXPECT_TRUE(IsAligned(block.trailer + 1, GetPageSize()));
 
-        size_t right_redzone_size = (block.block + block.block_size) -
-            reinterpret_cast<uint8*>(block.trailer_padding);
+        size_t right_redzone_size = block.TotalTrailerSize();
 
         EXPECT_EQ(2 * GetPageSize(), block.block_size);
         EXPECT_LE(GetPageSize(), right_redzone_size);
 
-        size_t body_offset = AlignUp(block.trailer_padding, GetPageSize()) -
-            block.trailer_padding;
+        size_t body_offset = AlignUp(block.RawTrailerPadding(), GetPageSize()) -
+            block.RawTrailerPadding();
 
         // The body must be as close as possible to the page.
         EXPECT_GT(kShadowRatio, body_offset);

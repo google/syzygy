@@ -27,7 +27,7 @@ namespace asan {
 // A functor that retrieves the total size of an Asan allocation.
 struct GetTotalBlockSizeFunctor {
   size_t operator()(const CompactBlockInfo& info) {
-    DCHECK_NE(static_cast<uint8*>(nullptr), info.block);
+    DCHECK_NE(static_cast<BlockHeader*>(nullptr), info.header);
     return info.block_size;
   }
 };
@@ -36,21 +36,19 @@ struct GetTotalBlockSizeFunctor {
 // by the sharded quarantine.
 struct GetBlockHashFunctor {
   size_t operator()(const CompactBlockInfo& info) {
-    DCHECK_NE(static_cast<uint8*>(nullptr), info.block);
+    DCHECK_NE(static_cast<BlockHeader*>(nullptr), info.header);
     const BlockTrailer* trailer = reinterpret_cast<const BlockTrailer*>(
-        info.block + info.block_size) - 1;
-    return trailer->alloc_ticks + reinterpret_cast<size_t>(info.block);
+        reinterpret_cast<const uint8*>(info.header) + info.block_size) - 1;
+    return trailer->alloc_ticks + reinterpret_cast<size_t>(info.header);
   }
 };
 
 // Checks if a block is corrupt. This checks the block's metadata and its
 // checksum.
-// @param block_header A pointer to the block header of the block.
-// @param block_info Will be filled in with pointers to the various portions
-//     of the block if this function succeeds. May be NULL.
+// @param block_info The information about this block.
 // @returns true if the block is corrupt, false otherwise.
 // @note The pages containing the block redzones must be readable.
-bool IsBlockCorrupt(const uint8* block_header, BlockInfo* block_info);
+bool IsBlockCorrupt(const BlockInfo& block_info);
 
 }  // namespace asan
 }  // namespace agent

@@ -59,20 +59,20 @@ void GetAddressInformation(BlockHeader* header,
   char* offset_relativity = "";
   switch (bad_access_info->error_type) {
     case HEAP_BUFFER_OVERFLOW: {
-      offset = static_cast<const uint8*>(bad_access_info->location)
-          - block_info.body - block_info.body_size;
+      offset = static_cast<const uint8*>(bad_access_info->location) -
+          block_info.RawBody() - block_info.body_size;
       offset_relativity = "beyond";
       break;
     }
     case HEAP_BUFFER_UNDERFLOW: {
-      offset = block_info.body -
+      offset = block_info.RawBody() -
           static_cast<const uint8*>(bad_access_info->location);
       offset_relativity = "before";
       break;
     }
     case USE_AFTER_FREE: {
-      offset = static_cast<const uint8*>(bad_access_info->location)
-          - block_info.body;
+      offset = static_cast<const uint8*>(bad_access_info->location) -
+          block_info.RawBody();
       offset_relativity = "inside";
       break;
     }
@@ -191,7 +191,7 @@ BadAccessKind ErrorInfoGetBadAccessKind(const void* addr,
     StaticShadow::shadow.BlockInfoFromShadow(header, &block_info);
     if (addr < block_info.body) {
       bad_access_kind = HEAP_BUFFER_UNDERFLOW;
-    } else if (addr >= (block_info.body + block_info.body_size)) {
+    } else if (addr >= (block_info.RawBody() + block_info.body_size)) {
       bad_access_kind = HEAP_BUFFER_OVERFLOW;
     } else if (StaticShadow::shadow.GetShadowMarkerForAddress(addr) ==
         kHeapFreedMarker) {

@@ -34,9 +34,9 @@ TEST_F(BlockUtilTest, IsBlockCorruptInvalidMagicNumber) {
 
   fake_block.block_info.header->magic =
       static_cast<unsigned>(~kBlockHeaderMagic);
-  EXPECT_TRUE(IsBlockCorrupt(fake_block.block_info.block, NULL));
+  EXPECT_TRUE(IsBlockCorrupt(fake_block.block_info));
   fake_block.block_info.header->magic = kBlockHeaderMagic;
-  EXPECT_FALSE(IsBlockCorrupt(fake_block.block_info.block, NULL));
+  EXPECT_FALSE(IsBlockCorrupt(fake_block.block_info));
 }
 
 TEST_F(BlockUtilTest, IsBlockCorruptInvalidChecksum) {
@@ -52,18 +52,18 @@ TEST_F(BlockUtilTest, IsBlockCorruptInvalidChecksum) {
 
     // Change some of the block content and verify that the block is now being
     // seen as corrupt.
-    uint8 original_value = fake_block.block_info.body[0];
-    fake_block.block_info.body[0]++;
+    uint8 original_value = fake_block.block_info.RawBody(0);
+    fake_block.block_info.RawBody(0)++;
 
     // Try again for all but the last attempt if this appears to have failed.
-    if (!IsBlockCorrupt(fake_block.block_info.body, NULL) &&
+    if (!IsBlockCorrupt(fake_block.block_info) &&
         i + 1 < kChecksumRepeatCount) {
       continue;
     }
 
-    ASSERT_TRUE(IsBlockCorrupt(fake_block.block_info.body, NULL));
-    fake_block.block_info.body[0] = original_value;
-    ASSERT_FALSE(IsBlockCorrupt(fake_block.block_info.body, NULL));
+    ASSERT_TRUE(IsBlockCorrupt(fake_block.block_info));
+    fake_block.block_info.RawBody(0) = original_value;
+    ASSERT_FALSE(IsBlockCorrupt(fake_block.block_info));
     break;
   }
 }

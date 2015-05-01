@@ -176,28 +176,31 @@ TEST_F(ShadowTest, MarkAsFreed) {
   BlockInitialize(l0, d0, false, &i0);
   test_shadow.PoisonAllocatedBlock(i0);
 
-  uint8* d1 = i0.body + kShadowRatio;
+  uint8* d1 = i0.RawBody() + kShadowRatio;
   BlockInfo i1 = {};
   BlockInitialize(l1, d1, true, &i1);
   test_shadow.PoisonAllocatedBlock(i1);
 
   EXPECT_TRUE(test_shadow.MarkAsFreed(i0.body, i0.body_size));
-  for (uint8* p = i0.block; p < i0.block + i0.block_size; ++p) {
-    if (p >= i0.block && p < i0.body) {
+  for (uint8* p = i0.RawBlock(); p < i0.RawBlock() + i0.block_size; ++p) {
+    if (p >= i0.RawBlock() && p < i0.RawBody()) {
       EXPECT_TRUE(test_shadow.IsLeftRedzone(p));
-    } else if (p >= i0.body && p < i0.trailer_padding) {
-      if (p >= i1.block && p < i1.body) {
+    } else if (p >= i0.RawBody() &&
+        p < i0.RawTrailerPadding()) {
+      if (p >= i1.RawBlock() && p < i1.RawBody()) {
         EXPECT_TRUE(test_shadow.IsLeftRedzone(p));
-      } else if (p >= i1.body && p < i1.trailer_padding) {
+      } else if (p >= i1.RawBody() && p < i1.RawTrailerPadding()) {
         EXPECT_EQ(kHeapFreedMarker,
                   test_shadow.GetShadowMarkerForAddress(p));
-      } else if (p >= i1.trailer_padding && p < i1.block + i1.block_size) {
+      } else if (p >= i1.RawTrailerPadding() &&
+          p < i1.RawBlock() + i1.block_size) {
         EXPECT_TRUE(test_shadow.IsRightRedzone(p));
       } else {
         EXPECT_EQ(kHeapFreedMarker,
                   test_shadow.GetShadowMarkerForAddress(p));
       }
-    } else if (p >= i0.trailer_padding && p < i0.block + i0.block_size) {
+    } else if (p >= i0.RawTrailerPadding() &&
+        p < i0.RawBlock() + i0.block_size) {
       EXPECT_TRUE(test_shadow.IsRightRedzone(p));
     }
   }
@@ -232,14 +235,14 @@ TEST_F(ShadowTest, PoisonAllocatedBlock) {
   EXPECT_EQ(test_shadow.GetShadowMarkerForAddress(data + 7 * 8),
             kHeapBlockEndMarker);
 
-  uint8* cursor = info.block;
-  for (; cursor < info.body; ++cursor)
+  uint8* cursor = info.RawHeader();
+  for (; cursor < info.RawBody(); ++cursor)
     EXPECT_FALSE(test_shadow.IsAccessible(cursor));
-  for (; cursor < info.body + info.body_size; ++cursor)
+  for (; cursor < info.RawBody() + info.body_size; ++cursor)
     EXPECT_TRUE(test_shadow.IsAccessible(cursor));
-  for (; cursor < info.block + info.block_size; ++cursor)
+  for (; cursor < info.RawHeader() + info.block_size; ++cursor)
     EXPECT_FALSE(test_shadow.IsAccessible(cursor));
-  ASSERT_TRUE(test_shadow.Unpoison(info.block, info.block_size));
+  ASSERT_TRUE(test_shadow.Unpoison(info.RawBlock(), info.block_size));
 
   delete [] data;
 }
@@ -354,22 +357,23 @@ TEST_F(ShadowTest, IsLeftOrRightRedzone) {
   BlockInitialize(layout, data.get(), false, &info);
 
   test_shadow.PoisonAllocatedBlock(info);
-  uint8* cursor = info.block;
+  uint8* block = reinterpret_cast<uint8*>(info.header);
+  uint8* cursor = block;
 
-  for (; cursor < info.body; ++cursor) {
+  for (; cursor < info.RawBody(); ++cursor) {
     EXPECT_TRUE(test_shadow.IsLeftRedzone(cursor));
     EXPECT_FALSE(test_shadow.IsRightRedzone(cursor));
   }
-  for (; cursor < info.body + info.body_size; ++cursor) {
+  for (; cursor < info.RawBody() + info.body_size; ++cursor) {
     EXPECT_FALSE(test_shadow.IsLeftRedzone(cursor));
     EXPECT_FALSE(test_shadow.IsRightRedzone(cursor));
   }
-  for (; cursor < info.block + info.block_size; ++cursor) {
+  for (; cursor < block + info.block_size; ++cursor) {
     EXPECT_FALSE(test_shadow.IsLeftRedzone(cursor));
     EXPECT_TRUE(test_shadow.IsRightRedzone(cursor));
   }
 
-  ASSERT_TRUE(test_shadow.Unpoison(info.block, info.block_size));
+  ASSERT_TRUE(test_shadow.Unpoison(block, info.block_size));
 }
 
 namespace {
@@ -390,7 +394,7 @@ void TestBlockInfoFromShadow(Shadow* shadow,
   BlockInfo info_recovered = {};
   for (size_t i = 0; i < info.block_size; ++i) {
     EXPECT_TRUE(shadow->BlockInfoFromShadow(
-        info.block + i, &info_recovered));
+        info.RawBlock() + i, &info_recovered));
     EXPECT_EQ(0, ::memcmp(&info, &info_recovered, sizeof(info)));
 
     // This block should have no parent block as its not nested.
@@ -401,14 +405,14 @@ void TestBlockInfoFromShadow(Shadow* shadow,
   // Place a nested block and try the recovery from every position again.
   size_t padding = ::common::AlignDown(info.body_size - nested.block_size,
                                        kShadowRatio * 2);
-  uint8* nested_begin = info.body + padding / 2;
+  uint8* nested_begin = info.RawBody() + padding / 2;
   uint8* nested_end = nested_begin + nested.block_size;
   BlockInfo nested_info = {};
   BlockInitialize(nested, nested_begin, true, &nested_info);
   nested_info.header->is_nested = true;
   shadow->PoisonAllocatedBlock(nested_info);
   for (size_t i = 0; i < info.block_size; ++i) {
-    uint8* pos = info.block + i;
+    uint8* pos = info.RawBlock() + i;
     EXPECT_TRUE(shadow->BlockInfoFromShadow(pos, &info_recovered));
 
     BlockInfo parent_info = {};
@@ -425,7 +429,7 @@ void TestBlockInfoFromShadow(Shadow* shadow,
       EXPECT_FALSE(found_parent);
     }
   }
-  ASSERT_TRUE(shadow->Unpoison(info.block, info.block_size));
+  ASSERT_TRUE(shadow->Unpoison(info.header, info.block_size));
 
   delete [] data;
 }
@@ -658,9 +662,9 @@ TEST_F(ShadowWalkerTest, WalksNestedBlocks) {
   test_shadow.PoisonAllocatedBlock(i2);
 
   // Initialize depth 1 blocks.
-  uint8* d00 = i0.body;
+  uint8* d00 = i0.RawBody();
   uint8* d01 = d00 + b00.block_size + kShadowRatio;
-  uint8* d10 = i1.body;
+  uint8* d10 = i1.RawBody();
   BlockInfo i00 = {}, i01 = {}, i10 = {};
   BlockInitialize(b00, d00, true, &i00);
   BlockInitialize(b01, d01, true, &i01);
@@ -670,7 +674,7 @@ TEST_F(ShadowWalkerTest, WalksNestedBlocks) {
   test_shadow.PoisonAllocatedBlock(i10);
 
   // Initialize depth 2 blocks.
-  uint8* d100 = i10.body;
+  uint8* d100 = i10.RawBody();
   BlockInfo i100 = {};
   BlockInitialize(b100, d100, true, &i100);
   test_shadow.PoisonAllocatedBlock(i100);

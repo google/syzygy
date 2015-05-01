@@ -49,8 +49,7 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetBadAccessInformation) {
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
 
   AsanErrorInfo error_info = {};
-  error_info.location = fake_block.block_info.body +
-      kAllocSize + 1;
+  error_info.location = fake_block.block_info.RawBody() + kAllocSize + 1;
   EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
                                                &error_info));
   EXPECT_EQ(HEAP_BUFFER_OVERFLOW, error_info.error_type);
@@ -154,8 +153,8 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetBadAccessKind) {
   const size_t kAllocSize = 100;
   testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
-  uint8* heap_underflow_address = fake_block.block_info.body - 1;
-  uint8* heap_overflow_address = fake_block.block_info.body +
+  uint8* heap_underflow_address = fake_block.block_info.RawBody() - 1;
+  uint8* heap_overflow_address = fake_block.block_info.RawBody() +
       kAllocSize * sizeof(uint8);
   EXPECT_EQ(HEAP_BUFFER_UNDERFLOW,
             ErrorInfoGetBadAccessKind(heap_underflow_address,

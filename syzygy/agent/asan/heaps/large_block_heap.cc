@@ -134,9 +134,8 @@ void* LargeBlockHeap::AllocateBlock(size_t size,
 }
 
 bool LargeBlockHeap::FreeBlock(const BlockInfo& block_info) {
-  DCHECK_NE(static_cast<uint8*>(NULL), block_info.block);
-
-  return Free(block_info.block);
+  DCHECK_NE(static_cast<BlockHeader*>(nullptr), block_info.header);
+  return Free(block_info.header);
 }
 
 }  // namespace heaps

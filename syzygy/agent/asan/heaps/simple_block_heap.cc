@@ -83,9 +83,9 @@ void* SimpleBlockHeap::AllocateBlock(size_t size,
 }
 
 bool SimpleBlockHeap::FreeBlock(const BlockInfo& block_info) {
-  DCHECK_NE(static_cast<uint8*>(NULL), block_info.block);
+  DCHECK_NE(static_cast<BlockHeader*>(nullptr), block_info.header);
 
-  if (!heap_->Free(block_info.block))
+  if (!heap_->Free(block_info.header))
     return false;
 
   return true;

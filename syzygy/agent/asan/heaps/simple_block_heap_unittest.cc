@@ -26,7 +26,7 @@ namespace {
 // Provides an ordering for BlockInfo objects.
 struct BlockInfoLessThan {
   bool operator()(const BlockInfo& bi1, const BlockInfo& bi2) const {
-    return bi1.block < bi2.block;
+    return bi1.header < bi2.header;
   }
 };
 

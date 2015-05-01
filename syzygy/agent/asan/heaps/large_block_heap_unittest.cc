@@ -26,7 +26,7 @@ namespace {
 // Provides an ordering for BlockInfo objects.
 struct BlockInfoLessThan {
   bool operator()(const BlockInfo& bi1, const BlockInfo& bi2) const {
-    return bi1.block < bi2.block;
+    return bi1.header < bi2.header;
   }
 };
 
@@ -115,7 +115,7 @@ TEST(LargeBlockHeapTest, ZeroSizedAllocationsHaveDistinctAddresses) {
   BlockInitialize(layout, a2, false, &b2);
 
   EXPECT_NE(a1, a2);
-  EXPECT_NE(b1.block, b2.block);
+  EXPECT_NE(b1.header, b2.header);
 
   EXPECT_TRUE(h.FreeBlock(b1));
   EXPECT_TRUE(h.FreeBlock(b2));

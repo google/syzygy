@@ -415,14 +415,14 @@ void Shadow::PoisonAllocatedBlock(const BlockInfo& info) {
   // Translate the block address to an offset. Sanity check a whole bunch
   // of things that we require to be true for the shadow to have 100%
   // fidelity.
-  uintptr_t index = reinterpret_cast<uintptr_t>(info.block);
+  uintptr_t index = reinterpret_cast<uintptr_t>(info.header);
   DCHECK(::common::IsAligned(index, kShadowRatio));
   DCHECK(::common::IsAligned(info.header_padding_size, kShadowRatio));
   DCHECK(::common::IsAligned(info.block_size, kShadowRatio));
   index /= kShadowRatio;
 
   // Determine the distribution of bytes in the shadow.
-  size_t left_redzone_bytes = (info.body - info.block) / kShadowRatio;
+  size_t left_redzone_bytes = info.TotalHeaderSize() / kShadowRatio;
   size_t body_bytes = (info.body_size + kShadowRatio - 1) / kShadowRatio;
   size_t block_bytes = info.block_size / kShadowRatio;
   size_t right_redzone_bytes = block_bytes - left_redzone_bytes - body_bytes;
@@ -454,7 +454,7 @@ void Shadow::PoisonAllocatedBlock(const BlockInfo& info) {
 }
 
 bool Shadow::BlockIsNested(const BlockInfo& info) const {
-  uint8 marker = GetShadowMarkerForAddress(info.block);
+  uint8 marker = GetShadowMarkerForAddress(info.header);
   DCHECK(ShadowMarkerHelper::IsActiveBlockStart(marker));
   return ShadowMarkerHelper::IsNestedBlockStart(marker);
 }
@@ -484,7 +484,7 @@ bool Shadow::ParentBlockInfoFromShadow(const BlockInfo& nested,
   if (!BlockIsNested(nested))
     return false;
   CompactBlockInfo compact = {};
-  if (!BlockInfoFromShadowImpl(1, nested.block, &compact))
+  if (!BlockInfoFromShadowImpl(1, nested.header, &compact))
     return false;
   ConvertBlockInfo(compact, info);
   return true;
@@ -821,7 +821,8 @@ bool Shadow::BlockInfoFromShadowImpl(
     return false;
   ++right;
 
-  info->block = reinterpret_cast<uint8*>(left * kShadowRatio);
+  uint8* block = reinterpret_cast<uint8*>(left * kShadowRatio);
+  info->header = reinterpret_cast<BlockHeader*>(block);
   info->block_size = (right - left) * kShadowRatio;
 
   // Get the length of the body modulo the shadow ratio.
@@ -847,7 +848,7 @@ bool Shadow::BlockInfoFromShadowImpl(
   }
 
   // Fill out header and trailer sizes.
-  info->header_size = body - info->block;
+  info->header_size = body - block;
   info->trailer_size = info->block_size - body_size - info->header_size;
 
   return true;

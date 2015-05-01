@@ -346,7 +346,7 @@ bool FakeAsanBlock::InitializeBlock(size_t alloc_size) {
   EXPECT_TRUE(common::IsAligned(
       reinterpret_cast<size_t>(buffer_align_begin) + block_info.block_size,
       agent::asan::kShadowRatio));
-  EXPECT_EQ(buffer_align_begin, block_info.block);
+  EXPECT_EQ(buffer_align_begin, block_info.RawBlock());
 
   void* expected_user_ptr = reinterpret_cast<void*>(
       buffer_align_begin + std::max(sizeof(BlockHeader), alloc_alignment));
@@ -358,7 +358,7 @@ bool FakeAsanBlock::InitializeBlock(size_t alloc_size) {
     EXPECT_EQ(kBufferHeaderValue, buffer[i]);
     EXPECT_TRUE(StaticShadow::shadow.IsAccessible(buffer + i));
   }
-  size_t user_block_offset = block_info.body - buffer;
+  size_t user_block_offset = block_info.RawBody() - buffer;
   // Ensure that the block header isn't accessible.
   for (; i < user_block_offset; ++i)
     EXPECT_FALSE(StaticShadow::shadow.IsAccessible(buffer + i));
@@ -397,7 +397,7 @@ bool FakeAsanBlock::TestBlockMetadata() {
   EXPECT_TRUE(block_header->alloc_stack != NULL);
   EXPECT_EQ(agent::asan::ALLOCATED_BLOCK, block_header->state);
   EXPECT_TRUE(StaticShadow::shadow.IsBlockStartByte(cursor++));
-  for (; cursor < block_info.body; ++cursor)
+  for (; cursor < block_info.RawBody(); ++cursor)
     EXPECT_TRUE(StaticShadow::shadow.IsLeftRedzone(cursor));
   const uint8* aligned_trailer_begin = reinterpret_cast<const uint8*>(
       common::AlignUp(reinterpret_cast<size_t>(block_info.body) +

@@ -68,9 +68,9 @@ TEST_F(HeapCheckerTest, IsHeapCorruptInvalidChecksum) {
   // Corrupt the data in such a way that we can guarantee no hash collision.
   const size_t kMaxIterations = 10;
   size_t iteration = 0;
-  uint8 original_value = fake_block.block_info.body[0];
+  uint8 original_value = fake_block.block_info.RawBody(0);
   do {
-    fake_block.block_info.body[0]++;
+    fake_block.block_info.RawBody(0)++;
     BlockSetChecksum(fake_block.block_info);
   } while (fake_block.block_info.header->checksum == header_checksum &&
            iteration++ < kMaxIterations);
@@ -94,7 +94,7 @@ TEST_F(HeapCheckerTest, IsHeapCorruptInvalidChecksum) {
   EXPECT_FALSE(shadow_walker.Next(&block_info));
 
   fake_block.block_info.header->checksum = header_checksum;
-  fake_block.block_info.body[0] = original_value;
+  fake_block.block_info.RawBody(0) = original_value;
   EXPECT_FALSE(heap_checker.IsHeapCorrupt(&corrupt_ranges));
 }
 

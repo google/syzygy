@@ -62,13 +62,13 @@ void HeapChecker::GetCorruptRangesInSlab(const uint8* lower_bound,
     // minidump generation has free access to block contents.
     BlockProtectNone(block_info);
 
-    bool current_block_is_corrupt = IsBlockCorrupt(block_info.block, NULL);
+    bool current_block_is_corrupt = IsBlockCorrupt(block_info);
     // If the current block is corrupt and |current_corrupt_range| is NULL
     // then this means that the current block is at the beginning of a corrupt
     // range.
     if (current_block_is_corrupt && current_corrupt_range == NULL) {
       AsanCorruptBlockRange corrupt_range;
-      corrupt_range.address = block_info.block;
+      corrupt_range.address = block_info.header;
       corrupt_range.length = 0;
       corrupt_range.block_count = 0;
       corrupt_range.block_info = NULL;
@@ -85,7 +85,8 @@ void HeapChecker::GetCorruptRangesInSlab(const uint8* lower_bound,
       DCHECK_NE(reinterpret_cast<AsanCorruptBlockRange*>(NULL),
                 current_corrupt_range);
       current_corrupt_range->block_count++;
-      const uint8* current_block_end = block_info.block + block_info.block_size;
+      const uint8* current_block_end = block_info.RawHeader() +
+          block_info.block_size;
       current_corrupt_range->length = current_block_end -
           reinterpret_cast<const uint8*>(current_corrupt_range->address);
     }

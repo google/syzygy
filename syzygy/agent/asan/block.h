@@ -86,6 +86,7 @@
 #define SYZYGY_AGENT_ASAN_BLOCK_H_
 
 #include "base/basictypes.h"
+#include "base/logging.h"
 #include "syzygy/agent/asan/constants.h"
 
 namespace agent {
@@ -162,6 +163,15 @@ COMPILE_ASSERT((sizeof(BlockHeader) % kShadowRatio) == 0,
                invalid_BlockHeader_mod_size);
 COMPILE_ASSERT(sizeof(BlockHeader) == 16, invalid_BlockHeader_size);
 
+// Declares dummy types for various parts of a block. These are used for type
+// safety of the various utility functions for navigating blocks. These are
+// forward declarations only and have no actual definition. This prevents them
+// from being used as anything other than pointers, and prohibits pointer
+// arithmetic.
+struct BlockHeaderPadding;
+struct BlockBody;
+struct BlockTrailerPadding;
+
 // Declares the block trailer that is found in every right redzone.
 // This should ideally be a multiple of size (n + 1/2) * kShadowRatio. This
 // is because on average we have half of kShadowRatio as padding trailing
@@ -195,9 +205,11 @@ COMPILE_ASSERT(sizeof(BlockTrailer) == 20, invalid_BlockTrailer_size);
 // A structure for recording the minimum pertinent information about a block.
 // Can easily be expanded into a BlockInfo, but requires less space. This makes
 // it suitable for storing blocks in a quarantine, for example.
+// NOTE: If you want to navigate a block thoroughly and conveniently it is best
+//       to first upgrade a CompactBlockInfo to a full BlockInfo struct.
 struct CompactBlockInfo {
   // Pointer to the beginning of the allocation.
-  uint8* block;
+  BlockHeader* header;
   // The size of the entire allocation.
   uint32 block_size;
   struct {
@@ -216,24 +228,23 @@ COMPILE_ASSERT(sizeof(CompactBlockInfo) == 12, invalid_CompactBlockInfo_size);
 // a new block, inferred from an in-memory investigation of an existing block
 // (assuming no corruption), or from an investigation of the shadow memory.
 struct BlockInfo {
-  // Points to the beginning of the entire allocation.
-  uint8* block;
-  // The size of the entire allocation.
+  // The size of the entire allocation. This includes the header, the body,
+  // the trailer and any padding. The block starts with the header.
   size_t block_size;
 
   // Left redzone. If there's no padding |header_padding| and |body| will
   // point to the same location, and |header_padding_size| will be zero.
   BlockHeader* header;
-  uint8* header_padding;
+  BlockHeaderPadding* header_padding;
   size_t header_padding_size;
 
   // Body of the allocation.
-  uint8* body;
+  BlockBody* body;
   size_t body_size;
 
   // Right redzone. If there's no padding |trailer_padding| and |trailer| will
   // point to the same location, and |trailer_padding_size| will be zero.
-  uint8* trailer_padding;
+  BlockTrailerPadding* trailer_padding;
   size_t trailer_padding_size;
   BlockTrailer* trailer;
 
@@ -250,6 +261,65 @@ struct BlockInfo {
 
   // Indicates if the block is nested.
   bool is_nested;
+
+  // Convenience accessors to various parts of the block. All access should be
+  // gated through these as they provide strong bounds checking in debug
+  // builds.
+  // @name
+  // @{
+  uint8* RawBlock() const {
+    return reinterpret_cast<uint8*>(header);
+  }
+  uint8& RawBlock(size_t index) const {
+    DCHECK_GT(block_size, index);
+    return RawBlock()[index];
+  }
+  uint8* RawHeader() const {
+    return reinterpret_cast<uint8*>(header);
+  }
+  uint8& RawHeader(size_t index) const {
+    DCHECK_GT(sizeof(BlockHeader), index);
+    return RawHeader()[index];
+  }
+  uint8* RawHeaderPadding() const {
+    return reinterpret_cast<uint8*>(header_padding);
+  }
+  uint8& RawHeaderPadding(size_t index) const {
+    DCHECK_GT(header_padding_size, index);
+    return RawHeaderPadding()[index];
+  }
+  uint8* RawBody() const {
+    return reinterpret_cast<uint8*>(body);
+  }
+  uint8& RawBody(size_t index) const {
+    DCHECK_GT(body_size, index);
+    return RawBody()[index];
+  }
+  uint8* RawTrailerPadding() const {
+    return reinterpret_cast<uint8*>(trailer_padding);
+  }
+  uint8& RawTrailerPadding(size_t index) const {
+    DCHECK_GT(trailer_padding_size, index);
+    return RawTrailerPadding()[index];
+  }
+  uint8* RawTrailer() const {
+    return reinterpret_cast<uint8*>(trailer);
+  }
+  uint8& RawTrailer(size_t index) const {
+    DCHECK_GT(sizeof(BlockTrailer), index);
+    return RawTrailer()[index];
+  }
+  // @}
+
+  // @returns the total header size, including the header and any padding.
+  size_t TotalHeaderSize() const {
+    return sizeof(BlockHeader) + header_padding_size;
+  }
+
+  // @returns the total trailer size, including the trailer and any padding.
+  size_t TotalTrailerSize() const {
+    return sizeof(BlockTrailer) + trailer_padding_size;
+  }
 };
 
 // Plans the layout of a block given allocation requirements. The layout will
@@ -305,12 +375,13 @@ void ConvertBlockInfo(const BlockInfo& expanded, CompactBlockInfo* compact);
 // This protects against invalid memory accesses that may occur as a result of
 // block corruption, or the block pages being protected; in case of error,
 // this will return false.
-// @param raw_block A pointer to the beginning of the block.
+// @param header A pointer to the block header.
 // @param block_info The description of the block to be populated.
 // @returns true if a valid block was encountered at the provided location,
 //     false otherwise.
-bool BlockInfoFromMemory(const void* raw_block, CompactBlockInfo* block_info);
-bool BlockInfoFromMemory(const void* raw_block, BlockInfo* block_info);
+bool BlockInfoFromMemory(const BlockHeader* header,
+                         CompactBlockInfo* block_info);
+bool BlockInfoFromMemory(const BlockHeader* header, BlockInfo* block_info);
 
 // Given a block body, finds the header. To find any other part of the
 // block first parse it using BlockInfoFromMemory. This protects against
@@ -320,7 +391,7 @@ bool BlockInfoFromMemory(const void* raw_block, BlockInfo* block_info);
 // @param body The body of the block.
 // @returns a pointer to the block header, NULL if it was not found or in
 //     case of error.
-BlockHeader* BlockGetHeaderFromBody(const void* body);
+BlockHeader* BlockGetHeaderFromBody(const BlockBody* body);
 
 // @name Checksum related functions.
 // @{

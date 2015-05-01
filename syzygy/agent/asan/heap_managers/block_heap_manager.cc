@@ -259,7 +259,7 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
 
   BlockInfo block_info = {};
   if (!StaticShadow::shadow.IsBeginningOfBlockBody(alloc) ||
-      !GetBlockInfo(alloc, &block_info)) {
+      !GetBlockInfo(reinterpret_cast<BlockBody*>(alloc), &block_info)) {
     return FreeUnguardedAlloc(heap_id, alloc);
   }
 
@@ -329,7 +329,7 @@ size_t BlockHeapManager::Size(HeapId heap_id, const void* alloc) {
 
   if (StaticShadow::shadow.IsBeginningOfBlockBody(alloc)) {
     BlockInfo block_info = {};
-    if (!GetBlockInfo(alloc, &block_info))
+    if (!GetBlockInfo(reinterpret_cast<const BlockBody*>(alloc), &block_info))
       return 0;
     return block_info.body_size;
   }
@@ -727,7 +727,7 @@ bool BlockHeapManager::FreePotentiallyCorruptBlock(BlockInfo* block_info) {
 
   if (block_info->header->magic != kBlockHeaderMagic ||
       !BlockChecksumIsValid(*block_info)) {
-    ReportHeapError(block_info->block, CORRUPT_BLOCK);
+    ReportHeapError(block_info->header, CORRUPT_BLOCK);
     return FreeCorruptBlock(block_info);
   } else {
     return FreePristineBlock(block_info);
@@ -764,11 +764,12 @@ bool BlockHeapManager::FreePristineBlock(BlockInfo* block_info) {
   if ((heap->GetHeapFeatures() &
        HeapInterface::kHeapReportsReservations) != 0) {
     CHECK(StaticShadow::shadow.Poison(
-        block_info->block, block_info->block_size,
+        block_info->header,
+        block_info->block_size,
         kAsanReservedMarker));
   } else {
     CHECK(StaticShadow::shadow.Unpoison(
-        block_info->block, block_info->block_size));
+        block_info->header, block_info->block_size));
   }
   return heap->FreeBlock(*block_info);
 }

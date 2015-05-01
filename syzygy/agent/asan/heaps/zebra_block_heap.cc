@@ -86,7 +86,7 @@ void* ZebraBlockHeap::Allocate(size_t bytes) {
   SlabInfo* slab_info = AllocateImpl(bytes);
   if (slab_info == NULL)
     return NULL;
-  return slab_info->info.block;
+  return slab_info->info.header;
 }
 
 bool ZebraBlockHeap::Free(void* alloc) {
@@ -96,7 +96,7 @@ bool ZebraBlockHeap::Free(void* alloc) {
   size_t slab_index = GetSlabIndex(alloc);
   if (slab_index == kInvalidSlabIndex)
     return false;
-  if (slab_info_[slab_index].info.block != alloc)
+  if (slab_info_[slab_index].info.header != alloc)
     return false;
 
   // Memory must be released from the quarantine before calling Free.
@@ -122,7 +122,7 @@ bool ZebraBlockHeap::IsAllocated(const void* alloc) {
     return false;
   if (slab_info_[slab_index].state == kFreeSlab)
     return false;
-  if (slab_info_[slab_index].info.block != alloc)
+  if (slab_info_[slab_index].info.header != alloc)
     return false;
   return true;
 }
@@ -136,7 +136,7 @@ size_t ZebraBlockHeap::GetAllocationSize(const void* alloc) {
     return kUnknownSize;
   if (slab_info_[slab_index].state == kFreeSlab)
     return kUnknownSize;
-  if (slab_info_[slab_index].info.block != alloc)
+  if (slab_info_[slab_index].info.header != alloc)
     return kUnknownSize;
   return slab_info_[slab_index].info.block_size;
 }
@@ -198,7 +198,7 @@ void* ZebraBlockHeap::AllocateBlock(size_t size,
     slab_info->info.trailer_size = layout->trailer_size +
         layout->trailer_padding_size;
     slab_info->info.is_nested = false;
-    alloc = slab_info->info.block;
+    alloc = slab_info->info.header;
   }
 
   DCHECK_EQ(0u, reinterpret_cast<uintptr_t>(alloc) % kShadowRatio);
@@ -206,15 +206,15 @@ void* ZebraBlockHeap::AllocateBlock(size_t size,
 }
 
 bool ZebraBlockHeap::FreeBlock(const BlockInfo& block_info) {
-  DCHECK_NE(static_cast<uint8*>(NULL), block_info.block);
-  if (!Free(block_info.block))
+  DCHECK_NE(static_cast<BlockHeader*>(nullptr), block_info.header);
+  if (!Free(block_info.header))
     return false;
   return true;
 }
 
 bool ZebraBlockHeap::Push(const CompactBlockInfo& info) {
   ::common::AutoRecursiveLock lock(lock_);
-  size_t slab_index = GetSlabIndex(info.block);
+  size_t slab_index = GetSlabIndex(info.header);
   if (slab_index == kInvalidSlabIndex)
     return false;
   if (slab_info_[slab_index].state != kAllocatedSlab)
@@ -292,7 +292,7 @@ ZebraBlockHeap::SlabInfo* ZebraBlockHeap::AllocateImpl(size_t bytes) {
   // Update the slab info.
   SlabInfo* slab_info = &slab_info_[slab_index];
   slab_info->state = kAllocatedSlab;
-  slab_info->info.block = alloc;
+  slab_info->info.header = reinterpret_cast<BlockHeader*>(alloc);
   slab_info->info.block_size = bytes;
   slab_info->info.header_size = 0;
   slab_info->info.trailer_size = 0;
