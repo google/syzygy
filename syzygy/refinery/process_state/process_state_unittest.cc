@@ -14,9 +14,26 @@
 
 #include "syzygy/refinery/process_state/process_state.h"
 
+#include "base/strings/string_piece.h"
 #include "gtest/gtest.h"
 
 namespace refinery {
+
+namespace {
+
+using BytesRecordPtr = ProcessState::Layer<Bytes>::RecordPtr;
+
+void ValidateSingleRecordMatch(
+    Address addr,
+    Size size,
+    const std::vector<BytesRecordPtr>& matching_records,
+    base::StringPiece testcase) {
+  ASSERT_EQ(1, matching_records.size()) << testcase;
+  ASSERT_EQ(addr, matching_records[0]->addr()) << testcase;
+  ASSERT_EQ(size, matching_records[0]->size()) << testcase;
+}
+
+}  // namespace
 
 TEST(ProcessStateTest, FindOrCreateLayer) {
   ProcessState report;
@@ -102,15 +119,14 @@ TEST(ProcessStateTest, GetRecordsSpanningSingleRecord) {
 
   // Match: requested region is a subset.
   bytes_layer->GetRecordsSpanning(84ULL, 4ULL, &matching_records);
-  ASSERT_EQ(1, matching_records.size());
-  ASSERT_EQ(kAddress, matching_records[0]->addr());
-  ASSERT_EQ(kSize, matching_records[0]->size());
+  ValidateSingleRecordMatch(kAddress, kSize, matching_records,
+                            "Case: Requested region is a subset");
+  matching_records.clear();
 
   // Match: region is exact match.
   bytes_layer->GetRecordsSpanning(kAddress, kSize, &matching_records);
-  ASSERT_EQ(1, matching_records.size());
-  ASSERT_EQ(kAddress, matching_records[0]->addr());
-  ASSERT_EQ(kSize, matching_records[0]->size());
+  ValidateSingleRecordMatch(kAddress, kSize, matching_records,
+                            "Case: Requested region is exact match");
 }
 
 TEST(ProcessStateTest, GetRecordsSpanningMultipleRecords) {
@@ -132,6 +148,83 @@ TEST(ProcessStateTest, GetRecordsSpanningMultipleRecords) {
   // Match a subset.
   std::vector<BytesRecordPtr> matching_records;
   bytes_layer->GetRecordsSpanning(82ULL, 4U, &matching_records);
+  ASSERT_EQ(3, matching_records.size());
+}
+
+TEST(ProcessStateTest, GetRecordsIntersectingSingleRecord) {
+  using BytesLayerPtr = scoped_refptr<ProcessState::Layer<Bytes>>;
+  using BytesRecordPtr = ProcessState::Layer<Bytes>::RecordPtr;
+
+  // Create a report with a Bytes layer.
+  ProcessState report;
+  BytesLayerPtr bytes_layer;
+  report.FindOrCreateLayer(&bytes_layer);
+  EXPECT_TRUE(bytes_layer != nullptr);
+  ASSERT_EQ(0, bytes_layer->size());
+
+  // Add a single record for basic testing.
+  const Address kAddress = 80ULL;
+  const Size kSize = 16U;
+  BytesRecordPtr record;
+  bytes_layer->CreateRecord(kAddress, kSize, &record);
+
+  // No match: requested region is outside.
+  std::vector<BytesRecordPtr> matching_records;
+  bytes_layer->GetRecordsIntersecting(73ULL, 5U, &matching_records);
+  ASSERT_EQ(0, matching_records.size());
+  bytes_layer->GetRecordsIntersecting(96ULL, 3U, &matching_records);
+  ASSERT_EQ(0, matching_records.size());
+
+  // No match: requested region is contiguous.
+  bytes_layer->GetRecordsIntersecting(75ULL, 5U, &matching_records);
+  ASSERT_EQ(0, matching_records.size());
+  bytes_layer->GetRecordsIntersecting(96ULL, 3U, &matching_records);
+  ASSERT_EQ(0, matching_records.size());
+
+  // Match: requested region straddles.
+  bytes_layer->GetRecordsIntersecting(75ULL, 10ULL, &matching_records);
+  ValidateSingleRecordMatch(kAddress, kSize, matching_records,
+                            "Case: Requested region straddles");
+  matching_records.clear();
+
+  // Match: requested region is a superset.
+  bytes_layer->GetRecordsIntersecting(75ULL, 32ULL, &matching_records);
+  ValidateSingleRecordMatch(kAddress, kSize, matching_records,
+                            "Case: Requested region is a superset");
+  matching_records.clear();
+
+  // Match: requested region is a subset.
+  bytes_layer->GetRecordsIntersecting(84ULL, 4ULL, &matching_records);
+  ValidateSingleRecordMatch(kAddress, kSize, matching_records,
+                            "Case: Requested region is a subset");
+  matching_records.clear();
+
+  // Match: region is exact match.
+  bytes_layer->GetRecordsIntersecting(kAddress, kSize, &matching_records);
+  ValidateSingleRecordMatch(kAddress, kSize, matching_records,
+                            "Case: Requested region is an exact match");
+  matching_records.clear();
+}
+
+TEST(ProcessStateTest, GetRecordsIntersectingMultipleRecords) {
+  using BytesLayerPtr = scoped_refptr<ProcessState::Layer<Bytes>>;
+  using BytesRecordPtr = ProcessState::Layer<Bytes>::RecordPtr;
+
+  // Create a report with a Bytes layer.
+  ProcessState report;
+  BytesLayerPtr bytes_layer;
+  report.FindOrCreateLayer(&bytes_layer);
+  ASSERT_TRUE(bytes_layer != nullptr);
+
+  // Add a few records.
+  BytesRecordPtr record;
+  bytes_layer->CreateRecord(80ULL, 16U, &record);
+  bytes_layer->CreateRecord(75ULL, 25U, &record);
+  bytes_layer->CreateRecord(80ULL, 16U, &record);  // Second record at location.
+
+  // Match a subset straddling region.
+  std::vector<BytesRecordPtr> matching_records;
+  bytes_layer->GetRecordsIntersecting(78ULL, 4U, &matching_records);
   ASSERT_EQ(3, matching_records.size());
 }
 

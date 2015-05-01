@@ -124,14 +124,20 @@ class ProcessState::Layer : public ProcessState::LayerBase {
   void CreateRecord(Address add, Size size, RecordPtr* record);
 
   // Gets records that fully span |size| bytes from |addr|.
-  // @param add the address of the region records should span.
+  // @param addr the address of the region records should span.
   // @param size the size of the region records should span.
   // @param records contains the matching records.
-  void GetRecordsSpanning(Address add,
+  void GetRecordsSpanning(Address addr,
                           Size size,
                           std::vector<RecordPtr>* records) const;
 
-  // TODO(manzagop): GetRecordsIntersecting.
+  // Gets records that intersect the region of |size| bytes from |addr|.
+  // @param addr the address of the region records should intersect.
+  // @param size the size of the region records should intersect.
+  // @param records contains the matching records.
+  void GetRecordsIntersecting(Address addr,
+                              Size size,
+                              std::vector<RecordPtr>* records) const;
 
   // Removes |record| from the layer.
   // @param record the record to remove.
@@ -149,10 +155,9 @@ class ProcessState::Layer : public ProcessState::LayerBase {
 };
 
 template <typename RecordType>
-class Iterator
-    : public std::iterator<std::input_iterator_tag,
-                           typename ProcessState::Layer<RecordType>::RecordPtr>
-{
+class Iterator : public std::iterator<
+    std::input_iterator_tag,
+    typename ProcessState::Layer<RecordType>::RecordPtr> {
  public:
   typedef typename ProcessState::Layer<RecordType>::RecordPtr RecordPtr;
 
@@ -236,20 +241,43 @@ void ProcessState::Layer<RecordType>::CreateRecord(
 
 template <typename RecordType>
 void ProcessState::Layer<RecordType>::GetRecordsSpanning(
-    Address address, Size size, std::vector<RecordPtr>* records) const {
+    Address addr, Size size, std::vector<RecordPtr>* records) const {
   CHECK_NE(0U, size);  // Not supported.
 
   records->clear();
 
   for (const auto& entry : records_) {
     Address record_start_address = entry.first;
+    // TODO(manzagop): handle risk of overflow.
     Address record_end_address = entry.first + entry.second->size();
 
-    if (record_start_address > address)
+    if (record_start_address > addr)
       return;
-    if (record_end_address < address + size)
+    // TODO(manzagop): handle risk of overflow.
+    if (record_end_address < addr + size)
       continue;
     records->push_back(entry.second);
+  }
+}
+
+template <typename RecordType>
+void ProcessState::Layer<RecordType>::GetRecordsIntersecting(
+    Address addr, Size size, std::vector<RecordPtr>* records) const {
+  CHECK_NE(0U, size);  // Not supported.
+
+  records->clear();
+
+  for (const auto& entry : records_) {
+    Address record_start = entry.first;
+    // TODO(manzagop): handle risk of overflow.
+    Address record_end = entry.first + entry.second->size();
+    Address region_start = addr;
+    // TODO(manzagop): handle risk of overflow.
+    Address region_end = addr + size;
+
+    if (record_start < region_end && record_end > region_start) {
+      records->push_back(entry.second);
+    }
   }
 }
 
