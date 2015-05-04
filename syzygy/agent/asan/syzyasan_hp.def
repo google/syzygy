@@ -16,6 +16,12 @@
 LIBRARY syzyasan_hp.dll
 
 EXPORTS
+  ; Our DllMain hook function, invoked through machine instrumentation.
+  _indirect_penter_dllmain
+
+  ; Function exposed for testing purposes.
+  hp_asan_GetActiveHotPatchingAsanRuntime
+
   ; CRT Interceptor functions.
   hp_asan_memchr
   hp_asan_memcpy

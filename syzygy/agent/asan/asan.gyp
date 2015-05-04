@@ -218,6 +218,27 @@
       ],
     },
     {
+      'target_name': 'syzyasan_rtl_unittest_utils',
+      'type': 'static_library',
+      'sources': [
+        'unittest_util.cc',
+        'unittest_util.h',
+      ],
+      'dependencies': [
+        'syzyasan_rtl_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
+        '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/testing/testing.gyp:testing_lib',
+        '<(src)/syzygy/trace/agent_logger/agent_logger.gyp:agent_logger',
+        '<(src)/syzygy/trace/agent_logger/agent_logger.gyp:agent_logger_lib',
+        '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
+      ],
+    },
+    {
       'target_name': 'syzyasan_rtl_unittests',
       'type': 'executable',
       'sources': [
@@ -241,8 +262,6 @@
         'shadow_unittest.cc',
         'stack_capture_cache_unittest.cc',
         'timed_try_unittest.cc',
-        'unittest_util.cc',
-        'unittest_util.h',
         'windows_heap_adapter_unittest.cc',
         'heaps/ctmalloc_heap_unittest.cc',
         'heaps/internal_heap_unittest.cc',
@@ -259,6 +278,7 @@
       'dependencies': [
         'syzyasan_rtl_lib',
         'syzyasan_rtl',
+        'syzyasan_rtl_unittest_utils',
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
@@ -283,6 +303,15 @@
       'sources': [
         'asan_hp_crt_interceptors.cc',
         'asan_hp_crt_interceptors.h',
+        'hot_patching_asan_runtime.cc',
+        'hot_patching_asan_runtime.h',
+      ],
+      'dependencies': [
+        'syzyasan_rtl_lib',
+        '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
+        '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
+        '<(src)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
+        '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
       ],
     },
     {
@@ -329,6 +358,36 @@
           ],
           # Force MSVS to produce the same output name as Ninja.
           'ImportLibrary': '$(OutDir)lib\$(TargetFileName).lib'
+        },
+      },
+    },
+    {
+      'target_name': 'syzyasan_hp_unittests',
+      'type': 'executable',
+      'sources': [
+        'hot_patching_asan_runtime_unittest.cc',
+        '<(src)/base/test/run_all_unittests.cc',
+      ],
+      'dependencies': [
+        'syzyasan_hp_lib',
+        'syzyasan_hp',
+        'syzyasan_rtl_unittest_utils',
+        '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
+        '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/instrument/instrument.gyp:instrument_lib',
+        '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:test_dll',
+        '<(src)/syzygy/testing/testing.gyp:testing_lib',
+        '<(src)/testing/gmock.gyp:gmock',
+        '<(src)/testing/gtest.gyp:gtest',
+       ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          # Disable support for large address spaces.
+          'LargeAddressAware': 1,
         },
       },
     },

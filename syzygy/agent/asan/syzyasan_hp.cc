@@ -17,8 +17,49 @@
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/logging.h"
+#include "syzygy/agent/asan/hot_patching_asan_runtime.h"
 #include "syzygy/agent/common/agent.h"
 #include "syzygy/common/logging.h"
+
+// This instrumentation hook is used for calls to a DLL's entry point.
+//
+// Note that the calling convention to this function is non-conventional.
+// This function is invoked by a generated stub that does:
+//
+//     push <original dllmain>
+//     jmp _indirect_penter_dllmain
+//
+// This function will pass the <original dllmain> pointer and a frame to its
+// parameters to HotPatchingAsanRuntime::DllMainEntryHook, and then on exit,
+// will arrange for execution to jump to <original dllmain>.
+extern "C" void __declspec(naked) _cdecl _indirect_penter_dllmain() {
+  __asm {
+    // Stash volatile registers.
+    push eax
+    push ecx
+    push edx
+    pushfd
+
+    // Retrieve the address pushed by our caller.
+    mov eax, DWORD PTR[esp + 0x10]
+    push eax
+
+    // Calculate the position of the return address on stack, and
+    // push it. This becomes the EntryFrame argument.
+    lea eax, DWORD PTR[esp + 0x18]
+    push eax
+    call agent::asan::HotPatchingAsanRuntime::DllMainEntryHook
+
+    // Restore volatile registers.
+    popfd
+    pop edx
+    pop ecx
+    pop eax
+
+    // Return to the address pushed by our caller.
+    ret
+  }
+}
 
 namespace {
 
@@ -54,6 +95,9 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       // log output will still go to console.
       base::CommandLine::Init(0, NULL);
       common::InitLoggingForDll(L"syzyasan_hp");
+
+      // Set up the hot patching Asan runtime.
+      agent::asan::HotPatchingAsanRuntime::GetInstance()->SetUp();
 
       break;
     }
