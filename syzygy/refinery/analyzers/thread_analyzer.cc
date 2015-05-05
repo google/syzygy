@@ -37,15 +37,19 @@ Analyzer::AnalysisResult ThreadAnalyzer::Analyze(
     return ANALYSIS_ERROR;
 
   for (size_t i = 0; i < num_threads; ++i) {
+    // Note: if the dump were full memory, we would need to read a
+    // MINIDUMP_THREAD based on a MINIDUMP_MEMORY_DESCRIPTOR64.
     MINIDUMP_THREAD thread = {};
     if (!thread_list.ReadElement(&thread))
       return ANALYSIS_ERROR;
 
     // Create the stack record.
     scoped_refptr<ProcessState::Record<Stack>> stack_record;
-    Address stack_addr = thread.Stack.StartOfMemoryRange;
-    Size stack_size = thread.Stack.Memory.DataSize;
-    stack_layer->CreateRecord(stack_addr, stack_size, &stack_record);
+    AddressRange range(thread.Stack.StartOfMemoryRange,
+                       thread.Stack.Memory.DataSize);
+    if (!range.IsValid())
+      return ANALYSIS_ERROR;
+    stack_layer->CreateRecord(range, &stack_record);
     ThreadInformation* thread_info =
         stack_record->mutable_data()->mutable_thread_info();
     if (thread_info == nullptr)

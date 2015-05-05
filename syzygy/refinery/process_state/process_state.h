@@ -31,6 +31,36 @@ namespace refinery {
 typedef uint64_t Address;
 typedef uint32_t Size;
 
+// AddressRange represents a range of memory with an address and a size.
+// TODO(manzagop): incorporate a notion of validity wrt the process's state (eg
+// 32 vs 64 bits).
+class AddressRange {
+ public:
+  AddressRange(Address addr, Size size) : addr_(addr), size_(size) {}
+
+  // Determines the validity of the address range. All users of |AddressRange|
+  // expect a valid range.
+  // @returns true if the range is valid, false otherwise (empty range or
+  //   overflow).
+  bool IsValid() const;
+
+  // @name Accessors.
+  // @{
+  Address addr() const { return addr_; }
+  Size size() const { return size_; }
+  // @}
+
+  Address start() const { return addr_; }
+  // @pre address range must be valid.
+  Address end() const;
+
+  bool operator==(const AddressRange &other) const;
+
+ private:
+  Address addr_;
+  Size size_;
+};
+
 // A process state is a cross-platform representation of the memory contents
 // and other state of a process, typically obtained obtained from a post-mortem
 // crash minidump. A process state typically contains only a partial state of
@@ -92,12 +122,14 @@ class ProcessState::LayerBase : public base::RefCounted<LayerBase> {
 template <typename RecordType>
 class ProcessState::Record : public base::RefCounted<Record<RecordType>> {
  public:
-  Record(Address addr, Size size) : addr_(addr), size_(size) {}
+  // @pre @p range must be a valid.
+  explicit Record(AddressRange range) : range_(range) {
+    DCHECK(range.IsValid());
+  }
 
   // @name Accessors.
   // @{
-  Address addr() const { return addr_; }
-  Size size() const { return size_; }
+  AddressRange range() const { return range_; }
   RecordType* mutable_data() { return &data_; }
   const RecordType& data() { return data_; }
   // @}
@@ -106,8 +138,7 @@ class ProcessState::Record : public base::RefCounted<Record<RecordType>> {
   friend class base::RefCounted<Record<RecordType>>;
   ~Record() {}
 
-  Address addr_;
-  Size size_;
+  AddressRange range_;
   RecordType data_;
 
   DISALLOW_COPY_AND_ASSIGN(Record);
@@ -121,22 +152,21 @@ class ProcessState::Layer : public ProcessState::LayerBase {
   typedef scoped_refptr<Record<RecordType>> RecordPtr;
   typedef Iterator<RecordType> Iterator;
 
-  void CreateRecord(Address add, Size size, RecordPtr* record);
+  // @pre @p range must be a valid.
+  void CreateRecord(AddressRange range, RecordPtr* record);
 
-  // Gets records that fully span |size| bytes from |addr|.
-  // @param addr the address of the region records should span.
-  // @param size the size of the region records should span.
+  // Gets records that fully span |range|.
+  // @pre @p range must be a valid.
+  // @param range the address range the region records should span.
   // @param records contains the matching records.
-  void GetRecordsSpanning(Address addr,
-                          Size size,
+  void GetRecordsSpanning(const AddressRange& range,
                           std::vector<RecordPtr>* records) const;
 
-  // Gets records that intersect the region of |size| bytes from |addr|.
-  // @param addr the address of the region records should intersect.
-  // @param size the size of the region records should intersect.
+  // Gets records that intersect |range|.
+  // @pre @p range must be a valid.
+  // @param range the address range the region records should intersect.
   // @param records contains the matching records.
-  void GetRecordsIntersecting(Address addr,
-                              Size size,
+  void GetRecordsIntersecting(const AddressRange& range,
                               std::vector<RecordPtr>* records) const;
 
   // Removes |record| from the layer.
@@ -230,52 +260,51 @@ void ProcessState::CreateLayer(scoped_refptr<Layer<RecordType>>* layer) {
 // ProcessState::Layer
 template <typename RecordType>
 void ProcessState::Layer<RecordType>::CreateRecord(
-    Address addr, Size size, RecordPtr* record) {
+    AddressRange range, RecordPtr* record) {
+  DCHECK(range.IsValid());
   DCHECK(record != nullptr);
-  CHECK_NE(0U, size);  // Not supported.
-  RecordPtr new_record = new Record<RecordType>(addr, size);
-  records_.insert(std::make_pair(addr, new_record));
+
+  RecordPtr new_record = new Record<RecordType>(range);
+  records_.insert(std::make_pair(range.addr(), new_record));
 
   record->swap(new_record);
 }
 
 template <typename RecordType>
 void ProcessState::Layer<RecordType>::GetRecordsSpanning(
-    Address addr, Size size, std::vector<RecordPtr>* records) const {
-  CHECK_NE(0U, size);  // Not supported.
+    const AddressRange& range, std::vector<RecordPtr>* records) const {
+  DCHECK(range.IsValid());
 
   records->clear();
 
   for (const auto& entry : records_) {
-    Address record_start_address = entry.first;
-    // TODO(manzagop): handle risk of overflow.
-    Address record_end_address = entry.first + entry.second->size();
+    AddressRange record_range = entry.second->range();
+    DCHECK(record_range.IsValid());
 
-    if (record_start_address > addr)
+    if (record_range.start() > range.start())
+      // Records that start after the range, or any after, cannot span it.
       return;
-    // TODO(manzagop): handle risk of overflow.
-    if (record_end_address < addr + size)
+    if (record_range.end() < range.end())
+      // Records that end before the range cannot span it.
       continue;
+
     records->push_back(entry.second);
   }
 }
 
 template <typename RecordType>
 void ProcessState::Layer<RecordType>::GetRecordsIntersecting(
-    Address addr, Size size, std::vector<RecordPtr>* records) const {
-  CHECK_NE(0U, size);  // Not supported.
+    const AddressRange& range, std::vector<RecordPtr>* records) const {
+  DCHECK(range.IsValid());
 
   records->clear();
 
   for (const auto& entry : records_) {
-    Address record_start = entry.first;
-    // TODO(manzagop): handle risk of overflow.
-    Address record_end = entry.first + entry.second->size();
-    Address region_start = addr;
-    // TODO(manzagop): handle risk of overflow.
-    Address region_end = addr + size;
+    AddressRange record_range = entry.second->range();
+    DCHECK(record_range.IsValid());
 
-    if (record_start < region_end && record_end > region_start) {
+    if (record_range.start() < range.end() &&
+        record_range.end() > range.start()) {
       records->push_back(entry.second);
     }
   }
@@ -287,7 +316,7 @@ bool ProcessState::Layer<RecordType>::RemoveRecord(const RecordPtr& record) {
 
   // Note: a record can only appear once, as per API (CreateRecord is the only
   // mechanism to add a record).
-  auto matches = records_.equal_range(record->addr());
+  auto matches = records_.equal_range(record->range().addr());
   for (auto it = matches.first; it != matches.second; ++it) {
     if (it->second.get() == record.get()) {
       records_.erase(it);

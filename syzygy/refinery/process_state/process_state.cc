@@ -14,7 +14,27 @@
 
 #include "syzygy/refinery/process_state/process_state.h"
 
+#include "base/numerics/safe_math.h"
+
 namespace refinery {
+
+bool AddressRange::IsValid() const {
+  if (!size_)
+    return false;
+
+  base::CheckedNumeric<Address> range_end = addr_;
+  range_end += size_;
+  return range_end.IsValid();
+}
+
+Address AddressRange::end() const {
+  DCHECK(IsValid());
+  return addr_ + size_;
+}
+
+bool AddressRange::operator==(const AddressRange &other) const {
+  return addr_ == other.addr_ && size_ == other.size_;
+}
 
 ProcessState::ProcessState() {
 }

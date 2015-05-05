@@ -15,6 +15,7 @@
 #include "syzygy/refinery/analyzers/memory_analyzer.h"
 
 #include <dbghelp.h>
+#include <string>
 
 #include "base/memory/scoped_ptr.h"
 
@@ -54,9 +55,13 @@ Analyzer::AnalysisResult MemoryAnalyzer::Analyze(
     if (!bytes_stream.ReadBytes(range_size, &bytes))
       return ANALYSIS_ERROR;
 
+    AddressRange range(range_addr, range_size);
+    if (!range.IsValid())
+      return ANALYSIS_ERROR;
+
     // Create the memory record.
     scoped_refptr<ProcessState::Record<Bytes>> bytes_record;
-    bytes_layer->CreateRecord(range_addr, range_size, &bytes_record);
+    bytes_layer->CreateRecord(range, &bytes_record);
     Bytes* bytes_proto = bytes_record->mutable_data();
     bytes_proto->mutable_data()->swap(bytes);
   }
