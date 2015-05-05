@@ -1,6 +1,13 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.7.0
+
+[872a0d66e2] SyzyASan - Remove the rate targeted heaps.
+[36c32820e8] SyzyASan - Add type safety to BlockInfo.
+[79e8c0ac2c] SyzyASan - Add support for the Windows 8.1 SDK.
+[dbf490efee] SyzyASan - Fix inconsistency problem in size limited quarantine.
+
 Version 0.8.6.3
 
 [48b8591e29] Fixed a broken header generation build dependency.
