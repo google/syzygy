@@ -156,22 +156,6 @@ class BlockHeapManager : public HeapManagerInterface {
 
   using StackId = agent::common::StackCapture::StackId;
 
-  // Contains the information allowing to determine which rate targeted heap
-  // should serve a given allocation.
-  struct AllocationRateInfo {
-    typedef std::unordered_map<StackId, size_t> AllocationSiteCountMap;
-
-    // Estimates of the current min and max values contained in the allocation
-    // site count map.
-    size_t allocation_site_count_max;
-    size_t allocation_site_count_min;
-
-    // Map that tracks how many time we've seen a given allocation stack.
-    AllocationSiteCountMap allocation_site_count_map;
-
-    AllocationRateInfo() : allocation_site_count_max(0) { }
-  };
-
   // Causes the heap manager to tear itself down. If the heap manager
   // encounters corrupt blocks while tearing itself dow it will report an
   // error. This will in turn cause the asan runtime to call back into itself
@@ -312,9 +296,6 @@ class BlockHeapManager : public HeapManagerInterface {
   // Exposed for unittesting.
   void InitProcessHeap();
 
-  // Initialize the rate targeted heaps.
-  void InitRateTargetedHeaps();
-
   // Determines if the large block heap should be used for an allocation of
   // the given size.
   // @param bytes The allocation size.
@@ -328,42 +309,6 @@ class BlockHeapManager : public HeapManagerInterface {
   // @returns true if the zebra heap should be used for this allocation, false
   //     otherwise.
   bool MayUseZebraBlockHeap(size_t bytes) const;
-
-  // Determines if we should use a rate targeted heap for an allocation of the
-  // given size.
-  // @param bytes The allocation size.
-  // @returns true if a rate targeted heap should be used for this allocation,
-  //     false otherwise.
-  bool MayUseRateTargetedHeap(size_t bytes) const;
-
-  // Given an allocation stack, choose the rate targeted heap that should be
-  // used to serve it.
-  // @param stack The allocation stack.
-  // @returns The rate targeted heap that should serve this allocation.
-  HeapId ChooseRateTargetedHeap(const agent::common::StackCapture& stack);
-
-  // The number of rate targeted heaps.
-  // TODO(sebmarchand): Make this value configurable.
-  static const size_t kRateTargetedHeapCount = 4;
-
-  // The minimum and maximum sizes of the blocks that should go into the rate
-  // targeted heaps. After analyzing crash data, two intervals of blocks have
-  // been identified and targeted.
-  // TODO(sebmarchand): Make these values configurable.
-  static const size_t kDefaultRateTargetedHeapsMinBlockSize[2];
-  static const size_t kDefaultRateTargetedHeapsMaxBlockSize[2];
-
-  // The rate targeted heaps.
-  HeapId rate_targeted_heaps_[kRateTargetedHeapCount];
-
-  // The number of blocks that have been served by each rate targeted heap, for
-  // unittesting.
-  size_t rate_targeted_heaps_count_[kRateTargetedHeapCount];
-
-  base::Lock targeted_heaps_info_lock_;
-
-  // The information used by the rate targeted heaps.
-  AllocationRateInfo targeted_heaps_info_;  // Under targeted_heaps_info_lock_.
 
   // The stack cache used to store the stack traces.
   StackCaptureCache* stack_cache_;

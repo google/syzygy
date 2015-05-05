@@ -138,14 +138,8 @@ class TestBlockHeapManager : public BlockHeapManager {
   using BlockHeapManager::large_block_heap_id_;
   using BlockHeapManager::locked_heaps_;
   using BlockHeapManager::parameters_;
-  using BlockHeapManager::rate_targeted_heaps_;
-  using BlockHeapManager::rate_targeted_heaps_count_;
-  using BlockHeapManager::targeted_heaps_info_;
   using BlockHeapManager::zebra_block_heap_;
   using BlockHeapManager::zebra_block_heap_id_;
-
-  using BlockHeapManager::kRateTargetedHeapCount;
-  using BlockHeapManager::kDefaultRateTargetedHeapsMinBlockSize;
 
   // A derived class to expose protected members for unit-testing. This has to
   // be nested into this one because ShardedBlockQuarantine accesses some
@@ -195,16 +189,10 @@ class TestBlockHeapManager : public BlockHeapManager {
       RemoveHeapById(zebra_block_heap_id_);
       large_block_heap_id_ = 0;
       zebra_block_heap_id_ = 0;
-      for (size_t i = 0; i < kRateTargetedHeapCount; ++i) {
-        RemoveHeapById(rate_targeted_heaps_[i]);
-        rate_targeted_heaps_[i] = 0;
-        rate_targeted_heaps_count_[i] = 0;
-      }
 
       internal_heap_.reset();
       internal_win_heap_.reset();
       InitInternalHeap();
-      InitRateTargetedHeaps();
     }
 
     PropagateParameters();
@@ -1122,66 +1110,6 @@ TEST_P(BlockHeapManagerTest, AllocStress) {
   }
 }
 
-TEST_P(BlockHeapManagerTest, AllocFromRateTargetedHeap) {
-  ScopedHeap heap(heap_manager_);
-  std::vector<void*> alloc_to_free;
-  const size_t kAllocSize1 =
-      TestBlockHeapManager::kDefaultRateTargetedHeapsMinBlockSize[0];
-  const size_t kAllocSize2 =
-      TestBlockHeapManager::kDefaultRateTargetedHeapsMinBlockSize[1];
-  const size_t kIterations = 10;
-
-  // The first iteration will be used to initialize the allocation sites
-  // frequency min and max.
-  for (size_t c = 0; c < kIterations + 1; ++c) {
-    void* alloc = heap.Allocate(kAllocSize1);
-    EXPECT_NE(static_cast<void*>(nullptr), alloc);
-    alloc = heap.Allocate(kAllocSize2);
-    EXPECT_NE(static_cast<void*>(nullptr), alloc);
-    alloc_to_free.push_back(alloc);
-    for (size_t i = 0; i < 10; ++i) {
-      void* alloc = heap.Allocate(kAllocSize1);
-      EXPECT_NE(static_cast<void*>(nullptr), alloc);
-      alloc_to_free.push_back(alloc);
-      alloc = heap.Allocate(kAllocSize2);
-      EXPECT_NE(static_cast<void*>(nullptr), alloc);
-      alloc_to_free.push_back(alloc);
-    }
-    for (size_t i = 0; i < 100; ++i) {
-      void* alloc = heap.Allocate(kAllocSize1);
-      EXPECT_NE(static_cast<void*>(nullptr), alloc);
-      alloc_to_free.push_back(alloc);
-      alloc = heap.Allocate(kAllocSize2);
-      EXPECT_NE(static_cast<void*>(nullptr), alloc);
-      alloc_to_free.push_back(alloc);
-    }
-    for (size_t i = 0; i < 1000; ++i) {
-      void* alloc = heap.Allocate(kAllocSize1);
-      EXPECT_NE(static_cast<void*>(nullptr), alloc);
-      alloc_to_free.push_back(alloc);
-      alloc = heap.Allocate(kAllocSize2);
-      EXPECT_NE(static_cast<void*>(nullptr), alloc);
-      alloc_to_free.push_back(alloc);
-    }
-    // Remove the allocations made during the first iteration, now the
-    // allocation sites frequencies should be correctly initialized and and the
-    // appropriate heap will be used for each allocation.
-    if (c == 0) {
-      for (const auto& alloc : alloc_to_free)
-        heap.Free(alloc);
-      alloc_to_free.clear();
-      for (size_t i = 0; i < TestBlockHeapManager::kRateTargetedHeapCount; ++i)
-        heap_manager_->rate_targeted_heaps_count_[i] = 0;
-    }
-  }
-  for (size_t i = 1, j = 0; i < 10000; i *= 10, ++j) {
-    EXPECT_EQ(kIterations * i * 2,
-        heap_manager_->rate_targeted_heaps_count_[j]);
-  }
-  for (const auto& alloc : alloc_to_free)
-    heap.Free(alloc);
-}
-
 // The BlockHeapManager correctly quarantines the memory after free.
 TEST_P(BlockHeapManagerTest, QuarantinedAfterFree) {
   EnableTestZebraBlockHeap();
@@ -1387,7 +1315,6 @@ TEST_P(BlockHeapManagerTest, LargeBlockHeapUsedForLargeAllocations) {
 
   // Disable targeted heaps as it interferes with this test.
   ::common::AsanParameters params = heap_manager_->parameters();
-  params.enable_rate_targeted_heaps = false;
   heap_manager_->SetParameters(params);
 
   ScopedHeap heap(heap_manager_);
@@ -1645,7 +1572,6 @@ TEST(BlockHeapManagerIntegrationTest, CtMallocStressTest) {
   p.enable_zebra_block_heap = false;
   p.enable_large_block_heap = false;
   p.enable_allocation_filter = false;
-  p.enable_rate_targeted_heaps = false;
   p.allocation_guard_rate = 0.5;
   p.zebra_block_heap_size = 0;
   p.zebra_block_heap_quarantine_ratio = 0.0;

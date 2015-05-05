@@ -64,11 +64,6 @@ size_t GetMSBIndex(size_t n) {
 
 }  // namespace
 
-const size_t BlockHeapManager::kDefaultRateTargetedHeapsMinBlockSize[] =
-    { 4 * 1024, 15 * 1024 };
-const size_t BlockHeapManager::kDefaultRateTargetedHeapsMaxBlockSize[] =
-    { 9 * 1024, 18 * 1024 };
-
 BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
     : stack_cache_(stack_cache),
       initialized_(false),
@@ -110,8 +105,6 @@ void BlockHeapManager::Init() {
     InitProcessHeap();
     initialized_ = true;
   }
-
-  InitRateTargetedHeaps();
 }
 
 HeapId BlockHeapManager::CreateHeap() {
@@ -192,7 +185,7 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
   // inserted.
 
   // We can always use the heap that was passed in.
-  HeapId heaps[4] = { heap_id, 0, 0, 0 };
+  HeapId heaps[3] = { heap_id, 0, 0 };
   size_t heap_count = 1;
   if (MayUseLargeBlockHeap(bytes)) {
     DCHECK_LT(heap_count, arraysize(heaps));
@@ -202,11 +195,6 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
   if (MayUseZebraBlockHeap(bytes)) {
     DCHECK_LT(heap_count, arraysize(heaps));
     heaps[heap_count++] = zebra_block_heap_id_;
-  }
-
-  if (MayUseRateTargetedHeap(bytes)) {
-    DCHECK_LT(heap_count, arraysize(heaps));
-    heaps[heap_count++] = ChooseRateTargetedHeap(stack);
   }
 
   // Use the selected heaps to try to satisfy the allocation.
@@ -435,13 +423,6 @@ void BlockHeapManager::TearDownHeapManager() {
   zebra_block_heap_ = nullptr;
   zebra_block_heap_id_ = 0;
   large_block_heap_id_ = 0;
-  {
-    base::AutoLock lock(targeted_heaps_info_lock_);
-    for (size_t i = 0; i < kRateTargetedHeapCount; ++i) {
-      rate_targeted_heaps_[i] = 0;
-      rate_targeted_heaps_count_[i] = 0;
-    }
-  }
 
   // Free the allocation-filter flag (TLS).
   if (allocation_filter_flag_tls_ != TLS_OUT_OF_INDEXES) {
@@ -875,24 +856,6 @@ void BlockHeapManager::InitProcessHeap() {
   process_heap_id_ = GetHeapId(result);
 }
 
-void BlockHeapManager::InitRateTargetedHeaps() {
-  // |kRateTargetedHeapCount| should be <= 32 because of the way the logarithm
-  // taking works.
-  if (!parameters_.enable_rate_targeted_heaps) {
-    ::memset(rate_targeted_heaps_, 0, sizeof(rate_targeted_heaps_));
-    ::memset(rate_targeted_heaps_count_, 0,
-             sizeof(rate_targeted_heaps_count_));
-    return;
-  }
-
-  COMPILE_ASSERT(kRateTargetedHeapCount <= 32,
-      rate_targeted_heap_count_should_is_too_high);
-  for (size_t i = 0; i < kRateTargetedHeapCount; ++i) {
-    rate_targeted_heaps_[i] = CreateHeap();
-    rate_targeted_heaps_count_[i] = 0;
-  }
-}
-
 bool BlockHeapManager::MayUseLargeBlockHeap(size_t bytes) const {
   DCHECK(initialized_);
   if (!parameters_.enable_large_block_heap)
@@ -922,70 +885,6 @@ bool BlockHeapManager::MayUseZebraBlockHeap(size_t bytes) const {
 
   // Otherwise, allow everything through.
   return true;
-}
-
-bool BlockHeapManager::MayUseRateTargetedHeap(size_t bytes) const {
-  DCHECK(initialized_);
-  if (!parameters_.enable_rate_targeted_heaps)
-    return false;
-  if (bytes <= kDefaultRateTargetedHeapsMaxBlockSize[0] &&
-    bytes >= kDefaultRateTargetedHeapsMinBlockSize[0]) {
-    return true;
-  }
-  if (bytes <= kDefaultRateTargetedHeapsMaxBlockSize[1] &&
-    bytes >= kDefaultRateTargetedHeapsMinBlockSize[1]) {
-    return true;
-  }
-  return false;
-}
-
-HeapId BlockHeapManager::ChooseRateTargetedHeap(
-    const agent::common::StackCapture& stack) {
-  AllocationRateInfo::AllocationSiteCountMap::iterator iter;
-  {
-    base::AutoLock lock(targeted_heaps_info_lock_);
-
-    // Insert the current stack into the map that tracks how many times each
-    // allocation stack has been encountered, increment the frequency if it's
-    // already present.
-    iter = targeted_heaps_info_.allocation_site_count_map.find(
-        stack.stack_id());
-    if (iter == targeted_heaps_info_.allocation_site_count_map.end()) {
-      iter = targeted_heaps_info_.allocation_site_count_map.insert(
-          std::make_pair(stack.stack_id(), 1)).first;
-      targeted_heaps_info_.allocation_site_count_min = 1;
-    } else {
-      if (targeted_heaps_info_.allocation_site_count_min == iter->second)
-        targeted_heaps_info_.allocation_site_count_min++;
-      iter->second++;
-    }
-  }
-
-  // Track the minimum and the maximum value of the allocation sites frequency.
-  // This is both lazy and racy. However, due to the atomic nature of the
-  // reads or writes, the values will track the true values quite closely.
-  if (iter->second > targeted_heaps_info_.allocation_site_count_max)
-    targeted_heaps_info_.allocation_site_count_max = iter->second;
-  if (iter->second < targeted_heaps_info_.allocation_site_count_min)
-    targeted_heaps_info_.allocation_site_count_min = iter->second;
-
-  // Because of the racy updates to min and max, grab local copies of them.
-  size_t min = targeted_heaps_info_.allocation_site_count_min;
-  size_t max = targeted_heaps_info_.allocation_site_count_max;
-
-  // Cap the current count to the min/max estimates.
-  size_t current_count = std::max(min, iter->second);
-  current_count = std::min(max, current_count) - min;
-
-  // Calculates the logarithm of the allocation sites minimum and maximum
-  // values. Then chop this space into |kRateTargetedHeapsCount| buckets.
-  size_t current_count_msb = GetMSBIndex(current_count);
-  size_t width_msb = GetMSBIndex(max - min);
-  size_t bucket = current_count_msb * kRateTargetedHeapCount / (width_msb + 1);
-  DCHECK_GT(kRateTargetedHeapCount, bucket);
-
-  rate_targeted_heaps_count_[bucket]++;
-  return rate_targeted_heaps_[bucket];
 }
 
 }  // namespace heap_managers
