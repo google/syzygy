@@ -220,6 +220,8 @@ class HotPatchingAsanBasicBlockTransform
   AsanBasicBlockTransform* asan_bb_transform_;
 
   bool prepared_for_hot_patching_;
+
+  DISALLOW_COPY_AND_ASSIGN(HotPatchingAsanBasicBlockTransform);
 };
 
 class AsanTransform

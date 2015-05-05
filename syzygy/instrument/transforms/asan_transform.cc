@@ -1206,6 +1206,7 @@ HotPatchingAsanBasicBlockTransform::HotPatchingAsanBasicBlockTransform(
     AsanBasicBlockTransform* asan_bb_transform)
     : asan_bb_transform_(asan_bb_transform),
       prepared_for_hot_patching_(false) {
+  DCHECK_NE(static_cast<AsanBasicBlockTransform*>(nullptr), asan_bb_transform);
   DCHECK(asan_bb_transform_->dry_run());
 }
 
@@ -1213,6 +1214,10 @@ bool HotPatchingAsanBasicBlockTransform::TransformBasicBlockSubGraph(
     const TransformPolicyInterface* policy,
     BlockGraph* block_graph,
     BasicBlockSubGraph* basic_block_subgraph) {
+  DCHECK_NE(static_cast<TransformPolicyInterface*>(nullptr), policy);
+  DCHECK_NE(static_cast<BlockGraph*>(nullptr), block_graph);
+  DCHECK_NE(static_cast<BasicBlockSubGraph*>(nullptr), basic_block_subgraph);
+
   prepared_for_hot_patching_ = false;
 
   // Run Asan basic block transform in dry run mode.
