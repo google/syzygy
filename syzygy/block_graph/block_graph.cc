@@ -56,7 +56,7 @@ COMPILE_ASSERT(BlockGraph::BLOCK_ATTRIBUTES_MAX_BIT < 32,
 // A list of printable names corresponding to image formats. This need to be
 // kept in sync with the BlockGraph::ImageFormat enum!
 const char* kImageFormat[] = {
-  "UNKNOWN_FORMAT", "PE_FORMAT", "COFF_FORMAT",
+  "UNKNOWN_FORMAT", "PE_FORMAT", "COFF_FORMAT", "PE_IN_MEMORY_FORMAT",
 };
 COMPILE_ASSERT(arraysize(kImageFormat) == BlockGraph::IMAGE_FORMAT_MAX,
                kIamgeFormat_not_in_sync);

@@ -128,6 +128,9 @@ class BlockGraph {
     UNKNOWN_IMAGE_FORMAT,
     PE_IMAGE,
     COFF_IMAGE,
+    // Representation of a loaded PE module, created by the hot patching
+    // decomposer.
+    PE_IN_MEMORY_IMAGE,
 
     // This must always be the last entry, and kImageFormat must be kept in
     // sync with this enum.
