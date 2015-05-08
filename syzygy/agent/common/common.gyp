@@ -28,6 +28,8 @@
         'dll_notifications.cc',
         'dll_notifications.h',
         'entry_frame.h',
+        'hot_patcher.cc',
+        'hot_patcher.h',
         'process_utils.cc',
         'process_utils.h',
         'scoped_last_error_keeper.h',
@@ -49,6 +51,7 @@
       'sources': [
         'dlist_unittest.cc',
         'dll_notifications_unittest.cc',
+        'hot_patcher_unittest.cc',
         'process_utils_unittest.cc',
         'stack_capture_unittest.cc',
         'thread_state_unittest.cc',
