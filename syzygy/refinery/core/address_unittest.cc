@@ -19,11 +19,51 @@
 namespace refinery {
 
 TEST(AddressRangeTest, AddressRangeSpans) {
-  // TODO(manzagop): relocate GetRecordsSpanningSingleRecord here.
+  AddressRange range(80ULL, 16U);
+
+  // No match: candidate range is outside.
+  ASSERT_FALSE(range.Spans(AddressRange(73ULL, 5U)));
+  ASSERT_FALSE(range.Spans(AddressRange(96ULL, 3U)));
+
+  // No match: candidate range straddles.
+  ASSERT_FALSE(range.Spans(AddressRange(75ULL, 10ULL)));
+  ASSERT_FALSE(range.Spans(AddressRange(90ULL, 10ULL)));
+
+  // No match: candidate range is a superset.
+  ASSERT_FALSE(range.Spans(AddressRange(75ULL, 32ULL)));
+
+  // Match: candidate range is a subset.
+  ASSERT_TRUE(range.Spans(AddressRange(84ULL, 4ULL)));
+  ASSERT_TRUE(range.Spans(AddressRange(80ULL, 4ULL)));
+  ASSERT_TRUE(range.Spans(AddressRange(92ULL, 4ULL)));
+
+  // Match: candidate range is an exact match.
+  ASSERT_TRUE(range.Spans(AddressRange(80ULL, 16U)));
 }
 
 TEST(AddressRangeTest, AddressRangeIntersects) {
-  // TODO(manzagop): relocate GetRecordsIntersectingSingleRecord here.
+  AddressRange range(80ULL, 16U);
+
+  // No match: candidate range is outside.
+  ASSERT_FALSE(range.Intersects(AddressRange(73ULL, 5U)));
+  ASSERT_FALSE(range.Intersects(AddressRange(100ULL, 3U)));
+
+  // No match: candidate range is contiguous.
+  ASSERT_FALSE(range.Intersects(AddressRange(75ULL, 5U)));
+  ASSERT_FALSE(range.Intersects(AddressRange(96ULL, 3U)));
+
+  // Match: candidate range straddles.
+  ASSERT_TRUE(range.Intersects(AddressRange(75ULL, 10ULL)));
+  ASSERT_TRUE(range.Intersects(AddressRange(90ULL, 10ULL)));
+
+  // Match: candidate range is a subset.
+  ASSERT_TRUE(range.Intersects(AddressRange(84ULL, 4ULL)));
+
+  // Match: candidate range is a superset.
+  ASSERT_TRUE(range.Intersects(AddressRange(75ULL, 32ULL)));
+
+  // Match: candidate range is exact match.
+  ASSERT_TRUE(range.Intersects(AddressRange(80ULL, 16U)));
 }
 
 }  // namespace refinery

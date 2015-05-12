@@ -157,17 +157,17 @@ TEST(ProcessStateTest, GetRecordsSpanningSingleRecord) {
   ASSERT_EQ(0, matching_records.size());
 
   // No match: requested region straddles.
-  bytes_layer->GetRecordsSpanning(AddressRange(75ULL, 10ULL),
+  bytes_layer->GetRecordsSpanning(AddressRange(75ULL, 10U),
                                   &matching_records);
   ASSERT_EQ(0, matching_records.size());
 
   // No match: requested region is a superset.
-  bytes_layer->GetRecordsSpanning(AddressRange(75ULL, 32ULL),
+  bytes_layer->GetRecordsSpanning(AddressRange(75ULL, 32U),
                                   &matching_records);
   ASSERT_EQ(0, matching_records.size());
 
   // Match: requested region is a subset.
-  bytes_layer->GetRecordsSpanning(AddressRange(84ULL, 4ULL),
+  bytes_layer->GetRecordsSpanning(AddressRange(84ULL, 4U),
                                   &matching_records);
   ValidateSingleRecordMatch(AddressRange(kAddress, kSize), matching_records,
                             "Case: Requested region is a subset");
@@ -232,21 +232,21 @@ TEST(ProcessStateTest, GetRecordsIntersectingSingleRecord) {
   ASSERT_EQ(0, matching_records.size());
 
   // Match: requested region straddles.
-  bytes_layer->GetRecordsIntersecting(AddressRange(75ULL, 10ULL),
+  bytes_layer->GetRecordsIntersecting(AddressRange(75ULL, 10U),
                                       &matching_records);
   ValidateSingleRecordMatch(AddressRange(kAddress, kSize), matching_records,
                             "Case: Requested region straddles");
   matching_records.clear();
 
   // Match: requested region is a superset.
-  bytes_layer->GetRecordsIntersecting(AddressRange(75ULL, 32ULL),
+  bytes_layer->GetRecordsIntersecting(AddressRange(75ULL, 32U),
                                       &matching_records);
   ValidateSingleRecordMatch(AddressRange(kAddress, kSize), matching_records,
                             "Case: Requested region is a superset");
   matching_records.clear();
 
   // Match: requested region is a subset.
-  bytes_layer->GetRecordsIntersecting(AddressRange(84ULL, 4ULL),
+  bytes_layer->GetRecordsIntersecting(AddressRange(84ULL, 4U),
                                       &matching_records);
   ValidateSingleRecordMatch(AddressRange(kAddress, kSize), matching_records,
                             "Case: Requested region is a subset");
