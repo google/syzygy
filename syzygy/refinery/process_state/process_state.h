@@ -15,7 +15,6 @@
 #ifndef SYZYGY_REFINERY_PROCESS_STATE_PROCESS_STATE_H_
 #define SYZYGY_REFINERY_PROCESS_STATE_PROCESS_STATE_H_
 
-#include <stdint.h>
 #include <iterator>
 #include <map>
 #include <vector>
@@ -23,43 +22,10 @@
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
+#include "syzygy/refinery/core/address.h"
 #include "syzygy/refinery/process_state/record_traits.h"
 
 namespace refinery {
-
-// TODO(siggi): Move this somewhere more central.
-typedef uint64_t Address;
-typedef uint32_t Size;
-
-// AddressRange represents a range of memory with an address and a size.
-// TODO(manzagop): incorporate a notion of validity wrt the process's state (eg
-// 32 vs 64 bits).
-class AddressRange {
- public:
-  AddressRange(Address addr, Size size) : addr_(addr), size_(size) {}
-
-  // Determines the validity of the address range. All users of |AddressRange|
-  // expect a valid range.
-  // @returns true if the range is valid, false otherwise (empty range or
-  //   overflow).
-  bool IsValid() const;
-
-  // @name Accessors.
-  // @{
-  Address addr() const { return addr_; }
-  Size size() const { return size_; }
-  // @}
-
-  Address start() const { return addr_; }
-  // @pre address range must be valid.
-  Address end() const;
-
-  bool operator==(const AddressRange &other) const;
-
- private:
-  Address addr_;
-  Size size_;
-};
 
 // A process state is a cross-platform representation of the memory contents
 // and other state of a process, typically obtained obtained from a post-mortem
@@ -122,7 +88,7 @@ class ProcessState::LayerBase : public base::RefCounted<LayerBase> {
 template <typename RecordType>
 class ProcessState::Record : public base::RefCounted<Record<RecordType>> {
  public:
-  // @pre @p range must be a valid.
+  // @pre @p range must be a valid range.
   explicit Record(AddressRange range) : range_(range) {
     DCHECK(range.IsValid());
   }
@@ -154,6 +120,11 @@ class ProcessState::Layer : public ProcessState::LayerBase {
 
   // @pre @p range must be a valid.
   void CreateRecord(AddressRange range, RecordPtr* record);
+
+  // Gets records located at |addr|.
+  // @param addr the address records should must be located at.
+  // @param records contains the matching records.
+  void GetRecordsAt(Address addr, std::vector<RecordPtr>* records) const;
 
   // Gets records that fully span |range|.
   // @pre @p range must be a valid.
@@ -271,24 +242,35 @@ void ProcessState::Layer<RecordType>::CreateRecord(
 }
 
 template <typename RecordType>
+void ProcessState::Layer<RecordType>::GetRecordsAt(
+    Address addr, std::vector<RecordPtr>* records) const {
+  DCHECK(records != nullptr);
+
+  records->clear();
+
+  auto match = records_.equal_range(addr);
+  for (auto it = match.first; it != match.second; ++it) {
+    records->push_back(it->second);
+  }
+}
+
+template <typename RecordType>
 void ProcessState::Layer<RecordType>::GetRecordsSpanning(
     const AddressRange& range, std::vector<RecordPtr>* records) const {
   DCHECK(range.IsValid());
+  DCHECK(records != nullptr);
 
   records->clear();
 
   for (const auto& entry : records_) {
     AddressRange record_range = entry.second->range();
     DCHECK(record_range.IsValid());
+    if (record_range.Spans(range))
+      records->push_back(entry.second);
 
     if (record_range.start() > range.start())
       // Records that start after the range, or any after, cannot span it.
       return;
-    if (record_range.end() < range.end())
-      // Records that end before the range cannot span it.
-      continue;
-
-    records->push_back(entry.second);
   }
 }
 
@@ -296,17 +278,15 @@ template <typename RecordType>
 void ProcessState::Layer<RecordType>::GetRecordsIntersecting(
     const AddressRange& range, std::vector<RecordPtr>* records) const {
   DCHECK(range.IsValid());
+  DCHECK(records != nullptr);
 
   records->clear();
 
   for (const auto& entry : records_) {
     AddressRange record_range = entry.second->range();
     DCHECK(record_range.IsValid());
-
-    if (record_range.start() < range.end() &&
-        record_range.end() > range.start()) {
+    if (record_range.Intersects(range))
       records->push_back(entry.second);
-    }
   }
 }
 

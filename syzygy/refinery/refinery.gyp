@@ -22,6 +22,7 @@
       'type': 'none',
       'dependencies': [
         'analyzers/analyzers.gyp:*',
+        'core/core.gyp:*',
         'process_state/process_state.gyp:*',
         'minidump/minidump.gyp:*',
       ],
@@ -34,6 +35,7 @@
         'unittest_util.h',
       ],
       'dependencies': [
+        'process_state/process_state.gyp:process_state_lib',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/testing/gtest.gyp:gtest',
       ],
@@ -44,12 +46,14 @@
       'sources': [
         'analyzers/memory_analyzer_unittest.cc',
         'analyzers/thread_analyzer_unittest.cc',
+        'core/address_unittest.cc',
         'process_state/process_state_unittest.cc',
         'minidump/minidump_unittest.cc',
         '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
         'analyzers/analyzers.gyp:analyzers_lib',
+        'core/core.gyp:core_lib',
         'minidump/minidump.gyp:minidump_lib',
         'process_state/process_state.gyp:process_state_lib',
         'refinery_unittest_utils',

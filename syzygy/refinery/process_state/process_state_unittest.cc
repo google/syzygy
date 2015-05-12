@@ -18,12 +18,12 @@
 
 #include "base/strings/string_piece.h"
 #include "gtest/gtest.h"
+#include "syzygy/refinery/process_state/process_state_util.h"
+#include "syzygy/refinery/process_state/refinery.pb.h"
 
 namespace refinery {
 
 namespace {
-
-using BytesRecordPtr = ProcessState::Layer<Bytes>::RecordPtr;
 
 void ValidateSingleRecordMatch(
     AddressRange range,
@@ -102,10 +102,38 @@ TEST(ProcessStateTest, CreateRecord) {
   ASSERT_NE(first_record.get(), second_record.get());
 }
 
-TEST(ProcessStateTest, GetRecordsSpanningSingleRecord) {
-  using BytesLayerPtr = scoped_refptr<ProcessState::Layer<Bytes>>;
-  using BytesRecordPtr = ProcessState::Layer<Bytes>::RecordPtr;
+TEST(ProcessStateTest, GetRecordsAt) {
+  // Create a report with a Bytes layer.
+  ProcessState report;
+  BytesLayerPtr bytes_layer;
+  report.FindOrCreateLayer(&bytes_layer);
+  EXPECT_TRUE(bytes_layer != nullptr);
+  ASSERT_EQ(0, bytes_layer->size());
 
+  // Add a single record for basic testing.
+  BytesRecordPtr record;
+  bytes_layer->CreateRecord(AddressRange(80ULL, 16U), &record);
+
+  // Get right before and right after - no match.
+  std::vector<BytesRecordPtr> matching_records;
+  bytes_layer->GetRecordsAt(79ULL, &matching_records);
+  ASSERT_EQ(0, matching_records.size());
+  bytes_layer->GetRecordsAt(81ULL, &matching_records);
+  ASSERT_EQ(0, matching_records.size());
+
+  // Match.
+  bytes_layer->GetRecordsAt(80ULL, &matching_records);
+  ASSERT_EQ(1, matching_records.size());
+  ASSERT_EQ(record.get(), matching_records[0].get());
+
+  // Add a second record. Match both.
+  matching_records.clear();
+  bytes_layer->CreateRecord(AddressRange(80ULL, 4U), &record);
+  bytes_layer->GetRecordsAt(80ULL, &matching_records);
+  ASSERT_EQ(2, matching_records.size());
+}
+
+TEST(ProcessStateTest, GetRecordsSpanningSingleRecord) {
   // Create a report with a Bytes layer.
   ProcessState report;
   BytesLayerPtr bytes_layer;
@@ -153,9 +181,6 @@ TEST(ProcessStateTest, GetRecordsSpanningSingleRecord) {
 }
 
 TEST(ProcessStateTest, GetRecordsSpanningMultipleRecords) {
-  using BytesLayerPtr = scoped_refptr<ProcessState::Layer<Bytes>>;
-  using BytesRecordPtr = ProcessState::Layer<Bytes>::RecordPtr;
-
   // Create a report with a Bytes layer.
   ProcessState report;
   BytesLayerPtr bytes_layer;
@@ -176,9 +201,6 @@ TEST(ProcessStateTest, GetRecordsSpanningMultipleRecords) {
 }
 
 TEST(ProcessStateTest, GetRecordsIntersectingSingleRecord) {
-  using BytesLayerPtr = scoped_refptr<ProcessState::Layer<Bytes>>;
-  using BytesRecordPtr = ProcessState::Layer<Bytes>::RecordPtr;
-
   // Create a report with a Bytes layer.
   ProcessState report;
   BytesLayerPtr bytes_layer;
@@ -239,9 +261,6 @@ TEST(ProcessStateTest, GetRecordsIntersectingSingleRecord) {
 }
 
 TEST(ProcessStateTest, GetRecordsIntersectingMultipleRecords) {
-  using BytesLayerPtr = scoped_refptr<ProcessState::Layer<Bytes>>;
-  using BytesRecordPtr = ProcessState::Layer<Bytes>::RecordPtr;
-
   // Create a report with a Bytes layer.
   ProcessState report;
   BytesLayerPtr bytes_layer;
@@ -263,9 +282,6 @@ TEST(ProcessStateTest, GetRecordsIntersectingMultipleRecords) {
 }
 
 TEST(ProcessStateTest, RemoveRecord) {
-  using BytesLayerPtr = scoped_refptr<ProcessState::Layer<Bytes>>;
-  using BytesRecordPtr = ProcessState::Layer<Bytes>::RecordPtr;
-
   // Create a report that has a Bytes layer with a single record.
   ProcessState report;
   BytesLayerPtr bytes_layer;
@@ -287,9 +303,6 @@ TEST(ProcessStateTest, RemoveRecord) {
 }
 
 TEST(ProcessStateTest, LayerIteration) {
-  using BytesLayerPtr = scoped_refptr<ProcessState::Layer<Bytes>>;
-  using BytesRecordPtr = ProcessState::Layer<Bytes>::RecordPtr;
-
   // Create a report that has a Bytes layer with few records.
   ProcessState report;
   BytesLayerPtr bytes_layer;

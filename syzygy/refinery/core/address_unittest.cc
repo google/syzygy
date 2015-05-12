@@ -12,14 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/refinery/process_state/process_state.h"
+#include "syzygy/refinery/core/address.h"
+
+#include "gtest/gtest.h"
 
 namespace refinery {
 
-ProcessState::ProcessState() {
+TEST(AddressRangeTest, AddressRangeSpans) {
+  // TODO(manzagop): relocate GetRecordsSpanningSingleRecord here.
 }
 
-ProcessState::~ProcessState() {
+TEST(AddressRangeTest, AddressRangeIntersects) {
+  // TODO(manzagop): relocate GetRecordsIntersectingSingleRecord here.
 }
 
 }  // namespace refinery

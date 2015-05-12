@@ -17,6 +17,7 @@
 #include <dbghelp.h>
 
 #include "base/macros.h"
+#include "syzygy/refinery/process_state/refinery.pb.h"
 
 namespace refinery {
 

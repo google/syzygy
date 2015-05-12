@@ -19,6 +19,7 @@
 
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "gtest/gtest.h"
 #include "syzygy/refinery/unittest_util.h"
 
 namespace refinery {

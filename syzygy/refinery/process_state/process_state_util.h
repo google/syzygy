@@ -12,33 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/refinery/analyzers/thread_analyzer.h"
+#ifndef SYZYGY_REFINERY_PROCESS_STATE_PROCESS_STATE_UTIL_H_
+#define SYZYGY_REFINERY_PROCESS_STATE_PROCESS_STATE_UTIL_H_
 
-#include <stdint.h>
-
-#include "gtest/gtest.h"
-#include "syzygy/refinery/unittest_util.h"
-#include "syzygy/refinery/minidump/minidump.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
 
 namespace refinery {
 
-TEST(ThreadAnalyzerTest, Basic) {
-  Minidump minidump;
-  ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
-  ProcessState process_state;
-
-  ThreadAnalyzer analyzer;
-  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
-            analyzer.Analyze(minidump, &process_state));
-
-  scoped_refptr<ProcessState::Layer<Stack>> stack_layer;
-  ASSERT_TRUE(process_state.FindLayer(&stack_layer));
-
-  ASSERT_LE(1, stack_layer->size());
-  // TODO(siggi): Flesh out layer so that it can be enumerated in some way for
-  //     more elaborate testing.
-}
+using BytesLayerPtr = scoped_refptr<ProcessState::Layer<Bytes>>;
+using BytesRecordPtr = ProcessState::Layer<Bytes>::RecordPtr;
 
 }  // namespace refinery
+
+#endif  // SYZYGY_REFINERY_PROCESS_STATE_PROCESS_STATE_UTIL_H_

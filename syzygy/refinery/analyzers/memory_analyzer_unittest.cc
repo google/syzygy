@@ -16,16 +16,22 @@
 
 #include <stdint.h>
 
+#include <vector>
+
+#include "base/files/scoped_temp_dir.h"
 #include "gtest/gtest.h"
 #include "syzygy/refinery/unittest_util.h"
 #include "syzygy/refinery/minidump/minidump.h"
 #include "syzygy/refinery/process_state/process_state.h"
+#include "syzygy/refinery/process_state/process_state_util.h"
+#include "syzygy/refinery/process_state/refinery.pb.h"
 
 namespace refinery {
 
-TEST(MemoryAnalyzerTest, Basic) {
+TEST(MemoryAnalyzerTest, AnalyzeMinidump) {
   Minidump minidump;
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
+
   ProcessState process_state;
 
   MemoryAnalyzer analyzer;
@@ -34,9 +40,56 @@ TEST(MemoryAnalyzerTest, Basic) {
 
   scoped_refptr<ProcessState::Layer<Bytes>> bytes_layer;
   ASSERT_TRUE(process_state.FindLayer(&bytes_layer));
-
-  // TODO(manzagop): More testing once Layer interface fleshed out.
   ASSERT_LE(1, bytes_layer->size());
+}
+
+TEST(MemoryAnalyzerTest, AnalyzeSyntheticMinidump) {
+  const char kDataFirst[] = "ABCD";
+  const char kDataSecond[] = "EFGHI";
+
+  testing::MinidumpSpecification spec;
+  spec.AddMemoryRegion(80ULL, kDataFirst);
+  spec.AddMemoryRegion(88ULL, kDataSecond);
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+  base::FilePath minidump_path;
+  ASSERT_TRUE(spec.Serialize(temp_dir, &minidump_path));
+
+  Minidump minidump;
+  ASSERT_TRUE(minidump.Open(minidump_path));
+
+  ProcessState process_state;
+
+  MemoryAnalyzer analyzer;
+  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
+            analyzer.Analyze(minidump, &process_state));
+
+  // Validate analysis.
+  BytesLayerPtr bytes_layer;
+  ASSERT_TRUE(process_state.FindLayer(&bytes_layer));
+  ASSERT_EQ(2, bytes_layer->size());
+
+  std::vector<BytesRecordPtr> matching_records;
+
+  // Retrieve first memory region.
+  {
+    bytes_layer->GetRecordsAt(80ULL, &matching_records);
+    ASSERT_EQ(1, matching_records.size());
+    ASSERT_EQ(AddressRange(80ULL, sizeof(kDataFirst) - 1),
+              matching_records[0]->range());
+    const Bytes& bytes = matching_records[0]->data();
+    ASSERT_EQ(kDataFirst, bytes.data());
+  }
+
+  // Retrieve second memory region.
+  {
+    bytes_layer->GetRecordsAt(88ULL, &matching_records);
+    ASSERT_EQ(1, matching_records.size());
+    ASSERT_EQ(AddressRange(88ULL, sizeof(kDataSecond) - 1),
+              matching_records[0]->range());
+    const Bytes& bytes = matching_records[0]->data();
+    ASSERT_EQ(kDataSecond, bytes.data());
+  }
 }
 
 }  // namespace refinery

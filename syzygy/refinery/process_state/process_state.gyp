@@ -74,6 +74,7 @@
         'refinery_proto',
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/refinery/core/core.gyp:core_lib',
         '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',
       ],
       'export_dependent_settings': [

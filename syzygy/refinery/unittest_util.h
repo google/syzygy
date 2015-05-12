@@ -15,9 +15,14 @@
 #ifndef SYZYGY_REFINERY_UNITTEST_UTIL_H_
 #define SYZYGY_REFINERY_UNITTEST_UTIL_H_
 
+#include <map>
+#include <string>
+
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
-#include "gtest/gtest.h"
+#include "base/strings/string_piece.h"
+#include "syzygy/refinery/core/address.h"
+#include "syzygy/refinery/process_state/process_state.h"
 
 namespace testing {
 
@@ -27,6 +32,32 @@ class TestMinidumps {
   static const base::FilePath GetNotepad32Dump();
   // @returns the path to a 64 bit notepad dump file.
   static const base::FilePath GetNotepad64Dump();
+};
+
+// A MinidumpSpecification is used to describe and generate synthetic minidumps.
+// If the specification is serialized, the generated minidump is erased as the
+// specification is deleted.
+class MinidumpSpecification {
+ public:
+  MinidumpSpecification();
+
+  // Adds a memory region to the specification.
+  // @param addr the address the region is located at.
+  // @param bytes the bytes that make up the region.
+  // @returns true on success, false if the memory region is not valid or if it
+  //   overlaps with an existing memory region.
+  bool AddMemoryRegion(refinery::Address addr, base::StringPiece bytes);
+
+  // Serializes the specification.
+  // @param dir the directory to serialize to.
+  // @param path the path to the minidump.
+  // @returns true on success, false otherwise.
+  bool Serialize(const base::ScopedTempDir& dir, base::FilePath* path) const;
+
+ private:
+  std::map<refinery::Address, std::string> memory_regions_;
+
+  DISALLOW_COPY_AND_ASSIGN(MinidumpSpecification);
 };
 
 }  // namespace testing

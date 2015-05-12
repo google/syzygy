@@ -18,6 +18,7 @@
 #include <string>
 
 #include "base/memory/scoped_ptr.h"
+#include "syzygy/refinery/process_state/refinery.pb.h"
 
 namespace refinery {
 

@@ -18,19 +18,11 @@
   },
   'targets': [
     {
-      'target_name': 'analyzers_lib',
+      'target_name': 'core_lib',
       'type': 'static_library',
-      'dependencies': [
-        '<(src)/syzygy/refinery/core/core.gyp:core_lib',
-        '<(src)/syzygy/'
-            'refinery/process_state/process_state.gyp:process_state_lib',
-      ],
       'sources': [
-        'analyzer.h',
-        'memory_analyzer.cc',
-        'memory_analyzer.h',
-        'thread_analyzer.cc',
-        'thread_analyzer.h',
+        'address.cc',
+        'address.h',
       ],
     },
   ],
