@@ -53,7 +53,7 @@
       ],
       'dependencies': [
         'analyzers/analyzers.gyp:analyzers_lib',
-        'core/core.gyp:core_lib',
+        'core/core.gyp:refinery_core_lib',
         'minidump/minidump.gyp:minidump_lib',
         'process_state/process_state.gyp:process_state_lib',
         'refinery_unittest_utils',

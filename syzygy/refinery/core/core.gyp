@@ -18,7 +18,7 @@
   },
   'targets': [
     {
-      'target_name': 'core_lib',
+      'target_name': 'refinery_core_lib',
       'type': 'static_library',
       'sources': [
         'address.cc',
