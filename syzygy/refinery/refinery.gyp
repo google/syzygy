@@ -49,6 +49,7 @@
         'core/address_unittest.cc',
         'process_state/process_state_unittest.cc',
         'minidump/minidump_unittest.cc',
+        'types/type_unittest.cc',
         '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
@@ -56,8 +57,8 @@
         'core/core.gyp:refinery_core_lib',
         'minidump/minidump.gyp:minidump_lib',
         'process_state/process_state.gyp:process_state_lib',
+        'types/types.gyp:types_lib',
         'refinery_unittest_utils',
-        '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',
         '<(src)/testing/gtest.gyp:gtest',
