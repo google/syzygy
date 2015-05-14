@@ -11,13 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Unittests for gitdeps.py.
 
+"""Unittests for gitdeps.py.
 This test requires git to be in the path, and requires internet connectivity.
 It runs tests against a repository hosted on github.com.
 """
 
 import gitdeps
+import itertools
 import json
 import logging
 import os
@@ -124,7 +125,8 @@ class TestGitDeps(unittest.TestCase):
   def _TestSuccessBasicCheckout(self,
                                 create_cache_dir,
                                 specify_output_dir,
-                                specify_deps_file):
+                                specify_deps_file,
+                                pull_full_repo):
     self._BuildTestRepoPaths()
 
     # Determine 'cwd' and 'output_dir' parameters.
@@ -148,9 +150,12 @@ class TestGitDeps(unittest.TestCase):
       os.mkdir(self._cache_dir)
     os.mkdir(self._output_dir)
 
+    directories_to_checkout = [] if pull_full_repo else ['foo']
+
     # Create and write the deps file.
     deps = {
-      self._checkout_dir_rel: (self._dummy_repo_path, 'foo', 'rev2')
+      self._checkout_dir_rel:
+          (self._dummy_repo_path, directories_to_checkout, 'rev2')
     }
     _WriteDeps(deps, deps_path)
 
@@ -166,44 +171,25 @@ class TestGitDeps(unittest.TestCase):
     self.assertTrue(os.path.isfile(self._junctions_path))
     self.assertTrue(os.path.isdir(self._checkout_dir_abs))
     # pylint: disable=W0212
-    self.assertNotEqual(None, gitdeps._GetJunctionInfo(self._checkout_dir_abs))
 
-  # The following batch of tests covers basic differences in command-line
-  # options.
-  def testSuccessEmptyCacheDirEmptyOutputDirSpecifiedDeps(self):
-    self._TestSuccessBasicCheckout(True, True, True)
-
-  def testSuccessEmptyCacheDirEmptyOutputDirImplicitDeps(self):
-    self._TestSuccessBasicCheckout(True, True, False)
-
-  def testSuccessEmptyCacheDirNoOutputDirSpecifiedDeps(self):
-    self._TestSuccessBasicCheckout(True, False, True)
-
-  def testSuccessEmptyCacheDirNoOutputDirImplicitDeps(self):
-    self._TestSuccessBasicCheckout(True, False, False)
-
-  def testSuccessNoCacheDirEmptyOutputDirSpecifiedDeps(self):
-    self._TestSuccessBasicCheckout(False, True, True)
-
-  def testSuccessNoCacheDirEmptyOutputDirImplicitDeps(self):
-    self._TestSuccessBasicCheckout(False, True, False)
-
-  def testSuccessNoCacheDirNoOutputDirSpecifiedDeps(self):
-    self._TestSuccessBasicCheckout(False, False, True)
-
-  def testSuccessNoCacheDirNoOutputDirImplicitDeps(self):
-    self._TestSuccessBasicCheckout(False, False, False)
+    if pull_full_repo:
+      self.assertNotEqual(None,
+                          gitdeps._GetJunctionInfo(self._checkout_dir_abs))
+    else:
+      for directory in directories_to_checkout:
+        junction = os.path.join(self._checkout_dir_abs, directory)
+        self.assertNotEqual(None, gitdeps._GetJunctionInfo(junction))
 
   def _TestSuccessCheckoutReuse(self, reuse_refspec):
     """A test that checks reuse of a cached repository by checking out a
     second time with a different refspec.
     """
-    self._TestSuccessBasicCheckout(True, True, True)
+    self._TestSuccessBasicCheckout(True, True, True, True)
 
     # Create and write the deps file.
     deps_path = os.path.join(self.temp_dir(), 'gitdeps.txt')
     deps = {
-      self._checkout_dir_rel: (self._dummy_repo_path, 'foo', reuse_refspec)
+      self._checkout_dir_rel: (self._dummy_repo_path, [], reuse_refspec)
     }
     _WriteDeps(deps, deps_path)
 
@@ -236,14 +222,14 @@ class TestGitDeps(unittest.TestCase):
     os.mkdir(self._cache_dir)
     os.mkdir(self._output_dir)
 
-    checkout_dir_rel2 = 'repo2/nested'
+    checkout_dir_rel2 = os.path.join('repo2', 'nested')
     checkout_dir_abs2 = os.path.join(self._output_dir, checkout_dir_rel2)
 
     # Create and write the deps file.
     deps_path = os.path.join(self.temp_dir(), 'gitdeps.txt')
     deps = {
-      self._checkout_dir_rel: (self._dummy_repo_path, 'foo', 'rev2'),
-      checkout_dir_rel2: (self._dummy_repo_path, 'foo', 'rev3')
+      self._checkout_dir_rel: (self._dummy_repo_path, [], 'rev2'),
+      checkout_dir_rel2: (self._dummy_repo_path, [], 'rev3')
     }
     _WriteDeps(deps, deps_path)
 
@@ -265,7 +251,7 @@ class TestGitDeps(unittest.TestCase):
 
     # Rewrite the deps file, removing the nested junction.
     deps = {
-      self._checkout_dir_rel: (self._dummy_repo_path, 'foo', 'rev2'),
+      self._checkout_dir_rel: (self._dummy_repo_path, [], 'rev2'),
     }
     _WriteDeps(deps, deps_path)
 
@@ -287,6 +273,27 @@ class TestGitDeps(unittest.TestCase):
     self.assertFalse(os.path.exists(os.path.dirname(checkout_dir_abs2)))
 
 
+def generateParameterizedTests():
+  for combination in itertools.product([True, False], repeat=4):
+    create_cache_dir, specify_output_dir, specify_deps_file, pull_full_repo = (
+        combination)
+
+    testName = 'testSuccess'
+    testName += 'EmptyCacheDir' if create_cache_dir else 'NoCacheDir'
+    testName += 'EmptyOutputDir' if specify_output_dir else 'NoOutputDir'
+    testName += 'SpecifiedDeps' if specify_deps_file else 'ImplicitDeps'
+    testName += 'PullFullRepo' if pull_full_repo else 'UseSparseCheckout'
+
+    setattr(TestGitDeps, testName,
+            lambda self: self._TestSuccessBasicCheckout(create_cache_dir,
+                                                        specify_output_dir,
+                                                        specify_deps_file,
+                                                        pull_full_repo))
+
+
 if __name__ == "__main__":
   logging.basicConfig(level=logging.DEBUG)
+
+  generateParameterizedTests()
+
   unittest.main()

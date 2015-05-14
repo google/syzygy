@@ -32,24 +32,10 @@ vars = {
 }
 
 deps = {
-  # Chromium's base library.
-  "src/base":
-    Var("chromium_git") + "/src/base@" +
-        '6aea043abf79d2401c8ec18ea3b5e2b34a735897',
-
-  # Dependencies required to to build base.
+  # Dependency required to build base.
   "src/third_party/icu":
     Var("chromium_git") + "deps/icu46@" +
         'fffc215567216e09f56578b254a56668f1c89add',
-  "src/third_party/modp_b64":
-    Var("chromium_git") + "src/third_party/modp_b64@" +
-        '043af4502daf712db9dc03318c13e4f6245a07d6',
-  "src/third_party/tcmalloc/":
-    Var("chromium_git") + "src/third_party/tcmalloc/chromium@" +
-        '4d2a4ae08d3ee770c852c62d00acc7716a5fc804',
-  "src/third_party/zlib":
-    Var("chromium_git") + "/src/third_party/zlib@" +
-        'afd8c4593c010c045902f6c0501718f1823064a3',
 
   # A general purpose X86 disassembler.
   "src/third_party/distorm/files":
@@ -71,14 +57,7 @@ deps = {
     Var("chrome_base") + "/tools/third_party/python_26@" +
         Var("chrome_revision"),
 
-  # This brings in build configuration required to build base.
-  "src/build":
-    Var("chromium_git") + "/src/build@" +
-        'ec1cae57560ef9a2e2135f9600513b2eb36ede6c',
-
   # This brings in unittesting code.
-  "src/testing":
-    Var("chrome_base") + "/src/testing@" + Var("chrome_revision"),
   "src/testing/gmock":
     "http://googlemock.googlecode.com/svn/trunk@" + Var("gmock_revision"),
   "src/testing/gtest":
@@ -106,6 +85,15 @@ include_rules = [
 ]
 
 hooks = [
+  {
+    "pattern": ".",
+    "action": [Var("python_path"),
+               "src\\syzygy\\build\\gitdeps.py",
+               "src\\syzygy\\build\\GITDEPS",
+               "--output-dir=src",
+               "--cache-dir", "src/.gitdeps-cache",
+               "--verbose"],
+  },
   {
     "pattern": ".",
     "action": [Var("python_path"),

@@ -21,7 +21,7 @@ follows:
 
 - The user specifies a local destination for the checkout.
 - The user specifies a source repository.
-- The user specifies a subdirectory of the repository.
+- The user specifies a list of subdirectories of the repository to get.
 - The user specifies a revision.
 
 The checkout works as follows:
@@ -29,11 +29,12 @@ The checkout works as follows:
 - An empty git checkout is initialized in the cache directory. This will be
   in a subfolder with an essentially random name.
 - The specified repository is added as a remote to that repo.
-- A sparse-checkout directive is added to select only the desired subdirectory.
+- A sparse-checkout directive is added to select only the desired
+  subdirectories.
 - The repository is cloned using a depth of 1 (no history, only the actual
   contents of the desired revision).
-- The destination directory is created as a junction pointing to the
-  subdirectory of the checkout in the cache directory.
+- The destination directories are created as junctions pointing to the
+  desired subdirectory of the checkout in the cache directory.
 
 The script maintains its state in the root of the cache directory, allowing it
 to reuse checkout directories when possible.
@@ -112,18 +113,18 @@ class RepoOptions(object):
     self.repository = None
     self.revision = None
     self.output_dir = None
-    self.remote_dir = None
+    self.remote_dirs = []
     self.deps_file = None
     self.checkout_dir = None
 
   def __str__(self):
     """Stringifies this object for debugging."""
     return ('RepoOptions(repository=%s, revision=%s, output_dir=%s, '
-            'remote_dir=%s, deps_file=%s, checkout_dir=%s)') % (
+            'remote_dirs=%s, deps_file=%s, checkout_dir=%s)') % (
                 self.repository.__repr__(),
                 self.revision.__repr__(),
                 self.output_dir.__repr__(),
-                self.remote_dir.__repr__(),
+                self.remote_dirs.__repr__(),
                 self.deps_file.__repr__(),
                 self.checkout_dir.__repr__())
 
@@ -136,7 +137,8 @@ def _ParseRepoOptions(cache_dir, root_output_dir, deps_file_path, key, value):
   (repository URL, remote directory, revision hash) tuple. This can raise an
   Exception on failure.
   """
-  if (type(value) != list and type(value) != tuple) or len(value) != 3:
+  if ((type(value) != list and type(value) != tuple) or len(value) != 3 or
+      (type(value[1]) != list and type(value[1]) != tuple))  :
     _LOGGER.error('Invalid dependency tuple: %s', value)
     raise Exception()
 
@@ -149,7 +151,7 @@ def _ParseRepoOptions(cache_dir, root_output_dir, deps_file_path, key, value):
   repo_options.output_dir = os.path.normpath(os.path.abspath(os.path.join(
       root_output_dir, key)))
   repo_options.repository = value[0]
-  repo_options.remote_dir = value[1]
+  repo_options.remote_dirs = value[1]
   repo_options.revision = refspec
   repo_options.deps_file = deps_file_path
 
@@ -317,10 +319,11 @@ def _GenerateSparseCheckoutPathAndContents(repo):
   """
   sparse_file = os.path.join(repo.checkout_dir, '.git', 'info',
                              'sparse-checkout')
-  if not repo.remote_dir:
+  if not repo.remote_dirs:
     contents = '*\n'
   else:
-    contents = _NormalizeGitPath(repo.remote_dir) + '\n'
+    contents = ''.join(_NormalizeGitPath(dir) + '\n'
+                       for dir in repo.remote_dirs)
   return (sparse_file, contents)
 
 
@@ -360,7 +363,7 @@ def _CreateCheckout(path, repo, dry_run):
          dry_run=dry_run)
   if not dry_run:
     _LOGGER.debug('Creating sparse checkout configuration file for '
-                  'directory: %s', repo.remote_dir)
+                  'directory: %s', repo.remote_dirs)
     if not dry_run:
       (path, contents) = _GenerateSparseCheckoutPathAndContents(repo)
       with open(path, 'wb') as io:
@@ -391,8 +394,7 @@ def _UpdateCheckout(path, repo, dry_run):
          dry_run=dry_run, stdout=None, stderr=None)
 
 
-# Used by _GetJunctionInfo to extract information about junctions for the
-# output of a 'dir' command.
+# Used by _GetJunctionInfo to extract information about junctions.
 _DIR_JUNCTION_RE = re.compile(r'^.*<JUNCTION>\s+(.+)\s+\[(.+)\]$')
 
 
@@ -401,46 +403,58 @@ def _GetJunctionInfo(junction):
   """Returns the target of a junction, if it exists, None otherwise."""
   dirname = os.path.dirname(junction)
   basename = os.path.basename(junction)
-  stdout, dummy_stderr = _Shell('dir', '/AL', '/N', dirname, dry_run=False)
+  try:
+    stdout, dummy_stderr = _Shell('dir', '/AL', '/N', dirname, dry_run=False)
+  except RuntimeError:
+    return
+
+  lines = stdout.splitlines(False)
   for line in stdout.splitlines(False):
     m = _DIR_JUNCTION_RE.match(line)
     if not m:
       continue
     if m.group(1).lower() == basename.lower():
       return m.group(2)
+
   return None
 
 
-def _EnsureJunction(cache_dir, options, repo):
+def _EnsureJunction(cache_dir, target_dir, options, repo):
   """Ensures that the appropriate junction exists from the configured output
   directory to the specified sub-directory of the GIT checkout.
   """
   # Ensure that the target directory was created.
-  target_dir = _GetCasedFilename(os.path.normpath(
-      os.path.join(cache_dir, repo.remote_dir)))
-  if not options.dry_run and not os.path.isdir(target_dir):
+  target_cache_dir = _GetCasedFilename(os.path.normpath(
+      os.path.join(cache_dir, target_dir)))
+  if not options.dry_run and not os.path.isdir(target_cache_dir):
     raise Exception('Checkout does not contain the desired remote folder.')
+
+  # Ensure the parent directory exists before checking if the junction needs to
+  # be created.
+  output_dir = os.path.normpath(os.path.join(repo.output_dir, target_dir))
+  _EnsureDirectoryExists(
+      os.path.dirname(output_dir), 'junction', options.dry_run)
 
   # Determine if the link needs to be created.
   create_link = True
-  if os.path.exists(repo.output_dir):
-    dest = _GetJunctionInfo(repo.output_dir)
-    if dest is None:
-      raise Exception(
-          'Target exists and is not a junction: %s' % repo.output_dir)
+  if os.path.exists(output_dir):
+    dest = _GetJunctionInfo(output_dir)
 
     # If the junction is valid nothing needs to be done. If it points to the
-    # wrong place then delete the existing junction and let it be remade.
-    if dest == target_dir:
+    # wrong place or isn't a junction then delete it and let it be remade.
+    if dest == target_cache_dir:
       _LOGGER.debug('Junction is up to date.')
       create_link = False
     else:
-      _LOGGER.debug('Erasing existing junction: %s', repo.output_dir)
-      _Shell('rmdir', '/S', '/Q', repo.output_dir, dry_run=options.dry_run)
+      if dest:
+        _LOGGER.debug('Erasing existing junction: %s', output_dir)
+      else:
+        _LOGGER.debug('Deleting existing directory: %s', output_dir)
+      _Shell('rmdir', '/S', '/Q', output_dir, dry_run=options.dry_run)
 
   if create_link:
-    _LOGGER.debug('Creating output junction: %s', repo.output_dir)
-    _Shell('mklink', '/J', repo.output_dir, target_dir,
+    _LOGGER.debug('Creating output junction: %s', output_dir)
+    _Shell('mklink', '/J', output_dir, target_cache_dir,
            dry_run=options.dry_run)
 
 
@@ -449,8 +463,8 @@ def _InstallRepository(options, repo):
   specified cache directory already exists.
   """
 
-  _LOGGER.debug('Processing directory "%s" from repository "%s".',
-                repo.remote_dir, repo.repository)
+  _LOGGER.debug('Processing directories "%s" from repository "%s".',
+                repo.remote_dirs, repo.repository)
 
   # Ensure the output directory's *parent* exists.
   output_dirname = os.path.dirname(repo.output_dir)
@@ -508,8 +522,12 @@ def _InstallRepository(options, repo):
   if update_checkout:
     _UpdateCheckout(repo.checkout_dir, repo, options.dry_run)
 
-  # Ensure the junction exists.
-  _EnsureJunction(repo.checkout_dir, options, repo)
+  # Ensure the junctions exists.
+  if repo.remote_dirs:
+    for remote_dir in repo.remote_dirs:
+      _EnsureJunction(repo.checkout_dir, remote_dir, options, repo)
+  else:
+    _EnsureJunction(repo.checkout_dir, '', options, repo)
 
   # Join any worker threads that are ongoing.
   for thread in threads:
@@ -655,13 +673,18 @@ def main():
   for repo in all_deps:
     _InstallRepository(options, repo)
     checkout_dirs[repo.checkout_dir] = True
-    junction = os.path.relpath(repo.output_dir, options.output_dir)
-    old_junctions.pop(junction, None)
-    # Write each junction as we create it. This allows for recovery from
-    # partial runs.
-    if not options.dry_run:
-      open(state_path, 'ab').write(junction + '\n')
-      junctions.append(junction)
+
+    new_junction_dirs = repo.remote_dirs if repo.remote_dirs else ['']
+    for new_junction_dir in new_junction_dirs:
+      junction = os.path.relpath(
+          os.path.join(repo.output_dir, new_junction_dir),
+          options.output_dir)
+      old_junctions.pop(junction, None)
+      # Write each junction as we create it. This allows for recovery from
+      # partial runs.
+      if not options.dry_run:
+        open(state_path, 'ab').write(junction + '\n')
+        junctions.append(junction)
 
   # Clean up orphaned junctions if there are any.
   if old_junctions:
