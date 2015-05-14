@@ -36,6 +36,10 @@ bool AddressRange::operator==(const AddressRange& other) const {
   return addr_ == other.addr_ && size_ == other.size_;
 }
 
+bool AddressRange::operator<(const AddressRange& other) const {
+  return addr_ < other.addr_ || (addr_ == other.addr_ && size_ < other.size_);
+}
+
 bool AddressRange::Intersects(const AddressRange& other) const {
   DCHECK(IsValid());
   DCHECK(other.IsValid());

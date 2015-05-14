@@ -23,6 +23,9 @@ namespace refinery {
 using BytesLayerPtr = scoped_refptr<ProcessState::Layer<Bytes>>;
 using BytesRecordPtr = ProcessState::Layer<Bytes>::RecordPtr;
 
+using StackLayerPtr = scoped_refptr<ProcessState::Layer<Stack>>;
+using StackRecordPtr = ProcessState::Layer<Stack>::RecordPtr;
+
 }  // namespace refinery
 
 #endif  // SYZYGY_REFINERY_PROCESS_STATE_PROCESS_STATE_UTIL_H_

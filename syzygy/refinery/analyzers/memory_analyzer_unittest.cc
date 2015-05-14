@@ -48,8 +48,8 @@ TEST(MemoryAnalyzerTest, AnalyzeSyntheticMinidump) {
   const char kDataSecond[] = "EFGHI";
 
   testing::MinidumpSpecification spec;
-  spec.AddMemoryRegion(80ULL, kDataFirst);
-  spec.AddMemoryRegion(88ULL, kDataSecond);
+  ASSERT_TRUE(spec.AddMemoryRegion(80ULL, kDataFirst));
+  ASSERT_TRUE(spec.AddMemoryRegion(88ULL, kDataSecond));
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
   base::FilePath minidump_path;

@@ -28,6 +28,7 @@ typedef uint32_t Size;
 class AddressRange {
  public:
   AddressRange(Address addr, Size size) : addr_(addr), size_(size) {}
+  AddressRange() : addr_(0ULL), size_(0) {}
 
   // Determines the validity of the address range. All users of |AddressRange|
   // expect a valid range.
@@ -46,6 +47,7 @@ class AddressRange {
   Address end() const;
 
   bool operator==(const AddressRange& other) const;
+  bool operator<(const AddressRange& other) const;
 
   // @pre IsValid returns true.
   // @pre @p range must be a valid range.

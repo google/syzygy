@@ -17,6 +17,8 @@
 
 #include <map>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
@@ -41,12 +43,37 @@ class MinidumpSpecification {
  public:
   MinidumpSpecification();
 
+  // Adds thread data to the specification. Note that the stack's memory must
+  // be added independently to the specification. The adbsence of a memory
+  // region spanning the stack's range leads to failure at serialization time.
+  // @pre @p thread_size_bytes must be of size sizeof(MINIDUMP_THREAD).
+  // @pre @p context_size_bytes must be of size sizeof(CONTEXT).
+  // @param thread_data the address of the thread data to add.
+  // @param thread_size_bytes the size of the thread data to add.
+  // @param context_data the address of the context data to add.
+  // @param context_size_bytes the size of the context data to add.
+  // @returns true on success, false otherwise.
+  bool AddThread(const void* thread_data,
+                 size_t thread_size_bytes,
+                 const void* context_data,
+                 size_t context_size_bytes);
+
   // Adds a memory region to the specification.
   // @param addr the address the region is located at.
   // @param bytes the bytes that make up the region.
   // @returns true on success, false if the memory region is not valid or if it
   //   overlaps with an existing memory region.
   bool AddMemoryRegion(refinery::Address addr, base::StringPiece bytes);
+
+  // Adds a memory region to the specification.
+  // @param addr the address the region is located at.
+  // @param data the address of the bytes that make up the region.
+  // @param size_bytes the size of the region.
+  // @returns true on success, false if the memory region is not valid or if it
+  //   overlaps with an existing memory region.
+  bool AddMemoryRegion(refinery::Address addr,
+                       const void* data,
+                       size_t size_bytes);
 
   // Serializes the specification.
   // @param dir the directory to serialize to.
@@ -55,6 +82,8 @@ class MinidumpSpecification {
   bool Serialize(const base::ScopedTempDir& dir, base::FilePath* path) const;
 
  private:
+  // Represents thread and context.
+  std::vector<std::pair<std::string, std::string>> threads_;
   std::map<refinery::Address, std::string> memory_regions_;
 
   DISALLOW_COPY_AND_ASSIGN(MinidumpSpecification);
