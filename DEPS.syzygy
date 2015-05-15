@@ -17,8 +17,6 @@
 
 vars = {
   "chrome_revision": "271365",
-  "gmock_revision": "453",
-  "gtest_revision": "664",
   "gyp_revision": "1988",
   "py_etw_revision": "559",
 
@@ -57,12 +55,6 @@ deps = {
     Var("chrome_base") + "/tools/third_party/python_26@" +
         Var("chrome_revision"),
 
-  # This brings in unittesting code.
-  "src/testing/gmock":
-    "http://googlemock.googlecode.com/svn/trunk@" + Var("gmock_revision"),
-  "src/testing/gtest":
-    "http://googletest.googlecode.com/svn/trunk@" + Var("gtest_revision"),
-
   # This brings in GYP.
   "src/tools/gyp":
     "http://gyp.googlecode.com/svn/trunk@" + Var("gyp_revision"),
@@ -89,7 +81,7 @@ hooks = [
     "pattern": ".",
     "action": [Var("python_path"),
                "src\\syzygy\\build\\gitdeps.py",
-               "src\\syzygy\\build\\GITDEPS",
+               "src\\GITDEPS",
                "--output-dir=src",
                "--cache-dir", "src/.gitdeps-cache",
                "--verbose"],

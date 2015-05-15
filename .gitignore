@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Ignore gitdeps cache directory.
+.gitdeps-cache
+
 # Ignore GYP generated Visual Studio artifacts (Common across versions).
 *.ncb
 *.sln

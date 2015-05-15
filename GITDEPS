@@ -18,6 +18,9 @@
 vars = {
   "chrome_revision": "005649e4ef576270314678ca7c2aab55e557ee35",
   "chrome_base_git": "https://chromium.googlesource.com/",
+
+  "gmock_revision": "2742c12ed43e7ff5823157e33f2a0ac5a2dd17e0",  # r455.
+  "gtest_revision": "bc830d325d07a8a943386446139be3ab3565e038",  # r668.
 }
 
 deps = {
@@ -25,8 +28,8 @@ deps = {
     Var("chrome_base_git") + "chromium/src",
     [
       # Chrome base and other top-level dependencies.
-      'base',
-      'build',
+      "base",
+      "build",
 
       # third_party dependencies.
       "third_party/libxml",
@@ -38,5 +41,17 @@ deps = {
       "testing",
     ],
     Var("chrome_revision")
+  ),
+
+  "testing/gmock": (
+    Var("chrome_base_git") + "external/gmock",
+    [],
+    Var("gmock_revision"),
+  ),
+
+  "testing/gtest": (
+    Var("chrome_base_git") + "external/gtest",
+    [],
+    Var("gtest_revision"),
   ),
 }
