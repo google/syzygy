@@ -19,6 +19,8 @@
 #include <algorithm>
 
 #include "base/logging.h"
+#include "syzygy/agent/asan/page_protection_helpers.h"
+#include "syzygy/agent/asan/shadow.h"
 #include "syzygy/common/align.h"
 
 namespace agent {
@@ -32,9 +34,13 @@ LargeBlockHeap::LargeBlockHeap(HeapInterface* internal_heap)
 LargeBlockHeap::~LargeBlockHeap() {
   // No need to lock here, as concurrent access to an object under destruction
   // is a programming error.
-  // If there are still allocations in the heap at destruction, then freeing
-  // them here will not clear the associated shadow metadata.
-  CHECK_EQ(0U, allocs_.size());
+
+  // Ideally there shouldn't be any allocations left in the heap (otherwise
+  // it means that there's a memory leak), but it's not always the case in
+  // Chrome so we need to release all the resources that we've acquired.
+  FreeAllAllocations();
+
+  CHECK(allocs_.empty());
 }
 
 HeapType LargeBlockHeap::GetHeapType() const {
@@ -136,6 +142,22 @@ void* LargeBlockHeap::AllocateBlock(size_t size,
 bool LargeBlockHeap::FreeBlock(const BlockInfo& block_info) {
   DCHECK_NE(static_cast<BlockHeader*>(nullptr), block_info.header);
   return Free(block_info.header);
+}
+
+void LargeBlockHeap::FreeAllAllocations() {
+  // Start by copying the blocks into a temporary vector as the call to |Free|
+  // will remove them from |allocs_|.
+  std::vector<Allocation> allocs_to_free;
+  std::copy(allocs_.begin(), allocs_.end(), std::back_inserter(allocs_to_free));
+  for (const auto& alloc : allocs_to_free) {
+    BlockInfo block_info = {};
+    if (StaticShadow::shadow.BlockInfoFromShadow(alloc.address, &block_info)) {
+      BlockProtectNone(block_info);
+      CHECK(StaticShadow::shadow.Unpoison(block_info.header,
+                                          block_info.block_size));
+    }
+    CHECK(Free(const_cast<void*>(alloc.address)));
+  }
 }
 
 }  // namespace heaps

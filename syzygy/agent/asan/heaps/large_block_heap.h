@@ -106,6 +106,9 @@ class LargeBlockHeap : public BlockHeapInterface {
       HeapAllocator<Allocation>> AllocationSet;
   AllocationSet allocs_;  // Under lock_.
 
+  // Free all the allocations owned by this heap.
+  void FreeAllAllocations();
+
   // The global lock for this allocator.
   ::common::RecursiveLock lock_;
 

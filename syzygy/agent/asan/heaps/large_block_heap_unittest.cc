@@ -14,7 +14,6 @@
 
 #include "syzygy/agent/asan/heaps/large_block_heap.h"
 
-#include "gtest/gtest.h"
 #include "syzygy/agent/asan/unittest_util.h"
 
 namespace agent {
@@ -37,6 +36,8 @@ testing::DummyHeap dummy_heap;
 // A LargeBlockHeap that uses a null memory notifier.
 class TestLargeBlockHeap : public LargeBlockHeap {
  public:
+  using LargeBlockHeap::FreeAllAllocations;
+
   TestLargeBlockHeap() : LargeBlockHeap(&dummy_heap) {
   }
 };
@@ -151,6 +152,28 @@ TEST(LargeBlockHeapTest, Lock) {
   EXPECT_TRUE(h.TryLock());
   h.Unlock();
   h.Unlock();
+}
+
+TEST(LargeBlockHeapTest, FreeAllAllocations) {
+  const size_t kAllocCount = 10;
+  TestLargeBlockHeap h;
+  for (size_t i = 0; i < kAllocCount; ++i)
+    h.Allocate(42);
+  EXPECT_EQ(kAllocCount, h.size());
+  h.FreeAllAllocations();
+  EXPECT_EQ(0U, h.size());
+}
+
+TEST(LargeBlockHeapTest, DestructionWithOutstandingAllocationsSucceeds) {
+  const size_t kAllocCount = 10;
+  TestLargeBlockHeap h;
+  // Create some allocations and intentionally leak them. They should be
+  // automatically released in the LargeBlockHeap destructor. This will only
+  // fail due to a CHECK in the LargeBlockHeap that ensure that there's no more
+  // alive allocations after calling FreeAllAllocations.
+  for (size_t i = 0; i < kAllocCount; ++i)
+    h.Allocate(42);
+  EXPECT_EQ(kAllocCount, h.size());
 }
 
 }  // namespace heaps
