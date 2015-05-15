@@ -12,23 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SYZYGY_REFINERY_PROCESS_STATE_PROCESS_STATE_UTIL_H_
-#define SYZYGY_REFINERY_PROCESS_STATE_PROCESS_STATE_UTIL_H_
+#include "syzygy/refinery/analyzers/unloaded_module_analyzer.h"
 
-#include "syzygy/refinery/process_state/process_state.h"
+#include <dbghelp.h>
+
+#include "base/memory/scoped_ptr.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
 
 namespace refinery {
 
-using BytesLayerPtr = scoped_refptr<ProcessState::Layer<Bytes>>;
-using BytesRecordPtr = ProcessState::Layer<Bytes>::RecordPtr;
+Analyzer::AnalysisResult UnloadedModuleAnalyzer::Analyze(
+    const Minidump& minidump, ProcessState* process_state) {
+  DCHECK(process_state != nullptr);
 
-using StackLayerPtr = scoped_refptr<ProcessState::Layer<Stack>>;
-using StackRecordPtr = ProcessState::Layer<Stack>::RecordPtr;
+  // TODO(manzagop): implement!
 
-using ModuleLayerPtr = scoped_refptr<ProcessState::Layer<Module>>;
-using ModuleRecordPtr = ProcessState::Layer<Module>::RecordPtr;
+  return ANALYSIS_COMPLETE;
+}
 
 }  // namespace refinery
-
-#endif  // SYZYGY_REFINERY_PROCESS_STATE_PROCESS_STATE_UTIL_H_

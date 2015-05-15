@@ -44,8 +44,11 @@
       'target_name': 'refinery_unittests',
       'type': 'executable',
       'sources': [
+        'analyzers/exception_analyzer_unittest.cc',
         'analyzers/memory_analyzer_unittest.cc',
+        'analyzers/module_analyzer_unittest.cc',
         'analyzers/thread_analyzer_unittest.cc',
+        'analyzers/unloaded_module_analyzer_unittest.cc',
         'core/address_unittest.cc',
         'process_state/process_state_unittest.cc',
         'minidump/minidump_unittest.cc',

@@ -70,3 +70,9 @@ message HeapSnippet {
 
 message TypedBlock {
 }
+
+message Module {
+}
+
+message Exception {
+}
