@@ -27,17 +27,27 @@ namespace refinery {
 
 class Type : public base::RefCounted<Type> {
  public:
+  typedef uint8_t Flags;
+
   // The set of type classes is closed, each type is enumerated here.
   enum TypeKind {
     BasicKind,
+    BitfieldKind,
     UserDefinedKind,
     PointerKind,
+  };
+
+  enum CV {
+    FLAG_CONST        = 0x0001,
+    FLAG_VOLATILE     = 0x0002,
   };
 
   // @name Accessors
   // @{
   const base::string16& name() const { return name_; }
   size_t size() const { return size_; }
+  bool is_const() const { return (flags_ & FLAG_CONST) != 0; }
+  bool is_volatile() const { return (flags_ & FLAG_VOLATILE) != 0; }
   TypeKind kind() const { return kind_; }
   // @}
 
@@ -49,16 +59,18 @@ class Type : public base::RefCounted<Type> {
 
  protected:
   friend class base::RefCounted<Type>;
-  Type(const base::string16& name, size_t size, TypeKind kind);
+  Type(TypeKind kind, const base::string16& name, size_t size, Flags flags);
   virtual ~Type() = 0;
 
  private:
+  // The kind of this type is, synonymous with its class.
+  const TypeKind kind_;
   // Name of type.
   const base::string16 name_;
   // Size of type.
   const size_t size_;
-  // The real kind this type is.
-  TypeKind kind_;
+  // Misc flags for this type.
+  const Flags flags_;
 
   DISALLOW_COPY_AND_ASSIGN(Type);
 };
@@ -71,9 +83,7 @@ class BasicType : public Type {
   static const TypeKind ID = BasicKind;
 
   // Creates a new basictype with name @p name and size @p size.
-  BasicType(const base::string16& name, size_t size) :
-      Type(name, size, BasicKind) {
-  }
+  BasicType(const base::string16& name, size_t size, Flags flags);
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BasicType);
@@ -81,6 +91,34 @@ class BasicType : public Type {
 
 using BasicTypePtr = scoped_refptr<BasicType>;
 
+// Represents a bitfield.
+class BitfieldType : public Type {
+ public:
+  static const TypeKind ID = BitfieldKind;
+
+  // Creates a new bitfield.
+  BitfieldType(const base::string16& name,
+               size_t size,
+               Flags flags,
+               size_t bit_length,
+               size_t bit_offset);
+
+  // @name Accessors.
+  // @{
+  size_t bit_length() const { return bit_length_; }
+  size_t bit_offset() const { return bit_offset_; }
+  // @}
+
+ private:
+  const size_t bit_length_;
+  const size_t bit_offset_;
+
+  DISALLOW_COPY_AND_ASSIGN(BitfieldType);
+};
+
+using BitfieldTypePtr = scoped_refptr<BitfieldType>;
+
+// Represents a user defined type such as a struct, union or a class.
 class UserDefinedType : public Type {
  public:
   class Field;
@@ -88,19 +126,18 @@ class UserDefinedType : public Type {
 
   static const TypeKind ID = UserDefinedKind;
 
-  // Creates a new user defined type with name @p name and size @p size.
-  UserDefinedType(const base::string16& name, size_t size) :
-      Type(name, size, UserDefinedKind) {
-  }
-
-  // Appends a new field to this type.
-  void AddField(const Field& field);
+  // Creates a new user defined type with name @p name, size @p size and
+  // the supplied @p fields.
+  UserDefinedType(const base::string16& name,
+                  size_t size,
+                  Flags flags,
+                  const Fields& fields);
 
   // Accessor.
   const Fields& fields() const { return fields_; }
 
  private:
-  Fields fields_;
+  const Fields fields_;
 
   DISALLOW_COPY_AND_ASSIGN(UserDefinedType);
 };
@@ -111,11 +148,6 @@ using UserDefinedTypePtr = scoped_refptr<UserDefinedType>;
 class UserDefinedType::Field {
  public:
   // TODO(siggi): How to represent VTables/Interfaces?
-  enum Flags {
-    FLAG_CONST        = 0x0001,
-    FLAG_VOLATILE     = 0x0002,
-    FLAG_BITFIELD     = 0x0004,  // TODO(siggi): is this needed?
-  };
 
   // Creates a new field.
   // @param name the name of the field.
@@ -126,29 +158,18 @@ class UserDefinedType::Field {
   // @param flags any combination of Flags, denoting properties of the field.
   // @param type the type of the field.
   // TODO(siggi): Maybe the size of the type is sufficient?
-  Field(const base::string16& name,
-        size_t offset,
-        size_t size,
-        uint32_t flags,
-        const TypePtr& type);
+  Field(const base::string16& name, ptrdiff_t offset, const TypePtr& type);
 
   // @name Accessors.
   // @{
   const base::string16& name() const { return name_; }
-  size_t offset() const { return offset_; }
-  size_t size() const { return size_; }
+  ptrdiff_t offset() const { return offset_; }
   const TypePtr& type() const { return type_; }
-
-  bool is_const() const { return (flags_ & FLAG_CONST) != 0; }
-  bool is_volatile() const { return (flags_ & FLAG_VOLATILE) != 0; }
-  bool is_bitfield() const { return (flags_ & FLAG_BITFIELD) != 0; }
   // @}
 
  private:
   const base::string16 name_;
-  const size_t offset_;
-  const size_t size_;
-  const uint32_t flags_;
+  const ptrdiff_t offset_;
   TypePtr type_;
 };
 
@@ -159,13 +180,16 @@ class PointerType : public Type {
 
   // Creates a new pointer type with name @p name, size @p size, pointing to
   // an object of type @p type.
-  PointerType(const base::string16& name, size_t size, const TypePtr& type);
+  PointerType(const base::string16& name,
+              size_t size,
+              Flags flags,
+              const TypePtr& type);
 
   // Accessor.
   TypePtr type() const { return type_; }
 
  private:
-  TypePtr type_;
+  const TypePtr type_;
 };
 
 using PointerTypePtr = scoped_refptr<PointerType>;
@@ -181,7 +205,6 @@ bool Type::CastTo(scoped_refptr<SubType>* out) {
   *out = static_cast<SubType*>(this);
   return true;
 }
-
 
 }  // namespace refinery
 

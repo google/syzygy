@@ -21,8 +21,14 @@
       'target_name': 'types_lib',
       'type': 'static_library',
       'sources': [
+        'dia_crawler.cc',
+        'dia_crawler.h',
         'type.cc',
         'type.h',
+      ],
+      'dependencies': [
+        '<(src)/syzygy/pe/pe.gyp:dia_sdk',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
       ],
     },
   ],
