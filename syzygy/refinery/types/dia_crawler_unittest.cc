@@ -81,50 +81,50 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
 
   EXPECT_EQ(offsetof(TestSimpleUDT, one), fields[0].offset());
   EXPECT_EQ(L"one", fields[0].name());
+  EXPECT_FALSE(fields[0].is_const());
+  EXPECT_FALSE(fields[0].is_volatile());
   EXPECT_EQ(Type::BasicKind, fields[0].type()->kind());
   EXPECT_EQ(sizeof(test.one), fields[0].type()->size());
-  EXPECT_FALSE(fields[0].type()->is_const());
-  EXPECT_FALSE(fields[0].type()->is_volatile());
   // TODO(siggi): Assert on type's name.
 
   EXPECT_EQ(offsetof(TestSimpleUDT, two), fields[1].offset());
   EXPECT_EQ(L"two", fields[1].name());
+  EXPECT_TRUE(fields[1].is_const());
+  EXPECT_FALSE(fields[1].is_volatile());
   EXPECT_EQ(Type::BasicKind, fields[1].type()->kind());
   EXPECT_EQ(sizeof(test.two), fields[1].type()->size());
-  EXPECT_TRUE(fields[1].type()->is_const());
-  EXPECT_FALSE(fields[1].type()->is_volatile());
   // TODO(siggi): Assert on type's name.
 
   EXPECT_EQ(offsetof(TestSimpleUDT, three), fields[2].offset());
   EXPECT_EQ(L"three", fields[2].name());
+  EXPECT_FALSE(fields[2].is_const());
+  EXPECT_TRUE(fields[2].is_volatile());
   ASSERT_EQ(Type::PointerKind, fields[2].type()->kind());
   EXPECT_EQ(sizeof(test.three), fields[2].type()->size());
-  EXPECT_FALSE(fields[2].type()->is_const());
-  EXPECT_TRUE(fields[2].type()->is_volatile());
   PointerTypePtr ptr;
   ASSERT_TRUE(fields[2].type()->CastTo(&ptr));
   ASSERT_TRUE(ptr);
+  EXPECT_TRUE(ptr->is_const());
+  EXPECT_FALSE(ptr->is_volatile());
   ASSERT_TRUE(ptr->type());
   EXPECT_EQ(Type::BasicKind, ptr->type()->kind());
-  EXPECT_TRUE(ptr->type()->is_const());
-  EXPECT_FALSE(ptr->type()->is_volatile());
   // TODO(siggi): Assert on type's name.
 
   EXPECT_EQ(offsetof(TestSimpleUDT, four), fields[3].offset());
   EXPECT_EQ(L"four", fields[3].name());
+  EXPECT_TRUE(fields[3].is_const());
+  EXPECT_TRUE(fields[3].is_volatile());
   EXPECT_EQ(Type::BasicKind, fields[3].type()->kind());
   EXPECT_EQ(sizeof(test.four), fields[3].type()->size());
-  EXPECT_TRUE(fields[3].type()->is_const());
-  EXPECT_TRUE(fields[3].type()->is_volatile());
   // TODO(siggi): Assert on type's name.
 
   // Can't do offsetof/sizeof on bit fields.
   EXPECT_EQ(offsetof(TestSimpleUDT, four) + sizeof(test.four),
             fields[4].offset());
   EXPECT_EQ(L"five", fields[4].name());
+  EXPECT_FALSE(fields[4].is_const());
+  EXPECT_FALSE(fields[4].is_volatile());
   EXPECT_EQ(Type::BitfieldKind, fields[4].type()->kind());
-  EXPECT_FALSE(fields[4].type()->is_const());
-  EXPECT_FALSE(fields[4].type()->is_volatile());
   // TODO(siggi): Assert on type's name.
 }
 

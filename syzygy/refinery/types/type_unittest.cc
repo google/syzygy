@@ -20,15 +20,13 @@ namespace refinery {
 
 TEST(TypesTest, BasicType) {
   // Create a BasicType and store in a supertype pointer.
-  TypePtr type = new BasicType(L"foo", 10, Type::FLAG_CONST);
+  TypePtr type = new BasicType(L"foo", 10);
 
   ASSERT_TRUE(type.get());
   // Verify the kind and fields.
   EXPECT_EQ(Type::BasicKind, type->kind());
   EXPECT_EQ(L"foo", type->name());
   EXPECT_EQ(10U, type->size());
-  EXPECT_TRUE(type->is_const());
-  EXPECT_FALSE(type->is_volatile());
 
   // Down-cast it.
   BasicTypePtr basic_type;
@@ -43,15 +41,13 @@ TEST(TypesTest, BasicType) {
 
 TEST(TypesTest, BitfieldType) {
   // Create a BasicType and store in a supertype pointer.
-  TypePtr type = new BitfieldType(L"bar", 4, Type::FLAG_VOLATILE, 3, 1);
+  TypePtr type = new BitfieldType(L"bar", 4, 3, 1);
 
   ASSERT_TRUE(type.get());
   // Verify the kind and fields.
   EXPECT_EQ(Type::BitfieldKind, type->kind());
   EXPECT_EQ(L"bar", type->name());
   EXPECT_EQ(4, type->size());
-  EXPECT_FALSE(type->is_const());
-  EXPECT_TRUE(type->is_volatile());
 
   // Down-cast it.
   BitfieldTypePtr bitfield_type;
@@ -66,13 +62,16 @@ TEST(TypesTest, UserDefineType) {
   // Build a UDT instance.
   UserDefinedType::Fields fields;
 
-  BasicTypePtr basic_type = new BasicType(L"int", 4, 0);
-  fields.push_back(UserDefinedType::Field(L"one", 0, basic_type));
-  fields.push_back(UserDefinedType::Field(L"two", 4, basic_type));
-  basic_type = new BasicType(L"short", 2, 0);
-  fields.push_back(UserDefinedType::Field(L"three", 8, basic_type));
+  BasicTypePtr basic_type = new BasicType(L"int", 4);
+  fields.push_back(
+      UserDefinedType::Field(L"one", 0, Type::FLAG_CONST, basic_type));
+  fields.push_back(
+      UserDefinedType::Field(L"two", 4, Type::FLAG_VOLATILE, basic_type));
+  basic_type = new BasicType(L"short", 2);
+  fields.push_back(
+      UserDefinedType::Field(L"three", 8, 0, basic_type));
   UserDefinedTypePtr udt =
-      new UserDefinedType(L"foo", 10, Type::FLAG_CONST, fields);
+      new UserDefinedType(L"foo", 10, fields);
 
   // Up-cast it.
   TypePtr type(udt);
@@ -81,8 +80,6 @@ TEST(TypesTest, UserDefineType) {
   ASSERT_EQ(Type::UserDefinedKind, type->kind());
   EXPECT_EQ(L"foo", type->name());
   EXPECT_EQ(10, type->size());
-  EXPECT_TRUE(type->is_const());
-  EXPECT_FALSE(type->is_volatile());
 
   ASSERT_TRUE(type->CastTo(&udt));
   ASSERT_EQ(type.get(), udt.get());
@@ -91,16 +88,22 @@ TEST(TypesTest, UserDefineType) {
   ASSERT_EQ(3U, udt->fields().size());
 
   EXPECT_EQ(0U, udt->fields()[0].offset());
+  EXPECT_TRUE(udt->fields()[0].is_const());
+  EXPECT_FALSE(udt->fields()[0].is_volatile());
   EXPECT_TRUE(udt->fields()[0].type()->CastTo(&basic_type));
   EXPECT_EQ(L"int", basic_type->name());
   EXPECT_EQ(4, basic_type->size());
 
   EXPECT_EQ(4U, udt->fields()[1].offset());
+  EXPECT_FALSE(udt->fields()[1].is_const());
+  EXPECT_TRUE(udt->fields()[1].is_volatile());
   EXPECT_TRUE(udt->fields()[1].type()->CastTo(&basic_type));
   EXPECT_EQ(L"int", basic_type->name());
   EXPECT_EQ(4, basic_type->size());
 
   EXPECT_EQ(8U, udt->fields()[2].offset());
+  EXPECT_FALSE(udt->fields()[2].is_const());
+  EXPECT_FALSE(udt->fields()[2].is_volatile());
   EXPECT_TRUE(udt->fields()[2].type()->CastTo(&basic_type));
   EXPECT_EQ(L"short", basic_type->name());
   EXPECT_EQ(2, basic_type->size());
@@ -110,14 +113,12 @@ TEST(TypesTest, PointerType) {
   // Build a Pointer instance.
   TypePtr type =
       new PointerType(
-          L"void*", 4, Type::FLAG_VOLATILE, new BasicType(L"void", 0, 0));
+          L"void*", 4, Type::FLAG_VOLATILE, new BasicType(L"void", 0));
 
   // Test the basic properties.
   ASSERT_TRUE(type);
   EXPECT_EQ(L"void*", type->name());
   EXPECT_EQ(4U, type->size());
-  EXPECT_FALSE(type->is_const());
-  EXPECT_TRUE(type->is_volatile());
 
   EXPECT_EQ(Type::PointerKind, type->kind());
 
@@ -125,7 +126,10 @@ TEST(TypesTest, PointerType) {
   PointerTypePtr pointer;
   ASSERT_TRUE(type->CastTo(&pointer));
   ASSERT_TRUE(pointer);
+  EXPECT_FALSE(pointer->is_const());
+  EXPECT_TRUE(pointer->is_volatile());
   ASSERT_TRUE(pointer->type());
+
   EXPECT_EQ(L"void", pointer->type()->name());
   EXPECT_EQ(0U, pointer->type()->size());
 }

@@ -229,11 +229,8 @@ bool CreateUDT(IDiaSymbol* symbol, size_t size, TypePtr* type) {
   DCHECK(IsSymTag(symbol, SymTagUDT));
 
   base::string16 name;
-  Type::Flags flags = 0;
-  if (!GetSymName(symbol, &name) ||
-      !GetSymFlags(symbol, &flags)) {
+  if (!GetSymName(symbol, &name))
     return false;
-  }
 
   // Enumerate the fields and add them.
   base::win::ScopedComPtr<IDiaEnumSymbols> enum_children;
@@ -279,10 +276,12 @@ bool CreateUDT(IDiaSymbol* symbol, size_t size, TypePtr* type) {
     base::string16 field_name;
     ptrdiff_t field_offset = 0;
     size_t field_size = 0;
+    Type::Flags field_flags = 0;
     if (!GetSymType(field_sym.get(), &field_type_sym) ||
         !GetSymName(field_sym.get(), &field_name) ||
         !GetSymOffset(field_sym.get(), &field_offset) ||
-        !GetSymSize(field_type_sym.get(), &field_size)) {
+        !GetSymSize(field_type_sym.get(), &field_size) ||
+        !GetSymFlags(field_type_sym.get(), &field_flags)) {
       return false;
     }
 
@@ -309,11 +308,12 @@ bool CreateUDT(IDiaSymbol* symbol, size_t size, TypePtr* type) {
 
     fields.push_back(UserDefinedType::Field(field_name,
                                             field_offset,
+                                            field_flags,
                                             field_type));
   }
   // TODO(siggi): Does the kind of the UDT make a difference?
   //   E.g. struct, class, union, enum - perhaps?
-  UserDefinedTypePtr udt = new UserDefinedType(name, size, flags, fields);
+  UserDefinedTypePtr udt = new UserDefinedType(name, size, fields);
 
   *type = udt;
   return true;
@@ -325,13 +325,10 @@ bool CreateBaseType(IDiaSymbol* symbol, size_t size, TypePtr* type) {
   DCHECK(IsSymTag(symbol, SymTagBaseType));
 
   base::string16 base_type_name;
-  Type::Flags flags = 0;
-  if (!GetSymBaseTypeName(symbol, &base_type_name) ||
-      !GetSymFlags(symbol, &flags)) {
+  if (!GetSymBaseTypeName(symbol, &base_type_name))
     return false;
-  }
 
-  *type = new BasicType(base_type_name, size, flags);
+  *type = new BasicType(base_type_name, size);
 
   return true;
 }
@@ -343,7 +340,7 @@ bool CreatePointerType(IDiaSymbol* symbol, size_t size, TypePtr* type) {
   base::win::ScopedComPtr<IDiaSymbol> ptr_type_sym;
   Type::Flags flags = 0;
   if (!GetSymType(symbol, &ptr_type_sym) ||
-      !GetSymFlags(symbol, &flags)) {
+      !GetSymFlags(ptr_type_sym.get(), &flags)) {
     return false;
   }
 
@@ -388,15 +385,13 @@ bool CreateBitFieldType(IDiaSymbol* symbol,
   DCHECK(symbol); DCHECK(type_ptr); DCHECK(IsSymTag(symbol, SymTagBaseType));
   size_t size = 0;
   base::string16 name;
-  Type::Flags flags = 0;
   if (!GetSymSize(symbol, &size) ||
-      !GetSymBaseTypeName(symbol, &name) ||
-      !GetSymFlags(symbol, &flags)) {
+      !GetSymBaseTypeName(symbol, &name)) {
     // TODO(siggi): Log?
     return false;
   }
 
-  *type_ptr = new BitfieldType(name, size, flags, bit_length, bit_pos);
+  *type_ptr = new BitfieldType(name, size, bit_length, bit_pos);
   return true;
 }
 

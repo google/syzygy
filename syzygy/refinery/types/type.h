@@ -46,8 +46,6 @@ class Type : public base::RefCounted<Type> {
   // @{
   const base::string16& name() const { return name_; }
   size_t size() const { return size_; }
-  bool is_const() const { return (flags_ & FLAG_CONST) != 0; }
-  bool is_volatile() const { return (flags_ & FLAG_VOLATILE) != 0; }
   TypeKind kind() const { return kind_; }
   // @}
 
@@ -59,7 +57,7 @@ class Type : public base::RefCounted<Type> {
 
  protected:
   friend class base::RefCounted<Type>;
-  Type(TypeKind kind, const base::string16& name, size_t size, Flags flags);
+  Type(TypeKind kind, const base::string16& name, size_t size);
   virtual ~Type() = 0;
 
  private:
@@ -69,8 +67,6 @@ class Type : public base::RefCounted<Type> {
   const base::string16 name_;
   // Size of type.
   const size_t size_;
-  // Misc flags for this type.
-  const Flags flags_;
 
   DISALLOW_COPY_AND_ASSIGN(Type);
 };
@@ -83,7 +79,7 @@ class BasicType : public Type {
   static const TypeKind ID = BasicKind;
 
   // Creates a new basictype with name @p name and size @p size.
-  BasicType(const base::string16& name, size_t size, Flags flags);
+  BasicType(const base::string16& name, size_t size);
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BasicType);
@@ -99,7 +95,6 @@ class BitfieldType : public Type {
   // Creates a new bitfield.
   BitfieldType(const base::string16& name,
                size_t size,
-               Flags flags,
                size_t bit_length,
                size_t bit_offset);
 
@@ -130,7 +125,6 @@ class UserDefinedType : public Type {
   // the supplied @p fields.
   UserDefinedType(const base::string16& name,
                   size_t size,
-                  Flags flags,
                   const Fields& fields);
 
   // Accessor.
@@ -158,19 +152,26 @@ class UserDefinedType::Field {
   // @param flags any combination of Flags, denoting properties of the field.
   // @param type the type of the field.
   // TODO(siggi): Maybe the size of the type is sufficient?
-  Field(const base::string16& name, ptrdiff_t offset, const TypePtr& type);
+  Field(const base::string16& name,
+        ptrdiff_t offset,
+        Flags flags,
+        const TypePtr& type);
 
   // @name Accessors.
   // @{
   const base::string16& name() const { return name_; }
   ptrdiff_t offset() const { return offset_; }
   const TypePtr& type() const { return type_; }
+
+  bool is_const() const { return (flags_ & FLAG_CONST) != 0; }
+  bool is_volatile() const { return (flags_ & FLAG_VOLATILE) != 0; }
   // @}
 
  private:
   const base::string16 name_;
   const ptrdiff_t offset_;
-  TypePtr type_;
+  const Flags flags_;
+  const TypePtr type_;
 };
 
 // Represents a pointer to some other type.
@@ -185,10 +186,16 @@ class PointerType : public Type {
               Flags flags,
               const TypePtr& type);
 
-  // Accessor.
+  // Accessors.
+  // @{
   TypePtr type() const { return type_; }
+  bool is_const() const { return (flags_ & FLAG_CONST) != 0; }
+  bool is_volatile() const { return (flags_ & FLAG_VOLATILE) != 0; }
+  // @}
 
  private:
+  // Stores the CV qualifiers of this pointer.
+  const Flags flags_;
   const TypePtr type_;
 };
 

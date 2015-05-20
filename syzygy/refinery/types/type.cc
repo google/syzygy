@@ -15,11 +15,8 @@
 
 namespace refinery {
 
-Type::Type(TypeKind kind,
-           const base::string16& name,
-           size_t size,
-           Flags flags) :
-    kind_(kind), name_(name), size_(size), flags_(flags) {
+Type::Type(TypeKind kind, const base::string16& name, size_t size) :
+    kind_(kind), name_(name), size_(size) {
 }
 
 Type::~Type() {
@@ -27,36 +24,35 @@ Type::~Type() {
 
 UserDefinedType::UserDefinedType(const base::string16& name,
                                  size_t size,
-                                 Flags flags,
                                  const Fields& fields) :
-    Type(UserDefinedKind, name, size, flags), fields_(fields) {
+    Type(UserDefinedKind, name, size), fields_(fields) {
 }
 
-BasicType::BasicType(const base::string16& name, size_t size, Flags flags) :
-    Type(BasicKind, name, size, flags) {
+BasicType::BasicType(const base::string16& name, size_t size) :
+    Type(BasicKind, name, size) {
 }
 
 BitfieldType::BitfieldType(const base::string16& name,
                            size_t size,
-                           Flags flags,
                            size_t bit_length,
                            size_t bit_offset) :
-    Type(BitfieldKind, name,  size, flags),
+    Type(BitfieldKind, name,  size),
     bit_length_(bit_length),
     bit_offset_(bit_offset) {
 }
 
 UserDefinedType::Field::Field(const base::string16& name,
                               ptrdiff_t offset,
+                              Flags flags,
                               const TypePtr& type) :
-    name_(name), offset_(offset), type_(type) {
+    name_(name), offset_(offset), flags_(flags), type_(type) {
 }
 
 PointerType::PointerType(const base::string16& name,
                          size_t size,
                          Flags flags,
                          const TypePtr& type)
-    : Type(PointerKind, name, size, flags), type_(type) {
+    : Type(PointerKind, name, size), flags_(flags), type_(type) {
 }
 
 }  // namespace refinery
