@@ -86,6 +86,7 @@
 #define SYZYGY_AGENT_ASAN_BLOCK_H_
 
 #include "base/basictypes.h"
+#include "base/callback.h"
 #include "base/logging.h"
 #include "syzygy/agent/asan/constants.h"
 
@@ -375,6 +376,8 @@ void ConvertBlockInfo(const BlockInfo& expanded, CompactBlockInfo* compact);
 // This protects against invalid memory accesses that may occur as a result of
 // block corruption, or the block pages being protected; in case of error,
 // this will return false.
+// @note For unittesting the OnExceptionCallback may be used to determine if
+//     an exception was handled.
 // @param header A pointer to the block header.
 // @param block_info The description of the block to be populated.
 // @returns true if a valid block was encountered at the provided location,
@@ -388,6 +391,8 @@ bool BlockInfoFromMemory(const BlockHeader* header, BlockInfo* block_info);
 // invalid memory accesses that may occur as a result of block corruption,
 // or the block pages being protected; in case of error, this will return
 // NULL.
+// @note For unittesting the OnExceptionCallback may be used to determine if
+//     an exception was handled.
 // @param body The body of the block.
 // @returns a pointer to the block header, NULL if it was not found or in
 //     case of error.
@@ -450,6 +455,15 @@ void BlockAnalyze(const BlockInfo& block_info,
                   BlockAnalysisResult* result);
 
 // @}
+
+// This is a testing seam. If a callback is provided it will be invoked by
+// the exception handling code in block.cc. Exceptions can occur due to the
+// RTL playing with page protections, but during unittests it is known whether
+// or not an exception should occur. This allows testing those expectations
+// explicitly.
+typedef base::Callback<void(EXCEPTION_POINTERS*)> OnExceptionCallback;
+void SetOnExceptionCallback(OnExceptionCallback callback);
+void ClearOnExceptionCallback();
 
 }  // namespace asan
 }  // namespace agent

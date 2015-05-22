@@ -43,6 +43,7 @@ class AsanRtlTest : public testing::TestAsanRtl {
     // Setup the callback to detect invalid accesses.
     SetCallBackFunction(&MemoryAccessorTester::AsanErrorCallback);
   }
+
  protected:
   void AllocMemoryBuffers(int32 length, int32 element_size);
   void FreeMemoryBuffers();

@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/strings/string_piece.h"
@@ -26,6 +27,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/error_info.h"
 #include "syzygy/agent/asan/heap.h"
 #include "syzygy/agent/asan/memory_notifier.h"
@@ -44,10 +46,32 @@ using agent::asan::StackCaptureCache;
 // The default name of the runtime library DLL.
 extern const wchar_t kSyzyAsanRtlDll[];
 
+// A unittest fixture that sets up a OnExceptionCallback for use with
+// BlockInfoFromMemory and BlockGetHeaderFromBody. This is the base fixture
+// class for all ASAN-related test fixtures declared in this file.
+class LenientOnExceptionCallbackTest : public testing::Test {
+ public:
+  MOCK_METHOD1(OnExceptionCallback, void(EXCEPTION_POINTERS*));
+
+  void SetUp() override {
+    testing::Test::SetUp();
+    agent::asan::SetOnExceptionCallback(
+        base::Bind(&LenientOnExceptionCallbackTest::OnExceptionCallback,
+                   base::Unretained(this)));
+  }
+
+  void TearDown() override {
+    agent::asan::ClearOnExceptionCallback();
+    testing::Test::TearDown();
+  }
+};
+typedef testing::StrictMock<LenientOnExceptionCallbackTest>
+    OnExceptionCallbackTest;
+
 // A unittest fixture that ensures that an Asan logger instance is up and
 // running for the duration of the test. Output is captured to a file so that
 // its contents can be read after the test if necessary.
-class TestWithAsanLogger : public testing::Test {
+class TestWithAsanLogger : public OnExceptionCallbackTest {
  public:
   TestWithAsanLogger();
 
@@ -323,7 +347,7 @@ class ScopedAsanAlloc : public scoped_ptr<T, AsanDeleteHelper> {
 };
 
 // A unittest fixture that initializes an Asan runtime instance.
-class TestWithAsanRuntime : public testing::Test {
+class TestWithAsanRuntime : public OnExceptionCallbackTest {
  public:
   TestWithAsanRuntime() {
     runtime_ = new agent::asan::AsanRuntime();

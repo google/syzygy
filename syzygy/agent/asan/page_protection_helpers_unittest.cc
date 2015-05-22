@@ -20,7 +20,16 @@
 namespace agent {
 namespace asan {
 
-TEST(PageProtectionHelpersTest, GetBlockInfo) {
+namespace {
+
+// Use the unittest fixture with an OnExceptionCallback.
+typedef testing::OnExceptionCallbackTest PageProtectionHelpersTest;
+
+using testing::_;
+
+}  // namespace
+
+TEST_F(PageProtectionHelpersTest, GetBlockInfo) {
   // Plan a layout that is subject to page protections.
   BlockLayout layout = {};
   BlockPlanLayout(4096, 4096, 4096, 4096, 4096, &layout);
@@ -51,7 +60,9 @@ TEST(PageProtectionHelpersTest, GetBlockInfo) {
 
   // Set page protections and try again.
   BlockProtectRedzones(info);
+  EXPECT_CALL(*this, OnExceptionCallback(_));
   EXPECT_FALSE(BlockInfoFromMemory(info.header, &info_recovered));
+  testing::Mock::VerifyAndClearExpectations(this);
   EXPECT_TRUE(GetBlockInfo(info.body, &info_recovered));
   EXPECT_EQ(0, ::memcmp(&info, &info_recovered, sizeof(info)));
   BlockProtectNone(info);
@@ -227,7 +238,7 @@ void TestAllProtectionTransitions(size_t chunk_size,
 
 }  // namespace
 
-TEST(PageProtectionHelpersTest, ProtectionTransitions) {
+TEST_F(PageProtectionHelpersTest, ProtectionTransitions) {
   // Left and right guard pages, everything page aligned.
   EXPECT_NO_FATAL_FAILURE(TestAllProtectionTransitions(
       4096, 4096, 4096, 4096, 4096));
@@ -247,7 +258,7 @@ TEST(PageProtectionHelpersTest, ProtectionTransitions) {
       4096, 8, 67, 0, 0));
 }
 
-TEST(PageProtectionHelpersTest, BlockProtectAuto) {
+TEST_F(PageProtectionHelpersTest, BlockProtectAuto) {
   BlockLayout layout = {};
   const size_t kPageSize = GetPageSize();
   EXPECT_TRUE(BlockPlanLayout(kPageSize, kPageSize, kPageSize, kPageSize,
@@ -278,7 +289,7 @@ TEST(PageProtectionHelpersTest, BlockProtectAuto) {
   ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
 }
 
-TEST(PageProtectionHelpersTest, ScopedBlockAccess) {
+TEST_F(PageProtectionHelpersTest, ScopedBlockAccess) {
   BlockLayout layout = {};
   const size_t kPageSize = GetPageSize();
   EXPECT_TRUE(BlockPlanLayout(kPageSize, kPageSize, kPageSize, kPageSize,

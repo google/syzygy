@@ -110,10 +110,21 @@ uint32 CombineUInt32IntoBlockChecksum(uint32 val) {
   return checksum;
 }
 
+// Global callback invoked by exception handlers when exceptions occur. This is
+// a testing seam.
+OnExceptionCallback g_on_exception_callback;
+
 // An exception filter that catches access violations and out of bound accesses.
+// This also invokes the OnExceptionCallback if one has been provided.
 DWORD BadMemoryAccessFilter(EXCEPTION_POINTERS* e) {
   if (e->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION ||
       e->ExceptionRecord->ExceptionCode == EXCEPTION_ARRAY_BOUNDS_EXCEEDED) {
+    // Invoke the callback if there is one registered. This has to happen here
+    // because the exception record lives on the stack in this frame. If we
+    // access this in the exception handler itself it will be below the bottom
+    // of the stack and potentially overwritten by the handler's calltree.
+    if (!g_on_exception_callback.is_null())
+      g_on_exception_callback.Run(e);
     return EXCEPTION_EXECUTE_HANDLER;
   }
   return EXCEPTION_CONTINUE_SEARCH;
@@ -393,7 +404,7 @@ BlockHeader* BlockGetHeaderFromBody(const BlockBody* body) {
     return header;
   } __except (BadMemoryAccessFilter(GetExceptionInformation())) {  // NOLINT
     // The block is either corrupt, or the pages are protected.
-    return NULL;
+    return nullptr;
   }
 }
 
@@ -738,6 +749,14 @@ void BlockAnalyze(const BlockInfo& block_info,
       result->trailer_state = kDataStateUnknown;
     }
   }
+}
+
+void SetOnExceptionCallback(OnExceptionCallback callback) {
+  g_on_exception_callback = callback;
+}
+
+void ClearOnExceptionCallback() {
+  g_on_exception_callback.Reset();
 }
 
 }  // namespace asan

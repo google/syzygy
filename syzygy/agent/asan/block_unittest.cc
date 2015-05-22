@@ -22,11 +22,14 @@
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/page_protection_helpers.h"
+#include "syzygy/agent/asan/unittest_util.h"
 
 namespace agent {
 namespace asan {
 
 namespace {
+
+using testing::_;
 
 BlockLayout BuildBlockLayout(size_t block_alignment,
                              size_t block_size,
@@ -121,6 +124,9 @@ void IsValidBlock(const BlockInfo& block) {
   IsValidBlockImpl(block, false);
 }
 
+// Use the unittest fixture with an OnExceptionCallback.
+typedef testing::OnExceptionCallbackTest BlockTest;
+
 }  // namespace
 
 bool operator==(const BlockLayout& bl1, const BlockLayout& bl2) {
@@ -131,7 +137,7 @@ bool operator==(const BlockInfo& bi1, const BlockInfo& bi2) {
   return ::memcmp(&bi1, &bi2, sizeof(BlockInfo)) == 0;
 }
 
-TEST(BlockTest, BlockPlanLayout) {
+TEST_F(BlockTest, BlockPlanLayout) {
   BlockLayout layout = {};
 
   // Zero sized allocations should work fine.
@@ -158,7 +164,7 @@ TEST(BlockTest, BlockPlanLayout) {
   EXPECT_FALSE(BlockPlanLayout(8, 8, 0xffffffff, 0, 0, &layout));
 }
 
-TEST(BlockTest, EndToEnd) {
+TEST_F(BlockTest, EndToEnd) {
   BlockLayout layout = {};
   BlockInfo block_info = {};
 
@@ -197,7 +203,7 @@ TEST(BlockTest, EndToEnd) {
   ASSERT_EQ(TRUE, ::VirtualFree(data, 0, MEM_RELEASE));
 }
 
-TEST(BlockTest, GetHeaderFromBody) {
+TEST_F(BlockTest, GetHeaderFromBody) {
   // Plan two layouts, one with header padding and another without.
   BlockLayout layout1 = {};
   BlockLayout layout2 = {};
@@ -257,7 +263,7 @@ TEST(BlockTest, GetHeaderFromBody) {
   EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == nullptr);
 }
 
-TEST(BlockTest, GetHeaderFromBodyProtectedMemory) {
+TEST_F(BlockTest, GetHeaderFromBodyProtectedMemory) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(4096, 4096, 4096, 4096, 4096, &layout));
   void* alloc = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
@@ -267,13 +273,15 @@ TEST(BlockTest, GetHeaderFromBodyProtectedMemory) {
   BlockInitialize(layout, alloc, false, &block_info);
 
   BlockProtectRedzones(block_info);
+  EXPECT_CALL(*this, OnExceptionCallback(_));
   EXPECT_TRUE(BlockGetHeaderFromBody(block_info.body) == NULL);
+  testing::Mock::VerifyAndClearExpectations(this);
   BlockProtectNone(block_info);
 
   ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
 }
 
-TEST(BlockTest, ConvertBlockInfo) {
+TEST_F(BlockTest, ConvertBlockInfo) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout));
 
@@ -297,7 +305,7 @@ TEST(BlockTest, ConvertBlockInfo) {
   EXPECT_EQ(0, ::memcmp(&expanded, &expanded2, sizeof(expanded)));
 }
 
-TEST(BlockTest, BlockInfoFromMemory) {
+TEST_F(BlockTest, BlockInfoFromMemory) {
   // Plan two layouts, one with header padding and another without.
   BlockLayout layout1 = {};
   BlockLayout layout2 = {};
@@ -366,7 +374,7 @@ TEST(BlockTest, BlockInfoFromMemory) {
   ::VirtualFree(alloc, 0, MEM_RELEASE);
 }
 
-TEST(BlockTest, BlockInfoFromMemoryInvalidPadding) {
+TEST_F(BlockTest, BlockInfoFromMemoryInvalidPadding) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10,
       4 * sizeof(BlockHeader), 0, &layout));
@@ -392,7 +400,7 @@ TEST(BlockTest, BlockInfoFromMemoryInvalidPadding) {
   }
 }
 
-TEST(BlockTest, BlockInfoFromMemoryProtectedMemory) {
+TEST_F(BlockTest, BlockInfoFromMemoryProtectedMemory) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(4096, 4096, 4096, 4096, 4096, &layout));
   void* alloc = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
@@ -403,13 +411,15 @@ TEST(BlockTest, BlockInfoFromMemoryProtectedMemory) {
 
   BlockProtectRedzones(block_info);
   BlockInfo recovered_info = {};
+  EXPECT_CALL(*this, OnExceptionCallback(_));
   EXPECT_FALSE(BlockInfoFromMemory(block_info.header, &recovered_info));
+  testing::Mock::VerifyAndClearExpectations(this);
   BlockProtectNone(block_info);
 
   ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
 }
 
-TEST(BlockTest, BlockInfoFromMemoryForNestedBlock) {
+TEST_F(BlockTest, BlockInfoFromMemoryForNestedBlock) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout));
 
@@ -424,7 +434,7 @@ TEST(BlockTest, BlockInfoFromMemoryForNestedBlock) {
   EXPECT_TRUE(recovered_info.header->is_nested);
 }
 
-TEST(BlockTest, ChecksumWorksForAllStates) {
+TEST_F(BlockTest, ChecksumWorksForAllStates) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout));
   scoped_ptr<uint8> data(new uint8[layout.block_size]);
@@ -621,7 +631,7 @@ void TestChecksumDetectsTampering(const BlockInfo& block_info) {
 
 }  // namespace
 
-TEST(BlockTest, ChecksumDetectsTampering) {
+TEST_F(BlockTest, ChecksumDetectsTampering) {
   // This test requires a runtime because it makes use of BlockAnalyze.
   // Initialize it with valid values.
   AsanRuntime runtime;

@@ -21,6 +21,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "syzygy/agent/asan/asan_rtl_utils.h"
 #include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/heap_manager.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/windows_heap_adapter.h"
@@ -210,6 +211,14 @@ BOOL WINAPI asan_HeapQueryInformation(
 void WINAPI asan_SetCallBack(AsanErrorCallBack callback) {
   DCHECK(asan_runtime != NULL);
   asan_runtime->SetErrorCallBack(base::Bind(callback));
+}
+
+void WINAPI asan_SetOnExceptionCallback(OnExceptionCallback callback) {
+  if (callback != nullptr) {
+    agent::asan::SetOnExceptionCallback(base::Bind(callback));
+  } else {
+    agent::asan::ClearOnExceptionCallback();
+  }
 }
 
 // Unittesting seam.

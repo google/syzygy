@@ -86,7 +86,6 @@ EXPORTS
   asan_HeapWalk
   asan_HeapSetInformation
   asan_HeapQueryInformation
-  asan_SetCallBack
 
   ; CRT Interceptor functions.
   asan_memcpy
@@ -107,7 +106,9 @@ EXPORTS
   asan_strncat
 
   ; Functions exposed for testing purposes.
+  asan_SetCallBack
   asan_SetInterceptorCallback
+  asan_SetOnExceptionCallback
   asan_GetActiveRuntime
 
   ; AllocationFilterFlag functions.

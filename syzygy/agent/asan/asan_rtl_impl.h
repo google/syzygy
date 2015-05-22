@@ -86,8 +86,15 @@ BOOL WINAPI asan_HeapQueryInformation(
     HANDLE heap, HEAP_INFORMATION_CLASS info_class,
     PVOID info, SIZE_T info_length, PSIZE_T return_length);
 
+// @name Testing seams.
+// @{
 typedef void (*AsanErrorCallBack)(agent::asan::AsanErrorInfo*);
 void WINAPI asan_SetCallBack(AsanErrorCallBack callback);
+// Allows specifying a callback that will be called by the OnException handler
+// in block.h utility funtions.
+typedef void (*OnExceptionCallback)(EXCEPTION_POINTERS*);
+void WINAPI asan_SetOnExceptionCallback(OnExceptionCallback callback);
+// @}
 
 int asan_CrashForException(EXCEPTION_POINTERS* exception);
 

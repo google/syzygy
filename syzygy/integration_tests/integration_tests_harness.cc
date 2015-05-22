@@ -18,11 +18,13 @@
 // to be moved to a separate process so as to avoid gtest interference in
 // exception handling.
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/strings/string_number_conversions.h"
+#include "syzygy/agent/asan/block.h"  // Solely for some typedefs.
 #include "syzygy/common/com_utils.h"
 #include "syzygy/integration_tests/integration_tests_dll.h"
 
@@ -127,6 +129,26 @@ LONG WINAPI MyUnhandledExceptionFilter(struct _EXCEPTION_POINTERS* exception) {
   return EXCEPTION_EXECUTE_HANDLER;
 }
 
+void AsanOnExceptionCallback(EXCEPTION_POINTERS* exception) {
+  LOG(ERROR) << "AsanOnExceptionCallback fired.";
+  Exit(1);
+}
+
+void SetAsanOnExceptionCallback() {
+  typedef void (*OnExceptionCallback)(EXCEPTION_POINTERS*);
+  typedef void (WINAPI *SetOnExceptionCallback)(OnExceptionCallback);
+
+  HMODULE asan_module = GetModuleHandle(L"syzyasan_rtl.dll");
+  if (asan_module == nullptr)
+    return;
+
+  SetOnExceptionCallback set_callback =
+      reinterpret_cast<SetOnExceptionCallback>(
+          ::GetProcAddress(asan_module, "asan_SetOnExceptionCallback"));
+  DCHECK(set_callback != NULL);
+  set_callback(&AsanOnExceptionCallback);
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -154,6 +176,10 @@ int main(int argc, char** argv) {
   VLOG(1) << "Registering unhandled exception filter and callback.";
   previous_unhandled_exception_filter = ::SetUnhandledExceptionFilter(
       &MyUnhandledExceptionFilter);
+
+  // If syzyasan_rtl.dll is in memory then register an OnException handler.
+  // This gracefully does nothing if SyzyASan is not in memory.
+  SetAsanOnExceptionCallback();
 
   // Load the module.
   LOG(INFO) << "Loading module: " << dll.value();

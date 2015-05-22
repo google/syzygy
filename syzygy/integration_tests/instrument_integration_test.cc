@@ -179,8 +179,6 @@ struct ScopedAgentLogger {
   std::string log_contents_;
 };
 
-typedef void (WINAPI *AsanSetCallBack)(AsanErrorCallBack);
-
 enum AccessMode {
   ASAN_READ_ACCESS = agent::asan::ASAN_READ_ACCESS,
   ASAN_WRITE_ACCESS = agent::asan::ASAN_WRITE_ACCESS,
@@ -222,6 +220,8 @@ void ResetAsanErrors() {
 }
 
 void SetAsanDefaultCallBack(AsanErrorCallBack callback) {
+  typedef void (WINAPI *AsanSetCallBack)(AsanErrorCallBack);
+
   HMODULE asan_module = GetModuleHandle(L"syzyasan_rtl.dll");
   DCHECK(asan_module != NULL);
   AsanSetCallBack set_callback = reinterpret_cast<AsanSetCallBack>(
@@ -229,6 +229,33 @@ void SetAsanDefaultCallBack(AsanErrorCallBack callback) {
   DCHECK(set_callback != NULL);
 
   set_callback(callback);
+}
+
+agent::asan::OnExceptionCallback on_exception_callback;
+
+void DispatchOnExceptionCallback(EXCEPTION_POINTERS* e) {
+  if (!on_exception_callback.is_null())
+    on_exception_callback.Run(e);
+}
+
+void SetOnExceptionCallback(agent::asan::OnExceptionCallback callback) {
+  typedef void (*OnExceptionCallback)(EXCEPTION_POINTERS*);
+  typedef void (WINAPI *SetOnExceptionCallback)(OnExceptionCallback);
+
+  HMODULE asan_module = GetModuleHandle(L"syzyasan_rtl.dll");
+  DCHECK(asan_module != NULL);
+  SetOnExceptionCallback set_callback =
+      reinterpret_cast<SetOnExceptionCallback>(
+          ::GetProcAddress(asan_module, "asan_SetOnExceptionCallback"));
+  DCHECK(set_callback != NULL);
+
+  if (callback.is_null()) {
+    set_callback(nullptr);
+    on_exception_callback.Reset();
+  } else {
+    set_callback(&DispatchOnExceptionCallback);
+    on_exception_callback = callback;
+  }
 }
 
 agent::asan::AsanRuntime* GetActiveAsanRuntime() {
@@ -290,11 +317,14 @@ class TestingProfileGrinder : public grinder::grinders::ProfileGrinder {
   using grinder::grinders::ProfileGrinder::parts_;
 };
 
-class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
+class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
  public:
   typedef testing::PELibUnitTest Super;
 
-  InstrumentAppIntegrationTest()
+  // A callback that gets hooked up to catch exceptions in the RTL.
+  MOCK_METHOD1(OnExceptionCallback, void(EXCEPTION_POINTERS*));
+
+  LenientInstrumentAppIntegrationTest()
       : cmd_line_(base::FilePath(L"instrument.exe")),
         test_impl_(test_app_.implementation()),
         image_layout_(&block_graph_),
@@ -486,6 +516,11 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
     ResetAsanErrors();
     EXPECT_NO_FATAL_FAILURE(SetAsanDefaultCallBack(AsanCallback));
 
+    // Hook up the OnException callback to the test fixture.
+    SetOnExceptionCallback(base::Bind(
+        &LenientInstrumentAppIntegrationTest::OnExceptionCallback,
+        base::Unretained(this)));
+
     for (size_t i = 0; i < max_tries; ++i) {
       InvokeTestDllFunction(test);
       if (unload)
@@ -505,6 +540,10 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
       }
       break;
     }
+
+    // Clear any expectations on this fixture.
+    testing::Mock::VerifyAndClearExpectations(this);
+
     return true;
   }
 
@@ -1134,6 +1173,8 @@ class InstrumentAppIntegrationTest : public testing::PELibUnitTest {
   block_graph::BlockGraph block_graph_;
   uint32 get_my_rva_;
 };
+typedef testing::StrictMock<LenientInstrumentAppIntegrationTest>
+    InstrumentAppIntegrationTest;
 
 typedef std::map<std::string, size_t> FunctionOffsetMap;
 
@@ -1217,7 +1258,7 @@ void GetCallOffsets(const base::FilePath& image_path,
   }
 }
 
-void InstrumentAppIntegrationTest::AsanZebraHeapTest(bool enabled) {
+void LenientInstrumentAppIntegrationTest::AsanZebraHeapTest(bool enabled) {
   // Find the offset of the call we want to instrument.
   static const char kTest1[] =
       "testing::AsanReadPageAllocationTrailerBeforeFree";
