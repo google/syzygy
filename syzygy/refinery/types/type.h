@@ -16,6 +16,7 @@
 #define SYZYGY_REFINERY_TYPES_TYPE_H_
 
 #include <stdint.h>
+#include <functional>
 #include <vector>
 
 #include "base/logging.h"
@@ -25,6 +26,8 @@
 
 namespace refinery {
 
+// A base class for all Type subclasses.
+// All instances of Type and subclasses are immutable.
 class Type : public base::RefCounted<Type> {
  public:
   typedef uint8_t Flags;
@@ -72,6 +75,16 @@ class Type : public base::RefCounted<Type> {
 };
 
 using TypePtr = scoped_refptr<Type>;
+
+// A hash functor for types.
+struct TypeHash : public std::unary_function<Type, size_t> {
+  size_t operator()(const TypePtr& type);
+};
+
+// An equality comparator for types.
+struct TypeIsEqual : public std::binary_function<Type, Type, bool> {
+  bool operator()(const TypePtr& a, const TypePtr& b);
+};
 
 // Represents a basic type, such as e.g. an int, char, void, etc.
 class BasicType : public Type {

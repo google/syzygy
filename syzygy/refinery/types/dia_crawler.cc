@@ -217,14 +217,36 @@ bool GetSymType(IDiaSymbol* symbol,
   return true;
 }
 
-// Fwd.
-bool CreateType(IDiaSymbol* symbol, TypePtr* type);
-bool CreateBitFieldType(IDiaSymbol* symbol,
-                        size_t bit_length,
-                        size_t bit_pos,
-                        TypePtr* field_type);
+typedef base::hash_set<TypePtr, TypeHash, TypeIsEqual> TypeSet;
 
-bool CreateUDT(IDiaSymbol* symbol, size_t size, TypePtr* type) {
+class TypeCreator {
+ public:
+  explicit TypeCreator(TypeSet* existing_types) :
+      existing_types_(existing_types) {
+    DCHECK(existing_types);
+  }
+
+  bool CreateUDT(IDiaSymbol* symbol, size_t size, TypePtr* type);
+  bool CreateBaseType(IDiaSymbol* symbol, size_t size, TypePtr* type);
+  bool CreatePointerType(IDiaSymbol* symbol, size_t size, TypePtr* type);
+  bool CreateType(IDiaSymbol* symbol, TypePtr* type);
+  bool CreateBitFieldType(IDiaSymbol* symbol,
+                          size_t bit_length,
+                          size_t bit_pos,
+                          TypePtr* type_ptr);
+  TypePtr MakeUnique(TypePtr type);
+
+ private:
+  TypeSet* existing_types_;
+};
+
+TypePtr TypeCreator::MakeUnique(TypePtr type) {
+  auto ib = existing_types_->insert(type);
+
+  return *ib.first;
+}
+
+bool TypeCreator::CreateUDT(IDiaSymbol* symbol, size_t size, TypePtr* type) {
   DCHECK(symbol); DCHECK(size); DCHECK(type);
   DCHECK(IsSymTag(symbol, SymTagUDT));
 
@@ -313,13 +335,13 @@ bool CreateUDT(IDiaSymbol* symbol, size_t size, TypePtr* type) {
   }
   // TODO(siggi): Does the kind of the UDT make a difference?
   //   E.g. struct, class, union, enum - perhaps?
-  UserDefinedTypePtr udt = new UserDefinedType(name, size, fields);
-
-  *type = udt;
+  *type = MakeUnique(new UserDefinedType(name, size, fields));
   return true;
 }
 
-bool CreateBaseType(IDiaSymbol* symbol, size_t size, TypePtr* type) {
+bool TypeCreator::CreateBaseType(IDiaSymbol* symbol,
+                                 size_t size,
+                                 TypePtr* type) {
   // Note that the void base type has zero size.
   DCHECK(symbol); DCHECK(type);
   DCHECK(IsSymTag(symbol, SymTagBaseType));
@@ -328,12 +350,14 @@ bool CreateBaseType(IDiaSymbol* symbol, size_t size, TypePtr* type) {
   if (!GetSymBaseTypeName(symbol, &base_type_name))
     return false;
 
-  *type = new BasicType(base_type_name, size);
+  *type = MakeUnique(new BasicType(base_type_name, size));
 
   return true;
 }
 
-bool CreatePointerType(IDiaSymbol* symbol, size_t size, TypePtr* type) {
+bool TypeCreator::CreatePointerType(IDiaSymbol* symbol,
+                                    size_t size,
+                                    TypePtr* type) {
   DCHECK(symbol); DCHECK(size), DCHECK(type);
   DCHECK(IsSymTag(symbol, SymTagPointerType));
 
@@ -350,11 +374,11 @@ bool CreatePointerType(IDiaSymbol* symbol, size_t size, TypePtr* type) {
 
   // TODO(siggi): Will pointers ever need a name? Maybe build a name by
   //    concatenation to the ptr_type->name()?
-  *type = new PointerType(L"", size, flags, ptr_type);
+  *type = MakeUnique(new PointerType(L"", size, flags, ptr_type));
   return true;
 }
 
-bool CreateType(IDiaSymbol* symbol, TypePtr* type) {
+bool TypeCreator::CreateType(IDiaSymbol* symbol, TypePtr* type) {
   DCHECK(symbol); DCHECK(type);
 
   size_t size = 0;
@@ -378,7 +402,7 @@ bool CreateType(IDiaSymbol* symbol, TypePtr* type) {
   }
 }
 
-bool CreateBitFieldType(IDiaSymbol* symbol,
+bool TypeCreator::CreateBitFieldType(IDiaSymbol* symbol,
                         size_t bit_length,
                         size_t bit_pos,
                         TypePtr* type_ptr) {
@@ -391,7 +415,7 @@ bool CreateBitFieldType(IDiaSymbol* symbol,
     return false;
   }
 
-  *type_ptr = new BitfieldType(name, size, bit_length, bit_pos);
+  *type_ptr = MakeUnique(new BitfieldType(name, size, bit_length, bit_pos));
   return true;
 }
 
@@ -439,6 +463,7 @@ bool DiaCrawler::GetTypes(const base::string16& regexp,
   if (!SUCCEEDED(hr) || count == 0)
     return false;
 
+  TypeCreator creator(&types_);
   for (LONG i = 0; i < count; ++i) {
     base::win::ScopedComPtr<IDiaSymbol> symbol;
 
@@ -448,7 +473,7 @@ bool DiaCrawler::GetTypes(const base::string16& regexp,
       return false;
 
     scoped_refptr<Type> type;
-    if (!CreateType(symbol.get(), &type))
+    if (!creator.CreateType(symbol.get(), &type))
       return false;
 
     types->push_back(type);

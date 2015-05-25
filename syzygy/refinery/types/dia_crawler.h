@@ -18,6 +18,7 @@
 #include <dia2.h>
 #include <vector>
 
+#include "base/containers/hash_tables.h"
 #include "base/files/file_path.h"
 #include "base/strings/string_piece.h"
 #include "base/win/scoped_comptr.h"
@@ -49,6 +50,9 @@ class DiaCrawler {
   base::win::ScopedComPtr<IDiaDataSource> source_;
   base::win::ScopedComPtr<IDiaSession> session_;
   base::win::ScopedComPtr<IDiaSymbol> global_;
+
+  // Keeps a single unique instance of each type.
+  base::hash_set<TypePtr, TypeHash, TypeIsEqual> types_;
 };
 
 }  // namespace refinery
