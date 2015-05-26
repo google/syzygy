@@ -24,7 +24,7 @@ TEST(TypesTest, BasicType) {
 
   ASSERT_TRUE(type.get());
   // Verify the kind and fields.
-  EXPECT_EQ(Type::BasicKind, type->kind());
+  EXPECT_EQ(Type::BASIC_TYPE_KIND, type->kind());
   EXPECT_EQ(L"foo", type->name());
   EXPECT_EQ(10U, type->size());
 
@@ -45,7 +45,7 @@ TEST(TypesTest, BitfieldType) {
 
   ASSERT_TRUE(type.get());
   // Verify the kind and fields.
-  EXPECT_EQ(Type::BitfieldKind, type->kind());
+  EXPECT_EQ(Type::BITFIELD_TYPE_KIND, type->kind());
   EXPECT_EQ(L"bar", type->name());
   EXPECT_EQ(4, type->size());
 
@@ -77,7 +77,7 @@ TEST(TypesTest, UserDefineType) {
   TypePtr type(udt);
   udt = nullptr;
 
-  ASSERT_EQ(Type::UserDefinedKind, type->kind());
+  ASSERT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
   EXPECT_EQ(L"foo", type->name());
   EXPECT_EQ(10, type->size());
 
@@ -120,7 +120,7 @@ TEST(TypesTest, PointerType) {
   EXPECT_EQ(L"void*", type->name());
   EXPECT_EQ(4U, type->size());
 
-  EXPECT_EQ(Type::PointerKind, type->kind());
+  EXPECT_EQ(Type::POINTER_TYPE_KIND, type->kind());
 
   // Downcast and test its fields.
   PointerTypePtr pointer;

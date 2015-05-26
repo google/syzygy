@@ -78,51 +78,51 @@ size_t TypeHash::operator()(const TypePtr& type) {
   hash.Update(type->kind());
 
   switch (type->kind()) {
-    case Type::BasicKind:
+    case Type::BASIC_TYPE_KIND:
       break;
 
-    case Type::BitfieldKind: {
-        BitfieldTypePtr bf;
-        type->CastTo(&bf);
-        DCHECK(bf);
+    case Type::BITFIELD_TYPE_KIND: {
+      BitfieldTypePtr bf;
+      type->CastTo(&bf);
+      DCHECK(bf);
 
-        hash.Update(bf->bit_length());
-        hash.Update(bf->bit_offset());
-      }
+      hash.Update(bf->bit_length());
+      hash.Update(bf->bit_offset());
       break;
+    }
 
-    case Type::UserDefinedKind: {
-        UserDefinedTypePtr udt;
-        type->CastTo(&udt);
-        DCHECK(udt);
+    case Type::USER_DEFINED_TYPE_KIND: {
+      UserDefinedTypePtr udt;
+      type->CastTo(&udt);
+      DCHECK(udt);
 
-        hash.Update(udt->fields().size());
-        for (const auto& field : udt->fields()) {
-          hash.Update(field.name());
-          hash.Update(field.offset());
-          hash.Update(field.is_const());
-          hash.Update(field.is_volatile());
-
-          // Use the identity of the type rather than its value as
-          // it's already unique.
-          hash.Update(field.type().get());
-        }
-      }
-      break;
-
-    case Type::PointerKind: {
-        PointerTypePtr ptr;
-        type->CastTo(&ptr);
-        DCHECK(ptr);
-
-        hash.Update(ptr->is_const());
-        hash.Update(ptr->is_volatile());
+      hash.Update(udt->fields().size());
+      for (const auto& field : udt->fields()) {
+        hash.Update(field.name());
+        hash.Update(field.offset());
+        hash.Update(field.is_const());
+        hash.Update(field.is_volatile());
 
         // Use the identity of the type rather than its value as
         // it's already unique.
-        hash.Update(ptr->type().get());
+        hash.Update(field.type().get());
       }
       break;
+    }
+
+    case Type::POINTER_TYPE_KIND: {
+      PointerTypePtr ptr;
+      type->CastTo(&ptr);
+      DCHECK(ptr);
+
+      hash.Update(ptr->is_const());
+      hash.Update(ptr->is_volatile());
+
+      // Use the identity of the type rather than its value as
+      // it's already unique.
+      hash.Update(ptr->type().get());
+      break;
+    }
 
     default:
       NOTREACHED();
@@ -145,59 +145,57 @@ bool TypeIsEqual::operator()(const TypePtr& a, const TypePtr& b) {
 
   DCHECK_EQ(a->kind(), b->kind());
   switch (a->kind()) {
-    case Type::BasicKind:
+    case Type::BASIC_TYPE_KIND:
       return true;
 
-    case Type::BitfieldKind: {
-        BitfieldTypePtr a1, b1;
-        a->CastTo(&a1);
-        b->CastTo(&b1);
-        DCHECK(a1 && b1);
+    case Type::BITFIELD_TYPE_KIND: {
+      BitfieldTypePtr a1, b1;
+      a->CastTo(&a1);
+      b->CastTo(&b1);
+      DCHECK(a1 && b1);
 
-        return a1->bit_length() == b1->bit_length() &&
-               a1->bit_offset() == b1->bit_offset();
-      }
-      break;
+      return a1->bit_length() == b1->bit_length() &&
+              a1->bit_offset() == b1->bit_offset();
+    }
 
-    case Type::UserDefinedKind: {
-        UserDefinedTypePtr a1, b1;
-        a->CastTo(&a1);
-        b->CastTo(&b1);
-        DCHECK(a1 && b1);
+    case Type::USER_DEFINED_TYPE_KIND: {
+      UserDefinedTypePtr a1, b1;
+      a->CastTo(&a1);
+      b->CastTo(&b1);
+      DCHECK(a1 && b1);
 
-        if (a1->fields().size() != b1->fields().size())
+      if (a1->fields().size() != b1->fields().size())
+        return false;
+
+      for (size_t i = 0; i < a1->fields().size(); ++i) {
+        const auto& af = a1->fields()[i];
+        const auto& bf = b1->fields()[i];
+
+        if (af.offset() != bf.offset() ||
+            af.is_const() != bf.is_const() ||
+            af.is_volatile() != bf.is_volatile() ||
+            af.name() != bf.name()) {
           return false;
-
-        for (size_t i = 0; i < a1->fields().size(); ++i) {
-          const auto& af = a1->fields()[i];
-          const auto& bf = b1->fields()[i];
-
-          if (af.offset() != bf.offset() ||
-              af.is_const() != bf.is_const() ||
-              af.is_volatile() != bf.is_volatile() ||
-              af.name() != bf.name()) {
-            return false;
-          }
-
-          if (!(*this)(af.type(), bf.type()))
-            return false;
         }
 
-        return true;
+        if (!(*this)(af.type(), bf.type()))
+          return false;
       }
-      break;
 
-    case Type::PointerKind: {
-        PointerTypePtr a1, b1;
-        a->CastTo(&a1);
-        b->CastTo(&b1);
-        DCHECK(a1 && b1);
+      return true;
+    }
 
-        return a1->is_const() == b1->is_const() &&
-            a1->is_volatile() == b1->is_volatile() &&
-            (*this)(a1->type(), b1->type());
-      }
-      break;
+    case Type::POINTER_TYPE_KIND: {
+      PointerTypePtr a1, b1;
+      a->CastTo(&a1);
+      b->CastTo(&b1);
+      DCHECK(a1 && b1);
+
+      return a1->is_const() == b1->is_const() &&
+          a1->is_volatile() == b1->is_volatile() &&
+          (*this)(a1->type(), b1->type());
+    }
+
     default:
       NOTREACHED();
       break;
@@ -209,18 +207,18 @@ bool TypeIsEqual::operator()(const TypePtr& a, const TypePtr& b) {
 UserDefinedType::UserDefinedType(const base::string16& name,
                                  size_t size,
                                  const Fields& fields) :
-    Type(UserDefinedKind, name, size), fields_(fields) {
+    Type(USER_DEFINED_TYPE_KIND, name, size), fields_(fields) {
 }
 
 BasicType::BasicType(const base::string16& name, size_t size) :
-    Type(BasicKind, name, size) {
+    Type(BASIC_TYPE_KIND, name, size) {
 }
 
 BitfieldType::BitfieldType(const base::string16& name,
                            size_t size,
                            size_t bit_length,
                            size_t bit_offset) :
-    Type(BitfieldKind, name,  size),
+    Type(BITFIELD_TYPE_KIND, name,  size),
     bit_length_(bit_length),
     bit_offset_(bit_offset) {
 }
@@ -236,7 +234,7 @@ PointerType::PointerType(const base::string16& name,
                          size_t size,
                          Flags flags,
                          const TypePtr& type)
-    : Type(PointerKind, name, size), flags_(flags), type_(type) {
+    : Type(POINTER_TYPE_KIND, name, size), flags_(flags), type_(type) {
 }
 
 }  // namespace refinery

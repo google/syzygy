@@ -70,7 +70,7 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   EXPECT_EQ(sizeof(test), type->size());
   EXPECT_TRUE(EndsWith(type->name(), L"DiaCrawlerTest::TestSimpleUDT", true));
 
-  EXPECT_EQ(Type::UserDefinedKind, type->kind());
+  EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
 
   UserDefinedTypePtr udt;
   ASSERT_TRUE(types[0]->CastTo(&udt));
@@ -83,7 +83,7 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   EXPECT_EQ(L"one", fields[0].name());
   EXPECT_FALSE(fields[0].is_const());
   EXPECT_FALSE(fields[0].is_volatile());
-  EXPECT_EQ(Type::BasicKind, fields[0].type()->kind());
+  EXPECT_EQ(Type::BASIC_TYPE_KIND, fields[0].type()->kind());
   EXPECT_EQ(sizeof(test.one), fields[0].type()->size());
   // TODO(siggi): Assert on type's name.
 
@@ -91,7 +91,7 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   EXPECT_EQ(L"two", fields[1].name());
   EXPECT_TRUE(fields[1].is_const());
   EXPECT_FALSE(fields[1].is_volatile());
-  EXPECT_EQ(Type::BasicKind, fields[1].type()->kind());
+  EXPECT_EQ(Type::BASIC_TYPE_KIND, fields[1].type()->kind());
   EXPECT_EQ(sizeof(test.two), fields[1].type()->size());
   // TODO(siggi): Assert on type's name.
 
@@ -99,7 +99,7 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   EXPECT_EQ(L"three", fields[2].name());
   EXPECT_FALSE(fields[2].is_const());
   EXPECT_TRUE(fields[2].is_volatile());
-  ASSERT_EQ(Type::PointerKind, fields[2].type()->kind());
+  ASSERT_EQ(Type::POINTER_TYPE_KIND, fields[2].type()->kind());
   EXPECT_EQ(sizeof(test.three), fields[2].type()->size());
   PointerTypePtr ptr;
   ASSERT_TRUE(fields[2].type()->CastTo(&ptr));
@@ -107,14 +107,14 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   EXPECT_TRUE(ptr->is_const());
   EXPECT_FALSE(ptr->is_volatile());
   ASSERT_TRUE(ptr->type());
-  EXPECT_EQ(Type::BasicKind, ptr->type()->kind());
+  EXPECT_EQ(Type::BASIC_TYPE_KIND, ptr->type()->kind());
   // TODO(siggi): Assert on type's name.
 
   EXPECT_EQ(offsetof(TestSimpleUDT, four), fields[3].offset());
   EXPECT_EQ(L"four", fields[3].name());
   EXPECT_TRUE(fields[3].is_const());
   EXPECT_TRUE(fields[3].is_volatile());
-  EXPECT_EQ(Type::BasicKind, fields[3].type()->kind());
+  EXPECT_EQ(Type::BASIC_TYPE_KIND, fields[3].type()->kind());
   EXPECT_EQ(sizeof(test.four), fields[3].type()->size());
   // TODO(siggi): Assert on type's name.
 
@@ -124,7 +124,7 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   EXPECT_EQ(L"five", fields[4].name());
   EXPECT_FALSE(fields[4].is_const());
   EXPECT_FALSE(fields[4].is_volatile());
-  EXPECT_EQ(Type::BitfieldKind, fields[4].type()->kind());
+  EXPECT_EQ(Type::BITFIELD_TYPE_KIND, fields[4].type()->kind());
   // TODO(siggi): Assert on type's name.
 }
 

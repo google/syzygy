@@ -34,13 +34,13 @@ class Type : public base::RefCounted<Type> {
 
   // The set of type classes is closed, each type is enumerated here.
   enum TypeKind {
-    BasicKind,
-    BitfieldKind,
-    UserDefinedKind,
-    PointerKind,
+    BASIC_TYPE_KIND,
+    BITFIELD_TYPE_KIND,
+    USER_DEFINED_TYPE_KIND,
+    POINTER_TYPE_KIND,
   };
 
-  enum CV {
+  enum CV_FLAGS {
     FLAG_CONST        = 0x0001,
     FLAG_VOLATILE     = 0x0002,
   };
@@ -89,7 +89,7 @@ struct TypeIsEqual : public std::binary_function<Type, Type, bool> {
 // Represents a basic type, such as e.g. an int, char, void, etc.
 class BasicType : public Type {
  public:
-  static const TypeKind ID = BasicKind;
+  static const TypeKind ID = BASIC_TYPE_KIND;
 
   // Creates a new basictype with name @p name and size @p size.
   BasicType(const base::string16& name, size_t size);
@@ -103,7 +103,7 @@ using BasicTypePtr = scoped_refptr<BasicType>;
 // Represents a bitfield.
 class BitfieldType : public Type {
  public:
-  static const TypeKind ID = BitfieldKind;
+  static const TypeKind ID = BITFIELD_TYPE_KIND;
 
   // Creates a new bitfield.
   BitfieldType(const base::string16& name,
@@ -132,7 +132,7 @@ class UserDefinedType : public Type {
   class Field;
   typedef std::vector<Field> Fields;
 
-  static const TypeKind ID = UserDefinedKind;
+  static const TypeKind ID = USER_DEFINED_TYPE_KIND;
 
   // Creates a new user defined type with name @p name, size @p size and
   // the supplied @p fields.
@@ -190,7 +190,7 @@ class UserDefinedType::Field {
 // Represents a pointer to some other type.
 class PointerType : public Type {
  public:
-  static const TypeKind ID = PointerKind;
+  static const TypeKind ID = POINTER_TYPE_KIND;
 
   // Creates a new pointer type with name @p name, size @p size, pointing to
   // an object of type @p type.
