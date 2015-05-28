@@ -203,8 +203,11 @@ void ErrorInfoGetAsanBlockInfo(const BlockInfo& block_info,
 // Given a populated AsanBlockInfo struct, fills out a corresponding crashdata
 // protobuf.
 // @param block_info The block info information.
+// @param include_block_contents If this is true the block contents will be
+//     explicitly included in the protobuf.
 // @param value The uninitialized protobuf value to be populated.
 void PopulateBlockInfo(const AsanBlockInfo& block_info,
+                       bool include_block_contents,
                        crashdata::Value* value);
 
 // Given a populated AsanCorruptBlockRange struct, fills out a corresponding

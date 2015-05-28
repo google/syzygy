@@ -317,6 +317,7 @@ void PopulateBlockAnalysisResult(const BlockAnalysisResult& analysis,
 }  // namespace
 
 void PopulateBlockInfo(const AsanBlockInfo& block_info,
+                       bool include_block_contents,
                        crashdata::Value* value) {
   DCHECK_NE(static_cast<crashdata::Value*>(nullptr), value);
 
@@ -361,6 +362,33 @@ void PopulateBlockInfo(const AsanBlockInfo& block_info,
         block_info.milliseconds_since_free,
         crashdata::DictAddLeaf("milliseconds-since-free", dict));
   }
+
+  if (include_block_contents) {
+    // Get the full block information from the shadow memory.
+    BlockInfo full_block_info = {};
+    StaticShadow::shadow.BlockInfoFromShadow(block_info.header,
+                                             &full_block_info);
+
+    // Copy the entire block contents.
+    crashdata::Blob* blob = crashdata::LeafGetBlob(
+        crashdata::DictAddLeaf("contents", dict));
+    blob->mutable_address()->set_address(CastAddress(block_info.header));
+    blob->mutable_data()->assign(
+        reinterpret_cast<const char*>(block_info.header),
+        full_block_info.block_size);
+
+    // Copy the associated shadow memory.
+    size_t shadow_index =
+        reinterpret_cast<size_t>(block_info.header) / kShadowRatio;
+    size_t shadow_length = full_block_info.block_size / kShadowRatio;
+    const char* shadow =
+        reinterpret_cast<const char*>(StaticShadow::shadow.shadow()) +
+        shadow_index;
+    blob = crashdata::LeafGetBlob(
+        crashdata::DictAddLeaf("shadow", dict));
+    blob->mutable_address()->set_address(CastAddress(shadow));
+    blob->mutable_data()->assign(shadow, shadow_length);
+  }
 }
 
 void PopulateCorruptBlockRange(const AsanCorruptBlockRange& range,
@@ -382,7 +410,8 @@ void PopulateCorruptBlockRange(const AsanCorruptBlockRange& range,
         crashdata::DictAddValue("blocks", dict));
     for (size_t i = 0; i < range.block_info_count; ++i) {
       if (range.block_info[i].header != nullptr)
-        PopulateBlockInfo(range.block_info[i], list->add_values());
+        // Emit the block info but don't explicitly include the contents.
+        PopulateBlockInfo(range.block_info[i], false, list->add_values());
     }
   }
 }
@@ -462,7 +491,13 @@ void PopulateErrorInfo(const AsanErrorInfo& error_info,
   crashdata::LeafSetUInt(error_info.crash_stack_id,
                          crashdata::DictAddLeaf("crash-stack-id", dict));
   if (error_info.block_info.header != nullptr) {
+    // Include the block contents only if the block isn't too large. This tries
+    // to reflect the cap on crash server minidump sizes.
+    // TODO(chrisha): This decision should be made higher up the stack, and not
+    // here.
+    bool include_block_info = error_info.block_info.user_size < 100 * 1024;
     PopulateBlockInfo(error_info.block_info,
+                      include_block_info,
                       crashdata::DictAddValue("block-info", dict));
   }
   crashdata::LeafGetString(crashdata::DictAddLeaf("error-type", dict))
