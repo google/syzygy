@@ -124,6 +124,15 @@ bool AsanInstrumenter::ParseAdditionalCommandLineArguments(
   asan_rtl_options_ = command_line->HasSwitch(kAsanRtlOptions);
   if (asan_rtl_options_) {
     std::wstring options = command_line->GetSwitchValueNative(kAsanRtlOptions);
+    // The Asan RTL options string might be encapsulated in quotes, remove them
+    // if it's the case.
+    if (!options.empty() && options[0] == L'\"') {
+      CHECK_EQ(L'\"', options.back()) << "If the asan-rtl-options string "
+          << "starts with a quote it should also end with one.";
+      options.erase(options.begin());
+      if (!options.empty())
+        options.pop_back();
+    }
     common::SetDefaultAsanParameters(&asan_params_);
     if (!common::ParseAsanParameters(options, &asan_params_))
       return false;

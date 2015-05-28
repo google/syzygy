@@ -177,7 +177,7 @@ TEST_F(AsanInstrumenterTest, ParseFullAsan) {
   cmd_line_.AppendSwitch("no-redundancy-analysis");
   cmd_line_.AppendSwitchASCII("instrumentation-rate", "0.5");
   cmd_line_.AppendSwitchASCII("asan-rtl-options",
-      "--quarantine_size=1024 --quarantine_block_size=512 --ignored");
+      "\"--quarantine_size=1024 --quarantine_block_size=512 --ignored\"");
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
 
