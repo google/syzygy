@@ -38,11 +38,49 @@ TEST(ModuleAnalyzerTest, AnalyzeMinidump) {
   ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
             analyzer.Analyze(minidump, &process_state));
 
-  // TODO(manzagop): implement testing once ModuleAnalyzer is implemented.
+  ModuleLayerPtr module_layer;
+  ASSERT_TRUE(process_state.FindLayer(&module_layer));
+  ASSERT_LE(1, module_layer->size());
 }
 
 TEST(ModuleAnalyzerTest, AnalyzeSyntheticMinidump) {
-  // TODO(manzagop): implement testing once ModuleAnalyzer is implemented.
+  // Create a minidump with a single module.
+  testing::MinidumpSpecification spec;
+  testing::MinidumpSpecification::ModuleSpecification module_spec;
+  module_spec.addr = 12345ULL;
+  module_spec.size = 75U;
+  module_spec.checksum = 23U;
+  module_spec.timestamp = 42U;
+  module_spec.name = "someModule";
+  spec.AddModule(module_spec);
+
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+  base::FilePath minidump_path;
+  ASSERT_TRUE(spec.Serialize(temp_dir, &minidump_path));
+
+  // Analyze it for modules.
+  Minidump minidump;
+  ASSERT_TRUE(minidump.Open(minidump_path));
+  ProcessState process_state;
+  ModuleAnalyzer analyzer;
+  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
+            analyzer.Analyze(minidump, &process_state));
+
+  // Validate recovered module.
+  ModuleLayerPtr module_layer;
+  ASSERT_TRUE(process_state.FindLayer(&module_layer));
+  ASSERT_EQ(1, module_layer->size());
+
+  std::vector<ModuleRecordPtr> matching_records;
+  module_layer->GetRecordsAt(module_spec.addr, &matching_records);
+  ASSERT_EQ(1, matching_records.size());
+  ASSERT_EQ(AddressRange(module_spec.addr, module_spec.size),
+            matching_records[0]->range());
+  const Module& module = matching_records[0]->data();
+  ASSERT_EQ(module_spec.checksum, module.checksum());
+  ASSERT_EQ(module_spec.timestamp, module.timestamp());
+  ASSERT_EQ(module_spec.name, module.name());
 }
 
 }  // namespace refinery

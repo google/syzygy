@@ -41,6 +41,14 @@ class TestMinidumps {
 // specification is deleted.
 class MinidumpSpecification {
  public:
+  struct ModuleSpecification {
+    refinery::Address addr;
+    refinery::Size size;
+    uint32 checksum;
+    uint32 timestamp;
+    std::string name;
+  };
+
   MinidumpSpecification();
 
   // Adds thread data to the specification. Note that the stack's memory must
@@ -75,6 +83,11 @@ class MinidumpSpecification {
                        const void* data,
                        size_t size_bytes);
 
+  // Adds a module to the specification.
+  // @param module the specification of the module to add.
+  // @returns true on success, false otherwise.
+  bool AddModule(const ModuleSpecification& module);
+
   // Serializes the specification.
   // @param dir the directory to serialize to.
   // @param path the path to the minidump.
@@ -85,6 +98,7 @@ class MinidumpSpecification {
   // Represents thread and context.
   std::vector<std::pair<std::string, std::string>> threads_;
   std::map<refinery::Address, std::string> memory_regions_;
+  std::vector<ModuleSpecification> modules_;
 
   DISALLOW_COPY_AND_ASSIGN(MinidumpSpecification);
 };

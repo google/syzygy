@@ -23,6 +23,7 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/numerics/safe_math.h"
+#include "base/strings/utf_string_conversions.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 
@@ -38,6 +39,8 @@ const base::FilePath TestMinidumps::GetNotepad64Dump() {
 
 namespace {
 
+using ModuleSpecification = MinidumpSpecification::ModuleSpecification;
+
 // TODO(manzagop): ensure on destruction or finalizing that the allocations are
 // actually reflected in the file. At this point, allocating without writing
 // would leave the file short.
@@ -52,6 +55,7 @@ class MinidumpSerializer {
   bool SerializeThreads(
       const std::vector<std::pair<std::string, std::string>>& threads);
   bool SerializeMemory(const std::map<refinery::Address, std::string>& regions);
+  bool SerializeModules(const std::vector<ModuleSpecification>& modules);
   bool Finalize();
 
   const base::FilePath& path() const { return path_; }
@@ -75,6 +79,7 @@ class MinidumpSerializer {
   Position AppendStream(MINIDUMP_STREAM_TYPE type,
                         const std::vector<DataType>& elements);
   Position AppendBytes(base::StringPiece data);
+  Position AppendMinidumpString(base::StringPiece utf8);
 
   // Write to already allocated space.
   template <class DataType>
@@ -198,6 +203,27 @@ bool MinidumpSerializer::SerializeMemory(
   return succeeded();
 }
 
+bool MinidumpSerializer::SerializeModules(
+    const std::vector<ModuleSpecification>& module_specs) {
+  if (module_specs.empty())
+    return succeeded();
+
+  std::vector<MINIDUMP_MODULE> modules;
+  modules.resize(module_specs.size());
+
+  for (int i = 0; i < module_specs.size(); ++i) {
+    modules[i].BaseOfImage = module_specs[i].addr;
+    modules[i].SizeOfImage = module_specs[i].size;
+    modules[i].CheckSum = module_specs[i].checksum;
+    modules[i].TimeDateStamp = module_specs[i].timestamp;
+    modules[i].ModuleNameRva = AppendMinidumpString(module_specs[i].name);
+  }
+
+  AppendStream(ModuleListStream, modules);
+
+  return succeeded();
+}
+
 bool MinidumpSerializer::Finalize() {
   // Serialize the directory.
   Position pos = AppendVec(directory_);
@@ -263,6 +289,19 @@ MinidumpSerializer::Position MinidumpSerializer::AppendBytes(
     base::StringPiece data) {
   Position pos = Allocate(data.length());
   WriteBytes(pos, data.length(), data.data());
+  return pos;
+}
+
+MinidumpSerializer::Position MinidumpSerializer::AppendMinidumpString(
+    base::StringPiece utf8) {
+  std::wstring wide = base::UTF8ToWide(utf8);
+  ULONG32 size_bytes = wide.length() * sizeof(std::wstring::value_type);
+
+  Position pos = Append(size_bytes);
+  // Note: write the null termination character.
+  size_bytes += sizeof(std::wstring::value_type);
+  Position string_pos = Allocate(size_bytes);
+  WriteBytes(string_pos, size_bytes, wide.c_str());
   return pos;
 }
 
@@ -396,12 +435,18 @@ bool MinidumpSpecification::AddMemoryRegion(refinery::Address addr,
   return true;
 }
 
+bool MinidumpSpecification::AddModule(const ModuleSpecification& module) {
+  modules_.push_back(module);
+  return true;
+}
+
 bool MinidumpSpecification::Serialize(const base::ScopedTempDir& dir,
                                       base::FilePath* path) const {
   MinidumpSerializer serializer;
   bool success = serializer.Initialize(dir) &&
                  serializer.SerializeMemory(memory_regions_) &&
                  serializer.SerializeThreads(threads_) &&
+                 serializer.SerializeModules(modules_) &&
                  serializer.Finalize();
   *path = serializer.path();
   return success;

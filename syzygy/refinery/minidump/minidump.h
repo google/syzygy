@@ -20,6 +20,7 @@
 #include <windows.h>  // NOLINT
 #include <dbghelp.h>
 
+#include <string>
 #include <vector>
 
 #include "base/macros.h"
@@ -96,6 +97,8 @@ class Minidump::Stream {
 
   template <class DataType>
   bool ReadElement(DataType* element);
+
+  bool ReadString(std::wstring* data);
 
   size_t GetRemainingBytes() const { return remaining_length_; }
   size_t stream_id() const { return stream_id_; }

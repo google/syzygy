@@ -19,6 +19,7 @@
 
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/strings/utf_string_conversions.h"
 #include "gtest/gtest.h"
 #include "syzygy/refinery/unittest_util.h"
 
@@ -195,6 +196,46 @@ TEST_F(MinidumpTest, ReadThreadInfo) {
     CONTEXT ctx = {};
     EXPECT_TRUE(thread_context.ReadElement(&ctx));
   }
+}
+
+TEST_F(MinidumpTest, ReadString) {
+  wchar_t kSomeString[] = L"some string";
+
+  // Create a minimal file to test reading a string.
+  {
+    base::ScopedFILE tmp(base::OpenFile(dump_file(), "wb"));
+
+    // Valid header.
+    MINIDUMP_HEADER hdr = {0};
+    hdr.Signature = MINIDUMP_SIGNATURE;
+    hdr.NumberOfStreams = 1;
+    hdr.StreamDirectoryRva = sizeof(hdr);
+    ASSERT_EQ(sizeof(hdr), fwrite(&hdr, sizeof(char), sizeof(hdr), tmp.get()));
+
+    // Dummy directory.
+    MINIDUMP_DIRECTORY directory = {0};
+    ASSERT_EQ(sizeof(directory),
+              fwrite(&directory, sizeof(char), sizeof(directory), tmp.get()));
+
+    // A string. Note that although a null terminating character is written, it
+    // is not counted in the size written to the file.
+    ULONG32 size_bytes = sizeof(kSomeString) - sizeof(wchar_t);
+    ASSERT_EQ(sizeof(ULONG32),
+              fwrite(&size_bytes, sizeof(char), sizeof(ULONG32), tmp.get()));
+    ASSERT_EQ(sizeof(kSomeString), fwrite(&kSomeString, sizeof(char),
+                                          sizeof(kSomeString), tmp.get()));
+  }
+
+  Minidump minidump;
+  ASSERT_TRUE(minidump.Open(dump_file()));
+
+  MINIDUMP_LOCATION_DESCRIPTOR loc = {
+      static_cast<ULONG32>(-1),
+      sizeof(MINIDUMP_HEADER) + sizeof(MINIDUMP_DIRECTORY)};
+  Minidump::Stream test = minidump.GetStreamFor(loc);
+  std::wstring recovered;
+  ASSERT_TRUE(test.ReadString(&recovered));
+  ASSERT_EQ(kSomeString, recovered);
 }
 
 }  // namespace refinery

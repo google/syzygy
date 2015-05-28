@@ -132,4 +132,29 @@ bool Minidump::Stream::ReadBytes(size_t data_len, std::string* data) {
   return success;
 }
 
+bool Minidump::Stream::ReadString(std::wstring* data) {
+  DCHECK(minidump_ != nullptr); DCHECK(data != nullptr);
+
+  ULONG32 size_bytes = 0U;
+  if (!ReadElement(&size_bytes))
+    return false;
+
+  // Increment to account for (consume) null-terminating character.
+  size_bytes += sizeof(wchar_t);
+  if (size_bytes % sizeof(wchar_t))
+    return false;
+  size_t num_characters = size_bytes / sizeof(wchar_t);
+
+  std::wstring buffer;
+  buffer.resize(num_characters);
+  if (!ReadBytes(size_bytes, &buffer.at(0)))
+    return false;
+
+  // Drop the extra null-terminating character.
+  buffer.resize(num_characters - 1);
+  buffer.swap(*data);
+  return true;
+}
+
+
 }  // namespace refinery

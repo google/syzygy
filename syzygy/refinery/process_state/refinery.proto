@@ -72,6 +72,9 @@ message TypedBlock {
 }
 
 message Module {
+  optional uint32 checksum = 1;
+  optional uint32 timestamp = 2;
+  optional string name = 3;
 }
 
 message Exception {
