@@ -27,9 +27,25 @@
         'type.h',
       ],
       'dependencies': [
+        'test_types',
         '<(src)/syzygy/pe/pe.gyp:dia_sdk',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
       ],
+    },
+    {
+      'target_name': 'test_types',
+      'type': 'loadable_module',
+      'sources': [
+        'test_types.h',
+        'test_types_main.cc',
+        'test_types_one.cc',
+        'test_types_two.cc',
+      ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          'EntryPointSymbol': 'EntryPoint',
+        },
+      },
     },
   ],
 }

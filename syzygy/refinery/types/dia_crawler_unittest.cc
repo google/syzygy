@@ -18,8 +18,8 @@
 #include "base/debug/alias.h"
 #include "base/files/file_path.h"
 #include "base/strings/string_util.h"
-
 #include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
 
 namespace refinery {
 
@@ -31,18 +31,6 @@ class DiaCrawlerTest : public testing::Test {
     ASSERT_TRUE(PathService::Get(base::FILE_EXE, &self_));
   }
 
-  const base::FilePath& self() const { return self_; }
-
-  // TODO(siggi): More testing, including static members, function members,
-  //    thread-local data etc.
-  struct TestSimpleUDT {
-    int one;
-    const char two;
-    short const* volatile three;
-    const volatile unsigned short four;
-    unsigned short five:1;
-  };
-
  private:
   base::FilePath self_;
 };
@@ -52,10 +40,11 @@ class DiaCrawlerTest : public testing::Test {
 TEST_F(DiaCrawlerTest, InitializeForFile) {
   DiaCrawler crawler;
 
-  ASSERT_TRUE(crawler.InitializeForFile(self()));
+  ASSERT_TRUE(crawler.InitializeForFile(
+      testing::GetOutputRelativePath(L"test_types.dll.pdb")));
 
   std::vector<TypePtr> types;
-  ASSERT_TRUE(crawler.GetTypes(L"*DiaCrawlerTest::TestSimpleUDT", &types));
+  ASSERT_TRUE(crawler.GetTypes(L"*TestSimpleUDT", &types));
 
   // TODO(siggi): Types can be duplicated for some reason - maybe the crawler
   // should eliminate dupes?
@@ -64,11 +53,8 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   TypePtr type = types[0];
   ASSERT_TRUE(type);
 
-  TestSimpleUDT test = { 0, 0, 0, 0, 0 };
-  base::debug::Alias(&test);
-
-  EXPECT_EQ(sizeof(test), type->size());
-  EXPECT_TRUE(EndsWith(type->name(), L"DiaCrawlerTest::TestSimpleUDT", true));
+  EXPECT_EQ(16, type->size());
+  EXPECT_TRUE(EndsWith(type->name(), L"::TestSimpleUDT", true));
 
   EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
 
@@ -79,28 +65,28 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   const UserDefinedType::Fields& fields = udt->fields();
   ASSERT_EQ(5U, fields.size());
 
-  EXPECT_EQ(offsetof(TestSimpleUDT, one), fields[0].offset());
+  EXPECT_EQ(0, fields[0].offset());
   EXPECT_EQ(L"one", fields[0].name());
   EXPECT_FALSE(fields[0].is_const());
   EXPECT_FALSE(fields[0].is_volatile());
   EXPECT_EQ(Type::BASIC_TYPE_KIND, fields[0].type()->kind());
-  EXPECT_EQ(sizeof(test.one), fields[0].type()->size());
+  EXPECT_EQ(4, fields[0].type()->size());
   // TODO(siggi): Assert on type's name.
 
-  EXPECT_EQ(offsetof(TestSimpleUDT, two), fields[1].offset());
+  EXPECT_EQ(4, fields[1].offset());
   EXPECT_EQ(L"two", fields[1].name());
   EXPECT_TRUE(fields[1].is_const());
   EXPECT_FALSE(fields[1].is_volatile());
   EXPECT_EQ(Type::BASIC_TYPE_KIND, fields[1].type()->kind());
-  EXPECT_EQ(sizeof(test.two), fields[1].type()->size());
+  EXPECT_EQ(1, fields[1].type()->size());
   // TODO(siggi): Assert on type's name.
 
-  EXPECT_EQ(offsetof(TestSimpleUDT, three), fields[2].offset());
+  EXPECT_EQ(8, fields[2].offset());
   EXPECT_EQ(L"three", fields[2].name());
   EXPECT_FALSE(fields[2].is_const());
   EXPECT_TRUE(fields[2].is_volatile());
   ASSERT_EQ(Type::POINTER_TYPE_KIND, fields[2].type()->kind());
-  EXPECT_EQ(sizeof(test.three), fields[2].type()->size());
+  EXPECT_EQ(4, fields[2].type()->size());
   PointerTypePtr ptr;
   ASSERT_TRUE(fields[2].type()->CastTo(&ptr));
   ASSERT_TRUE(ptr);
@@ -110,21 +96,21 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   EXPECT_EQ(Type::BASIC_TYPE_KIND, ptr->type()->kind());
   // TODO(siggi): Assert on type's name.
 
-  EXPECT_EQ(offsetof(TestSimpleUDT, four), fields[3].offset());
+  EXPECT_EQ(12, fields[3].offset());
   EXPECT_EQ(L"four", fields[3].name());
   EXPECT_TRUE(fields[3].is_const());
   EXPECT_TRUE(fields[3].is_volatile());
   EXPECT_EQ(Type::BASIC_TYPE_KIND, fields[3].type()->kind());
-  EXPECT_EQ(sizeof(test.four), fields[3].type()->size());
+  EXPECT_EQ(2, fields[3].type()->size());
   // TODO(siggi): Assert on type's name.
 
   // Can't do offsetof/sizeof on bit fields.
-  EXPECT_EQ(offsetof(TestSimpleUDT, four) + sizeof(test.four),
-            fields[4].offset());
+  EXPECT_EQ(14, fields[4].offset());
   EXPECT_EQ(L"five", fields[4].name());
   EXPECT_FALSE(fields[4].is_const());
   EXPECT_FALSE(fields[4].is_volatile());
   EXPECT_EQ(Type::BITFIELD_TYPE_KIND, fields[4].type()->kind());
+  EXPECT_EQ(2, fields[4].type()->size());
   // TODO(siggi): Assert on type's name.
 }
 
