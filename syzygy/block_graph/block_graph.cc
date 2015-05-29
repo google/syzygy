@@ -333,6 +333,54 @@ BlockGraph::Block* BlockGraph::AddBlock(BlockType type,
   return &it->second;
 }
 
+BlockGraph::Block* BlockGraph::CopyBlock(Block* block,
+                                         const base::StringPiece& new_name) {
+  typedef BlockGraph::Reference Reference;
+
+  // Create the new block.
+  Block* new_block = AddBlock(block->type(), block->size(), new_name);
+  DCHECK(new_block != nullptr);
+
+  // Set the rest of the properties for the new block.
+  new_block->set_alignment(block->alignment());
+  new_block->set_alignment_offset(block->alignment_offset());
+  new_block->set_padding_before(block->padding_before());
+  new_block->set_compiland_name(block->compiland_name());
+  new_block->set_attributes(block->attributes());
+  new_block->set_section(block->section());
+  new_block->source_ranges() = block->source_ranges();
+  // Do not copy: name_, addr_.
+
+  // If block data exist, copy them.
+  if (block->data() != nullptr) {
+    // If |block| owns data then duplicate; otherwise just add reference.
+    if (block->owns_data()) {
+      uint8* data = new_block->CopyData(block->data_size(), block->data());
+      CHECK(data != nullptr);
+    } else {
+      new_block->SetData(block->data(), block->data_size());
+    }
+  }
+
+  // Copy self-references and external references.
+  for (const auto& ref_it : block->references()) {
+    const Reference& ref = ref_it.second;
+    if (ref.referenced() == block) {  // Self-references.
+      Reference self_ref = Reference(ref.type(), ref.size(), new_block,
+          ref.offset(), ref.base());
+      new_block->SetReference(ref_it.first, self_ref);
+    } else {
+      new_block->SetReference(ref_it.first, ref_it.second);
+    }
+  }
+
+  // Copy labels.
+  for (const auto& label : block->labels())
+    new_block->SetLabel(label.first, label.second);
+
+  return new_block;
+}
+
 bool BlockGraph::RemoveBlock(Block* block) {
   DCHECK(block != NULL);
 

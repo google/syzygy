@@ -295,10 +295,19 @@ class BlockGraph {
   // @returns true on success, false otherwise.
   bool RemoveSectionById(SectionId id);
 
-  // Add @p block of type @p type and @p size and
-  // return the new block.
+  // Adds @p block of type @p type and @p size and returns the new block.
   // @returns the new block.
   Block* AddBlock(BlockType type, Size size, const base::StringPiece& name);
+
+  // Copies @p block to a new block with @p new_name and returns the new block.
+  // Copies all block properties, except as noted below.
+  // @returns the new block.
+  // @note If @p block owns data then allocates a new copy; else copies the
+  //     pointer.
+  // @note Does not copy the deprecated |addr| property.
+  // @note Does not transfer referrers. Duplicates all external references.
+  //     Copies self-references as self-references in the new block.
+  Block* CopyBlock(Block* block, const base::StringPiece& new_name);
 
   // Deletes the given block from the BlockGraph. The block must belong to this
   // block graph, and have no references or referrers. Returns true on success,
@@ -909,7 +918,7 @@ class BlockGraph::AddressSpace {
   explicit AddressSpace(BlockGraph* graph);
 
   // Add a block of type @p type and @p size at @p address to our associated
-  // graph, and return the new block.
+  // graph, and return the new block
   // @returns the new block, or NULL if the new block would overlap
   //     an existing block.
   Block* AddBlock(BlockType type,

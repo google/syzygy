@@ -916,6 +916,122 @@ TEST(BlockGraphTest, RemoveSection) {
   ASSERT_EQ(0u, image.sections().size());
 }
 
+TEST(BlockGraphTest, CopyBlock) {
+  BlockGraph image;
+  uint8 kTestData[] = {3, 1, 4, 1, 5, 9};
+
+  // Add some blocks to the image.
+  BlockGraph::Block* b1 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b1");
+  BlockGraph::Block* b2 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b2");
+  BlockGraph::Block* b3 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b3");
+  BlockGraph::Block* b4 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b4");
+  BlockGraph::Block* b5 = image.AddBlock(BlockGraph::DATA_BLOCK, 0x20, "b5");
+  ASSERT_TRUE(b1 != nullptr);
+  ASSERT_TRUE(b2 != nullptr);
+  ASSERT_TRUE(b3 != nullptr);
+  ASSERT_TRUE(b4 != nullptr);
+  ASSERT_TRUE(b5 != nullptr);
+  EXPECT_EQ(5u, image.blocks().size());
+
+  b2->SetLabel(6, "foo", BlockGraph::CODE_LABEL);
+  b2->SetLabel(17, "bar", BlockGraph::DATA_LABEL);
+  b2->AllocateData(12);
+  ASSERT_TRUE(b2->owns_data());
+
+  b5->SetData(kTestData, sizeof(kTestData));
+  ASSERT_FALSE(b5->owns_data());
+  ASSERT_EQ(arraysize(kTestData), b5->data_size());
+  ASSERT_EQ(kTestData, b5->data());
+
+  // Add a reference from block 1 to block 2.
+  BlockGraph::Reference ref12(BlockGraph::PC_RELATIVE_REF, 1, b2, 9, 1);
+  ASSERT_TRUE(b1->SetReference(0, ref12));
+  EXPECT_THAT(b1->references(), testing::Contains(std::make_pair(0, ref12)));
+  EXPECT_THAT(b2->referrers(), testing::Contains(std::make_pair(b1, 0)));
+
+  // Add a self-reference inside block 2.
+  BlockGraph::Reference ref22(BlockGraph::PC_RELATIVE_REF, 1, b2, 5, 1);
+  ASSERT_TRUE(b2->SetReference(7, ref22));
+  EXPECT_THAT(b2->references(), testing::Contains(std::make_pair(7, ref22)));
+  EXPECT_THAT(b2->referrers(), testing::Contains(std::make_pair(b2, 7)));
+
+  // Add a reference from block 2 to block 3.
+  BlockGraph::Reference ref23(BlockGraph::PC_RELATIVE_REF, 1, b3, 11, 1);
+  ASSERT_TRUE(b2->SetReference(0, ref23));
+  EXPECT_THAT(b2->references(), testing::Contains(std::make_pair(0, ref23)));
+  EXPECT_THAT(b3->referrers(), testing::Contains(std::make_pair(b2, 0)));
+
+  EXPECT_EQ(1u, b1->references().size());
+  EXPECT_EQ(2u, b2->referrers().size());
+  EXPECT_EQ(2u, b2->references().size());
+  EXPECT_EQ(1u, b3->referrers().size());
+
+  // Copy block 2.
+  BlockGraph::Block* b2copy = image.CopyBlock(b2, "b2_copy");
+  ASSERT_TRUE(b2copy != nullptr);
+  EXPECT_EQ(6u, image.blocks().size());
+
+  EXPECT_EQ(b2->type(), b2copy->type());
+  EXPECT_EQ(b2->size(), b2copy->size());
+  EXPECT_EQ("b2_copy", b2copy->name());
+  EXPECT_EQ(b2->alignment(), b2copy->alignment());
+  EXPECT_EQ(b2->alignment_offset(), b2copy->alignment_offset());
+  EXPECT_EQ(b2->padding_before(), b2copy->padding_before());
+  EXPECT_EQ(b2->compiland_name(), b2copy->compiland_name());
+  EXPECT_EQ(b2->attributes(), b2copy->attributes());
+  EXPECT_EQ(b2->section(), b2copy->section());
+  EXPECT_EQ(b2->source_ranges(), b2copy->source_ranges());
+  EXPECT_TRUE(b2copy->owns_data());
+  EXPECT_EQ(b2->data_size(), b2copy->data_size());
+
+  // Expect that we copied references 2->2 and 2->3, but not 1->2.
+  EXPECT_EQ(1u, b1->references().size());
+  EXPECT_EQ(2u, b2->referrers().size());
+  EXPECT_EQ(2u, b2->references().size());
+  EXPECT_EQ(1u, b2copy->referrers().size());
+  EXPECT_EQ(2u, b2copy->references().size());
+  EXPECT_THAT(b2copy->references(),
+              testing::Contains(std::make_pair(0, ref23)));
+  EXPECT_EQ(2u, b3->referrers().size());
+
+  // Expect labels to be copied.
+  BlockGraph::Label b2label_foo;
+  EXPECT_TRUE(b2copy->HasLabel(6));
+  EXPECT_TRUE(b2copy->GetLabel(6, &b2label_foo));
+  EXPECT_EQ("foo", b2label_foo.name());
+  EXPECT_TRUE(b2label_foo.has_attributes(BlockGraph::CODE_LABEL));
+  EXPECT_FALSE(b2label_foo.has_attributes(BlockGraph::DATA_LABEL));
+
+  BlockGraph::Label b2label_bar;
+  EXPECT_TRUE(b2copy->HasLabel(17));
+  EXPECT_TRUE(b2copy->GetLabel(17, &b2label_bar));
+  EXPECT_EQ("bar", b2label_bar.name());
+  EXPECT_FALSE(b2label_bar.has_attributes(BlockGraph::CODE_LABEL));
+  EXPECT_TRUE(b2label_bar.has_attributes(BlockGraph::DATA_LABEL));
+
+  // Copy block 5.
+  BlockGraph::Block* b5copy = image.CopyBlock(b5, "b5_copy");
+  ASSERT_TRUE(b5copy != nullptr);
+  EXPECT_EQ(7u, image.blocks().size());
+
+  EXPECT_EQ(b5->type(), b5copy->type());
+  EXPECT_EQ(b5->size(), b5copy->size());
+  EXPECT_EQ("b5_copy", b5copy->name());
+  EXPECT_EQ(b5->alignment(), b5copy->alignment());
+  EXPECT_EQ(b5->alignment_offset(), b5copy->alignment_offset());
+  EXPECT_EQ(b5->padding_before(), b5copy->padding_before());
+  EXPECT_EQ(b5->compiland_name(), b5copy->compiland_name());
+  EXPECT_EQ(b5->attributes(), b5copy->attributes());
+  EXPECT_EQ(b5->section(), b5copy->section());
+  EXPECT_EQ(b5->source_ranges(), b5copy->source_ranges());
+  EXPECT_FALSE(b5copy->owns_data());
+  EXPECT_EQ(b5->data_size(), b5copy->data_size());
+
+  // Expect data pointer to be copied (don't own data).
+  EXPECT_EQ(b5->data_size(), b5copy->data_size());
+  EXPECT_EQ(b5->data(), b5copy->data());
+}
+
 TEST(BlockGraphTest, RemoveBlock) {
   BlockGraph image;
 
