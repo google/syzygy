@@ -75,7 +75,7 @@ bool DumpTypeIndexName(uint32 type_value,
       ::fprintf(out, "reference to another type info.\n");
     } else {
       LOG(ERROR) << "reference to an unknown type index: "
-                 << base::StringPrintf("0x%08X.", type_value);
+                 << base::StringPrintf("0x%04X.", type_value);
       return false;
     }
   }
@@ -88,7 +88,7 @@ bool DumpTypeIndexField(const TypeInfoRecordMap& type_map,
                         const char* field_name,
                         uint32 field_value,
                         uint8 indent_level) {
-  DumpIndentedText(out, indent_level, "%s: 0x%08X, ", field_name, field_value);
+  DumpIndentedText(out, indent_level, "%s: 0x%04X, ", field_name, field_value);
   return DumpTypeIndexName(field_value, type_map, out, indent_level);
 }
 
@@ -345,8 +345,78 @@ bool DumpLeafPointer(const TypeInfoRecordMap& type_map,
                      PdbStream* stream,
                      uint16 len,
                      uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this leaf.
-  return false;
+  cci::LeafPointer::LeafPointerBody type_info = {};
+  if (!stream->Read(&type_info, 1)) {
+    LOG(ERROR) << "Unable to read type info record.";
+    return false;
+  }
+
+  DumpTypeIndexField(type_map, out, "Type index of pointer value",
+                     type_info.utype, indent_level);
+  DumpIndentedText(out, indent_level, "Pointer attributes:\n");
+  switch (type_info.attr & cci::ptrtype) {
+    case cci::CV_PTR_BASE_SEG:
+      DumpIndentedText(out, indent_level + 1, "CV_PTR_BASE_SEG\n");
+      break;
+    case cci::CV_PTR_BASE_VAL:
+      DumpIndentedText(out, indent_level + 1, "CV_PTR_BASE_VAL\n");
+      break;
+    case cci::CV_PTR_BASE_SEGVAL:
+      DumpIndentedText(out, indent_level + 1, "CV_PTR_BASE_SEGVAL\n");
+      break;
+    case cci::CV_PTR_BASE_ADDR:
+      DumpIndentedText(out, indent_level + 1, "CV_PTR_BASE_ADDR\n");
+      break;
+    case cci::CV_PTR_BASE_SEGADDR:
+      DumpIndentedText(out, indent_level + 1, "CV_PTR_BASE_SEGADDR\n");
+      break;
+    case cci::CV_PTR_BASE_TYPE:
+      DumpIndentedText(out, indent_level + 1, "CV_PTR_BASE_TYPE\n");
+      break;
+    case cci::CV_PTR_BASE_SELF:
+      DumpIndentedText(out, indent_level + 1, "CV_PTR_BASE_SELF\n");
+      break;
+    case cci::CV_PTR_NEAR32:
+      DumpIndentedText(out, indent_level + 1, "CV_PTR_NEAR32\n");
+      break;
+    case cci::CV_PTR_64:
+      DumpIndentedText(out, indent_level + 1, "CV_PTR_64\n");
+      break;
+    case cci::CV_PTR_UNUSEDPTR:
+      DumpIndentedText(out, indent_level + 1, "CV_PTR_UNUSEDPTR\n");
+      break;
+  }
+
+  switch ((type_info.attr & cci::ptrmode) >> 5) {
+    case cci::CV_PTR_MODE_PTR:
+      DumpIndentedText(out, indent_level + 1, "CV_PTR_MODE_PTR\n");
+      break;
+    case cci::CV_PTR_MODE_REF:
+      DumpIndentedText(out, indent_level + 1, "CV_PTR_MODE_REF\n");
+      break;
+    case cci::CV_PTR_MODE_PMEM:
+      DumpIndentedText(out, indent_level + 1, "CV_PTR_MODE_PMEM\n");
+      break;
+    case cci::CV_PTR_MODE_PMFUNC:
+      DumpIndentedText(out, indent_level + 1, "CV_PTR_MODE_PMFUNC\n");
+      break;
+    case cci::CV_PTR_MODE_RESERVED:
+      DumpIndentedText(out, indent_level + 1, "CV_PTR_MODE_RESERVED\n");
+      break;
+  }
+
+  if (type_info.attr & cci::isflat32)
+    DumpIndentedText(out, indent_level + 1, "isflat32\n");
+  if (type_info.attr & cci::isvolatile)
+    DumpIndentedText(out, indent_level + 1, "isvolatile\n");
+  if (type_info.attr & cci::isconst)
+    DumpIndentedText(out, indent_level + 1, "isconst\n");
+  if (type_info.attr & cci::isunaligned)
+    DumpIndentedText(out, indent_level + 1, "isunaligned\n");
+  if (type_info.attr & cci::isrestrict)
+    DumpIndentedText(out, indent_level + 1, "isrestrict\n");
+
+  return true;
 }
 
 bool DumpLeafMFunc(const TypeInfoRecordMap& type_map,
@@ -783,7 +853,7 @@ bool DumpLeafMethod(const TypeInfoRecordMap& type_map,
                     PdbStream* stream,
                     uint16 len,
                     uint8 indent_level) {
-  cci::LeafMethod type_info;
+  cci::LeafMethod type_info = {};
   size_t to_read = offsetof(cci::LeafMember, name);
   size_t bytes_read = 0;
   if (!stream->ReadBytes(&type_info, to_read, &bytes_read) ||
@@ -791,7 +861,7 @@ bool DumpLeafMethod(const TypeInfoRecordMap& type_map,
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
-  DumpIndentedText(out, indent_level, "Number of occurrences", "%d.\n",
+  DumpIndentedText(out, indent_level, "Number of occurrences %d.\n",
                    type_info.count);
   DumpTypeIndexField(type_map, out, "Index to LF_METHODLIST record",
                      type_info.mList, indent_level);
@@ -809,8 +879,29 @@ bool DumpLeafNestType(const TypeInfoRecordMap& type_map,
                       PdbStream* stream,
                       uint16 len,
                       uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this leaf.
-  return false;
+  cci::LeafNestTypeEx type_info = {};
+  size_t to_read = offsetof(cci::LeafNestTypeEx, name);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&type_info, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    LOG(ERROR) << "Unable to read type info record.";
+    return false;
+  }
+
+  LeafMemberAttributeField member_attributes = { type_info.attr };
+  DumpMemberAttributeField(out, member_attributes, indent_level);
+  if (!DumpTypeIndexField(type_map, out, "Nested type index",
+                          type_info.index, indent_level)) {
+    return false;
+  }
+  std::string leaf_name;
+  if (!ReadString(stream, &leaf_name)) {
+    LOG(ERROR) << "Unable to read the name of a nest type leaf.";
+    return false;
+  }
+  DumpIndentedText(out, indent_level, "Name: %s\n", leaf_name.c_str());
+
+  return true;
 }
 
 bool DumpLeafOneMethod(const TypeInfoRecordMap& type_map,
