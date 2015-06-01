@@ -182,24 +182,31 @@ BadAccessKind ErrorInfoGetBadAccessKind(const void* addr,
   DCHECK_NE(reinterpret_cast<const void*>(NULL), addr);
   DCHECK_NE(reinterpret_cast<const BlockHeader*>(NULL), header);
 
-  BadAccessKind bad_access_kind = UNKNOWN_BAD_ACCESS;
+  switch (static_cast<BlockState>(header->state)) {
+    case ALLOCATED_BLOCK: {
+      BlockInfo block_info = {};
+      StaticShadow::shadow.BlockInfoFromShadow(header, &block_info);
+      if (addr < block_info.body) {
+        return HEAP_BUFFER_UNDERFLOW;
+      } else if (addr >= (block_info.RawBody() + block_info.body_size)) {
+        return HEAP_BUFFER_OVERFLOW;
+      } else if (StaticShadow::shadow.GetShadowMarkerForAddress(addr) ==
+          kHeapFreedMarker) {
+        // This is a use after free on a block managed by a nested heap.
+        return USE_AFTER_FREE;
+      }
+      break;
+    }
 
-  if (header->state == QUARANTINED_BLOCK) {
-    bad_access_kind = USE_AFTER_FREE;
-  } else {
-    BlockInfo block_info = {};
-    StaticShadow::shadow.BlockInfoFromShadow(header, &block_info);
-    if (addr < block_info.body) {
-      bad_access_kind = HEAP_BUFFER_UNDERFLOW;
-    } else if (addr >= (block_info.RawBody() + block_info.body_size)) {
-      bad_access_kind = HEAP_BUFFER_OVERFLOW;
-    } else if (StaticShadow::shadow.GetShadowMarkerForAddress(addr) ==
-        kHeapFreedMarker) {
-      // This is a use after free on a block managed by a nested heap.
-      bad_access_kind = USE_AFTER_FREE;
+    case QUARANTINED_BLOCK:
+    case QUARANTINED_FLOODED_BLOCK:
+    case FREED_BLOCK: {
+      return USE_AFTER_FREE;
+      break;
     }
   }
-  return bad_access_kind;
+
+  return UNKNOWN_BAD_ACCESS;
 }
 
 void ErrorInfoGetAsanBlockInfo(const BlockInfo& block_info,
@@ -268,8 +275,8 @@ void BlockStateToString(BlockState block_state, std::string* str) {
   switch (block_state) {
     case ALLOCATED_BLOCK: *str = "allocated"; break;
     case QUARANTINED_BLOCK: *str = "quarantined"; break;
+    case QUARANTINED_FLOODED_BLOCK: *str = "quarantined (flooded)"; break;
     case FREED_BLOCK: *str = "freed"; break;
-    default: *str = "(unknown)"; break;
   }
 }
 

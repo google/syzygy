@@ -183,6 +183,12 @@ class Shadow {
   // @returns true if the byte at @p address is the start of a block.
   bool IsBlockStartByte(const void* address) const;
 
+  // Gets the shadow memory associated with an address.
+  // @param addr The address for which we want the ShadowMarker value.
+  // @returns a pointer to the shadow memory corresponding to the given
+  //     address.
+  const uint8* GetShadowMemoryForAddress(const void* addr) const;
+
   // Returns the ShadowMarker value for the byte at @p addr.
   // @param addr The address for which we want the ShadowMarker value.
   // @returns the ShadowMarker value for this address.
@@ -431,9 +437,14 @@ class ShadowWalker {
   const uint8* lower_bound_;
   const uint8* upper_bound_;
 
-  // The cursor of the shadow walker. This points to upper_bound_ when
+  // The current cursor of the shadow walker. This points to upper_bound_ when
   // the walk is terminated.
   const uint8* cursor_;
+
+  // The shadow cursor. This is maintained simply for debugging and to ensure
+  // that the shadow memory associated with |cursor_| makes it into the crash
+  // report.
+  const uint8* shadow_cursor_;
 
   // The current nesting depth. Starts at -1.
   int nesting_depth_;

@@ -47,7 +47,7 @@ struct GetBlockHashFunctor {
 // checksum.
 // @param block_info The information about this block.
 // @returns true if the block is corrupt, false otherwise.
-// @note The pages containing the block redzones must be readable.
+// @note The pages containing the entire block must be readable.
 bool IsBlockCorrupt(const BlockInfo& block_info);
 
 }  // namespace asan

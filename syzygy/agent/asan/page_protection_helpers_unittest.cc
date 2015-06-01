@@ -281,6 +281,11 @@ TEST_F(PageProtectionHelpersTest, BlockProtectAuto) {
   TestAccessUnderProtection(block_info, kProtectAll);
   BlockProtectNone(block_info);
 
+  block_info.header->state = QUARANTINED_FLOODED_BLOCK;
+  BlockProtectAuto(block_info);
+  TestAccessUnderProtection(block_info, kProtectAll);
+  BlockProtectNone(block_info);
+
   block_info.header->state = FREED_BLOCK;
   BlockProtectAuto(block_info);
   TestAccessUnderProtection(block_info, kProtectAll);

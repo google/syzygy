@@ -301,7 +301,9 @@ class ScopedHeap {
             reinterpret_cast<const uint8*>(current_node->object.header) +
                 current_node->object.header_size;
         if (body == mem) {
-          EXPECT_EQ(QUARANTINED_BLOCK, current_node->object.header->state);
+          EXPECT_TRUE(
+              current_node->object.header->state == QUARANTINED_BLOCK ||
+              current_node->object.header->state == QUARANTINED_FLOODED_BLOCK);
           return true;
         }
         current_node = current_node->next;
@@ -423,6 +425,73 @@ class BlockHeapManagerTest
                 kHeapFreedMarker);
     }
     ASSERT_FALSE(StaticShadow::shadow.IsAccessible(mem + size));
+  }
+
+  void QuarantineAltersBlockContents(
+      float quarantine_flood_fill_rate,
+      size_t iterations,
+      size_t min_flood_filled,
+      size_t max_flood_filled) {
+    const size_t kAllocSize = 13;
+    ScopedHeap heap(heap_manager_);
+    // Ensure that the quarantine is large enough to keep this block.
+    ::common::AsanParameters parameters = heap_manager_->parameters();
+    parameters.quarantine_size = GetAllocSize(kAllocSize);
+    parameters.quarantine_flood_fill_rate = quarantine_flood_fill_rate;
+    heap_manager_->set_parameters(parameters);
+
+    // This test gets run repeatedly, and it is expected that some portion of
+    // the blocks contents will be flood-filled.
+    size_t flood_filled_count = 0;
+    for (size_t i = 0; i < iterations; ++i) {
+      // Allocate a block and fill it with random data.
+      void* mem = heap.Allocate(kAllocSize);
+      ASSERT_NE(static_cast<void*>(nullptr), mem);
+      base::RandBytes(mem, kAllocSize);
+
+      // Hash the contents of the block before being quarantined.
+      unsigned char sha1_before[base::kSHA1Length] = {};
+      base::SHA1HashBytes(reinterpret_cast<unsigned char*>(mem),
+                          kAllocSize,
+                          sha1_before);
+
+      // Free the block and ensure it gets quarantined.
+      BlockHeader* header = BlockGetHeaderFromBody(
+          reinterpret_cast<BlockBody*>(mem));
+      ASSERT_TRUE(heap.Free(mem));
+      EXPECT_TRUE(
+          static_cast<BlockState>(header->state) == QUARANTINED_BLOCK ||
+          static_cast<BlockState>(header->state) == QUARANTINED_FLOODED_BLOCK);
+
+      if (static_cast<BlockState>(header->state) == QUARANTINED_BLOCK) {
+        // If the block is quarantined and not flood-filled then ensure that the
+        // contents have not changed.
+        unsigned char sha1_after[base::kSHA1Length] = {};
+        base::SHA1HashBytes(reinterpret_cast<unsigned char*>(mem),
+                            kAllocSize,
+                            sha1_after);
+        EXPECT_EQ(0, memcmp(sha1_before, sha1_after, base::kSHA1Length));
+      } else {
+        // If the block is quarantined and flood-filled then ensure that has
+        // actually happened.
+        EXPECT_EQ(QUARANTINED_FLOODED_BLOCK,
+                  static_cast<BlockState>(header->state));
+        BlockHeader* header = BlockGetHeaderFromBody(
+            reinterpret_cast<BlockBody*>(mem));
+        BlockInfo block_info = {};
+        EXPECT_TRUE(BlockInfoFromMemory(header, &block_info));
+        EXPECT_TRUE(BlockBodyIsFloodFilled(block_info));
+        ++flood_filled_count;
+      }
+
+      // Ensure the quarantine is flushed. Otherwise the next block to be
+      // allocated might not even make it into the quarantine because a block
+      // is randomly evicted.
+      heap.FlushQuarantine();
+    }
+
+    EXPECT_LE(min_flood_filled, flood_filled_count);
+    EXPECT_LE(flood_filled_count, max_flood_filled);
   }
 
  protected:
@@ -722,7 +791,8 @@ TEST_P(BlockHeapManagerTest, CaptureTID) {
   ASSERT_TRUE(heap.Free(mem));
   BlockHeader* header = BlockGetHeaderFromBody(body);
   ASSERT_NE(static_cast<BlockHeader*>(nullptr), header);
-  EXPECT_EQ(QUARANTINED_BLOCK, header->state);
+  EXPECT_TRUE(header->state == QUARANTINED_BLOCK ||
+              header->state == QUARANTINED_FLOODED_BLOCK);
   BlockInfo block_info = {};
   EXPECT_TRUE(BlockInfoFromMemory(header, &block_info));
   EXPECT_NE(static_cast<BlockTrailer*>(nullptr), block_info.trailer);
@@ -731,34 +801,22 @@ TEST_P(BlockHeapManagerTest, CaptureTID) {
   EXPECT_EQ(block_info.trailer->free_tid, ::GetCurrentThreadId());
 }
 
-TEST_P(BlockHeapManagerTest, QuarantineDoesntAlterBlockContents) {
-  const size_t kAllocSize = 13;
-  ScopedHeap heap(heap_manager_);
-  // Ensure that the quarantine is large enough to keep this block.
-  ::common::AsanParameters parameters = heap_manager_->parameters();
-  parameters.quarantine_size = GetAllocSize(kAllocSize);
-  heap_manager_->set_parameters(parameters);
-  void* mem = heap.Allocate(kAllocSize);
-  ASSERT_NE(static_cast<void*>(nullptr), mem);
-  base::RandBytes(mem, kAllocSize);
+TEST_P(BlockHeapManagerTest, QuarantineNeverAltersBlockContents) {
+  // No blocks should be flood-filled when the feature is disabled.
+  EXPECT_NO_FATAL_FAILURE(QuarantineAltersBlockContents(0.0f, 10, 0, 0));
+}
 
-  unsigned char sha1_before[base::kSHA1Length] = {};
-  base::SHA1HashBytes(reinterpret_cast<unsigned char*>(mem),
-                      kAllocSize,
-                      sha1_before);
+TEST_P(BlockHeapManagerTest, QuarantineSometimesAltersBlockContents) {
+  // 100 fair coin tosses has a stddev of 5. The flood filled count will pretty
+  // much always be within 3 stddevs of half of the tests unless something went
+  // terribly wrong.
+  EXPECT_NO_FATAL_FAILURE(QuarantineAltersBlockContents(
+      0.5f, 100, 50 - 3 * 5, 50 + 3 * 5));
+}
 
-  BlockHeader* header = BlockGetHeaderFromBody(
-      reinterpret_cast<BlockBody*>(mem));
-
-  ASSERT_TRUE(heap.Free(mem));
-  EXPECT_EQ(QUARANTINED_BLOCK, static_cast<BlockState>(header->state));
-
-  unsigned char sha1_after[base::kSHA1Length] = {};
-  base::SHA1HashBytes(reinterpret_cast<unsigned char*>(mem),
-                      kAllocSize,
-                      sha1_after);
-
-  EXPECT_EQ(0, memcmp(sha1_before, sha1_after, base::kSHA1Length));
+TEST_P(BlockHeapManagerTest, QuarantineAlwaysAltersBlockContents) {
+  // All blocks should be flood-filled.
+  EXPECT_NO_FATAL_FAILURE(QuarantineAltersBlockContents(1.0f, 10, 10, 10));
 }
 
 TEST_P(BlockHeapManagerTest, SetTrailerPaddingSize) {
@@ -1130,7 +1188,8 @@ TEST_P(BlockHeapManagerTest, QuarantinedAfterFree) {
 
   {
     ScopedBlockAccess block_access(block_info);
-    EXPECT_EQ(QUARANTINED_BLOCK, block_info.header->state);
+    EXPECT_TRUE(block_info.header->state == QUARANTINED_BLOCK ||
+                block_info.header->state == QUARANTINED_FLOODED_BLOCK);
   }
 }
 
@@ -1240,7 +1299,8 @@ TEST_P(BlockHeapManagerTest, QuarantinedBlockIsProtected) {
 
     {
       ScopedBlockAccess block_access(block_info);
-      EXPECT_EQ(QUARANTINED_BLOCK, block_info.header->state);
+      EXPECT_TRUE(block_info.header->state == QUARANTINED_BLOCK ||
+                  block_info.header->state == QUARANTINED_FLOODED_BLOCK);
     }
   }
 }
@@ -1303,7 +1363,8 @@ TEST_P(BlockHeapManagerTest, ZebraBlockHeapQuarantineRatioIsRespected) {
 
     {
       ScopedBlockAccess block_access(block_info);
-      EXPECT_EQ(QUARANTINED_BLOCK, block_info.header->state);
+      EXPECT_TRUE(block_info.header->state == QUARANTINED_BLOCK ||
+                  block_info.header->state == QUARANTINED_FLOODED_BLOCK);
     }
   }
 }

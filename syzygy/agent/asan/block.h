@@ -108,6 +108,7 @@ static const uint16 kBlockHeaderMagic = 0xCA80;
 // Various constants used for filling regions of memory.
 static const uint8 kBlockHeaderPaddingByte = 0x1C;
 static const uint8 kBlockTrailerPaddingByte = 0xC3;
+static const uint8 kBlockFloodFillByte = 0xFD;
 
 // The number of bits in the checksum field. This is parameterized so that
 // it can be referred to by the checksumming code.
@@ -122,6 +123,10 @@ enum BlockState {
   // While in the quarantine it is still allocated as far as the underlying
   // heap is concerned, and won't be reclaimed.
   QUARANTINED_BLOCK,
+  // The block is quarantined and its contents flood-filled. When a block is
+  // quarantined in this mode it helps to identify the actual ranges of bytes
+  // that have been overwritten in an uninstrumented use-after-free.
+  QUARANTINED_FLOODED_BLOCK,
   // The block has been returned to the heap and is eligible to be reused
   // in a future allocation. In the meantime it is still not valid for
   // reading and writing.
@@ -420,6 +425,10 @@ bool BlockChecksumIsValid(const BlockInfo& block_info);
 void BlockSetChecksum(const BlockInfo& block_info);
 // @}
 
+// Determines if the body of a block is a valid flood-filled body.
+// @param block_info The block to be checksummed.
+// @returns true if the body is appropriately flood-filled.
+bool BlockBodyIsFloodFilled(const BlockInfo& block_info);
 
 // @name Block analysis related functions and declarations.
 // @{

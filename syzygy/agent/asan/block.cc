@@ -430,8 +430,9 @@ void BlockSetChecksum(const BlockInfo& block_info) {
   block_info.header->checksum = 0;
 
   uint32 checksum = 0;
-  switch (block_info.header->state) {
-    case ALLOCATED_BLOCK: {
+  switch (static_cast<BlockState>(block_info.header->state)) {
+    case ALLOCATED_BLOCK:
+    case QUARANTINED_FLOODED_BLOCK: {
       // Only checksum the header and trailer regions.
       checksum = base::SuperFastHash(
           reinterpret_cast<const char*>(block_info.header),
@@ -443,12 +444,8 @@ void BlockSetChecksum(const BlockInfo& block_info) {
     }
 
     // The checksum is the calculated in the same way in these two cases.
-    // Similary, the catch all default case is calculated in this way so as to
-    // allow the hash to successfully be calculated even for a block with a
-    // corrupt state.
     case QUARANTINED_BLOCK:
-    case FREED_BLOCK:
-    default: {
+    case FREED_BLOCK: {
       checksum = base::SuperFastHash(
           reinterpret_cast<const char*>(block_info.header),
           block_info.block_size);
@@ -459,6 +456,16 @@ void BlockSetChecksum(const BlockInfo& block_info) {
   checksum = CombineUInt32IntoBlockChecksum(checksum);
   DCHECK_EQ(0u, checksum >> kBlockHeaderChecksumBits);
   block_info.header->checksum = checksum;
+}
+
+bool BlockBodyIsFloodFilled(const BlockInfo& block_info) {
+  // TODO(chrisha): Move the memspn-like function from shadow.cc to a common
+  // place and reuse it here.
+  for (size_t i = 0; i < block_info.body_size; ++i) {
+    if (block_info.RawBody(i) != kBlockFloodFillByte)
+      return false;
+  }
+  return true;
 }
 
 // Identifies whole pages in the given block_info.
@@ -703,12 +710,31 @@ void BlockAnalyze(const BlockInfo& block_info,
   result->body_state = kDataStateUnknown;
   result->trailer_state = kDataStateUnknown;
 
-  if (BlockChecksumIsValid(block_info)) {
+  bool checksum_is_valid = BlockChecksumIsValid(block_info);
+  if (checksum_is_valid) {
     result->block_state = kDataIsClean;
     result->header_state = kDataIsClean;
     result->body_state = kDataIsClean;
     result->trailer_state = kDataIsClean;
-    return;
+
+    // Unless the block is flood-filled the checksum is the only thing that
+    // needs to be checked.
+    if (block_info.header->state != QUARANTINED_FLOODED_BLOCK)
+      return;
+  }
+
+  // If the block is flood-filled then check the block contents.
+  if (block_info.header->state == QUARANTINED_FLOODED_BLOCK) {
+    if (!BlockBodyIsFloodFilled(block_info)) {
+      result->block_state = kDataIsCorrupt;
+      result->body_state = kDataIsCorrupt;
+    }
+
+    if (checksum_is_valid)
+      return;
+
+    // Fall through and let the following logic determine which of the header
+    // and footer is corrupt.
   }
 
   // At this point it's known that the checksum is invalid, so some part
@@ -737,9 +763,13 @@ void BlockAnalyze(const BlockInfo& block_info,
 
   bool cross_consistent = BlockHeaderAndTrailerAreCrossConsistent(block_info);
   if (consistent_header && consistent_trailer) {
-    if (cross_consistent) {
-      // If both the header and trailer are fine and cross-consistent, then the
-      // body must be corrupt.
+    // If both the header and trailer are fine and cross-consistent, and the
+    // body is not *known* to be clean, then it is most likely that the header
+    // and trailer are clean and the body is corrupt. If the body is known to
+    // be clean (in the case of a flood-filled body) then this is a very rare
+    // hash collision and both the header and trailer will be marked as
+    // suspect.
+    if (cross_consistent && result->body_state != kDataIsClean) {
       result->body_state = kDataIsCorrupt;
     } else {
       // If both the header and trailer are fine but not cross-consistent, then

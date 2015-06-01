@@ -132,23 +132,30 @@ struct AsanParameters {
   // the large block heap.
   uint32 large_allocation_threshold;
 
+  // The rate at which blocks will have their contents flood-filled upon entry
+  // to the quarantine. When this occurs it encourages non-instrumented read-
+  // after-frees to fail, and it also makes non-instrumented write-after-frees
+  // plainly visible. A value in the range 0.0 to 1.0, inclusive. A value of
+  // 0.0 corresponds to this being disabled entirely.
+  float quarantine_flood_fill_rate;
+
   // Add new parameters here!
 
   // When laid out in memory the ignored_stack_ids are present here as a NULL
   // terminated vector.
 };
-COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 56);
+COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 60);
 
 // The current version of the Asan parameters structure. This must be updated
 // if any changes are made to the above structure! This is defined in the header
 // file to allow compile time assertions against this version number.
-const uint32 kAsanParametersVersion = 9u;
+const uint32 kAsanParametersVersion = 10u;
 
 // If the number of free bits in the parameters struct changes, then the
 // version has to change as well. This is simply here to make sure that
 // everything changes in lockstep.
 COMPILE_ASSERT(kAsanParametersReserved1Bits == 23 &&
-                   kAsanParametersVersion == 9,
+                   kAsanParametersVersion == 10,
                version_must_change_if_reserved_bits_changes);
 
 // The name of the section that will be injected into an instrumented image,
@@ -228,6 +235,7 @@ extern const float kDefaultZebraBlockHeapQuarantineRatio;
 extern const bool kDefaultEnableCtMalloc;
 extern const bool kDefaultEnableZebraBlockHeap;
 extern const bool kDefaultEnableAllocationFilter;
+extern const float kDefaultQuarantineFloodFillRate;
 // Default values of LargeBlockHeap parameters.
 extern const bool kDefaultEnableLargeBlockHeap;
 extern const size_t kDefaultLargeAllocationThreshold;
@@ -261,6 +269,7 @@ extern const char kParamDisableCtMalloc[];
 extern const char kParamDisableSizeTargetedHeaps[];
 extern const char kParamEnableZebraBlockHeap[];
 extern const char kParamEnableAllocationFilter[];
+extern const char kParamQuarantineFloodFillRate[];
 // String names of LargeBlockHeap parameters.
 extern const char kParamDisableLargeBlockHeap[];
 extern const char kParamLargeAllocationThreshold[];

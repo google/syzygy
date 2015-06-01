@@ -142,6 +142,7 @@ void BlockProtectAuto(const BlockInfo& block_info) {
 
     // No part of a quarantined or freed block is accessible.
     case QUARANTINED_BLOCK:
+    case QUARANTINED_FLOODED_BLOCK:
     case FREED_BLOCK: {
       BlockProtectAll(block_info);
       break;

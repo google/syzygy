@@ -262,7 +262,8 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
     return FreeCorruptBlock(&block_info);
   }
 
-  if (block_info.header->state == QUARANTINED_BLOCK) {
+  if (block_info.header->state == QUARANTINED_BLOCK ||
+      block_info.header->state == QUARANTINED_FLOODED_BLOCK) {
     ReportHeapError(alloc, DOUBLE_FREE);
     return false;
   }
@@ -287,8 +288,19 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
       stack_cache_->SaveStackTrace(stack);
   block_info.trailer->free_ticks = ::GetTickCount();
   block_info.trailer->free_tid = ::GetCurrentThreadId();
-  block_info.header->state = QUARANTINED_BLOCK;
 
+  // Flip a coin and sometimes flood the block. When flooded, overwrites are
+  // clearly visible; when not flooded, the original contents are left visible.
+  bool flood = parameters_.quarantine_flood_fill_rate > 0.0 &&
+      base::RandDouble() <= parameters_.quarantine_flood_fill_rate;
+  if (flood) {
+    block_info.header->state = QUARANTINED_FLOODED_BLOCK;
+    ::memset(block_info.body, kBlockFloodFillByte, block_info.body_size);
+  } else {
+    block_info.header->state = QUARANTINED_BLOCK;
+  }
+
+  // Update the block checksum.
   BlockSetChecksum(block_info);
 
   CompactBlockInfo compact = {};
@@ -700,6 +712,20 @@ void BlockHeapManager::FreeBlockVector(
   }
 }
 
+namespace {
+
+// A tiny helper function that checks if a quarantined filled block has a valid
+// body. If the block is not of that type simply always returns true.
+bool BlockBodyIsValid(const BlockInfo& block_info) {
+  if (block_info.header->state != QUARANTINED_FLOODED_BLOCK)
+    return true;
+  if (BlockBodyIsFloodFilled(block_info))
+    return true;
+  return false;
+}
+
+}  // namespace
+
 bool BlockHeapManager::FreePotentiallyCorruptBlock(BlockInfo* block_info) {
   DCHECK(initialized_);
   DCHECK_NE(static_cast<BlockInfo*>(nullptr), block_info);
@@ -707,7 +733,8 @@ bool BlockHeapManager::FreePotentiallyCorruptBlock(BlockInfo* block_info) {
   BlockProtectNone(*block_info);
 
   if (block_info->header->magic != kBlockHeaderMagic ||
-      !BlockChecksumIsValid(*block_info)) {
+      !BlockChecksumIsValid(*block_info) ||
+      !BlockBodyIsValid(*block_info)) {
     ReportHeapError(block_info->header, CORRUPT_BLOCK);
     return FreeCorruptBlock(block_info);
   } else {

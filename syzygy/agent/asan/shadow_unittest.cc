@@ -501,7 +501,7 @@ TEST_F(ShadowTest, IsBeginningOfBlockBodyForBlockOfSizeZero) {
   EXPECT_TRUE(test_shadow.IsBeginningOfBlockBody(block_info.body));
   EXPECT_FALSE(test_shadow.IsBeginningOfBlockBody(data.get()));
 
-  block_info.header->state = QUARANTINED_BLOCK;
+  block_info.header->state = QUARANTINED_FLOODED_BLOCK;
   ASSERT_TRUE(test_shadow.MarkAsFreed(block_info.body, block_info.body_size));
 
   EXPECT_TRUE(test_shadow.IsBeginningOfBlockBody(block_info.body));
@@ -678,7 +678,7 @@ TEST_F(ShadowWalkerTest, WalksNestedBlocks) {
   BlockInfo i100 = {};
   BlockInitialize(b100, d100, true, &i100);
   test_shadow.PoisonAllocatedBlock(i100);
-  i100.header->state = QUARANTINED_BLOCK;
+  i100.header->state = QUARANTINED_FLOODED_BLOCK;
   ASSERT_TRUE(test_shadow.MarkAsFreed(i100.body, i100.body_size));
 
   // Do a non-recursive walk through the shadow.

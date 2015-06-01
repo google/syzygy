@@ -42,6 +42,8 @@ class AsanRtlReadFileTest : public testing::TestAsanRtl {
   typedef testing::TestAsanRtl Super;
 
   AsanRtlReadFileTest() : temp_file_handle_(INVALID_HANDLE_VALUE) {
+    flood_filled_test_string_.assign(
+        kTestStringLength, static_cast<char>(kBlockFloodFillByte));
   }
 
   void SetUp() override {
@@ -65,10 +67,17 @@ class AsanRtlReadFileTest : public testing::TestAsanRtl {
   static const char kTestString[];
   static const size_t kTestStringLength;
 
+  void IsValidQuarantinedTestStringContent(const char* s) {
+    bool is_test_string = ::strncmp(kTestString, s, kTestStringLength);
+    bool is_flood_filled = ::strncmp(
+        flood_filled_test_string_.data(), s, kTestStringLength);
+    EXPECT_NE(is_test_string, is_flood_filled);
+  }
+
  protected:
   testing::ScopedTempFile temp_file_;
-
   base::win::ScopedHandle temp_file_handle_;
+  std::string flood_filled_test_string_;
 };
 
 const char AsanRtlReadFileTest::kTestString[] = "Test of asan_ReadFile";
@@ -190,7 +199,7 @@ TEST_F(AsanRtlReadFileTest, AsanReadFileUAFAfterInternalCall) {
                           &bytes_read,
                           NULL);
   EXPECT_EQ(kTestStringLength, bytes_read);
-  EXPECT_STREQ(kTestString, alloc_ptr);
+  EXPECT_NO_FATAL_FAILURE(IsValidQuarantinedTestStringContent(alloc_ptr));
   EXPECT_TRUE(LogContains(kHeapUseAfterFree));
 
   SetInterceptorCallbackFunction(NULL);

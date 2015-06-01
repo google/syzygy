@@ -324,7 +324,7 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfo) {
   }
 
   {
-    block_info.state = QUARANTINED_BLOCK;
+    block_info.state = QUARANTINED_FLOODED_BLOCK;
     block_info.free_tid = 32;
     block_info.free_stack[0] = reinterpret_cast<void*>(3);
     block_info.free_stack[1] = reinterpret_cast<void*>(4);
@@ -341,7 +341,7 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfo) {
         "{\n"
         "  \"header\": 0x%08X,\n"
         "  \"user-size\": 8,\n"
-        "  \"state\": \"quarantined\",\n"
+        "  \"state\": \"quarantined (flooded)\",\n"
         "  \"heap-type\": \"CtMallocHeap\",\n"
         "  \"analysis\": {\n"
         "    \"block\": \"corrupt\",\n"

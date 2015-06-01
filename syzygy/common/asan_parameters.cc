@@ -165,6 +165,7 @@ const bool kDefaultEnableCtMalloc = true;
 const bool kDefaultEnableRateTargetedHeaps = true;
 const bool kDefaultEnableZebraBlockHeap = false;
 const bool kDefaultEnableAllocationFilter = false;
+const float kDefaultQuarantineFloodFillRate = 0.5f;
 
 // Default values of LargeBlockHeap parameters.
 extern const bool kDefaultEnableLargeBlockHeap = true;
@@ -207,6 +208,7 @@ const char kParamZebraBlockHeapQuarantineRatio[] =
 const char kParamDisableCtMalloc[] = "disable_ctmalloc";
 const char kParamEnableZebraBlockHeap[] = "enable_zebra_block_heap";
 const char kParamEnableAllocationFilter[] = "enable_allocation_filter";
+const char kParamQuarantineFloodFillRate[] = "quarantine_flood_fill_rate";
 
 // String names of LargeBlockHeap parameters.
 const char kParamDisableLargeBlockHeap[] = "disable_large_block_heap";
@@ -286,13 +288,15 @@ void SetDefaultAsanParameters(AsanParameters* asan_parameters) {
   asan_parameters->enable_allocation_filter = kDefaultEnableAllocationFilter;
   asan_parameters->large_allocation_threshold =
       kDefaultLargeAllocationThreshold;
+  asan_parameters->quarantine_flood_fill_rate =
+      kDefaultQuarantineFloodFillRate;
 }
 
 bool InflateAsanParameters(const AsanParameters* pod_params,
                            InflatedAsanParameters* inflated_params) {
   // This must be kept up to date with AsanParameters as it evolves.
   static const size_t kSizeOfAsanParametersByVersion[] =
-      { 40, 44, 48, 52, 52, 52, 56, 56, 56, 56 };
+      { 40, 44, 48, 52, 52, 52, 56, 56, 56, 56, 60 };
   COMPILE_ASSERT(arraysize(kSizeOfAsanParametersByVersion) ==
                      kAsanParametersVersion + 1,
                  kSizeOfAsanParametersByVersion_out_of_date);
@@ -421,6 +425,13 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
   if (UpdateUint32FromCommandLine::Do(cmd_line,
           kParamLargeAllocationThreshold,
           &asan_parameters->large_allocation_threshold) == kFlagError) {
+    return false;
+  }
+
+  // Parse the quarantine flood-fill rate.
+  if (UpdateFloatFromCommandLine::Do(cmd_line,
+          kParamQuarantineFloodFillRate,
+          &asan_parameters->quarantine_flood_fill_rate) == kFlagError) {
     return false;
   }
 

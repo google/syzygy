@@ -22,6 +22,10 @@ bool IsBlockCorrupt(const BlockInfo& block_info) {
     return true;
   if (!BlockChecksumIsValid(block_info))
     return true;
+  if (block_info.header->state == QUARANTINED_FLOODED_BLOCK &&
+      !BlockBodyIsFloodFilled(block_info)) {
+    return true;
+  }
   return false;
 }
 

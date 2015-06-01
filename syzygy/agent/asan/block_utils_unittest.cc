@@ -68,5 +68,22 @@ TEST_F(BlockUtilTest, IsBlockCorruptInvalidChecksum) {
   }
 }
 
+TEST_F(BlockUtilTest, IsBlockCorruptInvalidFloodFilledBody) {
+  const size_t kAllocSize = 100;
+
+  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
+  EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
+  EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
+  fake_block.block_info.header->state = QUARANTINED_FLOODED_BLOCK;
+  ::memset(fake_block.block_info.RawBody(),
+           kBlockFloodFillByte,
+           fake_block.block_info.body_size);
+  BlockSetChecksum(fake_block.block_info);
+  ASSERT_FALSE(IsBlockCorrupt(fake_block.block_info));
+
+  fake_block.block_info.RawBody(1) ^= 0x3C;
+  ASSERT_TRUE(IsBlockCorrupt(fake_block.block_info));
+}
+
 }  // namespace asan
 }  // namespace agent

@@ -620,8 +620,9 @@ void TestChecksumDetectsTampering(const BlockInfo& block_info) {
                                        &block_info.trailer->heap_id));
 
   // Expect the checksum to detect body tampering in quarantined and freed
-  // states, but not in the allocated state.
-  bool expected = (block_info.header->state != ALLOCATED_BLOCK);
+  // states, but not in the allocated state or flooded states.
+  bool expected = block_info.header->state == QUARANTINED_BLOCK ||
+      block_info.header->state == FREED_BLOCK;
   EXPECT_EQ(expected, ChecksumDetectsTampering(block_info, block_info.body));
   EXPECT_EQ(expected, ChecksumDetectsTampering(block_info,
       block_info.RawBody() + block_info.body_size / 2));
@@ -652,7 +653,7 @@ TEST_F(BlockTest, ChecksumDetectsTampering) {
 
   // We test 9 different sizes, 9 different chunk sizes, 1 to 9 different
   // alignments, and 2 different redzone sizes. This is 810 different
-  // combinations. We test each of these block allocations in all 3 possible
+  // combinations. We test each of these block allocations in all 4 possible
   // states. The probe itself tests the block at 7 to 9 different points, and
   // the tests require multiple iterations. Be careful playing with these
   // constants or the unittest time can easily spiral out of control! This
@@ -683,6 +684,10 @@ TEST_F(BlockTest, ChecksumDetectsTampering) {
           block_info.trailer->free_ticks = ::GetTickCount();
           ASSERT_NO_FATAL_FAILURE(TestChecksumDetectsTampering(block_info));
 
+          block_info.header->state = QUARANTINED_FLOODED_BLOCK;
+          ::memset(block_info.body, kBlockFloodFillByte, block_info.body_size);
+          ASSERT_NO_FATAL_FAILURE(TestChecksumDetectsTampering(block_info));
+
           block_info.header->state = FREED_BLOCK;
           ASSERT_NO_FATAL_FAILURE(TestChecksumDetectsTampering(block_info));
         }  // kSizes[i]
@@ -692,6 +697,18 @@ TEST_F(BlockTest, ChecksumDetectsTampering) {
 
   ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
   ASSERT_NO_FATAL_FAILURE(runtime.TearDown());
+}
+
+TEST_F(BlockTest, BlockBodyIsFloodFilled) {
+  static char dummy_body[3] = { 0x00, 0x00, 0x00 };
+  BlockInfo dummy_info = {};
+  dummy_info.body = reinterpret_cast<BlockBody*>(dummy_body);
+  dummy_info.body_size = sizeof(dummy_body);
+  for (size_t i = 0; i < arraysize(dummy_body); ++i) {
+    EXPECT_FALSE(BlockBodyIsFloodFilled(dummy_info));
+    dummy_body[i] = kBlockFloodFillByte;
+  }
+  EXPECT_TRUE(BlockBodyIsFloodFilled(dummy_info));
 }
 
 }  // namespace asan

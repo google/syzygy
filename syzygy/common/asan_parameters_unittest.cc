@@ -88,6 +88,8 @@ TEST(AsanParametersTest, SetDefaultAsanParameters) {
             static_cast<bool>(aparams.enable_allocation_filter));
   EXPECT_EQ(kDefaultLargeAllocationThreshold,
             aparams.large_allocation_threshold);
+  EXPECT_EQ(kDefaultQuarantineFloodFillRate,
+            aparams.quarantine_flood_fill_rate);
 }
 
 TEST(AsanParametersTest, InflateAsanParametersStackIdsPastEnd) {
@@ -236,6 +238,8 @@ TEST(AsanParametersTest, ParseAsanParametersMinimal) {
             static_cast<bool>(iparams.enable_allocation_filter));
   EXPECT_EQ(kDefaultLargeAllocationThreshold,
             iparams.large_allocation_threshold);
+  EXPECT_EQ(kDefaultQuarantineFloodFillRate,
+            iparams.quarantine_flood_fill_rate);
 }
 
 TEST(AsanParametersTest, ParseAsanParametersMaximal) {
@@ -260,7 +264,8 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
       L"--enable_zebra_block_heap "
       L"--disable_large_block_heap "
       L"--enable_allocation_filter "
-      L"--large_allocation_threshold=4096";
+      L"--large_allocation_threshold=4096 "
+      L"--quarantine_flood_fill_rate=0.25";
 
   InflatedAsanParameters iparams;
   SetDefaultAsanParameters(&iparams);
@@ -284,12 +289,13 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
   EXPECT_THAT(iparams.ignored_stack_ids_set,
               testing::ElementsAre(0x1, 0xBAADF00D, 0xCAFEBABE, 0xDEADBEEF));
   EXPECT_EQ(8388608, iparams.zebra_block_heap_size);
-  EXPECT_EQ(0.5, iparams.zebra_block_heap_quarantine_ratio);
+  EXPECT_EQ(0.5f, iparams.zebra_block_heap_quarantine_ratio);
   EXPECT_FALSE(static_cast<bool>(iparams.enable_ctmalloc));
   EXPECT_TRUE(static_cast<bool>(iparams.enable_zebra_block_heap));
   EXPECT_FALSE(static_cast<bool>(iparams.enable_large_block_heap));
   EXPECT_TRUE(static_cast<bool>(iparams.enable_allocation_filter));
   EXPECT_EQ(4096, iparams.large_allocation_threshold);
+  EXPECT_EQ(0.25f, iparams.quarantine_flood_fill_rate);
 }
 
 }  // namespace common

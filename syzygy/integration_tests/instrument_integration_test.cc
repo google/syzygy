@@ -513,6 +513,17 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
                       size_t size,
                       size_t max_tries,
                       bool unload) {
+    // A small selection of tests can fail due to hash collisions. These are
+    // run repeatedly and expected to pass at least once. Every other test is
+    // run with max_tries == 1.
+    if (max_tries != 1) {
+      // Ensure that only the desired tests are being run with retries. This is
+      // a second layer of safety to make sure that flaky tests aren't simply
+      // being hidden.
+      EXPECT_TRUE(test == testing::kAsanCorruptBlock ||
+                  test == testing::kAsanCorruptBlockInQuarantine);
+    }
+
     ResetAsanErrors();
     EXPECT_NO_FATAL_FAILURE(SetAsanDefaultCallBack(AsanCallback));
 
@@ -529,8 +540,12 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
       // If this appears to have failed then retry it for all but the last
       // attempt. Some tests have a non-zero chance of failure, but their
       // chances of failing repeatedly are infinitesimally small.
-      if (asan_error_count == 0 && i + 1 < max_tries)
+      if (asan_error_count == 0 && i + 1 < max_tries) {
+        // If the module was unloaded and the test is retrying, then reload it.
+        if (unload)
+          EXPECT_NO_FATAL_FAILURE(LoadTestDll(output_dll_path_, &module_));
         continue;
+      }
 
       if (asan_error_count == 0 ||
           last_asan_error.error_type != kind ||

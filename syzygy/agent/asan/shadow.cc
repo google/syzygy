@@ -400,12 +400,15 @@ bool Shadow::IsBlockStartByte(const void* address) const {
   return true;
 }
 
-ShadowMarker Shadow::GetShadowMarkerForAddress(const void* addr) const {
+const uint8* Shadow::GetShadowMemoryForAddress(const void* addr) const {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
   index >>= kShadowRatioLog;
+  DCHECK_GE(length_, index);
+  return shadow_ + index;
+}
 
-  DCHECK_GT(length_, index);
-  return static_cast<ShadowMarker>(shadow_[index]);
+ShadowMarker Shadow::GetShadowMarkerForAddress(const void* addr) const {
+  return static_cast<ShadowMarker>(*GetShadowMemoryForAddress(addr));
 }
 
 void Shadow::PoisonAllocatedBlock(const BlockInfo& info) {
@@ -717,7 +720,7 @@ inline const uint8* ScanRightForPotentialHeaderBytes(
       if (*pos != 0 && *pos != kFreedMarker8)
         return pos;
       pos += 1;
-      // Now have alignemnt of 4.
+      // Now have alignment of 4.
       if (*reinterpret_cast<const uint32*>(pos) != 0 &&
           *reinterpret_cast<const uint32*>(pos) != kFreedMarker32) {
         return pos;
@@ -859,7 +862,7 @@ ShadowWalker::ShadowWalker(const Shadow* shadow,
                            const void* lower_bound,
                            const void* upper_bound)
     : shadow_(shadow), recursive_(recursive), lower_bound_(0), upper_bound_(0),
-      cursor_(0), nesting_depth_(0) {
+      cursor_(nullptr), shadow_cursor_(nullptr), nesting_depth_(0) {
   DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   DCHECK_LE(Shadow::kAddressLowerBound, reinterpret_cast<size_t>(lower_bound));
   DCHECK_GE(shadow->memory_size(), reinterpret_cast<size_t>(upper_bound));
@@ -884,6 +887,8 @@ void ShadowWalker::Reset() {
       break;
     }
   }
+
+  shadow_cursor_ = shadow_->GetShadowMemoryForAddress(cursor_);
 }
 
 bool ShadowWalker::Next(BlockInfo* info) {
@@ -923,6 +928,8 @@ bool ShadowWalker::Next(BlockInfo* info) {
           // bookkeeping works properly).
           cursor_ += info->block_size - kShadowRatio;
         }
+
+        shadow_cursor_ = shadow_->GetShadowMemoryForAddress(cursor_);
         return true;
       }
       continue;
