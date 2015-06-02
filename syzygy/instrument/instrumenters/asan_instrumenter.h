@@ -31,8 +31,9 @@ namespace instrumenters {
 
 class AsanInstrumenter : public InstrumenterWithAgent {
  public:
-  AsanInstrumenter();
+  typedef InstrumenterWithAgent Super;
 
+  AsanInstrumenter();
   ~AsanInstrumenter() { }
 
  protected:
@@ -41,8 +42,11 @@ class AsanInstrumenter : public InstrumenterWithAgent {
   virtual bool ImageFormatIsSupported(ImageFormat image_format) override;
   virtual bool InstrumentImpl() override;
   virtual const char* InstrumentationMode() override { return "asan"; }
-  virtual bool ParseAdditionalCommandLineArguments(
-      const base::CommandLine* command_line) override;
+  // @}
+
+  // @name Super overrides.
+  // @{
+  bool DoCommandLineParse(const base::CommandLine* command_line) override;
   // @}
 
   // @name Command-line parameters.

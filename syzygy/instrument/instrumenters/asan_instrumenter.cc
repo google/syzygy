@@ -97,8 +97,11 @@ bool AsanInstrumenter::InstrumentImpl() {
   return true;
 }
 
-bool AsanInstrumenter::ParseAdditionalCommandLineArguments(
+bool AsanInstrumenter::DoCommandLineParse(
     const base::CommandLine* command_line) {
+  if (!Super::DoCommandLineParse(command_line))
+    return false;
+
   // Parse the additional command line arguments.
   filter_path_ = command_line->GetSwitchValuePath("filter");
   use_liveness_analysis_ = !command_line->HasSwitch("no-liveness-analysis");

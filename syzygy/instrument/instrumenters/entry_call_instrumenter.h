@@ -29,6 +29,8 @@ namespace instrumenters {
 
 class EntryCallInstrumenter : public InstrumenterWithAgent {
  public:
+  typedef InstrumenterWithAgent Super;
+
   EntryCallInstrumenter();
   ~EntryCallInstrumenter() { }
 
@@ -40,8 +42,11 @@ class EntryCallInstrumenter : public InstrumenterWithAgent {
   // @{
   virtual bool InstrumentImpl() override;
   virtual const char* InstrumentationMode() override;
-  virtual bool ParseAdditionalCommandLineArguments(
-      const base::CommandLine* command_line) override;
+  // @}
+
+  // @name Super overrides.
+  // @{
+  bool DoCommandLineParse(const base::CommandLine* command_line) override;
   // @}
 
   // @name Command-line parameters.

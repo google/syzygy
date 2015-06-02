@@ -28,6 +28,8 @@ namespace instrumenters {
 
 class BranchInstrumenter : public InstrumenterWithAgent {
  public:
+  typedef InstrumenterWithAgent Super;
+
   BranchInstrumenter();
   ~BranchInstrumenter() { }
 
@@ -39,8 +41,11 @@ class BranchInstrumenter : public InstrumenterWithAgent {
   // @{
   virtual bool InstrumentImpl();
   virtual const char* InstrumentationMode() { return "branch"; }
-  virtual bool ParseAdditionalCommandLineArguments(
-      const base::CommandLine* command_line) override;
+  // @}
+
+  // @name Super overrides.
+  // @{
+  bool DoCommandLineParse(const base::CommandLine* command_line) override;
   // @}
 
   // The transform for this agent.

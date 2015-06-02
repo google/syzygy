@@ -29,6 +29,8 @@ namespace instrumenters {
 
 class EntryThunkInstrumenter : public InstrumenterWithAgent {
  public:
+  typedef InstrumenterWithAgent Super;
+
   // The mode for this instrumenter.
   enum Mode {
     INVALID_MODE,
@@ -37,7 +39,6 @@ class EntryThunkInstrumenter : public InstrumenterWithAgent {
   };
 
   explicit EntryThunkInstrumenter(Mode instrumentation_mode);
-
   ~EntryThunkInstrumenter() { }
 
   // Returns the instrumentation mode.
@@ -52,8 +53,11 @@ class EntryThunkInstrumenter : public InstrumenterWithAgent {
   // @{
   virtual bool InstrumentImpl() override;
   virtual const char* InstrumentationMode() override;
-  virtual bool ParseAdditionalCommandLineArguments(
-      const base::CommandLine* command_line) override;
+  // @}
+
+  // @name Super overrides.
+  // @{
+  bool DoCommandLineParse(const base::CommandLine* command_line) override;
   // @}
 
   // @name Command-line parameters.

@@ -72,8 +72,11 @@ bool EntryThunkInstrumenter::InstrumentImpl() {
   return true;
 }
 
-bool EntryThunkInstrumenter::ParseAdditionalCommandLineArguments(
+bool EntryThunkInstrumenter::DoCommandLineParse(
     const base::CommandLine* command_line) {
+  if (!Super::DoCommandLineParse(command_line))
+    return false;
+
   if (instrumentation_mode_ == CALL_TRACE) {
     module_entry_only_ = command_line->HasSwitch("module-entry-only");
     instrument_unsafe_references_ = !command_line->HasSwitch("no-unsafe-refs");

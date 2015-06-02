@@ -51,8 +51,11 @@ bool BranchInstrumenter::InstrumentImpl() {
   return true;
 }
 
-bool BranchInstrumenter::ParseAdditionalCommandLineArguments(
+bool BranchInstrumenter::DoCommandLineParse(
     const base::CommandLine* command_line) {
+  if (!Super::DoCommandLineParse(command_line))
+    return false;
+
   // Parse the additional command line arguments.
   buffering_ = command_line->HasSwitch("buffering");
 

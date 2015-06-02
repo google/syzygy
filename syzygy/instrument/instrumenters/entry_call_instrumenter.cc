@@ -47,8 +47,11 @@ bool EntryCallInstrumenter::InstrumentImpl() {
   return true;
 }
 
-bool EntryCallInstrumenter::ParseAdditionalCommandLineArguments(
+bool EntryCallInstrumenter::DoCommandLineParse(
     const base::CommandLine* command_line) {
+  if (!Super::DoCommandLineParse(command_line))
+    return false;
+
   thunk_imports_ = command_line->HasSwitch("instrument-imports");
 
   return true;

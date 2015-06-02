@@ -49,8 +49,11 @@ bool BasicBlockEntryInstrumenter::InstrumentImpl() {
   return true;
 }
 
-bool BasicBlockEntryInstrumenter::ParseAdditionalCommandLineArguments(
+bool BasicBlockEntryInstrumenter::DoCommandLineParse(
     const base::CommandLine* command_line) {
+  if (!Super::DoCommandLineParse(command_line))
+    return false;
+
   // Parse the additional command line arguments.
   inline_fast_path_ = command_line->HasSwitch("inline-fast-path");
 

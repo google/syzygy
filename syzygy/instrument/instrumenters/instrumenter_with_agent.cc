@@ -56,7 +56,14 @@ bool GetImageFormat(const base::FilePath& path,
 
 bool InstrumenterWithAgent::ParseCommandLine(
     const base::CommandLine* command_line) {
+  return DoCommandLineParse(command_line) &&
+      CheckCommandLineParse(command_line);
+}
+
+bool InstrumenterWithAgent::DoCommandLineParse(
+    const base::CommandLine* command_line) {
   DCHECK(command_line != NULL);
+  // No super class.
 
   // TODO(chrisha): Simplify the input/output image parsing once external
   //     tools have been updated.
@@ -111,12 +118,11 @@ bool InstrumenterWithAgent::ParseCommandLine(
     }
   }
 
-  if (!ParseAdditionalCommandLineArguments(command_line)) {
-    LOG(ERROR) << "Unable to parse the additional arguments from the command "
-               << "line.";
-    return false;
-  }
+  return true;
+}
 
+bool InstrumenterWithAgent::CheckCommandLineParse(
+    const base::CommandLine* command_line) {
   if (agent_dll_.empty()) {
     LOG(ERROR) << "No agent DLL has been specified.";
     return false;

@@ -47,8 +47,8 @@ class InstrumenterWithAgent : public InstrumenterInterface {
 
   // @name InstrumenterInterface implementation.
   // @{
-  virtual bool ParseCommandLine(const base::CommandLine* command_line) override;
-  virtual bool Instrument() override;
+  bool ParseCommandLine(const base::CommandLine* command_line) override final;
+  bool Instrument() override;
   // @}
 
   // @name Accessors.
@@ -73,14 +73,13 @@ class InstrumenterWithAgent : public InstrumenterInterface {
   // mode.
   virtual const char* InstrumentationMode() = 0;
 
-  // Virtual method called by ParseCommandLine to parse the additional
-  // command-line arguments specific to an instrumenter.
-  // @param command_line the command-line to be parsed.
-  // @returns true by default. Should return false on error.
-  virtual bool ParseAdditionalCommandLineArguments(
-      const base::CommandLine* command_line) {
-    return true;
-  }
+  // Command line parsing to be executed before all subclasses. Subclass
+  // overrides should call Super::DoCommandLineParse() at the beginning.
+  virtual bool DoCommandLineParse(const base::CommandLine* command_line);
+
+  // Performs more validation after all parsing is done. Subclass overrides
+  // should call Super::CheckCommandLineParse() at the end.
+  virtual bool CheckCommandLineParse(const base::CommandLine* command_line);
 
   // @name Internal machinery, replaceable for testing purposes. These will
   //     only ever be called once per object lifetime.

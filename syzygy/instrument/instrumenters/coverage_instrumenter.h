@@ -28,8 +28,9 @@ namespace instrumenters {
 
 class CoverageInstrumenter : public InstrumenterWithAgent {
  public:
-  CoverageInstrumenter();
+  typedef InstrumenterWithAgent Super;
 
+  CoverageInstrumenter();
   ~CoverageInstrumenter() { }
 
  protected:

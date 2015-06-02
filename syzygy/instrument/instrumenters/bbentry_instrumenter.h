@@ -29,8 +29,9 @@ namespace instrumenters {
 
 class BasicBlockEntryInstrumenter : public InstrumenterWithAgent {
  public:
-  BasicBlockEntryInstrumenter();
+  typedef InstrumenterWithAgent Super;
 
+  BasicBlockEntryInstrumenter();
   ~BasicBlockEntryInstrumenter() { }
 
  protected:
@@ -41,8 +42,11 @@ class BasicBlockEntryInstrumenter : public InstrumenterWithAgent {
   // @{
   virtual bool InstrumentImpl() override;
   virtual const char* InstrumentationMode() override { return "bbentry"; }
-  virtual bool ParseAdditionalCommandLineArguments(
-      const base::CommandLine* command_line) override;
+  // @}
+
+  // @name Super overrides.
+  // @{
+  bool DoCommandLineParse(const base::CommandLine* command_line) override;
   // @}
 
   // @name Command-line parameters.
