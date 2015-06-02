@@ -36,6 +36,7 @@
       'target_name': 'test_types',
       'type': 'loadable_module',
       'sources': [
+        'test_types.def',
         'test_types.h',
         'test_types_main.cc',
         'test_types_one.cc',

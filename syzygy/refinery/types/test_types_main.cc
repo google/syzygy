@@ -37,3 +37,8 @@ extern "C" short __stdcall EntryPoint(void* instance,
   testing::AliasTypesTwo();
   return 1;
 }
+
+// This function is exported from the DLL for the sole purpose of producing
+// an import library.
+extern "C" void DummyExport() {
+}
