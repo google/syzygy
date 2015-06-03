@@ -43,62 +43,26 @@ TEST(ThreadAnalyzerTest, Basic) {
   ASSERT_LE(1, stack_layer->size());
 }
 
-TEST(ThreadAnalyzerTest, AnalyzeSyntheticMinidump) {
-  // Generate synthetic minidump.
-  testing::MinidumpSpecification spec;
+class ThreadAnalyzerSyntheticTest : public testing::SyntheticMinidumpTest {
+};
 
-  // Add memory for the stack.
-  const char kStack[] = "ABCDEF";
+TEST_F(ThreadAnalyzerSyntheticTest, BasicTest) {
+  const size_t kThreadId = 1U;
   const Address kStackAddr = 80ULL;
-  const Size kStackSize = sizeof(kStack) - 1;
-  const char kPadding[] = "--";
-  ASSERT_TRUE(spec.AddMemoryRegion(
-      kStackAddr - (sizeof(kPadding) - 1),
-      base::StringPrintf("%s%s%s", kPadding, kStack, kPadding)));
+  const Address kStackSize = 16U;
 
-  // Add the thread.
-  MINIDUMP_THREAD thread = {0};
-  thread.ThreadId = 1;
-  thread.SuspendCount = 2;
-  thread.PriorityClass = 3;
-  thread.Priority = 4;
-  // TODO(manzagop): set thread.Teb once analyzer handles it.
-  thread.Stack.StartOfMemoryRange = kStackAddr;
-  thread.Stack.Memory.DataSize = kStackSize;
-  thread.ThreadContext.DataSize = sizeof(CONTEXT);
-  // Note: thread.Stack.Memory.Rva and thread.ThreadContext.Rva are set during
-  // serialization.
-
-  CONTEXT ctx = {0};
-  ctx.ContextFlags = CONTEXT_SEGMENTS | CONTEXT_INTEGER | CONTEXT_CONTROL;
-  ctx.SegGs = 11;
-  ctx.SegFs = 12;
-  ctx.SegEs = 13;
-  ctx.SegDs = 14;
-  ctx.Edi = 21;
-  ctx.Esi = 22;
-  ctx.Ebx = 23;
-  ctx.Edx = 24;
-  ctx.Ecx = 25;
-  ctx.Eax = 26;
-  ctx.Ebp = 31;
-  ctx.Eip = 32;
-  ctx.SegCs = 33;
-  ctx.EFlags = 34;
-  ctx.Esp = 35;
-  ctx.SegSs = 36;
-
-  spec.AddThread(&thread, sizeof(MINIDUMP_THREAD), &ctx, sizeof(CONTEXT));
-
-  // Serialize the minidump.
-  base::ScopedTempDir temp_dir;
-  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
-  base::FilePath minidump_path;
-  ASSERT_TRUE(spec.Serialize(temp_dir, &minidump_path));
+  // Generate a synthetic minidump with thread information.
+  testing::MinidumpSpecification::ThreadSpecification spec(
+      kThreadId, kStackAddr, kStackSize);
+  testing::MinidumpSpecification::MemorySpecification memory_spec;
+  spec.FillStackMemorySpecification(&memory_spec);
+  ASSERT_TRUE(minidump_spec_.AddMemoryRegion(memory_spec));
+  ASSERT_TRUE(minidump_spec_.AddThread(spec));
+  ASSERT_NO_FATAL_FAILURE(Serialize());
 
   // Analyze.
   Minidump minidump;
-  ASSERT_TRUE(minidump.Open(minidump_path));
+  ASSERT_TRUE(minidump.Open(dump_file()));
 
   ProcessState process_state;
   ThreadAnalyzer analyzer;
@@ -116,30 +80,35 @@ TEST(ThreadAnalyzerTest, AnalyzeSyntheticMinidump) {
   ASSERT_EQ(AddressRange(kStackAddr, kStackSize),
             matching_records[0]->range());
   const Stack& stack = matching_records[0]->data();
+
   const ThreadInformation& thread_info = stack.thread_info();
-  ASSERT_EQ(1, thread_info.thread_id());
-  ASSERT_EQ(2, thread_info.suspend_count());
-  ASSERT_EQ(3, thread_info.priority_class());
-  ASSERT_EQ(4, thread_info.priority());
+  const MINIDUMP_THREAD* thread =
+      reinterpret_cast<const MINIDUMP_THREAD*>(&spec.thread_data.at(0));
+  ASSERT_EQ(thread->ThreadId, thread_info.thread_id());
+  ASSERT_EQ(thread->SuspendCount, thread_info.suspend_count());
+  ASSERT_EQ(thread->PriorityClass, thread_info.priority_class());
+  ASSERT_EQ(thread->Priority, thread_info.priority());
   // TODO(manzagop): add thread.Teb once analyzer handles it.
 
   const RegisterInformation& reg_info = thread_info.register_info();
-  ASSERT_EQ(11, reg_info.seg_gs());
-  ASSERT_EQ(12, reg_info.seg_fs());
-  ASSERT_EQ(13, reg_info.seg_es());
-  ASSERT_EQ(14, reg_info.seg_ds());
-  ASSERT_EQ(21, reg_info.edi());
-  ASSERT_EQ(22, reg_info.esi());
-  ASSERT_EQ(23, reg_info.ebx());
-  ASSERT_EQ(24, reg_info.edx());
-  ASSERT_EQ(25, reg_info.ecx());
-  ASSERT_EQ(26, reg_info.eax());
-  ASSERT_EQ(31, reg_info.ebp());
-  ASSERT_EQ(32, reg_info.eip());
-  ASSERT_EQ(33, reg_info.seg_cs());
-  ASSERT_EQ(34, reg_info.eflags());
-  ASSERT_EQ(35, reg_info.esp());
-  ASSERT_EQ(36, reg_info.seg_ss());
+  const CONTEXT* ctx =
+      reinterpret_cast<const CONTEXT*>(&spec.context_data.at(0));
+  ASSERT_EQ(ctx->SegGs, reg_info.seg_gs());
+  ASSERT_EQ(ctx->SegFs, reg_info.seg_fs());
+  ASSERT_EQ(ctx->SegEs, reg_info.seg_es());
+  ASSERT_EQ(ctx->SegDs, reg_info.seg_ds());
+  ASSERT_EQ(ctx->Edi, reg_info.edi());
+  ASSERT_EQ(ctx->Esi, reg_info.esi());
+  ASSERT_EQ(ctx->Ebx, reg_info.ebx());
+  ASSERT_EQ(ctx->Edx, reg_info.edx());
+  ASSERT_EQ(ctx->Ecx, reg_info.ecx());
+  ASSERT_EQ(ctx->Eax, reg_info.eax());
+  ASSERT_EQ(ctx->Ebp, reg_info.ebp());
+  ASSERT_EQ(ctx->Eip, reg_info.eip());
+  ASSERT_EQ(ctx->SegCs, reg_info.seg_cs());
+  ASSERT_EQ(ctx->EFlags, reg_info.eflags());
+  ASSERT_EQ(ctx->Esp, reg_info.esp());
+  ASSERT_EQ(ctx->SegSs, reg_info.seg_ss());
 }
 
 }  // namespace refinery

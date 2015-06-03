@@ -39,6 +39,9 @@ const base::FilePath TestMinidumps::GetNotepad64Dump() {
 
 namespace {
 
+using MemorySpecification = MinidumpSpecification::MemorySpecification;
+using ThreadSpecification = MinidumpSpecification::ThreadSpecification;
+using ExceptionSpecification = MinidumpSpecification::ExceptionSpecification;
 using ModuleSpecification = MinidumpSpecification::ModuleSpecification;
 
 // TODO(manzagop): ensure on destruction or finalizing that the allocations are
@@ -52,10 +55,11 @@ class MinidumpSerializer {
 
   // @pre @p dir must be a valid directory.
   bool Initialize(const base::ScopedTempDir& dir);
-  bool SerializeThreads(
-      const std::vector<std::pair<std::string, std::string>>& threads);
-  bool SerializeMemory(const std::map<refinery::Address, std::string>& regions);
+  bool SerializeThreads(const std::vector<ThreadSpecification>& threads);
+  bool SerializeMemory(const std::vector<MemorySpecification>& regions);
   bool SerializeModules(const std::vector<ModuleSpecification>& modules);
+  bool SerializeExceptions(
+      const std::vector<ExceptionSpecification>& exceptions);
   bool Finalize();
 
   const base::FilePath& path() const { return path_; }
@@ -76,8 +80,8 @@ class MinidumpSerializer {
   Position AppendVec(const std::vector<DataType>& data);
   // @pre @p elements must not be empty.
   template <class DataType>
-  Position AppendStream(MINIDUMP_STREAM_TYPE type,
-                        const std::vector<DataType>& elements);
+  Position AppendListStream(MINIDUMP_STREAM_TYPE type,
+                            const std::vector<DataType>& elements);
   Position AppendBytes(base::StringPiece data);
   Position AppendMinidumpString(base::StringPiece utf8);
 
@@ -96,6 +100,8 @@ class MinidumpSerializer {
   // returns true on success, false otherwise.
   bool GetPos(const refinery::AddressRange& range, Position* pos) const;
 
+  void AddDirectoryEntry(MINIDUMP_STREAM_TYPE type, Position pos, size_t size);
+
   bool succeeded() const { return !failed_; }
 
   bool failed_;
@@ -111,9 +117,7 @@ class MinidumpSerializer {
 };
 
 MinidumpSerializer::MinidumpSerializer()
-    : failed_(true),
-      is_serialize_memory_invoked_(false),
-      cursor_(0U) {
+    : failed_(true), is_serialize_memory_invoked_(false), cursor_(0U) {
 }
 
 bool MinidumpSerializer::Initialize(const base::ScopedTempDir& dir) {
@@ -142,22 +146,23 @@ bool MinidumpSerializer::Initialize(const base::ScopedTempDir& dir) {
 }
 
 bool MinidumpSerializer::SerializeThreads(
-    const std::vector<std::pair<std::string, std::string>>& raw_threads) {
-  if (raw_threads.empty())
+    const std::vector<ThreadSpecification>& specs) {
+  if (specs.empty())
     return succeeded();
 
   std::vector<MINIDUMP_THREAD> threads;
-  threads.resize(raw_threads.size());
+  threads.resize(specs.size());
 
-  for (int i = 0; i < threads.size(); ++i) {
+  for (int i = 0; i < specs.size(); ++i) {
+    const ThreadSpecification& spec = specs[i];
+
     // Write the context.
-    DCHECK_EQ(sizeof(CONTEXT), raw_threads[i].second.length());
-    Position pos = AppendBytes(raw_threads[i].second);
+    DCHECK_EQ(sizeof(CONTEXT), spec.context_data.size());
+    Position pos = AppendBytes(spec.context_data);
 
     // Copy thread to vector for more efficient serialization, then set Rvas.
-    DCHECK_EQ(sizeof(MINIDUMP_THREAD), raw_threads[i].first.length());
-    memcpy(&threads.at(i), raw_threads[i].first.c_str(),
-           sizeof(MINIDUMP_THREAD));
+    DCHECK_EQ(sizeof(MINIDUMP_THREAD), spec.thread_data.size());
+    memcpy(&threads.at(i), spec.thread_data.c_str(), sizeof(MINIDUMP_THREAD));
 
     MINIDUMP_THREAD& thread = threads[i];
     refinery::AddressRange stack_range(thread.Stack.StartOfMemoryRange,
@@ -167,12 +172,14 @@ bool MinidumpSerializer::SerializeThreads(
     thread.ThreadContext.Rva = pos;
   }
 
-  AppendStream(ThreadListStream, threads);
+  AppendListStream(ThreadListStream, threads);
   return succeeded();
 }
 
 bool MinidumpSerializer::SerializeMemory(
-    const std::map<refinery::Address, std::string>& regions) {
+    const std::vector<MemorySpecification>& regions) {
+  // Signal that memory serialization has occured, and regions now have
+  // associated positions in the minidump.
   is_serialize_memory_invoked_ = true;
 
   if (regions.empty())
@@ -183,10 +190,10 @@ bool MinidumpSerializer::SerializeMemory(
   memory_descriptors.resize(regions.size());
   size_t idx = 0;
   for (const auto& region : regions) {
-    refinery::AddressRange range(region.first, region.second.length());
+    refinery::AddressRange range(region.address, region.buffer.size());
     DCHECK(range.IsValid());
 
-    Position pos = AppendBytes(region.second);
+    Position pos = AppendBytes(region.buffer);
     auto inserted = memory_positions_.insert(std::make_pair(range, pos));
     DCHECK_EQ(true, inserted.second);
 
@@ -198,7 +205,7 @@ bool MinidumpSerializer::SerializeMemory(
   }
 
   // Write descriptors and create directory entry.
-  AppendStream(MemoryListStream, memory_descriptors);
+  AppendListStream(MemoryListStream, memory_descriptors);
 
   return succeeded();
 }
@@ -219,7 +226,38 @@ bool MinidumpSerializer::SerializeModules(
     modules[i].ModuleNameRva = AppendMinidumpString(module_specs[i].name);
   }
 
-  AppendStream(ModuleListStream, modules);
+  AppendListStream(ModuleListStream, modules);
+
+  return succeeded();
+}
+
+bool MinidumpSerializer::SerializeExceptions(
+    const std::vector<ExceptionSpecification>& exception_specs) {
+  if (exception_specs.empty())
+    return succeeded();
+
+  for (const ExceptionSpecification& spec : exception_specs) {
+    ULONG32 thread_id = spec.thread_id;
+    Position rva = Append(thread_id);
+    ULONG32 dummy_alignment = 0U;
+    Append(dummy_alignment);
+
+    MINIDUMP_EXCEPTION exception = {0};
+    exception.ExceptionCode = spec.exception_code;
+    exception.ExceptionFlags = spec.exception_flags;
+    exception.ExceptionRecord = spec.exception_record;
+    exception.ExceptionAddress = spec.exception_address;
+    exception.NumberParameters = spec.exception_information.size();
+    DCHECK(exception.NumberParameters <= EXCEPTION_MAXIMUM_PARAMETERS);
+    for (size_t i = 0; i < spec.exception_information.size(); ++i) {
+      exception.ExceptionInformation[i] = spec.exception_information[i];
+    }
+    Append(exception);
+
+    // TODO(manzagop): serialize a thread context and set thread_context.
+
+    AddDirectoryEntry(ExceptionStream, rva, sizeof(MINIDUMP_EXCEPTION_STREAM));
+  }
 
   return succeeded();
 }
@@ -264,7 +302,7 @@ MinidumpSerializer::Position MinidumpSerializer::AppendVec(
 }
 
 template <class DataType>
-MinidumpSerializer::Position MinidumpSerializer::AppendStream(
+MinidumpSerializer::Position MinidumpSerializer::AppendListStream(
     MINIDUMP_STREAM_TYPE type,
     const std::vector<DataType>& elements) {
   DCHECK(!elements.empty());
@@ -275,12 +313,8 @@ MinidumpSerializer::Position MinidumpSerializer::AppendStream(
   AppendVec(elements);
 
   // Create its directory entry.
-  MINIDUMP_DIRECTORY directory = {0};
-  directory.StreamType = type;
-  directory.Location.Rva = pos;
-  directory.Location.DataSize =
-      sizeof(ULONG32) + elements.size() * sizeof(DataType);
-  directory_.push_back(directory);
+  size_t size_bytes = sizeof(ULONG32) + elements.size() * sizeof(DataType);
+  AddDirectoryEntry(type, pos, size_bytes);
 
   return pos;
 }
@@ -366,77 +400,77 @@ bool MinidumpSerializer::GetPos(const refinery::AddressRange& range,
   return false;
 }
 
+void MinidumpSerializer::AddDirectoryEntry(MINIDUMP_STREAM_TYPE type,
+                                           Position pos,
+                                           size_t size_bytes) {
+  MINIDUMP_DIRECTORY directory = {0};
+  directory.StreamType = type;
+  directory.Location.Rva = pos;
+  directory.Location.DataSize = size_bytes;
+  directory_.push_back(directory);
+}
+
 }  // namespace
 
 MinidumpSpecification::MinidumpSpecification() {
 }
 
-bool MinidumpSpecification::AddThread(const void* thread_data,
-                                      size_t thread_size_bytes,
-                                      const void* context_data,
-                                      size_t context_size_bytes) {
-  DCHECK(thread_data != nullptr);
-  DCHECK_EQ(sizeof(MINIDUMP_THREAD), thread_size_bytes);
-  DCHECK_GT(thread_size_bytes, 0U);
-  DCHECK(context_data != nullptr);
-  DCHECK_EQ(sizeof(CONTEXT), context_size_bytes);
-  DCHECK_GT(context_size_bytes, 0U);
+bool MinidumpSpecification::AddThread(const ThreadSpecification& spec) {
+  DCHECK_EQ(sizeof(MINIDUMP_THREAD), spec.thread_data.size());
+  DCHECK_EQ(sizeof(CONTEXT), spec.context_data.size());
+  DCHECK_GT(spec.thread_data.size(), 0U);
+  DCHECK_GT(spec.context_data.size(), 0U);
 
-  threads_.push_back(std::make_pair(std::string(), std::string()));
-  auto& inserted = threads_[threads_.size() - 1];
-  inserted.first.resize(thread_size_bytes);
-  memcpy(&inserted.first.at(0), thread_data, thread_size_bytes);
-  inserted.second.resize(context_size_bytes);
-  memcpy(&inserted.second.at(0), context_data, context_size_bytes);
+  threads_.push_back(spec);
 
   return true;
 }
 
-bool MinidumpSpecification::AddMemoryRegion(refinery::Address addr,
-                                            base::StringPiece bytes) {
-  return AddMemoryRegion(addr, bytes.data(), bytes.length());
-}
-
-bool MinidumpSpecification::AddMemoryRegion(refinery::Address addr,
-                                            const void* data,
-                                            size_t size_bytes) {
-  DCHECK(data != nullptr);
+bool MinidumpSpecification::AddMemoryRegion(const MemorySpecification& spec) {
+  refinery::Address address = spec.address;
+  refinery::Size size_bytes = spec.buffer.size();
 
   // Ensure range validity.
-  refinery::AddressRange range(addr, size_bytes);
+  refinery::AddressRange range(address, size_bytes);
   if (!range.IsValid())
     return false;
 
   // Overlap is not supported at this point - check with successor and
   // predecessor.
-  auto it = memory_regions_.upper_bound(addr);
+  auto it = region_sizes_.upper_bound(address);
 
-  if (it != memory_regions_.end()) {
-    refinery::AddressRange post_range(it->first, it->second.length());
+  if (it != region_sizes_.end()) {
+    refinery::AddressRange post_range(it->first, it->second);
     DCHECK(post_range.IsValid());
     if (range.Intersects(post_range))
       return false;
   }
 
-  if (it != memory_regions_.begin()) {
+  if (it != region_sizes_.begin()) {
     --it;
-    refinery::AddressRange pre_range(it->first, it->second.length());
+    refinery::AddressRange pre_range(it->first, it->second);
     DCHECK(pre_range.IsValid());
     if (range.Intersects(pre_range))
       return false;
   }
 
-  // Insert (in two stages, to avoid copying).
-  auto inserted =
-      memory_regions_.insert(std::make_pair(addr, std::string()));
+  // Add the specification.
+  auto inserted = region_sizes_.insert(std::make_pair(address, size_bytes));
   if (!inserted.second)
     return false;
-  inserted.first->second.insert(0, static_cast<const char*>(data), size_bytes);
+  memory_regions_.push_back(spec);
+
   return true;
 }
 
 bool MinidumpSpecification::AddModule(const ModuleSpecification& module) {
   modules_.push_back(module);
+  return true;
+}
+
+bool MinidumpSpecification::AddException(
+    const ExceptionSpecification& exception) {
+  exceptions_.push_back(exception);
   return true;
 }
 
@@ -447,9 +481,98 @@ bool MinidumpSpecification::Serialize(const base::ScopedTempDir& dir,
                  serializer.SerializeMemory(memory_regions_) &&
                  serializer.SerializeThreads(threads_) &&
                  serializer.SerializeModules(modules_) &&
+                 serializer.SerializeExceptions(exceptions_) &&
                  serializer.Finalize();
   *path = serializer.path();
   return success;
+}
+
+MinidumpSpecification::MemorySpecification::MemorySpecification()
+    : address(0ULL) {
+}
+
+MinidumpSpecification::MemorySpecification::MemorySpecification(
+    refinery::Address addr,
+    base::StringPiece data)
+    : address(addr) {
+  data.CopyToString(&buffer);
+}
+
+MinidumpSpecification::ThreadSpecification::ThreadSpecification(
+    size_t thread_id,
+    refinery::Address stack_address,
+    refinery::Size stack_size) {
+  // Generate the MINIDUMP_THREAD.
+  thread_data.resize(sizeof(MINIDUMP_THREAD));
+  MINIDUMP_THREAD* thread =
+      reinterpret_cast<MINIDUMP_THREAD*>(&thread_data.at(0));
+  thread->ThreadId = thread_id;
+  thread->SuspendCount = 2;
+  thread->PriorityClass = 3;
+  thread->Priority = 4;
+  // TODO(manzagop): set thread.Teb once analyzer handles it.
+  thread->Stack.StartOfMemoryRange = stack_address;
+  thread->Stack.Memory.DataSize = stack_size;
+  thread->ThreadContext.DataSize = sizeof(CONTEXT);
+  // Note: thread.Stack.Memory.Rva and thread.ThreadContext.Rva are set during
+  // serialization.
+
+  // Generate the CONTEXT.
+  context_data.resize(sizeof(CONTEXT));
+  CONTEXT* ctx = reinterpret_cast<CONTEXT*>(&context_data.at(0));
+  ctx->ContextFlags = CONTEXT_SEGMENTS | CONTEXT_INTEGER | CONTEXT_CONTROL;
+  ctx->SegGs = 11;
+  ctx->SegFs = 12;
+  ctx->SegEs = 13;
+  ctx->SegDs = 14;
+  ctx->Edi = 21;
+  ctx->Esi = 22;
+  ctx->Ebx = 23;
+  ctx->Edx = 24;
+  ctx->Ecx = 25;
+  ctx->Eax = 26;
+  ctx->Ebp = 31;
+  ctx->Eip = 32;
+  ctx->SegCs = 33;
+  ctx->EFlags = 34;
+  ctx->Esp = 35;
+  ctx->SegSs = 36;
+}
+
+void MinidumpSpecification::ThreadSpecification::FillStackMemorySpecification(
+    MinidumpSpecification::MemorySpecification* spec) const {
+  DCHECK(spec);
+  DCHECK_EQ(sizeof(MINIDUMP_THREAD), thread_data.size());
+  const MINIDUMP_THREAD* thread =
+      reinterpret_cast<const MINIDUMP_THREAD*>(&thread_data.at(0));
+
+  // The stack is a range of 'S' padded at either end with a single 'P'.
+  DCHECK_GT(thread->Stack.StartOfMemoryRange, 0U);
+  const ULONG32 kStackMaxSize = static_cast<ULONG32>(-1) - 1;
+  DCHECK(thread->Stack.Memory.DataSize < kStackMaxSize);
+  spec->address = thread->Stack.StartOfMemoryRange - 1;
+  spec->buffer.resize(thread->Stack.Memory.DataSize + 2, 'S');
+  spec->buffer[0] = 'P';
+  spec->buffer[thread->Stack.Memory.DataSize + 1] = 'P';
+}
+
+MinidumpSpecification::ExceptionSpecification::ExceptionSpecification(
+    uint32 thread_identifier) {
+  thread_id = thread_identifier;
+  exception_code = EXCEPTION_ACCESS_VIOLATION;
+  exception_flags = EXCEPTION_NONCONTINUABLE;
+  exception_record = 0ULL;
+  exception_address = 1111ULL;
+  exception_information.push_back(1);
+  exception_information.push_back(2222ULL);
+}
+
+MinidumpSpecification::ModuleSpecification::ModuleSpecification() {
+  addr = 12345ULL;
+  size = 75U;
+  checksum = 23U;
+  timestamp = 42U;
+  name = "someModule";
 }
 
 }  // namespace testing

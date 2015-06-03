@@ -43,23 +43,28 @@ TEST(MemoryAnalyzerTest, AnalyzeMinidump) {
   ASSERT_LE(1, bytes_layer->size());
 }
 
-TEST(MemoryAnalyzerTest, AnalyzeSyntheticMinidump) {
+class MemoryAnalyzerSyntheticTest : public testing::SyntheticMinidumpTest {
+};
+
+TEST_F(MemoryAnalyzerSyntheticTest, BasicTest) {
+  using MemorySpecification =
+      testing::MinidumpSpecification::MemorySpecification;
+
+  // Create a synthetic minidump with memory information.
   const char kDataFirst[] = "ABCD";
   const char kDataSecond[] = "EFGHI";
 
-  testing::MinidumpSpecification spec;
-  ASSERT_TRUE(spec.AddMemoryRegion(80ULL, kDataFirst));
-  ASSERT_TRUE(spec.AddMemoryRegion(88ULL, kDataSecond));
-  base::ScopedTempDir temp_dir;
-  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
-  base::FilePath minidump_path;
-  ASSERT_TRUE(spec.Serialize(temp_dir, &minidump_path));
+  ASSERT_TRUE(
+      minidump_spec_.AddMemoryRegion(MemorySpecification(80ULL, kDataFirst)));
+  ASSERT_TRUE(
+      minidump_spec_.AddMemoryRegion(MemorySpecification(88ULL, kDataSecond)));
+  ASSERT_NO_FATAL_FAILURE(Serialize());
 
+  // Analyze.
   Minidump minidump;
-  ASSERT_TRUE(minidump.Open(minidump_path));
+  ASSERT_TRUE(minidump.Open(dump_file()));
 
   ProcessState process_state;
-
   MemoryAnalyzer analyzer;
   ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
             analyzer.Analyze(minidump, &process_state));

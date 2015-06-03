@@ -20,7 +20,9 @@
 
 namespace refinery {
 
-// The exception analyzer populates the Exception data from the minidump.
+// The exception analyzer populates the stack layer with exception data from the
+// minidump. The stack layer must be populated before analysis is performed.
+// TODO(manzagop): parse the exception's context.
 class ExceptionAnalyzer : public Analyzer {
  public:
   ExceptionAnalyzer() {}

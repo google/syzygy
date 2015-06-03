@@ -43,25 +43,18 @@ TEST(ModuleAnalyzerTest, AnalyzeMinidump) {
   ASSERT_LE(1, module_layer->size());
 }
 
-TEST(ModuleAnalyzerTest, AnalyzeSyntheticMinidump) {
-  // Create a minidump with a single module.
-  testing::MinidumpSpecification spec;
-  testing::MinidumpSpecification::ModuleSpecification module_spec;
-  module_spec.addr = 12345ULL;
-  module_spec.size = 75U;
-  module_spec.checksum = 23U;
-  module_spec.timestamp = 42U;
-  module_spec.name = "someModule";
-  spec.AddModule(module_spec);
+class ModuleAnalyzerSyntheticTest : public testing::SyntheticMinidumpTest {
+};
 
-  base::ScopedTempDir temp_dir;
-  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
-  base::FilePath minidump_path;
-  ASSERT_TRUE(spec.Serialize(temp_dir, &minidump_path));
+TEST_F(ModuleAnalyzerSyntheticTest, BasicTest) {
+  // Create a minidump with a single module.
+  testing::MinidumpSpecification::ModuleSpecification module_spec;
+  minidump_spec_.AddModule(module_spec);
+  ASSERT_NO_FATAL_FAILURE(Serialize());
 
   // Analyze it for modules.
   Minidump minidump;
-  ASSERT_TRUE(minidump.Open(minidump_path));
+  ASSERT_TRUE(minidump.Open(dump_file()));
   ProcessState process_state;
   ModuleAnalyzer analyzer;
   ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,

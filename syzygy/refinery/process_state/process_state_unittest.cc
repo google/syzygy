@@ -55,6 +55,32 @@ TEST(ProcessStateTest, FindOrCreateLayer) {
   EXPECT_FALSE(report.FindLayer(&typed_layer));
 }
 
+TEST(ProcessStateTest, FindStackRecord) {
+  const size_t kThreadId = 42;
+  ProcessState report;
+  StackRecordPtr retrieved;
+
+  // Report doesn't have a stack layer.
+  ASSERT_FALSE(report.FindStackRecord(kThreadId, &retrieved));
+
+  // Report has an empty stack layer.
+  StackLayerPtr stack_layer;
+  report.FindOrCreateLayer(&stack_layer);
+  ASSERT_FALSE(report.FindStackRecord(kThreadId, &retrieved));
+
+  // Add a stack record to the report.
+  StackRecordPtr created;
+  stack_layer->CreateRecord(AddressRange(8000ULL, 80U), &created);
+  created->mutable_data()->mutable_thread_info()->set_thread_id(kThreadId);
+
+  // Search for a non-existing thread id.
+  ASSERT_FALSE(report.FindStackRecord(kThreadId + 1, &retrieved));
+
+  // Search for the existing thread id.
+  ASSERT_TRUE(report.FindStackRecord(kThreadId, &retrieved));
+  ASSERT_EQ(created.get(), retrieved.get());
+}
+
 TEST(ProcessStateTest, AddressRangeBasics) {
   const Address kAddr = 0xCAFE0000ULL;
   const Size kSize = 0xBABEU;

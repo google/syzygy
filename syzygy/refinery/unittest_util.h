@@ -23,6 +23,7 @@
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/strings/string_piece.h"
+#include "gtest/gtest.h"
 #include "syzygy/refinery/core/address.h"
 #include "syzygy/refinery/process_state/process_state.h"
 
@@ -41,52 +42,39 @@ class TestMinidumps {
 // specification is deleted.
 class MinidumpSpecification {
  public:
-  struct ModuleSpecification {
-    refinery::Address addr;
-    refinery::Size size;
-    uint32 checksum;
-    uint32 timestamp;
-    std::string name;
-  };
+  // Forward.
+  struct MemorySpecification;
+  struct ThreadSpecification;
+  struct ExceptionSpecification;
+  struct ModuleSpecification;
 
   MinidumpSpecification();
 
   // Adds thread data to the specification. Note that the stack's memory must
   // be added independently to the specification. The adbsence of a memory
   // region spanning the stack's range leads to failure at serialization time.
-  // @pre @p thread_size_bytes must be of size sizeof(MINIDUMP_THREAD).
-  // @pre @p context_size_bytes must be of size sizeof(CONTEXT).
-  // @param thread_data the address of the thread data to add.
-  // @param thread_size_bytes the size of the thread data to add.
-  // @param context_data the address of the context data to add.
-  // @param context_size_bytes the size of the context data to add.
+  // @pre @p thread.thread_data.size() must be sizeof(MINIDUMP_THREAD).
+  // @pre @p thread.context_data.size() must be sizeof(CONTEXT).
+  // @param thread the specification of the thread data to addd.
   // @returns true on success, false otherwise.
-  bool AddThread(const void* thread_data,
-                 size_t thread_size_bytes,
-                 const void* context_data,
-                 size_t context_size_bytes);
+  // TODO(manzagop): worth avoiding the copy? Here and below.
+  bool AddThread(const ThreadSpecification& thread);
 
   // Adds a memory region to the specification.
-  // @param addr the address the region is located at.
-  // @param bytes the bytes that make up the region.
+  // @param addr the memory specification to add.
   // @returns true on success, false if the memory region is not valid or if it
   //   overlaps with an existing memory region.
-  bool AddMemoryRegion(refinery::Address addr, base::StringPiece bytes);
-
-  // Adds a memory region to the specification.
-  // @param addr the address the region is located at.
-  // @param data the address of the bytes that make up the region.
-  // @param size_bytes the size of the region.
-  // @returns true on success, false if the memory region is not valid or if it
-  //   overlaps with an existing memory region.
-  bool AddMemoryRegion(refinery::Address addr,
-                       const void* data,
-                       size_t size_bytes);
+  bool AddMemoryRegion(const MemorySpecification& spec);
 
   // Adds a module to the specification.
   // @param module the specification of the module to add.
   // @returns true on success, false otherwise.
   bool AddModule(const ModuleSpecification& module);
+
+  // Adds an exception to the specification.
+  // @param module the specification of the exception to add.
+  // @returns true on success, false otherwise.
+  bool AddException(const ExceptionSpecification& exception);
 
   // Serializes the specification.
   // @param dir the directory to serialize to.
@@ -95,12 +83,81 @@ class MinidumpSpecification {
   bool Serialize(const base::ScopedTempDir& dir, base::FilePath* path) const;
 
  private:
-  // Represents thread and context.
-  std::vector<std::pair<std::string, std::string>> threads_;
-  std::map<refinery::Address, std::string> memory_regions_;
+  std::vector<ThreadSpecification> threads_;  // Represents thread and context.
+  std::vector<MemorySpecification> memory_regions_;
   std::vector<ModuleSpecification> modules_;
+  std::vector<ExceptionSpecification> exceptions_;
+
+  std::map<refinery::Address, refinery::Size> region_sizes_;
 
   DISALLOW_COPY_AND_ASSIGN(MinidumpSpecification);
+};
+
+class SyntheticMinidumpTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+  }
+
+  void Serialize() {
+    ASSERT_TRUE(minidump_spec_.Serialize(temp_dir_, &dump_file_));
+  }
+
+  const base::FilePath& dump_file() const { return dump_file_; }
+
+  MinidumpSpecification minidump_spec_;
+
+ private:
+  base::ScopedTempDir temp_dir_;
+  base::FilePath dump_file_;
+};
+
+struct MinidumpSpecification::MemorySpecification {
+  MemorySpecification();
+  MemorySpecification(refinery::Address addr, base::StringPiece data);
+
+  refinery::Address address;
+  std::string buffer;
+};
+
+struct MinidumpSpecification::ThreadSpecification {
+  // Constructor that initializes the specification using provided parameters.
+  // @param thread_id the id of the thread.
+  // @param stack_address the address id of the thread's stack.
+  // @param stack_size the size of the thread's stack.
+  ThreadSpecification(size_t thread_id,
+                      refinery::Address stack_address,
+                      refinery::Size stack_size);
+
+  // Sets @p spec to a memory specification that is suitable for backing with
+  // the current specification's stack.
+  // @param spec the memory specification to set.
+  void FillStackMemorySpecification(
+      MinidumpSpecification::MemorySpecification* spec) const;
+
+  std::string thread_data;  // represents a MINIDUMP_THREAD.
+  std::string context_data;  // represents a CONTEXT.
+};
+
+struct MinidumpSpecification::ExceptionSpecification {
+  explicit ExceptionSpecification(uint32 thread_id);
+
+  uint32 thread_id;
+  uint32 exception_code;
+  uint32 exception_flags;
+  uint64 exception_record;
+  uint64 exception_address;
+  std::vector<uint64> exception_information;
+};
+
+struct MinidumpSpecification::ModuleSpecification {
+  ModuleSpecification();
+
+  refinery::Address addr;
+  refinery::Size size;
+  uint32 checksum;
+  uint32 timestamp;
+  std::string name;
 };
 
 }  // namespace testing

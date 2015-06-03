@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "syzygy/refinery/process_state/process_state.h"
+#include "syzygy/refinery/process_state/process_state_util.h"
 
 namespace refinery {
 
@@ -20,6 +21,26 @@ ProcessState::ProcessState() {
 }
 
 ProcessState::~ProcessState() {
+}
+
+bool ProcessState::FindStackRecord(
+    size_t thread_id,
+    scoped_refptr<Record<Stack>>* record) {
+  StackLayerPtr stack_layer;
+  if (!FindLayer(&stack_layer))
+    return false;
+
+  for (StackRecordPtr stack : *stack_layer) {
+    const Stack& stack_proto = stack->data();
+    DCHECK(stack_proto.has_thread_info());
+    DCHECK(stack_proto.thread_info().has_thread_id());
+    if (stack_proto.thread_info().thread_id() == thread_id) {
+      *record = stack;
+      return true;
+    }
+  }
+
+  return false;
 }
 
 }  // namespace refinery

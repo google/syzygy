@@ -43,6 +43,17 @@ message RegisterInformation {
   optional uint32 seg_ss = 16;
 };
 
+message Exception {
+  optional uint32 thread_id = 1;
+
+  optional uint32 exception_code = 2;
+  optional uint32 exception_flags = 3;
+  optional uint64 exception_record = 4;
+  optional uint64 exception_address = 5;
+  repeated uint64 exception_information = 6;
+
+  optional RegisterInformation register_info = 7;
+}
 
 // TODO(siggi, manzagop): Should this have optional platform-specific
 //    sub-structures?
@@ -55,6 +66,7 @@ message ThreadInformation {
   optional uint64 teb_address = 5;
 
   optional RegisterInformation register_info = 6;
+  optional Exception exception = 7;
 }
 
 // Also holds thread information.
@@ -77,5 +89,3 @@ message Module {
   optional string name = 3;
 }
 
-message Exception {
-}

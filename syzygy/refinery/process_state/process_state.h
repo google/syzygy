@@ -24,6 +24,7 @@
 #include "base/memory/ref_counted.h"
 #include "syzygy/refinery/core/address.h"
 #include "syzygy/refinery/process_state/record_traits.h"
+#include "syzygy/refinery/process_state/refinery.pb.h"
 
 namespace refinery {
 
@@ -56,6 +57,13 @@ class ProcessState {
   // @param layer the returned layer.
   template<typename RecordType>
   void FindOrCreateLayer(scoped_refptr<Layer<RecordType>>* layer);
+
+  // Finds the stack record of the thread of id @p thread_id.
+  // @param thread_id the id of the thread.
+  // @param record on success, the returned stack record.
+  // @returns true on success, false if record doesn't exist.
+  bool FindStackRecord(size_t thread_id,
+                       scoped_refptr<Record<Stack>>* record);
 
  private:
   class LayerBase;
