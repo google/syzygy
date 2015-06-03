@@ -15,6 +15,7 @@
 #include "syzygy/instrument/instrumenters/instrumenter_with_agent.h"
 
 #include "base/command_line.h"
+#include "base/files/file_path.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -25,65 +26,28 @@ namespace instrumenters {
 
 namespace {
 
-using testing::StrictMock;
-using testing::Return;
-using testing::_;
-
 const char kTestAgentDllName[] = "test_agent_dll.dll";
-
-class MockPERelinker : public pe::PERelinker {
- public:
-  MockPERelinker() : pe::PERelinker(&policy_) {
-  }
-
-  MOCK_METHOD0(Init, bool());
-  MOCK_METHOD0(Relink, bool());
-
- private:
-  pe::PETransformPolicy policy_;
-};
-
-class MockCoffRelinker : public pe::CoffRelinker {
- public:
-  MockCoffRelinker() : pe::CoffRelinker(&policy_) {
-  }
-
-  MOCK_METHOD0(Init, bool());
-  MOCK_METHOD0(Relink, bool());
-
- private:
-  pe::CoffTransformPolicy policy_;
-};
 
 class TestInstrumenterWithAgent : public InstrumenterWithAgent {
  public:
   using InstrumenterWithAgent::input_image_path_;
-  using InstrumenterWithAgent::input_pdb_path_;
   using InstrumenterWithAgent::output_image_path_;
-  using InstrumenterWithAgent::output_pdb_path_;
-  using InstrumenterWithAgent::allow_overwrite_;
-  using InstrumenterWithAgent::no_augment_pdb_;
-  using InstrumenterWithAgent::no_strip_strings_;
 
   TestInstrumenterWithAgent() {
-    agent_dll_ = kTestAgentDllName;
-  }
-
-  // For the purposes of testing, our instrumenter supports all image formats.
-  virtual bool ImageFormatIsSupported(ImageFormat image_format) override {
-    return true;
+    // |agent_dll_| is left empty.
   }
 
   MOCK_METHOD0(InstrumentImpl, bool());
 
-  pe::PERelinker* GetPERelinker() override { return &mock_pe_relinker_; }
+  const char* InstrumentationMode() override { return "test"; }
+};
 
-  pe::CoffRelinker* GetCoffRelinker() override { return &mock_coff_relinker_; }
-
-  virtual const char* InstrumentationMode() override { return "test"; }
-
-  StrictMock<MockPERelinker> mock_pe_relinker_;
-  StrictMock<MockCoffRelinker> mock_coff_relinker_;
+class TestInstrumenterWithAgentHasDefaultDll :
+    public TestInstrumenterWithAgent {
+ public:
+  TestInstrumenterWithAgentHasDefaultDll() {
+    agent_dll_ = kTestAgentDllName;
+  }
 };
 
 class InstrumenterWithAgentTest : public testing::PELibUnitTest {
@@ -94,7 +58,7 @@ class InstrumenterWithAgentTest : public testing::PELibUnitTest {
       : cmd_line_(base::FilePath(L"instrument.exe")) {
   }
 
-  virtual void SetUp() override {
+  void SetUp() override {
     testing::Test::SetUp();
 
     // Several of the tests generate progress and (deliberate) error messages
@@ -116,22 +80,6 @@ class InstrumenterWithAgentTest : public testing::PELibUnitTest {
     input_pdb_path_ = testing::GetRelativePath(abs_input_pdb_path_);
     output_pe_image_path_ = temp_dir_.Append(input_pe_image_path_.BaseName());
     output_pdb_path_ = temp_dir_.Append(input_pdb_path_.BaseName());
-
-    abs_input_coff_image_path_ = testing::GetExeTestDataRelativePath(
-        testing::kTestDllCoffObjName);
-    input_coff_image_path_ = testing::GetRelativePath(
-        abs_input_coff_image_path_);
-    output_coff_image_path_ = temp_dir_.Append(testing::kTestDllCoffObjName);
-  }
-
-  void SetUpValidCommandLinePE() {
-    cmd_line_.AppendSwitchPath("input-image", input_pe_image_path_);
-    cmd_line_.AppendSwitchPath("output-image", output_pe_image_path_);
-  }
-
-  void SetUpValidCommandLineCoff() {
-    cmd_line_.AppendSwitchPath("input-image", input_coff_image_path_);
-    cmd_line_.AppendSwitchPath("output-image", output_coff_image_path_);
   }
 
  protected:
@@ -151,127 +99,59 @@ class InstrumenterWithAgentTest : public testing::PELibUnitTest {
   base::FilePath input_pdb_path_;
   base::FilePath output_pe_image_path_;
   base::FilePath output_pdb_path_;
-  base::FilePath input_coff_image_path_;
-  base::FilePath output_coff_image_path_;
   // @}
 
   // @name Expected final values of input parameters.
   // @{
   base::FilePath abs_input_pe_image_path_;
   base::FilePath abs_input_pdb_path_;
-  base::FilePath abs_input_coff_image_path_;
   // @}
 };
 
 }  // namespace
 
+TEST_F(InstrumenterWithAgentTest, HasDefault_agent_dll) {
+  TestInstrumenterWithAgentHasDefaultDll instrumenter;
+  EXPECT_EQ(kTestAgentDllName, instrumenter.agent_dll());
+}
+
 TEST_F(InstrumenterWithAgentTest, EmptyCommandLineFails) {
-  TestInstrumenterWithAgent instrumenter;
-  ASSERT_FALSE(instrumenter.ParseCommandLine(&cmd_line_));
+  TestInstrumenterWithAgentHasDefaultDll instrumenter;
+  EXPECT_FALSE(instrumenter.ParseCommandLine(&cmd_line_));
 }
 
 TEST_F(InstrumenterWithAgentTest, ParseWithNoInputImageFails) {
   cmd_line_.AppendSwitchPath("output-image", output_pe_image_path_);
 
-  TestInstrumenterWithAgent instrumenter;
-  ASSERT_FALSE(instrumenter.ParseCommandLine(&cmd_line_));
+  TestInstrumenterWithAgentHasDefaultDll instrumenter;
+  EXPECT_FALSE(instrumenter.ParseCommandLine(&cmd_line_));
 }
 
 TEST_F(InstrumenterWithAgentTest, ParseWithNoOutputImageFails) {
   cmd_line_.AppendSwitchPath("input-image", input_pe_image_path_);
 
-  TestInstrumenterWithAgent instrumenter;
-  ASSERT_FALSE(instrumenter.ParseCommandLine(&cmd_line_));
+  TestInstrumenterWithAgentHasDefaultDll instrumenter;
+  EXPECT_FALSE(instrumenter.ParseCommandLine(&cmd_line_));
 }
 
-TEST_F(InstrumenterWithAgentTest, ParseInputImages) {
+TEST_F(InstrumenterWithAgentTest, ParseWithNoAgentDllFails) {
   cmd_line_.AppendSwitchPath("input-image", input_pe_image_path_);
   cmd_line_.AppendSwitchPath("output-image", output_pe_image_path_);
 
-  TestInstrumenterWithAgent instrumenter;
+  TestInstrumenterWithAgent instrumenter;  // No default DLL.
+  EXPECT_FALSE(instrumenter.ParseCommandLine(&cmd_line_));
+}
+
+TEST_F(InstrumenterWithAgentTest, ParseInputRequired) {
+  cmd_line_.AppendSwitchPath("input-image", input_pe_image_path_);
+  cmd_line_.AppendSwitchPath("output-image", output_pe_image_path_);
+  cmd_line_.AppendSwitchASCII("agent", kTestAgentDllName);
+
+  TestInstrumenterWithAgent instrumenter;  // No default DLL.
   EXPECT_TRUE(instrumenter.ParseCommandLine(&cmd_line_));
   EXPECT_EQ(abs_input_pe_image_path_, instrumenter.input_image_path_);
   EXPECT_EQ(output_pe_image_path_, instrumenter.output_image_path_);
-
-  EXPECT_FALSE(instrumenter.allow_overwrite_);
-  EXPECT_FALSE(instrumenter.no_augment_pdb_);
-  EXPECT_FALSE(instrumenter.no_strip_strings_);
-}
-
-TEST_F(InstrumenterWithAgentTest, agent_dll) {
-  TestInstrumenterWithAgent instrumenter;
-  EXPECT_STREQ(kTestAgentDllName, instrumenter.agent_dll().c_str());
-}
-
-TEST_F(InstrumenterWithAgentTest, InstrumentPE) {
-  SetUpValidCommandLinePE();
-
-  TestInstrumenterWithAgent instrumenter;
-  EXPECT_TRUE(instrumenter.ParseCommandLine(&cmd_line_));
-  EXPECT_CALL(instrumenter.mock_pe_relinker_, Init()).WillOnce(Return(true));
-  EXPECT_CALL(instrumenter.mock_pe_relinker_, Relink()).WillOnce(Return(true));
-  EXPECT_CALL(instrumenter, InstrumentImpl()).WillOnce(Return(true));
-
-  EXPECT_TRUE(instrumenter.Instrument());
-}
-
-TEST_F(InstrumenterWithAgentTest, InstrumentCoff) {
-  SetUpValidCommandLineCoff();
-
-  TestInstrumenterWithAgent instrumenter;
-  EXPECT_TRUE(instrumenter.ParseCommandLine(&cmd_line_));
-  EXPECT_CALL(instrumenter.mock_coff_relinker_, Init()).WillOnce(Return(true));
-  EXPECT_CALL(instrumenter.mock_coff_relinker_, Relink()).WillOnce(
-      Return(true));
-  EXPECT_CALL(instrumenter, InstrumentImpl()).WillOnce(Return(true));
-
-  EXPECT_TRUE(instrumenter.Instrument());
-}
-
-TEST_F(InstrumenterWithAgentTest, InstrumentFailsInitPE) {
-  TestInstrumenterWithAgent instrumenter;
-  SetUpValidCommandLinePE();
-  EXPECT_TRUE(instrumenter.ParseCommandLine(&cmd_line_));
-
-  EXPECT_CALL(instrumenter.mock_pe_relinker_, Init()).WillOnce(Return(false));
-
-  EXPECT_FALSE(instrumenter.Instrument());
-}
-
-TEST_F(InstrumenterWithAgentTest, InstrumentFailsInitCoff) {
-  TestInstrumenterWithAgent instrumenter;
-  SetUpValidCommandLineCoff();
-  EXPECT_TRUE(instrumenter.ParseCommandLine(&cmd_line_));
-
-  EXPECT_CALL(instrumenter.mock_coff_relinker_, Init()).WillOnce(Return(false));
-
-  EXPECT_FALSE(instrumenter.Instrument());
-}
-
-TEST_F(InstrumenterWithAgentTest, InstrumentFailsRelinkPE) {
-  TestInstrumenterWithAgent instrumenter;
-  SetUpValidCommandLinePE();
-  EXPECT_TRUE(instrumenter.ParseCommandLine(&cmd_line_));
-
-  EXPECT_CALL(instrumenter.mock_pe_relinker_, Init()).WillOnce(Return(true));
-  EXPECT_CALL(instrumenter.mock_pe_relinker_, Relink()).WillOnce(
-      Return(false));
-  EXPECT_CALL(instrumenter, InstrumentImpl()).WillOnce(Return(true));
-
-  EXPECT_FALSE(instrumenter.Instrument());
-}
-
-TEST_F(InstrumenterWithAgentTest, InstrumentFailsRelinkCoff) {
-  TestInstrumenterWithAgent instrumenter;
-  SetUpValidCommandLineCoff();
-  EXPECT_TRUE(instrumenter.ParseCommandLine(&cmd_line_));
-
-  EXPECT_CALL(instrumenter.mock_coff_relinker_, Init()).WillOnce(Return(true));
-  EXPECT_CALL(instrumenter.mock_coff_relinker_, Relink()).WillOnce(
-      Return(false));
-  EXPECT_CALL(instrumenter, InstrumentImpl()).WillOnce(Return(true));
-
-  EXPECT_FALSE(instrumenter.Instrument());
+  EXPECT_EQ(kTestAgentDllName, instrumenter.agent_dll());
 }
 
 }  // namespace instrumenters

@@ -12,44 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Specialization of the instrumenter interface for the instrumenters who use an
-// agent. This performs all the common bits of this kind of instrumenters:
-//     - Parse the shared command-line parameters.
-//     - Initialization the relinker.
-//     - Default implementation of Instrument.
+// Specialization of the instrumenter interface for instrumenters that use an
+// agent (and also the relinker).
 #ifndef  SYZYGY_INSTRUMENT_INSTRUMENTERS_INSTRUMENTER_WITH_AGENT_H_
 #define  SYZYGY_INSTRUMENT_INSTRUMENTERS_INSTRUMENTER_WITH_AGENT_H_
 
 #include <string>
 
 #include "base/command_line.h"
-#include "syzygy/instrument/instrumenter.h"
-#include "syzygy/pe/coff_relinker.h"
-#include "syzygy/pe/pe_relinker.h"
+#include "syzygy/instrument/instrumenters/instrumenter_with_relinker.h"
 
 namespace instrument {
 namespace instrumenters {
 
-class InstrumenterWithAgent : public InstrumenterInterface {
+class InstrumenterWithAgent : public InstrumenterWithRelinker {
  public:
+  typedef InstrumenterWithRelinker Super;
   typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::BlockGraph::ImageFormat ImageFormat;
 
-  InstrumenterWithAgent()
-      : image_format_(BlockGraph::PE_IMAGE),
-        allow_overwrite_(false),
-        debug_friendly_(false),
-        no_augment_pdb_(false),
-        no_strip_strings_(false) {
-  }
-
+  InstrumenterWithAgent() { }
   ~InstrumenterWithAgent() { }
-
-  // @name InstrumenterInterface implementation.
-  // @{
-  bool ParseCommandLine(const base::CommandLine* command_line) override final;
-  bool Instrument() override;
-  // @}
 
   // @name Accessors.
   // @
@@ -59,71 +42,22 @@ class InstrumenterWithAgent : public InstrumenterInterface {
   // @}
 
  protected:
-  // Virtual method that determines whether or not the input object file
-  // format is supported by the instrumenter. The default implementation
-  // supports PE files, and does not support COFF files.
-  virtual bool ImageFormatIsSupported(ImageFormat image_format);
-
-  // Virtual method that does the actual instrumentation for a given agent.
-  // This function is meant to be called by the Instrument function.
-  // @note The implementation should log on failure.
-  virtual bool InstrumentImpl() = 0;
-
-  // Pure virtual method that should return the name of the instrumentation
-  // mode.
-  virtual const char* InstrumentationMode() = 0;
-
-  // Command line parsing to be executed before all subclasses. Subclass
-  // overrides should call Super::DoCommandLineParse() at the beginning.
-  virtual bool DoCommandLineParse(const base::CommandLine* command_line);
-
-  // Performs more validation after all parsing is done. Subclass overrides
-  // should call Super::CheckCommandLineParse() at the end.
-  virtual bool CheckCommandLineParse(const base::CommandLine* command_line);
-
-  // @name Internal machinery, replaceable for testing purposes. These will
-  //     only ever be called once per object lifetime.
+  // @name InstrumenterWithRelinker interface redeclaration.
   // @{
-  virtual pe::PETransformPolicy* GetPETransformPolicy();
-  virtual pe::CoffTransformPolicy* GetCoffTransformPolicy();
-  virtual pe::PERelinker* GetPERelinker();
-  virtual pe::CoffRelinker* GetCoffRelinker();
+  virtual bool InstrumentImpl() = 0;
+  virtual const char* InstrumentationMode() = 0;
   // @}
 
-  // Creates and configures a relinker. This is split out for unittesting
-  // purposes, allowing child classes to test their InstrumentImpl functions
-  // in isolation.
-  bool CreateRelinker();
+  // @name Super overrides.
+  // @{
+  bool DoCommandLineParse(const base::CommandLine* command_line) override;
+  bool CheckCommandLineParse(const base::CommandLine* command_line) override;
+  // @}
 
   // The agent DLL used by this instrumentation.
   std::string agent_dll_;
 
-  // The type of image file we are transforming.
-  ImageFormat image_format_;
-
-  // @name Command-line parameters.
-  // @{
-  base::FilePath input_image_path_;
-  base::FilePath input_pdb_path_;
-  base::FilePath output_image_path_;
-  base::FilePath output_pdb_path_;
-  bool allow_overwrite_;
-  bool debug_friendly_;
-  bool no_augment_pdb_;
-  bool no_strip_strings_;
-  // @}
-
-  // This is used to save a pointer to the object returned by the call to
-  // Get(PE|Coff)Relinker. Ownership of the object is internal in the default
-  // case, but may be external during tests.
-  pe::RelinkerInterface* relinker_;
-
  private:
-  // They are used as containers for holding policy and relinker objects that
-  // are allocated by our default Get* implementations above.
-  scoped_ptr<block_graph::TransformPolicyInterface> policy_object_;
-  scoped_ptr<pe::RelinkerInterface> relinker_object_;
-
   DISALLOW_COPY_AND_ASSIGN(InstrumenterWithAgent);
 };
 
