@@ -511,6 +511,9 @@ void AsanRuntime::TearDown() {
 void AsanRuntime::OnErrorImpl(AsanErrorInfo* error_info) {
   DCHECK_NE(reinterpret_cast<AsanErrorInfo*>(NULL), error_info);
 
+  // Copy the parameters into the crash report.
+  error_info->asan_parameters = params_;
+
   LogAsanErrorInfo(error_info);
 
   if (params_.minidump_on_failure) {

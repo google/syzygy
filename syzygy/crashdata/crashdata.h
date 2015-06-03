@@ -65,6 +65,13 @@ Value* DictAddValue(const std::string& key, Dictionary* dict);
 // @returns a pointer to the created leaf.
 Leaf* DictAddLeaf(const char* key, Dictionary* dict);
 Leaf* DictAddLeaf(const std::string& key, Dictionary* dict);
+
+// Adds a value containing a dictionary to a dictionary.
+// @param key The key name.
+// @param dict The dictionary to be modified.
+// @returns a pointer to the created dictionnary.
+Dictionary* DictAddDict(const char* key, Dictionary* dict);
+Dictionary* DictAddDict(const std::string& key, Dictionary* dict);
 // @}
 
 // @name Functions for initializing leaves.

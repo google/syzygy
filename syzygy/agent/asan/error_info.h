@@ -22,6 +22,7 @@
 #include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/heap.h"
 #include "syzygy/agent/common/stack_capture.h"
+#include "syzygy/common/asan_parameters.h"
 
 // Forward declaration.
 namespace crashdata {
@@ -158,6 +159,8 @@ struct AsanErrorInfo {
   // array will be stored in |corrupt_ranges_reported|. This will be NULL if
   // |corrupt_ranges_reported| is zero.
   AsanCorruptBlockRange* corrupt_ranges;
+  // The current configuration of the runtime library.
+  ::common::AsanParameters asan_parameters;
 };
 
 // This callback allows a heap manager to report heap consistency problems that

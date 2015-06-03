@@ -429,9 +429,8 @@ TEST_F(AsanErrorInfoTest, PopulateCorruptBlockRange) {
       "    }\n"
       "  ]\n"
       "}";
-  std::string expected = base::StringPrintf(
-        kExpected, block_info.header);
-    EXPECT_EQ(expected, json);
+  std::string expected = base::StringPrintf(kExpected, block_info.header);
+  EXPECT_EQ(expected, json);
 }
 
 TEST_F(AsanErrorInfoTest, PopulateErrorInfo) {
@@ -466,6 +465,8 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfo) {
   error_info.corrupt_block_count = 200;
   error_info.corrupt_ranges_reported = 1;
   error_info.corrupt_ranges = &range;
+
+  ::common::SetDefaultAsanParameters(&error_info.asan_parameters);
 
   crashdata::Value info;
   PopulateErrorInfo(error_info, &info);
@@ -568,7 +569,22 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfo) {
       "        }\n"
       "      ]\n"
       "    }\n"
-      "  ]\n"
+      "  ],\n"
+      "  \"asan-parameters\": {\n"
+      "    \"quarantine-size\": 16777216,\n"
+      "    \"trailer-padding-size\": 0,\n"
+      "    \"quarantine-block-size\": 4194304,\n"
+      "    \"check-heap-on-failure\": 1,\n"
+      "    \"enable-ctmalloc\": 1,\n"
+      "    \"enable-zebra-block-heap\": 0,\n"
+      "    \"enable-large-block-heap\": 1,\n"
+      "    \"enable-allocation-filter\": 0,\n"
+      "    \"allocation-guard-rate\": 1.0000000000000000E+000,\n"
+      "    \"zebra-block-heap-size\": 16777216,\n"
+      "    \"zebra-block-heap-quarantine-ratio\": 2.5000000000000000E-001,\n"
+      "    \"large-allocation-threshold\": 20480,\n"
+      "    \"quarantine-flood-fill-rate\": 5.0000000000000000E-001\n"
+      "  }\n"
       "}";
   std::string expected = base::StringPrintf(kExpected,
                                             block_info.header,

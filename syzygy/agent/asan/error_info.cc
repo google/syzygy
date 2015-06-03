@@ -480,6 +480,56 @@ void PopulatePageBitsBlob(const AsanErrorInfo& error_info,
       length);
 }
 
+void PopulateAsanParameters(const AsanErrorInfo& error_info,
+                            crashdata::Dictionary* dict) {
+  DCHECK_NE(static_cast<crashdata::Dictionary*>(nullptr), dict);
+
+  // Any new parameter added to the parameters structure should also be added
+  // here.
+  DCHECK_EQ(10u, ::common::kAsanParametersVersion);
+  crashdata::Dictionary* param_dict = crashdata::DictAddDict("asan-parameters",
+                                                             dict);
+  DCHECK_NE(static_cast<crashdata::Dictionary*>(nullptr), param_dict);
+  crashdata::LeafSetUInt(error_info.asan_parameters.quarantine_size,
+                         crashdata::DictAddLeaf("quarantine-size", param_dict));
+  crashdata::LeafSetUInt(error_info.asan_parameters.trailer_padding_size,
+                         crashdata::DictAddLeaf("trailer-padding-size",
+                                                param_dict));
+  crashdata::LeafSetUInt(error_info.asan_parameters.quarantine_block_size,
+                         crashdata::DictAddLeaf("quarantine-block-size",
+                                                param_dict));
+  crashdata::LeafSetUInt(error_info.asan_parameters.check_heap_on_failure,
+                         crashdata::DictAddLeaf("check-heap-on-failure",
+                                                param_dict));
+  crashdata::LeafSetUInt(error_info.asan_parameters.enable_ctmalloc,
+                         crashdata::DictAddLeaf("enable-ctmalloc",
+                                                param_dict));
+  crashdata::LeafSetUInt(error_info.asan_parameters.enable_zebra_block_heap,
+                         crashdata::DictAddLeaf("enable-zebra-block-heap",
+                                                param_dict));
+  crashdata::LeafSetUInt(error_info.asan_parameters.enable_large_block_heap,
+                         crashdata::DictAddLeaf("enable-large-block-heap",
+                                                param_dict));
+  crashdata::LeafSetUInt(error_info.asan_parameters.enable_allocation_filter,
+                         crashdata::DictAddLeaf("enable-allocation-filter",
+                                                param_dict));
+  crashdata::LeafSetReal(error_info.asan_parameters.allocation_guard_rate,
+                         crashdata::DictAddLeaf("allocation-guard-rate",
+                                                param_dict));
+  crashdata::LeafSetUInt(error_info.asan_parameters.zebra_block_heap_size,
+                         crashdata::DictAddLeaf("zebra-block-heap-size",
+                                                param_dict));
+  crashdata::LeafSetReal(
+      error_info.asan_parameters.zebra_block_heap_quarantine_ratio,
+      crashdata::DictAddLeaf("zebra-block-heap-quarantine-ratio", param_dict));
+  crashdata::LeafSetUInt(error_info.asan_parameters.large_allocation_threshold,
+                         crashdata::DictAddLeaf("large-allocation-threshold",
+                                                param_dict));
+  crashdata::LeafSetReal(
+      error_info.asan_parameters.quarantine_flood_fill_rate,
+      crashdata::DictAddLeaf("quarantine-flood-fill-rate", param_dict));
+}
+
 }  // namespace
 
 // TODO(chrisha): Only emit information that makes sense for the given error
@@ -533,6 +583,7 @@ void PopulateErrorInfo(const AsanErrorInfo& error_info,
                                 list->add_values());
     }
   }
+  PopulateAsanParameters(error_info, dict);
 }
 
 }  // namespace asan

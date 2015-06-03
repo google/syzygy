@@ -72,11 +72,13 @@ class AsanRuntimeTest : public testing::TestWithAsanLogger {
 };
 
 bool callback_called = false;
+AsanErrorInfo callback_error_info = {};
 
 // A simple callback that change the value of a boolean to indicate that it has
 // been called.
 void TestCallback(AsanErrorInfo* error_info) {
   callback_called = true;
+  callback_error_info = *error_info;
 }
 
 }  // namespace
@@ -119,6 +121,9 @@ TEST_F(AsanRuntimeTest, OnError) {
   asan_runtime_.OnError(&bad_access_info);
   ASSERT_TRUE(callback_called);
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
+  ::common::AsanParameters params = asan_runtime_.params();
+  EXPECT_EQ(0u, ::memcmp(&params, &(callback_error_info.asan_parameters),
+                         sizeof(::common::AsanParameters)));
 }
 
 TEST_F(AsanRuntimeTest, SetCompressionReportingPeriod) {
