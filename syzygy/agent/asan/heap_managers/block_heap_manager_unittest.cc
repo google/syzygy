@@ -51,6 +51,7 @@ namespace {
 using heaps::ZebraBlockHeap;
 using testing::IsAccessible;
 using testing::IsNotAccessible;
+using testing::ScopedBlockAccess;
 
 typedef BlockHeapManager::HeapId HeapId;
 

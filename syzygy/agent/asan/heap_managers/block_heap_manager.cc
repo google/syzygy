@@ -74,7 +74,8 @@ BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
       zebra_block_heap_(nullptr),
       zebra_block_heap_id_(0),
       large_block_heap_id_(0),
-      locked_heaps_(nullptr) {
+      locked_heaps_(nullptr),
+      enable_page_protections_(true) {
   DCHECK_NE(static_cast<StackCaptureCache*>(nullptr), stack_cache);
   SetDefaultAsanParameters(&parameters_);
 
@@ -232,7 +233,8 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
   block.trailer->heap_id = heap_id;
 
   BlockSetChecksum(block);
-  BlockProtectRedzones(block);
+  if (enable_page_protections_)
+    BlockProtectRedzones(block);
 
   return block.body;
 }
@@ -251,8 +253,10 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
     return FreeUnguardedAlloc(heap_id, alloc);
   }
 
-  // Precondition: A valid guarded allocation.
-  BlockProtectNone(block_info);
+  if (enable_page_protections_) {
+    // Precondition: A valid guarded allocation.
+    BlockProtectNone(block_info);
+  }
 
   if (!BlockChecksumIsValid(block_info)) {
     // The free stack hasn't yet been set, but may have been filled with junk.
@@ -312,12 +316,14 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
     if (!quarantine->Push(compact))
       return FreePristineBlock(&block_info);
 
-    // The recently pushed block can be popped out in TrimQuarantine if the
-    // quarantine size is 0, in that case TrimQuarantine takes care of properly
-    // unprotecting and freeing the block. If the protection is set blindly
-    // after TrimQuarantine we could end up protecting a free (not quarantined,
-    // not allocated) block.
-    BlockProtectAll(block_info);
+    if (enable_page_protections_) {
+      // The recently pushed block can be popped out in TrimQuarantine if the
+      // quarantine size is 0, in that case TrimQuarantine takes care of
+      // properly unprotecting and freeing the block. If the protection is set
+      // blindly after TrimQuarantine we could end up protecting a free (not
+      // quarantined, not allocated) block.
+      BlockProtectAll(block_info);
+    }
   }
   TrimQuarantine(quarantine);
   return true;
@@ -636,8 +642,10 @@ bool BlockHeapManager::DestroyHeapContents(
     BlockInfo expanded = {};
     ConvertBlockInfo(iter_block, &expanded);
 
-    // Remove protection to enable access to the block header.
-    BlockProtectNone(expanded);
+    if (enable_page_protections_) {
+      // Remove protection to enable access to the block header.
+      BlockProtectNone(expanded);
+    }
 
     BlockHeapInterface* block_heap = GetHeapFromId(expanded.trailer->heap_id);
 
@@ -656,8 +664,10 @@ bool BlockHeapManager::DestroyHeapContents(
     BlockQuarantineInterface::AutoQuarantineLock quarantine_lock(quarantine,
                                                                  iter_block);
     if (quarantine->Push(iter_block)) {
-      // Restore protection to quarantined block.
-      BlockProtectAll(expanded);
+      if (enable_page_protections_) {
+        // Restore protection to quarantined block.
+        BlockProtectAll(expanded);
+      }
     } else {
       // Avoid memory leak.
       blocks_to_free.push_back(iter_block);
@@ -730,7 +740,8 @@ bool BlockHeapManager::FreePotentiallyCorruptBlock(BlockInfo* block_info) {
   DCHECK(initialized_);
   DCHECK_NE(static_cast<BlockInfo*>(nullptr), block_info);
 
-  BlockProtectNone(*block_info);
+  if (enable_page_protections_)
+    BlockProtectNone(*block_info);
 
   if (block_info->header->magic != kBlockHeaderMagic ||
       !BlockChecksumIsValid(*block_info) ||
@@ -754,8 +765,10 @@ bool BlockHeapManager::FreePristineBlock(BlockInfo* block_info) {
   DCHECK_NE(static_cast<BlockInfo*>(nullptr), block_info);
   BlockHeapInterface* heap = GetHeapFromId(block_info->trailer->heap_id);
 
-  // Remove block protections so the redzones may be modified.
-  BlockProtectNone(*block_info);
+  if (enable_page_protections_) {
+    // Remove block protections so the redzones may be modified.
+    BlockProtectNone(*block_info);
+  }
 
   // Return pointers to the stacks for reference counting purposes.
   if (block_info->header->alloc_stack != nullptr) {

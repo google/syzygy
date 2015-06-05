@@ -75,6 +75,13 @@ extern const char kHeapUnknownError[];
 extern const char kHeapCorruptBlock[];
 extern const char kCorruptHeap[];
 
+enum AsanFeatureSet {
+  ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS = (1 << 0),
+  ASAN_FEATURE_ENABLE_CTMALLOC = (1 << 1),
+  ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP = (1 << 2),
+  ASAN_FEATURE_MAX = (1 << 3),
+};
+
 // Store the information that we want to report about a block.
 // TODO(sebmarchand): Rename this to avoid the confusion with the BlockInfo
 //     structure?
@@ -161,6 +168,13 @@ struct AsanErrorInfo {
   AsanCorruptBlockRange* corrupt_ranges;
   // The current configuration of the runtime library.
   ::common::AsanParameters asan_parameters;
+  // Temporarily report the list of features that have been randomly enabled for
+  // this client. This is something that could be deduced by analyzing the
+  // |asan_parameters| structure but having it directly available in the crash
+  // report structure will make it easier to investigate on the heap corruption
+  // bug that we're tracking.
+  // TODO(sebmarchand): Remove this once we don't need it anymore.
+  AsanFeatureSet feature_set;
 };
 
 // This callback allows a heap manager to report heap consistency problems that

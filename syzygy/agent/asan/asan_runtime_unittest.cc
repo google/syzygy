@@ -14,6 +14,8 @@
 
 #include "syzygy/agent/asan/asan_runtime.h"
 
+#include <vector>
+
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/environment.h"
@@ -33,7 +35,9 @@ using agent::asan::AsanErrorInfo;
 // A derived class to expose protected members for unit-testing.
 class TestAsanRuntime : public AsanRuntime {
  public:
+  using AsanRuntime::GenerateRandomFeatureSet;
   using AsanRuntime::PropagateParams;
+  using AsanRuntime::enabled_features_;
 };
 
 class AsanRuntimeTest : public testing::TestWithAsanLogger {
@@ -234,6 +238,57 @@ TEST_F(AsanRuntimeTest, GetHeapType) {
   HeapManagerInterface::HeapId heap_id = asan_runtime_.GetProcessHeap();
   EXPECT_EQ(kCtMallocHeap, asan_runtime_.GetHeapType(heap_id));
 
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
+}
+
+TEST_F(AsanRuntimeTest, GenerateRandomFeatureSet) {
+  ASSERT_NO_FATAL_FAILURE(
+      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
+
+  const size_t kIterations = 10000;
+
+  std::vector<size_t> feature_group_frequency;
+  feature_group_frequency.resize(ASAN_FEATURE_MAX, 0);
+
+  for (size_t i = 0; i < kIterations; ++i) {
+    AsanFeatureSet feature_group = asan_runtime_.GenerateRandomFeatureSet();
+    ASSERT_LT(feature_group, ASAN_FEATURE_MAX);
+    feature_group_frequency[feature_group]++;
+  }
+
+  // This could theoretically fail, but that would imply an extremely bad
+  // implementation of the underlying random number generator. We expect a
+  // standard deviation of 1 / 8 * sqrt(10000 * 7) = 33. A 10% margin is
+  // 1000 / 33 = 30 standard deviations. For |z| > 30, the p-value is < 0.00001
+  // and can be considered as insignificant.
+  const size_t kExpectedCount = kIterations / ASAN_FEATURE_MAX;
+  const size_t kErrorMargin = kExpectedCount / 10;
+  for (const auto& iter : feature_group_frequency) {
+    EXPECT_LT(kExpectedCount - kErrorMargin, iter);
+    EXPECT_GT(kExpectedCount + kErrorMargin, iter);
+  }
+
+  ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
+}
+
+TEST_F(AsanRuntimeTest, OnErrorSaveEnabledFeatureList) {
+  asan_runtime_.params().enable_feature_randomization_ = true;
+  ASSERT_NO_FATAL_FAILURE(
+      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
+
+  // Disable the heap checking as this really slows down the unittests.
+  asan_runtime_.params().check_heap_on_failure = false;
+  asan_runtime_.SetErrorCallBack(base::Bind(&TestCallback));
+  callback_called = false;
+  callback_error_info.feature_set = ASAN_FEATURE_MAX;
+  AsanErrorInfo bad_access_info = {};
+  RtlCaptureContext(&bad_access_info.context);
+  AsanFeatureSet expected_feature_set = static_cast<AsanFeatureSet>(
+      ASAN_FEATURE_ENABLE_CTMALLOC | ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP);
+  asan_runtime_.enabled_features_ = expected_feature_set;
+  asan_runtime_.OnError(&bad_access_info);
+  EXPECT_TRUE(callback_called);
+  EXPECT_EQ(expected_feature_set, callback_error_info.feature_set);
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
 

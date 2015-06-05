@@ -72,30 +72,6 @@ void BlockProtectAll(const BlockInfo& block_info);
 // @note Under block_protect_lock.
 void BlockProtectAuto(const BlockInfo& block_info);
 
-// A scoped block access helper. Removes block protections when created via
-// BlockProtectNone, and restores them via BlockProtectAuto.
-// TODO(chrisha): Consider recording the fact the block protections on this
-//     block are being blocked in some synchronous manner. This will prevent
-//     the page protections from being added during the lifetime of this
-//     object.
-class ScopedBlockAccess {
- public:
-  // Constructor. Unprotects the provided block.
-  // @param block_info The block whose protections are to be modified.
-  explicit ScopedBlockAccess(const BlockInfo& block_info)
-      : block_info_(block_info) {
-    BlockProtectNone(block_info_);
-  }
-
-  // Destructor. Restores protections on the provided block.
-  ~ScopedBlockAccess() {
-    BlockProtectAuto(block_info_);
-  }
-
- private:
-  const BlockInfo& block_info_;
-};
-
 }  // namespace asan
 }  // namespace agent
 

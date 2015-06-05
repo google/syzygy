@@ -21,6 +21,8 @@
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/logging.h"
+#include "base/rand_util.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
@@ -220,6 +222,12 @@ void SetCrashKeys(const BreakpadFunctions& breakpad_functions,
     SetCrashKeyValuePair(breakpad_functions,
                          "asan-error-message",
                          error_info->shadow_info);
+  }
+
+  if (error_info->asan_parameters.enable_feature_randomization_) {
+    SetCrashKeyValuePair(breakpad_functions,
+                         "asan-feature-set",
+                         base::UintToString(error_info->feature_set).c_str());
   }
 }
 
@@ -461,6 +469,9 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   if (!::common::ParseAsanParameters(flags_command_line, &params_))
     return;
 
+  if (params_.enable_feature_randomization_)
+    enabled_features_ = GenerateRandomFeatureSet();
+
   // Propagates the flags values to the different modules.
   PropagateParams();
 
@@ -513,6 +524,7 @@ void AsanRuntime::OnErrorImpl(AsanErrorInfo* error_info) {
 
   // Copy the parameters into the crash report.
   error_info->asan_parameters = params_;
+  error_info->feature_set = enabled_features_;
 
   LogAsanErrorInfo(error_info);
 
@@ -627,7 +639,7 @@ void AsanRuntime::PropagateParams() {
   // checks will ensure that this is the case.
   COMPILE_ASSERT(sizeof(::common::AsanParameters) == 60,
                  must_update_propagate_params);
-  COMPILE_ASSERT(::common::kAsanParametersVersion == 10,
+  COMPILE_ASSERT(::common::kAsanParametersVersion == 11,
                  must_update_parameters_version);
 
   // Push the configured parameter values to the appropriate endpoints.
@@ -795,6 +807,19 @@ void AsanRuntime::LogAsanErrorInfo(AsanErrorInfo* error_info) {
   }
 }
 
+AsanFeatureSet AsanRuntime::GenerateRandomFeatureSet() {
+  AsanFeatureSet enabled_features = static_cast<AsanFeatureSet>(
+      base::RandGenerator(ASAN_FEATURE_MAX));
+  DCHECK_LT(enabled_features, ASAN_FEATURE_MAX);
+  heap_manager_->enable_page_protections_ =
+      (enabled_features & ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS) != 0;
+  params_.enable_ctmalloc =
+      (enabled_features & ASAN_FEATURE_ENABLE_CTMALLOC) != 0;
+  params_.enable_large_block_heap =
+      (enabled_features & ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP) != 0;
+  return enabled_features;
+}
+
 void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
   base::AutoLock lock(lock_);
 
@@ -914,7 +939,7 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
         if (StaticShadow::shadow.BlockInfoFromShadow(address, &block_info)) {
           // Page protections have to be removed from this block otherwise our
           // own inspection will cause further errors.
-          ScopedBlockAccess block_access(block_info);
+          BlockProtectNone(block_info);
 
           // Useful for unittesting.
           runtime_->logger_->Write("SyzyASAN: Caught an invalid access via "

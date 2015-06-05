@@ -486,7 +486,7 @@ void PopulateAsanParameters(const AsanErrorInfo& error_info,
 
   // Any new parameter added to the parameters structure should also be added
   // here.
-  DCHECK_EQ(10u, ::common::kAsanParametersVersion);
+  DCHECK_EQ(11u, ::common::kAsanParametersVersion);
   crashdata::Dictionary* param_dict = crashdata::DictAddDict("asan-parameters",
                                                              dict);
   DCHECK_NE(static_cast<crashdata::Dictionary*>(nullptr), param_dict);

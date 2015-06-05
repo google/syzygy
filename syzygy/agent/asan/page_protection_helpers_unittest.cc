@@ -294,34 +294,5 @@ TEST_F(PageProtectionHelpersTest, BlockProtectAuto) {
   ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
 }
 
-TEST_F(PageProtectionHelpersTest, ScopedBlockAccess) {
-  BlockLayout layout = {};
-  const size_t kPageSize = GetPageSize();
-  EXPECT_TRUE(BlockPlanLayout(kPageSize, kPageSize, kPageSize, kPageSize,
-                              kPageSize, &layout));
-  void* alloc = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
-                               PAGE_READWRITE);
-  ASSERT_TRUE(alloc != NULL);
-
-  BlockInfo block_info = {};
-  BlockInitialize(layout, alloc, false, &block_info);
-  TestAccessUnderProtection(block_info, kProtectNone);
-
-  block_info.header->state = FREED_BLOCK;
-  BlockProtectAuto(block_info);
-  TestAccessUnderProtection(block_info, kProtectAll);
-
-  {
-    ScopedBlockAccess block_access(block_info);
-    TestAccessUnderProtection(block_info, kProtectNone);
-  }
-
-  // And check that it restores protection on destruction.
-  TestAccessUnderProtection(block_info, kProtectAll);
-
-  BlockProtectNone(block_info);
-  ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
-}
-
 }  // namespace asan
 }  // namespace agent

@@ -151,6 +151,7 @@ const uint32 kDefaultMaxNumFrames = 62;
 const bool kDefaultExitOnFailure = false;
 const bool kDefaultCheckHeapOnFailure = true;
 const bool kDefaultDisableBreakpadReporting = false;
+const bool kDefaultEnableFeatureRandomization = false;
 
 // Default values of AsanLogger parameters.
 const bool kDefaultMiniDumpOnFailure = false;
@@ -194,6 +195,7 @@ const char kParamIgnoredStackIds[] = "ignored_stack_ids";
 const char kParamExitOnFailure[] = "exit_on_failure";
 const char kParamNoCheckHeapOnFailure[] = "no_check_heap_on_failure";
 const char kParamDisableBreakpadReporting[]  = "disable_breakpad";
+const char kParamEnableFeatureRandomization[] = "enable_feature_randomization";
 
 // String names of AsanLogger parameters.
 const char kParamMiniDumpOnFailure[] = "minidump_on_failure";
@@ -288,15 +290,16 @@ void SetDefaultAsanParameters(AsanParameters* asan_parameters) {
   asan_parameters->enable_allocation_filter = kDefaultEnableAllocationFilter;
   asan_parameters->large_allocation_threshold =
       kDefaultLargeAllocationThreshold;
+  asan_parameters->enable_feature_randomization_ =
+      kDefaultEnableFeatureRandomization;
   asan_parameters->quarantine_flood_fill_rate =
-      kDefaultQuarantineFloodFillRate;
-}
+      kDefaultQuarantineFloodFillRate;}
 
 bool InflateAsanParameters(const AsanParameters* pod_params,
                            InflatedAsanParameters* inflated_params) {
   // This must be kept up to date with AsanParameters as it evolves.
   static const size_t kSizeOfAsanParametersByVersion[] =
-      { 40, 44, 48, 52, 52, 52, 56, 56, 56, 56, 60 };
+      { 40, 44, 48, 52, 52, 52, 56, 56, 56, 56, 60, 60 };
   COMPILE_ASSERT(arraysize(kSizeOfAsanParametersByVersion) ==
                      kAsanParametersVersion + 1,
                  kSizeOfAsanParametersByVersion_out_of_date);
@@ -454,6 +457,8 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
     asan_parameters->enable_large_block_heap = false;
   if (cmd_line.HasSwitch(kParamEnableAllocationFilter))
     asan_parameters->enable_allocation_filter = true;
+  if (cmd_line.HasSwitch(kParamEnableFeatureRandomization))
+    asan_parameters->enable_feature_randomization_ = true;
 
   return true;
 }

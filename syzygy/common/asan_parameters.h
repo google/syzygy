@@ -37,7 +37,7 @@ namespace common {
 // the StackCaptureCache.
 typedef uint32 AsanStackId;
 
-static const size_t kAsanParametersReserved1Bits = 23;
+static const size_t kAsanParametersReserved1Bits = 22;
 
 // This data structure is injected into an instrumented image in a read-only
 // section. It is initialized by the instrumenter, and will be looked up at
@@ -110,6 +110,8 @@ struct AsanParameters {
       // BlockHeapManager: Indicates if the allocation filtering is enabled. If
       // so, only blocks from filtered sites can make it into the zebra heap.
       unsigned enable_allocation_filter : 1;
+      // Indicates if the feature randomization is enabled.
+      unsigned enable_feature_randomization_ : 1;
 
       // Add new flags here!
 
@@ -149,13 +151,13 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 60);
 // The current version of the Asan parameters structure. This must be updated
 // if any changes are made to the above structure! This is defined in the header
 // file to allow compile time assertions against this version number.
-const uint32 kAsanParametersVersion = 10u;
+const uint32 kAsanParametersVersion = 11u;
 
 // If the number of free bits in the parameters struct changes, then the
 // version has to change as well. This is simply here to make sure that
 // everything changes in lockstep.
-COMPILE_ASSERT(kAsanParametersReserved1Bits == 23 &&
-                   kAsanParametersVersion == 10,
+COMPILE_ASSERT(kAsanParametersReserved1Bits == 22 &&
+                   kAsanParametersVersion == 11,
                version_must_change_if_reserved_bits_changes);
 
 // The name of the section that will be injected into an instrumented image,
@@ -225,6 +227,7 @@ extern const uint32 kDefaultBottomFramesToSkip;
 extern const bool kDefaultExitOnFailure;
 extern const bool kDefaultCheckHeapOnFailure;
 extern const bool kDefaultDisableBreakpadReporting;
+extern const bool kDefaultEnableFeatureRandomization;
 // Default values of AsanLogger parameters.
 extern const bool kDefaultMiniDumpOnFailure;
 extern const bool kDefaultLogAsText;
@@ -258,6 +261,7 @@ extern const char kParamMaxNumFrames[];
 extern const char kParamIgnoredStackIds[];
 extern const char kParamExitOnFailure[];
 extern const char kParamDisableBreakpadReporting[];
+extern const char kParamEnableFeatureRandomization[];
 // String names of AsanLogger parameters.
 extern const char kParamMiniDumpOnFailure[];
 extern const char kParamLogAsText[];

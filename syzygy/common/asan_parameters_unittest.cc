@@ -90,6 +90,8 @@ TEST(AsanParametersTest, SetDefaultAsanParameters) {
             aparams.large_allocation_threshold);
   EXPECT_EQ(kDefaultQuarantineFloodFillRate,
             aparams.quarantine_flood_fill_rate);
+  EXPECT_EQ(kDefaultEnableFeatureRandomization,
+            static_cast<bool>(aparams.enable_feature_randomization_));
 }
 
 TEST(AsanParametersTest, InflateAsanParametersStackIdsPastEnd) {
@@ -240,6 +242,8 @@ TEST(AsanParametersTest, ParseAsanParametersMinimal) {
             iparams.large_allocation_threshold);
   EXPECT_EQ(kDefaultQuarantineFloodFillRate,
             iparams.quarantine_flood_fill_rate);
+  EXPECT_EQ(kDefaultEnableFeatureRandomization,
+            static_cast<bool>(iparams.enable_feature_randomization_));
 }
 
 TEST(AsanParametersTest, ParseAsanParametersMaximal) {
@@ -265,7 +269,8 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
       L"--disable_large_block_heap "
       L"--enable_allocation_filter "
       L"--large_allocation_threshold=4096 "
-      L"--quarantine_flood_fill_rate=0.25";
+      L"--quarantine_flood_fill_rate=0.25 "
+      L"--enable_feature_randomization";
 
   InflatedAsanParameters iparams;
   SetDefaultAsanParameters(&iparams);
@@ -296,6 +301,7 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
   EXPECT_TRUE(static_cast<bool>(iparams.enable_allocation_filter));
   EXPECT_EQ(4096, iparams.large_allocation_threshold);
   EXPECT_EQ(0.25f, iparams.quarantine_flood_fill_rate);
+  EXPECT_EQ(true, static_cast<bool>(iparams.enable_feature_randomization_));
 }
 
 }  // namespace common

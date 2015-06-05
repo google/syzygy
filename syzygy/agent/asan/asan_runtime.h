@@ -24,6 +24,7 @@
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
+#include "syzygy/agent/asan/error_info.h"
 #include "syzygy/agent/asan/heap_checker.h"
 #include "syzygy/agent/asan/heap_managers/block_heap_manager.h"
 #include "syzygy/agent/common/stack_capture.h"
@@ -202,8 +203,21 @@ class AsanRuntime {
   // Logs information about an Asan error.
   void LogAsanErrorInfo(AsanErrorInfo* error_info);
 
+  // Randomly enable some features.
+  // @returns a value describing the state of the features that can be randomly
+  //     enabled or disabled.
+  AsanFeatureSet GenerateRandomFeatureSet();
+
   // The heap manager.
   scoped_ptr<heap_managers::BlockHeapManager> heap_manager_;  // Under lock_.
+
+  // Contains the state of the features that can be randomly enabled or
+  // disabled.
+  // TODO(sebmarchand): This variable should be deduced from an investigation of
+  // the |params_| variable but is temporarily kept here to make it easier
+  // to investigate on the current heap corruption bug, it should be removed
+  // once the problem gets fixed.
+  AsanFeatureSet enabled_features_;
 
  private:
   // Set up the logger.

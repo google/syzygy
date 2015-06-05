@@ -31,6 +31,7 @@
 #include "syzygy/agent/asan/error_info.h"
 #include "syzygy/agent/asan/heap.h"
 #include "syzygy/agent/asan/memory_notifier.h"
+#include "syzygy/agent/asan/page_protection_helpers.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/agent/asan/memory_notifiers/null_memory_notifier.h"
 #include "syzygy/core/unittest_util.h"
@@ -678,6 +679,30 @@ bool IsAccessible(void* address);
 // @returns true if the address is neither readable nor writable,
 //     false otherwise.
 bool IsNotAccessible(void* address);
+
+// A scoped block access helper. Removes block protections when created via
+// BlockProtectNone, and restores them via BlockProtectAuto.
+// TODO(chrisha): Consider recording the fact the block protections on this
+//     block are being blocked in some synchronous manner. This will prevent
+//     the page protections from being added during the lifetime of this
+//     object.
+class ScopedBlockAccess {
+ public:
+  // Constructor. Unprotects the provided block.
+  // @param block_info The block whose protections are to be modified.
+  explicit ScopedBlockAccess(const agent::asan::BlockInfo& block_info)
+      : block_info_(block_info) {
+    BlockProtectNone(block_info_);
+  }
+
+  // Destructor. Restores protections on the provided block.
+  ~ScopedBlockAccess() {
+    BlockProtectAuto(block_info_);
+  }
+
+ private:
+  const agent::asan::BlockInfo& block_info_;
+};
 
 }  // namespace testing
 

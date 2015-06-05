@@ -374,6 +374,9 @@ class BlockHeapManager : public HeapManagerInterface {
   // Under lock_.
   HeapInterface** locked_heaps_;
 
+  // Indicates if we use page protection to prevent invalid accesses to a block.
+  bool enable_page_protections_;
+
  private:
   DISALLOW_COPY_AND_ASSIGN(BlockHeapManager);
 };
