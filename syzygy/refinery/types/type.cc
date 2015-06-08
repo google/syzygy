@@ -15,6 +15,7 @@
 
 #include "base/md5.h"
 #include "base/strings/string_piece.h"
+#include "syzygy/refinery/types/type_repository.h"
 
 namespace refinery {
 
@@ -63,11 +64,25 @@ size_t CompoundHash::Finalize() {
 
 }  // namespace
 
-Type::Type(TypeKind kind, const base::string16& name, size_t size) :
-    kind_(kind), name_(name), size_(size) {
+Type::Type(TypeKind kind, const base::string16& name, size_t size)
+    : repository_(nullptr),
+      type_id_(kNoTypeId),
+      kind_(kind),
+      name_(name),
+      size_(size) {
 }
 
 Type::~Type() {
+}
+
+void Type::SetRepository(TypeRepository* repository, TypeId type_id) {
+  DCHECK(repository);
+  DCHECK(!repository_);
+  DCHECK_EQ(kNoTypeId, type_id_);
+  DCHECK_NE(kNoTypeId, type_id);
+
+  repository_ = repository;
+  type_id_ = type_id;
 }
 
 size_t TypeHash::operator()(const TypePtr& type) {
@@ -105,7 +120,7 @@ size_t TypeHash::operator()(const TypePtr& type) {
 
         // Use the identity of the type rather than its value as
         // it's already unique.
-        hash.Update(field.type().get());
+        hash.Update(field.type_id());
       }
       break;
     }
@@ -120,9 +135,13 @@ size_t TypeHash::operator()(const TypePtr& type) {
 
       // Use the identity of the type rather than its value as
       // it's already unique.
-      hash.Update(ptr->type().get());
+      hash.Update(ptr->content_type_id());
       break;
     }
+
+    case Type::WILDCARD_TYPE_KIND:
+      // No additional fields to hash.
+      break;
 
     default:
       NOTREACHED();
@@ -174,12 +193,10 @@ bool TypeIsEqual::operator()(const TypePtr& a, const TypePtr& b) {
         if (af.offset() != bf.offset() ||
             af.is_const() != bf.is_const() ||
             af.is_volatile() != bf.is_volatile() ||
-            af.name() != bf.name()) {
+            af.name() != bf.name() ||
+            af.type_id() != bf.type_id()) {
           return false;
         }
-
-        if (!(*this)(af.type(), bf.type()))
-          return false;
       }
 
       return true;
@@ -193,8 +210,12 @@ bool TypeIsEqual::operator()(const TypePtr& a, const TypePtr& b) {
 
       return a1->is_const() == b1->is_const() &&
           a1->is_volatile() == b1->is_volatile() &&
-          (*this)(a1->type(), b1->type());
+          a1->content_type_id() == b1->content_type_id();
     }
+
+    case Type::WILDCARD_TYPE_KIND:
+      // No fields beyond the superclass'.
+      return true;
 
     default:
       NOTREACHED();
@@ -204,10 +225,15 @@ bool TypeIsEqual::operator()(const TypePtr& a, const TypePtr& b) {
   return false;
 }
 
-UserDefinedType::UserDefinedType(const base::string16& name,
-                                 size_t size,
-                                 const Fields& fields) :
-    Type(USER_DEFINED_TYPE_KIND, name, size), fields_(fields) {
+UserDefinedType::UserDefinedType(const base::string16& name, size_t size) :
+    Type(USER_DEFINED_TYPE_KIND, name, size) {
+}
+
+TypePtr UserDefinedType::GetFieldType(size_t field_no) const {
+  DCHECK(repository());
+  DCHECK_GT(fields_.size(), field_no);
+
+  return repository()->GetType(fields_[field_no].type_id());
 }
 
 BasicType::BasicType(const base::string16& name, size_t size) :
@@ -223,18 +249,38 @@ BitfieldType::BitfieldType(const base::string16& name,
     bit_offset_(bit_offset) {
 }
 
+void UserDefinedType::Finalize(const Fields& fields) {
+  DCHECK_EQ(0U, fields_.size());
+  for (auto field : fields)
+    fields_.push_back(field);
+}
+
 UserDefinedType::Field::Field(const base::string16& name,
                               ptrdiff_t offset,
                               Flags flags,
-                              const TypePtr& type) :
-    name_(name), offset_(offset), flags_(flags), type_(type) {
+                              TypeId type_id) :
+    name_(name), offset_(offset), flags_(flags), type_id_(type_id) {
+  DCHECK_NE(kNoTypeId, type_id);
 }
 
-PointerType::PointerType(const base::string16& name,
-                         size_t size,
-                         Flags flags,
-                         const TypePtr& type)
-    : Type(POINTER_TYPE_KIND, name, size), flags_(flags), type_(type) {
+PointerType::PointerType(
+    const base::string16& name,
+    size_t size,
+    Flags flags,
+    TypeId content_type_id)
+    : Type(POINTER_TYPE_KIND, name, size),
+      flags_(flags),
+      content_type_id_(content_type_id) {
+}
+
+TypePtr PointerType::GetContentType() const {
+  DCHECK(repository());
+
+  return repository()->GetType(content_type_id());
+}
+
+WildcardType::WildcardType(const base::string16& name, size_t size)
+    : Type(WILDCARD_TYPE_KIND, name, size) {
 }
 
 }  // namespace refinery

@@ -53,6 +53,7 @@
         'process_state/process_state_unittest.cc',
         'minidump/minidump_unittest.cc',
         'types/type_unittest.cc',
+        'types/type_repository_unittest.cc',
         'types/dia_crawler_unittest.cc',
         '<(src)/base/test/run_all_unittests.cc',
       ],

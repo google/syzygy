@@ -25,6 +25,8 @@
         'dia_crawler.h',
         'type.cc',
         'type.h',
+        'type_repository.cc',
+        'type_repository.h',
       ],
       'dependencies': [
         'test_types',

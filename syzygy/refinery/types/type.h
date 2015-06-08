@@ -26,8 +26,15 @@
 
 namespace refinery {
 
-// A base class for all Type subclasses.
-// All instances of Type and subclasses are immutable.
+// fwd.
+class TypeRepository;
+typedef size_t TypeId;
+
+// A sentinel value for uninitialized types.
+const TypeId kNoTypeId = static_cast<TypeId>(-1);
+
+// A base class for all Type subclasses. Types are owned by a type repository,
+// which can vend out type instances by ID on demand.
 class Type : public base::RefCounted<Type> {
  public:
   typedef uint8_t Flags;
@@ -38,6 +45,7 @@ class Type : public base::RefCounted<Type> {
     BITFIELD_TYPE_KIND,
     USER_DEFINED_TYPE_KIND,
     POINTER_TYPE_KIND,
+    WILDCARD_TYPE_KIND,
   };
 
   enum CV_FLAGS {
@@ -47,6 +55,8 @@ class Type : public base::RefCounted<Type> {
 
   // @name Accessors
   // @{
+  TypeRepository* repository() const { return repository_; }
+  TypeId type_id() const { return type_id_; }
   const base::string16& name() const { return name_; }
   size_t size() const { return size_; }
   TypeKind kind() const { return kind_; }
@@ -64,6 +74,13 @@ class Type : public base::RefCounted<Type> {
   virtual ~Type() = 0;
 
  private:
+  friend class TypeRepository;
+  void SetRepository(TypeRepository* repository, TypeId type_id);
+
+  // The type repository this type belongs to and its ID in the repository.
+  TypeRepository* repository_;
+  TypeId type_id_;
+
   // The kind of this type is, synonymous with its class.
   const TypeKind kind_;
   // Name of type.
@@ -134,17 +151,25 @@ class UserDefinedType : public Type {
 
   static const TypeKind ID = USER_DEFINED_TYPE_KIND;
 
-  // Creates a new user defined type with name @p name, size @p size and
-  // the supplied @p fields.
-  UserDefinedType(const base::string16& name,
-                  size_t size,
-                  const Fields& fields);
+  // Creates a new user defined type with name @p name, size @p size.
+  // This creates an un-finalized UDT with no fields.
+  UserDefinedType(const base::string16& name, size_t size);
+
+  // Retrieves the type associated with field @p field_no.
+  // @pre field_no < fields().size().
+  // @pre SetRepository has been called.
+  TypePtr GetFieldType(size_t field_no) const;
 
   // Accessor.
   const Fields& fields() const { return fields_; }
 
+  // Finalize the type by providing it with a field list.
+  // @param fields the fields for the type.
+  // @note this can only be called once per type instance.
+  void Finalize(const Fields& fields);
+
  private:
-  const Fields fields_;
+  Fields fields_;
 
   DISALLOW_COPY_AND_ASSIGN(UserDefinedType);
 };
@@ -161,20 +186,18 @@ class UserDefinedType::Field {
   // @param offset the byte offset of the field within the UDT.
   //    Note that many bitfield fields can share the same offset within a UDT,
   //    as can fields in a union.
-  // @param size the byte size of the field.
   // @param flags any combination of Flags, denoting properties of the field.
-  // @param type the type of the field.
-  // TODO(siggi): Maybe the size of the type is sufficient?
+  // @param type_id the type ID of the field.
   Field(const base::string16& name,
         ptrdiff_t offset,
         Flags flags,
-        const TypePtr& type);
+        TypeId type_id);
 
   // @name Accessors.
   // @{
   const base::string16& name() const { return name_; }
   ptrdiff_t offset() const { return offset_; }
-  const TypePtr& type() const { return type_; }
+  TypeId type_id() const { return type_id_; }
 
   bool is_const() const { return (flags_ & FLAG_CONST) != 0; }
   bool is_volatile() const { return (flags_ & FLAG_VOLATILE) != 0; }
@@ -184,7 +207,7 @@ class UserDefinedType::Field {
   const base::string16 name_;
   const ptrdiff_t offset_;
   const Flags flags_;
-  const TypePtr type_;
+  const TypeId type_id_;
 };
 
 // Represents a pointer to some other type.
@@ -193,26 +216,45 @@ class PointerType : public Type {
   static const TypeKind ID = POINTER_TYPE_KIND;
 
   // Creates a new pointer type with name @p name, size @p size, pointing to
-  // an object of type @p type.
+  // an object of type @p type_id.
   PointerType(const base::string16& name,
               size_t size,
               Flags flags,
-              const TypePtr& type);
+              TypeId content_type_id);
 
   // Accessors.
   // @{
-  TypePtr type() const { return type_; }
+  TypeId content_type_id() const { return content_type_id_; }
   bool is_const() const { return (flags_ & FLAG_CONST) != 0; }
   bool is_volatile() const { return (flags_ & FLAG_VOLATILE) != 0; }
   // @}
 
+  // Retrieves the type this pointer refers to.
+  // @pre SetRepository has been called.
+  TypePtr GetContentType() const;
+
  private:
   // Stores the CV qualifiers of this pointer.
   const Flags flags_;
-  const TypePtr type_;
+  // Stores the type this pointer points to.
+  const TypeId content_type_id_;
 };
 
 using PointerTypePtr = scoped_refptr<PointerType>;
+
+// Represents an otherwise unsupported type.
+// TODO(siggi): This is a stub, which needs to go away ASAP.
+class WildcardType : public Type {
+ public:
+  static const TypeKind ID = WILDCARD_TYPE_KIND;
+
+  // Creates a new pointer type with name @p name, size @p size, pointing to
+  // an object of type @p type_id.
+  WildcardType(const base::string16& name,
+               size_t size);
+};
+
+using WildcardTypePtr = scoped_refptr<WildcardType>;
 
 template <class SubType>
 bool Type::CastTo(scoped_refptr<SubType>* out) {

@@ -14,8 +14,10 @@
 
 #include "syzygy/refinery/types/dia_crawler.h"
 
+#include "base/strings/stringprintf.h"
 #include "base/win/scoped_bstr.h"
 #include "syzygy/pe/dia_util.h"
+#include "syzygy/refinery/types/type_repository.h"
 
 namespace refinery {
 
@@ -217,42 +219,227 @@ bool GetSymType(IDiaSymbol* symbol,
   return true;
 }
 
-typedef base::hash_set<TypePtr, TypeHash, TypeIsEqual> TypeSet;
+bool GetSymIndexId(IDiaSymbol* symbol, DWORD* index_id) {
+  DCHECK(symbol); DCHECK(index_id);
+  DWORD tmp = 0;
+  HRESULT hr = symbol->get_symIndexId(&tmp);
+  if (!SUCCEEDED(hr))
+    return false;
+  *index_id = tmp;
+  return true;
+}
 
 class TypeCreator {
  public:
-  explicit TypeCreator(TypeSet* existing_types) :
-      existing_types_(existing_types) {
-    DCHECK(existing_types);
-  }
+  explicit TypeCreator(TypeRepository* repository);
 
-  bool CreateUDT(IDiaSymbol* symbol, size_t size, TypePtr* type);
-  bool CreateBaseType(IDiaSymbol* symbol, size_t size, TypePtr* type);
-  bool CreatePointerType(IDiaSymbol* symbol, size_t size, TypePtr* type);
-  bool CreateType(IDiaSymbol* symbol, TypePtr* type);
-  bool CreateBitFieldType(IDiaSymbol* symbol,
-                          size_t bit_length,
-                          size_t bit_pos,
-                          TypePtr* type_ptr);
-  TypePtr MakeUnique(TypePtr type);
+  bool CreateTypes(IDiaSymbol* global);
+  bool CreateTypesOfKind(enum SymTagEnum kind, IDiaSymbol* global);
+
+  // Finds or creates the type corresponding to @p symbol.
+  // The type will be registered by a unique name in @p existing_types_.
+  TypePtr FindOrCreateType(IDiaSymbol* symbol);
+
+  // Bitfields are a bit of a special case, because the bit position and length
+  // are stored against the data field.
+  // TODO(siggi): Does it make sense to store this in the field?
+  TypePtr FindOrCreateBitFieldType(IDiaSymbol* symbol,
+                                   size_t bit_length,
+                                   size_t bit_pos);
+
+  TypePtr CreateType(IDiaSymbol* symbol);
+  TypePtr CreateUDT(IDiaSymbol* symbol);
+  TypePtr CreateEnum(IDiaSymbol* symbol);
+  TypePtr CreateFunctionType(IDiaSymbol* symbol);
+  TypePtr CreateBaseType(IDiaSymbol* symbol);
+  TypePtr CreatePointerType(IDiaSymbol* symbol);
+  TypePtr CreateTypedefType(IDiaSymbol* symbol);
+  TypePtr CreateArrayType(IDiaSymbol* symbol);
+  TypePtr CreateBitFieldType(IDiaSymbol* symbol,
+                             size_t bit_length,
+                             size_t bit_pos);
+
+  bool FinalizeUDT(IDiaSymbol* symbol, TypePtr type);
 
  private:
-  TypeSet* existing_types_;
+  struct CreatedType {
+    CreatedType() : type_id(kNoTypeId), is_finalized(false) {
+    }
+
+    TypeId type_id;
+    bool is_finalized;
+  };
+  typedef base::hash_map<DWORD, CreatedType> CreatedTypeMap;
+
+  // Maps from DIA symbol index ID to the created TypeId. Also keeps a flag
+  // that's set when a type is finalized, as DIA has a nasty habit of
+  // enumerating the same type multiple times.
+  CreatedTypeMap created_types_;
+  TypeRepository* repository_;
 };
 
-TypePtr TypeCreator::MakeUnique(TypePtr type) {
-  auto ib = existing_types_->insert(type);
-
-  return *ib.first;
+TypeCreator::TypeCreator(TypeRepository* repository)
+    : repository_(repository) {
+  DCHECK(repository);
 }
 
-bool TypeCreator::CreateUDT(IDiaSymbol* symbol, size_t size, TypePtr* type) {
-  DCHECK(symbol); DCHECK(size); DCHECK(type);
+bool TypeCreator::CreateTypesOfKind(enum SymTagEnum kind,
+                                    IDiaSymbol* global) {
+  base::win::ScopedComPtr<IDiaEnumSymbols> matching_types;
+  HRESULT hr = global->findChildren(kind,
+                                    nullptr,
+                                    nsNone,
+                                    matching_types.Receive());
+  if (!SUCCEEDED(hr))
+    return false;
+
+  LONG count = 0;
+  hr = matching_types->get_Count(&count);
+  if (!SUCCEEDED(hr))
+    return false;
+
+  for (LONG i = 0; i < count; ++i) {
+    base::win::ScopedComPtr<IDiaSymbol> symbol;
+
+    ULONG received = 0;
+    hr = matching_types->Next(1, symbol.Receive(), &received);
+    if (!SUCCEEDED(hr))
+      return false;
+
+    scoped_refptr<Type> type = FindOrCreateType(symbol.get());
+    if (!type)
+      return false;
+
+    if (kind == SymTagUDT && !FinalizeUDT(symbol.get(), type))
+      return false;
+  }
+
+  return true;
+}
+
+bool TypeCreator::CreateTypes(IDiaSymbol* global) {
+  return CreateTypesOfKind(SymTagUDT, global) &&
+         CreateTypesOfKind(SymTagEnum, global) &&
+         CreateTypesOfKind(SymTagTypedef, global);
+}
+
+TypePtr TypeCreator::FindOrCreateType(IDiaSymbol* symbol) {
+  DCHECK(symbol);
+
+  DWORD index_id = 0;
+  if (!GetSymIndexId(symbol, &index_id))
+    return false;
+
+  auto it = created_types_.find(index_id);
+  if (it != created_types_.end())
+    return repository_->GetType(it->second.type_id);
+
+  // Note that this will recurse on pointer types, but the recursion should
+  // terminate on a basic type or a UDT at some point - assuming the type
+  // graph is sane.
+  // TODO(siggi): It'd be better never to recurse, and this can be avoided for
+  //    pointers by doing two-phase construction on them as for UDTs. To assign
+  //    unique, human-readable names to pointers requires another pass yet.
+  TypePtr created = CreateType(symbol);
+  DCHECK(created);
+  CreatedType& entry = created_types_[index_id];
+  entry.type_id = repository_->AddType(created);
+  entry.is_finalized = false;
+
+  return created;
+}
+
+TypePtr TypeCreator::FindOrCreateBitFieldType(
+    IDiaSymbol* symbol, size_t bit_length, size_t bit_pos) {
+  DCHECK(symbol);
+
+  // TODO(siggi): Fixme: this doesn't work, as the "unique name" of symbol
+  //     index ID does not include the bit length and pos.
+  DWORD index_id = 0;
+  if (!GetSymIndexId(symbol, &index_id))
+    return false;
+
+  auto it = created_types_.find(index_id);
+  if (it != created_types_.end())
+    return repository_->GetType(it->second.type_id);
+
+  TypePtr created = CreateBitFieldType(symbol, bit_length, bit_pos);
+  DCHECK(created);
+
+  CreatedType& entry = created_types_[index_id];
+  entry.type_id = repository_->AddType(created);
+  entry.is_finalized = false;
+
+  return created;
+}
+
+TypePtr TypeCreator::CreateType(IDiaSymbol* symbol) {
+  DCHECK(symbol);
+
+  uint32_t sym_tag = SymTagNull;
+  if (!GetSymTag(symbol, &sym_tag))
+    return nullptr;
+
+  switch (sym_tag) {
+    case SymTagUDT:
+      return CreateUDT(symbol);
+    case SymTagEnum:
+      return CreateEnum(symbol);
+    case SymTagBaseType:
+      return CreateBaseType(symbol);
+    case SymTagFunctionType:
+      return CreateFunctionType(symbol);
+    case SymTagPointerType:
+      return CreatePointerType(symbol);
+    case SymTagTypedef:
+      return CreateTypedefType(symbol);
+    case SymTagArrayType:
+      return CreateArrayType(symbol);
+    default:
+      return nullptr;
+  }
+}
+
+TypePtr TypeCreator::CreateUDT(IDiaSymbol* symbol) {
+  DCHECK(symbol);
   DCHECK(IsSymTag(symbol, SymTagUDT));
 
   base::string16 name;
-  if (!GetSymName(symbol, &name))
+  size_t size = 0;
+  if (!GetSymName(symbol, &name) || !GetSymSize(symbol, &size))
+    return nullptr;
+
+  return new UserDefinedType(name, size);
+}
+
+TypePtr TypeCreator::CreateEnum(IDiaSymbol* symbol) {
+  DCHECK(symbol);
+  DCHECK(IsSymTag(symbol, SymTagEnum));
+
+  base::string16 name;
+  size_t size = 0;
+  if (!GetSymName(symbol, &name) || !GetSymSize(symbol, &size))
+    return nullptr;
+
+  // TODO(siggi): Implement an enum type.
+  return new WildcardType(name, size);
+}
+
+bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, TypePtr type) {
+  DCHECK(symbol); DCHECK(type);
+  DCHECK(IsSymTag(symbol, SymTagUDT));
+
+  DWORD index_id = 0;
+  if (!GetSymIndexId(symbol, &index_id))
     return false;
+
+  DCHECK_EQ(type->type_id(), created_types_[index_id].type_id);
+  if (created_types_[index_id].is_finalized) {
+    // This is a re-visit of the same type. DIA has a nasty habit of doing
+    // this, e.g. yielding the same type multiple times in an iteration.
+    return true;
+  }
+  created_types_[index_id].is_finalized = true;
 
   // Enumerate the fields and add them.
   base::win::ScopedComPtr<IDiaEnumSymbols> enum_children;
@@ -260,6 +447,7 @@ bool TypeCreator::CreateUDT(IDiaSymbol* symbol, size_t size, TypePtr* type) {
       SymTagNull, NULL, nsNone, enum_children.Receive());
   if (!SUCCEEDED(hr))
     return false;
+
   LONG count = 0;
   hr = enum_children->get_Count(&count);
   if (!SUCCEEDED(hr))
@@ -273,18 +461,20 @@ bool TypeCreator::CreateUDT(IDiaSymbol* symbol, size_t size, TypePtr* type) {
       return false;
 
     uint32_t sym_tag = 0;
-    DataKind data_kind = DataIsUnknown;
-    if (!GetSymTag(field_sym.get(), &sym_tag) ||
-        !GetSymDataKind(field_sym.get(), &data_kind)) {
+    if (!GetSymTag(field_sym.get(), &sym_tag))
       return false;
-    }
+
+    // We only care about data.
+    if (sym_tag != SymTagData)
+      continue;
 
     // TODO(siggi): Also process VTables?
-    if (sym_tag != SymTagData || data_kind != DataIsMember) {
-      // The "children" of a UDT also include static data, function members,
-      // etc.
+    DataKind data_kind = DataIsUnknown;
+    if (!GetSymDataKind(field_sym.get(), &data_kind))
+      return false;
+    // We only care about member data.
+    if (data_kind != DataIsMember)
       continue;
-    }
 
     // The location type and the symbol type are a little conflated in the case
     // of bitfields. For bitfieds, the bit length and bit offset of the type
@@ -309,8 +499,7 @@ bool TypeCreator::CreateUDT(IDiaSymbol* symbol, size_t size, TypePtr* type) {
 
     TypePtr field_type;
     if (loc_type == LocIsThisRel) {
-      if (!CreateType(field_type_sym.get(), &field_type))
-        return false;
+      field_type = FindOrCreateType(field_type_sym.get());
     } else if (loc_type == LocIsBitField) {
       // For bitfields we need the bit size and length.
       size_t bit_length = 0;
@@ -320,10 +509,8 @@ bool TypeCreator::CreateUDT(IDiaSymbol* symbol, size_t size, TypePtr* type) {
         return false;
       }
 
-      if (!CreateBitFieldType(field_type_sym.get(),
-                              bit_length, bit_pos, &field_type)) {
-        return false;
-      }
+      field_type =
+          FindOrCreateBitFieldType(field_type_sym.get(), bit_length, bit_pos);
     } else {
       NOTREACHED() << "Impossible location type!";
     }
@@ -331,92 +518,102 @@ bool TypeCreator::CreateUDT(IDiaSymbol* symbol, size_t size, TypePtr* type) {
     fields.push_back(UserDefinedType::Field(field_name,
                                             field_offset,
                                             field_flags,
-                                            field_type));
+                                            field_type->type_id()));
   }
-  // TODO(siggi): Does the kind of the UDT make a difference?
-  //   E.g. struct, class, union, enum - perhaps?
-  *type = MakeUnique(new UserDefinedType(name, size, fields));
+
+  UserDefinedTypePtr udt;
+  if (!type->CastTo(&udt))
+    return false;
+
+  DCHECK_EQ(0UL, udt->fields().size());
+  udt->Finalize(fields);
   return true;
 }
 
-bool TypeCreator::CreateBaseType(IDiaSymbol* symbol,
-                                 size_t size,
-                                 TypePtr* type) {
+TypePtr TypeCreator::CreateBaseType(IDiaSymbol* symbol) {
   // Note that the void base type has zero size.
-  DCHECK(symbol); DCHECK(type);
+  DCHECK(symbol);
   DCHECK(IsSymTag(symbol, SymTagBaseType));
 
   base::string16 base_type_name;
-  if (!GetSymBaseTypeName(symbol, &base_type_name))
-    return false;
+  size_t size = 0;
+  if (!GetSymBaseTypeName(symbol, &base_type_name) ||
+      !GetSymSize(symbol, &size)) {
+    return nullptr;
+  }
 
-  *type = MakeUnique(new BasicType(base_type_name, size));
-
-  return true;
+  return new BasicType(base_type_name, size);
 }
 
-bool TypeCreator::CreatePointerType(IDiaSymbol* symbol,
-                                    size_t size,
-                                    TypePtr* type) {
-  DCHECK(symbol); DCHECK(size), DCHECK(type);
+TypePtr TypeCreator::CreateFunctionType(IDiaSymbol* symbol) {
+  DCHECK(symbol);
+  DCHECK(IsSymTag(symbol, SymTagFunctionType));
+
+  return new WildcardType(L"Function", 0);
+}
+
+TypePtr TypeCreator::CreatePointerType(IDiaSymbol* symbol) {
+  // Note that the void base type has zero size.
+  DCHECK(symbol);
   DCHECK(IsSymTag(symbol, SymTagPointerType));
 
-  base::win::ScopedComPtr<IDiaSymbol> ptr_type_sym;
+  base::win::ScopedComPtr<IDiaSymbol> ptr_type;
+  if (!GetSymType(symbol, &ptr_type))
+    return nullptr;
+
+  TypePtr type = FindOrCreateType(ptr_type.get());
+  if (!type)
+    return nullptr;
+
+  size_t size = 0;
   Type::Flags flags = 0;
-  if (!GetSymType(symbol, &ptr_type_sym) ||
-      !GetSymFlags(ptr_type_sym.get(), &flags)) {
-    return false;
-  }
+  if (!GetSymSize(symbol, &size) || !GetSymFlags(ptr_type.get(), &flags))
+    return nullptr;
 
-  TypePtr ptr_type;
-  if (!CreateType(ptr_type_sym.get(), &ptr_type))
-    return false;
-
-  // TODO(siggi): Will pointers ever need a name? Maybe build a name by
-  //    concatenation to the ptr_type->name()?
-  *type = MakeUnique(new PointerType(L"", size, flags, ptr_type));
-  return true;
+  return new PointerType(L"", size, flags, type->type_id());
 }
 
-bool TypeCreator::CreateType(IDiaSymbol* symbol, TypePtr* type) {
-  DCHECK(symbol); DCHECK(type);
+TypePtr TypeCreator::CreateTypedefType(IDiaSymbol* symbol) {
+  DCHECK(symbol);
+  DCHECK(IsSymTag(symbol, SymTagTypedef));
 
-  size_t size = 0;
-  uint32_t sym_tag = SymTagNull;
-  if (!GetSymSize(symbol, &size) ||
-      !GetSymTag(symbol, &sym_tag)) {
-    // TODO(siggi): Log?
-    return false;
-  }
-
-  switch (sym_tag) {
-    case SymTagUDT:
-      return CreateUDT(symbol, size, type);
-    case SymTagBaseType:
-      return CreateBaseType(symbol, size, type);
-    case SymTagPointerType:
-      return CreatePointerType(symbol, size, type);
-
-    default:
-      return false;
-  }
-}
-
-bool TypeCreator::CreateBitFieldType(IDiaSymbol* symbol,
-                        size_t bit_length,
-                        size_t bit_pos,
-                        TypePtr* type_ptr) {
-  DCHECK(symbol); DCHECK(type_ptr); DCHECK(IsSymTag(symbol, SymTagBaseType));
-  size_t size = 0;
   base::string16 name;
-  if (!GetSymSize(symbol, &size) ||
-      !GetSymBaseTypeName(symbol, &name)) {
-    // TODO(siggi): Log?
-    return false;
+  if (!GetSymName(symbol, &name))
+    return nullptr;
+
+  // TODO(siggi): Implement a typedef type.
+  return new WildcardType(name, 0);
+}
+
+TypePtr TypeCreator::CreateArrayType(IDiaSymbol* symbol) {
+  DCHECK(symbol);
+  DCHECK(IsSymTag(symbol, SymTagArrayType));
+
+  base::string16 name;
+  size_t size = 0;
+  if (!GetSymName(symbol, &name) ||
+      !GetSymSize(symbol, &size)) {
+    return nullptr;
   }
 
-  *type_ptr = MakeUnique(new BitfieldType(name, size, bit_length, bit_pos));
-  return true;
+  // TODO(siggi): Implement an array type.
+  return new WildcardType(name, size);
+}
+
+TypePtr TypeCreator::CreateBitFieldType(IDiaSymbol* symbol,
+                                        size_t bit_length,
+                                        size_t bit_pos) {
+  DCHECK(symbol);
+  DCHECK(IsSymTag(symbol, SymTagBaseType) || IsSymTag(symbol, SymTagEnum));
+
+  base::string16 base_type_name;
+  size_t size = 0;
+  if (!GetSymBaseTypeName(symbol, &base_type_name) ||
+      !GetSymSize(symbol, &size)) {
+    return nullptr;
+  }
+
+  return new BitfieldType(base_type_name, size, bit_length, bit_pos);
 }
 
 }  // namespace
@@ -446,40 +643,19 @@ bool DiaCrawler::InitializeForFile(const base::FilePath& path) {
   return true;
 }
 
-bool DiaCrawler::GetTypes(const base::string16& regexp,
-                          std::vector<TypePtr>* types) {
+bool DiaCrawler::GetTypes(TypeRepository* types) {
   DCHECK(types); DCHECK(global_);
 
-  base::win::ScopedComPtr<IDiaEnumSymbols> matching_types;
-  HRESULT hr = global_->findChildren(SymTagUDT,
-                                     regexp.c_str(),
-                                     nsCaseInRegularExpression,
-                                     matching_types.Receive());
-  if (!SUCCEEDED(hr))
-    return false;
+  // For each type in the PDB:
+  //   Create a unique name for the type.
+  //   Find or create the type by its unique name.
+  //   Finalize the type, e.g.
+  //     For each relevant "child" of the type.
+  //       Create a unique name for the child.
+  //       Find or create the child by its unique name.
+  TypeCreator creator(types);
 
-  LONG count = 0;
-  hr = matching_types->get_Count(&count);
-  if (!SUCCEEDED(hr) || count == 0)
-    return false;
-
-  TypeCreator creator(&types_);
-  for (LONG i = 0; i < count; ++i) {
-    base::win::ScopedComPtr<IDiaSymbol> symbol;
-
-    ULONG received = 0;
-    hr = matching_types->Next(1, symbol.Receive(), &received);
-    if (!SUCCEEDED(hr))
-      return false;
-
-    scoped_refptr<Type> type;
-    if (!creator.CreateType(symbol.get(), &type))
-      return false;
-
-    types->push_back(type);
-  }
-
-  return true;
+  return creator.CreateTypes(global_.get());
 }
 
 }  // namespace refinery

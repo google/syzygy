@@ -26,6 +26,9 @@
 
 namespace refinery {
 
+// fwd.
+class TypeRepository;
+
 // A worker class to scrape types from PDB symbols using DIA.
 class DiaCrawler {
  public:
@@ -36,23 +39,16 @@ class DiaCrawler {
   // @param path the image file whose symbols to crawl for types.
   bool InitializeForFile(const base::FilePath& path);
 
-  // Retrieves types matching @p regexp.
-  // @param regexp the name of the type or retrieve or a regular expression.
-  // @param types on success contains one or more types.
+  // Retrieves all types associated with the file this instance
+  // is initialized to.
+  // @param types on success contains zero or more types.
   // @returns true on success, false on failure.
-  // @note the @p regexp is whatever DIA defines as a regular expression, which
-  //     appears to be more similar to a file glob.
-  // TODO(siggi): This should eliminate duplicate type instances as it goes.
-  bool GetTypes(const base::string16& regexp,
-                std::vector<TypePtr>* types);
+  bool GetTypes(TypeRepository* types);
 
  private:
   base::win::ScopedComPtr<IDiaDataSource> source_;
   base::win::ScopedComPtr<IDiaSession> session_;
   base::win::ScopedComPtr<IDiaSymbol> global_;
-
-  // Keeps a single unique instance of each type.
-  base::hash_set<TypePtr, TypeHash, TypeIsEqual> types_;
 };
 
 }  // namespace refinery
