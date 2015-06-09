@@ -42,7 +42,6 @@ class Type : public base::RefCounted<Type> {
   // The set of type classes is closed, each type is enumerated here.
   enum TypeKind {
     BASIC_TYPE_KIND,
-    BITFIELD_TYPE_KIND,
     USER_DEFINED_TYPE_KIND,
     POINTER_TYPE_KIND,
     WILDCARD_TYPE_KIND,
@@ -93,16 +92,6 @@ class Type : public base::RefCounted<Type> {
 
 using TypePtr = scoped_refptr<Type>;
 
-// A hash functor for types.
-struct TypeHash : public std::unary_function<Type, size_t> {
-  size_t operator()(const TypePtr& type);
-};
-
-// An equality comparator for types.
-struct TypeIsEqual : public std::binary_function<Type, Type, bool> {
-  bool operator()(const TypePtr& a, const TypePtr& b);
-};
-
 // Represents a basic type, such as e.g. an int, char, void, etc.
 class BasicType : public Type {
  public:
@@ -116,32 +105,6 @@ class BasicType : public Type {
 };
 
 using BasicTypePtr = scoped_refptr<BasicType>;
-
-// Represents a bitfield.
-class BitfieldType : public Type {
- public:
-  static const TypeKind ID = BITFIELD_TYPE_KIND;
-
-  // Creates a new bitfield.
-  BitfieldType(const base::string16& name,
-               size_t size,
-               size_t bit_length,
-               size_t bit_offset);
-
-  // @name Accessors.
-  // @{
-  size_t bit_length() const { return bit_length_; }
-  size_t bit_offset() const { return bit_offset_; }
-  // @}
-
- private:
-  const size_t bit_length_;
-  const size_t bit_offset_;
-
-  DISALLOW_COPY_AND_ASSIGN(BitfieldType);
-};
-
-using BitfieldTypePtr = scoped_refptr<BitfieldType>;
 
 // Represents a user defined type such as a struct, union or a class.
 class UserDefinedType : public Type {
@@ -187,10 +150,16 @@ class UserDefinedType::Field {
   //    Note that many bitfield fields can share the same offset within a UDT,
   //    as can fields in a union.
   // @param flags any combination of Flags, denoting properties of the field.
+  // @param bit_pos if this field is a bitfield, this is the bit position.
+  // @param bit_len if this field is a bitfield, this is the bit length.
   // @param type_id the type ID of the field.
+  // @note bit_pos and bit_len must be in the range 0..63.
+  // @note When bit_len is zero it signifies that the field is not a bitfield.
   Field(const base::string16& name,
         ptrdiff_t offset,
         Flags flags,
+        size_t bit_pos,
+        size_t bit_len,
         TypeId type_id);
 
   // @name Accessors.
@@ -198,15 +167,19 @@ class UserDefinedType::Field {
   const base::string16& name() const { return name_; }
   ptrdiff_t offset() const { return offset_; }
   TypeId type_id() const { return type_id_; }
-
+  size_t bit_pos() const { return bit_pos_; }
+  size_t bit_len() const { return bit_len_; }
   bool is_const() const { return (flags_ & FLAG_CONST) != 0; }
   bool is_volatile() const { return (flags_ & FLAG_VOLATILE) != 0; }
+
   // @}
 
  private:
   const base::string16 name_;
   const ptrdiff_t offset_;
   const Flags flags_;
+  const size_t bit_pos_ : 6;
+  const size_t bit_len_ : 6;
   const TypeId type_id_;
 };
 

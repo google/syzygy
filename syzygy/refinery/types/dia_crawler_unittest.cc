@@ -72,12 +72,14 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   ASSERT_TRUE(udt);
 
   const UserDefinedType::Fields& fields = udt->fields();
-  ASSERT_EQ(5U, fields.size());
+  ASSERT_EQ(6U, fields.size());
 
   EXPECT_EQ(0, fields[0].offset());
   EXPECT_EQ(L"one", fields[0].name());
   EXPECT_FALSE(fields[0].is_const());
   EXPECT_FALSE(fields[0].is_volatile());
+  EXPECT_EQ(0, fields[0].bit_pos());
+  EXPECT_EQ(0, fields[0].bit_len());
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(0)->kind());
   EXPECT_EQ(4, udt->GetFieldType(0)->size());
   // TODO(siggi): Assert on type's name.
@@ -86,6 +88,8 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   EXPECT_EQ(L"two", fields[1].name());
   EXPECT_TRUE(fields[1].is_const());
   EXPECT_FALSE(fields[1].is_volatile());
+  EXPECT_EQ(0, fields[1].bit_pos());
+  EXPECT_EQ(0, fields[1].bit_len());
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(1)->kind());
   EXPECT_EQ(1, udt->GetFieldType(1)->size());
   // TODO(siggi): Assert on type's name.
@@ -94,6 +98,8 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   EXPECT_EQ(L"three", fields[2].name());
   EXPECT_FALSE(fields[2].is_const());
   EXPECT_TRUE(fields[2].is_volatile());
+  EXPECT_EQ(0, fields[2].bit_pos());
+  EXPECT_EQ(0, fields[2].bit_len());
   ASSERT_EQ(Type::POINTER_TYPE_KIND, udt->GetFieldType(2)->kind());
   EXPECT_EQ(4, udt->GetFieldType(2)->size());
   PointerTypePtr ptr;
@@ -109,6 +115,8 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   EXPECT_EQ(L"four", fields[3].name());
   EXPECT_TRUE(fields[3].is_const());
   EXPECT_TRUE(fields[3].is_volatile());
+  EXPECT_EQ(0, fields[3].bit_pos());
+  EXPECT_EQ(0, fields[3].bit_len());
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(3)->kind());
   EXPECT_EQ(2, udt->GetFieldType(3)->size());
   // TODO(siggi): Assert on type's name.
@@ -118,8 +126,20 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   EXPECT_EQ(L"five", fields[4].name());
   EXPECT_FALSE(fields[4].is_const());
   EXPECT_FALSE(fields[4].is_volatile());
-  EXPECT_EQ(Type::BITFIELD_TYPE_KIND, udt->GetFieldType(4)->kind());
+  EXPECT_EQ(0, fields[4].bit_pos());
+  EXPECT_EQ(3, fields[4].bit_len());
+  EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(4)->kind());
   EXPECT_EQ(2, udt->GetFieldType(4)->size());
+  // TODO(siggi): Assert on type's name.
+
+  EXPECT_EQ(14, fields[5].offset());
+  EXPECT_EQ(L"six", fields[5].name());
+  EXPECT_FALSE(fields[5].is_const());
+  EXPECT_FALSE(fields[5].is_volatile());
+  EXPECT_EQ(3, fields[5].bit_pos());
+  EXPECT_EQ(5, fields[5].bit_len());
+  EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(5)->kind());
+  EXPECT_EQ(2, udt->GetFieldType(5)->size());
   // TODO(siggi): Assert on type's name.
 }
 

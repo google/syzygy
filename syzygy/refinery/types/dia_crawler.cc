@@ -240,13 +240,6 @@ class TypeCreator {
   // The type will be registered by a unique name in @p existing_types_.
   TypePtr FindOrCreateType(IDiaSymbol* symbol);
 
-  // Bitfields are a bit of a special case, because the bit position and length
-  // are stored against the data field.
-  // TODO(siggi): Does it make sense to store this in the field?
-  TypePtr FindOrCreateBitFieldType(IDiaSymbol* symbol,
-                                   size_t bit_length,
-                                   size_t bit_pos);
-
   TypePtr CreateType(IDiaSymbol* symbol);
   TypePtr CreateUDT(IDiaSymbol* symbol);
   TypePtr CreateEnum(IDiaSymbol* symbol);
@@ -255,9 +248,6 @@ class TypeCreator {
   TypePtr CreatePointerType(IDiaSymbol* symbol);
   TypePtr CreateTypedefType(IDiaSymbol* symbol);
   TypePtr CreateArrayType(IDiaSymbol* symbol);
-  TypePtr CreateBitFieldType(IDiaSymbol* symbol,
-                             size_t bit_length,
-                             size_t bit_pos);
 
   bool FinalizeUDT(IDiaSymbol* symbol, TypePtr type);
 
@@ -342,30 +332,6 @@ TypePtr TypeCreator::FindOrCreateType(IDiaSymbol* symbol) {
   //    unique, human-readable names to pointers requires another pass yet.
   TypePtr created = CreateType(symbol);
   DCHECK(created);
-  CreatedType& entry = created_types_[index_id];
-  entry.type_id = repository_->AddType(created);
-  entry.is_finalized = false;
-
-  return created;
-}
-
-TypePtr TypeCreator::FindOrCreateBitFieldType(
-    IDiaSymbol* symbol, size_t bit_length, size_t bit_pos) {
-  DCHECK(symbol);
-
-  // TODO(siggi): Fixme: this doesn't work, as the "unique name" of symbol
-  //     index ID does not include the bit length and pos.
-  DWORD index_id = 0;
-  if (!GetSymIndexId(symbol, &index_id))
-    return false;
-
-  auto it = created_types_.find(index_id);
-  if (it != created_types_.end())
-    return repository_->GetType(it->second.type_id);
-
-  TypePtr created = CreateBitFieldType(symbol, bit_length, bit_pos);
-  DCHECK(created);
-
   CreatedType& entry = created_types_[index_id];
   entry.type_id = repository_->AddType(created);
   entry.is_finalized = false;
@@ -498,26 +464,24 @@ bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, TypePtr type) {
     }
 
     TypePtr field_type;
-    if (loc_type == LocIsThisRel) {
-      field_type = FindOrCreateType(field_type_sym.get());
-    } else if (loc_type == LocIsBitField) {
+    field_type = FindOrCreateType(field_type_sym.get());
+    size_t bit_length = 0;
+    size_t bit_pos = 0;
+    if (loc_type == LocIsBitField) {
       // For bitfields we need the bit size and length.
-      size_t bit_length = 0;
-      size_t bit_pos = 0;
       if (!GetSymSize(field_sym.get(), &bit_length) ||
           !GetSymBitPos(field_sym.get(), &bit_pos)) {
         return false;
       }
-
-      field_type =
-          FindOrCreateBitFieldType(field_type_sym.get(), bit_length, bit_pos);
-    } else {
+    } else if (loc_type != LocIsThisRel) {
       NOTREACHED() << "Impossible location type!";
     }
 
     fields.push_back(UserDefinedType::Field(field_name,
                                             field_offset,
                                             field_flags,
+                                            bit_pos,
+                                            bit_length,
                                             field_type->type_id()));
   }
 
@@ -598,22 +562,6 @@ TypePtr TypeCreator::CreateArrayType(IDiaSymbol* symbol) {
 
   // TODO(siggi): Implement an array type.
   return new WildcardType(name, size);
-}
-
-TypePtr TypeCreator::CreateBitFieldType(IDiaSymbol* symbol,
-                                        size_t bit_length,
-                                        size_t bit_pos) {
-  DCHECK(symbol);
-  DCHECK(IsSymTag(symbol, SymTagBaseType) || IsSymTag(symbol, SymTagEnum));
-
-  base::string16 base_type_name;
-  size_t size = 0;
-  if (!GetSymBaseTypeName(symbol, &base_type_name) ||
-      !GetSymSize(symbol, &size)) {
-    return nullptr;
-  }
-
-  return new BitfieldType(base_type_name, size, bit_length, bit_pos);
 }
 
 }  // namespace

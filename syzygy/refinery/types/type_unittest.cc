@@ -40,25 +40,6 @@ TEST(TypesTest, BasicType) {
   EXPECT_FALSE(ptr.get());
 }
 
-TEST(TypesTest, BitfieldType) {
-  // Create a BasicType and store in a supertype pointer.
-  TypePtr type = new BitfieldType(L"bar", 4, 3, 1);
-
-  ASSERT_TRUE(type.get());
-  // Verify the kind and fields.
-  EXPECT_EQ(Type::BITFIELD_TYPE_KIND, type->kind());
-  EXPECT_EQ(L"bar", type->name());
-  EXPECT_EQ(4, type->size());
-
-  // Down-cast it.
-  BitfieldTypePtr bitfield_type;
-  ASSERT_TRUE(type->CastTo(&bitfield_type));
-  ASSERT_TRUE(bitfield_type);
-
-  ASSERT_EQ(3, bitfield_type->bit_length());
-  ASSERT_EQ(1, bitfield_type->bit_offset());
-}
-
 TEST(TypesTest, UserDefineType) {
   // Build a UDT instance.
   UserDefinedType::Fields fields;
@@ -66,12 +47,11 @@ TEST(TypesTest, UserDefineType) {
 
   const TypeId kBasicTypeId = repo.AddType(new BasicType(L"int", 4));
   fields.push_back(
-      UserDefinedType::Field(L"one", 0, Type::FLAG_CONST, kBasicTypeId));
-  fields.push_back(
-      UserDefinedType::Field(L"two", 4, Type::FLAG_VOLATILE, kBasicTypeId));
+      UserDefinedType::Field(L"one", 0, Type::FLAG_CONST, 0, 0, kBasicTypeId));
+  fields.push_back(UserDefinedType::Field(L"two", 4, Type::FLAG_VOLATILE, 0, 0,
+                                          kBasicTypeId));
   const TypeId kShortTypeId = repo.AddType(new BasicType(L"short", 2));
-  fields.push_back(
-      UserDefinedType::Field(L"three", 8, 0, kShortTypeId));
+  fields.push_back(UserDefinedType::Field(L"three", 8, 0, 0, 0, kShortTypeId));
   UserDefinedTypePtr udt =
       new UserDefinedType(L"foo", 10);
   udt->Finalize(fields);
@@ -173,189 +153,5 @@ TypePtr CreateUDT(const wchar_t* name,
 }
 
 }  // namespace
-
-TEST(TypesTest, TypeHash) {
-  TypeHash hash;
-
-  // BasicType.
-  {
-    size_t norm = hash(new BasicType(L"basic", 4));
-    EXPECT_EQ(norm, hash(new BasicType(L"basic", 4)));
-    EXPECT_NE(norm, hash(new BasicType(L"fasic", 4)));
-    EXPECT_NE(norm, hash(new BasicType(L"basic", 3)));
-  }
-
-  // BitfieldType.
-  {
-    size_t norm = hash(new BitfieldType(L"bitfield", 4, 1, 3));
-
-    EXPECT_EQ(norm, hash(new BitfieldType(L"bitfield", 4, 1, 3)));
-
-    EXPECT_NE(norm, hash(new BitfieldType(L"fitfield", 4, 1, 3)));
-    EXPECT_NE(norm, hash(new BitfieldType(L"bitfield", 3, 1, 3)));
-    EXPECT_NE(norm, hash(new BitfieldType(L"bitfield", 4, 2, 3)));
-    EXPECT_NE(norm, hash(new BitfieldType(L"bitfield", 4, 1, 4)));
-  }
-
-  // UserDefinedType.
-  {
-    const TypeId kType = 333;
-
-    UserDefinedType::Fields fields;
-    fields.push_back(
-        UserDefinedType::Field(L"one", 0, 0, kType));
-
-    size_t norm = hash(CreateUDT(L"udt", 8, fields));
-    EXPECT_EQ(norm, hash(CreateUDT(L"udt", 8, fields)));
-
-    EXPECT_NE(norm, hash(CreateUDT(L"Udt", 8, fields)));
-    EXPECT_NE(norm, hash(CreateUDT(L"udt", 12, fields)));
-
-    UserDefinedType::Fields inequal_fields;
-    // Difference in field number.
-    EXPECT_NE(norm, hash(CreateUDT(L"udt", 8, inequal_fields)));
-
-    // Difference in const only.
-    inequal_fields.push_back(UserDefinedType::Field(
-        L"one", 0, Type::FLAG_CONST, kType));
-    EXPECT_NE(norm, hash(CreateUDT(L"udt", 8, inequal_fields)));
-
-    // Difference in type.
-    inequal_fields.clear();
-    inequal_fields.push_back(
-        UserDefinedType::Field(L"one", 0, 0, kType + 30));
-    EXPECT_NE(norm, hash(CreateUDT(L"udt", 8, inequal_fields)));
-  }
-
-  // PointerType.
-  {
-    const TypeId kType = 395;
-    size_t norm = hash(new PointerType(L"pointer", 4, 0, kType));
-
-    EXPECT_EQ(norm, hash(new PointerType(L"pointer", 4, 0, kType)));
-
-    EXPECT_NE(norm, hash(new PointerType(L"Pointer", 4, 0, kType)));
-    EXPECT_NE(norm, hash(new PointerType(L"pointer", 3, 0, kType)));
-    EXPECT_NE(norm, hash(new PointerType(L"pointer", 4, Type::FLAG_CONST,
-                                         kType)));
-    EXPECT_NE(norm, hash(new PointerType(L"pointer", 4, 0, kType - 3)));
-  }
-
-  // WildcardType.
-  {
-    size_t norm = hash(new WildcardType(L"Array", 4));
-    EXPECT_EQ(norm, hash(new WildcardType(L"Array", 4)));
-    EXPECT_NE(norm, hash(new WildcardType(L"fasic", 4)));
-    EXPECT_NE(norm, hash(new WildcardType(L"Array", 3)));
-  }
-}
-
-TEST(TypesTest, TypeIsEqual) {
-  TypeIsEqual comp;
-
-  {
-    UserDefinedType::Fields fields;
-    const TypeId kFieldType = 30945;
-    fields.push_back(UserDefinedType::Field(L"one", 0, 0, kFieldType));
-    fields.push_back(UserDefinedType::Field(L"two", 4, 0, kFieldType));
-
-    const TypeId kPtrType = 1234;
-    TypePtr types[] = {
-      new BasicType(L"basic", 4),
-      new BitfieldType(L"bitfield", 4, 1, 3),
-      CreateUDT(L"udt", 8, fields),
-      new PointerType(L"pointer", 4, 0, kPtrType),
-      new WildcardType(L"Array", 4),
-    };
-
-    // Test all type cross-comparisons, only the diagonal should compare true.
-    for (size_t i = 0; i < arraysize(types); ++i) {
-      for (size_t j = 0; j < arraysize(types); ++j) {
-        if (i == j)
-          EXPECT_TRUE(comp(types[i], types[j]));
-        else
-          EXPECT_FALSE(comp(types[i], types[j]));
-      }
-    }
-
-    // Create another set of equal types.
-    TypePtr equal_types[] = {
-      new BasicType(L"basic", 4),
-      new BitfieldType(L"bitfield", 4, 1, 3),
-      CreateUDT(L"udt", 8, fields),
-      new PointerType(L"pointer", 4, 0, kPtrType),
-      new WildcardType(L"Array", 4),
-    };
-
-    // Test all type cross-comparisons, only the diagonal should compare but
-    // now on equality rather than identity.
-    for (size_t i = 0; i < arraysize(types); ++i) {
-      for (size_t j = 0; j < arraysize(types); ++j) {
-        if (i == j)
-          EXPECT_TRUE(comp(types[i], equal_types[j]));
-        else
-          EXPECT_FALSE(comp(types[i], equal_types[j]));
-      }
-    }
-  }
-
-  {
-    // Test field inequality for basic types.
-    TypePtr norm = new BasicType(L"one", 0);
-    EXPECT_FALSE(comp(norm, new BasicType(L"two", 0)));
-    EXPECT_FALSE(comp(norm, new BasicType(L"one", 4)));
-  }
-
-  {
-    // Test field inequality for bit field types.
-    TypePtr norm = new BitfieldType(L"one", 4, 1, 1);
-
-    EXPECT_FALSE(comp(norm, new BitfieldType(L"two", 4, 1, 1)));
-    EXPECT_FALSE(comp(norm, new BitfieldType(L"one", 2, 1, 1)));
-    EXPECT_FALSE(comp(norm, new BitfieldType(L"one", 4, 2, 1)));
-    EXPECT_FALSE(comp(norm, new BitfieldType(L"one", 4, 1, 2)));
-  }
-
-
-  {
-    UserDefinedType::Fields fields;
-    const TypeId kFieldType = 94014;
-    fields.push_back(
-        UserDefinedType::Field(L"one", 0, 0, kFieldType));
-
-    // Test field inequality for UDTs.
-    TypePtr norm = CreateUDT(L"one", 4, fields);
-    EXPECT_FALSE(comp(norm, CreateUDT(L"two", 4, fields)));
-    EXPECT_FALSE(comp(norm, CreateUDT(L"one", 8, fields)));
-
-    UserDefinedType::Fields inequal_fields;
-
-    // Test difference in field number.
-    EXPECT_FALSE(comp(norm, CreateUDT(L"one", 4, inequal_fields)));
-
-    // Difference in field constness.
-    inequal_fields.push_back(
-        UserDefinedType::Field(L"one", 0, Type::FLAG_CONST, kFieldType));
-    EXPECT_FALSE(comp(norm, CreateUDT(L"one", 4, inequal_fields)));
-
-    // Difference in field offset (name).
-    inequal_fields.clear();
-    inequal_fields.push_back(UserDefinedType::Field(L"one", 1, 0, kFieldType));
-    EXPECT_FALSE(comp(norm, CreateUDT(L"one", 4, inequal_fields)));
-
-    // Difference in field type.
-    inequal_fields.clear();
-    inequal_fields.push_back(
-        UserDefinedType::Field(L"one", 0, 0, kFieldType + 9));
-    EXPECT_FALSE(comp(norm, CreateUDT(L"one", 4, inequal_fields)));
-  }
-
-  {
-    // Test field inequality for wildcard types.
-    TypePtr norm = new WildcardType(L"Array", 0);
-    EXPECT_FALSE(comp(norm, new WildcardType(L"Farray", 0)));
-    EXPECT_FALSE(comp(norm, new WildcardType(L"Array", 4)));
-  }
-}
 
 }  // namespace refinery
