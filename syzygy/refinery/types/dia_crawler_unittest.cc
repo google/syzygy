@@ -29,12 +29,6 @@ namespace {
 
 class DiaCrawlerTest : public testing::Test {
  protected:
-  void SetUp() override {
-    ASSERT_TRUE(PathService::Get(base::FILE_EXE, &self_));
-  }
-
- private:
-  base::FilePath self_;
 };
 
 }  // namespace
@@ -43,7 +37,8 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   DiaCrawler crawler;
 
   ASSERT_TRUE(crawler.InitializeForFile(
-      testing::GetOutputRelativePath(L"test_types.dll.pdb")));
+      testing::GetSrcRelativePath(
+          L"syzygy\\refinery\\test_data\\test_types.dll.pdb")));
 
   TypeRepository types;
   ASSERT_TRUE(crawler.GetTypes(&types));
