@@ -47,6 +47,9 @@
       'msvs_settings': {
         'VCLinkerTool': {
           'EntryPointSymbol': 'EntryPoint',
+          # Turn down incremental linking for the test to avoid types
+          # languishing from build to build.
+          'LinkIncremental': '1',
         },
       },
     },

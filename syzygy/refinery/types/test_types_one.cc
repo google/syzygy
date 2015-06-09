@@ -27,6 +27,7 @@ struct TestCollidingUDT {
 
 }  // namespace
 
+// Used to test UDTs in DiaCrawlerTests.
 struct TestSimpleUDT {
   int one;
   const char two;
