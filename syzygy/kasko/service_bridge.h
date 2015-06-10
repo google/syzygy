@@ -60,13 +60,7 @@ class ServiceBridge {
   // Without the parentheses the '::' is associated with 'boolean'.
   friend boolean(::KaskoService_SendDiagnosticReport)(  // NOLINT
       handle_t IDL_handle,
-      unsigned long exception_info_address,
-      unsigned long thread_id,
-      ::DumpType dump_type,
-      unsigned long crash_keys_size,
-      const CrashKey* crash_keys,
-      unsigned long custom_streams_size,
-      const CustomStream* custom_streams);
+      MinidumpRequest request);
 
   scoped_ptr<common::rpc::ScopedRpcInterfaceRegistration>
       interface_registration_;

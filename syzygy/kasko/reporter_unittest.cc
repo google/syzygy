@@ -94,10 +94,11 @@ MULTIPROCESS_TEST_MAIN(ReporterTestClientProcess) {
 
   CrashKey crash_keys[] = {{kCrashKey1Name, kCrashKey1Value},
                            {kCrashKey2Name, kCrashKey2Value}};
+  ::MinidumpRequest rpc_request = {
+      0, 0, SMALL_DUMP, arraysize(crash_keys), crash_keys, 0, nullptr};
 
   common::rpc::RpcStatus status = common::rpc::InvokeRpc(
-      KaskoClient_SendDiagnosticReport, rpc_binding.Get(), NULL, 0, SMALL_DUMP,
-      arraysize(crash_keys), crash_keys, 0, nullptr);
+      KaskoClient_SendDiagnosticReport, rpc_binding.Get(), rpc_request);
   if (status.exception_occurred || !status.succeeded()) {
     PLOG(ERROR) << "InvokeRpc";
     return 1;

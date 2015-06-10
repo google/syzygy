@@ -19,11 +19,12 @@
 ]
 interface Kasko {
 
-  // Represents a property to include in a diagnostic report.
-  typedef struct {
-      [string] const wchar_t* name;
-      [string] const wchar_t* value;
-  } CrashKey;
+  // Specifies the type of Minidump to be included in a report.
+  typedef enum {
+    SMALL_DUMP,
+    LARGER_DUMP,
+    FULL_DUMP
+  } DumpType;
 
   // Represents a custom stream to include in a diagnostic report.
   typedef struct {
@@ -32,29 +33,35 @@ interface Kasko {
     [size_is(size)] const signed char *data;
   } CustomStream;
 
-  // Specifies the type of Minidump to be included in a report.
-  typedef enum {
-    SMALL_DUMP,
-    LARGER_DUMP,
-    FULL_DUMP
-  } DumpType;
+  // Represents a property to include in a diagnostic report.
+  typedef struct {
+    [string] const wchar_t* name;
+    [string] const wchar_t* value;
+  } CrashKey;
+
+  // Represents a diagnostic report request.
+  typedef struct {
+    // Optional exception information.
+    unsigned long exception_info_address;
+    // The (optional) faulting thread in the target process.
+    unsigned long thread_id;
+    // The type of minidump to be included in the report.
+    DumpType type;
+    // The number of entries in |crash_keys|.
+    unsigned long crash_keys_size;
+    // An optional array of crash keys. Keys with empty names or values will be
+    // ignored.
+    // unique -> optional
+    // (http://blogs.msdn.com/b/oldnewthing/archive/2014/09/19/10559094.aspx)
+    [unique, size_is(crash_keys_size)] const CrashKey* crash_keys;
+    // The number of entries in |custom_streams|.
+    unsigned long custom_streams_size;
+    // An optional array of custom streams.
+    [unique, size_is(custom_streams_size)] const CustomStream* custom_streams;
+  } MinidumpRequest;
 
   // Sends a diagnostic report for the caller process.
-  // @param exception_info_address Optional exception information.
-  // @param thread_id The (optional) faulting thread in the target process.
-  // @param minidump_type The type of minidump to be included in the report.
-  // @param crash_keys_size The number of entries in |crash_keys|.
-  // @param crash_keys An optional array of crash keys. Keys with empty names or
-  // @param custom_streams_size The number of entries in |custom_streams|.
-  // @param custom_streams An optional array of custom streams.
-  boolean SendDiagnosticReport(
-      unsigned long exception_info_address, unsigned long thread_id,
-      DumpType minidump_type,
-      [in] unsigned long crash_keys_size,
-      // unique -> optional
-      // (http://blogs.msdn.com/b/oldnewthing/archive/2014/09/19/10559094.aspx)
-      [in, unique, size_is(crash_keys_size)] const CrashKey* crash_keys,
-      [in] unsigned long custom_streams_size,
-      [in, unique, size_is(custom_streams_size)]
-          const CustomStream* custom_streams);
+  // @param request The request parameters.
+  boolean SendDiagnosticReport([in] MinidumpRequest request);
+
 }

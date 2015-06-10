@@ -31,31 +31,6 @@ Client::~Client(){
 }
 
 void Client::SendReport(const MinidumpRequest& request) const {
-  // Establish the RPC binding.
-  common::rpc::ScopedRpcBinding rpc_binding;
-  if (!rpc_binding.Open(L"ncalrpc", endpoint_)) {
-    LOG(ERROR) << "Failed to open an RPC binding.";
-    return;
-  }
-
-  // Alias the crash key string buffers into the CrashKey array used for the RPC
-  // invocation.
-  std::vector<CrashKey> crash_keys;
-  for (auto& client_crash_key : request.crash_keys) {
-    CrashKey rpc_crash_key = {client_crash_key.first, client_crash_key.second};
-    crash_keys.push_back(rpc_crash_key);
-  }
-
-  // Alias the custom stream buffers into the CustomStream array used for the
-  // RPC invocation.
-  std::vector<CustomStream> custom_streams;
-  for (auto& client_custom_stream : request.custom_streams) {
-    CustomStream rpc_custom_stream = {
-        client_custom_stream.type, client_custom_stream.length,
-        reinterpret_cast<const signed char*>(client_custom_stream.data)};
-    custom_streams.push_back(rpc_custom_stream);
-  }
-
   DumpType rpc_dump_type = SMALL_DUMP;
   switch (request.type) {
     case MinidumpRequest::SMALL_DUMP_TYPE:
@@ -72,13 +47,43 @@ void Client::SendReport(const MinidumpRequest& request) const {
       break;
   }
 
+  // Alias the crash key string buffers into the CrashKey array used for the RPC
+  // invocation.
+  std::vector<CrashKey> rpc_crash_keys;
+  for (auto& client_crash_key : request.crash_keys) {
+    CrashKey rpc_crash_key = {client_crash_key.first, client_crash_key.second};
+    rpc_crash_keys.push_back(rpc_crash_key);
+  }
+
+  // Alias the custom stream buffers into the CustomStream array used for the
+  // RPC invocation.
+  std::vector<CustomStream> rpc_custom_streams;
+  for (auto& client_custom_stream : request.custom_streams) {
+    CustomStream rpc_custom_stream = {
+        client_custom_stream.type, client_custom_stream.length,
+        reinterpret_cast<const signed char*>(client_custom_stream.data)};
+    rpc_custom_streams.push_back(rpc_custom_stream);
+  }
+
+  ::MinidumpRequest rpc_request = {
+      request.exception_info_address,
+      base::PlatformThread::CurrentId(),
+      rpc_dump_type,
+      rpc_crash_keys.size(),
+      rpc_crash_keys.size() ? rpc_crash_keys.data() : nullptr,
+      rpc_custom_streams.size(),
+      rpc_custom_streams.size() ? rpc_custom_streams.data() : nullptr};
+
+  // Establish the RPC binding.
+  common::rpc::ScopedRpcBinding rpc_binding;
+  if (!rpc_binding.Open(L"ncalrpc", endpoint_)) {
+    LOG(ERROR) << "Failed to open an RPC binding.";
+    return;
+  }
+
   // Invoke SendDiagnosticReport via RPC.
   common::rpc::RpcStatus status = common::rpc::InvokeRpc(
-      KaskoClient_SendDiagnosticReport, rpc_binding.Get(),
-      request.exception_info_address, base::PlatformThread::CurrentId(),
-      rpc_dump_type, crash_keys.size(),
-      crash_keys.size() ? crash_keys.data() : nullptr, custom_streams.size(),
-      custom_streams.size() ? custom_streams.data() : nullptr);
+      KaskoClient_SendDiagnosticReport, rpc_binding.Get(), rpc_request);
 
   if (!status.succeeded())
     LOG(ERROR) << "Failed to invoke the SendDiagnosticReport RPC.";

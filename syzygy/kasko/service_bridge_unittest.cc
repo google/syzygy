@@ -101,10 +101,16 @@ void DoInvokeService(const base::string16& protocol,
   common::rpc::ScopedRpcBinding rpc_binding;
   ASSERT_TRUE(rpc_binding.Open(protocol, endpoint));
 
+  ::MinidumpRequest rpc_request = {exception_info_address,
+                                   thread_id,
+                                   dump_type,
+                                   crash_keys_length,
+                                   crash_keys,
+                                   custom_streams_length,
+                                   custom_streams};
+
   common::rpc::RpcStatus status = common::rpc::InvokeRpc(
-      KaskoClient_SendDiagnosticReport, rpc_binding.Get(),
-      exception_info_address, thread_id, dump_type, crash_keys_length,
-      crash_keys, custom_streams_length, custom_streams);
+      KaskoClient_SendDiagnosticReport, rpc_binding.Get(), rpc_request);
   ASSERT_FALSE(status.exception_occurred);
   ASSERT_TRUE(status.succeeded());
   *complete = true;

@@ -33,13 +33,7 @@ ServiceBridge* g_service_bridge = NULL;
 // RPC calls all come through this single free function. We use the singleton
 // g_service_bridge to forward the call to the running Service.
 boolean KaskoService_SendDiagnosticReport(handle_t IDL_handle,
-                                          unsigned long exception_info_address,
-                                          unsigned long thread_id,
-                                          DumpType minidump_type,
-                                          unsigned long crash_keys_size,
-                                          const CrashKey* crash_keys,
-                                          unsigned long custom_streams_size,
-                                          const CustomStream* custom_streams) {
+                                          MinidumpRequest request) {
   DCHECK(kasko::g_service_bridge);
 
   base::ProcessId client_process_id =
@@ -47,45 +41,45 @@ boolean KaskoService_SendDiagnosticReport(handle_t IDL_handle,
   if (!client_process_id)
     return false;
 
-  kasko::MinidumpRequest request;
+  kasko::MinidumpRequest internal_request;
 
-  request.exception_info_address = exception_info_address;
+  internal_request.exception_info_address = request.exception_info_address;
 
-  for (unsigned long i = 0; i < crash_keys_size; ++i) {
-    if (!crash_keys[i].name || !crash_keys[i].value)
-      continue;
-
-    request.crash_keys.push_back(kasko::MinidumpRequest::CrashKey(
-        crash_keys[i].name, crash_keys[i].value));
-  }
-
-  switch (minidump_type) {
+  switch (request.type) {
     case SMALL_DUMP:
-      request.type = kasko::MinidumpRequest::SMALL_DUMP_TYPE;
+      internal_request.type = kasko::MinidumpRequest::SMALL_DUMP_TYPE;
       break;
     case LARGER_DUMP:
-      request.type = kasko::MinidumpRequest::LARGER_DUMP_TYPE;
+      internal_request.type = kasko::MinidumpRequest::LARGER_DUMP_TYPE;
       break;
     case FULL_DUMP:
-      request.type = kasko::MinidumpRequest::FULL_DUMP_TYPE;
+      internal_request.type = kasko::MinidumpRequest::FULL_DUMP_TYPE;
       break;
     default:
       NOTREACHED();
       break;
   }
 
-  for (unsigned long i = 0; i < custom_streams_size; ++i) {
-    if (!custom_streams[i].size)
+  for (unsigned long i = 0; i < request.crash_keys_size; ++i) {
+    if (!request.crash_keys[i].name || !request.crash_keys[i].value)
       continue;
-    kasko::MinidumpRequest::CustomStream internal_custom_stream = {
-        custom_streams[i].type,
-        reinterpret_cast<const void*>(custom_streams[i].data),
-        custom_streams[i].size};
-    request.custom_streams.push_back(internal_custom_stream);
+
+    internal_request.crash_keys.push_back(kasko::MinidumpRequest::CrashKey(
+        request.crash_keys[i].name, request.crash_keys[i].value));
   }
 
-  kasko::g_service_bridge->service_->SendDiagnosticReport(client_process_id,
-                                                          thread_id, request);
+  for (unsigned long i = 0; i < request.custom_streams_size; ++i) {
+    if (!request.custom_streams[i].size)
+      continue;
+    kasko::MinidumpRequest::CustomStream internal_custom_stream = {
+        request.custom_streams[i].type,
+        reinterpret_cast<const void*>(request.custom_streams[i].data),
+        request.custom_streams[i].size};
+    internal_request.custom_streams.push_back(internal_custom_stream);
+  }
+
+  kasko::g_service_bridge->service_->SendDiagnosticReport(
+      client_process_id, request.thread_id, internal_request);
 
   return true;
 }
