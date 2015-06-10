@@ -124,17 +124,7 @@ void GenerateReport(const base::FilePath& temporary_directory,
     return;
   }
 
-  std::vector<CustomStream> custom_streams;
-  for (auto& request_custom_stream : request.custom_streams) {
-    CustomStream custom_stream = {request_custom_stream.type,
-                                  request_custom_stream.data,
-                                  request_custom_stream.length};
-    custom_streams.push_back(custom_stream);
-  }
-
-  if (!GenerateMinidump(dump_file, client_process_id, thread_id,
-                        request.exception_info_address, request.type,
-                        custom_streams)) {
+  if (!GenerateMinidump(dump_file, client_process_id, thread_id, request)) {
     LOG(ERROR) << "Minidump generation failed.";
     base::DeleteFile(dump_file, false);
     return;

@@ -37,6 +37,7 @@
 #include "base/synchronization/waitable_event.h"
 #include "base/test/multiprocess_test.h"
 #include "gtest/gtest.h"
+#include "syzygy/kasko/minidump_request.h"
 #include "syzygy/kasko/testing/minidump_unittest_helpers.h"
 #include "testing/multiprocess_func_list.h"
 
@@ -81,8 +82,6 @@ class MinidumpTest : public ::testing::Test {
   virtual void SetUp() override { temp_dir_.CreateUniqueTempDir(); }
 
   void CallGenerateMinidump(const base::FilePath& dump_file_path,
-                            MinidumpRequest::Type minidump_type,
-                            const std::vector<CustomStream>& custom_streams,
                             bool* result) {
     std::string ready_event_name =
         "minidump_test_ready_" + base::UintToString(base::GetCurrentProcId());
@@ -100,18 +99,18 @@ class MinidumpTest : public ::testing::Test {
     ASSERT_TRUE(child_process.IsValid());
     ready_event.Wait();
 
-    *result =
-        kasko::GenerateMinidump(dump_file_path,
-                                base::GetProcId(child_process.Handle()),
-                                0, NULL, minidump_type, custom_streams);
+    *result = kasko::GenerateMinidump(
+        dump_file_path, base::GetProcId(child_process.Handle()), 0, request_);
 
     ASSERT_TRUE(child_process.Terminate(0, true));
   }
 
  protected:
   base::FilePath temp_dir() { return temp_dir_.path(); }
+  MinidumpRequest& request() { return request_; }
 
  private:
+  MinidumpRequest request_;
   base::ScopedTempDir temp_dir_;
   DISALLOW_COPY_AND_ASSIGN(MinidumpTest);
 };
@@ -119,11 +118,8 @@ class MinidumpTest : public ::testing::Test {
 TEST_F(MinidumpTest, GenerateAndLoad) {
   // Generate a minidump for the current process.
   base::FilePath dump_file_path = temp_dir().Append(L"test.dump");
-  std::vector<CustomStream> custom_streams;
   bool result = false;
-  ASSERT_NO_FATAL_FAILURE(CallGenerateMinidump(dump_file_path,
-                                               MinidumpRequest::SMALL_DUMP_TYPE,
-                                               custom_streams, &result));
+  ASSERT_NO_FATAL_FAILURE(CallGenerateMinidump(dump_file_path, &result));
   ASSERT_TRUE(result);
 
   ASSERT_HRESULT_SUCCEEDED(
@@ -133,15 +129,11 @@ TEST_F(MinidumpTest, GenerateAndLoad) {
 TEST_F(MinidumpTest, CustomStream) {
   // Generate a minidump for the current process.
   base::FilePath dump_file_path = temp_dir().Append(L"test.dump");
-  std::vector<CustomStream> custom_streams;
-  CustomStream custom_stream = {kCustomStreamType,
-                                kCustomStreamContents,
-                                sizeof(kCustomStreamContents)};
-  custom_streams.push_back(custom_stream);
+  MinidumpRequest::CustomStream custom_stream = {
+      kCustomStreamType, kCustomStreamContents, sizeof(kCustomStreamContents)};
+  request().custom_streams.push_back(custom_stream);
   bool result = false;
-  ASSERT_NO_FATAL_FAILURE(CallGenerateMinidump(dump_file_path,
-                                               MinidumpRequest::SMALL_DUMP_TYPE,
-                                               custom_streams, &result));
+  ASSERT_NO_FATAL_FAILURE(CallGenerateMinidump(dump_file_path, &result));
   ASSERT_TRUE(result);
 
   // Open the minidump file.
@@ -166,21 +158,16 @@ TEST_F(MinidumpTest, MinidumpType) {
   base::FilePath small_dump_file_path = temp_dir().Append(L"small.dump");
   base::FilePath larger_dump_file_path = temp_dir().Append(L"larger.dump");
   base::FilePath full_dump_file_path = temp_dir().Append(L"full.dump");
-  std::vector<CustomStream> custom_streams;
-
 
   bool result = false;
-  ASSERT_NO_FATAL_FAILURE(CallGenerateMinidump(
-      small_dump_file_path, MinidumpRequest::SMALL_DUMP_TYPE,
-      custom_streams, &result));
+  request().type = MinidumpRequest::SMALL_DUMP_TYPE;
+  ASSERT_NO_FATAL_FAILURE(CallGenerateMinidump(small_dump_file_path, &result));
   ASSERT_TRUE(result);
-  ASSERT_NO_FATAL_FAILURE(CallGenerateMinidump(
-      larger_dump_file_path, MinidumpRequest::LARGER_DUMP_TYPE, custom_streams,
-      &result));
+  request().type = MinidumpRequest::LARGER_DUMP_TYPE;
+  ASSERT_NO_FATAL_FAILURE(CallGenerateMinidump(larger_dump_file_path, &result));
   ASSERT_TRUE(result);
-  ASSERT_NO_FATAL_FAILURE(CallGenerateMinidump(full_dump_file_path,
-                                               MinidumpRequest::FULL_DUMP_TYPE,
-                                               custom_streams, &result));
+  request().type = MinidumpRequest::FULL_DUMP_TYPE;
+  ASSERT_NO_FATAL_FAILURE(CallGenerateMinidump(full_dump_file_path, &result));
   ASSERT_TRUE(result);
 
   // Use the relative file sizes to infer that the correct minidump type was
@@ -205,12 +192,9 @@ TEST_F(MinidumpTest, OverwriteExistingFile) {
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
   base::FilePath dump_file_path;
   ASSERT_TRUE(base::CreateTemporaryFileInDir(temp_dir.path(), &dump_file_path));
-  std::vector<CustomStream> custom_streams;
 
   bool result = false;
-  ASSERT_NO_FATAL_FAILURE(CallGenerateMinidump(dump_file_path,
-                                               MinidumpRequest::SMALL_DUMP_TYPE,
-                                               custom_streams, &result));
+  ASSERT_NO_FATAL_FAILURE(CallGenerateMinidump(dump_file_path, &result));
   ASSERT_TRUE(result);
 
   ASSERT_HRESULT_SUCCEEDED(
@@ -220,11 +204,9 @@ TEST_F(MinidumpTest, OverwriteExistingFile) {
 TEST_F(MinidumpTest, NonexistantTargetDirectory) {
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
-  std::vector<CustomStream> custom_streams;
   bool result = false;
   ASSERT_NO_FATAL_FAILURE(CallGenerateMinidump(
-      temp_dir.path().Append(L"Foobar").Append(L"HelloWorld"),
-      MinidumpRequest::SMALL_DUMP_TYPE, custom_streams, &result));
+      temp_dir.path().Append(L"Foobar").Append(L"HelloWorld"), &result));
   ASSERT_FALSE(result);
 }
 

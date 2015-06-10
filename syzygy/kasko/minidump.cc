@@ -22,6 +22,7 @@
 #include "base/win/scoped_handle.h"
 
 #include "syzygy/common/com_utils.h"
+#include "syzygy/kasko/minidump_request.h"
 
 namespace kasko {
 
@@ -50,9 +51,7 @@ const MINIDUMP_TYPE kFullDumpType = static_cast<MINIDUMP_TYPE>(
 bool GenerateMinidump(const base::FilePath& destination,
                       base::ProcessId target_process_id,
                       base::PlatformThreadId thread_id,
-                      unsigned long client_exception_pointers,
-                      MinidumpRequest::Type minidump_type,
-                      const std::vector<CustomStream>& custom_streams) {
+                      const MinidumpRequest& request) {
   base::win::ScopedHandle target_process_handle(
       ::OpenProcess(GENERIC_ALL, FALSE, target_process_id));
   if (!target_process_handle.IsValid()) {
@@ -62,10 +61,10 @@ bool GenerateMinidump(const base::FilePath& destination,
   MINIDUMP_EXCEPTION_INFORMATION* dump_exception_pointers = nullptr;
   MINIDUMP_EXCEPTION_INFORMATION dump_exception_info;
 
-  if (client_exception_pointers) {
+  if (request.exception_info_address) {
     dump_exception_info.ThreadId = thread_id;
     dump_exception_info.ExceptionPointers =
-        reinterpret_cast<PEXCEPTION_POINTERS>(client_exception_pointers);
+        reinterpret_cast<PEXCEPTION_POINTERS>(request.exception_info_address);
     dump_exception_info.ClientPointers = true;
 
     dump_exception_pointers = &dump_exception_info;
@@ -81,7 +80,7 @@ bool GenerateMinidump(const base::FilePath& destination,
 
   MINIDUMP_TYPE platform_minidump_type = kSmallDumpType;
 
-  switch (minidump_type) {
+  switch (request.type) {
     case MinidumpRequest::SMALL_DUMP_TYPE:
       platform_minidump_type = kSmallDumpType;
       break;
@@ -97,7 +96,7 @@ bool GenerateMinidump(const base::FilePath& destination,
   }
 
   std::vector<MINIDUMP_USER_STREAM> user_streams;
-  for (const auto& custom_stream : custom_streams) {
+  for (const auto& custom_stream : request.custom_streams) {
     MINIDUMP_USER_STREAM user_stream = {custom_stream.type,
                                         custom_stream.length,
                                         const_cast<void*>(custom_stream.data)};
@@ -105,7 +104,7 @@ bool GenerateMinidump(const base::FilePath& destination,
   }
 
   MINIDUMP_USER_STREAM_INFORMATION
-  user_stream_information = {custom_streams.size(), user_streams.data()};
+  user_stream_information = {user_streams.size(), user_streams.data()};
 
   if (::MiniDumpWriteDump(target_process_handle.Get(), target_process_id,
                           destination_file.GetPlatformFile(),
