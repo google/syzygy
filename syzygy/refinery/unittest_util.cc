@@ -30,11 +30,13 @@
 namespace testing {
 
 const base::FilePath TestMinidumps::GetNotepad32Dump() {
-  return GetSrcRelativePath(L"syzygy\\refinery\\test_data\\notepad-32bit.dmp");
+  return GetSrcRelativePath(
+      L"syzygy\\refinery\\test_data\\notepad-small-32bit.dmp");
 }
 
 const base::FilePath TestMinidumps::GetNotepad64Dump() {
-  return GetSrcRelativePath(L"syzygy\\refinery\\test_data\\notepad-64bit.dmp");
+  return GetSrcRelativePath(
+      L"syzygy\\refinery\\test_data\\notepad-small-64bit.dmp");
 }
 
 namespace {
