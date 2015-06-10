@@ -8,6 +8,7 @@ and c:\windows\syswow64\notepad.exe.
 The dump configurations were based off Chrome's configurations. See
 chromium/src/components/crash/app/breakpad_win.cc&l=69 for details.
 
-WinDbg commandlines for generating the dumps:
+WinDbg (X86 for 32bit dumps, X64 for 64 bit dumps) commandlines for generating
+the dumps:
  - Small type: '.dump /mup <path>'
  - Larger Type: '.dump /mupi <path>'
