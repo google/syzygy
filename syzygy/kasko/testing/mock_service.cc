@@ -22,18 +22,18 @@ MockService::MockService(std::vector<CallRecord>* call_log)
 
 MockService::~MockService() {}
 
-void MockService::SendDiagnosticReport(
-    base::ProcessId client_process_id,
-    uint64_t exception_info_address,
-    base::PlatformThreadId thread_id,
-    MinidumpType minidump_type,
-    const char* protobuf,
-    size_t protobuf_length,
-    const std::map<base::string16, base::string16>& crash_keys) {
-  CallRecord record = {client_process_id,
-                       minidump_type,
-                       std::string(protobuf, protobuf_length),
+void MockService::SendDiagnosticReport(base::ProcessId client_process_id,
+                                       base::PlatformThreadId thread_id,
+                                       const MinidumpRequest& request) {
+  std::map<base::string16, base::string16> crash_keys;
+  for (auto& crash_key : request.crash_keys) {
+    crash_keys[crash_key.first] = crash_key.second;
+  }
+
+  CallRecord record = {client_process_id, request.type,
+                       std::string(request.protobuf, request.protobuf_length),
                        crash_keys};
+
   call_log_->push_back(record);
 }
 

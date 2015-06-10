@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2014 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,23 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SYZYGY_KASKO_MINIDUMP_TYPE_H_
-#define SYZYGY_KASKO_MINIDUMP_TYPE_H_
+#include "syzygy/kasko/minidump_request.h"
 
 namespace kasko {
 
-// Specifies the type of Minidump to be included in a report.
-enum MinidumpType {
-  // Minidump with stacks, PEB, TEB, and unloaded module list.
-  SMALL_DUMP_TYPE,
+MinidumpRequest::MinidumpRequest()
+    : type(SMALL_DUMP_TYPE),
+      exception_info_address(0),
+      protobuf(nullptr),
+      protobuf_length(0) {
+}
 
-  // Minidump with all of the above, plus memory referenced from stack.
-  LARGER_DUMP_TYPE,
-
-  // Large dump with all process memory.
-  FULL_DUMP_TYPE
-};
+MinidumpRequest::~MinidumpRequest() {
+}
 
 }  // namespace kasko
-
-#endif  // SYZYGY_KASKO_MINIDUMP_TYPE_H_

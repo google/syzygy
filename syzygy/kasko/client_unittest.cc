@@ -26,6 +26,7 @@
 #include "base/strings/string16.h"
 #include "base/strings/string_number_conversions.h"
 #include "gtest/gtest.h"
+#include "syzygy/kasko/minidump_request.h"
 #include "syzygy/kasko/service_bridge.h"
 #include "syzygy/kasko/testing/mock_service.h"
 
@@ -57,18 +58,29 @@ TEST(ClientTest, BasicTest) {
 
   std::string protobuf = "hello world";
 
-  base::char16* keys[] = {L"foo", L"hello", nullptr};
-  base::char16* values[] = {L"bar", L"world", nullptr};
+  MinidumpRequest request;
+  request.protobuf = protobuf.data();
+  request.protobuf_length = protobuf.length();
 
   // Small dump with crash keys.
-  Client(endpoint).SendReport(nullptr, SMALL_DUMP_TYPE, protobuf.data(),
-                              protobuf.length(), keys, values);
+  request.type = MinidumpRequest::SMALL_DUMP_TYPE;
+  request.crash_keys.push_back(MinidumpRequest::CrashKey(L"foo", L"bar"));
+  request.crash_keys.push_back(MinidumpRequest::CrashKey(L"hello", L"world"));
+  Client(endpoint).SendReport(request);
 
   // Larger dump without crash keys.
-  Client(endpoint).SendReport(nullptr, LARGER_DUMP_TYPE, protobuf.data(),
-                              protobuf.length(), nullptr, nullptr);
+  request.type = MinidumpRequest::LARGER_DUMP_TYPE;
+  request.crash_keys.clear();
+  Client(endpoint).SendReport(request);
 
-  ASSERT_EQ(2u, call_log.size());
+  // Full dump without protobuf.
+  request.type = MinidumpRequest::FULL_DUMP_TYPE;
+  request.crash_keys.clear();
+  request.protobuf = nullptr;
+  request.protobuf_length = 0;
+  Client(endpoint).SendReport(request);
+
+  ASSERT_EQ(3u, call_log.size());
   ASSERT_EQ(::GetCurrentProcessId(), call_log[0].client_process_id);
   ASSERT_EQ(protobuf, call_log[0].protobuf);
   ASSERT_EQ(2u, call_log[0].crash_keys.size());
@@ -78,12 +90,17 @@ TEST(ClientTest, BasicTest) {
   entry = call_log[0].crash_keys.find(L"hello");
   ASSERT_NE(call_log[0].crash_keys.end(), entry);
   ASSERT_EQ(L"world", entry->second);
-  ASSERT_EQ(SMALL_DUMP_TYPE, call_log[0].minidump_type);
+  ASSERT_EQ(MinidumpRequest::SMALL_DUMP_TYPE, call_log[0].minidump_type);
 
   ASSERT_EQ(::GetCurrentProcessId(), call_log[1].client_process_id);
   ASSERT_EQ(protobuf, call_log[1].protobuf);
   ASSERT_EQ(0u, call_log[1].crash_keys.size());
-  ASSERT_EQ(LARGER_DUMP_TYPE, call_log[1].minidump_type);
+  ASSERT_EQ(MinidumpRequest::LARGER_DUMP_TYPE, call_log[1].minidump_type);
+
+  ASSERT_EQ(::GetCurrentProcessId(), call_log[2].client_process_id);
+  ASSERT_EQ(std::string(), call_log[2].protobuf);
+  ASSERT_EQ(0u, call_log[2].crash_keys.size());
+  ASSERT_EQ(MinidumpRequest::FULL_DUMP_TYPE, call_log[2].minidump_type);
 }
 
 }  // namespace kasko

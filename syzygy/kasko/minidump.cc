@@ -51,7 +51,7 @@ bool GenerateMinidump(const base::FilePath& destination,
                       base::ProcessId target_process_id,
                       base::PlatformThreadId thread_id,
                       unsigned long client_exception_pointers,
-                      MinidumpType minidump_type,
+                      MinidumpRequest::Type minidump_type,
                       const std::vector<CustomStream>& custom_streams) {
   base::win::ScopedHandle target_process_handle(
       ::OpenProcess(GENERIC_ALL, FALSE, target_process_id));
@@ -59,8 +59,7 @@ bool GenerateMinidump(const base::FilePath& destination,
     LOG(ERROR) << "Failed to open target process: " << ::common::LogWe() << ".";
     return false;
   }
-
-  MINIDUMP_EXCEPTION_INFORMATION* dump_exception_pointers = NULL;
+  MINIDUMP_EXCEPTION_INFORMATION* dump_exception_pointers = nullptr;
   MINIDUMP_EXCEPTION_INFORMATION dump_exception_info;
 
   if (client_exception_pointers) {
@@ -83,13 +82,13 @@ bool GenerateMinidump(const base::FilePath& destination,
   MINIDUMP_TYPE platform_minidump_type = kSmallDumpType;
 
   switch (minidump_type) {
-    case SMALL_DUMP_TYPE:
+    case MinidumpRequest::SMALL_DUMP_TYPE:
       platform_minidump_type = kSmallDumpType;
       break;
-    case LARGER_DUMP_TYPE:
+    case MinidumpRequest::LARGER_DUMP_TYPE:
       platform_minidump_type = kLargerDumpType;
       break;
-    case FULL_DUMP_TYPE:
+    case MinidumpRequest::FULL_DUMP_TYPE:
       platform_minidump_type = kFullDumpType;
       break;
     default:

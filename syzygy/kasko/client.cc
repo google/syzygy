@@ -14,17 +14,11 @@
 
 #include "syzygy/kasko/client.h"
 
-#include <Rpc.h>
-
-#include <map>
-#include <string>
-
 #include "base/logging.h"
-#include "base/memory/scoped_ptr.h"
-#include "base/strings/utf_string_conversions.h"
 #include "base/threading/platform_thread.h"
 #include "syzygy/common/rpc/helpers.h"
 #include "syzygy/kasko/kasko_rpc.h"
+#include "syzygy/kasko/minidump_request.h"
 
 namespace kasko {
 
@@ -34,12 +28,7 @@ Client::Client(const base::string16& endpoint) : endpoint_(endpoint) {
 Client::~Client(){
 }
 
-void Client::SendReport(const EXCEPTION_POINTERS* exception_pointers,
-                        MinidumpType minidump_type,
-                        const char* protobuf,
-                        size_t protobuf_length,
-                        const base::char16* const* keys,
-                        const base::char16* const* values) const {
+void Client::SendReport(const MinidumpRequest& request) const {
   // Establish the RPC binding.
   common::rpc::ScopedRpcBinding rpc_binding;
   if (!rpc_binding.Open(L"ncalrpc", endpoint_)) {
@@ -47,40 +36,23 @@ void Client::SendReport(const EXCEPTION_POINTERS* exception_pointers,
     return;
   }
 
-  // Convert the crash keys to UTF-8.
-  // TODO(erikwright): These values are repeatedly converted between UTF-8 and
-  // UTF-16 between the initial client API invocation and the final HTTP upload.
-  // A single encoding should be adopted from end to end.
-  std::map<std::string, std::string> utf8_crash_keys;
-  if (keys && values) {
-    for (size_t i = 0; keys[i] && values[i]; ++i) {
-      utf8_crash_keys[base::UTF16ToUTF8(keys[i])] =
-          base::UTF16ToUTF8(values[i]);
-    }
-  }
-
   // Alias the crash key string buffers into the CrashKey array used for the RPC
   // invocation.
-  scoped_ptr<CrashKey[]> crash_keys(new CrashKey[utf8_crash_keys.size()]);
-  size_t index = 0;
-  for (const auto& entry : utf8_crash_keys) {
-    crash_keys[index].name =
-        reinterpret_cast<const signed char*>(entry.first.c_str());
-    crash_keys[index].value =
-        reinterpret_cast<const signed char*>(entry.second.c_str());
-    ++index;
+  std::vector<CrashKey> crash_keys;
+  for (auto& client_crash_key : request.crash_keys) {
+    CrashKey rpc_crash_key = {client_crash_key.first, client_crash_key.second};
+    crash_keys.push_back(rpc_crash_key);
   }
-  DCHECK_EQ(index, utf8_crash_keys.size());
 
   DumpType rpc_dump_type = SMALL_DUMP;
-  switch (minidump_type) {
-    case SMALL_DUMP_TYPE:
+  switch (request.type) {
+    case MinidumpRequest::SMALL_DUMP_TYPE:
       rpc_dump_type = SMALL_DUMP;
       break;
-    case LARGER_DUMP_TYPE:
+    case MinidumpRequest::LARGER_DUMP_TYPE:
       rpc_dump_type = LARGER_DUMP;
       break;
-    case FULL_DUMP:
+    case MinidumpRequest::FULL_DUMP_TYPE:
       rpc_dump_type = FULL_DUMP;
       break;
     default:
@@ -91,10 +63,11 @@ void Client::SendReport(const EXCEPTION_POINTERS* exception_pointers,
   // Invoke SendDiagnosticReport via RPC.
   common::rpc::RpcStatus status = common::rpc::InvokeRpc(
       KaskoClient_SendDiagnosticReport, rpc_binding.Get(),
-      reinterpret_cast<unsigned long>(exception_pointers),
-      base::PlatformThread::CurrentId(), rpc_dump_type, protobuf_length,
-      reinterpret_cast<const signed char*>(protobuf ? protobuf : ""),
-      utf8_crash_keys.size(), crash_keys.get());
+      request.exception_info_address, base::PlatformThread::CurrentId(),
+      rpc_dump_type, request.protobuf_length,
+      reinterpret_cast<const signed char*>(request.protobuf ? request.protobuf
+                                                            : ""),
+      crash_keys.size(), crash_keys.size() ? crash_keys.data() : nullptr);
 
   if (!status.succeeded())
     LOG(ERROR) << "Failed to invoke the SendDiagnosticReport RPC.";

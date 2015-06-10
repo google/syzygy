@@ -56,12 +56,8 @@ class BlockingService : public Service {
   // Service implementation
   virtual void SendDiagnosticReport(
       base::ProcessId client_process_id,
-      uint64_t exception_info_address,
       base::PlatformThreadId thread_id,
-      MinidumpType minidump_type,
-      const char* protobuf,
-      size_t protobuf_length,
-      const std::map<base::string16, base::string16>& crash_keys) override;
+      const MinidumpRequest& request) override;
 
  private:
   base::WaitableEvent* release_call_;
@@ -77,12 +73,8 @@ BlockingService::~BlockingService() {}
 
 void BlockingService::SendDiagnosticReport(
     base::ProcessId client_process_id,
-    uint64_t exception_info_address,
     base::PlatformThreadId thread_id,
-    MinidumpType minidump_type,
-    const char* protobuf,
-    size_t protobuf_length,
-    const std::map<base::string16, base::string16>& crash_keys) {
+    const MinidumpRequest& request) {
   blocking_->Signal();
   release_call_->Wait();
 }
@@ -188,10 +180,10 @@ TEST(KaskoServiceBridgeTest, InvokeService) {
 
   std::string protobuf = "hello world";
   bool complete = false;
-  CrashKey crash_keys[] = {{reinterpret_cast<const signed char*>("foo"),
-                            reinterpret_cast<const signed char*>("bar")},
-                           {reinterpret_cast<const signed char*>("hello"),
-                            reinterpret_cast<const signed char*>("world")}};
+  CrashKey crash_keys[] = {{reinterpret_cast<const wchar_t*>(L"foo"),
+                            reinterpret_cast<const wchar_t*>(L"bar")},
+                           {reinterpret_cast<const wchar_t*>(L"hello"),
+                            reinterpret_cast<const wchar_t*>(L"world")}};
 
   DoInvokeService(protocol, endpoint, protobuf, &complete,
                   arraysize(crash_keys), crash_keys);
@@ -228,10 +220,10 @@ TEST(KaskoServiceBridgeTest, StopBlocksUntilCallsComplete) {
 
   std::string protobuf = "hello world";
   bool complete = false;
-  CrashKey crash_keys[] = {{reinterpret_cast<const signed char*>("foo"),
-                            reinterpret_cast<const signed char*>("bar")},
-                           {reinterpret_cast<const signed char*>("hello"),
-                            reinterpret_cast<const signed char*>("world")}};
+  CrashKey crash_keys[] = {{reinterpret_cast<const wchar_t*>(L"foo"),
+                            reinterpret_cast<const wchar_t*>(L"bar")},
+                           {reinterpret_cast<const wchar_t*>(L"hello"),
+                            reinterpret_cast<const wchar_t*>(L"world")}};
 
   base::Thread client_thread("client thread");
   ASSERT_TRUE(client_thread.Start());

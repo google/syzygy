@@ -21,8 +21,8 @@ interface Kasko {
 
   // Represents a property to include in a diagnostic report.
   typedef struct {
-      [string] const signed char* name;
-      [string] const signed char* value;
+      [string] const wchar_t* name;
+      [string] const wchar_t* value;
   } CrashKey;
 
   // Specifies the type of Minidump to be included in a report.
@@ -42,12 +42,12 @@ interface Kasko {
   // @param crash_keys An optional array of crash keys. Keys with empty names or
   //     values will be ignored.
   boolean SendDiagnosticReport(
-      unsigned long exception_info_address,
-      unsigned long thread_id,
-      DumpType minidump_type,
-      [in] unsigned long protobuf_size,
-      [in, size_is(protobuf_size)] const signed char* protobuf,
+      unsigned long exception_info_address, unsigned long thread_id,
+      DumpType minidump_type, [in] unsigned long protobuf_size,
+      // unique -> optional
+      // (http://blogs.msdn.com/b/oldnewthing/archive/2014/09/19/10559094.aspx)
+      [in, unique, size_is(protobuf_size)] const signed char* protobuf,
       [in] unsigned long crash_keys_size,
-      [in, size_is(crash_keys_size)] const CrashKey* crash_keys);
+      [in, unique, size_is(crash_keys_size)] const CrashKey* crash_keys);
 
 }

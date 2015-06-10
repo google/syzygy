@@ -30,6 +30,7 @@
 #include "base/time/time.h"
 #include "syzygy/kasko/http_agent_impl.h"
 #include "syzygy/kasko/minidump.h"
+#include "syzygy/kasko/minidump_request.h"
 #include "syzygy/kasko/service.h"
 #include "syzygy/kasko/upload.h"
 #include "syzygy/kasko/upload_thread.h"
@@ -111,12 +112,8 @@ void HandlePermanentFailure(const base::FilePath& permanent_failure_directory,
 void GenerateReport(const base::FilePath& temporary_directory,
                     ReportRepository* report_repository,
                     base::ProcessId client_process_id,
-                    uint64_t exception_info_address,
                     base::PlatformThreadId thread_id,
-                    MinidumpType minidump_type,
-                    const char* protobuf,
-                    size_t protobuf_length,
-                    std::map<base::string16, base::string16> crash_keys) {
+                    const MinidumpRequest& request) {
   if (!base::CreateDirectory(temporary_directory)) {
     LOG(ERROR) << "Failed to create dump destination directory: "
                << temporary_directory.value();
@@ -130,20 +127,24 @@ void GenerateReport(const base::FilePath& temporary_directory,
   }
 
   std::vector<CustomStream> custom_streams;
-  if (protobuf && protobuf_length) {
-    CustomStream custom_stream = {
-        Reporter::kProtobufStreamType, protobuf, protobuf_length};
+  if (request.protobuf && request.protobuf_length) {
+    CustomStream custom_stream = {Reporter::kProtobufStreamType,
+                                  request.protobuf, request.protobuf_length};
     custom_streams.push_back(custom_stream);
   }
 
   if (!GenerateMinidump(dump_file, client_process_id, thread_id,
-                        exception_info_address, minidump_type,
+                        request.exception_info_address, request.type,
                         custom_streams)) {
     LOG(ERROR) << "Minidump generation failed.";
     base::DeleteFile(dump_file, false);
     return;
   }
 
+  std::map<base::string16, base::string16> crash_keys;
+  for (auto& crash_key : request.crash_keys) {
+    crash_keys[crash_key.first] = crash_key.second;
+  }
   report_repository->StoreReport(dump_file, crash_keys);
 }
 
@@ -163,15 +164,10 @@ class ServiceImpl : public Service {
    // Service implementation.
    void SendDiagnosticReport(
        base::ProcessId client_process_id,
-       uint64_t exception_info_address,
        base::PlatformThreadId thread_id,
-       MinidumpType minidump_type,
-       const char* protobuf,
-       size_t protobuf_length,
-       const std::map<base::string16, base::string16>& crash_keys) override {
+       const MinidumpRequest &request) override {
      GenerateReport(temporary_directory_, report_repository_, client_process_id,
-                    exception_info_address, thread_id, minidump_type, protobuf,
-                    protobuf_length, crash_keys);
+                    thread_id, request);
      upload_thread_->UploadOneNowAsync();
    }
 
@@ -246,13 +242,11 @@ scoped_ptr<Reporter> Reporter::Create(
 
 Reporter::~Reporter() {}
 
-void Reporter::SendReportForProcess(
-    base::ProcessHandle process_handle,
-    MinidumpType minidump_type,
-    const std::map<base::string16, base::string16>& crash_keys) {
+void Reporter::SendReportForProcess(base::ProcessHandle process_handle,
+                                    base::PlatformThreadId thread_id,
+                                    MinidumpRequest request) {
   GenerateReport(temporary_minidump_directory_, report_repository_.get(),
-                 base::GetProcId(process_handle), NULL, 0, minidump_type, NULL,
-                 0, crash_keys);
+                 base::GetProcId(process_handle), thread_id, request);
   upload_thread_->UploadOneNowAsync();
 }
 

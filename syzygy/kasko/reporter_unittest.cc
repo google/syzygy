@@ -37,6 +37,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/common/rpc/helpers.h"
 #include "syzygy/kasko/kasko_rpc.h"
+#include "syzygy/kasko/minidump_request.h"
 #include "syzygy/kasko/testing/minidump_unittest_helpers.h"
 #include "syzygy/kasko/testing/test_server.h"
 #include "syzygy/kasko/testing/upload_observer.h"
@@ -58,10 +59,10 @@ namespace kasko {
 
 namespace {
 
-const char kCrashKey1Name[] = "foo";
-const char kCrashKey1Value[] = "bar";
-const char kCrashKey2Name[] = "hello";
-const char kCrashKey2Value[] = "world";
+const base::char16 kCrashKey1Name[] = L"foo";
+const base::char16 kCrashKey1Value[] = L"bar";
+const base::char16 kCrashKey2Name[] = L"hello";
+const base::char16 kCrashKey2Value[] = L"world";
 
 const char kEndpointSwitch[] = "endpoint";
 const char kReadyEventSwitch[] = "ready-event";
@@ -85,16 +86,14 @@ MULTIPROCESS_TEST_MAIN(ReporterTestClientProcess) {
   base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
   base::string16 endpoint =
       base::ASCIIToUTF16(cmd_line->GetSwitchValueASCII(kEndpointSwitch));
-
   common::rpc::ScopedRpcBinding rpc_binding;
-  if (!rpc_binding.Open(L"ncalrpc", endpoint))
+  if (!rpc_binding.Open(L"ncalrpc", endpoint)) {
+    PLOG(ERROR) << "ScopedRpcBinding::Open";
     return 1;
+  }
 
-  CrashKey crash_keys[] = {
-      {reinterpret_cast<const signed char*>(kCrashKey1Name),
-       reinterpret_cast<const signed char*>(kCrashKey1Value)},
-      {reinterpret_cast<const signed char*>(kCrashKey2Name),
-       reinterpret_cast<const signed char*>(kCrashKey2Value)}};
+  CrashKey crash_keys[] = {{kCrashKey1Name, kCrashKey1Value},
+                           {kCrashKey2Name, kCrashKey2Value}};
 
   std::string protobuf = "protobuf";
 
@@ -102,21 +101,23 @@ MULTIPROCESS_TEST_MAIN(ReporterTestClientProcess) {
       KaskoClient_SendDiagnosticReport, rpc_binding.Get(), NULL, 0, SMALL_DUMP,
       protobuf.length(), reinterpret_cast<const signed char*>(protobuf.c_str()),
       arraysize(crash_keys), crash_keys);
-  if (status.exception_occurred || !status.succeeded())
+  if (status.exception_occurred || !status.succeeded()) {
+    PLOG(ERROR) << "InvokeRpc";
     return 1;
+  }
   return 0;
 }
 
 // Invokes |instance|->SendReportForProcess() using |child_process|.
 void InvokeSendReportForProcess(Reporter* instance,
                                 base::ProcessHandle child_process) {
-  std::map<base::string16, base::string16> crash_keys_in;
-  crash_keys_in[base::UTF8ToUTF16(kCrashKey1Name)] =
-      base::UTF8ToUTF16(kCrashKey1Value);
-  crash_keys_in[base::UTF8ToUTF16(kCrashKey2Name)] =
-      base::UTF8ToUTF16(kCrashKey2Value);
+  MinidumpRequest request;
+  request.crash_keys.push_back(
+      MinidumpRequest::CrashKey(kCrashKey1Name, kCrashKey1Value));
+  request.crash_keys.push_back(
+      MinidumpRequest::CrashKey(kCrashKey2Name, kCrashKey2Value));
 
-  instance->SendReportForProcess(child_process, SMALL_DUMP_TYPE, crash_keys_in);
+  instance->SendReportForProcess(child_process, 0, request);
 }
 
 // Verifies that the uploaded minidump is plausibly a dump of this test process.
@@ -135,11 +136,8 @@ class ReporterTest : public ::testing::Test {
       : test_instance_key_(base::UintToString(base::GetCurrentProcId())) {}
 
   virtual void SetUp() override {
-    LOG(INFO) << "Starting server.";
     ASSERT_TRUE(server_.Start());
-    LOG(INFO) << "Server started.";
     ASSERT_TRUE(temp_directory_.CreateUniqueTempDir());
-    LOG(INFO) << "Temp directory: " << temp_directory_.path().value();
   }
 
  protected:

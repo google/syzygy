@@ -14,11 +14,14 @@
 
 #include "syzygy/kasko/service_bridge.h"
 
+#include <Windows.h>  // NOLINT
+#include <Rpc.h>
+
 #include "base/logging.h"
 #include "base/process/process_handle.h"
-#include "base/strings/utf_string_conversions.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/common/rpc/helpers.h"
+#include "syzygy/kasko/minidump_request.h"
 #include "syzygy/kasko/service.h"
 
 namespace kasko {
@@ -44,35 +47,36 @@ boolean KaskoService_SendDiagnosticReport(handle_t IDL_handle,
   if (!client_process_id)
     return false;
 
-  std::map<base::string16, base::string16> crash_keys_map;
+  kasko::MinidumpRequest request;
   for (unsigned long i = 0; i < crash_keys_size; ++i) {
     if (!crash_keys[i].name || !crash_keys[i].value)
       continue;
-    crash_keys_map[base::UTF8ToUTF16(
-        reinterpret_cast<const char*>(crash_keys[i].name))] =
-        base::UTF8ToUTF16(reinterpret_cast<const char*>(crash_keys[i].value));
+
+    request.crash_keys.push_back(kasko::MinidumpRequest::CrashKey(
+        crash_keys[i].name, crash_keys[i].value));
   }
 
-  kasko::MinidumpType internal_minidump_type = kasko::SMALL_DUMP_TYPE;
   switch (minidump_type) {
     case SMALL_DUMP:
-      internal_minidump_type = kasko::SMALL_DUMP_TYPE;
+      request.type = kasko::MinidumpRequest::SMALL_DUMP_TYPE;
       break;
     case LARGER_DUMP:
-      internal_minidump_type = kasko::LARGER_DUMP_TYPE;
+      request.type = kasko::MinidumpRequest::LARGER_DUMP_TYPE;
       break;
     case FULL_DUMP:
-      internal_minidump_type = kasko::FULL_DUMP_TYPE;
+      request.type = kasko::MinidumpRequest::FULL_DUMP_TYPE;
       break;
     default:
       NOTREACHED();
       break;
   }
 
-  kasko::g_service_bridge->service_->SendDiagnosticReport(
-      client_process_id, exception_info_address, thread_id,
-      internal_minidump_type, reinterpret_cast<const char*>(protobuf),
-      protobuf_length, crash_keys_map);
+  request.exception_info_address = exception_info_address;
+  request.protobuf = reinterpret_cast<const char*>(protobuf);
+  request.protobuf_length = protobuf_length;
+
+  kasko::g_service_bridge->service_->SendDiagnosticReport(client_process_id,
+                                                          thread_id, request);
 
   return true;
 }

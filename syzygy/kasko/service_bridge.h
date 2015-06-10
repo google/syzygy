@@ -15,9 +15,6 @@
 #ifndef SYZYGY_KASKO_SERVICE_BRIDGE_H_
 #define SYZYGY_KASKO_SERVICE_BRIDGE_H_
 
-#include <Windows.h>  // NOLINT
-#include <Rpc.h>
-
 #include "base/macros.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/string16.h"

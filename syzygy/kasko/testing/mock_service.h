@@ -22,6 +22,7 @@
 #include "base/macros.h"
 #include "base/process/process_handle.h"
 #include "base/strings/string16.h"
+#include "syzygy/kasko/minidump_request.h"
 #include "syzygy/kasko/service.h"
 
 namespace kasko {
@@ -36,7 +37,7 @@ class MockService : public Service {
     const base::ProcessId client_process_id;
 
     // The requested minidump type.
-    MinidumpType minidump_type;
+    MinidumpRequest::Type minidump_type;
 
     // The supplied protobuf.
     const std::string protobuf;
@@ -54,14 +55,9 @@ class MockService : public Service {
   virtual ~MockService();
 
   // Service implementation.
-  virtual void SendDiagnosticReport(
-      base::ProcessId client_process_id,
-      uint64_t exception_info_address,
-      base::PlatformThreadId thread_id,
-      MinidumpType minidump_type,
-      const char* protobuf,
-      size_t protobuf_length,
-      const std::map<base::string16, base::string16>& crash_keys) override;
+  virtual void SendDiagnosticReport(base::ProcessId client_process_id,
+                                    base::PlatformThreadId thread_id,
+                                    const MinidumpRequest& request) override;
 
  private:
   std::vector<CallRecord>* call_log_;

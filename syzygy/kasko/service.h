@@ -15,39 +15,26 @@
 #ifndef SYZYGY_KASKO_SERVICE_H_
 #define SYZYGY_KASKO_SERVICE_H_
 
-#include <stdint.h>
-
-#include <map>
-
 #include "base/process/process_handle.h"
-#include "base/strings/string16.h"
 #include "base/threading/platform_thread.h"
-#include "syzygy/kasko/minidump_type.h"
 
 namespace kasko {
+
+struct MinidumpRequest;
 
 // Defines an RPC-agnostic implementation of the methods exposed by the Kasko
 // RPC service.
 class Service {
-  public:
-   virtual ~Service() {}
+ public:
+  virtual ~Service() {}
 
-   // Responds to a request to send a diagnostic report.
-   // @param client_process_id The process to be reported on.
-   // @param exception_info_address An optional address (in the target process
-   //     memory space) of an EXCEPTION_POINTERS structure.
-   // @param thread_id The (optional) faulting thread in the target process.
-   // @param protobuf An optional protobuf to be included in the report.
-   // @param protobuf_length The length of the protobuf.
-   // @param crash_keys Crash keys to be included in the report.
-   virtual void SendDiagnosticReport(
-       base::ProcessId client_process_id,
-       uint64_t exception_info_address,
-       base::PlatformThreadId thread_id,
-       MinidumpType minidump_type,
-       const char* protobuf,
-       size_t protobuf_length,
-       const std::map<base::string16, base::string16>& crash_keys) = 0;
+  // Responds to a request to send a diagnostic report.
+  // @param thread_id The crashing thread to report on. Ignored if
+  //     request.exception_info_address is null.
+  // @param request The report parameters.
+  virtual void SendDiagnosticReport(base::ProcessId client_process_id,
+                                    base::PlatformThreadId thread_id,
+                                    const MinidumpRequest& request) = 0;
 };
 
 }  // namespace kasko

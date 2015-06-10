@@ -19,6 +19,7 @@
 #include "base/logging.h"
 #include "syzygy/kasko/client.h"
 #include "syzygy/kasko/dll_lifetime.h"
+#include "syzygy/kasko/minidump_request.h"
 
 namespace kasko {
 namespace api {
@@ -60,8 +61,13 @@ void SendReport(const EXCEPTION_POINTERS* exception_pointers,
     LOG(ERROR) << "SendReport failed: uninitialized.";
     return;
   }
-  std::vector<const base::char16*> keys;
-  std::vector<const base::char16*> values;
+
+  MinidumpRequest request;
+  request.exception_info_address =
+      reinterpret_cast<uint32_t>(exception_pointers);
+  request.protobuf = protobuf;
+  request.protobuf_length = protobuf_length;
+
   for (size_t i = 0; i < crash_key_count; ++i) {
     if (!IsValidNonEmptyString(crash_keys[i].name,
                                arraysize(crash_keys[i].name)) ||
@@ -69,30 +75,26 @@ void SendReport(const EXCEPTION_POINTERS* exception_pointers,
                                arraysize(crash_keys[i].value))) {
       continue;
     }
-    keys.push_back(crash_keys[i].name);
-    values.push_back(crash_keys[i].value);
+    request.crash_keys.push_back(
+        MinidumpRequest::CrashKey(crash_keys[i].name, crash_keys[i].value));
   }
-  keys.push_back(nullptr);
-  values.push_back(nullptr);
 
-  kasko::MinidumpType internal_minidump_type = kasko::SMALL_DUMP_TYPE;
   switch (minidump_type) {
     case SMALL_DUMP_TYPE:
-      internal_minidump_type = kasko::SMALL_DUMP_TYPE;
+      request.type = MinidumpRequest::SMALL_DUMP_TYPE;
       break;
     case LARGER_DUMP_TYPE:
-      internal_minidump_type = kasko::LARGER_DUMP_TYPE;
+      request.type = MinidumpRequest::LARGER_DUMP_TYPE;
       break;
     case FULL_DUMP_TYPE:
-      internal_minidump_type = kasko::FULL_DUMP_TYPE;
+      request.type = MinidumpRequest::FULL_DUMP_TYPE;
       break;
     default:
       NOTREACHED();
       break;
   }
 
-  g_client->SendReport(exception_pointers, internal_minidump_type, protobuf,
-                       protobuf_length, keys.data(), values.data());
+  g_client->SendReport(request);
 }
 
 void ShutdownClient() {

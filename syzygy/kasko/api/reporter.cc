@@ -21,6 +21,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/time/time.h"
 #include "syzygy/kasko/dll_lifetime.h"
+#include "syzygy/kasko/minidump_request.h"
 #include "syzygy/kasko/reporter.h"
 
 namespace kasko {
@@ -67,34 +68,33 @@ void SendReportForProcess(base::ProcessHandle process_handle,
     return;
   DCHECK_EQ(keys == nullptr, values == nullptr);
 
-  std::map<base::string16, base::string16> crash_keys;
+  MinidumpRequest request;
   if (keys != nullptr && values != nullptr) {
     size_t i = 0;
     for (; keys[i] && values[i]; ++i) {
-      crash_keys[keys[i]] = values[i];
+      request.crash_keys.push_back(
+          MinidumpRequest::CrashKey(keys[i], values[i]));
     }
     DCHECK(!keys[i]);
     DCHECK(!values[i]);
   }
 
-  kasko::MinidumpType internal_minidump_type = kasko::SMALL_DUMP_TYPE;
   switch (minidump_type) {
     case SMALL_DUMP_TYPE:
-      internal_minidump_type = kasko::SMALL_DUMP_TYPE;
+      request.type = MinidumpRequest::SMALL_DUMP_TYPE;
       break;
     case LARGER_DUMP_TYPE:
-      internal_minidump_type = kasko::LARGER_DUMP_TYPE;
+      request.type = MinidumpRequest::LARGER_DUMP_TYPE;
       break;
     case FULL_DUMP_TYPE:
-      internal_minidump_type = kasko::FULL_DUMP_TYPE;
+      request.type = MinidumpRequest::FULL_DUMP_TYPE;
       break;
     default:
       NOTREACHED();
       break;
   }
 
-  g_reporter->SendReportForProcess(process_handle, internal_minidump_type,
-                                   crash_keys);
+  g_reporter->SendReportForProcess(process_handle, 0, request);
 }
 
 void ShutdownReporter() {

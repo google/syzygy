@@ -101,6 +101,8 @@
         'internet_helpers.h',
         'minidump.cc',
         'minidump.h',
+        'minidump_request.cc',
+        'minidump_request.h',
         'report_repository.cc',
         'report_repository.h',
         'reporter.cc',
