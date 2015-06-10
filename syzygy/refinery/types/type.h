@@ -184,16 +184,13 @@ class UserDefinedType::Field {
 };
 
 // Represents a pointer to some other type.
+// TODO(siggi): Endow pointers with a name.
 class PointerType : public Type {
  public:
   static const TypeKind ID = POINTER_TYPE_KIND;
 
-  // Creates a new pointer type with name @p name, size @p size, pointing to
-  // an object of type @p type_id.
-  PointerType(const base::string16& name,
-              size_t size,
-              Flags flags,
-              TypeId content_type_id);
+  // Creates a new (non-finalized) pointer type with size @p size.
+  explicit PointerType(size_t size);
 
   // Accessors.
   // @{
@@ -206,11 +203,14 @@ class PointerType : public Type {
   // @pre SetRepository has been called.
   TypePtr GetContentType() const;
 
+  // Finalize the pointer type with @p flags and @p content_type_id.
+  void Finalize(Flags flags, TypeId content_type_id);
+
  private:
   // Stores the CV qualifiers of this pointer.
-  const Flags flags_;
+  Flags flags_;
   // Stores the type this pointer points to.
-  const TypeId content_type_id_;
+  TypeId content_type_id_;
 };
 
 using PointerTypePtr = scoped_refptr<PointerType>;

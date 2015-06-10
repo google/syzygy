@@ -33,8 +33,8 @@ struct TestSimpleUDT {
   const char two;
   short const* volatile three;
   const volatile unsigned short four;
-  unsigned short five:3;
-  unsigned short six:5;
+  unsigned short five : 3;
+  unsigned short six : 5;
 };
 
 struct TestRecursiveUDT {

@@ -19,6 +19,26 @@
 
 namespace refinery {
 
+namespace {
+
+TypePtr CreateUDT(const wchar_t* name,
+                  size_t size,
+                  const UserDefinedType::Fields& fields) {
+  UserDefinedTypePtr udt = new UserDefinedType(name, size);
+  udt->Finalize(fields);
+  return udt;
+}
+
+TypePtr CreatePointerType(size_t size,
+                          Type::Flags flags,
+                          TypeId content_type_id) {
+  PointerTypePtr ptr = new PointerType(size);
+  ptr->Finalize(flags, content_type_id);
+  return ptr;
+}
+
+}  // namespace
+
 TEST(TypesTest, BasicType) {
   // Create a BasicType and store in a supertype pointer.
   TypePtr type = new BasicType(L"foo", 10);
@@ -102,12 +122,12 @@ TEST(TypesTest, PointerType) {
   // Build a Pointer instance.
   TypeRepository repo;
   const TypeId kPtrTypeId = repo.AddType(new BasicType(L"void", 0));
-  TypePtr type = new PointerType(L"void*", 4, Type::FLAG_VOLATILE, kPtrTypeId);
+  TypePtr type = CreatePointerType(4, Type::FLAG_VOLATILE, kPtrTypeId);
   repo.AddType(type);
 
   // Test the basic properties.
   ASSERT_TRUE(type);
-  EXPECT_EQ(L"void*", type->name());
+  EXPECT_EQ(L"", type->name());
   EXPECT_EQ(4U, type->size());
 
   EXPECT_EQ(Type::POINTER_TYPE_KIND, type->kind());
@@ -141,17 +161,5 @@ TEST(TypesTest, WildcardType) {
   ASSERT_TRUE(type->CastTo(&wildcard));
   ASSERT_TRUE(wildcard);
 }
-
-namespace {
-
-TypePtr CreateUDT(const wchar_t* name,
-                  size_t size,
-                  const UserDefinedType::Fields& fields) {
-  UserDefinedTypePtr udt = new UserDefinedType(name, size);
-  udt->Finalize(fields);
-  return udt;
-}
-
-}  // namespace
 
 }  // namespace refinery

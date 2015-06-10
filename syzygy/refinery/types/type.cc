@@ -78,20 +78,25 @@ UserDefinedType::Field::Field(const base::string16& name,
   DCHECK_NE(kNoTypeId, type_id);
 }
 
-PointerType::PointerType(
-    const base::string16& name,
-    size_t size,
-    Flags flags,
-    TypeId content_type_id)
-    : Type(POINTER_TYPE_KIND, name, size),
-      flags_(flags),
-      content_type_id_(content_type_id) {
+PointerType::PointerType(size_t size)
+    : Type(POINTER_TYPE_KIND, L"", size),
+      flags_(0),
+      content_type_id_(kNoTypeId) {
 }
 
 TypePtr PointerType::GetContentType() const {
   DCHECK(repository());
 
   return repository()->GetType(content_type_id());
+}
+
+void PointerType::Finalize(Flags flags, TypeId content_type_id) {
+  DCHECK_EQ(0, flags_);
+  DCHECK_EQ(kNoTypeId, content_type_id_);
+  DCHECK_NE(kNoTypeId, content_type_id);
+
+  flags_ = flags;
+  content_type_id_ = content_type_id;
 }
 
 WildcardType::WildcardType(const base::string16& name, size_t size)

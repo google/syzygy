@@ -249,7 +249,9 @@ class TypeCreator {
   TypePtr CreateTypedefType(IDiaSymbol* symbol);
   TypePtr CreateArrayType(IDiaSymbol* symbol);
 
-  bool FinalizeUDT(IDiaSymbol* symbol, TypePtr type);
+  bool FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt);
+  bool FinalizePointer(IDiaSymbol* symbol, PointerTypePtr ptr);
+  bool FinalizeType(IDiaSymbol* symbol, TypePtr type);
 
  private:
   struct CreatedType {
@@ -300,17 +302,55 @@ bool TypeCreator::CreateTypesOfKind(enum SymTagEnum kind,
     if (!type)
       return false;
 
-    if (kind == SymTagUDT && !FinalizeUDT(symbol.get(), type))
+    if (!FinalizeType(symbol.get(), type))
       return false;
   }
 
   return true;
 }
 
+bool TypeCreator::FinalizeType(IDiaSymbol* symbol, TypePtr type) {
+  // See whether this type needs finalizing.
+  DWORD index_id = 0;
+  if (!GetSymIndexId(symbol, &index_id))
+    return false;
+
+  DCHECK_EQ(type->type_id(), created_types_[index_id].type_id);
+  if (created_types_[index_id].is_finalized) {
+    // This is a re-visit of the same type. DIA has a nasty habit of doing
+    // this, e.g. yielding the same type multiple times in an iteration.
+    return true;
+  }
+
+  created_types_[index_id].is_finalized = true;
+
+  switch (type->kind()) {
+    case Type::USER_DEFINED_TYPE_KIND: {
+      UserDefinedTypePtr udt;
+      if (!type->CastTo(&udt))
+        return false;
+
+      return FinalizeUDT(symbol, udt);
+    }
+
+    case Type::POINTER_TYPE_KIND: {
+      PointerTypePtr ptr;
+      if (!type->CastTo(&ptr))
+        return false;
+
+      return FinalizePointer(symbol, ptr);
+    }
+
+    default:
+      return true;
+  }
+}
+
 bool TypeCreator::CreateTypes(IDiaSymbol* global) {
   return CreateTypesOfKind(SymTagUDT, global) &&
          CreateTypesOfKind(SymTagEnum, global) &&
-         CreateTypesOfKind(SymTagTypedef, global);
+         CreateTypesOfKind(SymTagTypedef, global) &&
+         CreateTypesOfKind(SymTagPointerType, global);
 }
 
 TypePtr TypeCreator::FindOrCreateType(IDiaSymbol* symbol) {
@@ -361,6 +401,10 @@ TypePtr TypeCreator::CreateType(IDiaSymbol* symbol) {
       return CreateTypedefType(symbol);
     case SymTagArrayType:
       return CreateArrayType(symbol);
+    case SymTagVTableShape:
+      return new WildcardType(L"VTableShape", 0);
+    case SymTagVTable:
+      return new WildcardType(L"VTable", 0);
     default:
       return nullptr;
   }
@@ -391,21 +435,10 @@ TypePtr TypeCreator::CreateEnum(IDiaSymbol* symbol) {
   return new WildcardType(name, size);
 }
 
-bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, TypePtr type) {
-  DCHECK(symbol); DCHECK(type);
+bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt) {
+  DCHECK(symbol);
+  DCHECK(udt);
   DCHECK(IsSymTag(symbol, SymTagUDT));
-
-  DWORD index_id = 0;
-  if (!GetSymIndexId(symbol, &index_id))
-    return false;
-
-  DCHECK_EQ(type->type_id(), created_types_[index_id].type_id);
-  if (created_types_[index_id].is_finalized) {
-    // This is a re-visit of the same type. DIA has a nasty habit of doing
-    // this, e.g. yielding the same type multiple times in an iteration.
-    return true;
-  }
-  created_types_[index_id].is_finalized = true;
 
   // Enumerate the fields and add them.
   base::win::ScopedComPtr<IDiaEnumSymbols> enum_children;
@@ -442,9 +475,9 @@ bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, TypePtr type) {
     if (data_kind != DataIsMember)
       continue;
 
-    // The location type and the symbol type are a little conflated in the case
-    // of bitfields. For bitfieds, the bit length and bit offset of the type
-    // are stored against the data symbol, and not its type.
+    // The location udt and the symbol udt are a little conflated in the case
+    // of bitfields. For bitfieds, the bit length and bit offset of the udt
+    // are stored against the data symbol, and not its udt.
     uint32_t loc_type = LocIsNull;
     if (!GetSymLocType(field_sym.get(), &loc_type))
       return false;
@@ -474,23 +507,37 @@ bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, TypePtr type) {
         return false;
       }
     } else if (loc_type != LocIsThisRel) {
-      NOTREACHED() << "Impossible location type!";
+      NOTREACHED() << "Impossible location udt!";
     }
 
-    fields.push_back(UserDefinedType::Field(field_name,
-                                            field_offset,
-                                            field_flags,
-                                            bit_pos,
-                                            bit_length,
+    fields.push_back(UserDefinedType::Field(field_name, field_offset,
+                                            field_flags, bit_pos, bit_length,
                                             field_type->type_id()));
   }
 
-  UserDefinedTypePtr udt;
-  if (!type->CastTo(&udt))
-    return false;
-
   DCHECK_EQ(0UL, udt->fields().size());
   udt->Finalize(fields);
+  return true;
+}
+
+bool TypeCreator::FinalizePointer(IDiaSymbol* symbol, PointerTypePtr ptr) {
+  DCHECK(symbol);
+  DCHECK(ptr);
+  DCHECK(IsSymTag(symbol, SymTagPointerType));
+
+  base::win::ScopedComPtr<IDiaSymbol> contained_type_sym;
+  if (!GetSymType(symbol, &contained_type_sym))
+    return false;
+
+  Type::Flags flags = 0;
+  if (!GetSymFlags(contained_type_sym.get(), &flags))
+    return false;
+
+  TypePtr contained_type = FindOrCreateType(contained_type_sym.get());
+  if (!contained_type)
+    return false;
+
+  ptr->Finalize(flags, contained_type->type_id());
   return true;
 }
 
@@ -521,20 +568,11 @@ TypePtr TypeCreator::CreatePointerType(IDiaSymbol* symbol) {
   DCHECK(symbol);
   DCHECK(IsSymTag(symbol, SymTagPointerType));
 
-  base::win::ScopedComPtr<IDiaSymbol> ptr_type;
-  if (!GetSymType(symbol, &ptr_type))
-    return nullptr;
-
-  TypePtr type = FindOrCreateType(ptr_type.get());
-  if (!type)
-    return nullptr;
-
   size_t size = 0;
-  Type::Flags flags = 0;
-  if (!GetSymSize(symbol, &size) || !GetSymFlags(ptr_type.get(), &flags))
+  if (!GetSymSize(symbol, &size))
     return nullptr;
 
-  return new PointerType(L"", size, flags, type->type_id());
+  return new PointerType(size);
 }
 
 TypePtr TypeCreator::CreateTypedefType(IDiaSymbol* symbol) {
