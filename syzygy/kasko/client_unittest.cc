@@ -57,10 +57,11 @@ TEST(ClientTest, BasicTest) {
       base::Bind(&ServiceBridge::Stop, base::Unretained(&instance)));
 
   std::string protobuf = "hello world";
-
+  uint32_t kStreamType = 987;
   MinidumpRequest request;
-  request.protobuf = protobuf.data();
-  request.protobuf_length = protobuf.length();
+  MinidumpRequest::CustomStream custom_stream = {kStreamType, protobuf.data(),
+                                                 protobuf.length()};
+  request.custom_streams.push_back(custom_stream);
 
   // Small dump with crash keys.
   request.type = MinidumpRequest::SMALL_DUMP_TYPE;
@@ -76,30 +77,35 @@ TEST(ClientTest, BasicTest) {
   // Full dump without protobuf.
   request.type = MinidumpRequest::FULL_DUMP_TYPE;
   request.crash_keys.clear();
-  request.protobuf = nullptr;
-  request.protobuf_length = 0;
+  request.custom_streams.clear();
   Client(endpoint).SendReport(request);
 
   ASSERT_EQ(3u, call_log.size());
   ASSERT_EQ(::GetCurrentProcessId(), call_log[0].client_process_id);
-  ASSERT_EQ(protobuf, call_log[0].protobuf);
+  ASSERT_EQ(1u, call_log[0].custom_streams.size());
+  auto custom_streams_entry = call_log[0].custom_streams.find(kStreamType);
+  ASSERT_NE(call_log[0].custom_streams.end(), custom_streams_entry);
+  ASSERT_EQ(protobuf, custom_streams_entry->second);
   ASSERT_EQ(2u, call_log[0].crash_keys.size());
-  auto entry = call_log[0].crash_keys.find(L"foo");
-  ASSERT_NE(call_log[0].crash_keys.end(), entry);
-  ASSERT_EQ(L"bar", entry->second);
-  entry = call_log[0].crash_keys.find(L"hello");
-  ASSERT_NE(call_log[0].crash_keys.end(), entry);
-  ASSERT_EQ(L"world", entry->second);
+  auto crash_keys_entry = call_log[0].crash_keys.find(L"foo");
+  ASSERT_NE(call_log[0].crash_keys.end(), crash_keys_entry);
+  ASSERT_EQ(L"bar", crash_keys_entry->second);
+  crash_keys_entry = call_log[0].crash_keys.find(L"hello");
+  ASSERT_NE(call_log[0].crash_keys.end(), crash_keys_entry);
+  ASSERT_EQ(L"world", crash_keys_entry->second);
   ASSERT_EQ(MinidumpRequest::SMALL_DUMP_TYPE, call_log[0].minidump_type);
 
   ASSERT_EQ(::GetCurrentProcessId(), call_log[1].client_process_id);
-  ASSERT_EQ(protobuf, call_log[1].protobuf);
   ASSERT_EQ(0u, call_log[1].crash_keys.size());
+  ASSERT_EQ(1u, call_log[1].custom_streams.size());
+  custom_streams_entry = call_log[1].custom_streams.find(kStreamType);
+  ASSERT_NE(call_log[1].custom_streams.end(), custom_streams_entry);
+  ASSERT_EQ(protobuf, custom_streams_entry->second);
   ASSERT_EQ(MinidumpRequest::LARGER_DUMP_TYPE, call_log[1].minidump_type);
 
   ASSERT_EQ(::GetCurrentProcessId(), call_log[2].client_process_id);
-  ASSERT_EQ(std::string(), call_log[2].protobuf);
   ASSERT_EQ(0u, call_log[2].crash_keys.size());
+  ASSERT_EQ(0u, call_log[2].custom_streams.size());
   ASSERT_EQ(MinidumpRequest::FULL_DUMP_TYPE, call_log[2].minidump_type);
 }
 

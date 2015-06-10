@@ -95,12 +95,9 @@ MULTIPROCESS_TEST_MAIN(ReporterTestClientProcess) {
   CrashKey crash_keys[] = {{kCrashKey1Name, kCrashKey1Value},
                            {kCrashKey2Name, kCrashKey2Value}};
 
-  std::string protobuf = "protobuf";
-
   common::rpc::RpcStatus status = common::rpc::InvokeRpc(
       KaskoClient_SendDiagnosticReport, rpc_binding.Get(), NULL, 0, SMALL_DUMP,
-      protobuf.length(), reinterpret_cast<const signed char*>(protobuf.c_str()),
-      arraysize(crash_keys), crash_keys);
+      arraysize(crash_keys), crash_keys, 0, nullptr);
   if (status.exception_occurred || !status.succeeded()) {
     PLOG(ERROR) << "InvokeRpc";
     return 1;

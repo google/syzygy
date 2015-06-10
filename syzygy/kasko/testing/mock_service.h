@@ -48,11 +48,11 @@ class MockService : public Service {
     // The requested minidump type.
     MinidumpRequest::Type minidump_type;
 
-    // The supplied protobuf.
-    const std::string protobuf;
-
     // The supplied crash keys.
     const std::map<base::string16, base::string16> crash_keys;
+
+    // The supplied custom streams.
+    const std::map<uint32_t, std::string> custom_streams;
   };
 
   // Instantiates a service that records calls in the provided vector.

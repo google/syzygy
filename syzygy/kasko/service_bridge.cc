@@ -36,10 +36,10 @@ boolean KaskoService_SendDiagnosticReport(handle_t IDL_handle,
                                           unsigned long exception_info_address,
                                           unsigned long thread_id,
                                           DumpType minidump_type,
-                                          unsigned long protobuf_length,
-                                          const signed char* protobuf,
                                           unsigned long crash_keys_size,
-                                          const CrashKey* crash_keys) {
+                                          const CrashKey* crash_keys,
+                                          unsigned long custom_streams_size,
+                                          const CustomStream* custom_streams) {
   DCHECK(kasko::g_service_bridge);
 
   base::ProcessId client_process_id =
@@ -48,6 +48,9 @@ boolean KaskoService_SendDiagnosticReport(handle_t IDL_handle,
     return false;
 
   kasko::MinidumpRequest request;
+
+  request.exception_info_address = exception_info_address;
+
   for (unsigned long i = 0; i < crash_keys_size; ++i) {
     if (!crash_keys[i].name || !crash_keys[i].value)
       continue;
@@ -71,9 +74,15 @@ boolean KaskoService_SendDiagnosticReport(handle_t IDL_handle,
       break;
   }
 
-  request.exception_info_address = exception_info_address;
-  request.protobuf = reinterpret_cast<const char*>(protobuf);
-  request.protobuf_length = protobuf_length;
+  for (unsigned long i = 0; i < custom_streams_size; ++i) {
+    if (!custom_streams[i].size)
+      continue;
+    kasko::MinidumpRequest::CustomStream internal_custom_stream = {
+        custom_streams[i].type,
+        reinterpret_cast<const void*>(custom_streams[i].data),
+        custom_streams[i].size};
+    request.custom_streams.push_back(internal_custom_stream);
+  }
 
   kasko::g_service_bridge->service_->SendDiagnosticReport(client_process_id,
                                                           thread_id, request);

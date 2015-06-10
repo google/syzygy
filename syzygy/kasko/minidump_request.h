@@ -38,6 +38,13 @@ struct MinidumpRequest {
     FULL_DUMP_TYPE
   };
 
+  // Represents a custom stream to be included in the generated minidump.
+  struct CustomStream {
+    uint32_t type;
+    const void* data;
+    size_t length;
+  };
+
   // Represents a single crash key and its value.
   using CrashKey = std::pair<const base::char16*, const base::char16*>;
 
@@ -55,11 +62,8 @@ struct MinidumpRequest {
   // Crash keys to be included with the report (default: empty).
   std::vector<CrashKey> crash_keys;
 
-  // A protobuf to be included with the report (optional, default: nullptr).
-  const char* protobuf;
-
-  // The length of |protobuf| (default: 0).
-  uint32_t protobuf_length;
+  // Custom streams to be included with the report (default: empty).
+  std::vector<CustomStream> custom_streams;
 };
 
 }  // namespace kasko

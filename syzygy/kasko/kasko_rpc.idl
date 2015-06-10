@@ -25,6 +25,13 @@ interface Kasko {
       [string] const wchar_t* value;
   } CrashKey;
 
+  // Represents a custom stream to include in a diagnostic report.
+  typedef struct {
+    unsigned long type;
+    unsigned long size;
+    [size_is(size)] const signed char *data;
+  } CustomStream;
+
   // Specifies the type of Minidump to be included in a report.
   typedef enum {
     SMALL_DUMP,
@@ -36,18 +43,18 @@ interface Kasko {
   // @param exception_info_address Optional exception information.
   // @param thread_id The (optional) faulting thread in the target process.
   // @param minidump_type The type of minidump to be included in the report.
-  // @param protobuf_size The length of |protobuf|.
-  // @param protobuf An optional protobuf to be included in the report.
   // @param crash_keys_size The number of entries in |crash_keys|.
   // @param crash_keys An optional array of crash keys. Keys with empty names or
-  //     values will be ignored.
+  // @param custom_streams_size The number of entries in |custom_streams|.
+  // @param custom_streams An optional array of custom streams.
   boolean SendDiagnosticReport(
       unsigned long exception_info_address, unsigned long thread_id,
-      DumpType minidump_type, [in] unsigned long protobuf_size,
+      DumpType minidump_type,
+      [in] unsigned long crash_keys_size,
       // unique -> optional
       // (http://blogs.msdn.com/b/oldnewthing/archive/2014/09/19/10559094.aspx)
-      [in, unique, size_is(protobuf_size)] const signed char* protobuf,
-      [in] unsigned long crash_keys_size,
-      [in, unique, size_is(crash_keys_size)] const CrashKey* crash_keys);
-
+      [in, unique, size_is(crash_keys_size)] const CrashKey* crash_keys,
+      [in] unsigned long custom_streams_size,
+      [in, unique, size_is(custom_streams_size)]
+          const CustomStream* custom_streams);
 }

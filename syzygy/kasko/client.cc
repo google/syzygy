@@ -14,6 +14,8 @@
 
 #include "syzygy/kasko/client.h"
 
+#include <vector>
+
 #include "base/logging.h"
 #include "base/threading/platform_thread.h"
 #include "syzygy/common/rpc/helpers.h"
@@ -44,6 +46,16 @@ void Client::SendReport(const MinidumpRequest& request) const {
     crash_keys.push_back(rpc_crash_key);
   }
 
+  // Alias the custom stream buffers into the CustomStream array used for the
+  // RPC invocation.
+  std::vector<CustomStream> custom_streams;
+  for (auto& client_custom_stream : request.custom_streams) {
+    CustomStream rpc_custom_stream = {
+        client_custom_stream.type, client_custom_stream.length,
+        reinterpret_cast<const signed char*>(client_custom_stream.data)};
+    custom_streams.push_back(rpc_custom_stream);
+  }
+
   DumpType rpc_dump_type = SMALL_DUMP;
   switch (request.type) {
     case MinidumpRequest::SMALL_DUMP_TYPE:
@@ -64,10 +76,9 @@ void Client::SendReport(const MinidumpRequest& request) const {
   common::rpc::RpcStatus status = common::rpc::InvokeRpc(
       KaskoClient_SendDiagnosticReport, rpc_binding.Get(),
       request.exception_info_address, base::PlatformThread::CurrentId(),
-      rpc_dump_type, request.protobuf_length,
-      reinterpret_cast<const signed char*>(request.protobuf ? request.protobuf
-                                                            : ""),
-      crash_keys.size(), crash_keys.size() ? crash_keys.data() : nullptr);
+      rpc_dump_type, crash_keys.size(),
+      crash_keys.size() ? crash_keys.data() : nullptr, custom_streams.size(),
+      custom_streams.size() ? custom_streams.data() : nullptr);
 
   if (!status.succeeded())
     LOG(ERROR) << "Failed to invoke the SendDiagnosticReport RPC.";

@@ -30,12 +30,16 @@ void MockService::SendDiagnosticReport(base::ProcessId client_process_id,
     crash_keys[crash_key.first] = crash_key.second;
   }
 
-  CallRecord record = {
-      client_process_id, request.exception_info_address, thread_id,
-      request.type, request.protobuf_length
-                        ? std::string(request.protobuf, request.protobuf_length)
-                        : std::string(),
-      crash_keys};
+  std::map<uint32_t, std::string> custom_streams;
+  for (auto& custom_stream : request.custom_streams) {
+    custom_streams[custom_stream.type] =
+        std::string(reinterpret_cast<const char*>(custom_stream.data),
+                    custom_stream.length);
+  }
+
+  CallRecord record = {client_process_id, request.exception_info_address,
+                       thread_id,         request.type,
+                       crash_keys,        custom_streams};
 
   call_log_->push_back(record);
 }

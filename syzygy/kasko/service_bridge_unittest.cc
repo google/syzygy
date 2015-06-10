@@ -90,21 +90,21 @@ base::Closure WrapRpcStatusCallback(
 
 void DoInvokeService(const base::string16& protocol,
                      const base::string16& endpoint,
-                     const std::string& protobuf,
                      bool* complete,
                      long exception_info_address,
                      long thread_id,
                      DumpType dump_type,
                      size_t crash_keys_length,
-                     const CrashKey* crash_keys) {
+                     const CrashKey* crash_keys,
+                     size_t custom_streams_length,
+                     const CustomStream* custom_streams) {
   common::rpc::ScopedRpcBinding rpc_binding;
   ASSERT_TRUE(rpc_binding.Open(protocol, endpoint));
 
   common::rpc::RpcStatus status = common::rpc::InvokeRpc(
       KaskoClient_SendDiagnosticReport, rpc_binding.Get(),
-      exception_info_address, thread_id, dump_type, protobuf.length(),
-      reinterpret_cast<const signed char*>(protobuf.c_str()), crash_keys_length,
-      crash_keys);
+      exception_info_address, thread_id, dump_type, crash_keys_length,
+      crash_keys, custom_streams_length, custom_streams);
   ASSERT_FALSE(status.exception_occurred);
   ASSERT_TRUE(status.succeeded());
   *complete = true;
@@ -182,28 +182,39 @@ TEST(KaskoServiceBridgeTest, InvokeService) {
   base::ScopedClosureRunner stop_service_bridge(
       base::Bind(&ServiceBridge::Stop, base::Unretained(&instance)));
 
-  std::string protobuf = "hello world";
+
+  std::string stream_data = "hello world";
+  uint32_t kStreamType = 987;
+  CustomStream custom_streams[] = {
+      {kStreamType, stream_data.length(),
+       reinterpret_cast<const signed char*>(stream_data.data())}};
   bool complete = false;
   CrashKey crash_keys[] = {{reinterpret_cast<const wchar_t*>(L"foo"),
                             reinterpret_cast<const wchar_t*>(L"bar")},
                            {reinterpret_cast<const wchar_t*>(L"hello"),
                             reinterpret_cast<const wchar_t*>(L"world")}};
 
-  DoInvokeService(protocol, endpoint, protobuf, &complete, 0, 0, SMALL_DUMP,
-                  arraysize(crash_keys), crash_keys);
+  DoInvokeService(protocol, endpoint, &complete, 0, 0, SMALL_DUMP,
+                  arraysize(crash_keys), crash_keys, arraysize(custom_streams),
+                  custom_streams);
   ASSERT_TRUE(complete);
   complete = false;
-  DoInvokeService(protocol, endpoint, std::string(), &complete, 1122, 3,
-                  LARGER_DUMP, 0, nullptr);
+  DoInvokeService(protocol, endpoint, &complete, 1122, 3, LARGER_DUMP, 0,
+                  nullptr, 0, nullptr);
   ASSERT_TRUE(complete);
 
   ASSERT_EQ(2u, call_log.size());
 
   // First request
   ASSERT_EQ(::GetCurrentProcessId(), call_log[0].client_process_id);
-  ASSERT_EQ(protobuf, call_log[0].protobuf);
   ASSERT_EQ(0, call_log[0].exception_info_address);
   ASSERT_EQ(0, call_log[0].thread_id);
+
+  ASSERT_EQ(1u, call_log[0].custom_streams.size());
+  auto custom_streams_entry = call_log[0].custom_streams.find(kStreamType);
+  ASSERT_NE(call_log[0].custom_streams.end(), custom_streams_entry);
+  ASSERT_EQ(stream_data, custom_streams_entry->second);
+
   ASSERT_EQ(2u, call_log[0].crash_keys.size());
   auto crash_keys_entry = call_log[0].crash_keys.find(L"foo");
   ASSERT_NE(call_log[0].crash_keys.end(), crash_keys_entry);
@@ -216,8 +227,8 @@ TEST(KaskoServiceBridgeTest, InvokeService) {
   ASSERT_EQ(::GetCurrentProcessId(), call_log[1].client_process_id);
   ASSERT_EQ(1122, call_log[1].exception_info_address);
   ASSERT_EQ(3, call_log[1].thread_id);
+  ASSERT_EQ(0u, call_log[1].custom_streams.size());
   ASSERT_EQ(0u, call_log[1].crash_keys.size());
-  ASSERT_EQ(std::string(), call_log[1].protobuf);
 }
 
 
@@ -238,7 +249,6 @@ TEST(KaskoServiceBridgeTest, StopBlocksUntilCallsComplete) {
   base::ScopedClosureRunner signal_release_call(base::Bind(
       &base::WaitableEvent::Signal, base::Unretained(&release_call)));
 
-  std::string protobuf = "hello world";
   bool complete = false;
   CrashKey crash_keys[] = {{reinterpret_cast<const wchar_t*>(L"foo"),
                             reinterpret_cast<const wchar_t*>(L"bar")},
@@ -248,10 +258,10 @@ TEST(KaskoServiceBridgeTest, StopBlocksUntilCallsComplete) {
   base::Thread client_thread("client thread");
   ASSERT_TRUE(client_thread.Start());
   client_thread.message_loop()->PostTask(
-      FROM_HERE,
-      base::Bind(&DoInvokeService, protocol, endpoint, protobuf,
-                 base::Unretained(&complete), 0, 0, SMALL_DUMP,
-                 arraysize(crash_keys), base::Unretained(crash_keys)));
+      FROM_HERE, base::Bind(&DoInvokeService, protocol, endpoint,
+                            base::Unretained(&complete), 0, 0, SMALL_DUMP,
+                            arraysize(crash_keys), base::Unretained(crash_keys),
+                            0, nullptr));
   // In case the DoInvokeService fails, let's make sure we unblock ourselves.
   client_thread.message_loop()->PostTask(
       FROM_HERE,

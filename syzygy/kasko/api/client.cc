@@ -14,6 +14,8 @@
 
 #include "syzygy/kasko/api/client.h"
 
+#include <DbgHelp.h>
+
 #include <vector>
 
 #include "base/logging.h"
@@ -29,6 +31,9 @@ namespace {
 static_assert(sizeof(CrashKey) == 256u,
               "CrashKey struct size must match that of the "
               "google_breakpad::CustomInfoEntry struct.");
+
+static_assert(kProtobufStreamType > LastReservedStream,
+              "kProtobufStreamType <= LastReservedStream.");
 
 const DllLifetime* g_dll_lifetime;
 const Client* g_client = nullptr;
@@ -65,8 +70,11 @@ void SendReport(const EXCEPTION_POINTERS* exception_pointers,
   MinidumpRequest request;
   request.exception_info_address =
       reinterpret_cast<uint32_t>(exception_pointers);
-  request.protobuf = protobuf;
-  request.protobuf_length = protobuf_length;
+  if (protobuf_length) {
+    MinidumpRequest::CustomStream custom_stream = {kProtobufStreamType,
+                                                   protobuf, protobuf_length};
+    request.custom_streams.push_back(custom_stream);
+  }
 
   for (size_t i = 0; i < crash_key_count; ++i) {
     if (!IsValidNonEmptyString(crash_keys[i].name,

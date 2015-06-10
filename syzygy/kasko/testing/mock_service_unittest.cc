@@ -31,6 +31,7 @@ TEST(MockServiceTest, ParameterMapping) {
   testing::MockService mock_service(&call_log);
 
   std::string protobuf = "hello world";
+  uint32_t kStreamType = 987;
   uint32_t kExceptionInfoAddress = 1122;
   base::PlatformThreadId kThreadId = 3;
   base::ProcessId kProcessId = 44;
@@ -39,8 +40,10 @@ TEST(MockServiceTest, ParameterMapping) {
   request.exception_info_address = kExceptionInfoAddress;
   request.type = MinidumpRequest::SMALL_DUMP_TYPE;
   request.crash_keys.push_back(MinidumpRequest::CrashKey(L"foo", L"bar"));
-  request.protobuf = protobuf.data();
-  request.protobuf_length = protobuf.length();
+  MinidumpRequest::CustomStream custom_stream = {kStreamType, protobuf.data(),
+                                                 protobuf.length()};
+  request.custom_streams.push_back(custom_stream);
+
   mock_service.SendDiagnosticReport(kProcessId, kThreadId, request);
 
   ASSERT_EQ(1u, call_log.size());
@@ -52,7 +55,10 @@ TEST(MockServiceTest, ParameterMapping) {
   auto crash_keys_entry = call_log[0].crash_keys.find(L"foo");
   ASSERT_NE(call_log[0].crash_keys.end(), crash_keys_entry);
   ASSERT_EQ(L"bar", crash_keys_entry->second);
-  ASSERT_EQ(protobuf, call_log[0].protobuf);
+  ASSERT_EQ(1u, call_log[0].custom_streams.size());
+  auto custom_streams_entry = call_log[0].custom_streams.find(kStreamType);
+  ASSERT_NE(call_log[0].custom_streams.end(), custom_streams_entry);
+  ASSERT_EQ(protobuf, custom_streams_entry->second);
 }
 
 }  // namespace testing

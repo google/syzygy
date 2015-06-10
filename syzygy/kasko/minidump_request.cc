@@ -17,10 +17,7 @@
 namespace kasko {
 
 MinidumpRequest::MinidumpRequest()
-    : type(SMALL_DUMP_TYPE),
-      exception_info_address(0),
-      protobuf(nullptr),
-      protobuf_length(0) {
+    : type(SMALL_DUMP_TYPE), exception_info_address(0) {
 }
 
 MinidumpRequest::~MinidumpRequest() {

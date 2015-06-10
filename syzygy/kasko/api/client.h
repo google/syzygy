@@ -24,6 +24,10 @@
 namespace kasko {
 namespace api {
 
+// The stream type assigned to the protobuf stream in the uploaded minidump
+// file. 0x4B6B is 'Kk'.
+const uint32_t kProtobufStreamType = 0x4B6B0001;
+
 // Represents a property to include in a diagnostic report. This structure is
 // intended to have the same layout as a google_breakpad::CustomInfoEntry to
 // facilitate maintenance of a single property store in clients.
