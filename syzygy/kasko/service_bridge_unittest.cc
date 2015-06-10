@@ -94,6 +94,8 @@ void DoInvokeService(const base::string16& protocol,
                      long exception_info_address,
                      long thread_id,
                      DumpType dump_type,
+                     size_t memory_ranges_length,
+                     const MemoryRange* memory_ranges,
                      size_t crash_keys_length,
                      const CrashKey* crash_keys,
                      size_t custom_streams_length,
@@ -104,6 +106,8 @@ void DoInvokeService(const base::string16& protocol,
   ::MinidumpRequest rpc_request = {exception_info_address,
                                    thread_id,
                                    dump_type,
+                                   memory_ranges_length,
+                                   memory_ranges,
                                    crash_keys_length,
                                    crash_keys,
                                    custom_streams_length,
@@ -200,13 +204,16 @@ TEST(KaskoServiceBridgeTest, InvokeService) {
                            {reinterpret_cast<const wchar_t*>(L"hello"),
                             reinterpret_cast<const wchar_t*>(L"world")}};
 
+  MemoryRange memory_ranges[] = {{0xdeadbeef, 123}};
+
   DoInvokeService(protocol, endpoint, &complete, 0, 0, SMALL_DUMP,
+                  arraysize(memory_ranges), memory_ranges,
                   arraysize(crash_keys), crash_keys, arraysize(custom_streams),
                   custom_streams);
   ASSERT_TRUE(complete);
   complete = false;
   DoInvokeService(protocol, endpoint, &complete, 1122, 3, LARGER_DUMP, 0,
-                  nullptr, 0, nullptr);
+                  nullptr, 0, nullptr, 0, nullptr);
   ASSERT_TRUE(complete);
 
   ASSERT_EQ(2u, call_log.size());
@@ -215,6 +222,12 @@ TEST(KaskoServiceBridgeTest, InvokeService) {
   ASSERT_EQ(::GetCurrentProcessId(), call_log[0].client_process_id);
   ASSERT_EQ(0, call_log[0].exception_info_address);
   ASSERT_EQ(0, call_log[0].thread_id);
+
+  ASSERT_EQ(1u, call_log[0].user_selected_memory_ranges.size());
+  ASSERT_EQ(memory_ranges[0].base_address,
+            call_log[0].user_selected_memory_ranges[0].base_address);
+  ASSERT_EQ(memory_ranges[0].length,
+            call_log[0].user_selected_memory_ranges[0].length);
 
   ASSERT_EQ(1u, call_log[0].custom_streams.size());
   auto custom_streams_entry = call_log[0].custom_streams.find(kStreamType);
@@ -265,9 +278,9 @@ TEST(KaskoServiceBridgeTest, StopBlocksUntilCallsComplete) {
   ASSERT_TRUE(client_thread.Start());
   client_thread.message_loop()->PostTask(
       FROM_HERE, base::Bind(&DoInvokeService, protocol, endpoint,
-                            base::Unretained(&complete), 0, 0, SMALL_DUMP,
-                            arraysize(crash_keys), base::Unretained(crash_keys),
-                            0, nullptr));
+                            base::Unretained(&complete), 0, 0, SMALL_DUMP, 0,
+                            nullptr, arraysize(crash_keys),
+                            base::Unretained(crash_keys), 0, nullptr));
   // In case the DoInvokeService fails, let's make sure we unblock ourselves.
   client_thread.message_loop()->PostTask(
       FROM_HERE,

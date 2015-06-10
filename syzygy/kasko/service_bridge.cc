@@ -14,8 +14,9 @@
 
 #include "syzygy/kasko/service_bridge.h"
 
-#include <Windows.h>  // NOLINT
-#include <Rpc.h>
+#include <windows.h>  // NOLINT
+#include <rpc.h>
+#include <stdint.h>
 
 #include "base/logging.h"
 #include "base/process/process_handle.h"
@@ -58,6 +59,15 @@ boolean KaskoService_SendDiagnosticReport(handle_t IDL_handle,
     default:
       NOTREACHED();
       break;
+  }
+
+  for (unsigned long i = 0; i < request.user_selected_memory_ranges_size; ++i) {
+    kasko::MinidumpRequest::MemoryRange internal_memory_range = {
+        static_cast<uint32_t>(
+            request.user_selected_memory_ranges[i].base_address),
+        static_cast<uint32_t>(request.user_selected_memory_ranges[i].length)};
+    internal_request.user_selected_memory_ranges.push_back(
+        internal_memory_range);
   }
 
   for (unsigned long i = 0; i < request.crash_keys_size; ++i) {

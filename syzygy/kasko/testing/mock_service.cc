@@ -37,9 +37,10 @@ void MockService::SendDiagnosticReport(base::ProcessId client_process_id,
                     custom_stream.length);
   }
 
-  CallRecord record = {client_process_id, request.exception_info_address,
-                       thread_id,         request.type,
-                       crash_keys,        custom_streams};
+  CallRecord record = {
+      client_process_id, request.exception_info_address,      thread_id,
+      request.type,      request.user_selected_memory_ranges, crash_keys,
+      custom_streams};
 
   call_log_->push_back(record);
 }

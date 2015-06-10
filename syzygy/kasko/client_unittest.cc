@@ -72,6 +72,8 @@ TEST(ClientTest, BasicTest) {
   // Larger dump without crash keys.
   request.type = MinidumpRequest::LARGER_DUMP_TYPE;
   request.crash_keys.clear();
+  MinidumpRequest::MemoryRange memory_range = {0xdeadbeef, 100};
+  request.user_selected_memory_ranges.push_back(memory_range);
   Client(endpoint).SendReport(request);
 
   // Full dump without protobuf.
@@ -93,6 +95,7 @@ TEST(ClientTest, BasicTest) {
   crash_keys_entry = call_log[0].crash_keys.find(L"hello");
   ASSERT_NE(call_log[0].crash_keys.end(), crash_keys_entry);
   ASSERT_EQ(L"world", crash_keys_entry->second);
+  ASSERT_EQ(0u, call_log[0].user_selected_memory_ranges.size());
   ASSERT_EQ(MinidumpRequest::SMALL_DUMP_TYPE, call_log[0].minidump_type);
 
   ASSERT_EQ(::GetCurrentProcessId(), call_log[1].client_process_id);
@@ -101,6 +104,11 @@ TEST(ClientTest, BasicTest) {
   custom_streams_entry = call_log[1].custom_streams.find(kStreamType);
   ASSERT_NE(call_log[1].custom_streams.end(), custom_streams_entry);
   ASSERT_EQ(protobuf, custom_streams_entry->second);
+  ASSERT_EQ(1u, call_log[1].user_selected_memory_ranges.size());
+  ASSERT_EQ(memory_range.base_address,
+            call_log[1].user_selected_memory_ranges[0].base_address);
+  ASSERT_EQ(memory_range.length,
+            call_log[1].user_selected_memory_ranges[0].length);
   ASSERT_EQ(MinidumpRequest::LARGER_DUMP_TYPE, call_log[1].minidump_type);
 
   ASSERT_EQ(::GetCurrentProcessId(), call_log[2].client_process_id);

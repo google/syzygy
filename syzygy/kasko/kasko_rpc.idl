@@ -33,6 +33,12 @@ interface Kasko {
     [size_is(size)] const signed char *data;
   } CustomStream;
 
+  // Represents a memory range to include in a diagnostic report.
+  typedef struct {
+      unsigned long base_address;
+      unsigned long length;
+  } MemoryRange;
+
   // Represents a property to include in a diagnostic report.
   typedef struct {
     [string] const wchar_t* name;
@@ -47,6 +53,13 @@ interface Kasko {
     unsigned long thread_id;
     // The type of minidump to be included in the report.
     DumpType type;
+    // The number of entries in |user_selected_memory_ranges|.
+    unsigned long user_selected_memory_ranges_size;
+    // An optional array of memory ranges that should be included in the report.
+    // unique -> optional
+    // (http://blogs.msdn.com/b/oldnewthing/archive/2014/09/19/10559094.aspx)
+    [unique, size_is(user_selected_memory_ranges_size)]
+        const MemoryRange* user_selected_memory_ranges;
     // The number of entries in |crash_keys|.
     unsigned long crash_keys_size;
     // An optional array of crash keys. Keys with empty names or values will be

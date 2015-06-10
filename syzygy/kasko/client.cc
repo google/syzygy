@@ -65,10 +65,19 @@ void Client::SendReport(const MinidumpRequest& request) const {
     rpc_custom_streams.push_back(rpc_custom_stream);
   }
 
+  std::vector<MemoryRange> rpc_memory_ranges;
+  for (auto& client_memory_range : request.user_selected_memory_ranges) {
+    MemoryRange rpc_memory_range = {client_memory_range.base_address,
+                                    client_memory_range.length};
+    rpc_memory_ranges.push_back(rpc_memory_range);
+  }
+
   ::MinidumpRequest rpc_request = {
       request.exception_info_address,
       base::PlatformThread::CurrentId(),
       rpc_dump_type,
+      rpc_memory_ranges.size(),
+      rpc_memory_ranges.size() ? rpc_memory_ranges.data() : nullptr,
       rpc_crash_keys.size(),
       rpc_crash_keys.size() ? rpc_crash_keys.data() : nullptr,
       rpc_custom_streams.size(),

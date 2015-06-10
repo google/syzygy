@@ -43,6 +43,8 @@ TEST(MockServiceTest, ParameterMapping) {
   MinidumpRequest::CustomStream custom_stream = {kStreamType, protobuf.data(),
                                                  protobuf.length()};
   request.custom_streams.push_back(custom_stream);
+  MinidumpRequest::MemoryRange memory_range = {0xdeadbeef, 100};
+  request.user_selected_memory_ranges.push_back(memory_range);
 
   mock_service.SendDiagnosticReport(kProcessId, kThreadId, request);
 
@@ -51,6 +53,11 @@ TEST(MockServiceTest, ParameterMapping) {
   ASSERT_EQ(kProcessId, call_log[0].client_process_id);
   ASSERT_EQ(kThreadId, call_log[0].thread_id);
   ASSERT_EQ(MinidumpRequest::SMALL_DUMP_TYPE, call_log[0].minidump_type);
+  ASSERT_EQ(1u, call_log[0].user_selected_memory_ranges.size());
+  ASSERT_EQ(memory_range.base_address,
+            call_log[0].user_selected_memory_ranges[0].base_address);
+  ASSERT_EQ(memory_range.length,
+            call_log[0].user_selected_memory_ranges[0].length);
   ASSERT_EQ(1u, call_log[0].crash_keys.size());
   auto crash_keys_entry = call_log[0].crash_keys.find(L"foo");
   ASSERT_NE(call_log[0].crash_keys.end(), crash_keys_entry);

@@ -48,6 +48,9 @@ class MockService : public Service {
     // The requested minidump type.
     MinidumpRequest::Type minidump_type;
 
+    // The supplied memory ranges.
+    const std::vector<MinidumpRequest::MemoryRange> user_selected_memory_ranges;
+
     // The supplied crash keys.
     const std::map<base::string16, base::string16> crash_keys;
 
