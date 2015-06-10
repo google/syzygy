@@ -45,6 +45,13 @@ struct MinidumpRequest {
     size_t length;
   };
 
+  // Represents a user-selected memory range to be included in the generated
+  // minidump.
+  struct MemoryRange {
+    uint32_t base_address;
+    uint32_t length;
+  };
+
   // Represents a single crash key and its value.
   using CrashKey = std::pair<const base::char16*, const base::char16*>;
 
@@ -64,6 +71,9 @@ struct MinidumpRequest {
 
   // Custom streams to be included with the report (default: empty).
   std::vector<CustomStream> custom_streams;
+
+  // User-selected memory ranges to be included in the minidump.
+  std::vector<MemoryRange> user_selected_memory_ranges;
 };
 
 }  // namespace kasko

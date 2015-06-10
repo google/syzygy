@@ -46,6 +46,90 @@ const MINIDUMP_TYPE kFullDumpType = static_cast<MINIDUMP_TYPE>(
     MiniDumpWithHandleData |  // Get all handle information.
     MiniDumpWithUnloadedModules);  // Get unloaded modules when available.
 
+class MinidumpCallbackHandler {
+ public:
+  explicit MinidumpCallbackHandler(
+      const std::vector<MinidumpRequest::MemoryRange>* memory_ranges);
+
+  const MINIDUMP_CALLBACK_INFORMATION* GetMINIDUMP_CALLBACK_INFORMATION() {
+    return &minidump_callback_information_;
+  }
+
+ private:
+  BOOL MemoryCallback(ULONG64* memory_base, ULONG* memory_size);
+
+  static BOOL CALLBACK
+  CallbackRoutine(PVOID context,
+                  const PMINIDUMP_CALLBACK_INPUT callback_input,
+                  PMINIDUMP_CALLBACK_OUTPUT callback_output);
+
+  const std::vector<MinidumpRequest::MemoryRange>* memory_ranges_;
+  size_t next_memory_range_index_;
+  MINIDUMP_CALLBACK_INFORMATION minidump_callback_information_;
+
+  DISALLOW_COPY_AND_ASSIGN(MinidumpCallbackHandler);
+};
+
+MinidumpCallbackHandler::MinidumpCallbackHandler(
+    const std::vector<MinidumpRequest::MemoryRange>* memory_ranges)
+    : memory_ranges_(memory_ranges),
+      next_memory_range_index_(0),
+      minidump_callback_information_() {
+  minidump_callback_information_.CallbackRoutine =
+      &MinidumpCallbackHandler::CallbackRoutine;
+  minidump_callback_information_.CallbackParam = reinterpret_cast<void*>(this);
+}
+
+BOOL MinidumpCallbackHandler::MemoryCallback(ULONG64* memory_base,
+                                             ULONG* memory_size) {
+  for (; next_memory_range_index_ < memory_ranges_->size();
+       ++next_memory_range_index_) {
+    // A zero-length range will terminate memory callbacks. If there is one in
+    // our input vector, skip it.
+    if ((*memory_ranges_)[next_memory_range_index_].length == 0)
+      continue;
+
+    // Include the specified memory region.
+    *memory_base = (*memory_ranges_)[next_memory_range_index_].base_address;
+    *memory_size = (*memory_ranges_)[next_memory_range_index_].length;
+    ++next_memory_range_index_;
+    return TRUE;
+  }
+  return FALSE;
+}
+
+// static
+BOOL CALLBACK MinidumpCallbackHandler::CallbackRoutine(
+    PVOID context,
+    const PMINIDUMP_CALLBACK_INPUT callback_input,
+    PMINIDUMP_CALLBACK_OUTPUT callback_output) {
+  MinidumpCallbackHandler* self =
+      reinterpret_cast<MinidumpCallbackHandler*>(context);
+  switch (callback_input->CallbackType) {
+    case ::MemoryCallback:
+      return self->MemoryCallback(&callback_output->MemoryBase,
+                                  &callback_output->MemorySize);
+
+    // Include all modules.
+    case IncludeModuleCallback:
+    case ModuleCallback:
+      return TRUE;
+
+    // Include all threads.
+    case IncludeThreadCallback:
+    case ThreadCallback:
+      return TRUE;
+
+    // Stop receiving cancel callbacks.
+    case CancelCallback:
+      callback_output->CheckCancel = FALSE;
+      callback_output->Cancel = FALSE;
+      return TRUE;
+  }
+  // Ignore other callback types.
+  return FALSE;
+}
+
 }  // namespace
 
 bool GenerateMinidump(const base::FilePath& destination,
@@ -106,10 +190,15 @@ bool GenerateMinidump(const base::FilePath& destination,
   MINIDUMP_USER_STREAM_INFORMATION
   user_stream_information = {user_streams.size(), user_streams.data()};
 
-  if (::MiniDumpWriteDump(target_process_handle.Get(), target_process_id,
-                          destination_file.GetPlatformFile(),
-                          platform_minidump_type, dump_exception_pointers,
-                          &user_stream_information, NULL) == FALSE) {
+  MinidumpCallbackHandler callback_handler(
+      &request.user_selected_memory_ranges);
+
+  if (::MiniDumpWriteDump(
+          target_process_handle.Get(), target_process_id,
+          destination_file.GetPlatformFile(), platform_minidump_type,
+          dump_exception_pointers, &user_stream_information,
+          const_cast<MINIDUMP_CALLBACK_INFORMATION*>(
+              callback_handler.GetMINIDUMP_CALLBACK_INFORMATION())) == FALSE) {
     LOG(ERROR) << "MiniDumpWriteDump failed: " << ::common::LogWe() << ".";
     return false;
   }
