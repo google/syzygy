@@ -30,9 +30,12 @@ void MockService::SendDiagnosticReport(base::ProcessId client_process_id,
     crash_keys[crash_key.first] = crash_key.second;
   }
 
-  CallRecord record = {client_process_id, request.type,
-                       std::string(request.protobuf, request.protobuf_length),
-                       crash_keys};
+  CallRecord record = {
+      client_process_id, request.exception_info_address, thread_id,
+      request.type, request.protobuf_length
+                        ? std::string(request.protobuf, request.protobuf_length)
+                        : std::string(),
+      crash_keys};
 
   call_log_->push_back(record);
 }

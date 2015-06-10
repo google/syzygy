@@ -15,6 +15,8 @@
 #ifndef SYZYGY_KASKO_TESTING_MOCK_SERVICE_H_
 #define SYZYGY_KASKO_TESTING_MOCK_SERVICE_H_
 
+#include <stdint.h>
+
 #include <map>
 #include <string>
 #include <vector>
@@ -22,6 +24,7 @@
 #include "base/macros.h"
 #include "base/process/process_handle.h"
 #include "base/strings/string16.h"
+#include "base/threading/platform_thread.h"
 #include "syzygy/kasko/minidump_request.h"
 #include "syzygy/kasko/service.h"
 
@@ -35,6 +38,12 @@ class MockService : public Service {
   struct CallRecord {
     // The caller process ID.
     const base::ProcessId client_process_id;
+
+    // The supplied exception info address.
+    uint32_t exception_info_address;
+
+    // The supplied thread id.
+    base::PlatformThreadId thread_id;
 
     // The requested minidump type.
     MinidumpRequest::Type minidump_type;

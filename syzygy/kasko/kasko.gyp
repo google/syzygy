@@ -237,6 +237,7 @@
         'reporter_unittest.cc',
         'service_bridge_unittest.cc',
         'testing/launch_python_process_unittest.cc',
+        'testing/mock_service_unittest.cc',
         'testing/safe_pipe_reader_unittest.cc',
         'upload_thread_unittest.cc',
         'upload_unittest.cc',
