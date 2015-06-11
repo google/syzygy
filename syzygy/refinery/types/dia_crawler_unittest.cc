@@ -77,7 +77,7 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   EXPECT_EQ(0, fields[0].bit_len());
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(0)->kind());
   EXPECT_EQ(4, udt->GetFieldType(0)->size());
-  // TODO(siggi): Assert on type's name.
+  EXPECT_EQ(L"int32_t", udt->GetFieldType(0)->name());
 
   EXPECT_EQ(4, fields[1].offset());
   EXPECT_EQ(L"two", fields[1].name());
@@ -87,12 +87,12 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   EXPECT_EQ(0, fields[1].bit_len());
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(1)->kind());
   EXPECT_EQ(1, udt->GetFieldType(1)->size());
-  // TODO(siggi): Assert on type's name.
+  EXPECT_EQ(L"char", udt->GetFieldType(1)->name());
 
   EXPECT_EQ(8, fields[2].offset());
   EXPECT_EQ(L"three", fields[2].name());
   EXPECT_FALSE(fields[2].is_const());
-  EXPECT_TRUE(fields[2].is_volatile());
+  EXPECT_FALSE(fields[2].is_volatile());
   EXPECT_EQ(0, fields[2].bit_pos());
   EXPECT_EQ(0, fields[2].bit_len());
   ASSERT_EQ(Type::POINTER_TYPE_KIND, udt->GetFieldType(2)->kind());
@@ -100,11 +100,23 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   PointerTypePtr ptr;
   ASSERT_TRUE(udt->GetFieldType(2)->CastTo(&ptr));
   ASSERT_TRUE(ptr);
+  EXPECT_EQ(4, ptr->size());
+  EXPECT_FALSE(ptr->is_const());
+  EXPECT_TRUE(ptr->is_volatile());
+  ASSERT_TRUE(ptr->GetContentType());
+  EXPECT_EQ(Type::POINTER_TYPE_KIND, ptr->GetContentType()->kind());
+  EXPECT_EQ(L"int16_t const* volatile*", ptr->name());
+
+  ASSERT_TRUE(ptr->GetContentType()->CastTo(&ptr));
+  ASSERT_TRUE(ptr);
+  EXPECT_EQ(4, ptr->size());
   EXPECT_TRUE(ptr->is_const());
   EXPECT_FALSE(ptr->is_volatile());
   ASSERT_TRUE(ptr->GetContentType());
+  EXPECT_EQ(L"int16_t const*", ptr->name());
   EXPECT_EQ(Type::BASIC_TYPE_KIND, ptr->GetContentType()->kind());
-  // TODO(siggi): Assert on type's name.
+  EXPECT_EQ(L"int16_t", ptr->GetContentType()->name());
+  EXPECT_EQ(2, ptr->GetContentType()->size());
 
   EXPECT_EQ(12, fields[3].offset());
   EXPECT_EQ(L"four", fields[3].name());
@@ -114,7 +126,7 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   EXPECT_EQ(0, fields[3].bit_len());
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(3)->kind());
   EXPECT_EQ(2, udt->GetFieldType(3)->size());
-  // TODO(siggi): Assert on type's name.
+  EXPECT_EQ(L"uint16_t", udt->GetFieldType(3)->name());
 
   // Can't do offsetof/sizeof on bit fields.
   EXPECT_EQ(14, fields[4].offset());
@@ -125,7 +137,7 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   EXPECT_EQ(3, fields[4].bit_len());
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(4)->kind());
   EXPECT_EQ(2, udt->GetFieldType(4)->size());
-  // TODO(siggi): Assert on type's name.
+  EXPECT_EQ(L"uint16_t", udt->GetFieldType(4)->name());
 
   EXPECT_EQ(14, fields[5].offset());
   EXPECT_EQ(L"six", fields[5].name());
@@ -135,7 +147,7 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   EXPECT_EQ(5, fields[5].bit_len());
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(5)->kind());
   EXPECT_EQ(2, udt->GetFieldType(5)->size());
-  // TODO(siggi): Assert on type's name.
+  EXPECT_EQ(L"uint16_t", udt->GetFieldType(5)->name());
 }
 
 }  // namespace refinery

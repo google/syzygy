@@ -72,6 +72,11 @@ class Type : public base::RefCounted<Type> {
   Type(TypeKind kind, const base::string16& name, size_t size);
   virtual ~Type() = 0;
 
+  // Name of type.
+  // This is protected as opposed to private to allow setting it
+  // post-construction.
+  base::string16 name_;
+
  private:
   friend class TypeRepository;
   void SetRepository(TypeRepository* repository, TypeId type_id);
@@ -82,8 +87,6 @@ class Type : public base::RefCounted<Type> {
 
   // The kind of this type is, synonymous with its class.
   const TypeKind kind_;
-  // Name of type.
-  const base::string16 name_;
   // Size of type.
   const size_t size_;
 
@@ -184,7 +187,6 @@ class UserDefinedType::Field {
 };
 
 // Represents a pointer to some other type.
-// TODO(siggi): Endow pointers with a name.
 class PointerType : public Type {
  public:
   static const TypeKind ID = POINTER_TYPE_KIND;
@@ -205,6 +207,8 @@ class PointerType : public Type {
 
   // Finalize the pointer type with @p flags and @p content_type_id.
   void Finalize(Flags flags, TypeId content_type_id);
+  // Set the name of the pointer type.
+  void SetName(const base::string16& name);
 
  private:
   // Stores the CV qualifiers of this pointer.

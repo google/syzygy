@@ -29,11 +29,13 @@ TypePtr CreateUDT(const wchar_t* name,
   return udt;
 }
 
-TypePtr CreatePointerType(size_t size,
+TypePtr CreatePointerType(const wchar_t* name,
+                          size_t size,
                           Type::Flags flags,
                           TypeId content_type_id) {
   PointerTypePtr ptr = new PointerType(size);
   ptr->Finalize(flags, content_type_id);
+  ptr->SetName(name);
   return ptr;
 }
 
@@ -122,12 +124,13 @@ TEST(TypesTest, PointerType) {
   // Build a Pointer instance.
   TypeRepository repo;
   const TypeId kPtrTypeId = repo.AddType(new BasicType(L"void", 0));
-  TypePtr type = CreatePointerType(4, Type::FLAG_VOLATILE, kPtrTypeId);
+  TypePtr type =
+      CreatePointerType(L"void*", 4, Type::FLAG_VOLATILE, kPtrTypeId);
   repo.AddType(type);
 
   // Test the basic properties.
   ASSERT_TRUE(type);
-  EXPECT_EQ(L"", type->name());
+  EXPECT_EQ(L"void*", type->name());
   EXPECT_EQ(4U, type->size());
 
   EXPECT_EQ(Type::POINTER_TYPE_KIND, type->kind());

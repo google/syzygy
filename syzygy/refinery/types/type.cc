@@ -99,6 +99,11 @@ void PointerType::Finalize(Flags flags, TypeId content_type_id) {
   content_type_id_ = content_type_id;
 }
 
+void PointerType::SetName(const base::string16& name) {
+  DCHECK_EQ(L"", name_);
+  name_ = name;
+}
+
 WildcardType::WildcardType(const base::string16& name, size_t size)
     : Type(WILDCARD_TYPE_KIND, name, size) {
 }

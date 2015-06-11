@@ -29,6 +29,11 @@ bool GetSymBaseTypeName(IDiaSymbol* symbol, base::string16* type_name) {
   if (hr != S_OK)
     return false;
 
+  ULONGLONG length = 0;
+  hr = symbol->get_length(&length);
+  if (hr != S_OK)
+    return false;
+
   // TODO(siggi): What to do for these basic type names?
   //     One idea is to standardize on stdint.h types?
   switch (base_type) {
@@ -36,55 +41,86 @@ bool GetSymBaseTypeName(IDiaSymbol* symbol, base::string16* type_name) {
       *type_name = L"btNoType";
       break;
     case btVoid:
-      *type_name = L"btVoid";
+      *type_name = L"void";
       break;
     case btChar:
-      *type_name = L"btChar";
+      *type_name = L"char";
       break;
     case btWChar:
-      *type_name = L"btWChar";
+      *type_name = L"wchar_t";
       break;
     case btInt:
-      *type_name = L"btInt";
+    case btLong: {
+      switch (length) {
+        case 1:
+          *type_name = L"int8_t";
+          break;
+        case 2:
+          *type_name = L"int16_t";
+          break;
+        case 4:
+          *type_name = L"int32_t";
+          break;
+        case 8:
+          *type_name = L"int64_t";
+          break;
+
+        default:
+          return false;
+      }
       break;
+    }
     case btUInt:
-      *type_name = L"btUInt";
+    case btULong: {
+      switch (length) {
+        case 1:
+          *type_name = L"uint8_t";
+          break;
+        case 2:
+          *type_name = L"uint16_t";
+          break;
+        case 4:
+          *type_name = L"uint32_t";
+          break;
+        case 8:
+          *type_name = L"uint64_t";
+          break;
+
+        default:
+          return false;
+      }
       break;
+    }
+
     case btFloat:
-      *type_name = L"btFloat";
+      *type_name = L"float";
       break;
     case btBCD:
-      *type_name = L"btBCD";
+      *type_name = L"BCD";
       break;
     case btBool:
-      *type_name = L"btBool";
-      break;
-    case btLong:
-      *type_name = L"btLong";
-      break;
-    case btULong:
-      *type_name = L"btULong";
+      *type_name = L"bool";
       break;
     case btCurrency:
-      *type_name = L"btCurrency";
+      *type_name = L"Currency";
       break;
     case btDate:
-      *type_name = L"btDate";
+      *type_name = L"Date";
       break;
     case btVariant:
-      *type_name = L"btVariant";
+      *type_name = L"Variant";
       break;
     case btComplex:
-      *type_name = L"btComplex";
+      *type_name = L"Complex";
       break;
     case btBit:
-      *type_name = L"btBit";
+      *type_name = L"Bit";
       break;
     case btBSTR:
-      *type_name = L"btBSTR";
+      *type_name = L"BSTR";
       break;
     case btHresult:
-      *type_name = L"btHresult";
+      *type_name = L"HRESULT";
       break;
     default:
       return false;
@@ -233,8 +269,15 @@ class TypeCreator {
  public:
   explicit TypeCreator(TypeRepository* repository);
 
+  // Crawls @p global, creates all types and assigns names to pointers.
   bool CreateTypes(IDiaSymbol* global);
+
+ private:
   bool CreateTypesOfKind(enum SymTagEnum kind, IDiaSymbol* global);
+
+  // Assigns names to all pointer types that have been created.
+  bool AssignPointerNames();
+  bool AssignPointerName(PointerTypePtr ptr);
 
   // Finds or creates the type corresponding to @p symbol.
   // The type will be registered by a unique name in @p existing_types_.
@@ -253,7 +296,6 @@ class TypeCreator {
   bool FinalizePointer(IDiaSymbol* symbol, PointerTypePtr ptr);
   bool FinalizeType(IDiaSymbol* symbol, TypePtr type);
 
- private:
   struct CreatedType {
     CreatedType() : type_id(kNoTypeId), is_finalized(false) {
     }
@@ -347,10 +389,57 @@ bool TypeCreator::FinalizeType(IDiaSymbol* symbol, TypePtr type) {
 }
 
 bool TypeCreator::CreateTypes(IDiaSymbol* global) {
-  return CreateTypesOfKind(SymTagUDT, global) &&
-         CreateTypesOfKind(SymTagEnum, global) &&
-         CreateTypesOfKind(SymTagTypedef, global) &&
-         CreateTypesOfKind(SymTagPointerType, global);
+  if (!CreateTypesOfKind(SymTagUDT, global) ||
+      !CreateTypesOfKind(SymTagEnum, global) ||
+      !CreateTypesOfKind(SymTagTypedef, global) ||
+      !CreateTypesOfKind(SymTagPointerType, global)) {
+    return false;
+  }
+
+  return AssignPointerNames();
+}
+
+bool TypeCreator::AssignPointerNames() {
+  for (auto it : *repository_) {
+    if (it->kind() == Type::POINTER_TYPE_KIND && it->name().empty()) {
+      PointerTypePtr ptr;
+      if (!it->CastTo(&ptr))
+        return false;
+
+      if (!AssignPointerName(ptr))
+        return false;
+
+      DCHECK_NE(L"", ptr->name());
+    }
+  }
+
+  return true;
+}
+
+bool TypeCreator::AssignPointerName(PointerTypePtr ptr) {
+  base::string16 name;
+  TypePtr content_type = ptr->GetContentType();
+  if (content_type) {
+    // Recurse on the content type if it's a pointer with an unassigned name.
+    if (content_type->name().empty() &&
+        content_type->kind() == Type::POINTER_TYPE_KIND) {
+      PointerTypePtr contained_ptr;
+      if (!content_type->CastTo(&contained_ptr) ||
+          !AssignPointerName(contained_ptr)) {
+        return false;
+      }
+    }
+
+    name = content_type->name();
+  }
+  if (ptr->is_const())
+    name.append(L" const");
+  if (ptr->is_volatile())
+    name.append(L" volatile");
+  name.append(L"*");
+
+  ptr->SetName(name);
+  return true;
 }
 
 TypePtr TypeCreator::FindOrCreateType(IDiaSymbol* symbol) {
