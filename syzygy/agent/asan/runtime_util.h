@@ -15,10 +15,10 @@
 // This file contains helper functions for setting up and tearing down the
 // SyzyAsan runtime.
 
-#ifndef SYZYGY_AGENT_ASAN_ASAN_RUNTIME_UTIL_H_
-#define SYZYGY_AGENT_ASAN_ASAN_RUNTIME_UTIL_H_
+#ifndef SYZYGY_AGENT_ASAN_RUNTIME_UTIL_H_
+#define SYZYGY_AGENT_ASAN_RUNTIME_UTIL_H_
 
-#include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/agent/asan/runtime.h"
 
 namespace agent {
 namespace asan {
@@ -38,4 +38,4 @@ void TearDownAsanRuntime(AsanRuntime** asan_runtime);
 }  // namespace asan
 }  // namespace agent
 
-#endif  // SYZYGY_AGENT_ASAN_ASAN_RUNTIME_UTIL_H_
+#endif  // SYZYGY_AGENT_ASAN_RUNTIME_UTIL_H_

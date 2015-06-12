@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/agent/asan/runtime.h"
 
 #include <vector>
 

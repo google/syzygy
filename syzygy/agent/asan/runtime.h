@@ -14,8 +14,8 @@
 //
 // A class that take care of initializing asan run-time library.
 
-#ifndef SYZYGY_AGENT_ASAN_ASAN_RUNTIME_H_
-#define SYZYGY_AGENT_ASAN_ASAN_RUNTIME_H_
+#ifndef SYZYGY_AGENT_ASAN_RUNTIME_H_
+#define SYZYGY_AGENT_ASAN_RUNTIME_H_
 
 #include <set>
 #include <string>
@@ -289,4 +289,4 @@ class AsanRuntime {
 }  // namespace asan
 }  // namespace agent
 
-#endif  // SYZYGY_AGENT_ASAN_ASAN_RUNTIME_H_
+#endif  // SYZYGY_AGENT_ASAN_RUNTIME_H_

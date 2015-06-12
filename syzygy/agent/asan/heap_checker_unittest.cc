@@ -16,9 +16,9 @@
 
 #include "base/rand_util.h"
 #include "gtest/gtest.h"
-#include "syzygy/agent/asan/asan_logger.h"
-#include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/agent/asan/logger.h"
 #include "syzygy/agent/asan/page_protection_helpers.h"
+#include "syzygy/agent/asan/runtime.h"
 #include "syzygy/agent/asan/unittest_util.h"
 
 namespace agent {

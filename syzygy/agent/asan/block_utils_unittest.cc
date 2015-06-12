@@ -15,7 +15,7 @@
 #include "syzygy/agent/asan/block_utils.h"
 
 #include "gtest/gtest.h"
-#include "syzygy/agent/asan/asan_logger.h"
+#include "syzygy/agent/asan/logger.h"
 #include "syzygy/agent/asan/unittest_util.h"
 
 namespace agent {

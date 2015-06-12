@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/agent/asan/asan_crt_interceptors.h"
+#include "syzygy/agent/asan/crt_interceptors.h"
 
 #include <windows.h>
 

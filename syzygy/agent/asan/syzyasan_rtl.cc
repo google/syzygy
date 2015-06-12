@@ -18,9 +18,9 @@
 #include "base/atomicops.h"
 #include "base/command_line.h"
 #include "base/logging.h"
-#include "syzygy/agent/asan/asan_rtl_impl.h"
-#include "syzygy/agent/asan/asan_runtime.h"
-#include "syzygy/agent/asan/asan_runtime_util.h"
+#include "syzygy/agent/asan/rtl_impl.h"
+#include "syzygy/agent/asan/runtime.h"
+#include "syzygy/agent/asan/runtime_util.h"
 #include "syzygy/agent/common/agent.h"
 #include "syzygy/common/logging.h"
 

@@ -18,7 +18,7 @@
 
 #include "base/hash.h"
 #include "base/logging.h"
-#include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/agent/asan/runtime.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/common/align.h"
 

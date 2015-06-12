@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SYZYGY_AGENT_ASAN_ASAN_LOGGER_H_
-#define SYZYGY_AGENT_ASAN_ASAN_LOGGER_H_
+#ifndef SYZYGY_AGENT_ASAN_LOGGER_H_
+#define SYZYGY_AGENT_ASAN_LOGGER_H_
 
 #include <string>
 
@@ -92,4 +92,4 @@ class AsanLogger {
 }  // namespace asan
 }  // namespace agent
 
-#endif  // SYZYGY_AGENT_ASAN_ASAN_LOGGER_H_
+#endif  // SYZYGY_AGENT_ASAN_LOGGER_H_

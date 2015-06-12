@@ -17,8 +17,8 @@
 #include <algorithm>
 
 #include "gtest/gtest.h"
-#include "syzygy/agent/asan/asan_rtl_impl.h"
-#include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/agent/asan/rtl_impl.h"
+#include "syzygy/agent/asan/runtime.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/unittest_util.h"
 #include "syzygy/common/align.h"

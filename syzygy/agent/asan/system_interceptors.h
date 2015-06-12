@@ -13,8 +13,8 @@
 // limitations under the License.
 //
 // Defines the Asan system interceptors.
-#ifndef SYZYGY_AGENT_ASAN_ASAN_SYSTEM_INTERCEPTORS_H_
-#define SYZYGY_AGENT_ASAN_ASAN_SYSTEM_INTERCEPTORS_H_
+#ifndef SYZYGY_AGENT_ASAN_SYSTEM_INTERCEPTORS_H_
+#define SYZYGY_AGENT_ASAN_SYSTEM_INTERCEPTORS_H_
 
 #include <windows.h>
 
@@ -29,4 +29,4 @@ void asan_SetInterceptorTailCallback(InterceptorTailCallback callback);
 
 }  // extern "C"
 
-#endif  // SYZYGY_AGENT_ASAN_ASAN_SYSTEM_INTERCEPTORS_H_
+#endif  // SYZYGY_AGENT_ASAN_SYSTEM_INTERCEPTORS_H_

@@ -20,8 +20,8 @@
 // TODO(cseri): When hot patching Asan mode is activated, the import entries
 // of these functions must be overwritten to call the respective functions
 // from the SyzyAsan runtime library.
-#ifndef SYZYGY_AGENT_ASAN_ASAN_HP_CRT_INTERCEPTORS_H_
-#define SYZYGY_AGENT_ASAN_ASAN_HP_CRT_INTERCEPTORS_H_
+#ifndef SYZYGY_AGENT_ASAN_HP_CRT_INTERCEPTORS_H_
+#define SYZYGY_AGENT_ASAN_HP_CRT_INTERCEPTORS_H_
 
 // Exposes the CRT interceptors.
 extern "C" {
@@ -70,4 +70,4 @@ const wchar_t* hp_asan_wcsstr(const wchar_t* str, const wchar_t* keys);
 
 }  // extern "C"
 
-#endif  // SYZYGY_AGENT_ASAN_ASAN_HP_CRT_INTERCEPTORS_H_
+#endif  // SYZYGY_AGENT_ASAN_HP_CRT_INTERCEPTORS_H_

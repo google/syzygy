@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/agent/asan/runtime.h"
 
 #include <algorithm>
 #include <vector>
@@ -28,9 +28,9 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/pe_image.h"
 #include "base/win/wrapped_window_proc.h"
-#include "syzygy/agent/asan/asan_logger.h"
 #include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/heap_checker.h"
+#include "syzygy/agent/asan/logger.h"
 #include "syzygy/agent/asan/page_protection_helpers.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"

@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/agent/asan/asan_rtl_impl.h"
+#include "syzygy/agent/asan/rtl_impl.h"
 
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/logging.h"
 #include "base/debug/alias.h"
 #include "base/memory/scoped_ptr.h"
-#include "syzygy/agent/asan/asan_rtl_utils.h"
-#include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/heap_manager.h"
+#include "syzygy/agent/asan/rtl_utils.h"
+#include "syzygy/agent/asan/runtime.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/windows_heap_adapter.h"
 #include "syzygy/agent/asan/heap_managers/block_heap_manager.h"

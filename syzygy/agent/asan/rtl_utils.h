@@ -13,8 +13,8 @@
 // limitations under the License.
 //
 // Utility functions used by the Asan check functions..
-#ifndef SYZYGY_AGENT_ASAN_ASAN_RTL_UTILS_H_
-#define SYZYGY_AGENT_ASAN_ASAN_RTL_UTILS_H_
+#ifndef SYZYGY_AGENT_ASAN_RTL_UTILS_H_
+#define SYZYGY_AGENT_ASAN_RTL_UTILS_H_
 
 #include <windows.h>
 
@@ -91,4 +91,4 @@ void TestStructure(const T* structure, AccessMode access_mode) {
 }  // namespace agent
 
 
-#endif  // SYZYGY_AGENT_ASAN_ASAN_RTL_UTILS_H_
+#endif  // SYZYGY_AGENT_ASAN_RTL_UTILS_H_

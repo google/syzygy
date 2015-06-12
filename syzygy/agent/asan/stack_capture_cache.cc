@@ -18,7 +18,7 @@
 
 #include "base/logging.h"
 #include "base/strings/stringprintf.h"
-#include "syzygy/agent/asan/asan_logger.h"
+#include "syzygy/agent/asan/logger.h"
 #include "syzygy/agent/common/stack_capture.h"
 #include "syzygy/common/align.h"
 

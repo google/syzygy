@@ -16,7 +16,7 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "gtest/gtest.h"
-#include "syzygy/agent/asan/asan_logger.h"
+#include "syzygy/agent/asan/logger.h"
 
 namespace agent {
 namespace asan {

@@ -13,8 +13,8 @@
 // limitations under the License.
 //
 // Defines the Asan CRT interceptors.
-#ifndef SYZYGY_AGENT_ASAN_ASAN_CRT_INTERCEPTORS_H_
-#define SYZYGY_AGENT_ASAN_ASAN_CRT_INTERCEPTORS_H_
+#ifndef SYZYGY_AGENT_ASAN_CRT_INTERCEPTORS_H_
+#define SYZYGY_AGENT_ASAN_CRT_INTERCEPTORS_H_
 
 // Exposes the CRT interceptors.
 extern "C" {
@@ -59,4 +59,4 @@ char* __cdecl asan_strncat(char* destination, const char* source, size_t num);
 
 }  // extern "C"
 
-#endif  // SYZYGY_AGENT_ASAN_ASAN_CRT_INTERCEPTORS_H_
+#endif  // SYZYGY_AGENT_ASAN_CRT_INTERCEPTORS_H_

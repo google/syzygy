@@ -24,8 +24,8 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "pcrecpp.h"  // NOLINT
-#include "syzygy/agent/asan/asan_rtl_impl.h"
-#include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/agent/asan/rtl_impl.h"
+#include "syzygy/agent/asan/runtime.h"
 #include "syzygy/block_graph/transforms/chained_basic_block_transforms.h"
 #include "syzygy/common/asan_parameters.h"
 #include "syzygy/common/indexed_frequency_data.h"

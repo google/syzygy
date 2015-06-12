@@ -19,8 +19,8 @@
 
 #include "base/bind.h"
 #include "base/rand_util.h"
-#include "syzygy/agent/asan/asan_runtime.h"
 #include "syzygy/agent/asan/page_protection_helpers.h"
+#include "syzygy/agent/asan/runtime.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/timed_try.h"
 #include "syzygy/agent/asan/heaps/ctmalloc_heap.h"

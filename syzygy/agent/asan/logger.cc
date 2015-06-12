@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/agent/asan/asan_logger.h"
+#include "syzygy/agent/asan/logger.h"
 
 #include "base/command_line.h"
 #include "base/environment.h"

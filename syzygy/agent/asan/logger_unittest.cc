@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/agent/asan/asan_logger.h"
+#include "syzygy/agent/asan/logger.h"
 
 #include <string>
 
@@ -29,7 +29,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/agent/asan/asan_runtime.h"
+#include "syzygy/agent/asan/runtime.h"
 #include "syzygy/trace/agent_logger/agent_logger.h"
 #include "syzygy/trace/agent_logger/agent_logger_rpc_impl.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"

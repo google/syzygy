@@ -17,7 +17,7 @@
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/strings/utf_string_conversions.h"
-#include "syzygy/agent/asan/asan_logger.h"
+#include "syzygy/agent/asan/logger.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 

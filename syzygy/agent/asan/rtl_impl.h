@@ -13,8 +13,8 @@
 // limitations under the License.
 //
 // Implement the Asan RTL functions.
-#ifndef SYZYGY_AGENT_ASAN_ASAN_RTL_IMPL_H_
-#define SYZYGY_AGENT_ASAN_ASAN_RTL_IMPL_H_
+#ifndef SYZYGY_AGENT_ASAN_RTL_IMPL_H_
+#define SYZYGY_AGENT_ASAN_RTL_IMPL_H_
 
 #include <windows.h>
 
@@ -100,4 +100,4 @@ int asan_CrashForException(EXCEPTION_POINTERS* exception);
 
 }  // extern "C"
 
-#endif  // SYZYGY_AGENT_ASAN_ASAN_RTL_IMPL_H_
+#endif  // SYZYGY_AGENT_ASAN_RTL_IMPL_H_
