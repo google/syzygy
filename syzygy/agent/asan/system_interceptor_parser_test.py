@@ -14,7 +14,7 @@
 # limitations under the License.
 """Unittests for the asan_system_interceptor_parser module."""
 
-import asan_system_interceptor_parser as asan_parser
+import system_interceptor_parser as asan_parser
 import logging
 import optparse
 import os

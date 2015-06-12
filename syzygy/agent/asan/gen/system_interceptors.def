@@ -1,0 +1,130 @@
+; Copyright 2012 Google Inc. All Rights Reserved.
+;
+; Licensed under the Apache License, Version 2.0 (the "License");
+; you may not use this file except in compliance with the License.
+; You may obtain a copy of the License at
+;
+;     http://www.apache.org/licenses/LICENSE-2.0
+;
+; Unless required by applicable law or agreed to in writing, software
+; distributed under the License is distributed on an "AS IS" BASIS,
+; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+; See the License for the specific language governing permissions and
+; limitations under the License.
+;
+; Export declarations for the Asan RTL DLL.
+LIBRARY syzyasan_rtl.dll
+
+EXPORTS
+  ; Access checking functions.
+  asan_check_1_byte_read_access
+  asan_check_2_byte_read_access
+  asan_check_4_byte_read_access
+  asan_check_8_byte_read_access
+  asan_check_10_byte_read_access
+  asan_check_16_byte_read_access
+  asan_check_32_byte_read_access
+  asan_check_1_byte_write_access
+  asan_check_2_byte_write_access
+  asan_check_4_byte_write_access
+  asan_check_8_byte_write_access
+  asan_check_10_byte_write_access
+  asan_check_16_byte_write_access
+  asan_check_32_byte_write_access
+
+  asan_check_1_byte_read_access_no_flags
+  asan_check_2_byte_read_access_no_flags
+  asan_check_4_byte_read_access_no_flags
+  asan_check_8_byte_read_access_no_flags
+  asan_check_10_byte_read_access_no_flags
+  asan_check_16_byte_read_access_no_flags
+  asan_check_32_byte_read_access_no_flags
+  asan_check_1_byte_write_access_no_flags
+  asan_check_2_byte_write_access_no_flags
+  asan_check_4_byte_write_access_no_flags
+  asan_check_8_byte_write_access_no_flags
+  asan_check_10_byte_write_access_no_flags
+  asan_check_16_byte_write_access_no_flags
+  asan_check_32_byte_write_access_no_flags
+
+  asan_check_repz_1_byte_cmps_access
+  asan_check_repz_2_byte_cmps_access
+  asan_check_repz_4_byte_cmps_access
+
+  asan_check_repz_1_byte_movs_access
+  asan_check_repz_2_byte_movs_access
+  asan_check_repz_4_byte_movs_access
+
+  asan_check_repz_1_byte_stos_access
+  asan_check_repz_2_byte_stos_access
+  asan_check_repz_4_byte_stos_access
+
+  asan_check_1_byte_cmps_access
+  asan_check_2_byte_cmps_access
+  asan_check_4_byte_cmps_access
+
+  asan_check_1_byte_movs_access
+  asan_check_2_byte_movs_access
+  asan_check_4_byte_movs_access
+
+  asan_check_1_byte_stos_access
+  asan_check_2_byte_stos_access
+  asan_check_4_byte_stos_access
+
+  ; Heap-replacement functions.
+  asan_GetProcessHeap
+  asan_HeapCreate
+  asan_HeapDestroy
+  asan_HeapAlloc
+  asan_HeapReAlloc
+  asan_HeapFree
+  asan_HeapSize
+  asan_HeapValidate
+  asan_HeapCompact
+  asan_HeapLock
+  asan_HeapUnlock
+  asan_HeapWalk
+  asan_HeapSetInformation
+  asan_HeapQueryInformation
+
+  ; CRT Interceptor functions.
+  asan_memcpy
+  asan_memmove
+  asan_memset
+  asan_memchr
+  asan_strcspn
+  asan_strlen
+  asan_strrchr
+  asan_wcsrchr
+  asan_wcschr
+  asan_strcmp
+  asan_strpbrk
+  asan_strstr
+  asan_wcsstr
+  asan_strspn
+  asan_strncpy
+  asan_strncat
+
+  ; Functions exposed for testing purposes.
+  asan_SetCallBack
+  asan_SetInterceptorCallback
+  asan_SetOnExceptionCallback
+  asan_GetActiveRuntime
+
+  ; AllocationFilterFlag functions.
+  asan_SetAllocationFilterFlag
+  asan_ClearAllocationFilterFlag
+
+  ; Breakpad-like exception filter.
+  asan_CrashForException
+
+  ; Generated system intercepts
+  asan_ReadFile
+  asan_ReadFileEx
+  asan_WriteFile
+  asan_WriteFileEx
+  asan_InterlockedCompareExchange
+  asan_InterlockedIncrement
+  asan_InterlockedDecrement
+  asan_InterlockedExchange
+  asan_InterlockedExchangeAdd

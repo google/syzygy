@@ -73,7 +73,6 @@
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
-        '<(src)/syzygy/agent/asan/asan.gyp:system_interceptors_generator',
         '<(src)/syzygy/application/application.gyp:application_lib',
         '<(src)/syzygy/block_graph/analysis/block_graph_analysis.gyp:'
             'block_graph_analysis_lib',

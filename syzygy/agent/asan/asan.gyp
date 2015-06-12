@@ -15,8 +15,6 @@
 {
   'variables': {
     'chromium_code': 1,
-    'system_interceptors_output_base_name': '<(SHARED_INTERMEDIATE_DIR)/'
-        'syzygy/agent/asan/asan_system_interceptors',
   },
   'targets': [
     {
@@ -99,7 +97,6 @@
         'quarantines/size_limited_quarantine_impl.h',
       ],
       'dependencies': [
-        'system_interceptors_generator',
         '<(src)/syzygy/crashdata/crashdata.gyp:crashdata_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/kasko/kasko.gyp:kasko',
@@ -122,10 +119,7 @@
       'type': 'loadable_module',
       'includes': ['../agent.gypi'],
       'sources': [
-        # This file must have a .def extension in order for GYP to
-        # automatically configure it as the ModuleDefinitionFile
-        # (we usually suffix generated files with .gen).
-        '<(system_interceptors_output_base_name).def',
+        'gen/system_interceptors.def',
         'syzyasan_rtl.cc',
         'syzyasan_rtl.rc',
       ],
@@ -183,38 +177,6 @@
             },
           },
         }],
-      ],
-    },
-    {
-      'target_name': 'system_interceptors_generator',
-      'type': 'none',
-      'msvs_cygwin_shell': 0,
-      'actions': [
-        {
-          'action_name': 'generate_syzyasan_system_interceptors',
-          'inputs': [
-            'asan_system_interceptor_parser.py',
-            'syzyasan_rtl.def.template',
-            'asan_system_interceptors_function_list.txt',
-          ],
-          'outputs': [
-            '<(system_interceptors_output_base_name)_impl.gen',
-            '<(system_interceptors_output_base_name)_instrumentation_filter'
-                '.gen',
-            '<(system_interceptors_output_base_name).def',
-          ],
-          'action': [
-            '<(python_exe)',
-            'asan_system_interceptor_parser.py',
-            '--output-base=<(system_interceptors_output_base_name)',
-            '--overwrite',
-            '--def-file=syzyasan_rtl.def.template',
-            'asan_system_interceptors_function_list.txt',
-          ],
-          # This just ensures that the outputs show up in the list of files
-          # in the project, so they can easily be located and inspected.
-          'process_outputs_as_sources': 1,
-        },
       ],
     },
     {

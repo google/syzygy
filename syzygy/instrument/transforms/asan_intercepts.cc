@@ -100,7 +100,7 @@ const AsanIntercept kAsanIntercepts[] = {
 
 // Bring in the list of system interceptors that have been automatically
 // generated.
-#include "syzygy/agent/asan/asan_system_interceptors_instrumentation_filter.gen"
+#include "syzygy/agent/asan/gen/system_interceptors_instrumentation_filter.gen"
 
   // C-runtime functions. For Chrome these are always statically linked, but
   // they *could* be imported from one of several different versions of the

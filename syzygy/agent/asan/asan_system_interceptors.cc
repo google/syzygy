@@ -45,6 +45,6 @@ void asan_SetInterceptorCallback(InterceptorTailCallback callback) {
 
 // Bring in the implementation of the system interceptors that have been
 // automatically generated.
-#include "syzygy/agent/asan/asan_system_interceptors_impl.gen"
+#include "syzygy/agent/asan/gen/system_interceptors_impl.gen"
 
 }  // extern "C"
