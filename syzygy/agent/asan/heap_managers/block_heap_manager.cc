@@ -75,7 +75,8 @@ BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
       zebra_block_heap_id_(0),
       large_block_heap_id_(0),
       locked_heaps_(nullptr),
-      enable_page_protections_(true) {
+      enable_page_protections_(true),
+      corrupt_block_registry_cache_(L"SyzyAsanCorruptBlocks") {
   DCHECK_NE(static_cast<StackCaptureCache*>(nullptr), stack_cache);
   SetDefaultAsanParameters(&parameters_);
 
@@ -96,6 +97,7 @@ void BlockHeapManager::Init() {
   {
     base::AutoLock lock(lock_);
     InitInternalHeap();
+    corrupt_block_registry_cache_.Init();
   }
 
   // This takes care of its own locking, as its reentrant.
@@ -262,7 +264,8 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
     // The free stack hasn't yet been set, but may have been filled with junk.
     // Reset it.
     block_info.header->free_stack = nullptr;
-    ReportHeapError(alloc, CORRUPT_BLOCK);
+    if (ShouldReportCorruptBlock(&block_info))
+      ReportHeapError(alloc, CORRUPT_BLOCK);
     return FreeCorruptBlock(&block_info);
   }
 
@@ -746,7 +749,8 @@ bool BlockHeapManager::FreePotentiallyCorruptBlock(BlockInfo* block_info) {
   if (block_info->header->magic != kBlockHeaderMagic ||
       !BlockChecksumIsValid(*block_info) ||
       !BlockBodyIsValid(*block_info)) {
-    ReportHeapError(block_info->header, CORRUPT_BLOCK);
+    if (ShouldReportCorruptBlock(block_info))
+      ReportHeapError(block_info->header, CORRUPT_BLOCK);
     return FreeCorruptBlock(block_info);
   } else {
     return FreePristineBlock(block_info);
@@ -860,6 +864,8 @@ void BlockHeapManager::ReportHeapError(void* address, BadAccessKind kind) {
   stack.InitFromStack();
   error_info.crash_stack_id = stack.ComputeRelativeStackId();
 
+  corrupt_block_registry_cache_.AddOrUpdateStackId(error_info.crash_stack_id);
+
   // We expect a callback to be set.
   DCHECK(!heap_error_callback_.is_null());
   heap_error_callback_.Run(&error_info);
@@ -924,6 +930,24 @@ bool BlockHeapManager::MayUseZebraBlockHeap(size_t bytes) const {
     return allocation_filter_flag();
 
   // Otherwise, allow everything through.
+  return true;
+}
+
+bool BlockHeapManager::ShouldReportCorruptBlock(const BlockInfo* block_info) {
+  DCHECK_NE(static_cast<const BlockInfo*>(nullptr), block_info);
+
+  if (!parameters_.prevent_duplicate_corruption_crashes)
+    return true;
+
+  const common::StackCapture* alloc_stack = block_info->header->alloc_stack;
+  // TODO(sebmarchand|chrisha): Use a cache to improve the RelativeStackID
+  // computations.
+  StackId relative_alloc_stack_id = alloc_stack->ComputeRelativeStackId();
+
+  // Look at the registry cache to see if an error has already been reported
+  // for this allocation stack trace, if so prevent from reporting another one.
+  if (corrupt_block_registry_cache_.DoesIdExist(relative_alloc_stack_id))
+    return false;
   return true;
 }
 

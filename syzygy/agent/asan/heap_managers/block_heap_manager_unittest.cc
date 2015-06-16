@@ -23,6 +23,7 @@
 #include "base/debug/alias.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/lock.h"
+#include "base/test/test_reg_util_win.h"
 #include "base/threading/simple_thread.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -79,10 +80,10 @@ class TestZebraBlockHeap : public heaps::ZebraBlockHeap {
   virtual ~TestZebraBlockHeap() { }
 
   // Wrapper that allows easily disabling allocations.
-  virtual void* AllocateBlock(size_t size,
-                              size_t min_left_redzone_size,
-                              size_t min_right_redzone_size,
-                              BlockLayout* layout) override {
+  void* AllocateBlock(size_t size,
+                      size_t min_left_redzone_size,
+                      size_t min_right_redzone_size,
+                      BlockLayout* layout) override {
     if (refuse_allocations_)
       return nullptr;
     return ZebraBlockHeap::AllocateBlock(size,
@@ -93,7 +94,7 @@ class TestZebraBlockHeap : public heaps::ZebraBlockHeap {
 
   // Wrapper that allows easily disabling the insertion of new blocks in the
   // quarantine.
-  virtual bool Push(const CompactBlockInfo& info) override {
+  bool Push(const CompactBlockInfo& info) override {
     if (refuse_push_)
       return false;
     return ZebraBlockHeap::Push(info);
@@ -262,7 +263,7 @@ class ScopedHeap {
 
   // Flush the quarantine of this heap.
   void FlushQuarantine() {
-    BlockQuarantineInterface* quarantine =  GetQuarantine();
+    BlockQuarantineInterface* quarantine = GetQuarantine();
     EXPECT_NE(static_cast<BlockQuarantineInterface*>(nullptr),
               quarantine);
     BlockQuarantineInterface::ObjectVector blocks_to_free;
@@ -342,10 +343,12 @@ class BlockHeapManagerTest
         test_zebra_block_heap_(nullptr) {
   }
 
-  virtual void SetUp() override {
+  void SetUp() override {
     Super::SetUp();
     heap_manager_ = reinterpret_cast<TestBlockHeapManager*>(
         test_runtime_.heap_manager_.get());
+
+    override_manager_.OverrideRegistry(RegistryCache::kRegistryRootKey);
 
     // Set the error callback that the manager will use.
     heap_manager_->SetHeapErrorCallback(
@@ -357,7 +360,7 @@ class BlockHeapManagerTest
     heap_manager_->SetParameters(params);
   }
 
-  virtual void TearDown() override {
+  void TearDown() override {
     heap_manager_ = nullptr;
     Super::TearDown();
   }
@@ -507,6 +510,9 @@ class BlockHeapManagerTest
 
   // The runtime used by those tests.
   TestAsanRuntime test_runtime_;
+
+  // Prevent the tests from polluting the registry.
+  registry_util::RegistryOverrideManager override_manager_;
 };
 
 }  // namespace
@@ -1014,6 +1020,59 @@ TEST_P(BlockHeapManagerTest, CorruptHeapOnTrimQuarantine) {
     break;
   }
 }
+
+// Prevent this test from being optimized, otherwise the loop that does the
+// blocks allocations might get unwound and they won't have the same allocation
+// stack trace.
+#pragma optimize("", off)
+TEST_P(BlockHeapManagerTest, CorruptionIsReportedOnlyOnce) {
+  const size_t kAllocSize = 100;
+  const size_t kAllocs = 100;
+  ASSERT_GT(kAllocs, kChecksumRepeatCount);
+  ::common::AsanParameters parameters = heap_manager_->parameters();
+  parameters.quarantine_size = kAllocs * GetAllocSize(kAllocSize);
+  parameters.prevent_duplicate_corruption_crashes = true;
+  heap_manager_->set_parameters(parameters);
+
+  ScopedHeap heap(heap_manager_);
+  std::vector<void*> allocs(kAllocs);
+
+  // Allocate and free a lot of blocks with an identical stack id and corrupt
+  // them while they're in the quarantine.
+  for (size_t i = 0; i < kAllocs; ++i) {
+    void* mem = heap.Allocate(kAllocSize);
+    ASSERT_NE(static_cast<void*>(nullptr), mem);
+    EXPECT_TRUE(heap.Free(mem));
+    EXPECT_TRUE(errors_.empty());
+
+    // Change some of the block content to corrupt it.
+    reinterpret_cast<int32*>(mem)[0] ^= 0xFFFFFFFF;
+  }
+
+  // Empty the quarantine and free all the blocks that were in it. We should be
+  // reporting an error only for the first one.
+  BlockQuarantineInterface::ObjectVector blocks;
+  heap.GetQuarantine()->Empty(&blocks);
+  bool first_corrupt_block_has_been_found = false;
+  size_t i = 0;
+  for (auto block : blocks) {
+    errors_.clear();
+    BlockInfo block_info = {};
+    ConvertBlockInfo(block, &block_info);
+    heap_manager_->FreePotentiallyCorruptBlock(&block_info);
+    if (!first_corrupt_block_has_been_found && i < kChecksumRepeatCount) {
+      if (!errors_.empty()) {
+        EXPECT_EQ(1u, errors_.size());
+        EXPECT_EQ(CORRUPT_BLOCK, errors_[0].error_type);
+        first_corrupt_block_has_been_found = true;
+      }
+    } else {
+      EXPECT_TRUE(errors_.empty());
+    }
+    ++i;
+  }
+}
+#pragma optimize("", on)
 
 TEST_P(BlockHeapManagerTest, DoubleFree) {
   const size_t kAllocSize = 100;
@@ -1606,12 +1665,12 @@ class BlockHeapManagerIntegrationTest : public testing::Test {
       : shadow_(shadow_data_, arraysize(shadow_data_)) {
   }
 
-  virtual void SetUp() override {
+  void SetUp() override {
     shadow_.SetUp();
     ASSERT_TRUE(shadow_.IsClean());
   }
 
-  virtual void TearDown() override {
+  void TearDown() override {
     ASSERT_TRUE(shadow_.IsClean());
     shadow_.TearDown();
   }

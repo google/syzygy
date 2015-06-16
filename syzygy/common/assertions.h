@@ -22,11 +22,11 @@
 // Will cause compilation to fail if the given type is not a plain-old data
 // type.
 #define COMPILE_ASSERT_IS_POD(x) \
-    COMPILE_ASSERT(std::is_pod<x>::value, must_be_POD)
+    static_assert(std::is_pod<x>::value, "Must be POD.")
 
 // Causes compilation to fail if the given object is not a POD of a given size.
 #define COMPILE_ASSERT_IS_POD_OF_SIZE(x, s) \
-    COMPILE_ASSERT(std::is_pod<x>::value && (sizeof(x) == s), \
-                   must_be_a_POD_of_ ## s ## _bytes_in_size)
+    static_assert(std::is_pod<x>::value && (sizeof(x) == s), \
+                  "Must be a POD of " #s " bytes in size.")
 
 #endif  // SYZYGY_COMMON_ASSERTIONS_H_

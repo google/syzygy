@@ -272,7 +272,7 @@ TEST_F(AsanRuntimeTest, GenerateRandomFeatureSet) {
 }
 
 TEST_F(AsanRuntimeTest, OnErrorSaveEnabledFeatureList) {
-  asan_runtime_.params().enable_feature_randomization_ = true;
+  asan_runtime_.params().enable_feature_randomization = true;
   ASSERT_NO_FATAL_FAILURE(
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
 

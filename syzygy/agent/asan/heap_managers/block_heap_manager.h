@@ -29,6 +29,7 @@
 #include "syzygy/agent/asan/heap.h"
 #include "syzygy/agent/asan/heap_manager.h"
 #include "syzygy/agent/asan/quarantine.h"
+#include "syzygy/agent/asan/registry_cache.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/agent/asan/memory_notifiers/shadow_memory_notifier.h"
 #include "syzygy/agent/asan/quarantines/sharded_quarantine.h"
@@ -310,6 +311,11 @@ class BlockHeapManager : public HeapManagerInterface {
   //     otherwise.
   bool MayUseZebraBlockHeap(size_t bytes) const;
 
+  // Indicates if a corrupt block error should be reported.
+  // @param block_info The corrupt block.
+  // @returns true if an error should be reported, false otherwise.
+  bool ShouldReportCorruptBlock(const BlockInfo* block_info);
+
   // The stack cache used to store the stack traces.
   StackCaptureCache* stack_cache_;
 
@@ -376,6 +382,10 @@ class BlockHeapManager : public HeapManagerInterface {
 
   // Indicates if we use page protection to prevent invalid accesses to a block.
   bool enable_page_protections_;
+
+  // The registry cache that we use to store the allocation stack ID of the
+  // corrupt block for which we've already reported an error.
+  RegistryCache corrupt_block_registry_cache_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BlockHeapManager);

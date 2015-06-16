@@ -79,7 +79,7 @@ void StackCapture::InitFromBuffer(StackId stack_id,
   ::memcpy(frames_, frames, num_frames_ * sizeof(void*));
 }
 
-StackCapture::StackId StackCapture::ComputeRelativeStackId() {
+StackCapture::StackId StackCapture::ComputeRelativeStackId() const {
   // We want to ignore the frames relative to our module to be able to get the
   // same trace id even if we update our runtime.
   HANDLE asan_handle = reinterpret_cast<HANDLE>(&__ImageBase);

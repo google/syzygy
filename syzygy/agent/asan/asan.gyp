@@ -149,7 +149,6 @@
             # SDK import libs.
             'dbghelp.lib',
             'psapi.lib',
-            'rpcrt4.lib',
             'version.lib',
           ],
           'AdditionalLibraryDirectories': [
@@ -394,6 +393,8 @@
             # SDK import libs.
             'dbghelp.lib',
             'psapi.lib',
+            'rpcrt4.lib',
+            'version.lib',
           ],
           'AdditionalLibraryDirectories': [
             '<(src)/build/win/importlibs/x86',

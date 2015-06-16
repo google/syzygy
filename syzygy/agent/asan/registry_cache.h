@@ -85,11 +85,11 @@ class RegistryCache {
   // Constructors.
   // @param registry_name The base name that is used for storing in the
   //     registry.
-   // @param max_days_in_registry Value of max_days_in_registry_.
-   // @param max_entries_per_version Value of max_entries_per_version_.
-   // @param max_modules Value of max_modules_.
-   // @param max_versions Value of max_versions_.
-  RegistryCache(const wchar_t registry_name[]);
+  // @param max_days_in_registry Value of max_days_in_registry_.
+  // @param max_entries_per_version Value of max_entries_per_version_.
+  // @param max_modules Value of max_modules_.
+  // @param max_versions Value of max_versions_.
+  explicit RegistryCache(const wchar_t registry_name[]);
   RegistryCache(const wchar_t registry_name[],
                 size_t max_days_in_registry,
                 size_t max_entries_per_version,

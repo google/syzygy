@@ -91,7 +91,9 @@ TEST(AsanParametersTest, SetDefaultAsanParameters) {
   EXPECT_EQ(kDefaultQuarantineFloodFillRate,
             aparams.quarantine_flood_fill_rate);
   EXPECT_EQ(kDefaultEnableFeatureRandomization,
-            static_cast<bool>(aparams.enable_feature_randomization_));
+            static_cast<bool>(aparams.enable_feature_randomization));
+  EXPECT_EQ(kDefaultPreventDuplicateCorruptionCrashes,
+            static_cast<bool>(aparams.prevent_duplicate_corruption_crashes));
 }
 
 TEST(AsanParametersTest, InflateAsanParametersStackIdsPastEnd) {
@@ -243,7 +245,9 @@ TEST(AsanParametersTest, ParseAsanParametersMinimal) {
   EXPECT_EQ(kDefaultQuarantineFloodFillRate,
             iparams.quarantine_flood_fill_rate);
   EXPECT_EQ(kDefaultEnableFeatureRandomization,
-            static_cast<bool>(iparams.enable_feature_randomization_));
+            static_cast<bool>(iparams.enable_feature_randomization));
+  EXPECT_EQ(kDefaultPreventDuplicateCorruptionCrashes,
+            static_cast<bool>(iparams.prevent_duplicate_corruption_crashes));
 }
 
 TEST(AsanParametersTest, ParseAsanParametersMaximal) {
@@ -270,7 +274,8 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
       L"--enable_allocation_filter "
       L"--large_allocation_threshold=4096 "
       L"--quarantine_flood_fill_rate=0.25 "
-      L"--enable_feature_randomization";
+      L"--enable_feature_randomization "
+      L"--prevent_duplicate_corruption_crashes";
 
   InflatedAsanParameters iparams;
   SetDefaultAsanParameters(&iparams);
@@ -301,7 +306,9 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
   EXPECT_TRUE(static_cast<bool>(iparams.enable_allocation_filter));
   EXPECT_EQ(4096, iparams.large_allocation_threshold);
   EXPECT_EQ(0.25f, iparams.quarantine_flood_fill_rate);
-  EXPECT_EQ(true, static_cast<bool>(iparams.enable_feature_randomization_));
+  EXPECT_EQ(true, static_cast<bool>(iparams.enable_feature_randomization));
+  EXPECT_EQ(true, static_cast<bool>(
+      iparams.prevent_duplicate_corruption_crashes));
 }
 
 }  // namespace common

@@ -37,7 +37,7 @@ namespace common {
 // the StackCaptureCache.
 typedef uint32 AsanStackId;
 
-static const size_t kAsanParametersReserved1Bits = 22;
+static const size_t kAsanParametersReserved1Bits = 21;
 
 // This data structure is injected into an instrumented image in a read-only
 // section. It is initialized by the instrumenter, and will be looked up at
@@ -110,8 +110,11 @@ struct AsanParameters {
       // BlockHeapManager: Indicates if the allocation filtering is enabled. If
       // so, only blocks from filtered sites can make it into the zebra heap.
       unsigned enable_allocation_filter : 1;
-      // Indicates if the feature randomization is enabled.
-      unsigned enable_feature_randomization_ : 1;
+      // AsanRuntime: Indicates if the feature randomization is enabled.
+      unsigned enable_feature_randomization : 1;
+      // BlockHeapManager: Indicates if we shouldn't report a crash for the same
+      // corrupt block twice.
+      unsigned prevent_duplicate_corruption_crashes : 1;
 
       // Add new flags here!
 
@@ -151,14 +154,14 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 60);
 // The current version of the Asan parameters structure. This must be updated
 // if any changes are made to the above structure! This is defined in the header
 // file to allow compile time assertions against this version number.
-const uint32 kAsanParametersVersion = 11u;
+const uint32 kAsanParametersVersion = 12u;
 
 // If the number of free bits in the parameters struct changes, then the
 // version has to change as well. This is simply here to make sure that
 // everything changes in lockstep.
-COMPILE_ASSERT(kAsanParametersReserved1Bits == 22 &&
-                   kAsanParametersVersion == 11,
-               version_must_change_if_reserved_bits_changes);
+static_assert(kAsanParametersReserved1Bits == 21 &&
+                  kAsanParametersVersion == 12,
+              "Version must change if reserved bits changes.");
 
 // The name of the section that will be injected into an instrumented image,
 // and contain the AsanParameters structure. Asan can't use your typical entry
@@ -239,6 +242,7 @@ extern const bool kDefaultEnableCtMalloc;
 extern const bool kDefaultEnableZebraBlockHeap;
 extern const bool kDefaultEnableAllocationFilter;
 extern const float kDefaultQuarantineFloodFillRate;
+extern const bool kDefaultPreventDuplicateCorruptionCrashes;
 // Default values of LargeBlockHeap parameters.
 extern const bool kDefaultEnableLargeBlockHeap;
 extern const size_t kDefaultLargeAllocationThreshold;
@@ -274,6 +278,7 @@ extern const char kParamDisableSizeTargetedHeaps[];
 extern const char kParamEnableZebraBlockHeap[];
 extern const char kParamEnableAllocationFilter[];
 extern const char kParamQuarantineFloodFillRate[];
+extern const char kParamPreventDuplicateCorruptionCrashes[];
 // String names of LargeBlockHeap parameters.
 extern const char kParamDisableLargeBlockHeap[];
 extern const char kParamLargeAllocationThreshold[];

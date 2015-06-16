@@ -171,7 +171,7 @@ class StackCapture {
   // Computes the hash of a stack trace using relative addresses of each stack
   // frame.
   // @returns the relative hash of this stack trace.
-  StackId ComputeRelativeStackId();
+  StackId ComputeRelativeStackId() const;
 
  protected:
   // The number of bottom frames to skip on the stack traces.

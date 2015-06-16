@@ -224,7 +224,7 @@ void SetCrashKeys(const BreakpadFunctions& breakpad_functions,
                          error_info->shadow_info);
   }
 
-  if (error_info->asan_parameters.enable_feature_randomization_) {
+  if (error_info->asan_parameters.enable_feature_randomization) {
     SetCrashKeyValuePair(breakpad_functions,
                          "asan-feature-set",
                          base::UintToString(error_info->feature_set).c_str());
@@ -469,7 +469,7 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   if (!::common::ParseAsanParameters(flags_command_line, &params_))
     return;
 
-  if (params_.enable_feature_randomization_)
+  if (params_.enable_feature_randomization)
     enabled_features_ = GenerateRandomFeatureSet();
 
   // Propagates the flags values to the different modules.
@@ -637,10 +637,10 @@ bool AsanRuntime::GetAsanFlagsEnvVar(std::wstring* env_var_wstr) {
 void AsanRuntime::PropagateParams() {
   // This function has to be kept in sync with the AsanParameters struct. These
   // checks will ensure that this is the case.
-  COMPILE_ASSERT(sizeof(::common::AsanParameters) == 60,
-                 must_update_propagate_params);
-  COMPILE_ASSERT(::common::kAsanParametersVersion == 11,
-                 must_update_parameters_version);
+  static_assert(sizeof(::common::AsanParameters) == 60,
+                "Must propagate parameters.");
+  static_assert(::common::kAsanParametersVersion == 12,
+                "Must update parameters version.");
 
   // Push the configured parameter values to the appropriate endpoints.
   heap_manager_->set_parameters(params_);

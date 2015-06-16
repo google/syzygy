@@ -75,7 +75,7 @@ void RegistryCache::AddOrUpdateStackId(StackId stack_id) {
   DCHECK(is_init_);
 
   base::win::RegKey module_key(kRegistryRootKey, module_key_name_.c_str(),
-    KEY_ALL_ACCESS);
+      KEY_ALL_ACCESS);
   for (RegValueIter iter(kRegistryRootKey, module_key_name_.c_str());
     iter.Valid(); ++iter) {
     DCHECK_EQ(sizeof(StackId), iter.ValueSize());
@@ -86,7 +86,7 @@ void RegistryCache::AddOrUpdateStackId(StackId stack_id) {
       module_key.DeleteValue(iter.Name());
   }
   std::wstring name =
-    base::Int64ToString16(base::Time::Now().ToInternalValue());
+      base::Int64ToString16(base::Time::Now().ToInternalValue());
   module_key.WriteValue(name.c_str(), &stack_id, sizeof(stack_id), REG_BINARY);
   entries_.insert(stack_id);
 }
