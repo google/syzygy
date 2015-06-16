@@ -21,6 +21,7 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/callback.h"
 #include "base/logging.h"
 #include "base/files/file_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -49,6 +50,7 @@ const base::char16* const kTemporarySubdir = L"Temporary";
 // Uploads a crash report containing the minidump at |minidump_path| and
 // |crash_keys| to |upload_url|. Returns true if successful.
 bool UploadCrashReport(
+    const Reporter::OnUploadCallback& on_upload_callback,
     const base::string16& upload_url,
     const base::FilePath& minidump_path,
     const std::map<base::string16, base::string16>& crash_keys) {
@@ -68,11 +70,8 @@ bool UploadCrashReport(
                       &response_code)) {
     LOG(ERROR) << "Failed to upload the minidump file to " << upload_url;
     return false;
-  } else {
-    // TODO(erikwright): Log this report ID somewhere accessible to our client.
-    // For example, the Windows Event Log.
-    LOG(INFO) << "Successfully uploded a crash report. Report ID: "
-              << remote_dump_id;
+  } else if (!on_upload_callback.is_null()) {
+    on_upload_callback.Run(remote_dump_id, minidump_path, crash_keys);
   }
 
   return true;
@@ -184,8 +183,8 @@ scoped_ptr<Reporter> Reporter::Create(
     const base::FilePath& data_directory,
     const base::FilePath& permanent_failure_directory,
     const base::TimeDelta& upload_interval,
-    const base::TimeDelta& retry_interval) {
-
+    const base::TimeDelta& retry_interval,
+    const OnUploadCallback& on_upload_callback) {
   scoped_ptr<WaitableTimer> waitable_timer(
       WaitableTimerImpl::Create(upload_interval));
   if (!waitable_timer) {
@@ -195,7 +194,7 @@ scoped_ptr<Reporter> Reporter::Create(
 
   scoped_ptr<ReportRepository> report_repository(new ReportRepository(
       data_directory, retry_interval, base::Bind(&base::Time::Now),
-      base::Bind(&UploadCrashReport, url),
+      base::Bind(&UploadCrashReport, on_upload_callback, url),
       base::Bind(&HandlePermanentFailure, permanent_failure_directory)));
 
   // It's safe to pass an Unretained reference to |report_repository| because

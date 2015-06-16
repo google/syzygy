@@ -30,6 +30,20 @@ KASKO_EXPORT extern const base::char16* const
 KASKO_EXPORT extern const base::char16* const
     kPermanentFailureMinidumpExtension;
 
+// Receives notification when a report has been uploaded.
+// @param context User-supplied context from InitializeReporter.
+// @param report_id The server-assigned report ID.
+// @param minidump_path The local path to the report file. This path is no
+//     longer valid after the OnUploadProc returns.
+// @param keys A null-terminated array of crash key names.
+// @param values A null-terminated array of crash key values of equal length to
+//     |keys|.
+typedef void(OnUploadProc)(void* context,
+                           const base::char16* report_id,
+                           const base::char16* minidump_path,
+                           const base::char16* const* keys,
+                           const base::char16* const* values);
+
 // Initializes the Kasko reporter process, including the reporter RPC service
 // and background report uploading. Must be matched by a call to
 // ShutdownReporter.
@@ -49,12 +63,17 @@ KASKO_EXPORT extern const base::char16* const
 //     uploaded.
 // @param permanent_failure_directory The location where reports will be stored
 //     once the maximum number of upload attempts has been exceeded.
+// @param on_upload_proc An optional procedure to be notified when an upload
+//     completes successfully.
+// @param on_upload_context A context parameter passed to |on_upload_proc|.
 // @returns true if successful.
 KASKO_EXPORT bool InitializeReporter(
     const base::char16* endpoint_name,
     const base::char16* url,
     const base::char16* data_directory,
-    const base::char16* permanent_failure_directory);
+    const base::char16* permanent_failure_directory,
+    OnUploadProc* on_upload_proc,
+    void* on_upload_context);
 
 // Sends a diagnostic report for a specified process with the specified crash
 // keys. May only be invoked after a successful call to InitializeReporter.

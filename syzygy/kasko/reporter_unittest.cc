@@ -127,6 +127,15 @@ void ValidateMinidump(IDebugClient4* debug_client,
       debug_symbols->GetModuleByModuleName("kasko_unittests", 0, NULL, NULL));
 }
 
+void OnUpload(base::string16* report_id_out,
+              const base::string16& report_id,
+              const base::FilePath& minidump_path,
+              const std::map<base::string16, base::string16>& crash_keys) {
+  *report_id_out = report_id;
+  ASSERT_FALSE(report_id.empty());
+  ASSERT_FALSE(minidump_path.empty());
+}
+
 }  // namespace
 
 class ReporterTest : public ::testing::Test {
@@ -208,12 +217,44 @@ class ReporterTest : public ::testing::Test {
 };
 
 TEST_F(ReporterTest, BasicTest) {
+  base::string16 report_id;
   scoped_ptr<Reporter> instance(Reporter::Create(
       endpoint(),
       L"http://127.0.0.1:" + base::UintToString16(server_port()) + L"/crash",
       data_directory(), permanent_failure_directory(),
       base::TimeDelta::FromMilliseconds(1),
-      base::TimeDelta::FromMilliseconds(1)));
+      base::TimeDelta::FromMilliseconds(1),
+      base::Bind(&OnUpload, base::Unretained(&report_id))));
+
+  ASSERT_TRUE(instance);
+
+  testing::UploadObserver upload_observer(upload_directory(),
+                                          permanent_failure_directory());
+
+  ASSERT_NO_FATAL_FAILURE(InvokeRpcFromChildProcess());
+
+  base::FilePath minidump_path;
+  std::map<std::string, std::string> crash_keys;
+  bool upload_success = false;
+
+  upload_observer.WaitForUpload(&minidump_path, &crash_keys, &upload_success);
+
+  EXPECT_TRUE(upload_success);
+  EXPECT_HRESULT_SUCCEEDED(
+      testing::VisitMinidump(minidump_path, base::Bind(&ValidateMinidump)));
+
+  Reporter::Shutdown(instance.Pass());
+
+  ASSERT_FALSE(report_id.empty());
+}
+
+TEST_F(ReporterTest, NoCallback) {
+  scoped_ptr<Reporter> instance(Reporter::Create(
+      endpoint(),
+      L"http://127.0.0.1:" + base::UintToString16(server_port()) + L"/crash",
+      data_directory(), permanent_failure_directory(),
+      base::TimeDelta::FromMilliseconds(1),
+      base::TimeDelta::FromMilliseconds(1), Reporter::OnUploadCallback()));
 
   ASSERT_TRUE(instance);
 
@@ -236,12 +277,14 @@ TEST_F(ReporterTest, BasicTest) {
 }
 
 TEST_F(ReporterTest, SendReportForProcessTest) {
+  base::string16 report_id;
   scoped_ptr<Reporter> instance(Reporter::Create(
       endpoint(),
       L"http://127.0.0.1:" + base::UintToString16(server_port()) + L"/crash",
       data_directory(), permanent_failure_directory(),
       base::TimeDelta::FromMilliseconds(1),
-      base::TimeDelta::FromMilliseconds(1)));
+      base::TimeDelta::FromMilliseconds(1),
+      base::Bind(&OnUpload, base::Unretained(&report_id))));
 
   ASSERT_TRUE(instance);
 
@@ -261,16 +304,19 @@ TEST_F(ReporterTest, SendReportForProcessTest) {
       testing::VisitMinidump(minidump_path, base::Bind(&ValidateMinidump)));
 
   Reporter::Shutdown(instance.Pass());
+
+  ASSERT_FALSE(report_id.empty());
 }
 
 TEST_F(ReporterTest, PermanentFailureTest) {
+  base::string16 report_id;
   scoped_ptr<Reporter> instance(Reporter::Create(
-      endpoint(),
-      L"http://127.0.0.1:" + base::UintToString16(server_port()) +
-          L"/crash_failure",
+      endpoint(), L"http://127.0.0.1:" + base::UintToString16(server_port()) +
+                      L"/crash_failure",
       data_directory(), permanent_failure_directory(),
       base::TimeDelta::FromMilliseconds(1),
-      base::TimeDelta::FromMilliseconds(1)));
+      base::TimeDelta::FromMilliseconds(1),
+      base::Bind(&OnUpload, base::Unretained(&report_id))));
 
   ASSERT_TRUE(instance);
 
@@ -290,6 +336,8 @@ TEST_F(ReporterTest, PermanentFailureTest) {
       testing::VisitMinidump(minidump_path, base::Bind(&ValidateMinidump)));
 
   Reporter::Shutdown(instance.Pass());
+
+  ASSERT_TRUE(report_id.empty());
 }
 
 }  // namespace kasko

@@ -45,6 +45,24 @@ const base::char16 kExitEventNamePrefix[] = L"kasko_api_test_exit_event_";
 const base::char16 kReadyEventNamePrefix[] = L"kasko_api_test_ready_event_";
 const base::char16 kEndpointPrefix[] = L"kasko_api_test_endpoint_";
 
+void OnUploadProc(void* context,
+                  const base::char16* report_id,
+                  const base::char16* minidump_path,
+                  const base::char16* const* keys,
+                  const base::char16* const* values) {
+  CHECK(report_id);
+  CHECK(report_id[0] != 0);
+  CHECK(minidump_path);
+  CHECK(minidump_path[0] != 0);
+  CHECK(keys[0]);
+  CHECK(!keys[1]);
+  CHECK(values[0]);
+  CHECK(!values[1]);
+  CHECK_EQ(base::string16(L"hello"), base::string16(keys[0]));
+  CHECK_EQ(base::string16(L"world"), base::string16(values[0]));
+  *reinterpret_cast<bool*>(context) = true;
+}
+
 MULTIPROCESS_TEST_MAIN(ApiTestReporterProcess) {
   // Read the client-supplied parameters.
   base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
@@ -76,11 +94,13 @@ MULTIPROCESS_TEST_MAIN(ApiTestReporterProcess) {
   base::string16 url =
       L"http://127.0.0.1:" + base::UintToString16(server.port()) + L"/crash";
 
+  bool on_upload_invoked = false;
 
   // Initialize the Reporter process
   InitializeReporter(endpoint.c_str(), url.c_str(),
                      data_directory.path().value().c_str(),
-                     permanent_failure_directory.path().value().c_str());
+                     permanent_failure_directory.path().value().c_str(),
+                     &OnUploadProc, &on_upload_invoked);
 
   // Request a dump of the client process.
   base::char16* keys[] = {L"hello", nullptr};
@@ -96,8 +116,11 @@ MULTIPROCESS_TEST_MAIN(ApiTestReporterProcess) {
   // Wait until the client signals us to shut down.
   exit_event.Wait();
 
-  // Shut down the Reporter process.
+  // Shut down the Reporter process. This will block on at least one upload
+  // completing.
   ShutdownReporter();
+
+  CHECK(on_upload_invoked);
 
   return 0;
 }

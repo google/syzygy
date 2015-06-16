@@ -15,6 +15,9 @@
 #ifndef SYZYGY_KASKO_REPORTER_H_
 #define SYZYGY_KASKO_REPORTER_H_
 
+#include <map>
+
+#include "base/callback_forward.h"
 #include "base/macros.h"
 #include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
@@ -52,6 +55,16 @@ class Reporter {
   // The parameter name assigned to the uploaded minidump file.
   static const base::char16* const kMinidumpUploadFilePart;
 
+  // Receives notification when a report has been uploaded.
+  // @param report_id The server-assigned report ID.
+  // @param minidump_path The local path to the report file. This path is no
+  //     longer valid after the callback returns.
+  // @param crash_keys The crash keys included with the report.
+  using OnUploadCallback = base::Callback<void(
+      const base::string16& report_id,
+      const base::FilePath& minidump_path,
+      const std::map<base::string16, base::string16>& crash_keys)>;
+
   // Creates a Reporter process. The process is already running in the
   // background when this method returns.
   // @param endpoint_name The RPC endpoint name to listen on.
@@ -63,6 +76,7 @@ class Reporter {
   // @param upload_interval The minimum interval between two upload operations.
   // @param retry_interval The minimum interval between upload attempts for a
   //     single crash report.
+  // @param on_upload_callback The callback to notify when an upload completes.
   // @returns a Reporter instance if successful.
   static scoped_ptr<Reporter> Create(
       const base::string16& endpoint_name,
@@ -70,7 +84,8 @@ class Reporter {
       const base::FilePath& data_directory,
       const base::FilePath& permanent_failure_directory,
       const base::TimeDelta& upload_interval,
-      const base::TimeDelta& retry_interval);
+      const base::TimeDelta& retry_interval,
+      const OnUploadCallback& on_upload_callback);
 
   ~Reporter();
 
