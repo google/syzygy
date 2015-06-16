@@ -73,5 +73,21 @@
         '<(src)/testing/gtest.gyp:gtest',
        ],
     },
+    {
+      'target_name': 'run_refinery',
+      'type': 'executable',
+      'sources': [
+        'run_refinery_main.cc',
+      ],
+      'dependencies': [
+        'analyzers/analyzers.gyp:analyzers_lib',
+        'core/core.gyp:refinery_core_lib',
+        'minidump/minidump.gyp:minidump_lib',
+        'process_state/process_state.gyp:process_state_lib',
+        'types/types.gyp:types_lib',
+        'validators/validators.gyp:validators_lib',
+        '<(src)/base/base.gyp:base',
+      ],
+    },
   ]
 }

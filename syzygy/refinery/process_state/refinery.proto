@@ -16,8 +16,6 @@ syntax = "proto2";
 
 package refinery;
 
-option optimize_for = LITE_RUNTIME;
-
 message Bytes {
   optional bytes data = 1;
 }

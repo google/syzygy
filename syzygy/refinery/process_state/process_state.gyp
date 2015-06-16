@@ -52,6 +52,7 @@
         # Disable warnings arising from protobuf generated code.
         'msvs_disabled_warnings': [
           '4018',  # signed/unsigned mismatch.
+          '4125',  # decimal digit terminates octal escape sequence.
         ],
       },
       # This target exports a hard dependency because it generates header
@@ -75,11 +76,11 @@
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/refinery/core/core.gyp:refinery_core_lib',
-        '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',
+        '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lib',
       ],
       'export_dependent_settings': [
         'refinery_proto',
-        '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',
+        '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lib',
       ]
     },
   ],
