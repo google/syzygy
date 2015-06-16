@@ -14,6 +14,8 @@
 
 #include "syzygy/agent/asan/memory_interceptors.h"
 
+#include "base/bind.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/unittest_util.h"
 
@@ -56,12 +58,22 @@ static const TestMemoryInterceptors::InterceptFunction
     access_mode) \
   { asan_redirect_ ## access_size ## _byte_ ## access_mode_str, \
     access_size }, \
-  { asan_redirect_ ## access_size ## _byte_ ## access_mode_str ## _no_flags, \
-    access_size },
 
 ASAN_MEM_INTERCEPT_FUNCTIONS(DEFINE_REDIRECT_FUNCTION_TABLE)
 
-#undef DEFINE_INTERCEPT_FUNCTION_TABLE_NO_FLAGS
+#undef DEFINE_REDIRECT_FUNCTION_TABLE
+};
+
+static const TestMemoryInterceptors::InterceptFunction
+    redirect_functions_no_flags[] = {
+#define DEFINE_REDIRECT_FUNCTION_TABLE_NO_FLAGS(access_size, access_mode_str, \
+    access_mode) \
+  { asan_redirect_ ## access_size ## _byte_ ## access_mode_str ## _no_flags, \
+    access_size },
+
+ASAN_MEM_INTERCEPT_FUNCTIONS(DEFINE_REDIRECT_FUNCTION_TABLE_NO_FLAGS)
+
+#undef DEFINE_REDIRECT_FUNCTION_TABLE_NO_FLAGS
 };
 
 static const TestMemoryInterceptors::StringInterceptFunction
@@ -92,7 +104,26 @@ ASAN_STRING_INTERCEPT_FUNCTIONS(DEFINE_STRING_REDIRECT_FUNCTION_TABLE)
 #undef DEFINE_STRING_REDIRECT_FUNCTION_TABLE
 };
 
-typedef TestMemoryInterceptors MemoryInterceptorsTest;
+class MemoryInterceptorsTest : public TestMemoryInterceptors {
+ public:
+  MOCK_METHOD1(OnRedirectorInvocation,
+               MemoryAccessorMode(const void* caller_address));
+
+  void SetUp() override {
+    ASSERT_NO_FATAL_FAILURE(TestMemoryInterceptors::SetUp());
+
+    SetRedirectEntryCallback(
+        base::Bind(&MemoryInterceptorsTest::OnRedirectorInvocation,
+                   base::Unretained(this)));
+  }
+
+  void TearDown() override {
+    // Clear the redirect callback, if any.
+    SetRedirectEntryCallback(RedirectEntryCallback());
+
+    TestMemoryInterceptors::TearDown();
+  }
+};
 
 }  // namespace
 
@@ -111,9 +142,37 @@ TEST_F(MemoryInterceptorsTest, TestUnderrunAccess) {
   TestUnderrunAccessIgnoreFlags(intercept_functions_no_flags);
 }
 
-TEST_F(MemoryInterceptorsTest, TestRedirectors) {
+TEST_F(MemoryInterceptorsTest, TestRedirectorsNoop) {
   // Test that the redirect functions pass through to the noop tester.
+  EXPECT_CALL(*this, OnRedirectorInvocation(_))
+      .Times(arraysize(redirect_functions))
+      .WillRepeatedly(Return(MEMORY_ACCESSOR_MODE_NOOP));
   TestValidAccess(redirect_functions);
+
+  EXPECT_CALL(*this, OnRedirectorInvocation(_))
+      .Times(arraysize(redirect_functions_no_flags))
+      .WillRepeatedly(Return(MEMORY_ACCESSOR_MODE_NOOP));
+  TestValidAccessIgnoreFlags(redirect_functions_no_flags);
+}
+
+TEST_F(MemoryInterceptorsTest, TestRedirectors2G) {
+  EXPECT_CALL(*this, OnRedirectorInvocation(_))
+      .Times(3 * arraysize(redirect_functions))
+      .WillRepeatedly(Return(MEMORY_ACCESSOR_MODE_2G));
+
+  // Test valid, underrun and overrun.
+  TestValidAccess(redirect_functions);
+  TestUnderrunAccess(redirect_functions);
+  TestOverrunAccess(redirect_functions);
+
+  EXPECT_CALL(*this, OnRedirectorInvocation(_))
+      .Times(3 * arraysize(redirect_functions_no_flags))
+      .WillRepeatedly(Return(MEMORY_ACCESSOR_MODE_2G));
+
+  // Test valid, underrun and overrun.
+  TestValidAccessIgnoreFlags(redirect_functions_no_flags);
+  TestUnderrunAccessIgnoreFlags(redirect_functions_no_flags);
+  TestOverrunAccessIgnoreFlags(redirect_functions_no_flags);
 }
 
 TEST_F(MemoryInterceptorsTest, TestStringValidAccess) {
@@ -124,8 +183,32 @@ TEST_F(MemoryInterceptorsTest, TestStringOverrunAccess) {
   TestStringOverrunAccess(string_intercept_functions);
 }
 
-TEST_F(MemoryInterceptorsTest, TestStringRedirectors) {
+TEST_F(MemoryInterceptorsTest, TestStringRedirectorsNoop) {
+  EXPECT_CALL(*this, OnRedirectorInvocation(_))
+      // Each function is tested twice, forwards and backwards.
+      .Times(2 * arraysize(string_redirect_functions))
+      .WillRepeatedly(Return(MEMORY_ACCESSOR_MODE_NOOP));
+
   TestStringValidAccess(string_redirect_functions);
+}
+
+TEST_F(MemoryInterceptorsTest, TestStringRedirectors2G) {
+  EXPECT_CALL(*this, OnRedirectorInvocation(_))
+      // Each string function is tested forwards and backwards.
+      .Times(2 * arraysize(string_redirect_functions))
+      .WillRepeatedly(Return(MEMORY_ACCESSOR_MODE_2G));
+
+  // Test valid access.
+  TestStringValidAccess(string_redirect_functions);
+
+  EXPECT_CALL(*this, OnRedirectorInvocation(_))
+      // For overrun each string function is tested forwards and backwards
+      // on src and dst, for a grand total of four tests. This is with the
+      // exception of the stos instruction, which is tested only in two modes
+      // and six variants.
+      .Times(4 * arraysize(string_redirect_functions) - 2 * 6)
+      .WillRepeatedly(Return(MEMORY_ACCESSOR_MODE_2G));
+  TestStringOverrunAccess(string_redirect_functions);
 }
 
 }  // namespace asan

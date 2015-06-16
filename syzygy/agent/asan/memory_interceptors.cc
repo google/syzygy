@@ -24,6 +24,11 @@ using agent::asan::Shadow;
 
 namespace agent {
 namespace asan {
+namespace {
+
+RedirectEntryCallback redirect_entry_callback;
+
+}  // namespace
 
 const MemoryAccessorVariants kMemoryAccessorVariants[] = {
 #define ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS(access_size, \
@@ -57,6 +62,10 @@ const MemoryAccessorVariants kMemoryAccessorVariants[] = {
 };
 
 const size_t kNumMemoryAccessorVariants = arraysize(kMemoryAccessorVariants);
+
+void SetRedirectEntryCallback(const RedirectEntryCallback& callback) {
+  redirect_entry_callback = callback;
+}
 
 // Check if the memory location is accessible and report an error on bad memory
 // accesses.
@@ -132,17 +141,23 @@ void CheckStringsMemoryAccesses(
 
 MemoryAccessorFunction RedirectStubEntry(
     const void* caller_address, MemoryAccessorFunction called_redirect) {
-  // TODO(siggi, chrisha): Flesh this out, this needs to be parametrizable
-  //     for testing and the like. The intent is for this function to
-  //     initialize the runtime, which includes
-  //       - determining the mode of operation.
-  //       - allocating the shadow memory (if appropriate).
-  //       - initializing the stubs with the allocated shadow memory.
-  //    after which it will need to reach back to the caller and patch its
-  //    IAT to the stub(s) associated with the selected mode of operation.
+  MemoryAccessorMode mode = MEMORY_ACCESSOR_MODE_NOOP;
+
+  // TODO(siggi): Does it make sense to CHECK on this?
+  if (!redirect_entry_callback.is_null())
+    mode = redirect_entry_callback.Run(caller_address);
+
   for (size_t i = 0; i < arraysize(kMemoryAccessorVariants); ++i) {
-    if (kMemoryAccessorVariants[i].redirect_accessor == called_redirect)
-      return kMemoryAccessorVariants[i].accessor_noop;
+    if (kMemoryAccessorVariants[i].redirect_accessor == called_redirect) {
+      switch (mode) {
+        case MEMORY_ACCESSOR_MODE_NOOP:
+          return kMemoryAccessorVariants[i].accessor_noop;
+        case MEMORY_ACCESSOR_MODE_2G:
+          return kMemoryAccessorVariants[i].accessor_2G;
+        default:
+          NOTREACHED();
+      }
+    }
   }
 
   NOTREACHED();

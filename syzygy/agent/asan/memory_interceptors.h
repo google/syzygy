@@ -16,8 +16,32 @@
 #ifndef SYZYGY_AGENT_ASAN_MEMORY_INTERCEPTORS_H_
 #define SYZYGY_AGENT_ASAN_MEMORY_INTERCEPTORS_H_
 
+#include "base/callback.h"
+
 namespace agent {
 namespace asan {
+
+// Memory accessor mode select.
+enum MemoryAccessorMode {
+  MEMORY_ACCESSOR_MODE_NOOP,  // Noop mode - no checking performed.
+  MEMORY_ACCESSOR_MODE_2G,  // 2G address space mode
+};
+
+// Type of the callback invoked on entry to the redirector stub. This is
+// invoked any time a redirector stub is invoked. The intent is for this
+// callback to reach back and patch the caller's import address table to the
+// correct memory accessors.
+// @param caller_address the return address for this invocation, allows
+//     identifying the caller's module.
+// @returns the selected memory accessor mode.
+// @note it's possible to get calls to this callback on multiple threads
+//    concurrently, whether from a single or multiple modules. The
+//    implementation therefore may find the IAT in question already patched.
+using RedirectEntryCallback =
+    base::Callback<MemoryAccessorMode(const void* caller_address)>;
+
+// Sets the callback invoked on entry to a redirect stub.
+void SetRedirectEntryCallback(const RedirectEntryCallback& callback);
 
 // This type is not accurate, as the memory accessors have a custom calling
 // convention, but it's nice to have a type for them.

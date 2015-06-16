@@ -47,6 +47,10 @@ void asan_redirect_tail() {
     // Prologue, save context.
     pushfd
     pushad
+
+    // Normalize the string operation direction.
+    cld
+
     // Compute the address of the calling function and push it.
     mov eax, DWORD PTR[esp + 9 * 4]
     sub eax, 5  // Length of call instruction.
