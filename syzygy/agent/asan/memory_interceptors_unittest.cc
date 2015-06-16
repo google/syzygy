@@ -22,7 +22,9 @@ namespace asan {
 
 namespace {
 
+using testing::_;
 using testing::MemoryAccessorTester;
+using testing::Return;
 using testing::TestMemoryInterceptors;
 
 static const TestMemoryInterceptors::InterceptFunction

@@ -357,5 +357,55 @@
         },
       },
     },
+    {
+      'target_name': 'syzyasan_dyn',
+      'type': 'loadable_module',
+      'includes': ['../agent.gypi'],
+      'sources': [
+        # This file must have a .def extension in order for GYP to
+        # automatically configure it as the ModuleDefinitionFile
+        # (we usually suffix generated files with .gen).
+        'gen/system_interceptors_dyn.def',
+        'syzyasan_dyn.cc',
+        'syzyasan_dyn.rc',
+      ],
+      'dependencies': [
+        'syzyasan_rtl_lib',
+        '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/core/core.gyp:core_lib',
+        '<(src)/syzygy/version/version.gyp:syzygy_version',
+      ],
+      # TODO(chrisha): Factor this common configuration out to a syzyasan.gypi.
+      'msvs_settings': {
+        'VCLinkerTool': {
+          # Link against the XP-constrained user32 import libraries for
+          # kernel32 and user32 of the platform-SDK provided one to avoid
+          # inadvertently taking dependencies on post-XP user32 exports.
+          'IgnoreDefaultLibraryNames': [
+            'user32.lib',
+            'kernel32.lib',
+          ],
+          'AdditionalDependencies=': [
+            # Custom import libs.
+            'user32.winxp.lib',
+            'kernel32.winxp.lib',
+
+            # SDK import libs.
+            'dbghelp.lib',
+            'psapi.lib',
+          ],
+          'AdditionalLibraryDirectories': [
+            '<(src)/build/win/importlibs/x86',
+            '<(src)/syzygy/build/importlibs/x86',
+          ],
+          # This module should delay load nothing.
+          'DelayLoadDLLs=': [
+          ],
+          # Force MSVS to produce the same output name as Ninja.
+          'ImportLibrary': '$(OutDir)lib\$(TargetFileName).lib'
+        },
+      },
+    }
   ],
 }

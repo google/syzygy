@@ -167,4 +167,4 @@ COMPILE_ASSERT((agent::asan::kHeapNonAccessibleMarkerMask & (1 << 7)) != 0,
                asan_shadow_mask_upper_bit_is_0);
 
 // Pull in the actual implementation of the accessor stubs.
-#include "syzygy/agent/asan/memory_interceptors_gen.cc"
+#include "syzygy/agent/asan/gen/memory_interceptors_impl.cc"

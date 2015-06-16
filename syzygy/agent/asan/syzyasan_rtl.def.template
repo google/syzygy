@@ -1,4 +1,4 @@
-; Copyright 2012 Google Inc. All Rights Reserved.
+; Copyright 2015 Google Inc. All Rights Reserved.
 ;
 ; Licensed under the Apache License, Version 2.0 (the "License");
 ; you may not use this file except in compliance with the License.
@@ -13,63 +13,64 @@
 ; limitations under the License.
 ;
 ; Export declarations for the Asan RTL DLL.
-LIBRARY syzyasan_rtl.dll
+{message}
+LIBRARY syzyasan_{s}.dll
 
 EXPORTS
   ; Access checking functions.
-  asan_check_1_byte_read_access
-  asan_check_2_byte_read_access
-  asan_check_4_byte_read_access
-  asan_check_8_byte_read_access
-  asan_check_10_byte_read_access
-  asan_check_16_byte_read_access
-  asan_check_32_byte_read_access
-  asan_check_1_byte_write_access
-  asan_check_2_byte_write_access
-  asan_check_4_byte_write_access
-  asan_check_8_byte_write_access
-  asan_check_10_byte_write_access
-  asan_check_16_byte_write_access
-  asan_check_32_byte_write_access
+  asan_check_1_byte_read_access=asan_{r}_1_byte_read_access
+  asan_check_2_byte_read_access=asan_{r}_2_byte_read_access
+  asan_check_4_byte_read_access=asan_{r}_4_byte_read_access
+  asan_check_8_byte_read_access=asan_{r}_8_byte_read_access
+  asan_check_10_byte_read_access=asan_{r}_10_byte_read_access
+  asan_check_16_byte_read_access=asan_{r}_16_byte_read_access
+  asan_check_32_byte_read_access=asan_{r}_32_byte_read_access
+  asan_check_1_byte_write_access=asan_{r}_1_byte_write_access
+  asan_check_2_byte_write_access=asan_{r}_2_byte_write_access
+  asan_check_4_byte_write_access=asan_{r}_4_byte_write_access
+  asan_check_8_byte_write_access=asan_{r}_8_byte_write_access
+  asan_check_10_byte_write_access=asan_{r}_10_byte_write_access
+  asan_check_16_byte_write_access=asan_{r}_16_byte_write_access
+  asan_check_32_byte_write_access=asan_{r}_32_byte_write_access
 
-  asan_check_1_byte_read_access_no_flags
-  asan_check_2_byte_read_access_no_flags
-  asan_check_4_byte_read_access_no_flags
-  asan_check_8_byte_read_access_no_flags
-  asan_check_10_byte_read_access_no_flags
-  asan_check_16_byte_read_access_no_flags
-  asan_check_32_byte_read_access_no_flags
-  asan_check_1_byte_write_access_no_flags
-  asan_check_2_byte_write_access_no_flags
-  asan_check_4_byte_write_access_no_flags
-  asan_check_8_byte_write_access_no_flags
-  asan_check_10_byte_write_access_no_flags
-  asan_check_16_byte_write_access_no_flags
-  asan_check_32_byte_write_access_no_flags
+  asan_check_1_byte_read_access_no_flags=asan_{r}_1_byte_read_access_no_flags
+  asan_check_2_byte_read_access_no_flags=asan_{r}_2_byte_read_access_no_flags
+  asan_check_4_byte_read_access_no_flags=asan_{r}_4_byte_read_access_no_flags
+  asan_check_8_byte_read_access_no_flags=asan_{r}_8_byte_read_access_no_flags
+  asan_check_10_byte_read_access_no_flags=asan_{r}_10_byte_read_access_no_flags
+  asan_check_16_byte_read_access_no_flags=asan_{r}_16_byte_read_access_no_flags
+  asan_check_32_byte_read_access_no_flags=asan_{r}_32_byte_read_access_no_flags
+  asan_check_1_byte_write_access_no_flags=asan_{r}_1_byte_write_access_no_flags
+  asan_check_2_byte_write_access_no_flags=asan_{r}_2_byte_write_access_no_flags
+  asan_check_4_byte_write_access_no_flags=asan_{r}_4_byte_write_access_no_flags
+  asan_check_8_byte_write_access_no_flags=asan_{r}_8_byte_write_access_no_flags
+  asan_check_10_byte_write_access_no_flags=asan_{r}_10_byte_write_access_no_flags
+  asan_check_16_byte_write_access_no_flags=asan_{r}_16_byte_write_access_no_flags
+  asan_check_32_byte_write_access_no_flags=asan_{r}_32_byte_write_access_no_flags
 
-  asan_check_repz_1_byte_cmps_access
-  asan_check_repz_2_byte_cmps_access
-  asan_check_repz_4_byte_cmps_access
+  asan_check_repz_1_byte_cmps_access=asan_{r}_repz_1_byte_cmps_access
+  asan_check_repz_2_byte_cmps_access=asan_{r}_repz_2_byte_cmps_access
+  asan_check_repz_4_byte_cmps_access=asan_{r}_repz_4_byte_cmps_access
 
-  asan_check_repz_1_byte_movs_access
-  asan_check_repz_2_byte_movs_access
-  asan_check_repz_4_byte_movs_access
+  asan_check_repz_1_byte_movs_access=asan_{r}_repz_1_byte_movs_access
+  asan_check_repz_2_byte_movs_access=asan_{r}_repz_2_byte_movs_access
+  asan_check_repz_4_byte_movs_access=asan_{r}_repz_4_byte_movs_access
 
-  asan_check_repz_1_byte_stos_access
-  asan_check_repz_2_byte_stos_access
-  asan_check_repz_4_byte_stos_access
+  asan_check_repz_1_byte_stos_access=asan_{r}_repz_1_byte_stos_access
+  asan_check_repz_2_byte_stos_access=asan_{r}_repz_2_byte_stos_access
+  asan_check_repz_4_byte_stos_access=asan_{r}_repz_4_byte_stos_access
 
-  asan_check_1_byte_cmps_access
-  asan_check_2_byte_cmps_access
-  asan_check_4_byte_cmps_access
+  asan_check_1_byte_cmps_access=asan_{r}_1_byte_cmps_access
+  asan_check_2_byte_cmps_access=asan_{r}_2_byte_cmps_access
+  asan_check_4_byte_cmps_access=asan_{r}_4_byte_cmps_access
 
-  asan_check_1_byte_movs_access
-  asan_check_2_byte_movs_access
-  asan_check_4_byte_movs_access
+  asan_check_1_byte_movs_access=asan_{r}_1_byte_movs_access
+  asan_check_2_byte_movs_access=asan_{r}_2_byte_movs_access
+  asan_check_4_byte_movs_access=asan_{r}_4_byte_movs_access
 
-  asan_check_1_byte_stos_access
-  asan_check_2_byte_stos_access
-  asan_check_4_byte_stos_access
+  asan_check_1_byte_stos_access=asan_{r}_1_byte_stos_access
+  asan_check_2_byte_stos_access=asan_{r}_2_byte_stos_access
+  asan_check_4_byte_stos_access=asan_{r}_4_byte_stos_access
 
   ; Heap-replacement functions.
   asan_GetProcessHeap

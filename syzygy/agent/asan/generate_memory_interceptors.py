@@ -596,7 +596,7 @@ def main():
   cpp_file = _GenerateCppFile()
   asm_file = _GenerateAsmFile()
 
-  _WriteFile('gen/memory_interceptors_gen.cc', cpp_file)
+  _WriteFile('gen/memory_interceptors_impl.cc', cpp_file)
   _WriteFile('gen/memory_redirectors.asm', asm_file)
 
 
