@@ -60,6 +60,7 @@ Analyzer::AnalysisResult ThreadAnalyzer::Analyze(
     thread_info->set_suspend_count(thread.SuspendCount);
     thread_info->set_priority_class(thread.PriorityClass);
     thread_info->set_priority(thread.Priority);
+    thread_info->set_teb_address(thread.Teb);
 
     // TODO(siggi): Add to bytes layer?
     Minidump::Stream thread_memory =

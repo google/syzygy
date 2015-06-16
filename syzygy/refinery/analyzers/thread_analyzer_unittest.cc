@@ -88,7 +88,7 @@ TEST_F(ThreadAnalyzerSyntheticTest, BasicTest) {
   ASSERT_EQ(thread->SuspendCount, thread_info.suspend_count());
   ASSERT_EQ(thread->PriorityClass, thread_info.priority_class());
   ASSERT_EQ(thread->Priority, thread_info.priority());
-  // TODO(manzagop): add thread.Teb once analyzer handles it.
+  ASSERT_EQ(thread->Teb, thread_info.teb_address());
 
   const RegisterInformation& reg_info = thread_info.register_info();
   const CONTEXT* ctx =

@@ -512,7 +512,7 @@ MinidumpSpecification::ThreadSpecification::ThreadSpecification(
   thread->SuspendCount = 2;
   thread->PriorityClass = 3;
   thread->Priority = 4;
-  // TODO(manzagop): set thread.Teb once analyzer handles it.
+  thread->Teb = 5U;
   thread->Stack.StartOfMemoryRange = stack_address;
   thread->Stack.Memory.DataSize = stack_size;
   thread->ThreadContext.DataSize = sizeof(CONTEXT);
@@ -539,6 +539,14 @@ MinidumpSpecification::ThreadSpecification::ThreadSpecification(
   ctx->EFlags = 34;
   ctx->Esp = 35;
   ctx->SegSs = 36;
+}
+
+void MinidumpSpecification::ThreadSpecification::SetTebAddress(
+    refinery::Address addr) {
+  DCHECK(thread_data.size() == sizeof(MINIDUMP_THREAD));
+  MINIDUMP_THREAD* thread =
+      reinterpret_cast<MINIDUMP_THREAD*>(&thread_data.at(0));
+  thread->Teb = addr;
 }
 
 void MinidumpSpecification::ThreadSpecification::FillStackMemorySpecification(

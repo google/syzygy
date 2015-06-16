@@ -89,3 +89,23 @@ message Module {
   optional string name = 3;
 }
 
+// TODO(manzagop): flesh out ValidationReport once we have a better idea of the
+// kinds of violations there can be. There will probably be notions of
+// expectation vs observation.
+
+enum ViolationType {
+  VIOLATION_UNKNOWN = 0;
+  VIOLATION_NO_EXCEPTION_REGISTRATION_RECORD = 1;
+  VIOLATION_EXCEPTION_REGISTRATION_RECORD_NOT_IN_STACK = 2;
+  VIOLATION_EXCEPTION_CHAIN_ADDRESS_DECREASE = 3;
+
+}
+
+message Violation {
+  optional ViolationType type = 1;
+  optional string description = 2;
+}
+
+message ValidationReport {
+  repeated Violation error = 1;
+}

@@ -18,13 +18,17 @@
   },
   'targets': [
     {
-      'target_name': 'refinery_core_lib',
+      'target_name': 'validators_lib',
       'type': 'static_library',
+      'dependencies': [
+        '<(src)/syzygy/refinery/core/core.gyp:refinery_core_lib',
+        '<(src)/syzygy/'
+            'refinery/process_state/process_state.gyp:process_state_lib',
+      ],
       'sources': [
-        'address.cc',
-        'address.h',
-        'addressed_data.cc',
-        'addressed_data.h',
+        'validator.h',
+        'exception_handler_validator.cc',
+        'exception_handler_validator.h',
       ],
     },
   ],

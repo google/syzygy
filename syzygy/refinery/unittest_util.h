@@ -129,6 +129,8 @@ struct MinidumpSpecification::ThreadSpecification {
                       refinery::Address stack_address,
                       refinery::Size stack_size);
 
+  void SetTebAddress(refinery::Address addr);
+
   // Sets @p spec to a memory specification that is suitable for backing with
   // the current specification's stack.
   // @param spec the memory specification to set.
