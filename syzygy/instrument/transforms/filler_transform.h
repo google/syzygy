@@ -19,8 +19,8 @@
 #define SYZYGY_INSTRUMENT_TRANSFORMS_FILLER_TRANSFORM_H_
 
 #include <map>
+#include <set>
 #include <string>
-#include <vector>
 
 #include "base/macros.h"
 #include "base/files/file_path.h"
@@ -115,7 +115,7 @@ class FillerTransform
   typedef block_graph::BlockGraph BlockGraph;
   typedef BlockGraph::Block Block;
 
-  explicit FillerTransform(const std::vector<std::string>& target_list);
+  explicit FillerTransform(const std::set<std::string>& target_set);
   virtual ~FillerTransform() { }
 
   // Accessors
@@ -130,6 +130,9 @@ class FillerTransform
   // @{
   bool debug_friendly() const { return debug_friendly_; }
   void set_debug_friendly(bool flag) { debug_friendly_ = flag; }
+  const std::map<std::string, bool>& target_names() const {
+    return target_names_;
+  }
   // @}
 
  protected:

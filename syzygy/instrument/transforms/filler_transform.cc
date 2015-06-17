@@ -79,13 +79,13 @@ bool FillerBasicBlockTransform::TransformBasicBlockSubGraph(
   return true;
 }
 
-FillerTransform::FillerTransform(const std::vector<std::string>& target_list)
+FillerTransform::FillerTransform(const std::set<std::string>& target_set)
     : debug_friendly_(false),
       num_blocks_(0),
       num_code_blocks_(0),
       num_targets_updated_(0) {
   // Targets are not found yet, so initialize value to false.
-  for (const std::string& target : target_list)
+  for (const std::string& target : target_set)
     target_names_[target] = false;
 }
 

@@ -14,8 +14,6 @@
 
 #include "syzygy/instrument/transforms/filler_transform.h"
 
-#include <set>
-
 #include "base/memory/scoped_ptr.h"
 #include "gtest/gtest.h"
 #include "syzygy/assm/assembler_base.h"
@@ -91,8 +89,8 @@ class FillerBasicBlockTransformTest : public testing::Test {
 
 class TestFillerTransform : public FillerTransform {
  public:
-  explicit TestFillerTransform(const std::vector<std::string>& target_list)
-      : FillerTransform(target_list) { }
+  explicit TestFillerTransform(const std::set<std::string>& target_set)
+      : FillerTransform(target_set) { }
 };
 
 class FillerTransformTest : public testing::TestDllTransformTest {
@@ -100,23 +98,23 @@ class FillerTransformTest : public testing::TestDllTransformTest {
   typedef testing::TestDllTransformTest Super;
   typedef BlockGraph::Block::SourceRange SourceRange;
 
-  // Finds all blocks whose names appear in @p target_list, and writes the
+  // Finds all blocks whose names appear in @p target_set, and writes the
   // mapping fron name to block in @p result. Returns true iff all names in
-  // @p target_list are found.
+  // @p target_set are found.
   static bool FindAllBlocks(
       BlockGraph* block_graph,
-      const std::vector<std::string>& target_list,
+      const std::set<std::string>& target_set,
       std::map<std::string, BlockGraph::Block*>* result) {
     DCHECK(result && result->empty());
-    std::set<std::string> name_set(target_list.begin(), target_list.end());
+    std::set<std::string> targets_remaining(target_set);
     for (auto& it : block_graph->blocks_mutable()) {
       std::string block_name = it.second.name();
-      if (name_set.find(block_name) != name_set.end()) {
+      if (targets_remaining.find(block_name) != targets_remaining.end()) {
         (*result)[block_name] = &it.second;
-        name_set.erase(block_name);
+        targets_remaining.erase(block_name);
       }
     }
-    return name_set.empty();
+    return targets_remaining.empty();
   }
 
   // Verifies that @p instructions contains all expected NOPs except for NOPs
@@ -296,7 +294,7 @@ TEST_F(FillerBasicBlockTransformTest, InjectAlternate) {
 }
 
 TEST_F(FillerTransformTest, Apply) {
-  std::vector<std::string> target_list = {
+  std::set<std::string> target_set = {
     "Used::M",
     "TestUnusedFuncs"
   };
@@ -304,7 +302,7 @@ TEST_F(FillerTransformTest, Apply) {
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
 
   // Apply the transform.
-  TestFillerTransform tx(target_list);
+  TestFillerTransform tx(target_set);
   tx.set_debug_friendly(true);  // Copy source ranges to injected NOPs.
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
       &tx, policy_, &block_graph_, header_block_));
@@ -312,8 +310,8 @@ TEST_F(FillerTransformTest, Apply) {
   // Check results. First find and store target blocks.
   EXPECT_EQ(2U, tx.num_targets_updated());
   std::map<std::string, BlockGraph::Block*> target_map;
-  ASSERT_TRUE(FindAllBlocks(&block_graph_, target_list, &target_map));
-  ASSERT_TRUE(target_map.size() == target_list.size());
+  ASSERT_TRUE(FindAllBlocks(&block_graph_, target_set, &target_map));
+  ASSERT_TRUE(target_map.size() == target_set.size());
 
   // Check the block for each target.
   for (auto& it : target_map) {
