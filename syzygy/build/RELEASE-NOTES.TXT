@@ -1,6 +1,16 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.8.0
+
+[846392a3d8] SyzyASan - Prevent from crashing twice for the same corrupt block.
+[b49166cfc3] SyzyASan - Randomly enable some of the Asan features.
+[21a1d32189] SyzyASan - Copy the Asan parameters into the protobuf and the
+             error_info structure.
+[40355197d9] SyzyASan - Introduce a flood-filled quarantined block state.
+[8305158b02] SyzyASan - Fix the parsing of the 'asan-rtl-options' parameter.
+[d5a72bba38] SyzyASan - Fix a crash in the teardown of the runtime library.
+
 Version 0.8.7.0
 
 [872a0d66e2] SyzyASan - Remove the rate targeted heaps.
