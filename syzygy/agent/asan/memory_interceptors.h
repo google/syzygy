@@ -48,6 +48,8 @@ void SetRedirectEntryCallback(const RedirectEntryCallback& callback);
 typedef void (*MemoryAccessorFunction)();
 
 struct MemoryAccessorVariants {
+  // Canonical name of the exported function, e.g. asan_XXX.
+  const char* name;
   MemoryAccessorFunction redirect_accessor;
   MemoryAccessorFunction accessor_noop;
   MemoryAccessorFunction accessor_2G;

@@ -56,6 +56,8 @@
         'heaps/win_heap.h',
         'heaps/zebra_block_heap.cc',
         'heaps/zebra_block_heap.h',
+        'iat_patcher.cc',
+        'iat_patcher.h',
         'logger.cc',
         'logger.h',
         'memory_interceptors.cc',
@@ -188,6 +190,7 @@
       'sources': [
         'allocators_unittest.cc',
         'crt_interceptors_unittest.cc',
+        'iat_patcher_unittest.cc',
         'logger_unittest.cc',
         'runtime_unittest.cc',
         'rtl_impl_unittest.cc',

@@ -35,10 +35,12 @@ const MemoryAccessorVariants kMemoryAccessorVariants[] = {
                                              access_mode_str, \
                                              access_mode_value) \
   { \
+    "asan_check_" #access_size "_byte_" #access_mode_str, \
     asan_redirect_ ## access_size ## _byte_ ## access_mode_str, \
     asan_no_check, \
     asan_check_ ## access_size ## _byte_ ## access_mode_str \
   }, { \
+    "asan_check_" #access_size "_byte_" #access_mode_str "_no_flags", \
     asan_redirect_ ## access_size ## _byte_ ## access_mode_str ## _no_flags, \
     asan_no_check, \
     asan_check_ ## access_size ## _byte_ ## access_mode_str ## _no_flags, \
@@ -51,6 +53,7 @@ const MemoryAccessorVariants kMemoryAccessorVariants[] = {
 #define ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS( \
     func, prefix, counter, dst_mode, src_mode, access_size, compare) \
   { \
+    "asan_check" #prefix #access_size "_byte_" #func "_access", \
     asan_redirect ## prefix ## access_size ## _byte_ ## func ## _access, \
     asan_string_no_check, \
     asan_check ## prefix ## access_size ## _byte_ ## func ## _access, \
