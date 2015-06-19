@@ -38,6 +38,7 @@
 #include "syzygy/common/rpc/helpers.h"
 #include "syzygy/kasko/kasko_rpc.h"
 #include "syzygy/kasko/minidump_request.h"
+#include "syzygy/kasko/version.h"
 #include "syzygy/kasko/testing/minidump_unittest_helpers.h"
 #include "syzygy/kasko/testing/test_server.h"
 #include "syzygy/kasko/testing/upload_observer.h"
@@ -242,8 +243,22 @@ TEST_F(ReporterTest, BasicTest) {
   EXPECT_TRUE(upload_success);
   EXPECT_HRESULT_SUCCEEDED(
       testing::VisitMinidump(minidump_path, base::Bind(&ValidateMinidump)));
-
   Reporter::Shutdown(instance.Pass());
+
+  auto entry = crash_keys.find(base::UTF16ToASCII(kCrashKey1Name));
+  ASSERT_NE(entry, crash_keys.end());
+  ASSERT_EQ(base::UTF16ToASCII(kCrashKey1Value), entry->second);
+  entry = crash_keys.find(base::UTF16ToASCII(kCrashKey2Name));
+  ASSERT_NE(entry, crash_keys.end());
+  ASSERT_EQ(base::UTF16ToASCII(kCrashKey2Value), entry->second);
+  entry =
+      crash_keys.find(base::UTF16ToASCII(Reporter::kKaskoUploadedByVersion));
+  ASSERT_NE(entry, crash_keys.end());
+  ASSERT_EQ(KASKO_VERSION_STRING, entry->second);
+  entry =
+      crash_keys.find(base::UTF16ToASCII(Reporter::kKaskoGeneratedByVersion));
+  ASSERT_NE(entry, crash_keys.end());
+  ASSERT_EQ(KASKO_VERSION_STRING, entry->second);
 
   ASSERT_FALSE(report_id.empty());
 }

@@ -65,9 +65,12 @@ bool UploadCrashReport(
       L"Kasko", base::ASCIIToUTF16(KASKO_VERSION_STRING));
   base::string16 remote_dump_id;
   uint16_t response_code = 0;
-  if (!SendHttpUpload(&http_agent, upload_url, crash_keys, dump_contents,
-                      Reporter::kMinidumpUploadFilePart, &remote_dump_id,
-                      &response_code)) {
+  std::map<base::string16, base::string16> augmented_crash_keys(crash_keys);
+  augmented_crash_keys[Reporter::kKaskoUploadedByVersion] =
+      base::ASCIIToUTF16(KASKO_VERSION_STRING);
+  if (!SendHttpUpload(&http_agent, upload_url, augmented_crash_keys,
+                      dump_contents, Reporter::kMinidumpUploadFilePart,
+                      &remote_dump_id, &response_code)) {
     LOG(ERROR) << "Failed to upload the minidump file to " << upload_url;
     return false;
   } else if (!on_upload_callback.is_null()) {
@@ -133,6 +136,10 @@ void GenerateReport(const base::FilePath& temporary_directory,
   for (auto& crash_key : request.crash_keys) {
     crash_keys[crash_key.first] = crash_key.second;
   }
+
+  crash_keys[Reporter::kKaskoGeneratedByVersion] =
+      base::ASCIIToUTF16(KASKO_VERSION_STRING);
+
   report_repository->StoreReport(dump_file, crash_keys);
 }
 
@@ -175,6 +182,10 @@ const base::char16* const Reporter::kPermanentFailureMinidumpExtension =
     L".dmp";
 const base::char16* const Reporter::kMinidumpUploadFilePart =
     L"upload_file_minidump";
+const base::char16* const Reporter::kKaskoGeneratedByVersion =
+    L"kasko-generated-by-version";
+const base::char16* const Reporter::kKaskoUploadedByVersion =
+    L"kasko-uploaded-by-version";
 
 // static
 scoped_ptr<Reporter> Reporter::Create(

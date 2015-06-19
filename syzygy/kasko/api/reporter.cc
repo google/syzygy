@@ -111,6 +111,8 @@ void SendReportForProcess(base::ProcessHandle process_handle,
   if (keys != nullptr && values != nullptr) {
     size_t i = 0;
     for (; keys[i] && values[i]; ++i) {
+      if (keys[i][0] == 0 || values[i][0] == 0)
+        continue;
       request.crash_keys.push_back(
           MinidumpRequest::CrashKey(keys[i], values[i]));
     }

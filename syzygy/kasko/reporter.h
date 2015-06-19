@@ -54,6 +54,12 @@ class Reporter {
   static const base::char16* const kPermanentFailureMinidumpExtension;
   // The parameter name assigned to the uploaded minidump file.
   static const base::char16* const kMinidumpUploadFilePart;
+  // An crash key added to all reports, indicating the version of Kasko that
+  // generated the report.
+  static const base::char16* const kKaskoGeneratedByVersion;
+  // An crash key added to all reports, indicating the version of Kasko that
+  // uploaded the report.
+  static const base::char16* const kKaskoUploadedByVersion;
 
   // Receives notification when a report has been uploaded.
   // @param report_id The server-assigned report ID.

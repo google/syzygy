@@ -65,11 +65,18 @@ void OnUploadProc(void* context,
   CHECK(minidump_path);
   CHECK(minidump_path[0] != 0);
   CHECK(keys[0]);
-  CHECK(!keys[1]);
   CHECK(values[0]);
-  CHECK(!values[1]);
-  CHECK_EQ(base::string16(L"hello"), base::string16(keys[0]));
-  CHECK_EQ(base::string16(L"world"), base::string16(values[0]));
+  bool found_hello_world = false;
+  for (int i = 0; keys[i] != nullptr; ++i) {
+    if (keys[i] == base::string16(L"hello")) {
+      CHECK_EQ(base::string16(L"world"), base::string16(values[i]));
+      found_hello_world = true;
+    }
+    // Make sure that the ""="bar" key was dropped along the way.
+    CHECK_NE(values[i], base::string16(L"bar"));
+    CHECK_NE(keys[i], base::string16());
+  }
+  CHECK(found_hello_world);
   *reinterpret_cast<bool*>(context) = true;
 }
 
@@ -180,9 +187,13 @@ MULTIPROCESS_TEST_MAIN(WaitForClientInvocation) {
         const base::FilePath& minidump_path,
         const std::map<std::string, std::string>& crash_keys) override {
       CHECK(success);
-      CHECK_EQ(1u, crash_keys.size());
-      CHECK_EQ("hello", crash_keys.begin()->first);
-      CHECK_EQ("world", crash_keys.begin()->second);
+      CHECK(crash_keys.end() != crash_keys.find("hello"));
+      CHECK_EQ("world", crash_keys.find("hello")->second);
+      // Make sure that the ""="bar" key was dropped along the way.
+      for (auto& entry : crash_keys) {
+        CHECK_NE("", entry.first);
+        CHECK_NE("bar", entry.first);
+      }
 
       base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
       std::string dump;
@@ -207,8 +218,8 @@ MULTIPROCESS_TEST_MAIN(SendReportForProcess) {
    private:
     void OnInitialized() override {
       // Request a dump of the client process.
-      base::char16* keys[] = {L"hello", nullptr};
-      base::char16* values[] = {L"world", nullptr};
+      base::char16* keys[] = {L"hello", L"", nullptr};
+      base::char16* values[] = {L"world", L"bar", nullptr};
       base::win::ScopedHandle client_process(
           ::OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, client_process_id()));
       CHECK(client_process.IsValid());
@@ -221,9 +232,13 @@ MULTIPROCESS_TEST_MAIN(SendReportForProcess) {
         const base::FilePath& minidump_path,
         const std::map<std::string, std::string>& crash_keys) override {
       CHECK(success);
-      CHECK_EQ(1u, crash_keys.size());
-      CHECK_EQ("hello", crash_keys.begin()->first);
-      CHECK_EQ("world", crash_keys.begin()->second);
+      CHECK(crash_keys.end() != crash_keys.find("hello"));
+      CHECK_EQ("world", crash_keys.find("hello")->second);
+      // Make sure that the ""="bar" key was dropped along the way.
+      for (auto& entry : crash_keys) {
+        CHECK_NE("", entry.first);
+        CHECK_NE("bar", entry.first);
+      }
     }
   };
 
