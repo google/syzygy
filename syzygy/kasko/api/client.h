@@ -15,7 +15,7 @@
 #ifndef SYZYGY_KASKO_API_CLIENT_H_
 #define SYZYGY_KASKO_API_CLIENT_H_
 
-#include <Windows.h>
+#include <windows.h>
 
 #include "base/strings/string16.h"
 #include "syzygy/kasko/api/kasko_export.h"
@@ -43,6 +43,13 @@ struct CrashKey {
   base::char16 value[kValueMaxLength];
 };
 
+struct MemoryRange {
+  // The start of the range.
+  const void* base_address;
+  // The length of the range.
+  size_t length;
+};
+
 // Initializes a diagnostic reporting client in the current process.
 // @param endpoint_name The RPC endpoint name shared with the reporter process.
 KASKO_EXPORT void InitializeClient(const base::char16* endpoint_name);
@@ -59,12 +66,18 @@ KASKO_EXPORT void ShutdownClient();
 // @param crash_keys An optional array of crash keys. Keys with empty names or
 //     values will be ignored.
 // @param crash_key_count The number of entries in crash_keys.
+// @param user_selected_memory_ranges An optional array of memory ranges to be
+//     included in the report.
+// @param user_selected_memory_range_count The number of entries in
+//     user_selected_memory_ranges..
 KASKO_EXPORT void SendReport(const EXCEPTION_POINTERS* exception_pointers,
                              MinidumpType minidump_type,
                              const char* protobuf,
                              size_t protobuf_length,
                              const CrashKey* crash_keys,
-                             size_t crash_key_count);
+                             size_t crash_key_count,
+                             const MemoryRange* user_selected_memory_ranges,
+                             size_t user_selected_memory_range_count);
 
 }  // namespace api
 }  // namespace kasko

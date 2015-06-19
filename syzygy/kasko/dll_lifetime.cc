@@ -69,6 +69,7 @@ DllLifetime::Core::Core() {
 }
 
 DllLifetime::Core::~Core() {
+  logging::LogEventProvider::Uninitialize();
   DCHECK_EQ(this, instance_);
   instance_ = nullptr;
 }

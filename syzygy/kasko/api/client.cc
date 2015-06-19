@@ -14,7 +14,8 @@
 
 #include "syzygy/kasko/api/client.h"
 
-#include <DbgHelp.h>
+#include <dbghelp.h>
+#include <stdint.h>
 
 #include <vector>
 
@@ -61,7 +62,9 @@ void SendReport(const EXCEPTION_POINTERS* exception_pointers,
                 const char* protobuf,
                 size_t protobuf_length,
                 const CrashKey* crash_keys,
-                size_t crash_key_count) {
+                size_t crash_key_count,
+                const MemoryRange* user_selected_memory_ranges,
+                size_t user_selected_memory_range_count) {
   if (!g_client) {
     LOG(ERROR) << "SendReport failed: uninitialized.";
     return;
@@ -87,6 +90,13 @@ void SendReport(const EXCEPTION_POINTERS* exception_pointers,
         MinidumpRequest::CrashKey(crash_keys[i].name, crash_keys[i].value));
   }
 
+  for (size_t i = 0; i < user_selected_memory_range_count; ++i) {
+    MinidumpRequest::MemoryRange memory_range = {
+        reinterpret_cast<uint32_t>(user_selected_memory_ranges[i].base_address),
+        user_selected_memory_ranges[i].length};
+    request.user_selected_memory_ranges.push_back(memory_range);
+  }
+
   switch (minidump_type) {
     case SMALL_DUMP_TYPE:
       request.type = MinidumpRequest::SMALL_DUMP_TYPE;
@@ -109,6 +119,10 @@ void ShutdownClient() {
   DCHECK(g_client);
   delete g_client;
   g_client = nullptr;
+
+  DCHECK(g_dll_lifetime);
+  delete g_dll_lifetime;
+  g_dll_lifetime = nullptr;
 }
 
 }  // namespace api

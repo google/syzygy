@@ -14,9 +14,13 @@
 
 #include "base/base_switches.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
+#include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/logging.h"
+#include "base/macros.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/process/kill.h"
 #include "base/process/launch.h"
@@ -31,6 +35,7 @@
 #include "syzygy/kasko/api/reporter.h"
 #include "syzygy/kasko/testing/minidump_unittest_helpers.h"
 #include "syzygy/kasko/testing/test_server.h"
+#include "syzygy/kasko/testing/upload_observer.h"
 #include "testing/multiprocess_func_list.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -39,12 +44,17 @@ namespace api {
 
 namespace {
 
-const char kTestInstanceKeySwitch[] = "test-instance-key";
+const char kGlobalString[] = "a global string";
+
 const char kClientProcessIdSwitch[] = "client-process-id";
+const char kExpectGlobalSwitch[] = "expect-global";
+
 const base::char16 kExitEventNamePrefix[] = L"kasko_api_test_exit_event_";
 const base::char16 kReadyEventNamePrefix[] = L"kasko_api_test_ready_event_";
 const base::char16 kEndpointPrefix[] = L"kasko_api_test_endpoint_";
 
+// Verifies the minidump contents and sets the bool pointed to by |context| to
+// true.
 void OnUploadProc(void* context,
                   const base::char16* report_id,
                   const base::char16* minidump_path,
@@ -63,144 +73,309 @@ void OnUploadProc(void* context,
   *reinterpret_cast<bool*>(context) = true;
 }
 
-MULTIPROCESS_TEST_MAIN(ApiTestReporterProcess) {
-  // Read the client-supplied parameters.
-  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
-  unsigned int client_process_id_uint = 0;
-  CHECK(
-      base::StringToUint(cmd_line->GetSwitchValueASCII(kClientProcessIdSwitch),
-                         &client_process_id_uint));
-  base::ProcessId client_process_id = client_process_id_uint;
-  base::string16 test_instance_key =
-      base::ASCIIToUTF16(cmd_line->GetSwitchValueASCII(kTestInstanceKeySwitch));
-  base::string16 endpoint = kEndpointPrefix + test_instance_key;
-  base::ScopedTempDir permanent_failure_directory;
-  CHECK(permanent_failure_directory.CreateUniqueTempDir());
+// Implements the setup and teardown of a child process that runs a Kasko
+// reporter.
+class ChildProcess {
+ public:
+  ChildProcess()
+      : client_process_id_(0), on_upload_invoked_(false) {
+    base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
+    base::string16 client_process_id_string = base::ASCIIToUTF16(
+        cmd_line->GetSwitchValueASCII(kClientProcessIdSwitch));
+    unsigned int client_process_id_uint = 0;
+    CHECK(
+        base::StringToUint(client_process_id_string, &client_process_id_uint));
+    client_process_id_ = client_process_id_uint;
+    CHECK(permanent_failure_directory_.CreateUniqueTempDir());
 
-  // Set up a directory for the Reporter to generate and store crash dumps.
-  base::ScopedTempDir data_directory;
-  CHECK(data_directory.CreateUniqueTempDir());
+    // Set up a directory for the Reporter to generate and store crash dumps.
+    CHECK(data_directory_.CreateUniqueTempDir());
 
-  // Create the events used for inter-process synchronization.
-  base::WaitableEvent exit_event(base::win::ScopedHandle(::CreateEvent(
-      NULL, FALSE, FALSE, (kExitEventNamePrefix + test_instance_key).c_str())));
-  base::WaitableEvent ready_event(base::win::ScopedHandle(
-      ::CreateEvent(NULL, FALSE, FALSE,
-                    (kReadyEventNamePrefix + test_instance_key).c_str())));
+    // Start up a test server to receive uploads.
+    CHECK(server_.Start());
+  }
 
-  // Start up a test server to receive uploads.
-  testing::TestServer server;
-  CHECK(server.Start());
-  base::string16 url =
-      L"http://127.0.0.1:" + base::UintToString16(server.port()) + L"/crash";
+  // Initializes the reporter, invokes the subclass-implemented OnInitialized,
+  // shuts down the reporter (waiting for an upload to complete), then invokes
+  // the subclass-implemented OnComplete().
+  void Run() {
+    base::string16 url =
+        L"http://127.0.0.1:" + base::UintToString16(server_.port()) + L"/crash";
+    base::string16 endpoint =
+        kEndpointPrefix + base::UintToString16(client_process_id_);
 
-  bool on_upload_invoked = false;
+    // Initialize the Reporter process
+    InitializeReporter(endpoint.c_str(), url.c_str(),
+                       data_directory_.path().value().c_str(),
+                       permanent_failure_directory_.path().value().c_str(),
+                       &OnUploadProc, &on_upload_invoked_);
+    observer_.reset(new testing::UploadObserver(
+        server_.incoming_directory(), permanent_failure_directory_.path()));
+    OnInitialized();
 
-  // Initialize the Reporter process
-  InitializeReporter(endpoint.c_str(), url.c_str(),
-                     data_directory.path().value().c_str(),
-                     permanent_failure_directory.path().value().c_str(),
-                     &OnUploadProc, &on_upload_invoked);
+    // Shut down the Reporter process. This will block on upload completion.
+    ShutdownReporter();
 
-  // Request a dump of the client process.
-  base::char16* keys[] = {L"hello", nullptr};
-  base::char16* values[] = {L"world", nullptr};
-  base::win::ScopedHandle client_process(
-      ::OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, client_process_id));
-  CHECK(client_process.IsValid());
-  SendReportForProcess(client_process.Get(), SMALL_DUMP_TYPE, keys, values);
+    base::FilePath minidump_path;
+    std::map<std::string, std::string> crash_keys;
+    bool success = false;
+    observer_->WaitForUpload(&minidump_path, &crash_keys, &success);
+    CHECK_EQ(success, on_upload_invoked_);
 
-  // Tell the client process that we are active.
-  ready_event.Signal();
+    OnComplete(success, minidump_path, crash_keys);
+  }
 
-  // Wait until the client signals us to shut down.
-  exit_event.Wait();
+ protected:
+  base::ProcessId client_process_id() { return client_process_id_; }
 
-  // Shut down the Reporter process. This will block on at least one upload
-  // completing.
-  ShutdownReporter();
+ private:
+  // Invoked once the reporter is initialized. The reporter will be shut down
+  // when this method returns.
+  virtual void OnInitialized() = 0;
 
-  CHECK(on_upload_invoked);
+  // Invoked when the minidump upload has been received by the test server.
+  virtual void OnComplete(
+      bool success,
+      const base::FilePath& minidump_path,
+      const std::map<std::string, std::string>& crash_keys) = 0;
+
+  base::ProcessId client_process_id_;
+  base::ScopedTempDir permanent_failure_directory_;
+  base::ScopedTempDir data_directory_;
+  testing::TestServer server_;
+  bool on_upload_invoked_;
+  scoped_ptr<testing::UploadObserver> observer_;
+
+  DISALLOW_COPY_AND_ASSIGN(ChildProcess);
+};
+
+// Uses two events to communicate with the client (parent) process. Expects to
+// receive a single invocation of SendDiagnosticReport.
+// Verifies that kGlobalString is in the dump if and only if kExpectGlobalSwitch
+// is used.
+MULTIPROCESS_TEST_MAIN(WaitForClientInvocation) {
+  class DoWaitForClientInvocation : public ChildProcess {
+   private:
+    void OnInitialized() override {
+      base::string16 client_process_id_string =
+          base::UintToString16(client_process_id());
+
+      // Create the events used for inter-process synchronization.
+      base::WaitableEvent exit_event(base::win::ScopedHandle(::CreateEvent(
+          NULL, FALSE, FALSE,
+          (kExitEventNamePrefix + client_process_id_string).c_str())));
+      base::WaitableEvent ready_event(base::win::ScopedHandle(::CreateEvent(
+          NULL, FALSE, FALSE,
+          (kReadyEventNamePrefix + client_process_id_string).c_str())));
+
+      // Tell the client process that we are active.
+      ready_event.Signal();
+
+      // Wait until the client signals us to shut down.
+      exit_event.Wait();
+    }
+
+    void OnComplete(
+        bool success,
+        const base::FilePath& minidump_path,
+        const std::map<std::string, std::string>& crash_keys) override {
+      CHECK(success);
+      CHECK_EQ(1u, crash_keys.size());
+      CHECK_EQ("hello", crash_keys.begin()->first);
+      CHECK_EQ("world", crash_keys.begin()->second);
+
+      base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
+      std::string dump;
+      CHECK(base::ReadFileToString(minidump_path, &dump));
+      if (cmd_line->HasSwitch(kExpectGlobalSwitch)) {
+        CHECK_NE(std::string::npos, dump.find(kGlobalString));
+      } else {
+        CHECK_EQ(std::string::npos, dump.find(kGlobalString));
+      }
+    }
+  };
+
+  DoWaitForClientInvocation().Run();
 
   return 0;
 }
 
-}  // namespace
+// Invokes SendReportForProcess on the client (parent) process and verifies that
+// the dump is correctly taken and uploaded.
+MULTIPROCESS_TEST_MAIN(SendReportForProcess) {
+  class DoSendReportForProcess : public ChildProcess {
+   private:
+    void OnInitialized() override {
+      // Request a dump of the client process.
+      base::char16* keys[] = {L"hello", nullptr};
+      base::char16* values[] = {L"world", nullptr};
+      base::win::ScopedHandle client_process(
+          ::OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, client_process_id()));
+      CHECK(client_process.IsValid());
 
-// This test exercises all of the API methods of Kasko.dll. It does not do an
-// end-to-end test (i.e. by verifying that the requested crash report is
-// properly uploaded). The primary reason is that the delay before uploading is
-// not configurable via the public API and this test would therefore need to
-// wait 3 minutes before observing an upload.
-TEST(ApiTest, BasicTest) {
-  {
-    // Verify that these constants are exported.
-    base::string16 crash_keys_extension(
-        kasko::api::kPermanentFailureCrashKeysExtension);
-    base::string16 minidump_extension(
-        kasko::api::kPermanentFailureMinidumpExtension);
+      SendReportForProcess(client_process.Get(), SMALL_DUMP_TYPE, keys, values);
+    }
+
+    void OnComplete(
+        bool success,
+        const base::FilePath& minidump_path,
+        const std::map<std::string, std::string>& crash_keys) override {
+      CHECK(success);
+      CHECK_EQ(1u, crash_keys.size());
+      CHECK_EQ("hello", crash_keys.begin()->first);
+      CHECK_EQ("world", crash_keys.begin()->second);
+    }
+  };
+
+  DoSendReportForProcess().Run();
+
+  return 0;
+}
+
+// Initializes and shuts down the Kasko client, and provides a helper that
+// starts up, invokes, and tears down a reporter process.
+class TestClient {
+ public:
+  TestClient()
+      : process_id_string_(base::UintToString16(base::GetCurrentProcId())),
+        ready_event_(base::win::ScopedHandle(::CreateEvent(
+            nullptr,
+            false,
+            false,
+            (kReadyEventNamePrefix + process_id_string_).c_str()))),
+        exit_event_(base::win::ScopedHandle(::CreateEvent(
+            nullptr,
+            false,
+            false,
+            (kExitEventNamePrefix + process_id_string_).c_str()))) {
+    // Initialize the Client process.
+    InitializeClient((kEndpointPrefix + process_id_string_).c_str());
   }
 
+  ~TestClient() { ShutdownClient(); }
+
+  // Starts a reporter process, invokes SendDiagnosticReport, and then tears
+  // down the reporter process. If |request_memory_range| is true, inclusion of
+  // kGlobalString will be requested (and verified).
+  void DoInvokeSendReport(bool request_memory_range) {
+    // Start building the Reporter process command line.
+    base::CommandLine reporter_command_line =
+        base::GetMultiProcessTestChildBaseCommandLine();
+    reporter_command_line.AppendSwitchASCII(switches::kTestChildProcess,
+                                            "WaitForClientInvocation");
+
+    // Pass the client process ID, used to share event and RPC endpoint names.
+    reporter_command_line.AppendSwitchASCII(
+        kClientProcessIdSwitch, base::UTF16ToASCII(process_id_string_));
+
+    if (request_memory_range)
+      reporter_command_line.AppendSwitch(kExpectGlobalSwitch);
+
+    // Launch the Reporter process and wait until it is fully initialized.
+    base::Process reporter_process =
+        base::LaunchProcess(reporter_command_line, base::LaunchOptions());
+    ASSERT_TRUE(reporter_process.IsValid());
+    // Make sure that we terminate the reporter process, even if we ASSERT out
+    // of here.
+    base::ScopedClosureRunner terminate_reporter_process(
+        base::Bind(base::IgnoreResult(&base::Process::Terminate),
+                   base::Unretained(&reporter_process), 0, true));
+
+    ready_event_.Wait();
+
+    // Send up a crash report.
+    CONTEXT ctx = {};
+    ::RtlCaptureContext(&ctx);
+    EXCEPTION_RECORD exc_rec = {};
+    exc_rec.ExceptionAddress = reinterpret_cast<void*>(ctx.Eip);
+    exc_rec.ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
+    EXCEPTION_POINTERS exc_ptrs = {&exc_rec, &ctx};
+
+    CrashKey crash_keys[] = {{L"hello", L"world"}, {L"", L"bar"}};
+
+    std::vector<MemoryRange> memory_ranges;
+    // GetMemoryRange is extracted to prevent kGlobalString from unintentionally
+    // being on the stack and potentially being included for that reason.
+    if (request_memory_range)
+      memory_ranges.push_back(GetMemoryRange());
+
+    SendReport(&exc_ptrs, SMALL_DUMP_TYPE, NULL, 0, crash_keys,
+               arraysize(crash_keys), memory_ranges.data(),
+               memory_ranges.size());
+
+    // Tell the reporter process it may exit.
+    exit_event_.Signal();
+
+    // The reporter process will exit after successfully uploading the generated
+    // report and verifying its contents.
+
+    // Wait for the reporter process to exit and verify its status code.
+    int exit_code = 0;
+    reporter_process.WaitForExit(&exit_code);
+    ASSERT_EQ(0, exit_code);
+  }
+
+ private:
+  MemoryRange GetMemoryRange() {
+    MemoryRange memory_range = {reinterpret_cast<const void*>(kGlobalString),
+                                sizeof(kGlobalString)};
+    return memory_range;
+  }
+
+  base::string16 process_id_string_;
+  base::WaitableEvent ready_event_;
+  base::WaitableEvent exit_event_;
+
+  DISALLOW_COPY_AND_ASSIGN(TestClient);
+};
+
+}  // namespace
+
+TEST(ApiTest, ExportedConstants) {
+  // Verify that these constants are exported.
+  base::string16 crash_keys_extension(
+      kasko::api::kPermanentFailureCrashKeysExtension);
+  base::string16 minidump_extension(
+      kasko::api::kPermanentFailureMinidumpExtension);
+}
+
+TEST(ApiTest, SendReportTest) {
+  // TODO(erikwright): For now it is impossible to initialize/shutdown the
+  // client or reporter twice in the same process. This is because internally,
+  // it will spin up and down the AtExitManager, causing singletons to be
+  // destroyed (as expected) during shutdown. But base::Singleton does not fully
+  // reset its state during the AtExit callback, and as such the second spin-up
+  // crashes.
+  // Thus, all tests that require InitializeClient to be called must be done in
+  // this single test suite, with a single TestClient instance.
+
+  TestClient test_client;
+  test_client.DoInvokeSendReport(false);
+  test_client.DoInvokeSendReport(true);
+}
+
+TEST(ApiTest, SendReportForProcessTest) {
   // Pick an ID used to avoid global namespace collisions.
-  base::string16 test_instance_key =
+  base::string16 process_id_string =
       base::UintToString16(base::GetCurrentProcId());
-
-  // Create the events used for inter-process synchronization.
-  base::win::ScopedHandle exit_event_handle(::CreateEvent(
-      NULL, FALSE, FALSE, (kExitEventNamePrefix + test_instance_key).c_str()));
-  ASSERT_TRUE(exit_event_handle.IsValid());
-  base::WaitableEvent exit_event(
-      base::win::ScopedHandle(exit_event_handle.Take()));
-
-  base::win::ScopedHandle ready_event_handle(::CreateEvent(
-      NULL, FALSE, FALSE, (kReadyEventNamePrefix + test_instance_key).c_str()));
-  ASSERT_TRUE(ready_event_handle.IsValid());
-  base::WaitableEvent ready_event(
-      base::win::ScopedHandle(ready_event_handle.Take()));
 
   // Start building the Reporter process command line.
   base::CommandLine reporter_command_line =
       base::GetMultiProcessTestChildBaseCommandLine();
   reporter_command_line.AppendSwitchASCII(switches::kTestChildProcess,
-                                          "ApiTestReporterProcess");
+                                          "SendReportForProcess");
 
-  // Pass the test instance ID.
+  // Pass the client process ID, used to call SendReportForProcess.
   reporter_command_line.AppendSwitchASCII(
-      kTestInstanceKeySwitch, base::UTF16ToASCII(test_instance_key));
+      kClientProcessIdSwitch, base::UTF16ToASCII(process_id_string));
 
-  // Pass the client process ID, used by the reporter to invoke
-  // SendReportForProcess.
-  reporter_command_line.AppendSwitchASCII(
-      kClientProcessIdSwitch, base::UintToString(base::GetCurrentProcId()));
-
-  // Launch the Reporter process and wait until it is fully initialized.
+  // Launch the Reporter process.
   base::Process reporter_process =
       base::LaunchProcess(reporter_command_line, base::LaunchOptions());
   ASSERT_TRUE(reporter_process.IsValid());
-  ready_event.Wait();
 
-  // Initialize the Client process.
-  InitializeClient((kEndpointPrefix + test_instance_key).c_str());
-
-  // Send up a crash report.
-  CONTEXT ctx = {};
-  ::RtlCaptureContext(&ctx);
-  EXCEPTION_RECORD exc_rec = {};
-  exc_rec.ExceptionAddress = reinterpret_cast<void*>(ctx.Eip);
-  exc_rec.ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
-  EXCEPTION_POINTERS exc_ptrs = { &exc_rec, &ctx };
-
-  CrashKey crash_keys[] = {{L"hello", L"world"}, {L"", L"bar"}};
-  SendReport(&exc_ptrs, SMALL_DUMP_TYPE, NULL, 0, crash_keys,
-             arraysize(crash_keys));
-
-  // TODO(erikwright): Wait for the upload and verify the report contents.
-
-  // Shut down the client.
-  ShutdownClient();
-
-  // Tell the reporter process that we are done.
-  exit_event.Signal();
+  // The Reporter process will exit after taking a dump of us and verifying its
+  // contents.
 
   // Wait for the reporter process to exit and verify its status code.
   int exit_code = 0;
