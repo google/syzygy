@@ -28,7 +28,7 @@
     'unittests': [
 
       # Assembler unittests.
-      '<(src)/syzygy/assm/assm.gyp:asm_unittests',
+      '<(src)/syzygy/assm/assm.gyp:assm_unittests',
 
       # Common tests.
       '<(src)/syzygy/common/common.gyp:common_unittests',

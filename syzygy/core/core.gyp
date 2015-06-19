@@ -50,7 +50,7 @@
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
-        '<(src)/syzygy/assm/assm.gyp:asm_lib',
+        '<(src)/syzygy/assm/assm.gyp:assm_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/third_party/distorm/distorm.gyp:distorm',
         '<(src)/third_party/zlib/zlib.gyp:zlib',
@@ -94,7 +94,7 @@
         'core_unittest_utils',
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',
-        '<(src)/syzygy/assm/assm.gyp:asm_unittest_utils',
+        '<(src)/syzygy/assm/assm.gyp:assm_unittest_utils',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
         '<(src)/third_party/distorm/distorm.gyp:distorm',

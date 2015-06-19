@@ -18,7 +18,7 @@
   },
   'targets': [
     {
-      'target_name': 'asm_lib',
+      'target_name': 'assm_lib',
       'type': 'static_library',
       'sources': [
         'assembler_base.h',
@@ -40,7 +40,7 @@
       ],
     },
     {
-      'target_name': 'asm_unittest_utils',
+      'target_name': 'assm_unittest_utils',
       'type': 'static_library',
       'sources': [
         'unittest_util.cc',
@@ -51,7 +51,7 @@
       ],
     },
     {
-      'target_name': 'asm_unittests',
+      'target_name': 'assm_unittests',
       'type': 'executable',
       'sources': [
         'assembler_unittest.cc',
@@ -60,8 +60,8 @@
         '<(src)/base/test/run_all_unittests.cc',
       ],
       'dependencies': [
-        'asm_lib',
-        'asm_unittest_utils',
+        'assm_lib',
+        'assm_unittest_utils',
         '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',

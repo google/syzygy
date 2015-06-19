@@ -30,7 +30,7 @@
       '<(src)/syzygy/ar/ar.gyp:ar_unittests',
 
       # Assembler unittests.
-      '<(src)/syzygy/assm/assm.gyp:asm_unittests',
+      '<(src)/syzygy/assm/assm.gyp:assm_unittests',
 
       # Application unittests.
       '<(src)/syzygy/application/application.gyp:application_unittests',

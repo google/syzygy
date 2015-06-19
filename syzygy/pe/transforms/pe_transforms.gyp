@@ -53,7 +53,7 @@
       'dependencies': [
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
-        '<(src)/syzygy/assm/assm.gyp:asm_lib',
+        '<(src)/syzygy/assm/assm.gyp:assm_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/syzygy/pe/orderers/pe_orderers.gyp:pe_orderers_lib',
@@ -84,7 +84,7 @@
         'pe_transforms_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',
-        '<(src)/syzygy/assm/assm.gyp:asm_unittest_utils',
+        '<(src)/syzygy/assm/assm.gyp:assm_unittest_utils',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:test_dll',
