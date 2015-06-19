@@ -15,26 +15,45 @@
 #include "syzygy/agent/asan/memory_notifiers/shadow_memory_notifier.h"
 
 #include "syzygy/agent/asan/shadow.h"
+#include "syzygy/common/align.h"
 
 namespace agent {
 namespace asan {
 namespace memory_notifiers {
 
+namespace {
+
+void AlignRange(const void** address, size_t* size) {
+  DCHECK_NE(reinterpret_cast<void**>(nullptr), address);
+  DCHECK_NE(reinterpret_cast<size_t*>(nullptr), size);
+  const uint8* start = reinterpret_cast<const uint8*>(*address);
+  const uint8* end = start + *size;
+  start = ::common::AlignDown(start, kShadowRatio);
+  end = ::common::AlignUp(end, kShadowRatio);
+  *address = start;
+  *size = end - start;
+}
+
+}  // namespace
+
 void ShadowMemoryNotifier::NotifyInternalUse(
     const void* address, size_t size) {
-  DCHECK_NE(static_cast<void*>(NULL), address);
+  DCHECK_NE(static_cast<void*>(nullptr), address);
+  AlignRange(&address, &size);
   CHECK(shadow_->Poison(address, size, kAsanMemoryMarker));
 }
 
 void ShadowMemoryNotifier::NotifyFutureHeapUse(
     const void* address, size_t size) {
-  DCHECK_NE(static_cast<void*>(NULL), address);
+  DCHECK_NE(static_cast<void*>(nullptr), address);
+  AlignRange(&address, &size);
   CHECK(shadow_->Poison(address, size, kAsanReservedMarker));
 }
 
 void ShadowMemoryNotifier::NotifyReturnedToOS(
     const void* address, size_t size) {
-  DCHECK_NE(static_cast<void*>(NULL), address);
+  DCHECK_NE(static_cast<void*>(nullptr), address);
+  AlignRange(&address, &size);
   CHECK(shadow_->Unpoison(address, size));
 }
 

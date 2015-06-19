@@ -23,8 +23,9 @@
 namespace agent {
 namespace asan {
 
-// Forward declaration.
+// Forward declarations.
 class AsanLogger;
+class MemoryNotifierInterface;
 
 // A class which manages a thread-safe cache of unique stack traces, by ID.
 class StackCaptureCache {
@@ -47,10 +48,14 @@ class StackCaptureCache {
 
   // Initializes a new stack capture cache.
   // @param logger The logger to use.
+  // @param memory_notifier The memory notifier to use.
   // @param max_num_frames The maximum number of frames to be used by the
   //     StackCapture objects in this cache.
-  explicit StackCaptureCache(AsanLogger* logger);
-  StackCaptureCache(AsanLogger* logger, size_t max_num_frames);
+  StackCaptureCache(AsanLogger* logger,
+                    MemoryNotifierInterface* memory_notifier);
+  StackCaptureCache(AsanLogger* logger,
+                    MemoryNotifierInterface* memory_notifier,
+                    size_t max_num_frames);
 
   // Destroys a stack capture cache.
   ~StackCaptureCache();
@@ -167,6 +172,9 @@ class StackCaptureCache {
     // @}
   };
 
+  // Allocates a CachePage.
+  void AllocateCachePage();
+
   // Gets the current cache statistics. This must be called under lock_.
   // @param statistics Will be populated with current cache statistics.
   void GetStatisticsUnlocked(Statistics* statistics) const;
@@ -196,6 +204,9 @@ class StackCaptureCache {
 
   // Logger instance to which to report the compression ratio.
   AsanLogger* const logger_;
+
+  // The memory notifier that is informed of allocations made by the cache.
+  MemoryNotifierInterface* memory_notifier_;
 
   // Locks to protect the known stacks sets from concurrent access.
   mutable base::Lock known_stacks_locks_[kKnownStacksSharding];
@@ -237,24 +248,29 @@ class StackCaptureCache {
 // and stored in the known stacks cache set.
 class StackCaptureCache::CachePage {
  public:
-  explicit CachePage(CachePage* link) : next_page_(link), bytes_used_(0) {
-    // TODO(chrisha): Make this use a ShadowMemoryNotifier.
-    CHECK(StaticShadow::shadow.Poison(
-        this, sizeof(CachePage), kAsanMemoryMarker));
-  }
+  explicit CachePage(CachePage* link) : next_page_(link), bytes_used_(0) {}
 
   ~CachePage();
 
   // Allocates a stack capture from this cache page if possible.
   // @param max_num_frames The maximum number of frames the object needs to be
   //     able to store.
-  // @returns a new StackCapture, or NULL if the page is full.
+  // @param metadata_size The number of bytes to reserve for metadata. These
+  //     bytes will be reserved *after* the StackCapture object and zero
+  //     initialized. Defaults to zero if not provided.
+  // @returns a new StackCapture, or nullptr if the page is full.
+  common::StackCapture* GetNextStackCapture(size_t max_num_frames,
+                                            size_t metadata_size);
   common::StackCapture* GetNextStackCapture(size_t max_num_frames);
 
   // Returns the most recently allocated stack capture back to the page.
   // @param stack_capture The stack capture to return.
+  // @param metadata_size The number of bytes of metadata that was also
+  //     allocated.
   // @returns false if the provided stack capture was not the most recently
-  //    allocated one, true otherwise.
+  //     allocated one, true otherwise.
+  bool ReturnStackCapture(common::StackCapture* stack_capture,
+                          size_t metadata_size);
   bool ReturnStackCapture(common::StackCapture* stack_capture);
 
   // @returns the number of bytes used in this page. This is mainly a hook

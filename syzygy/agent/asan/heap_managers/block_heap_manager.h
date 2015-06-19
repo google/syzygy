@@ -68,7 +68,8 @@ class BlockHeapManager : public HeapManagerInterface {
  public:
   // Constructor.
   // @param stack_cache The stack cache to use.
-  explicit BlockHeapManager(StackCaptureCache* stack_cache);
+  BlockHeapManager(StackCaptureCache* stack_cache,
+                   MemoryNotifierInterface* memory_notifier);
 
   // Destructor.
   virtual ~BlockHeapManager();
@@ -319,6 +320,9 @@ class BlockHeapManager : public HeapManagerInterface {
   // The stack cache used to store the stack traces.
   StackCaptureCache* stack_cache_;
 
+  // The memory notifier to use.
+  MemoryNotifierInterface* memory_notifier_;
+
   // Protects concurrent access to the heap manager internals.
   base::Lock lock_;
 
@@ -351,9 +355,6 @@ class BlockHeapManager : public HeapManagerInterface {
   BlockHeapInterface* process_heap_;
   HeapInterface* process_heap_underlying_heap_;
   HeapId process_heap_id_;
-
-  // Memory notifier used to update the shadow memory.
-  memory_notifiers::ShadowMemoryNotifier shadow_memory_notifier_;
 
   // The heap that gets used for allocation of internal data structures.
   scoped_ptr<HeapInterface> internal_win_heap_;

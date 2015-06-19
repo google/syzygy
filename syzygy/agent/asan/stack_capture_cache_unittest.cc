@@ -17,6 +17,7 @@
 #include "base/memory/scoped_ptr.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/logger.h"
+#include "syzygy/agent/asan/memory_notifiers/null_memory_notifier.h"
 
 namespace agent {
 namespace asan {
@@ -25,13 +26,15 @@ namespace {
 
 using agent::common::StackCapture;
 
+memory_notifiers::NullMemoryNotifier null_memory_notifier;
+
 class TestStackCaptureCache : public StackCaptureCache {
  public:
   explicit TestStackCaptureCache(AsanLogger* logger)
-      : StackCaptureCache(logger) {
+      : StackCaptureCache(logger, &null_memory_notifier) {
   }
   TestStackCaptureCache(AsanLogger* logger, size_t max_num_frames)
-      : StackCaptureCache(logger, max_num_frames) {
+      : StackCaptureCache(logger, &null_memory_notifier, max_num_frames) {
   }
 
   using StackCaptureCache::Statistics;
@@ -323,15 +326,6 @@ TEST_F(StackCaptureCacheTest, Statistics) {
   EXPECT_EQ(0u, s.frames_stored);
   EXPECT_EQ(s3_frames, s.frames_alive);
   EXPECT_EQ(s1_frames, s.frames_dead);
-}
-
-TEST_F(StackCaptureCacheTest, CachePagesArePoisoned) {
-  scoped_ptr<TestStackCaptureCache::CachePage> page(
-      new TestStackCaptureCache::CachePage(NULL));
-  void* cache_page_ptr = reinterpret_cast<void*>(page.get());
-  EXPECT_FALSE(StaticShadow::shadow.IsAccessible(cache_page_ptr));
-  page.reset(NULL);
-  EXPECT_TRUE(StaticShadow::shadow.IsAccessible(cache_page_ptr));
 }
 
 TEST_F(StackCaptureCacheTest, StackCapturePointerIsValid) {

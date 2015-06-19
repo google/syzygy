@@ -234,7 +234,7 @@ bool Shadow::Poison(const void* addr, size_t size, ShadowMarker shadow_val) {
 
 bool Shadow::Unpoison(const void* addr, size_t size) {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
-  DCHECK_EQ(0U, index & (kShadowRatio - 1));
+  DCHECK_EQ(0u, index & (kShadowRatio - 1));
 
   uint8 remainder = size & (kShadowRatio - 1);
   index >>= kShadowRatioLog;

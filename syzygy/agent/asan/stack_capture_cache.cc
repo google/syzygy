@@ -19,6 +19,7 @@
 #include "base/logging.h"
 #include "base/strings/stringprintf.h"
 #include "syzygy/agent/asan/logger.h"
+#include "syzygy/agent/asan/memory_notifier.h"
 #include "syzygy/agent/common/stack_capture.h"
 #include "syzygy/common/align.h"
 
@@ -30,10 +31,10 @@ namespace {
 // Gives us access to the first frame of a stack capture as link-list pointer.
 common::StackCapture** GetFirstFrameAsLink(
     common::StackCapture* stack_capture) {
-  DCHECK(stack_capture != NULL);
+  DCHECK_NE(static_cast<common::StackCapture*>(nullptr), stack_capture);
   common::StackCapture** link = reinterpret_cast<common::StackCapture**>(
       const_cast<void**>(stack_capture->frames()));
-  DCHECK(link != NULL);
+  DCHECK_NE(static_cast<common::StackCapture**>(nullptr), link);
   return link;
 }
 
@@ -46,31 +47,42 @@ StackCaptureCache::CachePage::~CachePage() {
   // It's our parent StackCaptureCache's responsibility to clean up the linked
   // list of cache pages. We balk if we're being deleted and haven't been
   // properly unlinked from the linked list.
-  DCHECK(next_page_ == NULL);
-  // TODO(chrisha): Make this use ShadowMemoryNotifier.
-  CHECK(StaticShadow::shadow.Unpoison(this, sizeof(CachePage)));
+  DCHECK_EQ(static_cast<CachePage*>(nullptr), next_page_);
 }
 
 common::StackCapture* StackCaptureCache::CachePage::GetNextStackCapture(
-    size_t max_num_frames) {
-  size_t size = common::StackCapture::GetSize(max_num_frames);
-  if (bytes_used_ + size > kDataSize)
-    return NULL;
+    size_t max_num_frames, size_t metadata_size) {
+  metadata_size = ::common::AlignUp(metadata_size, sizeof(void*));
 
-  // Use placement new.
+  size_t stack_size = common::StackCapture::GetSize(max_num_frames);
+  size_t size = stack_size + metadata_size;
+  if (bytes_used_ + size > kDataSize)
+    return nullptr;
+
+  // Use placement new for the StackCapture and zero initialize the metadata.
   common::StackCapture* stack =
       new(data_ + bytes_used_) common::StackCapture(max_num_frames);
+  ::memset(data_ + bytes_used_ + stack_size, 0, metadata_size);
+
+  // Update the allocation cursor.
   bytes_used_ += size;
 
   return stack;
 }
 
+common::StackCapture* StackCaptureCache::CachePage::GetNextStackCapture(
+    size_t max_num_frames) {
+  return GetNextStackCapture(max_num_frames, 0);
+}
+
 bool StackCaptureCache::CachePage::ReturnStackCapture(
-    common::StackCapture* stack_capture) {
-  DCHECK(stack_capture != NULL);
+    common::StackCapture* stack_capture, size_t metadata_size) {
+  DCHECK_NE(static_cast<common::StackCapture*>(nullptr), stack_capture);
+
+  metadata_size = ::common::AlignUp(metadata_size, sizeof(void*));
 
   uint8* stack = reinterpret_cast<uint8*>(stack_capture);
-  size_t size = stack_capture->Size();
+  size_t size = stack_capture->Size() + metadata_size;
 
   // If this was the last stack capture provided by this page then the end of
   // it must align with our current data pointer.
@@ -81,26 +93,41 @@ bool StackCaptureCache::CachePage::ReturnStackCapture(
   return true;
 }
 
-StackCaptureCache::StackCaptureCache(AsanLogger* logger)
+bool StackCaptureCache::CachePage::ReturnStackCapture(
+    common::StackCapture* stack_capture) {
+  return ReturnStackCapture(stack_capture, 0);
+}
+
+StackCaptureCache::StackCaptureCache(
+    AsanLogger* logger, MemoryNotifierInterface* memory_notifier)
     : logger_(logger),
+      memory_notifier_(memory_notifier),
       max_num_frames_(common::StackCapture::kMaxNumFrames),
-      current_page_(new CachePage(NULL)) {
-  CHECK(current_page_ != NULL);
-  DCHECK(logger_ != NULL);
+      current_page_(nullptr) {
+  DCHECK_NE(static_cast<AsanLogger*>(nullptr), logger);
+  DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr), memory_notifier);
+
+  AllocateCachePage();
+
   ::memset(&statistics_, 0, sizeof(statistics_));
   ::memset(reclaimed_, 0, sizeof(reclaimed_));
   statistics_.size = sizeof(CachePage);
 }
 
-StackCaptureCache::StackCaptureCache(AsanLogger* logger, size_t max_num_frames)
+StackCaptureCache::StackCaptureCache(
+    AsanLogger* logger, MemoryNotifierInterface* memory_notifier,
+    size_t max_num_frames)
     : logger_(logger),
+      memory_notifier_(memory_notifier),
       max_num_frames_(0),
-      current_page_(new CachePage(NULL)) {
-  CHECK(current_page_ != NULL);
-  DCHECK(logger_ != NULL);
+      current_page_(nullptr) {
+  DCHECK_NE(static_cast<AsanLogger*>(nullptr), logger);
+  DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr), memory_notifier);
   DCHECK_LT(0u, max_num_frames);
   max_num_frames_ = static_cast<uint8>(
       std::min(max_num_frames, common::StackCapture::kMaxNumFrames));
+
+  AllocateCachePage();
   ::memset(&statistics_, 0, sizeof(statistics_));
   ::memset(reclaimed_, 0, sizeof(reclaimed_));
   statistics_.size = sizeof(CachePage);
@@ -108,11 +135,14 @@ StackCaptureCache::StackCaptureCache(AsanLogger* logger, size_t max_num_frames)
 
 StackCaptureCache::~StackCaptureCache() {
   // Clean up the linked list of cache pages.
-  while (current_page_ != NULL) {
+  while (current_page_ != nullptr) {
     CachePage* page = current_page_;
     current_page_ = page->next_page_;
-    page->next_page_ = NULL;
-    delete page;
+    page->next_page_ = nullptr;
+
+    memory_notifier_->NotifyReturnedToOS(page, sizeof(*page));
+    page->~CachePage();
+    CHECK_EQ(TRUE, ::VirtualFree(page, 0, MEM_RELEASE));
   }
 }
 
@@ -122,12 +152,12 @@ void StackCaptureCache::Init() {
 
 const common::StackCapture* StackCaptureCache::SaveStackTrace(
     StackId stack_id, const void* const* frames, size_t num_frames) {
-  DCHECK(frames != NULL);
+  DCHECK_NE(static_cast<void**>(nullptr), frames);
   DCHECK_NE(num_frames, 0U);
-  DCHECK(current_page_ != NULL);
+  DCHECK_NE(static_cast<CachePage*>(nullptr), current_page_);
 
   bool already_cached = false;
-  common::StackCapture* stack_trace = NULL;
+  common::StackCapture* stack_trace = nullptr;
   bool saturated = false;
 
   {
@@ -145,7 +175,7 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
     // the data.
     if (result == known_stacks_[known_stack_shard].end()) {
       stack_trace = GetStackCapture(num_frames);
-      DCHECK(stack_trace != NULL);
+      DCHECK_NE(static_cast<common::StackCapture*>(nullptr), stack_trace);
       stack_trace->InitFromBuffer(stack_id, frames, num_frames);
       std::pair<StackSet::iterator, bool> it =
           known_stacks_[known_stack_shard].insert(stack_trace);
@@ -162,7 +192,7 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
       saturated = true;
     }
   }
-  DCHECK(stack_trace != NULL);
+  DCHECK_NE(static_cast<common::StackCapture*>(nullptr), stack_trace);
 
   bool must_log = false;
   Statistics statistics = {};
@@ -210,11 +240,11 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
 
 void StackCaptureCache::ReleaseStackTrace(
     const common::StackCapture* stack_capture) {
-  DCHECK(stack_capture != NULL);
+  DCHECK_NE(static_cast<common::StackCapture*>(nullptr), stack_capture);
 
   size_t known_stack_shard = stack_capture->stack_id() % kKnownStacksSharding;
   bool add_to_reclaimed_list = false;
-  common::StackCapture* stack = NULL;
+  common::StackCapture* stack = nullptr;
   {
     base::AutoLock auto_lock(known_stacks_locks_[known_stack_shard]);
 
@@ -268,7 +298,7 @@ bool StackCaptureCache::StackCapturePointerIsValid(
   // Walk over the allocated pages and see if it lands within any of them.
   base::AutoLock lock(current_page_lock_);
   CachePage* page = current_page_;
-  while (page != NULL) {
+  while (page != nullptr) {
     const uint8* page_end = page->data() + page->bytes_used();
 
     // If the proposed stack capture lands within a page we then check to
@@ -299,12 +329,37 @@ void StackCaptureCache::LogStatistics()  {
   LogStatisticsImpl(statistics);
 }
 
+void StackCaptureCache::AllocateCachePage() {
+  static_assert(sizeof(CachePage) % (64 * 1024) == 0,
+                "kCachePageSize should be a multiple of the system allocation "
+                "granularity.");
+
+  // If we already have an allocated page request an allocation that is
+  // contiguous.
+  void* new_page = nullptr;
+  if (current_page_) {
+    new_page = ::VirtualAlloc(current_page_ + 1, sizeof(CachePage), MEM_COMMIT,
+                              PAGE_READWRITE);
+  }
+
+  // If that fails then request an allocation anywhere.
+  if (!new_page) {
+    new_page =
+        ::VirtualAlloc(nullptr, sizeof(CachePage), MEM_COMMIT, PAGE_READWRITE);
+  }
+  CHECK_NE(static_cast<void*>(nullptr), new_page);
+
+  // Use a placement new and notify the shadow memory.
+  current_page_ = new(new_page) CachePage(current_page_);
+  memory_notifier_->NotifyInternalUse(new_page, sizeof(CachePage));
+}
+
 void StackCaptureCache::GetStatisticsUnlocked(Statistics* statistics) const {
 #ifndef NDEBUG
   stats_lock_.AssertAcquired();
 #endif
 
-  DCHECK(statistics != NULL);
+  DCHECK_NE(static_cast<Statistics*>(nullptr), statistics);
   *statistics = statistics_;
 }
 
@@ -343,13 +398,13 @@ void StackCaptureCache::LogStatisticsImpl(const Statistics& statistics) const {
 }
 
 common::StackCapture* StackCaptureCache::GetStackCapture(size_t num_frames) {
-  common::StackCapture* stack_capture = NULL;
+  common::StackCapture* stack_capture = nullptr;
 
   // First look to the reclaimed stacks and try to use one of those. We'll use
   // the first one that's big enough.
   for (size_t n = num_frames; n <= max_num_frames_; ++n) {
     base::AutoLock lock(reclaimed_locks_[n]);
-    if (reclaimed_[n] != NULL) {
+    if (reclaimed_[n] != nullptr) {
       common::StackCapture* reclaimed_stack_capture = reclaimed_[n];
       common::StackCapture** link =
           GetFirstFrameAsLink(reclaimed_stack_capture);
@@ -359,7 +414,7 @@ common::StackCapture* StackCaptureCache::GetStackCapture(size_t num_frames) {
     }
   }
 
-  if (stack_capture != NULL) {
+  if (stack_capture != nullptr) {
     if (compression_reporting_period_ != 0) {
       base::AutoLock stats_lock(stats_lock_);
       // These frames are no longer dead, but in limbo. If the stack capture
@@ -369,14 +424,14 @@ common::StackCapture* StackCaptureCache::GetStackCapture(size_t num_frames) {
     return stack_capture;
   }
 
-  common::StackCapture* unused_stack_capture = NULL;
+  common::StackCapture* unused_stack_capture = nullptr;
   {
     base::AutoLock current_page_lock(current_page_lock_);
 
     // We didn't find a reusable stack capture. Go to the cache page.
     stack_capture = current_page_->GetNextStackCapture(num_frames);
 
-    if (stack_capture != NULL)
+    if (stack_capture != nullptr)
       return stack_capture;
 
     // If the allocation failed we don't have enough room on the current page.
@@ -391,18 +446,19 @@ common::StackCapture* StackCaptureCache::GetStackCapture(size_t num_frames) {
       DCHECK_LE(common::StackCapture::GetSize(max_num_frames), bytes_left);
       unused_stack_capture =
           current_page_->GetNextStackCapture(max_num_frames);
-      DCHECK(unused_stack_capture != NULL);
+      DCHECK_NE(static_cast<common::StackCapture*>(nullptr),
+                unused_stack_capture);
     }
 
     // Allocate a new page (that links to the current page) and use it to
     // allocate a new stack capture.
     current_page_ = new CachePage(current_page_);
-    CHECK(current_page_ != NULL);
+    CHECK_NE(static_cast<CachePage*>(nullptr), current_page_);
     statistics_.size += sizeof(CachePage);
     stack_capture = current_page_->GetNextStackCapture(num_frames);
   }
 
-  if (unused_stack_capture != NULL) {
+  if (unused_stack_capture != nullptr) {
     // We're creating an unreferenced stack capture.
     AddStackCaptureToReclaimedList(unused_stack_capture);
   }
@@ -413,7 +469,7 @@ common::StackCapture* StackCaptureCache::GetStackCapture(size_t num_frames) {
     ++statistics_.unreferenced;
   }
 
-  DCHECK(stack_capture != NULL);
+  DCHECK_NE(static_cast<common::StackCapture*>(nullptr), stack_capture);
   return stack_capture;
 }
 
@@ -430,7 +486,7 @@ class PrivateStackCapture : public common::StackCapture {
 
 void StackCaptureCache::AddStackCaptureToReclaimedList(
     common::StackCapture* stack_capture) {
-  DCHECK(stack_capture != NULL);
+  DCHECK_NE(static_cast<common::StackCapture*>(nullptr), stack_capture);
 
   // Make the stack capture internally inconsistent so that it can't be
   // interpreted as being valid. This is rewritten upon reuse so not

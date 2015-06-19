@@ -40,7 +40,7 @@
 #include "syzygy/agent/asan/heaps/simple_block_heap.h"
 #include "syzygy/agent/asan/heaps/win_heap.h"
 #include "syzygy/agent/asan/heaps/zebra_block_heap.h"
-#include "syzygy/agent/asan/memory_notifiers/shadow_memory_notifier.h"
+#include "syzygy/agent/asan/memory_notifiers/null_memory_notifier.h"
 #include "syzygy/common/asan_parameters.h"
 
 namespace agent {
@@ -157,8 +157,9 @@ class TestBlockHeapManager : public BlockHeapManager {
   };
 
   // Constructor.
-  explicit TestBlockHeapManager(StackCaptureCache* stack_cache)
-      : BlockHeapManager(stack_cache) {
+  TestBlockHeapManager(StackCaptureCache* stack_cache,
+                       MemoryNotifierInterface* memory_notifier)
+      : BlockHeapManager(stack_cache, memory_notifier) {
   }
 
   // Removes the heap with the given ID.
@@ -1699,8 +1700,11 @@ TEST(BlockHeapManagerIntegrationTest, CtMallocStressTest) {
 
   // Initialize a block heap manager.
   AsanLogger al;
-  scoped_ptr<StackCaptureCache> scc(new StackCaptureCache(&al));
-  scoped_ptr<TestBlockHeapManager> bhm(new TestBlockHeapManager(scc.get()));
+  memory_notifiers::NullMemoryNotifier null_memory_notifier;
+  scoped_ptr<StackCaptureCache> scc(
+      new StackCaptureCache(&al, &null_memory_notifier));
+  scoped_ptr<TestBlockHeapManager> bhm(
+      new TestBlockHeapManager(scc.get(), &null_memory_notifier));
   bhm->set_parameters(p);
   bhm->Init();
   BlockHeapManager::HeapId hid = bhm->CreateHeap();

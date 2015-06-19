@@ -35,6 +35,7 @@
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/agent/asan/windows_heap_adapter.h"
+#include "syzygy/agent/asan/memory_notifiers/shadow_memory_notifier.h"
 #include "syzygy/crashdata/crashdata.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -459,6 +460,7 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // Setup the "global" state.
   common::StackCapture::Init();
   StackCaptureCache::Init();
+  SetUpMemoryNotifier();
   SetUpLogger();
   SetUpStackCache();
   SetUpHeapManager();
@@ -507,6 +509,7 @@ void AsanRuntime::TearDown() {
   TearDownHeapManager();
   TearDownStackCache();
   TearDownLogger();
+  TearDownMemoryNotifier();
   DCHECK(asan_error_callback_.is_null() == FALSE);
   asan_error_callback_.Reset();
   CHECK(StaticShadow::shadow.TearDown());
@@ -562,7 +565,32 @@ void AsanRuntime::SetErrorCallBack(const AsanOnErrorCallBack& callback) {
   asan_error_callback_ = callback;
 }
 
+void AsanRuntime::SetUpMemoryNotifier() {
+  DCHECK_EQ(static_cast<MemoryNotifierInterface*>(nullptr),
+            memory_notifier_.get());
+  memory_notifiers::ShadowMemoryNotifier* memory_notifier =
+      new memory_notifiers::ShadowMemoryNotifier(&StaticShadow::shadow);
+  memory_notifier->NotifyInternalUse(
+      memory_notifier, sizeof(*memory_notifier));
+  memory_notifier_.reset(memory_notifier);
+}
+
+void AsanRuntime::TearDownMemoryNotifier() {
+  DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr),
+            memory_notifier_.get());
+  memory_notifiers::ShadowMemoryNotifier* memory_notifier =
+      reinterpret_cast<memory_notifiers::ShadowMemoryNotifier*>(
+          memory_notifier_.get());
+  memory_notifier->NotifyReturnedToOS(
+      memory_notifier, sizeof(*memory_notifier));
+  memory_notifier_.reset(nullptr);
+}
+
 void AsanRuntime::SetUpLogger() {
+  DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr),
+            memory_notifier_.get());
+  DCHECK_EQ(static_cast<AsanLogger*>(nullptr), logger_.get());
+
   // Setup variables we're going to use.
   scoped_ptr<base::Environment> env(base::Environment::Create());
   scoped_ptr<AsanLogger> client(new AsanLogger);
@@ -576,29 +604,51 @@ void AsanRuntime::SetUpLogger() {
 
   // Register the client singleton instance.
   logger_.reset(client.release());
+  memory_notifier_->NotifyInternalUse(logger_.get(), sizeof(*logger_.get()));
 }
 
 void AsanRuntime::TearDownLogger() {
+  DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr),
+            memory_notifier_.get());
+  DCHECK_NE(static_cast<AsanLogger*>(nullptr), logger_.get());
+  memory_notifier_->NotifyReturnedToOS(logger_.get(), sizeof(*logger_.get()));
   logger_.reset();
 }
 
 void AsanRuntime::SetUpStackCache() {
-  DCHECK(stack_cache_.get() == NULL);
-  DCHECK(logger_.get() != NULL);
-  stack_cache_.reset(new StackCaptureCache(logger_.get()));
+  DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr),
+            memory_notifier_.get());
+  DCHECK_NE(static_cast<AsanLogger*>(nullptr), logger_.get());
+  DCHECK_EQ(static_cast<StackCaptureCache*>(nullptr), stack_cache_.get());
+  stack_cache_.reset(new StackCaptureCache(
+      logger_.get(), memory_notifier_.get()));
+  memory_notifier_->NotifyInternalUse(
+      stack_cache_.get(), sizeof(*stack_cache_.get()));
 }
 
 void AsanRuntime::TearDownStackCache() {
-  DCHECK(stack_cache_.get() != NULL);
+  DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr),
+            memory_notifier_.get());
+  DCHECK_NE(static_cast<AsanLogger*>(nullptr), logger_.get());
+  DCHECK_NE(static_cast<StackCaptureCache*>(nullptr), stack_cache_.get());
   stack_cache_->LogStatistics();
+  memory_notifier_->NotifyReturnedToOS(
+      stack_cache_.get(), sizeof(*stack_cache_.get()));
   stack_cache_.reset();
 }
 
 void AsanRuntime::SetUpHeapManager() {
-  DCHECK_EQ(static_cast<heap_managers::BlockHeapManager*>(NULL),
+  DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr),
+            memory_notifier_.get());
+  DCHECK_NE(static_cast<AsanLogger*>(nullptr), logger_.get());
+  DCHECK_NE(static_cast<StackCaptureCache*>(nullptr), stack_cache_.get());
+  DCHECK_EQ(static_cast<heap_managers::BlockHeapManager*>(nullptr),
             heap_manager_.get());
-  DCHECK_NE(static_cast<StackCaptureCache*>(NULL), stack_cache_.get());
-  heap_manager_.reset(new heap_managers::BlockHeapManager(stack_cache_.get()));
+
+  heap_manager_.reset(new heap_managers::BlockHeapManager(
+      stack_cache_.get(), memory_notifier_.get()));
+  memory_notifier_->NotifyInternalUse(
+      heap_manager_.get(), sizeof(*heap_manager_.get()));
 
   // Configure the heap manager to notify us on heap corruption.
   heap_manager_->SetHeapErrorCallback(base::Bind(&AsanRuntime::OnError,
@@ -606,13 +656,20 @@ void AsanRuntime::SetUpHeapManager() {
 }
 
 void AsanRuntime::TearDownHeapManager() {
-  DCHECK_NE(static_cast<heap_managers::BlockHeapManager*>(NULL),
+  DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr),
+            memory_notifier_.get());
+  DCHECK_NE(static_cast<AsanLogger*>(nullptr), logger_.get());
+  DCHECK_NE(static_cast<StackCaptureCache*>(nullptr), stack_cache_.get());
+  DCHECK_NE(static_cast<heap_managers::BlockHeapManager*>(nullptr),
             heap_manager_.get());
+
   // Tear down the heap manager before we destroy it and lose our pointer
   // to it. This is necessary because the heap manager can raise errors
   // while tearing down the heap, which will in turn call back into the
   // block heap manager via the runtime.
   heap_manager_->TearDownHeapManager();
+  memory_notifier_->NotifyReturnedToOS(
+      heap_manager_.get(), sizeof(*heap_manager_.get()));
   heap_manager_.reset();
 }
 

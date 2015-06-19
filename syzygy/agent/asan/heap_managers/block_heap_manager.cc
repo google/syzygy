@@ -64,13 +64,14 @@ size_t GetMSBIndex(size_t n) {
 
 }  // namespace
 
-BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
+BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache,
+                                   MemoryNotifierInterface* memory_notifier)
     : stack_cache_(stack_cache),
+      memory_notifier_(memory_notifier),
       initialized_(false),
       process_heap_(nullptr),
       process_heap_underlying_heap_(nullptr),
       process_heap_id_(0),
-      shadow_memory_notifier_(&StaticShadow::shadow),
       zebra_block_heap_(nullptr),
       zebra_block_heap_id_(0),
       large_block_heap_id_(0),
@@ -78,6 +79,7 @@ BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache)
       enable_page_protections_(true),
       corrupt_block_registry_cache_(L"SyzyAsanCorruptBlocks") {
   DCHECK_NE(static_cast<StackCaptureCache*>(nullptr), stack_cache);
+  DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr), memory_notifier);
   SetDefaultAsanParameters(&parameters_);
 
   // Initialize the allocation-filter flag (using Thread Local Storage).
@@ -118,7 +120,7 @@ HeapId BlockHeapManager::CreateHeap() {
   //     heap allocations!
   HeapInterface* underlying_heap = nullptr;
   if (parameters_.enable_ctmalloc) {
-    underlying_heap = new heaps::CtMallocHeap(&shadow_memory_notifier_);
+    underlying_heap = new heaps::CtMallocHeap(memory_notifier_);
   } else {
     underlying_heap = new heaps::WinHeap();
   }
@@ -576,7 +578,7 @@ void BlockHeapManager::PropagateParameters() {
     // The zebra heap cannot be resized once created.
     base::AutoLock lock(lock_);
     zebra_block_heap_ = new ZebraBlockHeap(parameters_.zebra_block_heap_size,
-                                           &shadow_memory_notifier_,
+                                           memory_notifier_,
                                            internal_heap_.get());
     // The zebra block heap is its own quarantine.
     HeapMetadata heap_metadata = { zebra_block_heap_, false };
@@ -878,10 +880,10 @@ void BlockHeapManager::InitInternalHeap() {
 
   if (parameters_.enable_ctmalloc) {
     internal_heap_.reset(
-        new heaps::CtMallocHeap(&shadow_memory_notifier_));
+        new heaps::CtMallocHeap(memory_notifier_));
   } else {
     internal_win_heap_.reset(new heaps::WinHeap);
-    internal_heap_.reset(new heaps::InternalHeap(&shadow_memory_notifier_,
+    internal_heap_.reset(new heaps::InternalHeap(memory_notifier_,
                                                  internal_win_heap_.get()));
   }
 }
@@ -890,7 +892,7 @@ void BlockHeapManager::InitProcessHeap() {
   DCHECK_EQ(static_cast<BlockHeapInterface*>(nullptr), process_heap_);
   if (parameters_.enable_ctmalloc) {
     process_heap_underlying_heap_ =
-        new heaps::CtMallocHeap(&shadow_memory_notifier_);
+        new heaps::CtMallocHeap(memory_notifier_);
   } else {
     process_heap_underlying_heap_ = new heaps::WinHeap(::GetProcessHeap());
   }

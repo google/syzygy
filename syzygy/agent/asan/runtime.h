@@ -26,6 +26,7 @@
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/error_info.h"
 #include "syzygy/agent/asan/heap_checker.h"
+#include "syzygy/agent/asan/memory_notifier.h"
 #include "syzygy/agent/asan/heap_managers/block_heap_manager.h"
 #include "syzygy/agent/common/stack_capture.h"
 #include "syzygy/common/asan_parameters.h"
@@ -220,6 +221,12 @@ class AsanRuntime {
   AsanFeatureSet enabled_features_;
 
  private:
+  // Set up the memory notifier.
+  void SetUpMemoryNotifier();
+
+  // Tear down the memory notifier.
+  void TearDownMemoryNotifier();
+
   // Set up the logger.
   void SetUpLogger();
 
@@ -260,6 +267,10 @@ class AsanRuntime {
   static LPTOP_LEVEL_EXCEPTION_FILTER previous_uef_;  // Under lock_.
   static bool uef_installed_;  // Under lock_.
   // @}
+
+  // The shared memory notifier that will be used to update the shadow memory
+  // with redzones for internally allocated memory.
+  scoped_ptr<MemoryNotifierInterface> memory_notifier_;
 
   // The shared logger instance that will be used to report errors and runtime
   // information.
