@@ -58,18 +58,26 @@ typedef void (__cdecl * SetCrashKeyValuePairPtr)(const char*, const char*);
 typedef void (__cdecl * SetCrashKeyValueImplPtr)(const wchar_t*,
                                                  const wchar_t*);
 
-// Signature of an enhanced crash reporting function.
-typedef void(__cdecl* ReportCrashWithProtobufPtr)(EXCEPTION_POINTERS*,
-                                                  const char*,
-                                                  size_t);
+// Signature of enhanced crash reporting functions.
+typedef void(__cdecl* ReportCrashWithProtobufPtr)(EXCEPTION_POINTERS* info,
+                                                  const char* protobuf,
+                                                  size_t protobuf_length);
+typedef void(__cdecl* ReportCrashWithProtobufAndMemoryRangesPtr)(
+    EXCEPTION_POINTERS* info,
+    const char* protobuf,
+    size_t protobuf_length,
+    const void* const* base_addresses,
+    const size_t* lengths);
 
 // Collects the various Breakpad-related exported functions.
 struct BreakpadFunctions {
   // The Breakpad crash reporting entry point.
   WinProcExceptionFilter crash_for_exception_ptr;
 
-  // The optional enhanced crash reporting entry point.
+  // The optional enhanced crash reporting entry points.
   ReportCrashWithProtobufPtr report_crash_with_protobuf_ptr;
+  ReportCrashWithProtobufAndMemoryRangesPtr
+      report_crash_with_protobuf_and_memory_ranges_ptr;
 
   // Various flavours of the custom key-value setting function. The version
   // exported depends on the version of Chrome. It is possible for both of these
@@ -151,9 +159,11 @@ bool GetBreakpadFunctions(BreakpadFunctions* breakpad_functions) {
   // The named entry-point exposed to report a crash.
   static const char kCrashHandlerSymbol[] = "CrashForException";
 
-  // The optional enhanced entry-point exposed to report a crash.
+  // The optional enhanced entry-points exposed to report a crash.
   static const char kReportCrashWithProtobufSymbol[] =
       "ReportCrashWithProtobuf";
+  static const char kReportCrashWithProtobufAndMemoryRangesSymbol[] =
+      "ReportCrashWithProtobufAndMemoryRanges";
 
   // The named entry-point exposed to annotate a crash with a key/value pair.
   static const char kSetCrashKeyValuePairSymbol[] = "SetCrashKeyValuePair";
@@ -171,9 +181,16 @@ bool GetBreakpadFunctions(BreakpadFunctions* breakpad_functions) {
   breakpad_functions->report_crash_with_protobuf_ptr =
       reinterpret_cast<ReportCrashWithProtobufPtr>(
           ::GetProcAddress(exe_hmodule, kReportCrashWithProtobufSymbol));
+  // Lookup the optional enhanced crash handler symbol.
+  breakpad_functions->report_crash_with_protobuf_and_memory_ranges_ptr =
+      reinterpret_cast<ReportCrashWithProtobufAndMemoryRangesPtr>(
+          ::GetProcAddress(exe_hmodule,
+                           kReportCrashWithProtobufAndMemoryRangesSymbol));
 
   if (breakpad_functions->crash_for_exception_ptr == NULL &&
-      breakpad_functions->report_crash_with_protobuf_ptr == NULL) {
+      breakpad_functions->report_crash_with_protobuf_ptr == NULL &&
+      breakpad_functions->report_crash_with_protobuf_and_memory_ranges_ptr ==
+          NULL) {
     return false;
   }
 
@@ -212,7 +229,9 @@ void SetCrashKeyValuePair(const BreakpadFunctions& breakpad_functions,
 void SetCrashKeys(const BreakpadFunctions& breakpad_functions,
                   AsanErrorInfo* error_info) {
   DCHECK(breakpad_functions.crash_for_exception_ptr != NULL ||
-         breakpad_functions.report_crash_with_protobuf_ptr != NULL);
+         breakpad_functions.report_crash_with_protobuf_ptr != NULL ||
+         breakpad_functions.report_crash_with_protobuf_and_memory_ranges_ptr !=
+             NULL);
   DCHECK(error_info != NULL);
 
   SetCrashKeyValuePair(breakpad_functions,
@@ -263,6 +282,15 @@ bool PopulateProtobuf(const AsanErrorInfo& error_info, std::string* protobuf) {
   return true;
 }
 
+// This is for illustrative purposes only.
+// TODO(chrisha): Replace with real useful memory ranges.
+void GetMemoryRanges(std::vector<const void*>* base_addresses,
+                     std::vector<size_t>* range_lengths) {
+  static const char kGlobalString[] = "This is a global string.";
+  base_addresses->push_back(reinterpret_cast<const void*>(kGlobalString));
+  range_lengths->push_back(sizeof(kGlobalString));
+}
+
 // The breakpad error handler. It is expected that this will be bound in a
 // callback in the Asan runtime.
 // @param breakpad_functions A struct containing pointers to the various
@@ -271,7 +299,9 @@ bool PopulateProtobuf(const AsanErrorInfo& error_info, std::string* protobuf) {
 void BreakpadErrorHandler(const BreakpadFunctions& breakpad_functions,
                           AsanErrorInfo* error_info) {
   DCHECK(breakpad_functions.crash_for_exception_ptr != NULL ||
-         breakpad_functions.report_crash_with_protobuf_ptr != NULL);
+         breakpad_functions.report_crash_with_protobuf_ptr != NULL ||
+         breakpad_functions.report_crash_with_protobuf_and_memory_ranges_ptr !=
+             NULL);
   DCHECK(error_info != NULL);
 
   SetCrashKeys(breakpad_functions, error_info);
@@ -280,7 +310,23 @@ void BreakpadErrorHandler(const BreakpadFunctions& breakpad_functions,
   EXCEPTION_POINTERS pointers = {};
   InitializeExceptionRecord(error_info, &exception, &pointers);
 
-  if (breakpad_functions.report_crash_with_protobuf_ptr) {
+  if (breakpad_functions.report_crash_with_protobuf_and_memory_ranges_ptr) {
+    std::string protobuf;
+    PopulateProtobuf(*error_info, &protobuf);
+    std::vector<const void*> base_addresses;
+    std::vector<size_t> range_lengths;
+
+    // TODO(chrisha): insert desired ranges here.
+    GetMemoryRanges(&base_addresses, &range_lengths);
+
+    // Null-terminate these two arrays.
+    base_addresses.push_back(nullptr);
+    range_lengths.push_back(0);
+
+    breakpad_functions.report_crash_with_protobuf_and_memory_ranges_ptr(
+        &pointers, protobuf.data(), protobuf.length(), base_addresses.data(),
+        range_lengths.data());
+  } else if (breakpad_functions.report_crash_with_protobuf_ptr) {
     std::string protobuf;
     PopulateProtobuf(*error_info, &protobuf);
     breakpad_functions.report_crash_with_protobuf_ptr(
