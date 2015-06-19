@@ -344,5 +344,32 @@ TEST_F(RegistryCacheTest, RemoveStackId) {
   EXPECT_FALSE(registry_cache_.RemoveStackId(stack_id));
 }
 
+TEST_F(RegistryCacheTest, DeleteRegistryTree) {
+  RegistryCache registry_cache2(L"AnotherRegistry");
+  RegistryCache registry_cache3(L"YetAnotherName");
+  registry_cache_.Init();
+  registry_cache2.Init();
+  registry_cache3.Init();
+
+  key_.Create(TestRegistryCache::kRegistryRootKey,
+              TestRegistryCache::kRegistryBaseKey,
+              KEY_ALL_ACCESS);
+
+  ASSERT_TRUE(key_.Valid());
+  ASSERT_EQ(3U, GetKeyCount(TestRegistryCache::kRegistryRootKey,
+                            TestRegistryCache::kRegistryBaseKey));
+  RegistryCache::DeleteRegistryTree(L"AnotherRegistry");
+  ASSERT_EQ(2U, GetKeyCount(TestRegistryCache::kRegistryRootKey,
+                            TestRegistryCache::kRegistryBaseKey));
+
+  TestRegistryCache::RegKeyIter iter(TestRegistryCache::kRegistryRootKey,
+                                     TestRegistryCache::kRegistryBaseKey);
+  ASSERT_TRUE(iter.Valid());
+  EXPECT_EQ(L"YetAnotherName", std::wstring(iter.Name()));
+  ++iter;
+  ASSERT_TRUE(iter.Valid());
+  EXPECT_EQ(L"TEST", std::wstring(iter.Name()));
+}
+
 }  // namespace asan
 }  // namespace agent

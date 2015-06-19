@@ -89,8 +89,8 @@ class RegistryCache {
   // @param max_entries_per_version Value of max_entries_per_version_.
   // @param max_modules Value of max_modules_.
   // @param max_versions Value of max_versions_.
-  explicit RegistryCache(const wchar_t registry_name[]);
-  RegistryCache(const wchar_t registry_name[],
+  explicit RegistryCache(const wchar_t* registry_name);
+  RegistryCache(const wchar_t* registry_name,
                 size_t max_days_in_registry,
                 size_t max_entries_per_version,
                 size_t max_modules,
@@ -125,6 +125,12 @@ class RegistryCache {
   // @returns true if the ID has been found, false otherwise or if not
   //     initialized.
   bool RemoveStackId(common::StackCapture::StackId allocation_stack_id);
+
+  // Deletes the registry key corresponding to |registry_name|, including
+  // everything below it. Use carefully!
+  // @param registry_name  The base name whose key will be deleted from the
+  //     registry.
+  static void DeleteRegistryTree(const wchar_t* registry_name);
 
  protected:
   // For convenience (also used in unittests).

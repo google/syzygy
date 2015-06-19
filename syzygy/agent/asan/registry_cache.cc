@@ -35,7 +35,7 @@ const HKEY RegistryCache::kRegistryRootKey = HKEY_CURRENT_USER;
 const wchar_t RegistryCache::kRegistryBaseKey[] =
     L"Software\\Google\\Syzygy\\RegistryCache\\";
 
-RegistryCache::RegistryCache(const wchar_t registry_name[])
+RegistryCache::RegistryCache(const wchar_t* registry_name)
     : max_days_in_registry_(kDefaultMaxDaysInRegistry),
       max_entries_per_version_(kDefaultMaxEntriesPerVersion),
       max_modules_(kDefaultMaxModules),
@@ -45,7 +45,7 @@ RegistryCache::RegistryCache(const wchar_t registry_name[])
   registry_cache_key_.append(registry_name);
 }
 
-RegistryCache::RegistryCache(const wchar_t registry_name[],
+RegistryCache::RegistryCache(const wchar_t* registry_name,
                              size_t max_days_in_registry,
                              size_t max_entries_per_version,
                              size_t max_modules,
@@ -103,6 +103,13 @@ bool RegistryCache::RemoveStackId(
   DCHECK(is_init_);
 
   return entries_.erase(allocation_stack_id) != 0;
+}
+
+// static
+void RegistryCache::DeleteRegistryTree(const wchar_t* registry_name) {
+  base::win::RegKey base_key(
+      kRegistryRootKey, kRegistryBaseKey, KEY_ALL_ACCESS);
+  base_key.DeleteKey(registry_name);
 }
 
 bool RegistryCache::InitModuleInfo() {
