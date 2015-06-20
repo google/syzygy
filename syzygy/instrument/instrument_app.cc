@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <string>
 
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -29,6 +30,7 @@
 #include "syzygy/instrument/instrumenters/coverage_instrumenter.h"
 #include "syzygy/instrument/instrumenters/entry_call_instrumenter.h"
 #include "syzygy/instrument/instrumenters/entry_thunk_instrumenter.h"
+#include "syzygy/instrument/instrumenters/flummox_instrumenter.h"
 
 namespace instrument {
 
@@ -38,7 +40,7 @@ static const char kUsageFormatStr[] =
     "Usage: %ls [options]\n"
     "  Required arguments:\n"
     "    --input-image=<path> The input image to instrument.\n"
-    "    --mode=asan|bbentry|branch|calltrace|coverage|profile\n"
+    "    --mode=asan|bbentry|branch|calltrace|coverage|flummox|profile\n"
     "                            Specifies which instrumentation mode is to\n"
     "                            be used. If this is not specified it is\n"
     "                            equivalent to specifying --mode=calltrace\n"
@@ -180,6 +182,8 @@ bool InstrumentApp::ParseCommandLine(const base::CommandLine* cmd_line) {
           instrumenters::EntryThunkInstrumenter::CALL_TRACE));
     } else if (LowerCaseEqualsASCII(mode, "coverage")) {
       instrumenter_.reset(new instrumenters::CoverageInstrumenter());
+    } else if (LowerCaseEqualsASCII(mode, "flummox")) {
+      instrumenter_.reset(new instrumenters::FlummoxInstrumenter());
     } else if (LowerCaseEqualsASCII(mode, "profile")) {
       instrumenter_.reset(new instrumenters::EntryCallInstrumenter());
     } else {
