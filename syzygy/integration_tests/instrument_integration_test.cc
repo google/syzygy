@@ -219,10 +219,17 @@ void ResetAsanErrors() {
   asan_error_count = 0;
 }
 
+HMODULE GetAsanModule() {
+  HMODULE asan_module = GetModuleHandle(L"syzyasan_rtl.dll");
+  if (asan_module == NULL)
+    asan_module = GetModuleHandle(L"syzyasan_dyn.dll");
+
+  return asan_module;
+}
 void SetAsanDefaultCallBack(AsanErrorCallBack callback) {
   typedef void (WINAPI *AsanSetCallBack)(AsanErrorCallBack);
 
-  HMODULE asan_module = GetModuleHandle(L"syzyasan_rtl.dll");
+  HMODULE asan_module = GetAsanModule();
   DCHECK(asan_module != NULL);
   AsanSetCallBack set_callback = reinterpret_cast<AsanSetCallBack>(
       ::GetProcAddress(asan_module, "asan_SetCallBack"));
@@ -242,7 +249,7 @@ void SetOnExceptionCallback(agent::asan::OnExceptionCallback callback) {
   typedef void (*OnExceptionCallback)(EXCEPTION_POINTERS*);
   typedef void (WINAPI *SetOnExceptionCallback)(OnExceptionCallback);
 
-  HMODULE asan_module = GetModuleHandle(L"syzyasan_rtl.dll");
+  HMODULE asan_module = GetAsanModule();
   DCHECK(asan_module != NULL);
   SetOnExceptionCallback set_callback =
       reinterpret_cast<SetOnExceptionCallback>(
@@ -259,7 +266,7 @@ void SetOnExceptionCallback(agent::asan::OnExceptionCallback callback) {
 }
 
 agent::asan::AsanRuntime* GetActiveAsanRuntime() {
-  HMODULE asan_module = GetModuleHandle(L"syzyasan_rtl.dll");
+  HMODULE asan_module = GetAsanModule();
   DCHECK(asan_module != NULL);
 
   typedef agent::asan::AsanRuntime* (WINAPI *AsanGetActiveRuntimePtr)();
@@ -299,6 +306,33 @@ int FilterExceptionsInModule(HMODULE module,
     return EXCEPTION_EXECUTE_HANDLER;
 
   return EXCEPTION_CONTINUE_SEARCH;
+}
+
+typedef std::map<std::string, FARPROC> ImportMap;
+bool OnImport(const base::win::PEImage& image,
+              LPCSTR module,
+              DWORD ordinal,
+              LPCSTR name,
+              DWORD hint,
+              PIMAGE_THUNK_DATA iat,
+              PVOID cookie) {
+  if (name == nullptr) {
+    // This is an ordinal import.
+    return true;
+  }
+
+  ImportMap* imports = reinterpret_cast<ImportMap*>(cookie);
+  imports->insert(
+      std::make_pair(name, reinterpret_cast<FARPROC>(iat->u1.Function)));
+  return true;
+}
+
+bool GetModuleNamedImports(HMODULE module, ImportMap* imports) {
+  base::win::PEImage image(module);
+  if (!image.VerifyMagic())
+    return false;
+
+  return image.EnumAllImports(OnImport, imports);
 }
 
 class TestingProfileGrinder : public grinder::grinders::ProfileGrinder {
@@ -498,6 +532,37 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
     if (!log_message_2.empty()) {
       EXPECT_NE(std::string::npos, log.find(log_message_2.as_string()))
           << "Expected to find '" << log_message_2 << "' in logs: " << log;
+    }
+  }
+
+  void DynRtlCheckTestDllImportsRedirected() {
+    HMODULE dyn_rtl = ::GetModuleHandle(L"syzyasan_dyn.dll");
+    ASSERT_NE(static_cast<HMODULE>(nullptr), dyn_rtl);
+
+    ImportMap imports;
+    ASSERT_TRUE(GetModuleNamedImports(module_, &imports));
+    for (auto pair : imports) {
+      const std::string& name = pair.first;
+      const FARPROC imported_fn = pair.second;
+
+      // Is this an instrumentation import?
+      const bool is_asan_fn = StartsWithASCII(name, "asan_", true);
+      if (!is_asan_fn)
+        continue;
+
+      // Retrieve the corresponding export on the instrumentation DLL.
+      FARPROC rtl_export_fn = ::GetProcAddress(dyn_rtl, name.c_str());
+
+      // Is it a memory accessor?
+      const bool is_asan_check_fn = StartsWithASCII(name, "asan_check", true);
+      if (is_asan_check_fn) {
+        // Memory acessors in the dynamic RTL must be redirected after first
+        // use of the function. If the dynamic RTL doesn't redirect the imports
+        // everything will still work, just terribly slowly.
+        ASSERT_NE(rtl_export_fn, imported_fn);
+      } else {
+        ASSERT_EQ(rtl_export_fn, imported_fn);
+      }
     }
   }
 
@@ -1317,6 +1382,19 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanEndToEndDynamicRTL) {
+  // Disable the heap checking as this is implies touching all the shadow bytes
+  // and this make those tests really slow.
+  cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
+
+  // Test the dynamically binding runtime DLL.
+  cmd_line_.AppendSwitchASCII("--agent", "syzyasan_dyn.dll");
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(DynRtlCheckTestDllImportsRedirected());
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
