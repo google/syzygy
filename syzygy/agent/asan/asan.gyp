@@ -230,6 +230,7 @@
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
+        '<(src)/syzygy/assm/assm.gyp:assm_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/testing/testing.gyp:testing_lib',

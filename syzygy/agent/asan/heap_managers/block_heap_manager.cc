@@ -866,8 +866,6 @@ void BlockHeapManager::ReportHeapError(void* address, BadAccessKind kind) {
   stack.InitFromStack();
   error_info.crash_stack_id = stack.ComputeRelativeStackId();
 
-  corrupt_block_registry_cache_.AddOrUpdateStackId(error_info.crash_stack_id);
-
   // We expect a callback to be set.
   DCHECK(!heap_error_callback_.is_null());
   heap_error_callback_.Run(&error_info);
@@ -950,6 +948,10 @@ bool BlockHeapManager::ShouldReportCorruptBlock(const BlockInfo* block_info) {
   // for this allocation stack trace, if so prevent from reporting another one.
   if (corrupt_block_registry_cache_.DoesIdExist(relative_alloc_stack_id))
     return false;
+
+  // Update the corrupt block registry cache to prevent from crashing if we
+  // encounter a corrupt block that has the same allocation stack trace.
+  corrupt_block_registry_cache_.AddOrUpdateStackId(relative_alloc_stack_id);
   return true;
 }
 

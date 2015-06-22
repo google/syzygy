@@ -41,6 +41,8 @@
 #include "syzygy/agent/asan/heaps/win_heap.h"
 #include "syzygy/agent/asan/heaps/zebra_block_heap.h"
 #include "syzygy/agent/asan/memory_notifiers/null_memory_notifier.h"
+#include "syzygy/assm/assembler.h"
+#include "syzygy/assm/buffer_serializer.h"
 #include "syzygy/common/asan_parameters.h"
 
 namespace agent {
@@ -59,6 +61,84 @@ typedef BlockHeapManager::HeapId HeapId;
 testing::DummyHeap dummy_heap;
 agent::asan::memory_notifiers::ShadowMemoryNotifier
     shadow_notifier(&StaticShadow::shadow);
+
+// As the code that computes the relative stack IDs ignores any frames from
+// its own module and as we statically link with the SyzyAsan CRT, all the
+// allocations or crashes coming from these tests will have the same
+// relative stack ID by default. To fix this we need to dynamically generate
+// the code that will do the allocation, this way the ComputeRelativeStackId
+// function won't ignore this frame and the stack trace hashes will be
+// different.
+class AllocateFromHeapManagerHelper {
+ public:
+  AllocateFromHeapManagerHelper(BlockHeapManager* heap_manager,
+                                HeapId heap_id)
+      : heap_manager_(heap_manager), heap_id_(heap_id) {
+    EXPECT_NE(nullptr, heap_manager);
+    // Allocates a page that has the executable bit set.
+    allocation_code_page_ = ::VirtualAlloc(nullptr, GetPageSize(),
+        MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+    EXPECT_NE(nullptr, allocation_code_page_);
+
+    assm::BufferSerializer bs(reinterpret_cast<uint8*>(allocation_code_page_),
+                              GetPageSize());
+    assm::AssemblerImpl assembler(
+        reinterpret_cast<uint32>(allocation_code_page_), &bs);
+
+    assembler.push(assm::ebp);
+    assembler.mov(assm::ebp, assm::esp);
+
+    // Push the parameters on the stack.
+    assembler.push(assm::AssemblerImpl::Operand(assm::ebp,
+        assm::AssemblerImpl::Displacement(0x10, assm::kSize8Bit)));
+    assembler.push(assm::AssemblerImpl::Operand(assm::ebp,
+        assm::AssemblerImpl::Displacement(0x0C, assm::kSize8Bit)));
+    assembler.push(assm::AssemblerImpl::Operand(assm::ebp,
+        assm::AssemblerImpl::Displacement(0x08, assm::kSize8Bit)));
+
+    // Call the AllocateFromHeapManager function.
+    assembler.call(assm::AssemblerImpl::Immediate(
+        reinterpret_cast<uint32>(&AllocateFromHeapManager),
+                                 assm::kSize32Bit, NULL));
+    assembler.mov(assm::esp, assm::ebp);
+    assembler.pop(assm::ebp);
+    assembler.ret();
+  }
+
+  ~AllocateFromHeapManagerHelper() {
+    EXPECT_TRUE(::VirtualFree(allocation_code_page_, 0, MEM_RELEASE));
+    allocation_code_page_ = nullptr;
+  }
+
+  void* operator()(size_t bytes) {
+    using AllocFunctionPtr = void*(*)(BlockHeapManager* heap_manager,
+                                      HeapId heap_id,
+                                      size_t bytes);
+    return
+        reinterpret_cast<AllocFunctionPtr>(allocation_code_page_)(heap_manager_,
+                                                                  heap_id_,
+                                                                  bytes);
+  }
+
+ private:
+  // Do an allocation via a heap manager.
+  static void* AllocateFromHeapManager(BlockHeapManager* heap_manager,
+                                       HeapId heap_id,
+                                       size_t bytes) {
+    EXPECT_NE(nullptr, heap_manager);
+    return heap_manager->Allocate(heap_id, bytes);
+  }
+
+  // The page that contains the dynamically generated code that does an
+  // allocation via a heap manager.
+  LPVOID allocation_code_page_;
+
+  // The heap that serves the allocation.
+  HeapId heap_id_;
+
+  // The heap manager that owns the heap.
+  BlockHeapManager* heap_manager_;
+};
 
 // A fake ZebraBlockHeap to simplify unit testing.
 // Wrapper with switches to enable/disable the quarantine and accept/refuse
@@ -232,6 +312,8 @@ class ScopedHeap {
       : heap_manager_(heap_manager) {
     heap_id_ = heap_manager->CreateHeap();
     EXPECT_NE(0u, heap_id_);
+    alloc_functor_.reset(new AllocateFromHeapManagerHelper(heap_manager,
+                                                           heap_id_));
   }
 
   // Destructor. Destroy the heap, this will flush its quarantine and delete all
@@ -254,7 +336,7 @@ class ScopedHeap {
 
   // Allocate a block of @p size bytes.
   void* Allocate(size_t size) {
-    return heap_manager_->Allocate(heap_id_, size);
+    return (*alloc_functor_)(size);
   }
 
   // Free the block @p mem.
@@ -327,6 +409,9 @@ class ScopedHeap {
 
   // The underlying heap.
   HeapId heap_id_;
+
+  // The allocation functor.
+  scoped_ptr<AllocateFromHeapManagerHelper> alloc_functor_;
 };
 
 // A value-parameterized test class for testing the BlockHeapManager class.
