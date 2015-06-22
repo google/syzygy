@@ -457,8 +457,8 @@ size_t MaxSafeAllocaSize() {
   } else {  \
     runtime_->logger_->Write(  \
           "SyzyASAN: Heap checker enabled, processing exception.");  \
-    AutoHeapManagerLock lock(runtime_->heap_manager_.get());  \
-    HeapChecker heap_checker;  \
+    AutoHeapManagerLock lock((runtime)->heap_manager_.get());  \
+    HeapChecker heap_checker((runtime)->shadow());  \
     HeapChecker::CorruptRangesVector corrupt_ranges;  \
     heap_checker.IsHeapCorrupt(&corrupt_ranges);  \
     size_t size = (runtime)->CalculateCorruptHeapInfoSize(corrupt_ranges);  \
@@ -978,6 +978,7 @@ LONG WINAPI AsanRuntime::UnhandledExceptionFilter(
   return ExceptionFilterImpl(true, exception);
 }
 
+// static
 LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
                                       EXCEPTION_POINTERS* exception) {
   // This ensures that we don't have multiple colliding crashes being processed

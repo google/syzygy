@@ -99,7 +99,8 @@ TEST_F(AsanErrorInfoTest, ErrorInfoAccessTypeToStr) {
 }
 
 TEST_F(AsanErrorInfoTest, ErrorInfoGetBadAccessInformation) {
-  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
+  testing::FakeAsanBlock fake_block(
+      runtime_->shadow(), kShadowRatioLog, runtime_->stack_cache());
   const size_t kAllocSize = 100;
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
 
@@ -127,7 +128,8 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
   // inside it, then we mark the outer block as quarantined and we test a bad
   // access inside the inner block.
 
-  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
+  testing::FakeAsanBlock fake_block(
+      runtime_->shadow(), kShadowRatioLog, runtime_->stack_cache());
   const size_t kInnerBlockAllocSize = 100;
 
   // Allocates the outer block.
@@ -206,7 +208,8 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
 
 TEST_F(AsanErrorInfoTest, ErrorInfoGetBadAccessKind) {
   const size_t kAllocSize = 100;
-  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
+  testing::FakeAsanBlock fake_block(
+      runtime_->shadow(), kShadowRatioLog, runtime_->stack_cache());
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
   uint8* heap_underflow_address = fake_block.block_info.RawBody() - 1;
   uint8* heap_overflow_address = fake_block.block_info.RawBody() +
@@ -224,7 +227,8 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetBadAccessKind) {
 
 TEST_F(AsanErrorInfoTest, ErrorInfoGetAsanBlockInfo) {
   const size_t kAllocSize = 100;
-  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
+  testing::FakeAsanBlock fake_block(
+      runtime_->shadow(), kShadowRatioLog, runtime_->stack_cache());
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
 
   AsanBlockInfo asan_block_info = {};
@@ -273,7 +277,8 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetAsanBlockInfo) {
 TEST_F(AsanErrorInfoTest, GetTimeSinceFree) {
   const size_t kAllocSize = 100;
   const size_t kSleepTime = 25;
-  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
+  testing::FakeAsanBlock fake_block(
+      runtime_->shadow(), kShadowRatioLog, runtime_->stack_cache());
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
 
   uint32 ticks_before_free = ::GetTickCount();

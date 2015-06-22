@@ -29,7 +29,8 @@ typedef testing::TestWithAsanRuntime BlockUtilTest;
 
 TEST_F(BlockUtilTest, IsBlockCorruptInvalidMagicNumber) {
   const size_t kAllocSize = 100;
-  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
+  testing::FakeAsanBlock fake_block(
+      runtime_->shadow(), kShadowRatioLog, runtime_->stack_cache());
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
 
   fake_block.block_info.header->magic =
@@ -46,7 +47,8 @@ TEST_F(BlockUtilTest, IsBlockCorruptInvalidChecksum) {
   // This can fail because of a checksum collision. However, we run it a
   // handful of times to keep the chances as small as possible.
   for (size_t i = 0; i < kChecksumRepeatCount; ++i) {
-    testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
+    testing::FakeAsanBlock fake_block(
+        runtime_->shadow(), kShadowRatioLog, runtime_->stack_cache());
     EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
     EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
 
@@ -71,7 +73,8 @@ TEST_F(BlockUtilTest, IsBlockCorruptInvalidChecksum) {
 TEST_F(BlockUtilTest, IsBlockCorruptInvalidFloodFilledBody) {
   const size_t kAllocSize = 100;
 
-  testing::FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
+  testing::FakeAsanBlock fake_block(
+      runtime_->shadow(), kShadowRatioLog, runtime_->stack_cache());
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
   EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
   fake_block.block_info.header->state = QUARANTINED_FLOODED_BLOCK;

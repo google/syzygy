@@ -32,6 +32,7 @@
 #include "syzygy/agent/asan/memory_notifier.h"
 #include "syzygy/agent/asan/page_protection_helpers.h"
 #include "syzygy/agent/asan/runtime.h"
+#include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/agent/asan/memory_notifiers/null_memory_notifier.h"
 #include "syzygy/core/unittest_util.h"
@@ -42,6 +43,7 @@ namespace testing {
 
 using agent::asan::AsanErrorInfo;
 using agent::asan::memory_notifiers::NullMemoryNotifier;
+using agent::asan::Shadow;
 using agent::asan::StackCaptureCache;
 
 // The default name of the runtime library DLL.
@@ -399,7 +401,9 @@ struct FakeAsanBlock {
   static const uint8 kBufferHeaderValue = 0xAE;
   static const uint8 kBufferTrailerValue = 0xEA;
 
-  FakeAsanBlock(size_t alloc_alignment_log, StackCaptureCache* stack_cache);
+  FakeAsanBlock(Shadow* shadow,
+                size_t alloc_alignment_log,
+                StackCaptureCache* stack_cache);
 
   ~FakeAsanBlock();
 
@@ -433,6 +437,9 @@ struct FakeAsanBlock {
 
   // Indicate if the buffer has been initialized.
   bool is_initialized;
+
+  // The shadow memory that will be modified.
+  Shadow* shadow_;
 
   // The cache that will store the stack traces of this block.
   StackCaptureCache* stack_cache;

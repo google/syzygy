@@ -21,8 +21,13 @@
 namespace agent {
 namespace asan {
 
+HeapChecker::HeapChecker(Shadow* shadow)
+    : shadow_(shadow) {
+  DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
+}
+
 bool HeapChecker::IsHeapCorrupt(CorruptRangesVector* corrupt_ranges) {
-  DCHECK_NE(reinterpret_cast<CorruptRangesVector*>(NULL), corrupt_ranges);
+  DCHECK_NE(static_cast<CorruptRangesVector*>(nullptr), corrupt_ranges);
 
   corrupt_ranges->clear();
 
@@ -36,7 +41,7 @@ bool HeapChecker::IsHeapCorrupt(CorruptRangesVector* corrupt_ranges) {
   //     a new memory allocator.
   GetCorruptRangesInSlab(
       reinterpret_cast<const uint8*>(Shadow::kAddressLowerBound),
-      StaticShadow::shadow.memory_size() - Shadow::kAddressLowerBound - 1,
+      shadow_->memory_size() - Shadow::kAddressLowerBound - 1,
       corrupt_ranges);
 
   return !corrupt_ranges->empty();
@@ -45,14 +50,14 @@ bool HeapChecker::IsHeapCorrupt(CorruptRangesVector* corrupt_ranges) {
 void HeapChecker::GetCorruptRangesInSlab(const uint8* lower_bound,
                                          size_t length,
                                          CorruptRangesVector* corrupt_ranges) {
-  DCHECK_NE(reinterpret_cast<const uint8*>(NULL), lower_bound);
+  DCHECK_NE(static_cast<const uint8*>(nullptr), lower_bound);
   DCHECK_NE(0U, length);
-  DCHECK_NE(reinterpret_cast<CorruptRangesVector*>(NULL), corrupt_ranges);
+  DCHECK_NE(static_cast<CorruptRangesVector*>(nullptr), corrupt_ranges);
 
   ShadowWalker shadow_walker(
-      &StaticShadow::shadow, false, lower_bound, lower_bound + length);
+      shadow_, false, lower_bound, lower_bound + length);
 
-  AsanCorruptBlockRange* current_corrupt_range = NULL;
+  AsanCorruptBlockRange* current_corrupt_range = nullptr;
 
   // Iterates over the blocks.
   BlockInfo block_info = {};
@@ -63,26 +68,26 @@ void HeapChecker::GetCorruptRangesInSlab(const uint8* lower_bound,
     BlockProtectNone(block_info);
 
     bool current_block_is_corrupt = IsBlockCorrupt(block_info);
-    // If the current block is corrupt and |current_corrupt_range| is NULL
+    // If the current block is corrupt and |current_corrupt_range| is nullptr
     // then this means that the current block is at the beginning of a corrupt
     // range.
-    if (current_block_is_corrupt && current_corrupt_range == NULL) {
+    if (current_block_is_corrupt && current_corrupt_range == nullptr) {
       AsanCorruptBlockRange corrupt_range;
       corrupt_range.address = block_info.header;
       corrupt_range.length = 0;
       corrupt_range.block_count = 0;
-      corrupt_range.block_info = NULL;
+      corrupt_range.block_info = nullptr;
       corrupt_range.block_info_count = 0;
       corrupt_ranges->push_back(corrupt_range);
       current_corrupt_range = &corrupt_ranges->back();
-    } else if (!current_block_is_corrupt && current_corrupt_range != NULL) {
-      current_corrupt_range = NULL;
+    } else if (!current_block_is_corrupt && current_corrupt_range != nullptr) {
+      current_corrupt_range = nullptr;
     }
 
     if (current_block_is_corrupt) {
       // If the current block is corrupt then we need to update the size of the
       // current range.
-      DCHECK_NE(reinterpret_cast<AsanCorruptBlockRange*>(NULL),
+      DCHECK_NE(reinterpret_cast<AsanCorruptBlockRange*>(nullptr),
                 current_corrupt_range);
       current_corrupt_range->block_count++;
       const uint8* current_block_end = block_info.RawHeader() +

@@ -37,13 +37,14 @@ TEST_F(HeapCheckerTest, HeapCheckerHandlesPageProtections) {
   // that its big enough to have page protections. The HeapChecker will have
   // to unset these in order to do its work successfully. Otherwise it will
   // cause an access violation.
-  FakeAsanBlock fake_large_block(kShadowRatioLog, runtime_->stack_cache());
+  FakeAsanBlock fake_large_block(
+      runtime_->shadow(), kShadowRatioLog, runtime_->stack_cache());
   fake_large_block.InitializeBlock(2 * GetPageSize());
   base::RandBytes(fake_large_block.block_info.body, 2 * GetPageSize());
   fake_large_block.MarkBlockAsQuarantined();
   BlockProtectAll(fake_large_block.block_info);
 
-  HeapChecker heap_checker;
+  HeapChecker heap_checker(runtime_->shadow());
   HeapChecker::CorruptRangesVector corrupt_ranges;
   EXPECT_FALSE(heap_checker.IsHeapCorrupt(&corrupt_ranges));
 
@@ -52,12 +53,13 @@ TEST_F(HeapCheckerTest, HeapCheckerHandlesPageProtections) {
 
 TEST_F(HeapCheckerTest, IsHeapCorruptInvalidChecksum) {
   const size_t kAllocSize = 100;
-  FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
+  FakeAsanBlock fake_block(
+      runtime_->shadow(), kShadowRatioLog, runtime_->stack_cache());
 
   fake_block.InitializeBlock(kAllocSize);
   base::RandBytes(fake_block.block_info.body, kAllocSize);
 
-  HeapChecker heap_checker;
+  HeapChecker heap_checker(runtime_->shadow());
   HeapChecker::CorruptRangesVector corrupt_ranges;
   EXPECT_FALSE(heap_checker.IsHeapCorrupt(&corrupt_ranges));
 
@@ -84,7 +86,7 @@ TEST_F(HeapCheckerTest, IsHeapCorruptInvalidChecksum) {
 
   EXPECT_EQ(1, range_info.block_count);
   ShadowWalker shadow_walker(
-      &StaticShadow::shadow,
+      runtime_->shadow(),
       false,
       reinterpret_cast<const uint8*>(range_info.address),
       reinterpret_cast<const uint8*>(range_info.address) + range_info.length);
@@ -100,12 +102,13 @@ TEST_F(HeapCheckerTest, IsHeapCorruptInvalidChecksum) {
 
 TEST_F(HeapCheckerTest, IsHeapCorruptInvalidMagicNumber) {
   const size_t kAllocSize = 100;
-  FakeAsanBlock fake_block(kShadowRatioLog, runtime_->stack_cache());
+  FakeAsanBlock fake_block(
+      runtime_->shadow(), kShadowRatioLog, runtime_->stack_cache());
 
   fake_block.InitializeBlock(kAllocSize);
   base::RandBytes(fake_block.block_info.body, kAllocSize);
 
-  HeapChecker heap_checker;
+  HeapChecker heap_checker(runtime_->shadow());
   HeapChecker::CorruptRangesVector corrupt_ranges;
   EXPECT_FALSE(heap_checker.IsHeapCorrupt(&corrupt_ranges));
 
@@ -118,7 +121,7 @@ TEST_F(HeapCheckerTest, IsHeapCorruptInvalidMagicNumber) {
 
   EXPECT_EQ(1, range_info.block_count);
   ShadowWalker shadow_walker(
-      &StaticShadow::shadow,
+      runtime_->shadow(),
       false,
       reinterpret_cast<const uint8*>(range_info.address),
       reinterpret_cast<const uint8*>(range_info.address) + range_info.length);
@@ -149,13 +152,13 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
     blocks[i] = global_alloc + i * block_layout.block_size;
     BlockInfo block_info = {};
     BlockInitialize(block_layout, blocks[i], false, &block_info);
-    StaticShadow::shadow.PoisonAllocatedBlock(block_info);
+    runtime_->shadow()->PoisonAllocatedBlock(block_info);
     BlockSetChecksum(block_info);
     block_headers[i] = block_info.header;
     EXPECT_EQ(block_headers[i], reinterpret_cast<BlockHeader*>(blocks[i]));
   }
 
-  HeapChecker heap_checker;
+  HeapChecker heap_checker(runtime_->shadow());
   HeapChecker::CorruptRangesVector corrupt_ranges;
   EXPECT_FALSE(heap_checker.IsHeapCorrupt(&corrupt_ranges));
 
@@ -173,7 +176,7 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
 
   BlockInfo block_info = {};
   ShadowWalker shadow_walker_1(
-      &StaticShadow::shadow,
+      runtime_->shadow(),
       false,
       reinterpret_cast<const uint8*>(corrupt_ranges[0].address),
       reinterpret_cast<const uint8*>(corrupt_ranges[0].address) +
@@ -187,7 +190,7 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
   EXPECT_FALSE(shadow_walker_1.Next(&block_info));
 
   ShadowWalker shadow_walker_2(
-      &StaticShadow::shadow,
+      runtime_->shadow(),
       false,
       reinterpret_cast<const uint8*>(corrupt_ranges[1].address),
       reinterpret_cast<const uint8*>(corrupt_ranges[1].address) +
@@ -202,8 +205,7 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
   block_headers[1]->magic--;
   block_headers[kNumberOfBlocks - 1]->magic--;
 
-  ASSERT_TRUE(StaticShadow::shadow.Unpoison(
-      global_alloc, total_alloc_size));
+  ASSERT_TRUE(runtime_->shadow()->Unpoison(global_alloc, total_alloc_size));
   ::free(global_alloc);
 }
 

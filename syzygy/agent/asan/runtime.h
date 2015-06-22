@@ -71,6 +71,8 @@ class AsanRuntime {
     DCHECK(logger_.get() != NULL);
     return logger_.get();
   }
+  // TODO(chrisha): Make the runtime dynamically allocate a shadow.
+  Shadow* shadow() { return &StaticShadow::shadow; }
   StackCaptureCache* stack_cache() {
     DCHECK(stack_cache_.get() != NULL);
     return stack_cache_.get();

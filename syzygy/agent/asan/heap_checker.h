@@ -26,8 +26,9 @@
 namespace agent {
 namespace asan {
 
-// Forward declaration.
+// Forward declarations.
 class AsanRuntime;
+class Shadow;
 
 // A class to analyze the heap and to check if it's corrupt.
 class HeapChecker {
@@ -35,7 +36,8 @@ class HeapChecker {
   typedef std::vector<AsanCorruptBlockRange> CorruptRangesVector;
 
   // Constructor.
-  HeapChecker() { }
+  // @param shadow The shadow memory to query.
+  explicit HeapChecker(Shadow* shadow);
 
   // Checks if the heap is corrupt and returns the information about the
   // corrupt ranges. This permanently removes all page protections as it
@@ -58,6 +60,11 @@ class HeapChecker {
   void GetCorruptRangesInSlab(const uint8* lower_bound,
                               size_t length,
                               CorruptRangesVector* corrupt_ranges);
+
+  // The shadow memory that will be analyzed.
+  Shadow* shadow_;
+
+  DISALLOW_COPY_AND_ASSIGN(HeapChecker);
 };
 
 }  // namespace asan
