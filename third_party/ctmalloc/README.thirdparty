@@ -10,3 +10,6 @@ library.
 
 Local changes have been applied to make it compile for Windows OS, and to expose
 various hooks for ASAN instrumentation purposes.
+
+The original code can be found in ctmalloc-0.0.2.tar.gz, attached to
+www.crbug.com/339604#c11

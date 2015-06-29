@@ -305,13 +305,36 @@ void setSystemPagesAccessible(void* addr, size_t len)
 void decommitSystemPages(void* addr, size_t len)
 {
     ASSERT(!(len & kSystemPageOffsetMask));
-#if OS(POSIX)
+    // While a call like this is usually harmless (and actually a slight
+    // optimization), in the case of SyzyASAN it can lead to false positive
+    // write-after-frees:
+    // - an allocation is made, used, quarantined and finally freed;
+    // - the page serving said allocation houses no other allocations so the
+    //   the allocator 'decommits' it with MEM_RESET;
+    // - another allocation is made and served from the same page;
+    // - no writes are ever made to the allocation, and it is subsequently
+    //   freed;
+    // - the allocation is checksummed and quarantined;
+    // - while in the quarantine, the page migrates out of the standby list
+    //   and its contents are lost (due to the MEM_RESET flag);
+    // - the block migrates out of the quarantine and its checksum is
+    //   validated;
+    // - when reading the contents the MEM_RESET page is replaced by a fresh
+    //   zero-initialized page, and the checksum no longer matches;
+    // - from the point of view of SyzyASAN, the page contents were modified
+    //   while it was in the quarantine (hence, a write-after-free).
+    //
+    // This can be avoided by never setting MEM_RESET, or specifically calling
+    // MEM_RESET_UNDO before serving an allocation from a fresh page.
+    // MEM_RESET_UNDO is not available on all OS versions, so we simply avoid
+    // the call for now.
+/*#if OS(POSIX)
     int ret = madvise(addr, len, MADV_FREE);
     RELEASE_ASSERT(!ret);
 #else
     void* ret = VirtualAlloc(addr, len, MEM_RESET, PAGE_READWRITE);
     RELEASE_ASSERT(ret);
-#endif
+#endif*/
 }
 
 } // namespace WTF
