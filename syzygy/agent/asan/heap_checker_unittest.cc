@@ -205,7 +205,7 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
   block_headers[1]->magic--;
   block_headers[kNumberOfBlocks - 1]->magic--;
 
-  ASSERT_TRUE(runtime_->shadow()->Unpoison(global_alloc, total_alloc_size));
+  runtime_->shadow()->Unpoison(global_alloc, total_alloc_size);
   ::free(global_alloc);
 }
 

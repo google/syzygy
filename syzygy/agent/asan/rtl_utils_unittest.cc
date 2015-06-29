@@ -122,10 +122,10 @@ TEST(AsanRtlUtilsTest, TestMemoryRange) {
   EXPECT_FALSE(memory_error_detected);
 
   // Poison the second half of the buffer.
-  ASSERT_TRUE(StaticShadow::shadow.Poison(
+  StaticShadow::shadow.Poison(
       test_buffer.get() + kTestBufferSize / 2,
       kTestBufferSize / 2,
-      kUserRedzoneMarker));
+      kUserRedzoneMarker);
 
   // Test the first half of the buffer, no error should be detected.
   TestMemoryRange(test_buffer.get(), kTestBufferSize / 2, access_mode);
@@ -138,8 +138,7 @@ TEST(AsanRtlUtilsTest, TestMemoryRange) {
   EXPECT_EQ(test_buffer.get() + kTestBufferSize - 1, last_error_info.location);
   EXPECT_EQ(access_mode, last_error_info.access_mode);
 
-  ASSERT_TRUE(StaticShadow::shadow.Unpoison(
-      test_buffer.get(), kTestBufferSize));
+  StaticShadow::shadow.Unpoison(test_buffer.get(), kTestBufferSize);
 }
 
 TEST(AsanRtlUtilsTest, TestStructure) {
@@ -151,18 +150,17 @@ TEST(AsanRtlUtilsTest, TestStructure) {
   TestStructure(test_struct.get(), access_mode);
   EXPECT_FALSE(memory_error_detected);
 
-  ASSERT_TRUE(StaticShadow::shadow.Poison(
+  StaticShadow::shadow.Poison(
       test_struct.get(),
       sizeof(double),
-      kUserRedzoneMarker));
+      kUserRedzoneMarker);
 
   TestStructure(test_struct.get(), access_mode);
   EXPECT_TRUE(memory_error_detected);
   EXPECT_EQ(test_struct.get(), last_error_info.location);
   EXPECT_EQ(access_mode, last_error_info.access_mode);
 
-  ASSERT_TRUE(StaticShadow::shadow.Unpoison(
-      test_struct.get(), sizeof(double)));
+  StaticShadow::shadow.Unpoison(test_struct.get(), sizeof(double));
 }
 
 }  // namespace asan

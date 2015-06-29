@@ -61,7 +61,7 @@ TEST_F(ShadowTest, PoisonUnpoisonAccess) {
     for (size_t i = 0; i < size; ++i)
       EXPECT_TRUE(test_shadow.IsAccessible(start_addr + i));
 
-    ASSERT_TRUE(test_shadow.Poison(start_addr, size, kAsanReservedMarker));
+    test_shadow.Poison(start_addr, size, kAsanReservedMarker);
     for (size_t i = 0; i < size; ++i)
       EXPECT_FALSE(test_shadow.IsAccessible(start_addr + i));
     EXPECT_TRUE(test_shadow.IsAccessible(start_addr - 1));
@@ -70,7 +70,7 @@ TEST_F(ShadowTest, PoisonUnpoisonAccess) {
     const size_t aligned_size = ::common::AlignUp(size,
                                                   kShadowRatio);
     const uint8* aligned_start_addr = end_addr - aligned_size;
-    ASSERT_TRUE(test_shadow.Unpoison(aligned_start_addr, aligned_size));
+    test_shadow.Unpoison(aligned_start_addr, aligned_size);
     for (size_t i = 0; i < size; ++i)
       EXPECT_TRUE(test_shadow.IsAccessible(start_addr + i));
   }
@@ -87,14 +87,14 @@ TEST_F(ShadowTest, SetUpAndTearDown) {
 
   const size_t non_addressable_memory_end = (0x10000 >> 3);
 
-  ASSERT_TRUE(test_shadow.SetUp());
+  test_shadow.SetUp();
   for (size_t i = shadow_start; i < shadow_end; i += kLookupInterval)
     ASSERT_EQ(kAsanMemoryMarker, test_shadow.shadow_[i]);
 
   for (size_t i = 0; i < non_addressable_memory_end; i += kLookupInterval)
     ASSERT_EQ(kInvalidAddressMarker, test_shadow.shadow_[i]);
 
-  ASSERT_TRUE(test_shadow.TearDown());
+  test_shadow.TearDown();
   for (size_t i = shadow_start; i < shadow_end; i += kLookupInterval)
     ASSERT_EQ(kHeapAddressableMarker, test_shadow.shadow_[i]);
 
@@ -114,13 +114,13 @@ TEST_F(ShadowTest, GetNullTerminatedArraySize) {
       (aligned_test_array - test_array), kShadowRatio);
 
   ::memset(aligned_test_array, kMarkerValue, aligned_array_length);
-  ASSERT_TRUE(test_shadow.Poison(
-      aligned_test_array, aligned_array_length, kAsanReservedMarker));
+  test_shadow.Poison(
+      aligned_test_array, aligned_array_length, kAsanReservedMarker);
 
   size_t sizes_to_test[] = { 4, 7, 12, 15, 21, 87, 88 };
 
   for (size_t i = 0; i < arraysize(sizes_to_test); ++i) {
-    ASSERT_TRUE(test_shadow.Unpoison(aligned_test_array, sizes_to_test[i]));
+    test_shadow.Unpoison(aligned_test_array, sizes_to_test[i]);
     size_t size = 0;
 
     // Put a null byte at the end of the array and call the
@@ -155,12 +155,12 @@ TEST_F(ShadowTest, GetNullTerminatedArraySize) {
     EXPECT_TRUE(test_shadow.GetNullTerminatedArraySize<uint8>(
         aligned_test_array, sizes_to_test[i], &size));
 
-    ASSERT_TRUE(test_shadow.Poison(
+    test_shadow.Poison(
         aligned_test_array,
         ::common::AlignUp(sizes_to_test[i], kShadowRatio),
-        kAsanReservedMarker));
+        kAsanReservedMarker);
   }
-  ASSERT_TRUE(test_shadow.Unpoison(aligned_test_array, aligned_array_length));
+  test_shadow.Unpoison(aligned_test_array, aligned_array_length);
 }
 
 TEST_F(ShadowTest, MarkAsFreed) {
@@ -181,7 +181,7 @@ TEST_F(ShadowTest, MarkAsFreed) {
   BlockInitialize(l1, d1, true, &i1);
   test_shadow.PoisonAllocatedBlock(i1);
 
-  EXPECT_TRUE(test_shadow.MarkAsFreed(i0.body, i0.body_size));
+  test_shadow.MarkAsFreed(i0.body, i0.body_size);
   for (uint8* p = i0.RawBlock(); p < i0.RawBlock() + i0.block_size; ++p) {
     if (p >= i0.RawBlock() && p < i0.RawBody()) {
       EXPECT_TRUE(test_shadow.IsLeftRedzone(p));
@@ -205,7 +205,7 @@ TEST_F(ShadowTest, MarkAsFreed) {
     }
   }
 
-  ASSERT_TRUE(test_shadow.Unpoison(data, l0.block_size));
+  test_shadow.Unpoison(data, l0.block_size);
   delete [] data;
 }
 
@@ -242,7 +242,7 @@ TEST_F(ShadowTest, PoisonAllocatedBlock) {
     EXPECT_TRUE(test_shadow.IsAccessible(cursor));
   for (; cursor < info.RawHeader() + info.block_size; ++cursor)
     EXPECT_FALSE(test_shadow.IsAccessible(cursor));
-  ASSERT_TRUE(test_shadow.Unpoison(info.RawBlock(), info.block_size));
+  test_shadow.Unpoison(info.RawBlock(), info.block_size);
 
   delete [] data;
 }
@@ -373,7 +373,7 @@ TEST_F(ShadowTest, IsLeftOrRightRedzone) {
     EXPECT_TRUE(test_shadow.IsRightRedzone(cursor));
   }
 
-  ASSERT_TRUE(test_shadow.Unpoison(block, info.block_size));
+  test_shadow.Unpoison(block, info.block_size);
 }
 
 namespace {
@@ -429,7 +429,7 @@ void TestBlockInfoFromShadow(Shadow* shadow,
       EXPECT_FALSE(found_parent);
     }
   }
-  ASSERT_TRUE(shadow->Unpoison(info.header, info.block_size));
+  shadow->Unpoison(info.header, info.block_size);
 
   delete [] data;
 }
@@ -478,12 +478,12 @@ TEST_F(ShadowTest, IsBeginningOfBlockBody) {
   EXPECT_FALSE(test_shadow.IsBeginningOfBlockBody(data.get()));
 
   block_info.header->state = QUARANTINED_BLOCK;
-  ASSERT_TRUE(test_shadow.MarkAsFreed(block_info.body, block_info.body_size));
+  test_shadow.MarkAsFreed(block_info.body, block_info.body_size);
 
   EXPECT_TRUE(test_shadow.IsBeginningOfBlockBody(block_info.body));
   EXPECT_FALSE(test_shadow.IsBeginningOfBlockBody(data.get()));
 
-  ASSERT_TRUE(test_shadow.Unpoison(data.get(), data_size));
+  test_shadow.Unpoison(data.get(), data_size);
 }
 
 TEST_F(ShadowTest, IsBeginningOfBlockBodyForBlockOfSizeZero) {
@@ -502,12 +502,12 @@ TEST_F(ShadowTest, IsBeginningOfBlockBodyForBlockOfSizeZero) {
   EXPECT_FALSE(test_shadow.IsBeginningOfBlockBody(data.get()));
 
   block_info.header->state = QUARANTINED_FLOODED_BLOCK;
-  ASSERT_TRUE(test_shadow.MarkAsFreed(block_info.body, block_info.body_size));
+  test_shadow.MarkAsFreed(block_info.body, block_info.body_size);
 
   EXPECT_TRUE(test_shadow.IsBeginningOfBlockBody(block_info.body));
   EXPECT_FALSE(test_shadow.IsBeginningOfBlockBody(data.get()));
 
-  ASSERT_TRUE(test_shadow.Unpoison(data.get(), data_size));
+  test_shadow.Unpoison(data.get(), data_size);
 }
 
 TEST_F(ShadowTest, MarkAsFreedPerfTest) {
@@ -516,12 +516,12 @@ TEST_F(ShadowTest, MarkAsFreedPerfTest) {
 
   uint64 tnet = 0;
   for (size_t i = 0; i < 1000; ++i) {
-    ASSERT_TRUE(test_shadow.Unpoison(buf.data(), buf.size()));
+    test_shadow.Unpoison(buf.data(), buf.size());
     uint64 t0 = ::__rdtsc();
-    ASSERT_TRUE(test_shadow.MarkAsFreed(buf.data(), buf.size()));
+    test_shadow.MarkAsFreed(buf.data(), buf.size());
     uint64 t1 = ::__rdtsc();
     tnet += t1 - t0;
-    ASSERT_TRUE(test_shadow.Unpoison(buf.data(), buf.size()));
+    test_shadow.Unpoison(buf.data(), buf.size());
   }
   testing::EmitMetric("Syzygy.Asan.Shadow.MarkAsFreed", tnet);
 }
@@ -597,7 +597,7 @@ TEST_F(ShadowWalkerTest, WalksNonNestedBlocks) {
   test_shadow.PoisonAllocatedBlock(i2);
 
   i2.header->state = QUARANTINED_BLOCK;
-  ASSERT_TRUE(test_shadow.MarkAsFreed(i2.body, i2.body_size));
+  test_shadow.MarkAsFreed(i2.body, i2.body_size);
 
   // Do a non-recursive walk through the shadow.
   BlockInfo i = {};
@@ -627,7 +627,7 @@ TEST_F(ShadowWalkerTest, WalksNonNestedBlocks) {
   EXPECT_FALSE(w1.Next(&i));
   EXPECT_EQ(-1, w1.nesting_depth());
 
-  ASSERT_TRUE(test_shadow.Unpoison(data, data_size));
+  test_shadow.Unpoison(data, data_size);
   delete [] data;
 }
 
@@ -679,7 +679,7 @@ TEST_F(ShadowWalkerTest, WalksNestedBlocks) {
   BlockInitialize(b100, d100, true, &i100);
   test_shadow.PoisonAllocatedBlock(i100);
   i100.header->state = QUARANTINED_FLOODED_BLOCK;
-  ASSERT_TRUE(test_shadow.MarkAsFreed(i100.body, i100.body_size));
+  test_shadow.MarkAsFreed(i100.body, i100.body_size);
 
   // Do a non-recursive walk through the shadow.
   BlockInfo i = {};
@@ -724,7 +724,7 @@ TEST_F(ShadowWalkerTest, WalksNestedBlocks) {
   EXPECT_FALSE(w1.Next(&i));
   EXPECT_EQ(-1, w1.nesting_depth());
 
-  ASSERT_TRUE(test_shadow.Unpoison(data, data_size));
+  test_shadow.Unpoison(data, data_size);
   delete [] data;
 }
 

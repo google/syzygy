@@ -276,7 +276,7 @@ void InitializeExceptionRecord(const AsanErrorInfo* error_info,
 bool PopulateProtobuf(const AsanErrorInfo& error_info, std::string* protobuf) {
   DCHECK_NE(static_cast<std::string*>(nullptr), protobuf);
   crashdata::Value value;
-  PopulateErrorInfo(error_info, &value);
+  PopulateErrorInfo(&StaticShadow::shadow, error_info, &value);
   if (!value.SerializeToString(protobuf))
     return false;
   return true;
@@ -501,7 +501,7 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // this process. Note: this is mostly for debugging purposes.
   base::CommandLine::Init(0, NULL);
 
-  CHECK(StaticShadow::shadow.SetUp());
+  StaticShadow::shadow.SetUp();
 
   // Setup the "global" state.
   common::StackCapture::Init();
@@ -558,7 +558,7 @@ void AsanRuntime::TearDown() {
   TearDownMemoryNotifier();
   DCHECK(asan_error_callback_.is_null() == FALSE);
   asan_error_callback_.Reset();
-  CHECK(StaticShadow::shadow.TearDown());
+  StaticShadow::shadow.TearDown();
 
   // Unregister ourselves as the singleton runtime for UEF.
   runtime_ = NULL;
@@ -692,7 +692,7 @@ void AsanRuntime::SetUpHeapManager() {
             heap_manager_.get());
 
   heap_manager_.reset(new heap_managers::BlockHeapManager(
-      stack_cache_.get(), memory_notifier_.get()));
+      &StaticShadow::shadow, stack_cache_.get(), memory_notifier_.get()));
   memory_notifier_->NotifyInternalUse(
       heap_manager_.get(), sizeof(*heap_manager_.get()));
 
@@ -839,7 +839,8 @@ void AsanRuntime::WriteCorruptHeapInfo(
     // They are left turned off so that the minidump generation can introspect
     // the block.
     BlockProtectNone(block_info);
-    ErrorInfoGetAsanBlockInfo(block_info, stack_cache_.get(), asan_block_info);
+    ErrorInfoGetAsanBlockInfo(
+        block_info, stack_cache_.get(), asan_block_info);
     DCHECK_EQ(kDataIsCorrupt, asan_block_info->analysis.block_state);
   }
 
@@ -936,7 +937,8 @@ void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
       error_info->location) == kInvalidAddressMarker) {
     error_info->error_type = INVALID_ADDRESS;
   } else {
-    ErrorInfoGetBadAccessInformation(stack_cache_.get(), error_info);
+    ErrorInfoGetBadAccessInformation(
+        &StaticShadow::shadow, stack_cache_.get(), error_info);
   }
 }
 
@@ -1062,8 +1064,8 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
               ASAN_READ_ACCESS : ASAN_WRITE_ACCESS;
 
           // Fill out the rest of the bad access information.
-          ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
-                                           &error_info);
+          ErrorInfoGetBadAccessInformation(
+              &StaticShadow::shadow, runtime_->stack_cache(), &error_info);
           emit_asan_error = true;
         }
       }

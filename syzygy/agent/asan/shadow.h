@@ -117,42 +117,23 @@ class Shadow {
   virtual ~Shadow();
 
   // Set up the shadow memory.
-  // @returns false if the shadow appears inconsistent, true otherwise.
-  // @note The default (optimized) shadow implementation always returns true.
-  //     Debug shadows may make actual use of this API to do additional
-  //     consistency checks. Overrides must also call this function.
-  virtual bool SetUp();
+  void SetUp();
 
   // Tear down the shadow memory.
-  // @returns false if the shadow appears inconsistent, true otherwise.
-  // @note The default (optimized) shadow implementation always returns true.
-  //     Debug shadows may make actual use of this API to do additional
-  //     consistency checks.
-  // @note The default (optimized) shadow implementation always returns true.
-  //     Debug shadows may make actual use of this API to do additional
-  //     consistency checks. Overrides must also call this function.
-  virtual bool TearDown();
+  void TearDown();
 
   // Poisons @p size bytes starting at @p addr with @p shadow_val value.
   // @pre addr + size mod 8 == 0.
   // @param address The starting address.
   // @param size The size of the memory to poison.
   // @param shadow_val The poison marker value.
-  // @returns false if the shadow appears inconsistent, true otherwise.
-  // @note The default (optimized) shadow implementation always returns true.
-  //     Debug shadows may make actual use of this API to do additional
-  //     consistency checks. Overrides must also call this function.
-  virtual bool Poison(const void* addr, size_t size, ShadowMarker shadow_val);
+  void Poison(const void* addr, size_t size, ShadowMarker shadow_val);
 
   // Un-poisons @p size bytes starting at @p addr.
   // @pre addr mod 8 == 0 && size mod 8 == 0.
   // @param addr The starting address.
   // @param size The size of the memory to unpoison.
-  // @returns false if the shadow appears inconsistent, true otherwise.
-  // @note The default (optimized) shadow implementation always returns true.
-  //     Debug shadows may make actual use of this API to do additional
-  //     consistency checks. Overrides must also call this function.
-  virtual bool Unpoison(const void* addr, size_t size);
+  void Unpoison(const void* addr, size_t size);
 
   // Mark @p size bytes starting at @p addr as freed. This will preserve
   // nested block headers/trailers/redzones, but mark all contents as freed.
@@ -160,11 +141,7 @@ class Shadow {
   // marked as freed prior to possibly freeing the parent block.
   // @param addr The starting address.
   // @param size The size of the memory to mark as freed.
-  // @returns false if the shadow appears inconsistent, true otherwise.
-  // @note The default (optimized) shadow implementation always returns true.
-  //     Debug shadows may make actual use of this API to do additional
-  //     consistency checks. Overrides must also call this function.
-  virtual bool MarkAsFreed(const void* addr, size_t size);
+  void MarkAsFreed(const void* addr, size_t size);
 
   // Returns true iff the byte at @p addr is not poisoned.
   // @param addr The address that we want to check.
@@ -316,10 +293,16 @@ class Shadow {
   // Determines if the shadow memory is clean. That is, it reflects the
   // state of shadow memory immediately after construction and a call to
   // SetUp.
-  // @note Overrides must also call this function.
-  virtual bool IsClean() const;
+  // @returns true if the shadow memory is clean (as it would appear directly
+  //     after an initialization), false otherwise.
+  bool IsClean() const;
 
  protected:
+  // Seam for debug and testing shadow implementations. This is called for
+  // every change made to a region of shadow memory.
+  virtual void SetShadowMemory(
+      const void* address, size_t length, ShadowMarker marker);
+
   // Returns the appropriately aligned (rounded as necessary) pointer and
   // size of the most derived class implementing Shadow.
   void GetPointerAndSize(void const** self, size_t* size) const;

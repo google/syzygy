@@ -15,6 +15,7 @@
 #include "syzygy/agent/asan/heaps/large_block_heap.h"
 
 #include "syzygy/agent/asan/unittest_util.h"
+#include "syzygy/agent/asan/memory_notifiers/null_memory_notifier.h"
 
 namespace agent {
 namespace asan {
@@ -32,13 +33,14 @@ struct BlockInfoLessThan {
 typedef std::set<BlockInfo, BlockInfoLessThan> BlockInfoSet;
 
 testing::DummyHeap dummy_heap;
+agent::asan::memory_notifiers::NullMemoryNotifier dummy_notifier;
 
 // A LargeBlockHeap that uses a null memory notifier.
 class TestLargeBlockHeap : public LargeBlockHeap {
  public:
   using LargeBlockHeap::FreeAllAllocations;
 
-  TestLargeBlockHeap() : LargeBlockHeap(&dummy_heap) {
+  TestLargeBlockHeap() : LargeBlockHeap(&dummy_notifier, &dummy_heap) {
   }
 };
 
@@ -52,7 +54,8 @@ TEST(LargeBlockHeapTest, GetHeapTypeIsValid) {
 TEST(LargeBlockHeapTest, FeaturesAreValid) {
   TestLargeBlockHeap h;
   EXPECT_EQ(HeapInterface::kHeapSupportsIsAllocated |
-                HeapInterface::kHeapSupportsGetAllocationSize,
+                HeapInterface::kHeapSupportsGetAllocationSize |
+                HeapInterface::kHeapReportsReservations,
             h.GetHeapFeatures());
 }
 

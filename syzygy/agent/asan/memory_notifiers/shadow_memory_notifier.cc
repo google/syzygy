@@ -40,21 +40,21 @@ void ShadowMemoryNotifier::NotifyInternalUse(
     const void* address, size_t size) {
   DCHECK_NE(static_cast<void*>(nullptr), address);
   AlignRange(&address, &size);
-  CHECK(shadow_->Poison(address, size, kAsanMemoryMarker));
+  shadow_->Poison(address, size, kAsanMemoryMarker);
 }
 
 void ShadowMemoryNotifier::NotifyFutureHeapUse(
     const void* address, size_t size) {
   DCHECK_NE(static_cast<void*>(nullptr), address);
   AlignRange(&address, &size);
-  CHECK(shadow_->Poison(address, size, kAsanReservedMarker));
+  shadow_->Poison(address, size, kAsanReservedMarker);
 }
 
 void ShadowMemoryNotifier::NotifyReturnedToOS(
     const void* address, size_t size) {
   DCHECK_NE(static_cast<void*>(nullptr), address);
   AlignRange(&address, &size);
-  CHECK(shadow_->Unpoison(address, size));
+  shadow_->Unpoison(address, size);
 }
 
 }  // namespace memory_notifiers

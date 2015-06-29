@@ -26,12 +26,7 @@ namespace {
 
 class ShadowMemoryNotifierTest : public testing::Test {
  public:
-  ShadowMemoryNotifierTest()
-      : shadow_(shadow_data_, arraysize(shadow_data_)) {
-  }
-
   virtual void SetUp() override {
-    ::memset(shadow_data_, 0, arraysize(shadow_data_));
     shadow_.SetUp();
   }
 
@@ -39,7 +34,6 @@ class ShadowMemoryNotifierTest : public testing::Test {
     shadow_.TearDown();
   }
 
-  uint8 shadow_data_[StaticShadow::kShadowSize];
   Shadow shadow_;
 };
 

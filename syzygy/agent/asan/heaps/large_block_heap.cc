@@ -20,15 +20,17 @@
 
 #include "base/logging.h"
 #include "syzygy/agent/asan/page_protection_helpers.h"
-#include "syzygy/agent/asan/shadow.h"
 #include "syzygy/common/align.h"
 
 namespace agent {
 namespace asan {
 namespace heaps {
 
-LargeBlockHeap::LargeBlockHeap(HeapInterface* internal_heap)
-    : allocs_(HeapAllocator<void*>(internal_heap)) {
+LargeBlockHeap::LargeBlockHeap(MemoryNotifierInterface* memory_notifier,
+                               HeapInterface* internal_heap)
+    : allocs_(HeapAllocator<void*>(internal_heap)),
+      memory_notifier_(memory_notifier) {
+  DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr), memory_notifier);
 }
 
 LargeBlockHeap::~LargeBlockHeap() {
@@ -48,13 +50,16 @@ HeapType LargeBlockHeap::GetHeapType() const {
 }
 
 uint32 LargeBlockHeap::GetHeapFeatures() const {
-  return kHeapSupportsIsAllocated | kHeapSupportsGetAllocationSize;
+  return kHeapSupportsIsAllocated | kHeapSupportsGetAllocationSize |
+      kHeapReportsReservations;
 }
 
 void* LargeBlockHeap::Allocate(size_t bytes) {
   // Always allocate some memory so as to guarantee that zero-sized
   // allocations get an actual distinct address each time.
   size_t size = std::max(bytes, 1u);
+
+  // TODO(chrisha): Make this allocate with the OS allocation granularity.
   size = ::common::AlignUp(size, GetPageSize());
   void* alloc = ::VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE);
   Allocation allocation = { alloc, bytes };
@@ -66,21 +71,26 @@ void* LargeBlockHeap::Allocate(size_t bytes) {
     DCHECK(inserted);
   }
 
+  memory_notifier_->NotifyFutureHeapUse(alloc, size);
   return alloc;
 }
 
 bool LargeBlockHeap::Free(void* alloc) {
   Allocation allocation = { alloc, 0 };
 
+  size_t size = 0;
   {
     // First lookup the allocation to ensure it was made by us.
     ::common::AutoRecursiveLock lock(lock_);
     AllocationSet::iterator it = allocs_.find(allocation);
     if (it == allocs_.end())
       return false;
+    size = it->size;
     allocs_.erase(it);
   }
 
+  // Notify the OS that this memory has been returned.
+  memory_notifier_->NotifyReturnedToOS(alloc, size);
   ::VirtualFree(alloc, 0, MEM_RELEASE);
   return true;
 }
@@ -149,15 +159,8 @@ void LargeBlockHeap::FreeAllAllocations() {
   // will remove them from |allocs_|.
   std::vector<Allocation> allocs_to_free;
   std::copy(allocs_.begin(), allocs_.end(), std::back_inserter(allocs_to_free));
-  for (const auto& alloc : allocs_to_free) {
-    BlockInfo block_info = {};
-    if (StaticShadow::shadow.BlockInfoFromShadow(alloc.address, &block_info)) {
-      BlockProtectNone(block_info);
-      CHECK(StaticShadow::shadow.Unpoison(block_info.header,
-                                          block_info.block_size));
-    }
+  for (const auto& alloc : allocs_to_free)
     CHECK(Free(const_cast<void*>(alloc.address)));
-  }
 }
 
 }  // namespace heaps

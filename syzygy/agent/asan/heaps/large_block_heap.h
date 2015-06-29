@@ -31,18 +31,22 @@
 
 #include "syzygy/agent/asan/allocators.h"
 #include "syzygy/agent/asan/heap.h"
-#include "syzygy/agent/asan/memory_notifier.h"
 #include "syzygy/common/recursive_lock.h"
 
 namespace agent {
 namespace asan {
+
+class MemoryNotifierInterface;
+
 namespace heaps {
 
 class LargeBlockHeap : public BlockHeapInterface {
  public:
   // Constructor.
+  // @param memory_notifier The memory notifier to use.
   // @param internal_heap The heap to use for making internal allocations.
-  explicit LargeBlockHeap(HeapInterface* internal_heap);
+  LargeBlockHeap(MemoryNotifierInterface* memory_notifier,
+                 HeapInterface* internal_heap);
 
   // Virtual destructor.
   virtual ~LargeBlockHeap();
@@ -111,6 +115,9 @@ class LargeBlockHeap : public BlockHeapInterface {
 
   // The global lock for this allocator.
   ::common::RecursiveLock lock_;
+
+  // The memory notifier in use.
+  MemoryNotifierInterface* memory_notifier_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(LargeBlockHeap);

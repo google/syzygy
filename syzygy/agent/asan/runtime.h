@@ -67,16 +67,11 @@ class AsanRuntime {
 
   // @name Accessors.
   // @{
-  AsanLogger* logger() {
-    DCHECK(logger_.get() != NULL);
-    return logger_.get();
-  }
-  // TODO(chrisha): Make the runtime dynamically allocate a shadow.
+  MemoryNotifierInterface* memory_notifier() { return memory_notifier_.get(); }
+  AsanLogger* logger() { return logger_.get(); }
+  // TODO(chrisha): Dynamically allocate a shadow!
   Shadow* shadow() { return &StaticShadow::shadow; }
-  StackCaptureCache* stack_cache() {
-    DCHECK(stack_cache_.get() != NULL);
-    return stack_cache_.get();
-  }
+  StackCaptureCache* stack_cache() { return stack_cache_.get(); }
   // @}
 
   // Initialize asan runtime library.

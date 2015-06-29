@@ -64,9 +64,11 @@ size_t GetMSBIndex(size_t n) {
 
 }  // namespace
 
-BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache,
+BlockHeapManager::BlockHeapManager(Shadow* shadow,
+                                   StackCaptureCache* stack_cache,
                                    MemoryNotifierInterface* memory_notifier)
-    : stack_cache_(stack_cache),
+    : shadow_(shadow),
+      stack_cache_(stack_cache),
       memory_notifier_(memory_notifier),
       initialized_(false),
       process_heap_(nullptr),
@@ -78,6 +80,7 @@ BlockHeapManager::BlockHeapManager(StackCaptureCache* stack_cache,
       locked_heaps_(nullptr),
       enable_page_protections_(true),
       corrupt_block_registry_cache_(L"SyzyAsanCorruptBlocks") {
+  DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   DCHECK_NE(static_cast<StackCaptureCache*>(nullptr), stack_cache);
   DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr), memory_notifier);
   SetDefaultAsanParameters(&parameters_);
@@ -175,7 +178,7 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
     void* alloc = heap->Allocate(bytes);
     if ((heap->GetHeapFeatures() &
         HeapInterface::kHeapReportsReservations) != 0) {
-      CHECK(StaticShadow::shadow.Unpoison(alloc, bytes));
+      shadow_->Unpoison(alloc, bytes);
     }
     return alloc;
   }
@@ -228,7 +231,7 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
   BlockInitialize(block_layout, alloc, false, &block);
 
   // Poison the redzones in the shadow memory as early as possible.
-  StaticShadow::shadow.PoisonAllocatedBlock(block);
+  shadow_->PoisonAllocatedBlock(block);
 
   block.header->alloc_stack = stack_cache_->SaveStackTrace(stack);
   block.header->free_stack = nullptr;
@@ -252,7 +255,7 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
     return true;
 
   BlockInfo block_info = {};
-  if (!StaticShadow::shadow.IsBeginningOfBlockBody(alloc) ||
+  if (!shadow_->IsBeginningOfBlockBody(alloc) ||
       !GetBlockInfo(reinterpret_cast<BlockBody*>(alloc), &block_info)) {
     return FreeUnguardedAlloc(heap_id, alloc);
   }
@@ -285,8 +288,7 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   // Poison the released alloc (marked as freed) and quarantine the block.
   // Note that the original data is left intact. This may make it easier
   // to debug a crash report/dump on access to a quarantined block.
-  CHECK(StaticShadow::shadow.MarkAsFreed(
-      block_info.body, block_info.body_size));
+  shadow_->MarkAsFreed(block_info.body, block_info.body_size);
 
   // We need to update the block's metadata before pushing it into the
   // quarantine, otherwise a concurrent thread might try to pop it while its in
@@ -338,7 +340,7 @@ size_t BlockHeapManager::Size(HeapId heap_id, const void* alloc) {
   DCHECK(initialized_);
   DCHECK(IsValidHeapId(heap_id, false));
 
-  if (StaticShadow::shadow.IsBeginningOfBlockBody(alloc)) {
+  if (shadow_->IsBeginningOfBlockBody(alloc)) {
     BlockInfo block_info = {};
     if (!GetBlockInfo(reinterpret_cast<const BlockBody*>(alloc), &block_info))
       return 0;
@@ -597,7 +599,8 @@ void BlockHeapManager::PropagateParameters() {
   // Create the LargeBlockHeap if need be.
   if (parameters_.enable_large_block_heap && large_block_heap_id_ == 0) {
     base::AutoLock lock(lock_);
-    BlockHeapInterface* heap = new LargeBlockHeap(internal_heap_.get());
+    BlockHeapInterface* heap = new LargeBlockHeap(
+        memory_notifier_, internal_heap_.get());
     HeapMetadata metadata = { &shared_quarantine_, false };
     auto result = heaps_.insert(std::make_pair(heap, metadata));
     large_block_heap_id_ = GetHeapId(result);
@@ -790,13 +793,11 @@ bool BlockHeapManager::FreePristineBlock(BlockInfo* block_info) {
 
   if ((heap->GetHeapFeatures() &
        HeapInterface::kHeapReportsReservations) != 0) {
-    CHECK(StaticShadow::shadow.Poison(
-        block_info->header,
-        block_info->block_size,
-        kAsanReservedMarker));
+    shadow_->Poison(block_info->header,
+                    block_info->block_size,
+                    kAsanReservedMarker);
   } else {
-    CHECK(StaticShadow::shadow.Unpoison(
-        block_info->header, block_info->block_size));
+    shadow_->Unpoison(block_info->header, block_info->block_size);
   }
   return heap->FreeBlock(*block_info);
 }
@@ -826,10 +827,7 @@ bool BlockHeapManager::FreeUnguardedAlloc(HeapId heap_id, void* alloc) {
        HeapInterface::kHeapReportsReservations) != 0) {
     DCHECK_NE(0U, heap->GetHeapFeatures() &
                   HeapInterface::kHeapSupportsGetAllocationSize);
-    CHECK(StaticShadow::shadow.Poison(
-        alloc,
-        Size(heap_id, alloc),
-        kAsanReservedMarker));
+    shadow_->Poison(alloc, Size(heap_id, alloc), kAsanReservedMarker);
   }
 
   return heap->Free(alloc);
@@ -861,7 +859,7 @@ void BlockHeapManager::ReportHeapError(void* address, BadAccessKind kind) {
   error_info.access_mode = agent::asan::ASAN_UNKNOWN_ACCESS;
   error_info.location = address;
   error_info.error_type = kind;
-  ErrorInfoGetBadAccessInformation(stack_cache_, &error_info);
+  ErrorInfoGetBadAccessInformation(shadow_, stack_cache_, &error_info);
   agent::common::StackCapture stack;
   stack.InitFromStack();
   error_info.crash_stack_id = stack.ComputeRelativeStackId();

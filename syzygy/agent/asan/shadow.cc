@@ -49,6 +49,7 @@ Shadow StaticShadow::shadow(shadow_memory, kShadowSize);
 
 Shadow::Shadow() : own_memory_(false), shadow_(nullptr), length_(0) {
   MEMORYSTATUSEX mem_status = {};
+  mem_status.dwLength = sizeof(mem_status);
   CHECK(::GlobalMemoryStatusEx(&mem_status));
 
   // Because of the way the interceptors work we only support 2GB or 4GB
@@ -79,48 +80,38 @@ Shadow::~Shadow() {
   length_ = 0;
 }
 
-bool Shadow::SetUp() {
+void Shadow::SetUp() {
   // Poison the shadow object itself.
   const void* self = nullptr;
   size_t self_size = 0;
   GetPointerAndSize(&self, &self_size);
   DCHECK(::common::IsAligned(self, kShadowRatio));
   DCHECK(::common::IsAligned(self_size, kShadowRatio));
-  if (!Poison(self, self_size, kAsanMemoryMarker))
-    return false;
+  Poison(self, self_size, kAsanMemoryMarker);
 
   // Poison the shadow memory.
-  if (!Poison(shadow_, length_, kAsanMemoryMarker))
-    return false;
+  Poison(shadow_, length_, kAsanMemoryMarker);
   // Poison the first 64k of the memory as they're not addressable.
-  if (!Poison(0, kAddressLowerBound, kInvalidAddressMarker))
-    return false;
+  Poison(0, kAddressLowerBound, kInvalidAddressMarker);
   // Poison the protection bits array.
-  if (!Poison(page_bits_.data(), page_bits_.size(), kAsanMemoryMarker))
-    return false;
-  return true;
+  Poison(page_bits_.data(), page_bits_.size(), kAsanMemoryMarker);
 }
 
-bool Shadow::TearDown() {
+void Shadow::TearDown() {
   // Unpoison the shadow object itself.
   const void* self = nullptr;
   size_t self_size = 0;
   GetPointerAndSize(&self, &self_size);
   DCHECK(::common::IsAligned(self, kShadowRatio));
   DCHECK(::common::IsAligned(self_size, kShadowRatio));
-  if (!Unpoison(self, self_size))
-    return false;
+  Unpoison(self, self_size);
 
   // Unpoison the shadow memory.
-  if (!Unpoison(shadow_, length_))
-    return false;
+  Unpoison(shadow_, length_);
   // Unpoison the first 64k of the memory.
-  if (!Unpoison(0, kAddressLowerBound))
-    return false;
+  Unpoison(0, kAddressLowerBound);
   // Unpoison the protection bits array.
-  if (!Unpoison(page_bits_.data(), page_bits_.size()))
-    return false;
-  return true;
+  Unpoison(page_bits_.data(), page_bits_.size());
 }
 
 bool Shadow::IsClean() const {
@@ -167,6 +158,13 @@ bool Shadow::IsClean() const {
   return true;
 }
 
+void Shadow::SetShadowMemory(const void* address,
+                             size_t length,
+                             ShadowMarker marker) {
+  // Default implementation does absolutely nothing.
+  return;
+}
+
 void Shadow::GetPointerAndSize(void const** self, size_t* size) const {
   DCHECK_NE(static_cast<void**>(nullptr), self);
   DCHECK_NE(static_cast<size_t*>(nullptr), size);
@@ -174,7 +172,7 @@ void Shadow::GetPointerAndSize(void const** self, size_t* size) const {
   const uint8* begin = ::common::AlignDown(
       reinterpret_cast<const uint8*>(*self), kShadowRatio);
   const uint8* end = ::common::AlignUp(
-      reinterpret_cast<const uint8*>(*self), kShadowRatio);
+      reinterpret_cast<const uint8*>(*self) + *size, kShadowRatio);
   *self = begin;
   *size = end - begin;
 }
@@ -209,17 +207,24 @@ void Shadow::Init(bool own_memory, void* shadow, size_t length) {
   size_t page_count = memory_size / kPageSize;
   size_t page_bytes = page_count / 8;
   page_bits_.resize(page_bytes);
+
+  // Zero the memory.
+  Reset();
 }
 
 void Shadow::Reset() {
   ::memset(shadow_, 0, length_);
   ::memset(page_bits_.data(), 0, page_bits_.size());
+
+  SetShadowMemory(0, kShadowRatio * length_, kHeapAddressableMarker);
 }
 
-bool Shadow::Poison(const void* addr, size_t size, ShadowMarker shadow_val) {
+void Shadow::Poison(const void* addr, size_t size, ShadowMarker shadow_val) {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
   uintptr_t start = index & (kShadowRatio - 1);
   DCHECK_EQ(0U, (index + size) & (kShadowRatio - 1));
+
+  SetShadowMemory(addr, size, shadow_val);
 
   index >>= kShadowRatioLog;
   if (start)
@@ -228,13 +233,13 @@ bool Shadow::Poison(const void* addr, size_t size, ShadowMarker shadow_val) {
   size >>= kShadowRatioLog;
   DCHECK_GT(length_, index + size);
   ::memset(shadow_ + index, shadow_val, size);
-
-  return true;
 }
 
-bool Shadow::Unpoison(const void* addr, size_t size) {
+void Shadow::Unpoison(const void* addr, size_t size) {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
   DCHECK_EQ(0u, index & (kShadowRatio - 1));
+
+  SetShadowMemory(addr, size, kHeapAddressableMarker);
 
   uint8 remainder = size & (kShadowRatio - 1);
   index >>= kShadowRatioLog;
@@ -244,8 +249,6 @@ bool Shadow::Unpoison(const void* addr, size_t size) {
 
   if (remainder != 0)
     shadow_[index + size] = remainder;
-
-  return true;
 }
 
 namespace {
@@ -316,12 +319,14 @@ inline void MarkAsFreedImpl64(uint8* cursor, uint8* cursor_end) {
 
 }  // namespace
 
-bool Shadow::MarkAsFreed(const void* addr, size_t size) {
+void Shadow::MarkAsFreed(const void* addr, size_t size) {
   DCHECK_LE(kAddressLowerBound, reinterpret_cast<uintptr_t>(addr));
   DCHECK(::common::IsAligned(addr, kShadowRatio));
+
+  SetShadowMemory(addr, size, kHeapFreedMarker);
+
   size_t index = reinterpret_cast<uintptr_t>(addr) / kShadowRatio;
   size_t length = (size + kShadowRatio - 1) / kShadowRatio;
-
   DCHECK_LE(index, length_);
   DCHECK_LE(index + length, length_);
 
@@ -331,8 +336,6 @@ bool Shadow::MarkAsFreed(const void* addr, size_t size) {
   // This isn't as simple as a memset because we need to preserve left and
   // right redzone padding bytes that may be found in the range.
   MarkAsFreedImpl64(cursor, cursor_end);
-
-  return true;
 }
 
 bool Shadow::IsAccessible(const void* addr) const {
@@ -454,6 +457,14 @@ void Shadow::PoisonAllocatedBlock(const BlockInfo& info) {
     cursor[-1] = body_size_mod;
   ::memset(cursor, kHeapRightPaddingMarker, right_redzone_bytes - 1);
   ::memset(cursor + right_redzone_bytes - 1, trailer_marker, 1);
+
+  SetShadowMemory(info.header,
+                  info.TotalHeaderSize(),
+                  kHeapLeftPaddingMarker);
+  SetShadowMemory(info.body, info.body_size, kHeapAddressableMarker);
+  SetShadowMemory(info.trailer_padding,
+                  info.TotalTrailerSize(),
+                  kHeapRightPaddingMarker);
 }
 
 bool Shadow::BlockIsNested(const BlockInfo& info) const {

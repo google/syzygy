@@ -37,8 +37,8 @@ class AsanErrorInfoTest : public testing::TestWithAsanRuntime {
     // Clean up the fake asan block if there is one.
     // TODO(chrisha): Migrate this to using a dynamic shadow.
     if (!dummy_block_data_.empty()) {
-      StaticShadow::shadow.Unpoison(dummy_block_data_.data(),
-                                    dummy_block_data_.size());
+      runtime_->shadow()->Unpoison(dummy_block_data_.data(),
+                                   dummy_block_data_.size());
     }
 
     Super::TearDown();
@@ -52,7 +52,7 @@ class AsanErrorInfoTest : public testing::TestWithAsanRuntime {
       dummy_block_data_.resize(layout.block_size);
       BlockInfo info = {};
       BlockInitialize(layout, &dummy_block_data_.at(0), false, &info);
-      StaticShadow::shadow.PoisonAllocatedBlock(info);
+      runtime_->shadow()->PoisonAllocatedBlock(info);
 
       // Normalize a handful of fields to make the comparison simpler.
       info.trailer->alloc_ticks = 0;
@@ -74,7 +74,7 @@ class AsanErrorInfoTest : public testing::TestWithAsanRuntime {
   }
 
   const void* BlockShadowAddress() {
-    return StaticShadow::shadow.shadow() +
+    return runtime_->shadow()->shadow() +
         reinterpret_cast<uintptr_t>(dummy_block_data_.data()) / kShadowRatio;
   }
  private:
@@ -106,20 +106,23 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetBadAccessInformation) {
 
   AsanErrorInfo error_info = {};
   error_info.location = fake_block.block_info.RawBody() + kAllocSize + 1;
-  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
+  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->shadow(),
+                                               runtime_->stack_cache(),
                                                &error_info));
   EXPECT_EQ(HEAP_BUFFER_OVERFLOW, error_info.error_type);
   EXPECT_EQ(kUnknownHeapType, error_info.block_info.heap_type);
 
   EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
   error_info.location = fake_block.block_info.body;
-  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
+  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->shadow(),
+                                               runtime_->stack_cache(),
                                                &error_info));
   EXPECT_EQ(USE_AFTER_FREE, error_info.error_type);
   EXPECT_EQ(kUnknownHeapType, error_info.block_info.heap_type);
 
   error_info.location = fake_block.buffer_align_begin - 1;
-  EXPECT_FALSE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
+  EXPECT_FALSE(ErrorInfoGetBadAccessInformation(runtime_->shadow(),
+                                                runtime_->stack_cache(),
                                                 &error_info));
 }
 
@@ -153,7 +156,7 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
   BlockInitialize(inner_block_layout, fake_block.block_info.body, true,
       &inner_block_info);
   ASSERT_NE(reinterpret_cast<void*>(NULL), inner_block_info.body);
-  StaticShadow::shadow.PoisonAllocatedBlock(inner_block_info);
+  runtime_->shadow()->PoisonAllocatedBlock(inner_block_info);
   inner_block_info.header->alloc_stack =
       runtime_->stack_cache()->SaveStackTrace(stack);
   BlockHeader* inner_header = inner_block_info.header;
@@ -170,7 +173,8 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
   inner_header->state = QUARANTINED_BLOCK;
 
   error_info.location = fake_block.block_info.body;
-  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
+  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->shadow(),
+                                               runtime_->stack_cache(),
                                                &error_info));
   EXPECT_EQ(USE_AFTER_FREE, error_info.error_type);
   EXPECT_NE(reinterpret_cast<void*>(NULL), error_info.block_info.free_stack);
@@ -192,7 +196,8 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
 
   // Tests an access in the inner block.
   error_info.location = inner_block_info.body;
-  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
+  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->shadow(),
+                                               runtime_->stack_cache(),
                                                &error_info));
   EXPECT_EQ(USE_AFTER_FREE, error_info.error_type);
   EXPECT_NE(reinterpret_cast<void*>(NULL), error_info.block_info.free_stack);
@@ -215,13 +220,15 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetBadAccessKind) {
   uint8* heap_overflow_address = fake_block.block_info.RawBody() +
       kAllocSize * sizeof(uint8);
   EXPECT_EQ(HEAP_BUFFER_UNDERFLOW,
-            ErrorInfoGetBadAccessKind(heap_underflow_address,
+            ErrorInfoGetBadAccessKind(runtime_->shadow(),
+                                      heap_underflow_address,
                                       fake_block.block_info.header));
   EXPECT_EQ(HEAP_BUFFER_OVERFLOW,
-            ErrorInfoGetBadAccessKind(heap_overflow_address,
+            ErrorInfoGetBadAccessKind(runtime_->shadow(),
+                                      heap_overflow_address,
                                       fake_block.block_info.header));
   EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
-  EXPECT_EQ(USE_AFTER_FREE, ErrorInfoGetBadAccessKind(
+  EXPECT_EQ(USE_AFTER_FREE, ErrorInfoGetBadAccessKind(runtime_->shadow(),
       fake_block.block_info.body, fake_block.block_info.header));
 }
 
@@ -287,7 +294,8 @@ TEST_F(AsanErrorInfoTest, GetTimeSinceFree) {
   AsanErrorInfo error_info = {};
   error_info.error_type = USE_AFTER_FREE;
   error_info.location = fake_block.block_info.body;
-  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->stack_cache(),
+  EXPECT_TRUE(ErrorInfoGetBadAccessInformation(runtime_->shadow(),
+                                               runtime_->stack_cache(),
                                                &error_info));
   EXPECT_NE(0U, error_info.block_info.milliseconds_since_free);
 
@@ -303,7 +311,7 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfo) {
 
   {
     crashdata::Value info;
-    PopulateBlockInfo(block_info, false, &info);
+    PopulateBlockInfo(runtime_->shadow(), block_info, false, &info);
     std::string json;
     EXPECT_TRUE(crashdata::ToJson(true, &info, &json));
     const char kExpected[] =
@@ -339,7 +347,7 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfo) {
     block_info.milliseconds_since_free = 100;
 
     crashdata::Value value;
-    PopulateBlockInfo(block_info, true, &value);
+    PopulateBlockInfo(runtime_->shadow(), block_info, true, &value);
     std::string json;
     EXPECT_TRUE(crashdata::ToJson(true, &value, &json));
     const char kExpected[] =
@@ -406,7 +414,7 @@ TEST_F(AsanErrorInfoTest, PopulateCorruptBlockRange) {
   range.block_info = &block_info;
 
   crashdata::Value info;
-  PopulateCorruptBlockRange(range, &info);
+  PopulateCorruptBlockRange(runtime_->shadow(), range, &info);
 
   std::string json;
   EXPECT_TRUE(crashdata::ToJson(true, &info, &json));
@@ -474,7 +482,7 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfo) {
   ::common::SetDefaultAsanParameters(&error_info.asan_parameters);
 
   crashdata::Value info;
-  PopulateErrorInfo(error_info, &info);
+  PopulateErrorInfo(runtime_->shadow(), error_info, &info);
 
   std::string json;
   EXPECT_TRUE(crashdata::ToJson(true, &info, &json));

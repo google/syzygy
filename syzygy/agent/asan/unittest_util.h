@@ -22,6 +22,7 @@
 #include "base/bind.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/memory/ref_counted.h"
 #include "base/strings/string_piece.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -35,6 +36,9 @@
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/agent/asan/memory_notifiers/null_memory_notifier.h"
+#include "syzygy/agent/common/stack_capture.h"
+#include "syzygy/core/address.h"
+#include "syzygy/core/address_space.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/trace/agent_logger/agent_logger.h"
 #include "syzygy/trace/agent_logger/agent_logger_rpc_impl.h"
@@ -709,6 +713,64 @@ class ScopedBlockAccess {
 
  private:
   const agent::asan::BlockInfo& block_info_;
+};
+
+// A debugging shadow class. This keeps extra details in the form of an address
+// space with stack traces. This makes it much easier to track down
+// inconsistencies in the shadow memory.
+class DebugShadow : public Shadow {
+ public:
+  using ShadowMarker = agent::asan::ShadowMarker;
+
+  DebugShadow() : Shadow() {
+  }
+
+  explicit DebugShadow(size_t length)
+      : Shadow(length) {
+  }
+
+  ~DebugShadow() override {
+    // If the shadow has been properly used it will be completely empty by the
+    // time it is torn down.
+    CHECK(shadow_address_space_.empty());
+  }
+
+ protected:
+  // @name Shadow implementation.
+  // @{
+  void SetShadowMemory(
+      const void* address, size_t length, ShadowMarker marker) override;
+  void GetPointerAndSizeImpl(void const** self, size_t* size) const override;
+  // @}
+
+ private:
+  using StackCapture = agent::common::StackCapture;
+
+  // Holds details about a given range of shadow memory. Persists the
+  // original size of a region, even if it is subsequently fragmented.
+  struct Metadata {
+    const void* address;
+    size_t size;
+    ShadowMarker marker;
+    StackCapture stack_capture;
+
+    // Explicitly enable copy and assignment.
+    Metadata();
+    Metadata(const void* address, size_t size, ShadowMarker marker);
+    Metadata(const Metadata& rhs);
+    Metadata& operator=(const Metadata& rhs);
+  };
+  using ShadowAddressSpace =
+      core::AddressSpace<uintptr_t, size_t, Metadata>;
+  using Range = ShadowAddressSpace::Range;
+
+  // Ensure that the given range has been cleared from the address-space,
+  // readying it for a subsequent insertion.
+  void ClearIntersection(const void* addr, size_t size);
+
+  // An alternative view of shadow memory. Accessible regions are not
+  // displayed. Neighboring regions of the same type are merged.
+  ShadowAddressSpace shadow_address_space_;
 };
 
 }  // namespace testing

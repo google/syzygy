@@ -306,7 +306,7 @@ FakeAsanBlock::FakeAsanBlock(Shadow* shadow,
 
 FakeAsanBlock::~FakeAsanBlock() {
   EXPECT_NE(0U, block_info.block_size);
-  CHECK(shadow_->Unpoison(buffer_align_begin, block_info.block_size));
+  shadow_->Unpoison(buffer_align_begin, block_info.block_size);
   ::memset(buffer, 0, sizeof(buffer));
 }
 
@@ -422,7 +422,7 @@ bool FakeAsanBlock::MarkBlockAsQuarantined() {
   EXPECT_TRUE(block_info.trailer != NULL);
   EXPECT_EQ(0U, block_info.trailer->free_tid);
 
-  EXPECT_TRUE(shadow_->MarkAsFreed(block_info.body, block_info.body_size));
+  shadow_->MarkAsFreed(block_info.body, block_info.body_size);
   StackCapture stack;
   stack.InitFromStack();
   block_info.header->free_stack = stack_cache->SaveStackTrace(stack);
@@ -990,6 +990,150 @@ bool IsAccessible(void* address) {
 
 bool IsNotAccessible(void* address) {
   return testing::TestAccess(address, true);
+}
+
+DebugShadow::Metadata::Metadata()
+    : address(nullptr), size(0),
+      marker(agent::asan::kHeapAddressableMarker) {
+}
+
+DebugShadow::Metadata::Metadata(
+    const void* address, size_t size, ShadowMarker marker)
+    : address(address), size(size), marker(marker) {
+  stack_capture.InitFromStack();
+}
+
+DebugShadow::Metadata::Metadata(const Metadata& rhs)
+    : address(rhs.address), size(rhs.size), marker(rhs.marker) {
+  if (rhs.stack_capture.num_frames() > 0) {
+    stack_capture.InitFromBuffer(rhs.stack_capture.stack_id(),
+                                 rhs.stack_capture.frames(),
+                                 rhs.stack_capture.num_frames());
+  }
+}
+
+DebugShadow::Metadata& DebugShadow::Metadata::operator=(const Metadata& rhs) {
+  address = rhs.address;
+  size = rhs.size;
+  marker = rhs.marker;
+  if (rhs.stack_capture.num_frames() > 0) {
+    stack_capture.InitFromBuffer(rhs.stack_capture.stack_id(),
+                                 rhs.stack_capture.frames(),
+                                 rhs.stack_capture.num_frames());
+  }
+  return *this;
+}
+
+void DebugShadow::SetShadowMemory(
+    const void* address, size_t length, ShadowMarker marker) {
+  ClearIntersection(address, length);
+  if (marker != agent::asan::kHeapAddressableMarker) {
+    Range range(reinterpret_cast<uintptr_t>(address), length);
+    Metadata data(address, length, marker);
+
+    ShadowAddressSpace::RangeMapIter it;
+    CHECK(shadow_address_space_.Insert(range, data, &it));
+
+    // If this is memory being returned to a reserved pool, then potentially
+    // merge with neighboring such ranges. This keeps the address space as
+    // human legible as possible.
+    if (marker == agent::asan::kAsanReservedMarker) {
+      auto it1 = it;
+      auto it2 = it;
+      bool merge = false;
+      Metadata data = it->second;
+
+      // Check to see if there's a range to the left, and if it needs to be
+      // merged.
+      if (it != shadow_address_space_.begin()) {
+        it1--;
+        if (it1->first.end() == it->first.start() &&
+            it1->second.marker == it->second.marker) {
+          merge = true;
+          if (it1->second.size >= data.size)
+            data = it1->second;
+        } else {
+          ++it1;
+        }
+      }
+
+      // Check to see if there's a range to the right, and if it needs to be
+      // merged.
+      ++it2;
+      if (it2 != shadow_address_space_.end()) {
+        if (it->first.end() == it2->first.start() &&
+            it->second.marker == it2->second.marker) {
+          merge = true;
+          if (it2->second.size > data.size)
+            data = it2->second;
+        } else {
+          --it2;
+        }
+      } else {
+        --it2;
+      }
+
+      if (merge) {
+        Range range(it1->first.start(),
+                    it2->first.end() - it1->first.start());
+        CHECK(shadow_address_space_.SubsumeInsert(range, data));
+      }
+    }
+  }
+}
+
+void DebugShadow::GetPointerAndSizeImpl(
+    void const** self, size_t* size) const {
+  DCHECK_NE(static_cast<void**>(nullptr), self);
+  DCHECK_NE(static_cast<size_t*>(nullptr), size);
+  *self = this;
+  *size = sizeof(*this);
+}
+
+void DebugShadow::ClearIntersection(const void* addr, size_t size) {
+  uintptr_t start = reinterpret_cast<uintptr_t>(addr);
+
+  auto range = Range(reinterpret_cast<uintptr_t>(addr), size);
+  ShadowAddressSpace::RangeMapIterPair iter_pair =
+      shadow_address_space_.FindIntersecting(range);
+
+  bool reinsert_head_range = false;
+  Range head_range;
+  Metadata head_data;
+
+  bool reinsert_tail_range = false;
+  Range tail_range;
+  Metadata tail_data;
+
+  // If the range is non-empty then remember the portion of the head and tail
+  // ranges to be reinserted, if any.
+  if (iter_pair.first != iter_pair.second) {
+    auto it = iter_pair.first;
+    if (it->first.start() < start) {
+      reinsert_head_range = true;
+      head_range = Range(
+          it->first.start(),
+          start - it->first.start());
+      head_data = it->second;
+    }
+
+    it = iter_pair.second;
+    --it;
+    if (start + size < it->first.end()) {
+      reinsert_tail_range = true;
+      tail_range = Range(
+          range.end(),
+          it->first.end() - range.end());
+      tail_data = it->second;
+    }
+  }
+
+  // Delete the entire range.
+  shadow_address_space_.Remove(iter_pair);
+  if (reinsert_head_range)
+    CHECK(shadow_address_space_.Insert(head_range, head_data));
+  if (reinsert_tail_range)
+    CHECK(shadow_address_space_.Insert(tail_range, tail_data));
 }
 
 }  // namespace testing

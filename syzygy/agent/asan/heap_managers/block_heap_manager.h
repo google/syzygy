@@ -67,8 +67,11 @@ namespace heap_managers {
 class BlockHeapManager : public HeapManagerInterface {
  public:
   // Constructor.
+  // @param shadow The shadow memory to use.
   // @param stack_cache The stack cache to use.
-  BlockHeapManager(StackCaptureCache* stack_cache,
+  // @param memory_notifier The memory notifier to use.
+  BlockHeapManager(Shadow* shadow,
+                   StackCaptureCache* stack_cache,
                    MemoryNotifierInterface* memory_notifier);
 
   // Destructor.
@@ -316,6 +319,9 @@ class BlockHeapManager : public HeapManagerInterface {
   // @param block_info The corrupt block.
   // @returns true if an error should be reported, false otherwise.
   bool ShouldReportCorruptBlock(const BlockInfo* block_info);
+
+  // The shadow memory that is notified by all activity in this heap manager.
+  Shadow* shadow_;
 
   // The stack cache used to store the stack traces.
   StackCaptureCache* stack_cache_;

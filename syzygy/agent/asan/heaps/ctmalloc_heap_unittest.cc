@@ -14,6 +14,7 @@
 
 #include "syzygy/agent/asan/heaps/ctmalloc_heap.h"
 
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/unittest_util.h"
 #include "syzygy/agent/asan/heaps/win_heap.h"
@@ -159,6 +160,26 @@ TEST(CtMallocHeapTest, Lock) {
   EXPECT_TRUE(h.TryLock());
   h.Unlock();
   h.Unlock();
+}
+
+TEST(CtMallocHeapTest, NotifierIsCalled) {
+  using testing::_;
+
+  testing::StrictMock<testing::MockMemoryNotifier> n;
+  scoped_ptr<CtMallocHeap> h;
+  h.reset(new CtMallocHeap(&n));
+  testing::Mock::VerifyAndClearExpectations(&n);
+
+  EXPECT_CALL(n, NotifyFutureHeapUse(_, _));
+  void* alloc = h->Allocate(100);
+  testing::Mock::VerifyAndClearExpectations(&n);
+
+  h->Free(alloc);
+  testing::Mock::VerifyAndClearExpectations(&n);
+
+  EXPECT_CALL(n, NotifyReturnedToOS(_, _));
+  h.reset(nullptr);
+  testing::Mock::VerifyAndClearExpectations(&n);
 }
 
 }  // namespace heaps

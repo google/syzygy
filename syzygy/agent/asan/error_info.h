@@ -33,6 +33,7 @@ namespace agent {
 namespace asan {
 
 // Forward declarations.
+class Shadow;
 class StackCaptureCache;
 struct BlockHeader;
 
@@ -193,25 +194,29 @@ typedef base::Callback<void(AsanErrorInfo* asan_error_info)>
 const char* ErrorInfoAccessTypeToStr(BadAccessKind bad_access_kind);
 
 // Get information about a bad access.
+// @param shadow The shadow memory to query.
 // @param stack_cache The stack cache that owns the alloc and free stack traces
 //     of the blocks.
 // @param bad_access_info Will receive the information about this access.
 // @returns true if the address belongs to a memory block, false otherwise.
-bool ErrorInfoGetBadAccessInformation(StackCaptureCache* stack_cache,
+bool ErrorInfoGetBadAccessInformation(const Shadow* shadow,
+                                      StackCaptureCache* stack_cache,
                                       AsanErrorInfo* bad_access_info);
 
 // Give the type of a bad heap access corresponding to an address.
+// @param shadow The shadow memory to query.
 // @param addr The address causing a bad heap access.
 // @param header The header of the block containing this address.
 // @returns The type of the bad heap access corresponding to this address.
 // @note Exposed for unittesting.
-BadAccessKind ErrorInfoGetBadAccessKind(const void* addr,
+BadAccessKind ErrorInfoGetBadAccessKind(const Shadow* shadow,
+                                        const void* addr,
                                         const BlockHeader* header);
 
 // Retrieves a block's metadata.
+// @param block_info The block whose info is to be gathered.
 // @param stack_cache The stack cache that owns the alloc and free stack traces
 //     of this block.
-// @param block_info THe block whose info is to be gathered.
 // @param asan_block_info Will receive the block's metadata.
 void ErrorInfoGetAsanBlockInfo(const BlockInfo& block_info,
                                StackCaptureCache* stack_cache,
@@ -219,26 +224,32 @@ void ErrorInfoGetAsanBlockInfo(const BlockInfo& block_info,
 
 // Given a populated AsanBlockInfo struct, fills out a corresponding crashdata
 // protobuf.
+// @param shadow The shadow memory to query.
 // @param block_info The block info information.
 // @param include_block_contents If this is true the block contents will be
 //     explicitly included in the protobuf.
 // @param value The uninitialized protobuf value to be populated.
-void PopulateBlockInfo(const AsanBlockInfo& block_info,
+void PopulateBlockInfo(const Shadow* shadow,
+                       const AsanBlockInfo& block_info,
                        bool include_block_contents,
                        crashdata::Value* value);
 
 // Given a populated AsanCorruptBlockRange struct, fills out a corresponding
 // crashdata protobuf.
+// @param shadow The shadow memory to query.
 // @param range The corrupt block range information.
 // @param value The uninitialized protobuf value to be populated.
-void PopulateCorruptBlockRange(const AsanCorruptBlockRange& range,
+void PopulateCorruptBlockRange(const Shadow* shadow,
+                               const AsanCorruptBlockRange& range,
                                crashdata::Value* value);
 
 // Given a populated AsanErrorInfo struct, fills out a corresponding crashdata
 // protobuf.
+// @param shadow The shadow memory to query.
 // @param error_info The filled in error information.
 // @param value The uninitialized protobuf value to be populated.
-void PopulateErrorInfo(const AsanErrorInfo& error_info,
+void PopulateErrorInfo(const Shadow* shadow,
+                       const AsanErrorInfo& error_info,
                        crashdata::Value* value);
 
 }  // namespace asan
