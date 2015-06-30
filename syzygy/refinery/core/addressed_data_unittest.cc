@@ -41,4 +41,29 @@ TEST(AddressedDataTest, BasicTest) {
   ASSERT_EQ('f', retrieved);
 }
 
+TEST(AddressedDataTest, Slice) {
+  const Address kAddress = 80ULL;
+  const char kBuffer[] = "0123456789";
+  const AddressRange range(kAddress, sizeof(kBuffer));
+
+  AddressedData data(range, reinterpret_cast<const void*>(kBuffer));
+
+  AddressedData slice;
+  // Starting a slice past the end should fail.
+  EXPECT_FALSE(data.Slice(sizeof(kBuffer) + 1, 1, &slice));
+  // Slicing length past the end should fail.
+  EXPECT_FALSE(data.Slice(0, sizeof(kBuffer) + 1, &slice));
+
+  // A zero slice is OK.
+  EXPECT_TRUE(data.Slice(sizeof(kBuffer), 0, &slice));
+
+  // Test that valid slicing works.
+  EXPECT_TRUE(data.Slice(1, 1, &slice));
+  char retrieved = '-';
+  EXPECT_TRUE(slice.GetAt(kAddress + 1, &retrieved));
+  EXPECT_EQ('1', retrieved);
+
+  EXPECT_FALSE(slice.GetAt(kAddress + 2, &retrieved));
+}
+
 }  // namespace refinery

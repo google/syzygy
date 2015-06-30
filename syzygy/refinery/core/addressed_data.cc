@@ -14,7 +14,12 @@
 
 #include "syzygy/refinery/core/addressed_data.h"
 
+#include <stdint.h>
+
 namespace refinery {
+
+AddressedData::AddressedData() : buffer_parser_(nullptr, 0) {
+}
 
 AddressedData::AddressedData(const AddressRange& range, const void* data) :
   range_(range), buffer_parser_(data, range.size()) {
@@ -41,6 +46,15 @@ bool AddressedData::GetAt(const AddressRange& range, void* data_ptr) {
     return false;
   }
   memcpy(data_ptr, buffer_ptr, range.size());
+  return true;
+}
+
+bool AddressedData::Slice(size_t index, size_t len, AddressedData* slice) {
+  const void* inner_ptr = nullptr;
+  if (!buffer_parser_.GetAt(index, len, &inner_ptr))
+    return false;
+
+  *slice = AddressedData(AddressRange(range_.addr() + index, len), inner_ptr);
   return true;
 }
 

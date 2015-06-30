@@ -26,6 +26,9 @@ namespace refinery {
 // buffer; copies are preferred to avoid memory alignment issues.
 class AddressedData {
  public:
+  // Creates an empty address range.
+  AddressedData();
+
   // @param range the address range spanned by the data.
   // @param data a pointer to data of at least size specified by @p range.
   AddressedData(const AddressRange& range, const void* data);
@@ -46,8 +49,15 @@ class AddressedData {
   // @param range the requested range.
   // @param data_ptr a buffer of size at least that of @p range. On success,
   //    contains the returned data.
-  // returns true iff the buffer spans @p range.
+  // @returns true iff the buffer spans @p range.
   bool GetAt(const AddressRange& range, void* data_ptr);
+
+  // Retrieve a slice of the address range.
+  // @param index the start of the slice to create.
+  // @param len the length of the slice range to create.
+  // @param slice the output slice.
+  // @returns true if [index, index + len] are in this range.
+  bool Slice(size_t index, size_t len, AddressedData* slice);
 
  private:
   AddressRange range_;
