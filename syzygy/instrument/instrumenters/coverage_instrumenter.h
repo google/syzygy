@@ -39,8 +39,9 @@ class CoverageInstrumenter : public InstrumenterWithAgent {
 
   // @name InstrumenterWithAgent overrides.
   // @{
-  virtual bool InstrumentImpl() override;
-  virtual const char* InstrumentationMode() override { return "coverage"; }
+  bool InstrumentPrepare() override;
+  bool InstrumentImpl() override;
+  const char* InstrumentationMode() override { return "coverage"; }
   // @}
 
   // The transform for this agent.

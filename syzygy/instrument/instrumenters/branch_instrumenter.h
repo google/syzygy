@@ -39,8 +39,9 @@ class BranchInstrumenter : public InstrumenterWithAgent {
 
   // @name InstrumenterWithAgent overrides.
   // @{
-  virtual bool InstrumentImpl();
-  virtual const char* InstrumentationMode() { return "branch"; }
+  bool InstrumentPrepare() override;
+  bool InstrumentImpl();
+  const char* InstrumentationMode() { return "branch"; }
   // @}
 
   // @name Super overrides.
@@ -60,7 +61,6 @@ class BranchInstrumenter : public InstrumenterWithAgent {
   bool buffering_;
   uint32 fs_slot_;
   // @}
-
 };
 
 }  // namespace instrumenters

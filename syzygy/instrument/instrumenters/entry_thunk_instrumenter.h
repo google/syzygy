@@ -51,8 +51,9 @@ class EntryThunkInstrumenter : public InstrumenterWithAgent {
 
   // @name InstrumenterWithAgent overrides.
   // @{
-  virtual bool InstrumentImpl() override;
-  virtual const char* InstrumentationMode() override;
+  bool InstrumentPrepare() override;
+  bool InstrumentImpl() override;
+  const char* InstrumentationMode() override;
   // @}
 
   // @name Super overrides.

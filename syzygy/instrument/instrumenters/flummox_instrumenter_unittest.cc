@@ -42,6 +42,7 @@ class TestFlummoxInstrumenter : public FlummoxInstrumenter {
   using FlummoxInstrumenter::no_strip_strings_;
   using FlummoxInstrumenter::debug_friendly_;
   using FlummoxInstrumenter::flummox_transform_;
+  using FlummoxInstrumenter::InstrumentPrepare;
   using FlummoxInstrumenter::InstrumentImpl;
   using FlummoxInstrumenter::CreateRelinker;
 };
@@ -184,6 +185,7 @@ TEST_F(FlummoxInstrumenterTest, InstrumentImpl) {
   SetUpValidCommandLine();
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_.InstrumentPrepare());
   EXPECT_TRUE(instrumenter_.CreateRelinker());
   EXPECT_TRUE(instrumenter_.InstrumentImpl());
   // Ensure that the test target lists are read.

@@ -45,6 +45,10 @@ bool AsanInstrumenter::ImageFormatIsSupported(ImageFormat image_format) {
   return false;
 }
 
+bool AsanInstrumenter::InstrumentPrepare() {
+  return true;
+}
+
 bool AsanInstrumenter::InstrumentImpl() {
   // Parse the filter if one was provided.
   scoped_ptr<pe::ImageFilter> filter;

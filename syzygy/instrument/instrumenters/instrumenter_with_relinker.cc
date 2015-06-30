@@ -113,6 +113,9 @@ bool InstrumenterWithRelinker::CheckCommandLineParse(
 }
 
 bool InstrumenterWithRelinker::Instrument() {
+  if (!InstrumentPrepare())
+    return false;
+
   if (!CreateRelinker())
     return false;
 

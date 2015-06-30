@@ -72,6 +72,7 @@ class TestInstrumenterWithRelinker : public InstrumenterWithRelinker {
     return true;
   }
 
+  MOCK_METHOD0(InstrumentPrepare, bool());
   MOCK_METHOD0(InstrumentImpl, bool());
 
   pe::PERelinker* GetPERelinker() override { return &mock_pe_relinker_; }
@@ -203,6 +204,7 @@ TEST_F(InstrumenterWithRelinkerTest, InstrumentPE) {
   EXPECT_TRUE(instrumenter.ParseCommandLine(&cmd_line_));
   EXPECT_CALL(instrumenter.mock_pe_relinker_, Init()).WillOnce(Return(true));
   EXPECT_CALL(instrumenter.mock_pe_relinker_, Relink()).WillOnce(Return(true));
+  EXPECT_CALL(instrumenter, InstrumentPrepare()).WillOnce(Return(true));
   EXPECT_CALL(instrumenter, InstrumentImpl()).WillOnce(Return(true));
 
   EXPECT_TRUE(instrumenter.Instrument());
@@ -216,6 +218,7 @@ TEST_F(InstrumenterWithRelinkerTest, InstrumentCoff) {
   EXPECT_CALL(instrumenter.mock_coff_relinker_, Init()).WillOnce(Return(true));
   EXPECT_CALL(instrumenter.mock_coff_relinker_, Relink()).WillOnce(
       Return(true));
+  EXPECT_CALL(instrumenter, InstrumentPrepare()).WillOnce(Return(true));
   EXPECT_CALL(instrumenter, InstrumentImpl()).WillOnce(Return(true));
 
   EXPECT_TRUE(instrumenter.Instrument());
@@ -227,6 +230,7 @@ TEST_F(InstrumenterWithRelinkerTest, InstrumentFailsInitPE) {
   EXPECT_TRUE(instrumenter.ParseCommandLine(&cmd_line_));
 
   EXPECT_CALL(instrumenter.mock_pe_relinker_, Init()).WillOnce(Return(false));
+  EXPECT_CALL(instrumenter, InstrumentPrepare()).WillOnce(Return(true));
 
   EXPECT_FALSE(instrumenter.Instrument());
 }
@@ -237,6 +241,7 @@ TEST_F(InstrumenterWithRelinkerTest, InstrumentFailsInitCoff) {
   EXPECT_TRUE(instrumenter.ParseCommandLine(&cmd_line_));
 
   EXPECT_CALL(instrumenter.mock_coff_relinker_, Init()).WillOnce(Return(false));
+  EXPECT_CALL(instrumenter, InstrumentPrepare()).WillOnce(Return(true));
 
   EXPECT_FALSE(instrumenter.Instrument());
 }
@@ -249,6 +254,7 @@ TEST_F(InstrumenterWithRelinkerTest, InstrumentFailsRelinkPE) {
   EXPECT_CALL(instrumenter.mock_pe_relinker_, Init()).WillOnce(Return(true));
   EXPECT_CALL(instrumenter.mock_pe_relinker_, Relink()).WillOnce(
       Return(false));
+  EXPECT_CALL(instrumenter, InstrumentPrepare()).WillOnce(Return(true));
   EXPECT_CALL(instrumenter, InstrumentImpl()).WillOnce(Return(true));
 
   EXPECT_FALSE(instrumenter.Instrument());
@@ -262,6 +268,7 @@ TEST_F(InstrumenterWithRelinkerTest, InstrumentFailsRelinkCoff) {
   EXPECT_CALL(instrumenter.mock_coff_relinker_, Init()).WillOnce(Return(true));
   EXPECT_CALL(instrumenter.mock_coff_relinker_, Relink()).WillOnce(
       Return(false));
+  EXPECT_CALL(instrumenter, InstrumentPrepare()).WillOnce(Return(true));
   EXPECT_CALL(instrumenter, InstrumentImpl()).WillOnce(Return(true));
 
   EXPECT_FALSE(instrumenter.Instrument());

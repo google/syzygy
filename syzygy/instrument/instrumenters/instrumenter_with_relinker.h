@@ -48,7 +48,7 @@ class InstrumenterWithRelinker : public InstrumenterInterface {
 
   // @name InstrumenterInterface implementation.
   // @{
-  bool ParseCommandLine(const base::CommandLine* command_line) override final;
+  bool ParseCommandLine(const base::CommandLine* command_line) final;
   bool Instrument() override;
   // @}
 
@@ -57,6 +57,12 @@ class InstrumenterWithRelinker : public InstrumenterInterface {
   // format is supported by the instrumenter. The default implementation
   // supports PE files, and does not support COFF files.
   virtual bool ImageFormatIsSupported(ImageFormat image_format);
+
+  // Virtual method that performs quick-to-run preparation for the instrumenter,
+  // such as parsing config files. This function is meant to be called by the
+  // Instrument function before invoking the relinker. This allows early failure
+  // to occur, e.g., from bad config files.
+  virtual bool InstrumentPrepare() = 0;
 
   // Virtual method that does the actual instrumentation with the relinker.
   // This function is meant to be called by the Instrument function.

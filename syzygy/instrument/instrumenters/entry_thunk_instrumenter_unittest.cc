@@ -41,6 +41,7 @@ class TestEntryThunkInstrumenter : public EntryThunkInstrumenter {
   using EntryThunkInstrumenter::instrumentation_mode_;
   using EntryThunkInstrumenter::kAgentDllProfile;
   using EntryThunkInstrumenter::kAgentDllRpc;
+  using EntryThunkInstrumenter::InstrumentPrepare;
   using EntryThunkInstrumenter::InstrumentImpl;
   using InstrumenterWithAgent::CreateRelinker;
 
@@ -57,7 +58,7 @@ class EntryThunkInstrumenterTest : public testing::PELibUnitTest {
       : cmd_line_(base::FilePath(L"instrument.exe")) {
   }
 
-  virtual void SetUp() override {
+  void SetUp() override {
     testing::Test::SetUp();
 
     // Several of the tests generate progress and (deliberate) error messages
@@ -231,6 +232,7 @@ TEST_F(EntryThunkInstrumenterTest, InstrumentImplCallTrace) {
       new TestEntryThunkInstrumenter(EntryThunkInstrumenter::CALL_TRACE));
 
   EXPECT_TRUE(instrumenter_->ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_->InstrumentPrepare());
   EXPECT_TRUE(instrumenter_->CreateRelinker());
   EXPECT_TRUE(instrumenter_->InstrumentImpl());
 }
@@ -241,6 +243,7 @@ TEST_F(EntryThunkInstrumenterTest, InstrumentImplProfile) {
       new TestEntryThunkInstrumenter(EntryThunkInstrumenter::PROFILE));
 
   EXPECT_TRUE(instrumenter_->ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_->InstrumentPrepare());
   EXPECT_TRUE(instrumenter_->CreateRelinker());
   EXPECT_TRUE(instrumenter_->InstrumentImpl());
 }

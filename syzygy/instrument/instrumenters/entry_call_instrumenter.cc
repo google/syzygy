@@ -29,6 +29,10 @@ EntryCallInstrumenter::EntryCallInstrumenter()
   agent_dll_ = kAgentDllProfile;
 }
 
+bool EntryCallInstrumenter::InstrumentPrepare() {
+  return true;
+}
+
 bool EntryCallInstrumenter::InstrumentImpl() {
   entry_thunk_transform_.reset(
       new instrument::transforms::EntryCallTransform(debug_friendly_));

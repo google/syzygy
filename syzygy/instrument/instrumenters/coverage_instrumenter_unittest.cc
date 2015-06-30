@@ -36,6 +36,7 @@ class TestCoverageInstrumenter : public CoverageInstrumenter {
   using CoverageInstrumenter::no_strip_strings_;
   using CoverageInstrumenter::debug_friendly_;
   using CoverageInstrumenter::kAgentDllCoverage;
+  using CoverageInstrumenter::InstrumentPrepare;
   using CoverageInstrumenter::InstrumentImpl;
   using InstrumenterWithAgent::CreateRelinker;
 };
@@ -48,7 +49,7 @@ class CoverageInstrumenterTest : public testing::PELibUnitTest {
       : cmd_line_(base::FilePath(L"instrument.exe")) {
   }
 
-  virtual void SetUp() override {
+  void SetUp() override {
     testing::Test::SetUp();
 
     // Several of the tests generate progress and (deliberate) error messages
@@ -149,6 +150,7 @@ TEST_F(CoverageInstrumenterTest, InstrumentImpl) {
   SetUpValidCommandLine();
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_.InstrumentPrepare());
   EXPECT_TRUE(instrumenter_.CreateRelinker());
   EXPECT_TRUE(instrumenter_.InstrumentImpl());
 }

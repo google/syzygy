@@ -77,6 +77,7 @@ class FlummoxInstrumenter : public InstrumenterWithRelinker {
 
   // @name InstrumenterWithRelinker overrides.
   // @{
+  bool InstrumentPrepare() override;
   bool InstrumentImpl() override;
   const char* InstrumentationMode() override { return "flummox"; }
   bool DoCommandLineParse(const base::CommandLine* command_line) override;
@@ -86,6 +87,8 @@ class FlummoxInstrumenter : public InstrumenterWithRelinker {
   // @{
   base::FilePath flummox_config_path_;
   // @}
+
+  FlummoxConfig config_;
 
   // The main transformer.
   scoped_ptr<instrument::transforms::FillerTransform> flummox_transform_;

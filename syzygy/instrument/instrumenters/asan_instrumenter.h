@@ -39,9 +39,10 @@ class AsanInstrumenter : public InstrumenterWithAgent {
  protected:
   // @name InstrumenterWithAgent overrides.
   // @{
-  virtual bool ImageFormatIsSupported(ImageFormat image_format) override;
-  virtual bool InstrumentImpl() override;
-  virtual const char* InstrumentationMode() override { return "asan"; }
+  bool ImageFormatIsSupported(ImageFormat image_format) override;
+  bool InstrumentPrepare() override;
+  bool InstrumentImpl() override;
+  const char* InstrumentationMode() override { return "asan"; }
   // @}
 
   // @name Super overrides.

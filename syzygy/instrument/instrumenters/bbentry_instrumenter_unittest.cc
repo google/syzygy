@@ -37,6 +37,7 @@ class TestBasicBlockEntryInstrumenter : public BasicBlockEntryInstrumenter {
   using BasicBlockEntryInstrumenter::inline_fast_path_;
   using BasicBlockEntryInstrumenter::debug_friendly_;
   using BasicBlockEntryInstrumenter::kAgentDllBasicBlockEntry;
+  using BasicBlockEntryInstrumenter::InstrumentPrepare;
   using BasicBlockEntryInstrumenter::InstrumentImpl;
   using InstrumenterWithAgent::CreateRelinker;
 };
@@ -49,7 +50,7 @@ class BasicBlockEntryInstrumenterTest : public testing::PELibUnitTest {
       : cmd_line_(base::FilePath(L"instrument.exe")) {
   }
 
-  virtual void SetUp() override {
+  void SetUp() override {
     testing::Test::SetUp();
 
     // Several of the tests generate progress and (deliberate) error messages
@@ -154,6 +155,7 @@ TEST_F(BasicBlockEntryInstrumenterTest, InstrumentImpl) {
   SetUpValidCommandLine();
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_.InstrumentPrepare());
   EXPECT_TRUE(instrumenter_.CreateRelinker());
   EXPECT_TRUE(instrumenter_.InstrumentImpl());
 }

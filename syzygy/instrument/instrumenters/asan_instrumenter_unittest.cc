@@ -52,6 +52,7 @@ class TestAsanInstrumenter : public AsanInstrumenter {
   using AsanInstrumenter::use_interceptors_;
   using AsanInstrumenter::use_liveness_analysis_;
   using InstrumenterWithAgent::CreateRelinker;
+  using AsanInstrumenter::InstrumentPrepare;
   using AsanInstrumenter::InstrumentImpl;
 };
 
@@ -63,7 +64,7 @@ class AsanInstrumenterTest : public testing::PELibUnitTest {
       : cmd_line_(base::FilePath(L"instrument.exe")) {
   }
 
-  virtual void SetUp() override {
+  void SetUp() override {
     testing::Test::SetUp();
 
     // Several of the tests generate progress and (deliberate) error messages
@@ -211,6 +212,7 @@ TEST_F(AsanInstrumenterTest, InstrumentImpl) {
   SetUpValidCommandLine();
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_.InstrumentPrepare());
   EXPECT_TRUE(instrumenter_.CreateRelinker());
   EXPECT_TRUE(instrumenter_.InstrumentImpl());
 }
@@ -225,6 +227,7 @@ TEST_F(AsanInstrumenterTest, FailsWithInvalidFilter) {
 
   MakeFilters();
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_.InstrumentPrepare());
   EXPECT_TRUE(instrumenter_.CreateRelinker());
   EXPECT_FALSE(instrumenter_.InstrumentImpl());
 }
@@ -236,6 +239,7 @@ TEST_F(AsanInstrumenterTest, SucceedsWithValidFilter) {
 
   MakeFilters();
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_.InstrumentPrepare());
   EXPECT_TRUE(instrumenter_.CreateRelinker());
   EXPECT_TRUE(instrumenter_.InstrumentImpl());
 }

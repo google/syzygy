@@ -44,6 +44,7 @@ class InstrumenterWithAgent : public InstrumenterWithRelinker {
  protected:
   // @name InstrumenterWithRelinker interface redeclaration.
   // @{
+  virtual bool InstrumentPrepare() = 0;
   virtual bool InstrumentImpl() = 0;
   virtual const char* InstrumentationMode() = 0;
   // @}

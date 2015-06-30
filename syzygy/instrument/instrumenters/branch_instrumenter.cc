@@ -32,6 +32,10 @@ BranchInstrumenter::BranchInstrumenter()
   agent_dll_ = kAgentDllBasicBlockEntry;
 }
 
+bool BranchInstrumenter::InstrumentPrepare() {
+  return true;
+}
+
 bool BranchInstrumenter::InstrumentImpl() {
   branch_transform_.reset(
       new instrument::transforms::BranchHookTransform());

@@ -88,13 +88,13 @@ bool FlummoxInstrumenter::FlummoxConfig::ReadFromJSONPath(
   return true;
 }
 
-bool FlummoxInstrumenter::InstrumentImpl() {
-  FlummoxConfig config;
-  if (!config.ReadFromJSONPath(flummox_config_path_))
-    return false;
+bool FlummoxInstrumenter::InstrumentPrepare() {
+  return config_.ReadFromJSONPath(flummox_config_path_);
+}
 
+bool FlummoxInstrumenter::InstrumentImpl() {
   flummox_transform_.reset(
-      new instrument::transforms::FillerTransform(config.target_set()));
+      new instrument::transforms::FillerTransform(config_.target_set()));
   flummox_transform_->set_debug_friendly(debug_friendly_);
 
   if (!relinker_->AppendTransform(flummox_transform_.get())) {

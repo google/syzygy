@@ -28,6 +28,10 @@ CoverageInstrumenter::CoverageInstrumenter() {
   agent_dll_ = kAgentDllCoverage;
 }
 
+bool CoverageInstrumenter::InstrumentPrepare() {
+  return true;
+}
+
 bool CoverageInstrumenter::InstrumentImpl() {
   coverage_transform_.reset(
       new instrument::transforms::CoverageInstrumentationTransform());

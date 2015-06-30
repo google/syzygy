@@ -30,6 +30,10 @@ BasicBlockEntryInstrumenter::BasicBlockEntryInstrumenter()
   agent_dll_ = kAgentDllBasicBlockEntry;
 }
 
+bool BasicBlockEntryInstrumenter::InstrumentPrepare() {
+  return true;
+}
+
 bool BasicBlockEntryInstrumenter::InstrumentImpl() {
   bbentry_transform_.reset(
       new instrument::transforms::BasicBlockEntryHookTransform());

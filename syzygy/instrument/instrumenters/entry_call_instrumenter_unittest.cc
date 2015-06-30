@@ -37,6 +37,7 @@ class TestEntryCallInstrumenter : public EntryCallInstrumenter {
   using EntryCallInstrumenter::thunk_imports_;
   using EntryCallInstrumenter::debug_friendly_;
   using EntryCallInstrumenter::kAgentDllProfile;
+  using EntryCallInstrumenter::InstrumentPrepare;
   using EntryCallInstrumenter::InstrumentImpl;
   using InstrumenterWithAgent::CreateRelinker;
 };
@@ -199,6 +200,7 @@ TEST_F(EntryCallInstrumenterTest, InstrumentImplCallTrace) {
   instrumenter_.reset(new TestEntryCallInstrumenter());
 
   EXPECT_TRUE(instrumenter_->ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_->InstrumentPrepare());
   EXPECT_TRUE(instrumenter_->CreateRelinker());
   EXPECT_TRUE(instrumenter_->InstrumentImpl());
 }
@@ -208,6 +210,7 @@ TEST_F(EntryCallInstrumenterTest, InstrumentImplProfile) {
   instrumenter_.reset(new TestEntryCallInstrumenter());
 
   EXPECT_TRUE(instrumenter_->ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_->InstrumentPrepare());
   EXPECT_TRUE(instrumenter_->CreateRelinker());
   EXPECT_TRUE(instrumenter_->InstrumentImpl());
 }

@@ -37,6 +37,7 @@ class TestInstrumenterWithAgent : public InstrumenterWithAgent {
     // |agent_dll_| is left empty.
   }
 
+  MOCK_METHOD0(InstrumentPrepare, bool());
   MOCK_METHOD0(InstrumentImpl, bool());
 
   const char* InstrumentationMode() override { return "test"; }

@@ -40,6 +40,7 @@ class TestBranchInstrumenter : public BranchInstrumenter {
   using BranchInstrumenter::buffering_;
   using BranchInstrumenter::fs_slot_;
   using BranchInstrumenter::kAgentDllBasicBlockEntry;
+  using BranchInstrumenter::InstrumentPrepare;
   using BranchInstrumenter::InstrumentImpl;
   using InstrumenterWithAgent::CreateRelinker;
 };
@@ -52,7 +53,7 @@ class BranchInstrumenterTest : public testing::PELibUnitTest {
       : cmd_line_(base::FilePath(L"instrument.exe")) {
   }
 
-  virtual void SetUp() override {
+  void SetUp() override {
     testing::Test::SetUp();
 
     // Several of the tests generate progress and (deliberate) error messages
@@ -187,6 +188,7 @@ TEST_F(BranchInstrumenterTest, InstrumentImpl) {
   SetUpValidCommandLine();
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
+  EXPECT_TRUE(instrumenter_.InstrumentPrepare());
   EXPECT_TRUE(instrumenter_.CreateRelinker());
   EXPECT_TRUE(instrumenter_.InstrumentImpl());
 }

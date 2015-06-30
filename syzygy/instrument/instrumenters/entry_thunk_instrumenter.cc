@@ -48,6 +48,10 @@ EntryThunkInstrumenter::EntryThunkInstrumenter(Mode instrumentation_mode)
   }
 }
 
+bool EntryThunkInstrumenter::InstrumentPrepare() {
+  return true;
+}
+
 bool EntryThunkInstrumenter::InstrumentImpl() {
   entry_thunk_transform_.reset(
       new instrument::transforms::EntryThunkTransform());
