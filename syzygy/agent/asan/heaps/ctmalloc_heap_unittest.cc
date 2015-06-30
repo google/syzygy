@@ -14,24 +14,69 @@
 
 #include "syzygy/agent/asan/heaps/ctmalloc_heap.h"
 
-#include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/agent/asan/unittest_util.h"
 #include "syzygy/agent/asan/heaps/win_heap.h"
+#include "syzygy/core/address_space.h"
 
 namespace agent {
 namespace asan {
 namespace heaps {
 
-TEST(CtMallocHeapTest, GetHeapTypeIsValid) {
-  testing::NullMemoryNotifier n;
-  CtMallocHeap h(&n);
+namespace {
+
+enum AddressRangeState {
+  ADDRESS_RANGE_NONE,
+  ADDRESS_RANGE_INTERNAL,
+  ADDRESS_RANGE_FUTURE_HEAP,
+};
+
+class CtMallocHeapTest : public testing::Test, public MemoryNotifierInterface {
+ public:
+  void TearDown() override {
+    ASSERT(reserved_.begin() == reserved_.end());
+  }
+
+  // @name MemoryNotifierInterface implementation.
+  // @{
+  void NotifyInternalUse(const void* address, size_t size) override {
+    ASSERT_TRUE(reserved_.Insert(MakeRange(address, size),
+                                 ADDRESS_RANGE_INTERNAL));
+  }
+  void NotifyFutureHeapUse(const void* address, size_t size) override {
+    ASSERT_TRUE(reserved_.Insert(MakeRange(address, size),
+                                 ADDRESS_RANGE_FUTURE_HEAP));
+  }
+  void NotifyReturnedToOS(const void* address, size_t size) override {
+    ASSERT_TRUE(reserved_.Remove(MakeRange(address, size)));
+  }
+  // @}
+
+  bool IsReserved(const void* address, size_t size) {
+    auto it = reserved_.FindContaining(MakeRange(address, size ? size : 1));
+    if (it == reserved_.end())
+      return false;
+    return it->second == ADDRESS_RANGE_FUTURE_HEAP;
+  }
+ private:
+  using ReservedRanges =
+      core::AddressSpace<const uint8_t*, size_t, AddressRangeState>;
+
+  ReservedRanges::Range MakeRange(const void* address, size_t size) {
+    return ReservedRanges::Range(
+        reinterpret_cast<const uint8_t*>(address), size);
+  }
+  ReservedRanges reserved_;
+};
+
+}  // namespace
+
+TEST_F(CtMallocHeapTest, GetHeapTypeIsValid) {
+  CtMallocHeap h(this);
   EXPECT_EQ(kCtMallocHeap, h.GetHeapType());
 }
 
-TEST(CtMallocHeapTest, FeaturesAreValid) {
-  testing::NullMemoryNotifier n;
-  CtMallocHeap h(&n);
+TEST_F(CtMallocHeapTest, FeaturesAreValid) {
+  CtMallocHeap h(this);
   EXPECT_EQ(CtMallocHeap::kHeapReportsReservations |
                 CtMallocHeap::kHeapSupportsIsAllocated |
                 CtMallocHeap::kHeapSupportsGetAllocationSize |
@@ -39,13 +84,13 @@ TEST(CtMallocHeapTest, FeaturesAreValid) {
             h.GetHeapFeatures());
 }
 
-TEST(CtMallocHeapTest, HeapTest) {
-  testing::NullMemoryNotifier n;
-  CtMallocHeap h(&n);
+TEST_F(CtMallocHeapTest, HeapTest) {
+  CtMallocHeap h(this);
 
   // Allocate and free a zero-sized allocation. This should succeed
   // by definition.
   void* alloc = h.Allocate(0);
+  ASSERT_TRUE(IsReserved(alloc, 0));
   EXPECT_EQ(0u, reinterpret_cast<uintptr_t>(alloc) % kShadowRatio);
   EXPECT_TRUE(h.Free(alloc));
 
@@ -53,6 +98,7 @@ TEST(CtMallocHeapTest, HeapTest) {
   std::set<void*> allocs;
   for (size_t i = 1; i < 1024 * 1024; i <<= 1) {
     void* alloc = h.Allocate(i);
+    ASSERT_TRUE(IsReserved(alloc, i));
     EXPECT_EQ(0u, reinterpret_cast<uintptr_t>(alloc) % kShadowRatio);
     allocs.insert(alloc);
   }
@@ -63,11 +109,11 @@ TEST(CtMallocHeapTest, HeapTest) {
     EXPECT_TRUE(h.Free(*it));
 }
 
-TEST(CtMallocHeapTest, ZeroSizedAllocationsHaveDistinctAddresses) {
-  testing::NullMemoryNotifier n;
-  CtMallocHeap h(&n);
+TEST_F(CtMallocHeapTest, ZeroSizedAllocationsHaveDistinctAddresses) {
+  CtMallocHeap h(this);
 
   void* a1 = h.Allocate(0);
+  ASSERT_TRUE(IsReserved(a1, 0));
   EXPECT_TRUE(a1 != NULL);
   void* a2 = h.Allocate(0);
   EXPECT_TRUE(a2 != NULL);
@@ -76,13 +122,13 @@ TEST(CtMallocHeapTest, ZeroSizedAllocationsHaveDistinctAddresses) {
   h.Free(a2);
 }
 
-TEST(CtMallocHeapTest, IsAllocated) {
-  testing::NullMemoryNotifier n;
-  CtMallocHeap h(&n);
+TEST_F(CtMallocHeapTest, IsAllocated) {
+  CtMallocHeap h(this);
 
   EXPECT_FALSE(h.IsAllocated(NULL));
 
   void* a = h.Allocate(100);
+  ASSERT_TRUE(IsReserved(a, 100));
   EXPECT_EQ(0u, reinterpret_cast<uintptr_t>(a) % kShadowRatio);
   EXPECT_TRUE(h.IsAllocated(a));
   EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) - 1));
@@ -95,20 +141,22 @@ TEST(CtMallocHeapTest, IsAllocated) {
   // this heap.
   WinHeap wh;
   a = wh.Allocate(100);
+  ASSERT_FALSE(IsReserved(a, 100));
   EXPECT_FALSE(h.IsAllocated(a));
   wh.Free(a);
 }
 
-TEST(CtMallocHeapTest, IsAllocatedLargeAllocation) {
-  testing::NullMemoryNotifier n;
-  CtMallocHeap h(&n);
+TEST_F(CtMallocHeapTest, IsAllocatedLargeAllocation) {
+  CtMallocHeap h(this);
 
   EXPECT_FALSE(h.IsAllocated(NULL));
 
   // Mix large and small allocations to ensure that the CTMalloc data
   // structures correctly keep track of both.
   void* a = h.Allocate(100);
+  ASSERT_TRUE(IsReserved(a, 100));
   void* b = h.Allocate(64 * 1024 * 1024);
+  ASSERT_TRUE(IsReserved(b, 64 * 1024 * 1024));
 
   EXPECT_EQ(0u, reinterpret_cast<uintptr_t>(a) % kShadowRatio);
   EXPECT_TRUE(h.IsAllocated(a));
@@ -129,57 +177,36 @@ TEST(CtMallocHeapTest, IsAllocatedLargeAllocation) {
   EXPECT_FALSE(h.IsAllocated(b));
 }
 
-TEST(CtMallocHeapTest, GetAllocationSize) {
-  testing::NullMemoryNotifier n;
-  CtMallocHeap h(&n);
+TEST_F(CtMallocHeapTest, GetAllocationSize) {
+  CtMallocHeap h(this);
 
   const size_t kAllocSize = 67;
   void* alloc = h.Allocate(kAllocSize);
+  ASSERT_TRUE(IsReserved(alloc, kAllocSize));
   ASSERT_TRUE(alloc != NULL);
   EXPECT_LE(kAllocSize, h.GetAllocationSize(alloc));
 
   // CTMalloc cleans up any oustanding allocations on tear down.
 }
 
-TEST(CtMallocHeapTest, GetAllocationSizeLargeAllocation) {
-  testing::NullMemoryNotifier n;
-  CtMallocHeap h(&n);
+TEST_F(CtMallocHeapTest, GetAllocationSizeLargeAllocation) {
+  CtMallocHeap h(this);
 
   const size_t kAllocSize = 64 * 1024 * 1024;
   void* alloc = h.Allocate(kAllocSize);
+  ASSERT_TRUE(IsReserved(alloc, 64 * 1024 * 1024));
   ASSERT_TRUE(alloc != NULL);
   EXPECT_LE(kAllocSize, h.GetAllocationSize(alloc));
 
   // CTMalloc cleans up any oustanding allocations on tear down.
 }
 
-TEST(CtMallocHeapTest, Lock) {
-  testing::NullMemoryNotifier n;
-  CtMallocHeap h(&n);
+TEST_F(CtMallocHeapTest, Lock) {
+  CtMallocHeap h(this);
   h.Lock();
   EXPECT_TRUE(h.TryLock());
   h.Unlock();
   h.Unlock();
-}
-
-TEST(CtMallocHeapTest, NotifierIsCalled) {
-  using testing::_;
-
-  testing::StrictMock<testing::MockMemoryNotifier> n;
-  scoped_ptr<CtMallocHeap> h;
-  h.reset(new CtMallocHeap(&n));
-  testing::Mock::VerifyAndClearExpectations(&n);
-
-  EXPECT_CALL(n, NotifyFutureHeapUse(_, _));
-  void* alloc = h->Allocate(100);
-  testing::Mock::VerifyAndClearExpectations(&n);
-
-  h->Free(alloc);
-  testing::Mock::VerifyAndClearExpectations(&n);
-
-  EXPECT_CALL(n, NotifyReturnedToOS(_, _));
-  h.reset(nullptr);
-  testing::Mock::VerifyAndClearExpectations(&n);
 }
 
 }  // namespace heaps
