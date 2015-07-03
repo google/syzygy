@@ -61,7 +61,6 @@ TEST_F(StackCaptureTest, InitFromBuffer) {
   // resulting capture should truncate to kMaxNumFrames.
   capture.InitFromBuffer(stack_id, frames, arraysize(frames));
   EXPECT_TRUE(capture.IsValid());
-  EXPECT_EQ(10u, capture.stack_id());
   EXPECT_EQ(StackCapture::kMaxNumFrames, capture.num_frames());
   EXPECT_EQ(StackCapture::kMaxNumFrames, capture.max_num_frames());
   EXPECT_TRUE(capture.frames() != NULL);

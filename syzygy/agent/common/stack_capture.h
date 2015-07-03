@@ -21,14 +21,11 @@
 #include <windows.h>
 
 #include "base/logging.h"
+#include "syzygy/agent/common/stack_walker_x86.h"
 #include "syzygy/common/asan_parameters.h"
 
 namespace agent {
 namespace common {
-
-// Computes the hash of a given stack trace. The hash function is simply an add
-// of all the stack trace pointers.
-uint32 ComputeStackTraceHash(void** stack_trace, uint8 stack_depth);
 
 // A simple class for holding a stack trace capture.
 class StackCapture {
@@ -40,14 +37,10 @@ class StackCapture {
 
   // The type used for reference counting. We use saturation arithmetic, so it
   // will top out at kMaxRefCount.
-  typedef uint16 RefCount;
+  using RefCount = uint16;
   static const RefCount kMaxRefCount = static_cast<RefCount>(-1);
 
-  // This corresponds to the the type used by ::CaptureStackBackTrace's hash
-  // for a stack-trace.
-  typedef ULONG StackId;
-  COMPILE_ASSERT(sizeof(StackId) == sizeof(::common::AsanStackId),
-                 stack_id_type_mismatch);
+  using StackId = ::common::AsanStackId;
 
   StackCapture()
       : ref_count_(0), stack_id_(0), num_frames_(0),
@@ -63,6 +56,12 @@ class StackCapture {
 
   // Static initialisation of StackCapture context.
   static void Init();
+
+  // Computes a simple hash of a given stack trace.
+  // @param frames The frames to be hashed.
+  // @param num_frames The number of frames to be hashed.
+  // @returns The computed stack trace ID.
+  static StackId ComputeStackId(const void* const* frames, size_t num_frames);
 
   // Calculate the size necessary to store a StackCapture with the given
   // number of stack frames.
@@ -135,7 +134,8 @@ class StackCapture {
 
   // Initializes a stack trace from an array of frame pointers, a count and
   // a StackId (such as returned by ::CaptureStackBackTrace).
-  // @param stack_id The ID of the stack back trace.
+  // @param stack_id The ID of the stack back trace. This value will be ignored
+  //     and another ID calculated if the trace has to be truncated.
   // @param frames an array of frame pointers.
   // @param num_frames the number of valid frame pointers in @frames. Note
   //     that at most kMaxNumFrames frame pointers will be copied to this
@@ -144,18 +144,10 @@ class StackCapture {
                       const void* const* frames,
                       size_t num_frames);
 
-  // Initializes a stack trace using ::CaptureStackBackTrace. This is inlined so
-  // that it doesn't further pollute the stack trace, but rather makes it
-  // reflect the actual point of the call.
-  __forceinline void InitFromStack() {
-    num_frames_ = ::CaptureStackBackTrace(
-        0, max_num_frames_, frames_, NULL);
-    if (num_frames_ > bottom_frames_to_skip_)
-      num_frames_ -= bottom_frames_to_skip_;
-    else
-      num_frames_ = 1;
-    stack_id_ = ComputeStackTraceHash(frames_, num_frames_);
-  }
+  // Initializes a stack trace from the actual stack. Does not report the
+  // frame created by 'InitFromStack' itself. This function must not be inlined
+  // as it assumes that the call to it generates a full stack frame.
+  void __declspec(noinline) InitFromStack();
 
   // The hash comparison functor for use with MSDN's stdext::hash_set.
   struct HashCompare {
