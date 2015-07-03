@@ -63,25 +63,28 @@ testing::DummyHeap dummy_heap;
 // As the code that computes the relative stack IDs ignores any frames from
 // its own module and as we statically link with the SyzyAsan CRT, all the
 // allocations or crashes coming from these tests will have the same
-// relative stack ID by default. To fix this we need to dynamically generate
-// the code that will do the allocation, this way the ComputeRelativeStackId
-// function won't ignore this frame and the stack trace hashes will be
-// different.
+// relative stack ID by default. To fix this we dynamically generate code that
+// does the allocation. We then use the ComputeRelativeStackId seam to indicate
+// that the frame is in an entirely different dummy module.
 class AllocateFromHeapManagerHelper {
  public:
   AllocateFromHeapManagerHelper(BlockHeapManager* heap_manager,
-                                HeapId heap_id)
-      : heap_manager_(heap_manager), heap_id_(heap_id) {
-    EXPECT_NE(nullptr, heap_manager);
+                                HeapId heap_id,
+                                size_t offset)
+      : heap_manager_(heap_manager), heap_id_(heap_id), offset_(offset) {
+    DCHECK_NE(static_cast<BlockHeapManager*>(nullptr), heap_manager);
+    DCHECK_LT(offset, GetPageSize());
+
     // Allocates a page that has the executable bit set.
     allocation_code_page_ = ::VirtualAlloc(nullptr, GetPageSize(),
         MEM_COMMIT, PAGE_EXECUTE_READWRITE);
     EXPECT_NE(nullptr, allocation_code_page_);
 
-    assm::BufferSerializer bs(reinterpret_cast<uint8*>(allocation_code_page_),
-                              GetPageSize());
+    assm::BufferSerializer bs(
+        reinterpret_cast<uint8*>(allocation_code_page_) + offset,
+        GetPageSize() - offset);
     assm::AssemblerImpl assembler(
-        reinterpret_cast<uint32>(allocation_code_page_), &bs);
+        reinterpret_cast<uint32>(allocation_code_page_) + offset, &bs);
 
     assembler.push(assm::ebp);
     assembler.mov(assm::ebp, assm::esp);
@@ -101,21 +104,24 @@ class AllocateFromHeapManagerHelper {
     assembler.mov(assm::esp, assm::ebp);
     assembler.pop(assm::ebp);
     assembler.ret();
+
+    agent::common::StackCapture::AddFalseModule(
+        "dummy_module.dll", allocation_code_page_, GetPageSize());
   }
 
   ~AllocateFromHeapManagerHelper() {
     EXPECT_TRUE(::VirtualFree(allocation_code_page_, 0, MEM_RELEASE));
     allocation_code_page_ = nullptr;
+    agent::common::StackCapture::ClearFalseModules();
   }
 
   void* operator()(size_t bytes) {
     using AllocFunctionPtr = void*(*)(BlockHeapManager* heap_manager,
                                       HeapId heap_id,
                                       size_t bytes);
-    return
-        reinterpret_cast<AllocFunctionPtr>(allocation_code_page_)(heap_manager_,
-                                                                  heap_id_,
-                                                                  bytes);
+    uint8* func = reinterpret_cast<uint8*>(allocation_code_page_) + offset_;
+    return reinterpret_cast<AllocFunctionPtr>(func)(
+        heap_manager_, heap_id_, bytes);
   }
 
  private:
@@ -136,6 +142,10 @@ class AllocateFromHeapManagerHelper {
 
   // The heap manager that owns the heap.
   BlockHeapManager* heap_manager_;
+
+  // The offset within the page where the function starts. Different values of
+  // this will cause different relative stack ID values.
+  size_t offset_;
 };
 
 // A fake ZebraBlockHeap to simplify unit testing.
@@ -312,7 +322,8 @@ class ScopedHeap {
     heap_id_ = heap_manager->CreateHeap();
     EXPECT_NE(0u, heap_id_);
     alloc_functor_.reset(new AllocateFromHeapManagerHelper(heap_manager,
-                                                           heap_id_));
+                                                           heap_id_,
+                                                           13));
   }
 
   // Destructor. Destroy the heap, this will flush its quarantine and delete all

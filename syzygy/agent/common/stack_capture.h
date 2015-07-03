@@ -165,6 +165,19 @@ class StackCapture {
   // @returns the relative hash of this stack trace.
   StackId ComputeRelativeStackId() const;
 
+  // @name Testing seams.
+  // @{
+  // Allows injecting false modules for use in computing the relative stack ID.
+  // These locations will always be checked first before querying the OS for
+  // a module address, so can be used to overlay fake modules on top of real
+  // modules.
+  // @param name The name of the fake module.
+  // @param address The address of the fake module.
+  // @param length The length of the fake module.
+  static void AddFalseModule(const char* name, void* address, size_t length);
+  static void ClearFalseModules();
+  // @}
+
  protected:
   // The number of bottom frames to skip on the stack traces.
   static size_t bottom_frames_to_skip_;

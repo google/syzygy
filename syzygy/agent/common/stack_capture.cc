@@ -17,7 +17,7 @@
 #include <algorithm>
 
 #include "base/logging.h"
-#include "base/process/memory.h"
+#include "syzygy/core/address_space.h"
 
 // http://blogs.msdn.com/oldnewthing/archive/2004/10/25/247180.aspx
 extern "C" IMAGE_DOS_HEADER __ImageBase;
@@ -133,6 +133,52 @@ void __declspec(noinline) StackCapture::InitFromStack() {
 }
 #pragma optimize("", on)
 
+namespace {
+
+// An address space for storing false modules. These will be reported via
+// GetModuleFromAddress, used in ComputeRelativeStackId.
+using FalseModuleSpace = core::AddressSpace<uintptr_t, uintptr_t, const char*>;
+FalseModuleSpace false_module_space;
+
+// Returns an untracked handle to the module containing the given address, if
+// there is one. Returns nullptr if no module is found. If false modules have
+// been injected via the testing seam, will first check those.
+HMODULE GetModuleFromAddress(void* address) {
+  // Try the false module space first.
+  if (!false_module_space.empty()) {
+    FalseModuleSpace::Range range(reinterpret_cast<uintptr_t>(address), 1);
+    auto it = false_module_space.FindContaining(range);
+    if (it != false_module_space.end())
+      return reinterpret_cast<HMODULE>(it->first.start());
+  }
+
+  // Query the OS for any loaded modules that house the given address.
+  HMODULE instance = nullptr;
+  if (!::GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                            GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            static_cast<char*>(address),
+                            &instance)) {
+    // Because of JITted code it is entirely possible to encounter frames
+    // that lie outside of all modules. In this case GetModuleHandlExA will
+    // fail, which actually causes an error in base::GetModuleHandleExA.
+    return nullptr;
+  }
+  return instance;
+}
+
+}  // namespace
+
+void StackCapture::AddFalseModule(
+    const char* name, void* address, size_t length) {
+  FalseModuleSpace::Range range(reinterpret_cast<uintptr_t>(address),
+                                static_cast<uintptr_t>(length));
+  CHECK(false_module_space.Insert(range, name));
+}
+
+void StackCapture::ClearFalseModules() {
+  false_module_space.Clear();
+}
+
 StackId StackCapture::ComputeRelativeStackId() const {
   // We want to ignore the frames relative to our module to be able to get the
   // same trace id even if we update our runtime.
@@ -149,7 +195,7 @@ StackId StackCapture::ComputeRelativeStackId() const {
     // Entirely skip frames that lie inside this module. This allows the
     // relative stack ID to be stable across different versions of the RTL
     // even if stack depth/layout changes.
-    HMODULE module = base::GetModuleFromAddress(frames_[i]);
+    HMODULE module = GetModuleFromAddress(frames_[i]);
     if (module == asan_handle)
       continue;
 
