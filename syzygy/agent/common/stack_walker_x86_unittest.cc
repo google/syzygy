@@ -116,11 +116,10 @@ class StackWalkerX86Test : public testing::Test {
     // function actually calling WalkStack.
     PushEbp();
 
-    static const uintptr_t* kStackTop = dummy_stack_ + arraysize(dummy_stack_);
     EXPECT_EQ(num_frames,
               WalkStackImpl(dummy_ebp_,
                             dummy_esp_,
-                            kStackTop,
+                            dummy_stack_ + arraysize(dummy_stack_),
                             frames_to_skip,
                             kMaxFrames,
                             frames_));
