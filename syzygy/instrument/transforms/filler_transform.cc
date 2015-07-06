@@ -65,16 +65,21 @@ bool FillerBasicBlockTransform::TransformBasicBlockSubGraph(
   DCHECK(nullptr != block_graph);
   DCHECK(nullptr != basic_block_subgraph);
 
-  // Locations for code injection.
-  NopSpec nop_spec = {{1, NOP1}};
-
   // Visit each basic code block and inject NOPs.
   BasicBlockSubGraph::BBCollection& basic_blocks =
       basic_block_subgraph->basic_blocks();
   for (auto bb = basic_blocks.begin(); bb != basic_blocks.end(); ++bb) {
     BasicCodeBlock* bc_block = BasicCodeBlock::Cast(*bb);
-    if (bc_block != nullptr)
-      InjectNop(nop_spec, debug_friendly_, &bc_block->instructions());
+    if (bc_block != nullptr) {
+      BasicBlock::Instructions* instructions = &bc_block->instructions();
+      NopSpec nop_spec;
+      size_t size = instructions->size();
+      // Inject NOP after every instruction, except the last.
+      for (size_t i = 1; i < size; ++i) {
+        nop_spec[i * 2 - 1] = NopSizes::NOP1;
+      }
+      InjectNop(nop_spec, debug_friendly_, instructions);
+    }
   }
   return true;
 }

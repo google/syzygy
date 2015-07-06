@@ -67,7 +67,7 @@ class FillerBasicBlockTransform
   // {1: NOP3, 3: NOP2, 4: NOP5} specifies a transformation that takes
   // instruction sequence "ABCDE" to "AXBYZCDE", where "X" is the 3-byte NOP,
   // "Y" is the 2-byte NOP, and "Z" is the 5-byte NOP.
-  typedef const std::map<size_t, NopSizes> NopSpec;
+  typedef std::map<size_t, NopSizes> NopSpec;
 
   FillerBasicBlockTransform()
       : debug_friendly_(false) { }

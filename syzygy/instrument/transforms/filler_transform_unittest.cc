@@ -14,6 +14,8 @@
 
 #include "syzygy/instrument/transforms/filler_transform.h"
 
+#include <vector>
+
 #include "base/memory/scoped_ptr.h"
 #include "gtest/gtest.h"
 #include "syzygy/assm/assembler_base.h"
@@ -123,8 +125,15 @@ class FillerTransformTest : public testing::TestDllTransformTest {
     std::map<size_t, int> nop_indices;
     size_t num_inst = FindAllNops(instructions, &nop_indices);
     // The checks here depend on how NopSpec is initialized in
-    // FillerBasicBlockTransform.
-    EXPECT_TRUE(1 >= num_inst || nop_indices[1] == 1);
+    // FillerBasicBlockTransform! Currently we add NOP after every original
+    // instruction, except for the last. So check every odd index for NOP.
+    EXPECT_EQ(num_inst / 2, nop_indices.size());
+    size_t expected_idx = 1;
+    for (const auto& it : nop_indices) {
+      EXPECT_EQ(expected_idx, it.first);
+      EXPECT_EQ(1, it.second);  // NOP1.
+      expected_idx += 2;
+    }
   }
 
   // Verifies that all contiguous NOPs in @p instuctions are followed by a
