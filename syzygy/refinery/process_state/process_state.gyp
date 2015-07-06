@@ -63,6 +63,8 @@
       'target_name': 'process_state_lib',
       'type': 'static_library',
       'sources': [
+        'bit_source.cc',
+        'bit_source.h',
         'process_state.cc',
         'process_state.h',
         'record_traits.h',

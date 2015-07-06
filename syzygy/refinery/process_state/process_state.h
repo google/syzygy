@@ -85,7 +85,7 @@ class ProcessState::LayerBase : public base::RefCounted<LayerBase> {
 
  protected:
   friend class base::RefCounted<LayerBase>;
-  ~LayerBase() {}
+  virtual ~LayerBase() {}
 
  private:
   DISALLOW_COPY_AND_ASSIGN(LayerBase);
