@@ -48,18 +48,22 @@ void EmitIndent(std::string* indent, std::string* output) {
 
 void EmitHexValue8(unsigned char value, std::string* output) {
   assert(output != nullptr);
+  output->push_back('"');
   std::ostringstream oss;
   oss << "0x" << std::hex << std::setfill('0') << std::setw(2)
       << std::uppercase << static_cast<unsigned int>(value);
   output->append(oss.str());
+  output->push_back('"');
 }
 
 void EmitHexValue32(google::protobuf::uint64 value, std::string* output) {
   assert(output != nullptr);
+  output->push_back('"');
   std::ostringstream oss;
   oss << "0x" << std::hex << std::setfill('0') << std::setw(8)
       << std::uppercase << value;
   output->append(oss.str());
+  output->push_back('"');
 }
 
 template <typename IntType>

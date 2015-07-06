@@ -119,7 +119,7 @@ TEST(CrashDataJsonTest, ValueLeafAddress) {
   Value value;
   LeafGetAddress(ValueGetLeaf(&value))->set_address(0xBADBEEF);
 
-  const char kExpected[] = "0x0BADBEEF";
+  const char kExpected[] = "\"0x0BADBEEF\"";
   TestConversion(true, value, kExpected);
   TestConversion(false, value, kExpected);;
 }
@@ -136,13 +136,13 @@ TEST(CrashDataJsonTest, ValueLeafStackTrace) {
 
   const char kExpectedPretty[] =
       "[\n"
-      "  0xDEADBEEF, 0x0BADF00D, 0x10000000, 0x20000000,\n"
-      "  0x30000000, 0x40000000\n"
+      "  \"0xDEADBEEF\", \"0x0BADF00D\", \"0x10000000\", \"0x20000000\",\n"
+      "  \"0x30000000\", \"0x40000000\"\n"
       "]";
   TestConversion(true, value, kExpectedPretty);
 
-  const char kExpectedCompact[] = "[0xDEADBEEF,0x0BADF00D,0x10000000,"
-      "0x20000000,0x30000000,0x40000000]";
+  const char kExpectedCompact[] = "[\"0xDEADBEEF\",\"0x0BADF00D\","
+      "\"0x10000000\",\"0x20000000\",\"0x30000000\",\"0x40000000\"]";
   TestConversion(false, value, kExpectedCompact);
 }
 
@@ -161,19 +161,20 @@ TEST(CrashDataJsonTest, ValueLeafBlob) {
   const char kExpectedPretty[] =
       "{\n"
       "  \"type\": \"blob\",\n"
-      "  \"address\": 0x00000F00,\n"
+      "  \"address\": \"0x00000F00\",\n"
       "  \"size\": null,\n"
       "  \"data\": [\n"
-      "    0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,\n"
-      "    0xDE, 0xAD, 0xBE, 0xEF\n"
+      "    \"0xDE\", \"0xAD\", \"0xBE\", \"0xEF\", \"0xDE\", \"0xAD\","
+      " \"0xBE\", \"0xEF\",\n"
+      "    \"0xDE\", \"0xAD\", \"0xBE\", \"0xEF\"\n"
       "  ]\n"
       "}";
   TestConversion(true, value, kExpectedPretty);
 
   const char kExpectedCompact[] =
-      "{\"type\":\"blob\",\"address\":0x00000F00,\"size\":null,"
-      "\"data\":[0xDE,0xAD,0xBE,0xEF,0xDE,0xAD,0xBE,0xEF,0xDE,0xAD,"
-      "0xBE,0xEF]}";
+      "{\"type\":\"blob\",\"address\":\"0x00000F00\",\"size\":null,"
+      "\"data\":[\"0xDE\",\"0xAD\",\"0xBE\",\"0xEF\",\"0xDE\",\"0xAD\","
+      "\"0xBE\",\"0xEF\",\"0xDE\",\"0xAD\",\"0xBE\",\"0xEF\"]}";
   TestConversion(false, value, kExpectedCompact);
 }
 
@@ -186,12 +187,12 @@ TEST(CrashDataJsonTest, ValueList) {
 
   const char kExpectedPretty[] =
       "[\n"
-      "  0xDEADF00D,\n"
+      "  \"0xDEADF00D\",\n"
       "  42\n"
       "]";
   TestConversion(true, value, kExpectedPretty);
 
-  const char kExpectedCompact[] = "[0xDEADF00D,42]";
+  const char kExpectedCompact[] = "[\"0xDEADF00D\",42]";
   TestConversion(false, value, kExpectedCompact);
 }
 
@@ -205,12 +206,12 @@ TEST(CrashDataJsonTest, ValueDict) {
 
   const char kExpectedPretty[] =
       "{\n"
-      "  \"key1\": 0xDEADF00D,\n"
+      "  \"key1\": \"0xDEADF00D\",\n"
       "  \"key2\": 42\n"
       "}";
   TestConversion(true, value, kExpectedPretty);
 
-  const char kExpectedCompact[] = "{\"key1\":0xDEADF00D,\"key2\":42}";
+  const char kExpectedCompact[] = "{\"key1\":\"0xDEADF00D\",\"key2\":42}";
   TestConversion(false, value, kExpectedCompact);
 }
 
@@ -245,16 +246,16 @@ TEST(CrashDataJsonTest, AllTypes) {
       "  \"uint\": 42,\n"
       "  \"real\": 1.9999999999999999E+099,\n"
       "  \"string\": \"foobar\",\n"
-      "  \"address\": 0xDEADF00D,\n"
+      "  \"address\": \"0xDEADF00D\",\n"
       "  \"stack-trace\": [\n"
-      "    0xBAADBEEF\n"
+      "    \"0xBAADBEEF\"\n"
       "  ],\n"
       "  \"blob\": {\n"
       "    \"type\": \"blob\",\n"
       "    \"address\": null,\n"
       "    \"size\": null,\n"
       "    \"data\": [\n"
-      "      0x68, 0x65, 0x79\n"
+      "      \"0x68\", \"0x65\", \"0x79\"\n"
       "    ]\n"
       "  },\n"
       "  \"dict\": {\n"
@@ -272,13 +273,13 @@ TEST(CrashDataJsonTest, AllTypes) {
         "\"uint\":42,"
         "\"real\":1.9999999999999999E+099,"
         "\"string\":\"foobar\","
-        "\"address\":0xDEADF00D,"
-        "\"stack-trace\":[0xBAADBEEF],"
+        "\"address\":\"0xDEADF00D\","
+        "\"stack-trace\":[\"0xBAADBEEF\"],"
         "\"blob\":{"
           "\"type\":\"blob\","
           "\"address\":null,"
           "\"size\":null,"
-          "\"data\":[0x68,0x65,0x79]"
+          "\"data\":[\"0x68\",\"0x65\",\"0x79\"]"
         "},"
         "\"dict\":{"
           "\"INT\":100"
