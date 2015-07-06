@@ -25,6 +25,7 @@
         'address.h',
         'addressed_data.cc',
         'addressed_data.h',
+        'bit_source.h',
       ],
     },
   ],

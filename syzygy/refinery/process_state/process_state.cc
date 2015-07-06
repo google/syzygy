@@ -13,6 +13,8 @@
 // limitations under the License.
 
 #include "syzygy/refinery/process_state/process_state.h"
+
+#include "syzygy/refinery/core/addressed_data.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
 
 namespace refinery {
@@ -40,6 +42,42 @@ bool ProcessState::FindStackRecord(
     }
   }
 
+  return false;
+}
+
+bool ProcessState::GetAll(const AddressRange& range, void* data_ptr) {
+  DCHECK(range.IsValid());
+
+  // Get the bytes layer.
+  BytesLayerPtr bytes_layer;
+  if (!FindLayer(&bytes_layer))
+    return false;
+
+  // Search for a single record that spans the desired range.
+  std::vector<BytesRecordPtr> matching_records;
+  bytes_layer->GetRecordsSpanning(range, &matching_records);
+  if (matching_records.empty())
+    return false;
+  DCHECK_EQ(1U, matching_records.size());
+
+  // Copy the bytes.
+  BytesRecordPtr bytes_record = matching_records[0];
+  AddressedData record_data(
+      bytes_record->range(),
+      reinterpret_cast<const void*>(bytes_record->data().data().c_str()));
+
+  return record_data.GetAt(range, data_ptr);
+}
+
+bool ProcessState::GetFrom(const AddressRange& range,
+                           size_t* data_cnt,
+                           void* data_ptr) {
+  // TODO(manzagop): implement.
+  return false;
+}
+
+bool ProcessState::HasSome(const AddressRange& range) {
+  // TODO(manzagop): implement.
   return false;
 }
 

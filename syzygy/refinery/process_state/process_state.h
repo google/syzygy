@@ -23,6 +23,7 @@
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "syzygy/refinery/core/address.h"
+#include "syzygy/refinery/core/bit_source.h"
 #include "syzygy/refinery/process_state/record_traits.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
 
@@ -39,7 +40,7 @@ namespace refinery {
 // process' virtual memory space, and contains data specific to that layer and
 // range. Each layer and the data associated with a record is a protobuf of
 // a type appropriate to the layer.
-class ProcessState {
+class ProcessState : public BitSource {
  public:
   template <typename RecordType> class Layer;
   template <typename RecordType> class Record;
@@ -64,6 +65,15 @@ class ProcessState {
   // @returns true on success, false if record doesn't exist.
   bool FindStackRecord(size_t thread_id,
                        scoped_refptr<Record<Stack>>* record);
+
+  // @name BitSource implementation.
+  // @{
+  bool GetAll(const AddressRange& range, void* data_ptr) override;
+  bool GetFrom(const AddressRange& range,
+               size_t* data_cnt,
+               void* data_ptr) override;
+  bool HasSome(const AddressRange& range) override;
+  // @}
 
  private:
   class LayerBase;

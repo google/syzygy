@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SYZYGY_REFINERY_PROCESS_STATE_BIT_SOURCE_H_
-#define SYZYGY_REFINERY_PROCESS_STATE_BIT_SOURCE_H_
+#ifndef SYZYGY_REFINERY_CORE_BIT_SOURCE_H_
+#define SYZYGY_REFINERY_CORE_BIT_SOURCE_H_
 
 #include "base/logging.h"
 #include "base/macros.h"
@@ -21,22 +21,12 @@
 
 namespace refinery {
 
-// Fwd.
-class ProcessState;
-
 // An interface to the contents of an address space. Typically, the address
-// space's contents are only partially known. Access to the memory is copy-based
-// to avoid any alignment issues.
-// Implementation assumption: there are no contiguous records in the process
-// state's memory layer. This implies requests for contiguous data involve a
-// single Bytes record from the backing process state.
+// space's contents are only partially known. Access to the memory is
+// copy-based to avoid any alignment issues.
 class BitSource {
  public:
-  // @param process_state the process state whose address space to expose. Must
-  //   outlive this instance.
-  explicit BitSource(ProcessState* process_state);
-
-  ~BitSource();
+  virtual ~BitSource() = 0 {}
 
   // Retrieves all bytes from a range.
   // @pre @p range must be a valid range.
@@ -44,7 +34,7 @@ class BitSource {
   // @param data_ptr a buffer of size at least that of @p range. On success,
   //    contains the returned data.
   // @returns true iff the full contents of @p range are available.
-  bool GetAll(const AddressRange& range, void* data_ptr);
+  virtual bool GetAll(const AddressRange& range, void* data_ptr) = 0;
 
   // Retrieves as many bytes as available from the head of a range.
   // @pre @p range must be a valid range.
@@ -54,19 +44,16 @@ class BitSource {
   // @param data_ptr a buffer of size at least that of @p range. On success,
   //    contains the returned data.
   // @returns true iff some data is available from the head of @p range.
-  bool GetFrom(const AddressRange& range, size_t* data_cnt, void* data_ptr);
+  virtual bool GetFrom(const AddressRange& range,
+                       size_t* data_cnt,
+                       void* data_ptr) = 0;
 
   // Determines whether any bytes are available for a range.
   // @param range the range.
   // @returns true iff some data is available in the desired range.
-  bool HasSome(const AddressRange& range);
-
- private:
-  ProcessState* process_state_;  // Not owned.
-
-  DISALLOW_COPY_AND_ASSIGN(BitSource);
+  virtual bool HasSome(const AddressRange& range) = 0;
 };
 
 }  // namespace refinery
 
-#endif  // SYZYGY_REFINERY_PROCESS_STATE_BIT_SOURCE_H_
+#endif  // SYZYGY_REFINERY_CORE_BIT_SOURCE_H_

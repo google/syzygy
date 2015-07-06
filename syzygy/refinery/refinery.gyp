@@ -52,7 +52,6 @@
         'analyzers/unloaded_module_analyzer_unittest.cc',
         'core/address_unittest.cc',
         'core/addressed_data_unittest.cc',
-        'process_state/bit_source_unittest.cc',
         'process_state/process_state_unittest.cc',
         'minidump/minidump_unittest.cc',
         'types/type_unittest.cc',

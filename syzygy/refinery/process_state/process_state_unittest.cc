@@ -360,4 +360,33 @@ TEST(ProcessStateTest, LayerIteration) {
   ASSERT_EQ(3, record_count);
 }
 
+TEST(ProcessStateTest, GetAll) {
+  const Address kAddress = 80ULL;
+  static const char kData[] = "0123456789";
+
+  ProcessState process_state;
+
+  // Note: range doesn't include trailing '\0'.
+  AddressRange record_range(kAddress, sizeof(kData) - 1);
+
+  // Populate the process state with a single Bytes record at kAddress,
+  // containing kData.
+  BytesLayerPtr bytes_layer;
+  process_state.FindOrCreateLayer(&bytes_layer);
+  BytesRecordPtr bytes_record;
+  bytes_layer->CreateRecord(record_range, &bytes_record);
+  *bytes_record->mutable_data()->mutable_data() = kData;
+
+  char retrieved;
+
+  // Fail to retrieve data that is not fully in the process state.
+  AddressRange desired_range = AddressRange(kAddress - 1, record_range.size());
+  ASSERT_FALSE(process_state.GetAll(desired_range, &retrieved));
+
+  // Successfully retrieve data that is in the process state.
+  retrieved = '-';
+  ASSERT_TRUE(process_state.GetAll(AddressRange(kAddress, 1U), &retrieved));
+  ASSERT_EQ('0', retrieved);
+}
+
 }  // namespace refinery
