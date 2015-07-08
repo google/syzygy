@@ -239,9 +239,8 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetAsanBlockInfo) {
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
 
   AsanBlockInfo asan_block_info = {};
-  ErrorInfoGetAsanBlockInfo(fake_block.block_info,
-                            runtime_->stack_cache(),
-                            &asan_block_info);
+  ErrorInfoGetAsanBlockInfo(runtime_->shadow(), fake_block.block_info,
+                            runtime_->stack_cache(), &asan_block_info);
 
   // Test ErrorInfoGetAsanBlockInfo with an allocated block.
   EXPECT_EQ(fake_block.block_info.body_size, asan_block_info.user_size);
@@ -258,9 +257,8 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetAsanBlockInfo) {
 
   // Now test it with a quarantined block.
   EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
-  ErrorInfoGetAsanBlockInfo(fake_block.block_info,
-                            runtime_->stack_cache(),
-                            &asan_block_info);
+  ErrorInfoGetAsanBlockInfo(runtime_->shadow(), fake_block.block_info,
+                            runtime_->stack_cache(), &asan_block_info);
   EXPECT_EQ(QUARANTINED_BLOCK, static_cast<BlockState>(asan_block_info.state));
   EXPECT_EQ(fake_block.block_info.header->state,
             static_cast<BlockState>(asan_block_info.state));
@@ -273,9 +271,8 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetAsanBlockInfo) {
   // invalid.
   fake_block.block_info.header->magic =
       static_cast<unsigned>(~kBlockHeaderMagic);
-  ErrorInfoGetAsanBlockInfo(fake_block.block_info,
-                            runtime_->stack_cache(),
-                            &asan_block_info);
+  ErrorInfoGetAsanBlockInfo(runtime_->shadow(), fake_block.block_info,
+                            runtime_->stack_cache(), &asan_block_info);
   EXPECT_EQ(kDataIsCorrupt, asan_block_info.analysis.block_state);
   fake_block.block_info.header->magic =
       static_cast<unsigned>(~kBlockHeaderMagic);

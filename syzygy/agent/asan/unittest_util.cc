@@ -413,7 +413,7 @@ bool FakeAsanBlock::TestBlockMetadata() {
   return true;
 }
 
-bool FakeAsanBlock::MarkBlockAsQuarantined() {
+bool FakeAsanBlock::MarkBlockAsQuarantinedImpl(bool flood_filled) {
   if (!is_initialized)
     return false;
 
@@ -426,9 +426,17 @@ bool FakeAsanBlock::MarkBlockAsQuarantined() {
   StackCapture stack;
   stack.InitFromStack();
   block_info.header->free_stack = stack_cache->SaveStackTrace(stack);
-  block_info.header->state = agent::asan::QUARANTINED_BLOCK;
   block_info.trailer->free_tid = ::GetCurrentThreadId();
   block_info.trailer->free_ticks = ::GetTickCount();
+
+  if (flood_filled) {
+    block_info.header->state = agent::asan::QUARANTINED_FLOODED_BLOCK;
+    ::memset(block_info.body, agent::asan::kBlockFloodFillByte,
+             block_info.body_size);
+  } else {
+    block_info.header->state = agent::asan::QUARANTINED_BLOCK;
+  }
+
   BlockSetChecksum(block_info);
 
   size_t i = 0;
@@ -447,6 +455,14 @@ bool FakeAsanBlock::MarkBlockAsQuarantined() {
     EXPECT_TRUE(shadow_->IsAccessible(buffer + i));
   }
   return true;
+}
+
+bool FakeAsanBlock::MarkBlockAsQuarantined() {
+  return MarkBlockAsQuarantinedImpl(false);
+}
+
+bool FakeAsanBlock::MarkBlockAsQuarantinedFlooded() {
+  return MarkBlockAsQuarantinedImpl(true);
 }
 
 namespace {

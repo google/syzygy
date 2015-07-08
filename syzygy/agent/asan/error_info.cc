@@ -161,8 +161,8 @@ bool ErrorInfoGetBadAccessInformation(const Shadow* shadow,
   }
 
   // Fill out the information about the primary block.
-  ErrorInfoGetAsanBlockInfo(
-      block_info, stack_cache, &bad_access_info->block_info);
+  ErrorInfoGetAsanBlockInfo(shadow, block_info, stack_cache,
+                            &bad_access_info->block_info);
 
   if (bad_access_info->error_type != DOUBLE_FREE &&
       bad_access_info->error_type != CORRUPT_BLOCK) {
@@ -213,14 +213,16 @@ BadAccessKind ErrorInfoGetBadAccessKind(const Shadow* shadow,
   return UNKNOWN_BAD_ACCESS;
 }
 
-void ErrorInfoGetAsanBlockInfo(const BlockInfo& block_info,
+void ErrorInfoGetAsanBlockInfo(const Shadow* shadow,
+                               const BlockInfo& block_info,
                                StackCaptureCache* stack_cache,
                                AsanBlockInfo* asan_block_info) {
   DCHECK_NE(static_cast<StackCaptureCache*>(nullptr), stack_cache);
   DCHECK_NE(static_cast<AsanBlockInfo*>(nullptr), asan_block_info);
 
   ::memset(asan_block_info, 0, sizeof(*asan_block_info));
-  BlockAnalyze(block_info, &asan_block_info->analysis);
+  BlockState block_state = BlockDetermineMostLikelyState(shadow, block_info);
+  BlockAnalyze(block_state, block_info, &asan_block_info->analysis);
 
   asan_block_info->header = block_info.header;
   asan_block_info->user_size = block_info.header->body_size;

@@ -99,8 +99,9 @@ class StackCapture;
 
 namespace asan {
 
-// Forward declaration.
+// Forward declarations.
 struct BlockLayout;
+class Shadow;
 
 // Various constants for identifying the beginnings of regions of memory.
 static const uint16 kBlockHeaderMagic = 0xCA80;
@@ -426,9 +427,45 @@ void BlockSetChecksum(const BlockInfo& block_info);
 // @}
 
 // Determines if the body of a block is a valid flood-filled body.
-// @param block_info The block to be checksummed.
+// @param block_info The block to be checked.
 // @returns true if the body is appropriately flood-filled.
 bool BlockBodyIsFloodFilled(const BlockInfo& block_info);
+
+// Infers the most likely block state from an analysis of the block header,
+// contents, and the shadow memory.
+// @param shadow The shadow memory to be queried.
+// @param block_info The block to be analyzed.
+// @returns the likely state of the block.
+// @note The pages of the block must be readable.
+BlockState BlockDetermineMostLikelyState(const Shadow* shadow,
+                                         const BlockInfo& block_info);
+
+// Determines if a block can be made checksum consistent with exactly
+// the given number of bitflips.
+// @param block_state The state of the block to be assumed during the
+//     analysis. (The state encoded in the header may itself be corrupt.)
+// @param block_info The block to be analyzed.
+// @param bitflips The maximum number of bitflips to try. Values larger
+//     than kBlockHeaderChecksumBits are meaningless.
+bool BlockBitFlipsFixChecksum(BlockState block_state,
+                              const BlockInfo& block_info,
+                              size_t bitflips);
+
+// Explores a block to see how many bitflips are required to make the checksum
+// valid. This is always at most kBlockHeaderChecksumBits.
+// @param block_state The state of the block to be assumed during the
+//     analysis. (The state encoded in the header may itself be corrupt.)
+// @param block_info The block to be analyzed.
+// @param max_bitflips The maximum number of bitflips to try. Values larger
+//     than kBlockHeaderChecksumBits are meaningless.
+// @returns the number of bitflips that are required to make the checksum
+//     match.
+// @note The pages of the block must be readable and writable.
+// @nore Any checksum can be made good using exactly kBlockHeaderChecksumBits
+//     bitflips.
+size_t BlockBitFlipsRequired(BlockState block_state,
+                             const BlockInfo& block_info,
+                             size_t max_bitflips);
 
 // @name Block analysis related functions and declarations.
 // @{
@@ -454,13 +491,14 @@ struct BlockAnalysisResult {
 
 // Analyzes a block for types of corruption. For each of the header,
 // the body and the trailer, determines their state.
-// TODO(chrisha): This currently gets data via singleton AsanRuntime.
-//     Open a seam and use dependency injection for this?
+// @param block_state The state of the block to be assumed during the
+//     analysis. (The state encoded in the header may itself be corrupt.)
 // @param block_info The block to be analyzed.
 // @param result The determined state of the block will be written
 //     here.
 // @note The pages of the block must be readable.
-void BlockAnalyze(const BlockInfo& block_info,
+void BlockAnalyze(BlockState block_state,
+                  const BlockInfo& block_info,
                   BlockAnalysisResult* result);
 
 // @}

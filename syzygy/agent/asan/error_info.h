@@ -214,11 +214,13 @@ BadAccessKind ErrorInfoGetBadAccessKind(const Shadow* shadow,
                                         const BlockHeader* header);
 
 // Retrieves a block's metadata.
+// @param shadow The shadow memory to query.
 // @param block_info The block whose info is to be gathered.
 // @param stack_cache The stack cache that owns the alloc and free stack traces
 //     of this block.
 // @param asan_block_info Will receive the block's metadata.
-void ErrorInfoGetAsanBlockInfo(const BlockInfo& block_info,
+void ErrorInfoGetAsanBlockInfo(const Shadow* shadow,
+                               const BlockInfo& block_info,
                                StackCaptureCache* stack_cache,
                                AsanBlockInfo* asan_block_info);
 

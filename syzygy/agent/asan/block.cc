@@ -19,6 +19,7 @@
 #include "base/hash.h"
 #include "base/logging.h"
 #include "syzygy/agent/asan/runtime.h"
+#include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
 #include "syzygy/common/align.h"
 
@@ -515,6 +516,183 @@ void BlockIdentifyWholePages(BlockInfo* block_info) {
   }
 }
 
+namespace {
+
+// Tries to determine if a block is most likely flood-fill quarantined by
+// analyzing the block contents.
+bool BlockIsMostLikelyFloodFilled(const BlockInfo& block_info) {
+  // Count the number of filled bytes, filled spans and unfilled spans.
+  size_t filled = 0;
+  size_t filled_spans = 0;
+  size_t unfilled_spans = 0;
+  bool in_filled_span = false;
+  for (size_t i = 0; i < block_info.body_size; ++i) {
+    bool byte_is_filled = (block_info.RawBody(i) == kBlockFloodFillByte);
+    if (byte_is_filled) {
+      ++filled;
+      if (!in_filled_span) {
+        ++filled_spans;
+        in_filled_span = true;
+      }
+    } else {
+      if (in_filled_span) {
+        ++unfilled_spans;
+        in_filled_span = false;
+      }
+    }
+  }
+
+  // A perfectly flood-filled block has |filled| = |body_size|, and
+  // |filled_spans| = 1. A likely flood-filled block has a low number of
+  // |filled_spans| and mostly contains |filled| bytes. A block that is very
+  // likely not flood-filled will have very few |filled| bytes, and somewhere
+  // near the same number of |filled_spans|. This whole process is imprecise
+  // and hard to quantify, so the following thresholds are quite arbitrary.
+
+  // Arbitrarily place the threshold for flood-filled bytes at 50%. Consider it
+  // unlikely that 10 disjoint overwrites have occurred. Also require there to
+  // be more significantly more filled bytes than spans (twice as many).
+  if (filled >= block_info.body_size / 2 && unfilled_spans < 10 &&
+      filled > filled_spans / 2) {
+    return true;
+  }
+
+  return false;
+}
+
+}  // namespace
+
+BlockState BlockDetermineMostLikelyState(const Shadow* shadow,
+                                         const BlockInfo& block_info) {
+  // If the block has no body then the header has to be trusted.
+  if (block_info.body_size == 0)
+    return static_cast<BlockState>(block_info.header->state);
+
+  // Use the shadow memory to determine if the body is marked as freed.
+  ShadowMarker marker = shadow->GetShadowMarkerForAddress(block_info.body);
+  if (marker == kHeapFreedMarker) {
+    // If the body is freed then the block is more than likely quarantined.
+    // Do a quick look to see if the block looks mostly flood-filled.
+    if (BlockIsMostLikelyFloodFilled(block_info))
+      return QUARANTINED_FLOODED_BLOCK;
+
+    // The block may be freed or quarantined. However, the current runtime
+    // doesn't actually persist freed blocks, so it must be quarantined.
+    return QUARANTINED_BLOCK;
+  }
+
+  // Consider the block to be a live allocation.
+  return ALLOCATED_BLOCK;
+}
+
+namespace {
+
+// Advances a vector of bitflip locations to the next possible set of bitflip
+// locations. Returns true if advancing was possible, false otherwise.
+// TODO(chrisha): This can be made drastically more efficient by skipping
+//     configurations that flip bits in parts of the block that don't
+//     contribute to the checksum (ie, the body for live and flooded
+//     allocations).
+bool AdvanceBitFlips(size_t positions, std::vector<size_t>* flips) {
+  DCHECK_NE(static_cast<std::vector<size_t>*>(nullptr), flips);
+
+  // An empty set of bitflips is already exhausted.
+  if (flips->empty())
+    return false;
+
+  // Advancing stops when all bitflip positions are as far right as they can
+  // go.
+  if (flips->at(0) == positions - flips->size())
+    return false;
+
+  // Figure out how many consecutive trailing positions are at their maximums.
+  // This will terminate before going out of bounds due to the above condition.
+  size_t i = 0;
+  while (flips->at(flips->size() - i - 1) == positions - i - 1) {
+    ++i;
+    DCHECK_LT(i, flips->size());
+  }
+
+  // Increment the first position that wasn't as far right as it could go, and
+  // then make the rest of them consecutive.
+  size_t j = flips->size() - i - 1;
+  ++flips->at(j);
+  DCHECK_LT(flips->at(j), positions);
+  for (size_t k = j + 1; k < flips->size(); ++k) {
+    flips->at(k) = flips->at(k - 1) + 1;
+    DCHECK_LT(flips->at(k), positions);
+  }
+
+  return true;
+}
+
+// Flips the bits at the given positions.
+void FlipBits(const std::vector<size_t>& flips, const BlockInfo& block_info) {
+  for (size_t i = 0; i < flips.size(); ++i) {
+    DCHECK_LT(flips[i], block_info.block_size * 8);
+    size_t byte = flips[i] / 8;
+    size_t bit = flips[i] % 8;
+    uint8 mask = static_cast<uint8>(1u << bit);
+    block_info.RawBlock(byte) ^= mask;
+  }
+}
+
+bool BlockBitFlipsFixChecksumImpl(const BlockInfo& block_info,
+                                  size_t bitflips) {
+  bitflips = std::min(bitflips, kBlockHeaderChecksumBits);
+
+  size_t positions = block_info.block_size * 8;
+
+  // Initialize the first possible sequence of bitflips (wrt the generator
+  // in AdvanceBitFlips).
+  std::vector<size_t> flips;
+  flips.resize(bitflips);
+  for (size_t i = 0; i < flips.size(); ++i)
+    flips[i] = i;
+
+  while (true) {
+    FlipBits(flips, block_info);
+    bool valid_checksum = BlockChecksumIsValid(block_info);
+    FlipBits(flips, block_info);
+    if (valid_checksum)
+      return true;
+
+    // When no more sets of bitflips are possible the search has terminated
+    // with a negative result.
+    if (!AdvanceBitFlips(positions, &flips))
+      return false;
+  }
+
+  NOTREACHED();
+  return false;
+}
+
+}  // namespace
+
+bool BlockBitFlipsFixChecksum(BlockState block_state,
+                              const BlockInfo& block_info,
+                              size_t bitflips) {
+  BlockState old_block_state =
+      static_cast<BlockState>(block_info.header->state);
+  block_info.header->state = block_state;
+  bool result = BlockBitFlipsFixChecksumImpl(block_info, bitflips);
+  block_info.header->state = old_block_state;
+  return result;
+}
+
+size_t BlockBitFlipsRequired(BlockState block_state,
+                             const BlockInfo& block_info,
+                             size_t max_bitflips) {
+  max_bitflips = std::min(max_bitflips, kBlockHeaderChecksumBits);
+  for (size_t i = 0; i <= max_bitflips; ++i) {
+    if (BlockBitFlipsFixChecksum(block_state, block_info, i))
+      return i;
+  }
+
+  NOTREACHED();
+  return 0;
+}
+
 // This namespace contains helpers for block analysis.
 namespace {
 
@@ -563,7 +741,8 @@ bool IsValidHeapId(uint32 heap_id) {
   return true;
 }
 
-bool BlockHeaderIsConsistent(const BlockInfo& block_info) {
+bool BlockHeaderIsConsistent(BlockState block_state,
+                             const BlockInfo& block_info) {
   const BlockHeader* h = block_info.header;
   if (h->magic != kBlockHeaderMagic)
     return false;
@@ -581,9 +760,6 @@ bool BlockHeaderIsConsistent(const BlockInfo& block_info) {
     return false;
   }
 
-  if (h->state > FREED_BLOCK)
-    return false;
-
   if (h->body_size != block_info.body_size)
     return false;
 
@@ -592,7 +768,7 @@ bool BlockHeaderIsConsistent(const BlockInfo& block_info) {
     return false;
 
   // The free stack should be empty if we're in the allocated state.
-  if (h->state == ALLOCATED_BLOCK) {
+  if (block_state == ALLOCATED_BLOCK) {
     if (h->free_stack != nullptr)
       return false;
   } else {
@@ -630,7 +806,8 @@ bool BlockHeaderIsConsistent(const BlockInfo& block_info) {
 // Returns true if the trailer is self-consistent, false otherwise.
 // Via |cross_consistent| indicates whether or not the header and trailer
 // are consistent with respect to each other.
-bool BlockTrailerIsConsistent(const BlockInfo& block_info) {
+bool BlockTrailerIsConsistent(BlockState block_state,
+                              const BlockInfo& block_info) {
   const BlockTrailer* t = block_info.trailer;
 
   // The allocation data must always be set.
@@ -639,15 +816,14 @@ bool BlockTrailerIsConsistent(const BlockInfo& block_info) {
   if (!IsValidTicks(t->alloc_ticks))
     return false;
 
-  // The free fields must both be set, or both be clear.
-  if (t->free_tid != 0 && t->free_ticks != 0) {
-    if (!IsValidThreadId(t->free_tid))
+  // The free fields must not be set for allocated blocks, and must be set
+  // otherwise.
+  if (block_state == ALLOCATED_BLOCK) {
+    if (t->free_tid != 0 || t->free_ticks != 0)
       return false;
-    if (!IsValidTicks(t->free_ticks))
+  } else {
+    if (t->free_tid == 0 || t->free_ticks == 0)
       return false;
-  } else if (t->free_tid != 0 || t->free_ticks != 0) {
-    // If one or the other is set then the trailer is inconsistent.
-    return false;
   }
 
   // The heap ID must always be set and be valid.
@@ -682,26 +858,10 @@ bool BlockTrailerIsConsistent(const BlockInfo& block_info) {
   return true;
 }
 
-// Returns true if the header and trailer are cross-consistent with
-// respect to each other.
-bool BlockHeaderAndTrailerAreCrossConsistent(const BlockInfo& block_info) {
-  const BlockHeader* h = block_info.header;
-  const BlockTrailer* t = block_info.trailer;
-
-  if (h->state == ALLOCATED_BLOCK) {
-    if (t->free_tid != 0 || t->free_ticks != 0)
-      return false;
-  } else {
-    if (t->free_tid == 0 || t->free_ticks == 0)
-      return false;
-  }
-
-  return true;
-}
-
 }  // namespace
 
-void BlockAnalyze(const BlockInfo& block_info,
+void BlockAnalyze(BlockState block_state,
+                  const BlockInfo& block_info,
                   BlockAnalysisResult* result) {
   DCHECK_NE(static_cast<BlockAnalysisResult*>(nullptr), result);
 
@@ -719,17 +879,19 @@ void BlockAnalyze(const BlockInfo& block_info,
 
     // Unless the block is flood-filled the checksum is the only thing that
     // needs to be checked.
-    if (block_info.header->state != QUARANTINED_FLOODED_BLOCK)
+    if (block_state != QUARANTINED_FLOODED_BLOCK)
       return;
   }
 
   // If the block is flood-filled then check the block contents.
-  if (block_info.header->state == QUARANTINED_FLOODED_BLOCK) {
+  if (block_state == QUARANTINED_FLOODED_BLOCK) {
     if (!BlockBodyIsFloodFilled(block_info)) {
       result->block_state = kDataIsCorrupt;
       result->body_state = kDataIsCorrupt;
     }
 
+    // The checksum is valid so the header and footer can be inferred to be
+    // clean.
     if (checksum_is_valid)
       return;
 
@@ -739,6 +901,7 @@ void BlockAnalyze(const BlockInfo& block_info,
 
   // At this point it's known that the checksum is invalid, so some part
   // of the block is corrupt.
+  DCHECK(!checksum_is_valid);
   result->block_state = kDataIsCorrupt;
 
   // Either the header, the body or the trailer is invalid. We can't
@@ -746,7 +909,7 @@ void BlockAnalyze(const BlockInfo& block_info,
   // is unknown. Leave it set to unknown.
 
   // Check the header.
-  bool consistent_header = BlockHeaderIsConsistent(block_info);
+  bool consistent_header = BlockHeaderIsConsistent(block_state, block_info);
   if (!consistent_header) {
     result->header_state = kDataIsCorrupt;
   } else {
@@ -754,27 +917,23 @@ void BlockAnalyze(const BlockInfo& block_info,
   }
 
   // Check the trailer.
-  bool consistent_trailer = BlockTrailerIsConsistent(block_info);
+  bool consistent_trailer = BlockTrailerIsConsistent(block_state, block_info);
   if (!consistent_trailer) {
     result->trailer_state = kDataIsCorrupt;
   } else {
     result->trailer_state = kDataIsClean;
   }
 
-  bool cross_consistent = BlockHeaderAndTrailerAreCrossConsistent(block_info);
   if (consistent_header && consistent_trailer) {
-    // If both the header and trailer are fine and cross-consistent, and the
-    // body is not *known* to be clean, then it is most likely that the header
-    // and trailer are clean and the body is corrupt. If the body is known to
-    // be clean (in the case of a flood-filled body) then this is a very rare
-    // hash collision and both the header and trailer will be marked as
-    // suspect.
-    if (cross_consistent && result->body_state != kDataIsClean) {
+    // If both the header and trailer are fine and the body is not *known* to
+    // be clean, then it is most likely that the header and trailer are clean
+    // and the body is corrupt. If the body is known to be clean (in the case
+    // of a flood-filled body) then this is a hash collision and both the
+    // header and trailer will be marked as suspect.
+    if (result->body_state != kDataIsClean) {
       result->body_state = kDataIsCorrupt;
     } else {
-      // If both the header and trailer are fine but not cross-consistent, then
-      // one or both of them is corrupt but we can't tell. Mark everything as
-      // doubtful.
+      DCHECK_EQ(QUARANTINED_FLOODED_BLOCK, block_state);
       result->header_state = kDataStateUnknown;
       result->trailer_state = kDataStateUnknown;
     }

@@ -516,7 +516,8 @@ bool ChecksumDetectsTamperingWithMask(const BlockInfo& block_info,
   // Run a detailed analysis on the block. We expect the results of this to
   // agree with where the block was modified.
   BlockAnalysisResult result = {};
-  BlockAnalyze(block_info, &result);
+  BlockAnalyze(static_cast<BlockState>(block_info.header->state), block_info,
+               &result);
   if (address_to_modify < block_info.body) {
     EXPECT_EQ(kDataIsCorrupt, result.block_state);
     // If the thing being modified is the block state, then this is so
@@ -574,7 +575,8 @@ void TestChecksumDetectsTampering(const BlockInfo& block_info) {
 
   // A detailed block analysis should find nothing awry.
   BlockAnalysisResult result = {};
-  BlockAnalyze(block_info, &result);
+  BlockAnalyze(static_cast<BlockState>(block_info.header->state), block_info,
+               &result);
   EXPECT_EQ(kDataIsClean, result.block_state);
   EXPECT_EQ(kDataIsClean, result.header_state);
   EXPECT_EQ(kDataIsClean, result.body_state);
@@ -709,6 +711,94 @@ TEST_F(BlockTest, BlockBodyIsFloodFilled) {
     dummy_body[i] = kBlockFloodFillByte;
   }
   EXPECT_TRUE(BlockBodyIsFloodFilled(dummy_info));
+}
+
+TEST_F(BlockTest, BlockDetermineMostLikelyState) {
+  AsanLogger logger;
+  Shadow shadow;
+  memory_notifiers::ShadowMemoryNotifier notifier(&shadow);
+  StackCaptureCache cache(&logger, &notifier);
+
+  {
+    testing::FakeAsanBlock block1(&shadow, kShadowRatio, &cache);
+    block1.InitializeBlock(1024);
+    EXPECT_EQ(ALLOCATED_BLOCK,
+              BlockDetermineMostLikelyState(&shadow, block1.block_info));
+    block1.block_info.header->state = ~block1.block_info.header->state;
+    EXPECT_EQ(ALLOCATED_BLOCK,
+              BlockDetermineMostLikelyState(&shadow, block1.block_info));
+    block1.MarkBlockAsQuarantined();
+    EXPECT_EQ(QUARANTINED_BLOCK,
+              BlockDetermineMostLikelyState(&shadow, block1.block_info));
+    block1.block_info.header->state = ~block1.block_info.header->state;
+    EXPECT_EQ(QUARANTINED_BLOCK,
+              BlockDetermineMostLikelyState(&shadow, block1.block_info));
+  }
+
+  {
+    testing::FakeAsanBlock block2(&shadow, kShadowRatio, &cache);
+    block2.InitializeBlock(1024);
+    EXPECT_EQ(ALLOCATED_BLOCK,
+              BlockDetermineMostLikelyState(&shadow, block2.block_info));
+    block2.block_info.header->state = ~block2.block_info.header->state;
+    EXPECT_EQ(ALLOCATED_BLOCK,
+              BlockDetermineMostLikelyState(&shadow, block2.block_info));
+    block2.MarkBlockAsQuarantinedFlooded();
+    EXPECT_EQ(QUARANTINED_FLOODED_BLOCK,
+              BlockDetermineMostLikelyState(&shadow, block2.block_info));
+    block2.block_info.header->state = ~block2.block_info.header->state;
+    EXPECT_EQ(QUARANTINED_FLOODED_BLOCK,
+              BlockDetermineMostLikelyState(&shadow, block2.block_info));
+    block2.block_info.RawBody(10) = 0;
+    EXPECT_EQ(QUARANTINED_FLOODED_BLOCK,
+              BlockDetermineMostLikelyState(&shadow, block2.block_info));
+    ::memset(block2.block_info.body, 0, block2.block_info.body_size);
+    EXPECT_EQ(QUARANTINED_BLOCK,
+              BlockDetermineMostLikelyState(&shadow, block2.block_info));
+  }
+}
+
+TEST_F(BlockTest, BitFlips) {
+  AsanLogger logger;
+  Shadow shadow;
+  memory_notifiers::ShadowMemoryNotifier notifier(&shadow);
+  StackCaptureCache cache(&logger, &notifier);
+
+  testing::FakeAsanBlock block1(&shadow, kShadowRatio, &cache);
+  block1.InitializeBlock(100);
+  block1.MarkBlockAsQuarantined();
+  size_t flips = 0;
+
+  EXPECT_TRUE(
+      BlockBitFlipsFixChecksum(QUARANTINED_BLOCK, block1.block_info, 0));
+  flips = BlockBitFlipsRequired(QUARANTINED_BLOCK, block1.block_info, 3);
+  EXPECT_EQ(0u, flips);
+
+  block1.block_info.RawHeader(2) ^= 4;
+  EXPECT_FALSE(
+      BlockBitFlipsFixChecksum(QUARANTINED_BLOCK, block1.block_info, 0));
+  EXPECT_TRUE(
+      BlockBitFlipsFixChecksum(QUARANTINED_BLOCK, block1.block_info, 1));
+  flips = BlockBitFlipsRequired(QUARANTINED_BLOCK, block1.block_info, 3);
+  EXPECT_EQ(1u, flips);
+
+  block1.block_info.RawBody(5) ^= 2;
+  EXPECT_FALSE(
+      BlockBitFlipsFixChecksum(QUARANTINED_BLOCK, block1.block_info, 0));
+  EXPECT_TRUE(
+      BlockBitFlipsFixChecksum(QUARANTINED_BLOCK, block1.block_info, 2));
+  flips = BlockBitFlipsRequired(QUARANTINED_BLOCK, block1.block_info, 3);
+  EXPECT_LT(0u, flips);
+  EXPECT_GE(2u, flips);
+
+  block1.block_info.RawTrailer(3) ^= 1;
+  EXPECT_FALSE(
+      BlockBitFlipsFixChecksum(QUARANTINED_BLOCK, block1.block_info, 0));
+  EXPECT_TRUE(
+      BlockBitFlipsFixChecksum(QUARANTINED_BLOCK, block1.block_info, 3));
+  flips = BlockBitFlipsRequired(QUARANTINED_BLOCK, block1.block_info, 3);
+  EXPECT_LT(0u, flips);
+  EXPECT_GE(3u, flips);
 }
 
 }  // namespace asan

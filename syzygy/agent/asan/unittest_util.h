@@ -420,7 +420,13 @@ struct FakeAsanBlock {
   bool TestBlockMetadata();
 
   // Mark the current Asan block as quarantined.
+  bool MarkBlockAsQuarantinedImpl(bool flood_filled);
+
+  // Mark the current Asan block as quarantined.
   bool MarkBlockAsQuarantined();
+
+  // Mark the current Asan block as quarantined and flooded.
+  bool MarkBlockAsQuarantinedFlooded();
 
   // The buffer we use internally.
   uint8 buffer[kBufferSize];
