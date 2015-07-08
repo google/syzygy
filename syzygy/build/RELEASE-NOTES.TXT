@@ -1,6 +1,12 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.9.0
+
+[b05aa394ae] SyzyASan - Improvements to corrupt block analysis.
+[7c56cb233f] SyzyASan - Custom and faster stack walker.
+[a5a4d0fd8d] SyzyASan - Remove use of MEM_RESET in CtMalloc.
+
 Version 0.8.8.0
 
 [846392a3d8] SyzyASan - Prevent from crashing twice for the same corrupt block.
