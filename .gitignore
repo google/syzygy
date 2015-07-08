@@ -61,9 +61,10 @@
 # Ignore ninja's files and outputs
 /out/
 
-# Ignore directories gclient syncs.
+# Ignore directories gclient/gitdeps sync.
 /base/
 /build/
+/buildtools/
 /google_apis/
 /googleurl/
 /skia/

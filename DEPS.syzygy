@@ -21,7 +21,7 @@ vars = {
   "py_etw_revision": "559",
 
   "chrome_base": "http://src.chromium.org/svn/trunk",
-  'chromium_git': 'https://chromium.googlesource.com/chromium/',
+  "chromium_git": "https://chromium.googlesource.com/chromium/",
 
   # Paths to installed utilities used in hooks. These need to use
   # Windows style paths.
@@ -78,15 +78,16 @@ include_rules = [
 
 hooks = [
   {
+    "name": "run_gitdeps",
     "pattern": ".",
     "action": [Var("python_path"),
                "src\\syzygy\\build\\gitdeps.py",
                "src\\GITDEPS",
                "--output-dir=src",
-               "--cache-dir", "src/.gitdeps-cache",
-               "--verbose"],
+               "--cache-dir", "src/.gitdeps-cache"],
   },
   {
+    "name": "generate_lastchange",
     "pattern": ".",
     "action": [Var("python_path"),
                "src\\syzygy\\build\\lastchange.py",
@@ -94,12 +95,14 @@ hooks = [
                "-o", "src\\syzygy\\build\\LASTCHANGE.gen"],
   },
   {
+    "name": "generate_timestamp",
     "pattern": ".",
     "action": [Var("python_path"),
                "src\\syzygy\\build\\timestamp.py",
                "--output", "src\\syzygy\\build\\TIMESTAMP.gen"],
   },
   {
+    "name": "run_gyp",
     "pattern": ".",
     "action": [Var("python_path"),
                Var("gyp_path"),
@@ -107,5 +110,16 @@ hooks = [
                "--include=src/syzygy/syzygy.gypi",
                "--no-circular-check",
                "src/syzygy/build/all.gyp"],
+  },
+  {
+    "name": "download_clang_format",
+    "pattern": ".",
+    "action": ["download_from_google_storage",
+               "--no_resume",
+               "--platform=win32",
+               "--no_auth",
+               "--bucket", "chromium-clang-format",
+               "-s", "src/buildtools/win/clang-format.exe.sha1",
+    ],
   },
 ]

@@ -19,6 +19,7 @@ vars = {
   "chrome_revision": "005649e4ef576270314678ca7c2aab55e557ee35",
   "chrome_base_git": "https://chromium.googlesource.com/",
 
+  "buildtools_revision": "ecc8e253abac3b6186a97573871a084f4c0ca3ae",
   "gmock_revision": "2742c12ed43e7ff5823157e33f2a0ac5a2dd17e0",  # r455.
   "gtest_revision": "bc830d325d07a8a943386446139be3ab3565e038",  # r668.
 }
@@ -53,5 +54,12 @@ deps = {
     Var("chrome_base_git") + "external/gtest",
     [],
     Var("gtest_revision"),
+  ),
+
+  "buildtools": (
+    Var("chrome_base_git") + "chromium/buildtools",
+    [],
+    Var("buildtools_revision"),
+    {'recurse': True}
   ),
 }

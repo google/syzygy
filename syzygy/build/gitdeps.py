@@ -116,17 +116,19 @@ class RepoOptions(object):
     self.remote_dirs = []
     self.deps_file = None
     self.checkout_dir = None
+    self.recurse = False
 
   def __str__(self):
     """Stringifies this object for debugging."""
     return ('RepoOptions(repository=%s, revision=%s, output_dir=%s, '
-            'remote_dirs=%s, deps_file=%s, checkout_dir=%s)') % (
+            'remote_dirs=%s, deps_file=%s, checkout_dir=%s, recurse=%s)') % (
                 self.repository.__repr__(),
                 self.revision.__repr__(),
                 self.output_dir.__repr__(),
                 self.remote_dirs.__repr__(),
                 self.deps_file.__repr__(),
-                self.checkout_dir.__repr__())
+                self.checkout_dir.__repr__(),
+                self.recurse.__repr__())
 
 
 def _ParseRepoOptions(cache_dir, root_output_dir, deps_file_path, key, value):
@@ -137,8 +139,13 @@ def _ParseRepoOptions(cache_dir, root_output_dir, deps_file_path, key, value):
   (repository URL, remote directory, revision hash) tuple. This can raise an
   Exception on failure.
   """
-  if ((type(value) != list and type(value) != tuple) or len(value) != 3 or
-      (type(value[1]) != list and type(value[1]) != tuple))  :
+  bad = False
+  if ((type(value) != list and type(value) != tuple) or len(value) < 3 or
+      len(value) > 4 or (type(value[1]) != list and type(value[1]) != tuple)):
+    bad = True
+  if len(value) == 4 and type(value[3]) != dict:
+    bad = True
+  if bad:
     _LOGGER.error('Invalid dependency tuple: %s', value)
     raise Exception()
 
@@ -155,6 +162,10 @@ def _ParseRepoOptions(cache_dir, root_output_dir, deps_file_path, key, value):
   repo_options.revision = refspec
   repo_options.deps_file = deps_file_path
 
+  # Parse additional options.
+  if len(value) > 3:
+    repo_options.recurse = value[3].get('recurse', False) == True
+
   # Create a unique name for the checkout in the cache directory. Make the
   # output directory relative to the cache directory so that they can be
   # moved around together.
@@ -163,7 +174,7 @@ def _ParseRepoOptions(cache_dir, root_output_dir, deps_file_path, key, value):
   if output_dir_rel.startswith('..'):
     raise Exception('Invalid output directory: %s' % key)
   n = hashlib.md5(output_dir_rel).hexdigest()
-  repo_options.checkout_dir = os.path.abspath(os.path.join(cache_dir, n))
+  repo_options.checkout_dir = os.path.abspath(os.path.join(cache_dir, n, 'src'))
 
   return repo_options
 
@@ -307,7 +318,7 @@ def _DeleteCheckout(path, dry_run):
   """Deletes the checkout in |path|. Only actually deletes the checkout if
   |dry_run| is False.
   """
-  _LOGGER.debug('Deleting checkout directory: %s', path)
+  _LOGGER.info('Deleting checkout directory: %s', path)
   if dry_run:
     return
   _Shell('rmdir', '/S', '/Q', path, dry_run=False)
@@ -351,7 +362,7 @@ def _CreateCheckout(path, repo, dry_run):
     if os.path.exists(path):
       raise Exception('Checkout directory already exists: %s' % path)
 
-  _LOGGER.debug('Creating checkout directory: %s', path)
+  _LOGGER.info('Creating checkout directory: %s', path)
   if not dry_run:
     os.makedirs(path)
 
@@ -378,7 +389,7 @@ def _UpdateCheckout(path, repo, dry_run):
   try:
     # Try a checkout first. If this fails then we'll actually need to fetch
     # the revision.
-    _LOGGER.debug('Trying to checkout revision %s.', repo.revision)
+    _LOGGER.info('Trying to checkout revision %s.', repo.revision)
     _Shell('git', 'checkout', repo.revision, cwd=path,
           dry_run=dry_run)
     return
@@ -387,7 +398,7 @@ def _UpdateCheckout(path, repo, dry_run):
 
   # Fetch the revision and then check it out. Let output go to screen rather
   # than be buffered.
-  _LOGGER.debug('Fetching and checking out revision %s.', repo.revision)
+  _LOGGER.info('Fetching and checking out revision %s.', repo.revision)
   _Shell('git', 'fetch', '--depth=1', 'origin', repo.revision,
          cwd=path, dry_run=dry_run, stdout=None, stderr=None)
   _Shell('git', 'checkout', repo.revision, cwd=path,
@@ -447,13 +458,13 @@ def _EnsureJunction(cache_dir, target_dir, options, repo):
       create_link = False
     else:
       if dest:
-        _LOGGER.debug('Erasing existing junction: %s', output_dir)
+        _LOGGER.info('Erasing existing junction: %s', output_dir)
       else:
-        _LOGGER.debug('Deleting existing directory: %s', output_dir)
+        _LOGGER.info('Deleting existing directory: %s', output_dir)
       _Shell('rmdir', '/S', '/Q', output_dir, dry_run=options.dry_run)
 
   if create_link:
-    _LOGGER.debug('Creating output junction: %s', output_dir)
+    _LOGGER.info('Creating output junction: %s', output_dir)
     _Shell('mklink', '/J', output_dir, target_cache_dir,
            dry_run=options.dry_run)
 
@@ -461,6 +472,8 @@ def _EnsureJunction(cache_dir, target_dir, options, repo):
 def _InstallRepository(options, repo):
   """Installs a repository as configured by the options. Assumes that the
   specified cache directory already exists.
+
+  Returns True if the checkout was modified, False otherwise.
   """
 
   _LOGGER.debug('Processing directories "%s" from repository "%s".',
@@ -507,7 +520,7 @@ def _InstallRepository(options, repo):
     if not keep_cache_dir:
       # The old checkout directory is renamed and erased in a separate thread
       # so that the new checkout can start immediately.
-      _LOGGER.debug('Erasing stale checkout directory: %s', repo.checkout_dir)
+      _LOGGER.info('Erasing stale checkout directory: %s', repo.checkout_dir)
       newpath = _RenameCheckout(repo.checkout_dir, options.dry_run)
       body = lambda: _DeleteCheckout(newpath, options.dry_run)
       thread = threading.Thread(target=body)
@@ -532,6 +545,53 @@ def _InstallRepository(options, repo):
   # Join any worker threads that are ongoing.
   for thread in threads:
     thread.join()
+
+  # Return True if any modifications were made.
+  return create_checkout or update_checkout
+
+
+def _WriteIfChanged(path, contents, dry_run):
+  if os.path.exists(path):
+    d = open(path, 'rb').read()
+    if d == contents:
+      _LOGGER.debug('Contents unchanged, not writing file: %s', path)
+      return
+
+  _LOGGER.info('Writing file: %s', path)
+  if not dry_run:
+    open(path, 'wb').write(contents)
+
+
+def _RecurseRepository(options, repo):
+  """Recursively follows dependencies in the given repository."""
+  # Only run if there's an appropriate DEPS file.
+  deps = os.path.isfile(os.path.join(repo.checkout_dir, 'DEPS'))
+  gitdeps = os.path.isfile(os.path.join(repo.checkout_dir, '.DEPS.git'))
+  if not deps and not gitdeps:
+    _LOGGER.debug('No deps file found in repository: %s', repo.repository)
+    return
+
+  # Generate the .gclient solution file.
+  cache_dir = os.path.dirname(os.path.abspath(repo.checkout_dir))
+  gclient_file = os.path.join(cache_dir, '.gclient')
+  deps_file = 'DEPS'
+  if gitdeps:
+    deps_file = '.DEPS.git'
+  solutions = [
+    {
+      'name': 'src',
+      'url': repo.repository,
+      'managed': False,
+      'custom_deps': [],
+      'deps_file': deps_file,
+      'safesync_url': '',
+    }
+  ]
+  solutions = 'solutions=%s' % solutions.__repr__()
+  _WriteIfChanged(gclient_file, solutions, options.dry_run)
+
+  # Invoke 'gclient' on the sub-repository.
+  _Shell('gclient', 'sync', cwd=repo.checkout_dir, dry_run=options.dry_run)
 
 
 def _FindGlobalVariableInAstTree(tree, name, functions=None):
@@ -607,6 +667,16 @@ def _ParseDepsFile(path):
   return deps_dict
 
 
+def _RemoveFile(options, path):
+  """Removes the provided file. If it doesn't exist, raises an Exception."""
+  _LOGGER.debug('Removing file: %s', path)
+  if not os.path.isfile(path):
+    raise Exception('Path does not exist: %s' % path)
+
+  if not options.dry_run:
+    os.remove(path)
+
+
 def _RemoveOrphanedJunction(options, junction):
   """Removes an orphaned junction at the path |junction|. If the path doesn't
   exist or is not a junction, raises an Exception.
@@ -620,7 +690,6 @@ def _RemoveOrphanedJunction(options, junction):
 
   reldir = os.path.dirname(junction)
   while reldir:
-    print reldir
     absdir = os.path.join(options.output_dir, reldir)
     if os.listdir(absdir):
       return
@@ -629,8 +698,128 @@ def _RemoveOrphanedJunction(options, junction):
     reldir = os.path.dirname(reldir)
 
 
+def _GetCacheDirEntryVersion(path):
+  """Returns the version of the cache directory entry, -1 if invalid."""
+
+  git = os.path.join(path, '.git')
+  src = os.path.join(path, 'src')
+  gclient = os.path.join(path, '.gclient')
+
+  # Version 0 contains a '.git' directory and no '.gclient' entry.
+  if os.path.isdir(git):
+    if os.path.exists(gclient):
+      return -1
+    return 0
+
+  # Version 1 contains a 'src' directory and no '.git' entry.
+  if os.path.isdir(src):
+    if os.path.exists(git):
+      return -1
+    return 1
+
+
+def _GetCacheDirEntries(cache_dir):
+  """Returns the list of entries in the given |cache_dir|."""
+  entries = []
+  for path in os.listdir(cache_dir):
+    if not re.match('^[a-z0-9]{32}$', path):
+      continue
+    entries.append(path)
+  return entries
+
+
+def _GetCacheDirVersion(cache_dir):
+  """Returns the version of the cache directory."""
+  # If it doesn't exist then it's clearly the latest version.
+  if not os.path.exists(cache_dir):
+    return 1
+
+  cache_version = None
+  for path in _GetCacheDirEntries(cache_dir):
+    repo = os.path.join(cache_dir, path)
+    if not os.path.isdir(repo):
+      return -1
+
+    entry_version = _GetCacheDirEntryVersion(repo)
+    if entry_version == -1:
+      return -1
+
+    if cache_version == None:
+      cache_version = entry_version
+    else:
+      if cache_version != entry_version:
+        return -1
+
+  # If there are no entries in the cache it may as well be the latest version.
+  if cache_version is None:
+    return 1
+
+  return cache_version
+
+
+def _GetJunctionStatePath(options):
+  """Returns the junction state file path."""
+  return os.path.join(options.cache_dir, '.gitdeps_junctions')
+
+
+def _ReadJunctions(options):
+  """Reads the list of junctions as a dictionary."""
+  state_path = _GetJunctionStatePath(options)
+  old_junctions = {}
+  if os.path.exists(state_path):
+    _LOGGER.debug('Loading list of existing junctions.')
+    for j in open(state_path, 'rb'):
+      old_junctions[j.strip()] = True
+
+  return old_junctions
+
+
+def _Rename(src, dst, dry_run):
+  _LOGGER.debug('Renaming "%s" to "%s".', src, dst)
+  if not dry_run:
+    os.rename(src, dst)
+
+
+def _UpgradeCacheDir(options):
+  """Upgrades the cache directory format to the most modern layout.
+
+  Returns true on success, false otherwise.
+  """
+  cache_version = _GetCacheDirVersion(options.cache_dir)
+  if cache_version == 1:
+    _LOGGER.debug('No cache directory upgrade required.')
+    return
+
+  _LOGGER.debug('Upgrading cache directory from version 0 to 1.')
+
+  _LOGGER.debug('Removing all junctions.')
+  junctions = _ReadJunctions(options).keys()
+  junctions = sorted(junctions, key=lambda j: len(j), reverse=True)
+  for junction in junctions:
+    _RemoveOrphanedJunction(options, junction)
+  _RemoveFile(options, _GetJunctionStatePath(options))
+
+  for entry in _GetCacheDirEntries(options.cache_dir):
+    _LOGGER.debug('Upgrading cache entry "%s".', entry)
+    tmp_entry = os.path.abspath(os.path.join(
+        options.cache_dir,
+        'TMP%d-%04d' % (os.getpid(), random.randint(0, 999))))
+    abs_entry = os.path.abspath(os.path.join(options.cache_dir, entry))
+    src = os.path.join(abs_entry, 'src')
+    _Rename(abs_entry, tmp_entry, options.dry_run)
+    _EnsureDirectoryExists(abs_entry, 'cache entry', options.dry_run)
+    _Rename(tmp_entry, src, options.dry_run)
+
+  if options.dry_run:
+    _LOGGER.debug('Cache needs upgrading, unable to further simulate dry-run.')
+    raise Exception("")
+
+
 def main():
   options, args = _ParseCommandLine()
+
+  # Upgrade the cache directory if necessary.
+  _UpgradeCacheDir(options)
 
   # Ensure the cache directory exists and get the full properly cased path to
   # it.
@@ -638,12 +827,8 @@ def main():
   options.cache_dir = _GetCasedFilename(options.cache_dir)
 
   # Read junctions that have been written in previous runs.
-  state_path = os.path.join(options.cache_dir, '.gitdeps_junctions')
-  old_junctions = {}
-  if os.path.exists(state_path):
-    _LOGGER.debug('Loading list of existing junctions.')
-    for j in open(state_path, 'rb'):
-      old_junctions[j.strip()] = True
+  state_path = _GetJunctionStatePath(options)
+  old_junctions = _ReadJunctions(options)
 
   # Parse each deps file in order, and extract the dependencies, looking for
   # conflicts in the output directories.
@@ -671,8 +856,8 @@ def main():
   deps = sorted(all_deps, key=lambda x: len(x.deps_file))
   junctions = []
   for repo in all_deps:
-    _InstallRepository(options, repo)
-    checkout_dirs[repo.checkout_dir] = True
+    changes_made = _InstallRepository(options, repo)
+    checkout_dirs[repo.checkout_dir] = changes_made
 
     new_junction_dirs = repo.remote_dirs if repo.remote_dirs else ['']
     for new_junction_dir in new_junction_dirs:
@@ -705,7 +890,7 @@ def main():
   # so things are cleaned up as soon as possible.
   threads = []
   for path in glob.glob(os.path.join(options.cache_dir, '*')):
-    if path not in checkout_dirs:
+    if os.path.join(path, 'src') not in checkout_dirs:
       _LOGGER.debug('Erasing orphaned checkout directory: %s', path)
       body = lambda: _DeleteCheckout(path, options.dry_run)
       thread = threading.Thread(target=body)
@@ -713,6 +898,14 @@ def main():
       thread.start()
   for thread in threads:
     thread.join()
+
+  # Recursively process other dependencies.
+  for repo in all_deps:
+    if not repo.recurse:
+      continue
+    if not checkout_dirs[repo.checkout_dir] and not options.force:
+      continue
+    _RecurseRepository(options, repo)
 
   return
 
