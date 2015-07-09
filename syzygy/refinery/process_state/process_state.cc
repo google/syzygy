@@ -14,6 +14,8 @@
 
 #include "syzygy/refinery/process_state/process_state.h"
 
+#include <algorithm>
+
 #include "syzygy/refinery/core/addressed_data.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
 
@@ -72,8 +74,30 @@ bool ProcessState::GetAll(const AddressRange& range, void* data_ptr) {
 bool ProcessState::GetFrom(const AddressRange& range,
                            size_t* data_cnt,
                            void* data_ptr) {
-  // TODO(manzagop): implement.
-  return false;
+  DCHECK(range.IsValid());
+
+  // Find the single record that contains the head of the range.
+  BytesRecordPtr record;
+  if (!FindSingleRecord(range.start(), &record))
+    return false;
+
+  // Determine the range that can be served.
+  Address available_end = std::min(range.end(), record->range().end());
+  AddressRange available_range(range.start(), available_end - range.start());
+  DCHECK(available_range.IsValid());
+
+  // Serve request.
+  *data_cnt = available_range.size();
+  if (data_ptr == nullptr)
+    return true;  // Actual bytes not requested.
+
+  AddressedData record_data(
+      record->range(),
+      reinterpret_cast<const void*>(record->data().data().c_str()));
+  if (!record_data.GetAt(available_range, reinterpret_cast<void*>(data_ptr)))
+    return false;
+
+  return true;
 }
 
 bool ProcessState::HasSome(const AddressRange& range) {

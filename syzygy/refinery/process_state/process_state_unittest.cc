@@ -15,7 +15,9 @@
 #include "syzygy/refinery/process_state/process_state.h"
 
 #include <limits>
+#include <string>
 
+#include "base/memory/scoped_ptr.h"
 #include "base/strings/string_piece.h"
 #include "gtest/gtest.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
@@ -433,33 +435,90 @@ TEST(ProcessStateTest, LayerIteration) {
   ASSERT_EQ(3, record_count);
 }
 
-TEST(ProcessStateTest, GetAll) {
-  const Address kAddress = 80ULL;
-  static const char kData[] = "0123456789";
+class ProcessStateBitSourceTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    // Populate the process state with a single Bytes record at address_,
+    // containing data_.
 
-  ProcessState process_state;
+    address_ = 80ULL;
+    data_ = "0123456789";
 
-  // Note: range doesn't include trailing '\0'.
-  AddressRange record_range(kAddress, sizeof(kData) - 1);
+    // Note: range doesn't include trailing '\0'.
+    AddressRange record_range(address_, data_.size());
 
-  // Populate the process state with a single Bytes record at kAddress,
-  // containing kData.
-  BytesLayerPtr bytes_layer;
-  process_state.FindOrCreateLayer(&bytes_layer);
-  BytesRecordPtr bytes_record;
-  bytes_layer->CreateRecord(record_range, &bytes_record);
-  *bytes_record->mutable_data()->mutable_data() = kData;
+    BytesLayerPtr bytes_layer;
+    process_state_.FindOrCreateLayer(&bytes_layer);
+    BytesRecordPtr bytes_record;
+    bytes_layer->CreateRecord(record_range, &bytes_record);
+    *bytes_record->mutable_data()->mutable_data() = data_;
+  }
 
-  char retrieved;
+  Address address() { return address_; }
+  const std::string& data() { return data_; }
+
+  void PerformGetFromTest(AddressRange requested,
+                          size_t expected_cnt,
+                          bool bytes_requested,
+                          const std::string& expected_bytes) {
+    size_t retrieved_cnt = 0U;
+    scoped_ptr<char> buffer(new char[data().size()]);
+    memset(buffer.get(), 0, data().size());
+
+    ASSERT_TRUE(
+        process_state_.GetFrom(requested, &retrieved_cnt, buffer.get()));
+
+    ASSERT_EQ(expected_cnt, retrieved_cnt);
+    if (bytes_requested)
+      ASSERT_EQ(expected_bytes, std::string(buffer.get(), retrieved_cnt));
+  }
+
+  ProcessState process_state_;
+
+ private:
+  Address address_;
+  std::string data_;
+};
+
+TEST_F(ProcessStateBitSourceTest, GetAll) {
+  char retrieved = '-';
 
   // Fail to retrieve data that is not fully in the process state.
-  AddressRange desired_range = AddressRange(kAddress - 1, record_range.size());
-  ASSERT_FALSE(process_state.GetAll(desired_range, &retrieved));
+  AddressRange desired_range = AddressRange(address() - 1, data().size());
+  ASSERT_FALSE(process_state_.GetAll(desired_range, &retrieved));
 
   // Successfully retrieve data that is in the process state.
   retrieved = '-';
-  ASSERT_TRUE(process_state.GetAll(AddressRange(kAddress, 1U), &retrieved));
-  ASSERT_EQ('0', retrieved);
+  ASSERT_TRUE(process_state_.GetAll(AddressRange(address(), 1U), &retrieved));
+  ASSERT_EQ(data()[0], retrieved);
+}
+
+TEST_F(ProcessStateBitSourceTest, GetFrom) {
+  size_t retrieved_cnt = 0U;
+  scoped_ptr<char> buffer(new char[data().size()]);
+
+  // Fail to retrieve when the head is outside existing data.
+  AddressRange desired(address() - 1U, data().size());
+  ASSERT_FALSE(process_state_.GetFrom(desired, &retrieved_cnt, nullptr));
+  desired = AddressRange(address() + data().size(), 1U);
+  ASSERT_FALSE(process_state_.GetFrom(desired, &retrieved_cnt, buffer.get()));
+
+  // Successful full retrieval - not asking for data.
+  desired = AddressRange(address() + 1, data().size() - 1);
+  PerformGetFromTest(desired, data().size() - 1, false, "");
+
+  // Successful partial retrieval - not asking for data.
+  desired = AddressRange(address() + 1, data().size());
+  PerformGetFromTest(desired, data().size() - 1, false, "");
+
+  // Successful full retrieval - asking for data.
+  std::string expected_bytes = data().substr(1, data().size() - 1);
+  desired = AddressRange(address() + 1, data().size() - 1);
+  PerformGetFromTest(desired, data().size() - 1, true, expected_bytes);
+
+  // Successful partial retrieval - asking for data.
+  desired = AddressRange(address() + 1, data().size());
+  PerformGetFromTest(desired, data().size() - 1, true, expected_bytes);
 }
 
 }  // namespace refinery

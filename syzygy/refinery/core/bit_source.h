@@ -36,13 +36,14 @@ class BitSource {
   // @returns true iff the full contents of @p range are available.
   virtual bool GetAll(const AddressRange& range, void* data_ptr) = 0;
 
-  // Retrieves as many bytes as available from the head of a range.
+  // Determine how many bytes are available from the head of a range and
+  // optionally retrieve them.
   // @pre @p range must be a valid range.
   // @param range the requested range.
   // @param data_cnt on success, contains the number of bytes returned from the
   //   head of @p range.
-  // @param data_ptr a buffer of size at least that of @p range. On success,
-  //    contains the returned data.
+  // @param data_ptr a buffer of size at least that of @p range or nullptr. On
+  //   success, a valid buffer contains the returned data.
   // @returns true iff some data is available from the head of @p range.
   virtual bool GetFrom(const AddressRange& range,
                        size_t* data_cnt,
