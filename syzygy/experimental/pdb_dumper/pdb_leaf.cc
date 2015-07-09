@@ -955,7 +955,7 @@ bool DumpLeafMethod(const TypeInfoRecordMap& type_map,
                     uint16 len,
                     uint8 indent_level) {
   cci::LeafMethod type_info = {};
-  size_t to_read = offsetof(cci::LeafMember, name);
+  size_t to_read = offsetof(cci::LeafMethod, name);
   size_t bytes_read = 0;
   if (!stream->ReadBytes(&type_info, to_read, &bytes_read) ||
       bytes_read != to_read) {
