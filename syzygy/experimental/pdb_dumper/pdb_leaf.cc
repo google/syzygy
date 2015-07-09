@@ -930,8 +930,23 @@ bool DumpLeafSTMember(const TypeInfoRecordMap& type_map,
                       PdbStream* stream,
                       uint16 len,
                       uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this leaf.
-  return false;
+  cci::LeafSTMember type_info = {};
+  size_t to_read = offsetof(cci::LeafSTMember, name);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&type_info, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    LOG(ERROR) << "Unable to read type info record.";
+    return false;
+  }
+  LeafMemberAttributeField member_attributes = {type_info.attr};
+  DumpMemberAttributeField(out, member_attributes, indent_level);
+  std::string leaf_name;
+  if (!ReadString(stream, &leaf_name)) {
+    LOG(ERROR) << "Unable to read the name of an enum leaf.";
+    return false;
+  }
+  DumpIndentedText(out, indent_level, "Name: %s\n", leaf_name.c_str());
+  return true;
 }
 
 bool DumpLeafMethod(const TypeInfoRecordMap& type_map,
