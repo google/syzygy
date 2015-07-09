@@ -513,7 +513,28 @@ bool DumpLeafArgList(const TypeInfoRecordMap& type_map,
                      PdbStream* stream,
                      uint16 len,
                      uint8 indent_level) {
-  return false;
+  size_t leaf_end = stream->pos() + len;
+  cci::LeafArgList type_info = {};
+  size_t to_read = offsetof(cci::LeafArgList, arg);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&type_info, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    LOG(ERROR) << "Unable to read type info record.";
+    return false;
+  }
+  DumpIndentedText(out, indent_level, "Number of arguments: %d\n",
+                   type_info.count);
+  DumpIndentedText(out, indent_level, "Arguments:\n");
+  while (stream->pos() < leaf_end) {
+    uint32 arg_type_index = 0;
+    if (!stream->Read(&arg_type_index, 1)) {
+      LOG(ERROR) << "Unable to read the type index of an argument.";
+      return false;
+    }
+    DumpTypeIndexField(type_map, out, "Type index", arg_type_index,
+                       indent_level + 1);
+  }
+  return true;
 }
 
 bool DumpLeafFieldList(const TypeInfoRecordMap& type_map,
