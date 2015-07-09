@@ -22,6 +22,9 @@
 
 namespace refinery {
 
+// static
+const char MemoryAnalyzer::kMemoryAnalyzerName[] = "MemoryAnalyzer";
+
 Analyzer::AnalysisResult MemoryAnalyzer::Analyze(
     const Minidump& minidump, ProcessState* process_state) {
   DCHECK(process_state != nullptr);

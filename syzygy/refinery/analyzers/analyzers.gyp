@@ -26,6 +26,8 @@
             'refinery/process_state/process_state.gyp:process_state_lib',
       ],
       'sources': [
+        'analysis_runner.cc',
+        'analysis_runner.h',
         'analyzer.h',
         'exception_analyzer.cc',
         'exception_analyzer.h',

@@ -59,6 +59,15 @@ class ProcessState : public BitSource {
   template<typename RecordType>
   void FindOrCreateLayer(scoped_refptr<Layer<RecordType>>* layer);
 
+  // Finds the single record that contains @p addr.
+  // @param addr the address the desired record contains.
+  // @param record on success, the returned record.
+  // @returns true on success, false if there is no single record containing @p
+  //   addr.
+  template <typename RecordType>
+  bool FindSingleRecord(Address addr,
+                        scoped_refptr<Record<RecordType>>* record);
+
   // Finds the stack record of the thread of id @p thread_id.
   // @param thread_id the id of the thread.
   // @param record on success, the returned stack record.
@@ -75,6 +84,18 @@ class ProcessState : public BitSource {
   bool HasSome(const AddressRange& range) override;
   // @}
 
+  // Sets an exception. A process state can have a single exception.
+  // @pre @p exception must have a thread id set.
+  // @param exception the exception
+  // @returns true on success, false if the excepting thread doesn't exist or if
+  //    an exception is already set.
+  bool SetException(const Exception& exception);
+
+  // Returns the id of the excepting thread.
+  // @param thread_id on success, the id of the excepting thread.
+  // @returns true on success, false if there is no exception.
+  bool GetExceptingThreadId(size_t* thread_id);
+
  private:
   class LayerBase;
 
@@ -82,6 +103,9 @@ class ProcessState : public BitSource {
   void CreateLayer(scoped_refptr<Layer<RecordType>>* layer);
 
   std::map<RecordId, scoped_refptr<LayerBase>> layers_;
+
+  bool has_exception;
+  size_t excepting_thread_id;
 
   DISALLOW_COPY_AND_ASSIGN(ProcessState);
 };
@@ -229,6 +253,24 @@ void ProcessState::FindOrCreateLayer(
     return;
 
   CreateLayer(layer);
+}
+
+template <typename RecordType>
+bool ProcessState::FindSingleRecord(Address addr,
+                                    scoped_refptr<Record<RecordType>>* record) {
+  // Get layer.
+  scoped_refptr<Layer<RecordType>> layer;
+  if (!FindLayer(&layer))
+    return false;
+
+  // Get the single record containing the address.
+  std::vector<scoped_refptr<Record<RecordType>>> matching_records;
+  layer->GetRecordsSpanning(AddressRange(addr, 1U), &matching_records);
+  if (matching_records.size() != 1U)
+    return false;
+
+  *record = matching_records[0];
+  return true;
 }
 
 template<typename RecordType>

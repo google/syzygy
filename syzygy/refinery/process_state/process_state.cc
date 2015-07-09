@@ -19,7 +19,7 @@
 
 namespace refinery {
 
-ProcessState::ProcessState() {
+ProcessState::ProcessState() : has_exception(false), excepting_thread_id(0U) {
 }
 
 ProcessState::~ProcessState() {
@@ -79,6 +79,37 @@ bool ProcessState::GetFrom(const AddressRange& range,
 bool ProcessState::HasSome(const AddressRange& range) {
   // TODO(manzagop): implement.
   return false;
+}
+
+bool ProcessState::SetException(const Exception& candidate) {
+  DCHECK(candidate.has_thread_id());
+
+  if (has_exception)
+    return false;  // There's already an exception.
+
+  StackRecordPtr stack_record;
+  if (!FindStackRecord(candidate.thread_id(), &stack_record))
+    return false;  // Thread isn't in the process state.
+
+  DCHECK(stack_record->mutable_data());
+  ThreadInformation* thread_info =
+      stack_record->mutable_data()->mutable_thread_info();
+  DCHECK(!thread_info->has_exception());
+  Exception* exception = thread_info->mutable_exception();
+  *exception = candidate;
+
+  has_exception = true;
+  excepting_thread_id = exception->thread_id();
+
+  return true;
+}
+
+bool ProcessState::GetExceptingThreadId(size_t* thread_id) {
+  if (!has_exception)
+    return false;
+
+  *thread_id = excepting_thread_id;
+  return true;
 }
 
 }  // namespace refinery

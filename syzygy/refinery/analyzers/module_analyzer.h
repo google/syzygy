@@ -25,11 +25,13 @@ namespace refinery {
 class ModuleAnalyzer : public Analyzer {
  public:
   ModuleAnalyzer() {}
+  const char* name() const override { return kModuleAnalyzerName; }
 
   AnalysisResult Analyze(const Minidump& minidump,
                          ProcessState* process_state) override;
 
  private:
+  static const char kModuleAnalyzerName[];
   DISALLOW_COPY_AND_ASSIGN(ModuleAnalyzer);
 };
 

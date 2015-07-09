@@ -29,13 +29,15 @@ namespace refinery {
 // discovering references and the like.
 class Analyzer {
  public:
-  virtual ~Analyzer() = 0 {};
-
   enum AnalysisResult {
     ANALYSIS_COMPLETE,
     ANALYSIS_ITERATE,
     ANALYSIS_ERROR,
   };
+
+  virtual ~Analyzer() = 0 {};
+
+  virtual const char* name() const = 0;
 
   // Analyze @p minidump and update @p process_state. Analysis may involve
   // examining @p process_state, and may be an iterative process.

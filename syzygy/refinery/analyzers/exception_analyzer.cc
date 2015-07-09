@@ -22,6 +22,9 @@
 
 namespace refinery {
 
+// static
+const char ExceptionAnalyzer::kExceptionAnalyzerName[] = "ExceptionAnalyzer";
+
 Analyzer::AnalysisResult ExceptionAnalyzer::Analyze(
     const Minidump& minidump,
     ProcessState* process_state) {
@@ -51,27 +54,21 @@ Analyzer::AnalysisResult ExceptionAnalyzer::Analyze(
   // TODO(manzagop): Consider chained exceptions
   // (exception_record.ExceptionRecord).
 
-  // Retrieve and populate the exception information from the stack layer.
-  StackRecordPtr stack_record;
-  if (!process_state->FindStackRecord(minidump_exception_stream.ThreadId,
-                                      &stack_record)) {
-    return ANALYSIS_ERROR;
-  }
-  DCHECK(stack_record->mutable_data());
-  ThreadInformation* thread_info =
-      stack_record->mutable_data()->mutable_thread_info();
-  DCHECK(!thread_info->has_exception());
-  Exception* exception = thread_info->mutable_exception();
-
-  exception->set_thread_id(minidump_exception_stream.ThreadId);
-  exception->set_exception_code(exception_record.ExceptionCode);
-  exception->set_exception_flags(exception_record.ExceptionFlags);
-  exception->set_exception_record(exception_record.ExceptionRecord);
-  exception->set_exception_address(exception_record.ExceptionAddress);
+  // Populate the exception information.
+  Exception exception;
+  exception.set_thread_id(minidump_exception_stream.ThreadId);
+  exception.set_exception_code(exception_record.ExceptionCode);
+  exception.set_exception_flags(exception_record.ExceptionFlags);
+  exception.set_exception_record(exception_record.ExceptionRecord);
+  exception.set_exception_address(exception_record.ExceptionAddress);
   for (int i = 0; i < exception_record.NumberParameters; ++i) {
-    exception->add_exception_information(
+    exception.add_exception_information(
         exception_record.ExceptionInformation[i]);
   }
+
+  // Add the exception information to the process state.
+  if (!process_state->SetException(exception))
+    return ANALYSIS_ERROR;
 
   return ANALYSIS_COMPLETE;
 }

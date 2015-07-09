@@ -21,6 +21,10 @@
 
 namespace refinery {
 
+// static
+const char UnloadedModuleAnalyzer::kUnloadedModuleAnalyzerName[] =
+    "UnloadedModuleAnalyzer";
+
 Analyzer::AnalysisResult UnloadedModuleAnalyzer::Analyze(
     const Minidump& minidump, ProcessState* process_state) {
   DCHECK(process_state != nullptr);

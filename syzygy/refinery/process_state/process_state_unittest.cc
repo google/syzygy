@@ -33,6 +33,20 @@ void ValidateSingleRecordMatch(
   ASSERT_EQ(range, matching_records[0]->range()) << testcase;
 }
 
+// Adds a stack record to a process state.
+void AddStackRecord(const AddressRange& range,
+                    const size_t thread_id,
+                    ProcessState* process_state,
+                    StackRecordPtr* stack_record) {
+  StackLayerPtr stack_layer;
+  process_state->FindOrCreateLayer(&stack_layer);
+  stack_layer->CreateRecord(range, stack_record);
+  (*stack_record)
+      ->mutable_data()
+      ->mutable_thread_info()
+      ->set_thread_id(thread_id);
+}
+
 }  // namespace
 
 TEST(ProcessStateTest, FindOrCreateLayer) {
@@ -55,6 +69,28 @@ TEST(ProcessStateTest, FindOrCreateLayer) {
   EXPECT_FALSE(report.FindLayer(&typed_layer));
 }
 
+TEST(ProcessStateTest, FindSingleRecord) {
+  const size_t kThreadId = 42;
+  const AddressRange kRecordAddressRange(80ULL, 10U);
+  ProcessState report;
+  StackRecordPtr retrieved;
+
+  // Empty report: returns false.
+  ASSERT_FALSE(report.FindSingleRecord(84ULL, &retrieved));
+
+  // Add a stack record to the report.
+  StackRecordPtr created;
+  AddStackRecord(kRecordAddressRange, kThreadId, &report, &created);
+
+  // Search for address outside record's range.
+  ASSERT_FALSE(report.FindSingleRecord(79ULL, &retrieved));
+  ASSERT_FALSE(report.FindSingleRecord(90ULL, &retrieved));
+
+  // Search for address within record's range.
+  ASSERT_TRUE(report.FindSingleRecord(84ULL, &retrieved));
+  ASSERT_EQ(created.get(), retrieved.get());
+}
+
 TEST(ProcessStateTest, FindStackRecord) {
   const size_t kThreadId = 42;
   ProcessState report;
@@ -70,8 +106,7 @@ TEST(ProcessStateTest, FindStackRecord) {
 
   // Add a stack record to the report.
   StackRecordPtr created;
-  stack_layer->CreateRecord(AddressRange(8000ULL, 80U), &created);
-  created->mutable_data()->mutable_thread_info()->set_thread_id(kThreadId);
+  AddStackRecord(AddressRange(8000ULL, 80U), kThreadId, &report, &created);
 
   // Search for a non-existing thread id.
   ASSERT_FALSE(report.FindStackRecord(kThreadId + 1, &retrieved));
@@ -79,6 +114,44 @@ TEST(ProcessStateTest, FindStackRecord) {
   // Search for the existing thread id.
   ASSERT_TRUE(report.FindStackRecord(kThreadId, &retrieved));
   ASSERT_EQ(created.get(), retrieved.get());
+}
+
+TEST(ProcessStateTest, ExceptionBasics) {
+  const int kExceptingThreadId = 1;
+  const int kExceptionCode = 2;
+  Exception exception;
+  exception.set_thread_id(kExceptingThreadId);
+  exception.set_exception_code(kExceptionCode);
+
+  ProcessState state;
+  size_t retrieved_thread_id = 0;
+
+  // Retrieving excepting thread id on an empty state fails.
+  ASSERT_FALSE(state.GetExceptingThreadId(&retrieved_thread_id));
+  retrieved_thread_id = 0;
+
+  // Setting an exception fails when thread isn't in the state.
+  ASSERT_FALSE(state.SetException(exception));
+
+  // Add a stack record to the report.
+  StackRecordPtr stack_record;
+  AddStackRecord(AddressRange(8000ULL, 80U), kExceptingThreadId, &state,
+                 &stack_record);
+
+  // Setting an exception succeeds.
+  ASSERT_TRUE(state.SetException(exception));
+  ASSERT_TRUE(stack_record->data().thread_info().has_exception());
+  const Exception& retrieved_exception =
+      stack_record->data().thread_info().exception();
+  ASSERT_EQ(kExceptingThreadId, retrieved_exception.thread_id());
+  ASSERT_EQ(kExceptionCode, retrieved_exception.exception_code());
+
+  // Retrieving the excepting thread id succeeds.
+  ASSERT_TRUE(state.GetExceptingThreadId(&retrieved_thread_id));
+  ASSERT_EQ(kExceptingThreadId, retrieved_thread_id);
+
+  // Setting a second exception fails.
+  ASSERT_FALSE(state.SetException(exception));
 }
 
 TEST(ProcessStateTest, AddressRangeBasics) {

@@ -19,7 +19,9 @@
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/files/file_path.h"
+#include "base/memory/scoped_ptr.h"
 #include "base/strings/stringprintf.h"
+#include "syzygy/refinery/analyzers/analysis_runner.h"
 #include "syzygy/refinery/analyzers/exception_analyzer.h"
 #include "syzygy/refinery/analyzers/memory_analyzer.h"
 #include "syzygy/refinery/analyzers/module_analyzer.h"
@@ -32,9 +34,10 @@
 
 namespace {
 
+using refinery::AnalysisRunner;
+using refinery::Analyzer;
 using refinery::Minidump;
 using refinery::ProcessState;
-using refinery::Analyzer;
 using refinery::ValidationReport;
 using refinery::Validator;
 
@@ -57,35 +60,18 @@ bool ParseCommandLine(const base::CommandLine* cmd,
 }
 
 bool Analyze(const Minidump& minidump, ProcessState* process_state) {
-  refinery::MemoryAnalyzer memory_analyzer;
-  if (memory_analyzer.Analyze(minidump, process_state) !=
-      Analyzer::ANALYSIS_COMPLETE) {
-    LOG(ERROR) << "Memory analysis failed";
-    return false;
-  }
+  AnalysisRunner runner;
 
-  refinery::ThreadAnalyzer thread_analyzer;
-  if (thread_analyzer.Analyze(minidump, process_state) !=
-      Analyzer::ANALYSIS_COMPLETE) {
-    LOG(ERROR) << "Thread analysis failed";
-    return false;
-  }
+  scoped_ptr<Analyzer> analyzer(new refinery::MemoryAnalyzer());
+  runner.AddAnalyzer(analyzer.Pass());
+  analyzer.reset(new refinery::ThreadAnalyzer());
+  runner.AddAnalyzer(analyzer.Pass());
+  analyzer.reset(new refinery::ExceptionAnalyzer());
+  runner.AddAnalyzer(analyzer.Pass());
+  analyzer.reset(new refinery::ModuleAnalyzer());
+  runner.AddAnalyzer(analyzer.Pass());
 
-  refinery::ExceptionAnalyzer exception_analyzer;
-  if (exception_analyzer.Analyze(minidump, process_state) !=
-      Analyzer::ANALYSIS_COMPLETE) {
-    LOG(ERROR) << "Exception analysis failed";
-    return false;
-  }
-
-  refinery::ModuleAnalyzer module_analyzer;
-  if (module_analyzer.Analyze(minidump, process_state) !=
-      Analyzer::ANALYSIS_COMPLETE) {
-    LOG(ERROR) << "Exception analysis failed";
-    return false;
-  }
-
-  return true;
+  return runner.Analyze(minidump, process_state) == Analyzer::ANALYSIS_COMPLETE;
 }
 
 bool Validate(ProcessState* process_state, ValidationReport* report) {

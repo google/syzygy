@@ -25,11 +25,13 @@ namespace refinery {
 class ThreadAnalyzer : public Analyzer {
  public:
   ThreadAnalyzer() {}
+  const char* name() const override { return kThreadAnalyzerName; }
 
   AnalysisResult Analyze(const Minidump& minidump,
                          ProcessState* process_state) override;
 
  private:
+  static const char kThreadAnalyzerName[];
   DISALLOW_COPY_AND_ASSIGN(ThreadAnalyzer);
 };
 

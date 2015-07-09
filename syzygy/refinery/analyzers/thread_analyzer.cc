@@ -21,6 +21,9 @@
 
 namespace refinery {
 
+// static
+const char ThreadAnalyzer::kThreadAnalyzerName[] = "ThreadAnalyzer";
+
 Analyzer::AnalysisResult ThreadAnalyzer::Analyze(
     const Minidump& minidump, ProcessState* process_state) {
   DCHECK(process_state != nullptr);

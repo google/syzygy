@@ -26,11 +26,14 @@ namespace refinery {
 class ExceptionAnalyzer : public Analyzer {
  public:
   ExceptionAnalyzer() {}
+  const char* name() const override { return kExceptionAnalyzerName; }
 
   AnalysisResult Analyze(const Minidump& minidump,
                          ProcessState* process_state) override;
 
  private:
+  static const char kExceptionAnalyzerName[];
+
   DISALLOW_COPY_AND_ASSIGN(ExceptionAnalyzer);
 };
 

@@ -45,6 +45,7 @@
       'target_name': 'refinery_unittests',
       'type': 'executable',
       'sources': [
+        'analyzers/analysis_runner_unittest.cc',
         'analyzers/exception_analyzer_unittest.cc',
         'analyzers/memory_analyzer_unittest.cc',
         'analyzers/module_analyzer_unittest.cc',
@@ -70,6 +71,7 @@
         'validators/validators.gyp:validators_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',
+        '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
        ],
     },
