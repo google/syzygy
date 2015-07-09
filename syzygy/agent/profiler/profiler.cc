@@ -34,6 +34,7 @@
 #include "syzygy/agent/common/scoped_last_error_keeper.h"
 #include "syzygy/agent/profiler/return_thunk_factory.h"
 #include "syzygy/common/logging.h"
+#include "syzygy/common/process_utils.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
@@ -383,8 +384,8 @@ void Profiler::ThreadState::LogAllModules(HMODULE module) {
   if (profiler_->session_.IsDisabled())
     return;
 
-  agent::common::ModuleVector modules;
-  agent::common::GetProcessModules(&modules);
+  ::common::ModuleVector modules;
+  ::common::GetCurrentProcessModules(&modules);
 
   // Our module should be in the process modules.
   DCHECK(std::find(modules.begin(), modules.end(), module) != modules.end());

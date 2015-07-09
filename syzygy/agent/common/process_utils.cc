@@ -56,29 +56,6 @@ bool CaptureModuleInformation(const base::win::PEImage& image,
 
 }  // namespace
 
-void GetProcessModules(ModuleVector* modules) {
-  DCHECK(modules != NULL);
-
-  modules->resize(128);
-  while (true) {
-    DWORD bytes = sizeof(modules->at(0)) * modules->size();
-    DWORD needed_bytes = 0;
-    BOOL success = ::EnumProcessModules(::GetCurrentProcess(),
-                                        &modules->at(0),
-                                        bytes,
-                                        &needed_bytes);
-    if (success && bytes >= needed_bytes) {
-      // Success - break out of the loop.
-      // Resize our module vector to the returned size.
-      modules->resize(needed_bytes / sizeof(modules->at(0)));
-      return;
-    }
-
-    // Resize our module vector with the needed size and little slop.
-    modules->resize(needed_bytes / sizeof(modules->at(0)) + 4);
-  }
-}
-
 bool LogModule(HMODULE module,
                trace::client::RpcSession* session,
                trace::client::TraceFileSegment* segment) {

@@ -18,6 +18,7 @@
 #include <windows.h>
 
 #include "base/strings/string16.h"
+#include "syzygy/kasko/api/crash_key.h"
 #include "syzygy/kasko/api/kasko_export.h"
 #include "syzygy/kasko/api/minidump_type.h"
 
@@ -27,21 +28,6 @@ namespace api {
 // The stream type assigned to the protobuf stream in the uploaded minidump
 // file. 0x4B6B is 'Kk'.
 const uint32_t kProtobufStreamType = 0x4B6B0001;
-
-// Represents a property to include in a diagnostic report. This structure is
-// intended to have the same layout as a google_breakpad::CustomInfoEntry to
-// facilitate maintenance of a single property store in clients.
-struct CrashKey {
-  // Maximum name length.
-  static const int kNameMaxLength = 64;
-  // Maximum value length.
-  static const int kValueMaxLength = 64;
-
-  // The name of the property.
-  base::char16 name[kNameMaxLength];
-  // The value of the property.
-  base::char16 value[kValueMaxLength];
-};
 
 struct MemoryRange {
   // The start of the range.
@@ -57,6 +43,15 @@ KASKO_EXPORT void InitializeClient(const base::char16* endpoint_name);
 // Shuts down and frees resources associated with the previously initialized
 // client.
 KASKO_EXPORT void ShutdownClient();
+
+// Registers the address of an array of crash keys. These crash keys will be
+// included with any crash report that might be triggered. This method must only
+// be called once per process.
+// @param crash_keys An array of crash keys. Keys with empty names or values
+//     will be ignored.
+// @param crash_key_count The number of entries in crash_keys.
+KASKO_EXPORT void RegisterCrashKeys(const CrashKey* crash_keys,
+                                    size_t crash_key_count);
 
 // Sends a diagnostic report for the current process.
 // @param exception_info_address Optional exception information.

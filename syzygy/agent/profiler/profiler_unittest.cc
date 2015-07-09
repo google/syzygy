@@ -28,7 +28,7 @@
 #include "base/threading/thread.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/agent/common/process_utils.h"
+#include "syzygy/common/process_utils.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
 #include "syzygy/trace/common/unittest_util.h"
@@ -76,8 +76,8 @@ namespace profiler {
 
 namespace {
 
-using agent::common::GetProcessModules;
-using agent::common::ModuleVector;
+using ::common::GetCurrentProcessModules;
+using ::common::ModuleVector;
 using testing::_;
 using testing::AllOf;
 using testing::Return;
@@ -461,7 +461,7 @@ TEST_F(ProfilerTest, RecordsAllModulesAndFunctions) {
 
   // Get the module list prior to unloading the profile DLL.
   ModuleVector modules;
-  GetProcessModules(&modules);
+  GetCurrentProcessModules(&modules);
 
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
 
@@ -534,7 +534,7 @@ TEST_F(ProfilerTest, RecordsOneEntryPerModuleAndFunction) {
 
   // Get the module list prior to unloading the profile DLL.
   ModuleVector modules;
-  GetProcessModules(&modules);
+  GetCurrentProcessModules(&modules);
 
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
 

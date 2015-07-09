@@ -48,6 +48,7 @@ const char kGlobalString[] = "a global string";
 
 const char kClientProcessIdSwitch[] = "client-process-id";
 const char kExpectGlobalSwitch[] = "expect-global";
+const char kExpectRegisteredKeys[] = "expect-registered-keys";
 
 const base::char16 kExitEventNamePrefix[] = L"kasko_api_test_exit_event_";
 const base::char16 kReadyEventNamePrefix[] = L"kasko_api_test_ready_event_";
@@ -221,7 +222,8 @@ MULTIPROCESS_TEST_MAIN(SendReportForProcess) {
       base::char16* keys[] = {L"hello", L"", nullptr};
       base::char16* values[] = {L"world", L"bar", nullptr};
       base::win::ScopedHandle client_process(
-          ::OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, client_process_id()));
+          ::OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE,
+                        client_process_id()));
       CHECK(client_process.IsValid());
 
       SendReportForProcess(client_process.Get(), SMALL_DUMP_TYPE, keys, values);
@@ -238,6 +240,13 @@ MULTIPROCESS_TEST_MAIN(SendReportForProcess) {
       for (auto& entry : crash_keys) {
         CHECK_NE("", entry.first);
         CHECK_NE("bar", entry.first);
+      }
+      base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
+      if (cmd_line->HasSwitch(kExpectRegisteredKeys)) {
+        CHECK(crash_keys.end() != crash_keys.find("largest"));
+        CHECK_EQ("Jupiter", crash_keys.find("largest")->second);
+        CHECK(crash_keys.end() != crash_keys.find("inhabitable"));
+        CHECK_EQ("Earth", crash_keys.find("inhabitable")->second);
       }
     }
   };
@@ -354,7 +363,7 @@ TEST(ApiTest, ExportedConstants) {
       kasko::api::kPermanentFailureMinidumpExtension);
 }
 
-TEST(ApiTest, SendReportTest) {
+TEST(ApiTest, ClientTests) {
   // TODO(erikwright): For now it is impossible to initialize/shutdown the
   // client or reporter twice in the same process. This is because internally,
   // it will spin up and down the AtExitManager, causing singletons to be
@@ -367,13 +376,41 @@ TEST(ApiTest, SendReportTest) {
   TestClient test_client;
   test_client.DoInvokeSendReport(false);
   test_client.DoInvokeSendReport(true);
+
+  CrashKey crash_keys[] = {
+      {L"largest", L"Jupiter"}, {L"inhabitable", L"Earth"}, {L"", L""}};
+
+  RegisterCrashKeys(crash_keys, arraysize(crash_keys));
+
+  // Launch a Reporter process that will call SendReportForProcess and then
+  // verify that the registered keys are included.
+
+  // Start building the Reporter process command line.
+  base::CommandLine reporter_command_line =
+      base::GetMultiProcessTestChildBaseCommandLine();
+  reporter_command_line.AppendSwitchASCII(switches::kTestChildProcess,
+                                          "SendReportForProcess");
+  reporter_command_line.AppendSwitch(kExpectRegisteredKeys);
+
+  // Pass the client process ID, used to call SendReportForProcess.
+  reporter_command_line.AppendSwitchASCII(
+      kClientProcessIdSwitch, base::UintToString(base::GetCurrentProcId()));
+
+  // Launch the Reporter process.
+  base::Process reporter_process =
+      base::LaunchProcess(reporter_command_line, base::LaunchOptions());
+  ASSERT_TRUE(reporter_process.IsValid());
+
+  // The Reporter process will exit after taking a dump of us and verifying its
+  // contents.
+
+  // Wait for the reporter process to exit and verify its status code.
+  int exit_code = 0;
+  reporter_process.WaitForExit(&exit_code);
+  ASSERT_EQ(0, exit_code);
 }
 
 TEST(ApiTest, SendReportForProcessTest) {
-  // Pick an ID used to avoid global namespace collisions.
-  base::string16 process_id_string =
-      base::UintToString16(base::GetCurrentProcId());
-
   // Start building the Reporter process command line.
   base::CommandLine reporter_command_line =
       base::GetMultiProcessTestChildBaseCommandLine();
@@ -382,7 +419,7 @@ TEST(ApiTest, SendReportForProcessTest) {
 
   // Pass the client process ID, used to call SendReportForProcess.
   reporter_command_line.AppendSwitchASCII(
-      kClientProcessIdSwitch, base::UTF16ToASCII(process_id_string));
+      kClientProcessIdSwitch, base::UintToString(base::GetCurrentProcId()));
 
   // Launch the Reporter process.
   base::Process reporter_process =

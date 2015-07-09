@@ -16,6 +16,7 @@
 
 #include "base/bind.h"
 #include "syzygy/agent/common/process_utils.h"
+#include "syzygy/common/process_utils.h"
 
 namespace agent {
 namespace memprof {
@@ -86,8 +87,8 @@ MemoryProfiler::ThreadState* MemoryProfiler::GetOrAllocateThreadStateImpl() {
 }
 
 void MemoryProfiler::LogAllModules() {
-  agent::common::ModuleVector modules;
-  agent::common::GetProcessModules(&modules);
+  ::common::ModuleVector modules;
+  ::common::GetCurrentProcessModules(&modules);
 
   for (size_t i = 0; i < modules.size(); ++i) {
     DCHECK(modules[i] != NULL);

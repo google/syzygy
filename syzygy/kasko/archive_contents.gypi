@@ -43,6 +43,7 @@
       # These must all start with '<(src)' in order to be archived in the
       # correct relative path.
       '<(src)/syzygy/kasko/api/client.h',
+      '<(src)/syzygy/kasko/api/crash_key.h',
       '<(src)/syzygy/kasko/api/kasko_export.h',
       '<(src)/syzygy/kasko/api/minidump_type.h',
       '<(src)/syzygy/kasko/api/reporter.h',

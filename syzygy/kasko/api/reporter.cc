@@ -28,6 +28,8 @@
 #include "syzygy/kasko/dll_lifetime.h"
 #include "syzygy/kasko/minidump_request.h"
 #include "syzygy/kasko/reporter.h"
+#include "syzygy/kasko/api/crash_key.h"
+#include "syzygy/kasko/api/internal/crash_key_registration.h"
 
 namespace kasko {
 namespace api {
@@ -118,6 +120,17 @@ void SendReportForProcess(base::ProcessHandle process_handle,
     }
     DCHECK(!keys[i]);
     DCHECK(!values[i]);
+  }
+
+  std::vector<CrashKey> registered_crash_keys;
+  if (internal::ReadCrashKeysFromProcess(process_handle,
+                                         &registered_crash_keys)) {
+    for (auto& crash_key : registered_crash_keys) {
+      if (crash_key.name[0] == 0 || crash_key.value[0] == 0)
+        continue;
+      request.crash_keys.push_back(
+          MinidumpRequest::CrashKey(crash_key.name, crash_key.value));
+    }
   }
 
   switch (minidump_type) {

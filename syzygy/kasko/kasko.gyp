@@ -149,10 +149,14 @@
       'sources': [
         'api/client.cc',
         'api/client.h',
+        'api/crash_key.h',
         'api/kasko_dll.cc',
         'api/kasko_export.h',
+        'api/minidump_type.h',
         'api/reporter.cc',
         'api/reporter.h',
+        'api/internal/crash_key_registration.cc',
+        'api/internal/crash_key_registration.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',

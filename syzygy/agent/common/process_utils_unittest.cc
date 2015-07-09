@@ -102,21 +102,6 @@ class ProcessUtilsTest : public testing::Test {
 
 }  // namespace
 
-TEST_F(ProcessUtilsTest, GetProcessModules) {
-  ModuleVector modules;
-
-  GetProcessModules(&modules);
-
-  // Make sure our own module is in the list.
-  HMODULE exe_module = ::GetModuleHandle(NULL);
-  EXPECT_TRUE(
-      std::find(modules.begin(), modules.end(), exe_module) != modules.end());
-
-  // We have some imports, so there should be
-  // more than just our own module here.
-  EXPECT_LT(1U, modules.size());
-}
-
 TEST_F(ProcessUtilsTest, LogModule) {
   ASSERT_NO_FATAL_FAILURE(StartService());
 

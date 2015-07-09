@@ -23,6 +23,7 @@
 #include "syzygy/kasko/client.h"
 #include "syzygy/kasko/dll_lifetime.h"
 #include "syzygy/kasko/minidump_request.h"
+#include "syzygy/kasko/api/internal/crash_key_registration.h"
 
 namespace kasko {
 namespace api {
@@ -55,6 +56,10 @@ void InitializeClient(const base::char16* endpoint_name) {
   DCHECK(!g_client);
   DCHECK(endpoint_name);
   g_client = new Client(endpoint_name);
+}
+
+void RegisterCrashKeys(const CrashKey* crash_keys, size_t count) {
+  internal::RegisterCrashKeys(crash_keys, count);
 }
 
 void SendReport(const EXCEPTION_POINTERS* exception_pointers,

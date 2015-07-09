@@ -27,7 +27,7 @@
 #include "base/threading/thread.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/agent/common/process_utils.h"
+#include "syzygy/common/process_utils.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
 #include "syzygy/trace/common/unittest_util.h"
@@ -42,8 +42,8 @@ namespace memprof {
 
 namespace {
 
-using agent::common::GetProcessModules;
-using agent::common::ModuleVector;
+using ::common::GetCurrentProcessModules;
+using ::common::ModuleVector;
 using testing::_;
 using testing::AllOf;
 using testing::Return;

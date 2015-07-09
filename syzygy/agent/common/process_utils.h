@@ -18,7 +18,6 @@
 #define SYZYGY_AGENT_COMMON_PROCESS_UTILS_H_
 
 #include <windows.h>
-#include <vector>
 
 // Forward declarations.
 namespace trace {
@@ -30,17 +29,6 @@ class TraceFileSegment;
 
 namespace agent {
 namespace common {
-
-typedef std::vector<HMODULE> ModuleVector;
-
-// Retrieves a list of all modules in the process.
-// @param modules returns a vector containing all modules in the process.
-// @note that other threads in the process can be loading or unloading
-//     libraries concurrently with calling this function and using its results.
-//     Using the results from this function is therefore inherently racy, unless
-//     running under the loader's lock, such as e.g. in a DllMain notification
-//     or e.g. a TLS callback function.
-void GetProcessModules(ModuleVector* modules);
 
 // Logs a TRACE_PROCESS_ATTACH_EVENT to the provided @p segment and @p session.
 // If there is insufficient room in @p segment, returns the buffer to @p service
