@@ -20,7 +20,6 @@
 #include "base/win/pe_image.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/common/path_util.h"
-#include "syzygy/trace/client/rpc_session.h"
 
 namespace common {
 
