@@ -44,11 +44,10 @@ namespace basic_block_entry {
 //     entry counting, basic block arc counts, jump table entry counts, etc).
 class BasicBlockEntry {
  public:
-  typedef ::common::IndexedFrequencyData IndexedFrequencyData;
-  typedef ::agent::common::ThreadStateManager ThreadStateManager;
-
-  // Forward declaration.
-  struct BasicBlockIndexedFrequencyData;
+  using IndexedFrequencyData = ::common::IndexedFrequencyData;
+  using ThreadLocalIndexedFrequencyData =
+      ::common::ThreadLocalIndexedFrequencyData;
+  using ThreadStateManager = ::agent::common::ThreadStateManager;
 
   // The size in DWORD of the buffer. We choose a multiple of memory page size.
   static const size_t kBufferSize = 4096;
@@ -177,25 +176,6 @@ class BasicBlockEntry {
 
   // Global lock to avoid concurrent segment_ update.
   base::Lock lock_;
-};
-
-// This structure contains the BasicBlockEntry IndexedFrequencyData specifics
-// information.
-struct BasicBlockEntry::BasicBlockIndexedFrequencyData {
-  // The indexed frequency data information common for all agents.
-  ::common::IndexedFrequencyData module_data;
-
-  // The TLS slot associated with this module (if any). This allows for the
-  // frequency trace data to be managed on a per-thread basis, if desired by the
-  // agent. The TLS index is initialized to TLS_OUT_OF_INDEXES by the
-  // instrumenter.
-  DWORD tls_index;
-
-  // The FS slot associated with this module (if any). This allows for the
-  // frequency trace data to be managed on a per-thread basis, if desired by the
-  // agent. An unused slot is initialized to zero by the instrumenter, otherwise
-  // it is initialized to a slot index between 1 and 4.
-  DWORD fs_slot;
 };
 
 }  // namespace basic_block_entry

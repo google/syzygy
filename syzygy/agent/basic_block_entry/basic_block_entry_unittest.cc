@@ -524,7 +524,7 @@ class BasicBlockEntryTest : public testing::Test {
 
   // This will be a stand-in for the (usually statically allocated) trace
   // data which would have been referenced by the instrumentation.
-  static BasicBlockEntry::BasicBlockIndexedFrequencyData module_data_;
+  static BasicBlockEntry::ThreadLocalIndexedFrequencyData module_data_;
   static BasicBlockEntry::IndexedFrequencyData* common_data_;
 
   // This will be a stand-in for the (usually statically allocated) fall-back
@@ -589,7 +589,7 @@ BOOL __declspec(naked) __cdecl BasicBlockEntryTest::ExeMainThunk() {
   }
 }
 
-BasicBlockEntry::BasicBlockIndexedFrequencyData
+BasicBlockEntry::ThreadLocalIndexedFrequencyData
     BasicBlockEntryTest::module_data_ = {};
 BasicBlockEntry::IndexedFrequencyData* BasicBlockEntryTest::common_data_ = NULL;
 uint32 BasicBlockEntryTest::default_frequency_data_[] = {};

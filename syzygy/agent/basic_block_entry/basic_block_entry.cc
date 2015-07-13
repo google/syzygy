@@ -453,9 +453,9 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
 
   // Retrieve the indexed_frequency_data specific fields for this agent.
   // @returns a pointer to the specific fields.
-  const BasicBlockIndexedFrequencyData* GetBasicBlockData() const {
+  const ThreadLocalIndexedFrequencyData* GetBasicBlockData() const {
     return
-        reinterpret_cast<const BasicBlockIndexedFrequencyData*>(module_data_);
+        reinterpret_cast<const ThreadLocalIndexedFrequencyData*>(module_data_);
   }
 
  protected:
@@ -723,8 +723,8 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
   CHECK_NE(IndexedFrequencyData::INVALID_DATA_TYPE, module_data->data_type);
 
   // Get a pointer to the extended indexed frequency data.
-  BasicBlockIndexedFrequencyData* basicblock_data =
-      reinterpret_cast<BasicBlockIndexedFrequencyData*>(module_data);
+  ThreadLocalIndexedFrequencyData* basicblock_data =
+      reinterpret_cast<ThreadLocalIndexedFrequencyData*>(module_data);
 
   // Create the thread-local state for this thread. By default, just point the
   // counter array to the statically allocated fall-back area.
@@ -775,8 +775,8 @@ inline BasicBlockEntry::ThreadState* BasicBlockEntry::GetThreadState(
   ScopedLastErrorKeeper scoped_last_error_keeper;
 
   // Get a pointer to the extended indexed frequency data.
-  BasicBlockIndexedFrequencyData* basicblock_data =
-      reinterpret_cast<BasicBlockIndexedFrequencyData*>(module_data);
+  ThreadLocalIndexedFrequencyData* basicblock_data =
+      reinterpret_cast<ThreadLocalIndexedFrequencyData*>(module_data);
 
   DWORD tls_index = basicblock_data->tls_index;
   DCHECK_NE(TLS_OUT_OF_INDEXES, tls_index);
@@ -987,8 +987,8 @@ void BasicBlockEntry::OnProcessAttach(IndexedFrequencyData* module_data) {
   DCHECK(module_data != NULL);
 
   // Get a pointer to the extended indexed frequency data.
-  BasicBlockIndexedFrequencyData* basicblock_data =
-      reinterpret_cast<BasicBlockIndexedFrequencyData*>(module_data);
+  ThreadLocalIndexedFrequencyData* basicblock_data =
+      reinterpret_cast<ThreadLocalIndexedFrequencyData*>(module_data);
 
   // Exit if the magic number does not match.
   CHECK_EQ(::common::kBasicBlockEntryAgentId, module_data->agent_id);
@@ -1041,8 +1041,8 @@ void BasicBlockEntry::OnThreadDetach(IndexedFrequencyData* module_data) {
   DCHECK_EQ(1U, module_data->initialization_attempted);
 
   // Get a pointer to the extended indexed frequency data.
-  BasicBlockIndexedFrequencyData* basicblock_data =
-      reinterpret_cast<BasicBlockIndexedFrequencyData*>(module_data);
+  ThreadLocalIndexedFrequencyData* basicblock_data =
+      reinterpret_cast<ThreadLocalIndexedFrequencyData*>(module_data);
 
   DCHECK_NE(TLS_OUT_OF_INDEXES, basicblock_data->tls_index);
 

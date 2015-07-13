@@ -19,7 +19,6 @@
 #include "base/logging.h"
 #include "base/values.h"
 #include "base/json/json_reader.h"
-#include "syzygy/agent/basic_block_entry/basic_block_entry.h"
 #include "syzygy/core/address_space.h"
 #include "syzygy/pe/transforms/pe_add_imports_transform.h"
 

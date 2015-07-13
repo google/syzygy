@@ -42,11 +42,9 @@ using block_graph::BasicCodeBlock;
 using block_graph::BlockGraph;
 using block_graph::Instruction;
 using common::IndexedFrequencyData;
+using common::ThreadLocalIndexedFrequencyData;
 using common::kBasicBlockEntryAgentId;
 using common::kBasicBlockFrequencyDataVersion;
-
-typedef BasicBlockEntry::BasicBlockIndexedFrequencyData
-    BasicBlockIndexedFrequencyData;
 
 class TestBranchHookTransform : public BranchHookTransform {
  public:
@@ -239,9 +237,9 @@ TEST_F(BranchHookTransformTest, ApplyAgentInstrumentation) {
   EXPECT_EQ(sizeof(uint32), frequency_data->frequency_size);
   EXPECT_TRUE(frequency_data.HasReferenceAt(
       frequency_data.OffsetOf(frequency_data->frequency_data)));
-  EXPECT_EQ(sizeof(BasicBlockIndexedFrequencyData),
+  EXPECT_EQ(sizeof(ThreadLocalIndexedFrequencyData),
             tx_.frequency_data_block()->size());
-  EXPECT_EQ(sizeof(BasicBlockIndexedFrequencyData),
+  EXPECT_EQ(sizeof(ThreadLocalIndexedFrequencyData),
             tx_.frequency_data_block()->data_size());
 
   uint32 expected_size = frequency_data->num_entries *

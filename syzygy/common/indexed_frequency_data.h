@@ -91,6 +91,25 @@ struct IndexedFrequencyData {
 };
 COMPILE_ASSERT_IS_POD(IndexedFrequencyData);
 
+// Indexed frequency data that is managed as a thread local. Used by the basic
+// block entry instrumentation and agent, and variants.
+struct ThreadLocalIndexedFrequencyData {
+  // The indexed frequency data information common for all agents.
+  ::common::IndexedFrequencyData module_data;
+
+  // The TLS slot associated with this module (if any). This allows for the
+  // frequency trace data to be managed on a per-thread basis, if desired by the
+  // agent. The TLS index is initialized to TLS_OUT_OF_INDEXES by the
+  // instrumenter.
+  DWORD tls_index;
+
+  // The FS slot associated with this module (if any). This allows for the
+  // frequency trace data to be managed on a per-thread basis, if desired by the
+  // agent. An unused slot is initialized to zero by the instrumenter, otherwise
+  // it is initialized to a slot index between 1 and 4.
+  DWORD fs_slot;
+};
+
 #pragma pack(pop)
 
 // The basic-block coverage agent ID.
