@@ -35,7 +35,7 @@
 #include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_symbol_record.h"
-#include "syzygy/pdb/pdb_type_info_stream.h"
+#include "syzygy/pdb/pdb_type_info_stream_enum.h"
 #include "syzygy/pe/cvinfo_ext.h"
 
 namespace pdb {
@@ -100,7 +100,7 @@ bool WriteStreamToPath(PdbStream* pdb_stream,
 bool ExplodeStreams(const base::FilePath& input_pdb_path,
                     const DbiStream& dbi_stream,
                     const NameStreamMap& name_streams,
-                    const TypeInfoHeader type_info_header,
+                    const TypeInfoHeader& type_info_header,
                     const PdbFile& pdb_file) {
   base::FilePath output_dir_path(input_pdb_path.value() + L"-streams");
   DCHECK(!output_dir_path.empty());
@@ -280,14 +280,12 @@ int PdbDumpApp::Run() {
     }
 
     // Read the type info stream.
-    TypeInfoHeader type_info_header = {};
-    TypeInfoRecordMap type_info_records;
     stream = pdb_file.GetStream(pdb::kTpiStream).get();
-    if (stream != NULL && ReadTypeInfoStream(stream,
-                                             &type_info_header,
-                                             &type_info_records)) {
+    TypeInfoEnumerator type_info_enum;
+
+    if (type_info_enum.Init(stream)) {
       if (dump_type_info_)
-        DumpTypeInfoStream(out(), stream, type_info_header, type_info_records);
+        DumpTypeInfoStream(out(), type_info_enum);
     } else {
       LOG(ERROR) << "No type info stream.";
       return 1;
@@ -336,11 +334,9 @@ int PdbDumpApp::Run() {
       }
     }
 
-    if (explode_streams_ && !ExplodeStreams(input_pdb_path,
-                                            dbi_stream,
-                                            name_streams,
-                                            type_info_header,
-                                            pdb_file)) {
+    if (explode_streams_ &&
+        !ExplodeStreams(input_pdb_path, dbi_stream, name_streams,
+                        type_info_enum.type_info_header(), pdb_file)) {
       return 1;
     }
   }

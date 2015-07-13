@@ -58,19 +58,30 @@ bool PdbByteStream::Init(const uint8* data, size_t length) {
 bool PdbByteStream::Init(PdbStream* stream) {
   DCHECK(stream != NULL);
 
-  // Init data members.
-  set_length(stream->length());
-  data_.resize(length());
-
-  if (data_.empty())
-    return true;
-
-  // Read the file stream.
+  // Seek the beginning of the stream.
   if (!stream->Seek(0)) {
     LOG(ERROR) << "Failed to seek in pdb stream.";
     return false;
   }
-  if (!stream->Read(data(), length())) {
+
+  // Read the pdb stream.
+  Init(stream, stream->length());
+
+  return true;
+}
+
+bool PdbByteStream::Init(PdbStream* stream, size_t length) {
+  DCHECK(stream != NULL);
+
+  // Init data members.
+  set_length(length);
+  data_.resize(length);
+
+  if (data_.empty())
+    return true;
+
+  // Read the pdb stream.
+  if (!stream->Read(data(), length)) {
     LOG(ERROR) << "Failed to read pdb stream.";
     return false;
   }

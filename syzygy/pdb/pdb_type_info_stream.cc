@@ -22,6 +22,8 @@
 
 namespace pdb {
 
+// Do we need this anymore?
+
 bool ReadTypeInfoStream(PdbStream* stream,
                         TypeInfoHeader* type_info_header,
                         TypeInfoRecordMap* type_info_record_map) {
@@ -29,11 +31,9 @@ bool ReadTypeInfoStream(PdbStream* stream,
   DCHECK(type_info_header != NULL);
   DCHECK(type_info_record_map != NULL);
 
-  TypeInfoEnumerator enumerator(stream);
-
-  if (!enumerator.ReadTypeInfoHeader(type_info_header)) {
+  TypeInfoEnumerator enumerator;
+  if (!enumerator.Init(stream))
     return false;
-  }
 
   // Process each type record present in the stream. For now we only save their
   // starting positions, their lengths and their types to be able to dump them.

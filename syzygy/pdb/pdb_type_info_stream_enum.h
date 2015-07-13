@@ -19,6 +19,7 @@
 
 #include <stdint.h>
 #include "base/callback.h"
+#include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_data_types.h"
 
@@ -30,17 +31,15 @@ class PdbStream;
 // Simple type info stream enumerator which crawls through a type info stream.
 class TypeInfoEnumerator {
  public:
-  // Creates an uninitialized enumerator for @p stream.
+  // Creates an uninitialized enumerator for type info stream.
+  TypeInfoEnumerator();
+
+  // Initializes the enumerator with given stream. Needs to be called before
+  // any further work.
   // @param stream a pointer to a heap allocated stream object. The enumerator
   //     does not take ownership of this pointer.
-  explicit TypeInfoEnumerator(PdbStream* stream);
-
-  // Reads the type info header and returns true on success. Needs to be called
-  // first in order to initialize the class.
-  // @param type_info_header pointer to TypeInfoHeader object which will be
-  //     filled with the header info.
   // @returns true on success, false means bad header format.
-  bool ReadTypeInfoHeader(TypeInfoHeader* type_info_header);
+  bool Init(PdbStream* stream);
 
   // Moves to the next record in the type info stream. Expects stream position
   // at the beginning of a type info record.
@@ -50,6 +49,11 @@ class TypeInfoEnumerator {
   // Checks if the end of stream was reached.
   // @returns true at the end of the stream, false otherwise.
   bool EndOfStream();
+
+  // @returns the data stream for the current type record. After calling
+  // NextTypeInfoRecord the stream gets populated with the data of the next
+  // type record.
+  scoped_refptr<PdbStream> GetDataStream() const { return data_stream_; }
 
   // @name Accessors.
   // @{
@@ -64,11 +68,20 @@ class TypeInfoEnumerator {
 
   // @returns the type ID of the current type record.
   uint32_t type_id() const { return type_id_; }
+
+  // @returns the type info header of the type info stream.
+  TypeInfoHeader type_info_header() const { return type_info_header_; }
   // @}
 
  private:
   // Pointer to the PDB type info stream.
   scoped_refptr<PdbStream> stream_;
+
+  // Header of the type info stream.
+  TypeInfoHeader type_info_header_;
+
+  // Stream containing data of the current type info record.
+  scoped_refptr<PdbByteStream> data_stream_;
 
   // Starting position of the current type record in the stream.
   size_t start_position_;

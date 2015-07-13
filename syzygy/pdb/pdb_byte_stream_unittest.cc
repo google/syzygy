@@ -85,6 +85,24 @@ TEST(PdbByteStreamTest, InitFromPdbStream) {
   }
 }
 
+TEST(PdbByteStreamTest, InitFromPdbStreamPart) {
+  uint8 data[] = {0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8};
+  scoped_refptr<PdbByteStream> test_stream(new PdbByteStream());
+  EXPECT_TRUE(test_stream->Init(data, arraysize(data)));
+
+  scoped_refptr<PdbByteStream> stream(new PdbByteStream);
+  EXPECT_TRUE(test_stream->Seek(2));
+  EXPECT_TRUE(stream->Init(test_stream.get(), 7));
+  EXPECT_EQ(7, stream->length());
+  EXPECT_TRUE(stream->data() != NULL);
+
+  for (size_t i = 0; i < stream->length(); ++i) {
+    uint8 num = 0;
+    EXPECT_TRUE(stream->Read(&num, 1));
+    EXPECT_EQ(data[i + 2], num);
+  }
+}
+
 TEST(PdbByteStreamTest, ReadBytes) {
   size_t len = 17;
   scoped_refptr<TestPdbStream> test_stream(new TestPdbStream(len));

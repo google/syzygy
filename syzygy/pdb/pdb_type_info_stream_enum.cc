@@ -20,40 +20,43 @@
 
 namespace pdb {
 
-TypeInfoEnumerator::TypeInfoEnumerator(PdbStream* stream)
-    : stream_(stream),
+TypeInfoEnumerator::TypeInfoEnumerator()
+    : stream_(nullptr),
       start_position_(0),
       data_end_(0),
+      data_stream_(new PdbByteStream()),
       len_(0),
       type_(0),
       type_id_(0),
       type_id_max_(0),
       type_id_min_(0) {
-  DCHECK(stream_ != NULL);
+  memset(&type_info_header_, 0, sizeof(type_info_header_));
 }
 
 bool TypeInfoEnumerator::EndOfStream() {
-  DCHECK(stream_ != NULL);
+  DCHECK(stream_ != nullptr);
   return stream_->pos() >= data_end_;
 }
 
-bool TypeInfoEnumerator::ReadTypeInfoHeader(TypeInfoHeader* type_info_header) {
-  DCHECK(stream_ != NULL);
-  DCHECK(type_info_header != NULL);
+bool TypeInfoEnumerator::Init(PdbStream* stream) {
+  DCHECK(stream != nullptr);
+  DCHECK(stream_ == nullptr);
+
+  stream_ = stream;
 
   // Reads the header of the stream.
-  if (!stream_->Seek(0) || !stream_->Read(type_info_header, 1)) {
+  if (!stream_->Seek(0) || !stream_->Read(&type_info_header_, 1)) {
     LOG(ERROR) << "Unable to read the type info stream header.";
     return false;
   }
 
-  if (stream_->pos() != type_info_header->len) {
+  if (stream_->pos() != type_info_header_.len) {
     LOG(ERROR) << "Unexpected length for the type info stream header (expected "
-               << type_info_header->len << ", read " << stream_->pos() << ").";
+               << type_info_header_.len << ", read " << stream_->pos() << ").";
     return false;
   }
 
-  data_end_ = type_info_header->len + type_info_header->type_info_data_size;
+  data_end_ = type_info_header_.len + type_info_header_.type_info_data_size;
 
   if (data_end_ != stream_->length()) {
     LOG(ERROR) << "The type info stream is not valid.";
@@ -63,13 +66,15 @@ bool TypeInfoEnumerator::ReadTypeInfoHeader(TypeInfoHeader* type_info_header) {
   // The type ID of each entry is not present in the stream, instead of that we
   // know the first and the last type ID and we know that the type records are
   // ordered in increasing order in the stream.
-  type_id_ = type_info_header->type_min - 1;
+  type_id_ = type_info_header_.type_min - 1;
   type_id_min_ = type_id_;
-  type_id_max_ = type_info_header->type_max;
+  type_id_max_ = type_info_header_.type_max;
   return true;
 }
 
 bool TypeInfoEnumerator::NextTypeInfoRecord() {
+  DCHECK(stream_ != nullptr);
+
   if (stream_->pos() >= data_end_)
     return false;
 
@@ -87,10 +92,11 @@ bool TypeInfoEnumerator::NextTypeInfoRecord() {
   start_position_ = stream_->pos();
   len_ -= sizeof(type_);
 
-  if (!stream_->Seek(start_position_ + len_)) {
-    LOG(ERROR) << "Unable to seek to the end of the type info record.";
+  if (!data_stream_->Init(stream_.get(), len_)) {
+    LOG(ERROR) << "Unable to read data of the type info record.";
     return false;
   }
+  data_stream_->Seek(0);
 
   ++type_id_;
   if (stream_->pos() >= data_end_ && (type_id_ + 1) != type_id_max_) {

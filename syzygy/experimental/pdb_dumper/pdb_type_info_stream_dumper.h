@@ -22,6 +22,7 @@
 #include "base/basictypes.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_data_types.h"
+#include "syzygy/pdb/pdb_type_info_stream_enum.h"
 
 namespace pdb {
 
@@ -30,10 +31,7 @@ class PdbStream;
 
 // Dump @p type_info_header and @p type_info_record_map from @p stream to @p
 // out.
-void DumpTypeInfoStream(FILE* out,
-                        PdbStream* stream,
-                        const TypeInfoHeader& type_info_header,
-                        const TypeInfoRecordMap& type_info_record_map);
+void DumpTypeInfoStream(FILE* out, TypeInfoEnumerator& type_info_enum);
 
 }  // namespace pdb
 

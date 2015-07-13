@@ -26,11 +26,9 @@ namespace pdb {
 
 namespace cci = Microsoft_Cci_Pdb;
 
-void DumpTypeInfoStream(FILE* out,
-                        PdbStream* stream,
-                        const TypeInfoHeader& type_info_header,
-                        const TypeInfoRecordMap& type_info_record_map) {
-  DCHECK(stream != NULL);
+void DumpTypeInfoStream(FILE* out, TypeInfoEnumerator& type_info_enum) {
+  // Read type info stream header.
+  const TypeInfoHeader& type_info_header = type_info_enum.type_info_header();
 
   DumpIndentedText(out, 0, "Type Info Header:\n");
   DumpIndentedText(out, 1, "version: 0x%08X\n", type_info_header.version);
@@ -60,51 +58,45 @@ void DumpTypeInfoStream(FILE* out,
             type_info_hash.offset_cb_hash_adj.offset,
             type_info_hash.offset_cb_hash_adj.cb);
 
-  DumpIndentedText(out, 0, "%d type info records in the stream:\n",
-            type_info_record_map.size());
-  TypeInfoRecordMap::const_iterator type_info_iter =
-      type_info_record_map.begin();
+  // TODO(mopler): Remove this type info record map from the implementation.
+  TypeInfoRecordMap type_info_record_map;
   uint8 indent_level = 1;
+
   // Dump each symbol contained in the vector.
-  for (; type_info_iter != type_info_record_map.end(); ++type_info_iter) {
-    if (!stream->Seek(type_info_iter->second.start_position)) {
-      LOG(ERROR) << "Unable to seek to type info record at position "
-                 << base::StringPrintf("0x%08X.",
-                                       type_info_iter->second.start_position);
+  while (!type_info_enum.EndOfStream()) {
+    if (!type_info_enum.NextTypeInfoRecord()) {
+      LOG(ERROR) << "Unable to read type info stream.";
       return;
     }
+
+    // Add new record to the map.
+    TypeInfoRecord type_record;
+    type_record.type = type_info_enum.type();
+    type_record.start_position = type_info_enum.start_position();
+    type_record.len = type_info_enum.len();
+
+    type_info_record_map.insert(
+        std::make_pair(type_info_enum.type_id(), type_record));
+
     // The location in the map is the start of the leaf, which points
     // past the size/type pair.
     DumpIndentedText(out, indent_level, "Type info 0x%04X (at 0x%04X):\n",
-        type_info_iter->first,
-        type_info_iter->second.start_position - sizeof(cci::SYMTYPE));
-    bool success = DumpLeaf(type_info_record_map,
-                            type_info_iter->second.type,
-                            out,
-                            stream,
-                            type_info_iter->second.len,
-                            indent_level + 1);
+                     type_info_enum.type_id(),
+                     type_record.start_position - sizeof(cci::SYMTYPE));
+    bool success = DumpLeaf(type_info_record_map, type_record.type, out,
+                            type_info_enum.GetDataStream().get(),
+                            type_record.len, indent_level + 1);
 
     if (!success) {
       // In case of failure we just dump the hex data of this type info.
-      if (!stream->Seek(type_info_iter->second.start_position)) {
+      if (!type_info_enum.GetDataStream()->Seek(0)) {
         LOG(ERROR) << "Unable to seek to type info record at position "
-                   << base::StringPrintf("0x%08X.",
-                                         type_info_iter->second.start_position);
+                   << base::StringPrintf("0x%08X.", type_record.start_position);
         return;
       }
-      DumpUnknownLeaf(type_info_record_map,
-                      out,
-                      stream,
-                      type_info_iter->second.len,
+      DumpUnknownLeaf(type_info_record_map, out,
+                      type_info_enum.GetDataStream().get(), type_record.len,
                       indent_level + 1);
-    }
-    stream->Seek(common::AlignUp(stream->pos(), 4));
-    size_t expected_position = type_info_iter->second.start_position
-        + type_info_iter->second.len;
-    if (stream->pos() != expected_position) {
-      LOG(ERROR) << "Type info stream is not valid.";
-      return;
     }
   }
 }
