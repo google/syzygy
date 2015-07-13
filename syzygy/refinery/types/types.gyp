@@ -27,11 +27,14 @@
         'type.h',
         'type_repository.cc',
         'type_repository.h',
+        'typed_data.cc',
+        'typed_data.h',
       ],
       'dependencies': [
         'test_types',
         '<(src)/syzygy/pe/pe.gyp:dia_sdk',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/refinery/core/core.gyp:refinery_core_lib',
       ],
     },
     {

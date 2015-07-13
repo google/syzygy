@@ -57,6 +57,7 @@
         'minidump/minidump_unittest.cc',
         'types/type_unittest.cc',
         'types/type_repository_unittest.cc',
+        'types/typed_data_unittest.cc',
         'types/dia_crawler_unittest.cc',
         'validators/exception_handler_validator_unittest.cc',
         '<(src)/base/test/run_all_unittests.cc',
