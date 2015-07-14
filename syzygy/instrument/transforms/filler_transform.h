@@ -115,7 +115,7 @@ class FillerTransform
   typedef block_graph::BlockGraph BlockGraph;
   typedef BlockGraph::Block Block;
 
-  explicit FillerTransform(const std::set<std::string>& target_set);
+  FillerTransform(const std::set<std::string>& target_set, bool add_copy);
   virtual ~FillerTransform() { }
 
   // Accessors
@@ -130,8 +130,8 @@ class FillerTransform
   // @{
   bool debug_friendly() const { return debug_friendly_; }
   void set_debug_friendly(bool flag) { debug_friendly_ = flag; }
-  const std::map<std::string, bool>& target_names() const {
-    return target_names_;
+  const std::map<std::string, bool>& target_visited() const {
+    return target_visited_;
   }
   // @}
 
@@ -162,8 +162,11 @@ class FillerTransform
   // Activate the overwriting of source range for created instructions.
   bool debug_friendly_;
 
-  // Names of targets, maps to whether the target was seen.
-  std::map<std::string, bool> target_names_;
+  // Whether to add a dummy copy of each target.
+  bool add_copy_;
+
+  // Maps from target names to whether a block with given name was visited.
+  std::map<std::string, bool> target_visited_;
 
   // Counters used by CheckAllTargetsFound.
   // @{

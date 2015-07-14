@@ -35,8 +35,9 @@ using base::Value;
 }  // namespace
 
 bool FlummoxInstrumenter::FlummoxConfig::ReadFromJSON(const std::string& json) {
+  bool input_add_copy = false;
   scoped_ptr<Value> value(base::JSONReader::Read(json));
-  if (value.get() == NULL) {
+  if (value.get() == nullptr) {
     LOG(ERROR) << "Invalid or empty configuration JSON.";
     return false;
   }
@@ -49,7 +50,7 @@ bool FlummoxInstrumenter::FlummoxConfig::ReadFromJSON(const std::string& json) {
     reinterpret_cast<const DictionaryValue*>(value.get());
 
   std::string targets_key("targets");
-  const DictionaryValue* targets_dict = NULL;
+  const DictionaryValue* targets_dict = nullptr;
 
   if (!outer_dict->GetDictionary(targets_key, &targets_dict)) {
     LOG(ERROR) << "Outer dictionary must contain key 'targets'.";
@@ -60,7 +61,7 @@ bool FlummoxInstrumenter::FlummoxConfig::ReadFromJSON(const std::string& json) {
   DictionaryValue::Iterator it(*targets_dict);
   for (; !it.IsAtEnd(); it.Advance()) {
     std::string function_name = it.key();
-    const ListValue* strategy_list = NULL;
+    const ListValue* strategy_list = nullptr;
     if (!it.value().GetAsList(&strategy_list))  {
       LOG(ERROR) << "Strategy list expected.";
       return false;
@@ -70,7 +71,16 @@ bool FlummoxInstrumenter::FlummoxConfig::ReadFromJSON(const std::string& json) {
     temp_target_set.insert(function_name);
   }
 
+  std::string add_copy_key("add_copy");
+  if (outer_dict->HasKey(add_copy_key) &&
+      !outer_dict->GetBoolean(add_copy_key, &input_add_copy)) {
+    LOG(ERROR) << add_copy_key << " must be a boolean.";
+    return false;
+  }
+
+  // Success!
   target_set_.swap(temp_target_set);
+  add_copy_ = input_add_copy;
   return true;
 }
 
@@ -94,7 +104,8 @@ bool FlummoxInstrumenter::InstrumentPrepare() {
 
 bool FlummoxInstrumenter::InstrumentImpl() {
   flummox_transform_.reset(
-      new instrument::transforms::FillerTransform(config_.target_set()));
+      new instrument::transforms::FillerTransform(
+          config_.target_set(), config_.add_copy()));
   flummox_transform_->set_debug_friendly(debug_friendly_);
 
   if (!relinker_->AppendTransform(flummox_transform_.get())) {

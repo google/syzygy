@@ -124,6 +124,7 @@ TEST_F(FlummoxInstrumenterTest, ParseTargetListEmpty) {
   TestFlummoxConfig config;
   config.ReadFromJSON("{ \"targets\": {} }");
   EXPECT_EQ(0U, config.target_set().size());
+  EXPECT_FALSE(config.add_copy());
 }
 
 TEST_F(FlummoxInstrumenterTest, ParseTargetListNormal) {
@@ -135,13 +136,15 @@ TEST_F(FlummoxInstrumenterTest, ParseTargetListNormal) {
     "base::bar": [],
     //"unused": [],
     "__baz__": []
-  }
+  },
+  "add_copy": true
 }
 )JSON");
   EXPECT_EQ(3U, config.target_set().size());
   EXPECT_NE(config.target_set().end(), config.target_set().find("foo"));
   EXPECT_NE(config.target_set().end(), config.target_set().find("base::bar"));
   EXPECT_NE(config.target_set().end(), config.target_set().find("__baz__"));
+  EXPECT_TRUE(config.add_copy());
 }
 
 TEST_F(FlummoxInstrumenterTest, ParseCommandLineMinimalCoverage) {
@@ -189,10 +192,11 @@ TEST_F(FlummoxInstrumenterTest, InstrumentImpl) {
   EXPECT_TRUE(instrumenter_.CreateRelinker());
   EXPECT_TRUE(instrumenter_.InstrumentImpl());
   // Ensure that the test target lists are read.
-  const auto& target_names = instrumenter_.flummox_transform_->target_names();
-  EXPECT_EQ(2U, target_names.size());
-  EXPECT_NE(target_names.end(), target_names.find("Used::M"));
-  EXPECT_NE(target_names.end(), target_names.find("TestUnusedFuncs"));
+  const auto& target_visited =
+      instrumenter_.flummox_transform_->target_visited();
+  EXPECT_EQ(2U, target_visited.size());
+  EXPECT_NE(target_visited.end(), target_visited.find("Used::M"));
+  EXPECT_NE(target_visited.end(), target_visited.find("TestUnusedFuncs"));
 }
 
 }  // namespace instrumenters

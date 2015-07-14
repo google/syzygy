@@ -36,7 +36,7 @@ class FlummoxInstrumenter : public InstrumenterWithRelinker {
 
   class FlummoxConfig {
    public:
-    FlummoxConfig() { }
+    FlummoxConfig() : add_copy_(false) { }
     ~FlummoxConfig() { }
 
     // Loads (from a JSON string) configurations for the flummox instrumenter.
@@ -46,7 +46,8 @@ class FlummoxInstrumenter : public InstrumenterWithRelinker {
     //     "function_name1": [],
     //     "function_name2": [],
     //     ...
-    //   }
+    //   },
+    //   "add_copy": true|false
     // }
     // @param json A JSON string containing the configuration following the
     //     format described above.
@@ -60,10 +61,12 @@ class FlummoxInstrumenter : public InstrumenterWithRelinker {
     // Accessors
     // @{
     const std::set<std::string>& target_set() const { return target_set_; }
+    bool add_copy() const { return add_copy_; }
     // @}
 
    protected:
     std::set<std::string> target_set_;
+    bool add_copy_;
 
    private:
     DISALLOW_COPY_AND_ASSIGN(FlummoxConfig);

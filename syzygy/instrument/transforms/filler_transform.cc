@@ -68,8 +68,8 @@ bool FillerBasicBlockTransform::TransformBasicBlockSubGraph(
   // Visit each basic code block and inject NOPs.
   BasicBlockSubGraph::BBCollection& basic_blocks =
       basic_block_subgraph->basic_blocks();
-  for (auto bb = basic_blocks.begin(); bb != basic_blocks.end(); ++bb) {
-    BasicCodeBlock* bc_block = BasicCodeBlock::Cast(*bb);
+  for (auto& bb : basic_blocks) {
+    BasicCodeBlock* bc_block = BasicCodeBlock::Cast(bb);
     if (bc_block != nullptr) {
       BasicBlock::Instructions* instructions = &bc_block->instructions();
       NopSpec nop_spec;
@@ -84,30 +84,32 @@ bool FillerBasicBlockTransform::TransformBasicBlockSubGraph(
   return true;
 }
 
-FillerTransform::FillerTransform(const std::set<std::string>& target_set)
+FillerTransform::FillerTransform(const std::set<std::string>& target_set,
+                                 bool add_copy)
     : debug_friendly_(false),
       num_blocks_(0),
       num_code_blocks_(0),
-      num_targets_updated_(0) {
-  // Targets are not found yet, so initialize value to false.
+      num_targets_updated_(0),
+      add_copy_(add_copy) {
+  // Targets are not found yet, so initialize value to null.
   for (const std::string& target : target_set)
-    target_names_[target] = false;
+    target_visited_[target] = false;
 }
 
 bool FillerTransform::ShouldProcessBlock(Block* block) const {
-  return target_names_.find(block->name()) != target_names_.end();
+  return target_visited_.find(block->name()) != target_visited_.end();
 }
 
 void FillerTransform::CheckAllTargetsFound() const {
   bool has_missing = false;
-  for (auto it = target_names_.begin(); it != target_names_.end(); ++it) {
-    if (it->second)
+  for (const auto& it : target_visited_) {
+    if (it.second)
       continue;
     if (!has_missing) {
       LOG(WARNING) << "There are missing target(s):";
       has_missing = true;
     }
-    LOG(WARNING) << "  " << it->first;
+    LOG(WARNING) << "  " << it.first;
   }
 }
 
@@ -133,11 +135,14 @@ bool FillerTransform::OnBlock(const TransformPolicyInterface* policy,
   if (!ShouldProcessBlock(block))
     return true;
 
-  // Mark target as found.
+  // Mark target as found. Add copy of target if specified to do so.
   std::string name(block->name());
-  auto target_it = target_names_.find(block->name());
-  if (target_it != target_names_.end())
+  auto target_it = target_visited_.find(block->name());
+  if (target_it != target_visited_.end()) {
     target_it->second = true;
+    if (add_copy_)
+      block_graph->CopyBlock(block, block->name() + "_copy");
+  }
 
   // Skip blocks that aren't eligible for basic-block decomposition.
   if (!policy->BlockIsSafeToBasicBlockDecompose(block))

@@ -28,6 +28,7 @@
 
 namespace instrument {
 namespace transforms {
+
 namespace {
 
 using block_graph::BasicBlock;
@@ -91,8 +92,9 @@ class FillerBasicBlockTransformTest : public testing::Test {
 
 class TestFillerTransform : public FillerTransform {
  public:
-  explicit TestFillerTransform(const std::set<std::string>& target_set)
-      : FillerTransform(target_set) { }
+  TestFillerTransform(const std::set<std::string>& target_set,
+                      bool add_copy)
+      : FillerTransform(target_set, add_copy) { }
 };
 
 class FillerTransformTest : public testing::TestDllTransformTest {
@@ -101,22 +103,19 @@ class FillerTransformTest : public testing::TestDllTransformTest {
   typedef BlockGraph::Block::SourceRange SourceRange;
 
   // Finds all blocks whose names appear in @p target_set, and writes the
-  // mapping fron name to block in @p result. Returns true iff all names in
-  // @p target_set are found.
-  static bool FindAllBlocks(
-      BlockGraph* block_graph,
+  // mapping fron name to block in @p result.
+  void FindAllBlocks(
       const std::set<std::string>& target_set,
       std::map<std::string, BlockGraph::Block*>* result) {
     DCHECK(result && result->empty());
     std::set<std::string> targets_remaining(target_set);
-    for (auto& it : block_graph->blocks_mutable()) {
+    for (auto& it : block_graph_.blocks_mutable()) {
       std::string block_name = it.second.name();
       if (targets_remaining.find(block_name) != targets_remaining.end()) {
         (*result)[block_name] = &it.second;
         targets_remaining.erase(block_name);
       }
     }
-    return targets_remaining.empty();
   }
 
   // Verifies that @p instructions contains all expected NOPs except for NOPs
@@ -155,6 +154,69 @@ class FillerTransformTest : public testing::TestDllTransformTest {
     }
     // Expect there's no trailing NOP.
     EXPECT_TRUE(range_queue.empty());
+  }
+
+  // Applies the Filler Transform to specified @p target_set, and adds copy iff
+  // @p add_copy is true. Verifies that the transform is successful.
+  void ApplyFillerTransform(const std::set<std::string> target_set,
+                            bool add_copy) {
+    ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
+
+    // Apply the Filler Transform.
+    TestFillerTransform tx(target_set, add_copy);
+    tx.set_debug_friendly(true);  // Copy source ranges to injected NOPs.
+    ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
+        &tx, policy_, &block_graph_, header_block_));
+
+    // Find and store target blocks for later verification.
+    EXPECT_EQ(target_set.size(), tx.num_targets_updated());
+    std::map<std::string, BlockGraph::Block*> target_map;
+    FindAllBlocks(target_set, &target_map);
+    EXPECT_EQ(target_set.size(), target_map.size());
+
+    // Verify that each target has been properly modified.
+    for (auto& it : target_map) {
+      BlockGraph::Block* target_block = it.second;
+
+      // Decompose target block to subgraph.
+      block_graph::BasicBlockSubGraph subgraph;
+      block_graph::BasicBlockDecomposer bb_decomposer(target_block, &subgraph);
+      ASSERT_TRUE(bb_decomposer.Decompose());
+
+      // For each basic code block, verify that NOPs are properly placed.
+      block_graph::BasicBlockSubGraph::BBCollection& basic_blocks =
+          subgraph.basic_blocks();
+      for (auto bb = basic_blocks.begin(); bb != basic_blocks.end(); ++bb) {
+        BasicCodeBlock* bc_block = BasicCodeBlock::Cast(*bb);
+        if (bc_block != nullptr) {
+          CheckNops(&bc_block->instructions());
+          CheckNopSourceRange(&bc_block->instructions());
+        }
+      }
+    }
+  }
+
+  void ApplyFillerTransformTest(bool add_copy) {
+    std::set<std::string> targets = {
+      "Used::M",
+      "TestUnusedFuncs"
+    };
+
+    ASSERT_NO_FATAL_FAILURE(ApplyFillerTransform(targets, add_copy));
+
+    // Expect original targets to remain, and with copies if |add_copy|.
+    std::set<std::string> targets_with_copies(targets);
+    for (const auto& target : targets)
+      targets_with_copies.insert(target + "_copy");
+    std::set<std::string> expected_results(
+        add_copy ? targets_with_copies : targets);
+
+    // Search for original targets + copies, verify match with expected results.
+    std::map<std::string, BlockGraph::Block*> results;
+    FindAllBlocks(targets_with_copies, &results);
+    EXPECT_EQ(expected_results.size(), results.size());
+    for (const std::string target : expected_results)
+      EXPECT_NE(results.end(), results.find(target)) << target << " not found.";
   }
 };
 
@@ -303,45 +365,11 @@ TEST_F(FillerBasicBlockTransformTest, InjectAlternate) {
 }
 
 TEST_F(FillerTransformTest, Apply) {
-  std::set<std::string> target_set = {
-    "Used::M",
-    "TestUnusedFuncs"
-  };
+  ASSERT_NO_FATAL_FAILURE(ApplyFillerTransformTest(true));
+}
 
-  ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
-
-  // Apply the transform.
-  TestFillerTransform tx(target_set);
-  tx.set_debug_friendly(true);  // Copy source ranges to injected NOPs.
-  ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
-      &tx, policy_, &block_graph_, header_block_));
-
-  // Check results. First find and store target blocks.
-  EXPECT_EQ(2U, tx.num_targets_updated());
-  std::map<std::string, BlockGraph::Block*> target_map;
-  ASSERT_TRUE(FindAllBlocks(&block_graph_, target_set, &target_map));
-  ASSERT_TRUE(target_map.size() == target_set.size());
-
-  // Check the block for each target.
-  for (auto& it : target_map) {
-    BlockGraph::Block* target_block = it.second;
-
-    // Decompose target block to subgraph.
-    block_graph::BasicBlockSubGraph subgraph;
-    block_graph::BasicBlockDecomposer bb_decomposer(target_block, &subgraph);
-    ASSERT_TRUE(bb_decomposer.Decompose());
-
-    // Examine each basic code block.
-    block_graph::BasicBlockSubGraph::BBCollection& basic_blocks =
-        subgraph.basic_blocks();
-    for (auto bb = basic_blocks.begin(); bb != basic_blocks.end(); ++bb) {
-      BasicCodeBlock* bc_block = BasicCodeBlock::Cast(*bb);
-      if (bc_block != nullptr) {
-        CheckNops(&bc_block->instructions());
-        CheckNopSourceRange(&bc_block->instructions());
-      }
-    }
-  }
+TEST_F(FillerTransformTest, ApplyNoAddCopy) {
+  ASSERT_NO_FATAL_FAILURE(ApplyFillerTransformTest(false));
 }
 
 }  // namespace transforms
