@@ -33,9 +33,11 @@ struct TestUDT {
     uint32_t inner_two;
   } two;
   const TestUDT* three;
+  int32_t four : 10;
+  int32_t five : 10;
 };
 
-const TestUDT test_instance = {1, {2, 3}, &test_instance};
+const TestUDT test_instance = {1, {2, 3}, &test_instance, 4, -5};
 
 // A bit source that reflects the process' own memory.
 class TestBitSource : public BitSource {
@@ -102,9 +104,11 @@ class TypedDataTest : public testing::Test {
     TypePtr uint8_type = new BasicType(L"uint8_t", sizeof(uint8_t));
     TypePtr uint16_type = new BasicType(L"uint16_t", sizeof(uint16_t));
     TypePtr uint32_type = new BasicType(L"uint32_t", sizeof(uint32_t));
+    TypePtr int32_type = new BasicType(L"int32_t", sizeof(int32_t));
     repo_.AddType(uint8_type);
     repo_.AddType(uint16_type);
     repo_.AddType(uint32_type);
+    repo_.AddType(int32_type);
 
     UserDefinedType::Fields fields;
     UserDefinedTypePtr inner(
@@ -129,6 +133,12 @@ class TypedDataTest : public testing::Test {
                                             0, 0, inner->type_id()));
     fields.push_back(UserDefinedType::Field(L"three", offsetof(TestUDT, three),
                                             0, 0, 0, ptr_type->type_id()));
+    fields.push_back(UserDefinedType::Field(
+        L"four", offsetof(TestUDT, three) + sizeof(test_instance.three), 0, 0,
+        10, int32_type->type_id()));
+    fields.push_back(UserDefinedType::Field(
+        L"five", offsetof(TestUDT, three) + sizeof(test_instance.three), 0, 10,
+        10, int32_type->type_id()));
     outer->Finalize(fields);
     repo_.AddType(outer);
 
@@ -167,6 +177,16 @@ TEST_F(TypedDataTest, GetNamedField) {
   TypedData three;
   ASSERT_TRUE(data.GetNamedField(L"three", &three));
   AssertFieldMatchesData(test_instance.three, three);
+
+  TypedData four;
+  ASSERT_TRUE(data.GetNamedField(L"four", &four));
+  ASSERT_EQ(0, four.bit_pos());
+  ASSERT_EQ(10, four.bit_len());
+
+  TypedData five;
+  ASSERT_TRUE(data.GetNamedField(L"five", &five));
+  ASSERT_EQ(10, five.bit_pos());
+  ASSERT_EQ(10, five.bit_len());
 }
 
 TEST_F(TypedDataTest, GetField) {
@@ -193,32 +213,45 @@ TEST_F(TypedDataTest, GetField) {
   AssertFieldMatchesData(test_instance.three, three);
 }
 
-TEST_F(TypedDataTest, GetValue) {
+TEST_F(TypedDataTest, GetSignedValue) {
   TypedData data(GetTestInstance());
 
-  // Test a simple value fetch.
-  TypedData one;
-  ASSERT_TRUE(data.GetNamedField(L"one", &one));
-  uint16_t data16 = 0;
-  ASSERT_TRUE(one.GetValue(&data16));
-  ASSERT_EQ(test_instance.one, data16);
+  TypedData four;
+  ASSERT_TRUE(data.GetNamedField(L"four", &four));
+  int64_t value = 0;
+  ASSERT_TRUE(four.GetSignedValue(&value));
+  EXPECT_EQ(4, value);
 
-  // Wrong size data fetch should fail.
-  uint8_t data8 = 0;
-  ASSERT_FALSE(one.GetValue(&data8));
-  uint32_t data32 = 0;
-  ASSERT_FALSE(one.GetValue(&data32));
+  TypedData five;
+  ASSERT_TRUE(data.GetNamedField(L"five", &five));
+  ASSERT_TRUE(five.GetSignedValue(&value));
+  EXPECT_EQ(-5, value);
+}
 
-  // Test a nested field fetch.
-  TypedData two;
-  ASSERT_TRUE(data.GetField(1, &two));
-  TypedData inner_two;
-  ASSERT_TRUE(two.GetField(1, &inner_two));
+TEST_F(TypedDataTest, GetUnsignedValue) {
+  TypedData data(GetTestInstance());
 
-  ASSERT_FALSE(inner_two.GetValue(&data8));
-  ASSERT_FALSE(inner_two.GetValue(&data16));
-  ASSERT_TRUE(inner_two.GetValue(&data32));
-  ASSERT_EQ(test_instance.two.inner_two, data32);
+  TypedData four;
+  ASSERT_TRUE(data.GetNamedField(L"four", &four));
+  uint64_t value = 0;
+  ASSERT_TRUE(four.GetUnsignedValue(&value));
+  EXPECT_EQ(4, value);
+
+  TypedData five;
+  ASSERT_TRUE(data.GetNamedField(L"five", &five));
+  ASSERT_TRUE(five.GetUnsignedValue(&value));
+  EXPECT_EQ(0x3FB, value);
+}
+
+TEST_F(TypedDataTest, GetPointerValue) {
+  TypedData data(GetTestInstance());
+
+  TypedData three;
+  ASSERT_TRUE(data.GetNamedField(L"three", &three));
+  Address addr = 0;
+  ASSERT_TRUE(three.GetPointerValue(&addr));
+
+  EXPECT_EQ(reinterpret_cast<uintptr_t>(test_instance.three), addr);
 }
 
 TEST_F(TypedDataTest, Dereference) {

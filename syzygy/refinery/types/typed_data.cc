@@ -21,10 +21,31 @@ TypedData::TypedData() : bit_source_(nullptr) {
 TypedData::TypedData(BitSource* bit_source,
                      TypePtr type,
                      const AddressRange& range)
-    : bit_source_(bit_source), type_(type), range_(range) {
+    : bit_source_(bit_source),
+      type_(type),
+      range_(range),
+      bit_pos_(0),
+      bit_len_(0) {
   DCHECK(bit_source_);
   DCHECK(type_);
   DCHECK(range_.IsValid());
+}
+
+TypedData::TypedData(BitSource* bit_source,
+                     TypePtr type,
+                     const AddressRange& range,
+                     size_t bit_pos,
+                     size_t bit_len)
+    : bit_source_(bit_source),
+      type_(type),
+      range_(range),
+      bit_pos_(bit_pos),
+      bit_len_(bit_len) {
+  DCHECK(bit_source_);
+  DCHECK(type_);
+  DCHECK(range_.IsValid());
+  DCHECK(bit_pos >= 0 && bit_pos < range.size() * 8);
+  DCHECK(bit_len >= 0 && bit_len < range.size() * 8);
 }
 
 bool TypedData::IsPrimitiveType() const {
@@ -41,6 +62,7 @@ bool TypedData::GetNamedField(const base::StringPiece16& name, TypedData* out) {
   DCHECK(out);
   // TODO(siggi): Does it ever make sense to request a nameless field?
   DCHECK(!name.empty());
+  DCHECK(type_);
 
   UserDefinedTypePtr udt;
   if (!type_->CastTo(&udt))
@@ -52,7 +74,8 @@ bool TypedData::GetNamedField(const base::StringPiece16& name, TypedData* out) {
       TypePtr field_type = udt->GetFieldType(i);
       DCHECK(field_type);
       AddressRange slice(range_.addr() + field.offset(), field_type->size());
-      *out = TypedData(bit_source_, field_type, slice);
+      *out = TypedData(bit_source_, field_type, slice, field.bit_pos(),
+                       field.bit_len());
       return true;
     }
   }
@@ -62,6 +85,7 @@ bool TypedData::GetNamedField(const base::StringPiece16& name, TypedData* out) {
 
 bool TypedData::GetField(size_t num_field, TypedData* out) {
   DCHECK(out);
+  DCHECK(type_);
 
   UserDefinedTypePtr udt;
   if (!type_->CastTo(&udt))
@@ -77,19 +101,165 @@ bool TypedData::GetField(size_t num_field, TypedData* out) {
   return true;
 }
 
-bool TypedData::GetValueImpl(void* data, size_t data_size) {
+bool TypedData::GetSignedValue(int64_t* value) {
+  DCHECK(value);
   DCHECK(IsPrimitiveType());
   DCHECK(bit_source_);
 
-  if (data_size != range_.size())
+  int64 ret = 0;
+  switch (type_->size()) {
+    case sizeof(int8_t): {
+      int8_t v8 = 0;
+      if (!GetData(&v8))
+        return false;
+
+      ret = v8;
+      break;
+    }
+
+    case sizeof(int16_t): {
+      int16_t v16 = 0;
+      if (!GetData(&v16))
+        return false;
+
+      ret = v16;
+      break;
+    }
+
+    case sizeof(int32_t): {
+      int32_t v32 = 0;
+      if (!GetData(&v32))
+        return false;
+
+      ret = v32;
+      break;
+    }
+
+    case sizeof(int64_t): {
+      int64_t v64 = 0;
+      if (!GetData(&v64))
+        return false;
+
+      ret = v64;
+      break;
+    }
+
+    default:
+      // Wonky size - no can do this. Maybe this type is a float or such?
+      return false;
+  }
+
+  // Shift, mask and sign-extend bit fields.
+  if (bit_len_ != 0) {
+    // Shift the bits into place.
+    ret >>= bit_pos_;
+
+    // Mask to the used bits.
+    const uint64_t mask = (1ll << bit_len_) - 1;
+    ret &= mask;
+
+    // Check the sign bit and extend out if set.
+    if (ret & (mask ^ (mask >> 1)))
+      ret |= (-1ll & ~mask);
+  }
+
+  *value = ret;
+  return true;
+}
+
+bool TypedData::GetUnsignedValue(uint64_t* value) {
+  DCHECK(value);
+  DCHECK(IsPrimitiveType());
+  DCHECK(bit_source_);
+
+  uint64 ret = 0;
+  switch (type_->size()) {
+    case sizeof(uint8_t): {
+      uint8_t v8 = 0;
+      if (!GetData(&v8))
+        return false;
+
+      ret = v8;
+      break;
+    }
+
+    case sizeof(uint16_t): {
+      uint16_t v16 = 0;
+      if (!GetData(&v16))
+        return false;
+
+      ret = v16;
+      break;
+    }
+
+    case sizeof(uint32_t): {
+      uint32_t v32 = 0;
+      if (!GetData(&v32))
+        return false;
+
+      ret = v32;
+      break;
+    }
+
+    case sizeof(uint64_t): {
+      uint64_t v64 = 0;
+      if (!GetData(&v64))
+        return false;
+
+      ret = v64;
+      break;
+    }
+
+    default:
+      // Wonky size - no can do this. Maybe this type is a float or such?
+      return false;
+  }
+
+  // Shift & mask bit fields.
+  if (bit_len_ != 0) {
+    // Shift the bits uinto place.
+    ret >>= bit_pos_;
+
+    // Mask to the used bits.
+    const uint64_t mask = (1ull << bit_len_) - 1;
+    ret &= mask;
+  }
+
+  *value = ret;
+  return true;
+}
+
+bool TypedData::GetPointerValue(Address* value) {
+  DCHECK(value);
+  DCHECK(IsPointerType());
+  DCHECK_EQ(0, bit_len_);  // Bitfields need not apply for pointer.
+  DCHECK(bit_source_);
+
+  PointerTypePtr ptr_type;
+  if (!type_->CastTo(&ptr_type))
     return false;
 
-  return bit_source_->GetAll(range_, data);
+  // Cater for 32- and 64-bit pointers.
+  if (ptr_type->size() == sizeof(uint32_t)) {
+    // The pointer size is 32 bit.
+    uint32_t addr_32 = 0;
+    if (GetData(&addr_32)) {
+      *value = addr_32;
+      return true;
+    }
+  } else if (ptr_type->size() == sizeof(uint64_t)) {
+    // The pointer size is 64 bit.
+    if (GetData(value))
+      return true;
+  }
+
+  // The pointer size is strange or we failed on retrieving the value.
+  return false;
 }
 
 bool TypedData::Dereference(TypedData* referenced_data) {
-  DCHECK(IsPointerType());
   DCHECK(referenced_data);
+  DCHECK(IsPointerType());
   DCHECK(bit_source_);
 
   PointerTypePtr ptr_type;
@@ -100,27 +270,25 @@ bool TypedData::Dereference(TypedData* referenced_data) {
   if (!content_type)
     return false;
 
-  // Cater for 32 and 64 bit pointers.
   Address addr = 0;
-  if (ptr_type->size() == sizeof(uint32_t)) {
-    // The pointer size is 32 bit.
-    uint32_t addr_32 = 0;
-    if (!GetValue(&addr_32))
-      return false;
-    addr = addr_32;
-  } else if (ptr_type->size() == sizeof(uint64_t)) {
-    // The pointer size is 64 bit.
-    if (!GetValue(&addr))
-      return false;
-  } else {
-    // The pointer size is strange - bail.
+  if (!GetPointerValue(&addr))
     return false;
-  }
 
   *referenced_data = TypedData(bit_source_, content_type,
                                AddressRange(addr, content_type->size()));
 
   return true;
+}
+
+bool TypedData::GetDataImpl(void* data, size_t data_size) {
+  DCHECK(data);
+  DCHECK(IsPrimitiveType());
+  DCHECK(bit_source_);
+
+  if (data_size != range_.size())
+    return false;
+
+  return bit_source_->GetAll(range_, data);
 }
 
 }  // namespace refinery

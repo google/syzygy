@@ -56,14 +56,26 @@ class TypedData {
   // @returns true on success.
   bool GetField(size_t num_field, TypedData* out);
 
-  // Retrieves the value of the type.
+  // Retrieves the value of the type promoted to a large integer.
   // @pre IsPrimitiveType() == true.
   // @param data on success contains the value of the data pointed to by this
   //     instance.
   // @returns true on success.
-  // @note sizeof(DataType) must be equal to the type's ranges size.
-  template <typename DataType>
-  bool GetValue(DataType* data);
+  bool GetSignedValue(int64_t* value);
+
+  // Retrieves the value of the type promoted to a large unsigned integer.
+  // @pre IsPrimitiveType() == true.
+  // @param data on success contains the value of the data pointed to by this
+  //     instance.
+  // @returns true on success.
+  bool GetUnsignedValue(uint64_t* value);
+
+  // Retrieves the value of a pointer type promoted to a 64 bit value.
+  // @pre IsPointerType() == true.
+  // @param data on success contains the value of the data pointed to by this
+  //     instance.
+  // @returns true on success.
+  bool GetPointerValue(Address* value);
 
   // Dereferences the type for pointer types.
   // @pre IsPointerType() == true.
@@ -76,20 +88,35 @@ class TypedData {
   BitSource* bit_source() const { return bit_source_; }
   const TypePtr& type() const { return type_; }
   const AddressRange& range() const { return range_; }
+  size_t bit_pos() { return bit_pos_; }
+  size_t bit_len() { return bit_len_; }
   // @}
 
  private:
-  bool GetValueImpl(void* data, size_t data_size);
+  TypedData(BitSource* bit_source,
+            TypePtr type,
+            const AddressRange& range,
+            size_t bit_pos,
+            size_t bit_len);
 
-  // TODO(siggi): this class needs to be bit-granular to cater for bitfields.
+  template <typename DataType>
+  bool GetData(DataType* data);
+
+  bool GetDataImpl(void* data, size_t data_size);
+
   BitSource* bit_source_;
   TypePtr type_;
   AddressRange range_;
+
+  // For bitfields these denote the bit position and length of the data.
+  uint8_t bit_pos_;
+  // The value zero denotes non-bitfield.
+  uint8_t bit_len_;
 };
 
 template <typename DataType>
-bool TypedData::GetValue(DataType* data) {
-  return GetValueImpl(data, sizeof(*data));
+bool TypedData::GetData(DataType* data) {
+  return GetDataImpl(data, sizeof(*data));
 }
 
 }  // namespace refinery
