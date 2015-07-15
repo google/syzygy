@@ -73,6 +73,7 @@
         'lcov_writer_unittest.cc',
         'line_info_unittest.cc',
         'grinders/coverage_grinder_unittest.cc',
+        'grinders/indexed_frequency_data_grinder_unittest.cc',
         'grinders/mem_replay_grinder_unittest.cc',
         'grinders/profile_grinder_unittest.cc',
         'grinders/sample_grinder_unittest.cc',

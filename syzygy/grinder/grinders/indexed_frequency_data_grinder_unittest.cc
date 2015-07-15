@@ -14,8 +14,8 @@
 
 #include "syzygy/grinder/grinders/indexed_frequency_data_grinder.h"
 
-#include "base/file_util.h"
 #include "base/values.h"
+#include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/json/json_reader.h"
 #include "gmock/gmock.h"
@@ -78,7 +78,7 @@ class IndexedFrequencyDataGrinderTest : public testing::PELibUnitTest {
       : cmd_line_(base::FilePath(L"indexed_frequency_data_grinder.exe")) {
   }
 
-  virtual void SetUp() OVERRIDE {
+  void SetUp() override {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
   }
 
@@ -139,15 +139,19 @@ class IndexedFrequencyDataGrinderTest : public testing::PELibUnitTest {
 
     for (size_t i = 0; i < kNumBasicBlocks; ++i) {
       for (size_t c = 0; c < kNumColumns; ++c) {
-        (*expected)[std::make_pair(i * i, c)] = (i + c + 1) * multiplier;
+        using grinder::basic_block_util::RelativeAddress;
+
+        (*expected)[std::make_pair(RelativeAddress(i * i), c)] =
+            (i + c + 1) * multiplier;
       }
     }
   }
 
   void InitModuleInfo(InstrumentedModuleInformation* module_info) {
     ASSERT_TRUE(module_info != NULL);
+    using core::AbsoluteAddress;
     module_info->original_module.path = kImageFileName;
-    module_info->original_module.base_address = kBaseAddress;
+    module_info->original_module.base_address = AbsoluteAddress(kBaseAddress);
     module_info->original_module.module_size = kModuleSize;
     module_info->original_module.module_checksum = kImageChecksum;
     module_info->original_module.module_time_date_stamp = kTimeDateStamp;
@@ -178,7 +182,7 @@ class IndexedFrequencyDataGrinderTest : public testing::PELibUnitTest {
 
     data->reset(reinterpret_cast<TraceIndexedFrequencyData*>(buffer));
     (*data)->module_base_addr =
-        reinterpret_cast<ModuleAddr>(module_info.base_address);
+        reinterpret_cast<ModuleAddr>(module_info.base_address.value());
     (*data)->module_base_size = module_info.module_size;
     (*data)->module_checksum = module_info.module_checksum;
     (*data)->module_time_date_stamp = module_info.module_time_date_stamp;
@@ -208,7 +212,7 @@ class IndexedFrequencyDataGrinderTest : public testing::PELibUnitTest {
 
  protected:
   base::ScopedTempDir temp_dir_;
-  CommandLine cmd_line_;
+  base::CommandLine cmd_line_;
   trace::parser::Parser parser_;
 };
 
@@ -251,44 +255,39 @@ TEST_F(IndexedFrequencyDataGrinderTest, UpdateBasicBlockFrequencyData) {
   InstrumentedModuleInformation module_info;
   ASSERT_NO_FATAL_FAILURE(InitModuleInfo(&module_info));
 
-  TestIndexedFrequencyDataGrinder grinder;
-  ScopedFrequencyData data;
-  // Validate 1-byte frequency data.
-  ASSERT_NO_FATAL_FAILURE(
-      GetFrequencyData(module_info.original_module, 1, &data));
-  ASSERT_EQ(common::IndexedFrequencyData::BRANCH, data->data_type);
-  ASSERT_EQ(1U, data->frequency_size);
-  grinder.UpdateBasicBlockFrequencyData(module_info, data.get());
-  EXPECT_EQ(1U, grinder.frequency_data_map().size());
+  // Validate for all valid frequency sizes.
+  const uint8 kMaxFrequencySize = 4;
+  for (size_t frequency_size = 1;
+       frequency_size <= kMaxFrequencySize;
+       frequency_size *= 2) {
+    TestIndexedFrequencyDataGrinder grinder;
+    ScopedFrequencyData data;
+    IndexedFrequencyMap expected_counts;
 
-  IndexedFrequencyMap expected_counts;
-  CreateExpectedCounts(1, &expected_counts);
-  EXPECT_THAT(grinder.frequency_data_map().begin()->second,
-              testing::ContainerEq(expected_counts));
+    ASSERT_NO_FATAL_FAILURE(GetFrequencyData(module_info.original_module,
+                                             frequency_size,
+                                             &data));
+    ASSERT_EQ(common::IndexedFrequencyData::BRANCH, data->data_type);
+    ASSERT_EQ(frequency_size, data->frequency_size);
 
-  data.reset();
-  // Validate 2-byte frequency data.
-  ASSERT_NO_FATAL_FAILURE(
-      GetFrequencyData(module_info.original_module, 2, &data));
-  ASSERT_EQ(2U, data->frequency_size);
-  grinder.UpdateBasicBlockFrequencyData(module_info, data.get());
-  EXPECT_EQ(1U, grinder.frequency_data_map().size());
+    grinder.UpdateBasicBlockFrequencyData(module_info, data.get());
+    EXPECT_EQ(1U, grinder.frequency_data_map().size());
+    CreateExpectedCounts(1, &expected_counts);
+    EXPECT_THAT(grinder.frequency_data_map().begin()->second.frequency_map,
+                testing::ContainerEq(expected_counts));
 
-  CreateExpectedCounts(2, &expected_counts);
-  EXPECT_THAT(grinder.frequency_data_map().begin()->second,
-              testing::ContainerEq(expected_counts));
+    grinder.UpdateBasicBlockFrequencyData(module_info, data.get());
+    EXPECT_EQ(1U, grinder.frequency_data_map().size());
+    CreateExpectedCounts(2, &expected_counts);
+    EXPECT_THAT(grinder.frequency_data_map().begin()->second.frequency_map,
+                testing::ContainerEq(expected_counts));
 
-  data.reset();
-  // Validate 4-byte frequency data.
-  ASSERT_NO_FATAL_FAILURE(
-      GetFrequencyData(module_info.original_module, 4, &data));
-  ASSERT_EQ(4U, data->frequency_size);
-  grinder.UpdateBasicBlockFrequencyData(module_info, data.get());
-  EXPECT_EQ(1U, grinder.frequency_data_map().size());
-
-  CreateExpectedCounts(3, &expected_counts);
-  EXPECT_THAT(grinder.frequency_data_map().begin()->second,
-              testing::ContainerEq(expected_counts));
+    grinder.UpdateBasicBlockFrequencyData(module_info, data.get());
+    EXPECT_EQ(1U, grinder.frequency_data_map().size());
+    CreateExpectedCounts(3, &expected_counts);
+    EXPECT_THAT(grinder.frequency_data_map().begin()->second.frequency_map,
+                testing::ContainerEq(expected_counts));
+  }
 }
 
 TEST_F(IndexedFrequencyDataGrinderTest, GrindBranchEntryDataSucceeds) {
