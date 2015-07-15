@@ -38,7 +38,7 @@
       'type': 'executable',
       'sources': [
         'client_utils_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'rpc_client_lib',

@@ -221,7 +221,7 @@
         'memory_notifiers/shadow_memory_notifier_unittest.cc',
         'quarantines/sharded_quarantine_unittest.cc',
         'quarantines/size_limited_quarantine_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'syzyasan_rtl_lib',
@@ -295,7 +295,7 @@
       'type': 'executable',
       'sources': [
         'hot_patching_asan_runtime_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'syzyasan_hp_lib',

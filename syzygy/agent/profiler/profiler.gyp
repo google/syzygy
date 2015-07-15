@@ -54,7 +54,7 @@
         'profiler_unittest.cc',
         'return_thunk_factory_unittest.cc',
         'symbol_map_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'profile_client',

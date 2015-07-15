@@ -138,7 +138,7 @@
         'transforms/thunk_import_references_transform_unittest.cc',
         'transforms/unittest_util.cc',
         'transforms/unittest_util.h',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'instrument_lib',

@@ -41,7 +41,7 @@
       'type': 'executable',
       'sources': [
         'basic_block_entry_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'basic_block_entry_client',

@@ -72,7 +72,7 @@
         'sampled_module_cache_unittest.cc',
         'sampler_app_unittest.cc',
         'sampling_profiler_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'sampler_lib',

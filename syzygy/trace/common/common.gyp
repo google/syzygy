@@ -52,7 +52,7 @@
         'clock_unittest.cc',
         'service_unittest.cc',
         'service_util_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'trace_common_lib',

@@ -87,7 +87,7 @@
         'string_table_unittest.cc',
         'unittest_util_unittest.cc',
         'zstream_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'core_lib',

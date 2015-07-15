@@ -240,7 +240,7 @@
         'pe_relinker_util_unittest.cc',
         'pe_transform_policy_unittest.cc',
         'serialization_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'no_exports_dll',

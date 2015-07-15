@@ -76,7 +76,7 @@
         'grinders/mem_replay_grinder_unittest.cc',
         'grinders/profile_grinder_unittest.cc',
         'grinders/sample_grinder_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'grinder_lib',

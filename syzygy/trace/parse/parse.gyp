@@ -71,7 +71,7 @@
         'parse_engine_unittest.cc',
         'parse_utils_unittest.cc',
         'parser_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'parse_lib',

@@ -86,7 +86,7 @@
         'reorder_app_unittest.cc',
         'reorderer_unittest.cc',
         'transforms/basic_block_layout_transform_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
         '<(src)/syzygy/pe/unittest_util.cc',
         '<(src)/syzygy/pe/unittest_util.h',
       ],

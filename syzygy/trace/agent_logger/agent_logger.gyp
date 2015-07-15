@@ -44,7 +44,7 @@
       'sources': [
         'agent_logger_app_unittest.cc',
         'agent_logger_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'agent_logger',

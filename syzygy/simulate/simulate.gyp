@@ -55,7 +55,7 @@
         'heat_map_simulation_unittest.cc',
         'page_fault_simulation_unittest.cc',
         'simulator_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'simulate_lib',

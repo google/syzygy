@@ -66,7 +66,7 @@
         'function_call_logger_unittest.cc',
         'memprof_unittest.cc',
         'parameters_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'memprof',

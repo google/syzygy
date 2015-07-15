@@ -48,11 +48,18 @@ int main(int argc, char** argv) {
   // We can't use the value from test_timeouts.h as they require
   // TestTimeouts::Initialize to have been called; this function can only be
   // called once, however, and gtest calls it later on.
-  //
+
+#ifdef SYZYGY_UNITTESTS_USE_LONG_TIMEOUT
   // Set the timeout value to five minutes.
   std::string test_timeout_val = "300000";
   base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
       switches::kTestLauncherTimeout, test_timeout_val);
+#endif
+
+  // No retry on failures.
+  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
+      switches::kTestLauncherRetryLimit, "0");
+
   // We don't need to update |argc| and |argv|, gtest read the value from
   // base::CommandLine::ForCurrentProcess().
   return base::LaunchUnitTests(argc,

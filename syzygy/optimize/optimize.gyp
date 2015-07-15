@@ -71,7 +71,7 @@
         'transforms/inlining_transform_unittest.cc',
         'transforms/peephole_transform_unittest.cc',
         'transforms/unreachable_block_transform_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'optimize_lib',

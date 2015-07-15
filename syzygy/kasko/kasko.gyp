@@ -231,7 +231,7 @@
       'target_name': 'kasko_unittests',
       'type': 'executable',
       'sources': [
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
         'client_unittest.cc',
         'crash_keys_serialization_unittest.cc',
         'http_agent_impl_unittest.cc',
@@ -270,7 +270,7 @@
       'target_name': 'kasko_api_tests',
       'type': 'executable',
       'sources': [
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
         'api/api_tests.cc',
       ],
       'dependencies': [

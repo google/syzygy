@@ -57,7 +57,7 @@
         'assembler_unittest.cc',
         'buffer_serializer_unittest.cc',
         'register_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'assm_lib',

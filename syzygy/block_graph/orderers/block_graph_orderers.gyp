@@ -41,7 +41,7 @@
         'named_orderer_unittest.cc',
         'original_orderer_unittest.cc',
         'random_orderer_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'block_graph_orderers_lib',

@@ -80,7 +80,7 @@
         'variables_unittest.cc',
         'operations/add_imports_operation_unittest.cc',
         'operations/redirect_imports_operation_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'pehacker_lib',

@@ -37,7 +37,7 @@
       'type': 'executable',
       'sources': [
         'playback_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'playback_lib',

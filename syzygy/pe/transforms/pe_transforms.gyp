@@ -78,7 +78,7 @@
         'pe_hot_patching_basic_block_transform_unittest.cc',
         'pe_remove_empty_sections_transform_unittest.cc',
         'pe_prepare_headers_transform_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'pe_transforms_lib',

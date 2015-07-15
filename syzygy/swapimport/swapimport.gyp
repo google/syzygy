@@ -47,7 +47,7 @@
       'type': 'executable',
       'sources': [
         'swapimport_app_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'swapimport_lib',

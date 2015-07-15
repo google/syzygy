@@ -45,7 +45,7 @@
         'fuzzing_transform_unittest.cc',
         'iterative_transform_unittest.cc',
         'named_transform_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'block_graph_transforms_lib',

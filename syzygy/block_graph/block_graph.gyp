@@ -103,7 +103,7 @@
         'orderer_unittest.cc',
         'transform_unittest.cc',
         'typed_block_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'block_graph_lib',

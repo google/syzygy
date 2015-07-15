@@ -80,7 +80,7 @@
         'process_utils_unittest.cc',
         'recursive_lock_unittest.cc',
         'unittest_util_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'common_lib',

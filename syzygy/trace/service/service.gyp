@@ -56,7 +56,7 @@
         'service_unittest.cc',
         'session_unittest.cc',
         'trace_file_writer_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'call_trace_service_exe',

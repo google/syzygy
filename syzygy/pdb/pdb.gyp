@@ -88,7 +88,7 @@
         'pdb_type_info_stream_enum_unittest.cc',
         'pdb_util_unittest.cc',
         'pdb_writer_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'pdb_lib',

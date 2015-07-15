@@ -55,7 +55,7 @@
       'sources': [
         'pdb_public_stream_writer_unittest.cc',
         'pdb_string_table_writer_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'pdb_writer_lib',

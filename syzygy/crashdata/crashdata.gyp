@@ -78,7 +78,7 @@
       'target_name': 'crashdata_unittests',
       'type': 'executable',
       'sources': [
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
         'crashdata_unittest.cc',
         'json_unittest.cc',
       ],

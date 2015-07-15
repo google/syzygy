@@ -42,7 +42,7 @@
       'sources': [
         'zap_timestamp_app_unittest.cc',
         'zap_timestamp_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'zap_timestamp_lib',

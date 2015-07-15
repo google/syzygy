@@ -58,7 +58,7 @@
         'stack_capture_unittest.cc',
         'stack_walker_x86_unittest.cc',
         'thread_state_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'agent_common_lib',

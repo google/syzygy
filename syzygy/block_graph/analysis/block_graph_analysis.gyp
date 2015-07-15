@@ -43,7 +43,7 @@
         'control_flow_analysis_unittest.cc',
         'liveness_analysis_unittest.cc',
         'memory_access_analysis_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'block_graph_analysis_lib',

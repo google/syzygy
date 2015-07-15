@@ -33,7 +33,7 @@
       'type': 'executable',
       'sources': [
         'process_working_set_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'wsdump_lib',

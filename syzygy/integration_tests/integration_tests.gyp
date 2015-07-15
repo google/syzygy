@@ -20,7 +20,7 @@
       'sources': [
         'integration_tests.rc',
         'instrument_integration_test.cc',
-        '<(src)/syzygy/testing/run_all_unittests_with_large_timeout.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'crash_for_exception_harness',
@@ -54,6 +54,9 @@
           'LargeAddressAware': 1,
         },
       },
+      'defines': [
+        'SYZYGY_UNITTESTS_USE_LONG_TIMEOUT=1',
+      ],
     },
     {
       'target_name': 'integration_tests_dll',

@@ -50,7 +50,7 @@
         'ar_reader_unittest.cc',
         'ar_transform_unittest.cc',
         'ar_writer_unittest.cc',
-        '<(src)/base/test/run_all_unittests.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'ar_lib',
