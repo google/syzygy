@@ -245,6 +245,9 @@
           'LargeAddressAware': 1,
         },
       },
+      'defines': [
+        'SYZYGY_UNITTESTS_USE_LONG_TIMEOUT=1',
+      ],
     },
     {
       'target_name': 'syzyasan_hp_lib',

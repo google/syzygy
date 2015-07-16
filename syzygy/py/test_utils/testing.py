@@ -477,11 +477,9 @@ class GTest(ExecutableTest):
   """This wraps a GTest unittest, with colorized output."""
   def __init__(self, *args, **kwargs):
     # Syzygy unittests all use the sharded Chrome launcher, so by default
-    # shard them across a few CPUs. Some tests are quite long so provide a
-    # generous 5 minute timeout (300,000 ms).
+    # shard them across a few CPUs.
     extra_args = kwargs.get('extra_args', [])
     extra_args.append('--test-launcher-jobs=5')
-    extra_args.append('--test-launcher-timeout=300000')
     kwargs['extra_args'] = extra_args
 
     ExecutableTest.__init__(self, *args, **kwargs)
