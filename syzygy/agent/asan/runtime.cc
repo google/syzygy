@@ -29,11 +29,13 @@
 #include "base/win/pe_image.h"
 #include "base/win/wrapped_window_proc.h"
 #include "syzygy/agent/asan/block.h"
+#include "syzygy/agent/asan/crt_interceptors.h"
 #include "syzygy/agent/asan/heap_checker.h"
 #include "syzygy/agent/asan/logger.h"
 #include "syzygy/agent/asan/page_protection_helpers.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
+#include "syzygy/agent/asan/system_interceptors.h"
 #include "syzygy/agent/asan/windows_heap_adapter.h"
 #include "syzygy/agent/asan/memory_notifiers/shadow_memory_notifier.h"
 #include "syzygy/crashdata/crashdata.h"
@@ -276,7 +278,7 @@ void InitializeExceptionRecord(const AsanErrorInfo* error_info,
 bool PopulateProtobuf(const AsanErrorInfo& error_info, std::string* protobuf) {
   DCHECK_NE(static_cast<std::string*>(nullptr), protobuf);
   crashdata::Value value;
-  PopulateErrorInfo(&StaticShadow::shadow, error_info, &value);
+  PopulateErrorInfo(AsanRuntime::runtime()->shadow(), error_info, &value);
   if (!value.SerializeToString(protobuf))
     return false;
   return true;
@@ -501,7 +503,10 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // this process. Note: this is mostly for debugging purposes.
   base::CommandLine::Init(0, NULL);
 
-  StaticShadow::shadow.SetUp();
+  // Setup the shadow and configure the CRT and system interceptors to use it.
+  shadow()->SetUp();
+  agent::asan::SetCrtInterceptorShadow(shadow());
+  agent::asan::SetSystemInterceptorShadow(shadow());
 
   // Setup the "global" state.
   common::StackCapture::Init();
@@ -558,7 +563,7 @@ void AsanRuntime::TearDown() {
   TearDownMemoryNotifier();
   DCHECK(asan_error_callback_.is_null() == FALSE);
   asan_error_callback_.Reset();
-  StaticShadow::shadow.TearDown();
+  shadow()->TearDown();
 
   // Unregister ourselves as the singleton runtime for UEF.
   runtime_ = NULL;
@@ -615,7 +620,7 @@ void AsanRuntime::SetUpMemoryNotifier() {
   DCHECK_EQ(static_cast<MemoryNotifierInterface*>(nullptr),
             memory_notifier_.get());
   memory_notifiers::ShadowMemoryNotifier* memory_notifier =
-      new memory_notifiers::ShadowMemoryNotifier(&StaticShadow::shadow);
+      new memory_notifiers::ShadowMemoryNotifier(shadow());
   memory_notifier->NotifyInternalUse(
       memory_notifier, sizeof(*memory_notifier));
   memory_notifier_.reset(memory_notifier);
@@ -692,7 +697,7 @@ void AsanRuntime::SetUpHeapManager() {
             heap_manager_.get());
 
   heap_manager_.reset(new heap_managers::BlockHeapManager(
-      &StaticShadow::shadow, stack_cache_.get(), memory_notifier_.get()));
+      shadow(), stack_cache_.get(), memory_notifier_.get()));
   memory_notifier_->NotifyInternalUse(
       heap_manager_.get(), sizeof(*heap_manager_.get()));
 
@@ -827,8 +832,7 @@ void AsanRuntime::WriteCorruptHeapInfo(
     // Use a shadow walker to find the first corrupt block in this range and
     // copy its metadata.
     ShadowWalker shadow_walker(
-        &StaticShadow::shadow,
-        false,
+        shadow(), false,
         reinterpret_cast<const uint8*>(corrupt_ranges[i].address),
         reinterpret_cast<const uint8*>(corrupt_ranges[i].address) +
             corrupt_ranges[i].length);
@@ -839,8 +843,8 @@ void AsanRuntime::WriteCorruptHeapInfo(
     // They are left turned off so that the minidump generation can introspect
     // the block.
     BlockProtectNone(block_info);
-    ErrorInfoGetAsanBlockInfo(&StaticShadow::shadow, block_info,
-                              stack_cache_.get(), asan_block_info);
+    ErrorInfoGetAsanBlockInfo(shadow(), block_info, stack_cache_.get(),
+                              asan_block_info);
     DCHECK_EQ(kDataIsCorrupt, asan_block_info->analysis.block_state);
   }
 
@@ -884,8 +888,7 @@ void AsanRuntime::LogAsanErrorInfo(AsanErrorInfo* error_info) {
     }
     if (error_info->error_type >= USE_AFTER_FREE) {
       std::string shadow_text;
-      StaticShadow::shadow.AppendShadowMemoryText(
-          error_info->location, &shadow_text);
+      shadow()->AppendShadowMemoryText(error_info->location, &shadow_text);
       logger_->Write(shadow_text);
     }
   }
@@ -930,15 +933,14 @@ void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
   // Checks if this is an access to an internal structure or if it's an access
   // in the upper region of the memory (over the 2 GB limit).
   if ((reinterpret_cast<size_t>(error_info->location) & (1 << 31)) != 0 ||
-      StaticShadow::shadow.GetShadowMarkerForAddress(error_info->location)
-          == kAsanMemoryMarker) {
+      shadow()->GetShadowMarkerForAddress(error_info->location) ==
+          kAsanMemoryMarker) {
       error_info->error_type = WILD_ACCESS;
-  } else if (StaticShadow::shadow.GetShadowMarkerForAddress(
-      error_info->location) == kInvalidAddressMarker) {
+  } else if (shadow()->GetShadowMarkerForAddress(error_info->location) ==
+             kInvalidAddressMarker) {
     error_info->error_type = INVALID_ADDRESS;
   } else {
-    ErrorInfoGetBadAccessInformation(
-        &StaticShadow::shadow, stack_cache_.get(), error_info);
+    ErrorInfoGetBadAccessInformation(shadow(), stack_cache_.get(), error_info);
   }
 }
 
@@ -1003,6 +1005,8 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
   // If this is set to true then an Asan error will be emitted.
   bool emit_asan_error = false;
 
+  Shadow* shadow = runtime_->shadow();
+
   // If this is an exception that we launched then extract the original
   // exception data and continue processing it.
   if (exception->ExceptionRecord->ExceptionCode == kAsanException) {
@@ -1037,12 +1041,11 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
         exception->ExceptionRecord->ExceptionInformation[0] <= 1) {
       void* address = reinterpret_cast<void*>(
           exception->ExceptionRecord->ExceptionInformation[1]);
-      ShadowMarker marker =
-          StaticShadow::shadow.GetShadowMarkerForAddress(address);
+      ShadowMarker marker = shadow->GetShadowMarkerForAddress(address);
       if (ShadowMarkerHelper::IsRedzone(marker) &&
           ShadowMarkerHelper::IsActiveBlock(marker)) {
         BlockInfo block_info = {};
-        if (StaticShadow::shadow.BlockInfoFromShadow(address, &block_info)) {
+        if (shadow->BlockInfoFromShadow(address, &block_info)) {
           // Page protections have to be removed from this block otherwise our
           // own inspection will cause further errors.
           BlockProtectNone(block_info);
@@ -1064,8 +1067,8 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
               ASAN_READ_ACCESS : ASAN_WRITE_ACCESS;
 
           // Fill out the rest of the bad access information.
-          ErrorInfoGetBadAccessInformation(
-              &StaticShadow::shadow, runtime_->stack_cache(), &error_info);
+          ErrorInfoGetBadAccessInformation(shadow, runtime_->stack_cache(),
+                                           &error_info);
           emit_asan_error = true;
         }
       }

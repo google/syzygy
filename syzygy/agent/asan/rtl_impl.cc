@@ -35,7 +35,6 @@ using agent::asan::AsanErrorInfo;
 using agent::asan::AsanRuntime;
 using agent::asan::HeapManagerInterface;
 using agent::asan::Shadow;
-using agent::asan::TestStructure;
 using agent::asan::WindowsHeapAdapter;
 using agent::asan::heap_managers::BlockHeapManager;
 

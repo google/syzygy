@@ -14,7 +14,7 @@
 # limitations under the License.
 """Unittests for the asan_system_interceptor_parser module."""
 
-import system_interceptor_parser as asan_parser
+import system_interceptor_generator as generator
 import logging
 import optparse
 import os
@@ -35,7 +35,7 @@ class TestInterceptorParser(unittest.TestCase):
     self.def_file = tempfile.NamedTemporaryFile(delete=False, dir=self.temp_dir)
     self.output_base.close()
     self.def_file.close()
-    self.generator = asan_parser.ASanSystemInterceptorGenerator(
+    self.generator = generator.SystemInterceptorGenerator(
         self.output_base.name, self.def_file.name)
 
 
@@ -55,7 +55,7 @@ class TestInterceptorParser(unittest.TestCase):
         '    type2 param2,\n'  \
         '    type3 param3\n'  \
         '    );\n'
-    valid_function1_m = asan_parser._FUNCTION_MATCH_RE.search(valid_function1)
+    valid_function1_m = generator._FUNCTION_MATCH_RE.search(valid_function1)
     self.assertTrue(valid_function1_m != None)
     self.assertEqual(valid_function1_m.group('ret'), 'VOID')
     self.assertEqual(valid_function1_m.group('name'), 'function1')
@@ -71,7 +71,7 @@ class TestInterceptorParser(unittest.TestCase):
         '         __out_data_source(FILE) LPVOID lpBuffer,\n'  \
         '    _Inout_opt_ type3 param3,\n'  \
         '    );\n'
-    valid_function2_m = asan_parser._FUNCTION_MATCH_RE.search(valid_function2)
+    valid_function2_m = generator._FUNCTION_MATCH_RE.search(valid_function2)
     self.assertTrue(valid_function2_m != None)
     self.assertEqual(valid_function2_m.group('ret'), 'BOOL')
     self.assertEqual(valid_function2_m.group('name'), 'function2')
@@ -82,7 +82,7 @@ class TestInterceptorParser(unittest.TestCase):
         'int\n'  \
         'WINAPI\n'  \
         'function3(void foo);\n'
-    valid_function3_m = asan_parser._FUNCTION_MATCH_RE.search(valid_function3)
+    valid_function3_m = generator._FUNCTION_MATCH_RE.search(valid_function3)
     self.assertTrue(valid_function3_m != None)
     self.assertEqual(valid_function3_m.group('ret'), 'int')
     self.assertEqual(valid_function3_m.group('name'), 'function3')
@@ -97,7 +97,7 @@ class TestInterceptorParser(unittest.TestCase):
         '    type3 param3\n'  \
         '    );\n'
     invalid_function1_m =  \
-        asan_parser._FUNCTION_MATCH_RE.search(invalid_function1)
+        generator._FUNCTION_MATCH_RE.search(invalid_function1)
     self.assertTrue(invalid_function1_m == None)
 
     # Test against a function declaration containing an ifdef group.
@@ -112,7 +112,7 @@ class TestInterceptorParser(unittest.TestCase):
         '    type1 param1\n'  \
         '    );\n'
     invalid_function2_m =  \
-        asan_parser._FUNCTION_MATCH_RE.search(invalid_function2)
+        generator._FUNCTION_MATCH_RE.search(invalid_function2)
     self.assertTrue(invalid_function2_m == None)
 
     # Test against an incomplete function definition.
@@ -121,7 +121,7 @@ class TestInterceptorParser(unittest.TestCase):
         'function3('  \
         '    type1 param1,\n'
     invalid_function3_m =  \
-        asan_parser._FUNCTION_MATCH_RE.search(invalid_function3)
+        generator._FUNCTION_MATCH_RE.search(invalid_function3)
     self.assertTrue(invalid_function3_m == None)
 
     # Test against a function with no return type specified.
@@ -131,13 +131,13 @@ class TestInterceptorParser(unittest.TestCase):
         '    type1 param1\n'  \
         '    );\n'
     invalid_function4_m =  \
-        asan_parser._FUNCTION_MATCH_RE.search(invalid_function4)
+        generator._FUNCTION_MATCH_RE.search(invalid_function4)
     self.assertTrue(invalid_function4_m == None)
 
     # Test against an empty string.
     invalid_function5 = ''
     invalid_function5_m =  \
-        asan_parser._FUNCTION_MATCH_RE.search(invalid_function5)
+        generator._FUNCTION_MATCH_RE.search(invalid_function5)
     self.assertTrue(invalid_function5_m == None)
 
 
@@ -145,7 +145,7 @@ class TestInterceptorParser(unittest.TestCase):
     # Test against some declarations encountered in fileapi.h
 
     valid_test_1 = '_In_ HANDLE hFile'
-    valid_test_1_match = asan_parser._ARG_TOKENS_RE.search(valid_test_1)
+    valid_test_1_match = generator._ARG_TOKENS_RE.search(valid_test_1)
     self.assertTrue(valid_test_1_match != None)
     self.assertEqual('_In_', valid_test_1_match.group('SAL_tag'))
     self.assertEqual(None, valid_test_1_match.group('SAL_tag_args'))
@@ -155,7 +155,7 @@ class TestInterceptorParser(unittest.TestCase):
 
     valid_test_2 =  \
         '_In_reads_bytes_opt_(nNumberOfBytesToWrite) LPCVOID lpBuffer'
-    valid_test_2_match = asan_parser._ARG_TOKENS_RE.search(valid_test_2)
+    valid_test_2_match = generator._ARG_TOKENS_RE.search(valid_test_2)
     self.assertTrue(valid_test_2_match != None)
     self.assertEqual('_In_reads_bytes_opt_',  \
                      valid_test_2_match.group('SAL_tag'))
@@ -167,7 +167,7 @@ class TestInterceptorParser(unittest.TestCase):
 
     valid_test_3 =  \
         '_Out_writes_to_opt_(nBufferLength, return + 1) LPWSTR lpBuffer'
-    valid_test_3_match = asan_parser._ARG_TOKENS_RE.search(valid_test_3)
+    valid_test_3_match = generator._ARG_TOKENS_RE.search(valid_test_3)
     self.assertTrue(valid_test_3_match != None)
     self.assertEqual('_Out_writes_to_opt_', valid_test_3_match.group('SAL_tag'))
     self.assertEqual('nBufferLength, return + 1',  \
@@ -178,7 +178,7 @@ class TestInterceptorParser(unittest.TestCase):
 
     valid_test_4 =  \
         '_Out_writes_bytes_opt_(nNumber) __out_data_source(FILE) LPVOID lpBuf'
-    valid_test_4_match = asan_parser._ARG_TOKENS_RE.search(valid_test_4)
+    valid_test_4_match = generator._ARG_TOKENS_RE.search(valid_test_4)
     self.assertTrue(valid_test_4_match != None)
     self.assertEqual('_Out_writes_bytes_opt_',  \
                      valid_test_4_match.group('SAL_tag'))
@@ -189,7 +189,7 @@ class TestInterceptorParser(unittest.TestCase):
 
     valid_test_5 = '_Out_writes_to_opt_(cchBufferLength, *lpcchReturnLength)'  \
         ' _Post_ _NullNull_terminated_ LPWCH lpszVolumePathNames'
-    valid_test_5_match = asan_parser._ARG_TOKENS_RE.search(valid_test_5)
+    valid_test_5_match = generator._ARG_TOKENS_RE.search(valid_test_5)
     self.assertTrue(valid_test_5_match != None)
     self.assertEqual('_Out_writes_to_opt_', valid_test_5_match.group('SAL_tag'))
     self.assertEqual('cchBufferLength, *lpcchReturnLength',  \
@@ -200,7 +200,7 @@ class TestInterceptorParser(unittest.TestCase):
     self.assertEqual(None, valid_test_5_match.group('var_keyword'))
 
     valid_test_6 = '_In_ FILE_SEGMENT_ELEMENT aSegmentArray[]'
-    valid_test_6_match = asan_parser._ARG_TOKENS_RE.search(valid_test_6)
+    valid_test_6_match = generator._ARG_TOKENS_RE.search(valid_test_6)
     self.assertTrue(valid_test_6_match != None)
     self.assertEqual('_In_', valid_test_6_match.group('SAL_tag'))
     self.assertEqual(None, valid_test_6_match.group('SAL_tag_args'))
@@ -211,7 +211,7 @@ class TestInterceptorParser(unittest.TestCase):
 
     valid_test_7 = '_In_reads_bytes_opt_(PropertyBufferSize) CONST PBYTE '  \
                        'PropertyBuffer'
-    valid_test_7_match = asan_parser._ARG_TOKENS_RE.search(valid_test_7)
+    valid_test_7_match = generator._ARG_TOKENS_RE.search(valid_test_7)
     self.assertTrue(valid_test_7_match != None)
     self.assertEqual('_In_reads_bytes_opt_',  \
         valid_test_7_match.group('SAL_tag'))
@@ -223,7 +223,7 @@ class TestInterceptorParser(unittest.TestCase):
     self.assertEqual(None, valid_test_7_match.group('var_keyword'))
 
     valid_test_8 = '_Inout_ uint64 volatile* Destination'
-    valid_test_8_match = asan_parser._ARG_TOKENS_RE.search(valid_test_8)
+    valid_test_8_match = generator._ARG_TOKENS_RE.search(valid_test_8)
     self.assertTrue(valid_test_8_match != None)
     self.assertEqual('_Inout_',  valid_test_8_match.group('SAL_tag'))
     self.assertEqual(None, valid_test_8_match.group('SAL_tag_args'))
@@ -233,18 +233,18 @@ class TestInterceptorParser(unittest.TestCase):
 
     # Test against a non-annotated argument.
     invalid_test_1 = 'HANDLE hFile'
-    invalid_test_1_match = asan_parser._ARG_TOKENS_RE.search(invalid_test_1)
+    invalid_test_1_match = generator._ARG_TOKENS_RE.search(invalid_test_1)
     self.assertTrue(invalid_test_1_match == None)
 
     # Test against an argument where the variable type is missing.
     invalid_test_2 = '_Out_writes_to_opt_(cchBufferLength, '  \
         '*lpcchReturnLength) _Post_ _NullNull_terminated_ lpszVolumePathNames'
-    invalid_test_2_match = asan_parser._ARG_TOKENS_RE.search(invalid_test_2)
+    invalid_test_2_match = generator._ARG_TOKENS_RE.search(invalid_test_2)
     self.assertTrue(invalid_test_2_match == None)
 
     # Test against an empty string.
     invalid_test_3 = ''
-    invalid_test_3_match = asan_parser._ARG_TOKENS_RE.search(invalid_test_3)
+    invalid_test_3_match = generator._ARG_TOKENS_RE.search(invalid_test_3)
     self.assertTrue(invalid_test_3_match == None)
 
 
@@ -287,7 +287,7 @@ class TestInterceptorParser(unittest.TestCase):
         args = ['--output-base', output_base.name,
                 '--def-file', 'test_data\\interceptor_parser_test.def',
                 'test_data\\interceptor_parser_test.h']
-        asan_parser.main(args)
+        generator.main(args)
 
 
   def testGenerateFunctionInterceptor(self):

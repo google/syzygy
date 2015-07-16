@@ -16,6 +16,20 @@
 #ifndef SYZYGY_AGENT_ASAN_CRT_INTERCEPTORS_H_
 #define SYZYGY_AGENT_ASAN_CRT_INTERCEPTORS_H_
 
+namespace agent {
+namespace asan {
+
+class Shadow;
+
+// Configures the shadow memory to be used by the CRT interceptors.
+// @param shadow The shadow memory to use. May be null, effectively
+//     disabling the interceptors.
+// @returns the previously configured shadow memory.
+Shadow* SetCrtInterceptorShadow(Shadow* shadow);
+
+}  // namespace asan
+}  // namespace agent
+
 // Exposes the CRT interceptors.
 extern "C" {
 

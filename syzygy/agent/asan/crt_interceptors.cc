@@ -26,35 +26,56 @@ namespace {
 using agent::asan::Shadow;
 using agent::asan::TestMemoryRange;
 
+// The global shadow memory that is used by the CRT interceptors.
+Shadow* crt_interceptor_shadow_ = nullptr;
+
 }  // namespace
+
+namespace agent {
+namespace asan {
+
+Shadow* SetCrtInterceptorShadow(Shadow* shadow) {
+  Shadow* old_shadow = crt_interceptor_shadow_;
+  crt_interceptor_shadow_ = shadow;
+  return old_shadow;
+}
+
+}  // namespace asan
+}  // namespace agent
 
 extern "C" {
 
 void* __cdecl asan_memcpy(unsigned char* destination,
                           const unsigned char* source,
                           size_t num) {
-  TestMemoryRange(source, num, agent::asan::ASAN_READ_ACCESS);
-  TestMemoryRange(destination, num, agent::asan::ASAN_WRITE_ACCESS);
+  TestMemoryRange(crt_interceptor_shadow_, source, num,
+                  agent::asan::ASAN_READ_ACCESS);
+  TestMemoryRange(crt_interceptor_shadow_, destination, num,
+                  agent::asan::ASAN_WRITE_ACCESS);
   return ::memcpy(destination, source, num);
 }
 
 void* __cdecl asan_memmove(unsigned char* destination,
                            const unsigned char* source,
                            size_t num) {
-  TestMemoryRange(source, num, agent::asan::ASAN_READ_ACCESS);
-  TestMemoryRange(destination, num, agent::asan::ASAN_WRITE_ACCESS);
+  TestMemoryRange(crt_interceptor_shadow_, source, num,
+                  agent::asan::ASAN_READ_ACCESS);
+  TestMemoryRange(crt_interceptor_shadow_, destination, num,
+                  agent::asan::ASAN_WRITE_ACCESS);
   return ::memmove(destination, source, num);
 }
 
 void* __cdecl asan_memset(unsigned char* ptr, int value, size_t num) {
-  TestMemoryRange(ptr, num, agent::asan::ASAN_WRITE_ACCESS);
+  TestMemoryRange(crt_interceptor_shadow_, ptr, num,
+                  agent::asan::ASAN_WRITE_ACCESS);
   return ::memset(ptr, value, num);
 }
 
 const void* __cdecl asan_memchr(const unsigned char* ptr,
                                 int value,
                                 size_t num) {
-  TestMemoryRange(ptr, num, agent::asan::ASAN_READ_ACCESS);
+  TestMemoryRange(crt_interceptor_shadow_, ptr, num,
+                  agent::asan::ASAN_READ_ACCESS);
   return ::memchr(ptr, value, num);
 }
 
@@ -66,9 +87,12 @@ size_t __cdecl asan_strcspn(const char* str1, const char* str2) {
 }
 
 size_t __cdecl asan_strlen(const char* str) {
+  if (!crt_interceptor_shadow_)
+    return ::strlen(str);
+
   size_t size = 0;
-  if (!agent::asan::StaticShadow::shadow.GetNullTerminatedArraySize<char>(
-          str, 0U, &size)) {
+  if (!crt_interceptor_shadow_->GetNullTerminatedArraySize<char>(str, 0U,
+                                                                 &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str) + size,
                     agent::asan::ASAN_READ_ACCESS);
     return ::strlen(str);
@@ -77,9 +101,12 @@ size_t __cdecl asan_strlen(const char* str) {
 }
 
 const char* __cdecl asan_strrchr(const char* str, int character) {
+  if (!crt_interceptor_shadow_)
+    return ::strrchr(str, character);
+
   size_t size = 0;
-  if (!agent::asan::StaticShadow::shadow.GetNullTerminatedArraySize<char>(
-          str, 0U, &size)) {
+  if (!crt_interceptor_shadow_->GetNullTerminatedArraySize<char>(str, 0U,
+                                                                 &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str) + size,
                     agent::asan::ASAN_READ_ACCESS);
   }
@@ -87,9 +114,12 @@ const char* __cdecl asan_strrchr(const char* str, int character) {
 }
 
 const wchar_t* asan_wcsrchr(const wchar_t* str, wchar_t character) {
+  if (!crt_interceptor_shadow_)
+    return ::wcsrchr(str, character);
+
   size_t size = 0;
-  if (!agent::asan::StaticShadow::shadow.GetNullTerminatedArraySize<wchar_t>(
-          str, 0U, &size)) {
+  if (!crt_interceptor_shadow_->GetNullTerminatedArraySize<wchar_t>(str, 0U,
+                                                                    &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(str) + size,
                     agent::asan::ASAN_READ_ACCESS);
   }
@@ -97,14 +127,17 @@ const wchar_t* asan_wcsrchr(const wchar_t* str, wchar_t character) {
 }
 
 const wchar_t* asan_wcsstr(const wchar_t* str, const wchar_t* keys) {
+  if (!crt_interceptor_shadow_)
+    return ::wcsstr(str, keys);
+
   size_t size = 0;
-  if (!agent::asan::StaticShadow::shadow.GetNullTerminatedArraySize<wchar_t>(
-          keys, 0U, &size)) {
+  if (!crt_interceptor_shadow_->GetNullTerminatedArraySize<wchar_t>(keys, 0U,
+                                                                    &size)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(keys) + size,
                     agent::asan::ASAN_READ_ACCESS);
   }
   const wchar_t* ret = ::wcsstr(str, keys);
-  if (ret != NULL && !agent::asan::StaticShadow::shadow.IsAccessible(ret)) {
+  if (ret != NULL && !crt_interceptor_shadow_->IsAccessible(ret)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(ret),
                     agent::asan::ASAN_READ_ACCESS);
   }
@@ -112,16 +145,18 @@ const wchar_t* asan_wcsstr(const wchar_t* str, const wchar_t* keys) {
 }
 
 const wchar_t* asan_wcschr(const wchar_t* str, wchar_t character) {
+  if (!crt_interceptor_shadow_)
+    return ::wcschr(str, character);
+
   const wchar_t* s = str;
-  while (agent::asan::StaticShadow::shadow.IsAccessible(s) &&
-         *s != character && *s != NULL) {
+  while (crt_interceptor_shadow_->IsAccessible(s) && *s != character &&
+         *s != NULL) {
     s++;
   }
-  if (!agent::asan::StaticShadow::shadow.IsAccessible(s)) {
+  if (!crt_interceptor_shadow_->IsAccessible(s)) {
     ReportBadAccess(reinterpret_cast<const uint8*>(s),
                     agent::asan::ASAN_READ_ACCESS);
     return ::wcschr(str, character);
-
   }
   if (*s == NULL)
     return NULL;
@@ -157,42 +192,48 @@ size_t __cdecl asan_strspn(const char* str1, const char* str2) {
 }
 
 char* __cdecl asan_strncpy(char* destination, const char* source, size_t num) {
+  if (!crt_interceptor_shadow_)
+    return ::strncpy(destination, source, num);
+
   if (num != 0U) {
     size_t src_size = 0;
-    if (!agent::asan::StaticShadow::shadow.GetNullTerminatedArraySize<char>(
-            source, num, &src_size) &&
+    if (!crt_interceptor_shadow_->GetNullTerminatedArraySize<char>(source, num,
+                                                                   &src_size) &&
         src_size <= num) {
       ReportBadAccess(reinterpret_cast<const uint8*>(source) + src_size,
                       agent::asan::ASAN_READ_ACCESS);
     }
     // We can't use the GetNullTerminatedArraySize function here, as destination
     // might not be null terminated.
-    TestMemoryRange(reinterpret_cast<const uint8*>(destination),
-                    num,
+    TestMemoryRange(crt_interceptor_shadow_,
+                    reinterpret_cast<const uint8*>(destination), num,
                     agent::asan::ASAN_WRITE_ACCESS);
   }
   return ::strncpy(destination, source, num);
 }
 
 char* __cdecl asan_strncat(char* destination, const char* source, size_t num) {
+  if (!crt_interceptor_shadow_)
+    return ::strncat(destination, source, num);
+
   if (num != 0U) {
     size_t src_size = 0;
-    if (!agent::asan::StaticShadow::shadow.GetNullTerminatedArraySize<char>(
-            source, num, &src_size) &&
+    if (!crt_interceptor_shadow_->GetNullTerminatedArraySize<char>(source, num,
+                                                                   &src_size) &&
         src_size <= num) {
       ReportBadAccess(reinterpret_cast<const uint8*>(source) + src_size,
                       agent::asan::ASAN_READ_ACCESS);
     }
     size_t dst_size = 0;
-    if (!agent::asan::StaticShadow::shadow.GetNullTerminatedArraySize<char>(
+    if (!crt_interceptor_shadow_->GetNullTerminatedArraySize<char>(
             destination, 0U, &dst_size)) {
       ReportBadAccess(reinterpret_cast<const uint8*>(destination) + dst_size,
                       agent::asan::ASAN_WRITE_ACCESS);
     } else {
       // Test if we can append the source to the destination.
-      TestMemoryRange(reinterpret_cast<const uint8*>(destination + dst_size),
-                      std::min(num, src_size),
-                      agent::asan::ASAN_WRITE_ACCESS);
+      TestMemoryRange(crt_interceptor_shadow_,
+                      reinterpret_cast<const uint8*>(destination + dst_size),
+                      std::min(num, src_size), agent::asan::ASAN_WRITE_ACCESS);
     }
   }
   return ::strncat(destination, source, num);

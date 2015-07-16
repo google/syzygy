@@ -18,6 +18,20 @@
 
 #include <windows.h>
 
+namespace agent {
+namespace asan {
+
+class Shadow;
+
+// Configures the shadow memory to be used by the system interceptors.
+// @param shadow The shadow memory to use. May be null, effectively
+//     disabling the interceptors.
+// @returns the previously configured shadow memory.
+Shadow* SetSystemInterceptorShadow(Shadow* shadow);
+
+}  // namespace asan
+}  // namespace agent
+
 // Exposes the system interceptors.
 extern "C" {
 

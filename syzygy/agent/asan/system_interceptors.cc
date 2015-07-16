@@ -28,7 +28,9 @@ namespace {
 
 using agent::asan::Shadow;
 using agent::asan::TestMemoryRange;
-using agent::asan::TestStructure;
+
+// The global shadow memory that is used by the system interceptors.
+Shadow* system_interceptor_shadow_ = nullptr;
 
 // A callback that will be used in the functions interceptors once the call
 // to the intercepted function has been done. This is for testing purposes
@@ -36,6 +38,18 @@ using agent::asan::TestStructure;
 InterceptorTailCallback interceptor_tail_callback = NULL;
 
 }  // namespace
+
+namespace agent {
+namespace asan {
+
+Shadow* SetSystemInterceptorShadow(Shadow* shadow) {
+  Shadow* old_shadow = system_interceptor_shadow_;
+  system_interceptor_shadow_ = shadow;
+  return old_shadow;
+}
+
+}  // namespace asan
+}  // namespace agent
 
 extern "C" {
 

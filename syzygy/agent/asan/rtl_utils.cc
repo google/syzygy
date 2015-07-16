@@ -132,19 +132,21 @@ void ReportBadAccess(const uint8* location, AccessMode access_mode) {
                         asan_context);
 }
 
-void TestMemoryRange(const uint8* memory,
+void TestMemoryRange(Shadow* shadow,
+                     const uint8* memory,
                      size_t size,
                      AccessMode access_mode) {
-  if (size == 0U)
+  if (!shadow || size == 0U)
     return;
+
   // TODO(sebmarchand): This approach is pretty limited because it only checks
   //     if the first and the last elements are accessible. Once we have the
   //     plumbing in place we should benchmark a check that looks at each
   //     address to be touched (via the shadow memory, 8 bytes at a time).
-  if (!StaticShadow::shadow.IsAccessible(memory) ||
-      !StaticShadow::shadow.IsAccessible(memory + size - 1)) {
+  if (!shadow->IsAccessible(memory) ||
+      !shadow->IsAccessible(memory + size - 1)) {
     const uint8* location = NULL;
-    if (!StaticShadow::shadow.IsAccessible(memory)) {
+    if (!shadow->IsAccessible(memory)) {
       location = memory;
     } else {
       location = memory + size - 1;

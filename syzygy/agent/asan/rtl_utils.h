@@ -25,6 +25,7 @@ namespace asan {
 
 // Forward declarations.
 class AsanRuntime;
+class Shadow;
 
 // Contents of the registers before calling the Asan memory check function.
 #pragma pack(push, 1)
@@ -67,23 +68,25 @@ void ReportBadMemoryAccess(void* location,
 void ReportBadAccess(const uint8* location, AccessMode access_mode);
 
 // Test that a memory range is accessible. Report an error if it's not.
+// @param shadow The shadow memory to use.
 // @param memory The pointer to the beginning of the memory range that we want
 //     to check.
 // @param size The size of the memory range that we want to check.
 // @param access_mode The access mode.
-void TestMemoryRange(const uint8* memory,
+void TestMemoryRange(Shadow* shadow,
+                     const uint8* memory,
                      size_t size,
                      AccessMode access_mode);
 
 // Helper function to test if the memory range of a given structure is
 // accessible.
 // @tparam T the type of the structure to be tested.
+// @param shadow The shadow memory to use.
 // @param structure A pointer to this structure.
 // @param access mode The access mode.
 template <typename T>
-void TestStructure(const T* structure, AccessMode access_mode) {
-  TestMemoryRange(reinterpret_cast<const uint8*>(structure),
-                  sizeof(T),
+void TestStructure(Shadow* shadow, const T* structure, AccessMode access_mode) {
+  TestMemoryRange(shadow, reinterpret_cast<const uint8*>(structure), sizeof(T),
                   access_mode);
 }
 

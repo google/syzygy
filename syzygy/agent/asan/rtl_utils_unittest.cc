@@ -118,27 +118,28 @@ TEST(AsanRtlUtilsTest, TestMemoryRange) {
   const size_t kTestBufferSize = 64;
   scoped_ptr<uint8> test_buffer(new uint8[kTestBufferSize]);
 
-  TestMemoryRange(test_buffer.get(), kTestBufferSize, access_mode);
+  TestMemoryRange(runtime.shadow(), test_buffer.get(), kTestBufferSize,
+                  access_mode);
   EXPECT_FALSE(memory_error_detected);
 
   // Poison the second half of the buffer.
-  StaticShadow::shadow.Poison(
-      test_buffer.get() + kTestBufferSize / 2,
-      kTestBufferSize / 2,
-      kUserRedzoneMarker);
+  runtime.shadow()->Poison(test_buffer.get() + kTestBufferSize / 2,
+                           kTestBufferSize / 2, kUserRedzoneMarker);
 
   // Test the first half of the buffer, no error should be detected.
-  TestMemoryRange(test_buffer.get(), kTestBufferSize / 2, access_mode);
+  TestMemoryRange(runtime.shadow(), test_buffer.get(), kTestBufferSize / 2,
+                  access_mode);
   EXPECT_FALSE(memory_error_detected);
 
   // Test the second half of the buffer, we should get an invalid access on its
   // last byte.
-  TestMemoryRange(test_buffer.get(), kTestBufferSize, access_mode);
+  TestMemoryRange(runtime.shadow(), test_buffer.get(), kTestBufferSize,
+                  access_mode);
   EXPECT_TRUE(memory_error_detected);
   EXPECT_EQ(test_buffer.get() + kTestBufferSize - 1, last_error_info.location);
   EXPECT_EQ(access_mode, last_error_info.access_mode);
 
-  StaticShadow::shadow.Unpoison(test_buffer.get(), kTestBufferSize);
+  runtime.shadow()->Unpoison(test_buffer.get(), kTestBufferSize);
 }
 
 TEST(AsanRtlUtilsTest, TestStructure) {
@@ -147,20 +148,18 @@ TEST(AsanRtlUtilsTest, TestStructure) {
   AccessMode access_mode = ASAN_READ_ACCESS;
   scoped_ptr<double> test_struct(new double);
 
-  TestStructure(test_struct.get(), access_mode);
+  TestStructure(runtime.shadow(), test_struct.get(), access_mode);
   EXPECT_FALSE(memory_error_detected);
 
-  StaticShadow::shadow.Poison(
-      test_struct.get(),
-      sizeof(double),
-      kUserRedzoneMarker);
+  runtime.shadow()->Poison(test_struct.get(), sizeof(double),
+                           kUserRedzoneMarker);
 
-  TestStructure(test_struct.get(), access_mode);
+  TestStructure(runtime.shadow(), test_struct.get(), access_mode);
   EXPECT_TRUE(memory_error_detected);
   EXPECT_EQ(test_struct.get(), last_error_info.location);
   EXPECT_EQ(access_mode, last_error_info.access_mode);
 
-  StaticShadow::shadow.Unpoison(test_struct.get(), sizeof(double));
+  runtime.shadow()->Unpoison(test_struct.get(), sizeof(double));
 }
 
 }  // namespace asan
