@@ -842,7 +842,7 @@ void AsanRuntime::WriteCorruptHeapInfo(
     // should be readable. However, remove page protections just to be sure.
     // They are left turned off so that the minidump generation can introspect
     // the block.
-    BlockProtectNone(block_info);
+    BlockProtectNone(block_info, shadow());
     ErrorInfoGetAsanBlockInfo(shadow(), block_info, stack_cache_.get(),
                               asan_block_info);
     DCHECK_EQ(kDataIsCorrupt, asan_block_info->analysis.block_state);
@@ -1048,7 +1048,7 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
         if (shadow->BlockInfoFromShadow(address, &block_info)) {
           // Page protections have to be removed from this block otherwise our
           // own inspection will cause further errors.
-          BlockProtectNone(block_info);
+          BlockProtectNone(block_info, runtime_->shadow());
 
           // Useful for unittesting.
           runtime_->logger_->Write("SyzyASAN: Caught an invalid access via "

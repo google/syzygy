@@ -241,7 +241,7 @@ void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
 
   BlockSetChecksum(block);
   if (enable_page_protections_)
-    BlockProtectRedzones(block);
+    BlockProtectRedzones(block, shadow_);
 
   return block.body;
 }
@@ -256,13 +256,14 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
 
   BlockInfo block_info = {};
   if (!shadow_->IsBeginningOfBlockBody(alloc) ||
-      !GetBlockInfo(reinterpret_cast<BlockBody*>(alloc), &block_info)) {
+      !GetBlockInfo(shadow_, reinterpret_cast<BlockBody*>(alloc),
+                    &block_info)) {
     return FreeUnguardedAlloc(heap_id, alloc);
   }
 
   if (enable_page_protections_) {
     // Precondition: A valid guarded allocation.
-    BlockProtectNone(block_info);
+    BlockProtectNone(block_info, shadow_);
   }
 
   if (!BlockChecksumIsValid(block_info)) {
@@ -329,7 +330,7 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
       // properly unprotecting and freeing the block. If the protection is set
       // blindly after TrimQuarantine we could end up protecting a free (not
       // quarantined, not allocated) block.
-      BlockProtectAll(block_info);
+      BlockProtectAll(block_info, shadow_);
     }
   }
   TrimQuarantine(quarantine);
@@ -342,8 +343,10 @@ size_t BlockHeapManager::Size(HeapId heap_id, const void* alloc) {
 
   if (shadow_->IsBeginningOfBlockBody(alloc)) {
     BlockInfo block_info = {};
-    if (!GetBlockInfo(reinterpret_cast<const BlockBody*>(alloc), &block_info))
+    if (!GetBlockInfo(shadow_, reinterpret_cast<const BlockBody*>(alloc),
+                      &block_info)) {
       return 0;
+    }
     return block_info.body_size;
   }
 
@@ -652,7 +655,7 @@ bool BlockHeapManager::DestroyHeapContents(
 
     if (enable_page_protections_) {
       // Remove protection to enable access to the block header.
-      BlockProtectNone(expanded);
+      BlockProtectNone(expanded, shadow_);
     }
 
     BlockHeapInterface* block_heap = GetHeapFromId(expanded.trailer->heap_id);
@@ -674,7 +677,7 @@ bool BlockHeapManager::DestroyHeapContents(
     if (quarantine->Push(iter_block)) {
       if (enable_page_protections_) {
         // Restore protection to quarantined block.
-        BlockProtectAll(expanded);
+        BlockProtectAll(expanded, shadow_);
       }
     } else {
       // Avoid memory leak.
@@ -749,7 +752,7 @@ bool BlockHeapManager::FreePotentiallyCorruptBlock(BlockInfo* block_info) {
   DCHECK_NE(static_cast<BlockInfo*>(nullptr), block_info);
 
   if (enable_page_protections_)
-    BlockProtectNone(*block_info);
+    BlockProtectNone(*block_info, shadow_);
 
   if (block_info->header->magic != kBlockHeaderMagic ||
       !BlockChecksumIsValid(*block_info) ||
@@ -776,7 +779,7 @@ bool BlockHeapManager::FreePristineBlock(BlockInfo* block_info) {
 
   if (enable_page_protections_) {
     // Remove block protections so the redzones may be modified.
-    BlockProtectNone(*block_info);
+    BlockProtectNone(*block_info, shadow_);
   }
 
   // Return pointers to the stacks for reference counting purposes.

@@ -42,13 +42,13 @@ TEST_F(HeapCheckerTest, HeapCheckerHandlesPageProtections) {
   fake_large_block.InitializeBlock(2 * GetPageSize());
   base::RandBytes(fake_large_block.block_info.body, 2 * GetPageSize());
   fake_large_block.MarkBlockAsQuarantined();
-  BlockProtectAll(fake_large_block.block_info);
+  BlockProtectAll(fake_large_block.block_info, runtime_->shadow());
 
   HeapChecker heap_checker(runtime_->shadow());
   HeapChecker::CorruptRangesVector corrupt_ranges;
   EXPECT_FALSE(heap_checker.IsHeapCorrupt(&corrupt_ranges));
 
-  BlockProtectNone(fake_large_block.block_info);
+  BlockProtectNone(fake_large_block.block_info, runtime_->shadow());
 }
 
 TEST_F(HeapCheckerTest, IsHeapCorruptInvalidChecksum) {

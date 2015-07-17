@@ -707,18 +707,19 @@ class ScopedBlockAccess {
  public:
   // Constructor. Unprotects the provided block.
   // @param block_info The block whose protections are to be modified.
-  explicit ScopedBlockAccess(const agent::asan::BlockInfo& block_info)
-      : block_info_(block_info) {
-    BlockProtectNone(block_info_);
+  // @parma shadow The shadow memory to be updated.
+  explicit ScopedBlockAccess(const agent::asan::BlockInfo& block_info,
+                             Shadow* shadow)
+      : block_info_(block_info), shadow_(shadow) {
+    BlockProtectNone(block_info_, shadow_);
   }
 
   // Destructor. Restores protections on the provided block.
-  ~ScopedBlockAccess() {
-    BlockProtectAuto(block_info_);
-  }
+  ~ScopedBlockAccess() { BlockProtectAuto(block_info_, shadow_); }
 
  private:
   const agent::asan::BlockInfo& block_info_;
+  Shadow* shadow_;
 };
 
 // A debugging shadow class. This keeps extra details in the form of an address

@@ -1275,7 +1275,7 @@ TEST_P(BlockHeapManagerTest, ZebraHeapIdInTrailerAfterAllocation) {
   EXPECT_TRUE(runtime_->shadow()->BlockInfoFromShadow(alloc, &block_info));
 
   {
-    ScopedBlockAccess block_access(block_info);
+    ScopedBlockAccess block_access(block_info, runtime_->shadow());
     // The heap_id stored in the block trailer should match the zebra heap id.
     EXPECT_EQ(heap_manager_->zebra_block_heap_id_,
               block_info.trailer->heap_id);
@@ -1301,7 +1301,7 @@ TEST_P(BlockHeapManagerTest, DefaultHeapIdInTrailerWhenZebraHeapIsFull) {
   BlockInfo block_info = {};
   EXPECT_TRUE(runtime_->shadow()->BlockInfoFromShadow(alloc, &block_info));
   {
-    ScopedBlockAccess block_access(block_info);
+    ScopedBlockAccess block_access(block_info, runtime_->shadow());
     // The heap_id stored in the block trailer match the provided heap.
     EXPECT_EQ(heap.Id(), block_info.trailer->heap_id);
   }
@@ -1344,7 +1344,7 @@ TEST_P(BlockHeapManagerTest, QuarantinedAfterFree) {
   EXPECT_TRUE(runtime_->shadow()->BlockInfoFromShadow(alloc, &block_info));
 
   {
-    ScopedBlockAccess block_access(block_info);
+    ScopedBlockAccess block_access(block_info, runtime_->shadow());
     EXPECT_TRUE(block_info.header->state == QUARANTINED_BLOCK ||
                 block_info.header->state == QUARANTINED_FLOODED_BLOCK);
   }
@@ -1410,7 +1410,7 @@ TEST_P(BlockHeapManagerTest, AllocatedBlockIsProtected) {
     EXPECT_TRUE(IsAccessible(block_info.RawBody() + i));
 
   {
-    ScopedBlockAccess block_access(block_info);
+    ScopedBlockAccess block_access(block_info, runtime_->shadow());
     EXPECT_EQ(ALLOCATED_BLOCK, block_info.header->state);
   }
 
@@ -1454,7 +1454,7 @@ TEST_P(BlockHeapManagerTest, QuarantinedBlockIsProtected) {
       EXPECT_TRUE(IsNotAccessible(block_info.RawBody() + i));
 
     {
-      ScopedBlockAccess block_access(block_info);
+      ScopedBlockAccess block_access(block_info, runtime_->shadow());
       EXPECT_TRUE(block_info.header->state == QUARANTINED_BLOCK ||
                   block_info.header->state == QUARANTINED_FLOODED_BLOCK);
     }
@@ -1518,7 +1518,7 @@ TEST_P(BlockHeapManagerTest, ZebraBlockHeapQuarantineRatioIsRespected) {
     EXPECT_LE(test_zebra_block_heap_->GetCount(), max_quarantine_size);
 
     {
-      ScopedBlockAccess block_access(block_info);
+      ScopedBlockAccess block_access(block_info, runtime_->shadow());
       EXPECT_TRUE(block_info.header->state == QUARANTINED_BLOCK ||
                   block_info.header->state == QUARANTINED_FLOODED_BLOCK);
     }
@@ -1546,7 +1546,7 @@ TEST_P(BlockHeapManagerTest, LargeBlockHeapUsedForLargeAllocations) {
   EXPECT_TRUE(runtime_->shadow()->BlockInfoFromShadow(alloc, &block_info));
 
   {
-    ScopedBlockAccess block_access(block_info);
+    ScopedBlockAccess block_access(block_info, runtime_->shadow());
     // The heap_id stored in the block trailer should match the large block
     // heap id.
     EXPECT_EQ(heap_manager_->large_block_heap_id_,
@@ -1571,7 +1571,7 @@ TEST_P(BlockHeapManagerTest, LargeBlockHeapNotUsedForSmallAllocations) {
   EXPECT_TRUE(runtime_->shadow()->BlockInfoFromShadow(alloc, &block_info));
 
   {
-    ScopedBlockAccess block_access(block_info);
+    ScopedBlockAccess block_access(block_info, runtime_->shadow());
     // The provided heap ID should be the one in the block trailer.
     EXPECT_EQ(heap.Id(), block_info.trailer->heap_id);
   }

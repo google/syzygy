@@ -22,13 +22,16 @@ namespace asan {
 
 ::common::RecursiveLock block_protect_lock;
 
-bool GetBlockInfo(const BlockBody* body, CompactBlockInfo* block_info) {
+bool GetBlockInfo(const Shadow* shadow,
+                  const BlockBody* body,
+                  CompactBlockInfo* block_info) {
+  DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   DCHECK_NE(static_cast<BlockBody*>(nullptr), body);
   DCHECK_NE(static_cast<CompactBlockInfo*>(nullptr), block_info);
 
   // Try reading directly from memory first.
   const uint8* addr_in_redzone = reinterpret_cast<const uint8*>(body) - 1;
-  if (!StaticShadow::shadow.PageIsProtected(addr_in_redzone)) {
+  if (!shadow->PageIsProtected(addr_in_redzone)) {
     // If this succeeds then we're done. It can fail if the page protections
     // are actually active, or if the header is corrupt. In this case we'll
     // fall through and look at the shadow memory.
@@ -37,23 +40,27 @@ bool GetBlockInfo(const BlockBody* body, CompactBlockInfo* block_info) {
       return true;
   }
 
-  if (!StaticShadow::shadow.BlockInfoFromShadow(body, block_info))
+  if (!shadow->BlockInfoFromShadow(body, block_info))
     return false;
 
   return true;
 }
 
-bool GetBlockInfo(const BlockBody* body, BlockInfo* block_info) {
+bool GetBlockInfo(const Shadow* shadow,
+                  const BlockBody* body,
+                  BlockInfo* block_info) {
+  DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   DCHECK_NE(static_cast<BlockBody*>(nullptr), body);
   DCHECK_NE(static_cast<BlockInfo*>(nullptr), block_info);
   CompactBlockInfo compact = {};
-  if (!GetBlockInfo(body, &compact))
+  if (!GetBlockInfo(shadow, body, &compact))
     return false;
   ConvertBlockInfo(compact, block_info);
   return true;
 }
 
-void BlockProtectNone(const BlockInfo& block_info) {
+void BlockProtectNone(const BlockInfo& block_info, Shadow* shadow) {
+  DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   if (block_info.block_pages_size == 0)
     return;
 
@@ -64,16 +71,17 @@ void BlockProtectNone(const BlockInfo& block_info) {
                                block_info.block_pages_size,
                                PAGE_READWRITE, &old_protection);
   CHECK_NE(0u, ret);
-  StaticShadow::shadow.MarkPagesUnprotected(block_info.block_pages,
-                                            block_info.block_pages_size);
+  shadow->MarkPagesUnprotected(block_info.block_pages,
+                               block_info.block_pages_size);
 }
 
-void BlockProtectRedzones(const BlockInfo& block_info) {
+void BlockProtectRedzones(const BlockInfo& block_info, Shadow* shadow) {
+  DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   if (block_info.block_pages_size == 0)
     return;
 
   ::common::AutoRecursiveLock lock(block_protect_lock);
-  BlockProtectNone(block_info);
+  BlockProtectNone(block_info, shadow);
 
   // Protect the left redzone pages if any.
   DWORD old_protection = 0;
@@ -84,8 +92,8 @@ void BlockProtectRedzones(const BlockInfo& block_info) {
                            block_info.left_redzone_pages_size,
                            PAGE_NOACCESS, &old_protection);
     DCHECK_NE(0u, ret);
-    StaticShadow::shadow.MarkPagesProtected(
-        block_info.left_redzone_pages, block_info.left_redzone_pages_size);
+    shadow->MarkPagesProtected(block_info.left_redzone_pages,
+                               block_info.left_redzone_pages_size);
   }
 
   // Protect the right redzone pages if any.
@@ -96,13 +104,13 @@ void BlockProtectRedzones(const BlockInfo& block_info) {
                            block_info.right_redzone_pages_size,
                            PAGE_NOACCESS, &old_protection);
     DCHECK_NE(0u, ret);
-    StaticShadow::shadow.MarkPagesProtected(
-        block_info.right_redzone_pages,
-        block_info.right_redzone_pages_size);
+    shadow->MarkPagesProtected(block_info.right_redzone_pages,
+                               block_info.right_redzone_pages_size);
   }
 }
 
-void BlockProtectAll(const BlockInfo& block_info) {
+void BlockProtectAll(const BlockInfo& block_info, Shadow* shadow) {
+  DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   if (block_info.block_pages_size == 0)
     return;
 
@@ -113,18 +121,19 @@ void BlockProtectAll(const BlockInfo& block_info) {
                                block_info.block_pages_size,
                                PAGE_NOACCESS, &old_protection);
   DCHECK_NE(0u, ret);
-  StaticShadow::shadow.MarkPagesProtected(block_info.block_pages,
-                                          block_info.block_pages_size);
+  shadow->MarkPagesProtected(block_info.block_pages,
+                             block_info.block_pages_size);
 }
 
-void BlockProtectAuto(const BlockInfo& block_info) {
+void BlockProtectAuto(const BlockInfo& block_info, Shadow* shadow) {
+  DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   if (block_info.block_pages_size == 0)
     return;
 
   ::common::AutoRecursiveLock lock(block_protect_lock);
 
   // Remove the page protection from the header if necessary.
-  if (!StaticShadow::shadow.IsAccessible(block_info.block_pages)) {
+  if (!shadow->IsAccessible(block_info.block_pages)) {
     DWORD old_protection = 0;
     DWORD ret = ::VirtualProtect(block_info.block_pages,
                                  GetPageSize(),
@@ -136,7 +145,7 @@ void BlockProtectAuto(const BlockInfo& block_info) {
   switch (block_info.header->state) {
     // An allocated block has an accessible body but protected redzones.
     case ALLOCATED_BLOCK: {
-      BlockProtectRedzones(block_info);
+      BlockProtectRedzones(block_info, shadow);
       break;
     }
 
@@ -144,7 +153,7 @@ void BlockProtectAuto(const BlockInfo& block_info) {
     case QUARANTINED_BLOCK:
     case QUARANTINED_FLOODED_BLOCK:
     case FREED_BLOCK: {
-      BlockProtectAll(block_info);
+      BlockProtectAll(block_info, shadow);
       break;
     }
 

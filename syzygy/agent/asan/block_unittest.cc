@@ -124,8 +124,22 @@ void IsValidBlock(const BlockInfo& block) {
   IsValidBlockImpl(block, false);
 }
 
-// Use the unittest fixture with an OnExceptionCallback.
-typedef testing::OnExceptionCallbackTest BlockTest;
+class BlockTest : public testing::OnExceptionCallbackTest {
+ public:
+  using Super = testing::OnExceptionCallbackTest;
+
+  void SetUp() override {
+    Super::SetUp();
+    shadow_.SetUp();
+  }
+
+  void TearDown() override {
+    shadow_.TearDown();
+    Super::TearDown();
+  }
+
+  Shadow shadow_;
+};
 
 }  // namespace
 
@@ -272,11 +286,11 @@ TEST_F(BlockTest, GetHeaderFromBodyProtectedMemory) {
   BlockInfo block_info = {};
   BlockInitialize(layout, alloc, false, &block_info);
 
-  BlockProtectRedzones(block_info);
+  BlockProtectRedzones(block_info, &shadow_);
   EXPECT_CALL(*this, OnExceptionCallback(_));
   EXPECT_TRUE(BlockGetHeaderFromBody(block_info.body) == NULL);
   testing::Mock::VerifyAndClearExpectations(this);
-  BlockProtectNone(block_info);
+  BlockProtectNone(block_info, &shadow_);
 
   ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
 }
@@ -409,12 +423,12 @@ TEST_F(BlockTest, BlockInfoFromMemoryProtectedMemory) {
   BlockInfo block_info = {};
   BlockInitialize(layout, alloc, false, &block_info);
 
-  BlockProtectRedzones(block_info);
+  BlockProtectRedzones(block_info, &shadow_);
   BlockInfo recovered_info = {};
   EXPECT_CALL(*this, OnExceptionCallback(_));
   EXPECT_FALSE(BlockInfoFromMemory(block_info.header, &recovered_info));
   testing::Mock::VerifyAndClearExpectations(this);
-  BlockProtectNone(block_info);
+  BlockProtectNone(block_info, &shadow_);
 
   ASSERT_EQ(TRUE, ::VirtualFree(alloc, 0, MEM_RELEASE));
 }

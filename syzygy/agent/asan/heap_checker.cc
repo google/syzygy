@@ -65,7 +65,7 @@ void HeapChecker::GetCorruptRangesInSlab(const uint8* lower_bound,
     // Remove the protections on this block so its checksum can be safely
     // validated. We leave the protections permanently removed so that the
     // minidump generation has free access to block contents.
-    BlockProtectNone(block_info);
+    BlockProtectNone(block_info, shadow_);
 
     bool current_block_is_corrupt = IsBlockCorrupt(block_info);
     // If the current block is corrupt and |current_corrupt_range| is nullptr
