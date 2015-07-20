@@ -196,6 +196,14 @@ class Test(object):
     success_file.write(str(datetime.datetime.now()))
     success_file.close()
 
+  def _Touch(self, configuration):
+    """This is as a stub of the functionality that must be implemented by
+    child classes.
+
+    Args:
+      configuration: the configuration of the test to touch.
+    """
+
   def _Run(self, configuration):
     """This is as a stub of the functionality that must be implemented by
     child classes.
@@ -238,6 +246,15 @@ class Test(object):
     stderr = self._stderr.getvalue()
     self._stderr = cStringIO.StringIO()
     return stderr
+
+  def Touch(self, configuration):
+    """Touches the test success file for the test in the given configuration.
+
+    Args:
+      configuration: The configuration to touch.
+    """
+    self._Touch(configuration)
+    self._MakeSuccessFile(configuration)
 
   def Run(self, configuration, force=False):
     """Runs the test in the given configuration. The derived instance of Test
@@ -318,6 +335,10 @@ class Test(object):
     parser.add_option('-f', '--force', dest='force',
                       action='store_true', default=False,
                       help='Force tests to re-run even if not necessary.')
+    parser.add_option('-t', '--touch', dest='touch',
+                      action='store_true', default=False,
+                      help='Touch the test outputs to make as if they have '
+                           'succeeded.')
     parser.add_option('--verbose', dest='log_level', action='store_const',
                       const=logging.DEBUG, default=logging.INFO,
                       help='Run the script with verbose logging.')
@@ -330,6 +351,9 @@ class Test(object):
     opt_parser = self._GetOptParser()
     options, dummy_args = opt_parser.parse_args()
 
+    if options.force and options.touch:
+      opt_parser.error("--force and --touch don't go together, pick one.")
+
     logging.basicConfig(level=options.log_level)
 
     # If no configurations are specified, run all configurations.
@@ -341,7 +365,9 @@ class Test(object):
       # We don't catch any exceptions that may be raised as these indicate
       # something has gone really wrong, and we want them to interrupt further
       # tests.
-      if not self.Run(config, force=options.force):
+      if options.touch:
+        self.Touch(config)
+      elif not self.Run(config, force=options.force):
         _LOGGER.error('Configuration "%s" of test "%s" failed.',
                       config, self._name)
         result = 1
@@ -376,14 +402,7 @@ class ExecutableTest(Test):
     if extra_args is None:
       extra_args = []
 
-    # Remember the raw name and generate a decorated name which reflects the
-    # additional arguments.
-    raw_name = name
-    if extra_args:
-      name = '%s_%s' % (name, hashlib.md5(' '.join(extra_args)).hexdigest())
-
     Test.__init__(self, build_dir, name, True)
-    self._raw_name = raw_name
     self._extra_args = extra_args
 
   def _GetTestPath(self, configuration):
@@ -391,7 +410,7 @@ class ExecutableTest(Test):
     but it defaults to self._build_dir/<build_configuration>/<name>.exe
     """
     return os.path.join(
-        self._build_dir, configuration, '%s.exe' % self._raw_name)
+        self._build_dir, configuration, '%s.exe' % self._name)
 
   def _NeedToRun(self, configuration):
     test_path = self._GetTestPath(configuration)
@@ -540,6 +559,15 @@ class TestSuite(Test):
                       configuration, test._name)  # pylint: disable=W0212
         raise
     return need_to_run
+
+  def _Touch(self, configuration):
+    """Implementation of this Test object.
+
+    Touches the provided collection of tests, generating a success file for
+    each test.
+    """
+    for test in self._tests:
+      test.Touch(configuration)
 
   def _Run(self, configuration):
     """Implementation of this Test object.

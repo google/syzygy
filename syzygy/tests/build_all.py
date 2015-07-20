@@ -46,6 +46,9 @@ class MsvsBuildAll(testing.Test):
 
     return True
 
+  def _Touch(self, configuration):
+    self._Run(configuration)
+
 
 class NinjaBuildAll(testing.Test):
   """A test that checks to see if the 'build_all' target succeeds via Ninja."""
@@ -59,6 +62,9 @@ class NinjaBuildAll(testing.Test):
         ['ninja', '-C', 'out/' + configuration, syzygy.SYZYGY_TARGET],
         cwd=_SRC_DIR)
     return True
+
+  def _Touch(self, configuration):
+    self._Run(configuration)
 
 
 def MakeTest():
