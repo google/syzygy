@@ -37,9 +37,15 @@ class TypeRepository {
 
   // Retrieve a type by @p id.
   TypePtr GetType(TypeId id);
+
   // Add @p type and get its assigned id.
   // @pre @p type must not be in any repository.
   TypeId AddType(TypePtr type);
+
+  // Add @p type and with @p id if the give id is free.
+  // @pre @p type must not be in any repository and @p id must be free.
+  // @returns true on success, failure typically means id is already taken.
+  bool AddTypeWithId(TypePtr type, TypeId id);
 
   // @name Accessors.
   // @{
@@ -54,8 +60,8 @@ class TypeRepository {
   DISALLOW_COPY_AND_ASSIGN(TypeRepository);
 };
 
-class TypeRepository::Iterator : public std::iterator<
-    std::input_iterator_tag, TypePtr> {
+class TypeRepository::Iterator
+    : public std::iterator<std::input_iterator_tag, TypePtr> {
  public:
   Iterator() {}
   const TypePtr& operator*() const { return it_->second; }
@@ -67,12 +73,8 @@ class TypeRepository::Iterator : public std::iterator<
     ++it_;
     return *this;
   }
-  bool operator==(const Iterator& other) const {
-    return it_ == other.it_;
-  }
-  bool operator!=(const Iterator& other) const {
-    return it_ != other.it_;
-  }
+  bool operator==(const Iterator& other) const { return it_ == other.it_; }
+  bool operator!=(const Iterator& other) const { return it_ != other.it_; }
 
  private:
   friend TypeRepository;

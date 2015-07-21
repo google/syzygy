@@ -23,6 +23,8 @@
       'sources': [
         'dia_crawler.cc',
         'dia_crawler.h',
+        'pdb_crawler.cc',
+        'pdb_crawler.h',
         'type.cc',
         'type.h',
         'type_repository.cc',

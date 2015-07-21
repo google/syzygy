@@ -47,6 +47,42 @@ TEST(TypeRepositoryTest, AddType) {
   EXPECT_EQ(t2, repo.GetType(id2));
 }
 
+TEST(TypeRepositoryTest, AddTypeWithId) {
+  TypeRepository repo;
+  EXPECT_EQ(0U, repo.size());
+
+  // Returns a NULL type for unknown TypeId.
+  EXPECT_FALSE(repo.GetType(1));
+
+  for (auto type : repo)
+    FAIL() << "Non-empty enumeration in an empty TypeRepository";
+
+  TypePtr t1 = new BasicType(L"uint", 4);
+  TypePtr t2 = new BasicType(L"int", 4);
+  TypePtr t3 = new BasicType(L"char", 1);
+
+  const TypeId kId1 = 42;
+  const TypeId kId2 = 31;
+  EXPECT_EQ(nullptr, t1->repository());
+  EXPECT_EQ(nullptr, t2->repository());
+
+  EXPECT_TRUE(repo.AddTypeWithId(t1, kId1));
+  EXPECT_TRUE(repo.AddTypeWithId(t2, kId2));
+  EXPECT_EQ(2U, repo.size());
+
+  EXPECT_EQ(&repo, t1->repository());
+  EXPECT_EQ(&repo, t2->repository());
+
+  // There is still no object with id 1.
+  EXPECT_FALSE(repo.GetType(1));
+
+  // This index is already taken.
+  EXPECT_FALSE(repo.AddTypeWithId(t3, kId1));
+
+  EXPECT_EQ(t1, repo.GetType(kId1));
+  EXPECT_EQ(t2, repo.GetType(kId2));
+}
+
 TEST(TypeRepositoryTest, Iteration) {
   TypeRepository repo;
 
@@ -61,8 +97,7 @@ TEST(TypeRepositoryTest, Iteration) {
 
     ASSERT_TRUE(type);
     EXPECT_EQ(Type::BASIC_TYPE_KIND, type->kind());
-    EXPECT_TRUE(type->name() == L"one" ||
-                type->name() == L"two" ||
+    EXPECT_TRUE(type->name() == L"one" || type->name() == L"two" ||
                 type->name() == L"three");
   }
 

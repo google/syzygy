@@ -36,13 +36,25 @@ TypeId TypeRepository::AddType(TypePtr type) {
   DCHECK(type);
   TypeId id = types_.size() + 1;
 
+  bool result = AddTypeWithId(type, id);
+
+  // Check that the adding was successful.
+  DCHECK(result);
+
+  return id;
+}
+
+bool TypeRepository::AddTypeWithId(TypePtr type, TypeId id) {
+  DCHECK(type);
+
   // Check that the ID is unassigned.
-  DCHECK(types_.find(id) == types_.end());
+  if (types_.find(id) != types_.end())
+    return false;
 
   type->SetRepository(this, id);
   types_[id] = type;
 
-  return id;
+  return true;
 }
 
 size_t TypeRepository::size() const {
