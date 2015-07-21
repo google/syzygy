@@ -19,6 +19,9 @@
 
 .CODE
 
+; Allow section and label names to begin with a leading period.
+OPTION DOTNAME
+
 ; Declare the tail function all the stubs direct to.
 EXTERN C asan_redirect_tail:PROC
 

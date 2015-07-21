@@ -84,6 +84,13 @@ void CheckMemoryAccess(void* location,
     ReportBadMemoryAccess(location, access_mode, access_size, context);
 }
 
+// The slow path relies on the fact that the shadow memory non accessible byte
+// mask has its upper bit set to 1.
+COMPILE_ASSERT((kHeapNonAccessibleMarkerMask & (1 << 7)) != 0,
+               asan_shadow_mask_upper_bit_is_0);
+
+extern "C" {
+
 // Check if the memory accesses done by a string instructions are valid.
 // @param dst The destination memory address of the access.
 // @param dst_access_mode The destination mode of the access.
@@ -94,11 +101,15 @@ void CheckMemoryAccess(void* location,
 // @param increment The increment to move dst/src after each access.
 // @param compare Flag to activate shortcut of the execution on difference.
 // @param context The registers context of the access.
-void CheckStringsMemoryAccesses(
-    uint8* dst, AccessMode dst_access_mode,
-    uint8* src, AccessMode src_access_mode,
-    uint32 length, size_t access_size, int32 increment, bool compare,
-    const AsanContext& context) {
+void asan_check_strings_memory_accesses(uint8* dst,
+                                        AccessMode dst_access_mode,
+                                        uint8* src,
+                                        AccessMode src_access_mode,
+                                        uint32 length,
+                                        size_t access_size,
+                                        int32 increment,
+                                        bool compare,
+                                        const AsanContext& context) {
   int32 offset = 0;
 
   for (uint32 i = 0; i < length; ++i) {
@@ -142,8 +153,9 @@ void CheckStringsMemoryAccesses(
   }
 }
 
-MemoryAccessorFunction RedirectStubEntry(
-    const void* caller_address, MemoryAccessorFunction called_redirect) {
+MemoryAccessorFunction asan_redirect_stub_entry(
+    const void* caller_address,
+    MemoryAccessorFunction called_redirect) {
   MemoryAccessorMode mode = MEMORY_ACCESSOR_MODE_NOOP;
 
   // TODO(siggi): Does it make sense to CHECK on this?
@@ -167,22 +179,17 @@ MemoryAccessorFunction RedirectStubEntry(
   return NULL;
 }
 
+// A simple wrapper to agent::asan::ReportBadMemoryAccess that has C linkage
+// so it can be referred to in memory_interceptors.asm.
+void asan_report_bad_memory_access(void* location,
+                                   AccessMode access_mode,
+                                   size_t access_size,
+                                   const AsanContext& asan_context) {
+  return agent::asan::ReportBadMemoryAccess(location, access_mode, access_size,
+                                            asan_context);
+}
+
+}  // extern "C"
+
 }  // namespace asan
 }  // namespace agent
-
-// Redefine some enums to make them accessible in the inlined assembly.
-// @{
-enum AccessMode {
-  AsanReadAccess = agent::asan::ASAN_READ_ACCESS,
-  AsanWriteAccess = agent::asan::ASAN_WRITE_ACCESS,
-  AsanUnknownAccess = agent::asan::ASAN_UNKNOWN_ACCESS,
-};
-// @}
-
-// The slow path relies on the fact that the shadow memory non accessible byte
-// mask has its upper bit set to 1.
-COMPILE_ASSERT((agent::asan::kHeapNonAccessibleMarkerMask & (1 << 7)) != 0,
-               asan_shadow_mask_upper_bit_is_0);
-
-// Pull in the actual implementation of the accessor stubs.
-#include "syzygy/agent/asan/gen/memory_interceptors_impl.cc"

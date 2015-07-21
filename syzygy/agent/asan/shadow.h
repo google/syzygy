@@ -435,6 +435,13 @@ class ShadowWalker {
   DISALLOW_COPY_AND_ASSIGN(ShadowWalker);
 };
 
+// The actual static shadow array memory. This will eventually be provided by
+// the RTL itself once the transition to a dynamic shadow memory is complete.
+// TODO(chrisha): Move me to a RTL-specific shadow implementation file!
+extern "C" {
+extern uint8 asan_memory_interceptors_shadow_memory[];
+}
+
 // An all-static class that stores a static copy of shadow memory.
 struct StaticShadow {
   // One shadow byte for per group of kShadowRatio bytes in a 2G address space.
@@ -443,10 +450,6 @@ struct StaticShadow {
 
   // The upper bound of the addressable memory.
   static const size_t kAddressUpperBound = kShadowSize << kShadowRatioLog;
-
-  // The static shadow memory. This will disappear once stubs are chosen at
-  // runtime.
-  static uint8 shadow_memory[kShadowSize];
 
   // The static shadow object itself.
   // TODO(chrisha): Use DI in the RTL to make this disappear.

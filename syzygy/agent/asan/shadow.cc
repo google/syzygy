@@ -42,10 +42,14 @@ inline void AddressToPageMask(const void* address,
 
 }  // namespace
 
+extern "C" {
+uint8 asan_memory_interceptors_shadow_memory[StaticShadow::kShadowSize] = {};
+}
+
 // The RTL wide static shadow. These will disappear when runtime chosen
 // instrumentation stubs are available, and we move to a DI approach.
-uint8 StaticShadow::shadow_memory[kShadowSize] = {};
-Shadow StaticShadow::shadow(shadow_memory, kShadowSize);
+Shadow StaticShadow::shadow(asan_memory_interceptors_shadow_memory,
+                            kShadowSize);
 
 Shadow::Shadow() : own_memory_(false), shadow_(nullptr), length_(0) {
   MEMORYSTATUSEX mem_status = {};
