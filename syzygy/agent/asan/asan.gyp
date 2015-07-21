@@ -37,7 +37,7 @@
         'crt_interceptors.h',
         'error_info.cc',
         'error_info.h',
-        'gen/memory_interceptors.asm',
+        'gen/memory_interceptors_impl.asm',
         'gen/memory_redirectors.asm',
         'heap.cc',
         'heap.h',

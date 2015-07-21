@@ -784,7 +784,7 @@ def main():
   interceptors_asm = _GenerateInterceptorsAsmFile()
   redirectors_asm = _GenerateRedirectorsAsmFile()
 
-  _WriteFile('gen/memory_interceptors.asm', interceptors_asm)
+  _WriteFile('gen/memory_interceptors_impl.asm', interceptors_asm)
   _WriteFile('gen/memory_redirectors.asm', redirectors_asm)
 
 
