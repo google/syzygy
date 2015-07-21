@@ -174,8 +174,9 @@ class UserDefinedType::Field {
   size_t bit_len() const { return bit_len_; }
   bool is_const() const { return (flags_ & FLAG_CONST) != 0; }
   bool is_volatile() const { return (flags_ & FLAG_VOLATILE) != 0; }
-
   // @}
+
+  bool operator==(const Field& o) const;
 
  private:
   const base::string16 name_;

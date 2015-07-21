@@ -13,7 +13,27 @@
 // limitations under the License.
 #include "syzygy/refinery/types/typed_data.h"
 
+#include "base/logging.h"
+#include "syzygy/refinery/types/type_repository.h"
+
 namespace refinery {
+
+namespace {
+
+bool IsFieldOf(TypePtr type, const UserDefinedType::Field& field) {
+  UserDefinedTypePtr udt;
+  if (!type->CastTo(&udt))
+    return false;
+
+  for (auto f : udt->fields()) {
+    if (f == field)
+      return true;
+  }
+
+  return false;
+}
+
+}  // namespace
 
 TypedData::TypedData() : bit_source_(nullptr) {
 }
@@ -83,19 +103,13 @@ bool TypedData::GetNamedField(const base::StringPiece16& name, TypedData* out) {
   return false;
 }
 
-bool TypedData::GetField(size_t num_field, TypedData* out) {
+bool TypedData::GetField(const UserDefinedType::Field& field, TypedData* out) {
   DCHECK(out);
   DCHECK(type_);
+  DCHECK(!IsPrimitiveType());
+  DCHECK(IsFieldOf(type_, field));
 
-  UserDefinedTypePtr udt;
-  if (!type_->CastTo(&udt))
-    return false;
-
-  if (udt->fields().size() < num_field)
-    return false;
-
-  const UserDefinedType::Field& field = udt->fields()[num_field];
-  TypePtr field_type = udt->GetFieldType(num_field);
+  TypePtr field_type = type_->repository()->GetType(field.type_id());
   AddressRange slice(range_.addr() + field.offset(), field_type->size());
   *out = TypedData(bit_source_, field_type, slice);
   return true;

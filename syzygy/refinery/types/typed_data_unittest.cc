@@ -61,9 +61,14 @@ class TestBitSource : public BitSource {
 
 class TypedDataTest : public testing::Test {
  protected:
+  void SetUp() override {
+    udt_ = CreateUDTType();
+    ASSERT_TRUE(udt_);
+  }
+
   TypedData GetTestInstance() {
     return TypedData(
-        test_bit_source(), CreateUDTType(),
+        test_bit_source(), udt_,
         AddressRange(ToAddr(&test_instance), sizeof(test_instance)));
   }
 
@@ -99,8 +104,10 @@ class TypedDataTest : public testing::Test {
     ASSERT_EQ(sizeof(field), data.range().size());
   }
 
+  UserDefinedTypePtr udt() const { return udt_; }
+
  private:
-  TypePtr CreateUDTType() {
+  UserDefinedTypePtr CreateUDTType() {
     TypePtr uint8_type = new BasicType(L"uint8_t", sizeof(uint8_t));
     TypePtr uint16_type = new BasicType(L"uint16_t", sizeof(uint16_t));
     TypePtr uint32_type = new BasicType(L"uint32_t", sizeof(uint32_t));
@@ -149,6 +156,7 @@ class TypedDataTest : public testing::Test {
 
   BitSource* test_bit_source() { return &test_bit_source_; }
 
+  UserDefinedTypePtr udt_;
   TestBitSource test_bit_source_;
   TypeRepository repo_;
 };
@@ -191,25 +199,30 @@ TEST_F(TypedDataTest, GetNamedField) {
 
 TEST_F(TypedDataTest, GetField) {
   TypedData data(GetTestInstance());
+  const UserDefinedType::Fields& data_fields = udt()->fields();
 
   TypedData one;
-  ASSERT_TRUE(data.GetField(0, &one));
+  ASSERT_TRUE(data.GetField(data_fields[0], &one));
   AssertFieldMatchesData(test_instance.one, one);
 
   TypedData two;
-  ASSERT_TRUE(data.GetField(1, &two));
+  ASSERT_TRUE(data.GetField(data_fields[1], &two));
   AssertFieldMatchesData(test_instance.two, two);
 
+  UserDefinedTypePtr inner_udt;
+  ASSERT_TRUE(two.type()->CastTo(&inner_udt));
+  const UserDefinedType::Fields& inner_fields = inner_udt->fields();
+
   TypedData inner_one;
-  ASSERT_TRUE(two.GetField(0, &inner_one));
+  ASSERT_TRUE(two.GetField(inner_fields[0], &inner_one));
   AssertFieldMatchesData(test_instance.two.inner_one, inner_one);
 
   TypedData inner_two;
-  ASSERT_TRUE(two.GetField(1, &inner_two));
+  ASSERT_TRUE(two.GetField(inner_fields[1], &inner_two));
   AssertFieldMatchesData(test_instance.two.inner_two, inner_two);
 
   TypedData three;
-  ASSERT_TRUE(data.GetField(2, &three));
+  ASSERT_TRUE(data.GetField(data_fields[2], &three));
   AssertFieldMatchesData(test_instance.three, three);
 }
 

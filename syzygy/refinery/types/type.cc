@@ -78,6 +78,12 @@ UserDefinedType::Field::Field(const base::string16& name,
   DCHECK_NE(kNoTypeId, type_id);
 }
 
+bool UserDefinedType::Field::operator==(const Field& o) const {
+  return name_ == o.name_ && offset_ == o.offset_ && flags_ == o.flags_ &&
+         bit_pos_ == o.bit_pos_ && bit_len_ == o.bit_len_ &&
+         type_id_ == o.type_id_;
+}
+
 PointerType::PointerType(size_t size)
     : Type(POINTER_TYPE_KIND, L"", size),
       flags_(0),
