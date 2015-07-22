@@ -38,7 +38,10 @@ void UnblockPipe(HANDLE handle, size_t size, bool* unblocked) {
 
 }  // namespace
 
-SafePipeReader::SafePipeReader() : thread_("SafePipeReader watcher") {
+SafePipeReader::SafePipeReader()
+    : thread_("SafePipeReader watcher"),
+      write_handle_(INVALID_HANDLE_VALUE),
+      read_handle_(INVALID_HANDLE_VALUE) {
   thread_.Start();
   DCHECK(thread_.IsRunning());
 
@@ -48,15 +51,22 @@ SafePipeReader::SafePipeReader() : thread_("SafePipeReader watcher") {
     BOOL result = ::CreatePipe(&child_read, &child_write, NULL, 0);
     DCHECK(result);
     if (result) {
-      read_handle_.Set(child_read);
-      write_handle_.Set(child_write);
+      read_handle_ = child_read;
+      write_handle_ = child_write;
 
       // Make the write half inheritable.
-      result = ::SetHandleInformation(write_handle_.Get(), HANDLE_FLAG_INHERIT,
+      result = ::SetHandleInformation(write_handle_, HANDLE_FLAG_INHERIT,
                                       HANDLE_FLAG_INHERIT);
       DCHECK(result);
     }
   }
+}
+
+SafePipeReader::~SafePipeReader() {
+  if (read_handle_ != INVALID_HANDLE_VALUE)
+    ::CloseHandle(read_handle_);
+  if (write_handle_ != INVALID_HANDLE_VALUE)
+    ::CloseHandle(write_handle_);
 }
 
 bool SafePipeReader::ReadData(base::TimeDelta timeout,
@@ -69,13 +79,13 @@ bool SafePipeReader::ReadData(base::TimeDelta timeout,
     bool unblocked = false;
     thread_.message_loop()->PostDelayedTask(
         FROM_HERE,
-        base::Bind(&UnblockPipe, write_handle_.Get(), length, &unblocked),
+        base::Bind(&UnblockPipe, write_handle_, length, &unblocked),
         timeout);
 
     DWORD num_bytes = 0;
     do {
       num_bytes = 0;
-      bool result = ::ReadFile(read_handle_.Get(),
+      bool result = ::ReadFile(read_handle_,
                                reinterpret_cast<uint8_t*>(buffer) + bytes_read,
                                length - bytes_read, &num_bytes, NULL);
       DCHECK(result);
@@ -88,8 +98,8 @@ bool SafePipeReader::ReadData(base::TimeDelta timeout,
 }
 
 bool SafePipeReader::IsValid() {
-  return read_handle_.IsValid() && write_handle_.IsValid() &&
-         thread_.IsRunning();
+  return read_handle_ != INVALID_HANDLE_VALUE &&
+         write_handle_ != INVALID_HANDLE_VALUE && thread_.IsRunning();
 }
 
 }  // namespace testing

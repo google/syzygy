@@ -32,8 +32,10 @@ class SafePipeReader {
   // Instantiates an anonymous pipe.
   SafePipeReader();
 
+  ~SafePipeReader();
+
   // @returns an inheritable handle that may be used to write to the pipe.
-  HANDLE write_handle() { return write_handle_.Get(); }
+  HANDLE write_handle() { return write_handle_; }
 
   // Reads data from the anonymous pipe.
   // @param timeout The maximum duration to wait for the read operation to
@@ -49,8 +51,8 @@ class SafePipeReader {
 
  private:
   base::Thread thread_;
-  base::win::ScopedHandle read_handle_;
-  base::win::ScopedHandle write_handle_;
+  HANDLE read_handle_;
+  HANDLE write_handle_;
 
   DISALLOW_COPY_AND_ASSIGN(SafePipeReader);
 };
