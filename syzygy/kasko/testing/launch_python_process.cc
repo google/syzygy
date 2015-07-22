@@ -27,7 +27,7 @@ namespace kasko {
 namespace testing {
 namespace {
 
-base::win::ScopedHandle DuplicateStdHandleForInheritance(DWORD std_handle) {
+HANDLE DuplicateStdHandleForInheritance(DWORD std_handle) {
   HANDLE original = ::GetStdHandle(std_handle);
   HANDLE duplicate = nullptr;
 
@@ -38,7 +38,7 @@ base::win::ScopedHandle DuplicateStdHandleForInheritance(DWORD std_handle) {
     CHECK(result);
   }
 
-  return base::win::ScopedHandle(duplicate);
+  return duplicate;
 }
 
 }  // namespace
@@ -53,23 +53,26 @@ base::Process LaunchPythonProcess(
       ::testing::GetSrcRelativePath(L"third_party/python_26/python.exe")
           .value());
 
-  base::win::ScopedHandle stdout_dup =
-      DuplicateStdHandleForInheritance(STD_OUTPUT_HANDLE);
-  base::win::ScopedHandle stderr_dup =
-      DuplicateStdHandleForInheritance(STD_ERROR_HANDLE);
-  base::win::ScopedHandle stdin_dup =
-      DuplicateStdHandleForInheritance(STD_INPUT_HANDLE);
+  HANDLE stdout_dup = DuplicateStdHandleForInheritance(STD_OUTPUT_HANDLE);
+  HANDLE stderr_dup = DuplicateStdHandleForInheritance(STD_ERROR_HANDLE);
+  HANDLE stdin_dup = DuplicateStdHandleForInheritance(STD_INPUT_HANDLE);
 
   base::LaunchOptions launch_options;
   launch_options.inherit_handles = true;
-  launch_options.stdin_handle =
-      stdin_dup.Get() ? stdin_dup.Get() : INVALID_HANDLE_VALUE;
-  launch_options.stdout_handle =
-      stdout_dup.Get() ? stdout_dup.Get() : INVALID_HANDLE_VALUE;
-  launch_options.stderr_handle =
-      stderr_dup.Get() ? stderr_dup.Get() : INVALID_HANDLE_VALUE;
+  launch_options.stdin_handle = stdin_dup ? stdin_dup : INVALID_HANDLE_VALUE;
+  launch_options.stdout_handle = stdout_dup ? stdout_dup : INVALID_HANDLE_VALUE;
+  launch_options.stderr_handle = stderr_dup ? stderr_dup : INVALID_HANDLE_VALUE;
 
-  return base::LaunchProcess(python_command, launch_options);
+  base::Process process = base::LaunchProcess(python_command, launch_options);
+
+  if (stdin_dup)
+    ::CloseHandle(stdin_dup);
+  if (stdout_dup)
+    ::CloseHandle(stdout_dup);
+  if (stderr_dup)
+    ::CloseHandle(stderr_dup);
+
+  return process.Pass();
 }
 
 }  // namespace testing
