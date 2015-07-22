@@ -57,6 +57,7 @@
         'pe/transforms/pe_transforms.gyp:*',
         'pehacker/pehacker.gyp:*',
         'playback/playback.gyp:*',
+        'poirot/poirot.gyp:*',
         'py/etw_db/etw_db.gyp:*',
         'py/py.gyp:*',
         'relink/relink.gyp:*',
